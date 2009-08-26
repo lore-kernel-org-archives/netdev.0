@@ -1,45 +1,44 @@
-From: Kurt Van Dijck <kurt.van.dijck@eia.be>
-Subject: Re: [PATCH 1/2] Add an alternative cs89x0 driver
-Date: Wed, 26 Aug 2009 12:46:34 +0200
-Message-ID: <20090826104634.GA14425@e-circ.dyndns.org>
-References: <1240387172-21818-1-git-send-email-s.hauer@pengutronix.de> <1240387172-21818-2-git-send-email-s.hauer@pengutronix.de>
+From: Clement LECIGNE <clement.lecigne@netasq.com>
+Subject: [PATCH] 8 bytes kernel memory disclosure in AppleTalk getsockname.
+Date: Wed, 26 Aug 2009 13:12:47 +0200
+Message-ID: <20090826111247.GA79673@clem1.netasq.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Sascha Hauer <s.hauer@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.eia.be ([194.78.71.18]:49931 "EHLO mail.eia.be"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757245AbZHZLBy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Aug 2009 07:01:54 -0400
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932286AbZHZLfY@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1240387172-21818-2-git-send-email-s.hauer@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Sacha,
+Hi,
 
-I'm using a 2.6.25.
-Converting to your platform_device based driver,
-I needed to configure the irq (see patch, irq flags).
-Looking in the old cs89x0.c, it's done in the driver. Should I have
-configured the irq level elsewhere? Or is this patch valid to do?
+In function atalk_getname(), sockaddr_at is returned in userland withou=
+t
+zero'ing the "char sat_zero[8]" field. This bug allows user to display =
+8
+bytes leaked from the kernel stack.
 
-Kurt
+Here is a patch that zero the whole sockaddr_at structure before
+processing it. It should fix this bug.
 
-Signed-off-by: Kurt Van Dijck <kurt.van.dijck@eia.be>
----
-Index: drivers/net/cirrus-cs89x0.c
-===================================================================
---- drivers/net/cirrus-cs89x0.c	(revision 7107)
-+++ drivers/net/cirrus-cs89x0.c	(working copy)
-@@ -487,7 +487,8 @@
-        }
- 
-        /* install interrupt handler */
--       result = request_irq(ndev->irq, &cirrus_interrupt, 0, ndev->name, ndev);
-+       result = request_irq(ndev->irq, &cirrus_interrupt,
-+			IRQF_TRIGGER_HIGH, ndev->name, ndev);
-        if (result < 0) {
-                printk(KERN_ERR "%s: could not register interrupt %d\n",
-                       ndev->name, ndev->irq);
+Signed-off-by: Cl=E9ment Lecigne <clement.lecigne@netasq.com>
+--- linux/net/appletalk/ddp.c	2009-08-26 11:35:59.000000000 +0200
++++ linux/net/appletalk/ddp.c	2009-08-26 11:36:30.000000000 +0200
+@@ -1241,6 +1241,8 @@ static int atalk_getname(struct socket *
+ 		if (atalk_autobind(sk) < 0)
+ 			return -ENOBUFS;
+=20
++	memset(&sat, 0, sizeof(struct sockaddr_at));
++
+ 	*uaddr_len =3D sizeof(struct sockaddr_at);
+=20
+ 	if (peer) {
+
+--=20
+Cl=E9ment LECIGNE,
+-Only one remote hole in the default install, in more than 10 years!<br=
+>
++Only two remote holes in the default install, in more than 10 years!<b=
+r>
