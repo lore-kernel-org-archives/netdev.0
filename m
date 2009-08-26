@@ -1,40 +1,45 @@
-From: Chris Ross <chris@compilednetworks.com>
-Subject: skb header allocation
-Date: Tue, 25 Aug 2009 22:04:10 -0500
-Message-ID: <17cd85320908252004r31874732n9e06921d6eae4ad7@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: skb header allocation
+Date: Tue, 25 Aug 2009 20:15:14 -0700
+Message-ID: <20090825201514.0dd143ad@nehalam>
+References: <17cd85320908252004r31874732n9e06921d6eae4ad7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Chris Ross <chris@compilednetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f182.google.com ([209.85.216.182]:50133 "EHLO
-	mail-px0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756585AbZHZDEI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 23:04:08 -0400
-Received: by pxi12 with SMTP id 12so3915824pxi.22
-        for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 20:04:10 -0700 (PDT)
+Received: from mail.vyatta.com ([76.74.103.46]:38217 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756586AbZHZDPS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 23:15:18 -0400
+In-Reply-To: <17cd85320908252004r31874732n9e06921d6eae4ad7@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have a network driver that acts as a Ethernet device and builds up a
-series of outer headers on skb(s) it receives from upper layers. I am
-currently using the technique that is in ipip.c to ensure I have
-enough room to add my header ...
+On Tue, 25 Aug 2009 22:04:10 -0500
+Chris Ross <chris@compilednetworks.com> wrote:
 
-if (skb_headroom(skb) < some_value || skb_shared(skb) ||
-=A0=A0=A0=A0=A0=A0=A0=A0 ((skb_cloned(skb) && !skb_clone_writable(skb, =
-0))))
-=A0=A0 {
-=A0=A0=A0=A0=A0 if ((skb2 =3D skb_realloc_headroom(skb, some_value)) =3D=
-=3D NULL)
-=A0=A0=A0=A0=A0=A0=A0=A0 return -1;
+> I have a network driver that acts as a Ethernet device and builds up =
+a
+> series of outer headers on skb(s) it receives from upper layers. I am
+> currently using the technique that is in ipip.c to ensure I have
+> enough room to add my header ...
+>=20
+> if (skb_headroom(skb) < some_value || skb_shared(skb) ||
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 ((skb_cloned(skb) &&=
+ !skb_clone_writable(skb, 0))))
+> =C2=A0=C2=A0 {
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 if ((skb2 =3D skb_realloc_headroom(skb=
+, some_value)) =3D=3D NULL)
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 return -1;
+>=20
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 dev_kfree_skb(skb);
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 skb =3D skb2;
+> =C2=A0=C2=A0 }
+>=20
+> Is this the best practice for a high bandwidth scenario?
 
-=A0=A0=A0=A0=A0 dev_kfree_skb(skb);
-=A0=A0=A0=A0=A0 skb =3D skb2;
-=A0=A0 }
-
-Is this the best practice for a high bandwidth scenario?
-
-thanks
-
--chris
+Define a value of dev->hard_header_len that adds space for what you nee=
+d.
+Use skb_cow_head(skb, headroom) before touching skb header.
