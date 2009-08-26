@@ -1,66 +1,42 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
-Date: Wed, 26 Aug 2009 15:09:49 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0908261506590.9933@gentwo.org>
-References: <OFB18AD855.24C5AC71-ON8825761D.00687D5E-8825761D.0068BB9C@us.ibm.com>  <alpine.DEB.1.10.0908251514190.17963@gentwo.org>  <1251239734.3169.65.camel@w-sridhar.beaverton.ibm.com>  <alpine.DEB.1.10.0908261223210.9933@gentwo.org>
- <1251309040.10599.34.camel@w-sridhar.beaverton.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Page allocation failures in guest
+Date: Wed, 26 Aug 2009 12:22:48 -0700 (PDT)
+Message-ID: <20090826.122248.47485961.davem@davemloft.net>
+References: <200908261147.17838.rusty@rustcorp.com.au>
+	<20090826065501.7ab677b9@mjolnir.ossman.eu>
+	<200908262148.59664.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Stevens <dlstevens@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	niv@linux.vnet.ibm.com
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.ultrahosting.com ([74.213.175.253]:59243 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751081AbZHZTKh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 15:10:37 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 1AB2F82C951
-	for <netdev@vger.kernel.org>; Wed, 26 Aug 2009 15:11:38 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.175.253])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id TSuemLzy4AQn for <netdev@vger.kernel.org>;
-	Wed, 26 Aug 2009 15:11:38 -0400 (EDT)
-Received: from gentwo.org (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 91C5182C970
-	for <netdev@vger.kernel.org>; Wed, 26 Aug 2009 15:11:09 -0400 (EDT)
-In-Reply-To: <1251309040.10599.34.camel@w-sridhar.beaverton.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: drzeus-list@drzeus.cx, avi@redhat.com, minchan.kim@gmail.com,
+ kvm@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+ fengguang.wu@intel.com, kosaki.motohiro@jp.fujitsu.com, riel@redhat.com,
+ netdev@vger.kernel.org
+To: rusty@rustcorp.com.au
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <200908262148.59664.rusty@rustcorp.com.au>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 26 Aug 2009, Sridhar Samudrala wrote:
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Wed, 26 Aug 2009 21:48:58 +0930
 
-> >  They are reported for IP and UDP.
-> Not clear what you meant by this.
+> Dave, can you push this to Linus ASAP?
 
-The SNMP and UDP statistics show the loss. qdisc level does not show the
-loss.
+Ok.
 
-> > root@rd-strategy3-deb64:/home/clameter#tc -s qdisc show
-> > qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1
-> > 1 1 1 1
-> >  Sent 6208 bytes 64 pkt (dropped 0, overlimits 0 requeues 0)
-> >  rate 0bit 0pps backlog 0b 0p requeues 0
->
-> Even the Sent count seems to be too low. Are you looking at the right
-> device?
+> Subject: virtio: net refill on out-of-memory
+> 
+> If we run out of memory, use keventd to fill the buffer.  There's a
+> report of this happening: "Page allocation failures in guest",
+> Message-ID: <20090713115158.0a4892b0@mjolnir.ossman.eu>
+> 
+> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 
-I would think that tc displays all queues? It says eth0 and eth0 is the
-device that we sent the data out on.
+Applied, thanks.
 
-
-> So based on the current analysis, the packets are getting dropped after
-> the call to ip_local_out() in ip_push_pending_frames(). ip_local_out()
-> is failing with NET_XMIT_DROP. But we are not sure where they are
-> getting dropped. Is that right?
-
-ip_local_out is returning ENOBUFS. Something at the qdisc layer is
-dropping the packet and not incrementing counters.
-
-> I think we need to figure out where they are getting dropped and then
-> decide on the appropriate counter to be incremented.
-
-Right. Where in the qdisc layer do drops occur?
-
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
