@@ -1,52 +1,46 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] r8169: Reduce looping in the interrupt handler.
-Date: Wed, 26 Aug 2009 22:38:05 -0700
-Message-ID: <m1ocq1ke9u.fsf@fess.ebiederm.org>
-References: <m1prajabk8.fsf@fess.ebiederm.org>
-	<1251232848.9607.15.camel@lap75545.ornl.gov>
-	<m1k50r8u4p.fsf@fess.ebiederm.org>
-	<20090825221903.GA13630@electric-eye.fr.zoreil.com>
-	<m1iqgbknun.fsf_-_@fess.ebiederm.org>
-	<1251294974.14241.9.camel@obelisk.thedillows.org>
-	<1251295175.14241.11.camel@obelisk.thedillows.org>
-	<m11vmy737x.fsf@fess.ebiederm.org>
-	<20090826213024.GA20428@electric-eye.fr.zoreil.com>
-	<m1hbvu45jq.fsf@fess.ebiederm.org>
-	<20090827052423.GA1709@electric-eye.fr.zoreil.com>
+From: Bastian Blank <bastian@waldi.eu.org>
+Subject: Re: [patch 1/5] [PATCH] qeth: HiperSockets SIGA retry support on
+	CC=2.
+Date: Thu, 27 Aug 2009 09:05:47 +0200
+Message-ID: <20090827070547.GA32106@wavehammer.waldi.eu.org>
+References: <20090826120105.727838000@de.ibm.com> <20090826120135.998746000@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Dillow <dave@thedillows.org>,
-	Michael Riepe <michael.riepe@googlemail.com>,
-	Michael Buesch <mb@bu3sch.de>,
-	Rui Santos <rsantos@grupopie.com>,
-	Michael B??ker <m.bueker@berlin.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org,
+	Klaus-Dieter Wacker <kdwacker@de.ibm.com>
+To: frank.blaschka@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:42290 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750759AbZH0FiN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2009 01:38:13 -0400
-In-Reply-To: <20090827052423.GA1709@electric-eye.fr.zoreil.com> (Francois Romieu's message of "Thu\, 27 Aug 2009 07\:24\:23 +0200")
+Received: from wavehammer.waldi.eu.org ([82.139.201.20]:54137 "EHLO
+	wavehammer.waldi.eu.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751336AbZH0HPU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2009 03:15:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20090826120135.998746000@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu <romieu@fr.zoreil.com> writes:
+On Wed, Aug 26, 2009 at 02:01:06PM +0200, frank.blaschka@de.ibm.com wrote:
+> Qeth HiperSockets support now retries sending of packets when the
+> IBM System z signals a temporary resource shortage (e.g. target
+> buffer full). The packet is enqueued into the device queue.
+> After 3 times of unsuccessful send the packet is dropped.
 
-> [...]
->> Right now I really don't have much more test bandwidth.  So I tried
->> for something simple that would address my problem without
->> fundamentally changing the already tested logic.
->
-> Fair enough.
->
-> [...]
->> Perhaps we should unconditionally ack everything after changing the 
->> interrupt mask  ? If that would prevent races it sounds like a simple
->> fix.
->
-> I should be able to implement something right this evening, please hold on.
+What is the reason for that? How large is the timeout for each retry?
+Usually the upper layers should already handle dropped packages fine and
+adding another retry below can produce retry multiplication.
 
-Sounds good.
+> @@ -3178,6 +3203,25 @@ int qeth_do_send_packet_fast(struct qeth
+>  	atomic_set(&queue->state, QETH_OUT_Q_UNLOCKED);
+>  	qeth_fill_buffer(queue, buffer, skb, hdr, offset, hd_len);
+>  	qeth_flush_buffers(queue, index, 1);
+> +	if (queue->sync_iqdio_error == 2) {
 
-Eric
+Is this a magic constant?
+
+Bastian
+
+-- 
+... The prejudices people feel about each other disappear when they get
+to know each other.
+		-- Kirk, "Elaan of Troyius", stardate 4372.5
