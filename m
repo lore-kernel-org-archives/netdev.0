@@ -1,40 +1,62 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] tipc: fix test of bearer_priority range in tipc_register_media()
-Date: Thu, 27 Aug 2009 14:03:15 +0200
-Message-ID: <4A967603.8070707@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 7/7] MAINTAINERS: update information for sfc network
+	driver
+Date: Thu, 27 Aug 2009 13:23:19 +0100
+Message-ID: <1251375799.2786.9.camel@achroite>
+References: <1251310744.27345.21.camel@achroite>
+	 <1251312467.13026.22.camel@Joe-Laptop.home>
+	 <20090826.180445.102441324.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: Per Liden <per.liden@ericsson.com>,
-	tipc-discussion@lists.sourceforge.net,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
+Cc: joe@perches.com, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f206.google.com ([209.85.219.206]:59520 "EHLO
-	mail-ew0-f206.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751975AbZH0L56 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2009 07:57:58 -0400
-Received: by ewy2 with SMTP id 2so1108192ewy.17
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2009 04:58:00 -0700 (PDT)
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:51783 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752433AbZH0MXX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2009 08:23:23 -0400
+In-Reply-To: <20090826.180445.102441324.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For the bearer_priority to be less than TIPC_MIN_LINK_PRI and greater than
-TIPC_MAX_LINK_PRI is logically impossible.
+On Wed, 2009-08-26 at 18:04 -0700, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Wed, 26 Aug 2009 11:47:47 -0700
+> 
+> > On Wed, 2009-08-26 at 19:19 +0100, Ben Hutchings wrote:
+> >> Update the current maintainers and add our email addresses.  Robert
+> >> Stonehouse has moved on to other projects.
+> >> 
+> >> Move the linux-net-drivers alias to the top since it should always
+> >> reach the current maintainers at Solarflare.  Add netdev as the
+> >> relevant mailing list.
+> > []
+> >> +M:	linux-net-drivers@solarflare.com (alias for current maintainers)
+> > 
+> > Hi Ben
+> > 
+> > This form: "M:	bare address (extra stuff)" doesn't work
+> > with the get_maintainers script.
+> > 
+> > Can you please use something like this instead?
+> > 
+> > M:	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+> > 
+> > Perhaps this diff below.
+> 
+> Joe's version seems based upon reasonable requests, so I've
+> applied his diff.
+> 
+> Thanks.
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index a7a3677..327011f 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -119,7 +119,7 @@ int  tipc_register_media(u32 media_type,
- 		warn("Media <%s> rejected, no broadcast address\n", name);
- 		goto exit;
- 	}
--	if ((bearer_priority < TIPC_MIN_LINK_PRI) &&
-+	if ((bearer_priority < TIPC_MIN_LINK_PRI) ||
- 	    (bearer_priority > TIPC_MAX_LINK_PRI)) {
- 		warn("Media <%s> rejected, illegal priority (%u)\n", name,
- 		     bearer_priority);
+Ack, and thanks.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
