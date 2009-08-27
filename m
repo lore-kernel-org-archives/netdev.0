@@ -1,42 +1,28 @@
-From: "Account Update" <dennis@vipway.com.br>
-Subject: Deactivation Of Account
-Date: Thu, 27 Aug 2009 15:26:00 -0300 (BRT)
-Message-ID: <4864.UkNSXVFLVFA=.1251397560.squirrel@www.vipway.com.br>
-Reply-To: upgrade.team2471@gmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: regression: Apparently missing err assignment in ipv6 bind
+Date: Thu, 27 Aug 2009 13:12:44 -0700 (PDT)
+Message-ID: <20090827.131244.127439195.davem@davemloft.net>
+References: <6897af6d0908270816w5ee81dd5j98bd11fe1d49479d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: maze@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpout2.vipway.net.br ([189.51.64.16]:55243 "EHLO
-	artemis.vipway.net.br" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751135AbZH0Sxf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2009 14:53:35 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33503
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752226AbZH0UMb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2009 16:12:31 -0400
+In-Reply-To: <6897af6d0908270816w5ee81dd5j98bd11fe1d49479d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Webmail User,
-
-A Webmail database maintenance is currentlly going on. This message is very
-important. We are very concerned with stopping the proliferation of spam. We
-have implemented the Verification of the sender's address (SAV) to ensure
-that we do not receive unwanted e-mail and to give the assurance that their
-messages to Message Center have no chance of being filtered into a bulk mail
-folder.
-
-To help us re-set your password in our database during the process of the
-maintenance of our database, you must respond to this e-mail and enter your
-current email address Full (...... ........... ........) and password
-(....................). Please fill the bracket with the correct username
-and password, your Domain name will also be necessary. If you are the owner
-of the account, our message center will confirm your identity, including the
-secret question and answer immediatelyyou were asked when opening the
-account,we apologize for the inconvenience this may cause you.We assure you
-quality services at the end of this maintenance .
-
-The webemail software is a fast, lightweight application for quick and easy
-to access your email. Failure to provide your username and password will
-render your account inactive from our database.
-
-Thank you for using the Webmail!
-
+RnJvbTogTWFjaWVqIMW7ZW5jenlrb3dza2kgPG1hemVAZ29vZ2xlLmNvbT4NCkRhdGU6IFRodSwg
+MjcgQXVnIDIwMDkgMDg6MTY6NDAgLTA3MDANCg0KPiBBRkFJQ1QsIDIuNi4zMC41IGFuZCAyLjYu
+MzEtcmM3IGJvdGggaW5jbHVkZSBhIGNoYW5nZSBpbiBuZXQvaXB2Ni9hZl9pbmV0Ni5jDQo+IA0K
+PiBodHRwOi8vbHhyLmxpbnV4Lm5vL2xpbnV4K3YyLjYuMzAuNS9uZXQvaXB2Ni9hZl9pbmV0Ni5j
+I0wyOTgNCj4gDQo+IHdoaWNoIHJlc3VsdHMgaW4gYSBwb3NzaWJsZSBlcnJvciByZXR1cm4gcGF0
+aCB3aXRoIG5vIGVyciBhc3NpZ25tZW50Lg0KPiBJIGJlbGlldmUgdGhlIGVycm9yIHNob3VsZCBi
+ZSBFQUREUk5PVEFWQUlMLg0KDQpUaGVyZSBpcyBhIGZpeCBmb3IgdGhpcyBhbHJlYWR5IGluIExp
+bnVzJ3MgdHJlZS4NCg0KQW5kIEknbSBnb2luZyB0byBzdWJtaXQgaXQgZm9yIC1zdGFibGUgdG9v
+Lg0K
