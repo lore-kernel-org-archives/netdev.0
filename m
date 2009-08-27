@@ -1,56 +1,85 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
-Date: Thu, 27 Aug 2009 11:34:54 +0200
-Message-ID: <20090827093454.GD4260@elte.hu>
-References: <20090826190435.GC10816@hmsreliant.think-freely.org> <20090826190830.GF13632@elte.hu> <20090826.123631.79533250.davem@davemloft.net> <20090826194835.GA16508@elte.hu> <20090826202344.GE10816@hmsreliant.think-freely.org> <20090826204027.GA21159@elte.hu> <20090826223922.GA25318@hmsreliant.think-freely.org> <alpine.DEB.2.00.0908261913030.11291@gandalf.stny.rr.com> <20090827001426.GA26475@hmsreliant.think-freely.org> <alpine.DEB.2.00.0908262021300.18923@gandalf.stny.rr.com>
+From: Mel Gorman <mel@csn.ul.ie>
+Subject: Re: [Bug #14016] mm/ipw2200 regression
+Date: Thu, 27 Aug 2009 10:45:39 +0100
+Message-ID: <20090827094539.GA21183@csn.ul.ie>
+References: <riPp5fx5ECC.A.2IG.qsGlKB@chimera> <_yaHeGjHEzG.A.FIH.7sGlKB@chimera> <84144f020908252309u5cff8afdh2214577ca4db9b5d@mail.gmail.com> <20090826082741.GA25955@cmpxchg.org> <20090826093747.GA10955@csn.ul.ie> <20090826074409.606b5124.akpm@linux-foundation.org> <1251364289.3704.176.camel@debian>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>, fweisbec@gmail.com,
-	billfink@mindspring.com, netdev@vger.kernel.org, brice@myri.com,
-	gallatin@myri.com
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:52691 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752090AbZH0JfK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Aug 2009 05:35:10 -0400
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Johannes Weiner <hannes@cmpxchg.org>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Mel Gorman <mel@skynet.ie>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>,
+	James Ketrenos <jketreno@linux.intel.com>,
+	"Chatre, Reinette" <reinette.chatre@intel.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"ipw2100-devel@lists.sourceforge.net" <ipw2100-devel@lists.sourceforge.net>
+To: Zhu Yi <yi.zhu@intel.com>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.0908262021300.18923@gandalf.stny.rr.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1251364289.3704.176.camel@debian>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-
-* Steven Rostedt <rostedt@goodmis.org> wrote:
-
+On Thu, Aug 27, 2009 at 05:11:29PM +0800, Zhu Yi wrote:
+> On Wed, 2009-08-26 at 22:44 +0800, Andrew Morton wrote:
+> > 
+> > It is perhaps pretty simple to make the second (GFP_ATOMIC) allocation
+> > go away.  The code is already conveniently structured to do this:
+> > 
+> >         do {
+> >                 chunk = (struct fw_chunk *)(data + offset);
+> >                 offset += sizeof(struct fw_chunk);
+> >                 /* build DMA packet and queue up for sending */
+> >                 /* dma to chunk->address, the chunk->length bytes from
+> > data +
+> >                  * offeset*/
+> >                 /* Dma loading */
+> >                 rc = ipw_fw_dma_add_buffer(priv, shared_phys + offset,
+> > 
+> > le32_to_cpu(chunk->address),
+> > 
+> > le32_to_cpu(chunk->length));
+> >                 if (rc) {
+> >                         IPW_DEBUG_INFO("dmaAddBuffer Failed\n");
+> >                         goto out;
+> >                 }
+> > 
+> >                 offset += le32_to_cpu(chunk->length);
+> >         } while (offset < len);
+> > 
+> > what is the typical/expected value of chunk->length here?  If it's
+> > significantly less than 4096*(2^6), could we convert this function to
+> > use a separate DMAable allocation per fw_chunk?
 > 
-> On Wed, 26 Aug 2009, Neil Horman wrote:
-> > > 
-> > I'm not sure how the addition of an ftrace module constitutes a change to the
-> > tracing infrastructure, but whatever, yes, no biggy.  I've bugun modifying the
-> > TRACE_EVENT that I added to export the data I need directly.  Should be pretty
-> > straightforward.  Dave I'll have a patch up on netdev in a day or two after I
-> > test it.  Steven, should this still just go to netdev with a cc to you?  I'd
-> > like to avoid repeating the same confusion here a second time around if I can
+> Unfortunately, the largest chunk size for the latest 3.1 firmware is
+> 0x20040, which also requires order 6 page allocation. I'll try to use
+> the firmware DMA command block (64 slots) to handle the image (each for
+> 4k, totally 256k).
 > 
-> Yes, please Cc myself, and Ingo on those changes. I see where the 
-> confusion came. It is where the code changes. The code in 
-> kernel/trace is considered ftrace internals (there's internal 
-> tracing upkeep that is needed for all plugins). [...]
 
-yeah - i pointed that out in the very first mail to David 9 days ago 
-when this patch broke the build in linux-next: kernel/trace/ is like 
-net/core/. It would be nice and important if the networking tree 
-treated it as such in the future.
- 
-See the:
+That would be preferable as trying to make alloc-6 atomic allocations isn't
+going to pan out. As I noted, doing it as GFP_KERNEL is possible but it'll
+manifest as weird stalls periodically when the driver is loaded due to
+reclaim and if the system is swapless, it might not work at all if memory
+is mostly anonymous.
 
-  [PATCH -next] trace_skb: fix build when CONFIG_NET is not enabled
+If the DMA command block doesn't work out, what is the feasibility of holding
+onto the order-6 allocation once the module is loaded instead of allocing
+for the duration of the firmware loading and then freeing it again?
 
-discussion on lkml:
+-- 
+Mel Gorman
+Part-time Phd Student                          Linux Technology Center
+University of Limerick                         IBM Dublin Software Lab
 
-  http://lkml.org/lkml/2009/8/17/378
-
-Thanks,
-
-	Ingo
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
