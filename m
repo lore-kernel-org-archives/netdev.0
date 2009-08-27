@@ -1,69 +1,52 @@
-From: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [Bug #14016] mm/ipw2200 regression
-Date: Thu, 27 Aug 2009 17:11:29 +0800
-Message-ID: <1251364289.3704.176.camel@debian>
-References: <riPp5fx5ECC.A.2IG.qsGlKB@chimera>
-	 <_yaHeGjHEzG.A.FIH.7sGlKB@chimera>
-	 <84144f020908252309u5cff8afdh2214577ca4db9b5d@mail.gmail.com>
-	 <20090826082741.GA25955@cmpxchg.org>	<20090826093747.GA10955@csn.ul.ie>
-	 <20090826074409.606b5124.akpm@linux-foundation.org>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
+Date: Thu, 27 Aug 2009 11:28:41 +0200
+Message-ID: <20090827092841.GC4260@elte.hu>
+References: <20090826223922.GA25318@hmsreliant.think-freely.org> <20090826.154410.95005620.davem@davemloft.net> <20090826230514.GB31970@elte.hu> <20090826.160835.263085197.davem@davemloft.net> <20090826235826.GA430@elte.hu> <20090827003536.GC30341@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Mel Gorman <mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>, Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
-	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Mel Gorman <mel-wJa12IhQEiizQB+pC5nmwQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org" <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
-	James Ketrenos <jketreno-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"Chatre, Reinette" <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"ipw2100-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org"
-	<ipw2100-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090826074409.606b5124.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, nhorman@tuxdriver.com,
+	rostedt@goodmis.org, fweisbec@gmail.com, billfink@mindspring.com,
+	netdev@vger.kernel.org, brice@myri.com, gallatin@myri.com
+To: Christoph Hellwig <hch@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:42418 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751946AbZH0J2y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Aug 2009 05:28:54 -0400
+Content-Disposition: inline
+In-Reply-To: <20090827003536.GC30341@infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-08-26 at 22:44 +0800, Andrew Morton wrote:
-> 
-> It is perhaps pretty simple to make the second (GFP_ATOMIC) allocation
-> go away.  The code is already conveniently structured to do this:
-> 
->         do {
->                 chunk = (struct fw_chunk *)(data + offset);
->                 offset += sizeof(struct fw_chunk);
->                 /* build DMA packet and queue up for sending */
->                 /* dma to chunk->address, the chunk->length bytes from
-> data +
->                  * offeset*/
->                 /* Dma loading */
->                 rc = ipw_fw_dma_add_buffer(priv, shared_phys + offset,
-> 
-> le32_to_cpu(chunk->address),
-> 
-> le32_to_cpu(chunk->length));
->                 if (rc) {
->                         IPW_DEBUG_INFO("dmaAddBuffer Failed\n");
->                         goto out;
->                 }
-> 
->                 offset += le32_to_cpu(chunk->length);
->         } while (offset < len);
-> 
-> what is the typical/expected value of chunk->length here?  If it's
-> significantly less than 4096*(2^6), could we convert this function to
-> use a separate DMAable allocation per fw_chunk?
 
-Unfortunately, the largest chunk size for the latest 3.1 firmware is
-0x20040, which also requires order 6 page allocation. I'll try to use
-the firmware DMA command block (64 slots) to handle the image (each for
-4k, totally 256k).
+* Christoph Hellwig <hch@infradead.org> wrote:
 
-Thanks,
--yi
+> On Thu, Aug 27, 2009 at 01:58:26AM +0200, Ingo Molnar wrote:
+>
+> > I'm sorry you got that impression, but you are a maintainer 
+> > yourself so you might perhaps understand it why sooner or later, 
+> > if a maintainer's review does not get acted upon, one has to 
+> > insist on clean patches in stronger terms.
+> 
+> Cool down a bit :) [...]
+
+Hello Pot, Kettle here ;-)
+
+I guess i'll have to test the limits of your patience by queueing up 
+some bad commit into fs/libfs.c via say the iommu tree, without acks 
+and with commit log damage, which patch then triggers a build 
+failure and a crash in linux-next (like this one did), and refuse to 
+revert and not do anything substantial about your (initially polite) 
+review feedback for 2 weeks (like it happened here), and see how 
+measured your response will be after the 12th mail that gets faced 
+with such passive-aggressive inaction ;-)
+
+At that point, will your wall of patience finally start to crumble a 
+tiny bit and will you resort to using the taboo term 'crappy patch' 
+perhaps, like i did here? ;-)
+
+Anyway, as Steve said it's now finally water under the bridge, time 
+to move on.
+
+	Ingo
