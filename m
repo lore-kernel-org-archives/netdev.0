@@ -1,19 +1,42 @@
-From: Hyundai <bodyco@bellnet.ca>
-Subject: Award!!
-Date: Wed, 26 Aug 2009 23:28:16 -0400
-Message-ID: <20090827032824.RERR6042.tomts33-srv.bellnexxia.net@toip37-bus.srvr.bell.ca>
-Reply-To: donnelld@tlen.pl
+From: David Miller <davem@davemloft.net>
+Subject: [GIT]: Networking
+Date: Wed, 26 Aug 2009 20:50:05 -0700 (PDT)
+Message-ID: <20090826.205005.08658813.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: hym.com@bellnet.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tomts33-srv.bellnexxia.net ([209.226.175.107]:65454 "EHLO
-	tomts33-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751289AbZH0D2W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 23:28:22 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752750AbZH0Dty@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Congrats... you have won, confirm receipt by sending your name,address, age, phone number etc to (donnelld@tlen.pl) 
 
+Two fixes:
+
+1) Fix smc91x build on SMP, from Alexey Dobriyan
+
+2) Handle out-of-memory situations more correctly when trying
+   to refill the RX ring buffers in virtio_net driver.  From Rusty
+   Russell.  Based upon user reports.
+
+Please pull, thanks a lot!
+
+The following changes since commit f415c413f458837bd0c27086b79aca889f9435e4:
+  Linus Torvalds (1):
+        Merge git://git.kernel.org/.../davem/net-2.6
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Alexey Dobriyan (1):
+      smc91x: fix compilation on SMP
+
+Rusty Russell (1):
+      virtio: net refill on out-of-memory
+
+ drivers/net/smc91x.c     |    2 +-
+ drivers/net/virtio_net.c |   61 ++++++++++++++++++++++++++++++++++-----------
+ 2 files changed, 47 insertions(+), 16 deletions(-)
