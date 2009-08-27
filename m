@@ -1,99 +1,59 @@
-From: H M Thalib <hmthalib@gmail.com>
-Subject: Re: 100Mbit ethernet performance on embedded devices
-Date: Thu, 27 Aug 2009 21:08:25 +0530
-Message-ID: <4A96A871.3090002@gmail.com>
-References: <20090819145057.GA25400@sig21.net>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
+Date: Thu, 27 Aug 2009 11:40:44 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0908271139450.14277@gentwo.org>
+References: <OFB18AD855.24C5AC71-ON8825761D.00687D5E-8825761D.0068BB9C@us.ibm.com>  <alpine.DEB.1.10.0908251514190.17963@gentwo.org>  <1251239734.3169.65.camel@w-sridhar.beaverton.ibm.com>  <alpine.DEB.1.10.0908261223210.9933@gentwo.org>
+ <1251309040.10599.34.camel@w-sridhar.beaverton.ibm.com>  <alpine.DEB.1.10.0908261506590.9933@gentwo.org> <1251324666.10599.72.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-embedded@vger.kernel.org, netdev@vger.kernel.org
-To: Johannes Stezenbach <js@sig21.net>
-Return-path: <linux-embedded-owner@vger.kernel.org>
-In-Reply-To: <20090819145057.GA25400@sig21.net>
-Sender: linux-embedded-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	niv@linux.vnet.ibm.com
+To: Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp4.ultrahosting.com ([74.213.175.253]:36141 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751109AbZH0PlY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2009 11:41:24 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id E17B082C9B0
+	for <netdev@vger.kernel.org>; Thu, 27 Aug 2009 11:42:30 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.175.253])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id MvbNHoZzqY1X for <netdev@vger.kernel.org>;
+	Thu, 27 Aug 2009 11:42:30 -0400 (EDT)
+Received: from gentwo.org (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id EA6A282CA64
+	for <netdev@vger.kernel.org>; Thu, 27 Aug 2009 11:42:16 -0400 (EDT)
+In-Reply-To: <1251324666.10599.72.camel@w-sridhar.beaverton.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, 26 Aug 2009, Sridhar Samudrala wrote:
 
+> > ip_local_out is returning ENOBUFS. Something at the qdisc layer is
+> > dropping the packet and not incrementing counters.
+>
+> Is the ENOBUFS return with your/Eric's patch? I thought you were
+> were seeing NET_XMIT_DROP without any patches.
 
-Johannes Stezenbach wrote:
-> Hi,
-> 
-> a while ago I was working on a SoC with 200MHz ARM926EJ-S CPU
-> and integrated 100Mbit ethernet core, connected on internal
-> (fast) memory bus, with DMA.  With iperf I measured:
-> 
+Both Erics latest patch and your patch were applied.
 
-Did you used Iperf it is not the correct tool to find the performance of 
-ethernet. use tools like Smartbits or IXIA they are special hardware to 
-measure the performance . They will give you better results
+> > > I think we need to figure out where they are getting dropped and then
+> > > decide on the appropriate counter to be incremented.
+> >
+> > Right. Where in the qdisc layer do drops occur?
+>
+> The normal path where the packets are dropped when the tx qlen is exceeded is
+>   pfifo_fast_enqueue() -> qdisc_drop()
+> In this path, drops are counted.
+> The other place is in dev_queue_xmit(), but you are not hitting that case too.
+>
+> So it looks like there is another place where they are getting dropped.
 
->   TCP RX ~70Mbit/sec  (iperf -s on SoC, iperf -c on destop PC)
->   TCP TX ~56Mbit/sec  (iperf -s on destop PC, iperf -c o SoC)
+Hmmm.. I need to find more time to dig into this.
 
-Did you stopped unwanted process in both PC as well as processor, make 
-sure PC has a bottle neck. Does it gives a through put of at least 
-95MBps. Is you system connected directly with crossover cables.
+Anyways it seems that Eric's latest patch is doing many good things for
+packet loss accounting.
 
-> The CPU load during the iperf test is around
-> 1% user, 44% system, 4% irq, 48% softirq, with 7500 irqs/sec.
-
-Did you used vmast -- it is not the correct way to measure the cpu load
-or do you use top -- it takes lots of you system resource .. this can 
-affect ehternet performance
-
-> The kernel used in these measurements does not have iptables
-> support, I think packet filtering will slow it down noticably,
-> but I didn't actually try.
-
-Thats good. iptable will dramatically affect the performance. remove all 
-the iptables related modules if it is loaded before performing test
-
-   The ethernet driver uses NAPI,
-> but it doesn't seem to be a win judging from the irq/sec number.
-> The kernel was an ancient 2.6.20.
-> 
-not bad. worth upgrading.
-
-> I tried hard, but I couldn't find any performance figures for
-> comparison.  (All performance figures I found refer to 1Gbit
-> or 10Gbit server type systems.)
-
-surely you will not find the perf data for small low end processor 
-because they are not made fro that. and also this data is not some thing 
-sharable .they are the benchmark about their product.
-
-Industry is interested in high performance processor for network 
-product. beside ethernet they do have lot offloading engines.
-
-> What I'm interested in are some numbers for similar hardware,
-> to find out if my hardware and/or ethernet driver can be improved,
-> or if the CPU will always be the limiting factor.
-
-probably should be possible optimizing hardware+software but you have to 
-   pay for that.
-
-> I'd also be interested to know if hardware checksumming
-> support would improve throughput noticably in such a system,
-> or if it is only useful for 1Gbit and above.
-
-In my experience for your cpu 80% max of ehternet speed should be ok .. 
-don't expect more.
-
-> 
-> Did anyone actually manage to get close to 100Mbit/sec
-> with similar CPU resources?
-> 
-> 
-> TIA,
-> Johannes
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-embedded" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
-
--- 
-Thanks & Regards,
-H M Thalib.
