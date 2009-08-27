@@ -1,55 +1,46 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv4 2/2] vhost_net: a kernel-level virtio server
-Date: Thu, 27 Aug 2009 13:10:26 +0300
-Message-ID: <20090827101026.GA8545@redhat.com>
-References: <cover.1250693417.git.mst@redhat.com> <200908252140.41295.rusty@rustcorp.com.au> <20090825175016.GA15790@redhat.com> <200908261540.59900.arnd@arndb.de>
+From: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+Subject: [PATCH 1/3] drop_monitor: fix trace_napi_poll_hit()
+Date: Thu, 27 Aug 2009 18:40:08 +0800
+Message-ID: <4A966288.8020402@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: virtualization@lists.linux-foundation.org,
-        Rusty Russell <rusty@rustcorp.com.au>, kvm@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-mm@kvack.org, hpa@zytor.com, mingo@elte.hu,
-        akpm@linux-foundation.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <200908261540.59900.arnd@arndb.de>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	David Miller <davem@davemloft.net>,
+	Wei Yongjun <yjwei@cn.fujitsu.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751168AbZH0Kkn@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 26, 2009 at 03:40:59PM +0200, Arnd Bergmann wrote:
-> On Tuesday 25 August 2009, Michael S. Tsirkin wrote:
-> > >  I'd like to avoid that here,
-> > > though it's kind of ugly.  We'd need VHOST_GET_FEATURES (and ACK) to take a
-> > > struct like:
-> > > 
-> > >       u32 feature_size;
-> > >       u32 features[];
-> 
-> Hmm, variable length ioctl arguments, I'd rather not go there.
-> The ioctl infrastructure already has a length argument encoded
-> in the ioctl number. We can use that if we need more, e.g.
-> 
-> /* now */
-> #define VHOST_GET_FEATURES     _IOR(VHOST_VIRTIO, 0x00, __u64)
-> /*
->  * uncomment if we run out of feature bits:
-> 
-> struct vhost_get_features2 {
-> 	__u64 bits[2];
-> };
-> #define VHOST_GET_FEATURES2     _IOR(VHOST_VIRTIO, 0x00, \
-> 			struct  vhost_get_features2)
->  */
+The net_dev of backlog napi is NULL, like below:
 
+__get_cpu_var(softnet_data).backlog.dev == NULL
 
-I thought so, too. Rusty, agree?
+So, we should check it in napi tracepoint's probe function
 
+Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+---
+ net/core/drop_monitor.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
+index 9d66fa9..d311202 100644
+--- a/net/core/drop_monitor.c
++++ b/net/core/drop_monitor.c
+@@ -182,7 +182,8 @@ static void trace_napi_poll_hit(struct napi_struct *napi)
+ 	/*
+ 	 * Ratelimit our check time to dm_hw_check_delta jiffies
+ 	 */
+-	if (!time_after(jiffies, napi->dev->last_rx + dm_hw_check_delta))
++	if (!napi->dev ||
++	    !time_after(jiffies, napi->dev->last_rx + dm_hw_check_delta))
+ 		return;
+ 
+ 	rcu_read_lock();
 -- 
-MST
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+1.6.1.2
