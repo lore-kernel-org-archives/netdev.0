@@ -1,59 +1,95 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
-Date: Thu, 27 Aug 2009 11:40:44 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0908271139450.14277@gentwo.org>
-References: <OFB18AD855.24C5AC71-ON8825761D.00687D5E-8825761D.0068BB9C@us.ibm.com>  <alpine.DEB.1.10.0908251514190.17963@gentwo.org>  <1251239734.3169.65.camel@w-sridhar.beaverton.ibm.com>  <alpine.DEB.1.10.0908261223210.9933@gentwo.org>
- <1251309040.10599.34.camel@w-sridhar.beaverton.ibm.com>  <alpine.DEB.1.10.0908261506590.9933@gentwo.org> <1251324666.10599.72.camel@w-sridhar.beaverton.ibm.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCHv5 0/3] vhost: a kernel-level virtio server
+Date: Thu, 27 Aug 2009 19:06:34 +0300
+Message-ID: <20090827160633.GA23722@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Stevens <dlstevens@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	niv@linux.vnet.ibm.com
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.ultrahosting.com ([74.213.175.253]:36141 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751109AbZH0PlY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2009 11:41:24 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id E17B082C9B0
-	for <netdev@vger.kernel.org>; Thu, 27 Aug 2009 11:42:30 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.175.253])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id MvbNHoZzqY1X for <netdev@vger.kernel.org>;
-	Thu, 27 Aug 2009 11:42:30 -0400 (EDT)
-Received: from gentwo.org (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id EA6A282CA64
-	for <netdev@vger.kernel.org>; Thu, 27 Aug 2009 11:42:16 -0400 (EDT)
-In-Reply-To: <1251324666.10599.72.camel@w-sridhar.beaverton.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+        linux-mm@kvack.org, akpm@linux-founda
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 26 Aug 2009, Sridhar Samudrala wrote:
+Rusty, ok, I think I've addressed your comments so far here.
+Coming next:
+- TSO
+- tap support
+Thanks!
 
-> > ip_local_out is returning ENOBUFS. Something at the qdisc layer is
-> > dropping the packet and not incrementing counters.
->
-> Is the ENOBUFS return with your/Eric's patch? I thought you were
-> were seeing NET_XMIT_DROP without any patches.
+---
 
-Both Erics latest patch and your patch were applied.
+This implements vhost: a kernel-level backend for virtio,
+The main motivation for this work is to reduce virtualization
+overhead for virtio by removing system calls on data path,
+without guest changes. For virtio-net, this removes up to
+4 system calls per packet: vm exit for kick, reentry for kick,
+iothread wakeup for packet, interrupt injection for packet.
 
-> > > I think we need to figure out where they are getting dropped and then
-> > > decide on the appropriate counter to be incremented.
-> >
-> > Right. Where in the qdisc layer do drops occur?
->
-> The normal path where the packets are dropped when the tx qlen is exceeded is
->   pfifo_fast_enqueue() -> qdisc_drop()
-> In this path, drops are counted.
-> The other place is in dev_queue_xmit(), but you are not hitting that case too.
->
-> So it looks like there is another place where they are getting dropped.
+This driver is as minimal as possible and does not implement almost any
+virtio optional features, but it's fully functional (including migration
+support interfaces), and already shows a latency improvement over
+userspace.
 
-Hmmm.. I need to find more time to dig into this.
+Some more detailed description attached to the patch itself.
 
-Anyways it seems that Eric's latest patch is doing many good things for
-packet loss accounting.
+The patches apply to both 2.6.31-rc5 and kvm.git.  I'd like them to go
+into linux-next if possible.  Please comment.
 
+Changelog from v4:
+- disable rx notification when have rx buffers
+- addressed all comments from Rusty's review
+- copy bugfixes from lguest commits:
+	ebf9a5a99c1a464afe0b4dfa64416fc8b273bc5c
+	e606490c440900e50ccf73a54f6fc6150ff40815
+
+Changelog from v3:
+- checkpatch fixes
+
+Changelog from v2:
+- Comments on RCU usage
+- Compat ioctl support
+- Make variable static
+- Copied more idiomatic english from Rusty
+
+Changes from v1:
+- Move use_mm/unuse_mm from fs/aio.c to mm instead of copying.
+- Reorder code to avoid need for forward declarations
+- Kill a couple of debugging printks
+
+Michael S. Tsirkin (3):
+  mm: export use_mm/unuse_mm to modules
+  mm: reduce atomic use on use_mm fast path
+  vhost_net: a kernel-level virtio server
+
+ MAINTAINERS                 |   10 +
+ arch/x86/kvm/Kconfig        |    1 +
+ drivers/Makefile            |    1 +
+ drivers/vhost/Kconfig       |   11 +
+ drivers/vhost/Makefile      |    2 +
+ drivers/vhost/net.c         |  475 +++++++++++++++++++++++++++++
+ drivers/vhost/vhost.c       |  688 +++++++++++++++++++++++++++++++++++++++++++
+ drivers/vhost/vhost.h       |  122 ++++++++
+ fs/aio.c                    |   47 +---
+ include/linux/Kbuild        |    1 +
+ include/linux/miscdevice.h  |    1 +
+ include/linux/mmu_context.h |    9 +
+ include/linux/vhost.h       |  101 +++++++
+ mm/Makefile                 |    2 +-
+ mm/mmu_context.c            |   61 ++++
+ 15 files changed, 1485 insertions(+), 47 deletions(-)
+ create mode 100644 drivers/vhost/Kconfig
+ create mode 100644 drivers/vhost/Makefile
+ create mode 100644 drivers/vhost/net.c
+ create mode 100644 drivers/vhost/vhost.c
+ create mode 100644 drivers/vhost/vhost.h
+ create mode 100644 include/linux/mmu_context.h
+ create mode 100644 include/linux/vhost.h
+ create mode 100644 mm/mmu_context.c
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
