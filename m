@@ -1,31 +1,30 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
-Date: Wed, 26 Aug 2009 20:35:36 -0400
-Message-ID: <20090827003536.GC30341@infradead.org>
-References: <20090826223922.GA25318@hmsreliant.think-freely.org> <20090826.154410.95005620.davem@davemloft.net> <20090826230514.GB31970@elte.hu> <20090826.160835.263085197.davem@davemloft.net> <20090826235826.GA430@elte.hu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/7] sfc: Do not reinitialise XAUI serdes before it has
+ completed reset
+Date: Wed, 26 Aug 2009 18:04:04 -0700 (PDT)
+Message-ID: <20090826.180404.24817359.davem@davemloft.net>
+References: <1251310606.27345.11.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, nhorman@tuxdriver.com,
-	rostedt@goodmis.org, fweisbec@gmail.com, billfink@mindspring.com,
-	netdev@vger.kernel.org, brice@myri.com, gallatin@myri.com
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:35719 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753608AbZH0Afk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 20:35:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20090826235826.GA430@elte.hu>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53157
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754501AbZH0BDv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 21:03:51 -0400
+In-Reply-To: <1251310606.27345.11.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 27, 2009 at 01:58:26AM +0200, Ingo Molnar wrote:
-> I'm sorry you got that impression, but you are a maintainer yourself 
-> so you might perhaps understand it why sooner or later, if a 
-> maintainer's review does not get acted upon, one has to insist on 
-> clean patches in stronger terms.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Wed, 26 Aug 2009 19:16:46 +0100
 
-Cool down a bit :)  While I totally agree with you on all the technical
-bits here I think a slightly nicer attitude towars Neil and Dave would
-help the cause a lot..
+> falcon_reset_xaui() waits for XGXS reset to complete, but the XAUI
+> serdes reset may take longer.  It needs to check both reset active
+> bits.
+> 
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
+Applied.
