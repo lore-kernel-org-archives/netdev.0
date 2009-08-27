@@ -1,37 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 0/5] s390: qeth patches for 2.6.32
-Date: Wed, 26 Aug 2009 17:35:02 -0700 (PDT)
-Message-ID: <20090826.173502.214522263.davem@davemloft.net>
-References: <20090826120105.727838000@de.ibm.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
+Date: Wed, 26 Aug 2009 20:35:36 -0400
+Message-ID: <20090827003536.GC30341@infradead.org>
+References: <20090826223922.GA25318@hmsreliant.think-freely.org> <20090826.154410.95005620.davem@davemloft.net> <20090826230514.GB31970@elte.hu> <20090826.160835.263085197.davem@davemloft.net> <20090826235826.GA430@elte.hu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: frank.blaschka@de.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, nhorman@tuxdriver.com,
+	rostedt@goodmis.org, fweisbec@gmail.com, billfink@mindspring.com,
+	netdev@vger.kernel.org, brice@myri.com, gallatin@myri.com
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51380
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753608AbZH0Aet (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 20:34:49 -0400
-In-Reply-To: <20090826120105.727838000@de.ibm.com>
+Received: from bombadil.infradead.org ([18.85.46.34]:35719 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753608AbZH0Afk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 20:35:40 -0400
+Content-Disposition: inline
+In-Reply-To: <20090826235826.GA430@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: frank.blaschka@de.ibm.com
-Date: Wed, 26 Aug 2009 14:01:05 +0200
+On Thu, Aug 27, 2009 at 01:58:26AM +0200, Ingo Molnar wrote:
+> I'm sorry you got that impression, but you are a maintainer yourself 
+> so you might perhaps understand it why sooner or later, if a 
+> maintainer's review does not get acted upon, one has to insist on 
+> clean patches in stronger terms.
 
-> here are a couple of qeth patches for 2.6.32 (net-next).
-> 
-> shortlog:
-> Klaus-Dieter Wacker (3)
-> qeth: HiperSockets SIGA retry support on CC=2.
-> qeth: Cleanup for cast-type determination.
-> qeth: display service_level info only when valid.
-> 
-> Ursula Braun (1)
-> qeth: display "undefined" value of sysfs-attribute "layer2"
-> 
-> Frank Blaschka (1)
-> qeth: scheduling while atomic during ifconfig online sequence
+Cool down a bit :)  While I totally agree with you on all the technical
+bits here I think a slightly nicer attitude towars Neil and Dave would
+help the cause a lot..
 
-Looks good, all applied to net-next-2.6, thanks!
