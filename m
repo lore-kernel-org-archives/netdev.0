@@ -1,48 +1,40 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv4 2/2] vhost_net: a kernel-level virtio server
-Date: Thu, 27 Aug 2009 14:19:48 +0300
-Message-ID: <20090827111947.GA21801@redhat.com>
-References: <cover.1250693417.git.mst@redhat.com> <200908252140.41295.rusty@rustcorp.com.au> <20090827104517.GB8545@redhat.com> <200908272040.02628.rusty@rustcorp.com.au>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] tipc: fix test of bearer_priority range in tipc_register_media()
+Date: Thu, 27 Aug 2009 14:03:15 +0200
+Message-ID: <4A967603.8070707@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
-        linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
-        gregory.haskins@gmail.com
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <200908272040.02628.rusty@rustcorp.com.au>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Per Liden <per.liden@ericsson.com>,
+	tipc-discussion@lists.sourceforge.net,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f206.google.com ([209.85.219.206]:59520 "EHLO
+	mail-ew0-f206.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751975AbZH0L56 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2009 07:57:58 -0400
+Received: by ewy2 with SMTP id 2so1108192ewy.17
+        for <netdev@vger.kernel.org>; Thu, 27 Aug 2009 04:58:00 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 27, 2009 at 08:40:02PM +0930, Rusty Russell wrote:
-> On Thu, 27 Aug 2009 08:15:18 pm Michael S. Tsirkin wrote:
-> > On Tue, Aug 25, 2009 at 09:40:40PM +0930, Rusty Russell wrote:
-> > > Also, see other fixes to the lguest launcher since then which might
-> > > be relevant to this code:
-> > > 	lguest: get more serious about wmb() in example Launcher code
-> > 
-> > Heh, this just gets one step closer to a real wmb.  I just used the
-> > correct code from linux, so I think nothing needs to be done in vhost.
-> > Apropos this change in lguest: why is a compiler barrier sufficient? The
-> > comment says devices are run in separate threads (presumably from
-> > guest?), if so don't you need to tell CPU that there's a barrier as
-> > well?
-> 
-> Yep, but x86 only :)
+For the bearer_priority to be less than TIPC_MIN_LINK_PRI and greater than
+TIPC_MAX_LINK_PRI is logically impossible.
 
-Okay, writes are ordered them. But mb() orders reads as well,
-so it'll have to have a real one IMO, even in userspace?
-
->  The kernel uses a real insn if XMM/XMM2, but I don't
-> know if userspace needs that.  I just use compiler barriers.
-> 
-> Thanks,
-> Rusty.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index a7a3677..327011f 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -119,7 +119,7 @@ int  tipc_register_media(u32 media_type,
+ 		warn("Media <%s> rejected, no broadcast address\n", name);
+ 		goto exit;
+ 	}
+-	if ((bearer_priority < TIPC_MIN_LINK_PRI) &&
++	if ((bearer_priority < TIPC_MIN_LINK_PRI) ||
+ 	    (bearer_priority > TIPC_MAX_LINK_PRI)) {
+ 		warn("Media <%s> rejected, illegal priority (%u)\n", name,
+ 		     bearer_priority);
