@@ -1,52 +1,56 @@
 From: Ingo Molnar <mingo@elte.hu>
 Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
-Date: Thu, 27 Aug 2009 11:28:41 +0200
-Message-ID: <20090827092841.GC4260@elte.hu>
-References: <20090826223922.GA25318@hmsreliant.think-freely.org> <20090826.154410.95005620.davem@davemloft.net> <20090826230514.GB31970@elte.hu> <20090826.160835.263085197.davem@davemloft.net> <20090826235826.GA430@elte.hu> <20090827003536.GC30341@infradead.org>
+Date: Thu, 27 Aug 2009 11:34:54 +0200
+Message-ID: <20090827093454.GD4260@elte.hu>
+References: <20090826190435.GC10816@hmsreliant.think-freely.org> <20090826190830.GF13632@elte.hu> <20090826.123631.79533250.davem@davemloft.net> <20090826194835.GA16508@elte.hu> <20090826202344.GE10816@hmsreliant.think-freely.org> <20090826204027.GA21159@elte.hu> <20090826223922.GA25318@hmsreliant.think-freely.org> <alpine.DEB.2.00.0908261913030.11291@gandalf.stny.rr.com> <20090827001426.GA26475@hmsreliant.think-freely.org> <alpine.DEB.2.00.0908262021300.18923@gandalf.stny.rr.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, nhorman@tuxdriver.com,
-	rostedt@goodmis.org, fweisbec@gmail.com, billfink@mindspring.com,
-	netdev@vger.kernel.org, brice@myri.com, gallatin@myri.com
-To: Christoph Hellwig <hch@infradead.org>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	David Miller <davem@davemloft.net>, fweisbec@gmail.com,
+	billfink@mindspring.com, netdev@vger.kernel.org, brice@myri.com,
+	gallatin@myri.com
+To: Steven Rostedt <rostedt@goodmis.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:42418 "EHLO mx2.mail.elte.hu"
+Received: from mx2.mail.elte.hu ([157.181.151.9]:52691 "EHLO mx2.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751946AbZH0J2y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Aug 2009 05:28:54 -0400
+	id S1752090AbZH0JfK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Aug 2009 05:35:10 -0400
 Content-Disposition: inline
-In-Reply-To: <20090827003536.GC30341@infradead.org>
+In-Reply-To: <alpine.DEB.2.00.0908262021300.18923@gandalf.stny.rr.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-* Christoph Hellwig <hch@infradead.org> wrote:
+* Steven Rostedt <rostedt@goodmis.org> wrote:
 
-> On Thu, Aug 27, 2009 at 01:58:26AM +0200, Ingo Molnar wrote:
->
-> > I'm sorry you got that impression, but you are a maintainer 
-> > yourself so you might perhaps understand it why sooner or later, 
-> > if a maintainer's review does not get acted upon, one has to 
-> > insist on clean patches in stronger terms.
 > 
-> Cool down a bit :) [...]
+> On Wed, 26 Aug 2009, Neil Horman wrote:
+> > > 
+> > I'm not sure how the addition of an ftrace module constitutes a change to the
+> > tracing infrastructure, but whatever, yes, no biggy.  I've bugun modifying the
+> > TRACE_EVENT that I added to export the data I need directly.  Should be pretty
+> > straightforward.  Dave I'll have a patch up on netdev in a day or two after I
+> > test it.  Steven, should this still just go to netdev with a cc to you?  I'd
+> > like to avoid repeating the same confusion here a second time around if I can
+> 
+> Yes, please Cc myself, and Ingo on those changes. I see where the 
+> confusion came. It is where the code changes. The code in 
+> kernel/trace is considered ftrace internals (there's internal 
+> tracing upkeep that is needed for all plugins). [...]
 
-Hello Pot, Kettle here ;-)
+yeah - i pointed that out in the very first mail to David 9 days ago 
+when this patch broke the build in linux-next: kernel/trace/ is like 
+net/core/. It would be nice and important if the networking tree 
+treated it as such in the future.
+ 
+See the:
 
-I guess i'll have to test the limits of your patience by queueing up 
-some bad commit into fs/libfs.c via say the iommu tree, without acks 
-and with commit log damage, which patch then triggers a build 
-failure and a crash in linux-next (like this one did), and refuse to 
-revert and not do anything substantial about your (initially polite) 
-review feedback for 2 weeks (like it happened here), and see how 
-measured your response will be after the 12th mail that gets faced 
-with such passive-aggressive inaction ;-)
+  [PATCH -next] trace_skb: fix build when CONFIG_NET is not enabled
 
-At that point, will your wall of patience finally start to crumble a 
-tiny bit and will you resort to using the taboo term 'crappy patch' 
-perhaps, like i did here? ;-)
+discussion on lkml:
 
-Anyway, as Steve said it's now finally water under the bridge, time 
-to move on.
+  http://lkml.org/lkml/2009/8/17/378
+
+Thanks,
 
 	Ingo
