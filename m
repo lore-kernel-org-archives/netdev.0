@@ -1,8 +1,8 @@
 From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH 2/5] powerpc/qe: Implement qe_alive_during_sleep() helper
- function
-Date: Thu, 27 Aug 2009 21:35:50 +0400
-Message-ID: <20090827173550.GB1580@oksana.dev.rtsoft.ru>
+Subject: [PATCH 4/5] ucc_geth: Remove UGETH_MAGIC_PACKET Kconfig symbol and
+ code
+Date: Thu, 27 Aug 2009 21:35:56 +0400
+Message-ID: <20090827173556.GD1580@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Cc: Li Yang <leoli@freescale.com>,
@@ -12,64 +12,84 @@ Cc: Li Yang <leoli@freescale.com>,
 	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ru.mvista.com ([213.79.90.228]:17549 "EHLO
+Received: from ru.mvista.com ([213.79.90.228]:17556 "EHLO
 	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751586AbZH0Rft (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2009 13:35:49 -0400
+	by vger.kernel.org with ESMTP id S1751732AbZH0Rfy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2009 13:35:54 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In some CPUs (i.e. MPC8569) QE shuts down completely during sleep,
-drivers may want to know that to reinitialize registers and buffer
-descriptors.
+This patch removes currently unused UGETH_MAGIC_PACKET Kconfig symbol
+and code, i.e. magic_packet_detection_{enable,disable} functions.
 
-This patch implements qe_alive_during_sleep() helper function, so far
-it just checks if MPC8569-compatible power management controller is
-present, which is a sign that QE turns off during sleep.
+The two functions each contain just two steps that we'll place into
+suspend/resume code path under CONFIG_PM.
 
 Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 ---
- arch/powerpc/include/asm/qe.h   |    1 +
- arch/powerpc/sysdev/qe_lib/qe.c |   13 +++++++++++++
- 2 files changed, 14 insertions(+), 0 deletions(-)
+ drivers/net/Kconfig    |    4 ----
+ drivers/net/ucc_geth.c |   32 --------------------------------
+ 2 files changed, 0 insertions(+), 36 deletions(-)
 
-diff --git a/arch/powerpc/include/asm/qe.h b/arch/powerpc/include/asm/qe.h
-index e8232bb..20c0b07 100644
---- a/arch/powerpc/include/asm/qe.h
-+++ b/arch/powerpc/include/asm/qe.h
-@@ -163,6 +163,7 @@ int qe_get_snum(void);
- void qe_put_snum(u8 snum);
- unsigned int qe_get_num_of_risc(void);
- unsigned int qe_get_num_of_snums(void);
-+int qe_alive_during_sleep(void);
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 5f6509a..d171131 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2367,10 +2367,6 @@ config UCC_GETH
+ 	  This driver supports the Gigabit Ethernet mode of the QUICC Engine,
+ 	  which is available on some Freescale SOCs.
  
- /* we actually use cpm_muram implementation, define this for convenience */
- #define qe_muram_init cpm_muram_init
-diff --git a/arch/powerpc/sysdev/qe_lib/qe.c b/arch/powerpc/sysdev/qe_lib/qe.c
-index f485d5a..a765f9c 100644
---- a/arch/powerpc/sysdev/qe_lib/qe.c
-+++ b/arch/powerpc/sysdev/qe_lib/qe.c
-@@ -65,6 +65,19 @@ static unsigned int qe_num_of_snum;
+-config UGETH_MAGIC_PACKET
+-	bool "Magic Packet detection support"
+-	depends on UCC_GETH
+-
+ config UGETH_TX_ON_DEMAND
+ 	bool "Transmit on Demand support"
+ 	depends on UCC_GETH
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 488b591..d4e51ee 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -437,38 +437,6 @@ static void hw_add_addr_in_hash(struct ucc_geth_private *ugeth,
+ 		     QE_CR_PROTOCOL_ETHERNET, 0);
+ }
  
- static phys_addr_t qebase = -1;
- 
-+int qe_alive_during_sleep(void)
-+{
-+	static int ret = -1;
-+
-+	if (ret != -1)
-+		return ret;
-+
-+	ret = !of_find_compatible_node(NULL, NULL, "fsl,mpc8569-pmc");
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(qe_alive_during_sleep);
-+
- phys_addr_t get_qe_base(void)
+-#ifdef CONFIG_UGETH_MAGIC_PACKET
+-static void magic_packet_detection_enable(struct ucc_geth_private *ugeth)
+-{
+-	struct ucc_fast_private *uccf;
+-	struct ucc_geth __iomem *ug_regs;
+-
+-	uccf = ugeth->uccf;
+-	ug_regs = ugeth->ug_regs;
+-
+-	/* Enable interrupts for magic packet detection */
+-	setbits32(uccf->p_uccm, UCC_GETH_UCCE_MPD);
+-
+-	/* Enable magic packet detection */
+-	setbits32(&ug_regs->maccfg2, MACCFG2_MPE);
+-}
+-
+-static void magic_packet_detection_disable(struct ucc_geth_private *ugeth)
+-{
+-	struct ucc_fast_private *uccf;
+-	struct ucc_geth __iomem *ug_regs;
+-
+-	uccf = ugeth->uccf;
+-	ug_regs = ugeth->ug_regs;
+-
+-	/* Disable interrupts for magic packet detection */
+-	clrbits32(uccf->p_uccm, UCC_GETH_UCCE_MPD);
+-
+-	/* Disable magic packet detection */
+-	clrbits32(&ug_regs->maccfg2, MACCFG2_MPE);
+-}
+-#endif /* MAGIC_PACKET */
+-
+ static inline int compare_addr(u8 **addr1, u8 **addr2)
  {
- 	struct device_node *qe;
+ 	return memcmp(addr1, addr2, ENET_NUM_OCTETS_PER_ADDRESS);
 -- 
 1.6.3.3
 
