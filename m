@@ -1,126 +1,55 @@
-From: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
-Subject: [PATCH 3/3] tracing/events: convert NAPI's tracepoint and fix DEFINE_TRACE_FN
-Date: Thu, 27 Aug 2009 18:56:13 +0800
-Message-ID: <4A96664D.8010700@cn.fujitsu.com>
-References: <4A966288.8020402@cn.fujitsu.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCHv4 2/2] vhost_net: a kernel-level virtio server
+Date: Thu, 27 Aug 2009 20:33:26 +0930
+Message-ID: <200908272033.26540.rusty@rustcorp.com.au>
+References: <cover.1250693417.git.mst@redhat.com> <200908261540.59900.arnd@arndb.de> <20090827101026.GA8545@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Steven Rostedt <rostedt@goodmis.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>,
-	Wei Yongjun <yjwei@cn.fujitsu.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:50423 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750985AbZH0K5G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Aug 2009 06:57:06 -0400
-In-Reply-To: <4A966288.8020402@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, hpa@zytor.com, mingo@elte.hu,
+	akpm@linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751578AbZH0LD3@vger.kernel.org>
+In-Reply-To: <20090827101026.GA8545@redhat.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-- Convert NAPI's tracepoint via TRACE_EVENT macro, the output information
-  like below:
+On Thu, 27 Aug 2009 07:40:26 pm Michael S. Tsirkin wrote:
+> On Wed, Aug 26, 2009 at 03:40:59PM +0200, Arnd Bergmann wrote:
+> > On Tuesday 25 August 2009, Michael S. Tsirkin wrote:
+> > > >  I'd like to avoid that here,
+> > > > though it's kind of ugly.  We'd need VHOST_GET_FEATURES (and ACK) to take a
+> > > > struct like:
+> > > > 
+> > > >       u32 feature_size;
+> > > >       u32 features[];
+> > 
+> > Hmm, variable length ioctl arguments, I'd rather not go there.
+> > The ioctl infrastructure already has a length argument encoded
+> > in the ioctl number. We can use that if we need more, e.g.
+> > 
+> > /* now */
+> > #define VHOST_GET_FEATURES     _IOR(VHOST_VIRTIO, 0x00, __u64)
+> > /*
+> >  * uncomment if we run out of feature bits:
+> > 
+> > struct vhost_get_features2 {
+> > 	__u64 bits[2];
+> > };
+> > #define VHOST_GET_FEATURES2     _IOR(VHOST_VIRTIO, 0x00, \
+> > 			struct  vhost_get_features2)
+> >  */
+> 
+> 
+> I thought so, too. Rusty, agree?
 
-   sshd-2503  [000]    71.920846: napi_poll: ifname=eth0 state=0 weigth=16 poll=pcnet32_poll
-   sshd-2503  [000]    72.020291: napi_poll: ifname=eth0 state=0 weigth=16 poll=pcnet32_poll
-   sshd-2503  [000]    72.020418: napi_poll: ifname=eth0 state=NAPI_STATE_SCHED weigth=16 poll=pcnet32_poll
+Yep, am convinced.  Make it u64 to stop us having to do this tomorrow, then
+we can always extend later.
 
-- Remove the "DECLARE_TRACE" definiens in include/trace/define_trace.h,
-  because TRACE_EVENT not use it
-
-- Undef DEFINE_TRACE_FN after TRACE_EVENT/TRACE_EVENT_FN expanded,
-  then we can include more TRACE_EVENT .h file in one .c file
-  (the .c file has defined CREATE_TRACE_POINTS)
-
-Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
----
- include/trace/define_trace.h |    5 +---
- include/trace/events/napi.h  |   43 +++++++++++++++++++++++++++++++++++++----
- 2 files changed, 39 insertions(+), 9 deletions(-)
-
-diff --git a/include/trace/define_trace.h b/include/trace/define_trace.h
-index a89ed59..6158741 100644
---- a/include/trace/define_trace.h
-+++ b/include/trace/define_trace.h
-@@ -31,10 +31,6 @@
- 		assign, print, reg, unreg)			\
- 	DEFINE_TRACE_FN(name, reg, unreg)
- 
--#undef DECLARE_TRACE
--#define DECLARE_TRACE(name, proto, args)	\
--	DEFINE_TRACE(name)
--
- #undef TRACE_INCLUDE
- #undef __TRACE_INCLUDE
- 
-@@ -62,6 +58,7 @@
- #endif
- 
- #undef TRACE_EVENT
-+#undef TRACE_EVENT_FN
- #undef TRACE_HEADER_MULTI_READ
- 
- /* Only undef what we defined in this file */
-diff --git a/include/trace/events/napi.h b/include/trace/events/napi.h
-index a8989c4..22802d1 100644
---- a/include/trace/events/napi.h
-+++ b/include/trace/events/napi.h
-@@ -1,11 +1,44 @@
--#ifndef _TRACE_NAPI_H_
--#define _TRACE_NAPI_H_
-+#undef TRACE_SYSTEM
-+#define TRACE_SYSTEM napi
-+
-+#if !defined(_TRACE_NAPI_H) || defined(TRACE_HEADER_MULTI_READ)
-+#define _TRACE_NAPI_H
- 
- #include <linux/netdevice.h>
- #include <linux/tracepoint.h>
- 
--DECLARE_TRACE(napi_poll,
-+#define show_napi_state(state) state ? __print_flags(state, "|",	\
-+	{ (1UL << NAPI_STATE_SCHED),	"NAPI_STATE_SCHED"	},	\
-+	{ (1UL << NAPI_STATE_DISABLE),	"NAPI_STATE_DISABLE"	},	\
-+	{ (1UL << NAPI_STATE_NPSVC),	"NAPI_STATE_NPSVC"	}) : "0"
-+
-+TRACE_EVENT(napi_poll,
-+
- 	TP_PROTO(struct napi_struct *napi),
--	TP_ARGS(napi));
- 
--#endif
-+	TP_ARGS(napi),
-+
-+	TP_STRUCT__entry(
-+		__field(	unsigned long,	state		)
-+		__field(	int,		weight		)
-+		__field(	void *,		poll		)
-+		__string(	ifname,		(napi->dev ?
-+				napi->dev->name : "backlog")	)
-+	),
-+
-+	TP_fast_assign(
-+		__entry->state	= napi->state;
-+		__entry->weight	= napi->weight;
-+		__entry->poll	= napi->poll;
-+		__assign_str(ifname, napi->dev ? napi->dev->name : "backlog")
-+	),
-+
-+	TP_printk("ifname=%s state=%s weigth=%d poll=%pf",
-+		  __get_str(ifname), show_napi_state(__entry->state),
-+		  __entry->weight, __entry->poll)
-+);
-+
-+#endif /* _TRACE_NAPI_H */
-+
-+/* This part must be outside protection */
-+#include <trace/define_trace.h>
--- 
-1.6.1.2
-
-
+Thanks,
+Rusty.
