@@ -1,75 +1,178 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP keepalive timer problem
-Date: Thu, 27 Aug 2009 16:49:00 +0200
-Message-ID: <4A969CDC.6060402@gmail.com>
-References: <0939B589FC103041945B9F13274963E303B1A9D4@CORPUSMX90A.corp.emc.com> <4A93E36C.8070502@gmail.com> <0939B589FC103041945B9F13274963E303B1AD89@CORPUSMX90A.corp.emc.com> <4A967FCE.3000807@gmail.com> <87skfdl6qt.fsf@basil.nowhere.org> <4A969566.3070606@gmail.com> <20090827142927.GA17220@basil.fritz.box>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH 1/2] alchemy: add au1000-eth platform device
+Date: Thu, 27 Aug 2009 16:55:09 +0200
+Message-ID: <200908271655.11086.florian@openwrt.org>
+References: <200908170105.38154.florian@openwrt.org> <200908271442.36306.florian@openwrt.org> <4A969519.7010604@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Li_Xin2@emc.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751545AbZH0OtF@vger.kernel.org>
-In-Reply-To: <20090827142927.GA17220@basil.fritz.box>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Ralf Baechle <ralf@linux-mips.org>, linux-mips@linux-mips.org,
+	Manuel Lauss <manuel.lauss@googlemail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f206.google.com ([209.85.219.206]:49431 "EHLO
+	mail-ew0-f206.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751638AbZH0OzP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2009 10:55:15 -0400
+Received: by ewy2 with SMTP id 2so1269911ewy.17
+        for <netdev@vger.kernel.org>; Thu, 27 Aug 2009 07:55:16 -0700 (PDT)
+In-Reply-To: <4A969519.7010604@ru.mvista.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andi Kleen a =E9crit :
-> On Thu, Aug 27, 2009 at 04:17:10PM +0200, Eric Dumazet wrote:
->> Andi Kleen a =E9crit :
->>> Eric Dumazet <eric.dumazet@gmail.com> writes:
->>>> Now, 7200 seconds might be inappropriate for special needs, and co=
-nsidering
->>>> there is no way to change tcp_retries2 for a given socket (only ch=
-oice being the global
->>>> tcp_retries2 setting), I would vote for a change in our stack, to =
-*relax* RFC,
->>>> and get smaller keepalive timers if possible.
->>> I think the better fix would be to just to only do that when
->>> tcp_retries2 > keep alive time. So keep the existing behaviour
->>> with default keep alive, but switch when the user defined
->>> a very short keep alive.
->>>
->> tcp_retries2 is a number of retries, its difficult to derive a time =
-from it.
->=20
-> That shouldn't be too hard.=20
->=20
->> Also, it's not clear what behavior you are refering to.
->> Imagine we can be smart and compute tcp_retries2_time (in jiffies) f=
-rom tcp_retries2
->> If keepalive_timer fires and we have packets in flight, what heurist=
-ic do you suggest ?
->=20
-> I didn't suggest to change something at firing time, just pattern
-> the code you removed with if (keepalive_time > retries2 time)
->=20
-> That's not perfect, but likely good enough.
->=20
->=20
->> if (tp->packets_out || tcp_send_head(sk))
->> 	if (tcp_retries2_time < keepalive_time_when(tp))
->> 		goto resched;
->> elapsed =3D tcp_time_stamp - tp->rcv_tstamp;
->> ...
->>
->> What would be the gain ?
->> Arming timer exactly every keepalive_time_when(tp)
->> instead of keepalive_time_when(tp) - (tcp_time_stamp - tp->rcv_tstam=
-p) ?
->=20
-> The gain would be that you don't send unnecessary packets by default =
-(following the RFC), but=20
-> still give expected behaviour to users who explicitely set short keep=
-alives.
->=20
+Hello,
 
-Yep, so to recap we have two changes :
+Le Thursday 27 August 2009 16:15:53 Sergei Shtylyov, vous avez =E9crit=A0=
+:
+> Hello.
+>
+> Florian Fainelli wrote:
+> >>>>>This patch adds the board code to register a per-board au1000-et=
+h
+> >>>>>platform device to be used wit the au1000-eth platform driver in=
+ a
+> >>>>>subsequent patch. Note that the au1000-eth driver knows about th=
+e
+> >>>>>default driver settings such that we do not need to pass any
+> >>>>>platform_data informations in most cases except db1x00.
+> >>>>
+> >>>>   Sigh, NAK...
+> >>>>   Please don't register the SoC device per board, do it in
+> >>>>alchemy/common/platfrom.c and find a way to pass the board specif=
+ic
+> >>>>platform data from the board file there instead -- something like
+> >>>>arch/arm/mach-davinci/usb.c does.
+> >>>
+> >>>Ok, like I promised, this was the per-board device registration. D=
+o you
+> >>>prefer something like this:
+> >>
+> >>    I certainly do, but still not in this incarnation... :-)
+> >>
+> >>>+static struct au1000_eth_platform_data au1xxx_eth0_platform_data =
+=3D {
+> >>>+	.phy1_search_mac0 =3D 1,
+> >>>+};
+> >>
+> >>    I'm not sure that the default platfrom data is really a great i=
+dea...
+> >
+> > Can you elaborate a bit more ? We actually need to make the Etherne=
+t MAC
+> > driver aware of some PHY settings.
+>
+>     But why do you have the platform data in *this* file, no the boar=
+d
+> files?
 
-1) The one I sent (taking into account the time of last ACK we received=
-) to compute the
-timer delays.
+The default setting is to search for a PHY on the corresponding MAC, wh=
+ich is=20
+the case for all boards but bosporus, thus it is in this file. No platf=
+orm=20
+data at all would be fine too.
 
-2) The one you suggest, avoiding to send a probe if we have packets in =
-flight, relying
-on normal retransmits timers.
+>
+> >>>+#ifndef CONFIG_SOC_AU1100
+> >>>+static struct platform_device au1xxx_eth1_device =3D {
+> >>>+	.name		=3D "au1000-eth",
+> >>>+	.id		=3D 1,
+> >>>+	.num_resources	=3D ARRAY_SIZE(au1xxx_eth1_resources),
+> >>>+	.resource	=3D au1xxx_eth1_resources,
+> >>
+> >>    And where's the platfrom data for the second Ethernet?
+> >
+> > There is no need to, as the driver originally did not override any
+> > specific settings on the second MAC (afair).
+>
+>     Specific settings where, in the driver? Shouldn't all such settin=
+gs be
+> bound to the platform data instead?
+
+Yes, platform data should handle that for us, what I was trying to expl=
+ain is=20
+that the driver did not configure anything specific for MAC1 already, t=
+hus=20
+there is no platfo
+
+>
+> >>>+};
+> >>>+#endif
+> >>>+
+> >>>+void __init au1xxx_override_eth0_cfg(struct au1000_eth_platform_d=
+ata
+> >>>*eth_data) +{
+> >>>+	if (!eth_data)
+> >>>+		return;
+> >>>+
+> >>>+	memcpy(&au1xxx_eth0_platform_data, eth_data,
+> >>>+		sizeof(struct au1000_eth_platform_data));
+> >>
+> >>    Why not just set the pointer in au1xxx_eth0_device. And really,=
+ why
+> >> not make the function more generic, with a prototype like:
+> >
+> > For the same reasons as explained below, MAC1 did not need any spec=
+ific
+> > change.
+>
+>     So, the driver can get away without platform data? What does it d=
+o in
+> this case -- I haven't looked at that patch?
+
+In that case it searchs for a PHY attached to the MAC, this is what the=
+ driver=20
+did already. Please have a look at the patch, specifically the part whi=
+ch=20
+handles a NULL platform_data.
+
+>
+> >>void __init au1xxx_override_eth_cfg(unsigned port, struct
+> >>				    au1000_eth_platform_data *eth_data);
+> >>
+> >>>+}
+> >>>+
+> >>> static struct platform_device *au1xxx_platform_devices[] __initda=
+ta =3D {
+> >>> 	&au1xx0_uart_device,
+> >>> 	&au1xxx_usb_ohci_device,
+> >>>@@ -351,17 +422,25 @@ static struct platform_device
+> >>>*au1xxx_platform_devices[] __initdata =3D { #ifdef SMBUS_PSC_BASE
+> >>> 	&pbdb_smbus_device,
+> >>> #endif
+> >>>+	&au1xxx_eth0_device,
+> >>> };
+> >>>
+> >>> static int __init au1xxx_platform_init(void)
+> >>> {
+> >>> 	unsigned int uartclk =3D get_au1x00_uart_baud_base() * 16;
+> >>>-	int i;
+> >>>+	int i, ni;
+> >>>
+> >>> 	/* Fill up uartclk. */
+> >>> 	for (i =3D 0; au1x00_uart_data[i].flags; i++)
+> >>> 		au1x00_uart_data[i].uartclk =3D uartclk;
+> >>>
+> >>>+	/* Register second MAC if enabled in pinfunc */
+> >>>+#ifndef CONFIG_SOC_AU1100
+> >>>+	ni =3D (int)((au_readl(SYS_PINFUNC) & (u32)(SYS_PF_NI2)) >> 4);
+> >>>+	if (!(ni + 1))
+> >>
+> >>    Why so complex, and how can (ni + 1) ever be 0?! :-/
+> >
+> > This is left-over debugging stub, I will rework it. About complexit=
+y,
+> > this line is taken directly from the au1000_eth driver.
+>
+>     I don't see !(ni + 1) there, only:
+>
+> 	num_ifs =3D NUM_ETH_INTERFACES - ni;
+>
+> which is correct, unlike what you've written.
+--=20
+Best regards, Florian Fainelli
+Email: florian@openwrt.org
+Web: http://openwrt.org
+IRC: [florian] on irc.freenode.net
+-------------------------------
