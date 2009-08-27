@@ -1,233 +1,177 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH 1/2] alchemy: add au1000-eth platform device
-Date: Thu, 27 Aug 2009 14:42:34 +0200
-Message-ID: <200908271442.36306.florian@openwrt.org>
-References: <200908170105.38154.florian@openwrt.org> <200908181801.41602.florian@openwrt.org> <4A92D5D1.60009@ru.mvista.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP keepalive timer problem
+Date: Thu, 27 Aug 2009 14:45:02 +0200
+Message-ID: <4A967FCE.3000807@gmail.com>
+References: <0939B589FC103041945B9F13274963E303B1A9D4@CORPUSMX90A.corp.emc.com> <4A93E36C.8070502@gmail.com> <0939B589FC103041945B9F13274963E303B1AD89@CORPUSMX90A.corp.emc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ralf Baechle <ralf@linux-mips.org>, linux-mips@linux-mips.org,
-	Manuel Lauss <manuel.lauss@googlemail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f206.google.com ([209.85.219.206]:36690 "EHLO
-	mail-ew0-f206.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750833AbZH0Mmm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2009 08:42:42 -0400
-Received: by ewy2 with SMTP id 2so1143494ewy.17
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2009 05:42:42 -0700 (PDT)
-In-Reply-To: <4A92D5D1.60009@ru.mvista.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Li_Xin2@emc.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752536AbZH0MpG@vger.kernel.org>
+In-Reply-To: <0939B589FC103041945B9F13274963E303B1AD89@CORPUSMX90A.corp.emc.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+Please dont top post on these lists, find my answers below
 
-Le Monday 24 August 2009 20:02:57 Sergei Shtylyov, vous avez =E9crit=A0=
-:
-> Hello.
->
-> Florian Fainelli wrote:
-> >>>This patch adds the board code to register a per-board au1000-eth
-> >>>platform device to be used wit the au1000-eth platform driver in a
-> >>>subsequent patch. Note that the au1000-eth driver knows about the
-> >>>default driver settings such that we do not need to pass any
-> >>>platform_data informations in most cases except db1x00.
-> >>
-> >>    Sigh, NAK...
-> >>    Please don't register the SoC device per board, do it in
-> >>alchemy/common/platfrom.c and find a way to pass the board specific
-> >>platform data from the board file there instead -- something like
-> >>arch/arm/mach-davinci/usb.c does.
-> >
-> > Ok, like I promised, this was the per-board device registration. Do=
- you
-> > prefer something like this:
->
->     I certainly do, but still not in this incarnation... :-)
->
-> > --
-> > From fd75b7c7fa3c05c21122c43e43260d2785475a79 Mon Sep 17 00:00:00 2=
-001
-> > From: Florian Fainelli <florian@openwrt.org>
-> > Date: Tue, 18 Aug 2009 17:53:21 +0200
-> > Subject: [PATCH] alchemy: add au1000-eth platform device (v2)
-> >
-> > This patch makes the board code register the au1000-eth
-> > platform device. The au1000-eth platform data can be
-> > overriden with the au1xxx_override_eth0_cfg function
-> > like it has to be done for the Bosporus board.
-> >
-> > Changes from v1:
-> > - remove per-board platform.c file
-> > - add an override function to pass custom eth0 platform_data PHY se=
-ttings
-> >
-> > Signed-off-by: Florian Fainelli <florian@openwrt.org>
-> > ---
-> > diff --git a/arch/mips/alchemy/common/platform.c
-> > b/arch/mips/alchemy/common/platform.c index 117f99f..559294a 100644
-> > --- a/arch/mips/alchemy/common/platform.c
-> > +++ b/arch/mips/alchemy/common/platform.c
-> > @@ -19,6 +19,7 @@
-> >  #include <asm/mach-au1x00/au1xxx.h>
-> >  #include <asm/mach-au1x00/au1xxx_dbdma.h>
-> >  #include <asm/mach-au1x00/au1100_mmc.h>
-> > +#include <asm/mach-au1x00/au1xxx_eth.h>
-> >
-> >  #define PORT(_base, _irq)				\
-> >  	{						\
-> > @@ -331,6 +332,76 @@ static struct platform_device pbdb_smbus_devic=
-e =3D {
-> >  };
-> >  #endif
-> >
-> > +/* Macro to help defining the Ethernet MAC resources */
-> > +#define MAC_RES(_base, _enable, _irq)			\
-> > +	{						\
-> > +		.start	=3D CPHYSADDR(_base),		\
-> > +		.end	=3D CPHYSADDR(_base + 0xffff),	\
-> > +		.flags	=3D IORESOURCE_MEM,		\
-> > +	},						\
-> > +	{						\
-> > +		.start	=3D CPHYSADDR(_enable),		\
-> > +		.end	=3D CPHYSADDR(_enable + 0x3),	\
-> > +		.flags	=3D IORESOURCE_MEM,		\
-> > +	},						\
-> > +	{						\
-> > +		.start	=3D _irq,				\
-> > +		.end	=3D _irq,				\
-> > +		.flags	=3D IORESOURCE_IRQ		\
-> > +	}
-> > +
-> > +static struct resource au1xxx_eth0_resources[] =3D {
-> > +#if defined(CONFIG_SOC_AU1000)
-> > +	MAC_RES(AU1000_ETH0_BASE, AU1000_MAC0_ENABLE, AU1000_MAC0_DMA_INT=
-),
-> > +#elif defined(CONFIG_SOC_AU1100)
-> > +	MAC_RES(AU1100_ETH0_BASE, AU1100_MAC0_ENABLE, AU1100_MAC0_DMA_INT=
-),
-> > +#elif defined(CONFIG_SOC_AU1550)
-> > +	MAC_RES(AU1550_ETH0_BASE, AU1550_MAC0_ENABLE, AU1550_MAC0_DMA_INT=
-),
-> > +#elif defined(CONFIG_SOC_AU1500)
-> > +	MAC_RES(AU1500_ETH0_BASE, AU1500_MAC0_ENABLE, AU1500_MAC0_DMA_INT=
-),
-> > +#endif
-> > +};
-> > +
-> > +static struct resource au1xxx_eth1_resources[] =3D {
-> > +#if defined(CONFIG_SOC_AU1000)
-> > +	MAC_RES(AU1000_ETH1_BASE, AU1000_MAC1_ENABLE, AU1000_MAC1_DMA_INT=
-),
-> > +#elif defined(CONFIG_SOC_AU1550)
-> > +	MAC_RES(AU1550_ETH1_BASE, AU1550_MAC1_ENABLE, AU1550_MAC1_DMA_INT=
-),
-> > +#elif defined(CONFIG_SOC_AU1500)
-> > +	MAC_RES(AU1500_ETH1_BASE, AU1500_MAC1_ENABLE, AU1500_MAC1_DMA_INT=
-),
-> > +#endif
-> > +};
-> > +
-> > +static struct au1000_eth_platform_data au1xxx_eth0_platform_data =3D=
- {
-> > +	.phy1_search_mac0 =3D 1,
-> > +};
->
->     I'm not sure that the default platfrom data is really a great ide=
-a...
+Li_Xin2@emc.com a =A8=A6crit :
+> =20
+> Thanks for your quick reply, let me explain my problem in detail.
+>=20
+> Suppose the client side of communication sets the keep alive socket o=
+ption, connects to
+> server, then > we pulls out the network cable of server box. After th=
+e connection is idle for TCP_KEEPIDLE=20
 
-Can you elaborate a bit more ? We actually need to make the Ethernet MA=
-C driver aware of some PHY settings.
+seconds, the first keepalive probe packet is sent, and of course no rep=
+ly is received.=20
 
->
-> > +#ifndef CONFIG_SOC_AU1100
-> > +static struct platform_device au1xxx_eth1_device =3D {
-> > +	.name		=3D "au1000-eth",
-> > +	.id		=3D 1,
-> > +	.num_resources	=3D ARRAY_SIZE(au1xxx_eth1_resources),
-> > +	.resource	=3D au1xxx_eth1_resources,
->
->     And where's the platfrom data for the second Ethernet?
+Just after the first probe packet, the client sends some data. No respo=
+nse is received, and=20
 
-There is no need to, as the driver originally did not override any spec=
-ific settings on the second MAC (afair).
+as you said, the normal retransmission takes place and no further keepa=
+live probe will be sent.=20
+>=20
+> 	The problem is: application that tries the keepalive mechanism expec=
+ts communication peer=20
 
->
-> > +};
-> > +#endif
-> > +
-> > +void __init au1xxx_override_eth0_cfg(struct au1000_eth_platform_da=
-ta
-> > *eth_data) +{
-> > +	if (!eth_data)
-> > +		return;
-> > +
-> > +	memcpy(&au1xxx_eth0_platform_data, eth_data,
-> > +		sizeof(struct au1000_eth_platform_data));
->
->     Why not just set the pointer in au1xxx_eth0_device. And really, w=
-hy not
-> make the function more generic, with a prototype like:
+crash detection within TCP_KEEPIDLE + TCP_KEEPCNT * TCP_KEEPINTVL secon=
+ds. Application may set
 
-=46or the same reasons as explained below, MAC1 did not need any specif=
-ic change.
+ relative smaller TCP_KEEPIDLE, TCP_KEEPCNT and TCP_KEEPINTVL value so =
+that peer crash can be
 
->
-> void __init au1xxx_override_eth_cfg(unsigned port, struct
-> 				    au1000_eth_platform_data *eth_data);
->
-> > +}
-> > +
-> >  static struct platform_device *au1xxx_platform_devices[] __initdat=
-a =3D {
-> >  	&au1xx0_uart_device,
-> >  	&au1xxx_usb_ohci_device,
-> > @@ -351,17 +422,25 @@ static struct platform_device
-> > *au1xxx_platform_devices[] __initdata =3D { #ifdef SMBUS_PSC_BASE
-> >  	&pbdb_smbus_device,
-> >  #endif
-> > +	&au1xxx_eth0_device,
-> >  };
-> >
-> >  static int __init au1xxx_platform_init(void)
-> >  {
-> >  	unsigned int uartclk =3D get_au1x00_uart_baud_base() * 16;
-> > -	int i;
-> > +	int i, ni;
-> >
-> >  	/* Fill up uartclk. */
-> >  	for (i =3D 0; au1x00_uart_data[i].flags; i++)
-> >  		au1x00_uart_data[i].uartclk =3D uartclk;
-> >
-> > +	/* Register second MAC if enabled in pinfunc */
-> > +#ifndef CONFIG_SOC_AU1100
-> > +	ni =3D (int)((au_readl(SYS_PINFUNC) & (u32)(SYS_PF_NI2)) >> 4);
-> > +	if (!(ni + 1))
->
->     Why so complex, and how can (ni + 1) ever be 0?! :-/
+ detected quickly, for example, 60 seconds. But if the keepalive is int=
+ervened with=20
 
-This is left-over debugging stub, I will rework it. About complexity, t=
-his line is taken directly from the au1000_eth driver.
+retransmission, the latter takes higher priority, so that peer crash wi=
+ll be detected after
 
->     Doesn't that field when 0 mean the pins configured for MAC1 and w=
-hen 1
-> -- for GPIO? Why not just:
->
-> 	if (!(au_readl(SYS_PINFUNC) & SYS_PF_NI2))
->
-> > +		platform_device_register(&au1xxx_eth1_device);
-> > +#endif
-> > +
->
-> WBR, Sergei
+ 13 to 30 minutes, which may not be acceptable for some applications.
+>=20
+> We tried TCP implementation on Windows XP SP3, the keepalive and retr=
+ansmission don't intervene.
+>=20
 
 
+> Regards,
+> Xin Li
+> EMC Shanghai R&D Centre
+> Email: Li_Xin2@emc.com
+> Tel: 86 21 6095 1100 x 2257
+>=20
+> -----Original Message-----
+> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]=20
+> Sent: 2009=C4=EA8=D4=C225=C8=D5 21:13
+> To: Li, Xin
+> Cc: linux-kernel@vger.kernel.org; Linux Netdev List
+> Subject: Re: TCP keepalive timer problem
+>=20
+> Li_Xin2@emc.com a =A8=A6crit :
+>> Greetings,
+>>
+>> I found one problem in Linux TCP keepalive timer processing, after
+>> searching on google, I found Daniel Stempel reported the same proble=
+m in
+>> 2007 (http://lkml.indiana.edu/hypermail/linux/kernel/0702.2/1136.htm=
+l),
+>> but got no answer. So I have to reraise it.
+>>
+>> Can anyone help answer this two-years long question?
+>>
+>>
+>=20
+> You should explain your problem in detail, since Daniel one was proba=
+bly different.
+>=20
+> He mentioned "(timeout is set to e.g. 30 seconds)" which is kind of n=
+asty, given normal one is 7200
+>=20
+> If some packets are in flight, keepalive is not fired at all, since n=
+ormal
+> retransmits should take place (check tcp_retries2 sysctl).
+>=20
+> TCP Keepalive is only fired when no trafic occurred for a long time, =
+only if=20
+> SO_KEEPALIVE socket option was enabled by application.
+>=20
+> tcp_retries2 (integer; default: 15)
+>     The maximum number of times a TCP packet is retransmitted in esta=
+blished state
+> before giving up. The default value is 15, which corresponds to a dur=
+ation of
+> approximately between 13 to 30 minutes, depending on the retransmissi=
+on timeout.
+> The RFC 1122 specified minimum limit of 100 seconds is typically deem=
+ed too short.=20
+>=20
 
---=20
-Best regards, Florian Fainelli
-Email: florian@openwrt.org
-Web: http://openwrt.org
-IRC: [florian] on irc.freenode.net
--------------------------------
+RFC1122 , section 4.2.3.6 tells :
+
+Keep-alive packets MUST only be sent when no data or acknowledgement pa=
+ckets have
+ been received for the connection within an interval. This interval MUS=
+T be=20
+configurable and MUST default to no less than two hours.=20
+
+So :
+
+Normal tcp_retries2 settings should make sure connection is reset if pa=
+ckets in flight are not acknowledged way before TCP_KEEPIDLE (>=3D 7200=
+ seconds)
+
+
+Now, 7200 seconds might be inappropriate for special needs, and conside=
+ring
+there is no way to change tcp_retries2 for a given socket (only choice =
+being the global
+tcp_retries2 setting), I would vote for a change in our stack, to *rela=
+x* RFC,
+and get smaller keepalive timers if possible.
+
+So when keepalive_timer fires, we should not care of outgoing packets,
+only care on tp->rcv_tstamp, timestamp of last received ACK.
+
+
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index b144a26..719f198 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -484,18 +484,13 @@ static void tcp_keepalive_timer (unsigned long da=
+ta)
+ 			}
+ 		}
+ 		tcp_send_active_reset(sk, GFP_ATOMIC);
+-		goto death;
++		tcp_done(sk);
++		goto out;
+ 	}
+=20
+ 	if (!sock_flag(sk, SOCK_KEEPOPEN) || sk->sk_state =3D=3D TCP_CLOSE)
+ 		goto out;
+=20
+-	elapsed =3D keepalive_time_when(tp);
+-
+-	/* It is alive without keepalive 8) */
+-	if (tp->packets_out || tcp_send_head(sk))
+-		goto resched;
+-
+ 	elapsed =3D tcp_time_stamp - tp->rcv_tstamp;
+=20
+ 	if (elapsed >=3D keepalive_time_when(tp)) {
+@@ -522,13 +517,7 @@ static void tcp_keepalive_timer (unsigned long dat=
+a)
+ 	TCP_CHECK_TIMER(sk);
+ 	sk_mem_reclaim(sk);
+=20
+-resched:
+ 	inet_csk_reset_keepalive_timer (sk, elapsed);
+-	goto out;
+-
+-death:
+-	tcp_done(sk);
+-
+ out:
+ 	bh_unlock_sock(sk);
+ 	sock_put(sk);
