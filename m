@@ -1,8 +1,8 @@
 From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH 3/5] ucc_geth: Factor out MAC initialization steps into a
- call
-Date: Thu, 27 Aug 2009 21:35:54 +0400
-Message-ID: <20090827173554.GC1580@oksana.dev.rtsoft.ru>
+Subject: [PATCH 5/5] ucc_geth: Implement suspend/resume and Wake-On-LAN
+ support
+Date: Thu, 27 Aug 2009 21:35:57 +0400
+Message-ID: <20090827173557.GE1580@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Cc: Li Yang <leoli@freescale.com>,
@@ -12,164 +12,210 @@ Cc: Li Yang <leoli@freescale.com>,
 	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ru.mvista.com ([213.79.90.228]:17554 "EHLO
+Received: from ru.mvista.com ([213.79.90.228]:17562 "EHLO
 	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751704AbZH0Rfw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2009 13:35:52 -0400
+	by vger.kernel.org with ESMTP id S1751717AbZH0Rf4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2009 13:35:56 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch factors out MAC initialization into ucc_geth_init_mac()
-function that we'll use for suspend/resume.
+This patch implements suspend/resume and WOL support for UCC Ethernet
+driver.
+
+We support two wake up events: wake on PHY/link changes and wake
+on magic packet.
+
+In some CPUs (like MPC8569) QE shuts down during sleep, so magic packet
+detection is unusable, and also on resume we should fully reinitialize
+UCC structures.
 
 Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 ---
- drivers/net/ucc_geth.c |   87 ++++++++++++++++++++++++++++-------------------
- 1 files changed, 52 insertions(+), 35 deletions(-)
+ drivers/net/ucc_geth.c         |   85 ++++++++++++++++++++++++++++++++++++++++
+ drivers/net/ucc_geth.h         |    1 +
+ drivers/net/ucc_geth_ethtool.c |   40 +++++++++++++++++++
+ 3 files changed, 126 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 3b957e6..488b591 100644
+index d4e51ee..33ed69e 100644
 --- a/drivers/net/ucc_geth.c
 +++ b/drivers/net/ucc_geth.c
-@@ -3413,46 +3413,25 @@ static int ucc_geth_set_mac_addr(struct net_device *dev, void *p)
- 	return 0;
+@@ -3481,6 +3481,10 @@ static int ucc_geth_open(struct net_device *dev)
+ 	napi_enable(&ugeth->napi);
+ 	netif_start_queue(dev);
+ 
++	device_set_wakeup_capable(&dev->dev,
++			qe_alive_during_sleep() || ugeth->phydev->irq);
++	device_set_wakeup_enable(&dev->dev, ugeth->wol_en);
++
+ 	return err;
+ 
+ err:
+@@ -3545,6 +3549,85 @@ static void ucc_geth_timeout(struct net_device *dev)
+ 	schedule_work(&ugeth->timeout_work);
  }
  
--/* Called when something needs to use the ethernet device */
--/* Returns 0 for success. */
--static int ucc_geth_open(struct net_device *dev)
-+static int ucc_geth_init_mac(struct ucc_geth_private *ugeth)
- {
--	struct ucc_geth_private *ugeth = netdev_priv(dev);
-+	struct net_device *dev = ugeth->ndev;
- 	int err;
- 
--	ugeth_vdbg("%s: IN", __func__);
--
--	/* Test station address */
--	if (dev->dev_addr[0] & ENET_GROUP_ADDR) {
--		if (netif_msg_ifup(ugeth))
--			ugeth_err("%s: Multicast address used for station address"
--				  " - is this what you wanted?", __func__);
--		return -EINVAL;
--	}
--
--	err = init_phy(dev);
--	if (err) {
--		if (netif_msg_ifup(ugeth))
--			ugeth_err("%s: Cannot initialize PHY, aborting.",
--				  dev->name);
--		return err;
--	}
--
- 	err = ucc_struct_init(ugeth);
- 	if (err) {
- 		if (netif_msg_ifup(ugeth))
--			ugeth_err("%s: Cannot configure internal struct, aborting.", dev->name);
--		goto out_err_stop;
-+			ugeth_err("%s: Cannot configure internal struct, "
-+				  "aborting.", dev->name);
-+		goto err;
- 	}
- 
--	napi_enable(&ugeth->napi);
--
- 	err = ucc_geth_startup(ugeth);
- 	if (err) {
- 		if (netif_msg_ifup(ugeth))
- 			ugeth_err("%s: Cannot configure net device, aborting.",
- 				  dev->name);
--		goto out_err;
-+		goto err;
- 	}
- 
- 	err = adjust_enet_interface(ugeth);
-@@ -3460,7 +3439,7 @@ static int ucc_geth_open(struct net_device *dev)
- 		if (netif_msg_ifup(ugeth))
- 			ugeth_err("%s: Cannot configure net device, aborting.",
- 				  dev->name);
--		goto out_err;
-+		goto err;
- 	}
- 
- 	/*       Set MACSTNADDR1, MACSTNADDR2                */
-@@ -3474,13 +3453,51 @@ static int ucc_geth_open(struct net_device *dev)
- 				   &ugeth->ug_regs->macstnaddr1,
- 				   &ugeth->ug_regs->macstnaddr2);
- 
--	phy_start(ugeth->phydev);
--
- 	err = ugeth_enable(ugeth, COMM_DIR_RX_AND_TX);
- 	if (err) {
- 		if (netif_msg_ifup(ugeth))
- 			ugeth_err("%s: Cannot enable net device, aborting.", dev->name);
--		goto out_err;
-+		goto err;
++
++#ifdef CONFIG_PM
++
++static int ucc_geth_suspend(struct of_device *ofdev, pm_message_t state)
++{
++	struct net_device *ndev = dev_get_drvdata(&ofdev->dev);
++	struct ucc_geth_private *ugeth = netdev_priv(ndev);
++
++	if (!netif_running(ndev))
++		return 0;
++
++	napi_disable(&ugeth->napi);
++
++	/*
++	 * Disable the controller, otherwise we'll wakeup on any network
++	 * activity.
++	 */
++	ugeth_disable(ugeth, COMM_DIR_RX_AND_TX);
++
++	if (ugeth->wol_en & WAKE_MAGIC) {
++		setbits32(ugeth->uccf->p_uccm, UCC_GETH_UCCE_MPD);
++		setbits32(&ugeth->ug_regs->maccfg2, MACCFG2_MPE);
++		ucc_fast_enable(ugeth->uccf, COMM_DIR_RX_AND_TX);
++	} else if (!(ugeth->wol_en & WAKE_PHY)) {
++		phy_stop(ugeth->phydev);
 +	}
 +
 +	return 0;
-+err:
-+	ucc_geth_stop(ugeth);
-+	return err;
 +}
 +
-+/* Called when something needs to use the ethernet device */
-+/* Returns 0 for success. */
-+static int ucc_geth_open(struct net_device *dev)
++static int ucc_geth_resume(struct of_device *ofdev)
 +{
-+	struct ucc_geth_private *ugeth = netdev_priv(dev);
++	struct net_device *ndev = dev_get_drvdata(&ofdev->dev);
++	struct ucc_geth_private *ugeth = netdev_priv(ndev);
 +	int err;
 +
-+	ugeth_vdbg("%s: IN", __func__);
++	if (!netif_running(ndev))
++		return 0;
 +
-+	/* Test station address */
-+	if (dev->dev_addr[0] & ENET_GROUP_ADDR) {
-+		if (netif_msg_ifup(ugeth))
-+			ugeth_err("%s: Multicast address used for station "
-+				  "address - is this what you wanted?",
-+				  __func__);
-+		return -EINVAL;
-+	}
++	if (qe_alive_during_sleep()) {
++		if (ugeth->wol_en & WAKE_MAGIC) {
++			ucc_fast_disable(ugeth->uccf, COMM_DIR_RX_AND_TX);
++			clrbits32(&ugeth->ug_regs->maccfg2, MACCFG2_MPE);
++			clrbits32(ugeth->uccf->p_uccm, UCC_GETH_UCCE_MPD);
++		}
++		ugeth_enable(ugeth, COMM_DIR_RX_AND_TX);
++	} else {
++		/*
++		 * Full reinitialization is required if QE shuts down
++		 * during sleep.
++		 */
++		ucc_geth_memclean(ugeth);
 +
-+	err = init_phy(dev);
-+	if (err) {
-+		if (netif_msg_ifup(ugeth))
-+			ugeth_err("%s: Cannot initialize PHY, aborting.",
-+				  dev->name);
-+		return err;
-+	}
-+
-+	err = ucc_geth_init_mac(ugeth);
-+	if (err) {
-+		if (netif_msg_ifup(ugeth))
++		err = ucc_geth_init_mac(ugeth);
++		if (err) {
 +			ugeth_err("%s: Cannot initialize MAC, aborting.",
-+				  dev->name);
-+		goto err;
- 	}
- 
- 	err = request_irq(ugeth->ug_info->uf_info.irq, ucc_geth_irq_handler,
-@@ -3489,16 +3506,16 @@ static int ucc_geth_open(struct net_device *dev)
- 		if (netif_msg_ifup(ugeth))
- 			ugeth_err("%s: Cannot get IRQ for net device, aborting.",
- 				  dev->name);
--		goto out_err;
-+		goto err;
- 	}
- 
++				  ndev->name);
++			return err;
++		}
++	}
++
++	ugeth->oldlink = 0;
++	ugeth->oldspeed = 0;
++	ugeth->oldduplex = -1;
++
++	phy_stop(ugeth->phydev);
 +	phy_start(ugeth->phydev);
++
 +	napi_enable(&ugeth->napi);
- 	netif_start_queue(dev);
++	netif_start_queue(ndev);
++
++	return 0;
++}
++
++#else
++#define ucc_geth_suspend NULL
++#define ucc_geth_resume NULL
++#endif
++
+ static phy_interface_t to_phy_interface(const char *phy_connection_type)
+ {
+ 	if (strcasecmp(phy_connection_type, "mii") == 0)
+@@ -3836,6 +3919,8 @@ static struct of_platform_driver ucc_geth_driver = {
+ 	.match_table	= ucc_geth_match,
+ 	.probe		= ucc_geth_probe,
+ 	.remove		= ucc_geth_remove,
++	.suspend	= ucc_geth_suspend,
++	.resume		= ucc_geth_resume,
+ };
  
- 	return err;
+ static int __init ucc_geth_init(void)
+diff --git a/drivers/net/ucc_geth.h b/drivers/net/ucc_geth.h
+index 195ab26..fee97ee 100644
+--- a/drivers/net/ucc_geth.h
++++ b/drivers/net/ucc_geth.h
+@@ -1220,6 +1220,7 @@ struct ucc_geth_private {
+ 	int oldspeed;
+ 	int oldduplex;
+ 	int oldlink;
++	int wol_en;
  
--out_err:
--	napi_disable(&ugeth->napi);
--out_err_stop:
-+err:
- 	ucc_geth_stop(ugeth);
- 	return err;
+ 	struct device_node *node;
+ };
+diff --git a/drivers/net/ucc_geth_ethtool.c b/drivers/net/ucc_geth_ethtool.c
+index 304128f..7075f26 100644
+--- a/drivers/net/ucc_geth_ethtool.c
++++ b/drivers/net/ucc_geth_ethtool.c
+@@ -359,6 +359,44 @@ uec_get_drvinfo(struct net_device *netdev,
+ 	drvinfo->regdump_len = uec_get_regs_len(netdev);
  }
+ 
++#ifdef CONFIG_PM
++
++static void uec_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
++{
++	struct ucc_geth_private *ugeth = netdev_priv(netdev);
++	struct phy_device *phydev = ugeth->phydev;
++
++	if (phydev && phydev->irq)
++		wol->supported |= WAKE_PHY;
++	if (qe_alive_during_sleep())
++		wol->supported |= WAKE_MAGIC;
++
++	wol->wolopts = ugeth->wol_en;
++}
++
++static int uec_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
++{
++	struct ucc_geth_private *ugeth = netdev_priv(netdev);
++	struct phy_device *phydev = ugeth->phydev;
++
++	if (wol->wolopts & ~(WAKE_PHY | WAKE_MAGIC))
++		return -EINVAL;
++	else if (wol->wolopts & WAKE_PHY && (!phydev || !phydev->irq))
++		return -EINVAL;
++	else if (wol->wolopts & WAKE_MAGIC && !qe_alive_during_sleep())
++		return -EINVAL;
++
++	ugeth->wol_en = wol->wolopts;
++	device_set_wakeup_enable(&netdev->dev, ugeth->wol_en);
++
++	return 0;
++}
++
++#else
++#define uec_get_wol NULL
++#define uec_set_wol NULL
++#endif /* CONFIG_PM */
++
+ static const struct ethtool_ops uec_ethtool_ops = {
+ 	.get_settings           = uec_get_settings,
+ 	.set_settings           = uec_set_settings,
+@@ -377,6 +415,8 @@ static const struct ethtool_ops uec_ethtool_ops = {
+ 	.get_sset_count		= uec_get_sset_count,
+ 	.get_strings            = uec_get_strings,
+ 	.get_ethtool_stats      = uec_get_ethtool_stats,
++	.get_wol		= uec_get_wol,
++	.set_wol		= uec_set_wol,
+ };
+ 
+ void uec_set_ethtool_ops(struct net_device *netdev)
 -- 
 1.6.3.3
-
