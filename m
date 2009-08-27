@@ -1,45 +1,37 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
-Date: Wed, 26 Aug 2009 20:34:27 -0400
-Message-ID: <20090827003427.GB30341@infradead.org>
-References: <20090826181502.GC13632@elte.hu> <20090826190435.GC10816@hmsreliant.think-freely.org> <20090826190830.GF13632@elte.hu> <20090826.123631.79533250.davem@davemloft.net> <20090826194835.GA16508@elte.hu> <20090826202344.GE10816@hmsreliant.think-freely.org> <20090826204027.GA21159@elte.hu> <20090826223922.GA25318@hmsreliant.think-freely.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 0/5] s390: qeth patches for 2.6.32
+Date: Wed, 26 Aug 2009 17:35:02 -0700 (PDT)
+Message-ID: <20090826.173502.214522263.davem@davemloft.net>
+References: <20090826120105.727838000@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
-	rostedt@goodmis.org, fweisbec@gmail.com, billfink@mindspring.com,
-	netdev@vger.kernel.org, brice@myri.com, gallatin@myri.com
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: frank.blaschka@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:35700 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751193AbZH0Aef (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 20:34:35 -0400
-Content-Disposition: inline
-In-Reply-To: <20090826223922.GA25318@hmsreliant.think-freely.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51380
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753608AbZH0Aet (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 20:34:49 -0400
+In-Reply-To: <20090826120105.727838000@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 26, 2009 at 06:39:22PM -0400, Neil Horman wrote:
-> Steven specifically told me to submit the patch to the subsystem maintainer that
-> I'm adding tracepoints for, and the only feedback I got on it was his one
-> question, the answer to which I assume satisfied him, due to that there was no
-> subseuqent discussion.  I'm going to ignore your previous emails, because,
-> despite the various advantages of just using plain TRACE_EVENTs because you
-> provide the ftrace interface, and I found it useful.  Your observation is
-> correct, I like it, and thats what I wanted to use, so I used it.  If you don't
-> want people to use it, don't provide it.
+From: frank.blaschka@de.ibm.com
+Date: Wed, 26 Aug 2009 14:01:05 +0200
 
-Neil, this attitude is a perfect way to end up on a shitlist.  I think
-there is a fair case to make you didn't know that the ftrace plugin was
-wrong when you did, but now you do.  And btw, I completely agree with
-Ingo here - the TRACE_EVENT stuff is extremly userful to get borader
-pictures of what's going on.  E.g. the combination of my unfortunately
-not yet included xfs tracer and blktrace allowed debugging quite a lot
-of interesting issues.
+> here are a couple of qeth patches for 2.6.32 (net-next).
+> 
+> shortlog:
+> Klaus-Dieter Wacker (3)
+> qeth: HiperSockets SIGA retry support on CC=2.
+> qeth: Cleanup for cast-type determination.
+> qeth: display service_level info only when valid.
+> 
+> Ursula Braun (1)
+> qeth: display "undefined" value of sysfs-attribute "layer2"
+> 
+> Frank Blaschka (1)
+> qeth: scheduling while atomic during ifconfig online sequence
 
-So instead of playing jackass here listen to what is the right approach
-for it and fix it up.  It'll help us all in the end.
-
-
-Looking forward to the day when plain DECLARE_TRACE goes away so people
-can't "accidentally" use it.
+Looks good, all applied to net-next-2.6, thanks!
