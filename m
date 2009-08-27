@@ -1,53 +1,44 @@
-From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Subject: Re: [patch 1/5] [PATCH] qeth: HiperSockets SIGA retry support on
- CC=2.
-Date: Thu, 27 Aug 2009 10:05:34 +0200
-Message-ID: <4A963E4E.4020405@linux.vnet.ibm.com>
-References: <20090826120105.727838000@de.ibm.com> <20090826120135.998746000@de.ibm.com> <20090827070547.GA32106@wavehammer.waldi.eu.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH 1/2]: pkt_sched: Convert qdisc_watchdog to
+	tasklet_hrtimer
+Date: Thu, 27 Aug 2009 08:36:41 +0000
+Message-ID: <20090827083640.GA11152@ff.dom.local>
+References: <20090821.170330.217935645.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: Bastian Blank <bastian@waldi.eu.org>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Klaus-Dieter Wacker <kdwacker@de.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, tglx@linutronix.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.de.ibm.com ([195.212.17.164]:48839 "EHLO
-	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751604AbZH0IFf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2009 04:05:35 -0400
-In-Reply-To: <20090827070547.GA32106@wavehammer.waldi.eu.org>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:55843 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750832AbZH0Igp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2009 04:36:45 -0400
+Received: by bwz19 with SMTP id 19so806314bwz.37
+        for <netdev@vger.kernel.org>; Thu, 27 Aug 2009 01:36:47 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20090821.170330.217935645.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bastian Blank schrieb:
-> On Wed, Aug 26, 2009 at 02:01:06PM +0200, frank.blaschka@de.ibm.com wrote:
->> Qeth HiperSockets support now retries sending of packets when the
->> IBM System z signals a temporary resource shortage (e.g. target
->> buffer full). The packet is enqueued into the device queue.
->> After 3 times of unsuccessful send the packet is dropped.
+On 22-08-2009 02:03, David Miller wrote:
+> None of this stuff should execute in hw IRQ context, therefore
+> use a tasklet_hrtimer so that it runs in softirq context.
 > 
-> What is the reason for that? How large is the timeout for each retry?
-> Usually the upper layers should already handle dropped packages fine and
-> adding another retry below can produce retry multiplication.
->
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+...
+>  void qdisc_watchdog_cancel(struct qdisc_watchdog *wd)
+>  {
+> -	hrtimer_cancel(&wd->timer);
+> +	tasklet_hrtimer_cancel(&wd->timer);
+>  	wd->qdisc->flags &= ~TCQ_F_THROTTLED;
+>  }
+>  EXPORT_SYMBOL(qdisc_watchdog_cancel);
 
-HiperSocket is very different from usual network hardware. Microcode can
-notify the driver the target of an xmit can not receive the packet because of
-a target buffer full condition (this is the queue->sync_iqdio_error == 2 error
-code). The buffer full condition is only for the target of the xmit not the
-senders hardware. There is no timeout for the retry. The retry is more or less
-immediately. If the target buffer full is only a temporary(short) condition we
-can stay at a higher throughput level because TCP congestion does not kick in.
+I've had a second look at it and I wonder why it's not reported, but
+since qdisc_watchdog_cancel is run in qdisc_reset with BHs disabled
+it seems there should be (at least) a warning triggered in
+tasklet_kill on positive in_interrupt test (unless I miss something,
+but can't test it now).
 
->> @@ -3178,6 +3203,25 @@ int qeth_do_send_packet_fast(struct qeth
->>  	atomic_set(&queue->state, QETH_OUT_Q_UNLOCKED);
->>  	qeth_fill_buffer(queue, buffer, skb, hdr, offset, hd_len);
->>  	qeth_flush_buffers(queue, index, 1);
->> +	if (queue->sync_iqdio_error == 2) {
-> 
-> Is this a magic constant?
-> 
-> Bastian
-> 
-
-
+Jarek P.
