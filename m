@@ -1,44 +1,57 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv4 2/2] vhost_net: a kernel-level virtio server
-Date: Thu, 27 Aug 2009 13:45:18 +0300
-Message-ID: <20090827104517.GB8545@redhat.com>
-References: <cover.1250693417.git.mst@redhat.com> <20090819150309.GC4236@redhat.com> <200908252140.41295.rusty@rustcorp.com.au>
+From: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+Subject: Re: [PATCH 3/3] tracing/events: convert NAPI's tracepoint and fix
+ DEFINE_TRACE_FN
+Date: Thu, 27 Aug 2009 18:49:38 +0800
+Message-ID: <4A9664C2.3000004@cn.fujitsu.com>
+References: <4A96635C.9070404@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
-        linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
-        gregory.haskins@gmail.com
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <200908252140.41295.rusty@rustcorp.com.au>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	David Miller <davem@davemloft.net>,
+	Wei Yongjun <yjwei@cn.fujitsu.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:56974 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751085AbZH0KuL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Aug 2009 06:50:11 -0400
+In-Reply-To: <4A96635C.9070404@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 25, 2009 at 09:40:40PM +0930, Rusty Russell wrote:
-> Also, see other fixes to the lguest launcher since then which might
-> be relevant to this code:
-> 	lguest: get more serious about wmb() in example Launcher code
 
-Heh, this just gets one step closer to a real wmb.  I just used the
-correct code from linux, so I think nothing needs to be done in vhost.
-Apropos this change in lguest: why is a compiler barrier sufficient? The
-comment says devices are run in separate threads (presumably from
-guest?), if so don't you need to tell CPU that there's a barrier as
-well?
 
-> 	lguest: clean up length-used value in example launcher
+Xiao Guangrong wrote:
+> References: <4A966288.8020402@cn.fujitsu.com>
+> In-Reply-To: <4A966288.8020402@cn.fujitsu.com>
+> Content-Type: text/plain; charset=UTF-8
+> Content-Transfer-Encoding: 7bit
+> 
 
-OK, fixing that.
+It's look like my mail client has some problems, I'll check it and resend
+this mail. Sorry!
 
-Thanks!
+Thanks,
+Xiao
 
--- 
-MST
+> - Convert NAPI's tracepoint via TRACE_EVENT macro, the output information
+>   like below:
+> 
+>    sshd-2503  [000]    71.920846: napi_poll: ifname=eth0 state=0 weigth=16 poll=pcnet32_poll
+>    sshd-2503  [000]    72.020291: napi_poll: ifname=eth0 state=0 weigth=16 poll=pcnet32_poll
+>    sshd-2503  [000]    72.020418: napi_poll: ifname=eth0 state=NAPI_STATE_SCHED weigth=16 poll=pcnet32_poll
+> 
+> - Remove the "DECLARE_TRACE" definiens in include/trace/define_trace.h,
+>   because TRACE_EVENT not use it
+> 
+> - Undef DEFINE_TRACE_FN after TRACE_EVENT/TRACE_EVENT_FN expanded,
+>   then we can include more TRACE_EVENT .h file in one .c file
+>   (the .c file has defined CREATE_TRACE_POINTS)
+> 
+> Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
