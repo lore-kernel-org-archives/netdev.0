@@ -1,197 +1,92 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] skb: Augment skb_copy_datagram_iovec TRACE_EVENT to
-	dump more info
-Date: Fri, 28 Aug 2009 19:17:09 -0400
-Message-ID: <20090828231709.GA14063@hmsreliant.think-freely.org>
-References: <20090828203314.GA30417@hmsreliant.think-freely.org> <alpine.DEB.2.00.0908281643190.25717@gandalf.stny.rr.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH REPOST net-next-2.6 3/4] bonding: Fix useless test: int > INT_MAX
+Date: Fri, 28 Aug 2009 16:18:34 -0700
+Message-ID: <23655.1251501514@death.nxdomain.ibm.com>
+References: <1251497115-16234-2-git-send-email-fubar@us.ibm.com> <1251497115-16234-3-git-send-email-fubar@us.ibm.com> <1251497115-16234-4-git-send-email-fubar@us.ibm.com> <20090828.154911.197007102.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, mingo@elte.hu
-To: Steven Rostedt <rostedt@goodmis.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, nicolas.2p.debian@free.fr
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:40628 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750921AbZH1XRN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2009 19:17:13 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.0908281643190.25717@gandalf.stny.rr.com>
+Received: from e8.ny.us.ibm.com ([32.97.182.138]:48363 "EHLO e8.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750882AbZH1XSe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2009 19:18:34 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e8.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id n7SNISZ9018410
+	for <netdev@vger.kernel.org>; Fri, 28 Aug 2009 19:18:28 -0400
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n7SNIaTZ246234
+	for <netdev@vger.kernel.org>; Fri, 28 Aug 2009 19:18:36 -0400
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n7SNIa3t007107
+	for <netdev@vger.kernel.org>; Fri, 28 Aug 2009 19:18:36 -0400
+In-reply-to: <20090828.154911.197007102.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 28, 2009 at 04:50:13PM -0400, Steven Rostedt wrote:
-> 
-> On Fri, 28 Aug 2009, Neil Horman wrote:
-> 
-> > Hey all-
-> > 	As promised in our previous discussion, I've augmented the
-> > skb_copy_datagram_iovec TRACE_EVENT to dump out the info I was previously
-> > gathering in the ftrace module thats been removed.  This patch gives me
-> > everything I need.  Tested and working by me
-> > 
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> 
-> Much better :-)
-> 
-Thanks :)(
+David Miller <davem@davemloft.net> wrote:
 
-> > 
-> > 
-> >  skb.h |   26 +++++++++++++++++++++++---
-> >  1 file changed, 23 insertions(+), 3 deletions(-)
-> > 
-> > 
-> > diff --git a/include/trace/events/skb.h b/include/trace/events/skb.h
-> > index 4b2be6d..45b9a3f 100644
-> > --- a/include/trace/events/skb.h
-> > +++ b/include/trace/events/skb.h
-> > @@ -7,6 +7,7 @@
-> >  #include <linux/skbuff.h>
-> >  #include <linux/netdevice.h>
-> >  #include <linux/tracepoint.h>
-> > +#include <net/sock.h>
-> >  
-> >  /*
-> >   * Tracepoint for free an sk_buff:
-> > @@ -42,16 +43,35 @@ TRACE_EVENT(skb_copy_datagram_iovec,
-> >  	TP_ARGS(skb, len),
-> >  
-> >  	TP_STRUCT__entry(
-> > -		__field(	const void *,		skbaddr		)
-> > +		__field(	const struct sk_buff *,	skb		)
-> >  		__field(	int,			len		)
-> > +		__field(	int,			anid		)
-> > +		__field(	int,			cnid		)
-> > +		__field(	int,			rx_queue	)
-> > +		__dynamic_array(char,		name,	IFNAMSIZ	)
-> 
-> For string fields we have a __string macro:
-> 
-> 		__string(	char,			name		)
-> 
-Yeah, I was going to use that, but I ran into an issue, in that the __string
-macro expects, as its second of two arguments, a pointer to a string with witch
-to determine the dynamic arrays size.  The problem is that, if I'm to provide
-that, I need to point it to skb->dev->name, and there is no guarantee that
-skb->dev isn't NULL, at which point I think the use of string breaks down.  Note
-below that I obtain the dev pointer by other means and check its validity prior
-to assigning it.  If theres a better way to do this, please let me know.
- 
-> >  	),
-> >  
-> >  	TP_fast_assign(
-> > -		__entry->skbaddr = skb;
-> > +		struct net_device *dev = NULL;
-> > +		__entry->skb = skb;
-> >  		__entry->len = len;
-> > +		__entry->anid = page_to_nid(virt_to_page(skb->data));
-> > +		__entry->cnid = cpu_to_node(smp_processor_id());
-> > +		__entry->rx_queue = skb->queue_mapping;
-> > +		if (skb->sk) {
-> > +			dev = dev_get_by_index(sock_net(skb->sk), skb->iif);
-> > +		}
-> 
-> Nitpick, but this should still use normal Linux styling:
-> 
-> 		if (skb->sk)
-> 			dev = dev_get_by_index(sock_net(skb->sk), skb->iif);
-> 
-> 
-Sure
-> > +		if (dev) {
-> > +			__assign_str(name, dev->name);
-> > +			dev_put(dev);
-> > +		} else {
-> > +			__assign_str(name, "Unknown");
-> > +		}
-> 
-> And remove the extra braces here too.
-> 
-Sure
+>From: Jay Vosburgh <fubar@us.ibm.com>
+>Date: Fri, 28 Aug 2009 15:05:14 -0700
+>
+>> From: Nicolas de Peslo=C3=83=C2=BCan <nicolas.2p.debian@free.fr>
+>>=20
+>> max_bonds is of type int and cannot be greater than INT_MAX.
+>>=20
+>> Signed-off-by: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
+>> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+>
+>It seems you use two different encodings here for Nicolas's
+>last name, and thus the two-dotted 'u' comes out corrupted
+>in the From: field.
+>
+>This causes patchwork to not be able to parse the patch
+>and thus put it properly into the queue.  So all that's
+>in there are patches #1, #2 and #4.
 
-> >  	),
-> >  
-> > -	TP_printk("skbaddr=%p len=%d", __entry->skbaddr, __entry->len)
-> > +	TP_printk("skb=%p anid=%d cnid=%d len=%d rx_queue=%d name=%s",
-> > +			__entry->skb, __entry->anid, __entry->cnid,
-> > +			__entry->len, __entry->rx_queue, __get_str(name))
-> >  );
-> >  
-> >  #endif /* _TRACE_SKB_H */
-> > 
-> 
-> Other than that, this looks good.
-> 
-> Acked-by: Steven Rostedt <rostedt@goodmis.org>
-> 
-Thanks, Heres an updated patch with the nits fixed.  If you want to go over a
-better way to size strings when the source string isn't immediately available,
-I'll send  a subsequent patch to fix that
+	Hmm.  Does this one work any better?  I just copied the
+Signed-off-by text into the From: line.
 
-New version of the patch:
-
-Augment the skb_copy_datagram_iovec TRACE_EVENT to provide same data output as
-the ftracer for skb numa node correlation that was recently removed.
-
-Change notes:
-
-1) Cleaned up the nits Steven mentioned above
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+	-J
 
 
- skb.h |   24 +++++++++++++++++++++---
- 1 file changed, 21 insertions(+), 3 deletions(-)
+=46rom: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
+Date: Sat, 22 Aug 2009 14:17:21 +0200
+Subject: [PATCH REPOST net-next-2.6 3/4] bonding: Fix useless test: int=
+ > INT_MAX
+MIME-Version: 1.0
+Content-Type: text/plain; charset=3Dutf-8
+Content-Transfer-Encoding: 8bit
+
+max_bonds is of type int and cannot be greater than INT_MAX.
+
+Signed-off-by: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+---
+ drivers/net/bonding/bond_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
+_main.c
+index ed00ba9..6b9f15b 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4759,7 +4759,7 @@ static int bond_check_params(struct bond_params *=
+params)
+ 		params->ad_select =3D BOND_AD_STABLE;
+ 	}
+=20
+-	if (max_bonds < 0 || max_bonds > INT_MAX) {
++	if (max_bonds < 0) {
+ 		pr_warning(DRV_NAME
+ 		       ": Warning: max_bonds (%d) not in range %d-%d, so it "
+ 		       "was reset to BOND_DEFAULT_MAX_BONDS (%d)\n",
+--=20
+1.6.0.2
 
 
-diff --git a/include/trace/events/skb.h b/include/trace/events/skb.h
-index 4b2be6d..7d57bfa 100644
---- a/include/trace/events/skb.h
-+++ b/include/trace/events/skb.h
-@@ -7,6 +7,7 @@
- #include <linux/skbuff.h>
- #include <linux/netdevice.h>
- #include <linux/tracepoint.h>
-+#include <net/sock.h>
- 
- /*
-  * Tracepoint for free an sk_buff:
-@@ -42,16 +43,33 @@ TRACE_EVENT(skb_copy_datagram_iovec,
- 	TP_ARGS(skb, len),
- 
- 	TP_STRUCT__entry(
--		__field(	const void *,		skbaddr		)
-+		__field(	const struct sk_buff *,	skb		)
- 		__field(	int,			len		)
-+		__field(	int,			anid		)
-+		__field(	int,			cnid		)
-+		__field(	int,			rx_queue	)
-+		__dynamic_array(char,		name,	IFNAMSIZ	)
- 	),
- 
- 	TP_fast_assign(
--		__entry->skbaddr = skb;
-+		struct net_device *dev = NULL;
-+		__entry->skb = skb;
- 		__entry->len = len;
-+		__entry->anid = page_to_nid(virt_to_page(skb->data));
-+		__entry->cnid = cpu_to_node(smp_processor_id());
-+		__entry->rx_queue = skb->queue_mapping;
-+		if (skb->sk)
-+			dev = dev_get_by_index(sock_net(skb->sk), skb->iif);
-+		if (dev) {
-+			__assign_str(name, dev->name);
-+			dev_put(dev);
-+		} else
-+			__assign_str(name, "Unknown");
- 	),
- 
--	TP_printk("skbaddr=%p len=%d", __entry->skbaddr, __entry->len)
-+	TP_printk("skb=%p anid=%d cnid=%d len=%d rx_queue=%d name=%s",
-+			__entry->skb, __entry->anid, __entry->cnid,
-+			__entry->len, __entry->rx_queue, __get_str(name))
- );
- 
- #endif /* _TRACE_SKB_H */
-> 
-> 
-> 
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
