@@ -1,40 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2]: pkt_sched: Convert CBQ to tasklet_hrtimer.
-Date: Fri, 28 Aug 2009 12:30:35 -0700 (PDT)
-Message-ID: <20090828.123035.192913179.davem@davemloft.net>
-References: <20090821.170333.153413841.davem@davemloft.net>
-	<4A97FDCD.10208@gmail.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] pktgen: use proc_create_data()
+Date: Fri, 28 Aug 2009 23:47:21 +0400
+Message-ID: <20090828194721.GD14499@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tglx@linutronix.de
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49192
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752343AbZH1TaW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2009 15:30:22 -0400
-In-Reply-To: <4A97FDCD.10208@gmail.com>
+Received: from mail-ew0-f206.google.com ([209.85.219.206]:44313 "EHLO
+	mail-ew0-f206.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752680AbZH1TrZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2009 15:47:25 -0400
+Received: by ewy2 with SMTP id 2so2430056ewy.17
+        for <netdev@vger.kernel.org>; Fri, 28 Aug 2009 12:47:26 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 28 Aug 2009 17:54:53 +0200
+It looks like after rename device proc entry is unusable,
+because of no ->read_proc or ->proc_fops.
 
-> I now have these dmesg warnings when playing with cbq
-> 
-> # tc qdisc del dev eth3 root
-> # tc qdisc add dev eth3 root handle 1: est 1sec 8sec cbq avpkt 1000 rate 1000Mbit bandwidth 1000Mbit
-> # tc qdisc del dev eth3 root
-> 
-> [12786.458485] Attempt to kill tasklet from interrupt
-> [12786.458522] Attempt to kill tasklet from interrupt
-> [12786.465261] Attempt to kill tasklet from interrupt
-> [12786.465286] Attempt to kill tasklet from interrupt
-> 
-> probably becauce cbq_reset() being called from interrupt context ?
+And create_proc_entry() is deprecated.
 
-Grumble... I guess the tasklet_hrtimer infrastructure is less
-of a direct plugin replacement for plain hrtimers than I thought.
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-Anyone have any ideas about how to deal with stuff like this?
+ net/core/pktgen.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -1873,8 +1873,10 @@ static void pktgen_change_name(struct net_device *dev)
+ 
+ 			remove_proc_entry(pkt_dev->entry->name, pg_proc_dir);
+ 
+-			pkt_dev->entry = create_proc_entry(dev->name, 0600,
+-							   pg_proc_dir);
++			pkt_dev->entry = proc_create_data(dev->name, 0600,
++							  pg_proc_dir,
++							  &pktgen_if_fops,
++							  pkt_dev);
+ 			if (!pkt_dev->entry)
+ 				printk(KERN_ERR "pktgen: can't move proc "
+ 				       " entry for '%s'\n", dev->name);
