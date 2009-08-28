@@ -1,8 +1,7 @@
 From: Eric Paris <eparis@redhat.com>
-Subject: [PATCH 8/9] fanotify: userspace can add and remove fsnotify inode
-	marks
-Date: Fri, 28 Aug 2009 14:56:34 -0400
-Message-ID: <20090828185633.8014.17597.stgit@paris.rdu.redhat.com>
+Subject: [PATCH 9/9] fanotify: send events to userspace over socket reads
+Date: Fri, 28 Aug 2009 14:56:41 -0400
+Message-ID: <20090828185641.8014.1349.stgit@paris.rdu.redhat.com>
 References: <20090828185542.8014.22791.stgit@paris.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,245 +10,349 @@ Cc: davem@davemloft.net, viro@zeniv.linux.org.uk, alan@linux.intel.com,
 	hch@infradead.org
 To: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4711 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751852AbZH1S4k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Aug 2009 14:56:40 -0400
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 In-Reply-To: <20090828185542.8014.22791.stgit@paris.rdu.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Using setsockopt a user can add or remove fsnotify marks on inodes.  These
-marks are used to determine which events for which inode are to be sent to
-userspace.  They are very similar in nature to inotify_add_watch and
-inotify_rm_watch.
+fanotify sends event notification to userspace when userspace reads from the
+fanotify socket. This patch implements the operations that happen at read
+time.  These include opening the file descriptor to the original object and
+then filling the userspace buffer.  The fd should be pollable to indicate when
+it has data present and it should return how much data it has to send when the
+FIONREAD ioctl is checked.
 
 Signed-off-by: Eric Paris <eparis@redhat.com>
 ---
 
- fs/notify/fanotify/af_fanotify.c |  169 ++++++++++++++++++++++++++++++++++++++
- include/linux/fanotify.h         |   10 ++
- 2 files changed, 178 insertions(+), 1 deletions(-)
+ fs/notify/fanotify/af_fanotify.c |  230 ++++++++++++++++++++++++++++++++++++++
+ fs/notify/fanotify/fanotify.h    |    5 +
+ include/linux/fanotify.h         |   22 ++++
+ 3 files changed, 255 insertions(+), 2 deletions(-)
 
 diff --git a/fs/notify/fanotify/af_fanotify.c b/fs/notify/fanotify/af_fanotify.c
-index d7bf658..ac6aee1 100644
+index ac6aee1..cefd108 100644
 --- a/fs/notify/fanotify/af_fanotify.c
 +++ b/fs/notify/fanotify/af_fanotify.c
-@@ -17,6 +17,7 @@
+@@ -2,6 +2,7 @@
+ #include <linux/fdtable.h>
+ #include <linux/file.h>
+ #include <linux/fsnotify_backend.h>
++#include <linux/ima.h> /* ima_path_check */
+ #include <linux/init.h>
+ #include <linux/kernel.h> /* UINT_MAX */
+ #include <linux/mount.h> /* mntget() */
+@@ -16,6 +17,8 @@
+ #include "fanotify.h"
  #include "af_fanotify.h"
  
++#include <asm/ioctls.h>
++
  static const struct proto_ops fanotify_proto_ops;
-+static struct kmem_cache *fanotify_mark_cache __read_mostly;
+ static struct kmem_cache *fanotify_mark_cache __read_mostly;
  
- static struct proto fanotify_proto = {
- 	.name     = "FANOTIFY",
-@@ -113,6 +114,170 @@ static int fan_bind(struct socket *sock, struct sockaddr *addr, int addr_len)
+@@ -114,6 +117,36 @@ static int fan_bind(struct socket *sock, struct sockaddr *addr, int addr_len)
  	return 0;
  }
  
-+static void fanotify_free_mark(struct fsnotify_mark_entry *entry)
-+{
-+	kmem_cache_free(fanotify_mark_cache, entry);
-+}
-+
-+static int fanotify_remove_inode_mark(struct fsnotify_group *group,
-+				      struct fanotify_so_inode_mark *so_inode_mark)
-+{
-+	struct fsnotify_mark_entry *entry;
-+	struct file *file;
-+	struct inode *inode;
-+	int fput_needed, ret = 0;
-+
-+	ret = -EBADF;
-+	file = fget_light(so_inode_mark->fd, &fput_needed);
-+	if (!file)
-+		goto out;
-+
-+	inode = file->f_path.dentry->d_inode;
-+
-+	spin_lock(&inode->i_lock);
-+	entry = fsnotify_find_mark_entry(group, inode);
-+	spin_unlock(&inode->i_lock);
-+
-+	ret = -ENOENT;
-+	if (!entry)
-+		goto out_fput;
-+
-+	ret = 0;
-+
-+	fsnotify_destroy_mark_by_entry(entry);
-+
-+	/* matches the fsnotify_find_mark_entry() */
-+	fsnotify_put_mark(entry);
-+
-+	fsnotify_recalc_group_mask(group);
-+out_fput:
-+	fput_light(file, fput_needed);
-+out:
-+	return ret;
-+}
-+
-+static int fanotify_add_inode_mark(struct fsnotify_group *group,
-+				   struct fanotify_so_inode_mark *so_inode_mark)
-+{
-+	struct fsnotify_mark_entry *entry;
-+	struct file *file;
-+	struct inode *inode;
-+	__u32 old_mask, new_mask;
-+	int fput_needed, ret;
-+
-+	ret = -EINVAL;
-+	if (!fanotify_is_mask_valid(so_inode_mark->mask))
-+		goto out;
-+
-+	ret = -EBADF;
-+	file = fget_light(so_inode_mark->fd, &fput_needed);
-+	if (!file)
-+		goto out;
-+
-+	inode = file->f_path.dentry->d_inode;
-+
-+	spin_lock(&inode->i_lock);
-+	entry = fsnotify_find_mark_entry(group, inode);
-+	spin_unlock(&inode->i_lock);
-+
-+	if (!entry) {
-+		struct fsnotify_mark_entry *new_entry;
-+
-+		ret = -ENOMEM;
-+		new_entry = kmem_cache_alloc(fanotify_mark_cache, GFP_KERNEL);
-+		if (!new_entry)
-+			goto out_fput;
-+
-+		fsnotify_init_mark(new_entry, fanotify_free_mark);
-+		ret = fsnotify_add_mark(new_entry, group, inode, 0);
-+		if (ret) {
-+			fanotify_free_mark(new_entry);
-+			goto out_fput;
-+		}
-+
-+		entry = new_entry;
-+	}
-+
-+	ret = 0;
-+
-+	spin_lock(&entry->lock);
-+	old_mask = entry->mask;
-+	entry->mask |= so_inode_mark->mask;
-+	new_mask = entry->mask;
-+	spin_unlock(&entry->lock);
-+
-+	/* we made changes to a mask, update the group mask and the inode mask
-+	 * so things happen quickly. */
-+	if (old_mask != new_mask) {
-+		/* more bits in old than in new? */
-+		int dropped = (old_mask & ~new_mask);
-+		/* more bits in this entry than the inode's mask? */
-+		int do_inode = (new_mask & ~inode->i_fsnotify_mask);
-+		/* more bits in this entry than the group? */
-+		int do_group = (new_mask & ~group->mask);
-+
-+		/* update the inode with this new entry */
-+		if (dropped || do_inode)
-+			fsnotify_recalc_inode_mask(inode);
-+
-+		/* update the group mask with the new mask */
-+		if (dropped || do_group)
-+			fsnotify_recalc_group_mask(group);
-+	}
-+
-+	/* match the init or the find.... */
-+	fsnotify_put_mark(entry);
-+
-+out_fput:
-+	fput_light(file, fput_needed);
-+out:
-+	return ret;
-+}
-+
-+static int fan_setsockopt(struct socket *sock, int level, int optname,
-+			  char __user *optval, int optlen)
++static int fan_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 +{
 +	struct fanotify_sock *fan_sock;
 +	struct fsnotify_group *group;
-+	size_t copy_len;
-+
-+	union {
-+		struct fanotify_so_inode_mark inode_mark;
-+	} data;
-+	int ret = 0;
++	struct fsnotify_event_holder *holder;
++	void __user *p;
++	int ret = -ENOTTY;
++	size_t send_len = 0;
 +
 +	if (sock->state != SS_CONNECTED)
 +		return -EBADF;
 +
-+	if (level != SOL_FANOTIFY)
-+		return -ENOPROTOOPT;
++	fan_sock = fan_sk(sock->sk);
++	group = fan_sock->group;
++
++	p = (void __user *) arg;
++
++	switch (cmd) {
++	case FIONREAD:
++		mutex_lock(&group->notification_mutex);
++		list_for_each_entry(holder, &group->notification_list, event_list)
++			send_len += FAN_EVENT_METADATA_LEN;
++		mutex_unlock(&group->notification_mutex);
++		ret = put_user(send_len, (int __user *) p);
++		break;
++	}
++
++	return ret;
++}
++
+ static void fanotify_free_mark(struct fsnotify_mark_entry *entry)
+ {
+ 	kmem_cache_free(fanotify_mark_cache, entry);
+@@ -278,6 +311,199 @@ static int fan_setsockopt(struct socket *sock, int level, int optname,
+ 	return ret;
+ }
+ 
++/*
++ * Get an fsnotify notification event if one exists and is small
++ * enough to fit in "count". Return an error pointer if the count
++ * is not large enough.
++ *
++ * Called with the group->notification_mutex held.
++ */
++static struct fsnotify_event *get_one_event(struct fsnotify_group *group,
++					    size_t count)
++{
++	BUG_ON(!mutex_is_locked(&group->notification_mutex));
++
++	if (fsnotify_notify_queue_is_empty(group))
++		return NULL;
++
++	if (FAN_EVENT_METADATA_LEN > count)
++		return ERR_PTR(-EINVAL);
++
++	/* held the notification_mutex the whole time, so this is the
++	 * same event we peeked above */
++	return fsnotify_remove_notify_event(group);
++}
++
++static int create_and_fill_fd(struct fsnotify_group *group,
++			      struct fanotify_event_metadata *metadata,
++			      struct fsnotify_event *event)
++{
++	int client_fd, err;
++	struct dentry *dentry;
++	struct vfsmount *mnt;
++	struct file *new_file;
++
++	client_fd = get_unused_fd();
++	if (client_fd < 0)
++		return client_fd;
++
++	if (event->data_type != FSNOTIFY_EVENT_PATH) {
++		WARN_ON(1);
++		put_unused_fd(client_fd);
++		return -EINVAL;
++	}
++
++	/*
++	 * we need a new file handle for the userspace program so it can read even if it was
++	 * originally opened O_WRONLY.
++	 */
++	dentry = dget(event->path.dentry);
++	mnt = mntget(event->path.mnt);
++	/* it's possible this event was an overflow event.  in that case dentry and mnt
++	 * are NULL;  That's fine, just don't call dentry open */
++	if (dentry && mnt) {
++		err = ima_path_check(&event->path, MAY_READ, IMA_COUNT_UPDATE);
++		if (err)
++			new_file = ERR_PTR(err);
++		else {
++			current->flags |= PF_NONOTIFY;
++			new_file = dentry_open(dentry, mnt, O_RDONLY | O_LARGEFILE,
++					       current_cred());
++			current->flags &= ~PF_NONOTIFY;
++		}
++	} else
++		new_file = ERR_PTR(-EOVERFLOW);
++	if (IS_ERR(new_file)) {
++		/*
++		 * we still send an event even if we can't open the file.  this
++		 * can happen when say tasks are gone and we try to open their
++		 * /proc entries or we try to open a WRONLY file like in sysfs
++		 * we just send the errno to userspace since there isn't much
++		 * else we can do.
++		 */
++		put_unused_fd(client_fd);
++		client_fd = PTR_ERR(new_file);
++	} else {
++		new_file->f_mode |= FMODE_NONOTIFY;
++		fd_install(client_fd, new_file);
++	}
++
++	metadata->fd = client_fd;
++
++	return 0;
++}
++
++static ssize_t fill_event_metadata(struct fsnotify_group *group,
++				   struct fanotify_event_metadata *metadata,
++				   struct fsnotify_event *event)
++{
++	pr_debug("%s: \n", __func__);
++
++	metadata->event_len = FAN_EVENT_METADATA_LEN;
++	metadata->mask = fanotify_outgoing_mask(event->mask);
++
++	return create_and_fill_fd(group, metadata, event);
++
++}
++
++static ssize_t copy_event_to_iov(struct fsnotify_group *group,
++				 struct fsnotify_event *event,
++				 struct iovec *iov)
++{
++	struct fanotify_event_metadata fanotify_event_metadata;
++	int ret;
++
++	pr_debug("%s: \n", __func__);
++
++	ret = fill_event_metadata(group, &fanotify_event_metadata, event);
++	if (ret)
++		return ret;
++
++	/* send the main event */
++	ret = memcpy_toiovec(iov, (unsigned char *)&fanotify_event_metadata,
++			     FAN_EVENT_METADATA_LEN);
++	if (ret < 0)
++		return ret;
++
++	return FAN_EVENT_METADATA_LEN;
++}
++
++static ssize_t fan_recv_events(struct fsnotify_group *group, struct msghdr *msg,
++				int count, int nonblock)
++{
++	struct fsnotify_event *event;
++	int ret, len_sent = 0;
++	DEFINE_WAIT(wait);
++
++	pr_debug("%s: \n", __func__);
++
++	while (1) {
++		prepare_to_wait(&group->notification_waitq, &wait, TASK_INTERRUPTIBLE);
++
++		mutex_lock(&group->notification_mutex);
++		event = get_one_event(group, count);
++		mutex_unlock(&group->notification_mutex);
++
++		if (event) {
++			ret = PTR_ERR(event);
++			if (IS_ERR(event))
++				break;
++
++			ret = copy_event_to_iov(group, event, msg->msg_iov);
++			fsnotify_put_event(event);
++			if (ret < 0)
++				break;
++			len_sent += ret;
++			count -= ret;
++			continue;
++		}
++
++		ret = -EAGAIN;
++		if (nonblock)
++			break;
++		ret = -EINTR;
++		if (signal_pending(current))
++			break;
++
++		if (len_sent)
++			break;
++
++		schedule();
++	}
++
++	finish_wait(&group->notification_waitq, &wait);
++	if (len_sent && ret != -EFAULT)
++		ret = len_sent;
++	return ret;
++}
++
++static int fan_recvmsg(struct kiocb *iocb, struct socket *sock,
++		       struct msghdr *msg, size_t size, int flags)
++{
++	struct fanotify_sock *fan_sock;
++	struct fsnotify_group *group;
++	int nonblock;
++
++	pr_debug("%s: \n", __func__);
++
++	if (sock->state != SS_CONNECTED)
++		return -EBADF;
++
++	if (size < FAN_EVENT_METADATA_LEN)
++		return -ENOMEM;
 +
 +	fan_sock = fan_sk(sock->sk);
 +	group = fan_sock->group;
 +
-+	copy_len = min(optlen, (int)sizeof(data));
-+	ret = copy_from_user(&data, optval, copy_len);
-+	if (ret)
-+		return ret;
++	/* hey, nonblock no matter how they ask */
++	nonblock = !!(sock->file->f_flags & O_NONBLOCK);
++	nonblock |= !!(flags & MSG_DONTWAIT);
 +
-+	switch (optname) {
-+	case FANOTIFY_SET_MARK:
-+	case FANOTIFY_REMOVE_MARK:
-+		if (optlen < sizeof(struct fanotify_so_inode_mark))
-+			return -ENOMEM;
++	size = fan_recv_events(group, msg, size, nonblock);
 +
-+		if (optname == FANOTIFY_SET_MARK)
-+			ret = fanotify_add_inode_mark(group, &data.inode_mark);
-+		else if (optname == FANOTIFY_REMOVE_MARK)
-+			ret = fanotify_remove_inode_mark(group, &data.inode_mark);
-+		break;
-+	default:
-+		return -ENOPROTOOPT;
-+	}
-+
-+	return ret;
++	return size;
 +}
 +
  static const struct net_proto_family fanotify_family_ops = {
  	.family		=	PF_FANOTIFY,
  	.create		=	fan_sock_create,
-@@ -132,7 +297,7 @@ static const struct proto_ops fanotify_proto_ops = {
- 	.ioctl =	sock_no_ioctl,
+@@ -294,13 +520,13 @@ static const struct proto_ops fanotify_proto_ops = {
+ 	.accept =	sock_no_accept,
+ 	.getname =	sock_no_getname,
+ 	.poll =		sock_no_poll,
+-	.ioctl =	sock_no_ioctl,
++	.ioctl =	fan_ioctl,
  	.listen =	sock_no_listen,
  	.shutdown =	sock_no_shutdown,
--	.setsockopt =	sock_no_setsockopt,
-+	.setsockopt =	fan_setsockopt,
+ 	.setsockopt =	fan_setsockopt,
  	.getsockopt =	sock_no_getsockopt,
  	.sendmsg =	sock_no_sendmsg,
- 	.recvmsg =	sock_no_recvmsg,
-@@ -142,6 +307,8 @@ static const struct proto_ops fanotify_proto_ops = {
- 
- static int __init fanotify_init(void)
- {
-+	fanotify_mark_cache = KMEM_CACHE(fsnotify_mark_entry, SLAB_PANIC);
+-	.recvmsg =	sock_no_recvmsg,
++	.recvmsg =	fan_recvmsg,
+ 	.mmap =		sock_no_mmap,
+ 	.sendpage =	sock_no_sendpage,
+ };
+diff --git a/fs/notify/fanotify/fanotify.h b/fs/notify/fanotify/fanotify.h
+index 6c7bf06..4a5c785 100644
+--- a/fs/notify/fanotify/fanotify.h
++++ b/fs/notify/fanotify/fanotify.h
+@@ -12,3 +12,8 @@ static inline bool fanotify_is_mask_valid(__u32 mask)
+ 		return false;
+ 	return true;
+ }
 +
- 	if (proto_register(&fanotify_proto, 0))
- 		panic("unable to register fanotify protocol with network stack\n");
- 
++static inline __u32 fanotify_outgoing_mask(__u32 mask)
++{
++	return mask & FAN_ALL_OUTGOING_EVENTS;
++}
 diff --git a/include/linux/fanotify.h b/include/linux/fanotify.h
-index 31fa74d..db96dd8 100644
+index db96dd8..f44a668 100644
 --- a/include/linux/fanotify.h
 +++ b/include/linux/fanotify.h
-@@ -53,6 +53,16 @@ struct fanotify_addr {
- 	__u32 unused[16];
- }  __attribute__((packed));
+@@ -35,6 +35,10 @@
+  */
+ #define FAN_ALL_INCOMING_EVENTS	(FAN_ALL_EVENTS |\
+ 				 FAN_EVENT_ON_CHILD)
++
++#define FAN_ALL_OUTGOING_EVENTS	(FAN_ALL_EVENTS |\
++				 FAN_Q_OVERFLOW)
++
+ #ifndef SOL_FANOTIFY
+ #define SOL_FANOTIFY	278
+ #endif
+@@ -63,6 +67,24 @@ struct fanotify_so_inode_mark {
+ #define FANOTIFY_SET_MARK	1
+ #define FANOTIFY_REMOVE_MARK	2
  
-+/* struct used for FANOTIFY_SET_MARK */
-+struct fanotify_so_inode_mark {
++struct fanotify_event_metadata {
++	__u32 event_len;
 +	__s32 fd;
 +	__u32 mask;
 +}  __attribute__((packed));
 +
-+/* fanotify setsockopt optvals */
-+#define FANOTIFY_SET_MARK	1
-+#define FANOTIFY_REMOVE_MARK	2
++
++/* Helper functions to deal with fanotify_event_metadata buffers */
++#define FAN_EVENT_METADATA_LEN	(sizeof(struct fanotify_event_metadata))
++
++#define FAN_EVENT_NEXT(meta, len) ((len) -= (meta)->event_len, \
++				   (struct fanotify_event_metadata*)(((char *)(meta)) + \
++				   (meta)->event_len))
++
++#define FAN_EVENT_OK(meta, len)	((long)(len) >= (long)FAN_EVENT_METADATA_LEN && \
++				 (long)(meta)->event_len >= (long)FAN_EVENT_METADATA_LEN && \
++				 (long)(meta)->event_len <= (long)(len))
 +
  #ifdef __KERNEL__
  
