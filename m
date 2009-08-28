@@ -1,7 +1,8 @@
 From: Eric Paris <eparis@redhat.com>
-Subject: [PATCH 1/9] task_struct: add PF_NONOTIFY for fanotify to use
-Date: Fri, 28 Aug 2009 14:55:42 -0400
-Message-ID: <20090828185542.8014.22791.stgit@paris.rdu.redhat.com>
+Subject: [PATCH 2/9] vfs: introduce FMODE_NONOTIFY
+Date: Fri, 28 Aug 2009 14:55:50 -0400
+Message-ID: <20090828185549.8014.66446.stgit@paris.rdu.redhat.com>
+References: <20090828185542.8014.22791.stgit@paris.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,34 +10,51 @@ Cc: davem@davemloft.net, viro@zeniv.linux.org.uk, alan@linux.intel.com,
 	hch@infradead.org
 To: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	netdev@vger.kernel.org
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752264AbZH1S4A@vger.kernel.org>
+In-Reply-To: <20090828185542.8014.22791.stgit@paris.rdu.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since fanotify opens file descriptors inside the kernel for it's listeners
-it needs a way to make sure that 2 fanotify listeners, both which listen to
-open events do not continuously see each others open events (and get into a
-livelock reporting on each other's activity).  This fix is to create a new
-tast_struct flags called PF_NONOTIFY.  If this flag is set in a task no
-fanotify events will be generated for that task.   fanotify will set the
-flag before and open call and will clear it immediately after.
+This is a new f_mode which can only be set by the kernel.  It indicates
+that the fd was opened by fanotify and should not cause future fanotify
+events.  This is needed to prevent fanotify livelock.  An example of
+obvious livelock is from fanotify close events.
+
+Process A closes file1
+This creates a close event for file1.
+fanotify opens file1 for Listener X
+Listener X deals with the event and closes its fd for file1.
+This creates a close event for file1.
+fanotify opens file1 for Listener X
+Listener X deals with the event and closes its fd for file1.
+This creates a close event for file1.
+fanotify opens file1 for Listener X
+Listener X deals with the event and closes its fd for file1.
+notice a pattern?
+
+The fix is to add the FMODE_NONOTIFY bit to the open filp done by the kernel
+for fanotify.  Thus when that file is used it will not generate future
+events.
+
+This patch simply defines the bit.
 
 Signed-off-by: Eric Paris <eparis@redhat.com>
 ---
 
- include/linux/sched.h |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ include/linux/fs.h |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index b88872f..3c1ce66 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -1695,6 +1695,7 @@ extern cputime_t task_gtime(struct task_struct *p);
- #define PF_EXITING	0x00000004	/* getting shut down */
- #define PF_EXITPIDONE	0x00000008	/* pi exit done on shut down */
- #define PF_VCPU		0x00000010	/* I'm a virtual CPU */
-+#define PF_NONOTIFY	0x00000020	/* In fanotify open operation */
- #define PF_FORKNOEXEC	0x00000040	/* forked but didn't exec */
- #define PF_MCE_PROCESS  0x00000080      /* process policy on mce errors */
- #define PF_SUPERPRIV	0x00000100	/* used super-user privileges */
-
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+index 6e3a32d..c3d7b8b 100644
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -87,6 +87,9 @@ struct inodes_stat_t {
+  */
+ #define FMODE_NOCMTIME		((__force fmode_t)2048)
+ 
++/* File was opened by fanotify and shouldn't generate fanotify events */
++#define FMODE_NONOTIFY		((__force fmode_t)4096)
++
+ /*
+  * The below are the various read and write types that we support. Some of
+  * them include behavioral modifiers that send information down to the
