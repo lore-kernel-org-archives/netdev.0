@@ -1,37 +1,39 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
-Date: Fri, 28 Aug 2009 12:24:59 -0700 (PDT)
-Message-ID: <20090828.122459.245170385.davem@davemloft.net>
-References: <alpine.DEB.1.10.0908271139450.14277@gentwo.org>
-	<alpine.DEB.1.10.0908271621260.28029@gentwo.org>
-	<alpine.DEB.1.10.0908280948320.3747@gentwo.org>
+Date: Fri, 28 Aug 2009 12:26:58 -0700 (PDT)
+Message-ID: <20090828.122658.188210079.davem@davemloft.net>
+References: <alpine.DEB.1.10.0908280948320.3747@gentwo.org>
+	<4A97F2B4.7030900@gmail.com>
+	<alpine.DEB.1.10.0908281211150.7317@gentwo.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sri@us.ibm.com, dlstevens@us.ibm.com, eric.dumazet@gmail.com,
+Cc: eric.dumazet@gmail.com, sri@us.ibm.com, dlstevens@us.ibm.com,
 	netdev@vger.kernel.org, niv@linux.vnet.ibm.com
 To: cl@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43871
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49187
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752645AbZH1TYp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2009 15:24:45 -0400
-In-Reply-To: <alpine.DEB.1.10.0908280948320.3747@gentwo.org>
+	by vger.kernel.org with ESMTP id S1752469AbZH1T0o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2009 15:26:44 -0400
+In-Reply-To: <alpine.DEB.1.10.0908281211150.7317@gentwo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Christoph Lameter <cl@linux-foundation.org>
-Date: Fri, 28 Aug 2009 09:53:40 -0400 (EDT)
+Date: Fri, 28 Aug 2009 12:15:39 -0400 (EDT)
 
-> Seems though that the qdisc drop count does not flow into the tx_dropped
-> counter for the interface.
+> Because you need drop statistics on a device to figure out when you may
+> want to increase the TX buffers for a device. If a packet was dropped
+> because of a lack of TX buffers then we need to know.
 
-And it should not.
+Christoph, the qdisc layer is there and is where the drops occur, and
+you therefore have to be aware of it.
 
-The qdisc drops the packet due to flow control, not the hardware
-device.
+I'm not accepting changes like the patch you propose here, it's not
+the correct thing to do.
 
-Device drops are for things like transmission errors on the wire.
+The device never saw the packet, it never dropped it.
 
-If you start incrementing tx_dropped here, people won't be able
-to tell they have a deteriorating cable or bad switch or similar.
+The qdisc saw it, the qdisc dropped it, and therefore that's where we
+account for it.
