@@ -1,58 +1,40 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [linux-pm] power draw depending on PHY speed
-Date: Fri, 28 Aug 2009 20:29:07 +0100
-Message-ID: <1251487747.2785.13.camel@achroite>
-References: <76FA3B279DD9DA48896E2B40494495720368E449@USA7061MS02.na.xerox.net>
-	 <200908282103.59159.rjw@sisk.pl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2]: pkt_sched: Convert CBQ to tasklet_hrtimer.
+Date: Fri, 28 Aug 2009 12:30:35 -0700 (PDT)
+Message-ID: <20090828.123035.192913179.davem@davemloft.net>
+References: <20090821.170333.153413841.davem@davemloft.net>
+	<4A97FDCD.10208@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Leisner, Martin" <Martin.Leisner@xerox.com>,
-	linux-pm@lists.linux-foundation.org, martyleisner@yahoo.com,
-	NetDEV list <netdev@vger.kernel.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Cc: netdev@vger.kernel.org, tglx@linutronix.de
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:39199 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752316AbZH1T3M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2009 15:29:12 -0400
-In-Reply-To: <200908282103.59159.rjw@sisk.pl>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49192
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752343AbZH1TaW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2009 15:30:22 -0400
+In-Reply-To: <4A97FDCD.10208@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-08-28 at 21:03 +0200, Rafael J. Wysocki wrote:
-> On Friday 28 August 2009, Leisner, Martin wrote:
-> > While doing some current probe measurements (i.e. to measure the effects
-> > of NAP and frequency scaling with a freescale processor) I noticed some
-> > very
-> > significant differents if we ran on 100Mbit of 1000Mbit ethernet.
-> > 
-> > The hardware guys like at their data sheets and agreed.
-> > 
-> > Does anyone "drop ethernet speed" to save power?
-> > (when a system is idle, is isn't necessary to run 1G ethernet).
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 28 Aug 2009 17:54:53 +0200
+
+> I now have these dmesg warnings when playing with cbq
 > 
-> I don't know, really.  This is a netdev question IMO (CC added).
-
-Doing this through the existing autonegotiation mechanism is a bad idea,
-because it requires bringing the link down, possibly for a few seconds.
-There is a standard on the way (802.3az, aka Energy-Efficient Ethernet
-or EEE) which will allow for speed renegotiation without dropping the
-link.
-
-> > When a system has WOL capability, what speed does it run at when the
-> > system is sleeping?
+> # tc qdisc del dev eth3 root
+> # tc qdisc add dev eth3 root handle 1: est 1sec 8sec cbq avpkt 1000 rate 1000Mbit bandwidth 1000Mbit
+> # tc qdisc del dev eth3 root
 > 
-> That's a very good question.  I bet that depends on the NIC in question, at
-> least I'm not sure if any spec regulates it.
+> [12786.458485] Attempt to kill tasklet from interrupt
+> [12786.458522] Attempt to kill tasklet from interrupt
+> [12786.465261] Attempt to kill tasklet from interrupt
+> [12786.465286] Attempt to kill tasklet from interrupt
+> 
+> probably becauce cbq_reset() being called from interrupt context ?
 
-I'm not aware of a spec, but generally a 1G or 10G multi-speed PHY will
-not advertise speeds higher than 100 Mbit/s when sleeping.
+Grumble... I guess the tasklet_hrtimer infrastructure is less
+of a direct plugin replacement for plain hrtimers than I thought.
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Anyone have any ideas about how to deal with stuff like this?
