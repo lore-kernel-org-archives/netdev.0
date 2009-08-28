@@ -1,85 +1,86 @@
-From: Damian Lukowski <damian@tvk.rwth-aachen.de>
-Subject: Re: TCP keepalive timer problem
-Date: Fri, 28 Aug 2009 09:05:44 +0200
-Message-ID: <4A9781C8.5030605@tvk.rwth-aachen.de>
-References: <0939B589FC103041945B9F13274963E303B1A9D4@CORPUSMX90A.corp.emc.com>
- <4A93E36C.8070502@gmail.com>
- <0939B589FC103041945B9F13274963E303B1AD89@CORPUSMX90A.corp.emc.com>
- <4A967FCE.3000807@gmail.com> <87skfdl6qt.fsf@basil.nowhere.org>
- <4A969566.3070606@gmail.com> <20090827142927.GA17220@basil.fritz.box>
- <4A969CDC.6060402@gmail.com>
- <0939B589FC103041945B9F13274963E303BA96BB@CORPUSMX90A.corp.emc.com>
+From: Yoshihiro Shimoda <shimoda.yoshihiro@renesas.com>
+Subject: [PATCH] net: sh_eth: add value of ether_link pin in platform_data
+Date: Fri, 28 Aug 2009 18:25:03 +0900
+Message-ID: <4A97A26F.4060904@renesas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7BIT
-Cc: eric.dumazet@gmail.com, andi@firstfloor.org, netdev@vger.kernel.org
-To: Li_Xin2@emc.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-2.ms.rz.RWTH-Aachen.DE ([134.130.7.73]:34693 "EHLO
-	mta-2.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751862AbZH1HFo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2009 03:05:44 -0400
-Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
- by mta-2.ms.rz.RWTH-Aachen.de
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
- with ESMTP id <0KP200HWKRPLHY70@mta-2.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Fri, 28 Aug 2009 09:05:45 +0200 (CEST)
-In-reply-to: <0939B589FC103041945B9F13274963E303BA96BB@CORPUSMX90A.corp.emc.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: SH-Linux <linux-sh@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Li_Xin2@emc.com schrieb:
->  > Yep, so to recap we have two changes :
-> 
->> 1) The one I sent (taking into account the time of last ACK we
-> received) to compute the
->> timer delays.
-> 
->> 2) The one you suggest, avoiding to send a probe if we have packets in
-> flight, relying
->> on normal retransmits timers.
-> 
-> I agree with these two changes, but I think the patch for point 2 given
-> by Eric is not correct:
-> 
-> 
-> elapsed = keepalive_time_when(tp);
-> 
->  if (tp->packets_out || tcp_send_head(sk))
->  	if (tcp_retries2_time < keepalive_time_when(tp))
->  		goto resched;
->  elapsed = tcp_time_stamp - tp->rcv_tstamp;
+The method of ETHER_LINK pin is board dependence.
+This patch adding paramters are:
+ - no_ether_link          : If set to 1, do not use ETHER_LINK
+ - ether_link_active_low  : If set to 1, ETHER_LINK is active low.
 
-Hello,
-I didn't follow the conversation in all details, but I submitted a series of
-patches recently, in which one of those the time was calculated out of
-tcp_retries. It's the post "[PATCH 3/3] Revert Backoff [v3]: Calculate TCP's
-connection close threshold as a time value." from Aug 26, 2009 at 12:16 CEST.
+Signed-off-by: Yoshihiro Shimoda <shimoda.yoshihiro@renesas.com>
+---
+ arch/sh/include/asm/sh_eth.h |    3 +++
+ drivers/net/sh_eth.c         |    6 +++++-
+ drivers/net/sh_eth.h         |    3 +++
+ 3 files changed, 11 insertions(+), 1 deletions(-)
 
-This is the code with the calculation procedure:
+diff --git a/arch/sh/include/asm/sh_eth.h b/arch/sh/include/asm/sh_eth.h
+index bb83258..acf9970 100644
+--- a/arch/sh/include/asm/sh_eth.h
++++ b/arch/sh/include/asm/sh_eth.h
+@@ -6,6 +6,9 @@ enum {EDMAC_LITTLE_ENDIAN, EDMAC_BIG_ENDIAN};
+ struct sh_eth_plat_data {
+ 	int phy;
+ 	int edmac_endian;
++
++	unsigned no_ether_link:1;
++	unsigned ether_link_active_low:1;
+ };
 
---
-> static inline bool retransmits_timed_out(const struct sock *sk,
-> 					 unsigned int boundary)
-> {
-> 	int limit, K;
-> 	if (!inet_csk(sk)->icsk_retransmits)
-> 		return false;
-> 
-> 	K = ilog2(TCP_RTO_MAX/TCP_RTO_MIN);
-> 
-> 	if (boundary <= K)
-> 		limit = ((2 << boundary) - 1) * TCP_RTO_MIN;
-> 	else
-> 		limit = ((2 << K) - 1) * TCP_RTO_MIN +
-> 			(boundary - K) * TCP_RTO_MAX;
-> 
-> 	return (tcp_time_stamp - tcp_sk(sk)->retrans_stamp) >= limit;
-> }
---
+ #endif
+diff --git a/drivers/net/sh_eth.c b/drivers/net/sh_eth.c
+index a2d82dd..793d4d9 100644
+--- a/drivers/net/sh_eth.c
++++ b/drivers/net/sh_eth.c
+@@ -772,13 +772,15 @@ static void sh_eth_error(struct net_device *ndev, int intr_status)
+ 			mdp->stats.tx_carrier_errors++;
+ 		if (felic_stat & ECSR_LCHNG) {
+ 			/* Link Changed */
+-			if (mdp->cd->no_psr) {
++			if (mdp->cd->no_psr || mdp->no_ether_link) {
+ 				if (mdp->link == PHY_DOWN)
+ 					link_stat = 0;
+ 				else
+ 					link_stat = PHY_ST_LINK;
+ 			} else {
+ 				link_stat = (ctrl_inl(ioaddr + PSR));
++				if (mdp->ether_link_active_low)
++					link_stat = ~link_stat;
+ 			}
+ 			if (!(link_stat & PHY_ST_LINK)) {
+ 				/* Link Down : disable tx and rx */
+@@ -1410,6 +1412,8 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 	mdp->phy_id = pd->phy;
+ 	/* EDMAC endian */
+ 	mdp->edmac_endian = pd->edmac_endian;
++	mdp->no_ether_link = pd->no_ether_link;
++	mdp->ether_link_active_low = pd->ether_link_active_low;
 
-Given some boundary like tcp_retries2, it computes a limit, which should
-be your tcp_retries2_time.
-If that's not what you meant, then I'm sorry, and you can ignore it. :)
+ 	/* set cpu data */
+ 	mdp->cd = &sh_eth_my_cpu_data;
+diff --git a/drivers/net/sh_eth.h b/drivers/net/sh_eth.h
+index 9afe5b4..ba151f8 100644
+--- a/drivers/net/sh_eth.h
++++ b/drivers/net/sh_eth.h
+@@ -729,6 +729,9 @@ struct sh_eth_private {
+ 	char post_rx;		/* POST receive */
+ 	char post_fw;		/* POST forward */
+ 	struct net_device_stats tsu_stats;	/* TSU forward status */
++
++	unsigned no_ether_link:1;
++	unsigned ether_link_active_low:1;
+ };
 
-Regards
+ static inline void sh_eth_soft_swap(char *src, int len)
+-- 
+1.5.5
+
