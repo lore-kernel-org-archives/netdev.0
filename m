@@ -1,284 +1,71 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: autosuspend for cdc-ether
-Date: Fri, 28 Aug 2009 15:54:55 +0200
-Message-ID: <200908281554.55780.oliver@neukum.org>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
+Date: Fri, 28 Aug 2009 09:53:40 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0908280948320.3747@gentwo.org>
+References: <OFB18AD855.24C5AC71-ON8825761D.00687D5E-8825761D.0068BB9C@us.ibm.com>  <alpine.DEB.1.10.0908251514190.17963@gentwo.org>  <1251239734.3169.65.camel@w-sridhar.beaverton.ibm.com>  <alpine.DEB.1.10.0908261223210.9933@gentwo.org>
+ <1251309040.10599.34.camel@w-sridhar.beaverton.ibm.com>  <alpine.DEB.1.10.0908261506590.9933@gentwo.org> <1251324666.10599.72.camel@w-sridhar.beaverton.ibm.com> <alpine.DEB.1.10.0908271139450.14277@gentwo.org>
+ <alpine.DEB.1.10.0908271621260.28029@gentwo.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>,
-	"Torgny Johansson" <torgny.johansson-IzeFyvvaP7pWk0Htik3J/w@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	niv@linux.vnet.ibm.com
+To: Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.ultrahosting.com ([74.213.174.253]:36155 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751570AbZH1NyD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2009 09:54:03 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 9221982C83F
+	for <netdev@vger.kernel.org>; Fri, 28 Aug 2009 09:55:10 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.253])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id lhs4w35OgnwQ for <netdev@vger.kernel.org>;
+	Fri, 28 Aug 2009 09:55:10 -0400 (EDT)
+Received: from gentwo.org (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 907A782C86D
+	for <netdev@vger.kernel.org>; Fri, 28 Aug 2009 09:55:03 -0400 (EDT)
+In-Reply-To: <alpine.DEB.1.10.0908271621260.28029@gentwo.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-this allows the use of remote wakeup to autosuspend online
-devices. What do you think?
+The qdisc drop counter is incremented in pfifo_fast. So Sridhar's patch is
+not necessary.
 
-	Regards
-		Oliver
+Seems though that the qdisc drop count does not flow into the tx_dropped
+counter for the interface. Incrementing the tx_dropped count in the
+netdev_queue associated with the outbound qdisc also had no effect (see
+the following patch).
 
---
+Plus I only see one queue for eth0 with "tc -s qdisc show". I think that
+what I see there is the queue for receiving packets. tc uses this ugly
+netlink interface. Could be a bug in there or in the netlink interface?
+Or is there some other trick to display queue statistics for outgoing
+packets?
 
-commit 7f2d9a0440f6453462bd7bf95f77eda17c16d865
-Author: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Date:   Fri Aug 28 15:49:15 2009 +0200
+WTH is going on here? Noone was ever interested in making outbound packet
+loss account right?
 
-    usb: usbnet: runtime power management for active connections
-    
-    Devices that support remote wakeup can be autosuspended even while the
-    interface is up. Transmissions are queued and processed after the device
-    has been woken up.
 
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index 4a6aff5..8ee5bd7 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -411,6 +411,12 @@ static int cdc_bind(struct usbnet *dev, struct usb_interface *intf)
- 	return 0;
+Index: linux-2.6.31-rc7/include/net/sch_generic.h
+===================================================================
+--- linux-2.6.31-rc7.orig/include/net/sch_generic.h	2009-08-27
+21:20:03.000000000 +0000
++++ linux-2.6.31-rc7/include/net/sch_generic.h	2009-08-27
+21:26:33.000000000 +0000
+@@ -509,6 +509,9 @@ static inline int qdisc_drop(struct sk_b
+ 	kfree_skb(skb);
+ 	sch->qstats.drops++;
+
++	/* device queue statistics */
++	sch->dev_queue->tx_dropped++;
++
+ 	return NET_XMIT_DROP;
  }
- 
-+static int cdc_manage_power(struct usbnet *dev, int on)
-+{
-+	dev->intf->needs_remote_wakeup = on;
-+	return 0;
-+}
-+
- static const struct driver_info	cdc_info = {
- 	.description =	"CDC Ethernet Device",
- 	.flags =	FLAG_ETHER,
-@@ -418,6 +424,7 @@ static const struct driver_info	cdc_info = {
- 	.bind =		cdc_bind,
- 	.unbind =	usbnet_cdc_unbind,
- 	.status =	cdc_status,
-+	.manage_power =	cdc_manage_power,
- };
- 
- /*-------------------------------------------------------------------------*/
-@@ -570,6 +577,7 @@ static struct usb_driver cdc_driver = {
- 	.disconnect =	usbnet_disconnect,
- 	.suspend =	usbnet_suspend,
- 	.resume =	usbnet_resume,
-+	.supports_autosuspend = 1,
- };
- 
- 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index edfd9e1..c21b3d2 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -575,6 +575,7 @@ EXPORT_SYMBOL_GPL(usbnet_unlink_rx_urbs);
- int usbnet_stop (struct net_device *net)
- {
- 	struct usbnet		*dev = netdev_priv(net);
-+	struct driver_info	*info = dev->driver_info;
- 	int			temp;
- 	DECLARE_WAIT_QUEUE_HEAD_ONSTACK (unlink_wakeup);
- 	DECLARE_WAITQUEUE (wait, current);
-@@ -612,7 +613,10 @@ int usbnet_stop (struct net_device *net)
- 	dev->flags = 0;
- 	del_timer_sync (&dev->delay);
- 	tasklet_kill (&dev->bh);
--	usb_autopm_put_interface(dev->intf);
-+	if (info->manage_power)
-+		info->manage_power(dev, 0);
-+	else
-+		usb_autopm_put_interface(dev->intf);
- 
- 	return 0;
- }
-@@ -693,6 +697,13 @@ int usbnet_open (struct net_device *net)
- 
- 	// delay posting reads until we're fully open
- 	tasklet_schedule (&dev->bh);
-+
-+	if (info->manage_power) {
-+		retval = info->manage_power(dev, 1);
-+		if (retval < 0)
-+			goto done;
-+		usb_autopm_put_interface(dev->intf);
-+	}
- 	return retval;
- done:
- 	usb_autopm_put_interface(dev->intf);
-@@ -822,6 +833,7 @@ kevent (struct work_struct *work)
- 	if (test_bit (EVENT_TX_HALT, &dev->flags)) {
- 		unlink_urbs (dev, &dev->txq);
- 		status = usb_clear_halt (dev->udev, dev->out);
-+		usb_autopm_put_interface(dev->intf);
- 		if (status < 0
- 				&& status != -EPIPE
- 				&& status != -ESHUTDOWN) {
-@@ -893,17 +905,20 @@ static void tx_complete (struct urb *urb)
- 	if (urb->status == 0) {
- 		dev->net->stats.tx_packets++;
- 		dev->net->stats.tx_bytes += entry->length;
-+		usb_autopm_put_interface_async(dev->intf);
- 	} else {
- 		dev->net->stats.tx_errors++;
- 
- 		switch (urb->status) {
- 		case -EPIPE:
-+			/* we do not allow autosuspension */
- 			usbnet_defer_kevent (dev, EVENT_TX_HALT);
- 			break;
- 
- 		/* software-driven interface shutdown */
- 		case -ECONNRESET:		// async unlink
- 		case -ESHUTDOWN:		// hardware gone
-+			usb_autopm_put_interface_async(dev->intf);
- 			break;
- 
- 		// like rx, tx gets controller i/o faults during khubd delays
-@@ -911,6 +926,7 @@ static void tx_complete (struct urb *urb)
- 		case -EPROTO:
- 		case -ETIME:
- 		case -EILSEQ:
-+			usb_mark_last_busy(dev->udev);
- 			if (!timer_pending (&dev->delay)) {
- 				mod_timer (&dev->delay,
- 					jiffies + THROTTLE_JIFFIES);
-@@ -919,8 +935,10 @@ static void tx_complete (struct urb *urb)
- 							urb->status);
- 			}
- 			netif_stop_queue (dev->net);
-+			usb_autopm_put_interface_async(dev->intf);
- 			break;
- 		default:
-+			usb_autopm_put_interface_async(dev->intf);
- 			if (netif_msg_tx_err (dev))
- 				devdbg (dev, "tx err %d", entry->urb->status);
- 			break;
-@@ -996,8 +1014,29 @@ int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
- 		}
- 	}
- 
-+	
-+
- 	spin_lock_irqsave (&dev->txq.lock, flags);
- 
-+	retval = usb_autopm_get_interface_async(dev->intf);
-+	if (retval < 0) {
-+		spin_unlock_irqrestore (&dev->txq.lock, flags);
-+		goto drop;
-+	}
-+
-+#ifdef CONFIG_PM
-+	/* if this triggers the device is still a sleep */
-+	if (test_bit(EVENT_DEV_ASLEEP, &dev->flags)) {
-+		/* transmission will be done in resume */
-+		dev->deferred = urb;
-+		/* no use to process more packets */
-+		netif_stop_queue(net);
-+		spin_unlock_irqrestore(&dev->txq.lock, flags);
-+		retval = NET_XMIT_SUCCESS;
-+		goto deferred;
-+	}
-+#endif
-+
- 	switch ((retval = usb_submit_urb (urb, GFP_ATOMIC))) {
- 	case -EPIPE:
- 		netif_stop_queue (net);
-@@ -1028,6 +1067,7 @@ drop:
- 		devdbg (dev, "> tx, len %d, type 0x%x",
- 			length, skb->protocol);
- 	}
-+deferred:
- 	return retval;
- }
- EXPORT_SYMBOL_GPL(usbnet_start_xmit);
-@@ -1303,6 +1343,15 @@ int usbnet_suspend (struct usb_interface *intf, pm_message_t message)
- 	struct usbnet		*dev = usb_get_intfdata(intf);
- 
- 	if (!dev->suspend_count++) {
-+		spin_lock_irq(&dev->txq.lock);
-+		/* don't autosuspend while transmitting */
-+		if (dev->txq.qlen && (message.event & PM_EVENT_AUTO)) {
-+			spin_unlock_irq(&dev->txq.lock);
-+			return -EBUSY;
-+		} else {
-+			set_bit(EVENT_DEV_ASLEEP, &dev->flags);
-+			spin_unlock_irq(&dev->txq.lock);
-+		}
- 		/*
- 		 * accelerate emptying of the rx and queues, to avoid
- 		 * having everything error out.
-@@ -1322,11 +1371,34 @@ EXPORT_SYMBOL_GPL(usbnet_suspend);
- 
- int usbnet_resume (struct usb_interface *intf)
- {
--	struct usbnet		*dev = usb_get_intfdata(intf);
--
--	if (!--dev->suspend_count)
-+	struct usbnet           *dev = usb_get_intfdata(intf);
-+	struct sk_buff          *skb;
-+	struct urb              *res;
-+	int                     retval;
-+	
-+	if (!--dev->suspend_count) {
-+		spin_lock_irq(&dev->txq.lock);
-+		res = dev->deferred;
-+		dev->deferred = NULL;
-+		clear_bit(EVENT_DEV_ASLEEP, &dev->flags);
-+		spin_unlock_irq(&dev->txq.lock);
-+		if (res) {
-+			retval = usb_submit_urb(res, GFP_NOIO);
-+			if (retval < 0) {
-+				usb_free_urb(res);
-+				netif_start_queue(dev->net);
-+				usb_autopm_put_interface_async(dev->intf);
-+			} else {
-+				skb = (struct sk_buff *)res->context;
-+				dev->net->trans_start = jiffies;
-+				__skb_queue_tail (&dev->txq, skb);
-+				if (!(dev->txq.qlen >= TX_QLEN(dev)))
-+					netif_start_queue(dev->net);
-+			}
-+		}
- 		tasklet_schedule (&dev->bh);
--
-+	}
-+	
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(usbnet_resume);
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index 310e18a..6fa0545 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -54,6 +54,7 @@ struct usbnet {
- 	struct sk_buff_head	txq;
- 	struct sk_buff_head	done;
- 	struct urb		*interrupt;
-+	struct urb		*deferred;
- 	struct tasklet_struct	bh;
- 
- 	struct work_struct	kevent;
-@@ -63,6 +64,8 @@ struct usbnet {
- #		define EVENT_RX_MEMORY	2
- #		define EVENT_STS_SPLIT	3
- #		define EVENT_LINK_RESET	4
-+#		define EVENT_DEV_WAKING 5
-+#		define EVENT_DEV_ASLEEP 6
- };
- 
- static inline struct usb_driver *driver_of(struct usb_interface *intf)
-@@ -100,6 +103,9 @@ struct driver_info {
- 	/* see if peer is connected ... can sleep */
- 	int	(*check_connect)(struct usbnet *);
- 
-+	/* (dis)activate runtime power management */
-+	int	(*manage_power)(struct usbnet *, int);
-+
- 	/* for status polling */
- 	void	(*status)(struct usbnet *, struct urb *);
- 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
