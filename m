@@ -1,58 +1,29 @@
-From: <Li_Xin2@emc.com>
-Subject: RE: TCP keepalive timer problem
-Date: Thu, 27 Aug 2009 21:55:35 -0400
-Message-ID: <0939B589FC103041945B9F13274963E303BA96BB@CORPUSMX90A.corp.emc.com>
-References: <0939B589FC103041945B9F13274963E303B1A9D4@CORPUSMX90A.corp.emc.com> <4A93E36C.8070502@gmail.com> <0939B589FC103041945B9F13274963E303B1AD89@CORPUSMX90A.corp.emc.com> <4A967FCE.3000807@gmail.com> <87skfdl6qt.fsf@basil.nowhere.org> <4A969566.3070606@gmail.com> <20090827142927.GA17220@basil.fritz.box> <4A969CDC.6060402@gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: igb/igbvf: Bandwidth Allocation
+Date: Fri, 28 Aug 2009 12:28:39 +1000
+Message-ID: <20090828022825.GD6724@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: <eric.dumazet@gmail.com>, <andi@firstfloor.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751301AbZH1B4Q@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <4A969CDC.6060402@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	John Ronciak <john.ronciak@intel.com>
+To: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:50787 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751193AbZH1C2j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2009 22:28:39 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
- > Yep, so to recap we have two changes :
+I am wondering if there is any work being done on implementing
+Bandwidth Allocation in the igb driver. By which I mean
+using the VMBACS, VMBAMMW, VMBASEL and VMBAC registers
+as per section 4.5.11.1.5 "Allocation of Tx Bandwidth to VM"
+in the "Intel 82576 Gigabit Ethernet Controller Datasheet" v2p41.
 
-> 1) The one I sent (taking into account the time of last ACK we
-received) to compute the
-> timer delays.
-
-> 2) The one you suggest, avoiding to send a probe if we have packets in
-flight, relying
-> on normal retransmits timers.
-
-I agree with these two changes, but I think the patch for point 2 given
-by Eric is not correct:
-
-
-elapsed = keepalive_time_when(tp);
-
- if (tp->packets_out || tcp_send_head(sk))
- 	if (tcp_retries2_time < keepalive_time_when(tp))
- 		goto resched;
- elapsed = tcp_time_stamp - tp->rcv_tstamp;
-
-
-The problem is: you should not always compare tcp_retries2_time with
-keepalive_time_when. If the first keepalive probe is already sent, you
-should compare with keepalive_intvl_when
- ( or keepalive_intvl_when * (
-tp->keepalive_probes?:sysctl_tcp_keepalive_probes -
-icsk->icsk_probes_out ) if keepalive probe is already sent, and the
-elapsed time also needs to take that into account.
-
-elapsed =
-icsk->icsk_probes_out?keepalive_intvl_when(tp):keepalive_time_when(tp);
-
- if (tp->packets_out || tcp_send_head(sk))
- 	if (tcp_retries2_time < (icsk->icsk_probes_out?
-keepalive_intvl_when(tp)  : keepalive_time_when(tp))
- 		goto resched;
- elapsed = tcp_time_stamp - tp->rcv_tstamp;
-
-How do you think?
