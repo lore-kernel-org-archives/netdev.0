@@ -1,50 +1,85 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
-Date: Fri, 28 Aug 2009 15:53:42 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0908281553190.17784@gentwo.org>
-References: <alpine.DEB.1.10.0908271139450.14277@gentwo.org> <alpine.DEB.1.10.0908271621260.28029@gentwo.org> <alpine.DEB.1.10.0908280948320.3747@gentwo.org> <20090828.122459.245170385.davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] skb: Augment skb_copy_datagram_iovec TRACE_EVENT to dump
+	more info
+Date: Fri, 28 Aug 2009 16:33:14 -0400
+Message-ID: <20090828203314.GA30417@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: sri@us.ibm.com, dlstevens@us.ibm.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, niv@linux.vnet.ibm.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, mingo@elte.hu, rostedt@goodmis.org,
+	nhorman@tuxdriver.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.ultrahosting.com ([74.213.174.253]:46632 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753109AbZH1UJs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2009 16:09:48 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 1A16B82C87B
-	for <netdev@vger.kernel.org>; Fri, 28 Aug 2009 16:11:03 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.174.253])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id tWnnlbccQDkd for <netdev@vger.kernel.org>;
-	Fri, 28 Aug 2009 16:10:58 -0400 (EDT)
-Received: from gentwo.org (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 0FF2582C7B4
-	for <netdev@vger.kernel.org>; Fri, 28 Aug 2009 16:10:54 -0400 (EDT)
-In-Reply-To: <20090828.122459.245170385.davem@davemloft.net>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:54662 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753081AbZH1UdU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2009 16:33:20 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 28 Aug 2009, David Miller wrote:
+Hey all-
+	As promised in our previous discussion, I've augmented the
+skb_copy_datagram_iovec TRACE_EVENT to dump out the info I was previously
+gathering in the ftrace module thats been removed.  This patch gives me
+everything I need.  Tested and working by me
 
-> From: Christoph Lameter <cl@linux-foundation.org>
-> Date: Fri, 28 Aug 2009 09:53:40 -0400 (EDT)
->
-> > Seems though that the qdisc drop count does not flow into the tx_dropped
-> > counter for the interface.
->
-> And it should not.
->
-> The qdisc drops the packet due to flow control, not the hardware
-> device.
->
-> Device drops are for things like transmission errors on the wire.
->
-> If you start incrementing tx_dropped here, people won't be able
-> to tell they have a deteriorating cable or bad switch or similar.
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-?? The patch does not do that. That was extra stuff not covered by the
-patch.
+Neil
 
+
+ skb.h |   26 +++++++++++++++++++++++---
+ 1 file changed, 23 insertions(+), 3 deletions(-)
+
+
+diff --git a/include/trace/events/skb.h b/include/trace/events/skb.h
+index 4b2be6d..45b9a3f 100644
+--- a/include/trace/events/skb.h
++++ b/include/trace/events/skb.h
+@@ -7,6 +7,7 @@
+ #include <linux/skbuff.h>
+ #include <linux/netdevice.h>
+ #include <linux/tracepoint.h>
++#include <net/sock.h>
+ 
+ /*
+  * Tracepoint for free an sk_buff:
+@@ -42,16 +43,35 @@ TRACE_EVENT(skb_copy_datagram_iovec,
+ 	TP_ARGS(skb, len),
+ 
+ 	TP_STRUCT__entry(
+-		__field(	const void *,		skbaddr		)
++		__field(	const struct sk_buff *,	skb		)
+ 		__field(	int,			len		)
++		__field(	int,			anid		)
++		__field(	int,			cnid		)
++		__field(	int,			rx_queue	)
++		__dynamic_array(char,		name,	IFNAMSIZ	)
+ 	),
+ 
+ 	TP_fast_assign(
+-		__entry->skbaddr = skb;
++		struct net_device *dev = NULL;
++		__entry->skb = skb;
+ 		__entry->len = len;
++		__entry->anid = page_to_nid(virt_to_page(skb->data));
++		__entry->cnid = cpu_to_node(smp_processor_id());
++		__entry->rx_queue = skb->queue_mapping;
++		if (skb->sk) {
++			dev = dev_get_by_index(sock_net(skb->sk), skb->iif);
++		}
++		if (dev) {
++			__assign_str(name, dev->name);
++			dev_put(dev);
++		} else {
++			__assign_str(name, "Unknown");
++		}
+ 	),
+ 
+-	TP_printk("skbaddr=%p len=%d", __entry->skbaddr, __entry->len)
++	TP_printk("skb=%p anid=%d cnid=%d len=%d rx_queue=%d name=%s",
++			__entry->skb, __entry->anid, __entry->cnid,
++			__entry->len, __entry->rx_queue, __get_str(name))
+ );
+ 
+ #endif /* _TRACE_SKB_H */
