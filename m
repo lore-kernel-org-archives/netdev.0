@@ -1,7 +1,8 @@
 From: Eric Paris <eparis@redhat.com>
-Subject: [PATCH 3/9] networking/fanotify: declare fanotify socket numbers
-Date: Fri, 28 Aug 2009 14:55:57 -0400
-Message-ID: <20090828185556.8014.70319.stgit@paris.rdu.redhat.com>
+Subject: [PATCH 5/9] fanotify:drop notification if they exist in the outgoing
+	queue
+Date: Fri, 28 Aug 2009 14:56:12 -0400
+Message-ID: <20090828185611.8014.4931.stgit@paris.rdu.redhat.com>
 References: <20090828185542.8014.22791.stgit@paris.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,82 +11,79 @@ Cc: davem@davemloft.net, viro@zeniv.linux.org.uk, alan@linux.intel.com,
 	hch@infradead.org
 To: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752382AbZH1S4H@vger.kernel.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 In-Reply-To: <20090828185542.8014.22791.stgit@paris.rdu.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-fanotify's user interface uses a custom socket (it doesn't use netlink
-since work must be done in the context of the receive side of the socket)
-
-This patch simply defines the fanotify socket number declarations.  The
-actual implementation of the socket is in a later patch.
+fanotify listeners get an open file descriptor to the object in question so
+the ordering of operations is not as important as in other notification
+systems.  inotify will drop events if the last event in the event FIFO is
+the same as the current event.  This patch will drop fanotify events if
+they are the same as another event anywhere in the event FIFO.
 
 Signed-off-by: Eric Paris <eparis@redhat.com>
 ---
 
- include/linux/socket.h |    5 ++++-
- net/core/sock.c        |    6 +++---
- 2 files changed, 7 insertions(+), 4 deletions(-)
+ fs/notify/fanotify/fanotify.c |   40 ++++++++++++++++++++++++++++++++++++++--
+ 1 files changed, 38 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index 3b461df..e03f47b 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -195,7 +195,8 @@ struct ucred {
- #define AF_ISDN		34	/* mISDN sockets 		*/
- #define AF_PHONET	35	/* Phonet sockets		*/
- #define AF_IEEE802154	36	/* IEEE802154 sockets		*/
--#define AF_MAX		37	/* For now.. */
-+#define AF_FANOTIFY	37	/* fscking all access sockets	*/
-+#define AF_MAX		38	/* For now.. */
+diff --git a/fs/notify/fanotify/fanotify.c b/fs/notify/fanotify/fanotify.c
+index 59bc883..caf34bb 100644
+--- a/fs/notify/fanotify/fanotify.c
++++ b/fs/notify/fanotify/fanotify.c
+@@ -8,6 +8,40 @@
  
- /* Protocol families, same as address families. */
- #define PF_UNSPEC	AF_UNSPEC
-@@ -235,6 +236,7 @@ struct ucred {
- #define PF_ISDN		AF_ISDN
- #define PF_PHONET	AF_PHONET
- #define PF_IEEE802154	AF_IEEE802154
-+#define PF_FANOTIFY	AF_FANOTIFY
- #define PF_MAX		AF_MAX
+ #include "fanotify.h"
  
- /* Maximum queue length specifiable by listen.  */
-@@ -306,6 +308,7 @@ struct ucred {
- #define SOL_PNPIPE	275
- #define SOL_RDS		276
- #define SOL_IUCV	277
-+#define SOL_FANOTIFY	278
++static bool try_merge(struct fsnotify_event *old, struct fsnotify_event *new)
++{
++	if ((old->mask == new->mask) &&
++	    (old->to_tell == new->to_tell) &&
++	    (old->data_type == new->data_type)) {
++		switch (old->data_type) {
++		case (FSNOTIFY_EVENT_PATH):
++			if ((old->path.mnt == new->path.mnt) &&
++			    (old->path.dentry == new->path.dentry))
++				return true;
++		case (FSNOTIFY_EVENT_NONE):
++			return true;
++		default:
++			BUG();
++		};
++	}
++	return false;
++}
++
++static int fanotify_merge(struct list_head *list, struct fsnotify_event *event)
++{
++	struct fsnotify_event_holder *holder;
++	struct fsnotify_event *test_event;
++
++	/* and the list better be locked by something too! */
++
++	list_for_each_entry_reverse(holder, list, event_list) {
++		test_event = holder->event;
++		if (try_merge(test_event, event))
++			return -EEXIST;
++	}
++
++	return 0;
++}
+ static int fanotify_handle_event(struct fsnotify_group *group, struct fsnotify_event *event)
+ {
+ 	int ret;
+@@ -20,8 +54,10 @@ static int fanotify_handle_event(struct fsnotify_group *group, struct fsnotify_e
+ 	BUILD_BUG_ON(FAN_EVENT_ON_CHILD != FS_EVENT_ON_CHILD);
+ 	BUILD_BUG_ON(FAN_Q_OVERFLOW != FS_Q_OVERFLOW);
  
- /* IPX options */
- #define IPX_TYPE	1
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 3ac34ea..1259525 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -155,7 +155,7 @@ static const char *const af_family_key_strings[AF_MAX+1] = {
-   "sk_lock-27"       , "sk_lock-28"          , "sk_lock-AF_CAN"      ,
-   "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-IUCV"        ,
-   "sk_lock-AF_RXRPC" , "sk_lock-AF_ISDN"     , "sk_lock-AF_PHONET"   ,
--  "sk_lock-AF_IEEE802154",
-+  "sk_lock-AF_IEEE802154", "sk_lock-AF_FANOTIFY",
-   "sk_lock-AF_MAX"
- };
- static const char *const af_family_slock_key_strings[AF_MAX+1] = {
-@@ -171,7 +171,7 @@ static const char *const af_family_slock_key_strings[AF_MAX+1] = {
-   "slock-27"       , "slock-28"          , "slock-AF_CAN"      ,
-   "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_IUCV"     ,
-   "slock-AF_RXRPC" , "slock-AF_ISDN"     , "slock-AF_PHONET"   ,
--  "slock-AF_IEEE802154",
-+  "slock-AF_IEEE802154", "slock=AF_FANOTIFY",
-   "slock-AF_MAX"
- };
- static const char *const af_family_clock_key_strings[AF_MAX+1] = {
-@@ -187,7 +187,7 @@ static const char *const af_family_clock_key_strings[AF_MAX+1] = {
-   "clock-27"       , "clock-28"          , "clock-AF_CAN"      ,
-   "clock-AF_TIPC"  , "clock-AF_BLUETOOTH", "clock-AF_IUCV"     ,
-   "clock-AF_RXRPC" , "clock-AF_ISDN"     , "clock-AF_PHONET"   ,
--  "clock-AF_IEEE802154",
-+  "clock-AF_IEEE802154", "clock-AF_FANOTIFY",
-   "clock-AF_MAX"
- };
+-	ret = fsnotify_add_notify_event(group, event, NULL, NULL);
+-
++	ret = fsnotify_add_notify_event(group, event, NULL, fanotify_merge);
++	/* -EEXIST means this event was merged with another, not that it was an error */
++	if (ret == -EEXIST)
++		ret = 0;
+ 	return ret;
+ }
  
+
