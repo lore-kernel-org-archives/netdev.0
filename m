@@ -1,62 +1,74 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 08/14] pktgen: reorganize transmit loop
-Date: Fri, 28 Aug 2009 09:01:04 -0700
-Message-ID: <4A97FF40.70804@candelatech.com>
-References: <20090827235506.624381734@vyatta.com> <20090827235705.740919364@vyatta.com> <4A975480.3080507@candelatech.com> <20090827224902.49f80920@nehalam>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
+Date: Fri, 28 Aug 2009 12:15:39 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0908281211150.7317@gentwo.org>
+References: <OFB18AD855.24C5AC71-ON8825761D.00687D5E-8825761D.0068BB9C@us.ibm.com>  <alpine.DEB.1.10.0908251514190.17963@gentwo.org>  <1251239734.3169.65.camel@w-sridhar.beaverton.ibm.com>  <alpine.DEB.1.10.0908261223210.9933@gentwo.org>
+ <1251309040.10599.34.camel@w-sridhar.beaverton.ibm.com>  <alpine.DEB.1.10.0908261506590.9933@gentwo.org> <1251324666.10599.72.camel@w-sridhar.beaverton.ibm.com> <alpine.DEB.1.10.0908271139450.14277@gentwo.org> <alpine.DEB.1.10.0908271621260.28029@gentwo.org>
+ <alpine.DEB.1.10.0908280948320.3747@gentwo.org> <4A97F2B4.7030900@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Robert Olsson <robert.olsson@its.uu.se>,
-	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+	David Stevens <dlstevens@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	niv@linux.vnet.ibm.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:48872 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750761AbZH1QB3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2009 12:01:29 -0400
-In-Reply-To: <20090827224902.49f80920@nehalam>
+Received: from smtp2.ultrahosting.com ([74.213.174.253]:47074 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750778AbZH1QQb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2009 12:16:31 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id AFDFB82C776
+	for <netdev@vger.kernel.org>; Fri, 28 Aug 2009 12:17:43 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.253])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id QtcfcC5NY60n for <netdev@vger.kernel.org>;
+	Fri, 28 Aug 2009 12:17:43 -0400 (EDT)
+Received: from gentwo.org (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 710FE82C7C1
+	for <netdev@vger.kernel.org>; Fri, 28 Aug 2009 12:17:14 -0400 (EDT)
+In-Reply-To: <4A97F2B4.7030900@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/27/2009 10:49 PM, Stephen Hemminger wrote:
-> On Thu, 27 Aug 2009 20:52:32 -0700
-> Ben Greear<greearb@candelatech.com>  wrote:
+On Fri, 28 Aug 2009, Eric Dumazet wrote:
+
+> "tc -s qdisc show" only displays queue info for tx packets.
+
+Duh. The packet counters and bytes are way out of whack and do not reflect
+what was actually sent. This must be some other qdisc.
+
+> >  	sch->qstats.drops++;
+> >
+> > +	/* device queue statistics */
+> > +	sch->dev_queue->tx_dropped++;
+> > +
+> >  	return NET_XMIT_DROP;
+> >  }
 >
->> +		default: /* Drivers are not supposed to return other
->> values! */
->> +			if (net_ratelimit())
->> +				pr_info("pktgen: %s xmit error:
->> %d\n",
->> +					odev->name, ret);
->>   			pkt_dev->errors++;
->>
->> I believe this is faulty.  Things like vlans can send pkts to qdiscs
->> of the underlying device and those can return other values.
->>
->> Patric McHardy put in some patches recently to achieve this in a more
->> uniform manner:
->>
->> http://patchwork.ozlabs.org/patch/28340/
->>
->> Thanks,
->> Ben
->>
->
-> Since pktgen has its own way of generating vlan tags, it
-> makes no sense to use it on top of 8021q vlan driver.
+> locking problem here, tx_dropped can be changed by another cpu.
 
-Maybe someone wants to test their virtual device driver using pktgen?
+Who cares. It just was for debugging.
 
-Or generate traffic with lots of different vlan IDs & associated
-IP, mac-addresses, etc?
+> As David Stevens pointed out, device was not ever called at all when your packet(s) was/were lost.
+> Why should we account a non existent drop at device level ?
 
-Same issue applies to mac-vlans and possibly other virtual devices.
+Because you need drop statistics on a device to figure out when you may
+want to increase the TX buffers for a device. If a packet was dropped
+because of a lack of TX buffers then we need to know.
 
-Thanks,
-Ben
+> When a process wants a new memory page and hits its own limit, do you want to increment a system global
+> counter saying 'memory allocation failed' ?
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+When a process allocates and locks all of memory then you get an OOM.
+
+> Only change you want is eventually to account for the UDP drop (SndbufErrors).
+
+That is only a counter at the UDP layer. That one does not allow you to
+identify which NIC it was nor which application caused it.
+
+But its already a big improvement to see TX drops at all. Could we get
+your latest patch merged soon?
+
+
 
