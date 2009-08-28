@@ -1,171 +1,362 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 06/17] tg3: Clarify rx buffer relationships
-Date: Fri, 28 Aug 2009 16:58:46 -0700
-Message-ID: <1251585283.29678@xw6200>
+Subject: [PATCH 07/17] tg3: Create rx producer ring setup routines
+Date: Fri, 28 Aug 2009 16:59:57 -0700
+Message-ID: <1251585284.29681@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2848 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:2517 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752633AbZH2Weu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Aug 2009 18:34:50 -0400
+	id S1752611AbZH2Wer (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Aug 2009 18:34:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch attempts to document the various rx buffer sizes used by the
-driver and how they relate to each other.
+Later patches are going to complicate the ring initialization routines.
+This patch breaks out the setup and teardown of the rx producer rings
+into separate functions to make the code more readable.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 ---
- drivers/net/tg3.c |   42 +++++++++++++++++++++++-------------------
- drivers/net/tg3.h |    2 +-
- 2 files changed, 24 insertions(+), 20 deletions(-)
+ drivers/net/tg3.c |  231 +++++++++++++++++++++++++++++++++--------------------
+ 1 files changed, 144 insertions(+), 87 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 5e74a19..a2a5f31 100644
+index a2a5f31..5d0a1e6 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -125,8 +125,15 @@
- 				 TG3_TX_RING_SIZE)
- #define NEXT_TX(N)		(((N) + 1) & (TG3_TX_RING_SIZE - 1))
+@@ -5517,14 +5517,7 @@ static int tg3_change_mtu(struct net_device *dev, int new_mtu)
+ 	return err;
+ }
  
--#define RX_PKT_BUF_SZ		(1536 + tp->rx_offset + 64)
--#define RX_JUMBO_PKT_BUF_SZ	(9046 + tp->rx_offset + 64)
-+#define TG3_DMA_BYTE_ENAB		64
-+
-+#define TG3_RX_STD_DMA_SZ		1536
-+#define TG3_RX_JMB_DMA_SZ		9046
-+
-+#define TG3_RX_DMA_TO_MAP_SZ(x)		((x) + TG3_DMA_BYTE_ENAB)
-+
-+#define TG3_RX_STD_MAP_SZ		TG3_RX_DMA_TO_MAP_SZ(TG3_RX_STD_DMA_SZ)
-+#define TG3_RX_JMB_MAP_SZ		TG3_RX_DMA_TO_MAP_SZ(TG3_RX_JMB_DMA_SZ)
+-/* Free up pending packets in all rx/tx rings.
+- *
+- * The chip has been shut down and the driver detached from
+- * the networking, so no interrupts or new tx packets will
+- * end up in the driver.  tp->{tx,}lock is not held and we are not
+- * in an interrupt context and thus may sleep.
+- */
+-static void tg3_free_rings(struct tg3 *tp)
++static void tg3_rx_prodring_free(struct tg3 *tp)
+ {
+ 	struct ring_info *rxp;
+ 	int i;
+@@ -5534,46 +5527,29 @@ static void tg3_free_rings(struct tg3 *tp)
  
- /* minimum number of free TX descriptors required to wake up TX process */
- #define TG3_TX_WAKEUP_THRESH(tp)		((tp)->tx_pending / 4)
-@@ -4354,7 +4361,7 @@ static int tg3_alloc_rx_skb(struct tg3 *tp, u32 opaque_key,
- 		map = &tp->rx_std_buffers[dest_idx];
- 		if (src_idx >= 0)
- 			src_map = &tp->rx_std_buffers[src_idx];
--		skb_size = tp->rx_pkt_buf_sz;
-+		skb_size = tp->rx_pkt_map_sz;
- 		break;
- 
- 	case RXD_OPAQUE_RING_JUMBO:
-@@ -4363,7 +4370,7 @@ static int tg3_alloc_rx_skb(struct tg3 *tp, u32 opaque_key,
- 		map = &tp->rx_jumbo_buffers[dest_idx];
- 		if (src_idx >= 0)
- 			src_map = &tp->rx_jumbo_buffers[src_idx];
--		skb_size = RX_JUMBO_PKT_BUF_SZ;
-+		skb_size = TG3_RX_JMB_MAP_SZ;
- 		break;
- 
- 	default:
-@@ -4376,14 +4383,13 @@ static int tg3_alloc_rx_skb(struct tg3 *tp, u32 opaque_key,
- 	 * Callers depend upon this behavior and assume that
- 	 * we leave everything unchanged if we fail.
- 	 */
--	skb = netdev_alloc_skb(tp->dev, skb_size);
-+	skb = netdev_alloc_skb(tp->dev, skb_size + tp->rx_offset);
- 	if (skb == NULL)
- 		return -ENOMEM;
- 
- 	skb_reserve(skb, tp->rx_offset);
- 
--	mapping = pci_map_single(tp->pdev, skb->data,
--				 skb_size - tp->rx_offset,
-+	mapping = pci_map_single(tp->pdev, skb->data, skb_size,
- 				 PCI_DMA_FROMDEVICE);
- 
- 	map->skb = skb;
-@@ -4540,8 +4546,7 @@ static int tg3_rx(struct tg3 *tp, int budget)
- 			if (skb_size < 0)
- 				goto drop_it;
- 
--			pci_unmap_single(tp->pdev, dma_addr,
--					 skb_size - tp->rx_offset,
-+			pci_unmap_single(tp->pdev, dma_addr, skb_size,
- 					 PCI_DMA_FROMDEVICE);
- 
- 			skb_put(skb, len);
-@@ -5531,7 +5536,7 @@ static void tg3_free_rings(struct tg3 *tp)
+ 		if (rxp->skb == NULL)
  			continue;
+-		pci_unmap_single(tp->pdev,
+-				 pci_unmap_addr(rxp, mapping),
+-				 tp->rx_pkt_map_sz,
+-				 PCI_DMA_FROMDEVICE);
+-		dev_kfree_skb_any(rxp->skb);
+-		rxp->skb = NULL;
+-	}
+-
+-	for (i = 0; i < TG3_RX_JUMBO_RING_SIZE; i++) {
+-		rxp = &tp->rx_jumbo_buffers[i];
+ 
+-		if (rxp->skb == NULL)
+-			continue;
  		pci_unmap_single(tp->pdev,
  				 pci_unmap_addr(rxp, mapping),
--				 tp->rx_pkt_buf_sz - tp->rx_offset,
+-				 TG3_RX_JMB_MAP_SZ,
 +				 tp->rx_pkt_map_sz,
  				 PCI_DMA_FROMDEVICE);
  		dev_kfree_skb_any(rxp->skb);
  		rxp->skb = NULL;
-@@ -5544,7 +5549,7 @@ static void tg3_free_rings(struct tg3 *tp)
- 			continue;
- 		pci_unmap_single(tp->pdev,
- 				 pci_unmap_addr(rxp, mapping),
--				 RX_JUMBO_PKT_BUF_SZ - tp->rx_offset,
-+				 TG3_RX_JMB_MAP_SZ,
- 				 PCI_DMA_FROMDEVICE);
- 		dev_kfree_skb_any(rxp->skb);
- 		rxp->skb = NULL;
-@@ -5581,7 +5586,7 @@ static void tg3_free_rings(struct tg3 *tp)
+ 	}
+ 
+-	for (i = 0; i < TG3_TX_RING_SIZE; ) {
+-		struct tx_ring_info *txp;
+-		struct sk_buff *skb;
++	if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) {
++		for (i = 0; i < TG3_RX_JUMBO_RING_SIZE; i++) {
++			rxp = &tp->rx_jumbo_buffers[i];
+ 
+-		txp = &tp->tx_buffers[i];
+-		skb = txp->skb;
++			if (rxp->skb == NULL)
++				continue;
+ 
+-		if (skb == NULL) {
+-			i++;
+-			continue;
++			pci_unmap_single(tp->pdev,
++					 pci_unmap_addr(rxp, mapping),
++					 TG3_RX_JMB_MAP_SZ,
++					 PCI_DMA_FROMDEVICE);
++			dev_kfree_skb_any(rxp->skb);
++			rxp->skb = NULL;
+ 		}
+-
+-		skb_dma_unmap(&tp->pdev->dev, skb, DMA_TO_DEVICE);
+-
+-		txp->skb = NULL;
+-
+-		i += skb_shinfo(skb)->nr_frags + 1;
+-
+-		dev_kfree_skb_any(skb);
+ 	}
+ }
+ 
+@@ -5584,18 +5560,12 @@ static void tg3_free_rings(struct tg3 *tp)
+  * end up in the driver.  tp->{tx,}lock are held and thus
+  * we may not sleep.
   */
- static int tg3_init_rings(struct tg3 *tp)
+-static int tg3_init_rings(struct tg3 *tp)
++static int tg3_rx_prodring_alloc(struct tg3 *tp)
  {
--	u32 i;
-+	u32 i, rx_pkt_dma_sz;
+ 	u32 i, rx_pkt_dma_sz;
  
- 	/* Free up all the SKBs. */
- 	tg3_free_rings(tp);
-@@ -5592,10 +5597,11 @@ static int tg3_init_rings(struct tg3 *tp)
- 	memset(tp->rx_rcb, 0, TG3_RX_RCB_RING_BYTES(tp));
- 	memset(tp->tx_ring, 0, TG3_TX_RING_BYTES);
+-	/* Free up all the SKBs. */
+-	tg3_free_rings(tp);
+-
+ 	/* Zero out all descriptors. */
+ 	memset(tp->rx_std, 0, TG3_RX_RING_BYTES);
+-	memset(tp->rx_jumbo, 0, TG3_RX_JUMBO_RING_BYTES);
+-	memset(tp->rx_rcb, 0, TG3_RX_RCB_RING_BYTES(tp));
+-	memset(tp->tx_ring, 0, TG3_TX_RING_BYTES);
  
--	tp->rx_pkt_buf_sz = RX_PKT_BUF_SZ;
-+	rx_pkt_dma_sz = TG3_RX_STD_DMA_SZ;
+ 	rx_pkt_dma_sz = TG3_RX_STD_DMA_SZ;
  	if ((tp->tg3_flags2 & TG3_FLG2_5780_CLASS) &&
--	    (tp->dev->mtu > ETH_DATA_LEN))
--		tp->rx_pkt_buf_sz = RX_JUMBO_PKT_BUF_SZ;
-+	    tp->dev->mtu > ETH_DATA_LEN)
-+		rx_pkt_dma_sz = TG3_RX_JMB_DMA_SZ;
-+	tp->rx_pkt_map_sz = TG3_RX_DMA_TO_MAP_SZ(rx_pkt_dma_sz);
- 
- 	/* Initialize invariants of the rings, we only set this
- 	 * stuff once.  This works because the card does not
-@@ -5605,8 +5611,7 @@ static int tg3_init_rings(struct tg3 *tp)
- 		struct tg3_rx_buffer_desc *rxd;
- 
- 		rxd = &tp->rx_std[i];
--		rxd->idx_len = (tp->rx_pkt_buf_sz - tp->rx_offset - 64)
--			<< RXD_LEN_SHIFT;
-+		rxd->idx_len = rx_pkt_dma_sz << RXD_LEN_SHIFT;
- 		rxd->type_flags = (RXD_FLAG_END << RXD_FLAGS_SHIFT);
- 		rxd->opaque = (RXD_OPAQUE_RING_STD |
+@@ -5617,19 +5587,6 @@ static int tg3_init_rings(struct tg3 *tp)
  			       (i << RXD_OPAQUE_INDEX_SHIFT));
-@@ -5617,8 +5622,7 @@ static int tg3_init_rings(struct tg3 *tp)
- 			struct tg3_rx_buffer_desc *rxd;
+ 	}
  
- 			rxd = &tp->rx_jumbo[i];
--			rxd->idx_len = (RX_JUMBO_PKT_BUF_SZ - tp->rx_offset - 64)
--				<< RXD_LEN_SHIFT;
+-	if (tp->tg3_flags & TG3_FLAG_JUMBO_RING_ENABLE) {
+-		for (i = 0; i < TG3_RX_JUMBO_RING_SIZE; i++) {
+-			struct tg3_rx_buffer_desc *rxd;
+-
+-			rxd = &tp->rx_jumbo[i];
+-			rxd->idx_len = TG3_RX_JMB_DMA_SZ << RXD_LEN_SHIFT;
+-			rxd->type_flags = (RXD_FLAG_END << RXD_FLAGS_SHIFT) |
+-				RXD_FLAG_JUMBO;
+-			rxd->opaque = (RXD_OPAQUE_RING_JUMBO |
+-			       (i << RXD_OPAQUE_INDEX_SHIFT));
+-		}
+-	}
+-
+ 	/* Now allocate fresh SKBs for each rx ring. */
+ 	for (i = 0; i < tp->rx_pending; i++) {
+ 		if (tg3_alloc_rx_skb(tp, RXD_OPAQUE_RING_STD, -1, i) < 0) {
+@@ -5639,13 +5596,29 @@ static int tg3_init_rings(struct tg3 *tp)
+ 			       "successfully.\n",
+ 			       tp->dev->name, i, tp->rx_pending);
+ 			if (i == 0)
+-				return -ENOMEM;
++				goto initfail;
+ 			tp->rx_pending = i;
+ 			break;
+ 		}
+ 	}
+ 
++	if (!(tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE))
++		goto done;
++
++	memset(tp->rx_jumbo, 0, TG3_RX_JUMBO_RING_BYTES);
++
+ 	if (tp->tg3_flags & TG3_FLAG_JUMBO_RING_ENABLE) {
++		for (i = 0; i < TG3_RX_JUMBO_RING_SIZE; i++) {
++			struct tg3_rx_buffer_desc *rxd;
++
++			rxd = &tp->rx_jumbo[i];
 +			rxd->idx_len = TG3_RX_JMB_DMA_SZ << RXD_LEN_SHIFT;
- 			rxd->type_flags = (RXD_FLAG_END << RXD_FLAGS_SHIFT) |
- 				RXD_FLAG_JUMBO;
- 			rxd->opaque = (RXD_OPAQUE_RING_JUMBO |
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 5efae2c..d029b4b 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -2571,7 +2571,7 @@ struct tg3 {
- 	struct tg3_rx_buffer_desc	*rx_rcb;
- 	dma_addr_t			rx_rcb_mapping;
++			rxd->type_flags = (RXD_FLAG_END << RXD_FLAGS_SHIFT) |
++				RXD_FLAG_JUMBO;
++			rxd->opaque = (RXD_OPAQUE_RING_JUMBO |
++			       (i << RXD_OPAQUE_INDEX_SHIFT));
++		}
++
+ 		for (i = 0; i < tp->rx_jumbo_pending; i++) {
+ 			if (tg3_alloc_rx_skb(tp, RXD_OPAQUE_RING_JUMBO,
+ 					     -1, i) < 0) {
+@@ -5654,26 +5627,28 @@ static int tg3_init_rings(struct tg3 *tp)
+ 				       "only %d out of %d buffers were "
+ 				       "allocated successfully.\n",
+ 				       tp->dev->name, i, tp->rx_jumbo_pending);
+-				if (i == 0) {
+-					tg3_free_rings(tp);
+-					return -ENOMEM;
+-				}
++				if (i == 0)
++					goto initfail;
+ 				tp->rx_jumbo_pending = i;
+ 				break;
+ 			}
+ 		}
+ 	}
++
++done:
+ 	return 0;
++
++initfail:
++	tg3_rx_prodring_free(tp);
++	return -ENOMEM;
+ }
  
--	u32				rx_pkt_buf_sz;
-+	u32				rx_pkt_map_sz;
+-/*
+- * Must not be invoked with interrupt sources disabled and
+- * the hardware shutdown down.
+- */
+-static void tg3_free_consistent(struct tg3 *tp)
++static void tg3_rx_prodring_fini(struct tg3 *tp)
+ {
+ 	kfree(tp->rx_std_buffers);
+ 	tp->rx_std_buffers = NULL;
++	kfree(tp->rx_jumbo_buffers);
++	tp->rx_jumbo_buffers = NULL;
+ 	if (tp->rx_std) {
+ 		pci_free_consistent(tp->pdev, TG3_RX_RING_BYTES,
+ 				    tp->rx_std, tp->rx_std_mapping);
+@@ -5684,6 +5659,103 @@ static void tg3_free_consistent(struct tg3 *tp)
+ 				    tp->rx_jumbo, tp->rx_jumbo_mapping);
+ 		tp->rx_jumbo = NULL;
+ 	}
++}
++
++static int tg3_rx_prodring_init(struct tg3 *tp)
++{
++	tp->rx_std_buffers = kzalloc(sizeof(struct ring_info) *
++				     TG3_RX_RING_SIZE, GFP_KERNEL);
++	if (!tp->rx_std_buffers)
++		return -ENOMEM;
++
++	tp->rx_std = pci_alloc_consistent(tp->pdev, TG3_RX_RING_BYTES,
++					  &tp->rx_std_mapping);
++	if (!tp->rx_std)
++		goto err_out;
++
++	if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) {
++		tp->rx_jumbo_buffers = kzalloc(sizeof(struct ring_info) *
++					       TG3_RX_JUMBO_RING_SIZE,
++					       GFP_KERNEL);
++		if (!tp->rx_jumbo_buffers)
++			goto err_out;
++
++		tp->rx_jumbo = pci_alloc_consistent(tp->pdev,
++						    TG3_RX_JUMBO_RING_BYTES,
++						    &tp->rx_jumbo_mapping);
++		if (!tp->rx_jumbo)
++			goto err_out;
++	}
++
++	return 0;
++
++err_out:
++	tg3_rx_prodring_fini(tp);
++	return -ENOMEM;
++}
++
++/* Free up pending packets in all rx/tx rings.
++ *
++ * The chip has been shut down and the driver detached from
++ * the networking, so no interrupts or new tx packets will
++ * end up in the driver.  tp->{tx,}lock is not held and we are not
++ * in an interrupt context and thus may sleep.
++ */
++static void tg3_free_rings(struct tg3 *tp)
++{
++	int i;
++
++	for (i = 0; i < TG3_TX_RING_SIZE; ) {
++		struct tx_ring_info *txp;
++		struct sk_buff *skb;
++
++		txp = &tp->tx_buffers[i];
++		skb = txp->skb;
++
++		if (skb == NULL) {
++			i++;
++			continue;
++		}
++
++		skb_dma_unmap(&tp->pdev->dev, skb, DMA_TO_DEVICE);
++
++		txp->skb = NULL;
++
++		i += skb_shinfo(skb)->nr_frags + 1;
++
++		dev_kfree_skb_any(skb);
++	}
++
++	tg3_rx_prodring_free(tp);
++}
++
++/* Initialize tx/rx rings for packet processing.
++ *
++ * The chip has been shut down and the driver detached from
++ * the networking, so no interrupts or new tx packets will
++ * end up in the driver.  tp->{tx,}lock are held and thus
++ * we may not sleep.
++ */
++static int tg3_init_rings(struct tg3 *tp)
++{
++	/* Free up all the SKBs. */
++	tg3_free_rings(tp);
++
++	/* Zero out all descriptors. */
++	memset(tp->rx_rcb, 0, TG3_RX_RCB_RING_BYTES(tp));
++	memset(tp->tx_ring, 0, TG3_TX_RING_BYTES);
++
++	return tg3_rx_prodring_alloc(tp);
++}
++
++/*
++ * Must not be invoked with interrupt sources disabled and
++ * the hardware shutdown down.
++ */
++static void tg3_free_consistent(struct tg3 *tp)
++{
++	kfree(tp->tx_buffers);
++	tp->tx_buffers = NULL;
+ 	if (tp->rx_rcb) {
+ 		pci_free_consistent(tp->pdev, TG3_RX_RCB_RING_BYTES(tp),
+ 				    tp->rx_rcb, tp->rx_rcb_mapping);
+@@ -5704,6 +5776,7 @@ static void tg3_free_consistent(struct tg3 *tp)
+ 				    tp->hw_stats, tp->stats_mapping);
+ 		tp->hw_stats = NULL;
+ 	}
++	tg3_rx_prodring_fini(tp);
+ }
  
- 	/* begin "everything else" cacheline(s) section */
- 	struct net_device_stats		net_stats;
+ /*
+@@ -5712,28 +5785,12 @@ static void tg3_free_consistent(struct tg3 *tp)
+  */
+ static int tg3_alloc_consistent(struct tg3 *tp)
+ {
+-	tp->rx_std_buffers = kzalloc((sizeof(struct ring_info) *
+-				      (TG3_RX_RING_SIZE +
+-				       TG3_RX_JUMBO_RING_SIZE)) +
+-				     (sizeof(struct tx_ring_info) *
+-				      TG3_TX_RING_SIZE),
+-				     GFP_KERNEL);
+-	if (!tp->rx_std_buffers)
++	if (tg3_rx_prodring_init(tp))
+ 		return -ENOMEM;
+ 
+-	tp->rx_jumbo_buffers = &tp->rx_std_buffers[TG3_RX_RING_SIZE];
+-	tp->tx_buffers = (struct tx_ring_info *)
+-		&tp->rx_jumbo_buffers[TG3_RX_JUMBO_RING_SIZE];
+-
+-	tp->rx_std = pci_alloc_consistent(tp->pdev, TG3_RX_RING_BYTES,
+-					  &tp->rx_std_mapping);
+-	if (!tp->rx_std)
+-		goto err_out;
+-
+-	tp->rx_jumbo = pci_alloc_consistent(tp->pdev, TG3_RX_JUMBO_RING_BYTES,
+-					    &tp->rx_jumbo_mapping);
+-
+-	if (!tp->rx_jumbo)
++	tp->tx_buffers = kzalloc(sizeof(struct tx_ring_info) *
++				 TG3_TX_RING_SIZE, GFP_KERNEL);
++	if (!tp->tx_buffers)
+ 		goto err_out;
+ 
+ 	tp->rx_rcb = pci_alloc_consistent(tp->pdev, TG3_RX_RCB_RING_BYTES(tp),
 -- 
 1.6.3.3
 
