@@ -1,8 +1,7 @@
 From: Balazs Scheidler <bazsi@balabit.hu>
-Subject: [PATCH 08/13] TProxy: added tproxy sockopt interface in the IPV6
- layer
-Date: Sat, 12 Sep 2009 10:53:01 +0200
-Message-ID: <1253548005.12519.8.camel@bzorp.balabit>
+Subject: [PATCH 1/2] TProxy: added IPv6 support for socket match
+Date: Fri, 28 Aug 2009 07:56:39 +0200
+Message-ID: <1253548039.12519.15.camel@bzorp.balabit>
 Mime-Version: 1.0
 Content-Transfer-Encoding: 7bit
 To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
@@ -10,118 +9,167 @@ Return-path: <netfilter-devel-owner@vger.kernel.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Support for IPV6_RECVORIGDSTADDR sockopt for UDP sockets were contributed by
-Harry Mason.
+This patch also adds userspace support for the --transparent mode
+of matching, which the kernel already supports, but the iptables userspace
+doesn't.
 
 Signed-off-by: Balazs Scheidler <bazsi@balabit.hu>
 ---
- include/linux/in6.h      |    5 +++++
- include/linux/ipv6.h     |    4 +++-
- net/ipv6/datagram.c      |   19 +++++++++++++++++++
- net/ipv6/ipv6_sockglue.c |   22 ++++++++++++++++++++++
- 4 files changed, 49 insertions(+), 1 deletions(-)
+ extensions/libxt_socket.c           |  103 ++++++++++++++++++++++++++++++++---
+ extensions/libxt_socket.man         |    6 ++-
+ include/linux/netfilter/xt_socket.h |   12 ++++
+ 3 files changed, 112 insertions(+), 9 deletions(-)
+ create mode 100644 include/linux/netfilter/xt_socket.h
 
-diff --git a/include/linux/in6.h b/include/linux/in6.h
-index 718bf21..1bfaac8 100644
---- a/include/linux/in6.h
-+++ b/include/linux/in6.h
-@@ -268,6 +268,11 @@ struct in6_flowlabel_req
- #define IPV6_PREFER_SRC_CGA		0x0008
- #define IPV6_PREFER_SRC_NONCGA		0x0800
- 
-+#define IPV6_ORIGDSTADDR        73
-+#define IPV6_RECVORIGDSTADDR    IPV6_ORIGDSTADDR
-+#define IPV6_TRANSPARENT        74
-+
-+
+diff --git a/extensions/libxt_socket.c b/extensions/libxt_socket.c
+index 1490473..b1e2a4c 100644
+--- a/extensions/libxt_socket.c
++++ b/extensions/libxt_socket.c
+@@ -1,19 +1,106 @@
  /*
-  * Multicast Routing:
-  * see include/linux/mroute6.h.
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index be4c9c6..6d71614 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -333,7 +333,9 @@ struct ipv6_pinfo {
- 				dstopts:1,
- 				odstopts:1,
-                                 rxflow:1,
--				rxtclass:1;
-+				rxtclass:1,
-+				rxorigdstaddr:1;
-+				/* 3 bits hole */
- 		} bits;
- 		__u16		all;
- 	} rxopt;
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index e2bdc6d..fec931a 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -492,6 +492,25 @@ int datagram_recv_ctl(struct sock *sk, struct msghdr *msg, struct sk_buff *skb)
- 		u8 *ptr = nh + opt->dst1;
- 		put_cmsg(msg, SOL_IPV6, IPV6_2292DSTOPTS, (ptr[1]+1)<<3, ptr);
- 	}
-+	if (np->rxopt.bits.rxorigdstaddr) {
-+		struct sockaddr_in6 sin6;
-+		u16 *ports = (u16 *) skb_transport_header(skb);
+  * Shared library add-on to iptables to add early socket matching support.
+  *
+- * Copyright (C) 2007 BalaBit IT Ltd.
++ * Copyright (C) 2007, 2009 BalaBit IT Ltd.
+  */
++#include <stdio.h>
++#include <getopt.h>
+ #include <xtables.h>
++#include <linux/netfilter/xt_socket.h>
+ 
+-static struct xtables_match socket_mt_reg = {
+-	.name	       = "socket",
+-	.version       = XTABLES_VERSION,
+-	.family	       = NFPROTO_IPV4,
+-	.size	       = XT_ALIGN(0),
+-	.userspacesize = XT_ALIGN(0),
++static void socket_mt_help_v0(void)
++{
++	printf("socket match has no options.\n\n");
++}
 +
-+		if (skb_transport_offset(skb) + 4 <= skb->len) {
-+			/* All current transport protocols have the port numbers in the
-+			 * first four bytes of the transport header and this function is
-+			 * written with this assumption in mind.
-+			 */
++static void socket_mt_help_v1(void)
++{
++	printf("socket match options:\n"
++"--transparent      Matches only if the socket's transparent option is set\n");
++}
 +
-+			sin6.sin6_family = AF_INET6;
-+			ipv6_addr_copy(&sin6.sin6_addr, &ipv6_hdr(skb)->daddr);
-+			sin6.sin6_port = ports[1];
-+			sin6.sin6_flowinfo = 0;
-+			sin6.sin6_scope_id = 0;
++static const struct option socket_opts_v1[] = {
++	{ "transparent", 0, NULL, '1' },
++	{ }
++};
 +
-+			put_cmsg(msg, SOL_IPV6, IPV6_ORIGDSTADDR, sizeof(sin6), &sin6);
-+		}
++static int socket_mt_parse_v0(int c, char **argv, int invert,
++			      unsigned int *flags, const void *entry,
++			      struct xt_entry_match **match)
++{
++	return 0;
++}
++
++static int socket_mt_parse_v1(int c, char **argv, int invert,
++			      unsigned int *flags, const void *entry,
++			      struct xt_entry_match **match)
++{
++	struct xt_socket_match_info1 *info = (void *) (*match)->data;
++
++	switch (c) {
++	case '1':
++		if (*flags)
++			xtables_error(PARAMETER_PROBLEM,
++				      "Can't specify multiple --transparent");
++		info->transparent = 1;
++		*flags = 1;
++		break;
++	default:
++		return 0;
 +	}
- 	return 0;
++	return 1;
++}
++
++static void socket_mt_check(unsigned int flags)
++{
++}
++
++static void socket_mt_print_v1(const void *ip,
++			       const struct xt_entry_match *match,
++			       int numeric)
++{
++	const struct xt_socket_match_info1 *info = (const void *)match->data;
++	printf("socket ");
++	if (info->transparent)
++		printf("transparent ");
++}
++
++static void socket_mt_save_v1(const void *ip,
++			      const struct xt_entry_match *match)
++{
++	const struct xt_socket_match_info1 *info = (const void *)match->data;
++
++	if (info->transparent)
++		printf("--transparent ");
++}
++
++static struct xtables_match socket_matches[] = {
++        {
++		.name		= "socket",
++		.revision	= 0,
++		.version	= XTABLES_VERSION,
++		.family		= NFPROTO_IPV4,
++		.parse		= socket_mt_parse_v0,
++		.final_check	= socket_mt_check,
++		.help		= socket_mt_help_v0,
++	},
++	{
++		.name		= "socket",
++		.version	= XTABLES_VERSION,
++		.revision	= 1,
++		.family		= NFPROTO_UNSPEC,
++		.size		= XT_ALIGN(sizeof(struct xt_socket_match_info1)),
++		.userspacesize	= XT_ALIGN(sizeof(struct xt_socket_match_info1)),
++		.parse		= socket_mt_parse_v1,
++		.print		= socket_mt_print_v1,
++		.save		= socket_mt_save_v1,
++		.final_check	= socket_mt_check,
++		.help		= socket_mt_help_v1,
++		.extra_opts	= socket_opts_v1,
++	}
+ };
+ 
+ void _init(void)
+ {
+-	xtables_register_match(&socket_mt_reg);
++	xtables_register_matches(socket_matches, ARRAY_SIZE(socket_matches));
  }
- 
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index a7fdf9a..0f70cd1 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -333,6 +333,20 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
- 		retv = 0;
- 		break;
- 
-+	case IPV6_TRANSPARENT:
-+		if (optlen < sizeof(int))
-+			goto e_inval;
-+		/* we don't have a separate transparent bit for IPV6 we use the one in the IPv4 socket */
-+		inet_sk(sk)->transparent = valbool;
-+		break;
+diff --git a/extensions/libxt_socket.man b/extensions/libxt_socket.man
+index 50c8854..edc9d75 100644
+--- a/extensions/libxt_socket.man
++++ b/extensions/libxt_socket.man
+@@ -1,2 +1,6 @@
+ This matches if an open socket can be found by doing a socket lookup on the
+-packet.
++packet which doesn\'t listen on the \'any\' IP address (0.0.0.0).
++.TP
++.BI "\-\-transparent"
++Enables additional check, that the actual socket's transparent socket option
++has to be set.
+diff --git a/include/linux/netfilter/xt_socket.h b/include/linux/netfilter/xt_socket.h
+new file mode 100644
+index 0000000..6f475b8
+--- /dev/null
++++ b/include/linux/netfilter/xt_socket.h
+@@ -0,0 +1,12 @@
++#ifndef _XT_SOCKET_H
++#define _XT_SOCKET_H
 +
-+	case IPV6_RECVORIGDSTADDR:
-+		if (optlen < sizeof(int))
-+			goto e_inval;
-+		np->rxopt.bits.rxorigdstaddr = valbool;
-+		retv = 0;
-+		break;
++enum {
++	XT_SOCKET_TRANSPARENT = 1 << 0,
++};
 +
- 	case IPV6_HOPOPTS:
- 	case IPV6_RTHDRDSTOPTS:
- 	case IPV6_RTHDR:
-@@ -1049,6 +1063,14 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
- 		val = np->rxopt.bits.rxflow;
- 		break;
- 
-+	case IPV6_TRANSPARENT:
-+		val = inet_sk(sk)->transparent;
-+		break;
++struct xt_socket_mtinfo1 {
++	__u8 flags;
++};
 +
-+	case IPV6_RECVORIGDSTADDR:
-+		val = np->rxopt.bits.rxorigdstaddr;
-+		break;
-+
- 	case IPV6_UNICAST_HOPS:
- 	case IPV6_MULTICAST_HOPS:
- 	{
++#endif /* _XT_SOCKET_H */
 -- 
 1.6.0.4
 
