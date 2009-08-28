@@ -1,60 +1,51 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH REPOST net-next-2.6 3/4] bonding: Fix useless test: int > INT_MAX
-Date: Fri, 28 Aug 2009 15:05:14 -0700
-Message-ID: <1251497115-16234-4-git-send-email-fubar@us.ibm.com>
-References: <1251497115-16234-1-git-send-email-fubar@us.ibm.com>
- <1251497115-16234-2-git-send-email-fubar@us.ibm.com>
- <1251497115-16234-3-git-send-email-fubar@us.ibm.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: [PATCH 0/2] New LSM hooks for the TUN driver
+Date: Fri, 28 Aug 2009 18:12:36 -0400
+Message-ID: <20090828220400.3900.64377.stgit@flek.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	=?utf-8?q?Nicolas=20de=20Peslo=C3=BCan?=
-	<nicolas.2p.debian@free.fr>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:37840 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752729AbZH1WFV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2009 18:05:21 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e39.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id n7SM0Cpx009800
-	for <netdev@vger.kernel.org>; Fri, 28 Aug 2009 16:00:12 -0600
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n7SM5JEd224730
-	for <netdev@vger.kernel.org>; Fri, 28 Aug 2009 16:05:19 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n7SM5Idb005590
-	for <netdev@vger.kernel.org>; Fri, 28 Aug 2009 16:05:19 -0600
-In-Reply-To: <1251497115-16234-3-git-send-email-fubar@us.ibm.com>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:38128 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753002AbZH1WMf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2009 18:12:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
+This is the third, and hopefully final, version of the new LSM TUN hooks.  This
+version incorporates all outstanding feedback as well as my sign-off and ACKs
+from both Eric and Serge (see patches).  However, the patches are still missing
+an ACK from netdev - I haven't heard any objections but I'm not certain anyone
+from netdev has really taken a look yet.
 
-max_bonds is of type int and cannot be greater than INT_MAX.
+Dave and James - these patches once again straddle that line between networking
+and security; while James has usually ushered these types of patches upstream
+in the past I'll let you two fight it out again for the honors (assuming you
+are both okay with the patches).
 
-Signed-off-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+The patches can also be found in git form here:
+
+ * git://git.infradead.org/users/pcmoore/lblnet-2.6_next
+
+Thanks.
+
 ---
- drivers/net/bonding/bond_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
-_main.c
-index ed00ba9..6b9f15b 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4759,7 +4759,7 @@ static int bond_check_params(struct bond_params *=
-params)
- 		params->ad_select =3D BOND_AD_STABLE;
- 	}
-=20
--	if (max_bonds < 0 || max_bonds > INT_MAX) {
-+	if (max_bonds < 0) {
- 		pr_warning(DRV_NAME
- 		       ": Warning: max_bonds (%d) not in range %d-%d, so it "
- 		       "was reset to BOND_DEFAULT_MAX_BONDS (%d)\n",
---=20
-1.6.0.2
+Paul Moore (2):
+      selinux: Support for the new TUN LSM hooks
+      lsm: Add hooks to the TUN driver
 
+
+ drivers/net/tun.c                          |   22 +++++++---
+ include/linux/security.h                   |   31 ++++++++++++++
+ security/capability.c                      |   19 +++++++++
+ security/security.c                        |   18 ++++++++
+ security/selinux/hooks.c                   |   60 +++++++++++++++++++++++++++-
+ security/selinux/include/av_inherit.h      |    1 
+ security/selinux/include/av_permissions.h  |   22 ++++++++++
+ security/selinux/include/class_to_string.h |    1 
+ security/selinux/include/flask.h           |    1 
+ 9 files changed, 166 insertions(+), 9 deletions(-)
