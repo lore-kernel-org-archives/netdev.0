@@ -1,229 +1,43 @@
-From: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: ipw2200: firmware DMA loading rework
-Date: Fri, 28 Aug 2009 11:42:31 +0800
-Message-ID: <1251430951.3704.181.camel@debian>
-References: <riPp5fx5ECC.A.2IG.qsGlKB@chimera>
-	 <_yaHeGjHEzG.A.FIH.7sGlKB@chimera>
-	 <84144f020908252309u5cff8afdh2214577ca4db9b5d@mail.gmail.com>
-	 <20090826082741.GA25955@cmpxchg.org>	<20090826093747.GA10955@csn.ul.ie>
-	 <20090826074409.606b5124.akpm@linux-foundation.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH 08/14] pktgen: reorganize transmit loop
+Date: Thu, 27 Aug 2009 20:52:32 -0700
+Message-ID: <4A975480.3080507@candelatech.com>
+References: <20090827235506.624381734@vyatta.com> <20090827235705.740919364@vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Mel Gorman <mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>, Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
-	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Mel Gorman <mel-wJa12IhQEiizQB+pC5nmwQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org" <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
-	James Ketrenos <jketreno-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"Chatre, Reinette" <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"ipw2100-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org"
-	<ipw2100-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090826074409.606b5124.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Robert Olsson <robert.olsson@its.uu.se>,
+	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:56077 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751255AbZH1Dy6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2009 23:54:58 -0400
+In-Reply-To: <20090827235705.740919364@vyatta.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Bartlomiej Zolnierkiewicz reported an atomic order-6 allocation failure
-for ipw2200 firmware loading in kernel 2.6.30. High order allocation is
-likely to fail and should always be avoided.
++		default: /* Drivers are not supposed to return other values! */
++			if (net_ratelimit())
++				pr_info("pktgen: %s xmit error: %d\n",
++					odev->name, ret);
+ 			pkt_dev->errors++;
 
-The patch fixes this problem by replacing the original order-6
-pci_alloc_consistent() with an array of order-1 pages from a pci pool.
-This utilized the ipw2200 DMA command blocks (up to 64 slots). The
-maximum firmware size support remains the same (64*8K).
+I believe this is faulty.  Things like vlans can send pkts to qdiscs
+of the underlying device and those can return other values.
 
-This patch fixes bug http://bugzilla.kernel.org/show_bug.cgi?id=14016
+Patric McHardy put in some patches recently to achieve this in a more
+uniform manner:
 
-Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Cc: Mel Gorman <mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>
-Signed-off-by: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
----
- drivers/net/wireless/ipw2x00/ipw2200.c |  120 ++++++++++++++++++--------------
- 1 files changed, 67 insertions(+), 53 deletions(-)
+http://patchwork.ozlabs.org/patch/28340/
 
-diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
-index 6dcac73..f593fbb 100644
---- a/drivers/net/wireless/ipw2x00/ipw2200.c
-+++ b/drivers/net/wireless/ipw2x00/ipw2200.c
-@@ -2874,45 +2874,27 @@ static int ipw_fw_dma_add_command_block(struct ipw_priv *priv,
- 	return 0;
- }
- 
--static int ipw_fw_dma_add_buffer(struct ipw_priv *priv,
--				 u32 src_phys, u32 dest_address, u32 length)
-+static int ipw_fw_dma_add_buffer(struct ipw_priv *priv, dma_addr_t *src_address,
-+				 int nr, u32 dest_address, u32 len)
- {
--	u32 bytes_left = length;
--	u32 src_offset = 0;
--	u32 dest_offset = 0;
--	int status = 0;
-+	int ret, i;
-+	u32 size;
-+
- 	IPW_DEBUG_FW(">> \n");
--	IPW_DEBUG_FW_INFO("src_phys=0x%x dest_address=0x%x length=0x%x\n",
--			  src_phys, dest_address, length);
--	while (bytes_left > CB_MAX_LENGTH) {
--		status = ipw_fw_dma_add_command_block(priv,
--						      src_phys + src_offset,
--						      dest_address +
--						      dest_offset,
--						      CB_MAX_LENGTH, 0, 0);
--		if (status) {
-+	IPW_DEBUG_FW_INFO("nr=%d dest_address=0x%x len=0x%x\n",
-+			  nr, dest_address, len);
-+
-+	for (i = 0; i < nr; i++) {
-+		size = min_t(u32, len - i * CB_MAX_LENGTH, CB_MAX_LENGTH);
-+		ret = ipw_fw_dma_add_command_block(priv, src_address[i],
-+						   dest_address +
-+						   i * CB_MAX_LENGTH, size,
-+						   0, 0);
-+		if (ret) {
- 			IPW_DEBUG_FW_INFO(": Failed\n");
- 			return -1;
- 		} else
- 			IPW_DEBUG_FW_INFO(": Added new cb\n");
--
--		src_offset += CB_MAX_LENGTH;
--		dest_offset += CB_MAX_LENGTH;
--		bytes_left -= CB_MAX_LENGTH;
--	}
--
--	/* add the buffer tail */
--	if (bytes_left > 0) {
--		status =
--		    ipw_fw_dma_add_command_block(priv, src_phys + src_offset,
--						 dest_address + dest_offset,
--						 bytes_left, 0, 0);
--		if (status) {
--			IPW_DEBUG_FW_INFO(": Failed on the buffer tail\n");
--			return -1;
--		} else
--			IPW_DEBUG_FW_INFO
--			    (": Adding new cb - the buffer tail\n");
- 	}
- 
- 	IPW_DEBUG_FW("<< \n");
-@@ -3160,59 +3142,91 @@ static int ipw_load_ucode(struct ipw_priv *priv, u8 * data, size_t len)
- 
- static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
- {
--	int rc = -1;
-+	int ret = -1;
- 	int offset = 0;
- 	struct fw_chunk *chunk;
--	dma_addr_t shared_phys;
--	u8 *shared_virt;
-+	int total_nr = 0;
-+	int i;
-+	struct pci_pool *pool;
-+	u32 *virts[CB_NUMBER_OF_ELEMENTS_SMALL];
-+	dma_addr_t phys[CB_NUMBER_OF_ELEMENTS_SMALL];
- 
- 	IPW_DEBUG_TRACE("<< : \n");
--	shared_virt = pci_alloc_consistent(priv->pci_dev, len, &shared_phys);
- 
--	if (!shared_virt)
-+	pool = pci_pool_create("ipw2200", priv->pci_dev, CB_MAX_LENGTH, 0, 0);
-+	if (!pool) {
-+		IPW_ERROR("pci_pool_create failed\n");
- 		return -ENOMEM;
--
--	memmove(shared_virt, data, len);
-+	}
- 
- 	/* Start the Dma */
--	rc = ipw_fw_dma_enable(priv);
-+	ret = ipw_fw_dma_enable(priv);
- 
- 	/* the DMA is already ready this would be a bug. */
- 	BUG_ON(priv->sram_desc.last_cb_index > 0);
- 
- 	do {
-+		u32 chunk_len;
-+		u8 *start;
-+		int size;
-+		int nr = 0;
-+
- 		chunk = (struct fw_chunk *)(data + offset);
- 		offset += sizeof(struct fw_chunk);
-+		chunk_len = le32_to_cpu(chunk->length);
-+		start = data + offset;
-+
-+		nr = (chunk_len + CB_MAX_LENGTH - 1) / CB_MAX_LENGTH;
-+		for (i = 0; i < nr; i++) {
-+			virts[total_nr] = pci_pool_alloc(pool, GFP_KERNEL,
-+							 &phys[total_nr]);
-+			if (!virts[total_nr]) {
-+				ret = -ENOMEM;
-+				goto out;
-+			}
-+			size = min_t(u32, chunk_len - i * CB_MAX_LENGTH,
-+				     CB_MAX_LENGTH);
-+			memcpy(virts[total_nr], start, size);
-+			start += size;
-+			total_nr++;
-+			/* We don't support fw chunk larger than 64*8K */
-+			BUG_ON(total_nr > CB_NUMBER_OF_ELEMENTS_SMALL);
-+		}
-+
- 		/* build DMA packet and queue up for sending */
- 		/* dma to chunk->address, the chunk->length bytes from data +
- 		 * offeset*/
- 		/* Dma loading */
--		rc = ipw_fw_dma_add_buffer(priv, shared_phys + offset,
--					   le32_to_cpu(chunk->address),
--					   le32_to_cpu(chunk->length));
--		if (rc) {
-+		ret = ipw_fw_dma_add_buffer(priv, &phys[total_nr - nr],
-+					    nr, le32_to_cpu(chunk->address),
-+					    chunk_len);
-+		if (ret) {
- 			IPW_DEBUG_INFO("dmaAddBuffer Failed\n");
- 			goto out;
- 		}
- 
--		offset += le32_to_cpu(chunk->length);
-+		offset += chunk_len;
- 	} while (offset < len);
- 
- 	/* Run the DMA and wait for the answer */
--	rc = ipw_fw_dma_kick(priv);
--	if (rc) {
-+	ret = ipw_fw_dma_kick(priv);
-+	if (ret) {
- 		IPW_ERROR("dmaKick Failed\n");
- 		goto out;
- 	}
- 
--	rc = ipw_fw_dma_wait(priv);
--	if (rc) {
-+	ret = ipw_fw_dma_wait(priv);
-+	if (ret) {
- 		IPW_ERROR("dmaWaitSync Failed\n");
- 		goto out;
- 	}
--      out:
--	pci_free_consistent(priv->pci_dev, len, shared_virt, shared_phys);
--	return rc;
-+ out:
-+	for (i = 0; i < total_nr; i++)
-+		pci_pool_free(pool, virts[i], phys[i]);
-+
-+	pci_pool_destroy(pool);
-+
-+	return ret;
- }
- 
- /* stop nic */
+Thanks,
+Ben
+
 -- 
-1.5.3.6
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
+
