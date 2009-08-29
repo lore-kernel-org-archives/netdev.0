@@ -1,106 +1,265 @@
-From: Karl Hiramoto <karl@hiramoto.org>
-Subject: [PATCH] atm/br2684: netif_stop_queue() when atm device busy and netif_wake_queue() when we can send packets again.
-Date: Sat, 29 Aug 2009 13:24:52 +0200
-Message-ID: <1251545092-18081-1-git-send-email-karl@hiramoto.org>
-References: <4A9901E7.9040804@hiramoto.org>
-Cc: linux-atm-general@lists.sourceforge.net,
-	Karl Hiramoto <karl@hiramoto.org>
-To: netdev@vger.kernel.org
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] netns: embed ip6_dst_ops directly
+Date: Sat, 29 Aug 2009 15:34:49 +0400
+Message-ID: <20090829113449.GA3067@x200.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, benjamin.thery@bull.net,
+	dlezcano@fr.ibm.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caiajhbdccac.dreamhost.com ([208.97.132.202]:40933 "EHLO
-	spunkymail-a16.g.dreamhost.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751539AbZH2L1I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2009 07:27:08 -0400
-In-Reply-To: <4A9901E7.9040804@hiramoto.org>
+Received: from ey-out-2122.google.com ([74.125.78.24]:58782 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752234AbZH2Leu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2009 07:34:50 -0400
+Received: by ey-out-2122.google.com with SMTP id 4so154128eyf.5
+        for <netdev@vger.kernel.org>; Sat, 29 Aug 2009 04:34:51 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes the call to dev_kfree_skb() when the atm device is busy.
-Calling dev_kfree_skb() causes heavy packet loss then the device is under
-heavy load, the more correct behavior should be to stop the upper layers,
-then when the lower device can queue packets again wake the upper layers.
+struct net::ipv6.ip6_dst_ops is separatedly dynamically allocated,
+but there is no fundamental reason for it. Embed it directly into
+struct netns_ipv6.
 
-Signed-off-by: Karl Hiramoto <karl@hiramoto.org>
+For that:
+* move struct dst_ops into separate header to fix circular dependencies
+	I honestly tried not to, it's pretty impossible to do other way
+* drop dynamical allocation, allocate together with netns
+
+For a change, remove struct dst_ops::dst_net, it's deducible
+by using container_of() given dst_ops pointer.
+
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
- net/atm/br2684.c |   37 +++++++++++++++++++++++++++----------
- 1 files changed, 27 insertions(+), 10 deletions(-)
 
-diff --git a/net/atm/br2684.c b/net/atm/br2684.c
-index 2912665..5c42225 100644
---- a/net/atm/br2684.c
-+++ b/net/atm/br2684.c
-@@ -69,7 +69,7 @@ struct br2684_vcc {
- 	struct net_device *device;
- 	/* keep old push, pop functions for chaining */
- 	void (*old_push) (struct atm_vcc * vcc, struct sk_buff * skb);
--	/* void (*old_pop)(struct atm_vcc *vcc, struct sk_buff *skb); */
-+	void (*old_pop)(struct atm_vcc *vcc, struct sk_buff *skb);
- 	enum br2684_encaps encaps;
- 	struct list_head brvccs;
- #ifdef CONFIG_ATM_BR2684_IPFILTER
-@@ -142,6 +142,22 @@ static struct net_device *br2684_find_dev(const struct br2684_if_spec *s)
- 	return NULL;
+ include/net/dst.h        |   23 +----------------------
+ include/net/dst_ops.h    |   28 ++++++++++++++++++++++++++++
+ include/net/netns/ipv6.h |    3 ++-
+ net/ipv6/route.c         |   34 +++++++++++++---------------------
+ 4 files changed, 44 insertions(+), 44 deletions(-)
+
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -8,6 +8,7 @@
+ #ifndef _NET_DST_H
+ #define _NET_DST_H
+ 
++#include <net/dst_ops.h>
+ #include <linux/netdevice.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/rcupdate.h>
+@@ -102,28 +103,6 @@ struct dst_entry
+ 	};
+ };
+ 
+-
+-struct dst_ops
+-{
+-	unsigned short		family;
+-	__be16			protocol;
+-	unsigned		gc_thresh;
+-
+-	int			(*gc)(struct dst_ops *ops);
+-	struct dst_entry *	(*check)(struct dst_entry *, __u32 cookie);
+-	void			(*destroy)(struct dst_entry *);
+-	void			(*ifdown)(struct dst_entry *,
+-					  struct net_device *dev, int how);
+-	struct dst_entry *	(*negative_advice)(struct dst_entry *);
+-	void			(*link_failure)(struct sk_buff *);
+-	void			(*update_pmtu)(struct dst_entry *dst, u32 mtu);
+-	int			(*local_out)(struct sk_buff *skb);
+-
+-	atomic_t		entries;
+-	struct kmem_cache 		*kmem_cachep;
+-	struct net              *dst_net;
+-};
+-
+ #ifdef __KERNEL__
+ 
+ static inline u32
+new file mode 100644
+--- /dev/null
++++ b/include/net/dst_ops.h
+@@ -0,0 +1,28 @@
++#ifndef _NET_DST_OPS_H
++#define _NET_DST_OPS_H
++#include <linux/types.h>
++
++struct dst_entry;
++struct kmem_cachep;
++struct net_device;
++struct sk_buff;
++
++struct dst_ops {
++	unsigned short		family;
++	__be16			protocol;
++	unsigned		gc_thresh;
++
++	int			(*gc)(struct dst_ops *ops);
++	struct dst_entry *	(*check)(struct dst_entry *, __u32 cookie);
++	void			(*destroy)(struct dst_entry *);
++	void			(*ifdown)(struct dst_entry *,
++					  struct net_device *dev, int how);
++	struct dst_entry *	(*negative_advice)(struct dst_entry *);
++	void			(*link_failure)(struct sk_buff *);
++	void			(*update_pmtu)(struct dst_entry *dst, u32 mtu);
++	int			(*local_out)(struct sk_buff *skb);
++
++	atomic_t		entries;
++	struct kmem_cache	*kmem_cachep;
++};
++#endif
+--- a/include/net/netns/ipv6.h
++++ b/include/net/netns/ipv6.h
+@@ -6,6 +6,7 @@
+ 
+ #ifndef __NETNS_IPV6_H__
+ #define __NETNS_IPV6_H__
++#include <net/dst_ops.h>
+ 
+ struct ctl_table_header;
+ 
+@@ -42,7 +43,7 @@ struct netns_ipv6 {
+ 	struct timer_list       ip6_fib_timer;
+ 	struct hlist_head       *fib_table_hash;
+ 	struct fib6_table       *fib6_main_tbl;
+-	struct dst_ops		*ip6_dst_ops;
++	struct dst_ops		ip6_dst_ops;
+ 	unsigned int		 ip6_rt_gc_expire;
+ 	unsigned long		 ip6_rt_last_gc;
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -665,7 +665,7 @@ static struct rt6_info *rt6_alloc_cow(struct rt6_info *ort, struct in6_addr *dad
+ 				net->ipv6.sysctl.ip6_rt_gc_elasticity = 1;
+ 				net->ipv6.sysctl.ip6_rt_gc_min_interval = 0;
+ 
+-				ip6_dst_gc(net->ipv6.ip6_dst_ops);
++				ip6_dst_gc(&net->ipv6.ip6_dst_ops);
+ 
+ 				net->ipv6.sysctl.ip6_rt_gc_elasticity =
+ 					saved_rt_elasticity;
+@@ -970,7 +970,7 @@ struct dst_entry *icmp6_dst_alloc(struct net_device *dev,
+ 	if (unlikely(idev == NULL))
+ 		return NULL;
+ 
+-	rt = ip6_dst_alloc(net->ipv6.ip6_dst_ops);
++	rt = ip6_dst_alloc(&net->ipv6.ip6_dst_ops);
+ 	if (unlikely(rt == NULL)) {
+ 		in6_dev_put(idev);
+ 		goto out;
+@@ -1060,7 +1060,7 @@ static void icmp6_clean_all(int (*func)(struct rt6_info *rt, void *arg),
+ static int ip6_dst_gc(struct dst_ops *ops)
+ {
+ 	unsigned long now = jiffies;
+-	struct net *net = ops->dst_net;
++	struct net *net = container_of(ops, struct net, ipv6.ip6_dst_ops);
+ 	int rt_min_interval = net->ipv6.sysctl.ip6_rt_gc_min_interval;
+ 	int rt_max_size = net->ipv6.sysctl.ip6_rt_max_size;
+ 	int rt_elasticity = net->ipv6.sysctl.ip6_rt_gc_elasticity;
+@@ -1154,7 +1154,7 @@ int ip6_route_add(struct fib6_config *cfg)
+ 		goto out;
+ 	}
+ 
+-	rt = ip6_dst_alloc(net->ipv6.ip6_dst_ops);
++	rt = ip6_dst_alloc(&net->ipv6.ip6_dst_ops);
+ 
+ 	if (rt == NULL) {
+ 		err = -ENOMEM;
+@@ -1643,7 +1643,7 @@ out:
+ static struct rt6_info * ip6_rt_copy(struct rt6_info *ort)
+ {
+ 	struct net *net = dev_net(ort->rt6i_dev);
+-	struct rt6_info *rt = ip6_dst_alloc(net->ipv6.ip6_dst_ops);
++	struct rt6_info *rt = ip6_dst_alloc(&net->ipv6.ip6_dst_ops);
+ 
+ 	if (rt) {
+ 		rt->u.dst.input = ort->u.dst.input;
+@@ -1923,7 +1923,7 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ 				    int anycast)
+ {
+ 	struct net *net = dev_net(idev->dev);
+-	struct rt6_info *rt = ip6_dst_alloc(net->ipv6.ip6_dst_ops);
++	struct rt6_info *rt = ip6_dst_alloc(&net->ipv6.ip6_dst_ops);
+ 	struct neighbour *neigh;
+ 
+ 	if (rt == NULL)
+@@ -2501,7 +2501,7 @@ static int rt6_stats_seq_show(struct seq_file *seq, void *v)
+ 		   net->ipv6.rt6_stats->fib_rt_alloc,
+ 		   net->ipv6.rt6_stats->fib_rt_entries,
+ 		   net->ipv6.rt6_stats->fib_rt_cache,
+-		   atomic_read(&net->ipv6.ip6_dst_ops->entries),
++		   atomic_read(&net->ipv6.ip6_dst_ops.entries),
+ 		   net->ipv6.rt6_stats->fib_discarded_routes);
+ 
+ 	return 0;
+@@ -2637,7 +2637,7 @@ struct ctl_table *ipv6_route_sysctl_init(struct net *net)
+ 
+ 	if (table) {
+ 		table[0].data = &net->ipv6.sysctl.flush_delay;
+-		table[1].data = &net->ipv6.ip6_dst_ops->gc_thresh;
++		table[1].data = &net->ipv6.ip6_dst_ops.gc_thresh;
+ 		table[2].data = &net->ipv6.sysctl.ip6_rt_max_size;
+ 		table[3].data = &net->ipv6.sysctl.ip6_rt_gc_min_interval;
+ 		table[4].data = &net->ipv6.sysctl.ip6_rt_gc_timeout;
+@@ -2655,12 +2655,8 @@ static int ip6_route_net_init(struct net *net)
+ {
+ 	int ret = -ENOMEM;
+ 
+-	net->ipv6.ip6_dst_ops = kmemdup(&ip6_dst_ops_template,
+-					sizeof(*net->ipv6.ip6_dst_ops),
+-					GFP_KERNEL);
+-	if (!net->ipv6.ip6_dst_ops)
+-		goto out;
+-	net->ipv6.ip6_dst_ops->dst_net = hold_net(net);
++	memcpy(&net->ipv6.ip6_dst_ops, &ip6_dst_ops_template,
++	       sizeof(net->ipv6.ip6_dst_ops));
+ 
+ 	net->ipv6.ip6_null_entry = kmemdup(&ip6_null_entry_template,
+ 					   sizeof(*net->ipv6.ip6_null_entry),
+@@ -2669,7 +2665,7 @@ static int ip6_route_net_init(struct net *net)
+ 		goto out_ip6_dst_ops;
+ 	net->ipv6.ip6_null_entry->u.dst.path =
+ 		(struct dst_entry *)net->ipv6.ip6_null_entry;
+-	net->ipv6.ip6_null_entry->u.dst.ops = net->ipv6.ip6_dst_ops;
++	net->ipv6.ip6_null_entry->u.dst.ops = &net->ipv6.ip6_dst_ops;
+ 
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+ 	net->ipv6.ip6_prohibit_entry = kmemdup(&ip6_prohibit_entry_template,
+@@ -2679,7 +2675,7 @@ static int ip6_route_net_init(struct net *net)
+ 		goto out_ip6_null_entry;
+ 	net->ipv6.ip6_prohibit_entry->u.dst.path =
+ 		(struct dst_entry *)net->ipv6.ip6_prohibit_entry;
+-	net->ipv6.ip6_prohibit_entry->u.dst.ops = net->ipv6.ip6_dst_ops;
++	net->ipv6.ip6_prohibit_entry->u.dst.ops = &net->ipv6.ip6_dst_ops;
+ 
+ 	net->ipv6.ip6_blk_hole_entry = kmemdup(&ip6_blk_hole_entry_template,
+ 					       sizeof(*net->ipv6.ip6_blk_hole_entry),
+@@ -2688,7 +2684,7 @@ static int ip6_route_net_init(struct net *net)
+ 		goto out_ip6_prohibit_entry;
+ 	net->ipv6.ip6_blk_hole_entry->u.dst.path =
+ 		(struct dst_entry *)net->ipv6.ip6_blk_hole_entry;
+-	net->ipv6.ip6_blk_hole_entry->u.dst.ops = net->ipv6.ip6_dst_ops;
++	net->ipv6.ip6_blk_hole_entry->u.dst.ops = &net->ipv6.ip6_dst_ops;
+ #endif
+ 
+ 	net->ipv6.sysctl.flush_delay = 0;
+@@ -2717,8 +2713,6 @@ out_ip6_null_entry:
+ 	kfree(net->ipv6.ip6_null_entry);
+ #endif
+ out_ip6_dst_ops:
+-	release_net(net->ipv6.ip6_dst_ops->dst_net);
+-	kfree(net->ipv6.ip6_dst_ops);
+ 	goto out;
  }
  
-+/* chained vcc->pop function.  Check if we should wake the netif_queue */
-+static void br2684_pop(struct atm_vcc *vcc, struct sk_buff *skb)
-+{
-+	struct br2684_vcc *brvcc = BR2684_VCC(vcc);
-+	struct net_device *net_dev = skb->dev;
-+
-+	pr_debug("br2684_pop(vcc %p ; net_dev %p )\n", vcc, net_dev);
-+	brvcc->old_pop(vcc, skb);
-+
-+	if (!net_dev)
-+		return;
-+
-+	if (atm_may_send(vcc, 0))
-+		netif_wake_queue(net_dev);
-+
-+}
- /*
-  * Send a packet out a particular vcc.  Not to useful right now, but paves
-  * the way for multiple vcc's per itf.  Returns true if we can send,
-@@ -200,20 +216,19 @@ static int br2684_xmit_vcc(struct sk_buff *skb, struct net_device *dev,
- 
- 	ATM_SKB(skb)->vcc = atmvcc = brvcc->atmvcc;
- 	pr_debug("atm_skb(%p)->vcc(%p)->dev(%p)\n", skb, atmvcc, atmvcc->dev);
--	if (!atm_may_send(atmvcc, skb->truesize)) {
--		/*
--		 * We free this here for now, because we cannot know in a higher
--		 * layer whether the skb pointer it supplied wasn't freed yet.
--		 * Now, it always is.
--		 */
--		dev_kfree_skb(skb);
--		return 0;
--	}
- 	atomic_add(skb->truesize, &sk_atm(atmvcc)->sk_wmem_alloc);
- 	ATM_SKB(skb)->atm_options = atmvcc->atm_options;
- 	dev->stats.tx_packets++;
- 	dev->stats.tx_bytes += skb->len;
- 	atmvcc->send(atmvcc, skb);
-+
-+	if (!atm_may_send(atmvcc, 0)) {
-+		netif_stop_queue(brvcc->device);
-+		/*check for race with br2684_pop*/
-+		if (atm_may_send(atmvcc, 0))
-+			netif_start_queue(brvcc->device);
-+	}
-+
- 	return 1;
+@@ -2733,8 +2727,6 @@ static void ip6_route_net_exit(struct net *net)
+ 	kfree(net->ipv6.ip6_prohibit_entry);
+ 	kfree(net->ipv6.ip6_blk_hole_entry);
+ #endif
+-	release_net(net->ipv6.ip6_dst_ops->dst_net);
+-	kfree(net->ipv6.ip6_dst_ops);
  }
  
-@@ -503,8 +518,10 @@ static int br2684_regvcc(struct atm_vcc *atmvcc, void __user * arg)
- 	atmvcc->user_back = brvcc;
- 	brvcc->encaps = (enum br2684_encaps)be.encaps;
- 	brvcc->old_push = atmvcc->push;
-+	brvcc->old_pop = atmvcc->pop;
- 	barrier();
- 	atmvcc->push = br2684_push;
-+	atmvcc->pop = br2684_pop;
- 
- 	__skb_queue_head_init(&queue);
- 	rq = &sk_atm(atmvcc)->sk_receive_queue;
--- 
-1.6.3.3
-
+ static struct pernet_operations ip6_route_net_ops = {
