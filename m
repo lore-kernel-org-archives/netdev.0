@@ -1,22 +1,22 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: Subject: [PATCH 1/9] bna: Brocade 10Gb Ethernet device driver
+Subject: Subject: [PATCH 4/9] bna: Brocade 10Gb Ethernet device driver
 Date: Fri, 28 Aug 2009 22:18:39 -0700
-Message-ID: <200908290518.n7T5IdjW031875@blc-10-10.brocade.com>
+Message-ID: <200908290518.n7T5IdcQ031884@blc-10-10.brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: amathur@brocade.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hq-exedge.brocade.com ([66.243.153.83]:35852 "EHLO
+Received: from hq-exedge.brocade.com ([66.243.153.83]:35853 "EHLO
 	hq-exedge.brocade.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751122AbZH2FXr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2009 01:23:47 -0400
+	with ESMTP id S1751255AbZH2FXw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2009 01:23:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Rasesh Mody <rmody@brocade.com>
 
-This is patch 1/9 which contains linux driver source for 
+This is patch 4/9 which contains linux driver source for 
 Brocade's BR1010/BR1020 10Gb CEE capable ethernet adapter.
 
 We wish this patch to be considered for inclusion in 2.6.30 
@@ -25,10 +25,2615 @@ Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
 
 
-diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bnad.c linux-2.6.30.5-mod/drivers/net/bna/bnad.c
---- linux-2.6.30.5-orig/drivers/net/bna/bnad.c	1969-12-31 16:00:00.000000000 -0800
-+++ linux-2.6.30.5-mod/drivers/net/bna/bnad.c	2009-08-28 21:09:22.507968000 -0700
-@@ -0,0 +1,4878 @@
+diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bfa_callback_priv.h linux-2.6.30.5-mod/drivers/net/bna/bfa_callback_priv.h
+--- linux-2.6.30.5-orig/drivers/net/bna/bfa_callback_priv.h	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.30.5-mod/drivers/net/bna/bfa_callback_priv.h	2009-08-28 21:09:23.216883000 -0700
+@@ -0,0 +1,64 @@
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * See LICENSE.bna for copyright and licensing details.
++ */
++
++#ifndef __BFA_CALLBACK_PRIV_H__
++#define __BFA_CALLBACK_PRIV_H__
++
++#include <cs/bfa_q.h>
++
++typedef void (*bfa_cb_cbfn_t) (void *cbarg, bfa_boolean_t complete);
++
++/**
++ * Generic BFA callback element.
++ */
++struct bfa_cb_qe_s {
++	struct list_head qe;
++	bfa_cb_cbfn_t cbfn;
++	bfa_boolean_t once;
++	u32 rsvd;
++	void *cbarg;
++};
++
++#define bfa_cb_queue(__bfa, __hcb_qe, __cbfn, __cbarg) do {		\
++	(__hcb_qe)->cbfn  = (__cbfn);      \
++	(__hcb_qe)->cbarg = (__cbarg);      \
++	list_add_tail(&(__hcb_qe)->qe, &(__bfa)->comp_q);      \
++} while (0)
++
++#define bfa_cb_dequeue(__hcb_qe)	list_del(&(__hcb_qe)->qe)
++
++#define bfa_cb_queue_once(__bfa, __hcb_qe, __cbfn, __cbarg) do {	\
++	(__hcb_qe)->cbfn  = (__cbfn);      \
++	(__hcb_qe)->cbarg = (__cbarg);      \
++	if (!(__hcb_qe)->once) {      \
++		list_add_tail((__hcb_qe), &(__bfa)->comp_q);      \
++		(__hcb_qe)->once = BFA_TRUE;				\
++	}								\
++} while (0)
++
++#define bfa_cb_queue_done(__hcb_qe) do {				\
++	(__hcb_qe)->once = BFA_FALSE;					\
++} while (0)
++
++#endif /* __BFA_CALLBACK_PRIV_H__ */
+diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bfa_csdebug.c linux-2.6.30.5-mod/drivers/net/bna/bfa_csdebug.c
+--- linux-2.6.30.5-orig/drivers/net/bna/bfa_csdebug.c	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.30.5-mod/drivers/net/bna/bfa_csdebug.c	2009-08-28 21:09:23.038897000 -0700
+@@ -0,0 +1,63 @@
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * See LICENSE.bna for copyright and licensing details.
++ */
++
++#include <cs/bfa_debug.h>
++#include <bfa_os_inc.h>
++#include <cs/bfa_q.h>
++#include <log/bfa_log_hal.h>
++
++/**
++ *  cs_debug_api
++ */
++
++
++void
++bfa_panic(int line, char *file, char *panicstr)
++{
++	bfa_log(NULL, BFA_LOG_HAL_ASSERT, file, line, panicstr);
++	bfa_os_panic();
++}
++
++void
++bfa_sm_panic(struct bfa_log_mod_s *logm, int line, char *file, int event)
++{
++	bfa_log(logm, BFA_LOG_HAL_SM_ASSERT, file, line, event);
++	bfa_os_panic();
++}
++
++int
++bfa_q_is_on_q_func(struct list_head *q, struct list_head *qe)
++{
++	struct list_head *tqe;
++
++	tqe = bfa_q_next(q);
++	while (tqe != q) {
++		if (tqe == qe)
++			return (1);
++		tqe = bfa_q_next(tqe);
++		if (tqe == NULL)
++			break;
++	}
++	return (0);
++}
+diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bfad_drv.h linux-2.6.30.5-mod/drivers/net/bna/bfad_drv.h
+--- linux-2.6.30.5-orig/drivers/net/bna/bfad_drv.h	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.30.5-mod/drivers/net/bna/bfad_drv.h	2009-08-28 21:09:23.249890000 -0700
+@@ -0,0 +1,395 @@
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * See LICENSE.bna for copyright and licensing details.
++ */
++
++/**
++ * Contains base driver definitions.
++ */
++
++/**
++ *  bfa_drv.h Linux driver data structures.
++ */
++
++#ifndef __BFAD_DRV_H__
++#define __BFAD_DRV_H__
++
++#include "bfa_os_inc.h"
++
++#include <bfa.h>
++#include <bfa_svc.h>
++#include <fcs/bfa_fcs.h>
++#include <defs/bfa_defs_pci.h>
++#include <defs/bfa_defs_port.h>
++#include <defs/bfa_defs_rport.h>
++#include <fcs/bfa_fcs_rport.h>
++#include <defs/bfa_defs_vport.h>
++#include <fcs/bfa_fcs_vport.h>
++
++#include <cs/bfa_plog.h>
++#include "aen/bfa_aen.h"
++#include <log/bfa_log_linux.h>
++
++#define BFAD_DRIVER_NAME        "bfa"
++#ifdef BFA_DRIVER_VERSION
++#define BFAD_DRIVER_VERSION    BFA_DRIVER_VERSION
++#else
++#define BFAD_DRIVER_VERSION    "2.0.0.0"
++#endif
++
++#if defined(CONFIG_PCIEPORTBUS) && defined(CONFIG_PCIEAER)
++#define BFAD_ENABLE_PCIE_AER(x) pci_enable_pcie_error_reporting(x)
++#else
++#define BFAD_ENABLE_PCIE_AER(x) {}
++#endif
++
++
++#define BFAD_IRQ_FLAGS IRQF_SHARED
++
++#ifndef FC_PORTSPEED_8GBIT
++#define FC_PORTSPEED_8GBIT 0x10
++#endif
++
++/*
++ * BFAD flags
++ */
++#define BFAD_MSIX_ON				0x00000001
++#define BFAD_HAL_INIT_DONE			0x00000002
++#define BFAD_DRV_INIT_DONE			0x00000004
++#define BFAD_CFG_PPORT_DONE			0x00000008
++#define BFAD_HAL_START_DONE			0x00000010
++#define BFAD_PORT_ONLINE			0x00000020
++#define BFAD_RPORT_ONLINE			0x00000040
++
++#define BFAD_PORT_DELETE			0x00000001
++
++/*
++ * BFAD related definition
++ */
++#define SCSI_SCAN_DELAY		HZ
++#define BFAD_STOP_TIMEOUT	30
++#define BFAD_SUSPEND_TIMEOUT	BFAD_STOP_TIMEOUT
++
++/*
++ * BFAD configuration parameter default values
++ */
++#define BFAD_LUN_QUEUE_DEPTH 		32
++#define BFAD_IO_MAX_SGE 		SG_ALL
++
++#define bfad_isr_t irq_handler_t
++
++#if defined(__VMKERNEL_MODULE__)
++#ifndef CONFIG_PCI_MSI
++#define CONFIG_PCI_MSI
++#endif
++#endif
++
++#ifdef CONFIG_PCI_MSI
++#define MAX_MSIX_ENTRY 22
++
++struct bfad_msix_s {
++	struct bfad_s *bfad;
++	struct msix_entry msix;
++};
++#endif
++
++enum bfad_port_pvb_type {
++	BFAD_PORT_PHYS_BASE = 0,
++	BFAD_PORT_PHYS_VPORT = 1,
++	BFAD_PORT_VF_BASE = 2,
++	BFAD_PORT_VF_VPORT = 3,
++};
++
++/*
++ * PORT data structure
++ */
++struct bfad_port_s {
++	struct list_head list_entry;
++	struct bfad_s *bfad;
++	struct bfa_fcs_port_s *fcs_port;
++	u32 roles;
++	s32 flags;
++	u32 supported_fc4s;
++	u8 ipfc_flags;
++	enum bfad_port_pvb_type pvb_type;
++	struct bfad_im_port_s *im_port;	/* IM specific data */
++	struct bfad_tm_port_s *tm_port;	/* TM specific data */
++	struct bfad_ipfc_port_s *ipfc_port;	/* IPFC specific data */
++};
++
++/*
++ * VPORT data structure
++ */
++struct bfad_vport_s {
++	struct bfad_port_s drv_port;
++	struct bfa_fcs_vport_s fcs_vport;
++	struct completion *comp_del;
++};
++
++/*
++ * VF data structure
++ */
++struct bfad_vf_s {
++	bfa_fcs_vf_t fcs_vf;
++	struct bfad_port_s base_port;	/* base port for vf */
++	struct bfad_s *bfad;
++};
++
++struct bfad_cfg_param_s {
++	u32 rport_del_timeout;
++	u32 ioc_queue_depth;
++	u32 lun_queue_depth;
++	u32 io_max_sge;
++	u32 binding_method;
++};
++
++#define BFAD_AEN_MAX_APPS 8
++struct bfad_aen_file_s {
++	struct list_head qe;
++	struct bfad_s *bfad;
++	s32 ri;
++	s32 app_id;
++};
++
++/*
++ * BFAD (PCI function) data structure
++ */
++struct bfad_s {
++	struct list_head list_entry;
++	struct bfa_s bfa;
++	struct bfa_fcs_s bfa_fcs;
++	struct pci_dev *pcidev;
++	const char *pci_name;
++	struct bfa_pcidev_s hal_pcidev;
++	struct bfa_ioc_pci_attr_s pci_attr;
++	unsigned long pci_bar0_map;
++	void __iomem *pci_bar0_kva;
++	struct completion comp;
++	struct completion suspend;
++	struct completion disable_comp;
++	bfa_boolean_t disable_active;
++	struct bfad_port_s pport;	/* physical port of the BFAD */
++	struct bfa_meminfo_s meminfo;
++	struct bfa_iocfc_cfg_s ioc_cfg;
++	u32 inst_no;		/* BFAD instance number */
++	u32 bfad_flags;
++	spinlock_t bfad_lock;
++	struct bfad_cfg_param_s cfg_data;
++#ifdef CONFIG_PCI_MSI
++	struct bfad_msix_s msix_tab[MAX_MSIX_ENTRY];
++	int nvec;
++#endif
++
++	char adapter_name[BFA_ADAPTER_SYM_NAME_LEN];
++	char port_name[BFA_ADAPTER_SYM_NAME_LEN];
++	struct timer_list hal_tmo;
++	unsigned long hs_start;
++	struct bfad_im_s *im;	/* IM specific data */
++	struct bfad_tm_s *tm;	/* TM specific data */
++	struct bfad_ipfc_s *ipfc;	/* IPFC specific data */
++	struct bfa_log_mod_s log_data;
++	struct bfa_trc_mod_s *trcmod;
++	struct bfa_log_mod_s *logmod;
++	struct bfa_aen_s *aen;
++	struct bfa_aen_s aen_buf;
++	struct bfad_aen_file_s file_buf[BFAD_AEN_MAX_APPS];
++	struct list_head file_q;
++	struct list_head file_free_q;
++	struct bfa_plog_s plog_buf;
++	int ref_count;
++	bfa_boolean_t ipfc_enabled;
++	struct fc_host_statistics link_stats;
++
++	struct kobject *bfa_kobj;
++	struct kobject *ioc_kobj;
++	struct kobject *pport_kobj;
++	struct kobject *lport_kobj;
++};
++
++/*
++ * RPORT data structure
++ */
++struct bfad_rport_s {
++	struct bfa_fcs_rport_s fcs_rport;
++};
++
++struct bfad_buf_info {
++	void *virt;
++	dma_addr_t phys;
++	u32 size;
++};
++
++struct bfad_fcxp {
++	struct bfad_port_s *port;
++	struct bfa_rport_s *bfa_rport;
++	bfa_status_t req_status;
++	u16 tag;
++	u16 rsp_len;
++	u16 rsp_maxlen;
++	u8 use_ireqbuf;
++	u8 use_irspbuf;
++	u32 num_req_sgles;
++	u32 num_rsp_sgles;
++	struct fchs_s fchs;
++	void *reqbuf_info;
++	void *rspbuf_info;
++	struct bfa_sge_s *req_sge;
++	struct bfa_sge_s *rsp_sge;
++	fcxp_send_cb_t send_cbfn;
++	void *send_cbarg;
++	void *bfa_fcxp;
++	struct completion comp;
++};
++
++struct bfad_hal_comp {
++	bfa_status_t status;
++	struct completion comp;
++};
++
++/*
++ * Macro to obtain the immediate lower power
++ * of two for the integer.
++ */
++#define nextLowerInt(x)                         	\
++do {                                            	\
++	int j;                                  	\
++	(*x)--;    		                	\
++	for (j = 1; j < (sizeof(int) * 8); j <<= 1)     \
++		(*x) = (*x) | (*x) >> j;        	\
++	(*x)++;                  	        	\
++	(*x) = (*x) >> 1;                       	\
++} while (0)
++
++
++#define BFAD_WORK_HANDLER(name) void name(struct work_struct *work)
++#define BFAD_INIT_WORK(x, work, func) INIT_WORK(&(x)->work, func)
++
++#define list_remove_head(list, entry, type, member)       	\
++do {                                                    	\
++	entry = NULL;                                           \
++	if (!list_empty(list)) {                                \
++		entry = list_entry((list)->next, type, member); 	\
++		list_del_init(&entry->member);                  	\
++	}								\
++} while (0)
++
++#define list_get_first(list, type, member)				\
++((list_empty(list)) ? NULL :						\
++	list_entry((list)->next, type, member))
++
++bfa_boolean_t bfad_is_ready(void);
++bfa_status_t bfad_vport_create(struct bfad_s *bfad, u16 vf_id,
++			       struct bfa_port_cfg_s *port_cfg);
++bfa_status_t bfad_vf_create(struct bfad_s *bfad, u16 vf_id,
++			    struct bfa_port_cfg_s *port_cfg);
++bfa_status_t bfad_cfg_pport(struct bfad_s *bfad, enum bfa_port_role role);
++bfa_status_t bfad_drv_init(struct bfad_s *bfad);
++struct bfad_s *bfad_find_bfad_by_inst_no(int inst_no);
++void bfad_drv_start(struct bfad_s *bfad);
++void bfad_uncfg_pport(struct bfad_s *bfad);
++void bfad_drv_stop(struct bfad_s *bfad);
++void bfad_remove_intr(struct bfad_s *bfad);
++void bfad_hal_mem_release(struct bfad_s *bfad);
++void bfad_hcb_comp(void *arg, bfa_status_t status);
++
++int bfad_os_ioctl_init(void);
++int bfad_os_ioctl_exit(void);
++int bfad_setup_intr(struct bfad_s *bfad);
++void bfad_remove_intr(struct bfad_s *bfad);
++int bfad_os_pci_register_driver(struct pci_driver *drv);
++void bfad_os_pci_unregister_driver(struct pci_driver *drv);
++void bfad_os_device_sysfs_create(struct bfad_s *);
++void bfad_os_device_sysfs_remove(struct bfad_s *);
++void bfad_os_pci_set_mwi(struct pci_dev *pdev);
++void bfad_os_idr_init(struct idr *idr);
++void bfad_os_idr_destroy(struct idr *idr);
++void *bfad_os_dma_alloc(struct bfad_s *bfad, struct bfa_mem_elem_s
++			*meminfo_elem, dma_addr_t * phys_addr);
++void bfad_os_dma_free(struct bfad_s *bfad, struct bfa_mem_elem_s
++		      *meminfo_elem);
++void bfad_os_idr_remove(struct idr *idp, int id);
++int bfad_os_idr_pre_get(struct idr *idp, gfp_t gfp_mask);
++void bfad_os_iounmap(struct pci_dev *pdev, struct bfad_s *bfad);
++
++void bfad_update_hal_cfg(struct bfa_iocfc_cfg_s *bfa_cfg);
++bfa_status_t bfad_hal_mem_alloc(struct bfad_s *bfad);
++void bfad_bfa_tmo(unsigned long data);
++void bfad_init_timer(struct bfad_s *bfad);
++int bfad_pci_init(struct pci_dev *pdev, struct bfad_s *bfad);
++void bfad_pci_uninit(struct pci_dev *pdev, struct bfad_s *bfad);
++void bfad_fcs_port_cfg(struct bfad_s *bfad);
++void bfad_drv_uninit(struct bfad_s *bfad);
++void bfad_drv_log_level_set(struct bfad_s *bfad);
++bfa_status_t bfad_fc4_module_init(void);
++void bfad_fc4_module_exit(void);
++int bfad_ipfc_probe(struct bfad_s *bfad);
++int bfad_ipfc_probe_undo(struct bfad_s *bfad);
++void bfad_ipfc_probe_post(struct bfad_s *bfad);
++int bfad_ipfc_module_init(void);
++void bfad_ipfc_module_exit(void);
++int bfad_ipfc_port_online(struct bfad_s *bfad, struct bfad_port_s *port);
++int bfad_ipfc_port_offline(struct bfad_s *bfad, struct bfad_port_s *port);
++int bfad_ipfc_port_new(struct bfad_s *bfad,
++		       struct bfad_port_s *port, int port_type);
++int bfad_ipfc_port_delete(struct bfad_s *bfad, struct bfad_port_s *port);
++
++
++
++
++void bfad_pci_remove(struct pci_dev *pdev);
++int bfad_pci_probe(struct pci_dev *pdev, const struct pci_device_id *pid);
++void bfad_os_rport_online_wait(struct bfad_s *bfad);
++int bfad_os_get_linkup_delay(struct bfad_s *bfad);
++u32 bfa_os_get_instance_id(struct bfad_s *bfad);
++int bfad_install_msix_handler(struct bfad_s *bfad);
++
++extern struct idr bfad_im_port_index;
++extern struct pci_driver *bfad_pci_driver_p;
++
++extern struct pci_device_id bfad_id_table[];
++extern int bfad_scan_done;
++extern struct list_head bfad_list;
++extern char *os_name;
++extern char *os_patch;
++extern char *host_name;
++extern int num_rports;
++extern int num_ios;
++extern int num_tms;
++extern int num_fcxps;
++extern int num_ufbufs;
++extern int reqq_size;
++extern int rspq_size;
++extern int num_sgpgs;
++extern int rport_del_timeout;
++extern int bfa_lun_queue_depth;
++extern int bfa_io_max_sge;
++extern int log_level;
++extern int ioc_auto_recover;
++extern int ipfc_enable;
++extern int ipfc_mtu;
++extern int linkup_delay;
++extern int msix_disable;
++
++extern int supported_fc4s;
++
++
++#endif /* __BFAD_DRV_H__ */
+diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bfad_fwimg.c linux-2.6.30.5-mod/drivers/net/bna/bfad_fwimg.c
+--- linux-2.6.30.5-orig/drivers/net/bna/bfad_fwimg.c	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.30.5-mod/drivers/net/bna/bfad_fwimg.c	2009-08-28 21:09:23.393882000 -0700
+@@ -0,0 +1,108 @@
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * See LICENSE.bna for copyright and licensing details.
++ */
++
++/**
++ *  bfad_fwimg.c Linux driver PCI interface module.
++ */
++#include <bfa_os_inc.h>
++#include <bfad_drv.h>
++#include <bfad_im_compat.h>
++#include <defs/bfa_defs_version.h>
++#include <linux/errno.h>
++#include <linux/sched.h>
++#include <linux/init.h>
++#include <linux/fs.h>
++#include <asm/uaccess.h>
++#include <asm/fcntl.h>
++#include <linux/pci.h>
++#include <linux/firmware.h>
++#include <bfa_fwimg_priv.h>
++#include <bfa.h>
++
++u32 bfi_image_ct_size;
++u32 bfi_image_cb_size;
++u32 *bfi_image_ct;
++u32 *bfi_image_cb;
++
++
++#define	BFAD_FW_FILE_CT	"ctfw.bin"
++#define	BFAD_FW_FILE_CB	"cbfw.bin"
++
++u32 *
++bfad_read_firmware(struct pci_dev *pdev, u32 ** bfi_image,
++		   u32 * bfi_image_size, char *fw_name)
++{
++	const struct firmware *fw;
++
++	if (request_firmware(&fw, fw_name, &pdev->dev)) {
++		printk(KERN_ALERT "Can't locate firmware %s\n", fw_name);
++		goto error;
++	}
++
++	*bfi_image = vmalloc(fw->size);
++	if (NULL == *bfi_image) {
++		printk(KERN_ALERT "Fail to allocate buffer for fw image "
++		       "size=%x!\n", (u32) fw->size);
++		goto error;
++	}
++
++	memcpy(*bfi_image, fw->data, fw->size);
++	*bfi_image_size = fw->size / sizeof(u32);
++
++	return (*bfi_image);
++
++      error:
++	return (NULL);
++}
++
++u32 *
++bfad_get_firmware_buf(struct pci_dev * pdev)
++{
++	if (pdev->device == BFA_PCI_DEVICE_ID_CT) {
++		if (bfi_image_ct_size == 0)
++			bfad_read_firmware(pdev, &bfi_image_ct,
++					   &bfi_image_ct_size, BFAD_FW_FILE_CT);
++		return (bfi_image_ct);
++	} else {
++		if (bfi_image_cb_size == 0)
++			bfad_read_firmware(pdev, &bfi_image_cb,
++					   &bfi_image_cb_size, BFAD_FW_FILE_CB);
++		return (bfi_image_cb);
++	}
++}
++
++u32 *
++bfi_image_ct_get_chunk(u32 off)
++{
++	return (u32 *) (bfi_image_ct + off);
++}
++
++u32 *
++bfi_image_cb_get_chunk(u32 off)
++{
++	return (u32 *) (bfi_image_cb + off);
++}
++
++
++char bfa_version[BFA_VERSION_LEN] = "rmody_pvt_bld 08/26/2009 11.26.03";
+diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bfad_im_compat.h linux-2.6.30.5-mod/drivers/net/bna/bfad_im_compat.h
+--- linux-2.6.30.5-orig/drivers/net/bna/bfad_im_compat.h	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.30.5-mod/drivers/net/bna/bfad_im_compat.h	2009-08-28 21:09:23.178883000 -0700
+@@ -0,0 +1,53 @@
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * See LICENSE.bna for copyright and licensing details.
++ */
++
++#ifndef __BFAD_IM_COMPAT_H__
++#define __BFAD_IM_COMPAT_H__
++
++extern u32 *bfi_image_buf;
++extern u32 bfi_image_size;
++
++extern struct device_attribute *bfad_im_host_attrs[];
++extern struct device_attribute *bfad_im_vport_attrs[];
++
++u32 *bfad_get_firmware_buf(struct pci_dev *pdev);
++u32 *bfad_read_firmware(struct pci_dev *pdev, u32 ** bfi_image,
++			u32 * bfi_image_size, char *fw_name);
++
++static inline u32 *
++bfad_load_fwimg(struct pci_dev *pdev)
++{
++	return (bfad_get_firmware_buf(pdev));
++}
++
++static inline void
++bfad_free_fwimg(void)
++{
++	if (bfi_image_ct_size && bfi_image_ct)
++		vfree(bfi_image_ct);
++	if (bfi_image_cb_size && bfi_image_cb)
++		vfree(bfi_image_cb);
++}
++
++#endif
+diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bfa_fcpim_priv.h linux-2.6.30.5-mod/drivers/net/bna/bfa_fcpim_priv.h
+--- linux-2.6.30.5-orig/drivers/net/bna/bfa_fcpim_priv.h	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.30.5-mod/drivers/net/bna/bfa_fcpim_priv.h	2009-08-28 21:09:23.409885000 -0700
+@@ -0,0 +1,191 @@
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * See LICENSE.bna for copyright and licensing details.
++ */
++
++#ifndef __BFA_FCPIM_PRIV_H__
++#define __BFA_FCPIM_PRIV_H__
++
++#include <bfa_fcpim.h>
++#include <defs/bfa_defs_fcpim.h>
++#include <cs/bfa_wc.h>
++#include "bfa_sgpg_priv.h"
++
++#define BFA_ITNIM_MIN   32
++#define BFA_ITNIM_MAX   1024
++
++#define BFA_IOIM_MIN    8
++#define BFA_IOIM_MAX    2000
++
++#define BFA_TSKIM_MIN   4
++#define BFA_TSKIM_MAX   512
++#define BFA_FCPIM_PATHTOV_DEF	(30 * 1000)	/* in millisecs */
++#define BFA_FCPIM_PATHTOV_MAX	(90 * 1000)	/* in millisecs */
++
++#define bfa_fcpim_stats(__fcpim, __stats)   \
++    (__fcpim)->stats.__stats ++
++
++struct bfa_fcpim_mod_s {
++	struct bfa_s *bfa;
++	struct bfa_itnim_s *itnim_arr;
++	struct bfa_ioim_s *ioim_arr;
++	struct bfa_ioim_sp_s *ioim_sp_arr;
++	struct bfa_tskim_s *tskim_arr;
++	struct bfa_dma_s snsbase;
++	int num_itnims;
++	int num_ioim_reqs;
++	int num_tskim_reqs;
++	u32 path_tov;
++	u16 q_depth;
++	u16 rsvd;
++	struct list_head itnim_q;	/*  queue of active itnim    */
++	struct list_head ioim_free_q;	/*  free IO resources        */
++	struct list_head ioim_resfree_q;	/*  IOs waiting for f/w      */
++	struct list_head ioim_comp_q;	/*  IO global comp Q         */
++	struct list_head tskim_free_q;
++	u32 ios_active;		/*  current active IOs        */
++	u32 delay_comp;
++	struct bfa_fcpim_stats_s stats;
++};
++
++struct bfa_ioim_s;
++struct bfa_tskim_s;
++
++/**
++ * BFA IO (initiator mode)
++ */
++struct bfa_ioim_s {
++	struct list_head qe;	/*  queue elememt            */
++	bfa_sm_t sm;		/*  BFA ioim state machine   */
++	struct bfa_s *bfa;	/*  BFA module               */
++	struct bfa_fcpim_mod_s *fcpim;	/*  parent fcpim module      */
++	struct bfa_itnim_s *itnim;	/*  i-t-n nexus for this IO  */
++	struct bfad_ioim_s *dio;	/*  driver IO handle         */
++	u16 iotag;		/*  FWI IO tag               */
++	u16 abort_tag;		/*  unqiue abort request tag */
++	u16 nsges;		/*  number of SG elements    */
++	u16 nsgpgs;		/*  number of SG pages       */
++	struct bfa_sgpg_s *sgpg;	/*  first SG page            */
++	struct list_head sgpg_q;	/*  allocated SG pages       */
++	struct bfa_cb_qe_s hcb_qe;	/*  bfa callback qelem       */
++	bfa_cb_cbfn_t io_cbfn;	/*  IO completion handler    */
++	struct bfa_ioim_sp_s *iosp;	/*  slow-path IO handling    */
++};
++
++struct bfa_ioim_sp_s {
++	struct bfi_msg_s comp_rspmsg;	/*  IO comp f/w response     */
++	u8 *snsinfo;		/*  sense info for this IO   */
++	struct bfa_sgpg_wqe_s sgpg_wqe;	/*  waitq elem for sgpg      */
++	struct bfa_reqq_wait_s reqq_wait;	/*  to wait for room in reqq */
++	bfa_boolean_t abort_explicit;	/*  aborted by OS            */
++	struct bfa_tskim_s *tskim;	/*  Relevant TM cmd          */
++};
++
++/**
++ * BFA Task management command (initiator mode)
++ */
++struct bfa_tskim_s {
++	struct list_head qe;
++	bfa_sm_t sm;
++	struct bfa_s *bfa;	/*  BFA module  */
++	struct bfa_fcpim_mod_s *fcpim;	/*  parent fcpim module      */
++	struct bfa_itnim_s *itnim;	/*  i-t-n nexus for this IO  */
++	struct bfad_tskim_s *dtsk;	/*  driver task mgmt cmnd    */
++	bfa_boolean_t notify;	/*  notify itnim on TM comp  */
++	lun_t lun;		/*  lun if applicable        */
++	enum fcp_tm_cmnd tm_cmnd;	/*  task management command  */
++	u16 tsk_tag;		/*  FWI IO tag               */
++	u8 tsecs;		/*  timeout in seconds       */
++	struct bfa_reqq_wait_s reqq_wait;	/*  to wait for room in reqq */
++	struct list_head io_q;	/*  queue of affected IOs    */
++	struct bfa_wc_s wc;	/*  waiting counter          */
++	struct bfa_cb_qe_s hcb_qe;	/*  bfa callback qelem       */
++	enum bfi_tskim_status tsk_status;	/*  TM status                */
++};
++
++/**
++ * BFA i-t-n (initiator mode)
++ */
++struct bfa_itnim_s {
++	struct list_head qe;	/*  queue element               */
++	bfa_sm_t sm;		/*  i-t-n im BFA state machine  */
++	struct bfa_s *bfa;	/*  bfa instance                */
++	struct bfa_rport_s *rport;	/*  bfa rport                   */
++	void *ditn;		/*  driver i-t-n structure      */
++	struct bfi_mhdr_s mhdr;	/*  pre-built mhdr              */
++	u8 msg_no;		/*  itnim/rport firmware handle */
++	u8 reqq;		/*  CQ for requests             */
++	struct bfa_cb_qe_s hcb_qe;	/*  bfa callback qelem          */
++	struct list_head pending_q;	/*  queue of pending IO requests */
++	struct list_head io_q;	/*  queue of active IO requests */
++	struct list_head io_cleanup_q;	/*  IO being cleaned up         */
++	struct list_head tsk_q;	/*  queue of active TM commands */
++	struct list_head delay_comp_q;	/*  queue of failed inflight cmds */
++	bfa_boolean_t seq_rec;	/*  SQER supported              */
++	bfa_boolean_t is_online;	/*  itnim is ONLINE for IO      */
++	bfa_boolean_t iotov_active;	/*  IO TOV timer is active       */
++	struct bfa_wc_s wc;	/*  waiting counter             */
++	struct bfa_timer_s timer;	/*  pending IO TOV               */
++	struct bfa_reqq_wait_s reqq_wait;	/*  to wait for room in reqq */
++	struct bfa_fcpim_mod_s *fcpim;	/*  fcpim module                */
++	struct bfa_itnim_hal_stats_s stats;
++};
++
++#define bfa_itnim_is_online(_itnim) (_itnim)->is_online
++#define BFA_FCPIM_MOD(_hal) (&(_hal)->modules.fcpim_mod)
++#define BFA_IOIM_FROM_TAG(_fcpim, _iotag)	\
++	(&fcpim->ioim_arr[_iotag])
++#define BFA_TSKIM_FROM_TAG(_fcpim, _tmtag)                  \
++    (&fcpim->tskim_arr[_tmtag & (fcpim->num_tskim_reqs - 1)])
++
++/*
++ * function prototypes
++ */
++void bfa_ioim_attach(struct bfa_fcpim_mod_s *fcpim,
++		     struct bfa_meminfo_s *minfo);
++void bfa_ioim_detach(struct bfa_fcpim_mod_s *fcpim);
++void bfa_ioim_isr(struct bfa_s *bfa, struct bfi_msg_s *msg);
++void bfa_ioim_good_comp_isr(struct bfa_s *bfa, struct bfi_msg_s *msg);
++void bfa_ioim_cleanup(struct bfa_ioim_s *ioim);
++void bfa_ioim_cleanup_tm(struct bfa_ioim_s *ioim, struct bfa_tskim_s *tskim);
++void bfa_ioim_iocdisable(struct bfa_ioim_s *ioim);
++void bfa_ioim_tov(struct bfa_ioim_s *ioim);
++
++void bfa_tskim_attach(struct bfa_fcpim_mod_s *fcpim,
++		      struct bfa_meminfo_s *minfo);
++void bfa_tskim_detach(struct bfa_fcpim_mod_s *fcpim);
++void bfa_tskim_isr(struct bfa_s *bfa, struct bfi_msg_s *msg);
++void bfa_tskim_iodone(struct bfa_tskim_s *tskim);
++void bfa_tskim_iocdisable(struct bfa_tskim_s *tskim);
++void bfa_tskim_cleanup(struct bfa_tskim_s *tskim);
++
++void bfa_itnim_meminfo(struct bfa_iocfc_cfg_s *cfg, u32 * km_len, u32 * dm_len);
++void bfa_itnim_attach(struct bfa_fcpim_mod_s *fcpim,
++		      struct bfa_meminfo_s *minfo);
++void bfa_itnim_detach(struct bfa_fcpim_mod_s *fcpim);
++void bfa_itnim_iocdisable(struct bfa_itnim_s *itnim);
++void bfa_itnim_isr(struct bfa_s *bfa, struct bfi_msg_s *msg);
++void bfa_itnim_iodone(struct bfa_itnim_s *itnim);
++void bfa_itnim_tskdone(struct bfa_itnim_s *itnim);
++bfa_boolean_t bfa_itnim_hold_io(struct bfa_itnim_s *itnim);
++
++#endif /* __BFA_FCPIM_PRIV_H__ */
+diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bfa_fwimg_priv.h linux-2.6.30.5-mod/drivers/net/bna/bfa_fwimg_priv.h
+--- linux-2.6.30.5-orig/drivers/net/bna/bfa_fwimg_priv.h	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.30.5-mod/drivers/net/bna/bfa_fwimg_priv.h	2009-08-28 21:09:23.495884000 -0700
+@@ -0,0 +1,38 @@
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * See LICENSE.bna for copyright and licensing details.
++ */
++
++#ifndef __BFA_FWIMG_PRIV_H__
++#define __BFA_FWIMG_PRIV_H__
++
++#define	BFI_FLASH_CHUNK_SZ		256	/*  Flash chunk size */
++#define	BFI_FLASH_CHUNK_SZ_WORDS	(BFI_FLASH_CHUNK_SZ/sizeof(u32))
++
++extern u32 *bfi_image_ct_get_chunk(u32 off);
++extern u32 bfi_image_ct_size;
++extern u32 *bfi_image_cb_get_chunk(u32 off);
++extern u32 bfi_image_cb_size;
++extern u32 *bfi_image_cb;
++extern u32 *bfi_image_ct;
++
++#endif /* __BFA_FWIMG_PRIV_H__ */
+diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bfa.h linux-2.6.30.5-mod/drivers/net/bna/bfa.h
+--- linux-2.6.30.5-orig/drivers/net/bna/bfa.h	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.30.5-mod/drivers/net/bna/bfa.h	2009-08-28 21:09:23.433883000 -0700
+@@ -0,0 +1,183 @@
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * See LICENSE.bna for copyright and licensing details.
++ */
++#ifndef __BFA_H__
++#define __BFA_H__
++
++#include <bfa_os_inc.h>
++#include <cs/bfa_debug.h>
++#include <cs/bfa_q.h>
++#include <cs/bfa_trc.h>
++#include <cs/bfa_log.h>
++#include <cs/bfa_plog.h>
++#include <defs/bfa_defs_status.h>
++#include <defs/bfa_defs_ioc.h>
++#include <defs/bfa_defs_iocfc.h>
++#include <aen/bfa_aen.h>
++#include <bfi/bfi.h>
++
++struct bfa_s;
++#include <bfa_intr_priv.h>
++
++struct bfa_pcidev_s;
++
++/**
++ * PCI devices supported by the current BFA
++ */
++struct bfa_pciid_s {
++	u16 device_id;
++	u16 vendor_id;
++};
++
++extern char bfa_version[];
++
++/**
++ * BFA Power Mgmt Commands
++ */
++enum bfa_pm_cmd {
++	BFA_PM_CTL_D0 = 0,
++	BFA_PM_CTL_D1 = 1,
++	BFA_PM_CTL_D2 = 2,
++	BFA_PM_CTL_D3 = 3,
++};
++
++/**
++ * BFA memory resources
++ */
++enum bfa_mem_type {
++	BFA_MEM_TYPE_KVA = 1,	/*! Kernel Virtual Memory *(non-dma-able) */
++	BFA_MEM_TYPE_DMA = 2,	/*! DMA-able memory */
++	BFA_MEM_TYPE_MAX = BFA_MEM_TYPE_DMA,
++};
++
++struct bfa_mem_elem_s {
++	enum bfa_mem_type mem_type;	/*  see enum bfa_mem_type       */
++	u32 mem_len;		/*  Total Length in Bytes       */
++	u8 *kva;		/*  kernel virtual address      */
++	u64 dma;		/*  dma address if DMA memory   */
++	u8 *kva_curp;		/*  kva allocation cursor       */
++	u64 dma_curp;		/*  dma allocation cursor       */
++};
++
++struct bfa_meminfo_s {
++	struct bfa_mem_elem_s meminfo[BFA_MEM_TYPE_MAX];
++};
++#define bfa_meminfo_kva(_m)	\
++	(_m)->meminfo[BFA_MEM_TYPE_KVA - 1].kva_curp
++#define bfa_meminfo_dma_virt(_m)	\
++	(_m)->meminfo[BFA_MEM_TYPE_DMA - 1].kva_curp
++#define bfa_meminfo_dma_phys(_m)	\
++	(_m)->meminfo[BFA_MEM_TYPE_DMA - 1].dma_curp
++
++/**
++ * Generic Scatter Gather Element used by driver
++ */
++struct bfa_sge_s {
++	u32 sg_len;
++	void *sg_addr;
++};
++
++#define bfa_sge_to_be(__sge) do {                                          \
++	((u32 *)(__sge))[0] = bfa_os_htonl(((u32 *)(__sge))[0]);      \
++	((u32 *)(__sge))[1] = bfa_os_htonl(((u32 *)(__sge))[1]);      \
++	((u32 *)(__sge))[2] = bfa_os_htonl(((u32 *)(__sge))[2]);      \
++} while (0)
++
++
++/*
++ * bfa stats interfaces
++ */
++#define bfa_stats(_mod, _stats)	(_mod)->stats._stats ++
++
++#define bfa_ioc_get_stats(__bfa, __ioc_stats)	\
++	bfa_ioc_fetch_stats(&(__bfa)->ioc, __ioc_stats)
++#define bfa_ioc_clear_stats(__bfa)	\
++	bfa_ioc_clr_stats(&(__bfa)->ioc)
++
++/*
++ * bfa API functions
++ */
++void bfa_get_pciids(struct bfa_pciid_s **pciids, int *npciids);
++void bfa_cfg_get_default(struct bfa_iocfc_cfg_s *cfg);
++void bfa_cfg_get_min(struct bfa_iocfc_cfg_s *cfg);
++void bfa_cfg_get_meminfo(struct bfa_iocfc_cfg_s *cfg,
++			 struct bfa_meminfo_s *meminfo);
++void bfa_attach(struct bfa_s *bfa, void *bfad, struct bfa_iocfc_cfg_s *cfg,
++		struct bfa_meminfo_s *meminfo, struct bfa_pcidev_s *pcidev);
++void bfa_init_trc(struct bfa_s *bfa, struct bfa_trc_mod_s *trcmod);
++void bfa_init_log(struct bfa_s *bfa, struct bfa_log_mod_s *logmod);
++void bfa_init_aen(struct bfa_s *bfa, struct bfa_aen_s *aen);
++void bfa_init_plog(struct bfa_s *bfa, struct bfa_plog_s *plog);
++void bfa_detach(struct bfa_s *bfa);
++void bfa_init(struct bfa_s *bfa);
++void bfa_start(struct bfa_s *bfa);
++void bfa_stop(struct bfa_s *bfa);
++void bfa_attach_fcs(struct bfa_s *bfa);
++void bfa_cb_init(void *bfad, bfa_status_t status);
++void bfa_cb_stop(void *bfad, bfa_status_t status);
++void bfa_cb_updateq(void *bfad, bfa_status_t status);
++
++bfa_boolean_t bfa_intx(struct bfa_s *bfa);
++void bfa_isr_enable(struct bfa_s *bfa);
++void bfa_isr_disable(struct bfa_s *bfa);
++void bfa_msix_getvecs(struct bfa_s *bfa, u32 * msix_vecs_bmap,
++		      u32 * num_vecs, u32 * max_vec_bit);
++#define bfa_msix(__bfa, __vec) (__bfa)->msix.handler[__vec](__bfa, __vec)
++
++void bfa_comp_deq(struct bfa_s *bfa, struct list_head *comp_q);
++void bfa_comp_process(struct bfa_s *bfa, struct list_head *comp_q);
++void bfa_comp_free(struct bfa_s *bfa, struct list_head *comp_q);
++
++typedef void (*bfa_cb_ioc_t) (void *cbarg, enum bfa_status status);
++void bfa_iocfc_get_attr(struct bfa_s *bfa, struct bfa_iocfc_attr_s *attr);
++bfa_status_t bfa_iocfc_get_stats(struct bfa_s *bfa,
++				 struct bfa_iocfc_stats_s *stats,
++				 bfa_cb_ioc_t cbfn, void *cbarg);
++bfa_status_t bfa_iocfc_clear_stats(struct bfa_s *bfa,
++				   bfa_cb_ioc_t cbfn, void *cbarg);
++void bfa_get_attr(struct bfa_s *bfa, struct bfa_ioc_attr_s *ioc_attr);
++
++void bfa_adapter_get_attr(struct bfa_s *bfa,
++			  struct bfa_adapter_attr_s *ad_attr);
++u64 bfa_adapter_get_id(struct bfa_s *bfa);
++
++bfa_status_t bfa_iocfc_israttr_set(struct bfa_s *bfa,
++				   struct bfa_iocfc_intr_attr_s *attr);
++
++void bfa_iocfc_enable(struct bfa_s *bfa);
++void bfa_iocfc_disable(struct bfa_s *bfa);
++void bfa_ioc_auto_recover(bfa_boolean_t auto_recover);
++void bfa_cb_ioc_disable(void *bfad);
++void bfa_timer_tick(struct bfa_s *bfa);
++#define bfa_timer_start(_bfa, _timer, _timercb, _arg, _timeout)	\
++	bfa_timer_begin(&(_bfa)->timer_mod, _timer, _timercb, _arg, _timeout)
++
++/*
++ * BFA debug API functions
++ */
++bfa_status_t bfa_debug_fwtrc(struct bfa_s *bfa, void *trcdata, int *trclen);
++bfa_status_t bfa_debug_fwsave(struct bfa_s *bfa, void *trcdata, int *trclen);
++
++#include "bfa_priv.h"
++
++#endif /* __BFA_H__ */
+diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bfa_log_module.c linux-2.6.30.5-mod/drivers/net/bna/bfa_log_module.c
+--- linux-2.6.30.5-orig/drivers/net/bna/bfa_log_module.c	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.30.5-mod/drivers/net/bna/bfa_log_module.c	2009-08-28 21:09:23.272882000 -0700
+@@ -0,0 +1,491 @@
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * See LICENSE.bna for copyright and licensing details.
++ */
++
++#include <cs/bfa_log.h>
++#include <aen/bfa_aen_adapter.h>
++#include <aen/bfa_aen_audit.h>
++#include <aen/bfa_aen_ethport.h>
++#include <aen/bfa_aen_ioc.h>
++#include <aen/bfa_aen_itnim.h>
++#include <aen/bfa_aen_lport.h>
++#include <aen/bfa_aen_port.h>
++#include <aen/bfa_aen_rport.h>
++#include <log/bfa_log_fcs.h>
++#include <log/bfa_log_hal.h>
++#include <log/bfa_log_linux.h>
++#include <log/bfa_log_wdrv.h>
++
++struct bfa_log_msgdef_s bfa_log_msg_array[] = {
++
++
++/* messages define for BFA_AEN_CAT_ADAPTER Module */
++	{BFA_AEN_ADAPTER_ADD, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "BFA_AEN_ADAPTER_ADD",
++	 "New adapter found: SN = %s, base port WWN = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) | 0), 2},
++
++	{BFA_AEN_ADAPTER_REMOVE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_WARNING, "BFA_AEN_ADAPTER_REMOVE",
++	 "Adapter removed: SN = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++
++
++
++/* messages define for BFA_AEN_CAT_AUDIT Module */
++	{BFA_AEN_AUDIT_AUTH_ENABLE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "BFA_AEN_AUDIT_AUTH_ENABLE",
++	 "Authentication enabled for base port: WWN = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_AUDIT_AUTH_DISABLE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "BFA_AEN_AUDIT_AUTH_DISABLE",
++	 "Authentication disabled for base port: WWN = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++
++
++
++/* messages define for BFA_AEN_CAT_ETHPORT Module */
++	{BFA_AEN_ETHPORT_LINKUP, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "BFA_AEN_ETHPORT_LINKUP",
++	 "Base port ethernet linkup: mac = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_ETHPORT_LINKDOWN, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "BFA_AEN_ETHPORT_LINKDOWN",
++	 "Base port ethernet linkdown: mac = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_ETHPORT_ENABLE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "BFA_AEN_ETHPORT_ENABLE",
++	 "Base port ethernet interface enabled: mac = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_ETHPORT_DISABLE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "BFA_AEN_ETHPORT_DISABLE",
++	 "Base port ethernet interface disabled: mac = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++
++
++
++/* messages define for BFA_AEN_CAT_IOC Module */
++	{BFA_AEN_IOC_HBGOOD, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG, BFA_LOG_INFO,
++	 "BFA_AEN_IOC_HBGOOD",
++	 "Heart Beat of IOC %d is good.",
++	 ((BFA_LOG_D << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_IOC_HBFAIL, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_CRITICAL,
++	 "BFA_AEN_IOC_HBFAIL",
++	 "Heart Beat of IOC %d has failed.",
++	 ((BFA_LOG_D << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_IOC_ENABLE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG, BFA_LOG_INFO,
++	 "BFA_AEN_IOC_ENABLE",
++	 "IOC %d is enabled.",
++	 ((BFA_LOG_D << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_IOC_DISABLE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "BFA_AEN_IOC_DISABLE",
++	 "IOC %d is disabled.",
++	 ((BFA_LOG_D << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_IOC_FWMISMATCH, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_CRITICAL, "BFA_AEN_IOC_FWMISMATCH",
++	 "Running firmware version is incompatible with the driver version.",
++	 (0), 0},
++
++
++
++
++/* messages define for BFA_AEN_CAT_ITNIM Module */
++	{BFA_AEN_ITNIM_ONLINE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "BFA_AEN_ITNIM_ONLINE",
++	 "Target (WWN = %s) is online for initiator (WWN = %s).",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) | 0), 2},
++
++	{BFA_AEN_ITNIM_OFFLINE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "BFA_AEN_ITNIM_OFFLINE",
++	 "Target (WWN = %s) offlined by initiator (WWN = %s).",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) | 0), 2},
++
++	{BFA_AEN_ITNIM_DISCONNECT, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_ERROR, "BFA_AEN_ITNIM_DISCONNECT",
++	 "Target (WWN = %s) connectivity lost for initiator (WWN = %s).",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) | 0), 2},
++
++
++
++
++/* messages define for BFA_AEN_CAT_LPORT Module */
++	{BFA_AEN_LPORT_NEW, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG, BFA_LOG_INFO,
++	 "BFA_AEN_LPORT_NEW",
++	 "New logical port created: WWN = %s, Role = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) | 0), 2},
++
++	{BFA_AEN_LPORT_DELETE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "BFA_AEN_LPORT_DELETE",
++	 "Logical port deleted: WWN = %s, Role = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) | 0), 2},
++
++	{BFA_AEN_LPORT_ONLINE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "BFA_AEN_LPORT_ONLINE",
++	 "Logical port online: WWN = %s, Role = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) | 0), 2},
++
++	{BFA_AEN_LPORT_OFFLINE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "BFA_AEN_LPORT_OFFLINE",
++	 "Logical port taken offline: WWN = %s, Role = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) | 0), 2},
++
++	{BFA_AEN_LPORT_DISCONNECT, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_ERROR, "BFA_AEN_LPORT_DISCONNECT",
++	 "Logical port lost fabric connectivity: WWN = %s, Role = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) | 0), 2},
++
++	{BFA_AEN_LPORT_NEW_PROP, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "BFA_AEN_LPORT_NEW_PROP",
++	 "New virtual port created using proprietary interface: WWN = %s, Role = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) | 0), 2},
++
++	{BFA_AEN_LPORT_DELETE_PROP, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "BFA_AEN_LPORT_DELETE_PROP",
++	 "Virtual port deleted using proprietary interface: WWN = %s, Role = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) | 0), 2},
++
++	{BFA_AEN_LPORT_NEW_STANDARD, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "BFA_AEN_LPORT_NEW_STANDARD",
++	 "New virtual port created using standard interface: WWN = %s, Role = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) | 0), 2},
++
++	{BFA_AEN_LPORT_DELETE_STANDARD, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "BFA_AEN_LPORT_DELETE_STANDARD",
++	 "Virtual port deleted using standard interface: WWN = %s, Role = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) | 0), 2},
++
++	{BFA_AEN_LPORT_NPIV_DUP_WWN, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_WARNING, "BFA_AEN_LPORT_NPIV_DUP_WWN",
++	 "Virtual port login failed. Duplicate WWN = %s reported by fabric.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_LPORT_NPIV_FABRIC_MAX, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_WARNING, "BFA_AEN_LPORT_NPIV_FABRIC_MAX",
++	 "Virtual port (WWN = %s) login failed. Max NPIV ports already exist in"
++	 " fabric/fport.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_LPORT_NPIV_UNKNOWN, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_WARNING, "BFA_AEN_LPORT_NPIV_UNKNOWN",
++	 "Virtual port (WWN = %s) login failed.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++
++
++
++/* messages define for BFA_AEN_CAT_PORT Module */
++	{BFA_AEN_PORT_ONLINE, BFA_LOG_ATTR_NONE, BFA_LOG_INFO,
++	 "BFA_AEN_PORT_ONLINE",
++	 "Base port online: WWN = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_PORT_OFFLINE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_WARNING,
++	 "BFA_AEN_PORT_OFFLINE",
++	 "Base port offline: WWN = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_PORT_RLIR, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG, BFA_LOG_INFO,
++	 "BFA_AEN_PORT_RLIR",
++	 "RLIR event not supported.",
++	 (0), 0},
++
++	{BFA_AEN_PORT_SFP_INSERT, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "BFA_AEN_PORT_SFP_INSERT",
++	 "New SFP found: WWN/MAC = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_PORT_SFP_REMOVE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_WARNING, "BFA_AEN_PORT_SFP_REMOVE",
++	 "SFP removed: WWN/MAC = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_PORT_SFP_POM, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_WARNING,
++	 "BFA_AEN_PORT_SFP_POM",
++	 "SFP POM level to %s: WWN/MAC = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) | 0), 2},
++
++	{BFA_AEN_PORT_ENABLE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "BFA_AEN_PORT_ENABLE",
++	 "Base port enabled: WWN = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_PORT_DISABLE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "BFA_AEN_PORT_DISABLE",
++	 "Base port disabled: WWN = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_PORT_AUTH_ON, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "BFA_AEN_PORT_AUTH_ON",
++	 "Authentication successful for base port: WWN = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_PORT_AUTH_OFF, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_ERROR,
++	 "BFA_AEN_PORT_AUTH_OFF",
++	 "Authentication unsuccessful for base port: WWN = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_PORT_DISCONNECT, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_ERROR,
++	 "BFA_AEN_PORT_DISCONNECT",
++	 "Base port (WWN = %s) lost fabric connectivity.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_PORT_QOS_NEG, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_WARNING,
++	 "BFA_AEN_PORT_QOS_NEG",
++	 "QOS negotiation failed for base port: WWN = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_PORT_FABRIC_NAME_CHANGE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_WARNING, "BFA_AEN_PORT_FABRIC_NAME_CHANGE",
++	 "Base port WWN = %s, Fabric WWN = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) | 0), 2},
++
++	{BFA_AEN_PORT_SFP_ACCESS_ERROR, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_WARNING, "BFA_AEN_PORT_SFP_ACCESS_ERROR",
++	 "SFP access error: WWN/MAC = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_AEN_PORT_SFP_UNSUPPORT, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_WARNING, "BFA_AEN_PORT_SFP_UNSUPPORT",
++	 "Unsupported SFP found: WWN/MAC = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++
++
++
++/* messages define for BFA_AEN_CAT_RPORT Module */
++	{BFA_AEN_RPORT_ONLINE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "BFA_AEN_RPORT_ONLINE",
++	 "Remote port (WWN = %s) online for logical port (WWN = %s).",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) | 0), 2},
++
++	{BFA_AEN_RPORT_OFFLINE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "BFA_AEN_RPORT_OFFLINE",
++	 "Remote port (WWN = %s) offlined by logical port (WWN = %s).",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) | 0), 2},
++
++	{BFA_AEN_RPORT_DISCONNECT, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_ERROR, "BFA_AEN_RPORT_DISCONNECT",
++	 "Remote port (WWN = %s) connectivity lost for logical port (WWN = %s).",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) | 0), 2},
++
++	{BFA_AEN_RPORT_QOS_PRIO, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "BFA_AEN_RPORT_QOS_PRIO",
++	 "QOS priority changed to %s: RPWWN = %s and LPWWN = %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) |
++	  (BFA_LOG_S << BFA_LOG_ARG2) | 0), 3},
++
++	{BFA_AEN_RPORT_QOS_FLOWID, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "BFA_AEN_RPORT_QOS_FLOWID",
++	 "QOS flow ID changed to %d: RPWWN = %s and LPWWN = %s.",
++	 ((BFA_LOG_D << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) |
++	  (BFA_LOG_S << BFA_LOG_ARG2) | 0), 3},
++
++
++
++
++/* messages define for FCS Module */
++	{BFA_LOG_FCS_FABRIC_NOSWITCH, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "FCS_FABRIC_NOSWITCH",
++	 "No switched fabric presence is detected.",
++	 (0), 0},
++
++	{BFA_LOG_FCS_FABRIC_ISOLATED, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "FCS_FABRIC_ISOLATED",
++	 "Port is isolated due to VF_ID mismatch. PWWN: %s, Port VF_ID: %04x and"
++	 " switch port VF_ID: %04x.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_X << BFA_LOG_ARG1) |
++	  (BFA_LOG_X << BFA_LOG_ARG2) | 0), 3},
++
++
++
++
++/* messages define for HAL Module */
++	{BFA_LOG_HAL_ASSERT, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_ERROR,
++	 "HAL_ASSERT",
++	 "Assertion failure: %s:%d: %s",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_D << BFA_LOG_ARG1) |
++	  (BFA_LOG_S << BFA_LOG_ARG2) | 0), 3},
++
++	{BFA_LOG_HAL_HEARTBEAT_FAILURE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_CRITICAL, "HAL_HEARTBEAT_FAILURE",
++	 "Firmware heartbeat failure at %d",
++	 ((BFA_LOG_D << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_LOG_HAL_FCPIM_PARM_INVALID, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "HAL_FCPIM_PARM_INVALID",
++	 "Driver configuration %s value %d is invalid. Value should be within"
++	 " %d and %d.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_D << BFA_LOG_ARG1) |
++	  (BFA_LOG_D << BFA_LOG_ARG2) | (BFA_LOG_D << BFA_LOG_ARG3) | 0), 4},
++
++	{BFA_LOG_HAL_SM_ASSERT, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_ERROR,
++	 "HAL_SM_ASSERT",
++	 "SM Assertion failure: %s:%d: event = %d",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | (BFA_LOG_D << BFA_LOG_ARG1) |
++	  (BFA_LOG_D << BFA_LOG_ARG2) | 0), 3},
++
++
++
++
++/* messages define for LINUX Module */
++	{BFA_LOG_LINUX_DEVICE_CLAIMED, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "LINUX_DEVICE_CLAIMED",
++	 "bfa device at %s claimed.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_LOG_LINUX_HASH_INIT_FAILED, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "LINUX_HASH_INIT_FAILED",
++	 "Hash table initialization failure for the port %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_LOG_LINUX_SYSFS_FAILED, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "LINUX_SYSFS_FAILED",
++	 "sysfs file creation failure for the port %s.",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_LOG_LINUX_MEM_ALLOC_FAILED, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "LINUX_MEM_ALLOC_FAILED",
++	 "Memory allocation failed: %s.  ",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_LOG_LINUX_DRIVER_REGISTRATION_FAILED,
++	 BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG, BFA_LOG_INFO,
++	 "LINUX_DRIVER_REGISTRATION_FAILED",
++	 "%s.  ",
++	 ((BFA_LOG_S << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_LOG_LINUX_ITNIM_FREE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "LINUX_ITNIM_FREE",
++	 "scsi%d: FCID: %s WWPN: %s",
++	 ((BFA_LOG_D << BFA_LOG_ARG0) | (BFA_LOG_S << BFA_LOG_ARG1) |
++	  (BFA_LOG_S << BFA_LOG_ARG2) | 0), 3},
++
++	{BFA_LOG_LINUX_ITNIM_ONLINE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "LINUX_ITNIM_ONLINE",
++	 "Target: %d:0:%d FCID: %s WWPN: %s",
++	 ((BFA_LOG_D << BFA_LOG_ARG0) | (BFA_LOG_D << BFA_LOG_ARG1) |
++	  (BFA_LOG_S << BFA_LOG_ARG2) | (BFA_LOG_S << BFA_LOG_ARG3) | 0), 4},
++
++	{BFA_LOG_LINUX_ITNIM_OFFLINE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "LINUX_ITNIM_OFFLINE",
++	 "Target: %d:0:%d FCID: %s WWPN: %s",
++	 ((BFA_LOG_D << BFA_LOG_ARG0) | (BFA_LOG_D << BFA_LOG_ARG1) |
++	  (BFA_LOG_S << BFA_LOG_ARG2) | (BFA_LOG_S << BFA_LOG_ARG3) | 0), 4},
++
++	{BFA_LOG_LINUX_SCSI_HOST_FREE, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "LINUX_SCSI_HOST_FREE",
++	 "Free scsi%d",
++	 ((BFA_LOG_D << BFA_LOG_ARG0) | 0), 1},
++
++	{BFA_LOG_LINUX_SCSI_ABORT, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO,
++	 "LINUX_SCSI_ABORT",
++	 "scsi%d: abort cmnd %p, iotag %x",
++	 ((BFA_LOG_D << BFA_LOG_ARG0) | (BFA_LOG_P << BFA_LOG_ARG1) |
++	  (BFA_LOG_X << BFA_LOG_ARG2) | 0), 3},
++
++	{BFA_LOG_LINUX_SCSI_ABORT_COMP, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "LINUX_SCSI_ABORT_COMP",
++	 "scsi%d: complete abort 0x%p, iotag 0x%x",
++	 ((BFA_LOG_D << BFA_LOG_ARG0) | (BFA_LOG_P << BFA_LOG_ARG1) |
++	  (BFA_LOG_X << BFA_LOG_ARG2) | 0), 3},
++
++
++
++
++/* messages define for WDRV Module */
++	{BFA_LOG_WDRV_IOC_INIT_ERROR, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "WDRV_IOC_INIT_ERROR",
++	 "IOC initialization has failed.",
++	 (0), 0},
++
++	{BFA_LOG_WDRV_IOC_INTERNAL_ERROR, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "WDRV_IOC_INTERNAL_ERROR",
++	 "IOC internal error.  ",
++	 (0), 0},
++
++	{BFA_LOG_WDRV_IOC_START_ERROR, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "WDRV_IOC_START_ERROR",
++	 "IOC could not be started.  ",
++	 (0), 0},
++
++	{BFA_LOG_WDRV_IOC_STOP_ERROR, BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "WDRV_IOC_STOP_ERROR",
++	 "IOC could not be stopped.  ",
++	 (0), 0},
++
++	{BFA_LOG_WDRV_INSUFFICIENT_RESOURCES,
++	 BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "WDRV_INSUFFICIENT_RESOURCES",
++	 "Insufficient memory.  ",
++	 (0), 0},
++
++	{BFA_LOG_WDRV_BASE_ADDRESS_MAP_ERROR,
++	 BFA_LOG_ATTR_NONE | BFA_LOG_ATTR_LOG,
++	 BFA_LOG_INFO, "WDRV_BASE_ADDRESS_MAP_ERROR",
++	 "Unable to map the IOC onto the system address space.  ",
++	 (0), 0},
++
++
++	{0, 0, 0, "", "", 0, 0},
++};
+diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bfa_lps_priv.h linux-2.6.30.5-mod/drivers/net/bna/bfa_lps_priv.h
+--- linux-2.6.30.5-orig/drivers/net/bna/bfa_lps_priv.h	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.30.5-mod/drivers/net/bna/bfa_lps_priv.h	2009-08-28 21:09:23.464891000 -0700
+@@ -0,0 +1,45 @@
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * See LICENSE.bna for copyright and licensing details.
++ */
++
++#ifndef __BFA_LPS_PRIV_H__
++#define __BFA_LPS_PRIV_H__
++
++#include <bfa_svc.h>
++
++struct bfa_lps_mod_s {
++	struct list_head lps_free_q;
++	struct list_head lps_active_q;
++	struct bfa_lps_s *lps_arr;
++	int num_lps;
++};
++
++#define BFA_LPS_MOD(__bfa)		(&(__bfa)->modules.lps_mod)
++#define BFA_LPS_FROM_TAG(__mod, __tag)	(&(__mod)->lps_arr[__tag])
++
++/*
++ * external functions
++ */
++void bfa_lps_isr(struct bfa_s *bfa, struct bfi_msg_s *msg);
++
++#endif /* __BFA_LPS_PRIV_H__ */
+diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bfa_modules_priv.h linux-2.6.30.5-mod/drivers/net/bna/bfa_modules_priv.h
+--- linux-2.6.30.5-orig/drivers/net/bna/bfa_modules_priv.h	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.30.5-mod/drivers/net/bna/bfa_modules_priv.h	2009-08-28 21:09:23.115885000 -0700
+@@ -0,0 +1,50 @@
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * See LICENSE.bna for copyright and licensing details.
++ */
++
++#ifndef __BFA_MODULES_PRIV_H__
++#define __BFA_MODULES_PRIV_H__
++
++#include "bfa_uf_priv.h"
++#include "bfa_port_priv.h"
++#include "bfa_rport_priv.h"
++#include "bfa_fcxp_priv.h"
++#include "bfa_lps_priv.h"
++#include "bfa_fcpim_priv.h"
++#include <cee/bfa_cee.h>
++#include <port/bfa_port.h>
++
++
++struct bfa_modules_s {
++	struct bfa_pport_s pport;	/*  physical port module        */
++	struct bfa_fcxp_mod_s fcxp_mod;	/*  fcxp module         */
++	struct bfa_lps_mod_s lps_mod;	/*  fcxp module         */
++	struct bfa_uf_mod_s uf_mod;	/*  unsolicited frame module    */
++	struct bfa_rport_mod_s rport_mod;	/*  remote port module        */
++	struct bfa_fcpim_mod_s fcpim_mod;	/*  FCP initiator module      */
++	struct bfa_sgpg_mod_s sgpg_mod;	/*  SG page module              */
++	struct bfa_cee_s cee;	/*  CEE Module                 */
++	struct bfa_port_s port;	/*  Physical port module        */
++};
++
++#endif /* __BFA_MODULES_PRIV_H__ */
+diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bfa_os_inc.h linux-2.6.30.5-mod/drivers/net/bna/bfa_os_inc.h
+--- linux-2.6.30.5-orig/drivers/net/bna/bfa_os_inc.h	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.30.5-mod/drivers/net/bna/bfa_os_inc.h	2009-08-28 21:09:23.074888000 -0700
+@@ -0,0 +1,203 @@
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * See LICENSE.bna for copyright and licensing details.
++ */
++
++/**
++ * Contains declarations all OS Specific files needed for BFA layer
++ */
++
++#ifndef __BFA_OS_INC_H__
++#define __BFA_OS_INC_H__
++
++#ifndef __KERNEL__
++#include <stdint.h>
++#else
++#include <linux/types.h>
++
++#include <linux/version.h>
++#include <linux/pci.h>
++
++#include <linux/dma-mapping.h>
++#define SET_MODULE_VERSION(VER)
++
++#include <linux/idr.h>
++
++#include <linux/interrupt.h>
++#include <linux/cdev.h>
++#include <linux/fs.h>
++#include <linux/delay.h>
++#include <linux/vmalloc.h>
++
++#include <linux/workqueue.h>
++
++#include <scsi/scsi.h>
++#include <scsi/scsi_host.h>
++
++#include <scsi/scsi_tcq.h>
++#include <scsi/scsi_transport_fc.h>
++#include <scsi/scsi_transport.h>
++
++#define BFA_ERR			KERN_ERR
++#define BFA_WARNING		KERN_WARNING
++#define BFA_NOTICE		KERN_NOTICE
++#define BFA_INFO		KERN_INFO
++#define BFA_DEBUG		KERN_DEBUG
++
++#define LOG_BFAD_INIT		0x00000001
++#define LOG_FCP_IO		0x00000002
++
++#ifdef DEBUG
++#define BFA_LOG_TRACE(bfad, level, mask, fmt, arg...)			\
++		BFA_LOG(bfad, level, mask, fmt, ## arg)
++#define BFA_DEV_TRACE(bfad, level, fmt, arg...)				\
++		BFA_DEV_PRINTF(bfad, level, fmt, ## arg)
++#define BFA_TRACE(level, fmt, arg...)					\
++		BFA_PRINTF(level, fmt, ## arg)
++#else
++#define BFA_LOG_TRACE(bfad, level, mask, fmt, arg...)
++#define BFA_DEV_TRACE(bfad, level, fmt, arg...)
++#define BFA_TRACE(level, fmt, arg...)
++#endif
++
++#define BFA_ASSERT(p) do {						\
++	if (!(p)) {      \
++		printk(KERN_ERR "assert(%s) failed at %s:%d\n",		\
++		#p, __FILE__, __LINE__);      \
++		BUG();      \
++	}								\
++} while (0)
++
++
++#define BFA_LOG(bfad, level, mask, fmt, arg...)				\
++do { 									\
++	if (((mask) & (((struct bfad_s *)(bfad))->			\
++		cfg_data[cfg_log_mask])) || (level[1] <= '3'))		\
++		dev_printk(level, &(((struct bfad_s *)			\
++			(bfad))->pcidev->dev), fmt, ##arg);      \
++} while (0)
++
++#ifndef BFA_DEV_PRINTF
++#define BFA_DEV_PRINTF(bfad, level, fmt, arg...)			\
++		dev_printk(level, &(((struct bfad_s *)			\
++			(bfad))->pcidev->dev), fmt, ##arg);
++#endif
++
++#define BFA_PRINTF(level, fmt, arg...)					\
++		printk(level fmt, ##arg);
++
++int bfa_os_MWB(void *);
++
++#define bfa_os_mmiowb()		mmiowb()
++
++#define bfa_swap_3b(_x)				\
++	((((_x) & 0xff) << 16) |		\
++	((_x) & 0x00ff00) |			\
++	(((_x) & 0xff0000) >> 16))
++
++#define bfa_swap_8b(_x) 				\
++     ((((_x) & 0xff00000000000000ull) >> 56)		\
++      | (((_x) & 0x00ff000000000000ull) >> 40)		\
++      | (((_x) & 0x0000ff0000000000ull) >> 24)		\
++      | (((_x) & 0x000000ff00000000ull) >> 8)		\
++      | (((_x) & 0x00000000ff000000ull) << 8)		\
++      | (((_x) & 0x0000000000ff0000ull) << 24)		\
++      | (((_x) & 0x000000000000ff00ull) << 40)		\
++      | (((_x) & 0x00000000000000ffull) << 56))
++
++#define bfa_os_swap32(_x) 			\
++	((((_x) & 0xff) << 24) 		|	\
++	(((_x) & 0x0000ff00) << 8)	|	\
++	(((_x) & 0x00ff0000) >> 8)	|	\
++	(((_x) & 0xff000000) >> 24))
++
++
++#ifndef __BIGENDIAN
++#define bfa_os_htons(_x) ((u16)((((_x) & 0xff00) >> 8) | \
++				 (((_x) & 0x00ff) << 8)))
++
++#define bfa_os_htonl(_x)	bfa_os_swap32(_x)
++#define bfa_os_htonll(_x)	bfa_swap_8b(_x)
++#define bfa_os_hton3b(_x)	bfa_swap_3b(_x)
++
++#define bfa_os_wtole(_x)   (_x)
++
++#else
++
++#define bfa_os_htons(_x)   (_x)
++#define bfa_os_htonl(_x)   (_x)
++#define bfa_os_hton3b(_x)  (_x)
++#define bfa_os_htonll(_x)  (_x)
++#define bfa_os_wtole(_x)   bfa_os_swap32(_x)
++
++#endif
++
++#define bfa_os_ntohs(_x)   bfa_os_htons(_x)
++#define bfa_os_ntohl(_x)   bfa_os_htonl(_x)
++#define bfa_os_ntohll(_x)  bfa_os_htonll(_x)
++#define bfa_os_ntoh3b(_x)  bfa_os_hton3b(_x)
++
++#define bfa_os_u32(__pa64) ((__pa64) >> 32)
++
++#define bfa_os_memset	memset
++#define bfa_os_memcpy	memcpy
++#define bfa_os_udelay	udelay
++#define bfa_os_vsprintf vsprintf
++
++#define bfa_os_assign(__t, __s) __t = __s
++
++#define bfa_os_addr_t char __iomem *
++#define bfa_os_panic()
++
++#define bfa_os_reg_read(_raddr) bfa_os_wtole(readl(_raddr))
++#define bfa_os_reg_write(_raddr, _val) writel(bfa_os_wtole((_val)), (_raddr))
++#define bfa_os_mem_read(_raddr, _off)                                   \
++	bfa_os_ntohl(readl(((_raddr) + (_off))))
++#define bfa_os_mem_write(_raddr, _off, _val)                            \
++	writel(bfa_os_htonl((_val)), ((_raddr) + (_off)))
++
++#define BFA_TRC_TS(_trcm)						\
++			({						\
++				struct timeval tv;			\
++									\
++				do_gettimeofday(&tv);      \
++				(tv.tv_sec*1000000+tv.tv_usec);      \
++			 })
++
++struct bfa_log_mod_s;
++void bfa_os_printf(struct bfa_log_mod_s *log_mod, u32 msg_id,
++		   const char *fmt, ...);
++#endif
++
++#define boolean_t int
++
++/**
++ * For current time stamp, OS API will fill-in
++ */
++struct bfa_timeval_s {
++	u32 tv_sec;		/*  seconds        */
++	u32 tv_usec;		/*  microseconds   */
++};
++
++void bfa_os_gettimeofday(struct bfa_timeval_s *tv);
++
++#endif /* __BFA_OS_INC_H__ */
+diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bfa_priv.h linux-2.6.30.5-mod/drivers/net/bna/bfa_priv.h
+--- linux-2.6.30.5-orig/drivers/net/bna/bfa_priv.h	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.30.5-mod/drivers/net/bna/bfa_priv.h	2009-08-28 21:09:23.510882000 -0700
+@@ -0,0 +1,119 @@
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * See LICENSE.bna for copyright and licensing details.
++ */
++
++#ifndef __BFA_PRIV_H__
++#define __BFA_PRIV_H__
++
++#include "bfa_iocfc.h"
++#include "bfa_intr_priv.h"
++#include "bfa_trcmod_priv.h"
++#include "bfa_modules_priv.h"
++#include "bfa_fwimg_priv.h"
++#include <cs/bfa_log.h>
++#include <bfa_timer.h>
++
++/**
++ * Macro to define a new BFA module
++ */
++#define BFA_MODULE(__mod) 						\
++	static void bfa_ ## __mod ## _meminfo(				\
++			struct bfa_iocfc_cfg_s *cfg, u32 *ndm_len,	\
++			u32 *dm_len);      \
++	static void bfa_ ## __mod ## _attach(struct bfa_s *bfa,		\
++			void *bfad, struct bfa_iocfc_cfg_s *cfg, 	\
++			struct bfa_meminfo_s *meminfo,			\
++			struct bfa_pcidev_s *pcidev);      \
++	static void bfa_ ## __mod ## _initdone(struct bfa_s *bfa);      \
++	static void bfa_ ## __mod ## _detach(struct bfa_s *bfa);      \
++	static void bfa_ ## __mod ## _start(struct bfa_s *bfa);      \
++	static void bfa_ ## __mod ## _stop(struct bfa_s *bfa);      \
++	static void bfa_ ## __mod ## _iocdisable(struct bfa_s *bfa);      \
++									\
++	extern struct bfa_module_s hal_mod_ ## __mod;			\
++	struct bfa_module_s hal_mod_ ## __mod = {			\
++		bfa_ ## __mod ## _meminfo,				\
++		bfa_ ## __mod ## _attach,				\
++		bfa_ ## __mod ## _initdone,				\
++		bfa_ ## __mod ## _detach,				\
++		bfa_ ## __mod ## _start,				\
++		bfa_ ## __mod ## _stop,					\
++		bfa_ ## __mod ## _iocdisable,				\
++	}
++
++#define BFA_CACHELINE_SZ	(256)
++
++/**
++ * Structure used to interact between different BFA sub modules
++ *
++ * Each sub module needs to implement only the entry points relevant to it (and
++ * can leave entry points as NULL)
++ */
++struct bfa_module_s {
++	void (*meminfo) (struct bfa_iocfc_cfg_s * cfg, u32 * km_len,
++			 u32 * dm_len);
++	void (*attach) (struct bfa_s * bfa, void *bfad,
++			struct bfa_iocfc_cfg_s * cfg,
++			struct bfa_meminfo_s * meminfo,
++			struct bfa_pcidev_s * pcidev);
++	void (*initdone) (struct bfa_s * bfa);
++	void (*detach) (struct bfa_s * bfa);
++	void (*start) (struct bfa_s * bfa);
++	void (*stop) (struct bfa_s * bfa);
++	void (*iocdisable) (struct bfa_s * bfa);
++};
++
++extern struct bfa_module_s *hal_mods[];
++
++struct bfa_s {
++	void *bfad;		/*  BFA driver instance    */
++	struct bfa_aen_s *aen;	/*  AEN module              */
++	struct bfa_plog_s *plog;	/*  portlog buffer          */
++	struct bfa_log_mod_s *logm;	/*  driver logging modulen */
++	struct bfa_trc_mod_s *trcmod;	/*  driver tracing          */
++	struct bfa_ioc_s ioc;	/*  IOC module              */
++	struct bfa_iocfc_s iocfc;	/*  IOCFC module            */
++	struct bfa_timer_mod_s timer_mod;	/*  timer module            */
++	struct bfa_modules_s modules;	/*  BFA modules     */
++	struct list_head comp_q;	/*  pending completions    */
++	bfa_boolean_t rme_process;	/*  RME processing enabled */
++	struct list_head reqq_waitq[BFI_IOC_MAX_CQS];
++	bfa_boolean_t fcs;	/*  FCS is attached to BFA */
++	struct bfa_msix_s msix;
++};
++
++extern bfa_isr_func_t bfa_isrs[BFI_MC_MAX];
++extern bfa_ioc_mbox_mcfunc_t bfa_mbox_isrs[];
++extern bfa_boolean_t bfa_auto_recover;
++extern struct bfa_module_s hal_mod_flash;
++extern struct bfa_module_s hal_mod_fcdiag;
++extern struct bfa_module_s hal_mod_sgpg;
++extern struct bfa_module_s hal_mod_pport;
++extern struct bfa_module_s hal_mod_fcxp;
++extern struct bfa_module_s hal_mod_lps;
++extern struct bfa_module_s hal_mod_uf;
++extern struct bfa_module_s hal_mod_rport;
++extern struct bfa_module_s hal_mod_fcpim;
++extern struct bfa_module_s hal_mod_pbind;
++
++#endif /* __BFA_PRIV_H__ */
+diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bfa_svc.h linux-2.6.30.5-mod/drivers/net/bna/bfa_svc.h
+--- linux-2.6.30.5-orig/drivers/net/bna/bfa_svc.h	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.30.5-mod/drivers/net/bna/bfa_svc.h	2009-08-28 21:09:23.149900000 -0700
+@@ -0,0 +1,328 @@
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * See LICENSE.bna for copyright and licensing details.
++ */
++#ifndef __BFA_SVC_H__
++#define __BFA_SVC_H__
++
++/*
++ * forward declarations
++ */
++struct bfa_fcxp_s;
++
++#include <defs/bfa_defs_status.h>
++#include <defs/bfa_defs_pport.h>
++#include <defs/bfa_defs_rport.h>
++#include <defs/bfa_defs_qos.h>
++#include <cs/bfa_sm.h>
++#include <bfa.h>
++
++/**
++ * 		BFA rport information.
++ */
++struct bfa_rport_info_s {
++	u16 max_frmsz;		/*  max rcv pdu size               */
++	u32 pid:24,		/*  remote port ID                 */
++	  lp_tag:8;
++	u32 local_pid:24,	/*  local port ID                   */
++	  cisc:8;		/*  CIRO supported                  */
++	u8 fc_class;		/*  supported FC classes. enum fc_cos */
++	u8 vf_en;		/*  virtual fabric enable          */
++	u16 vf_id;		/*  virtual fabric ID              */
++	enum bfa_pport_speed speed;	/*  Rport's current speed           */
++};
++
++/**
++ * BFA rport data structure
++ */
++struct bfa_rport_s {
++	struct list_head qe;	/*  queue element */
++	bfa_sm_t sm;		/*  state machine */
++	struct bfa_s *bfa;	/*  backpointer to BFA */
++	void *rport_drv;	/*  fcs/driver rport object */
++	u16 fw_handle;		/*  firmware rport handle */
++	u16 rport_tag;		/*  BFA rport tag */
++	struct bfa_rport_info_s rport_info;	/*  rport info from *fcs/driver */
++	struct bfa_reqq_wait_s reqq_wait;	/*  to wait for room in reqq */
++	struct bfa_cb_qe_s hcb_qe;	/*  BFA callback qelem */
++	struct bfa_rport_hal_stats_s stats;	/*  BFA rport statistics  */
++	struct bfa_rport_qos_attr_s qos_attr;
++	union a {
++		bfa_status_t status;	/*  f/w status */
++		void *fw_msg;	/*  QoS scn event */
++	} event_arg;
++};
++#define BFA_RPORT_FC_COS(_rport)	((_rport)->rport_info.fc_class)
++
++/**
++ * Send completion callback.
++ */
++typedef void (*bfa_cb_fcxp_send_t) (void *bfad_fcxp, struct bfa_fcxp_s * fcxp,
++				    void *cbarg, enum bfa_status req_status,
++				    u32 rsp_len, u32 resid_len,
++				    struct fchs_s * rsp_fchs);
++
++/**
++ * BFA fcxp allocation (asynchronous)
++ */
++typedef void (*bfa_fcxp_alloc_cbfn_t) (void *cbarg, struct bfa_fcxp_s * fcxp);
++
++struct bfa_fcxp_wqe_s {
++	struct list_head qe;
++	bfa_fcxp_alloc_cbfn_t alloc_cbfn;
++	void *alloc_cbarg;
++};
++
++typedef u64(*bfa_fcxp_get_sgaddr_t) (void *bfad_fcxp, int sgeid);
++typedef u32(*bfa_fcxp_get_sglen_t) (void *bfad_fcxp, int sgeid);
++
++#define BFA_UF_BUFSZ	(2 * 1024 + 256)
++
++/**
++ * @todo private
++ */
++struct bfa_uf_buf_s {
++	u8 d[BFA_UF_BUFSZ];
++};
++
++
++struct bfa_uf_s {
++	struct list_head qe;	/*  queue element         */
++	struct bfa_s *bfa;	/*  bfa instance          */
++	u16 uf_tag;		/*  identifying tag f/w messages */
++	u16 vf_id;
++	u16 src_rport_handle;
++	u16 rsvd;
++	u8 *data_ptr;
++	u16 data_len;		/*  actual receive length         */
++	u16 pb_len;		/*  posted buffer length          */
++	void *buf_kva;		/*  buffer virtual address        */
++	u64 buf_pa;		/*  buffer physical address       */
++	struct bfa_cb_qe_s hcb_qe;	/*  comp: BFA comp qelem          */
++	struct bfa_sge_s sges[BFI_SGE_INLINE_MAX];
++};
++
++typedef void (*bfa_cb_pport_t) (void *cbarg, enum bfa_status status);
++
++/**
++ * bfa lport login/logout service interface
++ */
++struct bfa_lps_s {
++	struct list_head qe;	/*  queue element */
++	struct bfa_s *bfa;	/*  parent bfa instance */
++	bfa_sm_t sm;		/*  finite state machine        */
++	u8 lp_tag;		/*  lport tag                   */
++	u8 reqq;		/*  lport request queue */
++	u8 alpa;		/*  ALPA for loop topologies    */
++	u32 lp_pid;		/*  lport port ID               */
++	bfa_boolean_t fdisc;	/*  send FDISC instead of FLOGI */
++	bfa_boolean_t auth_en;	/*  enable authentication       */
++	bfa_boolean_t auth_req;	/*  authentication required     */
++	bfa_boolean_t npiv_en;	/*  NPIV is allowed by peer     */
++	bfa_boolean_t fport;	/*  attached peer is F_PORT     */
++	bfa_boolean_t brcd_switch;	/*  attached peer is brcd switch    */
++	bfa_status_t status;	/*  login status                */
++	u16 pdusz;		/*  max receive PDU size        */
++	u16 pr_bbcred;		/*  BB_CREDIT from peer         */
++	u8 lsrjt_rsn;		/*  LSRJT reason                */
++	u8 lsrjt_expl;		/*  LSRJT explanation           */
++	wwn_t pwwn;		/*  port wwn of lport           */
++	wwn_t nwwn;		/*  node wwn of lport           */
++	wwn_t pr_pwwn;		/*  port wwn of lport peer      */
++	wwn_t pr_nwwn;		/*  node wwn of lport peer      */
++	mac_t lp_mac;		/*  fpma/spma MAC for lport     */
++	mac_t fcf_mac;		/*  FCF MAC of lport            */
++	struct bfa_reqq_wait_s wqe;	/*  request wait queue element  */
++	void *uarg;		/*  user callback arg           */
++	struct bfa_cb_qe_s hcb_qe;	/*  comp: callback qelem        */
++	struct bfi_lps_login_rsp_s *loginrsp;
++	bfa_eproto_status_t ext_status;
++};
++
++/*
++ * bfa pport API functions
++ */
++bfa_status_t bfa_pport_enable(struct bfa_s *bfa);
++bfa_status_t bfa_pport_disable(struct bfa_s *bfa);
++bfa_status_t bfa_pport_cfg_speed(struct bfa_s *bfa, enum bfa_pport_speed speed);
++enum bfa_pport_speed bfa_pport_get_speed(struct bfa_s *bfa);
++bfa_status_t bfa_pport_cfg_topology(struct bfa_s *bfa,
++				    enum bfa_pport_topology topo);
++enum bfa_pport_topology bfa_pport_get_topology(struct bfa_s *bfa);
++bfa_status_t bfa_pport_cfg_hardalpa(struct bfa_s *bfa, u8 alpa);
++bfa_boolean_t bfa_pport_get_hardalpa(struct bfa_s *bfa, u8 * alpa);
++u8 bfa_pport_get_myalpa(struct bfa_s *bfa);
++bfa_status_t bfa_pport_clr_hardalpa(struct bfa_s *bfa);
++bfa_status_t bfa_pport_cfg_maxfrsize(struct bfa_s *bfa, u16 maxsize);
++u16 bfa_pport_get_maxfrsize(struct bfa_s *bfa);
++u32 bfa_pport_mypid(struct bfa_s *bfa);
++u8 bfa_pport_get_rx_bbcredit(struct bfa_s *bfa);
++bfa_status_t bfa_pport_trunk_enable(struct bfa_s *bfa, u8 bitmap);
++bfa_status_t bfa_pport_trunk_disable(struct bfa_s *bfa);
++bfa_boolean_t bfa_pport_trunk_query(struct bfa_s *bfa, u32 * bitmap);
++void bfa_pport_get_attr(struct bfa_s *bfa, struct bfa_pport_attr_s *attr);
++wwn_t bfa_pport_get_wwn(struct bfa_s *bfa, bfa_boolean_t node);
++bfa_status_t bfa_pport_get_stats(struct bfa_s *bfa,
++				 union bfa_pport_stats_u *stats,
++				 bfa_cb_pport_t cbfn, void *cbarg);
++bfa_status_t bfa_pport_clear_stats(struct bfa_s *bfa, bfa_cb_pport_t cbfn,
++				   void *cbarg);
++void bfa_pport_event_register(struct bfa_s *bfa,
++			      void (*event_cbfn) (void *cbarg,
++						  bfa_pport_event_t event),
++			      void *event_cbarg);
++bfa_boolean_t bfa_pport_is_disabled(struct bfa_s *bfa);
++void bfa_pport_cfg_qos(struct bfa_s *bfa, bfa_boolean_t on_off);
++void bfa_pport_cfg_ratelim(struct bfa_s *bfa, bfa_boolean_t on_off);
++bfa_status_t bfa_pport_cfg_ratelim_speed(struct bfa_s *bfa,
++					 enum bfa_pport_speed speed);
++enum bfa_pport_speed bfa_pport_get_ratelim_speed(struct bfa_s *bfa);
++
++void bfa_pport_set_tx_bbcredit(struct bfa_s *bfa, u16 tx_bbcredit);
++void bfa_pport_busy(struct bfa_s *bfa, bfa_boolean_t status);
++void bfa_pport_beacon(struct bfa_s *bfa, bfa_boolean_t beacon,
++		      bfa_boolean_t link_e2e_beacon);
++void bfa_cb_pport_event(void *cbarg, bfa_pport_event_t event);
++void bfa_pport_qos_get_attr(struct bfa_s *bfa, struct bfa_qos_attr_s *qos_attr);
++void bfa_pport_qos_get_vc_attr(struct bfa_s *bfa,
++			       struct bfa_qos_vc_attr_s *qos_vc_attr);
++bfa_status_t bfa_pport_get_qos_stats(struct bfa_s *bfa,
++				     union bfa_pport_stats_u *stats,
++				     bfa_cb_pport_t cbfn, void *cbarg);
++bfa_status_t bfa_pport_clear_qos_stats(struct bfa_s *bfa, bfa_cb_pport_t cbfn,
++				       void *cbarg);
++bfa_boolean_t bfa_pport_is_ratelim(struct bfa_s *bfa);
++bfa_boolean_t bfa_pport_is_linkup(struct bfa_s *bfa);
++
++/*
++ * bfa rport API functions
++ */
++struct bfa_rport_s *bfa_rport_create(struct bfa_s *bfa, void *rport_drv);
++void bfa_rport_delete(struct bfa_rport_s *rport);
++void bfa_rport_online(struct bfa_rport_s *rport,
++		      struct bfa_rport_info_s *rport_info);
++void bfa_rport_offline(struct bfa_rport_s *rport);
++void bfa_rport_speed(struct bfa_rport_s *rport, enum bfa_pport_speed speed);
++void bfa_rport_get_stats(struct bfa_rport_s *rport,
++			 struct bfa_rport_hal_stats_s *stats);
++void bfa_rport_clear_stats(struct bfa_rport_s *rport);
++void bfa_cb_rport_online(void *rport);
++void bfa_cb_rport_offline(void *rport);
++void bfa_cb_rport_qos_scn_flowid(void *rport,
++				 struct bfa_rport_qos_attr_s old_qos_attr,
++				 struct bfa_rport_qos_attr_s new_qos_attr);
++void bfa_cb_rport_qos_scn_prio(void *rport,
++			       struct bfa_rport_qos_attr_s old_qos_attr,
++			       struct bfa_rport_qos_attr_s new_qos_attr);
++void bfa_rport_get_qos_attr(struct bfa_rport_s *rport,
++			    struct bfa_rport_qos_attr_s *qos_attr);
++
++/*
++ * bfa fcxp API functions
++ */
++struct bfa_fcxp_s *bfa_fcxp_alloc(void *bfad_fcxp, struct bfa_s *bfa,
++				  int nreq_sgles, int nrsp_sgles,
++				  bfa_fcxp_get_sgaddr_t get_req_sga,
++				  bfa_fcxp_get_sglen_t get_req_sglen,
++				  bfa_fcxp_get_sgaddr_t get_rsp_sga,
++				  bfa_fcxp_get_sglen_t get_rsp_sglen);
++void bfa_fcxp_alloc_wait(struct bfa_s *bfa, struct bfa_fcxp_wqe_s *wqe,
++			 bfa_fcxp_alloc_cbfn_t alloc_cbfn, void *cbarg);
++void bfa_fcxp_walloc_cancel(struct bfa_s *bfa, struct bfa_fcxp_wqe_s *wqe);
++void bfa_fcxp_discard(struct bfa_fcxp_s *fcxp);
++
++void *bfa_fcxp_get_reqbuf(struct bfa_fcxp_s *fcxp);
++void *bfa_fcxp_get_rspbuf(struct bfa_fcxp_s *fcxp);
++
++void bfa_fcxp_free(struct bfa_fcxp_s *fcxp);
++
++void bfa_fcxp_send(struct bfa_fcxp_s *fcxp,
++		   struct bfa_rport_s *rport, u16 vf_id, u8 lp_tag,
++		   bfa_boolean_t cts, enum fc_cos cos,
++		   u32 reqlen, struct fchs_s *fchs,
++		   bfa_cb_fcxp_send_t cbfn,
++		   void *cbarg, u32 rsp_maxlen, u8 rsp_timeout);
++bfa_status_t bfa_fcxp_abort(struct bfa_fcxp_s *fcxp);
++u32 bfa_fcxp_get_reqbufsz(struct bfa_fcxp_s *fcxp);
++u32 bfa_fcxp_get_maxrsp(struct bfa_s *bfa);
++
++static inline void *
++bfa_uf_get_frmbuf(struct bfa_uf_s *uf)
++{
++	return uf->data_ptr;
++}
++
++static inline u16
++bfa_uf_get_frmlen(struct bfa_uf_s *uf)
++{
++	return uf->data_len;
++}
++
++/**
++ *      Callback prototype for unsolicited frame receive handler.
++ *
++ * @param[in]           cbarg           callback arg for receive handler
++ * @param[in]           uf              unsolicited frame descriptor
++ *
++ * @return None
++ */
++typedef void (*bfa_cb_uf_recv_t) (void *cbarg, struct bfa_uf_s * uf);
++
++/*
++ * bfa uf API functions
++ */
++void bfa_uf_recv_register(struct bfa_s *bfa, bfa_cb_uf_recv_t ufrecv,
++			  void *cbarg);
++void bfa_uf_free(struct bfa_uf_s *uf);
++
++/**
++ * bfa lport service api
++ */
++
++struct bfa_lps_s *bfa_lps_alloc(struct bfa_s *bfa);
++void bfa_lps_delete(struct bfa_lps_s *lps);
++void bfa_lps_discard(struct bfa_lps_s *lps);
++void bfa_lps_flogi(struct bfa_lps_s *lps, void *uarg, u8 alpa, u16 pdusz,
++		   wwn_t pwwn, wwn_t nwwn, bfa_boolean_t auth_en);
++void bfa_lps_fdisc(struct bfa_lps_s *lps, void *uarg, u16 pdusz, wwn_t pwwn,
++		   wwn_t nwwn);
++void bfa_lps_flogo(struct bfa_lps_s *lps);
++void bfa_lps_fdisclogo(struct bfa_lps_s *lps);
++u8 bfa_lps_get_tag(struct bfa_lps_s *lps);
++bfa_boolean_t bfa_lps_is_npiv_en(struct bfa_lps_s *lps);
++bfa_boolean_t bfa_lps_is_fport(struct bfa_lps_s *lps);
++bfa_boolean_t bfa_lps_is_brcd_fabric(struct bfa_lps_s *lps);
++bfa_boolean_t bfa_lps_is_authreq(struct bfa_lps_s *lps);
++bfa_eproto_status_t bfa_lps_get_extstatus(struct bfa_lps_s *lps);
++u32 bfa_lps_get_pid(struct bfa_lps_s *lps);
++u8 bfa_lps_get_tag_from_pid(struct bfa_s *bfa, u32 pid);
++u16 bfa_lps_get_peer_bbcredit(struct bfa_lps_s *lps);
++wwn_t bfa_lps_get_peer_pwwn(struct bfa_lps_s *lps);
++wwn_t bfa_lps_get_peer_nwwn(struct bfa_lps_s *lps);
++u8 bfa_lps_get_lsrjt_rsn(struct bfa_lps_s *lps);
++u8 bfa_lps_get_lsrjt_expl(struct bfa_lps_s *lps);
++void bfa_cb_lps_flogi_comp(void *bfad, void *uarg, bfa_status_t status);
++void bfa_cb_lps_flogo_comp(void *bfad, void *uarg);
++void bfa_cb_lps_fdisc_comp(void *bfad, void *uarg, bfa_status_t status);
++void bfa_cb_lps_fdisclogo_comp(void *bfad, void *uarg);
++
++#endif /* __BFA_SVC_H__ */
+diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bfa_timer.c linux-2.6.30.5-mod/drivers/net/bna/bfa_timer.c
+--- linux-2.6.30.5-orig/drivers/net/bna/bfa_timer.c	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.30.5-mod/drivers/net/bna/bfa_timer.c	2009-08-28 21:09:23.328884000 -0700
+@@ -0,0 +1,97 @@
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * See LICENSE.bna for copyright and licensing details.
++ */
++
++#include <bfa_timer.h>
++#include <cs/bfa_debug.h>
++
++void
++bfa_timer_init(struct bfa_timer_mod_s *mod)
++{
++	INIT_LIST_HEAD(&mod->timer_q);
++}
++
++void
++bfa_timer_beat(struct bfa_timer_mod_s *mod)
++{
++	struct list_head *qh = &mod->timer_q;
++	struct list_head *qe, *qe_next;
++	struct bfa_timer_s *elem;
++	struct list_head timedout_q;
++
++	INIT_LIST_HEAD(&timedout_q);
++
++	qe = bfa_q_next(qh);
++
++	while (qe != qh) {
++		qe_next = bfa_q_next(qe);
++
++		elem = (struct bfa_timer_s *) qe;
++		if (elem->timeout <= BFA_TIMER_FREQ) {
++			elem->timeout = 0;
++			list_del(&elem->qe);
++			list_add_tail(&elem->qe, &timedout_q);
++		} else {
++			elem->timeout -= BFA_TIMER_FREQ;
++		}
++
++		qe = qe_next;	/* go to next elem */
++	}
++
++	/*
++	 * Pop all the timeout entries
++	 */
++	while (!list_empty(&timedout_q)) {
++		bfa_q_deq(&timedout_q, &elem);
++		elem->timercb(elem->arg);
++	}
++}
++
++/**
++ * Should be called with lock protection
++ */
++void
++bfa_timer_begin(struct bfa_timer_mod_s *mod, struct bfa_timer_s *timer,
++		void (*timercb) (void *), void *arg, unsigned int timeout)
++{
++
++	bfa_assert(timercb != NULL);
++	bfa_assert(!bfa_q_is_on_q(&mod->timer_q, timer));
++
++	timer->timeout = timeout;
++	timer->timercb = timercb;
++	timer->arg = arg;
++
++	list_add_tail(&timer->qe, &mod->timer_q);
++}
++
++/**
++ * Should be called with lock protection
++ */
++void
++bfa_timer_stop(struct bfa_timer_s *timer)
++{
++	bfa_assert(!list_empty(&timer->qe));
++
++	list_del(&timer->qe);
++}
+diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bfa_trcmod_priv.h linux-2.6.30.5-mod/drivers/net/bna/bfa_trcmod_priv.h
+--- linux-2.6.30.5-orig/drivers/net/bna/bfa_trcmod_priv.h	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.30.5-mod/drivers/net/bna/bfa_trcmod_priv.h	2009-08-28 21:09:23.378890000 -0700
+@@ -0,0 +1,73 @@
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * See LICENSE.bna for copyright and licensing details.
++ */
++
++/**
++ *  hal_trcmod.h BFA trace modules
++ */
++
++#ifndef __BFA_TRCMOD_PRIV_H__
++#define __BFA_TRCMOD_PRIV_H__
++
++#include <cs/bfa_trc.h>
++
++/*
++ * !!! Only append to the enums defined here to avoid any versioning
++ * !!! needed between trace utility and driver version
++ */
++enum {
++	BFA_TRC_HAL_IOC = 1,
++	BFA_TRC_HAL_INTR = 2,
++	BFA_TRC_HAL_FCXP = 3,
++	BFA_TRC_HAL_UF = 4,
++	BFA_TRC_HAL_DIAG = 5,
++	BFA_TRC_HAL_RPORT = 6,
++	BFA_TRC_HAL_FCPIM = 7,
++	BFA_TRC_HAL_IOIM = 8,
++	BFA_TRC_HAL_TSKIM = 9,
++	BFA_TRC_HAL_ITNIM = 10,
++	BFA_TRC_HAL_PPORT = 11,
++	BFA_TRC_HAL_SGPG = 12,
++	BFA_TRC_HAL_FLASH = 13,
++	BFA_TRC_HAL_DEBUG = 14,
++	BFA_TRC_HAL_WWN = 15,
++	BFA_TRC_HAL_FLASH_RAW = 16,
++	BFA_TRC_HAL_SBOOT = 17,
++	BFA_TRC_HAL_SBOOT_IO = 18,
++	BFA_TRC_HAL_SBOOT_INTR = 19,
++	BFA_TRC_HAL_SBTEST = 20,
++	BFA_TRC_HAL_IPFC = 21,
++	BFA_TRC_HAL_IOCFC = 22,
++	BFA_TRC_HAL_FCPTM = 23,
++	BFA_TRC_HAL_IOTM = 24,
++	BFA_TRC_HAL_TSKTM = 25,
++	BFA_TRC_HAL_TIN = 26,
++	BFA_TRC_HAL_LPS = 27,
++	BFA_TRC_HAL_FCDIAG = 28,
++	BFA_TRC_HAL_PBIND = 29,
++	BFA_TRC_HAL_IOCFC_CT = 30,
++	BFA_TRC_HAL_IOCFC_CB = 31,
++	BFA_TRC_HAL_IOCFC_Q = 32,
++};
++
++#endif /* __BFA_TRCMOD_PRIV_H__ */
+diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bnad_defs.h linux-2.6.30.5-mod/drivers/net/bna/bnad_defs.h
+--- linux-2.6.30.5-orig/drivers/net/bna/bnad_defs.h	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.30.5-mod/drivers/net/bna/bnad_defs.h	2009-08-28 21:09:23.297891000 -0700
+@@ -0,0 +1,36 @@
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved.
++ */
++
++#ifndef _BNAD_DEFS_H_
++#define _BNAD_DEFS_H_
++
++#define BNAD_NAME	"bna"
++#define BNAD_VERSION	"2.0.0.0"
++
++#ifndef PCI_VENDOR_ID_BROCADE
++#define PCI_VENDOR_ID_BROCADE	0x1657
++#endif
++
++#ifndef PCI_DEVICE_ID_BROCADE_CATAPULT
++#define PCI_DEVICE_ID_BROCADE_CATAPULT	0x0014
++#endif
++
++#endif /* _BNAD_DEFS_H_ */
+diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bnad_ethtool.c linux-2.6.30.5-mod/drivers/net/bna/bnad_ethtool.c
+--- linux-2.6.30.5-orig/drivers/net/bna/bnad_ethtool.c	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.30.5-mod/drivers/net/bna/bnad_ethtool.c	2009-08-28 21:09:23.361884000 -0700
+@@ -0,0 +1,1316 @@
 +/*
 + * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
 + * All rights reserved
@@ -51,4859 +2656,1987 @@ diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bnad.c linux-2.6.30.5-mod/drivers/
 + */
 +
 +/**
-+ *  bnad.c  Brocade 10G PCIe Ethernet driver.
++ *  bna_ethtool.c  Brocade 10G PCIe Ethernet driver.
 + */
 +
-+#if defined(__VMKERNEL_MODULE__) && !defined(__x86_64__)
-+#include "smp_drv.h"
-+#endif
-+
-+#include <linux/kernel.h>
-+#if (!defined (__VMKERNEL_MODULE__) || defined(__x86_64__)) && !defined(__ESX_COS__)
-+#include <linux/interrupt.h>
-+#endif
-+#include <linux/netdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/pci.h>
-+#include <linux/bitops.h>
-+#include <linux/etherdevice.h>
-+#include <linux/in.h>
++#include <linux/types.h>
 +#include <linux/ethtool.h>
-+#include <linux/if_vlan.h>
-+#include <linux/delay.h>
++#include <linux/netdevice.h>
++#include <linux/pci.h>
++#include <linux/interrupt.h>
++#include <linux/skbuff.h>
++#include <linux/if_ether.h>
++#ifdef __ESX_COS__
++#include <asm/uaccess.h>	/* copy_from_user(), copy_to_user() */
++#endif
 +#ifndef __VMKERNEL_MODULE__
 +#include <linux/rtnetlink.h>
-+#endif
-+#include <linux/if_ether.h>
-+#ifndef __VMKERNEL_MODULE__
-+#include <linux/workqueue.h>
-+#endif
-+#include <linux/ip.h>
-+#ifndef __VMKERNEL_MODULE__
-+#include <linux/ipv6.h>
-+#endif
-+#include <linux/tcp.h>
-+#include <linux/udp.h>
-+#include <linux/pm.h>
-+#include <linux/random.h>
-+
-+#ifdef NETIF_F_TSO
-+#include <net/checksum.h>
-+#endif
-+
-+#if defined(__VMKERNEL_MODULE__) || defined(__ESX_COS__)
-+#include <linux/module.h>
-+#endif
-+
-+#if defined(__VMKERNEL_MODULE__)
-+#include <linux/smp.h>
-+#include "vmklinux_dist.h"
 +#endif
 +
 +#include "bnad.h"
 +#include "bna_os.h"
++#include "bna_hwreg.h"
 +#include "bna_log_trc.h"
 +#include "bna_iocll.h"
-+#include "bna_intr.h"
 +#include "bnad_defs.h"
-+#include "bnad_trcmod.h"
++#include "phyport_defs.h"
 +
-+#ifdef BNAD_NO_IP_ALIGN
-+#undef NET_IP_ALIGN
-+#define NET_IP_ALIGN	0
-+#endif
++#define BNAD_ETHTOOL_STATS_NUM						\
++    (sizeof (struct net_device_stats) / sizeof (unsigned long) +	\
++    sizeof (struct bnad_drv_stats) / sizeof (u64) +		\
++     (offsetof(struct bna_stats, rxf_stats[0]) +			\
++    sizeof (struct bna_stats_txf)) / sizeof (u64))
 +
-+BNA_TRC_FILE(LDRV, BNAD);
-+BNA_TRC_SET_LEVEL(TRACE_INFO_LEVEL);
++static char *bnad_net_stats_strings[BNAD_ETHTOOL_STATS_NUM] = {
++	"rx_packets",
++	"tx_packets",
++	"rx_bytes",
++	"tx_bytes",
++	"rx_errors",
++	"tx_errors",
++	"rx_dropped",
++	"tx_dropped",
++	"multicast",
++	"collisions",
 +
-+BNA_LOG_INIT((bna_log_func_t) printk);
++	"rx_length_errors",
++	"rx_over_errors",
++	"rx_crc_errors",
++	"rx_frame_errors",
++	"rx_fifo_errors",
++	"rx_missed_errors",
 +
-+#define BNAD_TXQ_WI_NEEDED(_vectors)	(((_vectors) + 3) >> 2)
++	"tx_aborted_errors",
++	"tx_carrier_errors",
++	"tx_fifo_errors",
++	"tx_heartbeat_errors",
++	"tx_window_errors",
 +
-+#define BNAD_RESET_Q(_bnad, _q, _unmap_q)				\
-+do {									\
-+	if ((_q)->producer_index != (_q)->consumer_index) {      \
-+		BNA_TRACE_ERROR((_bnad), (_q)->producer_index, 		\
-+		    ("Q producer index %u != ",	(_q)->producer_index));      \
-+		BNA_TRACE_ERROR((_bnad), (_q)->consumer_index, 		\
-+		    ("consumer index %u\n", (_q)->consumer_index));      \
-+	}								\
-+	BNA_ASSERT((_q)->producer_index == (_q)->consumer_index);      \
-+	if ((_unmap_q)->producer_index != (_unmap_q)->consumer_index) {      \
-+		BNA_TRACE_ERROR((_bnad), (_unmap_q)->producer_index,	\
-+		    ("UnmapQ producer index %u != ",			\
-+		    (_unmap_q)->producer_index));      \
-+		BNA_TRACE_ERROR((_bnad), (_unmap_q)->consumer_index,	\
-+		    ("consumer index %u\n",				\
-+		    (_unmap_q)->consumer_index));      \
-+	}								\
-+	BNA_ASSERT((_unmap_q)->producer_index == (_unmap_q)->consumer_index);      \
-+	(_q)->producer_index = 0;					\
-+	(_q)->consumer_index = 0;					\
-+	(_unmap_q)->producer_index = 0;					\
-+	(_unmap_q)->consumer_index = 0;					\
-+	{								\
-+		u32 _ui;						\
-+		for (_ui = 0; _ui < (_unmap_q)->q_depth; _ui++)		\
-+			BNA_ASSERT(!(_unmap_q)->unmap_array[_ui].skb);      \
-+	}								\
-+} while (0)
++	"rx_compressed",
++	"tx_compressed",
 +
-+static uint bnad_msix = 1;
-+module_param(bnad_msix, uint, 0444);
-+MODULE_PARM_DESC(bnad_msix, "Enable MSI-X");
++	"netif_queue_stop",
++	"netif_queue_wakeup",
++	"tso4",
++	"tso6",
++	"tso_err",
++	"tcpcsum_offload",
++	"udpcsum_offload",
++	"csum_help",
++	"csum_help_err",
++	"hw_stats_updates",
++	"netif_rx_schedule",
++	"netif_rx_complete",
++	"netif_rx_dropped",
 +
-+uint bnad_small_large_rxbufs = 1;
-+module_param(bnad_small_large_rxbufs, uint, 0444);
-+MODULE_PARM_DESC(bnad_small_large_rxbufs, "Enable small/large buffer receive");
++	"mac_frame_64",
++	"mac_frame_65_127",
++	"mac_frame_128_255",
++	"mac_frame_256_511",
++	"mac_frame_512_1023",
++	"mac_frame_1024_1518",
++	"mac_frame_1518_1522",
++	"mac_rx_bytes",
++	"mac_rx_packets",
++	"mac_rx_fcs_error",
++	"mac_rx_multicast",
++	"mac_rx_broadcast",
++	"mac_rx_control_frames",
++	"mac_rx_pause",
++	"mac_rx_unknown_opcode",
++	"mac_rx_alignment_error",
++	"mac_rx_frame_length_error",
++	"mac_rx_code_error",
++	"mac_rx_carrier_sense_error",
++	"mac_rx_undersize",
++	"mac_rx_oversize",
++	"mac_rx_fragments",
++	"mac_rx_jabber",
++	"mac_rx_drop",
 +
-+static uint bnad_rxqsets_used = 0;
-+module_param(bnad_rxqsets_used, uint, 0444);
-+MODULE_PARM_DESC(bnad_rxqsets_used, "Number of RxQ sets to be used");
++	"bpc_rx_pause_0",
++	"bpc_rx_pause_1",
++	"bpc_rx_pause_2",
++	"bpc_rx_pause_3",
++	"bpc_rx_pause_4",
++	"bpc_rx_pause_5",
++	"bpc_rx_pause_6",
++	"bpc_rx_pause_7",
++	"bpc_rx_zero_pause_0",
++	"bpc_rx_zero_pause_1",
++	"bpc_rx_zero_pause_2",
++	"bpc_rx_zero_pause_3",
++	"bpc_rx_zero_pause_4",
++	"bpc_rx_zero_pause_5",
++	"bpc_rx_zero_pause_6",
++	"bpc_rx_zero_pause_7",
++	"bpc_rx_first_pause_0",
++	"bpc_rx_first_pause_1",
++	"bpc_rx_first_pause_2",
++	"bpc_rx_first_pause_3",
++	"bpc_rx_first_pause_4",
++	"bpc_rx_first_pause_5",
++	"bpc_rx_first_pause_6",
++	"bpc_rx_first_pause_7",
 +
-+static uint bnad_ipid_mode = 0;
-+module_param(bnad_ipid_mode, uint, 0444);
-+MODULE_PARM_DESC(bnad_ipid_mode, "0 - Use IP ID 0x0000 - 0x7FFF for LSO; "
-+		 "1 - Use full range of IP ID for LSO");
++	"rad_rx_frames",
++	"rad_rx_octets",
++	"rad_rx_vlan_frames",
++	"rad_rx_ucast",
++	"rad_rx_ucast_octets",
++	"rad_rx_ucast_vlan",
++	"rad_rx_mcast",
++	"rad_rx_mcast_octets",
++	"rad_rx_mcast_vlan",
++	"rad_rx_bcast",
++	"rad_rx_bcast_octets",
++	"rad_rx_bcast_vlan",
++	"rad_rx_drops",
 +
-+uint bnad_txq_depth = BNAD_ENTRIES_PER_TXQ;
-+module_param(bnad_txq_depth, uint, 0444);
-+MODULE_PARM_DESC(bnad_txq_depth, "Maximum number of entries per TxQ");
++	"fc_rx_ucast_octets",
++	"fc_rx_ucast",
++	"fc_rx_ucast_vlan",
++	"fc_rx_mcast_octets",
++	"fc_rx_mcast",
++	"fc_rx_mcast_vlan",
++	"fc_rx_bcast_octets",
++	"fc_rx_bcast",
++	"fc_rx_bcast_vlan",
 +
-+uint bnad_rxq_depth = BNAD_ENTRIES_PER_RXQ;
-+module_param(bnad_rxq_depth, uint, 0444);
-+MODULE_PARM_DESC(bnad_rxq_depth, "Maximum number of entries per RxQ");
++	"mac_tx_bytes",
++	"mac_tx_packets",
++	"mac_tx_multicast",
++	"mac_tx_broadcast",
++	"mac_tx_pause",
++	"mac_tx_deferral",
++	"mac_tx_excessive_deferral",
++	"mac_tx_single_collision",
++	"mac_tx_muliple_collision",
++	"mac_tx_late_collision",
++	"mac_tx_excessive_collision",
++	"mac_tx_total_collision",
++	"mac_tx_pause_honored",
++	"mac_tx_drop",
++	"mac_tx_jabber",
++	"mac_tx_fcs_error",
++	"mac_tx_control_frame",
++	"mac_tx_oversize",
++	"mac_tx_undersize",
++	"mac_tx_fragments",
 +
-+static uint bnad_vlan_strip = 1;
-+module_param(bnad_vlan_strip, uint, 0444);
-+MODULE_PARM_DESC(bnad_vlan_strip, "Let the hardware strip off VLAN header");
++	"bpc_tx_pause_0",
++	"bpc_tx_pause_1",
++	"bpc_tx_pause_2",
++	"bpc_tx_pause_3",
++	"bpc_tx_pause_4",
++	"bpc_tx_pause_5",
++	"bpc_tx_pause_6",
++	"bpc_tx_pause_7",
++	"bpc_tx_zero_pause_0",
++	"bpc_tx_zero_pause_1",
++	"bpc_tx_zero_pause_2",
++	"bpc_tx_zero_pause_3",
++	"bpc_tx_zero_pause_4",
++	"bpc_tx_zero_pause_5",
++	"bpc_tx_zero_pause_6",
++	"bpc_tx_zero_pause_7",
++	"bpc_tx_first_pause_0",
++	"bpc_tx_first_pause_1",
++	"bpc_tx_first_pause_2",
++	"bpc_tx_first_pause_3",
++	"bpc_tx_first_pause_4",
++	"bpc_tx_first_pause_5",
++	"bpc_tx_first_pause_6",
++	"bpc_tx_first_pause_7",
 +
-+static uint bnad_log_level = LOG_WARN_LEVEL;
-+module_param(bnad_log_level, uint, 0644);
-+MODULE_PARM_DESC(bnad_log_level, "Log level");
++	"fc_tx_ucast_octets",
++	"fc_tx_ucast",
++	"fc_tx_ucast_vlan",
++	"fc_tx_mcast_octets",
++	"fc_tx_mcast",
++	"fc_tx_mcast_vlan",
++	"fc_tx_bcast_octets",
++	"fc_tx_bcast",
++	"fc_tx_bcast_vlan",
++	"fc_tx_parity_errors",
++	"fc_tx_timeout",
++	"fc_tx_fid_parity_errors",
 +
-+static uint bnad_ioc_auto_recover = 1;
-+module_param(bnad_ioc_auto_recover, uint, 0644);
-+MODULE_PARM_DESC(bnad_ioc_auto_recover, "Enable auto recovery");
++	"txf0_ucast_octets",
++	"txf0_ucast",
++	"txf0_ucast_vlan",
++	"txf0_mcast_octets",
++	"txf0_mcast",
++	"txf0_mcast_vlan",
++	"txf0_bcast_octets",
++	"txf0_bcast",
++	"txf0_bcast_vlan",
++	"txf0_errors",
++	"txf0_filter_vlan",
++	"txf0_filter_mac_sa"
++};
 +
-+uint bnad_rxqs_per_cq;
-+
-+extern u32 bfi_image_ct_size;
-+extern u32 *bfi_image_ct;
-+extern u32 *bfad_get_firmware_buf(struct pci_dev *pdev);
-+
-+static void bnad_disable_msix(struct bnad *bnad);
-+static void bnad_free_ibs(struct bnad *bnad);
-+static void bnad_set_rx_mode(struct net_device *netdev);
-+static void bnad_set_rx_mode_locked(struct net_device *netdev);
-+static void bnad_reconfig_vlans(struct bnad *bnad);
-+static void bnad_q_num_init(struct bnad *bnad, uint rxqsets);
-+static int bnad_set_mac_address(struct net_device *netdev, void *addr);
-+static int bnad_set_mac_address_locked(struct net_device *netdev, void *addr);
++static int bnad_get_regs_len(struct net_device *netdev);
++static int bnad_get_stats_count(struct net_device *netdev);
 +
 +static int
-+bnad_check_module_params(void)
-+{
-+	/* bnad_msix */
-+	if (bnad_msix && bnad_msix != 1)
-+		printk(KERN_WARNING "bna: bnad_msix should be 0 or 1, "
-+		       "%u is invalid, set bnad_msix to 1\n", bnad_msix);
-+
-+	/* bnad_small_large_rxbufs */
-+	if (bnad_small_large_rxbufs && bnad_small_large_rxbufs != 1)
-+		printk(KERN_WARNING "bna: bnad_small_large_rxbufs should be "
-+		       "0 or 1, %u is invalid, set bnad_small_large_rxbufs to 1\n",
-+		       bnad_small_large_rxbufs);
-+	if (bnad_small_large_rxbufs)
-+		bnad_rxqs_per_cq = 2;
-+	else
-+		bnad_rxqs_per_cq = 1;
-+
-+	/* bnad_rxqsets_used */
-+	if (bnad_rxqsets_used > BNAD_MAX_RXQS / bnad_rxqs_per_cq) {
-+		printk(KERN_ERR "bna: the maximum value for bnad_rxqsets_used "
-+		       "is %u, %u is invalid\n",
-+		       BNAD_MAX_RXQS / bnad_rxqs_per_cq, bnad_rxqsets_used);
-+		return -EINVAL;
-+	}
-+	if (!BNA_POWER_OF_2(bnad_rxqsets_used)) {
-+		printk(KERN_ERR "bna: bnad_rxqsets_used should be power of 2, "
-+		       "%u is invalid\n", bnad_rxqsets_used);
-+		return -EINVAL;
-+	}
-+	if (bnad_rxqsets_used > (uint) num_online_cpus())
-+		printk(KERN_WARNING "bna: set bnad_rxqsets_used (%u) "
-+		       "larger than number of CPUs (%d) may not be helpful\n",
-+		       bnad_rxqsets_used, num_online_cpus());
-+
-+	/* bnad_ipid_mode */
-+	if (bnad_ipid_mode && bnad_ipid_mode != 1) {
-+		printk(KERN_ERR "bna: bnad_ipid_mode should be 0 or 1, "
-+		       "%u is invalid\n", bnad_ipid_mode);
-+		return -EINVAL;
-+	}
-+
-+	/* bnad_txq_depth */
-+	if (bnad_txq_depth > BNAD_MAX_Q_DEPTH) {
-+		printk(KERN_ERR "bna: bnad_txq_depth should be <= %u, "
-+		       "%u is invalid\n", BNAD_MAX_Q_DEPTH, bnad_txq_depth);
-+		return -EINVAL;
-+	}
-+	if (!BNA_POWER_OF_2(bnad_txq_depth)) {
-+		printk(KERN_ERR "bna: bnad_txq_depth should be power of 2, "
-+		       "%u is invalid\n", bnad_txq_depth);
-+		return -EINVAL;
-+	}
-+	if (bnad_txq_depth < BNAD_MIN_Q_DEPTH) {
-+		printk(KERN_ERR "bna: bnad_txq_depth should be >= %u, "
-+		       "%u is invalid\n", BNAD_MIN_Q_DEPTH, bnad_txq_depth);
-+		return -EINVAL;
-+	}
-+
-+	/* bnad_rxq_depth */
-+	if (bnad_rxq_depth > BNAD_MAX_Q_DEPTH / bnad_rxqs_per_cq) {
-+		printk(KERN_ERR "bna: bnad_rxq_depth should be <= %u, "
-+		       "%u is invalid\n", BNAD_MAX_Q_DEPTH / bnad_rxqs_per_cq,
-+		       bnad_rxq_depth);
-+		return -EINVAL;
-+	}
-+	if (!BNA_POWER_OF_2(bnad_rxq_depth)) {
-+		printk(KERN_ERR "bna: bnad_rxq_depth should be power of 2, "
-+		       "%u is invalid\n", bnad_rxq_depth);
-+		return -EINVAL;
-+	}
-+	if (bnad_rxq_depth < BNAD_MIN_Q_DEPTH) {
-+		printk(KERN_ERR "bna: bnad_rxq_depth should be >= %u, "
-+		       "%u is invalid\n", BNAD_MIN_Q_DEPTH, bnad_rxq_depth);
-+		return -EINVAL;
-+	}
-+
-+	/* bnad_vlan_strip */
-+	if (bnad_vlan_strip && bnad_vlan_strip != 1)
-+		printk(KERN_WARNING "bna: bnad_vlan_strip should be 0 or 1, "
-+		       "%u is invalid, set bnad_vlan_strip to 1\n",
-+		       bnad_vlan_strip);
-+
-+	/* bnad_ioc_auto_recover */
-+	if (bnad_ioc_auto_recover && bnad_ioc_auto_recover != 1)
-+		printk(KERN_WARNING
-+		       "bna: bnad_ioc_auto_recover should be 0 or 1, "
-+		       "%u is invalid, set bnad_ioc_auto_recover to 1\n",
-+		       bnad_ioc_auto_recover);
-+
-+	logmod.current_lvl = bnad_log_level;
-+
-+	return 0;
-+}
-+
-+u32
-+bnad_get_msglevel(struct net_device *netdev)
-+{
-+	return logmod.current_lvl;
-+}
-+
-+void
-+bnad_set_msglevel(struct net_device *netdev, u32 msglevel)
-+{
-+	logmod.current_lvl = msglevel;
-+}
-+
-+static unsigned int
-+bnad_free_txbufs(struct bnad_txq_info *txqinfo, u16 updated_txq_cons)
-+{
-+	struct bnad *bnad = txqinfo->bnad;
-+	unsigned int sent_packets = 0, sent_bytes = 0;
-+	u16 wis, unmap_cons;
-+	struct bnad_skb_unmap *unmap_array;
-+	struct sk_buff *skb;
-+	int i;
-+
-+	wis = BNAD_Q_INDEX_CHANGE(txqinfo->txq.q.consumer_index,
-+				  updated_txq_cons, txqinfo->txq.q.q_depth);
-+	BNA_ASSERT(wis <=
-+		   BNA_QE_IN_USE_CNT(&txqinfo->txq.q, txqinfo->txq.q.q_depth));
-+	unmap_array = txqinfo->skb_unmap_q.unmap_array;
-+	unmap_cons = txqinfo->skb_unmap_q.consumer_index;
-+	prefetch(&unmap_array[unmap_cons + 1]);
-+	while (wis) {
-+		skb = unmap_array[unmap_cons].skb;
-+		BNA_ASSERT(skb);
-+		unmap_array[unmap_cons].skb = NULL;
-+		BNA_ASSERT(wis >=
-+			   BNAD_TXQ_WI_NEEDED(1 + skb_shinfo(skb)->nr_frags));
-+		BNA_ASSERT(((txqinfo->skb_unmap_q.producer_index -
-+			     unmap_cons) & (txqinfo->skb_unmap_q.q_depth -
-+					    1)) >=
-+			   1 + skb_shinfo(skb)->nr_frags);
-+
-+		sent_packets++;
-+		sent_bytes += skb->len;
-+		wis -= BNAD_TXQ_WI_NEEDED(1 + skb_shinfo(skb)->nr_frags);
-+
-+		pci_unmap_single(bnad->pcidev,
-+				 pci_unmap_addr(&unmap_array[unmap_cons],
-+						dma_addr), skb_headlen(skb),
-+				 PCI_DMA_TODEVICE);
-+		pci_unmap_addr_set(&unmap_array[unmap_cons], dma_addr, 0);
-+		BNA_QE_INDX_ADD(unmap_cons, 1, txqinfo->skb_unmap_q.q_depth);
-+		prefetch(&unmap_array[unmap_cons + 1]);
-+		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-+			pci_unmap_page(bnad->pcidev,
-+				       pci_unmap_addr(&unmap_array[unmap_cons],
-+						      dma_addr),
-+				       skb_shinfo(skb)->frags[i].size,
-+				       PCI_DMA_TODEVICE);
-+			pci_unmap_addr_set(&unmap_array[unmap_cons], dma_addr,
-+					   0);
-+			BNA_QE_INDX_ADD(unmap_cons, 1,
-+					txqinfo->skb_unmap_q.q_depth);
-+			prefetch(&unmap_array[unmap_cons + 1]);
-+		}
-+		dev_kfree_skb_any(skb);
-+	}
-+
-+	/* Update consumer pointers. */
-+	txqinfo->txq.q.consumer_index = updated_txq_cons;
-+	txqinfo->skb_unmap_q.consumer_index = unmap_cons;
-+	txqinfo->tx_packets += sent_packets;
-+	txqinfo->tx_bytes += sent_bytes;
-+	return sent_packets;
-+}
-+
-+#ifdef BNAD_LRO
-+static int
-+bnad_lro_get_skb_header(struct sk_buff *skb, void **iphdr,
-+			void **tcphdr, u64 * hdr_flags, void *priv)
-+{
-+	struct bna_cq_entry *cmpl = priv;
-+	u32 flags = ntohl(cmpl->flags);
-+
-+	if ((flags & BNA_CQ_EF_IPV4) && (flags & BNA_CQ_EF_TCP)) {
-+		skb_reset_network_header(skb);
-+		skb_set_transport_header(skb, ip_hdrlen(skb));
-+		*iphdr = ip_hdr(skb);
-+		*tcphdr = tcp_hdr(skb);
-+		*hdr_flags = LRO_IPV4 | LRO_TCP;
-+		return 0;
-+	} else {
-+		return -1;
-+	}
-+}
-+#endif
-+
-+#ifdef BNAD_NAPI
-+
-+static inline void
-+bnad_disable_txrx_irqs(struct bnad *bnad)
-+{
-+	int i;
-+
-+	for (i = 0; i < bnad->txq_num; i++) {
-+		bna_ib_coalescing_timer_set(bnad->priv, &bnad->txq_table[i].ib,
-+					    0);
-+		bna_ib_ack(bnad->priv, &bnad->txq_table[i].ib, 0);
-+	}
-+
-+	for (i = 0; i < bnad->cq_num; i++) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+		if (!test_bit(i, &bnad->cq_active))
-+			continue;
-+#endif
-+		bna_ib_coalescing_timer_set(bnad->priv, &bnad->cq_table[i].ib,
-+					    0);
-+		bna_ib_ack(bnad->priv, &bnad->cq_table[i].ib, 0);
-+	}
-+}
-+
-+static inline void
-+bnad_enable_txrx_irqs(struct bnad *bnad)
-+{
-+	int i;
-+
-+	spin_lock_irq(&bnad->priv_lock);
-+	for (i = 0; i < bnad->txq_num; i++) {
-+		bna_ib_coalescing_timer_set(bnad->priv,
-+					    &bnad->txq_table[i].ib,
-+					    bnad->tx_coalescing_timeo);
-+		bna_ib_ack(bnad->priv, &bnad->txq_table[i].ib, 0);
-+	}
-+
-+	for (i = 0; i < bnad->cq_num; i++) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+		if (!test_bit(i, &bnad->cq_active))
-+			continue;
-+#endif
-+#ifdef BNA_DYN_INTR_MOD
-+		bna_ib_coalescing_timer_set(bnad->priv,
-+					    &bnad->cq_table[i].ib,
-+					    bnad->cq_table[i].
-+					    rx_coalescing_timeo);
-+#else
-+		bna_ib_coalescing_timer_set(bnad->priv,
-+					    &bnad->cq_table[i].ib,
-+					    bnad->rx_coalescing_timeo);
-+#endif
-+		bna_ib_ack(bnad->priv, &bnad->cq_table[i].ib, 0);
-+	}
-+	spin_unlock_irq(&bnad->priv_lock);
-+}
-+
-+#ifdef BNAD_NEW_NAPI
-+static inline void
-+bnad_disable_rx_irq(struct bnad *bnad, struct bnad_cq_info *cqinfo)
-+{
-+	bna_ib_coalescing_timer_set(bnad->priv, &cqinfo->ib, 0);
-+	bna_ib_ack(bnad->priv, &cqinfo->ib, 0);
-+}
-+static inline void
-+bnad_enable_rx_irq(struct bnad *bnad, struct bnad_cq_info *cqinfo)
-+{
-+	spin_lock_irq(&bnad->priv_lock);
-+
-+#ifdef BNA_DYN_INTR_MOD
-+	bna_ib_coalescing_timer_set(bnad->priv, &cqinfo->ib,
-+				    cqinfo->rx_coalescing_timeo);
-+#else
-+	bna_ib_coalescing_timer_set(bnad->priv, &cqinfo->ib,
-+				    bnad->rx_coalescing_timeo);
-+#endif
-+	bna_ib_ack(bnad->priv, &cqinfo->ib, 0);
-+	spin_unlock_irq(&bnad->priv_lock);
-+}
-+#endif
-+
-+#endif /* BNAD_NAPI */
-+
-+static unsigned int
-+bnad_tx(struct bnad *bnad, struct bnad_txq_info *txqinfo)
-+{
-+	struct net_device *netdev = bnad->netdev;
-+	unsigned int sent;
-+
-+	if (test_and_set_bit(BNAD_TXQ_FREE_SENT, &txqinfo->flags))
-+		return 0;
-+
-+	BNA_TRACE_DEBUG(bnad, bnad->bna_id, ("%s ", netdev->name));
-+	BNA_TRACE_DEBUG(bnad, *txqinfo->hw_consumer_index,
-+			("TxQ hw consumer index %u\n",
-+			 *txqinfo->hw_consumer_index));
-+	sent = bnad_free_txbufs(txqinfo, (u16) (*txqinfo->hw_consumer_index));
-+	if (sent) {
-+#ifdef BNAD_DIAG_LOOPBACK
-+		if (!test_bit(BNAD_DIAG_LB_MODE, &bnad->state)) {
-+#endif
-+			if (netif_queue_stopped(netdev)
-+			    && netif_carrier_ok(netdev)
-+			    && BNA_Q_FREE_COUNT(&txqinfo->txq) >=
-+			    BNAD_NETIF_WAKE_THRESHOLD) {
-+				netif_wake_queue(netdev);
-+				bnad->stats.netif_queue_wakeup++;
-+			}
-+#ifdef BNAD_DIAG_LOOPBACK
-+		}
-+#endif
-+		bna_ib_ack(bnad->priv, &txqinfo->ib, sent);
-+		BNA_TRACE_DEBUG(bnad, sent, ("%s ack TxQ IB %u packets\n",
-+					     netdev->name, sent));
-+	} else {
-+		bna_ib_ack(bnad->priv, &txqinfo->ib, 0);
-+	}
-+
-+	smp_mb__before_clear_bit();
-+	clear_bit(BNAD_TXQ_FREE_SENT, &txqinfo->flags);
-+
-+	return sent;
-+}
-+
-+static irqreturn_t
-+bnad_msix_tx(int irq, void *data)
-+{
-+	struct bnad_txq_info *txqinfo = (struct bnad_txq_info *) data;
-+	struct bnad *bnad = txqinfo->bnad;
-+
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+	atomic_inc(&txqinfo->counter);
-+#endif
-+
-+#if 0
-+	struct msix_entry *entries;
-+	uint i;
-+
-+	if (likely(netif_rx_schedule_prep(bnad->netdev))) {
-+		entries = bnad->msix_table;
-+		for (i = 0; i < bnad->txq_num; i++)
-+			disable_irq_nosync(entries[i].vector);
-+		for (i = 0; i < bnad->cq_num; i++)
-+			disable_irq(entries[bnad->txq_num + i].vector);
-+		__netif_rx_schedule(bnad->netdev);
-+		bnad->stats.netif_rx_schedule++;
-+	}
-+#else
-+	bnad_tx(bnad, txqinfo);
-+#endif
-+
-+#ifdef __VMKERNEL_MODULE__
-+	vmk_net_inc_dev_intrcount(bnad->netdev);
-+#endif
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+	atomic_dec(&txqinfo->counter);
-+#endif
-+	return IRQ_HANDLED;
-+}
-+
-+static void
-+bnad_alloc_rxbufs(struct bnad_rxq_info *rxqinfo)
-+{
-+	u16 to_alloc, alloced, unmap_prod, wi_range;
-+	struct bnad_skb_unmap *unmap_array;
-+	struct bna_rxq_entry *rxent;
-+	struct sk_buff *skb;
-+	dma_addr_t dma_addr;
-+
-+	alloced = 0;
-+	to_alloc = BNA_QE_FREE_CNT(&rxqinfo->skb_unmap_q,
-+				   rxqinfo->skb_unmap_q.q_depth);
-+
-+	unmap_array = rxqinfo->skb_unmap_q.unmap_array;
-+	unmap_prod = rxqinfo->skb_unmap_q.producer_index;
-+	BNA_RXQ_QPGE_PTR_GET(unmap_prod, &rxqinfo->rxq.q, rxent, wi_range);
-+	BNA_ASSERT(wi_range && wi_range <= rxqinfo->rxq.q.q_depth);
-+
-+	while (to_alloc--) {
-+		if (!wi_range) {
-+			BNA_RXQ_QPGE_PTR_GET(unmap_prod, &rxqinfo->rxq.q, rxent,
-+					     wi_range);
-+			BNA_ASSERT(wi_range
-+				   && wi_range <= rxqinfo->rxq.q.q_depth);
-+		}
-+#ifdef BNAD_RXBUF_HEADROOM
-+		skb = netdev_alloc_skb(rxqinfo->bnad->netdev,
-+				       rxqinfo->rxq_config.buffer_size +
-+				       NET_IP_ALIGN);
-+#else
-+		skb = alloc_skb(rxqinfo->rxq_config.buffer_size + NET_IP_ALIGN,
-+				GFP_ATOMIC);
-+#endif
-+		if (unlikely(!skb)) {
-+			rxqinfo->rxbuf_alloc_failed++;
-+			goto finishing;
-+		}
-+#ifndef BNAD_RXBUF_HEADROOM
-+		skb->dev = rxqinfo->bnad->netdev;
-+#endif
-+		skb_reserve(skb, NET_IP_ALIGN);
-+		unmap_array[unmap_prod].skb = skb;
-+#if defined(__VMKERNEL_MODULE__) && !defined(__x86_64__)
-+		dma_addr = skb->headMA;
-+#else
-+		dma_addr = pci_map_single(rxqinfo->bnad->pcidev, skb->data,
-+					  rxqinfo->rxq_config.buffer_size,
-+					  PCI_DMA_FROMDEVICE);
-+#endif
-+		pci_unmap_addr_set(&unmap_array[unmap_prod], dma_addr,
-+				   dma_addr);
-+		BNA_SET_DMA_ADDR(dma_addr, &rxent->host_addr);
-+		BNA_QE_INDX_ADD(unmap_prod, 1, rxqinfo->skb_unmap_q.q_depth);
-+
-+		rxent++;
-+		wi_range--;
-+		alloced++;
-+	}
-+
-+      finishing:
-+	if (likely(alloced)) {
-+		rxqinfo->skb_unmap_q.producer_index = unmap_prod;
-+		rxqinfo->rxq.q.producer_index = unmap_prod;
-+		smp_mb();
-+		bna_rxq_prod_indx_doorbell(&rxqinfo->rxq);
-+	}
-+}
-+
-+static inline void
-+bnad_refill_rxq(struct bnad_rxq_info *rxqinfo)
-+{
-+	if (!test_and_set_bit(BNAD_RXQ_REFILL, &rxqinfo->flags)) {
-+		if (BNA_QE_FREE_CNT(&rxqinfo->skb_unmap_q,
-+				    rxqinfo->skb_unmap_q.q_depth) >>
-+		    BNAD_RXQ_REFILL_THRESHOLD_SHIFT)
-+			bnad_alloc_rxbufs(rxqinfo);
-+		smp_mb__before_clear_bit();
-+		clear_bit(BNAD_RXQ_REFILL, &rxqinfo->flags);
-+	}
-+}
-+
-+#if defined(BNAD_NAPI) || defined(BNAD_POLL_CQ)
-+static unsigned int
-+bnad_poll_cq(struct bnad *bnad, struct bnad_cq_info *cqinfo, int budget)
-+{
-+	struct bna_cq_entry *cmpl, *next_cmpl;
-+	unsigned int wi_range, packets = 0, wis = 0;
-+	struct bnad_rxq_info *rxqinfo = NULL;
-+	struct bnad_unmap_q *unmap_q;
-+	struct sk_buff *skb;
-+	u32 flags;
-+#ifdef BNA_DYN_INTR_MOD
-+	struct bna_pkt_rate *pkt_rt = &cqinfo->pkt_rate;
-+#endif
-+
-+	prefetch(bnad);
-+	prefetch(bnad->netdev);
-+	cmpl = bna_cq_pg_prod_ptr(&cqinfo->cq, &wi_range);
-+	BNA_ASSERT(wi_range && wi_range <= cqinfo->cq.q.q_depth);
-+	while (cmpl->valid && packets < budget) {
-+#ifdef DEBUG_RX
-+		BNA_LOG_DEBUG(("flags 0x%x vlan %u len %u rss %u valid 0x%x, "
-+			       "rxq %u\n", ntohl(cmpl->flags),
-+			       ntohs(cmpl->vlan_tag), ntohs(cmpl->length),
-+			       ntohl(cmpl->rss_hash), cmpl->valid,
-+			       cmpl->rxq_id));
-+#endif
-+		packets++;
-+#ifdef BNA_DYN_INTR_MOD
-+		BNA_UPDATE_PKT_CNT(pkt_rt, ntohs(cmpl->length));
-+#endif
-+		rxqinfo = &bnad->rxq_table[cmpl->rxq_id];
-+		unmap_q = &rxqinfo->skb_unmap_q;
-+#ifdef DEBUG_RX
-+		BNA_TRACE_DEBUG(bnad, unmap_q->consumer_index,
-+				("%s RxQ %u(%u) consumer index %u\n",
-+				 bnad->netdev->name, rxqinfo->rxq_id,
-+				 cmpl->rxq_id, unmap_q->consumer_index));
-+#endif
-+		skb = unmap_q->unmap_array[unmap_q->consumer_index].skb;
-+		BNA_ASSERT(skb);
-+		prefetch(skb->data - NET_IP_ALIGN);
-+		unmap_q->unmap_array[unmap_q->consumer_index].skb = NULL;
-+		pci_unmap_single(bnad->pcidev,
-+				 pci_unmap_addr(&unmap_q->
-+						unmap_array[unmap_q->
-+							    consumer_index],
-+						dma_addr),
-+				 rxqinfo->rxq_config.buffer_size,
-+				 PCI_DMA_FROMDEVICE);
-+		BNA_QE_INDX_ADD(unmap_q->consumer_index, 1, unmap_q->q_depth);
-+#ifdef DEBUG_RX
-+		BNA_TRACE_DEBUG(bnad, unmap_q->consumer_index,
-+				("%s RxQ %u consumer index updated to %u\n",
-+				 bnad->netdev->name, rxqinfo->rxq_id,
-+				 unmap_q->consumer_index));
-+#endif
-+		/* XXX May be bad for performance. */
-+#ifdef CATAPULT_BRINGUP
-+		BNA_Q_CI_ADD(&rxqinfo->rxq, 1);
-+#endif
-+		wis++;
-+		if (likely(--wi_range)) {
-+			next_cmpl = cmpl + 1;
-+		} else {
-+			BNA_Q_PI_ADD(&cqinfo->cq, wis);
-+			wis = 0;
-+			next_cmpl = bna_cq_pg_prod_ptr(&cqinfo->cq, &wi_range);
-+			BNA_ASSERT(wi_range
-+				   && wi_range <= cqinfo->cq.q.q_depth);
-+		}
-+		prefetch(next_cmpl);
-+
-+		flags = ntohl(cmpl->flags);
-+		if (unlikely
-+		    (flags &
-+		     (BNA_CQ_EF_MAC_ERROR | BNA_CQ_EF_FCS_ERROR |
-+		      BNA_CQ_EF_TOO_LONG))) {
-+			dev_kfree_skb_any(skb);
-+			rxqinfo->rx_packets_with_error++;
-+#ifdef DEBUG_RX
-+			BNA_TRACE_DEBUG(bnad, bnad->bna_id, ("Rx Error Pkts "
-+							     " %llu on %s\n",
-+							     rxqinfo->
-+							     rx_packets_with_error,
-+							     bnad->netdev->
-+							     name));
-+#endif
-+			goto next;
-+		}
-+
-+		skb_put(skb, ntohs(cmpl->length));
-+		if (likely(bnad->rx_csum &&
-+			   (((flags & BNA_CQ_EF_IPV4) &&
-+			     (flags & BNA_CQ_EF_L3_CKSUM_OK)) ||
-+			    (flags & BNA_CQ_EF_IPV6)) &&
-+			   (flags & (BNA_CQ_EF_TCP | BNA_CQ_EF_UDP)) &&
-+			   (flags & BNA_CQ_EF_L4_CKSUM_OK)))
-+			skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		else
-+			skb->ip_summed = CHECKSUM_NONE;
-+
-+		rxqinfo->rx_packets++;
-+		rxqinfo->rx_bytes += skb->len;
-+		skb->protocol = eth_type_trans(skb, bnad->netdev);
-+#ifdef DEBUG_RX
-+		{
-+			int cpu = smp_processor_id();
-+			if (cpu < BNAD_MAX_RXQSETS_USED) {
-+				rxqinfo->rx_packets_cpu[cpu]++;
-+				rxqinfo->rx_bytes_cpu[cpu] += skb->len;
-+			}
-+		}
-+#endif
-+
-+#ifdef BNAD_DIAG_LOOPBACK
-+		if (!test_bit(BNAD_DIAG_LB_MODE, &bnad->state)) {
-+#endif
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+			vmknetddi_queueops_set_skb_queueid(skb,
-+							   VMKNETDDI_QUEUEOPS_MK_RX_QUEUEID
-+							   (cqinfo->cq_id));
-+#endif
-+
-+			if (bnad->vlangrp && (flags & BNA_CQ_EF_VLAN)
-+			    && bnad_vlan_strip) {
-+				BNA_ASSERT(cmpl->vlan_tag);
-+#ifdef BNAD_LRO
-+				if (skb->ip_summed == CHECKSUM_UNNECESSARY
-+#ifdef NETIF_F_LRO
-+				    && (bnad->netdev->features & NETIF_F_LRO)
-+#endif
-+					) {
-+					lro_vlan_hwaccel_receive_skb(&cqinfo->
-+								     lro, skb,
-+								     bnad->
-+								     vlangrp,
-+								     ntohs
-+								     (cmpl->
-+								      vlan_tag),
-+								     cmpl);
-+				} else {
-+#ifdef BNAD_NAPI
-+					vlan_hwaccel_receive_skb(skb,
-+								 bnad->vlangrp,
-+								 ntohs(cmpl->
-+								       vlan_tag));
-+#else
-+					if (vlan_hwaccel_rx(skb, bnad->vlangrp,
-+							    ntohs(cmpl->
-+								  vlan_tag)) ==
-+					    NET_RX_DROP)
-+						bnad->stats.netif_rx_dropped++;
-+#endif
-+				}
-+
-+#else /* !BNAD_LRO */
-+
-+#ifdef BNAD_NAPI
-+				vlan_hwaccel_receive_skb(skb, bnad->vlangrp,
-+							 ntohs(cmpl->vlan_tag));
-+#else
-+				if (vlan_hwaccel_rx(skb, bnad->vlangrp,
-+						    ntohs(cmpl->vlan_tag)) ==
-+				    NET_RX_DROP)
-+					bnad->stats.netif_rx_dropped++;
-+#endif
-+
-+#endif /* !BNAD_LRO */
-+
-+			} else {
-+
-+#ifdef BNAD_LRO
-+				if (skb->ip_summed == CHECKSUM_UNNECESSARY
-+#ifdef NETIF_F_LRO
-+				    && (bnad->netdev->features & NETIF_F_LRO)
-+#endif
-+					) {
-+					lro_receive_skb(&cqinfo->lro, skb,
-+							cmpl);
-+				} else {
-+#ifdef BNAD_NAPI
-+					netif_receive_skb(skb);
-+#else
-+					if (netif_rx(skb) == NET_RX_DROP)
-+						bnad->stats.netif_rx_dropped++;
-+#endif
-+				}
-+
-+#else /* BNAD_LRO */
-+
-+#ifdef BNAD_NAPI
-+				netif_receive_skb(skb);
-+#else
-+				if (netif_rx(skb) == NET_RX_DROP)
-+					bnad->stats.netif_rx_dropped++;
-+#endif
-+
-+#endif /* !BNAD_LRO */
-+
-+			}
-+
-+#ifdef BNAD_DIAG_LOOPBACK
-+		} else {
-+			BNA_TRACE_DEBUG(bnad, bnad->bna_id, ("Rx %u Loopback "
-+							     "packets on %s budget %d\n",
-+							     packets,
-+							     bnad->netdev->name,
-+							     budget));
-+		}
-+#endif
-+		bnad->netdev->last_rx = jiffies;
-+	      next:
-+		cmpl->valid = 0;
-+		cmpl = next_cmpl;
-+	}
-+
-+#ifdef BNAD_LRO
-+	lro_flush_all(&cqinfo->lro);
-+#endif
-+
-+	BNA_Q_PI_ADD(&cqinfo->cq, wis);
-+
-+	if (likely(rxqinfo)) {
-+		bna_ib_ack(bnad->priv, &cqinfo->ib, packets);
-+#ifdef DEBUG_RX
-+		BNA_TRACE_DEBUG(bnad, packets, ("%s ack CQ %u IB %u packets\n",
-+						bnad->netdev->name,
-+						cqinfo->cq_id, packets));
-+#endif
-+		/* Check the current queue first. */
-+		bnad_refill_rxq(rxqinfo);
-+
-+		/* XXX counters per queue for refill? */
-+		if (likely(bnad_small_large_rxbufs)) {
-+			/* There are 2 RxQs - small and large buffer queues */
-+			unsigned int rxq_id = (rxqinfo->rxq_id ^ 1);
-+			bnad_refill_rxq(&bnad->rxq_table[rxq_id]);
-+		}
-+	} else {
-+		bna_ib_ack(bnad->priv, &cqinfo->ib, 0);
-+	}
-+
-+	return packets;
-+}
-+#else
-+static void
-+bnad_rx(struct bnad *bnad, struct bnad_cq_info *cqinfo)
-+{
-+	struct bna_cq_entry *cmpl, *next_cmpl;
-+	unsigned int wi_range, wis = 0, cmpls, packets = 0;
-+	struct bnad_rxq_info *rxqinfo = NULL;
-+	struct bnad_unmap_q *unmap_q;
-+	struct sk_buff *skb;
-+	u32 flags;
-+#ifdef BNA_DYN_INTR_MOD
-+	struct bna_pkt_rate *pkt_rt = &cqinfo->pkt_rate;
-+#endif
-+
-+	prefetch(bnad);
-+	prefetch(bnad->netdev);
-+	cmpl = bna_cq_pg_prod_ptr(&cqinfo->cq, &wi_range);
-+	BNA_ASSERT(wi_range && wi_range <= cqinfo->cq.q.q_depth);
-+	prefetch(cmpl);
-+	cmpls = BNAD_Q_INDEX_CHANGE(cqinfo->cq.q.producer_index,
-+				    (u16) (*cqinfo->hw_producer_index),
-+				    cqinfo->cq.q.q_depth);
-+	BNA_ASSERT(cmpls);
-+#ifdef DEBUG_RX
-+	BNA_TRACE_DEBUG(bnad, bnad->bna_id, ("%s ", bnad->netdev->name));
-+	BNA_TRACE_DEBUG(bnad, cqinfo->cq_id, ("CQ %u ", cqinfo->cq_id));
-+	BNA_TRACE_DEBUG(bnad, cqinfo->cq.q.producer_index,
-+			("sw producer %u ", cqinfo->cq.q.producer_index));
-+	BNA_TRACE_DEBUG(bnad, *cqinfo->hw_producer_index,
-+			("hw producer %u ", *cqinfo->hw_producer_index));
-+	BNA_TRACE_DEBUG(bnad, cmpls, ("got %u Rx completions\n", cmpls));
-+#endif
-+	while (cmpls--) {
-+		BNA_ASSERT(cmpl->valid);
-+#ifdef DEBUG_RX
-+		BNA_LOG_DEBUG(("flags 0x%x vlan %u len %u rss %u valid 0x%x, "
-+			       "rxq %u\n", ntohl(cmpl->flags),
-+			       ntohs(cmpl->vlan_tag), ntohs(cmpl->length),
-+			       ntohl(cmpl->rss_hash), cmpl->valid,
-+			       cmpl->rxq_id));
-+#endif
-+		packets++;
-+#ifdef BNA_DYN_INTR_MOD
-+		BNA_UPDATE_PKT_CNT(pkt_rt, ntohs(cmpl->length));
-+#endif
-+		rxqinfo = &bnad->rxq_table[cmpl->rxq_id];
-+		unmap_q = &rxqinfo->skb_unmap_q;
-+#ifdef DEBUG_RX
-+		BNA_TRACE_DEBUG(bnad, unmap_q->consumer_index,
-+				("%s RxQ %u(%u) consumer index %u\n",
-+				 bnad->netdev->name, rxqinfo->rxq_id,
-+				 cmpl->rxq_id, unmap_q->consumer_index));
-+#endif
-+		skb = unmap_q->unmap_array[unmap_q->consumer_index].skb;
-+		BNA_ASSERT(skb);
-+		prefetch(skb->data - NET_IP_ALIGN);
-+		unmap_q->unmap_array[unmap_q->consumer_index].skb = NULL;
-+		pci_unmap_single(bnad->pcidev,
-+				 pci_unmap_addr(&unmap_q->
-+						unmap_array[unmap_q->
-+							    consumer_index],
-+						dma_addr),
-+				 rxqinfo->rxq_config.buffer_size,
-+				 PCI_DMA_FROMDEVICE);
-+		BNA_QE_INDX_ADD(unmap_q->consumer_index, 1, unmap_q->q_depth);
-+#ifdef DEBUG_RX
-+		BNA_TRACE_DEBUG(bnad, unmap_q->consumer_index,
-+				("%s RxQ %u consumer index updated to %u\n",
-+				 bnad->netdev->name, rxqinfo->rxq_id,
-+				 unmap_q->consumer_index));
-+#endif
-+		/* XXX May be bad for performance. */
-+#ifdef CATAPULT_BRINGUP
-+		BNA_Q_CI_ADD(&rxqinfo->rxq, 1);
-+#endif
-+		wis++;
-+		if (likely(--wi_range)) {
-+			next_cmpl = cmpl + 1;
-+		} else {
-+			BNA_Q_PI_ADD(&cqinfo->cq, wis);
-+			wis = 0;
-+			next_cmpl = bna_cq_pg_prod_ptr(&cqinfo->cq, &wi_range);
-+			BNA_ASSERT(wi_range
-+				   && wi_range <= cqinfo->cq.q.q_depth);
-+		}
-+		prefetch(next_cmpl);
-+
-+		flags = ntohl(cmpl->flags);
-+		if (unlikely
-+		    (flags &
-+		     (BNA_CQ_EF_MAC_ERROR | BNA_CQ_EF_FCS_ERROR |
-+		      BNA_CQ_EF_TOO_LONG))) {
-+			dev_kfree_skb_irq(skb);
-+			rxqinfo->rx_packets_with_error++;
-+#ifdef DEBUG_RX
-+			BNA_TRACE_DEBUG(bnad, bnad->bna_id, ("Rx Error Pkts "
-+							     " %llu on %s\n",
-+							     rxqinfo->
-+							     rx_packets_with_error,
-+							     bnad->netdev->
-+							     name));
-+#endif
-+			goto next;
-+		}
-+
-+		skb_put(skb, ntohs(cmpl->length));
-+		if (likely(bnad->rx_csum &&
-+			   (((flags & BNA_CQ_EF_IPV4) &&
-+			     (flags & BNA_CQ_EF_L3_CKSUM_OK)) ||
-+			    (flags & BNA_CQ_EF_IPV6)) &&
-+			   (flags & (BNA_CQ_EF_TCP | BNA_CQ_EF_UDP)) &&
-+			   (flags & BNA_CQ_EF_L4_CKSUM_OK)))
-+			skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		else
-+			skb->ip_summed = CHECKSUM_NONE;
-+
-+		rxqinfo->rx_packets++;
-+		rxqinfo->rx_bytes += skb->len;
-+
-+		skb->protocol = eth_type_trans(skb, bnad->netdev);
-+
-+#ifdef DEBUG_RX
-+		{
-+			int cpu = smp_processor_id();
-+			if (cpu < BNAD_MAX_RXQSETS_USED) {
-+				rxqinfo->rx_packets_cpu[cpu]++;
-+				rxqinfo->rx_bytes_cpu[cpu] += skb->len;
-+			}
-+		}
-+#endif
-+
-+#ifdef BNAD_DIAG_LOOPBACK
-+		if (!test_bit(BNAD_DIAG_LB_MODE, &bnad->state)) {
-+#endif
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+			vmknetddi_queueops_set_skb_queueid(skb,
-+							   VMKNETDDI_QUEUEOPS_MK_RX_QUEUEID
-+							   (cqinfo->cq_id));
-+#endif
-+			if (bnad->vlangrp && (flags & BNA_CQ_EF_VLAN)
-+			    && bnad_vlan_strip) {
-+				BNA_ASSERT(cmpl->vlan_tag);
-+#ifdef BNAD_LRO
-+				if (skb->ip_summed == CHECKSUM_UNNECESSARY
-+#ifdef NETIF_F_LRO
-+				    && (bnad->netdev->features & NETIF_F_LRO)
-+#endif
-+					) {
-+					lro_vlan_hwaccel_receive_skb(&cqinfo->
-+								     lro, skb,
-+								     bnad->
-+								     vlangrp,
-+								     ntohs
-+								     (cmpl->
-+								      vlan_tag),
-+								     cmpl);
-+				} else {
-+					if (vlan_hwaccel_rx(skb, bnad->vlangrp,
-+							    ntohs(cmpl->
-+								  vlan_tag)) ==
-+					    NET_RX_DROP)
-+						bnad->stats.netif_rx_dropped++;
-+				}
-+#else
-+				if (vlan_hwaccel_rx(skb, bnad->vlangrp,
-+						    ntohs(cmpl->vlan_tag)) ==
-+				    NET_RX_DROP)
-+					bnad->stats.netif_rx_dropped++;
-+#endif
-+			} else {
-+#ifdef BNAD_LRO
-+				if (skb->ip_summed == CHECKSUM_UNNECESSARY
-+#ifdef NETIF_F_LRO
-+				    && (bnad->netdev->features & NETIF_F_LRO)
-+#endif
-+					) {
-+					lro_receive_skb(&cqinfo->lro, skb,
-+							cmpl);
-+				} else {
-+					if (netif_rx(skb) == NET_RX_DROP)
-+						bnad->stats.netif_rx_dropped++;
-+				}
-+#else
-+				if (netif_rx(skb) == NET_RX_DROP)
-+					bnad->stats.netif_rx_dropped++;
-+#endif
-+			}
-+
-+#ifdef BNAD_DIAG_LOOPBACK
-+		} else {
-+			BNA_TRACE_DEBUG(bnad, bnad->bna_id, ("Rx %u Loopback "
-+							     "packets on %s cmpls %d\n",
-+							     packets,
-+							     bnad->netdev->name,
-+							     cmpls));
-+		}
-+#endif
-+		bnad->netdev->last_rx = jiffies;
-+
-+next:
-+		cmpl->valid = 0;
-+		cmpl = next_cmpl;
-+	}
-+
-+#ifdef BNAD_LRO
-+	lro_flush_all(&cqinfo->lro);
-+#endif
-+
-+	BNA_Q_PI_ADD(&cqinfo->cq, wis);
-+
-+	if (likely(rxqinfo != NULL)) {
-+		bna_ib_ack(bnad->priv, &cqinfo->ib, packets);
-+#ifdef DEBUG_RX
-+		BNA_TRACE_DEBUG(bnad, packets, ("%s ack CQ %u IB %u packets\n",
-+						bnad->netdev->name,
-+						cqinfo->cq_id, packets));
-+#endif
-+		/* Check the current queue first. */
-+		bnad_refill_rxq(rxqinfo);
-+
-+		/* XXX counters per queue for refill? */
-+		if (likely(bnad_small_large_rxbufs)) {
-+			/* There are 2 RxQs - small and large buffer queues */
-+			unsigned int rxq_id = (rxqinfo->rxq_id ^ 1);
-+			bnad_refill_rxq(&bnad->rxq_table[rxq_id]);
-+		}
-+	} else {
-+		bna_ib_ack(bnad->priv, &cqinfo->ib, 0);
-+	}
-+}
-+#endif
-+
-+static irqreturn_t
-+bnad_msix_rx(int irq, void *data)
-+{
-+	struct bnad_cq_info *cqinfo = (struct bnad_cq_info *) data;
-+	struct bnad *bnad = cqinfo->bnad;
-+
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+	atomic_inc(&cqinfo->counter);
-+#endif
-+
-+#ifdef BNAD_NAPI
-+
-+#if 0
-+	if (BNAD_Q_INDEX_CHANGE(cqinfo->cq.q.producer_index,
-+				(u16) (*cqinfo->hw_producer_index),
-+				cqinfo->cq.q.q_depth) >=
-+	    (bnad->netdev->weight >> 1)) {
-+#endif
-+
-+#ifdef BNAD_DIAG_LOOPBACK
-+		if (!test_bit(BNAD_DIAG_LB_MODE, &bnad->state)) {
-+#endif
-+#ifdef BNAD_NEW_NAPI
-+			if (likely
-+			    (netif_rx_schedule_prep
-+			     (bnad->netdev, &cqinfo->napi))) {
-+				bnad_disable_rx_irq(bnad, cqinfo);
-+				__netif_rx_schedule(bnad->netdev,
-+						    &cqinfo->napi);
-+			}
-+#else
-+			if (likely(netif_rx_schedule_prep(bnad->netdev))) {
-+				bnad_disable_txrx_irqs(bnad);
-+				__netif_rx_schedule(bnad->netdev);
-+				bnad->stats.netif_rx_schedule++;
-+			}
-+#endif
-+#ifdef BNAD_DIAG_LOOPBACK
-+		} else {
-+			bnad_poll_cq(bnad, cqinfo, BNAD_MAX_Q_DEPTH);
-+		}
-+#endif
-+#if 0
-+	} else {
-+		bnad_rx(bnad, cqinfo);
-+	}
-+#endif
-+
-+#else /* !BNAD_NAPI */
-+
-+#ifndef BNAD_POLL_CQ
-+	bnad_rx(bnad, cqinfo);
-+#else
-+	bnad_poll_cq(bnad, cqinfo, BNAD_MAX_Q_DEPTH);
-+#endif
-+
-+#endif /* !BNAD_NAPI */
-+
-+#ifdef __VMKERNEL_MODULE__
-+	vmk_net_inc_dev_intrcount(bnad->netdev);
-+#endif
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+	atomic_dec(&cqinfo->counter);
-+	atomic_set(&cqinfo->completions_flag, 0);
-+#endif
-+	return IRQ_HANDLED;
-+}
-+
-+static irqreturn_t
-+bnad_msix_err_mbox(int irq, void *data)
-+{
-+	struct net_device *netdev = data;
-+	struct bnad *bnad = netdev_priv(netdev);
-+	u32 intr_status;
-+
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+	atomic_inc(&bnad->counter);
-+#endif
-+	spin_lock(&bnad->priv_lock);
-+	bna_intr_status_get(bnad->priv, &intr_status);
-+	if (BNA_IS_MBOX_ERR_INTR(intr_status)) {
-+		BNA_TRACE_DEBUG(bnad, intr_status,
-+				("port %d msix err/mbox irq status 0x%x\n",
-+				 bnad->bna_id, intr_status));
-+		bna_mbox_err_handler(bnad->priv, intr_status);
-+	} else {
-+		BNA_TRACE_WARN(bnad, intr_status,
-+			       ("port %d msix err/mbox irq status 0x%x\n",
-+				bnad->bna_id, intr_status));
-+	}
-+	spin_unlock(&bnad->priv_lock);
-+
-+#ifdef __VMKERNEL_MODULE__
-+	vmk_net_inc_dev_intrcount(bnad->netdev);
-+#endif
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+	atomic_dec(&bnad->counter);
-+#endif
-+	return IRQ_HANDLED;
-+}
-+
-+static irqreturn_t
-+bnad_isr(int irq, void *data)
-+{
-+	struct net_device *netdev = data;
-+	struct bnad *bnad = netdev_priv(netdev);
-+	u32 intr_status;
-+	int i;
-+
-+	spin_lock(&bnad->priv_lock);
-+	bna_intr_status_get(bnad->priv, &intr_status);
-+	spin_unlock(&bnad->priv_lock);
-+
-+	if (!intr_status)
-+		return IRQ_NONE;
-+
-+#ifdef CATAPULT_BRINGUP
-+	BNA_TRACE_DEBUG(bnad, bnad->bna_id,
-+			("port %u bnad_isr: 0x%x\n", bnad->bna_id,
-+			 intr_status));
-+#endif
-+	if (BNA_IS_MBOX_ERR_INTR(intr_status)) {
-+		spin_lock(&bnad->priv_lock);
-+		bna_mbox_err_handler(bnad->priv, intr_status);
-+		spin_unlock(&bnad->priv_lock);
-+		if (BNA_IS_ERR_INTR(intr_status)
-+		    || !BNA_IS_INTX_DATA_INTR(intr_status))
-+			goto exit_isr;
-+	}
-+#ifdef BNAD_NAPI
-+
-+#ifdef BNAD_DIAG_LOOPBACK
-+	if (!test_bit(BNAD_DIAG_LB_MODE, &bnad->state)) {
-+#endif
-+
-+#ifdef BNAD_NEW_NAPI
-+		if (likely
-+		    (netif_rx_schedule_prep
-+		     (bnad->netdev, &bnad->cq_table[0].napi))) {
-+			bnad_disable_txrx_irqs(bnad);
-+			__netif_rx_schedule(bnad->netdev,
-+					    &bnad->cq_table[0].napi);
-+		}
-+#else
-+		if (likely(netif_rx_schedule_prep(netdev))) {
-+			bnad_disable_txrx_irqs(bnad);
-+			__netif_rx_schedule(netdev);
-+			bnad->stats.netif_rx_schedule++;
-+		}
-+#endif
-+#ifdef BNAD_DIAG_LOOPBACK
-+	} else {
-+		for (i = 0; i < bnad->txq_num; i++) {
-+			if (intr_status & (1 << i))
-+				bnad_tx(bnad, &bnad->txq_table[i]);
-+		}
-+		for (i = 0; i < bnad->cq_num; i++) {
-+			if (intr_status & (1 << (bnad->txq_num + i))) {
-+				bnad_poll_cq(bnad, &bnad->cq_table[i],
-+					     BNAD_MAX_Q_DEPTH);
-+			}
-+		}
-+	}
-+#endif
-+
-+#else
-+
-+	for (i = 0; i < bnad->txq_num; i++) {
-+		if (intr_status & (1 << i))
-+			bnad_tx(bnad, &bnad->txq_table[i]);
-+	}
-+
-+	for (i = 0; i < bnad->cq_num; i++) {
-+		if (intr_status & (1 << (bnad->txq_num + i))) {
-+#ifndef BNAD_POLL_CQ
-+			bnad_rx(bnad, &bnad->cq_table[i]);
-+#else
-+			bnad_poll_cq(bnad, &bnad->cq_table[i],
-+				     BNAD_MAX_Q_DEPTH);
-+#endif
-+		}
-+	}
-+#endif /* !BNAD_NAPI */
-+
-+exit_isr:
-+#ifdef __VMKERNEL_MODULE__
-+	vmk_net_inc_dev_intrcount(netdev);
-+#endif
-+	return IRQ_HANDLED;
-+}
-+
-+static int
-+bnad_request_mbox_irq(struct bnad *bnad)
-+{
-+	int err;
-+
-+	if (bnad->flags & BNAD_F_MSIX) {
-+		BNA_TRACE_DEBUG(bnad,
-+				bnad->msix_table[bnad->msix_num - 1].vector,
-+				("port %u requests IRQ %u for mailbox in MSI-X mode\n",
-+				 bnad->bna_id,
-+				 bnad->msix_table[bnad->msix_num - 1].vector));
-+		err = request_irq(bnad->msix_table[bnad->msix_num - 1].vector,
-+				  (bnad_isr_t) &bnad_msix_err_mbox, 0,
-+				  bnad->netdev->name, bnad->netdev);
-+	} else {
-+		BNA_TRACE_DEBUG(bnad, bnad->pcidev->irq,
-+				("port %u requests IRQ %u in INTx mode\n",
-+				 bnad->bna_id, bnad->pcidev->irq));
-+		err = request_irq(bnad->pcidev->irq, (bnad_isr_t) &bnad_isr,
-+				  IRQF_SHARED, bnad->netdev->name,
-+				  bnad->netdev);
-+	}
-+
-+	if (err) {
-+		dev_err(&bnad->pcidev->dev,
-+			"Request irq for mailbox failed: %d\n", err);
-+		return err;
-+	}
-+
-+	if (bnad->flags & BNAD_F_MSIX)
-+		bna_mbox_msix_idx_set(bnad->priv, bnad->msix_num - 1);
-+
-+	bna_mbox_intr_enable(bnad->priv);
-+	return 0;
-+}
-+
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+static void
-+bnad_synchronize_vector_counter(atomic_t *counter)
-+{
-+	while (atomic_read(counter))
-+		msleep(1);
-+}
-+#endif
-+
-+static void
-+bnad_sync_mbox_irq(struct bnad *bnad)
-+{
-+	uint irq;
-+
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+	bnad_synchronize_vector_counter(&bnad->counter);
-+#else
-+	if (bnad->flags & BNAD_F_MSIX)
-+		irq = bnad->msix_table[bnad->msix_num - 1].vector;
-+	else
-+		irq = bnad->pcidev->irq;
-+	synchronize_irq(irq);
-+#endif
-+}
-+
-+static void
-+bnad_free_mbox_irq(struct bnad *bnad)
-+{
-+	uint irq;
-+
-+	if (bnad->flags & BNAD_F_MSIX)
-+		irq = bnad->msix_table[bnad->msix_num - 1].vector;
-+	else
-+		irq = bnad->pcidev->irq;
-+
-+	spin_lock_irq(&bnad->priv_lock);
-+	bna_mbox_intr_disable(bnad->priv);
-+	spin_unlock_irq(&bnad->priv_lock);
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+	if (bnad->flags & BNAD_F_MSIX) {
-+		if (!test_and_set_bit(BNAD_MBOX_IRQ_DISABLED, &bnad->state)) {
-+			irq = bnad->msix_table[bnad->msix_num - 1].vector;
-+			BNA_TRACE_WARN(bnad, bnad->bna_id,
-+				       ("Disabling Mbox IRQ %d for port %d\n",
-+					irq, bnad->bna_id));
-+			disable_irq_nosync(irq);
-+		}
-+	}
-+
-+	bnad_synchronize_vector_counter(&bnad->counter);
-+#endif
-+	free_irq(irq, bnad->netdev);
-+}
-+
-+static int
-+bnad_request_txq_irq(struct bnad *bnad, uint txq_id)
-+{
-+	BNA_ASSERT(txq_id < bnad->txq_num);
-+	if (!(bnad->flags & BNAD_F_MSIX))
-+		return 0;
-+	BNA_TRACE_DEBUG(bnad, bnad->bna_id,
-+			("port %u requests irq %u for TxQ %u in MSIX mode\n",
-+			 bnad->bna_id, bnad->msix_table[txq_id].vector,
-+			 txq_id));
-+	return request_irq(bnad->msix_table[txq_id].vector,
-+			   (bnad_isr_t) & bnad_msix_tx, 0,
-+			   bnad->txq_table[txq_id].name,
-+			   &bnad->txq_table[txq_id]);
-+}
-+
-+int
-+bnad_request_cq_irq(struct bnad *bnad, uint cq_id)
-+{
-+	BNA_ASSERT(cq_id < bnad->cq_num);
-+	if (!(bnad->flags & BNAD_F_MSIX))
-+		return 0;
-+	BNA_TRACE_DEBUG(bnad, bnad->bna_id,
-+			("port %u requests irq %u for CQ %u in MSIX mode\n",
-+			 bnad->bna_id,
-+			 bnad->msix_table[bnad->txq_num + cq_id].vector,
-+			 cq_id));
-+	return request_irq(bnad->msix_table[bnad->txq_num + cq_id].vector,
-+			   (bnad_isr_t) & bnad_msix_rx, 0,
-+			   bnad->cq_table[cq_id].name, &bnad->cq_table[cq_id]);
-+}
-+
-+static void
-+bnad_intx_enable_txrx(struct bnad *bnad)
-+{
-+	u32 mask;
-+	int i;
-+
-+	spin_lock_irq(&bnad->priv_lock);
-+	bna_intx_disable(bnad->priv, &mask);
-+	mask &= ~0xffff;
-+	bna_intx_enable(bnad->priv, mask);
-+	for (i = 0; i < bnad->ib_num; i++)
-+		bna_ib_ack(bnad->priv, bnad->ib_table[i].ib, 0);
-+	spin_unlock_irq(&bnad->priv_lock);
-+}
-+
-+static int
-+bnad_request_txrx_irqs(struct bnad *bnad)
-+{
-+	struct msix_entry *entries;
-+	int i;
-+	int err;
-+
-+	if (!(bnad->flags & BNAD_F_MSIX)) {
-+		bnad_intx_enable_txrx(bnad);
-+		return 0;
-+	}
-+
-+	entries = bnad->msix_table;
-+	for (i = 0; i < bnad->txq_num; i++) {
-+		err = bnad_request_txq_irq(bnad, i);
-+		if (err) {
-+			printk(KERN_ERR "%s request irq for TxQ %d failed %d\n",
-+			       bnad->netdev->name, i, err);
-+			while (--i >= 0) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+				disable_irq_nosync(entries[i].vector);
-+				bnad_synchronize_vector_counter(&bnad->
-+								txq_table[i].
-+								counter);
-+#endif
-+				free_irq(entries[i].vector,
-+					 &bnad->txq_table[i]);
-+			}
-+			return err;
-+		}
-+	}
-+
-+	for (i = 0; i < bnad->cq_num; i++) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+		if (!test_bit(i, &bnad->cq_active))
-+			continue;
-+#endif
-+		err = bnad_request_cq_irq(bnad, i);
-+		if (err) {
-+			printk(KERN_ERR "%s request irq for CQ %u failed %d\n",
-+			       bnad->netdev->name, i, err);
-+			while (--i >= 0) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+				if (!test_bit(i, &bnad->cq_active))
-+					continue;
-+				disable_irq_nosync(entries[bnad->txq_num + i].
-+						   vector);
-+				bnad_synchronize_vector_counter(&bnad->
-+								cq_table[i].
-+								counter);
-+#endif
-+				free_irq(entries[bnad->txq_num + i].vector,
-+					 &bnad->cq_table[i]);
-+			}
-+			goto free_txq_irqs;
-+		}
-+	}
-+
-+	return 0;
-+
-+      free_txq_irqs:
-+	for (i = 0; i < bnad->txq_num; i++) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+		disable_irq_nosync(entries[i].vector);
-+		bnad_synchronize_vector_counter(&bnad->txq_table[i].counter);
-+#endif
-+		free_irq(entries[i].vector, &bnad->txq_table[i]);
-+	}
-+
-+	bnad_disable_msix(bnad);
-+
-+	return err;
-+}
-+
-+static void
-+bnad_free_txrx_irqs(struct bnad *bnad)
-+{
-+	struct msix_entry *entries;
-+	uint i;
-+
-+	if (bnad->flags & BNAD_F_MSIX) {
-+		entries = bnad->msix_table;
-+		for (i = 0; i < bnad->txq_num; i++) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+			disable_irq_nosync(entries[i].vector);
-+			bnad_synchronize_vector_counter(&bnad->txq_table[i].
-+							counter);
-+#endif
-+			free_irq(entries[i].vector, &bnad->txq_table[i]);
-+		}
-+
-+		for (i = 0; i < bnad->cq_num; i++) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+			if (!test_bit(i, &bnad->cq_active))
-+				continue;
-+			disable_irq_nosync(entries[bnad->txq_num + i].vector);
-+			bnad_synchronize_vector_counter(&bnad->cq_table[i].
-+							counter);
-+#endif
-+
-+			free_irq(entries[bnad->txq_num + i].vector,
-+				 &bnad->cq_table[i]);
-+		}
-+	} else {
-+		synchronize_irq(bnad->pcidev->irq);
-+	}
-+}
-+
-+void
-+bnad_setup_ib(struct bnad *bnad, uint ib_id)
-+{
-+	struct bnad_ib_entry *ib_entry;
-+
-+	BNA_ASSERT(ib_id < bnad->ib_num);
-+	ib_entry = &bnad->ib_table[ib_id];
-+	spin_lock_irq(&bnad->priv_lock);
-+	bna_ib_config_set(bnad->priv, ib_entry->ib, ib_id,
-+			  &ib_entry->ib_config);
-+	/* Start the IB */
-+	bna_ib_ack(bnad->priv, ib_entry->ib, 0);
-+	spin_unlock_irq(&bnad->priv_lock);
-+}
-+
-+static void
-+bnad_setup_ibs(struct bnad *bnad)
-+{
-+	int i;
-+
-+	for (i = 0; i < bnad->txq_num; i++)
-+		bnad_setup_ib(bnad, bnad->txq_table[i].txq_config.ib_id);
-+
-+	for (i = 0; i < bnad->cq_num; i++) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+		if (!test_bit(i, &bnad->cq_active))
-+			continue;
-+#endif
-+		bnad_setup_ib(bnad, bnad->cq_table[i].cq_config.ib_id);
-+	}
-+}
-+
-+/* These functions are called back with priv_lock held. */
-+
-+static void
-+bnad_lldp_get_cfg_cb(void *arg, u8 status)
-+{
-+	struct bnad *bnad = arg;
-+	bnad->lldp_comp_status = status;
-+	complete(&bnad->lldp_comp);
-+}
-+
-+static void
-+bnad_cee_get_attr_cb(void *arg, bfa_status_t status)
-+{
-+	struct bnad *bnad = arg;
-+	bnad->lldp_comp_status = status;
-+	complete(&bnad->lldp_comp);
-+}
-+
-+static void
-+bnad_cee_get_stats_cb(void *arg, bfa_status_t status)
-+{
-+	struct bnad *bnad = arg;
-+	bnad->cee_stats_comp_status = status;
-+	complete(&bnad->cee_stats_comp);
-+}
-+
-+static void
-+bnad_cee_reset_stats_cb(void *arg, bfa_status_t status)
-+{
-+	struct bnad *bnad = arg;
-+	bnad->cee_reset_stats_status = status;
-+	complete(&bnad->cee_reset_stats_comp);
-+}
-+
-+static void
-+bnad_ucast_set_cb(void *arg, u8 status)
-+{
-+	struct bnad *bnad = (struct bnad *) arg;
-+
-+	bnad->ucast_comp_status = status;
-+	complete(&bnad->ucast_comp);
-+}
-+
-+static void
-+bnad_q_stop_cb(void *arg, u8 status)
-+{
-+	struct bnad *bnad = arg;
-+
-+	bnad->qstop_comp_status = status;
-+	complete(&bnad->qstop_comp);
-+}
-+
-+static void
-+bnad_link_up_cb(void *arg, u8 status)
-+{
-+	struct bnad *bnad = (struct bnad *) arg;
-+	struct net_device *netdev = bnad->netdev;
-+
-+	if (likely(!test_bit(BNAD_DIAG_LB_MODE, &bnad->state))) {
-+		BNA_TRACE_INFO(bnad, bnad->bna_id,
-+			       ("%s bnad_link_up_cb\n", netdev->name));
-+	} else {
-+		BNA_TRACE_INFO(bnad, bnad->bna_id,
-+			       ("%s bnad_link_up_cb in DIAG mode\n",
-+				netdev->name));
-+		bnad->dlbp->diag_lb_comp_status = status;
-+		bnad->dlbp->diag_lb_link_state = BNAD_DIAG_LB_LS_UP;
-+		complete(&bnad->dlbp->diag_lb_comp);
-+		return;
-+	}
-+	if (netif_running(netdev)) {
-+		if (!netif_carrier_ok(netdev)
-+		    && !test_bit(BNAD_DISABLED, &bnad->state)) {
-+			BNA_TRACE(bnad, bnad->state);
-+			printk(KERN_INFO "%s link up\n", netdev->name);
-+			netif_carrier_on(netdev);
-+			netif_wake_queue(netdev);
-+			bnad->stats.netif_queue_wakeup++;
-+		}
-+	}
-+}
-+
-+static void
-+bnad_link_down_cb(void *arg, u8 status)
-+{
-+	struct bnad *bnad = (struct bnad *) arg;
-+	struct net_device *netdev = bnad->netdev;
-+
-+	if (likely(!test_bit(BNAD_DIAG_LB_MODE, &bnad->state))) {
-+		BNA_TRACE_INFO(bnad, bnad->bna_id,
-+			       ("%s bnad_link_down_cb\n", netdev->name));
-+	} else {
-+		BNA_TRACE_INFO(bnad, bnad->bna_id,
-+			       ("%s bnad_link_down_cb in DIAG mode\n",
-+				netdev->name));
-+		bnad->dlbp->diag_lb_comp_status = status;
-+		bnad->dlbp->diag_lb_link_state = BNAD_DIAG_LB_LS_DOWN;
-+		complete(&bnad->dlbp->diag_lb_comp);
-+		return;
-+	}
-+	if (netif_running(netdev)) {
-+		if (netif_carrier_ok(netdev)) {
-+			BNA_TRACE(bnad, bnad->state);
-+			printk(KERN_INFO "%s link down\n", netdev->name);
-+			netif_carrier_off(netdev);
-+			netif_stop_queue(netdev);
-+			bnad->stats.netif_queue_stop++;
-+		}
-+	}
-+}
-+
-+static void
-+bnad_stats_get_cb(void *arg, u8 status)
-+{
-+	struct bnad *bnad = (struct bnad *) arg;
-+
-+	bnad->stats.hw_stats_updates++;
-+	if (!test_bit(BNAD_DISABLED, &bnad->state))
-+		mod_timer(&bnad->stats_timer, jiffies + HZ);
-+}
-+
-+/* Diagnostics */
-+static void
-+bnad_set_diag_lb_cb(void *arg, u8 status)
-+{
-+	struct bnad_diag_lb_params *dlbp = (struct bnad_diag_lb_params *) arg;
-+
-+	dlbp->diag_lb_comp_status = status;
-+	BNA_TRACE_INFO(dlbp->bnad, status, ("bnad_set_diag_lb_cb() for %s %d\n",
-+					    dlbp->bnad->netdev->name, status));
-+	complete(&dlbp->diag_lb_comp);
-+}
-+
-+/* Called with bnad priv_lock held. */
-+static void
-+bnad_hw_error(struct bnad *bnad, u8 status)
-+{
-+	unsigned int irq;
-+
-+	bna_mbox_intr_disable(bnad->priv);
-+	if (bnad->flags & BNAD_F_MSIX) {
-+		if (!test_and_set_bit(BNAD_MBOX_IRQ_DISABLED, &bnad->state)) {
-+			irq = bnad->msix_table[bnad->txq_num +
-+					       bnad->cq_num].vector;
-+			BNA_TRACE_WARN(bnad, bnad->bna_id,
-+				       ("Disabling Mbox IRQ %d for port %d\n",
-+					irq, bnad->bna_id));
-+			disable_irq_nosync(irq);
-+		}
-+	}
-+
-+	bna_cleanup(bnad->priv);
-+	bnad->work_flags = BNAD_WF_ERROR;
-+	if (!test_bit(BNAD_REMOVED, &bnad->state))
-+		schedule_work(&bnad->work);
-+}
-+
-+static void
-+bnad_hw_error_cb(void *arg, u8 status)
-+{
-+	struct bnad *bnad = (struct bnad *) arg;
-+
-+	BNA_TRACE_WARN(bnad, bnad->bna_id,
-+		       ("port %d HW error callback %u\n", bnad->bna_id,
-+			status));
-+
-+	bnad_hw_error(bnad, status);
-+}
-+
-+int
-+bnad_alloc_unmap_q(struct bnad_unmap_q *unmap_q, u32 q_depth)
-+{
-+	/* Q_depth must be power of 2 for macros to work. */
-+	BNA_ASSERT(BNA_POWER_OF_2(q_depth));
-+	unmap_q->q_depth = q_depth;
-+	unmap_q->unmap_array = vmalloc(q_depth * sizeof(struct bnad_skb_unmap));
-+	if (!unmap_q->unmap_array)
-+		return -ENOMEM;
-+	memset(unmap_q->unmap_array, 0,
-+	       q_depth * sizeof(struct bnad_skb_unmap));
-+	return 0;
-+}
-+
-+static int
-+bnad_alloc_unmap_queues(struct bnad *bnad)
-+{
-+	int i, err = 0;
-+	struct bnad_txq_info *txqinfo;
-+	struct bnad_rxq_info *rxqinfo;
-+
-+	for (i = 0; i < bnad->txq_num; i++) {
-+		txqinfo = &bnad->txq_table[i];
-+		err = bnad_alloc_unmap_q(&txqinfo->skb_unmap_q,
-+					 txqinfo->txq.q.q_depth * 4);
-+		BNA_TRACE_DEBUG(bnad, i,
-+				("%s allocating Tx unmap Q %d depth %u\n",
-+				 bnad->netdev->name, i,
-+				 txqinfo->txq.q.q_depth * 4));
-+		if (err) {
-+			BNA_TRACE_ERROR(bnad, err,
-+					("%s allocating Tx unmap Q %d failed: %d\n",
-+					 bnad->netdev->name, i, err));
-+			return err;
-+		}
-+	}
-+	for (i = 0; i < bnad->rxq_num; i++) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+		if (!test_bit(i, &bnad->rxq_active))
-+			continue;
-+#endif
-+		rxqinfo = &bnad->rxq_table[i];
-+		err = bnad_alloc_unmap_q(&rxqinfo->skb_unmap_q,
-+					 rxqinfo->rxq.q.q_depth);
-+		BNA_TRACE_INFO(bnad, i,
-+			       ("%s allocating Rx unmap Q %d depth %u\n",
-+				bnad->netdev->name, i, rxqinfo->rxq.q.q_depth));
-+		if (err) {
-+			BNA_TRACE_ERROR(bnad, err,
-+					("%s allocating Rx unmap Q %d failed: %d\n",
-+					 bnad->netdev->name, i, err));
-+			return err;
-+		}
-+	}
-+	return 0;
-+}
-+
-+/* Called with priv_lock. */
-+static void
-+bnad_flush_rxbufs(struct bnad_rxq_info *rxqinfo)
-+{
-+	struct bnad *bnad = rxqinfo->bnad;
-+	struct bnad_unmap_q *unmap_q;
-+	struct sk_buff *skb;
-+	u32 cq_id;
-+
-+	unmap_q = &rxqinfo->skb_unmap_q;
-+	while (BNA_QE_IN_USE_CNT(unmap_q, unmap_q->q_depth)) {
-+		skb = unmap_q->unmap_array[unmap_q->consumer_index].skb;
-+		BNA_ASSERT(skb);
-+		unmap_q->unmap_array[unmap_q->consumer_index].skb = NULL;
-+		pci_unmap_single(bnad->pcidev,
-+				 pci_unmap_addr(&unmap_q->
-+						unmap_array[unmap_q->
-+							    consumer_index],
-+						dma_addr),
-+				 rxqinfo->rxq_config.buffer_size + NET_IP_ALIGN,
-+				 PCI_DMA_FROMDEVICE);
-+		dev_kfree_skb(skb);
-+		BNA_QE_INDX_ADD(unmap_q->consumer_index, 1, unmap_q->q_depth);
-+		BNA_Q_CI_ADD(&rxqinfo->rxq, 1);
-+	}
-+
-+	BNAD_RESET_Q(bnad, &rxqinfo->rxq.q, &rxqinfo->skb_unmap_q);
-+	cq_id = rxqinfo->rxq_id / bnad_rxqs_per_cq;
-+	*bnad->cq_table[cq_id].hw_producer_index = 0;
-+}
-+
-+static int
-+bnad_disable_txq(struct bnad *bnad, u32 txq_id)
-+{
-+	struct bnad_txq_info *txqinfo;
-+	int err;
-+
-+	WARN_ON(in_interrupt());
-+	BNA_TRACE(bnad, bnad->bna_id);
-+
-+#ifndef __VMKERNEL_MODULE__
-+	init_completion(&bnad->qstop_comp);
-+#endif
-+	txqinfo = &bnad->txq_table[txq_id];
-+	spin_lock_irq(&bnad->priv_lock);
-+#ifdef __VMKERNEL_MODULE__
-+	bnad->qstop_comp_status = BNAD_MBOX_WAITING;
-+#endif
-+	err = bna_txq_stop(bnad->priv, txq_id);
-+	spin_unlock_irq(&bnad->priv_lock);
-+	if (err)
-+		goto txq_stop_exit;
-+
-+	BNA_TRACE_INFO(bnad, txq_id,
-+		       ("Waiting for %s TxQ %d stop reply\n",
-+			bnad->netdev->name, txq_id));
-+#ifndef __VMKERNEL_MODULE__
-+	wait_for_completion(&bnad->qstop_comp);
-+#else
-+	BNAD_WAIT_FOR_COMPLETION(bnad->qstop_comp_status);
-+#endif
-+
-+	err = bnad->qstop_comp_status;
-+txq_stop_exit:
-+	if (err) {
-+		BNA_TRACE_ERROR(bnad, err, ("%s bna_txq_stop %d failed %d\n",
-+					    bnad->netdev->name, txq_id, err));
-+	}
-+	return err;
-+}
-+
-+int
-+bnad_disable_rxqs(struct bnad *bnad, u64 rxq_id_mask)
-+{
-+	int err;
-+
-+	struct timeval tv;
-+
-+	BNA_ASSERT(!in_interrupt());
-+	BNA_TRACE(bnad, bnad->bna_id);
-+
-+#ifndef __VMKERNEL_MODULE__
-+	init_completion(&bnad->qstop_comp);
-+#endif
-+
-+	spin_lock_irq(&bnad->priv_lock);
-+#ifdef __VMKERNEL_MODULE__
-+	bnad->qstop_comp_status = BNAD_MBOX_WAITING;
-+#endif
-+	do_gettimeofday(&tv);
-+	BNA_LOG_DEBUG(("Calling bna_multi_rxq_stop at %ld:%ld\n", tv.tv_sec,
-+		       tv.tv_usec));
-+	err = bna_multi_rxq_stop(bnad->priv, rxq_id_mask);
-+	spin_unlock_irq(&bnad->priv_lock);
-+	if (err)
-+		goto rxq_stop_exit;
-+
-+	BNA_TRACE_INFO(bnad, rxq_id_mask,
-+		       ("Waiting for %s RxQs(0x%x) stop reply\n",
-+			bnad->netdev->name, rxq_id_mask));
-+#ifndef __VMKERNEL_MODULE__
-+	wait_for_completion(&bnad->qstop_comp);
-+#else
-+	BNAD_WAIT_FOR_COMPLETION(bnad->qstop_comp_status);
-+#endif
-+
-+	do_gettimeofday(&tv);
-+	BNA_LOG_DEBUG(("bna_multi_rxq_stop returned at %ld:%ld\n", tv.tv_sec,
-+		       tv.tv_usec));
-+	err = bnad->qstop_comp_status;
-+rxq_stop_exit:
-+	if (err) {
-+		BNA_TRACE_ERROR(bnad, err,
-+				("%s bna_multi_rxq_stop(0x%x) failed %d\n",
-+				 bnad->netdev->name, rxq_id_mask, err));
-+	}
-+	return err;
-+
-+}
-+
-+#ifdef BNAD_NAPI
-+
-+#ifdef BNAD_NEW_NAPI
-+
-+static int
-+bnad_poll_rx(struct napi_struct *napi, int budget)
-+{
-+	struct bnad_cq_info *cqinfo =
-+		container_of(napi, struct bnad_cq_info, napi);
-+	struct bnad *bnad = cqinfo->bnad;
-+	unsigned int rcvd;
-+
-+	rcvd = bnad_poll_cq(bnad, cqinfo, budget);
-+	if (rcvd == budget)
-+		return rcvd;
-+	netif_rx_complete(bnad->netdev, napi);
-+	bnad->stats.netif_rx_complete++;
-+	bnad_enable_rx_irq(bnad, cqinfo);
-+	return rcvd;
-+}
-+
-+static int
-+bnad_poll_txrx(struct napi_struct *napi, int budget)
-+{
-+	struct bnad_cq_info *cqinfo =
-+		container_of(napi, struct bnad_cq_info, napi);
-+	struct bnad *bnad = cqinfo->bnad;
-+	unsigned int rcvd;
-+
-+	bnad_tx(bnad, &bnad->txq_table[0]);
-+	rcvd = bnad_poll_cq(bnad, cqinfo, budget);
-+	if (rcvd == budget)
-+		return rcvd;
-+	netif_rx_complete(bnad->netdev, napi);
-+	bnad->stats.netif_rx_complete++;
-+	bnad_enable_txrx_irqs(bnad);
-+	return rcvd;
-+}
-+
-+static void
-+bnad_napi_init(struct bnad *bnad)
-+{
-+	int (*napi_poll) (struct napi_struct *, int);
-+	int i;
-+
-+	if (bnad->flags & BNAD_F_MSIX)
-+		napi_poll = bnad_poll_rx;
-+	else
-+		napi_poll = bnad_poll_txrx;
-+
-+	for (i = 0; i < bnad->cq_num; i++)
-+		netif_napi_add(bnad->netdev, &bnad->cq_table[i].napi, napi_poll,
-+			       64);
-+}
-+
-+static void
-+bnad_napi_enable(struct bnad *bnad)
-+{
-+	int i;
-+
-+	for (i = 0; i < bnad->cq_num; i++)
-+		napi_enable(&bnad->cq_table[i].napi);
-+}
-+
-+static void
-+bnad_napi_disable(struct bnad *bnad)
-+{
-+	int i;
-+
-+	for (i = 0; i < bnad->cq_num; i++)
-+		napi_disable(&bnad->cq_table[i].napi);
-+}
-+
-+static void
-+bnad_napi_uninit(struct bnad *bnad)
-+{
-+	int i;
-+
-+	for (i = 0; i < bnad->cq_num; i++)
-+		netif_napi_del(&bnad->cq_table[i].napi);
-+}
-+
-+#else /* !BNAD_NEW_NAPI */
-+
-+static int
-+bnad_poll(struct net_device *netdev, int *budget)
++bnad_get_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
 +{
 +	struct bnad *bnad = netdev_priv(netdev);
-+	int quota = min(netdev->quota, *budget);
-+	unsigned int sent, rcvd;
++	struct bna_port_param port_param;
 +
-+#ifdef DEBUG
-+	BNA_LOG_DEBUG(("%s: bnad_poll\n", netdev->name));
-+#endif
-+	if (!netif_carrier_ok(bnad->netdev))
-+		goto poll_exit;
-+
-+	sent = bnad_tx(bnad, &bnad->txq_table[0]);
-+	rcvd = bnad_poll_cq(bnad, &bnad->cq_table[0], quota);
-+#ifdef DEBUG
-+	BNA_LOG_DEBUG(("%s: bnad_poll sent %u, rcvd %u\n",
-+		       netdev->name, sent, rcvd));
-+#endif
-+	*budget -= rcvd;
-+	netdev->quota -= rcvd;
-+
-+	if (rcvd == quota && netif_running(netdev))
-+		return 1;
-+
-+poll_exit:
-+	netif_rx_complete(netdev);
-+	bnad->stats.netif_rx_complete++;
-+
-+	bnad_enable_txrx_irqs(bnad);
-+	return 0;
-+}
-+
-+#endif /* !BNAD_NEW_NAPI */
-+
-+#endif /* BNAD_NAPI */
-+
-+
-+static void
-+bnad_detach(struct bnad *bnad)
-+{
-+	int i;
-+
-+	ASSERT_RTNL();
-+
++	bnad_lock();
 +	spin_lock_irq(&bnad->priv_lock);
-+	if (!test_bit(BNAD_RESETTING, &bnad->state)) {
-+		/* Graceful detach */
-+
-+		bna_txf_disable(bnad->priv, BNAD_TX_FUNC_ID);
-+		bna_multi_rxf_disable(bnad->priv, (1 << bnad->rxf_num) - 1);
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+		spin_unlock_irq(&bnad->priv_lock);
-+		bnad_netq_remove_filters(bnad);
-+		spin_lock_irq(&bnad->priv_lock);
-+#endif
-+		for (i = 0; i < bnad->txq_num; i++)
-+			bna_ib_disable(bnad->priv, &bnad->txq_table[i].ib);
-+		for (i = 0; i < bnad->cq_num; i++) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+			if (!test_bit(i, &bnad->cq_active))
-+				continue;
-+#endif
-+			bna_ib_disable(bnad->priv, &bnad->cq_table[i].ib);
-+		}
-+	} else {
-+		/* Error */
-+		/* XXX Should not write to registers if RESETTING. */
-+
-+		bna_txf_disable(bnad->priv, BNAD_TX_FUNC_ID);
-+		bna_rxf_disable_old(bnad->priv, BNAD_RX_FUNC_ID);
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+		for (i = BNAD_FIRST_NETQ_RXF; i < bnad->rxf_num; i++)
-+			bna_rxf_disable_old(bnad->priv, i);
-+
-+		/* XXX bnad_netq_remove_filters should not write to registers if RESETTING. */
-+		spin_unlock_irq(&bnad->priv_lock);
-+		bnad_netq_remove_filters(bnad);
-+		spin_lock_irq(&bnad->priv_lock);
-+#endif
-+
-+		for (i = 0; i < bnad->txq_num; i++)
-+			bna_ib_disable(bnad->priv, &bnad->txq_table[i].ib);
-+		for (i = 0; i < bnad->cq_num; i++) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+			if (!test_bit(i, &bnad->cq_active))
-+				continue;
-+#endif
-+			bna_ib_disable(bnad->priv, &bnad->cq_table[i].ib);
-+		}
-+	}
++	bna_port_param_get(bnad->priv, &port_param);
 +	spin_unlock_irq(&bnad->priv_lock);
 +
-+	/* Wait to make sure Tx and Rx are stopped. */
-+	msleep(1000);
-+	bnad_free_txrx_irqs(bnad);
-+	bnad_sync_mbox_irq(bnad);
-+
-+	if (!test_bit(BNAD_DIAG_LB_MODE, &bnad->state)) {
-+#ifdef BNAD_NAPI
-+#ifdef BNAD_NEW_NAPI
-+		bnad_napi_disable(bnad);
-+		bnad_napi_uninit(bnad);
-+#else
-+		netif_poll_disable(bnad->netdev);
-+		netif_poll_enable(bnad->netdev);
-+#endif
-+#endif
++	if (port_param.speed == BNA_LINK_SPEED_10Gbps) {
++		cmd->supported = SUPPORTED_10000baseT_Full;
++		cmd->advertising = ADVERTISED_10000baseT_Full;
 +	}
 +
-+	/* Delete the stats timer after synchronize with mbox irq. */
-+	del_timer_sync(&bnad->stats_timer);
-+	if (!test_bit(BNAD_DIAG_LB_MODE, &bnad->state)) {
-+		netif_tx_disable(bnad->netdev);
-+		netif_carrier_off(bnad->netdev);
-+	}
-+}
-+
-+static int
-+bnad_disable(struct bnad *bnad)
-+{
-+	int err, i;
-+	u64 rxq_id_mask = 0;
-+
-+	ASSERT_RTNL();
-+	if (!test_bit(BNAD_DIAG_LB_MODE, &bnad->state)) {
-+		BNA_TRACE_INFO(bnad, bnad->bna_id,
-+			       ("bring %s link down\n", bnad->netdev->name));
-+		spin_lock_irq(&bnad->priv_lock);
-+		bna_port_admin(bnad->priv, BNA_DISABLE);
-+		spin_unlock_irq(&bnad->priv_lock);
-+	}
-+
-+	bnad_detach(bnad);
-+
-+	for (i = 0; i < bnad->txq_num; i++) {
-+		err = bnad_disable_txq(bnad, i);
-+		if (err)
-+			return err;
-+	}
-+
-+	for (i = 0; i < bnad->rxq_num; i++) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+		if (!test_bit(i, &bnad->rxq_active))
-+			continue;
-+#endif
-+		rxq_id_mask |= (1 << i);
-+	}
-+	if (rxq_id_mask) {
-+		err = bnad_disable_rxqs(bnad, rxq_id_mask);
-+		if (err)
-+			return err;
-+	}
-+
-+	return 0;
-+}
-+
-+int
-+bnad_sw_reset(struct net_device *netdev)
-+{
-+	struct bnad *bnad = netdev_priv(netdev);
-+	int err;
-+
-+	if (!netif_running(bnad->netdev) ||
-+	    test_bit(BNAD_DIAG_LB_MODE, &bnad->state))
-+		return 0;
-+
-+	err = bnad_stop_locked(netdev);
-+	if (err) {
-+		BNA_TRACE_WARN(bnad, err, ("%s sw reset: disable failed %d\n",
-+					   bnad->netdev->name, err));
-+		/* Recoverable */
-+		return 0;
-+	}
-+
-+	err = bnad_open_locked(netdev);
-+	if (err) {
-+		BNA_TRACE_WARN(bnad, err, ("%s sw reset: enable failed %d\n",
-+					   bnad->netdev->name, err));
-+		return err;
-+	}
-+
-+	return 0;
-+}
-+
-+int
-+bnad_resetting(struct bnad *bnad)
-+{
-+	rtnl_lock();
-+	BNA_TRACE(bnad, bnad->bna_id);
-+	if (netif_running(bnad->netdev))
-+		bnad_stop_locked(bnad->netdev);
-+	set_bit(BNAD_RESETTING, &bnad->state);
-+	rtnl_unlock();
-+	return 0;
-+}
-+
-+int
-+bnad_alloc_ib(struct bnad *bnad, uint ib_id)
-+{
-+	struct bnad_ib_entry *ib_entry;
-+	dma_addr_t dma_addr;
-+
-+	BNA_ASSERT(bnad->ib_table && ib_id < bnad->ib_num);
-+	ib_entry = &bnad->ib_table[ib_id];
-+	ib_entry->ib_seg_addr = pci_alloc_consistent(bnad->pcidev,
-+						     L1_CACHE_BYTES, &dma_addr);
-+	if (!ib_entry->ib_seg_addr)
-+		return -ENOMEM;
-+	BNA_TRACE_DEBUG(bnad, dma_addr, ("%s IB %d dma addr 0x%x\n",
-+					 bnad->netdev->name, ib_id, dma_addr));
-+
-+	BNA_SET_DMA_ADDR(dma_addr, &ib_entry->ib_config.ib_seg_addr);
-+	return 0;
-+}
-+static int
-+bnad_alloc_ibs(struct bnad *bnad)
-+{
-+	uint i;
-+	int err;
-+
-+	bnad->ib_num = bnad->txq_num + bnad->cq_num;
-+	bnad->ib_table = kzalloc(bnad->ib_num *
-+				 sizeof(struct bnad_ib_entry), GFP_KERNEL);
-+	if (!bnad->ib_table)
-+		return -ENOMEM;
-+
-+	for (i = 0; i < bnad->ib_num; i++) {
-+		err = bnad_alloc_ib(bnad, i);
-+		if (err)
-+			goto free_ibs;
-+	}
-+	return 0;
-+
-+free_ibs:
-+	bnad_free_ibs(bnad);
-+	return err;
-+}
-+
-+void
-+bnad_free_ib(struct bnad *bnad, uint ib_id)
-+{
-+	struct bnad_ib_entry *ib_entry;
-+	dma_addr_t dma_addr;
-+
-+	BNA_ASSERT(bnad->ib_table && ib_id < bnad->ib_num);
-+	ib_entry = &bnad->ib_table[ib_id];
-+	if (ib_entry->ib_seg_addr) {
-+		BNA_GET_DMA_ADDR(&ib_entry->ib_config.ib_seg_addr, dma_addr);
-+		pci_free_consistent(bnad->pcidev, L1_CACHE_BYTES,
-+				    ib_entry->ib_seg_addr, dma_addr);
-+		ib_entry->ib_seg_addr = NULL;
-+	}
-+}
-+
-+static void
-+bnad_free_ibs(struct bnad *bnad)
-+{
-+	uint i;
-+
-+	if (!bnad->ib_table)
-+		return;
-+
-+	for (i = 0; i < bnad->ib_num; i++)
-+		bnad_free_ib(bnad, i);
-+	kfree(bnad->ib_table);
-+	bnad->ib_table = NULL;
-+}
-+
-+/* Let the caller deal with error - free memory. */
-+static int
-+bnad_alloc_q(struct bnad *bnad, struct bna_qpt *qpt, struct bna_q *q,
-+	     size_t qsize)
-+{
-+	size_t i;
-+	dma_addr_t dma_addr;
-+
-+	qsize = ALIGN(qsize, PAGE_SIZE);
-+	qpt->page_count = qsize >> PAGE_SHIFT;
-+	qpt->page_size = PAGE_SIZE;
-+
-+	BNA_TRACE_DEBUG(bnad, qpt->page_count,
-+			("qpt page count 0x%x, ", qpt->page_count));
-+	BNA_TRACE_DEBUG(bnad, qpt->page_size,
-+			("page size 0x%x\n", qpt->page_size));
-+
-+	qpt->kv_qpt_ptr = pci_alloc_consistent(bnad->pcidev,
-+					       qpt->page_count *
-+					       sizeof(struct bna_dma_addr),
-+					       &dma_addr);
-+	if (!qpt->kv_qpt_ptr)
-+		return -ENOMEM;
-+	BNA_SET_DMA_ADDR(dma_addr, &qpt->hw_qpt_ptr);
-+	BNA_TRACE_DEBUG(bnad, (unsigned long) qpt->kv_qpt_ptr,
-+			("qpt host addr %p, ", qpt->kv_qpt_ptr));
-+	BNA_TRACE_DEBUG(bnad, dma_addr, ("dma addr 0x%x\n", dma_addr));
-+
-+	q->qpt_ptr = kzalloc(qpt->page_count * sizeof(void *), GFP_KERNEL);
-+	if (!q->qpt_ptr)
-+		return -ENOMEM;
-+	qpt->qpt_ptr = q->qpt_ptr;
-+	for (i = 0; i < qpt->page_count; i++) {
-+		q->qpt_ptr[i] =
-+			pci_alloc_consistent(bnad->pcidev, PAGE_SIZE,
-+					     &dma_addr);
-+		if (!q->qpt_ptr[i])
-+			return -ENOMEM;
-+		BNA_SET_DMA_ADDR(dma_addr,
-+				 &((struct bna_dma_addr *) qpt->kv_qpt_ptr)[i]);
-+
-+		BNA_TRACE_DEBUG(bnad, i, ("page %d ", i));
-+		BNA_TRACE_DEBUG(bnad, (unsigned long) q->qpt_ptr[i],
-+				("host addr %p, ", q->qpt_ptr[i]));
-+		BNA_TRACE_DEBUG(bnad, dma_addr, ("dma addr 0x%x\n", dma_addr));
-+	}
-+
-+	return 0;
-+}
-+
-+static void
-+bnad_free_q(struct bnad *bnad, struct bna_qpt *qpt, struct bna_q *q)
-+{
-+	int i;
-+	dma_addr_t dma_addr;
-+
-+	if (qpt->kv_qpt_ptr && q->qpt_ptr) {
-+		for (i = 0; i < qpt->page_count; i++) {
-+			if (q->qpt_ptr[i]) {
-+				BNA_GET_DMA_ADDR(&
-+						 ((struct bna_dma_addr *) qpt->
-+						  kv_qpt_ptr)[i], dma_addr);
-+				pci_free_consistent(bnad->pcidev, PAGE_SIZE,
-+						    q->qpt_ptr[i], dma_addr);
-+			}
-+		}
-+	}
-+
-+	if (q->qpt_ptr) {
-+		kfree(q->qpt_ptr);
-+		qpt->qpt_ptr = q->qpt_ptr = NULL;
-+	}
-+
-+	if (qpt->kv_qpt_ptr) {
-+		BNA_GET_DMA_ADDR(&qpt->hw_qpt_ptr, dma_addr);
-+		pci_free_consistent(bnad->pcidev,
-+				    qpt->page_count *
-+				    sizeof(struct bna_dma_addr),
-+				    qpt->kv_qpt_ptr, dma_addr);
-+		qpt->kv_qpt_ptr = NULL;
-+	}
-+}
-+
-+static void
-+bnad_free_txq(struct bnad *bnad, uint txq_id)
-+{
-+	struct bnad_txq_info *txqinfo;
-+
-+	BNA_ASSERT(bnad->txq_table && txq_id < bnad->txq_num);
-+	txqinfo = &bnad->txq_table[txq_id];
-+	bnad_free_q(bnad, &txqinfo->txq_config.qpt, &txqinfo->txq.q);
-+	if (txqinfo->skb_unmap_q.unmap_array) {
-+		bnad_free_txbufs(txqinfo, txqinfo->txq.q.producer_index);
-+		vfree(txqinfo->skb_unmap_q.unmap_array);
-+		txqinfo->skb_unmap_q.unmap_array = NULL;
-+	}
-+}
-+
-+void
-+bnad_free_rxq(struct bnad *bnad, uint rxq_id)
-+{
-+	struct bnad_rxq_info *rxqinfo;
-+
-+	BNA_ASSERT(bnad->rxq_table && rxq_id < bnad->rxq_num);
-+	rxqinfo = &bnad->rxq_table[rxq_id];
-+	bnad_free_q(bnad, &rxqinfo->rxq_config.qpt, &rxqinfo->rxq.q);
-+	if (rxqinfo->skb_unmap_q.unmap_array) {
-+		bnad_flush_rxbufs(rxqinfo);
-+		vfree(rxqinfo->skb_unmap_q.unmap_array);
-+		rxqinfo->skb_unmap_q.unmap_array = NULL;
-+	}
-+}
-+
-+void
-+bnad_free_cq(struct bnad *bnad, uint cq_id)
-+{
-+	struct bnad_cq_info *cqinfo = &bnad->cq_table[cq_id];
-+
-+	BNA_ASSERT(bnad->cq_table && cq_id < bnad->cq_num);
-+	bnad_free_q(bnad, &cqinfo->cq_config.qpt, &cqinfo->cq.q);
-+#ifdef BNAD_LRO
-+	vfree(cqinfo->lro.lro_arr);
-+	cqinfo->lro.lro_arr = NULL;
-+#endif
-+}
-+
-+static void
-+bnad_free_queues(struct bnad *bnad)
-+{
-+	uint i;
-+
-+	if (bnad->txq_table) {
-+		for (i = 0; i < bnad->txq_num; i++)
-+			bnad_free_txq(bnad, i);
-+		kfree(bnad->txq_table);
-+		bnad->txq_table = NULL;
-+	}
-+
-+	if (bnad->rxq_table) {
-+		for (i = 0; i < bnad->rxq_num; i++)
-+			bnad_free_rxq(bnad, i);
-+		kfree(bnad->rxq_table);
-+		bnad->rxq_table = NULL;
-+	}
-+
-+	if (bnad->cq_table) {
-+		for (i = 0; i < bnad->cq_num; i++)
-+			bnad_free_cq(bnad, i);
-+		kfree(bnad->cq_table);
-+		bnad->cq_table = NULL;
-+	}
-+}
-+
-+static int
-+bnad_txq_init(struct bnad *bnad, uint txq_id)
-+{
-+	struct bnad_txq_info *txqinfo;
-+	int err;
-+
-+	BNA_ASSERT(bnad->txq_table && txq_id < bnad->txq_num);
-+	txqinfo = &bnad->txq_table[txq_id];
-+	BNA_TRACE_DEBUG(bnad, txq_id, ("%s allocating TxQ %d\n",
-+				       bnad->netdev->name, txq_id));
-+	err = bnad_alloc_q(bnad, &txqinfo->txq_config.qpt, &txqinfo->txq.q,
-+			   bnad->txq_depth * sizeof(struct bna_txq_entry));
-+	if (err) {
-+		bnad_free_q(bnad, &txqinfo->txq_config.qpt, &txqinfo->txq.q);
-+		return err;
-+	}
-+	txqinfo->txq.q.q_depth = bnad->txq_depth;
-+	txqinfo->bnad = bnad;
-+	txqinfo->txq_config.txf_id = BNAD_TX_FUNC_ID;
-+	snprintf(txqinfo->name, sizeof(txqinfo->name), "%s TxQ %d",
-+		 bnad->netdev->name, txq_id);
-+	return 0;
-+}
-+
-+static int
-+bnad_txqs_init(struct bnad *bnad)
-+{
-+	int i, err = 0;
-+
-+	bnad->txq_table = kzalloc(bnad->txq_num *
-+				  sizeof(struct bnad_txq_info), GFP_KERNEL);
-+	if (!bnad->txq_table)
-+		return -ENOMEM;
-+
-+	for (i = 0; i < bnad->txq_num; i++) {
-+		err = bnad_txq_init(bnad, i);
-+		if (err)
-+			break;
-+	}
-+	return err;
-+}
-+
-+int
-+bnad_rxq_init(struct bnad *bnad, uint rxq_id)
-+{
-+	struct bnad_rxq_info *rxqinfo;
-+	int err;
-+
-+	BNA_ASSERT(bnad->rxq_table && rxq_id < bnad->rxq_num);
-+	rxqinfo = &bnad->rxq_table[rxq_id];
-+	BNA_TRACE_DEBUG(bnad, rxq_id, ("%s allocating RxQ %d\n",
-+				       bnad->netdev->name, rxq_id));
-+	err = bnad_alloc_q(bnad, &rxqinfo->rxq_config.qpt, &rxqinfo->rxq.q,
-+			   bnad->rxq_depth * sizeof(struct bna_rxq_entry));
-+	if (err) {
-+		bnad_free_q(bnad, &rxqinfo->rxq_config.qpt, &rxqinfo->rxq.q);
-+		return err;
-+	}
-+	rxqinfo->rxq.q.q_depth = bnad->rxq_depth;
-+	rxqinfo->bnad = bnad;
-+	rxqinfo->rxq_id = rxq_id;
-+	rxqinfo->rxq_config.cq_id = rxq_id / bnad_rxqs_per_cq;
-+
-+	return 0;
-+}
-+
-+static int
-+bnad_rxqs_init(struct bnad *bnad)
-+{
-+	int i, err = 0;
-+
-+	bnad->rxq_table = kzalloc(bnad->rxq_num *
-+				  sizeof(struct bnad_rxq_info), GFP_KERNEL);
-+	if (!bnad->rxq_table)
-+		return -EINVAL;
-+
-+	for (i = 0; i < bnad->rxq_num; i++) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+		if (!test_bit(i, &bnad->rxq_active))
-+			continue;
-+#endif
-+		err = bnad_rxq_init(bnad, i);
-+		if (err)
-+			break;
-+	}
-+	return err;
-+}
-+
-+int
-+bnad_cq_init(struct bnad *bnad, uint cq_id)
-+{
-+	struct bnad_cq_info *cqinfo;
-+	int err;
-+
-+	BNA_ASSERT(bnad->cq_table && cq_id < bnad->cq_num);
-+	cqinfo = &bnad->cq_table[cq_id];
-+	BNA_TRACE_DEBUG(bnad, cq_id, ("%s allocating CQ %d\n",
-+				      bnad->netdev->name, cq_id));
-+	err = bnad_alloc_q(bnad, &cqinfo->cq_config.qpt, &cqinfo->cq.q,
-+			   bnad->rxq_depth * bnad_rxqs_per_cq *
-+			   sizeof(struct bna_cq_entry));
-+	if (err) {
-+		bnad_free_q(bnad, &cqinfo->cq_config.qpt, &cqinfo->cq.q);
-+		return err;
-+	}
-+
-+	cqinfo->cq.q.q_depth = bnad->rxq_depth * bnad_rxqs_per_cq;
-+	cqinfo->bnad = bnad;
-+
-+#ifdef BNAD_LRO
-+	cqinfo->lro.dev = bnad->netdev;
-+#ifdef BNAD_NAPI
-+	cqinfo->lro.features |= LRO_F_NAPI;
-+#endif
-+	if (bnad_vlan_strip)
-+		cqinfo->lro.features |= LRO_F_EXTRACT_VLAN_ID;
-+	cqinfo->lro.ip_summed = CHECKSUM_UNNECESSARY;
-+	cqinfo->lro.ip_summed_aggr = CHECKSUM_UNNECESSARY;
-+	cqinfo->lro.max_desc = BNAD_LRO_MAX_DESC;
-+	cqinfo->lro.max_aggr = BNAD_LRO_MAX_AGGR;
-+	/* XXX */
-+	cqinfo->lro.frag_align_pad = 0;
-+	cqinfo->lro.lro_arr = vmalloc(BNAD_LRO_MAX_DESC *
-+				      sizeof(struct net_lro_desc));
-+	if (!cqinfo->lro.lro_arr) {
-+		bnad_free_q(bnad, &cqinfo->cq_config.qpt, &cqinfo->cq.q);
-+		return err;
-+	}
-+	memset(cqinfo->lro.lro_arr, 0, BNAD_LRO_MAX_DESC *
-+	       sizeof(struct net_lro_desc));
-+	cqinfo->lro.get_skb_header = bnad_lro_get_skb_header;
-+#endif
-+
-+#ifdef BNA_DYN_INTR_MOD
-+	cqinfo->rx_coalescing_timeo = bnad->rx_coalescing_timeo;
-+#endif
-+
-+	cqinfo->cq_id = cq_id;
-+	snprintf(cqinfo->name, sizeof(cqinfo->name), "%s CQ %d",
-+		 bnad->netdev->name, cq_id);
-+
-+	return 0;
-+}
-+
-+static int
-+bnad_cqs_init(struct bnad *bnad)
-+{
-+	int i, err = 0;
-+
-+	bnad->cq_table = kzalloc(bnad->cq_num * sizeof(struct bnad_cq_info),
-+				 GFP_KERNEL);
-+	if (!bnad->cq_table)
-+		return -ENOMEM;
-+
-+	for (i = 0; i < bnad->cq_num; i++) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+		if (!test_bit(i, &bnad->cq_active))
-+			continue;
-+#endif
-+		err = bnad_cq_init(bnad, i);
-+		if (err)
-+			break;
-+	}
-+	return err;
-+}
-+
-+static uint
-+bnad_get_qsize(uint qsize_conf, uint mtu)
-+{
-+	uint qsize;
-+
-+	if (mtu > ETH_DATA_LEN) {
-+		qsize = qsize_conf / (mtu / ETH_DATA_LEN);
-+		if (!BNA_POWER_OF_2(qsize))
-+			BNA_TO_POWER_OF_2_HIGH(qsize);
-+		if (qsize < BNAD_MIN_Q_DEPTH)
-+			qsize = BNAD_MIN_Q_DEPTH;
++	if (port_param.autoneg) {
++		cmd->supported |= SUPPORTED_Autoneg;
++		cmd->advertising |= ADVERTISED_Autoneg;
++		cmd->autoneg = AUTONEG_ENABLE;
 +	} else
-+		qsize = bnad_txq_depth;
-+
-+	return qsize;
-+}
-+
-+static int
-+bnad_init_queues(struct bnad *bnad)
-+{
-+	int err;
-+
-+	if (!(bnad->flags & BNAD_F_TXQ_DEPTH))
-+		bnad->txq_depth =
-+			bnad_get_qsize(bnad_txq_depth, bnad->netdev->mtu);
-+	if (!(bnad->flags & BNAD_F_RXQ_DEPTH))
-+		bnad->rxq_depth =
-+			bnad_get_qsize(bnad_rxq_depth, bnad->netdev->mtu);
-+
-+	err = bnad_txqs_init(bnad);
-+	if (err)
-+		return err;
-+
-+	err = bnad_rxqs_init(bnad);
-+	if (err)
-+		return err;
-+
-+	err = bnad_cqs_init(bnad);
-+
-+	return err;
-+}
-+
-+void
-+bnad_rxib_init(struct bnad *bnad, uint cq_id, uint ib_id)
-+{
-+	struct bnad_cq_info *cqinfo;
-+	struct bnad_ib_entry *ib_entry;
-+	struct bna_ib_config *ib_config;
-+
-+	BNA_ASSERT(cq_id < bnad->cq_num && ib_id < bnad->ib_num);
-+	cqinfo = &bnad->cq_table[cq_id];
-+	ib_entry = &bnad->ib_table[ib_id];
-+
-+	cqinfo->hw_producer_index = (u32 *) (ib_entry->ib_seg_addr);
-+	cqinfo->cq_config.ib_id = ib_id;
-+	cqinfo->cq_config.ib_seg_index = 0;
-+
-+	ib_entry->ib = &cqinfo->ib;
-+	ib_config = &ib_entry->ib_config;
-+	ib_config->coalescing_timer = bnad->rx_coalescing_timeo;
-+#if 1
-+	ib_config->control_flags =
-+		BNA_IB_CF_INT_ENABLE | BNA_IB_CF_MASTER_ENABLE;
-+#else
-+	ib_config->control_flags = BNA_IB_CF_INT_ENABLE |
-+		BNA_IB_CF_INTER_PKT_ENABLE | BNA_IB_CF_MASTER_ENABLE;
-+	ib_config->interpkt_count = bnad->rx_interpkt_count;
-+	ib_config->interpkt_timer = bnad->rx_interpkt_timeo;
-+#endif
-+	if (bnad->flags & BNAD_F_MSIX) {
-+		ib_config->control_flags |= BNA_IB_CF_MSIX_MODE;
-+		ib_config->msix_vector = ib_id;
-+	} else
-+		ib_config->msix_vector = 1 << ib_id;
-+
-+	/* Every CQ has its own IB. */
-+	ib_config->seg_size = 1;
-+	ib_config->index_table_offset = ib_id;
-+}
-+
-+static void
-+bnad_ibs_init(struct bnad *bnad)
-+{
-+	struct bnad_ib_entry *ib_entry;
-+	struct bna_ib_config *ib_config;
-+	struct bnad_txq_info *txqinfo;
-+
-+	int ib_id, i;
-+
-+	ib_id = 0;
-+	for (i = 0; i < bnad->txq_num; i++) {
-+		txqinfo = &bnad->txq_table[i];
-+		ib_entry = &bnad->ib_table[ib_id];
-+
-+		txqinfo->hw_consumer_index = ib_entry->ib_seg_addr;
-+		txqinfo->txq_config.ib_id = ib_id;
-+		txqinfo->txq_config.ib_seg_index = 0;
-+
-+		ib_entry->ib = &txqinfo->ib;
-+		ib_config = &ib_entry->ib_config;
-+		ib_config->coalescing_timer = bnad->tx_coalescing_timeo;
-+		ib_config->control_flags = BNA_IB_CF_INTER_PKT_DMA |
-+			BNA_IB_CF_INT_ENABLE | BNA_IB_CF_COALESCING_MODE |
-+			BNA_IB_CF_MASTER_ENABLE;
-+		if (bnad->flags & BNAD_F_MSIX) {
-+			ib_config->control_flags |= BNA_IB_CF_MSIX_MODE;
-+			ib_config->msix_vector = ib_id;
-+		} else
-+			ib_config->msix_vector = 1 << ib_id;
-+		ib_config->interpkt_count = bnad->tx_interpkt_count;
-+
-+		/* Every TxQ has its own IB. */
-+		ib_config->seg_size = 1;
-+		ib_config->index_table_offset = ib_id;
-+		ib_id++;
-+	}
-+
-+	for (i = 0; i < bnad->cq_num; i++, ib_id++) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+		if (!test_bit(i, &bnad->cq_active))
-+			continue;
-+#endif
-+		bnad_rxib_init(bnad, i, ib_id);
-+	}
-+}
-+
-+static void
-+bnad_txf_init(struct bnad *bnad, uint txf_id)
-+{
-+	struct bnad_txf_info *txf_info;
-+
-+	BNA_ASSERT(bnad->txf_table && txf_id < bnad->txf_num);
-+	txf_info = &bnad->txf_table[txf_id];
-+	txf_info->txf_id = txf_id;
-+	txf_info->txf_config.flags =
-+		BNA_TXF_CF_VLAN_WI_BASED | BNA_TXF_CF_ENABLE;
-+}
-+
-+void
-+bnad_rxf_init(struct bnad *bnad, uint rxf_id, u8 rit_offset, int rss)
-+{
-+	struct bnad_rxf_info *rxf_info;
-+
-+	BNA_ASSERT(bnad->rxf_table && rxf_id < bnad->rxf_num);
-+	rxf_info = &bnad->rxf_table[rxf_id];
-+	rxf_info->rxf_id = rxf_id;
-+	rxf_info->rxf_config.rit_offset = rit_offset;
-+	rxf_info->rxf_config.mcast_rxq_id = BNAD_MULTICAST_RXQ_ID;
-+	if (bnad_small_large_rxbufs)
-+		rxf_info->rxf_config.flags |= BNA_RXF_CF_SM_LG_RXQ;
-+	if (bnad_vlan_strip)
-+		rxf_info->rxf_config.flags |= BNA_RXF_CF_VLAN_STRIP;
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+	rxf_info->rxf_config.flags |= BNA_RXF_CF_DEFAULT_FUNCTION_ENABLE;
-+#endif
-+	if (rss) {
-+		struct bna_rxf_rss *rxf_rss;
-+
-+		rxf_info->rxf_config.flags |= BNA_RXF_CF_RSS_ENABLE;
-+		rxf_rss = &rxf_info->rxf_config.rss;
-+		rxf_rss->type = BNA_RSS_V4_TCP | BNA_RSS_V4_IP |
-+			BNA_RSS_V6_TCP | BNA_RSS_V6_IP;
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+		rxf_rss->hash_mask = 0;
-+#else
-+		rxf_rss->hash_mask = bnad->cq_num - 1;
-+#endif
-+		get_random_bytes(rxf_rss->toeplitz_hash_key,
-+				 sizeof(rxf_rss->toeplitz_hash_key));
-+	}
-+	BNA_TRACE_DEBUG(bnad, rxf_id, ("%s RxF %u config flags 0x%x\n",
-+				       bnad->netdev->name, rxf_id,
-+				       rxf_info->rxf_config.flags));
-+}
-+
-+static int
-+bnad_init_funcs(struct bnad *bnad)
-+{
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+	int i;
-+#endif
-+	bnad->txf_table = kzalloc(sizeof(struct bnad_txf_info) * bnad->txf_num,
-+				  GFP_KERNEL);
-+	if (!bnad->txf_table)
-+		return -ENOMEM;
-+	bnad_txf_init(bnad, BNAD_TX_FUNC_ID);
-+
-+	bnad->rxf_table = kzalloc(sizeof(struct bnad_rxf_info) * bnad->rxf_num,
-+				  GFP_KERNEL);
-+	if (!bnad->rxf_table)
-+		return -ENOMEM;
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+	bnad_rxf_init(bnad, BNAD_RX_FUNC_ID, BNAD_RIT_OFFSET, 0);
-+	for (i = BNAD_FIRST_NETQ_RXF; i < bnad->rxf_num; i++) {
-+		bnad_rxf_init(bnad, i, BNAD_GET_RIT_FROM_RXF(i), 0);
-+		BNA_TRACE_DEBUG(bnad, i, ("%s RxF %u -> RxQ %u\n",
-+					  bnad->netdev->name, i,
-+					  bnad->rxf_table[i].rxf_config.
-+					  rit_offset));
-+	}
-+#else
-+	bnad_rxf_init(bnad, BNAD_RX_FUNC_ID, BNAD_RIT_OFFSET,
-+		      (bnad->cq_num > 1) ? 1 : 0);
-+#endif
-+	return 0;
-+}
-+
-+static void
-+bnad_setup_txq(struct bnad *bnad, uint txq_id)
-+{
-+	struct bnad_txq_info *txqinfo;
-+
-+	BNA_ASSERT(txq_id < bnad->txq_num);
-+	txqinfo = &bnad->txq_table[txq_id];
-+	txqinfo->txq_config.priority = txq_id;
-+	/*  Set wrr_quota properly if multiple priorities/TxQs are enabled. */
-+	txqinfo->txq_config.wrr_quota = BNAD_TX_MAX_WRR_QUOTA;
-+
-+	spin_lock_irq(&bnad->priv_lock);
-+	bna_txq_config(bnad->priv, &txqinfo->txq, txq_id, &txqinfo->txq_config);
-+	spin_unlock_irq(&bnad->priv_lock);
-+}
-+
-+void
-+bnad_setup_rxq(struct bnad *bnad, uint rxq_id)
-+{
-+	struct bnad_rxq_info *rxqinfo;
-+
-+	BNA_ASSERT(rxq_id < bnad->rxq_num);
-+	rxqinfo = &bnad->rxq_table[rxq_id];
-+	/*
-+	 * Every RxQ set has 2 RxQs: the first is large buffer RxQ,
-+	 * the second is small buffer RxQ.
-+	 */
-+	if ((rxq_id % bnad_rxqs_per_cq) == 0)
-+		rxqinfo->rxq_config.buffer_size =
-+			(bnad_vlan_strip ? VLAN_ETH_HLEN : ETH_HLEN) +
-+			bnad->netdev->mtu + ETH_FCS_LEN;
-+	else
-+		rxqinfo->rxq_config.buffer_size = BNAD_SMALL_RXBUF_SIZE;
-+
-+	spin_lock_irq(&bnad->priv_lock);
-+	bna_rxq_config(bnad->priv, &rxqinfo->rxq, rxq_id, &rxqinfo->rxq_config);
-+	spin_unlock_irq(&bnad->priv_lock);
-+}
-+
-+void
-+bnad_setup_cq(struct bnad *bnad, uint cq_id)
-+{
-+	struct bnad_cq_info *cqinfo;
-+
-+	BNA_ASSERT(cq_id < bnad->cq_num);
-+	cqinfo = &bnad->cq_table[cq_id];
-+	spin_lock_irq(&bnad->priv_lock);
-+	bna_cq_config(bnad->priv, &cqinfo->cq, cq_id, &cqinfo->cq_config);
-+	spin_unlock_irq(&bnad->priv_lock);
-+}
-+
-+static void
-+bnad_setup_queues(struct bnad *bnad)
-+{
-+	uint i;
-+
-+	for (i = 0; i < bnad->txq_num; i++)
-+		bnad_setup_txq(bnad, i);
-+
-+	for (i = 0; i < bnad->rxq_num; i++) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+		if (!test_bit(i, &bnad->rxq_active))
-+			continue;
-+#endif
-+		bnad_setup_rxq(bnad, i);
-+	}
-+
-+	for (i = 0; i < bnad->cq_num; i++) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+		if (!test_bit(i, &bnad->cq_active))
-+			continue;
-+#endif
-+		bnad_setup_cq(bnad, i);
-+	}
-+}
-+
-+
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+static void
-+bnad_setup_rit(struct bnad *bnad)
-+{
-+	int i, size;
-+
-+	size = bnad->cq_num;
-+
-+	for (i = 0; i < size; i++) {
-+		if (bnad_small_large_rxbufs) {
-+			bnad->rit[i].large_rxq_id = (i << 1);
-+			bnad->rit[i].small_rxq_id = (i << 1) + 1;
-+		} else {
-+			bnad->rit[i].large_rxq_id = i;
-+			bnad->rit[i].small_rxq_id = 0;
-+		}
-+
-+		spin_lock_irq(&bnad->priv_lock);
-+		bna_rit_config_set(bnad->priv, i, &bnad->rit[i], 1);
-+		spin_unlock_irq(&bnad->priv_lock);
-+	}
-+}
-+#else
-+static void
-+bnad_setup_rit(struct bnad *bnad)
-+{
-+	int i, size;
-+
-+	size = bnad->cq_num;
-+
-+	for (i = 0; i < size; i++) {
-+		if (bnad_small_large_rxbufs) {
-+			bnad->rit[i].large_rxq_id = (i << 1);
-+			bnad->rit[i].small_rxq_id = (i << 1) + 1;
-+		} else
-+			bnad->rit[i].large_rxq_id = i;
-+	}
-+
-+	spin_lock_irq(&bnad->priv_lock);
-+	bna_rit_config_set(bnad->priv, BNAD_RIT_OFFSET, bnad->rit, size);
-+	spin_unlock_irq(&bnad->priv_lock);
-+}
-+#endif
-+
-+void
-+bnad_alloc_for_rxq(struct bnad *bnad, uint rxq_id)
-+{
-+	struct bnad_rxq_info *rxqinfo = &bnad->rxq_table[rxq_id];
-+	u16 rxbufs;
-+
-+	BNA_ASSERT(bnad->rxq_table && rxq_id < bnad->rxq_num);
-+	bnad_alloc_rxbufs(rxqinfo);
-+	rxbufs = BNA_QE_IN_USE_CNT(&rxqinfo->skb_unmap_q,
-+				   rxqinfo->skb_unmap_q.q_depth);
-+	BNA_TRACE_INFO(bnad, rxbufs, ("%s allocated %u rx buffers for RxQ %u\n",
-+				      bnad->netdev->name, rxbufs, rxq_id));
-+}
-+
-+static int
-+bnad_config_hw(struct bnad *bnad)
-+{
-+	int i, err;
-+	u64 rxq_id_mask = 0;
-+	struct sockaddr sa;
-+	struct net_device *netdev = bnad->netdev;
-+
-+	spin_lock_irq(&bnad->priv_lock);
-+	/* Disable the RxF until later bringing port up. */
-+	bna_multi_rxf_disable(bnad->priv, (1 << bnad->rxf_num) - 1);
-+	spin_unlock_irq(&bnad->priv_lock);
-+	for (i = 0; i < bnad->txq_num; i++) {
-+		err = bnad_disable_txq(bnad, i);
-+		if (err)
-+			return err;
-+	}
-+	for (i = 0; i < bnad->rxq_num; i++)
-+		rxq_id_mask |= (1 << i);
-+	if (rxq_id_mask) {
-+		err = bnad_disable_rxqs(bnad, rxq_id_mask);
-+		if (err)
-+			return err;
-+	}
-+
-+	bnad_setup_queues(bnad);
-+
-+	bnad_setup_rit(bnad);
-+
-+	spin_lock_irq(&bnad->priv_lock);
-+	bna_txf_config_set(bnad->priv, BNAD_TX_FUNC_ID,
-+			   &bnad->txf_table->txf_config);
-+	for (i = 0; i < bnad->rxf_num; i++) {
-+		bna_rxf_config_set(bnad->priv, i,
-+				   &bnad->rxf_table[i].rxf_config);
-+		bna_rxf_vlan_filter(bnad->priv, i, BNA_ENABLE);
-+	}
-+	spin_unlock_irq(&bnad->priv_lock);
-+
-+	/* Mailbox should be enabled before this! */
-+	memcpy(sa.sa_data, netdev->dev_addr, netdev->addr_len);
-+	bnad_set_mac_address_locked(netdev, &sa);
-+
-+	spin_lock_irq(&bnad->priv_lock);
-+	/* Receive broadcasts */
-+	bna_rxf_broadcast(bnad->priv, BNAD_RX_FUNC_ID, BNA_ENABLE);
-+
-+	bna_mtu_info(bnad->priv, netdev->mtu, bnad);
-+	bna_set_pause_config(bnad->priv, &bnad->pause_config, bnad);
-+
-+	bna_rxf_mcast_del_all(bnad->priv, BNAD_RX_FUNC_ID);
-+	bna_mcast_mac_reset_list(bnad->priv);
-+	spin_unlock_irq(&bnad->priv_lock);
-+
-+	bnad_set_rx_mode_locked(bnad->netdev);
-+
-+#if !defined(__VMKERNEL_MODULE__) || !defined(__VMKNETDDI_QUEUEOPS__)
-+	bnad_reconfig_vlans(bnad);
-+#endif
-+
-+	bnad_setup_ibs(bnad);
-+
-+	return 0;
-+}
-+
-+/* Note: bnad_cleanup doesn't not free irqs and queues. */
-+static void
-+bnad_cleanup(struct bnad *bnad)
-+{
-+	if (bnad->rit) {
-+		kfree(bnad->rit);
-+		bnad->rit = NULL;
-+	}
-+	if (bnad->txf_table) {
-+		kfree(bnad->txf_table);
-+		bnad->txf_table = NULL;
-+	}
-+	if (bnad->rxf_table) {
-+		kfree(bnad->rxf_table);
-+		bnad->rxf_table = NULL;
-+	}
-+
-+	bnad_free_ibs(bnad);
-+	bnad_free_queues(bnad);
-+}
-+
-+/* Should be called with rtnl_lock held. */
-+static int
-+bnad_start(struct bnad *bnad)
-+{
-+	int err;
-+
-+	ASSERT_RTNL();
-+
-+	err = bnad_alloc_ibs(bnad);
-+	if (err)
-+		return err;
-+
-+	err = bnad_init_queues(bnad);
-+	if (err)
-+		goto finished;
-+
-+	bnad_ibs_init(bnad);
-+
-+	err = bnad_init_funcs(bnad);
-+	if (err)
-+		goto finished;
-+
-+	err = bnad_alloc_unmap_queues(bnad);
-+	if (err)
-+		goto finished;
-+
-+	bnad->rit = kzalloc(bnad->cq_num * sizeof(struct bna_rit_entry),
-+			    GFP_KERNEL);
-+
-+	if (!bnad->rit)
-+		goto finished;
-+
-+	err = bnad_config_hw(bnad);
-+	if (err)
-+		goto finished;
-+
-+#ifdef BNAD_NEW_NAPI
-+	if (!test_bit(BNAD_DIAG_LB_MODE, &bnad->state)) {
-+		bnad_napi_init(bnad);
-+		bnad_napi_enable(bnad);
-+	}
-+#endif
-+
-+	err = bnad_request_txrx_irqs(bnad);
-+	if (err) {
-+		BNA_TRACE_ERROR(bnad, err,
-+				("%s requests Tx/Rx irqs failed: %d\n",
-+				 bnad->netdev->name, err));
-+		goto finished;
-+	}
-+	return 0;
-+
-+finished:
-+	bnad_cleanup(bnad);
-+	return err;
-+}
-+
-+int
-+bnad_open_locked(struct net_device *netdev)
-+{
-+	struct bnad *bnad = netdev_priv(netdev);
-+	uint i;
-+	int err;
-+
-+	ASSERT_RTNL();
-+	BNA_TRACE_WARN(bnad, bnad->bna_id, ("%s open\n", netdev->name));
-+
-+	if (BNAD_NOT_READY(bnad)) {
-+		BNA_TRACE_WARN(bnad, bnad->state,
-+			       ("%s is not ready yet (0x%x)\n", netdev->name,
-+				bnad->state));
-+		return 0;
-+	}
-+
-+	if (!test_bit(BNAD_DISABLED, &bnad->state)) {
-+		BNA_TRACE_WARN(bnad, bnad->state,
-+			       ("%s is already opened (0x%x)\n", netdev->name,
-+				bnad->state));
-+
-+		return 0;
-+	}
-+
-+	err = bnad_start(bnad);
-+	if (err) {
-+		BNA_TRACE_ERROR(bnad, err,
-+				("%s failed to start %d\n", netdev->name, err));
-+		return err;
-+	}
-+	for (i = 0; i < bnad->rxq_num; i++) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+		if (!test_bit(i, &bnad->rxq_active))
-+			continue;
-+#endif
-+		bnad_alloc_for_rxq(bnad, i);
-+	}
-+
-+	smp_mb__before_clear_bit();
-+	clear_bit(BNAD_DISABLED, &bnad->state);
-+	BNA_TRACE_INFO(bnad, bnad->bna_id,
-+		       ("%s is opened\n", bnad->netdev->name));
-+
-+	/* XXX Packet may be come before we bring the port up. */
-+	spin_lock_irq(&bnad->priv_lock);
-+
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+	/* all RxFs were disabled earlier, enable active ones */
-+	bna_multi_rxf_enable(bnad->priv, bnad->rxf_active);
-+#else
-+	/* RxF was disabled earlier. */
-+	bna_rxf_enable(bnad->priv, BNAD_RX_FUNC_ID);
-+#endif
-+	spin_unlock_irq(&bnad->priv_lock);
-+
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+	err = bnad_netq_restore_filters(bnad);
-+	BNA_ASSERT(!err);
-+#endif
-+
-+	BNA_TRACE_INFO(bnad, bnad->bna_id,
-+		       ("Bring %s link up\n", netdev->name));
-+	if (!test_bit(BNAD_DIAG_LB_MODE, &bnad->state)) {
-+		spin_lock_irq(&bnad->priv_lock);
-+		bna_port_admin(bnad->priv, BNA_ENABLE);
-+		spin_unlock_irq(&bnad->priv_lock);
-+	}
-+
-+	mod_timer(&bnad->stats_timer, jiffies + HZ);
-+
-+	return 0;
-+}
-+
-+int
-+bnad_stop_locked(struct net_device *netdev)
-+{
-+	struct bnad *bnad = netdev_priv(netdev);
-+
-+	ASSERT_RTNL();
-+	BNA_TRACE_WARN(bnad, bnad->bna_id, ("%s stop\n", netdev->name));
-+
-+	if (test_and_set_bit(BNAD_DISABLED, &bnad->state)) {
-+		if (BNAD_NOT_READY(bnad)) {
-+			BNA_TRACE_WARN(bnad, bnad->state,
-+				       ("%s is not ready (0x%x)\n",
-+					netdev->name, bnad->state));
-+		} else {
-+			BNA_TRACE_WARN(bnad, bnad->state,
-+				       ("%s is already stopped (0x%x)\n",
-+					netdev->name, bnad->state));
-+		}
-+		return 0;
-+	}
-+
-+	bnad_disable(bnad);
-+	bnad_cleanup(bnad);
-+	BNA_TRACE_INFO(bnad, bnad->bna_id,
-+		       ("%s is stopped\n", bnad->netdev->name));
-+	return 0;
-+}
-+
-+int
-+bnad_open(struct net_device *netdev)
-+{
-+	struct bnad *bnad = netdev_priv(netdev);
-+	int error = 0;
-+
-+	bnad_lock();
-+	if (!test_bit(BNAD_DIAG_LB_MODE, &bnad->state) &&
-+	    !test_bit(BNAD_PORT_DISABLED, &bnad->state))
-+		error = bnad_open_locked(netdev);
-+	bnad_unlock();
-+	return error;
-+}
-+
-+int
-+bnad_stop(struct net_device *netdev)
-+{
-+	struct bnad *bnad = netdev_priv(netdev);
-+	int error = 0;
-+
-+	bnad_lock();
-+	if (!test_bit(BNAD_DIAG_LB_MODE, &bnad->state))
-+		error = bnad_stop_locked(netdev);
-+	bnad_unlock();
-+	return error;
-+}
-+
-+static int
-+bnad_tso_prepare(struct bnad *bnad, struct sk_buff *skb)
-+{
-+#ifdef NETIF_F_TSO
-+	int err;
-+
-+#ifdef SKB_GSO_TCPV4
-+	/* SKB_GSO_TCPV4 and SKB_GSO_TCPV6 is defined since 2.6.18. */
-+	BNA_ASSERT(skb_shinfo(skb)->gso_type == SKB_GSO_TCPV4 ||
-+		   skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6);
-+#endif
-+	if (skb_header_cloned(skb)) {
-+		err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
-+		if (err) {
-+			bnad->stats.tso_err++;
-+			return err;
-+		}
-+	}
-+
-+	/*
-+	 * For TSO, the TCP checksum field is seeded with pseudo-header sum
-+	 * excluding the length field.
-+	 */
-+	if (skb->protocol == htons(ETH_P_IP)) {
-+		struct iphdr *iph = ip_hdr(skb);
-+
-+		/* Do we really need these? */
-+		iph->tot_len = 0;
-+		iph->check = 0;
-+
-+		tcp_hdr(skb)->check =
-+			~csum_tcpudp_magic(iph->saddr, iph->daddr, 0,
-+					   IPPROTO_TCP, 0);
-+		bnad->stats.tso4++;
-+#ifdef NETIF_F_TSO6
-+	} else {
-+		struct ipv6hdr *ipv6h = ipv6_hdr(skb);
-+
-+		BNA_ASSERT(skb->protocol == htons(ETH_P_IPV6));
-+		ipv6h->payload_len = 0;
-+		tcp_hdr(skb)->check =
-+			~csum_ipv6_magic(&ipv6h->saddr, &ipv6h->daddr, 0,
-+					 IPPROTO_TCP, 0);
-+		bnad->stats.tso6++;
-+#endif
-+	}
-+
-+	return 0;
-+#else
-+	return -EINVAL;
-+#endif
-+}
-+
-+int
-+bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
-+{
-+	struct bnad *bnad = netdev_priv(netdev);
-+	struct bnad_txq_info *txqinfo;
-+	struct bna_txq *txq;
-+	struct bnad_unmap_q *unmap_q;
-+	u16 txq_prod;
-+	unsigned int unmap_prod, wis, wis_used, wi_range;
-+	unsigned int vectors, vect_id, i, acked;
-+	int err;
-+	dma_addr_t dma_addr;
-+	struct bna_txq_entry *txqent;
-+	bna_txq_wi_ctrl_flag_t flags;
-+
-+	if (unlikely
-+	    (skb->len <= ETH_HLEN || skb->len > BNAD_TX_MAX_DATA_PER_WI)) {
-+		dev_kfree_skb(skb);
-+		return NETDEV_TX_OK;
-+	}
-+
-+	txqinfo = &bnad->txq_table[0];
-+	txq = &txqinfo->txq;
-+	unmap_q = &txqinfo->skb_unmap_q;
-+
-+	vectors = 1 + skb_shinfo(skb)->nr_frags;
-+	if (vectors > BNAD_TX_MAX_VECTORS) {
-+		dev_kfree_skb(skb);
-+		return NETDEV_TX_OK;
-+	}
-+	wis = BNAD_TXQ_WI_NEEDED(vectors);	/* 4 vectors per work item */
-+	acked = 0;
-+	if (unlikely(wis > BNA_Q_FREE_COUNT(txq) ||
-+		     vectors > BNA_QE_FREE_CNT(unmap_q, unmap_q->q_depth))) {
-+		if ((u16) (*txqinfo->hw_consumer_index) !=
-+		    txq->q.consumer_index &&
-+		    !test_and_set_bit(BNAD_TXQ_FREE_SENT, &txqinfo->flags)) {
-+			acked = bnad_free_txbufs(txqinfo,
-+						 (u16) (*txqinfo->
-+							hw_consumer_index));
-+			bna_ib_ack(bnad->priv, &txqinfo->ib, acked);
-+			BNA_TRACE_DEBUG(bnad, acked,
-+					("%s ack TxQ IB %u packets\n",
-+					 netdev->name, acked));
-+			smp_mb__before_clear_bit();
-+			clear_bit(BNAD_TXQ_FREE_SENT, &txqinfo->flags);
-+		} else {
-+#ifdef BNAD_DIAG_LOOPBACK
-+			if (!test_bit(BNAD_DIAG_LB_MODE, &bnad->state))
-+				netif_stop_queue(netdev);
-+#else
-+			netif_stop_queue(netdev);
-+#endif
-+		}
-+
-+		smp_mb();
-+		/*
-+		 * Check again to deal with race condition between
-+		 * netif_stop_queue here, and netif_wake_queue in
-+		 * interrupt handler which is not inside netif tx lock.
-+		 */
-+		if (likely(wis > BNA_Q_FREE_COUNT(txq) ||
-+			   vectors > BNA_QE_FREE_CNT(unmap_q,
-+						     unmap_q->q_depth))) {
-+			bnad->stats.netif_queue_stop++;
-+			return NETDEV_TX_BUSY;
-+		} else {
-+#ifdef BNAD_DIAG_LOOPBACK
-+			if (!test_bit(BNAD_DIAG_LB_MODE, &bnad->state))
-+				netif_wake_queue(netdev);
-+#else
-+			netif_wake_queue(netdev);
-+#endif
-+		}
-+	}
-+
-+	unmap_prod = unmap_q->producer_index;
-+	wis_used = 1;
-+	vect_id = 0;
-+	flags = 0;
-+
-+	txq_prod = txq->q.producer_index;
-+	BNA_TXQ_QPGE_PTR_GET(txq_prod, &txq->q, txqent, wi_range);
-+	BNA_ASSERT(wi_range && wi_range <= txq->q.q_depth);
-+	txqent->hdr.wi.reserved = 0;
-+	txqent->hdr.wi.num_vectors = vectors;
-+	txqent->hdr.wi.opcode = htons((skb_is_gso(skb) ?
-+				       BNA_TXQ_WI_SEND_LSO : BNA_TXQ_WI_SEND));
-+
-+	if (bnad_ipid_mode)
-+		flags |= BNA_TXQ_WI_CF_IPID_MODE;
-+
-+	if (bnad->vlangrp && vlan_tx_tag_present(skb)) {
-+		u16 vlan_tag = (u16) vlan_tx_tag_get(skb);
-+		if ((vlan_tag >> 13) & 0x7)
-+			flags |= BNA_TXQ_WI_CF_INS_PRIO;
-+		if (vlan_tag & VLAN_VID_MASK)
-+			flags |= BNA_TXQ_WI_CF_INS_VLAN;
-+		txqent->hdr.wi.vlan_tag = htons(vlan_tag);
-+	} else
-+		txqent->hdr.wi.vlan_tag = 0;
-+
-+	if (skb_is_gso(skb)) {
-+		err = bnad_tso_prepare(bnad, skb);
-+		if (err) {
-+			dev_kfree_skb(skb);
-+			return NETDEV_TX_OK;
-+		}
-+		txqent->hdr.wi.lso_mss = htons(skb_is_gso(skb));
-+		flags |= (BNA_TXQ_WI_CF_IP_CKSUM | BNA_TXQ_WI_CF_TCP_CKSUM);
-+		txqent->hdr.wi.l4_hdr_size_n_offset =
-+			htons(BNA_TXQ_WI_L4_HDR_N_OFFSET
-+			      (tcp_hdrlen(skb) >> 2,
-+			       skb_transport_offset(skb)));
-+#ifdef DEBUG_TX
-+		if (skb->len > txqinfo->max_tso)
-+			txqinfo->max_tso = skb->len;
-+#endif
-+	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+		u8 proto = 0;
-+
-+		txqent->hdr.wi.lso_mss = 0;
-+
-+		if (skb->protocol == htons(ETH_P_IP))
-+			proto = ip_hdr(skb)->protocol;
-+#ifdef NETIF_F_IPV6_CSUM
-+		else if (skb->protocol == htons(ETH_P_IPV6)) {
-+			/* XXX the nexthdr may not be TCP immediately. */
-+			proto = ipv6_hdr(skb)->nexthdr;
-+		}
-+#endif
-+		if (proto == IPPROTO_TCP) {
-+			flags |= BNA_TXQ_WI_CF_TCP_CKSUM;
-+			txqent->hdr.wi.l4_hdr_size_n_offset =
-+				htons(BNA_TXQ_WI_L4_HDR_N_OFFSET
-+				      (0, skb_transport_offset(skb)));
-+			bnad->stats.tcpcsum_offload++;
-+			BNA_ASSERT(skb_headlen(skb) >=
-+				   skb_transport_offset(skb) + tcp_hdrlen(skb));
-+		} else if (proto == IPPROTO_UDP) {
-+			flags |= BNA_TXQ_WI_CF_UDP_CKSUM;
-+			txqent->hdr.wi.l4_hdr_size_n_offset =
-+				htons(BNA_TXQ_WI_L4_HDR_N_OFFSET
-+				      (0, skb_transport_offset(skb)));
-+			bnad->stats.udpcsum_offload++;
-+			BNA_ASSERT(skb_headlen(skb) >=
-+				   skb_transport_offset(skb) +
-+				   sizeof(struct udphdr));
-+		} else {
-+			err = skb_checksum_help(skb);
-+			bnad->stats.csum_help++;
-+			if (err) {
-+				dev_kfree_skb(skb);
-+				bnad->stats.csum_help_err++;
-+				return NETDEV_TX_OK;
-+			}
-+		}
-+	} else {
-+		txqent->hdr.wi.lso_mss = 0;
-+		txqent->hdr.wi.l4_hdr_size_n_offset = 0;
-+	}
-+
-+	txqent->hdr.wi.flags = htons(flags);
-+
-+	txqent->hdr.wi.frame_length = htonl(skb->len);
-+
-+	unmap_q->unmap_array[unmap_prod].skb = skb;
-+	BNA_ASSERT(skb_headlen(skb) <= BNAD_TX_MAX_DATA_PER_VECTOR);
-+	txqent->vector[vect_id].length = htons(skb_headlen(skb));
-+#if defined(__VMKERNEL_MODULE__) && !defined(__x86_64__)
-+	dma_addr = skb->headMA;
-+#else
-+	dma_addr = pci_map_single(bnad->pcidev, skb->data, skb_headlen(skb),
-+				  PCI_DMA_TODEVICE);
-+#endif
-+	pci_unmap_addr_set(&unmap_q->unmap_array[unmap_prod], dma_addr,
-+			   dma_addr);
++		cmd->autoneg = AUTONEG_DISABLE;
 +#if 0
-+	BNA_LOG_DEBUG(("%s bnad_start_xmit dma addr 0x%x\n",
-+		       bnad->netdev->name, dma_addr));
-+#endif
-+	BNA_SET_DMA_ADDR(dma_addr, &txqent->vector[vect_id].host_addr);
-+	BNA_QE_INDX_ADD(unmap_prod, 1, unmap_q->q_depth);
-+
-+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-+		struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[i];
-+
-+		if (++vect_id == BNAD_TX_MAX_VECTORS_PER_WI) {
-+			vect_id = 0;
-+			if (--wi_range)
-+				txqent++;
-+			else {
-+				BNA_QE_INDX_ADD(txq_prod, wis_used,
-+						txq->q.q_depth);
-+				wis_used = 0;
-+				BNA_TXQ_QPGE_PTR_GET(txq_prod, &txq->q, txqent,
-+						     wi_range);
-+				BNA_ASSERT(wi_range
-+					   && wi_range <= txq->q.q_depth);
-+			}
-+			wis_used++;
-+			txqent->hdr.wi_ext.opcode = htons(BNA_TXQ_WI_EXTENSION);
-+		}
-+
-+		BNA_ASSERT(frag->size <= BNAD_TX_MAX_DATA_PER_VECTOR);
-+		txqent->vector[vect_id].length = htons(frag->size);
-+		BNA_ASSERT(unmap_q->unmap_array[unmap_prod].skb == NULL);
-+		dma_addr = pci_map_page(bnad->pcidev, frag->page,
-+					frag->page_offset, frag->size,
-+					PCI_DMA_TODEVICE);
-+		pci_unmap_addr_set(&unmap_q->unmap_array[unmap_prod], dma_addr,
-+				   dma_addr);
-+		BNA_SET_DMA_ADDR(dma_addr, &txqent->vector[vect_id].host_addr);
-+		BNA_QE_INDX_ADD(unmap_prod, 1, unmap_q->q_depth);
-+	}
-+
-+	unmap_q->producer_index = unmap_prod;
-+	BNA_QE_INDX_ADD(txq_prod, wis_used, txq->q.q_depth);
-+	txq->q.producer_index = txq_prod;
-+
-+#ifdef DEBUG_TX
-+	BNA_TRACE_DEBUG(bnad, wis_used, ("bnad_start_xmit %d WIs\n", wis_used));
-+	BNA_TRACE_DEBUG(bnad, txq->q.producer_index,
-+			("%s TxQ producer index %d\n",
-+			 bnad->netdev->name, txq->q.producer_index));
-+#endif
-+
-+#ifdef DEBUG_TX
-+	if (vectors < 32)
-+		txqinfo->tx_vectors[vectors]++;
-+#endif
-+	smp_mb();
-+	bna_txq_prod_indx_doorbell(txq);
-+	netdev->trans_start = jiffies;
-+
-+#ifdef DEBUG_TX
-+	BNA_TRACE_DEBUG(bnad, *txqinfo->hw_consumer_index,
-+			("%s bnad_start_xmit TxQ HW consumer index %u\n",
-+			 bnad->netdev->name, *txqinfo->hw_consumer_index));
-+#endif
-+	if ((u16) (*txqinfo->hw_consumer_index) !=
-+	    txq->q.consumer_index &&
-+	    !test_and_set_bit(BNAD_TXQ_FREE_SENT, &txqinfo->flags)) {
-+		acked = bnad_free_txbufs(txqinfo,
-+					 (u16) (*txqinfo->hw_consumer_index));
-+		bna_ib_ack(bnad->priv, &txqinfo->ib, acked);
-+#ifdef DEBUG_TX
-+		BNA_TRACE_DEBUG(bnad, acked, ("%s ack TxQ IB %u packets\n",
-+					      netdev->name, acked));
-+#endif
-+		smp_mb__before_clear_bit();
-+		clear_bit(BNAD_TXQ_FREE_SENT, &txqinfo->flags);
-+	}
-+
-+	return NETDEV_TX_OK;
-+}
-+
-+struct net_device_stats *
-+bnad_get_stats(struct net_device *netdev)
-+{
-+	struct bnad *bnad = netdev_priv(netdev);
-+	struct net_device_stats *net_stats = &bnad->net_stats;
-+	struct cna_stats_mac_rx *rxstats = &bnad->hw_stats->mac_rx_stats;
-+	struct cna_stats_mac_tx *txstats = &bnad->hw_stats->mac_tx_stats;
-+	int i;
-+
-+	memset(net_stats, 0, sizeof(*net_stats));
-+	if (bnad->rxq_table) {
-+		for (i = 0; i < bnad->rxq_num; i++) {
-+			net_stats->rx_packets += bnad->rxq_table[i].rx_packets;
-+			net_stats->rx_bytes += bnad->rxq_table[i].rx_bytes;
-+		}
-+	}
-+	if (bnad->txq_table) {
-+		for (i = 0; i < bnad->txq_num; i++) {
-+			net_stats->tx_packets += bnad->txq_table[i].tx_packets;
-+			net_stats->tx_bytes += bnad->txq_table[i].tx_bytes;
-+		}
-+	}
-+	net_stats->rx_errors = rxstats->rx_fcs_error +
-+		rxstats->rx_alignment_error + rxstats->rx_frame_length_error +
-+		rxstats->rx_code_error + rxstats->rx_undersize;
-+	net_stats->tx_errors = txstats->tx_fcs_error + txstats->tx_undersize;
-+#if 0
-+	net_stats->rx_errors += rxstats->rx_oversize;
-+	net_stats->tx_errors += txstats->tx_oversize;
-+#endif
-+	net_stats->rx_dropped = rxstats->rx_drop;
-+	net_stats->tx_dropped = txstats->tx_drop;
-+	net_stats->multicast = rxstats->rx_multicast;
-+	net_stats->collisions = txstats->tx_total_collision;
-+
-+	net_stats->rx_length_errors = rxstats->rx_frame_length_error;
-+#ifdef notyet
-+	/* receive ring buffer overflow */
-+	net_stats->rx_over_errors =
-+#endif
-+		net_stats->rx_crc_errors = rxstats->rx_fcs_error;
-+	net_stats->rx_frame_errors = rxstats->rx_alignment_error;
-+	/* recv'r fifo overrun */
-+	net_stats->rx_fifo_errors = bnad->hw_stats->rxf_stats[0].frame_drops;
-+
-+	return net_stats;
-+}
-+
-+void
-+bnad_reset_stats(struct net_device *netdev)
-+{
-+	struct bnad *bnad = netdev_priv(netdev);
-+	struct bnad_rxq_info *rxqinfo;
-+	struct bnad_txq_info *txqinfo;
-+	int i;
-+#if defined(DEBUG_RX) || defined (DEBUG_TX)
-+	int j;
-+#endif
-+	memset(&bnad->stats, 0, sizeof(bnad->stats));
-+
-+	if (bnad->rxq_table) {
-+		for (i = 0; i < bnad->rxq_num; i++) {
-+			rxqinfo = &bnad->rxq_table[i];
-+			rxqinfo->rx_packets = 0;
-+			rxqinfo->rx_bytes = 0;
-+			rxqinfo->rx_packets_with_error = 0;
-+			rxqinfo->rxbuf_alloc_failed = 0;
-+#ifdef DEBUG_RX
-+			for (j = 0; j < BNAD_MAX_RXQSETS_USED; j++) {
-+				rxqinfo->rx_packets_cpu[j] = 0;
-+				rxqinfo->rx_bytes_cpu[j] = 0;
-+			}
-+#endif
-+		}
-+	}
-+	if (bnad->txq_table) {
-+		for (i = 0; i < bnad->txq_num; i++) {
-+			txqinfo = &bnad->txq_table[i];
-+			txqinfo->tx_packets = 0;
-+			txqinfo->tx_bytes = 0;
-+#ifdef DEBUG_TX
-+			txqinfo->max_tso = 0;
-+			for (j = 0; j < 32; j++)
-+				txqinfo->tx_vectors[j] = 0;
-+#endif
-+		}
-+	}
-+}
-+
-+static void
-+bnad_set_rx_mode_locked(struct net_device *netdev)
-+{
-+	struct bnad *bnad = netdev_priv(netdev);
-+	int err;
-+	unsigned long irq_flags;
-+
-+	if (BNAD_NOT_READY(bnad))
-+		return;
-+
-+	spin_lock_irqsave(&bnad->priv_lock, irq_flags);
-+	if (netdev->flags & IFF_PROMISC) {
-+		if (!(bnad->flags & BNAD_F_PROMISC)) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+			bna_rxf_default_mode(bnad->priv, BNAD_RX_FUNC_ID,
-+					     BNA_ENABLE);
-+#else
-+			bna_rxf_promiscuous(bnad->priv, BNAD_RX_FUNC_ID,
-+					    BNA_ENABLE);
-+#endif
-+			bnad->flags |= BNAD_F_PROMISC;
-+		}
++	if (bnad_is_fibre(bnad->priv)) {
++		cmd->supported |= SUPPORTED_FIBRE;
++		cmd->advertising |= ADVERTISED_FIBRE;
++		cmd->port = PORT_FIBRE;
 +	} else {
-+		if (bnad->flags & BNAD_F_PROMISC) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+			bna_rxf_default_mode(bnad->priv, BNAD_RX_FUNC_ID,
-+					     BNA_DISABLE);
++		cmd->supported |= SUPPORTED_TP;
++		cmd->advertising |= ADVERTISED_TP;
++		cmd->port = PORT_TP;
++	}
 +#else
-+			bna_rxf_promiscuous(bnad->priv, BNAD_RX_FUNC_ID,
-+					    BNA_DISABLE);
++	cmd->supported |= SUPPORTED_FIBRE;
++	cmd->advertising |= ADVERTISED_FIBRE;
++	cmd->port = PORT_FIBRE;
 +#endif
-+			bnad->flags &= ~BNAD_F_PROMISC;
-+		}
-+	}
++	cmd->phy_address = 0;
 +
-+	if (netdev->flags & IFF_ALLMULTI) {
-+		if (!(bnad->flags & BNAD_F_ALLMULTI)) {
-+			bna_rxf_mcast_filter(bnad->priv, BNAD_RX_FUNC_ID,
-+					     BNA_DISABLE);
-+			bnad->flags |= BNAD_F_ALLMULTI;
-+		}
++	if (netif_carrier_ok(netdev)) {
++		cmd->speed = SPEED_10000;
++		cmd->duplex = DUPLEX_FULL;
 +	} else {
-+		if (bnad->flags & BNAD_F_ALLMULTI) {
-+			bna_rxf_mcast_filter(bnad->priv, BNAD_RX_FUNC_ID,
-+					     BNA_ENABLE);
-+			bnad->flags &= ~BNAD_F_ALLMULTI;
-+		}
++		cmd->speed = -1;
++		cmd->duplex = -1;
 +	}
-+	spin_unlock_irqrestore(&bnad->priv_lock, irq_flags);
-+
-+#ifdef HAVE_SET_RX_MODE
-+	if (netdev->uc_count) {
-+	}
-+#endif
-+	if (netdev->mc_count) {
-+		bna_mac_t *mcaddr_list;
-+		bna_mac_t bcast_addr = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-+		struct dev_mc_list *mc;
-+		int i;
-+
-+		mcaddr_list = kzalloc((netdev->mc_count + 1) *
-+				      sizeof(bna_mac_t), GFP_ATOMIC);
-+		if (!mcaddr_list)
-+			return;
-+		memcpy(&mcaddr_list[0], bcast_addr, sizeof(bna_mac_t));
-+
-+		mc = netdev->mc_list;
-+		for (i = 1; mc && i < netdev->mc_count + 1; i++, mc = mc->next)
-+			memcpy(&mcaddr_list[i], mc->dmi_addr,
-+			       sizeof(bna_mac_t));
-+
-+		spin_lock_irqsave(&bnad->priv_lock, irq_flags);
-+		err = bna_rxf_mcast_mac_set_list(bnad->priv, BNAD_RX_FUNC_ID,
-+						 (const bna_mac_t *)
-+						 mcaddr_list,
-+						 netdev->mc_count + 1);
-+		spin_unlock_irqrestore(&bnad->priv_lock, irq_flags);
-+
-+		if (err) {
-+			/* XXX Should we enable BNAD_F_ALLMULTI ? */
-+		}
-+		kfree(mcaddr_list);
-+	}
-+}
-+
-+static void
-+bnad_set_rx_mode(struct net_device *netdev)
-+{
-+#if defined (__VMKERNEL_MODULE__) || defined(BNAD_OWN_LOCK)
-+	struct bnad *bnad = netdev_priv(netdev);
-+#endif
-+	bnad_lock();
-+	bnad_set_rx_mode_locked(netdev);
++	cmd->transceiver = XCVR_EXTERNAL;
++	cmd->maxtxpkt = 0;
++	cmd->maxrxpkt = 0;
 +	bnad_unlock();
-+}
-+
-+int
-+bnad_ucast_mac(struct bnad *bnad, unsigned int rxf_id,
-+	       u8 * mac_ptr, unsigned int cmd)
-+{
-+	int err = 0;
-+	enum bna_status_e (*ucast_mac_func) (struct bna_dev_s *bna_dev,
-+					     unsigned int rxf_id,
-+					     const bna_mac_t *mac_addr_ptr) =
-+		NULL;
-+
-+	WARN_ON(in_interrupt());
-+	if (!is_valid_ether_addr(mac_ptr))
-+		return -EINVAL;
-+
-+	switch (cmd) {
-+	case BNAD_UCAST_MAC_SET:
-+		ucast_mac_func = bna_rxf_ucast_mac_set;
-+		break;
-+	case BNAD_UCAST_MAC_ADD:
-+		ucast_mac_func = bna_rxf_ucast_mac_add;
-+		break;
-+	case BNAD_UCAST_MAC_DEL:
-+		ucast_mac_func = bna_rxf_ucast_mac_del;
-+		break;
-+	}
-+
-+	while (test_and_set_bit(BNAD_SET_UCAST, &bnad->state))
-+		msleep(1);
-+#ifndef __VMKERNEL_MODULE__
-+	init_completion(&bnad->ucast_comp);
-+#endif
-+	spin_lock_irq(&bnad->priv_lock);
-+	err = ucast_mac_func(bnad->priv, rxf_id, (const bna_mac_t *) mac_ptr);
-+	spin_unlock_irq(&bnad->priv_lock);
-+#ifndef __VMKERNEL_MODULE__
-+	if (err)
-+		goto ucast_mac_exit;
-+
-+	BNA_TRACE(bnad, bnad->bna_id);
-+	BNA_TRACE_INFO(bnad, cmd, ("Waiting for %s MAC operation %d reply\n",
-+				   bnad->netdev->name, cmd));
-+	wait_for_completion(&bnad->ucast_comp);
-+	err = bnad->ucast_comp_status;
-+#endif
-+ucast_mac_exit:
-+	smp_mb__before_clear_bit();
-+	clear_bit(BNAD_SET_UCAST, &bnad->state);
-+	if (err) {
-+		BNA_TRACE(bnad, err);
-+		printk(KERN_INFO
-+		       "%s unicast MAC address command %d failed: %d\n",
-+		       bnad->netdev->name, cmd, err);
-+		return -EINVAL;
-+	}
-+
 +	return 0;
 +}
 +
 +static int
-+bnad_set_mac_address_locked(struct net_device *netdev, void *addr)
++bnad_set_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
 +{
-+	struct bnad *bnad = netdev_priv(netdev);
-+	struct sockaddr *sa = (struct sockaddr *) addr;
-+	int err;
-+
-+	if (!is_valid_ether_addr(sa->sa_data))
-+		return -EADDRNOTAVAIL;
-+
-+	if (!BNAD_NOT_READY(bnad)) {
-+		err = bnad_ucast_mac(bnad, BNAD_RX_FUNC_ID, (u8 *) sa->sa_data,
-+				     BNAD_UCAST_MAC_SET);
-+		if (err)
-+			return err;
++	/* 10G full duplex setting supported only */
++	if (cmd->autoneg == AUTONEG_ENABLE) {
++		return -EOPNOTSUPP;
++	} else {
++		if ((cmd->speed == SPEED_10000) && (cmd->duplex == DUPLEX_FULL))
++			return 0;
 +	}
 +
-+	memcpy(netdev->dev_addr, sa->sa_data, netdev->addr_len);
-+	return 0;
-+}
-+
-+static int
-+bnad_set_mac_address(struct net_device *netdev, void *addr)
-+{
-+	int err = 0;
-+#if defined (__VMKERNEL_MODULE__) || defined(BNAD_OWN_LOCK)
-+	struct bnad *bnad = netdev_priv(netdev);
-+#endif
-+
-+	bnad_lock();
-+	err = bnad_set_mac_address_locked(netdev, addr);
-+	bnad_unlock();
-+	return err;
-+
-+}
-+
-+static int
-+bnad_change_mtu(struct net_device *netdev, int new_mtu)
-+{
-+	int err = 0;
-+	struct bnad *bnad = netdev_priv(netdev);
-+
-+	WARN_ON(in_interrupt());
-+
-+	BNA_TRACE(bnad, new_mtu);
-+	if (new_mtu + ETH_HLEN < ETH_ZLEN || new_mtu > BNAD_JUMBO_MTU)
-+		return -EINVAL;
-+
-+	bnad_lock();
-+
-+	netdev->mtu = new_mtu;
-+
-+	err = bnad_sw_reset(netdev);
-+
-+	bnad_unlock();
-+
-+	return err;
-+}
-+
-+static int
-+bnad_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
-+{
 +	return -EOPNOTSUPP;
 +}
 +
 +static void
-+bnad_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
++bnad_get_drvinfo(struct net_device *netdev, struct ethtool_drvinfo *drvinfo)
 +{
 +	struct bnad *bnad = netdev_priv(netdev);
++	struct bfa_ioc_attr_s *ioc_attr;
 +
-+	bnad_lock();
-+	bnad->vlangrp = grp;
-+	bnad_unlock();
-+}
++	strcpy(drvinfo->driver, BNAD_NAME);
++	strcpy(drvinfo->version, BNAD_VERSION);
 +
-+static void
-+bnad_vlan_rx_add_vid(struct net_device *netdev, unsigned short vid)
-+{
-+	struct bnad *bnad = netdev_priv(netdev);
-+	unsigned long irq_flags;
++	ioc_attr = kzalloc(sizeof(*ioc_attr), GFP_KERNEL);
++	if (ioc_attr) {
++		memset(ioc_attr, 0, sizeof(*ioc_attr));
++		spin_lock_irq(&bnad->priv_lock);
++		bna_iocll_getattr(bnad->priv, ioc_attr);
++		spin_unlock_irq(&bnad->priv_lock);
 +
-+	BNA_TRACE_INFO(bnad, vid, ("%s add vlan %u\n", netdev->name, vid));
-+	bnad_lock();
-+	if (BNAD_NOT_READY(bnad)) {
-+		bnad_unlock();
-+		return;
-+	}
-+	spin_lock_irqsave(&bnad->priv_lock, irq_flags);
-+	bna_rxf_vlan_add(bnad->priv, BNAD_RX_FUNC_ID, (unsigned int) vid);
-+	spin_unlock_irqrestore(&bnad->priv_lock, irq_flags);
-+	bnad_unlock();
-+}
-+
-+static void
-+bnad_vlan_rx_kill_vid(struct net_device *netdev, unsigned short vid)
-+{
-+	struct bnad *bnad = netdev_priv(netdev);
-+	unsigned long irq_flags;
-+
-+	BNA_TRACE_INFO(bnad, vid, ("%s remove vlan %u\n", netdev->name, vid));
-+	bnad_lock();
-+	if (BNAD_NOT_READY(bnad)) {
-+		bnad_unlock();
-+		return;
-+	}
-+	spin_lock_irqsave(&bnad->priv_lock, irq_flags);
-+	bna_rxf_vlan_del(bnad->priv, BNAD_RX_FUNC_ID, (unsigned int) vid);
-+	spin_unlock_irqrestore(&bnad->priv_lock, irq_flags);
-+	bnad_unlock();
-+}
-+
-+static void
-+bnad_reconfig_vlans(struct bnad *bnad)
-+{
-+	u16 vlan_id;
-+
-+	spin_lock_irq(&bnad->priv_lock);
-+	bna_rxf_vlan_del_all(bnad->priv, BNAD_RX_FUNC_ID);
-+	if (bnad->vlangrp) {
-+		for (vlan_id = 0; vlan_id < VLAN_GROUP_ARRAY_LEN; vlan_id++) {
-+			if (vlan_group_get_device(bnad->vlangrp, vlan_id))
-+				bna_rxf_vlan_add(bnad->priv, BNAD_RX_FUNC_ID,
-+						 (unsigned int) vlan_id);
-+		}
-+	}
-+	spin_unlock_irq(&bnad->priv_lock);
-+}
-+
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+static void
-+bnad_netpoll(struct net_device *netdev)
-+{
-+	struct bnad *bnad = netdev_priv(netdev);
-+
-+	/* XXX Changed to BNA_TRACE_DEBUG later. */
-+	BNA_TRACE_INFO(bnad, bnad->bna_id, ("%s bnad_netpoll\n", netdev->name));
-+	disable_irq(bnad->pcidev->irq);
-+	bnad_isr(bnad->pcidev->irq, netdev);
-+	enable_irq(bnad->pcidev->irq);
-+}
-+#endif
-+
-+static void
-+bnad_q_num_init(struct bnad *bnad, uint rxqsets)
-+{
-+	bnad->txq_num = BNAD_TXQ_NUM;
-+	bnad->txf_num = 1;
-+
-+	if (bnad->flags & BNAD_F_MSIX) {
-+#if defined(BNAD_NAPI) && !defined(BNAD_NEW_NAPI)
-+		bnad->cq_num = 1;
-+		bnad->rxq_num = bnad->cq_num * bnad_rxqs_per_cq;
-+		bnad->rxf_num = 1;
-+		bnad->msix_num =
-+			bnad->txq_num + bnad->cq_num +
-+			BNAD_MSIX_ERR_MAILBOX_NUM;
-+#else /* !BNAD_NAPI || BNAD_NEW_NAPI */
-+		if (rxqsets) {
-+			bnad->cq_num = rxqsets;
-+			if (bnad->cq_num > BNAD_MAX_CQS)
-+				bnad->cq_num = BNAD_MAX_CQS;
-+		} else
-+			bnad->cq_num = min((uint) num_online_cpus(),
-+					   (uint) BNAD_MAX_RXQSETS_USED);
-+#if !defined(__VMKERNEL_MODULE__) || !defined(__VMKNETDDI_QUEUEOPS__)
-+		/* VMware does not use RSS like Linux driver */
-+		if (!BNA_POWER_OF_2(bnad->cq_num))
-+			BNA_TO_POWER_OF_2(bnad->cq_num);
-+#endif
-+		bnad->rxq_num = bnad->cq_num * bnad_rxqs_per_cq;
-+
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+		bnad_vmw_max_netqs = bnad->cq_num - BNAD_FIRST_NETQ_ID;
-+		if (bnad_vmw_max_netqs) {
-+			bnad_vmw_max_netq_filters =
-+				(BNA_RXF_ID_MAX -
-+				 BNAD_FIRST_NETQ_RXF) / bnad_vmw_max_netqs;
-+		} else {
-+			bnad_vmw_max_netq_filters = 0;
-+		}
-+		bnad->rxf_num = BNAD_FIRST_NETQ_RXF + bnad_vmw_max_netqs *
-+			bnad_vmw_max_netq_filters;
-+#else
-+		bnad->rxf_num = 1;
-+#endif
-+		bnad->msix_num =
-+			bnad->txq_num + bnad->cq_num +
-+			BNAD_MSIX_ERR_MAILBOX_NUM;
-+#endif /* !BNAD_NAPI || BNAD_NEW_NAPI */
-+	} else {
-+		bnad->cq_num = 1;
-+		bnad->rxq_num = bnad->cq_num * bnad_rxqs_per_cq;
-+		bnad->rxf_num = 1;
-+		bnad->msix_num = 0;
-+	}
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+	bnad->cq_active = 1;
-+	if (bnad_small_large_rxbufs)
-+		bnad->rxq_active = 3;
-+	else
-+		bnad->rxq_active = 1;
-+	bnad->rxf_active = 1;
-+#endif
-+}
-+
-+static void
-+bnad_enable_msix(struct bnad *bnad)
-+{
-+	int i, ret;
-+
-+	if (!(bnad->flags & BNAD_F_MSIX) || bnad->msix_table)
-+		return;
-+
-+	bnad->msix_table =
-+		kzalloc(bnad->msix_num * sizeof(struct msix_entry), GFP_KERNEL);
-+	if (!bnad->msix_table)
-+		goto intx_mode;
-+
-+	for (i = 0; i < bnad->msix_num; i++)
-+		bnad->msix_table[i].entry = i;
-+
-+	ret = pci_enable_msix(bnad->pcidev, bnad->msix_table, bnad->msix_num);
-+#ifndef __VMKERNEL_MODULE__
-+	if (ret > 0) {
-+		/* Not enough MSI-X vectors. */
-+		int rxqsets = ret;
-+
-+		dev_err(&bnad->pcidev->dev,
-+			"Tried to get %d MSI-X vectors, only got %d\n",
-+			bnad->msix_num, ret);
-+		BNA_TO_POWER_OF_2(rxqsets);
-+		while (bnad->msix_num > ret && rxqsets) {
-+			bnad_q_num_init(bnad, rxqsets);
-+			rxqsets >>= 1;
-+		}
-+		if (bnad->msix_num <= ret) {
-+			ret = pci_enable_msix(bnad->pcidev, bnad->msix_table,
-+					      bnad->msix_num);
-+			if (ret) {
-+				BNA_TRACE(bnad, ret);
-+				dev_err(&bnad->pcidev->dev,
-+					"Enabling MSI-X failed: %d\n", ret);
-+				goto intx_mode;
-+			}
-+		} else {
-+			BNA_TRACE(bnad, ret);
-+			dev_err(&bnad->pcidev->dev,
-+				"Enabling MSI-X failed: limited (%d) vectors\n",
-+				ret);
-+			goto intx_mode;
-+		}
-+	} else if (ret < 0) {
-+#else
-+	if (ret != 0) {
-+#endif
-+		BNA_TRACE(bnad, ret);
-+		dev_err(&bnad->pcidev->dev, "Enabling MSI-X failed: %d\n", ret);
-+		goto intx_mode;
++		strncpy(drvinfo->fw_version, ioc_attr->adapter_attr.fw_ver,
++			sizeof(drvinfo->fw_version) - 1);
++		kfree(ioc_attr);
 +	}
 +
-+	dev_info(&bnad->pcidev->dev,
-+		 "Enabling MSI-X succeeded with %d vectors, %s\n",
-+		 bnad->msix_num,
-+		 (bnad->cq_num > 1) ? "RSS is enabled" : "RSS is not enabled");
-+	return;
-+
-+      intx_mode:
-+	BNA_TRACE(bnad, bnad->bna_id);
-+	dev_warn(&bnad->pcidev->dev, "Switching to INTx mode with no RSS\n");
-+	if (bnad->msix_table) {
-+		kfree(bnad->msix_table);
-+		bnad->msix_table = NULL;
-+	}
-+	bnad->flags &= ~BNAD_F_MSIX;
-+	bnad_q_num_init(bnad, 0);
++	strncpy(drvinfo->bus_info, pci_name(bnad->pcidev), ETHTOOL_BUSINFO_LEN);
 +}
-+
-+static void
-+bnad_disable_msix(struct bnad *bnad)
-+{
-+	if ((bnad->flags & BNAD_F_MSIX) && bnad->msix_table) {
-+		pci_disable_msix(bnad->pcidev);
-+		kfree(bnad->msix_table);
-+		bnad->msix_table = NULL;
-+		bnad->flags &= ~BNAD_F_MSIX;
-+	}
-+}
-+
-+static void
-+bnad_error(struct bnad *bnad)
-+{
-+	BNA_TRACE_INFO(bnad, bnad->bna_id,
-+		       ("%s bnad_error\n", bnad->netdev->name));
-+
-+	rtnl_lock();
-+	set_bit(BNAD_RESETTING, &bnad->state);
-+	if (!test_and_set_bit(BNAD_DISABLED, &bnad->state)) {
-+		bnad_detach(bnad);
-+		bnad_cleanup(bnad);
-+		BNA_TRACE_WARN(bnad, bnad->bna_id,
-+			       ("%s is disabled upon error\n",
-+				bnad->netdev->name));
-+	}
-+	rtnl_unlock();
-+}
-+
-+static void
-+bnad_resume_after_reset(struct bnad *bnad)
-+{
-+	int err;
-+	struct net_device *netdev = bnad->netdev;
-+
-+	BNA_TRACE_WARN(bnad, bnad->bna_id,
-+		       ("port %d resumes after reset\n", bnad->bna_id));
-+
-+	rtnl_lock();
-+	clear_bit(BNAD_RESETTING, &bnad->state);
-+
-+	bna_port_mac_get(bnad->priv, (bna_mac_t *) bnad->perm_addr);
-+	BNA_ASSERT(netdev->addr_len == sizeof(bnad->perm_addr));
-+#ifdef ETHTOOL_GPERMADDR
-+	memcpy(netdev->perm_addr, bnad->perm_addr, netdev->addr_len);
-+#endif
-+	if (is_zero_ether_addr(netdev->dev_addr))
-+		memcpy(netdev->dev_addr, bnad->perm_addr, netdev->addr_len);
-+
-+	if (netif_running(bnad->netdev)) {
-+		err = bnad_open_locked(bnad->netdev);
-+		if (err) {
-+			BNA_TRACE_ERROR(bnad, err,
-+					("%s bnad_open failed after reset: %d\n",
-+					 bnad->netdev->name, err));
-+		}
-+	}
-+	rtnl_unlock();
-+}
-+
-+static void
-+bnad_work(struct work_struct *work)
-+{
-+	struct bnad *bnad = container_of(work, struct bnad, work);
-+	unsigned long work_flags;
-+
-+	BNA_TRACE_INFO(bnad, bnad->bna_id, ("port %u bnad_work flags 0x%x\n",
-+					    bnad->bna_id, bnad->work_flags));
-+
-+	spin_lock_irq(&bnad->priv_lock);
-+	work_flags = bnad->work_flags;
-+	bnad->work_flags = 0;
-+	spin_unlock_irq(&bnad->priv_lock);
-+
-+	if (work_flags & BNAD_WF_ERROR) {
-+		BNA_TRACE_INFO(bnad, work_flags,
-+			       ("port %u bnad_work: BNAD_WF_ERROR\n",
-+				bnad->bna_id));
-+		bnad_error(bnad);
-+	}
-+
-+	if (work_flags & BNAD_WF_RESETDONE) {
-+		BNA_TRACE_INFO(bnad, work_flags,
-+			       ("port %u bnad_work: BNAD_WF_RESETDONE\n",
-+				bnad->bna_id));
-+		bnad_resume_after_reset(bnad);
-+	}
-+}
-+
-+static void
-+bnad_stats_timeo(unsigned long data)
-+{
-+	struct bnad *bnad = (struct bnad *) data;
-+	int i;
-+	struct bnad_rxq_info *rxqinfo;
-+
-+	spin_lock_irq(&bnad->priv_lock);
-+	bna_stats_get(bnad->priv);
-+	spin_unlock_irq(&bnad->priv_lock);
-+
-+#ifdef BNA_DYN_INTR_MOD
-+	if (!test_bit(BNAD_DIAG_LB_MODE, &bnad->state)
-+	    && bnad->rx_dyn_coalesce_on) {
-+		u8 cls_timer;
-+		struct bnad_cq_info *cq;
-+		for (i = 0; i < bnad->cq_num; i++) {
-+			cq = &bnad->cq_table[i];
-+
-+			if ((cq->pkt_rate.small_pkt_cnt == 0)
-+			    && (cq->pkt_rate.large_pkt_cnt == 0))
-+				continue;
-+
-+			cls_timer =
-+				bna_calc_coalescing_timer(bnad->priv,
-+							  &cq->pkt_rate);
-+
-+			/*For NAPI version, coalescing timer need to stored */
-+			cq->rx_coalescing_timeo = cls_timer;
-+
-+			bna_ib_coalescing_timer_set(bnad->priv, &cq->ib,
-+						    cls_timer);
-+			BNA_TRACE(bnad, cls_timer);
-+			BNA_TRACE(bnad, i);
-+		}
-+	}
-+#endif
-+
-+	for (i = 0; i < bnad->rxq_num; i++) {
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+		if (!test_bit(i, &bnad->rxq_active))
-+			continue;
-+#endif
-+		rxqinfo = &bnad->rxq_table[i];
-+		if (!(BNA_QE_IN_USE_CNT(&rxqinfo->skb_unmap_q,
-+					rxqinfo->skb_unmap_q.q_depth) >>
-+		      BNAD_RXQ_REFILL_THRESHOLD_SHIFT)) {
-+			BNA_TRACE_INFO(bnad, i,
-+				       ("%s: RxQ %d more buffers to allocate\n",
-+					bnad->netdev->name, i));
-+			if (test_and_set_bit(BNAD_RXQ_REFILL, &rxqinfo->flags))
-+				continue;
-+			bnad_alloc_rxbufs(rxqinfo);
-+			smp_mb__before_clear_bit();
-+			clear_bit(BNAD_RXQ_REFILL, &rxqinfo->flags);
-+		}
-+	}
-+}
-+
-+static void
-+bnad_log_printf(struct bfa_log_mod_s *log_mod, u32 msg_id, const char *fmt, ...)
-+{
-+	va_list ap;
-+	char buf[128];
-+
-+	va_start(ap, fmt);
-+	vsnprintf(buf, sizeof(buf), fmt, ap);
-+	va_end(ap);
-+
-+	printk(buf);
-+}
-+
-+static void
-+bnad_free_ioc_mem(struct bnad *bnad)
-+{
-+	enum bna_dma_mem_type i;
-+
-+	for (i = 0; i < BNA_MEM_T_MAX; i++) {
-+		if (!bnad->ioc_meminfo[i].len)
-+			continue;
-+		if (bnad->ioc_meminfo[i].kva && bnad->ioc_meminfo[i].dma)
-+			pci_free_consistent(bnad->pcidev,
-+					    bnad->ioc_meminfo[i].len,
-+					    bnad->ioc_meminfo[i].kva,
-+					    *(dma_addr_t *) &bnad->
-+					    ioc_meminfo[i].dma);
-+		else if (bnad->ioc_meminfo[i].kva)
-+			vfree(bnad->ioc_meminfo[i].kva);
-+		bnad->ioc_meminfo[i].kva = NULL;
-+	}
-+}
-+
-+/* The following IOC callback functions are called with priv_lock held. */
-+
-+void
-+bna_iocll_enable_cbfn(void *arg, enum bfa_status status)
-+{
-+	struct bnad *bnad = arg;
-+
-+	BNA_TRACE_WARN(bnad, bnad->bna_id,
-+		       ("port %u IOC enable callback, status %d\n",
-+			bnad->bna_id, status));
-+	BNA_TRACE(bnad, status);
-+
-+	bnad->ioc_comp_status = status;
-+	complete(&bnad->ioc_comp);
-+
-+	if (!status) {
-+		bnad->work_flags |= BNAD_WF_RESETDONE;
-+		if (!test_bit(BNAD_REMOVED, &bnad->state))
-+			schedule_work(&bnad->work);
-+	}
-+}
-+
-+void
-+bna_iocll_disable_cbfn(void *arg)
-+{
-+	struct bnad *bnad = arg;
-+
-+	BNA_TRACE_WARN(bnad, bnad->bna_id,
-+		       ("port %u IOC disable callback\n", bnad->bna_id));
-+	complete(&bnad->ioc_comp);
-+}
-+
-+void
-+bna_iocll_hbfail_cbfn(void *arg)
-+{
-+	struct bnad *bnad = arg;
-+
-+	BNA_TRACE_ERROR(bnad, bnad->bna_id,
-+			("port %u IOC HBFail callback\n", bnad->bna_id));
-+	bnad_hw_error(bnad, BFA_STATUS_IOC_FAILURE);
-+}
-+
-+void
-+bna_iocll_reset_cbfn(void *arg)
-+{
-+	struct bnad *bnad = arg;
-+	u32 int_status, int_mask;
-+	unsigned int irq;
-+
-+	BNA_TRACE_WARN(bnad, bnad->bna_id,
-+		       ("port %u IOC reset callback\n", bnad->bna_id));
-+
-+	/* Clear the status */
-+	bna_intr_status_get(bnad->priv, &int_status);
-+
-+	if (bnad->flags & BNAD_F_MSIX) {
-+		if (test_and_clear_bit(BNAD_MBOX_IRQ_DISABLED, &bnad->state)) {
-+			irq = bnad->msix_table[bnad->txq_num +
-+					       bnad->cq_num].vector;
-+			BNA_TRACE_WARN(bnad, bnad->bna_id,
-+				       ("Enabling Mbox IRQ %d for port %d\n",
-+					irq, bnad->bna_id));
-+			enable_irq(irq);
-+		}
-+	}
-+
-+	int_mask = ~(__LPU2HOST_MBOX_MASK_BITS | __ERROR_MASK_BITS);
-+	bna_intx_enable(bnad->priv, int_mask);
-+}
-+
-+static void
-+bnad_ioc_timeout(unsigned long data)
-+{
-+	struct bnad *bnad = (struct bnad *) data;
-+
-+	spin_lock_irq(&bnad->priv_lock);
-+	bna_iocll_timer(bnad->priv);
-+	spin_unlock_irq(&bnad->priv_lock);
-+
-+	if (!test_bit(BNAD_REMOVED, &bnad->state))
-+		mod_timer(&bnad->ioc_timer,
-+			  jiffies + HZ * BNA_IOC_TIMER_FREQ / 1000);
-+}
-+
-+s32
-+bnad_cee_attach(struct bnad *bnad)
-+{
-+	u8 *dma_kva;
-+	dma_addr_t dma_pa;
-+	struct bfa_cee_s *cee = &bnad->cee;
-+
-+	memset(cee, 0, sizeof(struct bfa_cee_s));
-+
-+	/*Allocate memory for dma */
-+	dma_kva =
-+		pci_alloc_consistent(bnad->pcidev, bfa_cee_meminfo(), &dma_pa);
-+	if (dma_kva == NULL)
-+		return -ENOMEM;
-+
-+	/*Ugly... need to remove once CAL is fixed. */
-+	((struct bna_dev_s *) bnad->priv)->cee = cee;
-+
-+	bnad->cee_cbfn.get_attr_cbfn = bnad_cee_get_attr_cb;
-+	bnad->cee_cbfn.get_stats_cbfn = bnad_cee_get_stats_cb;
-+	bnad->cee_cbfn.reset_stats_cbfn = bnad_cee_reset_stats_cb;
-+	bnad->cee_cbfn.reset_stats_cbfn = NULL;
-+
-+	/*Invoke cee attach function */
-+	bfa_cee_attach(cee, &bnad->priv->ioc, bnad, bnad->trcmod, bnad->logmod);
-+	bfa_cee_mem_claim(cee, dma_kva, dma_pa);
-+	return 0;
-+}
-+
-+static void
-+bnad_cee_detach(struct bnad *bnad)
-+{
-+	struct bfa_cee_s *cee = &bnad->cee;
-+	if (cee->attr_dma.kva) {
-+		pci_free_consistent(bnad->pcidev, bfa_cee_meminfo(),
-+				    cee->attr_dma.kva, cee->attr_dma.pa);
-+	}
-+	bfa_cee_detach(&bnad->cee);
-+}
-+
 +
 +static int
-+bnad_priv_init(struct bnad *bnad)
++get_regs(struct bnad *bnad, u32 * regs)
 +{
-+	dma_addr_t dma_addr;
-+	struct bna_dma_addr bna_dma_addr;
-+	char inst_name[16];
-+	int err, i;
-+	struct bfa_pcidev_s pcidev_info;
-+	u32 intr_mask;
++	int num = 0, i;
++	u32 reg_addr;
 +
-+	BNA_LOG_DEBUG(("port %u bnad_priv_init\n", bnad->bna_id));
++#define BNAD_GET_REG(addr) 					\
++do {								\
++	if (regs)						\
++		regs[num++] = readl(bnad->bar0 + (addr));      \
++	else							\
++		num++;						\
++} while (0)
 +
-+	if (bnad_msix)
-+		bnad->flags |= BNAD_F_MSIX;
-+	bnad_q_num_init(bnad, bnad_rxqsets_used);
++	/* DMA Block Internal Registers */
++	BNAD_GET_REG(DMA_CTRL_REG0);
++	BNAD_GET_REG(DMA_CTRL_REG1);
++	BNAD_GET_REG(DMA_ERR_INT_STATUS);
++	BNAD_GET_REG(DMA_ERR_INT_ENABLE);
++	BNAD_GET_REG(DMA_ERR_INT_STATUS_SET);
 +
-+	bnad->work_flags = 0;
-+	INIT_WORK(&bnad->work, bnad_work);
++	/* APP Block Register Address Offset from BAR0 */
++	BNAD_GET_REG(HOSTFN0_INT_STATUS);
++	BNAD_GET_REG(HOSTFN0_INT_MASK);
++	BNAD_GET_REG(HOST_PAGE_NUM_FN0);
++	BNAD_GET_REG(HOST_MSIX_ERR_INDEX_FN0);
++	BNAD_GET_REG(FN0_PCIE_ERR_REG);
++	BNAD_GET_REG(FN0_ERR_TYPE_STATUS_REG);
++	BNAD_GET_REG(FN0_ERR_TYPE_MSK_STATUS_REG);
 +
-+	init_timer(&bnad->stats_timer);
-+	bnad->stats_timer.function = &bnad_stats_timeo;
-+	bnad->stats_timer.data = (unsigned long) bnad;
++	BNAD_GET_REG(HOSTFN1_INT_STATUS);
++	BNAD_GET_REG(HOSTFN1_INT_MASK);
++	BNAD_GET_REG(HOST_PAGE_NUM_FN1);
++	BNAD_GET_REG(HOST_MSIX_ERR_INDEX_FN1);
++	BNAD_GET_REG(FN1_PCIE_ERR_REG);
++	BNAD_GET_REG(FN1_ERR_TYPE_STATUS_REG);
++	BNAD_GET_REG(FN1_ERR_TYPE_MSK_STATUS_REG);
 +
-+	bnad->tx_coalescing_timeo = BNAD_TX_COALESCING_TIMEO;
-+	bnad->tx_interpkt_count = BNAD_TX_INTERPKT_COUNT;
++	BNAD_GET_REG(PCIE_MISC_REG);
 +
-+	bnad->rx_coalescing_timeo = BNAD_RX_COALESCING_TIMEO;
-+	bnad->rx_interpkt_count = BNAD_RX_INTERPKT_COUNT;
-+	bnad->rx_interpkt_timeo = BNAD_RX_INTERPKT_TIMEO;
-+#ifdef BNA_DYN_INTR_MOD
-+	bnad->rx_dyn_coalesce_on = BNA_TRUE;
-+#endif
++	BNAD_GET_REG(HOST_SEM0_REG);
++	BNAD_GET_REG(HOST_SEM1_REG);
++	BNAD_GET_REG(HOST_SEM2_REG);
++	BNAD_GET_REG(HOST_SEM3_REG);
++	BNAD_GET_REG(HOST_SEM0_INFO_REG);
++	BNAD_GET_REG(HOST_SEM1_INFO_REG);
++	BNAD_GET_REG(HOST_SEM2_INFO_REG);
++	BNAD_GET_REG(HOST_SEM3_INFO_REG);
 +
-+	bnad->rx_csum = 1;
-+	bnad->pause_config.tx_pause = 0;
-+	bnad->pause_config.rx_pause = 0;
++	BNAD_GET_REG(TEMPSENSE_CNTL_REG);
++	BNAD_GET_REG(TEMPSENSE_STAT_REG);
 +
-+	/* XXX could be vmalloc? */
-+	bnad->trcmod = kzalloc(sizeof(struct bfa_trc_mod_s), GFP_KERNEL);
-+	if (!bnad->trcmod) {
-+		BNA_LOG_ERROR(("port %u failed allocating trace buffer!\n",
-+			       bnad->bna_id));
-+		return -ENOMEM;
-+	}
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+	if (bnad_alloc_netq_array(bnad)) {
-+		BNA_LOG_ERROR(("Error alloc NetQ tables!\n"));
-+		goto free_trcmod;
-+	}
-+#endif
-+	bfa_trc_init(bnad->trcmod);
-+	BNA_TRACE(bnad, bnad->bna_id);
++	BNAD_GET_REG(APP_LOCAL_ERR_STAT);
++	BNAD_GET_REG(APP_LOCAL_ERR_MSK);
 +
-+	bnad->logmod = &bnad->log_data;
-+	sprintf(inst_name, "%u", bnad->bna_id);
-+	bfa_log_init(bnad->logmod, inst_name, bnad_log_printf);
-+	bfa_log_set_level_all(bnad->logmod, BFA_LOG_INFO);
++	BNAD_GET_REG(PCIE_LNK_ERR_STAT);
++	BNAD_GET_REG(PCIE_LNK_ERR_MSK);
 +
-+	bnad->aen = &bnad->aen_buf;
-+	INIT_LIST_HEAD(&bnad->file_q);
-+	INIT_LIST_HEAD(&bnad->file_free_q);
-+	for (i = 0; i < BNAD_AEN_MAX_APPS; i++) {
-+		bfa_q_qe_init(&bnad->file_buf[i].qe);
-+		list_add_tail(&bnad->file_buf[i].qe, &bnad->file_free_q);
-+	}
++	BNAD_GET_REG(FCOE_FIP_ETH_TYPE);
++	BNAD_GET_REG(RESV_ETH_TYPE);
 +
-+	bnad->priv = kzalloc(bna_get_handle_size(), GFP_KERNEL);
-+	if (!bnad->priv) {
-+		BNA_TRACE_ERROR(bnad, bnad->bna_id,
-+				("port %u failed allocating memory for bna\n",
-+				 bnad->bna_id));
-+		err = -ENOMEM;
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+		goto free_netq;
-+#else
-+		goto free_trcmod;
-+#endif
-+	}
-+	bnad->priv_stats = pci_alloc_consistent(bnad->pcidev,
-+						BNA_HW_STATS_SIZE, &dma_addr);
-+	if (!bnad->priv_stats) {
-+		BNA_TRACE_ERROR(bnad, bnad->bna_id,
-+				("port %u failed allocating memory for bna stats\n",
-+				 bnad->bna_id));
-+		err = -ENOMEM;
-+		goto free_priv_mem;
-+	}
-+	pci_unmap_addr_set(bnad, priv_stats_dma, dma_addr);
-+	BNA_TRACE_DEBUG(bnad, bnad->bna_id,
-+			("port %u priv_stats dma addr 0x%x\n", bnad->bna_id,
-+			 dma_addr));
++	BNAD_GET_REG(HOSTFN2_INT_STATUS);
++	BNAD_GET_REG(HOSTFN2_INT_MASK);
++	BNAD_GET_REG(HOST_PAGE_NUM_FN2);
++	BNAD_GET_REG(HOST_MSIX_ERR_INDEX_FN2);
++	BNAD_GET_REG(FN2_PCIE_ERR_REG);
++	BNAD_GET_REG(FN2_ERR_TYPE_STATUS_REG);
++	BNAD_GET_REG(FN2_ERR_TYPE_MSK_STATUS_REG);
 +
-+	BNA_SET_DMA_ADDR(dma_addr, &bna_dma_addr);
-+	bna_init(bnad->priv, (void *) bnad->bar0, bnad->priv_stats,
-+		 bna_dma_addr, bnad->trcmod);
-+	bna_all_stats_get(bnad->priv, &bnad->hw_stats);
-+	spin_lock_init(&bnad->priv_lock);
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+	spin_lock_init(&bnad->lock);
-+#endif
-+	bnad->priv_cbfn.ucast_set_cb = bnad_ucast_set_cb;
-+	bnad->priv_cbfn.txq_stop_cb = bnad_q_stop_cb;
-+	bnad->priv_cbfn.rxq_stop_cb = bnad_q_stop_cb;
-+	bnad->priv_cbfn.link_up_cb = bnad_link_up_cb;
-+	bnad->priv_cbfn.link_down_cb = bnad_link_down_cb;
-+	bnad->priv_cbfn.stats_get_cb = bnad_stats_get_cb;
-+	bnad->priv_cbfn.hw_error_cb = bnad_hw_error_cb;
-+	bnad->priv_cbfn.lldp_get_cfg_cb = bnad_lldp_get_cfg_cb;
-+	//bnad->priv_cbfn.cee_get_stats_cb = bnad_cee_get_stats_cb;
-+	/* Diagnostics */
-+	bnad->priv_cbfn.set_diag_lb_cb = bnad_set_diag_lb_cb;
++	BNAD_GET_REG(HOSTFN3_INT_STATUS);
++	BNAD_GET_REG(HOSTFN3_INT_MASK);
++	BNAD_GET_REG(HOST_PAGE_NUM_FN3);
++	BNAD_GET_REG(HOST_MSIX_ERR_INDEX_FN3);
++	BNAD_GET_REG(FN3_PCIE_ERR_REG);
++	BNAD_GET_REG(FN3_ERR_TYPE_STATUS_REG);
++	BNAD_GET_REG(FN3_ERR_TYPE_MSK_STATUS_REG);
 +
-+	bna_register_callback(bnad->priv, &bnad->priv_cbfn, bnad);
-+
-+	bna_iocll_meminfo(bnad->priv, bnad->ioc_meminfo);
-+	for (i = 0; i < BNA_MEM_T_MAX; i++) {
-+		if (!bnad->ioc_meminfo[i].len)
-+			continue;
-+		switch (i) {
-+		case BNA_KVA_MEM_T_FWTRC:
-+			bnad->ioc_meminfo[i].kva =
-+				vmalloc(bnad->ioc_meminfo[i].len);
-+			break;
-+		default:
-+			bnad->ioc_meminfo[i].kva =
-+				pci_alloc_consistent(bnad->pcidev,
-+						     bnad->ioc_meminfo[i].len,
-+						     (dma_addr_t *) &bnad->
-+						     ioc_meminfo[i].dma);
-+
-+			break;
-+		}
-+		if (!bnad->ioc_meminfo[i].kva) {
-+			BNA_TRACE_ERROR(bnad, bnad->ioc_meminfo[i].len,
-+					("port %u failed allocating %u bytes memory for IOC\n",
-+					 bnad->bna_id,
-+					 bnad->ioc_meminfo[i].len));
-+			err = -ENOMEM;
-+			goto free_ioc_mem;
-+		}
++	/* Host Command Status Registers */
++	reg_addr = HOST_CMDSTS0_CLR_REG;
++	for (i = 0; i < 16; i++) {
++		BNAD_GET_REG(reg_addr);
++		BNAD_GET_REG(reg_addr + 4);
++		BNAD_GET_REG(reg_addr + 8);
++		reg_addr += 0x10;
 +	}
 +
-+	pcidev_info.pci_slot = PCI_SLOT(bnad->pcidev->devfn);
-+	pcidev_info.pci_func = PCI_FUNC(bnad->pcidev->devfn);
-+	pcidev_info.device_id = bnad->pcidev->device;
-+	pcidev_info.pci_bar_kva = bnad->bar0;
-+	bna_iocll_attach(bnad->priv, bnad, bnad->ioc_meminfo,
-+			 &pcidev_info, bnad->trcmod, bnad->aen, bnad->logmod);
++	/* Function ID register */
++	BNAD_GET_REG(FNC_ID_REG);
 +
-+	err = bnad_cee_attach(bnad);
-+	if (err) {
-+		BNA_TRACE_ERROR(bnad, bnad->bna_id,
-+				("port %u cee_attach failed: %d\n",
-+				 bnad->bna_id, err));
-+		goto iocll_detach;
++	/* Function personality register */
++	BNAD_GET_REG(FNC_PERS_REG);
++
++	/* Operation mode register */
++	BNAD_GET_REG(OP_MODE);
++
++	/* LPU0 Registers */
++	BNAD_GET_REG(LPU0_MBOX_CTL_REG);
++	BNAD_GET_REG(LPU0_MBOX_CMD_REG);
++	BNAD_GET_REG(LPU0_MBOX_LINK_0REG);
++	BNAD_GET_REG(LPU1_MBOX_LINK_0REG);
++	BNAD_GET_REG(LPU0_MBOX_STATUS_0REG);
++	BNAD_GET_REG(LPU1_MBOX_STATUS_0REG);
++	BNAD_GET_REG(LPU0_ERR_STATUS_REG);
++	BNAD_GET_REG(LPU0_ERR_SET_REG);
++
++	/* LPU1 Registers */
++	BNAD_GET_REG(LPU1_MBOX_CTL_REG);
++	BNAD_GET_REG(LPU1_MBOX_CMD_REG);
++	BNAD_GET_REG(LPU0_MBOX_LINK_1REG);
++	BNAD_GET_REG(LPU1_MBOX_LINK_1REG);
++	BNAD_GET_REG(LPU0_MBOX_STATUS_1REG);
++	BNAD_GET_REG(LPU1_MBOX_STATUS_1REG);
++	BNAD_GET_REG(LPU1_ERR_STATUS_REG);
++	BNAD_GET_REG(LPU1_ERR_SET_REG);
++
++	/* PSS Registers */
++	BNAD_GET_REG(PSS_CTL_REG);
++	BNAD_GET_REG(PSS_ERR_STATUS_REG);
++	BNAD_GET_REG(ERR_STATUS_SET);
++	BNAD_GET_REG(PSS_RAM_ERR_STATUS_REG);
++
++	/* Catapult CPQ Registers */
++	BNAD_GET_REG(HOSTFN0_LPU0_MBOX0_CMD_STAT);
++	BNAD_GET_REG(HOSTFN0_LPU1_MBOX0_CMD_STAT);
++	BNAD_GET_REG(LPU0_HOSTFN0_MBOX0_CMD_STAT);
++	BNAD_GET_REG(LPU1_HOSTFN0_MBOX0_CMD_STAT);
++
++	BNAD_GET_REG(HOSTFN0_LPU0_MBOX1_CMD_STAT);
++	BNAD_GET_REG(HOSTFN0_LPU1_MBOX1_CMD_STAT);
++	BNAD_GET_REG(LPU0_HOSTFN0_MBOX1_CMD_STAT);
++	BNAD_GET_REG(LPU1_HOSTFN0_MBOX1_CMD_STAT);
++
++	BNAD_GET_REG(HOSTFN1_LPU0_MBOX0_CMD_STAT);
++	BNAD_GET_REG(HOSTFN1_LPU1_MBOX0_CMD_STAT);
++	BNAD_GET_REG(LPU0_HOSTFN1_MBOX0_CMD_STAT);
++	BNAD_GET_REG(LPU1_HOSTFN1_MBOX0_CMD_STAT);
++
++	BNAD_GET_REG(HOSTFN1_LPU0_MBOX1_CMD_STAT);
++	BNAD_GET_REG(HOSTFN1_LPU1_MBOX1_CMD_STAT);
++	BNAD_GET_REG(LPU0_HOSTFN1_MBOX1_CMD_STAT);
++	BNAD_GET_REG(LPU1_HOSTFN1_MBOX1_CMD_STAT);
++
++	BNAD_GET_REG(HOSTFN2_LPU0_MBOX0_CMD_STAT);
++	BNAD_GET_REG(HOSTFN2_LPU1_MBOX0_CMD_STAT);
++	BNAD_GET_REG(LPU0_HOSTFN2_MBOX0_CMD_STAT);
++	BNAD_GET_REG(LPU1_HOSTFN2_MBOX0_CMD_STAT);
++
++	BNAD_GET_REG(HOSTFN2_LPU0_MBOX1_CMD_STAT);
++	BNAD_GET_REG(HOSTFN2_LPU1_MBOX1_CMD_STAT);
++	BNAD_GET_REG(LPU0_HOSTFN2_MBOX1_CMD_STAT);
++	BNAD_GET_REG(LPU1_HOSTFN2_MBOX1_CMD_STAT);
++
++	BNAD_GET_REG(HOSTFN3_LPU0_MBOX0_CMD_STAT);
++	BNAD_GET_REG(HOSTFN3_LPU1_MBOX0_CMD_STAT);
++	BNAD_GET_REG(LPU0_HOSTFN3_MBOX0_CMD_STAT);
++	BNAD_GET_REG(LPU1_HOSTFN3_MBOX0_CMD_STAT);
++
++	BNAD_GET_REG(HOSTFN3_LPU0_MBOX1_CMD_STAT);
++	BNAD_GET_REG(HOSTFN3_LPU1_MBOX1_CMD_STAT);
++	BNAD_GET_REG(LPU0_HOSTFN3_MBOX1_CMD_STAT);
++	BNAD_GET_REG(LPU1_HOSTFN3_MBOX1_CMD_STAT);
++
++	/* Host Function Force Parity Error Registers */
++	BNAD_GET_REG(HOSTFN0_LPU_FORCE_PERR);
++	BNAD_GET_REG(HOSTFN1_LPU_FORCE_PERR);
++	BNAD_GET_REG(HOSTFN2_LPU_FORCE_PERR);
++	BNAD_GET_REG(HOSTFN3_LPU_FORCE_PERR);
++
++	/* LL Port[0|1] Halt Mask Registers */
++	BNAD_GET_REG(LL_HALT_MSK_P0);
++	BNAD_GET_REG(LL_HALT_MSK_P1);
++
++	/* LL Port[0|1] Error Mask Registers */
++	BNAD_GET_REG(LL_ERR_MSK_P0);
++	BNAD_GET_REG(LL_ERR_MSK_P1);
++
++	/* EMC FLI Registers */
++	BNAD_GET_REG(FLI_CMD_REG);
++	BNAD_GET_REG(FLI_ADDR_REG);
++	BNAD_GET_REG(FLI_CTL_REG);
++	BNAD_GET_REG(FLI_WRDATA_REG);
++	BNAD_GET_REG(FLI_RDDATA_REG);
++	BNAD_GET_REG(FLI_DEV_STATUS_REG);
++	BNAD_GET_REG(FLI_SIG_WD_REG);
++
++	BNAD_GET_REG(FLI_DEV_VENDOR_REG);
++	BNAD_GET_REG(FLI_ERR_STATUS_REG);
++
++	/* RxAdm 0 Registers */
++	BNAD_GET_REG(RAD0_CTL_REG);
++	BNAD_GET_REG(RAD0_PE_PARM_REG);
++	BNAD_GET_REG(RAD0_BCN_REG);
++	BNAD_GET_REG(RAD0_DEFAULT_REG);
++	BNAD_GET_REG(RAD0_PROMISC_REG);
++	BNAD_GET_REG(RAD0_BCNQ_REG);
++	BNAD_GET_REG(RAD0_DEFAULTQ_REG);
++
++	BNAD_GET_REG(RAD0_ERR_STS);
++	BNAD_GET_REG(RAD0_SET_ERR_STS);
++	BNAD_GET_REG(RAD0_ERR_INT_EN);
++	BNAD_GET_REG(RAD0_FIRST_ERR);
++	BNAD_GET_REG(RAD0_FORCE_ERR);
++
++	BNAD_GET_REG(RAD0_MAC_MAN_1H);
++	BNAD_GET_REG(RAD0_MAC_MAN_1L);
++	BNAD_GET_REG(RAD0_MAC_MAN_2H);
++	BNAD_GET_REG(RAD0_MAC_MAN_2L);
++	BNAD_GET_REG(RAD0_MAC_MAN_3H);
++	BNAD_GET_REG(RAD0_MAC_MAN_3L);
++	BNAD_GET_REG(RAD0_MAC_MAN_4H);
++	BNAD_GET_REG(RAD0_MAC_MAN_4L);
++
++	BNAD_GET_REG(RAD0_LAST4_IP);
++
++	/* RxAdm 1 Registers */
++	BNAD_GET_REG(RAD1_CTL_REG);
++	BNAD_GET_REG(RAD1_PE_PARM_REG);
++	BNAD_GET_REG(RAD1_BCN_REG);
++	BNAD_GET_REG(RAD1_DEFAULT_REG);
++	BNAD_GET_REG(RAD1_PROMISC_REG);
++	BNAD_GET_REG(RAD1_BCNQ_REG);
++	BNAD_GET_REG(RAD1_DEFAULTQ_REG);
++
++	BNAD_GET_REG(RAD1_ERR_STS);
++	BNAD_GET_REG(RAD1_SET_ERR_STS);
++	BNAD_GET_REG(RAD1_ERR_INT_EN);
++
++	/* TxA0 Registers */
++	BNAD_GET_REG(TXA0_CTRL_REG);
++	/* TxA0 TSO Sequence # Registers (RO) */
++	for (i = 0; i < 8; i++) {
++		BNAD_GET_REG(TXA0_TSO_TCP_SEQ_REG(i));
++		BNAD_GET_REG(TXA0_TSO_IP_INFO_REG(i));
 +	}
 +
-+	if (bnad->flags & BNAD_F_MSIX)
-+		bnad_enable_msix(bnad);
-+	else
-+		dev_info(&bnad->pcidev->dev, "Working in INTx mode, no RSS\n");
-+	bna_intx_disable(bnad->priv, &intr_mask);
-+	err = bnad_request_mbox_irq(bnad);
-+	if (err)
-+		goto disable_msix;
-+
-+	init_completion(&bnad->ioc_comp);
-+	BNA_TRACE_DEBUG(bnad, bnad->bna_id,
-+			("port %u enabling IOC ...\n", bnad->bna_id));
-+	spin_lock_irq(&bnad->priv_lock);
-+	bna_iocll_enable(bnad->priv);
-+	spin_unlock_irq(&bnad->priv_lock);
-+
-+	init_timer(&bnad->ioc_timer);
-+	bnad->ioc_timer.function = &bnad_ioc_timeout;
-+	bnad->ioc_timer.data = (unsigned long) bnad;
-+	mod_timer(&bnad->ioc_timer, jiffies + HZ * BNA_IOC_TIMER_FREQ / 1000);
-+
-+	BNA_TRACE_DEBUG(bnad, bnad->bna_id,
-+			("port %u waiting for IOC ready.\n", bnad->bna_id));
-+	wait_for_completion(&bnad->ioc_comp);
-+	if (!bnad->ioc_comp_status) {
-+		BNA_TRACE_INFO(bnad, bnad->bna_id,
-+			       ("port %u IOC is enabled.\n", bnad->bna_id));
-+		bna_port_mac_get(bnad->priv, (bna_mac_t *) bnad->perm_addr);
-+	} else {
-+		BNA_TRACE_ERROR(bnad, bnad->ioc_comp_status,
-+				("port %u enabling IOC failed: %d\n",
-+				 bnad->bna_id, bnad->ioc_comp_status));
-+		set_bit(BNAD_RESETTING, &bnad->state);
++	/* TxA1 Registers */
++	BNAD_GET_REG(TXA1_CTRL_REG);
++	/* TxA1 TSO Sequence # Registers (RO) */
++	for (i = 0; i < 8; i++) {
++		BNAD_GET_REG(TXA1_TSO_TCP_SEQ_REG(i));
++		BNAD_GET_REG(TXA1_TSO_IP_INFO_REG(i));
 +	}
 +
++	/* RxA Registers */
++	BNAD_GET_REG(RXA0_CTL_REG);
++	BNAD_GET_REG(RXA1_CTL_REG);
++
++	/* PLB0 Registers */
++	BNAD_GET_REG(PLB0_ECM_TIMER_REG);
++	BNAD_GET_REG(PLB0_RL_CTL);
++	for (i = 0; i < 8; i++)
++		BNAD_GET_REG(PLB0_RL_MAX_BC(i));
++	BNAD_GET_REG(PLB0_RL_TU_PRIO);
++	for (i = 0; i < 8; i++)
++		BNAD_GET_REG(PLB0_RL_BYTE_CNT(i));
++	BNAD_GET_REG(PLB0_RL_MIN_REG);
++	BNAD_GET_REG(PLB0_RL_MAX_REG);
++	BNAD_GET_REG(PLB0_EMS_ADD_REG);
++
++	/* PLB1 Registers */
++	BNAD_GET_REG(PLB1_ECM_TIMER_REG);
++	BNAD_GET_REG(PLB1_RL_CTL);
++	for (i = 0; i < 8; i++)
++		BNAD_GET_REG(PLB1_RL_MAX_BC(i));
++	BNAD_GET_REG(PLB1_RL_TU_PRIO);
++	for (i = 0; i < 8; i++)
++		BNAD_GET_REG(PLB1_RL_BYTE_CNT(i));
++	BNAD_GET_REG(PLB1_RL_MIN_REG);
++	BNAD_GET_REG(PLB1_RL_MAX_REG);
++	BNAD_GET_REG(PLB1_EMS_ADD_REG);
++
++	/* HQM Control Register */
++	BNAD_GET_REG(HQM0_CTL_REG);
++	BNAD_GET_REG(HQM0_RXQ_STOP_SEM);
++	BNAD_GET_REG(HQM0_TXQ_STOP_SEM);
++	BNAD_GET_REG(HQM1_CTL_REG);
++	BNAD_GET_REG(HQM1_RXQ_STOP_SEM);
++	BNAD_GET_REG(HQM1_TXQ_STOP_SEM);
++
++	/* LUT Registers */
++	BNAD_GET_REG(LUT0_ERR_STS);
++	BNAD_GET_REG(LUT0_SET_ERR_STS);
++	BNAD_GET_REG(LUT1_ERR_STS);
++	BNAD_GET_REG(LUT1_SET_ERR_STS);
++
++	/* TRC Registers */
++	BNAD_GET_REG(TRC_CTL_REG);
++	BNAD_GET_REG(TRC_MODS_REG);
++	BNAD_GET_REG(TRC_TRGC_REG);
++	BNAD_GET_REG(TRC_CNT1_REG);
++	BNAD_GET_REG(TRC_CNT2_REG);
++	BNAD_GET_REG(TRC_NXTS_REG);
++	BNAD_GET_REG(TRC_DIRR_REG);
++	for (i = 0; i < 10; i++)
++		BNAD_GET_REG(TRC_TRGM_REG(i));
++	for (i = 0; i < 10; i++)
++		BNAD_GET_REG(TRC_NXTM_REG(i));
++	for (i = 0; i < 10; i++)
++		BNAD_GET_REG(TRC_STRM_REG(i));
++
++#undef BNAD_GET_REG
++	return num;
++}
++
++static int
++bnad_get_regs_len(struct net_device *netdev)
++{
++	return (get_regs(netdev_priv(netdev), NULL) * sizeof(u32));
++}
++
++static void
++bnad_get_regs(struct net_device *netdev, struct ethtool_regs *regs, void *buf)
++{
++	memset(buf, 0, bnad_get_regs_len(netdev));
++	get_regs(netdev_priv(netdev), buf);
++}
++
++static void
++bnad_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wolinfo)
++{
++	wolinfo->supported = 0;
++	wolinfo->wolopts = 0;
++}
++
++#if 0
++static int
++bnad_get_eeprom_len(struct net_device *netdev)
++{
 +	return 0;
++}
 +
-+      disable_msix:
-+	bnad_disable_msix(bnad);
-+	bnad_cee_detach(bnad);
-+      iocll_detach:
-+	bna_iocll_detach(bnad->priv);
-+      free_ioc_mem:
-+	bnad_free_ioc_mem(bnad);
-+	bna_uninit(bnad->priv);
-+	pci_free_consistent(bnad->pcidev, BNA_HW_STATS_SIZE, bnad->priv_stats,
-+			    pci_unmap_addr(bnad, priv_stats_dma));
-+	bnad->priv_stats = NULL;
-+      free_priv_mem:
-+	kfree(bnad->priv);
-+	bnad->priv = NULL;
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+      free_netq:
-+	kfree(bnad->netq_rx);
-+	bnad->netq_rx = NULL;
-+	kfree(bnad->filters);
-+	bnad->filters = NULL;
++static int
++bnad_get_eeprom(struct net_device *netdev, struct ethtool_eeprom *eeprom,
++		u8 * buf)
++{
++	if (eeprom->len == 0)
++		return -EINVAL;
++	return 0;
++}
++
++static int
++bnad_set_eeprom(struct net_device *netdev, struct ethtool_eeprom *eeprom,
++		u8 * buf)
++{
++
++}
 +#endif
-+      free_trcmod:
-+	kfree(bnad->trcmod);
-+	bnad->trcmod = NULL;
++
++static int
++bnad_get_coalesce(struct net_device *netdev, struct ethtool_coalesce *coalesce)
++{
++	struct bnad *bnad = netdev_priv(netdev);
++
++	bnad_lock();
++	coalesce->rx_coalesce_usecs = bnad->rx_coalescing_timeo *
++		BNAD_COALESCING_TIMER_UNIT;
++	coalesce->rx_max_coalesced_frames = bnad->rx_interpkt_count;
++#ifdef CATAPULT_BRINGUP
++	coalesce->rx_coalesce_usecs_irq = bnad->rx_interpkt_timeo;
++#endif
++	coalesce->tx_coalesce_usecs = bnad->tx_coalescing_timeo *
++		BNAD_COALESCING_TIMER_UNIT;
++	coalesce->tx_max_coalesced_frames = bnad->tx_interpkt_count;
++
++#ifdef BNA_DYN_INTR_MOD
++	coalesce->use_adaptive_rx_coalesce = bnad->rx_dyn_coalesce_on;
++#endif
++	bnad_unlock();
++	return 0;
++}
++
++static int
++bnad_set_coalesce(struct net_device *netdev, struct ethtool_coalesce *coalesce)
++{
++	struct bnad *bnad = netdev_priv(netdev);
++	int i, err = 0, reset = 0;
++	u16 ib_id;
++
++	if (coalesce->rx_coalesce_usecs == 0 || coalesce->rx_coalesce_usecs >
++	    BNAD_MAX_COALESCING_TIMEO * BNAD_COALESCING_TIMER_UNIT)
++		return -EINVAL;
++	if (coalesce->rx_max_coalesced_frames > BNAD_MAX_INTERPKT_COUNT)
++		return -EINVAL;
++	if (coalesce->rx_coalesce_usecs_irq == 0 ||
++	    coalesce->rx_coalesce_usecs_irq > BNAD_MAX_INTERPKT_TIMEO)
++		return -EINVAL;
++
++	if (coalesce->tx_coalesce_usecs == 0 || coalesce->tx_coalesce_usecs >
++	    BNAD_MAX_COALESCING_TIMEO * BNAD_COALESCING_TIMER_UNIT)
++		return -EINVAL;
++	if (coalesce->tx_max_coalesced_frames > BNAD_MAX_INTERPKT_COUNT)
++		return -EINVAL;
++
++	bnad_lock();
++
++#ifdef BNA_DYN_INTR_MOD
++	bnad->rx_dyn_coalesce_on = coalesce->use_adaptive_rx_coalesce;
++#endif
++
++	bnad->rx_coalescing_timeo = coalesce->rx_coalesce_usecs /
++		BNAD_COALESCING_TIMER_UNIT;
++	if (bnad->rx_coalescing_timeo == 0)
++		bnad->rx_coalescing_timeo = 1;
++	if (!test_bit(BNAD_DISABLED, &bnad->state)) {
++		for (i = 0; i < bnad->cq_num; i++) {
++			ib_id = bnad->cq_table[i].cq_config.ib_id;
++			bnad->ib_table[ib_id].ib_config.coalescing_timer =
++				bnad->rx_coalescing_timeo;
++#ifdef BNA_DYN_INTR_MOD
++			if (!bnad->rx_dyn_coalesce_on) {
++				bnad->cq_table[i].rx_coalescing_timeo =
++					bnad->rx_coalescing_timeo;
++			}
++#endif
++#ifndef BNAD_NAPI
++#ifdef BNAD_DYN_INTR_MOD
++			if (!bnad->rx_dyn_coalesce_on) {
++#endif
++				spin_lock_irq(&bnad->priv_lock);
++				bna_ib_coalescing_timer_set(bnad->priv,
++							    &bnad->cq_table[i].
++							    ib,
++							    bnad->
++							    rx_coalescing_timeo);
++				spin_unlock_irq(&bnad->priv_lock);
++#ifdef BNAD_DYN_INTR_MOD
++			}
++#endif
++#endif
++		}
++	}
++	if (coalesce->rx_max_coalesced_frames != bnad->rx_interpkt_count) {
++		bnad->rx_interpkt_count = coalesce->rx_max_coalesced_frames;
++		reset++;
++	}
++	if (coalesce->rx_coalesce_usecs_irq != bnad->rx_interpkt_timeo) {
++		bnad->rx_interpkt_timeo = coalesce->rx_coalesce_usecs_irq;
++		reset++;
++	}
++
++	bnad->tx_coalescing_timeo = coalesce->tx_coalesce_usecs /
++		BNAD_COALESCING_TIMER_UNIT;
++	if (bnad->tx_coalescing_timeo == 0)
++		bnad->tx_coalescing_timeo = 1;
++	if (!test_bit(BNAD_DISABLED, &bnad->state)) {
++		for (i = 0; i < bnad->txq_num; i++) {
++			ib_id = bnad->txq_table[i].txq_config.ib_id;
++			bnad->ib_table[ib_id].ib_config.coalescing_timer =
++				bnad->tx_coalescing_timeo;
++#ifndef BNAD_NAPI
++			spin_lock_irq(&bnad->priv_lock);
++			bna_ib_coalescing_timer_set(bnad->priv,
++						    &bnad->txq_table[i].ib,
++						    bnad->tx_coalescing_timeo);
++			spin_unlock_irq(&bnad->priv_lock);
++#endif
++		}
++	}
++	if (coalesce->tx_max_coalesced_frames != bnad->tx_interpkt_count) {
++		bnad->tx_interpkt_count = coalesce->tx_max_coalesced_frames;
++		reset++;
++	}
++
++	if (reset)
++		err = bnad_sw_reset(netdev);
++
++	bnad_unlock();
 +
 +	return err;
 +}
 +
 +static void
-+bnad_priv_uninit(struct bnad *bnad)
++bnad_get_ringparam(struct net_device *netdev,
++		   struct ethtool_ringparam *ringparam)
 +{
-+	int i;
-+	enum bna_status_e err;
++	struct bnad *bnad = netdev_priv(netdev);
 +
-+	if (bnad->priv) {
-+		BNA_TRACE_INFO(bnad, bnad->bna_id,
-+			       ("port %u disabling IOC ...\n", bnad->bna_id));
-+		init_completion(&bnad->ioc_comp);
-+		for (i = 0; i < 10; i++) {
-+			spin_lock_irq(&bnad->priv_lock);
-+			err = bna_iocll_disable(bnad->priv);
-+			spin_unlock_irq(&bnad->priv_lock);
-+			BNA_ASSERT(!err || err == BNA_BUSY);
-+			if (!err)
-+				break;
-+			msleep(1000);
-+		}
-+		if (err) {
-+			/* Probably firmware crashed. */
-+			BNA_TRACE_INFO(bnad, bnad->bna_id,
-+				       ("bna_iocll_disable failed, "
-+					"clean up and try again\n"));
-+			spin_lock_irq(&bnad->priv_lock);
-+			bna_cleanup(bnad->priv);
-+			err = bna_iocll_disable(bnad->priv);
-+			spin_unlock_irq(&bnad->priv_lock);
-+			BNA_ASSERT(!err);
-+		}
-+		wait_for_completion(&bnad->ioc_comp);
-+		set_bit(BNAD_IOC_DISABLED, &bnad->state);
-+		BNA_TRACE_INFO(bnad, bnad->bna_id,
-+			       ("port %u IOC is disabled\n", bnad->bna_id));
++	bnad_lock();
++	ringparam->rx_max_pending = BNAD_MAX_Q_DEPTH / bnad_rxqs_per_cq;
++	ringparam->rx_mini_max_pending = 0;
++	ringparam->rx_jumbo_max_pending = 0;
++	ringparam->tx_max_pending = BNAD_MAX_Q_DEPTH;
 +
-+		set_bit(BNAD_REMOVED, &bnad->state);
-+		/* Stop the timer after disabling IOC. */
-+		del_timer_sync(&bnad->ioc_timer);
-+		bnad_free_ioc_mem(bnad);
-+		bna_iocll_detach(bnad->priv);
-+
-+		flush_scheduled_work();
-+		bnad_free_mbox_irq(bnad);
-+		bnad_disable_msix(bnad);
-+
-+		bnad_cee_detach(bnad);
-+
-+		bna_uninit(bnad->priv);
-+		if (bnad->priv_stats) {
-+			pci_free_consistent(bnad->pcidev, BNA_HW_STATS_SIZE,
-+					    bnad->priv_stats,
-+					    pci_unmap_addr(bnad,
-+							   priv_stats_dma));
-+			bnad->priv_stats = NULL;
-+		}
-+		kfree(bnad->priv);
-+		bnad->priv = NULL;
-+	}
-+	BNA_ASSERT(list_empty(&bnad->file_q));
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+	kfree(bnad->netq_rx);
-+	bnad->netq_rx = NULL;
-+	kfree(bnad->filters);
-+	bnad->filters = NULL;
-+#endif
-+	kfree(bnad->trcmod);
-+	bnad->trcmod = NULL;
++	ringparam->rx_pending = bnad->rxq_depth;
++	ringparam->rx_mini_max_pending = 0;
++	ringparam->rx_jumbo_max_pending = 0;
++	ringparam->tx_pending = bnad->txq_depth;
++	bnad_unlock();
 +}
 +
-+static struct pci_device_id bnad_pci_id_table[] = {
-+	{
-+	 .vendor = PCI_VENDOR_ID_BROCADE,
-+	 .device = PCI_DEVICE_ID_BROCADE_CATAPULT,
-+	 .subvendor = PCI_ANY_ID,
-+	 .subdevice = PCI_ANY_ID,
-+	 .class = PCI_CLASS_NETWORK_ETHERNET << 8,
-+	 .class_mask = 0xffff00},
-+	{0, 0}
-+};
-+
-+MODULE_DEVICE_TABLE(pci, bnad_pci_id_table);
-+
-+static int __devinit
-+bnad_pci_probe(struct pci_dev *pcidev, const struct pci_device_id *pcidev_id)
++static int
++bnad_set_ringparam(struct net_device *netdev,
++		   struct ethtool_ringparam *ringparam)
 +{
-+	int err, using_dac;
-+	struct net_device *netdev;
-+	struct bnad *bnad;
-+	unsigned long mmio_start, mmio_len;
-+	static u32 bna_id = 0;
-+
-+	BNA_LOG_INFO(("bnad_pci_probe(0x%x, 0x%x)\n", pcidev, pcidev_id));
-+	BNA_LOG_DEBUG(("PCI func %d\n", PCI_FUNC(pcidev->devfn)));
-+#ifdef CATAPULT_BRINGUP
-+	{
-+		int i;
-+		for (i = 0; i < 6; i++)
-+			BNA_LOG_INFO(("BAR %d: 0x%x:0x%x len %d\n", i,
-+				      pci_resource_start(pcidev, i),
-+				      pci_resource_end(pcidev, i),
-+				      pci_resource_len(pcidev, i)));
-+	}
-+#endif
-+	if (!bfad_get_firmware_buf(pcidev)) {
-+		printk(KERN_WARNING "Failed to load Firmware Image!\n");
++	int err = 0;
++	struct bnad *bnad = netdev_priv(netdev);
++	bnad_lock();
++	if (ringparam->rx_pending == bnad->rxq_depth &&
++	    ringparam->tx_pending == bnad->txq_depth) {
++		bnad_unlock();
 +		return 0;
 +	}
 +
-+	err = pci_enable_device(pcidev);
-+	if (err) {
-+		dev_err(&pcidev->dev, "pci_enable_device failed: %d\n", err);
-+		return err;
++	if (ringparam->rx_pending < BNAD_MIN_Q_DEPTH ||
++	    ringparam->rx_pending > BNAD_MAX_Q_DEPTH / bnad_rxqs_per_cq ||
++	    !BNA_POWER_OF_2(ringparam->rx_pending)) {
++		bnad_unlock();
++		return -EINVAL;
++	}
++	if (ringparam->tx_pending < BNAD_MIN_Q_DEPTH ||
++	    ringparam->tx_pending > BNAD_MAX_Q_DEPTH ||
++	    !BNA_POWER_OF_2(ringparam->tx_pending)) {
++		bnad_unlock();
++		return -EINVAL;
 +	}
 +
-+	err = pci_request_regions(pcidev, BNAD_NAME);
-+	if (err) {
-+		dev_err(&pcidev->dev, "pci_request_regions failed: %d\n", err);
-+		goto disable_device;
++	if (ringparam->rx_pending != bnad->rxq_depth) {
++		bnad->rxq_depth = ringparam->rx_pending;
++		bnad->flags |= BNAD_F_RXQ_DEPTH;
++	}
++	if (ringparam->tx_pending != bnad->txq_depth) {
++		bnad->txq_depth = ringparam->tx_pending;
++		bnad->flags |= BNAD_F_TXQ_DEPTH;
 +	}
 +
-+	if (!pci_set_dma_mask(pcidev, DMA_64BIT_MASK) &&
-+	    !pci_set_consistent_dma_mask(pcidev, DMA_64BIT_MASK)) {
-+		using_dac = 1;
-+		BNA_LOG_INFO(("64bit DMA mask\n"));
-+	} else {
-+		err = pci_set_dma_mask(pcidev, DMA_32BIT_MASK);
-+		if (err) {
-+			err = pci_set_consistent_dma_mask(pcidev,
-+							  DMA_32BIT_MASK);
-+			if (err) {
-+				dev_err(&pcidev->dev,
-+					"set 32bit consistent DMA mask failed: %d\n",
-+					err);
-+				goto release_regions;
-+			}
-+		}
-+		using_dac = 0;
-+		BNA_LOG_INFO(("32bit DMA mask\n"));
-+	}
-+
-+	pci_set_master(pcidev);
-+
-+	netdev = alloc_etherdev(sizeof(struct bnad));
-+	if (!netdev) {
-+		dev_err(&pcidev->dev, "alloc_etherdev failed\n");
-+		err = -ENOMEM;
-+		goto release_regions;
-+	}
-+	SET_MODULE_OWNER(netdev);
-+	SET_NETDEV_DEV(netdev, &pcidev->dev);
-+	pci_set_drvdata(pcidev, netdev);
-+
-+	bnad = netdev_priv(netdev);
-+	set_bit(BNAD_DISABLED, &bnad->state);
-+	bnad->netdev = netdev;
-+	bnad->pcidev = pcidev;
-+	mmio_start = pci_resource_start(pcidev, 0);
-+	mmio_len = pci_resource_len(pcidev, 0);
-+	bnad->bar0 = ioremap_nocache(mmio_start, mmio_len);
-+	if (!bnad->bar0) {
-+		dev_err(&pcidev->dev, "ioremap for bar0 failed\n");
-+		err = -ENOMEM;
-+		goto free_devices;
-+	}
-+	BNA_LOG_INFO(("bar0 mapped to %p, len %lu\n", bnad->bar0, mmio_len));
-+
-+	netdev->open = bnad_open;
-+	netdev->stop = bnad_stop;
-+	netdev->hard_start_xmit = bnad_start_xmit;
-+	netdev->get_stats = bnad_get_stats;
-+#ifdef HAVE_SET_RX_MODE
-+	netdev->set_rx_mode = &bnad_set_rx_mode;
-+#endif
-+	netdev->set_multicast_list = bnad_set_rx_mode;
-+	netdev->set_mac_address = bnad_set_mac_address;
-+	netdev->change_mtu = bnad_change_mtu;
-+	netdev->do_ioctl = bnad_ioctl;
-+
-+	netdev->features = NETIF_F_SG | NETIF_F_IP_CSUM;
-+#ifdef NETIF_F_IPV6_CSUM
-+	netdev->features |= NETIF_F_IPV6_CSUM;
-+#endif
-+#ifdef NETIF_F_TSO
-+	netdev->features |= NETIF_F_TSO;
-+#endif
-+#ifdef NETIF_F_TSO6
-+	netdev->features |= NETIF_F_TSO6;
-+#endif
-+#ifdef BNAD_LRO
-+#ifdef NETIF_F_LRO
-+	netdev->features |= NETIF_F_LRO;
-+#endif
-+#endif
-+#ifdef BNAD_VLAN_FEATURES
-+	netdev->vlan_features = netdev->features;
-+#endif
-+	if (using_dac)
-+		netdev->features |= NETIF_F_HIGHDMA;
-+	netdev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX |
-+		NETIF_F_HW_VLAN_FILTER;
-+	netdev->vlan_rx_register = bnad_vlan_rx_register;
-+	netdev->vlan_rx_add_vid = bnad_vlan_rx_add_vid;
-+	netdev->vlan_rx_kill_vid = bnad_vlan_rx_kill_vid;
-+
-+#ifdef BNAD_NAPI
-+#ifndef BNAD_NEW_NAPI
-+	netdev->poll = bnad_poll;
-+	netdev->weight = 64;
-+#endif
-+#endif
-+
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	netdev->poll_controller = bnad_netpoll;
-+#endif
-+
-+	netdev->mem_start = mmio_start;
-+	netdev->mem_end = mmio_start + mmio_len - 1;
-+
-+	bnad_set_ethtool_ops(netdev);
-+
-+	bnad->bna_id = bna_id;
-+	err = bnad_priv_init(bnad);
-+	if (err) {
-+		printk(KERN_ERR "port %u init failed: %d\n", bnad->bna_id, err);
-+		goto unmap_bar0;
-+	}
-+
-+	BNA_ASSERT(netdev->addr_len == ETH_ALEN);
-+#ifdef ETHTOOL_GPERMADDR
-+	memcpy(netdev->perm_addr, bnad->perm_addr, netdev->addr_len);
-+#endif
-+	memcpy(netdev->dev_addr, bnad->perm_addr, netdev->addr_len);
-+
-+#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
-+	BNA_LOG_DEBUG(("registering netqueue ops\n", err));
-+	VMKNETDDI_REGISTER_QUEUEOPS(netdev, bnad_netqueue_ops);
-+#endif
-+
-+	netif_carrier_off(netdev);
-+	netif_stop_queue(netdev);
-+	err = register_netdev(netdev);
-+	if (err) {
-+		printk(KERN_ERR "port %u register_netdev failed: %d\n",
-+		       bnad->bna_id, err);
-+		goto bnad_device_uninit;
-+	}
-+#ifdef __VMKERNEL_MODULE__
-+	/* In vmkernel, use the name set in pdev */
-+	memcpy(netdev->name, pcidev->name, IFNAMSIZ);
-+	netdev->name[IFNAMSIZ - 1] = 0;
-+	printk(KERN_INFO "bna %d name is %s\n", bna_id, netdev->name);
-+#endif
-+
-+	bna_id++;
-+	return 0;
-+
-+bnad_device_uninit:
-+	bnad_priv_uninit(bnad);
-+unmap_bar0:
-+	iounmap(bnad->bar0);
-+free_devices:
-+	pci_set_drvdata(pcidev, NULL);
-+	free_netdev(netdev);
-+release_regions:
-+	pci_release_regions(pcidev);
-+disable_device:
-+	pci_disable_device(pcidev);
-+
++	err = bnad_sw_reset(netdev);
++	bnad_unlock();
 +	return err;
 +}
 +
-+static void __devexit
-+bnad_pci_remove(struct pci_dev *pcidev)
++static void
++bnad_get_pauseparam(struct net_device *netdev,
++		    struct ethtool_pauseparam *pauseparam)
 +{
-+	struct net_device *netdev = pci_get_drvdata(pcidev);
-+	struct bnad *bnad;
-+
-+	BNA_LOG_INFO(("%s bnad_pci_remove\n", netdev->name));
-+	if (!netdev)
-+		return;
-+	bnad = netdev_priv(netdev);
-+	BNA_TRACE(bnad, bnad->bna_id);
-+
-+
-+	unregister_netdev(netdev);
-+
-+	bnad_priv_uninit(bnad);
-+	iounmap(bnad->bar0);
-+	pci_set_drvdata(pcidev, NULL);
-+	free_netdev(netdev);
-+	pci_release_regions(pcidev);
-+	pci_disable_device(pcidev);
++	struct bnad *bnad = netdev_priv(netdev);
++	bnad_lock();
++	pauseparam->autoneg = 0;
++	pauseparam->rx_pause = bnad->pause_config.rx_pause;
++	pauseparam->tx_pause = bnad->pause_config.tx_pause;
++	bnad_unlock();
 +}
 +
-+static struct pci_driver bnad_pci_driver = {
-+	.name = BNAD_NAME,
-+	.id_table = bnad_pci_id_table,
-+	.probe = bnad_pci_probe,
-+	.remove = __devexit_p(bnad_pci_remove),
-+};
-+
-+static int __init
-+bnad_module_init(void)
++static int
++bnad_set_pauseparam(struct net_device *netdev,
++		    struct ethtool_pauseparam *pauseparam)
 +{
++	struct bnad *bnad = netdev_priv(netdev);
 +	int err;
 +
-+	printk(KERN_INFO "Brocade 10G Ethernet driver %s\n", bfa_version);
-+#if !defined (__VMKERNEL_MODULE__) && !defined(__ESX_COS__)
-+	BNA_LOG_INFO(("Module bna is loaded at 0x%p\n",
-+		      __this_module.module_core));
++	if (pauseparam->autoneg == AUTONEG_ENABLE)
++		return -EINVAL;
++	bnad_lock();
++	if (pauseparam->rx_pause != bnad->pause_config.rx_pause ||
++	    pauseparam->tx_pause != bnad->pause_config.tx_pause) {
++		bnad->pause_config.rx_pause = pauseparam->rx_pause;
++		bnad->pause_config.tx_pause = pauseparam->tx_pause;
++		spin_lock_irq(&bnad->priv_lock);
++		err = bna_set_pause_config(bnad->priv, &bnad->pause_config,
++					   bnad);
++		BNA_ASSERT(!err);
++		spin_unlock_irq(&bnad->priv_lock);
++	}
++	bnad_unlock();
++	return 0;
++}
++
++static u32
++bnad_get_rx_csum(struct net_device *netdev)
++{
++	u32 rx_csum;
++	struct bnad *bnad = netdev_priv(netdev);
++
++	bnad_lock();
++	rx_csum = bnad->rx_csum;
++	bnad_unlock();
++	return rx_csum;
++}
++
++static int
++bnad_set_rx_csum(struct net_device *netdev, u32 rx_csum)
++{
++	struct bnad *bnad = netdev_priv(netdev);
++
++	bnad_lock();
++	bnad->rx_csum = rx_csum;
++	bnad_unlock();
++	return 0;
++}
++
++static int
++bnad_set_tx_csum(struct net_device *netdev, u32 tx_csum)
++{
++	if (tx_csum) {
++		netdev->features |= NETIF_F_IP_CSUM;
++#ifdef NETIF_F_IPV6_CSUM
++		netdev->features |= NETIF_F_IPV6_CSUM;
 +#endif
-+#ifdef __VMKERNEL_MODULE__
-+	if (!vmk_set_module_version("%s", BNAD_VERSION)) {
-+		return -ENODEV;
++	} else {
++		netdev->features &= ~NETIF_F_IP_CSUM;
++#ifdef NETIF_F_IPV6_CSUM
++		netdev->features &= ~NETIF_F_IPV6_CSUM;
++#endif
++	}
++	return 0;
++}
++
++#ifdef NETIF_F_TSO
++static int
++bnad_set_tso(struct net_device *netdev, u32 tso)
++{
++	if (tso) {
++		netdev->features |= NETIF_F_TSO;
++#ifdef NETIF_F_TSO6
++		netdev->features |= NETIF_F_TSO6;
++#endif
++	} else {
++		netdev->features &= ~NETIF_F_TSO;
++#ifdef NETIF_F_TSO6
++		netdev->features &= ~NETIF_F_TSO6;
++#endif
++	}
++	return 0;
++}
++#endif
++
++#if 0
++static void
++bnad_self_test(struct net_device *netdev, struct ethtool_test *test,
++	       u64 * count)
++{
++
++
++}
++#endif
++
++static void
++bnad_get_strings(struct net_device *netdev, u32 stringset, u8 * string)
++{
++	struct bnad *bnad = netdev_priv(netdev);
++	int i;
++#if defined(DEBUG_RX) || defined (DEBUG_TX)
++	int j;
++#endif
++	bnad_lock();
++	switch (stringset) {
++	case ETH_SS_STATS:
++		for (i = 0; i < BNAD_ETHTOOL_STATS_NUM; i++) {
++			BNA_ASSERT(strlen(bnad_net_stats_strings[i]) <
++				   ETH_GSTRING_LEN);
++			memcpy(string, bnad_net_stats_strings[i],
++			       ETH_GSTRING_LEN);
++			string += ETH_GSTRING_LEN;
++		}
++
++#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
++		for (i = 0; i < bnad->rxf_num; i++) {
++			if (!test_bit(i, &bnad->rxf_active))
++				continue;
++#else
++		i = 0;
++#endif
++		sprintf(string, "rxf%d_ucast_octets", i);
++		string += ETH_GSTRING_LEN;
++		sprintf(string, "rxf%d_ucast", i);
++		string += ETH_GSTRING_LEN;
++		sprintf(string, "rxf%d_ucast_vlan", i);
++		string += ETH_GSTRING_LEN;
++		sprintf(string, "rxf%d_mcast_octets", i);
++		string += ETH_GSTRING_LEN;
++		sprintf(string, "rxf%d_mcast", i);
++		string += ETH_GSTRING_LEN;
++		sprintf(string, "rxf%d_mcast_vlan", i);
++		string += ETH_GSTRING_LEN;
++		sprintf(string, "rxf%d_bcast_octets", i);
++		string += ETH_GSTRING_LEN;
++		sprintf(string, "rxf%d_bcast", i);
++		string += ETH_GSTRING_LEN;
++		sprintf(string, "rxf%d_bcast_vlan", i);
++		string += ETH_GSTRING_LEN;
++		sprintf(string, "rxf%d_frame_drops", i);
++		string += ETH_GSTRING_LEN;
++#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
 +	}
 +#endif
-+	err = bnad_check_module_params();
-+	if (err)
-+		return err;
 +
-+	bfa_ioc_auto_recover(bnad_ioc_auto_recover);
++#ifdef CATAPULT_BRINGUP
++	sprintf(string, "netif_queue_stopped");
++	string += ETH_GSTRING_LEN;
++	sprintf(string, "bna_state");
++	string += ETH_GSTRING_LEN;
++#endif
 +
-+	return pci_register_driver(&bnad_pci_driver);
++	for (i = 0; i < bnad->cq_num; i++) {
++		sprintf(string, "cq%d_producer_index", i);
++		string += ETH_GSTRING_LEN;
++		sprintf(string, "cq%d_consumer_index", i);
++		string += ETH_GSTRING_LEN;
++	}
++
++	for (i = 0; i < bnad->rxq_num; i++) {
++		sprintf(string, "rxq%d_packets", i);
++		string += ETH_GSTRING_LEN;
++		sprintf(string, "rxq%d_bytes", i);
++		string += ETH_GSTRING_LEN;
++		sprintf(string, "rxq%d_packets_with_error", i);
++		string += ETH_GSTRING_LEN;
++		sprintf(string, "rxq%d_allocbuf_failed", i);
++		string += ETH_GSTRING_LEN;
++
++		sprintf(string, "rxq%d_producer_index", i);
++		string += ETH_GSTRING_LEN;
++		sprintf(string, "rxq%d_consumer_index", i);
++		string += ETH_GSTRING_LEN;
++
++#ifdef DEBUG_RX
++		for (j = 0; j < BNAD_MAX_RXQSETS_USED; j++) {
++			sprintf(string, "rxq%d_packets_cpu%d", i, j);
++			string += ETH_GSTRING_LEN;
++			sprintf(string, "rxq%d_bytes_cpu%d", i, j);
++			string += ETH_GSTRING_LEN;
++		}
++#endif
++	}
++
++	for (i = 0; i < bnad->txq_num; i++) {
++		sprintf(string, "txq%d_packets", i);
++		string += ETH_GSTRING_LEN;
++		sprintf(string, "txq%d_bytes", i);
++		string += ETH_GSTRING_LEN;
++
++		sprintf(string, "txq%d_producer_index", i);
++		string += ETH_GSTRING_LEN;
++		sprintf(string, "txq%d_consumer_index", i);
++		string += ETH_GSTRING_LEN;
++		sprintf(string, "txq%d_hw_consumer_index", i);
++		string += ETH_GSTRING_LEN;
++#ifdef DEBUG_TX
++		sprintf(string, "txq%d_max_tso", i);
++		string += ETH_GSTRING_LEN;
++		for (j = 0; j < 32; j++) {
++			sprintf(string, "txq%d_vectors_%d", i, j);
++			string += ETH_GSTRING_LEN;
++		}
++#endif
++	}
++	break;
++
++default:
++	break;
 +}
 +
-+static void __exit
-+bnad_module_exit(void)
++bnad_unlock();
++}
++
++#if 0
++/* Need priv_lock? */
++static int
++bnad_phys_id(struct net_device *netdev, u32 seconds)
 +{
-+	pci_unregister_driver(&bnad_pci_driver);
++	int i;
++	struct bnad *bnad = netdev_priv(netdev);
 +
-+	if (bfi_image_ct_size && bfi_image_ct)
-+		vfree(bfi_image_ct);
++	if (!seconds)
++		seconds = 4;
++	bnad_lock();
++	config = bnad_get_led_config(bnad->priv);
++	for (i = 0; i < seconds * 2; i++) {
++		bnad_config_led(bnad->priv, ON);
++		msleep_interruptible(250);
++		bnad_config_led(bnad->priv, OFF);
++		msleep_interruptible(250);
++	}
++
++	bnad_config_led(bnad->priv, config);
++	bnad_unlock();
++	return 0;
++}
++#endif
++
++static void
++bnad_get_ethtool_stats(struct net_device *netdev, struct ethtool_stats *stats,
++		       u64 * buf)
++{
++	struct bnad *bnad = netdev_priv(netdev);
++	int i, bi, j;
++	unsigned long *net_stats;
++	u64 *stats64;
++
++	bi = 0;
++	memset(buf, 0, bnad_get_stats_count(netdev) * sizeof(u64));
++	bnad_get_stats(netdev);
++
++	net_stats = (unsigned long *) &bnad->net_stats;
++	for (i = 0; i < sizeof(struct net_device_stats) /
++	     sizeof(unsigned long); i++)
++		buf[bi++] = net_stats[i];
++
++	stats64 = (u64 *) &bnad->stats;
++	for (i = 0; i < sizeof(struct bnad_drv_stats) / sizeof(u64); i++)
++		buf[bi++] = stats64[i];
++
++	stats64 = (u64 *) bnad->hw_stats;
++	for (i = 0; i < offsetof(struct bna_stats, rxf_stats[0]) / sizeof(u64);
++	     i++)
++		buf[bi++] = stats64[i];
++
++	stats64 = (u64 *) &bnad->hw_stats->txf_stats[0];
++	for (i = 0; i < sizeof(struct bna_stats_txf) / sizeof(u64); i++)
++		buf[bi++] = stats64[i];
++
++#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
++	for (j = 0; j < bnad->rxf_num; j++) {
++		if (!test_bit(j, &bnad->rxf_active))
++			continue;
++#else
++	j = 0;
++#endif
++	stats64 = (u64 *) &bnad->hw_stats->rxf_stats[j];
++	for (i = 0; i < sizeof(struct bna_stats_rxf) / sizeof(u64); i++)
++		buf[bi++] = stats64[i];
++#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
++}
++#endif
++
++#ifdef CATAPULT_BRINGUP
++buf[bi++] = netif_queue_stopped(netdev);
++buf[bi++] = bnad->state;
++#endif
++
++if (bnad->cq_table && bnad->rxq_table && bnad->txq_table) {
++	for (i = 0; i < bnad->cq_num; i++) {
++		buf[bi++] = bnad->cq_table[i].cq.q.producer_index;
++		buf[bi++] = bnad->cq_table[i].cq.q.consumer_index;
++	}
++
++	for (i = 0; i < bnad->rxq_num; i++) {
++		buf[bi++] = bnad->rxq_table[i].rx_packets;
++		buf[bi++] = bnad->rxq_table[i].rx_bytes;
++		buf[bi++] = bnad->rxq_table[i].rx_packets_with_error;
++		buf[bi++] = bnad->rxq_table[i].rxbuf_alloc_failed;
++
++		buf[bi++] = bnad->rxq_table[i].rxq.q.producer_index;
++		buf[bi++] = bnad->rxq_table[i].rxq.q.consumer_index;
++#ifdef DEBUG_RX
++		for (j = 0; j < BNAD_MAX_RXQSETS_USED; j++) {
++			buf[bi++] = bnad->rxq_table[i].rx_packets_cpu[j];
++			buf[bi++] = bnad->rxq_table[i].rx_bytes_cpu[j];
++		}
++#endif
++	}
++	for (i = 0; i < bnad->txq_num; i++) {
++		buf[bi++] = bnad->txq_table[i].tx_packets;
++		buf[bi++] = bnad->txq_table[i].tx_bytes;
++
++		buf[bi++] = bnad->txq_table[i].txq.q.producer_index;
++		buf[bi++] = bnad->txq_table[i].txq.q.consumer_index;
++		buf[bi++] = *(bnad->txq_table[i].hw_consumer_index);
++#ifdef DEBUG_TX
++		buf[bi++] = bnad->txq_table[i].max_tso;
++		for (j = 0; j < 32; j++)
++			buf[bi++] = bnad->txq_table[i].tx_vectors[j];
++#endif
++	}
++}
 +}
 +
-+module_init(bnad_module_init);
-+module_exit(bnad_module_exit);
++#if 0
++/* XXX use get_sset_count */
++static int
++bnad_self_test_count(struct net_device *netdev)
++{
++	return 0;
++}
++#endif
 +
-+MODULE_AUTHOR("Brocade");
-+MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("Brocade 10G PCIe Ethernet driver");
-+MODULE_VERSION(BNAD_VERSION);
++/* XXX use get_sset_count */
++static int
++bnad_get_stats_count(struct net_device *netdev)
++{
++	struct bnad *bnad = netdev_priv(netdev);
++	int count;
++
++	bnad_lock();
++#if defined(__VMKERNEL_MODULE__) && defined(__VMKNETDDI_QUEUEOPS__)
++	u32 i, rxf_active_num = 0;
++
++	for (i = 0; i < bnad->rxf_num; i++) {
++		if (!test_bit(i, &bnad->rxf_active))
++			continue;
++		rxf_active_num++;
++	}
++	count = BNAD_ETHTOOL_STATS_NUM + rxf_active_num * 10 + bnad->rxq_num * 4
++		+ bnad->txq_num * 2;
++#else
++	count = BNAD_ETHTOOL_STATS_NUM + 10 + bnad->rxq_num * 4 +
++		bnad->txq_num * 2;
++#endif
++
++#ifdef CATAPULT_BRINGUP
++	/* netif_queue_stopped, state */
++	count += 2;
++#endif
++
++	/* CQ producer_index, consumer_index */
++	count += bnad->cq_num * 2;
++
++	/* RxQ producer_index, consumer_index */
++	count += bnad->rxq_num * 2;
++#ifdef DEBUG_RX
++	/* RxQ rx_packets_cpu and rx_bytes_cpu */
++	count += bnad->rxq_num * 2 * BNAD_MAX_RXQSETS_USED;
++#endif
++
++	/* TxQ producer_index, consumer_index, hw_consumer_index */
++	count += bnad->txq_num * 3;
++#ifdef DEBUG_TX
++	/* max_tso */
++	count += bnad->txq_num;
++
++	/* tx_vectors */
++	count += bnad->txq_num * 32;
++#endif
++	bnad_unlock();
++	return count;
++}
++
++static struct ethtool_ops bnad_ethtool_ops = {
++	.get_settings = bnad_get_settings,
++	.set_settings = bnad_set_settings,
++	.get_drvinfo = bnad_get_drvinfo,
++	.get_regs_len = bnad_get_regs_len,
++	.get_regs = bnad_get_regs,
++	.get_wol = bnad_get_wol,
++	.get_msglevel = bnad_get_msglevel,
++	.set_msglevel = bnad_set_msglevel,
++	.get_link = ethtool_op_get_link,
++#if 0
++	.get_eeprom_len = bnad_get_eeprom_len,
++	.get_eeprom = bnad_get_eeprom,
++	.set_eeprom = bnad_set_eeprom,
++#endif
++	.get_coalesce = bnad_get_coalesce,
++	.set_coalesce = bnad_set_coalesce,
++	.get_ringparam = bnad_get_ringparam,
++	.set_ringparam = bnad_set_ringparam,
++	.get_pauseparam = bnad_get_pauseparam,
++	.set_pauseparam = bnad_set_pauseparam,
++	.get_rx_csum = bnad_get_rx_csum,
++	.set_rx_csum = bnad_set_rx_csum,
++	.get_tx_csum = ethtool_op_get_tx_csum,
++	.set_tx_csum = bnad_set_tx_csum,
++	.get_sg = ethtool_op_get_sg,
++	.set_sg = ethtool_op_set_sg,
++#ifdef NETIF_F_TSO
++	.get_tso = ethtool_op_get_tso,
++	.set_tso = bnad_set_tso,
++#endif
++#ifdef NETIF_F_LRO
++	.get_flags = ethtool_op_get_flags,
++	.set_flags = ethtool_op_set_flags,
++#endif
++#if 0
++	.self_test = bnad_self_test,
++#endif
++	.get_strings = bnad_get_strings,
++#if 0
++	.phys_id = bnad_phys_id,
++#endif
++	.get_ethtool_stats = bnad_get_ethtool_stats,
++#if 0
++	.self_test_count = bnad_self_test_count,
++#endif
++	.get_stats_count = bnad_get_stats_count
++};
++
++void
++bnad_set_ethtool_ops(struct net_device *netdev)
++{
++	SET_ETHTOOL_OPS(netdev, &bnad_ethtool_ops);
++}
+diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bna_if.c linux-2.6.30.5-mod/drivers/net/bna/bna_if.c
+--- linux-2.6.30.5-orig/drivers/net/bna/bna_if.c	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.30.5-mod/drivers/net/bna/bna_if.c	2009-08-28 21:09:23.313886000 -0700
+@@ -0,0 +1,615 @@
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ *	Copyright (c) 2007-2008 Brocade Communications Systems, Inc.
++ *	All rights reserved.
++ *
++ *	file bna_if.c BNA Hardware and Firmware Interface
++ */
++#include <bna_os.h>
++#include <bna_log_trc.h>
++#include "bna.h"
++#include "bna_hwreg.h"
++#include "bna_priv.h"
++#include "bna_iocll.h"
++#include "bna_intr.h"
++#include "bna_trcmod.h"
++#include <bfi/bfi_cee.h>
++#include <aen/bfa_aen.h>
++#include <aen/bfa_aen_port.h>
++#include <aen/bfa_aen_ethport.h>
++#include <protocol/types.h>
++#include <cee/bfa_cee.h>
++
++
++
++BNA_TRC_FILE(HAL, IF);
++
++#define BNA_FLASH_DMA_BUF_SZ	0x010000	/* 64K */
++
++#define DO_CALLBACK(cbfn)	\
++do {				\
++	if (mb_cbfns->cbfn) {      \
++		if (qe && qe->cbarg) {      \
++			(mb_cbfns->cbfn)(qe->cbarg, status);      \
++		} else {					\
++			(mb_cbfns->cbfn)(dev->cbarg, status);      \
++		}			\
++	}			\
++} while (0)
++
++#define bna_mbox_q_is_empty(mb_q)		\
++	((mb_q)->producer_index == 		\
++	    (mb_q)->consumer_index)
++
++#define bna_mbox_q_first(mb_q)			\
++	 (&(mb_q)->mb_qe[(mb_q)->consumer_index])
++
++/* FIXME : Should come from the driver */
++static u32 bna_ioc_auto_recover;
++
++/**
++ * bna_register_callback()
++ *
++ *	  Function called by the driver to register a callback
++ *	  with the BNA
++ *
++ * @param[in] bna_dev   - Opaque handle to BNA private device
++ * @param[in] cbfns	- Structure for the callback functions.
++ * @param[in] cbarg	- Argument to use with the callback
++ * @param[in] cmd_code  - Command code exported to the drivers
++ *
++ * @return void
++ */
++void
++bna_register_callback(struct bna_dev_s *dev, struct bna_mbox_cbfn *cbfns,
++		      void *cbarg)
++{
++	bna_os_memcpy(&dev->mb_cbfns, cbfns, sizeof(dev->mb_cbfns));
++	dev->cbarg = cbarg;
++}
++
++void
++bna_mbox_q_init(struct bna_mbox_q *q)
++{
++	BNA_ASSERT(BNA_POWER_OF_2(BNA_MAX_MBOX_CMD_QUEUE));
++
++	q->producer_index = q->consumer_index = 0;
++	q->posted = NULL;
++}
++
++static struct bna_mbox_cmd_qe *
++bna_mbox_enq(struct bna_mbox_q *mbox_q, void *cmd, u32 cmd_len, void *cbarg)
++{
++	struct bna_mbox_cmd_qe *qe;
++
++	if (!BNA_QE_FREE_CNT(mbox_q, BNA_MAX_MBOX_CMD_QUEUE)) {
++		BNA_LOG_WARN(("No free Mbox Command Element\n"));
++		return NULL;
++	}
++
++	BNA_LOG_DEBUG(("Mbox PI 0x%x\n", mbox_q->producer_index));
++
++	qe = &mbox_q->mb_qe[mbox_q->producer_index];
++	BNA_QE_INDX_ADD(mbox_q->producer_index, 1, BNA_MAX_MBOX_CMD_QUEUE);
++	bna_os_memcpy(&qe->cmd.msg[0], cmd, cmd_len);
++	qe->cmd_len = cmd_len;
++	qe->cbarg = cbarg;
++
++	return qe;
++}
++
++static void
++bna_mbox_deq(struct bna_mbox_q *mbox_q)
++{
++
++	BNA_LOG_DEBUG(("Mbox CI 0x%x\n", mbox_q->consumer_index));
++
++	/* Free one from the head */
++	BNA_QE_INDX_ADD(mbox_q->consumer_index, 1, BNA_MAX_MBOX_CMD_QUEUE);
++}
++
++static void
++bna_do_stats_update(struct bna_dev_s *dev, u8 status)
++{
++	if (status != BFI_LL_CMD_OK)
++		return;
++	bna_stats_process(dev);
++}
++
++static void
++bna_port_aen_post(struct bna_dev_s *dev, enum bfa_ethport_aen_event event)
++{
++	union bfa_aen_data_u aen_data;
++
++	aen_data.ethport.mac = bfa_ioc_get_mac(&dev->ioc);
++
++}
++
++static void
++bna_do_drv_ll_cb(struct bna_dev_s *dev, u8 cmd_code,
++		 u8 status, struct bna_mbox_cmd_qe *qe)
++{
++	struct bna_mbox_cbfn *mb_cbfns = &dev->mb_cbfns;
++
++	switch (cmd_code) {
++	case BFI_LL_I2H_MAC_UCAST_SET_RSP:
++		DO_CALLBACK(ucast_set_cb);
++		break;
++	case BFI_LL_I2H_MAC_UCAST_ADD_RSP:
++		DO_CALLBACK(ucast_add_cb);
++		break;
++	case BFI_LL_I2H_MAC_UCAST_DEL_RSP:
++		DO_CALLBACK(ucast_del_cb);
++		break;
++	case BFI_LL_I2H_MAC_MCAST_ADD_RSP:
++		DO_CALLBACK(mcast_add_cb);
++		break;
++	case BFI_LL_I2H_MAC_MCAST_DEL_RSP:
++		DO_CALLBACK(mcast_del_cb);
++		break;
++	case BFI_LL_I2H_MAC_MCAST_FILTER_RSP:
++		DO_CALLBACK(mcast_filter_cb);
++		break;
++	case BFI_LL_I2H_MAC_MCAST_DEL_ALL_RSP:
++		DO_CALLBACK(mcast_del_all_cb);
++		break;
++	case BFI_LL_I2H_RXF_PROMISCUOUS_SET_RSP:
++		DO_CALLBACK(set_promisc_cb);
++		break;
++	case BFI_LL_I2H_RXF_DEFAULT_SET_RSP:
++		DO_CALLBACK(set_default_cb);
++		break;
++	case BFI_LL_I2H_TXQ_STOP_RSP:
++		DO_CALLBACK(txq_stop_cb);
++		break;
++	case BFI_LL_I2H_RXQ_STOP_RSP:
++		DO_CALLBACK(rxq_stop_cb);
++		break;
++	case BFI_LL_I2H_PORT_ADMIN_RSP:
++		DO_CALLBACK(port_admin_cb);
++		{
++			struct bfi_ll_port_admin_req *pa =
++				(struct bfi_ll_port_admin_req *) (&qe->cmd.
++								  msg[0]);
++			if (pa->up)
++				bna_port_aen_post(dev, BFA_ETHPORT_AEN_ENABLE);
++			else
++				bna_port_aen_post(dev, BFA_ETHPORT_AEN_DISABLE);
++
++		}
++		break;
++	case BFI_LL_I2H_STATS_GET_RSP:
++		bna_do_stats_update(dev, status);
++		DO_CALLBACK(stats_get_cb);
++		break;
++	case BFI_LL_I2H_STATS_CLEAR_RSP:
++		DO_CALLBACK(stats_clr_cb);
++		break;
++	case BFI_LL_I2H_LINK_DOWN_AEN:
++		DO_CALLBACK(link_down_cb);
++		bna_port_aen_post(dev, BFA_ETHPORT_AEN_LINKDOWN);
++		break;
++	case BFI_LL_I2H_LINK_UP_AEN:
++		DO_CALLBACK(link_up_cb);
++		bna_port_aen_post(dev, BFA_ETHPORT_AEN_LINKUP);
++		break;
++	case BFI_LL_I2H_DIAG_LOOPBACK_RSP:
++		DO_CALLBACK(set_diag_lb_cb);
++		break;
++	case BFI_LL_I2H_SET_PAUSE_RSP:
++		DO_CALLBACK(set_pause_cb);
++		break;
++	case BFI_LL_I2H_MTU_INFO_RSP:
++		DO_CALLBACK(mtu_info_cb);
++		break;
++	case BFI_LL_I2H_RX_RSP:
++		DO_CALLBACK(rxf_cb);
++		break;
++	case BFI_LL_I2H_CEE_DOWN_AEN:
++		break;
++	case BFI_LL_I2H_CEE_UP_AEN:
++		break;
++	default:
++		BNA_LOG_WARN(("cb(): unknown msg Id %d for LL class\n",
++			      cmd_code));
++		break;
++	}
++}
++
++
++static enum bna_status_e
++bna_flush_mbox_q(struct bna_dev_s *dev, u8 wait_for_rsp)
++{
++	struct bna_mbox_q *q;
++	struct bna_mbox_cmd_qe *qe = NULL;
++	u8 msg_id = 0, msg_class = 0;
++
++	q = &dev->mbox_q;
++
++	if (bna_mbox_q_is_empty(q)) {
++		BNA_TRACE(dev, wait_for_rsp);
++		return BNA_OK;
++	}
++	if (q->posted != NULL && wait_for_rsp) {
++		qe = (struct bna_mbox_cmd_qe *) (q->posted);
++		/* The driver has to retry */
++		BNA_TRACE(dev, *((u32 *) (&qe->cmd.msg[0])));
++		return BNA_BUSY;
++	}
++
++	BNA_TRACE(dev, dev->port);
++	while (!bna_mbox_q_is_empty(q)) {
++		qe = bna_mbox_q_first(q);
++		msg_class =
++			((struct bfi_mhdr_s *) (&qe->cmd.msg[0]))->msg_class;
++		msg_id = ((struct bfi_mhdr_s *) (&qe->cmd.msg[0]))->msg_id;
++
++		BNA_TRACE(dev, *((u32 *) (&qe->cmd.msg[0])));
++
++		BNA_ASSERT(msg_class == BFI_MC_LL);
++
++		bna_do_drv_ll_cb(dev, BFA_I2HM(msg_id), BFI_LL_CMD_NOT_EXEC,
++				 qe);
++		bna_mbox_deq(q);
++	}
++	/* Reinit the queue, i.e prod = cons = 0; */
++	bna_mbox_q_init(q);
++	return BNA_OK;
++}
++
++enum bna_status_e
++bna_cleanup(void *bna_dev)
++{
++	struct bna_dev_s *dev = (struct bna_dev_s *) bna_dev;
++
++	dev->msg_ctr = 0;
++
++	return bna_flush_mbox_q(dev, 0);
++}
++
++/**
++ * Check both command queues
++ * Write to mailbox if required
++ */
++static enum bna_status_e
++bna_chk_n_snd_q(struct bna_dev_s *dev)
++{
++	struct bna_mbox_cmd_qe *qe = NULL;
++	struct bna_mbox_q *q;
++	struct bfi_mhdr_s *mh = NULL;
++
++	q = &dev->mbox_q;
++
++	if ((bna_mbox_q_is_empty(q)) || (q->posted != NULL)) {
++		BNA_TRACE(dev, dev->port);
++		return BNA_OK;
++	}
++
++	qe = bna_mbox_q_first(q);
++	/* Do not post any more commands if disable pending */
++	if (dev->ioc_disable_pending == 1) {
++		BNA_TRACE(dev, *((u32 *) (&qe->cmd.msg[0])));
++		return BNA_OK;
++	}
++
++	mh = ((struct bfi_mhdr_s *) (&qe->cmd.msg[0]));
++	mh->mtag.i2htok = bna_os_htons(dev->msg_ctr);
++	dev->msg_ctr++;
++	bfa_ioc_mbox_queue(&dev->ioc, &qe->cmd);
++	q->posted = qe;
++
++	return BNA_OK;
++}
++
++enum bna_status_e
++bna_mbox_send(struct bna_dev_s *dev, void *cmd, u32 cmd_len, void *cbarg)
++{
++	struct bna_mbox_cmd_qe *qe;
++	struct bna_mbox_q *q;
++	struct bfi_mhdr_s *mh = (struct bfi_mhdr_s *) cmd;
++
++	BNA_ASSERT(cmd_len <= BNA_MAX_MBOX_CMD_LEN);
++
++	if (dev->ioc_disable_pending) {
++		BNA_TRACE_WARN(dev, *((u32 *) cmd),
++			       ("IOC Disable is pending : Cannot queue Cmd "
++				"class %d id %d\n", mh->msg_class, mh->msg_id));
++		return BNA_FAIL;
++	}
++
++	if (!bfa_ioc_is_operational(&dev->ioc)) {
++		BNA_TRACE_ERROR(dev, *((u32 *) cmd),
++				("IOC is not operational : Cannot queue Cmd "
++				 "class %d id %d\n", mh->msg_class,
++				 mh->msg_id));
++		return BNA_FAIL;
++	}
++
++	q = &dev->mbox_q;
++	qe = bna_mbox_enq(q, cmd, cmd_len, cbarg);
++	if (qe == NULL)
++		return BNA_FAIL;
++
++	BNA_TRACE(dev, *(u32 *) cmd);
++	return bna_chk_n_snd_q(dev);
++}
++
++
++/**
++ * Returns 1, if this is an aen, 0 otherwise
++ */
++static int
++bna_is_aen(u8 msg_id)
++{
++	return (msg_id == BFI_LL_I2H_LINK_DOWN_AEN ||
++		msg_id == BFI_LL_I2H_LINK_UP_AEN ||
++		msg_id == BFI_LL_I2H_CEE_DOWN_AEN
++		|| msg_id == BFI_LL_I2H_CEE_UP_AEN);
++}
++
++static void
++bna_err_handler(struct bna_dev_s *dev, u32 intr_status)
++{
++	u32 curr_mask;
++
++	BNA_LOG_DEBUG(("HW ERROR : INT statux 0x%x on port %d\n",
++		       intr_status, dev->port));
++
++	bfa_ioc_error_isr(&dev->ioc);
++
++	/*
++	 * Disable all the bits in interrupt mask, including
++	 * the mbox & error bits.
++	 * This is required so that once h/w error hits, we don't
++	 * get into a loop.
++	 */
++	bna_intx_disable(dev, &curr_mask);
++
++	if (dev->mb_cbfns.hw_error_cb)
++		(dev->mb_cbfns.hw_error_cb) (dev->cbarg, 0);
++}
++
++void
++bna_ll_isr(void *llarg, struct bfi_mbmsg_s *msg)
++{
++	u32 aen = 0;
++	struct bna_dev_s *dev = (struct bna_dev_s *) llarg;
++	struct bna_mbox_cmd_qe *qe = NULL;
++	struct bna_mbox_q *mbox_q = NULL;
++	struct bfi_ll_rsp *mb_rsp = NULL;
++
++	mb_rsp = (struct bfi_ll_rsp *) (msg);
++
++	BNA_ASSERT(mb_rsp->mh.msg_class == BFI_MC_LL);
++	BNA_TRACE(dev, *(u32 *) (&mb_rsp->mh));
++
++	aen = bna_is_aen(mb_rsp->mh.msg_id);
++	if (!aen) {
++		mbox_q = &dev->mbox_q;
++
++		BNA_ASSERT(!bna_mbox_q_is_empty(mbox_q));
++		qe = bna_mbox_q_first(mbox_q);
++		BNA_ASSERT(mbox_q->posted == qe);
++
++		if (BFA_I2HM(((struct bfi_mhdr_s *) (&qe->cmd.msg[0]))->msg_id)
++		    != mb_rsp->mh.msg_id) {
++			BNA_TRACE_ERROR(dev, *((u32 *) (&qe->cmd.msg[0])),
++					("Invalid Rsp Msg %d:%d (Expected %d:%d) "
++					 "on %d\n", mb_rsp->mh.msg_class,
++					 mb_rsp->mh.msg_id,
++					 ((struct bfi_mhdr_s *) (&qe->cmd.
++								 msg[0]))->
++					 msg_class,
++					 BFA_I2HM(((struct bfi_mhdr_s *)
++						   (&qe->cmd.msg[0]))->msg_id),
++					 dev->port));
++			BNA_ASSERT(0);
++			return;
++		}
++		bna_mbox_deq(mbox_q);
++		mbox_q->posted = NULL;
++	}
++	bna_do_drv_ll_cb(dev, mb_rsp->mh.msg_id, mb_rsp->error, qe);
++	bna_chk_n_snd_q(dev);
++}
++
++
++void
++bna_mbox_err_handler(struct bna_dev_s *dev, u32 intr_status)
++{
++	if (BNA_IS_ERR_INTR(intr_status)) {
++		bna_err_handler(dev, intr_status);
++		return;
++	}
++
++	if (BNA_IS_MBOX_INTR(intr_status))
++		bfa_ioc_mbox_isr(&dev->ioc);
++}
++
++/**
++ * bna_port_admin()
++ *
++ *   Enable (up) or disable (down) the interface administratively.
++ *
++ * @param[in]  dev	- pointer to BNA device structure
++ * @param[in]  enable - enable/disable the interface.
++ *
++ * @return BNA_OK or BNA_FAIL
++ */
++enum bna_status_e
++bna_port_admin(struct bna_dev_s *bna_dev, enum bna_enable_e enable)
++{
++	struct bna_dev_s *dev = (struct bna_dev_s *) bna_dev;
++	struct bfi_ll_port_admin_req ll_req;
++
++	ll_req.mh.msg_class = BFI_MC_LL;
++	ll_req.mh.msg_id = BFI_LL_H2I_PORT_ADMIN_REQ;
++	ll_req.mh.mtag.i2htok = 0;
++
++	ll_req.up = enable;
++
++	/* send to f/w */
++	return bna_mbox_send(dev, &ll_req, sizeof(ll_req), dev->cbarg);
++}
++
++/**
++ * bna_port_param_get()
++ *
++ *   Get the port parameters.
++ *
++ * @param[in]   dev	   - pointer to BNA device structure
++ * @param[out]  param_ptr - pointer to where the parameters will be returned.
++ *
++ * @return void
++ */
++void
++bna_port_param_get(struct bna_dev_s *dev, struct bna_port_param *param_ptr)
++{
++	param_ptr->supported = BNA_TRUE;
++	param_ptr->advertising = BNA_TRUE;
++	param_ptr->speed = BNA_LINK_SPEED_10Gbps;
++	param_ptr->duplex = BNA_TRUE;
++	param_ptr->autoneg = BNA_FALSE;
++	param_ptr->port = dev->port;
++}
++
++/**
++ * bna_port_mac_get()
++ *
++ *   Get the Burnt-in or permanent MAC address.  This function does not return
++ *   the MAC set thru bna_rxf_ucast_mac_set() but the one that is assigned to
++ *   the port upon reset.
++ *
++ * @param[in]  dev	 - pointer to BNA device structure
++ * @param[out] mac_ptr - Burnt-in or permanent MAC address.
++ *
++ * @return void
++ */
++void
++bna_port_mac_get(struct bna_dev_s *bna_dev, bna_mac_t * mac_ptr)
++{
++	struct bna_dev_s *dev = (struct bna_dev_s *) bna_dev;
++	mac_t mac;
++
++	mac = bfa_ioc_get_mac(&dev->ioc);
++
++	/* TODO : Use mac_t, remove memcpy */
++	bna_os_memcpy(mac_ptr, &mac, sizeof(*mac_ptr));
++}
++
++/**
++ *	IOC Integration
++ */
++
++/**
++ *	bfa_iocll_cbfn
++ *	Structure for callbacks to be implemented by
++ *	the driver.
++ */
++static struct bfa_ioc_cbfn_s bfa_iocll_cbfn = {
++	bna_iocll_enable_cbfn,
++	bna_iocll_disable_cbfn,
++	bna_iocll_hbfail_cbfn,
++	bna_iocll_reset_cbfn
++};
++
++
++static void
++bna_iocll_memclaim(struct bna_dev_s *dev, struct bna_meminfo *mi)
++{
++
++	bfa_ioc_mem_claim(&dev->ioc, mi[BNA_DMA_MEM_T_ATTR].kva,
++			  mi[BNA_DMA_MEM_T_ATTR].dma);
++
++	if (bna_ioc_auto_recover)
++		bfa_ioc_debug_memclaim(&dev->ioc, mi[BNA_KVA_MEM_T_FWTRC].kva);
++}
++
++void
++bna_iocll_meminfo(struct bna_dev_s *dev, struct bna_meminfo *mi)
++{
++
++
++	mi[BNA_DMA_MEM_T_ATTR].len =
++		BNA_ALIGN(bfa_ioc_meminfo(), BNA_PAGE_SIZE);
++
++	mi[BNA_KVA_MEM_T_FWTRC].len = bfa_ioc_debug_trcsz(bna_ioc_auto_recover);
++}
++
++void
++bna_iocll_attach(struct bna_dev_s *dev, void *bnad,
++		 struct bna_meminfo *meminfo, struct bfa_pcidev_s *pcidev,
++		 struct bfa_trc_mod_s *trcmod, struct bfa_aen_s *aen,
++		 struct bfa_log_mod_s *logm)
++{
++	bfa_ioc_attach(&dev->ioc, bnad, &bfa_iocll_cbfn, &dev->timer_mod,
++		       trcmod, aen, logm);
++	bfa_ioc_pci_init(&dev->ioc, pcidev, BFI_MC_LL);
++
++	bfa_ioc_mbox_regisr(&dev->ioc, BFI_MC_LL, bna_ll_isr, dev);
++	bna_iocll_memclaim(dev, meminfo);
++
++
++	bfa_timer_init(&dev->timer_mod);
++
++}
++
++/**
++ * FIXME :
++ * Either the driver or CAL should serialize
++ * this IOC disable
++ * Currently this is happening indirectly b'cos
++ * bfa_ioc_disable() is not called if there
++ * is an outstanding cmd in the queue, which
++ * could not be flushed.
++ */
++enum bna_status_e
++bna_iocll_disable(struct bna_dev_s *dev)
++{
++	enum bna_status_e ret;
++
++	dev->ioc_disable_pending = 1;
++	if ((ret = bna_flush_mbox_q(dev, 1)) != BNA_OK) {
++		BNA_LOG_WARN(("Unable to flush Mbox Queues [%d]\n", ret));
++		return ret;
++	}
++
++	bfa_ioc_disable(&dev->ioc);
++	dev->ioc_disable_pending = 0;
++
++	return BNA_OK;
++}
++
++void
++bna_iocll_getinfo(struct bna_dev_s *dev, char *serial_num, u32 size)
++{
++	struct bfa_adapter_attr_s ad_attr;
++	u32 length;
++
++	bfa_ioc_get_adapter_attr(&dev->ioc, &ad_attr);
++	length = BNA_MIN(size, sizeof(ad_attr.serial_num));
++	bna_os_memcpy(serial_num, ad_attr.serial_num, length);
++}
++
++/* Dummy */
++/* FIXME : Delete once bfa_diag.c is fixed */
++void
++bfa_pport_beacon(struct bfa_s *bfa, bfa_boolean_t beacon,
++		 bfa_boolean_t link_e2e_beacon)
++{
++}
+diff -ruP linux-2.6.30.5-orig/drivers/net/bna/bna_iocll.h linux-2.6.30.5-mod/drivers/net/bna/bna_iocll.h
+--- linux-2.6.30.5-orig/drivers/net/bna/bna_iocll.h	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.30.5-mod/drivers/net/bna/bna_iocll.h	2009-08-28 21:09:23.448899000 -0700
+@@ -0,0 +1,67 @@
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2009 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ *
++ * See LICENSE.bna for copyright and licensing details.
++ */
++
++#ifndef __BNA_IOCLL_H__
++#define __BNA_IOCLL_H__
++
++#include <bfa.h>
++#include <bfa_ioc.h>
++#include <bfa_timer.h>
++#include <bfi/bfi_ll.h>
++
++#define BNA_IOC_TIMER_FREQ BFA_TIMER_FREQ
++
++/*
++ * LL specific IOC functions.
++ */
++void bna_iocll_meminfo(struct bna_dev_s *bna_dev, struct bna_meminfo *meminfo);
++void bna_iocll_attach(struct bna_dev_s *bna_dev, void *bnad,
++		      struct bna_meminfo *meminfo,
++		      struct bfa_pcidev_s *pcidev,
++		      struct bfa_trc_mod_s *trcmod, struct bfa_aen_s *aen,
++		      struct bfa_log_mod_s *logmod);
++enum bna_status_e bna_iocll_disable(struct bna_dev_s *bna_dev);
++void bna_iocll_getinfo(struct bna_dev_s *bna_dev, char *serial_num, u32 size);
++#define bna_iocll_detach(dev) bfa_ioc_detach(&((dev)->ioc))
++#define bna_iocll_enable(dev) bfa_ioc_enable(&((dev)->ioc))
++#define bna_iocll_debug_fwsave(dev, trc_data, trc_len)		\
++	bfa_ioc_debug_fwsave(&((dev)->ioc), (trc_data), (trc_len))
++#define bna_iocll_debug_fwtrc(dev, trc_data, trc_len)		\
++	bfa_ioc_debug_fwtrc(&((dev)->ioc), (trc_data), (trc_len))
++#define bna_iocll_timer(dev) bfa_timer_beat(&((dev)->timer_mod))
++#define bna_iocll_getstats(dev, ioc_stats)	\
++	bfa_ioc_fetch_stats(&((dev)->ioc), (ioc_stats))
++#define bna_iocll_resetstats(dev) bfa_ioc_clr_stats(&((dev)->ioc))
++#define bna_iocll_getattr(dev, ioc_attr)	\
++	bfa_ioc_get_attr(&((dev)->ioc), (ioc_attr))
++
++/**
++ * Callback functions to be implemented by the driver
++ */
++void bna_iocll_enable_cbfn(void *bnad, enum bfa_status status);
++void bna_iocll_disable_cbfn(void *bnad);
++void bna_iocll_hbfail_cbfn(void *bnad);
++void bna_iocll_reset_cbfn(void *bnad);
++
++#endif /* __BNA_IOCLL_H__ */
