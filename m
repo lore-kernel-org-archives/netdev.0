@@ -1,41 +1,56 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: r8169 NETDEV WATCHDOG: eth0: transmit timed out [0/8]
-Date: Sat, 29 Aug 2009 09:39:40 -0400
-Message-ID: <1251553180.13707.16.camel@obelisk.thedillows.org>
-References: <b410963b0908290216x19206aa6o4458bb55b5578a04@mail.gmail.com>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: [PATCH net-next-2.6] can: use correct NET_RX_ return values
+Date: Sat, 29 Aug 2009 18:45:09 +0200
+Message-ID: <4A995B15.4020303@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: roma1390 <roma1390@gmail.com>
+Content-Type: multipart/mixed;
+ boundary="------------010505040601090507000902"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.knology.net ([24.214.63.101]:37956 "EHLO smtp.knology.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750980AbZH2Njj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Aug 2009 09:39:39 -0400
-In-Reply-To: <b410963b0908290216x19206aa6o4458bb55b5578a04@mail.gmail.com>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:32837 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751387AbZH2QpJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2009 12:45:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2009-08-29 at 12:16 +0300, roma1390 wrote:
-> Using 3 different r8169 devices on 2 servers (from 2 server so 100% of
-> population) we getting
-> 
-> NETDEV WATCHDOG: eth0: transmit timed out
+This is a multi-part message in MIME format.
+--------------010505040601090507000902
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-You're running an old version of the kernel, and the driver was patched
-to fix that issue in 2.6.30. It is also in the 2.6.29.x stable series,
-and I think maybe the 2.6.28.x series -- please try those and see if you
-problem is resolved.
+Dropped skb's should be documented by an appropriate return value.
+Use the correct NET_RX_DROP and NET_RX_SUCCESS values for that reason.
 
-We're aware of a possible issue with the fix in those kernels, and are
-working it in another thread. A quick search of the archives should turn
-it up. Will you be willing to test patches?
+Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
 
->From your dmesg, it looks like you have 8169c's, running in MSI mode.
-Can you please confirm this by sending your /proc/interrupt info:
-	cat /proc/interrupts | grep eth0
+---
 
-Also, in the future, please cc netdev on network bug reports.
-Thanks!
+--------------010505040601090507000902
+Content-Type: text/x-patch;
+ name="can_use_correct_NET_RX_return_values.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="can_use_correct_NET_RX_return_values.patch"
 
+diff --git a/net/can/af_can.c b/net/can/af_can.c
+index f9c027b..ef1c43a 100644
+--- a/net/can/af_can.c
++++ b/net/can/af_can.c
+@@ -686,11 +686,11 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		can_stats.matches_delta++;
+ 	}
+ 
+-	return 0;
++	return NET_RX_SUCCESS;
+ 
+ drop:
+ 	kfree_skb(skb);
+-	return 0;
++	return NET_RX_DROP;
+ }
+ 
+ /*
+
+--------------010505040601090507000902--
