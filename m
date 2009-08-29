@@ -1,41 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sit: allow ip fragmentation when using nopmtudisc to
- fix package loss
-Date: Fri, 28 Aug 2009 23:54:04 -0700 (PDT)
-Message-ID: <20090828.235404.61171174.davem@davemloft.net>
-References: <1251197322-3177-1-git-send-email-contact@saschahlusiak.de>
+Subject: Re: [PATCH] sit: 6to4: honour routing table
+Date: Fri, 28 Aug 2009 23:55:32 -0700 (PDT)
+Message-ID: <20090828.235532.253821244.davem@davemloft.net>
+References: <3324b33c97aa3dba56e96b187db30042@chewa.net>
+	<200908241148.17012.contact@saschahlusiak.de>
+	<f40a9bc1410c815bf1932e27086162d8@chewa.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: contact@saschahlusiak.de
+To: remi@remlab.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36235
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36238
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751083AbZH2Gxu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2009 02:53:50 -0400
-In-Reply-To: <1251197322-3177-1-git-send-email-contact@saschahlusiak.de>
+	by vger.kernel.org with ESMTP id S1751083AbZH2GzS convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Aug 2009 02:55:18 -0400
+In-Reply-To: <f40a9bc1410c815bf1932e27086162d8@chewa.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sascha Hlusiak <contact@saschahlusiak.de>
-Date: Tue, 25 Aug 2009 12:48:42 +0200
+=46rom: R=E9mi Denis-Courmont <remi@remlab.net>
+Date: Mon, 24 Aug 2009 12:02:51 +0200
 
-> if tunnel parameters have frag_off set to IP_DF, pmtudisc on the ipv4 link
-> will be performed by deriving the mtu from the ipv4 link and setting the
-> DF-Flag of the encapsulating IPv4 Header. If fragmentation is needed on the
-> way, the IPv4 pmtu gets adjusted, the ipv6 package will be resent eventually,
-> using the new and lower mtu and everyone is happy.
-> 
-> If the frag_off parameter is unset, the mtu for the tunnel will be derived
-> from the tunnel device or the ipv6 pmtu, which might be higher than the ipv4
-> pmtu. In that case we must allow the fragmentation of the IPv4 packet because
-> the IPv6 mtu wouldn't 'learn' from the adjusted IPv4 pmtu, resulting in
-> frequent icmp_frag_needed and package loss on the IPv6 layer.
-> 
-> This patch allows fragmentation when tunnel was created with parameter
-> nopmtudisc, like in ipip/gre tunnels.
-> 
-> Signed-off-by: Sascha Hlusiak <contact@saschahlusiak.de>
+>=20
+>=20
+> On Mon, 24 Aug 2009 11:48:12 +0200, Sascha Hlusiak
+> <contact@saschahlusiak.de> wrote:
+>> Attached patch is a compromise though which implements both but trie=
+s the
+>=20
+>> destination address first and then the next hop. What would it break=
+?
+>=20
+> I don't think it breaks anything per se. But userland will continue t=
+o use
+> compatible addresses forever anyway, so that it works with current ke=
+rnel
+> versions.
 
-Seems reasonable, applied to net-next-2.6, thanks!
+This is reason enough for me to not apply this patch.
