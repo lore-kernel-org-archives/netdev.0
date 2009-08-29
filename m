@@ -1,362 +1,213 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 07/17] tg3: Create rx producer ring setup routines
-Date: Fri, 28 Aug 2009 16:59:57 -0700
-Message-ID: <1251585284.29681@xw6200>
+Subject: [PATCH 12/17] tg3: Convert ISR parameter to tnapi
+Date: Fri, 28 Aug 2009 17:01:57 -0700
+Message-ID: <1251585289.29696@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2517 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:2439 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752611AbZH2Wer (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Aug 2009 18:34:47 -0400
+	id S1752672AbZH2We5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Aug 2009 18:34:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Later patches are going to complicate the ring initialization routines.
-This patch breaks out the setup and teardown of the rx producer rings
-into separate functions to make the code more readable.
+This patch migrates the ISR parameter from struct net_device to struct
+tg3_napi.  Checkpatch complains about the existence of the preexisting
+IRQF_SAMPLE_RANDOM flag.  I've opted to keep this patch conservative and
+let it continue to exist until the flag gets officially purged from the
+kernel.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 ---
- drivers/net/tg3.c |  231 +++++++++++++++++++++++++++++++++--------------------
- 1 files changed, 144 insertions(+), 87 deletions(-)
+ drivers/net/tg3.c |   49 +++++++++++++++++++++++++------------------------
+ 1 files changed, 25 insertions(+), 24 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index a2a5f31..5d0a1e6 100644
+index b308c40..bf9a333 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -5517,14 +5517,7 @@ static int tg3_change_mtu(struct net_device *dev, int new_mtu)
+@@ -4757,14 +4757,14 @@ static inline void tg3_full_unlock(struct tg3 *tp)
+  */
+ static irqreturn_t tg3_msi_1shot(int irq, void *dev_id)
+ {
+-	struct net_device *dev = dev_id;
+-	struct tg3 *tp = netdev_priv(dev);
++	struct tg3_napi *tnapi = dev_id;
++	struct tg3 *tp = tnapi->tp;
+ 
+ 	prefetch(tp->hw_status);
+ 	prefetch(&tp->rx_rcb[tp->rx_rcb_ptr]);
+ 
+ 	if (likely(!tg3_irq_sync(tp)))
+-		napi_schedule(&tp->napi[0].napi);
++		napi_schedule(&tnapi->napi);
+ 
+ 	return IRQ_HANDLED;
+ }
+@@ -4775,8 +4775,8 @@ static irqreturn_t tg3_msi_1shot(int irq, void *dev_id)
+  */
+ static irqreturn_t tg3_msi(int irq, void *dev_id)
+ {
+-	struct net_device *dev = dev_id;
+-	struct tg3 *tp = netdev_priv(dev);
++	struct tg3_napi *tnapi = dev_id;
++	struct tg3 *tp = tnapi->tp;
+ 
+ 	prefetch(tp->hw_status);
+ 	prefetch(&tp->rx_rcb[tp->rx_rcb_ptr]);
+@@ -4789,15 +4789,15 @@ static irqreturn_t tg3_msi(int irq, void *dev_id)
+ 	 */
+ 	tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW, 0x00000001);
+ 	if (likely(!tg3_irq_sync(tp)))
+-		napi_schedule(&tp->napi[0].napi);
++		napi_schedule(&tnapi->napi);
+ 
+ 	return IRQ_RETVAL(1);
+ }
+ 
+ static irqreturn_t tg3_interrupt(int irq, void *dev_id)
+ {
+-	struct net_device *dev = dev_id;
+-	struct tg3 *tp = netdev_priv(dev);
++	struct tg3_napi *tnapi = dev_id;
++	struct tg3 *tp = tnapi->tp;
+ 	struct tg3_hw_status *sblk = tp->hw_status;
+ 	unsigned int handled = 1;
+ 
+@@ -4831,7 +4831,7 @@ static irqreturn_t tg3_interrupt(int irq, void *dev_id)
+ 	sblk->status &= ~SD_STATUS_UPDATED;
+ 	if (likely(tg3_has_work(tp))) {
+ 		prefetch(&tp->rx_rcb[tp->rx_rcb_ptr]);
+-		napi_schedule(&tp->napi[0].napi);
++		napi_schedule(&tnapi->napi);
+ 	} else {
+ 		/* No work, shared interrupt perhaps?  re-enable
+ 		 * interrupts, and flush that PCI write
+@@ -4845,8 +4845,8 @@ out:
+ 
+ static irqreturn_t tg3_interrupt_tagged(int irq, void *dev_id)
+ {
+-	struct net_device *dev = dev_id;
+-	struct tg3 *tp = netdev_priv(dev);
++	struct tg3_napi *tnapi = dev_id;
++	struct tg3 *tp = tnapi->tp;
+ 	struct tg3_hw_status *sblk = tp->hw_status;
+ 	unsigned int handled = 1;
+ 
+@@ -4889,7 +4889,7 @@ static irqreturn_t tg3_interrupt_tagged(int irq, void *dev_id)
+ 
+ 	prefetch(&tp->rx_rcb[tp->rx_rcb_ptr]);
+ 
+-	napi_schedule(&tp->napi[0].napi);
++	napi_schedule(&tnapi->napi);
+ 
+ out:
+ 	return IRQ_RETVAL(handled);
+@@ -4898,8 +4898,8 @@ out:
+ /* ISR for interrupt test */
+ static irqreturn_t tg3_test_isr(int irq, void *dev_id)
+ {
+-	struct net_device *dev = dev_id;
+-	struct tg3 *tp = netdev_priv(dev);
++	struct tg3_napi *tnapi = dev_id;
++	struct tg3 *tp = tnapi->tp;
+ 	struct tg3_hw_status *sblk = tp->hw_status;
+ 
+ 	if ((sblk->status & SD_STATUS_UPDATED) ||
+@@ -7697,7 +7697,7 @@ static int tg3_request_irq(struct tg3 *tp)
+ {
+ 	irq_handler_t fn;
+ 	unsigned long flags;
+-	struct net_device *dev = tp->dev;
++	char *name = tp->dev->name;
+ 
+ 	if (tp->tg3_flags2 & TG3_FLG2_USING_MSI) {
+ 		fn = tg3_msi;
+@@ -7710,11 +7710,12 @@ static int tg3_request_irq(struct tg3 *tp)
+ 			fn = tg3_interrupt_tagged;
+ 		flags = IRQF_SHARED | IRQF_SAMPLE_RANDOM;
+ 	}
+-	return (request_irq(tp->pdev->irq, fn, flags, dev->name, dev));
++	return request_irq(tp->pdev->irq, fn, flags, name, &tp->napi[0]);
+ }
+ 
+ static int tg3_test_interrupt(struct tg3 *tp)
+ {
++	struct tg3_napi *tnapi = &tp->napi[0];
+ 	struct net_device *dev = tp->dev;
+ 	int err, i, intr_ok = 0;
+ 
+@@ -7723,10 +7724,10 @@ static int tg3_test_interrupt(struct tg3 *tp)
+ 
+ 	tg3_disable_ints(tp);
+ 
+-	free_irq(tp->pdev->irq, dev);
++	free_irq(tp->pdev->irq, tnapi);
+ 
+ 	err = request_irq(tp->pdev->irq, tg3_test_isr,
+-			  IRQF_SHARED | IRQF_SAMPLE_RANDOM, dev->name, dev);
++			  IRQF_SHARED | IRQF_SAMPLE_RANDOM, dev->name, tnapi);
+ 	if (err)
+ 		return err;
+ 
+@@ -7754,7 +7755,7 @@ static int tg3_test_interrupt(struct tg3 *tp)
+ 
+ 	tg3_disable_ints(tp);
+ 
+-	free_irq(tp->pdev->irq, dev);
++	free_irq(tp->pdev->irq, tnapi);
+ 
+ 	err = tg3_request_irq(tp);
+ 
+@@ -7772,7 +7773,6 @@ static int tg3_test_interrupt(struct tg3 *tp)
+  */
+ static int tg3_test_msi(struct tg3 *tp)
+ {
+-	struct net_device *dev = tp->dev;
+ 	int err;
+ 	u16 pci_cmd;
+ 
+@@ -7803,7 +7803,8 @@ static int tg3_test_msi(struct tg3 *tp)
+ 	       "the PCI maintainer and include system chipset information.\n",
+ 		       tp->dev->name);
+ 
+-	free_irq(tp->pdev->irq, dev);
++	free_irq(tp->pdev->irq, &tp->napi[0]);
++
+ 	pci_disable_msi(tp->pdev);
+ 
+ 	tp->tg3_flags2 &= ~TG3_FLG2_USING_MSI;
+@@ -7823,7 +7824,7 @@ static int tg3_test_msi(struct tg3 *tp)
+ 	tg3_full_unlock(tp);
+ 
+ 	if (err)
+-		free_irq(tp->pdev->irq, dev);
++		free_irq(tp->pdev->irq, &tp->napi[0]);
+ 
  	return err;
  }
- 
--/* Free up pending packets in all rx/tx rings.
-- *
-- * The chip has been shut down and the driver detached from
-- * the networking, so no interrupts or new tx packets will
-- * end up in the driver.  tp->{tx,}lock is not held and we are not
-- * in an interrupt context and thus may sleep.
-- */
--static void tg3_free_rings(struct tg3 *tp)
-+static void tg3_rx_prodring_free(struct tg3 *tp)
- {
- 	struct ring_info *rxp;
- 	int i;
-@@ -5534,46 +5527,29 @@ static void tg3_free_rings(struct tg3 *tp)
- 
- 		if (rxp->skb == NULL)
- 			continue;
--		pci_unmap_single(tp->pdev,
--				 pci_unmap_addr(rxp, mapping),
--				 tp->rx_pkt_map_sz,
--				 PCI_DMA_FROMDEVICE);
--		dev_kfree_skb_any(rxp->skb);
--		rxp->skb = NULL;
--	}
--
--	for (i = 0; i < TG3_RX_JUMBO_RING_SIZE; i++) {
--		rxp = &tp->rx_jumbo_buffers[i];
- 
--		if (rxp->skb == NULL)
--			continue;
- 		pci_unmap_single(tp->pdev,
- 				 pci_unmap_addr(rxp, mapping),
--				 TG3_RX_JMB_MAP_SZ,
-+				 tp->rx_pkt_map_sz,
- 				 PCI_DMA_FROMDEVICE);
- 		dev_kfree_skb_any(rxp->skb);
- 		rxp->skb = NULL;
- 	}
- 
--	for (i = 0; i < TG3_TX_RING_SIZE; ) {
--		struct tx_ring_info *txp;
--		struct sk_buff *skb;
-+	if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) {
-+		for (i = 0; i < TG3_RX_JUMBO_RING_SIZE; i++) {
-+			rxp = &tp->rx_jumbo_buffers[i];
- 
--		txp = &tp->tx_buffers[i];
--		skb = txp->skb;
-+			if (rxp->skb == NULL)
-+				continue;
- 
--		if (skb == NULL) {
--			i++;
--			continue;
-+			pci_unmap_single(tp->pdev,
-+					 pci_unmap_addr(rxp, mapping),
-+					 TG3_RX_JMB_MAP_SZ,
-+					 PCI_DMA_FROMDEVICE);
-+			dev_kfree_skb_any(rxp->skb);
-+			rxp->skb = NULL;
- 		}
--
--		skb_dma_unmap(&tp->pdev->dev, skb, DMA_TO_DEVICE);
--
--		txp->skb = NULL;
--
--		i += skb_shinfo(skb)->nr_frags + 1;
--
--		dev_kfree_skb_any(skb);
- 	}
- }
- 
-@@ -5584,18 +5560,12 @@ static void tg3_free_rings(struct tg3 *tp)
-  * end up in the driver.  tp->{tx,}lock are held and thus
-  * we may not sleep.
-  */
--static int tg3_init_rings(struct tg3 *tp)
-+static int tg3_rx_prodring_alloc(struct tg3 *tp)
- {
- 	u32 i, rx_pkt_dma_sz;
- 
--	/* Free up all the SKBs. */
--	tg3_free_rings(tp);
--
- 	/* Zero out all descriptors. */
- 	memset(tp->rx_std, 0, TG3_RX_RING_BYTES);
--	memset(tp->rx_jumbo, 0, TG3_RX_JUMBO_RING_BYTES);
--	memset(tp->rx_rcb, 0, TG3_RX_RCB_RING_BYTES(tp));
--	memset(tp->tx_ring, 0, TG3_TX_RING_BYTES);
- 
- 	rx_pkt_dma_sz = TG3_RX_STD_DMA_SZ;
- 	if ((tp->tg3_flags2 & TG3_FLG2_5780_CLASS) &&
-@@ -5617,19 +5587,6 @@ static int tg3_init_rings(struct tg3 *tp)
- 			       (i << RXD_OPAQUE_INDEX_SHIFT));
- 	}
- 
--	if (tp->tg3_flags & TG3_FLAG_JUMBO_RING_ENABLE) {
--		for (i = 0; i < TG3_RX_JUMBO_RING_SIZE; i++) {
--			struct tg3_rx_buffer_desc *rxd;
--
--			rxd = &tp->rx_jumbo[i];
--			rxd->idx_len = TG3_RX_JMB_DMA_SZ << RXD_LEN_SHIFT;
--			rxd->type_flags = (RXD_FLAG_END << RXD_FLAGS_SHIFT) |
--				RXD_FLAG_JUMBO;
--			rxd->opaque = (RXD_OPAQUE_RING_JUMBO |
--			       (i << RXD_OPAQUE_INDEX_SHIFT));
--		}
--	}
--
- 	/* Now allocate fresh SKBs for each rx ring. */
- 	for (i = 0; i < tp->rx_pending; i++) {
- 		if (tg3_alloc_rx_skb(tp, RXD_OPAQUE_RING_STD, -1, i) < 0) {
-@@ -5639,13 +5596,29 @@ static int tg3_init_rings(struct tg3 *tp)
- 			       "successfully.\n",
- 			       tp->dev->name, i, tp->rx_pending);
- 			if (i == 0)
--				return -ENOMEM;
-+				goto initfail;
- 			tp->rx_pending = i;
- 			break;
- 		}
- 	}
- 
-+	if (!(tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE))
-+		goto done;
-+
-+	memset(tp->rx_jumbo, 0, TG3_RX_JUMBO_RING_BYTES);
-+
- 	if (tp->tg3_flags & TG3_FLAG_JUMBO_RING_ENABLE) {
-+		for (i = 0; i < TG3_RX_JUMBO_RING_SIZE; i++) {
-+			struct tg3_rx_buffer_desc *rxd;
-+
-+			rxd = &tp->rx_jumbo[i];
-+			rxd->idx_len = TG3_RX_JMB_DMA_SZ << RXD_LEN_SHIFT;
-+			rxd->type_flags = (RXD_FLAG_END << RXD_FLAGS_SHIFT) |
-+				RXD_FLAG_JUMBO;
-+			rxd->opaque = (RXD_OPAQUE_RING_JUMBO |
-+			       (i << RXD_OPAQUE_INDEX_SHIFT));
-+		}
-+
- 		for (i = 0; i < tp->rx_jumbo_pending; i++) {
- 			if (tg3_alloc_rx_skb(tp, RXD_OPAQUE_RING_JUMBO,
- 					     -1, i) < 0) {
-@@ -5654,26 +5627,28 @@ static int tg3_init_rings(struct tg3 *tp)
- 				       "only %d out of %d buffers were "
- 				       "allocated successfully.\n",
- 				       tp->dev->name, i, tp->rx_jumbo_pending);
--				if (i == 0) {
--					tg3_free_rings(tp);
--					return -ENOMEM;
--				}
-+				if (i == 0)
-+					goto initfail;
- 				tp->rx_jumbo_pending = i;
- 				break;
- 			}
- 		}
- 	}
-+
-+done:
+@@ -8002,7 +8003,7 @@ static int tg3_open(struct net_device *dev)
  	return 0;
-+
-+initfail:
-+	tg3_rx_prodring_free(tp);
-+	return -ENOMEM;
- }
  
--/*
-- * Must not be invoked with interrupt sources disabled and
-- * the hardware shutdown down.
-- */
--static void tg3_free_consistent(struct tg3 *tp)
-+static void tg3_rx_prodring_fini(struct tg3 *tp)
- {
- 	kfree(tp->rx_std_buffers);
- 	tp->rx_std_buffers = NULL;
-+	kfree(tp->rx_jumbo_buffers);
-+	tp->rx_jumbo_buffers = NULL;
- 	if (tp->rx_std) {
- 		pci_free_consistent(tp->pdev, TG3_RX_RING_BYTES,
- 				    tp->rx_std, tp->rx_std_mapping);
-@@ -5684,6 +5659,103 @@ static void tg3_free_consistent(struct tg3 *tp)
- 				    tp->rx_jumbo, tp->rx_jumbo_mapping);
- 		tp->rx_jumbo = NULL;
- 	}
-+}
-+
-+static int tg3_rx_prodring_init(struct tg3 *tp)
-+{
-+	tp->rx_std_buffers = kzalloc(sizeof(struct ring_info) *
-+				     TG3_RX_RING_SIZE, GFP_KERNEL);
-+	if (!tp->rx_std_buffers)
-+		return -ENOMEM;
-+
-+	tp->rx_std = pci_alloc_consistent(tp->pdev, TG3_RX_RING_BYTES,
-+					  &tp->rx_std_mapping);
-+	if (!tp->rx_std)
-+		goto err_out;
-+
-+	if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) {
-+		tp->rx_jumbo_buffers = kzalloc(sizeof(struct ring_info) *
-+					       TG3_RX_JUMBO_RING_SIZE,
-+					       GFP_KERNEL);
-+		if (!tp->rx_jumbo_buffers)
-+			goto err_out;
-+
-+		tp->rx_jumbo = pci_alloc_consistent(tp->pdev,
-+						    TG3_RX_JUMBO_RING_BYTES,
-+						    &tp->rx_jumbo_mapping);
-+		if (!tp->rx_jumbo)
-+			goto err_out;
-+	}
-+
-+	return 0;
-+
-+err_out:
-+	tg3_rx_prodring_fini(tp);
-+	return -ENOMEM;
-+}
-+
-+/* Free up pending packets in all rx/tx rings.
-+ *
-+ * The chip has been shut down and the driver detached from
-+ * the networking, so no interrupts or new tx packets will
-+ * end up in the driver.  tp->{tx,}lock is not held and we are not
-+ * in an interrupt context and thus may sleep.
-+ */
-+static void tg3_free_rings(struct tg3 *tp)
-+{
-+	int i;
-+
-+	for (i = 0; i < TG3_TX_RING_SIZE; ) {
-+		struct tx_ring_info *txp;
-+		struct sk_buff *skb;
-+
-+		txp = &tp->tx_buffers[i];
-+		skb = txp->skb;
-+
-+		if (skb == NULL) {
-+			i++;
-+			continue;
-+		}
-+
-+		skb_dma_unmap(&tp->pdev->dev, skb, DMA_TO_DEVICE);
-+
-+		txp->skb = NULL;
-+
-+		i += skb_shinfo(skb)->nr_frags + 1;
-+
-+		dev_kfree_skb_any(skb);
-+	}
-+
-+	tg3_rx_prodring_free(tp);
-+}
-+
-+/* Initialize tx/rx rings for packet processing.
-+ *
-+ * The chip has been shut down and the driver detached from
-+ * the networking, so no interrupts or new tx packets will
-+ * end up in the driver.  tp->{tx,}lock are held and thus
-+ * we may not sleep.
-+ */
-+static int tg3_init_rings(struct tg3 *tp)
-+{
-+	/* Free up all the SKBs. */
-+	tg3_free_rings(tp);
-+
-+	/* Zero out all descriptors. */
-+	memset(tp->rx_rcb, 0, TG3_RX_RCB_RING_BYTES(tp));
-+	memset(tp->tx_ring, 0, TG3_TX_RING_BYTES);
-+
-+	return tg3_rx_prodring_alloc(tp);
-+}
-+
-+/*
-+ * Must not be invoked with interrupt sources disabled and
-+ * the hardware shutdown down.
-+ */
-+static void tg3_free_consistent(struct tg3 *tp)
-+{
-+	kfree(tp->tx_buffers);
-+	tp->tx_buffers = NULL;
- 	if (tp->rx_rcb) {
- 		pci_free_consistent(tp->pdev, TG3_RX_RCB_RING_BYTES(tp),
- 				    tp->rx_rcb, tp->rx_rcb_mapping);
-@@ -5704,6 +5776,7 @@ static void tg3_free_consistent(struct tg3 *tp)
- 				    tp->hw_stats, tp->stats_mapping);
- 		tp->hw_stats = NULL;
- 	}
-+	tg3_rx_prodring_fini(tp);
- }
+ err_out2:
+-	free_irq(tp->pdev->irq, dev);
++	free_irq(tp->pdev->irq, &tp->napi[0]);
  
- /*
-@@ -5712,28 +5785,12 @@ static void tg3_free_consistent(struct tg3 *tp)
-  */
- static int tg3_alloc_consistent(struct tg3 *tp)
- {
--	tp->rx_std_buffers = kzalloc((sizeof(struct ring_info) *
--				      (TG3_RX_RING_SIZE +
--				       TG3_RX_JUMBO_RING_SIZE)) +
--				     (sizeof(struct tx_ring_info) *
--				      TG3_TX_RING_SIZE),
--				     GFP_KERNEL);
--	if (!tp->rx_std_buffers)
-+	if (tg3_rx_prodring_init(tp))
- 		return -ENOMEM;
+ err_out1:
+ 	napi_disable(&tp->napi[0].napi);
+@@ -8266,7 +8267,7 @@ static int tg3_close(struct net_device *dev)
  
--	tp->rx_jumbo_buffers = &tp->rx_std_buffers[TG3_RX_RING_SIZE];
--	tp->tx_buffers = (struct tx_ring_info *)
--		&tp->rx_jumbo_buffers[TG3_RX_JUMBO_RING_SIZE];
--
--	tp->rx_std = pci_alloc_consistent(tp->pdev, TG3_RX_RING_BYTES,
--					  &tp->rx_std_mapping);
--	if (!tp->rx_std)
--		goto err_out;
--
--	tp->rx_jumbo = pci_alloc_consistent(tp->pdev, TG3_RX_JUMBO_RING_BYTES,
--					    &tp->rx_jumbo_mapping);
--
--	if (!tp->rx_jumbo)
-+	tp->tx_buffers = kzalloc(sizeof(struct tx_ring_info) *
-+				 TG3_TX_RING_SIZE, GFP_KERNEL);
-+	if (!tp->tx_buffers)
- 		goto err_out;
+ 	tg3_full_unlock(tp);
  
- 	tp->rx_rcb = pci_alloc_consistent(tp->pdev, TG3_RX_RCB_RING_BYTES(tp),
+-	free_irq(tp->pdev->irq, dev);
++	free_irq(tp->pdev->irq, &tp->napi[0]);
+ 
+ 	tg3_ints_fini(tp);
+ 
 -- 
 1.6.3.3
 
