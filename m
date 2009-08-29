@@ -1,27 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sh_eth: add value of ether_link pin in
- platform_data
-Date: Sat, 29 Aug 2009 00:20:58 -0700 (PDT)
-Message-ID: <20090829.002058.194253782.davem@davemloft.net>
-References: <4A97A26F.4060904@renesas.com>
+Subject: Re: [PATCH] can: switch to seq_file
+Date: Sat, 29 Aug 2009 00:21:12 -0700 (PDT)
+Message-ID: <20090829.002112.160212045.davem@davemloft.net>
+References: <20090828195721.GD15123@x200.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: shimoda.yoshihiro@renesas.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <4A97A26F.4060904@renesas.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de,
+	netdev@vger.kernel.org
+To: adobriyan@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56865
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751814AbZH2HU6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2009 03:20:58 -0400
+In-Reply-To: <20090828195721.GD15123@x200.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yoshihiro Shimoda <shimoda.yoshihiro@renesas.com>
-Date: Fri, 28 Aug 2009 18:25:03 +0900
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Fri, 28 Aug 2009 23:57:21 +0400
 
-> The method of ETHER_LINK pin is board dependence.
-> This patch adding paramters are:
->  - no_ether_link          : If set to 1, do not use ETHER_LINK
->  - ether_link_active_low  : If set to 1, ETHER_LINK is active low.
+> create_proc_read_entry() is going to be removed soon.
 > 
-> Signed-off-by: Yoshihiro Shimoda <shimoda.yoshihiro@renesas.com>
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
 Applied to net-next-2.6, thanks.
