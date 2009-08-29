@@ -1,30 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnx2: Update firmware to 5.0.0.j3.
-Date: Sat, 29 Aug 2009 00:03:19 -0700 (PDT)
-Message-ID: <20090829.000319.192308545.davem@davemloft.net>
-References: <1251249134-7856-1-git-send-email-mchan@broadcom.com>
+Subject: Re: [PATCH] Update Neighbor Cache when IPv6 RA is received on a
+ router
+Date: Sat, 29 Aug 2009 00:04:27 -0700 (PDT)
+Message-ID: <20090829.000427.235911462.davem@davemloft.net>
+References: <1250381994-21329-1-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
+To: david.ward@ll.mit.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52735
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52739
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751083AbZH2HDG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2009 03:03:06 -0400
-In-Reply-To: <1251249134-7856-1-git-send-email-mchan@broadcom.com>
+	by vger.kernel.org with ESMTP id S1751609AbZH2HEP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2009 03:04:15 -0400
+In-Reply-To: <1250381994-21329-1-git-send-email-david.ward@ll.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Tue, 25 Aug 2009 18:12:14 -0700
+From: David Ward <david.ward@ll.mit.edu>
+Date: Sat, 15 Aug 2009 20:19:54 -0400
 
-> - Better small packet receive performance.
-> - Better handling of Flow control on 5709.
-> - Fixed iSCSI TMP ABORT TASK problem.
-> - Added iSCSI TCP timestamp option.
+> When processing a received IPv6 Router Advertisement, the kernel
+> creates or updates an IPv6 Neighbor Cache entry for the sender --
+> but presently this does not occur if IPv6 forwarding is enabled
+> (net.ipv6.conf.*.forwarding = 1), or if IPv6 Router Advertisements
+> are not accepted (net.ipv6.conf.*.accept_ra = 0), because in these
+> cases processing of the Router Advertisement has already halted.
 > 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> This patch allows the Neighbor Cache to be updated in these cases,
+> while still avoiding any modification to routes or link parameters.
+> 
+> This continues to satisfy RFC 4861, since any entry created in the
+> Neighbor Cache as the result of a received Router Advertisement is
+> still placed in the STALE state.
+> 
+> Signed-off-by: David Ward <david.ward@ll.mit.edu>
 
-Applied, thanks!
+This seems OK, applied to net-next-2.6
+
+Thanks.
