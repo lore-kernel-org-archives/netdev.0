@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] tcp: Remove redundant copy of MD5
- authentication key
-Date: Sat, 29 Aug 2009 00:19:50 -0700 (PDT)
-Message-ID: <20090829.001950.61780566.davem@davemloft.net>
-References: <1250711261.7166.8.camel@Maple>
+Subject: Re: [PATCH V2] lib/vsprintf.c: Add "%pI6c" - print pointer as
+ compressed ipv6 address
+Date: Sat, 29 Aug 2009 00:20:17 -0700 (PDT)
+Message-ID: <20090829.002017.104929941.davem@davemloft.net>
+References: <1250522309.16632.45.camel@fnki-nb00130>
+	<1250548184.4488.6.camel@Joe-Laptop.home>
+	<1250603336.16632.49.camel@fnki-nb00130>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: john.dykstra1@gmail.com
+Cc: joe@perches.com, chuck.lever@oracle.com, brian.haley@hp.com,
+	netdev@vger.kernel.org
+To: jens@mcbone.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56848
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56852
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751814AbZH2HTg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2009 03:19:36 -0400
-In-Reply-To: <1250711261.7166.8.camel@Maple>
+	by vger.kernel.org with ESMTP id S1751446AbZH2HUD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2009 03:20:03 -0400
+In-Reply-To: <1250603336.16632.49.camel@fnki-nb00130>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Dykstra <john.dykstra1@gmail.com>
-Date: Wed, 19 Aug 2009 19:47:41 +0000
+From: Jens Rosenboom <jens@mcbone.net>
+Date: Tue, 18 Aug 2009 15:48:56 +0200
 
-> Remove the copy of the MD5 authentication key from tcp_check_req().
-> This key has already been copied by tcp_v4_syn_recv_sock() or
-> tcp_v6_syn_recv_sock().
+> On Mon, 2009-08-17 at 15:29 -0700, Joe Perches wrote:
+>> Here's the modified patch with your suggestions:
+>> 
 > 
-> Signed-off-by: John Dykstra <john.dykstra1@gmail.com>
+> Ran it through my test-cases and they all look fine.
+> 
+> Tested-by: Jens Rosenboom <jens@mcbone.net>
+> 
 
-Applied.
+Applied, thanks everyone.
