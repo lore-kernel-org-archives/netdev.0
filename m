@@ -1,37 +1,37 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] sky2: Don't try to turn led off in sky2_down()
-Date: Sat, 29 Aug 2009 10:57:27 -0700
-Message-ID: <20090829105727.6281202e@s6510>
-References: <4A9928C9.7000907@ring3k.org>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] atm: dereference of he_dev->rbps_virt in he_init_group()
+Date: Sat, 29 Aug 2009 20:56:12 +0200
+Message-ID: <4A9979CC.2090905@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	Rene Mayrhofer <rene.mayrhofer@gibraltar.at>,
-	Richard Leitner <leitner@esys.at>
-To: Mike McCormack <mikem@ring3k.org>
+To: Chas Williams <chas@cmf.nrl.navy.mil>,
+	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34435 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752012AbZH2R5c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Aug 2009 13:57:32 -0400
-In-Reply-To: <4A9928C9.7000907@ring3k.org>
+Received: from mail-ew0-f206.google.com ([209.85.219.206]:37413 "EHLO
+	mail-ew0-f206.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752348AbZH2Sun (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2009 14:50:43 -0400
+Received: by ewy2 with SMTP id 2so2973749ewy.17
+        for <netdev@vger.kernel.org>; Sat, 29 Aug 2009 11:50:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 29 Aug 2009 22:10:33 +0900
-Mike McCormack <mikem@ring3k.org> wrote:
+he_dev->rbps_virt allocation may fail.
 
-> There are a few problems with the following line of code in sky2_down()
-> 
->      sky2_write16(hw, B0_Y2LED, LED_STAT_OFF);
-> 
->  * It doesn't specify which port's LED to turn off.
->  * We don't turn send LED_STAT_ON on in sky2_up()
->  * B0_LED is 0x0006 in the vendor driver, but 0x0005 in sky2.
->    B0_LED is right next to B0_POWER_CTRL, so this is possibly
->    accounts for the device being accidently powered down as
->    reported by Rene Mayrhofer.
-
-I would rather just change the definition of B0_LED to the correct value.
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/drivers/atm/he.c b/drivers/atm/he.c
+index 2de6406..2d766d6 100644
+--- a/drivers/atm/he.c
++++ b/drivers/atm/he.c
+@@ -795,6 +795,8 @@ he_init_group(struct he_dev *he_dev, int group)
+ 	}
+ 	memset(he_dev->rbps_base, 0, CONFIG_RBPS_SIZE * sizeof(struct he_rbp));
+ 	he_dev->rbps_virt = kmalloc(CONFIG_RBPS_SIZE * sizeof(struct he_virt), GFP_KERNEL);
++	if (he_dev->rbps_virt == NULL)
++		return -ENOMEM;
+ 
+ 	for (i = 0; i < CONFIG_RBPS_SIZE; ++i) {
+ 		dma_addr_t dma_handle;
