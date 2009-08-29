@@ -1,28 +1,43 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2009-08-28
-Date: Fri, 28 Aug 2009 23:06:48 -0700 (PDT)
-Message-ID: <20090828.230648.121884796.davem@davemloft.net>
-References: <20090828191119.GD32694@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Subject: [PATCH 1/9] bna: Brocade 10Gb Ethernet device driver
+Date: Fri, 28 Aug 2009 23:18:21 -0700 (PDT)
+Message-ID: <20090828.231821.228158617.davem@davemloft.net>
+References: <200908290518.n7T5IdjW031875@blc-10-10.brocade.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090828191119.GD32694-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, amathur@brocade.com
+To: rmody@brocade.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41705
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751701AbZH2GSH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2009 02:18:07 -0400
+In-Reply-To: <200908290518.n7T5IdjW031875@blc-10-10.brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Fri, 28 Aug 2009 15:11:19 -0400
 
-> Another huge batch of updates/changes/etc intended for 2.6.32...  This
-> includes the usual driver updates and miscellaneous fixes, etc.
-> Highlights in this batch include more LP-PHY support for b43 and the
-> completion of the cfg80211 API conversion for rndis_wlan.
+You're going to have to remove all of the
+__ESX_COS__, __VMKERNEL_MODULE__, __VMKNETDDI_QUEUEOPS__
+ifdef tests and protected code in this driver.
 
-Pulled, thanks!
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Nothing sets those CPP defines, and the Linux kernel is not
+a place where you can maintain your compatability code for
+building the driver in other environments.
+
+Next, you have defined your own implementation of a driver
+debug logging facility, when we have a generic one already
+for network drivers via netif_msg_*() and associated
+NETIF_MSG_* debugging masks.  See other drivers for details.
+If it doesn't fully suit your needs, fix the existing
+facilities to do so.
+
+These are just the most obvious things I noticed by glancing
+quickly at your driver.  I'm sure there a many other things
+you will need to fix up before we can add your driver.
+
+The code is 1MB in size, which almost guarentees there are lots of
+things which will need to be removed :-) Even the largest 10GB drivers
+with tons of firmware are ~500K in size and I even consider that
+bordering on excessive.
