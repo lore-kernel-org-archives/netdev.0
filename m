@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 24/47] Bluetooth: Convert hdev->req_lock to a mutex
-Date: Sun, 30 Aug 2009 01:50:38 -0700
-Message-ID: <a6a67efd7088702fdbbb780c5a3f8e1a74e77b63.1251621661.git.marcel@holtmann.org>
+Subject: [PATCH 28/47] Bluetooth: Add L2CAP RFC option if ERTM is enabled
+Date: Sun, 30 Aug 2009 01:50:42 -0700
+Message-ID: <65c7c4918450f8c4545ccb02a9c7a3d77e073535.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
  <fd0b3ff707dc1f7837079044bd4eca7ed505f70d.1251621661.git.marcel@holtmann.org>
  <981b1414d78a7a42cab48b97d4de54a62d61db88.1251621661.git.marcel@holtmann.org>
@@ -26,66 +26,75 @@ References: <cover.1251621661.git.marcel@holtmann.org>
  <9374253ffe609f2d70dd5ae280182cb6f08fef08.1251621661.git.marcel@holtmann.org>
  <3318b2362bf0528be77123c480249663557dfbfc.1251621661.git.marcel@holtmann.org>
  <5959809ded86e267c1a95fb44738a224c30d3434.1251621661.git.marcel@holtmann.org>
+ <a6a67efd7088702fdbbb780c5a3f8e1a74e77b63.1251621661.git.marcel@holtmann.org>
+ <52d18347dfb61519aa0f58fe1759edd3ad8c4e36.1251621661.git.marcel@holtmann.org>
+ <44dd46de325c4d47abfd1361e5d84a548edb8e42.1251621661.git.marcel@holtmann.org>
+ <c6b03cf986eab00e20d0dbc852b233bb83472138.1251621661.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53306 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53312 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753106AbZH3IwT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:19 -0400
-In-Reply-To: <5959809ded86e267c1a95fb44738a224c30d3434.1251621661.git.marcel@holtmann.org>
+	with ESMTP id S1752992AbZH3IwY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:24 -0400
+In-Reply-To: <c6b03cf986eab00e20d0dbc852b233bb83472138.1251621661.git.marcel@holtmann.org>
 In-Reply-To: <cover.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Gleixner <tglx@linutronix.de>
+When trying to establish a connection with Enhanced Retransmission mode
+enabled, the RFC option needs to be added to the configuration.
 
-hdev->req_lock is used as mutex so make it a mutex.
-
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- include/net/bluetooth/hci_core.h |    6 +++---
- net/bluetooth/hci_core.c         |    2 +-
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ net/bluetooth/l2cap.c |   23 ++++++++++++++++++++---
+ 1 files changed, 20 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/bluetooth/hci_core.h b/include/net/bluetooth/hci_core.h
-index 25b8a03..7b640ae 100644
---- a/include/net/bluetooth/hci_core.h
-+++ b/include/net/bluetooth/hci_core.h
-@@ -117,7 +117,7 @@ struct hci_dev {
- 	struct sk_buff		*sent_cmd;
- 	struct sk_buff		*reassembly[3];
+diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
+index 8a59e57..7ce1a24 100644
+--- a/net/bluetooth/l2cap.c
++++ b/net/bluetooth/l2cap.c
+@@ -1743,12 +1743,29 @@ static int l2cap_build_conf_req(struct sock *sk, void *data)
+ {
+ 	struct l2cap_pinfo *pi = l2cap_pi(sk);
+ 	struct l2cap_conf_req *req = data;
++	struct l2cap_conf_rfc rfc = { .mode = L2CAP_MODE_BASIC };
+ 	void *ptr = req->data;
  
--	struct semaphore	req_lock;
-+	struct mutex		req_lock;
- 	wait_queue_head_t	req_wait_q;
- 	__u32			req_status;
- 	__u32			req_result;
-@@ -704,8 +704,8 @@ struct hci_sec_filter {
- #define HCI_REQ_PEND	  1
- #define HCI_REQ_CANCELED  2
+ 	BT_DBG("sk %p", sk);
  
--#define hci_req_lock(d)		down(&d->req_lock)
--#define hci_req_unlock(d)	up(&d->req_lock)
-+#define hci_req_lock(d)		mutex_lock(&d->req_lock)
-+#define hci_req_unlock(d)	mutex_unlock(&d->req_lock)
+-	if (pi->imtu != L2CAP_DEFAULT_MTU)
+-		l2cap_add_conf_opt(&ptr, L2CAP_CONF_MTU, 2, pi->imtu);
++	switch (pi->mode) {
++	case L2CAP_MODE_BASIC:
++		if (pi->imtu != L2CAP_DEFAULT_MTU)
++			l2cap_add_conf_opt(&ptr, L2CAP_CONF_MTU, 2, pi->imtu);
++		break;
++
++	case L2CAP_MODE_ERTM:
++		rfc.mode            = L2CAP_MODE_ERTM;
++		rfc.txwin_size      = L2CAP_DEFAULT_RX_WINDOW;
++		rfc.max_transmit    = L2CAP_DEFAULT_MAX_RECEIVE;
++		rfc.retrans_timeout = cpu_to_le16(L2CAP_DEFAULT_RETRANS_TO);
++		rfc.monitor_timeout = cpu_to_le16(L2CAP_DEFAULT_MONITOR_TO);
++		rfc.max_pdu_size    = cpu_to_le16(L2CAP_DEFAULT_MAX_RX_APDU);
++
++		l2cap_add_conf_opt(&ptr, L2CAP_CONF_RFC,
++					sizeof(rfc), (unsigned long) &rfc);
++		break;
++	}
  
- void hci_req_complete(struct hci_dev *hdev, int result);
+ 	/* FIXME: Need actual value of the flush timeout */
+ 	//if (flush_to != L2CAP_DEFAULT_FLUSH_TO)
+@@ -1828,7 +1845,7 @@ static int l2cap_parse_conf_req(struct sock *sk, void *data)
+ 			rfc.mode = L2CAP_MODE_BASIC;
  
-diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
-index 406ad07..e1da8f6 100644
---- a/net/bluetooth/hci_core.c
-+++ b/net/bluetooth/hci_core.c
-@@ -911,7 +911,7 @@ int hci_register_dev(struct hci_dev *hdev)
- 		hdev->reassembly[i] = NULL;
- 
- 	init_waitqueue_head(&hdev->req_wait_q);
--	init_MUTEX(&hdev->req_lock);
-+	mutex_init(&hdev->req_lock);
- 
- 	inquiry_cache_init(hdev);
+ 			l2cap_add_conf_opt(&ptr, L2CAP_CONF_RFC,
+-						sizeof(rfc), (unsigned long) &rfc);
++					sizeof(rfc), (unsigned long) &rfc);
+ 		}
+ 	}
  
 -- 
 1.6.2.5
