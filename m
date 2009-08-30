@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 34/47] Bluetooth: Add support for Retransmission and Monitor Timers
-Date: Sun, 30 Aug 2009 01:50:48 -0700
-Message-ID: <e90bac061b17cd81bd0df30606c64f4543bf5ca0.1251621661.git.marcel@holtmann.org>
+Subject: [PATCH 43/47] Bluetooth: Add USB autosuspend support to btusb driver
+Date: Sun, 30 Aug 2009 01:50:57 -0700
+Message-ID: <7bee549e197c9c0e92b89857a409675c1d5e9dff.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
  <fd0b3ff707dc1f7837079044bd4eca7ed505f70d.1251621661.git.marcel@holtmann.org>
  <981b1414d78a7a42cab48b97d4de54a62d61db88.1251621661.git.marcel@holtmann.org>
@@ -36,260 +36,464 @@ References: <cover.1251621661.git.marcel@holtmann.org>
  <1c2acffb76d4bc5fd27c4ea55cc27ad8ead10f9a.1251621661.git.marcel@holtmann.org>
  <c74e560cd0101455f1889515e1527e4c2e266113.1251621661.git.marcel@holtmann.org>
  <30afb5b2aa83adf4f69e5090d48e1bb04b64c58a.1251621661.git.marcel@holtmann.org>
+ <e90bac061b17cd81bd0df30606c64f4543bf5ca0.1251621661.git.marcel@holtmann.org>
+ <6840ed0770d79b9bb0800e5e026a067040ef18f5.1251621661.git.marcel@holtmann.org>
+ <fcc203c30d72dde82692f6b761a80e5ca5fdd8fa.1251621661.git.marcel@holtmann.org>
+ <8f17154f1f70fcc6faa31ac82164fcf7f0599f38.1251621661.git.marcel@holtmann.org>
+ <ef54fd937fbd5ebaeb023818524565bd526a5f36.1251621661.git.marcel@holtmann.org>
+ <9e726b17422bade75fba94e625cd35fd1353e682.1251621661.git.marcel@holtmann.org>
+ <e686219a64fee9be9ce438dc3f040cd71ddd168a.1251621661.git.marcel@holtmann.org>
+ <1b7bf4edca0fdbad70c44e139f4cfebd6759de81.1251621661.git.marcel@holtmann.org>
+ <d2e353f7c3c5fbb3add0341c10ae167ee745d23b.1251621661.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53318 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53339 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753214AbZH3Iwb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:31 -0400
-In-Reply-To: <30afb5b2aa83adf4f69e5090d48e1bb04b64c58a.1251621661.git.marcel@holtmann.org>
+	with ESMTP id S1753317AbZH3Iwm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:42 -0400
+In-Reply-To: <d2e353f7c3c5fbb3add0341c10ae167ee745d23b.1251621661.git.marcel@holtmann.org>
 In-Reply-To: <cover.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gustavo F. Padovan <gustavo@las.ic.unicamp.br>
+From: Oliver Neukum <oliver@neukum.org>
 
-L2CAP uses retransmission and monitor timers to inquiry the other side
-about unacked I-frames. After sending each I-frame we (re)start the
-retransmission timer. If it expires, we start a monitor timer that send a
-S-frame with P bit set and wait for S-frame with F bit set. If monitor
-timer expires, try again, at a maximum of L2CAP_DEFAULT_MAX_TX.
+This patch adds support of USB autosuspend to the btusb driver.
 
-Signed-off-by: Gustavo F. Padovan <gustavo@las.ic.unicamp.br>
+If the device doesn't support remote wakeup, simple support based on
+up/down is provided. If the device supports remote wakeup, additional
+support for autosuspend while the interface is up is provided. This is
+done by queueing URBs in an anchor structure and waking the device up
+from a work queue on sending. Reception triggers remote wakeup.
+
+The last busy facility of the USB autosuspend code is used. To close
+a race between autosuspend and transmission, a counter of ongoing
+transmissions is maintained.
+
+Add #ifdefs for CONFIG_PM as necessary.
+
+Signed-off-by: Oliver Neukum <oliver@neukum.org>
+Tested-by: Sarah Sharp <sarah.a.sharp@linux.intel.com>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- include/net/bluetooth/bluetooth.h |    1 +
- include/net/bluetooth/l2cap.h     |   15 +++++-
- net/bluetooth/l2cap.c             |   86 +++++++++++++++++++++++++++++++++++--
- 3 files changed, 95 insertions(+), 7 deletions(-)
+ drivers/bluetooth/btusb.c |  194 ++++++++++++++++++++++++++++++++++++++++-----
+ 1 files changed, 174 insertions(+), 20 deletions(-)
 
-diff --git a/include/net/bluetooth/bluetooth.h b/include/net/bluetooth/bluetooth.h
-index 65a5cf8..b8b9a84 100644
---- a/include/net/bluetooth/bluetooth.h
-+++ b/include/net/bluetooth/bluetooth.h
-@@ -139,6 +139,7 @@ struct bt_skb_cb {
- 	__u8 pkt_type;
- 	__u8 incoming;
- 	__u8 tx_seq;
-+	__u8 retries;
+diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
+index 124db8c..7ba91aa 100644
+--- a/drivers/bluetooth/btusb.c
++++ b/drivers/bluetooth/btusb.c
+@@ -35,7 +35,7 @@
+ #include <net/bluetooth/bluetooth.h>
+ #include <net/bluetooth/hci_core.h>
+ 
+-#define VERSION "0.5"
++#define VERSION "0.6"
+ 
+ static int ignore_dga;
+ static int ignore_csr;
+@@ -145,6 +145,7 @@ static struct usb_device_id blacklist_table[] = {
+ #define BTUSB_INTR_RUNNING	0
+ #define BTUSB_BULK_RUNNING	1
+ #define BTUSB_ISOC_RUNNING	2
++#define BTUSB_SUSPENDING	3
+ 
+ struct btusb_data {
+ 	struct hci_dev       *hdev;
+@@ -157,11 +158,15 @@ struct btusb_data {
+ 	unsigned long flags;
+ 
+ 	struct work_struct work;
++	struct work_struct waker;
+ 
+ 	struct usb_anchor tx_anchor;
+ 	struct usb_anchor intr_anchor;
+ 	struct usb_anchor bulk_anchor;
+ 	struct usb_anchor isoc_anchor;
++	struct usb_anchor deferred;
++	int tx_in_flight;
++	spinlock_t txlock;
+ 
+ 	struct usb_endpoint_descriptor *intr_ep;
+ 	struct usb_endpoint_descriptor *bulk_tx_ep;
+@@ -174,8 +179,23 @@ struct btusb_data {
+ 	unsigned int sco_num;
+ 	int isoc_altsetting;
+ 	int suspend_count;
++	int did_iso_resume:1;
  };
- #define bt_cb(skb) ((struct bt_skb_cb *)((skb)->cb))
  
-diff --git a/include/net/bluetooth/l2cap.h b/include/net/bluetooth/l2cap.h
-index a1d8ec4..2cf7003 100644
---- a/include/net/bluetooth/l2cap.h
-+++ b/include/net/bluetooth/l2cap.h
-@@ -31,9 +31,9 @@
- #define L2CAP_DEFAULT_FLUSH_TO		0xffff
- #define L2CAP_DEFAULT_TX_WINDOW		63
- #define L2CAP_DEFAULT_NUM_TO_ACK        (L2CAP_DEFAULT_TX_WINDOW/5)
--#define L2CAP_DEFAULT_MAX_RECEIVE	1
--#define L2CAP_DEFAULT_RETRANS_TO	300    /* 300 milliseconds */
--#define L2CAP_DEFAULT_MONITOR_TO	1000   /* 1 second */
-+#define L2CAP_DEFAULT_MAX_TX		3
-+#define L2CAP_DEFAULT_RETRANS_TO	1000    /* 1 second */
-+#define L2CAP_DEFAULT_MONITOR_TO	12000   /* 12 seconds */
- #define L2CAP_DEFAULT_MAX_PDU_SIZE	672
- 
- #define L2CAP_CONN_TIMEOUT	(40000) /* 40 seconds */
-@@ -318,6 +318,7 @@ struct l2cap_pinfo {
- 	__u8		req_seq;
- 	__u8		expected_tx_seq;
- 	__u8		unacked_frames;
-+	__u8		retry_count;
- 	__u8		num_to_ack;
- 	__u16		sdu_len;
- 	__u16		partial_sdu_len;
-@@ -333,6 +334,8 @@ struct l2cap_pinfo {
- 
- 	__le16		sport;
- 
-+	struct timer_list	retrans_timer;
-+	struct timer_list	monitor_timer;
- 	struct sk_buff_head	tx_queue;
- 	struct l2cap_conn	*conn;
- 	struct sock		*next_c;
-@@ -352,6 +355,12 @@ struct l2cap_pinfo {
- 
- #define L2CAP_CONN_SAR_SDU         0x01
- #define L2CAP_CONN_UNDER_REJ       0x02
-+#define L2CAP_CONN_WAIT_F          0x04
++static int inc_tx(struct btusb_data *data)
++{
++	unsigned long flags;
++	int rv;
 +
-+#define __mod_retrans_timer() mod_timer(&l2cap_pi(sk)->retrans_timer, \
-+		jiffies +  msecs_to_jiffies(L2CAP_DEFAULT_RETRANS_TO));
-+#define __mod_monitor_timer() mod_timer(&l2cap_pi(sk)->monitor_timer, \
-+		jiffies + msecs_to_jiffies(L2CAP_DEFAULT_MONITOR_TO));
- 
- static inline int l2cap_tx_window_full(struct sock *sk)
++	spin_lock_irqsave(&data->txlock, flags);
++	rv = test_bit(BTUSB_SUSPENDING, &data->flags);
++	if (!rv)
++		data->tx_in_flight++;
++	spin_unlock_irqrestore(&data->txlock, flags);
++
++	return rv;
++}
++
+ static void btusb_intr_complete(struct urb *urb)
  {
-diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index 35e9f5b..97172f7 100644
---- a/net/bluetooth/l2cap.c
-+++ b/net/bluetooth/l2cap.c
-@@ -1178,6 +1178,39 @@ static int l2cap_sock_getname(struct socket *sock, struct sockaddr *addr, int *l
+ 	struct hci_dev *hdev = urb->context;
+@@ -202,6 +222,7 @@ static void btusb_intr_complete(struct urb *urb)
+ 	if (!test_bit(BTUSB_INTR_RUNNING, &data->flags))
+ 		return;
+ 
++	usb_mark_last_busy(data->udev);
+ 	usb_anchor_urb(urb, &data->intr_anchor);
+ 
+ 	err = usb_submit_urb(urb, GFP_ATOMIC);
+@@ -325,6 +346,7 @@ static int btusb_submit_bulk_urb(struct hci_dev *hdev, gfp_t mem_flags)
+ 
+ 	urb->transfer_flags |= URB_FREE_BUFFER;
+ 
++	usb_mark_last_busy(data->udev);
+ 	usb_anchor_urb(urb, &data->bulk_anchor);
+ 
+ 	err = usb_submit_urb(urb, mem_flags);
+@@ -463,6 +485,33 @@ static void btusb_tx_complete(struct urb *urb)
+ {
+ 	struct sk_buff *skb = urb->context;
+ 	struct hci_dev *hdev = (struct hci_dev *) skb->dev;
++	struct btusb_data *data = hdev->driver_data;
++
++	BT_DBG("%s urb %p status %d count %d", hdev->name,
++					urb, urb->status, urb->actual_length);
++
++	if (!test_bit(HCI_RUNNING, &hdev->flags))
++		goto done;
++
++	if (!urb->status)
++		hdev->stat.byte_tx += urb->transfer_buffer_length;
++	else
++		hdev->stat.err_tx++;
++
++done:
++	spin_lock(&data->txlock);
++	data->tx_in_flight--;
++	spin_unlock(&data->txlock);
++
++	kfree(urb->setup_packet);
++
++	kfree_skb(skb);
++}
++
++static void btusb_isoc_tx_complete(struct urb *urb)
++{
++	struct sk_buff *skb = urb->context;
++	struct hci_dev *hdev = (struct hci_dev *) skb->dev;
+ 
+ 	BT_DBG("%s urb %p status %d count %d", hdev->name,
+ 					urb, urb->status, urb->actual_length);
+@@ -488,11 +537,17 @@ static int btusb_open(struct hci_dev *hdev)
+ 
+ 	BT_DBG("%s", hdev->name);
+ 
++	err = usb_autopm_get_interface(data->intf);
++	if (err < 0)
++		return err;
++
++	data->intf->needs_remote_wakeup = 1;
++
+ 	if (test_and_set_bit(HCI_RUNNING, &hdev->flags))
+-		return 0;
++		goto done;
+ 
+ 	if (test_and_set_bit(BTUSB_INTR_RUNNING, &data->flags))
+-		return 0;
++		goto done;
+ 
+ 	err = btusb_submit_intr_urb(hdev, GFP_KERNEL);
+ 	if (err < 0)
+@@ -507,17 +562,28 @@ static int btusb_open(struct hci_dev *hdev)
+ 	set_bit(BTUSB_BULK_RUNNING, &data->flags);
+ 	btusb_submit_bulk_urb(hdev, GFP_KERNEL);
+ 
++done:
++	usb_autopm_put_interface(data->intf);
+ 	return 0;
+ 
+ failed:
+ 	clear_bit(BTUSB_INTR_RUNNING, &data->flags);
+ 	clear_bit(HCI_RUNNING, &hdev->flags);
++	usb_autopm_put_interface(data->intf);
+ 	return err;
+ }
+ 
++static void btusb_stop_traffic(struct btusb_data *data)
++{
++	usb_kill_anchored_urbs(&data->intr_anchor);
++	usb_kill_anchored_urbs(&data->bulk_anchor);
++	usb_kill_anchored_urbs(&data->isoc_anchor);
++}
++
+ static int btusb_close(struct hci_dev *hdev)
+ {
+ 	struct btusb_data *data = hdev->driver_data;
++	int err;
+ 
+ 	BT_DBG("%s", hdev->name);
+ 
+@@ -527,13 +593,16 @@ static int btusb_close(struct hci_dev *hdev)
+ 	cancel_work_sync(&data->work);
+ 
+ 	clear_bit(BTUSB_ISOC_RUNNING, &data->flags);
+-	usb_kill_anchored_urbs(&data->isoc_anchor);
+-
+ 	clear_bit(BTUSB_BULK_RUNNING, &data->flags);
+-	usb_kill_anchored_urbs(&data->bulk_anchor);
+-
+ 	clear_bit(BTUSB_INTR_RUNNING, &data->flags);
+-	usb_kill_anchored_urbs(&data->intr_anchor);
++
++	btusb_stop_traffic(data);
++	err = usb_autopm_get_interface(data->intf);
++	if (err < 0)
++		return 0;
++
++	data->intf->needs_remote_wakeup = 0;
++	usb_autopm_put_interface(data->intf);
+ 
+ 	return 0;
+ }
+@@ -620,7 +689,7 @@ static int btusb_send_frame(struct sk_buff *skb)
+ 		urb->dev      = data->udev;
+ 		urb->pipe     = pipe;
+ 		urb->context  = skb;
+-		urb->complete = btusb_tx_complete;
++		urb->complete = btusb_isoc_tx_complete;
+ 		urb->interval = data->isoc_tx_ep->bInterval;
+ 
+ 		urb->transfer_flags  = URB_ISO_ASAP;
+@@ -631,12 +700,21 @@ static int btusb_send_frame(struct sk_buff *skb)
+ 				le16_to_cpu(data->isoc_tx_ep->wMaxPacketSize));
+ 
+ 		hdev->stat.sco_tx++;
+-		break;
++		goto skip_waking;
+ 
+ 	default:
+ 		return -EILSEQ;
+ 	}
+ 
++	err = inc_tx(data);
++	if (err) {
++		usb_anchor_urb(urb, &data->deferred);
++		schedule_work(&data->waker);
++		err = 0;
++		goto done;
++	}
++
++skip_waking:
+ 	usb_anchor_urb(urb, &data->tx_anchor);
+ 
+ 	err = usb_submit_urb(urb, GFP_ATOMIC);
+@@ -644,10 +722,13 @@ static int btusb_send_frame(struct sk_buff *skb)
+ 		BT_ERR("%s urb %p submission failed", hdev->name, urb);
+ 		kfree(urb->setup_packet);
+ 		usb_unanchor_urb(urb);
++	} else {
++		usb_mark_last_busy(data->udev);
+ 	}
+ 
+ 	usb_free_urb(urb);
+ 
++done:
+ 	return err;
+ }
+ 
+@@ -719,8 +800,19 @@ static void btusb_work(struct work_struct *work)
+ {
+ 	struct btusb_data *data = container_of(work, struct btusb_data, work);
+ 	struct hci_dev *hdev = data->hdev;
++	int err;
+ 
+ 	if (hdev->conn_hash.sco_num > 0) {
++		if (!data->did_iso_resume) {
++			err = usb_autopm_get_interface(data->isoc);
++			if (err < 0) {
++				clear_bit(BTUSB_ISOC_RUNNING, &data->flags);
++				usb_kill_anchored_urbs(&data->isoc_anchor);
++				return;
++			}
++
++			data->did_iso_resume = 1;
++		}
+ 		if (data->isoc_altsetting != 2) {
+ 			clear_bit(BTUSB_ISOC_RUNNING, &data->flags);
+ 			usb_kill_anchored_urbs(&data->isoc_anchor);
+@@ -740,9 +832,25 @@ static void btusb_work(struct work_struct *work)
+ 		usb_kill_anchored_urbs(&data->isoc_anchor);
+ 
+ 		__set_isoc_interface(hdev, 0);
++		if (data->did_iso_resume) {
++			data->did_iso_resume = 0;
++			usb_autopm_put_interface(data->isoc);
++		}
+ 	}
+ }
+ 
++static void btusb_waker(struct work_struct *work)
++{
++	struct btusb_data *data = container_of(work, struct btusb_data, waker);
++	int err;
++
++	err = usb_autopm_get_interface(data->intf);
++	if (err < 0)
++		return;
++
++	usb_autopm_put_interface(data->intf);
++}
++
+ static int btusb_probe(struct usb_interface *intf,
+ 				const struct usb_device_id *id)
+ {
+@@ -812,11 +920,14 @@ static int btusb_probe(struct usb_interface *intf,
+ 	spin_lock_init(&data->lock);
+ 
+ 	INIT_WORK(&data->work, btusb_work);
++	INIT_WORK(&data->waker, btusb_waker);
++	spin_lock_init(&data->txlock);
+ 
+ 	init_usb_anchor(&data->tx_anchor);
+ 	init_usb_anchor(&data->intr_anchor);
+ 	init_usb_anchor(&data->bulk_anchor);
+ 	init_usb_anchor(&data->isoc_anchor);
++	init_usb_anchor(&data->deferred);
+ 
+ 	hdev = hci_alloc_dev();
+ 	if (!hdev) {
+@@ -941,6 +1052,7 @@ static void btusb_disconnect(struct usb_interface *intf)
+ 	hci_free_dev(hdev);
+ }
+ 
++#ifdef CONFIG_PM
+ static int btusb_suspend(struct usb_interface *intf, pm_message_t message)
+ {
+ 	struct btusb_data *data = usb_get_intfdata(intf);
+@@ -950,22 +1062,44 @@ static int btusb_suspend(struct usb_interface *intf, pm_message_t message)
+ 	if (data->suspend_count++)
+ 		return 0;
+ 
++	spin_lock_irq(&data->txlock);
++	if (!(interface_to_usbdev(intf)->auto_pm && data->tx_in_flight)) {
++		set_bit(BTUSB_SUSPENDING, &data->flags);
++		spin_unlock_irq(&data->txlock);
++	} else {
++		spin_unlock_irq(&data->txlock);
++		data->suspend_count--;
++		return -EBUSY;
++	}
++
+ 	cancel_work_sync(&data->work);
+ 
++	btusb_stop_traffic(data);
+ 	usb_kill_anchored_urbs(&data->tx_anchor);
+ 
+-	usb_kill_anchored_urbs(&data->isoc_anchor);
+-	usb_kill_anchored_urbs(&data->bulk_anchor);
+-	usb_kill_anchored_urbs(&data->intr_anchor);
+-
  	return 0;
  }
  
-+static void l2cap_monitor_timeout(unsigned long arg)
++static void play_deferred(struct btusb_data *data)
 +{
-+	struct sock *sk = (void *) arg;
-+	u16 control;
++	struct urb *urb;
++	int err;
 +
-+	if (l2cap_pi(sk)->retry_count >= l2cap_pi(sk)->remote_max_tx) {
-+		l2cap_send_disconn_req(l2cap_pi(sk)->conn, sk);
-+		return;
-+	}
-+
-+	l2cap_pi(sk)->retry_count++;
-+	__mod_monitor_timer();
-+
-+	control = L2CAP_CTRL_POLL;
-+	control |= L2CAP_SUPER_RCV_READY;
-+	l2cap_send_sframe(l2cap_pi(sk), control);
-+}
-+
-+static void l2cap_retrans_timeout(unsigned long arg)
-+{
-+	struct sock *sk = (void *) arg;
-+	u16 control;
-+
-+	l2cap_pi(sk)->retry_count = 1;
-+	__mod_monitor_timer();
-+
-+	l2cap_pi(sk)->conn_state |= L2CAP_CONN_WAIT_F;
-+
-+	control = L2CAP_CTRL_POLL;
-+	control |= L2CAP_SUPER_RCV_READY;
-+	l2cap_send_sframe(l2cap_pi(sk), control);
-+}
-+
- static void l2cap_drop_acked_frames(struct sock *sk)
- {
- 	struct sk_buff *skb;
-@@ -1192,6 +1225,9 @@ static void l2cap_drop_acked_frames(struct sock *sk)
- 		l2cap_pi(sk)->unacked_frames--;
- 	}
- 
-+	if (!l2cap_pi(sk)->unacked_frames)
-+		del_timer(&l2cap_pi(sk)->retrans_timer);
-+
- 	return;
- }
- 
-@@ -1216,19 +1252,32 @@ static int l2cap_ertm_send(struct sock *sk)
- 	u16 control;
- 	int err;
- 
-+	if (pi->conn_state & L2CAP_CONN_WAIT_F)
-+		return 0;
-+
- 	while ((skb = sk->sk_send_head) && (!l2cap_tx_window_full(sk))) {
- 		tx_skb = skb_clone(skb, GFP_ATOMIC);
- 
-+		if (pi->remote_max_tx &&
-+				bt_cb(skb)->retries == pi->remote_max_tx) {
-+			l2cap_send_disconn_req(pi->conn, sk);
++	while ((urb = usb_get_from_anchor(&data->deferred))) {
++		err = usb_submit_urb(urb, GFP_ATOMIC);
++		if (err < 0)
 +			break;
-+		}
 +
-+		bt_cb(skb)->retries++;
++		data->tx_in_flight++;
++	}
++	usb_scuttle_anchored_urbs(&data->deferred);
++}
 +
- 		control = get_unaligned_le16(tx_skb->data + L2CAP_HDR_SIZE);
- 		control |= (pi->req_seq << L2CAP_CTRL_REQSEQ_SHIFT)
- 				| (pi->next_tx_seq << L2CAP_CTRL_TXSEQ_SHIFT);
- 		put_unaligned_le16(control, tx_skb->data + L2CAP_HDR_SIZE);
+ static int btusb_resume(struct usb_interface *intf)
+ {
+ 	struct btusb_data *data = usb_get_intfdata(intf);
+ 	struct hci_dev *hdev = data->hdev;
+-	int err;
++	int err = 0;
  
-+
- 		err = l2cap_do_send(sk, tx_skb);
- 		if (err < 0) {
- 			l2cap_send_disconn_req(pi->conn, sk);
- 			return err;
- 		}
-+		__mod_retrans_timer();
+ 	BT_DBG("intf %p", intf);
  
- 		bt_cb(skb)->tx_seq = pi->next_tx_seq;
- 		pi->next_tx_seq = (pi->next_tx_seq + 1) % 64;
-@@ -1365,6 +1414,8 @@ static struct sk_buff *l2cap_create_ertm_pdu(struct sock *sk, struct msghdr *msg
- 		kfree_skb(skb);
- 		return ERR_PTR(err);
- 	}
-+
-+	bt_cb(skb)->retries = 0;
- 	return skb;
- }
- 
-@@ -2058,7 +2109,7 @@ done:
- 	case L2CAP_MODE_ERTM:
- 		rfc.mode            = L2CAP_MODE_ERTM;
- 		rfc.txwin_size      = L2CAP_DEFAULT_TX_WINDOW;
--		rfc.max_transmit    = L2CAP_DEFAULT_MAX_RECEIVE;
-+		rfc.max_transmit    = L2CAP_DEFAULT_MAX_TX;
- 		rfc.retrans_timeout = 0;
- 		rfc.monitor_timeout = 0;
- 		rfc.max_pdu_size    = cpu_to_le16(L2CAP_DEFAULT_MAX_PDU_SIZE);
-@@ -2553,6 +2604,12 @@ static inline int l2cap_config_req(struct l2cap_conn *conn, struct l2cap_cmd_hdr
- 		l2cap_pi(sk)->next_tx_seq = 0;
- 		l2cap_pi(sk)->expected_ack_seq = 0;
- 		l2cap_pi(sk)->unacked_frames = 0;
-+
-+		setup_timer(&l2cap_pi(sk)->retrans_timer,
-+				l2cap_retrans_timeout, (unsigned long) sk);
-+		setup_timer(&l2cap_pi(sk)->monitor_timer,
-+				l2cap_monitor_timeout, (unsigned long) sk);
-+
- 		__skb_queue_head_init(TX_QUEUE(sk));
- 		l2cap_chan_ready(sk);
- 		goto unlock;
-@@ -2662,6 +2719,8 @@ static inline int l2cap_disconnect_req(struct l2cap_conn *conn, struct l2cap_cmd
- 	sk->sk_shutdown = SHUTDOWN_MASK;
- 
- 	skb_queue_purge(TX_QUEUE(sk));
-+	del_timer(&l2cap_pi(sk)->retrans_timer);
-+	del_timer(&l2cap_pi(sk)->monitor_timer);
- 
- 	l2cap_chan_del(sk, ECONNRESET);
- 	bh_unlock_sock(sk);
-@@ -2686,6 +2745,8 @@ static inline int l2cap_disconnect_rsp(struct l2cap_conn *conn, struct l2cap_cmd
+@@ -973,13 +1107,13 @@ static int btusb_resume(struct usb_interface *intf)
  		return 0;
  
- 	skb_queue_purge(TX_QUEUE(sk));
-+	del_timer(&l2cap_pi(sk)->retrans_timer);
-+	del_timer(&l2cap_pi(sk)->monitor_timer);
+ 	if (!test_bit(HCI_RUNNING, &hdev->flags))
+-		return 0;
++		goto done;
  
- 	l2cap_chan_del(sk, 0);
- 	bh_unlock_sock(sk);
-@@ -2991,9 +3052,26 @@ static inline int l2cap_data_channel_sframe(struct sock *sk, u16 rx_control, str
+ 	if (test_bit(BTUSB_INTR_RUNNING, &data->flags)) {
+ 		err = btusb_submit_intr_urb(hdev, GFP_NOIO);
+ 		if (err < 0) {
+ 			clear_bit(BTUSB_INTR_RUNNING, &data->flags);
+-			return err;
++			goto failed;
+ 		}
+ 	}
  
- 	switch (rx_control & L2CAP_CTRL_SUPERVISE) {
- 	case L2CAP_SUPER_RCV_READY:
--		pi->expected_ack_seq = __get_reqseq(rx_control);
--		l2cap_drop_acked_frames(sk);
--		l2cap_ertm_send(sk);
-+		if (rx_control & L2CAP_CTRL_POLL) {
-+			u16 control = L2CAP_CTRL_FINAL;
-+			control |= L2CAP_SUPER_RCV_READY;
-+			l2cap_send_sframe(l2cap_pi(sk), control);
-+		} else if (rx_control & L2CAP_CTRL_FINAL) {
-+			if (!(pi->conn_state & L2CAP_CONN_WAIT_F))
-+				break;
-+
-+			pi->conn_state &= ~L2CAP_CONN_WAIT_F;
-+			del_timer(&pi->monitor_timer);
-+
-+			if (pi->unacked_frames > 0)
-+				__mod_retrans_timer();
-+		} else {
-+			pi->expected_ack_seq = __get_reqseq(rx_control);
-+			l2cap_drop_acked_frames(sk);
-+			if (pi->unacked_frames > 0)
-+				__mod_retrans_timer();
-+			l2cap_ertm_send(sk);
+@@ -987,9 +1121,10 @@ static int btusb_resume(struct usb_interface *intf)
+ 		err = btusb_submit_bulk_urb(hdev, GFP_NOIO);
+ 		if (err < 0) {
+ 			clear_bit(BTUSB_BULK_RUNNING, &data->flags);
+-			return err;
+-		} else
+-			btusb_submit_bulk_urb(hdev, GFP_NOIO);
++			goto failed;
 +		}
- 		break;
++
++		btusb_submit_bulk_urb(hdev, GFP_NOIO);
+ 	}
  
- 	case L2CAP_SUPER_REJECT:
+ 	if (test_bit(BTUSB_ISOC_RUNNING, &data->flags)) {
+@@ -999,16 +1134,35 @@ static int btusb_resume(struct usb_interface *intf)
+ 			btusb_submit_isoc_urb(hdev, GFP_NOIO);
+ 	}
+ 
++	spin_lock_irq(&data->txlock);
++	play_deferred(data);
++	clear_bit(BTUSB_SUSPENDING, &data->flags);
++	spin_unlock_irq(&data->txlock);
++	schedule_work(&data->work);
++
+ 	return 0;
++
++failed:
++	usb_scuttle_anchored_urbs(&data->deferred);
++done:
++	spin_lock_irq(&data->txlock);
++	clear_bit(BTUSB_SUSPENDING, &data->flags);
++	spin_unlock_irq(&data->txlock);
++
++	return err;
+ }
++#endif
+ 
+ static struct usb_driver btusb_driver = {
+ 	.name		= "btusb",
+ 	.probe		= btusb_probe,
+ 	.disconnect	= btusb_disconnect,
++#ifdef CONFIG_PM
+ 	.suspend	= btusb_suspend,
+ 	.resume		= btusb_resume,
++#endif
+ 	.id_table	= btusb_table,
++	.supports_autosuspend = 1,
+ };
+ 
+ static int __init btusb_init(void)
 -- 
 1.6.2.5
 
