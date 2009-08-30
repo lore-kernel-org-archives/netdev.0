@@ -1,90 +1,46 @@
-From: Mike McCormack <mikem@ring3k.org>
-Subject: [PATCH 2/2 next] sky2: B0_Y2LED controls the LEDs for both ports
-Date: Sun, 30 Aug 2009 12:58:46 +0900
-Message-ID: <4A99F8F6.6040903@ring3k.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Rene Mayrhofer <rene@mayrhofer.eu.org>,
-	Richard Leitner <leitner@esys.at>
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Krishna Kumar <krkumar2@in.ibm.com>
+Subject: [PATCH] net: convert one non-symbolic return value in dev_queue_xmit
+Date: Sun, 30 Aug 2009 11:51:36 +0530
+Message-ID: <20090830062136.6299.31696.sendpatchset@localhost.localdomain>
+Cc: netdev@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f204.google.com ([209.85.223.204]:47449 "EHLO
-	mail-iw0-f204.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750817AbZH3ECi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 00:02:38 -0400
-Received: by iwn42 with SMTP id 42so1408816iwn.33
-        for <netdev@vger.kernel.org>; Sat, 29 Aug 2009 21:02:40 -0700 (PDT)
+Received: from e23smtp08.au.ibm.com ([202.81.31.141]:60657 "EHLO
+	e23smtp08.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751405AbZH3GVe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 02:21:34 -0400
+Received: from d23relay01.au.ibm.com (d23relay01.au.ibm.com [202.81.31.243])
+	by e23smtp08.au.ibm.com (8.14.3/8.13.1) with ESMTP id n7U6JttB001720
+	for <netdev@vger.kernel.org>; Sun, 30 Aug 2009 16:19:55 +1000
+Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.234.97])
+	by d23relay01.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n7U6LaiH397780
+	for <netdev@vger.kernel.org>; Sun, 30 Aug 2009 16:21:36 +1000
+Received: from d23av03.au.ibm.com (loopback [127.0.0.1])
+	by d23av03.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n7U6LaPl032230
+	for <netdev@vger.kernel.org>; Sun, 30 Aug 2009 16:21:36 +1000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Only disable LED status control when both ports are disabled.
-The previous code disabled LED status control unconditionally
- in sky2_down.
+From: Krishna Kumar <krkumar2@in.ibm.com>
 
-Tested with the limitation that my sky2 interface has no LEDs
- and a single port.
+net: convert remaining non-symbolic return values in dev_queue_xmit
 
-Signed-off-by: Mike McCormack <mikem@ring3k.org>
+Patch compiled and 32 simultaneous netperf testing ran fine. 
+
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 ---
- drivers/net/sky2.c |   23 ++++++++++++++++++++---
- 1 files changed, 20 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index 2827f0d..864b8dc 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -213,6 +213,22 @@ static inline u16 gm_phy_read(struct sky2_hw *hw, unsigned port, u16 reg)
- 	return v;
- }
+ net/core/dev.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+diff -ruNp org/net/core/dev.c new/net/core/dev.c
+--- org/net/core/dev.c	2009-08-28 21:36:46.000000000 +0530
++++ new/net/core/dev.c	2009-08-28 21:40:36.000000000 +0530
+@@ -1917,7 +1917,7 @@ gso:
+ 			HARD_TX_LOCK(dev, txq, cpu);
  
-+static void sky2_disable_status_led(struct sky2_port *sky2)
-+{
-+	struct sky2_hw *hw = sky2->hw;
-+	struct net_device *otherdev = hw->dev[sky2->port^1];
-+
-+	if (!(otherdev && netif_running(otherdev))) {
-+		sky2_write8(hw, B0_Y2LED, LED_STAT_OFF);
-+	}
-+}
-+
-+static void sky2_enable_status_led(struct sky2_port *sky2)
-+{
-+	struct sky2_hw *hw = sky2->hw;
-+
-+	sky2_write8(hw, B0_Y2LED, LED_STAT_ON);
-+}
- 
- static void sky2_power_on(struct sky2_hw *hw)
- {
-@@ -1530,6 +1546,8 @@ static int sky2_up(struct net_device *dev)
- 	if (err)
- 		goto err_out;
- 
-+	sky2_enable_status_led(sky2);
-+
- 	/* Enable interrupts from phy/mac for port */
- 	imask = sky2_read32(hw, B0_IMSK);
- 	imask |= portirq_msk[port];
-@@ -1886,8 +1904,7 @@ static int sky2_down(struct net_device *dev)
- 	sky2_phy_power_down(hw, port);
- 	spin_unlock_bh(&sky2->phy_lock);
- 
--	/* turn off LED's */
--	sky2_write16(hw, B0_Y2LED, LED_STAT_OFF);
-+	sky2_disable_status_led(sky2);
- 
- 	sky2_tx_reset(hw, port);
- 
-@@ -2989,7 +3006,7 @@ static void sky2_reset(struct sky2_hw *hw)
- 	sky2_write8(hw, B2_TI_CTRL, TIM_STOP);
- 	sky2_write8(hw, B2_TI_CTRL, TIM_CLR_IRQ);
- 
--	sky2_write8(hw, B0_Y2LED, LED_STAT_ON);
-+	sky2_write8(hw, B0_Y2LED, LED_STAT_OFF);
- 
- 	/* Turn off descriptor polling */
- 	sky2_write32(hw, B28_DPT_CTRL, DPT_STOP);
--- 
-1.5.6.5
-
+ 			if (!netif_tx_queue_stopped(txq)) {
+-				rc = 0;
++				rc = NET_XMIT_SUCCESS;
+ 				if (!dev_hard_start_xmit(skb, dev, txq)) {
+ 					HARD_TX_UNLOCK(dev, txq);
+ 					goto out;
