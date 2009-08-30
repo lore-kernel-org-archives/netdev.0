@@ -1,53 +1,60 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [RFC PATCH] sched: Fix resource limiting in pfifo_fast
-Date: Sun, 30 Aug 2009 14:16:13 +0530
-Message-ID: <OFCC154671.89248E03-ON65257622.002DFE20-65257622.00302D56@in.ibm.com>
-References: <20090830062344.6380.16713.sendpatchset@localhost.localdomain> <4A9A223D.1060406@gmail.com> <4A9A2E79.5030808@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: davem@davemloft.net, Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: [PATCH 03/47] Bluetooth: Improve USB driver throughput by increasing the frame size
+Date: Sun, 30 Aug 2009 01:50:17 -0700
+Message-ID: <290ba200815fdecb4d40dc942499c4ea6d0c4624.1251621661.git.marcel@holtmann.org>
+References: <cover.1251621661.git.marcel@holtmann.org>
+ <fd0b3ff707dc1f7837079044bd4eca7ed505f70d.1251621661.git.marcel@holtmann.org>
+ <981b1414d78a7a42cab48b97d4de54a62d61db88.1251621661.git.marcel@holtmann.org>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp07.in.ibm.com ([59.145.155.7]:46786 "EHLO
-	e28smtp07.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752003AbZH3IqW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:46:22 -0400
-Received: from d28relay01.in.ibm.com (d28relay01.in.ibm.com [9.184.220.58])
-	by e28smtp07.in.ibm.com (8.14.3/8.13.1) with ESMTP id n7U8kM1g017012
-	for <netdev@vger.kernel.org>; Sun, 30 Aug 2009 14:16:22 +0530
-Received: from d28av04.in.ibm.com (d28av04.in.ibm.com [9.184.220.66])
-	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n7U8kMQ42101442
-	for <netdev@vger.kernel.org>; Sun, 30 Aug 2009 14:16:22 +0530
-Received: from d28av04.in.ibm.com (loopback [127.0.0.1])
-	by d28av04.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n7U8kLOs001785
-	for <netdev@vger.kernel.org>; Sun, 30 Aug 2009 18:46:22 +1000
-In-Reply-To: <4A9A2E79.5030808@gmail.com>
+Received: from senator.holtmann.net ([87.106.208.187]:53266 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752749AbZH3Ivx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:51:53 -0400
+In-Reply-To: <981b1414d78a7a42cab48b97d4de54a62d61db88.1251621661.git.marcel@holtmann.org>
+In-Reply-To: <cover.1251621661.git.marcel@holtmann.org>
+References: <cover.1251621661.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Jarek Poplawski <jarkao2@gmail.com>
-> >> pfifo_fast_enqueue has this check:
-> >>         if (skb_queue_len(list) < qdisc_dev(qdisc)->tx_queue_len) {
-> >>
-> >> which allows each band to enqueue upto tx_queue_len skbs for a
-> >> total of 3*tx_queue_len skbs. I am not sure if this was the
-> >> intention of limiting in qdisc.
-> >
-> > Yes I noticed that and said to myself :
-> > This was to let high priority packets have their own limit,
-> > independent on fact that low priority packets filled their queue.
->
->
-> Good point, but then logically it could be something like:
->   if (skb_queue_len(list) < qdisc_dev(qdisc)->tx_queue_len / 3)
->
-> Of course, there is a backward compatibility question, plus
-> an sch_prio consistency question.
+From: Vikram Kandukuri <vkandukuri@atheros.com>
 
-Jarek, what is the consistency problem?
+This patch increases the receive buffer size to HCI_MAX_FRAME_SIZE
+which improves the RX throughput considerably.
 
-Thanks,
+Tested against BRM/Atheros/CSR USB Dongles with PAN profile using
+iperf and chariot. This gave significant (around 40%) increase
+in performance (increased from 0.8 to 1.5 Mb/s in Sheld room)
 
-- KK
+Signed-off-by: Vikram Kandukuri <vikram.kandukuri@atheros.com>
+Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+---
+ drivers/bluetooth/btusb.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
+index e70c57e..124db8c 100644
+--- a/drivers/bluetooth/btusb.c
++++ b/drivers/bluetooth/btusb.c
+@@ -301,7 +301,7 @@ static int btusb_submit_bulk_urb(struct hci_dev *hdev, gfp_t mem_flags)
+ 	struct urb *urb;
+ 	unsigned char *buf;
+ 	unsigned int pipe;
+-	int err, size;
++	int err, size = HCI_MAX_FRAME_SIZE;
+ 
+ 	BT_DBG("%s", hdev->name);
+ 
+@@ -312,8 +312,6 @@ static int btusb_submit_bulk_urb(struct hci_dev *hdev, gfp_t mem_flags)
+ 	if (!urb)
+ 		return -ENOMEM;
+ 
+-	size = le16_to_cpu(data->bulk_rx_ep->wMaxPacketSize);
+-
+ 	buf = kmalloc(size, mem_flags);
+ 	if (!buf) {
+ 		usb_free_urb(urb);
+-- 
+1.6.2.5
 
