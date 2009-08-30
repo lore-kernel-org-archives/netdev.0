@@ -1,35 +1,33 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 NETDEV WATCHDOG: eth0: transmit timed out [0/8]
-Date: Sun, 30 Aug 2009 22:26:06 +0200
-Message-ID: <20090830202606.GA24479@electric-eye.fr.zoreil.com>
-References: <b410963b0908290216x19206aa6o4458bb55b5578a04@mail.gmail.com> <1251553180.13707.16.camel@obelisk.thedillows.org>
+Subject: Re: [PATCH] r8169: Reduce looping in the interrupt handler.
+Date: Sun, 30 Aug 2009 22:37:35 +0200
+Message-ID: <20090830203735.GA24912@electric-eye.fr.zoreil.com>
+References: <1251294974.14241.9.camel@obelisk.thedillows.org> <1251295175.14241.11.camel@obelisk.thedillows.org> <m11vmy737x.fsf@fess.ebiederm.org> <20090826213024.GA20428@electric-eye.fr.zoreil.com> <m1hbvu45jq.fsf@fess.ebiederm.org> <20090827052423.GA1709@electric-eye.fr.zoreil.com> <m1ocq1ke9u.fsf@fess.ebiederm.org> <20090827232024.GA30119@electric-eye.fr.zoreil.com> <m1d46gka9e.fsf@fess.ebiederm.org> <1251422978.21865.2.camel@obelisk.thedillows.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: roma1390 <roma1390@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Michael Riepe <michael.riepe@googlemail.com>,
+	Michael Buesch <mb@bu3sch.de>,
+	Rui Santos <rsantos@grupopie.com>,
+	Michael B??ker <m.bueker@berlin.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: David Dillow <dave@thedillows.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754050AbZH3UV2@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754107AbZH3UiF@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1251553180.13707.16.camel@obelisk.thedillows.org>
+In-Reply-To: <1251422978.21865.2.camel@obelisk.thedillows.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 David Dillow <dave@thedillows.org> :
-> On Sat, 2009-08-29 at 12:16 +0300, roma1390 wrote:
-> > Using 3 different r8169 devices on 2 servers (from 2 server so 100% of
-> > population) we getting
-> > 
-> > NETDEV WATCHDOG: eth0: transmit timed out
-> 
-> You're running an old version of the kernel, and the driver was patched
-> to fix that issue in 2.6.30. It is also in the 2.6.29.x stable series,
-> and I think maybe the 2.6.28.x series -- please try those and see if you
-> problem is resolved.
+[...]
+> It'll be this weekend, but I can see cases where it can lock my chip up
+> -- they should be rare, but then I thought your case would be extremely
+> rare...
 
-The fix in 2.6.28.x targets the netdev watchdog problem at boot time only.
-2.6.28.x does not include something similar to
-f11a377b3f4e897d11f0e8d1fc688667e2f19708 so 2.6.28.x will almost surely
-not fit.
+I don't get it.
+
+Can you elaborate the relevant cases or give some sample scenarios for
+them ?
 
 -- 
 Ueimor
