@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 10/47] Bluetooth: Add documentation for Marvell Bluetooth driver
-Date: Sun, 30 Aug 2009 01:50:24 -0700
-Message-ID: <196be0cd018068d545e1d764094c7b07aaf0bcfe.1251621661.git.marcel@holtmann.org>
+Subject: [PATCH 09/47] Bluetooth: Add debugfs support to btmrvl driver
+Date: Sun, 30 Aug 2009 01:50:23 -0700
+Message-ID: <fb784f0508d5aa39a23e72879a8dfb517c6f6e7f.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
  <fd0b3ff707dc1f7837079044bd4eca7ed505f70d.1251621661.git.marcel@holtmann.org>
  <981b1414d78a7a42cab48b97d4de54a62d61db88.1251621661.git.marcel@holtmann.org>
@@ -11,15 +11,14 @@ References: <cover.1251621661.git.marcel@holtmann.org>
  <edad63886993d18ab800c49f6587a93432ef8b35.1251621661.git.marcel@holtmann.org>
  <132ff4e5fa8dfb71a7d99902f88043113947e972.1251621661.git.marcel@holtmann.org>
  <789221ecc870117b77e354d488d5d29f15410de8.1251621661.git.marcel@holtmann.org>
- <fb784f0508d5aa39a23e72879a8dfb517c6f6e7f.1251621661.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53263 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53273 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752862AbZH3IwB (ORCPT
+	with ESMTP id S1752787AbZH3IwB (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:01 -0400
-In-Reply-To: <fb784f0508d5aa39a23e72879a8dfb517c6f6e7f.1251621661.git.marcel@holtmann.org>
+In-Reply-To: <789221ecc870117b77e354d488d5d29f15410de8.1251621661.git.marcel@holtmann.org>
 In-Reply-To: <cover.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
@@ -27,7 +26,10 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Bing Zhao <bzhao@marvell.com>
 
-add btmrvl.txt to Documentation/
+/debug/btmrvl/config/
+/debug/btmrvl/status/
+
+See Documentation/btmrvl.txt for details.
 
 This patch incorporates a lot of comments given by
 Nicolas Pitre <nico@marvell.com>. Many thanks to Nicolas Pitre.
@@ -36,149 +38,564 @@ Signed-off-by: Rahul Tank <rahult@marvell.com>
 Signed-off-by: Bing Zhao <bzhao@marvell.com>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- Documentation/00-INDEX   |    2 +
- Documentation/btmrvl.txt |  119 ++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 121 insertions(+), 0 deletions(-)
- create mode 100644 Documentation/btmrvl.txt
+ drivers/bluetooth/Kconfig          |    1 +
+ drivers/bluetooth/Makefile         |    2 +-
+ drivers/bluetooth/btmrvl_debugfs.c |  469 ++++++++++++++++++++++++++++++++++++
+ drivers/bluetooth/btmrvl_drv.h     |    8 +
+ drivers/bluetooth/btmrvl_main.c    |    8 +
+ 5 files changed, 487 insertions(+), 1 deletions(-)
+ create mode 100644 drivers/bluetooth/btmrvl_debugfs.c
 
-diff --git a/Documentation/00-INDEX b/Documentation/00-INDEX
-index d05737a..06b982a 100644
---- a/Documentation/00-INDEX
-+++ b/Documentation/00-INDEX
-@@ -82,6 +82,8 @@ block/
- 	- info on the Block I/O (BIO) layer.
- blockdev/
- 	- info on block devices & drivers
-+btmrvl.txt
-+	- info on Marvell Bluetooth driver usage.
- cachetlb.txt
- 	- describes the cache/TLB flushing interfaces Linux uses.
- cdrom/
-diff --git a/Documentation/btmrvl.txt b/Documentation/btmrvl.txt
+diff --git a/drivers/bluetooth/Kconfig b/drivers/bluetooth/Kconfig
+index 8c89bd4..5f04014 100644
+--- a/drivers/bluetooth/Kconfig
++++ b/drivers/bluetooth/Kconfig
+@@ -173,6 +173,7 @@ config BT_HCIVHCI
+ config BT_MRVL
+ 	tristate "Marvell Bluetooth driver support"
+ 	select FW_LOADER
++	select DEBUG_FS
+ 	help
+ 	  The core driver to support Marvell Bluetooth devices.
+ 
+diff --git a/drivers/bluetooth/Makefile b/drivers/bluetooth/Makefile
+index 2dc12e7..75f70e0 100644
+--- a/drivers/bluetooth/Makefile
++++ b/drivers/bluetooth/Makefile
+@@ -15,7 +15,7 @@ obj-$(CONFIG_BT_HCIBTUART)	+= btuart_cs.o
+ obj-$(CONFIG_BT_HCIBTUSB)	+= btusb.o
+ obj-$(CONFIG_BT_HCIBTSDIO)	+= btsdio.o
+ 
+-btmrvl-objs			:= btmrvl_main.o
++btmrvl-objs			:= btmrvl_main.o btmrvl_debugfs.o
+ obj-$(CONFIG_BT_MRVL)		+= btmrvl.o
+ obj-$(CONFIG_BT_MRVL_SDIO)	+= btmrvl_sdio.o
+ 
+diff --git a/drivers/bluetooth/btmrvl_debugfs.c b/drivers/bluetooth/btmrvl_debugfs.c
 new file mode 100644
-index 0000000..34916a4
+index 0000000..747bb0c
 --- /dev/null
-+++ b/Documentation/btmrvl.txt
-@@ -0,0 +1,119 @@
-+=======================================================================
-+		README for btmrvl driver
-+=======================================================================
++++ b/drivers/bluetooth/btmrvl_debugfs.c
+@@ -0,0 +1,469 @@
++/**
++ * Marvell Bluetooth driver: debugfs related functions
++ *
++ * Copyright (C) 2009, Marvell International Ltd.
++ *
++ * This software file (the "File") is distributed by Marvell International
++ * Ltd. under the terms of the GNU General Public License Version 2, June 1991
++ * (the "License").  You may use, redistribute and/or modify this File in
++ * accordance with the terms and conditions of the License, a copy of which
++ * is available by writing to the Free Software Foundation, Inc.,
++ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
++ * worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
++ *
++ *
++ * THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
++ * ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
++ * this warranty disclaimer.
++ **/
 +
++#include <linux/debugfs.h>
 +
-+All commands are used via debugfs interface.
++#include <net/bluetooth/bluetooth.h>
++#include <net/bluetooth/hci_core.h>
 +
-+=====================
-+Set/get driver configurations:
++#include "btmrvl_drv.h"
 +
-+Path:	/debug/btmrvl/config/
++struct btmrvl_debugfs_data {
++	struct dentry *root_dir, *config_dir, *status_dir;
 +
-+gpiogap=[n]
-+hscfgcmd
-+	These commands are used to configure the host sleep parameters.
-+	bit 8:0  -- Gap
-+	bit 16:8 -- GPIO
++	/* config */
++	struct dentry *drvdbg;
++	struct dentry *psmode;
++	struct dentry *pscmd;
++	struct dentry *hsmode;
++	struct dentry *hscmd;
++	struct dentry *gpiogap;
++	struct dentry *hscfgcmd;
 +
-+	where GPIO is the pin number of GPIO used to wake up the host.
-+	It could be any valid GPIO pin# (e.g. 0-7) or 0xff (SDIO interface
-+	wakeup will be used instead).
++	/* status */
++	struct dentry *curpsmode;
++	struct dentry *hsstate;
++	struct dentry *psstate;
++	struct dentry *txdnldready;
++};
 +
-+	where Gap is the gap in milli seconds between wakeup signal and
-+	wakeup event, or 0xff for special host sleep setting.
++static int btmrvl_open_generic(struct inode *inode, struct file *file)
++{
++	file->private_data = inode->i_private;
++	return 0;
++}
 +
-+	Usage:
-+		# Use SDIO interface to wake up the host and set GAP to 0x80:
-+		echo 0xff80 > /debug/btmrvl/config/gpiogap
-+		echo 1 > /debug/btmrvl/config/hscfgcmd
++static ssize_t btmrvl_hscfgcmd_write(struct file *file,
++					const char __user *ubuf,
++					size_t count,
++					loff_t *ppos)
++{
++	struct btmrvl_private *priv =
++				(struct btmrvl_private *) file->private_data;
 +
-+		# Use GPIO pin #3 to wake up the host and set GAP to 0xff:
-+		echo 0x03ff >  /debug/btmrvl/config/gpiogap
-+		echo 1 > /debug/btmrvl/config/hscfgcmd
++	long result, ret;
++	char buf[16];
 +
-+psmode=[n]
-+pscmd
-+	These commands are used to enable/disable auto sleep mode
++	memset(buf, 0, sizeof(buf));
 +
-+	where the option is:
-+			1 	-- Enable auto sleep mode
-+			0 	-- Disable auto sleep mode
++	if (copy_from_user(&buf, ubuf,
++				min_t(size_t, sizeof(buf) - 1, count)))
++		return -EFAULT;
 +
-+	Usage:
-+		# Enable auto sleep mode
-+		echo 1 > /debug/btmrvl/config/psmode
-+		echo 1 > /debug/btmrvl/config/pscmd
++	ret = strict_strtol(buf, 10, &result);
 +
-+		# Disable auto sleep mode
-+		echo 0 > /debug/btmrvl/config/psmode
-+		echo 1 > /debug/btmrvl/config/pscmd
++	priv->btmrvl_dev.hscfgcmd = result;
 +
++	if (priv->btmrvl_dev.hscfgcmd) {
++		btmrvl_prepare_command(priv);
++		wake_up_interruptible(&priv->main_thread.wait_q);
++	}
 +
-+hsmode=[n]
-+hscmd
-+	These commands are used to enable host sleep or wake up firmware
++	return count;
++}
 +
-+	where the option is:
-+			1	-- Enable host sleep
-+			0	-- Wake up firmware
++static ssize_t btmrvl_hscfgcmd_read(struct file *file, char __user * userbuf,
++				    size_t count, loff_t *ppos)
++{
++	struct btmrvl_private *priv =
++				(struct btmrvl_private *) file->private_data;
++	int ret;
++	char buf[16];
 +
-+	Usage:
-+		# Enable host sleep
-+		echo 1 > /debug/btmrvl/config/hsmode
-+		echo 1 > /debug/btmrvl/config/hscmd
++	ret = snprintf(buf, sizeof(buf) - 1, "%d\n",
++			priv->btmrvl_dev.hscfgcmd);
 +
-+		# Wake up firmware
-+		echo 0 > /debug/btmrvl/config/hsmode
-+		echo 1 > /debug/btmrvl/config/hscmd
++	return simple_read_from_buffer(userbuf, count, ppos, buf, ret);
++}
 +
++static const struct file_operations btmrvl_hscfgcmd_fops = {
++	.read = btmrvl_hscfgcmd_read,
++	.write = btmrvl_hscfgcmd_write,
++	.open = btmrvl_open_generic,
++};
 +
-+======================
-+Get driver status:
++static ssize_t btmrvl_psmode_write(struct file *file, const char __user *ubuf,
++				   size_t count, loff_t *ppos)
++{
++	struct btmrvl_private *priv =
++				(struct btmrvl_private *) file->private_data;
++	long result, ret;
++	char buf[16];
 +
-+Path:	/debug/btmrvl/status/
++	memset(buf, 0, sizeof(buf));
 +
-+Usage:
-+	cat /debug/btmrvl/status/<args>
++	if (copy_from_user(&buf, ubuf,
++				min_t(size_t, sizeof(buf) - 1, count)))
++		return -EFAULT;
 +
-+where the args are:
++	ret = strict_strtol(buf, 10, &result);
 +
-+curpsmode
-+	This command displays current auto sleep status.
++	priv->btmrvl_dev.psmode = result;
 +
-+psstate
-+	This command display the power save state.
++	return count;
++}
 +
-+hsstate
-+	This command display the host sleep state.
++static ssize_t btmrvl_psmode_read(struct file *file, char __user * userbuf,
++				  size_t count, loff_t *ppos)
++{
++	struct btmrvl_private *priv =
++				(struct btmrvl_private *) file->private_data;
++	int ret;
++	char buf[16];
 +
-+txdnldrdy
-+	This command displays the value of Tx download ready flag.
++	ret = snprintf(buf, sizeof(buf) - 1, "%d\n",
++			priv->btmrvl_dev.psmode);
 +
++	return simple_read_from_buffer(userbuf, count, ppos, buf, ret);
++}
 +
-+=====================
++static const struct file_operations btmrvl_psmode_fops = {
++	.read = btmrvl_psmode_read,
++	.write = btmrvl_psmode_write,
++	.open = btmrvl_open_generic,
++};
 +
-+Use hcitool to issue raw hci command, refer to hcitool manual
++static ssize_t btmrvl_pscmd_write(struct file *file, const char __user *ubuf,
++				  size_t count, loff_t *ppos)
++{
++	struct btmrvl_private *priv =
++				(struct btmrvl_private *) file->private_data;
++	long result, ret;
++	char buf[16];
 +
-+	Usage: Hcitool cmd <ogf> <ocf> [Parameters]
++	memset(buf, 0, sizeof(buf));
 +
-+	Interface Control Command
-+	hcitool cmd 0x3f 0x5b 0xf5 0x01 0x00    --Enable All interface
-+	hcitool cmd 0x3f 0x5b 0xf5 0x01 0x01    --Enable Wlan interface
-+	hcitool cmd 0x3f 0x5b 0xf5 0x01 0x02    --Enable BT interface
-+	hcitool cmd 0x3f 0x5b 0xf5 0x00 0x00    --Disable All interface
-+	hcitool cmd 0x3f 0x5b 0xf5 0x00 0x01    --Disable Wlan interface
-+	hcitool cmd 0x3f 0x5b 0xf5 0x00 0x02    --Disable BT interface
++	if (copy_from_user(&buf, ubuf,
++				min_t(size_t, sizeof(buf) - 1, count)))
++		return -EFAULT;
 +
-+=======================================================================
++	ret = strict_strtol(buf, 10, &result);
 +
++	priv->btmrvl_dev.pscmd = result;
 +
-+SD8688 firmware:
++	if (priv->btmrvl_dev.pscmd) {
++		btmrvl_prepare_command(priv);
++		wake_up_interruptible(&priv->main_thread.wait_q);
++	}
 +
-+/lib/firmware/sd8688_helper.bin
-+/lib/firmware/sd8688.bin
++	return count;
 +
++}
 +
-+The images can be downloaded from:
++static ssize_t btmrvl_pscmd_read(struct file *file, char __user * userbuf,
++				 size_t count, loff_t *ppos)
++{
++	struct btmrvl_private *priv =
++				(struct btmrvl_private *) file->private_data;
++	int ret;
++	char buf[16];
 +
-+git.infradead.org/users/dwmw2/linux-firmware.git/libertas/
++	ret = snprintf(buf, sizeof(buf) - 1, "%d\n", priv->btmrvl_dev.pscmd);
++
++	return simple_read_from_buffer(userbuf, count, ppos, buf, ret);
++}
++
++static const struct file_operations btmrvl_pscmd_fops = {
++	.read = btmrvl_pscmd_read,
++	.write = btmrvl_pscmd_write,
++	.open = btmrvl_open_generic,
++};
++
++static ssize_t btmrvl_gpiogap_write(struct file *file, const char __user *ubuf,
++				    size_t count, loff_t *ppos)
++{
++	struct btmrvl_private *priv =
++				(struct btmrvl_private *) file->private_data;
++	long result, ret;
++	char buf[16];
++
++	memset(buf, 0, sizeof(buf));
++
++	if (copy_from_user(&buf, ubuf,
++				min_t(size_t, sizeof(buf) - 1, count)))
++		return -EFAULT;
++
++	ret = strict_strtol(buf, 16, &result);
++
++	priv->btmrvl_dev.gpio_gap = result;
++
++	return count;
++}
++
++static ssize_t btmrvl_gpiogap_read(struct file *file, char __user * userbuf,
++				   size_t count, loff_t *ppos)
++{
++	struct btmrvl_private *priv =
++				(struct btmrvl_private *) file->private_data;
++	int ret;
++	char buf[16];
++
++	ret = snprintf(buf, sizeof(buf) - 1, "0x%x\n",
++			priv->btmrvl_dev.gpio_gap);
++
++	return simple_read_from_buffer(userbuf, count, ppos, buf, ret);
++}
++
++static const struct file_operations btmrvl_gpiogap_fops = {
++	.read = btmrvl_gpiogap_read,
++	.write = btmrvl_gpiogap_write,
++	.open = btmrvl_open_generic,
++};
++
++static ssize_t btmrvl_hscmd_write(struct file *file, const char __user *ubuf,
++				  size_t count, loff_t *ppos)
++{
++	struct btmrvl_private *priv =
++				(struct btmrvl_private *) file->private_data;
++	long result, ret;
++	char buf[16];
++
++	memset(buf, 0, sizeof(buf));
++
++	if (copy_from_user(&buf, ubuf,
++				min_t(size_t, sizeof(buf) - 1, count)))
++		return -EFAULT;
++
++	ret = strict_strtol(buf, 10, &result);
++
++	priv->btmrvl_dev.hscmd = result;
++	if (priv->btmrvl_dev.hscmd) {
++		btmrvl_prepare_command(priv);
++		wake_up_interruptible(&priv->main_thread.wait_q);
++	}
++
++	return count;
++}
++
++static ssize_t btmrvl_hscmd_read(struct file *file, char __user * userbuf,
++				 size_t count, loff_t *ppos)
++{
++	struct btmrvl_private *priv =
++				(struct btmrvl_private *) file->private_data;
++	int ret;
++	char buf[16];
++
++	ret = snprintf(buf, sizeof(buf) - 1, "%d\n", priv->btmrvl_dev.hscmd);
++
++	return simple_read_from_buffer(userbuf, count, ppos, buf, ret);
++}
++
++static const struct file_operations btmrvl_hscmd_fops = {
++	.read = btmrvl_hscmd_read,
++	.write = btmrvl_hscmd_write,
++	.open = btmrvl_open_generic,
++};
++
++static ssize_t btmrvl_hsmode_write(struct file *file, const char __user *ubuf,
++				   size_t count, loff_t *ppos)
++{
++	struct btmrvl_private *priv =
++				(struct btmrvl_private *) file->private_data;
++	long result, ret;
++	char buf[16];
++
++	memset(buf, 0, sizeof(buf));
++
++	if (copy_from_user(&buf, ubuf,
++				min_t(size_t, sizeof(buf) - 1, count)))
++		return -EFAULT;
++
++	ret = strict_strtol(buf, 10, &result);
++
++	priv->btmrvl_dev.hsmode = result;
++
++	return count;
++}
++
++static ssize_t btmrvl_hsmode_read(struct file *file, char __user * userbuf,
++				  size_t count, loff_t *ppos)
++{
++	struct btmrvl_private *priv =
++				(struct btmrvl_private *) file->private_data;
++	int ret;
++	char buf[16];
++
++	ret = snprintf(buf, sizeof(buf) - 1, "%d\n",
++			priv->btmrvl_dev.hsmode);
++
++	return simple_read_from_buffer(userbuf, count, ppos, buf, ret);
++}
++
++static const struct file_operations btmrvl_hsmode_fops = {
++	.read = btmrvl_hsmode_read,
++	.write = btmrvl_hsmode_write,
++	.open = btmrvl_open_generic,
++};
++
++static ssize_t btmrvl_curpsmode_read(struct file *file, char __user * userbuf,
++				     size_t count, loff_t *ppos)
++{
++	struct btmrvl_private *priv =
++				(struct btmrvl_private *) file->private_data;
++	int ret;
++	char buf[16];
++
++	ret = snprintf(buf, sizeof(buf) - 1, "%d\n", priv->adapter->psmode);
++
++	return simple_read_from_buffer(userbuf, count, ppos, buf, ret);
++}
++
++static const struct file_operations btmrvl_curpsmode_fops = {
++	.read = btmrvl_curpsmode_read,
++	.open = btmrvl_open_generic,
++};
++
++static ssize_t btmrvl_psstate_read(struct file *file, char __user * userbuf,
++				   size_t count, loff_t *ppos)
++{
++	struct btmrvl_private *priv =
++				(struct btmrvl_private *) file->private_data;
++	int ret;
++	char buf[16];
++
++	ret = snprintf(buf, sizeof(buf) - 1, "%d\n",
++			priv->adapter->ps_state);
++
++	return simple_read_from_buffer(userbuf, count, ppos, buf, ret);
++}
++
++static const struct file_operations btmrvl_psstate_fops = {
++	.read = btmrvl_psstate_read,
++	.open = btmrvl_open_generic,
++};
++
++static ssize_t btmrvl_hsstate_read(struct file *file, char __user * userbuf,
++				   size_t count, loff_t *ppos)
++{
++	struct btmrvl_private *priv =
++				(struct btmrvl_private *) file->private_data;
++	int ret;
++	char buf[16];
++
++	ret = snprintf(buf, sizeof(buf) - 1, "%d\n",
++			priv->adapter->hs_state);
++
++	return simple_read_from_buffer(userbuf, count, ppos, buf, ret);
++}
++
++static const struct file_operations btmrvl_hsstate_fops = {
++	.read = btmrvl_hsstate_read,
++	.open = btmrvl_open_generic,
++};
++
++static ssize_t btmrvl_txdnldready_read(struct file *file, char __user * userbuf,
++				       size_t count, loff_t *ppos)
++{
++	struct btmrvl_private *priv =
++				(struct btmrvl_private *) file->private_data;
++	int ret;
++	char buf[16];
++
++	ret = snprintf(buf, sizeof(buf) - 1, "%d\n",
++			priv->btmrvl_dev.tx_dnld_rdy);
++
++	return simple_read_from_buffer(userbuf, count, ppos, buf, ret);
++}
++
++static const struct file_operations btmrvl_txdnldready_fops = {
++	.read = btmrvl_txdnldready_read,
++	.open = btmrvl_open_generic,
++};
++
++void btmrvl_debugfs_init(struct hci_dev *hdev)
++{
++	struct btmrvl_private *priv =
++				(struct btmrvl_private *) hdev->driver_data;
++	struct btmrvl_debugfs_data *dbg;
++
++	dbg = kzalloc(sizeof(*dbg), GFP_KERNEL);
++	priv->debugfs_data = dbg;
++
++	if (!dbg) {
++		BT_ERR("Can not allocate memory for btmrvl_debugfs_data.");
++		return;
++	}
++
++	dbg->root_dir = debugfs_create_dir("btmrvl", NULL);
++
++	dbg->config_dir = debugfs_create_dir("config", dbg->root_dir);
++
++	dbg->psmode = debugfs_create_file("psmode", 0644, dbg->config_dir,
++					  hdev->driver_data,
++					  &btmrvl_psmode_fops);
++	dbg->pscmd =
++	    debugfs_create_file("pscmd", 0644, dbg->config_dir,
++				hdev->driver_data, &btmrvl_pscmd_fops);
++	dbg->gpiogap =
++	    debugfs_create_file("gpiogap", 0644, dbg->config_dir,
++				hdev->driver_data, &btmrvl_gpiogap_fops);
++	dbg->hsmode =
++	    debugfs_create_file("hsmode", 0644, dbg->config_dir,
++				hdev->driver_data, &btmrvl_hsmode_fops);
++	dbg->hscmd =
++	    debugfs_create_file("hscmd", 0644, dbg->config_dir,
++				hdev->driver_data, &btmrvl_hscmd_fops);
++	dbg->hscfgcmd =
++	    debugfs_create_file("hscfgcmd", 0644, dbg->config_dir,
++				hdev->driver_data, &btmrvl_hscfgcmd_fops);
++
++	dbg->status_dir = debugfs_create_dir("status", dbg->root_dir);
++	dbg->curpsmode = debugfs_create_file("curpsmode", 0444,
++						dbg->status_dir,
++						hdev->driver_data,
++						&btmrvl_curpsmode_fops);
++	dbg->psstate =
++	    debugfs_create_file("psstate", 0444, dbg->status_dir,
++				hdev->driver_data, &btmrvl_psstate_fops);
++	dbg->hsstate =
++	    debugfs_create_file("hsstate", 0444, dbg->status_dir,
++				hdev->driver_data, &btmrvl_hsstate_fops);
++	dbg->txdnldready =
++	    debugfs_create_file("txdnldready", 0444, dbg->status_dir,
++				hdev->driver_data, &btmrvl_txdnldready_fops);
++}
++
++void btmrvl_debugfs_remove(struct hci_dev *hdev)
++{
++	struct btmrvl_private *priv =
++				(struct btmrvl_private *) hdev->driver_data;
++	struct btmrvl_debugfs_data *dbg = priv->debugfs_data;
++
++	if (!dbg)
++		return;
++
++	debugfs_remove(dbg->psmode);
++	debugfs_remove(dbg->pscmd);
++	debugfs_remove(dbg->gpiogap);
++	debugfs_remove(dbg->hsmode);
++	debugfs_remove(dbg->hscmd);
++	debugfs_remove(dbg->hscfgcmd);
++	debugfs_remove(dbg->config_dir);
++
++	debugfs_remove(dbg->curpsmode);
++	debugfs_remove(dbg->psstate);
++	debugfs_remove(dbg->hsstate);
++	debugfs_remove(dbg->txdnldready);
++	debugfs_remove(dbg->status_dir);
++
++	debugfs_remove(dbg->root_dir);
++
++	kfree(dbg);
++}
+diff --git a/drivers/bluetooth/btmrvl_drv.h b/drivers/bluetooth/btmrvl_drv.h
+index 9ad71f4..7a12f68 100644
+--- a/drivers/bluetooth/btmrvl_drv.h
++++ b/drivers/bluetooth/btmrvl_drv.h
+@@ -79,6 +79,9 @@ struct btmrvl_private {
+ 				u8 *payload, u16 nb);
+ 	int (*hw_wakeup_firmware) (struct btmrvl_private *priv);
+ 	spinlock_t driver_lock;		/* spinlock used by driver */
++#ifdef CONFIG_DEBUG_FS
++	void *debugfs_data;
++#endif
+ };
+ 
+ #define MRVL_VENDOR_PKT			0xFE
+@@ -135,4 +138,9 @@ int btmrvl_process_event(struct btmrvl_private *priv, struct sk_buff *skb);
+ int btmrvl_send_module_cfg_cmd(struct btmrvl_private *priv, int subcmd);
+ int btmrvl_prepare_command(struct btmrvl_private *priv);
+ 
++#ifdef CONFIG_DEBUG_FS
++void btmrvl_debugfs_init(struct hci_dev *hdev);
++void btmrvl_debugfs_remove(struct hci_dev *hdev);
++#endif
++
+ #endif /* _BTMRVL_DRV_H_ */
+diff --git a/drivers/bluetooth/btmrvl_main.c b/drivers/bluetooth/btmrvl_main.c
+index 11c2f2c..b4f4445 100644
+--- a/drivers/bluetooth/btmrvl_main.c
++++ b/drivers/bluetooth/btmrvl_main.c
+@@ -658,6 +658,10 @@ struct btmrvl_private *btmrvl_add_card(void *card)
+ 		goto err_hci_register_dev;
+ 	}
+ 
++#ifdef CONFIG_DEBUG_FS
++	btmrvl_debugfs_init(hdev);
++#endif
++
+ 	BT_DBG("Leave");
+ 	return priv;
+ 
+@@ -692,6 +696,10 @@ int btmrvl_remove_card(struct btmrvl_private *priv)
+ 
+ 	kthread_stop(priv->main_thread.task);
+ 
++#ifdef CONFIG_DEBUG_FS
++	btmrvl_debugfs_remove(hdev);
++#endif
++
+ 	hci_unregister_dev(hdev);
+ 
+ 	hci_free_dev(hdev);
 -- 
 1.6.2.5
 
