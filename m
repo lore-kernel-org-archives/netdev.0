@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 42/47] Bluetooth: Fix false errors from bcsp_pkt_cull function
-Date: Sun, 30 Aug 2009 01:50:56 -0700
-Message-ID: <d2e353f7c3c5fbb3add0341c10ae167ee745d23b.1251621661.git.marcel@holtmann.org>
+Subject: [PATCH 46/47] Bluetooth: Handle L2CAP case when the remote receiver is busy
+Date: Sun, 30 Aug 2009 01:51:00 -0700
+Message-ID: <2246b2f1b43f3fbd128e72b129dcbbd3202cc592.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
  <fd0b3ff707dc1f7837079044bd4eca7ed505f70d.1251621661.git.marcel@holtmann.org>
  <981b1414d78a7a42cab48b97d4de54a62d61db88.1251621661.git.marcel@holtmann.org>
@@ -44,61 +44,118 @@ References: <cover.1251621661.git.marcel@holtmann.org>
  <9e726b17422bade75fba94e625cd35fd1353e682.1251621661.git.marcel@holtmann.org>
  <e686219a64fee9be9ce438dc3f040cd71ddd168a.1251621661.git.marcel@holtmann.org>
  <1b7bf4edca0fdbad70c44e139f4cfebd6759de81.1251621661.git.marcel@holtmann.org>
+ <d2e353f7c3c5fbb3add0341c10ae167ee745d23b.1251621661.git.marcel@holtmann.org>
+ <7bee549e197c9c0e92b89857a409675c1d5e9dff.1251621661.git.marcel@holtmann.org>
+ <cbe86b98a6aceefe943ada1471eb52fd9ac4c504.1251621661.git.marcel@holtmann.org>
+ <ca42a613c92d131ff02d5714419d58c36c3459f3.1251621661.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53337 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53342 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753332AbZH3Iwl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:41 -0400
-In-Reply-To: <1b7bf4edca0fdbad70c44e139f4cfebd6759de81.1251621661.git.marcel@holtmann.org>
+	with ESMTP id S1753340AbZH3Iwp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:45 -0400
+In-Reply-To: <ca42a613c92d131ff02d5714419d58c36c3459f3.1251621661.git.marcel@holtmann.org>
 In-Reply-To: <cover.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wending Weng <wweng@rheinmetall.ca>
+From: Gustavo F. Padovan <gustavo@las.ic.unicamp.br>
 
-The error message "Removed only %u out of %u pkts" is printed when multiple
-to be acked packets are queued.
+Implement all issues related to RemoteBusy in the RECV state table.
 
-    if (i++ >= pkts_to_be_removed)
-            break;
-
-This will break out of the loop and increase the counter i when
-i==pkts_to_be_removed and the loop ends up with i=pkts_to_be_removed+1.
-
-The following line
-
-    if (i != pkts_to_be_removed) {
-            BT_ERR("Removed only %u out of %u pkts", i, pkts_to_be_removed);
-    }
-
-will then display the false message.
-
-The counter i must not increase on the same statement.
-
-Signed-off-by: Wending Weng <wweng@rheinmetall.ca>
+Signed-off-by: Gustavo F. Padovan <gustavo@las.ic.unicamp.br>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- drivers/bluetooth/hci_bcsp.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ include/net/bluetooth/l2cap.h |    2 ++
+ net/bluetooth/l2cap.c         |   25 +++++++++++++++++++++++--
+ 2 files changed, 25 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/bluetooth/hci_bcsp.c b/drivers/bluetooth/hci_bcsp.c
-index 894b2cb..40aec0f 100644
---- a/drivers/bluetooth/hci_bcsp.c
-+++ b/drivers/bluetooth/hci_bcsp.c
-@@ -373,8 +373,9 @@ static void bcsp_pkt_cull(struct bcsp_struct *bcsp)
+diff --git a/include/net/bluetooth/l2cap.h b/include/net/bluetooth/l2cap.h
+index 7ca614a..9516f4b 100644
+--- a/include/net/bluetooth/l2cap.h
++++ b/include/net/bluetooth/l2cap.h
+@@ -373,6 +373,8 @@ struct l2cap_pinfo {
+ #define L2CAP_CONN_WAIT_F          0x04
+ #define L2CAP_CONN_SREJ_ACT        0x08
+ #define L2CAP_CONN_SEND_PBIT       0x10
++#define L2CAP_CONN_REMOTE_BUSY     0x20
++#define L2CAP_CONN_LOCAL_BUSY      0x40
  
- 	i = 0;
- 	skb_queue_walk_safe(&bcsp->unack, skb, tmp) {
--		if (i++ >= pkts_to_be_removed)
-+		if (i >= pkts_to_be_removed)
- 			break;
-+		i++;
+ #define __mod_retrans_timer() mod_timer(&l2cap_pi(sk)->retrans_timer, \
+ 		jiffies +  msecs_to_jiffies(L2CAP_DEFAULT_RETRANS_TO));
+diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
+index 0a36c61..40fbf5c 100644
+--- a/net/bluetooth/l2cap.c
++++ b/net/bluetooth/l2cap.c
+@@ -1350,7 +1350,8 @@ static int l2cap_ertm_send(struct sock *sk)
+ 	if (pi->conn_state & L2CAP_CONN_WAIT_F)
+ 		return 0;
  
- 		__skb_unlink(skb, &bcsp->unack);
- 		kfree_skb(skb);
+-	while ((skb = sk->sk_send_head) && (!l2cap_tx_window_full(sk))) {
++	while ((skb = sk->sk_send_head) && (!l2cap_tx_window_full(sk))
++			&& !(pi->conn_state & L2CAP_CONN_REMOTE_BUSY)) {
+ 		tx_skb = skb_clone(skb, GFP_ATOMIC);
+ 
+ 		if (pi->remote_max_tx &&
+@@ -3351,7 +3352,10 @@ static inline int l2cap_data_channel_sframe(struct sock *sk, u16 rx_control, str
+ 			control |= L2CAP_SUPER_RCV_READY |
+ 				(pi->buffer_seq << L2CAP_CTRL_REQSEQ_SHIFT);
+ 			l2cap_send_sframe(l2cap_pi(sk), control);
++			pi->conn_state &= ~L2CAP_CONN_REMOTE_BUSY;
++
+ 		} else if (rx_control & L2CAP_CTRL_FINAL) {
++			pi->conn_state &= ~L2CAP_CONN_REMOTE_BUSY;
+ 			pi->expected_ack_seq = tx_seq;
+ 			l2cap_drop_acked_frames(sk);
+ 
+@@ -3366,13 +3370,19 @@ static inline int l2cap_data_channel_sframe(struct sock *sk, u16 rx_control, str
+ 		} else {
+ 			pi->expected_ack_seq = tx_seq;
+ 			l2cap_drop_acked_frames(sk);
+-			if (pi->unacked_frames > 0)
++
++			if ((pi->conn_state & L2CAP_CONN_REMOTE_BUSY)
++					&& (pi->unacked_frames > 0))
+ 				__mod_retrans_timer();
++
+ 			l2cap_ertm_send(sk);
++			pi->conn_state &= ~L2CAP_CONN_REMOTE_BUSY;
+ 		}
+ 		break;
+ 
+ 	case L2CAP_SUPER_REJECT:
++		pi->conn_state &= ~L2CAP_CONN_REMOTE_BUSY;
++
+ 		pi->expected_ack_seq = __get_reqseq(rx_control);
+ 		l2cap_drop_acked_frames(sk);
+ 
+@@ -3384,6 +3394,8 @@ static inline int l2cap_data_channel_sframe(struct sock *sk, u16 rx_control, str
+ 		break;
+ 
+ 	case L2CAP_SUPER_SELECT_REJECT:
++		pi->conn_state &= ~L2CAP_CONN_REMOTE_BUSY;
++
+ 		if (rx_control & L2CAP_CTRL_POLL) {
+ 			l2cap_retransmit_frame(sk, tx_seq);
+ 			pi->expected_ack_seq = tx_seq;
+@@ -3410,6 +3422,15 @@ static inline int l2cap_data_channel_sframe(struct sock *sk, u16 rx_control, str
+ 		break;
+ 
+ 	case L2CAP_SUPER_RCV_NOT_READY:
++		pi->conn_state |= L2CAP_CONN_REMOTE_BUSY;
++		pi->expected_ack_seq = tx_seq;
++		l2cap_drop_acked_frames(sk);
++
++		del_timer(&l2cap_pi(sk)->retrans_timer);
++		if (rx_control & L2CAP_CTRL_POLL) {
++			u16 control = L2CAP_CTRL_FINAL | L2CAP_SUPER_RCV_READY;
++			l2cap_send_sframe(l2cap_pi(sk), control);
++		}
+ 		break;
+ 	}
+ 
 -- 
 1.6.2.5
 
