@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 23/47] Bluetooth: Add missing kmalloc NULL tests to Marvell driver
-Date: Sun, 30 Aug 2009 01:50:37 -0700
-Message-ID: <5959809ded86e267c1a95fb44738a224c30d3434.1251621661.git.marcel@holtmann.org>
+Subject: [PATCH 22/47] Bluetooth: Fix incorrect alignment in Marvell BT-over-SDIO driver
+Date: Sun, 30 Aug 2009 01:50:36 -0700
+Message-ID: <3318b2362bf0528be77123c480249663557dfbfc.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
  <fd0b3ff707dc1f7837079044bd4eca7ed505f70d.1251621661.git.marcel@holtmann.org>
  <981b1414d78a7a42cab48b97d4de54a62d61db88.1251621661.git.marcel@holtmann.org>
@@ -24,72 +24,75 @@ References: <cover.1251621661.git.marcel@holtmann.org>
  <91d697302b291205171840bfe84c1563e171acb2.1251621661.git.marcel@holtmann.org>
  <e0721f99ba33d13a88746732be2d74ca805abf55.1251621661.git.marcel@holtmann.org>
  <9374253ffe609f2d70dd5ae280182cb6f08fef08.1251621661.git.marcel@holtmann.org>
- <3318b2362bf0528be77123c480249663557dfbfc.1251621661.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53302 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53304 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753076AbZH3IwR (ORCPT
+	with ESMTP id S1753041AbZH3IwR (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:17 -0400
-In-Reply-To: <3318b2362bf0528be77123c480249663557dfbfc.1251621661.git.marcel@holtmann.org>
+In-Reply-To: <9374253ffe609f2d70dd5ae280182cb6f08fef08.1251621661.git.marcel@holtmann.org>
 In-Reply-To: <cover.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+From: Bing Zhao <bzhao@marvell.com>
 
-Check that the result of kmalloc is not NULL before dereferencing it.
-The patch also replaces kmalloc + memset by kzalloc.
+The driver uses "u32" for alignment check and calculation which
+works only on 32-bit system. It will crash the 64-bit system.
+Replace "u32" with "unsigned long" to fix this issue.
 
-The semantic match that finds this problem is as follows:
-(http://coccinelle.lip6.fr/)
-
-// <smpl>
-@@
-expression *x;
-identifier f;
-constant char *C;
-@@
-
-x = \(kmalloc\|kcalloc\|kzalloc\)(...);
-... when != x == NULL
-    when != x != NULL
-    when != (x || ...)
-(
-kfree(x)
-|
-f(...,C,...,x,...)
-|
-*f(...,x,...)
-|
-*x->f
-)
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
+Signed-off-by: Bing Zhao <bzhao@marvell.com>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- drivers/bluetooth/btmrvl_sdio.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ drivers/bluetooth/btmrvl_sdio.c |   12 +++++++-----
+ drivers/bluetooth/btmrvl_sdio.h |    3 ++-
+ 2 files changed, 9 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/bluetooth/btmrvl_sdio.c b/drivers/bluetooth/btmrvl_sdio.c
-index 1cfa8b4..5b33b85 100644
+index 224af53..1cfa8b4 100644
 --- a/drivers/bluetooth/btmrvl_sdio.c
 +++ b/drivers/bluetooth/btmrvl_sdio.c
-@@ -777,8 +777,9 @@ static int btmrvl_sdio_host_to_card(struct btmrvl_private *priv,
- 	buf = payload;
- 	if ((unsigned long) payload & (BTSDIO_DMA_ALIGN - 1)) {
- 		tmpbufsz = ALIGN_SZ(nb, BTSDIO_DMA_ALIGN);
--		tmpbuf = kmalloc(tmpbufsz, GFP_KERNEL);
--		memset(tmpbuf, 0, tmpbufsz);
-+		tmpbuf = kzalloc(tmpbufsz, GFP_KERNEL);
-+		if (!tmpbuf)
-+			return -ENOMEM;
- 		buf = (u8 *) ALIGN_ADDR(tmpbuf, BTSDIO_DMA_ALIGN);
- 		memcpy(buf, payload, nb);
+@@ -481,12 +481,14 @@ static int btmrvl_sdio_card_to_host(struct btmrvl_private *priv)
+ 		goto exit;
  	}
+ 
+-	if ((u32) skb->data & (BTSDIO_DMA_ALIGN - 1)) {
+-		skb_put(skb, (u32) skb->data & (BTSDIO_DMA_ALIGN - 1));
+-		skb_pull(skb, (u32) skb->data & (BTSDIO_DMA_ALIGN - 1));
++	if ((unsigned long) skb->data & (BTSDIO_DMA_ALIGN - 1)) {
++		skb_put(skb, (unsigned long) skb->data &
++					(BTSDIO_DMA_ALIGN - 1));
++		skb_pull(skb, (unsigned long) skb->data &
++					(BTSDIO_DMA_ALIGN - 1));
+ 	}
+ 
+-	payload = skb->tail;
++	payload = skb->data;
+ 
+ 	ret = sdio_readsb(card->func, payload, card->ioport,
+ 			  buf_block_len * blksz);
+@@ -773,7 +775,7 @@ static int btmrvl_sdio_host_to_card(struct btmrvl_private *priv,
+ 	}
+ 
+ 	buf = payload;
+-	if ((u32) payload & (BTSDIO_DMA_ALIGN - 1)) {
++	if ((unsigned long) payload & (BTSDIO_DMA_ALIGN - 1)) {
+ 		tmpbufsz = ALIGN_SZ(nb, BTSDIO_DMA_ALIGN);
+ 		tmpbuf = kmalloc(tmpbufsz, GFP_KERNEL);
+ 		memset(tmpbuf, 0, tmpbufsz);
+diff --git a/drivers/bluetooth/btmrvl_sdio.h b/drivers/bluetooth/btmrvl_sdio.h
+index 2dd284e..27329f1 100644
+--- a/drivers/bluetooth/btmrvl_sdio.h
++++ b/drivers/bluetooth/btmrvl_sdio.h
+@@ -104,4 +104,5 @@ struct btmrvl_sdio_device {
+ 
+ /* Macros for Data Alignment : address */
+ #define ALIGN_ADDR(p, a)	\
+-	((((u32)(p)) + (((u32)(a)) - 1)) & ~(((u32)(a)) - 1))
++	((((unsigned long)(p)) + (((unsigned long)(a)) - 1)) & \
++					~(((unsigned long)(a)) - 1))
 -- 
 1.6.2.5
 
