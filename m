@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 39/47] Bluetooth: Fix rejected connection not disconnecting ACL link
-Date: Sun, 30 Aug 2009 01:50:53 -0700
-Message-ID: <9e726b17422bade75fba94e625cd35fd1353e682.1251621661.git.marcel@holtmann.org>
+Subject: [PATCH 40/47] Bluetooth: Add locking scheme to L2CAP timeout callbacks
+Date: Sun, 30 Aug 2009 01:50:54 -0700
+Message-ID: <e686219a64fee9be9ce438dc3f040cd71ddd168a.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
  <fd0b3ff707dc1f7837079044bd4eca7ed505f70d.1251621661.git.marcel@holtmann.org>
  <981b1414d78a7a42cab48b97d4de54a62d61db88.1251621661.git.marcel@holtmann.org>
@@ -41,161 +41,67 @@ References: <cover.1251621661.git.marcel@holtmann.org>
  <fcc203c30d72dde82692f6b761a80e5ca5fdd8fa.1251621661.git.marcel@holtmann.org>
  <8f17154f1f70fcc6faa31ac82164fcf7f0599f38.1251621661.git.marcel@holtmann.org>
  <ef54fd937fbd5ebaeb023818524565bd526a5f36.1251621661.git.marcel@holtmann.org>
+ <9e726b17422bade75fba94e625cd35fd1353e682.1251621661.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53333 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53334 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753122AbZH3Iwh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:37 -0400
-In-Reply-To: <ef54fd937fbd5ebaeb023818524565bd526a5f36.1251621661.git.marcel@holtmann.org>
+	with ESMTP id S1753285AbZH3Iwi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:38 -0400
+In-Reply-To: <9e726b17422bade75fba94e625cd35fd1353e682.1251621661.git.marcel@holtmann.org>
 In-Reply-To: <cover.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Luiz Augusto von Dentz <luiz.dentz@openbossa.org>
+From: Gustavo F. Padovan <gustavo@las.ic.unicamp.br>
 
-When using DEFER_SETUP on a RFCOMM socket, a SABM frame triggers
-authorization which when rejected send a DM response. This is fine
-according to the RFCOMM spec:
+Avoid race conditions when accessing the L2CAP socket from within the
+timeout handlers.
 
-    the responding implementation may replace the "proper" response
-    on the Multiplexer Control channel with a DM frame, sent on the
-    referenced DLCI to indicate that the DLCI is not open, and that
-    the responder would not grant a request to open it later either.
-
-But some stacks doesn't seems to cope with this leaving DLCI 0 open after
-receiving DM frame.
-
-To fix it properly a timer was introduced to rfcomm_session which is used
-to set a timeout when the last active DLC of a session is unlinked, this
-will give the remote stack some time to reply with a proper DISC frame on
-DLCI 0 avoiding both sides sending DISC to each other on stacks that
-follow the specification and taking care of those who don't by taking
-down DLCI 0.
-
-Signed-off-by: Luiz Augusto von Dentz <luiz.dentz@openbossa.org>
+Signed-off-by: Gustavo F. Padovan <gustavo@las.ic.unicamp.br>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- include/net/bluetooth/rfcomm.h |    2 +
- net/bluetooth/rfcomm/core.c    |   41 ++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 43 insertions(+), 0 deletions(-)
+ net/bluetooth/l2cap.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/include/net/bluetooth/rfcomm.h b/include/net/bluetooth/rfcomm.h
-index c274993..921d7b3 100644
---- a/include/net/bluetooth/rfcomm.h
-+++ b/include/net/bluetooth/rfcomm.h
-@@ -29,6 +29,7 @@
- #define RFCOMM_CONN_TIMEOUT (HZ * 30)
- #define RFCOMM_DISC_TIMEOUT (HZ * 20)
- #define RFCOMM_AUTH_TIMEOUT (HZ * 25)
-+#define RFCOMM_IDLE_TIMEOUT (HZ * 2)
+diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
+index c04526f..efac637 100644
+--- a/net/bluetooth/l2cap.c
++++ b/net/bluetooth/l2cap.c
+@@ -1192,6 +1192,7 @@ static void l2cap_monitor_timeout(unsigned long arg)
+ 	struct sock *sk = (void *) arg;
+ 	u16 control;
  
- #define RFCOMM_DEFAULT_MTU	127
- #define RFCOMM_DEFAULT_CREDITS	7
-@@ -154,6 +155,7 @@ struct rfcomm_msc {
- struct rfcomm_session {
- 	struct list_head list;
- 	struct socket   *sock;
-+	struct timer_list timer;
- 	unsigned long    state;
- 	unsigned long    flags;
- 	atomic_t         refcnt;
-diff --git a/net/bluetooth/rfcomm/core.c b/net/bluetooth/rfcomm/core.c
-index 26af485..25692bc 100644
---- a/net/bluetooth/rfcomm/core.c
-+++ b/net/bluetooth/rfcomm/core.c
-@@ -244,6 +244,33 @@ static inline int rfcomm_check_security(struct rfcomm_dlc *d)
- 								auth_type);
++	bh_lock_sock(sk);
+ 	if (l2cap_pi(sk)->retry_count >= l2cap_pi(sk)->remote_max_tx) {
+ 		l2cap_send_disconn_req(l2cap_pi(sk)->conn, sk);
+ 		return;
+@@ -1203,6 +1204,7 @@ static void l2cap_monitor_timeout(unsigned long arg)
+ 	control = L2CAP_CTRL_POLL;
+ 	control |= L2CAP_SUPER_RCV_READY;
+ 	l2cap_send_sframe(l2cap_pi(sk), control);
++	bh_unlock_sock(sk);
  }
  
-+static void rfcomm_session_timeout(unsigned long arg)
-+{
-+	struct rfcomm_session *s = (void *) arg;
-+
-+	BT_DBG("session %p state %ld", s, s->state);
-+
-+	set_bit(RFCOMM_TIMED_OUT, &s->flags);
-+	rfcomm_session_put(s);
-+	rfcomm_schedule(RFCOMM_SCHED_TIMEO);
-+}
-+
-+static void rfcomm_session_set_timer(struct rfcomm_session *s, long timeout)
-+{
-+	BT_DBG("session %p state %ld timeout %ld", s, s->state, timeout);
-+
-+	if (!mod_timer(&s->timer, jiffies + timeout))
-+		rfcomm_session_hold(s);
-+}
-+
-+static void rfcomm_session_clear_timer(struct rfcomm_session *s)
-+{
-+	BT_DBG("session %p state %ld", s, s->state);
-+
-+	if (timer_pending(&s->timer) && del_timer(&s->timer))
-+		rfcomm_session_put(s);
-+}
-+
- /* ---- RFCOMM DLCs ---- */
- static void rfcomm_dlc_timeout(unsigned long arg)
- {
-@@ -320,6 +347,7 @@ static void rfcomm_dlc_link(struct rfcomm_session *s, struct rfcomm_dlc *d)
+ static void l2cap_retrans_timeout(unsigned long arg)
+@@ -1210,6 +1212,7 @@ static void l2cap_retrans_timeout(unsigned long arg)
+ 	struct sock *sk = (void *) arg;
+ 	u16 control;
  
- 	rfcomm_session_hold(s);
++	bh_lock_sock(sk);
+ 	l2cap_pi(sk)->retry_count = 1;
+ 	__mod_monitor_timer();
  
-+	rfcomm_session_clear_timer(s);
- 	rfcomm_dlc_hold(d);
- 	list_add(&d->list, &s->dlcs);
- 	d->session = s;
-@@ -335,6 +363,9 @@ static void rfcomm_dlc_unlink(struct rfcomm_dlc *d)
- 	d->session = NULL;
- 	rfcomm_dlc_put(d);
- 
-+	if (list_empty(&s->dlcs))
-+		rfcomm_session_set_timer(s, RFCOMM_IDLE_TIMEOUT);
-+
- 	rfcomm_session_put(s);
+@@ -1218,6 +1221,7 @@ static void l2cap_retrans_timeout(unsigned long arg)
+ 	control = L2CAP_CTRL_POLL;
+ 	control |= L2CAP_SUPER_RCV_READY;
+ 	l2cap_send_sframe(l2cap_pi(sk), control);
++	bh_unlock_sock(sk);
  }
  
-@@ -567,6 +598,8 @@ static struct rfcomm_session *rfcomm_session_add(struct socket *sock, int state)
- 
- 	BT_DBG("session %p sock %p", s, sock);
- 
-+	setup_timer(&s->timer, rfcomm_session_timeout, (unsigned long) s);
-+
- 	INIT_LIST_HEAD(&s->dlcs);
- 	s->state = state;
- 	s->sock  = sock;
-@@ -598,6 +631,7 @@ static void rfcomm_session_del(struct rfcomm_session *s)
- 	if (state == BT_CONNECTED)
- 		rfcomm_send_disc(s, 0);
- 
-+	rfcomm_session_clear_timer(s);
- 	sock_release(s->sock);
- 	kfree(s);
- 
-@@ -639,6 +673,7 @@ static void rfcomm_session_close(struct rfcomm_session *s, int err)
- 		__rfcomm_dlc_close(d, err);
- 	}
- 
-+	rfcomm_session_clear_timer(s);
- 	rfcomm_session_put(s);
- }
- 
-@@ -1879,6 +1914,12 @@ static inline void rfcomm_process_sessions(void)
- 		struct rfcomm_session *s;
- 		s = list_entry(p, struct rfcomm_session, list);
- 
-+		if (test_and_clear_bit(RFCOMM_TIMED_OUT, &s->flags)) {
-+			s->state = BT_DISCONN;
-+			rfcomm_send_disc(s, 0);
-+			continue;
-+		}
-+
- 		if (s->state == BT_LISTEN) {
- 			rfcomm_accept_connection(s);
- 			continue;
+ static void l2cap_drop_acked_frames(struct sock *sk)
 -- 
 1.6.2.5
 
