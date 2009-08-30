@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 16/47] Bluetooth: Fix complicated assignment of firmware for Marvell devices
-Date: Sun, 30 Aug 2009 01:50:30 -0700
-Message-ID: <dcf47f3bc798888f9ea40b9f626d669dc62086bf.1251621661.git.marcel@holtmann.org>
+Subject: [PATCH 26/47] Bluetooth: Add module option to enable L2CAP ERTM support
+Date: Sun, 30 Aug 2009 01:50:40 -0700
+Message-ID: <44dd46de325c4d47abfd1361e5d84a548edb8e42.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
  <fd0b3ff707dc1f7837079044bd4eca7ed505f70d.1251621661.git.marcel@holtmann.org>
  <981b1414d78a7a42cab48b97d4de54a62d61db88.1251621661.git.marcel@holtmann.org>
@@ -18,291 +18,78 @@ References: <cover.1251621661.git.marcel@holtmann.org>
  <944fe798c6a48336e82bbc0d4e280587325a4d95.1251621661.git.marcel@holtmann.org>
  <542399037d0cb2b2e96dfb8ced35b07dfb1c3706.1251621661.git.marcel@holtmann.org>
  <4271e08d8b799171af18d7864908ec444282efe5.1251621661.git.marcel@holtmann.org>
+ <dcf47f3bc798888f9ea40b9f626d669dc62086bf.1251621661.git.marcel@holtmann.org>
+ <9666fb356da78a5ec28403197d72e8cd6aa16424.1251621661.git.marcel@holtmann.org>
+ <60dee5ccd789ee8a380eee802b6cb24c52123428.1251621661.git.marcel@holtmann.org>
+ <91d697302b291205171840bfe84c1563e171acb2.1251621661.git.marcel@holtmann.org>
+ <e0721f99ba33d13a88746732be2d74ca805abf55.1251621661.git.marcel@holtmann.org>
+ <9374253ffe609f2d70dd5ae280182cb6f08fef08.1251621661.git.marcel@holtmann.org>
+ <3318b2362bf0528be77123c480249663557dfbfc.1251621661.git.marcel@holtmann.org>
+ <5959809ded86e267c1a95fb44738a224c30d3434.1251621661.git.marcel@holtmann.org>
+ <a6a67efd7088702fdbbb780c5a3f8e1a74e77b63.1251621661.git.marcel@holtmann.org>
+ <52d18347dfb61519aa0f58fe1759edd3ad8c4e36.1251621661.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53293 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53302 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752512AbZH3IwK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:10 -0400
-In-Reply-To: <4271e08d8b799171af18d7864908ec444282efe5.1251621661.git.marcel@holtmann.org>
+	with ESMTP id S1752851AbZH3IwV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:21 -0400
+In-Reply-To: <52d18347dfb61519aa0f58fe1759edd3ad8c4e36.1251621661.git.marcel@holtmann.org>
 In-Reply-To: <cover.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Marvell Bluetooth SDIO driver has a really complicated concept on how
-firmware names are assigned to specific device ids. Fix that by doing a
-proper structure and assign it to the module device table.
+Since the Enhanced Retransmission mode for L2CAP is still under heavy
+development disable it by default and provide a module option to enable
+it manually for testing.
 
-And while at it fix various coding style weirdness that is still present
-in this driver.
-
-Signed-off-by: Marcel Holtman <marcel@holtmann.org>
+Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- drivers/bluetooth/btmrvl_sdio.c |   90 ++++++++++++++++----------------------
- drivers/bluetooth/btmrvl_sdio.h |    1 -
- 2 files changed, 38 insertions(+), 53 deletions(-)
+ net/bluetooth/l2cap.c |   12 ++++++++++--
+ 1 files changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/bluetooth/btmrvl_sdio.c b/drivers/bluetooth/btmrvl_sdio.c
-index 8f13e7b..867ebe4 100644
---- a/drivers/bluetooth/btmrvl_sdio.c
-+++ b/drivers/bluetooth/btmrvl_sdio.c
-@@ -31,10 +31,6 @@
+diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
+index bd0a4c1..810a3c1 100644
+--- a/net/bluetooth/l2cap.c
++++ b/net/bluetooth/l2cap.c
+@@ -50,7 +50,9 @@
+ #include <net/bluetooth/hci_core.h>
+ #include <net/bluetooth/l2cap.h>
  
- #define VERSION "1.0"
- 
--#ifndef SDIO_DEVICE_ID_MARVELL_8688BT
--#define SDIO_DEVICE_ID_MARVELL_8688BT		0x9105
--#endif
--
- /* The btmrvl_sdio_remove() callback function is called
-  * when user removes this module from kernel space or ejects
-  * the card from the slot. The driver handles these 2 cases
-@@ -51,21 +47,21 @@
-  */
- static u8 user_rmmod;
- 
--static const struct sdio_device_id btmrvl_sdio_ids[] = {
--	{SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, SDIO_DEVICE_ID_MARVELL_8688BT)},
--	{0, 0, 0, 0}
-+static const struct btmrvl_sdio_device btmrvl_sdio_sd6888 = {
-+	.helper		= "sd8688_helper.bin",
-+	.firmware	= "sd8688.bin",
- };
- 
--MODULE_DEVICE_TABLE(sdio, btmrvl_sdio_ids);
-+static const struct sdio_device_id btmrvl_sdio_ids[] = {
-+	/* Marvell SD8688 Bluetooth device */
-+	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, 0x9105),
-+			.driver_data = (unsigned long) &btmrvl_sdio_sd6888 },
- 
--static struct btmrvl_sdio_device btmrvl_sdio_devices[] = {
--	{
--		.dev_id = SDIO_DEVICE_ID_MARVELL_8688BT,
--		.helper = "sd8688_helper.bin",
--		.firmware = "sd8688.bin",
--	},
-+	{ }	/* Terminating entry */
- };
- 
-+MODULE_DEVICE_TABLE(sdio, btmrvl_sdio_ids);
+-#define VERSION "2.13"
++#define VERSION "2.14"
 +
- static int btmrvl_sdio_get_rx_unit(struct btmrvl_sdio_card *card)
- {
- 	u8 reg;
-@@ -125,7 +121,7 @@ static int btmrvl_sdio_read_rx_len(struct btmrvl_sdio_card *card, u16 *dat)
- }
++static int enable_ertm = 0;
  
- static int btmrvl_sdio_enable_host_int_mask(struct btmrvl_sdio_card *card,
--						u8 mask)
-+								u8 mask)
- {
- 	int ret;
+ static u32 l2cap_feat_mask = L2CAP_FEAT_FIXED_CHAN;
+ static u8 l2cap_fixed_chan[8] = { 0x02, };
+@@ -2205,10 +2207,13 @@ static inline int l2cap_information_req(struct l2cap_conn *conn, struct l2cap_cm
  
-@@ -143,7 +139,7 @@ static int btmrvl_sdio_enable_host_int_mask(struct btmrvl_sdio_card *card,
- }
+ 	if (type == L2CAP_IT_FEAT_MASK) {
+ 		u8 buf[8];
++		u32 feat_mask = l2cap_feat_mask;
+ 		struct l2cap_info_rsp *rsp = (struct l2cap_info_rsp *) buf;
+ 		rsp->type   = cpu_to_le16(L2CAP_IT_FEAT_MASK);
+ 		rsp->result = cpu_to_le16(L2CAP_IR_SUCCESS);
+-		put_unaligned(cpu_to_le32(l2cap_feat_mask), (__le32 *) rsp->data);
++		if (enable_ertm)
++			feat_mask |= L2CAP_FEAT_ERTM;
++		put_unaligned(cpu_to_le32(feat_mask), (__le32 *) rsp->data);
+ 		l2cap_send_cmd(conn, cmd->ident,
+ 					L2CAP_INFO_RSP, sizeof(buf), buf);
+ 	} else if (type == L2CAP_IT_FIXED_CHAN) {
+@@ -2828,6 +2833,9 @@ EXPORT_SYMBOL(l2cap_load);
+ module_init(l2cap_init);
+ module_exit(l2cap_exit);
  
- static int btmrvl_sdio_disable_host_int_mask(struct btmrvl_sdio_card *card,
--						u8 mask)
-+								u8 mask)
- {
- 	int ret;
- 	u8 host_int_mask;
-@@ -203,7 +199,7 @@ done:
- }
- 
- static int btmrvl_sdio_verify_fw_download(struct btmrvl_sdio_card *card,
--						int pollnum)
-+								int pollnum)
- {
- 	int ret = -ETIMEDOUT;
- 	u16 firmwarestat;
-@@ -242,10 +238,10 @@ static int btmrvl_sdio_download_helper(struct btmrvl_sdio_card *card)
- 	BT_DBG("Enter");
- 
- 	ret = request_firmware(&fw_helper, card->helper,
--				&card->func->dev);
-+						&card->func->dev);
- 	if ((ret < 0) || !fw_helper) {
- 		BT_ERR("request_firmware(helper) failed, error code = %d",
--			ret);
-+									ret);
- 		ret = -ENOENT;
- 		goto done;
- 	}
-@@ -254,7 +250,7 @@ static int btmrvl_sdio_download_helper(struct btmrvl_sdio_card *card)
- 	helperlen = fw_helper->size;
- 
- 	BT_DBG("Downloading helper image (%d bytes), block size %d bytes",
--		helperlen, SDIO_BLOCK_SIZE);
-+						helperlen, SDIO_BLOCK_SIZE);
- 
- 	tmphlprbufsz = ALIGN_SZ(BTM_UPLD_SIZE, BTSDIO_DMA_ALIGN);
- 
-@@ -301,10 +297,8 @@ static int btmrvl_sdio_download_helper(struct btmrvl_sdio_card *card)
- 				tx_len);
- 
- 		/* Now send the data */
--		ret = sdio_writesb(card->func, card->ioport,
--				   helperbuf,
--				   FIRMWARE_TRANSFER_NBLOCK *
--				   SDIO_BLOCK_SIZE);
-+		ret = sdio_writesb(card->func, card->ioport, helperbuf,
-+				FIRMWARE_TRANSFER_NBLOCK * SDIO_BLOCK_SIZE);
- 		if (ret < 0) {
- 			BT_ERR("IO error during helper download @ %d",
- 				hlprblknow);
-@@ -319,7 +313,7 @@ static int btmrvl_sdio_download_helper(struct btmrvl_sdio_card *card)
- 	memset(helperbuf, 0x0, SDIO_BLOCK_SIZE);
- 
- 	ret = sdio_writesb(card->func, card->ioport, helperbuf,
--			 SDIO_BLOCK_SIZE);
-+							SDIO_BLOCK_SIZE);
- 	if (ret < 0) {
- 		BT_ERR("IO error in writing helper image EOF block");
- 		goto done;
-@@ -352,10 +346,10 @@ static int btmrvl_sdio_download_fw_w_helper(struct btmrvl_sdio_card *card)
- 	BT_DBG("Enter");
- 
- 	ret = request_firmware(&fw_firmware, card->firmware,
--				&card->func->dev);
-+							&card->func->dev);
- 	if ((ret < 0) || !fw_firmware) {
- 		BT_ERR("request_firmware(firmware) failed, error code = %d",
--			ret);
-+									ret);
- 		ret = -ENOENT;
- 		goto done;
- 	}
-@@ -383,10 +377,10 @@ static int btmrvl_sdio_download_fw_w_helper(struct btmrvl_sdio_card *card)
- 	offset = 0;
- 	do {
- 		ret = btmrvl_sdio_poll_card_status(card,
--					    CARD_IO_READY | DN_LD_CARD_RDY);
-+					CARD_IO_READY | DN_LD_CARD_RDY);
- 		if (ret < 0) {
- 			BT_ERR("FW download with helper poll status"
--				" timeout @ %d", offset);
-+						" timeout @ %d", offset);
- 			goto done;
- 		}
- 
-@@ -427,7 +421,7 @@ static int btmrvl_sdio_download_fw_w_helper(struct btmrvl_sdio_card *card)
- 			break;
- 		else if (len > BTM_UPLD_SIZE) {
- 			BT_ERR("FW download failure @%d, invalid length %d",
--				offset, len);
-+								offset, len);
- 			ret = -EINVAL;
- 			goto done;
- 		}
-@@ -465,9 +459,9 @@ static int btmrvl_sdio_download_fw_w_helper(struct btmrvl_sdio_card *card)
- 
- 		if (ret < 0) {
- 			BT_ERR("FW download, writesb(%d) failed @%d",
--				count, offset);
-+							count, offset);
- 			sdio_writeb(card->func, HOST_CMD53_FIN, CONFIG_REG,
--					&ret);
-+									&ret);
- 			if (ret)
- 				BT_ERR("writeb failed (CFG)");
- 		}
-@@ -520,7 +514,7 @@ static int btmrvl_sdio_card_to_host(struct btmrvl_private *priv)
- 	buf_block_len = (buf_len + blksz - 1) / blksz;
- 
- 	if (buf_len <= SDIO_HEADER_LEN
--	    || (buf_block_len * blksz) > ALLOC_BUF_SIZE) {
-+			|| (buf_block_len * blksz) > ALLOC_BUF_SIZE) {
- 		BT_ERR("invalid packet length: %d", buf_len);
- 		ret = -EINVAL;
- 		goto exit;
-@@ -528,7 +522,7 @@ static int btmrvl_sdio_card_to_host(struct btmrvl_private *priv)
- 
- 	/* Allocate buffer */
- 	skb = bt_skb_alloc(buf_block_len * blksz + BTSDIO_DMA_ALIGN,
--				GFP_ATOMIC);
-+								GFP_ATOMIC);
- 	if (skb == NULL) {
- 		BT_ERR("No free skb");
- 		goto exit;
-@@ -588,7 +582,7 @@ static int btmrvl_sdio_card_to_host(struct btmrvl_private *priv)
- 	default:
- 		BT_ERR("Unknow packet type:%d", type);
- 		print_hex_dump_bytes("", DUMP_PREFIX_OFFSET, payload,
--					blksz * buf_block_len);
-+						blksz * buf_block_len);
- 
- 		kfree_skb(skb);
- 		skb = NULL;
-@@ -691,9 +685,9 @@ static void btmrvl_sdio_interrupt(struct sdio_func *func)
- 
- static int btmrvl_sdio_register_dev(struct btmrvl_sdio_card *card)
- {
--	int ret = 0, i;
--	u8 reg;
- 	struct sdio_func *func;
-+	u8 reg;
-+	int ret = 0;
- 
- 	BT_DBG("Enter");
- 
-@@ -705,20 +699,6 @@ static int btmrvl_sdio_register_dev(struct btmrvl_sdio_card *card)
- 
- 	func = card->func;
- 
--	for (i = 0; i < ARRAY_SIZE(btmrvl_sdio_devices); i++) {
--		if (func->device == btmrvl_sdio_devices[i].dev_id)
--			break;
--	}
--
--	if (i == ARRAY_SIZE(btmrvl_sdio_devices)) {
--		BT_ERR("Error: unknown device id 0x%x", func->device);
--		ret = -EINVAL;
--		goto failed;
--	}
--
--	card->helper = btmrvl_sdio_devices[i].helper;
--	card->firmware = btmrvl_sdio_devices[i].firmware;
--
- 	sdio_claim_host(func);
- 
- 	ret = sdio_enable_func(func);
-@@ -983,7 +963,7 @@ static int btmrvl_sdio_wakeup_fw(struct btmrvl_private *priv)
- }
- 
- static int btmrvl_sdio_probe(struct sdio_func *func,
--			     const struct sdio_device_id *id)
-+					const struct sdio_device_id *id)
- {
- 	int ret = 0;
- 	struct btmrvl_private *priv = NULL;
-@@ -1002,6 +982,12 @@ static int btmrvl_sdio_probe(struct sdio_func *func,
- 
- 	card->func = func;
- 
-+	if (id->driver_data) {
-+		struct btmrvl_sdio_device *data = (void *) id->driver_data;
-+		card->helper   = data->helper;
-+		card->firmware = data->firmware;
-+	}
++module_param(enable_ertm, bool, 0644);
++MODULE_PARM_DESC(enable_ertm, "Enable enhanced retransmission mode");
 +
- 	if (btmrvl_sdio_register_dev(card) < 0) {
- 		BT_ERR("Failed to register BT device!");
- 		ret = -ENODEV;
-diff --git a/drivers/bluetooth/btmrvl_sdio.h b/drivers/bluetooth/btmrvl_sdio.h
-index 6beb340..2dd284e 100644
---- a/drivers/bluetooth/btmrvl_sdio.h
-+++ b/drivers/bluetooth/btmrvl_sdio.h
-@@ -90,7 +90,6 @@ struct btmrvl_sdio_card {
- };
- 
- struct btmrvl_sdio_device {
--	unsigned short dev_id;
- 	const char *helper;
- 	const char *firmware;
- };
+ MODULE_AUTHOR("Marcel Holtmann <marcel@holtmann.org>");
+ MODULE_DESCRIPTION("Bluetooth L2CAP ver " VERSION);
+ MODULE_VERSION(VERSION);
 -- 
 1.6.2.5
 
