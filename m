@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 46/47] Bluetooth: Handle L2CAP case when the remote receiver is busy
-Date: Sun, 30 Aug 2009 01:51:00 -0700
-Message-ID: <2246b2f1b43f3fbd128e72b129dcbbd3202cc592.1251621661.git.marcel@holtmann.org>
+Subject: [PATCH 47/47] Bluetooth: Add support for L2CAP 'Send RRorRNR' action
+Date: Sun, 30 Aug 2009 01:51:01 -0700
+Message-ID: <7e7430908c3ccaf71f0851050c8ccaf9ecfb3b56.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
  <fd0b3ff707dc1f7837079044bd4eca7ed505f70d.1251621661.git.marcel@holtmann.org>
  <981b1414d78a7a42cab48b97d4de54a62d61db88.1251621661.git.marcel@holtmann.org>
@@ -48,14 +48,15 @@ References: <cover.1251621661.git.marcel@holtmann.org>
  <7bee549e197c9c0e92b89857a409675c1d5e9dff.1251621661.git.marcel@holtmann.org>
  <cbe86b98a6aceefe943ada1471eb52fd9ac4c504.1251621661.git.marcel@holtmann.org>
  <ca42a613c92d131ff02d5714419d58c36c3459f3.1251621661.git.marcel@holtmann.org>
+ <2246b2f1b43f3fbd128e72b129dcbbd3202cc592.1251621661.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53342 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53346 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753340AbZH3Iwp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:45 -0400
-In-Reply-To: <ca42a613c92d131ff02d5714419d58c36c3459f3.1251621661.git.marcel@holtmann.org>
+	with ESMTP id S1753348AbZH3Iwq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:46 -0400
+In-Reply-To: <2246b2f1b43f3fbd128e72b129dcbbd3202cc592.1251621661.git.marcel@holtmann.org>
 In-Reply-To: <cover.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
@@ -63,99 +64,67 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Gustavo F. Padovan <gustavo@las.ic.unicamp.br>
 
-Implement all issues related to RemoteBusy in the RECV state table.
+When called, 'Send RRorRNR' should send a RNR frame if local device is
+busy or a RR frame otherwise.
 
 Signed-off-by: Gustavo F. Padovan <gustavo@las.ic.unicamp.br>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- include/net/bluetooth/l2cap.h |    2 ++
- net/bluetooth/l2cap.c         |   25 +++++++++++++++++++++++--
- 2 files changed, 25 insertions(+), 2 deletions(-)
+ net/bluetooth/l2cap.c |   20 ++++++++++++++------
+ 1 files changed, 14 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/bluetooth/l2cap.h b/include/net/bluetooth/l2cap.h
-index 7ca614a..9516f4b 100644
---- a/include/net/bluetooth/l2cap.h
-+++ b/include/net/bluetooth/l2cap.h
-@@ -373,6 +373,8 @@ struct l2cap_pinfo {
- #define L2CAP_CONN_WAIT_F          0x04
- #define L2CAP_CONN_SREJ_ACT        0x08
- #define L2CAP_CONN_SEND_PBIT       0x10
-+#define L2CAP_CONN_REMOTE_BUSY     0x20
-+#define L2CAP_CONN_LOCAL_BUSY      0x40
- 
- #define __mod_retrans_timer() mod_timer(&l2cap_pi(sk)->retrans_timer, \
- 		jiffies +  msecs_to_jiffies(L2CAP_DEFAULT_RETRANS_TO));
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index 0a36c61..40fbf5c 100644
+index 40fbf5c..b030125 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -1350,7 +1350,8 @@ static int l2cap_ertm_send(struct sock *sk)
- 	if (pi->conn_state & L2CAP_CONN_WAIT_F)
- 		return 0;
+@@ -366,6 +366,16 @@ static inline int l2cap_send_sframe(struct l2cap_pinfo *pi, u16 control)
+ 	return hci_send_acl(pi->conn->hcon, skb, 0);
+ }
  
--	while ((skb = sk->sk_send_head) && (!l2cap_tx_window_full(sk))) {
-+	while ((skb = sk->sk_send_head) && (!l2cap_tx_window_full(sk))
-+			&& !(pi->conn_state & L2CAP_CONN_REMOTE_BUSY)) {
- 		tx_skb = skb_clone(skb, GFP_ATOMIC);
++static inline int l2cap_send_rr_or_rnr(struct l2cap_pinfo *pi, u16 control)
++{
++	if (pi->conn_state & L2CAP_CONN_LOCAL_BUSY)
++		control |= L2CAP_SUPER_RCV_NOT_READY;
++	else
++		control |= L2CAP_SUPER_RCV_READY;
++
++	return l2cap_send_sframe(pi, control);
++}
++
+ static void l2cap_do_start(struct sock *sk)
+ {
+ 	struct l2cap_conn *conn = l2cap_pi(sk)->conn;
+@@ -1202,8 +1212,7 @@ static void l2cap_monitor_timeout(unsigned long arg)
+ 	__mod_monitor_timer();
  
- 		if (pi->remote_max_tx &&
-@@ -3351,7 +3352,10 @@ static inline int l2cap_data_channel_sframe(struct sock *sk, u16 rx_control, str
- 			control |= L2CAP_SUPER_RCV_READY |
- 				(pi->buffer_seq << L2CAP_CTRL_REQSEQ_SHIFT);
- 			l2cap_send_sframe(l2cap_pi(sk), control);
-+			pi->conn_state &= ~L2CAP_CONN_REMOTE_BUSY;
-+
- 		} else if (rx_control & L2CAP_CTRL_FINAL) {
-+			pi->conn_state &= ~L2CAP_CONN_REMOTE_BUSY;
- 			pi->expected_ack_seq = tx_seq;
- 			l2cap_drop_acked_frames(sk);
+ 	control = L2CAP_CTRL_POLL;
+-	control |= L2CAP_SUPER_RCV_READY;
+-	l2cap_send_sframe(l2cap_pi(sk), control);
++	l2cap_send_rr_or_rnr(l2cap_pi(sk), control);
+ 	bh_unlock_sock(sk);
+ }
  
-@@ -3366,13 +3370,19 @@ static inline int l2cap_data_channel_sframe(struct sock *sk, u16 rx_control, str
- 		} else {
- 			pi->expected_ack_seq = tx_seq;
- 			l2cap_drop_acked_frames(sk);
--			if (pi->unacked_frames > 0)
-+
-+			if ((pi->conn_state & L2CAP_CONN_REMOTE_BUSY)
-+					&& (pi->unacked_frames > 0))
- 				__mod_retrans_timer();
-+
- 			l2cap_ertm_send(sk);
-+			pi->conn_state &= ~L2CAP_CONN_REMOTE_BUSY;
+@@ -1219,8 +1228,7 @@ static void l2cap_retrans_timeout(unsigned long arg)
+ 	l2cap_pi(sk)->conn_state |= L2CAP_CONN_WAIT_F;
+ 
+ 	control = L2CAP_CTRL_POLL;
+-	control |= L2CAP_SUPER_RCV_READY;
+-	l2cap_send_sframe(l2cap_pi(sk), control);
++	l2cap_send_rr_or_rnr(l2cap_pi(sk), control);
+ 	bh_unlock_sock(sk);
+ }
+ 
+@@ -3428,8 +3436,8 @@ static inline int l2cap_data_channel_sframe(struct sock *sk, u16 rx_control, str
+ 
+ 		del_timer(&l2cap_pi(sk)->retrans_timer);
+ 		if (rx_control & L2CAP_CTRL_POLL) {
+-			u16 control = L2CAP_CTRL_FINAL | L2CAP_SUPER_RCV_READY;
+-			l2cap_send_sframe(l2cap_pi(sk), control);
++			u16 control = L2CAP_CTRL_FINAL;
++			l2cap_send_rr_or_rnr(l2cap_pi(sk), control);
  		}
  		break;
- 
- 	case L2CAP_SUPER_REJECT:
-+		pi->conn_state &= ~L2CAP_CONN_REMOTE_BUSY;
-+
- 		pi->expected_ack_seq = __get_reqseq(rx_control);
- 		l2cap_drop_acked_frames(sk);
- 
-@@ -3384,6 +3394,8 @@ static inline int l2cap_data_channel_sframe(struct sock *sk, u16 rx_control, str
- 		break;
- 
- 	case L2CAP_SUPER_SELECT_REJECT:
-+		pi->conn_state &= ~L2CAP_CONN_REMOTE_BUSY;
-+
- 		if (rx_control & L2CAP_CTRL_POLL) {
- 			l2cap_retransmit_frame(sk, tx_seq);
- 			pi->expected_ack_seq = tx_seq;
-@@ -3410,6 +3422,15 @@ static inline int l2cap_data_channel_sframe(struct sock *sk, u16 rx_control, str
- 		break;
- 
- 	case L2CAP_SUPER_RCV_NOT_READY:
-+		pi->conn_state |= L2CAP_CONN_REMOTE_BUSY;
-+		pi->expected_ack_seq = tx_seq;
-+		l2cap_drop_acked_frames(sk);
-+
-+		del_timer(&l2cap_pi(sk)->retrans_timer);
-+		if (rx_control & L2CAP_CTRL_POLL) {
-+			u16 control = L2CAP_CTRL_FINAL | L2CAP_SUPER_RCV_READY;
-+			l2cap_send_sframe(l2cap_pi(sk), control);
-+		}
- 		break;
  	}
- 
 -- 
 1.6.2.5
 
