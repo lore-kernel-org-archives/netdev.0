@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 40/47] Bluetooth: Add locking scheme to L2CAP timeout callbacks
-Date: Sun, 30 Aug 2009 01:50:54 -0700
-Message-ID: <e686219a64fee9be9ce438dc3f040cd71ddd168a.1251621661.git.marcel@holtmann.org>
+Subject: [PATCH 41/47] Bluetooth: Use proper *_unaligned_le{16,32} helpers for L2CAP
+Date: Sun, 30 Aug 2009 01:50:55 -0700
+Message-ID: <1b7bf4edca0fdbad70c44e139f4cfebd6759de81.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
  <fd0b3ff707dc1f7837079044bd4eca7ed505f70d.1251621661.git.marcel@holtmann.org>
  <981b1414d78a7a42cab48b97d4de54a62d61db88.1251621661.git.marcel@holtmann.org>
@@ -42,14 +42,15 @@ References: <cover.1251621661.git.marcel@holtmann.org>
  <8f17154f1f70fcc6faa31ac82164fcf7f0599f38.1251621661.git.marcel@holtmann.org>
  <ef54fd937fbd5ebaeb023818524565bd526a5f36.1251621661.git.marcel@holtmann.org>
  <9e726b17422bade75fba94e625cd35fd1353e682.1251621661.git.marcel@holtmann.org>
+ <e686219a64fee9be9ce438dc3f040cd71ddd168a.1251621661.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53334 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53333 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753285AbZH3Iwi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:38 -0400
-In-Reply-To: <9e726b17422bade75fba94e625cd35fd1353e682.1251621661.git.marcel@holtmann.org>
+	with ESMTP id S1753321AbZH3Iwj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:39 -0400
+In-Reply-To: <e686219a64fee9be9ce438dc3f040cd71ddd168a.1251621661.git.marcel@holtmann.org>
 In-Reply-To: <cover.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
@@ -57,51 +58,36 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Gustavo F. Padovan <gustavo@las.ic.unicamp.br>
 
-Avoid race conditions when accessing the L2CAP socket from within the
-timeout handlers.
+Simplify more conversions to the right endian with the proper helpers.
 
 Signed-off-by: Gustavo F. Padovan <gustavo@las.ic.unicamp.br>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/l2cap.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ net/bluetooth/l2cap.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index c04526f..efac637 100644
+index efac637..e5847c5 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -1192,6 +1192,7 @@ static void l2cap_monitor_timeout(unsigned long arg)
- 	struct sock *sk = (void *) arg;
- 	u16 control;
+@@ -2924,7 +2924,7 @@ static inline int l2cap_information_req(struct l2cap_conn *conn, struct l2cap_cm
+ 		if (enable_ertm)
+ 			feat_mask |= L2CAP_FEAT_ERTM | L2CAP_FEAT_STREAMING
+ 							 | L2CAP_FEAT_FCS;
+-		put_unaligned(cpu_to_le32(feat_mask), (__le32 *) rsp->data);
++		put_unaligned_le32(feat_mask, rsp->data);
+ 		l2cap_send_cmd(conn, cmd->ident,
+ 					L2CAP_INFO_RSP, sizeof(buf), buf);
+ 	} else if (type == L2CAP_IT_FIXED_CHAN) {
+@@ -3572,7 +3572,7 @@ static void l2cap_recv_frame(struct l2cap_conn *conn, struct sk_buff *skb)
+ 		break;
  
-+	bh_lock_sock(sk);
- 	if (l2cap_pi(sk)->retry_count >= l2cap_pi(sk)->remote_max_tx) {
- 		l2cap_send_disconn_req(l2cap_pi(sk)->conn, sk);
- 		return;
-@@ -1203,6 +1204,7 @@ static void l2cap_monitor_timeout(unsigned long arg)
- 	control = L2CAP_CTRL_POLL;
- 	control |= L2CAP_SUPER_RCV_READY;
- 	l2cap_send_sframe(l2cap_pi(sk), control);
-+	bh_unlock_sock(sk);
- }
- 
- static void l2cap_retrans_timeout(unsigned long arg)
-@@ -1210,6 +1212,7 @@ static void l2cap_retrans_timeout(unsigned long arg)
- 	struct sock *sk = (void *) arg;
- 	u16 control;
- 
-+	bh_lock_sock(sk);
- 	l2cap_pi(sk)->retry_count = 1;
- 	__mod_monitor_timer();
- 
-@@ -1218,6 +1221,7 @@ static void l2cap_retrans_timeout(unsigned long arg)
- 	control = L2CAP_CTRL_POLL;
- 	control |= L2CAP_SUPER_RCV_READY;
- 	l2cap_send_sframe(l2cap_pi(sk), control);
-+	bh_unlock_sock(sk);
- }
- 
- static void l2cap_drop_acked_frames(struct sock *sk)
+ 	case L2CAP_CID_CONN_LESS:
+-		psm = get_unaligned((__le16 *) skb->data);
++		psm = get_unaligned_le16(skb->data);
+ 		skb_pull(skb, 2);
+ 		l2cap_conless_channel(conn, psm, skb);
+ 		break;
 -- 
 1.6.2.5
 
