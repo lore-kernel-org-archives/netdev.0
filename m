@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 25/47] Bluetooth: Coding style cleanup from previous rfcomm_init bug fix
-Date: Sun, 30 Aug 2009 01:50:39 -0700
-Message-ID: <52d18347dfb61519aa0f58fe1759edd3ad8c4e36.1251621661.git.marcel@holtmann.org>
+Subject: [PATCH 23/47] Bluetooth: Add missing kmalloc NULL tests to Marvell driver
+Date: Sun, 30 Aug 2009 01:50:37 -0700
+Message-ID: <5959809ded86e267c1a95fb44738a224c30d3434.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
  <fd0b3ff707dc1f7837079044bd4eca7ed505f70d.1251621661.git.marcel@holtmann.org>
  <981b1414d78a7a42cab48b97d4de54a62d61db88.1251621661.git.marcel@holtmann.org>
@@ -25,91 +25,71 @@ References: <cover.1251621661.git.marcel@holtmann.org>
  <e0721f99ba33d13a88746732be2d74ca805abf55.1251621661.git.marcel@holtmann.org>
  <9374253ffe609f2d70dd5ae280182cb6f08fef08.1251621661.git.marcel@holtmann.org>
  <3318b2362bf0528be77123c480249663557dfbfc.1251621661.git.marcel@holtmann.org>
- <5959809ded86e267c1a95fb44738a224c30d3434.1251621661.git.marcel@holtmann.org>
- <a6a67efd7088702fdbbb780c5a3f8e1a74e77b63.1251621661.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53304 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53302 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753094AbZH3IwU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:20 -0400
-In-Reply-To: <a6a67efd7088702fdbbb780c5a3f8e1a74e77b63.1251621661.git.marcel@holtmann.org>
+	with ESMTP id S1753076AbZH3IwR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:17 -0400
+In-Reply-To: <3318b2362bf0528be77123c480249663557dfbfc.1251621661.git.marcel@holtmann.org>
 In-Reply-To: <cover.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The rfcomm_init bug fix went into the kernel premature before it got fully
-reviewed and acknowledged by the Bluetooth maintainer. So fix up the coding
-style now.
+From: Julia Lawall <julia@diku.dk>
 
+Check that the result of kmalloc is not NULL before dereferencing it.
+The patch also replaces kmalloc + memset by kzalloc.
+
+The semantic match that finds this problem is as follows:
+(http://coccinelle.lip6.fr/)
+
+// <smpl>
+@@
+expression *x;
+identifier f;
+constant char *C;
+@@
+
+x = \(kmalloc\|kcalloc\|kzalloc\)(...);
+... when != x == NULL
+    when != x != NULL
+    when != (x || ...)
+(
+kfree(x)
+|
+f(...,C,...,x,...)
+|
+*f(...,x,...)
+|
+*x->f
+)
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/rfcomm/core.c |   28 +++++++++++++++-------------
- 1 files changed, 15 insertions(+), 13 deletions(-)
+ drivers/bluetooth/btmrvl_sdio.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/net/bluetooth/rfcomm/core.c b/net/bluetooth/rfcomm/core.c
-index 94b3388..26af485 100644
---- a/net/bluetooth/rfcomm/core.c
-+++ b/net/bluetooth/rfcomm/core.c
-@@ -2080,7 +2080,7 @@ static CLASS_ATTR(rfcomm_dlc, S_IRUGO, rfcomm_dlc_sysfs_show, NULL);
- /* ---- Initialization ---- */
- static int __init rfcomm_init(void)
- {
--	int ret;
-+	int err;
- 
- 	l2cap_load();
- 
-@@ -2088,33 +2088,35 @@ static int __init rfcomm_init(void)
- 
- 	rfcomm_thread = kthread_run(rfcomm_run, NULL, "krfcommd");
- 	if (IS_ERR(rfcomm_thread)) {
--		ret = PTR_ERR(rfcomm_thread);
--		goto out_thread;
-+		err = PTR_ERR(rfcomm_thread);
-+		goto unregister;
+diff --git a/drivers/bluetooth/btmrvl_sdio.c b/drivers/bluetooth/btmrvl_sdio.c
+index 1cfa8b4..5b33b85 100644
+--- a/drivers/bluetooth/btmrvl_sdio.c
++++ b/drivers/bluetooth/btmrvl_sdio.c
+@@ -777,8 +777,9 @@ static int btmrvl_sdio_host_to_card(struct btmrvl_private *priv,
+ 	buf = payload;
+ 	if ((unsigned long) payload & (BTSDIO_DMA_ALIGN - 1)) {
+ 		tmpbufsz = ALIGN_SZ(nb, BTSDIO_DMA_ALIGN);
+-		tmpbuf = kmalloc(tmpbufsz, GFP_KERNEL);
+-		memset(tmpbuf, 0, tmpbufsz);
++		tmpbuf = kzalloc(tmpbufsz, GFP_KERNEL);
++		if (!tmpbuf)
++			return -ENOMEM;
+ 		buf = (u8 *) ALIGN_ADDR(tmpbuf, BTSDIO_DMA_ALIGN);
+ 		memcpy(buf, payload, nb);
  	}
- 
- 	if (class_create_file(bt_class, &class_attr_rfcomm_dlc) < 0)
- 		BT_ERR("Failed to create RFCOMM info file");
- 
--	ret = rfcomm_init_ttys();
--	if (ret)
--		goto out_tty;
-+	err = rfcomm_init_ttys();
-+	if (err < 0)
-+		goto stop;
- 
--	ret = rfcomm_init_sockets();
--	if (ret)
--		goto out_sock;
-+	err = rfcomm_init_sockets();
-+	if (err < 0)
-+		goto cleanup;
- 
- 	BT_INFO("RFCOMM ver %s", VERSION);
- 
- 	return 0;
- 
--out_sock:
-+cleanup:
- 	rfcomm_cleanup_ttys();
--out_tty:
-+
-+stop:
- 	kthread_stop(rfcomm_thread);
--out_thread:
-+
-+unregister:
- 	hci_unregister_cb(&rfcomm_cb);
- 
--	return ret;
-+	return err;
- }
- 
- static void __exit rfcomm_exit(void)
 -- 
 1.6.2.5
 
