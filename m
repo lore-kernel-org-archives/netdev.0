@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 41/47] Bluetooth: Use proper *_unaligned_le{16,32} helpers for L2CAP
-Date: Sun, 30 Aug 2009 01:50:55 -0700
-Message-ID: <1b7bf4edca0fdbad70c44e139f4cfebd6759de81.1251621661.git.marcel@holtmann.org>
+Subject: [PATCH 42/47] Bluetooth: Fix false errors from bcsp_pkt_cull function
+Date: Sun, 30 Aug 2009 01:50:56 -0700
+Message-ID: <d2e353f7c3c5fbb3add0341c10ae167ee745d23b.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
  <fd0b3ff707dc1f7837079044bd4eca7ed505f70d.1251621661.git.marcel@holtmann.org>
  <981b1414d78a7a42cab48b97d4de54a62d61db88.1251621661.git.marcel@holtmann.org>
@@ -43,51 +43,62 @@ References: <cover.1251621661.git.marcel@holtmann.org>
  <ef54fd937fbd5ebaeb023818524565bd526a5f36.1251621661.git.marcel@holtmann.org>
  <9e726b17422bade75fba94e625cd35fd1353e682.1251621661.git.marcel@holtmann.org>
  <e686219a64fee9be9ce438dc3f040cd71ddd168a.1251621661.git.marcel@holtmann.org>
+ <1b7bf4edca0fdbad70c44e139f4cfebd6759de81.1251621661.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53333 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53337 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753321AbZH3Iwj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:39 -0400
-In-Reply-To: <e686219a64fee9be9ce438dc3f040cd71ddd168a.1251621661.git.marcel@holtmann.org>
+	with ESMTP id S1753332AbZH3Iwl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:41 -0400
+In-Reply-To: <1b7bf4edca0fdbad70c44e139f4cfebd6759de81.1251621661.git.marcel@holtmann.org>
 In-Reply-To: <cover.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gustavo F. Padovan <gustavo@las.ic.unicamp.br>
+From: Wending Weng <wweng@rheinmetall.ca>
 
-Simplify more conversions to the right endian with the proper helpers.
+The error message "Removed only %u out of %u pkts" is printed when multiple
+to be acked packets are queued.
 
-Signed-off-by: Gustavo F. Padovan <gustavo@las.ic.unicamp.br>
+    if (i++ >= pkts_to_be_removed)
+            break;
+
+This will break out of the loop and increase the counter i when
+i==pkts_to_be_removed and the loop ends up with i=pkts_to_be_removed+1.
+
+The following line
+
+    if (i != pkts_to_be_removed) {
+            BT_ERR("Removed only %u out of %u pkts", i, pkts_to_be_removed);
+    }
+
+will then display the false message.
+
+The counter i must not increase on the same statement.
+
+Signed-off-by: Wending Weng <wweng@rheinmetall.ca>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/l2cap.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/bluetooth/hci_bcsp.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index efac637..e5847c5 100644
---- a/net/bluetooth/l2cap.c
-+++ b/net/bluetooth/l2cap.c
-@@ -2924,7 +2924,7 @@ static inline int l2cap_information_req(struct l2cap_conn *conn, struct l2cap_cm
- 		if (enable_ertm)
- 			feat_mask |= L2CAP_FEAT_ERTM | L2CAP_FEAT_STREAMING
- 							 | L2CAP_FEAT_FCS;
--		put_unaligned(cpu_to_le32(feat_mask), (__le32 *) rsp->data);
-+		put_unaligned_le32(feat_mask, rsp->data);
- 		l2cap_send_cmd(conn, cmd->ident,
- 					L2CAP_INFO_RSP, sizeof(buf), buf);
- 	} else if (type == L2CAP_IT_FIXED_CHAN) {
-@@ -3572,7 +3572,7 @@ static void l2cap_recv_frame(struct l2cap_conn *conn, struct sk_buff *skb)
- 		break;
+diff --git a/drivers/bluetooth/hci_bcsp.c b/drivers/bluetooth/hci_bcsp.c
+index 894b2cb..40aec0f 100644
+--- a/drivers/bluetooth/hci_bcsp.c
++++ b/drivers/bluetooth/hci_bcsp.c
+@@ -373,8 +373,9 @@ static void bcsp_pkt_cull(struct bcsp_struct *bcsp)
  
- 	case L2CAP_CID_CONN_LESS:
--		psm = get_unaligned((__le16 *) skb->data);
-+		psm = get_unaligned_le16(skb->data);
- 		skb_pull(skb, 2);
- 		l2cap_conless_channel(conn, psm, skb);
- 		break;
+ 	i = 0;
+ 	skb_queue_walk_safe(&bcsp->unack, skb, tmp) {
+-		if (i++ >= pkts_to_be_removed)
++		if (i >= pkts_to_be_removed)
+ 			break;
++		i++;
+ 
+ 		__skb_unlink(skb, &bcsp->unack);
+ 		kfree_skb(skb);
 -- 
 1.6.2.5
 
