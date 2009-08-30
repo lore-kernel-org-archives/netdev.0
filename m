@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 36/47] Bluetooth: Add support for FCS option to L2CAP
-Date: Sun, 30 Aug 2009 01:50:50 -0700
-Message-ID: <fcc203c30d72dde82692f6b761a80e5ca5fdd8fa.1251621661.git.marcel@holtmann.org>
+Subject: [PATCH 39/47] Bluetooth: Fix rejected connection not disconnecting ACL link
+Date: Sun, 30 Aug 2009 01:50:53 -0700
+Message-ID: <9e726b17422bade75fba94e625cd35fd1353e682.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
  <fd0b3ff707dc1f7837079044bd4eca7ed505f70d.1251621661.git.marcel@holtmann.org>
  <981b1414d78a7a42cab48b97d4de54a62d61db88.1251621661.git.marcel@holtmann.org>
@@ -38,324 +38,164 @@ References: <cover.1251621661.git.marcel@holtmann.org>
  <30afb5b2aa83adf4f69e5090d48e1bb04b64c58a.1251621661.git.marcel@holtmann.org>
  <e90bac061b17cd81bd0df30606c64f4543bf5ca0.1251621661.git.marcel@holtmann.org>
  <6840ed0770d79b9bb0800e5e026a067040ef18f5.1251621661.git.marcel@holtmann.org>
+ <fcc203c30d72dde82692f6b761a80e5ca5fdd8fa.1251621661.git.marcel@holtmann.org>
+ <8f17154f1f70fcc6faa31ac82164fcf7f0599f38.1251621661.git.marcel@holtmann.org>
+ <ef54fd937fbd5ebaeb023818524565bd526a5f36.1251621661.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53327 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53333 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753219AbZH3Iwe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:34 -0400
-In-Reply-To: <6840ed0770d79b9bb0800e5e026a067040ef18f5.1251621661.git.marcel@holtmann.org>
+	with ESMTP id S1753122AbZH3Iwh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2009 04:52:37 -0400
+In-Reply-To: <ef54fd937fbd5ebaeb023818524565bd526a5f36.1251621661.git.marcel@holtmann.org>
 In-Reply-To: <cover.1251621661.git.marcel@holtmann.org>
 References: <cover.1251621661.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gustavo F. Padovan <gustavo@las.ic.unicamp.br>
+From: Luiz Augusto von Dentz <luiz.dentz@openbossa.org>
 
-Implement CRC16 check for L2CAP packets. FCS is used by Streaming Mode and
-Enhanced Retransmission Mode and is a extra check for the packet content.
+When using DEFER_SETUP on a RFCOMM socket, a SABM frame triggers
+authorization which when rejected send a DM response. This is fine
+according to the RFCOMM spec:
 
-Using CRC16 is the default, L2CAP won't use FCS only when both side send
-a "No FCS" request.
+    the responding implementation may replace the "proper" response
+    on the Multiplexer Control channel with a DM frame, sent on the
+    referenced DLCI to indicate that the DLCI is not open, and that
+    the responder would not grant a request to open it later either.
 
-Initially based on a patch from Nathan Holstein <nathan@lampreynetworks.com>
+But some stacks doesn't seems to cope with this leaving DLCI 0 open after
+receiving DM frame.
 
-Signed-off-by: Gustavo F. Padovan <gustavo@las.ic.unicamp.br>
+To fix it properly a timer was introduced to rfcomm_session which is used
+to set a timeout when the last active DLC of a session is unlinked, this
+will give the remote stack some time to reply with a proper DISC frame on
+DLCI 0 avoiding both sides sending DISC to each other on stacks that
+follow the specification and taking care of those who don't by taking
+down DLCI 0.
+
+Signed-off-by: Luiz Augusto von Dentz <luiz.dentz@openbossa.org>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- include/net/bluetooth/l2cap.h |    2 +
- net/bluetooth/l2cap.c         |  101 ++++++++++++++++++++++++++++++++++++++---
- 2 files changed, 97 insertions(+), 6 deletions(-)
+ include/net/bluetooth/rfcomm.h |    2 +
+ net/bluetooth/rfcomm/core.c    |   41 ++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 43 insertions(+), 0 deletions(-)
 
-diff --git a/include/net/bluetooth/l2cap.h b/include/net/bluetooth/l2cap.h
-index 2cf7003..59b26bf 100644
---- a/include/net/bluetooth/l2cap.h
-+++ b/include/net/bluetooth/l2cap.h
-@@ -54,6 +54,7 @@ struct l2cap_options {
- 	__u16 imtu;
- 	__u16 flush_to;
- 	__u8  mode;
-+	__u8  fcs;
- };
+diff --git a/include/net/bluetooth/rfcomm.h b/include/net/bluetooth/rfcomm.h
+index c274993..921d7b3 100644
+--- a/include/net/bluetooth/rfcomm.h
++++ b/include/net/bluetooth/rfcomm.h
+@@ -29,6 +29,7 @@
+ #define RFCOMM_CONN_TIMEOUT (HZ * 30)
+ #define RFCOMM_DISC_TIMEOUT (HZ * 20)
+ #define RFCOMM_AUTH_TIMEOUT (HZ * 25)
++#define RFCOMM_IDLE_TIMEOUT (HZ * 2)
  
- #define L2CAP_CONNINFO	0x02
-@@ -348,6 +349,7 @@ struct l2cap_pinfo {
- #define L2CAP_CONF_MTU_DONE       0x08
- #define L2CAP_CONF_MODE_DONE      0x10
- #define L2CAP_CONF_CONNECT_PEND   0x20
-+#define L2CAP_CONF_NO_FCS_RECV    0x40
- #define L2CAP_CONF_STATE2_DEVICE  0x80
- 
- #define L2CAP_CONF_MAX_CONF_REQ 2
-diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index 7f835e7..4c31900 100644
---- a/net/bluetooth/l2cap.c
-+++ b/net/bluetooth/l2cap.c
-@@ -41,6 +41,7 @@
- #include <linux/list.h>
- #include <linux/device.h>
- #include <linux/uaccess.h>
-+#include <linux/crc16.h>
- #include <net/sock.h>
- 
- #include <asm/system.h>
-@@ -338,11 +339,14 @@ static inline int l2cap_send_sframe(struct l2cap_pinfo *pi, u16 control)
- 	struct sk_buff *skb;
- 	struct l2cap_hdr *lh;
- 	struct l2cap_conn *conn = pi->conn;
--	int count;
-+	int count, hlen = L2CAP_HDR_SIZE + 2;
-+
-+	if (pi->fcs == L2CAP_FCS_CRC16)
-+		hlen += 2;
- 
- 	BT_DBG("pi %p, control 0x%2.2x", pi, control);
- 
--	count = min_t(unsigned int, conn->mtu, L2CAP_HDR_SIZE + 2);
-+	count = min_t(unsigned int, conn->mtu, hlen);
- 	control |= L2CAP_CTRL_FRAME_TYPE;
- 
- 	skb = bt_skb_alloc(count, GFP_ATOMIC);
-@@ -350,10 +354,15 @@ static inline int l2cap_send_sframe(struct l2cap_pinfo *pi, u16 control)
- 		return -ENOMEM;
- 
- 	lh = (struct l2cap_hdr *) skb_put(skb, L2CAP_HDR_SIZE);
--	lh->len = cpu_to_le16(2);
-+	lh->len = cpu_to_le16(hlen - L2CAP_HDR_SIZE);
- 	lh->cid = cpu_to_le16(pi->dcid);
- 	put_unaligned_le16(control, skb_put(skb, 2));
- 
-+	if (pi->fcs == L2CAP_FCS_CRC16) {
-+		u16 fcs = crc16(0, (u8 *)lh, count - 2);
-+		put_unaligned_le16(fcs, skb_put(skb, 2));
-+	}
-+
- 	return hci_send_acl(pi->conn->hcon, skb, 0);
+ #define RFCOMM_DEFAULT_MTU	127
+ #define RFCOMM_DEFAULT_CREDITS	7
+@@ -154,6 +155,7 @@ struct rfcomm_msc {
+ struct rfcomm_session {
+ 	struct list_head list;
+ 	struct socket   *sock;
++	struct timer_list timer;
+ 	unsigned long    state;
+ 	unsigned long    flags;
+ 	atomic_t         refcnt;
+diff --git a/net/bluetooth/rfcomm/core.c b/net/bluetooth/rfcomm/core.c
+index 26af485..25692bc 100644
+--- a/net/bluetooth/rfcomm/core.c
++++ b/net/bluetooth/rfcomm/core.c
+@@ -244,6 +244,33 @@ static inline int rfcomm_check_security(struct rfcomm_dlc *d)
+ 								auth_type);
  }
  
-@@ -1249,7 +1258,7 @@ static int l2cap_streaming_send(struct sock *sk)
- {
- 	struct sk_buff *skb, *tx_skb;
- 	struct l2cap_pinfo *pi = l2cap_pi(sk);
--	u16 control;
-+	u16 control, fcs;
- 	int err;
- 
- 	while ((skb = sk->sk_send_head)) {
-@@ -1259,6 +1268,11 @@ static int l2cap_streaming_send(struct sock *sk)
- 		control |= pi->next_tx_seq << L2CAP_CTRL_TXSEQ_SHIFT;
- 		put_unaligned_le16(control, tx_skb->data + L2CAP_HDR_SIZE);
- 
-+		if (l2cap_pi(sk)->fcs == L2CAP_FCS_CRC16) {
-+			fcs = crc16(0, (u8 *)tx_skb->data, tx_skb->len - 2);
-+			put_unaligned_le16(fcs, tx_skb->data + tx_skb->len - 2);
-+		}
-+
- 		err = l2cap_do_send(sk, tx_skb);
- 		if (err < 0) {
- 			l2cap_send_disconn_req(pi->conn, sk);
-@@ -1282,7 +1296,7 @@ static int l2cap_ertm_send(struct sock *sk)
- {
- 	struct sk_buff *skb, *tx_skb;
- 	struct l2cap_pinfo *pi = l2cap_pi(sk);
--	u16 control;
-+	u16 control, fcs;
- 	int err;
- 
- 	if (pi->conn_state & L2CAP_CONN_WAIT_F)
-@@ -1305,6 +1319,11 @@ static int l2cap_ertm_send(struct sock *sk)
- 		put_unaligned_le16(control, tx_skb->data + L2CAP_HDR_SIZE);
- 
- 
-+		if (l2cap_pi(sk)->fcs == L2CAP_FCS_CRC16) {
-+			fcs = crc16(0, (u8 *)skb->data, tx_skb->len - 2);
-+			put_unaligned_le16(fcs, skb->data + tx_skb->len - 2);
-+		}
-+
- 		err = l2cap_do_send(sk, tx_skb);
- 		if (err < 0) {
- 			l2cap_send_disconn_req(pi->conn, sk);
-@@ -1428,6 +1447,9 @@ static struct sk_buff *l2cap_create_iframe_pdu(struct sock *sk, struct msghdr *m
- 	if (sdulen)
- 		hlen += 2;
- 
-+	if (l2cap_pi(sk)->fcs == L2CAP_FCS_CRC16)
-+		hlen += 2;
-+
- 	count = min_t(unsigned int, (conn->mtu - hlen), len);
- 	skb = bt_skb_send_alloc(sk, count + hlen,
- 			msg->msg_flags & MSG_DONTWAIT, &err);
-@@ -1448,6 +1470,9 @@ static struct sk_buff *l2cap_create_iframe_pdu(struct sock *sk, struct msghdr *m
- 		return ERR_PTR(err);
- 	}
- 
-+	if (l2cap_pi(sk)->fcs == L2CAP_FCS_CRC16)
-+		put_unaligned_le16(0, skb_put(skb, 2));
-+
- 	bt_cb(skb)->retries = 0;
- 	return skb;
- }
-@@ -1633,6 +1658,7 @@ static int l2cap_sock_setsockopt_old(struct socket *sock, int optname, char __us
- 		opts.omtu     = l2cap_pi(sk)->omtu;
- 		opts.flush_to = l2cap_pi(sk)->flush_to;
- 		opts.mode     = l2cap_pi(sk)->mode;
-+		opts.fcs      = l2cap_pi(sk)->fcs;
- 
- 		len = min_t(unsigned int, sizeof(opts), optlen);
- 		if (copy_from_user((char *) &opts, optval, len)) {
-@@ -1643,6 +1669,7 @@ static int l2cap_sock_setsockopt_old(struct socket *sock, int optname, char __us
- 		l2cap_pi(sk)->imtu = opts.imtu;
- 		l2cap_pi(sk)->omtu = opts.omtu;
- 		l2cap_pi(sk)->mode = opts.mode;
-+		l2cap_pi(sk)->fcs  = opts.fcs;
- 		break;
- 
- 	case L2CAP_LM:
-@@ -1756,6 +1783,7 @@ static int l2cap_sock_getsockopt_old(struct socket *sock, int optname, char __us
- 		opts.omtu     = l2cap_pi(sk)->omtu;
- 		opts.flush_to = l2cap_pi(sk)->flush_to;
- 		opts.mode     = l2cap_pi(sk)->mode;
-+		opts.fcs      = l2cap_pi(sk)->fcs;
- 
- 		len = min_t(unsigned int, len, sizeof(opts));
- 		if (copy_to_user(optval, (char *) &opts, len))
-@@ -2154,6 +2182,15 @@ done:
- 
- 		l2cap_add_conf_opt(&ptr, L2CAP_CONF_RFC,
- 					sizeof(rfc), (unsigned long) &rfc);
-+
-+		if (!(pi->conn->feat_mask & L2CAP_FEAT_FCS))
-+			break;
-+
-+		if (pi->fcs == L2CAP_FCS_NONE ||
-+				pi->conf_state & L2CAP_CONF_NO_FCS_RECV) {
-+			pi->fcs = L2CAP_FCS_NONE;
-+			l2cap_add_conf_opt(&ptr, L2CAP_CONF_FCS, 1, pi->fcs);
-+		}
- 		break;
- 
- 	case L2CAP_MODE_STREAMING:
-@@ -2166,6 +2203,15 @@ done:
- 
- 		l2cap_add_conf_opt(&ptr, L2CAP_CONF_RFC,
- 					sizeof(rfc), (unsigned long) &rfc);
-+
-+		if (!(pi->conn->feat_mask & L2CAP_FEAT_FCS))
-+			break;
-+
-+		if (pi->fcs == L2CAP_FCS_NONE ||
-+				pi->conf_state & L2CAP_CONF_NO_FCS_RECV) {
-+			pi->fcs = L2CAP_FCS_NONE;
-+			l2cap_add_conf_opt(&ptr, L2CAP_CONF_FCS, 1, pi->fcs);
-+		}
- 		break;
- 	}
- 
-@@ -2217,6 +2263,12 @@ static int l2cap_parse_conf_req(struct sock *sk, void *data)
- 				memcpy(&rfc, (void *) val, olen);
- 			break;
- 
-+		case L2CAP_CONF_FCS:
-+			if (val == L2CAP_FCS_NONE)
-+				pi->conf_state |= L2CAP_CONF_NO_FCS_RECV;
-+
-+			break;
-+
- 		default:
- 			if (hint)
- 				break;
-@@ -2638,6 +2690,10 @@ static inline int l2cap_config_req(struct l2cap_conn *conn, struct l2cap_cmd_hdr
- 		goto unlock;
- 
- 	if (l2cap_pi(sk)->conf_state & L2CAP_CONF_INPUT_DONE) {
-+		if (!(l2cap_pi(sk)->conf_state & L2CAP_CONF_NO_FCS_RECV)
-+				|| l2cap_pi(sk)->fcs != L2CAP_FCS_NONE)
-+			l2cap_pi(sk)->fcs = L2CAP_FCS_CRC16;
-+
- 		sk->sk_state = BT_CONNECTED;
- 		l2cap_pi(sk)->next_tx_seq = 0;
- 		l2cap_pi(sk)->expected_ack_seq = 0;
-@@ -2722,6 +2778,10 @@ static inline int l2cap_config_rsp(struct l2cap_conn *conn, struct l2cap_cmd_hdr
- 	l2cap_pi(sk)->conf_state |= L2CAP_CONF_INPUT_DONE;
- 
- 	if (l2cap_pi(sk)->conf_state & L2CAP_CONF_OUTPUT_DONE) {
-+		if (!(l2cap_pi(sk)->conf_state & L2CAP_CONF_NO_FCS_RECV)
-+				|| l2cap_pi(sk)->fcs != L2CAP_FCS_NONE)
-+			l2cap_pi(sk)->fcs = L2CAP_FCS_CRC16;
-+
- 		sk->sk_state = BT_CONNECTED;
- 		l2cap_pi(sk)->expected_tx_seq = 0;
- 		l2cap_pi(sk)->num_to_ack = 0;
-@@ -2809,7 +2869,8 @@ static inline int l2cap_information_req(struct l2cap_conn *conn, struct l2cap_cm
- 		rsp->type   = cpu_to_le16(L2CAP_IT_FEAT_MASK);
- 		rsp->result = cpu_to_le16(L2CAP_IR_SUCCESS);
- 		if (enable_ertm)
--			feat_mask |= L2CAP_FEAT_ERTM | L2CAP_FEAT_STREAMING;
-+			feat_mask |= L2CAP_FEAT_ERTM | L2CAP_FEAT_STREAMING
-+							 | L2CAP_FEAT_FCS;
- 		put_unaligned(cpu_to_le32(feat_mask), (__le32 *) rsp->data);
- 		l2cap_send_cmd(conn, cmd->ident,
- 					L2CAP_INFO_RSP, sizeof(buf), buf);
-@@ -2961,6 +3022,22 @@ static inline void l2cap_sig_channel(struct l2cap_conn *conn, struct sk_buff *sk
- 	kfree_skb(skb);
- }
- 
-+static int l2cap_check_fcs(struct l2cap_pinfo *pi,  struct sk_buff *skb)
++static void rfcomm_session_timeout(unsigned long arg)
 +{
-+	u16 our_fcs, rcv_fcs;
-+	int hdr_size = L2CAP_HDR_SIZE + 2;
++	struct rfcomm_session *s = (void *) arg;
 +
-+	if (pi->fcs == L2CAP_FCS_CRC16) {
-+		skb_trim(skb, skb->len - 2);
-+		rcv_fcs = get_unaligned_le16(skb->data + skb->len);
-+		our_fcs = crc16(0, skb->data - hdr_size, skb->len + hdr_size);
++	BT_DBG("session %p state %ld", s, s->state);
 +
-+		if (our_fcs != rcv_fcs)
-+			return -EINVAL;
-+	}
-+	return 0;
++	set_bit(RFCOMM_TIMED_OUT, &s->flags);
++	rfcomm_session_put(s);
++	rfcomm_schedule(RFCOMM_SCHED_TIMEO);
 +}
 +
- static int l2cap_sar_reassembly_sdu(struct sock *sk, struct sk_buff *skb, u16 control)
++static void rfcomm_session_set_timer(struct rfcomm_session *s, long timeout)
++{
++	BT_DBG("session %p state %ld timeout %ld", s, s->state, timeout);
++
++	if (!mod_timer(&s->timer, jiffies + timeout))
++		rfcomm_session_hold(s);
++}
++
++static void rfcomm_session_clear_timer(struct rfcomm_session *s)
++{
++	BT_DBG("session %p state %ld", s, s->state);
++
++	if (timer_pending(&s->timer) && del_timer(&s->timer))
++		rfcomm_session_put(s);
++}
++
+ /* ---- RFCOMM DLCs ---- */
+ static void rfcomm_dlc_timeout(unsigned long arg)
  {
- 	struct l2cap_pinfo *pi = l2cap_pi(sk);
-@@ -3174,6 +3251,9 @@ static inline int l2cap_data_channel(struct l2cap_conn *conn, u16 cid, struct sk
- 		if (__is_sar_start(control))
- 			len -= 2;
+@@ -320,6 +347,7 @@ static void rfcomm_dlc_link(struct rfcomm_session *s, struct rfcomm_dlc *d)
  
-+		if (pi->fcs == L2CAP_FCS_CRC16)
-+			len -= 2;
+ 	rfcomm_session_hold(s);
+ 
++	rfcomm_session_clear_timer(s);
+ 	rfcomm_dlc_hold(d);
+ 	list_add(&d->list, &s->dlcs);
+ 	d->session = s;
+@@ -335,6 +363,9 @@ static void rfcomm_dlc_unlink(struct rfcomm_dlc *d)
+ 	d->session = NULL;
+ 	rfcomm_dlc_put(d);
+ 
++	if (list_empty(&s->dlcs))
++		rfcomm_session_set_timer(s, RFCOMM_IDLE_TIMEOUT);
 +
- 		/*
- 		 * We can just drop the corrupted I-frame here.
- 		 * Receiver will miss it and start proper recovery
-@@ -3182,6 +3262,9 @@ static inline int l2cap_data_channel(struct l2cap_conn *conn, u16 cid, struct sk
- 		if (len > L2CAP_DEFAULT_MAX_PDU_SIZE)
- 			goto drop;
+ 	rfcomm_session_put(s);
+ }
  
-+		if (l2cap_check_fcs(pi, skb))
-+			goto drop;
+@@ -567,6 +598,8 @@ static struct rfcomm_session *rfcomm_session_add(struct socket *sock, int state)
+ 
+ 	BT_DBG("session %p sock %p", s, sock);
+ 
++	setup_timer(&s->timer, rfcomm_session_timeout, (unsigned long) s);
 +
- 		if (__is_iframe(control))
- 			err = l2cap_data_channel_iframe(sk, control, skb);
- 		else
-@@ -3199,9 +3282,15 @@ static inline int l2cap_data_channel(struct l2cap_conn *conn, u16 cid, struct sk
- 		if (__is_sar_start(control))
- 			len -= 2;
+ 	INIT_LIST_HEAD(&s->dlcs);
+ 	s->state = state;
+ 	s->sock  = sock;
+@@ -598,6 +631,7 @@ static void rfcomm_session_del(struct rfcomm_session *s)
+ 	if (state == BT_CONNECTED)
+ 		rfcomm_send_disc(s, 0);
  
-+		if (pi->fcs == L2CAP_FCS_CRC16)
-+			len -= 2;
++	rfcomm_session_clear_timer(s);
+ 	sock_release(s->sock);
+ 	kfree(s);
+ 
+@@ -639,6 +673,7 @@ static void rfcomm_session_close(struct rfcomm_session *s, int err)
+ 		__rfcomm_dlc_close(d, err);
+ 	}
+ 
++	rfcomm_session_clear_timer(s);
+ 	rfcomm_session_put(s);
+ }
+ 
+@@ -1879,6 +1914,12 @@ static inline void rfcomm_process_sessions(void)
+ 		struct rfcomm_session *s;
+ 		s = list_entry(p, struct rfcomm_session, list);
+ 
++		if (test_and_clear_bit(RFCOMM_TIMED_OUT, &s->flags)) {
++			s->state = BT_DISCONN;
++			rfcomm_send_disc(s, 0);
++			continue;
++		}
 +
- 		if (len > L2CAP_DEFAULT_MAX_PDU_SIZE || __is_sframe(control))
- 			goto drop;
- 
-+		if (l2cap_check_fcs(pi, skb))
-+			goto drop;
-+
- 		tx_seq = __get_txseq(control);
- 
- 		if (pi->expected_tx_seq == tx_seq)
+ 		if (s->state == BT_LISTEN) {
+ 			rfcomm_accept_connection(s);
+ 			continue;
 -- 
 1.6.2.5
 
