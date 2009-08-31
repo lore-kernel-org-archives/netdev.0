@@ -1,45 +1,71 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [patch] ipvs: Use atomic operations atomicly
-Date: Tue, 1 Sep 2009 00:49:09 +1000
-Message-ID: <20090831144909.GB2271@verge.net.au>
-References: <20090828023722.GA12136@verge.net.au>
- <4A9BC082.3090804@trash.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
+Date: Mon, 31 Aug 2009 17:23:33 +0200
+Message-ID: <200908311723.34067.arnd@arndb.de>
+References: <E88DD564E9DC5446A76B2B47C3BCCA150219600F9B@pdsmsx503.ccr.corp.intel.com> <C85CEDA13AB1CF4D9D597824A86D2B9006AEB944B8@PDSMSX501.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	=?utf-8?B?7ZmN7Iug?= shin hong <hongshin@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4A9BC082.3090804@trash.net>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "mst@redhat.com" <mst@redhat.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "virtualization@lists.linux-foundation.org" <virtualization@lists.linux-foundation.org>,
+ "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "mingo@elte.hu" <mingo@elte.hu>,
+ "linux-mm@kvack.org" <linux-mm@kvack.org>,
+ "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+ "hpa@zytor.com" <hpa@zytor.com>,
+ "gregory.haskins@gmail.com" <gregory.haskins@gmail.com>
+To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <C85CEDA13AB1CF4D9D597824A86D2B9006AEB944B8@PDSMSX501.ccr.corp.intel.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 31, 2009 at 02:22:26PM +0200, Patrick McHardy wrote:
-> Simon Horman wrote:
-> > A pointed out by Shin Hong, IPVS doesn't always use atomic operatio=
-ns
-> > in an atomic manner. While this seems unlikely to be manifest in
-> > strange behaviour, it seems appropriate to clean this up.
-> >=20
-> > Cc: =ED=99=8D=EC=8B=A0 shin hong <hongshin@gmail.com>
-> > Signed-off-by: Simon Horman <horms@verge.net.au>
->=20
-> Applied, thanks.
->=20
-> >  	if (af =3D=3D AF_INET &&
-> >  	    (ip_vs_sync_state & IP_VS_STATE_MASTER) &&
-> >  	    (((cp->protocol !=3D IPPROTO_TCP ||
-> >  	       cp->state =3D=3D IP_VS_TCP_S_ESTABLISHED) &&
-> > -	      (atomic_read(&cp->in_pkts) % sysctl_ip_vs_sync_threshold[1]
-> > +	      (pkts % sysctl_ip_vs_sync_threshold[1]
->=20
-> It seems that proc_do_sync_threshold() should check whether this valu=
-e
-> is zero. The current checks also look racy since incorrect values are
-> first updated, then overwritten again.
+On Monday 31 August 2009, Xin, Xiaohui wrote:
+> 
+> Hi, Michael
+> That's a great job. We are now working on support VMDq on KVM, and since the VMDq hardware presents L2 sorting
+> based on MAC addresses and VLAN tags, our target is to implement a zero copy solution using VMDq.
 
-Thanks, I'll look into that.
+I'm also interested in helping there, please include me in the discussions.
+
+> We stared
+> from the virtio-net architecture. What we want to proposal is to use AIO combined with direct I/O:
+> 1) Modify virtio-net Backend service in Qemu to submit aio requests composed from virtqueue.
+
+right, that sounds useful.
+
+> 2) Modify TUN/TAP device to support aio operations and the user space buffer directly mapping into the host kernel.
+> 3) Let a TUN/TAP device binds to single rx/tx queue from the NIC.
+
+I don't think we should do that with the tun/tap driver. By design, tun/tap is a way to interact with the
+networking stack as if coming from a device. The only way this connects to an external adapter is through
+a bridge or through IP routing, which means that it does not correspond to a specific NIC.
+
+I have worked on a driver I called 'macvtap' in lack of a better name, to add a new tap frontend to
+the 'macvlan' driver. Since macvlan lets you add slaves to a single NIC device, this gives you a direct
+connection between one or multiple tap devices to an external NIC, which works a lot better than when
+you have a bridge inbetween. There is also work underway to add a bridging capability to macvlan, so
+you can communicate directly between guests like you can do with a bridge.
+
+Michael's vhost_net can plug into the same macvlan infrastructure, so the work is complementary.
+
+> 4) Modify the net_dev and skb structure to permit allocated skb to use user space directly mapped payload
+> buffer address rather then kernel allocated.
+
+yes.
+
+> As zero copy is also your goal, we are interested in what's in your mind, and would like to collaborate with you if possible.
+> BTW, we will send our VMDq write-up very soon.
+
+Ok, cool.
+
+	Arnd <><
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
