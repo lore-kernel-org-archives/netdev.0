@@ -1,37 +1,53 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: TCP Congestion Control Algorithms
-Date: Mon, 31 Aug 2009 15:07:31 -0700
-Message-ID: <20090831150731.28c36081@nehalam>
-References: <a45e9b40908311408l15d68088i459d6a1000cbca07@mail.gmail.com>
-	<a45e9b40908311410m486a60fel6a81c334732de358@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next PATCH 1/8] net: Add ndo_fcoe_enable/ndo_fcoe_disable to
+	net_device_ops
+Date: Mon, 31 Aug 2009 15:31:36 -0700
+Message-ID: <20090831223110.30995.61162.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Lisong Xu <lisongxu2@gmail.com>
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Yi Zou <yi.zou@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49148 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751442AbZHaWHe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Aug 2009 18:07:34 -0400
-In-Reply-To: <a45e9b40908311410m486a60fel6a81c334732de358@mail.gmail.com>
+Received: from qmta03.emeryville.ca.mail.comcast.net ([76.96.30.32]:47501 "EHLO
+	QMTA03.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751093AbZHaWbv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 18:31:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 31 Aug 2009 16:10:59 -0500
-Lisong Xu <lisongxu2@gmail.com> wrote:
+From: Yi Zou <yi.zou@intel.com>
 
-> Hello,
-> 
-> Since there are multiple different TCP congestion control algorithms
-> available in Linux, a Linux server may use any of them.
-> 
-> Is it possible for a regular user to find out the exact TCP congestion
-> control algorithm used by a Linux server? For example, if I am
-> downloading a file from a remote Linux server using a TCP flow, can I
-> find out whether this flow is a TCP/CUBIC flow, or TCP/Newreno, or
-> some other TCP protocol?
-> 
+Add ndo_fcoe_enable/_disable to net_device_ops so the corresponding
+HW can initialize itself for FCoE traffic or clean up after FCoE traffic is
+done. This is expected to be called by the kernel FCoE stack upon receiving
+a request for creating an FCoE instance on the corresponding netdev interface.
+When implemented by the actual HW, the HW driver check the op code to perform
+corresponding initialization or clean up for FCoE. The initialization normally
+includes allocating extra queues for FCoE, setting corresponding HW registers
+for FCoE, indicating FCoE offload features via netdev, etc. The clean-up would
+include releasing the resources allocated for FCoE.
 
-No. you might be able to some nmap style guessing, but no remote
-API. You can see locally on the server through /proc/sys/net
+Signed-off-by: Yi Zou <yi.zou@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ include/linux/netdevice.h |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 60d3aac..e05c41e 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -623,6 +623,8 @@ struct net_device_ops {
+ 	void                    (*ndo_poll_controller)(struct net_device *dev);
+ #endif
+ #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
++	int			(*ndo_fcoe_enable)(struct net_device *dev);
++	int			(*ndo_fcoe_disable)(struct net_device *dev);
+ 	int			(*ndo_fcoe_ddp_setup)(struct net_device *dev,
+ 						      u16 xid,
+ 						      struct scatterlist *sgl,
+
