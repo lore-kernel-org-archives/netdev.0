@@ -1,47 +1,93 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] net: Fix sock freeing before sock_init_data() with
-	__sk_free()
-Date: Mon, 31 Aug 2009 07:25:59 +0000
-Message-ID: <20090831072559.GD5005@ff.dom.local>
-References: <20090830222340.GA17454@ami.dom.local> <4A9B6D23.9090505@gmail.com> <20090831063648.GB5005@ff.dom.local> <4A9B72B1.2040908@gmail.com> <20090831070733.GC5005@ff.dom.local> <4A9B7956.40507@gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: [patch, v2] IPVS: Add handling of incoming ICMPV6 messages
+Date: Mon, 31 Aug 2009 17:59:06 +1000
+Message-ID: <20090831075904.GA3430@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f217.google.com ([209.85.220.217]:43188 "EHLO
-	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751139AbZHaH0C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 03:26:02 -0400
-Received: by fxm17 with SMTP id 17so2589843fxm.37
-        for <netdev@vger.kernel.org>; Mon, 31 Aug 2009 00:26:03 -0700 (PDT)
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Julius Volz <julius.volz@gmail.com>,
+	Rob Gallagher <robert.gallagher@heanet.ie>
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4A9B7956.40507@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 31, 2009 at 09:18:46AM +0200, Eric Dumazet wrote:
-> Jarek Poplawski a =E9crit :
-> > On Mon, Aug 31, 2009 at 08:50:25AM +0200, Eric Dumazet wrote:
-=2E..
-> >> Well, patch is yours, not mine, and I am confident it is OK.
-> >=20
-> > Well, it's from you, and I guess you'll sign off too, but if you
-> > think so...
-> > =20
-> > Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-> >=20
-> > Thanks,
-> > Jarek P.
-> >=20
->=20
-> Give me a few hours to review sk_alloc() call sites, test patch and o=
-fficially submit it.
->=20
-> Thanks
+From: Julius Volz <julius.volz@gmail.com>
 
-Hmm... but you're "confident it is OK"?! (You know, I could've risked
-my life or something... ;-)
+IPVS: Add handling of incoming ICMPV6 messages
 
-Jarek P.
+Add handling of incoming ICMPv6 messages.
+This follows the handling of IPv4 ICMP messages.
+
+Amongst ther things this problem allows IPVS to behave sensibly
+when an ICMPV6_PKT_TOOBIG message is received:
+
+    This message is received when a realserver sends a packet >PMTU to the
+    client. The hop on this path with insufficient MTU will generate an
+    ICMPv6 Packet Too Big message back to the VIP. The LVS server receives
+    this message, but the call to the function handling this has been
+    missing. Thus, IPVS fails to forward the message to the real server,
+    which then does not adjust the path MTU. This patch adds the missing
+    call to ip_vs_in_icmp_v6() in ip_vs_in() to handle this situation.
+
+    Thanks to Rob Gallagher from HEAnet for reporting this issue and for
+    testing this patch in production (with direct routing mode).
+
+[horms@verge.net.au: tweaked changelog]
+Signed-off-by: Julius Volz <julius.volz@gmail.com>
+Tested-by: Rob Gallagher <robert.gallagher@heanet.ie>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+
+---
+ net/netfilter/ipvs/ip_vs_core.c |   23 +++++++++++++++++------
+ 1 files changed, 17 insertions(+), 6 deletions(-)
+
+Changelog
+---------
+
+* Fri, 24 Jul 2009 12:47:16 +1000
+  Initial post to netdev
+
+* Mon, 31 Aug 2009 17:53:40 +1000
+  Tweaked commit message as per feedback
+
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index 8dddb17..5750800 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -1274,13 +1274,24 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb,
+ 		return NF_ACCEPT;
+ 	}
+ 
+-	if (unlikely(iph.protocol == IPPROTO_ICMP)) {
+-		int related, verdict = ip_vs_in_icmp(skb, &related, hooknum);
++#ifdef CONFIG_IP_VS_IPV6
++	if (af == AF_INET6) {
++		if (unlikely(iph.protocol == IPPROTO_ICMPV6)) {
++			int related, verdict = ip_vs_in_icmp_v6(skb, &related, hooknum);
+ 
+-		if (related)
+-			return verdict;
+-		ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
+-	}
++			if (related)
++				return verdict;
++			ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
++		}
++	} else
++#endif
++		if (unlikely(iph.protocol == IPPROTO_ICMP)) {
++			int related, verdict = ip_vs_in_icmp(skb, &related, hooknum);
++
++			if (related)
++				return verdict;
++			ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
++		}
+ 
+ 	/* Protocol supported? */
+ 	pp = ip_vs_proto_get(iph.protocol);
+--
+To unsubscribe from this list: send the line "unsubscribe lvs-devel" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
