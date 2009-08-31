@@ -1,60 +1,67 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] au1000_eth: possible NULL dereference of aup->mii_bus->irq in au1000_probe()
-Date: Mon, 31 Aug 2009 14:38:55 +0200
-Message-ID: <200908311439.01781.f.fainelli@gmail.com>
-References: <4A9B8C6F.3040503@gmail.com>
+From: Michal Simek <michal.simek@petalogix.com>
+Subject: Re: [PATCH] [V3] net: add Xilinx emac lite device driver
+Date: Mon, 31 Aug 2009 15:18:44 +0200
+Message-ID: <4A9BCDB4.8040406@petalogix.com>
+References: <20090820094956.02DFC45004F@mail96-dub.bigfish.com> <20090820.025226.26907868.davem@davemloft.net>
+Reply-To: michal.simek@petalogix.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Roel Kluin <roel.kluin@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: john.linn@xilinx.com, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, jgarzik@pobox.com,
+	grant.likely@secretlab.ca, jwboyer@linux.vnet.ibm.com,
+	john.williams@petalogix.com, sadanan@xilinx.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f206.google.com ([209.85.219.206]:35581 "EHLO
-	mail-ew0-f206.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751244AbZHaMjE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 08:39:04 -0400
-Received: by ewy2 with SMTP id 2so260403ewy.17
-        for <netdev@vger.kernel.org>; Mon, 31 Aug 2009 05:39:05 -0700 (PDT)
-In-Reply-To: <4A9B8C6F.3040503@gmail.com>
-Content-Disposition: inline
+Received: from mail-yw0-f188.google.com ([209.85.211.188]:46271 "EHLO
+	mail-yw0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752640AbZHaNSw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 09:18:52 -0400
+Received: by ywh26 with SMTP id 26so6016869ywh.5
+        for <netdev@vger.kernel.org>; Mon, 31 Aug 2009 06:18:54 -0700 (PDT)
+In-Reply-To: <20090820.025226.26907868.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Roel,
+Hi David,
 
-Le lundi 31 ao=FBt 2009 10:40:15, Roel Kluin a =E9crit :
-> aup->mii_bus->irq allocation may fail, prevent a dereference of NULL.
+I see that John's patch has wrong file permission
+-rwxr-xr-x 	xilinx_emaclite.c
+<http://git.kernel.org/?p=linux/kernel/git/sfr/linux-next.git;a=blob;f=drivers/net/xilinx_emaclite.c;h=7e05b40ae36b50b6eb66d9512ae3a49ba2d36a47;hb=a9a8cb1d6594037fbb23f1ce45964ec6a3b38215>
+	blob
+<http://git.kernel.org/?p=linux/kernel/git/sfr/linux-next.git;a=blob;f=drivers/net/xilinx_emaclite.c;h=7e05b40ae36b50b6eb66d9512ae3a49ba2d36a47;hb=a9a8cb1d6594037fbb23f1ce45964ec6a3b38215>
+| history
+<http://git.kernel.org/?p=linux/kernel/git/sfr/linux-next.git;a=history;f=drivers/net/xilinx_emaclite.c;h=7e05b40ae36b50b6eb66d9512ae3a49ba2d36a47;hb=a9a8cb1d6594037fbb23f1ce45964ec6a3b38215>
+| raw
+<http://git.kernel.org/?p=linux/kernel/git/sfr/linux-next.git;a=blob_plain;f=drivers/net/xilinx_emaclite.c;hb=a9a8cb1d6594037fbb23f1ce45964ec6a3b38215>
 
-Good catch.
 
+
+should be 644.
+
+Please fix it in your repo.
+
+Thanks,
+Michal
+
+> From: John Linn <john.linn@xilinx.com>
+> Date: Thu, 20 Aug 2009 03:49:51 -0600
 >
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-
-Acked-by: Florian Fainelli <florian@openwrt.org>
-
-> ---
-> diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
-> index d3c734f..02e4be0 100644
-> --- a/drivers/net/au1000_eth.c
-> +++ b/drivers/net/au1000_eth.c
-> @@ -1157,6 +1157,9 @@ static struct net_device * au1000_probe(int por=
-t_num)
->  	aup->mii_bus->name =3D "au1000_eth_mii";
->  	snprintf(aup->mii_bus->id, MII_BUS_ID_SIZE, "%x", aup->mac_id);
->  	aup->mii_bus->irq =3D kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL)=
-;
-> +	if (aup->mii_bus->irq =3D=3D NULL)
-> +		goto err_out;
-> +
->  	for(i =3D 0; i < PHY_MAX_ADDR; ++i)
->  		aup->mii_bus->irq[i] =3D PHY_POLL;
+>   
+>> This patch adds support for the Xilinx Ethernet Lite device.  The
+>> soft logic core from Xilinx is typically used on Virtex and Spartan
+>> designs attached to either a PowerPC or a Microblaze processor.
+>>
+>> Signed-off-by: Sadanand M <sadanan@xilinx.com>
+>> Signed-off-by: John Linn <john.linn@xilinx.com>
+>>     
 >
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Applied, thanks.
+>   
 
---=20
-Cordialement, Florian Fainelli
-------------------------------
+
+-- 
+Michal Simek, Ing. (M.Eng)
+PetaLogix - Linux Solutions for a Reconfigurable World
+w: www.petalogix.com p: +61-7-30090663,+42-0-721842854 f: +61-7-30090663
+
