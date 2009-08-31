@@ -1,71 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Re: iproute2 / tbf with large burst seems broken again
-Date: Sun, 30 Aug 2009 22:05:59 -0700 (PDT)
-Message-ID: <20090830.220559.77181973.davem@davemloft.net>
-References: <200908251518.00762.denys@visp.net.lb>
-	<20090826215956.GA5148@ami.dom.local>
+Subject: Re: [PATCH][net-next] LRO: improve aggregation in case of zero
+ TSecr packets
+Date: Sun, 30 Aug 2009 22:11:05 -0700 (PDT)
+Message-ID: <20090830.221105.37473168.davem@davemloft.net>
+References: <200908270208.31581.opurdila@ixiacom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: denys@visp.net.lb, netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: themann@de.ibm.com, raisch@de.ibm.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: opurdila@ixiacom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33218
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46882
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753264AbZHaFFp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 01:05:45 -0400
-In-Reply-To: <20090826215956.GA5148@ami.dom.local>
+	by vger.kernel.org with ESMTP id S1750951AbZHaFKv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 01:10:51 -0400
+In-Reply-To: <200908270208.31581.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Wed, 26 Aug 2009 23:59:56 +0200
+From: Octavian Purdila <opurdila@ixiacom.com>
+Date: Thu, 27 Aug 2009 02:08:31 +0300
 
-> Denys Fedoryschenko wrote, On 08/25/2009 02:18 PM:
-> ...
->> Just maybe good idea in next kernels to document this or handle overflow, that 
->> it will give warning in kernel. Otherwise user will have non-functional qdisc 
->> that will not pass traffic.
+> This fixes a temporary performance issue we noticed in back to back
+> TSO - LRO tests when such tests are run within five minutes after
+> boot.
 > 
-> OK, if this patch works for you send your Tested-by, please.
+> The TSval field of TCP packets is filled in based on the current
+> jiffie, which is initialized at -300*HZ. That means that in 5 minutes
+> after reboot it will wrap to zero.
 
-Denys, please give Jarek's patch some testing and let us know
-if it triggers properly for you.
+RFC1323 says we absolutely must ignore zero TSecr values.
 
-> Thanks,
-> Jarek P.
-> ---------------->
-> pkt_sched: Warn on tokens overflow in tbf_dequeue
-> 
-> After recent change of scheduling resolution some "extreme" configs
-> can cause token overflows with stalls. This patch warns when tokens
-> were negative before accounting for a packet length.
-> 
-> Reported-by: Denys Fedoryschenko <denys@visp.net.lb>
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-> ---
-> 
->  net/sched/sch_tbf.c |    6 ++++++
->  1 files changed, 6 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-> index e22dfe8..ef191c4 100644
-> --- a/net/sched/sch_tbf.c
-> +++ b/net/sched/sch_tbf.c
-> @@ -191,6 +191,12 @@ static struct sk_buff *tbf_dequeue(struct Qdisc* sch)
->  			return skb;
->  		}
->  
-> +		if (unlikely((long)(toks + L2T(q, len)) < 0 ||
-> +			     (long)(ptoks + L2T_P(q, len) < 0)))
-> +			if (net_ratelimit())
-> +				pr_warning("tbf: tokens overflow;"
-> +					   " fix limits.\n");
-> +
->  		qdisc_watchdog_schedule(&q->watchdog,
->  					now + max_t(long, -toks, -ptoks));
->  
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It is a bug that the stack emits a zero value when it means to give a
+real TSecr value that will be used.
+
+Probably we can do something like emit '1' when we would emit '0'
+based upon jiffies.
+
+And this would be an improvement from now in that having a off-by-one
+TSecr in this situation is better than emitting one which we can
+guarentee will be ignored.
