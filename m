@@ -1,40 +1,49 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 1/5] ucc_geth: Fix NULL pointer dereference in
-	uec_get_ethtool_stats()
-Date: Mon, 31 Aug 2009 19:35:11 +1000
-Message-ID: <1251711311.15353.2.camel@pasglop>
-References: <20090827173547.GA1580@oksana.dev.rtsoft.ru>
-	<20090830.215224.203201252.davem@davemloft.net>
+From: Rene Mayrhofer <rene.mayrhofer@gibraltar.at>
+Subject: Re: [PATCH] sky2: Don't try to turn led off in sky2_down()
+Date: Mon, 31 Aug 2009 11:48:03 +0200
+Message-ID: <200908311148.03849.rene.mayrhofer@gibraltar.at>
+References: <4A9928C9.7000907@ring3k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: scottwood@freescale.com, netdev@vger.kernel.org, timur@freescale.com,
-	linuxppc-dev@ozlabs.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20090830.215224.203201252.davem@davemloft.net>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org, Richard Leitner <leitner@esys.at>
+To: Mike McCormack <mikem@ring3k.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from jupiter.gibraltar.at ([80.120.3.98]:42090 "EHLO
+	mail1.gibraltar.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751161AbZHaJsQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 05:48:16 -0400
+In-Reply-To: <4A9928C9.7000907@ring3k.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2009-08-30 at 21:52 -0700, David Miller wrote:
-> All 5 patches applied to net-next-2.6
-> 
-> I would have liked to have seen at least one powerpc ACK for
-> patch #2 but these were posted more than a week ago, the
-> patch looks pretty reasonable, and we can't wait forever for
-> stuff like this.
+Hi Mika and Stephen,
 
-The qe stuff ? Well, that's entirely Kumar's domain, but Anton
-patches tend to be of good quality so I wouldn't have too much
-second thoughts here.
+Am Samstag, 29. August 2009 15:10:33 schrieb Mike McCormack:
+> There are a few problems with the following line of code in sky2_down()
+>
+>      sky2_write16(hw, B0_Y2LED, LED_STAT_OFF);
+>
+>  * It doesn't specify which port's LED to turn off.
+>  * We don't turn send LED_STAT_ON on in sky2_up()
+>  * B0_LED is 0x0006 in the vendor driver, but 0x0005 in sky2.
+>    B0_LED is right next to B0_POWER_CTRL, so this is possibly
+>    accounts for the device being accidently powered down as
+>    reported by Rene Mayrhofer.
+>
+> Signed-off-by: Mike McCormack <mikem@ring3k.org>
 
-Cheers,
-Ben.
+I tried the current net-next version with this patch, and a network restart 
+still leads to a system reset. Is this patch aimed at net-next or the vanilla 
+2.6.30.5 version?
+
+I assume the updated 2 patches would not make any difference, right?
+
+best regards,
+Rene
+
+-- 
+-------------------------------------------------
+Gibraltar firewall       http://www.gibraltar.at/
