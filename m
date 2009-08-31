@@ -1,37 +1,209 @@
-From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
-Subject: Re: UDP is bypassing qdisc statistics ....
-Date: Tue, 1 Sep 2009 06:28:40 +0930
-Message-ID: <20090901062840.f1c25757.lk-netdev@lk-netdev.nosense.org>
-References: <alpine.DEB.1.10.0908311632170.1507@V090114053VZO-1>
-	<4A9C2A89.9060002@gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH net-next-2.6] bonding: make ab_arp select active slaves as
+	other modes
+Date: Mon, 31 Aug 2009 23:09:38 +0200
+Message-ID: <20090831210937.GA3152@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Lameter <cl@linux-foundation.org>,
-	netdev@vger.kernel.org, davem@linux-foundation.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net, nicolas.2p.debian@free.fr
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.adam.net.au ([202.136.110.247]:45039 "EHLO
-	smtp4.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751362AbZHaU6p convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 16:58:45 -0400
-In-Reply-To: <4A9C2A89.9060002@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:19679 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751288AbZHaVJw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Aug 2009 17:09:52 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 31 Aug 2009 21:54:49 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+When I was implementing primary_passive option (formely named primary_lazy) I've
+run into troubles with ab_arp. This is the only mode which is not using
+bond_select_active_slave() function to select active slave and instead it
+selects it itself. This seems to be not the right behaviour and it would be
+better to do it in bond_select_active_slave() for all cases. This patch makes
+this happen. Please review.
 
-> Christoph Lameter a =E9crit :
-> > This is with 2.6.31-rc7. If I send icmp then its correctly register=
-ed as a
-> > packet by the qdisc layer:
-> >=20
-<snip>
->=20
-> loopback device do bypass qdisc layer for example...
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-On occassion, I'd have found it useful if it didn't. It'd be convenient
-to test out your qdisc config, or test out applications performance
-behaviour over a simulated WAN via netem, without having to a
-network and two hosts, and all the related miscellaneous setup work.
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 7c0e0bd..6ebd88d 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1093,15 +1093,8 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
+ 			return NULL; /* still no slave, return NULL */
+ 	}
+ 
+-	/*
+-	 * first try the primary link; if arping, a link must tx/rx
+-	 * traffic before it can be considered the curr_active_slave.
+-	 * also, we would skip slaves between the curr_active_slave
+-	 * and primary_slave that may be up and able to arp
+-	 */
+ 	if ((bond->primary_slave) &&
+-	    (!bond->params.arp_interval) &&
+-	    (IS_UP(bond->primary_slave->dev))) {
++	    bond->primary_slave->link == BOND_LINK_UP) {
+ 		new_active = bond->primary_slave;
+ 	}
+ 
+@@ -1109,15 +1102,14 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
+ 	old_active = new_active;
+ 
+ 	bond_for_each_slave_from(bond, new_active, i, old_active) {
+-		if (IS_UP(new_active->dev)) {
+-			if (new_active->link == BOND_LINK_UP) {
+-				return new_active;
+-			} else if (new_active->link == BOND_LINK_BACK) {
+-				/* link up, but waiting for stabilization */
+-				if (new_active->delay < mintime) {
+-					mintime = new_active->delay;
+-					bestslave = new_active;
+-				}
++		if (new_active->link == BOND_LINK_UP) {
++			return new_active;
++		} else if (new_active->link == BOND_LINK_BACK &&
++			   IS_UP(new_active->dev)) {
++			/* link up, but waiting for stabilization */
++			if (new_active->delay < mintime) {
++				mintime = new_active->delay;
++				bestslave = new_active;
+ 			}
+ 		}
+ 	}
+@@ -2929,18 +2921,6 @@ static int bond_ab_arp_inspect(struct bonding *bond, int delta_in_ticks)
+ 		}
+ 	}
+ 
+-	read_lock(&bond->curr_slave_lock);
+-
+-	/*
+-	 * Trigger a commit if the primary option setting has changed.
+-	 */
+-	if (bond->primary_slave &&
+-	    (bond->primary_slave != bond->curr_active_slave) &&
+-	    (bond->primary_slave->link == BOND_LINK_UP))
+-		commit++;
+-
+-	read_unlock(&bond->curr_slave_lock);
+-
+ 	return commit;
+ }
+ 
+@@ -2961,90 +2941,58 @@ static void bond_ab_arp_commit(struct bonding *bond, int delta_in_ticks)
+ 			continue;
+ 
+ 		case BOND_LINK_UP:
+-			write_lock_bh(&bond->curr_slave_lock);
+-
+-			if (!bond->curr_active_slave &&
+-			    time_before_eq(jiffies, dev_trans_start(slave->dev) +
+-					   delta_in_ticks)) {
++			if ((!bond->curr_active_slave &&
++			     time_before_eq(jiffies,
++					    dev_trans_start(slave->dev) +
++					    delta_in_ticks)) ||
++			    bond->curr_active_slave != slave) {
+ 				slave->link = BOND_LINK_UP;
+-				bond_change_active_slave(bond, slave);
+ 				bond->current_arp_slave = NULL;
+ 
+ 				pr_info(DRV_NAME
+-				       ": %s: %s is up and now the "
+-				       "active interface\n",
+-				       bond->dev->name, slave->dev->name);
+-
+-			} else if (bond->curr_active_slave != slave) {
+-				/* this slave has just come up but we
+-				 * already have a current slave; this can
+-				 * also happen if bond_enslave adds a new
+-				 * slave that is up while we are searching
+-				 * for a new slave
+-				 */
+-				slave->link = BOND_LINK_UP;
+-				bond_set_slave_inactive_flags(slave);
+-				bond->current_arp_slave = NULL;
++					": %s: link status definitely "
++					"up for interface %s.\n",
++					bond->dev->name, slave->dev->name);
+ 
+-				pr_info(DRV_NAME
+-				       ": %s: backup interface %s is now up\n",
+-				       bond->dev->name, slave->dev->name);
+-			}
++				if (!bond->curr_active_slave ||
++				    (slave == bond->primary_slave))
++					goto do_failover;
+ 
+-			write_unlock_bh(&bond->curr_slave_lock);
++			}
+ 
+-			break;
++			continue;
+ 
+ 		case BOND_LINK_DOWN:
+ 			if (slave->link_failure_count < UINT_MAX)
+ 				slave->link_failure_count++;
+ 
+ 			slave->link = BOND_LINK_DOWN;
++			bond_set_slave_inactive_flags(slave);
+ 
+-			if (slave == bond->curr_active_slave) {
+-				pr_info(DRV_NAME
+-				       ": %s: link status down for active "
+-				       "interface %s, disabling it\n",
+-				       bond->dev->name, slave->dev->name);
+-
+-				bond_set_slave_inactive_flags(slave);
+-
+-				write_lock_bh(&bond->curr_slave_lock);
+-
+-				bond_select_active_slave(bond);
+-				if (bond->curr_active_slave)
+-					bond->curr_active_slave->jiffies =
+-						jiffies;
+-
+-				write_unlock_bh(&bond->curr_slave_lock);
++			pr_info(DRV_NAME
++				": %s: link status definitely down for "
++				"interface %s, disabling it\n",
++				bond->dev->name, slave->dev->name);
+ 
++			if (slave == bond->curr_active_slave) {
+ 				bond->current_arp_slave = NULL;
+-
+-			} else if (slave->state == BOND_STATE_BACKUP) {
+-				pr_info(DRV_NAME
+-				       ": %s: backup interface %s is now down\n",
+-				       bond->dev->name, slave->dev->name);
+-
+-				bond_set_slave_inactive_flags(slave);
++				goto do_failover;
+ 			}
+-			break;
++
++			continue;
+ 
+ 		default:
+ 			pr_err(DRV_NAME
+ 			       ": %s: impossible: new_link %d on slave %s\n",
+ 			       bond->dev->name, slave->new_link,
+ 			       slave->dev->name);
++			continue;
+ 		}
+-	}
+ 
+-	/*
+-	 * No race with changes to primary via sysfs, as we hold rtnl.
+-	 */
+-	if (bond->primary_slave &&
+-	    (bond->primary_slave != bond->curr_active_slave) &&
+-	    (bond->primary_slave->link == BOND_LINK_UP)) {
++do_failover:
++		ASSERT_RTNL();
+ 		write_lock_bh(&bond->curr_slave_lock);
+-		bond_change_active_slave(bond, bond->primary_slave);
++		bond_select_active_slave(bond);
+ 		write_unlock_bh(&bond->curr_slave_lock);
+ 	}
+ 
