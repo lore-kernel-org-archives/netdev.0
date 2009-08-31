@@ -1,47 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: convert one non-symbolic return value in
- dev_queue_xmit
-Date: Sun, 30 Aug 2009 22:18:13 -0700 (PDT)
-Message-ID: <20090830.221813.130178817.davem@davemloft.net>
-References: <20090830062136.6299.31696.sendpatchset@localhost.localdomain>
+Subject: Re: [RFC PATCH] sched: Fix resource limiting in pfifo_fast
+Date: Sun, 30 Aug 2009 22:19:59 -0700 (PDT)
+Message-ID: <20090830.221959.172193969.davem@davemloft.net>
+References: <20090830062344.6380.16713.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: krkumar2@in.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35464
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35467
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754277AbZHaFR7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 01:17:59 -0400
-In-Reply-To: <20090830062136.6299.31696.sendpatchset@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1754270AbZHaFTp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 01:19:45 -0400
+In-Reply-To: <20090830062344.6380.16713.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Krishna Kumar <krkumar2@in.ibm.com>
-Date: Sun, 30 Aug 2009 11:51:36 +0530
+Date: Sun, 30 Aug 2009 11:53:44 +0530
 
 > From: Krishna Kumar <krkumar2@in.ibm.com>
 > 
-> net: convert remaining non-symbolic return values in dev_queue_xmit
+> pfifo_fast_enqueue has this check:
+>         if (skb_queue_len(list) < qdisc_dev(qdisc)->tx_queue_len) {
 > 
-> Patch compiled and 32 simultaneous netperf testing ran fine. 
+> which allows each band to enqueue upto tx_queue_len skbs for a
+> total of 3*tx_queue_len skbs. I am not sure if this was the
+> intention of limiting in qdisc.
+> 
+> Patch compiled and 32 simultaneous netperf testing ran fine. Also:
+> # tc -s qdisc show dev eth2
+> qdisc pfifo_fast 0: root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+>  Sent 16835026752 bytes 373116 pkt (dropped 0, overlimits 0 requeues 25) 
+>  rate 0bit 0pps backlog 0b 0p requeues 25 
+> 
+> (I am taking next week off, so sorry for any delay in responding)
 > 
 > Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 
-Applied, but please do me a favor.
+This is probably just a thinko, nice catch.
 
-Do not provide two commit message header lines like this.
-They aren't even equal.
-
-Whatever you give me in the Subject line after "[....] " is what
-ends up being the commit message header line when I apply your
-patch.
-
-Adding another commit header line in your email message body just
-makes the commit look confusing and ugly.
-
-So just give me one in the subject line and elide the one in the
-message body.
-
-Thanks.
+I think I'll apply this to net-next-2.6, thanks!
