@@ -1,87 +1,222 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 2/8] vlan: Add support for
-	net_devices_ops.ndo_fcoe_enable/_disable to VLAN
-Date: Mon, 31 Aug 2009 15:31:55 -0700
-Message-ID: <20090831223154.30995.11005.stgit@localhost.localdomain>
+Subject: [net-next PATCH 3/8] ixgbe: Add support for the
+	net_device_ops.ndo_fcoe_enable/disable to 82599
+Date: Mon, 31 Aug 2009 15:32:14 -0700
+Message-ID: <20090831223213.30995.63097.stgit@localhost.localdomain>
 References: <20090831223110.30995.61162.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Yi Zou <yi.zou@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:34601 "EHLO
-	QMTA09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752036AbZHaWcK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 18:32:10 -0400
+Received: from qmta11.emeryville.ca.mail.comcast.net ([76.96.27.211]:60149
+	"EHLO QMTA11.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752059AbZHaWcb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 18:32:31 -0400
 In-Reply-To: <20090831223110.30995.61162.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yi Zou <yi.zou@intel.com>
 
-This adds implementation of the net_devices_ops.ndo_fcoe_enable/_disable to
-the VLAN driver. It checks if the real_dev has support for ndo_fcoe_enable/
-ndo_fcoe_disable and if so, passes on to call the associated real_dev.
+This adds support to the net_device_ops.ndo_fcoe_enable/disable for 82599. This
+consequently allows us to dynamically turn FCoE offload feature on or off
+upon incoming calls to ndo_fcoe_enable/disable. When this happens, FCoE offload
+features are enabled/disabled accordingly, and this is regardless of whether
+DCB being turned on or not.
 
 Signed-off-by: Yi Zou <yi.zou@intel.com>
+Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- net/8021q/vlan_dev.c |   26 ++++++++++++++++++++++++++
- 1 files changed, 26 insertions(+), 0 deletions(-)
+ drivers/net/ixgbe/ixgbe.h        |    2 +
+ drivers/net/ixgbe/ixgbe_dcb_nl.c |   33 -------------
+ drivers/net/ixgbe/ixgbe_fcoe.c   |   94 ++++++++++++++++++++++++++++++++++++++
+ drivers/net/ixgbe/ixgbe_main.c   |    2 +
+ 4 files changed, 98 insertions(+), 33 deletions(-)
 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 6e695ac..5a23958 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -586,6 +586,28 @@ static int vlan_dev_fcoe_ddp_done(struct net_device *dev, u16 xid)
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index c983c89..daed0ac 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -450,6 +450,8 @@ extern int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
+ extern int ixgbe_fcoe_ddp_get(struct net_device *netdev, u16 xid,
+                               struct scatterlist *sgl, unsigned int sgc);
+ extern int ixgbe_fcoe_ddp_put(struct net_device *netdev, u16 xid);
++extern int ixgbe_fcoe_enable(struct net_device *netdev);
++extern int ixgbe_fcoe_disable(struct net_device *netdev);
+ #endif /* IXGBE_FCOE */
  
- 	return len;
+ #endif /* _IXGBE_H_ */
+diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+index 34bca45..e05c62a 100644
+--- a/drivers/net/ixgbe/ixgbe_dcb_nl.c
++++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+@@ -139,23 +139,6 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
+ 			adapter->flags &= ~IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
+ 		}
+ 		adapter->flags |= IXGBE_FLAG_DCB_ENABLED;
+-#ifdef IXGBE_FCOE
+-		/* Turn on FCoE offload */
+-		if ((adapter->flags & IXGBE_FLAG_FCOE_CAPABLE) &&
+-		    (!(adapter->flags & IXGBE_FLAG_FCOE_ENABLED))) {
+-			adapter->flags |= IXGBE_FLAG_FCOE_ENABLED;
+-			adapter->ring_feature[RING_F_FCOE].indices =
+-				IXGBE_FCRETA_SIZE;
+-			netdev->features |= NETIF_F_FCOE_CRC;
+-			netdev->features |= NETIF_F_FSO;
+-			netdev->features |= NETIF_F_FCOE_MTU;
+-			netdev->vlan_features |= NETIF_F_FCOE_CRC;
+-			netdev->vlan_features |= NETIF_F_FSO;
+-			netdev->vlan_features |= NETIF_F_FCOE_MTU;
+-			netdev->fcoe_ddp_xid = IXGBE_FCOE_DDP_MAX - 1;
+-			netdev_features_change(netdev);
+-		}
+-#endif /* IXGBE_FCOE */
+ 		ixgbe_init_interrupt_scheme(adapter);
+ 		if (netif_running(netdev))
+ 			netdev->netdev_ops->ndo_open(netdev);
+@@ -174,22 +157,6 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
+ 			if (adapter->hw.mac.type == ixgbe_mac_82599EB)
+ 				adapter->flags |= IXGBE_FLAG_FDIR_HASH_CAPABLE;
+ 
+-#ifdef IXGBE_FCOE
+-			/* Turn off FCoE offload */
+-			if (adapter->flags & (IXGBE_FLAG_FCOE_CAPABLE |
+-			     IXGBE_FLAG_FCOE_ENABLED)) {
+-				adapter->flags &= ~IXGBE_FLAG_FCOE_ENABLED;
+-				adapter->ring_feature[RING_F_FCOE].indices = 0;
+-				netdev->features &= ~NETIF_F_FCOE_CRC;
+-				netdev->features &= ~NETIF_F_FSO;
+-				netdev->features &= ~NETIF_F_FCOE_MTU;
+-				netdev->vlan_features &= ~NETIF_F_FCOE_CRC;
+-				netdev->vlan_features &= ~NETIF_F_FSO;
+-				netdev->vlan_features &= ~NETIF_F_FCOE_MTU;
+-				netdev->fcoe_ddp_xid = 0;
+-				netdev_features_change(netdev);
+-			}
+-#endif /* IXGBE_FCOE */
+ 			ixgbe_init_interrupt_scheme(adapter);
+ 			if (netif_running(netdev))
+ 				netdev->netdev_ops->ndo_open(netdev);
+diff --git a/drivers/net/ixgbe/ixgbe_fcoe.c b/drivers/net/ixgbe/ixgbe_fcoe.c
+index 28cf104..26fe46f 100644
+--- a/drivers/net/ixgbe/ixgbe_fcoe.c
++++ b/drivers/net/ixgbe/ixgbe_fcoe.c
+@@ -554,3 +554,97 @@ void ixgbe_cleanup_fcoe(struct ixgbe_adapter *adapter)
+ 		fcoe->pool = NULL;
+ 	}
  }
 +
-+static int vlan_dev_fcoe_enable(struct net_device *dev)
++/**
++ * ixgbe_fcoe_enable - turn on FCoE offload feature
++ * @netdev: the corresponding netdev
++ *
++ * Turns on FCoE offload feature in 82599.
++ *
++ * Returns : 0 indicates success or -EINVAL on failure
++ */
++int ixgbe_fcoe_enable(struct net_device *netdev)
 +{
-+	struct net_device *real_dev = vlan_dev_info(dev)->real_dev;
-+	const struct net_device_ops *ops = real_dev->netdev_ops;
 +	int rc = -EINVAL;
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
 +
-+	if (ops->ndo_fcoe_enable)
-+		rc = ops->ndo_fcoe_enable(real_dev);
++
++	if (!(adapter->flags & IXGBE_FLAG_FCOE_CAPABLE))
++		goto out_enable;
++
++	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)
++		goto out_enable;
++
++	DPRINTK(DRV, INFO, "Enabling FCoE offload features.\n");
++	if (netif_running(netdev))
++		netdev->netdev_ops->ndo_stop(netdev);
++
++	ixgbe_clear_interrupt_scheme(adapter);
++
++	adapter->flags |= IXGBE_FLAG_FCOE_ENABLED;
++	adapter->ring_feature[RING_F_FCOE].indices = IXGBE_FCRETA_SIZE;
++	netdev->features |= NETIF_F_FCOE_CRC;
++	netdev->features |= NETIF_F_FSO;
++	netdev->features |= NETIF_F_FCOE_MTU;
++	netdev->vlan_features |= NETIF_F_FCOE_CRC;
++	netdev->vlan_features |= NETIF_F_FSO;
++	netdev->vlan_features |= NETIF_F_FCOE_MTU;
++	netdev->fcoe_ddp_xid = IXGBE_FCOE_DDP_MAX - 1;
++	netdev_features_change(netdev);
++
++	ixgbe_init_interrupt_scheme(adapter);
++
++	if (netif_running(netdev))
++		netdev->netdev_ops->ndo_open(netdev);
++	rc = 0;
++
++out_enable:
 +	return rc;
 +}
 +
-+static int vlan_dev_fcoe_disable(struct net_device *dev)
++/**
++ * ixgbe_fcoe_disable - turn off FCoE offload feature
++ * @netdev: the corresponding netdev
++ *
++ * Turns off FCoE offload feature in 82599.
++ *
++ * Returns : 0 indicates success or -EINVAL on failure
++ */
++int ixgbe_fcoe_disable(struct net_device *netdev)
 +{
-+	struct net_device *real_dev = vlan_dev_info(dev)->real_dev;
-+	const struct net_device_ops *ops = real_dev->netdev_ops;
 +	int rc = -EINVAL;
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
 +
-+	if (ops->ndo_fcoe_disable)
-+		rc = ops->ndo_fcoe_disable(real_dev);
++	if (!(adapter->flags & IXGBE_FLAG_FCOE_CAPABLE))
++		goto out_disable;
++
++	if (!(adapter->flags & IXGBE_FLAG_FCOE_ENABLED))
++		goto out_disable;
++
++	DPRINTK(DRV, INFO, "Disabling FCoE offload features.\n");
++	if (netif_running(netdev))
++		netdev->netdev_ops->ndo_stop(netdev);
++
++	ixgbe_clear_interrupt_scheme(adapter);
++
++	adapter->flags &= ~IXGBE_FLAG_FCOE_ENABLED;
++	adapter->ring_feature[RING_F_FCOE].indices = 0;
++	netdev->features &= ~NETIF_F_FCOE_CRC;
++	netdev->features &= ~NETIF_F_FSO;
++	netdev->features &= ~NETIF_F_FCOE_MTU;
++	netdev->vlan_features &= ~NETIF_F_FCOE_CRC;
++	netdev->vlan_features &= ~NETIF_F_FSO;
++	netdev->vlan_features &= ~NETIF_F_FCOE_MTU;
++	netdev->fcoe_ddp_xid = 0;
++	netdev_features_change(netdev);
++
++	ixgbe_cleanup_fcoe(adapter);
++
++	ixgbe_init_interrupt_scheme(adapter);
++	if (netif_running(netdev))
++		netdev->netdev_ops->ndo_open(netdev);
++	rc = 0;
++
++out_disable:
 +	return rc;
 +}
- #endif
- 
- static void vlan_dev_change_rx_flags(struct net_device *dev, int change)
-@@ -749,6 +771,8 @@ static const struct net_device_ops vlan_netdev_ops = {
- #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
- 	.ndo_fcoe_ddp_setup	= vlan_dev_fcoe_ddp_setup,
- 	.ndo_fcoe_ddp_done	= vlan_dev_fcoe_ddp_done,
-+	.ndo_fcoe_enable	= vlan_dev_fcoe_enable,
-+	.ndo_fcoe_disable	= vlan_dev_fcoe_disable,
- #endif
- };
- 
-@@ -769,6 +793,8 @@ static const struct net_device_ops vlan_netdev_accel_ops = {
- #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
- 	.ndo_fcoe_ddp_setup	= vlan_dev_fcoe_ddp_setup,
- 	.ndo_fcoe_ddp_done	= vlan_dev_fcoe_ddp_done,
-+	.ndo_fcoe_enable	= vlan_dev_fcoe_enable,
-+	.ndo_fcoe_disable	= vlan_dev_fcoe_disable,
- #endif
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 0bea096..f46618d 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -5376,6 +5376,8 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+ #ifdef IXGBE_FCOE
+ 	.ndo_fcoe_ddp_setup = ixgbe_fcoe_ddp_get,
+ 	.ndo_fcoe_ddp_done = ixgbe_fcoe_ddp_put,
++	.ndo_fcoe_enable = ixgbe_fcoe_enable,
++	.ndo_fcoe_disable = ixgbe_fcoe_disable,
+ #endif /* IXGBE_FCOE */
  };
  
 
