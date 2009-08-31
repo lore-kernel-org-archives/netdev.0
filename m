@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 7/8] dcbnl: Add implementations of dcbnl
-	setapp/getapp commands
-Date: Mon, 31 Aug 2009 15:33:40 -0700
-Message-ID: <20090831223340.30995.21328.stgit@localhost.localdomain>
+Subject: [net-next PATCH 8/8] ixgbe: Add support for
+	dcbnl_rtnl_ops.setapp/getapp
+Date: Mon, 31 Aug 2009 15:34:28 -0700
+Message-ID: <20090831223428.30995.63567.stgit@localhost.localdomain>
 References: <20090831223110.30995.61162.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,166 +13,236 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:55495 "EHLO
-	QMTA06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751995AbZHaWeh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 18:34:37 -0400
+Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:44172
+	"EHLO QMTA10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752100AbZHaWer (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 18:34:47 -0400
 In-Reply-To: <20090831223110.30995.61162.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yi Zou <yi.zou@intel.com>
 
-Implements the dcbnl netlink setapp/getapp pair. When a setapp/getapp
-is received, dcbnl would just pass on to dcbnl_rtnl_op.setapp/getapp
-that are supposed to be implemented by the low level drivers.
+Add support for dcbnl_rtnl_ops.setapp/getapp to set or get the current user
+priority bitmap for the given application protocol. Currently, 82599 only
+supports setapp/getapp for Fiber Channel over Ethernet (FCoE) protocol.
 
 Signed-off-by: Yi Zou <yi.zou@intel.com>
 Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- net/dcb/dcbnl.c |  122 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 122 insertions(+), 0 deletions(-)
+ drivers/net/ixgbe/ixgbe.h        |    4 ++
+ drivers/net/ixgbe/ixgbe_dcb_nl.c |   60 ++++++++++++++++++++++++++++++++++++
+ drivers/net/ixgbe/ixgbe_fcoe.c   |   64 ++++++++++++++++++++++++++++++++++++++
+ drivers/net/ixgbe/ixgbe_fcoe.h   |    4 ++
+ drivers/net/ixgbe/ixgbe_main.c   |    2 +
+ 5 files changed, 134 insertions(+), 0 deletions(-)
 
-diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index 4046468..e0879bf 100644
---- a/net/dcb/dcbnl.c
-+++ b/net/dcb/dcbnl.c
-@@ -544,6 +544,120 @@ static int dcbnl_setpfcstate(struct net_device *netdev, struct nlattr **tb,
- 	return ret;
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index daed0ac..dd688d4 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -452,6 +452,10 @@ extern int ixgbe_fcoe_ddp_get(struct net_device *netdev, u16 xid,
+ extern int ixgbe_fcoe_ddp_put(struct net_device *netdev, u16 xid);
+ extern int ixgbe_fcoe_enable(struct net_device *netdev);
+ extern int ixgbe_fcoe_disable(struct net_device *netdev);
++#ifdef CONFIG_IXGBE_DCB
++extern u8 ixgbe_fcoe_getapp(struct ixgbe_adapter *adapter);
++extern u8 ixgbe_fcoe_setapp(struct ixgbe_adapter *adapter, u8 up);
++#endif /* CONFIG_IXGBE_DCB */
+ #endif /* IXGBE_FCOE */
+ 
+ #endif /* _IXGBE_H_ */
+diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+index e05c62a..47d9dde 100644
+--- a/drivers/net/ixgbe/ixgbe_dcb_nl.c
++++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+@@ -480,6 +480,64 @@ static void ixgbe_dcbnl_setpfcstate(struct net_device *netdev, u8 state)
+ 	return;
  }
  
-+static int dcbnl_getapp(struct net_device *netdev, struct nlattr **tb,
-+                        u32 pid, u32 seq, u16 flags)
++/**
++ * ixgbe_dcbnl_getapp - retrieve the DCBX application user priority
++ * @netdev : the corresponding netdev
++ * @idtype : identifies the id as ether type or TCP/UDP port number
++ * @id: id is either ether type or TCP/UDP port number
++ *
++ * Returns : on success, returns a non-zero 802.1p user priority bitmap
++ * otherwise returns 0 as the invalid user priority bitmap to indicate an
++ * error.
++ */
++static u8 ixgbe_dcbnl_getapp(struct net_device *netdev, u8 idtype, u16 id)
 +{
-+	struct sk_buff *dcbnl_skb;
-+	struct nlmsghdr *nlh;
-+	struct dcbmsg *dcb;
-+	struct nlattr *app_nest;
-+	struct nlattr *app_tb[DCB_APP_ATTR_MAX + 1];
-+	u16 id;
-+	u8 up, idtype;
-+	int ret = -EINVAL;
++	u8 rval = 0;
 +
-+	if (!tb[DCB_ATTR_APP] || !netdev->dcbnl_ops->getapp)
-+		goto out;
-+
-+	ret = nla_parse_nested(app_tb, DCB_APP_ATTR_MAX, tb[DCB_ATTR_APP],
-+	                       dcbnl_app_nest);
-+	if (ret)
-+		goto out;
-+
-+	ret = -EINVAL;
-+	/* all must be non-null */
-+	if ((!app_tb[DCB_APP_ATTR_IDTYPE]) ||
-+	    (!app_tb[DCB_APP_ATTR_ID]))
-+		goto out;
-+
-+	/* either by eth type or by socket number */
-+	idtype = nla_get_u8(app_tb[DCB_APP_ATTR_IDTYPE]);
-+	if ((idtype != DCB_APP_IDTYPE_ETHTYPE) &&
-+	    (idtype != DCB_APP_IDTYPE_PORTNUM))
-+		goto out;
-+
-+	id = nla_get_u16(app_tb[DCB_APP_ATTR_ID]);
-+	up = netdev->dcbnl_ops->getapp(netdev, idtype, id);
-+
-+	/* send this back */
-+	dcbnl_skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!dcbnl_skb)
-+		goto out;
-+
-+	nlh = NLMSG_NEW(dcbnl_skb, pid, seq, RTM_GETDCB, sizeof(*dcb), flags);
-+	dcb = NLMSG_DATA(nlh);
-+	dcb->dcb_family = AF_UNSPEC;
-+	dcb->cmd = DCB_CMD_GAPP;
-+
-+	app_nest = nla_nest_start(dcbnl_skb, DCB_ATTR_APP);
-+	ret = nla_put_u8(dcbnl_skb, DCB_APP_ATTR_IDTYPE, idtype);
-+	if (ret)
-+		goto out_cancel;
-+
-+	ret = nla_put_u16(dcbnl_skb, DCB_APP_ATTR_ID, id);
-+	if (ret)
-+		goto out_cancel;
-+
-+	ret = nla_put_u8(dcbnl_skb, DCB_APP_ATTR_PRIORITY, up);
-+	if (ret)
-+		goto out_cancel;
-+
-+	nla_nest_end(dcbnl_skb, app_nest);
-+	nlmsg_end(dcbnl_skb, nlh);
-+
-+	ret = rtnl_unicast(dcbnl_skb, &init_net, pid);
-+	if (ret)
-+		goto nlmsg_failure;
-+
-+	goto out;
-+
-+out_cancel:
-+	nla_nest_cancel(dcbnl_skb, app_nest);
-+nlmsg_failure:
-+	kfree_skb(dcbnl_skb);
-+out:
-+	return ret;
++	switch (idtype) {
++	case DCB_APP_IDTYPE_ETHTYPE:
++#ifdef IXGBE_FCOE
++		if (id == ETH_P_FCOE)
++			rval = ixgbe_fcoe_getapp(netdev_priv(netdev));
++#endif
++		break;
++	case DCB_APP_IDTYPE_PORTNUM:
++		break;
++	default:
++		break;
++	}
++	return rval;
 +}
 +
-+static int dcbnl_setapp(struct net_device *netdev, struct nlattr **tb,
-+                        u32 pid, u32 seq, u16 flags)
++/**
++ * ixgbe_dcbnl_setapp - set the DCBX application user priority
++ * @netdev : the corresponding netdev
++ * @idtype : identifies the id as ether type or TCP/UDP port number
++ * @id: id is either ether type or TCP/UDP port number
++ * @up: the 802.1p user priority bitmap
++ *
++ * Returns : 0 on success or 1 on error
++ */
++static u8 ixgbe_dcbnl_setapp(struct net_device *netdev,
++                             u8 idtype, u16 id, u8 up)
 +{
-+	int ret = -EINVAL;
-+	u16 id;
-+	u8 up, idtype;
-+	struct nlattr *app_tb[DCB_APP_ATTR_MAX + 1];
++	u8 rval = 1;
 +
-+	if (!tb[DCB_ATTR_APP] || !netdev->dcbnl_ops->setapp)
-+		goto out;
-+
-+	ret = nla_parse_nested(app_tb, DCB_APP_ATTR_MAX, tb[DCB_ATTR_APP],
-+	                       dcbnl_app_nest);
-+	if (ret)
-+		goto out;
-+
-+	ret = -EINVAL;
-+	/* all must be non-null */
-+	if ((!app_tb[DCB_APP_ATTR_IDTYPE]) ||
-+	    (!app_tb[DCB_APP_ATTR_ID]) ||
-+	    (!app_tb[DCB_APP_ATTR_PRIORITY]))
-+		goto out;
-+
-+	/* either by eth type or by socket number */
-+	idtype = nla_get_u8(app_tb[DCB_APP_ATTR_IDTYPE]);
-+	if ((idtype != DCB_APP_IDTYPE_ETHTYPE) &&
-+	    (idtype != DCB_APP_IDTYPE_PORTNUM))
-+		goto out;
-+
-+	id = nla_get_u16(app_tb[DCB_APP_ATTR_ID]);
-+	up = nla_get_u8(app_tb[DCB_APP_ATTR_PRIORITY]);
-+
-+	ret = dcbnl_reply(netdev->dcbnl_ops->setapp(netdev, idtype, id, up),
-+	                  RTM_SETDCB, DCB_CMD_SAPP, DCB_ATTR_APP,
-+	                  pid, seq, flags);
-+out:
-+	return ret;
++	switch (idtype) {
++	case DCB_APP_IDTYPE_ETHTYPE:
++#ifdef IXGBE_FCOE
++		if (id == ETH_P_FCOE)
++			rval = ixgbe_fcoe_setapp(netdev_priv(netdev), up);
++#endif
++		break;
++	case DCB_APP_IDTYPE_PORTNUM:
++		break;
++	default:
++		break;
++	}
++	return rval;
 +}
 +
- static int __dcbnl_pg_getcfg(struct net_device *netdev, struct nlattr **tb,
-                              u32 pid, u32 seq, u16 flags, int dir)
- {
-@@ -1101,6 +1215,14 @@ static int dcb_doit(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 		ret = dcbnl_bcn_setcfg(netdev, tb, pid, nlh->nlmsg_seq,
- 		                       nlh->nlmsg_flags);
- 		goto out;
-+	case DCB_CMD_GAPP:
-+		ret = dcbnl_getapp(netdev, tb, pid, nlh->nlmsg_seq,
-+		                   nlh->nlmsg_flags);
-+		goto out;
-+	case DCB_CMD_SAPP:
-+		ret = dcbnl_setapp(netdev, tb, pid, nlh->nlmsg_seq,
-+		                   nlh->nlmsg_flags);
-+		goto out;
- 	default:
- 		goto errout;
+ struct dcbnl_rtnl_ops dcbnl_ops = {
+ 	.getstate	= ixgbe_dcbnl_get_state,
+ 	.setstate	= ixgbe_dcbnl_set_state,
+@@ -500,5 +558,7 @@ struct dcbnl_rtnl_ops dcbnl_ops = {
+ 	.setnumtcs	= ixgbe_dcbnl_setnumtcs,
+ 	.getpfcstate	= ixgbe_dcbnl_getpfcstate,
+ 	.setpfcstate	= ixgbe_dcbnl_setpfcstate,
++	.getapp		= ixgbe_dcbnl_getapp,
++	.setapp		= ixgbe_dcbnl_setapp,
+ };
+ 
+diff --git a/drivers/net/ixgbe/ixgbe_fcoe.c b/drivers/net/ixgbe/ixgbe_fcoe.c
+index 26fe46f..0607cff 100644
+--- a/drivers/net/ixgbe/ixgbe_fcoe.c
++++ b/drivers/net/ixgbe/ixgbe_fcoe.c
+@@ -27,6 +27,9 @@
+ 
+ 
+ #include "ixgbe.h"
++#ifdef CONFIG_IXGBE_DCB
++#include "ixgbe_dcb_82599.h"
++#endif /* CONFIG_IXGBE_DCB */
+ #include <linux/if_ether.h>
+ #include <scsi/scsi_cmnd.h>
+ #include <scsi/scsi_device.h>
+@@ -648,3 +651,64 @@ int ixgbe_fcoe_disable(struct net_device *netdev)
+ out_disable:
+ 	return rc;
+ }
++
++#ifdef CONFIG_IXGBE_DCB
++/**
++ * ixgbe_fcoe_getapp - retrieves current user priority bitmap for FCoE
++ * @adapter : ixgbe adapter
++ *
++ * Finds out the corresponding user priority bitmap from the current
++ * traffic class that FCoE belongs to. Returns 0 as the invalid user
++ * priority bitmap to indicate an error.
++ *
++ * Returns : 802.1p user priority bitmap for FCoE
++ */
++u8 ixgbe_fcoe_getapp(struct ixgbe_adapter *adapter)
++{
++	int i;
++	u8 tc;
++	u32 up2tc;
++
++	up2tc = IXGBE_READ_REG(&adapter->hw, IXGBE_RTTUP2TC);
++	for (i = 0; i < MAX_USER_PRIORITY; i++) {
++		tc = (u8)(up2tc >> (i * IXGBE_RTTUP2TC_UP_SHIFT));
++		tc &= (MAX_TRAFFIC_CLASS - 1);
++		if (adapter->fcoe.tc == tc)
++			return 1 << i;
++	}
++
++	return 0;
++}
++
++/**
++ * ixgbe_fcoe_setapp - sets the user priority bitmap for FCoE
++ * @adapter : ixgbe adapter
++ * @up : 802.1p user priority bitmap
++ *
++ * Finds out the traffic class from the input user priority
++ * bitmap for FCoE.
++ *
++ * Returns : 0 on success otherwise returns 1 on error
++ */
++u8 ixgbe_fcoe_setapp(struct ixgbe_adapter *adapter, u8 up)
++{
++	int i;
++	u32 up2tc;
++
++	/* valid user priority bitmap must not be 0 */
++	if (up) {
++		/* from user priority to the corresponding traffic class */
++		up2tc = IXGBE_READ_REG(&adapter->hw, IXGBE_RTTUP2TC);
++		for (i = 0; i < MAX_USER_PRIORITY; i++) {
++			if (up & (1 << i)) {
++				up2tc >>= (i * IXGBE_RTTUP2TC_UP_SHIFT);
++				up2tc &= (MAX_TRAFFIC_CLASS - 1);
++				adapter->fcoe.tc = (u8)up2tc;
++				return 0;
++			}
++		}
++	}
++
++	return 1;
++}
++#endif /* CONFIG_IXGBE_DCB */
+diff --git a/drivers/net/ixgbe/ixgbe_fcoe.h b/drivers/net/ixgbe/ixgbe_fcoe.h
+index c5b5002..b5dee7b 100644
+--- a/drivers/net/ixgbe/ixgbe_fcoe.h
++++ b/drivers/net/ixgbe/ixgbe_fcoe.h
+@@ -46,6 +46,9 @@
+ #define IXGBE_FCBUFF_MIN	4096	/* 4KB min */
+ #define IXGBE_FCOE_DDP_MAX	512	/* 9 bits xid */
+ 
++/* Default traffic class to use for FCoE */
++#define IXGBE_FCOE_DEFTC	3
++
+ /* fcerr */
+ #define IXGBE_FCERR_BADCRC       0x00100000
+ 
+@@ -59,6 +62,7 @@ struct ixgbe_fcoe_ddp {
+ };
+ 
+ struct ixgbe_fcoe {
++	u8 tc;
+ 	spinlock_t lock;
+ 	struct pci_pool *pool;
+ 	struct ixgbe_fcoe_ddp ddp[IXGBE_FCOE_DDP_MAX];
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index f46618d..7eb60f6 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -3801,6 +3801,8 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 		adapter->flags |= IXGBE_FLAG_FCOE_CAPABLE;
+ 		adapter->flags &= ~IXGBE_FLAG_FCOE_ENABLED;
+ 		adapter->ring_feature[RING_F_FCOE].indices = 0;
++		/* Default traffic class to use for FCoE */
++		adapter->fcoe.tc = IXGBE_FCOE_DEFTC;
+ #endif /* IXGBE_FCOE */
  	}
+ 
 
