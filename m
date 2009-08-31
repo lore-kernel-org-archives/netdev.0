@@ -1,44 +1,60 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [patch] ipvs: Use atomic operations atomicly
-Date: Mon, 31 Aug 2009 14:22:26 +0200
-Message-ID: <4A9BC082.3090804@trash.net>
-References: <20090828023722.GA12136@verge.net.au>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] au1000_eth: possible NULL dereference of aup->mii_bus->irq in au1000_probe()
+Date: Mon, 31 Aug 2009 14:38:55 +0200
+Message-ID: <200908311439.01781.f.fainelli@gmail.com>
+References: <4A9B8C6F.3040503@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	=?UTF-8?B?7ZmN7IugIHNoaW4gaG9uZw==?= <hongshin@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090828023722.GA12136@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Roel Kluin <roel.kluin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f206.google.com ([209.85.219.206]:35581 "EHLO
+	mail-ew0-f206.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751244AbZHaMjE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 08:39:04 -0400
+Received: by ewy2 with SMTP id 2so260403ewy.17
+        for <netdev@vger.kernel.org>; Mon, 31 Aug 2009 05:39:05 -0700 (PDT)
+In-Reply-To: <4A9B8C6F.3040503@gmail.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Simon Horman wrote:
-> A pointed out by Shin Hong, IPVS doesn't always use atomic operations
-> in an atomic manner. While this seems unlikely to be manifest in
-> strange behaviour, it seems appropriate to clean this up.
->=20
-> Cc: =ED=99=8D=EC=8B=A0 shin hong <hongshin@gmail.com>
-> Signed-off-by: Simon Horman <horms@verge.net.au>
+Hello Roel,
 
-Applied, thanks.
+Le lundi 31 ao=FBt 2009 10:40:15, Roel Kluin a =E9crit :
+> aup->mii_bus->irq allocation may fail, prevent a dereference of NULL.
 
->  	if (af =3D=3D AF_INET &&
->  	    (ip_vs_sync_state & IP_VS_STATE_MASTER) &&
->  	    (((cp->protocol !=3D IPPROTO_TCP ||
->  	       cp->state =3D=3D IP_VS_TCP_S_ESTABLISHED) &&
-> -	      (atomic_read(&cp->in_pkts) % sysctl_ip_vs_sync_threshold[1]
-> +	      (pkts % sysctl_ip_vs_sync_threshold[1]
+Good catch.
 
-It seems that proc_do_sync_threshold() should check whether this value
-is zero. The current checks also look racy since incorrect values are
-first updated, then overwritten again.
+>
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Florian Fainelli <florian@openwrt.org>
+
+> ---
+> diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
+> index d3c734f..02e4be0 100644
+> --- a/drivers/net/au1000_eth.c
+> +++ b/drivers/net/au1000_eth.c
+> @@ -1157,6 +1157,9 @@ static struct net_device * au1000_probe(int por=
+t_num)
+>  	aup->mii_bus->name =3D "au1000_eth_mii";
+>  	snprintf(aup->mii_bus->id, MII_BUS_ID_SIZE, "%x", aup->mac_id);
+>  	aup->mii_bus->irq =3D kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL)=
+;
+> +	if (aup->mii_bus->irq =3D=3D NULL)
+> +		goto err_out;
+> +
+>  	for(i =3D 0; i < PHY_MAX_ADDR; ++i)
+>  		aup->mii_bus->irq[i] =3D PHY_POLL;
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--=20
+Cordialement, Florian Fainelli
+------------------------------
