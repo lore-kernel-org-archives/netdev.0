@@ -1,45 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Crypto oops in async_chainiv_do_postponed
-Date: Tue, 1 Sep 2009 08:04:59 +1000
-Message-ID: <20090831220459.GA15713@gondor.apana.org.au>
-References: <19095.1264.682820.125602@waldo.imnotcreative.homeip.net> <20090829104606.GA13141@gondor.apana.org.au> <19099.63038.425414.514063@waldo.imnotcreative.homeip.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: TCP Congestion Control Algorithms
+Date: Mon, 31 Aug 2009 15:07:31 -0700
+Message-ID: <20090831150731.28c36081@nehalam>
+References: <a45e9b40908311408l15d68088i459d6a1000cbca07@mail.gmail.com>
+	<a45e9b40908311410m486a60fel6a81c334732de358@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-	offbase0@gmail.com
-To: Brad Bosch <bradbosch@comcast.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Lisong Xu <lisongxu2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:37400 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751442AbZHaWFD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 18:05:03 -0400
-Content-Disposition: inline
-In-Reply-To: <19099.63038.425414.514063@waldo.imnotcreative.homeip.net>
+Received: from mail.vyatta.com ([76.74.103.46]:49148 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751442AbZHaWHe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Aug 2009 18:07:34 -0400
+In-Reply-To: <a45e9b40908311410m486a60fel6a81c334732de358@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 31, 2009 at 11:11:42AM -0500, Brad Bosch wrote:
->
-> OK.  I was looking for something subtle because the crash takes a long
-> time to happen.  But do you agree that the race I described above also
-> a real bug?
+On Mon, 31 Aug 2009 16:10:59 -0500
+Lisong Xu <lisongxu2@gmail.com> wrote:
 
-No I don't think it is.  CHAINV_STATE_INUSE guarantees that only
-one entity can use ctx->err at any time.
+> Hello,
+> 
+> Since there are multiple different TCP congestion control algorithms
+> available in Linux, a Linux server may use any of them.
+> 
+> Is it possible for a regular user to find out the exact TCP congestion
+> control algorithm used by a Linux server? For example, if I am
+> downloading a file from a remote Linux server using a TCP flow, can I
+> find out whether this flow is a TCP/CUBIC flow, or TCP/Newreno, or
+> some other TCP protocol?
+> 
 
-> Yes, I see that this bug must be the bug we would likely encounter first.
-> Apparently, async_chainiv_do_postponed was never tested?  But I don't
-> see how the patch you proposed below helps.  We still don't seem to be
-> returning NULL from skcipher_dequeue_givcrypt when we reach the end of
-> the queue because __crypto_dequeue_request is not checking for NULL
-> before it subtracts offset.
-
-Where we subtract the offset the pointer can never be NULL.  Please
-try my patch.
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+No. you might be able to some nmap style guessing, but no remote
+API. You can see locally on the server through /proc/sys/net
