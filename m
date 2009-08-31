@@ -1,93 +1,39 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [patch, v2] IPVS: Add handling of incoming ICMPV6 messages
-Date: Mon, 31 Aug 2009 17:59:06 +1000
-Message-ID: <20090831075904.GA3430@verge.net.au>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: Re: [PATCH] Re: iproute2 / tbf with large burst seems broken again
+Date: Mon, 31 Aug 2009 11:03:56 +0300
+Message-ID: <200908311103.56770.denys@visp.net.lb>
+References: <20090826215956.GA5148@ami.dom.local> <20090831053026.GA5005@ff.dom.local> <20090830.223239.185830289.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Julius Volz <julius.volz@gmail.com>,
-	Rob Gallagher <robert.gallagher@heanet.ie>
-To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: jarkao2@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hosting.visp.net.lb ([194.146.153.11]:35853 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751671AbZHaIIZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 04:08:25 -0400
+In-Reply-To: <20090830.223239.185830289.davem@davemloft.net>
 Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julius Volz <julius.volz@gmail.com>
+On Monday 31 August 2009 08:32:39 David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Mon, 31 Aug 2009 05:30:27 +0000
+>
+> > Actually, I think now, after 2.6.31, this patch might be a bit too
+> > late. If people hit this problem they probably should've fixed it
+> > until -next already, so let's forget about this patch until there are
+> > more such reports.
+>
+> Ok.
+>
+> > Btw, I guess, Denys could submit some warnings into iproute's code
+> > and/or documentation, as he proposed earlier.
+>
+> Yeah sounds like a good idea.
+Sorry, just was busy with network overload on ramadan.
+I will test now.
 
-IPVS: Add handling of incoming ICMPV6 messages
-
-Add handling of incoming ICMPv6 messages.
-This follows the handling of IPv4 ICMP messages.
-
-Amongst ther things this problem allows IPVS to behave sensibly
-when an ICMPV6_PKT_TOOBIG message is received:
-
-    This message is received when a realserver sends a packet >PMTU to the
-    client. The hop on this path with insufficient MTU will generate an
-    ICMPv6 Packet Too Big message back to the VIP. The LVS server receives
-    this message, but the call to the function handling this has been
-    missing. Thus, IPVS fails to forward the message to the real server,
-    which then does not adjust the path MTU. This patch adds the missing
-    call to ip_vs_in_icmp_v6() in ip_vs_in() to handle this situation.
-
-    Thanks to Rob Gallagher from HEAnet for reporting this issue and for
-    testing this patch in production (with direct routing mode).
-
-[horms@verge.net.au: tweaked changelog]
-Signed-off-by: Julius Volz <julius.volz@gmail.com>
-Tested-by: Rob Gallagher <robert.gallagher@heanet.ie>
-Signed-off-by: Simon Horman <horms@verge.net.au>
-
----
- net/netfilter/ipvs/ip_vs_core.c |   23 +++++++++++++++++------
- 1 files changed, 17 insertions(+), 6 deletions(-)
-
-Changelog
----------
-
-* Fri, 24 Jul 2009 12:47:16 +1000
-  Initial post to netdev
-
-* Mon, 31 Aug 2009 17:53:40 +1000
-  Tweaked commit message as per feedback
-
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 8dddb17..5750800 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1274,13 +1274,24 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb,
- 		return NF_ACCEPT;
- 	}
- 
--	if (unlikely(iph.protocol == IPPROTO_ICMP)) {
--		int related, verdict = ip_vs_in_icmp(skb, &related, hooknum);
-+#ifdef CONFIG_IP_VS_IPV6
-+	if (af == AF_INET6) {
-+		if (unlikely(iph.protocol == IPPROTO_ICMPV6)) {
-+			int related, verdict = ip_vs_in_icmp_v6(skb, &related, hooknum);
- 
--		if (related)
--			return verdict;
--		ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
--	}
-+			if (related)
-+				return verdict;
-+			ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
-+		}
-+	} else
-+#endif
-+		if (unlikely(iph.protocol == IPPROTO_ICMP)) {
-+			int related, verdict = ip_vs_in_icmp(skb, &related, hooknum);
-+
-+			if (related)
-+				return verdict;
-+			ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
-+		}
- 
- 	/* Protocol supported? */
- 	pp = ip_vs_proto_get(iph.protocol);
---
-To unsubscribe from this list: send the line "unsubscribe lvs-devel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
