@@ -1,36 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: sk_free() should be allowed right after sk_alloc()
-Date: Mon, 31 Aug 2009 14:12:02 +0200
-Message-ID: <4A9BBE12.4080206@gmail.com>
-References: <4A9B7956.40507@gmail.com>	<4A9B94B8.4050808@gmail.com>	<20090831093019.GI5005@ff.dom.local> <20090831.050220.255723045.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [patch] ipvs: Use atomic operations atomicly
+Date: Mon, 31 Aug 2009 14:22:26 +0200
+Message-ID: <4A9BC082.3090804@trash.net>
+References: <20090828023722.GA12136@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jarkao2@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:35133 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752384AbZHaMMD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 08:12:03 -0400
-In-Reply-To: <20090831.050220.255723045.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	=?UTF-8?B?7ZmN7IugIHNoaW4gaG9uZw==?= <hongshin@gmail.com>,
+	David Miller <davem@davemloft.net>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090828023722.GA12136@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller a =E9crit :
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Mon, 31 Aug 2009 09:30:19 +0000
+Simon Horman wrote:
+> A pointed out by Shin Hong, IPVS doesn't always use atomic operations
+> in an atomic manner. While this seems unlikely to be manifest in
+> strange behaviour, it seems appropriate to clean this up.
 >=20
->> On Mon, Aug 31, 2009 at 11:15:36AM +0200, Eric Dumazet wrote:
->>> From: Jarek Poplawski <jarkao2@gmail.com>
->>>
->>> After commit 2b85a34e911bf483c27cfdd124aeb1605145dc80
->>> (net: No more expensive sock_hold()/sock_put() on each tx)
->>> sk_free() frees socks conditionally and depends
->>> on sk_wmem_alloc beeing set e.g. in sock_init_data(). But in some
->> Very nice, but I hope David could fix btw. my "beeing" misspelling.
->=20
-> I will :-)
+> Cc: =ED=99=8D=EC=8B=A0 shin hong <hongshin@gmail.com>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-Thanks :)
+Applied, thanks.
 
+>  	if (af =3D=3D AF_INET &&
+>  	    (ip_vs_sync_state & IP_VS_STATE_MASTER) &&
+>  	    (((cp->protocol !=3D IPPROTO_TCP ||
+>  	       cp->state =3D=3D IP_VS_TCP_S_ESTABLISHED) &&
+> -	      (atomic_read(&cp->in_pkts) % sysctl_ip_vs_sync_threshold[1]
+> +	      (pkts % sysctl_ip_vs_sync_threshold[1]
+
+It seems that proc_do_sync_threshold() should check whether this value
+is zero. The current checks also look racy since incorrect values are
+first updated, then overwritten again.
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
