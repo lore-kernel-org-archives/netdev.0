@@ -1,30 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/9] drivers/net/s2io.c: Cleanups
-Date: Sun, 30 Aug 2009 22:35:46 -0700 (PDT)
-Message-ID: <20090830.223546.45146240.davem@davemloft.net>
-References: <20090826.153353.259743590.davem@davemloft.net>
-	<1251326878.13026.52.camel@Joe-Laptop.home>
-	<78C9135A3D2ECE4B8162EBDCE82CAD7705A1DF76@nekter>
+From: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+Subject: [PATCH resend] drop_monitor: fix trace_napi_poll_hit()
+Date: Mon, 31 Aug 2009 14:10:43 +0800
+Message-ID: <4A9B6963.5090207@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org, Anil.Murthy@neterion.com,
-	Sivakumar.Subramani@neterion.com, santosh.rastapur@neterion.com,
-	Ramkrishna.Vepa@neterion.com, akpm@linux-foundation.org,
-	linux-next@vger.kernel.org
-To: Sreenivasa.Honnur@neterion.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD7705A1DF76@nekter>
-Sender: linux-next-owner@vger.kernel.org
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Wei Yongjun <yjwei@cn.fujitsu.com>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754482AbZHaGLU@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>
-Date: Mon, 31 Aug 2009 01:21:36 -0400
+The net_dev of backlog napi is NULL, like below:
 
-> Joe,
-> Patches look fine, I reviewed and tested these patches on latest
-> davem-net-next-2.6 sources.
-> 
-> Acked-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com> 
+__get_cpu_var(softnet_data).backlog.dev == NULL
 
-Great, all patches applied to net-next-2.6, thanks everyone.
+So, we should check it in napi tracepoint's probe function
+
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+---
+ net/core/drop_monitor.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
+index 9d66fa9..d311202 100644
+--- a/net/core/drop_monitor.c
++++ b/net/core/drop_monitor.c
+@@ -182,7 +182,8 @@ static void trace_napi_poll_hit(struct napi_struct *napi)
+ 	/*
+ 	 * Ratelimit our check time to dm_hw_check_delta jiffies
+ 	 */
+-	if (!time_after(jiffies, napi->dev->last_rx + dm_hw_check_delta))
++	if (!napi->dev ||
++	    !time_after(jiffies, napi->dev->last_rx + dm_hw_check_delta))
+ 		return;
+ 
+ 	rcu_read_lock();
+-- 
+1.6.1.2
