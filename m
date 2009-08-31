@@ -1,110 +1,51 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH]  sky2: fix management of driver LED
-Date: Mon, 31 Aug 2009 10:31:41 -0700
-Message-ID: <20090831103141.77598705@nehalam>
-References: <4A9928C9.7000907@ring3k.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next-2.6] drivers: Kill now superfluous ->last_rx
+	stores
+Date: Mon, 31 Aug 2009 13:37:10 -0400
+Message-ID: <20090831173710.GC2105@hmsreliant.think-freely.org>
+References: <4A9B6963.5090207@cn.fujitsu.com> <4A9B6E57.7090703@gmail.com> <20090831111245.GA2105@hmsreliant.think-freely.org> <4A9BD13E.4040501@gmail.com> <4A9BFBAA.10705@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Rene Mayrhofer <rene.mayrhofer@gibraltar.at>,
-	Richard Leitner <leitner@esys.at>
-To: Mike McCormack <mikem@ring3k.org>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:41552 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751556AbZHaRcN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 13:32:13 -0400
-In-Reply-To: <4A9928C9.7000907@ring3k.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:51519 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752678AbZHaRhQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 13:37:16 -0400
+Content-Disposition: inline
+In-Reply-To: <4A9BFBAA.10705@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Observed by Mike McCormack.
+On Mon, Aug 31, 2009 at 06:34:50PM +0200, Eric Dumazet wrote:
+> Eric Dumazet a =E9crit :
+> > Neil Horman a =E9crit :
+> >> I still see a large number of drivers that update dev->last_rx, al=
+though its
+> >> not all as I look through the list, so something definately seems =
+amiss.
+> >=20
+> > Some drivers still update dev->last_rx for their own needs, not a c=
+ore
+> > network concern.
+> >=20
+> > But a cleanup is certainly possible on few other drivers, about a d=
+ozen
+> > if I count correctly.
+>=20
+> Well, a litle bit more if we look outside of drivers/net
+>=20
+> [PATCH net-next-2.6] drivers: Kill now superfluous ->last_rx stores
+>=20
+> The generic packet receive code takes care of setting
+> netdev->last_rx when necessary, for the sake of the
+> bonding ARP monitor.
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Acked-by: Neil Horman <nhorman@txudriver.com>
 
-The LED bit here is just a software controlled value used to
-turn on one of the LED's on some boards. The register value was wrong,
-which could have been causing some power control issues.
-Get rid of problematic define use the correct mask.
+Thanks!
+Neil
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
----
- drivers/net/sky2.c |   12 ++++++------
- drivers/net/sky2.h |    9 +--------
- 2 files changed, 7 insertions(+), 14 deletions(-)
-
---- a/drivers/net/sky2.c	2009-08-31 09:05:07.941736447 -0700
-+++ b/drivers/net/sky2.c	2009-08-31 09:46:24.611967164 -0700
-@@ -256,6 +256,9 @@ static void sky2_power_on(struct sky2_hw
- 
- 		sky2_read32(hw, B2_GP_IO);
- 	}
-+
-+	/* Turn on "driver loaded" LED */
-+	sky2_write16(hw, B0_CTST, Y2_LED_STAT_ON);
- }
- 
- static void sky2_power_aux(struct sky2_hw *hw)
-@@ -274,6 +277,9 @@ static void sky2_power_aux(struct sky2_h
- 		sky2_write8(hw, B0_POWER_CTRL,
- 			    (PC_VAUX_ENA | PC_VCC_ENA |
- 			     PC_VAUX_ON | PC_VCC_OFF));
-+
-+	/* turn off "driver loaded LED" */
-+	sky2_write16(hw, B0_CTST, Y2_LED_STAT_OFF);
- }
- 
- static void sky2_gmac_reset(struct sky2_hw *hw, unsigned port)
-@@ -1866,9 +1872,6 @@ static int sky2_down(struct net_device *
- 	sky2_phy_power_down(hw, port);
- 	spin_unlock_bh(&sky2->phy_lock);
- 
--	/* turn off LED's */
--	sky2_write16(hw, B0_Y2LED, LED_STAT_OFF);
--
- 	sky2_tx_reset(hw, port);
- 
- 	/* Free any pending frames stuck in HW queue */
-@@ -2982,8 +2985,6 @@ static void sky2_reset(struct sky2_hw *h
- 	sky2_write8(hw, B2_TI_CTRL, TIM_STOP);
- 	sky2_write8(hw, B2_TI_CTRL, TIM_CLR_IRQ);
- 
--	sky2_write8(hw, B0_Y2LED, LED_STAT_ON);
--
- 	/* Turn off descriptor polling */
- 	sky2_write32(hw, B28_DPT_CTRL, DPT_STOP);
- 
-@@ -4600,7 +4601,6 @@ static void __devexit sky2_remove(struct
- 
- 	sky2_power_aux(hw);
- 
--	sky2_write16(hw, B0_Y2LED, LED_STAT_OFF);
- 	sky2_write8(hw, B0_CTST, CS_RST_SET);
- 	sky2_read8(hw, B0_CTST);
- 
---- a/drivers/net/sky2.h	2009-08-31 09:05:07.954719390 -0700
-+++ b/drivers/net/sky2.h	2009-08-31 09:05:36.488716877 -0700
-@@ -155,7 +155,7 @@ enum pci_cfg_reg1 {
- enum csr_regs {
- 	B0_RAP		= 0x0000,
- 	B0_CTST		= 0x0004,
--	B0_Y2LED	= 0x0005,
-+
- 	B0_POWER_CTRL	= 0x0007,
- 	B0_ISRC		= 0x0008,
- 	B0_IMSK		= 0x000c,
-@@ -283,13 +283,6 @@ enum {
- 	CS_RST_SET	= 1,	/* Set   Software reset	*/
- };
- 
--/*	B0_LED			 8 Bit	LED register */
--enum {
--/* Bit  7.. 2:	reserved */
--	LED_STAT_ON	= 1<<1,	/* Status LED on	*/
--	LED_STAT_OFF	= 1,	/* Status LED off	*/
--};
--
- /*	B0_POWER_CTRL	 8 Bit	Power Control reg (YUKON only) */
- enum {
- 	PC_VAUX_ENA	= 1<<7,	/* Switch VAUX Enable  */
