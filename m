@@ -1,50 +1,118 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
-Date: Mon, 31 Aug 2009 20:52:02 +0300
-Message-ID: <4A9C0DC2.6080704@redhat.com>
-References: <E88DD564E9DC5446A76B2B47C3BCCA150219600F9B@pdsmsx503.ccr.corp.intel.com> <C85CEDA13AB1CF4D9D597824A86D2B9006AEB944B8@PDSMSX501.ccr.corp.intel.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH resend] tracing/events: convert NAPI's tracepoint via
+ TRACE_EVENT
+Date: Mon, 31 Aug 2009 14:03:10 -0400 (EDT)
+Message-ID: <alpine.DEB.2.00.0908311402150.13931@gandalf.stny.rr.com>
+References: <4A9B6AA7.5020508@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "mst@redhat.com" <mst@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "virtualization@lists.linux-foundation.org" <virtualization@lists.linux-foundation.org>,
-        "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "mingo@elte.hu" <mingo@elte.hu>,
-        "linux-mm@kvack.org" <linux-mm@kvack.org>,
-        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-        "hpa@zytor.com" <hpa@zytor.com>,
-        "gregory.haskins@gmail.com" <gregory.haskins@gmail.com>
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <C85CEDA13AB1CF4D9D597824A86D2B9006AEB944B8@PDSMSX501.ccr.corp.intel.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Wei Yongjun <yjwei@cn.fujitsu.com>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753944AbZHaSDe@vger.kernel.org>
+In-Reply-To: <4A9B6AA7.5020508@cn.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/31/2009 02:42 PM, Xin, Xiaohui wrote:
-> Hi, Michael
-> That's a great job. We are now working on support VMDq on KVM, and since the VMDq hardware presents L2 sorting based on MAC addresses and VLAN tags, our target is to implement a zero copy solution using VMDq. We stared from the virtio-net architecture. What we want to proposal is to use AIO combined with direct I/O:
-> 1) Modify virtio-net Backend service in Qemu to submit aio requests composed from virtqueue.
-> 2) Modify TUN/TAP device to support aio operations and the user space buffer directly mapping into the host kernel.
-> 3) Let a TUN/TAP device binds to single rx/tx queue from the NIC.
-> 4) Modify the net_dev and skb structure to permit allocated skb to use user space directly mapped payload buffer address rather then kernel allocated.
->
-> As zero copy is also your goal, we are interested in what's in your mind, and would like to collaborate with you if possible.
->    
 
-One way to share the effort is to make vmdq queues available as normal 
-kernel interfaces.  It would take quite a bit of work, but the end 
-result is that no other components need to be change, and it makes vmdq 
-useful outside kvm.  It also greatly reduces the amount of integration 
-work needed throughout the stack (kvm/qemu/libvirt).
+On Mon, 31 Aug 2009, Xiao Guangrong wrote:
 
--- 
-I have a truly marvellous patch that fixes the bug which this
-signature is too narrow to contain.
+> - Convert NAPI's tracepoint via TRACE_EVENT macro, the output information
+>   like below:
+> 
+>    sshd-2503  [000]    71.920846: napi_poll: ifname=eth0 state=0 weigth=16 poll=pcnet32_poll
+>    sshd-2503  [000]    72.020291: napi_poll: ifname=eth0 state=0 weigth=16 poll=pcnet32_poll
+>    sshd-2503  [000]    72.020418: napi_poll: ifname=eth0 state=NAPI_STATE_SCHED weigth=16 poll=pcnet32_poll
+> 
+> - Remove the "DECLARE_TRACE" definiens in include/trace/define_trace.h,
+>   because TRACE_EVENT not use it
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+The above really needs to be in a separate patch, since it is a tracing 
+infrastructure change.
+
+-- Steve
+
+> 
+> Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+> ---
+>  include/trace/define_trace.h |    4 ---
+>  include/trace/events/napi.h  |   43 +++++++++++++++++++++++++++++++++++++----
+>  2 files changed, 38 insertions(+), 9 deletions(-)
+> 
+> diff --git a/include/trace/define_trace.h b/include/trace/define_trace.h
+> index 2a4b3bf..6158741 100644
+> --- a/include/trace/define_trace.h
+> +++ b/include/trace/define_trace.h
+> @@ -31,10 +31,6 @@
+>  		assign, print, reg, unreg)			\
+>  	DEFINE_TRACE_FN(name, reg, unreg)
+>  
+> -#undef DECLARE_TRACE
+> -#define DECLARE_TRACE(name, proto, args)	\
+> -	DEFINE_TRACE(name)
+> -
+>  #undef TRACE_INCLUDE
+>  #undef __TRACE_INCLUDE
+>  
+> diff --git a/include/trace/events/napi.h b/include/trace/events/napi.h
+> index a8989c4..5c7a192 100644
+> --- a/include/trace/events/napi.h
+> +++ b/include/trace/events/napi.h
+> @@ -1,11 +1,44 @@
+> -#ifndef _TRACE_NAPI_H_
+> -#define _TRACE_NAPI_H_
+> +#undef TRACE_SYSTEM
+> +#define TRACE_SYSTEM napi
+> +
+> +#if !defined(_TRACE_NAPI_H) || defined(TRACE_HEADER_MULTI_READ)
+> +#define _TRACE_NAPI_H
+>  
+>  #include <linux/netdevice.h>
+>  #include <linux/tracepoint.h>
+>  
+> -DECLARE_TRACE(napi_poll,
+> +#define show_napi_state(state) state ? __print_flags(state, "|",	\
+> +	{ (1UL << NAPI_STATE_SCHED),	"NAPI_STATE_SCHED"	},	\
+> +	{ (1UL << NAPI_STATE_DISABLE),	"NAPI_STATE_DISABLE"	},	\
+> +	{ (1UL << NAPI_STATE_NPSVC),	"NAPI_STATE_NPSVC"	}) : "0"
+> +
+> +TRACE_EVENT(napi_poll,
+> +
+>  	TP_PROTO(struct napi_struct *napi),
+> -	TP_ARGS(napi));
+>  
+> -#endif
+> +	TP_ARGS(napi),
+> +
+> +	TP_STRUCT__entry(
+> +		__field(	unsigned long,	state		)
+> +		__field(	int,		weight		)
+> +		__field(	void *,		poll		)
+> +		__string(	ifname,		(napi->dev ?
+> +				napi->dev->name : "backlog")	)
+> +	),
+> +
+> +	TP_fast_assign(
+> +		__entry->state	= napi->state;
+> +		__entry->weight	= napi->weight;
+> +		__entry->poll	= napi->poll;
+> +		__assign_str(ifname, napi->dev ? napi->dev->name : "backlog")
+> +	),
+> +
+> +	TP_printk("ifname=%s state=%s weight=%d poll=%pf",
+> +		  __get_str(ifname), show_napi_state(__entry->state),
+> +		  __entry->weight, __entry->poll)
+> +);
+> +
+> +#endif /* _TRACE_NAPI_H */
+> +
+> +/* This part must be outside protection */
+> +#include <trace/define_trace.h>
+> -- 
+> 1.6.1.2
+> 
+> 
