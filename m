@@ -1,381 +1,153 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: [PATCH net-next] can: sja1000: legacy SJA1000 ISA bus driver
-Date: Tue, 01 Sep 2009 17:37:33 +0200
-Message-ID: <4A9D3FBD.1050702@grandegger.com>
+From: "Brad Bosch" <bradbosch@comcast.net>
+Subject: Re: Crypto oops in async_chainiv_do_postponed
+Date: Tue, 1 Sep 2009 10:42:44 -0500
+Message-ID: <19101.16628.347039.619378@waldo.imnotcreative.homeip.net>
+References: <19095.1264.682820.125602@waldo.imnotcreative.homeip.net>
+	<20090829104606.GA13141@gondor.apana.org.au>
+	<19099.63038.425414.514063@waldo.imnotcreative.homeip.net>
+	<20090831220459.GA15713@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: SocketCAN Core Mailing List <socketcan-core@lists.berlios.de>,
-	Oliver Hartkopp <oliver@hartkopp.net>
-To: Linux Netdev List <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:39098 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754772AbZIAPhe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 11:37:34 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+	offbase0@gmail.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20090831220459.GA15713@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds support for legacy SJA1000 CAN controllers on the ISA
-or PC-104 bus. The I/O port or memory address and the IRQ number must
-be specified via module parameters:
+Herbert Xu writes:
+ > On Mon, Aug 31, 2009 at 11:11:42AM -0500, Brad Bosch wrote:
+ > >
+ > > OK.  I was looking for something subtle because the crash takes a long
+ > > time to happen.  But do you agree that the race I described above also
+ > > a real bug?
+ > 
+ > No I don't think it is.  CHAINV_STATE_INUSE guarantees that only
+ > one entity can use ctx->err at any time.
 
-  insmod sja1000_isa.ko port=0x310,0x380 irq=7,11
+I don't see how you are protecting ctx->err with the INUSE flag.  For
+example:
 
-for ISA devices using I/O ports or:
+If two threads enter async_chainiv_givencrypt at the same time, one
+thread will call async_chainiv_postpone_request (INUSE will be clear
+until set by async_chainiv_postpone_request) and the other thread will
+call async_chainiv_givencrypt_tail (INUSE may or may not be set yet).
 
-  insmod sja1000_isa.ko mem=0xd1000,0xd1000 irq=7,11
+Now, ctx-err may be used by both async_chainiv_postpone_request to
+store the return value from skcipher_enqueue_givcrypt and by
+async_chainiv_givencrypt_tail to store the return value from
+crypto_ablkcipher_encrypt at the same time.  This can cause the
+calling function to think async_chainiv_givencrypt has completed it's
+work, when in fact, the work was defered.
 
-for memory mapped ISA devices.
+The patch I proposed earlier (included again below) avoids this and
+also makes the error handling simpler and more direct without
+requiring ctx->err at all.  I still don't understand why ctx->err was
+required in the first place.
 
-Indirect access via address and data port is supported as well:
+Did I miss something with regard to the use of ctx->err?
 
-  insmod sja1000_isa.ko port=0x310,0x380 indirect=1 irq=7,11
+Now, as to the other bug...
 
-Here is a full list of the supported module parameters:
+ > 
+ > Where we subtract the offset the pointer can never be NULL.  Please
+ > try my patch.
 
-  port:I/O port number (array of ulong)
-  mem:I/O memory address (array of ulong)
-  indirect:Indirect access via address and data port (array of byte)
-  irq:IRQ number (array of int)
-  clk:External oscillator clock frequency (default=16000000 [16 MHz])
-      (array of int)
-  cdr:Clock divider register (default=0x48 [CDR_CBP | CDR_CLK_OFF])
-      (array of byte)
-  ocr:Output clock register (default=0x18 [OCR_TX0_PUSHPULL])
-      (array of byte)
+OK.  I see now that your offset patch should indeed solve that
+problem.  But why did you choose to fix it in a complex way?  My
+suggestion just adds a single test while yours adds new parameters, a
+new function and an extra function call.
 
-Note: for clk, cdr, ocr, the first argument re-defines the default
-for all other devices, e.g.:
+Thanks for your help.
 
- insmod sja1000_isa.ko mem=0xd1000,0xd1000 irq=7,11 clk=24000000
+--Brad
 
-is equivalent to
-
- insmod sja1000_isa.ko mem=0xd1000,0xd1000 irq=7,11 \
-                       clk=24000000,24000000
-
-Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
-Tested-by: Oliver Hartkopp <oliver@hartkopp.net>
----
- drivers/net/can/Kconfig               |    7 
- drivers/net/can/sja1000/Makefile      |    1 
- drivers/net/can/sja1000/sja1000_isa.c |  281 ++++++++++++++++++++++++++++++++++
- 3 files changed, 289 insertions(+)
-
-Index: net-next-2.6/drivers/net/can/sja1000/sja1000_isa.c
+Index: chainiv.c
 ===================================================================
---- /dev/null
-+++ net-next-2.6/drivers/net/can/sja1000/sja1000_isa.c
-@@ -0,0 +1,281 @@
-+/*
-+ * Copyright (C) 2009 Wolfgang Grandegger <wg@grandegger.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/isa.h>
-+#include <linux/interrupt.h>
-+#include <linux/netdevice.h>
-+#include <linux/delay.h>
-+#include <linux/irq.h>
-+#include <linux/io.h>
-+#include <linux/can.h>
-+#include <linux/can/dev.h>
-+#include <linux/can/platform/sja1000.h>
-+
-+#include "sja1000.h"
-+
-+#define DRV_NAME "sja1000_isa"
-+
-+#define MAXDEV 8
-+
-+MODULE_AUTHOR("Wolfgang Grandegger <wg@grandegger.com>");
-+MODULE_DESCRIPTION("Socket-CAN driver for SJA1000 on the ISA bus");
-+MODULE_LICENSE("GPL v2");
-+
-+#define CLK_DEFAULT	16000000	/* 16 MHz */
-+#define CDR_DEFAULT	(CDR_CBP | CDR_CLK_OFF)
-+#define OCR_DEFAULT	OCR_TX0_PUSHPULL
-+
-+static unsigned long port[MAXDEV];
-+static unsigned long mem[MAXDEV];
-+static int __devinitdata irq[MAXDEV];
-+static int __devinitdata clk[MAXDEV];
-+static char __devinitdata cdr[MAXDEV] = {[0 ... (MAXDEV - 1)] = -1};
-+static char __devinitdata ocr[MAXDEV] = {[0 ... (MAXDEV - 1)] = -1};
-+static char __devinitdata indirect[MAXDEV] = {[0 ... (MAXDEV - 1)] = -1};
-+
-+module_param_array(port, ulong, NULL, S_IRUGO);
-+MODULE_PARM_DESC(port, "I/O port number");
-+
-+module_param_array(mem, ulong, NULL, S_IRUGO);
-+MODULE_PARM_DESC(mem, "I/O memory address");
-+
-+module_param_array(indirect, byte, NULL, S_IRUGO);
-+MODULE_PARM_DESC(indirect, "Indirect access via address and data port");
-+
-+module_param_array(irq, int, NULL, S_IRUGO);
-+MODULE_PARM_DESC(irq, "IRQ number");
-+
-+module_param_array(clk, int, NULL, S_IRUGO);
-+MODULE_PARM_DESC(clk, "External oscillator clock frequency "
-+		 "(default=16000000 [16 MHz])");
-+
-+module_param_array(cdr, byte, NULL, S_IRUGO);
-+MODULE_PARM_DESC(cdr, "Clock divider register "
-+		 "(default=0x48 [CDR_CBP | CDR_CLK_OFF])");
-+
-+module_param_array(ocr, byte, NULL, S_IRUGO);
-+MODULE_PARM_DESC(ocr, "Output control register "
-+		 "(default=0x18 [OCR_TX0_PUSHPULL])");
-+
-+#define SJA1000_IOSIZE          0x20
-+#define SJA1000_IOSIZE_INDIRECT 0x02
-+
-+static u8 sja1000_isa_mem_read_reg(const struct sja1000_priv *priv, int reg)
-+{
-+	return readb(priv->reg_base + reg);
-+}
-+
-+static void sja1000_isa_mem_write_reg(const struct sja1000_priv *priv,
-+				      int reg, u8 val)
-+{
-+	writeb(val, priv->reg_base + reg);
-+}
-+
-+static u8 sja1000_isa_port_read_reg(const struct sja1000_priv *priv, int reg)
-+{
-+	return inb((unsigned long)priv->reg_base + reg);
-+}
-+
-+static void sja1000_isa_port_write_reg(const struct sja1000_priv *priv,
-+				       int reg, u8 val)
-+{
-+	outb(val, (unsigned long)priv->reg_base + reg);
-+}
-+
-+static u8 sja1000_isa_port_read_reg_indirect(const struct sja1000_priv *priv,
-+					     int reg)
-+{
-+	unsigned long base = (unsigned long)priv->reg_base;
-+
-+	outb(reg, base);
-+	return inb(base + 1);
-+}
-+
-+static void sja1000_isa_port_write_reg_indirect(const struct sja1000_priv *priv,
-+						int reg, u8 val)
-+{
-+	unsigned long base = (unsigned long)priv->reg_base;
-+
-+	outb(reg, base);
-+	outb(val, base + 1);
-+}
-+
-+static int __devinit sja1000_isa_match(struct device *pdev, unsigned int idx)
-+{
-+	if (port[idx] || mem[idx]) {
-+		if (irq[idx])
-+			return 1;
-+	} else if (idx)
-+		return 0;
-+
-+	dev_err(pdev, "insufficient parameters supplied\n");
-+	return 0;
-+}
-+
-+static int __devinit sja1000_isa_probe(struct device *pdev, unsigned int idx)
-+{
-+	struct net_device *dev;
-+	struct sja1000_priv *priv;
-+	void __iomem *base = NULL;
-+	int iosize = SJA1000_IOSIZE;
+RCS file: /share/cvs/sdg/kernels/kernel.wms/kernel_2_6_27/src/crypto/chainiv.c,v
+retrieving revision 1.1.1.1.4.2
+diff -u -r1.1.1.1.4.2 chainiv.c
+--- chainiv.c	10 Mar 2009 05:16:24 -0000	1.1.1.1.4.2
++++ chainiv.c	27 Aug 2009 19:40:27 -0000
+@@ -36,7 +36,6 @@
+ 	unsigned long state;
+ 
+ 	spinlock_t lock;
+-	int err;
+ 
+ 	struct crypto_queue queue;
+ 	struct work_struct postponed;
+@@ -114,10 +113,9 @@
+ 	return chainiv_init_common(tfm);
+ }
+ 
+-static int async_chainiv_schedule_work(struct async_chainiv_ctx *ctx)
++static void async_chainiv_schedule_work(struct async_chainiv_ctx *ctx)
+ {
+ 	int queued;
+-	int err = ctx->err;
+ 
+ 	if (!ctx->queue.qlen) {
+ 		smp_mb__before_clear_bit();
+@@ -125,14 +123,11 @@
+ 
+ 		if (!ctx->queue.qlen ||
+ 		    test_and_set_bit(CHAINIV_STATE_INUSE, &ctx->state))
+-			goto out;
++			return;
+ 	}
+ 
+ 	queued = schedule_work(&ctx->postponed);
+ 	BUG_ON(!queued);
+-
+-out:
+-	return err;
+ }
+ 
+ static int async_chainiv_postpone_request(struct skcipher_givcrypt_request *req)
+@@ -148,8 +143,8 @@
+ 	if (test_and_set_bit(CHAINIV_STATE_INUSE, &ctx->state))
+ 		return err;
+ 
+-	ctx->err = err;
+-	return async_chainiv_schedule_work(ctx);
++	async_chainiv_schedule_work(ctx);
++	return err;
+ }
+ 
+ static int async_chainiv_givencrypt_tail(struct skcipher_givcrypt_request *req)
+@@ -158,18 +153,20 @@
+ 	struct async_chainiv_ctx *ctx = crypto_ablkcipher_ctx(geniv);
+ 	struct ablkcipher_request *subreq = skcipher_givcrypt_reqctx(req);
+ 	unsigned int ivsize = crypto_ablkcipher_ivsize(geniv);
 +	int err;
-+
-+	if (mem[idx]) {
-+		if (!request_mem_region(mem[idx], iosize, DRV_NAME)) {
-+			err = -EBUSY;
-+			goto exit;
-+		}
-+		base = ioremap_nocache(mem[idx], iosize);
-+		if (!base) {
-+			err = -ENOMEM;
-+			goto exit_release;
-+		}
-+	} else {
-+		if (indirect[idx] > 0 ||
-+		    (indirect[idx] == -1 && indirect[0] > 0))
-+			iosize = SJA1000_IOSIZE_INDIRECT;
-+		if (!request_region(port[idx], iosize, DRV_NAME)) {
-+			err = -EBUSY;
-+			goto exit;
-+		}
-+	}
-+
-+	dev = alloc_sja1000dev(0);
-+	if (!dev) {
-+		err = -ENOMEM;
-+		goto exit_unmap;
-+	}
-+	priv = netdev_priv(dev);
-+
-+	dev->irq = irq[idx];
-+	priv->irq_flags = IRQF_SHARED;
-+	if (mem[idx]) {
-+		priv->reg_base = base;
-+		dev->base_addr = mem[idx];
-+		priv->read_reg = sja1000_isa_mem_read_reg;
-+		priv->write_reg = sja1000_isa_mem_write_reg;
-+	} else {
-+		priv->reg_base = (void __iomem *)port[idx];
-+		dev->base_addr = port[idx];
-+
-+		if (iosize == SJA1000_IOSIZE_INDIRECT) {
-+			priv->read_reg = sja1000_isa_port_read_reg_indirect;
-+			priv->write_reg = sja1000_isa_port_write_reg_indirect;
-+		} else {
-+			priv->read_reg = sja1000_isa_port_read_reg;
-+			priv->write_reg = sja1000_isa_port_write_reg;
-+		}
-+	}
-+
-+	if (clk[idx])
-+		priv->can.clock.freq = clk[idx] / 2;
-+	else if (clk[0])
-+		priv->can.clock.freq = clk[0] / 2;
-+	else
-+		priv->can.clock.freq = CLK_DEFAULT / 2;
-+
-+	if (ocr[idx] != -1)
-+		priv->ocr = ocr[idx] & 0xff;
-+	else if (ocr[0] != -1)
-+		priv->ocr = ocr[0] & 0xff;
-+	else
-+		priv->ocr = OCR_DEFAULT;
-+
-+	if (cdr[idx] != -1)
-+		priv->cdr = cdr[idx] & 0xff;
-+	else if (cdr[0] != -1)
-+		priv->cdr = cdr[0] & 0xff;
-+	else
-+		priv->cdr = CDR_DEFAULT;
-+
-+	dev_set_drvdata(pdev, dev);
-+	SET_NETDEV_DEV(dev, pdev);
-+
-+	err = register_sja1000dev(dev);
-+	if (err) {
-+		dev_err(pdev, "registering %s failed (err=%d)\n",
-+			DRV_NAME, err);
-+		goto exit_unmap;
-+	}
-+
-+	dev_info(pdev, "%s device registered (reg_base=0x%p, irq=%d)\n",
-+		 DRV_NAME, priv->reg_base, dev->irq);
-+	return 0;
-+
-+ exit_unmap:
-+	if (mem[idx])
-+		iounmap(base);
-+ exit_release:
-+	if (mem[idx])
-+		release_mem_region(mem[idx], iosize);
-+	else
-+		release_region(port[idx], iosize);
-+ exit:
-+	return err;
-+}
-+
-+static int __devexit sja1000_isa_remove(struct device *pdev, unsigned int idx)
-+{
-+	struct net_device *dev = dev_get_drvdata(pdev);
-+	struct sja1000_priv *priv = netdev_priv(dev);
-+
-+	unregister_sja1000dev(dev);
-+	dev_set_drvdata(pdev, NULL);
-+
-+	if (mem[idx]) {
-+		iounmap(priv->reg_base);
-+		release_mem_region(mem[idx], SJA1000_IOSIZE);
-+	} else {
-+		if (priv->read_reg == sja1000_isa_port_read_reg_indirect)
-+			release_region(port[idx], SJA1000_IOSIZE_INDIRECT);
-+		else
-+			release_region(port[idx], SJA1000_IOSIZE);
-+	}
-+	free_sja1000dev(dev);
-+
-+	return 0;
-+}
-+
-+static struct isa_driver sja1000_isa_driver = {
-+	.match = sja1000_isa_match,
-+	.probe = sja1000_isa_probe,
-+	.remove = __devexit_p(sja1000_isa_remove),
-+	.driver = {
-+		.name = DRV_NAME,
-+	},
-+};
-+
-+static int __init sja1000_isa_init(void)
-+{
-+	int err = isa_register_driver(&sja1000_isa_driver, MAXDEV);
-+
-+	if (!err)
-+		printk(KERN_INFO
-+		       "Legacy %s driver for max. %d devices registered\n",
-+		       DRV_NAME, MAXDEV);
-+	return err;
-+}
-+
-+static void __exit sja1000_isa_exit(void)
-+{
-+	isa_unregister_driver(&sja1000_isa_driver);
-+}
-+
-+module_init(sja1000_isa_init);
-+module_exit(sja1000_isa_exit);
-Index: net-next-2.6/drivers/net/can/Kconfig
-===================================================================
---- net-next-2.6.orig/drivers/net/can/Kconfig
-+++ net-next-2.6/drivers/net/can/Kconfig
-@@ -41,6 +41,13 @@ config CAN_SJA1000
- 	---help---
- 	  Driver for the SJA1000 CAN controllers from Philips or NXP
  
-+config CAN_SJA1000_ISA
-+	depends on CAN_SJA1000 && ISA
-+	tristate "ISA Bus based legacy SJA1000 driver"
-+	---help---
-+	  This driver adds legacy support for SJA1000 chips connected to
-+	  the ISA bus using I/O port, memory mapped or indirect access.
-+
- config CAN_SJA1000_PLATFORM
- 	depends on CAN_SJA1000
- 	tristate "Generic Platform Bus based SJA1000 driver"
-Index: net-next-2.6/drivers/net/can/sja1000/Makefile
-===================================================================
---- net-next-2.6.orig/drivers/net/can/sja1000/Makefile
-+++ net-next-2.6/drivers/net/can/sja1000/Makefile
-@@ -3,6 +3,7 @@
- #
+ 	memcpy(req->giv, ctx->iv, ivsize);
+ 	memcpy(subreq->info, ctx->iv, ivsize);
  
- obj-$(CONFIG_CAN_SJA1000) += sja1000.o
-+obj-$(CONFIG_CAN_SJA1000_ISA) += sja1000_isa.o
- obj-$(CONFIG_CAN_SJA1000_PLATFORM) += sja1000_platform.o
- obj-$(CONFIG_CAN_SJA1000_OF_PLATFORM) += sja1000_of_platform.o
- obj-$(CONFIG_CAN_EMS_PCI) += ems_pci.o
+-	ctx->err = crypto_ablkcipher_encrypt(subreq);
+-	if (ctx->err)
++	err = crypto_ablkcipher_encrypt(subreq);
++	if (err)
+ 		goto out;
+ 
+ 	memcpy(ctx->iv, subreq->info, ivsize);
+ 
+ out:
+-	return async_chainiv_schedule_work(ctx);
++	async_chainiv_schedule_work(ctx);
++	return err;
+ }
+ 
+ static int async_chainiv_givencrypt(struct skcipher_givcrypt_request *req)
+@@ -236,7 +233,7 @@
+ 	spin_unlock_bh(&ctx->lock);
+ 
+ 	if (!req) {
+-		async_chainiv_schedule_work(ctx);
++	    async_chainiv_schedule_work(ctx);
+ 		return;
+ 	}
+ 
