@@ -1,68 +1,210 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: UDP is bypassing qdisc statistics ....
-Date: Tue, 01 Sep 2009 09:00:46 +0200
-Message-ID: <4A9CC69E.9090308@gmail.com>
-References: <20090901063726.GA5222@ff.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mark Smith <lk-netdev@lk-netdev.nosense.org>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	netdev@vger.kernel.org, davem@linux-foundation.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: [PATCH] net: Add DEVTYPE support for Ethernet based devices
+Date: Tue,  1 Sep 2009 00:08:19 -0700
+Message-ID: <1251788899-30156-1-git-send-email-marcel@holtmann.org>
+Cc: davem@davemloft.net, shemminger@linux-foundation.org,
+	johannes@sipsolutions.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:49223 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752829AbZIAHBV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 03:01:21 -0400
-In-Reply-To: <20090901063726.GA5222@ff.dom.local>
+Received: from senator.holtmann.net ([87.106.208.187]:40854 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751091AbZIAHJM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 03:09:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski a =E9crit :
-> On 31-08-2009 22:58, Mark Smith wrote:
->> On Mon, 31 Aug 2009 21:54:49 +0200
->> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->>
->>> Christoph Lameter a =E9crit :
->>>> This is with 2.6.31-rc7. If I send icmp then its correctly registe=
-red as a
->>>> packet by the qdisc layer:
->>>>
->> <snip>
->>> loopback device do bypass qdisc layer for example...
->> On occassion, I'd have found it useful if it didn't. It'd be conveni=
-ent
->> to test out your qdisc config, or test out applications performance
->> behaviour over a simulated WAN via netem, without having to a
->> network and two hosts, and all the related miscellaneous setup work.
->=20
-> Probably Eric and you mean something special, but generally a loopbac=
-k
-> and some other virtuals bypass qdisc layer only with default qdisc.
->=20
+The Ethernet framing is used for a lot of devices these days. Most
+prominent are WiFi and WiMAX based devices. However for userspace
+application it is important to classify these devices correctly and
+not only see them as Ethernet devices. The daemons like HAL, DeviceKit
+or even NetworkManager with udev support tries to do the classification
+in userspace with a lot trickery and extra system calls. This is not
+good and actually reaches its limitations. Especially since the kernel
+does know the type of the Ethernet device it is pretty stupid.
 
-Yes, I was referring to Christoph use, since on its machine, only
-output from "tc -s -d qdisc" is about eth0
+To solve this problem the underlying device type needs to be set and
+then the value will be exported as DEVTYPE via uevents and available
+within udev.
 
+  # cat /sys/class/net/wlan0/uevent
+  DEVTYPE=wlan
+  INTERFACE=wlan0
+  IFINDEX=5
 
-Mark, you can certainly do something like
+This is similar to subsystems like USB and SCSI that distinguish
+between hosts, devices, disks, partitions etc.
 
-# tc qdisc del dev lo root
-# tc qdisc add dev lo root netem delay 100ms 10ms
+The new SET_NETDEV_DEVTYPE() is a convenience helper to set the actual
+device type. All device types are free form, but for convenience the
+same strings as used with RFKILL are choosen.
 
-# ping 127.0.0.1
-PING 127.0.0.1 (127.0.0.1) 56(84) bytes of data.
-2009/08/01 08:59:22.799 64 bytes from 127.0.0.1: icmp_seq=3D1 ttl=3D64 =
-time=3D204 ms
-2009/08/01 08:59:23.804 64 bytes from 127.0.0.1: icmp_seq=3D2 ttl=3D64 =
-time=3D208 ms
-2009/08/01 08:59:24.801 64 bytes from 127.0.0.1: icmp_seq=3D3 ttl=3D64 =
-time=3D204 ms
-2009/08/01 08:59:25.808 64 bytes from 127.0.0.1: icmp_seq=3D4 ttl=3D64 =
-time=3D209 ms
+Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+---
+ drivers/net/usb/hso.c           |    5 +++++
+ drivers/net/wimax/i2400m/sdio.c |    5 +++++
+ drivers/net/wimax/i2400m/usb.c  |    5 +++++
+ include/linux/netdevice.h       |    6 ++++++
+ net/bluetooth/bnep/core.c       |    5 +++++
+ net/bridge/br_if.c              |    6 ++++++
+ net/mac80211/iface.c            |    5 +++++
+ 7 files changed, 37 insertions(+), 0 deletions(-)
 
-# tc -s -d qdisc show dev lo
-qdisc netem 8001: root limit 1000 delay 100.0ms  10.0ms
- Sent 1764 bytes 18 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index ffe4106..5d47a73 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -2534,6 +2534,10 @@ static void hso_create_rfkill(struct hso_device *hso_dev,
+ 	}
+ }
+ 
++static struct device_type hso_type = {
++	.name	= "wwan",
++};
++
+ /* Creates our network device */
+ static struct hso_device *hso_create_net_device(struct usb_interface *interface,
+ 						int port_spec)
+@@ -2574,6 +2578,7 @@ static struct hso_device *hso_create_net_device(struct usb_interface *interface,
+ 		goto exit;
+ 	}
+ 	SET_NETDEV_DEV(net, &interface->dev);
++	SET_NETDEV_DEVTYPE(net, &hso_type);
+ 
+ 	/* registering our net device */
+ 	result = register_netdev(net);
+diff --git a/drivers/net/wimax/i2400m/sdio.c b/drivers/net/wimax/i2400m/sdio.c
+index ea7b290..2981e21 100644
+--- a/drivers/net/wimax/i2400m/sdio.c
++++ b/drivers/net/wimax/i2400m/sdio.c
+@@ -371,6 +371,10 @@ error:
+ }
+ 
+ 
++static struct device_type i2400ms_type = {
++	.name	= "wimax",
++};
++
+ /*
+  * Probe a i2400m interface and register it
+  *
+@@ -412,6 +416,7 @@ int i2400ms_probe(struct sdio_func *func,
+ 		goto error_alloc_netdev;
+ 	}
+ 	SET_NETDEV_DEV(net_dev, dev);
++	SET_NETDEV_DEVTYPE(net_dev, &i2400ms_type);
+ 	i2400m = net_dev_to_i2400m(net_dev);
+ 	i2400ms = container_of(i2400m, struct i2400ms, i2400m);
+ 	i2400m->wimax_dev.net_dev = net_dev;
+diff --git a/drivers/net/wimax/i2400m/usb.c b/drivers/net/wimax/i2400m/usb.c
+index cfdaf69..7eadd11 100644
+--- a/drivers/net/wimax/i2400m/usb.c
++++ b/drivers/net/wimax/i2400m/usb.c
+@@ -351,6 +351,10 @@ error:
+ }
+ 
+ 
++static struct device_type i2400mu_type = {
++	.name	= "wimax",
++};
++
+ /*
+  * Probe a i2400m interface and register it
+  *
+@@ -388,6 +392,7 @@ int i2400mu_probe(struct usb_interface *iface,
+ 		goto error_alloc_netdev;
+ 	}
+ 	SET_NETDEV_DEV(net_dev, dev);
++	SET_NETDEV_DEVTYPE(net_dev, &i2400mu_type);
+ 	i2400m = net_dev_to_i2400m(net_dev);
+ 	i2400mu = container_of(i2400m, struct i2400mu, i2400m);
+ 	i2400m->wimax_dev.net_dev = net_dev;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 60d3aac..8e00e03 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -989,6 +989,12 @@ static inline void *netdev_priv(const struct net_device *dev)
+  */
+ #define SET_NETDEV_DEV(net, pdev)	((net)->dev.parent = (pdev))
+ 
++/* Set the sysfs device type for the network logical device to allow
++ * fin grained indentification of different network device types. For
++ * example Ethernet, Wirelss LAN, Bluetooth, WiMAX etc.
++ */
++#define SET_NETDEV_DEVTYPE(net, devtype)	((net)->dev.type = (devtype))
++
+ /**
+  *	netif_napi_add - initialize a napi context
+  *	@dev:  network device
+diff --git a/net/bluetooth/bnep/core.c b/net/bluetooth/bnep/core.c
+index 52a6ce0..cafe9f5 100644
+--- a/net/bluetooth/bnep/core.c
++++ b/net/bluetooth/bnep/core.c
+@@ -533,6 +533,10 @@ static struct device *bnep_get_device(struct bnep_session *session)
+ 	return conn ? &conn->dev : NULL;
+ }
+ 
++static struct device_type bnep_type = {
++	.name	= "bluetooth",
++};
++
+ int bnep_add_connection(struct bnep_connadd_req *req, struct socket *sock)
+ {
+ 	struct net_device *dev;
+@@ -586,6 +590,7 @@ int bnep_add_connection(struct bnep_connadd_req *req, struct socket *sock)
+ #endif
+ 
+ 	SET_NETDEV_DEV(dev, bnep_get_device(s));
++	SET_NETDEV_DEVTYPE(dev, &bnep_type);
+ 
+ 	err = register_netdev(dev);
+ 	if (err) {
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index e486f1f..142ebac 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -264,6 +264,10 @@ static struct net_bridge_port *new_nbp(struct net_bridge *br,
+ 	return p;
+ }
+ 
++static struct device_type br_type = {
++	.name	= "bridge",
++};
++
+ int br_add_bridge(struct net *net, const char *name)
+ {
+ 	struct net_device *dev;
+@@ -280,6 +284,8 @@ int br_add_bridge(struct net *net, const char *name)
+ 			goto out_free;
+ 	}
+ 
++	SET_NETDEV_DEVTYPE(dev, &br_type);
++
+ 	ret = register_netdevice(dev);
+ 	if (ret)
+ 		goto out_free;
+diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
+index f6005ad..b8295cb 100644
+--- a/net/mac80211/iface.c
++++ b/net/mac80211/iface.c
+@@ -754,6 +754,10 @@ int ieee80211_if_change_type(struct ieee80211_sub_if_data *sdata,
+ 	return 0;
+ }
+ 
++static struct device_type wiphy_type = {
++	.name	= "wlan",
++};
++
+ int ieee80211_if_add(struct ieee80211_local *local, const char *name,
+ 		     struct net_device **new_dev, enum nl80211_iftype type,
+ 		     struct vif_params *params)
+@@ -785,6 +789,7 @@ int ieee80211_if_add(struct ieee80211_local *local, const char *name,
+ 
+ 	memcpy(ndev->dev_addr, local->hw.wiphy->perm_addr, ETH_ALEN);
+ 	SET_NETDEV_DEV(ndev, wiphy_dev(local->hw.wiphy));
++	SET_NETDEV_DEVTYPE(ndev, &wiphy_type);
+ 
+ 	/* don't use IEEE80211_DEV_TO_SUB_IF because it checks too much */
+ 	sdata = netdev_priv(ndev);
+-- 
+1.6.2.5
+
