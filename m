@@ -1,187 +1,191 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 10/19] netdev: convert pcmcia drivers to netdev_tx_t
-Date: Mon, 31 Aug 2009 22:50:49 -0700
-Message-ID: <20090901055129.407000999@vyatta.com>
+Subject: [PATCH 14/19] tulip: convert drivers to netdev_tx_t
+Date: Mon, 31 Aug 2009 22:50:53 -0700
+Message-ID: <20090901055129.814907029@vyatta.com>
 References: <20090901055039.824876937@vyatta.com>
-Cc: netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org
+Cc: netdev@vger.kernel.org, Grant Grundler <grundler@parisc-linux.org>,
+	Kyle McMartin <kyle@mcmartin.ca>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:34274 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:47140 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752805AbZIAGC6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Sep 2009 02:02:58 -0400
-Content-Disposition: inline; filename=pcmcia-tx.patch
+	id S1751501AbZIAGFp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Sep 2009 02:05:45 -0400
+Content-Disposition: inline; filename=tulip.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update all the pcmcia network drivers for netdev_tx_t.
-
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
-
 ---
- drivers/net/pcmcia/3c574_cs.c    |    6 ++++--
- drivers/net/pcmcia/3c589_cs.c    |    6 ++++--
- drivers/net/pcmcia/axnet_cs.c    |    6 ++++--
- drivers/net/pcmcia/fmvj18x_cs.c  |    6 ++++--
- drivers/net/pcmcia/nmclan_cs.c   |    6 ++++--
- drivers/net/pcmcia/smc91c92_cs.c |    6 ++++--
- drivers/net/pcmcia/xirc2ps_cs.c  |    5 +++--
- 7 files changed, 27 insertions(+), 14 deletions(-)
+ drivers/net/tulip/de2104x.c     |    3 ++-
+ drivers/net/tulip/de4x5.c       |   11 +++++------
+ drivers/net/tulip/dmfe.c        |    5 +++--
+ drivers/net/tulip/tulip_core.c  |    5 +++--
+ drivers/net/tulip/uli526x.c     |    6 ++++--
+ drivers/net/tulip/winbond-840.c |    4 ++--
+ drivers/net/tulip/xircom_cb.c   |    6 ++++--
+ 7 files changed, 23 insertions(+), 17 deletions(-)
 
---- a/drivers/net/pcmcia/3c574_cs.c	2009-08-31 16:17:52.881112862 -0700
-+++ b/drivers/net/pcmcia/3c574_cs.c	2009-08-31 16:27:06.721110183 -0700
-@@ -239,7 +239,8 @@ static void tc574_wait_for_completion(st
- static void tc574_reset(struct net_device *dev);
- static void media_check(unsigned long arg);
- static int el3_open(struct net_device *dev);
--static int el3_start_xmit(struct sk_buff *skb, struct net_device *dev);
-+static netdev_tx_t el3_start_xmit(struct sk_buff *skb,
-+					struct net_device *dev);
- static irqreturn_t el3_interrupt(int irq, void *dev_id);
- static void update_stats(struct net_device *dev);
- static struct net_device_stats *el3_get_stats(struct net_device *dev);
-@@ -778,7 +779,8 @@ static void pop_tx_status(struct net_dev
- 	}
+--- a/drivers/net/tulip/de2104x.c	2009-08-29 23:10:19.609527457 -0700
++++ b/drivers/net/tulip/de2104x.c	2009-08-29 23:12:54.117527675 -0700
+@@ -599,7 +599,8 @@ next:
+ 		netif_wake_queue(de->dev);
  }
  
--static int el3_start_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t el3_start_xmit(struct sk_buff *skb,
+-static int de_start_xmit (struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t de_start_xmit (struct sk_buff *skb,
 +					struct net_device *dev)
  {
- 	unsigned int ioaddr = dev->base_addr;
- 	struct el3_private *lp = netdev_priv(dev);
---- a/drivers/net/pcmcia/3c589_cs.c	2009-08-31 16:17:52.891086127 -0700
-+++ b/drivers/net/pcmcia/3c589_cs.c	2009-08-31 16:27:06.721110183 -0700
-@@ -149,7 +149,8 @@ static void tc589_reset(struct net_devic
- static void media_check(unsigned long arg);
- static int el3_config(struct net_device *dev, struct ifmap *map);
- static int el3_open(struct net_device *dev);
--static int el3_start_xmit(struct sk_buff *skb, struct net_device *dev);
-+static netdev_tx_t el3_start_xmit(struct sk_buff *skb,
-+					struct net_device *dev);
- static irqreturn_t el3_interrupt(int irq, void *dev_id);
- static void update_stats(struct net_device *dev);
- static struct net_device_stats *el3_get_stats(struct net_device *dev);
-@@ -604,7 +605,8 @@ static void pop_tx_status(struct net_dev
-     }
- }
- 
--static int el3_start_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t el3_start_xmit(struct sk_buff *skb,
-+					struct net_device *dev)
- {
-     unsigned int ioaddr = dev->base_addr;
-     struct el3_private *priv = netdev_priv(dev);
---- a/drivers/net/pcmcia/axnet_cs.c	2009-08-31 16:17:52.901106674 -0700
-+++ b/drivers/net/pcmcia/axnet_cs.c	2009-08-31 16:27:06.721110183 -0700
-@@ -92,7 +92,8 @@ static void axnet_release(struct pcmcia_
- static int axnet_open(struct net_device *dev);
- static int axnet_close(struct net_device *dev);
- static int axnet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
--static int axnet_start_xmit(struct sk_buff *skb, struct net_device *dev);
-+static netdev_tx_t axnet_start_xmit(struct sk_buff *skb,
-+					  struct net_device *dev);
- static struct net_device_stats *get_stats(struct net_device *dev);
- static void set_multicast_list(struct net_device *dev);
- static void axnet_tx_timeout(struct net_device *dev);
-@@ -1063,7 +1064,8 @@ static void axnet_tx_timeout(struct net_
-  * Sends a packet to an 8390 network device.
-  */
-  
--static int axnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t axnet_start_xmit(struct sk_buff *skb,
-+					  struct net_device *dev)
- {
- 	long e8390_base = dev->base_addr;
- 	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
---- a/drivers/net/pcmcia/nmclan_cs.c	2009-08-31 16:17:52.921089522 -0700
-+++ b/drivers/net/pcmcia/nmclan_cs.c	2009-08-31 16:27:06.721110183 -0700
-@@ -424,7 +424,8 @@ static void nmclan_reset(struct net_devi
- static int mace_config(struct net_device *dev, struct ifmap *map);
- static int mace_open(struct net_device *dev);
- static int mace_close(struct net_device *dev);
--static int mace_start_xmit(struct sk_buff *skb, struct net_device *dev);
-+static netdev_tx_t mace_start_xmit(struct sk_buff *skb,
+ 	struct de_private *de = netdev_priv(dev);
+ 	unsigned int entry, tx_free;
+--- a/drivers/net/tulip/de4x5.c	2009-08-29 23:10:19.553491700 -0700
++++ b/drivers/net/tulip/de4x5.c	2009-08-29 23:12:54.125526807 -0700
+@@ -895,7 +895,8 @@ static struct {
+ ** Public Functions
+ */
+ static int     de4x5_open(struct net_device *dev);
+-static int     de4x5_queue_pkt(struct sk_buff *skb, struct net_device *dev);
++static netdev_tx_t de4x5_queue_pkt(struct sk_buff *skb,
 +					 struct net_device *dev);
- static void mace_tx_timeout(struct net_device *dev);
- static irqreturn_t mace_interrupt(int irq, void *dev_id);
- static struct net_device_stats *mace_get_stats(struct net_device *dev);
-@@ -937,7 +938,8 @@ static void mace_tx_timeout(struct net_d
-   netif_wake_queue(dev);
+ static irqreturn_t de4x5_interrupt(int irq, void *dev_id);
+ static int     de4x5_close(struct net_device *dev);
+ static struct  net_device_stats *de4x5_get_stats(struct net_device *dev);
+@@ -1456,18 +1457,16 @@ de4x5_sw_reset(struct net_device *dev)
+ /*
+ ** Writes a socket buffer address to the next available transmit descriptor.
+ */
+-static int
++static netdev_tx_t
+ de4x5_queue_pkt(struct sk_buff *skb, struct net_device *dev)
+ {
+     struct de4x5_private *lp = netdev_priv(dev);
+     u_long iobase = dev->base_addr;
+-    int status = NETDEV_TX_OK;
+     u_long flags = 0;
+ 
+     netif_stop_queue(dev);
+-    if (!lp->tx_enable) {                   /* Cannot send for now */
++    if (!lp->tx_enable)                   /* Cannot send for now */
+ 	return NETDEV_TX_LOCKED;
+-    }
+ 
+     /*
+     ** Clean out the TX ring asynchronously to interrupts - sometimes the
+@@ -1521,7 +1520,7 @@ de4x5_queue_pkt(struct sk_buff *skb, str
+ 
+     lp->cache.lock = 0;
+ 
+-    return status;
++    return NETDEV_TX_OK;
  }
  
--static int mace_start_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t mace_start_xmit(struct sk_buff *skb,
-+					 struct net_device *dev)
- {
-   mace_private *lp = netdev_priv(dev);
-   unsigned int ioaddr = dev->base_addr;
---- a/drivers/net/pcmcia/smc91c92_cs.c	2009-08-31 16:17:52.871089451 -0700
-+++ b/drivers/net/pcmcia/smc91c92_cs.c	2009-08-31 16:27:06.731081353 -0700
-@@ -288,7 +288,8 @@ static int smc_open(struct net_device *d
- static int smc_close(struct net_device *dev);
- static int smc_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
- static void smc_tx_timeout(struct net_device *dev);
--static int smc_start_xmit(struct sk_buff *skb, struct net_device *dev);
-+static netdev_tx_t smc_start_xmit(struct sk_buff *skb,
-+					struct net_device *dev);
- static irqreturn_t smc_interrupt(int irq, void *dev_id);
- static void smc_rx(struct net_device *dev);
- static void set_rx_mode(struct net_device *dev);
-@@ -1370,7 +1371,8 @@ static void smc_tx_timeout(struct net_de
-     netif_wake_queue(dev);
- }
+ /*
+--- a/drivers/net/tulip/dmfe.c	2009-08-29 23:10:19.521492310 -0700
++++ b/drivers/net/tulip/dmfe.c	2009-08-29 23:12:54.129527736 -0700
+@@ -311,7 +311,7 @@ static u8 SF_mode;		/* Special Function:
  
--static int smc_start_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t smc_start_xmit(struct sk_buff *skb,
-+					struct net_device *dev)
- {
-     struct smc_private *smc = netdev_priv(dev);
-     unsigned int ioaddr = dev->base_addr;
---- a/drivers/net/pcmcia/xirc2ps_cs.c	2009-08-31 16:17:52.881112862 -0700
-+++ b/drivers/net/pcmcia/xirc2ps_cs.c	2009-08-31 16:27:06.731081353 -0700
-@@ -352,7 +352,8 @@ typedef struct local_info_t {
- /****************
-  * Some more prototypes
+ /* function declaration ------------------------------------- */
+ static int dmfe_open(struct DEVICE *);
+-static int dmfe_start_xmit(struct sk_buff *, struct DEVICE *);
++static netdev_tx_t dmfe_start_xmit(struct sk_buff *, struct DEVICE *);
+ static int dmfe_stop(struct DEVICE *);
+ static void dmfe_set_filter_mode(struct DEVICE *);
+ static const struct ethtool_ops netdev_ethtool_ops;
+@@ -661,7 +661,8 @@ static void dmfe_init_dm910x(struct DEVI
+  *	Send a packet to media from the upper layer.
   */
--static int do_start_xmit(struct sk_buff *skb, struct net_device *dev);
-+static netdev_tx_t do_start_xmit(struct sk_buff *skb,
-+				       struct net_device *dev);
- static void xirc_tx_timeout(struct net_device *dev);
- static void xirc2ps_tx_timeout_task(struct work_struct *work);
- static void set_addresses(struct net_device *dev);
-@@ -1361,7 +1362,7 @@ xirc_tx_timeout(struct net_device *dev)
-     schedule_work(&lp->tx_timeout_task);
+ 
+-static int dmfe_start_xmit(struct sk_buff *skb, struct DEVICE *dev)
++static netdev_tx_t dmfe_start_xmit(struct sk_buff *skb,
++					 struct DEVICE *dev)
+ {
+ 	struct dmfe_board_info *db = netdev_priv(dev);
+ 	struct tx_desc *txptr;
+--- a/drivers/net/tulip/tulip_core.c	2009-08-29 23:10:19.589491808 -0700
++++ b/drivers/net/tulip/tulip_core.c	2009-08-29 23:12:54.129527736 -0700
+@@ -256,7 +256,8 @@ const char tulip_media_cap[32] =
+ static void tulip_tx_timeout(struct net_device *dev);
+ static void tulip_init_ring(struct net_device *dev);
+ static void tulip_free_ring(struct net_device *dev);
+-static int tulip_start_xmit(struct sk_buff *skb, struct net_device *dev);
++static netdev_tx_t tulip_start_xmit(struct sk_buff *skb,
++					  struct net_device *dev);
+ static int tulip_open(struct net_device *dev);
+ static int tulip_close(struct net_device *dev);
+ static void tulip_up(struct net_device *dev);
+@@ -645,7 +646,7 @@ static void tulip_init_ring(struct net_d
+ 	tp->tx_ring[i-1].buffer2 = cpu_to_le32(tp->tx_ring_dma);
  }
  
 -static int
 +static netdev_tx_t
- do_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ tulip_start_xmit(struct sk_buff *skb, struct net_device *dev)
  {
-     local_info_t *lp = netdev_priv(dev);
---- a/drivers/net/pcmcia/fmvj18x_cs.c	2009-08-31 16:17:52.891086127 -0700
-+++ b/drivers/net/pcmcia/fmvj18x_cs.c	2009-08-31 16:27:06.731081353 -0700
-@@ -96,7 +96,8 @@ static void fmvj18x_detach(struct pcmcia
- static int fjn_config(struct net_device *dev, struct ifmap *map);
- static int fjn_open(struct net_device *dev);
- static int fjn_close(struct net_device *dev);
--static int fjn_start_xmit(struct sk_buff *skb, struct net_device *dev);
-+static netdev_tx_t fjn_start_xmit(struct sk_buff *skb,
-+					struct net_device *dev);
- static irqreturn_t fjn_interrupt(int irq, void *dev_id);
- static void fjn_rx(struct net_device *dev);
- static void fjn_reset(struct net_device *dev);
-@@ -856,7 +857,8 @@ static void fjn_tx_timeout(struct net_de
-     netif_wake_queue(dev);
+ 	struct tulip_private *tp = netdev_priv(dev);
+--- a/drivers/net/tulip/uli526x.c	2009-08-29 23:10:19.637530461 -0700
++++ b/drivers/net/tulip/uli526x.c	2009-08-29 23:12:54.133492067 -0700
+@@ -215,7 +215,8 @@ static int mode = 8;
+ 
+ /* function declaration ------------------------------------- */
+ static int uli526x_open(struct net_device *);
+-static int uli526x_start_xmit(struct sk_buff *, struct net_device *);
++static netdev_tx_t uli526x_start_xmit(struct sk_buff *,
++					    struct net_device *);
+ static int uli526x_stop(struct net_device *);
+ static void uli526x_set_filter_mode(struct net_device *);
+ static const struct ethtool_ops netdev_ethtool_ops;
+@@ -567,7 +568,8 @@ static void uli526x_init(struct net_devi
+  *	Send a packet to media from the upper layer.
+  */
+ 
+-static int uli526x_start_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t uli526x_start_xmit(struct sk_buff *skb,
++					    struct net_device *dev)
+ {
+ 	struct uli526x_board_info *db = netdev_priv(dev);
+ 	struct tx_desc *txptr;
+--- a/drivers/net/tulip/winbond-840.c	2009-08-29 23:10:19.537492110 -0700
++++ b/drivers/net/tulip/winbond-840.c	2009-08-29 23:12:54.133492067 -0700
+@@ -333,7 +333,7 @@ static void init_registers(struct net_de
+ static void tx_timeout(struct net_device *dev);
+ static int alloc_ringdesc(struct net_device *dev);
+ static void free_ringdesc(struct netdev_private *np);
+-static int  start_tx(struct sk_buff *skb, struct net_device *dev);
++static netdev_tx_t start_tx(struct sk_buff *skb, struct net_device *dev);
+ static irqreturn_t intr_handler(int irq, void *dev_instance);
+ static void netdev_error(struct net_device *dev, int intr_status);
+ static int  netdev_rx(struct net_device *dev);
+@@ -997,7 +997,7 @@ static void free_ringdesc(struct netdev_
+ 
  }
  
--static int fjn_start_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t fjn_start_xmit(struct sk_buff *skb,
-+					struct net_device *dev)
+-static int start_tx(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t start_tx(struct sk_buff *skb, struct net_device *dev)
  {
-     struct local_info_t *lp = netdev_priv(dev);
-     unsigned int ioaddr = dev->base_addr;
+ 	struct netdev_private *np = netdev_priv(dev);
+ 	unsigned entry;
+--- a/drivers/net/tulip/xircom_cb.c	2009-08-29 23:10:19.505491812 -0700
++++ b/drivers/net/tulip/xircom_cb.c	2009-08-29 23:12:54.137512691 -0700
+@@ -113,7 +113,8 @@ struct xircom_private {
+ static int xircom_probe(struct pci_dev *pdev, const struct pci_device_id *id);
+ static void xircom_remove(struct pci_dev *pdev);
+ static irqreturn_t xircom_interrupt(int irq, void *dev_instance);
+-static int xircom_start_xmit(struct sk_buff *skb, struct net_device *dev);
++static netdev_tx_t xircom_start_xmit(struct sk_buff *skb,
++					   struct net_device *dev);
+ static int xircom_open(struct net_device *dev);
+ static int xircom_close(struct net_device *dev);
+ static void xircom_up(struct xircom_private *card);
+@@ -384,7 +385,8 @@ static irqreturn_t xircom_interrupt(int 
+ 	return IRQ_HANDLED;
+ }
+ 
+-static int xircom_start_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t xircom_start_xmit(struct sk_buff *skb,
++					   struct net_device *dev)
+ {
+ 	struct xircom_private *card;
+ 	unsigned long flags;
 
 -- 
 
