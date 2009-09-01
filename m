@@ -1,82 +1,59 @@
-From: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
-Subject: Re: [PATCH resend] tracing/events: convert NAPI's tracepoint via
- TRACE_EVENT
-Date: Tue, 01 Sep 2009 09:06:44 +0800
-Message-ID: <4A9C73A4.20003@cn.fujitsu.com>
-References: <4A9B6AA7.5020508@cn.fujitsu.com> <alpine.DEB.2.00.0908311402150.13931@gandalf.stny.rr.com>
+From: Krzysztof Oledzki <ole@ans.pl>
+Subject: Re: [net-next PATCH] e1000: Fix for e1000 kills IPMI on a tagged
+ vlan.
+Date: Tue, 1 Sep 2009 02:53:29 +0200 (CEST)
+Message-ID: <alpine.LNX.1.10.0909010247460.5651@bizon.gios.gov.pl>
+References: <20090901001250.31418.88709.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Wei Yongjun <yjwei@cn.fujitsu.com>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752642AbZIABH2@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.0908311402150.13931@gandalf.stny.rr.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1144830174-1050253287-1251766409=:5651"
+Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
+	Dave Graham <david.graham@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bizon.gios.gov.pl ([195.187.34.71]:41925 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751482AbZIABNx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2009 21:13:53 -0400
+In-Reply-To: <20090901001250.31418.88709.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---1144830174-1050253287-1251766409=:5651
+Content-Type: TEXT/PLAIN; charset=iso-8859-2; format=flowed
+Content-Transfer-Encoding: 8BIT
 
 
 
-Steven Rostedt wrote:
-> On Mon, 31 Aug 2009, Xiao Guangrong wrote:
->=20
->> - Convert NAPI's tracepoint via TRACE_EVENT macro, the output inform=
-ation
->>   like below:
->>
->>    sshd-2503  [000]    71.920846: napi_poll: ifname=3Deth0 state=3D0=
- weigth=3D16 poll=3Dpcnet32_poll
->>    sshd-2503  [000]    72.020291: napi_poll: ifname=3Deth0 state=3D0=
- weigth=3D16 poll=3Dpcnet32_poll
->>    sshd-2503  [000]    72.020418: napi_poll: ifname=3Deth0 state=3DN=
-API_STATE_SCHED weigth=3D16 poll=3Dpcnet32_poll
->>
->> - Remove the "DECLARE_TRACE" definiens in include/trace/define_trace=
-=2Eh,
->>   because TRACE_EVENT not use it
->=20
-> The above really needs to be in a separate patch, since it is a traci=
-ng=20
-> infrastructure change.
->=20
+On Mon, 31 Aug 2009, Jeff Kirsher wrote:
 
-Hi Steven,
+> From: Graham, David <david.graham@intel.com>
 
-We can't break this patch into two patches, because it's has redefined =
-'DECLARE_TRACE'
-in include/trace/define_trace.h, like below:
+<CUT>
+> A complete solution to this issue would require further driver changes.
+> The driver would need to discover if (and which) management VLANs are
+> active before enabling VLAN filtering, so that it could ensure that the
+> managed VLANs are included in the VLAN filter table. This discovery
+> requires that the BMC identifies its VLAN in registers accessible
+> to the driver, and at least on Dell PE2850 systems the BMC does not
+> identify its VLAN to allow such discovery. Intel is pursuing this issue
+> with the BMC vendor.
+>
+> Signed-off-by: Dave Graham <david.graham@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-1: if we remove 'DECLARE_TRACE' first, then NAPI's tracepoint can't def=
-ine tracepoint
-   (it's a NAPI tracepoint's bug,
-    see my previous patch: http://marc.info/?l=3Dlinux-kernel&m=3D12511=
-8032931716&w=3D2)
+Tested-by: Krzysztof Piotr Oledzki <ole@ans.pl>
 
-2: if we convert NAPI's tracepoint first, it can't include more TRACE_E=
-VENT .h files in
-   one .c file, the compiler will complain with variables redefined:
+Thank you for both pushing this fix into the mainline and trying to 
+convince Dell to fix the BMC code.
 
-include/trace/events/napi.h:15: error: redefinition of =E2=80=98__tpstr=
-tab_napi_poll=E2=80=99
-include/trace/events/napi.h:15: error: previous definition of =E2=80=98=
-__tpstrtab_napi_poll=E2=80=99 was here
-include/trace/events/napi.h:15: error: redefinition of =E2=80=98__trace=
-point_napi_poll=E2=80=99
-include/trace/events/napi.h:15: error: previous definition of =E2=80=98=
-__tracepoint_napi_poll=E2=80=99 was here
-In file included from include/trace/ftrace.h:644,
+BTW: this problem also exists on Dell 1425SC and probably on all 
+e1000-based Dell servers.
 
-So, I think we do better fix this bug early, then other people can go o=
-n his work on ftrace.
-
-Hi Neil,
-
-How do you think about this patch, can you give me some comments?
+Best regards,
 
 
-Thanks,
-Xiao
+ 				Krzysztof Olêdzki
+---1144830174-1050253287-1251766409=:5651--
