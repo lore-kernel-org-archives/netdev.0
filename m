@@ -1,183 +1,201 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 06/19] usbnet: convert to netdev_tx_t
-Date: Mon, 31 Aug 2009 22:50:45 -0700
-Message-ID: <20090901055128.980638707@vyatta.com>
+Subject: [PATCH 16/19] intel: convert drivers to netdev_tx_t
+Date: Mon, 31 Aug 2009 22:50:55 -0700
+Message-ID: <20090901055130.042455994@vyatta.com>
 References: <20090901055039.824876937@vyatta.com>
-Cc: netdev@vger.kernel.org,
-	David Brownell <dbrownell@users.sourceforge.net>
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:57484 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:57486 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752726AbZIAF67 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Sep 2009 01:58:59 -0400
-Content-Disposition: inline; filename=usb-tx.patch
+	id S1752719AbZIAF7E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Sep 2009 01:59:04 -0400
+Content-Disposition: inline; filename=intel.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Get rid of some bogus return wrapping as well.
+
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-
 ---
- drivers/net/usb/catc.c       |    3 ++-
- drivers/net/usb/cdc-phonet.c |    6 +++---
- drivers/net/usb/hso.c        |    3 ++-
- drivers/net/usb/kaweth.c     |    3 ++-
- drivers/net/usb/pegasus.c    |    3 ++-
- drivers/net/usb/rtl8150.c    |    3 ++-
- drivers/net/usb/usbnet.c     |    8 ++++----
- drivers/usb/gadget/u_ether.c |    3 ++-
- include/linux/usb/usbnet.h   |    3 ++-
- 9 files changed, 21 insertions(+), 14 deletions(-)
+ drivers/net/e100.c             |    3 ++-
+ drivers/net/e1000/e1000_main.c |    6 ++++--
+ drivers/net/e1000e/netdev.c    |    3 ++-
+ drivers/net/igb/igb_main.c     |   19 +++++++++++--------
+ drivers/net/igbvf/netdev.c     |   14 ++++++--------
+ drivers/net/ixgb/ixgb_main.c   |    5 +++--
+ drivers/net/ixgbe/ixgbe_main.c |    3 ++-
+ 7 files changed, 30 insertions(+), 23 deletions(-)
 
---- a/drivers/net/usb/catc.c	2009-08-31 16:17:53.251107228 -0700
-+++ b/drivers/net/usb/catc.c	2009-08-31 16:26:12.571081682 -0700
-@@ -411,7 +411,8 @@ static void catc_tx_done(struct urb *urb
- 	spin_unlock_irqrestore(&catc->tx_lock, flags);
+--- a/drivers/net/e100.c	2009-08-31 16:17:52.421107750 -0700
++++ b/drivers/net/e100.c	2009-08-31 16:30:52.554352111 -0700
+@@ -1690,7 +1690,8 @@ static void e100_xmit_prepare(struct nic
+ 	cb->u.tcb.tbd.size = cpu_to_le16(skb->len);
  }
  
--static int catc_start_xmit(struct sk_buff *skb, struct net_device *netdev)
-+static netdev_tx_t catc_start_xmit(struct sk_buff *skb,
-+					 struct net_device *netdev)
+-static int e100_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
++static netdev_tx_t e100_xmit_frame(struct sk_buff *skb,
++				   struct net_device *netdev)
  {
- 	struct catc *catc = netdev_priv(netdev);
- 	unsigned long flags;
---- a/drivers/net/usb/cdc-phonet.c	2009-08-31 16:17:53.231091626 -0700
-+++ b/drivers/net/usb/cdc-phonet.c	2009-08-31 16:26:12.571081682 -0700
-@@ -55,7 +55,7 @@ static void rx_complete(struct urb *req)
- /*
-  * Network device callbacks
-  */
--static int usbpn_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t usbpn_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct usbpn_dev *pnd = netdev_priv(dev);
- 	struct urb *req = NULL;
-@@ -82,12 +82,12 @@ static int usbpn_xmit(struct sk_buff *sk
- 	if (pnd->tx_queue >= dev->tx_queue_len)
- 		netif_stop_queue(dev);
- 	spin_unlock_irqrestore(&pnd->tx_lock, flags);
--	return 0;
-+	return NETDEV_TX_OK;
- 
- drop:
- 	dev_kfree_skb(skb);
- 	dev->stats.tx_dropped++;
--	return 0;
-+	return NETDEV_TX_OK;
+ 	struct nic *nic = netdev_priv(netdev);
+ 	int err;
+--- a/drivers/net/e1000/e1000_main.c	2009-08-31 16:17:52.441081727 -0700
++++ b/drivers/net/e1000/e1000_main.c	2009-08-31 16:31:06.101316042 -0700
+@@ -125,7 +125,8 @@ static void e1000_set_rx_mode(struct net
+ static void e1000_update_phy_info(unsigned long data);
+ static void e1000_watchdog(unsigned long data);
+ static void e1000_82547_tx_fifo_stall(unsigned long data);
+-static int e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev);
++static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
++				    struct net_device *netdev);
+ static struct net_device_stats * e1000_get_stats(struct net_device *netdev);
+ static int e1000_change_mtu(struct net_device *netdev, int new_mtu);
+ static int e1000_set_mac(struct net_device *netdev, void *p);
+@@ -3249,7 +3250,8 @@ static int e1000_maybe_stop_tx(struct ne
  }
  
- static void tx_complete(struct urb *req)
---- a/drivers/net/usb/hso.c	2009-08-31 16:17:53.241081443 -0700
-+++ b/drivers/net/usb/hso.c	2009-08-31 16:26:12.571081682 -0700
-@@ -771,7 +771,8 @@ static void write_bulk_callback(struct u
+ #define TXD_USE_COUNT(S, X) (((S) >> (X)) + 1 )
+-static int e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
++static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
++				    struct net_device *netdev)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
+--- a/drivers/net/e1000e/netdev.c	2009-08-31 16:17:52.421107750 -0700
++++ b/drivers/net/e1000e/netdev.c	2009-08-31 16:31:18.442354494 -0700
+@@ -4097,7 +4097,8 @@ static int e1000_maybe_stop_tx(struct ne
  }
  
- /* called by kernel when we need to transmit a packet */
--static int hso_net_start_xmit(struct sk_buff *skb, struct net_device *net)
-+static netdev_tx_t hso_net_start_xmit(struct sk_buff *skb,
-+					    struct net_device *net)
+ #define TXD_USE_COUNT(S, X) (((S) >> (X)) + 1 )
+-static int e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
++static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
++				    struct net_device *netdev)
  {
- 	struct hso_net *odev = netdev_priv(net);
- 	int result;
---- a/drivers/net/usb/kaweth.c	2009-08-31 16:17:53.241081443 -0700
-+++ b/drivers/net/usb/kaweth.c	2009-08-31 16:26:12.571081682 -0700
-@@ -803,7 +803,8 @@ static void kaweth_usb_transmit_complete
- /****************************************************************
-  *     kaweth_start_xmit
-  ****************************************************************/
--static int kaweth_start_xmit(struct sk_buff *skb, struct net_device *net)
-+static netdev_tx_t kaweth_start_xmit(struct sk_buff *skb,
-+					   struct net_device *net)
- {
- 	struct kaweth_device *kaweth = netdev_priv(net);
- 	__le16 *private_header;
---- a/drivers/net/usb/pegasus.c	2009-08-31 16:17:53.251107228 -0700
-+++ b/drivers/net/usb/pegasus.c	2009-08-31 16:26:12.571081682 -0700
-@@ -876,7 +876,8 @@ static void pegasus_tx_timeout(struct ne
- 	pegasus->stats.tx_errors++;
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_ring *tx_ring = adapter->tx_ring;
+--- a/drivers/net/igb/igb_main.c	2009-08-31 16:17:52.451108421 -0700
++++ b/drivers/net/igb/igb_main.c	2009-08-31 16:31:36.466352379 -0700
+@@ -98,9 +98,11 @@ static void igb_set_multi(struct net_dev
+ static void igb_update_phy_info(unsigned long);
+ static void igb_watchdog(unsigned long);
+ static void igb_watchdog_task(struct work_struct *);
+-static int igb_xmit_frame_ring_adv(struct sk_buff *, struct net_device *,
+-				  struct igb_ring *);
+-static int igb_xmit_frame_adv(struct sk_buff *skb, struct net_device *);
++static netdev_tx_t igb_xmit_frame_ring_adv(struct sk_buff *,
++					   struct net_device *,
++					   struct igb_ring *);
++static netdev_tx_t igb_xmit_frame_adv(struct sk_buff *skb,
++				      struct net_device *);
+ static struct net_device_stats *igb_get_stats(struct net_device *);
+ static int igb_change_mtu(struct net_device *, int);
+ static int igb_set_mac(struct net_device *, void *);
+@@ -3295,9 +3297,9 @@ static int igb_maybe_stop_tx(struct net_
+ 	return __igb_maybe_stop_tx(netdev, tx_ring, size);
  }
  
--static int pegasus_start_xmit(struct sk_buff *skb, struct net_device *net)
-+static netdev_tx_t pegasus_start_xmit(struct sk_buff *skb,
-+					    struct net_device *net)
+-static int igb_xmit_frame_ring_adv(struct sk_buff *skb,
+-				   struct net_device *netdev,
+-				   struct igb_ring *tx_ring)
++static netdev_tx_t igb_xmit_frame_ring_adv(struct sk_buff *skb,
++					   struct net_device *netdev,
++					   struct igb_ring *tx_ring)
  {
- 	pegasus_t *pegasus = netdev_priv(net);
- 	int count = ((skb->len + 2) & 0x3f) ? skb->len + 2 : skb->len + 3;
---- a/drivers/net/usb/rtl8150.c	2009-08-31 16:17:53.261106055 -0700
-+++ b/drivers/net/usb/rtl8150.c	2009-08-31 16:26:12.571081682 -0700
-@@ -727,7 +727,8 @@ static void rtl8150_set_multicast(struct
- 	netif_wake_queue(netdev);
+ 	struct igb_adapter *adapter = netdev_priv(netdev);
+ 	unsigned int first;
+@@ -3385,7 +3387,8 @@ static int igb_xmit_frame_ring_adv(struc
+ 	return NETDEV_TX_OK;
  }
  
--static int rtl8150_start_xmit(struct sk_buff *skb, struct net_device *netdev)
-+static netdev_tx_t rtl8150_start_xmit(struct sk_buff *skb,
-+					    struct net_device *netdev)
+-static int igb_xmit_frame_adv(struct sk_buff *skb, struct net_device *netdev)
++static netdev_tx_t igb_xmit_frame_adv(struct sk_buff *skb,
++				      struct net_device *netdev)
  {
- 	rtl8150_t *dev = netdev_priv(netdev);
- 	int count, res;
---- a/drivers/net/usb/usbnet.c	2009-08-31 16:17:53.241081443 -0700
-+++ b/drivers/net/usb/usbnet.c	2009-08-31 16:26:12.571081682 -0700
-@@ -1007,15 +1007,16 @@ EXPORT_SYMBOL_GPL(usbnet_tx_timeout);
+ 	struct igb_adapter *adapter = netdev_priv(netdev);
+ 	struct igb_ring *tx_ring;
+@@ -3398,7 +3401,7 @@ static int igb_xmit_frame_adv(struct sk_
+ 	 * to a flow.  Right now, performance is impacted slightly negatively
+ 	 * if using multiple tx queues.  If the stack breaks away from a
+ 	 * single qdisc implementation, we can look at this again. */
+-	return (igb_xmit_frame_ring_adv(skb, netdev, tx_ring));
++	return igb_xmit_frame_ring_adv(skb, netdev, tx_ring);
+ }
  
- /*-------------------------------------------------------------------------*/
+ /**
+--- a/drivers/net/igbvf/netdev.c	2009-08-31 16:17:52.431080456 -0700
++++ b/drivers/net/igbvf/netdev.c	2009-08-31 16:31:47.458359112 -0700
+@@ -2204,9 +2204,9 @@ static inline void igbvf_tx_queue_adv(st
+ 	mmiowb();
+ }
  
--int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
-+netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
-+				     struct net_device *net)
+-static int igbvf_xmit_frame_ring_adv(struct sk_buff *skb,
+-                                   struct net_device *netdev,
+-                                   struct igbvf_ring *tx_ring)
++static netdev_tx_t igbvf_xmit_frame_ring_adv(struct sk_buff *skb,
++					     struct net_device *netdev,
++					     struct igbvf_ring *tx_ring)
  {
- 	struct usbnet		*dev = netdev_priv(net);
- 	int			length;
--	int			retval = NET_XMIT_SUCCESS;
- 	struct urb		*urb = NULL;
- 	struct skb_data		*entry;
- 	struct driver_info	*info = dev->driver_info;
- 	unsigned long		flags;
-+	int retval;
+ 	struct igbvf_adapter *adapter = netdev_priv(netdev);
+ 	unsigned int first, tx_flags = 0;
+@@ -2279,11 +2279,11 @@ static int igbvf_xmit_frame_ring_adv(str
+ 	return NETDEV_TX_OK;
+ }
  
- 	// some devices want funky USB-level framing, for
- 	// win32 driver (usually) and/or hardware quirks
-@@ -1079,7 +1080,6 @@ int usbnet_start_xmit (struct sk_buff *s
- 		if (netif_msg_tx_err (dev))
- 			devdbg (dev, "drop, code %d", retval);
- drop:
--		retval = NET_XMIT_SUCCESS;
- 		dev->net->stats.tx_dropped++;
- 		if (skb)
- 			dev_kfree_skb_any (skb);
-@@ -1088,7 +1088,7 @@ drop:
- 		devdbg (dev, "> tx, len %d, type 0x%x",
- 			length, skb->protocol);
- 	}
+-static int igbvf_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
++static netdev_tx_t igbvf_xmit_frame(struct sk_buff *skb,
++				    struct net_device *netdev)
+ {
+ 	struct igbvf_adapter *adapter = netdev_priv(netdev);
+ 	struct igbvf_ring *tx_ring;
+-	int retval;
+ 
+ 	if (test_bit(__IGBVF_DOWN, &adapter->state)) {
+ 		dev_kfree_skb_any(skb);
+@@ -2292,9 +2292,7 @@ static int igbvf_xmit_frame(struct sk_bu
+ 
+ 	tx_ring = &adapter->tx_ring[0];
+ 
+-	retval = igbvf_xmit_frame_ring_adv(skb, netdev, tx_ring);
+-
 -	return retval;
-+	return NETDEV_TX_OK;
- }
- EXPORT_SYMBOL_GPL(usbnet_start_xmit);
- 
---- a/include/linux/usb/usbnet.h	2009-08-31 16:17:53.281109296 -0700
-+++ b/include/linux/usb/usbnet.h	2009-08-31 16:26:53.171108362 -0700
-@@ -182,7 +182,8 @@ struct skb_data {	/* skb->cb is one of t
- 
- extern int usbnet_open (struct net_device *net);
- extern int usbnet_stop (struct net_device *net);
--extern int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net);
-+extern netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
-+				      struct net_device *net);
- extern void usbnet_tx_timeout (struct net_device *net);
- extern int usbnet_change_mtu (struct net_device *net, int new_mtu);
- 
---- a/drivers/usb/gadget/u_ether.c	2009-08-31 16:17:53.271081695 -0700
-+++ b/drivers/usb/gadget/u_ether.c	2009-08-31 16:26:12.571081682 -0700
-@@ -465,7 +465,8 @@ static inline int is_promisc(u16 cdc_fil
- 	return cdc_filter & USB_CDC_PACKET_TYPE_PROMISCUOUS;
++	return igbvf_xmit_frame_ring_adv(skb, netdev, tx_ring);
  }
  
--static int eth_start_xmit(struct sk_buff *skb, struct net_device *net)
-+static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
-+					struct net_device *net)
+ /**
+--- a/drivers/net/ixgb/ixgb_main.c	2009-08-31 16:17:52.431080456 -0700
++++ b/drivers/net/ixgb/ixgb_main.c	2009-08-31 16:31:58.474359401 -0700
+@@ -81,7 +81,8 @@ static void ixgb_clean_tx_ring(struct ix
+ static void ixgb_clean_rx_ring(struct ixgb_adapter *adapter);
+ static void ixgb_set_multi(struct net_device *netdev);
+ static void ixgb_watchdog(unsigned long data);
+-static int ixgb_xmit_frame(struct sk_buff *skb, struct net_device *netdev);
++static netdev_tx_t ixgb_xmit_frame(struct sk_buff *skb,
++				   struct net_device *netdev);
+ static struct net_device_stats *ixgb_get_stats(struct net_device *netdev);
+ static int ixgb_change_mtu(struct net_device *netdev, int new_mtu);
+ static int ixgb_set_mac(struct net_device *netdev, void *p);
+@@ -1442,7 +1443,7 @@ static int ixgb_maybe_stop_tx(struct net
+ 	MAX_SKB_FRAGS * TXD_USE_COUNT(PAGE_SIZE) + 1 /* for context */ \
+ 	+ 1 /* one more needed for sentinel TSO workaround */
+ 
+-static int
++static netdev_tx_t
+ ixgb_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
  {
- 	struct eth_dev		*dev = netdev_priv(net);
- 	int			length = skb->len;
+ 	struct ixgb_adapter *adapter = netdev_priv(netdev);
+--- a/drivers/net/ixgbe/ixgbe_main.c	2009-08-31 16:17:52.441081727 -0700
++++ b/drivers/net/ixgbe/ixgbe_main.c	2009-08-31 16:32:07.281106978 -0700
+@@ -5107,7 +5107,8 @@ static u16 ixgbe_select_queue(struct net
+ 	return skb_tx_hash(dev, skb);
+ }
+ 
+-static int ixgbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
++static netdev_tx_t ixgbe_xmit_frame(struct sk_buff *skb,
++				    struct net_device *netdev)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	struct ixgbe_ring *tx_ring;
 
 -- 
 
