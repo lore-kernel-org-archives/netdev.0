@@ -1,123 +1,188 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 3/3] Revert Backoff [v3]: Calculate TCP's connection
- close threshold as a time value.
-Date: Tue, 1 Sep 2009 16:23:21 +0300 (EEST)
-Message-ID: <alpine.DEB.2.00.0909011615130.29341@wel-95.cs.helsinki.fi>
-References: <4A950B82.1070807@tvk.rwth-aachen.de> <4A9BD7AB.7060207@gmail.com> <4A9D0A67.6070000@tvk.rwth-aachen.de> <4A9D12AE.8050109@gmail.com>
+From: Mike McCormack <mikem@ring3k.org>
+Subject: [PATCH] sky2: Create buffer alloc and free helpers
+Date: Tue, 01 Sep 2009 22:21:35 +0900
+Message-ID: <4A9D1FDF.4020407@ring3k.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-1006983804-1251811401=:29341"
-Cc: Damian Lukowski <damian@tvk.rwth-aachen.de>,
-	Netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:33943 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754704AbZIANXV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 09:23:21 -0400
-In-Reply-To: <4A9D12AE.8050109@gmail.com>
+Received: from wa-out-1112.google.com ([209.85.146.176]:60860 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754528AbZIANZg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 09:25:36 -0400
+Received: by wa-out-1112.google.com with SMTP id j5so700576wah.21
+        for <netdev@vger.kernel.org>; Tue, 01 Sep 2009 06:25:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Refactor similar two sections of code that free buffers into one.
+Only call tx_init if all buffer allocations succeed.
 
---8323329-1006983804-1251811401=:29341
-Content-Type: TEXT/PLAIN; charset=iso-8859-15; format=flowed
-Content-Transfer-Encoding: 8BIT
+Signed-off-by: Mike McCormack <mikem@ring3k.org>
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+---
+ drivers/net/sky2.c |  113 +++++++++++++++++++++++++++------------------------
+ 1 files changed, 60 insertions(+), 53 deletions(-)
 
-On Tue, 1 Sep 2009, Eric Dumazet wrote:
-
-> Damian Lukowski a écrit :
->> Eric Dumazet schrieb:
->>> Damian Lukowski a écrit :
->>>> RFC 1122 specifies two threshold values R1 and R2 for connection timeouts,
->>>> which may represent a number of allowed retransmissions or a timeout value.
->>>> Currently linux uses sysctl_tcp_retries{1,2} to specify the thresholds
->>>> in number of allowed retransmissions.
->>>>
->>>> For any desired threshold R2 (by means of time) one can specify tcp_retries2
->>>> (by means of number of retransmissions) such that TCP will not time out
->>>> earlier than R2. This is the case, because the RTO schedule follows a fixed
->>>> pattern, namely exponential backoff.
->>>>
->>>> However, the RTO behaviour is not predictable any more if RTO backoffs can be
->>>> reverted, as it is the case in the draft
->>>> "Make TCP more Robust to Long Connectivity Disruptions"
->>>> (http://tools.ietf.org/html/draft-zimmermann-tcp-lcd).
->>>>
->>>> In the worst case TCP would time out a connection after 3.2 seconds, if the
->>>> initial RTO equaled MIN_RTO and each backoff has been reverted.
->>>>
->>>> This patch introduces a function retransmits_timed_out(N),
->>>> which calculates the timeout of a TCP connection, assuming an initial
->>>> RTO of MIN_RTO and N unsuccessful, exponentially backed-off retransmissions.
->>>>
->>>> Whenever timeout decisions are made by comparing the retransmission counter
->>>> to some value N, this function can be used, instead.
->>>>
->>>> The meaning of tcp_retries2 will be changed, as many more RTO retransmissions
->>>> can occur than the value indicates. However, it yields a timeout which is
->>>> similar to the one of an unpatched, exponentially backing off TCP in the same
->>>> scenario. As no application could rely on an RTO greater than MIN_RTO, there
->>>> should be no risk of a regression.
->>>>
->>>> Signed-off-by: Damian Lukowski <damian@tvk.rwth-aachen.de>
->>>> ---
->>>>  include/net/tcp.h    |   18 ++++++++++++++++++
->>>>  net/ipv4/tcp_timer.c |   11 +++++++----
->>>>  2 files changed, 25 insertions(+), 4 deletions(-)
->>>>
->>>> diff --git a/include/net/tcp.h b/include/net/tcp.h
->>>> index c35b329..17d1a88 100644
->>>> --- a/include/net/tcp.h
->>>> +++ b/include/net/tcp.h
->>>> @@ -1247,6 +1247,24 @@ static inline struct sk_buff *tcp_write_queue_prev(struct sock *sk, struct sk_bu
->>>>  #define tcp_for_write_queue_from_safe(skb, tmp, sk)			\
->>>>  	skb_queue_walk_from_safe(&(sk)->sk_write_queue, skb, tmp)
->>>>
->>>> +static inline bool retransmits_timed_out(const struct sock *sk,
->>>> +					 unsigned int boundary)
->>>> +{
->>>> +	int limit, K;
->>>> +	if (!inet_csk(sk)->icsk_retransmits)
->>>> +		return false;
->>>> +
->>>> +	K = ilog2(TCP_RTO_MAX/TCP_RTO_MIN);
->>>> +
->>>> +	if (boundary <= K)
->>>> +		limit = ((2 << boundary) - 1) * TCP_RTO_MIN;
->>>> +	else
->>>> +		limit = ((2 << K) - 1) * TCP_RTO_MIN +
->>>> +			(boundary - K) * TCP_RTO_MAX;
->>> Doing this computation might allow us to respect RFC 1122 here :
->>>
->>> "The value of R2 SHOULD correspond to at least 100 seconds."
->>>
->>> adding a third parameter to retransmits_timed_out(), min_limit,
->>> being 100*HZ if sysctl_tcp_retries2 was used...
->>>
->>> limit = min(min_limit, limit);
->>
->> Hi.
->> Hm, with this restriction, we would make it a MUST instead of a SHOULD.
->> The current approach does also allow retries2 values, which can yield
->> lower timeouts than 100 seconds.
->> I could implement the min_timeout, but in my opinion, the 100 seconds
->> shouldn't be enforced. We could make a patch later, which introduces a
->> lower limit to the sysctl, so the user gets feedback, if he tries to adjust
->> the limit below the recommended 100 seconds, or something like that.
->>
->
-> Fair enough, this 100 seconds limit is only a hint, not an enforcement.
-
-Please excuse my curiousness. Were you aiming for some particular case 
-with this thought of a lower bound? ...To me it seems quite a small 
-difference. I can understand that one can construct a scenario with small 
-retries and heterogenous rtts but how significant that is in practice 
-whether we timeout 100s or slightly earlier the small rtt'ed ones (as the 
-enforced limits are anyway quite strict I doubt we really would care that 
-much on those hanging around for long).
-
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index c7c0a5b..0e4c5c1 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -1399,6 +1399,61 @@ nomem:
+ 	return -ENOMEM;
+ }
+ 
++static int sky2_alloc_buffers(struct sky2_port *sky2)
++{
++	struct sky2_hw *hw = sky2->hw;
++
++	/* must be power of 2 */
++	sky2->tx_le = pci_alloc_consistent(hw->pdev,
++					   sky2->tx_ring_size *
++					   sizeof(struct sky2_tx_le),
++					   &sky2->tx_le_map);
++	if (!sky2->tx_le)
++		goto nomem;
++
++	sky2->tx_ring = kcalloc(sky2->tx_ring_size, sizeof(struct tx_ring_info),
++				GFP_KERNEL);
++	if (!sky2->tx_ring)
++		goto nomem;
++
++	sky2->rx_le = pci_alloc_consistent(hw->pdev, RX_LE_BYTES,
++					   &sky2->rx_le_map);
++	if (!sky2->rx_le)
++		goto nomem;
++	memset(sky2->rx_le, 0, RX_LE_BYTES);
++
++	sky2->rx_ring = kcalloc(sky2->rx_pending, sizeof(struct rx_ring_info),
++				GFP_KERNEL);
++	if (!sky2->rx_ring)
++		goto nomem;
++
++	return 0;
++nomem:
++	return -ENOMEM;
++}
++
++static void sky2_free_buffers(struct sky2_port *sky2)
++{
++	struct sky2_hw *hw = sky2->hw;
++
++	if (sky2->rx_le) {
++		pci_free_consistent(hw->pdev, RX_LE_BYTES,
++				    sky2->rx_le, sky2->rx_le_map);
++		sky2->rx_le = NULL;
++	}
++	if (sky2->tx_le) {
++		pci_free_consistent(hw->pdev,
++				    sky2->tx_ring_size * sizeof(struct sky2_tx_le),
++				    sky2->tx_le, sky2->tx_le_map);
++		sky2->tx_le = NULL;
++	}
++	kfree(sky2->tx_ring);
++	kfree(sky2->rx_ring);
++
++	sky2->tx_ring = NULL;
++	sky2->rx_ring = NULL;
++}
++
+ /* Bring up network interface. */
+ static int sky2_up(struct net_device *dev)
+ {
+@@ -1406,7 +1461,7 @@ static int sky2_up(struct net_device *dev)
+ 	struct sky2_hw *hw = sky2->hw;
+ 	unsigned port = sky2->port;
+ 	u32 imask, ramsize;
+-	int cap, err = -ENOMEM;
++	int cap, err;
+ 	struct net_device *otherdev = hw->dev[sky2->port^1];
+ 
+ 	/*
+@@ -1425,32 +1480,12 @@ static int sky2_up(struct net_device *dev)
+ 
+ 	netif_carrier_off(dev);
+ 
+-	/* must be power of 2 */
+-	sky2->tx_le = pci_alloc_consistent(hw->pdev,
+-					   sky2->tx_ring_size *
+-					   sizeof(struct sky2_tx_le),
+-					   &sky2->tx_le_map);
+-	if (!sky2->tx_le)
+-		goto err_out;
+-
+-	sky2->tx_ring = kcalloc(sky2->tx_ring_size, sizeof(struct tx_ring_info),
+-				GFP_KERNEL);
+-	if (!sky2->tx_ring)
++	err = sky2_alloc_buffers(sky2);
++	if (err)
+ 		goto err_out;
+ 
+ 	tx_init(sky2);
+ 
+-	sky2->rx_le = pci_alloc_consistent(hw->pdev, RX_LE_BYTES,
+-					   &sky2->rx_le_map);
+-	if (!sky2->rx_le)
+-		goto err_out;
+-	memset(sky2->rx_le, 0, RX_LE_BYTES);
+-
+-	sky2->rx_ring = kcalloc(sky2->rx_pending, sizeof(struct rx_ring_info),
+-				GFP_KERNEL);
+-	if (!sky2->rx_ring)
+-		goto err_out;
+-
+ 	sky2_mac_init(hw, port);
+ 
+ 	/* Register is number of 4K blocks on internal RAM buffer. */
+@@ -1507,22 +1542,7 @@ static int sky2_up(struct net_device *dev)
+ 	return 0;
+ 
+ err_out:
+-	if (sky2->rx_le) {
+-		pci_free_consistent(hw->pdev, RX_LE_BYTES,
+-				    sky2->rx_le, sky2->rx_le_map);
+-		sky2->rx_le = NULL;
+-	}
+-	if (sky2->tx_le) {
+-		pci_free_consistent(hw->pdev,
+-				    sky2->tx_ring_size * sizeof(struct sky2_tx_le),
+-				    sky2->tx_le, sky2->tx_le_map);
+-		sky2->tx_le = NULL;
+-	}
+-	kfree(sky2->tx_ring);
+-	kfree(sky2->rx_ring);
+-
+-	sky2->tx_ring = NULL;
+-	sky2->rx_ring = NULL;
++	sky2_free_buffers(sky2);
+ 	return err;
+ }
+ 
+@@ -1877,20 +1897,7 @@ static int sky2_down(struct net_device *dev)
+ 
+ 	sky2_rx_clean(sky2);
+ 
+-	pci_free_consistent(hw->pdev, RX_LE_BYTES,
+-			    sky2->rx_le, sky2->rx_le_map);
+-	kfree(sky2->rx_ring);
+-
+-	pci_free_consistent(hw->pdev,
+-			    sky2->tx_ring_size * sizeof(struct sky2_tx_le),
+-			    sky2->tx_le, sky2->tx_le_map);
+-	kfree(sky2->tx_ring);
+-
+-	sky2->tx_le = NULL;
+-	sky2->rx_le = NULL;
+-
+-	sky2->rx_ring = NULL;
+-	sky2->tx_ring = NULL;
++	sky2_free_buffers(sky2);
+ 
+ 	return 0;
+ }
 -- 
-  i.
---8323329-1006983804-1251811401=:29341--
+1.5.6.5
+
+
