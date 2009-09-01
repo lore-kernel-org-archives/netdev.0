@@ -1,60 +1,90 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: UDP is bypassing qdisc statistics ....
-Date: Tue, 1 Sep 2009 15:35:19 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0909011534350.12112@V090114053VZO-1>
-References: <20090901063726.GA5222@ff.dom.local> <alpine.DEB.1.10.0909011358030.15578@V090114053VZO-1> <4A9D2DBF.8030200@trash.net> <4A9D3687.2020101@gmail.com> <alpine.DEB.1.10.0909011504030.12112@V090114053VZO-1> <4A9D3D9A.1030500@gmail.com>
+From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Subject: RE: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
+Date: Tue, 1 Sep 2009 23:37:01 +0800
+Message-ID: <C85CEDA13AB1CF4D9D597824A86D2B9006AEC02ED8@PDSMSX501.ccr.corp.intel.com>
+References: <E88DD564E9DC5446A76B2B47C3BCCA150219600F9B@pdsmsx503.ccr.corp.intel.com>
+ <C85CEDA13AB1CF4D9D597824A86D2B9006AEB944B8@PDSMSX501.ccr.corp.intel.com>
+ <4A9C0DC2.6080704@redhat.com> <4A9C4723.5080309@codemonkey.ws>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Patrick McHardy <kaber@trash.net>,
-	Mark Smith <lk-netdev@lk-netdev.nosense.org>,
-	Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.ultrahosting.com ([74.213.174.253]:60258 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754632AbZIAPhQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 11:37:16 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 01FE882C45F
-	for <netdev@vger.kernel.org>; Tue,  1 Sep 2009 11:38:55 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.174.253])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id wIBWjXQeG1Sc for <netdev@vger.kernel.org>;
-	Tue,  1 Sep 2009 11:38:54 -0400 (EDT)
-Received: from V090114053VZO-1 (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 823ED82C787
-	for <netdev@vger.kernel.org>; Tue,  1 Sep 2009 11:37:32 -0400 (EDT)
-In-Reply-To: <4A9D3D9A.1030500@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "mst@redhat.com" <mst@redhat.com>, "netdev@vger.kernel.org"
+	<netdev@vger.kernel.org>, "virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>, "kvm@vger.kernel.org"
+	<kvm@vger.kernel.org>, "linux-kernel@vger.kernel.org"
+	<linux-kernel@vger.kernel.org>, "mingo@elte.hu" <mingo@elte.hu>,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>, "akpm@linux-foundation.org"
+	<akpm@linux-foundation.org>, "hpa@zytor.com" <hpa@zytor.com>,
+	"gregory.haskins@gmail.com" <gregory.haskins@gmail.com>
+To: Anthony Liguori <anthony@codemonkey.ws>, Avi Kivity <avi@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <4A9C4723.5080309@codemonkey.ws>
+Content-Language: en-US
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 1 Sep 2009, Eric Dumazet wrote:
 
-> You should see that in /proc/interrupts, if I correctly understand bnx2.c
+>It may be possible to make vmdq appear like an sr-iov capable device=20
+>from userspace.  sr-iov provides the userspace interfaces to allocate=20
+>interfaces and assign mac addresses.  To make it useful, you would have=20
+>to handle tx multiplexing in the driver but that would be much easier to=20
+>consume for kvm
 
-Hmmm I have 8 interrupts:
+What we have thought is to support multiple net_dev structures=20
+according to multiple queue pairs of one vmdq adapter and presents
+multiple mac address in user space and each one mac can be used=20
+by a guest.=20
+What does the tx multiplexing in the driver exactly mean?
 
-  62:        158          0          0          0          0          0
-0          0          0          0          0          0          0
-0          0          0  IR-PCI-MSI-edge      eth0-0
-  63:         84          0          0          0          0          0
-0          0          0          0          0          0          0
-0          0          0  IR-PCI-MSI-edge      eth0-1
-  64:        412          0          0          0          0          0
-0          0          0          0          0          0          0
-0          0          0  IR-PCI-MSI-edge      eth0-2
-  65:         25          0          0          0          0          0
-0          0          0          0          0          0          0
-0          0          0  IR-PCI-MSI-edge      eth0-3
-  66:      49718          0          0          0          0          0
-0          0          0          0          0          0          0
-0          0          0  IR-PCI-MSI-edge      eth0-4
-  67:         65          0          0          0          0          0
-0          0          0          0          0          0          0
-0          0          0  IR-PCI-MSI-edge      eth0-5
-  68:        686          0          0          0          0          0
-0          0          0          0          0          0          0
-0          0          0  IR-PCI-MSI-edge      eth0-6
-  69:       2582          0          0          0          0          0
-0          0          0          0          0          0          0
-0          0          0  IR-PCI-MSI-edge      eth0-7
+Thanks
+Xiaohui
+
+-----Original Message-----
+From: Anthony Liguori [mailto:anthony@codemonkey.ws]=20
+Sent: Tuesday, September 01, 2009 5:57 AM
+To: Avi Kivity
+Cc: Xin, Xiaohui; mst@redhat.com; netdev@vger.kernel.org; virtualization@li=
+sts.linux-foundation.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org=
+; mingo@elte.hu; linux-mm@kvack.org; akpm@linux-foundation.org; hpa@zytor.c=
+om; gregory.haskins@gmail.com
+Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
+
+Avi Kivity wrote:
+> On 08/31/2009 02:42 PM, Xin, Xiaohui wrote:
+>> Hi, Michael
+>> That's a great job. We are now working on support VMDq on KVM, and=20
+>> since the VMDq hardware presents L2 sorting based on MAC addresses=20
+>> and VLAN tags, our target is to implement a zero copy solution using=20
+>> VMDq. We stared from the virtio-net architecture. What we want to=20
+>> proposal is to use AIO combined with direct I/O:
+>> 1) Modify virtio-net Backend service in Qemu to submit aio requests=20
+>> composed from virtqueue.
+>> 2) Modify TUN/TAP device to support aio operations and the user space=20
+>> buffer directly mapping into the host kernel.
+>> 3) Let a TUN/TAP device binds to single rx/tx queue from the NIC.
+>> 4) Modify the net_dev and skb structure to permit allocated skb to=20
+>> use user space directly mapped payload buffer address rather then=20
+>> kernel allocated.
+>>
+>> As zero copy is also your goal, we are interested in what's in your=20
+>> mind, and would like to collaborate with you if possible.
+>>   =20
+>
+> One way to share the effort is to make vmdq queues available as normal=20
+> kernel interfaces.
+
+It may be possible to make vmdq appear like an sr-iov capable device=20
+from userspace.  sr-iov provides the userspace interfaces to allocate=20
+interfaces and assign mac addresses.  To make it useful, you would have=20
+to handle tx multiplexing in the driver but that would be much easier to=20
+consume for kvm.
+
+Regards,
+
+Anthony Liguori
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
