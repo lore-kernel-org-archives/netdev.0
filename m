@@ -1,49 +1,47 @@
-From: Christoph Lameter <cl@linux-foundation.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: UDP is bypassing qdisc statistics ....
-Date: Tue, 1 Sep 2009 14:29:12 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0909011427210.16313@V090114053VZO-1>
+Date: Tue, 01 Sep 2009 16:58:15 +0200
+Message-ID: <4A9D3687.2020101@gmail.com>
 References: <20090901063726.GA5222@ff.dom.local> <alpine.DEB.1.10.0909011358030.15578@V090114053VZO-1> <4A9D2DBF.8030200@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Christoph Lameter <cl@linux-foundation.org>,
 	Mark Smith <lk-netdev@lk-netdev.nosense.org>,
 	Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org,
 	davem@linux-foundation.org
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.ultrahosting.com ([74.213.174.253]:46685 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754753AbZIAObF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 10:31:05 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id C4F1682C4DC
-	for <netdev@vger.kernel.org>; Tue,  1 Sep 2009 10:32:42 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.174.253])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id J731h2DjVQxc for <netdev@vger.kernel.org>;
-	Tue,  1 Sep 2009 10:32:42 -0400 (EDT)
-Received: from V090114053VZO-1 (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 9B4D482C3B3
-	for <netdev@vger.kernel.org>; Tue,  1 Sep 2009 10:31:24 -0400 (EDT)
+Received: from gw1.cosmosbay.com ([212.99.114.194]:35364 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754753AbZIAO6W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 10:58:22 -0400
 In-Reply-To: <4A9D2DBF.8030200@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 1 Sep 2009, Patrick McHardy wrote:
-
+Patrick McHardy a =E9crit :
 > Christoph Lameter wrote:
-> > Eric: This occurs with a Broadcom driver (bnx2). There is only one
-> > network device up and the IP statistics are correctly incremented.
->
+>> Eric: This occurs with a Broadcom driver (bnx2). There is only one
+>> network device up and the IP statistics are correctly incremented.
+>=20
 > That explains it. The bnx2 driver uses multiple TX queues, but
 > tc_dump_qdisc() only dumps the statistics from queue number 0.
->
+>=20
 > Not sure whether we should sum them up or dump the statistics
 > from each queue (or both). Summing them up avoids userspace
 > visible changes when drivers are converted to multiq.
 
-Well I have almost finished a /proc/net/qdisc_stats that shows *all*
-qdisc queues. Did this primarily for debugging since I do not know too
-much about the netlink stuff.
+Ok mystery solved, partially at least :)
+
+Hmm, my bnx2 still displays correct info here (BCM5708S) ; so maybe Chr=
+istoph has a
+real multiqueue NIC adapter ? I thought he mentioned a mono queue NIC e=
+arlier.
+
+Dumping stats for each queue would be better for admin point of view IM=
+HO
+(restricted to real_num_tx_queues I guess, since bnx2 allocates 8 queue=
+s per device.
 
 
