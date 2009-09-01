@@ -1,53 +1,36 @@
-From: Andreas Jaggi <aj@open.ch>
-Subject: Re: H.245v10+ support in nf_conntrack_h323?
-Date: Tue, 1 Sep 2009 14:10:33 +0200
-Message-ID: <20090901121033.GA18731@urbino.open.ch>
-References: <20090901092910.GC11354@urbino.open.ch> <20090901100230.GA18651@sirena.org.uk> <4A9D04A2.60307@trash.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Does ESP support 64 bit sequence numbering for authentication
+	hash ?
+Date: Tue, 1 Sep 2009 22:18:54 +1000
+Message-ID: <20090901121854.GA29632@gondor.apana.org.au>
+References: <1231943033.7937.120.camel@libdev3.mvista.co.uk> <20090115055644.GA30626@gondor.apana.org.au> <20090901120915.GA12646@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Mark Brown <broonie@opensource.wolfsonmicro.com>,
-	Jing Min Zhao <zhaojingmin@users.sourceforge.net>,
+Cc: djenkins@mvista.com, linux-crypto@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail6.open.ch ([213.156.224.131]:65239 "EHLO mail6.open.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753799AbZIAMJw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Sep 2009 08:09:52 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:52587 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754253AbZIAMS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 08:18:58 -0400
 Content-Disposition: inline
-In-Reply-To: <4A9D04A2.60307@trash.net>
+In-Reply-To: <20090901120915.GA12646@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 01, 2009 at 01:25:22PM +0200, Patrick McHardy wrote:
-> Mark Brown wrote:
-> > I'd be surprised if the H.245 version were the source of your problems
-> > here - the new protocol versions are backwards compatible and I don't
-> > remember any changes in any of the stuff that's relevant for firewall
-> > transit.
+On Tue, Sep 01, 2009 at 02:09:15PM +0200, Steffen Klassert wrote:
+>
+> > Patches for 64-bit support are welcome of course.
 > 
-> Good point. The helper should also log packets dropped due to parsing
-> errors. If you don't get any messages, I'd suggest to use the iptables
-> TRACE target to figure out where the packets are dropped exactly.
+> Is there actually anybody working on 64-bit sequence number support?
+> If not, I'd start to look at it.
 
-I'm quite confident that the H.245 parsing/handling is involved in the
-packet dropping:
-1. there are plenty of 'nf_ct_h245: packet dropped' messages
-   (but no nf_ct_q931 or nf_ct_ras messages)
-2. without nf_conntrack_h323 the videoconferencing works seamlessly
-3. with nf_conntrack_h323 and a ...-j NOTRACK rule the videoconferencing
-   works too
+I certainly am not :)
 
-In our setup there is a LOG rule preceding any DROP or ACCEPT rule, and
-there were no logentries for DROP rules showing up (only the nf_ct_h245:
-packet dropped messages).
-Would a TRACE rule provide more insight than this? (eg. by showing in
-which part of the nf_conntrack_h323 code a packet is dropped?)
-
-For me it looks like nf_conntrack_h323 is not only doing connection
-tracking, but also doing protocol enforcement (by dropping packets which
-do not correspond exactly to H.245v7).
-Perhaps there should be a config option to disable the protocol
-enforcement?
-
-Andreas
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
