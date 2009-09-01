@@ -1,58 +1,102 @@
-From: Mike McCormack <mikem@ring3k.org>
-Subject: [PATCH] sky2: Use 32bit read to read Y2_VAUX_AVAIL
-Date: Tue, 01 Sep 2009 22:54:27 +0900
-Message-ID: <4A9D2793.1020502@ring3k.org>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: UDP is bypassing qdisc statistics ....
+Date: Tue, 1 Sep 2009 14:03:07 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0909011358030.15578@V090114053VZO-1>
+References: <20090901063726.GA5222@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Mark Smith <lk-netdev@lk-netdev.nosense.org>,
+	Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org,
+	davem@linux-foundation.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f203.google.com ([209.85.216.203]:63674 "EHLO
-	mail-px0-f203.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754827AbZIAN6Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 09:58:25 -0400
-Received: by pxi42 with SMTP id 42so2272pxi.20
-        for <netdev@vger.kernel.org>; Tue, 01 Sep 2009 06:58:27 -0700 (PDT)
+Received: from smtp2.ultrahosting.com ([74.213.174.253]:53851 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754360AbZIAOFd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 10:05:33 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id A6C8482C757
+	for <netdev@vger.kernel.org>; Tue,  1 Sep 2009 10:07:11 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.253])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id PMNhEZluxvti for <netdev@vger.kernel.org>;
+	Tue,  1 Sep 2009 10:07:11 -0400 (EDT)
+Received: from V090114053VZO-1 (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id E555982C786
+	for <netdev@vger.kernel.org>; Tue,  1 Sep 2009 10:05:30 -0400 (EDT)
+In-Reply-To: <20090901063726.GA5222@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-B0_CTST is a 24bit register according to the vendor driver (sk98lin).
-A 16bit read on B0_CTST will always return 0 for Y2_VAUX_AVAIL (1<<16),
- so use a 32bit read when testing Y2_VAUX_AVAIL
+Eric: This occurs with a Broadcom driver (bnx2). There is only one
+network device up and the IP statistics are correctly incremented.
 
-Signed-off-by: Mike McCormack <mikem@ring3k.org>
----
- drivers/net/sky2.c |    2 +-
- drivers/net/sky2.h |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+#ip ro
+10.2.36.0/24 dev eth0  proto kernel  scope link  src 10.2.36.121
+default via 10.2.36.3 dev eth0
+#ip ro get 10.2.36.120
+10.2.36.120 dev eth0  src 10.2.36.121
+    cache  mtu 1500 advmss 1460 hoplimit 64
+ip ro get 239.0.192.2
+multicast 239.0.192.2 dev eth0  src 10.2.36.121
+    cache <mc>  mtu 1500 advmss 1460 hoplimit 64
 
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index 7108b12..d1f3b46 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -273,7 +273,7 @@ static void sky2_power_aux(struct sky2_hw *hw)
- 			    Y2_COR_CLK_LNK2_DIS | Y2_CLK_GAT_LNK2_DIS);
- 
- 	/* switch power to VAUX */
--	if (sky2_read16(hw, B0_CTST) & Y2_VAUX_AVAIL)
-+	if (sky2_read32(hw, B0_CTST) & Y2_VAUX_AVAIL)
- 		sky2_write8(hw, B0_POWER_CTRL,
- 			    (PC_VAUX_ENA | PC_VCC_ENA |
- 			     PC_VAUX_ON | PC_VCC_OFF));
-diff --git a/drivers/net/sky2.h b/drivers/net/sky2.h
-index 34042ff..e0f23a1 100644
---- a/drivers/net/sky2.h
-+++ b/drivers/net/sky2.h
-@@ -260,7 +260,7 @@ enum csr_regs {
- 	Y2_CFG_AER      = 0x1d00,	/* PCI Advanced Error Report region */
- };
- 
--/*	B0_CTST			16 bit	Control/Status register */
-+/*	B0_CTST			24 bit	Control/Status register */
- enum {
- 	Y2_VMAIN_AVAIL	= 1<<17,/* VMAIN available (YUKON-2 only) */
- 	Y2_VAUX_AVAIL	= 1<<16,/* VAUX available (YUKON-2 only) */
--- 
-1.5.6.5
+dmesg:
+
+[    1.560094] Broadcom NetXtreme II Gigabit Ethernet Driver bnx2 v2.0.1
+(May 6, 2009)
+[    1.560192]   alloc irq_desc for 36 on node 0
+[    1.560193]   alloc kstat_irqs on node 0
+[    1.560197] alloc irq_2_iommu on node 0
+[    1.560204] bnx2 0000:01:00.0: PCI INT A -> GSI 36 (level, low) -> IRQ
+36
+[    1.560275] bnx2 0000:01:00.0: setting latency timer to 64
+[    1.560394] bnx2 0000:01:00.0: firmware: requesting
+bnx2/bnx2-mips-09-4.6.17.fw
+
+
+$ netstat -su
+IcmpMsg:
+    InType0: 4
+    InType3: 1
+    OutType3: 1
+    OutType8: 4
+Udp:
+    44363 packets received
+    0 packets to unknown port received.
+    0 packet receive errors
+    4363620 packets sent
+    SndbufErrors: 738519
+UdpLite:
+IpExt:
+    InMcastPkts: 1289
+    OutMcastPkts: 5057780
+    InOctets: 13956676
+    OutOctets: 1672676365
+    InMcastOctets: 36164
+    OutMcastOctets: 1658949880
+
+(Your patch to account for TX errors was applied)
+
+clameter@rd-gateway3-deb64:~$ ifconfig
+eth0      Link encap:Ethernet  HWaddr 00:21:9b:8f:9f:1b
+          inet addr:10.2.36.121  Bcast:10.2.36.255  Mask:255.255.255.0
+          inet6 addr: fe80::221:9bff:fe8f:9f1b/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:50091 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:4367178 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:14928488 (14.2 MiB)  TX bytes:1509122809 (1.4 GiB)
+          Interrupt:36 Memory:d6000000-d6012800
+
+lo        Link encap:Local Loopback
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          inet6 addr: ::1/128 Scope:Host
+          UP LOOPBACK RUNNING  MTU:16436  Metric:1
+          RX packets:89 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:89 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:7114 (6.9 KiB)  TX bytes:7114 (6.9 KiB)
+
+
 
