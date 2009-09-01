@@ -1,63 +1,84 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] sky2: Use 32bit read to read Y2_VAUX_AVAIL
-Date: Tue, 1 Sep 2009 08:57:57 -0700
-Message-ID: <20090901085757.47b5c09c@nehalam>
-References: <4A9D2793.1020502@ring3k.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: UDP is bypassing qdisc statistics ....
+Date: Tue, 01 Sep 2009 17:58:05 +0200
+Message-ID: <4A9D448D.6050309@gmail.com>
+References: <20090901063726.GA5222@ff.dom.local> <alpine.DEB.1.10.0909011358030.15578@V090114053VZO-1> <4A9D2DBF.8030200@trash.net> <4A9D3687.2020101@gmail.com> <alpine.DEB.1.10.0909011504030.12112@V090114053VZO-1> <4A9D3D9A.1030500@gmail.com> <alpine.DEB.1.10.0909011534350.12112@V090114053VZO-1> <4A9D410D.5000507@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Mike McCormack <mikem@ring3k.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	Mark Smith <lk-netdev@lk-netdev.nosense.org>,
+	Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
+To: Christoph Lameter <cl@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:38850 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754067AbZIAP6B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Sep 2009 11:58:01 -0400
-In-Reply-To: <4A9D2793.1020502@ring3k.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:60915 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754578AbZIAP6N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 11:58:13 -0400
+In-Reply-To: <4A9D410D.5000507@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 01 Sep 2009 22:54:27 +0900
-Mike McCormack <mikem@ring3k.org> wrote:
+Eric Dumazet a =E9crit :
+> Christoph Lameter a =E9crit :
+>> On Tue, 1 Sep 2009, Eric Dumazet wrote:
+>>
+>>> You should see that in /proc/interrupts, if I correctly understand =
+bnx2.c
+>> Hmmm I have 8 interrupts:
+>>
+>>   62:        158          0          0          0          0        =
+  0
+>> 0          0          0          0          0          0          0
+>> 0          0          0  IR-PCI-MSI-edge      eth0-0
+>>   63:         84          0          0          0          0        =
+  0
+>> 0          0          0          0          0          0          0
+>> 0          0          0  IR-PCI-MSI-edge      eth0-1
+>>   64:        412          0          0          0          0        =
+  0
+>> 0          0          0          0          0          0          0
+>> 0          0          0  IR-PCI-MSI-edge      eth0-2
+>>   65:         25          0          0          0          0        =
+  0
+>> 0          0          0          0          0          0          0
+>> 0          0          0  IR-PCI-MSI-edge      eth0-3
+>>   66:      49718          0          0          0          0        =
+  0
+>> 0          0          0          0          0          0          0
+>> 0          0          0  IR-PCI-MSI-edge      eth0-4
+>>   67:         65          0          0          0          0        =
+  0
+>> 0          0          0          0          0          0          0
+>> 0          0          0  IR-PCI-MSI-edge      eth0-5
+>>   68:        686          0          0          0          0        =
+  0
+>> 0          0          0          0          0          0          0
+>> 0          0          0  IR-PCI-MSI-edge      eth0-6
+>>   69:       2582          0          0          0          0        =
+  0
+>> 0          0          0          0          0          0          0
+>> 0          0          0  IR-PCI-MSI-edge      eth0-7
+>=20
+> Yes, this confirm you have 8 queues on this NIC
+>=20
+> Strange thing is they seem to be all serviced by CPU-0, which is not =
+good...
+>=20
+>=20
+>=20
 
-> B0_CTST is a 24bit register according to the vendor driver (sk98lin).
-> A 16bit read on B0_CTST will always return 0 for Y2_VAUX_AVAIL (1<<16),
->  so use a 32bit read when testing Y2_VAUX_AVAIL
-> 
-> Signed-off-by: Mike McCormack <mikem@ring3k.org>
-> ---
->  drivers/net/sky2.c |    2 +-
->  drivers/net/sky2.h |    2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-> index 7108b12..d1f3b46 100644
-> --- a/drivers/net/sky2.c
-> +++ b/drivers/net/sky2.c
-> @@ -273,7 +273,7 @@ static void sky2_power_aux(struct sky2_hw *hw)
->  			    Y2_COR_CLK_LNK2_DIS | Y2_CLK_GAT_LNK2_DIS);
->  
->  	/* switch power to VAUX */
-> -	if (sky2_read16(hw, B0_CTST) & Y2_VAUX_AVAIL)
-> +	if (sky2_read32(hw, B0_CTST) & Y2_VAUX_AVAIL)
->  		sky2_write8(hw, B0_POWER_CTRL,
->  			    (PC_VAUX_ENA | PC_VCC_ENA |
->  			     PC_VAUX_ON | PC_VCC_OFF));
-> diff --git a/drivers/net/sky2.h b/drivers/net/sky2.h
-> index 34042ff..e0f23a1 100644
-> --- a/drivers/net/sky2.h
-> +++ b/drivers/net/sky2.h
-> @@ -260,7 +260,7 @@ enum csr_regs {
->  	Y2_CFG_AER      = 0x1d00,	/* PCI Advanced Error Report region */
->  };
->  
-> -/*	B0_CTST			16 bit	Control/Status register */
-> +/*	B0_CTST			24 bit	Control/Status register */
->  enum {
->  	Y2_VMAIN_AVAIL	= 1<<17,/* VMAIN available (YUKON-2 only) */
->  	Y2_VAUX_AVAIL	= 1<<16,/* VAUX available (YUKON-2 only) */
+Given that bnx2.c uses num_online_cpus() at init time, you could
+as a workaround do the insmod/modprobe bnx2 with only one online cpu,
+and you'll revert to a mono-queue NIC :)
+
+int msix_vecs =3D min(cpus + 1, RX_MAX_RINGS);=20
+=2E..
+if ((bp->flags & BNX2_FLAG_MSIX_CAP) && !dis_msi && cpus > 1)
+	bnx2_enable_msix(bp, msix_vecs);
 
 
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+=46or your multicast test anyway, only one queue should be used (one fl=
+ow)
 
 
