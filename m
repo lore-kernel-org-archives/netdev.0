@@ -1,52 +1,88 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Crypto oops in async_chainiv_do_postponed
-Date: Wed, 2 Sep 2009 08:17:21 +1000
-Message-ID: <20090901221721.GA1964@gondor.apana.org.au>
-References: <19095.1264.682820.125602@waldo.imnotcreative.homeip.net> <20090829104606.GA13141@gondor.apana.org.au> <19099.63038.425414.514063@waldo.imnotcreative.homeip.net> <20090831220459.GA15713@gondor.apana.org.au> <19101.16628.347039.619378@waldo.imnotcreative.homeip.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-	offbase0@gmail.com
-To: Brad Bosch <bradbosch@comcast.net>
+From: David Ward <david.ward@ll.mit.edu>
+Subject: [RFC] iproute2: gracefully exit from rtnl_listen()
+Date: Tue,  1 Sep 2009 17:41:26 -0400
+Message-ID: <1251841286-32463-1-git-send-email-david.ward@ll.mit.edu>
+Cc: David Ward <david.ward@ll.mit.edu>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:42716 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755259AbZIAWRW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 18:17:22 -0400
-Content-Disposition: inline
-In-Reply-To: <19101.16628.347039.619378@waldo.imnotcreative.homeip.net>
+Received: from LLMAIL1.LL.MIT.EDU ([129.55.12.41]:38359 "EHLO ll.mit.edu"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752595AbZIAWYY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Sep 2009 18:24:24 -0400
+Received: (from smtp@localhost)
+	by ll.mit.edu (8.12.10/8.8.8) id n81Lm05i008814
+	for <netdev@vger.kernel.org>; Tue, 1 Sep 2009 17:48:00 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 01, 2009 at 10:42:44AM -0500, Brad Bosch wrote:
-> 
-> Now, ctx-err may be used by both async_chainiv_postpone_request to
-> store the return value from skcipher_enqueue_givcrypt and by
-> async_chainiv_givencrypt_tail to store the return value from
-> crypto_ablkcipher_encrypt at the same time.  This can cause the
-> calling function to think async_chainiv_givencrypt has completed it's
-> work, when in fact, the work was defered.
+rtnl_listen() (in iproute2's libnetlink) allows a userspace application to
+monitor an RTNETLINK multicast group, so that the application can react to
+changes in the kernel's routing table, neighbor cache, etc. as they occur.
+(This is in contrast with using RTNETLINK to solicit the kernel for a full
+copy of the routing table or neighbor cache at a specific point in time.)
 
-async_chainiv_postpone_request never touches ctx->err unless
-it can obtain the INUSE bit lock.  On the other hand, the normal
-patch async_chainiv_givencrypt_tail never relinquishes the INUSE
-bit until it is finisehd with ctx->err.
+However rtnl_listen() creates an infinite loop, which does not break in the
+absence of errors, so there does not seem to be any way to gracefully exit
+from it. Existing applications that call rtnl_listen(), such as rtmon, break
+from this loop by terminating the entire application. There should be some
+mechanism for stopping rtnl_listen() and continuing program execution.
+
+If you assume that rtnl_listen() will only need to be stopped because the
+application has received a signal (such as SIGINT), then the application's
+signal handler can call rtnl_close() to close the RTNETLINK socket.
+Afterwards, with this patch, rtnl_listen() can detect that the socket was
+closed during the interrupt and exit.
+
+I am offering this as a starting point for consideration, but I feel that
+this is at best a poor solution. What is a better way to fix rtnl_listen()
+(and similar libnetlink functions for consistency)?
+---
+ lib/libnetlink.c |   15 ++++++++++++---
+ 1 files changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index b68e2fd..afb5b23 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -196,8 +196,11 @@ int rtnl_dump_filter(struct rtnl_handle *rth,
+ 		status = recvmsg(rth->fd, &msg, 0);
  
-> OK.  I see now that your offset patch should indeed solve that
-> problem.  But why did you choose to fix it in a complex way?  My
-> suggestion just adds a single test while yours adds new parameters, a
-> new function and an extra function call.
-
-Because that introduces two NULL checks where the second one is
-useless.  Not a big deal but then again, my patch wasn't that
-complicated either :)
-
-Please let me know whether it actually fixes your problem though
-so I can get this upstream.
-
-Thanks,
+ 		if (status < 0) {
+-			if (errno == EINTR || errno == EAGAIN)
++			if (errno == EINTR || errno == EAGAIN) {
++				if (rth->fd < 0)
++					return 0;
+ 				continue;
++			}
+ 			fprintf(stderr, "netlink receive error %s (%d)\n",
+ 				strerror(errno), errno);
+ 			return -1;
+@@ -300,8 +303,11 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
+ 		status = recvmsg(rtnl->fd, &msg, 0);
+ 
+ 		if (status < 0) {
+-			if (errno == EINTR || errno == EAGAIN)
++			if (errno == EINTR || errno == EAGAIN) {
++				if (rtnl->fd < 0)
++					return 0;
+ 				continue;
++			}
+ 			fprintf(stderr, "netlink receive error %s (%d)\n",
+ 				strerror(errno), errno);
+ 			return -1;
+@@ -405,8 +411,11 @@ int rtnl_listen(struct rtnl_handle *rtnl,
+ 		status = recvmsg(rtnl->fd, &msg, 0);
+ 
+ 		if (status < 0) {
+-			if (errno == EINTR || errno == EAGAIN)
++			if (errno == EINTR || errno == EAGAIN) {
++				if (rtnl->fd < 0)
++					return 0;
+ 				continue;
++			}
+ 			fprintf(stderr, "netlink receive error %s (%d)\n",
+ 				strerror(errno), errno);
+ 			return -1;
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.5.5.6
+
