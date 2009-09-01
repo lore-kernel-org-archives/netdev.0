@@ -1,124 +1,43 @@
-From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Subject: RE: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
-Date: Tue, 1 Sep 2009 22:58:44 +0800
-Message-ID: <C85CEDA13AB1CF4D9D597824A86D2B9006AEC02EC0@PDSMSX501.ccr.corp.intel.com>
-References: <E88DD564E9DC5446A76B2B47C3BCCA150219600F9B@pdsmsx503.ccr.corp.intel.com>
- <C85CEDA13AB1CF4D9D597824A86D2B9006AEB944B8@PDSMSX501.ccr.corp.intel.com>
- <200908311723.34067.arnd@arndb.de>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: UDP is bypassing qdisc statistics ....
+Date: Tue, 1 Sep 2009 15:05:27 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0909011504030.12112@V090114053VZO-1>
+References: <20090901063726.GA5222@ff.dom.local> <alpine.DEB.1.10.0909011358030.15578@V090114053VZO-1> <4A9D2DBF.8030200@trash.net> <4A9D3687.2020101@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "mst@redhat.com" <mst@redhat.com>, "netdev@vger.kernel.org"
-	<netdev@vger.kernel.org>, "virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>, "kvm@vger.kernel.org"
-	<kvm@vger.kernel.org>, "linux-kernel@vger.kernel.org"
-	<linux-kernel@vger.kernel.org>, "mingo@elte.hu" <mingo@elte.hu>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>, "akpm@linux-foundation.org"
-	<akpm@linux-foundation.org>, "hpa@zytor.com" <hpa@zytor.com>,
-	"gregory.haskins@gmail.com" <gregory.haskins@gmail.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <200908311723.34067.arnd@arndb.de>
-Content-Language: en-US
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Patrick McHardy <kaber@trash.net>,
+	Mark Smith <lk-netdev@lk-netdev.nosense.org>,
+	Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org,
+	davem@linux-foundation.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.ultrahosting.com ([74.213.174.253]:34129 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753007AbZIAPGI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 11:06:08 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 0BAE082C65A
+	for <netdev@vger.kernel.org>; Tue,  1 Sep 2009 11:07:46 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.253])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id MX6Yu59atuWm for <netdev@vger.kernel.org>;
+	Tue,  1 Sep 2009 11:07:41 -0400 (EDT)
+Received: from V090114053VZO-1 (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 81CE682C74E
+	for <netdev@vger.kernel.org>; Tue,  1 Sep 2009 11:07:40 -0400 (EDT)
+In-Reply-To: <4A9D3687.2020101@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->I don't think we should do that with the tun/tap driver. By design, tun/ta=
-p is a way to interact >with the
->networking stack as if coming from a device. The only way this connects to=
- an external >adapter is through
->a bridge or through IP routing, which means that it does not correspond to=
- a specific NIC.
->I have worked on a driver I called 'macvtap' in lack of a better name, to =
-add a new tap >frontend to
->the 'macvlan' driver. Since macvlan lets you add slaves to a single NIC de=
-vice, this gives you >a direct
->connection between one or multiple tap devices to an external NIC, which w=
-orks a lot better >than when
->you have a bridge inbetween. There is also work underway to add a bridging=
- capability to >macvlan, so
->you can communicate directly between guests like you can do with a bridge.
->Michael's vhost_net can plug into the same macvlan infrastructure, so the =
-work is >complementary.
+On Tue, 1 Sep 2009, Eric Dumazet wrote:
 
-We use TUN/TAP device to implement the prototype, and agree that it's not t=
-he only
-choice here. We'd compare the two if possible.
-And what we cares more about is the modification in the kernel like the net=
-_dev and=20
-skb structures' modifications, thanks.
+> Hmm, my bnx2 still displays correct info here (BCM5708S) ; so maybe Christoph has a
+> real multiqueue NIC adapter ? I thought he mentioned a mono queue NIC earlier.
 
-Thanks
-Xiaohui
+I have no clue if it is or not. I have never used those features.
 
------Original Message-----
-From: Arnd Bergmann [mailto:arnd@arndb.de]=20
-Sent: Monday, August 31, 2009 11:24 PM
-To: Xin, Xiaohui
-Cc: mst@redhat.com; netdev@vger.kernel.org; virtualization@lists.linux-foun=
-dation.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org; mingo@elte.h=
-u; linux-mm@kvack.org; akpm@linux-foundation.org; hpa@zytor.com; gregory.ha=
-skins@gmail.com
-Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
+dmesg says:
 
-On Monday 31 August 2009, Xin, Xiaohui wrote:
->=20
-> Hi, Michael
-> That's a great job. We are now working on support VMDq on KVM, and since =
-the VMDq hardware presents L2 sorting
-> based on MAC addresses and VLAN tags, our target is to implement a zero c=
-opy solution using VMDq.
+Broadcom NetXtreme II BCM5709 1000Base-T (C0) PCI Express
 
-I'm also interested in helping there, please include me in the discussions.
-
-> We stared
-> from the virtio-net architecture. What we want to proposal is to use AIO =
-combined with direct I/O:
-> 1) Modify virtio-net Backend service in Qemu to submit aio requests compo=
-sed from virtqueue.
-
-right, that sounds useful.
-
-> 2) Modify TUN/TAP device to support aio operations and the user space buf=
-fer directly mapping into the host kernel.
-> 3) Let a TUN/TAP device binds to single rx/tx queue from the NIC.
-
-I don't think we should do that with the tun/tap driver. By design, tun/tap=
- is a way to interact with the
-networking stack as if coming from a device. The only way this connects to =
-an external adapter is through
-a bridge or through IP routing, which means that it does not correspond to =
-a specific NIC.
-
-I have worked on a driver I called 'macvtap' in lack of a better name, to a=
-dd a new tap frontend to
-the 'macvlan' driver. Since macvlan lets you add slaves to a single NIC dev=
-ice, this gives you a direct
-connection between one or multiple tap devices to an external NIC, which wo=
-rks a lot better than when
-you have a bridge inbetween. There is also work underway to add a bridging =
-capability to macvlan, so
-you can communicate directly between guests like you can do with a bridge.
-
-Michael's vhost_net can plug into the same macvlan infrastructure, so the w=
-ork is complementary.
-
-> 4) Modify the net_dev and skb structure to permit allocated skb to use us=
-er space directly mapped payload
-> buffer address rather then kernel allocated.
-
-yes.
-
-> As zero copy is also your goal, we are interested in what's in your mind,=
- and would like to collaborate with you if possible.
-> BTW, we will send our VMDq write-up very soon.
-
-Ok, cool.
-
-	Arnd <><
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Is that a multiqueue adapter?
