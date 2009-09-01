@@ -1,38 +1,52 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: UDP is bypassing qdisc statistics ....
-Date: Tue, 1 Sep 2009 20:36:22 -0500 (CDT)
-Message-ID: <alpine.DEB.1.10.0909012033500.32628@V090114053VZO-1>
-References: <20090901063726.GA5222@ff.dom.local> <alpine.DEB.1.10.0909011358030.15578@V090114053VZO-1> <4A9D2DBF.8030200@trash.net> <4A9D3687.2020101@gmail.com> <alpine.DEB.1.10.0909011504030.12112@V090114053VZO-1> <4A9D3D9A.1030500@gmail.com>
- <alpine.DEB.1.10.0909011534350.12112@V090114053VZO-1> <4A9D410D.5000507@gmail.com> <4A9D448D.6050309@gmail.com> <alpine.DEB.1.10.0909011753230.25607@V090114053VZO-1> <20090901202432.GA3200@ami.dom.local>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Crypto oops in async_chainiv_do_postponed
+Date: Wed, 2 Sep 2009 08:17:21 +1000
+Message-ID: <20090901221721.GA1964@gondor.apana.org.au>
+References: <19095.1264.682820.125602@waldo.imnotcreative.homeip.net> <20090829104606.GA13141@gondor.apana.org.au> <19099.63038.425414.514063@waldo.imnotcreative.homeip.net> <20090831220459.GA15713@gondor.apana.org.au> <19101.16628.347039.619378@waldo.imnotcreative.homeip.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Mark Smith <lk-netdev@lk-netdev.nosense.org>,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+	offbase0@gmail.com
+To: Brad Bosch <bradbosch@comcast.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.ultrahosting.com ([74.213.174.253]:43053 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752014AbZIAVhJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 17:37:09 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 6944582C5BC
-	for <netdev@vger.kernel.org>; Tue,  1 Sep 2009 17:38:48 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.174.253])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id A9+O6Z7jwCr2 for <netdev@vger.kernel.org>;
-	Tue,  1 Sep 2009 17:38:43 -0400 (EDT)
-Received: from V090114053VZO-1 (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 9490782C5EC
-	for <netdev@vger.kernel.org>; Tue,  1 Sep 2009 17:38:38 -0400 (EDT)
-In-Reply-To: <20090901202432.GA3200@ami.dom.local>
+Received: from rhun.apana.org.au ([64.62.148.172]:42716 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755259AbZIAWRW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 18:17:22 -0400
+Content-Disposition: inline
+In-Reply-To: <19101.16628.347039.619378@waldo.imnotcreative.homeip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 1 Sep 2009, Jarek Poplawski wrote:
+On Tue, Sep 01, 2009 at 10:42:44AM -0500, Brad Bosch wrote:
+> 
+> Now, ctx-err may be used by both async_chainiv_postpone_request to
+> store the return value from skcipher_enqueue_givcrypt and by
+> async_chainiv_givencrypt_tail to store the return value from
+> crypto_ablkcipher_encrypt at the same time.  This can cause the
+> calling function to think async_chainiv_givencrypt has completed it's
+> work, when in fact, the work was defered.
 
-> Btw, isn't there something with your localhost's time?
+async_chainiv_postpone_request never touches ctx->err unless
+it can obtain the INUSE bit lock.  On the other hand, the normal
+patch async_chainiv_givencrypt_tail never relinquishes the INUSE
+bit until it is finisehd with ctx->err.
+ 
+> OK.  I see now that your offset patch should indeed solve that
+> problem.  But why did you choose to fix it in a complex way?  My
+> suggestion just adds a single test while yours adds new parameters, a
+> new function and an extra function call.
 
-Yup. I have virtual hosting and the provider screwed up time. I can do
-nothing about it.
+Because that introduces two NULL checks where the second one is
+useless.  Not a big deal but then again, my patch wasn't that
+complicated either :)
+
+Please let me know whether it actually fixes your problem though
+so I can get this upstream.
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
