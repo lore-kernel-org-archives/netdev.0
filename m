@@ -1,464 +1,607 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 08/19] wan: convert drivers to netdev_tx_t
-Date: Mon, 31 Aug 2009 22:50:47 -0700
-Message-ID: <20090901055129.206974385@vyatta.com>
+Subject: [PATCH 18/19] wireless: convert drivers to netdev_tx_t
+Date: Mon, 31 Aug 2009 22:50:57 -0700
+Message-ID: <20090901055130.266010870@vyatta.com>
 References: <20090901055039.824876937@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Krzysztof Halasa <khc@pm.waw.pl>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:57465 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:57481 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752358AbZIAF6y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Sep 2009 01:58:54 -0400
-Content-Disposition: inline; filename=wan-tx.patch
+	id S1752719AbZIAF66 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Sep 2009 01:58:58 -0400
+Content-Disposition: inline; filename=wireless.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+Mostly just simple conversions:
+  * ray_cs had bogus return of NET_TX_LOCKED but driver
+    was not using NETIF_F_LLTX
+  * hostap and ipw2x00 had some code that returned value
+    from a called function that also had to change to return netdev_tx_t
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 ---
- drivers/net/wan/cosa.c         |    7 ++++---
- drivers/net/wan/cycx_x25.c     |    8 ++++----
- drivers/net/wan/dlci.c         |   13 +++++++------
- drivers/net/wan/dscc4.c        |    6 ++++--
- drivers/net/wan/farsync.c      |    2 +-
- drivers/net/wan/hd64570.c      |    4 ++--
- drivers/net/wan/hd64572.c      |    4 ++--
- drivers/net/wan/hdlc.c         |    2 +-
- drivers/net/wan/hdlc_fr.c      |    2 +-
- drivers/net/wan/hdlc_raw_eth.c |    2 +-
- drivers/net/wan/hdlc_x25.c     |    6 +++---
- drivers/net/wan/hostess_sv11.c |    3 ++-
- drivers/net/wan/lapbether.c    |    3 ++-
- drivers/net/wan/lmc/lmc_main.c |    9 +++++----
- drivers/net/wan/sbni.c         |    7 ++++---
- drivers/net/wan/sdla.c         |    5 +++--
- drivers/net/wan/sealevel.c     |    3 ++-
- drivers/net/wan/wanxl.c        |    2 +-
- drivers/net/wan/x25_asy.c      |    3 ++-
- drivers/net/wan/z85230.c       |    9 ++++-----
- drivers/net/wan/z85230.h       |    3 ++-
- 21 files changed, 57 insertions(+), 46 deletions(-)
+ drivers/net/wimax/i2400m/netdev.c             |   12 ++++++------
+ drivers/net/wireless/airo.c                   |   12 +++++++++---
+ drivers/net/wireless/arlan-main.c             |    4 ++--
+ drivers/net/wireless/atmel.c                  |    2 +-
+ drivers/net/wireless/hostap/hostap_80211.h    |   10 +++++++---
+ drivers/net/wireless/hostap/hostap_80211_tx.c |   11 +++++++----
+ drivers/net/wireless/ipw2x00/ipw2100.c        |   10 +++++-----
+ drivers/net/wireless/ipw2x00/ipw2200.c        |    9 +++++----
+ drivers/net/wireless/ipw2x00/libipw.h         |    7 ++++---
+ drivers/net/wireless/ipw2x00/libipw_tx.c      |    6 +++---
+ drivers/net/wireless/libertas/decl.h          |    5 +++--
+ drivers/net/wireless/libertas/main.c          |    3 ++-
+ drivers/net/wireless/libertas/tx.c            |    6 ++----
+ drivers/net/wireless/mac80211_hwsim.c         |    3 ++-
+ drivers/net/wireless/netwave_cs.c             |    6 ++++--
+ drivers/net/wireless/orinoco/main.c           |    2 +-
+ drivers/net/wireless/prism54/islpci_eth.c     |    2 +-
+ drivers/net/wireless/prism54/islpci_eth.h     |    2 +-
+ drivers/net/wireless/ray_cs.c                 |   14 +++++++++-----
+ drivers/net/wireless/strip.c                  |    2 +-
+ drivers/net/wireless/wavelan.c                |    3 ++-
+ drivers/net/wireless/wavelan.p.h              |    2 +-
+ drivers/net/wireless/wavelan_cs.c             |    2 +-
+ drivers/net/wireless/wavelan_cs.p.h           |    2 +-
+ drivers/net/wireless/wl3501_cs.c              |    3 ++-
+ drivers/net/wireless/zd1201.c                 |    3 ++-
+ net/mac80211/ieee80211_i.h                    |    6 ++++--
+ net/mac80211/tx.c                             |    8 ++++----
+ 28 files changed, 92 insertions(+), 65 deletions(-)
 
---- a/drivers/net/wan/hdlc.c	2009-08-31 16:17:53.131107761 -0700
-+++ b/drivers/net/wan/hdlc.c	2009-08-31 16:27:02.091109721 -0700
-@@ -66,7 +66,7 @@ static int hdlc_rcv(struct sk_buff *skb,
- 	return hdlc->proto->netif_rx(skb);
- }
+--- a/drivers/net/wireless/hostap/hostap_80211.h	2009-08-31 16:17:52.221080855 -0700
++++ b/drivers/net/wireless/hostap/hostap_80211.h	2009-08-31 16:33:06.481101881 -0700
+@@ -3,6 +3,7 @@
  
--int hdlc_start_xmit(struct sk_buff *skb, struct net_device *dev)
-+netdev_tx_t hdlc_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ #include <linux/types.h>
+ #include <linux/skbuff.h>
++#include <linux/netdevice.h>
+ 
+ struct hostap_ieee80211_mgmt {
+ 	__le16 frame_control;
+@@ -85,8 +86,11 @@ void hostap_dump_rx_80211(const char *na
+ 			  struct hostap_80211_rx_status *rx_stats);
+ 
+ void hostap_dump_tx_80211(const char *name, struct sk_buff *skb);
+-int hostap_data_start_xmit(struct sk_buff *skb, struct net_device *dev);
+-int hostap_mgmt_start_xmit(struct sk_buff *skb, struct net_device *dev);
+-int hostap_master_start_xmit(struct sk_buff *skb, struct net_device *dev);
++netdev_tx_t hostap_data_start_xmit(struct sk_buff *skb,
++				   struct net_device *dev);
++netdev_tx_t hostap_mgmt_start_xmit(struct sk_buff *skb,
++				   struct net_device *dev);
++netdev_tx_t hostap_master_start_xmit(struct sk_buff *skb,
++				     struct net_device *dev);
+ 
+ #endif /* HOSTAP_80211_H */
+--- a/drivers/net/wireless/hostap/hostap_80211_tx.c	2009-08-31 16:17:52.221080855 -0700
++++ b/drivers/net/wireless/hostap/hostap_80211_tx.c	2009-08-31 16:33:42.131158031 -0700
+@@ -53,7 +53,8 @@ void hostap_dump_tx_80211(const char *na
+ /* hard_start_xmit function for data interfaces (wlan#, wlan#wds#, wlan#sta)
+  * Convert Ethernet header into a suitable IEEE 802.11 header depending on
+  * device configuration. */
+-int hostap_data_start_xmit(struct sk_buff *skb, struct net_device *dev)
++netdev_tx_t hostap_data_start_xmit(struct sk_buff *skb,
++				   struct net_device *dev)
  {
- 	hdlc_device *hdlc = dev_to_hdlc(dev);
+ 	struct hostap_interface *iface;
+ 	local_info_t *local;
+@@ -261,7 +262,8 @@ int hostap_data_start_xmit(struct sk_buf
  
---- a/drivers/net/wan/hdlc_fr.c	2009-08-31 16:17:53.041107499 -0700
-+++ b/drivers/net/wan/hdlc_fr.c	2009-08-31 16:27:02.091109721 -0700
-@@ -407,7 +407,7 @@ static int pvc_ioctl(struct net_device *
- 	return -EINVAL;
- }
  
--static int pvc_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t pvc_xmit(struct sk_buff *skb, struct net_device *dev)
+ /* hard_start_xmit function for hostapd wlan#ap interfaces */
+-int hostap_mgmt_start_xmit(struct sk_buff *skb, struct net_device *dev)
++netdev_tx_t hostap_mgmt_start_xmit(struct sk_buff *skb,
++				   struct net_device *dev)
  {
- 	pvc_device *pvc = dev->ml_priv;
+ 	struct hostap_interface *iface;
+ 	local_info_t *local;
+@@ -373,11 +375,12 @@ static struct sk_buff * hostap_tx_encryp
+ /* hard_start_xmit function for master radio interface wifi#.
+  * AP processing (TX rate control, power save buffering, etc.).
+  * Use hardware TX function to send the frame. */
+-int hostap_master_start_xmit(struct sk_buff *skb, struct net_device *dev)
++netdev_tx_t hostap_master_start_xmit(struct sk_buff *skb,
++				     struct net_device *dev)
+ {
+ 	struct hostap_interface *iface;
+ 	local_info_t *local;
+-	int ret = NETDEV_TX_BUSY;
++	netdev_tx_t ret = NETDEV_TX_BUSY;
+ 	u16 fc;
+ 	struct hostap_tx_data tx;
+ 	ap_tx_ret tx_ret;
+--- a/drivers/net/wireless/ipw2x00/ipw2200.c	2009-08-31 16:17:52.321081485 -0700
++++ b/drivers/net/wireless/ipw2x00/ipw2200.c	2009-08-31 16:34:38.021326615 -0700
+@@ -10459,12 +10459,12 @@ static void ipw_handle_promiscuous_tx(st
+ }
+ #endif
  
---- a/drivers/net/wan/cosa.c	2009-08-31 16:17:53.041107499 -0700
-+++ b/drivers/net/wan/cosa.c	2009-08-31 16:27:02.091109721 -0700
-@@ -279,7 +279,7 @@ static int cosa_net_attach(struct net_de
- static int cosa_net_open(struct net_device *d);
- static int cosa_net_close(struct net_device *d);
- static void cosa_net_timeout(struct net_device *d);
--static int cosa_net_tx(struct sk_buff *skb, struct net_device *d);
-+static netdev_tx_t cosa_net_tx(struct sk_buff *skb, struct net_device *d);
- static char *cosa_net_setup_rx(struct channel_data *channel, int size);
- static int cosa_net_rx_done(struct channel_data *channel);
- static int cosa_net_tx_done(struct channel_data *channel, int size);
-@@ -672,7 +672,8 @@ static int cosa_net_open(struct net_devi
+-static int ipw_net_hard_start_xmit(struct libipw_txb *txb,
+-				   struct net_device *dev, int pri)
++static netdev_tx_t ipw_net_hard_start_xmit(struct libipw_txb *txb,
++					   struct net_device *dev, int pri)
+ {
+ 	struct ipw_priv *priv = libipw_priv(dev);
+ 	unsigned long flags;
+-	int ret;
++	netdev_tx_t ret;
+ 
+ 	IPW_DEBUG_TX("dev->xmit(%d bytes)\n", txb->payload_size);
+ 	spin_lock_irqsave(&priv->lock, flags);
+@@ -11602,7 +11602,8 @@ static int ipw_prom_stop(struct net_devi
  	return 0;
  }
  
--static int cosa_net_tx(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t cosa_net_tx(struct sk_buff *skb,
-+				     struct net_device *dev)
+-static int ipw_prom_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t ipw_prom_hard_start_xmit(struct sk_buff *skb,
++					    struct net_device *dev)
  {
- 	struct channel_data *chan = dev_to_chan(dev);
- 
-@@ -680,7 +681,7 @@ static int cosa_net_tx(struct sk_buff *s
- 
- 	chan->tx_skb = skb;
- 	cosa_start_tx(chan, skb->data, skb->len);
--	return 0;
-+	return NETDEV_TX_OK;
- }
- 
- static void cosa_net_timeout(struct net_device *dev)
---- a/drivers/net/wan/dscc4.c	2009-08-31 16:17:53.081083527 -0700
-+++ b/drivers/net/wan/dscc4.c	2009-08-31 16:27:02.091109721 -0700
-@@ -359,7 +359,8 @@ static void dscc4_tx_irq(struct dscc4_pc
- static int dscc4_found1(struct pci_dev *, void __iomem *ioaddr);
- static int dscc4_init_one(struct pci_dev *, const struct pci_device_id *ent);
- static int dscc4_open(struct net_device *);
--static int dscc4_start_xmit(struct sk_buff *, struct net_device *);
-+static netdev_tx_t dscc4_start_xmit(struct sk_buff *,
-+					  struct net_device *);
- static int dscc4_close(struct net_device *);
- static int dscc4_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
- static int dscc4_init_ring(struct net_device *);
-@@ -1148,7 +1149,8 @@ static int dscc4_tx_poll(struct dscc4_de
- }
- #endif /* DSCC4_POLLING */
- 
--static int dscc4_start_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t dscc4_start_xmit(struct sk_buff *skb,
-+					  struct net_device *dev)
- {
- 	struct dscc4_dev_priv *dpriv = dscc4_priv(dev);
- 	struct dscc4_pci_priv *ppriv = dpriv->pci_priv;
---- a/drivers/net/wan/farsync.c	2009-08-31 16:17:53.051086769 -0700
-+++ b/drivers/net/wan/farsync.c	2009-08-31 16:27:02.091109721 -0700
-@@ -2274,7 +2274,7 @@ fst_tx_timeout(struct net_device *dev)
- 	port->start = 0;
- }
- 
--static int
-+static netdev_tx_t
- fst_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct fst_card_info *card;
---- a/drivers/net/wan/hd64570.c	2009-08-31 16:17:53.011106130 -0700
-+++ b/drivers/net/wan/hd64570.c	2009-08-31 16:27:02.101108828 -0700
-@@ -620,7 +620,7 @@ static void sca_dump_rings(struct net_de
- #endif /* DEBUG_RINGS */
- 
- 
--static int sca_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t sca_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	port_t *port = dev_to_port(dev);
- 	card_t *card = port_to_card(port);
-@@ -674,7 +674,7 @@ static int sca_xmit(struct sk_buff *skb,
- 	spin_unlock_irq(&port->lock);
- 
+ 	IPW_DEBUG_INFO("prom dev->xmit\n");
  	dev_kfree_skb(skb);
--	return 0;
-+	return NETDEV_TX_OK;
- }
+--- a/drivers/net/wireless/ipw2x00/libipw.h	2009-08-31 16:17:52.301107927 -0700
++++ b/drivers/net/wireless/ipw2x00/libipw.h	2009-08-31 16:34:56.121117022 -0700
+@@ -867,8 +867,8 @@ struct libipw_device {
+ 	/* Callback functions */
+ 	void (*set_security) (struct net_device * dev,
+ 			      struct libipw_security * sec);
+-	int (*hard_start_xmit) (struct libipw_txb * txb,
+-				struct net_device * dev, int pri);
++	netdev_tx_t (*hard_start_xmit) (struct libipw_txb * txb,
++					struct net_device * dev, int pri);
+ 	int (*reset_port) (struct net_device * dev);
+ 	int (*is_queue_full) (struct net_device * dev, int pri);
  
+@@ -1028,7 +1028,8 @@ extern void libipw_networks_age(struct l
+ extern int libipw_set_encryption(struct libipw_device *ieee);
  
---- a/drivers/net/wan/hdlc_raw_eth.c	2009-08-31 16:17:53.101091935 -0700
-+++ b/drivers/net/wan/hdlc_raw_eth.c	2009-08-31 16:27:02.101108828 -0700
-@@ -25,7 +25,7 @@
+ /* libipw_tx.c */
+-extern int libipw_xmit(struct sk_buff *skb, struct net_device *dev);
++extern netdev_tx_t libipw_xmit(struct sk_buff *skb,
++			       struct net_device *dev);
+ extern void libipw_txb_free(struct libipw_txb *);
  
- static int raw_eth_ioctl(struct net_device *dev, struct ifreq *ifr);
+ /* libipw_rx.c */
+--- a/drivers/net/wireless/ipw2x00/libipw_tx.c	2009-08-31 16:17:52.301107927 -0700
++++ b/drivers/net/wireless/ipw2x00/libipw_tx.c	2009-08-31 16:35:03.781105301 -0700
+@@ -252,7 +252,7 @@ static int libipw_classify(struct sk_buf
  
--static int eth_tx(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t eth_tx(struct sk_buff *skb, struct net_device *dev)
+ /* Incoming skb is converted to a txb which consists of
+  * a block of 802.11 fragment packets (stored as skbs) */
+-int libipw_xmit(struct sk_buff *skb, struct net_device *dev)
++netdev_tx_t libipw_xmit(struct sk_buff *skb, struct net_device *dev)
  {
- 	int pad = ETH_ZLEN - skb->len;
- 	if (pad > 0) {		/* Pad the frame with zeros */
---- a/drivers/net/wan/hdlc_x25.c	2009-08-31 16:17:53.141108055 -0700
-+++ b/drivers/net/wan/hdlc_x25.c	2009-08-31 16:27:02.101108828 -0700
-@@ -87,7 +87,7 @@ static void x25_data_transmit(struct net
+ 	struct libipw_device *ieee = netdev_priv(dev);
+ 	struct libipw_txb *txb = NULL;
+@@ -523,8 +523,8 @@ int libipw_xmit(struct sk_buff *skb, str
+ 	dev_kfree_skb_any(skb);
  
- 
- 
--static int x25_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t x25_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (txb) {
+-		int ret = (*ieee->hard_start_xmit) (txb, dev, priority);
+-		if (ret == 0) {
++		netdev_tx_t ret = (*ieee->hard_start_xmit)(txb, dev, priority);
++		if (ret == NETDEV_TX_OK) {
+ 			dev->stats.tx_packets++;
+ 			dev->stats.tx_bytes += txb->payload_size;
+ 			return NETDEV_TX_OK;
+--- a/drivers/net/wimax/i2400m/netdev.c	2009-08-31 16:17:52.191080883 -0700
++++ b/drivers/net/wimax/i2400m/netdev.c	2009-08-31 16:32:16.163627458 -0700
+@@ -334,12 +334,12 @@ int i2400m_net_tx(struct i2400m *i2400m,
+  * that will sleep. See i2400m_net_wake_tx() for details.
+  */
+ static
+-int i2400m_hard_start_xmit(struct sk_buff *skb,
+-			   struct net_device *net_dev)
++netdev_tx_t i2400m_hard_start_xmit(struct sk_buff *skb,
++					 struct net_device *net_dev)
  {
- 	int result;
+-	int result;
+ 	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
+ 	struct device *dev = i2400m_dev(i2400m);
++	int result;
  
-@@ -98,7 +98,7 @@ static int x25_xmit(struct sk_buff *skb,
- 		skb_pull(skb, 1);
- 		if ((result = lapb_data_request(dev, skb)) != LAPB_OK)
- 			dev_kfree_skb(skb);
--		return 0;
-+		return NETDEV_TX_OK;
- 
- 	case 1:
- 		if ((result = lapb_connect_request(dev))!= LAPB_OK) {
-@@ -129,7 +129,7 @@ static int x25_xmit(struct sk_buff *skb,
+ 	d_fnstart(3, dev, "(skb %p net_dev %p)\n", skb, net_dev);
+ 	if (i2400m->state == I2400M_SS_IDLE)
+@@ -353,9 +353,9 @@ int i2400m_hard_start_xmit(struct sk_buf
+ 		net_dev->stats.tx_bytes += skb->len;
  	}
- 
- 	dev_kfree_skb(skb);
--	return 0;
+ 	kfree_skb(skb);
+-	result = NETDEV_TX_OK;
+-	d_fnend(3, dev, "(skb %p net_dev %p) = %d\n", skb, net_dev, result);
+-	return result;
++
++	d_fnend(3, dev, "(skb %p net_dev %p)\n", skb, net_dev);
 +	return NETDEV_TX_OK;
  }
  
  
---- a/drivers/net/wan/hostess_sv11.c	2009-08-31 16:17:53.071106841 -0700
-+++ b/drivers/net/wan/hostess_sv11.c	2009-08-31 16:27:02.101108828 -0700
-@@ -156,7 +156,8 @@ static int hostess_ioctl(struct net_devi
-  *	Passed network frames, fire them downwind.
-  */
- 
--static int hostess_queue_xmit(struct sk_buff *skb, struct net_device *d)
-+static netdev_tx_t hostess_queue_xmit(struct sk_buff *skb,
-+					    struct net_device *d)
- {
- 	return z8530_queue_xmit(&dev_to_sv(d)->chanA, skb);
- }
---- a/drivers/net/wan/lmc/lmc_main.c	2009-08-31 16:17:53.111106337 -0700
-+++ b/drivers/net/wan/lmc/lmc_main.c	2009-08-31 16:27:02.101108828 -0700
-@@ -89,7 +89,8 @@ MODULE_DEVICE_TABLE(pci, lmc_pci_tbl);
- MODULE_LICENSE("GPL v2");
- 
- 
--static int lmc_start_xmit(struct sk_buff *skb, struct net_device *dev);
-+static netdev_tx_t lmc_start_xmit(struct sk_buff *skb,
-+					struct net_device *dev);
- static int lmc_rx (struct net_device *dev);
- static int lmc_open(struct net_device *dev);
- static int lmc_close(struct net_device *dev);
-@@ -1423,12 +1424,12 @@ lmc_int_fail_out:
-     return IRQ_RETVAL(handled);
+--- a/drivers/net/wireless/airo.c	2009-08-31 16:17:52.251122313 -0700
++++ b/drivers/net/wireless/airo.c	2009-08-31 16:32:16.163627458 -0700
+@@ -1920,7 +1920,9 @@ static int airo_open(struct net_device *
+ 	return 0;
  }
  
--static int lmc_start_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t lmc_start_xmit(struct sk_buff *skb,
+-static int mpi_start_xmit(struct sk_buff *skb, struct net_device *dev) {
++static netdev_tx_t mpi_start_xmit(struct sk_buff *skb,
 +					struct net_device *dev)
- {
-     lmc_softc_t *sc = dev_to_sc(dev);
-     u32 flag;
-     int entry;
--    int ret = NETDEV_TX_OK;
-     unsigned long flags;
++{
+ 	int npacks, pending;
+ 	unsigned long flags;
+ 	struct airo_info *ai = dev->ml_priv;
+@@ -2119,7 +2121,9 @@ static void airo_end_xmit(struct net_dev
+ 	dev_kfree_skb(skb);
+ }
  
-     lmc_trace(dev, "lmc_start_xmit in");
-@@ -1510,7 +1511,7 @@ static int lmc_start_xmit(struct sk_buff
-     spin_unlock_irqrestore(&sc->lmc_lock, flags);
+-static int airo_start_xmit(struct sk_buff *skb, struct net_device *dev) {
++static netdev_tx_t airo_start_xmit(struct sk_buff *skb,
++					 struct net_device *dev)
++{
+ 	s16 len;
+ 	int i, j;
+ 	struct airo_info *priv = dev->ml_priv;
+@@ -2184,7 +2188,9 @@ static void airo_end_xmit11(struct net_d
+ 	dev_kfree_skb(skb);
+ }
  
-     lmc_trace(dev, "lmc_start_xmit_out");
--    return ret;
-+    return NETDEV_TX_OK;
+-static int airo_start_xmit11(struct sk_buff *skb, struct net_device *dev) {
++static netdev_tx_t airo_start_xmit11(struct sk_buff *skb,
++					   struct net_device *dev)
++{
+ 	s16 len;
+ 	int i, j;
+ 	struct airo_info *priv = dev->ml_priv;
+--- a/drivers/net/wireless/arlan-main.c	2009-08-31 16:17:52.201081246 -0700
++++ b/drivers/net/wireless/arlan-main.c	2009-08-31 16:32:16.173591015 -0700
+@@ -77,7 +77,7 @@ struct arlan_conf_stru arlan_conf[MAX_AR
+ static int arlans_found;
+ 
+ static  int 	arlan_open(struct net_device *dev);
+-static  int 	arlan_tx(struct sk_buff *skb, struct net_device *dev);
++static  netdev_tx_t arlan_tx(struct sk_buff *skb, struct net_device *dev);
+ static  irqreturn_t arlan_interrupt(int irq, void *dev_id);
+ static  int 	arlan_close(struct net_device *dev);
+ static  struct net_device_stats *
+@@ -1169,7 +1169,7 @@ static void arlan_tx_timeout (struct net
  }
  
  
---- a/drivers/net/wan/sealevel.c	2009-08-31 16:17:53.121081138 -0700
-+++ b/drivers/net/wan/sealevel.c	2009-08-31 16:27:02.101108828 -0700
-@@ -156,7 +156,8 @@ static int sealevel_ioctl(struct net_dev
-  *	Passed network frames, fire them downwind.
-  */
- 
--static int sealevel_queue_xmit(struct sk_buff *skb, struct net_device *d)
-+static netdev_tx_t sealevel_queue_xmit(struct sk_buff *skb,
-+					     struct net_device *d)
+-static int arlan_tx(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t arlan_tx(struct sk_buff *skb, struct net_device *dev)
  {
- 	return z8530_queue_xmit(dev_to_chan(d)->chan, skb);
+ 	short length;
+ 	unsigned char *buf;
+--- a/drivers/net/wireless/atmel.c	2009-08-31 16:17:52.351091725 -0700
++++ b/drivers/net/wireless/atmel.c	2009-08-31 16:32:16.173591015 -0700
+@@ -781,7 +781,7 @@ static void tx_update_descriptor(struct 
+ 	priv->tx_free_mem -= len;
  }
---- a/drivers/net/wan/wanxl.c	2009-08-31 16:17:53.071106841 -0700
-+++ b/drivers/net/wan/wanxl.c	2009-08-31 16:27:02.101108828 -0700
-@@ -268,7 +268,7 @@ static irqreturn_t wanxl_intr(int irq, v
  
- 
- 
--static int wanxl_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t wanxl_xmit(struct sk_buff *skb, struct net_device *dev)
+-static int start_tx(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t start_tx(struct sk_buff *skb, struct net_device *dev)
  {
-         port_t *port = dev_to_port(dev);
- 	desc_t *desc;
---- a/drivers/net/wan/z85230.c	2009-08-31 16:17:53.091107078 -0700
-+++ b/drivers/net/wan/z85230.c	2009-08-31 16:27:02.101108828 -0700
-@@ -1727,15 +1727,14 @@ static inline int spans_boundary(struct 
-  *	point.
-  */
+ 	static const u8 SNAP_RFC1024[6] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
+ 	struct atmel_private *priv = netdev_priv(dev);
+--- a/drivers/net/wireless/libertas/decl.h	2009-08-31 16:17:52.281153994 -0700
++++ b/drivers/net/wireless/libertas/decl.h	2009-08-31 16:35:07.071275355 -0700
+@@ -6,7 +6,7 @@
+ #ifndef _LBS_DECL_H_
+ #define _LBS_DECL_H_
  
--int z8530_queue_xmit(struct z8530_channel *c, struct sk_buff *skb)
-+netdev_tx_t z8530_queue_xmit(struct z8530_channel *c, struct sk_buff *skb)
+-#include <linux/device.h>
++#include <linux/netdevice.h>
+ 
+ #include "defs.h"
+ 
+@@ -41,7 +41,8 @@ u8 lbs_data_rate_to_fw_index(u32 rate);
+ int lbs_process_command_response(struct lbs_private *priv, u8 *data, u32 len);
+ void lbs_complete_command(struct lbs_private *priv, struct cmd_ctrl_node *cmd,
+ 			  int result);
+-int lbs_hard_start_xmit(struct sk_buff *skb, struct net_device *dev);
++netdev_tx_t lbs_hard_start_xmit(struct sk_buff *skb,
++				struct net_device *dev);
+ int lbs_set_regiontable(struct lbs_private *priv, u8 region, u8 band);
+ 
+ int lbs_process_rxed_packet(struct lbs_private *priv, struct sk_buff *);
+--- a/drivers/net/wireless/libertas/main.c	2009-08-31 16:17:52.291081163 -0700
++++ b/drivers/net/wireless/libertas/main.c	2009-08-31 16:35:10.491118027 -0700
+@@ -1647,7 +1647,8 @@ static int lbs_rtap_stop(struct net_devi
+ 	return 0;
+ }
+ 
+-static int lbs_rtap_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t lbs_rtap_hard_start_xmit(struct sk_buff *skb,
++					    struct net_device *dev)
+ {
+ 	netif_stop_queue(dev);
+ 	return NETDEV_TX_BUSY;
+--- a/drivers/net/wireless/libertas/tx.c	2009-08-31 16:17:52.281153994 -0700
++++ b/drivers/net/wireless/libertas/tx.c	2009-08-31 16:35:15.351107216 -0700
+@@ -57,19 +57,17 @@ static u32 convert_radiotap_rate_to_mv(u
+  *  @param skb     A pointer to skb which includes TX packet
+  *  @return 	   0 or -1
+  */
+-int lbs_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
++netdev_tx_t lbs_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
  {
  	unsigned long flags;
- 	
- 	netif_stop_queue(c->netdevice);
- 	if(c->tx_next_skb)
--	{
--		return 1;
--	}
-+		return NETDEV_TX_BUSY;
-+
- 	
- 	/* PC SPECIFIC - DMA limits */
- 	
-@@ -1767,7 +1766,7 @@ int z8530_queue_xmit(struct z8530_channe
- 	z8530_tx_begin(c);
- 	spin_unlock_irqrestore(c->lock, flags);
- 	
--	return 0;
-+	return NETDEV_TX_OK;
- }
+ 	struct lbs_private *priv = dev->ml_priv;
+ 	struct txpd *txpd;
+ 	char *p802x_hdr;
+ 	uint16_t pkt_len;
+-	int ret;
++	netdev_tx_t ret = NETDEV_TX_OK;
  
- EXPORT_SYMBOL(z8530_queue_xmit);
---- a/drivers/net/wan/cycx_x25.c	2009-08-31 16:17:53.061081056 -0700
-+++ b/drivers/net/wan/cycx_x25.c	2009-08-31 16:27:02.101108828 -0700
-@@ -139,8 +139,8 @@ static int cycx_netdevice_hard_header(st
- 				      const void *daddr, const void *saddr,
- 				      unsigned len);
- static int cycx_netdevice_rebuild_header(struct sk_buff *skb);
--static int cycx_netdevice_hard_start_xmit(struct sk_buff *skb,
--					  struct net_device *dev);
-+static netdev_tx_t cycx_netdevice_hard_start_xmit(struct sk_buff *skb,
-+							struct net_device *dev);
+ 	lbs_deb_enter(LBS_DEB_TX);
  
- static struct net_device_stats *
- 			cycx_netdevice_get_stats(struct net_device *dev);
-@@ -593,8 +593,8 @@ static int cycx_netdevice_rebuild_header
-  *    bottom half" (with interrupts enabled).
-  * 2. Setting tbusy flag will inhibit further transmit requests from the
-  *    protocol stack and can be used for flow control with protocol layer. */
--static int cycx_netdevice_hard_start_xmit(struct sk_buff *skb,
--					  struct net_device *dev)
-+static netdev_tx_t cycx_netdevice_hard_start_xmit(struct sk_buff *skb,
-+							struct net_device *dev)
- {
- 	struct cycx_x25_channel *chan = netdev_priv(dev);
- 	struct cycx_device *card = chan->card;
---- a/drivers/net/wan/dlci.c	2009-08-31 16:17:53.021089173 -0700
-+++ b/drivers/net/wan/dlci.c	2009-08-31 16:27:02.101108828 -0700
-@@ -186,12 +186,11 @@ static void dlci_receive(struct sk_buff 
- 		dev_kfree_skb(skb);
- }
- 
--static int dlci_transmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t dlci_transmit(struct sk_buff *skb,
-+				       struct net_device *dev)
- {
- 	struct dlci_local *dlp;
--	int					ret;
+-	ret = NETDEV_TX_OK;
 -
--	ret = 0;
-+	netdev_tx_t ret;
+ 	/* We need to protect against the queues being restarted before
+ 	   we get round to stopping them */
+ 	spin_lock_irqsave(&priv->driver_lock, flags);
+--- a/drivers/net/wireless/mac80211_hwsim.c	2009-08-31 16:17:52.331108249 -0700
++++ b/drivers/net/wireless/mac80211_hwsim.c	2009-08-31 16:32:16.173591015 -0700
+@@ -312,7 +312,8 @@ struct hwsim_radiotap_hdr {
+ } __attribute__ ((packed));
  
- 	if (!skb || !dev)
- 		return NETDEV_TX_OK;
-@@ -200,6 +199,8 @@ static int dlci_transmit(struct sk_buff 
  
- 	netif_stop_queue(dev);
- 	
-+	/* This is hackish, overloads driver specific return values
-+	   on top of normal transmit return! */
- 	ret = dlp->slave->netdev_ops->ndo_start_xmit(skb, dlp->slave);
- 	switch (ret)
- 	{
-@@ -207,11 +208,11 @@ static int dlci_transmit(struct sk_buff 
- 			dev->stats.tx_packets++;
- 			ret = NETDEV_TX_OK;
- 			break;
--			case DLCI_RET_ERR:
-+		case DLCI_RET_ERR:
- 			dev->stats.tx_errors++;
- 			ret = NETDEV_TX_OK;
- 			break;
--			case DLCI_RET_DROP:
-+		case DLCI_RET_DROP:
- 			dev->stats.tx_dropped++;
- 			ret = NETDEV_TX_BUSY;
- 			break;
---- a/drivers/net/wan/lapbether.c	2009-08-31 16:17:53.031081364 -0700
-+++ b/drivers/net/wan/lapbether.c	2009-08-31 16:27:02.101108828 -0700
-@@ -147,7 +147,8 @@ static int lapbeth_data_indication(struc
- /*
-  *	Send a LAPB frame via an ethernet interface
-  */
--static int lapbeth_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t lapbeth_xmit(struct sk_buff *skb,
-+				      struct net_device *dev)
+-static int hwsim_mon_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t hwsim_mon_xmit(struct sk_buff *skb,
++					struct net_device *dev)
  {
- 	int err;
+ 	/* TODO: allow packet injection */
+ 	dev_kfree_skb(skb);
+--- a/drivers/net/wireless/netwave_cs.c	2009-08-31 16:17:52.241107004 -0700
++++ b/drivers/net/wireless/netwave_cs.c	2009-08-31 16:32:16.173591015 -0700
+@@ -203,7 +203,8 @@ static int netwave_open(struct net_devic
+ static int netwave_close(struct net_device *dev); /* Close the device */
  
---- a/drivers/net/wan/sbni.c	2009-08-31 16:17:53.021089173 -0700
-+++ b/drivers/net/wan/sbni.c	2009-08-31 16:27:02.101108828 -0700
-@@ -114,7 +114,8 @@ static int  sbni_pci_probe( struct net_d
- static struct net_device  *sbni_probe1(struct net_device *, unsigned long, int);
- static int  sbni_open( struct net_device * );
- static int  sbni_close( struct net_device * );
--static int  sbni_start_xmit( struct sk_buff *, struct net_device * );
-+static netdev_tx_t sbni_start_xmit(struct sk_buff *,
-+					 struct net_device * );
- static int  sbni_ioctl( struct net_device *, struct ifreq *, int );
- static void  set_multicast_list( struct net_device * );
+ /* Packet transmission and Packet reception */
+-static int netwave_start_xmit( struct sk_buff *skb, struct net_device *dev);
++static netdev_tx_t netwave_start_xmit( struct sk_buff *skb,
++					     struct net_device *dev);
+ static int netwave_rx( struct net_device *dev);
  
-@@ -444,7 +445,7 @@ sbni_probe1( struct net_device  *dev,  u
- 
- #ifdef CONFIG_SBNI_MULTILINE
- 
--static int
-+static netdev_tx_t
- sbni_start_xmit( struct sk_buff  *skb,  struct net_device  *dev )
- {
- 	struct net_device  *p;
-@@ -472,7 +473,7 @@ sbni_start_xmit( struct sk_buff  *skb,  
- 
- #else	/* CONFIG_SBNI_MULTILINE */
- 
--static int
-+static netdev_tx_t
- sbni_start_xmit( struct sk_buff  *skb,  struct net_device  *dev )
- {
- 	struct net_local  *nl  = netdev_priv(dev);
---- a/drivers/net/wan/sdla.c	2009-08-31 16:17:53.081083527 -0700
-+++ b/drivers/net/wan/sdla.c	2009-08-31 16:27:02.101108828 -0700
-@@ -651,7 +651,8 @@ static int sdla_dlci_conf(struct net_dev
-  **************************/
- 
- /* NOTE: the DLCI driver deals with freeing the SKB!! */
--static int sdla_transmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t sdla_transmit(struct sk_buff *skb,
-+				       struct net_device *dev)
- {
- 	struct frad_local *flp;
- 	int               ret, addr, accept, i;
-@@ -737,7 +738,7 @@ static int sdla_transmit(struct sk_buff 
- 		if(flp->master[i]!=NULL)
- 			netif_wake_queue(flp->master[i]);
- 	}		
--	return(ret);
-+	return NETDEV_TX_OK;
+ /* Interrupt routines */
+@@ -1026,7 +1027,8 @@ static int netwave_hw_xmit(unsigned char
+     return 0;
  }
  
- static void sdla_receive(struct net_device *dev)
---- a/drivers/net/wan/x25_asy.c	2009-08-31 16:17:53.131107761 -0700
-+++ b/drivers/net/wan/x25_asy.c	2009-08-31 16:27:02.101108828 -0700
-@@ -299,7 +299,8 @@ static void x25_asy_timeout(struct net_d
+-static int netwave_start_xmit(struct sk_buff *skb, struct net_device *dev) {
++static netdev_tx_t netwave_start_xmit(struct sk_buff *skb,
++					    struct net_device *dev) {
+ 	/* This flag indicate that the hardware can't perform a transmission.
+ 	 * Theoritically, NET3 check it before sending a packet to the driver,
+ 	 * but in fact it never do that and pool continuously.
+--- a/drivers/net/wireless/orinoco/main.c	2009-08-31 16:17:52.291081163 -0700
++++ b/drivers/net/wireless/orinoco/main.c	2009-08-31 16:35:20.123589613 -0700
+@@ -337,7 +337,7 @@ static int orinoco_change_mtu(struct net
+ /* Tx path                                                          */
+ /********************************************************************/
  
- /* Encapsulate an IP datagram and kick it into a TTY queue. */
- 
--static int x25_asy_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t x25_asy_xmit(struct sk_buff *skb,
-+				      struct net_device *dev)
+-static int orinoco_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t orinoco_xmit(struct sk_buff *skb, struct net_device *dev)
  {
- 	struct x25_asy *sl = netdev_priv(dev);
- 	int err;
---- a/drivers/net/wan/z85230.h	2009-08-31 16:17:53.061081056 -0700
-+++ b/drivers/net/wan/z85230.h	2009-08-31 16:27:02.101108828 -0700
-@@ -406,7 +406,8 @@ extern int z8530_sync_dma_close(struct n
- extern int z8530_sync_txdma_open(struct net_device *, struct z8530_channel *);
- extern int z8530_sync_txdma_close(struct net_device *, struct z8530_channel *);
- extern int z8530_channel_load(struct z8530_channel *, u8 *);
--extern int z8530_queue_xmit(struct z8530_channel *c, struct sk_buff *skb);
-+extern netdev_tx_t z8530_queue_xmit(struct z8530_channel *c,
-+					  struct sk_buff *skb);
- extern void z8530_null_rx(struct z8530_channel *c, struct sk_buff *skb);
+ 	struct orinoco_private *priv = ndev_priv(dev);
+ 	struct net_device_stats *stats = &priv->stats;
+--- a/drivers/net/wireless/prism54/islpci_eth.c	2009-08-31 16:17:52.261081191 -0700
++++ b/drivers/net/wireless/prism54/islpci_eth.c	2009-08-31 16:32:16.173591015 -0700
+@@ -72,7 +72,7 @@ islpci_eth_cleanup_transmit(islpci_priva
+ 	}
+ }
  
- 
---- a/drivers/net/wan/hd64572.c	2009-08-31 16:17:53.111106337 -0700
-+++ b/drivers/net/wan/hd64572.c	2009-08-31 16:27:02.111107585 -0700
-@@ -562,7 +562,7 @@ static void sca_dump_rings(struct net_de
- #endif /* DEBUG_RINGS */
- 
- 
--static int sca_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t sca_xmit(struct sk_buff *skb, struct net_device *dev)
+-int
++netdev_tx_t
+ islpci_eth_transmit(struct sk_buff *skb, struct net_device *ndev)
  {
- 	port_t *port = dev_to_port(dev);
- 	card_t *card = port->card;
-@@ -601,7 +601,7 @@ static int sca_xmit(struct sk_buff *skb,
- 	spin_unlock_irq(&port->lock);
+ 	islpci_private *priv = netdev_priv(ndev);
+--- a/drivers/net/wireless/prism54/islpci_eth.h	2009-08-31 16:17:52.271108094 -0700
++++ b/drivers/net/wireless/prism54/islpci_eth.h	2009-08-31 16:32:16.173591015 -0700
+@@ -64,7 +64,7 @@ struct avs_80211_1_header {
+ };
  
- 	dev_kfree_skb(skb);
+ void islpci_eth_cleanup_transmit(islpci_private *, isl38xx_control_block *);
+-int islpci_eth_transmit(struct sk_buff *, struct net_device *);
++netdev_tx_t islpci_eth_transmit(struct sk_buff *, struct net_device *);
+ int islpci_eth_receive(islpci_private *);
+ void islpci_eth_tx_timeout(struct net_device *);
+ void islpci_do_reset_and_wake(struct work_struct *);
+--- a/drivers/net/wireless/ray_cs.c	2009-08-31 16:17:52.361105988 -0700
++++ b/drivers/net/wireless/ray_cs.c	2009-08-31 16:32:16.173591015 -0700
+@@ -104,7 +104,8 @@ static int ray_dev_init(struct net_devic
+ static const struct ethtool_ops netdev_ethtool_ops;
+ 
+ static int ray_open(struct net_device *dev);
+-static int ray_dev_start_xmit(struct sk_buff *skb, struct net_device *dev);
++static netdev_tx_t ray_dev_start_xmit(struct sk_buff *skb,
++					    struct net_device *dev);
+ static void set_multicast_list(struct net_device *dev);
+ static void ray_update_multi_list(struct net_device *dev, int all);
+ static int translate_frame(ray_dev_t *local, struct tx_msg __iomem *ptx,
+@@ -915,16 +916,19 @@ static int ray_dev_config(struct net_dev
+ }
+ 
+ /*===========================================================================*/
+-static int ray_dev_start_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t ray_dev_start_xmit(struct sk_buff *skb,
++					    struct net_device *dev)
+ {
+ 	ray_dev_t *local = netdev_priv(dev);
+ 	struct pcmcia_device *link = local->finder;
+ 	short length = skb->len;
+ 
+-	if (!(pcmcia_dev_present(link))) {
++	if (!pcmcia_dev_present(link)) {
+ 		DEBUG(2, "ray_dev_start_xmit - device not present\n");
+-		return NETDEV_TX_LOCKED;
++		dev_kfree_skb(skb);
++		return NETDEV_TX_OK;
+ 	}
++
+ 	DEBUG(3, "ray_dev_start_xmit(skb=%p, dev=%p)\n", skb, dev);
+ 	if (local->authentication_state == NEED_TO_AUTH) {
+ 		DEBUG(0, "ray_cs Sending authentication request.\n");
+@@ -951,8 +955,8 @@ static int ray_dev_start_xmit(struct sk_
+ 	default:
+ 		dev->trans_start = jiffies;
+ 		dev_kfree_skb(skb);
+-		return NETDEV_TX_OK;
+ 	}
++
+ 	return NETDEV_TX_OK;
+ } /* ray_dev_start_xmit */
+ 
+--- a/drivers/net/wireless/strip.c	2009-08-31 16:17:52.201081246 -0700
++++ b/drivers/net/wireless/strip.c	2009-08-31 16:32:16.183606045 -0700
+@@ -1533,7 +1533,7 @@ static void strip_send(struct strip *str
+ }
+ 
+ /* Encapsulate a datagram and kick it into a TTY queue. */
+-static int strip_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t strip_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct strip *strip_info = netdev_priv(dev);
+ 
+--- a/drivers/net/wireless/wavelan.c	2009-08-31 16:17:52.211107939 -0700
++++ b/drivers/net/wireless/wavelan.c	2009-08-31 16:32:16.183606045 -0700
+@@ -2841,7 +2841,8 @@ static int wv_packet_write(struct net_de
+  * the packet.  We also prevent reentrance.  Then we call the function
+  * to send the packet.
+  */
+-static int wavelan_packet_xmit(struct sk_buff *skb, struct net_device * dev)
++static netdev_tx_t wavelan_packet_xmit(struct sk_buff *skb,
++					     struct net_device * dev)
+ {
+ 	net_local *lp = netdev_priv(dev);
+ 	unsigned long flags;
+--- a/drivers/net/wireless/wavelan_cs.c	2009-08-31 16:17:52.231081009 -0700
++++ b/drivers/net/wireless/wavelan_cs.c	2009-08-31 16:32:16.183606045 -0700
+@@ -3078,7 +3078,7 @@ wv_packet_write(struct net_device *	dev,
+  * the packet. We also prevent reentrance. Then, we call the function
+  * to send the packet...
+  */
+-static int
++static netdev_tx_t
+ wavelan_packet_xmit(struct sk_buff *	skb,
+ 		    struct net_device *		dev)
+ {
+--- a/drivers/net/wireless/wl3501_cs.c	2009-08-31 16:17:52.331108249 -0700
++++ b/drivers/net/wireless/wl3501_cs.c	2009-08-31 16:32:16.183606045 -0700
+@@ -1333,7 +1333,8 @@ static void wl3501_tx_timeout(struct net
+  *	    1 - Could not transmit (dev_queue_xmit will queue it)
+  *		and try to sent it later
+  */
+-static int wl3501_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t wl3501_hard_start_xmit(struct sk_buff *skb,
++						struct net_device *dev)
+ {
+ 	int enabled, rc;
+ 	struct wl3501_card *this = netdev_priv(dev);
+--- a/drivers/net/wireless/zd1201.c	2009-08-31 16:17:52.341091082 -0700
++++ b/drivers/net/wireless/zd1201.c	2009-08-31 16:32:16.183606045 -0700
+@@ -779,7 +779,8 @@ static int zd1201_net_stop(struct net_de
+ 				(llc+snap+type+payload)
+ 		zd		1 null byte, zd1201 packet type
+  */
+-static int zd1201_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t zd1201_hard_start_xmit(struct sk_buff *skb,
++						struct net_device *dev)
+ {
+ 	struct zd1201 *zd = netdev_priv(dev);
+ 	unsigned char *txbuf = zd->txdata;
+--- a/drivers/net/wireless/wavelan.p.h	2009-08-31 16:17:52.251122313 -0700
++++ b/drivers/net/wireless/wavelan.p.h	2009-08-31 16:32:16.183606045 -0700
+@@ -611,7 +611,7 @@ static inline int
+ 	wv_packet_write(struct net_device *,	/* Write a packet to the Tx buffer. */
+ 			void *,
+ 			short);
+-static int
++static netdev_tx_t
+ 	wavelan_packet_xmit(struct sk_buff *,	/* Send a packet. */
+ 			    struct net_device *);
+ /* -------------------- HARDWARE CONFIGURATION -------------------- */
+--- a/drivers/net/wireless/wavelan_cs.p.h	2009-08-31 16:17:52.341091082 -0700
++++ b/drivers/net/wireless/wavelan_cs.p.h	2009-08-31 16:32:16.183606045 -0700
+@@ -707,7 +707,7 @@ static void
+ 	wv_packet_write(struct net_device *,	/* Write a packet to the Tx buffer */
+ 			void *,
+ 			short);
+-static int
++static netdev_tx_t
+ 	wavelan_packet_xmit(struct sk_buff *,	/* Send a packet */
+ 			    struct net_device *);
+ /* -------------------- HARDWARE CONFIGURATION -------------------- */
+--- a/drivers/net/wireless/ipw2x00/ipw2100.c	2009-08-31 16:17:52.311180087 -0700
++++ b/drivers/net/wireless/ipw2x00/ipw2100.c	2009-08-31 16:34:41.791081639 -0700
+@@ -3330,8 +3330,8 @@ static irqreturn_t ipw2100_interrupt(int
+ 	return IRQ_NONE;
+ }
+ 
+-static int ipw2100_tx(struct libipw_txb *txb, struct net_device *dev,
+-		      int pri)
++static netdev_tx_t ipw2100_tx(struct libipw_txb *txb,
++			      struct net_device *dev, int pri)
+ {
+ 	struct ipw2100_priv *priv = libipw_priv(dev);
+ 	struct list_head *element;
+@@ -3369,12 +3369,12 @@ static int ipw2100_tx(struct libipw_txb 
+ 	ipw2100_tx_send_data(priv);
+ 
+ 	spin_unlock_irqrestore(&priv->low_lock, flags);
 -	return 0;
 +	return NETDEV_TX_OK;
+ 
+-      fail_unlock:
++fail_unlock:
+ 	netif_stop_queue(dev);
+ 	spin_unlock_irqrestore(&priv->low_lock, flags);
+-	return 1;
++	return NETDEV_TX_BUSY;
  }
  
+ static int ipw2100_msg_allocate(struct ipw2100_priv *priv)
+--- a/net/mac80211/ieee80211_i.h	2009-08-31 16:17:52.181107339 -0700
++++ b/net/mac80211/ieee80211_i.h	2009-08-31 16:36:09.011107509 -0700
+@@ -1050,8 +1050,10 @@ void ieee80211_recalc_idle(struct ieee80
+ /* tx handling */
+ void ieee80211_clear_tx_pending(struct ieee80211_local *local);
+ void ieee80211_tx_pending(unsigned long data);
+-int ieee80211_monitor_start_xmit(struct sk_buff *skb, struct net_device *dev);
+-int ieee80211_subif_start_xmit(struct sk_buff *skb, struct net_device *dev);
++netdev_tx_t ieee80211_monitor_start_xmit(struct sk_buff *skb,
++					 struct net_device *dev);
++netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
++				       struct net_device *dev);
  
+ /* HT */
+ void ieee80211_ht_cap_ie_to_sta_ht_cap(struct ieee80211_supported_band *sband,
+--- a/net/mac80211/tx.c	2009-08-31 16:17:52.191080883 -0700
++++ b/net/mac80211/tx.c	2009-08-31 16:36:13.706387007 -0700
+@@ -1483,8 +1483,8 @@ static void ieee80211_xmit(struct ieee80
+ 	dev_put(sdata->dev);
+ }
+ 
+-int ieee80211_monitor_start_xmit(struct sk_buff *skb,
+-				 struct net_device *dev)
++netdev_tx_t ieee80211_monitor_start_xmit(struct sk_buff *skb,
++					 struct net_device *dev)
+ {
+ 	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
+ 	struct ieee80211_channel *chan = local->hw.conf.channel;
+@@ -1568,8 +1568,8 @@ fail:
+  * encapsulated packet will then be passed to master interface, wlan#.11, for
+  * transmission (through low-level driver).
+  */
+-int ieee80211_subif_start_xmit(struct sk_buff *skb,
+-			       struct net_device *dev)
++netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
++				    struct net_device *dev)
+ {
+ 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+ 	struct ieee80211_local *local = sdata->local;
 
 -- 
 
