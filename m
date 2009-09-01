@@ -1,104 +1,113 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 01/19] netdev: change transmit to limited range type
-Date: Tue, 01 Sep 2009 09:39:47 +0200
-Message-ID: <4A9CCFC3.6020006@gmail.com>
-References: <20090901055039.824876937@vyatta.com> <20090901055128.466779045@vyatta.com>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: Re: r8189 mac address changes persist across reboot (was: duplicate
+ MAC 	addresses)
+Date: Tue, 01 Sep 2009 09:58:59 +0200
+Message-ID: <4A9CD443.6030603@redhat.com>
+References: <9b2b86520908230314q37d07da6mbde9dc48ad5a17ce@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:59833 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751514AbZIAHjs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 03:39:48 -0400
-In-Reply-To: <20090901055128.466779045@vyatta.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	marty <marty@goodoldmarty.com>, linux-hotplug@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Mikael Pettersson <mikpe@it.uu.se>
+To: Alan Jenkins <sourcejedi.lkml@googlemail.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+In-Reply-To: <9b2b86520908230314q37d07da6mbde9dc48ad5a17ce@mail.gmail.com>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger a =E9crit :
-> The transmit function should only return one of three possible values=
-,
-> some drivers got confused and returned errno's or other values.
-> This changes the definition so that this can be caught at compile tim=
-e.
->=20
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->=20
-> ---
-> The patch will produce warnings until drivers are converted.
->=20
->=20
-> ---
->  include/linux/netdevice.h |   22 +++++++++++++---------
->  1 file changed, 13 insertions(+), 9 deletions(-)
->=20
-> --- a/include/linux/netdevice.h	2009-08-31 16:47:58.703591891 -0700
-> +++ b/include/linux/netdevice.h	2009-08-31 22:24:53.101472780 -0700
-> @@ -79,17 +79,19 @@ struct wireless_dev;
->  #define net_xmit_eval(e)	((e) =3D=3D NET_XMIT_CN? 0 : (e))
->  #define net_xmit_errno(e)	((e) !=3D NET_XMIT_CN ? -ENOBUFS : 0)
-> =20
-> +/* Driver transmit return codes */
-> +enum netdev_tx {
-> +	NETDEV_TX_OK =3D 0,	/* driver took care of packet */
-> +	NETDEV_TX_BUSY,		/* driver tx path was busy*/
-> +	NETDEV_TX_LOCKED =3D -1,	/* driver tx lock was already taken */
-> +};
-> +typedef enum netdev_tx netdev_tx_t;
-> +
->  #endif
-> =20
->  #define MAX_ADDR_LEN	32		/* Largest hardware address length */
-> =20
-> -/* Driver transmit return codes */
-> -#define NETDEV_TX_OK 0		/* driver took care of packet */
-> -#define NETDEV_TX_BUSY 1	/* driver tx path was busy*/
-> -#define NETDEV_TX_LOCKED -1	/* driver tx lock was already taken */
-> -
->  #ifdef  __KERNEL__
-> -
->  /*
->   *	Compute the worst case header length according to the protocols
->   *	used.
-> @@ -507,9 +509,11 @@ struct netdev_queue {
->   *     This function is called when network device transistions to t=
-he down
->   *     state.
->   *
-> - * int (*ndo_start_xmit)(struct sk_buff *skb, struct net_device *dev=
-);
-> + * netdev_tx_t (*ndo_start_xmit)(struct sk_buff *skb,
-> + *                               struct net_device *dev);
->   *	Called when a packet needs to be transmitted.
-> - *	Must return NETDEV_TX_OK , NETDEV_TX_BUSY, or NETDEV_TX_LOCKED,
-> + *	Must return NETDEV_TX_OK , NETDEV_TX_BUSY.
-> + *        (can also return NETDEV_TX_LOCKED iff NETIF_F_LLTX)
->   *	Required can not be NULL.
->   *
->   * u16 (*ndo_select_queue)(struct net_device *dev, struct sk_buff *s=
-kb);
-> @@ -580,7 +584,7 @@ struct net_device_ops {
->  	void			(*ndo_uninit)(struct net_device *dev);
->  	int			(*ndo_open)(struct net_device *dev);
->  	int			(*ndo_stop)(struct net_device *dev);
-> -	int			(*ndo_start_xmit) (struct sk_buff *skb,
-> +	netdev_tx_t		(*ndo_start_xmit) (struct sk_buff *skb,
->  						   struct net_device *dev);
->  	u16			(*ndo_select_queue)(struct net_device *dev,
->  						    struct sk_buff *skb);
->=20
+Alan Jenkins napsal(a):
+> On 8/23/09, marty <marty@goodoldmarty.com> wrote:
+>> Greg KH wrote:
+>>>> On Tue, Aug 18, 2009 at 04:27:04PM -0400, marty wrote:
+>>>>>> I got trouble...
+>>>>>> (duplicate MAC addresses)
+>>>> That's a bug in your hardware, have you asked your manufacturer to
+>>>> resolve this for you?  That violates the ethernet spec...
+>> I have resolved that problem as of today. I found this was caused
+>> by the software I had been using. If a hardware issue remains, it is moot.
+>>
+>> The bonding driver/utilities normally sets the bond address to the MAC of
+>> the
+>> first NIC. But it also set the MAC of the slave (eth3) to the MAC of the
+>> first
+>> NIC. This persists through reboots so that is how my MACs got duplicated.
+>>
+>> Resetting the MAC corrected those problems and everything works fine now.
+>>
+>> Marty B.
+> 
+> Hmm.  <Documentation/networking/bonding.txt>
+> 
+> "To restore your slaves' MAC addresses, you need to detach them
+> from the bond (`ifenslave -d bond0 eth0'). The bonding driver will
+> then restore the MAC addresses that the slaves had before they were
+> enslaved."
+> 
+> In which case one would hope that a clean shutdown would restore the
+> MAC addresses in the same way as ifenslave -d.
+> 
+> I found that snippet via Google, which pointed me to the 2.4 version
+> of the same document [1].  It suggests that your hardware or driver is
+> a little unusual.
+> 
+> "To restore your slaves' MAC addresses, you need to detach them
+> from the bond (`ifenslave -d bond0 eth0'), set them down
+> (`ifconfig eth0 down'), unload the drivers (`rmmod 3c59x', for
+> example) and reload them to get the MAC addresses from their
+> eeproms."
+> 
+> So other drivers would not have this problem, because they always
+> reset the MAC address at load time.  That would explain why the the
+> kernel doesn't bother resetting the MAC addresses on shutdown.
+> 
+> Looking at r8169.c confirms this.  It doesn't appear to initialize the
+> MAC address register from elsewhere; it just uses the current value.
+> It will also report this initial value as the "permanent" MAC address,
+> which your report suggests is wrong.  I think your problem is a bug in
+> r8169.
+> 
+> Francois, I found a datasheet for the 8139; it was claimed to be
+> similar and it does indeed appear so.  The datasheet suggests that the
+> driver needs to provoke "auto-load" from the EEPROM at load time.
+> Could you please have a look at fixing this, so that MAC address
+> changes do not persist over a reboot?
+> 
+Using auto-loading method is not possible for all new Realtek products
+(mainly for PCI-E chipsets). I asked the Realtek engineers and this
+is the answer:
+Q: Is it possible to use HW register at offset 50h to reload the MAC
+   address from EEPROM or somewhere else? I mean the usage of Auto-load
+   mode (bits EEM1=0 and EEM0=1 in 50h HW reg).
+A: Current new LANs don't load mac address throught autoload command.
+   You need to read it out from external eeprom or internal efuse then
+   put it back to ID0~ID5.
 
-I was wondering if we could add a third parameter to=20
-ndo_start_xmit() (and pass the struct netdev_queue *txq)
-in a smooth way, but could not find a solution.
+So you need to read the MAC address from the EEPROM and then write it into
+ID0-ID5 registers. I already created the patch that initializes the MAC
+address from EEPROM but there were some issues with this patch so it was
+reverted. Mikael reported that the MAC address from its adapter (on Thecus
+n2100) is read only partly (first 3 bytes were correct but the rest were
+zeros). Later we found that the MAC address is correct and there are really
+3 correct bytes + 3 zeros in EEPROM. The Thecus n2100 system probably uses
+only these 3 bytes and the remaining 3 bytes fills in by itself (they are
+probably stored somewhere in the firmware).
 
-Unconverted drivers would not care of this third param; but this
-should be provided by callers (like dev_hard_start_xmit())
+I have tested my patch with several different realtek NICs without any
+problem but what should we do with embedded system like the n2100 that
+initializes the MAC in other way.
 
-Most multiqueue drivers have to recompute it, and even monoqueue driver=
-s
-have to call netif_stop_queue(dev)/netif_queue_stopped(dev), all
-using netdev_get_tx_queue(dev, 0) in the end...
+There are 2 possibilities:
+1) There could be an additional module param to enable/disable the MAC
+   initialization
+2) The MAC address read from EEPROM will be checked against the current
+   MAC address in ID0-5 registers. And the current MAC will be replaced
+   by the one from EEPROM only if the first 3 bytes (OUI part) are
+   different.
 
+Francois, what do you think about it?
+
+Regards,
+Ivan
