@@ -1,268 +1,135 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 16/18] tg3: Add 5717 NVRAM detection routines
-Date: Tue, 1 Sep 2009 16:20:17 -0700
-Message-ID: <1251867315.5959@xw6200>
+Subject: [PATCH 02/18] tg3: Add per-int coalesce now member
+Date: Tue, 1 Sep 2009 15:51:13 -0700
+Message-ID: <1251867299.5917@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4113 "EHLO MMS3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2530 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932148AbZIBEz0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Sep 2009 00:55:26 -0400
+	id S1754097AbZIBEzF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Sep 2009 00:55:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds NVRAM detection routines for the 5717.
+Each interrupt vector has its own bit in the host coalescing register to
+force that vector's status block to be updated and generate an
+interrupt.  This patch adds a member to the per-interrupt structure
+that records which bit belongs to that vector.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 ---
- drivers/net/tg3.c |  154 +++++++++++++++++++++++++++++++++++++----------------
- drivers/net/tg3.h |   23 ++++++++-
- 2 files changed, 130 insertions(+), 47 deletions(-)
+ drivers/net/tg3.c |   16 +++++++++-------
+ drivers/net/tg3.h |    2 ++
+ 2 files changed, 11 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 2310e56..bc9c13a 100644
+index 65ff286..ff65ae8 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -10853,6 +10853,33 @@ static void __devinit tg3_get_nvram_info(struct tg3 *tp)
- 	}
+@@ -631,7 +631,7 @@ static void tg3_enable_ints(struct tg3 *tp)
+ 	if (tp->tg3_flags2 & TG3_FLG2_1SHOT_MSI)
+ 		tw32_mailbox_f(tnapi->int_mbox, tnapi->last_tag << 24);
+ 
+-	coal_now = HOSTCC_MODE_NOW;
++	coal_now = tnapi->coal_now;
+ 
+ 	/* Force an initial interrupt */
+ 	if (!(tp->tg3_flags & TG3_FLAG_TAGGED_STATUS) &&
+@@ -682,7 +682,7 @@ static void tg3_int_reenable(struct tg3_napi *tnapi)
+ 	if (!(tp->tg3_flags & TG3_FLAG_TAGGED_STATUS) &&
+ 	    tg3_has_work(tnapi))
+ 		tw32(HOSTCC_MODE, tp->coalesce_mode |
+-		     (HOSTCC_MODE_ENABLE | HOSTCC_MODE_NOW));
++		     HOSTCC_MODE_ENABLE | tnapi->coal_now);
  }
  
-+static void __devinit tg3_nvram_get_pagesize(struct tg3 *tp, u32 nvmcfg1)
-+{
-+	switch (nvmcfg1 & NVRAM_CFG1_5752PAGE_SIZE_MASK) {
-+	case FLASH_5752PAGE_SIZE_256:
-+		tp->nvram_pagesize = 256;
-+		break;
-+	case FLASH_5752PAGE_SIZE_512:
-+		tp->nvram_pagesize = 512;
-+		break;
-+	case FLASH_5752PAGE_SIZE_1K:
-+		tp->nvram_pagesize = 1024;
-+		break;
-+	case FLASH_5752PAGE_SIZE_2K:
-+		tp->nvram_pagesize = 2048;
-+		break;
-+	case FLASH_5752PAGE_SIZE_4K:
-+		tp->nvram_pagesize = 4096;
-+		break;
-+	case FLASH_5752PAGE_SIZE_264:
-+		tp->nvram_pagesize = 264;
-+		break;
-+	case FLASH_5752PAGE_SIZE_528:
-+		tp->nvram_pagesize = 528;
-+		break;
-+	}
-+}
-+
- static void __devinit tg3_get_5752_nvram_info(struct tg3 *tp)
+ static inline void tg3_netif_stop(struct tg3 *tp)
+@@ -7622,7 +7622,7 @@ static void tg3_timer(unsigned long __opaque)
+ 			     tp->grc_local_ctrl | GRC_LCLCTRL_SETINT);
+ 		} else {
+ 			tw32(HOSTCC_MODE, tp->coalesce_mode |
+-			     (HOSTCC_MODE_ENABLE | HOSTCC_MODE_NOW));
++			     HOSTCC_MODE_ENABLE | HOSTCC_MODE_NOW);
+ 		}
+ 
+ 		if (!(tr32(WDMAC_MODE) & WDMAC_MODE_ENABLE)) {
+@@ -7765,7 +7765,7 @@ static int tg3_test_interrupt(struct tg3 *tp)
+ 	tg3_enable_ints(tp);
+ 
+ 	tw32_f(HOSTCC_MODE, tp->coalesce_mode | HOSTCC_MODE_ENABLE |
+-	       HOSTCC_MODE_NOW);
++	       tnapi->coal_now);
+ 
+ 	for (i = 0; i < 5; i++) {
+ 		u32 int_mbox, misc_host_ctrl;
+@@ -9840,7 +9840,7 @@ static int tg3_test_memory(struct tg3 *tp)
+ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
  {
- 	u32 nvcfg1;
-@@ -10884,26 +10911,7 @@ static void __devinit tg3_get_5752_nvram_info(struct tg3 *tp)
- 	}
+ 	u32 mac_mode, rx_start_idx, rx_idx, tx_idx, opaque_key;
+-	u32 desc_idx;
++	u32 desc_idx, coal_now;
+ 	struct sk_buff *skb, *rx_skb;
+ 	u8 *tx_data;
+ 	dma_addr_t map;
+@@ -9851,6 +9851,7 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
  
- 	if (tp->tg3_flags2 & TG3_FLG2_FLASH) {
--		switch (nvcfg1 & NVRAM_CFG1_5752PAGE_SIZE_MASK) {
--		case FLASH_5752PAGE_SIZE_256:
--			tp->nvram_pagesize = 256;
--			break;
--		case FLASH_5752PAGE_SIZE_512:
--			tp->nvram_pagesize = 512;
--			break;
--		case FLASH_5752PAGE_SIZE_1K:
--			tp->nvram_pagesize = 1024;
--			break;
--		case FLASH_5752PAGE_SIZE_2K:
--			tp->nvram_pagesize = 2048;
--			break;
--		case FLASH_5752PAGE_SIZE_4K:
--			tp->nvram_pagesize = 4096;
--			break;
--		case FLASH_5752PAGE_SIZE_264:
--			tp->nvram_pagesize = 264;
--			break;
--		}
-+		tg3_nvram_get_pagesize(tp, nvcfg1);
- 	} else {
- 		/* For eeprom, set pagesize to maximum eeprom size */
- 		tp->nvram_pagesize = ATMEL_AT24C512_CHIP_SIZE;
-@@ -11156,34 +11164,84 @@ static void __devinit tg3_get_57780_nvram_info(struct tg3 *tp)
- 		return;
- 	}
+ 	tnapi = &tp->napi[0];
+ 	rnapi = &tp->napi[0];
++	coal_now = tnapi->coal_now | rnapi->coal_now;
  
--	switch (nvcfg1 & NVRAM_CFG1_5752PAGE_SIZE_MASK) {
--	case FLASH_5752PAGE_SIZE_256:
-+	tg3_nvram_get_pagesize(tp, nvcfg1);
-+	if (tp->nvram_pagesize != 264 && tp->nvram_pagesize != 528)
- 		tp->tg3_flags3 |= TG3_FLG3_NO_NVRAM_ADDR_TRANS;
--		tp->nvram_pagesize = 256;
--		break;
--	case FLASH_5752PAGE_SIZE_512:
--		tp->tg3_flags3 |= TG3_FLG3_NO_NVRAM_ADDR_TRANS;
--		tp->nvram_pagesize = 512;
--		break;
--	case FLASH_5752PAGE_SIZE_1K:
--		tp->tg3_flags3 |= TG3_FLG3_NO_NVRAM_ADDR_TRANS;
--		tp->nvram_pagesize = 1024;
--		break;
--	case FLASH_5752PAGE_SIZE_2K:
--		tp->tg3_flags3 |= TG3_FLG3_NO_NVRAM_ADDR_TRANS;
--		tp->nvram_pagesize = 2048;
--		break;
--	case FLASH_5752PAGE_SIZE_4K:
--		tp->tg3_flags3 |= TG3_FLG3_NO_NVRAM_ADDR_TRANS;
--		tp->nvram_pagesize = 4096;
--		break;
--	case FLASH_5752PAGE_SIZE_264:
--		tp->nvram_pagesize = 264;
-+}
-+
-+
-+static void __devinit tg3_get_5717_nvram_info(struct tg3 *tp)
-+{
-+	u32 nvcfg1;
-+
-+	nvcfg1 = tr32(NVRAM_CFG1);
-+
-+	switch (nvcfg1 & NVRAM_CFG1_5752VENDOR_MASK) {
-+	case FLASH_5717VENDOR_ATMEL_EEPROM:
-+	case FLASH_5717VENDOR_MICRO_EEPROM:
-+		tp->nvram_jedecnum = JEDEC_ATMEL;
-+		tp->tg3_flags |= TG3_FLAG_NVRAM_BUFFERED;
-+		tp->nvram_pagesize = ATMEL_AT24C512_CHIP_SIZE;
-+
-+		nvcfg1 &= ~NVRAM_CFG1_COMPAT_BYPASS;
-+		tw32(NVRAM_CFG1, nvcfg1);
-+		return;
-+	case FLASH_5717VENDOR_ATMEL_MDB011D:
-+	case FLASH_5717VENDOR_ATMEL_ADB011B:
-+	case FLASH_5717VENDOR_ATMEL_ADB011D:
-+	case FLASH_5717VENDOR_ATMEL_MDB021D:
-+	case FLASH_5717VENDOR_ATMEL_ADB021B:
-+	case FLASH_5717VENDOR_ATMEL_ADB021D:
-+	case FLASH_5717VENDOR_ATMEL_45USPT:
-+		tp->nvram_jedecnum = JEDEC_ATMEL;
-+		tp->tg3_flags |= TG3_FLAG_NVRAM_BUFFERED;
-+		tp->tg3_flags2 |= TG3_FLG2_FLASH;
-+
-+		switch (nvcfg1 & NVRAM_CFG1_5752VENDOR_MASK) {
-+		case FLASH_5717VENDOR_ATMEL_MDB021D:
-+		case FLASH_5717VENDOR_ATMEL_ADB021B:
-+		case FLASH_5717VENDOR_ATMEL_ADB021D:
-+			tp->nvram_size = TG3_NVRAM_SIZE_256KB;
-+			break;
-+		default:
-+			tp->nvram_size = TG3_NVRAM_SIZE_128KB;
-+			break;
-+		}
- 		break;
--	case FLASH_5752PAGE_SIZE_528:
--		tp->nvram_pagesize = 528;
-+	case FLASH_5717VENDOR_ST_M_M25PE10:
-+	case FLASH_5717VENDOR_ST_A_M25PE10:
-+	case FLASH_5717VENDOR_ST_M_M45PE10:
-+	case FLASH_5717VENDOR_ST_A_M45PE10:
-+	case FLASH_5717VENDOR_ST_M_M25PE20:
-+	case FLASH_5717VENDOR_ST_A_M25PE20:
-+	case FLASH_5717VENDOR_ST_M_M45PE20:
-+	case FLASH_5717VENDOR_ST_A_M45PE20:
-+	case FLASH_5717VENDOR_ST_25USPT:
-+	case FLASH_5717VENDOR_ST_45USPT:
-+		tp->nvram_jedecnum = JEDEC_ST;
-+		tp->tg3_flags |= TG3_FLAG_NVRAM_BUFFERED;
-+		tp->tg3_flags2 |= TG3_FLG2_FLASH;
-+
-+		switch (nvcfg1 & NVRAM_CFG1_5752VENDOR_MASK) {
-+		case FLASH_5717VENDOR_ST_M_M25PE20:
-+		case FLASH_5717VENDOR_ST_A_M25PE20:
-+		case FLASH_5717VENDOR_ST_M_M45PE20:
-+		case FLASH_5717VENDOR_ST_A_M45PE20:
-+			tp->nvram_size = TG3_NVRAM_SIZE_256KB;
-+			break;
-+		default:
-+			tp->nvram_size = TG3_NVRAM_SIZE_128KB;
-+			break;
-+		}
- 		break;
-+	default:
-+		tp->tg3_flags3 |= TG3_FLG3_NO_NVRAM;
-+		return;
- 	}
-+
-+	tg3_nvram_get_pagesize(tp, nvcfg1);
-+	if (tp->nvram_pagesize != 264 && tp->nvram_pagesize != 528)
-+		tp->tg3_flags3 |= TG3_FLG3_NO_NVRAM_ADDR_TRANS;
- }
+ 	if (loopback_mode == TG3_MAC_LOOPBACK) {
+ 		/* HW errata - mac loopback fails in some cases on 5780.
+@@ -9929,7 +9930,7 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
+ 	map = pci_map_single(tp->pdev, skb->data, tx_len, PCI_DMA_TODEVICE);
  
- /* Chips other than 5700/5701 use the NVRAM for fetching info. */
-@@ -11228,6 +11286,8 @@ static void __devinit tg3_nvram_init(struct tg3 *tp)
- 			tg3_get_5906_nvram_info(tp);
- 		else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780)
- 			tg3_get_57780_nvram_info(tp);
-+		else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717)
-+			tg3_get_5717_nvram_info(tp);
- 		else
- 			tg3_get_nvram_info(tp);
+ 	tw32_f(HOSTCC_MODE, tp->coalesce_mode | HOSTCC_MODE_ENABLE |
+-	     HOSTCC_MODE_NOW);
++	       rnapi->coal_now);
  
-@@ -13074,8 +13134,10 @@ static int __devinit tg3_get_device_address(struct tg3 *tp)
- 			tw32_f(NVRAM_CMD, NVRAM_CMD_RESET);
- 		else
- 			tg3_nvram_unlock(tp);
--	}
--	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906)
-+	} else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717) {
-+		if (tr32(TG3_CPMU_STATUS) & TG3_CPMU_STATUS_PCIE_FUNC)
-+			mac_offset = 0xcc;
-+	} else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906)
- 		mac_offset = 0x10;
+ 	udelay(10);
  
- 	/* First try to get it from MAC address mailbox. */
+@@ -9950,7 +9951,7 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
+ 	/* 250 usec to allow enough time on some 10/100 Mbps devices.  */
+ 	for (i = 0; i < 25; i++) {
+ 		tw32_f(HOSTCC_MODE, tp->coalesce_mode | HOSTCC_MODE_ENABLE |
+-		       HOSTCC_MODE_NOW);
++		       coal_now);
+ 
+ 		udelay(10);
+ 
+@@ -13428,6 +13429,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 	tp->napi[0].int_mbox = MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW;
+ 	tp->napi[0].consmbox = MAILBOX_RCVRET_CON_IDX_0 + TG3_64BIT_REG_LOW;
+ 	tp->napi[0].prodmbox = MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW;
++	tp->napi[0].coal_now = HOSTCC_MODE_NOW;
+ 	tp->napi[0].tx_pending = TG3_DEF_TX_RING_PENDING;
+ 	netif_napi_add(dev, &tp->napi[0].napi, tg3_poll, 64);
+ 	dev->ethtool_ops = &tg3_ethtool_ops;
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 5994476..ea57a3a 100644
+index a816b2c..626b968 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -1027,8 +1027,10 @@
- #define TG3_CPMU_HST_ACC		0x0000361c
- #define  CPMU_HST_ACC_MACCLK_MASK	 0x001f0000
- #define  CPMU_HST_ACC_MACCLK_6_25	 0x00130000
--/* 0x3620 --> 0x3630 unused */
-+/* 0x3620 --> 0x362c unused */
- 
-+#define TG3_CPMU_STATUS			0x0000362c
-+#define  TG3_CPMU_STATUS_PCIE_FUNC	 0x20000000
- #define TG3_CPMU_CLCK_STAT		0x00003630
- #define  CPMU_CLCK_STAT_MAC_CLCK_MASK	 0x001f0000
- #define  CPMU_CLCK_STAT_MAC_CLCK_62_5	 0x00000000
-@@ -1692,6 +1694,25 @@
- #define  FLASH_57780VENDOR_ATMEL_AT45DB021B 0x03400002
- #define  FLASH_57780VENDOR_ATMEL_AT45DB041D 0x00400001
- #define  FLASH_57780VENDOR_ATMEL_AT45DB041B 0x03400001
-+#define  FLASH_5717VENDOR_ATMEL_EEPROM	 0x02000001
-+#define  FLASH_5717VENDOR_MICRO_EEPROM	 0x02000003
-+#define  FLASH_5717VENDOR_ATMEL_MDB011D	 0x01000001
-+#define  FLASH_5717VENDOR_ATMEL_MDB021D	 0x01000003
-+#define  FLASH_5717VENDOR_ST_M_M25PE10	 0x02000000
-+#define  FLASH_5717VENDOR_ST_M_M25PE20	 0x02000002
-+#define  FLASH_5717VENDOR_ST_M_M45PE10	 0x00000001
-+#define  FLASH_5717VENDOR_ST_M_M45PE20	 0x00000003
-+#define  FLASH_5717VENDOR_ATMEL_ADB011B	 0x01400000
-+#define  FLASH_5717VENDOR_ATMEL_ADB021B	 0x01400002
-+#define  FLASH_5717VENDOR_ATMEL_ADB011D	 0x01400001
-+#define  FLASH_5717VENDOR_ATMEL_ADB021D	 0x01400003
-+#define  FLASH_5717VENDOR_ST_A_M25PE10	 0x02400000
-+#define  FLASH_5717VENDOR_ST_A_M25PE20	 0x02400002
-+#define  FLASH_5717VENDOR_ST_A_M45PE10	 0x02400001
-+#define  FLASH_5717VENDOR_ST_A_M45PE20	 0x02400003
-+#define  FLASH_5717VENDOR_ATMEL_45USPT	 0x03400000
-+#define  FLASH_5717VENDOR_ST_25USPT	 0x03400002
-+#define  FLASH_5717VENDOR_ST_45USPT	 0x03400001
- #define  NVRAM_CFG1_5752PAGE_SIZE_MASK	 0x70000000
- #define  FLASH_5752PAGE_SIZE_256	 0x00000000
- #define  FLASH_5752PAGE_SIZE_512	 0x10000000
+@@ -1031,6 +1031,7 @@
+ #define  HOSTCC_MODE_CLRTICK_TXBD	 0x00000400
+ #define  HOSTCC_MODE_NOINT_ON_NOW	 0x00000800
+ #define  HOSTCC_MODE_NOINT_ON_FORCE	 0x00001000
++#define  HOSTCC_MODE_COAL_VEC1_NOW	 0x00002000
+ #define HOSTCC_STATUS			0x00003c04
+ #define  HOSTCC_STATUS_ERROR_ATTN	 0x00000004
+ #define HOSTCC_RXCOL_TICKS		0x00003c08
+@@ -2497,6 +2498,7 @@ struct tg3_napi {
+ 	u32				last_tag;
+ 	u32				last_irq_tag;
+ 	u32				int_mbox;
++	u32				coal_now;
+ 	u32				tx_prod;
+ 	u32				tx_cons;
+ 	u32				tx_pending;
 -- 
 1.6.3.3
 
