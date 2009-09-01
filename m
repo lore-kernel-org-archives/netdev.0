@@ -1,16 +1,16 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 07/19] tokenring: convert to netdev_tx_t
-Date: Mon, 31 Aug 2009 22:50:46 -0700
-Message-ID: <20090901055129.095068612@vyatta.com>
+Subject: [PATCH 02/19] netdev: convert pseudo-devices to netdev_tx_t
+Date: Mon, 31 Aug 2009 22:50:41 -0700
+Message-ID: <20090901055128.581112223@vyatta.com>
 References: <20090901055039.824876937@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:57444 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:57433 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751309AbZIAF6v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Sep 2009 01:58:51 -0400
-Content-Disposition: inline; filename=tokenring-tx.patch
+	id S1751514AbZIAF6s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Sep 2009 01:58:48 -0400
+Content-Disposition: inline; filename=misc-tx.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -18,174 +18,271 @@ Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 
 ---
- drivers/net/tokenring/3c359.c       |    4 ++--
- drivers/net/tokenring/ibmtr.c       |    6 ++++--
- drivers/net/tokenring/lanstreamer.c |    6 ++++--
- drivers/net/tokenring/olympic.c     |    6 ++++--
- drivers/net/tokenring/smctr.c       |    6 ++++--
- drivers/net/tokenring/tms380tr.c    |   19 +++++++++++--------
- 6 files changed, 29 insertions(+), 18 deletions(-)
+ drivers/ieee1394/eth1394.c  |   14 ++++----------
+ net/8021q/vlan_dev.c        |    7 ++++---
+ net/bluetooth/bnep/netdev.c |    3 ++-
+ net/bridge/br_device.c      |    2 +-
+ net/bridge/br_private.h     |    3 ++-
+ net/core/pktgen.c           |    2 +-
+ net/dsa/dsa_priv.h          |    6 +++---
+ net/dsa/tag_dsa.c           |    2 +-
+ net/dsa/tag_edsa.c          |    2 +-
+ net/dsa/tag_trailer.c       |    2 +-
+ net/ipv4/ip_gre.c           |    2 +-
+ net/ipv4/ipip.c             |    2 +-
+ net/ipv4/ipmr.c             |    2 +-
+ net/ipv6/ip6_tunnel.c       |    2 +-
+ net/ipv6/ip6mr.c            |    3 ++-
+ net/ipv6/sit.c              |    3 ++-
+ net/sched/sch_teql.c        |    4 ++--
+ 17 files changed, 30 insertions(+), 31 deletions(-)
 
---- a/drivers/net/tokenring/3c359.c	2009-08-31 16:17:53.201090186 -0700
-+++ b/drivers/net/tokenring/3c359.c	2009-08-31 16:26:58.753608726 -0700
-@@ -128,7 +128,7 @@ static int xl_init(struct net_device *de
- static int xl_open(struct net_device *dev);
- static int xl_open_hw(struct net_device *dev) ;  
- static int xl_hw_reset(struct net_device *dev); 
--static int xl_xmit(struct sk_buff *skb, struct net_device *dev);
-+static netdev_tx_t xl_xmit(struct sk_buff *skb, struct net_device *dev);
- static void xl_dn_comp(struct net_device *dev); 
- static int xl_close(struct net_device *dev);
- static void xl_set_rx_mode(struct net_device *dev);
-@@ -1193,7 +1193,7 @@ static irqreturn_t xl_interrupt(int irq,
-  *	Tx - Polling configuration
-  */
- 	
--static int xl_xmit(struct sk_buff *skb, struct net_device *dev) 
-+static netdev_tx_t xl_xmit(struct sk_buff *skb, struct net_device *dev)
+--- a/net/core/pktgen.c	2009-08-31 16:20:50.093609481 -0700
++++ b/net/core/pktgen.c	2009-08-31 16:21:06.923607987 -0700
+@@ -3381,7 +3381,7 @@ static void idle(struct pktgen_dev *pkt_
+ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
  {
- 	struct xl_private *xl_priv=netdev_priv(dev);
- 	struct xl_tx_desc *txd ; 
---- a/drivers/net/tokenring/ibmtr.c	2009-08-31 16:17:53.191088706 -0700
-+++ b/drivers/net/tokenring/ibmtr.c	2009-08-31 16:26:58.753608726 -0700
-@@ -191,7 +191,8 @@ static int 	tok_init_card(struct net_dev
- static void	tok_open_adapter(unsigned long dev_addr);
- static void 	open_sap(unsigned char type, struct net_device *dev);
- static void 	tok_set_multicast_list(struct net_device *dev);
--static int 	tok_send_packet(struct sk_buff *skb, struct net_device *dev);
-+static netdev_tx_t tok_send_packet(struct sk_buff *skb,
-+					 struct net_device *dev);
- static int 	tok_close(struct net_device *dev);
- static irqreturn_t tok_interrupt(int irq, void *dev_id);
- static void 	initial_tok_int(struct net_device *dev);
-@@ -1022,7 +1023,8 @@ static void tok_set_multicast_list(struc
+ 	struct net_device *odev = pkt_dev->odev;
+-	int (*xmit)(struct sk_buff *, struct net_device *)
++	netdev_tx_t (*xmit)(struct sk_buff *, struct net_device *)
+ 		= odev->netdev_ops->ndo_start_xmit;
+ 	struct netdev_queue *txq;
+ 	u16 queue_map;
+--- a/net/dsa/tag_dsa.c	2009-08-31 16:20:50.213591561 -0700
++++ b/net/dsa/tag_dsa.c	2009-08-31 16:21:06.923607987 -0700
+@@ -15,7 +15,7 @@
  
- #define STATION_ID_OFST 4
+ #define DSA_HLEN	4
  
--static int tok_send_packet(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t tok_send_packet(struct sk_buff *skb,
-+					 struct net_device *dev)
+-int dsa_xmit(struct sk_buff *skb, struct net_device *dev)
++netdev_tx_t dsa_xmit(struct sk_buff *skb, struct net_device *dev)
  {
- 	struct tok_info *ti;
- 	unsigned long flags;
---- a/drivers/net/tokenring/lanstreamer.c	2009-08-31 16:17:53.181109436 -0700
-+++ b/drivers/net/tokenring/lanstreamer.c	2009-08-31 16:26:58.753608726 -0700
-@@ -203,7 +203,8 @@ static int streamer_ioctl(struct net_dev
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	u8 *dsa_header;
+--- a/net/dsa/tag_edsa.c	2009-08-31 16:20:50.193589159 -0700
++++ b/net/dsa/tag_edsa.c	2009-08-31 16:21:06.923607987 -0700
+@@ -16,7 +16,7 @@
+ #define DSA_HLEN	4
+ #define EDSA_HLEN	8
  
- static int streamer_reset(struct net_device *dev);
- static int streamer_open(struct net_device *dev);
--static int streamer_xmit(struct sk_buff *skb, struct net_device *dev);
-+static netdev_tx_t streamer_xmit(struct sk_buff *skb,
-+				       struct net_device *dev);
- static int streamer_close(struct net_device *dev);
- static void streamer_set_rx_mode(struct net_device *dev);
- static irqreturn_t streamer_interrupt(int irq, void *dev_id);
-@@ -1141,7 +1142,8 @@ static irqreturn_t streamer_interrupt(in
- 	return IRQ_HANDLED;
+-int edsa_xmit(struct sk_buff *skb, struct net_device *dev)
++netdev_tx_t edsa_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	u8 *edsa_header;
+--- a/net/dsa/tag_trailer.c	2009-08-31 16:20:50.183591100 -0700
++++ b/net/dsa/tag_trailer.c	2009-08-31 16:21:06.923607987 -0700
+@@ -13,7 +13,7 @@
+ #include <linux/netdevice.h>
+ #include "dsa_priv.h"
+ 
+-int trailer_xmit(struct sk_buff *skb, struct net_device *dev)
++netdev_tx_t trailer_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	struct sk_buff *nskb;
+--- a/net/ipv4/ip_gre.c	2009-08-31 16:20:50.163606647 -0700
++++ b/net/ipv4/ip_gre.c	2009-08-31 16:21:06.923607987 -0700
+@@ -662,7 +662,7 @@ drop_nolock:
+ 	return(0);
  }
  
--static int streamer_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t streamer_xmit(struct sk_buff *skb,
-+				       struct net_device *dev)
+-static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
  {
- 	struct streamer_private *streamer_priv =
- 	    netdev_priv(dev);
---- a/drivers/net/tokenring/olympic.c	2009-08-31 16:17:53.191088706 -0700
-+++ b/drivers/net/tokenring/olympic.c	2009-08-31 16:26:58.753608726 -0700
-@@ -182,7 +182,8 @@ MODULE_DEVICE_TABLE(pci,olympic_pci_tbl)
- static int olympic_probe(struct pci_dev *pdev, const struct pci_device_id *ent); 
- static int olympic_init(struct net_device *dev);
- static int olympic_open(struct net_device *dev);
--static int olympic_xmit(struct sk_buff *skb, struct net_device *dev);
-+static netdev_tx_t olympic_xmit(struct sk_buff *skb,
-+				      struct net_device *dev);
- static int olympic_close(struct net_device *dev);
- static void olympic_set_rx_mode(struct net_device *dev);
- static void olympic_freemem(struct net_device *dev) ;  
-@@ -1030,7 +1031,8 @@ static irqreturn_t olympic_interrupt(int
- 	return IRQ_HANDLED;
- }	
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+ 	struct net_device_stats *stats = &tunnel->dev->stats;
+--- a/net/ipv4/ipip.c	2009-08-31 16:20:50.143591673 -0700
++++ b/net/ipv4/ipip.c	2009-08-31 16:21:06.923607987 -0700
+@@ -387,7 +387,7 @@ static int ipip_rcv(struct sk_buff *skb)
+  *	and that skb is filled properly by that function.
+  */
  
--static int olympic_xmit(struct sk_buff *skb, struct net_device *dev) 
-+static netdev_tx_t olympic_xmit(struct sk_buff *skb,
+-static int ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+ 	struct net_device_stats *stats = &tunnel->dev->stats;
+--- a/net/ipv4/ipmr.c	2009-08-31 16:20:50.153591757 -0700
++++ b/net/ipv4/ipmr.c	2009-08-31 16:21:06.923607987 -0700
+@@ -201,7 +201,7 @@ failure:
+ 
+ #ifdef CONFIG_IP_PIMSM
+ 
+-static int reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct net *net = dev_net(dev);
+ 
+--- a/net/ipv6/ip6_tunnel.c	2009-08-31 16:20:50.123607428 -0700
++++ b/net/ipv6/ip6_tunnel.c	2009-08-31 16:21:06.923607987 -0700
+@@ -1036,7 +1036,7 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, str
+ 	return 0;
+ }
+ 
+-static int
++static netdev_tx_t
+ ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct ip6_tnl *t = netdev_priv(dev);
+--- a/net/ipv6/ip6mr.c	2009-08-31 16:20:50.113591560 -0700
++++ b/net/ipv6/ip6mr.c	2009-08-31 16:21:06.923607987 -0700
+@@ -416,7 +416,8 @@ static struct inet6_protocol pim6_protoc
+ 
+ /* Service routines creating virtual interfaces: PIMREG */
+ 
+-static int reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t reg_vif_xmit(struct sk_buff *skb,
 +				      struct net_device *dev)
  {
- 	struct olympic_private *olympic_priv=netdev_priv(dev);
- 	u8 __iomem *olympic_mmio=olympic_priv->olympic_mmio;
---- a/drivers/net/tokenring/smctr.c	2009-08-31 16:17:53.171107816 -0700
-+++ b/drivers/net/tokenring/smctr.c	2009-08-31 16:26:58.753608726 -0700
-@@ -234,7 +234,8 @@ static int smctr_rx_frame(struct net_dev
+ 	struct net *net = dev_net(dev);
  
- /* S */
- static int smctr_send_dat(struct net_device *dev);
--static int smctr_send_packet(struct sk_buff *skb, struct net_device *dev);
-+static netdev_tx_t smctr_send_packet(struct sk_buff *skb,
-+					   struct net_device *dev);
- static int smctr_send_lobe_media_test(struct net_device *dev);
- static int smctr_send_rpt_addr(struct net_device *dev, MAC_HEADER *rmf,
-         __u16 correlator);
-@@ -4571,7 +4572,8 @@ static void smctr_timeout(struct net_dev
- /*
-  * Gets skb from system, queues it and checks if it can be sent
+--- a/net/ipv6/sit.c	2009-08-31 16:20:50.133591239 -0700
++++ b/net/ipv6/sit.c	2009-08-31 16:21:35.458276003 -0700
+@@ -609,7 +609,8 @@ static inline __be32 try_6to4(struct in6
+  *	and that skb is filled properly by that function.
   */
--static int smctr_send_packet(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t smctr_send_packet(struct sk_buff *skb,
-+					   struct net_device *dev)
- {
-         struct net_local *tp = netdev_priv(dev);
  
---- a/drivers/net/tokenring/tms380tr.c	2009-08-31 16:17:53.161108571 -0700
-+++ b/drivers/net/tokenring/tms380tr.c	2009-08-31 16:26:58.753608726 -0700
-@@ -144,8 +144,8 @@ static void 	tms380tr_exec_sifcmd(struct
- /* "G" */
- static struct net_device_stats *tms380tr_get_stats(struct net_device *dev);
- /* "H" */
--static int 	tms380tr_hardware_send_packet(struct sk_buff *skb,
--			struct net_device *dev);
-+static netdev_tx_t tms380tr_hardware_send_packet(struct sk_buff *skb,
-+						       struct net_device *dev);
- /* "I" */
- static int 	tms380tr_init_adapter(struct net_device *dev);
- static void 	tms380tr_init_ipb(struct net_local *tp);
-@@ -165,7 +165,8 @@ static int 	tms380tr_reset_adapter(struc
- static void 	tms380tr_reset_interrupt(struct net_device *dev);
- static void 	tms380tr_ring_status_irq(struct net_device *dev);
- /* "S" */
--static int 	tms380tr_send_packet(struct sk_buff *skb, struct net_device *dev);
-+static netdev_tx_t tms380tr_send_packet(struct sk_buff *skb,
-+					      struct net_device *dev);
- static void 	tms380tr_set_multicast_list(struct net_device *dev);
- static int	tms380tr_set_mac_address(struct net_device *dev, void *addr);
- /* "T" */
-@@ -599,21 +600,23 @@ static void tms380tr_timeout(struct net_
- /*
-  * Gets skb from system, queues it and checks if it can be sent
-  */
--static int tms380tr_send_packet(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t tms380tr_send_packet(struct sk_buff *skb,
-+					      struct net_device *dev)
+-static int ipip6_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
++				     struct net_device *dev)
  {
- 	struct net_local *tp = netdev_priv(dev);
--	int err;
-+	netdev_tx_t rc;
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+ 	struct net_device_stats *stats = &tunnel->dev->stats;
+--- a/net/dsa/dsa_priv.h	2009-08-31 16:20:50.193589159 -0700
++++ b/net/dsa/dsa_priv.h	2009-08-31 16:21:06.923607987 -0700
+@@ -169,13 +169,13 @@ struct net_device *dsa_slave_create(stru
+ 				    int port, char *name);
  
--	err = tms380tr_hardware_send_packet(skb, dev);
-+	rc = tms380tr_hardware_send_packet(skb, dev);
- 	if(tp->TplFree->NextTPLPtr->BusyFlag)
- 		netif_stop_queue(dev);
--	return (err);
-+	return rc;
+ /* tag_dsa.c */
+-int dsa_xmit(struct sk_buff *skb, struct net_device *dev);
++netdev_tx_t dsa_xmit(struct sk_buff *skb, struct net_device *dev);
+ 
+ /* tag_edsa.c */
+-int edsa_xmit(struct sk_buff *skb, struct net_device *dev);
++netdev_tx_t edsa_xmit(struct sk_buff *skb, struct net_device *dev);
+ 
+ /* tag_trailer.c */
+-int trailer_xmit(struct sk_buff *skb, struct net_device *dev);
++netdev_tx_t trailer_xmit(struct sk_buff *skb, struct net_device *dev);
+ 
+ 
+ #endif
+--- a/net/bluetooth/bnep/netdev.c	2009-08-31 16:20:50.183591100 -0700
++++ b/net/bluetooth/bnep/netdev.c	2009-08-31 16:21:48.651094787 -0700
+@@ -165,7 +165,8 @@ static inline int bnep_net_proto_filter(
+ }
+ #endif
+ 
+-static int bnep_net_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t bnep_net_xmit(struct sk_buff *skb,
++				 struct net_device *dev)
+ {
+ 	struct bnep_session *s = netdev_priv(dev);
+ 	struct sock *sk = s->sock->sk;
+--- a/net/sched/sch_teql.c	2009-08-31 16:20:50.163606647 -0700
++++ b/net/sched/sch_teql.c	2009-08-31 16:21:06.923607987 -0700
+@@ -268,7 +268,7 @@ static inline int teql_resolve(struct sk
+ 	return __teql_resolve(skb, skb_res, dev);
  }
  
- /*
-  * Move frames into adapter tx queue
-  */
--static int tms380tr_hardware_send_packet(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t tms380tr_hardware_send_packet(struct sk_buff *skb,
-+						       struct net_device *dev)
+-static int teql_master_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t teql_master_xmit(struct sk_buff *skb, struct net_device *dev)
  {
- 	TPL *tpl;
- 	short length;
+ 	struct teql_master *master = netdev_priv(dev);
+ 	struct netdev_queue *txq = netdev_get_tx_queue(dev, 0);
+@@ -307,7 +307,7 @@ restart:
+ 
+ 				if (!netif_tx_queue_stopped(slave_txq) &&
+ 				    !netif_tx_queue_frozen(slave_txq) &&
+-				    slave_ops->ndo_start_xmit(skb, slave) == 0) {
++				    slave_ops->ndo_start_xmit(skb, slave) == NETDEV_TX_OK) {
+ 					txq_trans_update(slave_txq);
+ 					__netif_tx_unlock(slave_txq);
+ 					master->slaves = NEXT_SLAVE(q);
+--- a/net/8021q/vlan_dev.c	2009-08-31 16:20:50.103590218 -0700
++++ b/net/8021q/vlan_dev.c	2009-08-31 16:22:27.058282849 -0700
+@@ -288,7 +288,8 @@ static int vlan_dev_hard_header(struct s
+ 	return rc;
+ }
+ 
+-static int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t vlan_dev_hard_start_xmit(struct sk_buff *skb,
++					    struct net_device *dev)
+ {
+ 	struct netdev_queue *txq = netdev_get_tx_queue(dev, 0);
+ 	struct vlan_ethhdr *veth = (struct vlan_ethhdr *)(skb->data);
+@@ -325,8 +326,8 @@ static int vlan_dev_hard_start_xmit(stru
+ 	return NETDEV_TX_OK;
+ }
+ 
+-static int vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb,
+-					    struct net_device *dev)
++static netdev_tx_t vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb,
++						    struct net_device *dev)
+ {
+ 	struct netdev_queue *txq = netdev_get_tx_queue(dev, 0);
+ 	u16 vlan_tci;
+--- a/drivers/ieee1394/eth1394.c	2009-08-31 16:20:50.223592344 -0700
++++ b/drivers/ieee1394/eth1394.c	2009-08-31 16:22:48.811086205 -0700
+@@ -169,7 +169,8 @@ static int ether1394_header_cache(const 
+ static void ether1394_header_cache_update(struct hh_cache *hh,
+ 					  const struct net_device *dev,
+ 					  const unsigned char *haddr);
+-static int ether1394_tx(struct sk_buff *skb, struct net_device *dev);
++static netdev_tx_t ether1394_tx(struct sk_buff *skb,
++				struct net_device *dev);
+ static void ether1394_iso(struct hpsb_iso *iso);
+ 
+ static struct ethtool_ops ethtool_ops;
+@@ -1555,7 +1556,8 @@ static void ether1394_complete_cb(void *
+ }
+ 
+ /* Transmit a packet (called by kernel) */
+-static int ether1394_tx(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t ether1394_tx(struct sk_buff *skb,
++				struct net_device *dev)
+ {
+ 	struct eth1394hdr hdr_buf;
+ 	struct eth1394_priv *priv = netdev_priv(dev);
+@@ -1694,14 +1696,6 @@ fail:
+ 	dev->stats.tx_errors++;
+ 	spin_unlock_irqrestore(&priv->lock, flags);
+ 
+-	/*
+-	 * FIXME: According to a patch from 2003-02-26, "returning non-zero
+-	 * causes serious problems" here, allegedly.  Before that patch,
+-	 * -ERRNO was returned which is not appropriate under Linux 2.6.
+-	 * Perhaps more needs to be done?  Stop the queue in serious
+-	 * conditions and restart it elsewhere?
+-	 */
+-	/* return NETDEV_TX_BUSY; */
+ 	return NETDEV_TX_OK;
+ }
+ 
+--- a/net/bridge/br_device.c	2009-08-31 16:20:50.093609481 -0700
++++ b/net/bridge/br_device.c	2009-08-31 16:21:06.923607987 -0700
+@@ -20,7 +20,7 @@
+ #include "br_private.h"
+ 
+ /* net device transmit always called with no BH (preempt_disabled) */
+-int br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
++netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct net_bridge *br = netdev_priv(dev);
+ 	const unsigned char *dest = skb->data;
+--- a/net/bridge/br_private.h	2009-08-31 16:20:50.103590218 -0700
++++ b/net/bridge/br_private.h	2009-08-31 16:23:10.522293080 -0700
+@@ -143,7 +143,8 @@ static inline int br_is_root_bridge(cons
+ 
+ /* br_device.c */
+ extern void br_dev_setup(struct net_device *dev);
+-extern int br_dev_xmit(struct sk_buff *skb, struct net_device *dev);
++extern netdev_tx_t br_dev_xmit(struct sk_buff *skb,
++			       struct net_device *dev);
+ 
+ /* br_fdb.c */
+ extern int br_fdb_init(void);
 
 -- 
 
