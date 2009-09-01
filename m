@@ -1,132 +1,66 @@
-From: Alan Jenkins <sourcejedi.lkml@googlemail.com>
-Subject: Re: r8189 mac address changes persist across reboot (was: duplicate
-	MAC addresses)
-Date: Tue, 1 Sep 2009 11:37:50 +0100
-Message-ID: <9b2b86520909010337u5c34fefehd296d80f60763e98@mail.gmail.com>
-References: <9b2b86520908230314q37d07da6mbde9dc48ad5a17ce@mail.gmail.com>
-	 <4A9CD443.6030603@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Network hangs with 2.6.30.5
+Date: Tue, 01 Sep 2009 12:47:46 +0200
+Message-ID: <4A9CFBD2.2050206@gmail.com>
+References: <7D2F0769-2994-4BB8-B107-DEF2B1346B3A@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	marty <marty@goodoldmarty.com>, linux-hotplug@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Mikael Pettersson <mikpe@it.uu.se>
-To: Ivan Vecera <ivecera@redhat.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-In-Reply-To: <4A9CD443.6030603@redhat.com>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Clifford Heath <clifford.heath@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:39900 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753197AbZIAKrq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 06:47:46 -0400
+In-Reply-To: <7D2F0769-2994-4BB8-B107-DEF2B1346B3A@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 9/1/09, Ivan Vecera <ivecera@redhat.com> wrote:
-> Alan Jenkins napsal(a):
->> On 8/23/09, marty <marty@goodoldmarty.com> wrote:
->>> Greg KH wrote:
->>>>> On Tue, Aug 18, 2009 at 04:27:04PM -0400, marty wrote:
->>>>>>> I got trouble...
->>>>>>> (duplicate MAC addresses)
->>>>> That's a bug in your hardware, have you asked your manufacturer to
->>>>> resolve this for you?  That violates the ethernet spec...
->>> I have resolved that problem as of today. I found this was caused
->>> by the software I had been using. If a hardware issue remains, it is
->>> moot.
->>>
->>> The bonding driver/utilities normally sets the bond address to the MAC of
->>> the
->>> first NIC. But it also set the MAC of the slave (eth3) to the MAC of the
->>> first
->>> NIC. This persists through reboots so that is how my MACs got duplicated.
->>>
->>> Resetting the MAC corrected those problems and everything works fine now.
->>>
->>> Marty B.
->>
->> Hmm.  <Documentation/networking/bonding.txt>
->>
->> "To restore your slaves' MAC addresses, you need to detach them
->> from the bond (`ifenslave -d bond0 eth0'). The bonding driver will
->> then restore the MAC addresses that the slaves had before they were
->> enslaved."
->>
->> In which case one would hope that a clean shutdown would restore the
->> MAC addresses in the same way as ifenslave -d.
->>
->> I found that snippet via Google, which pointed me to the 2.4 version
->> of the same document [1].  It suggests that your hardware or driver is
->> a little unusual.
->>
->> "To restore your slaves' MAC addresses, you need to detach them
->> from the bond (`ifenslave -d bond0 eth0'), set them down
->> (`ifconfig eth0 down'), unload the drivers (`rmmod 3c59x', for
->> example) and reload them to get the MAC addresses from their
->> eeproms."
->>
->> So other drivers would not have this problem, because they always
->> reset the MAC address at load time.  That would explain why the the
->> kernel doesn't bother resetting the MAC addresses on shutdown.
->>
->> Looking at r8169.c confirms this.  It doesn't appear to initialize the
->> MAC address register from elsewhere; it just uses the current value.
->> It will also report this initial value as the "permanent" MAC address,
->> which your report suggests is wrong.  I think your problem is a bug in
->> r8169.
->>
->> Francois, I found a datasheet for the 8139; it was claimed to be
->> similar and it does indeed appear so.  The datasheet suggests that the
->> driver needs to provoke "auto-load" from the EEPROM at load time.
->> Could you please have a look at fixing this, so that MAC address
->> changes do not persist over a reboot?
->>
-> Using auto-loading method is not possible for all new Realtek products
-> (mainly for PCI-E chipsets).
+Clifford Heath a =E9crit :
+> I sent this email last Friday, but received no response.
+>=20
+> As far as I can see, some recent work in the stable
+> Linux kernel has broken the TCP stack, at least on my
+> (pretty common) hardware. Can anyone confirm that
+> they've seen and perhaps fixed similar symptoms, or
+> at least tell me what else I need to do to help them
+> identify the problem?
+>=20
+> I recently upgraded my Debian system (a Dell Optiplex GX270) from a
+> 2.6.16.11 kernel to a 2.6.30.5 one (current stable). My networking is
+> now misbehaving. If I could revert to an earlier kernel, I would (and
+> did, it worked), but now I can't because of the glibc version change;
+> the old kernel panics on startup. This leaves me with a *broken
+> computer* which I cannot use for my regular work, and cannot afford t=
+o
+> completely re-install.
+>=20
+> POP, IMAP, and NNTP connect ok (multiple packets each way, viewed usi=
+ng
+> a logging proxy; no tcpdump but I can get one for you) but as soon as=
+ a
+> message should start coming down, the connection hangs and then times
+> out. I think it's the first large packet that causes this, and I saw
+> that the net team have been working on some features to increase
+> throughput through read aggregation or something... Whatever it is, i=
+t's
+> clearly broken (on my hardware at least).
+>=20
+> My kernel .config file and the output of "lspci" are included below.
+> Thanks for any help you can give. Let me know if you need more inform=
+ation.
+>=20
 
-:-(
+You could provide a tcpdump for example, and tell us which way is broke=
+n=20
+(your machine receiving a big packet, or sending a big packet)
 
-> I asked the Realtek engineers and this
-> is the answer:
->
-> Q: Is it possible to use HW register at offset 50h to reload the MAC
->    address from EEPROM or somewhere else? I mean the usage of Auto-load
->    mode (bits EEM1=0 and EEM0=1 in 50h HW reg).
-> A: Current new LANs don't load mac address throught autoload command.
->    You need to read it out from external eeprom or internal efuse then
->    put it back to ID0~ID5.
->
-> So you need to read the MAC address from the EEPROM and then write it into
-> ID0-ID5 registers. I already created the patch that initializes the MAC
-> address from EEPROM but there were some issues with this patch so it was
-> reverted. Mikael reported that the MAC address from its adapter (on Thecus
-> n2100) is read only partly (first 3 bytes were correct but the rest were
-> zeros). Later we found that the MAC address is correct and there are really
-> 3 correct bytes + 3 zeros in EEPROM. The Thecus n2100 system probably uses
-> only these 3 bytes and the remaining 3 bytes fills in by itself (they are
-> probably stored somewhere in the firmware).
->
-> I have tested my patch with several different realtek NICs without any
-> problem but what should we do with embedded system like the n2100 that
-> initializes the MAC in other way.
->
-> There are 2 possibilities:
-> 1) There could be an additional module param to enable/disable the MAC
->    initialization
-> 2) The MAC address read from EEPROM will be checked against the current
->    MAC address in ID0-5 registers. And the current MAC will be replaced
->    by the one from EEPROM only if the first 3 bytes (OUI part) are
->    different.
->
-> Francois, what do you think about it?
+You might try to change /proc/sys/net/ipv4/tcp_ecn to 0
+echo 0 >/proc/sys/net/ipv4/tcp_ecn
 
-I'm not sure about 2).  It won't help for the bonding case if you're
-using two NICs with the same OUI.  On the other hand, If you change
-the OUI, it won't work correctly on the n2100 system.
+You might try to change device settings
 
-If you decide to enable 1) by default, here's my suggestion towards a
-warning message when the MAC address is changed.   It can be omitted
-when the current address already matches the EEPROM.
+ethtool -K eth0 sg off
+and various settings as well (tso, gso ...)
 
-"Replaced initial MAC xx:xx:xx:xx:xx:xx with MAC xx:xx:xx:xx:xx:xx from EEPROM"
-"If the initial MAC was intentionally set by embedded firmware, try <option>."
-"Ignore this warning if the address is correct and you use MAC
-changing software (e.g. bonding or bridging)"
-
-Alan
