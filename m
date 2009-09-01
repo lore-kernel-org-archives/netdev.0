@@ -1,55 +1,35 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: netconsole as normal console for userspace messages?
-Date: Tue, 01 Sep 2009 12:34:34 -0500
-Message-ID: <1251826474.3960.597.camel@calx>
-References: <20090901101612.GB5222@ff.dom.local>
-	 <1251818111.3960.425.camel@calx>
-	 <200909011800.40243.a.miskiewicz@gmail.com>
+From: =?windows-1251?Q?=C0=EB=E5=EA=F1=E0=ED=E4=F0_=C4=EE=F0=E8=F4?=
+	<dorif@mail.ru>
+Subject: Trouble with mdio- gpio driver.
+Date: Tue, 01 Sep 2009 19:43:12 +0400
+Message-ID: <E1MiVVo-00087G-00.dorif-mail-ru@f9.mail.ru>
+Reply-To: =?windows-1251?Q?=C0=EB=E5=EA=F1=E0=ED=E4=F0_=C4=EE=F0=E8=F4?=
+	  <dorif@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
-To: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
+Content-Type: text/plain; charset=windows-1251
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([173.11.57.241]:49446 "EHLO waste.org"
+Received: from mx28.mail.ru ([94.100.176.42]:34099 "EHLO mx28.mail.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750951AbZIARfA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Sep 2009 13:35:00 -0400
-In-Reply-To: <200909011800.40243.a.miskiewicz@gmail.com>
+	id S1751102AbZIARml (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Sep 2009 13:42:41 -0400
+Received: from f9.mail.ru (f9.mail.ru [217.69.129.68])
+	by mx28.mail.ru (mPOP.Fallback_MX) with ESMTP id 358C04EC1D2
+	for <netdev@vger.kernel.org>; Tue,  1 Sep 2009 19:43:34 +0400 (MSD)
+Received: from mail by f9.mail.ru with local
+	id 1MiVVo-00087G-00
+	for netdev@vger.kernel.org; Tue, 01 Sep 2009 19:43:12 +0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-09-01 at 18:00 +0200, Arkadiusz Miskiewicz wrote:
-> On Tuesday 01 of September 2009, Matt Mackall wrote:
-> > On Tue, 2009-09-01 at 10:16 +0000, Jarek Poplawski wrote:
-> > > On 30-08-2009 02:12, Arkadiusz Miskiewicz wrote:
-> > > > Hi,
-> > >
-> > > Hi,
-> > >
-> > > > Can netconsole be somehow used to see userspace messages, too?
-> > > > Something similar to console=ttySX... just =netconsole.
-> > >
-> > > AFAIK it can't, but AFAICR some time ago the netconsole maintainer
-> > > gave some hope to some Debian guy with a similar question.
-> >
-> > It is, as they say, just a simple matter of programming to get a full
-> > bidirectional console out of it. As cool as that would be, I just
-> > haven't had time for it.
-> 
-> Unidirectional console would be enough for me but it seems that netconsole 
-> isn't capable even for that (userspace messages).
+Hello! I compiled Linux kernel 2.6.31-rc8 an get this warning:
+WARNING: drivers/net/phy/mdio-gpio.o(.devexit.text+0x1c): Section mismatch
+in reference from the function mdio_gpio_remove() to the function
+.devinit.text:mdio_gpio_bus_deinit()
+The function __devexit mdio_gpio_remove() references
+a function __devinit mdio_gpio_bus_deinit().
+This is often seen when error handling in the exit function
 
-Yes. What's needed is to add a low-level tty interface and register it
-with the tty core. Most of that is attaching the tty_ops->write() method
-to netpoll's send_msg in the obvious way. Just about all the other
-methods are optional or trivial. 
-
-Once you've got unidirectional working, bidirectional is approximately
-one line of additional code to attach the read side: call
-tty_insert_flip_string(my_tty, buf, len) in netpoll's receive function.
-
--- 
-http://selenic.com : development and support for Mercurial and Linux
-
+I hope it will be corrected soon and won't appear in release kernel.
 
