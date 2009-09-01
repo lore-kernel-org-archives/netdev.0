@@ -1,188 +1,34 @@
-From: Mike McCormack <mikem@ring3k.org>
-Subject: [PATCH] sky2: Create buffer alloc and free helpers
-Date: Tue, 01 Sep 2009 22:21:35 +0900
-Message-ID: <4A9D1FDF.4020407@ring3k.org>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH 18/19] wireless: convert drivers to netdev_tx_t
+Date: Tue, 1 Sep 2009 09:18:17 -0400
+Message-ID: <20090901131817.GB7650@tuxdriver.com>
+References: <20090901055039.824876937@vyatta.com> <20090901055130.266010870@vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.176]:60860 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754528AbZIANZg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 09:25:36 -0400
-Received: by wa-out-1112.google.com with SMTP id j5so700576wah.21
-        for <netdev@vger.kernel.org>; Tue, 01 Sep 2009 06:25:38 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20090901055130.266010870-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Refactor similar two sections of code that free buffers into one.
-Only call tx_init if all buffer allocations succeed.
+On Mon, Aug 31, 2009 at 10:50:57PM -0700, Stephen Hemminger wrote:
+> Mostly just simple conversions:
+>   * ray_cs had bogus return of NET_TX_LOCKED but driver
+>     was not using NETIF_F_LLTX
+>   * hostap and ipw2x00 had some code that returned value
+>     from a called function that also had to change to return netdev_tx_t
+> 
+> Signed-off-by: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
 
-Signed-off-by: Mike McCormack <mikem@ring3k.org>
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
----
- drivers/net/sky2.c |  113 +++++++++++++++++++++++++++------------------------
- 1 files changed, 60 insertions(+), 53 deletions(-)
+ACK
 
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index c7c0a5b..0e4c5c1 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -1399,6 +1399,61 @@ nomem:
- 	return -ENOMEM;
- }
- 
-+static int sky2_alloc_buffers(struct sky2_port *sky2)
-+{
-+	struct sky2_hw *hw = sky2->hw;
-+
-+	/* must be power of 2 */
-+	sky2->tx_le = pci_alloc_consistent(hw->pdev,
-+					   sky2->tx_ring_size *
-+					   sizeof(struct sky2_tx_le),
-+					   &sky2->tx_le_map);
-+	if (!sky2->tx_le)
-+		goto nomem;
-+
-+	sky2->tx_ring = kcalloc(sky2->tx_ring_size, sizeof(struct tx_ring_info),
-+				GFP_KERNEL);
-+	if (!sky2->tx_ring)
-+		goto nomem;
-+
-+	sky2->rx_le = pci_alloc_consistent(hw->pdev, RX_LE_BYTES,
-+					   &sky2->rx_le_map);
-+	if (!sky2->rx_le)
-+		goto nomem;
-+	memset(sky2->rx_le, 0, RX_LE_BYTES);
-+
-+	sky2->rx_ring = kcalloc(sky2->rx_pending, sizeof(struct rx_ring_info),
-+				GFP_KERNEL);
-+	if (!sky2->rx_ring)
-+		goto nomem;
-+
-+	return 0;
-+nomem:
-+	return -ENOMEM;
-+}
-+
-+static void sky2_free_buffers(struct sky2_port *sky2)
-+{
-+	struct sky2_hw *hw = sky2->hw;
-+
-+	if (sky2->rx_le) {
-+		pci_free_consistent(hw->pdev, RX_LE_BYTES,
-+				    sky2->rx_le, sky2->rx_le_map);
-+		sky2->rx_le = NULL;
-+	}
-+	if (sky2->tx_le) {
-+		pci_free_consistent(hw->pdev,
-+				    sky2->tx_ring_size * sizeof(struct sky2_tx_le),
-+				    sky2->tx_le, sky2->tx_le_map);
-+		sky2->tx_le = NULL;
-+	}
-+	kfree(sky2->tx_ring);
-+	kfree(sky2->rx_ring);
-+
-+	sky2->tx_ring = NULL;
-+	sky2->rx_ring = NULL;
-+}
-+
- /* Bring up network interface. */
- static int sky2_up(struct net_device *dev)
- {
-@@ -1406,7 +1461,7 @@ static int sky2_up(struct net_device *dev)
- 	struct sky2_hw *hw = sky2->hw;
- 	unsigned port = sky2->port;
- 	u32 imask, ramsize;
--	int cap, err = -ENOMEM;
-+	int cap, err;
- 	struct net_device *otherdev = hw->dev[sky2->port^1];
- 
- 	/*
-@@ -1425,32 +1480,12 @@ static int sky2_up(struct net_device *dev)
- 
- 	netif_carrier_off(dev);
- 
--	/* must be power of 2 */
--	sky2->tx_le = pci_alloc_consistent(hw->pdev,
--					   sky2->tx_ring_size *
--					   sizeof(struct sky2_tx_le),
--					   &sky2->tx_le_map);
--	if (!sky2->tx_le)
--		goto err_out;
--
--	sky2->tx_ring = kcalloc(sky2->tx_ring_size, sizeof(struct tx_ring_info),
--				GFP_KERNEL);
--	if (!sky2->tx_ring)
-+	err = sky2_alloc_buffers(sky2);
-+	if (err)
- 		goto err_out;
- 
- 	tx_init(sky2);
- 
--	sky2->rx_le = pci_alloc_consistent(hw->pdev, RX_LE_BYTES,
--					   &sky2->rx_le_map);
--	if (!sky2->rx_le)
--		goto err_out;
--	memset(sky2->rx_le, 0, RX_LE_BYTES);
--
--	sky2->rx_ring = kcalloc(sky2->rx_pending, sizeof(struct rx_ring_info),
--				GFP_KERNEL);
--	if (!sky2->rx_ring)
--		goto err_out;
--
- 	sky2_mac_init(hw, port);
- 
- 	/* Register is number of 4K blocks on internal RAM buffer. */
-@@ -1507,22 +1542,7 @@ static int sky2_up(struct net_device *dev)
- 	return 0;
- 
- err_out:
--	if (sky2->rx_le) {
--		pci_free_consistent(hw->pdev, RX_LE_BYTES,
--				    sky2->rx_le, sky2->rx_le_map);
--		sky2->rx_le = NULL;
--	}
--	if (sky2->tx_le) {
--		pci_free_consistent(hw->pdev,
--				    sky2->tx_ring_size * sizeof(struct sky2_tx_le),
--				    sky2->tx_le, sky2->tx_le_map);
--		sky2->tx_le = NULL;
--	}
--	kfree(sky2->tx_ring);
--	kfree(sky2->rx_ring);
--
--	sky2->tx_ring = NULL;
--	sky2->rx_ring = NULL;
-+	sky2_free_buffers(sky2);
- 	return err;
- }
- 
-@@ -1877,20 +1897,7 @@ static int sky2_down(struct net_device *dev)
- 
- 	sky2_rx_clean(sky2);
- 
--	pci_free_consistent(hw->pdev, RX_LE_BYTES,
--			    sky2->rx_le, sky2->rx_le_map);
--	kfree(sky2->rx_ring);
--
--	pci_free_consistent(hw->pdev,
--			    sky2->tx_ring_size * sizeof(struct sky2_tx_le),
--			    sky2->tx_le, sky2->tx_le_map);
--	kfree(sky2->tx_ring);
--
--	sky2->tx_le = NULL;
--	sky2->rx_le = NULL;
--
--	sky2->rx_ring = NULL;
--	sky2->tx_ring = NULL;
-+	sky2_free_buffers(sky2);
- 
- 	return 0;
- }
 -- 
-1.5.6.5
-
-
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
