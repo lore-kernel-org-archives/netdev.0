@@ -1,142 +1,245 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: UDP is bypassing qdisc statistics ....
-Date: Tue, 1 Sep 2009 17:55:44 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0909011753230.25607@V090114053VZO-1>
-References: <20090901063726.GA5222@ff.dom.local> <alpine.DEB.1.10.0909011358030.15578@V090114053VZO-1> <4A9D2DBF.8030200@trash.net> <4A9D3687.2020101@gmail.com> <alpine.DEB.1.10.0909011504030.12112@V090114053VZO-1> <4A9D3D9A.1030500@gmail.com>
- <alpine.DEB.1.10.0909011534350.12112@V090114053VZO-1> <4A9D410D.5000507@gmail.com> <4A9D448D.6050309@gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH net-next-2.6] bonding: use compare_ether_addr_64bits()
+	in ALB
+Date: Tue, 1 Sep 2009 20:18:35 +0200
+Message-ID: <20090901181834.GB3209@psychotron.redhat.com>
+References: <4A9D4C56.1090804@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Patrick McHardy <kaber@trash.net>,
-	Mark Smith <lk-netdev@lk-netdev.nosense.org>,
-	Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jay Vosburgh <fubar@us.ibm.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.ultrahosting.com ([74.213.174.253]:54281 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754706AbZIAR4t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 13:56:49 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 3E57582C826
-	for <netdev@vger.kernel.org>; Tue,  1 Sep 2009 13:58:21 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.174.253])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id zQlhuhi7BCt6 for <netdev@vger.kernel.org>;
-	Tue,  1 Sep 2009 13:58:16 -0400 (EDT)
-Received: from V090114053VZO-1 (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 6327682C7E8
-	for <netdev@vger.kernel.org>; Tue,  1 Sep 2009 13:58:12 -0400 (EDT)
-In-Reply-To: <4A9D448D.6050309@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:12765 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753962AbZIASSn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Sep 2009 14:18:43 -0400
+Content-Disposition: inline
+In-Reply-To: <4A9D4C56.1090804@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Tue, Sep 01, 2009 at 06:31:18PM CEST, eric.dumazet@gmail.com wrote:
+>We can speedup ether addresses compares using compare_ether_addr_64bits()
+>instead of memcmp(). We make sure all operands are at least 8 bytes long and
+>16bits aligned (or better, long word aligned if possible)
+>
+>Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>---
+> drivers/net/bonding/bond_alb.c |   71 ++++++++++++++++---------------
+> drivers/net/bonding/bonding.h  |    2
+> 2 files changed, 38 insertions(+), 35 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+>index 2108706..9b5936f 100644
+>--- a/drivers/net/bonding/bond_alb.c
+>+++ b/drivers/net/bonding/bond_alb.c
+>@@ -79,8 +79,15 @@
+>  */
+> #define RLB_PROMISC_TIMEOUT	10*ALB_TIMER_TICKS_PER_SEC
+> 
+>-static const u8 mac_bcast[ETH_ALEN] = {0xff,0xff,0xff,0xff,0xff,0xff};
+>-static const u8 mac_v6_allmcast[ETH_ALEN] = {0x33,0x33,0x00,0x00,0x00,0x01};
+>+#ifndef __long_aligned
+>+#define __long_aligned __attribute__((aligned((sizeof(long)))))
+>+#endif
+>+static const u8 mac_bcast[ETH_ALEN] __long_aligned = {
+>+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+>+};
+>+static const u8 mac_v6_allmcast[ETH_ALEN] __long_aligned = {
+>+	0x33, 0x33, 0x00, 0x00, 0x00, 0x01
+>+};
+> static const int alb_delta_in_ticks = HZ / ALB_TIMER_TICKS_PER_SEC;
+> 
+> #pragma pack(1)
+>@@ -460,8 +467,8 @@ static void rlb_clear_slave(struct bonding *bond, struct slave *slave)
+> 
+> 			if (assigned_slave) {
+> 				rx_hash_table[index].slave = assigned_slave;
+>-				if (memcmp(rx_hash_table[index].mac_dst,
+>-					   mac_bcast, ETH_ALEN)) {
+>+				if (compare_ether_addr_64bits(rx_hash_table[index].mac_dst,
+>+							      mac_bcast)) {
+> 					bond_info->rx_hashtbl[index].ntt = 1;
+> 					bond_info->rx_ntt = 1;
+> 					/* A slave has been removed from the
+>@@ -575,7 +582,7 @@ static void rlb_req_update_slave_clients(struct bonding *bond, struct slave *sla
+> 		client_info = &(bond_info->rx_hashtbl[hash_index]);
+> 
+> 		if ((client_info->slave == slave) &&
+>-		    memcmp(client_info->mac_dst, mac_bcast, ETH_ALEN)) {
+>+		    compare_ether_addr_64bits(client_info->mac_dst, mac_bcast)) {
+> 			client_info->ntt = 1;
+> 			ntt = 1;
+> 		}
+>@@ -616,9 +623,9 @@ static void rlb_req_update_subnet_clients(struct bonding *bond, __be32 src_ip)
+> 		 * unicast mac address.
+> 		 */
+> 		if ((client_info->ip_src == src_ip) &&
+>-		    memcmp(client_info->slave->dev->dev_addr,
+>-			   bond->dev->dev_addr, ETH_ALEN) &&
+>-		    memcmp(client_info->mac_dst, mac_bcast, ETH_ALEN)) {
+>+		    compare_ether_addr_64bits(client_info->slave->dev->dev_addr,
+>+			   bond->dev->dev_addr) &&
+			^^^ I guess you wanted to add some white chars here
 
-Ok i got some meaningful statistics now. Why is the qlen zero for all
-devices?
+Otherwise the patch looks good. I wanted to make a similar a while ago.
 
-$ cat /proc/net/qdisc_stats
-Type     Device  St    Bytes Packts Qlen Bklg  Drops Requeu Overlimit
-TX0 root     lo   0        0      0    0    0      0      0      0
- RX root     lo   0        0      0    0    0      0      0      0
-TX0 root   eth0   0    12463     91    0    0      0      0      0
-TX1 root   eth0   0     2954     39    0    0      0      0      0
-TX2 root   eth0   0     2132     23    0    0      0      0      0
-TX3 root   eth0   0    29293    210    0    0      0      0      0
-TX4 root   eth0   0     2805     31    0    0      0      0      0
-TX5 root   eth0   0 1286862317 3762765    0    0 643253  30886      0
-TX6 root   eth0   0     1310     17    0    0      0      0      0
-TX7 root   eth0   0     2860     31    0    0      0      0      0
+Reviewed-by: Jiri Pirko <jpirko@redhat.com>
 
----
- net/sched/sch_api.c |   72 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 72 insertions(+)
-
-Index: linux-2.6/net/sched/sch_api.c
-===================================================================
---- linux-2.6.orig/net/sched/sch_api.c	2009-09-01 12:27:24.000000000 -0500
-+++ linux-2.6/net/sched/sch_api.c	2009-09-01 12:40:30.000000000 -0500
-@@ -1699,6 +1699,77 @@ static const struct file_operations psch
- 	.llseek = seq_lseek,
- 	.release = single_release,
- };
-+
-+static void dump_qdisc(struct seq_file *seq, struct net_device *dev,
-+				struct Qdisc *q, char *inout, char *text)
-+{
-+	seq_printf(seq, "%3s %2s %6s %3lx %8lld %6d %4d %4d %6d %6d %6d\n",
-+		inout, text, dev->name, q->state,
-+		q->bstats.bytes, q->bstats.packets,
-+		q->qstats.qlen, q->qstats.backlog, q->qstats.drops,
-+		q->qstats.requeues, q->qstats.overlimits);
-+}
-+
-+static void dump_qdisc_root(struct seq_file *seq, struct net_device *dev,
-+					 struct Qdisc *root, char *inout)
-+{
-+	struct Qdisc *q;
-+	int n = 0;
-+
-+	if (!root)
-+		return;
-+
-+	dump_qdisc(seq, dev, root, inout, "root");
-+
-+	list_for_each_entry(q, &root->list, list) {
-+		char buffer[10];
-+
-+		sprintf(buffer,"Q%d", ++n);
-+		dump_qdisc(seq, dev, q, inout, buffer);
-+	}
-+}
-+
-+
-+static int qdisc_show(struct seq_file *seq, void *v)
-+{
-+	struct net_device *dev;
-+
-+	seq_printf(seq, "Type     Device  St    Bytes Packts "
-+			"Qlen Bklg  Drops Requeu Overlimit\n");
-+
-+	read_lock(&dev_base_lock);
-+
-+	for_each_netdev(&init_net, dev) {
-+		struct netdev_queue *dev_queue;
-+		int i;
-+
-+		for (i = 0; i < dev->real_num_tx_queues; i++) {
-+			char buffer[10];
-+
-+			dev_queue = netdev_get_tx_queue(dev, i);
-+			sprintf(buffer, "TX%d", i);
-+			dump_qdisc_root(seq, dev, dev_queue->qdisc_sleeping, buffer);
-+		}
-+		dev_queue = &dev->rx_queue;
-+		dump_qdisc_root(seq, dev, dev_queue->qdisc_sleeping, "RX");
-+	}
-+
-+	read_unlock(&dev_base_lock);
-+	return 0;
-+}
-+
-+static int qdisc_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, qdisc_show, PDE(inode)->data);
-+}
-+
-+static const struct file_operations qdisc_fops = {
-+	.owner = THIS_MODULE,
-+	.open = qdisc_open,
-+	.read = seq_read,
-+	.llseek = seq_lseek,
-+	.release = single_release,
-+};
- #endif
-
- static int __init pktsched_init(void)
-@@ -1706,6 +1777,7 @@ static int __init pktsched_init(void)
- 	register_qdisc(&pfifo_qdisc_ops);
- 	register_qdisc(&bfifo_qdisc_ops);
- 	proc_net_fops_create(&init_net, "psched", 0, &psched_fops);
-+	proc_net_fops_create(&init_net, "qdisc_stats", 0, &qdisc_fops);
-
- 	rtnl_register(PF_UNSPEC, RTM_NEWQDISC, tc_modify_qdisc, NULL);
- 	rtnl_register(PF_UNSPEC, RTM_DELQDISC, tc_get_qdisc, NULL);
+>+		    compare_ether_addr_64bits(client_info->mac_dst, mac_bcast)) {
+> 			client_info->ntt = 1;
+> 			bond_info->rx_ntt = 1;
+> 		}
+>@@ -645,7 +652,7 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+> 		if ((client_info->ip_src == arp->ip_src) &&
+> 		    (client_info->ip_dst == arp->ip_dst)) {
+> 			/* the entry is already assigned to this client */
+>-			if (memcmp(arp->mac_dst, mac_bcast, ETH_ALEN)) {
+>+			if (compare_ether_addr_64bits(arp->mac_dst, mac_bcast)) {
+> 				/* update mac address from arp */
+> 				memcpy(client_info->mac_dst, arp->mac_dst, ETH_ALEN);
+> 			}
+>@@ -680,7 +687,7 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+> 		memcpy(client_info->mac_dst, arp->mac_dst, ETH_ALEN);
+> 		client_info->slave = assigned_slave;
+> 
+>-		if (memcmp(client_info->mac_dst, mac_bcast, ETH_ALEN)) {
+>+		if (compare_ether_addr_64bits(client_info->mac_dst, mac_bcast)) {
+> 			client_info->ntt = 1;
+> 			bond->alb_info.rx_ntt = 1;
+> 		} else {
+>@@ -1046,21 +1053,18 @@ static void alb_change_hw_addr_on_detach(struct bonding *bond, struct slave *sla
+> 	int perm_curr_diff;
+> 	int perm_bond_diff;
+> 
+>-	perm_curr_diff = memcmp(slave->perm_hwaddr,
+>-				slave->dev->dev_addr,
+>-				ETH_ALEN);
+>-	perm_bond_diff = memcmp(slave->perm_hwaddr,
+>-				bond->dev->dev_addr,
+>-				ETH_ALEN);
+>+	perm_curr_diff = compare_ether_addr_64bits(slave->perm_hwaddr,
+>+						   slave->dev->dev_addr);
+>+	perm_bond_diff = compare_ether_addr_64bits(slave->perm_hwaddr,
+>+						   bond->dev->dev_addr);
+> 
+> 	if (perm_curr_diff && perm_bond_diff) {
+> 		struct slave *tmp_slave;
+> 		int i, found = 0;
+> 
+> 		bond_for_each_slave(bond, tmp_slave, i) {
+>-			if (!memcmp(slave->perm_hwaddr,
+>-				    tmp_slave->dev->dev_addr,
+>-				    ETH_ALEN)) {
+>+			if (!compare_ether_addr_64bits(slave->perm_hwaddr,
+>+						       tmp_slave->dev->dev_addr)) {
+> 				found = 1;
+> 				break;
+> 			}
+>@@ -1114,10 +1118,10 @@ static int alb_handle_addr_collision_on_attach(struct bonding *bond, struct slav
+> 	 * check uniqueness of slave's mac address against the other
+> 	 * slaves in the bond.
+> 	 */
+>-	if (memcmp(slave->perm_hwaddr, bond->dev->dev_addr, ETH_ALEN)) {
+>+	if (compare_ether_addr_64bits(slave->perm_hwaddr, bond->dev->dev_addr)) {
+> 		bond_for_each_slave(bond, tmp_slave1, i) {
+>-			if (!memcmp(tmp_slave1->dev->dev_addr, slave->dev->dev_addr,
+>-				    ETH_ALEN)) {
+>+			if (!compare_ether_addr_64bits(tmp_slave1->dev->dev_addr,
+>+						       slave->dev->dev_addr)) {
+> 				found = 1;
+> 				break;
+> 			}
+>@@ -1140,9 +1144,8 @@ static int alb_handle_addr_collision_on_attach(struct bonding *bond, struct slav
+> 	bond_for_each_slave(bond, tmp_slave1, i) {
+> 		found = 0;
+> 		bond_for_each_slave(bond, tmp_slave2, j) {
+>-			if (!memcmp(tmp_slave1->perm_hwaddr,
+>-				    tmp_slave2->dev->dev_addr,
+>-				    ETH_ALEN)) {
+>+			if (!compare_ether_addr_64bits(tmp_slave1->perm_hwaddr,
+>+						       tmp_slave2->dev->dev_addr)) {
+> 				found = 1;
+> 				break;
+> 			}
+>@@ -1157,9 +1160,8 @@ static int alb_handle_addr_collision_on_attach(struct bonding *bond, struct slav
+> 		}
+> 
+> 		if (!has_bond_addr) {
+>-			if (!memcmp(tmp_slave1->dev->dev_addr,
+>-				    bond->dev->dev_addr,
+>-				    ETH_ALEN)) {
+>+			if (!compare_ether_addr_64bits(tmp_slave1->dev->dev_addr,
+>+						       bond->dev->dev_addr)) {
+> 
+> 				has_bond_addr = tmp_slave1;
+> 			}
+>@@ -1313,7 +1315,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+> 	case ETH_P_IP: {
+> 		const struct iphdr *iph = ip_hdr(skb);
+> 
+>-		if ((memcmp(eth_data->h_dest, mac_bcast, ETH_ALEN) == 0) ||
+>+		if (!compare_ether_addr_64bits(eth_data->h_dest, mac_bcast) ||
+> 		    (iph->daddr == ip_bcast) ||
+> 		    (iph->protocol == IPPROTO_IGMP)) {
+> 			do_tx_balance = 0;
+>@@ -1327,7 +1329,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+> 		/* IPv6 doesn't really use broadcast mac address, but leave
+> 		 * that here just in case.
+> 		 */
+>-		if (memcmp(eth_data->h_dest, mac_bcast, ETH_ALEN) == 0) {
+>+		if (!compare_ether_addr_64bits(eth_data->h_dest, mac_bcast)) {
+> 			do_tx_balance = 0;
+> 			break;
+> 		}
+>@@ -1335,7 +1337,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+> 		/* IPv6 uses all-nodes multicast as an equivalent to
+> 		 * broadcasts in IPv4.
+> 		 */
+>-		if (memcmp(eth_data->h_dest, mac_v6_allmcast, ETH_ALEN) == 0) {
+>+		if (!compare_ether_addr_64bits(eth_data->h_dest, mac_v6_allmcast)) {
+> 			do_tx_balance = 0;
+> 			break;
+> 		}
+>@@ -1660,8 +1662,8 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
+> 		struct slave *tmp_slave;
+> 		/* find slave that is holding the bond's mac address */
+> 		bond_for_each_slave(bond, tmp_slave, i) {
+>-			if (!memcmp(tmp_slave->dev->dev_addr,
+>-				    bond->dev->dev_addr, ETH_ALEN)) {
+>+			if (!compare_ether_addr_64bits(tmp_slave->dev->dev_addr,
+>+						       bond->dev->dev_addr)) {
+> 				swap_slave = tmp_slave;
+> 				break;
+> 			}
+>@@ -1739,7 +1741,8 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
+> 	swap_slave = NULL;
+> 
+> 	bond_for_each_slave(bond, slave, i) {
+>-		if (!memcmp(slave->dev->dev_addr, bond_dev->dev_addr, ETH_ALEN)) {
+>+		if (!compare_ether_addr_64bits(slave->dev->dev_addr,
+>+					       bond_dev->dev_addr)) {
+> 			swap_slave = slave;
+> 			break;
+> 		}
+>diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+>index 6290a50..6824771 100644
+>--- a/drivers/net/bonding/bonding.h
+>+++ b/drivers/net/bonding/bonding.h
+>@@ -163,9 +163,9 @@ struct slave {
+> 	u32    original_flags;
+> 	u32    original_mtu;
+> 	u32    link_failure_count;
+>+	u8     perm_hwaddr[ETH_ALEN];
+> 	u16    speed;
+> 	u8     duplex;
+>-	u8     perm_hwaddr[ETH_ALEN];
+> 	struct ad_slave_info ad_info; /* HUGE - better to dynamically alloc */
+> 	struct tlb_slave_info tlb_info;
+> };
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
