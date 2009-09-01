@@ -1,105 +1,63 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: neighbour table RCU
-Date: Tue, 1 Sep 2009 18:55:34 +0300
-Message-ID: <200909011855.34175.opurdila@ixiacom.com>
-References: <20090831150453.3437a65c@nehalam> <4A9CC429.5020803@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] sky2: Use 32bit read to read Y2_VAUX_AVAIL
+Date: Tue, 1 Sep 2009 08:57:57 -0700
+Message-ID: <20090901085757.47b5c09c@nehalam>
+References: <4A9D2793.1020502@ring3k.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Lucian Adrian Grijincu <lgrijincu@ixiacom.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Mike McCormack <mikem@ring3k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:16029 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753989AbZIAP5x convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 11:57:53 -0400
-In-Reply-To: <4A9CC429.5020803@gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:38850 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754067AbZIAP6B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Sep 2009 11:58:01 -0400
+In-Reply-To: <4A9D2793.1020502@ring3k.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 01 September 2009 09:50:17 Eric Dumazet wrote:
-> Stephen Hemminger a =E9crit :
-> > Looking at the neighbour table, it should be possible to get
-> > rid of the two reader/writer locks.  The hash table lock is pretty
-> > amenable to RCU, but the dynamic resizing makes it non-trivial.
-> > Thinking of using a combination of RCU and sequence counts so that =
-the
-> > reader would just rescan if resize was in progress.
->
-> I am not sure neigh_tbl_lock rwlock should be changed, I did not
-> see any contention on it.
->
+On Tue, 01 Sep 2009 22:54:27 +0900
+Mike McCormack <mikem@ring3k.org> wrote:
 
-Speaking about neighbour optimizations, here is a RFC patch which makes=
- the=20
-tables double linked, for constant time deletion. It has given us a sig=
-nificant=20
-performance improvement - in less then usual setups though, with lots o=
-f=20
-neighbours.
+> B0_CTST is a 24bit register according to the vendor driver (sk98lin).
+> A 16bit read on B0_CTST will always return 0 for Y2_VAUX_AVAIL (1<<16),
+>  so use a 32bit read when testing Y2_VAUX_AVAIL
+> 
+> Signed-off-by: Mike McCormack <mikem@ring3k.org>
+> ---
+>  drivers/net/sky2.c |    2 +-
+>  drivers/net/sky2.h |    2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+> index 7108b12..d1f3b46 100644
+> --- a/drivers/net/sky2.c
+> +++ b/drivers/net/sky2.c
+> @@ -273,7 +273,7 @@ static void sky2_power_aux(struct sky2_hw *hw)
+>  			    Y2_COR_CLK_LNK2_DIS | Y2_CLK_GAT_LNK2_DIS);
+>  
+>  	/* switch power to VAUX */
+> -	if (sky2_read16(hw, B0_CTST) & Y2_VAUX_AVAIL)
+> +	if (sky2_read32(hw, B0_CTST) & Y2_VAUX_AVAIL)
+>  		sky2_write8(hw, B0_POWER_CTRL,
+>  			    (PC_VAUX_ENA | PC_VCC_ENA |
+>  			     PC_VAUX_ON | PC_VCC_OFF));
+> diff --git a/drivers/net/sky2.h b/drivers/net/sky2.h
+> index 34042ff..e0f23a1 100644
+> --- a/drivers/net/sky2.h
+> +++ b/drivers/net/sky2.h
+> @@ -260,7 +260,7 @@ enum csr_regs {
+>  	Y2_CFG_AER      = 0x1d00,	/* PCI Advanced Error Report region */
+>  };
+>  
+> -/*	B0_CTST			16 bit	Control/Status register */
+> +/*	B0_CTST			24 bit	Control/Status register */
+>  enum {
+>  	Y2_VMAIN_AVAIL	= 1<<17,/* VMAIN available (YUKON-2 only) */
+>  	Y2_VAUX_AVAIL	= 1<<16,/* VAUX available (YUKON-2 only) */
 
-Would something like this be acceptable for upstream? (pardon the p4 di=
-ff dump=20
-:) - but I think it will give a rough idea, if acceptable will clean it=
- up and=20
-properly submit it)
 
-BTW, would switching to list_head be better?
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Thanks,
-tavi
 
-=3D=3D=3D=3D //packages/linux-2.6.7/main/src/include/net/neighbour.h#2 =
-(text) =3D=3D=3D=3D
-
-@@ -56,6 +56,7 @@
- struct neigh_parms
- {
-        struct neigh_parms *next;
-+       struct neigh_parms **pprev;
-        int     (*neigh_setup)(struct neighbour *);
-        struct neigh_table *tbl;
-        int     entries;
-
-=3D=3D=3D=3D //packages/linux-2.6.7/main/src/net/core/neighbour.c#3 (te=
-xt) =3D=3D=3D=3D
-
-@@ -1127,8 +1127,10 @@
-                }
-                p->sysctl_table =3D NULL;
-                write_lock_bh(&tbl->lock);
--               p->next         =3D tbl->parms.next;
-+               if ((p->next =3D tbl->parms.next))
-+                       p->next->pprev =3D &p->next;
-                tbl->parms.next =3D p;
-+               p->pprev =3D &tbl->parms.next;
-                write_unlock_bh(&tbl->lock);
-        }
-        return p;
-@@ -1136,21 +1138,14 @@
-=20
- void neigh_parms_release(struct neigh_table *tbl, struct neigh_parms *=
-parms)
- {
--       struct neigh_parms **p;
--
-        if (!parms || parms =3D=3D &tbl->parms)
-                return;
-        write_lock_bh(&tbl->lock);
--       for (p =3D &tbl->parms.next; *p; p =3D &(*p)->next) {
--               if (*p =3D=3D parms) {
--                       *p =3D parms->next;
--                       write_unlock_bh(&tbl->lock);
--                       kfree(parms);
--                       return;
--               }
--       }
-+       if ((*parms->pprev =3D parms->next))
-+               parms->next->pprev =3D parms->pprev;
-        write_unlock_bh(&tbl->lock);
--       NEIGH_PRINTK1("neigh_parms_release: not found\n");
-+       kfree(parms);
-+       return;
- }
