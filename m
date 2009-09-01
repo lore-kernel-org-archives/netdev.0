@@ -1,257 +1,217 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 12/19] netdev: convert pseudo drivers to netdev_tx_t
-Date: Mon, 31 Aug 2009 22:50:51 -0700
-Message-ID: <20090901055129.617288897@vyatta.com>
+Subject: [PATCH 15/19] 3com: convert drivers to netdev_tx_t
+Date: Mon, 31 Aug 2009 22:50:54 -0700
+Message-ID: <20090901055129.928421529@vyatta.com>
 References: <20090901055039.824876937@vyatta.com>
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Paul Gortmaker <p_gortmaker@yahoo.com>,
+	Philip Blundell <philb@gnu.org>,
+	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:57460 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:34263 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751781AbZIAF6y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Sep 2009 01:58:54 -0400
-Content-Disposition: inline; filename=more-misc.patch
+	id S1751781AbZIAGAc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Sep 2009 02:00:32 -0400
+Content-Disposition: inline; filename=3com.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These are all drivers that don't touch real hardware.
-
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
 ---
- drivers/firewire/net.c          |    2 +-
- drivers/net/bonding/bond_main.c |    2 +-
- drivers/net/can/vcan.c          |    2 +-
- drivers/net/dummy.c             |   22 ++++++++++------------
- drivers/net/eql.c               |    4 ++--
- drivers/net/ifb.c               |    9 ++++-----
- drivers/net/macvlan.c           |    3 ++-
- drivers/net/ppp_generic.c       |    2 +-
- drivers/net/slip.c              |    2 +-
- drivers/net/tun.c               |    2 +-
- drivers/net/veth.c              |    2 +-
- drivers/net/virtio_net.c        |    2 +-
- net/phonet/pep-gprs.c           |    2 +-
- 13 files changed, 27 insertions(+), 29 deletions(-)
+ drivers/net/3c501.c |    2 +-
+ drivers/net/3c501.h |    2 +-
+ drivers/net/3c505.c |    4 ++--
+ drivers/net/3c507.c |    6 ++++--
+ drivers/net/3c509.c |    4 ++--
+ drivers/net/3c515.c |    8 ++++----
+ drivers/net/3c523.c |    4 ++--
+ drivers/net/3c527.c |    6 ++++--
+ drivers/net/3c59x.c |   10 ++++++----
+ 9 files changed, 26 insertions(+), 20 deletions(-)
 
---- a/drivers/net/ifb.c	2009-08-31 16:17:52.671091194 -0700
-+++ b/drivers/net/ifb.c	2009-08-31 16:27:13.201091438 -0700
-@@ -59,7 +59,7 @@ struct ifb_private {
- static int numifbs = 2;
- 
- static void ri_tasklet(unsigned long dev);
--static int ifb_xmit(struct sk_buff *skb, struct net_device *dev);
-+static netdev_tx_t ifb_xmit(struct sk_buff *skb, struct net_device *dev);
- static int ifb_open(struct net_device *dev);
- static int ifb_close(struct net_device *dev);
- 
-@@ -160,11 +160,10 @@ static void ifb_setup(struct net_device 
- 	random_ether_addr(dev->dev_addr);
- }
- 
--static int ifb_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t ifb_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct ifb_private *dp = netdev_priv(dev);
- 	struct net_device_stats *stats = &dev->stats;
--	int ret = NETDEV_TX_OK;
- 	u32 from = G_TC_FROM(skb->tc_verd);
- 
- 	stats->rx_packets++;
-@@ -173,7 +172,7 @@ static int ifb_xmit(struct sk_buff *skb,
- 	if (!(from & (AT_INGRESS|AT_EGRESS)) || !skb->iif) {
- 		dev_kfree_skb(skb);
- 		stats->rx_dropped++;
--		return ret;
-+		return NETDEV_TX_OK;
- 	}
- 
- 	if (skb_queue_len(&dp->rq) >= dev->tx_queue_len) {
-@@ -187,7 +186,7 @@ static int ifb_xmit(struct sk_buff *skb,
- 		tasklet_schedule(&dp->ifb_tasklet);
- 	}
- 
--	return ret;
-+	return NETDEV_TX_OK;
- }
- 
- static int ifb_close(struct net_device *dev)
---- a/drivers/net/macvlan.c	2009-08-31 16:17:52.721091262 -0700
-+++ b/drivers/net/macvlan.c	2009-08-31 16:27:47.322328136 -0700
-@@ -184,7 +184,8 @@ static struct sk_buff *macvlan_handle_fr
- 	return NULL;
- }
- 
--static int macvlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
-+				      struct net_device *dev)
- {
- 	const struct macvlan_dev *vlan = netdev_priv(dev);
- 	unsigned int len = skb->len;
---- a/drivers/net/virtio_net.c	2009-08-31 16:17:52.701107507 -0700
-+++ b/drivers/net/virtio_net.c	2009-08-31 16:28:02.602319381 -0700
-@@ -519,7 +519,7 @@ static void xmit_tasklet(unsigned long d
- 	netif_tx_unlock_bh(vi->dev);
- }
- 
--static int start_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct virtnet_info *vi = netdev_priv(dev);
- 
---- a/drivers/net/dummy.c	2009-08-31 16:17:52.711091877 -0700
-+++ b/drivers/net/dummy.c	2009-08-31 16:28:20.634332248 -0700
-@@ -39,8 +39,6 @@
- 
- static int numdummies = 1;
- 
--static int dummy_xmit(struct sk_buff *skb, struct net_device *dev);
--
- static int dummy_set_address(struct net_device *dev, void *p)
- {
- 	struct sockaddr *sa = p;
-@@ -57,6 +55,16 @@ static void set_multicast_list(struct ne
- {
- }
- 
-+
-+static netdev_tx_t dummy_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	dev->stats.tx_packets++;
-+	dev->stats.tx_bytes += skb->len;
-+
-+	dev_kfree_skb(skb);
-+	return NETDEV_TX_OK;
-+}
-+
- static const struct net_device_ops dummy_netdev_ops = {
- 	.ndo_start_xmit		= dummy_xmit,
- 	.ndo_validate_addr	= eth_validate_addr,
-@@ -78,16 +86,6 @@ static void dummy_setup(struct net_devic
- 	dev->flags &= ~IFF_MULTICAST;
- 	random_ether_addr(dev->dev_addr);
- }
--
--static int dummy_xmit(struct sk_buff *skb, struct net_device *dev)
--{
--	dev->stats.tx_packets++;
--	dev->stats.tx_bytes += skb->len;
--
--	dev_kfree_skb(skb);
--	return NETDEV_TX_OK;
--}
--
- static int dummy_validate(struct nlattr *tb[], struct nlattr *data[])
- {
- 	if (tb[IFLA_ADDRESS]) {
---- a/drivers/net/tun.c	2009-08-31 16:17:52.691107284 -0700
-+++ b/drivers/net/tun.c	2009-08-31 16:28:30.394333166 -0700
-@@ -358,7 +358,7 @@ static int tun_net_close(struct net_devi
- }
- 
- /* Net device start xmit */
--static int tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct tun_struct *tun = netdev_priv(dev);
- 
---- a/drivers/net/veth.c	2009-08-31 16:17:52.691107284 -0700
-+++ b/drivers/net/veth.c	2009-08-31 16:27:13.211106957 -0700
-@@ -148,7 +148,7 @@ static struct ethtool_ops veth_ethtool_o
-  * xmit
+--- a/drivers/net/3c501.c	2009-08-31 16:17:52.491216521 -0700
++++ b/drivers/net/3c501.c	2009-08-31 16:44:45.491085901 -0700
+@@ -409,7 +409,7 @@ static void el_timeout(struct net_device
+  * no real choice.
   */
  
--static int veth_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
+-static int el_start_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t el_start_xmit(struct sk_buff *skb, struct net_device *dev)
  {
- 	struct net_device *rcv = NULL;
- 	struct veth_priv *priv, *rcv_priv;
---- a/drivers/firewire/net.c	2009-08-31 16:17:52.731143867 -0700
-+++ b/drivers/firewire/net.c	2009-08-31 16:27:13.211106957 -0700
-@@ -1188,7 +1188,7 @@ static int fwnet_stop(struct net_device 
- 	return 0;
+ 	struct net_local *lp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+--- a/drivers/net/3c505.c	2009-08-31 16:17:52.481106298 -0700
++++ b/drivers/net/3c505.c	2009-08-31 16:45:36.098453665 -0700
+@@ -976,7 +976,7 @@ static int elp_open(struct net_device *d
+  *
+  ******************************************************/
+ 
+-static bool send_packet(struct net_device *dev, struct sk_buff *skb)
++static netdev_tx_t send_packet(struct net_device *dev, struct sk_buff *skb)
+ {
+ 	elp_device *adapter = netdev_priv(dev);
+ 	unsigned long target;
+@@ -1067,7 +1067,7 @@ static void elp_timeout(struct net_devic
+  *
+  ******************************************************/
+ 
+-static int elp_start_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t elp_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	unsigned long flags;
+ 	elp_device *adapter = netdev_priv(dev);
+--- a/drivers/net/3c507.c	2009-08-31 16:17:52.521205946 -0700
++++ b/drivers/net/3c507.c	2009-08-31 16:45:35.752869169 -0700
+@@ -284,7 +284,8 @@ static unsigned short init_words[] = {
+ 
+ static int	el16_probe1(struct net_device *dev, int ioaddr);
+ static int	el16_open(struct net_device *dev);
+-static int	el16_send_packet(struct sk_buff *skb, struct net_device *dev);
++static netdev_tx_t el16_send_packet(struct sk_buff *skb,
++				    struct net_device *dev);
+ static irqreturn_t el16_interrupt(int irq, void *dev_id);
+ static void el16_rx(struct net_device *dev);
+ static int	el16_close(struct net_device *dev);
+@@ -509,7 +510,8 @@ static void el16_tx_timeout (struct net_
  }
  
--static int fwnet_tx(struct sk_buff *skb, struct net_device *net)
-+static netdev_tx_t fwnet_tx(struct sk_buff *skb, struct net_device *net)
+ 
+-static int el16_send_packet (struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t el16_send_packet (struct sk_buff *skb,
++				     struct net_device *dev)
  {
- 	struct fwnet_header hdr_buf;
- 	struct fwnet_device *dev = netdev_priv(net);
---- a/drivers/net/bonding/bond_main.c	2009-08-31 16:17:52.661107314 -0700
-+++ b/drivers/net/bonding/bond_main.c	2009-08-31 16:28:48.571114507 -0700
-@@ -4450,7 +4450,7 @@ static void bond_set_xmit_hash_policy(st
+ 	struct net_local *lp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+--- a/drivers/net/3c523.c	2009-08-31 16:17:52.521205946 -0700
++++ b/drivers/net/3c523.c	2009-08-31 16:45:15.954461272 -0700
+@@ -183,7 +183,7 @@ sizeof(nop_cmd) = 8;
+ static irqreturn_t elmc_interrupt(int irq, void *dev_id);
+ static int elmc_open(struct net_device *dev);
+ static int elmc_close(struct net_device *dev);
+-static int elmc_send_packet(struct sk_buff *, struct net_device *);
++static netdev_tx_t elmc_send_packet(struct sk_buff *, struct net_device *);
+ static struct net_device_stats *elmc_get_stats(struct net_device *dev);
+ static void elmc_timeout(struct net_device *dev);
+ #ifdef ELMC_MULTICAST
+@@ -1129,7 +1129,7 @@ static void elmc_timeout(struct net_devi
+  * send frame
+  */
+ 
+-static int elmc_send_packet(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t elmc_send_packet(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	int len;
+ 	int i;
+--- a/drivers/net/3c527.c	2009-08-31 16:17:52.501081183 -0700
++++ b/drivers/net/3c527.c	2009-08-31 16:45:35.002458224 -0700
+@@ -213,7 +213,8 @@ static int	mc32_probe1(struct net_device
+ static int      mc32_command(struct net_device *dev, u16 cmd, void *data, int len);
+ static int	mc32_open(struct net_device *dev);
+ static void	mc32_timeout(struct net_device *dev);
+-static int	mc32_send_packet(struct sk_buff *skb, struct net_device *dev);
++static netdev_tx_t mc32_send_packet(struct sk_buff *skb,
++				    struct net_device *dev);
+ static irqreturn_t mc32_interrupt(int irq, void *dev_id);
+ static int	mc32_close(struct net_device *dev);
+ static struct	net_device_stats *mc32_get_stats(struct net_device *dev);
+@@ -1020,7 +1021,8 @@ static void mc32_timeout(struct net_devi
+  *
+  */
+ 
+-static int mc32_send_packet(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t mc32_send_packet(struct sk_buff *skb,
++				    struct net_device *dev)
+ {
+ 	struct mc32_local *lp = netdev_priv(dev);
+ 	u32 head = atomic_read(&lp->tx_ring_head);
+--- a/drivers/net/3c59x.c	2009-08-31 16:17:52.501081183 -0700
++++ b/drivers/net/3c59x.c	2009-08-31 16:45:32.061107786 -0700
+@@ -716,8 +716,10 @@ static int mdio_read(struct net_device *
+ static void mdio_write(struct net_device *vp, int phy_id, int location, int value);
+ static void vortex_timer(unsigned long arg);
+ static void rx_oom_timer(unsigned long arg);
+-static int vortex_start_xmit(struct sk_buff *skb, struct net_device *dev);
+-static int boomerang_start_xmit(struct sk_buff *skb, struct net_device *dev);
++static netdev_tx_t vortex_start_xmit(struct sk_buff *skb,
++				     struct net_device *dev);
++static netdev_tx_t boomerang_start_xmit(struct sk_buff *skb,
++					struct net_device *dev);
+ static int vortex_rx(struct net_device *dev);
+ static int boomerang_rx(struct net_device *dev);
+ static irqreturn_t vortex_interrupt(int irq, void *dev_id);
+@@ -2035,7 +2037,7 @@ vortex_error(struct net_device *dev, int
  	}
  }
  
--static int bond_start_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t bond_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	const struct bonding *bond = netdev_priv(dev);
- 
---- a/drivers/net/can/vcan.c	2009-08-31 16:17:52.681081639 -0700
-+++ b/drivers/net/can/vcan.c	2009-08-31 16:27:13.211106957 -0700
-@@ -83,7 +83,7 @@ static void vcan_rx(struct sk_buff *skb,
- 	netif_rx(skb);
- }
- 
--static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t vcan_tx(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct net_device_stats *stats = &dev->stats;
- 	int loop;
---- a/drivers/net/eql.c	2009-08-31 16:17:52.681081639 -0700
-+++ b/drivers/net/eql.c	2009-08-31 16:29:03.411105414 -0700
-@@ -127,7 +127,7 @@
- static int eql_open(struct net_device *dev);
- static int eql_close(struct net_device *dev);
- static int eql_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
--static int eql_slave_xmit(struct sk_buff *skb, struct net_device *dev);
-+static netdev_tx_t eql_slave_xmit(struct sk_buff *skb, struct net_device *dev);
- 
- #define eql_is_slave(dev)	((dev->flags & IFF_SLAVE) == IFF_SLAVE)
- #define eql_is_master(dev)	((dev->flags & IFF_MASTER) == IFF_MASTER)
-@@ -325,7 +325,7 @@ static slave_t *__eql_schedule_slaves(sl
- 	return best_slave;
- }
- 
--static int eql_slave_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t eql_slave_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	equalizer_t *eql = netdev_priv(dev);
- 	slave_t *slave;
---- a/drivers/net/ppp_generic.c	2009-08-31 16:17:52.671091194 -0700
-+++ b/drivers/net/ppp_generic.c	2009-08-31 16:27:13.211106957 -0700
-@@ -951,7 +951,7 @@ out:
- /*
-  * Network interface unit routines.
-  */
 -static int
 +static netdev_tx_t
- ppp_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ vortex_start_xmit(struct sk_buff *skb, struct net_device *dev)
  {
- 	struct ppp *ppp = netdev_priv(dev);
---- a/drivers/net/slip.c	2009-08-31 16:17:52.711091877 -0700
-+++ b/drivers/net/slip.c	2009-08-31 16:27:13.211106957 -0700
-@@ -474,7 +474,7 @@ out:
- 
- 
- /* Encapsulate an IP datagram and kick it into a TTY queue. */
--static int
-+static netdev_tx_t
- sl_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct slip *sl = netdev_priv(dev);
---- a/net/phonet/pep-gprs.c	2009-08-31 16:17:52.651081529 -0700
-+++ b/net/phonet/pep-gprs.c	2009-08-31 16:27:13.211106957 -0700
-@@ -183,7 +183,7 @@ static int gprs_close(struct net_device 
- 	return 0;
+ 	struct vortex_private *vp = netdev_priv(dev);
+@@ -2090,7 +2092,7 @@ vortex_start_xmit(struct sk_buff *skb, s
+ 	return NETDEV_TX_OK;
  }
  
--static int gprs_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t gprs_xmit(struct sk_buff *skb, struct net_device *dev)
+-static int
++static netdev_tx_t
+ boomerang_start_xmit(struct sk_buff *skb, struct net_device *dev)
  {
- 	struct gprs_dev *gp = netdev_priv(dev);
- 	struct sock *sk = gp->sk;
+ 	struct vortex_private *vp = netdev_priv(dev);
+--- a/drivers/net/3c501.h	2009-08-31 16:17:52.501081183 -0700
++++ b/drivers/net/3c501.h	2009-08-31 16:45:36.451937066 -0700
+@@ -6,7 +6,7 @@
+ static int  el1_probe1(struct net_device *dev, int ioaddr);
+ static int  el_open(struct net_device *dev);
+ static void el_timeout(struct net_device *dev);
+-static int  el_start_xmit(struct sk_buff *skb, struct net_device *dev);
++static netdev_tx_t el_start_xmit(struct sk_buff *skb, struct net_device *dev);
+ static irqreturn_t el_interrupt(int irq, void *dev_id);
+ static void el_receive(struct net_device *dev);
+ static void el_reset(struct net_device *dev);
+--- a/drivers/net/3c509.c	2009-08-31 16:17:52.491216521 -0700
++++ b/drivers/net/3c509.c	2009-08-31 16:45:05.081129325 -0700
+@@ -191,7 +191,7 @@ static void el3_common_remove(struct net
+ static ushort id_read_eeprom(int index);
+ static ushort read_eeprom(int ioaddr, int index);
+ static int el3_open(struct net_device *dev);
+-static int el3_start_xmit(struct sk_buff *skb, struct net_device *dev);
++static netdev_tx_t el3_start_xmit(struct sk_buff *skb, struct net_device *dev);
+ static irqreturn_t el3_interrupt(int irq, void *dev_id);
+ static void update_stats(struct net_device *dev);
+ static struct net_device_stats *el3_get_stats(struct net_device *dev);
+@@ -816,7 +816,7 @@ el3_tx_timeout (struct net_device *dev)
+ }
+ 
+ 
+-static int
++static netdev_tx_t
+ el3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct el3_private *lp = netdev_priv(dev);
+--- a/drivers/net/3c515.c	2009-08-31 16:17:52.511105850 -0700
++++ b/drivers/net/3c515.c	2009-08-31 16:45:35.411085925 -0700
+@@ -369,8 +369,8 @@ static int corkscrew_setup(struct net_de
+ 			    struct pnp_dev *idev, int card_number);
+ static int corkscrew_open(struct net_device *dev);
+ static void corkscrew_timer(unsigned long arg);
+-static int corkscrew_start_xmit(struct sk_buff *skb,
+-				struct net_device *dev);
++static netdev_tx_t corkscrew_start_xmit(struct sk_buff *skb,
++					struct net_device *dev);
+ static int corkscrew_rx(struct net_device *dev);
+ static void corkscrew_timeout(struct net_device *dev);
+ static int boomerang_rx(struct net_device *dev);
+@@ -998,8 +998,8 @@ static void corkscrew_timeout(struct net
+ 	netif_wake_queue(dev);
+ }
+ 
+-static int corkscrew_start_xmit(struct sk_buff *skb,
+-				struct net_device *dev)
++static netdev_tx_t corkscrew_start_xmit(struct sk_buff *skb,
++					struct net_device *dev)
+ {
+ 	struct corkscrew_private *vp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
 
 -- 
 
