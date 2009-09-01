@@ -1,41 +1,74 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: netconsole as normal console for userspace messages?
-Date: Tue, 01 Sep 2009 10:15:11 -0500
-Message-ID: <1251818111.3960.425.camel@calx>
-References: <20090901101612.GB5222@ff.dom.local>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: [PATCH net-next] can: add can_free_echo_skb() for upcoming drivers
+Date: Tue, 01 Sep 2009 17:26:12 +0200
+Message-ID: <4A9D3D14.90201@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: SocketCAN Core Mailing List <socketcan-core@lists.berlios.de>
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([173.11.57.241]:41109 "EHLO waste.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753821AbZIAPPh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Sep 2009 11:15:37 -0400
-In-Reply-To: <20090901101612.GB5222@ff.dom.local>
+Received: from mail-out.m-online.net ([212.18.0.9]:47577 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754497AbZIAP0O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 11:26:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-09-01 at 10:16 +0000, Jarek Poplawski wrote:
-> On 30-08-2009 02:12, Arkadiusz Miskiewicz wrote:
-> > Hi,
-> Hi,
-> 
-> > 
-> > Can netconsole be somehow used to see userspace messages, too? Something 
-> > similar to console=ttySX... just =netconsole.
-> > 
-> 
-> AFAIK it can't, but AFAICR some time ago the netconsole maintainer
-> gave some hope to some Debian guy with a similar question.
+This patch adds the function can_free_echo_skb to the CAN
+device interface to allow upcoming drivers to release echo
+skb's in case of error.
 
-It is, as they say, just a simple matter of programming to get a full
-bidirectional console out of it. As cool as that would be, I just
-haven't had time for it.
+Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+---
+ drivers/net/can/dev.c   |   18 +++++++++++++++++-
+ include/linux/can/dev.h |    1 +
+ 2 files changed, 18 insertions(+), 1 deletion(-)
 
--- 
-http://selenic.com : development and support for Mercurial and Linux
-
-
+Index: net-next-2.6/drivers/net/can/dev.c
+===================================================================
+--- net-next-2.6.orig/drivers/net/can/dev.c
++++ net-next-2.6/drivers/net/can/dev.c
+@@ -315,7 +315,7 @@ void can_get_echo_skb(struct net_device 
+ {
+ 	struct can_priv *priv = netdev_priv(dev);
+ 
+-	if ((dev->flags & IFF_ECHO) && priv->echo_skb[idx]) {
++	if (priv->echo_skb[idx]) {
+ 		netif_rx(priv->echo_skb[idx]);
+ 		priv->echo_skb[idx] = NULL;
+ 	}
+@@ -323,6 +323,22 @@ void can_get_echo_skb(struct net_device 
+ EXPORT_SYMBOL_GPL(can_get_echo_skb);
+ 
+ /*
++  * Remove the skb from the stack and free it.
++  *
++  * The function is typically called when TX failed.
++  */
++void can_free_echo_skb(struct net_device *dev, int idx)
++{
++	struct can_priv *priv = netdev_priv(dev);
++
++	if (priv->echo_skb[idx]) {
++		kfree_skb(priv->echo_skb[idx]);
++		priv->echo_skb[idx] = NULL;
++	}
++}
++EXPORT_SYMBOL_GPL(can_free_echo_skb);
++
++/*
+  * CAN device restart for bus-off recovery
+  */
+ void can_restart(unsigned long data)
+Index: net-next-2.6/include/linux/can/dev.h
+===================================================================
+--- net-next-2.6.orig/include/linux/can/dev.h
++++ net-next-2.6/include/linux/can/dev.h
+@@ -66,5 +66,6 @@ void can_bus_off(struct net_device *dev)
+ 
+ void can_put_echo_skb(struct sk_buff *skb, struct net_device *dev, int idx);
+ void can_get_echo_skb(struct net_device *dev, int idx);
++void can_free_echo_skb(struct net_device *dev, int idx);
+ 
+ #endif /* CAN_DEV_H */
