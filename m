@@ -1,88 +1,99 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] iproute2: gracefully exit from rtnl_listen()
-Date: Tue, 1 Sep 2009 15:59:55 -0700
-Message-ID: <20090901155955.7448c1d6@nehalam>
-References: <1251841286-32463-1-git-send-email-david.ward@ll.mit.edu>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next PATCH 3/3] ixgbe: Patch to fix 82599 multispeed fiber link
+	issues when driver is loaded without any cable and reconnecting
+	it to 1G partner
+Date: Tue, 01 Sep 2009 16:50:14 -0700
+Message-ID: <20090901235014.4617.22941.stgit@localhost.localdomain>
+References: <20090901234916.4617.73579.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Ward <david.ward@ll.mit.edu>
-To: David Ward <david.ward@ll.mit.edu>
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:58544 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755338AbZIAW76 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Sep 2009 18:59:58 -0400
-In-Reply-To: <1251841286-32463-1-git-send-email-david.ward@ll.mit.edu>
+Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:45636 "EHLO
+	QMTA06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755362AbZIAXuj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 19:50:39 -0400
+In-Reply-To: <20090901234916.4617.73579.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue,  1 Sep 2009 17:41:26 -0400
-David Ward <david.ward@ll.mit.edu> wrote:
+From: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
 
-> rtnl_listen() (in iproute2's libnetlink) allows a userspace application to
-> monitor an RTNETLINK multicast group, so that the application can react to
-> changes in the kernel's routing table, neighbor cache, etc. as they occur.
-> (This is in contrast with using RTNETLINK to solicit the kernel for a full
-> copy of the routing table or neighbor cache at a specific point in time.)
-> 
-> However rtnl_listen() creates an infinite loop, which does not break in the
-> absence of errors, so there does not seem to be any way to gracefully exit
-> from it. Existing applications that call rtnl_listen(), such as rtmon, break
-> from this loop by terminating the entire application. There should be some
-> mechanism for stopping rtnl_listen() and continuing program execution.
-> 
-> If you assume that rtnl_listen() will only need to be stopped because the
-> application has received a signal (such as SIGINT), then the application's
-> signal handler can call rtnl_close() to close the RTNETLINK socket.
-> Afterwards, with this patch, rtnl_listen() can detect that the socket was
-> closed during the interrupt and exit.
-> 
-> I am offering this as a starting point for consideration, but I feel that
-> this is at best a poor solution. What is a better way to fix rtnl_listen()
-> (and similar libnetlink functions for consistency)?
-> ---
->  lib/libnetlink.c |   15 ++++++++++++---
->  1 files changed, 12 insertions(+), 3 deletions(-)
+In 82599 multi speed fiber case when driver is loaded without any
+cable and reconnecting the cable with a 1G partner does not bring
+up the link in 1Gb mode. When there is no link we first setup the link
+at 10G & 1G and then try to re-establish the link at highest speed 10G
+and thereby changing autoneg_advertised value to highest speed 10G.
+After connecting back the cable to a 1G link partner we never try 1G
+as autoneg advertised value is changed to link at 10G only. The
+following patch fixes the issue by properly initializing the
+autoneg_advertised value just before exiting from link setup routine.
 
-Good idea, but why not just change the while(1) loop?
+Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
+Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index b68e2fd..cecfa34 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -188,7 +188,7 @@ int rtnl_dump_filter(struct rtnl_handle *rth,
- 	char buf[16384];
+ drivers/net/ixgbe/ixgbe_82599.c |   22 +++++++++++-----------
+ 1 files changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
+index 5ee5608..61af47e 100644
+--- a/drivers/net/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ixgbe/ixgbe_82599.c
+@@ -421,15 +421,6 @@ s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
+ 	hw->mac.ops.get_link_capabilities(hw, &phy_link_speed, &negotiation);
+ 	speed &= phy_link_speed;
  
- 	iov.iov_base = buf;
--	while (1) {
-+	while (rtnl->fd >= 0) {
- 		int status;
- 		struct nlmsghdr *h;
+-	 /* Set autoneg_advertised value based on input link speed */
+-	hw->phy.autoneg_advertised = 0;
+-
+-	if (speed & IXGBE_LINK_SPEED_10GB_FULL)
+-		hw->phy.autoneg_advertised |= IXGBE_LINK_SPEED_10GB_FULL;
+-
+-	if (speed & IXGBE_LINK_SPEED_1GB_FULL)
+-		hw->phy.autoneg_advertised |= IXGBE_LINK_SPEED_1GB_FULL;
+-
+ 	/*
+ 	 * When the driver changes the link speeds that it can support,
+ 	 * it sets autotry_restart to true to indicate that we need to
+@@ -466,7 +457,7 @@ s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
+ 		                               autoneg,
+ 		                               autoneg_wait_to_complete);
+ 		if (status != 0)
+-			goto out;
++			return status;
  
-@@ -200,12 +200,12 @@ int rtnl_dump_filter(struct rtnl_handle *rth,
- 				continue;
- 			fprintf(stderr, "netlink receive error %s (%d)\n",
- 				strerror(errno), errno);
--			return -1;
-+			break;
- 		}
+ 		/* Flap the tx laser if it has not already been done */
+ 		if (hw->mac.autotry_restart) {
+@@ -520,7 +511,7 @@ s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
+ 		                                      autoneg,
+ 		                                      autoneg_wait_to_complete);
+ 		if (status != 0)
+-			goto out;
++			return status;
  
- 		if (status == 0) {
- 			fprintf(stderr, "EOF on netlink\n");
--			return -1;
-+			break;
- 		}
+ 		/* Flap the tx laser if it has not already been done */
+ 		if (hw->mac.autotry_restart) {
+@@ -558,6 +549,15 @@ s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
+ 		                                               autoneg_wait_to_complete);
  
- 		h = (struct nlmsghdr*)buf;
-@@ -251,6 +251,8 @@ skip_it:
- 			exit(1);
- 		}
- 	}
+ out:
++	/* Set autoneg_advertised value based on input link speed */
++	hw->phy.autoneg_advertised = 0;
 +
-+	return -1;
++	if (speed & IXGBE_LINK_SPEED_10GB_FULL)
++		hw->phy.autoneg_advertised |= IXGBE_LINK_SPEED_10GB_FULL;
++
++	if (speed & IXGBE_LINK_SPEED_1GB_FULL)
++		hw->phy.autoneg_advertised |= IXGBE_LINK_SPEED_1GB_FULL;
++
+ 	return status;
  }
  
- int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
-
 
