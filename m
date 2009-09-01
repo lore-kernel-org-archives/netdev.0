@@ -1,66 +1,149 @@
-From: "Holger Hoffstaette" <holger.hoffstaette@googlemail.com>
-Subject: Re: Network hangs with 2.6.30.5
-Date: Tue, 01 Sep 2009 17:32:24 +0200
-Message-ID: <pan.2009.09.01.15.32.24.613750@googlemail.com>
-References: <7D2F0769-2994-4BB8-B107-DEF2B1346B3A@gmail.com> <pan.2009.09.01.14.17.06.671250@googlemail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: UDP is bypassing qdisc statistics ....
+Date: Tue, 01 Sep 2009 17:34:28 +0200
+Message-ID: <4A9D3F04.40409@gmail.com>
+References: <20090901063726.GA5222@ff.dom.local> <alpine.DEB.1.10.0909011358030.15578@V090114053VZO-1> <4A9D2DBF.8030200@trash.net> <alpine.DEB.1.10.0909011526480.12112@V090114053VZO-1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	Mark Smith <lk-netdev@lk-netdev.nosense.org>,
+	Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org,
+	davem@linux-foundation.org
+To: Christoph Lameter <cl@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:49520 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754578AbZIAPc4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Sep 2009 11:32:56 -0400
-Received: from list by lo.gmane.org with local (Exim 4.50)
-	id 1MiVLn-0006P1-UQ
-	for netdev@vger.kernel.org; Tue, 01 Sep 2009 17:32:51 +0200
-Received: from port-87-234-135-12.dynamic.qsc.de ([87.234.135.12])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 01 Sep 2009 17:32:51 +0200
-Received: from holger.hoffstaette by port-87-234-135-12.dynamic.qsc.de with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 01 Sep 2009 17:32:51 +0200
+Received: from gw1.cosmosbay.com ([212.99.114.194]:56182 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754460AbZIAPej (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 11:34:39 -0400
+In-Reply-To: <alpine.DEB.1.10.0909011526480.12112@V090114053VZO-1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 01 Sep 2009 16:17:08 +0200, Holger Hoffstaette wrote:
+Christoph Lameter a =E9crit :
+> On Tue, 1 Sep 2009, Patrick McHardy wrote:
+>=20
+>> That explains it. The bnx2 driver uses multiple TX queues, but
+>> tc_dump_qdisc() only dumps the statistics from queue number 0.
+>=20
+> There are no stats in other queues either... This is the result after
+> sending 10000 or so packets. Maybe I am not catching all the qdiscs?
+>=20
+> (this is the result of a pretty raw patch to dump all qdiscs)
+>=20
+> #cat /proc/net/qdisc_stats
+> Type Device State Bytes Packets Qlen Backlog Drops Requeues Overlimit=
+s
+> TX root <NULL> 0 0 0 0 0 0 0 0
+> RX root <NULL> 0 0 0 0 0 0 0 0
+> TX root  eth0 0 24830 155 0 0 0 0 0
+> RX root <NULL> 0 0 0 0 0 0 0 0
+> TX root <NULL> 0 0 0 0 0 0 0 0
+> RX root <NULL> 0 0 0 0 0 0 0 0
+> TX root <NULL> 0 0 0 0 0 0 0 0
+> RX root <NULL> 0 0 0 0 0 0 0 0
+> TX root <NULL> 0 0 0 0 0 0 0 0
+> RX root <NULL> 0 0 0 0 0 0 0 0
+>=20
+> ---
+>  net/sched/sch_api.c |   64 +++++++++++++++++++++++++++++++++++++++++=
++++++++++++
+>  1 file changed, 64 insertions(+)
+>=20
+> Index: linux-2.6/net/sched/sch_api.c
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> --- linux-2.6.orig/net/sched/sch_api.c	2009-08-31 21:19:04.000000000 =
++0000
+> +++ linux-2.6/net/sched/sch_api.c	2009-09-01 14:30:40.000000000 +0000
+> @@ -1699,6 +1699,69 @@ static const struct file_operations psch
+>  	.llseek =3D seq_lseek,
+>  	.release =3D single_release,
+>  };
+> +
+> +static void dump_qdisc(struct seq_file *seq, struct Qdisc *q, char *=
+inout, char *text)
+> +{
+> +	seq_printf(seq, "%2s %2s %5s %lx %lld %d %d %d %d %d %d\n",
+> +		inout, text, q->dev_queue->dev->name, q->state,
+> +		q->bstats.bytes, q->bstats.packets,
+> +		q->qstats.qlen, q->qstats.backlog, q->qstats.drops,
+> +		q->qstats.requeues, q->qstats.overlimits);
+> +}
+> +
+> +static void dump_qdisc_root(struct seq_file *seq, struct Qdisc *root=
+, char *inout)
+> +{
+> +	struct Qdisc *q;
+> +	int n =3D 0;
+> +
+> +	if (!root)
+> +		return;
+> +
+> +	dump_qdisc(seq, root, inout, "root");
+> +
+> +	list_for_each_entry(q, &root->list, list) {
+> +		char buffer[10];
+> +
+> +		sprintf(buffer,"%d", ++n);
+> +		dump_qdisc(seq, q, inout, buffer);
+> +	}
+> +}
+> +
+> +
+> +static int qdisc_show(struct seq_file *seq, void *v)
+> +{
+> +	struct net_device *dev;
+> +
+> +	seq_printf(seq, "Type Device State Bytes Packets "
+> +			"Qlen Backlog Drops Requeues Overlimits\n");
+> +
+> +	read_lock(&dev_base_lock);
+> +
+> +	for_each_netdev(&init_net, dev) {
+> +		struct netdev_queue *dev_queue;
+> +
+> +		dev_queue =3D netdev_get_tx_queue(dev, 0);
+> +		dump_qdisc_root(seq, dev_queue->qdisc_sleeping, "TX");
 
-[network regressions in .30]
+you should iterate here=20
 
-> I do have an older Intel Gbit card identified thusly: 00:0b.0 Ethernet
-> controller: Intel Corporation 82545GM Gigabit Ethernet Controller (rev 04)
-> 
-> and enabled all sorts of offloading:
-> 
-> $ethtool -k eth0
-> Offload parameters for eth0:
-> rx-checksumming: on
-> tx-checksumming: on
-> scatter-gather: on
-> tcp segmentation offload: on
-> udp fragmentation offload: off
-> generic segmentation offload: on
-> 
-> Maybe that is the culprit, as Eric Dumazet suspected in his mail..I will
-> try the latest .30 stable again without that, but in any case something is
-> indeed very broken in there.
+	for (i =3D 0 ; i < dev->real_num_tx_queues; i++) {
+		dev_queue =3D netdev_get_tx_queue(dev, i);
+		dump_qdisc_root(seq, dev_queue->qdisc_sleeping, "TX");
+	}
 
-So I just tried .30.5 again. Indeed the offloading seems to play a role:
-with everything enabled I cannot even reliably ssh into the machine (only
-"sometimes"?); however without any offloading things get "a bit better"
-and squid even serves up some pages..for a while. Then it seems to hang,
-swallow requests or not finish them. The tested sites reliably work for
-the Windows client when it bypasses squid, as does DNS (also served from
-the box). It *seems* to affect incoming traffic more than outgoing - e.g.
-mail or news polling seemed to kick off and finish just fine.
-Rebooting back into .29 fixes everything. Last time I tried
-.31rc-something (4 IIRC) it exhibited the same problems.
 
-I'm open to suggestions and willing to help fix this but need this machine
-for actual work. :/
-
--h
-
+> +		dev_queue =3D &dev->rx_queue;
+> +		dump_qdisc_root(seq, dev_queue->qdisc_sleeping, "RX");
+> +	}
+> +
+> +	read_unlock(&dev_base_lock);
+> +	return 0;
+> +}
+> +
+> +static int qdisc_open(struct inode *inode, struct file *file)
+> +{
+> +	return single_open(file, qdisc_show, PDE(inode)->data);
+> +}
+> +
+> +static const struct file_operations qdisc_fops =3D {
+> +	.owner =3D THIS_MODULE,
+> +	.open =3D qdisc_open,
+> +	.read =3D seq_read,
+> +	.llseek =3D seq_lseek,
+> +	.release =3D single_release,
+> +};
+>  #endif
+>=20
+>  static int __init pktsched_init(void)
+> @@ -1706,6 +1769,7 @@ static int __init pktsched_init(void)
+>  	register_qdisc(&pfifo_qdisc_ops);
+>  	register_qdisc(&bfifo_qdisc_ops);
+>  	proc_net_fops_create(&init_net, "psched", 0, &psched_fops);
+> +	proc_net_fops_create(&init_net, "qdisc_stats", 0, &qdisc_fops);
+>=20
+>  	rtnl_register(PF_UNSPEC, RTM_NEWQDISC, tc_modify_qdisc, NULL);
+>  	rtnl_register(PF_UNSPEC, RTM_DELQDISC, tc_get_qdisc, NULL);
 
