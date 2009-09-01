@@ -1,114 +1,116 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 10/18] tg3: Enable NAPI instances for other int vectors
-Date: Tue, 1 Sep 2009 16:10:19 -0700
-Message-ID: <1251867308.5941@xw6200>
+Subject: [PATCH 17/18] tg3: Add MDIO bus address assignments
+Date: Tue, 1 Sep 2009 16:21:36 -0700
+Message-ID: <1251867316.5962@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3813 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:4125 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932142AbZIBEz0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932145AbZIBEz0 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 2 Sep 2009 00:55:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds code to enable and disable the rest of the NAPI
-instances.
+The 5717 is a dual port chip that has a shared MDIO bus design.  While
+it is impossible for one function to interface with the wrong phy, that
+function still needs to know which MDIO bus address to use when
+interfacing with its own phy.  This patch adds code to determine which
+MDIO bus address to use.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 ---
- drivers/net/tg3.c |   32 +++++++++++++++++++++++---------
- 1 files changed, 23 insertions(+), 9 deletions(-)
+ drivers/net/tg3.c |   23 +++++++++++++++++++----
+ drivers/net/tg3.h |    3 +++
+ 2 files changed, 22 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 2e0f4a5..ad0fc5d 100644
+index bc9c13a..a7eb6a0 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -694,25 +694,39 @@ static void tg3_int_reenable(struct tg3_napi *tnapi)
- 		     HOSTCC_MODE_ENABLE | tnapi->coal_now);
- }
+@@ -782,7 +782,7 @@ static int tg3_readphy(struct tg3 *tp, int reg, u32 *val)
  
-+static void tg3_napi_disable(struct tg3 *tp)
-+{
-+	int i;
-+
-+	for (i = tp->irq_cnt - 1; i >= 0; i--)
-+		napi_disable(&tp->napi[i].napi);
-+}
-+
-+static void tg3_napi_enable(struct tg3 *tp)
-+{
-+	int i;
-+
-+	for (i = 0; i < tp->irq_cnt; i++)
-+		napi_enable(&tp->napi[i].napi);
-+}
-+
- static inline void tg3_netif_stop(struct tg3 *tp)
- {
- 	tp->dev->trans_start = jiffies;	/* prevent tx timeout */
--	napi_disable(&tp->napi[0].napi);
-+	tg3_napi_disable(tp);
- 	netif_tx_disable(tp->dev);
- }
+ 	*val = 0x0;
  
- static inline void tg3_netif_start(struct tg3 *tp)
- {
--	struct tg3_napi *tnapi = &tp->napi[0];
--
- 	/* NOTE: unconditional netif_tx_wake_all_queues is only
- 	 * appropriate so long as all callers are assured to
- 	 * have free tx slots (such as after tg3_init_hw)
- 	 */
- 	netif_tx_wake_all_queues(tp->dev);
- 
--	napi_enable(&tnapi->napi);
--	tnapi->hw_status->status |= SD_STATUS_UPDATED;
-+	tg3_napi_enable(tp);
-+	tp->napi[0].hw_status->status |= SD_STATUS_UPDATED;
- 	tg3_enable_ints(tp);
- }
- 
-@@ -4958,7 +4972,7 @@ static int tg3_restart_hw(struct tg3 *tp, int reset_phy)
- 		tg3_full_unlock(tp);
- 		del_timer_sync(&tp->timer);
- 		tp->irq_sync = 0;
--		napi_enable(&tp->napi[0].napi);
-+		tg3_napi_enable(tp);
- 		dev_close(tp->dev);
- 		tg3_full_lock(tp, 0);
- 	}
-@@ -8153,7 +8167,7 @@ static int tg3_open(struct net_device *dev)
- 	if (err)
- 		goto err_out1;
- 
--	napi_enable(&tp->napi[0].napi);
-+	tg3_napi_enable(tp);
- 
- 	for (i = 0; i < tp->irq_cnt; i++) {
- 		struct tg3_napi *tnapi = &tp->napi[i];
-@@ -8240,7 +8254,7 @@ err_out3:
+-	frame_val  = ((PHY_ADDR << MI_COM_PHY_ADDR_SHIFT) &
++	frame_val  = ((tp->phy_addr << MI_COM_PHY_ADDR_SHIFT) &
+ 		      MI_COM_PHY_ADDR_MASK);
+ 	frame_val |= ((reg << MI_COM_REG_ADDR_SHIFT) &
+ 		      MI_COM_REG_ADDR_MASK);
+@@ -833,7 +833,7 @@ static int tg3_writephy(struct tg3 *tp, int reg, u32 val)
+ 		udelay(80);
  	}
  
- err_out2:
--	napi_disable(&tp->napi[0].napi);
-+	tg3_napi_disable(tp);
- 	tg3_free_consistent(tp);
+-	frame_val  = ((PHY_ADDR << MI_COM_PHY_ADDR_SHIFT) &
++	frame_val  = ((tp->phy_addr << MI_COM_PHY_ADDR_SHIFT) &
+ 		      MI_COM_PHY_ADDR_MASK);
+ 	frame_val |= ((reg << MI_COM_REG_ADDR_SHIFT) &
+ 		      MI_COM_REG_ADDR_MASK);
+@@ -1021,6 +1021,21 @@ static void tg3_mdio_start(struct tg3 *tp)
+ 	tw32_f(MAC_MI_MODE, tp->mi_mode);
+ 	udelay(80);
  
- err_out1:
-@@ -8486,7 +8500,7 @@ static int tg3_close(struct net_device *dev)
- 	int i;
- 	struct tg3 *tp = netdev_priv(dev);
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717) {
++		u32 funcnum, is_serdes;
++
++		funcnum = tr32(TG3_CPMU_STATUS) & TG3_CPMU_STATUS_PCIE_FUNC;
++		if (funcnum)
++			tp->phy_addr = 2;
++		else
++			tp->phy_addr = 1;
++
++		is_serdes = tr32(SG_DIG_STATUS) & SG_DIG_IS_SERDES;
++		if (is_serdes)
++			tp->phy_addr += 7;
++	} else
++		tp->phy_addr = PHY_ADDR;
++
+ 	if ((tp->tg3_flags3 & TG3_FLG3_MDIOBUS_INITED) &&
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5785)
+ 		tg3_mdio_config_5785(tp);
+@@ -9266,7 +9281,7 @@ static int tg3_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 		cmd->speed = tp->link_config.active_speed;
+ 		cmd->duplex = tp->link_config.active_duplex;
+ 	}
+-	cmd->phy_address = PHY_ADDR;
++	cmd->phy_address = tp->phy_addr;
+ 	cmd->transceiver = XCVR_INTERNAL;
+ 	cmd->autoneg = tp->link_config.autoneg;
+ 	cmd->maxtxpkt = 0;
+@@ -10570,7 +10585,7 @@ static int tg3_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
  
--	napi_disable(&tp->napi[0].napi);
-+	tg3_napi_disable(tp);
- 	cancel_work_sync(&tp->reset_task);
+ 	switch(cmd) {
+ 	case SIOCGMIIPHY:
+-		data->phy_id = PHY_ADDR;
++		data->phy_id = tp->phy_addr;
  
- 	netif_tx_stop_all_queues(dev);
+ 		/* fallthru */
+ 	case SIOCGMIIREG: {
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index ea57a3a..82b45d8 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -694,6 +694,7 @@
+ #define  SG_DIG_PARTNER_FULL_DUPLEX	 0x00020000 /* If !MRADV_CRC16_SELECT */
+ #define  SG_DIG_PARTNER_NEXT_PAGE	 0x00010000 /* If !MRADV_CRC16_SELECT */
+ #define  SG_DIG_AUTONEG_STATE_MASK	 0x00000ff0
++#define  SG_DIG_IS_SERDES		 0x00000100
+ #define  SG_DIG_COMMA_DETECTOR		 0x00000008
+ #define  SG_DIG_MAC_ACK_STATUS		 0x00000004
+ #define  SG_DIG_AUTONEG_COMPLETE	 0x00000002
+@@ -2805,6 +2806,8 @@ struct tg3 {
+ 	struct mii_bus			*mdio_bus;
+ 	int				mdio_irq[PHY_MAX_ADDR];
+ 
++	u8				phy_addr;
++
+ 	/* PHY info */
+ 	u32				phy_id;
+ #define PHY_ID_MASK			0xfffffff0
 -- 
 1.6.3.3
 
