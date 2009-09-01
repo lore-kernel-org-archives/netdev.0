@@ -1,33 +1,34 @@
-From: Mark Brown <broonie@opensource.wolfsonmicro.com>
-Subject: Re: H.245v10+ support in nf_conntrack_h323?
-Date: Tue, 1 Sep 2009 11:02:30 +0100
-Message-ID: <20090901100230.GA18651@sirena.org.uk>
-References: <20090901092910.GC11354@urbino.open.ch>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: netconsole as normal console for userspace messages?
+Date: Tue, 1 Sep 2009 10:16:12 +0000
+Message-ID: <20090901101612.GB5222@ff.dom.local>
+References: <200908300212.37966.a.miskiewicz@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jing Min Zhao <zhaojingmin@users.sourceforge.net>,
-	netdev@vger.kernel.org
-To: Andreas Jaggi <aj@open.ch>
+Cc: netdev@vger.kernel.org, Matt Mackall <mpm@selenic.com>
+To: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cassiel.sirena.org.uk ([80.68.93.111]:40939 "EHLO
-	cassiel.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751105AbZIAKCa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 06:02:30 -0400
+Received: from mail-fx0-f217.google.com ([209.85.220.217]:39570 "EHLO
+	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751091AbZIAKQP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 06:16:15 -0400
+Received: by fxm17 with SMTP id 17so3392362fxm.37
+        for <netdev@vger.kernel.org>; Tue, 01 Sep 2009 03:16:16 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20090901092910.GC11354@urbino.open.ch>
+In-Reply-To: <200908300212.37966.a.miskiewicz@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 01, 2009 at 11:29:10AM +0200, Andreas Jaggi wrote:
+On 30-08-2009 02:12, Arkadiusz Miskiewicz wrote:
+> Hi,
+Hi,
 
-> The videoconferencing devices use version 10 of the H.245 protocol,
-> but nf_conntrack_h323 supports version 7 (according to the comments in
-> include/linux/nf_conntrack_h323.h).
+> 
+> Can netconsole be somehow used to see userspace messages, too? Something 
+> similar to console=ttySX... just =netconsole.
+> 
 
-> Are there any plans to include support for version 10 (or higher) of
-> H.245 in nf_conntrack_h323?
+AFAIK it can't, but AFAICR some time ago the netconsole maintainer
+gave some hope to some Debian guy with a similar question.
 
-I'd be surprised if the H.245 version were the source of your problems
-here - the new protocol versions are backwards compatible and I don't
-remember any changes in any of the stuff that's relevant for firewall
-transit.
+Jarek P.
