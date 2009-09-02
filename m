@@ -1,89 +1,41 @@
-From: Jens Rosenboom <me@jayr.de>
-Subject: Re: [RFC] net/core: Delay neighbor only if it has been used after
- confirmed
-Date: Wed, 02 Sep 2009 15:03:29 +0200
-Message-ID: <1251896609.5813.32.camel@fnki-nb00130>
-References: <1251883079.5813.18.camel@fnki-nb00130>
-	 <4A9E639B.20907@linux-ipv6.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 08/14] pktgen: reorganize transmit loop
+Date: Wed, 02 Sep 2009 15:06:04 +0200
+Message-ID: <4A9E6DBC.5030904@trash.net>
+References: <20090827235705.740919364@vyatta.com>	<4A975480.3080507@candelatech.com>	<20090827224902.49f80920@nehalam>	<20090828.230428.211927371.davem@davemloft.net> <20090901143033.0e9cb7ec@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Linux Network Developers <netdev@vger.kernel.org>
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Cc: David Miller <davem@davemloft.net>, greearb@candelatech.com,
+	robert.olsson@its.uu.se, netdev@vger.kernel.org, tglx@linutronix.de
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from leia.mcbone.net ([194.97.104.42]:42533 "EHLO leia.mcbone.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751081AbZIBNDg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Sep 2009 09:03:36 -0400
-In-Reply-To: <4A9E639B.20907@linux-ipv6.org>
+Received: from stinky.trash.net ([213.144.137.162]:46010 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750970AbZIBNGY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 09:06:24 -0400
+In-Reply-To: <20090901143033.0e9cb7ec@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-09-02 at 21:22 +0900, YOSHIFUJI Hideaki wrote:
-> Hello.
+Stephen Hemminger wrote:
+> On Fri, 28 Aug 2009 23:04:28 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> Jens Rosenboom wrote:
-> > When doing some IPv6 testing with the router advertising a small (e.g. 5
-> > seconds) reachable time, I noticed that after the traffic has stopped,
-> > hosts continue to exchange ND packets every 10 seconds. This is due to
-> > neigh_timer_handler() only checking neigh->used and puts a neighbor into
-> > NUD_DELAY state even if neigh->confirmed may be >= neigh->used.
+>> I think Patrick's goals are quite sound, and with his patch we
+>> could let pktgen transmit over vlan just like any other device.
+>>
+>> Otherwise we give no way to use pktgen to test the VLAN transmit path.
 > 
-> Well, as you can see in neigh_periodic_timer():
-> |                if (time_before(n->used, n->confirmed))
-> |                        n->used = n->confirmed;
-> time_after_eq(n->used, n->confirmed) should be taken valid;
-> confirmed <= used <= now <= jiffies
+> The only valid returns from device are OK, BUSY, or LOCKED
+> anything else is an error and should never occur.
+> 
+> If the vlan code returns other values, it must translate.
 
-Isn't there a chance that neigh_timer_handler() is run before the
-periodic timer fixes this? Otherwise I agree that the test could just
-say (n->used != n->confirmed).
+That was part of my patches to allow hard_start_xmit() to return
+NETDEV_TX codes, NET_XMIT codes to propagate transmission qdisc state
+upwards through virtual devices, as well as errno codes to propagate
+errors from virtual devices, like EHOSTUNREACH from an IP tunnel device.
 
-> > The following patch for net-next-2.6 fixes this behaviour for my IPv6
-> > setup, however I would like to hear some opinion on whether this might
-> > have some negative influence on other protocols that use this code.
-> > 
-> > I also think that it would make more sense to compute the time for the
-> > delay timer starting from neigh->used instead of using now (second part
-> > of the patch).
-> 
-> okay, but I would rather have this in another patch.
-> 
-> > diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> > index 5bc4ad5..ca20162 100644
-> > --- a/net/core/neighbour.c
-> > +++ b/net/core/neighbour.c
-> > @@ -820,12 +820,13 @@ static void neigh_timer_handler(unsigned long arg)
-> >  			NEIGH_PRINTK2("neigh %p is still alive.\n", neigh);
-> >  			next = neigh->confirmed + neigh->parms->reachable_time;
-> >  		} else if (time_before_eq(now,
-> > -					  neigh->used + neigh->parms->delay_probe_time)) {
-> > +					  neigh->used + neigh->parms->delay_probe_time) &&
-> > +			   time_after(neigh->confirmed, neigh->used)) {
-> >  			NEIGH_PRINTK2("neigh %p is delayed.\n", neigh);
-> >  			neigh->nud_state = NUD_DELAY;
-> 
-> I think your change should be
-> | time_after(neigh->used, neigh->confirmed)
-> or
-> | time_before(neigh->confirmed, neigh->used)
-> 
-> ("_eq" is removed because there is a little chance
-> that the neighbor had been confirmed just before it was
-> used.  It is not interesting for us at this moment.)
-> 
-> No?
-
-Yes, you are right, this test should be reversed. But together with your
-remarks above, this probably means that the whole stuff also works fine
-if we completely remove this if-branch.
-
-> And, this "if" for REACHABLE->DELAY may be completely needless.
-> Timer in REACHABLE is only for state transition for toward REACHABLE
-> or STALE.
-
-Well, this part has been there for a long time, at least it looks pretty
-much the same in the first git version, so I would be a bit reluctant to
-completely remove it, but since that would probably also solve my
-problem, I also wouldn't object that proposition. ;-)
+I'll refresh that patch and will post it tonight or tommorrow.
 
