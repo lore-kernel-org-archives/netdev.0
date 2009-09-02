@@ -1,46 +1,36 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [RFC][PATCH][v5] net/ethtool: Add support for the ethtool feature
- to flash firmware image from a specified file.
-Date: Wed, 02 Sep 2009 12:48:23 -0400
-Message-ID: <4A9EA1D7.8090002@pobox.com>
-References: <20090821165416.GA17102@serverengines.com> <20090902162241.GB23228@serverengines.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] tc: report informations for multiqueue devices
+Date: Wed, 02 Sep 2009 18:50:24 +0200
+Message-ID: <4A9EA250.2010209@gmail.com>
+References: <20090902081429.GB4878@ff.dom.local>	<4A9E2CC7.1010103@gmail.com>	<20090902.013002.181288977.davem@davemloft.net>	<4A9E6551.4030209@gmail.com>	<4A9E699B.7080400@gmail.com> <20090902092351.11649796@nehalam> <4A9E9D8A.50406@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Ajit Khaparde <ajitk@serverengines.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, jarkao2@gmail.com,
+	cl@linux-foundation.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:58798 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751607AbZIBQs1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Sep 2009 12:48:27 -0400
-In-Reply-To: <20090902162241.GB23228@serverengines.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:60692 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752445AbZIBQu3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 12:50:29 -0400
+In-Reply-To: <4A9E9D8A.50406@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/02/2009 12:22 PM, Ajit Khaparde wrote:
-> On 21/08/09 22:24 +0530, Ajit Khaparde wrote:
->> This patch adds support to flash a firmware image to a device using ethtool.
->> The driver gets the filename of the firmware image and flashes the image
->> using the request firmware path.
->>
->> The region "on the chip" to be flashed can be specified by an option.
->> It is upto the device driver to enumerate the region number passed by ethtool,
->> to the region to be flashed.
->>
->> The default behavior is to flash all the regions on the chip.
-> David,
-> Is this patch good enough for being accepted? Please let me know if any more
-> work has to be done on this.
->
-> I want to send the changes to the be2net driver which would use this
-> new ethtool feature.  Any ETA for applying the patch to the git tree?
-> I will schedule my driver patch according to that.
+Patrick McHardy a =E9crit :
+> Stephen Hemminger wrote:
+>> Even if the kernel keeps the value in something else for the API
+>> QINDEX needs to be a fixed size unsigned type like u32.
+>=20
+> Just to avoid duplicate work - I'm currently trying to put a patch
+> together that presents multiqueue qdiscs to userspace as regular
+> child qdiscs of a dummy qdisc, which also contains the aggregated
+> statistics. So far it actually looks pretty sane :)
 
-BTW, don't forget to update the ethtool userland utility as well,
-git://git.kernel.org/pub/scm/network/ethtool/ethtool.git
+Excellent !
 
-	Jeff
-
-
+I am cooking a patch to make vlan devices multiqueue aware
+(ie having same tx_queue numbers than their real_dev)
 
