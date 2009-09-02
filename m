@@ -1,113 +1,256 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: System freeze on reboot - general protection fault
-Date: Thu, 03 Sep 2009 00:17:43 +0200
-Message-ID: <4A9EEF07.5070800@gmail.com>
-References: <c4e36d110908110542l3de51aaepcbd62c84b9848f2b@mail.gmail.com>	 <c4e36d110908110832y21fba830ub8804613df571228@mail.gmail.com>	 <20090811154853.GF2763@sgi.com>	 <c4e36d110908111410y29b922ceod6871fda2514f6e6@mail.gmail.com>	 <c4e36d110908121516u504809e9y537e9babfa95df1d@mail.gmail.com>	 <alpine.DEB.1.10.0908121820410.3257@gentwo.org>	 <c4e36d110908131009l78b29bffvb4d41b90f9b83288@mail.gmail.com>	 <c4e36d110908140233v59421ba6y82192b858210370d@mail.gmail.com>	 <4A87CE60.4020506@gmail.com> <4A896324.3040104@trash.net> <c4e36d110909021445l5f44183es9e338437dfbbd195@mail.gmail.com>
+Subject: Re: [PATCH net-next-2.6] ip: Report qdisc packet drops
+Date: Thu, 03 Sep 2009 00:26:27 +0200
+Message-ID: <4A9EF113.9030102@gmail.com>
+References: <4A98132C.8090105@gmail.com>	<20090828.233858.256193304.davem@davemloft.net>	<4A9BBD8E.2010303@gmail.com> <20090901.184121.06750444.davem@davemloft.net> <4A9E849A.30105@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Robin Holt <holt@sgi.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Jesper Dangaard Brouer <hawk@comx.dk>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>
-To: Zdenek Kabelac <zdenek.kabelac@gmail.com>
+Cc: cl@linux-foundation.org, sri@us.ibm.com, dlstevens@us.ibm.com,
+	netdev@vger.kernel.org, niv@linux.vnet.ibm.com,
+	mtk.manpages@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:42276 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:39160 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753610AbZIBWSj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 18:18:39 -0400
-In-Reply-To: <c4e36d110909021445l5f44183es9e338437dfbbd195@mail.gmail.com>
+	with ESMTP id S1751012AbZIBW0g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 18:26:36 -0400
+In-Reply-To: <4A9E849A.30105@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Zdenek Kabelac a =E9crit :
-> 2009/8/17 Patrick McHardy <kaber@trash.net>:
->> Eric Dumazet wrote:
->>> Zdenek Kabelac a =E9crit :
->>>>  [<ffffffffa02c502f>] nf_conntrack_ftp_fini+0x2f/0x70 [nf_conntrac=
-k_ftp]
->>>>  [<ffffffff8027bcc5>] sys_delete_module+0x1a5/0x270
->>>>  [<ffffffff8020d329>] ? retint_swapgs+0xe/0x13
->>>>  [<ffffffff80271bf2>] ? trace_hardirqs_on_caller+0x162/0x1b0
->>>>  [<ffffffff80292121>] ? audit_syscall_entry+0x191/0x1c0
->>>>  [<ffffffff80526dae>] ? trace_hardirqs_on_thunk+0x3a/0x3f
->>>>  [<ffffffff8020c84b>] system_call_fastpath+0x16/0x1b
->>>> Code: c6 00 00 0f 82 66 ff ff ff 49 8b 9e d8 05 00 00 48 85 db 75 =
-16
->>>> e9 8e 00 00 00 0f 1f 44 00 00 48 85 c0 0f 84 80 00 00 00 48 89 c3 =
-<0f>
->>>> b6 4b 37 48 8b 03 48 8d 14 cd 00 00 00 00 0f 18 08 48 29 ca
->>>> RIP  [<ffffffffa02b2c2c>] nf_conntrack_helper_unregister+0x16c/0x3=
-20
->>>> [nf_conntrack]
->>>>  RSP <ffff88013982fe68>
->>>> CR2: 0000000000000038
->>>> ---[ end trace bc3a0ede3d0084db ]---
->>>>
->>> I am currently traveling and wont be able to help you before next w=
-eek.
->>>
->>> I added netdev, Patrick, and netfilter-devel in CC so that more eye=
-s can take a look.
->> Thanks for the report, I'll have a look at this. Zdenek, please
->> send me the nf_conntrack.ko file used in the above oops. Thanks.
+Eric Dumazet a =E9crit :
+> David Miller a =E9crit :
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> Date: Mon, 31 Aug 2009 14:09:50 +0200
 >>
+>>> Re-reading again this stuff, I realized ip6_push_pending_frames()
+>>> was not updating IPSTATS_MIB_OUTDISCARDS, even if IP_RECVERR was se=
+t.
+>>>
+>>> May I suggest following path :
+>>>
+>>> 1) Correct ip6_push_pending_frames() to properly
+>>> account for dropped-by-qdisc frames when IP_RECVERR is set
+>> Your patch is  applied to net-next-2.6, thanks!
+>>
+>>> 2) Submit a patch to account for qdisc-dropped frames in SNMP count=
+ers
+>>> but still return a OK to user application, to not break them ?
+>> Sounds good.
+>>
+>> I think if you sample random UDP applications, you will find that su=
+ch
+>> errors will upset them terribly, make them log tons of crap to
+>> /var/log/messages et al., and consume tons of CPU.
+>>
+>> And in such cases silent ignoring of drops is entirely appropriate a=
+nd
+>> optimal, which supports our current behavior.
+>>
+>> If we are to make such applications "more sophisticated" such
+>> converted apps can be indicated simply their use of IP_RECVERR.
+>>
+>> If you want to be notified of all asynchronous errors we can detect,
+>> you use this, end of story.  It is the only way to handle this
+>> situation without breaking the world.
+>>
+>> As usual, Alexey Kuznetsov's analysis of this situation is timeless,
+>> accurate, and wise.  And he understood all of this 10+ years ago.
 >=20
-> Ok
->=20
-> I've found the solution for my problem.
->=20
-> http://thread.gmane.org/gmane.comp.security.firewalls.netfilter.devel=
-/30483
->=20
-> I've made this small fix from this thread:
->=20
-> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_con=
-ntrack_core
-> index b5869b9..68488f8 100644
-> --- a/net/netfilter/nf_conntrack_core.c
-> +++ b/net/netfilter/nf_conntrack_core.c
-> @@ -1108,6 +1108,7 @@ static void nf_conntrack_cleanup_init_net(void)
->  {
->         nf_conntrack_helper_fini();
->         nf_conntrack_proto_fini();
-> +       rcu_barrier();
->         kmem_cache_destroy(nf_conntrack_cachep);
->  }
->=20
-> @@ -1266,7 +1267,7 @@ static int nf_conntrack_init_init_net(void)
->=20
->         nf_conntrack_cachep =3D kmem_cache_create("nf_conntrack",
->                                                 sizeof(struct nf_conn=
-),
-> -                                               0, SLAB_DESTROY_BY_RC=
-U, NULL);
-> +                                               0, 0, NULL);
->         if (!nf_conntrack_cachep) {
->                 printk(KERN_ERR "Unable to create nf_conn slab cache\=
-n");
->                 ret =3D -ENOMEM;
->=20
->=20
-> As the thread nf_conntrack: Use rcu_barrier() and fix kmem_cache_crea=
-te flags
-> seems to be samewhat 'unfinished'  and already a bit old and I've no
-> idea whether it actually fixes problem completely or just hides it in
-> my case - I'm leaving it to some RCU gurus to fix this issue.
->=20
-> All I could say is - this this extra rcu_barrier() and removal of
-> SLAB_DESTROY removes my GPF on reboot.
->=20
-> Zdenek
+> Thanks David, here is the 2nd patch then :
 
-Ouch..
+Here is an updated version of the patch, after Christoph comments.
 
-Dont think such a patch makes your kernel better, it'll crash too.
 
-You cannot remove SLAB_DESTROY_BY_RCU like this, it's there for very go=
-od reasons.
 
+[PATCH net-next-2.6] ip: Report qdisc packet drops
+
+Christoph Lameter pointed out that packet drops at qdisc level where no=
+t
+accounted in SNMP counters. Only if application sets IP_RECVERR, drops
+are reported to user (-ENOBUFS errors) and SNMP counters updated.
+
+IP_RECVERR is used to enable extended reliable error message passing,
+but these are not needed to update system wide SNMP stats.
+
+This patch changes things a bit to allow SNMP counters to be updated,
+regardless of IP_RECVERR being set or not on the socket.
+
+Example after an UDP tx flood
+# netstat -s=20
+=2E..
+IP:
+    1487048 outgoing packets dropped
+=2E..
+Udp:
+=2E..
+    SndbufErrors: 1487048
+
+
+send() syscalls, do however still return an OK status, to not
+break applications.
+
+Note : send() manual page explicitly says for -ENOBUFS error :
+
+ "The output queue for a network interface was full.
+  This generally indicates that the interface has stopped sending,
+  but may be caused by transient congestion.
+  (Normally, this does not occur in Linux. Packets are just silently
+  dropped when a device queue overflows.) "
+
+This is not true for IP_RECVERR enabled sockets : a send() syscall
+that hit a qdisc drop returns an ENOBUFS error.
+
+Many thanks to Christoph, David, and last but not least, Alexey !
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/ip_output.c  |    2 +-
+ net/ipv4/raw.c        |    9 +++++++--
+ net/ipv4/udp.c        |   12 +++++++++---
+ net/ipv6/ip6_output.c |    2 +-
+ net/ipv6/raw.c        |    4 +++-
+ net/ipv6/udp.c        |   12 +++++++++---
+ 6 files changed, 30 insertions(+), 11 deletions(-)
+
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 7d08210..afae0cb 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -1302,7 +1302,7 @@ int ip_push_pending_frames(struct sock *sk)
+ 	err =3D ip_local_out(skb);
+ 	if (err) {
+ 		if (err > 0)
+-			err =3D inet->recverr ? net_xmit_errno(err) : 0;
++			err =3D net_xmit_errno(err);
+ 		if (err)
+ 			goto error;
+ 	}
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 2979f14..ebb1e58 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -375,7 +375,7 @@ static int raw_send_hdrinc(struct sock *sk, void *f=
+rom, size_t length,
+ 	err =3D NF_HOOK(PF_INET, NF_INET_LOCAL_OUT, skb, NULL, rt->u.dst.dev,
+ 		      dst_output);
+ 	if (err > 0)
+-		err =3D inet->recverr ? net_xmit_errno(err) : 0;
++		err =3D net_xmit_errno(err);
+ 	if (err)
+ 		goto error;
+ out:
+@@ -386,6 +386,8 @@ error_fault:
+ 	kfree_skb(skb);
+ error:
+ 	IP_INC_STATS(net, IPSTATS_MIB_OUTDISCARDS);
++	if (err =3D=3D -ENOBUFS && !inet->recverr)
++		err =3D 0;
+ 	return err;
+ }
+=20
+@@ -576,8 +578,11 @@ back_from_confirm:
+ 					&ipc, &rt, msg->msg_flags);
+ 		if (err)
+ 			ip_flush_pending_frames(sk);
+-		else if (!(msg->msg_flags & MSG_MORE))
++		else if (!(msg->msg_flags & MSG_MORE)) {
+ 			err =3D ip_push_pending_frames(sk);
++			if (err =3D=3D -ENOBUFS && !inet->recverr)
++				err =3D 0;
++		}
+ 		release_sock(sk);
+ 	}
+ done:
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 29ebb0d..ebaaa7f 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -561,12 +561,18 @@ static int udp_push_pending_frames(struct sock *s=
+k)
+=20
+ send:
+ 	err =3D ip_push_pending_frames(sk);
++	if (err) {
++		if (err =3D=3D -ENOBUFS && !inet->recverr) {
++			UDP_INC_STATS_USER(sock_net(sk),
++					   UDP_MIB_SNDBUFERRORS, is_udplite);
++			err =3D 0;
++		}
++	} else
++		UDP_INC_STATS_USER(sock_net(sk),
++				   UDP_MIB_OUTDATAGRAMS, is_udplite);
+ out:
+ 	up->len =3D 0;
+ 	up->pending =3D 0;
+-	if (!err)
+-		UDP_INC_STATS_USER(sock_net(sk),
+-				UDP_MIB_OUTDATAGRAMS, is_udplite);
+ 	return err;
+ }
+=20
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index a931229..cd48801 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1511,7 +1511,7 @@ int ip6_push_pending_frames(struct sock *sk)
+ 	err =3D ip6_local_out(skb);
+ 	if (err) {
+ 		if (err > 0)
+-			err =3D np->recverr ? net_xmit_errno(err) : 0;
++			err =3D net_xmit_errno(err);
+ 		if (err)
+ 			goto error;
+ 	}
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 5068410..7d675b8 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -642,7 +642,7 @@ static int rawv6_send_hdrinc(struct sock *sk, void =
+*from, int length,
+ 	err =3D NF_HOOK(PF_INET6, NF_INET_LOCAL_OUT, skb, NULL, rt->u.dst.dev=
+,
+ 		      dst_output);
+ 	if (err > 0)
+-		err =3D np->recverr ? net_xmit_errno(err) : 0;
++		err =3D net_xmit_errno(err);
+ 	if (err)
+ 		goto error;
+ out:
+@@ -653,6 +653,8 @@ error_fault:
+ 	kfree_skb(skb);
+ error:
+ 	IP6_INC_STATS(sock_net(sk), rt->rt6i_idev, IPSTATS_MIB_OUTDISCARDS);
++	if (err =3D=3D -ENOBUFS && !np->recverr)
++		err =3D 0;
+ 	return err;
+ }
+=20
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 20d2ffc..1640406 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -724,12 +724,18 @@ static int udp_v6_push_pending_frames(struct sock=
+ *sk)
+=20
+ send:
+ 	err =3D ip6_push_pending_frames(sk);
++	if (err) {
++		if (err =3D=3D -ENOBUFS && !inet6_sk(sk)->recverr) {
++			UDP6_INC_STATS_USER(sock_net(sk),
++					    UDP_MIB_SNDBUFERRORS, is_udplite);
++			err =3D 0;
++		}
++	} else
++		UDP6_INC_STATS_USER(sock_net(sk),
++				    UDP_MIB_OUTDATAGRAMS, is_udplite);
+ out:
+ 	up->len =3D 0;
+ 	up->pending =3D 0;
+-	if (!err)
+-		UDP6_INC_STATS_USER(sock_net(sk),
+-				UDP_MIB_OUTDATAGRAMS, is_udplite);
+ 	return err;
+ }
+=20
