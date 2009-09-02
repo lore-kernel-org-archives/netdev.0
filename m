@@ -1,76 +1,92 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [RFC] net/core: Delay neighbor only if it has been used after
- confirmed
-Date: Wed, 02 Sep 2009 21:22:51 +0900
-Message-ID: <4A9E639B.20907@linux-ipv6.org>
-References: <1251883079.5813.18.camel@fnki-nb00130>
+From: wu xiaofei <lampsu@gmail.com>
+Subject: Re: about packets forwarding
+Date: Wed, 2 Sep 2009 20:31:41 +0800
+Message-ID: <f4f837ab0909020531l46c001d2o8fa08f63f9525332@mail.gmail.com>
+References: <f4f837ab0907220706g1129a1cbv7dfad944e5bada16@mail.gmail.com>
+	 <f4f837ab0909020127o3359ed03j224ef51a0673bcd9@mail.gmail.com>
+	 <f4f837ab0909020203w67bcba16pbb317c587c58e70f@mail.gmail.com>
+	 <20090902201800.1dbb4988.lk-netdev@lk-netdev.nosense.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Network Developers <netdev@vger.kernel.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Jens Rosenboom <me@jayr.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Mark Smith <lk-netdev@lk-netdev.nosense.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:41818 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751050AbZIBMbS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 08:31:18 -0400
-In-Reply-To: <1251883079.5813.18.camel@fnki-nb00130>
+Received: from mail-iw0-f204.google.com ([209.85.223.204]:60211 "EHLO
+	mail-iw0-f204.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751582AbZIBMbj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 08:31:39 -0400
+Received: by iwn42 with SMTP id 42so337022iwn.33
+        for <netdev@vger.kernel.org>; Wed, 02 Sep 2009 05:31:41 -0700 (PDT)
+In-Reply-To: <20090902201800.1dbb4988.lk-netdev@lk-netdev.nosense.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+2009/9/2 Mark Smith <lk-netdev@lk-netdev.nosense.org>:
+> On Wed, 2 Sep 2009 17:03:42 +0800
+> wu xiaofei <lampsu@gmail.com> wrote:
+>
+>> Hello,
+>>
+>> I have something to ask here.
+>>
+>> The topology of the network is as follows.
+>> There are six Nodes (A, B, C, D, M, N).
+>>
+>> =A0 M
+>> =A0 |
+>> =A0 A
+>> =A0/ \
+>> B=A0=A0 D
+>> =A0\ /
+>> =A0 C
+>> =A0 |
+>> =A0 N
+>>
+>> M-A, C-N are wired links.
+>> A-B, B-C, A-D, D-C are wireless links.
+>>
+>> Node M wnats to communicate with node N. Because the wireless links
+>> are not very reliable, I want to forward the packets through A-B-C a=
+nd
+>> A-D-C simultaneously (When Node A receives packets(from Node M) from
+>> its wired interface eth0, It will forward the same packets to its
+>> wireless interfaces wlan0 and wlan1 simultaneously) . How to impleme=
+nt
+>> this?
+>>
+>
+> Packets being duplicated in this manner is generally considered an
+> error - protocols are designed to deal with it, but only as an error
+> robustness mechanism. In other words, it won't break anything, but
+> performance is very likely to suffer.
+>
 
-Jens Rosenboom wrote:
-> When doing some IPv6 testing with the router advertising a small (e.g. 5
-> seconds) reachable time, I noticed that after the traffic has stopped,
-> hosts continue to exchange ND packets every 10 seconds. This is due to
-> neigh_timer_handler() only checking neigh->used and puts a neighbor into
-> NUD_DELAY state even if neigh->confirmed may be >= neigh->used.
+I will process the duplicated packets on node C, just forward one copy
+to node N.
+My purpose:
+to improve the reliablity of the wireless links, make our individual
+network more robust.
+If the path A-B-C is not available, maybe the path A-D-C is still
+available, so the communication between node M and node N will not be
+interrupted.
+The probability of the path A-B-C and A-D-C broken at the same time   i=
+s small.
 
-Well, as you can see in neigh_periodic_timer():
-|                if (time_before(n->used, n->confirmed))
-|                        n->used = n->confirmed;
-time_after_eq(n->used, n->confirmed) should be taken valid;
-confirmed <= used <= now <= jiffies
+> The Internet protocols are designed on the assumption of a low
+> possibility of packet loss (1 in 100)- they only assume each
+> link in the path will have an error detection mechanism (and drop the=
+m
+> when errors occur), but not an error correction mechanism. If the
+> possibility of packet loss is high (1 in 10), then it is expected tha=
+t
+> the link layer itself will implement error detection and recovery.
+>
 
-> The following patch for net-next-2.6 fixes this behaviour for my IPv6
-> setup, however I would like to hear some opinion on whether this might
-> have some negative influence on other protocols that use this code.
-> 
-> I also think that it would make more sense to compute the time for the
-> delay timer starting from neigh->used instead of using now (second part
-> of the patch).
+We use 802.11b/g wireless cards on our nodes.
+The wireless links may have varying quality in terms of packet loss,
+data rates, and interference. It's not very stable. It's very
+different from wired links.
 
-okay, but I would rather have this in another patch.
-
-> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> index 5bc4ad5..ca20162 100644
-> --- a/net/core/neighbour.c
-> +++ b/net/core/neighbour.c
-> @@ -820,12 +820,13 @@ static void neigh_timer_handler(unsigned long arg)
->  			NEIGH_PRINTK2("neigh %p is still alive.\n", neigh);
->  			next = neigh->confirmed + neigh->parms->reachable_time;
->  		} else if (time_before_eq(now,
-> -					  neigh->used + neigh->parms->delay_probe_time)) {
-> +					  neigh->used + neigh->parms->delay_probe_time) &&
-> +			   time_after(neigh->confirmed, neigh->used)) {
->  			NEIGH_PRINTK2("neigh %p is delayed.\n", neigh);
->  			neigh->nud_state = NUD_DELAY;
-
-I think your change should be
-| time_after(neigh->used, neigh->confirmed)
-or
-| time_before(neigh->confirmed, neigh->used)
-
-("_eq" is removed because there is a little chance
-that the neighbor had been confirmed just before it was
-used.  It is not interesting for us at this moment.)
-
-No?
-
-And, this "if" for REACHABLE->DELAY may be completely needless.
-Timer in REACHABLE is only for state transition for toward REACHABLE
-or STALE.
-
---yoshfuji
+--
+Wu
