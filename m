@@ -1,51 +1,110 @@
-From: wu xiaofei <lampsu@gmail.com>
-Subject: about packets forwarding
-Date: Wed, 2 Sep 2009 17:03:42 +0800
-Message-ID: <f4f837ab0909020203w67bcba16pbb317c587c58e70f@mail.gmail.com>
-References: <f4f837ab0907220706g1129a1cbv7dfad944e5bada16@mail.gmail.com>
-	 <f4f837ab0909020127o3359ed03j224ef51a0673bcd9@mail.gmail.com>
+From: =?utf-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: [PATCH 2/2] fec: don't enable irqs in hard irq context
+Date: Wed,  2 Sep 2009 11:14:16 +0200
+Message-ID: <1251882856-23549-2-git-send-email-u.kleine-koenig@pengutronix.de>
+References: <20090831132200.GA21836@pengutronix.de>
+ <1251882856-23549-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f204.google.com ([209.85.223.204]:50714 "EHLO
-	mail-iw0-f204.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751010AbZIBJDk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 05:03:40 -0400
-Received: by iwn42 with SMTP id 42so299607iwn.33
-        for <netdev@vger.kernel.org>; Wed, 02 Sep 2009 02:03:43 -0700 (PDT)
-In-Reply-To: <f4f837ab0909020127o3359ed03j224ef51a0673bcd9@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Greg Ungerer <gerg@uclinux.org>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Patrick McHardy <kaber@trash.net>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Matt Waddel <Matt.Waddel@freescale.com>,
+	netdev@vger.kernel.org,
+	Tim Sander <tim01@vlsi.informatik.tu-darmstadt.de>
+To: linux-rt-users@vger.kernel.org
+Return-path: <linux-rt-users-owner@vger.kernel.org>
+In-Reply-To: <1251882856-23549-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Sender: linux-rt-users-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+fec_enet_mii, fec_enet_rx and fec_enet_tx are both only called by
+fec_enet_interrupt in interrupt context.  So they must not use
+spin_lock_irq/spin_unlock_irq.
 
-I have something to ask here.
+This fixes:
+	WARNING: at kernel/lockdep.c:2140 trace_hardirqs_on_caller+0x130/0x194=
+()
+	...
 
-The topology of the network is as follows.
-There are six Nodes (A, B, C, D, M, N).
+Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+Cc: Greg Ungerer <gerg@uclinux.org>
+Cc: Ben Hutchings <ben@decadent.org.uk>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Sascha Hauer <s.hauer@pengutronix.de>
+Cc: Matt Waddel <Matt.Waddel@freescale.com>
+Cc: netdev@vger.kernel.org
+Cc: Tim Sander <tim01@vlsi.informatik.tu-darmstadt.de>
+---
+ drivers/net/fec.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
 
-=A0 M
-=A0 |
-=A0 A
-=A0/ \
-B=A0=A0 D
-=A0\ /
-=A0 C
-=A0 |
-=A0 N
-
-M-A, C-N are wired links.
-A-B, B-C, A-D, D-C are wireless links.
-
-Node M wnats to communicate with node N. Because the wireless links
-are not very reliable, I want to forward the packets through A-B-C and
-A-D-C simultaneously (When Node A receives packets(from Node M) from
-its wired interface eth0, It will forward the same packets to its
-wireless interfaces wlan0 and wlan1 simultaneously) . How to implement
-this?
+diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+index ef82606..9c49d56 100644
+--- a/drivers/net/fec.c
++++ b/drivers/net/fec.c
+@@ -427,7 +427,7 @@ fec_enet_tx(struct net_device *dev)
+ 	struct	sk_buff	*skb;
+=20
+ 	fep =3D netdev_priv(dev);
+-	spin_lock_irq(&fep->hw_lock);
++	spin_lock(&fep->hw_lock);
+ 	bdp =3D fep->dirty_tx;
+=20
+ 	while (((status =3D bdp->cbd_sc) & BD_ENET_TX_READY) =3D=3D 0) {
+@@ -486,7 +486,7 @@ fec_enet_tx(struct net_device *dev)
+ 		}
+ 	}
+ 	fep->dirty_tx =3D bdp;
+-	spin_unlock_irq(&fep->hw_lock);
++	spin_unlock(&fep->hw_lock);
+ }
+=20
+=20
+@@ -509,7 +509,7 @@ fec_enet_rx(struct net_device *dev)
+ 	flush_cache_all();
+ #endif
+=20
+-	spin_lock_irq(&fep->hw_lock);
++	spin_lock(&fep->hw_lock);
+=20
+ 	/* First, grab all of the stats for the incoming packet.
+ 	 * These get messed up if we get called due to a busy condition.
+@@ -604,7 +604,7 @@ rx_processing_done:
+ 	}
+ 	fep->cur_rx =3D bdp;
+=20
+-	spin_unlock_irq(&fep->hw_lock);
++	spin_unlock(&fep->hw_lock);
+ }
+=20
+ /* called from interrupt context */
+@@ -615,7 +615,7 @@ fec_enet_mii(struct net_device *dev)
+ 	mii_list_t	*mip;
+=20
+ 	fep =3D netdev_priv(dev);
+-	spin_lock_irq(&fep->mii_lock);
++	spin_lock(&fep->mii_lock);
+=20
+ 	if ((mip =3D mii_head) =3D=3D NULL) {
+ 		printk("MII and no head!\n");
+@@ -633,7 +633,7 @@ fec_enet_mii(struct net_device *dev)
+ 		writel(mip->mii_regval, fep->hwp + FEC_MII_DATA);
+=20
+ unlock:
+-	spin_unlock_irq(&fep->mii_lock);
++	spin_unlock(&fep->mii_lock);
+ }
+=20
+ static int
+--=20
+1.6.3.3
 
 --
-Regards,
-=A0Wu
+To unsubscribe from this list: send the line "unsubscribe linux-rt-user=
+s" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
