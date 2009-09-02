@@ -1,212 +1,221 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: [PATCH 14/19] tulip: convert drivers to netdev_tx_t
-Date: Wed, 2 Sep 2009 00:08:20 -0600
-Message-ID: <20090902060820.GC28972@lackof.org>
-References: <20090901055039.824876937@vyatta.com> <20090901055129.814907029@vyatta.com> <20090902054801.GB28972@lackof.org>
+From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Subject: RE: [RFC] Virtual Machine Device Queues(VMDq) support on KVM
+Date: Wed, 2 Sep 2009 14:45:38 +0800
+Message-ID: <C85CEDA13AB1CF4D9D597824A86D2B9006AEC03200@PDSMSX501.ccr.corp.intel.com>
+References: <C85CEDA13AB1CF4D9D597824A86D2B9006AEB94861@PDSMSX501.ccr.corp.intel.com>
+ <20090901090518.1193e412@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Kyle McMartin <kyle@mcmartin.ca>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "mst@redhat.com" <mst@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mingo@elte.hu" <mingo@elte.hu>,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"hpa@zytor.com" <hpa@zytor.com>,
+	"gregory.haskins@gmail.com" <gregory.haskins@gmail.com>
 To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from complete.lackof.org ([198.49.126.79]:59337 "EHLO
-	complete.lackof.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753089AbZIBGIT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 02:08:19 -0400
-Content-Disposition: inline
-In-Reply-To: <20090902054801.GB28972@lackof.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20090901090518.1193e412@nehalam>
+Content-Language: en-US
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 01, 2009 at 11:48:01PM -0600, Grant Grundler wrote:
-> On Mon, Aug 31, 2009 at 10:50:53PM -0700, Stephen Hemminger wrote:
-> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> > ---
-> >  drivers/net/tulip/de2104x.c     |    3 ++-
-> >  drivers/net/tulip/de4x5.c       |   11 +++++------
-> >  drivers/net/tulip/dmfe.c        |    5 +++--
-> >  drivers/net/tulip/tulip_core.c  |    5 +++--
-> >  drivers/net/tulip/uli526x.c     |    6 ++++--
-> >  drivers/net/tulip/winbond-840.c |    4 ++--
-> >  drivers/net/tulip/xircom_cb.c   |    6 ++++--
-> >  7 files changed, 23 insertions(+), 17 deletions(-)
-> > 
-> > --- a/drivers/net/tulip/de2104x.c	2009-08-29 23:10:19.609527457 -0700
-> > +++ b/drivers/net/tulip/de2104x.c	2009-08-29 23:12:54.117527675 -0700
-> > @@ -599,7 +599,8 @@ next:
-> >  		netif_wake_queue(de->dev);
-> >  }
-> >  
-> > -static int de_start_xmit (struct sk_buff *skb, struct net_device *dev)
-> > +static netdev_tx_t de_start_xmit (struct sk_buff *skb,
-> > +					struct net_device *dev)
+>* Code is easier to review than bullet points.
+
+	Yes. We'd send the code soon.
+
+>* Direct I/O has to be safe when page is shared by multiple threads,
+> and has to be non-blocking since network I/O can take indeterminately
+> long (think big queue's, tunneling, ...)
+
+In the situation, one queue pair NIC is assigned to only one guest, the pages 
+are locked and a KVM guest will not swapped out.
+
+
+>* In the past attempts at Direct I/O on network have always had SMP
+> TLB issues. The page has to be flipped or marked as COW on all CPU's
+> and the cost of the Inter Processor Interrupt to steal the page has
+> been slower than copying
+
+It may be, we have not thought about this more . Thanks.
+
+Thanks
+Xiaohui
+
+-----Original Message-----
+From: Stephen Hemminger [mailto:shemminger@vyatta.com] 
+Sent: Wednesday, September 02, 2009 12:05 AM
+To: Xin, Xiaohui
+Cc: mst@redhat.com; netdev@vger.kernel.org; virtualization@lists.linux-foundation.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org; mingo@elte.hu; linux-mm@kvack.org; akpm@linux-foundation.org; hpa@zytor.com; gregory.haskins@gmail.com
+Subject: Re: [RFC] Virtual Machine Device Queues(VMDq) support on KVM
+
+On Tue, 1 Sep 2009 14:58:19 +0800
+"Xin, Xiaohui" <xiaohui.xin@intel.com> wrote:
+
+>               [RFC] Virtual Machine Device Queues (VMDq) support on KVM
 > 
-> Stephen,
-> The patches look harmless and I'm inclined to ACK them...but google can't find
-> any context or explanation for "netdev_tx_t". URL to email which proposed
-> netdev_tx_t?
-
-Finally found it...archives just had to catch up:
-    http://thread.gmane.org/gmane.linux.network/136658/
-
-ACKed-by: Grant Grundler <grundler@parisc-linux.org>
-
-thanks,
-grant
-
+> Network adapter with VMDq technology presents multiple pairs of tx/rx queues,
+> and renders network L2 sorting mechanism based on MAC addresses and VLAN tags
+> for each tx/rx queue pair. Here we present a generic framework, in which network
+> traffic to/from a tx/rx queue pair can be directed from/to a KVM guest without
+> any software copy.
 > 
-> thanks,
-> grant
-> >  {
-> >  	struct de_private *de = netdev_priv(dev);
-> >  	unsigned int entry, tx_free;
-> > --- a/drivers/net/tulip/de4x5.c	2009-08-29 23:10:19.553491700 -0700
-> > +++ b/drivers/net/tulip/de4x5.c	2009-08-29 23:12:54.125526807 -0700
-> > @@ -895,7 +895,8 @@ static struct {
-> >  ** Public Functions
-> >  */
-> >  static int     de4x5_open(struct net_device *dev);
-> > -static int     de4x5_queue_pkt(struct sk_buff *skb, struct net_device *dev);
-> > +static netdev_tx_t de4x5_queue_pkt(struct sk_buff *skb,
-> > +					 struct net_device *dev);
-> >  static irqreturn_t de4x5_interrupt(int irq, void *dev_id);
-> >  static int     de4x5_close(struct net_device *dev);
-> >  static struct  net_device_stats *de4x5_get_stats(struct net_device *dev);
-> > @@ -1456,18 +1457,16 @@ de4x5_sw_reset(struct net_device *dev)
-> >  /*
-> >  ** Writes a socket buffer address to the next available transmit descriptor.
-> >  */
-> > -static int
-> > +static netdev_tx_t
-> >  de4x5_queue_pkt(struct sk_buff *skb, struct net_device *dev)
-> >  {
-> >      struct de4x5_private *lp = netdev_priv(dev);
-> >      u_long iobase = dev->base_addr;
-> > -    int status = NETDEV_TX_OK;
-> >      u_long flags = 0;
-> >  
-> >      netif_stop_queue(dev);
-> > -    if (!lp->tx_enable) {                   /* Cannot send for now */
-> > +    if (!lp->tx_enable)                   /* Cannot send for now */
-> >  	return NETDEV_TX_LOCKED;
-> > -    }
-> >  
-> >      /*
-> >      ** Clean out the TX ring asynchronously to interrupts - sometimes the
-> > @@ -1521,7 +1520,7 @@ de4x5_queue_pkt(struct sk_buff *skb, str
-> >  
-> >      lp->cache.lock = 0;
-> >  
-> > -    return status;
-> > +    return NETDEV_TX_OK;
-> >  }
-> >  
-> >  /*
-> > --- a/drivers/net/tulip/dmfe.c	2009-08-29 23:10:19.521492310 -0700
-> > +++ b/drivers/net/tulip/dmfe.c	2009-08-29 23:12:54.129527736 -0700
-> > @@ -311,7 +311,7 @@ static u8 SF_mode;		/* Special Function:
-> >  
-> >  /* function declaration ------------------------------------- */
-> >  static int dmfe_open(struct DEVICE *);
-> > -static int dmfe_start_xmit(struct sk_buff *, struct DEVICE *);
-> > +static netdev_tx_t dmfe_start_xmit(struct sk_buff *, struct DEVICE *);
-> >  static int dmfe_stop(struct DEVICE *);
-> >  static void dmfe_set_filter_mode(struct DEVICE *);
-> >  static const struct ethtool_ops netdev_ethtool_ops;
-> > @@ -661,7 +661,8 @@ static void dmfe_init_dm910x(struct DEVI
-> >   *	Send a packet to media from the upper layer.
-> >   */
-> >  
-> > -static int dmfe_start_xmit(struct sk_buff *skb, struct DEVICE *dev)
-> > +static netdev_tx_t dmfe_start_xmit(struct sk_buff *skb,
-> > +					 struct DEVICE *dev)
-> >  {
-> >  	struct dmfe_board_info *db = netdev_priv(dev);
-> >  	struct tx_desc *txptr;
-> > --- a/drivers/net/tulip/tulip_core.c	2009-08-29 23:10:19.589491808 -0700
-> > +++ b/drivers/net/tulip/tulip_core.c	2009-08-29 23:12:54.129527736 -0700
-> > @@ -256,7 +256,8 @@ const char tulip_media_cap[32] =
-> >  static void tulip_tx_timeout(struct net_device *dev);
-> >  static void tulip_init_ring(struct net_device *dev);
-> >  static void tulip_free_ring(struct net_device *dev);
-> > -static int tulip_start_xmit(struct sk_buff *skb, struct net_device *dev);
-> > +static netdev_tx_t tulip_start_xmit(struct sk_buff *skb,
-> > +					  struct net_device *dev);
-> >  static int tulip_open(struct net_device *dev);
-> >  static int tulip_close(struct net_device *dev);
-> >  static void tulip_up(struct net_device *dev);
-> > @@ -645,7 +646,7 @@ static void tulip_init_ring(struct net_d
-> >  	tp->tx_ring[i-1].buffer2 = cpu_to_le32(tp->tx_ring_dma);
-> >  }
-> >  
-> > -static int
-> > +static netdev_tx_t
-> >  tulip_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> >  {
-> >  	struct tulip_private *tp = netdev_priv(dev);
-> > --- a/drivers/net/tulip/uli526x.c	2009-08-29 23:10:19.637530461 -0700
-> > +++ b/drivers/net/tulip/uli526x.c	2009-08-29 23:12:54.133492067 -0700
-> > @@ -215,7 +215,8 @@ static int mode = 8;
-> >  
-> >  /* function declaration ------------------------------------- */
-> >  static int uli526x_open(struct net_device *);
-> > -static int uli526x_start_xmit(struct sk_buff *, struct net_device *);
-> > +static netdev_tx_t uli526x_start_xmit(struct sk_buff *,
-> > +					    struct net_device *);
-> >  static int uli526x_stop(struct net_device *);
-> >  static void uli526x_set_filter_mode(struct net_device *);
-> >  static const struct ethtool_ops netdev_ethtool_ops;
-> > @@ -567,7 +568,8 @@ static void uli526x_init(struct net_devi
-> >   *	Send a packet to media from the upper layer.
-> >   */
-> >  
-> > -static int uli526x_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> > +static netdev_tx_t uli526x_start_xmit(struct sk_buff *skb,
-> > +					    struct net_device *dev)
-> >  {
-> >  	struct uli526x_board_info *db = netdev_priv(dev);
-> >  	struct tx_desc *txptr;
-> > --- a/drivers/net/tulip/winbond-840.c	2009-08-29 23:10:19.537492110 -0700
-> > +++ b/drivers/net/tulip/winbond-840.c	2009-08-29 23:12:54.133492067 -0700
-> > @@ -333,7 +333,7 @@ static void init_registers(struct net_de
-> >  static void tx_timeout(struct net_device *dev);
-> >  static int alloc_ringdesc(struct net_device *dev);
-> >  static void free_ringdesc(struct netdev_private *np);
-> > -static int  start_tx(struct sk_buff *skb, struct net_device *dev);
-> > +static netdev_tx_t start_tx(struct sk_buff *skb, struct net_device *dev);
-> >  static irqreturn_t intr_handler(int irq, void *dev_instance);
-> >  static void netdev_error(struct net_device *dev, int intr_status);
-> >  static int  netdev_rx(struct net_device *dev);
-> > @@ -997,7 +997,7 @@ static void free_ringdesc(struct netdev_
-> >  
-> >  }
-> >  
-> > -static int start_tx(struct sk_buff *skb, struct net_device *dev)
-> > +static netdev_tx_t start_tx(struct sk_buff *skb, struct net_device *dev)
-> >  {
-> >  	struct netdev_private *np = netdev_priv(dev);
-> >  	unsigned entry;
-> > --- a/drivers/net/tulip/xircom_cb.c	2009-08-29 23:10:19.505491812 -0700
-> > +++ b/drivers/net/tulip/xircom_cb.c	2009-08-29 23:12:54.137512691 -0700
-> > @@ -113,7 +113,8 @@ struct xircom_private {
-> >  static int xircom_probe(struct pci_dev *pdev, const struct pci_device_id *id);
-> >  static void xircom_remove(struct pci_dev *pdev);
-> >  static irqreturn_t xircom_interrupt(int irq, void *dev_instance);
-> > -static int xircom_start_xmit(struct sk_buff *skb, struct net_device *dev);
-> > +static netdev_tx_t xircom_start_xmit(struct sk_buff *skb,
-> > +					   struct net_device *dev);
-> >  static int xircom_open(struct net_device *dev);
-> >  static int xircom_close(struct net_device *dev);
-> >  static void xircom_up(struct xircom_private *card);
-> > @@ -384,7 +385,8 @@ static irqreturn_t xircom_interrupt(int 
-> >  	return IRQ_HANDLED;
-> >  }
-> >  
-> > -static int xircom_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> > +static netdev_tx_t xircom_start_xmit(struct sk_buff *skb,
-> > +					   struct net_device *dev)
-> >  {
-> >  	struct xircom_private *card;
-> >  	unsigned long flags;
-> > 
-> > -- 
+> Actually this framework can apply to traditional network adapters which have
+> just one tx/rx queue pair. And applications using the same user/kernel interface
+> can utilize this framework to send/receive network traffic directly thru a tx/rx
+> queue pair in a network adapter.
+> 
+> We use virtio-net architecture to illustrate the framework.
+> 
+> 
+> |--------------------|     pop               add_buf    |----------------|
+> |    Qemu process    |  <---------    TX   <----------  | Guest Kernel   |
+> |                    |  --------->         ---------->  |                |
+> |    Virtio-net      |     push              get_buf    |                |
+> |  (Backend service) |  --------->    RX   ---------->  |  Virtio-net    |
+> |                    |  <---------         <----------  |    driver      |
+> |                    |     push              get_buf    |                |
+> |--------------------|                                  |----------------|
+>                    |
+>                    |
+>                    | AIO (read & write) combined with Direct I/O
+>                    |   (which substitute synced file operations)
+> |-----------------------------------------------------------------------|
+> |     Host kernel  | read: copy-less with directly mapped user          |
+> |                  |       space to kernel, payload directly DMAed      |
+> |                  |       into user space                              |
+> |                  | write: copy-less with directly mapped user         |
+> |                  |       space to kernel, payload directly hooked     |
+> |                  |       to a skb                                     |
+> |                  |                                                    |
+> |  (a likely       |                                                    |
+> |   queue pair     |                                                    |
+> |   instance)      |                                                    |
+> |      |           |                                                    |
+> | NIC driver <-->  TUN/TAP driver                                       |
+> |-----------------------------------------------------------------------|
+>        |
+>        |
+>    traditional adapter or a tx/rx queue pair
+> 
+> The basic idea is to utilize the kernel Asynchronous I/O combined with Direct
+> I/O to implements copy-less TUN/TAP device. AIO and Direct I/O is not new to
+> kernel, we still can see it in SCSI tape driver.
+> 
+> With traditional file operations, a copying of payload contents from/to the
+> kernel DMA address to/from a user buffer is needed. That's what the copying we
+> want to save.
+> 
+> The proposed framework is like this:
+> A TUN/TAP device is bound to a traditional NIC adapter or a tx/rx queue pair in
+> host side. KVM virto-net Backend service, the user space program submits
+> asynchronous read/write I/O requests to the host kernel through TUN/TAP device.
+> The requests are corresponding to the vqueue elements include both transmission
+> & receive. They can be queued in one AIO request and later, the completion will
+> be notified through the underlying packets tx/rx processing of the rx/tx queue
+> pair.
+> 
+> Detailed path:
+> 
+> To guest Virtio-net driver, packets receive corresponding to asynchronous read
+> I/O requests of Backend service.
+> 
+> 1) Guest Virtio-net driver provides header and payload address through the
+> receive vqueue to Virtio-net backend service.
+> 
+> 2) Virtio-net backend service encapsulates multiple vqueue elements into
+> multiple AIO control blocks and composes them into one AIO read request.
+> 
+> 3) Virtio-net backend service uses io_submit() syscall to pass the request to
+> the TUN/TAP device.
+> 
+> 4) Virtio-net backend service uses io_getevents() syscall to check the
+> completion of the request.
+> 
+> 5) The TUN/TAP driver receives packets from the queue pair of NIC, and prepares
+> for Direct I/O.
+>    A modified NIC driver may render a skb which header is allocated in host
+> kernel, but the payload buffer is directly mapped from user space buffer which
+> are rendered through the AIO request by the Backend service. get_user_pages()
+> may do this. For one AIO read request, the TUN/TAP driver maintains a list for
+> the directly mapped buffers, and a NIC driver tries to get the buffers as
+> payload buffer to compose the new skbs. Of course, if getting the buffers
+> fails, then kernel allocated buffers are used.
+> 
+> 6) Modern NIC cards now mostly have the header split feature. The NIC queue
+> pair then may directly DMA the payload into the user spaces mapped payload
+> buffers.
+> Thus a zero-copy for payload is implemented in packet receiving.
+> 
+> 7) The TUN/TAP driver manually copy the host header to space user mapped.
+> 
+> 8) aio_complete() to notify the Virtio-net backend service for io_getevents().
+> 
+> 
+> To guest Virtio-net driver, packets send corresponding to asynchronous write
+> I/O requests of backend. The path is similar to packet receive.
+> 
+> 1) Guest Virtio-net driver provides header and payload address filled with
+> contents through the transmit vqueue to Virtio-net backed service.
+> 
+> 2) Virtio-net backend service encapsulates the vqueue elements into multiple
+> AIO control blocks and composes them into one AIO write request.
+> 
+> 3) Virtio-net backend service uses the io_submit() syscall to pass the
+> requests to the TUN/TAP device.
+> 
+> 4) Virtio-net backend service uses io_getevents() syscall to check the request
+> completion.
+> 
+> 5) The TUN/TAP driver gets the write requests and allocates skbs for it. The
+> header contents are copied into the skb header. The directly mapped user space
+> buffer is easily hooked into skb. Thus a zero copy for payload is implemented
+> in packet sending.
+> 
+> 6) aio_complete() to notify the Virtio-net backend service for io_getevents().
+> 
+> The proposed framework is described as above.
+> 
+> Consider the modifications to the kernel and qemu:
+> 
+> To kernel:
+> 1) The TUN/TAP driver may be modified a lot to implement AIO device operations
+> and to implement directly user space mapping into kernel. Code to maintain the
+> directly mapped user buffers should be in. It's just a modification for driver.
+> 
+> 2) The NIC driver may be modified to compose skb differently and slightly data
+> structure change to add user directly mapped buffer pointer.
+> Here, maybe it's better for a NIC driver to present an interface for an rx/tx
+> queue pair instance which will also apply to traditional hardware, the kernel
+> interface should not be changed to make the other components happy.
+> The abstraction is useful, though it is not needed immediately here.
+> 
+> 3) The skb shared info structure may be modified a little to contain the user
+> directly mapped info.
+> 
+> To Qemu:
+> 1) The Virtio-net backend service may be modified to handle AIO read/write
+> requests from the vqueues.
+> 2) Maybe a separate pthread to handle the AIO request triggering is needed.
+> 
+> Any comments are appreciated here.
+
+* Code is easier to review than bullet points.
+
+* Direct I/O has to be safe when page is shared by multiple threads,
+  and has to be non-blocking since network I/O can take indeterminately
+  long (think big queue's, tunneling, ...)
+
+* In the past attempts at Direct I/O on network have always had SMP
+  TLB issues. The page has to be flipped or marked as COW on all CPU's
+  and the cost of the Inter Processor Interrupt to steal the page has
+  been slower than copying
+
+
+
+-- 
