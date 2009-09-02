@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sky2: Use 32bit read to read Y2_VAUX_AVAIL
-Date: Tue, 01 Sep 2009 17:45:05 -0700 (PDT)
-Message-ID: <20090901.174505.63658266.davem@davemloft.net>
-References: <4A9D2793.1020502@ring3k.org>
-	<20090901085757.47b5c09c@nehalam>
+Subject: Re: [PATCH 0/2] RTO connection timeout calculation
+Date: Tue, 01 Sep 2009 17:45:22 -0700 (PDT)
+Message-ID: <20090901.174522.20878161.davem@davemloft.net>
+References: <4A9D82DC.50508@tvk.rwth-aachen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mikem@ring3k.org, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org
+To: damian@tvk.rwth-aachen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40482
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40486
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755457AbZIBAou (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 20:44:50 -0400
-In-Reply-To: <20090901085757.47b5c09c@nehalam>
+	by vger.kernel.org with ESMTP id S1755457AbZIBApI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 20:45:08 -0400
+In-Reply-To: <4A9D82DC.50508@tvk.rwth-aachen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Tue, 1 Sep 2009 08:57:57 -0700
+From: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Date: Tue, 01 Sep 2009 22:23:56 +0200
 
-> On Tue, 01 Sep 2009 22:54:27 +0900
-> Mike McCormack <mikem@ring3k.org> wrote:
+> this series of patches implements some changes concerning the RTO
+> retransmission timeouts.
 > 
->> B0_CTST is a 24bit register according to the vendor driver (sk98lin).
->> A 16bit read on B0_CTST will always return 0 for Y2_VAUX_AVAIL (1<<16),
->>  so use a 32bit read when testing Y2_VAUX_AVAIL
->> 
->> Signed-off-by: Mike McCormack <mikem@ring3k.org>
- ...
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+> 1) retransmits_timed_out() is commented shortly and has
+>    more meaningful names.
+> 2) The sysctl documentation is being updated.
+> 
+> Signed-off-by: Damian Lukowski <damian@tvk.rwth-aachen.de>
 
-Applied.
+Looks good to me, all applied.
+
+Thanks.
