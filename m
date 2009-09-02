@@ -1,62 +1,44 @@
-From: Xiaofei Wu <xiaofei_wu08@yahoo.com>
-Subject: Re: about packets forwarding
-Date: Wed, 2 Sep 2009 06:14:21 -0700 (PDT)
-Message-ID: <128535.30433.qm@web111606.mail.gq1.yahoo.com>
-References: <f4f837ab0907220706g1129a1cbv7dfad944e5bada16@mail.gmail.com> <f4f837ab0909020127o3359ed03j224ef51a0673bcd9@mail.gmail.com> <f4f837ab0909020203w67bcba16pbb317c587c58e70f@mail.gmail.com> <20090902201800.1dbb4988.lk-netdev@lk-netdev.nosense.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH net-next-2.6] tc: report informations for multiqueue devices
+Date: Wed, 02 Sep 2009 15:18:05 +0200
+Message-ID: <4A9E708D.5040806@trash.net>
+References: <20090902081429.GB4878@ff.dom.local>	<4A9E2CC7.1010103@gmail.com> <20090902.013002.181288977.davem@davemloft.net> <4A9E6551.4030209@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux netdev <netdev@vger.kernel.org>
-To: Mark Smith <lk-netdev@lk-netdev.nosense.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, jarkao2@gmail.com,
+	cl@linux-foundation.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from n8.bullet.re3.yahoo.com ([68.142.237.93]:40789 "HELO
-	n8.bullet.re3.yahoo.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751725AbZIBNOT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 09:14:19 -0400
-In-Reply-To: <20090902201800.1dbb4988.lk-netdev@lk-netdev.nosense.org>
+Received: from stinky.trash.net ([213.144.137.162]:46261 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751955AbZIBNSK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 09:18:10 -0400
+In-Reply-To: <4A9E6551.4030209@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-
-
-> Hello,
+Eric Dumazet wrote:
+> [PATCH net-next-2.6] tc: report informations for multiqueue devices
 > 
-> I have something to ask here.
+> qdisc and classes are not yet displayed by "tc -s -d {qdisc|class} show"
+> for multiqueue devices.
 > 
-> The topology of the network is as follows.
-> There are six Nodes (A, B, C, D, M, N).
+> We use a new TCA_QINDEX attribute, to report queue index to user space.
+> iproute2 tc should be changed to eventually display this queue index as in :
 > 
->   M
->   |
->   A
->  / \
-> B   D
->  \ /
->   C
->   |
->   N
-> 
-> M-A, C-N are wired links.
-> A-B, B-C, A-D, D-C are wireless links.
-> 
-> Node M wnats to communicate with node N. Because the wireless links
-> are not very reliable, I want to forward the packets through A-B-C and
-> A-D-C simultaneously (When Node A receives packets(from Node M) from
-> its wired interface eth0, It will forward the same packets to its
-> wireless interfaces wlan0 and wlan1 simultaneously) . How to implement
-> this?
-> 
+> $ tc -s -d qdisc
+> qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+>  Sent 52498 bytes 465 pkt (dropped 0, overlimits 0 requeues 0)
+>  rate 0bit 0pps backlog 0b 0p requeues 0
+> qdisc pfifo_fast 0: dev eth0 qindex 1 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+>  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>  rate 0bit 0pps backlog 0b 0p requeues 0
 
-------
-Stephen Hemminger  <shemminger@linux-foundation.org> said,
+This might confuse existing userspace since the handle is not unique
+anymore. libnl f.i. will treat all but the first root qdisc as an
+update and use it to update the state of the first one. There's also
+no combined view for applications unaware of multiqueue.
 
-* The traffic control command 'tc filter    mirred'  probably does this, but not sure.
-* Other way to do the same thing would be iptables, not sure if there is an iptables target to mirror.
-------
-
-Can you give more information about how to implement this?
-
-
-      
-
+Please have a look at the mail I just wrote for some possible ways
+around this.
