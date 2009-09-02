@@ -1,71 +1,56 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] drop_monitor: make last_rx timestamp private
-Date: Wed, 2 Sep 2009 06:55:35 -0400
-Message-ID: <20090902105535.GB402@hmsreliant.think-freely.org>
-References: <20090831195847.GA6506@hmsreliant.think-freely.org> <20090901.182127.96935772.davem@davemloft.net>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: [RFC] net/fs_enet: send a reset request to the PHY on init
+Date: Wed, 2 Sep 2009 13:04:10 +0200
+Message-ID: <20090902110410.GC15401@www.tglx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:35436 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751463AbZIBKzn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 06:55:43 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+	Vitaly Bordug <vbordug@ru.mvista.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
 Content-Disposition: inline
-In-Reply-To: <20090901.182127.96935772.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 01, 2009 at 06:21:27PM -0700, David Miller wrote:
-> From: Neil Horman <nhorman@tuxdriver.com>
-> Date: Mon, 31 Aug 2009 15:58:47 -0400
-> 
-> > It was recently pointed out to me that the last_rx field of the net_device
-> > structure wasn't updated regularly.  In fact only the bonding driver really uses
-> > it currently.  Since the drop_monitor code relies on the last_rx field to detect
-> > drops on recevie in hardware, We need to find a more reliable way to rate limit
-> > our drop checks (so that we don't check for drops on every frame recevied, which
-> > would be inefficient.  This patch makes a last_rx timestamp that is private to
-> > the drop monitor code and is updated for every device that we track.
-> > 
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> 
-> Neil, this doesn't apply to net-next-2.6:
-> 
-> > diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
-> > index 9d66fa9..34a05ce 100644
-> > --- a/net/core/drop_monitor.c
-> > +++ b/net/core/drop_monitor.c
->  ...
-> > @@ -179,18 +180,21 @@ static void trace_napi_poll_hit(struct napi_struct *napi)
-> >  {
-> >  	struct dm_hw_stat_delta *new_stat;
-> >  
-> > -	/*
-> > -	 * Ratelimit our check time to dm_hw_check_delta jiffies
-> > -	 */
-> > -	if (!time_after(jiffies, napi->dev->last_rx + dm_hw_check_delta))
-> > -		return;
-> >  
-> >  	rcu_read_lock();
-> >  	list_for_each_entry_rcu(new_stat, &hw_stats_list, list) {
-> 
-> In net-next-2.6 this test reads:
-> 
-> 	/*
-> 	 * Ratelimit our check time to dm_hw_check_delta jiffies
-> 	 */
-> 	if (!napi->dev ||
-> 	    !time_after(jiffies, napi->dev->last_rx + dm_hw_check_delta))
-> 		return;
-> 
-> and you must retain the napi->dev NULL check there as otherwise
-> the list traversal tests will blindly dereference that pointer.
-> 
+Usually u-boot sends a phy request in its network init routine. An uboot
+without network support doesn't do it and I endup without working
+network. I still can switch between 10/100Mbit (according to the LED on
+the hub and phy registers) but I can't send or receive any data.
 
-Apologies, this raced with Xiao fix to trace_napi_poll hit, which introduced
-that null check.  I'll rediff/repost shortly.
+At this point I'm not sure if the PowerON Reset takes the PHY a few
+nsecs too early out of reset or if this reset is required and everyone
+relies on U-boot performing this reset.
 
-Neil
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+This is done on a custom mpc512x board. Unfortunately I don't have other
+boards to check. The PHY is a AMD Am79C874, phylib uses the generic one.
 
+ drivers/net/fs_enet/fs_enet-main.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
+index ee15402..a3c962b 100644
+--- a/drivers/net/fs_enet/fs_enet-main.c
++++ b/drivers/net/fs_enet/fs_enet-main.c
+@@ -823,7 +823,8 @@ static int fs_init_phy(struct net_device *dev)
+ 	}
+ 
+ 	fep->phydev = phydev;
+-
++	phy_write(phydev, MII_BMCR, BMCR_RESET);
++	udelay(1);
+ 	return 0;
+ }
+ 
+-- 
+1.6.4.GIT
