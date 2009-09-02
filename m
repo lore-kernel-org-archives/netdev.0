@@ -1,33 +1,33 @@
 From: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
-Subject: [PATCH 2/5] Implement loss counting on TFRC-SP receiver
-Date: Tue, 1 Sep 2009 23:44:45 -0300
-Message-ID: <cb00fa210909011944r60f310bcx7e3f45e619f41498@mail.gmail.com>
-References: <cb00fa210909011735m4f81224dg1736767ba6f51ceb@mail.gmail.com>
+Subject: [PATCH 3/5] Implement TFRC-SP calc of mean length of loss intervals
+	accordingly to section 3 of RFC 4828
+Date: Tue, 1 Sep 2009 23:45:28 -0300
+Message-ID: <cb00fa210909011945l1c44d1eap90329a4c6eb0480a@mail.gmail.com>
+References: <cb00fa210909011735kb74904bsc34058b725f9f5e9@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev <netdev@vger.kernel.org>
 To: dccp <dccp@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f181.google.com ([209.85.210.181]:49427 "EHLO
+Received: from mail-yx0-f181.google.com ([209.85.210.181]:42792 "EHLO
 	mail-yx0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755569AbZIBCpC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 22:45:02 -0400
-In-Reply-To: <cb00fa210909011735m4f81224dg1736767ba6f51ceb@mail.gmail.com>
+	with ESMTP id S1755575AbZIBCpq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 22:45:46 -0400
+In-Reply-To: <cb00fa210909011735kb74904bsc34058b725f9f5e9@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement loss counting on TFRC-SP receiver. Consider transmission's
-hole size as loss count.
+Implement TFRC-SP calc of mean length of loss intervals accordingly to
+section 3 of RFC 4828
 
 Changes:
-=A0- Adds field li_losses to tfrc_loss_interval to track loss count per=
- interval
-=A0- Adds field num_losses to tfrc_rx_hist, used to store loss count pe=
-r
-loss event
-=A0- Adds dccp_loss_count function to net/dccp/dccp.h, responsible for
-loss count using sequence numbers
+=A0- Modify tfrc_sp_lh_calc_i_mean header, now receiving the current
+ccval, so it can determine
+=A0 if a loss interval is too recent
+=A0- Consider number of losses in each loss interval
+=A0- Only consider open loss interval if it is at least 2 rtt old
+=A0- Changes function signatures as necessary
 
 Signed-off-by: Ivo Calado, Erivaldo Xavier, Leandro Sales
 <ivocalado@embedded.ufcg.edu.br>, <desadoc@gmail.com>,
@@ -38,152 +38,152 @@ Index: b/net/dccp/ccids/lib/loss_interval_sp.c
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
 --- a/net/dccp/ccids/lib/loss_interval_sp.c =A0 =A0 2009-08-26
-21:50:23.000000000 -0300
+23:28:27.000000000 -0300
 +++ b/net/dccp/ccids/lib/loss_interval_sp.c =A0 =A0 2009-08-26
-22:51:32.000000000 -0300
-@@ -184,6 +184,7 @@
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0s64 len =3D dccp_delta_seqno(cur->li_seq=
-no, cong_evt_seqno);
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if ((len <=3D 0)||(!tfrc_lh_closed_check=
-(cur,
-cong_evt->tfrchrx_ccval)))
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0{
-+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 cur->li_losses +=3D rh->n=
-um_losses;
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return false;
+23:53:32.000000000 -0300
+@@ -66,10 +66,11 @@
 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+=A0}
 
-@@ -201,6 +202,7 @@
-=A0 =A0 =A0 =A0cur->li_seqno =A0 =A0 =3D cong_evt_seqno;
-=A0 =A0 =A0 =A0cur->li_ccval =A0 =A0 =3D cong_evt->tfrchrx_ccval;
-=A0 =A0 =A0 =A0cur->li_is_closed =3D false;
-+ =A0 =A0 =A0 cur->li_losses =A0 =A0=3D rh->num_losses;
+-static void tfrc_sp_lh_calc_i_mean(struct tfrc_loss_hist *lh)
++static void tfrc_sp_lh_calc_i_mean(struct tfrc_loss_hist *lh, __u8 cur=
+r_ccval)
+=A0{
+=A0 =A0 =A0 =A0u32 i_i, i_tot0 =3D 0, i_tot1 =3D 0, w_tot =3D 0;
+=A0 =A0 =A0 =A0int i, k =3D tfrc_lh_length(lh) - 1; /* k is as in rfc34=
+48bis, 5.4 */
++ =A0 =A0 =A0 u32 losses;
 
-=A0 =A0 =A0 =A0if (++lh->counter =3D=3D 1)
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0lh->i_mean =3D cur->li_length =3D (*calc=
-_first_li)(sk);
+=A0 =A0 =A0 =A0if (k <=3D 0)
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return;
+@@ -77,6 +78,14 @@
+=A0 =A0 =A0 =A0for (i =3D 0; i <=3D k; i++) {
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0i_i =3D tfrc_lh_get_interval(lh, i);
+
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (SUB16(curr_ccval,
+tfrc_lh_get_loss_interval(lh,i)->li_ccval) <=3D 8)
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 {
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 losses =3D tfrc_lh_get_lo=
+ss_interval(lh,i)->li_losses;
++
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (losses > 0)
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 i_i =3D d=
+iv64_u64(i_i, losses);
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
++
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (i < k) {
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0i_tot0 +=3D i_i * tfrc_l=
+h_weights[i];
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0w_tot =A0+=3D tfrc_lh_we=
+ights[i];
+@@ -86,6 +95,12 @@
+=A0 =A0 =A0 =A0}
+
+=A0 =A0 =A0 =A0lh->i_mean =3D max(i_tot0, i_tot1) / w_tot;
++ =A0 =A0 =A0 BUG_ON(w_tot =3D=3D 0);
++ =A0 =A0 =A0 if (SUB16(curr_ccval, tfrc_lh_get_loss_interval(lh,0)->li=
+_ccval) > 8) {
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 lh->i_mean =3D max(i_tot0, i_tot1) / w_to=
+t;
++ =A0 =A0 =A0 } else {
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 lh->i_mean =3D i_tot1 / w_tot;
++ =A0 =A0 =A0 }
+=A0}
+
+=A0/**
+@@ -126,7 +141,7 @@
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return;
+
+=A0 =A0 =A0 =A0cur->li_length =3D len;
+- =A0 =A0 =A0 tfrc_sp_lh_calc_i_mean(lh);
++ =A0 =A0 =A0 tfrc_sp_lh_calc_i_mean(lh, dccp_hdr(skb)->dccph_ccval);
+=A0}
+
+=A0/* RFC 4342, 10.2: test for the existence of packet with sequence nu=
+mber S */
+@@ -145,7 +160,7 @@
+=A0* Updates I_mean and returns 1 if a new interval has in fact been
+added to @lh.
+=A0*/
+=A0bool tfrc_sp_lh_interval_add(struct tfrc_loss_hist *lh, struct
+tfrc_rx_hist *rh,
+- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0u32 (*calc_fir=
+st_li)(struct sock *),
+struct sock *sk)
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0u32 (*calc_fir=
+st_li)(struct sock *),
+struct sock *sk, __u8 ccval)
+=A0{
+=A0 =A0 =A0 =A0struct tfrc_loss_interval *cur =3D tfrc_lh_peek(lh);
+=A0 =A0 =A0 =A0struct tfrc_rx_hist_entry *cong_evt;
+@@ -214,7 +229,7 @@
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (lh->counter > (2*LIH_SIZE))
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0lh->counter -=3D LIH_SIZ=
+E;
+
+- =A0 =A0 =A0 =A0 =A0 =A0 =A0 tfrc_sp_lh_calc_i_mean(lh);
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 tfrc_sp_lh_calc_i_mean(lh, ccval);
+=A0 =A0 =A0 =A0}
+
+=A0 =A0 =A0 =A0return true;
 Index: b/net/dccp/ccids/lib/loss_interval_sp.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
 --- a/net/dccp/ccids/lib/loss_interval_sp.h =A0 =A0 2009-08-26
-21:30:11.000000000 -0300
-+++ b/net/dccp/ccids/lib/loss_interval_sp.h =A0 =A0 2009-08-26
 22:52:20.000000000 -0300
-@@ -30,12 +30,14 @@
-=A0* =A0@li_ccval: =A0 =A0 =A0 =A0 The CCVal belonging to @li_seqno
-=A0* =A0@li_is_closed: =A0 =A0 Whether @li_seqno is older than 1 RTT
-=A0* =A0@li_length: =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Loss interval sequen=
-ce length
-+ * =A0@li_losses: =A0 =A0 =A0 =A0Number of losses counted on this inte=
-rval
-=A0*/
-=A0struct tfrc_loss_interval {
-=A0 =A0 =A0 =A0u64 =A0 =A0 =A0 =A0 =A0 =A0 =A0li_seqno:48,
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 li_ccval:4,
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 li_is_closed:1;
-=A0 =A0 =A0 =A0u32 =A0 =A0 =A0 =A0 =A0 =A0 =A0li_length;
-+ =A0 =A0 =A0 u32 =A0 =A0 =A0 =A0 =A0 =A0 =A0li_losses;
-=A0};
++++ b/net/dccp/ccids/lib/loss_interval_sp.h =A0 =A0 2009-08-26
+23:44:20.000000000 -0300
+@@ -71,7 +71,7 @@
+=A0#endif
 
-=A0/**
+=A0extern bool tfrc_sp_lh_interval_add(struct tfrc_loss_hist *, struct
+tfrc_rx_hist *,
+- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 u=
+32 (*first_li)(struct sock *),
+struct sock *);
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 u=
+32 (*first_li)(struct sock *),
+struct sock *, __u8 ccval);
+=A0extern void tfrc_sp_lh_update_i_mean(struct tfrc_loss_hist *lh,
+struct sk_buff *);
+=A0extern void tfrc_sp_lh_cleanup(struct tfrc_loss_hist *lh);
+
 Index: b/net/dccp/ccids/lib/packet_history_sp.c
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
 --- a/net/dccp/ccids/lib/packet_history_sp.c =A0 =A02009-08-26
-21:46:36.000000000 -0300
-+++ b/net/dccp/ccids/lib/packet_history_sp.c =A0 =A02009-08-26
 22:55:01.000000000 -0300
-@@ -236,6 +236,7 @@
-=A0 =A0 =A0 =A0if (likely(dccp_delta_seqno(s2, s3) > 0)) { =A0 =A0 /* S=
-2 =A0< =A0S3 */
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0h->loss_count =3D 3;
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tfrc_sp_rx_hist_entry_from_skb(tfrc_rx_h=
-ist_entry(h,
-3), skb, n3);
-+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 h->num_losses =3D dccp_loss_count(s2, s3,=
- n3);
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return 1;
-=A0 =A0 =A0 =A0}
++++ b/net/dccp/ccids/lib/packet_history_sp.c =A0 =A02009-08-26
+23:49:59.000000000 -0300
+@@ -359,7 +359,7 @@
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/*
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* Update Loss Interval database and recy=
+cle RX records
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
+- =A0 =A0 =A0 =A0 =A0 =A0 =A0 new_event =3D tfrc_sp_lh_interval_add(lh,=
+ h, first_li, sk);
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 new_event =3D tfrc_sp_lh_interval_add(lh,=
+ h, first_li, sk,
+dccp_hdr(skb)->dccph_ccval);
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0__three_after_loss(h);
 
-@@ -248,6 +249,7 @@
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tfrc_rx_hist_swap(h, 2, 3);
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tfrc_sp_rx_hist_entry_from_skb(tfrc_rx_h=
-ist_entry(h,
-2), skb, n3);
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0h->loss_count =3D 3;
-+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 h->num_losses =3D dccp_loss_count(s1, s3,=
- n3);
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return 1;
-=A0 =A0 =A0 =A0}
-
-@@ -283,6 +285,7 @@
-=A0 =A0 =A0 =A0h->loss_start =3D tfrc_rx_hist_index(h, 3);
-=A0 =A0 =A0 =A0tfrc_sp_rx_hist_entry_from_skb(tfrc_rx_hist_entry(h, 1),=
- skb, n3);
-=A0 =A0 =A0 =A0h->loss_count =3D 3;
-+ =A0 =A0 =A0 h->num_losses =3D dccp_loss_count(s0, s3, n3);
-
-=A0 =A0 =A0 =A0return 1;
-=A0}
-Index: b/net/dccp/ccids/lib/packet_history_sp.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
---- a/net/dccp/ccids/lib/packet_history_sp.h =A0 =A02009-08-26
-21:40:55.000000000 -0300
-+++ b/net/dccp/ccids/lib/packet_history_sp.h =A0 =A02009-08-26
-22:55:58.000000000 -0300
-@@ -101,6 +101,7 @@
-=A0* @packet_size: =A0 =A0 =A0 Packet size in bytes (as per RFC 3448, 3=
-=2E1)
-=A0* @bytes_recvd: =A0 =A0 =A0 Number of bytes received since @bytes_st=
-art
-=A0* @bytes_start: =A0 =A0 =A0 Start time for counting @bytes_recvd
-+ * @num_losses: =A0 =A0 =A0 =A0Number of losses contained on this loss=
- event
-=A0*/
-=A0struct tfrc_rx_hist {
-=A0 =A0 =A0 =A0struct tfrc_rx_hist_entry *ring[TFRC_NDUPACK + 1];
-@@ -113,6 +114,7 @@
-=A0 =A0 =A0 =A0u32 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 packet_s=
-ize,
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0byte=
-s_recvd;
-=A0 =A0 =A0 =A0ktime_t =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bytes_start;
-+ =A0 =A0 =A0 u8 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0num_los=
-ses;
-=A0};
-
-=A0/**
-Index: b/net/dccp/dccp.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
---- a/net/dccp/dccp.h =A0 2009-08-25 20:21:45.000000000 -0300
-+++ b/net/dccp/dccp.h =A0 2009-08-26 22:59:10.000000000 -0300
-@@ -168,6 +168,21 @@
-=A0 =A0 =A0 =A0return (u64)delta <=3D ndp + 1;
-=A0}
-
-+static inline u64 dccp_loss_count(const u64 s1, const u64 s2, const u6=
-4 ndp)
-+{
-+ =A0 =A0 =A0 s64 delta, count;
-+
-+ =A0 =A0 =A0 delta =3D dccp_delta_seqno(s1, s2);
-+ =A0 =A0 =A0 WARN_ON(delta < 0);
-+
-+ =A0 =A0 =A0 count =3D ndp + 1;
-+ =A0 =A0 =A0 count -=3D delta;
-+
-+ =A0 =A0 =A0 count =3D (count > 0)? count: 0;
-+
-+ =A0 =A0 =A0 return (u64) count;
-+}
-+
-=A0enum {
-=A0 =A0 =A0 =A0DCCP_MIB_NUM =3D 0,
-=A0 =A0 =A0 =A0DCCP_MIB_ACTIVEOPENS, =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- /* ActiveOpens */
+=A0 =A0 =A0 =A0} else if (dccp_data_packet(skb) && dccp_skb_is_ecn_ce(s=
+kb)) {
+@@ -368,7 +368,7 @@
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* the RFC considers ECN marks - a future=
+ implementation may
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* find it useful to also check ECN marks=
+ on non-data packets.
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
+- =A0 =A0 =A0 =A0 =A0 =A0 =A0 new_event =3D tfrc_sp_lh_interval_add(lh,=
+ h, first_li, sk);
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 new_event =3D tfrc_sp_lh_interval_add(lh,=
+ h, first_li, sk,
+dccp_hdr(skb)->dccph_ccval);
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/*
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* Also combinations of loss and ECN-mark=
+s (as per the warning)
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* are not supported. The permutations of=
+ loss combined with or
