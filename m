@@ -1,44 +1,115 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH net-next-2.6] tc: report informations for multiqueue devices
-Date: Wed, 02 Sep 2009 15:18:05 +0200
-Message-ID: <4A9E708D.5040806@trash.net>
-References: <20090902081429.GB4878@ff.dom.local>	<4A9E2CC7.1010103@gmail.com> <20090902.013002.181288977.davem@davemloft.net> <4A9E6551.4030209@gmail.com>
+From: John Linn <John.Linn@xilinx.com>
+Subject: RE: [PATCH] [V3] net: add Xilinx emac lite device driver
+Date: Wed, 2 Sep 2009 07:33:18 -0600
+Message-ID: <20090902133245.5128E26804D@mail202-sin.bigfish.com>
+References: <20090820094956.02DFC45004F@mail96-dub.bigfish.com> <20090820094914.46f1db9c@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jarkao2@gmail.com,
-	cl@linux-foundation.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
+	<davem@davemloft.net>, <jgarzik@pobox.com>,
+	<grant.likely@secretlab.ca>,
+	"Josh Boyer" <jwboyer@linux.vnet.ibm.com>,
+	"John Williams" <john.williams@petalogix.com>,
+	"Michal Simek" <michal.simek@petalogix.com>,
+	"Sadanand Mutyala" <sadanan@xilinx.com>
+To: "Stephen Hemminger" <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:46261 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751955AbZIBNSK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 09:18:10 -0400
-In-Reply-To: <4A9E6551.4030209@gmail.com>
+Received: from sg2ehsobe002.messaging.microsoft.com ([207.46.51.76]:57742 "EHLO
+	SG2EHSOBE002.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751408AbZIBNdV convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Sep 2009 09:33:21 -0400
+Content-Class: urn:content-classes:message
+In-Reply-To: <20090820094914.46f1db9c@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> [PATCH net-next-2.6] tc: report informations for multiqueue devices
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+> Sent: Thursday, August 20, 2009 5:49 PM
+> To: John Linn
+> Cc: netdev@vger.kernel.org; linuxppc-dev@ozlabs.org;
+davem@davemloft.net; jgarzik@pobox.com; John
+> Linn; grant.likely@secretlab.ca; Josh Boyer; John Williams; Michal
+Simek; Sadanand Mutyala
+> Subject: Re: [PATCH] [V3] net: add Xilinx emac lite device driver
 > 
-> qdisc and classes are not yet displayed by "tc -s -d {qdisc|class} show"
-> for multiqueue devices.
+> On Thu, 20 Aug 2009 03:49:51 -0600
+> John Linn <john.linn@xilinx.com> wrote:
 > 
-> We use a new TCA_QINDEX attribute, to report queue index to user space.
-> iproute2 tc should be changed to eventually display this queue index as in :
+> > +/**
+> > + * xemaclite_ioctl - Perform IO Control operations on the network
+device
+> > + * @dev:	Pointer to the network device
+> > + * @rq:		Pointer to the interface request structure
+> > + * @cmd:	IOCTL command
+> > + *
+> > + * The only IOCTL operation supported by this function is setting
+the MAC
+> > + * address. An error is reported if any other operations are
+requested.
+> > + *
+> > + * Return:	0 to indicate success, or a negative error for failure.
+> > + */
+> > +static int xemaclite_ioctl(struct net_device *dev, struct ifreq
+*rq, int cmd)
+> > +{
+> > +	struct net_local *lp = (struct net_local *) netdev_priv(dev);
+> > +	struct hw_addr_data *hw_addr = (struct hw_addr_data *)
+&rq->ifr_hwaddr;
+> > +
+> > +	switch (cmd) {
+> > +	case SIOCETHTOOL:
+> > +		return -EIO;
+> > +
+> > +	case SIOCSIFHWADDR:
+> > +		dev_err(&lp->ndev->dev, "SIOCSIFHWADDR\n");
+> > +
+> > +		/* Copy MAC address in from user space */
+> > +		copy_from_user((void __force *) dev->dev_addr,
+> > +			       (void __user __force *) hw_addr,
+> > +			       IFHWADDRLEN);
+> > +		xemaclite_set_mac_address(lp, dev->dev_addr);
+> > +		break;
+> > +	default:
+> > +		return -EOPNOTSUPP;
+> > +	}
+> > +
+> > +	return 0;
+> > +}
 > 
-> $ tc -s -d qdisc
-> qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
->  Sent 52498 bytes 465 pkt (dropped 0, overlimits 0 requeues 0)
->  rate 0bit 0pps backlog 0b 0p requeues 0
-> qdisc pfifo_fast 0: dev eth0 qindex 1 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
->  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->  rate 0bit 0pps backlog 0b 0p requeues 0
+> Do you really need this? I doubt the SIOCSIFHWADDR even reaches
+driver!
+> 
+> The normal call path for setting hardware address is:
+>   dev_ifsioc
+>          dev_set_mac_address
+>              ops->ndo_set_mac_address -->
+> 
+> The driver should be:
+>    1. defining new code to do ndo_set_mac_address
+>    2. remove existing xmaclite_ioctl - all ioctl's handled by upper
+layers
+> 
+> FYI - the only ioctl's that make it to network device ndo_ioctl
+>  are listed in dev_ifsioc
+>    SIOCDEVPRIVATE ... SIOCDEVPRIVATE + 15
+>    SIOCBOND*
+>    SIOCMII*
+>    SIOCBR*
+>    SIOCHWTSTAMP
+>    SIOCWANDEV
+> 
+> 
 
-This might confuse existing userspace since the handle is not unique
-anymore. libnl f.i. will treat all but the first root qdisc as an
-update and use it to update the state of the first one. There's also
-no combined view for applications unaware of multiqueue.
+We agree and will be updating the driver for this change. Sorry about
+the delay as I was on vacation.
 
-Please have a look at the mail I just wrote for some possible ways
-around this.
+Thanks,
+John
+
+
+This email and any attachments are intended for the sole use of the named recipient(s) and contain(s) confidential information that may be proprietary, privileged or copyrighted under applicable law. If you are not the intended recipient, do not read, copy, or forward this email message or any attachments. Delete this email message and any attachments immediately.
+
+
