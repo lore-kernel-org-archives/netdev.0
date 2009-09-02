@@ -1,41 +1,62 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 08/14] pktgen: reorganize transmit loop
-Date: Wed, 02 Sep 2009 15:06:04 +0200
-Message-ID: <4A9E6DBC.5030904@trash.net>
-References: <20090827235705.740919364@vyatta.com>	<4A975480.3080507@candelatech.com>	<20090827224902.49f80920@nehalam>	<20090828.230428.211927371.davem@davemloft.net> <20090901143033.0e9cb7ec@nehalam>
+From: Xiaofei Wu <xiaofei_wu08@yahoo.com>
+Subject: Re: about packets forwarding
+Date: Wed, 2 Sep 2009 06:14:21 -0700 (PDT)
+Message-ID: <128535.30433.qm@web111606.mail.gq1.yahoo.com>
+References: <f4f837ab0907220706g1129a1cbv7dfad944e5bada16@mail.gmail.com> <f4f837ab0909020127o3359ed03j224ef51a0673bcd9@mail.gmail.com> <f4f837ab0909020203w67bcba16pbb317c587c58e70f@mail.gmail.com> <20090902201800.1dbb4988.lk-netdev@lk-netdev.nosense.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, greearb@candelatech.com,
-	robert.olsson@its.uu.se, netdev@vger.kernel.org, tglx@linutronix.de
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux netdev <netdev@vger.kernel.org>
+To: Mark Smith <lk-netdev@lk-netdev.nosense.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:46010 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750970AbZIBNGY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 09:06:24 -0400
-In-Reply-To: <20090901143033.0e9cb7ec@nehalam>
+Received: from n8.bullet.re3.yahoo.com ([68.142.237.93]:40789 "HELO
+	n8.bullet.re3.yahoo.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751725AbZIBNOT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 09:14:19 -0400
+In-Reply-To: <20090902201800.1dbb4988.lk-netdev@lk-netdev.nosense.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Fri, 28 Aug 2009 23:04:28 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
-> 
->> I think Patrick's goals are quite sound, and with his patch we
->> could let pktgen transmit over vlan just like any other device.
->>
->> Otherwise we give no way to use pktgen to test the VLAN transmit path.
-> 
-> The only valid returns from device are OK, BUSY, or LOCKED
-> anything else is an error and should never occur.
-> 
-> If the vlan code returns other values, it must translate.
 
-That was part of my patches to allow hard_start_xmit() to return
-NETDEV_TX codes, NET_XMIT codes to propagate transmission qdisc state
-upwards through virtual devices, as well as errno codes to propagate
-errors from virtual devices, like EHOSTUNREACH from an IP tunnel device.
 
-I'll refresh that patch and will post it tonight or tommorrow.
+
+
+> Hello,
+> 
+> I have something to ask here.
+> 
+> The topology of the network is as follows.
+> There are six Nodes (A, B, C, D, M, N).
+> 
+>   M
+>   |
+>   A
+>  / \
+> B   D
+>  \ /
+>   C
+>   |
+>   N
+> 
+> M-A, C-N are wired links.
+> A-B, B-C, A-D, D-C are wireless links.
+> 
+> Node M wnats to communicate with node N. Because the wireless links
+> are not very reliable, I want to forward the packets through A-B-C and
+> A-D-C simultaneously (When Node A receives packets(from Node M) from
+> its wired interface eth0, It will forward the same packets to its
+> wireless interfaces wlan0 and wlan1 simultaneously) . How to implement
+> this?
+> 
+
+------
+Stephen Hemminger  <shemminger@linux-foundation.org> said,
+
+* The traffic control command 'tc filter    mirred'  probably does this, but not sure.
+* Other way to do the same thing would be iptables, not sure if there is an iptables target to mirror.
+------
+
+Can you give more information about how to implement this?
+
+
+      
 
