@@ -1,87 +1,69 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] drop_monitor: make last_rx timestamp private
-Date: Wed, 2 Sep 2009 09:36:20 -0400
-Message-ID: <20090902133620.GC402@hmsreliant.think-freely.org>
-References: <20090831195847.GA6506@hmsreliant.think-freely.org> <20090901.182127.96935772.davem@davemloft.net> <20090902105535.GB402@hmsreliant.think-freely.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] tc: report informations for multiqueue devices
+Date: Wed, 02 Sep 2009 15:49:59 +0200
+Message-ID: <4A9E7807.2080901@gmail.com>
+References: <20090902081429.GB4878@ff.dom.local>	<4A9E2CC7.1010103@gmail.com> <20090902.013002.181288977.davem@davemloft.net> <4A9E6551.4030209@gmail.com> <4A9E708D.5040806@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, jarkao2@gmail.com,
+	cl@linux-foundation.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:38765 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751955AbZIBNg0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 09:36:26 -0400
-Content-Disposition: inline
-In-Reply-To: <20090902105535.GB402@hmsreliant.think-freely.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:43777 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751468AbZIBNuc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 09:50:32 -0400
+In-Reply-To: <4A9E708D.5040806@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ok, heres a repost, unchanged saved for being massaged to fit in with the recent
-changes that my origional patch raced against.  Thanks!
-Neil
+Patrick McHardy a =E9crit :
+> Eric Dumazet wrote:
+>> [PATCH net-next-2.6] tc: report informations for multiqueue devices
+>>
+>> qdisc and classes are not yet displayed by "tc -s -d {qdisc|class} s=
+how"
+>> for multiqueue devices.
+>>
+>> We use a new TCA_QINDEX attribute, to report queue index to user spa=
+ce.
+>> iproute2 tc should be changed to eventually display this queue index=
+ as in :
+>>
+>> $ tc -s -d qdisc
+>> qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1=
+ 1 1 1 1 1 1 1
+>>  Sent 52498 bytes 465 pkt (dropped 0, overlimits 0 requeues 0)
+>>  rate 0bit 0pps backlog 0b 0p requeues 0
+>> qdisc pfifo_fast 0: dev eth0 qindex 1 root bands 3 priomap  1 2 2 2 =
+1 2 0 0 1 1 1 1 1 1 1 1
+>>  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>  rate 0bit 0pps backlog 0b 0p requeues 0
+>=20
+> This might confuse existing userspace since the handle is not unique
+> anymore. libnl f.i. will treat all but the first root qdisc as an
+> update and use it to update the state of the first one. There's also
+> no combined view for applications unaware of multiqueue.
+>=20
+> Please have a look at the mail I just wrote for some possible ways
+> around this.
 
+Hum, how can we combine infos on qdisc/class if in the future we allow =
+each queue index
+to have its own qdisc/classes ?
 
-It was recently pointed out to me that the last_rx field of the net_device
-structure wasn't updated regularly.  In fact only the bonding driver really uses
-it currently.  Since the drop_monitor code relies on the last_rx field to detect
-drops on recevie in hardware, We need to find a more reliable way to rate limit
-our drop checks (so that we don't check for drops on every frame recevied, which
-would be inefficient.  This patch makes a last_rx timestamp that is private to
-the drop monitor code and is updated for every device that we track.
+htb on queue index 0
+cbq on queue index 1
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Combining info would lock us and not allow for special configurations.
+Say=20
+   macvlan device 0 mapped to queue index 0
+   macvlan device 1 mapped to queue index 1...
 
+=46or old apps, just give informations for queue 0 as we do now, and
+allow kernel to give more informations only if new application provided=
+ a TCA_INDEX attribute
+in its request ?
 
- drop_monitor.c |   15 ++++++++++++---
- 1 file changed, 12 insertions(+), 3 deletions(-)
-
-diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
-index d311202..0a113f2 100644
---- a/net/core/drop_monitor.c
-+++ b/net/core/drop_monitor.c
-@@ -52,6 +52,7 @@ struct per_cpu_dm_data {
- 
- struct dm_hw_stat_delta {
- 	struct net_device *dev;
-+	unsigned long last_rx;
- 	struct list_head list;
- 	struct rcu_head rcu;
- 	unsigned long last_drop_val;
-@@ -180,18 +181,25 @@ static void trace_napi_poll_hit(struct napi_struct *napi)
- 	struct dm_hw_stat_delta *new_stat;
- 
- 	/*
--	 * Ratelimit our check time to dm_hw_check_delta jiffies
-+	 * Don't check napi structures with no associated device
- 	 */
--	if (!napi->dev ||
--	    !time_after(jiffies, napi->dev->last_rx + dm_hw_check_delta))
-+	if (!napi->dev)
- 		return;
- 
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(new_stat, &hw_stats_list, list) {
-+		/*
-+		 * only add a note to our monitor buffer if:
-+		 * 1) this is the dev we received on
-+		 * 2) its after the last_rx delta
-+		 * 3) our rx_dropped count has gone up
-+		 */
- 		if ((new_stat->dev == napi->dev)  &&
-+		    (time_after(jiffies, new_stat->last_rx + dm_hw_check_delta)) &&
- 		    (napi->dev->stats.rx_dropped != new_stat->last_drop_val)) {
- 			trace_drop_common(NULL, NULL);
- 			new_stat->last_drop_val = napi->dev->stats.rx_dropped;
-+			new_stat->last_rx = jiffies;
- 			break;
- 		}
- 	}
-@@ -287,6 +295,7 @@ static int dropmon_net_event(struct notifier_block *ev_block,
- 			goto out;
- 
- 		new_stat->dev = dev;
-+		new_stat->last_rx = jiffies;
- 		INIT_RCU_HEAD(&new_stat->rcu);
- 		spin_lock(&trace_state_lock);
- 		list_add_rcu(&new_stat->list, &hw_stats_list);
+(-1 : all queue indexes,  >=3D0 for a given queue index)
