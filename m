@@ -1,82 +1,58 @@
-From: David Ward <david.ward@ll.mit.edu>
-Subject: Re: [RFC] iproute2: gracefully exit from rtnl_listen()
-Date: Tue, 01 Sep 2009 22:27:30 -0400
-Message-ID: <4A9DD812.8010202@ll.mit.edu>
-References: <1251841286-32463-1-git-send-email-david.ward@ll.mit.edu> <20090901155955.7448c1d6@nehalam>
+From: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+Subject: Re: [PATCH resend] tracing/events: convert NAPI's tracepoint via
+ TRACE_EVENT
+Date: Wed, 02 Sep 2009 11:12:19 +0800
+Message-ID: <4A9DE293.6050703@cn.fujitsu.com>
+References: <4A9B6AA7.5020508@cn.fujitsu.com>	<20090831084922.GB25811@elte.hu>	<alpine.DEB.2.00.0908311407060.13931@gandalf.stny.rr.com> <20090901.182645.153420711.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from deliverator10.gatech.edu ([130.207.160.100]:55615 "EHLO
-	deliverator10.gatech.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755575AbZIBC7s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 22:59:48 -0400
-Received: from deliverator3.ecc.gatech.edu (deliverator3.ecc.gatech.edu [130.207.185.173])
-	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
-	(Client did not present a certificate)
-	by deliverator10.gatech.edu (Postfix) with ESMTP id 2BD7D4CFD5
-	for <netdev@vger.kernel.org>; Tue,  1 Sep 2009 22:28:41 -0400 (EDT)
-In-Reply-To: <20090901155955.7448c1d6@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On 09/01/2009 06:59 PM, Stephen Hemminger wrote:
->
-> On Tue,  1 Sep 2009 17:41:26 -0400
-> David Ward <david.ward@ll.mit.edu> wrote:
->>
->> There should be some mechanism for stopping rtnl_listen() and
->> continuing program execution.
->
-> Good idea, but why not just change the while(1) loop?
-
-Stephen, thanks for your response. I agree that checking a condition on 
-the while loop, as you showed, can be used to exit the loop cleanly.
-
-Here are my concerns though:
-
-    * rtnl_listen() is the function that I believe needs to be fixed.
-      It is what allows applications to passively observe messages sent
-      to the rtnetlink multicast groups -- messages which are not
-      prompted by any request from the application, where there is no
-      defined "end" to the sequence of messages being received. This
-      function currently has no condition in the loop where it will stop
-      trying to receive messages and exit cleanly.
-
-      rtnl_dump_filter(), which your patch modifies, appears to be for
-      processing the response to an rtnetlink dump request from the
-      application. It is at least able to exit cleanly when it sees the
-      NLMSG_DONE message at the end of the kernel's response.
-
-      However, I think that any changes that are made to rtnl_listen()
-      which allow it to exit gracefully could potentially be applied to
-      the loops in rtnl_dump_filter() and rtnl_talk() as well.
-
-    * With your patch, rtnl_dump_filter() returns -1 after the rtnetlink
-      socket is closed. This indicates than an error has occurred.
-      However, because trying to exit the loop by closing the socket is
-      intentional, the function should be able to return 0.
-
-      But could there be other cases where the rtnetlink socket is closed
-      unintentionally, and -1 actually needs to be returned?
-
-    * Is it really necessary to close the rtnetlink socket in order to
-      break out of rtnl_listen()? What if the user wants to continue
-      using the socket -- should the socket have to be closed to exit
-      from rtnl_listen(), and then reopened? Is there a better way to
-      notify the loop to exit instead?
-
-    * Furthermore, should you have to rely on a signal like SIGINT to be
-      received by the application in order to check for the condition
-      under which to break out of the loop? Shouldn't it be possible to
-      break out of the loop without a signal? But recvmsg() is blocking.
+Cc: rostedt@goodmis.org, mingo@elte.hu, nhorman@tuxdriver.com,
+	fweisbec@gmail.com, yjwei@cn.fujitsu.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755656AbZIBDM6@vger.kernel.org>
+In-Reply-To: <20090901.182645.153420711.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-Again, I am raising these questions because I'm not sure what a 
-"correct" solution to breaking out of rtnl_listen() would look like.
 
-Thanks,
+David Miller wrote:
 
-David
+> This patch can't be split up, so I'm wondering how you suggest to
+> handle this patch given that you have declared that define_trace.h
+> changes aren't to go through the subsystem tree?
+> 
+> If we do the define_trace.h change only, we break the build
+> (lack of macro defined for the trace).
+> 
+> If we do only the other parts of his patch, we get a duplicate
+> definition.
+> 
+
+This patch cooperate with my previous patch to solve the include file
+dependencies problem. So, we do better put those two patches together.
+(both in -tip tree or/add both in network tree)
+
+The previous patch is below:
+
+Commit-ID:  5ac35daa9343936038a3c9c4f4d6d3fe6a2a7bd8
+Gitweb:     http://git.kernel.org/tip/5ac35daa9343936038a3c9c4f4d6d3fe6a2a7bd8
+Author:     Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+AuthorDate: Tue, 25 Aug 2009 14:06:22 +0800
+Committer:  Steven Rostedt <rostedt@goodmis.org>
+CommitDate: Wed, 26 Aug 2009 00:32:09 -0400
+
+tracing/events: fix the include file dependencies
+
+> And keep in mind that Neil and Xiao are probably going to want to do
+> work on top of this to the networking bits.  Thus if we put this patch
+> here into the tracing tree, I'll have to develop a dependency on the
+> tracing tree and I think that will go over like a fart in a spacesuit
+> with the -next crowd and Stephen Rothwell in particular.
+> 
+
+Thank you, David
+
+Xiao
