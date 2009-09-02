@@ -1,46 +1,39 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH 1/3] netfilter: xt_ipvs (netfilter matcher for IPVS)
-Date: Wed, 2 Sep 2009 17:49:40 +0200 (CEST)
-Message-ID: <alpine.LSU.2.00.0909021748310.25091@fbirervta.pbzchgretzou.qr>
-References: <20090902101417.11561.45663.stgit@jazzy.zrh.corp.google.com>  <20090902101527.11561.59498.stgit@jazzy.zrh.corp.google.com>  <4A9E8711.1070807@trash.net> <b5ddba180909020833w1739bd54t11fded8150007abc@mail.gmail.com> <4A9E90E4.9080805@trash.net>
+From: Ajit Khaparde <ajitk@serverengines.com>
+Subject: Re: [RFC][PATCH][v5] net/ethtool: Add support for the ethtool
+	feature to flash firmware image from a specified file.
+Date: Wed, 2 Sep 2009 21:20:09 +0530
+Message-ID: <20090902155006.GA22314@serverengines.com>
+References: <20090821165416.GA17102@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Hannes Eder <heder@google.com>, lvs-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	=?UTF-8?Q?Fabien_Duch=C3=AAne?= <mad_fab@skynet.be>,
-	Jean-Luc Fortemaison <jl.fortemaison@uclouvain.be>,
-	Julian Anastasov <ja@ssi.bg>,
-	Julius Volz <julius.volz@gmail.com>,
-	Laurent Grawet <laurent.grawet@uclouvain.be>,
-	Simon Horman <horms@verge.net.au>,
-	Wensong Zhang <wensong@linux-vs.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752721AbZIBPtl@vger.kernel.org>
-In-Reply-To: <4A9E90E4.9080805@trash.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: davem@davemloft.net, jgarzik@pobox.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from segment-124-30.sify.net ([124.30.166.146]:57086 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752435AbZIBPt5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 11:49:57 -0400
+Content-Disposition: inline
+In-Reply-To: <20090821165416.GA17102@serverengines.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 21/08/09 22:24 +0530, Ajit Khaparde wrote:
+> This patch adds support to flash a firmware image to a device using ethtool.
+> The driver gets the filename of the firmware image and flashes the image
+> using the request firmware path.
+> 
+> The region "on the chip" to be flashed can be specified by an option.
+> It is upto the device driver to enumerate the region number passed by ethtool,
+> to the region to be flashed.
+> 
+> The default behavior is to flash all the regions on the chip.
+David,
+Is this patch good enough for being accepted? Please let me know if any more
+work has to be done on this. Also, I want to send the changes to the be2net
+driver which would use this ethtool feature.
 
-On Wednesday 2009-09-02 17:36, Patrick McHardy wrote:
->> 
->> Nice, I'll use par->family.
->> 
->> So in theory I do not even need a check like the following in the beginning?
->> 
->> 	if (family != NFPROTO_IPV4
->> #ifdef CONFIG_IP_VS_IPV6
->> 	    && family != NFPROTO_IPV6
->> #endif
->> 		) {
->> 		match = false;
->> 		goto out;
->> 	}
->
->With the AF_UNSPEC registration of your match, it might be used
+Any ETA for applying the patch to the git tree? I will schedule my driver patch according to that.
 
-par->family always contains the NFPROTO of the invoking implementation,
-which can never be UNSPEC (except, in future, xtables2 ;-)
-
-par->match->family however may be UNSPEC if the module works that way.
-Which is why we have par->family.
+Thanks
+-Ajit
