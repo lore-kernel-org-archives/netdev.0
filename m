@@ -1,30 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tun: reuse struct sock fields
-Date: Tue, 01 Sep 2009 17:44:28 -0700 (PDT)
-Message-ID: <20090901.174428.255093067.davem@davemloft.net>
-References: <20090830170442.GA3482@redhat.com>
+Subject: Re: [PATCH] sky2: fix management of driver LED
+Date: Tue, 01 Sep 2009 17:44:37 -0700 (PDT)
+Message-ID: <20090901.174437.145971351.davem@davemloft.net>
+References: <4A9928C9.7000907@ring3k.org>
+	<20090831103141.77598705@nehalam>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: m.s.tsirkin@gmail.com, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: mst@redhat.com
+Cc: mikem@ring3k.org, netdev@vger.kernel.org,
+	rene.mayrhofer@gibraltar.at, leitner@esys.at
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40468
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40473
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755444AbZIBAoO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 20:44:14 -0400
-In-Reply-To: <20090830170442.GA3482@redhat.com>
+	by vger.kernel.org with ESMTP id S1755450AbZIBAoW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 20:44:22 -0400
+In-Reply-To: <20090831103141.77598705@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Sun, 30 Aug 2009 20:04:42 +0300
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Mon, 31 Aug 2009 10:31:41 -0700
 
-> As tun always has an embeedded struct sock,
-> use sk and sk_receive_queue fields instead of
-> duplicating them in tun_struct.
+> Observed by Mike McCormack.
 > 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> The LED bit here is just a software controlled value used to
+> turn on one of the LED's on some boards. The register value was wrong,
+> which could have been causing some power control issues.
+> Get rid of problematic define use the correct mask.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 Applied.
