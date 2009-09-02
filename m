@@ -1,37 +1,108 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][PATCH][v5] net/ethtool: Add support for the ethtool
- feature to flash firmware image from a specified file.
-Date: Wed, 02 Sep 2009 14:40:47 -0700 (PDT)
-Message-ID: <20090902.144047.191136129.davem@davemloft.net>
-References: <20090821165416.GA17102@serverengines.com>
-	<20090902155006.GA22314@serverengines.com>
+From: Zdenek Kabelac <zdenek.kabelac@gmail.com>
+Subject: Re: System freeze on reboot - general protection fault
+Date: Wed, 2 Sep 2009 23:45:03 +0200
+Message-ID: <c4e36d110909021445l5f44183es9e338437dfbbd195@mail.gmail.com>
+References: <c4e36d110908110542l3de51aaepcbd62c84b9848f2b@mail.gmail.com>
+	 <c4e36d110908110832y21fba830ub8804613df571228@mail.gmail.com>
+	 <20090811154853.GF2763@sgi.com>
+	 <c4e36d110908111410y29b922ceod6871fda2514f6e6@mail.gmail.com>
+	 <c4e36d110908121516u504809e9y537e9babfa95df1d@mail.gmail.com>
+	 <alpine.DEB.1.10.0908121820410.3257@gentwo.org>
+	 <c4e36d110908131009l78b29bffvb4d41b90f9b83288@mail.gmail.com>
+	 <c4e36d110908140233v59421ba6y82192b858210370d@mail.gmail.com>
+	 <4A87CE60.4020506@gmail.com> <4A896324.3040104@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
-To: ajitk@serverengines.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54861
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751326AbZIBVkd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 17:40:33 -0400
-In-Reply-To: <20090902155006.GA22314@serverengines.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Robin Holt <holt@sgi.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Jesper Dangaard Brouer <hawk@comx.dk>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753535AbZIBVpI@vger.kernel.org>
+In-Reply-To: <4A896324.3040104@trash.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ajit Khaparde <ajitk@serverengines.com>
-Date: Wed, 2 Sep 2009 21:20:09 +0530
+2009/8/17 Patrick McHardy <kaber@trash.net>:
+> Eric Dumazet wrote:
+>> Zdenek Kabelac a =E9crit :
+>>> =A0[<ffffffffa02c502f>] nf_conntrack_ftp_fini+0x2f/0x70 [nf_conntra=
+ck_ftp]
+>>> =A0[<ffffffff8027bcc5>] sys_delete_module+0x1a5/0x270
+>>> =A0[<ffffffff8020d329>] ? retint_swapgs+0xe/0x13
+>>> =A0[<ffffffff80271bf2>] ? trace_hardirqs_on_caller+0x162/0x1b0
+>>> =A0[<ffffffff80292121>] ? audit_syscall_entry+0x191/0x1c0
+>>> =A0[<ffffffff80526dae>] ? trace_hardirqs_on_thunk+0x3a/0x3f
+>>> =A0[<ffffffff8020c84b>] system_call_fastpath+0x16/0x1b
+>>> Code: c6 00 00 0f 82 66 ff ff ff 49 8b 9e d8 05 00 00 48 85 db 75 1=
+6
+>>> e9 8e 00 00 00 0f 1f 44 00 00 48 85 c0 0f 84 80 00 00 00 48 89 c3 <=
+0f>
+>>> b6 4b 37 48 8b 03 48 8d 14 cd 00 00 00 00 0f 18 08 48 29 ca
+>>> RIP =A0[<ffffffffa02b2c2c>] nf_conntrack_helper_unregister+0x16c/0x=
+320
+>>> [nf_conntrack]
+>>> =A0RSP <ffff88013982fe68>
+>>> CR2: 0000000000000038
+>>> ---[ end trace bc3a0ede3d0084db ]---
+>>>
+>> I am currently traveling and wont be able to help you before next we=
+ek.
+>>
+>> I added netdev, Patrick, and netfilter-devel in CC so that more eyes=
+ can take a look.
+>
+> Thanks for the report, I'll have a look at this. Zdenek, please
+> send me the nf_conntrack.ko file used in the above oops. Thanks.
+>
 
-> Is this patch good enough for being accepted? Please let me know if
-> any more work has to be done on this. Also, I want to send the
-> changes to the be2net driver which would use this ethtool feature.
+Ok
 
-My impression was that the patch was still under review and
-people were still making change requests.
+I've found the solution for my problem.
 
-I guess not :-)
+http://thread.gmane.org/gmane.comp.security.firewalls.netfilter.devel/3=
+0483
 
-Please resubmit the kernel side patch, it'll get into patchwork
-and I'll apply it.
+I've made this small fix from this thread:
 
-Thanks.
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_connt=
+rack_core
+index b5869b9..68488f8 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1108,6 +1108,7 @@ static void nf_conntrack_cleanup_init_net(void)
+ {
+        nf_conntrack_helper_fini();
+        nf_conntrack_proto_fini();
++       rcu_barrier();
+        kmem_cache_destroy(nf_conntrack_cachep);
+ }
+
+@@ -1266,7 +1267,7 @@ static int nf_conntrack_init_init_net(void)
+
+        nf_conntrack_cachep =3D kmem_cache_create("nf_conntrack",
+                                                sizeof(struct nf_conn),
+-                                               0, SLAB_DESTROY_BY_RCU,=
+ NULL);
++                                               0, 0, NULL);
+        if (!nf_conntrack_cachep) {
+                printk(KERN_ERR "Unable to create nf_conn slab cache\n"=
+);
+                ret =3D -ENOMEM;
+
+
+As the thread nf_conntrack: Use rcu_barrier() and fix kmem_cache_create=
+ flags
+seems to be samewhat 'unfinished'  and already a bit old and I've no
+idea whether it actually fixes problem completely or just hides it in
+my case - I'm leaving it to some RCU gurus to fix this issue.
+
+All I could say is - this this extra rcu_barrier() and removal of
+SLAB_DESTROY removes my GPF on reboot.
+
+Zdenek
