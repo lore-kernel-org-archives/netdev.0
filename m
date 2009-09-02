@@ -1,95 +1,51 @@
-From: "Brad Bosch" <bradbosch@comcast.net>
-Subject: Re: Crypto oops in async_chainiv_do_postponed
-Date: Wed, 2 Sep 2009 09:08:38 -0500
-Message-ID: <19102.31846.180030.843571@waldo.imnotcreative.homeip.net>
-References: <19095.1264.682820.125602@waldo.imnotcreative.homeip.net>
-	<20090829104606.GA13141@gondor.apana.org.au>
-	<19099.63038.425414.514063@waldo.imnotcreative.homeip.net>
-	<20090831220459.GA15713@gondor.apana.org.au>
-	<19101.16628.347039.619378@waldo.imnotcreative.homeip.net>
-	<20090901221721.GA1964@gondor.apana.org.au>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: [PATCH net-next-2.6] ip: Report qdisc packet drops
+Date: Wed, 2 Sep 2009 13:22:25 -0500 (CDT)
+Message-ID: <alpine.DEB.1.10.0909021318490.21832@V090114053VZO-1>
+References: <4A98132C.8090105@gmail.com> <20090828.233858.256193304.davem@davemloft.net> <4A9BBD8E.2010303@gmail.com> <20090901.184121.06750444.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Brad Bosch <bradbosch@comcast.net>, linux-crypto@vger.kernel.org,
-	netdev@vger.kernel.org, offbase0@gmail.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20090901221721.GA1964@gondor.apana.org.au>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: eric.dumazet@gmail.com, sri@us.ibm.com, dlstevens@us.ibm.com,
+	netdev@vger.kernel.org, niv@linux.vnet.ibm.com,
+	mtk.manpages@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.ultrahosting.com ([74.213.174.253]:51131 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751716AbZIBOXc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 10:23:32 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 02B8A82C76D
+	for <netdev@vger.kernel.org>; Wed,  2 Sep 2009 10:25:16 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.253])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id s+tLHDbUfNTg for <netdev@vger.kernel.org>;
+	Wed,  2 Sep 2009 10:25:15 -0400 (EDT)
+Received: from V090114053VZO-1 (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 9948382C74E
+	for <netdev@vger.kernel.org>; Wed,  2 Sep 2009 10:25:03 -0400 (EDT)
+In-Reply-To: <20090901.184121.06750444.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu writes:
- > On Tue, Sep 01, 2009 at 10:42:44AM -0500, Brad Bosch wrote:
- > > 
- > > Now, ctx-err may be used by both async_chainiv_postpone_request to
- > > store the return value from skcipher_enqueue_givcrypt and by
- > > async_chainiv_givencrypt_tail to store the return value from
- > > crypto_ablkcipher_encrypt at the same time.  This can cause the
- > > calling function to think async_chainiv_givencrypt has completed it's
- > > work, when in fact, the work was defered.
- > 
- > async_chainiv_postpone_request never touches ctx->err unless
- > it can obtain the INUSE bit lock.  On the other hand, the normal
- > patch async_chainiv_givencrypt_tail never relinquishes the INUSE
- > bit until it is finisehd with ctx->err.
+On Tue, 1 Sep 2009, David Miller wrote:
 
-But the above statements are not adequate to demonstrate that your use
-of the INUSE flag always prevents a condition where both
-async_chainiv_postpone_request and async_chainiv_givencrypt_tail
-operate on the same ctx at the same time.  The flaw in your logic may
-be that async_chainiv_schedule_work does not have solid assurance that
-it's thread is the one that holds the INUSE bit when it calls
-clear_bit.
+> > 2) Submit a patch to account for qdisc-dropped frames in SNMP counters
+> > but still return a OK to user application, to not break them ?
+>
+> Sounds good.
 
-I seem to have trouble getting the details right in describing a path
-that causes both uses of ctx->err to happen at the same time.  Let me
-try again.
+Great. That was my initial suggestion and it would ensure that no apps
+break.
 
-Assume the worker thread is executing between the dequeue in
-async_chainiv_do_postponed and the clear_bit call in
-async_chainiv_schedule_work.  Further assume that we are processing
-the last item on the queue so durring this time, ctx->queue.qlen =
-0.
+> If we are to make such applications "more sophisticated" such
+> converted apps can be indicated simply their use of IP_RECVERR.
 
-Meanwhile, three threads enter async_chainiv_givencrypt for the same
-ctx at about the same time.
+There may be a minor issue here in that IP_RECVERR sometimes sends error
+packets that have to be intercepted using special code. Or can those be
+simply ignored? If so then I will ask UDP app vendors to use IP_RECVERR.
 
-Thread one calls test_and_set_bit which returns 1 and calls
-async_cahiniv_postpone_request but suppose it has not yet enqueued.
-Now INUSE is set and qlen=0.
+> As usual, Alexey Kuznetsov's analysis of this situation is timeless,
+> accurate, and wise.  And he understood all of this 10+ years ago.
 
-Next, the worker thread calls clear_bit in async_chainiv_schedule_work
-but it is interrupted before it can call test_and_set_bit.  Now INUSE
-is clear and qlen=0
-
-The test_and_set_bit in thread two is called at this moment and
-returns 0 and then calls async_chainiv_givencrypt_tail.  Now INUSE is
-set and qlen=0.
-
-Thread one now locks the ctx and calls skcipher_enqueue_givcrypt and
-unlocks.  Now INUSE is set and qlen=1.
-
-Thread three calls test_and_set_bit which returns 1 and then it clears
-INUSE since qlen=1 and it calls postpone with INUSE clear and qlen=1
-
-Now thread three will use ctx->err to hold the return value of
-skcipher_enqueue_givcrypt at the same time as thread two uses ctx->err
-to hold the return value of crypto_ablkcipher_encrypt!
-
-Did I make a mistake above?  I suspect more bad things can happen as
-well in this scenario, but I'm just focusing on the use of ctx->err here.
-
- > 
- > Please let me know whether it actually fixes your problem though
- > so I can get this upstream.
-
-Unfortunately, the offset problem is not easily reproduced with our
-application, so testing long enough to be sure the problem is fixed
-(assuming that it was indeed the cause of the oops) may not be
-practical.  All I can say at the moment is that I have not seen the
-crash since I introduced the two patches I sent you.
-
-Thanks for taking the time to discuss this!
-
---Brad
+His code was just slightly buggy .... ;-)
