@@ -1,175 +1,176 @@
-From: Hannes Eder <heder@google.com>
-Subject: [PATCH 2/3] IPVS: make friends with nf_conntrack
-Date: Wed,  2 Sep 2009 16:39:45 +0200 (CEST)
-Message-ID: <20090902101538.11561.11911.stgit@jazzy.zrh.corp.google.com>
-References: <20090902101417.11561.45663.stgit@jazzy.zrh.corp.google.com>
+From: Andrew Dickinson <andrew@whydna.net>
+Subject: Re: ipsec not forwarding (suspect SA issue)
+Date: Wed, 2 Sep 2009 07:41:04 -0700
+Message-ID: <606676310909020741n70d46b3ev1197b487feaedb19@mail.gmail.com>
+References: <606676310909011157g9ce5377gabc30a63da897049@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: lvs-devel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752863AbZIBOk3@vger.kernel.org>
-Cc: netdev@vger.kernel.org
-Cc: netfilter-devel@vger.kernel.org
-Cc: =?ISO-8859-1?Q?Fabien_Duch=EAne?= <mad_fab@skynet.be>
-Cc: Jan Engelhardt <jengelh@medozas.de>
-Cc: Jean-Luc Fortemaison <jl.fortemaison@uclouvain.be>
-Cc: Julian Anastasov <ja@ssi.bg>
-Cc: Julius Volz <julius.volz@gmail.com>
-Cc: Laurent Grawet <laurent.grawet@uclouvain.be>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Simon Horman <horms@verge.net.au>
-Cc: Wensong Zhang <wensong@linux-vs.org>
-In-Reply-To: <20090902101417.11561.45663.stgit@jazzy.zrh.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f195.google.com ([209.85.212.195]:46560 "EHLO
+	mail-vw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752074AbZIBOlE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 10:41:04 -0400
+Received: by vws33 with SMTP id 33so790013vws.33
+        for <netdev@vger.kernel.org>; Wed, 02 Sep 2009 07:41:05 -0700 (PDT)
+In-Reply-To: <606676310909011157g9ce5377gabc30a63da897049@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Update the nf_conntrack tuple in reply direction, as we will see
-traffic from the real server (RIP) to the client (CIP).  Once this is
-done we can use netfilters SNAT in POSTROUTING, especially with
-xt_ipvs, to do source NAT, e.g.:
+Just to follow up on this... it was an SA issue, but due to my config
+and not a kernel problem. :D
 
-% iptables -t nat -A POSTROUTING -m ipvs --vaddr 192.168.100.30/32 --vport 8080 \
-> -j SNAT --to-source 192.168.10.10
+specifically, I changed the "uniques" to "requires" in the spdadd
+lines and dropped the "fwd" entry that I'd manually added... that
+straightened everything out :D
 
-Signed-off-by: Hannes Eder <heder@google.com>
----
+-A
 
- net/netfilter/ipvs/Kconfig      |    2 +-
- net/netfilter/ipvs/ip_vs_core.c |   36 ------------------------------------
- net/netfilter/ipvs/ip_vs_xmit.c |   27 +++++++++++++++++++++++++++
- 3 files changed, 28 insertions(+), 37 deletions(-)
-
-diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
-index 79a6980..fca5379 100644
---- a/net/netfilter/ipvs/Kconfig
-+++ b/net/netfilter/ipvs/Kconfig
-@@ -3,7 +3,7 @@
- #
- menuconfig IP_VS
- 	tristate "IP virtual server support"
--	depends on NET && INET && NETFILTER
-+	depends on NET && INET && NETFILTER && NF_CONNTRACK
- 	---help---
- 	  IP Virtual Server support will let you build a high-performance
- 	  virtual server based on cluster of two or more real servers. This
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index b227750..27bd002 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -521,26 +521,6 @@ int ip_vs_leave(struct ip_vs_service *svc, struct sk_buff *skb,
- 	return NF_DROP;
- }
- 
+On Tue, Sep 1, 2009 at 11:57 AM, Andrew Dickinson<andrew@whydna.net> wr=
+ote:
+> Howdy netdev,
+>
+> First, I'm not positive that this is the right list for this question=
+,
+> so feel free to steer me in the right direction. =A0I'm trying to wor=
+k
+> out an issue with ipsec not forwarding traffic from my LAN down my
+> tunnel. =A0I've walked through the troubleshooting-doc on the lartc s=
+ite
+> and everything seems kosher...
+>
+> Here's my setup.
+>
+> I've got a linux-based router/firewall on the edge of my network with
+> two interfaces, $WAN and $LAN. =A0The router is MASQUERADING to the
+> internet. =A0My LAN is 10.0.0.0/24. =A0I'm trying to peer with a remo=
+te
+> network 10.254.0.0/23. =A0The remote network does not have internet
+> connectivity, so all non-10.254/23 traffic should traverse the VPN to
+> get to my router to go to the internet or my local LAN.
+>
+> I'm using racoon and setkey to establish the VPN tunnel and BGP (via
+> quagga) to advertise routes into the remote network. =A0The routers a=
+re
+> using 169.254.255.0/30 for BGP.
+>
+> The problem that I'm having is that traffic from my LAN to 10.254/23
+> is not going down the VPN tunnel; it just disappears. =A0I can see it
+> come in on the LAN interface, but I don't see it leave the WAN
+> interface as either unencrypted traffic or as esp traffic. =A0Traffic
+> from the router, however, works fine.
+>
+> ------ BEGIN racoon.conf ------
+> log info;
+>
+> path pre_shared_key "/etc/racoon/psk.txt";
+>
+>
+> listen {
+> =A0 =A0adminsock "/var/run/racoon/racoon.sock" "root" "operator" 0660=
+;
+> =A0 =A0isakmp <MY_IP>
+> }
+>
+> timer {
+> =A0 =A0counter 5;
+> =A0 =A0interval 20 sec;
+> =A0 =A0persend 1;
+> =A0 =A0phase1 30 sec;
+> =A0 =A0phase2 15 sec;
+> }
+>
+> remote anonymous {
+> =A0 =A0exchange_mode main,aggressive,base;
+> =A0 =A0lifetime time 28800 sec;
+> =A0 =A0proposal_check obey;
+> =A0 =A0dpd_delay 10;
+> =A0 =A0dpd_retry 10;
+> =A0 =A0dpd_maxfail 3;
+> =A0 =A0esp_frag 1396;
+> =A0 =A0proposal {
+> =A0 =A0 =A0 =A0encryption_algorithm aes;
+> =A0 =A0 =A0 =A0hash_algorithm sha1;
+> =A0 =A0 =A0 =A0authentication_method pre_shared_key;
+> =A0 =A0 =A0 =A0dh_group 2;
+> =A0 =A0}
+> }
+>
+> sainfo anonymous {
+> =A0 =A0authentication_algorithm hmac_sha1;
+> =A0 =A0encryption_algorithm aes;
+> =A0 =A0lifetime time 3600 seconds;
+> =A0 =A0compression_algorithm deflate;
+> =A0 =A0pfs_group 2;
+> }
+>
+> ------- END racoon.conf -------
+>
+> ------ BEGIN setkey.conf -----
+> flush;
+> spdflush;
+>
+>
+> spdadd 169.254.255.1 169.254.255.2 any -P in ipsec
+> =A0 =A0esp/tunnel/REMOTE_IP-MY_IP/unique;
+> spdadd 169.254.255.2 169.254.255.1 any -P out ipsec
+> =A0 =A0esp/tunnel/MY_IP-REMOTE_IP/unique;
+>
+> spdadd 10.254.0.0/23 0.0.0.0/0 any -P in ipsec
+> =A0 =A0esp/tunnel/REMOTE_IP-MY_IP/unique;
+> spdadd 0.0.0.0/0 10.254.0.0/23 any -P fwd ipsec
+> =A0 =A0esp/tunnel/MY_IP-REMOTE_IP/unique;
+> spdadd 0.0.0.0/0 10.254.0.0/23 any -P out ipsec
+> =A0 =A0esp/tunnel/MY_IP-REMOTE_IP/unique;
+>
+> spdadd 0.0.0.0/0 0.0.0.0/0 254 -P in ipsec
+> =A0 =A0esp/tunnel/REMOTE_IP-MY_IP/unique;
+> spdadd 0.0.0.0/0 0.0.0.0/0 254 -P out ipsec
+> =A0 =A0esp/tunnel/MY_IP-REMOTE_IP/unique;
+>
+> spdadd 0.0.0.0/0 0.0.0.0/0 tcp -P in none;
+> spdadd 0.0.0.0/0 0.0.0.0/0 tcp -P out none;
+> spdadd 0.0.0.0/0 0.0.0.0/0 udp -P in none;
+> spdadd 0.0.0.0/0 0.0.0.0/0 udp -P out none;
+>
+> ----- END setkey.conf ----
+>
+> There's two things that are potentially funky with this config that
+> I'm not proud of (and which might potentially be part of my problem).
+> When racoon goes to phase2 negotiation, it looks for an SPD with 0/0 =
 -
--/*
-- *      It is hooked before NF_IP_PRI_NAT_SRC at the NF_INET_POST_ROUTING
-- *      chain, and is used for VS/NAT.
-- *      It detects packets for VS/NAT connections and sends the packets
-- *      immediately. This can avoid that iptable_nat mangles the packets
-- *      for VS/NAT.
-- */
--static unsigned int ip_vs_post_routing(unsigned int hooknum,
--				       struct sk_buff *skb,
--				       const struct net_device *in,
--				       const struct net_device *out,
--				       int (*okfn)(struct sk_buff *))
--{
--	if (!skb->ipvs_property)
--		return NF_ACCEPT;
--	/* The packet was sent from IPVS, exit this chain */
--	return NF_STOP;
--}
--
- __sum16 ip_vs_checksum_complete(struct sk_buff *skb, int offset)
- {
- 	return csum_fold(skb_checksum(skb, offset, skb->len - offset, 0));
-@@ -1431,14 +1411,6 @@ static struct nf_hook_ops ip_vs_ops[] __read_mostly = {
- 		.hooknum        = NF_INET_FORWARD,
- 		.priority       = 99,
- 	},
--	/* Before the netfilter connection tracking, exit from POST_ROUTING */
--	{
--		.hook		= ip_vs_post_routing,
--		.owner		= THIS_MODULE,
--		.pf		= PF_INET,
--		.hooknum        = NF_INET_POST_ROUTING,
--		.priority       = NF_IP_PRI_NAT_SRC-1,
--	},
- #ifdef CONFIG_IP_VS_IPV6
- 	/* After packet filtering, forward packet through VS/DR, VS/TUN,
- 	 * or VS/NAT(change destination), so that filtering rules can be
-@@ -1467,14 +1439,6 @@ static struct nf_hook_ops ip_vs_ops[] __read_mostly = {
- 		.hooknum        = NF_INET_FORWARD,
- 		.priority       = 99,
- 	},
--	/* Before the netfilter connection tracking, exit from POST_ROUTING */
--	{
--		.hook		= ip_vs_post_routing,
--		.owner		= THIS_MODULE,
--		.pf		= PF_INET6,
--		.hooknum        = NF_INET_POST_ROUTING,
--		.priority       = NF_IP6_PRI_NAT_SRC-1,
--	},
- #endif
- };
- 
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index 30b3189..fc7d6a4 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -27,6 +27,7 @@
- #include <net/ip6_route.h>
- #include <linux/icmpv6.h>
- #include <linux/netfilter.h>
-+#include <net/netfilter/nf_conntrack.h>
- #include <linux/netfilter_ipv4.h>
- 
- #include <net/ip_vs.h>
-@@ -347,6 +348,28 @@ ip_vs_bypass_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
- }
- #endif
- 
-+static void
-+ip_vs_update_conntrack(struct sk_buff *skb, struct ip_vs_conn *cp)
-+{
-+	struct nf_conn *ct = (struct nf_conn *)skb->nfct;
-+
-+	if (ct == NULL || ct == &nf_conntrack_untracked ||
-+	    nf_ct_is_confirmed(ct))
-+		return;
-+
-+	/*
-+	 * The connection is not yet in the hashtable, so we update it.
-+	 * CIP->VIP will remain the same, so leave the tuple in
-+	 * IP_CT_DIR_ORIGINAL untouched.  When the reply comes back from the
-+	 * real-server we will see RIP->DIP.
-+	 */
-+	ct->tuplehash[IP_CT_DIR_REPLY].tuple.src.u3 = cp->daddr;
-+	/*
-+	 * This will also take care of UDP and other protocols.
-+	 */
-+	ct->tuplehash[IP_CT_DIR_REPLY].tuple.src.u.tcp.port = cp->dport;
-+}
-+
- /*
-  *      NAT transmitter (only for outside-to-inside nat forwarding)
-  *      Not used for related ICMP
-@@ -402,6 +425,8 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 
- 	IP_VS_DBG_PKT(10, pp, skb, 0, "After DNAT");
- 
-+	ip_vs_update_conntrack(skb, cp);
-+
- 	/* FIXME: when application helper enlarges the packet and the length
- 	   is larger than the MTU of outgoing device, there will be still
- 	   MTU problem. */
-@@ -478,6 +503,8 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
- 
- 	IP_VS_DBG_PKT(10, pp, skb, 0, "After DNAT");
- 
-+	ip_vs_update_conntrack(skb, cp);
-+
- 	/* FIXME: when application helper enlarges the packet and the length
- 	   is larger than the MTU of outgoing device, there will be still
- 	   MTU problem. */
+> 0/0 [any] . =A0 I've installed an SPD of 0/0 - 0/0 [254] in order to
+> make racoon happy. =A0This isn't a problem for me as I don't have any
+> traffic using IP protocol #254 (obviously). =A0The other thing is tha=
+t
+> I'm explicitly adding a fwd rule... that was my effort to try to fix
+> my problem (it didn't help). =A0Beyond that, the rest of the rules se=
+em
+> fairly straight forward.
+>
+> Further, when I initially connect the VPN, I see racoon do an SA
+> negotiation for the 0/0 rules. =A0When I start quagga, I see it do an=
+ SA
+> for the 169.254... rules. =A0If I ping a remote machine from the
+> routers, I see it do an SA for the 10.254.0.0/23 rules. =A0But if I p=
+ing
+> from something on my LAN there's no negotiation (this is true whether
+> I ping from the router first or not).
+>
+> Here's what I've double checked:
+> 1) iptables nat table has rules to ACCEPT 10.254.0.0/23 destined
+> traffic to prevent it from being MASQUERADE'd (which I see counters
+> for when I ping from the router)
+> 2) iptables (main) table has FORWARD rules to ACCEPT 10.254.0.0/23
+> destined traffic (which I never see counters for)
+> 3) IP forwarding is enabled (as this router is happily forwarding
+> other traffic to-from the LAN to the internet)
+>
+> It seems like this is an issue with an SA not getting found for
+> forwarding traffic and the kernel silently dropping the packet. =A0Ho=
+w
+> do I debug this?
+>
+> -A
+>
