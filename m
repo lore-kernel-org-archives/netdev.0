@@ -1,64 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH resend] tracing/events: convert NAPI's tracepoint via
- TRACE_EVENT
-Date: Tue, 01 Sep 2009 18:26:45 -0700 (PDT)
-Message-ID: <20090901.182645.153420711.davem@davemloft.net>
-References: <4A9B6AA7.5020508@cn.fujitsu.com>
-	<20090831084922.GB25811@elte.hu>
-	<alpine.DEB.2.00.0908311407060.13931@gandalf.stny.rr.com>
+Subject: Re: [PATCH net-next-2.6] ip: Report qdisc packet drops
+Date: Tue, 01 Sep 2009 18:41:21 -0700 (PDT)
+Message-ID: <20090901.184121.06750444.davem@davemloft.net>
+References: <4A98132C.8090105@gmail.com>
+	<20090828.233858.256193304.davem@davemloft.net>
+	<4A9BBD8E.2010303@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu, xiaoguangrong@cn.fujitsu.com, nhorman@tuxdriver.com,
-	fweisbec@gmail.com, yjwei@cn.fujitsu.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: rostedt@goodmis.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932108AbZIBB0c@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.0908311407060.13931@gandalf.stny.rr.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: cl@linux-foundation.org, sri@us.ibm.com, dlstevens@us.ibm.com,
+	netdev@vger.kernel.org, niv@linux.vnet.ibm.com,
+	mtk.manpages@gmail.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33604
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755498AbZIBBlH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2009 21:41:07 -0400
+In-Reply-To: <4A9BBD8E.2010303@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Steven Rostedt <rostedt@goodmis.org>
-Date: Mon, 31 Aug 2009 14:09:04 -0400 (EDT)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 31 Aug 2009 14:09:50 +0200
 
+> Re-reading again this stuff, I realized ip6_push_pending_frames()
+> was not updating IPSTATS_MIB_OUTDISCARDS, even if IP_RECVERR was set.
 > 
-> On Mon, 31 Aug 2009, Ingo Molnar wrote:
+> May I suggest following path :
 > 
->> 
->> * Xiao Guangrong <xiaoguangrong@cn.fujitsu.com> wrote:
->> 
->> > - Convert NAPI's tracepoint via TRACE_EVENT macro, the output information
->> >   like below:
->> 
->> I think as long as it does not touch tracing infrastructure (which 
->> your patches dont do in their current form) this should be 
->> done/merged via the networking tree.
-> 
-> I agree, all changes that are in include/trace/events/ and trace point 
-> usage can stay within the subsystem tree.
-> 
->> 
->> [ There might be some small collisions in define_trace.h (because
->>   these tracepoints move from legacy to new-style TRACE_EVENT() 
->>   form) but that's OK. ]
-> 
-> But changes to anything in include/trace or kernel/trace needs to go 
-> throught the tracing subsystem. This includes a changes to define_trace.h.
+> 1) Correct ip6_push_pending_frames() to properly
+> account for dropped-by-qdisc frames when IP_RECVERR is set
 
-This patch can't be split up, so I'm wondering how you suggest to
-handle this patch given that you have declared that define_trace.h
-changes aren't to go through the subsystem tree?
+Your patch is  applied to net-next-2.6, thanks!
 
-If we do the define_trace.h change only, we break the build
-(lack of macro defined for the trace).
+> 2) Submit a patch to account for qdisc-dropped frames in SNMP counters
+> but still return a OK to user application, to not break them ?
 
-If we do only the other parts of his patch, we get a duplicate
-definition.
+Sounds good.
 
-And keep in mind that Neil and Xiao are probably going to want to do
-work on top of this to the networking bits.  Thus if we put this patch
-here into the tracing tree, I'll have to develop a dependency on the
-tracing tree and I think that will go over like a fart in a spacesuit
-with the -next crowd and Stephen Rothwell in particular.
+I think if you sample random UDP applications, you will find that such
+errors will upset them terribly, make them log tons of crap to
+/var/log/messages et al., and consume tons of CPU.
 
-Please advise.
+And in such cases silent ignoring of drops is entirely appropriate and
+optimal, which supports our current behavior.
+
+If we are to make such applications "more sophisticated" such
+converted apps can be indicated simply their use of IP_RECVERR.
+
+If you want to be notified of all asynchronous errors we can detect,
+you use this, end of story.  It is the only way to handle this
+situation without breaking the world.
+
+As usual, Alexey Kuznetsov's analysis of this situation is timeless,
+accurate, and wise.  And he understood all of this 10+ years ago.
