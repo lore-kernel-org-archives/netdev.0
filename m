@@ -1,101 +1,51 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [PATCH] NET: Fix possible corruption in bpqether driver
-Date: Wed, 2 Sep 2009 09:58:52 +0100
-Message-ID: <20090902085841.GA5910@linux-mips.org>
+From: wu xiaofei <lampsu@gmail.com>
+Subject: about packets forwarding
+Date: Wed, 2 Sep 2009 17:03:42 +0800
+Message-ID: <f4f837ab0909020203w67bcba16pbb317c587c58e70f@mail.gmail.com>
+References: <f4f837ab0907220706g1129a1cbv7dfad944e5bada16@mail.gmail.com>
+	 <f4f837ab0909020127o3359ed03j224ef51a0673bcd9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-hams@vger.kernel.org, Thomas Osterried <thomas@osterried.de>,
-	Jann Traschewski <jann@gmx.de>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-hams-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f204.google.com ([209.85.223.204]:50714 "EHLO
+	mail-iw0-f204.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751010AbZIBJDk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 05:03:40 -0400
+Received: by iwn42 with SMTP id 42so299607iwn.33
+        for <netdev@vger.kernel.org>; Wed, 02 Sep 2009 02:03:43 -0700 (PDT)
+In-Reply-To: <f4f837ab0909020127o3359ed03j224ef51a0673bcd9@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The bpq ether driver is modifying the data art of the skb by first
-dropping the KISS byte (a command byte for the radio) then prepending the
-length + 4 of the remaining AX.25 packet to be transmitted as a little
-endian 16-bit number.  If the high byte of the length has a different
-value than the dropped KISS byte users of clones of the skb may observe
-this as corruption.  This was observed with by running listen(8) -a which
-uses a packet socket which clones transmit packets.  The corruption will
-then typically be displayed for as a KISS "TX Delay" command for AX.25
-packets in the range of 252..508 bytes or any other KISS command for
-yet larger packets.
+Hello,
 
-Fixed by using skb_cow to create a private copy should the skb be cloned.
-Using skb_cow also allows us to cleanup the old logic to ensure sufficient
-headroom in the skb.
+I have something to ask here.
 
-While at it, replace a return of 0 from bpq_xmit with the proper constant
-NETDEV_TX_OK which is now being used everywhere else in this function.
+The topology of the network is as follows.
+There are six Nodes (A, B, C, D, M, N).
 
-Affected: all 2.2, 2.4 and 2.6 kernels.
+=A0 M
+=A0 |
+=A0 A
+=A0/ \
+B=A0=A0 D
+=A0\ /
+=A0 C
+=A0 |
+=A0 N
 
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
-Reported-by: Jann Traschewski <jann@gmx.de>
+M-A, C-N are wired links.
+A-B, B-C, A-D, D-C are wireless links.
 
- drivers/net/hamradio/bpqether.c |   29 ++++++++++++-----------------
- 1 files changed, 12 insertions(+), 17 deletions(-)
+Node M wnats to communicate with node N. Because the wireless links
+are not very reliable, I want to forward the packets through A-B-C and
+A-D-C simultaneously (When Node A receives packets(from Node M) from
+its wired interface eth0, It will forward the same packets to its
+wireless interfaces wlan0 and wlan1 simultaneously) . How to implement
+this?
 
-diff --git a/drivers/net/hamradio/bpqether.c b/drivers/net/hamradio/bpqether.c
-index abcd19a..184a528 100644
---- a/drivers/net/hamradio/bpqether.c
-+++ b/drivers/net/hamradio/bpqether.c
-@@ -249,7 +249,6 @@ drop:
-  */
- static int bpq_xmit(struct sk_buff *skb, struct net_device *dev)
- {
--	struct sk_buff *newskb;
- 	unsigned char *ptr;
- 	struct bpqdev *bpq;
- 	int size;
-@@ -263,28 +262,23 @@ static int bpq_xmit(struct sk_buff *skb, struct net_device *dev)
- 		return NETDEV_TX_OK;
- 	}
- 
--	skb_pull(skb, 1);
-+	skb_pull(skb, 1);			/* Drop KISS byte */
- 	size = skb->len;
- 
- 	/*
--	 * The AX.25 code leaves enough room for the ethernet header, but
--	 * sendto() does not.
-+	 * We're about to mess with the skb which may still shared with the
-+	 * generic networking code so unshare and ensure it's got enough
-+	 * space for the BPQ headers.
- 	 */
--	if (skb_headroom(skb) < AX25_BPQ_HEADER_LEN) {	/* Ough! */
--		if ((newskb = skb_realloc_headroom(skb, AX25_BPQ_HEADER_LEN)) == NULL) {
--			printk(KERN_WARNING "bpqether: out of memory\n");
--			kfree_skb(skb);
--			return NETDEV_TX_OK;
--		}
--
--		if (skb->sk != NULL)
--			skb_set_owner_w(newskb, skb->sk);
--
-+	if (skb_cow(skb, AX25_BPQ_HEADER_LEN)) {
-+		if (net_ratelimit())
-+			pr_err("bpqether: out of memory\n");
- 		kfree_skb(skb);
--		skb = newskb;
-+
-+		return NETDEV_TX_OK;
- 	}
- 
--	ptr = skb_push(skb, 2);
-+	ptr = skb_push(skb, 2);			/* Make space for length */
- 
- 	*ptr++ = (size + 5) % 256;
- 	*ptr++ = (size + 5) / 256;
-@@ -305,7 +299,8 @@ static int bpq_xmit(struct sk_buff *skb, struct net_device *dev)
-   
- 	dev_queue_xmit(skb);
- 	netif_wake_queue(dev);
--	return 0;
-+
-+	return NETDEV_TX_OK;
- }
- 
- /*
+--
+Regards,
+=A0Wu
