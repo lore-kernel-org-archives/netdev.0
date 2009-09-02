@@ -1,58 +1,44 @@
-From: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
-Subject: Re: [PATCH resend] tracing/events: convert NAPI's tracepoint via
- TRACE_EVENT
-Date: Wed, 02 Sep 2009 11:12:19 +0800
-Message-ID: <4A9DE293.6050703@cn.fujitsu.com>
-References: <4A9B6AA7.5020508@cn.fujitsu.com>	<20090831084922.GB25811@elte.hu>	<alpine.DEB.2.00.0908311407060.13931@gandalf.stny.rr.com> <20090901.182645.153420711.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] sky2: fix management of driver LED
+Date: Tue, 1 Sep 2009 21:33:25 -0700
+Message-ID: <20090901213325.69b3348b@nehalam>
+References: <4A9928C9.7000907@ring3k.org>
+	<20090831103141.77598705@nehalam>
+	<20090901.174437.145971351.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: rostedt@goodmis.org, mingo@elte.hu, nhorman@tuxdriver.com,
-	fweisbec@gmail.com, yjwei@cn.fujitsu.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: mikem@ring3k.org, netdev@vger.kernel.org,
+	rene.mayrhofer@gibraltar.at, leitner@esys.at
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755656AbZIBDM6@vger.kernel.org>
-In-Reply-To: <20090901.182645.153420711.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:35237 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752848AbZIBEeE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 00:34:04 -0400
+In-Reply-To: <20090901.174437.145971351.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, 01 Sep 2009 17:44:37 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-
-David Miller wrote:
-
-> This patch can't be split up, so I'm wondering how you suggest to
-> handle this patch given that you have declared that define_trace.h
-> changes aren't to go through the subsystem tree?
+> From: Stephen Hemminger <shemminger@linux-foundation.org>
+> Date: Mon, 31 Aug 2009 10:31:41 -0700
 > 
-> If we do the define_trace.h change only, we break the build
-> (lack of macro defined for the trace).
+> > Observed by Mike McCormack.
+> > 
+> > The LED bit here is just a software controlled value used to
+> > turn on one of the LED's on some boards. The register value was wrong,
+> > which could have been causing some power control issues.
+> > Get rid of problematic define use the correct mask.
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 > 
-> If we do only the other parts of his patch, we get a duplicate
-> definition.
-> 
+> Applied.
 
-This patch cooperate with my previous patch to solve the include file
-dependencies problem. So, we do better put those two patches together.
-(both in -tip tree or/add both in network tree)
+If these power management fixes do fix all the reported problems,
+then I will consider back porting (probably to 2.6.31.1).
 
-The previous patch is below:
 
-Commit-ID:  5ac35daa9343936038a3c9c4f4d6d3fe6a2a7bd8
-Gitweb:     http://git.kernel.org/tip/5ac35daa9343936038a3c9c4f4d6d3fe6a2a7bd8
-Author:     Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
-AuthorDate: Tue, 25 Aug 2009 14:06:22 +0800
-Committer:  Steven Rostedt <rostedt@goodmis.org>
-CommitDate: Wed, 26 Aug 2009 00:32:09 -0400
-
-tracing/events: fix the include file dependencies
-
-> And keep in mind that Neil and Xiao are probably going to want to do
-> work on top of this to the networking bits.  Thus if we put this patch
-> here into the tracing tree, I'll have to develop a dependency on the
-> tracing tree and I think that will go over like a fart in a spacesuit
-> with the -next crowd and Stephen Rothwell in particular.
-> 
-
-Thank you, David
-
-Xiao
+-- 
