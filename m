@@ -1,108 +1,43 @@
-From: Zdenek Kabelac <zdenek.kabelac@gmail.com>
-Subject: Re: System freeze on reboot - general protection fault
-Date: Wed, 2 Sep 2009 23:45:03 +0200
-Message-ID: <c4e36d110909021445l5f44183es9e338437dfbbd195@mail.gmail.com>
-References: <c4e36d110908110542l3de51aaepcbd62c84b9848f2b@mail.gmail.com>
-	 <c4e36d110908110832y21fba830ub8804613df571228@mail.gmail.com>
-	 <20090811154853.GF2763@sgi.com>
-	 <c4e36d110908111410y29b922ceod6871fda2514f6e6@mail.gmail.com>
-	 <c4e36d110908121516u504809e9y537e9babfa95df1d@mail.gmail.com>
-	 <alpine.DEB.1.10.0908121820410.3257@gentwo.org>
-	 <c4e36d110908131009l78b29bffvb4d41b90f9b83288@mail.gmail.com>
-	 <c4e36d110908140233v59421ba6y82192b858210370d@mail.gmail.com>
-	 <4A87CE60.4020506@gmail.com> <4A896324.3040104@trash.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Crypto oops in async_chainiv_do_postponed
+Date: Thu, 3 Sep 2009 07:57:12 +1000
+Message-ID: <20090902215712.GA16941@gondor.apana.org.au>
+References: <19095.1264.682820.125602@waldo.imnotcreative.homeip.net> <20090829104606.GA13141@gondor.apana.org.au> <19099.63038.425414.514063@waldo.imnotcreative.homeip.net> <20090831220459.GA15713@gondor.apana.org.au> <19101.16628.347039.619378@waldo.imnotcreative.homeip.net> <20090901221721.GA1964@gondor.apana.org.au> <19102.31846.180030.843571@waldo.imnotcreative.homeip.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Robin Holt <holt@sgi.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Jesper Dangaard Brouer <hawk@comx.dk>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753535AbZIBVpI@vger.kernel.org>
-In-Reply-To: <4A896324.3040104@trash.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+	offbase0@gmail.com
+To: Brad Bosch <bradbosch@comcast.net>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <19102.31846.180030.843571@waldo.imnotcreative.homeip.net>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2009/8/17 Patrick McHardy <kaber@trash.net>:
-> Eric Dumazet wrote:
->> Zdenek Kabelac a =E9crit :
->>> =A0[<ffffffffa02c502f>] nf_conntrack_ftp_fini+0x2f/0x70 [nf_conntra=
-ck_ftp]
->>> =A0[<ffffffff8027bcc5>] sys_delete_module+0x1a5/0x270
->>> =A0[<ffffffff8020d329>] ? retint_swapgs+0xe/0x13
->>> =A0[<ffffffff80271bf2>] ? trace_hardirqs_on_caller+0x162/0x1b0
->>> =A0[<ffffffff80292121>] ? audit_syscall_entry+0x191/0x1c0
->>> =A0[<ffffffff80526dae>] ? trace_hardirqs_on_thunk+0x3a/0x3f
->>> =A0[<ffffffff8020c84b>] system_call_fastpath+0x16/0x1b
->>> Code: c6 00 00 0f 82 66 ff ff ff 49 8b 9e d8 05 00 00 48 85 db 75 1=
-6
->>> e9 8e 00 00 00 0f 1f 44 00 00 48 85 c0 0f 84 80 00 00 00 48 89 c3 <=
-0f>
->>> b6 4b 37 48 8b 03 48 8d 14 cd 00 00 00 00 0f 18 08 48 29 ca
->>> RIP =A0[<ffffffffa02b2c2c>] nf_conntrack_helper_unregister+0x16c/0x=
-320
->>> [nf_conntrack]
->>> =A0RSP <ffff88013982fe68>
->>> CR2: 0000000000000038
->>> ---[ end trace bc3a0ede3d0084db ]---
->>>
->> I am currently traveling and wont be able to help you before next we=
-ek.
->>
->> I added netdev, Patrick, and netfilter-devel in CC so that more eyes=
- can take a look.
->
-> Thanks for the report, I'll have a look at this. Zdenek, please
-> send me the nf_conntrack.ko file used in the above oops. Thanks.
->
+On Wed, Sep 02, 2009 at 09:08:38AM -0500, Brad Bosch wrote:
+> 
+> Assume the worker thread is executing between the dequeue in
+> async_chainiv_do_postponed and the clear_bit call in
+> async_chainiv_schedule_work.  Further assume that we are processing
 
-Ok
+It cannot.  The worker thread can only execute when it owns
+the INUSE bit.  In that case do_postponed will never call the
+schedule_work function.
 
-I've found the solution for my problem.
+Perhaps you were misled by the clear_bit call in schedule_work.
+That is only used if we end up not scheduling the work.
+ 
+> Unfortunately, the offset problem is not easily reproduced with our
+> application, so testing long enough to be sure the problem is fixed
+> (assuming that it was indeed the cause of the oops) may not be
+> practical.  All I can say at the moment is that I have not seen the
+> crash since I introduced the two patches I sent you.
 
-http://thread.gmane.org/gmane.comp.security.firewalls.netfilter.devel/3=
-0483
+OK I'll forward this upstream then.
 
-I've made this small fix from this thread:
-
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_connt=
-rack_core
-index b5869b9..68488f8 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1108,6 +1108,7 @@ static void nf_conntrack_cleanup_init_net(void)
- {
-        nf_conntrack_helper_fini();
-        nf_conntrack_proto_fini();
-+       rcu_barrier();
-        kmem_cache_destroy(nf_conntrack_cachep);
- }
-
-@@ -1266,7 +1267,7 @@ static int nf_conntrack_init_init_net(void)
-
-        nf_conntrack_cachep =3D kmem_cache_create("nf_conntrack",
-                                                sizeof(struct nf_conn),
--                                               0, SLAB_DESTROY_BY_RCU,=
- NULL);
-+                                               0, 0, NULL);
-        if (!nf_conntrack_cachep) {
-                printk(KERN_ERR "Unable to create nf_conn slab cache\n"=
-);
-                ret =3D -ENOMEM;
-
-
-As the thread nf_conntrack: Use rcu_barrier() and fix kmem_cache_create=
- flags
-seems to be samewhat 'unfinished'  and already a bit old and I've no
-idea whether it actually fixes problem completely or just hides it in
-my case - I'm leaving it to some RCU gurus to fix this issue.
-
-All I could say is - this this extra rcu_barrier() and removal of
-SLAB_DESTROY removes my GPF on reboot.
-
-Zdenek
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
