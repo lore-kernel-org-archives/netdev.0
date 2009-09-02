@@ -1,43 +1,46 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: [PATCH net-next-2.6] ip: Report qdisc packet drops
-Date: Wed, 2 Sep 2009 14:37:59 -0500 (CDT)
-Message-ID: <alpine.DEB.1.10.0909021413490.16364@V090114053VZO-1>
-References: <4A98132C.8090105@gmail.com> <20090828.233858.256193304.davem@davemloft.net> <4A9BBD8E.2010303@gmail.com> <20090901.184121.06750444.davem@davemloft.net> <4A9E849A.30105@gmail.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH 1/3] netfilter: xt_ipvs (netfilter matcher for IPVS)
+Date: Wed, 2 Sep 2009 17:49:40 +0200 (CEST)
+Message-ID: <alpine.LSU.2.00.0909021748310.25091@fbirervta.pbzchgretzou.qr>
+References: <20090902101417.11561.45663.stgit@jazzy.zrh.corp.google.com>  <20090902101527.11561.59498.stgit@jazzy.zrh.corp.google.com>  <4A9E8711.1070807@trash.net> <b5ddba180909020833w1739bd54t11fded8150007abc@mail.gmail.com> <4A9E90E4.9080805@trash.net>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, sri@us.ibm.com,
-	dlstevens@us.ibm.com, netdev@vger.kernel.org,
-	niv@linux.vnet.ibm.com, mtk.manpages@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.ultrahosting.com ([74.213.174.253]:45084 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752823AbZIBPjI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 11:39:08 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 3BF9082C420
-	for <netdev@vger.kernel.org>; Wed,  2 Sep 2009 11:40:52 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.174.253])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id asNMTpRvdh8P for <netdev@vger.kernel.org>;
-	Wed,  2 Sep 2009 11:40:52 -0400 (EDT)
-Received: from V090114053VZO-1 (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id F179E82C622
-	for <netdev@vger.kernel.org>; Wed,  2 Sep 2009 11:40:40 -0400 (EDT)
-In-Reply-To: <4A9E849A.30105@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Hannes Eder <heder@google.com>, lvs-devel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	=?UTF-8?Q?Fabien_Duch=C3=AAne?= <mad_fab@skynet.be>,
+	Jean-Luc Fortemaison <jl.fortemaison@uclouvain.be>,
+	Julian Anastasov <ja@ssi.bg>,
+	Julius Volz <julius.volz@gmail.com>,
+	Laurent Grawet <laurent.grawet@uclouvain.be>,
+	Simon Horman <horms@verge.net.au>,
+	Wensong Zhang <wensong@linux-vs.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752721AbZIBPtl@vger.kernel.org>
+In-Reply-To: <4A9E90E4.9080805@trash.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-The patch is smaller if you remove the handling of recverr completely from
-ip_push_pending_frames() and return NET_RX_DROP etc. Two of the callers
-never even inspect the return code. For them this is useless processing.
+On Wednesday 2009-09-02 17:36, Patrick McHardy wrote:
+>> 
+>> Nice, I'll use par->family.
+>> 
+>> So in theory I do not even need a check like the following in the beginning?
+>> 
+>> 	if (family != NFPROTO_IPV4
+>> #ifdef CONFIG_IP_VS_IPV6
+>> 	    && family != NFPROTO_IPV6
+>> #endif
+>> 		) {
+>> 		match = false;
+>> 		goto out;
+>> 	}
+>
+>With the AF_UNSPEC registration of your match, it might be used
 
-The others could handle the processing of recverr on their own. Doing so
-voids adding code to ip_push_pending_frames() which is latency critical
-and also avoids changing the calling conventions.
+par->family always contains the NFPROTO of the invoking implementation,
+which can never be UNSPEC (except, in future, xtables2 ;-)
 
-I have a draft here from our earlier disucssions but its not as
-comprehensive as yours.
-
-
+par->match->family however may be UNSPEC if the module works that way.
+Which is why we have par->family.
