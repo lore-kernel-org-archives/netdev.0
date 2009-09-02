@@ -1,115 +1,87 @@
-From: John Linn <John.Linn@xilinx.com>
-Subject: RE: [PATCH] [V3] net: add Xilinx emac lite device driver
-Date: Wed, 2 Sep 2009 07:33:18 -0600
-Message-ID: <20090902133245.5128E26804D@mail202-sin.bigfish.com>
-References: <20090820094956.02DFC45004F@mail96-dub.bigfish.com> <20090820094914.46f1db9c@nehalam>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] drop_monitor: make last_rx timestamp private
+Date: Wed, 2 Sep 2009 09:36:20 -0400
+Message-ID: <20090902133620.GC402@hmsreliant.think-freely.org>
+References: <20090831195847.GA6506@hmsreliant.think-freely.org> <20090901.182127.96935772.davem@davemloft.net> <20090902105535.GB402@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
-	<davem@davemloft.net>, <jgarzik@pobox.com>,
-	<grant.likely@secretlab.ca>,
-	"Josh Boyer" <jwboyer@linux.vnet.ibm.com>,
-	"John Williams" <john.williams@petalogix.com>,
-	"Michal Simek" <michal.simek@petalogix.com>,
-	"Sadanand Mutyala" <sadanan@xilinx.com>
-To: "Stephen Hemminger" <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sg2ehsobe002.messaging.microsoft.com ([207.46.51.76]:57742 "EHLO
-	SG2EHSOBE002.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751408AbZIBNdV convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Sep 2009 09:33:21 -0400
-Content-Class: urn:content-classes:message
-In-Reply-To: <20090820094914.46f1db9c@nehalam>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:38765 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751955AbZIBNg0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 09:36:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20090902105535.GB402@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-> Sent: Thursday, August 20, 2009 5:49 PM
-> To: John Linn
-> Cc: netdev@vger.kernel.org; linuxppc-dev@ozlabs.org;
-davem@davemloft.net; jgarzik@pobox.com; John
-> Linn; grant.likely@secretlab.ca; Josh Boyer; John Williams; Michal
-Simek; Sadanand Mutyala
-> Subject: Re: [PATCH] [V3] net: add Xilinx emac lite device driver
-> 
-> On Thu, 20 Aug 2009 03:49:51 -0600
-> John Linn <john.linn@xilinx.com> wrote:
-> 
-> > +/**
-> > + * xemaclite_ioctl - Perform IO Control operations on the network
-device
-> > + * @dev:	Pointer to the network device
-> > + * @rq:		Pointer to the interface request structure
-> > + * @cmd:	IOCTL command
-> > + *
-> > + * The only IOCTL operation supported by this function is setting
-the MAC
-> > + * address. An error is reported if any other operations are
-requested.
-> > + *
-> > + * Return:	0 to indicate success, or a negative error for failure.
-> > + */
-> > +static int xemaclite_ioctl(struct net_device *dev, struct ifreq
-*rq, int cmd)
-> > +{
-> > +	struct net_local *lp = (struct net_local *) netdev_priv(dev);
-> > +	struct hw_addr_data *hw_addr = (struct hw_addr_data *)
-&rq->ifr_hwaddr;
-> > +
-> > +	switch (cmd) {
-> > +	case SIOCETHTOOL:
-> > +		return -EIO;
-> > +
-> > +	case SIOCSIFHWADDR:
-> > +		dev_err(&lp->ndev->dev, "SIOCSIFHWADDR\n");
-> > +
-> > +		/* Copy MAC address in from user space */
-> > +		copy_from_user((void __force *) dev->dev_addr,
-> > +			       (void __user __force *) hw_addr,
-> > +			       IFHWADDRLEN);
-> > +		xemaclite_set_mac_address(lp, dev->dev_addr);
-> > +		break;
-> > +	default:
-> > +		return -EOPNOTSUPP;
-> > +	}
-> > +
-> > +	return 0;
-> > +}
-> 
-> Do you really need this? I doubt the SIOCSIFHWADDR even reaches
-driver!
-> 
-> The normal call path for setting hardware address is:
->   dev_ifsioc
->          dev_set_mac_address
->              ops->ndo_set_mac_address -->
-> 
-> The driver should be:
->    1. defining new code to do ndo_set_mac_address
->    2. remove existing xmaclite_ioctl - all ioctl's handled by upper
-layers
-> 
-> FYI - the only ioctl's that make it to network device ndo_ioctl
->  are listed in dev_ifsioc
->    SIOCDEVPRIVATE ... SIOCDEVPRIVATE + 15
->    SIOCBOND*
->    SIOCMII*
->    SIOCBR*
->    SIOCHWTSTAMP
->    SIOCWANDEV
-> 
-> 
-
-We agree and will be updating the driver for this change. Sorry about
-the delay as I was on vacation.
-
-Thanks,
-John
+Ok, heres a repost, unchanged saved for being massaged to fit in with the recent
+changes that my origional patch raced against.  Thanks!
+Neil
 
 
-This email and any attachments are intended for the sole use of the named recipient(s) and contain(s) confidential information that may be proprietary, privileged or copyrighted under applicable law. If you are not the intended recipient, do not read, copy, or forward this email message or any attachments. Delete this email message and any attachments immediately.
+It was recently pointed out to me that the last_rx field of the net_device
+structure wasn't updated regularly.  In fact only the bonding driver really uses
+it currently.  Since the drop_monitor code relies on the last_rx field to detect
+drops on recevie in hardware, We need to find a more reliable way to rate limit
+our drop checks (so that we don't check for drops on every frame recevied, which
+would be inefficient.  This patch makes a last_rx timestamp that is private to
+the drop monitor code and is updated for every device that we track.
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
 
+ drop_monitor.c |   15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
+index d311202..0a113f2 100644
+--- a/net/core/drop_monitor.c
++++ b/net/core/drop_monitor.c
+@@ -52,6 +52,7 @@ struct per_cpu_dm_data {
+ 
+ struct dm_hw_stat_delta {
+ 	struct net_device *dev;
++	unsigned long last_rx;
+ 	struct list_head list;
+ 	struct rcu_head rcu;
+ 	unsigned long last_drop_val;
+@@ -180,18 +181,25 @@ static void trace_napi_poll_hit(struct napi_struct *napi)
+ 	struct dm_hw_stat_delta *new_stat;
+ 
+ 	/*
+-	 * Ratelimit our check time to dm_hw_check_delta jiffies
++	 * Don't check napi structures with no associated device
+ 	 */
+-	if (!napi->dev ||
+-	    !time_after(jiffies, napi->dev->last_rx + dm_hw_check_delta))
++	if (!napi->dev)
+ 		return;
+ 
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(new_stat, &hw_stats_list, list) {
++		/*
++		 * only add a note to our monitor buffer if:
++		 * 1) this is the dev we received on
++		 * 2) its after the last_rx delta
++		 * 3) our rx_dropped count has gone up
++		 */
+ 		if ((new_stat->dev == napi->dev)  &&
++		    (time_after(jiffies, new_stat->last_rx + dm_hw_check_delta)) &&
+ 		    (napi->dev->stats.rx_dropped != new_stat->last_drop_val)) {
+ 			trace_drop_common(NULL, NULL);
+ 			new_stat->last_drop_val = napi->dev->stats.rx_dropped;
++			new_stat->last_rx = jiffies;
+ 			break;
+ 		}
+ 	}
+@@ -287,6 +295,7 @@ static int dropmon_net_event(struct notifier_block *ev_block,
+ 			goto out;
+ 
+ 		new_stat->dev = dev;
++		new_stat->last_rx = jiffies;
+ 		INIT_RCU_HEAD(&new_stat->rcu);
+ 		spin_lock(&trace_state_lock);
+ 		list_add_rcu(&new_stat->list, &hw_stats_list);
