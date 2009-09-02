@@ -1,66 +1,89 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [patch] ipvs: Use atomic operations atomicly
-Date: Wed, 02 Sep 2009 14:56:02 +0200
-Message-ID: <4A9E6B62.8080208@trash.net>
-References: <20090828023722.GA12136@verge.net.au> <4A9BC082.3090804@trash.net> <20090901015909.GA12252@verge.net.au>
+From: Jens Rosenboom <me@jayr.de>
+Subject: Re: [RFC] net/core: Delay neighbor only if it has been used after
+ confirmed
+Date: Wed, 02 Sep 2009 15:03:29 +0200
+Message-ID: <1251896609.5813.32.camel@fnki-nb00130>
+References: <1251883079.5813.18.camel@fnki-nb00130>
+	 <4A9E639B.20907@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	=?ISO-8859-15?Q?=3F=3F_shin_hong?= <hongshin@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090901015909.GA12252@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Network Developers <netdev@vger.kernel.org>
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from leia.mcbone.net ([194.97.104.42]:42533 "EHLO leia.mcbone.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751081AbZIBNDg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Sep 2009 09:03:36 -0400
+In-Reply-To: <4A9E639B.20907@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Simon Horman wrote:
-> On Mon, Aug 31, 2009 at 02:22:26PM +0200, Patrick McHardy wrote:
->> It seems that proc_do_sync_threshold() should check whether this value
->> is zero. The current checks also look racy since incorrect values are
->> first updated, then overwritten again.
+On Wed, 2009-09-02 at 21:22 +0900, YOSHIFUJI Hideaki wrote:
+> Hello.
 > 
-> I'm wondering if an approach along the lines of the following is valid.
-> The idea is that the value in the ctl_table is essentially a scratch
-> value that is used by the parser and then copied into ip_vs_sync_threshold
-> if it is valid.
+> Jens Rosenboom wrote:
+> > When doing some IPv6 testing with the router advertising a small (e.g. 5
+> > seconds) reachable time, I noticed that after the traffic has stopped,
+> > hosts continue to exchange ND packets every 10 seconds. This is due to
+> > neigh_timer_handler() only checking neigh->used and puts a neighbor into
+> > NUD_DELAY state even if neigh->confirmed may be >= neigh->used.
+> 
+> Well, as you can see in neigh_periodic_timer():
+> |                if (time_before(n->used, n->confirmed))
+> |                        n->used = n->confirmed;
+> time_after_eq(n->used, n->confirmed) should be taken valid;
+> confirmed <= used <= now <= jiffies
 
-Even simpler would be to use a temporary buffer on the stack for copying
-the values from userspace and then copy them to the final buffer after
-validation.
+Isn't there a chance that neigh_timer_handler() is run before the
+periodic timer fixes this? Otherwise I agree that the test could just
+say (n->used != n->confirmed).
 
-> I'm concerned that there are atomicity issues
-> surrounding writing ip_vs_sync_threshold while there might be readers.
+> > The following patch for net-next-2.6 fixes this behaviour for my IPv6
+> > setup, however I would like to hear some opinion on whether this might
+> > have some negative influence on other protocols that use this code.
+> > 
+> > I also think that it would make more sense to compute the time for the
+> > delay timer starting from neigh->used instead of using now (second part
+> > of the patch).
+> 
+> okay, but I would rather have this in another patch.
+> 
+> > diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> > index 5bc4ad5..ca20162 100644
+> > --- a/net/core/neighbour.c
+> > +++ b/net/core/neighbour.c
+> > @@ -820,12 +820,13 @@ static void neigh_timer_handler(unsigned long arg)
+> >  			NEIGH_PRINTK2("neigh %p is still alive.\n", neigh);
+> >  			next = neigh->confirmed + neigh->parms->reachable_time;
+> >  		} else if (time_before_eq(now,
+> > -					  neigh->used + neigh->parms->delay_probe_time)) {
+> > +					  neigh->used + neigh->parms->delay_probe_time) &&
+> > +			   time_after(neigh->confirmed, neigh->used)) {
+> >  			NEIGH_PRINTK2("neigh %p is delayed.\n", neigh);
+> >  			neigh->nud_state = NUD_DELAY;
+> 
+> I think your change should be
+> | time_after(neigh->used, neigh->confirmed)
+> or
+> | time_before(neigh->confirmed, neigh->used)
+> 
+> ("_eq" is removed because there is a little chance
+> that the neighbor had been confirmed just before it was
+> used.  It is not interesting for us at this moment.)
+> 
+> No?
 
-That might be a problem if they are required to be "synchronized".
+Yes, you are right, this test should be reversed. But together with your
+remarks above, this probably means that the whole stuff also works fine
+if we completely remove this if-branch.
 
-> --- a/net/netfilter/ipvs/ip_vs_core.c
-> +++ b/net/netfilter/ipvs/ip_vs_core.c
-> @@ -1362,8 +1362,7 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb,
->  	    (ip_vs_sync_state & IP_VS_STATE_MASTER) &&
->  	    (((cp->protocol != IPPROTO_TCP ||
->  	       cp->state == IP_VS_TCP_S_ESTABLISHED) &&
-> -	      (pkts % sysctl_ip_vs_sync_threshold[1]
-> -	       == sysctl_ip_vs_sync_threshold[0])) ||
-> +	      (pkts % ip_vs_sync_threshold[1] == ip_vs_sync_threshold[0])) ||
->  	     ((cp->protocol == IPPROTO_TCP) && (cp->old_state != cp->state) &&
->  	      ((cp->state == IP_VS_TCP_S_FIN_WAIT) ||
->  	       (cp->state == IP_VS_TCP_S_CLOSE_WAIT) ||
-> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-> index fba2892..8a9ff21 100644
-> --- a/net/netfilter/ipvs/ip_vs_ctl.c
-> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-> @@ -76,6 +76,11 @@ static atomic_t ip_vs_dropentry = ATOMIC_INIT(0);
->  /* number of virtual services */
->  static int ip_vs_num_services = 0;
->  
-> +/* threshold handling */
-> +static int ip_vs_sync_threshold_min = 0;
-> +static int ip_vs_sync_threshold_max = INT_MAX;
-> +int ip_vs_sync_threshold[2] = { 3, 50 };
-> +
+> And, this "if" for REACHABLE->DELAY may be completely needless.
+> Timer in REACHABLE is only for state transition for toward REACHABLE
+> or STALE.
 
-min should be 1 I guess or you still need to manually check
-that ip_vs_sync_threshold[1] != 0 to avoid a division be zero.
+Well, this part has been there for a long time, at least it looks pretty
+much the same in the first git version, so I would be a bit reluctant to
+completely remove it, but since that would probably also solve my
+problem, I also wouldn't object that proposition. ;-)
+
