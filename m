@@ -1,81 +1,28 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [NET] Add proc file to display the state of all qdiscs.
-Date: Wed, 02 Sep 2009 10:28:55 +0200
-Message-ID: <4A9E2CC7.1010103@gmail.com>
+Date: Wed, 02 Sep 2009 01:30:02 -0700 (PDT)
+Message-ID: <20090902.013002.181288977.davem@davemloft.net>
 References: <20090902081429.GB4878@ff.dom.local>
+	<4A9E2CC7.1010103@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Lameter <cl@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jarkao2@gmail.com, cl@linux-foundation.org, kaber@trash.net,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:42886 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752102AbZIBI3A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 04:29:00 -0400
-In-Reply-To: <20090902081429.GB4878@ff.dom.local>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43206
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752864AbZIBI3r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 04:29:47 -0400
+In-Reply-To: <4A9E2CC7.1010103@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski a =E9crit :
-> [Resent with fixed netdev@ address]
->=20
-> On 02-09-2009 01:52, Christoph Lameter wrote:
->> [NET] Add proc file to display the state of all qdiscs
->>
->> TC is a complicated tool and it currently does not allow the display=
- of all
->> qdisc states. It does not support multiple tx queues and also not
->> localhost, nor does it display the current operating state of the qu=
-eues.
->=20
-> I think, tc should've no problem with displaying summary stats of
-> multiqueue qdiscs or even all of them separately, as mentioned by
-> Patrick. And, maybe I still miss something, but there should be
-> nothing special with tc vs. localhost either.
->
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 02 Sep 2009 10:28:55 +0200
 
-I made a patch, but for a 8 queue device (bnx2), here is the "tc -s -d =
-qdisc" result :
+> What naming convention should we choose for multiqueue devices ?
 
-$ tc -s -d qdisc show
-qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 =
-1 1 1 1 1 1
- Sent 51814 bytes 459 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
-qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 =
-1 1 1 1 1 1
- Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
-qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 =
-1 1 1 1 1 1
- Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
-qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 =
-1 1 1 1 1 1
- Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
-qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 =
-1 1 1 1 1 1
- Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
-qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 =
-1 1 1 1 1 1
- Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
-qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 =
-1 1 1 1 1 1
- Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
-qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 =
-1 1 1 1 1 1
- Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
-
-
-Same name "eth0" is displayed, that might confuse parsers...
-
-What naming convention should we choose for multiqueue devices ?
-
+We could give an index field to multiple root qdiscs assigned
+to a device.
