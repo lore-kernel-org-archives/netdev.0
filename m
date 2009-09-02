@@ -1,40 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drop_monitor: make last_rx timestamp private
-Date: Wed, 02 Sep 2009 14:37:55 -0700 (PDT)
-Message-ID: <20090902.143755.109474596.davem@davemloft.net>
-References: <20090901.182127.96935772.davem@davemloft.net>
-	<20090902105535.GB402@hmsreliant.think-freely.org>
-	<20090902133620.GC402@hmsreliant.think-freely.org>
+Subject: Re: [RFC][PATCH][v5] net/ethtool: Add support for the ethtool
+ feature to flash firmware image from a specified file.
+Date: Wed, 02 Sep 2009 14:40:47 -0700 (PDT)
+Message-ID: <20090902.144047.191136129.davem@davemloft.net>
+References: <20090821165416.GA17102@serverengines.com>
+	<20090902155006.GA22314@serverengines.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: nhorman@tuxdriver.com
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+To: ajitk@serverengines.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54856
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54861
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751266AbZIBVhk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 17:37:40 -0400
-In-Reply-To: <20090902133620.GC402@hmsreliant.think-freely.org>
+	by vger.kernel.org with ESMTP id S1751326AbZIBVkd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 17:40:33 -0400
+In-Reply-To: <20090902155006.GA22314@serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Wed, 2 Sep 2009 09:36:20 -0400
+From: Ajit Khaparde <ajitk@serverengines.com>
+Date: Wed, 2 Sep 2009 21:20:09 +0530
 
-> Ok, heres a repost, unchanged saved for being massaged to fit in with the recent
-> changes that my origional patch raced against.  Thanks!
-> Neil
-> 
-> 
-> It was recently pointed out to me that the last_rx field of the net_device
-> structure wasn't updated regularly.  In fact only the bonding driver really uses
-> it currently.  Since the drop_monitor code relies on the last_rx field to detect
-> drops on recevie in hardware, We need to find a more reliable way to rate limit
-> our drop checks (so that we don't check for drops on every frame recevied, which
-> would be inefficient.  This patch makes a last_rx timestamp that is private to
-> the drop monitor code and is updated for every device that we track.
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> Is this patch good enough for being accepted? Please let me know if
+> any more work has to be done on this. Also, I want to send the
+> changes to the be2net driver which would use this ethtool feature.
 
-Applied, thanks Neil.
+My impression was that the patch was still under review and
+people were still making change requests.
+
+I guess not :-)
+
+Please resubmit the kernel side patch, it'll get into patchwork
+and I'll apply it.
+
+Thanks.
