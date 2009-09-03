@@ -1,261 +1,300 @@
-From: "Holger Hoffstaette" <holger.hoffstaette@googlemail.com>
-Subject: Re: Network hangs with 2.6.30.5
-Date: Thu, 03 Sep 2009 21:55:39 +0200
-Message-ID: <pan.2009.09.03.19.55.37.672875@googlemail.com>
-References: <pan.2009.09.01.15.32.24.613750@googlemail.com> <20090903074610.GA6000@ff.dom.local> <pan.2009.09.03.19.20.44.736875@googlemail.com> <4AA0188C.20107@gmail.com>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?= <nicolas.2p.debian@free.fr>
+Subject: Re: [PATCH net-next-2.6] bonding: introduce primary_passive option
+Date: Thu, 03 Sep 2009 21:56:21 +0200
+Message-ID: <4AA01F65.7010408@free.fr>
+References: <20090901174234.GA3209@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:34444 "EHLO lo.gmane.org"
+Received: from smtp6-g21.free.fr ([212.27.42.6]:49855 "EHLO smtp6-g21.free.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756135AbZICT4G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Sep 2009 15:56:06 -0400
-Received: from list by lo.gmane.org with local (Exim 4.50)
-	id 1MjIPf-0004OC-87
-	for netdev@vger.kernel.org; Thu, 03 Sep 2009 21:56:07 +0200
-Received: from port-87-234-135-12.dynamic.qsc.de ([87.234.135.12])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 03 Sep 2009 21:56:07 +0200
-Received: from holger.hoffstaette by port-87-234-135-12.dynamic.qsc.de with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 03 Sep 2009 21:56:07 +0200
+	id S1756211AbZICT4a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Sep 2009 15:56:30 -0400
+In-Reply-To: <20090901174234.GA3209@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 03 Sep 2009 21:27:08 +0200, Eric Dumazet wrote:
+Jiri Pirko wrote:
+> (updated)
+> 
+> In some cases there is not desirable to switch back to primary interface when
+> it's link recovers and rather stay with currently active one. We need to avoid
+> packetloss as much as we can in some cases. This is solved by introducing
+> primary_passive option. Note that enslaved primary slave is set as current
+> active no matter what.
+> 
+> This patch depends on the following one:
+> [net-next-2.6] bonding: make ab_arp select active slaves as other modes
+> http://patchwork.ozlabs.org/patch/32684/
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> 
+> diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+> index d5181ce..e70fa8e 100644
+> --- a/Documentation/networking/bonding.txt
+> +++ b/Documentation/networking/bonding.txt
+> @@ -614,6 +614,17 @@ primary
+>  
+>  	The primary option is only valid for active-backup mode.
+>  
+> +primary_passive
+> +
+> +	Specifies the behaviour of the primary slave in case of
+> +	it's link recovery has been detected. By default (value 0) the
+> +	primary slave is set as active slave immediately after the link
+> +	recovery. If the value is 1 or 2 then current active slave doesn't
+> +	change as long as it's link status doesn't change. This prevents
+> +	the bonding device from flip-flopping. Plus if the value is 1 this
+> +	behaviour happens only if the speed and duplex of primary slave is
+> +	higher. It the value is 2 then it happens everytime.
+> +
 
-> Holger Hoffstaette a =E9crit :
->> Problem found! At least for me..
->>=20
->>> On 01-09-2009 17:32, Holger Hoffstaette wrote:
->>>> On Tue, 01 Sep 2009 16:17:08 +0200, Holger Hoffstaette wrote:
->>>>
->>>> [network regressions in .30]
->>=20
->> I got the git .30.y stable tree and reverted various e1000 commits t=
-hat
->> seemed to coincide with the various .30-rc releases but nothing help=
-ed.
->> Also no relation to offloads etc.
->>=20
->> However I did notice that the "stuck squid" problem seemed to magica=
-lly
->> fix itself after a few seconds - then hang again, fix itself after
->> timeouts etc. So I suspected something TCP related and BINGO!
->>=20
->> Turns out I had both tcp_tw_recycle and tcp_tw_reuse set to 1 for
->> reasons I don't want to explain. :)
->>=20
->> I can now arbitrarily fix the hanging behaviour by setting
->> tcp_tw_recycle to 0, and cause hangs by setting it to 1 again. For
->> obvious reasons this seems to affect squid more than other tasks wit=
-h
->> more long-lived connections. What is the right behaviour? beats me.
->>=20
->> tcp_tw_reuse does not appear to play a role, so the real culprit at
->> least in my case seems to be tcp_tw_recycle. In previous releases th=
-is
->> (and tw_reuse) was necessary for various server tasks.
->>=20
->> Nevertheless, something has changed between .29 and .30 that "broke"=
- the
->> previous behaviour. Whether this is progress or an regression I cann=
-ot
->> say. Maybe someone else has an idea?
->>=20
->>=20
-> Well... not yet :)
->=20
-> We probably can reproduce this problem with any NIC...
->=20
-> Could you send from the 'buggy' setup
->=20
-> $ grep . /proc/sys/net/ipv4/*
+May I suggest the following option name and description instead ?
 
-Sure:
+-----
 
-root>grep . /proc/sys/net/ipv4/*
-grep: /proc/sys/net/ipv4/conf: Invalid argument
-/proc/sys/net/ipv4/icmp_echo_ignore_all:0
-/proc/sys/net/ipv4/icmp_echo_ignore_broadcasts:1
-/proc/sys/net/ipv4/icmp_errors_use_inbound_ifaddr:0
-/proc/sys/net/ipv4/icmp_ignore_bogus_error_responses:1
-/proc/sys/net/ipv4/icmp_ratelimit:1000
-/proc/sys/net/ipv4/icmp_ratemask:6168
-/proc/sys/net/ipv4/igmp_max_memberships:20
-/proc/sys/net/ipv4/igmp_max_msf:10
-/proc/sys/net/ipv4/inet_peer_gc_maxtime:120
-/proc/sys/net/ipv4/inet_peer_gc_mintime:10
-/proc/sys/net/ipv4/inet_peer_maxttl:600
-/proc/sys/net/ipv4/inet_peer_minttl:120
-/proc/sys/net/ipv4/inet_peer_threshold:65664
-/proc/sys/net/ipv4/ip_default_ttl:64
-/proc/sys/net/ipv4/ip_dynaddr:0
-/proc/sys/net/ipv4/ip_forward:0
-/proc/sys/net/ipv4/ip_local_port_range:32768    61000
-/proc/sys/net/ipv4/ip_no_pmtu_disc:0
-/proc/sys/net/ipv4/ip_nonlocal_bind:0
-/proc/sys/net/ipv4/ipfrag_high_thresh:8388608
-/proc/sys/net/ipv4/ipfrag_low_thresh:1048575
-/proc/sys/net/ipv4/ipfrag_max_dist:64
-/proc/sys/net/ipv4/ipfrag_secret_interval:600
-/proc/sys/net/ipv4/ipfrag_time:30
-grep: /proc/sys/net/ipv4/neigh: Invalid argument
-grep: /proc/sys/net/ipv4/route: Invalid argument
-/proc/sys/net/ipv4/rt_cache_rebuild_count:4
-/proc/sys/net/ipv4/tcp_abc:0
-/proc/sys/net/ipv4/tcp_abort_on_overflow:0
-/proc/sys/net/ipv4/tcp_adv_win_scale:2
-/proc/sys/net/ipv4/tcp_allowed_congestion_control:cubic reno
-/proc/sys/net/ipv4/tcp_app_win:31
-/proc/sys/net/ipv4/tcp_available_congestion_control:cubic reno
-/proc/sys/net/ipv4/tcp_base_mss:512
-/proc/sys/net/ipv4/tcp_congestion_control:cubic
-/proc/sys/net/ipv4/tcp_dsack:1
-/proc/sys/net/ipv4/tcp_ecn:0
-/proc/sys/net/ipv4/tcp_fack:1
-/proc/sys/net/ipv4/tcp_fin_timeout:60
-/proc/sys/net/ipv4/tcp_frto:2
-/proc/sys/net/ipv4/tcp_frto_response:0
-/proc/sys/net/ipv4/tcp_keepalive_intvl:75
-/proc/sys/net/ipv4/tcp_keepalive_probes:9
-/proc/sys/net/ipv4/tcp_keepalive_time:7200
-/proc/sys/net/ipv4/tcp_low_latency:0
-/proc/sys/net/ipv4/tcp_max_orphans:16384
-/proc/sys/net/ipv4/tcp_max_ssthresh:0
-/proc/sys/net/ipv4/tcp_max_syn_backlog:1024
-/proc/sys/net/ipv4/tcp_max_tw_buckets:180000
-/proc/sys/net/ipv4/tcp_mem:82944        110592  165888
-/proc/sys/net/ipv4/tcp_moderate_rcvbuf:1
-/proc/sys/net/ipv4/tcp_mtu_probing:0
-/proc/sys/net/ipv4/tcp_no_metrics_save:0
-/proc/sys/net/ipv4/tcp_orphan_retries:0
-/proc/sys/net/ipv4/tcp_reordering:3
-/proc/sys/net/ipv4/tcp_retrans_collapse:1
-/proc/sys/net/ipv4/tcp_retries1:3
-/proc/sys/net/ipv4/tcp_retries2:15
-/proc/sys/net/ipv4/tcp_rfc1337:0
-/proc/sys/net/ipv4/tcp_rmem:4096        262144  8388608
-/proc/sys/net/ipv4/tcp_sack:1
-/proc/sys/net/ipv4/tcp_slow_start_after_idle:1
-/proc/sys/net/ipv4/tcp_stdurg:0
-/proc/sys/net/ipv4/tcp_syn_retries:5
-/proc/sys/net/ipv4/tcp_synack_retries:5
-/proc/sys/net/ipv4/tcp_timestamps:1
-/proc/sys/net/ipv4/tcp_tso_win_divisor:3
-/proc/sys/net/ipv4/tcp_tw_recycle:1
-/proc/sys/net/ipv4/tcp_tw_reuse:1
-/proc/sys/net/ipv4/tcp_window_scaling:1
-/proc/sys/net/ipv4/tcp_wmem:4096        262144  8388608
-/proc/sys/net/ipv4/tcp_workaround_signed_windows:0
-/proc/sys/net/ipv4/udp_mem:82944        110592  165888
-/proc/sys/net/ipv4/udp_rmem_min:4096
-/proc/sys/net/ipv4/udp_wmem_min:4096
-root>=20
+primary_return
 
-> When you say squid is stuck, does it mean it doesnt accept new connec=
-tions
-> ?
+	Specifies the behavior of the current active slave when the primary was
+	down and comes back up. This option is designed to prevent flip-flopping
+	between the primary slave and other slaves. The possible values and
+	their respective effects are:
 
-Yes, that seems to be the behaviour. To verify - I just browse any rand=
-om
-website and after a few requests the browser does not get any replies a=
-ny
-longer, timeouts etc. After setting tw_recycle to 0 it immediately star=
-ts
-working again (and then continues to work).
+	alway or 0 (default)
 
-Took a bit to find out in which direction things were hanging/getting
-stuck, since it was not immediately clear from simply observing the cli=
-ent.
+		The primary slave becomes the active slave whenever it comes
+		back up.
 
-> Could help to strace it and check what it is doing ? --
+	better or 1
 
-After a quite frantic start (endless amount of 54 byte writes??) it sit=
-s
-in its epoll loop and waits:
+		The primary slave becomes the active slave when it comes back
+		up, if the speed and duplex of the primary slave is better
+		than the speed and duplex of the current active slave.
 
-=2E.
-epoll_wait(4, {}, 8192, 1000)           =3D 0
-gettimeofday({1252007105, 637264}, NULL) =3D 0
-gettimeofday({1252007105, 637309}, NULL) =3D 0
-epoll_wait(4, {}, 8192, 1000)           =3D 0
-gettimeofday({1252007106, 637262}, NULL) =3D 0
-gettimeofday({1252007106, 637308}, NULL) =3D 0
-epoll_wait(4, {}, 8192, 0)              =3D 0
-gettimeofday({1252007106, 637389}, NULL) =3D 0
-gettimeofday({1252007106, 637421}, NULL) =3D 0
-epoll_wait(4, {}, 8192, 1000)           =3D 0
-gettimeofday({1252007107, 637266}, NULL) =3D 0
-gettimeofday({1252007107, 637311}, NULL) =3D 0
-=2E.etc..
+	failure_only or 2
 
-and occasionally diddles with its cache directory:
+		The primary slave becomes the active slave only if the current
+		active slave fails and the primary slave is up.
 
-=2E.
-epoll_wait(4, {}, 8192, 997)            =3D 0
-gettimeofday({1252007148, 554039}, NULL) =3D 0
-gettimeofday({1252007148, 554097}, NULL) =3D 0
-open("/var/cache/squid/02/09", O_RDONLY|O_NONBLOCK|O_LARGEFILE|O_DIRECT=
-ORY|O_CLOEXEC) =3D 9
-getdents64(9, /* 113 entries */, 32768) =3D 3600
-getdents64(9, /* 0 entries */, 32768)   =3D 0
-close(9)                                =3D 0
-epoll_wait(4, {}, 8192, 0)              =3D 0
-gettimeofday({1252007148, 555923}, NULL) =3D 0
-=2E.
+	When no slave are active, if the primary comes back up, it becomes the
+	active slave, regardless of the value of primary_return.
 
-When requests come in, it does whatever squid does, but when it hangs, =
-the
-following popped up:
+-----
 
-gettimeofday({1252007207, 116223}, NULL) =3D 0
-epoll_ctl(4, EPOLL_CTL_MOD, 23, {EPOLLIN|EPOLLERR|EPOLLHUP, {u32=3D23, =
-u64=3D582647025628086295}}) =3D 0
-gettimeofday({1252007207, 116380}, NULL) =3D 0
-epoll_wait(4, {{EPOLLIN, {u32=3D15, u64=3D582647025628086287}}}, 8192, =
-359) =3D 1
-gettimeofday({1252007207, 117309}, NULL) =3D 0
-read(15, "48,33,48,31,40,31\" href=3D\"/2/hi/af"..., 2046) =3D 581
-gettimeofday({1252007207, 117476}, NULL) =3D 0
-epoll_ctl(4, EPOLL_CTL_MOD, 23, {EPOLLIN|EPOLLOUT|EPOLLERR|EPOLLHUP, {u=
-32=3D23, u64=3D23}}) =3D 0
-epoll_wait(4, {{EPOLLIN, {u32=3D15, u64=3D582647025628086287}}, {EPOLLO=
-UT, {u32=3D23, u64=3D23}}}, 8192, 358) =3D 2
-gettimeofday({1252007207, 117790}, NULL) =3D 0
-read(15, ""..., 2046)                   =3D 0
-write(23, "48,33,48,31,40,31\" href=3D\"/2/hi/af"..., 581) =3D 581
-gettimeofday({1252007207, 118032}, NULL) =3D 0
-read(15, ""..., 65535)                  =3D 0
-read(23, 0xbf925401, 65535)             =3D -1 EAGAIN (Resource tempora=
-rily unavailable)
-epoll_ctl(4, EPOLL_CTL_DEL, 15, {0, {u32=3D15, u64=3D15}}) =3D 0
-close(15)                               =3D 0
-epoll_ctl(4, EPOLL_CTL_MOD, 23, {EPOLLOUT|EPOLLERR|EPOLLHUP, {u32=3D23,=
- u64=3D581683939341500439}}) =3D 0
-epoll_ctl(4, EPOLL_CTL_DEL, 23, {0, {u32=3D23, u64=3D581683939341500439=
-}}) =3D 0
-close(23)                               =3D 0
-epoll_wait(4, {}, 8192, 357)            =3D 0
-gettimeofday({1252007207, 477363}, NULL) =3D 0
-gettimeofday({1252007207, 477408}, NULL) =3D 0
-epoll_wait(4, {}, 8192, 0)              =3D 0
-gettimeofday({1252007207, 477561}, NULL) =3D 0
-gettimeofday({1252007207, 477629}, NULL) =3D 0
-epoll_wait(4, {}, 8192, 449)            =3D 0
+Then, to allow those logical names, I suggest you use the bond_parse_parm() 
+function and the following constants and struct, to parse module params and 
+sysfs configuration.
 
-Then it again spins in the epoll loop for a while until it recovers and
-starts to handle the outstanding requests (as far as I can read - it
-scrolls by too quickly).
+enum {
+         BOND_PRI_RETURN_ALWAYS = 0,
+         BOND_PRI_RETURN_BETTER = 1,
+         BOND_PRI_RETURN_FAILURE_ONLY = 2,
+};
 
-Was that somewhat helpful? I can certainly create a full trace but that=
-'s
-going to be big.
+const struct bond_parm_tbl bond_pri_return_tbl[] = {
+{       "always",         BOND_PRI_RETURN_ALWAYS},
+{       "better",         BOND_PRI_RETURN_BETTER},
+{       "failure_only",   BOND_PRI_RETURN_FAILURE_ONLY},
+{       NULL,           -1},
+};
 
-regards
-Holger
+	Nicolas.
 
+>  updelay
+>  
+>  	Specifies the time, in milliseconds, to wait before enabling a
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 699bfdd..65066c1 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -94,6 +94,7 @@ static int downdelay;
+>  static int use_carrier	= 1;
+>  static char *mode;
+>  static char *primary;
+> +static int primary_passive;
+>  static char *lacp_rate;
+>  static char *ad_select;
+>  static char *xmit_hash_policy;
+> @@ -126,6 +127,9 @@ MODULE_PARM_DESC(mode, "Mode of operation : 0 for balance-rr, "
+>  		       "6 for balance-alb");
+>  module_param(primary, charp, 0);
+>  MODULE_PARM_DESC(primary, "Primary network device to use");
+> +module_param(primary_passive, int, 0);
+> +MODULE_PARM_DESC(primary_passive, "Do not set primary slave active once it comes up; "
+> +			       "0 for off (default), 1 for on only if speed of primary is not higher, 2 for on");
+>  module_param(lacp_rate, charp, 0);
+>  MODULE_PARM_DESC(lacp_rate, "LACPDU tx rate to request from 802.3ad partner "
+>  			    "(slow/fast)");
+> @@ -1070,6 +1074,25 @@ out:
+>  
+>  }
+>  
+> +static bool bond_should_loose_active(struct bonding *bond)
+> +{
+> +	struct slave *prim = bond->primary_slave;
+> +	struct slave *curr = bond->curr_active_slave;
+> +
+> +	if (!prim || !curr || curr->link != BOND_LINK_UP)
+> +		return true;
+> +	if (bond->force_primary) {
+> +		bond->force_primary = false;
+> +		return true;
+> +	}
+> +	if (bond->params.primary_passive == 1 &&
+> +	    (prim->speed < curr->speed ||
+> +	     (prim->speed == curr->speed && prim->duplex <= curr->duplex)))
+> +		return false;
+> +	if (bond->params.primary_passive == 2)
+> +		return false;
+> +	return true;
+> +}
+>  
+>  /**
+>   * find_best_interface - select the best available slave to be the active one
+> @@ -1094,7 +1117,8 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
+>  	}
+>  
+>  	if ((bond->primary_slave) &&
+> -	    bond->primary_slave->link == BOND_LINK_UP) {
+> +	    bond->primary_slave->link == BOND_LINK_UP &&
+> +	    bond_should_loose_active(bond)) {
+>  		new_active = bond->primary_slave;
+>  	}
+>  
+> @@ -1675,8 +1699,10 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+>  
+>  	if (USES_PRIMARY(bond->params.mode) && bond->params.primary[0]) {
+>  		/* if there is a primary slave, remember it */
+> -		if (strcmp(bond->params.primary, new_slave->dev->name) == 0)
+> +		if (strcmp(bond->params.primary, new_slave->dev->name) == 0) {
+>  			bond->primary_slave = new_slave;
+> +			bond->force_primary = true;
+> +		}
+>  	}
+>  
+>  	write_lock_bh(&bond->curr_slave_lock);
+> @@ -4942,6 +4968,18 @@ static int bond_check_params(struct bond_params *params)
+>  		primary = NULL;
+>  	}
+>  
+> +	if (primary) {
+> +		if ((primary_passive != 0) && (primary_passive != 1) &&
+> +		    (primary_passive != 2)) {
+> +			pr_warning(DRV_NAME
+> +				   ": Warning: primary_passive module parameter "
+> +				   "(%d), not of valid value (0/1/2), so it was "
+> +				   "set to 0\n",
+> +				   primary_passive);
+> +			primary_passive = 0;
+> +		}
+> +	}
+> +
+>  	if (fail_over_mac) {
+>  		fail_over_mac_value = bond_parse_parm(fail_over_mac,
+>  						      fail_over_mac_tbl);
+> @@ -4973,6 +5011,7 @@ static int bond_check_params(struct bond_params *params)
+>  	params->use_carrier = use_carrier;
+>  	params->lacp_fast = lacp_fast;
+>  	params->primary[0] = 0;
+> +	params->primary_passive = primary_passive;
+>  	params->fail_over_mac = fail_over_mac_value;
+>  
+>  	if (primary) {
+> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+> index 6044e12..e813d48 100644
+> --- a/drivers/net/bonding/bond_sysfs.c
+> +++ b/drivers/net/bonding/bond_sysfs.c
+> @@ -1212,6 +1212,59 @@ static DEVICE_ATTR(primary, S_IRUGO | S_IWUSR,
+>  		   bonding_show_primary, bonding_store_primary);
+>  
+>  /*
+> + * Show and set the primary_passive flag.
+> + */
+> +static ssize_t bonding_show_primary_passive(struct device *d,
+> +					    struct device_attribute *attr,
+> +					    char *buf)
+> +{
+> +	struct bonding *bond = to_bond(d);
+> +
+> +	return sprintf(buf, "%d\n", bond->params.primary_passive);
+> +}
+> +
+> +static ssize_t bonding_store_primary_passive(struct device *d,
+> +					     struct device_attribute *attr,
+> +					     const char *buf, size_t count)
+> +{
+> +	int new_value, ret = count;
+> +	struct bonding *bond = to_bond(d);
+> +
+> +	if (!rtnl_trylock())
+> +		return restart_syscall();
+> +
+> +	if (sscanf(buf, "%d", &new_value) != 1) {
+> +		pr_err(DRV_NAME
+> +		       ": %s: no primary_passive value specified.\n",
+> +		       bond->dev->name);
+> +		ret = -EINVAL;
+> +		goto out;
+> +	}
+> +	if (new_value == 0 || new_value == 1 || new_value == 2) {
+> +		bond->params.primary_passive = new_value;
+> +		pr_info(DRV_NAME ": %s: Setting primary_passive to %d.\n",
+> +		       bond->dev->name, new_value);
+> +		if (new_value == 0 || new_value == 1) {
+> +			bond->force_primary = true;
+> +			read_lock(&bond->lock);
+> +			write_lock_bh(&bond->curr_slave_lock);
+> +			bond_select_active_slave(bond);
+> +			write_unlock_bh(&bond->curr_slave_lock);
+> +			read_unlock(&bond->lock);
+> +		}
+> +	} else {
+> +		pr_info(DRV_NAME
+> +		       ": %s: Ignoring invalid primary_passive value %d.\n",
+> +		       bond->dev->name, new_value);
+> +	}
+> +out:
+> +	rtnl_unlock();
+> +	return count;
+> +}
+> +static DEVICE_ATTR(primary_passive, S_IRUGO | S_IWUSR,
+> +		   bonding_show_primary_passive, bonding_store_primary_passive);
+> +
+> +/*
+>   * Show and set the use_carrier flag.
+>   */
+>  static ssize_t bonding_show_carrier(struct device *d,
+> @@ -1500,6 +1553,7 @@ static struct attribute *per_bond_attrs[] = {
+>  	&dev_attr_num_unsol_na.attr,
+>  	&dev_attr_miimon.attr,
+>  	&dev_attr_primary.attr,
+> +	&dev_attr_primary_passive.attr,
+>  	&dev_attr_use_carrier.attr,
+>  	&dev_attr_active_slave.attr,
+>  	&dev_attr_mii_status.attr,
+> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+> index 6290a50..b6287e0 100644
+> --- a/drivers/net/bonding/bonding.h
+> +++ b/drivers/net/bonding/bonding.h
+> @@ -131,6 +131,7 @@ struct bond_params {
+>  	int lacp_fast;
+>  	int ad_select;
+>  	char primary[IFNAMSIZ];
+> +	int primary_passive;
+>  	__be32 arp_targets[BOND_MAX_ARP_TARGETS];
+>  };
+>  
+> @@ -190,6 +191,7 @@ struct bonding {
+>  	struct   slave *curr_active_slave;
+>  	struct   slave *current_arp_slave;
+>  	struct   slave *primary_slave;
+> +	bool     force_primary;
+>  	s32      slave_cnt; /* never change this value outside the attach/detach wrappers */
+>  	rwlock_t lock;
+>  	rwlock_t curr_slave_lock;
+> 
 
