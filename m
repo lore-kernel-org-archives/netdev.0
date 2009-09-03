@@ -1,69 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Wed, 02 Sep 2009 23:02:24 -0700 (PDT)
-Message-ID: <20090902.230224.06686722.davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] drivers: Kill now superfluous ->last_rx
+ stores
+Date: Wed, 02 Sep 2009 23:09:54 -0700 (PDT)
+Message-ID: <20090902.230954.227402492.davem@davemloft.net>
+References: <20090831111245.GA2105@hmsreliant.think-freely.org>
+	<4A9BD13E.4040501@gmail.com>
+	<4A9BFBAA.10705@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42835
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41281
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754395AbZICGCJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 02:02:09 -0400
+	by vger.kernel.org with ESMTP id S1754391AbZICGJj convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Sep 2009 02:09:39 -0400
+In-Reply-To: <4A9BFBAA.10705@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 31 Aug 2009 18:34:50 +0200
 
-1) Packet scheduler classifier code can leak some uninitialized
-   kernel bytes to userspace.  Fix from Eric Dumazet.
+> Eric Dumazet a =E9crit :
+>> Neil Horman a =E9crit :
+>>> I still see a large number of drivers that update dev->last_rx, alt=
+hough its
+>>> not all as I look through the list, so something definately seems a=
+miss.
+>>=20
+>> Some drivers still update dev->last_rx for their own needs, not a co=
+re
+>> network concern.
+>>=20
+>> But a cleanup is certainly possible on few other drivers, about a do=
+zen
+>> if I count correctly.
+>=20
+> Well, a litle bit more if we look outside of drivers/net
+>=20
+> [PATCH net-next-2.6] drivers: Kill now superfluous ->last_rx stores
+>=20
+> The generic packet receive code takes care of setting
+> netdev->last_rx when necessary, for the sake of the
+> bonding ARP monitor.
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-2) Revert tasklet_hrtimer conversions, naggling problems exist
-   and -rcX is not the time to be tinkering with it.
-
-3) Sockets can leak when sk_free()'d shortly after sk_alloc()
-   with some protocols due to initialization order of
-   sk->sk_mem_alloc.  Fix from Jarek Poplawski and Eric Dumazet.
-
-4) gianfar frees netdev without unregistering it resulting in
-   crashes on unload.  Fix from Toru UCHIYAMA.
-
-5) ipw2200 uses large linear memory area (ie. high order allocation)
-   for firmware loading via DMA, which easily can (and does) fail.
-   Fix from Zhu Yi via John Linville.
-
-Please pull, thanks a lot!
-
-The following changes since commit 37d0892c5a94e208cf863e3b7bac014edee4346d:
-  Ian Kent (1):
-        autofs4 - fix missed case when changing to use struct path
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-David S. Miller (2):
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-2.6
-      pkt_sched: Revert tasklet_hrtimer changes.
-
-Eric Dumazet (1):
-      tc: Fix unitialized kernel memory leak
-
-Jarek Poplawski (1):
-      net: sk_free() should be allowed right after sk_alloc()
-
-Toru UCHIYAMA (1):
-      gianfar: gfar_remove needs to call unregister_netdev()
-
-Zhu Yi (1):
-      ipw2200: firmware DMA loading rework
-
- drivers/net/gianfar.c                  |    1 +
- drivers/net/wireless/ipw2x00/ipw2200.c |  120 ++++++++++++++++++--------------
- include/net/pkt_sched.h                |    4 +-
- net/core/sock.c                        |    2 +-
- net/sched/sch_api.c                    |   12 ++--
- net/sched/sch_cbq.c                    |   25 +++----
- 6 files changed, 89 insertions(+), 75 deletions(-)
+Applied, thanks Eric.
