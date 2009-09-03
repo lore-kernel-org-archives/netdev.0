@@ -1,70 +1,78 @@
-From: Cosmin Ratiu <cratiu@ixiacom.com>
-Subject: [PATCH] ipv6: Fix tcp_v6_send_response(): it didn't set skb transport header
-Date: Thu, 3 Sep 2009 19:25:53 +0300
-Message-ID: <200909031925.54197.cratiu@ixiacom.com>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [RFC] net/fs_enet: send a reset request to the PHY on init
+Date: Thu, 3 Sep 2009 10:48:34 -0600
+Message-ID: <fa686aa40909030948h4acf6d3x1c318baa2fdefe1f@mail.gmail.com>
+References: <20090902110410.GC15401@www.tglx.de>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_S4+nKuLOEDC3V0k"
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:13057 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755974AbZICQYd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 12:24:33 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	Vitaly Bordug <vbordug@ru.mvista.com>
+To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20090902110410.GC15401@www.tglx.de>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---Boundary-00=_S4+nKuLOEDC3V0k
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Wed, Sep 2, 2009 at 5:04 AM, Sebastian Andrzej
+Siewior<bigeasy@linutronix.de> wrote:
+> Usually u-boot sends a phy request in its network init routine. An uboot
+> without network support doesn't do it and I endup without working
+> network. I still can switch between 10/100Mbit (according to the LED on
+> the hub and phy registers) but I can't send or receive any data.
+>
+> At this point I'm not sure if the PowerON Reset takes the PHY a few
+> nsecs too early out of reset or if this reset is required and everyone
+> relies on U-boot performing this reset.
+>
+> Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+> ---
+> This is done on a custom mpc512x board. Unfortunately I don't have other
+> boards to check. The PHY is a AMD Am79C874, phylib uses the generic one.
+>
+> =A0drivers/net/fs_enet/fs_enet-main.c | =A0 =A03 ++-
+> =A01 files changed, 2 insertions(+), 1 deletions(-)
+>
+> diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_=
+enet-main.c
+> index ee15402..a3c962b 100644
+> --- a/drivers/net/fs_enet/fs_enet-main.c
+> +++ b/drivers/net/fs_enet/fs_enet-main.c
+> @@ -823,7 +823,8 @@ static int fs_init_phy(struct net_device *dev)
+> =A0 =A0 =A0 =A0}
+>
+> =A0 =A0 =A0 =A0fep->phydev =3D phydev;
+> -
+> + =A0 =A0 =A0 phy_write(phydev, MII_BMCR, BMCR_RESET);
+> + =A0 =A0 =A0 udelay(1);
 
-Hello,
+What version of the kernel are you using?  The line numbers don't
+match up with kernel mainline, so I wonder if this is before or after
+the OF MDIO rework changes.
 
-Here is a patch which fixes an issue observed when using TCP over IPv6 and AH 
-from IPsec.
+Regardless, this doesn't look right.  It certainly isn't right for the
+driver to do an unconditional PHY reset when it doesn't actually know
+what phy is attached.  For most boards I'm sure this is not desirable
+because it will cause a delay while the PHY auto negotiates.
+Depending on when the first network traffic begins, can cause several
+seconds of boot delay.
 
-When a connection gets closed the 4-way method and the last ACK from the 
-server gets dropped, the subsequent FINs from the client do not get ACKed 
-because tcp_v6_send_response does not set the transport header pointer. This 
-causes ah6_output to try to allocate a lot of memory, which typically fails, 
-so the ACKs never make it out of the stack.
+Best would be to do this in U-Boot.  Otherwise, I think I would rather
+see it at phy_device probe time.  At least then it would be on a
+per-phy basis, or could be controlled by a property in the device tree
+so that all boards don't get the same impact.
 
-I have reproduced the problem on kernel 2.6.7, but after looking at the latest 
-kernel it seems the problem is still there.
+g.
 
-Cosmin.
+-- =
 
-Signed-off-by: Cosmin Ratiu <cratiu@ixiacom.com>
----
- net/ipv6/tcp_ipv6.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-
-
---Boundary-00=_S4+nKuLOEDC3V0k
-Content-Type: text/x-patch;
-  charset="utf-8";
-  name="0001-ipv6-Fix-tcp_v6_send_response-it-didn-t-set-skb-trans.mbox"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: inline;
-	filename="0001-ipv6-Fix-tcp_v6_send_response-it-didn-t-set-skb-trans.mbox"
-
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index d849dd5..776e911 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1003,6 +1003,7 @@ static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
- 	skb_reserve(buff, MAX_HEADER + sizeof(struct ipv6hdr) + tot_len);
- 
- 	t1 = (struct tcphdr *) skb_push(buff, tot_len);
-+	skb_reset_transport_header(skb);
- 
- 	/* Swap the send and the receive. */
- 	memset(t1, 0, sizeof(*t1));
-
---Boundary-00=_S4+nKuLOEDC3V0k--
-
-
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
