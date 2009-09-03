@@ -1,22 +1,59 @@
-From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH] atm/br2684: netif_stop_queue() when atm device busy and netif_wake_queue() when we can send packets again.
-Date: Thu, 03 Sep 2009 09:44:06 -0400
-Message-ID: <200909031344.n83Di6VH022930@cmf.nrl.navy.mil>
-References: <20090902.232707.93089975.davem@davemloft.net>
-Reply-To: chas3@users.sourceforge.net
-Cc: netdev@vger.kernel.org, karl@hiramoto.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:58694 "EHLO
-	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754451AbZICNoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 09:44:20 -0400
-In-reply-to: <20090902.232707.93089975.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] slub: fix slab_pad_check() and SLAB_DESTROY_BY_RCU
+Date: Thu, 03 Sep 2009 15:46:25 +0200
+Message-ID: <4A9FC8B1.904@gmail.com>
+References: <c4e36d110908110542l3de51aaepcbd62c84b9848f2b@mail.gmail.com>	 <alpine.DEB.1.10.0908121820410.3257@gentwo.org>	 <c4e36d110908131009l78b29bffvb4d41b90f9b83288@mail.gmail.com>	 <c4e36d110908140233v59421ba6y82192b858210370d@mail.gmail.com>	 <4A87CE60.4020506@gmail.com> <4A896324.3040104@trash.net>	 <c4e36d110909021445l5f44183es9e338437dfbbd195@mail.gmail.com>	 <4A9EEF07.5070800@gmail.com>	 <c4e36d110909021531v324a9ce2x3ff2c93b7c5a57de@mail.gmail.com>	 <4A9F1620.2080105@gmail.com> <c4e36d110909030628j53cc0abfq6c1eef7e5e97565b@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Robin Holt <holt@sgi.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Jesper Dangaard Brouer <hawk@comx.dk>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>
+To: Zdenek Kabelac <zdenek.kabelac@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <c4e36d110909030628j53cc0abfq6c1eef7e5e97565b@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In message <20090902.232707.93089975.davem@davemloft.net>,David Miller writes:
->Applied to net-next-2.6, but Chas your email client corrupted
->the patch by breaking up long lines:
+Zdenek Kabelac a =E9crit :
+> 2009/9/3 Eric Dumazet <eric.dumazet@gmail.com>:
+>> Zdenek Kabelac a =E9crit :
+>>> Well I'm not noticing any ill behavior - also note - rcu_barrier() =
+is
+>>> there before the cache is destroyed.
+>>> But as I said - it's just my shot into the dark - which seems to wo=
+rk for me...
+>>>
+>> Reading again your traces, I do believe there are two bugs in slub
+>>
+>> Maybe not explaining your problem, but worth to fix !
+>>
+>> Thank you
+>>
+>> [PATCH] slub: fix slab_pad_check() and SLAB_DESTROY_BY_RCU
+>>
+>=20
+>=20
+> Ok - I can confirm that this patch fixes my reboot problem.
+>=20
+> Thanks
+>=20
+> Zdenek
 
-grr.... i will fix it (again).  thanks.
+Good news !
+
+Hmm... but you had a problem with a 2.6.29.something kernel if I rememb=
+er well ?
+
+At that time, conntrack did not use SLAB_DESTROY_BY_RCU yet.
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
