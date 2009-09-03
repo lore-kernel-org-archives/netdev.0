@@ -1,1250 +1,1099 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH V2] net-next-2.6:can: add TI CAN (HECC) driver
-Date: Thu, 03 Sep 2009 13:18:04 +0200
-Message-ID: <4A9FA5EC.10409@pengutronix.de>
-References: <1251958885-12257-1-git-send-email-anantgole@ti.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH net-next-2.6]  net: net/core/dev.c cleanups
+Date: Thu, 3 Sep 2009 13:50:28 +0200
+Message-ID: <20090903115026.GD2885@psychotron.lab.eng.brq.redhat.com>
+References: <4A9F7BFC.5000401@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigF6D12174FF343DD33CEC1E3A"
-Cc: socketcan-core@lists.berlios.de, netdev@vger.kernel.org
-To: Anant Gole <anantgole@ti.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:56329 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752853AbZICLSN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 07:18:13 -0400
-In-Reply-To: <1251958885-12257-1-git-send-email-anantgole@ti.com>
+Received: from mx1.redhat.com ([209.132.183.28]:55839 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754953AbZICLuf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Sep 2009 07:50:35 -0400
+Content-Disposition: inline
+In-Reply-To: <4A9F7BFC.5000401@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigF6D12174FF343DD33CEC1E3A
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Hmm, this patch causes following warnings for me:
 
-Hey Anant,
+eth%d dev=ffff88007b9dc000 queue_count=1 tx=ffff88007c565e00
+------------[ cut here ]------------
+WARNING: at net/core/dev.c:5159 alloc_netdev_mq+0xda/0x1fa()
+Hardware name: Product Name To Be Filled By O.E.M.
+Modules linked in: e1000e(+) 8139too pcspkr snd_timer snd soundcore mii snd_page_alloc ata_generic pata_acpi
+Pid: 1396, comm: work_for_cpu Tainted: G        W  2.6.31-rc5testing #6
+Call Trace:
+ [<ffffffff812f99a4>] ? alloc_netdev_mq+0xda/0x1fa
+ [<ffffffff8104d08c>] warn_slowpath_common+0x77/0xa4
+ [<ffffffff8104d0c8>] warn_slowpath_null+0xf/0x11
+ [<ffffffff812f99a4>] alloc_netdev_mq+0xda/0x1fa
+ [<ffffffff811af36e>] ? pci_find_capability+0x6f/0x71
+ [<ffffffff81308262>] ? ether_setup+0x0/0x5c
+ [<ffffffff8105e674>] ? do_work_for_cpu+0x0/0x25
+ [<ffffffff81308260>] alloc_etherdev_mq+0x19/0x1b
+ [<ffffffffa00649eb>] e1000_probe+0x16e/0xb85 [e1000e]
+ [<ffffffff81038b31>] ? __wake_up_common+0x46/0x76
+ [<ffffffff8105e674>] ? do_work_for_cpu+0x0/0x25
+ [<ffffffff811b21cf>] local_pci_probe+0x12/0x16
+ [<ffffffff8105e687>] do_work_for_cpu+0x13/0x25
+ [<ffffffff8105e674>] ? do_work_for_cpu+0x0/0x25
+ [<ffffffff81062068>] kthread+0x88/0x90
+ [<ffffffff81011c6a>] child_rip+0xa/0x20
+ [<ffffffff81061fe0>] ? kthread+0x0/0x90
+ [<ffffffff81011c60>] ? child_rip+0x0/0x20
+---[ end trace 4eaa2a86a8e2da27 ]---
 
-some comments inlne:
-
-Anant Gole wrote:
-> TI HECC (High End CAN Ctonroller) module is found on many TI devices.
-> It has 32 hardware mailboxes with full implementation of CAN protocol
-> version 2.0B with bus speeds up to 1Mbps. Specifications of the
-> module are available at TI web <http://www.ti.com>
->=20
-> This driver is tested on a newer OMAP device EVM.
->=20
-> Signed-off-by: Anant Gole <anantgole@ti.com>
-> ---
->  drivers/net/can/Kconfig              |    9 +
->  drivers/net/can/Makefile             |    2 +
->  drivers/net/can/ti_hecc.c            |  997 ++++++++++++++++++++++++++=
-++++++++
->  include/linux/can/platform/ti_hecc.h |   40 ++
->  4 files changed, 1048 insertions(+), 0 deletions(-)
->  delete mode 100644 drivers/mtd/maps/sbc8240.c
->  create mode 100644 drivers/net/can/ti_hecc.c
->  create mode 100644 include/linux/can/platform/ti_hecc.h
->=20
-> diff --git a/drivers/mtd/maps/sbc8240.c b/drivers/mtd/maps/sbc8240.c
-> deleted file mode 100644
-> index e69de29..0000000
-> diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
-> index 30ae55d..fae62df 100644
-> --- a/drivers/net/can/Kconfig
-> +++ b/drivers/net/can/Kconfig
-> @@ -75,6 +75,15 @@ config CAN_KVASER_PCI
->  	  This driver is for the the PCIcanx and PCIcan cards (1, 2 or
->  	  4 channel) from Kvaser (http://www.kvaser.com).
-> =20
-> +config CAN_TI_HECC
-> +        depends on CAN_DEV
-> +        tristate "TI High End CAN Controller (HECC)"
-> +        default N
-
-default N is default, so it can be removed.
-
-> +        ---help---
-> +	  This driver adds support for TI High End CAN Controller module
-> +	  found on many TI devices. The specifications of this module are
-> +	  are available from TI web (http://www.ti.com)
-> +
->  config CAN_DEBUG_DEVICES
->  	bool "CAN devices debugging messages"
->  	depends on CAN
-> diff --git a/drivers/net/can/Makefile b/drivers/net/can/Makefile
-> index 523a941..d923512 100644
-> --- a/drivers/net/can/Makefile
-> +++ b/drivers/net/can/Makefile
-> @@ -9,4 +9,6 @@ can-dev-y			:=3D dev.o
-> =20
->  obj-$(CONFIG_CAN_SJA1000)	+=3D sja1000/
-> =20
-> +obj-$(CONFIG_CAN_TI_HECC)	+=3D ti_hecc.o
-> +
->  ccflags-$(CONFIG_CAN_DEBUG_DEVICES) :=3D -DDEBUG
-> diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
-> new file mode 100644
-> index 0000000..e8c2763
-> --- /dev/null
-> +++ b/drivers/net/can/ti_hecc.c
-> @@ -0,0 +1,997 @@
-> +/*
-> + * TI HECC (CAN) device driver
-> + *
-> + * This driver supports TI's HECC (High End CAN Controller module) and=
- the
-> + * specs for the same is available at <http://www.ti.com>
-> + *
-> + * Copyright (C) 2009 Texas Instruments Incorporated - http://www.ti.c=
-om/
-> + *
-> + * This program is free software; you can redistribute it and/or
-> + * modify it under the terms of the GNU General Public License as
-> + * published by the Free Software Foundation version 2.
-> + *
-> + * This program is distributed as is WITHOUT ANY WARRANTY of any
-> + * kind, whether express or implied; without even the implied warranty=
-
-> + * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> + * GNU General Public License for more details.
-> + *
-> + *
-> + * Your platform definitions should specify module ram offsets and int=
-errupt
-> + * number to use as follows:
-> + *
-> + * static struct ti_hecc_platform_data omap3517_evm_hecc_pdata =3D {
-> + *         .scc_hecc_offset        =3D 0,
-> + *         .scc_ram_offset         =3D 0x3000,
-> + *         .hecc_ram_offset        =3D 0x3000,
-> + *         .mbox_offset            =3D 0x2000,
-> + *         .int_line               =3D 0,
-> + *         .revision               =3D 1,
-> + * };
-> + *
-> + * Please see include/can/platform/ti_hecc.h for description of above =
-fields
-> + *
-> + */
-> +
-> +#include <linux/module.h>
-> +#include <linux/init.h>
-> +#include <linux/kernel.h>
-> +#include <linux/sched.h>
-> +#include <linux/types.h>
-> +#include <linux/fcntl.h>
-> +#include <linux/interrupt.h>
-> +#include <linux/ptrace.h>
-> +#include <linux/string.h>
-> +#include <linux/errno.h>
-> +#include <linux/netdevice.h>
-> +#include <linux/if_arp.h>
-> +#include <linux/if_ether.h>
-> +#include <linux/skbuff.h>
-> +#include <linux/delay.h>
-> +#include <linux/platform_device.h>
-> +#include <linux/clk.h>
-> +#include <linux/io.h>
-> +#include <linux/can.h>
-> +#include <linux/can/dev.h>
-> +#include <linux/can/error.h>
-> +#include <linux/can/platform/ti_hecc.h>
-> +
-> +#define DRV_NAME "ti_hecc"
-> +#define HECC_MODULE_VERSION     "0.3"
-> +MODULE_VERSION(HECC_MODULE_VERSION);
-> +#define DRV_DESC "TI High End CAN Controller Driver " HECC_MODULE_VERS=
-ION
-> +
-> +#define HECC_MAX_MAILBOXES	32	/* hardware mboxes - do not change */
-> +#define MAX_TX_PRIO		0x3F	/* hardware value - do not change */
-> +
-> +#if (CAN_ECHO_SKB_MAX > 16)
-> +#define TI_HECC_MAX_TX_MBOX	16
-> +#else
-> +#define TI_HECC_MAX_TX_MBOX	CAN_ECHO_SKB_MAX
-> +#endif
-> +#define TI_HECC_MAX_RX_MBOX	(HECC_MAX_MAILBOXES - TI_HECC_MAX_TX_MBOX)=
-
-> +
-> +#define TI_HECC_DEF_NAPI_WEIGHT	TI_HECC_MAX_RX_MBOX
-> +
-> +/* TI HECC module registers */
-> +
-> +#define HECC_CANME		0x0	/* Mailbox enable */
-> +#define HECC_CANMD		0x4	/* Mailbox direction */
-> +#define HECC_CANTRS		0x8	/* Transmit request set */
-> +#define HECC_CANTRR		0xC	/* Transmit request */
-> +#define HECC_CANTA		0x10	/* Transmission acknowledge */
-> +#define HECC_CANAA		0x14	/* Abort acknowledge */
-> +#define HECC_CANRMP		0x18	/* Receive message pending */
-> +#define HECC_CANRML		0x1C	/* Remote message lost */
-> +#define HECC_CANRFP		0x20	/* Remote frame pending */
-> +#define HECC_CANGAM		0x24	/* SECC only:Global acceptance mask */
-> +#define HECC_CANMC		0x28	/* Master control */
-> +#define HECC_CANBTC		0x2C	/* Bit timing configuration */
-> +#define HECC_CANES		0x30	/* Error and status */
-> +#define HECC_CANTEC		0x34	/* Transmit error counter */
-> +#define HECC_CANREC		0x38	/* Receive error counter */
-> +#define HECC_CANGIF0		0x3C	/* Global interrupt flag 0 */
-> +#define HECC_CANGIM		0x40	/* Global interrupt mask */
-> +#define HECC_CANGIF1		0x44	/* Global interrupt flag 1 */
-> +#define HECC_CANMIM		0x48	/* Mailbox interrupt mask */
-> +#define HECC_CANMIL		0x4C	/* Mailbox interrupt level */
-> +#define HECC_CANOPC		0x50	/* Overwrite protection control */
-> +#define HECC_CANTIOC		0x54	/* Transmit I/O control */
-> +#define HECC_CANRIOC		0x58	/* Receive I/O control */
-> +#define HECC_CANLNT		0x5C	/* HECC only: Local network time */
-> +#define HECC_CANTOC		0x60	/* HECC only: Time-out control */
-> +#define HECC_CANTOS		0x64	/* HECC only: Time-out status */
-> +#define HECC_CANTIOCE		0x68	/* SCC only:Enhanced TX I/O control */
-> +#define HECC_CANRIOCE		0x6C	/* SCC only:Enhanced RX I/O control */
-> +
-> +/* SCC only:Local acceptance registers */
-> +#define HECC_CANLAM0		(priv->scc_ram_offset + 0x0)
-> +#define HECC_CANLAM3		(priv->scc_ram_offset + 0xC)
-> +
-> +/* HECC only */
-> +#define HECC_CANLAM(mbxno)	(priv->hecc_ram_offset + ((mbxno) * 4))
-> +#define HECC_CANMOTS(mbxno)	(priv->hecc_ram_offset + ((mbxno) * 4) + 0=
-x80)
-> +#define HECC_CANMOTO(mbxno)	(priv->hecc_ram_offset + ((mbxno) * 4) + 0=
-x100)
-> +
-> +/* Mailbox registers */
-> +#define HECC_CANMID(mbxno)	(priv->mbox_offset + ((mbxno) * 0x10))
-> +#define HECC_CANMCF(mbxno)	(priv->mbox_offset + ((mbxno) * 0x10) + 0x4=
-)
-> +#define HECC_CANMDL(mbxno)	(priv->mbox_offset + ((mbxno) * 0x10) + 0x8=
-)
-> +#define HECC_CANMDH(mbxno)	(priv->mbox_offset + ((mbxno) * 0x10) + 0xC=
-)
-> +
-> +#define HECC_SET_REG		0xFFFFFFFF
-> +#define HECC_CANID_MASK		0x3FF	/* 18 bits mask for extended id's */
-> +
-> +#define HECC_CANMC_SCM		BIT(13)	/* SCC compat mode */
-> +#define HECC_CANMC_CCR		BIT(12)	/* Change config request */
-> +#define HECC_CANMC_PDR		BIT(11)	/* Local Power down - for sleep mode *=
-/
-> +#define HECC_CANMC_ABO		BIT(7)	/* Auto Bus On */
-> +#define HECC_CANMC_STM		BIT(6)	/* Self test mode - loopback */
-> +#define HECC_CANMC_SRES		BIT(5)	/* Software reset */
-> +
-> +#define HECC_CANTIOC_EN		BIT(3)	/* Enable CAN TX I/O pin */
-> +#define HECC_CANRIOC_EN		BIT(3)	/* Enable CAN RX I/O pin */
-> +
-> +#define HECC_CANMID_IDE		BIT(31)	/* Extended frame format */
-> +#define HECC_CANMID_AME		BIT(30)	/* Acceptance mask enable */
-> +#define HECC_CANMID_AAM		BIT(29)	/* Auto answer mode */
-> +
-> +#define HECC_CANES_FE		BIT(24)	/* form error */
-> +#define HECC_CANES_BE		BIT(23)	/* bit error */
-> +#define HECC_CANES_SA1		BIT(22)	/* stuck at dominant error */
-> +#define HECC_CANES_CRCE		BIT(21)	/* CRC error */
-> +#define HECC_CANES_SE		BIT(20)	/* stuff bit error */
-> +#define HECC_CANES_ACKE		BIT(19)	/* ack error */
-> +#define HECC_CANES_BO		BIT(18)	/* Bus off status */
-> +#define HECC_CANES_EP		BIT(17)	/* Error passive status */
-> +#define HECC_CANES_EW		BIT(16)	/* Error warning status */
-> +#define HECC_CANES_SMA		BIT(5)	/* suspend mode ack */
-> +#define HECC_CANES_CCE		BIT(4)	/* Change config enabled */
-> +#define HECC_CANES_PDA		BIT(3)	/* Power down mode ack */
-> +
-> +#define HECC_CANBTC_SAM		BIT(7)	/* sample points */
-> +
-> +#define HECC_BUS_ERROR		(HECC_CANES_FE | HECC_CANES_BE |\
-> +				HECC_CANES_CRCE | HECC_CANES_SE |\
-> +				HECC_CANES_ACKE)
-> +
-> +#define HECC_CANMCF_RTR		BIT(4)	/* Remote xmit request */
-> +
-> +#define HECC_CANGIF_MAIF	BIT(17)	/* Message alarm interrupt */
-> +#define HECC_CANGIF_TCOIF	BIT(16) /* Timer counter overflow int */
-> +#define HECC_CANGIF_GMIF	BIT(15)	/* Global mailbox interrupt */
-> +#define HECC_CANGIF_AAIF	BIT(14)	/* Abort ack interrupt */
-> +#define HECC_CANGIF_WDIF	BIT(13)	/* Write denied interrupt */
-> +#define HECC_CANGIF_WUIF	BIT(12)	/* Wake up interrupt */
-> +#define HECC_CANGIF_RMLIF	BIT(11)	/* Receive message lost interrupt */=
-
-> +#define HECC_CANGIF_BOIF	BIT(10)	/* Bus off interrupt */
-> +#define HECC_CANGIF_EPIF	BIT(9)	/* Error passive interrupt */
-> +#define HECC_CANGIF_WLIF	BIT(8)	/* Warning level interrupt */
-> +#define HECC_CANGIF_MBOX_MASK	0x1F	/* Mailbox number mask */
-> +#define HECC_CANGIM_I1EN	BIT(1)	/* Int line 1 enable */
-> +#define HECC_CANGIM_I0EN	BIT(0)	/* Int line 0 enable */
-> +#define HECC_CANGIM_DEF_MASK	0x700	/* only busoff/warning/passive */
-> +#define HECC_CANGIM_SIL		BIT(2)	/* system interrupts to int line 1 */
-> +
-> +/* CAN Bittiming constants as per HECC specs */
-> +static struct can_bittiming_const ti_hecc_bittiming_const =3D {
-> +	.name =3D DRV_NAME,
-> +	.tseg1_min =3D 1,
-> +	.tseg1_max =3D 16,
-> +	.tseg2_min =3D 1,
-> +	.tseg2_max =3D 8,
-> +	.sjw_max =3D 4,
-> +	.brp_min =3D 1,
-> +	.brp_max =3D 256,
-> +	.brp_inc =3D 1,
-> +};
-> +
-> +struct ti_hecc_priv {
-> +	struct can_priv can;	/* MUST be first member/field */
-> +	struct napi_struct napi;
-> +	struct net_device *ndev;
-> +	struct clk *clk;
-> +	void __iomem *base;
-> +	u32 scc_ram_offset;
-> +	u32 hecc_ram_offset;
-> +	u32 mbox_offset;
-> +	u32 int_line;
-> +	u32 tx_mbxno;
-> +	u32 prio;
-> +	u32 stop_xmit;
-> +	DECLARE_BITMAP(tx_free_mbx, TI_HECC_MAX_TX_MBOX);
-> +	spinlock_t tx_lock;	/* Protects tx_mbxno & tx_free_mbx bitmap */
-> +
-> +};
-
-extra line can be removed
-
-> +
-> +static inline
-> +void hecc_write(struct ti_hecc_priv *priv, int reg, u32 val)
-> +{
-> +	__raw_writel(val, priv->base + reg);
-> +}
-> +
-> +static inline u32 hecc_read(struct ti_hecc_priv *priv, int reg)
-> +{
-> +	return __raw_readl(priv->base + reg);
-> +}
-> +
-> +static inline
-> +void hecc_set_bit(struct ti_hecc_priv *priv, int reg, unsigned bit)
-> +{
-> +	hecc_write(priv, reg, (hecc_read(priv, reg) | bit));
-> +}
-> +
-> +static inline
-> +void hecc_clear_bit(struct ti_hecc_priv *priv, int reg, unsigned bit)
-> +{
-> +	hecc_write(priv, reg, (hecc_read(priv, reg) & ~bit));
-> +}
-> +
-> +static inline
-> +u32 hecc_get_bit(struct ti_hecc_priv *priv, int reg, int bit)
-> +{
-> +	return (hecc_read(priv, reg) & bit) ? 1 : 0;
-> +}
-> +
-> +static int ti_hecc_get_state(const struct net_device *ndev,
-> +	enum can_state *state)
-> +{
-> +	struct ti_hecc_priv *priv =3D netdev_priv(ndev);
-> +	*state =3D priv->can.state;
-> +	return 0;
-> +}
-> +
-> +static int ti_hecc_set_bittiming(struct net_device *ndev)
-> +{
-> +	/* NOTE: TI HECC module requires bittimings to be programmed only in
-> +	 * initialization mode - this is handled only in ti_hecc_reset() in
-> +	 * this driver and hence this function is dummy. The can bittiming
-> +	 * structure should be populated before hand (via ip utility)
-> +	 */
-> +	return 0;
-> +}
-> +
-> +static int ti_hecc_set_btc(struct ti_hecc_priv *priv)
-> +{
-> +	struct can_bittiming *bit_timing =3D &priv->can.bittiming;
-> +	u32 can_btc =3D 0;
-> +
-> +	can_btc =3D ((bit_timing->phase_seg2 - 1) & 0x7);
-> +	can_btc |=3D (((bit_timing->phase_seg1 + bit_timing->prop_seg - 1)
-> +			& 0xF) << 3);
-> +	if ((bit_timing->brp > 4) &&
-> +		(priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES))
-> +			can_btc |=3D HECC_CANBTC_SAM;
-> +
-> +	can_btc |=3D (((bit_timing->sjw - 1) & 0x3) << 8);
-> +	can_btc |=3D (((bit_timing->brp - 1) & 0xFF) << 16);
-> +
-> +	/* ERM being set to 0 by default meaning resync at falling edge */
-> +
-> +	hecc_write(priv, HECC_CANBTC, can_btc);
-> +	dev_info(priv->ndev->dev.parent, "setting CANBTC=3D%#x\n", can_btc);
-> +
-> +	return 0;
-> +}
-> +
-> +static void ti_hecc_reset(struct net_device *ndev)
-> +{
-> +#define HECC_CCE_WAIT_COUNT     100
-> +	u32 cnt;
-> +	struct ti_hecc_priv *priv =3D netdev_priv(ndev);
-> +
-> +	dev_dbg(ndev->dev.parent, "resetting hecc ...\n");
-> +	hecc_set_bit(priv, HECC_CANMC, HECC_CANMC_SRES);
-> +
-> +	/* Set change control request and wait till enabled */
-> +	hecc_set_bit(priv, HECC_CANMC, HECC_CANMC_CCR);
-> +
-> +	/* INFO: It has been observed that at times CCE bit may not be
-> +	 * set and hw seems to be ok even if this bit is not set so
-> +	 * timing out with a timing of 1ms to respect the specs
-> +	 */
-> +	cnt =3D HECC_CCE_WAIT_COUNT;
-> +	while (!hecc_get_bit(priv, HECC_CANES, HECC_CANES_CCE) && (0 !=3D cnt=
-)) {
-> +		--cnt;
-> +		udelay(10);
-> +	}
-> +
-> +	/* Note: On HECC, BTC can be programmed only in initialization mode, =
-so
-> +	 * it is expected that the can bittiming parameters are set via ip
-> +	 * utility before the device is opened
-> +	 */
-> +	ti_hecc_set_btc(priv);
-> +
-> +	/* Clear CCR (and CANMC register) and wait for CCE =3D 0 enable */
-> +	hecc_write(priv, HECC_CANMC, 0);
-> +
-> +	/* INFO: CAN net stack handles bus off and hence disabling auto-bus-o=
-n
-> +	 * hecc_set_bit(priv, HECC_CANMC, HECC_CANMC_ABO);
-> +	 */
-> +
-> +	/* INFO: It has been observed that at times CCE bit may not be
-> +	 * set and hw seems to be ok even if this bit is not set so
-> +	 */
-> +	cnt =3D HECC_CCE_WAIT_COUNT;
-> +	while (hecc_get_bit(priv, HECC_CANES, HECC_CANES_CCE) && (0 !=3D cnt)=
-) {
-> +		--cnt;
-> +		udelay(10);
-> +	}
-> +
-> +	/* Enable TX and RX I/O Control pins */
-> +	hecc_write(priv, HECC_CANTIOC, HECC_CANTIOC_EN);
-> +	hecc_write(priv, HECC_CANRIOC, HECC_CANRIOC_EN);
-> +
-> +	/* Clear registers for clean operation */
-> +	hecc_write(priv, HECC_CANTA, HECC_SET_REG);
-> +	hecc_write(priv, HECC_CANRMP, HECC_SET_REG);
-> +	hecc_write(priv, HECC_CANGIF0, HECC_SET_REG);
-> +	hecc_write(priv, HECC_CANGIF1, HECC_SET_REG);
-> +	hecc_write(priv, HECC_CANME, 0);
-> +	hecc_write(priv, HECC_CANMD, 0);
-> +
-> +	/* SCC compat mode NOT supported (and not needed too) */
-> +	hecc_set_bit(priv, HECC_CANMC, HECC_CANMC_SCM);
-> +}
-> +
-> +/**
-> + * ti_hecc_start: Starts HECC module
-> + *
-> + * If CAN state is not stopped, reset the module, init bit timings
-> + * and start the device for operation
-> + */
-> +static void ti_hecc_start(struct net_device *ndev)
-> +{
-> +	struct ti_hecc_priv *priv =3D netdev_priv(ndev);
-> +	int cnt, mbxno;
-> +
-> +	/* put HECC in initialization mode and set btc */
-> +	ti_hecc_reset(ndev);
-> +	priv->tx_mbxno =3D TI_HECC_MAX_TX_MBOX - 1;
-> +	priv->prio =3D MAX_TX_PRIO;
-> +	bitmap_zero(priv->tx_free_mbx, TI_HECC_MAX_TX_MBOX);
-> +
-> +	/* Enable local and global acceptance mask registers */
-> +	hecc_write(priv, HECC_CANGAM, HECC_SET_REG);
-> +	hecc_write(priv, HECC_CANLAM0, HECC_SET_REG);
-> +	hecc_write(priv, HECC_CANLAM3, HECC_SET_REG);
-> +
-> +	/* Prepare configured mailboxes to receive messages */
-> +	for (cnt =3D 0; cnt < TI_HECC_MAX_RX_MBOX; cnt++) {
-> +		mbxno =3D (HECC_MAX_MAILBOXES - 1 - cnt);
-> +		hecc_clear_bit(priv, HECC_CANME, (1 << mbxno));
-> +		hecc_write(priv, HECC_CANMID(mbxno), HECC_CANMID_AME);
-> +		hecc_write(priv, HECC_CANLAM(mbxno), HECC_SET_REG);
-> +		hecc_set_bit(priv, HECC_CANMD, (1 << mbxno));
-> +		hecc_set_bit(priv, HECC_CANME, (1 << mbxno));
-> +		hecc_set_bit(priv, HECC_CANMIM, (1 << mbxno));
-> +	}
-> +
-> +	/* Prevent message over-write & Enable interrupts */
-> +	hecc_write(priv, HECC_CANTRS, 0);
-> +	hecc_write(priv, HECC_CANOPC, HECC_SET_REG);
-> +	if (priv->int_line) {
-> +		hecc_write(priv, HECC_CANMIL, HECC_SET_REG);
-> +		hecc_write(priv, HECC_CANGIM, (HECC_CANGIM_DEF_MASK |
-> +			HECC_CANGIM_I1EN | HECC_CANGIM_SIL));
-> +	} else {
-> +		hecc_write(priv, HECC_CANMIL, 0);
-> +		hecc_write(priv, HECC_CANGIM,
-> +			(HECC_CANGIM_DEF_MASK | HECC_CANGIM_I0EN));
-> +	}
-> +	priv->can.state =3D CAN_STATE_ERROR_ACTIVE;
-> +}
-> +
-> +static void ti_hecc_stop(struct net_device *ndev)
-> +{
-> +	struct ti_hecc_priv *priv =3D netdev_priv(ndev);
-> +
-> +	/* Disable interrupts and disable mailboxes */
-> +	hecc_write(priv, HECC_CANGIM, 0);
-> +	hecc_write(priv, HECC_CANMIM, 0);
-> +	hecc_write(priv, HECC_CANME, 0);
-> +	priv->can.state =3D CAN_STATE_STOPPED;
-> +}
-> +
-> +static int ti_hecc_do_set_mode(struct net_device *ndev, enum can_mode =
-mode)
-> +{
-> +	struct ti_hecc_priv *priv =3D netdev_priv(ndev);
-> +	int ret =3D 0;
-> +
-> +	switch (mode) {
-> +	case CAN_MODE_START:
-> +		dev_info(priv->ndev->dev.parent, "device (re)starting\n");
-> +		++priv->can.can_stats.restarts;
-> +		ti_hecc_start(ndev);
-> +		if (netif_queue_stopped(ndev))
-> +			netif_wake_queue(ndev);
-> +		break;
-> +	default:
-> +		ret =3D -EOPNOTSUPP;
-> +		break;
-> +	}
-> +
-> +	return ret;
-> +}
-> +
-> +/**
-> + * ti_hecc_xmit: HECC Transmit
-> + *
-> + * The transmit mailboxes start from 0 to TI_HECC_MAX_TX_MBOX. In HECC=
- the
-> + * priority of the mailbox for tranmission depends upon the setting of=
- priority
-> + * field in mailbox registers. The mailbox with highest value in prior=
-ity field
-> + * is transmitted first. Only when two mailboxes have the same value i=
-n
-> + * priority field the highest numbered mailbox is transmitted first.
-> + *
-> + * To utilize the HECC priority feature as described above we start wi=
-th the
-> + * highest numbered mailbox with highest priority level and move on to=
- the next
-> + * mailbox with the same priority level and so on. Once we loop throug=
-h all the
-> + * transmit mailboxes we choose the next priority level (lower) and so=
- on
-> + * untill we reach the lowest priority level on the lowest numbered ma=
-ilbox
-      ^^^^^^
-
-typo
-
-> + * when we stop transmission untill all mailboxes are transmitted and =
-then
-                                ^^^^^^
-> + * restart at highest numbered mailbox with highest priority.
-> + *
-> + * To keep track of next transmit mailbox priv->tx_mbxno is used along=
- with
-> + * priv->prio for priority. priv->stop_xmit helps sync transmit comple=
-te
-> + * interrupt when we re-start the queue if it was stopped after the ma=
-ilbox
-> + * priority roll-over.
-> + */
-> +static int ti_hecc_xmit(struct sk_buff *skb, struct net_device *ndev)
-> +{
-> +	struct ti_hecc_priv *priv =3D netdev_priv(ndev);
-> +	struct can_frame *cf =3D (struct can_frame *)skb->data;
-> +	u32 mbxno =3D 0;
-> +	u32 data;
-> +	unsigned long flags;
-> +
-> +	spin_lock_irqsave(&priv->tx_lock, flags);
-> +	mbxno =3D priv->tx_mbxno;
-> +	set_bit(mbxno, priv->tx_free_mbx);
-> +	spin_unlock_irqrestore(&priv->tx_lock, flags);
-> +
-> +	/* Prepare mailbox for transmission */
-> +	hecc_clear_bit(priv, HECC_CANME, (1 << mbxno));
-> +	data =3D cf->can_dlc & 0xF;
-> +	if (cf->can_id & CAN_RTR_FLAG) /* Remote transmission request */
-> +		data |=3D HECC_CANMCF_RTR;
-> +	data |=3D ((priv->prio & 0x3F) << 8); /* set tx priority level */
-> +	hecc_write(priv, HECC_CANMCF(mbxno), data);
-> +
-> +	if (cf->can_id & CAN_EFF_FLAG) /* Extended frame format */
-> +		data =3D ((cf->can_id & CAN_EFF_MASK) | HECC_CANMID_IDE);
-> +	else /* Standard frame format */
-> +		data =3D ((cf->can_id & CAN_SFF_MASK) << 18);
-> +
-> +	hecc_write(priv, HECC_CANMID(mbxno), data);
-> +	data =3D (cf->data[0] << 24) | (cf->data[1] << 16) |
-> +			(cf->data[2] << 8) | cf->data[3];
-> +	hecc_write(priv, HECC_CANMDL(mbxno), data);
-> +	if (cf->can_dlc > 4) {
-> +		data =3D (cf->data[4] << 24) | (cf->data[5] << 16) |
-> +			(cf->data[6] << 8) | cf->data[7];
-> +		hecc_write(priv, HECC_CANMDH(mbxno), data);
-> +	}
-> +	can_put_echo_skb(skb, ndev, mbxno);
-> +
-> +	/* check if next mailbox is free - if not hold queue */
-> +	spin_lock_irqsave(&priv->tx_lock, flags);
-> +	if (priv->tx_mbxno)
-> +		--priv->tx_mbxno;
-> +	else {
-> +		priv->tx_mbxno =3D (TI_HECC_MAX_TX_MBOX - 1);
-> +		if (priv->prio)
-> +			--priv->prio;
-> +		else {
-> +			priv->stop_xmit =3D 1;
-> +			priv->prio =3D MAX_TX_PRIO;
-> +		}
-> +	}
-
-If I see correct, you number of mailboxes and and numer of prios are
-power of two. You can hold prio and mailbox numer in one variable: the
-lower bits hold the mailbox number the middle ones the prio, the
-remaining are unused. Then you can remove the if() block here. You can
-use mask and shift operations to access mailbox and prio. See at91_can
-
-> +
-> +	/* Stop the queue if next transmit mailbox is not free or if there
-> +	 * is a wrap over in priority and queue should be stopped
-> +	 */
-> +	if (test_bit(priv->tx_mbxno, priv->tx_free_mbx) || priv->stop_xmit)
-> +		netif_stop_queue(priv->ndev);
-> +	spin_unlock_irqrestore(&priv->tx_lock, flags);
-
-Do you need a bitmask for the tx handling? If the packages are send in
-the right order their tx interrupt should come in that order, too. In
-this case you just need a counter.
-
-If you have just these two counters the lock can be removed.
-
-> +
-> +	/* Enable interrupt for mbox and start transmission */
-> +	hecc_clear_bit(priv, HECC_CANMD, (1 << mbxno));
-> +	hecc_set_bit(priv, HECC_CANME, (1 << mbxno));
-> +	hecc_set_bit(priv, HECC_CANMIM, (1 << mbxno));
-> +	hecc_set_bit(priv, HECC_CANTRS, (1 << mbxno));
-> +	ndev->trans_start =3D jiffies;
-> +
-> +	return NETDEV_TX_OK;
-> +}
-> +
-> +static int ti_hecc_rx_pkt(struct ti_hecc_priv *priv, int mbxno)
-> +{
-> +	struct net_device_stats *stats =3D &priv->ndev->stats;
-> +	struct can_frame *cf;
-> +	struct sk_buff *skb;
-> +	u32 data;
-> +
-> +	skb =3D dev_alloc_skb(sizeof(struct can_frame));
-> +	if (!skb) {
-> +		if (printk_ratelimit())
-> +			dev_err(priv->ndev->dev.parent,
-> +				"dev_alloc_skb() failed\n");
-> +		return -ENOMEM;
-> +	}
-> +	skb->dev =3D priv->ndev;
-> +	skb->protocol =3D htons(ETH_P_CAN);
-> +	skb->ip_summed =3D CHECKSUM_UNNECESSARY;
-> +
-> +	cf =3D (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
-> +	memset(cf, 0, sizeof(struct can_frame));
-
-is the memset needed[1]?
-
-> +	data =3D hecc_read(priv, HECC_CANMID(mbxno));
-> +	if (data & HECC_CANMID_IDE)
-> +		cf->can_id =3D (data & CAN_EFF_MASK) | CAN_EFF_FLAG;
-> +	else
-> +		cf->can_id =3D ((data >> 18) & CAN_SFF_MASK);
-> +	data =3D hecc_read(priv, HECC_CANMCF(mbxno));
-> +	if (data & HECC_CANMCF_RTR)
-> +		cf->can_id |=3D CAN_RTR_FLAG;
-> +	cf->can_dlc =3D data & 0xF;
-
-can you limit the dlc to 8?
-
-> +	data =3D hecc_read(priv, HECC_CANMDL(mbxno));
-> +	/* The below statements are for readability sake */
-> +	cf->data[0] =3D ((data & 0xFF000000) >> 24);
-> +	cf->data[1] =3D ((data & 0xFF0000) >> 16);
-> +	cf->data[2] =3D ((data & 0xFF00) >> 8);
-> +	cf->data[3] =3D (data & 0xFF);
-
-Can you use some kind of le32_to_cpu?
-
-> +	if (cf->can_dlc > 4) {
-> +		data =3D hecc_read(priv, HECC_CANMDH(mbxno));
-> +		cf->data[4] =3D ((data & 0xFF000000) >> 24);
-> +		cf->data[5] =3D ((data & 0xFF0000) >> 16);
-> +		cf->data[6] =3D ((data & 0xFF00) >> 8);
-> +		cf->data[7] =3D (data & 0xFF);
-> +	}
-
-[1] if you clear the second 4 bytes in the else?
-
-> +
-> +	/* prepare mailbox for next receive */
-> +	hecc_clear_bit(priv, HECC_CANME, (1 << mbxno));
-> +	hecc_write(priv, HECC_CANMID(mbxno), HECC_CANMID_AME);
-> +	hecc_write(priv, HECC_CANLAM(mbxno), HECC_SET_REG);
-> +	hecc_set_bit(priv, HECC_CANMD, (1 << mbxno));
-> +	hecc_set_bit(priv, HECC_CANME, (1 << mbxno));
-> +
-> +	stats->rx_bytes +=3D cf->can_dlc;
-> +	netif_receive_skb(skb);
-> +	stats->rx_packets++;
-> +	priv->ndev->last_rx =3D jiffies;
-> +
-> +	return 0;
-> +}
-> +
-> +/**
-> + * ti_hecc_rx_poll - HECC receive pkts
-> + *
-> + * The receive mailboxes start from highest numbered mailbox till last=
- xmit
-> + * mailbox. On CAN frame reception the hardware places the data into h=
-ighest
-> + * numbered mailbox that matches the CAN ID filter. Since all receive =
-mailboxes
-> + * have same filtering (ALL CAN frames) we process higher numbered mai=
-lboxes
-> + * first and so on to ensure packet order.
-> + */
-> +static int ti_hecc_rx_poll(struct napi_struct *napi, int quota)
-> +{
-> +	struct net_device *ndev =3D napi->dev;
-> +	struct ti_hecc_priv *priv =3D netdev_priv(ndev);
-> +	u32 num_pkts =3D 0;
-> +	u32 mbxno, mbx_mask;
-> +	unsigned long pending_pkts;
-> +
-> +	if (!netif_running(ndev))
-> +		return 0;
-> +
-> +	pending_pkts =3D hecc_read(priv, HECC_CANRMP);
-> +	mbx_mask =3D BIT(HECC_MAX_MAILBOXES - 1); /* highest numbered mailbox=
- */
-> +	mbxno =3D (HECC_MAX_MAILBOXES - 1);
-> +	while (pending_pkts && (num_pkts < quota)) {
-> +		if (mbx_mask & pending_pkts) {
-> +			if (ti_hecc_rx_pkt(priv, mbxno) < 0)
-> +				return num_pkts;
-> +			clear_bit(mbxno, &pending_pkts);
-> +			hecc_set_bit(priv, HECC_CANRMP, (1 << mbxno));
-> +			++num_pkts;
-> +		}
-> +		mbx_mask =3D (mbx_mask >> 1);
-> +		--mbxno;
-> +	}
-> +
-> +	/* Enable packet interrupt if all pkts are handled */
-> +	if (0 =3D=3D hecc_read(priv, HECC_CANRMP)) {
-> +		napi_complete(napi);
-> +		/* Re-enable RX mailbox interrupts */
-> +		mbxno =3D hecc_read(priv, HECC_CANMIM);
-> +		mbxno |=3D (~((1 << TI_HECC_MAX_TX_MBOX) - 1));
-> +		hecc_write(priv, HECC_CANMIM, mbxno);
-> +	}
-> +
-> +	return num_pkts;
-> +}
-
-Have you tested that the packages are read in the right order?
-
-> +
-> +static int
-> +ti_hecc_error(struct net_device *ndev, int int_status, int err_status)=
-
-> +{
-> +	struct ti_hecc_priv *priv =3D netdev_priv(ndev);
-> +	struct net_device_stats *stats =3D &ndev->stats;
-> +	struct can_frame *cf;
-> +	struct sk_buff *skb;
-> +
-> +	/* propogate the error condition to the can stack */
-> +	skb =3D dev_alloc_skb(sizeof(struct can_frame));
-> +	if (!skb) {
-> +		if (printk_ratelimit())
-> +			dev_err(priv->ndev->dev.parent,
-> +				"dev_alloc_skb() failed in err processing\n");
-> +		return -ENOMEM;
-> +	}
-> +	skb->dev =3D ndev;
-> +	skb->protocol =3D htons(ETH_P_CAN);
-> +	cf =3D (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
-> +	memset(cf, 0, sizeof(struct can_frame));
-> +	cf->can_id =3D CAN_ERR_FLAG;
-> +	cf->can_dlc =3D CAN_ERR_DLC;
-> +
-> +	if (int_status & HECC_CANGIF_WLIF) { /* warning level int */
-> +		if (0 =3D=3D (int_status & HECC_CANGIF_BOIF)) {
-> +			priv->can.state =3D CAN_STATE_ERROR_WARNING;
-> +			++priv->can.can_stats.error_warning;
-> +			cf->can_id |=3D CAN_ERR_CRTL;
-> +			if (hecc_read(priv, HECC_CANTEC) > 96)
-> +				cf->data[1] |=3D CAN_ERR_CRTL_TX_WARNING;
-> +			if (hecc_read(priv, HECC_CANREC) > 96)
-> +				cf->data[1] |=3D CAN_ERR_CRTL_RX_WARNING;
-> +		}
-> +		hecc_set_bit(priv, HECC_CANES, HECC_CANES_EW);
-> +		dev_dbg(priv->ndev->dev.parent, "Error Warning interrupt\n");
-> +		hecc_clear_bit(priv, HECC_CANMC, HECC_CANMC_CCR);
-> +	}
-> +
-> +	if (int_status & HECC_CANGIF_EPIF) { /* error passive int */
-> +		if (0 =3D=3D (int_status & HECC_CANGIF_BOIF)) {
-> +			priv->can.state =3D CAN_STATE_ERROR_PASSIVE;
-> +			++priv->can.can_stats.error_passive;
-> +			cf->can_id |=3D CAN_ERR_CRTL;
-> +			if (hecc_read(priv, HECC_CANTEC) > 127)
-> +				cf->data[1] |=3D CAN_ERR_CRTL_TX_PASSIVE;
-> +			if (hecc_read(priv, HECC_CANREC) > 127)
-> +				cf->data[1] |=3D CAN_ERR_CRTL_RX_PASSIVE;
-> +		}
-> +		hecc_set_bit(priv, HECC_CANES, HECC_CANES_EP);
-> +		dev_dbg(priv->ndev->dev.parent, "Error passive interrupt\n");
-> +		hecc_clear_bit(priv, HECC_CANMC, HECC_CANMC_CCR);
-> +	}
-> +
-> +	/* Need to check busoff condition in error status register too to
-> +	 * ensure warning interrupts don't hog the system
-> +	 */
-> +	if ((int_status & HECC_CANGIF_BOIF) || (err_status & HECC_CANES_BO)) =
-{
-> +		priv->can.state =3D CAN_STATE_BUS_OFF;
-> +		cf->can_id |=3D CAN_ERR_BUSOFF;
-> +		hecc_set_bit(priv, HECC_CANES, HECC_CANES_BO);
-> +		hecc_clear_bit(priv, HECC_CANMC, HECC_CANMC_CCR);
-> +		can_bus_off(ndev);
-> +		/* Disable all interrupts in bus-off to avoid int hog */
-> +		hecc_write(priv, HECC_CANGIM, 0);
-> +	}
-> +
-> +	if (err_status & HECC_BUS_ERROR) {
-> +		++priv->can.can_stats.bus_error;
-> +		cf->can_id |=3D (CAN_ERR_BUSERROR | CAN_ERR_PROT);
-> +		cf->data[2] |=3D CAN_ERR_PROT_UNSPEC;
-> +		if (err_status & HECC_CANES_FE) {
-> +			hecc_set_bit(priv, HECC_CANES, HECC_CANES_FE);
-> +			cf->data[2] |=3D CAN_ERR_PROT_FORM;
-> +		}
-> +		if (err_status & HECC_CANES_BE) {
-> +			hecc_set_bit(priv, HECC_CANES, HECC_CANES_BE);
-> +			cf->data[2] |=3D CAN_ERR_PROT_BIT;
-> +		}
-> +		if (err_status & HECC_CANES_SE) {
-> +			hecc_set_bit(priv, HECC_CANES, HECC_CANES_SE);
-> +			cf->data[2] |=3D CAN_ERR_PROT_STUFF;
-> +		}
-> +		if (err_status & HECC_CANES_CRCE) {
-> +			hecc_set_bit(priv, HECC_CANES, HECC_CANES_CRCE);
-> +			cf->data[2] |=3D (CAN_ERR_PROT_LOC_CRC_SEQ |
-> +					CAN_ERR_PROT_LOC_CRC_DEL);
-> +		}
-> +		if (err_status & HECC_CANES_ACKE) {
-> +			hecc_set_bit(priv, HECC_CANES, HECC_CANES_ACKE);
-> +			cf->data[2] |=3D (CAN_ERR_PROT_LOC_ACK |
-> +					CAN_ERR_PROT_LOC_ACK_DEL);
-> +		}
-> +	}
-> +
-> +	netif_receive_skb(skb);
-> +	ndev->last_rx =3D jiffies;
-> +	stats->rx_packets++;
-> +	stats->rx_bytes +=3D cf->can_dlc;
-> +	return 0;
-> +}
-> +
-> +
-> +/**
-> + * ti_hecc_interrupt: TI HECC interrupt routine
-> + *
-> + * Handles HECC interrupts - disables interrupt if receive pkts that w=
-ill
-> + * be enabled when rx pkts are complete (napi_complete is done)
-> + */
-> +static irqreturn_t ti_hecc_interrupt(int irq, void *dev_id)
-> +{
-> +	struct net_device *ndev =3D (struct net_device *)dev_id;
-> +	struct ti_hecc_priv *priv =3D netdev_priv(ndev);
-> +	struct net_device_stats *stats =3D &ndev->stats;
-> +	u32 mbxno, int_status, err_status;
-> +	unsigned long flags, ack, canta_ack;
-> +
-> +	if (priv->int_line)
-> +		int_status =3D hecc_read(priv, HECC_CANGIF1);
-> +	else
-> +		int_status =3D hecc_read(priv, HECC_CANGIF0);
-> +
-> +	if (0 =3D=3D int_status)
-> +		return IRQ_NONE;
-> +
-> +	err_status =3D hecc_read(priv, HECC_CANES);
-> +	if (err_status & (HECC_BUS_ERROR | HECC_CANES_BO |
-> +		HECC_CANES_EP | HECC_CANES_EW))
-> +			ti_hecc_error(ndev, int_status, err_status);
-> +
-> +	/* Handle mailbox interrupt */
-> +	if (int_status & HECC_CANGIF_GMIF) {
-> +		canta_ack =3D ack =3D hecc_read(priv, HECC_CANTA);
-> +		while (ack) {
-> +			mbxno =3D find_first_bit(&ack, HECC_MAX_MAILBOXES);
-> +			if (mbxno =3D=3D HECC_MAX_MAILBOXES) {
-> +				break;
-> +			} else {
-> +				clear_bit(mbxno, &ack);
-> +				hecc_clear_bit(priv, HECC_CANME, (1 << mbxno));
-> +				hecc_clear_bit(priv, HECC_CANMIM, (1 << mbxno));
-> +				stats->tx_bytes =3D
-> +					(hecc_read(priv, HECC_CANMCF(mbxno)) &
-> +					0xF);
-> +				can_get_echo_skb(ndev, mbxno);
-> +				spin_lock_irqsave(&priv->tx_lock, flags);
-> +				clear_bit(mbxno, priv->tx_free_mbx);
-> +				spin_unlock_irqrestore(&priv->tx_lock, flags);
-> +				stats->tx_packets++;
-> +			}
-> +		}
-> +		hecc_write(priv, HECC_CANTA, canta_ack);
-> +		if (priv->stop_xmit) {
-> +			ack =3D hecc_read(priv, HECC_CANME);
-> +			if ((ack & ((1 << TI_HECC_MAX_TX_MBOX) - 1)) =3D=3D 0)
-> +				if (netif_queue_stopped(ndev)) {
-> +					priv->stop_xmit =3D 0;
-> +					netif_wake_queue(ndev);
-> +				}
-> +		} else {
-> +			spin_lock_irqsave(&priv->tx_lock, flags);
-> +			if (!test_bit(priv->tx_mbxno, priv->tx_free_mbx))
-> +				if (netif_queue_stopped(ndev))
-> +					netif_wake_queue(ndev);
-
-the (netif_queue_stopped(ndev) is redundant, see:
-http://lxr.linux.no/#linux+v2.6.30.5/include/linux/netdevice.h#L1302
-http://lxr.linux.no/#linux+v2.6.30.5/include/linux/netdevice.h#L1241
-
-> +			spin_unlock_irqrestore(&priv->tx_lock, flags);
-> +		}
-> +
-> +		/* Disable RX mailbox interrupts and let NAPI reenable them */
-> +		if (hecc_read(priv, HECC_CANRMP)) {
-> +			ack =3D hecc_read(priv, HECC_CANMIM);
-> +			ack &=3D ((1 << TI_HECC_MAX_TX_MBOX) - 1);
-> +			hecc_write(priv, HECC_CANMIM, ack);
-> +			napi_schedule(&priv->napi);
-> +		}
-> +	}
-> +
-> +	/* clear all interrupt conditions - read back to avoid spurious ints =
-*/
-> +	if (priv->int_line) {
-> +		hecc_write(priv, HECC_CANGIF1, HECC_SET_REG);
-> +		int_status =3D hecc_read(priv, HECC_CANGIF1);
-> +	} else {
-> +		hecc_write(priv, HECC_CANGIF0, HECC_SET_REG);
-> +		int_status =3D hecc_read(priv, HECC_CANGIF0);
-> +	}
-> +
-> +	return IRQ_HANDLED;
-> +}
-> +
-> +static int ti_hecc_open(struct net_device *ndev)
-> +{
-> +	struct ti_hecc_priv *priv =3D netdev_priv(ndev);
-> +	int err;
-> +
-> +	err =3D request_irq(ndev->irq, ti_hecc_interrupt, IRQF_DISABLED,
-> +				ndev->name, ndev);
-> +	if (err) {
-> +		dev_err(ndev->dev.parent, "error requesting interrupt\n");
-> +		return err;
-> +	}
-> +
-> +	/* Open common can device */
-> +	err =3D open_candev(ndev);
-> +	if (err) {
-> +		dev_err(ndev->dev.parent, "open_candev() failed %08X\n", err);
-> +		free_irq(ndev->irq, ndev);
-> +		return err;
-> +	}
-> +
-> +	/* Initialize device and start net queue */
-> +	spin_lock_init(&priv->tx_lock);
-> +
-> +	clk_enable(priv->clk);
-> +	ti_hecc_start(ndev);
-> +	napi_enable(&priv->napi);
-> +	netif_start_queue(ndev);
-> +
-> +	dev_info(ndev->dev.parent, "device open\n");
-> +	return 0;
-> +}
-> +
-> +static int ti_hecc_close(struct net_device *ndev)
-> +{
-> +	struct ti_hecc_priv *priv =3D netdev_priv(ndev);
-> +
-> +	netif_stop_queue(ndev);
-> +	napi_disable(&priv->napi);
-> +	ti_hecc_stop(ndev);
-> +	free_irq(ndev->irq, ndev);
-> +	clk_disable(priv->clk);
-> +	close_candev(ndev);
-> +	dev_info(ndev->dev.parent, "device stopped\n");
-> +
-> +	return 0;
-> +}
-> +
-> +static const struct net_device_ops ti_hecc_netdev_ops =3D {
-> +	.ndo_open		=3D ti_hecc_open,
-> +	.ndo_stop		=3D ti_hecc_close,
-> +	.ndo_start_xmit		=3D ti_hecc_xmit,
-> +};
-> +
-> +static int ti_hecc_probe(struct platform_device *pdev)
-> +{
-> +	struct net_device *ndev =3D (struct net_device *)0;
-> +	struct ti_hecc_priv *priv;
-> +	struct ti_hecc_platform_data *pdata;
-> +	struct resource *mem, *irq;
-> +	void __iomem *addr;
-> +	int err;
-> +
-> +	dev_dbg(&pdev->dev, " probing devices...\n");
-> +	pdata =3D pdev->dev.platform_data;
-> +	if (!pdata) {
-> +		dev_err(&pdev->dev, "No platform data - exiting\n");
-> +		return -ENODEV;
-> +	}
-> +
-> +	mem =3D platform_get_resource(pdev, IORESOURCE_MEM, 0);
-> +	if (!mem) {
-> +		dev_err(&pdev->dev, "no mem resources???\n");
-> +		err =3D -ENODEV;
-> +		goto probe_exit;
-> +	}
-> +	irq =3D platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-> +	if (!irq) {
-> +		dev_err(&pdev->dev, "no irq resourc???\n");
-> +		err =3D -ENODEV;
-> +		goto probe_exit;
-> +	}
-> +	if (!request_mem_region(mem->start, resource_size(mem), pdev->name)) =
-{
-> +		dev_err(&pdev->dev, "HECC region already claimed\n");
-> +		err =3D -EBUSY;
-> +		goto probe_exit;
-> +	}
-> +	addr =3D ioremap(mem->start, resource_size(mem));
-> +	if (!addr) {
-> +		dev_err(&pdev->dev, "ioremap failed\n");
-> +		err =3D -ENOMEM;
-> +		goto probe_exit_free_region;
-> +	}
-> +
-> +	ndev =3D alloc_candev(sizeof(struct ti_hecc_priv));
-> +	if (!ndev) {
-> +		dev_err(&pdev->dev, "alloc_candev failed\n");
-> +		err =3D -ENOMEM;
-> +		goto probe_exit_iounmap;
-> +	}
-> +
-> +	priv =3D netdev_priv(ndev);
-> +	priv->ndev =3D ndev;
-> +	priv->base =3D addr;
-> +	priv->scc_ram_offset =3D pdata->scc_ram_offset;
-> +	priv->hecc_ram_offset =3D pdata->hecc_ram_offset;
-> +	priv->mbox_offset =3D pdata->mbox_offset;
-> +	priv->int_line =3D pdata->int_line;
-> +
-> +	priv->can.bittiming_const =3D &ti_hecc_bittiming_const;
-> +	priv->can.do_set_bittiming =3D ti_hecc_set_bittiming;
-> +	priv->can.do_set_mode =3D ti_hecc_do_set_mode;
-> +	priv->can.do_get_state =3D ti_hecc_get_state;
-> +
-> +	ndev->irq =3D irq->start;
-> +	ndev->flags |=3D IFF_ECHO;
-> +	platform_set_drvdata(pdev, ndev);
-> +	SET_NETDEV_DEV(ndev, &pdev->dev);
-> +	ndev->netdev_ops =3D &ti_hecc_netdev_ops;
-> +
-> +	/* Note: clk name would change using hecc_vbusp_ck temporarily */
-> +	priv->clk =3D clk_get(&pdev->dev, "hecc_vbusp_ck");
-> +	if (IS_ERR(priv->clk)) {
-> +		dev_err(&pdev->dev, "no clock available\n");
-> +		err =3D PTR_ERR(priv->clk);
-> +		priv->clk =3D NULL;
-> +		goto probe_exit_candev;
-> +	}
-> +	priv->can.clock.freq =3D clk_get_rate(priv->clk);
-> +	netif_napi_add(ndev, &priv->napi, ti_hecc_rx_poll,
-> +			TI_HECC_DEF_NAPI_WEIGHT);
-> +
-> +	err =3D register_candev(ndev);
-> +	if (err) {
-> +		dev_err(&pdev->dev, "register_candev() failed\n");
-> +		err =3D -ENODEV;
-> +		goto probe_exit_clk;
-> +	}
-> +	dev_info(&pdev->dev, "device registered (reg_base=3D%p, irq=3D%u)\n",=
-
-> +		priv->base, (u32) ndev->irq);
-> +
-> +	return 0;
-> +
-> +probe_exit_clk:
-> +	clk_put(priv->clk);
-> +probe_exit_candev:
-> +	free_candev(ndev);
-> +probe_exit_iounmap:
-> +	iounmap(addr);
-> +probe_exit_free_region:
-> +	release_mem_region(mem->start, resource_size(mem));
-> +probe_exit:
-> +	dev_err(ndev->dev.parent, "probe error =3D %08X\n", err);
-> +	return err;
-> +}
-> +
-> +static int __devexit ti_hecc_remove(struct platform_device *pdev)
-> +{
-> +	struct resource *res;
-> +	struct net_device *ndev =3D platform_get_drvdata(pdev);
-> +	struct ti_hecc_priv *priv =3D netdev_priv(ndev);
-> +
-> +	clk_put(priv->clk);
-> +	res =3D platform_get_resource(pdev, IORESOURCE_MEM, 0);
-> +	iounmap(priv->base);
-> +	release_mem_region(res->start, resource_size(res));
-> +	unregister_candev(ndev);
-> +	free_candev(ndev);
-> +	platform_set_drvdata(pdev, NULL);
-> +	dev_info(ndev->dev.parent, "driver removed\n");
-> +
-> +	return 0;
-> +}
-> +
-> +/* TI HECC netdevice driver: platform driver structure */
-> +static struct platform_driver ti_hecc_driver =3D {
-> +	.driver =3D {
-> +		.name    =3D DRV_NAME,
-> +		.owner   =3D THIS_MODULE,
-> +	},
-> +	.probe =3D ti_hecc_probe,
-> +	.remove =3D __devexit_p(ti_hecc_remove),
-> +};
-> +
-> +static int __init ti_hecc_init_driver(void)
-> +{
-> +	printk(KERN_INFO DRV_DESC "\n");
-> +	return platform_driver_register(&ti_hecc_driver);
-> +}
-> +module_init(ti_hecc_init_driver);
-> +
-> +static void __exit ti_hecc_exit_driver(void)
-> +{
-> +	printk(KERN_INFO DRV_DESC " :Exit\n");
-> +	platform_driver_unregister(&ti_hecc_driver);
-> +}
-> +module_exit(ti_hecc_exit_driver);
-> +
-> +MODULE_AUTHOR("Anant Gole <anantgole@ti.com>");
-> +MODULE_LICENSE("GPL v2");
-> +MODULE_DESCRIPTION(DRV_DESC);
-> diff --git a/include/linux/can/platform/ti_hecc.h b/include/linux/can/p=
-latform/ti_hecc.h
-> new file mode 100644
-> index 0000000..9164c67
-> --- /dev/null
-> +++ b/include/linux/can/platform/ti_hecc.h
-> @@ -0,0 +1,40 @@
-> +/*
-> + * TI HECC (High End CAN Controller) driver platform header
-> + *
-> + * Copyright (C) 2009 Texas Instruments Incorporated - http://www.ti.c=
-om/
-> + *
-> + * This program is free software; you can redistribute it and/or
-> + * modify it under the terms of the GNU General Public License as
-> + * published by the Free Software Foundation version 2.
-> + *
-> + * This program is distributed as is WITHOUT ANY WARRANTY of any
-> + * kind, whether express or implied; without even the implied warranty=
-
-> + * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> + * GNU General Public License for more details.
-> + *
-> + */
-> +
-> +/**
-> + * struct hecc_platform_data - HECC Platform Data
-> + *
-> + * @scc_hecc_offset:	mostly 0 - should really never change
-> + * @scc_ram_offset:	SCC RAM offset
-> + * @hecc_ram_offset:	HECC RAM offset
-> + * @mbox_offset:	Mailbox RAM offset
-> + * @int_line:		Interrupt line to use - 0 or 1
-> + * @version:		version for future use
-> + *
-> + * Platform data structure to get all platform specific settings.
-> + * this structure also accounts the fact that the IP may have differen=
-t
-> + * RAM and mailbox offsets for different SOC's
-> + */
-> +struct ti_hecc_platform_data {
-> +	u32 scc_hecc_offset;
-> +	u32 scc_ram_offset;
-> +	u32 hecc_ram_offset;
-> +	u32 mbox_offset;
-> +	u32 int_line;
-> +	u32 version;
-> +};
-> +
-> +
-
-cheers, Marc
-
---=20
-Pengutronix e.K.                         | Marc Kleine-Budde           |
-Linux Solutions for Science and Industry | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund                 | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686         | http://www.pengutronix.de   |
-
-
-
---------------enigF6D12174FF343DD33CEC1E3A
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iEYEARECAAYFAkqfpe8ACgkQjTAFq1RaXHMvWACgjYF9rdod/xzuTFN1EUr1DSDb
-AG0Anj0T2hoYGkQV8iVFRpjJdyuJ1pvc
-=PGHa
------END PGP SIGNATURE-----
-
---------------enigF6D12174FF343DD33CEC1E3A--
+Thu, Sep 03, 2009 at 10:19:08AM CEST, eric.dumazet@gmail.com wrote:
+>Pure style cleanup patch before surgery :)
+>
+>Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>---
+> net/core/dev.c |  589 +++++++++++++++++++++++------------------------
+> 1 files changed, 292 insertions(+), 297 deletions(-)
+>
+>diff --git a/net/core/dev.c b/net/core/dev.c
+>index 4b33566..dd94ae6 100644
+>--- a/net/core/dev.c
+>+++ b/net/core/dev.c
+>@@ -191,7 +191,6 @@ static struct list_head ptype_all __read_mostly;	/* Taps */
+>  * semaphore held.
+>  */
+> DEFINE_RWLOCK(dev_base_lock);
+>-
+> EXPORT_SYMBOL(dev_base_lock);
+> 
+> #define NETDEV_HASHBITS	8
+>@@ -248,6 +247,7 @@ static RAW_NOTIFIER_HEAD(netdev_chain);
+>  */
+> 
+> DEFINE_PER_CPU(struct softnet_data, softnet_data);
+>+EXPORT_PER_CPU_SYMBOL(softnet_data);
+> 
+> #ifdef CONFIG_LOCKDEP
+> /*
+>@@ -381,6 +381,7 @@ void dev_add_pack(struct packet_type *pt)
+> 	}
+> 	spin_unlock_bh(&ptype_lock);
+> }
+>+EXPORT_SYMBOL(dev_add_pack);
+> 
+> /**
+>  *	__dev_remove_pack	 - remove packet handler
+>@@ -418,6 +419,8 @@ void __dev_remove_pack(struct packet_type *pt)
+> out:
+> 	spin_unlock_bh(&ptype_lock);
+> }
+>+EXPORT_SYMBOL(__dev_remove_pack);
+>+
+> /**
+>  *	dev_remove_pack	 - remove packet handler
+>  *	@pt: packet type declaration
+>@@ -436,6 +439,7 @@ void dev_remove_pack(struct packet_type *pt)
+> 
+> 	synchronize_net();
+> }
+>+EXPORT_SYMBOL(dev_remove_pack);
+> 
+> /******************************************************************************
+> 
+>@@ -499,6 +503,7 @@ int netdev_boot_setup_check(struct net_device *dev)
+> 	}
+> 	return 0;
+> }
+>+EXPORT_SYMBOL(netdev_boot_setup_check);
+> 
+> 
+> /**
+>@@ -591,6 +596,7 @@ struct net_device *__dev_get_by_name(struct net *net, const char *name)
+> 	}
+> 	return NULL;
+> }
+>+EXPORT_SYMBOL(__dev_get_by_name);
+> 
+> /**
+>  *	dev_get_by_name		- find a device by its name
+>@@ -615,6 +621,7 @@ struct net_device *dev_get_by_name(struct net *net, const char *name)
+> 	read_unlock(&dev_base_lock);
+> 	return dev;
+> }
+>+EXPORT_SYMBOL(dev_get_by_name);
+> 
+> /**
+>  *	__dev_get_by_index - find a device by its ifindex
+>@@ -640,6 +647,7 @@ struct net_device *__dev_get_by_index(struct net *net, int ifindex)
+> 	}
+> 	return NULL;
+> }
+>+EXPORT_SYMBOL(__dev_get_by_index);
+> 
+> 
+> /**
+>@@ -664,6 +672,7 @@ struct net_device *dev_get_by_index(struct net *net, int ifindex)
+> 	read_unlock(&dev_base_lock);
+> 	return dev;
+> }
+>+EXPORT_SYMBOL(dev_get_by_index);
+> 
+> /**
+>  *	dev_getbyhwaddr - find a device by its hardware address
+>@@ -693,7 +702,6 @@ struct net_device *dev_getbyhwaddr(struct net *net, unsigned short type, char *h
+> 
+> 	return NULL;
+> }
+>-
+> EXPORT_SYMBOL(dev_getbyhwaddr);
+> 
+> struct net_device *__dev_getfirstbyhwtype(struct net *net, unsigned short type)
+>@@ -707,7 +715,6 @@ struct net_device *__dev_getfirstbyhwtype(struct net *net, unsigned short type)
+> 
+> 	return NULL;
+> }
+>-
+> EXPORT_SYMBOL(__dev_getfirstbyhwtype);
+> 
+> struct net_device *dev_getfirstbyhwtype(struct net *net, unsigned short type)
+>@@ -721,7 +728,6 @@ struct net_device *dev_getfirstbyhwtype(struct net *net, unsigned short type)
+> 	rtnl_unlock();
+> 	return dev;
+> }
+>-
+> EXPORT_SYMBOL(dev_getfirstbyhwtype);
+> 
+> /**
+>@@ -736,7 +742,8 @@ EXPORT_SYMBOL(dev_getfirstbyhwtype);
+>  *	dev_put to indicate they have finished with it.
+>  */
+> 
+>-struct net_device * dev_get_by_flags(struct net *net, unsigned short if_flags, unsigned short mask)
+>+struct net_device *dev_get_by_flags(struct net *net, unsigned short if_flags,
+>+				    unsigned short mask)
+> {
+> 	struct net_device *dev, *ret;
+> 
+>@@ -752,6 +759,7 @@ struct net_device * dev_get_by_flags(struct net *net, unsigned short if_flags, u
+> 	read_unlock(&dev_base_lock);
+> 	return ret;
+> }
+>+EXPORT_SYMBOL(dev_get_by_flags);
+> 
+> /**
+>  *	dev_valid_name - check if name is okay for network device
+>@@ -777,6 +785,7 @@ int dev_valid_name(const char *name)
+> 	}
+> 	return 1;
+> }
+>+EXPORT_SYMBOL(dev_valid_name);
+> 
+> /**
+>  *	__dev_alloc_name - allocate a name for a device
+>@@ -870,6 +879,7 @@ int dev_alloc_name(struct net_device *dev, const char *name)
+> 		strlcpy(dev->name, buf, IFNAMSIZ);
+> 	return ret;
+> }
+>+EXPORT_SYMBOL(dev_alloc_name);
+> 
+> 
+> /**
+>@@ -906,8 +916,7 @@ int dev_change_name(struct net_device *dev, const char *newname)
+> 		err = dev_alloc_name(dev, newname);
+> 		if (err < 0)
+> 			return err;
+>-	}
+>-	else if (__dev_get_by_name(net, newname))
+>+	} else if (__dev_get_by_name(net, newname))
+> 		return -EEXIST;
+> 	else
+> 		strlcpy(dev->name, newname, IFNAMSIZ);
+>@@ -970,7 +979,7 @@ int dev_set_alias(struct net_device *dev, const char *alias, size_t len)
+> 		return 0;
+> 	}
+> 
+>-	dev->ifalias = krealloc(dev->ifalias, len+1, GFP_KERNEL);
+>+	dev->ifalias = krealloc(dev->ifalias, len + 1, GFP_KERNEL);
+> 	if (!dev->ifalias)
+> 		return -ENOMEM;
+> 
+>@@ -1006,6 +1015,7 @@ void netdev_state_change(struct net_device *dev)
+> 		rtmsg_ifinfo(RTM_NEWLINK, dev, 0);
+> 	}
+> }
+>+EXPORT_SYMBOL(netdev_state_change);
+> 
+> void netdev_bonding_change(struct net_device *dev)
+> {
+>@@ -1034,6 +1044,7 @@ void dev_load(struct net *net, const char *name)
+> 	if (!dev && capable(CAP_SYS_MODULE))
+> 		request_module("%s", name);
+> }
+>+EXPORT_SYMBOL(dev_load);
+> 
+> /**
+>  *	dev_open	- prepare an interface for use.
+>@@ -1118,6 +1129,7 @@ int dev_open(struct net_device *dev)
+> 
+> 	return ret;
+> }
+>+EXPORT_SYMBOL(dev_open);
+> 
+> /**
+>  *	dev_close - shutdown an interface.
+>@@ -1184,6 +1196,7 @@ int dev_close(struct net_device *dev)
+> 
+> 	return 0;
+> }
+>+EXPORT_SYMBOL(dev_close);
+> 
+> 
+> /**
+>@@ -1279,6 +1292,7 @@ rollback:
+> 	raw_notifier_chain_unregister(&netdev_chain, nb);
+> 	goto unlock;
+> }
+>+EXPORT_SYMBOL(register_netdevice_notifier);
+> 
+> /**
+>  *	unregister_netdevice_notifier - unregister a network notifier block
+>@@ -1299,6 +1313,7 @@ int unregister_netdevice_notifier(struct notifier_block *nb)
+> 	rtnl_unlock();
+> 	return err;
+> }
+>+EXPORT_SYMBOL(unregister_netdevice_notifier);
+> 
+> /**
+>  *	call_netdevice_notifiers - call all network notifier blocks
+>@@ -1321,11 +1336,13 @@ void net_enable_timestamp(void)
+> {
+> 	atomic_inc(&netstamp_needed);
+> }
+>+EXPORT_SYMBOL(net_enable_timestamp);
+> 
+> void net_disable_timestamp(void)
+> {
+> 	atomic_dec(&netstamp_needed);
+> }
+>+EXPORT_SYMBOL(net_disable_timestamp);
+> 
+> static inline void net_timestamp(struct sk_buff *skb)
+> {
+>@@ -1359,7 +1376,7 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
+> 		if ((ptype->dev == dev || !ptype->dev) &&
+> 		    (ptype->af_packet_priv == NULL ||
+> 		     (struct sock *)ptype->af_packet_priv != skb->sk)) {
+>-			struct sk_buff *skb2= skb_clone(skb, GFP_ATOMIC);
+>+			struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
+> 			if (!skb2)
+> 				break;
+> 
+>@@ -1527,6 +1544,7 @@ out_set_summed:
+> out:
+> 	return ret;
+> }
+>+EXPORT_SYMBOL(skb_checksum_help);
+> 
+> /**
+>  *	skb_gso_segment - Perform segmentation on skb.
+>@@ -1589,7 +1607,6 @@ struct sk_buff *skb_gso_segment(struct sk_buff *skb, int features)
+> 
+> 	return segs;
+> }
+>-
+> EXPORT_SYMBOL(skb_gso_segment);
+> 
+> /* Take action when hardware reception checksum errors are detected. */
+>@@ -1755,7 +1772,7 @@ u16 skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb)
+> 
+> 	if (skb_rx_queue_recorded(skb)) {
+> 		hash = skb_get_rx_queue(skb);
+>-		while (unlikely (hash >= dev->real_num_tx_queues))
+>+		while (unlikely(hash >= dev->real_num_tx_queues))
+> 			hash -= dev->real_num_tx_queues;
+> 		return hash;
+> 	}
+>@@ -1890,7 +1907,7 @@ gso:
+> 	q = rcu_dereference(txq->qdisc);
+> 
+> #ifdef CONFIG_NET_CLS_ACT
+>-	skb->tc_verd = SET_TC_AT(skb->tc_verd,AT_EGRESS);
+>+	skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_EGRESS);
+> #endif
+> 	if (q->enqueue) {
+> 		rc = __dev_xmit_skb(skb, q, dev, txq);
+>@@ -1946,6 +1963,7 @@ out:
+> 	rcu_read_unlock_bh();
+> 	return rc;
+> }
+>+EXPORT_SYMBOL(dev_queue_xmit);
+> 
+> 
+> /*=======================================================================
+>@@ -2012,6 +2030,7 @@ enqueue:
+> 	kfree_skb(skb);
+> 	return NET_RX_DROP;
+> }
+>+EXPORT_SYMBOL(netif_rx);
+> 
+> int netif_rx_ni(struct sk_buff *skb)
+> {
+>@@ -2025,7 +2044,6 @@ int netif_rx_ni(struct sk_buff *skb)
+> 
+> 	return err;
+> }
+>-
+> EXPORT_SYMBOL(netif_rx_ni);
+> 
+> static void net_tx_action(struct softirq_action *h)
+>@@ -2358,6 +2376,7 @@ out:
+> 	rcu_read_unlock();
+> 	return ret;
+> }
+>+EXPORT_SYMBOL(netif_receive_skb);
+> 
+> /* Network device is going away, flush any packets still pending  */
+> static void flush_backlog(void *arg)
+>@@ -2874,7 +2893,7 @@ softnet_break:
+> 	goto out;
+> }
+> 
+>-static gifconf_func_t * gifconf_list [NPROTO];
+>+static gifconf_func_t *gifconf_list[NPROTO];
+> 
+> /**
+>  *	register_gifconf	-	register a SIOCGIF handler
+>@@ -2885,13 +2904,14 @@ static gifconf_func_t * gifconf_list [NPROTO];
+>  *	that is passed must not be freed or reused until it has been replaced
+>  *	by another handler.
+>  */
+>-int register_gifconf(unsigned int family, gifconf_func_t * gifconf)
+>+int register_gifconf(unsigned int family, gifconf_func_t *gifconf)
+> {
+> 	if (family >= NPROTO)
+> 		return -EINVAL;
+> 	gifconf_list[family] = gifconf;
+> 	return 0;
+> }
+>+EXPORT_SYMBOL(register_gifconf);
+> 
+> 
+> /*
+>@@ -3102,7 +3122,7 @@ static int softnet_seq_show(struct seq_file *seq, void *v)
+> 	seq_printf(seq, "%08x %08x %08x %08x %08x %08x %08x %08x %08x\n",
+> 		   s->total, s->dropped, s->time_squeeze, 0,
+> 		   0, 0, 0, 0, /* was fastroute */
+>-		   s->cpu_collision );
+>+		   s->cpu_collision);
+> 	return 0;
+> }
+> 
+>@@ -3338,6 +3358,7 @@ int netdev_set_master(struct net_device *slave, struct net_device *master)
+> 	rtmsg_ifinfo(RTM_NEWLINK, slave, IFF_SLAVE);
+> 	return 0;
+> }
+>+EXPORT_SYMBOL(netdev_set_master);
+> 
+> static void dev_change_rx_flags(struct net_device *dev, int flags)
+> {
+>@@ -3416,6 +3437,7 @@ int dev_set_promiscuity(struct net_device *dev, int inc)
+> 		dev_set_rx_mode(dev);
+> 	return err;
+> }
+>+EXPORT_SYMBOL(dev_set_promiscuity);
+> 
+> /**
+>  *	dev_set_allmulti	- update allmulti count on a device
+>@@ -3459,6 +3481,7 @@ int dev_set_allmulti(struct net_device *dev, int inc)
+> 	}
+> 	return 0;
+> }
+>+EXPORT_SYMBOL(dev_set_allmulti);
+> 
+> /*
+>  *	Upload unicast and multicast address lists to device and
+>@@ -4088,6 +4111,7 @@ unsigned dev_get_flags(const struct net_device *dev)
+> 
+> 	return flags;
+> }
+>+EXPORT_SYMBOL(dev_get_flags);
+> 
+> /**
+>  *	dev_change_flags - change device settings
+>@@ -4138,12 +4162,13 @@ int dev_change_flags(struct net_device *dev, unsigned flags)
+> 	}
+> 
+> 	if (dev->flags & IFF_UP &&
+>-	    ((old_flags ^ dev->flags) &~ (IFF_UP | IFF_PROMISC | IFF_ALLMULTI |
+>+	    ((old_flags ^ dev->flags) & ~(IFF_UP | IFF_PROMISC | IFF_ALLMULTI |
+> 					  IFF_VOLATILE)))
+> 		call_netdevice_notifiers(NETDEV_CHANGE, dev);
+> 
+> 	if ((flags ^ dev->gflags) & IFF_PROMISC) {
+>-		int inc = (flags & IFF_PROMISC) ? +1 : -1;
+>+		int inc = (flags & IFF_PROMISC) ? 1 : -1;
+>+
+> 		dev->gflags ^= IFF_PROMISC;
+> 		dev_set_promiscuity(dev, inc);
+> 	}
+>@@ -4153,7 +4178,8 @@ int dev_change_flags(struct net_device *dev, unsigned flags)
+> 	   IFF_ALLMULTI is requested not asking us and not reporting.
+> 	 */
+> 	if ((flags ^ dev->gflags) & IFF_ALLMULTI) {
+>-		int inc = (flags & IFF_ALLMULTI) ? +1 : -1;
+>+		int inc = (flags & IFF_ALLMULTI) ? 1 : -1;
+>+
+> 		dev->gflags ^= IFF_ALLMULTI;
+> 		dev_set_allmulti(dev, inc);
+> 	}
+>@@ -4165,6 +4191,7 @@ int dev_change_flags(struct net_device *dev, unsigned flags)
+> 
+> 	return ret;
+> }
+>+EXPORT_SYMBOL(dev_change_flags);
+> 
+> /**
+>  *	dev_set_mtu - Change maximum transfer unit
+>@@ -4198,6 +4225,7 @@ int dev_set_mtu(struct net_device *dev, int new_mtu)
+> 		call_netdevice_notifiers(NETDEV_CHANGEMTU, dev);
+> 	return err;
+> }
+>+EXPORT_SYMBOL(dev_set_mtu);
+> 
+> /**
+>  *	dev_set_mac_address - Change Media Access Control Address
+>@@ -4222,6 +4250,7 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
+> 		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+> 	return err;
+> }
+>+EXPORT_SYMBOL(dev_set_mac_address);
+> 
+> /*
+>  *	Perform the SIOCxIFxxx calls, inside read_lock(dev_base_lock)
+>@@ -4235,56 +4264,56 @@ static int dev_ifsioc_locked(struct net *net, struct ifreq *ifr, unsigned int cm
+> 		return -ENODEV;
+> 
+> 	switch (cmd) {
+>-		case SIOCGIFFLAGS:	/* Get interface flags */
+>-			ifr->ifr_flags = (short) dev_get_flags(dev);
+>-			return 0;
+>+	case SIOCGIFFLAGS:	/* Get interface flags */
+>+		ifr->ifr_flags = (short) dev_get_flags(dev);
+>+		return 0;
+> 
+>-		case SIOCGIFMETRIC:	/* Get the metric on the interface
+>-					   (currently unused) */
+>-			ifr->ifr_metric = 0;
+>-			return 0;
+>+	case SIOCGIFMETRIC:	/* Get the metric on the interface
+>+				   (currently unused) */
+>+		ifr->ifr_metric = 0;
+>+		return 0;
+> 
+>-		case SIOCGIFMTU:	/* Get the MTU of a device */
+>-			ifr->ifr_mtu = dev->mtu;
+>-			return 0;
+>+	case SIOCGIFMTU:	/* Get the MTU of a device */
+>+		ifr->ifr_mtu = dev->mtu;
+>+		return 0;
+> 
+>-		case SIOCGIFHWADDR:
+>-			if (!dev->addr_len)
+>-				memset(ifr->ifr_hwaddr.sa_data, 0, sizeof ifr->ifr_hwaddr.sa_data);
+>-			else
+>-				memcpy(ifr->ifr_hwaddr.sa_data, dev->dev_addr,
+>-				       min(sizeof ifr->ifr_hwaddr.sa_data, (size_t) dev->addr_len));
+>-			ifr->ifr_hwaddr.sa_family = dev->type;
+>-			return 0;
+>+	case SIOCGIFHWADDR:
+>+		if (!dev->addr_len)
+>+			memset(ifr->ifr_hwaddr.sa_data, 0, sizeof ifr->ifr_hwaddr.sa_data);
+>+		else
+>+			memcpy(ifr->ifr_hwaddr.sa_data, dev->dev_addr,
+>+			       min(sizeof ifr->ifr_hwaddr.sa_data, (size_t) dev->addr_len));
+>+		ifr->ifr_hwaddr.sa_family = dev->type;
+>+		return 0;
+> 
+>-		case SIOCGIFSLAVE:
+>-			err = -EINVAL;
+>-			break;
+>+	case SIOCGIFSLAVE:
+>+		err = -EINVAL;
+>+		break;
+> 
+>-		case SIOCGIFMAP:
+>-			ifr->ifr_map.mem_start = dev->mem_start;
+>-			ifr->ifr_map.mem_end   = dev->mem_end;
+>-			ifr->ifr_map.base_addr = dev->base_addr;
+>-			ifr->ifr_map.irq       = dev->irq;
+>-			ifr->ifr_map.dma       = dev->dma;
+>-			ifr->ifr_map.port      = dev->if_port;
+>-			return 0;
+>+	case SIOCGIFMAP:
+>+		ifr->ifr_map.mem_start = dev->mem_start;
+>+		ifr->ifr_map.mem_end   = dev->mem_end;
+>+		ifr->ifr_map.base_addr = dev->base_addr;
+>+		ifr->ifr_map.irq       = dev->irq;
+>+		ifr->ifr_map.dma       = dev->dma;
+>+		ifr->ifr_map.port      = dev->if_port;
+>+		return 0;
+> 
+>-		case SIOCGIFINDEX:
+>-			ifr->ifr_ifindex = dev->ifindex;
+>-			return 0;
+>+	case SIOCGIFINDEX:
+>+		ifr->ifr_ifindex = dev->ifindex;
+>+		return 0;
+> 
+>-		case SIOCGIFTXQLEN:
+>-			ifr->ifr_qlen = dev->tx_queue_len;
+>-			return 0;
+>+	case SIOCGIFTXQLEN:
+>+		ifr->ifr_qlen = dev->tx_queue_len;
+>+		return 0;
+> 
+>-		default:
+>-			/* dev_ioctl() should ensure this case
+>-			 * is never reached
+>-			 */
+>-			WARN_ON(1);
+>-			err = -EINVAL;
+>-			break;
+>+	default:
+>+		/* dev_ioctl() should ensure this case
+>+		 * is never reached
+>+		 */
+>+		WARN_ON(1);
+>+		err = -EINVAL;
+>+		break;
+> 
+> 	}
+> 	return err;
+>@@ -4305,92 +4334,91 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
+> 	ops = dev->netdev_ops;
+> 
+> 	switch (cmd) {
+>-		case SIOCSIFFLAGS:	/* Set interface flags */
+>-			return dev_change_flags(dev, ifr->ifr_flags);
+>-
+>-		case SIOCSIFMETRIC:	/* Set the metric on the interface
+>-					   (currently unused) */
+>-			return -EOPNOTSUPP;
+>-
+>-		case SIOCSIFMTU:	/* Set the MTU of a device */
+>-			return dev_set_mtu(dev, ifr->ifr_mtu);
+>+	case SIOCSIFFLAGS:	/* Set interface flags */
+>+		return dev_change_flags(dev, ifr->ifr_flags);
+> 
+>-		case SIOCSIFHWADDR:
+>-			return dev_set_mac_address(dev, &ifr->ifr_hwaddr);
+>+	case SIOCSIFMETRIC:	/* Set the metric on the interface
+>+				   (currently unused) */
+>+		return -EOPNOTSUPP;
+> 
+>-		case SIOCSIFHWBROADCAST:
+>-			if (ifr->ifr_hwaddr.sa_family != dev->type)
+>-				return -EINVAL;
+>-			memcpy(dev->broadcast, ifr->ifr_hwaddr.sa_data,
+>-			       min(sizeof ifr->ifr_hwaddr.sa_data, (size_t) dev->addr_len));
+>-			call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+>-			return 0;
+>+	case SIOCSIFMTU:	/* Set the MTU of a device */
+>+		return dev_set_mtu(dev, ifr->ifr_mtu);
+> 
+>-		case SIOCSIFMAP:
+>-			if (ops->ndo_set_config) {
+>-				if (!netif_device_present(dev))
+>-					return -ENODEV;
+>-				return ops->ndo_set_config(dev, &ifr->ifr_map);
+>-			}
+>-			return -EOPNOTSUPP;
+>+	case SIOCSIFHWADDR:
+>+		return dev_set_mac_address(dev, &ifr->ifr_hwaddr);
+> 
+>-		case SIOCADDMULTI:
+>-			if ((!ops->ndo_set_multicast_list && !ops->ndo_set_rx_mode) ||
+>-			    ifr->ifr_hwaddr.sa_family != AF_UNSPEC)
+>-				return -EINVAL;
+>-			if (!netif_device_present(dev))
+>-				return -ENODEV;
+>-			return dev_mc_add(dev, ifr->ifr_hwaddr.sa_data,
+>-					  dev->addr_len, 1);
+>+	case SIOCSIFHWBROADCAST:
+>+		if (ifr->ifr_hwaddr.sa_family != dev->type)
+>+			return -EINVAL;
+>+		memcpy(dev->broadcast, ifr->ifr_hwaddr.sa_data,
+>+		       min(sizeof ifr->ifr_hwaddr.sa_data, (size_t) dev->addr_len));
+>+		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+>+		return 0;
+> 
+>-		case SIOCDELMULTI:
+>-			if ((!ops->ndo_set_multicast_list && !ops->ndo_set_rx_mode) ||
+>-			    ifr->ifr_hwaddr.sa_family != AF_UNSPEC)
+>-				return -EINVAL;
+>+	case SIOCSIFMAP:
+>+		if (ops->ndo_set_config) {
+> 			if (!netif_device_present(dev))
+> 				return -ENODEV;
+>-			return dev_mc_delete(dev, ifr->ifr_hwaddr.sa_data,
+>-					     dev->addr_len, 1);
+>+			return ops->ndo_set_config(dev, &ifr->ifr_map);
+>+		}
+>+		return -EOPNOTSUPP;
+> 
+>-		case SIOCSIFTXQLEN:
+>-			if (ifr->ifr_qlen < 0)
+>-				return -EINVAL;
+>-			dev->tx_queue_len = ifr->ifr_qlen;
+>-			return 0;
+>+	case SIOCADDMULTI:
+>+		if ((!ops->ndo_set_multicast_list && !ops->ndo_set_rx_mode) ||
+>+		    ifr->ifr_hwaddr.sa_family != AF_UNSPEC)
+>+			return -EINVAL;
+>+		if (!netif_device_present(dev))
+>+			return -ENODEV;
+>+		return dev_mc_add(dev, ifr->ifr_hwaddr.sa_data,
+>+				  dev->addr_len, 1);
+>+
+>+	case SIOCDELMULTI:
+>+		if ((!ops->ndo_set_multicast_list && !ops->ndo_set_rx_mode) ||
+>+		    ifr->ifr_hwaddr.sa_family != AF_UNSPEC)
+>+			return -EINVAL;
+>+		if (!netif_device_present(dev))
+>+			return -ENODEV;
+>+		return dev_mc_delete(dev, ifr->ifr_hwaddr.sa_data,
+>+				     dev->addr_len, 1);
+> 
+>-		case SIOCSIFNAME:
+>-			ifr->ifr_newname[IFNAMSIZ-1] = '\0';
+>-			return dev_change_name(dev, ifr->ifr_newname);
+>+	case SIOCSIFTXQLEN:
+>+		if (ifr->ifr_qlen < 0)
+>+			return -EINVAL;
+>+		dev->tx_queue_len = ifr->ifr_qlen;
+>+		return 0;
+> 
+>-		/*
+>-		 *	Unknown or private ioctl
+>-		 */
+>+	case SIOCSIFNAME:
+>+		ifr->ifr_newname[IFNAMSIZ-1] = '\0';
+>+		return dev_change_name(dev, ifr->ifr_newname);
+> 
+>-		default:
+>-			if ((cmd >= SIOCDEVPRIVATE &&
+>-			    cmd <= SIOCDEVPRIVATE + 15) ||
+>-			    cmd == SIOCBONDENSLAVE ||
+>-			    cmd == SIOCBONDRELEASE ||
+>-			    cmd == SIOCBONDSETHWADDR ||
+>-			    cmd == SIOCBONDSLAVEINFOQUERY ||
+>-			    cmd == SIOCBONDINFOQUERY ||
+>-			    cmd == SIOCBONDCHANGEACTIVE ||
+>-			    cmd == SIOCGMIIPHY ||
+>-			    cmd == SIOCGMIIREG ||
+>-			    cmd == SIOCSMIIREG ||
+>-			    cmd == SIOCBRADDIF ||
+>-			    cmd == SIOCBRDELIF ||
+>-			    cmd == SIOCSHWTSTAMP ||
+>-			    cmd == SIOCWANDEV) {
+>-				err = -EOPNOTSUPP;
+>-				if (ops->ndo_do_ioctl) {
+>-					if (netif_device_present(dev))
+>-						err = ops->ndo_do_ioctl(dev, ifr, cmd);
+>-					else
+>-						err = -ENODEV;
+>-				}
+>-			} else
+>-				err = -EINVAL;
+>+	/*
+>+	 *	Unknown or private ioctl
+>+	 */
+>+	default:
+>+		if ((cmd >= SIOCDEVPRIVATE &&
+>+		    cmd <= SIOCDEVPRIVATE + 15) ||
+>+		    cmd == SIOCBONDENSLAVE ||
+>+		    cmd == SIOCBONDRELEASE ||
+>+		    cmd == SIOCBONDSETHWADDR ||
+>+		    cmd == SIOCBONDSLAVEINFOQUERY ||
+>+		    cmd == SIOCBONDINFOQUERY ||
+>+		    cmd == SIOCBONDCHANGEACTIVE ||
+>+		    cmd == SIOCGMIIPHY ||
+>+		    cmd == SIOCGMIIREG ||
+>+		    cmd == SIOCSMIIREG ||
+>+		    cmd == SIOCBRADDIF ||
+>+		    cmd == SIOCBRDELIF ||
+>+		    cmd == SIOCSHWTSTAMP ||
+>+		    cmd == SIOCWANDEV) {
+>+			err = -EOPNOTSUPP;
+>+			if (ops->ndo_do_ioctl) {
+>+				if (netif_device_present(dev))
+>+					err = ops->ndo_do_ioctl(dev, ifr, cmd);
+>+				else
+>+					err = -ENODEV;
+>+			}
+>+		} else
+>+			err = -EINVAL;
+> 
+> 	}
+> 	return err;
+>@@ -4447,135 +4475,135 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+> 	 */
+> 
+> 	switch (cmd) {
+>-		/*
+>-		 *	These ioctl calls:
+>-		 *	- can be done by all.
+>-		 *	- atomic and do not require locking.
+>-		 *	- return a value
+>-		 */
+>-		case SIOCGIFFLAGS:
+>-		case SIOCGIFMETRIC:
+>-		case SIOCGIFMTU:
+>-		case SIOCGIFHWADDR:
+>-		case SIOCGIFSLAVE:
+>-		case SIOCGIFMAP:
+>-		case SIOCGIFINDEX:
+>-		case SIOCGIFTXQLEN:
+>-			dev_load(net, ifr.ifr_name);
+>-			read_lock(&dev_base_lock);
+>-			ret = dev_ifsioc_locked(net, &ifr, cmd);
+>-			read_unlock(&dev_base_lock);
+>-			if (!ret) {
+>-				if (colon)
+>-					*colon = ':';
+>-				if (copy_to_user(arg, &ifr,
+>-						 sizeof(struct ifreq)))
+>-					ret = -EFAULT;
+>-			}
+>-			return ret;
+>+	/*
+>+	 *	These ioctl calls:
+>+	 *	- can be done by all.
+>+	 *	- atomic and do not require locking.
+>+	 *	- return a value
+>+	 */
+>+	case SIOCGIFFLAGS:
+>+	case SIOCGIFMETRIC:
+>+	case SIOCGIFMTU:
+>+	case SIOCGIFHWADDR:
+>+	case SIOCGIFSLAVE:
+>+	case SIOCGIFMAP:
+>+	case SIOCGIFINDEX:
+>+	case SIOCGIFTXQLEN:
+>+		dev_load(net, ifr.ifr_name);
+>+		read_lock(&dev_base_lock);
+>+		ret = dev_ifsioc_locked(net, &ifr, cmd);
+>+		read_unlock(&dev_base_lock);
+>+		if (!ret) {
+>+			if (colon)
+>+				*colon = ':';
+>+			if (copy_to_user(arg, &ifr,
+>+					 sizeof(struct ifreq)))
+>+				ret = -EFAULT;
+>+		}
+>+		return ret;
+> 
+>-		case SIOCETHTOOL:
+>-			dev_load(net, ifr.ifr_name);
+>-			rtnl_lock();
+>-			ret = dev_ethtool(net, &ifr);
+>-			rtnl_unlock();
+>-			if (!ret) {
+>-				if (colon)
+>-					*colon = ':';
+>-				if (copy_to_user(arg, &ifr,
+>-						 sizeof(struct ifreq)))
+>-					ret = -EFAULT;
+>-			}
+>-			return ret;
+>+	case SIOCETHTOOL:
+>+		dev_load(net, ifr.ifr_name);
+>+		rtnl_lock();
+>+		ret = dev_ethtool(net, &ifr);
+>+		rtnl_unlock();
+>+		if (!ret) {
+>+			if (colon)
+>+				*colon = ':';
+>+			if (copy_to_user(arg, &ifr,
+>+					 sizeof(struct ifreq)))
+>+				ret = -EFAULT;
+>+		}
+>+		return ret;
+> 
+>-		/*
+>-		 *	These ioctl calls:
+>-		 *	- require superuser power.
+>-		 *	- require strict serialization.
+>-		 *	- return a value
+>-		 */
+>-		case SIOCGMIIPHY:
+>-		case SIOCGMIIREG:
+>-		case SIOCSIFNAME:
+>-			if (!capable(CAP_NET_ADMIN))
+>-				return -EPERM;
+>-			dev_load(net, ifr.ifr_name);
+>-			rtnl_lock();
+>-			ret = dev_ifsioc(net, &ifr, cmd);
+>-			rtnl_unlock();
+>-			if (!ret) {
+>-				if (colon)
+>-					*colon = ':';
+>-				if (copy_to_user(arg, &ifr,
+>-						 sizeof(struct ifreq)))
+>-					ret = -EFAULT;
+>-			}
+>-			return ret;
+>+	/*
+>+	 *	These ioctl calls:
+>+	 *	- require superuser power.
+>+	 *	- require strict serialization.
+>+	 *	- return a value
+>+	 */
+>+	case SIOCGMIIPHY:
+>+	case SIOCGMIIREG:
+>+	case SIOCSIFNAME:
+>+		if (!capable(CAP_NET_ADMIN))
+>+			return -EPERM;
+>+		dev_load(net, ifr.ifr_name);
+>+		rtnl_lock();
+>+		ret = dev_ifsioc(net, &ifr, cmd);
+>+		rtnl_unlock();
+>+		if (!ret) {
+>+			if (colon)
+>+				*colon = ':';
+>+			if (copy_to_user(arg, &ifr,
+>+					 sizeof(struct ifreq)))
+>+				ret = -EFAULT;
+>+		}
+>+		return ret;
+> 
+>-		/*
+>-		 *	These ioctl calls:
+>-		 *	- require superuser power.
+>-		 *	- require strict serialization.
+>-		 *	- do not return a value
+>-		 */
+>-		case SIOCSIFFLAGS:
+>-		case SIOCSIFMETRIC:
+>-		case SIOCSIFMTU:
+>-		case SIOCSIFMAP:
+>-		case SIOCSIFHWADDR:
+>-		case SIOCSIFSLAVE:
+>-		case SIOCADDMULTI:
+>-		case SIOCDELMULTI:
+>-		case SIOCSIFHWBROADCAST:
+>-		case SIOCSIFTXQLEN:
+>-		case SIOCSMIIREG:
+>-		case SIOCBONDENSLAVE:
+>-		case SIOCBONDRELEASE:
+>-		case SIOCBONDSETHWADDR:
+>-		case SIOCBONDCHANGEACTIVE:
+>-		case SIOCBRADDIF:
+>-		case SIOCBRDELIF:
+>-		case SIOCSHWTSTAMP:
+>-			if (!capable(CAP_NET_ADMIN))
+>-				return -EPERM;
+>-			/* fall through */
+>-		case SIOCBONDSLAVEINFOQUERY:
+>-		case SIOCBONDINFOQUERY:
+>+	/*
+>+	 *	These ioctl calls:
+>+	 *	- require superuser power.
+>+	 *	- require strict serialization.
+>+	 *	- do not return a value
+>+	 */
+>+	case SIOCSIFFLAGS:
+>+	case SIOCSIFMETRIC:
+>+	case SIOCSIFMTU:
+>+	case SIOCSIFMAP:
+>+	case SIOCSIFHWADDR:
+>+	case SIOCSIFSLAVE:
+>+	case SIOCADDMULTI:
+>+	case SIOCDELMULTI:
+>+	case SIOCSIFHWBROADCAST:
+>+	case SIOCSIFTXQLEN:
+>+	case SIOCSMIIREG:
+>+	case SIOCBONDENSLAVE:
+>+	case SIOCBONDRELEASE:
+>+	case SIOCBONDSETHWADDR:
+>+	case SIOCBONDCHANGEACTIVE:
+>+	case SIOCBRADDIF:
+>+	case SIOCBRDELIF:
+>+	case SIOCSHWTSTAMP:
+>+		if (!capable(CAP_NET_ADMIN))
+>+			return -EPERM;
+>+		/* fall through */
+>+	case SIOCBONDSLAVEINFOQUERY:
+>+	case SIOCBONDINFOQUERY:
+>+		dev_load(net, ifr.ifr_name);
+>+		rtnl_lock();
+>+		ret = dev_ifsioc(net, &ifr, cmd);
+>+		rtnl_unlock();
+>+		return ret;
+>+
+>+	case SIOCGIFMEM:
+>+		/* Get the per device memory space. We can add this but
+>+		 * currently do not support it */
+>+	case SIOCSIFMEM:
+>+		/* Set the per device memory buffer space.
+>+		 * Not applicable in our case */
+>+	case SIOCSIFLINK:
+>+		return -EINVAL;
+>+
+>+	/*
+>+	 *	Unknown or private ioctl.
+>+	 */
+>+	default:
+>+		if (cmd == SIOCWANDEV ||
+>+		    (cmd >= SIOCDEVPRIVATE &&
+>+		     cmd <= SIOCDEVPRIVATE + 15)) {
+> 			dev_load(net, ifr.ifr_name);
+> 			rtnl_lock();
+> 			ret = dev_ifsioc(net, &ifr, cmd);
+> 			rtnl_unlock();
+>+			if (!ret && copy_to_user(arg, &ifr,
+>+						 sizeof(struct ifreq)))
+>+				ret = -EFAULT;
+> 			return ret;
+>-
+>-		case SIOCGIFMEM:
+>-			/* Get the per device memory space. We can add this but
+>-			 * currently do not support it */
+>-		case SIOCSIFMEM:
+>-			/* Set the per device memory buffer space.
+>-			 * Not applicable in our case */
+>-		case SIOCSIFLINK:
+>-			return -EINVAL;
+>-
+>-		/*
+>-		 *	Unknown or private ioctl.
+>-		 */
+>-		default:
+>-			if (cmd == SIOCWANDEV ||
+>-			    (cmd >= SIOCDEVPRIVATE &&
+>-			     cmd <= SIOCDEVPRIVATE + 15)) {
+>-				dev_load(net, ifr.ifr_name);
+>-				rtnl_lock();
+>-				ret = dev_ifsioc(net, &ifr, cmd);
+>-				rtnl_unlock();
+>-				if (!ret && copy_to_user(arg, &ifr,
+>-							 sizeof(struct ifreq)))
+>-					ret = -EFAULT;
+>-				return ret;
+>-			}
+>-			/* Take care of Wireless Extensions */
+>-			if (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST)
+>-				return wext_handle_ioctl(net, &ifr, cmd, arg);
+>-			return -EINVAL;
+>+		}
+>+		/* Take care of Wireless Extensions */
+>+		if (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST)
+>+			return wext_handle_ioctl(net, &ifr, cmd, arg);
+>+		return -EINVAL;
+> 	}
+> }
+> 
+>@@ -4840,6 +4868,7 @@ err_uninit:
+> 		dev->netdev_ops->ndo_uninit(dev);
+> 	goto out;
+> }
+>+EXPORT_SYMBOL(register_netdevice);
+> 
+> /**
+>  *	init_dummy_netdev	- init a dummy network device for NAPI
+>@@ -5126,6 +5155,8 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+> 	}
+> 
+> 	dev = PTR_ALIGN(p, NETDEV_ALIGN);
+>+	pr_err("%s dev=%p queue_count=%d tx=%p\n", name, dev, queue_count, tx);
+>+	WARN_ON(queue_count == 1);
+> 	dev->padded = (char *)dev - (char *)p;
+> 
+> 	if (dev_addr_init(dev))
+>@@ -5192,6 +5223,7 @@ void free_netdev(struct net_device *dev)
+> 	/* will free via device release */
+> 	put_device(&dev->dev);
+> }
+>+EXPORT_SYMBOL(free_netdev);
+> 
+> /**
+>  *	synchronize_net -  Synchronize with packet receive processing
+>@@ -5204,6 +5236,7 @@ void synchronize_net(void)
+> 	might_sleep();
+> 	synchronize_rcu();
+> }
+>+EXPORT_SYMBOL(synchronize_net);
+> 
+> /**
+>  *	unregister_netdevice - remove device from the kernel
+>@@ -5224,6 +5257,7 @@ void unregister_netdevice(struct net_device *dev)
+> 	/* Finish processing unregister after unlock */
+> 	net_set_todo(dev);
+> }
+>+EXPORT_SYMBOL(unregister_netdevice);
+> 
+> /**
+>  *	unregister_netdev - remove device from the kernel
+>@@ -5242,7 +5276,6 @@ void unregister_netdev(struct net_device *dev)
+> 	unregister_netdevice(dev);
+> 	rtnl_unlock();
+> }
+>-
+> EXPORT_SYMBOL(unregister_netdev);
+> 
+> /**
+>@@ -5432,7 +5465,7 @@ unsigned long netdev_increment_features(unsigned long all, unsigned long one,
+> 					unsigned long mask)
+> {
+> 	/* If device needs checksumming, downgrade to it. */
+>-        if (all & NETIF_F_NO_CSUM && !(one & NETIF_F_NO_CSUM))
+>+	if (all & NETIF_F_NO_CSUM && !(one & NETIF_F_NO_CSUM))
+> 		all ^= NETIF_F_NO_CSUM | (one & NETIF_F_ALL_CSUM);
+> 	else if (mask & NETIF_F_ALL_CSUM) {
+> 		/* If one device supports v4/v6 checksumming, set for all. */
+>@@ -5658,41 +5691,3 @@ static int __init initialize_hashrnd(void)
+> 
+> late_initcall_sync(initialize_hashrnd);
+> 
+>-EXPORT_SYMBOL(__dev_get_by_index);
+>-EXPORT_SYMBOL(__dev_get_by_name);
+>-EXPORT_SYMBOL(__dev_remove_pack);
+>-EXPORT_SYMBOL(dev_valid_name);
+>-EXPORT_SYMBOL(dev_add_pack);
+>-EXPORT_SYMBOL(dev_alloc_name);
+>-EXPORT_SYMBOL(dev_close);
+>-EXPORT_SYMBOL(dev_get_by_flags);
+>-EXPORT_SYMBOL(dev_get_by_index);
+>-EXPORT_SYMBOL(dev_get_by_name);
+>-EXPORT_SYMBOL(dev_open);
+>-EXPORT_SYMBOL(dev_queue_xmit);
+>-EXPORT_SYMBOL(dev_remove_pack);
+>-EXPORT_SYMBOL(dev_set_allmulti);
+>-EXPORT_SYMBOL(dev_set_promiscuity);
+>-EXPORT_SYMBOL(dev_change_flags);
+>-EXPORT_SYMBOL(dev_set_mtu);
+>-EXPORT_SYMBOL(dev_set_mac_address);
+>-EXPORT_SYMBOL(free_netdev);
+>-EXPORT_SYMBOL(netdev_boot_setup_check);
+>-EXPORT_SYMBOL(netdev_set_master);
+>-EXPORT_SYMBOL(netdev_state_change);
+>-EXPORT_SYMBOL(netif_receive_skb);
+>-EXPORT_SYMBOL(netif_rx);
+>-EXPORT_SYMBOL(register_gifconf);
+>-EXPORT_SYMBOL(register_netdevice);
+>-EXPORT_SYMBOL(register_netdevice_notifier);
+>-EXPORT_SYMBOL(skb_checksum_help);
+>-EXPORT_SYMBOL(synchronize_net);
+>-EXPORT_SYMBOL(unregister_netdevice);
+>-EXPORT_SYMBOL(unregister_netdevice_notifier);
+>-EXPORT_SYMBOL(net_enable_timestamp);
+>-EXPORT_SYMBOL(net_disable_timestamp);
+>-EXPORT_SYMBOL(dev_get_flags);
+>-
+>-EXPORT_SYMBOL(dev_load);
+>-
+>-EXPORT_PER_CPU_SYMBOL(softnet_data);
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
