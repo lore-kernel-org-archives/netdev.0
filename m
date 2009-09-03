@@ -1,49 +1,55 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: [PATCH net-next-2.6] ip: Report qdisc packet drops
-Date: Thu, 3 Sep 2009 12:57:30 -0500 (CDT)
-Message-ID: <alpine.DEB.1.10.0909031255490.27903@V090114053VZO-1>
-References: <4A98132C.8090105@gmail.com> <20090828.233858.256193304.davem@davemloft.net> <4A9BBD8E.2010303@gmail.com> <20090901.184121.06750444.davem@davemloft.net> <4A9E849A.30105@gmail.com> <4A9EF113.9030102@gmail.com>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: [PATCH] slub: fix slab_pad_check() and SLAB_DESTROY_BY_RCU
+Date: Thu, 3 Sep 2009 17:05:30 +0300
+Message-ID: <84144f020909030705x7909cf07w7ea0d3662a66c5cc@mail.gmail.com>
+References: <c4e36d110908110542l3de51aaepcbd62c84b9848f2b@mail.gmail.com>
+	 <4A896324.3040104@trash.net>
+	 <c4e36d110909021445l5f44183es9e338437dfbbd195@mail.gmail.com>
+	 <4A9EEF07.5070800@gmail.com>
+	 <c4e36d110909021531v324a9ce2x3ff2c93b7c5a57de@mail.gmail.com>
+	 <4A9F1620.2080105@gmail.com>
+	 <84144f020909022331x2b275aa5n428f88670e0ae8bc@mail.gmail.com>
+	 <4A9F7283.1090306@gmail.com>
+	 <84144f020909030051u6cf6ae01he25c268f718ff3af@mail.gmail.com>
+	 <alpine.DEB.1.10.0909031246010.27903@V090114053VZO-1>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, sri@us.ibm.com,
-	dlstevens@us.ibm.com, netdev@vger.kernel.org,
-	niv@linux.vnet.ibm.com, mtk.manpages@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.ultrahosting.com ([74.213.174.253]:36549 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752598AbZICOBs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 10:01:48 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 6625482C7DF
-	for <netdev@vger.kernel.org>; Thu,  3 Sep 2009 10:03:37 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.174.253])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id SeaemgnCKqc6 for <netdev@vger.kernel.org>;
-	Thu,  3 Sep 2009 10:03:37 -0400 (EDT)
-Received: from V090114053VZO-1 (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 35D0682C7D3
-	for <netdev@vger.kernel.org>; Thu,  3 Sep 2009 10:00:23 -0400 (EDT)
-In-Reply-To: <4A9EF113.9030102@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Zdenek Kabelac <zdenek.kabelac@gmail.com>,
+	Patrick McHardy <kaber@trash.net>, Robin Holt <holt@sgi.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Jesper Dangaard Brouer <hawk@comx.dk>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>,
+	paulmck@linux.vnet.ibm.com
+To: Christoph Lameter <cl@linux-foundation.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.1.10.0909031246010.27903@V090114053VZO-1>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 3 Sep 2009, Eric Dumazet wrote:
-> index 29ebb0d..ebaaa7f 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -561,12 +561,18 @@ static int udp_push_pending_frames(struct sock *sk)
->
->  send:
->  	err = ip_push_pending_frames(sk);
-> +	if (err) {
-> +		if (err == -ENOBUFS && !inet->recverr) {
-> +			UDP_INC_STATS_USER(sock_net(sk),
-> +					   UDP_MIB_SNDBUFERRORS, is_udplite);
+Hi Christoph,
 
-This means that we now do not increment SNDBUFERRORS if IP_RECVERR is set.
+On Thu, 3 Sep 2009, Pekka Enberg wrote:
+>> Oh, sure, the fix looks sane to me. It's just that I am a complete
+>> coward when it comes to merging RCU related patches so I always try to
+>> fish an Acked-by from Paul or Christoph ;).
 
-I think it would be better to move UDP_INC_STATS_USER before the if
-statement. That will also simplify the code further.
+On Thu, Sep 3, 2009 at 8:50 PM, Christoph
+Lameter<cl@linux-foundation.org> wrote:
+> I am fine with acking the poison piece.
 
+Ok.
 
+On Thu, Sep 3, 2009 at 8:50 PM, Christoph
+Lameter<cl@linux-foundation.org> wrote:
+> I did not ack the patch that added rcu to kmem_cache_destroy() and I
+> likely wont ack that piece either.
+
+Right. I didn't remember that I merged that over your NAK but I don't
+share your view that kmem_cache_destroy() callers should do
+rcu_barrier() or whatever is necessary if we can do it from
+kmem_cache_destroy(). So I am happy to take both changes but I would
+appreciate them being split into two separate patches.
+
+                        Pekka
