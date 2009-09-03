@@ -1,152 +1,55 @@
-From: Mel Gorman <mel@csn.ul.ie>
-Subject: Re: ipw2200: firmware DMA loading rework
-Date: Thu, 3 Sep 2009 13:49:14 +0100
-Message-ID: <20090903124913.GA26110@csn.ul.ie>
-References: <riPp5fx5ECC.A.2IG.qsGlKB@chimera> <1251430951.3704.181.camel@debian> <200908301437.42133.bzolnier@gmail.com> <200909021948.13262.bzolnier@gmail.com> <43e72e890909021102g7f844c79xefccf305f5f5c5b6@mail.gmail.com>
+From: Zdenek Kabelac <zdenek.kabelac@gmail.com>
+Subject: Re: [PATCH] slub: fix slab_pad_check() and SLAB_DESTROY_BY_RCU
+Date: Thu, 3 Sep 2009 15:28:30 +0200
+Message-ID: <c4e36d110909030628j53cc0abfq6c1eef7e5e97565b@mail.gmail.com>
+References: <c4e36d110908110542l3de51aaepcbd62c84b9848f2b@mail.gmail.com>
+	 <alpine.DEB.1.10.0908121820410.3257@gentwo.org>
+	 <c4e36d110908131009l78b29bffvb4d41b90f9b83288@mail.gmail.com>
+	 <c4e36d110908140233v59421ba6y82192b858210370d@mail.gmail.com>
+	 <4A87CE60.4020506@gmail.com> <4A896324.3040104@trash.net>
+	 <c4e36d110909021445l5f44183es9e338437dfbbd195@mail.gmail.com>
+	 <4A9EEF07.5070800@gmail.com>
+	 <c4e36d110909021531v324a9ce2x3ff2c93b7c5a57de@mail.gmail.com>
+	 <4A9F1620.2080105@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: quoted-printable
-Cc: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>, Tso Ted <tytso@mit.edu>,
-	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
-	Zhu Yi <yi.zhu@intel.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Johannes Weiner <hannes@cmpxchg.org>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Robin Holt <holt@sgi.com>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Mel Gorman <mel@skynet.ie>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>,
-	James Ketrenos <jketreno@linux.intel.com>,
-	"Chatre, Reinette" <reinette.chatre@intel.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"ipw2100-devel@lists.sourceforge.net" <ipw2100-devel@lists.sourceforge.net>
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <43e72e890909021102g7f844c79xefccf305f5f5c5b6@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Jesper Dangaard Brouer <hawk@comx.dk>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753879AbZICN2c@vger.kernel.org>
+In-Reply-To: <4A9F1620.2080105@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 02, 2009 at 11:02:14AM -0700, Luis R. Rodriguez wrote:
-> On Wed, Sep 2, 2009 at 10:48 AM, Bartlomiej
-> Zolnierkiewicz<bzolnier@gmail.com> wrote:
-> > On Sunday 30 August 2009 14:37:42 Bartlomiej Zolnierkiewicz wrote:
-> >> On Friday 28 August 2009 05:42:31 Zhu Yi wrote:
-> >> > Bartlomiej Zolnierkiewicz reported an atomic order-6 allocation fa=
-ilure
-> >> > for ipw2200 firmware loading in kernel 2.6.30. High order allocati=
-on is
-> >>
-> >> s/2.6.30/2.6.31-rc6/
-> >>
-> >> The issue has always been there but it was some recent change that
-> >> explicitly triggered the allocation failures (after 2.6.31-rc1).
-> >
-> > ipw2200 fix works fine but yesterday I got the following error while =
-mounting
-> > ext4 filesystem (mb_history is optional so the mount succeeded):
->=20
-> OK so the mount succeeded.
->=20
-> > EXT4-fs (dm-2): barriers enabled
-> > kjournald2 starting: pid 3137, dev dm-2:8, commit interval 5 seconds
-> > EXT4-fs (dm-2): internal journal on dm-2:8
-> > EXT4-fs (dm-2): delayed allocation enabled
-> > EXT4-fs: file extents enabled
-> > mount: page allocation failure. order:5, mode:0xc0d0
-> > Pid: 3136, comm: mount Not tainted 2.6.31-rc8-00015-gadda766-dirty #7=
-8
-> > Call Trace:
-> > =A0[<c0394de3>] ? printk+0xf/0x14
-> > =A0[<c016a693>] __alloc_pages_nodemask+0x400/0x442
-> > =A0[<c016a71b>] __get_free_pages+0xf/0x32
-> > =A0[<c01865cf>] __kmalloc+0x28/0xfa
-> > =A0[<c023d96f>] ? __spin_lock_init+0x28/0x4d
-> > =A0[<c01f529d>] ext4_mb_init+0x392/0x460
-> > =A0[<c01e99d2>] ext4_fill_super+0x1b96/0x2012
-> > =A0[<c0239bc8>] ? snprintf+0x15/0x17
-> > =A0[<c01c0b26>] ? disk_name+0x24/0x69
-> > =A0[<c018ba63>] get_sb_bdev+0xda/0x117
-> > =A0[<c01e6711>] ext4_get_sb+0x13/0x15
-> > =A0[<c01e7e3c>] ? ext4_fill_super+0x0/0x2012
-> > =A0[<c018ad2d>] vfs_kern_mount+0x3b/0x76
-> > =A0[<c018adad>] do_kern_mount+0x33/0xbd
-> > =A0[<c019d0af>] do_mount+0x660/0x6b8
-> > =A0[<c016a71b>] ? __get_free_pages+0xf/0x32
-> > =A0[<c019d168>] sys_mount+0x61/0x99
-> > =A0[<c0102908>] sysenter_do_call+0x12/0x36
-> > Mem-Info:
-> > DMA per-cpu:
-> > CPU =A0 =A00: hi: =A0 =A00, btch: =A0 1 usd: =A0 0
-> > Normal per-cpu:
-> > CPU =A0 =A00: hi: =A0186, btch: =A031 usd: =A0 0
-> > Active_anon:25471 active_file:22802 inactive_anon:25812
-> > =A0inactive_file:33619 unevictable:2 dirty:2452 writeback:135 unstabl=
-e:0
-> > =A0free:4346 slab:4308 mapped:26038 pagetables:912 bounce:0
-> > DMA free:2060kB min:84kB low:104kB high:124kB active_anon:1660kB inac=
-tive_anon:1848kB active_file:144kB inactive_file:868kB unevictable:0kB pr=
-esent:15788kB pages_scanned:0 all_unreclaimable? no
-> > lowmem_reserve[]: 0 489 489
-> > Normal free:15324kB min:2788kB low:3484kB high:4180kB active_anon:100=
-224kB inactive_anon:101400kB active_file:91064kB inactive_file:133608kB u=
-nevictable:8kB present:501392kB pages_scanned:0 all_unreclaimable? no
-> > lowmem_reserve[]: 0 0 0
-> > DMA: 1*4kB 1*8kB 0*16kB 0*32kB 0*64kB 0*128kB 0*256kB 0*512kB 0*1024k=
-B 1*2048kB 0*4096kB =3D 2060kB
-> > Normal: 1283*4kB 648*8kB 159*16kB 53*32kB 10*64kB 1*128kB 0*256kB 0*5=
-12kB 0*1024kB 0*2048kB 0*4096kB =3D 15324kB
-> > 57947 total pagecache pages
-> > 878 pages in swap cache
-> > Swap cache stats: add 920, delete 42, find 11/11
-> > Free swap =A0=3D 1016436kB
-> > Total swap =3D 1020116kB
-> > 131056 pages RAM
-> > 4233 pages reserved
-> > 90573 pages shared
-> > 77286 pages non-shared
-> > EXT4-fs: mballoc enabled
-> > EXT4-fs (dm-2): mounted filesystem with ordered data mode
-> >
-> > Thus it seems like the original bug is still there and any ideas how =
-to
-> > debug the problem further are appreciated..
-> >
-> > The complete dmesg and kernel config are here:
-> >
-> > http://www.kernel.org/pub/linux/kernel/people/bart/ext4-paf.dmesg
-> > http://www.kernel.org/pub/linux/kernel/people/bart/ext4-paf.config
->=20
-> This looks very similar to the kmemleak ext4 reports upon a mount. If
-> it is the same issue, which from the trace it seems it is, then this
-> is due to an extra kmalloc() allocation and this apparently will not
-> get fixed on 2.6.31 due to the closeness of the merge window and the
-> non-criticalness this issue has been deemed.
->=20
+2009/9/3 Eric Dumazet <eric.dumazet@gmail.com>:
+> Zdenek Kabelac a =E9crit :
+>>
+>> Well I'm not noticing any ill behavior - also note - rcu_barrier() i=
+s
+>> there before the cache is destroyed.
+>> But as I said - it's just my shot into the dark - which seems to wor=
+k for me...
+>>
+>
+> Reading again your traces, I do believe there are two bugs in slub
+>
+> Maybe not explaining your problem, but worth to fix !
+>
+> Thank you
+>
+> [PATCH] slub: fix slab_pad_check() and SLAB_DESTROY_BY_RCU
+>
 
-I suspect the more pressing concern is why is this kmalloc() resulting in
-an order-5 allocation request? What size is the buffer being requested?
-Was that expected?  What is the contents of /proc/slabinfo in case a buff=
-er
-that should have required order-1 or order-2 is using a higher order for
-some reason.
 
-> A patch fix is part of the ext4-patchqueue
-> http://repo.or.cz/w/ext4-patch-queue.git
->=20
+Ok - I can confirm that this patch fixes my reboot problem.
 
-p.s. I'm will be offline until Tuesday so will not be initially very
-responsive.
+Thanks
 
---=20
-Mel Gorman
-Part-time Phd Student                          Linux Technology Center
-University of Limerick                         IBM Dublin Software Lab
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+Zdenek
