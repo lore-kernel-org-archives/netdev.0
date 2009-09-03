@@ -1,49 +1,69 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH net-next-2.6] net/ethtool: Add support for the ethtool
- feature to flash firmware image from a specified file.
-Date: Thu, 03 Sep 2009 01:55:56 -0400
-Message-ID: <4A9F5A6C.6080600@garzik.org>
-References: <20090903030241.GA19390@serverengines.com> <4A9F550D.1090105@pobox.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT]: Networking
+Date: Wed, 02 Sep 2009 23:02:24 -0700 (PDT)
+Message-ID: <20090902.230224.06686722.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ajit Khaparde <ajitk@serverengines.com>, davem@davemloft.net
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:56937 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754368AbZICFz5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Sep 2009 01:55:57 -0400
-In-Reply-To: <4A9F550D.1090105@pobox.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42835
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754395AbZICGCJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 02:02:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/03/2009 01:33 AM, Jeff Garzik wrote:
->> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
->> index 90c4a36..15e4eb7 100644
->> --- a/include/linux/ethtool.h
->> +++ b/include/linux/ethtool.h
->> @@ -362,6 +362,18 @@ struct ethtool_rxnfc {
->> __u32 rule_locs[0];
->> };
->>
->> +#define ETHTOOL_FLASH_MAX_FILENAME 128
->> +enum ethtool_flash_op_type {
->> + ETHTOOL_FLASH_ALL_REGIONS = 0,
->> +};
->> +
->> +/* for passing firmware flashing related parameters */
->> +struct ethtool_flash {
->> + __u32 cmd;
->> + __u32 region;
->> + char data[ETHTOOL_FLASH_MAX_FILENAME];
->> +};
->
-> It passes a _filepath_ directly into the kernel? That seems quite wrong...
 
-doh, nevermind.  Catching up...
+1) Packet scheduler classifier code can leak some uninitialized
+   kernel bytes to userspace.  Fix from Eric Dumazet.
 
-	Jeff
+2) Revert tasklet_hrtimer conversions, naggling problems exist
+   and -rcX is not the time to be tinkering with it.
 
+3) Sockets can leak when sk_free()'d shortly after sk_alloc()
+   with some protocols due to initialization order of
+   sk->sk_mem_alloc.  Fix from Jarek Poplawski and Eric Dumazet.
 
+4) gianfar frees netdev without unregistering it resulting in
+   crashes on unload.  Fix from Toru UCHIYAMA.
 
+5) ipw2200 uses large linear memory area (ie. high order allocation)
+   for firmware loading via DMA, which easily can (and does) fail.
+   Fix from Zhu Yi via John Linville.
+
+Please pull, thanks a lot!
+
+The following changes since commit 37d0892c5a94e208cf863e3b7bac014edee4346d:
+  Ian Kent (1):
+        autofs4 - fix missed case when changing to use struct path
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+David S. Miller (2):
+      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-2.6
+      pkt_sched: Revert tasklet_hrtimer changes.
+
+Eric Dumazet (1):
+      tc: Fix unitialized kernel memory leak
+
+Jarek Poplawski (1):
+      net: sk_free() should be allowed right after sk_alloc()
+
+Toru UCHIYAMA (1):
+      gianfar: gfar_remove needs to call unregister_netdev()
+
+Zhu Yi (1):
+      ipw2200: firmware DMA loading rework
+
+ drivers/net/gianfar.c                  |    1 +
+ drivers/net/wireless/ipw2x00/ipw2200.c |  120 ++++++++++++++++++--------------
+ include/net/pkt_sched.h                |    4 +-
+ net/core/sock.c                        |    2 +-
+ net/sched/sch_api.c                    |   12 ++--
+ net/sched/sch_cbq.c                    |   25 +++----
+ 6 files changed, 89 insertions(+), 75 deletions(-)
