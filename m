@@ -1,76 +1,59 @@
-From: Zdenek Kabelac <zdenek.kabelac@gmail.com>
-Subject: Re: [PATCH] slub: fix slab_pad_check() and SLAB_DESTROY_BY_RCU
-Date: Thu, 3 Sep 2009 16:35:08 +0200
-Message-ID: <c4e36d110909030735q338efd00m2f6fe0b973c68e7b@mail.gmail.com>
-References: <c4e36d110908110542l3de51aaepcbd62c84b9848f2b@mail.gmail.com>
-	 <c4e36d110908140233v59421ba6y82192b858210370d@mail.gmail.com>
-	 <4A87CE60.4020506@gmail.com> <4A896324.3040104@trash.net>
-	 <c4e36d110909021445l5f44183es9e338437dfbbd195@mail.gmail.com>
-	 <4A9EEF07.5070800@gmail.com>
-	 <c4e36d110909021531v324a9ce2x3ff2c93b7c5a57de@mail.gmail.com>
-	 <4A9F1620.2080105@gmail.com>
-	 <c4e36d110909030628j53cc0abfq6c1eef7e5e97565b@mail.gmail.com>
-	 <4A9FC8B1.904@gmail.com>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: [PATCH net-next-2.6] ip: Report qdisc packet drops
+Date: Thu, 3 Sep 2009 13:35:29 -0500 (CDT)
+Message-ID: <alpine.DEB.1.10.0909031331020.29881@V090114053VZO-1>
+References: <4A98132C.8090105@gmail.com> <20090828.233858.256193304.davem@davemloft.net> <4A9BBD8E.2010303@gmail.com> <20090901.184121.06750444.davem@davemloft.net> <4A9E849A.30105@gmail.com> <4A9EF113.9030102@gmail.com> <alpine.DEB.1.10.0909031255490.27903@V090114053VZO-1>
+ <4A9FCEC5.80409@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Robin Holt <holt@sgi.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Jesper Dangaard Brouer <hawk@comx.dk>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, sri@us.ibm.com,
+	dlstevens@us.ibm.com, netdev@vger.kernel.org,
+	niv@linux.vnet.ibm.com, mtk.manpages@gmail.com
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4A9FC8B1.904@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.ultrahosting.com ([74.213.174.253]:37700 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753291AbZICOk0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 10:40:26 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 811A782C812
+	for <netdev@vger.kernel.org>; Thu,  3 Sep 2009 10:42:10 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.253])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id Tlq+JEv2+KQQ for <netdev@vger.kernel.org>;
+	Thu,  3 Sep 2009 10:42:10 -0400 (EDT)
+Received: from V090114053VZO-1 (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 9D55482C816
+	for <netdev@vger.kernel.org>; Thu,  3 Sep 2009 10:38:14 -0400 (EDT)
+In-Reply-To: <4A9FCEC5.80409@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2009/9/3 Eric Dumazet <eric.dumazet@gmail.com>:
-> Zdenek Kabelac a =E9crit :
->> 2009/9/3 Eric Dumazet <eric.dumazet@gmail.com>:
->>> Zdenek Kabelac a =E9crit :
->>>> Well I'm not noticing any ill behavior - also note - rcu_barrier()=
- is
->>>> there before the cache is destroyed.
->>>> But as I said - it's just my shot into the dark - which seems to w=
-ork for me...
->>>>
->>> Reading again your traces, I do believe there are two bugs in slub
->>>
->>> Maybe not explaining your problem, but worth to fix !
->>>
->>> Thank you
->>>
->>> [PATCH] slub: fix slab_pad_check() and SLAB_DESTROY_BY_RCU
->>>
->>
->>
->> Ok - I can confirm that this patch fixes my reboot problem.
->>
->> Thanks
->>
->> Zdenek
->
-> Good news !
->
-> Hmm... but you had a problem with a 2.6.29.something kernel if I reme=
-mber well ?
->
-> At that time, conntrack did not use SLAB_DESTROY_BY_RCU yet.
+On Thu, 3 Sep 2009, Eric Dumazet wrote:
 
-Yes - but it was also giving different error message - which even not
-loaded ftp conntrack module. Basically it has been fine until
-conntrack started to use rcu. From that moment various errors started
-to appear with slub and some kernel debugging options - slab was fine.
-With your recent patch it's the first time I do not see oops with nf
-after 2.6.29 kernel.
+> >> --- a/net/ipv4/udp.c
+> >> +++ b/net/ipv4/udp.c
+> >> @@ -561,12 +561,18 @@ static int udp_push_pending_frames(struct sock *sk)
+> >>
+> >>  send:
+> >>  	err = ip_push_pending_frames(sk);
+> >> +	if (err) {
+> >> +		if (err == -ENOBUFS && !inet->recverr) {
+> >> +			UDP_INC_STATS_USER(sock_net(sk),
+> >> +					   UDP_MIB_SNDBUFERRORS, is_udplite);
+> >
+> > This means that we now do not increment SNDBUFERRORS if IP_RECVERR is set.
+> >
+> > I think it would be better to move UDP_INC_STATS_USER before the if
+> > statement. That will also simplify the code further.
+> >
+> >
+>
+> I believe you already said this once Christoph on a previous patch, and I
+> replied that in case of IP_RECVERR set, udp_push_pending_frames()
+> returns -ENOBUFS to its caller : udp_sendmsg()
 
-Zdenek
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ahhh. I see. Would it not be better to have a single location where the
+SNDBUFERRORS are accounted for? Check for -ENOBUFS before the code in
+udp_sendmsg()? Hmmm.. The control flow is a bit complicated there...
+
