@@ -1,92 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] vlan: adds drops accounting
-Date: Thu, 03 Sep 2009 12:39:16 +0200
-Message-ID: <4A9F9CD4.7040408@gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 2/3] IPVS: make friends with nf_conntrack
+Date: Thu, 3 Sep 2009 21:04:13 +1000
+Message-ID: <20090903110349.GA5393@verge.net.au>
+References: <20090902101417.11561.45663.stgit@jazzy.zrh.corp.google.com>
+ <20090902101538.11561.11911.stgit@jazzy.zrh.corp.google.com>
+ <4A9E8788.1090901@trash.net>
+ <b5ddba180909030322h42aa9337o4c20696b86029b71@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:50593 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754857AbZICKjR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 06:39:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Fabien =?iso-8859-1?Q?Duch=EAne?= <mad_fab@skynet.be>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Jean-Luc Fortemaison <jl.fortemaison@uclouvain.be>,
+	Julian Anastasov <ja@ssi.bg>,
+	Julius Volz <julius.volz@gmail.com>,
+	Laurent Grawet <laurent.grawet@uclouvain.be>,
+	Wensong Zhang <wensong@linux-vs.org>
+To: Hannes Eder <heder@google.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <b5ddba180909030322h42aa9337o4c20696b86029b71@mail.gmail.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Its hard to tell if vlans are dropping frames, since
-every frame given to vlan_???_start_xmit() functions
-is accounted as fully transmitted by lower device.
+On Thu, Sep 03, 2009 at 12:22:53PM +0200, Hannes Eder wrote:
+> On Wed, Sep 2, 2009 at 16:56, Patrick McHardy<kaber@trash.net> wrote:
+> > Hannes Eder wrote:
+> >> Update the nf_conntrack tuple in reply direction, as we will see
+> >> traffic from the real server (RIP) to the client (CIP). =A0Once th=
+is is
+> >> done we can use netfilters SNAT in POSTROUTING, especially with
+> >> xt_ipvs, to do source NAT, e.g.:
+> >>
+> >> % iptables -t nat -A POSTROUTING -m ipvs --vaddr 192.168.100.30/32=
+ --vport 8080 \
+> >>> -j SNAT --to-source 192.168.10.10
+> >>
+> >
+> >> +static void
+> >> +ip_vs_update_conntrack(struct sk_buff *skb, struct ip_vs_conn *cp=
+)
+> >> +{
+> >> + =A0 =A0 struct nf_conn *ct =3D (struct nf_conn *)skb->nfct;
+> >> +
+> >> + =A0 =A0 if (ct =3D=3D NULL || ct =3D=3D &nf_conntrack_untracked =
+||
+> >> + =A0 =A0 =A0 =A0 nf_ct_is_confirmed(ct))
+> >> + =A0 =A0 =A0 =A0 =A0 =A0 return;
+> >> +
+> >> + =A0 =A0 /*
+> >> + =A0 =A0 =A0* The connection is not yet in the hashtable, so we u=
+pdate it.
+> >> + =A0 =A0 =A0* CIP->VIP will remain the same, so leave the tuple i=
+n
+> >> + =A0 =A0 =A0* IP_CT_DIR_ORIGINAL untouched. =A0When the reply com=
+es back from the
+> >> + =A0 =A0 =A0* real-server we will see RIP->DIP.
+> >> + =A0 =A0 =A0*/
+> >> + =A0 =A0 ct->tuplehash[IP_CT_DIR_REPLY].tuple.src.u3 =3D cp->dadd=
+r;
+> >> + =A0 =A0 /*
+> >> + =A0 =A0 =A0* This will also take care of UDP and other protocols=
+=2E
+> >> + =A0 =A0 =A0*/
+> >> + =A0 =A0 ct->tuplehash[IP_CT_DIR_REPLY].tuple.src.u.tcp.port =3D =
+cp->dport;
+> >> +}
+> >
+> > How does IPVS interact with conntrack helpers? If it does actually
+> > intend to use them (which will happen automatically), it might make
+> > sense to use nf_conntrack_alter_reply(), which will perform a new
+> > helper lookup based on the changed tuple.
+>=20
+> Good point, I'll use nf_conntrack_alter_reply().  IHMO IPVS only deal=
+s
+> with ftp in a special way, I think something need to be done there as
+> well, I'll investigate that.
 
-We can test dev_queue_xmit() return values to
-properly account for dropped frames.
+Yes, I think that is correct. FTP is the only protocol helper in IPVS.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/8021q/vlan_dev.c |   29 ++++++++++++++++++++++-------
- 1 files changed, 22 insertions(+), 7 deletions(-)
-
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 3938c3e..ca1f6a5 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -294,6 +294,8 @@ static netdev_tx_t vlan_dev_hard_start_xmit(struct sk_buff *skb,
- 	int i = skb_get_queue_mapping(skb);
- 	struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
- 	struct vlan_ethhdr *veth = (struct vlan_ethhdr *)(skb->data);
-+	unsigned int len;
-+	int ret;
- 
- 	/* Handle non-VLAN frames if they are sent to us, for example by DHCP.
- 	 *
-@@ -319,11 +321,17 @@ static netdev_tx_t vlan_dev_hard_start_xmit(struct sk_buff *skb,
- 			vlan_dev_info(dev)->cnt_inc_headroom_on_tx++;
- 	}
- 
--	txq->tx_packets++;
--	txq->tx_bytes += skb->len;
- 
- 	skb->dev = vlan_dev_info(dev)->real_dev;
--	dev_queue_xmit(skb);
-+	len = skb->len;
-+	ret = dev_queue_xmit(skb);
-+
-+	if (likely(ret == NET_XMIT_SUCCESS)) {
-+		txq->tx_packets++;
-+		txq->tx_bytes += len;
-+	} else
-+		txq->tx_dropped++;
-+
- 	return NETDEV_TX_OK;
- }
- 
-@@ -333,16 +341,23 @@ static netdev_tx_t vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb,
- 	int i = skb_get_queue_mapping(skb);
- 	struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
- 	u16 vlan_tci;
-+	unsigned int len;
-+	int ret;
- 
- 	vlan_tci = vlan_dev_info(dev)->vlan_id;
- 	vlan_tci |= vlan_dev_get_egress_qos_mask(dev, skb);
- 	skb = __vlan_hwaccel_put_tag(skb, vlan_tci);
- 
--	txq->tx_packets++;
--	txq->tx_bytes += skb->len;
--
- 	skb->dev = vlan_dev_info(dev)->real_dev;
--	dev_queue_xmit(skb);
-+	len = skb->len;
-+	ret = dev_queue_xmit(skb);
-+
-+	if (likely(ret == NET_XMIT_SUCCESS)) {
-+		txq->tx_packets++;
-+		txq->tx_bytes += len;
-+	} else
-+		txq->tx_dropped++;
-+
- 	return NETDEV_TX_OK;
- }
- 
