@@ -1,42 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NET] Add proc file to display the state of all qdiscs.
-Date: Thu, 03 Sep 2009 16:22:05 -0700 (PDT)
-Message-ID: <20090903.162205.257633986.davem@davemloft.net>
-References: <4A9E2CC7.1010103@gmail.com>
-	<alpine.DEB.1.10.0909021313160.27987@V090114053VZO-1>
-	<Pine.LNX.4.64.0909031617060.28935@ask.diku.dk>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: skb header allocation
+Date: Thu, 3 Sep 2009 16:23:44 -0700
+Message-ID: <20090903162344.108374cb@nehalam>
+References: <17cd85320908252004r31874732n9e06921d6eae4ad7@mail.gmail.com>
+	<20090825201514.0dd143ad@nehalam>
+	<4A94CFB3.4020706@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: cl@linux-foundation.org, eric.dumazet@gmail.com, jarkao2@gmail.com,
-	kaber@trash.net, netdev@vger.kernel.org
-To: hawk@diku.dk
+Cc: Chris Ross <chris@compilednetworks.com>, netdev@vger.kernel.org
+To: Frank Blaschka <blaschka@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34089
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756035AbZICXVv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 19:21:51 -0400
-In-Reply-To: <Pine.LNX.4.64.0909031617060.28935@ask.diku.dk>
+Received: from mail.vyatta.com ([76.74.103.46]:44902 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756569AbZICXXs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Sep 2009 19:23:48 -0400
+In-Reply-To: <4A94CFB3.4020706@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <hawk@diku.dk>
-Date: Thu, 3 Sep 2009 16:19:44 +0200 (CEST)
+On Wed, 26 Aug 2009 08:01:23 +0200
+Frank Blaschka <blaschka@linux.vnet.ibm.com> wrote:
 
+> Is it save to change dev->hard_header_len to a value other than ETH_HLEN for
+> an ethernet device?
 > 
-> On Wed, 2 Sep 2009, Christoph Lameter wrote:
->> On Wed, 2 Sep 2009, Eric Dumazet wrote:
->>
->>> Same name "eth0" is displayed, that might confuse parsers...
->>>
->>> What naming convention should we choose for multiqueue devices ?
->>
->> eth0/tx<number> ?
+> I rememeber we run in trouble with some kernel components (netfilter?, I'm
+> not sure can't remember the details ...) when we did this is the past.
 > 
-> Remember that we already have a naming convention in /proc/interrupts
-> 
->  eth0-tx-<number>
-> 
-> Lets not introduce too many new once ;-)
 
-Yes, please :-)
+You can add extra data but need a minimum with ETH_HLEN of space above
+packet when receiving.
+
+
+-- 
