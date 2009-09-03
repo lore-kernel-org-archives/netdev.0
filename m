@@ -1,31 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tc: Fix unitialized kernel memory leak
-Date: Wed, 02 Sep 2009 22:51:26 -0700 (PDT)
-Message-ID: <20090902.225126.84085775.davem@davemloft.net>
-References: <4A9E67A9.7090205@gmail.com>
-	<20090902180935.GA2849@psychotron.redhat.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH net-next-2.6] net/ethtool: Add support for the ethtool
+ feature to flash firmware image from a specified file.
+Date: Thu, 03 Sep 2009 01:55:56 -0400
+Message-ID: <4A9F5A6C.6080600@garzik.org>
+References: <20090903030241.GA19390@serverengines.com> <4A9F550D.1090105@pobox.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: jpirko@redhat.com
+Cc: netdev@vger.kernel.org
+To: Ajit Khaparde <ajitk@serverengines.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59351
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754331AbZICFvL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 01:51:11 -0400
-In-Reply-To: <20090902180935.GA2849@psychotron.redhat.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:56937 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754368AbZICFz5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Sep 2009 01:55:57 -0400
+In-Reply-To: <4A9F550D.1090105@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Wed, 2 Sep 2009 20:09:36 +0200
-
-> Wed, Sep 02, 2009 at 02:40:09PM CEST, eric.dumazet@gmail.com wrote:
->>Three bytes of uninitialized kernel memory are currently leaked to user
+On 09/03/2009 01:33 AM, Jeff Garzik wrote:
+>> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+>> index 90c4a36..15e4eb7 100644
+>> --- a/include/linux/ethtool.h
+>> +++ b/include/linux/ethtool.h
+>> @@ -362,6 +362,18 @@ struct ethtool_rxnfc {
+>> __u32 rule_locs[0];
+>> };
 >>
->>Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> 
-> Reviewed-by: Jiri Pirko <jpirko@redhat.com>
+>> +#define ETHTOOL_FLASH_MAX_FILENAME 128
+>> +enum ethtool_flash_op_type {
+>> + ETHTOOL_FLASH_ALL_REGIONS = 0,
+>> +};
+>> +
+>> +/* for passing firmware flashing related parameters */
+>> +struct ethtool_flash {
+>> + __u32 cmd;
+>> + __u32 region;
+>> + char data[ETHTOOL_FLASH_MAX_FILENAME];
+>> +};
+>
+> It passes a _filepath_ directly into the kernel? That seems quite wrong...
 
-I'll apply this to net-2.6, thanks everyone.
+doh, nevermind.  Catching up...
+
+	Jeff
+
+
+
