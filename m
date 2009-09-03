@@ -1,61 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] slub: Fix kmem_cache_destroy() with SLAB_DESTROY_BY_RCU
-Date: Thu, 03 Sep 2009 21:56:04 +0200
-Message-ID: <4AA01F54.4040808@gmail.com>
-References: <c4e36d110908110542l3de51aaepcbd62c84b9848f2b@mail.gmail.com>	 <4A9EEF07.5070800@gmail.com>	 <c4e36d110909021531v324a9ce2x3ff2c93b7c5a57de@mail.gmail.com>	 <4A9F1620.2080105@gmail.com>	 <84144f020909022331x2b275aa5n428f88670e0ae8bc@mail.gmail.com>	 <4A9F7283.1090306@gmail.com>	 <84144f020909030051u6cf6ae01he25c268f718ff3af@mail.gmail.com>	 <alpine.DEB.1.10.0909031246010.27903@V090114053VZO-1>	 <84144f020909030705x7909cf07w7ea0d3662a66c5cc@mail.gmail.com>	 <4A9FD047.9000002@gmail.com> <84144f020909031248s56c16205j7992930c413b1bbe@mail.gmail.com>
+From: Eric Paris <eparis@redhat.com>
+Subject: Re: [PATCH 1/9] task_struct: add PF_NONOTIFY for fanotify to use
+Date: Thu, 03 Sep 2009 16:25:49 -0400
+Message-ID: <1252009549.2425.42.camel@dhcp231-106.rdu.redhat.com>
+References: <20090828185542.8014.22791.stgit@paris.rdu.redhat.com>
+	 <20090828223626.GA8283@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Lameter <cl@linux-foundation.org>,
-	Zdenek Kabelac <zdenek.kabelac@gmail.com>,
-	Patrick McHardy <kaber@trash.net>, Robin Holt <holt@sgi.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Jesper Dangaard Brouer <hawk@comx.dk>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	paulmck@linux.vnet.ibm.com, "stable@kernel.org" <stable@kernel.org>
-To: Pekka Enberg <penberg@cs.helsinki.fi>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <84144f020909031248s56c16205j7992930c413b1bbe@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	viro@zeniv.linux.org.uk, alan@linux.intel.com, hch@infradead.org
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20090828223626.GA8283@ioremap.net>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pekka Enberg a =E9crit :
-> On Thu, Sep 3, 2009 at 5:18 PM, Eric Dumazet<eric.dumazet@gmail.com> =
-wrote:
->> Here is the second patch (RCU thing). Stable candidate
->>
->> [PATCH] slub: Fix kmem_cache_destroy() with SLAB_DESTROY_BY_RCU
->>
->> kmem_cache_destroy() should call rcu_barrier() *after* kmem_cache_cl=
-ose()
->> and *before* sysfs_slab_remove() or risk rcu_free_slab()
->> being called after kmem_cache is deleted (kfreed).
->>
->> rmmod nf_conntrack can crash the machine because it has to
->> kmem_cache_destroy() a SLAB_DESTROY_BY_RCU enabled cache.
->=20
-> Do we have a bugzilla URL for this?
+> On Fri, Aug 28, 2009 at 02:55:42PM -0400, Eric Paris (eparis@redhat.com) wrote:
+> > Since fanotify opens file descriptors inside the kernel for it's listeners
+> > it needs a way to make sure that 2 fanotify listeners, both which listen to
+> > open events do not continuously see each others open events (and get into a
+> > livelock reporting on each other's activity).  This fix is to create a new
+> > tast_struct flags called PF_NONOTIFY.  If this flag is set in a task no
+> > fanotify events will be generated for that task.   fanotify will set the
+> > flag before and open call and will clear it immediately after.
 
-Well, I can crash my 2.6.30.5 machine just doing rmmod nf_conntrack
+So this patch isn't actually needed, I thought the fsnotify_open() call
+was deeper than it is.  I'm going to drop this particular patch.
 
-(You'll need CONFIG_SLUB_DEBUG_ON or equivalent)
+Can I take silence on the list as a lack of disagreement?  I'd like to
+start putting these into linux-next starting tomorrow.  Obviously I'd
+like to see the networking definitions approved and taken by davem, I'd
+like to see the FMODE_ change approved and taken by viro, but if you two
+would like me to push it directly I'd be happy to.
 
-Original Zdenek report : http://thread.gmane.org/gmane.linux.kernel/876=
-016/focus=3D876086
+Davem, maybe you'd rather my af_fanotify was somewhere inside net/
+instead of in fs/notify/fanotify?  I'd love to get some review here, but
+noone onlist is excited enough to step up.  (I have numerous people who
+have privately claimed they intend to use this stuff, so i promise it
+won't be dead code.)
 
->=20
->> Reported-by: Zdenek Kabelac <zdenek.kabelac@gmail.com>
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->> Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
->=20
-> OK, this is in for-next now and queued for 2.6.31. If you guys want t=
-o
-> fix this in a different way, lets do that in 2.6.32.
+I'm ready to start committing and adding features, anyone telling me no?
 
-Seems the right thing IMHO
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-Eric
+
+
+
