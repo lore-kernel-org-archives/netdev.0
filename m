@@ -1,52 +1,132 @@
-From: Pekka Enberg <penberg@cs.helsinki.fi>
-Subject: Re: [PATCH] slub: Fix kmem_cache_destroy() with SLAB_DESTROY_BY_RCU
-Date: Thu, 3 Sep 2009 22:48:10 +0300
-Message-ID: <84144f020909031248s56c16205j7992930c413b1bbe@mail.gmail.com>
-References: <c4e36d110908110542l3de51aaepcbd62c84b9848f2b@mail.gmail.com>
-	 <4A9EEF07.5070800@gmail.com>
-	 <c4e36d110909021531v324a9ce2x3ff2c93b7c5a57de@mail.gmail.com>
-	 <4A9F1620.2080105@gmail.com>
-	 <84144f020909022331x2b275aa5n428f88670e0ae8bc@mail.gmail.com>
-	 <4A9F7283.1090306@gmail.com>
-	 <84144f020909030051u6cf6ae01he25c268f718ff3af@mail.gmail.com>
-	 <alpine.DEB.1.10.0909031246010.27903@V090114053VZO-1>
-	 <84144f020909030705x7909cf07w7ea0d3662a66c5cc@mail.gmail.com>
-	 <4A9FD047.9000002@gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 2/3] IPVS: make friends with nf_conntrack
+Date: Thu, 3 Sep 2009 22:50:58 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0909032235350.2940@u.domain.uli>
+References: <20090902101417.11561.45663.stgit@jazzy.zrh.corp.google.com>
+ <20090902101538.11561.11911.stgit@jazzy.zrh.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Christoph Lameter <cl@linux-foundation.org>,
-	Zdenek Kabelac <zdenek.kabelac@gmail.com>,
-	Patrick McHardy <kaber@trash.net>, Robin Holt <holt@sgi.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Jesper Dangaard Brouer <hawk@comx.dk>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	paulmck@linux.vnet.ibm.com, "stable@kernel.org" <stable@kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756238AbZICTsM@vger.kernel.org>
-In-Reply-To: <4A9FD047.9000002@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: lvs-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	=?ISO-8859-1?Q?Fabien_Duch=EAne?= <mad_fab@skynet.be>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Jean-Luc Fortemaison <jl.fortemaison@uclouvain.be>,
+	Julius Volz <julius.volz@gmail.com>,
+	Laurent Grawet <laurent.grawet@uclouvain.be>,
+	Patrick McHardy <kaber@trash.net>,
+	Simon Horman <horms@verge.net.au>,
+	Wensong Zhang <wensong@linux-vs.org>
+To: Hannes Eder <heder@google.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20090902101538.11561.11911.stgit@jazzy.zrh.corp.google.com>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 3, 2009 at 5:18 PM, Eric Dumazet<eric.dumazet@gmail.com> wrote:
-> Here is the second patch (RCU thing). Stable candidate
->
-> [PATCH] slub: Fix kmem_cache_destroy() with SLAB_DESTROY_BY_RCU
->
-> kmem_cache_destroy() should call rcu_barrier() *after* kmem_cache_close()
-> and *before* sysfs_slab_remove() or risk rcu_free_slab()
-> being called after kmem_cache is deleted (kfreed).
->
-> rmmod nf_conntrack can crash the machine because it has to
-> kmem_cache_destroy() a SLAB_DESTROY_BY_RCU enabled cache.
 
-Do we have a bugzilla URL for this?
+	Hello,
 
-> Reported-by: Zdenek Kabelac <zdenek.kabelac@gmail.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+On Wed, 2 Sep 2009, Hannes Eder wrote:
 
-OK, this is in for-next now and queued for 2.6.31. If you guys want to
-fix this in a different way, lets do that in 2.6.32.
+> Update the nf_conntrack tuple in reply direction, as we will see
+> traffic from the real server (RIP) to the client (CIP).  Once this is
+> done we can use netfilters SNAT in POSTROUTING, especially with
+> xt_ipvs, to do source NAT, e.g.:
+> 
+> % iptables -t nat -A POSTROUTING -m ipvs --vaddr 192.168.100.30/32 --vport 8080 \
+> > -j SNAT --to-source 192.168.10.10
+> 
+> Signed-off-by: Hannes Eder <heder@google.com>
+> ---
 
-                        Pekka
+	The following changes in ip_vs_core.c may be break normal
+ip_vs_ftp users. Somehow you decided that this POST_ROUTING code is not
+needed and deleted it. This code should be present by default.
+
+	From http://www.ssi.bg/~ja/LVS.txt:
+
+===
+	Now after  many changes in  latest kernels  I'm not sure
+	what  happens if  netfilter sees  IPVS traffic  in POST_ROUTING.
+	Such  change require  testing of  ip_vs_ftp in  both passive and
+	active  LVS-NAT mode,  with different length  of IP address:port
+	representation  in FTP  commands, to check  if resulting packets
+	survive double NAT when payload size is changed.  It is the best
+	test  for  IPVS to  see  if netfilter  additionally  changes FTP
+	packets  leading to  wrong payload.	
+===
+
+	So, you have to check the ip_vs_ftp case because double
+NAT for IPs and Ports usually works but double changing of SEQs
+and payload may be not.
+
+	You can also check NFCT for IPVS (http://www.ssi.bg/~ja/nfct/)
+for using netfilter functions and structures (ip_vs_nfct.c)
+
+	most recent rediff:
+http://www.ssi.bg/~ja/nfct/ipvs-nfct-2.6.28-1.diff
+
+> diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+> index b227750..27bd002 100644
+> --- a/net/netfilter/ipvs/ip_vs_core.c
+> +++ b/net/netfilter/ipvs/ip_vs_core.c
+> @@ -521,26 +521,6 @@ int ip_vs_leave(struct ip_vs_service *svc, struct sk_buff *skb,
+>  	return NF_DROP;
+>  }
+>  
+> -
+> -/*
+> - *      It is hooked before NF_IP_PRI_NAT_SRC at the NF_INET_POST_ROUTING
+> - *      chain, and is used for VS/NAT.
+> - *      It detects packets for VS/NAT connections and sends the packets
+> - *      immediately. This can avoid that iptable_nat mangles the packets
+> - *      for VS/NAT.
+> - */
+> -static unsigned int ip_vs_post_routing(unsigned int hooknum,
+> -				       struct sk_buff *skb,
+> -				       const struct net_device *in,
+> -				       const struct net_device *out,
+> -				       int (*okfn)(struct sk_buff *))
+> -{
+> -	if (!skb->ipvs_property)
+> -		return NF_ACCEPT;
+> -	/* The packet was sent from IPVS, exit this chain */
+> -	return NF_STOP;
+> -}
+> -
+>  __sum16 ip_vs_checksum_complete(struct sk_buff *skb, int offset)
+>  {
+>  	return csum_fold(skb_checksum(skb, offset, skb->len - offset, 0));
+> @@ -1431,14 +1411,6 @@ static struct nf_hook_ops ip_vs_ops[] __read_mostly = {
+>  		.hooknum        = NF_INET_FORWARD,
+>  		.priority       = 99,
+>  	},
+> -	/* Before the netfilter connection tracking, exit from POST_ROUTING */
+> -	{
+> -		.hook		= ip_vs_post_routing,
+> -		.owner		= THIS_MODULE,
+> -		.pf		= PF_INET,
+> -		.hooknum        = NF_INET_POST_ROUTING,
+> -		.priority       = NF_IP_PRI_NAT_SRC-1,
+> -	},
+>  #ifdef CONFIG_IP_VS_IPV6
+>  	/* After packet filtering, forward packet through VS/DR, VS/TUN,
+>  	 * or VS/NAT(change destination), so that filtering rules can be
+> @@ -1467,14 +1439,6 @@ static struct nf_hook_ops ip_vs_ops[] __read_mostly = {
+>  		.hooknum        = NF_INET_FORWARD,
+>  		.priority       = 99,
+>  	},
+> -	/* Before the netfilter connection tracking, exit from POST_ROUTING */
+> -	{
+> -		.hook		= ip_vs_post_routing,
+> -		.owner		= THIS_MODULE,
+> -		.pf		= PF_INET6,
+> -		.hooknum        = NF_INET_POST_ROUTING,
+> -		.priority       = NF_IP6_PRI_NAT_SRC-1,
+> -	},
+>  #endif
+>  };
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
