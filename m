@@ -1,43 +1,105 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] vlan: multiqueue vlan devices
-Date: Thu, 03 Sep 2009 02:20:14 -0700 (PDT)
-Message-ID: <20090903.022014.46986115.davem@davemloft.net>
-References: <4A9EC383.4070304@gmail.com>
-	<20090902.180401.155663057.davem@davemloft.net>
-	<4A9F8999.1060404@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] macvlan: add multiqueue capability
+Date: Thu, 03 Sep 2009 12:11:45 +0200
+Message-ID: <4A9F9661.7020301@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, brian.haley@hp.com, kaber@trash.net,
-	jarkao2@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46836
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754067AbZICJT7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 05:19:59 -0400
-In-Reply-To: <4A9F8999.1060404@gmail.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:49606 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753440AbZICKLy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 06:11:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 03 Sep 2009 11:17:13 +0200
+macvlan devices are currently not multi-queue capable.
 
-> [PATCH net-next-2.6] vlan: enable multiqueue xmits
-> 
-> vlan_dev_hard_start_xmit() & vlan_dev_hwaccel_hard_start_xmit()
-> select txqueue number 0, instead of using index provided by
-> skb_get_queue_mapping().
-> 
-> This is not correct after commit 2e59af3dcbdf11635c03f
-> [vlan: multiqueue vlan device] because
-> txq->tx_packets  & txq->tx_bytes changes are performed on
-> a single location, and not the right locking.
-> 
-> Fix is to take the appropriate struct netdev_queue pointer
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+We can do that defining rtnl_link_ops method,
+get_tx_queues(), called from rtnl_create_link()
 
-Details details :-)
+This new method gets num_tx_queues/real_num_tx_queues
+from lower device.
 
-Looks good, applied!
+macvlan_get_tx_queues() is a copy of vlan_get_tx_queues().
+
+Because macvlan_start_xmit() has to update netdev_queue
+stats only (and not dev->stats), I chose to change
+tx_errors/tx_aborted_errors accounting to tx_dropped,
+since netdev_queue structure doesnt define tx_errors /
+tx_aborted_errors.
+
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/macvlan.c |   33 +++++++++++++++++++++++++++------
+ 1 files changed, 27 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index c85c46d..3aabfd9 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -187,6 +187,8 @@ static struct sk_buff *macvlan_handle_frame(struct sk_buff *skb)
+ static netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
+ 				      struct net_device *dev)
+ {
++	int i = skb_get_queue_mapping(skb);
++	struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
+ 	const struct macvlan_dev *vlan = netdev_priv(dev);
+ 	unsigned int len = skb->len;
+ 	int ret;
+@@ -195,12 +197,11 @@ static netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
+ 	ret = dev_queue_xmit(skb);
+ 
+ 	if (likely(ret == NET_XMIT_SUCCESS)) {
+-		dev->stats.tx_packets++;
+-		dev->stats.tx_bytes += len;
+-	} else {
+-		dev->stats.tx_errors++;
+-		dev->stats.tx_aborted_errors++;
+-	}
++		txq->tx_packets++;
++		txq->tx_bytes += len;
++	} else
++		txq->tx_dropped++;
++
+ 	return NETDEV_TX_OK;
+ }
+ 
+@@ -484,6 +485,25 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[])
+ 	return 0;
+ }
+ 
++static int macvlan_get_tx_queues(struct net *net,
++				 struct nlattr *tb[],
++				 unsigned int *num_tx_queues,
++				 unsigned int *real_num_tx_queues)
++{
++	struct net_device *real_dev;
++
++	if (!tb[IFLA_LINK])
++		return -EINVAL;
++
++	real_dev = __dev_get_by_index(net, nla_get_u32(tb[IFLA_LINK]));
++	if (!real_dev)
++		return -ENODEV;
++
++	*num_tx_queues      = real_dev->num_tx_queues;
++	*real_num_tx_queues = real_dev->real_num_tx_queues;
++	return 0;
++}
++
+ static int macvlan_newlink(struct net_device *dev,
+ 			   struct nlattr *tb[], struct nlattr *data[])
+ {
+@@ -550,6 +570,7 @@ static void macvlan_dellink(struct net_device *dev)
+ static struct rtnl_link_ops macvlan_link_ops __read_mostly = {
+ 	.kind		= "macvlan",
+ 	.priv_size	= sizeof(struct macvlan_dev),
++	.get_tx_queues  = macvlan_get_tx_queues,
+ 	.setup		= macvlan_setup,
+ 	.validate	= macvlan_validate,
+ 	.newlink	= macvlan_newlink,
