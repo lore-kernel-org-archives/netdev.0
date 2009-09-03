@@ -1,44 +1,111 @@
-From: Ajit Khaparde <ajitkhaparde@gmail.com>
-Subject: Re: [RFC][PATCH][v5] net/ethtool: Add support for the ethtool
+From: Ajit Khaparde <ajitk@serverengines.com>
+Subject: [PATCH net-next-2.6] net/ethtool: Add support for the ethtool
 	feature to flash firmware image from a specified file.
-Date: Thu, 3 Sep 2009 08:32:25 +0530
-Message-ID: <20090903030223.GA18871@serverengines.com>
-References: <20090821165416.GA17102@serverengines.com> <20090902155006.GA22314@serverengines.com> <20090902.144047.191136129.davem@davemloft.net>
+Date: Thu, 3 Sep 2009 08:32:55 +0530
+Message-ID: <20090903030241.GA19390@serverengines.com>
 Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, jgarzik@pobox.com
+To: davem@davemloft.net, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:63101 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754079AbZICDCV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 23:02:21 -0400
-Received: by bwz19 with SMTP id 19so1182014bwz.37
-        for <netdev@vger.kernel.org>; Wed, 02 Sep 2009 20:02:23 -0700 (PDT)
+Received: from segment-124-30.sify.net ([124.30.166.146]:27116 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754122AbZICDCr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 23:02:47 -0400
 Content-Disposition: inline
-In-Reply-To: <20090902.144047.191136129.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/09/09 14:40 -0700, David Miller wrote:
-> From: Ajit Khaparde <ajitk@serverengines.com>
-> Date: Wed, 2 Sep 2009 21:20:09 +0530
-> 
-> > Is this patch good enough for being accepted? Please let me know if
-> > any more work has to be done on this. Also, I want to send the
-> > changes to the be2net driver which would use this ethtool feature.
-> 
-> My impression was that the patch was still under review and
-> people were still making change requests.
-> 
-> I guess not :-)
-> 
-> Please resubmit the kernel side patch, it'll get into patchwork
-> and I'll apply it.
-> 
-> Thanks.
-Thanks David. 
-I am resending both the user space and the kernel side patches.
+This patch adds support to flash a firmware image to a device using ethtool.
+The driver gets the filename of the firmware image and flashes the image
+using the request firmware path.
 
--Ajit
+The region "on the chip" to be flashed can be specified by an option.
+It is upto the device driver to enumerate the region number passed by ethtool,
+to the region to be flashed.
+
+The default behavior is to flash all the regions on the chip.
+
+Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+---
+ include/linux/ethtool.h |   14 ++++++++++++++
+ net/core/ethtool.c      |   16 ++++++++++++++++
+ 2 files changed, 30 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 90c4a36..15e4eb7 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -362,6 +362,18 @@ struct ethtool_rxnfc {
+ 	__u32				rule_locs[0];
+ };
+ 
++#define ETHTOOL_FLASH_MAX_FILENAME	128
++enum ethtool_flash_op_type {
++	ETHTOOL_FLASH_ALL_REGIONS	= 0,
++};
++
++/* for passing firmware flashing related parameters */
++struct ethtool_flash {
++	__u32	cmd;
++	__u32	region;
++	char	data[ETHTOOL_FLASH_MAX_FILENAME];
++};
++
+ #ifdef __KERNEL__
+ 
+ struct net_device;
+@@ -489,6 +501,7 @@ struct ethtool_ops {
+ 	int	(*get_stats_count)(struct net_device *);/* use get_sset_count */
+ 	int	(*get_rxnfc)(struct net_device *, struct ethtool_rxnfc *, void *);
+ 	int	(*set_rxnfc)(struct net_device *, struct ethtool_rxnfc *);
++	int     (*flash_device)(struct net_device *, struct ethtool_flash *);
+ };
+ #endif /* __KERNEL__ */
+ 
+@@ -545,6 +558,7 @@ struct ethtool_ops {
+ #define	ETHTOOL_GRXCLSRLALL	0x00000030 /* Get all RX classification rule */
+ #define	ETHTOOL_SRXCLSRLDEL	0x00000031 /* Delete RX classification rule */
+ #define	ETHTOOL_SRXCLSRLINS	0x00000032 /* Insert RX classification rule */
++#define	ETHTOOL_FLASHDEV	0x00000033 /* Flash firmware to device */
+ 
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 44e5711..4c12ddb 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -898,6 +898,19 @@ static int ethtool_set_value(struct net_device *dev, char __user *useraddr,
+ 	return actor(dev, edata.data);
+ }
+ 
++static int ethtool_flash_device(struct net_device *dev, char __user *useraddr)
++{
++	struct ethtool_flash efl;
++
++	if (copy_from_user(&efl, useraddr, sizeof(efl)))
++		return -EFAULT;
++
++	if (!dev->ethtool_ops->flash_device)
++		return -EOPNOTSUPP;
++
++	return dev->ethtool_ops->flash_device(dev, &efl);
++}
++
+ /* The main entry point in this file.  Called from net/core/dev.c */
+ 
+ int dev_ethtool(struct net *net, struct ifreq *ifr)
+@@ -1111,6 +1124,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_SGRO:
+ 		rc = ethtool_set_gro(dev, useraddr);
+ 		break;
++	case ETHTOOL_FLASHDEV:
++		rc = ethtool_flash_device(dev, useraddr);
++		break;
+ 	default:
+ 		rc = -EOPNOTSUPP;
+ 	}
+-- 
+1.6.0.4
+
