@@ -1,55 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Crypto oops in async_chainiv_do_postponed
-Date: Thu, 3 Sep 2009 11:53:44 +1000
-Message-ID: <20090903015344.GA18313@gondor.apana.org.au>
-References: <19095.1264.682820.125602@waldo.imnotcreative.homeip.net> <20090829104606.GA13141@gondor.apana.org.au> <19099.63038.425414.514063@waldo.imnotcreative.homeip.net> <20090831220459.GA15713@gondor.apana.org.au> <19101.16628.347039.619378@waldo.imnotcreative.homeip.net> <20090901221721.GA1964@gondor.apana.org.au> <19102.31846.180030.843571@waldo.imnotcreative.homeip.net> <20090902215712.GA16941@gondor.apana.org.au> <19103.1061.50828.809996@waldo.imnotcreative.homeip.net>
+From: Ajit Khaparde <ajitkhaparde@gmail.com>
+Subject: Re: [RFC][PATCH][v5] net/ethtool: Add support for the ethtool
+	feature to flash firmware image from a specified file.
+Date: Thu, 3 Sep 2009 08:32:25 +0530
+Message-ID: <20090903030223.GA18871@serverengines.com>
+References: <20090821165416.GA17102@serverengines.com> <20090902155006.GA22314@serverengines.com> <20090902.144047.191136129.davem@davemloft.net>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-	offbase0@gmail.com
-To: Brad Bosch <bradbosch@comcast.net>
-Return-path: <linux-crypto-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, jgarzik@pobox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:63101 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754079AbZICDCV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 23:02:21 -0400
+Received: by bwz19 with SMTP id 19so1182014bwz.37
+        for <netdev@vger.kernel.org>; Wed, 02 Sep 2009 20:02:23 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <19103.1061.50828.809996@waldo.imnotcreative.homeip.net>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20090902.144047.191136129.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 02, 2009 at 06:47:49PM -0500, Brad Bosch wrote:
->
-> Assume the worker thread is executing between the dequeue in
-> async_chainiv_do_postponed and the clear_bit call in
-> async_chainiv_schedule_work.  Further assume that we are processing
-> the last item on the queue so durring this time, ctx->queue.qlen =
-> 0.  **INUSE is still set at this point.
+On 02/09/09 14:40 -0700, David Miller wrote:
+> From: Ajit Khaparde <ajitk@serverengines.com>
+> Date: Wed, 2 Sep 2009 21:20:09 +0530
 > 
-> Meanwhile, three threads enter async_chainiv_givencrypt for the same
-> ctx at about the same time.
+> > Is this patch good enough for being accepted? Please let me know if
+> > any more work has to be done on this. Also, I want to send the
+> > changes to the be2net driver which would use this ethtool feature.
 > 
-> Thread one calls test_and_set_bit which returns 1 and calls
-> async_cahiniv_postpone_request but suppose it has not yet enqueued.
-> Now INUSE is set and qlen=0.
+> My impression was that the patch was still under review and
+> people were still making change requests.
 > 
-> Next, the worker thread calls clear_bit in async_chainiv_schedule_work
-> but it is interrupted before it can call test_and_set_bit.  Now INUSE
-> is clear and qlen=0
+> I guess not :-)
 > 
-> The test_and_set_bit in thread two is called at this moment and
-> returns 0 and then calls async_chainiv_givencrypt_tail.  Now INUSE is
-> set and qlen=0.
+> Please resubmit the kernel side patch, it'll get into patchwork
+> and I'll apply it.
 > 
-> Thread one now locks the ctx and calls skcipher_enqueue_givcrypt and
-> unlocks.  Now INUSE is set and qlen=1.
-> 
-> Thread three calls test_and_set_bit which returns 1 and then it clears
-> INUSE since qlen=1 and it calls postpone with INUSE clear and qlen=1
+> Thanks.
+Thanks David. 
+I am resending both the user space and the kernel side patches.
 
-How can thread three clear INUSE if test_and_set_bit returned 1?
-If thread three sees it set then it will postpone.  It can only
-clear it if it was not set originally.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+-Ajit
