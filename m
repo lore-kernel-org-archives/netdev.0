@@ -1,33 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tc35815: Disable PM capability
-Date: Wed, 02 Sep 2009 23:15:03 -0700 (PDT)
-Message-ID: <20090902.231503.196498577.davem@davemloft.net>
-References: <1251906680-5828-1-git-send-email-anemo@mba.ocn.ne.jp>
+Subject: Re: [PATCH 1/2] fec: fix recursive locking of mii_lock
+Date: Wed, 02 Sep 2009 23:17:01 -0700 (PDT)
+Message-ID: <20090902.231701.09584427.davem@davemloft.net>
+References: <20090831132200.GA21836@pengutronix.de>
+	<1251882856-23549-1-git-send-email-u.kleine-koenig@pengutronix.de>
+	<4A9F18E0.3060307@snapgear.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: anemo@mba.ocn.ne.jp
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47759
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754380AbZICGOs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 02:14:48 -0400
-In-Reply-To: <1251906680-5828-1-git-send-email-anemo@mba.ocn.ne.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: u.kleine-koenig@pengutronix.de, linux-rt-users@vger.kernel.org,
+	ben@decadent.org.uk, kaber@trash.net, s.hauer@pengutronix.de,
+	Matt.Waddel@freescale.com, netdev@vger.kernel.org,
+	tim01@vlsi.informatik.tu-darmstadt.de
+To: gerg@snapgear.com
+Return-path: <linux-rt-users-owner@vger.kernel.org>
+In-Reply-To: <4A9F18E0.3060307@snapgear.com>
+Sender: linux-rt-users-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Date: Thu,  3 Sep 2009 00:51:20 +0900
+=46rom: Greg Ungerer <gerg@snapgear.com>
+Date: Thu, 03 Sep 2009 11:16:16 +1000
 
-> This chip may report existance of PM registers though they are not
-> supported.  Disable PM features by clearing pdev->pm_cap.
-> 
-> Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+> Hi Uwe,
+>=20
+> Uwe Kleine-K=F6nig wrote:
+>> mii_discover_phy is only called by fec_enet_mii (via mip->mii_func).
+>> So
+>> &fep->mii_lock is already held and mii_discover_phy must not call
+>> mii_queue which locks &fep->mii_lock, too.
+>> This was noticed by lockdep:
+ ...
+>> 	...
+>> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+>> Cc: Greg Ungerer <gerg@uclinux.org>
+>=20
+> Looks good too.
+>=20
+> Acked-by: Greg Ungerer <gerg@uclinux.org>
 
-Please handle this as a quirk in drivers/pci/quirks.c as that
-is the proper place to handle these kinds of exceptions.
-
-The patch should be submitted to the PCI subsystem maintainer.
-
-Thanks!
+Applied to net-next-2.6
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rt-user=
+s" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
