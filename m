@@ -1,50 +1,86 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] vlan: multiqueue vlan devices
-Date: Thu, 03 Sep 2009 03:05:54 +0200
-Message-ID: <4A9F1672.2060304@gmail.com>
-References: <4A9EBF9C.2030904@gmail.com>	<20090902120107.15146e4e@nehalam>	<4A9EC383.4070304@gmail.com> <20090902.180401.155663057.davem@davemloft.net>
+Subject: [PATCH] slub: fix slab_pad_check() and SLAB_DESTROY_BY_RCU
+Date: Thu, 03 Sep 2009 03:04:32 +0200
+Message-ID: <4A9F1620.2080105@gmail.com>
+References: <c4e36d110908110542l3de51aaepcbd62c84b9848f2b@mail.gmail.com>	 <c4e36d110908111410y29b922ceod6871fda2514f6e6@mail.gmail.com>	 <c4e36d110908121516u504809e9y537e9babfa95df1d@mail.gmail.com>	 <alpine.DEB.1.10.0908121820410.3257@gentwo.org>	 <c4e36d110908131009l78b29bffvb4d41b90f9b83288@mail.gmail.com>	 <c4e36d110908140233v59421ba6y82192b858210370d@mail.gmail.com>	 <4A87CE60.4020506@gmail.com> <4A896324.3040104@trash.net>	 <c4e36d110909021445l5f44183es9e338437dfbbd195@mail.gmail.com>	 <4A9EEF07.5070800@gmail.com> <c4e36d110909021531v324a9ce2x3ff2c93b7c5a57de@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, brian.haley@hp.com, kaber@trash.net,
-	jarkao2@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:55050 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753959AbZICBF7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 21:05:59 -0400
-In-Reply-To: <20090902.180401.155663057.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Patrick McHardy <kaber@trash.net>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Robin Holt <holt@sgi.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Jesper Dangaard Brouer <hawk@comx.dk>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>
+To: Zdenek Kabelac <zdenek.kabelac@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753995AbZICBIX@vger.kernel.org>
+In-Reply-To: <c4e36d110909021531v324a9ce2x3ff2c93b7c5a57de@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller a =E9crit :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 02 Sep 2009 21:12:03 +0200
+Zdenek Kabelac a =E9crit :
 >=20
->> [PATCH net-next-2.6] vlan: multiqueue vlan device
->>
->> vlan devices are currently not multi-queue capable.
->>
->> We can do that with a new rtnl_link_ops method,
->> get_tx_queues(), called from rtnl_create_link()
->>
->> This new method gets num_tx_queues/real_num_tx_queues
->> from real device.
->>
->> register_vlan_device() is also handled.
->>
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Well I'm not noticing any ill behavior - also note - rcu_barrier() is
+> there before the cache is destroyed.
+> But as I said - it's just my shot into the dark - which seems to work=
+ for me...
 >=20
-> Applied, but now I need you to do an audit :-)
->=20
-> I believe that drivers will change the number of TX queues
-> in use at times where we'll need to trigger an event or
-> something so that vlan's can learn about the value changing.
 
-Yes, I know :)
+Reading again your traces, I do believe there are two bugs in slub
 
-This is why I kept both num_tx_queues and real_num_tx_queues values,
-and not the later :)
+Maybe not explaining your problem, but worth to fix !
 
-Thanks
+Thank you
+
+[PATCH] slub: fix slab_pad_check() and SLAB_DESTROY_BY_RCU
+
+When SLAB_POISON is used and slab_pad_check() finds an overwrite of the
+slab padding, we call restore_bytes() on the whole slab, not only
+on the padding.
+
+kmem_cache_destroy() should call rcu_barrier() *after* kmem_cache_close=
+()
+and *before* sysfs_slab_remove() or risk rcu_free_slab()
+being called after kmem_cache is deleted (kfreed).
+
+rmmod nf_conntrack can crash the machine because it has to
+kmem_cache_destroy() a SLAB_DESTROY_BY_RCU enabled cache.
+
+Reported-by: Zdenek Kabelac <zdenek.kabelac@gmail.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/mm/slub.c b/mm/slub.c
+index b9f1491..0ac839f 100644
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -646,7 +646,7 @@ static int slab_pad_check(struct kmem_cache *s, str=
+uct page *page)
+ 	slab_err(s, page, "Padding overwritten. 0x%p-0x%p", fault, end - 1);
+ 	print_section("Padding", end - remainder, remainder);
+=20
+-	restore_bytes(s, "slab padding", POISON_INUSE, start, end);
++	restore_bytes(s, "slab padding", POISON_INUSE, end - remainder, end);
+ 	return 0;
+ }
+=20
+@@ -2594,8 +2594,6 @@ static inline int kmem_cache_close(struct kmem_ca=
+che *s)
+  */
+ void kmem_cache_destroy(struct kmem_cache *s)
+ {
+-	if (s->flags & SLAB_DESTROY_BY_RCU)
+-		rcu_barrier();
+ 	down_write(&slub_lock);
+ 	s->refcount--;
+ 	if (!s->refcount) {
+@@ -2606,6 +2604,8 @@ void kmem_cache_destroy(struct kmem_cache *s)
+ 				"still has objects.\n", s->name, __func__);
+ 			dump_stack();
+ 		}
++		if (s->flags & SLAB_DESTROY_BY_RCU)
++			rcu_barrier();
+ 		sysfs_slab_remove(s);
+ 	} else
+ 		up_write(&slub_lock);
