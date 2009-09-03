@@ -1,36 +1,43 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: skb header allocation
-Date: Thu, 3 Sep 2009 16:23:44 -0700
-Message-ID: <20090903162344.108374cb@nehalam>
-References: <17cd85320908252004r31874732n9e06921d6eae4ad7@mail.gmail.com>
-	<20090825201514.0dd143ad@nehalam>
-	<4A94CFB3.4020706@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [NET] Add proc file to display the state of all qdiscs.
+Date: Thu, 03 Sep 2009 16:28:55 -0700 (PDT)
+Message-ID: <20090903.162855.46818886.davem@davemloft.net>
+References: <Pine.LNX.4.64.0909031617060.28935@ask.diku.dk>
+	<4A9FD2DC.7070807@trash.net>
+	<Pine.LNX.4.64.0909031911400.3490@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Chris Ross <chris@compilednetworks.com>, netdev@vger.kernel.org
-To: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+Cc: kaber@trash.net, cl@linux-foundation.org, eric.dumazet@gmail.com,
+	jarkao2@gmail.com, netdev@vger.kernel.org
+To: hawk@diku.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:44902 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756569AbZICXXs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Sep 2009 19:23:48 -0400
-In-Reply-To: <4A94CFB3.4020706@linux.vnet.ibm.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38444
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756541AbZICX2k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 19:28:40 -0400
+In-Reply-To: <Pine.LNX.4.64.0909031911400.3490@ask.diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 26 Aug 2009 08:01:23 +0200
-Frank Blaschka <blaschka@linux.vnet.ibm.com> wrote:
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Date: Thu, 3 Sep 2009 19:30:00 +0200 (CEST)
 
-> Is it save to change dev->hard_header_len to a value other than ETH_HLEN for
-> an ethernet device?
-> 
-> I rememeber we run in trouble with some kernel components (netfilter?, I'm
-> not sure can't remember the details ...) when we did this is the past.
-> 
+> I especially like the possibility to access each qdisc seperately.
+> Does it then support having seperate qdisc per TX queue?  (I'm toying
+> with the idea of transmitting our multicast traffic into/via a
+> seperate TX hardware queue, and making a special qdisc for IPTV
+> MPEG2-TS shaping)
 
-You can add extra data but need a minimum with ETH_HLEN of space above
-packet when receiving.
+Indeed it sounds interesting.
 
+But I want to warn everyone against adding support for anything
+that adds a way to do operations "on every device qdisc" at the
+kernel level.
 
--- 
+I tried to do that and the error unwinding complexity is unacceptable.
+
+We can make the tools support things like this.  Keep the kernel
+simple and allow it to only operate on one queue at a time for
+a given individual config request.
+
