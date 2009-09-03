@@ -1,573 +1,239 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 2/3] netdev: Remove redundant checks for CAP_NET_ADMIN in
-	MDIO implementations
-Date: Thu, 03 Sep 2009 21:39:43 +0100
-Message-ID: <1252010383.2781.17.camel@achroite>
+Subject: [PATCH 3/3] netdev: Convert MDIO ioctl implementation to use
+	struct mii_ioctl_data
+Date: Thu, 03 Sep 2009 21:41:17 +0100
+Message-ID: <1252010477.2781.20.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:55567 "EHLO
-	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932185AbZICUjn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 16:39:43 -0400
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:35399 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932160AbZICUlQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 16:41:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dev_ioctl() already checks capable(CAP_NET_ADMIN) before calling the
-driver's implementation of MDIO ioctls.
+A few drivers still access the arguments to MDIO ioctls as an array of
+u16.  Convert them to use struct mii_ioctl_data.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
-I wrote:
-> =EF=BB=BFCurrently most drivers[1] that support the "MII" ioctls allo=
-w all users
-> to read MDIO registers, while MDIO writes require CAP_NET_ADMIN.
-
-Thankfully this was not true, so I can remove code instead of adding it=
-=2E
+The PCMCIA drivers are compile-tested.  The emac driver is not since
+it's for PPC only, but I'm fairly confident that it will work.
 
 Ben.
 
- drivers/net/amd8111e.c          |    3 ---
- drivers/net/atl1c/atl1c_main.c  |    8 --------
- drivers/net/atl1e/atl1e_main.c  |    8 --------
- drivers/net/atlx/atl2.c         |    4 ----
- drivers/net/bnx2.c              |    3 ---
- drivers/net/cassini.c           |    4 ----
- drivers/net/e1000/e1000_main.c  |    4 ----
- drivers/net/e1000e/netdev.c     |    2 --
- drivers/net/ibm_newemac/core.c  |    2 --
- drivers/net/igb/igb_main.c      |    2 --
- drivers/net/mdio.c              |    3 ---
- drivers/net/mii.c               |    3 ---
- drivers/net/natsemi.c           |    2 --
- drivers/net/pci-skeleton.c      |    5 -----
- drivers/net/pcmcia/3c574_cs.c   |    2 --
- drivers/net/pcmcia/axnet_cs.c   |    2 --
- drivers/net/pcmcia/pcnet_cs.c   |    2 --
- drivers/net/pcmcia/xirc2ps_cs.c |    2 --
- drivers/net/phy/phy.c           |    3 ---
- drivers/net/r8169.c             |    2 --
- drivers/net/sis900.c            |    2 --
- drivers/net/skge.c              |    3 ---
- drivers/net/sky2.c              |    3 ---
- drivers/net/sungem.c            |    4 +---
- drivers/net/tg3.c               |    3 ---
- drivers/net/tlan.c              |    2 --
- drivers/net/tulip/tulip_core.c  |    2 --
- drivers/net/tulip/winbond-840.c |    2 --
- drivers/net/via-velocity.c      |    4 ----
- drivers/net/yellowfin.c         |    2 --
- 30 files changed, 1 insertions(+), 92 deletions(-)
+ drivers/net/ibm_newemac/core.c  |   10 ++++++----
+ drivers/net/pcmcia/3c574_cs.c   |   13 ++++++++-----
+ drivers/net/pcmcia/axnet_cs.c   |    9 +++++----
+ drivers/net/pcmcia/pcnet_cs.c   |    9 +++++----
+ drivers/net/pcmcia/xirc2ps_cs.c |   13 ++++++++-----
+ 5 files changed, 32 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/amd8111e.c b/drivers/net/amd8111e.c
-index 98b5f46..4e6359f 100644
---- a/drivers/net/amd8111e.c
-+++ b/drivers/net/amd8111e.c
-@@ -1524,9 +1524,6 @@ static int amd8111e_ioctl(struct net_device * dev=
- , struct ifreq *ifr, int cmd)
- 	int err;
- 	u32 mii_regval;
-=20
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- 	switch(cmd) {
- 	case SIOCGMIIPHY:
- 		data->phy_id =3D lp->ext_phy_addr;
-diff --git a/drivers/net/atl1c/atl1c_main.c b/drivers/net/atl1c/atl1c_m=
-ain.c
-index e46bf92..be2c6cf 100644
---- a/drivers/net/atl1c/atl1c_main.c
-+++ b/drivers/net/atl1c/atl1c_main.c
-@@ -534,10 +534,6 @@ static int atl1c_mii_ioctl(struct net_device *netd=
-ev,
- 		break;
-=20
- 	case SIOCGMIIREG:
--		if (!capable(CAP_NET_ADMIN)) {
--			retval =3D -EPERM;
--			goto out;
--		}
- 		if (atl1c_read_phy_reg(&adapter->hw, data->reg_num & 0x1F,
- 				    &data->val_out)) {
- 			retval =3D -EIO;
-@@ -546,10 +542,6 @@ static int atl1c_mii_ioctl(struct net_device *netd=
-ev,
- 		break;
-=20
- 	case SIOCSMIIREG:
--		if (!capable(CAP_NET_ADMIN)) {
--			retval =3D -EPERM;
--			goto out;
--		}
- 		if (data->reg_num & ~(0x1F)) {
- 			retval =3D -EFAULT;
- 			goto out;
-diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_m=
-ain.c
-index bca127e..69b830f 100644
---- a/drivers/net/atl1e/atl1e_main.c
-+++ b/drivers/net/atl1e/atl1e_main.c
-@@ -453,10 +453,6 @@ static int atl1e_mii_ioctl(struct net_device *netd=
-ev,
- 		break;
-=20
- 	case SIOCGMIIREG:
--		if (!capable(CAP_NET_ADMIN)) {
--			retval =3D -EPERM;
--			goto out;
--		}
- 		if (atl1e_read_phy_reg(&adapter->hw, data->reg_num & 0x1F,
- 				    &data->val_out)) {
- 			retval =3D -EIO;
-@@ -465,10 +461,6 @@ static int atl1e_mii_ioctl(struct net_device *netd=
-ev,
- 		break;
-=20
- 	case SIOCSMIIREG:
--		if (!capable(CAP_NET_ADMIN)) {
--			retval =3D -EPERM;
--			goto out;
--		}
- 		if (data->reg_num & ~(0x1F)) {
- 			retval =3D -EFAULT;
- 			goto out;
-diff --git a/drivers/net/atlx/atl2.c b/drivers/net/atlx/atl2.c
-index 10c06b9..ab68886 100644
---- a/drivers/net/atlx/atl2.c
-+++ b/drivers/net/atlx/atl2.c
-@@ -966,8 +966,6 @@ static int atl2_mii_ioctl(struct net_device *netdev=
-, struct ifreq *ifr, int cmd)
- 		data->phy_id =3D 0;
- 		break;
- 	case SIOCGMIIREG:
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
- 		spin_lock_irqsave(&adapter->stats_lock, flags);
- 		if (atl2_read_phy_reg(&adapter->hw,
- 			data->reg_num & 0x1F, &data->val_out)) {
-@@ -977,8 +975,6 @@ static int atl2_mii_ioctl(struct net_device *netdev=
-, struct ifreq *ifr, int cmd)
- 		spin_unlock_irqrestore(&adapter->stats_lock, flags);
- 		break;
- 	case SIOCSMIIREG:
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
- 		if (data->reg_num & ~(0x1F))
- 			return -EFAULT;
- 		spin_lock_irqsave(&adapter->stats_lock, flags);
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 1357d54..08cddb6 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -7480,9 +7480,6 @@ bnx2_ioctl(struct net_device *dev, struct ifreq *=
-ifr, int cmd)
- 	}
-=20
- 	case SIOCSMIIREG:
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
--
- 		if (bp->phy_flags & BNX2_PHY_FLAG_REMOTE_PHY_CAP)
- 			return -EOPNOTSUPP;
-=20
-diff --git a/drivers/net/cassini.c b/drivers/net/cassini.c
-index 7517dc1..05916aa 100644
---- a/drivers/net/cassini.c
-+++ b/drivers/net/cassini.c
-@@ -4875,10 +4875,6 @@ static int cas_ioctl(struct net_device *dev, str=
-uct ifreq *ifr, int cmd)
- 		break;
-=20
- 	case SIOCSMIIREG:		/* Write MII PHY register. */
--		if (!capable(CAP_NET_ADMIN)) {
--			rc =3D -EPERM;
--			break;
--		}
- 		spin_lock_irqsave(&cp->lock, flags);
- 		cas_mif_poll(cp, 0);
- 		rc =3D cas_phy_write(cp, data->reg_num & 0x1f, data->val_in);
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_m=
-ain.c
-index 2c723b1..c66dd4f 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -4714,8 +4714,6 @@ static int e1000_mii_ioctl(struct net_device *net=
-dev, struct ifreq *ifr,
- 		data->phy_id =3D hw->phy_addr;
- 		break;
- 	case SIOCGMIIREG:
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
- 		spin_lock_irqsave(&adapter->stats_lock, flags);
- 		if (e1000_read_phy_reg(hw, data->reg_num & 0x1F,
- 				   &data->val_out)) {
-@@ -4725,8 +4723,6 @@ static int e1000_mii_ioctl(struct net_device *net=
-dev, struct ifreq *ifr,
- 		spin_unlock_irqrestore(&adapter->stats_lock, flags);
- 		break;
- 	case SIOCSMIIREG:
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
- 		if (data->reg_num & ~(0x1F))
- 			return -EFAULT;
- 		mii_reg =3D data->val_in;
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 0f8d961..16c193a 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -4346,8 +4346,6 @@ static int e1000_mii_ioctl(struct net_device *net=
-dev, struct ifreq *ifr,
- 		data->phy_id =3D adapter->hw.phy.addr;
- 		break;
- 	case SIOCGMIIREG:
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
- 		switch (data->reg_num & 0x1F) {
- 		case MII_BMCR:
- 			data->val_out =3D adapter->phy_regs.bmcr;
-diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/c=
-ore.c
-index 24ae671..8a95234 100644
+diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/core.c
+index 8a95234..1d7d7fe 100644
 --- a/drivers/net/ibm_newemac/core.c
 +++ b/drivers/net/ibm_newemac/core.c
-@@ -2225,8 +2225,6 @@ static int emac_ioctl(struct net_device *ndev, st=
-ruct ifreq *rq, int cmd)
- 		return 0;
-=20
- 	case SIOCSMIIREG:
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
- 		emac_mdio_write(ndev, dev->phy.address, data[1], data[2]);
- 		return 0;
- 	default:
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 7a054d9..56c2228 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -4849,8 +4849,6 @@ static int igb_mii_ioctl(struct net_device *netde=
-v, struct ifreq *ifr, int cmd)
- 		data->phy_id =3D adapter->hw.phy.addr;
- 		break;
+@@ -2209,7 +2209,7 @@ static const struct ethtool_ops emac_ethtool_ops = {
+ static int emac_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
+ {
+ 	struct emac_instance *dev = netdev_priv(ndev);
+-	uint16_t *data = (uint16_t *) & rq->ifr_ifru;
++	struct mii_ioctl_data *data = if_mii(rq);
+ 
+ 	DBG(dev, "ioctl %08x" NL, cmd);
+ 
+@@ -2218,14 +2218,16 @@ static int emac_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
+ 
+ 	switch (cmd) {
+ 	case SIOCGMIIPHY:
+-		data[0] = dev->phy.address;
++		data->phy_id = dev->phy.address;
+ 		/* Fall through */
  	case SIOCGMIIREG:
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
- 		if (igb_read_phy_reg(&adapter->hw, data->reg_num & 0x1F,
- 		                     &data->val_out))
- 			return -EIO;
-diff --git a/drivers/net/mdio.c b/drivers/net/mdio.c
-index 7d2e610..21f8754 100644
---- a/drivers/net/mdio.c
-+++ b/drivers/net/mdio.c
-@@ -380,10 +380,7 @@ int mdio_mii_ioctl(const struct mdio_if_info *mdio=
-,
- 		cmd =3D SIOCGMIIREG;
- 		break;
- 	case SIOCGMIIREG:
--		break;
+-		data[3] = emac_mdio_read(ndev, dev->phy.address, data[1]);
++		data->val_out = emac_mdio_read(ndev, dev->phy.address,
++					       data->reg_num);
+ 		return 0;
+ 
  	case SIOCSMIIREG:
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
- 		break;
+-		emac_mdio_write(ndev, dev->phy.address, data[1], data[2]);
++		emac_mdio_write(ndev, dev->phy.address, data->reg_num,
++				data->val_in);
+ 		return 0;
  	default:
  		return -EOPNOTSUPP;
-diff --git a/drivers/net/mii.c b/drivers/net/mii.c
-index d81a5d2..210b2b1 100644
---- a/drivers/net/mii.c
-+++ b/drivers/net/mii.c
-@@ -433,9 +433,6 @@ int generic_mii_ioctl(struct mii_if_info *mii_if,
- 	case SIOCSMIIREG: {
- 		u16 val =3D mii_data->val_in;
-=20
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
--
- 		if (mii_data->phy_id =3D=3D mii_if->phy_id) {
- 			switch(mii_data->reg_num) {
- 			case MII_BMCR: {
-diff --git a/drivers/net/natsemi.c b/drivers/net/natsemi.c
-index b52e5d9..b2722c4 100644
---- a/drivers/net/natsemi.c
-+++ b/drivers/net/natsemi.c
-@@ -3075,8 +3075,6 @@ static int netdev_ioctl(struct net_device *dev, s=
-truct ifreq *rq, int cmd)
- 		return 0;
-=20
- 	case SIOCSMIIREG:		/* Write MII PHY register. */
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
- 		if (dev->if_port =3D=3D PORT_TP) {
- 			if ((data->phy_id & 0x1f) =3D=3D np->phy_addr_external) {
-  				if ((data->reg_num & 0x1f) =3D=3D MII_ADVERTISE)
-diff --git a/drivers/net/pci-skeleton.c b/drivers/net/pci-skeleton.c
-index c47ba36..0c44b48 100644
---- a/drivers/net/pci-skeleton.c
-+++ b/drivers/net/pci-skeleton.c
-@@ -1784,11 +1784,6 @@ static int netdrv_ioctl (struct net_device *dev,=
- struct ifreq *rq, int cmd)
- 		break;
-=20
- 	case SIOCSMIIREG:		/* Write MII PHY register. */
--		if (!capable (CAP_NET_ADMIN)) {
--			rc =3D -EPERM;
--			break;
--		}
--
- 		spin_lock_irqsave (&tp->lock, flags);
- 		mdio_write (dev, data->phy_id & 0x1f, data->reg_num & 0x1f, data->va=
-l_in);
- 		spin_unlock_irqrestore (&tp->lock, flags);
-diff --git a/drivers/net/pcmcia/3c574_cs.c b/drivers/net/pcmcia/3c574_c=
-s.c
-index 382d265..d836af1 100644
+diff --git a/drivers/net/pcmcia/3c574_cs.c b/drivers/net/pcmcia/3c574_cs.c
+index d836af1..ee8ad3e 100644
 --- a/drivers/net/pcmcia/3c574_cs.c
 +++ b/drivers/net/pcmcia/3c574_cs.c
-@@ -1124,8 +1124,6 @@ static int el3_ioctl(struct net_device *dev, stru=
-ct ifreq *rq, int cmd)
+@@ -85,6 +85,7 @@ earlier 3Com products.
+ #include <linux/ioport.h>
+ #include <linux/ethtool.h>
+ #include <linux/bitops.h>
++#include <linux/mii.h>
+ 
+ #include <pcmcia/cs_types.h>
+ #include <pcmcia/cs.h>
+@@ -1096,16 +1097,16 @@ static int el3_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+ 	struct el3_private *lp = netdev_priv(dev);
+ 	unsigned int ioaddr = dev->base_addr;
+-	u16 *data = (u16 *)&rq->ifr_ifru;
++	struct mii_ioctl_data *data = if_mii(rq);
+ 	int phy = lp->phys & 0x1f;
+ 
+ 	DEBUG(2, "%s: In ioct(%-.6s, %#4.4x) %4.4x %4.4x %4.4x %4.4x.\n",
+ 		  dev->name, rq->ifr_ifrn.ifrn_name, cmd,
+-		  data[0], data[1], data[2], data[3]);
++		  data->phy_id, data->reg_num, data->val_in, data->val_out);
+ 
+ 	switch(cmd) {
+ 	case SIOCGMIIPHY:		/* Get the address of the PHY in use. */
+-		data[0] = phy;
++		data->phy_id = phy;
+ 	case SIOCGMIIREG:		/* Read the specified MII register. */
+ 		{
  			int saved_window;
-                        unsigned long flags;
-=20
--			if (!capable(CAP_NET_ADMIN))
--				return -EPERM;
+@@ -1114,7 +1115,8 @@ static int el3_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
  			spin_lock_irqsave(&lp->window_lock, flags);
- 			saved_window =3D inw(ioaddr + EL3_CMD) >> 13;
+ 			saved_window = inw(ioaddr + EL3_CMD) >> 13;
  			EL3WINDOW(4);
-diff --git a/drivers/net/pcmcia/axnet_cs.c b/drivers/net/pcmcia/axnet_c=
-s.c
-index 3b681c1..4f2fef6 100644
+-			data[3] = mdio_read(ioaddr, data[0] & 0x1f, data[1] & 0x1f);
++			data->val_out = mdio_read(ioaddr, data->phy_id & 0x1f,
++						  data->reg_num & 0x1f);
+ 			EL3WINDOW(saved_window);
+ 			spin_unlock_irqrestore(&lp->window_lock, flags);
+ 			return 0;
+@@ -1127,7 +1129,8 @@ static int el3_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 			spin_lock_irqsave(&lp->window_lock, flags);
+ 			saved_window = inw(ioaddr + EL3_CMD) >> 13;
+ 			EL3WINDOW(4);
+-			mdio_write(ioaddr, data[0] & 0x1f, data[1] & 0x1f, data[2]);
++			mdio_write(ioaddr, data->phy_id & 0x1f,
++				   data->reg_num & 0x1f, data->val_in);
+ 			EL3WINDOW(saved_window);
+ 			spin_unlock_irqrestore(&lp->window_lock, flags);
+ 			return 0;
+diff --git a/drivers/net/pcmcia/axnet_cs.c b/drivers/net/pcmcia/axnet_cs.c
+index 4f2fef6..3131a59 100644
 --- a/drivers/net/pcmcia/axnet_cs.c
 +++ b/drivers/net/pcmcia/axnet_cs.c
-@@ -706,8 +706,6 @@ static int axnet_ioctl(struct net_device *dev, stru=
-ct ifreq *rq, int cmd)
- 	data[3] =3D mdio_read(mii_addr, data[0], data[1] & 0x1f);
+@@ -37,6 +37,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/crc32.h>
++#include <linux/mii.h>
+ #include "../8390.h"
+ 
+ #include <pcmcia/cs_types.h>
+@@ -697,16 +698,16 @@ static const struct ethtool_ops netdev_ethtool_ops = {
+ static int axnet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+     axnet_dev_t *info = PRIV(dev);
+-    u16 *data = (u16 *)&rq->ifr_ifru;
++    struct mii_ioctl_data *data = if_mii(rq);
+     unsigned int mii_addr = dev->base_addr + AXNET_MII_EEP;
+     switch (cmd) {
+     case SIOCGMIIPHY:
+-	data[0] = info->phy_id;
++	data->phy_id = info->phy_id;
+     case SIOCGMIIREG:		/* Read MII PHY register. */
+-	data[3] = mdio_read(mii_addr, data[0], data[1] & 0x1f);
++	data->val_out = mdio_read(mii_addr, data->phy_id, data->reg_num & 0x1f);
  	return 0;
      case SIOCSMIIREG:		/* Write MII PHY register. */
--	if (!capable(CAP_NET_ADMIN))
--	    return -EPERM;
- 	mdio_write(mii_addr, data[0], data[1] & 0x1f, data[2]);
+-	mdio_write(mii_addr, data[0], data[1] & 0x1f, data[2]);
++	mdio_write(mii_addr, data->phy_id, data->reg_num & 0x1f, data->val_in);
  	return 0;
      }
-diff --git a/drivers/net/pcmcia/pcnet_cs.c b/drivers/net/pcmcia/pcnet_c=
-s.c
-index 9ef1c1b..8996b45 100644
+     return -EOPNOTSUPP;
+diff --git a/drivers/net/pcmcia/pcnet_cs.c b/drivers/net/pcmcia/pcnet_cs.c
+index 8996b45..90a94d2 100644
 --- a/drivers/net/pcmcia/pcnet_cs.c
 +++ b/drivers/net/pcmcia/pcnet_cs.c
-@@ -1204,8 +1204,6 @@ static int ei_ioctl(struct net_device *dev, struc=
-t ifreq *rq, int cmd)
- 	data[3] =3D mdio_read(mii_addr, data[0], data[1] & 0x1f);
+@@ -40,6 +40,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/log2.h>
+ #include <linux/etherdevice.h>
++#include <linux/mii.h>
+ #include "../8390.h"
+ 
+ #include <pcmcia/cs_types.h>
+@@ -1191,7 +1192,7 @@ static const struct ethtool_ops netdev_ethtool_ops = {
+ static int ei_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+     pcnet_dev_t *info = PRIV(dev);
+-    u16 *data = (u16 *)&rq->ifr_ifru;
++    struct mii_ioctl_data *data = if_mii(rq);
+     unsigned int mii_addr = dev->base_addr + DLINK_GPIO;
+ 
+     if (!(info->flags & (IS_DL10019|IS_DL10022)))
+@@ -1199,12 +1200,12 @@ static int ei_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 
+     switch (cmd) {
+     case SIOCGMIIPHY:
+-	data[0] = info->phy_id;
++	data->phy_id = info->phy_id;
+     case SIOCGMIIREG:		/* Read MII PHY register. */
+-	data[3] = mdio_read(mii_addr, data[0], data[1] & 0x1f);
++	data->val_out = mdio_read(mii_addr, data->phy_id, data->reg_num & 0x1f);
  	return 0;
      case SIOCSMIIREG:		/* Write MII PHY register. */
--	if (!capable(CAP_NET_ADMIN))
--	    return -EPERM;
- 	mdio_write(mii_addr, data[0], data[1] & 0x1f, data[2]);
+-	mdio_write(mii_addr, data[0], data[1] & 0x1f, data[2]);
++	mdio_write(mii_addr, data->phy_id, data->reg_num & 0x1f, data->val_in);
  	return 0;
      }
-diff --git a/drivers/net/pcmcia/xirc2ps_cs.c b/drivers/net/pcmcia/xirc2=
-ps_cs.c
-index 68de891..9709dd1 100644
+     return -EOPNOTSUPP;
+diff --git a/drivers/net/pcmcia/xirc2ps_cs.c b/drivers/net/pcmcia/xirc2ps_cs.c
+index 9709dd1..cf84231 100644
 --- a/drivers/net/pcmcia/xirc2ps_cs.c
 +++ b/drivers/net/pcmcia/xirc2ps_cs.c
-@@ -1575,8 +1575,6 @@ do_ioctl(struct net_device *dev, struct ifreq *rq=
-, int cmd)
- 	data[3] =3D mii_rd(ioaddr, data[0] & 0x1f, data[1] & 0x1f);
+@@ -80,6 +80,7 @@
+ #include <linux/if_arp.h>
+ #include <linux/ioport.h>
+ #include <linux/bitops.h>
++#include <linux/mii.h>
+ 
+ #include <pcmcia/cs_types.h>
+ #include <pcmcia/cs.h>
+@@ -1558,24 +1559,26 @@ do_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+     local_info_t *local = netdev_priv(dev);
+     unsigned int ioaddr = dev->base_addr;
+-    u16 *data = (u16 *)&rq->ifr_ifru;
++    struct mii_ioctl_data *data = if_mii(rq);
+ 
+     DEBUG(1, "%s: ioctl(%-.6s, %#04x) %04x %04x %04x %04x\n",
+ 	  dev->name, rq->ifr_ifrn.ifrn_name, cmd,
+-	  data[0], data[1], data[2], data[3]);
++	  data->phy_id, data->reg_num, data->val_in, data->val_out);
+ 
+     if (!local->mohawk)
+ 	return -EOPNOTSUPP;
+ 
+     switch(cmd) {
+       case SIOCGMIIPHY:		/* Get the address of the PHY in use. */
+-	data[0] = 0;		/* we have only this address */
++	data->phy_id = 0;	/* we have only this address */
+ 	/* fall through */
+       case SIOCGMIIREG:		/* Read the specified MII register. */
+-	data[3] = mii_rd(ioaddr, data[0] & 0x1f, data[1] & 0x1f);
++	data->val_out = mii_rd(ioaddr, data->phy_id & 0x1f,
++			       data->reg_num & 0x1f);
  	break;
        case SIOCSMIIREG:		/* Write the specified MII register */
--	if (!capable(CAP_NET_ADMIN))
--	    return -EPERM;
- 	mii_wr(ioaddr, data[0] & 0x1f, data[1] & 0x1f, data[2], 16);
+-	mii_wr(ioaddr, data[0] & 0x1f, data[1] & 0x1f, data[2], 16);
++	mii_wr(ioaddr, data->phy_id & 0x1f, data->reg_num & 0x1f, data->val_in,
++	       16);
  	break;
        default:
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index eda94fc..6b71b00 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -324,9 +324,6 @@ int phy_mii_ioctl(struct phy_device *phydev,
- 		break;
-=20
- 	case SIOCSMIIREG:
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
--
- 		if (mii_data->phy_id =3D=3D phydev->addr) {
- 			switch(mii_data->reg_num) {
- 			case MII_BMCR:
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index ec0092a..a91e9b3 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -1991,8 +1991,6 @@ static int rtl_xmii_ioctl(struct rtl8169_private =
-*tp, struct mii_ioctl_data *dat
- 		return 0;
-=20
- 	case SIOCSMIIREG:
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
- 		mdio_write(tp->mmio_addr, data->reg_num & 0x1f, data->val_in);
- 		return 0;
- 	}
-diff --git a/drivers/net/sis900.c b/drivers/net/sis900.c
-index d882732..97949d0 100644
---- a/drivers/net/sis900.c
-+++ b/drivers/net/sis900.c
-@@ -2128,8 +2128,6 @@ static int mii_ioctl(struct net_device *net_dev, =
-struct ifreq *rq, int cmd)
- 		return 0;
-=20
- 	case SIOCSMIIREG:		/* Write MII PHY register. */
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
- 		mdio_write(net_dev, data->phy_id & 0x1f, data->reg_num & 0x1f, data-=
->val_in);
- 		return 0;
- 	default:
-diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-index 1a1e685..62e852e 100644
---- a/drivers/net/skge.c
-+++ b/drivers/net/skge.c
-@@ -2496,9 +2496,6 @@ static int skge_ioctl(struct net_device *dev, str=
-uct ifreq *ifr, int cmd)
- 	}
-=20
- 	case SIOCSMIIREG:
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
--
- 		spin_lock_bh(&hw->phy_lock);
- 		if (hw->chip_id =3D=3D CHIP_ID_GENESIS)
- 			err =3D xm_phy_write(hw, skge->port, data->reg_num & 0x1f,
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index d1f3b46..ecce1df 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -1213,9 +1213,6 @@ static int sky2_ioctl(struct net_device *dev, str=
-uct ifreq *ifr, int cmd)
- 	}
-=20
- 	case SIOCSMIIREG:
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
--
- 		spin_lock_bh(&sky2->phy_lock);
- 		err =3D gm_phy_write(hw, sky2->port, data->reg_num & 0x1f,
- 				   data->val_in);
-diff --git a/drivers/net/sungem.c b/drivers/net/sungem.c
-index e0dfdd2..305ec3d 100644
---- a/drivers/net/sungem.c
-+++ b/drivers/net/sungem.c
-@@ -2852,9 +2852,7 @@ static int gem_ioctl(struct net_device *dev, stru=
-ct ifreq *ifr, int cmd)
- 		break;
-=20
- 	case SIOCSMIIREG:		/* Write MII PHY register. */
--		if (!capable(CAP_NET_ADMIN))
--			rc =3D -EPERM;
--		else if (!gp->running)
-+		if (!gp->running)
- 			rc =3D -EAGAIN;
- 		else {
- 			__phy_write(gp, data->phy_id & 0x1f, data->reg_num & 0x1f,
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index bd49810..7cf8000 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -10610,9 +10610,6 @@ static int tg3_ioctl(struct net_device *dev, st=
-ruct ifreq *ifr, int cmd)
- 		if (tp->tg3_flags2 & TG3_FLG2_PHY_SERDES)
- 			break;			/* We have no PHY */
-=20
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
--
- 		if (tp->link_config.phy_is_low_power)
- 			return -EAGAIN;
-=20
-diff --git a/drivers/net/tlan.c b/drivers/net/tlan.c
-index 49e273b..3d31b47 100644
---- a/drivers/net/tlan.c
-+++ b/drivers/net/tlan.c
-@@ -1004,8 +1004,6 @@ static int TLan_ioctl(struct net_device *dev, str=
-uct ifreq *rq, int cmd)
-=20
+ 	return -EOPNOTSUPP;
 
- 	case SIOCSMIIREG:		/* Write MII PHY register. */
--			if (!capable(CAP_NET_ADMIN))
--				return -EPERM;
- 			TLan_MiiWriteReg(dev, data->phy_id & 0x1f,
- 					 data->reg_num & 0x1f, data->val_in);
- 			return 0;
-diff --git a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tulip_c=
-ore.c
-index b89b73c..6b2330e 100644
---- a/drivers/net/tulip/tulip_core.c
-+++ b/drivers/net/tulip/tulip_core.c
-@@ -923,8 +923,6 @@ static int private_ioctl (struct net_device *dev, s=
-truct ifreq *rq, int cmd)
- 		return 0;
-=20
- 	case SIOCSMIIREG:		/* Write MII PHY register. */
--		if (!capable (CAP_NET_ADMIN))
--			return -EPERM;
- 		if (regnum & ~0x1f)
- 			return -EINVAL;
- 		if (data->phy_id =3D=3D phy) {
-diff --git a/drivers/net/tulip/winbond-840.c b/drivers/net/tulip/winbon=
-d-840.c
-index 3e59397..b38d3b7 100644
---- a/drivers/net/tulip/winbond-840.c
-+++ b/drivers/net/tulip/winbond-840.c
-@@ -1470,8 +1470,6 @@ static int netdev_ioctl(struct net_device *dev, s=
-truct ifreq *rq, int cmd)
- 		return 0;
-=20
- 	case SIOCSMIIREG:		/* Write MII PHY register. */
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
- 		spin_lock_irq(&np->lock);
- 		mdio_write(dev, data->phy_id & 0x1f, data->reg_num & 0x1f, data->val=
-_in);
- 		spin_unlock_irq(&np->lock);
-diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-index ced1446..e04e5be 100644
---- a/drivers/net/via-velocity.c
-+++ b/drivers/net/via-velocity.c
-@@ -2328,14 +2328,10 @@ static int velocity_mii_ioctl(struct net_device=
- *dev, struct ifreq *ifr, int cmd
- 		miidata->phy_id =3D readb(&regs->MIIADR) & 0x1f;
- 		break;
- 	case SIOCGMIIREG:
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
- 		if (velocity_mii_read(vptr->mac_regs, miidata->reg_num & 0x1f, &(mii=
-data->val_out)) < 0)
- 			return -ETIMEDOUT;
- 		break;
- 	case SIOCSMIIREG:
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
- 		spin_lock_irqsave(&vptr->lock, flags);
- 		err =3D velocity_mii_write(vptr->mac_regs, miidata->reg_num & 0x1f, =
-miidata->val_in);
- 		spin_unlock_irqrestore(&vptr->lock, flags);
-diff --git a/drivers/net/yellowfin.c b/drivers/net/yellowfin.c
-index 4987040..40ad0de 100644
---- a/drivers/net/yellowfin.c
-+++ b/drivers/net/yellowfin.c
-@@ -1365,8 +1365,6 @@ static int netdev_ioctl(struct net_device *dev, s=
-truct ifreq *rq, int cmd)
- 		return 0;
-=20
- 	case SIOCSMIIREG:		/* Write MII PHY register. */
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
- 		if (data->phy_id =3D=3D np->phys[0]) {
- 			u16 value =3D data->val_in;
- 			switch (data->reg_num) {
-
---=20
+-- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
