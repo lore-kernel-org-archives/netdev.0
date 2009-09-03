@@ -1,63 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [NET] Add proc file to display the state of all qdiscs.
-Date: Thu, 03 Sep 2009 16:43:54 +0200
-Message-ID: <4A9FD62A.3070605@gmail.com>
-References: <20090902081429.GB4878@ff.dom.local> <4A9E2CC7.1010103@gmail.com> <alpine.DEB.1.10.0909021313160.27987@V090114053VZO-1> <Pine.LNX.4.64.0909031617060.28935@ask.diku.dk> <4A9FD2DC.7070807@trash.net>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: [PATCH] slub: fix slab_pad_check()
+Date: Thu, 3 Sep 2009 13:38:50 -0500 (CDT)
+Message-ID: <alpine.DEB.1.10.0909031335430.29881@V090114053VZO-1>
+References: <c4e36d110908110542l3de51aaepcbd62c84b9848f2b@mail.gmail.com>  <alpine.DEB.1.10.0908121820410.3257@gentwo.org>  <c4e36d110908131009l78b29bffvb4d41b90f9b83288@mail.gmail.com>  <c4e36d110908140233v59421ba6y82192b858210370d@mail.gmail.com>
+ <4A87CE60.4020506@gmail.com> <4A896324.3040104@trash.net>  <c4e36d110909021445l5f44183es9e338437dfbbd195@mail.gmail.com>  <4A9EEF07.5070800@gmail.com>  <c4e36d110909021531v324a9ce2x3ff2c93b7c5a57de@mail.gmail.com>  <4A9F1620.2080105@gmail.com>
+ <84144f020909022331x2b275aa5n428f88670e0ae8bc@mail.gmail.com> <4A9F7283.1090306@gmail.com> <alpine.DEB.1.10.0909031244230.27903@V090114053VZO-1> <4A9FCDC6.3060003@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:57369 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754506AbZICOoA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 10:44:00 -0400
-In-Reply-To: <4A9FD2DC.7070807@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	Zdenek Kabelac <zdenek.kabelac@gmail.com>,
+	Patrick McHardy <kaber@trash.net>, Robin Holt <holt@sgi.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Jesper Dangaard Brouer <hawk@comx.dk>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>,
+	paulmck@linux.vnet.ibm.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4A9FCDC6.3060003@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Patrick McHardy a =E9crit :
-> Jesper Dangaard Brouer wrote:
->> On Wed, 2 Sep 2009, Christoph Lameter wrote:
->>> On Wed, 2 Sep 2009, Eric Dumazet wrote:
->>>
->>>> Same name "eth0" is displayed, that might confuse parsers...
->>>>
->>>> What naming convention should we choose for multiqueue devices ?
->>> eth0/tx<number> ?
->> Remember that we already have a naming convention in /proc/interrupt=
-s
->>
->>  eth0-tx-<number>
->>
->> Lets not introduce too many new once ;-)
->=20
-> The approach I'm currently working on will present multiqueue root
-> qdiscs as children of a dummy classful qdisc. This avoids handle
-> clashes and the need for new identifiers and allows to address each
-> qdisc seperately, similar to how it works with other classful qdiscs:
->=20
-> qdisc mq 1: root refcnt 2
->  Sent 126 bytes 3 pkt (dropped 0, overlimits 0 requeues 0)
->  rate 0bit 0pps backlog 0b 0p requeues 0
->=20
-> class mq 1:1 root leaf 8001:
->  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->  backlog 0b 0p requeues 0
-> class mq 1:2 root leaf 8002:
->  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->  backlog 0b 0p requeues 0
-> class mq 1:3 root leaf 8003:
->  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->  backlog 0b 0p requeues 0
-> class mq 1:4 root leaf 8004:
->  Sent 126 bytes 3 pkt (dropped 0, overlimits 0 requeues 0)
->  backlog 0b 0p requeues 0
->=20
-> Its a bit tricky though so I'm likely going to need a few more hours.
+On Thu, 3 Sep 2009, Eric Dumazet wrote:
 
-Seems pretty cool, thanks Patrick.
+> Christoph Lameter a ?crit :
+> > On Thu, 3 Sep 2009, Eric Dumazet wrote:
+> >
+> >> on a SLAB_DESTROY_BY_RCU cache, there is no need to try to optimize this
+> >> rcu_barrier() call, unless we want superfast reboot/halt sequences...
+> >
+> > I stilll think that the action to quiesce rcu is something that the caller
+> > of kmem_cache_destroy must take care of.
+>
+> Do you mean :
+>
+> if (kmem_cache_shrink(s) == 0) {
+> 	rcu_barrier();
+> 	kmem_cache_destroy_no_rcu_barrier(s);
+> } else {
+> 	kmem_cache_destroy_with_rcu_barrier_because_SLAB_DESTROY_BY_RCU_cache(s);
+> }
+>
+> What would be the point ?
+
+The above is port of slub?
+
+I mean that (in this case) the net subsystem would have to deal with RCU quietness
+before disposing of the slab cache. There may be multiple ways of dealing
+with RCU. The RCU barrier may be unnecessary for future uses. Typically
+one would expect that all deferred handling of structures must be complete
+for correctness before disposing of the whole cache.
+
+> [PATCH] slub: fix slab_pad_check()
+
+Acked-by: Christoph Lameter <cl@linux-foundation.org>
