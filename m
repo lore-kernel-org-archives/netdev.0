@@ -1,37 +1,114 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] ip: Report qdisc packet drops
-Date: Wed, 02 Sep 2009 18:09:11 -0700 (PDT)
-Message-ID: <20090902.180911.222525657.davem@davemloft.net>
-References: <4A9BBD8E.2010303@gmail.com>
-	<20090901.184121.06750444.davem@davemloft.net>
-	<alpine.DEB.1.10.0909021318490.21832@V090114053VZO-1>
+From: Greg Ungerer <gerg@snapgear.com>
+Subject: Re: [PATCH 2/2] fec: don't enable irqs in hard irq context
+Date: Thu, 03 Sep 2009 11:14:24 +1000
+Message-ID: <4A9F1870.7070408@snapgear.com>
+References: <20090831132200.GA21836@pengutronix.de> <1251882856-23549-1-git-send-email-u.kleine-koenig@pengutronix.de> <1251882856-23549-2-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, sri@us.ibm.com, dlstevens@us.ibm.com,
-	netdev@vger.kernel.org, niv@linux.vnet.ibm.com,
-	mtk.manpages@gmail.com
-To: cl@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59764
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752921AbZICBI5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 21:08:57 -0400
-In-Reply-To: <alpine.DEB.1.10.0909021318490.21832@V090114053VZO-1>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-rt-users@vger.kernel.org,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Patrick McHardy <kaber@trash.net>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Matt Waddel <Matt.Waddel@freescale.com>,
+	netdev@vger.kernel.org,
+	Tim Sander <tim01@vlsi.informatik.tu-darmstadt.de>
+To: =?UTF-8?B?VXdlIEtsZWluZS1Lw7ZuaWc=?=
+	<u.kleine-koenig@pengutronix.de>
+Return-path: <linux-rt-users-owner@vger.kernel.org>
+In-Reply-To: <1251882856-23549-2-git-send-email-u.kleine-koenig@pengutronix.de>
+Sender: linux-rt-users-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Christoph Lameter <cl@linux-foundation.org>
-Date: Wed, 2 Sep 2009 13:22:25 -0500 (CDT)
+Hi Uwe,
 
-> There may be a minor issue here in that IP_RECVERR sometimes sends error
-> packets that have to be intercepted using special code. Or can those be
-> simply ignored? If so then I will ask UDP app vendors to use IP_RECVERR.
+Uwe Kleine-K=C3=B6nig wrote:
+> fec_enet_mii, fec_enet_rx and fec_enet_tx are both only called by
+> fec_enet_interrupt in interrupt context.  So they must not use
+> spin_lock_irq/spin_unlock_irq.
+>=20
+> This fixes:
+> 	WARNING: at kernel/lockdep.c:2140 trace_hardirqs_on_caller+0x130/0x1=
+94()
+> 	...
+>=20
+> Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+> Cc: Greg Ungerer <gerg@uclinux.org>
 
-If you don't set MSG_ERRQUEUE, no special error reports will be
-given to the application.
+Looks good.
 
-And this only matters for recvmsg() handling.
+Acked-by: Greg Ungerer <gerg@uclinux.org>
 
-On send, the only behavior difference is this error code reporting
-(and before Eric's patch, SNMP statistics handling).
+
+> Cc: Ben Hutchings <ben@decadent.org.uk>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: Sascha Hauer <s.hauer@pengutronix.de>
+> Cc: Matt Waddel <Matt.Waddel@freescale.com>
+> Cc: netdev@vger.kernel.org
+> Cc: Tim Sander <tim01@vlsi.informatik.tu-darmstadt.de>
+> ---
+>  drivers/net/fec.c |   12 ++++++------
+>  1 files changed, 6 insertions(+), 6 deletions(-)
+>=20
+> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+> index ef82606..9c49d56 100644
+> --- a/drivers/net/fec.c
+> +++ b/drivers/net/fec.c
+> @@ -427,7 +427,7 @@ fec_enet_tx(struct net_device *dev)
+>  	struct	sk_buff	*skb;
+> =20
+>  	fep =3D netdev_priv(dev);
+> -	spin_lock_irq(&fep->hw_lock);
+> +	spin_lock(&fep->hw_lock);
+>  	bdp =3D fep->dirty_tx;
+> =20
+>  	while (((status =3D bdp->cbd_sc) & BD_ENET_TX_READY) =3D=3D 0) {
+> @@ -486,7 +486,7 @@ fec_enet_tx(struct net_device *dev)
+>  		}
+>  	}
+>  	fep->dirty_tx =3D bdp;
+> -	spin_unlock_irq(&fep->hw_lock);
+> +	spin_unlock(&fep->hw_lock);
+>  }
+> =20
+> =20
+> @@ -509,7 +509,7 @@ fec_enet_rx(struct net_device *dev)
+>  	flush_cache_all();
+>  #endif
+> =20
+> -	spin_lock_irq(&fep->hw_lock);
+> +	spin_lock(&fep->hw_lock);
+> =20
+>  	/* First, grab all of the stats for the incoming packet.
+>  	 * These get messed up if we get called due to a busy condition.
+> @@ -604,7 +604,7 @@ rx_processing_done:
+>  	}
+>  	fep->cur_rx =3D bdp;
+> =20
+> -	spin_unlock_irq(&fep->hw_lock);
+> +	spin_unlock(&fep->hw_lock);
+>  }
+> =20
+>  /* called from interrupt context */
+> @@ -615,7 +615,7 @@ fec_enet_mii(struct net_device *dev)
+>  	mii_list_t	*mip;
+> =20
+>  	fep =3D netdev_priv(dev);
+> -	spin_lock_irq(&fep->mii_lock);
+> +	spin_lock(&fep->mii_lock);
+> =20
+>  	if ((mip =3D mii_head) =3D=3D NULL) {
+>  		printk("MII and no head!\n");
+> @@ -633,7 +633,7 @@ fec_enet_mii(struct net_device *dev)
+>  		writel(mip->mii_regval, fep->hwp + FEC_MII_DATA);
+> =20
+>  unlock:
+> -	spin_unlock_irq(&fep->mii_lock);
+> +	spin_unlock(&fep->mii_lock);
+>  }
+> =20
+>  static int
+
+--=20
+-----------------------------------------------------------------------=
