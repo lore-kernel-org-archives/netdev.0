@@ -1,36 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net/ethtool: Add support for the ethtool
- feature to flash firmware image from a specified file.
-Date: Wed, 02 Sep 2009 23:10:07 -0700 (PDT)
-Message-ID: <20090902.231007.117713606.davem@davemloft.net>
-References: <20090903030241.GA19390@serverengines.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH][RESEND] tcp: replace hard coded GFP_KERNEL with
+ sk_allocation
+Date: Wed, 02 Sep 2009 23:10:17 -0700 (PDT)
+Message-ID: <20090902.231017.31926895.davem@davemloft.net>
+References: <20090903040407.GA20094@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
-To: ajitk@serverengines.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41285
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754452AbZICGJw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 02:09:52 -0400
-In-Reply-To: <20090903030241.GA19390@serverengines.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090903040407.GA20094@localhost>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ajit Khaparde <ajitk@serverengines.com>
-Date: Thu, 3 Sep 2009 08:32:55 +0530
+From: Wu Fengguang <fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Date: Thu, 3 Sep 2009 12:04:07 +0800
 
-> This patch adds support to flash a firmware image to a device using ethtool.
-> The driver gets the filename of the firmware image and flashes the image
-> using the request firmware path.
+> This fixed a lockdep warning which appeared when doing stress
+> memory tests over NFS:
 > 
-> The region "on the chip" to be flashed can be specified by an option.
-> It is upto the device driver to enumerate the region number passed by ethtool,
-> to the region to be flashed.
+> 	inconsistent {RECLAIM_FS-ON-W} -> {IN-RECLAIM_FS-W} usage.
 > 
-> The default behavior is to flash all the regions on the chip.
+> 	page reclaim => nfs_writepage => tcp_sendmsg => lock sk_lock
 > 
-> Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+> 	mount_root => nfs_root_data => tcp_close => lock sk_lock =>
+> 			tcp_send_fin => alloc_skb_fclone => page reclaim
+> 
+> David raised a concern that if the allocation fails in tcp_send_fin(), and it's
+> GFP_ATOMIC, we are going to yield() (which sleeps) and loop endlessly waiting
+> for the allocation to succeed.
+> 
+> But fact is, the original GFP_KERNEL also sleeps. GFP_ATOMIC+yield() looks
+> weird, but it is no worse the implicit sleep inside GFP_KERNEL. Both could
+> loop endlessly under memory pressure.
+> 
+> CC: Arnaldo Carvalho de Melo <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>
+> CC: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> CC: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+> Signed-off-by: Wu Fengguang <fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-Applied to net-next-2.6, thanks.
+Applied to net-next-2.6, thanks!
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
