@@ -1,79 +1,76 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] slub: fix slab_pad_check()
-Date: Thu, 03 Sep 2009 16:08:06 +0200
-Message-ID: <4A9FCDC6.3060003@gmail.com>
-References: <c4e36d110908110542l3de51aaepcbd62c84b9848f2b@mail.gmail.com>  <alpine.DEB.1.10.0908121820410.3257@gentwo.org>  <c4e36d110908131009l78b29bffvb4d41b90f9b83288@mail.gmail.com>  <c4e36d110908140233v59421ba6y82192b858210370d@mail.gmail.com>  <4A87CE60.4020506@gmail.com> <4A896324.3040104@trash.net>  <c4e36d110909021445l5f44183es9e338437dfbbd195@mail.gmail.com>  <4A9EEF07.5070800@gmail.com>  <c4e36d110909021531v324a9ce2x3ff2c93b7c5a57de@mail.gmail.com>  <4A9F1620.2080105@gmail.com> <84144f020909022331x2b275aa5n428f88670e0ae8bc@mail.gmail.com> <4A9F7283.1090306@gmail.com> <alpine.DEB.1.10.0909031244230.27903@V090114053VZO-1>
+Subject: Re: [PATCH net-next-2.6] ip: Report qdisc packet drops
+Date: Thu, 03 Sep 2009 16:12:21 +0200
+Message-ID: <4A9FCEC5.80409@gmail.com>
+References: <4A98132C.8090105@gmail.com> <20090828.233858.256193304.davem@davemloft.net> <4A9BBD8E.2010303@gmail.com> <20090901.184121.06750444.davem@davemloft.net> <4A9E849A.30105@gmail.com> <4A9EF113.9030102@gmail.com> <alpine.DEB.1.10.0909031255490.27903@V090114053VZO-1>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
-	Zdenek Kabelac <zdenek.kabelac@gmail.com>,
-	Patrick McHardy <kaber@trash.net>, Robin Holt <holt@sgi.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Jesper Dangaard Brouer <hawk@comx.dk>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	paulmck@linux.vnet.ibm.com
+Cc: David Miller <davem@davemloft.net>, sri@us.ibm.com,
+	dlstevens@us.ibm.com, netdev@vger.kernel.org,
+	niv@linux.vnet.ibm.com, mtk.manpages@gmail.com
 To: Christoph Lameter <cl@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755503AbZICOLe@vger.kernel.org>
-In-Reply-To: <alpine.DEB.1.10.0909031244230.27903@V090114053VZO-1>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:35984 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755336AbZICOM3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 10:12:29 -0400
+In-Reply-To: <alpine.DEB.1.10.0909031255490.27903@V090114053VZO-1>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Christoph Lameter a =E9crit :
 > On Thu, 3 Sep 2009, Eric Dumazet wrote:
+>> index 29ebb0d..ebaaa7f 100644
+>> --- a/net/ipv4/udp.c
+>> +++ b/net/ipv4/udp.c
+>> @@ -561,12 +561,18 @@ static int udp_push_pending_frames(struct sock=
+ *sk)
+>>
+>>  send:
+>>  	err =3D ip_push_pending_frames(sk);
+>> +	if (err) {
+>> +		if (err =3D=3D -ENOBUFS && !inet->recverr) {
+>> +			UDP_INC_STATS_USER(sock_net(sk),
+>> +					   UDP_MIB_SNDBUFERRORS, is_udplite);
 >=20
->> on a SLAB_DESTROY_BY_RCU cache, there is no need to try to optimize =
-this
->> rcu_barrier() call, unless we want superfast reboot/halt sequences..=
-=2E
+> This means that we now do not increment SNDBUFERRORS if IP_RECVERR is=
+ set.
 >=20
-> I stilll think that the action to quiesce rcu is something that the c=
-aller
-> of kmem_cache_destroy must take care of.
-
-Do you mean :
-
-if (kmem_cache_shrink(s) =3D=3D 0) {
-	rcu_barrier();
-	kmem_cache_destroy_no_rcu_barrier(s);
-} else {
-	kmem_cache_destroy_with_rcu_barrier_because_SLAB_DESTROY_BY_RCU_cache(=
-s);
-}
-
-What would be the point ?
-
-
-
+> I think it would be better to move UDP_INC_STATS_USER before the if
+> statement. That will also simplify the code further.
 >=20
-> Could you split this into two patches: One that addresses the poison =
-and
-> another that deals with rcu?
 >=20
 
-Sure, here is the poison thing
+I believe you already said this once Christoph on a previous patch, and=
+ I=20
+replied that in case of IP_RECVERR set, udp_push_pending_frames()
+returns -ENOBUFS to its caller : udp_sendmsg()
 
-[PATCH] slub: fix slab_pad_check()
+And the caller takes care of :
 
-When SLAB_POISON is used and slab_pad_check() finds an overwrite of the
-slab padding, we call restore_bytes() on the whole slab, not only
-on the padding.
+out:
+        ip_rt_put(rt);
+        if (free)
+                kfree(ipc.opt);
+        if (!err)
+                return len;
+        /*
+         * ENOBUFS =3D no kernel mem, SOCK_NOSPACE =3D no sndbuf space.=
+  Reporting
+         * ENOBUFS might not be good (it's not tunable per se), but oth=
+erwise
+         * we don't have a good statistic (IpOutDiscards but it can be =
+too many
+         * things).  We could add another new stat but at least for now=
+ that
+         * seems like overkill.
+         */
+        if (err =3D=3D -ENOBUFS || test_bit(SOCK_NOSPACE, &sk->sk_socke=
+t->flags)) {
+                UDP_INC_STATS_USER(sock_net(sk),
+                                UDP_MIB_SNDBUFERRORS, is_udplite);
+        }
+        return err;
 
-Reported-by: Zdenek Kabelac <zdenek.kabelac@gmail.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-diff --git a/mm/slub.c b/mm/slub.c
-index b9f1491..0ac839f 100644
---- a/mm/slub.c
-+++ b/mm/slub.c
-@@ -646,7 +646,7 @@ static int slab_pad_check(struct kmem_cache *s, str=
-uct page *page)
- 	slab_err(s, page, "Padding overwritten. 0x%p-0x%p", fault, end - 1);
- 	print_section("Padding", end - remainder, remainder);
-=20
--	restore_bytes(s, "slab padding", POISON_INUSE, start, end);
-+	restore_bytes(s, "slab padding", POISON_INUSE, end - remainder, end);
- 	return 0;
- }
-=20
+
