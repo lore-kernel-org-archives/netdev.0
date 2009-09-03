@@ -1,78 +1,79 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [RFC] net/fs_enet: send a reset request to the PHY on init
-Date: Thu, 3 Sep 2009 10:48:34 -0600
-Message-ID: <fa686aa40909030948h4acf6d3x1c318baa2fdefe1f@mail.gmail.com>
-References: <20090902110410.GC15401@www.tglx.de>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: [PATCH] slub: fix slab_pad_check()
+Date: Thu, 3 Sep 2009 14:24:17 -0500 (CDT)
+Message-ID: <alpine.DEB.1.10.0909031414310.29881@V090114053VZO-1>
+References: <c4e36d110908110542l3de51aaepcbd62c84b9848f2b@mail.gmail.com>  <alpine.DEB.1.10.0908121820410.3257@gentwo.org>  <c4e36d110908131009l78b29bffvb4d41b90f9b83288@mail.gmail.com>  <c4e36d110908140233v59421ba6y82192b858210370d@mail.gmail.com>
+ <4A87CE60.4020506@gmail.com> <4A896324.3040104@trash.net>  <c4e36d110909021445l5f44183es9e338437dfbbd195@mail.gmail.com>  <4A9EEF07.5070800@gmail.com>  <c4e36d110909021531v324a9ce2x3ff2c93b7c5a57de@mail.gmail.com>  <4A9F1620.2080105@gmail.com>
+ <84144f020909022331x2b275aa5n428f88670e0ae8bc@mail.gmail.com> <4A9F7283.1090306@gmail.com> <alpine.DEB.1.10.0909031244230.27903@V090114053VZO-1> <4A9FCDC6.3060003@gmail.com> <alpine.DEB.1.10.0909031335430.29881@V090114053VZO-1>
+ <4A9FDA72.8060001@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	Vitaly Bordug <vbordug@ru.mvista.com>
-To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20090902110410.GC15401@www.tglx.de>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	Zdenek Kabelac <zdenek.kabelac@gmail.com>,
+	Patrick McHardy <kaber@trash.net>, Robin Holt <holt@sgi.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Jesper Dangaard Brouer <hawk@comx.dk>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>,
+	paulmck@linux.vnet.ibm.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4A9FDA72.8060001@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 2, 2009 at 5:04 AM, Sebastian Andrzej
-Siewior<bigeasy@linutronix.de> wrote:
-> Usually u-boot sends a phy request in its network init routine. An uboot
-> without network support doesn't do it and I endup without working
-> network. I still can switch between 10/100Mbit (according to the LED on
-> the hub and phy registers) but I can't send or receive any data.
+On Thu, 3 Sep 2009, Eric Dumazet wrote:
+
+> Point is we cannot deal with RCU quietness before disposing the slab cache,
+> (if SLAB_DESTROY_BY_RCU was set on the cache) since this disposing *will*
+> make call_rcu() calls when a full slab is freed/purged.
+
+There is no need to do call_rcu calls for frees at that point since
+objects are no longer in use. We could simply disable SLAB_DESTROY_BY_RCU
+for the final clearing of caches.
+
+> And when RCU grace period is elapsed, the callback *will* need access to
+> the cache we want to dismantle. Better to not have kfreed()/poisoned it...
+
+But going through the RCU period is pointless since no user of the cache
+remains.
+
+> I believe you mix two RCU uses here.
 >
-> At this point I'm not sure if the PowerON Reset takes the PHY a few
-> nsecs too early out of reset or if this reset is required and everyone
-> relies on U-boot performing this reset.
+> 1) The one we all know, is use normal caches (!SLAB_DESTROY_BY_RCU)
+> (or kmalloc()), and use call_rcu(... kfree_something)
 >
-> Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-> ---
-> This is done on a custom mpc512x board. Unfortunately I don't have other
-> boards to check. The PHY is a AMD Am79C874, phylib uses the generic one.
+>    In this case, you are 100% right that the subsystem itself has
+>    to call rcu_barrier() (or respect whatever self-synchro) itself,
+>    before calling kmem_cache_destroy()
 >
-> =A0drivers/net/fs_enet/fs_enet-main.c | =A0 =A03 ++-
-> =A01 files changed, 2 insertions(+), 1 deletions(-)
+> 2) The SLAB_DESTROY_BY_RCU one.
 >
-> diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_=
-enet-main.c
-> index ee15402..a3c962b 100644
-> --- a/drivers/net/fs_enet/fs_enet-main.c
-> +++ b/drivers/net/fs_enet/fs_enet-main.c
-> @@ -823,7 +823,8 @@ static int fs_init_phy(struct net_device *dev)
-> =A0 =A0 =A0 =A0}
->
-> =A0 =A0 =A0 =A0fep->phydev =3D phydev;
-> -
-> + =A0 =A0 =A0 phy_write(phydev, MII_BMCR, BMCR_RESET);
-> + =A0 =A0 =A0 udelay(1);
+>    Part of cache dismantle needs to call rcu_barrier() itself.
+>    Caller doesnt have to use rcu_barrier(). It would be a waste of time,
+>    as kmem_cache_destroy() will refill rcu wait queues with its own stuff.
 
-What version of the kernel are you using?  The line numbers don't
-match up with kernel mainline, so I wonder if this is before or after
-the OF MDIO rework changes.
+The dismantling does not need RCU since there are no operations on the
+objects in progress. So simply switch DESTROY_BY_RCU off for close.
 
-Regardless, this doesn't look right.  It certainly isn't right for the
-driver to do an unconditional PHY reset when it doesn't actually know
-what phy is attached.  For most boards I'm sure this is not desirable
-because it will cause a delay while the PHY auto negotiates.
-Depending on when the first network traffic begins, can cause several
-seconds of boot delay.
 
-Best would be to do this in U-Boot.  Otherwise, I think I would rather
-see it at phy_device probe time.  At least then it would be on a
-per-phy basis, or could be controlled by a property in the device tree
-so that all boards don't get the same impact.
+---
+ mm/slub.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-g.
-
--- =
-
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+Index: linux-2.6/mm/slub.c
+===================================================================
+--- linux-2.6.orig/mm/slub.c	2009-09-03 10:14:51.000000000 -0500
++++ linux-2.6/mm/slub.c	2009-09-03 10:18:32.000000000 -0500
+@@ -2594,9 +2594,9 @@ static inline int kmem_cache_close(struc
+  */
+ void kmem_cache_destroy(struct kmem_cache *s)
+ {
+-	if (s->flags & SLAB_DESTROY_BY_RCU)
+-		rcu_barrier();
+ 	down_write(&slub_lock);
++	/* Stop deferring frees so that we can immediately free structures */
++	s->flags &= ~SLAB_DESTROY_BY_RCU;
+ 	s->refcount--;
+ 	if (!s->refcount) {
+ 		list_del(&s->list);
