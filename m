@@ -1,62 +1,76 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NET] Add proc file to display the state of all qdiscs.
-Date: Thu, 03 Sep 2009 16:29:48 +0200
-Message-ID: <4A9FD2DC.7070807@trash.net>
-References: <20090902081429.GB4878@ff.dom.local> <4A9E2CC7.1010103@gmail.com> <alpine.DEB.1.10.0909021313160.27987@V090114053VZO-1> <Pine.LNX.4.64.0909031617060.28935@ask.diku.dk>
+From: Zdenek Kabelac <zdenek.kabelac@gmail.com>
+Subject: Re: [PATCH] slub: fix slab_pad_check() and SLAB_DESTROY_BY_RCU
+Date: Thu, 3 Sep 2009 16:35:08 +0200
+Message-ID: <c4e36d110909030735q338efd00m2f6fe0b973c68e7b@mail.gmail.com>
+References: <c4e36d110908110542l3de51aaepcbd62c84b9848f2b@mail.gmail.com>
+	 <c4e36d110908140233v59421ba6y82192b858210370d@mail.gmail.com>
+	 <4A87CE60.4020506@gmail.com> <4A896324.3040104@trash.net>
+	 <c4e36d110909021445l5f44183es9e338437dfbbd195@mail.gmail.com>
+	 <4A9EEF07.5070800@gmail.com>
+	 <c4e36d110909021531v324a9ce2x3ff2c93b7c5a57de@mail.gmail.com>
+	 <4A9F1620.2080105@gmail.com>
+	 <c4e36d110909030628j53cc0abfq6c1eef7e5e97565b@mail.gmail.com>
+	 <4A9FC8B1.904@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Lameter <cl@linux-foundation.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <hawk@diku.dk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:40594 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752595AbZICO3u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 10:29:50 -0400
-In-Reply-To: <Pine.LNX.4.64.0909031617060.28935@ask.diku.dk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Robin Holt <holt@sgi.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Jesper Dangaard Brouer <hawk@comx.dk>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4A9FC8B1.904@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jesper Dangaard Brouer wrote:
-> 
-> On Wed, 2 Sep 2009, Christoph Lameter wrote:
->> On Wed, 2 Sep 2009, Eric Dumazet wrote:
->>
->>> Same name "eth0" is displayed, that might confuse parsers...
+2009/9/3 Eric Dumazet <eric.dumazet@gmail.com>:
+> Zdenek Kabelac a =E9crit :
+>> 2009/9/3 Eric Dumazet <eric.dumazet@gmail.com>:
+>>> Zdenek Kabelac a =E9crit :
+>>>> Well I'm not noticing any ill behavior - also note - rcu_barrier()=
+ is
+>>>> there before the cache is destroyed.
+>>>> But as I said - it's just my shot into the dark - which seems to w=
+ork for me...
+>>>>
+>>> Reading again your traces, I do believe there are two bugs in slub
 >>>
->>> What naming convention should we choose for multiqueue devices ?
+>>> Maybe not explaining your problem, but worth to fix !
+>>>
+>>> Thank you
+>>>
+>>> [PATCH] slub: fix slab_pad_check() and SLAB_DESTROY_BY_RCU
+>>>
 >>
->> eth0/tx<number> ?
-> 
-> Remember that we already have a naming convention in /proc/interrupts
-> 
->  eth0-tx-<number>
-> 
-> Lets not introduce too many new once ;-)
+>>
+>> Ok - I can confirm that this patch fixes my reboot problem.
+>>
+>> Thanks
+>>
+>> Zdenek
+>
+> Good news !
+>
+> Hmm... but you had a problem with a 2.6.29.something kernel if I reme=
+mber well ?
+>
+> At that time, conntrack did not use SLAB_DESTROY_BY_RCU yet.
 
-The approach I'm currently working on will present multiqueue root
-qdiscs as children of a dummy classful qdisc. This avoids handle
-clashes and the need for new identifiers and allows to address each
-qdisc seperately, similar to how it works with other classful qdiscs:
+Yes - but it was also giving different error message - which even not
+loaded ftp conntrack module. Basically it has been fine until
+conntrack started to use rcu. From that moment various errors started
+to appear with slub and some kernel debugging options - slab was fine.
+With your recent patch it's the first time I do not see oops with nf
+after 2.6.29 kernel.
 
-qdisc mq 1: root refcnt 2
- Sent 126 bytes 3 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
-
-class mq 1:1 root leaf 8001:
- Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
- backlog 0b 0p requeues 0
-class mq 1:2 root leaf 8002:
- Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
- backlog 0b 0p requeues 0
-class mq 1:3 root leaf 8003:
- Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
- backlog 0b 0p requeues 0
-class mq 1:4 root leaf 8004:
- Sent 126 bytes 3 pkt (dropped 0, overlimits 0 requeues 0)
- backlog 0b 0p requeues 0
-
-Its a bit tricky though so I'm likely going to need a few more hours.
+Zdenek
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
