@@ -1,48 +1,78 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: Re: [PATCH 1/9] task_struct: add PF_NONOTIFY for fanotify to use
-Date: Thu, 03 Sep 2009 16:25:49 -0400
-Message-ID: <1252009549.2425.42.camel@dhcp231-106.rdu.redhat.com>
-References: <20090828185542.8014.22791.stgit@paris.rdu.redhat.com>
-	 <20090828223626.GA8283@ioremap.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH 1/3] netdev: Remove SIOCDEVPRIVATE aliases for MDIO ioctls
+Date: Thu, 03 Sep 2009 21:38:33 +0100
+Message-ID: <1252010313.2781.14.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	viro@zeniv.linux.org.uk, alan@linux.intel.com, hch@infradead.org
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20090828223626.GA8283@ioremap.net>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:49357 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752384AbZICUid (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 16:38:33 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On Fri, Aug 28, 2009 at 02:55:42PM -0400, Eric Paris (eparis@redhat.com) wrote:
-> > Since fanotify opens file descriptors inside the kernel for it's listeners
-> > it needs a way to make sure that 2 fanotify listeners, both which listen to
-> > open events do not continuously see each others open events (and get into a
-> > livelock reporting on each other's activity).  This fix is to create a new
-> > tast_struct flags called PF_NONOTIFY.  If this flag is set in a task no
-> > fanotify events will be generated for that task.   fanotify will set the
-> > flag before and open call and will clear it immediately after.
+The standard MDIO ioctl numbers are well-established and these should
+no longer be needed.
 
-So this patch isn't actually needed, I thought the fsnotify_open() call
-was deeper than it is.  I'm going to drop this particular patch.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/ibm_newemac/core.c |    3 ---
+ drivers/net/natsemi.c          |    3 ---
+ 2 files changed, 0 insertions(+), 6 deletions(-)
 
-Can I take silence on the list as a lack of disagreement?  I'd like to
-start putting these into linux-next starting tomorrow.  Obviously I'd
-like to see the networking definitions approved and taken by davem, I'd
-like to see the FMODE_ change approved and taken by viro, but if you two
-would like me to push it directly I'd be happy to.
+diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/core.c
+index d7579e4..24ae671 100644
+--- a/drivers/net/ibm_newemac/core.c
++++ b/drivers/net/ibm_newemac/core.c
+@@ -2218,16 +2218,13 @@ static int emac_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
+ 
+ 	switch (cmd) {
+ 	case SIOCGMIIPHY:
+-	case SIOCDEVPRIVATE:
+ 		data[0] = dev->phy.address;
+ 		/* Fall through */
+ 	case SIOCGMIIREG:
+-	case SIOCDEVPRIVATE + 1:
+ 		data[3] = emac_mdio_read(ndev, dev->phy.address, data[1]);
+ 		return 0;
+ 
+ 	case SIOCSMIIREG:
+-	case SIOCDEVPRIVATE + 2:
+ 		if (!capable(CAP_NET_ADMIN))
+ 			return -EPERM;
+ 		emac_mdio_write(ndev, dev->phy.address, data[1], data[2]);
+diff --git a/drivers/net/natsemi.c b/drivers/net/natsemi.c
+index bd41351..b52e5d9 100644
+--- a/drivers/net/natsemi.c
++++ b/drivers/net/natsemi.c
+@@ -3053,12 +3053,10 @@ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 
+ 	switch(cmd) {
+ 	case SIOCGMIIPHY:		/* Get address of MII PHY in use. */
+-	case SIOCDEVPRIVATE:		/* for binary compat, remove in 2.5 */
+ 		data->phy_id = np->phy_addr_external;
+ 		/* Fall Through */
+ 
+ 	case SIOCGMIIREG:		/* Read MII PHY register. */
+-	case SIOCDEVPRIVATE+1:		/* for binary compat, remove in 2.5 */
+ 		/* The phy_id is not enough to uniquely identify
+ 		 * the intended target. Therefore the command is sent to
+ 		 * the given mii on the current port.
+@@ -3077,7 +3075,6 @@ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 		return 0;
+ 
+ 	case SIOCSMIIREG:		/* Write MII PHY register. */
+-	case SIOCDEVPRIVATE+2:		/* for binary compat, remove in 2.5 */
+ 		if (!capable(CAP_NET_ADMIN))
+ 			return -EPERM;
+ 		if (dev->if_port == PORT_TP) {
 
-Davem, maybe you'd rather my af_fanotify was somewhere inside net/
-instead of in fs/notify/fanotify?  I'd love to get some review here, but
-noone onlist is excited enough to step up.  (I have numerous people who
-have privately claimed they intend to use this stuff, so i promise it
-won't be dead code.)
-
-I'm ready to start committing and adding features, anyone telling me no?
-
--Eric
-
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
