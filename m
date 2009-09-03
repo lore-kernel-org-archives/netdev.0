@@ -1,59 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Christoph Lameter <cl@linux-foundation.org>
 Subject: Re: [PATCH] slub: fix slab_pad_check() and SLAB_DESTROY_BY_RCU
-Date: Thu, 03 Sep 2009 15:46:25 +0200
-Message-ID: <4A9FC8B1.904@gmail.com>
-References: <c4e36d110908110542l3de51aaepcbd62c84b9848f2b@mail.gmail.com>	 <alpine.DEB.1.10.0908121820410.3257@gentwo.org>	 <c4e36d110908131009l78b29bffvb4d41b90f9b83288@mail.gmail.com>	 <c4e36d110908140233v59421ba6y82192b858210370d@mail.gmail.com>	 <4A87CE60.4020506@gmail.com> <4A896324.3040104@trash.net>	 <c4e36d110909021445l5f44183es9e338437dfbbd195@mail.gmail.com>	 <4A9EEF07.5070800@gmail.com>	 <c4e36d110909021531v324a9ce2x3ff2c93b7c5a57de@mail.gmail.com>	 <4A9F1620.2080105@gmail.com> <c4e36d110909030628j53cc0abfq6c1eef7e5e97565b@mail.gmail.com>
+Date: Thu, 3 Sep 2009 12:45:43 -0500 (CDT)
+Message-ID: <alpine.DEB.1.10.0909031244230.27903@V090114053VZO-1>
+References: <c4e36d110908110542l3de51aaepcbd62c84b9848f2b@mail.gmail.com>  <alpine.DEB.1.10.0908121820410.3257@gentwo.org>  <c4e36d110908131009l78b29bffvb4d41b90f9b83288@mail.gmail.com>  <c4e36d110908140233v59421ba6y82192b858210370d@mail.gmail.com>
+ <4A87CE60.4020506@gmail.com> <4A896324.3040104@trash.net>  <c4e36d110909021445l5f44183es9e338437dfbbd195@mail.gmail.com>  <4A9EEF07.5070800@gmail.com>  <c4e36d110909021531v324a9ce2x3ff2c93b7c5a57de@mail.gmail.com>  <4A9F1620.2080105@gmail.com>
+ <84144f020909022331x2b275aa5n428f88670e0ae8bc@mail.gmail.com> <4A9F7283.1090306@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Robin Holt <holt@sgi.com>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	Zdenek Kabelac <zdenek.kabelac@gmail.com>,
+	Patrick McHardy <kaber@trash.net>, Robin Holt <holt@sgi.com>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
 	Jesper Dangaard Brouer <hawk@comx.dk>,
 	Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>
-To: Zdenek Kabelac <zdenek.kabelac@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <c4e36d110909030628j53cc0abfq6c1eef7e5e97565b@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+	Netfilter Developers <netfilter-devel@vger.kernel.org>,
+	paulmck@linux.vnet.ibm.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755364AbZICNsF@vger.kernel.org>
+In-Reply-To: <4A9F7283.1090306@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Zdenek Kabelac a =E9crit :
-> 2009/9/3 Eric Dumazet <eric.dumazet@gmail.com>:
->> Zdenek Kabelac a =E9crit :
->>> Well I'm not noticing any ill behavior - also note - rcu_barrier() =
-is
->>> there before the cache is destroyed.
->>> But as I said - it's just my shot into the dark - which seems to wo=
-rk for me...
->>>
->> Reading again your traces, I do believe there are two bugs in slub
->>
->> Maybe not explaining your problem, but worth to fix !
->>
->> Thank you
->>
->> [PATCH] slub: fix slab_pad_check() and SLAB_DESTROY_BY_RCU
->>
->=20
->=20
-> Ok - I can confirm that this patch fixes my reboot problem.
->=20
-> Thanks
->=20
-> Zdenek
+On Thu, 3 Sep 2009, Eric Dumazet wrote:
 
-Good news !
+> on a SLAB_DESTROY_BY_RCU cache, there is no need to try to optimize this
+> rcu_barrier() call, unless we want superfast reboot/halt sequences...
 
-Hmm... but you had a problem with a 2.6.29.something kernel if I rememb=
-er well ?
+I stilll think that the action to quiesce rcu is something that the caller
+of kmem_cache_destroy must take care of.
 
-At that time, conntrack did not use SLAB_DESTROY_BY_RCU yet.
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Could you split this into two patches: One that addresses the poison and
+another that deals with rcu?
