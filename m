@@ -1,33 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] ip: Report qdisc packet drops
-Date: Wed, 02 Sep 2009 18:05:53 -0700 (PDT)
-Message-ID: <20090902.180553.103795263.davem@davemloft.net>
-References: <20090901.184121.06750444.davem@davemloft.net>
-	<4A9E849A.30105@gmail.com>
-	<4A9EF113.9030102@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] vlan: multiqueue vlan devices
+Date: Thu, 03 Sep 2009 03:05:54 +0200
+Message-ID: <4A9F1672.2060304@gmail.com>
+References: <4A9EBF9C.2030904@gmail.com>	<20090902120107.15146e4e@nehalam>	<4A9EC383.4070304@gmail.com> <20090902.180401.155663057.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: cl@linux-foundation.org, sri@us.ibm.com, dlstevens@us.ibm.com,
-	netdev@vger.kernel.org, niv@linux.vnet.ibm.com,
-	mtk.manpages@gmail.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, brian.haley@hp.com, kaber@trash.net,
+	jarkao2@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56529
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753955AbZICBFj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 21:05:39 -0400
-In-Reply-To: <4A9EF113.9030102@gmail.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:55050 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753959AbZICBF7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2009 21:05:59 -0400
+In-Reply-To: <20090902.180401.155663057.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 03 Sep 2009 00:26:27 +0200
+David Miller a =E9crit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 02 Sep 2009 21:12:03 +0200
+>=20
+>> [PATCH net-next-2.6] vlan: multiqueue vlan device
+>>
+>> vlan devices are currently not multi-queue capable.
+>>
+>> We can do that with a new rtnl_link_ops method,
+>> get_tx_queues(), called from rtnl_create_link()
+>>
+>> This new method gets num_tx_queues/real_num_tx_queues
+>> from real device.
+>>
+>> register_vlan_device() is also handled.
+>>
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> Applied, but now I need you to do an audit :-)
+>=20
+> I believe that drivers will change the number of TX queues
+> in use at times where we'll need to trigger an event or
+> something so that vlan's can learn about the value changing.
 
-> Here is an updated version of the patch, after Christoph comments.
-> 
-> 
-> 
-> [PATCH net-next-2.6] ip: Report qdisc packet drops
+Yes, I know :)
 
-Looks great, applied!
+This is why I kept both num_tx_queues and real_num_tx_queues values,
+and not the later :)
+
+Thanks
