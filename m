@@ -1,39 +1,61 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] slub: fix slab_pad_check() and SLAB_DESTROY_BY_RCU
-Date: Thu, 3 Sep 2009 08:00:44 -0700
-Message-ID: <20090903150044.GB6761@linux.vnet.ibm.com>
-References: <c4e36d110908140233v59421ba6y82192b858210370d@mail.gmail.com> <4A87CE60.4020506@gmail.com> <4A896324.3040104@trash.net> <c4e36d110909021445l5f44183es9e338437dfbbd195@mail.gmail.com> <4A9EEF07.5070800@gmail.com> <c4e36d110909021531v324a9ce2x3ff2c93b7c5a57de@mail.gmail.com> <4A9F1620.2080105@gmail.com> <84144f020909022331x2b275aa5n428f88670e0ae8bc@mail.gmail.com> <4A9F7283.1090306@gmail.com> <alpine.DEB.1.10.0909031244230.27903@V090114053VZO-1>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Subject: RE: 2.6.31 ARP related problems
+Date: Thu, 3 Sep 2009 09:07:31 -0700
+Message-ID: <80769D7B14936844A23C0C43D9FBCF0F12BF556AF0@orsmsx501.amr.corp.intel.com>
+References: <Pine.LNX.4.64.0909011347350.19568@zuben.voltaire.com>
+	<m163c2ztrf.fsf@fess.ebiederm.org> <4A9E62FB.6090000@Voltaire.com>
+ <5f2db9d90909020747k23be99d3xc27d6c668351bf60@mail.gmail.com>
+ <4A9F7885.8080402@Voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Zdenek Kabelac <zdenek.kabelac@gmail.com>,
-	Patrick McHardy <kaber@trash.net>, Robin Holt <holt@sgi.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Jesper Dangaard Brouer <hawk@comx.dk>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>
-To: Christoph Lameter <cl@linux-foundation.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.1.10.0909031244230.27903@V090114053VZO-1>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>
+To: Or Gerlitz <ogerlitz@Voltaire.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:15137 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755895AbZICQHs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 12:07:48 -0400
+In-Reply-To: <4A9F7885.8080402@Voltaire.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 03, 2009 at 12:45:43PM -0500, Christoph Lameter wrote:
-> On Thu, 3 Sep 2009, Eric Dumazet wrote:
+Or Gerlitz wrote:
+> Alexander Duyck wrote:
+>> I don't suspect this has much of an effect on the Virtualization use
+>> case for SR-IOV since the VFs are meant to be direct assigned as PCI
+>> devices to the individual VMs  
 > 
-> > on a SLAB_DESTROY_BY_RCU cache, there is no need to try to optimize this
-> > rcu_barrier() call, unless we want superfast reboot/halt sequences...
+> I understand that eventually there will be scheme when VFs will be
+> directly assigned to the VM, but there are/will be many occasions
+> where a VF will serve as a virtual NIC in a Linux system e.g one
+> serving as a host but also other purposes (think on macvlan as
+> "software SR-IOV" where with your HW its the real thing).
 > 
-> I stilll think that the action to quiesce rcu is something that the caller
-> of kmem_cache_destroy must take care of.
-
-Why?
-
-							Thanx, Paul
-
-> Could you split this into two patches: One that addresses the poison and
-> another that deals with rcu?
+>> You can probably also reproduce the issue by placing multiple
+>> physical network interfaces on the same network segment if you saw
+>> the same effect on SR-IOV since that is essentially the effect the
+>> VFs create due to the switching logic built into the 82576   
+> Yes, as I managed to produce it with thee schemes: macvlan,
+> veth+bridge and SR-IOV, I believe something is just broken wrt to ARP
+> replies in 
+> 2.6.31 which is now in its rc8! I will try to look on that, and
+> hopefully we can fix it at least for -stable.
 > 
+> Or.
+> 
+> I wasn't sure to understand your "the effect the VFs create due to the
+> switching logic built into the 82576" comment, can you elaborate more
+> on that?
+
+The way the VFs work is that there is an L2 switch in the 82576 that is routing traffic between the PF, VFs, and the physical port.  It behaves very much like if you had multiple NICs connected to an external L2 switch with a gigabit uplink.  As such if you were to connect multiple physical ports to the same switch and configure them with addresses as you did with the VFs you should also see the same behavior.
+
+Thanks,
+
+Alex
