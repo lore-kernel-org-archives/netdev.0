@@ -1,67 +1,84 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Network hangs with 2.6.30.5
-Date: Thu, 3 Sep 2009 07:46:10 +0000
-Message-ID: <20090903074610.GA6000@ff.dom.local>
-References: <pan.2009.09.01.15.32.24.613750@googlemail.com>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: [PATCH] slub: fix slab_pad_check() and SLAB_DESTROY_BY_RCU
+Date: Thu, 3 Sep 2009 10:51:47 +0300
+Message-ID: <84144f020909030051u6cf6ae01he25c268f718ff3af@mail.gmail.com>
+References: <c4e36d110908110542l3de51aaepcbd62c84b9848f2b@mail.gmail.com>
+	 <c4e36d110908140233v59421ba6y82192b858210370d@mail.gmail.com>
+	 <4A87CE60.4020506@gmail.com> <4A896324.3040104@trash.net>
+	 <c4e36d110909021445l5f44183es9e338437dfbbd195@mail.gmail.com>
+	 <4A9EEF07.5070800@gmail.com>
+	 <c4e36d110909021531v324a9ce2x3ff2c93b7c5a57de@mail.gmail.com>
+	 <4A9F1620.2080105@gmail.com>
+	 <84144f020909022331x2b275aa5n428f88670e0ae8bc@mail.gmail.com>
+	 <4A9F7283.1090306@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Clifford Heath <clifford.heath@gmail.com>
-To: Holger Hoffstaette <holger.hoffstaette@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f217.google.com ([209.85.220.217]:43821 "EHLO
-	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752454AbZICHqO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 03:46:14 -0400
-Received: by fxm17 with SMTP id 17so1340665fxm.37
-        for <netdev@vger.kernel.org>; Thu, 03 Sep 2009 00:46:16 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <pan.2009.09.01.15.32.24.613750@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Zdenek Kabelac <zdenek.kabelac@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Robin Holt <holt@sgi.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Jesper Dangaard Brouer <hawk@comx.dk>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>,
+	paulmck@linux.vnet.ibm.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752407AbZICHvs@vger.kernel.org>
+In-Reply-To: <4A9F7283.1090306@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01-09-2009 17:32, Holger Hoffstaette wrote:
-> On Tue, 01 Sep 2009 16:17:08 +0200, Holger Hoffstaette wrote:
-> 
-> [network regressions in .30]
-> 
->> I do have an older Intel Gbit card identified thusly: 00:0b.0 Ethernet
->> controller: Intel Corporation 82545GM Gigabit Ethernet Controller (rev 04)
+Hi Eric,
+
+On Thu, Sep 3, 2009 at 10:38 AM, Eric Dumazet<eric.dumazet@gmail.com> w=
+rote:
+>> The rcu_barrier() call was added by this commit:
 >>
->> and enabled all sorts of offloading:
+>> http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=
+=3Dcommitdiff;h=3D7ed9f7e5db58c6e8c2b4b738a75d5dcd8e17aad5
 >>
->> $ethtool -k eth0
->> Offload parameters for eth0:
->> rx-checksumming: on
->> tx-checksumming: on
->> scatter-gather: on
->> tcp segmentation offload: on
->> udp fragmentation offload: off
->> generic segmentation offload: on
->>
->> Maybe that is the culprit, as Eric Dumazet suspected in his mail..I will
->> try the latest .30 stable again without that, but in any case something is
->> indeed very broken in there.
-> 
-> So I just tried .30.5 again. Indeed the offloading seems to play a role:
-> with everything enabled I cannot even reliably ssh into the machine (only
-> "sometimes"?); however without any offloading things get "a bit better"
-> and squid even serves up some pages..for a while. Then it seems to hang,
-> swallow requests or not finish them. The tested sites reliably work for
-> the Windows client when it bypasses squid, as does DNS (also served from
-> the box). It *seems* to affect incoming traffic more than outgoing - e.g.
-> mail or news polling seemed to kick off and finish just fine.
-> Rebooting back into .29 fixes everything. Last time I tried
-> .31rc-something (4 IIRC) it exhibited the same problems.
-> 
-> I'm open to suggestions and willing to help fix this but need this machine
-> for actual work. :/
+>> I guess we should CC Paul as well.
+>
+> Sure !
+>
+> rcu_barrier() is definitly better than synchronize_rcu() in
+> kmem_cache_destroy()
+>
+> But its location was not really right (for SLUB at least)
+>
+> SLAB_DESTROY_BY_RCU means subsystem will call kfree(elems) without wa=
+iting RCU
+> grace period.
+>
+> By the time subsystem calls kmem_cache_destroy(), all previously allo=
+cated
+> elems must have already be kfreed() by this subsystem.
+>
+> We must however wait that all slabs, queued for freeing by rcu_free_s=
+lab(),
+> are indeed freed, since this freeing needs access to kmem_cache point=
+er.
+>
+> As kmem_cache_close() might clean/purge the cache and call rcu_free_s=
+lab(),
+> we must call rcu_barrier() *after* kmem_cache_close(), and before kfr=
+ee(kmem_cache *s)
+>
+> Alternatively we could delay this final kfree(s) (with call_rcu()) bu=
+t would
+> have to copy s->name in kmem_cache_create() instead of keeping a poin=
+ter to
+> =A0a string that might be in a module, and freed at rmmod time.
+>
+> Given that there is few uses in current tree that call kmem_cache_des=
+troy()
+> on a SLAB_DESTROY_BY_RCU cache, there is no need to try to optimize t=
+his
+> rcu_barrier() call, unless we want superfast reboot/halt sequences...
 
-It seems, you and Clifford, use e1000 so it would be interesting to
-find out if it matters. Does your friend with working .30 use another
-card? If you can't try with another NIC, we could probably try to
-revert most of the driver's changes after .29 (except maybe 3) to
-check this driver only.
+Oh, sure, the fix looks sane to me. It's just that I am a complete
+coward when it comes to merging RCU related patches so I always try to
+fish an Acked-by from Paul or Christoph ;).
 
-Clifford, if it still doesn't work for you, could you try 2.6.29?
-
-Jarek P.
+                        Pekka
