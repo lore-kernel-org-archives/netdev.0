@@ -1,7 +1,7 @@
 From: Dan Williams <dan.j.williams@intel.com>
-Subject: [PATCH 25/29] iop-adma: implement a private tx_list
-Date: Thu, 03 Sep 2009 19:32:37 -0700
-Message-ID: <20090904023237.32667.25377.stgit@dwillia2-linux.ch.intel.com>
+Subject: [PATCH 28/29] dmaengine: kill tx_list
+Date: Thu, 03 Sep 2009 19:32:52 -0700
+Message-ID: <20090904023252.32667.51136.stgit@dwillia2-linux.ch.intel.com>
 References: <20090904022733.32667.77626.stgit@dwillia2-linux.ch.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,86 +9,59 @@ Content-Transfer-Encoding: 7bit
 Cc: linux-raid@vger.kernel.org, netdev@vger.kernel.org,
 	maciej.sosnowski@intel.com
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-raid-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:6001 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932833AbZIDCcu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Sep 2009 22:32:50 -0400
 In-Reply-To: <20090904022733.32667.77626.stgit@dwillia2-linux.ch.intel.com>
-Sender: linux-raid-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Drop iop-adma's use of tx_list from struct dma_async_tx_descriptor in
-preparation for removal of this field.
+The tx_list attribute of struct dma_async_tx_descriptor is common to
+most, but not all dma driver implementations.  None of the upper level
+code (dmaengine/async_tx) uses it, so allow drivers to implement it
+locally if they need it.  This saves sizeof(struct list_head) bytes for
+drivers that do not manage descriptors with a linked list (e.g.: ioatdma
+v2,3).
 
 Signed-off-by: Dan Williams <dan.j.williams@intel.com>
 ---
- arch/arm/include/asm/hardware/iop_adma.h |    2 ++
- drivers/dma/iop-adma.c                   |    9 +++++----
- 2 files changed, 7 insertions(+), 4 deletions(-)
+ drivers/dma/dmaengine.c   |    1 -
+ include/linux/dmaengine.h |    3 ---
+ 2 files changed, 0 insertions(+), 4 deletions(-)
 
-diff --git a/arch/arm/include/asm/hardware/iop_adma.h b/arch/arm/include/asm/hardware/iop_adma.h
-index 385c6e8..95dc133 100644
---- a/arch/arm/include/asm/hardware/iop_adma.h
-+++ b/arch/arm/include/asm/hardware/iop_adma.h
-@@ -86,6 +86,7 @@ struct iop_adma_chan {
-  * @idx: pool index
-  * @unmap_src_cnt: number of xor sources
-  * @unmap_len: transaction bytecount
-+ * @tx_list: list of descriptors that are associated with one operation
-  * @async_tx: support for the async_tx api
-  * @group_list: list of slots that make up a multi-descriptor transaction
-  *	for example transfer lengths larger than the supported hw max
-@@ -102,6 +103,7 @@ struct iop_adma_desc_slot {
- 	u16 idx;
- 	u16 unmap_src_cnt;
- 	size_t unmap_len;
-+	struct list_head tx_list;
- 	struct dma_async_tx_descriptor async_tx;
- 	union {
- 		u32 *xor_check_result;
-diff --git a/drivers/dma/iop-adma.c b/drivers/dma/iop-adma.c
-index 2f05226..9f6c16f 100644
---- a/drivers/dma/iop-adma.c
-+++ b/drivers/dma/iop-adma.c
-@@ -370,7 +370,7 @@ retry:
- 			}
- 			alloc_tail->group_head = alloc_start;
- 			alloc_tail->async_tx.cookie = -EBUSY;
--			list_splice(&chain, &alloc_tail->async_tx.tx_list);
-+			list_splice(&chain, &alloc_tail->tx_list);
- 			iop_chan->last_used = last_used;
- 			iop_desc_clear_next_desc(alloc_start);
- 			iop_desc_clear_next_desc(alloc_tail);
-@@ -429,7 +429,7 @@ iop_adma_tx_submit(struct dma_async_tx_descriptor *tx)
+diff --git a/drivers/dma/dmaengine.c b/drivers/dma/dmaengine.c
+index 5a87384..562d182 100644
+--- a/drivers/dma/dmaengine.c
++++ b/drivers/dma/dmaengine.c
+@@ -933,7 +933,6 @@ void dma_async_tx_descriptor_init(struct dma_async_tx_descriptor *tx,
+ {
+ 	tx->chan = chan;
+ 	spin_lock_init(&tx->lock);
+-	INIT_LIST_HEAD(&tx->tx_list);
+ }
+ EXPORT_SYMBOL(dma_async_tx_descriptor_init);
  
- 	old_chain_tail = list_entry(iop_chan->chain.prev,
- 		struct iop_adma_desc_slot, chain_node);
--	list_splice_init(&sw_desc->async_tx.tx_list,
-+	list_splice_init(&sw_desc->tx_list,
- 			 &old_chain_tail->chain_node);
- 
- 	/* fix up the hardware chain */
-@@ -496,6 +496,7 @@ static int iop_adma_alloc_chan_resources(struct dma_chan *chan)
- 
- 		dma_async_tx_descriptor_init(&slot->async_tx, chan);
- 		slot->async_tx.tx_submit = iop_adma_tx_submit;
-+		INIT_LIST_HEAD(&slot->tx_list);
- 		INIT_LIST_HEAD(&slot->chain_node);
- 		INIT_LIST_HEAD(&slot->slot_node);
- 		hw_desc = (char *) iop_chan->device->dma_desc_pool;
-@@ -1296,7 +1297,7 @@ static void iop_chan_start_null_memcpy(struct iop_adma_chan *iop_chan)
- 	if (sw_desc) {
- 		grp_start = sw_desc->group_head;
- 
--		list_splice_init(&sw_desc->async_tx.tx_list, &iop_chan->chain);
-+		list_splice_init(&sw_desc->tx_list, &iop_chan->chain);
- 		async_tx_ack(&sw_desc->async_tx);
- 		iop_desc_init_memcpy(grp_start, 0);
- 		iop_desc_set_byte_count(grp_start, iop_chan, 0);
-@@ -1352,7 +1353,7 @@ static void iop_chan_start_null_xor(struct iop_adma_chan *iop_chan)
- 	sw_desc = iop_adma_alloc_slots(iop_chan, slot_cnt, slots_per_op);
- 	if (sw_desc) {
- 		grp_start = sw_desc->group_head;
--		list_splice_init(&sw_desc->async_tx.tx_list, &iop_chan->chain);
-+		list_splice_init(&sw_desc->tx_list, &iop_chan->chain);
- 		async_tx_ack(&sw_desc->async_tx);
- 		iop_desc_init_null_xor(grp_start, 2, 0);
- 		iop_desc_set_byte_count(grp_start, iop_chan, 0);
+diff --git a/include/linux/dmaengine.h b/include/linux/dmaengine.h
+index ffefba8..f114bc7 100644
+--- a/include/linux/dmaengine.h
++++ b/include/linux/dmaengine.h
+@@ -180,8 +180,6 @@ typedef void (*dma_async_tx_callback)(void *dma_async_param);
+  * @flags: flags to augment operation preparation, control completion, and
+  * 	communicate status
+  * @phys: physical address of the descriptor
+- * @tx_list: driver common field for operations that require multiple
+- *	descriptors
+  * @chan: target channel for this operation
+  * @tx_submit: set the prepared descriptor(s) to be executed by the engine
+  * @callback: routine to call after this operation is complete
+@@ -195,7 +193,6 @@ struct dma_async_tx_descriptor {
+ 	dma_cookie_t cookie;
+ 	enum dma_ctrl_flags flags; /* not a 'long' to pack with cookie */
+ 	dma_addr_t phys;
+-	struct list_head tx_list;
+ 	struct dma_chan *chan;
+ 	dma_cookie_t (*tx_submit)(struct dma_async_tx_descriptor *tx);
+ 	dma_async_tx_callback callback;
 
