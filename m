@@ -1,8 +1,7 @@
 From: Dan Williams <dan.j.williams@intel.com>
-Subject: [PATCH 29/29] ioat2,
-	3: cacheline align software descriptor allocations
-Date: Thu, 03 Sep 2009 19:32:57 -0700
-Message-ID: <20090904023257.32667.53926.stgit@dwillia2-linux.ch.intel.com>
+Subject: [PATCH 25/29] iop-adma: implement a private tx_list
+Date: Thu, 03 Sep 2009 19:32:37 -0700
+Message-ID: <20090904023237.32667.25377.stgit@dwillia2-linux.ch.intel.com>
 References: <20090904022733.32667.77626.stgit@dwillia2-linux.ch.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,111 +9,86 @@ Content-Transfer-Encoding: 7bit
 Cc: linux-raid@vger.kernel.org, netdev@vger.kernel.org,
 	maciej.sosnowski@intel.com
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:48840 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932724AbZIDCcz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Sep 2009 22:32:55 -0400
+Return-path: <linux-raid-owner@vger.kernel.org>
 In-Reply-To: <20090904022733.32667.77626.stgit@dwillia2-linux.ch.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-raid-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-All the necessary fields for handling an ioat2,3 ring entry can fit into
-one cacheline.  Move ->len prior to ->txd in struct ioat_ring_ent, and
-move allocation of these entries to a hw-cache-aligned kmem cache to
-reduce the number of cachelines dirtied for descriptor management.
+Drop iop-adma's use of tx_list from struct dma_async_tx_descriptor in
+preparation for removal of this field.
 
 Signed-off-by: Dan Williams <dan.j.williams@intel.com>
 ---
- drivers/dma/ioat/dma_v2.c |    5 +++--
- drivers/dma/ioat/dma_v2.h |    3 ++-
- drivers/dma/ioat/pci.c    |   16 +++++++++++++++-
- 3 files changed, 20 insertions(+), 4 deletions(-)
+ arch/arm/include/asm/hardware/iop_adma.h |    2 ++
+ drivers/dma/iop-adma.c                   |    9 +++++----
+ 2 files changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/dma/ioat/dma_v2.c b/drivers/dma/ioat/dma_v2.c
-index 9ea1a47..f0c4876 100644
---- a/drivers/dma/ioat/dma_v2.c
-+++ b/drivers/dma/ioat/dma_v2.c
-@@ -400,11 +400,12 @@ static struct ioat_ring_ent *ioat2_alloc_ring_ent(struct dma_chan *chan, gfp_t f
- 		return NULL;
- 	memset(hw, 0, sizeof(*hw));
+diff --git a/arch/arm/include/asm/hardware/iop_adma.h b/arch/arm/include/asm/hardware/iop_adma.h
+index 385c6e8..95dc133 100644
+--- a/arch/arm/include/asm/hardware/iop_adma.h
++++ b/arch/arm/include/asm/hardware/iop_adma.h
+@@ -86,6 +86,7 @@ struct iop_adma_chan {
+  * @idx: pool index
+  * @unmap_src_cnt: number of xor sources
+  * @unmap_len: transaction bytecount
++ * @tx_list: list of descriptors that are associated with one operation
+  * @async_tx: support for the async_tx api
+  * @group_list: list of slots that make up a multi-descriptor transaction
+  *	for example transfer lengths larger than the supported hw max
+@@ -102,6 +103,7 @@ struct iop_adma_desc_slot {
+ 	u16 idx;
+ 	u16 unmap_src_cnt;
+ 	size_t unmap_len;
++	struct list_head tx_list;
+ 	struct dma_async_tx_descriptor async_tx;
+ 	union {
+ 		u32 *xor_check_result;
+diff --git a/drivers/dma/iop-adma.c b/drivers/dma/iop-adma.c
+index 2f05226..9f6c16f 100644
+--- a/drivers/dma/iop-adma.c
++++ b/drivers/dma/iop-adma.c
+@@ -370,7 +370,7 @@ retry:
+ 			}
+ 			alloc_tail->group_head = alloc_start;
+ 			alloc_tail->async_tx.cookie = -EBUSY;
+-			list_splice(&chain, &alloc_tail->async_tx.tx_list);
++			list_splice(&chain, &alloc_tail->tx_list);
+ 			iop_chan->last_used = last_used;
+ 			iop_desc_clear_next_desc(alloc_start);
+ 			iop_desc_clear_next_desc(alloc_tail);
+@@ -429,7 +429,7 @@ iop_adma_tx_submit(struct dma_async_tx_descriptor *tx)
  
--	desc = kzalloc(sizeof(*desc), flags);
-+	desc = kmem_cache_alloc(ioat2_cache, flags);
- 	if (!desc) {
- 		pci_pool_free(dma->dma_pool, hw, phys);
- 		return NULL;
- 	}
-+	memset(desc, 0, sizeof(*desc));
+ 	old_chain_tail = list_entry(iop_chan->chain.prev,
+ 		struct iop_adma_desc_slot, chain_node);
+-	list_splice_init(&sw_desc->async_tx.tx_list,
++	list_splice_init(&sw_desc->tx_list,
+ 			 &old_chain_tail->chain_node);
  
- 	dma_async_tx_descriptor_init(&desc->txd, chan);
- 	desc->txd.tx_submit = ioat2_tx_submit_unlock;
-@@ -419,7 +420,7 @@ static void ioat2_free_ring_ent(struct ioat_ring_ent *desc, struct dma_chan *cha
+ 	/* fix up the hardware chain */
+@@ -496,6 +496,7 @@ static int iop_adma_alloc_chan_resources(struct dma_chan *chan)
  
- 	dma = to_ioatdma_device(chan->device);
- 	pci_pool_free(dma->dma_pool, desc->hw, desc->txd.phys);
--	kfree(desc);
-+	kmem_cache_free(ioat2_cache, desc);
- }
+ 		dma_async_tx_descriptor_init(&slot->async_tx, chan);
+ 		slot->async_tx.tx_submit = iop_adma_tx_submit;
++		INIT_LIST_HEAD(&slot->tx_list);
+ 		INIT_LIST_HEAD(&slot->chain_node);
+ 		INIT_LIST_HEAD(&slot->slot_node);
+ 		hw_desc = (char *) iop_chan->device->dma_desc_pool;
+@@ -1296,7 +1297,7 @@ static void iop_chan_start_null_memcpy(struct iop_adma_chan *iop_chan)
+ 	if (sw_desc) {
+ 		grp_start = sw_desc->group_head;
  
- static struct ioat_ring_ent **ioat2_alloc_ring(struct dma_chan *c, int order, gfp_t flags)
-diff --git a/drivers/dma/ioat/dma_v2.h b/drivers/dma/ioat/dma_v2.h
-index 9baa3d6..ac00adc 100644
---- a/drivers/dma/ioat/dma_v2.h
-+++ b/drivers/dma/ioat/dma_v2.h
-@@ -116,8 +116,8 @@ static inline u16 ioat2_xferlen_to_descs(struct ioat2_dma_chan *ioat, size_t len
- 
- struct ioat_ring_ent {
- 	struct ioat_dma_descriptor *hw;
--	struct dma_async_tx_descriptor txd;
- 	size_t len;
-+	struct dma_async_tx_descriptor txd;
- 	#ifdef DEBUG
- 	int id;
- 	#endif
-@@ -143,4 +143,5 @@ int __devinit ioat2_dma_probe(struct ioatdma_device *dev, int dca);
- int __devinit ioat3_dma_probe(struct ioatdma_device *dev, int dca);
- struct dca_provider * __devinit ioat2_dca_init(struct pci_dev *pdev, void __iomem *iobase);
- struct dca_provider * __devinit ioat3_dca_init(struct pci_dev *pdev, void __iomem *iobase);
-+extern struct kmem_cache *ioat2_cache;
- #endif /* IOATDMA_V2_H */
-diff --git a/drivers/dma/ioat/pci.c b/drivers/dma/ioat/pci.c
-index c4e4322..61086c6 100644
---- a/drivers/dma/ioat/pci.c
-+++ b/drivers/dma/ioat/pci.c
-@@ -69,6 +69,8 @@ static int ioat_dca_enabled = 1;
- module_param(ioat_dca_enabled, int, 0644);
- MODULE_PARM_DESC(ioat_dca_enabled, "control support of dca service (default: 1)");
- 
-+struct kmem_cache *ioat2_cache;
-+
- #define DRV_NAME "ioatdma"
- 
- static struct pci_driver ioat_pci_driver = {
-@@ -168,12 +170,24 @@ static void __devexit ioat_remove(struct pci_dev *pdev)
- 
- static int __init ioat_init_module(void)
- {
--	return pci_register_driver(&ioat_pci_driver);
-+	int err;
-+
-+	ioat2_cache = kmem_cache_create("ioat2", sizeof(struct ioat_ring_ent),
-+					0, SLAB_HWCACHE_ALIGN, NULL);
-+	if (!ioat2_cache)
-+		return -ENOMEM;
-+
-+	err = pci_register_driver(&ioat_pci_driver);
-+	if (err)
-+		kmem_cache_destroy(ioat2_cache);
-+
-+	return err;
- }
- module_init(ioat_init_module);
- 
- static void __exit ioat_exit_module(void)
- {
- 	pci_unregister_driver(&ioat_pci_driver);
-+	kmem_cache_destroy(ioat2_cache);
- }
- module_exit(ioat_exit_module);
+-		list_splice_init(&sw_desc->async_tx.tx_list, &iop_chan->chain);
++		list_splice_init(&sw_desc->tx_list, &iop_chan->chain);
+ 		async_tx_ack(&sw_desc->async_tx);
+ 		iop_desc_init_memcpy(grp_start, 0);
+ 		iop_desc_set_byte_count(grp_start, iop_chan, 0);
+@@ -1352,7 +1353,7 @@ static void iop_chan_start_null_xor(struct iop_adma_chan *iop_chan)
+ 	sw_desc = iop_adma_alloc_slots(iop_chan, slot_cnt, slots_per_op);
+ 	if (sw_desc) {
+ 		grp_start = sw_desc->group_head;
+-		list_splice_init(&sw_desc->async_tx.tx_list, &iop_chan->chain);
++		list_splice_init(&sw_desc->tx_list, &iop_chan->chain);
+ 		async_tx_ack(&sw_desc->async_tx);
+ 		iop_desc_init_null_xor(grp_start, 2, 0);
+ 		iop_desc_set_byte_count(grp_start, iop_chan, 0);
 
