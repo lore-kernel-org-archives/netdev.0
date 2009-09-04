@@ -1,12 +1,13 @@
 From: Christoph Lameter <cl@linux-foundation.org>
 Subject: Re: [PATCH] slub: fix slab_pad_check()
-Date: Fri, 4 Sep 2009 11:33:26 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0909041130030.9781@V090114053VZO-1>
-References: <4A9F1620.2080105@gmail.com> <84144f020909022331x2b275aa5n428f88670e0ae8bc@mail.gmail.com> <4A9F7283.1090306@gmail.com> <alpine.DEB.1.10.0909031244230.27903@V090114053VZO-1> <4A9FCDC6.3060003@gmail.com> <alpine.DEB.1.10.0909031335430.29881@V090114053VZO-1>
- <4A9FDA72.8060001@gmail.com> <alpine.DEB.1.10.0909031414310.29881@V090114053VZO-1> <20090903174435.GF6761@linux.vnet.ibm.com> <alpine.DEB.1.10.0909031736340.24199@V090114053VZO-1> <20090903220300.GN6761@linux.vnet.ibm.com>
+Date: Fri, 4 Sep 2009 11:38:53 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0909041133440.9781@V090114053VZO-1>
+References: <4A9EEF07.5070800@gmail.com> <c4e36d110909021531v324a9ce2x3ff2c93b7c5a57de@mail.gmail.com> <4A9F1620.2080105@gmail.com> <84144f020909022331x2b275aa5n428f88670e0ae8bc@mail.gmail.com> <4A9F7283.1090306@gmail.com> <alpine.DEB.1.10.0909031244230.27903@V090114053VZO-1>
+ <4A9FCDC6.3060003@gmail.com> <alpine.DEB.1.10.0909031335430.29881@V090114053VZO-1> <4A9FDA72.8060001@gmail.com> <alpine.DEB.1.10.0909031414310.29881@V090114053VZO-1> <20090903174435.GF6761@linux.vnet.ibm.com> <alpine.DEB.1.10.0909031736340.24199@V090114053VZO-1>
+ <4AA03E6A.7070800@gmail.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
 	Pekka Enberg <penberg@cs.helsinki.fi>,
 	Zdenek Kabelac <zdenek.kabelac@gmail.com>,
 	Patrick McHardy <kaber@trash.net>, Robin Holt <holt@sgi.com>,
@@ -14,35 +15,63 @@ Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	Jesper Dangaard Brouer <hawk@comx.dk>,
 	Linux Netdev List <netdev@vger.kernel.org>,
 	Netfilter Developers <netfilter-devel@vger.kernel.org>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933866AbZIDS4r@vger.kernel.org>
-In-Reply-To: <20090903220300.GN6761@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.ultrahosting.com ([74.213.174.253]:40179 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757211AbZIDTGv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2009 15:06:51 -0400
+In-Reply-To: <4AA03E6A.7070800@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 3 Sep 2009, Paul E. McKenney wrote:
+On Fri, 4 Sep 2009, Eric Dumazet wrote:
 
-> > You need to ensure that no objects are in use before destroying a slab. In
-> > case of DESTROY_BY_RCU you must ensure that there are no potential
-> > readers. So use a suitable rcu barrier or something else like a
-> > synchronize_rcu...
->
-> If by "you must ensure" you mean "kmem_cache_destroy must ensure", then
-> we are in complete agreement.  Otherwise, not a chance.
+> Problem is not _objects_ Christoph, but _slabs_, and your patch is not working.
 
-Well then we are going down to a crappy interface and mixing rcu with slab
-semantics. More bugs to follow in the future.
+Why?
 
-> If by "must ensure that no objects are in use", you mean "must have
-> no further references to them", then we are in agreement.  And in my
-> scenario above, it is not the -user- who later references the memory,
-> but rather the slab code itself.
+> Its true that when User calls kmem_cache_destroy(), all _objects_ were
+> previously freed. This is mandatory, with or withou SLAB_DESTROY_BY_RCU
+> thing
 
-The slab code itself is not referencing the later memory with my patch. It
-can only be the user.
+Right.
 
-> Put the rcu_barrier() in kmem_cache_free().  Please.
+> Problem is that slub has some internal state, including some to-be-freed _slabs_,
+> that User have no control at all on it.
 
-Guess we are doing this ... Sigh. Are you going to add support other rcu
-versions to slab as well as time permits and as the need arises? Should we
-add you as a maintainer? ;-)
+Those are going to be freed without calls to rcu with my patch. The only
+reason for earlier rcu frees are user calls to kfree.
+
+> Face it, SLAB_DESTROY_BY_RCU is internal affair (to slub/slab/... allocators)
+
+Nope the user must follow RCU guidelines when using objects.
+
+> We absolutely need a rcu_barrier() somewhere, believe it or not. You can
+> argue that it should be done *before*, but it gives no speedup, only
+> potential bugs.
+
+I never said that you do not need an rcu_barrier() for this particular
+situation? Why suggest such a thing?
+
+The insertion of rcu stuff in the slab code will lead to future bugs since
+now the slab logic is tied to the semantics of a particular rcu
+implementatin.
+
+> Only case User should do its rcu_barrier() itself is if it knows some
+> call_rcu() are pending and are delaying _objects_ freeing (typical
+> !SLAB_DESTROY_RCU usage in RCU algos).
+
+Ok then the user already has to deal with the barriers. The API is
+inconsistent if you put this into kmem_cache_destroy.
+
+> I dont even understand why you care so much about
+> kmem_cache_destroy(SLAB_DESTROY_BY_RCU), given that almost nobody use
+> it. We took almost one month to find out what the bug was in first
+> place...
+
+This is already the second bug on this issue. Given the complexity of rcu
+it is to be experted that inserting more RCU semantics into the slab
+allocators is likely to cause future chains of new features and
+bugs in slab allocators.
+
