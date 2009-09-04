@@ -1,306 +1,110 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: net_sched 05/07: reintroduce dev->qdisc for use by sch_api
-Date: Fri,  4 Sep 2009 18:41:18 +0200 (MEST)
-Message-ID: <20090904164117.27300.78712.sendpatchset@x2.localnet>
+Subject: Re: net_sched 00/07: classful multiqueue dummy scheduler
+Date: Fri, 04 Sep 2009 18:42:31 +0200
+Message-ID: <4AA14377.9020200@trash.net>
 References: <20090904164111.27300.29929.sendpatchset@x2.localnet>
-Cc: Patrick McHardy <kaber@trash.net>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------020707090800010304030102"
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35545 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:35573 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756907AbZIDQlR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2009 12:41:17 -0400
+	with ESMTP id S1751948AbZIDQmb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2009 12:42:31 -0400
+Received: from [IPv6:2001:6f8:974:0:215:f2ff:fe24:91f8] (unknown [IPv6:2001:6f8:974:0:215:f2ff:fe24:91f8])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by stinky.trash.net (Postfix) with ESMTPSA id 5A8EEB2C4B
+	for <netdev@vger.kernel.org>; Fri,  4 Sep 2009 18:42:33 +0200 (MEST)
 In-Reply-To: <20090904164111.27300.29929.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 57a016350a3d85dc351ab90ce91e4dc49ce2183a
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Fri Sep 4 16:12:45 2009 +0200
+This is a multi-part message in MIME format.
+--------------020707090800010304030102
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-    net_sched: reintroduce dev->qdisc for use by sch_api
-    
-    Currently the multiqueue integration with the qdisc API suffers from
-    a few problems:
-    
-    - with multiple queues, all root qdiscs use the same handle. This means
-      they can't be exposed to userspace in a backwards compatible fashion.
-    
-    - all API operations always refer to queue number 0. Newly created
-      qdiscs are automatically shared between all queues, its not possible
-      to address individual queues or restore multiqueue behaviour once a
-      shared qdisc has been attached.
-    
-    - Dumps only contain the root qdisc of queue 0, in case of non-shared
-      qdiscs this means the statistics are incomplete.
-    
-    This patch reintroduces dev->qdisc, which points to the (single) root qdisc
-    from userspace's point of view. Currently it either points to the first
-    (non-shared) default qdisc, or a qdisc shared between all queues. The
-    following patches will introduce a classful dummy qdisc, which will be used
-    as root qdisc and contain the per-queue qdiscs as children.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+Patrick McHardy wrote:
+> These patches contain a classful multiqueue ("mq") dummy scheduler to fix a
+> couple of problems with the current multiqueue TC API integration. The
+> changelogs of patch 05 and 07 contain more details.
+> 
+> The mq scheduler does two things:
+> 
+> - present device TX queues as classes, allowing to attach different qdiscs
+>   to them, which are grafted to the TX queues
+> 
+> - present accumulated statistics of all device queue root qdiscs
+> 
+> Its used by default for multiqueue devices instead of the regular pfifo_fast
+> qdisc, but can also be attached manually to restore multiqueue behaviour
+> after attaching a non-multiqueue (shared) qdisc.
+> 
+> Patches 1-4 contain some preparatory cleanups because I was getting tired
+> of copying unnecessary checks and dummy functions :)
+> 
+> Patch 5 introduces a dev->qdisc pointer, which points to the root qdisc from
+> userspace's point of view. This is later used for the mq qdisc, which isn't
+> actually attached to any device queues. Patch 7 contains the mq scheduler.
+> 
+> I've tested the scheduler with a hacked macvlan version which uses 4 queues,
+> but since I don't own a multiqueue capable device I couldn't test this on
+> real hardware.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 121cbad..a44118b 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -832,6 +832,9 @@ struct net_device
- 	/* Number of TX queues currently active in device  */
- 	unsigned int		real_num_tx_queues;
- 
-+	/* root qdisc from userspace point of view */
-+	struct Qdisc		*qdisc;
-+
- 	unsigned long		tx_queue_len;	/* Max frames per queue allowed */
- 	spinlock_t		tx_global_lock;
- /*
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index bbcba2a..eb42873 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -606,7 +606,6 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			    int type, u32 pid, u32 seq, u32 change,
- 			    unsigned int flags)
- {
--	struct netdev_queue *txq;
- 	struct ifinfomsg *ifm;
- 	struct nlmsghdr *nlh;
- 	const struct net_device_stats *stats;
-@@ -637,9 +636,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	if (dev->master)
- 		NLA_PUT_U32(skb, IFLA_MASTER, dev->master->ifindex);
- 
--	txq = netdev_get_tx_queue(dev, 0);
--	if (txq->qdisc_sleeping)
--		NLA_PUT_STRING(skb, IFLA_QDISC, txq->qdisc_sleeping->ops->id);
-+	if (dev->qdisc)
-+		NLA_PUT_STRING(skb, IFLA_QDISC, dev->qdisc->ops->id);
- 
- 	if (dev->ifalias)
- 		NLA_PUT_STRING(skb, IFLA_IFALIAS, dev->ifalias);
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index eaa8f43..8cbc66f 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -168,8 +168,7 @@ replay:
- 
- 	/* Find qdisc */
- 	if (!parent) {
--		struct netdev_queue *dev_queue = netdev_get_tx_queue(dev, 0);
--		q = dev_queue->qdisc_sleeping;
-+		q = dev->qdisc;
- 		parent = q->handle;
- 	} else {
- 		q = qdisc_lookup(dev, TC_H_MAJ(t->tcm_parent));
-@@ -408,7 +407,6 @@ static int tcf_node_dump(struct tcf_proto *tp, unsigned long n,
- static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	struct net *net = sock_net(skb->sk);
--	struct netdev_queue *dev_queue;
- 	int t;
- 	int s_t;
- 	struct net_device *dev;
-@@ -427,9 +425,8 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
- 	if ((dev = dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
- 		return skb->len;
- 
--	dev_queue = netdev_get_tx_queue(dev, 0);
- 	if (!tcm->tcm_parent)
--		q = dev_queue->qdisc_sleeping;
-+		q = dev->qdisc;
- 	else
- 		q = qdisc_lookup(dev, TC_H_MAJ(tcm->tcm_parent));
- 	if (!q)
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 166fcca..8aa9a0c 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -207,7 +207,7 @@ static struct Qdisc *qdisc_match_from_root(struct Qdisc *root, u32 handle)
- static void qdisc_list_add(struct Qdisc *q)
- {
- 	if ((q->parent != TC_H_ROOT) && !(q->flags & TCQ_F_INGRESS))
--		list_add_tail(&q->list, &qdisc_root_sleeping(q)->list);
-+		list_add_tail(&q->list, &qdisc_dev(q)->qdisc->list);
- }
- 
- void qdisc_list_del(struct Qdisc *q)
-@@ -219,17 +219,11 @@ EXPORT_SYMBOL(qdisc_list_del);
- 
- struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
- {
--	unsigned int i;
- 	struct Qdisc *q;
- 
--	for (i = 0; i < dev->num_tx_queues; i++) {
--		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
--		struct Qdisc *txq_root = txq->qdisc_sleeping;
--
--		q = qdisc_match_from_root(txq_root, handle);
--		if (q)
--			goto out;
--	}
-+	q = qdisc_match_from_root(dev->qdisc, handle);
-+	if (q)
-+		goto out;
- 
- 	q = qdisc_match_from_root(dev->rx_queue.qdisc_sleeping, handle);
- out:
-@@ -720,9 +714,14 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
- 			if (new && i > 0)
- 				atomic_inc(&new->refcnt);
- 
--			notify_and_destroy(skb, n, classid, old, new);
-+			qdisc_destroy(old);
- 		}
- 
-+		notify_and_destroy(skb, n, classid, dev->qdisc, new);
-+		if (new)
-+			atomic_inc(&new->refcnt);
-+		dev->qdisc = new ? : &noop_qdisc;
-+
- 		if (dev->flags & IFF_UP)
- 			dev_activate(dev);
- 	} else {
-@@ -974,9 +973,7 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 				q = dev->rx_queue.qdisc_sleeping;
- 			}
- 		} else {
--			struct netdev_queue *dev_queue;
--			dev_queue = netdev_get_tx_queue(dev, 0);
--			q = dev_queue->qdisc_sleeping;
-+			q = dev->qdisc;
- 		}
- 		if (!q)
- 			return -ENOENT;
-@@ -1044,9 +1041,7 @@ replay:
- 				q = dev->rx_queue.qdisc_sleeping;
- 			}
- 		} else {
--			struct netdev_queue *dev_queue;
--			dev_queue = netdev_get_tx_queue(dev, 0);
--			q = dev_queue->qdisc_sleeping;
-+			q = dev->qdisc;
- 		}
- 
- 		/* It may be default qdisc, ignore it */
-@@ -1291,8 +1286,7 @@ static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
- 			s_q_idx = 0;
- 		q_idx = 0;
- 
--		dev_queue = netdev_get_tx_queue(dev, 0);
--		if (tc_dump_qdisc_root(dev_queue->qdisc_sleeping, skb, cb, &q_idx, s_q_idx) < 0)
-+		if (tc_dump_qdisc_root(dev->qdisc, skb, cb, &q_idx, s_q_idx) < 0)
- 			goto done;
- 
- 		dev_queue = &dev->rx_queue;
-@@ -1323,7 +1317,6 @@ done:
- static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- {
- 	struct net *net = sock_net(skb->sk);
--	struct netdev_queue *dev_queue;
- 	struct tcmsg *tcm = NLMSG_DATA(n);
- 	struct nlattr *tca[TCA_MAX + 1];
- 	struct net_device *dev;
-@@ -1361,7 +1354,6 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 
- 	/* Step 1. Determine qdisc handle X:0 */
- 
--	dev_queue = netdev_get_tx_queue(dev, 0);
- 	if (pid != TC_H_ROOT) {
- 		u32 qid1 = TC_H_MAJ(pid);
- 
-@@ -1372,7 +1364,7 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 		} else if (qid1) {
- 			qid = qid1;
- 		} else if (qid == 0)
--			qid = dev_queue->qdisc_sleeping->handle;
-+			qid = dev->qdisc->handle;
- 
- 		/* Now qid is genuine qdisc handle consistent
- 		   both with parent and child.
-@@ -1383,7 +1375,7 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 			pid = TC_H_MAKE(qid, pid);
- 	} else {
- 		if (qid == 0)
--			qid = dev_queue->qdisc_sleeping->handle;
-+			qid = dev->qdisc->handle;
- 	}
- 
- 	/* OK. Locate qdisc */
-@@ -1588,8 +1580,7 @@ static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
- 	s_t = cb->args[0];
- 	t = 0;
- 
--	dev_queue = netdev_get_tx_queue(dev, 0);
--	if (tc_dump_tclass_root(dev_queue->qdisc_sleeping, skb, tcm, cb, &t, s_t) < 0)
-+	if (tc_dump_tclass_root(dev->qdisc, skb, tcm, cb, &t, s_t) < 0)
- 		goto done;
- 
- 	dev_queue = &dev->rx_queue;
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 6128e6f..a91f079 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -623,19 +623,6 @@ void qdisc_destroy(struct Qdisc *qdisc)
- }
- EXPORT_SYMBOL(qdisc_destroy);
- 
--static bool dev_all_qdisc_sleeping_noop(struct net_device *dev)
--{
--	unsigned int i;
--
--	for (i = 0; i < dev->num_tx_queues; i++) {
--		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
--
--		if (txq->qdisc_sleeping != &noop_qdisc)
--			return false;
--	}
--	return true;
--}
--
- static void attach_one_default_qdisc(struct net_device *dev,
- 				     struct netdev_queue *dev_queue,
- 				     void *_unused)
-@@ -677,6 +664,7 @@ static void transition_one_qdisc(struct net_device *dev,
- 
- void dev_activate(struct net_device *dev)
- {
-+	struct netdev_queue *txq;
- 	int need_watchdog;
- 
- 	/* No queueing discipline is attached to device;
-@@ -685,9 +673,14 @@ void dev_activate(struct net_device *dev)
- 	   virtual interfaces
- 	 */
- 
--	if (dev_all_qdisc_sleeping_noop(dev))
-+	if (dev->qdisc == &noop_qdisc) {
- 		netdev_for_each_tx_queue(dev, attach_one_default_qdisc, NULL);
- 
-+		txq = netdev_get_tx_queue(dev, 0);
-+		dev->qdisc = txq->qdisc_sleeping;
-+		atomic_inc(&dev->qdisc->refcnt);
-+	}
-+
- 	if (!netif_carrier_ok(dev))
- 		/* Delay activation until next carrier-on event */
- 		return;
-@@ -777,6 +770,7 @@ static void dev_init_scheduler_queue(struct net_device *dev,
- 
- void dev_init_scheduler(struct net_device *dev)
- {
-+	dev->qdisc = &noop_qdisc;
- 	netdev_for_each_tx_queue(dev, dev_init_scheduler_queue, &noop_qdisc);
- 	dev_init_scheduler_queue(dev, &dev->rx_queue, &noop_qdisc);
- 
-@@ -802,5 +796,8 @@ void dev_shutdown(struct net_device *dev)
- {
- 	netdev_for_each_tx_queue(dev, shutdown_scheduler_queue, &noop_qdisc);
- 	shutdown_scheduler_queue(dev, &dev->rx_queue, &noop_qdisc);
-+	qdisc_destroy(dev->qdisc);
-+	dev->qdisc = &noop_qdisc;
-+
- 	WARN_ON(timer_pending(&dev->watchdog_timer));
- }
+And for reference, this is the script I used for testing:
+
+
+--------------020707090800010304030102
+Content-Type: application/x-sh;
+ name="test.sh"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="test.sh"
+
+#! /bin/sh
+#
+
+#
+# manually created hierarchy
+#
+
+ip link add link eth0 type macvlan
+ip link set macvlan0 up
+
+tc qdisc del dev macvlan0 root
+tc qdisc replace dev macvlan0 handle 1: root mq
+for i in $(seq 1 4); do
+	tc qdisc add dev macvlan0 parent 1:$i pfifo
+done
+
+# ENOENT - parent class doesn't exist
+tc qdisc add dev macvlan0 parent 1:5 pfifo
+
+# EEXIST - class already exists
+tc class add dev macvlan0 parent 1: classid 1:4
+
+# EOPNOTSUPP - class creation not supported
+tc class add dev macvlan0 parent 1: classid 1:5
+
+# EOPNOTSUPP - filters not supported
+tc filter add dev macvlan0 parent 1: handle 1 fw classid 1:1
+
+# EOPNOTSUPP - parent not root qdisc
+tc qdisc add dev macvlan0 parent 1:1 mq
+
+tc -s -d qdisc show dev macvlan0
+tc -d -s class show dev macvlan0
+
+#
+# default mq qdisc
+#
+
+ip link add link eth0 txqueuelen 1000 type macvlan
+ip link set macvlan1 up
+
+tc -s -d qdisc show dev macvlan1
+tc -d -s class show dev macvlan1
+
+--------------020707090800010304030102--
