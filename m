@@ -1,119 +1,146 @@
 From: Dan Williams <dan.j.williams@intel.com>
-Subject: [PATCH 00/29] ioatdma: towards raid support
-Date: Thu, 03 Sep 2009 19:30:30 -0700
-Message-ID: <20090904022733.32667.77626.stgit@dwillia2-linux.ch.intel.com>
+Subject: [PATCH 01/29] ioat: move to drivers/dma/ioat/
+Date: Thu, 03 Sep 2009 19:30:35 -0700
+Message-ID: <20090904023035.32667.87323.stgit@dwillia2-linux.ch.intel.com>
+References: <20090904022733.32667.77626.stgit@dwillia2-linux.ch.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: linux-raid@vger.kernel.org, netdev@vger.kernel.org,
-	maciej.sosnowski@intel.com
+	Maciej Sosnowski <maciej.sosnowski@intel.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932529AbZIDCa3@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932561AbZIDCah@vger.kernel.org>
+In-Reply-To: <20090904022733.32667.77626.stgit@dwillia2-linux.ch.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The v3.2 version of the Intel(R) QuickData Technology specification adds
-support for raid5 and raid6 offloads.  The v3.2 implementation, like v3,
-reuses the same basic dma descriptor ring mechanism that was introduced
-for v2 devices.  At the same time v3.2 breaks some assumptions of the
-existing driver with the addition of mechanisms like extended
-descriptors and interrupt-driven completion callbacks as specified by
-the async_tx/raid-offload implementation.
+When first created the ioat driver was the only inhabitant of
+drivers/dma/.  Now, it is the only multi-file (more than a .c and a .h)
+driver in the directory.  Moving it to an ioat/ subdirectory allows the
+naming convention to be cleaned up, and allows for future splitting of
+the source files by hardware version (v1, v2, and v3).
 
-The current driver blurs the lines between v1, v2, and v3 making it
-difficult to append raid functionality without modifying legacy code
-paths.  The primary goal of this patchset is to refactor and isolate the
-legacy (v1/v2) code paths from feature additions going forward by
-migrating hardware version specific code to hardware version specific
-files.  It also takes the opportunity to perform some cleanups and
-optimizations.  For example, the conversion from a linked list to a
-ring-buffer for the v2/v3 descriptor ring makes the code more readable
-and reduces the size of the software descriptor from 136-bytes to
-88-bytes with all the fields needed for NET_DMA fitting into one
-cacheline.
-
-One robustness fix required by the raid code is the ability to poll for
-a descriptor while the channel is experiencing an "out of descriptors"
-condition.  This has been added for the v2/v3 ring implementation.
-
-This cleanup is available via git at:
-
-   git://git.kernel.org/pub/scm/linux/kernel/git/djbw/async_tx.git ioat-refactor
-
-It will hit -next shortly.
-
-The driver is used by net/ when CONFIG_NET_DMA=y, and will be used by
-drivers/md/ (after the raid extensions) when CONFIG_ASYNC_TX_DMA=y.
-Hence the Cc: of netdev and linux-raid.
-
-Regards,
-Dan
-
+Signed-off-by: Maciej Sosnowski <maciej.sosnowski@intel.com>
+Signed-off-by: Dan Williams <dan.j.williams@intel.com>
 ---
-
-Dan Williams (29):
-      ioat: move to drivers/dma/ioat/
-      ioat: move definitions to dma.h
-      ioat: convert ioat_probe to pcim/devm
-      ioat: cleanup some long deref chains and 80 column collisions
-      ioat: kill function prototype ifdef guards
-      ioat: split ioat_dma_probe into core/version-specific routines
-      ioat: fix type mismatch for ->dmacount
-      ioat: define descriptor control bit-field
-      ioat1: move descriptor allocation from submit to prep
-      ioat: fix self test interrupts
-      ioat: prepare the code for ioat[12]_dma_chan split
-      ioat2,3: convert to a true ring buffer
-      ioat1: kill unused unmap parameters
-      ioat: add some dev_dbg() calls
-      ioat: cleanup completion status reads
-      ioat: ignore reserved bits for chancnt and xfercap
-      ioat: preserve chanctrl bits when re-arming interrupts
-      ioat: ___devinit annotate the initialization paths
-      ioat1: trim ioat_dma_desc_sw
-      ioat: switch watchdog and reset handler from workqueue to timer
-      ioat2,3: dynamically resize descriptor ring
-      net_dma: poll for a descriptor after allocation failure
-      dw_dmac: implement a private tx_list
-      fsldma: implement a private tx_list
-      iop-adma: implement a private tx_list
-      ioat: implement a private tx_list
-      mv_xor: implement a private tx_list
-      dmaengine: kill tx_list
-      ioat2,3: cacheline align software descriptor allocations
-
- arch/arm/include/asm/hardware/iop_adma.h           |    2 +
- drivers/dma/Makefile                               |    3 +-
- drivers/dma/dmaengine.c                            |    1 -
- drivers/dma/dw_dmac.c                              |   19 +-
- drivers/dma/dw_dmac_regs.h                         |    1 +
- drivers/dma/fsldma.c                               |    7 +-
- drivers/dma/fsldma.h                               |    1 +
- drivers/dma/ioat/Makefile                          |    2 +
- drivers/dma/{ioat_dca.c => ioat/dca.c}             |   13 +-
- drivers/dma/ioat/dma.c                             | 1140 +++++++++++++
- drivers/dma/ioat/dma.h                             |  307 ++++
- drivers/dma/ioat/dma_v2.c                          |  883 ++++++++++
- drivers/dma/ioat/dma_v2.h                          |  147 ++
- drivers/dma/{ioatdma_hw.h => ioat/hw.h}            |   45 +-
- drivers/dma/{ioat.c => ioat/pci.c}                 |  163 +-
- .../dma/{ioatdma_registers.h => ioat/registers.h}  |   34 +-
- drivers/dma/ioat_dma.c                             | 1741 --------------------
- drivers/dma/ioatdma.h                              |  165 --
- drivers/dma/iop-adma.c                             |    9 +-
- drivers/dma/iovlock.c                              |   10 +
- drivers/dma/mv_xor.c                               |    7 +-
- drivers/dma/mv_xor.h                               |    4 +-
- include/linux/dmaengine.h                          |    3 -
- 23 files changed, 2647 insertions(+), 2060 deletions(-)
+ drivers/dma/Makefile            |    3 +--
+ drivers/dma/ioat/Makefile       |    2 ++
+ drivers/dma/ioat/dca.c          |    4 ++--
+ drivers/dma/ioat/dma.c          |    6 +++---
+ drivers/dma/ioat/dma.h          |    2 +-
+ drivers/dma/ioat/hw.h           |    0 
+ drivers/dma/ioat/pci.c          |    6 +++---
+ drivers/dma/ioat/registers.h    |    0 
+ 8 files changed, 12 insertions(+), 11 deletions(-)
  create mode 100644 drivers/dma/ioat/Makefile
- rename drivers/dma/{ioat_dca.c => ioat/dca.c} (98%)
- create mode 100644 drivers/dma/ioat/dma.c
- create mode 100644 drivers/dma/ioat/dma.h
- create mode 100644 drivers/dma/ioat/dma_v2.c
- create mode 100644 drivers/dma/ioat/dma_v2.h
- rename drivers/dma/{ioatdma_hw.h => ioat/hw.h} (67%)
- rename drivers/dma/{ioat.c => ioat/pci.c} (62%)
- rename drivers/dma/{ioatdma_registers.h => ioat/registers.h} (91%)
- delete mode 100644 drivers/dma/ioat_dma.c
- delete mode 100644 drivers/dma/ioatdma.h
+ rename drivers/dma/{ioat_dca.c => ioat/dca.c} (99%)
+ rename drivers/dma/{ioat_dma.c => ioat/dma.c} (99%)
+ rename drivers/dma/{ioatdma.h => ioat/dma.h} (99%)
+ rename drivers/dma/{ioatdma_hw.h => ioat/hw.h} (100%)
+ rename drivers/dma/{ioat.c => ioat/pci.c} (98%)
+ rename drivers/dma/{ioatdma_registers.h => ioat/registers.h} (100%)
+
+diff --git a/drivers/dma/Makefile b/drivers/dma/Makefile
+index 2e5dc96..a1cb285 100644
+--- a/drivers/dma/Makefile
++++ b/drivers/dma/Makefile
+@@ -1,8 +1,7 @@
+ obj-$(CONFIG_DMA_ENGINE) += dmaengine.o
+ obj-$(CONFIG_NET_DMA) += iovlock.o
+ obj-$(CONFIG_DMATEST) += dmatest.o
+-obj-$(CONFIG_INTEL_IOATDMA) += ioatdma.o
+-ioatdma-objs := ioat.o ioat_dma.o ioat_dca.o
++obj-$(CONFIG_INTEL_IOATDMA) += ioat/
+ obj-$(CONFIG_INTEL_IOP_ADMA) += iop-adma.o
+ obj-$(CONFIG_FSL_DMA) += fsldma.o
+ obj-$(CONFIG_MV_XOR) += mv_xor.o
+diff --git a/drivers/dma/ioat/Makefile b/drivers/dma/ioat/Makefile
+new file mode 100644
+index 0000000..2ce3d3a
+--- /dev/null
++++ b/drivers/dma/ioat/Makefile
+@@ -0,0 +1,2 @@
++obj-$(CONFIG_INTEL_IOATDMA) += ioatdma.o
++ioatdma-objs := pci.o dma.o dca.o
+diff --git a/drivers/dma/ioat_dca.c b/drivers/dma/ioat/dca.c
+similarity index 99%
+rename from drivers/dma/ioat_dca.c
+rename to drivers/dma/ioat/dca.c
+index c012a1e..af1c762 100644
+--- a/drivers/dma/ioat_dca.c
++++ b/drivers/dma/ioat/dca.c
+@@ -33,8 +33,8 @@
+ #define cpu_physical_id(cpu) (cpuid_ebx(1) >> 24)
+ #endif
+ 
+-#include "ioatdma.h"
+-#include "ioatdma_registers.h"
++#include "dma.h"
++#include "registers.h"
+ 
+ /*
+  * Bit 7 of a tag map entry is the "valid" bit, if it is set then bits 0:6
+diff --git a/drivers/dma/ioat_dma.c b/drivers/dma/ioat/dma.c
+similarity index 99%
+rename from drivers/dma/ioat_dma.c
+rename to drivers/dma/ioat/dma.c
+index a600fc0..648797e 100644
+--- a/drivers/dma/ioat_dma.c
++++ b/drivers/dma/ioat/dma.c
+@@ -34,9 +34,9 @@
+ #include <linux/dma-mapping.h>
+ #include <linux/workqueue.h>
+ #include <linux/i7300_idle.h>
+-#include "ioatdma.h"
+-#include "ioatdma_registers.h"
+-#include "ioatdma_hw.h"
++#include "dma.h"
++#include "registers.h"
++#include "hw.h"
+ 
+ #define to_ioat_chan(chan) container_of(chan, struct ioat_dma_chan, common)
+ #define to_ioatdma_device(dev) container_of(dev, struct ioatdma_device, common)
+diff --git a/drivers/dma/ioatdma.h b/drivers/dma/ioat/dma.h
+similarity index 99%
+rename from drivers/dma/ioatdma.h
+rename to drivers/dma/ioat/dma.h
+index a52ff4b..e80e787 100644
+--- a/drivers/dma/ioatdma.h
++++ b/drivers/dma/ioat/dma.h
+@@ -22,7 +22,7 @@
+ #define IOATDMA_H
+ 
+ #include <linux/dmaengine.h>
+-#include "ioatdma_hw.h"
++#include "hw.h"
+ #include <linux/init.h>
+ #include <linux/dmapool.h>
+ #include <linux/cache.h>
+diff --git a/drivers/dma/ioatdma_hw.h b/drivers/dma/ioat/hw.h
+similarity index 100%
+rename from drivers/dma/ioatdma_hw.h
+rename to drivers/dma/ioat/hw.h
+diff --git a/drivers/dma/ioat.c b/drivers/dma/ioat/pci.c
+similarity index 98%
+rename from drivers/dma/ioat.c
+rename to drivers/dma/ioat/pci.c
+index 2225bb6..d7948bf 100644
+--- a/drivers/dma/ioat.c
++++ b/drivers/dma/ioat/pci.c
+@@ -30,9 +30,9 @@
+ #include <linux/pci.h>
+ #include <linux/interrupt.h>
+ #include <linux/dca.h>
+-#include "ioatdma.h"
+-#include "ioatdma_registers.h"
+-#include "ioatdma_hw.h"
++#include "dma.h"
++#include "registers.h"
++#include "hw.h"
+ 
+ MODULE_VERSION(IOAT_DMA_VERSION);
+ MODULE_LICENSE("GPL");
+diff --git a/drivers/dma/ioatdma_registers.h b/drivers/dma/ioat/registers.h
+similarity index 100%
+rename from drivers/dma/ioatdma_registers.h
+rename to drivers/dma/ioat/registers.h
