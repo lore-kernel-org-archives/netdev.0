@@ -1,855 +1,503 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NET] Add proc file to display the state of all qdiscs.
-Date: Fri, 04 Sep 2009 03:43:22 +0200
-Message-ID: <4AA070BA.9000105@trash.net>
-References: <4A9FD2DC.7070807@trash.net>	<Pine.LNX.4.64.0909031911400.3490@ask.diku.dk>	<4AA00351.4090601@trash.net> <20090903.163101.154177782.davem@davemloft.net> <4AA06F3B.2050500@trash.net>
+From: Dan Williams <dan.j.williams@intel.com>
+Subject: [PATCH 03/29] ioat: convert ioat_probe to pcim/devm
+Date: Thu, 03 Sep 2009 19:30:45 -0700
+Message-ID: <20090904023045.32667.54791.stgit@dwillia2-linux.ch.intel.com>
+References: <20090904022733.32667.77626.stgit@dwillia2-linux.ch.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090302080206090701050004"
-Cc: hawk@diku.dk, cl@linux-foundation.org, eric.dumazet@gmail.com,
-	jarkao2@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:52030 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755411AbZIDBnX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 21:43:23 -0400
-In-Reply-To: <4AA06F3B.2050500@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
---------------090302080206090701050004
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
+Cc: linux-raid@vger.kernel.org, netdev@vger.kernel.org,
+	Maciej Sosnowski <maciej.sosnowski@intel.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932600AbZIDCat@vger.kernel.org>
+In-Reply-To: <20090904022733.32667.77626.stgit@dwillia2-linux.ch.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> David Miller wrote:
->   
->> You mean just like Intel's multiqueue scheduler and multiqueue
->> classifiers which we already have in the tree :-
->>     
->
-> No, actually integrated in the current infrastructure :) The patches
-> add a virtual root qdisc, so we still have a single root from userspace's
-> POV. This qdisc is only used for sch_api purposes and doesn't necessarily
-> match the real root qdiscs. When a "mq" qdisc is attached (done by
-> default for multiqueue devices), the queues are exposed as child
-> classes of this qdisc and can be individually grafted with different
-> qdiscs.
->   
+The driver currently duplicates much of what these routines offer, so
+just use the common code.  For example ->irq_mode tracks what interrupt
+mode was initialized, which duplicates the ->msix_enabled and
+->msi_enabled handling in pcim_release.
 
-Since its getting late and I won't finish this tonight, here are the
-patches I'm currently working on in case someone already wants to have
-a look. Its working as intended and should be testable. Patch 1 is good
-shape IMO, patch 3 still needs some work. Userspace needs no changes.
+This also adds a check to the return value of dma_async_device_register,
+which can fail.
 
+Signed-off-by: Maciej Sosnowski <maciej.sosnowski@intel.com>
+Signed-off-by: Dan Williams <dan.j.williams@intel.com>
+---
+ drivers/dma/ioat/dma.c |  130 ++++++++++++++++--------------------------------
+ drivers/dma/ioat/dma.h |   11 ----
+ drivers/dma/ioat/hw.h  |    1 
+ drivers/dma/ioat/pci.c |   67 +++++++++----------------
+ 4 files changed, 68 insertions(+), 141 deletions(-)
 
-
---------------090302080206090701050004
-Content-Type: text/x-diff;
- name="01.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="01.diff"
-
-commit 6ab8d4a8e3df7976fc2db1e1181216a213df89d5
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Fri Sep 4 03:07:39 2009 +0200
-
-    net_sched: reintroduce dev->qdisc for use by sch_api
-    
-    Currently the multiqueue integration with the qdisc API suffers from
-    a few problems:
-    
-    - with multiple queues, all root qdiscs use the same handle. This means
-      they can't be exposed to userspace in a backwards compatible fashion.
-    
-    - all API operations always refer to queue number 0. Newly created
-      qdiscs are automatically shared between all queues, its not possible
-      to address individual queues or restore multiqueue behaviour once a
-      shared qdisc has been attached.
-    
-    - Dumps only contain the root qdisc of queue 0, in case of non-shared
-      qdiscs this means the statistics are incomplete.
-    
-    This patch reintroduces dev->qdisc, which points to the (single) root qdisc
-    from userspace's point of view. Currently it either points to the first
-    (non-shared) default qdisc, or a qdisc shared between all queues. The
-    following patches will introduce a classful dummy qdisc, which will be used
-    as root qdisc and contain the per-queue qdiscs as children.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 121cbad..a44118b 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -832,6 +832,9 @@ struct net_device
- 	/* Number of TX queues currently active in device  */
- 	unsigned int		real_num_tx_queues;
+diff --git a/drivers/dma/ioat/dma.c b/drivers/dma/ioat/dma.c
+index 16c0807..65f8b74 100644
+--- a/drivers/dma/ioat/dma.c
++++ b/drivers/dma/ioat/dma.c
+@@ -121,6 +121,7 @@ static int ioat_dma_enumerate_channels(struct ioatdma_device *device)
+ 	u32 xfercap;
+ 	int i;
+ 	struct ioat_dma_chan *ioat_chan;
++	struct device *dev = &device->pdev->dev;
  
-+	/* root qdisc from userspace point of view */
-+	struct Qdisc		*qdisc;
-+
- 	unsigned long		tx_queue_len;	/* Max frames per queue allowed */
- 	spinlock_t		tx_global_lock;
- /*
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 5c1fe53..1aebdc1 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -606,7 +606,6 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			    int type, u32 pid, u32 seq, u32 change,
- 			    unsigned int flags)
+ 	/*
+ 	 * IOAT ver.3 workarounds
+@@ -164,7 +165,7 @@ static int ioat_dma_enumerate_channels(struct ioatdma_device *device)
+ 	}
+ #endif
+ 	for (i = 0; i < device->common.chancnt; i++) {
+-		ioat_chan = kzalloc(sizeof(*ioat_chan), GFP_KERNEL);
++		ioat_chan = devm_kzalloc(dev, sizeof(*ioat_chan), GFP_KERNEL);
+ 		if (!ioat_chan) {
+ 			device->common.chancnt = i;
+ 			break;
+@@ -1450,7 +1451,11 @@ MODULE_PARM_DESC(ioat_interrupt_style,
+ static int ioat_dma_setup_interrupts(struct ioatdma_device *device)
  {
--	struct netdev_queue *txq;
- 	struct ifinfomsg *ifm;
- 	struct nlmsghdr *nlh;
- 	const struct net_device_stats *stats;
-@@ -637,9 +636,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	if (dev->master)
- 		NLA_PUT_U32(skb, IFLA_MASTER, dev->master->ifindex);
+ 	struct ioat_dma_chan *ioat_chan;
+-	int err, i, j, msixcnt;
++	struct pci_dev *pdev = device->pdev;
++	struct device *dev = &pdev->dev;
++	struct msix_entry *msix;
++	int i, j, msixcnt;
++	int err = -EINVAL;
+ 	u8 intrctrl = 0;
  
--	txq = netdev_get_tx_queue(dev, 0);
--	if (txq->qdisc_sleeping)
--		NLA_PUT_STRING(skb, IFLA_QDISC, txq->qdisc_sleeping->ops->id);
-+	if (dev->qdisc)
-+		NLA_PUT_STRING(skb, IFLA_QDISC, dev->qdisc->ops->id);
+ 	if (!strcmp(ioat_interrupt_style, "msix"))
+@@ -1461,8 +1466,7 @@ static int ioat_dma_setup_interrupts(struct ioatdma_device *device)
+ 		goto msi;
+ 	if (!strcmp(ioat_interrupt_style, "intx"))
+ 		goto intx;
+-	dev_err(&device->pdev->dev, "invalid ioat_interrupt_style %s\n",
+-		ioat_interrupt_style);
++	dev_err(dev, "invalid ioat_interrupt_style %s\n", ioat_interrupt_style);
+ 	goto err_no_irq;
  
- 	if (dev->ifalias)
- 		NLA_PUT_STRING(skb, IFLA_IFALIAS, dev->ifalias);
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 09cdcdf..e857441 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -168,8 +168,7 @@ replay:
+ msix:
+@@ -1471,55 +1475,55 @@ msix:
+ 	for (i = 0; i < msixcnt; i++)
+ 		device->msix_entries[i].entry = i;
  
- 	/* Find qdisc */
- 	if (!parent) {
--		struct netdev_queue *dev_queue = netdev_get_tx_queue(dev, 0);
--		q = dev_queue->qdisc_sleeping;
-+		q = dev->qdisc;
- 		parent = q->handle;
- 	} else {
- 		q = qdisc_lookup(dev, TC_H_MAJ(t->tcm_parent));
-@@ -405,7 +404,6 @@ static int tcf_node_dump(struct tcf_proto *tp, unsigned long n,
- static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	struct net *net = sock_net(skb->sk);
--	struct netdev_queue *dev_queue;
- 	int t;
- 	int s_t;
- 	struct net_device *dev;
-@@ -424,9 +422,8 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
- 	if ((dev = dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
- 		return skb->len;
+-	err = pci_enable_msix(device->pdev, device->msix_entries, msixcnt);
++	err = pci_enable_msix(pdev, device->msix_entries, msixcnt);
+ 	if (err < 0)
+ 		goto msi;
+ 	if (err > 0)
+ 		goto msix_single_vector;
  
--	dev_queue = netdev_get_tx_queue(dev, 0);
- 	if (!tcm->tcm_parent)
--		q = dev_queue->qdisc_sleeping;
-+		q = dev->qdisc;
- 	else
- 		q = qdisc_lookup(dev, TC_H_MAJ(tcm->tcm_parent));
- 	if (!q)
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 24d17ce..285ca25 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -207,7 +207,7 @@ static struct Qdisc *qdisc_match_from_root(struct Qdisc *root, u32 handle)
- static void qdisc_list_add(struct Qdisc *q)
- {
- 	if ((q->parent != TC_H_ROOT) && !(q->flags & TCQ_F_INGRESS))
--		list_add_tail(&q->list, &qdisc_root_sleeping(q)->list);
-+		list_add_tail(&q->list, &qdisc_dev(q)->qdisc->list);
+ 	for (i = 0; i < msixcnt; i++) {
++		msix = &device->msix_entries[i];
+ 		ioat_chan = ioat_lookup_chan_by_index(device, i);
+-		err = request_irq(device->msix_entries[i].vector,
+-				  ioat_dma_do_interrupt_msix,
+-				  0, "ioat-msix", ioat_chan);
++		err = devm_request_irq(dev, msix->vector,
++				       ioat_dma_do_interrupt_msix, 0,
++				       "ioat-msix", ioat_chan);
+ 		if (err) {
+ 			for (j = 0; j < i; j++) {
++				msix = &device->msix_entries[j];
+ 				ioat_chan =
+ 					ioat_lookup_chan_by_index(device, j);
+-				free_irq(device->msix_entries[j].vector,
+-					 ioat_chan);
++				devm_free_irq(dev, msix->vector, ioat_chan);
+ 			}
+ 			goto msix_single_vector;
+ 		}
+ 	}
+ 	intrctrl |= IOAT_INTRCTRL_MSIX_VECTOR_CONTROL;
+-	device->irq_mode = msix_multi_vector;
+ 	goto done;
+ 
+ msix_single_vector:
+-	device->msix_entries[0].entry = 0;
+-	err = pci_enable_msix(device->pdev, device->msix_entries, 1);
++	msix = &device->msix_entries[0];
++	msix->entry = 0;
++	err = pci_enable_msix(pdev, device->msix_entries, 1);
+ 	if (err)
+ 		goto msi;
+ 
+-	err = request_irq(device->msix_entries[0].vector, ioat_dma_do_interrupt,
+-			  0, "ioat-msix", device);
++	err = devm_request_irq(dev, msix->vector, ioat_dma_do_interrupt, 0,
++			       "ioat-msix", device);
+ 	if (err) {
+-		pci_disable_msix(device->pdev);
++		pci_disable_msix(pdev);
+ 		goto msi;
+ 	}
+-	device->irq_mode = msix_single_vector;
+ 	goto done;
+ 
+ msi:
+-	err = pci_enable_msi(device->pdev);
++	err = pci_enable_msi(pdev);
+ 	if (err)
+ 		goto intx;
+ 
+-	err = request_irq(device->pdev->irq, ioat_dma_do_interrupt,
+-			  0, "ioat-msi", device);
++	err = devm_request_irq(dev, pdev->irq, ioat_dma_do_interrupt, 0,
++			       "ioat-msi", device);
+ 	if (err) {
+-		pci_disable_msi(device->pdev);
++		pci_disable_msi(pdev);
+ 		goto intx;
+ 	}
+ 	/*
+@@ -1527,21 +1531,17 @@ msi:
+ 	 */
+ 	if (device->version == IOAT_VER_1_2) {
+ 		u32 dmactrl;
+-		pci_read_config_dword(device->pdev,
+-				      IOAT_PCI_DMACTRL_OFFSET, &dmactrl);
++		pci_read_config_dword(pdev, IOAT_PCI_DMACTRL_OFFSET, &dmactrl);
+ 		dmactrl |= IOAT_PCI_DMACTRL_MSI_EN;
+-		pci_write_config_dword(device->pdev,
+-				       IOAT_PCI_DMACTRL_OFFSET, dmactrl);
++		pci_write_config_dword(pdev, IOAT_PCI_DMACTRL_OFFSET, dmactrl);
+ 	}
+-	device->irq_mode = msi;
+ 	goto done;
+ 
+ intx:
+-	err = request_irq(device->pdev->irq, ioat_dma_do_interrupt,
+-			  IRQF_SHARED, "ioat-intx", device);
++	err = devm_request_irq(dev, pdev->irq, ioat_dma_do_interrupt,
++			       IRQF_SHARED, "ioat-intx", device);
+ 	if (err)
+ 		goto err_no_irq;
+-	device->irq_mode = intx;
+ 
+ done:
+ 	intrctrl |= IOAT_INTRCTRL_MASTER_INT_EN;
+@@ -1551,60 +1551,26 @@ done:
+ err_no_irq:
+ 	/* Disable all interrupt generation */
+ 	writeb(0, device->reg_base + IOAT_INTRCTRL_OFFSET);
+-	dev_err(&device->pdev->dev, "no usable interrupts\n");
+-	device->irq_mode = none;
+-	return -1;
++	dev_err(dev, "no usable interrupts\n");
++	return err;
  }
  
- void qdisc_list_del(struct Qdisc *q)
-@@ -219,17 +219,11 @@ EXPORT_SYMBOL(qdisc_list_del);
- 
- struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
+-/**
+- * ioat_dma_remove_interrupts - remove whatever interrupts were set
+- * @device: ioat device
+- */
+-static void ioat_dma_remove_interrupts(struct ioatdma_device *device)
++static void ioat_disable_interrupts(struct ioatdma_device *device)
  {
--	unsigned int i;
- 	struct Qdisc *q;
- 
--	for (i = 0; i < dev->num_tx_queues; i++) {
--		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
--		struct Qdisc *txq_root = txq->qdisc_sleeping;
+-	struct ioat_dma_chan *ioat_chan;
+-	int i;
 -
--		q = qdisc_match_from_root(txq_root, handle);
--		if (q)
--			goto out;
+ 	/* Disable all interrupt generation */
+ 	writeb(0, device->reg_base + IOAT_INTRCTRL_OFFSET);
+-
+-	switch (device->irq_mode) {
+-	case msix_multi_vector:
+-		for (i = 0; i < device->common.chancnt; i++) {
+-			ioat_chan = ioat_lookup_chan_by_index(device, i);
+-			free_irq(device->msix_entries[i].vector, ioat_chan);
+-		}
+-		pci_disable_msix(device->pdev);
+-		break;
+-	case msix_single_vector:
+-		free_irq(device->msix_entries[0].vector, device);
+-		pci_disable_msix(device->pdev);
+-		break;
+-	case msi:
+-		free_irq(device->pdev->irq, device);
+-		pci_disable_msi(device->pdev);
+-		break;
+-	case intx:
+-		free_irq(device->pdev->irq, device);
+-		break;
+-	case none:
+-		dev_warn(&device->pdev->dev,
+-			 "call to %s without interrupts setup\n", __func__);
 -	}
-+	q = qdisc_match_from_root(dev->qdisc, handle);
-+	if (q)
-+		goto out;
+-	device->irq_mode = none;
+ }
  
- 	q = qdisc_match_from_root(dev->rx_queue.qdisc_sleeping, handle);
- out:
-@@ -720,9 +714,14 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
- 			if (new && i > 0)
- 				atomic_inc(&new->refcnt);
- 
--			notify_and_destroy(skb, n, classid, old, new);
-+			qdisc_destroy(old);
- 		}
- 
-+		notify_and_destroy(skb, n, classid, dev->qdisc, new);
-+		if (new)
-+			atomic_inc(&new->refcnt);
-+		dev->qdisc = new ? : &noop_qdisc;
-+
- 		if (dev->flags & IFF_UP)
- 			dev_activate(dev);
- 	} else {
-@@ -974,9 +973,7 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 				q = dev->rx_queue.qdisc_sleeping;
- 			}
- 		} else {
--			struct netdev_queue *dev_queue;
--			dev_queue = netdev_get_tx_queue(dev, 0);
--			q = dev_queue->qdisc_sleeping;
-+			q = dev->qdisc;
- 		}
- 		if (!q)
- 			return -ENOENT;
-@@ -1044,9 +1041,7 @@ replay:
- 				q = dev->rx_queue.qdisc_sleeping;
- 			}
- 		} else {
--			struct netdev_queue *dev_queue;
--			dev_queue = netdev_get_tx_queue(dev, 0);
--			q = dev_queue->qdisc_sleeping;
-+			q = dev->qdisc;
- 		}
- 
- 		/* It may be default qdisc, ignore it */
-@@ -1291,8 +1286,7 @@ static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
- 			s_q_idx = 0;
- 		q_idx = 0;
- 
--		dev_queue = netdev_get_tx_queue(dev, 0);
--		if (tc_dump_qdisc_root(dev_queue->qdisc_sleeping, skb, cb, &q_idx, s_q_idx) < 0)
-+		if (tc_dump_qdisc_root(dev->qdisc, skb, cb, &q_idx, s_q_idx) < 0)
- 			goto done;
- 
- 		dev_queue = &dev->rx_queue;
-@@ -1323,7 +1317,6 @@ done:
- static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ struct ioatdma_device *ioat_dma_probe(struct pci_dev *pdev,
+ 				      void __iomem *iobase)
  {
- 	struct net *net = sock_net(skb->sk);
--	struct netdev_queue *dev_queue;
- 	struct tcmsg *tcm = NLMSG_DATA(n);
- 	struct nlattr *tca[TCA_MAX + 1];
- 	struct net_device *dev;
-@@ -1361,7 +1354,6 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 	int err;
++	struct device *dev = &pdev->dev;
+ 	struct ioatdma_device *device;
  
- 	/* Step 1. Determine qdisc handle X:0 */
- 
--	dev_queue = netdev_get_tx_queue(dev, 0);
- 	if (pid != TC_H_ROOT) {
- 		u32 qid1 = TC_H_MAJ(pid);
- 
-@@ -1372,7 +1364,7 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 		} else if (qid1) {
- 			qid = qid1;
- 		} else if (qid == 0)
--			qid = dev_queue->qdisc_sleeping->handle;
-+			qid = dev->qdisc->handle;
- 
- 		/* Now qid is genuine qdisc handle consistent
- 		   both with parent and child.
-@@ -1383,7 +1375,7 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 			pid = TC_H_MAKE(qid, pid);
- 	} else {
- 		if (qid == 0)
--			qid = dev_queue->qdisc_sleeping->handle;
-+			qid = dev->qdisc->handle;
+-	device = kzalloc(sizeof(*device), GFP_KERNEL);
+-	if (!device) {
++	device = devm_kzalloc(dev, sizeof(*device), GFP_KERNEL);
++	if (!device)
+ 		err = -ENOMEM;
+-		goto err_kzalloc;
+-	}
+ 	device->pdev = pdev;
+ 	device->reg_base = iobase;
+ 	device->version = readb(device->reg_base + IOAT_VER_OFFSET);
+@@ -1651,14 +1617,12 @@ struct ioatdma_device *ioat_dma_probe(struct pci_dev *pdev,
+ 		break;
  	}
  
- 	/* OK. Locate qdisc */
-@@ -1584,8 +1576,7 @@ static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
- 	s_t = cb->args[0];
- 	t = 0;
+-	dev_err(&device->pdev->dev,
+-		"Intel(R) I/OAT DMA Engine found,"
++	dev_err(dev, "Intel(R) I/OAT DMA Engine found,"
+ 		" %d channels, device version 0x%02x, driver version %s\n",
+ 		device->common.chancnt, device->version, IOAT_DMA_VERSION);
  
--	dev_queue = netdev_get_tx_queue(dev, 0);
--	if (tc_dump_tclass_root(dev_queue->qdisc_sleeping, skb, tcm, cb, &t, s_t) < 0)
-+	if (tc_dump_tclass_root(dev->qdisc, skb, tcm, cb, &t, s_t) < 0)
- 		goto done;
+ 	if (!device->common.chancnt) {
+-		dev_err(&device->pdev->dev,
+-			"Intel(R) I/OAT DMA Engine problem found: "
++		dev_err(dev, "Intel(R) I/OAT DMA Engine problem found: "
+ 			"zero channels detected\n");
+ 		goto err_setup_interrupts;
+ 	}
+@@ -1671,9 +1635,11 @@ struct ioatdma_device *ioat_dma_probe(struct pci_dev *pdev,
+ 	if (err)
+ 		goto err_self_test;
  
- 	dev_queue = &dev->rx_queue;
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 6128e6f..a91f079 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -623,19 +623,6 @@ void qdisc_destroy(struct Qdisc *qdisc)
- }
- EXPORT_SYMBOL(qdisc_destroy);
+-	ioat_set_tcp_copy_break(device);
++	err = dma_async_device_register(&device->common);
++	if (err)
++		goto err_self_test;
  
--static bool dev_all_qdisc_sleeping_noop(struct net_device *dev)
--{
--	unsigned int i;
--
--	for (i = 0; i < dev->num_tx_queues; i++) {
--		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
--
--		if (txq->qdisc_sleeping != &noop_qdisc)
--			return false;
--	}
--	return true;
--}
--
- static void attach_one_default_qdisc(struct net_device *dev,
- 				     struct netdev_queue *dev_queue,
- 				     void *_unused)
-@@ -677,6 +664,7 @@ static void transition_one_qdisc(struct net_device *dev,
+-	dma_async_device_register(&device->common);
++	ioat_set_tcp_copy_break(device);
  
- void dev_activate(struct net_device *dev)
- {
-+	struct netdev_queue *txq;
- 	int need_watchdog;
+ 	if (device->version != IOAT_VER_3_0) {
+ 		INIT_DELAYED_WORK(&device->work, ioat_dma_chan_watchdog);
+@@ -1684,16 +1650,12 @@ struct ioatdma_device *ioat_dma_probe(struct pci_dev *pdev,
+ 	return device;
  
- 	/* No queueing discipline is attached to device;
-@@ -685,9 +673,14 @@ void dev_activate(struct net_device *dev)
- 	   virtual interfaces
- 	 */
- 
--	if (dev_all_qdisc_sleeping_noop(dev))
-+	if (dev->qdisc == &noop_qdisc) {
- 		netdev_for_each_tx_queue(dev, attach_one_default_qdisc, NULL);
- 
-+		txq = netdev_get_tx_queue(dev, 0);
-+		dev->qdisc = txq->qdisc_sleeping;
-+		atomic_inc(&dev->qdisc->refcnt);
-+	}
-+
- 	if (!netif_carrier_ok(dev))
- 		/* Delay activation until next carrier-on event */
- 		return;
-@@ -777,6 +770,7 @@ static void dev_init_scheduler_queue(struct net_device *dev,
- 
- void dev_init_scheduler(struct net_device *dev)
- {
-+	dev->qdisc = &noop_qdisc;
- 	netdev_for_each_tx_queue(dev, dev_init_scheduler_queue, &noop_qdisc);
- 	dev_init_scheduler_queue(dev, &dev->rx_queue, &noop_qdisc);
- 
-@@ -802,5 +796,8 @@ void dev_shutdown(struct net_device *dev)
- {
- 	netdev_for_each_tx_queue(dev, shutdown_scheduler_queue, &noop_qdisc);
- 	shutdown_scheduler_queue(dev, &dev->rx_queue, &noop_qdisc);
-+	qdisc_destroy(dev->qdisc);
-+	dev->qdisc = &noop_qdisc;
-+
- 	WARN_ON(timer_pending(&dev->watchdog_timer));
- }
-
---------------090302080206090701050004
-Content-Type: text/x-diff;
- name="02.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="02.diff"
-
-commit 9b1d1d62936b6ec6e51956d77b83743bea67e1ac
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Fri Sep 4 03:13:54 2009 +0200
-
-    net_sched: move dev_graft_qdisc() to sch_generic.c
-    
-    It will be used in a following patch by the multiqueue qdisc.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 84b3fc2..a1a3f3f 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -302,6 +302,8 @@ extern void dev_init_scheduler(struct net_device *dev);
- extern void dev_shutdown(struct net_device *dev);
- extern void dev_activate(struct net_device *dev);
- extern void dev_deactivate(struct net_device *dev);
-+extern struct Qdisc *dev_graft_qdisc(struct netdev_queue *dev_queue,
-+				     struct Qdisc *qdisc);
- extern void qdisc_reset(struct Qdisc *qdisc);
- extern void qdisc_destroy(struct Qdisc *qdisc);
- extern void qdisc_tree_decrease_qlen(struct Qdisc *qdisc, unsigned int n);
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 285ca25..c0d2704 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -610,32 +610,6 @@ static u32 qdisc_alloc_handle(struct net_device *dev)
- 	return i>0 ? autohandle : 0;
+ err_self_test:
+-	ioat_dma_remove_interrupts(device);
++	ioat_disable_interrupts(device);
+ err_setup_interrupts:
+ 	pci_pool_destroy(device->completion_pool);
+ err_completion_pool:
+ 	pci_pool_destroy(device->dma_pool);
+ err_dma_pool:
+-	kfree(device);
+-err_kzalloc:
+-	dev_err(&pdev->dev,
+-		"Intel(R) I/OAT DMA Engine initialization failed\n");
+ 	return NULL;
  }
  
--/* Attach toplevel qdisc to device queue. */
+@@ -1705,23 +1667,17 @@ void ioat_dma_remove(struct ioatdma_device *device)
+ 	if (device->version != IOAT_VER_3_0)
+ 		cancel_delayed_work(&device->work);
+ 
+-	ioat_dma_remove_interrupts(device);
++	ioat_disable_interrupts(device);
+ 
+ 	dma_async_device_unregister(&device->common);
+ 
+ 	pci_pool_destroy(device->dma_pool);
+ 	pci_pool_destroy(device->completion_pool);
+ 
+-	iounmap(device->reg_base);
+-	pci_release_regions(device->pdev);
+-	pci_disable_device(device->pdev);
 -
--static struct Qdisc *dev_graft_qdisc(struct netdev_queue *dev_queue,
--				     struct Qdisc *qdisc)
--{
--	struct Qdisc *oqdisc = dev_queue->qdisc_sleeping;
--	spinlock_t *root_lock;
--
--	root_lock = qdisc_lock(oqdisc);
--	spin_lock_bh(root_lock);
--
--	/* Prune old scheduler */
--	if (oqdisc && atomic_read(&oqdisc->refcnt) <= 1)
--		qdisc_reset(oqdisc);
--
--	/* ... and graft new one */
--	if (qdisc == NULL)
--		qdisc = &noop_qdisc;
--	dev_queue->qdisc_sleeping = qdisc;
--	rcu_assign_pointer(dev_queue->qdisc, &noop_qdisc);
--
--	spin_unlock_bh(root_lock);
--
--	return oqdisc;
--}
--
- void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
- {
- 	const struct Qdisc_class_ops *cops;
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index a91f079..e7c47ce 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -623,6 +623,31 @@ void qdisc_destroy(struct Qdisc *qdisc)
- }
- EXPORT_SYMBOL(qdisc_destroy);
- 
-+/* Attach toplevel qdisc to device queue. */
-+struct Qdisc *dev_graft_qdisc(struct netdev_queue *dev_queue,
-+			      struct Qdisc *qdisc)
-+{
-+	struct Qdisc *oqdisc = dev_queue->qdisc_sleeping;
-+	spinlock_t *root_lock;
-+
-+	root_lock = qdisc_lock(oqdisc);
-+	spin_lock_bh(root_lock);
-+
-+	/* Prune old scheduler */
-+	if (oqdisc && atomic_read(&oqdisc->refcnt) <= 1)
-+		qdisc_reset(oqdisc);
-+
-+	/* ... and graft new one */
-+	if (qdisc == NULL)
-+		qdisc = &noop_qdisc;
-+	dev_queue->qdisc_sleeping = qdisc;
-+	rcu_assign_pointer(dev_queue->qdisc, &noop_qdisc);
-+
-+	spin_unlock_bh(root_lock);
-+
-+	return oqdisc;
-+}
-+
- static void attach_one_default_qdisc(struct net_device *dev,
- 				     struct netdev_queue *dev_queue,
- 				     void *_unused)
-
---------------090302080206090701050004
-Content-Type: text/x-diff;
- name="03.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="03.diff"
-
-commit 7f8e95c412644cc23173c9c5673df794fb9b65f7
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Fri Sep 4 03:24:28 2009 +0200
-
-    net_sched: add classful multiqueue dummy scheduler
-    
-    This patch adds a classful dummy scheduler which can be used as root qdisc
-    for multiqueue devices and exposes each device queue as a child class.
-    
-    This allows to address queues individually and graft them similar to regular
-    classes. Additionally it presents an accumulated view of the statistics of
-    all real root qdiscs in the dummy root.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index a1a3f3f..b76e4fa 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -122,6 +122,7 @@ struct Qdisc_ops
- 	void			(*reset)(struct Qdisc *);
- 	void			(*destroy)(struct Qdisc *);
- 	int			(*change)(struct Qdisc *, struct nlattr *arg);
-+	void			(*attach)(struct Qdisc *);
- 
- 	int			(*dump)(struct Qdisc *, struct sk_buff *);
- 	int			(*dump_stats)(struct Qdisc *, struct gnet_dump *);
-@@ -255,6 +256,8 @@ static inline void sch_tree_unlock(struct Qdisc *q)
- 
- extern struct Qdisc noop_qdisc;
- extern struct Qdisc_ops noop_qdisc_ops;
-+extern struct Qdisc_ops pfifo_fast_ops;
-+extern struct Qdisc_ops mq_qdisc_ops;
- 
- struct Qdisc_class_common
- {
-diff --git a/net/sched/Makefile b/net/sched/Makefile
-index 54d950c..f14e71b 100644
---- a/net/sched/Makefile
-+++ b/net/sched/Makefile
-@@ -2,7 +2,7 @@
- # Makefile for the Linux Traffic Control Unit.
- #
- 
--obj-y	:= sch_generic.o
-+obj-y	:= sch_generic.o sch_mq.o
- 
- obj-$(CONFIG_NET_SCHED)		+= sch_api.o sch_blackhole.o
- obj-$(CONFIG_NET_CLS)		+= cls_api.o
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index c0d2704..dc41cb1 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -678,6 +678,11 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
- 		if (dev->flags & IFF_UP)
- 			dev_deactivate(dev);
- 
-+		if (new && new->ops->attach) {
-+			new->ops->attach(new);
-+			num_q = 0;
-+		}
-+
- 		for (i = 0; i < num_q; i++) {
- 			struct netdev_queue *dev_queue = &dev->rx_queue;
- 
-@@ -692,7 +697,7 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
- 		}
- 
- 		notify_and_destroy(skb, n, classid, dev->qdisc, new);
--		if (new)
-+		if (new && !new->ops->attach)
- 			atomic_inc(&new->refcnt);
- 		dev->qdisc = new ? : &noop_qdisc;
- 
-@@ -1670,6 +1675,7 @@ static int __init pktsched_init(void)
- {
- 	register_qdisc(&pfifo_qdisc_ops);
- 	register_qdisc(&bfifo_qdisc_ops);
-+	register_qdisc(&mq_qdisc_ops);
- 	proc_net_fops_create(&init_net, "psched", 0, &psched_fops);
- 
- 	rtnl_register(PF_UNSPEC, RTM_NEWQDISC, tc_modify_qdisc, NULL);
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index e7c47ce..4ae6aa5 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -514,7 +514,7 @@ static int pfifo_fast_init(struct Qdisc *qdisc, struct nlattr *opt)
- 	return 0;
+ 	list_for_each_entry_safe(chan, _chan,
+ 				 &device->common.channels, device_node) {
+ 		ioat_chan = to_ioat_chan(chan);
+ 		list_del(&chan->device_node);
+-		kfree(ioat_chan);
+ 	}
+-	kfree(device);
  }
  
--static struct Qdisc_ops pfifo_fast_ops __read_mostly = {
-+struct Qdisc_ops pfifo_fast_ops __read_mostly = {
- 	.id		=	"pfifo_fast",
- 	.priv_size	=	sizeof(struct pfifo_fast_priv),
- 	.enqueue	=	pfifo_fast_enqueue,
-@@ -670,6 +670,26 @@ static void attach_one_default_qdisc(struct net_device *dev,
- 	dev_queue->qdisc_sleeping = qdisc;
- }
+diff --git a/drivers/dma/ioat/dma.h b/drivers/dma/ioat/dma.h
+index ccb400f..5e8d7cf 100644
+--- a/drivers/dma/ioat/dma.h
++++ b/drivers/dma/ioat/dma.h
+@@ -31,14 +31,6 @@
  
-+static void attach_default_qdiscs(struct net_device *dev)
-+{
-+	struct netdev_queue *txq;
-+	struct Qdisc *qdisc;
-+
-+	txq = netdev_get_tx_queue(dev, 0);
-+
-+	if (!netif_is_multiqueue(dev) || dev->tx_queue_len == 0) {
-+		netdev_for_each_tx_queue(dev, attach_one_default_qdisc, NULL);
-+		dev->qdisc = txq->qdisc_sleeping;
-+		atomic_inc(&dev->qdisc->refcnt);
-+	} else {
-+		qdisc = qdisc_create_dflt(dev, txq, &mq_qdisc_ops, TC_H_ROOT);
-+		if (qdisc) {
-+			qdisc->ops->attach(qdisc);
-+			dev->qdisc = qdisc;
-+		}
-+	}
-+}
-+
- static void transition_one_qdisc(struct net_device *dev,
- 				 struct netdev_queue *dev_queue,
- 				 void *_need_watchdog)
-@@ -689,7 +709,6 @@ static void transition_one_qdisc(struct net_device *dev,
+ #define IOAT_DMA_VERSION  "3.64"
  
- void dev_activate(struct net_device *dev)
- {
--	struct netdev_queue *txq;
- 	int need_watchdog;
- 
- 	/* No queueing discipline is attached to device;
-@@ -698,13 +717,8 @@ void dev_activate(struct net_device *dev)
- 	   virtual interfaces
- 	 */
- 
--	if (dev->qdisc == &noop_qdisc) {
--		netdev_for_each_tx_queue(dev, attach_one_default_qdisc, NULL);
+-enum ioat_interrupt {
+-	none = 0,
+-	msix_multi_vector = 1,
+-	msix_single_vector = 2,
+-	msi = 3,
+-	intx = 4,
+-};
 -
--		txq = netdev_get_tx_queue(dev, 0);
--		dev->qdisc = txq->qdisc_sleeping;
--		atomic_inc(&dev->qdisc->refcnt);
--	}
-+	if (dev->qdisc == &noop_qdisc)
-+		attach_default_qdiscs(dev);
+ #define IOAT_LOW_COMPLETION_MASK	0xffffffc0
+ #define IOAT_DMA_DCA_ANY_CPU		~0
+ #define IOAT_WATCHDOG_PERIOD		(2 * HZ)
+@@ -59,7 +51,6 @@ enum ioat_interrupt {
+  */
+ #define NULL_DESC_BUFFER_SIZE 1
  
- 	if (!netif_carrier_ok(dev))
- 		/* Delay activation until next carrier-on event */
-diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
-new file mode 100644
-index 0000000..fadaa6d
---- /dev/null
-+++ b/net/sched/sch_mq.c
-@@ -0,0 +1,244 @@
-+/*
-+ * net/sched/sch_mq.c		Classful multiqueue dummy scheduler
-+ *
-+ * Copyright (c) 2009 Patrick McHardy <kaber@trash.net>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * version 2 as published by the Free Software Foundation.
-+ */
+-
+ /**
+  * struct ioatdma_device - internal representation of a IOAT device
+  * @pdev: PCI-Express device
+@@ -67,7 +58,6 @@ enum ioat_interrupt {
+  * @dma_pool: for allocating DMA descriptors
+  * @common: embedded struct dma_device
+  * @version: version of ioatdma device
+- * @irq_mode: which style irq to use
+  * @msix_entries: irq handlers
+  * @idx: per channel data
+  */
+@@ -79,7 +69,6 @@ struct ioatdma_device {
+ 	struct pci_pool *completion_pool;
+ 	struct dma_device common;
+ 	u8 version;
+-	enum ioat_interrupt irq_mode;
+ 	struct delayed_work work;
+ 	struct msix_entry msix_entries[4];
+ 	struct ioat_dma_chan *idx[4];
+diff --git a/drivers/dma/ioat/hw.h b/drivers/dma/ioat/hw.h
+index afa57ee..1438fa5 100644
+--- a/drivers/dma/ioat/hw.h
++++ b/drivers/dma/ioat/hw.h
+@@ -23,6 +23,7 @@
+ 
+ /* PCI Configuration Space Values */
+ #define IOAT_PCI_VID            0x8086
++#define IOAT_MMIO_BAR		0
+ 
+ /* CB device ID's */
+ #define IOAT_PCI_DID_5000       0x1A38
+diff --git a/drivers/dma/ioat/pci.c b/drivers/dma/ioat/pci.c
+index d7948bf..982e38f 100644
+--- a/drivers/dma/ioat/pci.c
++++ b/drivers/dma/ioat/pci.c
+@@ -62,7 +62,6 @@ static struct pci_device_id ioat_pci_tbl[] = {
+ 
+ struct ioat_device {
+ 	struct pci_dev		*pdev;
+-	void __iomem		*iobase;
+ 	struct ioatdma_device	*dma;
+ 	struct dca_provider	*dca;
+ };
+@@ -75,8 +74,10 @@ static int ioat_dca_enabled = 1;
+ module_param(ioat_dca_enabled, int, 0644);
+ MODULE_PARM_DESC(ioat_dca_enabled, "control support of dca service (default: 1)");
+ 
++#define DRV_NAME "ioatdma"
 +
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/string.h>
-+#include <linux/errno.h>
-+#include <linux/skbuff.h>
-+#include <net/netlink.h>
-+#include <net/pkt_sched.h>
-+
-+struct mq_sched {
-+	struct Qdisc		**qdiscs;
-+};
-+
-+static int mq_init(struct Qdisc *sch, struct nlattr *opt)
-+{
-+	struct net_device *dev = qdisc_dev(sch);
-+	struct mq_sched *priv = qdisc_priv(sch);
-+	struct netdev_queue *dev_queue;
-+	struct Qdisc *qdisc;
-+	unsigned int ntx;
-+
-+	if (sch->parent != TC_H_ROOT)
-+		return -EOPNOTSUPP;
-+
-+	if (!netif_is_multiqueue(dev))
-+		return -EOPNOTSUPP;
-+
-+	/* pre-allocate qdiscs, attachment can't fail */
-+	priv->qdiscs = kcalloc(dev->num_tx_queues, sizeof(priv->qdiscs[0]),
-+			       GFP_KERNEL);
-+	if (priv->qdiscs == NULL)
+ static struct pci_driver ioat_pci_driver = {
+-	.name		= "ioatdma",
++	.name		= DRV_NAME,
+ 	.id_table	= ioat_pci_tbl,
+ 	.probe		= ioat_probe,
+ 	.remove		= __devexit_p(ioat_remove),
+@@ -85,47 +86,42 @@ static struct pci_driver ioat_pci_driver = {
+ static int __devinit ioat_probe(struct pci_dev *pdev,
+ 				const struct pci_device_id *id)
+ {
++	void __iomem * const *iomap;
+ 	void __iomem *iobase;
++	struct device *dev = &pdev->dev;
+ 	struct ioat_device *device;
+-	unsigned long mmio_start, mmio_len;
+ 	int err;
+ 
+-	err = pci_enable_device(pdev);
++	err = pcim_enable_device(pdev);
+ 	if (err)
+-		goto err_enable_device;
++		return err;
+ 
+-	err = pci_request_regions(pdev, ioat_pci_driver.name);
++	err = pcim_iomap_regions(pdev, 1 << IOAT_MMIO_BAR, DRV_NAME);
+ 	if (err)
+-		goto err_request_regions;
++		return err;
++	iomap = pcim_iomap_table(pdev);
++	if (!iomap)
 +		return -ENOMEM;
+ 
+ 	err = pci_set_dma_mask(pdev, DMA_BIT_MASK(64));
+ 	if (err)
+ 		err = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
+ 	if (err)
+-		goto err_set_dma_mask;
++		return err;
+ 
+ 	err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
+ 	if (err)
+ 		err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
+ 	if (err)
+-		goto err_set_dma_mask;
+-
+-	mmio_start = pci_resource_start(pdev, 0);
+-	mmio_len = pci_resource_len(pdev, 0);
+-	iobase = ioremap(mmio_start, mmio_len);
+-	if (!iobase) {
+-		err = -ENOMEM;
+-		goto err_ioremap;
+-	}
++		return err;
 +
-+	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
-+		dev_queue = netdev_get_tx_queue(dev, ntx);
-+		qdisc = qdisc_create_dflt(dev, dev_queue, &pfifo_fast_ops,
-+					  TC_H_MAKE(TC_H_MAJ(sch->handle),
-+						    TC_H_MIN(ntx + 1)));
-+		if (qdisc == NULL)
-+			goto err;
-+		qdisc->flags |= TCQ_F_CAN_BYPASS;
-+		priv->qdiscs[ntx] = qdisc;
++	device = devm_kzalloc(dev, sizeof(*device), GFP_KERNEL);
++	if (!device)
++		return -ENOMEM;
+ 
+-	device = kzalloc(sizeof(*device), GFP_KERNEL);
+-	if (!device) {
+-		err = -ENOMEM;
+-		goto err_kzalloc;
+-	}
+ 	device->pdev = pdev;
+ 	pci_set_drvdata(pdev, device);
+-	device->iobase = iobase;
++	iobase = iomap[IOAT_MMIO_BAR];
+ 
+ 	pci_set_master(pdev);
+ 
+@@ -146,28 +142,15 @@ static int __devinit ioat_probe(struct pci_dev *pdev,
+ 			device->dca = ioat3_dca_init(pdev, iobase);
+ 		break;
+ 	default:
+-		err = -ENODEV;
+-		break;
++		return -ENODEV;
+ 	}
+-	if (!device->dma)
+-		err = -ENODEV;
+ 
+-	if (err)
+-		goto err_version;
++	if (!device->dma) {
++		dev_err(dev, "Intel(R) I/OAT DMA Engine init failed\n");
++		return -ENODEV;
 +	}
-+
-+	return 0;
-+
-+err:
-+	while (ntx > 0)
-+		qdisc_destroy(priv->qdiscs[--ntx]);
-+	kfree(priv->qdiscs);
-+	return -ENOMEM;
-+}
-+
-+static void mq_attach(struct Qdisc *sch)
-+{
-+	struct net_device *dev = qdisc_dev(sch);
-+	struct mq_sched *priv = qdisc_priv(sch);
-+	struct Qdisc *qdisc;
-+	unsigned int ntx;
-+
-+	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
-+		qdisc = priv->qdiscs[ntx];
-+		qdisc = dev_graft_qdisc(qdisc->dev_queue, qdisc);
-+		if (qdisc)
-+			qdisc_destroy(qdisc);
-+	}
-+	kfree(priv->qdiscs);
-+}
-+
-+static int mq_dump(struct Qdisc *sch, struct sk_buff *skb)
-+{
-+	struct net_device *dev = qdisc_dev(sch);
-+	struct Qdisc *qdisc;
-+	unsigned int ntx;
-+
-+	sch->q.qlen = 0;
-+	memset(&sch->bstats, 0, sizeof(sch->bstats));
-+	memset(&sch->qstats, 0, sizeof(sch->qstats));
-+
-+	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
-+		qdisc = netdev_get_tx_queue(dev, ntx)->qdisc;
-+		sch->q.qlen		+= qdisc->q.qlen;
-+		sch->bstats.bytes	+= qdisc->bstats.bytes;
-+		sch->bstats.packets	+= qdisc->bstats.packets;
-+		sch->qstats.qlen	+= qdisc->qstats.qlen;
-+		sch->qstats.backlog	+= qdisc->qstats.backlog;
-+		sch->qstats.drops	+= qdisc->qstats.drops;
-+		sch->qstats.requeues	+= qdisc->qstats.requeues;
-+		sch->qstats.overlimits	+= qdisc->qstats.overlimits;
-+	}
-+	return 0;
-+}
-+
-+static struct netdev_queue *mq_queue_get(struct Qdisc *sch, unsigned long arg)
-+{
-+	struct net_device *dev = qdisc_dev(sch);
-+	unsigned long ntx = arg - 1;
-+
-+	if (ntx >= dev->num_tx_queues)
-+		return NULL;
-+	return netdev_get_tx_queue(dev, ntx);
-+}
-+
-+static int mq_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
-+		    struct Qdisc **old)
-+{
-+	struct net_device *dev = qdisc_dev(sch);
-+	struct netdev_queue *dev_queue;
-+
-+	dev_queue = mq_queue_get(sch, arg);
-+	if (dev_queue == NULL)
-+		return -ENOENT;
-+
-+	if (dev->flags & IFF_UP)
-+		dev_deactivate(dev);
-+
-+	*old = dev_graft_qdisc(dev_queue, new);
-+
-+	if (dev->flags & IFF_UP)
-+		dev_activate(dev);
-+	return 0;
-+}
-+
-+static struct Qdisc *mq_leaf(struct Qdisc *sch, unsigned long arg)
-+{
-+	struct netdev_queue *dev_queue;
-+
-+	dev_queue = mq_queue_get(sch, arg);
-+	if (dev_queue == NULL)
-+		return NULL;
-+
-+	return dev_queue->qdisc;
-+}
-+
-+static unsigned long mq_get(struct Qdisc *sch, u32 classid)
-+{
-+	unsigned int ntx = TC_H_MIN(classid);
-+
-+	if (!mq_queue_get(sch, ntx))
-+		return 0;
-+	return ntx;
-+}
-+
-+static void mq_put(struct Qdisc *sch, unsigned long cl)
-+{
-+	return;
-+}
-+
-+static int mq_change(struct Qdisc *sch, u32 handle, u32 parent,
-+		     struct nlattr **tca, unsigned long *arg)
-+{
-+	if (!mq_queue_get(sch, *arg))
-+		return -ENOENT;
-+	return 0;
-+}
-+
-+static int mq_delete(struct Qdisc *sch, unsigned long cl)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+static int mq_dump_class(struct Qdisc *sch, unsigned long cl,
-+			 struct sk_buff *skb, struct tcmsg *tcm)
-+{
-+	struct netdev_queue *dev_queue;
-+
-+	dev_queue = mq_queue_get(sch, cl);
-+	if (dev_queue == NULL)
-+		return -ENOENT;
-+
-+	tcm->tcm_parent = TC_H_ROOT;
-+	tcm->tcm_handle |= TC_H_MIN(cl);
-+	if (dev_queue->qdisc)
-+		tcm->tcm_info = dev_queue->qdisc->handle;
-+	return 0;
-+}
-+
-+static int mq_dump_class_stats(struct Qdisc *sch, unsigned long cl,
-+			       struct gnet_dump *d)
-+{
-+	struct netdev_queue *dev_queue;
-+
-+	dev_queue = mq_queue_get(sch, cl);
-+	sch = dev_queue->qdisc_sleeping;
-+
-+	if (gnet_stats_copy_basic(d, &sch->bstats) < 0 ||
-+	    gnet_stats_copy_queue(d, &sch->qstats) < 0)
-+		return -1;
-+	return 0;
-+}
-+
-+static void mq_walk(struct Qdisc *sch, struct qdisc_walker *arg)
-+{
-+	struct net_device *dev = qdisc_dev(sch);
-+	unsigned int ntx;
-+
-+	if (arg->stop)
-+		return;
-+
-+	arg->count = arg->skip;
-+	for (ntx = arg->skip; ntx < dev->num_tx_queues; ntx++) {
-+		if (arg->fn(sch, ntx + 1, arg) < 0) {
-+			arg->stop = 1;
-+			break;
-+		}
-+		arg->count++;
-+	}
-+}
-+
-+static const struct Qdisc_class_ops mq_class_ops = {
-+	.graft		= mq_graft,
-+	.leaf		= mq_leaf,
-+	.get		= mq_get,
-+	.put		= mq_put,
-+	.change		= mq_change,
-+	.delete		= mq_delete,
-+	.walk		= mq_walk,
-+	.tcf_chain	= NULL,
-+	.bind_tcf	= NULL,
-+	.unbind_tcf	= NULL,
-+	.dump		= mq_dump_class,
-+	.dump_stats	= mq_dump_class_stats,
-+};
-+
-+struct Qdisc_ops mq_qdisc_ops __read_mostly = {
-+	.cl_ops		= &mq_class_ops,
-+	.id		= "mq",
-+	.priv_size	= sizeof(struct mq_sched),
-+	.init		= mq_init,
-+	//.reset	= mq_reset,
-+	//.destroy	= mq_destroy,
-+	.attach		= mq_attach,
-+	.dump		= mq_dump,
-+	.owner		= THIS_MODULE,
-+};
-
---------------090302080206090701050004--
+ 
+ 	return 0;
+-
+-err_version:
+-	kfree(device);
+-err_kzalloc:
+-	iounmap(iobase);
+-err_ioremap:
+-err_set_dma_mask:
+-	pci_release_regions(pdev);
+-	pci_disable_device(pdev);
+-err_request_regions:
+-err_enable_device:
+-	return err;
+ }
+ 
+ static void __devexit ioat_remove(struct pci_dev *pdev)
+@@ -185,8 +168,6 @@ static void __devexit ioat_remove(struct pci_dev *pdev)
+ 		ioat_dma_remove(device->dma);
+ 		device->dma = NULL;
+ 	}
+-
+-	kfree(device);
+ }
+ 
+ static int __init ioat_init_module(void)
