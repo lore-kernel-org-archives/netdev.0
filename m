@@ -1,436 +1,306 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: net_sched 07/07: add classful multiqueue dummy scheduler
-Date: Fri,  4 Sep 2009 18:41:21 +0200 (MEST)
-Message-ID: <20090904164119.27300.23137.sendpatchset@x2.localnet>
+Subject: net_sched 05/07: reintroduce dev->qdisc for use by sch_api
+Date: Fri,  4 Sep 2009 18:41:18 +0200 (MEST)
+Message-ID: <20090904164117.27300.78712.sendpatchset@x2.localnet>
 References: <20090904164111.27300.29929.sendpatchset@x2.localnet>
 Cc: Patrick McHardy <kaber@trash.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35549 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:35545 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757061AbZIDQlT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2009 12:41:19 -0400
+	with ESMTP id S1756907AbZIDQlR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2009 12:41:17 -0400
 In-Reply-To: <20090904164111.27300.29929.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit f114d0f02c9e72fea7bbc4d28a113946183fc65f
+commit 57a016350a3d85dc351ab90ce91e4dc49ce2183a
 Author: Patrick McHardy <kaber@trash.net>
-Date:   Fri Sep 4 18:25:04 2009 +0200
+Date:   Fri Sep 4 16:12:45 2009 +0200
 
-    net_sched: add classful multiqueue dummy scheduler
+    net_sched: reintroduce dev->qdisc for use by sch_api
     
-    This patch adds a classful dummy scheduler which can be used as root qdisc
-    for multiqueue devices and exposes each device queue as a child class.
+    Currently the multiqueue integration with the qdisc API suffers from
+    a few problems:
     
-    This allows to address queues individually and graft them similar to regular
-    classes. Additionally it presents an accumulated view of the statistics of
-    all real root qdiscs in the dummy root.
+    - with multiple queues, all root qdiscs use the same handle. This means
+      they can't be exposed to userspace in a backwards compatible fashion.
     
-    Two new callbacks are added to the qdisc_ops and qdisc_class_ops:
+    - all API operations always refer to queue number 0. Newly created
+      qdiscs are automatically shared between all queues, its not possible
+      to address individual queues or restore multiqueue behaviour once a
+      shared qdisc has been attached.
     
-    - cl_ops->select_queue selects the tx queue number for new child classes.
+    - Dumps only contain the root qdisc of queue 0, in case of non-shared
+      qdiscs this means the statistics are incomplete.
     
-    - qdisc_ops->attach() overrides root qdisc device grafting to attach
-      non-shared qdiscs to the queues.
+    This patch reintroduces dev->qdisc, which points to the (single) root qdisc
+    from userspace's point of view. Currently it either points to the first
+    (non-shared) default qdisc, or a qdisc shared between all queues. The
+    following patches will introduce a classful dummy qdisc, which will be used
+    as root qdisc and contain the per-queue qdiscs as children.
     
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index a92dc62..9c69585 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -80,6 +80,7 @@ struct Qdisc
- struct Qdisc_class_ops
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 121cbad..a44118b 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -832,6 +832,9 @@ struct net_device
+ 	/* Number of TX queues currently active in device  */
+ 	unsigned int		real_num_tx_queues;
+ 
++	/* root qdisc from userspace point of view */
++	struct Qdisc		*qdisc;
++
+ 	unsigned long		tx_queue_len;	/* Max frames per queue allowed */
+ 	spinlock_t		tx_global_lock;
+ /*
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index bbcba2a..eb42873 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -606,7 +606,6 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			    int type, u32 pid, u32 seq, u32 change,
+ 			    unsigned int flags)
  {
- 	/* Child qdisc manipulation */
-+	unsigned int		(*select_queue)(struct Qdisc *, struct tcmsg *);
- 	int			(*graft)(struct Qdisc *, unsigned long cl,
- 					struct Qdisc *, struct Qdisc **);
- 	struct Qdisc *		(*leaf)(struct Qdisc *, unsigned long cl);
-@@ -122,6 +123,7 @@ struct Qdisc_ops
- 	void			(*reset)(struct Qdisc *);
- 	void			(*destroy)(struct Qdisc *);
- 	int			(*change)(struct Qdisc *, struct nlattr *arg);
-+	void			(*attach)(struct Qdisc *);
+-	struct netdev_queue *txq;
+ 	struct ifinfomsg *ifm;
+ 	struct nlmsghdr *nlh;
+ 	const struct net_device_stats *stats;
+@@ -637,9 +636,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	if (dev->master)
+ 		NLA_PUT_U32(skb, IFLA_MASTER, dev->master->ifindex);
  
- 	int			(*dump)(struct Qdisc *, struct sk_buff *);
- 	int			(*dump_stats)(struct Qdisc *, struct gnet_dump *);
-@@ -255,6 +257,8 @@ static inline void sch_tree_unlock(struct Qdisc *q)
+-	txq = netdev_get_tx_queue(dev, 0);
+-	if (txq->qdisc_sleeping)
+-		NLA_PUT_STRING(skb, IFLA_QDISC, txq->qdisc_sleeping->ops->id);
++	if (dev->qdisc)
++		NLA_PUT_STRING(skb, IFLA_QDISC, dev->qdisc->ops->id);
  
- extern struct Qdisc noop_qdisc;
- extern struct Qdisc_ops noop_qdisc_ops;
-+extern struct Qdisc_ops pfifo_fast_ops;
-+extern struct Qdisc_ops mq_qdisc_ops;
+ 	if (dev->ifalias)
+ 		NLA_PUT_STRING(skb, IFLA_IFALIAS, dev->ifalias);
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index eaa8f43..8cbc66f 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -168,8 +168,7 @@ replay:
  
- struct Qdisc_class_common
+ 	/* Find qdisc */
+ 	if (!parent) {
+-		struct netdev_queue *dev_queue = netdev_get_tx_queue(dev, 0);
+-		q = dev_queue->qdisc_sleeping;
++		q = dev->qdisc;
+ 		parent = q->handle;
+ 	} else {
+ 		q = qdisc_lookup(dev, TC_H_MAJ(t->tcm_parent));
+@@ -408,7 +407,6 @@ static int tcf_node_dump(struct tcf_proto *tp, unsigned long n,
+ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
  {
-diff --git a/net/sched/Makefile b/net/sched/Makefile
-index 54d950c..f14e71b 100644
---- a/net/sched/Makefile
-+++ b/net/sched/Makefile
-@@ -2,7 +2,7 @@
- # Makefile for the Linux Traffic Control Unit.
- #
+ 	struct net *net = sock_net(skb->sk);
+-	struct netdev_queue *dev_queue;
+ 	int t;
+ 	int s_t;
+ 	struct net_device *dev;
+@@ -427,9 +425,8 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
+ 	if ((dev = dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
+ 		return skb->len;
  
--obj-y	:= sch_generic.o
-+obj-y	:= sch_generic.o sch_mq.o
- 
- obj-$(CONFIG_NET_SCHED)		+= sch_api.o sch_blackhole.o
- obj-$(CONFIG_NET_CLS)		+= cls_api.o
+-	dev_queue = netdev_get_tx_queue(dev, 0);
+ 	if (!tcm->tcm_parent)
+-		q = dev_queue->qdisc_sleeping;
++		q = dev->qdisc;
+ 	else
+ 		q = qdisc_lookup(dev, TC_H_MAJ(tcm->tcm_parent));
+ 	if (!q)
 diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index d71f12b..2a78d54 100644
+index 166fcca..8aa9a0c 100644
 --- a/net/sched/sch_api.c
 +++ b/net/sched/sch_api.c
-@@ -678,6 +678,11 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
- 		if (dev->flags & IFF_UP)
- 			dev_deactivate(dev);
+@@ -207,7 +207,7 @@ static struct Qdisc *qdisc_match_from_root(struct Qdisc *root, u32 handle)
+ static void qdisc_list_add(struct Qdisc *q)
+ {
+ 	if ((q->parent != TC_H_ROOT) && !(q->flags & TCQ_F_INGRESS))
+-		list_add_tail(&q->list, &qdisc_root_sleeping(q)->list);
++		list_add_tail(&q->list, &qdisc_dev(q)->qdisc->list);
+ }
  
-+		if (new && new->ops->attach) {
-+			new->ops->attach(new);
-+			num_q = 0;
-+		}
-+
- 		for (i = 0; i < num_q; i++) {
- 			struct netdev_queue *dev_queue = &dev->rx_queue;
+ void qdisc_list_del(struct Qdisc *q)
+@@ -219,17 +219,11 @@ EXPORT_SYMBOL(qdisc_list_del);
  
-@@ -692,7 +697,7 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
+ struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
+ {
+-	unsigned int i;
+ 	struct Qdisc *q;
+ 
+-	for (i = 0; i < dev->num_tx_queues; i++) {
+-		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
+-		struct Qdisc *txq_root = txq->qdisc_sleeping;
+-
+-		q = qdisc_match_from_root(txq_root, handle);
+-		if (q)
+-			goto out;
+-	}
++	q = qdisc_match_from_root(dev->qdisc, handle);
++	if (q)
++		goto out;
+ 
+ 	q = qdisc_match_from_root(dev->rx_queue.qdisc_sleeping, handle);
+ out:
+@@ -720,9 +714,14 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
+ 			if (new && i > 0)
+ 				atomic_inc(&new->refcnt);
+ 
+-			notify_and_destroy(skb, n, classid, old, new);
++			qdisc_destroy(old);
  		}
  
- 		notify_and_destroy(skb, n, classid, dev->qdisc, new);
--		if (new)
-+		if (new && !new->ops->attach)
- 			atomic_inc(&new->refcnt);
- 		dev->qdisc = new ? : &noop_qdisc;
++		notify_and_destroy(skb, n, classid, dev->qdisc, new);
++		if (new)
++			atomic_inc(&new->refcnt);
++		dev->qdisc = new ? : &noop_qdisc;
++
+ 		if (dev->flags & IFF_UP)
+ 			dev_activate(dev);
+ 	} else {
+@@ -974,9 +973,7 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 				q = dev->rx_queue.qdisc_sleeping;
+ 			}
+ 		} else {
+-			struct netdev_queue *dev_queue;
+-			dev_queue = netdev_get_tx_queue(dev, 0);
+-			q = dev_queue->qdisc_sleeping;
++			q = dev->qdisc;
+ 		}
+ 		if (!q)
+ 			return -ENOENT;
+@@ -1044,9 +1041,7 @@ replay:
+ 				q = dev->rx_queue.qdisc_sleeping;
+ 			}
+ 		} else {
+-			struct netdev_queue *dev_queue;
+-			dev_queue = netdev_get_tx_queue(dev, 0);
+-			q = dev_queue->qdisc_sleeping;
++			q = dev->qdisc;
+ 		}
  
-@@ -1095,10 +1100,16 @@ create_n_graft:
- 		q = qdisc_create(dev, &dev->rx_queue,
- 				 tcm->tcm_parent, tcm->tcm_parent,
- 				 tca, &err);
--	else
--		q = qdisc_create(dev, netdev_get_tx_queue(dev, 0),
-+	else {
-+		unsigned int ntx = 0;
-+
-+		if (p && p->ops->cl_ops && p->ops->cl_ops->select_queue)
-+			ntx = p->ops->cl_ops->select_queue(p, tcm);
-+
-+		q = qdisc_create(dev, netdev_get_tx_queue(dev, ntx),
- 				 tcm->tcm_parent, tcm->tcm_handle,
- 				 tca, &err);
-+	}
- 	if (q == NULL) {
- 		if (err == -EAGAIN)
- 			goto replay;
-@@ -1674,6 +1685,7 @@ static int __init pktsched_init(void)
+ 		/* It may be default qdisc, ignore it */
+@@ -1291,8 +1286,7 @@ static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
+ 			s_q_idx = 0;
+ 		q_idx = 0;
+ 
+-		dev_queue = netdev_get_tx_queue(dev, 0);
+-		if (tc_dump_qdisc_root(dev_queue->qdisc_sleeping, skb, cb, &q_idx, s_q_idx) < 0)
++		if (tc_dump_qdisc_root(dev->qdisc, skb, cb, &q_idx, s_q_idx) < 0)
+ 			goto done;
+ 
+ 		dev_queue = &dev->rx_queue;
+@@ -1323,7 +1317,6 @@ done:
+ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
  {
- 	register_qdisc(&pfifo_qdisc_ops);
- 	register_qdisc(&bfifo_qdisc_ops);
-+	register_qdisc(&mq_qdisc_ops);
- 	proc_net_fops_create(&init_net, "psched", 0, &psched_fops);
+ 	struct net *net = sock_net(skb->sk);
+-	struct netdev_queue *dev_queue;
+ 	struct tcmsg *tcm = NLMSG_DATA(n);
+ 	struct nlattr *tca[TCA_MAX + 1];
+ 	struct net_device *dev;
+@@ -1361,7 +1354,6 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
  
- 	rtnl_register(PF_UNSPEC, RTM_NEWQDISC, tc_modify_qdisc, NULL);
+ 	/* Step 1. Determine qdisc handle X:0 */
+ 
+-	dev_queue = netdev_get_tx_queue(dev, 0);
+ 	if (pid != TC_H_ROOT) {
+ 		u32 qid1 = TC_H_MAJ(pid);
+ 
+@@ -1372,7 +1364,7 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 		} else if (qid1) {
+ 			qid = qid1;
+ 		} else if (qid == 0)
+-			qid = dev_queue->qdisc_sleeping->handle;
++			qid = dev->qdisc->handle;
+ 
+ 		/* Now qid is genuine qdisc handle consistent
+ 		   both with parent and child.
+@@ -1383,7 +1375,7 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 			pid = TC_H_MAKE(qid, pid);
+ 	} else {
+ 		if (qid == 0)
+-			qid = dev_queue->qdisc_sleeping->handle;
++			qid = dev->qdisc->handle;
+ 	}
+ 
+ 	/* OK. Locate qdisc */
+@@ -1588,8 +1580,7 @@ static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
+ 	s_t = cb->args[0];
+ 	t = 0;
+ 
+-	dev_queue = netdev_get_tx_queue(dev, 0);
+-	if (tc_dump_tclass_root(dev_queue->qdisc_sleeping, skb, tcm, cb, &t, s_t) < 0)
++	if (tc_dump_tclass_root(dev->qdisc, skb, tcm, cb, &t, s_t) < 0)
+ 		goto done;
+ 
+ 	dev_queue = &dev->rx_queue;
 diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index e7c47ce..4ae6aa5 100644
+index 6128e6f..a91f079 100644
 --- a/net/sched/sch_generic.c
 +++ b/net/sched/sch_generic.c
-@@ -514,7 +514,7 @@ static int pfifo_fast_init(struct Qdisc *qdisc, struct nlattr *opt)
- 	return 0;
+@@ -623,19 +623,6 @@ void qdisc_destroy(struct Qdisc *qdisc)
  }
+ EXPORT_SYMBOL(qdisc_destroy);
  
--static struct Qdisc_ops pfifo_fast_ops __read_mostly = {
-+struct Qdisc_ops pfifo_fast_ops __read_mostly = {
- 	.id		=	"pfifo_fast",
- 	.priv_size	=	sizeof(struct pfifo_fast_priv),
- 	.enqueue	=	pfifo_fast_enqueue,
-@@ -670,6 +670,26 @@ static void attach_one_default_qdisc(struct net_device *dev,
- 	dev_queue->qdisc_sleeping = qdisc;
- }
- 
-+static void attach_default_qdiscs(struct net_device *dev)
-+{
-+	struct netdev_queue *txq;
-+	struct Qdisc *qdisc;
-+
-+	txq = netdev_get_tx_queue(dev, 0);
-+
-+	if (!netif_is_multiqueue(dev) || dev->tx_queue_len == 0) {
-+		netdev_for_each_tx_queue(dev, attach_one_default_qdisc, NULL);
-+		dev->qdisc = txq->qdisc_sleeping;
-+		atomic_inc(&dev->qdisc->refcnt);
-+	} else {
-+		qdisc = qdisc_create_dflt(dev, txq, &mq_qdisc_ops, TC_H_ROOT);
-+		if (qdisc) {
-+			qdisc->ops->attach(qdisc);
-+			dev->qdisc = qdisc;
-+		}
-+	}
-+}
-+
- static void transition_one_qdisc(struct net_device *dev,
- 				 struct netdev_queue *dev_queue,
- 				 void *_need_watchdog)
-@@ -689,7 +709,6 @@ static void transition_one_qdisc(struct net_device *dev,
+-static bool dev_all_qdisc_sleeping_noop(struct net_device *dev)
+-{
+-	unsigned int i;
+-
+-	for (i = 0; i < dev->num_tx_queues; i++) {
+-		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
+-
+-		if (txq->qdisc_sleeping != &noop_qdisc)
+-			return false;
+-	}
+-	return true;
+-}
+-
+ static void attach_one_default_qdisc(struct net_device *dev,
+ 				     struct netdev_queue *dev_queue,
+ 				     void *_unused)
+@@ -677,6 +664,7 @@ static void transition_one_qdisc(struct net_device *dev,
  
  void dev_activate(struct net_device *dev)
  {
--	struct netdev_queue *txq;
++	struct netdev_queue *txq;
  	int need_watchdog;
  
  	/* No queueing discipline is attached to device;
-@@ -698,13 +717,8 @@ void dev_activate(struct net_device *dev)
+@@ -685,9 +673,14 @@ void dev_activate(struct net_device *dev)
  	   virtual interfaces
  	 */
  
--	if (dev->qdisc == &noop_qdisc) {
--		netdev_for_each_tx_queue(dev, attach_one_default_qdisc, NULL);
--
--		txq = netdev_get_tx_queue(dev, 0);
--		dev->qdisc = txq->qdisc_sleeping;
--		atomic_inc(&dev->qdisc->refcnt);
--	}
-+	if (dev->qdisc == &noop_qdisc)
-+		attach_default_qdiscs(dev);
+-	if (dev_all_qdisc_sleeping_noop(dev))
++	if (dev->qdisc == &noop_qdisc) {
+ 		netdev_for_each_tx_queue(dev, attach_one_default_qdisc, NULL);
  
++		txq = netdev_get_tx_queue(dev, 0);
++		dev->qdisc = txq->qdisc_sleeping;
++		atomic_inc(&dev->qdisc->refcnt);
++	}
++
  	if (!netif_carrier_ok(dev))
  		/* Delay activation until next carrier-on event */
-diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
-new file mode 100644
-index 0000000..5e453fd
---- /dev/null
-+++ b/net/sched/sch_mq.c
-@@ -0,0 +1,234 @@
-+/*
-+ * net/sched/sch_mq.c		Classful multiqueue dummy scheduler
-+ *
-+ * Copyright (c) 2009 Patrick McHardy <kaber@trash.net>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * version 2 as published by the Free Software Foundation.
-+ */
+ 		return;
+@@ -777,6 +770,7 @@ static void dev_init_scheduler_queue(struct net_device *dev,
+ 
+ void dev_init_scheduler(struct net_device *dev)
+ {
++	dev->qdisc = &noop_qdisc;
+ 	netdev_for_each_tx_queue(dev, dev_init_scheduler_queue, &noop_qdisc);
+ 	dev_init_scheduler_queue(dev, &dev->rx_queue, &noop_qdisc);
+ 
+@@ -802,5 +796,8 @@ void dev_shutdown(struct net_device *dev)
+ {
+ 	netdev_for_each_tx_queue(dev, shutdown_scheduler_queue, &noop_qdisc);
+ 	shutdown_scheduler_queue(dev, &dev->rx_queue, &noop_qdisc);
++	qdisc_destroy(dev->qdisc);
++	dev->qdisc = &noop_qdisc;
 +
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/string.h>
-+#include <linux/errno.h>
-+#include <linux/skbuff.h>
-+#include <net/netlink.h>
-+#include <net/pkt_sched.h>
-+
-+struct mq_sched {
-+	struct Qdisc		**qdiscs;
-+};
-+
-+static void mq_destroy(struct Qdisc *sch)
-+{
-+	struct net_device *dev = qdisc_dev(sch);
-+	struct mq_sched *priv = qdisc_priv(sch);
-+	unsigned int ntx;
-+
-+	if (priv->qdiscs)
-+		return;
-+	for (ntx = 0; ntx < dev->num_tx_queues && priv->qdiscs[ntx]; ntx++)
-+		qdisc_destroy(priv->qdiscs[ntx]);
-+	kfree(priv->qdiscs);
-+}
-+
-+static int mq_init(struct Qdisc *sch, struct nlattr *opt)
-+{
-+	struct net_device *dev = qdisc_dev(sch);
-+	struct mq_sched *priv = qdisc_priv(sch);
-+	struct netdev_queue *dev_queue;
-+	struct Qdisc *qdisc;
-+	unsigned int ntx;
-+
-+	if (sch->parent != TC_H_ROOT)
-+		return -EOPNOTSUPP;
-+
-+	if (!netif_is_multiqueue(dev))
-+		return -EOPNOTSUPP;
-+
-+	/* pre-allocate qdiscs, attachment can't fail */
-+	priv->qdiscs = kcalloc(dev->num_tx_queues, sizeof(priv->qdiscs[0]),
-+			       GFP_KERNEL);
-+	if (priv->qdiscs == NULL)
-+		return -ENOMEM;
-+
-+	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
-+		dev_queue = netdev_get_tx_queue(dev, ntx);
-+		qdisc = qdisc_create_dflt(dev, dev_queue, &pfifo_fast_ops,
-+					  TC_H_MAKE(TC_H_MAJ(sch->handle),
-+						    TC_H_MIN(ntx + 1)));
-+		if (qdisc == NULL)
-+			goto err;
-+		qdisc->flags |= TCQ_F_CAN_BYPASS;
-+		priv->qdiscs[ntx] = qdisc;
-+	}
-+
-+	return 0;
-+
-+err:
-+	mq_destroy(sch);
-+	return -ENOMEM;
-+}
-+
-+static void mq_attach(struct Qdisc *sch)
-+{
-+	struct net_device *dev = qdisc_dev(sch);
-+	struct mq_sched *priv = qdisc_priv(sch);
-+	struct Qdisc *qdisc;
-+	unsigned int ntx;
-+
-+	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
-+		qdisc = priv->qdiscs[ntx];
-+		qdisc = dev_graft_qdisc(qdisc->dev_queue, qdisc);
-+		if (qdisc)
-+			qdisc_destroy(qdisc);
-+	}
-+	kfree(priv->qdiscs);
-+	priv->qdiscs = NULL;
-+}
-+
-+static int mq_dump(struct Qdisc *sch, struct sk_buff *skb)
-+{
-+	struct net_device *dev = qdisc_dev(sch);
-+	struct Qdisc *qdisc;
-+	unsigned int ntx;
-+
-+	sch->q.qlen = 0;
-+	memset(&sch->bstats, 0, sizeof(sch->bstats));
-+	memset(&sch->qstats, 0, sizeof(sch->qstats));
-+
-+	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
-+		qdisc = netdev_get_tx_queue(dev, ntx)->qdisc_sleeping;
-+		spin_lock_bh(qdisc_lock(qdisc));
-+		sch->q.qlen		+= qdisc->q.qlen;
-+		sch->bstats.bytes	+= qdisc->bstats.bytes;
-+		sch->bstats.packets	+= qdisc->bstats.packets;
-+		sch->qstats.qlen	+= qdisc->qstats.qlen;
-+		sch->qstats.backlog	+= qdisc->qstats.backlog;
-+		sch->qstats.drops	+= qdisc->qstats.drops;
-+		sch->qstats.requeues	+= qdisc->qstats.requeues;
-+		sch->qstats.overlimits	+= qdisc->qstats.overlimits;
-+		spin_unlock_bh(qdisc_lock(qdisc));
-+	}
-+	return 0;
-+}
-+
-+static struct netdev_queue *mq_queue_get(struct Qdisc *sch, unsigned long cl)
-+{
-+	struct net_device *dev = qdisc_dev(sch);
-+	unsigned long ntx = cl - 1;
-+
-+	if (ntx >= dev->num_tx_queues)
-+		return NULL;
-+	return netdev_get_tx_queue(dev, ntx);
-+}
-+
-+static unsigned int mq_select_queue(struct Qdisc *sch, struct tcmsg *tcm)
-+{
-+	unsigned int ntx = TC_H_MIN(tcm->tcm_parent);
-+
-+	if (!mq_queue_get(sch, ntx))
-+		return 0;
-+	return ntx - 1;
-+}
-+
-+static int mq_graft(struct Qdisc *sch, unsigned long cl, struct Qdisc *new,
-+		    struct Qdisc **old)
-+{
-+	struct netdev_queue *dev_queue = mq_queue_get(sch, cl);
-+	struct net_device *dev = qdisc_dev(sch);
-+
-+	if (dev->flags & IFF_UP)
-+		dev_deactivate(dev);
-+
-+	*old = dev_graft_qdisc(dev_queue, new);
-+
-+	if (dev->flags & IFF_UP)
-+		dev_activate(dev);
-+	return 0;
-+}
-+
-+static struct Qdisc *mq_leaf(struct Qdisc *sch, unsigned long cl)
-+{
-+	struct netdev_queue *dev_queue = mq_queue_get(sch, cl);
-+
-+	return dev_queue->qdisc_sleeping;
-+}
-+
-+static unsigned long mq_get(struct Qdisc *sch, u32 classid)
-+{
-+	unsigned int ntx = TC_H_MIN(classid);
-+
-+	if (!mq_queue_get(sch, ntx))
-+		return 0;
-+	return ntx;
-+}
-+
-+static void mq_put(struct Qdisc *sch, unsigned long cl)
-+{
-+	return;
-+}
-+
-+static int mq_dump_class(struct Qdisc *sch, unsigned long cl,
-+			 struct sk_buff *skb, struct tcmsg *tcm)
-+{
-+	struct netdev_queue *dev_queue = mq_queue_get(sch, cl);
-+
-+	tcm->tcm_parent = TC_H_ROOT;
-+	tcm->tcm_handle |= TC_H_MIN(cl);
-+	tcm->tcm_info = dev_queue->qdisc_sleeping->handle;
-+	return 0;
-+}
-+
-+static int mq_dump_class_stats(struct Qdisc *sch, unsigned long cl,
-+			       struct gnet_dump *d)
-+{
-+	struct netdev_queue *dev_queue = mq_queue_get(sch, cl);
-+
-+	sch = dev_queue->qdisc_sleeping;
-+	if (gnet_stats_copy_basic(d, &sch->bstats) < 0 ||
-+	    gnet_stats_copy_queue(d, &sch->qstats) < 0)
-+		return -1;
-+	return 0;
-+}
-+
-+static void mq_walk(struct Qdisc *sch, struct qdisc_walker *arg)
-+{
-+	struct net_device *dev = qdisc_dev(sch);
-+	unsigned int ntx;
-+
-+	if (arg->stop)
-+		return;
-+
-+	arg->count = arg->skip;
-+	for (ntx = arg->skip; ntx < dev->num_tx_queues; ntx++) {
-+		if (arg->fn(sch, ntx + 1, arg) < 0) {
-+			arg->stop = 1;
-+			break;
-+		}
-+		arg->count++;
-+	}
-+}
-+
-+static const struct Qdisc_class_ops mq_class_ops = {
-+	.select_queue	= mq_select_queue,
-+	.graft		= mq_graft,
-+	.leaf		= mq_leaf,
-+	.get		= mq_get,
-+	.put		= mq_put,
-+	.walk		= mq_walk,
-+	.dump		= mq_dump_class,
-+	.dump_stats	= mq_dump_class_stats,
-+};
-+
-+struct Qdisc_ops mq_qdisc_ops __read_mostly = {
-+	.cl_ops		= &mq_class_ops,
-+	.id		= "mq",
-+	.priv_size	= sizeof(struct mq_sched),
-+	.init		= mq_init,
-+	.destroy	= mq_destroy,
-+	.attach		= mq_attach,
-+	.dump		= mq_dump,
-+	.owner		= THIS_MODULE,
-+};
+ 	WARN_ON(timer_pending(&dev->watchdog_timer));
+ }
