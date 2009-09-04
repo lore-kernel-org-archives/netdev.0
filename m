@@ -1,37 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH NEXT 1/3] netxen: fix lro buffer allocation
-Date: Thu, 03 Sep 2009 20:15:37 -0700 (PDT)
-Message-ID: <20090903.201537.26653675.davem@davemloft.net>
-References: <1252019455-30683-1-git-send-email-dhananjay@netxen.com>
-	<20090903.200615.220020629.davem@davemloft.net>
-	<7608421F3572AB4292BB2532AE89D565865FA8A556@AVEXMB1.qlogic.org>
+Subject: Re: [net-next PATCH 00/11] enic: updates
+Date: Thu, 03 Sep 2009 20:23:26 -0700 (PDT)
+Message-ID: <20090903.202326.216512920.davem@davemloft.net>
+References: <20090904030046.5047.46509.stgit@palito_client100.nuovasystems.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.com, netdev@vger.kernel.org
-To: dhananjay.phadke@qlogic.com
+Cc: netdev@vger.kernel.org
+To: scofeldm@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58059
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50808
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932491AbZIDDPW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 23:15:22 -0400
-In-Reply-To: <7608421F3572AB4292BB2532AE89D565865FA8A556@AVEXMB1.qlogic.org>
+	by vger.kernel.org with ESMTP id S932619AbZIDDXL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 23:23:11 -0400
+In-Reply-To: <20090904030046.5047.46509.stgit@palito_client100.nuovasystems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
-Date: Thu, 3 Sep 2009 20:14:01 -0700
+From: Scott Feldman <scofeldm@cisco.com>
+Date: Thu, 03 Sep 2009 20:01:43 -0700
 
->  
+> The following series implements updates to the enic netdev driver for
+> Cisco's 10G Ethernet NIC:
 > 
->> Applied.  But allocating such huge linear buffers is asking for
->> guarenteed trouble.  Can't you split them up into page sized chunks
->> with this chip?
+>       01 enic: add support for multiple BARs
+>       02 enic: workaround A0 erratum
+>       03 enic: bug fix: split TSO fragments larger than 16K into
+>          multiple descs
+>       04 enic: use netdev_alloc_skb
+>       05 enic: bug fix: protect fw call i/f with spinlock
+>       06 enic: bug fix: included MAC drops in rx_dropped netstat
+>       07 enic: provision for multiple Rx/Tx queues; prepare for RSS support
+>       08 enic: bug fix: enable VLAN filtering
+>       09 enic: changes to driver/firmware interface
+>       10 enic: bug fix: check for zero port MTU before posting warning
+>       11 enic: organize device initialization/deinit into separate functions
 > 
-> "chained" LRO is not enabled by firmware. Contiguous LRO requires
-> fewer commands (internal) from firmware to DMA engines.
+> Please apply.
+> 
+> Signed-off-by: Scott Feldman <scofeldm@cisco.com>
 
-But if the page allocator can't satisfy allocation requests
-it doesn't matter how many microseconds you're saving here.
-
-I think you're priorities are backwards.
+Looks good, all aplied, thanks!
