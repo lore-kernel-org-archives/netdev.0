@@ -1,55 +1,57 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [net-next PATCH 2/3] ixgbe: Distribute transmission of FCoE
- traffic in 82599
-Date: Thu, 3 Sep 2009 21:12:46 -0700 (Pacific Daylight Time)
-Message-ID: <Pine.WNT.4.64.0909032107410.800@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <20090904005549.14869.66878.stgit@localhost.localdomain>
- <20090904005609.14869.89202.stgit@localhost.localdomain>
- <20090903.200915.157113657.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: net tree build warning
+Date: Fri, 4 Sep 2009 14:28:46 +1000
+Message-ID: <20090904142846.02ad1b23.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>, "Zou, Yi" <yi.zou@intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Fri__4_Sep_2009_14_28_46_+1000_k=Gr3D+JS9pqL6dV"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	roel kluin <roel.kluin@gmail.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:48369 "EHLO mga01.intel.com"
+Received: from chilli.pcug.org.au ([203.10.76.44]:38310 "EHLO smtps.tip.net.au"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750852AbZIDEMo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Sep 2009 00:12:44 -0400
-In-Reply-To: <20090903.200915.157113657.davem@davemloft.net>
+	id S1751316AbZIDE3F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Sep 2009 00:29:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 3 Sep 2009, David Miller wrote:
+--Signature=_Fri__4_Sep_2009_14_28_46_+1000_k=Gr3D+JS9pqL6dV
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Thu, 03 Sep 2009 17:56:10 -0700
-> 
-> > From: Yi Zou <yi.zou@intel.com>
-> > 
-> > This adds a simple selection of a FCoE tx queue based on the current cpu id to
-> > distribute transmission of FCoE traffic evenly among multiple FCoE transmit
-> > queues.
-> > 
-> > Signed-off-by: Yi Zou <yi.zou@intel.com>
-> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> 
-> Applied.
-> 
-> Does it matter that arbitrary programs or other stacks could transmit
-> ETH_P_FCOE traffic as well?  Would that interfere with how this offload
-> hardware works now that you're directing all ETH_P_FCOE traffic to
-> FCOE rings?
+Hi Dave,
 
-If another stack uses the FCoE Ethertype, the filtering we use in the 
-qdisc layer to filter FCoE frames would assume they belong in the FCoE 
-flow ID in the driver.  As long as the other stacks send standard FCoE 
-frames, there won't be a problem.  If a stack uses the Ethertype but 
-doesn't follow the standard FCoE frame format, then I'd say that stack was 
-in need of being fixed.
+Today's linux-next build (x86_64 allmodconfig gcc-4.4.0) produced this
+warning:
 
-The FCoE offload on Tx in 82599 is basically just a segmenter, like TSO.
+drivers/net/wan/dscc4.c: In function 'dscc4_rx_skb':
+drivers/net/wan/dscc4.c:670: warning: suggest parentheses around comparison=
+ in operand of '|'
 
+which actually points out a bug, I think.  It is doing
+	(x & (y | z)) !=3D y | z
+when it probably means
+	(x & (y | z)) !=3D (y | z)
+
+Introduced by commit 5de3fcab91b0e1809eec030355d15801daf25083 ("WAN: bit
+and/or confusion").
+--=20
 Cheers,
--PJ
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Fri__4_Sep_2009_14_28_46_+1000_k=Gr3D+JS9pqL6dV
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkqgl34ACgkQjjKRsyhoI8x4wACfZTYdnGYFchBtfV/VlKmNOOej
+smMAnAgnt07SP14IcWp4e6R4kEHr+fHB
+=CF/f
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__4_Sep_2009_14_28_46_+1000_k=Gr3D+JS9pqL6dV--
