@@ -1,91 +1,56 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH 5/5] Updating documentation accordingly
-Date: Fri, 4 Sep 2009 08:45:13 -0700
-Message-ID: <20090904084513.8a35dc71.randy.dunlap@oracle.com>
-References: <1252067111.6172.5.camel@localhost>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [RFC] net/fs_enet: send a reset request to the PHY on init
+Date: Fri, 4 Sep 2009 09:45:54 -0600
+Message-ID: <fa686aa40909040845v7410446eqe16a537c398252b7@mail.gmail.com>
+References: <20090902110410.GC15401@www.tglx.de> <fa686aa40909030948h4acf6d3x1c318baa2fdefe1f@mail.gmail.com>
+	<4AA1347A.5060702@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+	Vitaly Bordug <vbordug@ru.mvista.com>, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org, Wolfgang Denk <wd@denx.de>
+To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet12.oracle.com ([148.87.113.124]:58082 "EHLO
-	rgminet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932107AbZIDPpW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2009 11:45:22 -0400
-In-Reply-To: <1252067111.6172.5.camel@localhost>
+Received: from mail-yx0-f182.google.com ([209.85.210.182]:40891 "EHLO
+	mail-yx0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932404AbZIDPqX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2009 11:46:23 -0400
+Received: by yxe12 with SMTP id 12so2936004yxe.1
+        for <netdev@vger.kernel.org>; Fri, 04 Sep 2009 08:46:25 -0700 (PDT)
+In-Reply-To: <4AA1347A.5060702@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 04 Sep 2009 09:25:11 -0300 Ivo Calado wrote:
+On Fri, Sep 4, 2009 at 9:38 AM, Sebastian Andrzej
+Siewior<bigeasy@linutronix.de> wrote:
+> Grant Likely wrote:
+> =A0> What version of the kernel are you using? =A0The line numbers do=
+n't
+>>
+>> match up with kernel mainline, so I wonder if this is before or afte=
+r
+>> the OF MDIO rework changes.
+>
+> It is the kernel which was shipped in ads5121's bsp which is 2.6.24.
 
-> Updating documentation accordingly
-> 
-> Signed-off-by: Ivo Calado, Erivaldo Xavier, Leandro Sales
-> <ivocalado@embedded.ufcg.edu.br>, <desadoc@gmail.com>,
-> <leandroal@gmail.com>
-> 
-> Index: dccp_tree_work4/net/dccp/ccids/lib/loss_interval_sp.c
-> ===================================================================
-> --- dccp_tree_work4.orig/net/dccp/ccids/lib/loss_interval_sp.c
-> 2009-09-04 00:28:03.000000000 -0300
-> +++ dccp_tree_work4/net/dccp/ccids/lib/loss_interval_sp.c 2009-09-04
-> 01:00:22.000000000 -0300
-> @@ -324,7 +342,7 @@
-> }
-> 
-> /**
-> - * tfrc_lh_update_i_mean  -  Update the `open' loss interval I_0
-> + * tfrc_sp_lh_update_i_mean  -  Update the `open' loss interval I_0
->   * This updates I_mean as the sequence numbers increase. As a
-> consequence, the
->   * open loss interval I_0 increases, hence p = W_tot/max(I_tot0,
-> I_tot1)
->   * decreases, and thus there is no need to send renewed feedback.
-> @@ -372,7 +390,7 @@
-> return cur->li_is_closed;
-> }
-> 
-> -/** tfrc_lh_interval_add  -  Insert new record into the Loss Interval
-> database
-> +/** tfrc_sp_lh_interval_add - Insert new record into the Loss Interval
-> database
+Okay, I can safely ignore this then.  Wolfgang may be interested
+though.  He's been doing some work to get 5121 support mainlined.
 
-The beginning kernel-doc marker ("/**") should be on a line by itself,
-like all of the others are.
+> I have no network support in boot loader so I can't do it there. Doin=
+g it at
+> phy-probe time sounds reasonable.
+> So all other boards are doing this kind of reset in u-boot?
 
+In general I take the approach that as much as possible firmware
+should have devices in a sane state before booting the kernel just to
+avoid doing board specific fixup stuff in the kernel tree.  But this
+isn't law, just more of a rule of thumb that I go by.  2nd resort is
+to create a board specific platform code file and put it there
+(arch/powerpc/platforms/*).
 
->   * @lh:    Loss Interval database
->   * @rh:    Receive history containing a fresh loss event
->   * @calc_first_li: Caller-dependent routine to compute length of first
-> interval
+g.
 
-> Index: dccp_tree_work4/net/dccp/ccids/lib/tfrc_equation_sp.c
-> ===================================================================
-> --- dccp_tree_work4.orig/net/dccp/ccids/lib/tfrc_equation_sp.c
-> 2009-09-03 22:01:08.000000000 -0300
-> +++ dccp_tree_work4/net/dccp/ccids/lib/tfrc_equation_sp.c 2009-09-04
-> 00:54:05.000000000 -0300
-> @@ -607,7 +609,7 @@
-> }
-> 
-> /**
-> - * tfrc_calc_x - Calculate the send rate as per section 3.1 of RFC3448
-> + * tfrc_sp_calc_x - Calculate the send rate as per section 3.1 of
-> RFC3448
-
-Looks like some mail-handling software is splitting lines where they
-should not be split.  You should check that the mailed patches (on the
-receiving side) can be applied cleanly.
-
-
->   *
->   *  @s: packet size          in bytes
->   *  @R: RTT                  scaled by 1000000   (i.e., microseconds)
-
-
-
----
-~Randy
-LPC 2009, Sept. 23-25, Portland, Oregon
-http://linuxplumbersconf.org/2009/
+--=20
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
