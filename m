@@ -1,39 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/5] Adds options DROPPED PACKETS and LOSS INTERVALS to
- receiver
-Date: Fri, 04 Sep 2009 05:42:02 -0700 (PDT)
-Message-ID: <20090904.054202.35826460.davem@davemloft.net>
-References: <1252067108.6172.4.camel@localhost>
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Subject: Re: [PATCH] tc35815: Disable PM capability
+Date: Fri, 04 Sep 2009 22:07:35 +0900 (JST)
+Message-ID: <20090904.220735.39155328.anemo@mba.ocn.ne.jp>
+References: <1251906680-5828-1-git-send-email-anemo@mba.ocn.ne.jp>
+	<20090902.231503.196498577.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: ivocalado@embedded.ufcg.edu.br
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57978
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756773AbZIDMlr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2009 08:41:47 -0400
-In-Reply-To: <1252067108.6172.4.camel@localhost>
+Received: from mba.ocn.ne.jp ([122.28.14.163]:50731 "EHLO smtp.mba.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755737AbZIDNHj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Sep 2009 09:07:39 -0400
+In-Reply-To: <20090902.231503.196498577.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
-Date: Fri, 04 Sep 2009 09:25:08 -0300
-
+On Wed, 02 Sep 2009 23:15:03 -0700 (PDT), David Miller <davem@davemloft.net> wrote:
+> > This chip may report existance of PM registers though they are not
+> > supported.  Disable PM features by clearing pdev->pm_cap.
+> > 
+> > Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 > 
-> /* return 1 if a new loss event has been identified */
-> -static int __two_after_loss(struct tfrc_rx_hist *h, struct sk_buff
-> *skb, u32 n3)
-> +static int __two_after_loss(struct tfrc_rx_hist *h,
-> +     struct sk_buff *skb, u32 n3,
+> Please handle this as a quirk in drivers/pci/quirks.c as that
+> is the proper place to handle these kinds of exceptions.
+> 
+> The patch should be submitted to the PCI subsystem maintainer.
 
-Your patches are all heavily corrupted by your email client.
+Thanks, I will add quirks to MIPS arch code because this fixup is
+required only for internal ether controller in TXx9 SoCs.
 
-As seen here, long lines are chopped up with newlines, and also tab
-characters have been changed into sequences of spaces.
-
-Please fix this up and submit your patches properly.  Use
-Documentation/email-clients.txt to learn how to fix these problems.
-
-Thank you.
+---
+Atsushi Nemoto
