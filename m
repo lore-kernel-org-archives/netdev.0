@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH NEXT 3/3] netxen: fix infinite loop on dma mapping
- failure
-Date: Thu, 03 Sep 2009 20:07:26 -0700 (PDT)
-Message-ID: <20090903.200726.104650791.davem@davemloft.net>
-References: <1252019455-30683-1-git-send-email-dhananjay@netxen.com>
-	<1252019455-30683-3-git-send-email-dhananjay@netxen.com>
+Subject: Re: [net-next PATCH 1/3] igb: add support for set_rx_mode
+ netdevice operation
+Date: Thu, 03 Sep 2009 20:07:33 -0700 (PDT)
+Message-ID: <20090903.200733.186991702.davem@davemloft.net>
+References: <20090904004828.14537.72187.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.com, netdev@vger.kernel.org
-To: dhananjay@netxen.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	alexander.h.duyck@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50999
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51002
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932744AbZIDDHL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 23:07:11 -0400
-In-Reply-To: <1252019455-30683-3-git-send-email-dhananjay@netxen.com>
+	by vger.kernel.org with ESMTP id S932720AbZIDDHS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2009 23:07:18 -0400
+In-Reply-To: <20090904004828.14537.72187.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Date: Thu,  3 Sep 2009 16:10:55 -0700
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 03 Sep 2009 17:48:56 -0700
 
-> Fix a perpetual while() loop in unwinding partial
-> mapped tx skb on dma mapping failure.
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 > 
-> Reported-by: "Juha Leppanen" <juha_motorsportcom@luukku.com>
-> Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+> This patch adds support for the set_rx_mode netdevice operation so that igb
+> can better support multiple unicast addresses.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied.
