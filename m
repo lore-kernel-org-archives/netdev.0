@@ -1,110 +1,52 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: net_sched 00/07: classful multiqueue dummy scheduler
-Date: Fri, 04 Sep 2009 18:42:31 +0200
-Message-ID: <4AA14377.9020200@trash.net>
-References: <20090904164111.27300.29929.sendpatchset@x2.localnet>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: [PATCH] WAN: remove deprecated PCI_DEVICE_ID from PCI200SYN driver.
+Date: Fri, 04 Sep 2009 19:50:16 +0200
+Message-ID: <m363byk3af.fsf@intrepid.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020707090800010304030102"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35573 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751948AbZIDQmb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2009 12:42:31 -0400
-Received: from [IPv6:2001:6f8:974:0:215:f2ff:fe24:91f8] (unknown [IPv6:2001:6f8:974:0:215:f2ff:fe24:91f8])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by stinky.trash.net (Postfix) with ESMTPSA id 5A8EEB2C4B
-	for <netdev@vger.kernel.org>; Fri,  4 Sep 2009 18:42:33 +0200 (MEST)
-In-Reply-To: <20090904164111.27300.29929.sendpatchset@x2.localnet>
+Received: from khc.piap.pl ([195.187.100.11]:56389 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757163AbZIDRuQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Sep 2009 13:50:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------020707090800010304030102
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+PCI200SYN has its own PCI subsystem device ID for 3+ years, now it's
+time to remove the generic PLX905[02] ID from the driver. Anyone with
+old EEPROM data will have to run the upgrade.
 
-Patrick McHardy wrote:
-> These patches contain a classful multiqueue ("mq") dummy scheduler to fix a
-> couple of problems with the current multiqueue TC API integration. The
-> changelogs of patch 05 and 07 contain more details.
-> 
-> The mq scheduler does two things:
-> 
-> - present device TX queues as classes, allowing to attach different qdiscs
->   to them, which are grafted to the TX queues
-> 
-> - present accumulated statistics of all device queue root qdiscs
-> 
-> Its used by default for multiqueue devices instead of the regular pfifo_fast
-> qdisc, but can also be attached manually to restore multiqueue behaviour
-> after attaching a non-multiqueue (shared) qdisc.
-> 
-> Patches 1-4 contain some preparatory cleanups because I was getting tired
-> of copying unnecessary checks and dummy functions :)
-> 
-> Patch 5 introduces a dev->qdisc pointer, which points to the root qdisc from
-> userspace's point of view. This is later used for the mq qdisc, which isn't
-> actually attached to any device queues. Patch 7 contains the mq scheduler.
-> 
-> I've tested the scheduler with a hacked macvlan version which uses 4 queues,
-> but since I don't own a multiqueue capable device I couldn't test this on
-> real hardware.
+Having the generic PLX905[02] (PCI-local bus bridge) ID is harmful
+as the driver tries to handle other devices based on these bridges.
+-- 
+Krzysztof Halasa
 
-And for reference, this is the script I used for testing:
-
-
---------------020707090800010304030102
-Content-Type: application/x-sh;
- name="test.sh"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="test.sh"
-
-#! /bin/sh
-#
-
-#
-# manually created hierarchy
-#
-
-ip link add link eth0 type macvlan
-ip link set macvlan0 up
-
-tc qdisc del dev macvlan0 root
-tc qdisc replace dev macvlan0 handle 1: root mq
-for i in $(seq 1 4); do
-	tc qdisc add dev macvlan0 parent 1:$i pfifo
-done
-
-# ENOENT - parent class doesn't exist
-tc qdisc add dev macvlan0 parent 1:5 pfifo
-
-# EEXIST - class already exists
-tc class add dev macvlan0 parent 1: classid 1:4
-
-# EOPNOTSUPP - class creation not supported
-tc class add dev macvlan0 parent 1: classid 1:5
-
-# EOPNOTSUPP - filters not supported
-tc filter add dev macvlan0 parent 1: handle 1 fw classid 1:1
-
-# EOPNOTSUPP - parent not root qdisc
-tc qdisc add dev macvlan0 parent 1:1 mq
-
-tc -s -d qdisc show dev macvlan0
-tc -d -s class show dev macvlan0
-
-#
-# default mq qdisc
-#
-
-ip link add link eth0 txqueuelen 1000 type macvlan
-ip link set macvlan1 up
-
-tc -s -d qdisc show dev macvlan1
-tc -d -s class show dev macvlan1
-
---------------020707090800010304030102--
+--- a/drivers/net/wan/pci200syn.c
++++ b/drivers/net/wan/pci200syn.c
+@@ -360,15 +360,6 @@ static int __devinit pci200_pci_init_one(struct pci_dev *pdev,
+ 	       " %u RX packets rings\n", ramsize / 1024, ramphys,
+ 	       pdev->irq, card->tx_ring_buffers, card->rx_ring_buffers);
+ 
+-	if (pdev->subsystem_device == PCI_DEVICE_ID_PLX_9050) {
+-		printk(KERN_ERR "Detected PCI200SYN card with old "
+-		       "configuration data.\n");
+-		printk(KERN_ERR "See <http://www.kernel.org/pub/"
+-		       "linux/utils/net/hdlc/pci200syn/> for update.\n");
+-		printk(KERN_ERR "The card will stop working with"
+-		       " future versions of Linux if not updated.\n");
+-	}
+-
+ 	if (card->tx_ring_buffers < 1) {
+ 		printk(KERN_ERR "pci200syn: RAM test failed\n");
+ 		pci200_pci_remove_one(pdev);
+@@ -427,8 +418,6 @@ static int __devinit pci200_pci_init_one(struct pci_dev *pdev,
+ 
+ static struct pci_device_id pci200_pci_tbl[] __devinitdata = {
+ 	{ PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_9050, PCI_VENDOR_ID_PLX,
+-	  PCI_DEVICE_ID_PLX_9050, 0, 0, 0 },
+-	{ PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_9050, PCI_VENDOR_ID_PLX,
+ 	  PCI_DEVICE_ID_PLX_PCI200SYN, 0, 0, 0 },
+ 	{ 0, }
+ };
