@@ -1,13 +1,12 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Subject: Re: [PATCH] slub: fix slab_pad_check()
-Date: Fri, 4 Sep 2009 13:42:51 -0700
-Message-ID: <20090904204251.GA15413@linux.vnet.ibm.com>
-References: <4A9F7283.1090306@gmail.com> <alpine.DEB.1.10.0909031244230.27903@V090114053VZO-1> <4A9FCDC6.3060003@gmail.com> <alpine.DEB.1.10.0909031335430.29881@V090114053VZO-1> <4A9FDA72.8060001@gmail.com> <alpine.DEB.1.10.0909031414310.29881@V090114053VZO-1> <20090903174435.GF6761@linux.vnet.ibm.com> <alpine.DEB.1.10.0909031736340.24199@V090114053VZO-1> <4AA03E6A.7070800@gmail.com> <4AA0407E.8030505@gmail.com>
+Date: Fri, 4 Sep 2009 13:43:35 -0700
+Message-ID: <20090904204335.GG6751@linux.vnet.ibm.com>
+References: <4A9F7283.1090306@gmail.com> <alpine.DEB.1.10.0909031244230.27903@V090114053VZO-1> <4A9FCDC6.3060003@gmail.com> <alpine.DEB.1.10.0909031335430.29881@V090114053VZO-1> <4A9FDA72.8060001@gmail.com> <alpine.DEB.1.10.0909031414310.29881@V090114053VZO-1> <4AA00400.1030005@gmail.com> <alpine.DEB.1.10.0909031731540.24199@V090114053VZO-1> <20090903231757.GP6761@linux.vnet.ibm.com> <alpine.DEB.1.10.0909041140040.9781@V090114053VZO-1>
 Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Lameter <cl@linux-foundation.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	Pekka Enberg <penberg@cs.helsinki.fi>,
 	Zdenek Kabelac <zdenek.kabelac@gmail.com>,
 	Patrick McHardy <kaber@trash.net>, Robin Holt <holt@sgi.com>,
@@ -15,97 +14,54 @@ Cc: Christoph Lameter <cl@linux-foundation.org>,
 	Jesper Dangaard Brouer <hawk@comx.dk>,
 	Linux Netdev List <netdev@vger.kernel.org>,
 	Netfilter Developers <netfilter-devel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Christoph Lameter <cl@linux-foundation.org>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4AA0407E.8030505@gmail.com>
+In-Reply-To: <alpine.DEB.1.10.0909041140040.9781@V090114053VZO-1>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 04, 2009 at 12:17:34AM +0200, Eric Dumazet wrote:
-> Eric Dumazet a =E9crit :
-> >=20
-> >=20
-> >=20
-> > Problem is not _objects_ Christoph, but _slabs_, and your patch is =
-not working.
-> >=20
-> > Its true that when User calls kmem_cache_destroy(), all _objects_ w=
-ere previously freed.
-> > This is mandatory, with or withou SLAB_DESTROY_BY_RCU thing
-> >=20
-> > Problem is that slub has some internal state, including some to-be-=
-freed _slabs_,
-> > that User have no control at all on it.
-> >=20
-> > User cannot "know" slabs are freed, inuse, or whatever state in cac=
-he or call_rcu queues.
-> >=20
-> > Face it, SLAB_DESTROY_BY_RCU is internal affair (to slub/slab/... a=
-llocators)
-> >=20
-> > We absolutely need a rcu_barrier() somewhere, believe it or not. Yo=
-u can argue that it should
-> > be done *before*, but it gives no speedup, only potential bugs.
-> >=20
-> > Only case User should do its rcu_barrier() itself is if it knows so=
-me call_rcu() are pending
-> > and are delaying _objects_ freeing (typical !SLAB_DESTROY_RCU usage=
- in RCU algos).
-> >=20
-> > I dont even understand why you care so much about kmem_cache_destro=
-y(SLAB_DESTROY_BY_RCU),
-> > given that almost nobody use it. We took almost one month to find o=
-ut what the bug was in first
-> > place...
->=20
->=20
-> So maybe the safest thing would be to include the rcu_barrier() to
-> insure all objects where freed
+On Fri, Sep 04, 2009 at 11:42:17AM -0400, Christoph Lameter wrote:
+> On Thu, 3 Sep 2009, Paul E. McKenney wrote:
+> 
+> > If it were the user of the slab who was invoking some variant of
+> > call_rcu(), then I would agree with you.
+> 
+> The user already has to deal with it as explained by Eric.
 
-I argue that the above is the user's responsibility.  That said, I don'=
-t
-see why the user would pass a SLAB_DESTROY_BY_RCU object to call_rcu().
-So I would want to see an example of this before inflicting a pair
-of rcu_barrier() calls on kmem_cache_destroy().
+I didn't read his email that way.  Perhaps I misinterpreted it.
 
-> And another one for SLAB_DESTROY_BY_RCU to make sure slabs where free=
-d
+> > However, call_rcu() is instead being invoked by the slab itself in the
+> > case of SLAB_DESTROY_BY_RCU, so that there is no variation in usage.
+> > Requiring that the user call rcu_barrier() is asking for subtle bugs.
+> > Therefore, the best approach is to have kmem_cache_destroy() handle
+> > the RCU cleanup, given that this cleanup is for actions taken by
+> > kmem_cache_free(), not by the user.
+> 
+> The user already has to properly handle barriers and rcu logic in order to
+> use objects handled with RCU properly. Moreover the user even has to check
+> that the object is not suddenly checked under it. Its already complex.
 
-This last is I believe kmem_cache's responsibility.
+mm/slab.c has had RCU calls since 2.6.9, so this is not new.
+
+> Guess we are doing this ... Sigh. Are you going to add support other rcu
+> versions to slab as well as time permits and as the need arises? Should
+> we add you as a maintainer? ;-)
+
+I don't see any point in adding anything resembling SLAB_DESTROY_BY_RCU_BH,
+SLAB_DESTROY_BY_RCU_SCHED, or SLAB_DESTROY_BY_SRCU unless and until
+someone needs it.  And I most especially don't see the point of adding
+(say) SLAB_DESTROY_BY_RCU_BH_SCHED until someone convinces me of the
+need for it.  I would prefer to put the energy into further streamlining
+the underlying RCU implementation, maybe someday collapsing RCU-BH back
+into RCU.  ;-)
+
+We have gotten along fine with only SLAB_DESTROY_BY_RCU for almost
+five years, so I think we are plenty fine with what we have.  So, as
+you say, "as the need arises".
+
+I don't see any more need to add me as maintainer of slab and friends
+than of btrfs, netfilter, selinux, decnet, afs, wireless, or any of a
+number of other subsystems that use RCU.
 
 							Thanx, Paul
-
-> void kmem_cache_destroy(struct kmem_cache *s)
-> {
-> 	/*
-> 	 * Make sure no objects are waiting in call_rcu queues to be freed
-> 	 */
-> 	rcu_barrier();
->=20
-> 	down_write(&slub_lock);
-> 	s->refcount--;
-> 	if (!s->refcount) {
->                 list_del(&s->list);
->                 up_write(&slub_lock);
->                 if (kmem_cache_close(s)) {
->                         printk(KERN_ERR "SLUB %s: %s called for cache=
- that "
->                                 "still has objects.\n", s->name, __fu=
-nc__);
->                         dump_stack();
->                 }
-> 		/*
-> 		 * Make sure no slabs are waiting in call_rcu queues to be freed
-> 		 */
->                 if (s->flags & SLAB_DESTROY_BY_RCU)
->                         rcu_barrier();
->                 sysfs_slab_remove(s);
->         } else
->                 up_write(&slub_lock);
-> }
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
