@@ -1,56 +1,71 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [RFC] net/fs_enet: send a reset request to the PHY on init
-Date: Fri, 4 Sep 2009 09:45:54 -0600
-Message-ID: <fa686aa40909040845v7410446eqe16a537c398252b7@mail.gmail.com>
-References: <20090902110410.GC15401@www.tglx.de> <fa686aa40909030948h4acf6d3x1c318baa2fdefe1f@mail.gmail.com>
-	<4AA1347A.5060702@linutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
-	Vitaly Bordug <vbordug@ru.mvista.com>, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org, Wolfgang Denk <wd@denx.de>
-To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: net_sched 00/07: classful multiqueue dummy scheduler
+Date: Fri,  4 Sep 2009 18:41:12 +0200 (MEST)
+Message-ID: <20090904164111.27300.29929.sendpatchset@x2.localnet>
+Cc: Patrick McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f182.google.com ([209.85.210.182]:40891 "EHLO
-	mail-yx0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932404AbZIDPqX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2009 11:46:23 -0400
-Received: by yxe12 with SMTP id 12so2936004yxe.1
-        for <netdev@vger.kernel.org>; Fri, 04 Sep 2009 08:46:25 -0700 (PDT)
-In-Reply-To: <4AA1347A.5060702@linutronix.de>
+Received: from stinky.trash.net ([213.144.137.162]:35532 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753083AbZIDQlL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2009 12:41:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 4, 2009 at 9:38 AM, Sebastian Andrzej
-Siewior<bigeasy@linutronix.de> wrote:
-> Grant Likely wrote:
-> =A0> What version of the kernel are you using? =A0The line numbers do=
-n't
->>
->> match up with kernel mainline, so I wonder if this is before or afte=
-r
->> the OF MDIO rework changes.
->
-> It is the kernel which was shipped in ads5121's bsp which is 2.6.24.
+These patches contain a classful multiqueue ("mq") dummy scheduler to fix a
+couple of problems with the current multiqueue TC API integration. The
+changelogs of patch 05 and 07 contain more details.
 
-Okay, I can safely ignore this then.  Wolfgang may be interested
-though.  He's been doing some work to get 5121 support mainlined.
+The mq scheduler does two things:
 
-> I have no network support in boot loader so I can't do it there. Doin=
-g it at
-> phy-probe time sounds reasonable.
-> So all other boards are doing this kind of reset in u-boot?
+- present device TX queues as classes, allowing to attach different qdiscs
+  to them, which are grafted to the TX queues
 
-In general I take the approach that as much as possible firmware
-should have devices in a sane state before booting the kernel just to
-avoid doing board specific fixup stuff in the kernel tree.  But this
-isn't law, just more of a rule of thumb that I go by.  2nd resort is
-to create a board specific platform code file and put it there
-(arch/powerpc/platforms/*).
+- present accumulated statistics of all device queue root qdiscs
 
-g.
+Its used by default for multiqueue devices instead of the regular pfifo_fast
+qdisc, but can also be attached manually to restore multiqueue behaviour
+after attaching a non-multiqueue (shared) qdisc.
 
---=20
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+Patches 1-4 contain some preparatory cleanups because I was getting tired
+of copying unnecessary checks and dummy functions :)
+
+Patch 5 introduces a dev->qdisc pointer, which points to the root qdisc from
+userspace's point of view. This is later used for the mq qdisc, which isn't
+actually attached to any device queues. Patch 7 contains the mq scheduler.
+
+I've tested the scheduler with a hacked macvlan version which uses 4 queues,
+but since I don't own a multiqueue capable device I couldn't test this on
+real hardware.
+
+Any comments and test results welcome :)
+
+
+ include/linux/netdevice.h |    3 +
+ include/net/sch_generic.h |    6 +
+ net/core/rtnetlink.c      |    6 +-
+ net/sched/Makefile        |    2 +-
+ net/sched/cls_api.c       |   10 +-
+ net/sched/sch_api.c       |   99 ++++++++-----------
+ net/sched/sch_cbq.c       |   38 ++++----
+ net/sched/sch_generic.c   |   58 +++++++++--
+ net/sched/sch_hfsc.c      |    4 +-
+ net/sched/sch_htb.c       |   35 ++++----
+ net/sched/sch_ingress.c   |   14 ---
+ net/sched/sch_mq.c        |  234 +++++++++++++++++++++++++++++++++++++++++++++
+ net/sched/sch_multiq.c    |   33 +------
+ net/sched/sch_prio.c      |   32 +------
+ net/sched/sch_red.c       |   21 ----
+ net/sched/sch_sfq.c       |    7 --
+ net/sched/sch_tbf.c       |   22 ----
+ 17 files changed, 375 insertions(+), 249 deletions(-)
+ create mode 100644 net/sched/sch_mq.c
+
+Patrick McHardy (7):
+      net_sched: fix class grafting errno codes
+      net_sched: make cls_ops->tcf_chain() optional
+      net_sched: make cls_ops->change and cls_ops->delete optional
+      net_sched: remove some unnecessary checks in classful schedulers
+      net_sched: reintroduce dev->qdisc for use by sch_api
+      net_sched: move dev_graft_qdisc() to sch_generic.c
+      net_sched: add classful multiqueue dummy scheduler
