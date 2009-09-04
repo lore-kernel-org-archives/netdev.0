@@ -1,67 +1,53 @@
-From: "Zou, Yi" <yi.zou@intel.com>
-Subject: RE: [net-next PATCH 2/3] ixgbe: Distribute transmission of FCoE
- traffic in 82599
-Date: Thu, 3 Sep 2009 22:07:51 -0700
-Message-ID: <7C88852EF6F99F4EB538472FCFEBE22240F1180C@orsmsx509.amr.corp.intel.com>
-References: <20090904005549.14869.66878.stgit@localhost.localdomain>
- <20090904005609.14869.89202.stgit@localhost.localdomain>
- <20090903.200915.157113657.davem@davemloft.net>
- <Pine.WNT.4.64.0909032107410.800@ppwaskie-MOBL2.amr.corp.intel.com>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH net-next] can: add can_free_echo_skb() for upcoming drivers
+Date: Fri, 04 Sep 2009 07:27:15 +0200
+Message-ID: <4AA0A533.1060507@hartkopp.net>
+References: <4A9D3D14.90201@grandegger.com>
+	<20090903.204641.193482962.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:57369 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750999AbZIDFHu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2009 01:07:50 -0400
-In-Reply-To: <Pine.WNT.4.64.0909032107410.800@ppwaskie-MOBL2.amr.corp.intel.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org,
+	urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20090903.204641.193482962.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
->On Thu, 3 Sep 2009, David Miller wrote:
->
->> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> Date: Thu, 03 Sep 2009 17:56:10 -0700
->>
->> > From: Yi Zou <yi.zou@intel.com>
->> >
->> > This adds a simple selection of a FCoE tx queue based on the current cpu
->id to
->> > distribute transmission of FCoE traffic evenly among multiple FCoE
->transmit
->> > queues.
->> >
->> > Signed-off-by: Yi Zou <yi.zou@intel.com>
->> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->>
->> Applied.
->>
->> Does it matter that arbitrary programs or other stacks could transmit
->> ETH_P_FCOE traffic as well?  Would that interfere with how this offload
->> hardware works now that you're directing all ETH_P_FCOE traffic to
->> FCOE rings?
->
->If another stack uses the FCoE Ethertype, the filtering we use in the
->qdisc layer to filter FCoE frames would assume they belong in the FCoE
->flow ID in the driver.  As long as the other stacks send standard FCoE
->frames, there won't be a problem.  If a stack uses the Ethertype but
->doesn't follow the standard FCoE frame format, then I'd say that stack was
->in need of being fixed.
->
->The FCoE offload on Tx in 82599 is basically just a segmenter, like TSO.
->
->Cheers,
->-PJ
-Yes, any stack that wants to take advantage of 82599's FCoE offload
-capability has to fake its traffic as FCoE frames.
+David Miller wrote:
+> Can a CAN expert please review these patches?  They are rotting
+> in patchwork and I want to move forward with them somehow.
 
-Thanks,
-yi
+Hello Dave,
 
+Wolfgang *is* the CAN expert for CAN drivers :-)
+
+We've split the things up:
+
+CAN network layer: Oliver Hartkopp / Urs Thuermann
+CAN network drivers: Wolfgang Grandegger
+
+As written in MAINTAINERS:
+
+CAN NETWORK DRIVERS
+M:      Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+L:      socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org (subscribers-only)
+W:      http://developer.berlios.de/projects/socketcan/
+S:      Maintained
+
+Btw. All three patches sitting in patchwork are ok from my side and i've
+personally reviewed them. I thought that Wolfgang was already known to
+maintain this stuff, so i did not put my Acked-by ...
+
+Best regards,
+Oliver
