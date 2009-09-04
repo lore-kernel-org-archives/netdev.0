@@ -1,7 +1,7 @@
 From: Dan Williams <dan.j.williams@intel.com>
-Subject: [PATCH 17/29] ioat: preserve chanctrl bits when re-arming interrupts
-Date: Thu, 03 Sep 2009 19:31:56 -0700
-Message-ID: <20090904023156.32667.64825.stgit@dwillia2-linux.ch.intel.com>
+Subject: [PATCH 18/29] ioat: ___devinit annotate the initialization paths
+Date: Thu, 03 Sep 2009 19:32:01 -0700
+Message-ID: <20090904023201.32667.21213.stgit@dwillia2-linux.ch.intel.com>
 References: <20090904022733.32667.77626.stgit@dwillia2-linux.ch.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,115 +9,174 @@ Content-Transfer-Encoding: 7bit
 Cc: linux-raid@vger.kernel.org, netdev@vger.kernel.org,
 	Maciej Sosnowski <maciej.sosnowski@intel.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:22986 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932562AbZIDCby (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Sep 2009 22:31:54 -0400
+Return-path: <linux-raid-owner@vger.kernel.org>
 In-Reply-To: <20090904022733.32667.77626.stgit@dwillia2-linux.ch.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-raid-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The register write in ioat_dma_cleanup_tasklet is unfortunate in two
-ways:
-1/ It clears the extra 'enable' bits that we set at alloc_chan_resources time
-2/ It gives the impression that it disables interrupts when it is in
-   fact re-arming interrupts
-
-[ Impact: fix, persist the value of the chanctrl register when re-arming ]
+Mark all single use initialization routines with __devinit.
 
 Signed-off-by: Maciej Sosnowski <maciej.sosnowski@intel.com>
 Signed-off-by: Dan Williams <dan.j.williams@intel.com>
 ---
- drivers/dma/ioat/dma.c       |   10 +++-------
- drivers/dma/ioat/dma_v2.c    |    8 ++------
- drivers/dma/ioat/registers.h |    6 +++++-
- 3 files changed, 10 insertions(+), 14 deletions(-)
+ drivers/dma/ioat/dca.c    |    9 ++++++---
+ drivers/dma/ioat/dma.c    |   12 ++++++------
+ drivers/dma/ioat/dma.h    |   11 ++++++-----
+ drivers/dma/ioat/dma_v2.c |    4 ++--
+ drivers/dma/ioat/dma_v2.h |    8 ++++----
+ 5 files changed, 24 insertions(+), 20 deletions(-)
 
+diff --git a/drivers/dma/ioat/dca.c b/drivers/dma/ioat/dca.c
+index af1c762..69d0261 100644
+--- a/drivers/dma/ioat/dca.c
++++ b/drivers/dma/ioat/dca.c
+@@ -242,7 +242,8 @@ static struct dca_ops ioat_dca_ops = {
+ };
+ 
+ 
+-struct dca_provider *ioat_dca_init(struct pci_dev *pdev, void __iomem *iobase)
++struct dca_provider * __devinit
++ioat_dca_init(struct pci_dev *pdev, void __iomem *iobase)
+ {
+ 	struct dca_provider *dca;
+ 	struct ioat_dca_priv *ioatdca;
+@@ -407,7 +408,8 @@ static int ioat2_dca_count_dca_slots(void __iomem *iobase, u16 dca_offset)
+ 	return slots;
+ }
+ 
+-struct dca_provider *ioat2_dca_init(struct pci_dev *pdev, void __iomem *iobase)
++struct dca_provider * __devinit
++ioat2_dca_init(struct pci_dev *pdev, void __iomem *iobase)
+ {
+ 	struct dca_provider *dca;
+ 	struct ioat_dca_priv *ioatdca;
+@@ -602,7 +604,8 @@ static int ioat3_dca_count_dca_slots(void *iobase, u16 dca_offset)
+ 	return slots;
+ }
+ 
+-struct dca_provider *ioat3_dca_init(struct pci_dev *pdev, void __iomem *iobase)
++struct dca_provider * __devinit
++ioat3_dca_init(struct pci_dev *pdev, void __iomem *iobase)
+ {
+ 	struct dca_provider *dca;
+ 	struct ioat_dca_priv *ioatdca;
 diff --git a/drivers/dma/ioat/dma.c b/drivers/dma/ioat/dma.c
-index 5173ba9..6dd0af1 100644
+index 6dd0af1..abc96c4 100644
 --- a/drivers/dma/ioat/dma.c
 +++ b/drivers/dma/ioat/dma.c
-@@ -452,7 +452,6 @@ static int ioat1_dma_alloc_chan_resources(struct dma_chan *c)
- 	struct ioat_dma_chan *ioat = to_ioat_chan(c);
- 	struct ioat_chan_common *chan = &ioat->base;
- 	struct ioat_desc_sw *desc;
--	u16 chanctrl;
- 	u32 chanerr;
- 	int i;
- 	LIST_HEAD(tmp_list);
-@@ -462,10 +461,7 @@ static int ioat1_dma_alloc_chan_resources(struct dma_chan *c)
- 		return ioat->desccount;
+@@ -870,7 +870,7 @@ static void ioat1_dma_start_null_desc(struct ioat_dma_chan *ioat)
+  */
+ #define IOAT_TEST_SIZE 2000
  
- 	/* Setup register to interrupt and write completion status on error */
--	chanctrl = IOAT_CHANCTRL_ERR_INT_EN |
--		IOAT_CHANCTRL_ANY_ERR_ABORT_EN |
--		IOAT_CHANCTRL_ERR_COMPLETION_EN;
--	writew(chanctrl, chan->reg_base + IOAT_CHANCTRL_OFFSET);
-+	writew(IOAT_CHANCTRL_RUN, chan->reg_base + IOAT_CHANCTRL_OFFSET);
- 
- 	chanerr = readl(chan->reg_base + IOAT_CHANERR_OFFSET);
- 	if (chanerr) {
-@@ -672,9 +668,9 @@ ioat1_dma_prep_memcpy(struct dma_chan *c, dma_addr_t dma_dest,
- static void ioat1_cleanup_tasklet(unsigned long data)
+-static void ioat_dma_test_callback(void *dma_async_param)
++static void __devinit ioat_dma_test_callback(void *dma_async_param)
  {
- 	struct ioat_dma_chan *chan = (void *)data;
-+
- 	ioat1_cleanup(chan);
--	writew(IOAT_CHANCTRL_INT_DISABLE,
--	       chan->base.reg_base + IOAT_CHANCTRL_OFFSET);
-+	writew(IOAT_CHANCTRL_RUN, chan->base.reg_base + IOAT_CHANCTRL_OFFSET);
+ 	struct completion *cmp = dma_async_param;
+ 
+@@ -881,7 +881,7 @@ static void ioat_dma_test_callback(void *dma_async_param)
+  * ioat_dma_self_test - Perform a IOAT transaction to verify the HW works.
+  * @device: device to be tested
+  */
+-static int ioat_dma_self_test(struct ioatdma_device *device)
++static int __devinit ioat_dma_self_test(struct ioatdma_device *device)
+ {
+ 	int i;
+ 	u8 *src;
+@@ -1082,7 +1082,7 @@ static void ioat_disable_interrupts(struct ioatdma_device *device)
+ 	writeb(0, device->reg_base + IOAT_INTRCTRL_OFFSET);
  }
  
- static void ioat_unmap(struct pci_dev *pdev, dma_addr_t addr, size_t len,
+-int ioat_probe(struct ioatdma_device *device)
++int __devinit ioat_probe(struct ioatdma_device *device)
+ {
+ 	int err = -ENODEV;
+ 	struct dma_device *dma = &device->common;
+@@ -1142,7 +1142,7 @@ err_dma_pool:
+ 	return err;
+ }
+ 
+-int ioat_register(struct ioatdma_device *device)
++int __devinit ioat_register(struct ioatdma_device *device)
+ {
+ 	int err = dma_async_device_register(&device->common);
+ 
+@@ -1169,7 +1169,7 @@ static void ioat1_intr_quirk(struct ioatdma_device *device)
+ 	pci_write_config_dword(pdev, IOAT_PCI_DMACTRL_OFFSET, dmactrl);
+ }
+ 
+-int ioat1_dma_probe(struct ioatdma_device *device, int dca)
++int __devinit ioat1_dma_probe(struct ioatdma_device *device, int dca)
+ {
+ 	struct pci_dev *pdev = device->pdev;
+ 	struct dma_device *dma;
+@@ -1200,7 +1200,7 @@ int ioat1_dma_probe(struct ioatdma_device *device, int dca)
+ 	return err;
+ }
+ 
+-void ioat_dma_remove(struct ioatdma_device *device)
++void __devexit ioat_dma_remove(struct ioatdma_device *device)
+ {
+ 	struct dma_device *dma = &device->common;
+ 
+diff --git a/drivers/dma/ioat/dma.h b/drivers/dma/ioat/dma.h
+index 5fd6e2d..e47083b 100644
+--- a/drivers/dma/ioat/dma.h
++++ b/drivers/dma/ioat/dma.h
+@@ -217,11 +217,12 @@ ioat_chan_by_index(struct ioatdma_device *device, int index)
+ 	return device->idx[index];
+ }
+ 
+-int ioat_probe(struct ioatdma_device *device);
+-int ioat_register(struct ioatdma_device *device);
+-int ioat1_dma_probe(struct ioatdma_device *dev, int dca);
+-void ioat_dma_remove(struct ioatdma_device *device);
+-struct dca_provider *ioat_dca_init(struct pci_dev *pdev, void __iomem *iobase);
++int __devinit ioat_probe(struct ioatdma_device *device);
++int __devinit ioat_register(struct ioatdma_device *device);
++int __devinit ioat1_dma_probe(struct ioatdma_device *dev, int dca);
++void __devexit ioat_dma_remove(struct ioatdma_device *device);
++struct dca_provider * __devinit ioat_dca_init(struct pci_dev *pdev,
++					      void __iomem *iobase);
+ unsigned long ioat_get_current_completion(struct ioat_chan_common *chan);
+ void ioat_init_channel(struct ioatdma_device *device,
+ 		       struct ioat_chan_common *chan, int idx,
 diff --git a/drivers/dma/ioat/dma_v2.c b/drivers/dma/ioat/dma_v2.c
-index 589bbc3..be617db 100644
+index be617db..a0def66 100644
 --- a/drivers/dma/ioat/dma_v2.c
 +++ b/drivers/dma/ioat/dma_v2.c
-@@ -342,8 +342,7 @@ static void ioat2_cleanup_tasklet(unsigned long data)
- 	struct ioat2_dma_chan *ioat = (void *) data;
- 
- 	ioat2_cleanup(ioat);
--	writew(IOAT_CHANCTRL_INT_DISABLE,
--	       ioat->base.reg_base + IOAT_CHANCTRL_OFFSET);
-+	writew(IOAT_CHANCTRL_RUN, ioat->base.reg_base + IOAT_CHANCTRL_OFFSET);
+@@ -684,7 +684,7 @@ ioat2_is_complete(struct dma_chan *c, dma_cookie_t cookie,
+ 	return ioat_is_complete(c, cookie, done, used);
  }
  
- /**
-@@ -455,7 +454,6 @@ static int ioat2_alloc_chan_resources(struct dma_chan *c)
- 	struct ioat2_dma_chan *ioat = to_ioat2_chan(c);
- 	struct ioat_chan_common *chan = &ioat->base;
- 	struct ioat_ring_ent **ring;
--	u16 chanctrl;
- 	u32 chanerr;
- 	int descs;
- 	int i;
-@@ -465,9 +463,7 @@ static int ioat2_alloc_chan_resources(struct dma_chan *c)
- 		return 1 << ioat->alloc_order;
+-int ioat2_dma_probe(struct ioatdma_device *device, int dca)
++int __devinit ioat2_dma_probe(struct ioatdma_device *device, int dca)
+ {
+ 	struct pci_dev *pdev = device->pdev;
+ 	struct dma_device *dma;
+@@ -723,7 +723,7 @@ int ioat2_dma_probe(struct ioatdma_device *device, int dca)
+ 	return err;
+ }
  
- 	/* Setup register to interrupt and write completion status on error */
--	chanctrl = IOAT_CHANCTRL_ERR_INT_EN | IOAT_CHANCTRL_ANY_ERR_ABORT_EN |
--		   IOAT_CHANCTRL_ERR_COMPLETION_EN;
--	writew(chanctrl, chan->reg_base + IOAT_CHANCTRL_OFFSET);
-+	writew(IOAT_CHANCTRL_RUN, chan->reg_base + IOAT_CHANCTRL_OFFSET);
+-int ioat3_dma_probe(struct ioatdma_device *device, int dca)
++int __devinit ioat3_dma_probe(struct ioatdma_device *device, int dca)
+ {
+ 	struct pci_dev *pdev = device->pdev;
+ 	struct dma_device *dma;
+diff --git a/drivers/dma/ioat/dma_v2.h b/drivers/dma/ioat/dma_v2.h
+index c72ccb5..bdde537 100644
+--- a/drivers/dma/ioat/dma_v2.h
++++ b/drivers/dma/ioat/dma_v2.h
+@@ -127,8 +127,8 @@ ioat2_get_ring_ent(struct ioat2_dma_chan *ioat, u16 idx)
+ 	return ioat->ring[idx & ioat2_ring_mask(ioat)];
+ }
  
- 	chanerr = readl(chan->reg_base + IOAT_CHANERR_OFFSET);
- 	if (chanerr) {
-diff --git a/drivers/dma/ioat/registers.h b/drivers/dma/ioat/registers.h
-index a83c733..4380f6f 100644
---- a/drivers/dma/ioat/registers.h
-+++ b/drivers/dma/ioat/registers.h
-@@ -75,7 +75,11 @@
- #define IOAT_CHANCTRL_ERR_INT_EN		0x0010
- #define IOAT_CHANCTRL_ANY_ERR_ABORT_EN		0x0008
- #define IOAT_CHANCTRL_ERR_COMPLETION_EN		0x0004
--#define IOAT_CHANCTRL_INT_DISABLE		0x0001
-+#define IOAT_CHANCTRL_INT_REARM			0x0001
-+#define IOAT_CHANCTRL_RUN			(IOAT_CHANCTRL_INT_REARM |\
-+						 IOAT_CHANCTRL_ERR_COMPLETION_EN |\
-+						 IOAT_CHANCTRL_ANY_ERR_ABORT_EN |\
-+						 IOAT_CHANCTRL_ERR_INT_EN)
- 
- #define IOAT_DMA_COMP_OFFSET			0x02	/* 16-bit DMA channel compatibility */
- #define IOAT_DMA_COMP_V1			0x0001	/* Compatibility with DMA version 1 */
+-int ioat2_dma_probe(struct ioatdma_device *dev, int dca);
+-int ioat3_dma_probe(struct ioatdma_device *dev, int dca);
+-struct dca_provider *ioat2_dca_init(struct pci_dev *pdev, void __iomem *iobase);
+-struct dca_provider *ioat3_dca_init(struct pci_dev *pdev, void __iomem *iobase);
++int __devinit ioat2_dma_probe(struct ioatdma_device *dev, int dca);
++int __devinit ioat3_dma_probe(struct ioatdma_device *dev, int dca);
++struct dca_provider * __devinit ioat2_dca_init(struct pci_dev *pdev, void __iomem *iobase);
++struct dca_provider * __devinit ioat3_dca_init(struct pci_dev *pdev, void __iomem *iobase);
+ #endif /* IOATDMA_V2_H */
 
