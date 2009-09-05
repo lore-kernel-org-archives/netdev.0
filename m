@@ -1,29 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netlink: silence compiler warning
-Date: Sat, 05 Sep 2009 01:13:34 -0700 (PDT)
-Message-ID: <20090905.011334.178722186.davem@davemloft.net>
-References: <4AA1C086.5000607@hp.com>
-	<20090904.203318.112406812.davem@davemloft.net>
-	<4AA218C8.4050800@gmail.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH] WAN: remove deprecated PCI_DEVICE_ID from PCI200SYN driver.
+Date: Sat, 05 Sep 2009 12:52:19 +0200
+Message-ID: <m3skf1ek9o.fsf@intrepid.localdomain>
+References: <m363byk3af.fsf@intrepid.localdomain>
+	<20090904.230740.247551288.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: brian.haley@hp.com, marcel@holtmann.org, netdev@vger.kernel.org,
-	sfr@canb.auug.org.au
-To: jarkao2@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38033
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751088AbZIEINT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Sep 2009 04:13:19 -0400
-In-Reply-To: <4AA218C8.4050800@gmail.com>
+Received: from khc.piap.pl ([195.187.100.11]:59137 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753161AbZIEKwT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Sep 2009 06:52:19 -0400
+In-Reply-To: <20090904.230740.247551288.davem@davemloft.net> (David Miller's
+	message of "Fri, 04 Sep 2009 23:07:40 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Sat, 05 Sep 2009 09:52:40 +0200
+David Miller <davem@davemloft.net> writes:
 
-> http://permalink.gmane.org/gmane.linux.kernel.next/8786
+> Please provide a proper signoff with all patches.
 
-Right, and that was my thinking.  So setting it to zero to
-begin with is the right thing to do.
+Oops. Sure.
+-- 
+Krzysztof Halasa
