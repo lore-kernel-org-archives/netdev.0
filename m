@@ -1,46 +1,31 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next] wan: dlci/sdla transmit return dehacking
-Date: Fri, 4 Sep 2009 19:38:10 -0700
-Message-ID: <20090904193810.46543e3c@nehalam>
-References: <20090904143439.c44f61ee.sfr@canb.auug.org.au>
-	<20090903.213548.46609322.davem@davemloft.net>
-	<20090904083346.43885303@nehalam>
-	<m31vmmk0kt.fsf@intrepid.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Add DEVTYPE support for Ethernet based devices
+Date: Fri, 04 Sep 2009 20:27:50 -0700 (PDT)
+Message-ID: <20090904.202750.249172306.davem@davemloft.net>
+References: <1251788899-30156-1-git-send-email-marcel@holtmann.org>
+	<1252109846.27694.1.camel@violet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, sfr@canb.auug.org.au,
-	linux-next@vger.kernel.org, netdev@vger.kernel.org
-To: Krzysztof Halasa <khc@pm.waw.pl>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <m31vmmk0kt.fsf@intrepid.localdomain>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	johannes@sipsolutions.net
+To: marcel@holtmann.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34499
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934146AbZIED1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2009 23:27:36 -0400
+In-Reply-To: <1252109846.27694.1.camel@violet>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 04 Sep 2009 20:48:50 +0200
-Krzysztof Halasa <khc@pm.waw.pl> wrote:
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Sat, 05 Sep 2009 02:17:26 +0200
 
-> Stephen Hemminger <shemminger@vyatta.com> writes:
-> 
-> > This is a brute force removal of the wierd slave interface done for
-> > DLCI -> SDLA transmit. Before it was using non-standard return values
-> > and freeing skb in caller. This changes it to using normal return
-> > values, and freeing in the callee. Luckly only one driver pair was
-> > doing this. Not tested on real hardware, in fact I wonder if this
-> > driver pair is even being used by any users.
-> 
-> The only hardware which seems to be driven by dlci.c is sdla.c =
-> old Sangoma ISA cards.
-> 
-> Sangoma seems to maintain their own drivers for their hw (including
-> these ISA cards).
-> 
-> Are the in-kernel drivers functional after all those years? I don't
-> know.
+> can you please give me some feedback on this patch.
 
-In the Vyatta product we use the Sangoma drivers, so we actually have
-to make and not configure in the existing WAN drivers.
+Johannes recommended using a NETDEV_REGISTER hook, I'm
+waiting for you to try and use that instead of this
+patch.
 
-
-
--- 
+Your patch is ugly, so I'd like to avoid it if possible.
