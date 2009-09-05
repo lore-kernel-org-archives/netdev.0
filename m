@@ -1,62 +1,80 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: net_sched 02/07: make cls_ops->tcf_chain() optional
-Date: Sat, 05 Sep 2009 14:32:17 +0200
-Message-ID: <4AA25A51.2040100@gmail.com>
-References: <20090904164111.27300.29929.sendpatchset@x2.localnet> <20090904164113.27300.79145.sendpatchset@x2.localnet> <4AA21D9F.8090600@gmail.com> <4AA2520D.2060603@gmail.com>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Staging: cpc-usb CAN driver TODO list
+Date: Sat, 05 Sep 2009 15:08:27 +0200
+Message-ID: <4AA262CB.7060607@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: unlisted-recipients:; (no To-header on input)
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Felipe Balbi <me@felipebalbi.com>,
+	Wolfgang Grandegger <wg@grandegger.com>
+To: Greg KH <greg@kroah.com>, Sebastian Haas <haas@ems-wuensche.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.157]:40726 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757342AbZIEMcX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Sep 2009 08:32:23 -0400
-Received: by fg-out-1718.google.com with SMTP id 22so357866fge.1
-        for <netdev@vger.kernel.org>; Sat, 05 Sep 2009 05:32:24 -0700 (PDT)
-In-Reply-To: <4AA2520D.2060603@gmail.com>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:61145 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751319AbZIENIw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Sep 2009 09:08:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote, On 09/05/2009 01:57 PM:
+Hello Greg and Sebastian,
 
-> Jarek Poplawski wrote, On 09/05/2009 10:13 AM:
-> 
->> Patrick McHardy wrote, On 09/04/2009 06:41 PM:
->>
->>> commit 6ea4233ef8f398289a14a3305d4ed440fb026d43
->>> Author: Patrick McHardy <kaber@trash.net>
->>> Date:   Fri Sep 4 14:28:11 2009 +0200
->>>
->>>     net_sched: make cls_ops->tcf_chain() optional
->>>     
->>>     Some qdiscs don't support attaching filters. Handle this centrally in
->>>     cls_api and return a proper errno code (EOPNOTSUPP) instead of EINVAL.
->>>     
->>>     Signed-off-by: Patrick McHardy <kaber@trash.net>
->>>
->>> diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
->>> index 09cdcdf..eaa8f43 100644
->>> --- a/net/sched/cls_api.c
->>> +++ b/net/sched/cls_api.c
->>> @@ -181,6 +181,9 @@ replay:
->>>  	if ((cops = q->ops->cl_ops) == NULL)
->>>  		return -EINVAL;
->>>  
->>> +	if (cops->tcf_chain == NULL)
->>> +		return -EOPNOTSUPP;
->>> +
->>
->> You should probably repeat this in tc_dump_tfilter.
->  
-> 
-> ...In case somebody finds the way to list a filter before
-> adding it. ;-) But, since it's quite unlikely, let's foget it.
+i just looked around in the linux-next tree for the cpc-usb driver.
 
+http://git.kernel.org/?p=linux/kernel/git/next/linux-next.git;a=tree;f=drivers/staging/cpc-usb;hb=HEAD
 
-...or simply tries to do it instead of meditating the code.
-So this change is definitely needed in tc_dump_tfilter too.
+IMHO the sja2m16c* files are completely obsolete as the setting of the CAN
+bittimings needs to be done by separate functions (one for the SJA1000 and one
+for the M16C). For both of them a separate can_bittiming_const is needed, like
+it is defined in drivers/net/can/sja1000/sja1000.c:
 
-Sorry to myself,
-Jarek P.
+static struct can_bittiming_const sja1000_bittiming_const = {
+	.name = DRV_NAME,
+	.tseg1_min = 1,
+	.tseg1_max = 16,
+	.tseg2_min = 1,
+	.tseg2_max = 8,
+	.sjw_max = 4,
+	.brp_min = 1,
+	.brp_max = 64,
+	.brp_inc = 1,
+};
+
+Also a separate function to determine the register values from the calculated
+bittiming values is needed for both hardware types (SJA1000(LPC2119)/M16C) of
+the cpc-usb. How this is done can be checked in linux/drivers/net/can/* or in
+the source code of upcoming drivers in
+
+http://svn.berlios.de/svnroot/repos/socketcan/trunk/kernel/2.6/drivers/net/can/
+
+I wondered about the following items in the TODO list:
+
+	- tie into CAN socket interfaces if possible
+	- figure out sane userspace api
+
+This is definitely a no go! IMO there is no real alternative to make this
+cpc-usb driver a real CAN network driver.
+
+The CAN driver interface has a sane configuration API via netlink and brings
+everything to configure CAN specific bitrates, error counters, recovery, etc.
+
+The missing thing is to connect the usb-device to a netdevice (can%d), remove
+all the chardev file-I/O stuff and adapt the cpc-usb to use the
+bitrate-settings, error counters and whatever - which is already well-defined
+and provided by the CAN driver interface library contributed by Wolfgang
+Grandegger ( drivers/net/can/dev.c and include/linux/can/[dev.h|netlink.h] ).
+
+Unfortunately i'm not an expert in USB programming and i don't have that
+hardware - but if you need some ideas from the CAN driver peoples like
+Wolfgang, questions are always welcome, e.g. on the socketcan-core ML:
+
+http://developer.berlios.de/projects/socketcan
+
+I don't think it's a big effort for people that know USB & CAN to clean up the
+cpc-usb and make it a slim CAN netdev. Believe me, it took years to figure out
+a sane userspace api for CAN interfaces, which is now provided by the netlink
+interface ;-)
+
+Best regards,
+Oliver
+
