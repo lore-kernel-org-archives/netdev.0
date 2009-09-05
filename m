@@ -1,64 +1,44 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: net_sched 00/07: classful multiqueue dummy scheduler
-Date: Sat, 05 Sep 2009 19:02:00 +0200
-Message-ID: <4AA29988.2090100@trash.net>
-References: <20090904164111.27300.29929.sendpatchset@x2.localnet> <20090905.002705.16361217.davem@davemloft.net>
+Subject: Re: net_sched 02/07: make cls_ops->tcf_chain() optional
+Date: Sat, 05 Sep 2009 19:03:02 +0200
+Message-ID: <4AA299C6.7070904@trash.net>
+References: <20090904164111.27300.29929.sendpatchset@x2.localnet> <20090904164113.27300.79145.sendpatchset@x2.localnet> <4AA21D9F.8090600@gmail.com> <4AA2520D.2060603@gmail.com> <4AA25A51.2040100@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090103020006050906090901"
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:57687 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:57700 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752525AbZIERCB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Sep 2009 13:02:01 -0400
-In-Reply-To: <20090905.002705.16361217.davem@davemloft.net>
+	with ESMTP id S1752576AbZIERDB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Sep 2009 13:03:01 -0400
+In-Reply-To: <4AA25A51.2040100@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------090103020006050906090901
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-
-David Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Fri,  4 Sep 2009 18:41:12 +0200 (MEST)
+Jarek Poplawski wrote:
+> Jarek Poplawski wrote, On 09/05/2009 01:57 PM:
 > 
->> Any comments and test results welcome :)
+>>>> diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+>>>> index 09cdcdf..eaa8f43 100644
+>>>> --- a/net/sched/cls_api.c
+>>>> +++ b/net/sched/cls_api.c
+>>>> @@ -181,6 +181,9 @@ replay:
+>>>>  	if ((cops = q->ops->cl_ops) == NULL)
+>>>>  		return -EINVAL;
+>>>>  
+>>>> +	if (cops->tcf_chain == NULL)
+>>>> +		return -EOPNOTSUPP;
+>>>> +
+>>> You should probably repeat this in tc_dump_tfilter.
+>>  
+>>
+>> ...In case somebody finds the way to list a filter before
+>> adding it. ;-) But, since it's quite unlikely, let's foget it.
 > 
-> This looks really nice.  I have them already checked into my
-> local net-next-2.6 tree and will push them out after I do
-> some multiqueue testing with NIU.
+> 
+> ...or simply tries to do it instead of meditating the code.
+> So this change is definitely needed in tc_dump_tfilter too.
 
-Thanks. Attached is a small fix on top hat fixes inverted logic
-in mq_destroy().
-
-
-
-
-
-
---------------090103020006050906090901
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
-index 5e453fd..c84dec9 100644
---- a/net/sched/sch_mq.c
-+++ b/net/sched/sch_mq.c
-@@ -26,7 +26,7 @@ static void mq_destroy(struct Qdisc *sch)
- 	struct mq_sched *priv = qdisc_priv(sch);
- 	unsigned int ntx;
- 
--	if (priv->qdiscs)
-+	if (!priv->qdiscs)
- 		return;
- 	for (ntx = 0; ntx < dev->num_tx_queues && priv->qdiscs[ntx]; ntx++)
- 		qdisc_destroy(priv->qdiscs[ntx]);
-
---------------090103020006050906090901--
+Thanks Jarek. I'm on my way out the door, but I'll fix that tommorrow.
