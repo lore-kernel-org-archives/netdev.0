@@ -1,47 +1,59 @@
 From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH] netlink: silence compiler warning
-Date: Fri, 04 Sep 2009 21:36:06 -0400
-Message-ID: <4AA1C086.5000607@hp.com>
-References: <4AA1B712.6060900@hp.com> <1252112881.27694.3.camel@violet>
+Subject: [PATCH] ipv6: Add IFA_F_DADFAILED flag
+Date: Fri, 04 Sep 2009 21:38:07 -0400
+Message-ID: <4AA1C0FF.4030109@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Marcel Holtmann <marcel@holtmann.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: david Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:21897 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933982AbZIEBgP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2009 21:36:15 -0400
-In-Reply-To: <1252112881.27694.3.camel@violet>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:40956 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934291AbZIEBiH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2009 21:38:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Marcel,
-
-Marcel Holtmann wrote:
-> can we please add the err = -E... where it actually is needed and not
-> stupidly go ahead and silence compiler warnings with err = 0. This has
-> been posted before.
-
-Sorry, I don't remember it being posted before.  If you look at the code
-though, err is correctly initialized, gcc just can't figure it out.  The
-choices I see are either what I originally posted, using uninitialized_var(err),
-or the patch below.  It doesn't matter to me.
-
--Brian
+[Note: if this is accepted I'll send out a patch for iproute,
+ if you'd prefer to not use the last ifa_flag I'll send a
+ much larger patch that does this differently :) ]
 
 
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index 66f6ba0..8741036 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -177,6 +177,7 @@ int genl_register_mc_group(struct genl_family *family,
- 		struct net *net;
+Add IFA_F_DADFAILED flag to denote an IPv6 address that has
+failed Duplicate Address Detection, that way tools like
+/sbin/ip can be more informative.
+
+3: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
+    inet6 2001:db8::1/64 scope global tentative dadfailed 
+       valid_lft forever preferred_lft forever
+
+Signed-off-by: Brian Haley <brian.haley@hp.com>
+---
+
+diff --git a/include/linux/if_addr.h b/include/linux/if_addr.h
+index a60c821..fd97404 100644
+--- a/include/linux/if_addr.h
++++ b/include/linux/if_addr.h
+@@ -41,6 +41,7 @@ enum
  
- 		rcu_read_lock();
-+		err = 0;
- 		for_each_net_rcu(net) {
- 			err = netlink_change_ngroups(net->genl_sock,
- 					mc_groups_longs * BITS_PER_LONG);
+ #define	IFA_F_NODAD		0x02
+ #define IFA_F_OPTIMISTIC	0x04
++#define IFA_F_DADFAILED		0x08
+ #define	IFA_F_HOMEADDRESS	0x10
+ #define IFA_F_DEPRECATED	0x20
+ #define IFA_F_TENTATIVE		0x40
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 43b3c9f..6532966 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1376,7 +1376,7 @@ static void addrconf_dad_stop(struct inet6_ifaddr *ifp)
+ 	if (ifp->flags&IFA_F_PERMANENT) {
+ 		spin_lock_bh(&ifp->lock);
+ 		addrconf_del_timer(ifp);
+-		ifp->flags |= IFA_F_TENTATIVE;
++		ifp->flags |= IFA_F_DADFAILED;
+ 		spin_unlock_bh(&ifp->lock);
+ 		in6_ifa_put(ifp);
+ #ifdef CONFIG_IPV6_PRIVACY
