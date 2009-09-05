@@ -1,46 +1,41 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH] net: fix hydra printk format warning
-Date: Fri, 4 Sep 2009 17:20:37 -0700
-Message-ID: <20090904172037.b2dd7f20.randy.dunlap@oracle.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: [PATCH] netlink: silence compiler warning
+Date: Fri, 04 Sep 2009 20:55:46 -0400
+Message-ID: <4AA1B712.6060900@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-	Roman Zippel <zippel@linux-m68k.org>, davem@davemloft.net
-To: linux-m68k@vger.kernel.org, netdev <netdev@vger.kernel.org>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:26069 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933786AbZIEA4E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2009 20:56:04 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+  CC      net/netlink/genetlink.o
+net/netlink/genetlink.c: In function =91genl_register_mc_group=92:
+net/netlink/genetlink.c:139: warning: =91err=92 may be used uninitializ=
+ed in this function
 
-m68k:
-drivers/net/hydra.c:178: warning: format '%08lx' expects type 'long unsigned int', but argument 3 has type 'resource_size_t'
+=46rom following the code 'err' is initialized, but set it to zero to
+silence the warning.
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+Signed-off-by: Brian Haley <brian.haley@hp.com>
 ---
- drivers/net/hydra.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
 
---- linux-2.6.31-rc8-git1.orig/drivers/net/hydra.c
-+++ linux-2.6.31-rc8-git1/drivers/net/hydra.c
-@@ -173,9 +173,9 @@ static int __devinit hydra_init(struct z
- 
-     zorro_set_drvdata(z, dev);
- 
--    printk(KERN_INFO "%s: Hydra at 0x%08lx, address "
-+    printk(KERN_INFO "%s: Hydra at 0x%08llx, address "
- 	   "%pM (hydra.c " HYDRA_VERSION ")\n",
--	   dev->name, z->resource.start, dev->dev_addr);
-+	   dev->name, (unsigned long long)z->resource.start, dev->dev_addr);
- 
-     return 0;
- }
-
-
-
-
----
-~Randy
-LPC 2009, Sept. 23-25, Portland, Oregon
-http://linuxplumbersconf.org/2009/
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 575c643..66f6ba0 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -136,7 +136,7 @@ int genl_register_mc_group(struct genl_family *fami=
+ly,
+ {
+ 	int id;
+ 	unsigned long *new_groups;
+-	int err;
++	int err =3D 0;
+=20
+ 	BUG_ON(grp->name[0] =3D=3D '\0');
