@@ -1,54 +1,46 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] net: Add DEVTYPE support for Ethernet based devices
-Date: Sat, 05 Sep 2009 02:17:26 +0200
-Message-ID: <1252109846.27694.1.camel@violet>
-References: <1251788899-30156-1-git-send-email-marcel@holtmann.org>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH] net: fix hydra printk format warning
+Date: Fri, 4 Sep 2009 17:20:37 -0700
+Message-ID: <20090904172037.b2dd7f20.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, shemminger@linux-foundation.org,
-	johannes@sipsolutions.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:48868 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933904AbZIEAR0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2009 20:17:26 -0400
-In-Reply-To: <1251788899-30156-1-git-send-email-marcel@holtmann.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
+	Roman Zippel <zippel@linux-m68k.org>, davem@davemloft.net
+To: linux-m68k@vger.kernel.org, netdev <netdev@vger.kernel.org>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-> The Ethernet framing is used for a lot of devices these days. Most
-> prominent are WiFi and WiMAX based devices. However for userspace
-> application it is important to classify these devices correctly and
-> not only see them as Ethernet devices. The daemons like HAL, DeviceKit
-> or even NetworkManager with udev support tries to do the classification
-> in userspace with a lot trickery and extra system calls. This is not
-> good and actually reaches its limitations. Especially since the kernel
-> does know the type of the Ethernet device it is pretty stupid.
-> 
-> To solve this problem the underlying device type needs to be set and
-> then the value will be exported as DEVTYPE via uevents and available
-> within udev.
-> 
->   # cat /sys/class/net/wlan0/uevent
->   DEVTYPE=wlan
->   INTERFACE=wlan0
->   IFINDEX=5
-> 
-> This is similar to subsystems like USB and SCSI that distinguish
-> between hosts, devices, disks, partitions etc.
-> 
-> The new SET_NETDEV_DEVTYPE() is a convenience helper to set the actual
-> device type. All device types are free form, but for convenience the
-> same strings as used with RFKILL are choosen.
+m68k:
+drivers/net/hydra.c:178: warning: format '%08lx' expects type 'long unsigned int', but argument 3 has type 'resource_size_t'
 
-can you please give me some feedback on this patch.
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ drivers/net/hydra.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Regards
-
-Marcel
+--- linux-2.6.31-rc8-git1.orig/drivers/net/hydra.c
++++ linux-2.6.31-rc8-git1/drivers/net/hydra.c
+@@ -173,9 +173,9 @@ static int __devinit hydra_init(struct z
+ 
+     zorro_set_drvdata(z, dev);
+ 
+-    printk(KERN_INFO "%s: Hydra at 0x%08lx, address "
++    printk(KERN_INFO "%s: Hydra at 0x%08llx, address "
+ 	   "%pM (hydra.c " HYDRA_VERSION ")\n",
+-	   dev->name, z->resource.start, dev->dev_addr);
++	   dev->name, (unsigned long long)z->resource.start, dev->dev_addr);
+ 
+     return 0;
+ }
 
 
+
+
+---
+~Randy
+LPC 2009, Sept. 23-25, Portland, Oregon
+http://linuxplumbersconf.org/2009/
