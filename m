@@ -1,7 +1,7 @@
 From: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
-Subject: [PATCH 10/12] gigaset: prepare for CAPI implementation
+Subject: [PATCH 12/12] gigaset: add Kernel CAPI interface
 Date: Sun,  6 Sep 2009 20:58:52 +0200 (CEST)
-Message-ID: <20090906-patch-gigaset-10.tilman@imap.cc>
+Message-ID: <20090906-patch-gigaset-12.tilman@imap.cc>
 References: <20090906-patch-gigaset-00.tilman@imap.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,758 +22,583 @@ Sender: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 Errors-To: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Reorganize the code of the Gigaset driver, moving all isdn4linux
-dependencies to the source file i4l.c so that it can be replaced
-by a file capi.c interfacing to Kernel CAPI instead.
+Add a Kernel CAPI interface to the Gigaset driver.
 
-Impact: refactoring, no functional change
+Impact: optional new functionality
 Signed-off-by: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
 ---
- drivers/isdn/gigaset/asyncdata.c   |  109 ++++-----
- drivers/isdn/gigaset/bas-gigaset.c |    4 +-
- drivers/isdn/gigaset/common.c      |   42 ++--
- drivers/isdn/gigaset/ev-layer.c    |   63 +++--
- drivers/isdn/gigaset/gigaset.h     |   90 ++-----
- drivers/isdn/gigaset/i4l.c         |  499 +++++++++++++++++++++---------------
- drivers/isdn/gigaset/isocdata.c    |   80 +++---
- 7 files changed, 469 insertions(+), 418 deletions(-)
+ Documentation/isdn/README.gigaset |   34 +-
+ drivers/isdn/gigaset/Kconfig      |   18 +-
+ drivers/isdn/gigaset/Makefile     |    1 +
+ drivers/isdn/gigaset/capi.c       | 2095 +++++++++++++++++++++++++++++++++++++
+ drivers/isdn/gigaset/common.c     |   26 +
+ drivers/isdn/gigaset/ev-layer.c   |   26 +-
+ drivers/isdn/gigaset/gigaset.h    |    7 +-
+ 7 files changed, 2178 insertions(+), 29 deletions(-)
+ create mode 100644 drivers/isdn/gigaset/capi.c
 
-diff --git a/drivers/isdn/gigaset/asyncdata.c b/drivers/isdn/gigaset/asyncdata.c
-index 44a58e6..5cadbd2 100644
---- a/drivers/isdn/gigaset/asyncdata.c
-+++ b/drivers/isdn/gigaset/asyncdata.c
-@@ -119,8 +119,6 @@ static inline int hdlc_loop(unsigned char c, unsigned char *src, int numbytes,
- 	int inputstate = bcs->inputstate;
- 	__u16 fcs = bcs->fcs;
- 	struct sk_buff *skb = bcs->skb;
--	unsigned char error;
--	struct sk_buff *compskb;
- 	int startbytes = numbytes;
- 	int l;
+diff --git a/Documentation/isdn/README.gigaset b/Documentation/isdn/README.gigaset
+index f996310..0fc9831 100644
+--- a/Documentation/isdn/README.gigaset
++++ b/Documentation/isdn/README.gigaset
+@@ -5,7 +5,7 @@ GigaSet 307x Device Driver
+      ------------
+ 1.1. Hardware
+      --------
+-     This release supports the connection of the Gigaset 307x/417x family of
++     This driver supports the connection of the Gigaset 307x/417x family of
+      ISDN DECT bases via Gigaset M101 Data, Gigaset M105 Data or direct USB
+      connection. The following devices are reported to be compatible:
  
-@@ -158,8 +156,8 @@ byte_stuff:
- #endif
+@@ -33,7 +33,7 @@ GigaSet 307x Device Driver
+               http://gigaset307x.sourceforge.net/
  
- 				/* end of frame */
--				error = 1;
--				gigaset_rcv_error(NULL, cs, bcs);
-+				gigaset_isdn_rcv_err(bcs);
-+				dev_kfree_skb(skb);
- 			} else if (!(inputstate & INS_have_data)) { /* 7E 7E */
- #ifdef CONFIG_GIGASET_DEBUG
- 				++bcs->emptycount;
-@@ -170,50 +168,34 @@ byte_stuff:
- 					"7e----------------------------");
+      We had also reports from users of Gigaset M105 who could use the drivers
+-     with SX 100 and CX 100 ISDN bases (only in unimodem mode, see section 2.4.)
++     with SX 100 and CX 100 ISDN bases (only in unimodem mode, see section 2.5.)
+      If you have another device that works with our driver, please let us know.
  
- 				/* end of frame */
--				error = 0;
--
- 				if (unlikely(fcs != PPP_GOODFCS)) {
- 					dev_err(cs->dev,
- 				"Checksum failed, %u bytes corrupted!\n",
- 						skb->len);
--					compskb = NULL;
--					gigaset_rcv_error(compskb, cs, bcs);
--					error = 1;
-+					gigaset_isdn_rcv_err(bcs);
-+					dev_kfree_skb(skb);
-+				} else if (likely((l = skb->len) > 2)) {
-+					__skb_trim(skb, l-2);
-+					gigaset_skb_rcvd(bcs, skb);
- 				} else {
--					if (likely((l = skb->len) > 2)) {
--						skb->tail -= 2;
--						skb->len -= 2;
--					} else {
--						dev_kfree_skb(skb);
--						skb = NULL;
--						inputstate |= INS_skip_frame;
--						if (l == 1) {
--							dev_err(cs->dev,
--						  "invalid packet size (1)!\n");
--							error = 1;
--							gigaset_rcv_error(NULL,
--								cs, bcs);
--						}
--					}
--					if (likely(!(error ||
--						     (inputstate &
--						      INS_skip_frame)))) {
--						gigaset_rcv_skb(skb, cs, bcs);
-+					if (l) {
-+						dev_err(cs->dev,
-+					"invalid packet size (%d)\n", l);
-+						gigaset_isdn_rcv_err(bcs);
- 					}
-+					dev_kfree_skb(skb);
- 				}
- 			}
+      Chances of getting an USB device to work are good if the output of
+@@ -49,7 +49,7 @@ GigaSet 307x Device Driver
+      --------
+      The driver works with ISDN4linux and so can be used with any software
+      which is able to use ISDN4linux for ISDN connections (voice or data).
+-     CAPI4Linux support is planned but not yet available.
++     Experimental Kernel CAPI support is available as a compilation option.
  
--			if (unlikely(error))
--				if (skb)
--					dev_kfree_skb(skb);
--
- 			fcs = PPP_INITFCS;
- 			inputstate &= ~(INS_have_data | INS_skip_frame);
- 			if (unlikely(bcs->ignore)) {
- 				inputstate |= INS_skip_frame;
- 				skb = NULL;
--			} else if (likely((skb = dev_alloc_skb(SBUFSIZE + HW_HDR_LEN)) != NULL)) {
--				skb_reserve(skb, HW_HDR_LEN);
-+			} else if ((skb =
-+				    dev_alloc_skb(SBUFSIZE + cs->hw_hdr_len))
-+				   != NULL) {
-+				skb_reserve(skb, cs->hw_hdr_len);
- 			} else {
- 				dev_warn(cs->dev,
- 					 "could not allocate new skb\n");
-@@ -314,15 +296,15 @@ static inline int iraw_loop(unsigned char c, unsigned char *src, int numbytes,
- 	/* pass data up */
- 	if (likely(inputstate & INS_have_data)) {
- 		if (likely(!(inputstate & INS_skip_frame))) {
--			gigaset_rcv_skb(skb, cs, bcs);
-+			gigaset_skb_rcvd(bcs, skb);
- 		}
- 		inputstate &= ~(INS_have_data | INS_skip_frame);
- 		if (unlikely(bcs->ignore)) {
- 			inputstate |= INS_skip_frame;
- 			skb = NULL;
--		} else if (likely((skb = dev_alloc_skb(SBUFSIZE + HW_HDR_LEN))
--				  != NULL)) {
--			skb_reserve(skb, HW_HDR_LEN);
-+		} else if ((skb = dev_alloc_skb(SBUFSIZE + cs->hw_hdr_len))
-+			   != NULL) {
-+			skb_reserve(skb, cs->hw_hdr_len);
- 		} else {
- 			dev_warn(cs->dev, "could not allocate new skb\n");
- 			inputstate |= INS_skip_frame;
-@@ -383,7 +365,7 @@ void gigaset_m10x_input(struct inbuf_t *inbuf)
- 					/* FIXME use function pointers?  */
- 					if (inbuf->inputstate & INS_command)
- 						procbytes = cmd_loop(c, src, numbytes, inbuf);
--					else if (inbuf->bcs->proto2 == ISDN_PROTO_L2_HDLC)
-+					else if (inbuf->bcs->proto2 == L2_HDLC)
- 						procbytes = hdlc_loop(c, src, numbytes, inbuf);
- 					else
- 						procbytes = iraw_loop(c, src, numbytes, inbuf);
-@@ -440,16 +422,16 @@ EXPORT_SYMBOL_GPL(gigaset_m10x_input);
+      There are some user space tools available at
+      http://sourceforge.net/projects/gigaset307x/
+@@ -102,20 +102,28 @@ GigaSet 307x Device Driver
+ 2.3. ISDN4linux
+      ----------
+      This is the "normal" mode of operation. After loading the module you can
+-     set up the ISDN system just as you'd do with any ISDN card.
+-     Your distribution should provide some configuration utility.
+-     If not, you can use some HOWTOs like
++     set up the ISDN system just as you'd do with any ISDN card supported by
++     the ISDN4Linux subsystem. Most distributions provide some configuration
++     utility. If not, you can use some HOWTOs like
+          http://www.linuxhaven.de/dlhp/HOWTO/DE-ISDN-HOWTO-5.html
+-     If this doesn't work, because you have some recent device like SX100 where
++     If this doesn't work, because you have some device like SX100 where
+      debug output (see section 3.2.) shows something like this when dialing
+          CMD Received: ERROR
+          Available Params: 0
+          Connection State: 0, Response: -1
+          gigaset_process_response: resp_code -1 in ConState 0 !
+          Timeout occurred
+-     you might need to use unimodem mode:
++     you might need to use unimodem mode. (see section 2.5.)
  
- /* == data output ========================================================== */
+-2.4. Unimodem mode
++2.4. CAPI
++     ----
++     If the driver is compiled with CAPI support (kernel configuration option
++     GIGASET_CAPI, experimental) it can also be used with CAPI 2.0 kernel and
++     user space applications.  ISDN4Linux is supported in this configuration
++     via the capidrv compatibility driver. The kernel module capidrv.ko must
++     be loaded explicitly ("modprobe capidrv") if needed.
++
++2.5. Unimodem mode
+      -------------
+      This is needed for some devices [e.g. SX100] as they have problems with
+      the "normal" commands.
+@@ -160,7 +168,7 @@ GigaSet 307x Device Driver
+      configuration file like /etc/modprobe.conf.local,
+      using that should be preferred.
  
--/* Encoding of a PPP packet into an octet stuffed HDLC frame
-- * with FCS, opening and closing flags.
+-2.5. Call-ID (CID) mode
++2.6. Call-ID (CID) mode
+      ------------------
+      Call-IDs are numbers used to tag commands to, and responses from, the
+      Gigaset base in order to support the simultaneous handling of multiple
+@@ -188,7 +196,7 @@ GigaSet 307x Device Driver
+      You can also use /sys/class/tty/ttyGxy/cidmode for changing the CID mode
+      setting (ttyGxy is ttyGU0 or ttyGB0).
+ 
+-2.6. Unregistered Wireless Devices (M101/M105)
++2.7. Unregistered Wireless Devices (M101/M105)
+      -----------------------------------------
+      The main purpose of the ser_gigaset and usb_gigaset drivers is to allow
+      the M101 and M105 wireless devices to be used as ISDN devices for ISDN
+@@ -228,7 +236,7 @@ GigaSet 307x Device Driver
+         You have two or more DECT data adapters (M101/M105) and only the
+         first one you turn on works.
+      Solution:
+-        Select Unimodem mode for all DECT data adapters. (see section 2.4.)
++        Select Unimodem mode for all DECT data adapters. (see section 2.5.)
+ 
+      Problem:
+ 	Messages like this:
+@@ -236,7 +244,7 @@ GigaSet 307x Device Driver
+ 	appear in your syslog.
+      Solution:
+ 	Check whether your M10x wireless device is correctly registered to the
+-	Gigaset base. (see section 2.6.)
++	Gigaset base. (see section 2.7.)
+ 
+ 3.2. Telling the driver to provide more information
+      ----------------------------------------------
+diff --git a/drivers/isdn/gigaset/Kconfig b/drivers/isdn/gigaset/Kconfig
+index 6fd2dc1..dcefedc 100644
+--- a/drivers/isdn/gigaset/Kconfig
++++ b/drivers/isdn/gigaset/Kconfig
+@@ -10,20 +10,32 @@ menuconfig ISDN_DRV_GIGASET
+ 	  If you have one of these devices, say M here and for at least
+ 	  one of the connection specific parts that follow.
+ 	  This will build a module called "gigaset".
+-	  Note: If you build the ISDN4Linux subsystem (ISDN_I4L)
++	  Note: If you build your ISDN subsystem (ISDN_CAPI or ISDN_I4L)
+ 	  as a module, you have to build this driver as a module too,
+ 	  otherwise the Gigaset device won't show up as an ISDN device.
+ 
+ if ISDN_DRV_GIGASET
+ 
++config GIGASET_CAPI
++	bool "Gigaset CAPI support (EXPERIMENTAL)"
++	depends on EXPERIMENTAL
++	depends on ISDN_CAPI='y'||(ISDN_CAPI='m'&&ISDN_DRV_GIGASET='m')
++	default ISDN_I4L='n'
++	help
++	  Build the Gigaset driver as a CAPI 2.0 driver interfacing with
++	  the Kernel CAPI subsystem. To use it with the old ISDN4Linux
++	  subsystem you'll have to enable the capidrv glue driver.
++	  (select ISDN_CAPI_CAPIDRV.)
++	  Say N to build the old native ISDN4Linux variant.
++
+ config GIGASET_I4L
+ 	bool
+ 	depends on ISDN_I4L='y'||(ISDN_I4L='m'&&ISDN_DRV_GIGASET='m')
+-	default y
++	default !GIGASET_CAPI
+ 
+ config GIGASET_DUMMYLL
+ 	bool
+-	default !GIGASET_I4L
++	default !GIGASET_CAPI&&!GIGASET_I4L
+ 
+ config GIGASET_BASE
+ 	tristate "Gigaset base station support"
+diff --git a/drivers/isdn/gigaset/Makefile b/drivers/isdn/gigaset/Makefile
+index d429202..c453b72 100644
+--- a/drivers/isdn/gigaset/Makefile
++++ b/drivers/isdn/gigaset/Makefile
+@@ -1,4 +1,5 @@
+ gigaset-y := common.o interface.o proc.o ev-layer.o asyncdata.o
++gigaset-$(CONFIG_GIGASET_CAPI) += capi.o
+ gigaset-$(CONFIG_GIGASET_I4L) += i4l.o
+ gigaset-$(CONFIG_GIGASET_DUMMYLL) += dummyll.o
+ usb_gigaset-y := usb-gigaset.o
+diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.c
+new file mode 100644
+index 0000000..47cad53
+--- /dev/null
++++ b/drivers/isdn/gigaset/capi.c
+@@ -0,0 +1,2095 @@
 +/*
-+ * Encode a data packet into an octet stuffed HDLC frame with FCS,
-+ * opening and closing flags, preserving headroom data.
-  * parameters:
-- *	skb	skb containing original packet (freed upon return)
-- *	head	number of headroom bytes to allocate in result skb
-- *	tail	number of tailroom bytes to allocate in result skb
-+ *	skb		skb containing original packet (freed upon return)
-+ *	headroom	number of headroom bytes to preserve
-  * Return value:
-  *	pointer to newly allocated skb containing the result frame
-  */
--static struct sk_buff *HDLC_Encode(struct sk_buff *skb, int head, int tail)
-+static struct sk_buff *HDLC_Encode(struct sk_buff *skb, int headroom)
- {
- 	struct sk_buff *hdlc_skb;
- 	__u16 fcs;
-@@ -471,16 +453,17 @@ static struct sk_buff *HDLC_Encode(struct sk_buff *skb, int head, int tail)
- 
- 	/* size of new buffer: original size + number of stuffing bytes
- 	 * + 2 bytes FCS + 2 stuffing bytes for FCS (if needed) + 2 flag bytes
-+	 * + room for acknowledgement header
- 	 */
--	hdlc_skb = dev_alloc_skb(skb->len + stuf_cnt + 6 + tail + head);
-+	hdlc_skb = dev_alloc_skb(skb->len + stuf_cnt + 6 + headroom);
- 	if (!hdlc_skb) {
- 		dev_kfree_skb(skb);
- 		return NULL;
- 	}
--	skb_reserve(hdlc_skb, head);
- 
--	/* Copy acknowledge request into new skb */
--	memcpy(hdlc_skb->head, skb->head, 2);
-+	/* Copy acknowledgement header into new skb */
-+	skb_reserve(hdlc_skb, headroom);
-+	memcpy(hdlc_skb->head, skb->head, headroom);
- 
- 	/* Add flag sequence in front of everything.. */
- 	*(skb_put(hdlc_skb, 1)) = PPP_FLAG;
-@@ -515,15 +498,16 @@ static struct sk_buff *HDLC_Encode(struct sk_buff *skb, int head, int tail)
- 	return hdlc_skb;
- }
- 
--/* Encoding of a raw packet into an octet stuffed bit inverted frame
++ * Kernel CAPI interface for the Gigaset driver
++ *
++ * Copyright (c) 2009 by Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>.
++ *
++ * =====================================================================
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License as
++ *	published by the Free Software Foundation; either version 2 of
++ *	the License, or (at your option) any later version.
++ * =====================================================================
++ */
++
++#include "gigaset.h"
++#include <linux/ctype.h>
++#include <linux/isdn/capilli.h>
++#include <linux/isdn/capicmd.h>
++#include <linux/isdn/capiutil.h>
++
++/* missing from kernelcapi.h */
++#define CapiNcpiNotSupportedByProtocol	0x0001
++#define CapiFlagsNotSupportedByProtocol	0x0002
++#define CapiAlertAlreadySent		0x0003
++
++/* missing from capicmd.h */
++#define CAPI_CONNECT_IND_BASELEN	(CAPI_MSG_BASELEN+4+2+8*1)
++#define CAPI_CONNECT_ACTIVE_IND_BASELEN	(CAPI_MSG_BASELEN+4+3*1)
++#define CAPI_CONNECT_B3_IND_BASELEN	(CAPI_MSG_BASELEN+4+1)
++#define CAPI_CONNECT_B3_ACTIVE_IND_BASELEN	(CAPI_MSG_BASELEN+4+1)
++#define CAPI_DATA_B3_REQ_LEN64		(CAPI_MSG_BASELEN+4+4+2+2+2+8)
++#define CAPI_DATA_B3_CONF_LEN		(CAPI_MSG_BASELEN+4+2+2)
++#define CAPI_DISCONNECT_IND_LEN		(CAPI_MSG_BASELEN+4+2)
++#define CAPI_DISCONNECT_B3_IND_BASELEN	(CAPI_MSG_BASELEN+4+2+1)
++/* most _CONF messages contain only Controller/PLCI/NCCI and Info parameters */
++#define CAPI_STDCONF_LEN		(CAPI_MSG_BASELEN+4+2)
++
++/* missing from capiutil.h */
++#define CAPIMSG_PLCI_PART(m)	CAPIMSG_U8(m,9)
++#define CAPIMSG_NCCI_PART(m)	CAPIMSG_U16(m,10)
++#define CAPIMSG_HANDLE_REQ(m)	CAPIMSG_U16(m,18) /* DATA_B3_REQ/_IND only! */
++#define CAPIMSG_FLAGS(m)	CAPIMSG_U16(m,20)
++#define CAPIMSG_SETCONTROLLER(m, contr)	capimsg_setu8(m, 8, contr)
++#define CAPIMSG_SETPLCI_PART(m, plci)	capimsg_setu8(m, 9, plci)
++#define CAPIMSG_SETNCCI_PART(m, ncci)	capimsg_setu16(m, 10, ncci)
++#define CAPIMSG_SETFLAGS(m, flags)	capimsg_setu16(m, 20, flags)
++
++/* parameters with differing location in DATA_B3_CONF/_RESP: */
++#define CAPIMSG_SETHANDLE_CONF(m, handle)	capimsg_setu16(m, 12, handle)
++#define	CAPIMSG_SETINFO_CONF(m, info)		capimsg_setu16(m, 14, info)
++
++/* Flags (DATA_B3_REQ/_IND) */
++#define CAPI_FLAGS_DELIVERY_CONFIRMATION	0x04
++#define CAPI_FLAGS_RESERVED			(~0x1f)
++
++/* buffer sizes */
++#define MAX_BC_OCTETS 11
++#define MAX_HLC_OCTETS 3
++#define MAX_NUMBER_DIGITS 20
++#define MAX_FMT_IE_LEN 20
++
++/* values for gigaset_capi_appl.connected */
++#define APCONN_NONE	0	/* inactive/listening */
++#define APCONN_SETUP	1	/* connecting */
++#define APCONN_ACTIVE	2	/* B channel up */
++
++/* registered application data structure */
++struct gigaset_capi_appl {
++	struct list_head ctrlist;
++	struct gigaset_capi_appl *bcnext;
++	u16 id;
++	u16 nextMessageNumber;
++	u32 listenInfoMask;
++	u32 listenCIPmask;
++	int connected;
++};
++
++/* CAPI specific controller data structure */
++struct gigaset_capi_ctr {
++	struct capi_ctr ctr;
++	struct list_head appls;
++	struct sk_buff_head sendqueue;
++	atomic_t sendqlen;
++	/* two _cmsg structures possibly used concurrently: */
++	_cmsg hcmsg;	/* for message composition triggered from hardware */
++	_cmsg acmsg;	/* for dissection of messages sent from application */
++	u8 bc_buf[MAX_BC_OCTETS+1];
++	u8 hlc_buf[MAX_HLC_OCTETS+1];
++	u8 cgpty_buf[MAX_NUMBER_DIGITS+3];
++	u8 cdpty_buf[MAX_NUMBER_DIGITS+2];
++};
++
++/* CIP Value table (from CAPI 2.0 standard, ch. 6.1) */
++static struct {
++	u8 *bc;
++	u8 *hlc;
++} cip2bchlc[] = {
++	[ 1] = { "8090A3", NULL },
++		/* Speech (A-law) */
++	[ 2] = { "8890", NULL },
++		/* Unrestricted digital information */
++	[ 3] = { "8990", NULL },
++		/* Restricted digital information */
++	[ 4] = { "9090A3", NULL },
++		/* 3,1 kHz audio (A-law) */
++	[ 5] = { "9190", NULL },
++		/* 7 kHz audio */
++	[ 6] = { "9890", NULL },
++		/* Video */
++	[ 7] = { "88C0C6E6", NULL },
++		/* Packet mode */
++	[ 8] = { "8890218F", NULL },
++		/* 56 kbit/s rate adaptation */
++	[ 9] = { "9190A5", NULL },
++		/* Unrestricted digital information with tones/announcements */
++	[16] = { "8090A3", "9181" },
++		/* Telephony */
++	[17] = { "9090A3", "9184" },
++		/* Group 2/3 facsimile */
++	[18] = { "8890", "91A1" },
++		/* Group 4 facsimile Class 1 */
++	[19] = { "8890", "91A4" },
++		/* Teletex service basic and mixed mode
++		   and Group 4 facsimile service Classes II and III */
++	[20] = { "8890", "91A8" },
++		/* Teletex service basic and processable mode */
++	[21] = { "8890", "91B1" },
++		/* Teletex service basic mode */
++	[22] = { "8890", "91B2" },
++		/* International interworking for Videotex */
++	[23] = { "8890", "91B5" },
++		/* Telex */
++	[24] = { "8890", "91B8" },
++		/* Message Handling Systems in accordance with X.400 */
++	[25] = { "8890", "91C1" },
++		/* OSI application in accordance with X.200 */
++	[26] = { "9190A5", "9181" },
++		/* 7 kHz telephony */
++	[27] = { "9190A5", "916001" },
++		/* Video telephony, first connection */
++	[28] = { "8890", "916002" },
++		/* Video telephony, second connection */
++};
++
 +/*
-+ * Encode a data packet into an octet stuffed raw bit inverted frame,
-+ * preserving headroom data.
-  * parameters:
-- *	skb	skb containing original packet (freed upon return)
-- *	head	number of headroom bytes to allocate in result skb
-- *	tail	number of tailroom bytes to allocate in result skb
-+ *	skb		skb containing original packet (freed upon return)
-+ *	headroom	number of headroom bytes to preserve
-  * Return value:
-  *	pointer to newly allocated skb containing the result frame
-  */
--static struct sk_buff *iraw_encode(struct sk_buff *skb, int head, int tail)
-+static struct sk_buff *iraw_encode(struct sk_buff *skb, int headroom)
- {
- 	struct sk_buff *iraw_skb;
- 	unsigned char c;
-@@ -531,12 +515,15 @@ static struct sk_buff *iraw_encode(struct sk_buff *skb, int head, int tail)
- 	int len;
- 
- 	/* worst case: every byte must be stuffed */
--	iraw_skb = dev_alloc_skb(2*skb->len + tail + head);
-+	iraw_skb = dev_alloc_skb(2*skb->len + headroom);
- 	if (!iraw_skb) {
- 		dev_kfree_skb(skb);
- 		return NULL;
- 	}
--	skb_reserve(iraw_skb, head);
++ * helper functions
++ * ================
++ */
 +
-+	/* Copy acknowledgement header into new skb */
-+	skb_reserve(iraw_skb, headroom);
-+	memcpy(iraw_skb->head, skb->head, headroom);
- 
- 	cp = skb->data;
- 	len = skb->len;
-@@ -555,8 +542,10 @@ static struct sk_buff *iraw_encode(struct sk_buff *skb, int head, int tail)
-  * @bcs:	B channel descriptor structure.
-  * @skb:	data to send.
-  *
-- * Called by i4l.c to encode and queue an skb for sending, and start
-+ * Called by LL to encode and queue an skb for sending, and start
-  * transmission if necessary.
-+ * Once the payload data has been transmitted completely, gigaset_skb_sent()
-+ * will be called with the first cs->hw_hdr_len bytes of skb->head preserved.
-  *
-  * Return value:
-  *	number of bytes accepted for sending (skb->len) if ok,
-@@ -567,10 +556,10 @@ int gigaset_m10x_send_skb(struct bc_state *bcs, struct sk_buff *skb)
- 	unsigned len = skb->len;
- 	unsigned long flags;
- 
--	if (bcs->proto2 == ISDN_PROTO_L2_HDLC)
--		skb = HDLC_Encode(skb, HW_HDR_LEN, 0);
-+	if (bcs->proto2 == L2_HDLC)
-+		skb = HDLC_Encode(skb, bcs->cs->hw_hdr_len);
- 	else
--		skb = iraw_encode(skb, HW_HDR_LEN, 0);
-+		skb = iraw_encode(skb, bcs->cs->hw_hdr_len);
- 	if (!skb) {
- 		dev_err(bcs->cs->dev,
- 			"unable to allocate memory for encoding!\n");
-diff --git a/drivers/isdn/gigaset/bas-gigaset.c b/drivers/isdn/gigaset/bas-gigaset.c
-index 44bcfd9..84e107b 100644
---- a/drivers/isdn/gigaset/bas-gigaset.c
-+++ b/drivers/isdn/gigaset/bas-gigaset.c
-@@ -911,7 +911,7 @@ static int starturbs(struct bc_state *bcs)
- 	int rc;
- 
- 	/* initialize L2 reception */
--	if (bcs->proto2 == ISDN_PROTO_L2_HDLC)
-+	if (bcs->proto2 == L2_HDLC)
- 		bcs->inputstate |= INS_flag_hunt;
- 
- 	/* submit all isochronous input URBs */
-@@ -1064,7 +1064,7 @@ static int submit_iso_write_urb(struct isow_urbctx_t *ucx)
- 					"%s: buffer busy at frame %d",
- 					__func__, nframe);
- 				/* tasklet will be restarted from
--				   gigaset_send_skb() */
-+				   gigaset_isoc_send_skb() */
- 			} else {
- 				dev_err(ucx->bcs->cs->dev,
- 					"%s: buffer error %d at frame %d\n",
-diff --git a/drivers/isdn/gigaset/common.c b/drivers/isdn/gigaset/common.c
-index 33dcd8d..a2847c2 100644
---- a/drivers/isdn/gigaset/common.c
-+++ b/drivers/isdn/gigaset/common.c
-@@ -463,6 +463,12 @@ void gigaset_freecs(struct cardstate *cs)
- 
- 	switch (cs->cs_init) {
- 	default:
-+		/* clear B channel structures */
-+		for (i = 0; i < cs->channels; ++i) {
-+			gig_dbg(DEBUG_INIT, "clearing bcs[%d]", i);
-+			gigaset_freebcs(cs->bcs + i);
-+		}
++/*
++ * emit unsupported parameter warning
++ */
++static inline void ignore_cstruct_param(struct cardstate *cs, _cstruct param,
++				       char *msgname, char *paramname)
++{
++	if (param && *param)
++		dev_warn(cs->dev, "%s: ignoring unsupported parameter: %s\n",
++			 msgname, paramname);
++}
 +
- 		/* clear device sysfs */
- 		gigaset_free_dev_sysfs(cs);
- 
-@@ -477,22 +483,16 @@ void gigaset_freecs(struct cardstate *cs)
- 	case 2: /* error in initcshw */
- 		/* Deregister from LL */
- 		make_invalid(cs, VALID_ID);
--		gig_dbg(DEBUG_INIT, "clearing iif");
--		gigaset_i4l_cmd(cs, ISDN_STAT_UNLOAD);
-+		gigaset_isdn_unregister(cs);
- 
- 		/* fall through */
--	case 1: /* error when regestering to LL */
-+	case 1: /* error when registering to LL */
- 		gig_dbg(DEBUG_INIT, "clearing at_state");
- 		clear_at_state(&cs->at_state);
- 		dealloc_at_states(cs);
- 
- 		/* fall through */
--	case 0: /* error in one call to initbcs */
--		for (i = 0; i < cs->channels; ++i) {
--			gig_dbg(DEBUG_INIT, "clearing bcs[%d]", i);
--			gigaset_freebcs(cs->bcs + i);
--		}
--
-+	case 0:	/* error in basic setup */
- 		clear_events(cs);
- 		gig_dbg(DEBUG_INIT, "freeing inbuf");
- 		kfree(cs->inbuf);
-@@ -620,8 +620,9 @@ static struct bc_state *gigaset_initbcs(struct bc_state *bcs,
- 	if (cs->ignoreframes) {
- 		bcs->inputstate |= INS_skip_frame;
- 		bcs->skb = NULL;
--	} else if ((bcs->skb = dev_alloc_skb(SBUFSIZE + HW_HDR_LEN)) != NULL)
--		skb_reserve(bcs->skb, HW_HDR_LEN);
-+	} else if ((bcs->skb = dev_alloc_skb(SBUFSIZE + cs->hw_hdr_len))
-+		   != NULL)
-+		skb_reserve(bcs->skb, cs->hw_hdr_len);
- 	else {
- 		pr_err("out of memory\n");
- 		bcs->inputstate |= INS_skip_frame;
-@@ -726,14 +727,6 @@ struct cardstate *gigaset_initcs(struct gigaset_driver *drv, int channels,
- 	cs->mode = M_UNKNOWN;
- 	cs->mstate = MS_UNINITIALIZED;
- 
--	for (i = 0; i < channels; ++i) {
--		gig_dbg(DEBUG_INIT, "setting up bcs[%d].read", i);
--		if (!gigaset_initbcs(cs->bcs + i, cs, i)) {
--			pr_err("could not allocate channel %d data\n", i);
--			goto error;
--		}
--	}
--
- 	++cs->cs_init;
- 
- 	gig_dbg(DEBUG_INIT, "setting up at_state");
-@@ -758,7 +751,7 @@ struct cardstate *gigaset_initcs(struct gigaset_driver *drv, int channels,
- 	cs->cmdbytes = 0;
- 
- 	gig_dbg(DEBUG_INIT, "setting up iif");
--	if (!gigaset_register_to_LL(cs, modulename)) {
-+	if (!gigaset_isdn_register(cs, modulename)) {
- 		pr_err("error registering ISDN device\n");
- 		goto error;
- 	}
-@@ -777,6 +770,15 @@ struct cardstate *gigaset_initcs(struct gigaset_driver *drv, int channels,
- 	/* set up device sysfs */
- 	gigaset_init_dev_sysfs(cs);
- 
-+	/* set up channel data structures */
-+	for (i = 0; i < channels; ++i) {
-+		gig_dbg(DEBUG_INIT, "setting up bcs[%d]", i);
-+		if (!gigaset_initbcs(cs->bcs + i, cs, i)) {
-+			pr_err("could not allocate channel %d data\n", i);
-+			goto error;
-+		}
-+	}
++static inline void ignore_cmstruct_param(struct cardstate *cs, _cmstruct param,
++				       char *msgname, char *paramname)
++{
++	if (param != CAPI_DEFAULT)
++		dev_warn(cs->dev, "%s: ignoring unsupported parameter: %s\n",
++			 msgname, paramname);
++}
 +
- 	spin_lock_irqsave(&cs->lock, flags);
- 	cs->running = 1;
- 	spin_unlock_irqrestore(&cs->lock, flags);
-diff --git a/drivers/isdn/gigaset/ev-layer.c b/drivers/isdn/gigaset/ev-layer.c
-index c12f6fd..950afd4 100644
---- a/drivers/isdn/gigaset/ev-layer.c
-+++ b/drivers/isdn/gigaset/ev-layer.c
-@@ -127,7 +127,6 @@
- #define ACT_NOTIFY_BC_UP	39
- #define ACT_DIAL		40
- #define ACT_ACCEPT		41
--#define ACT_PROTO_L2		42
- #define ACT_HUP			43
- #define ACT_IF_LOCK		44
- #define ACT_START		45
-@@ -365,8 +364,6 @@ struct reply_t gigaset_tab_cid[] =
- 	{EV_BC_CLOSED, -1, -1, -1,                 -1,-1, {ACT_NOTIFY_BC_DOWN}}, //FIXME
- 
- 	/* misc. */
--	{EV_PROTO_L2,  -1, -1, -1,                 -1,-1, {ACT_PROTO_L2}}, //FIXME
--
- 	{RSP_ZCON,     -1, -1, -1,                 -1,-1, {ACT_DEBUG}}, //FIXME
- 	{RSP_ZCCR,     -1, -1, -1,                 -1,-1, {ACT_DEBUG}}, //FIXME
- 	{RSP_ZAOC,     -1, -1, -1,                 -1,-1, {ACT_DEBUG}}, //FIXME
-@@ -714,7 +711,7 @@ static void disconnect(struct at_state_t **at_state_p)
- 		/* notify LL */
- 		if (bcs->chstate & (CHS_D_UP | CHS_NOTIFY_LL)) {
- 			bcs->chstate &= ~(CHS_D_UP | CHS_NOTIFY_LL);
--			gigaset_i4l_channel_cmd(bcs, ISDN_STAT_DHUP);
-+			gigaset_isdn_hupD(bcs);
- 		}
- 	} else {
- 		/* no B channel assigned: just deallocate */
-@@ -872,12 +869,12 @@ static void bchannel_down(struct bc_state *bcs)
- {
- 	if (bcs->chstate & CHS_B_UP) {
- 		bcs->chstate &= ~CHS_B_UP;
--		gigaset_i4l_channel_cmd(bcs, ISDN_STAT_BHUP);
-+		gigaset_isdn_hupB(bcs);
- 	}
- 
- 	if (bcs->chstate & (CHS_D_UP | CHS_NOTIFY_LL)) {
- 		bcs->chstate &= ~(CHS_D_UP | CHS_NOTIFY_LL);
--		gigaset_i4l_channel_cmd(bcs, ISDN_STAT_DHUP);
-+		gigaset_isdn_hupD(bcs);
- 	}
- 
- 	gigaset_free_channel(bcs);
-@@ -894,15 +891,16 @@ static void bchannel_up(struct bc_state *bcs)
- 	}
- 
- 	bcs->chstate |= CHS_B_UP;
--	gigaset_i4l_channel_cmd(bcs, ISDN_STAT_BCONN);
-+	gigaset_isdn_connB(bcs);
- }
- 
- static void start_dial(struct at_state_t *at_state, void *data, unsigned seq_index)
- {
- 	struct bc_state *bcs = at_state->bcs;
- 	struct cardstate *cs = at_state->cs;
--	int retval;
-+	char **commands = data;
- 	unsigned long flags;
-+	int i;
- 
- 	bcs->chstate |= CHS_NOTIFY_LL;
- 
-@@ -913,10 +911,10 @@ static void start_dial(struct at_state_t *at_state, void *data, unsigned seq_ind
- 	}
- 	spin_unlock_irqrestore(&cs->lock, flags);
- 
--	retval = gigaset_isdn_setup_dial(at_state, data);
--	if (retval != 0)
--		goto error;
--
-+	for (i = 0; i < AT_NUM; ++i) {
-+		kfree(bcs->commands[i]);
-+		bcs->commands[i] = commands[i];
++/*
++ * check for legal hex digit
++ */
++static inline int ishexdigit(char c)
++{
++	if (c >= '0' && c <= '9')
++		return 1;
++	if (c >= 'A' && c <= 'F')
++		return 1;
++	if (c >= 'a' && c <= 'f')
++		return 1;
++	return 0;
++}
++
++/*
++ * convert hex to binary
++ */
++static inline u8 hex2bin(char c)
++{
++	int result = c & 0x0f;
++	if (c & 0x40) result += 9;
++	return result;
++}
++
++/*
++ * convert an IE from Gigaset hex string to ETSI binary representation
++ * including length byte
++ * return value: result length, -1 on error
++ */
++static int encode_ie(char *in, u8 *out, int maxlen)
++{
++	int l = 0;
++	while (*in) {
++		if (!ishexdigit(in[0]) || !ishexdigit(in[1]) || l >= maxlen)
++			return -1;
++		out[++l] = (hex2bin(in[0]) << 4) + hex2bin(in[1]);
++		in += 2;
 +	}
- 
- 	at_state->pending_commands |= PC_CID;
- 	gig_dbg(DEBUG_CMD, "Scheduling PC_CID");
-@@ -924,6 +922,10 @@ static void start_dial(struct at_state_t *at_state, void *data, unsigned seq_ind
- 	return;
- 
- error:
-+	for (i = 0; i < AT_NUM; ++i) {
-+		kfree(commands[i]);
-+		commands[i] = NULL;
++	out[0] = l;
++	return l;
++}
++
++/*
++ * convert an IE from ETSI binary representation including length byte
++ * to Gigaset hex string
++ */
++static void decode_ie(u8 *in, char *out)
++{
++	int i = *in;
++	while (i-- > 0) {
++		/* ToDo: conversion to upper case necessary? */
++		*out++ = toupper(hex_asc_hi(*++in));
++		*out++ = toupper(hex_asc_lo(*in));
 +	}
- 	at_state->pending_commands |= PC_NOCID;
- 	gig_dbg(DEBUG_CMD, "Scheduling PC_NOCID");
- 	cs->commands_pending = 1;
-@@ -933,20 +935,30 @@ error:
- static void start_accept(struct at_state_t *at_state)
- {
- 	struct cardstate *cs = at_state->cs;
--	int retval;
-+	struct bc_state *bcs = at_state->bcs;
-+	int i;
- 
--	retval = gigaset_isdn_setup_accept(at_state);
-+	for (i = 0; i < AT_NUM; ++i) {
-+		kfree(bcs->commands[i]);
-+		bcs->commands[i] = NULL;
-+	}
- 
--	if (retval == 0) {
--		at_state->pending_commands |= PC_ACCEPT;
--		gig_dbg(DEBUG_CMD, "Scheduling PC_ACCEPT");
--		cs->commands_pending = 1;
--	} else {
-+	if (!(bcs->commands[AT_PROTO] = kmalloc(9, GFP_ATOMIC)) ||
-+	    !(bcs->commands[AT_ISO  ] = kmalloc(9, GFP_ATOMIC))) {
-+		dev_err(at_state->cs->dev, "out of memory\n");
- 		/* error reset */
- 		at_state->pending_commands |= PC_HUP;
- 		gig_dbg(DEBUG_CMD, "Scheduling PC_HUP");
- 		cs->commands_pending = 1;
++}
++
++/*
++ * retrieve application data structure for an application ID
++ */
++static inline struct gigaset_capi_appl *
++get_appl(struct gigaset_capi_ctr *iif, u16 appl)
++{
++	struct gigaset_capi_appl *ap;
++
++	list_for_each_entry(ap, &iif->appls, ctrlist)
++		if (ap->id == appl)
++			return ap;
++	return NULL;
++}
++
++/*
++ * dump CAPI message to kernel messages for debugging
++ */
++static inline void dump_cmsg(enum debuglevel level, const char *tag, _cmsg *p)
++{
++#ifdef CONFIG_GIGASET_DEBUG
++	_cdebbuf *cdb;
++
++	if (!(gigaset_debuglevel & level))
 +		return;
- 	}
 +
-+	snprintf(bcs->commands[AT_PROTO], 9, "^SBPR=%u\r", bcs->proto2);
-+	snprintf(bcs->commands[AT_ISO  ], 9, "^SISO=%u\r", bcs->channel + 1);
++	cdb = capi_cmsg2str(p);
++	if (cdb) {
++		gig_dbg(level, "%s: [%d] %s", tag, p->ApplId, cdb->buf);
++		cdebbuf_free(cdb);
++	} else {
++		gig_dbg(level, "%s: [%d] %s", tag, p->ApplId,
++			capi_cmd2str(p->Command, p->Subcommand));
++	}
++#endif
++}
 +
-+	at_state->pending_commands |= PC_ACCEPT;
-+	gig_dbg(DEBUG_CMD, "Scheduling PC_ACCEPT");
-+	cs->commands_pending = 1;
- }
- 
- static void do_start(struct cardstate *cs)
-@@ -957,7 +969,7 @@ static void do_start(struct cardstate *cs)
- 		schedule_init(cs, MS_INIT);
- 
- 	cs->isdn_up = 1;
--	gigaset_i4l_cmd(cs, ISDN_STAT_RUN);
-+	gigaset_isdn_start(cs);
- 					// FIXME: not in locked mode
- 					// FIXME 2: only after init sequence
- 
-@@ -975,7 +987,7 @@ static void finish_shutdown(struct cardstate *cs)
- 	/* Tell the LL that the device is not available .. */
- 	if (cs->isdn_up) {
- 		cs->isdn_up = 0;
--		gigaset_i4l_cmd(cs, ISDN_STAT_STOP);
-+		gigaset_isdn_stop(cs);
- 	}
- 
- 	/* The rest is done by cleanup_cs () in user mode. */
-@@ -1276,7 +1288,7 @@ static void do_action(int action, struct cardstate *cs,
- 			break;
- 		}
- 		bcs->chstate |= CHS_D_UP;
--		gigaset_i4l_channel_cmd(bcs, ISDN_STAT_DCONN);
-+		gigaset_isdn_connD(bcs);
- 		cs->ops->init_bchannel(bcs);
- 		break;
- 	case ACT_DLE1:
-@@ -1284,7 +1296,7 @@ static void do_action(int action, struct cardstate *cs,
- 		bcs = cs->bcs + cs->curchannel;
- 
- 		bcs->chstate |= CHS_D_UP;
--		gigaset_i4l_channel_cmd(bcs, ISDN_STAT_DCONN);
-+		gigaset_isdn_connD(bcs);
- 		cs->ops->init_bchannel(bcs);
- 		break;
- 	case ACT_FAKEHUP:
-@@ -1474,11 +1486,6 @@ static void do_action(int action, struct cardstate *cs,
- 	case ACT_ACCEPT:
- 		start_accept(at_state);
- 		break;
--	case ACT_PROTO_L2:
--		gig_dbg(DEBUG_CMD, "set protocol to %u",
--			(unsigned) ev->parameter);
--		at_state->bcs->proto2 = ev->parameter;
--		break;
- 	case ACT_HUP:
- 		at_state->pending_commands |= PC_HUP;
- 		cs->commands_pending = 1;
-diff --git a/drivers/isdn/gigaset/gigaset.h b/drivers/isdn/gigaset/gigaset.h
-index a2f6125..1185da2 100644
---- a/drivers/isdn/gigaset/gigaset.h
-+++ b/drivers/isdn/gigaset/gigaset.h
-@@ -23,7 +23,6 @@
- #include <linux/compiler.h>
- #include <linux/types.h>
- #include <linux/spinlock.h>
--#include <linux/isdnif.h>
- #include <linux/usb.h>
- #include <linux/skbuff.h>
- #include <linux/netdevice.h>
-@@ -40,7 +39,6 @@
- 
- #define MAX_REC_PARAMS 10	/* Max. number of params in response string */
- #define MAX_RESP_SIZE 512	/* Max. size of a response string */
--#define HW_HDR_LEN 2		/* Header size used to store ack info */
- 
- #define MAX_EVENTS 64		/* size of event queue */
- 
-@@ -216,7 +214,6 @@ void gigaset_dbg_buffer(enum debuglevel level, const unsigned char *msg,
- #define EV_START	-110
- #define EV_STOP		-111
- #define EV_IF_LOCK	-112
--#define EV_PROTO_L2	-113
- #define EV_ACCEPT	-114
- #define EV_DIAL		-115
- #define EV_HUP		-116
-@@ -259,6 +256,11 @@ void gigaset_dbg_buffer(enum debuglevel level, const unsigned char *msg,
- #define SM_LOCKED	0
- #define SM_ISDN		1 /* default */
- 
-+/* layer 2 protocols (AT^SBPR=...) */
-+#define L2_BITSYNC	0
-+#define L2_HDLC		1
-+#define L2_VOICE	2
++static inline void dump_rawmsg(enum debuglevel level, const char *tag,
++			       unsigned char *data)
++{
++#ifdef CONFIG_GIGASET_DEBUG
++	char *dbgline;
++	int i, l;
 +
- struct gigaset_ops;
- struct gigaset_driver;
- 
-@@ -395,7 +397,7 @@ struct bc_state {
- 
- 	unsigned chstate;		/* bitmap (CHS_*) */
- 	int ignore;
--	unsigned proto2;		/* Layer 2 protocol (ISDN_PROTO_L2_*) */
-+	unsigned proto2;		/* layer 2 protocol (L2_*) */
- 	char *commands[AT_NUM];		/* see AT_XXXX */
- 
- #ifdef CONFIG_GIGASET_DEBUG
-@@ -456,12 +458,13 @@ struct cardstate {
- 
- 	unsigned running;		/* !=0 if events are handled */
- 	unsigned connected;		/* !=0 if hardware is connected */
--	unsigned isdn_up;		/* !=0 after ISDN_STAT_RUN */
-+	unsigned isdn_up;		/* !=0 after gigaset_isdn_start() */
- 
- 	unsigned cidmode;
- 
- 	int myid;			/* id for communication with LL */
--	isdn_if iif;
-+	void *iif;			/* LL interface structure */
-+	unsigned short hw_hdr_len;	/* headroom needed in data skbs */
- 
- 	struct reply_t *tabnocid;
- 	struct reply_t *tabcid;
-@@ -616,7 +619,9 @@ struct gigaset_ops {
- 	int (*baud_rate)(struct cardstate *cs, unsigned cflag);
- 	int (*set_line_ctrl)(struct cardstate *cs, unsigned cflag);
- 
--	/* Called from i4l.c to put an skb into the send-queue. */
-+	/* Called from LL interface to put an skb into the send-queue.
-+	 * After sending is completed, gigaset_skb_sent() must be called
-+	 * with the first cs->hw_hdr_len bytes of skb->head preserved. */
- 	int (*send_skb)(struct bc_state *bcs, struct sk_buff *skb);
- 
- 	/* Called from ev-layer.c to process a block of data
-@@ -638,8 +643,7 @@ struct gigaset_ops {
-  *  Functions implemented in asyncdata.c
-  */
- 
--/* Called from i4l.c to put an skb into the send-queue.
-- * After sending gigaset_skb_sent() should be called. */
-+/* Called from LL interface to put an skb into the send queue. */
- int gigaset_m10x_send_skb(struct bc_state *bcs, struct sk_buff *skb);
- 
- /* Called from ev-layer.c to process a block of data
-@@ -650,8 +654,7 @@ void gigaset_m10x_input(struct inbuf_t *inbuf);
-  *  Functions implemented in isocdata.c
-  */
- 
--/* Called from i4l.c to put an skb into the send-queue.
-- * After sending gigaset_skb_sent() should be called. */
-+/* Called from LL interface to put an skb into the send queue. */
- int gigaset_isoc_send_skb(struct bc_state *bcs, struct sk_buff *skb);
- 
- /* Called from ev-layer.c to process a block of data
-@@ -674,36 +677,26 @@ void gigaset_isowbuf_init(struct isowbuf_t *iwb, unsigned char idle);
- int gigaset_isowbuf_getbytes(struct isowbuf_t *iwb, int size);
- 
- /* ===========================================================================
-- *  Functions implemented in i4l.c/gigaset.h
-+ *  Functions implemented in LL interface
-  */
- 
--/* Called by gigaset_initcs() for setting up with the isdn4linux subsystem */
--int gigaset_register_to_LL(struct cardstate *cs, const char *isdnid);
-+/* Called from common.c for setting up/shutting down with the ISDN subsystem */
-+int gigaset_isdn_register(struct cardstate *cs, const char *isdnid);
-+void gigaset_isdn_unregister(struct cardstate *cs);
- 
--/* Called from xxx-gigaset.c to indicate completion of sending an skb */
-+/* Called from hardware module to indicate completion of an skb */
- void gigaset_skb_sent(struct bc_state *bcs, struct sk_buff *skb);
-+void gigaset_skb_rcvd(struct bc_state *bcs, struct sk_buff *skb);
-+void gigaset_isdn_rcv_err(struct bc_state *bcs);
- 
- /* Called from common.c/ev-layer.c to indicate events relevant to the LL */
-+void gigaset_isdn_start(struct cardstate *cs);
-+void gigaset_isdn_stop(struct cardstate *cs);
- int gigaset_isdn_icall(struct at_state_t *at_state);
--int gigaset_isdn_setup_accept(struct at_state_t *at_state);
--int gigaset_isdn_setup_dial(struct at_state_t *at_state, void *data);
--
--void gigaset_i4l_cmd(struct cardstate *cs, int cmd);
--void gigaset_i4l_channel_cmd(struct bc_state *bcs, int cmd);
--
--
--static inline void gigaset_isdn_rcv_err(struct bc_state *bcs)
--{
--	isdn_ctrl response;
--
--	/* error -> LL */
--	gig_dbg(DEBUG_CMD, "sending L1ERR");
--	response.driver = bcs->cs->myid;
--	response.command = ISDN_STAT_L1ERR;
--	response.arg = bcs->channel;
--	response.parm.errcode = ISDN_STAT_L1ERR_RECV;
--	bcs->cs->iif.statcallb(&response);
--}
-+void gigaset_isdn_connD(struct bc_state *bcs);
-+void gigaset_isdn_hupD(struct bc_state *bcs);
-+void gigaset_isdn_connB(struct bc_state *bcs);
-+void gigaset_isdn_hupB(struct bc_state *bcs);
- 
- /* ===========================================================================
-  *  Functions implemented in ev-layer.c
-@@ -816,35 +809,6 @@ static inline void gigaset_bchannel_up(struct bc_state *bcs)
- /* handling routines for sk_buff */
- /* ============================= */
- 
--/* pass received skb to LL
-- * Warning: skb must not be accessed anymore!
-- */
--static inline void gigaset_rcv_skb(struct sk_buff *skb,
--				   struct cardstate *cs,
--				   struct bc_state *bcs)
--{
--	cs->iif.rcvcallb_skb(cs->myid, bcs->channel, skb);
--	bcs->trans_down++;
--}
--
--/* handle reception of corrupted skb
-- * Warning: skb must not be accessed anymore!
-- */
--static inline void gigaset_rcv_error(struct sk_buff *procskb,
--				     struct cardstate *cs,
--				     struct bc_state *bcs)
--{
--	if (procskb)
--		dev_kfree_skb(procskb);
--
--	if (bcs->ignore)
--		--bcs->ignore;
--	else {
--		++bcs->corrupted;
--		gigaset_isdn_rcv_err(bcs);
--	}
--}
--
- /* append received bytes to inbuf */
- int gigaset_fill_inbuf(struct inbuf_t *inbuf, const unsigned char *src,
- 		       unsigned numbytes);
-diff --git a/drivers/isdn/gigaset/i4l.c b/drivers/isdn/gigaset/i4l.c
-index 654489d..8ce97a3 100644
---- a/drivers/isdn/gigaset/i4l.c
-+++ b/drivers/isdn/gigaset/i4l.c
-@@ -14,6 +14,9 @@
-  */
- 
- #include "gigaset.h"
-+#include <linux/isdnif.h>
++	if (!(gigaset_debuglevel & level))
++		return;
 +
-+#define HW_HDR_LEN	2	/* Header size used to store ack info */
- 
- /* == Handling of I4L IO =====================================================*/
- 
-@@ -95,6 +98,7 @@ static int writebuf_from_LL(int driverID, int channel, int ack,
-  */
- void gigaset_skb_sent(struct bc_state *bcs, struct sk_buff *skb)
- {
-+	isdn_if *iif = bcs->cs->iif;
- 	unsigned len;
- 	isdn_ctrl response;
- 
-@@ -114,71 +118,171 @@ void gigaset_skb_sent(struct bc_state *bcs, struct sk_buff *skb)
- 		response.command = ISDN_STAT_BSENT;
- 		response.arg = bcs->channel;
- 		response.parm.length = len;
--		bcs->cs->iif.statcallb(&response);
-+		iif->statcallb(&response);
- 	}
- }
- EXPORT_SYMBOL_GPL(gigaset_skb_sent);
- 
++	if((l = CAPIMSG_LEN(data)) < 12) {
++		gig_dbg(level, "%s: ??? LEN=%04d", tag, l);
++		return;
++	}
++	gig_dbg(level, "%s: 0x%02x:0x%02x: ID=%03d #0x%04x LEN=%04d NCCI=0x%x",
++		tag, CAPIMSG_COMMAND(data), CAPIMSG_SUBCOMMAND(data),
++		CAPIMSG_APPID(data), CAPIMSG_MSGID(data), l,
++		CAPIMSG_CONTROL(data));
++	if ((l -= 12) <= 0)
++		return;
++	if ((dbgline = kmalloc(3*l, GFP_ATOMIC)) == NULL)
++		return;
++	for (i = 0; i < l; i++) {
++		dbgline[3*i] = hex_asc_hi(data[12+i]);
++		dbgline[3*i+1] = hex_asc_lo(data[12+i]);
++		dbgline[3*i+2] = ' ';
++	}
++	dbgline[3*l-1] = '\0';
++	gig_dbg(level, "  %s", dbgline);
++	kfree(dbgline);
++	if (CAPIMSG_COMMAND(data) == CAPI_DATA_B3 &&
++	    (CAPIMSG_SUBCOMMAND(data) == CAPI_REQ ||
++	     CAPIMSG_SUBCOMMAND(data) == CAPI_IND) &&
++	    (l = CAPIMSG_DATALEN(data)) > 0) {
++		if ((dbgline = kmalloc(3*l, GFP_ATOMIC)) == NULL)
++			return;
++		data += CAPIMSG_LEN(data);
++		for (i = 0; i < l; i++) {
++			dbgline[3*i] = hex_asc_hi(data[i]);
++			dbgline[3*i+1] = hex_asc_lo(data[i]);
++			dbgline[3*i+2] = ' ';
++		}
++		dbgline[3*l-1] = '\0';
++		gig_dbg(level, "  %s", dbgline);
++		kfree(dbgline);
++	}
++#endif
++}
++
++/*
++ * format CAPI IE as string
++ */
++
++static const char *format_ie(const char *ie)
++{
++	static char result[3*MAX_FMT_IE_LEN];
++	int len, count;
++	char *pout = result;
++
++	if (!ie)
++		return "NULL";
++
++	count = len = ie[0];
++	if (count > MAX_FMT_IE_LEN)
++		count = MAX_FMT_IE_LEN-1;
++	while (count--) {
++		*pout++ = hex_asc_hi(*++ie);
++		*pout++ = hex_asc_lo(*ie);
++		*pout++ = ' ';
++	}
++	if (len > MAX_FMT_IE_LEN) {
++		*pout++ = '.';
++		*pout++ = '.';
++		*pout++ = '.';
++	}
++	*--pout = 0;
++	return result;
++}
++
++
++/*
++ * driver interface functions
++ * ==========================
++ */
++
++/**
++ * gigaset_skb_sent() - acknowledge transmission of outgoing skb
++ * @bcs:	B channel descriptor structure.
++ * @skb:	sent data.
++ *
++ * Called by hardware module {bas,ser,usb}_gigaset when the data in a
++ * skb has been successfully sent, for signalling completion to the LL.
++ */
++void gigaset_skb_sent(struct bc_state *bcs, struct sk_buff *dskb)
++{
++	struct cardstate *cs = bcs->cs;
++	struct gigaset_capi_ctr *iif = cs->iif;
++	struct gigaset_capi_appl *ap = bcs->ap;
++	struct sk_buff *cskb;
++	u16 flags;
++
++	/* update statistics */
++	++bcs->trans_up;
++
++	if (!ap) {
++		dev_err(cs->dev, "%s: no application\n", __func__);
++		return;
++	}
++
++	/* don't send further B3 messages if disconnected */
++	if (ap->connected < APCONN_ACTIVE) {
++		gig_dbg(DEBUG_LLDATA, "disconnected, discarding ack");
++		return;
++	}
++
++	/* ToDo: honor unset "delivery confirmation" bit */
++	flags = CAPIMSG_FLAGS(dskb->head);
++
++	/* build DATA_B3_CONF message */
++	if ((cskb = alloc_skb(CAPI_DATA_B3_CONF_LEN, GFP_ATOMIC)) == NULL) {
++		dev_err(cs->dev, "%s: out of memory\n", __func__);
++		return;
++	}
++	/* frequent message, avoid _cmsg overhead */
++	CAPIMSG_SETLEN(cskb->data, CAPI_DATA_B3_CONF_LEN);
++	CAPIMSG_SETAPPID(cskb->data, ap->id);
++	CAPIMSG_SETCOMMAND(cskb->data, CAPI_DATA_B3);
++	CAPIMSG_SETSUBCOMMAND(cskb->data,  CAPI_CONF);
++	CAPIMSG_SETMSGID(cskb->data, CAPIMSG_MSGID(dskb->head));
++	CAPIMSG_SETCONTROLLER(cskb->data, iif->ctr.cnr);
++	CAPIMSG_SETPLCI_PART(cskb->data, bcs->channel + 1);
++	CAPIMSG_SETNCCI_PART(cskb->data, 1);
++	CAPIMSG_SETHANDLE_CONF(cskb->data, CAPIMSG_HANDLE_REQ(dskb->head));
++	if (flags & ~CAPI_FLAGS_DELIVERY_CONFIRMATION)
++		CAPIMSG_SETINFO_CONF(cskb->data,
++				     CapiFlagsNotSupportedByProtocol);
++	else
++		CAPIMSG_SETINFO_CONF(cskb->data, CAPI_NOERROR);
++
++	/* emit message */
++	dump_rawmsg(DEBUG_LLDATA, "DATA_B3_CONF", cskb->data);
++	capi_ctr_handle_message(&iif->ctr, ap->id, cskb);
++}
++EXPORT_SYMBOL_GPL(gigaset_skb_sent);
++
 +/**
 + * gigaset_skb_rcvd() - pass received skb to LL
 + * @bcs:	B channel descriptor structure.
@@ -785,10 +610,49 @@ index 654489d..8ce97a3 100644
 + */
 +void gigaset_skb_rcvd(struct bc_state *bcs, struct sk_buff *skb)
 +{
-+	isdn_if *iif = bcs->cs->iif;
++	struct cardstate *cs = bcs->cs;
++	struct gigaset_capi_ctr *iif = cs->iif;
++	struct gigaset_capi_appl *ap = bcs->ap;
++	int len = skb->len;
 +
-+	iif->rcvcallb_skb(bcs->cs->myid, bcs->channel, skb);
++	/* update statistics */
 +	bcs->trans_down++;
++
++	if (!ap) {
++		dev_err(cs->dev, "%s: no application\n", __func__);
++		return;
++	}
++
++	/* don't send further B3 messages if disconnected */
++	if (ap->connected < APCONN_ACTIVE) {
++		gig_dbg(DEBUG_LLDATA, "disconnected, discarding data");
++		dev_kfree_skb(skb);
++		return;
++	}
++
++	/*
++	 * prepend DATA_B3_IND message to payload
++	 * Parameters: NCCI = 1, all others 0/unused
++	 * frequent message, avoid _cmsg overhead
++	 */
++	skb_push(skb, CAPI_DATA_B3_REQ_LEN);
++	CAPIMSG_SETLEN(skb->data, CAPI_DATA_B3_REQ_LEN);
++	CAPIMSG_SETAPPID(skb->data, ap->id);
++	CAPIMSG_SETCOMMAND(skb->data, CAPI_DATA_B3);
++	CAPIMSG_SETSUBCOMMAND(skb->data,  CAPI_IND);
++	CAPIMSG_SETMSGID(skb->data, ap->nextMessageNumber++);
++	CAPIMSG_SETCONTROLLER(skb->data, iif->ctr.cnr);
++	CAPIMSG_SETPLCI_PART(skb->data, bcs->channel + 1);
++	CAPIMSG_SETNCCI_PART(skb->data, 1);
++	/* Data parameter not used */
++	CAPIMSG_SETDATALEN(skb->data, len);
++	/* Data handle parameter not used */
++	CAPIMSG_SETFLAGS(skb->data, 0);
++	/* Data64 parameter not present */
++
++	/* emit message */
++	dump_rawmsg(DEBUG_LLDATA, "DATA_B3_IND", skb->data);
++	capi_ctr_handle_message(&iif->ctr, ap->id, skb);
 +}
 +EXPORT_SYMBOL_GPL(gigaset_skb_rcvd);
 +
@@ -801,9 +665,6 @@ index 654489d..8ce97a3 100644
 + */
 +void gigaset_isdn_rcv_err(struct bc_state *bcs)
 +{
-+	isdn_if *iif = bcs->cs->iif;
-+	isdn_ctrl response;
-+
 +	/* if currently ignoring packets, just count down */
 +	if (bcs->ignore) {
 +		bcs->ignore--;
@@ -813,510 +674,384 @@ index 654489d..8ce97a3 100644
 +	/* update statistics */
 +	bcs->corrupted++;
 +
-+	/* error -> LL */
-+	gig_dbg(DEBUG_CMD, "sending L1ERR");
-+	response.driver = bcs->cs->myid;
-+	response.command = ISDN_STAT_L1ERR;
-+	response.arg = bcs->channel;
-+	response.parm.errcode = ISDN_STAT_L1ERR_RECV;
-+	iif->statcallb(&response);
++	/* ToDo: signal error -> LL */
 +}
 +EXPORT_SYMBOL_GPL(gigaset_isdn_rcv_err);
 +
- /* This function will be called by LL to send commands
-  * NOTE: LL ignores the returned value, for commands other than ISDN_CMD_IOCTL,
-  * so don't put too much effort into it.
-  */
- static int command_from_LL(isdn_ctrl *cntrl)
- {
--	struct cardstate *cs = gigaset_get_cs_by_id(cntrl->driver);
-+	struct cardstate *cs;
- 	struct bc_state *bcs;
- 	int retval = 0;
--	struct setup_parm *sp;
-+	char **commands;
-+	int ch;
++/**
++ * gigaset_isdn_icall() - signal incoming call
++ * @at_state:	connection state structure.
++ *
++ * Called by main module at tasklet level to notify the LL that an incoming
++ * call has been received. @at_state contains the parameters of the call.
++ *
++ * Return value: call disposition (ICALL_*)
++ */
++int gigaset_isdn_icall(struct at_state_t *at_state)
++{
++	struct cardstate *cs = at_state->cs;
++	struct bc_state *bcs = at_state->bcs;
++	struct gigaset_capi_ctr *iif = cs->iif;
++	struct gigaset_capi_appl *ap;
++	u32 actCIPmask;
++	struct sk_buff *skb;
++	unsigned int msgsize;
 +	int i;
-+	size_t l;
- 
- 	gigaset_debugdrivers();
- 
--	if (!cs) {
-+	gig_dbg(DEBUG_CMD, "driver: %d, command: %d, arg: 0x%lx",
-+		cntrl->driver, cntrl->command, cntrl->arg);
 +
-+	if ((cs = gigaset_get_cs_by_id(cntrl->driver)) == NULL) {
- 		pr_err("%s: invalid driver ID (%d)\n", __func__, cntrl->driver);
- 		return -ENODEV;
- 	}
-+	ch = cntrl->arg & 0xff;
- 
- 	switch (cntrl->command) {
- 	case ISDN_CMD_IOCTL:
--		gig_dbg(DEBUG_ANY, "ISDN_CMD_IOCTL (driver: %d, arg: %ld)",
--			cntrl->driver, cntrl->arg);
--
- 		dev_warn(cs->dev, "ISDN_CMD_IOCTL not supported\n");
- 		return -EINVAL;
- 
- 	case ISDN_CMD_DIAL:
- 		gig_dbg(DEBUG_ANY,
--			"ISDN_CMD_DIAL (driver: %d, ch: %ld, "
--			"phone: %s, ownmsn: %s, si1: %d, si2: %d)",
--			cntrl->driver, cntrl->arg,
-+			"ISDN_CMD_DIAL (phone: %s, msn: %s, si1: %d, si2: %d)",
- 			cntrl->parm.setup.phone, cntrl->parm.setup.eazmsn,
- 			cntrl->parm.setup.si1, cntrl->parm.setup.si2);
- 
--		if (cntrl->arg >= cs->channels) {
-+		if (ch >= cs->channels) {
- 			dev_err(cs->dev,
--				"ISDN_CMD_DIAL: invalid channel (%d)\n",
--				(int) cntrl->arg);
-+				"ISDN_CMD_DIAL: invalid channel (%d)\n", ch);
- 			return -EINVAL;
- 		}
--
--		bcs = cs->bcs + cntrl->arg;
--
-+		bcs = cs->bcs + ch;
- 		if (!gigaset_get_channel(bcs)) {
- 			dev_err(cs->dev, "ISDN_CMD_DIAL: channel not free\n");
- 			return -EBUSY;
- 		}
- 
--		sp = kmalloc(sizeof *sp, GFP_ATOMIC);
--		if (!sp) {
-+		commands = kzalloc(AT_NUM*(sizeof *commands), GFP_ATOMIC);
-+		if (!commands) {
- 			gigaset_free_channel(bcs);
- 			dev_err(cs->dev, "ISDN_CMD_DIAL: out of memory\n");
- 			return -ENOMEM;
- 		}
--		*sp = cntrl->parm.setup;
- 
--		if (!gigaset_add_event(cs, &bcs->at_state, EV_DIAL, sp,
-+		l = 3 + strlen(cntrl->parm.setup.phone);
-+		if (!(commands[AT_DIAL] = kmalloc(l, GFP_ATOMIC)))
-+			goto oom;
-+		if (cntrl->parm.setup.phone[0] == '*' &&
-+		    cntrl->parm.setup.phone[1] == '*') {
-+			/* internal call: translate ** prefix to CTP value */
-+			if (!(commands[AT_TYPE] =
-+			      kstrdup("^SCTP=0\r", GFP_ATOMIC)))
-+				goto oom;
-+			snprintf(commands[AT_DIAL], l,
-+				 "D%s\r", cntrl->parm.setup.phone+2);
-+		} else {
-+			if (!(commands[AT_TYPE] =
-+			      kstrdup("^SCTP=1\r", GFP_ATOMIC)))
-+				goto oom;
-+			snprintf(commands[AT_DIAL], l,
-+				 "D%s\r", cntrl->parm.setup.phone);
++	/*
++	 * ToDo: signal calls without a free B channel, too
++	 * (requires a u8 handle for the at_state structure that can
++	 * be stored in the PLCI and used in the CONNECT_RESP message
++	 * handler to retrieve it)
++	 */
++	if (!bcs)
++		return ICALL_IGNORE;
++
++	/* prepare CONNECT_IND message, using B channel number as PLCI */
++	capi_cmsg_header(&iif->hcmsg, 0, CAPI_CONNECT, CAPI_IND, 0,
++			 iif->ctr.cnr | ((bcs->channel + 1) << 8));
++
++	/* minimum size, all structs empty */
++	msgsize = CAPI_CONNECT_IND_BASELEN;
++
++	/* Bearer Capability (mandatory) */
++	if (at_state->str_var[STR_ZBC]) {
++		/* pass on BC from Gigaset */
++		if (encode_ie(at_state->str_var[STR_ZBC], iif->bc_buf,
++			      MAX_BC_OCTETS) < 0) {
++			dev_warn(cs->dev, "RING ignored - bad BC %s\n",
++				 at_state->str_var[STR_ZBC]);
++			return ICALL_IGNORE;
 +		}
 +
-+		if ((l = strlen(cntrl->parm.setup.eazmsn)) != 0) {
-+			l += 8;
-+			if (!(commands[AT_MSN] = kmalloc(l, GFP_ATOMIC)))
-+				goto oom;
-+			snprintf(commands[AT_MSN], l, "^SMSN=%s\r",
-+				 cntrl->parm.setup.eazmsn);
++		/* look up corresponding CIP value */
++		iif->hcmsg.CIPValue = 0;	/* default if nothing found */
++		for (i = 0; i < ARRAY_SIZE(cip2bchlc); i++)
++			if (cip2bchlc[i].bc != NULL &&
++			    cip2bchlc[i].hlc == NULL &&
++			    !strcmp(cip2bchlc[i].bc,
++				    at_state->str_var[STR_ZBC])) {
++				iif->hcmsg.CIPValue = i;
++				break;
++			}
++	} else {
++		/* no BC (internal call): assume CIP 1 (speech, A-law) */
++		iif->hcmsg.CIPValue = 1;
++		encode_ie(cip2bchlc[1].bc, iif->bc_buf, MAX_BC_OCTETS);
++	}
++	iif->hcmsg.BC = iif->bc_buf;
++	msgsize += iif->hcmsg.BC[0];
++
++	/* High Layer Compatibility (optional) */
++	if (at_state->str_var[STR_ZHLC]) {
++		/* pass on HLC from Gigaset */
++		if (encode_ie(at_state->str_var[STR_ZHLC], iif->hlc_buf,
++			      MAX_HLC_OCTETS) < 0) {
++			dev_warn(cs->dev, "RING ignored - bad HLC %s\n",
++				 at_state->str_var[STR_ZHLC]);
++			return ICALL_IGNORE;
++		}
++		iif->hcmsg.HLC = iif->hlc_buf;
++		msgsize += iif->hcmsg.HLC[0];
++
++		/* look up corresponding CIP value */
++		/* keep BC based CIP value if none found */
++		if (at_state->str_var[STR_ZBC])
++			for (i = 0; i < ARRAY_SIZE(cip2bchlc); i++)
++				if (cip2bchlc[i].hlc != NULL &&
++				    !strcmp(cip2bchlc[i].hlc,
++					    at_state->str_var[STR_ZHLC]) &&
++				    !strcmp(cip2bchlc[i].bc,
++					    at_state->str_var[STR_ZBC])) {
++					iif->hcmsg.CIPValue = i;
++					break;
++				}
++	}
++
++	/* Called Party Number (optional) */
++	if (at_state->str_var[STR_ZCPN]) {
++		i = strlen(at_state->str_var[STR_ZCPN]);
++		if (i > MAX_NUMBER_DIGITS) {
++			dev_warn(cs->dev, "RING ignored - bad number %s\n",
++				 at_state->str_var[STR_ZBC]);
++			return ICALL_IGNORE;
++		}
++		iif->cdpty_buf[0] = i + 1;
++		iif->cdpty_buf[1] = 0x80; /* type / numbering plan unknown */
++		memcpy(iif->cdpty_buf+2, at_state->str_var[STR_ZCPN], i);
++		iif->hcmsg.CalledPartyNumber = iif->cdpty_buf;
++		msgsize += iif->hcmsg.CalledPartyNumber[0];
++	}
++
++	/* Calling Party Number (optional) */
++	if (at_state->str_var[STR_NMBR]) {
++		i = strlen(at_state->str_var[STR_NMBR]);
++		if (i > MAX_NUMBER_DIGITS) {
++			dev_warn(cs->dev, "RING ignored - bad number %s\n",
++				 at_state->str_var[STR_ZBC]);
++			return ICALL_IGNORE;
++		}
++		iif->cgpty_buf[0] = i + 2;
++		iif->cgpty_buf[1] = 0x00; /* type / numbering plan unknown */
++		iif->cgpty_buf[2] = 0x80; /* pres. allowed, not screened */
++		memcpy(iif->cgpty_buf+3, at_state->str_var[STR_NMBR], i);
++		iif->hcmsg.CallingPartyNumber = iif->cgpty_buf;
++		msgsize += iif->hcmsg.CallingPartyNumber[0];
++	}
++
++	/* remaining parameters (not supported, always left NULL):
++	 * - CalledPartySubaddress
++	 * - CallingPartySubaddress
++	 * - AdditionalInfo
++	 *   - BChannelinformation
++	 *   - Keypadfacility
++	 *   - Useruserdata
++	 *   - Facilitydataarray
++	 */
++
++	gig_dbg(DEBUG_CMD, "icall: PLCI %x CIP %d BC %s",
++		iif->hcmsg.adr.adrPLCI, iif->hcmsg.CIPValue,
++		format_ie(iif->hcmsg.BC));
++	gig_dbg(DEBUG_CMD, "icall: HLC %s",
++		format_ie(iif->hcmsg.HLC));
++	gig_dbg(DEBUG_CMD, "icall: CgPty %s",
++		format_ie(iif->hcmsg.CallingPartyNumber));
++	gig_dbg(DEBUG_CMD, "icall: CdPty %s",
++		format_ie(iif->hcmsg.CalledPartyNumber));
++
++	/* scan application list for matching listeners */
++	bcs->ap = NULL;
++	actCIPmask = 1 | (1 << iif->hcmsg.CIPValue);
++	list_for_each_entry(ap, &iif->appls, ctrlist)
++		if (actCIPmask & ap->listenCIPmask) {
++			/* build CONNECT_IND message for this application */
++			iif->hcmsg.ApplId = ap->id;
++			iif->hcmsg.Messagenumber = ap->nextMessageNumber++;
++
++			if ((skb = alloc_skb(msgsize, GFP_ATOMIC)) == NULL) {
++				dev_err(cs->dev, "%s: out of memory\n",
++					__func__);
++				break;
++			}
++			capi_cmsg2message(&iif->hcmsg, __skb_put(skb, msgsize));
++			dump_cmsg(DEBUG_CMD, __func__, &iif->hcmsg);
++
++			/* add to listeners on this B channel, update state */
++			ap->bcnext = bcs->ap;
++			bcs->ap = ap;
++			bcs->chstate |= CHS_NOTIFY_LL;
++			ap->connected = APCONN_SETUP;
++
++			/* emit message */
++			capi_ctr_handle_message(&iif->ctr, ap->id, skb);
 +		}
 +
-+		switch (cntrl->parm.setup.si1) {
-+		case 1:		/* audio */
-+			/* BC = 9090A3: 3.1 kHz audio, A-law */
-+			if (!(commands[AT_BC] =
-+			      kstrdup("^SBC=9090A3\r", GFP_ATOMIC)))
-+				goto oom;
-+			break;
-+		case 7:		/* data */
-+		default:	/* hope the app knows what it is doing */
-+			/* BC = 8890: unrestricted digital information */
-+			if (!(commands[AT_BC] =
-+			      kstrdup("^SBC=8890\r", GFP_ATOMIC)))
-+				goto oom;
-+		}
-+		/* ToDo: other si1 values, inspect si2, set HLC/LLC */
++	/*
++	 * Return "accept" if any listeners.
++	 * Gigaset will send ALERTING.
++	 * There doesn't seem to be a way to avoid this.
++	 */
++	return bcs->ap ? ICALL_ACCEPT : ICALL_IGNORE;
++}
 +
-+		if (!(commands[AT_PROTO] = kmalloc(9, GFP_ATOMIC)))
-+			goto oom;
-+		snprintf(commands[AT_PROTO], 9, "^SBPR=%u\r", bcs->proto2);
++/*
++ * send a DISCONNECT_IND message to an application
++ * does not sleep, clobbers the controller's hcmsg structure
++ */
++static void send_disconnect_ind(struct bc_state *bcs,
++				struct gigaset_capi_appl *ap, u16 reason)
++{
++	struct cardstate *cs = bcs->cs;
++	struct gigaset_capi_ctr *iif = cs->iif;
++	struct sk_buff *skb;
 +
-+		if (!(commands[AT_ISO] = kmalloc(9, GFP_ATOMIC)))
-+			goto oom;
-+		snprintf(commands[AT_ISO], 9, "^SISO=%u\r",
-+			 (unsigned) bcs->channel + 1);
++	if (ap->connected == APCONN_NONE)
++		return;
 +
-+		if (!gigaset_add_event(cs, &bcs->at_state, EV_DIAL, commands,
- 				       bcs->at_state.seq_index, NULL)) {
--			//FIXME what should we do?
--			kfree(sp);
-+			for (i = 0; i < AT_NUM; ++i)
-+				kfree(commands[i]);
-+			kfree(commands);
- 			gigaset_free_channel(bcs);
- 			return -ENOMEM;
- 		}
-@@ -186,93 +290,83 @@ static int command_from_LL(isdn_ctrl *cntrl)
- 		gig_dbg(DEBUG_CMD, "scheduling DIAL");
- 		gigaset_schedule_event(cs);
- 		break;
--	case ISDN_CMD_ACCEPTD: //FIXME
--		gig_dbg(DEBUG_ANY, "ISDN_CMD_ACCEPTD");
--
--		if (cntrl->arg >= cs->channels) {
-+	case ISDN_CMD_ACCEPTD:
-+		if (ch >= cs->channels) {
- 			dev_err(cs->dev,
--				"ISDN_CMD_ACCEPTD: invalid channel (%d)\n",
--				(int) cntrl->arg);
-+				"ISDN_CMD_ACCEPTD: invalid channel (%d)\n", ch);
- 			return -EINVAL;
- 		}
--
--		if (!gigaset_add_event(cs, &cs->bcs[cntrl->arg].at_state,
--				       EV_ACCEPT, NULL, 0, NULL)) {
--			//FIXME what should we do?
-+		bcs = cs->bcs + ch;
-+		if (!gigaset_add_event(cs, &bcs->at_state,
-+				       EV_ACCEPT, NULL, 0, NULL))
- 			return -ENOMEM;
--		}
- 
- 		gig_dbg(DEBUG_CMD, "scheduling ACCEPT");
- 		gigaset_schedule_event(cs);
- 
- 		break;
- 	case ISDN_CMD_ACCEPTB:
--		gig_dbg(DEBUG_ANY, "ISDN_CMD_ACCEPTB");
- 		break;
- 	case ISDN_CMD_HANGUP:
--		gig_dbg(DEBUG_ANY, "ISDN_CMD_HANGUP (ch: %d)",
--			(int) cntrl->arg);
--
--		if (cntrl->arg >= cs->channels) {
-+		if (ch >= cs->channels) {
- 			dev_err(cs->dev,
--				"ISDN_CMD_HANGUP: invalid channel (%d)\n",
--				(int) cntrl->arg);
-+				"ISDN_CMD_HANGUP: invalid channel (%d)\n", ch);
- 			return -EINVAL;
- 		}
--
--		if (!gigaset_add_event(cs, &cs->bcs[cntrl->arg].at_state,
--				       EV_HUP, NULL, 0, NULL)) {
--			//FIXME what should we do?
-+		bcs = cs->bcs + ch;
-+		if (!gigaset_add_event(cs, &bcs->at_state,
-+				       EV_HUP, NULL, 0, NULL))
- 			return -ENOMEM;
--		}
- 
- 		gig_dbg(DEBUG_CMD, "scheduling HUP");
- 		gigaset_schedule_event(cs);
- 
- 		break;
--	case ISDN_CMD_CLREAZ: /* Do not signal incoming signals */ //FIXME
--		gig_dbg(DEBUG_ANY, "ISDN_CMD_CLREAZ");
-+	case ISDN_CMD_CLREAZ: /* Do not signal incoming signals */
-+		dev_info(cs->dev, "ignoring ISDN_CMD_CLREAZ\n");
- 		break;
--	case ISDN_CMD_SETEAZ: /* Signal incoming calls for given MSN */ //FIXME
--		gig_dbg(DEBUG_ANY,
--			"ISDN_CMD_SETEAZ (id: %d, ch: %ld, number: %s)",
--			cntrl->driver, cntrl->arg, cntrl->parm.num);
-+	case ISDN_CMD_SETEAZ: /* Signal incoming calls for given MSN */
-+		dev_info(cs->dev, "ignoring ISDN_CMD_SETEAZ (%s)\n",
-+			 cntrl->parm.num);
- 		break;
- 	case ISDN_CMD_SETL2: /* Set L2 to given protocol */
--		gig_dbg(DEBUG_ANY, "ISDN_CMD_SETL2 (ch: %ld, proto: %lx)",
--			cntrl->arg & 0xff, (cntrl->arg >> 8));
--
--		if ((cntrl->arg & 0xff) >= cs->channels) {
-+		if (ch >= cs->channels) {
- 			dev_err(cs->dev,
--				"ISDN_CMD_SETL2: invalid channel (%d)\n",
--				(int) cntrl->arg & 0xff);
-+				"ISDN_CMD_SETL2: invalid channel (%d)\n", ch);
- 			return -EINVAL;
- 		}
--
--		if (!gigaset_add_event(cs, &cs->bcs[cntrl->arg & 0xff].at_state,
--				       EV_PROTO_L2, NULL, cntrl->arg >> 8,
--				       NULL)) {
--			//FIXME what should we do?
--			return -ENOMEM;
-+		bcs = cs->bcs + ch;
-+		if (bcs->chstate & CHS_D_UP) {
-+			dev_err(cs->dev,
-+				"ISDN_CMD_SETL2: channel active (%d)\n", ch);
-+			return -EINVAL;
-+		}
-+		switch (cntrl->arg >> 8) {
-+		case ISDN_PROTO_L2_HDLC:
-+			gig_dbg(DEBUG_CMD, "ISDN_CMD_SETL2: setting L2_HDLC");
-+			bcs->proto2 = L2_HDLC;
-+			break;
-+		case ISDN_PROTO_L2_TRANS:
-+			gig_dbg(DEBUG_CMD, "ISDN_CMD_SETL2: setting L2_VOICE");
-+			bcs->proto2 = L2_VOICE;
-+			break;
-+		default:
-+			dev_err(cs->dev,
-+				"ISDN_CMD_SETL2: unsupported protocol (%lu)\n",
-+				cntrl->arg >> 8);
-+			return -EINVAL;
- 		}
--
--		gig_dbg(DEBUG_CMD, "scheduling PROTO_L2");
--		gigaset_schedule_event(cs);
- 		break;
- 	case ISDN_CMD_SETL3: /* Set L3 to given protocol */
--		gig_dbg(DEBUG_ANY, "ISDN_CMD_SETL3 (ch: %ld, proto: %lx)",
--			cntrl->arg & 0xff, (cntrl->arg >> 8));
--
--		if ((cntrl->arg & 0xff) >= cs->channels) {
-+		if (ch >= cs->channels) {
- 			dev_err(cs->dev,
--				"ISDN_CMD_SETL3: invalid channel (%d)\n",
--				(int) cntrl->arg & 0xff);
-+				"ISDN_CMD_SETL3: invalid channel (%d)\n", ch);
- 			return -EINVAL;
- 		}
- 
- 		if (cntrl->arg >> 8 != ISDN_PROTO_L3_TRANS) {
- 			dev_err(cs->dev,
--				"ISDN_CMD_SETL3: invalid protocol %lu\n",
-+				"ISDN_CMD_SETL3: unsupported protocol (%lu)\n",
- 				cntrl->arg >> 8);
- 			return -EINVAL;
- 		}
-@@ -324,149 +418,34 @@ static int command_from_LL(isdn_ctrl *cntrl)
- 	}
- 
- 	return retval;
++	capi_cmsg_header(&iif->hcmsg, ap->id, CAPI_DISCONNECT, CAPI_IND,
++			 ap->nextMessageNumber++,
++			 iif->ctr.cnr | ((bcs->channel + 1) << 8));
++	iif->hcmsg.Reason = reason;
++	if ((skb = alloc_skb(CAPI_DISCONNECT_IND_LEN, GFP_ATOMIC)) == NULL) {
++		dev_err(cs->dev, "%s: out of memory\n", __func__);
++		return;
++	}
++	capi_cmsg2message(&iif->hcmsg, __skb_put(skb, CAPI_DISCONNECT_IND_LEN));
++	dump_cmsg(DEBUG_CMD, __func__, &iif->hcmsg);
++	ap->connected = APCONN_NONE;
++	capi_ctr_handle_message(&iif->ctr, ap->id, skb);
++}
 +
-+oom:
-+	dev_err(bcs->cs->dev, "out of memory\n");
-+	for (i = 0; i < AT_NUM; ++i)
-+		kfree(commands[i]);
-+	return -ENOMEM;
- }
- 
--void gigaset_i4l_cmd(struct cardstate *cs, int cmd)
-+static void gigaset_i4l_cmd(struct cardstate *cs, int cmd)
- {
-+	isdn_if *iif = cs->iif;
- 	isdn_ctrl command;
- 
- 	command.driver = cs->myid;
- 	command.command = cmd;
- 	command.arg = 0;
--	cs->iif.statcallb(&command);
-+	iif->statcallb(&command);
- }
- 
--void gigaset_i4l_channel_cmd(struct bc_state *bcs, int cmd)
-+static void gigaset_i4l_channel_cmd(struct bc_state *bcs, int cmd)
- {
-+	isdn_if *iif = bcs->cs->iif;
- 	isdn_ctrl command;
- 
- 	command.driver = bcs->cs->myid;
- 	command.command = cmd;
- 	command.arg = bcs->channel;
--	bcs->cs->iif.statcallb(&command);
--}
--
--int gigaset_isdn_setup_dial(struct at_state_t *at_state, void *data)
--{
--	struct bc_state *bcs = at_state->bcs;
--	unsigned proto;
--	const char *bc;
--	size_t length[AT_NUM];
--	size_t l;
--	int i;
--	struct setup_parm *sp = data;
--
--	switch (bcs->proto2) {
--	case ISDN_PROTO_L2_HDLC:
--		proto = 1; /* 0: Bitsynchron, 1: HDLC, 2: voice */
--		break;
--	case ISDN_PROTO_L2_TRANS:
--		proto = 2; /* 0: Bitsynchron, 1: HDLC, 2: voice */
--		break;
--	default:
--		dev_err(bcs->cs->dev, "%s: invalid L2 protocol: %u\n",
--			__func__, bcs->proto2);
--		return -EINVAL;
--	}
--
--	switch (sp->si1) {
--	case 1:		/* audio */
--		bc = "9090A3";	/* 3.1 kHz audio, A-law */
--		break;
--	case 7:		/* data */
--	default:	/* hope the app knows what it is doing */
--		bc = "8890";	/* unrestricted digital information */
--	}
--	//FIXME add missing si1 values from 1TR6, inspect si2, set HLC/LLC
--
--	length[AT_DIAL ] = 1 + strlen(sp->phone) + 1 + 1;
--	l = strlen(sp->eazmsn);
--	length[AT_MSN  ] = l ? 6 + l + 1 + 1 : 0;
--	length[AT_BC   ] = 5 + strlen(bc) + 1 + 1;
--	length[AT_PROTO] = 6 + 1 + 1 + 1; /* proto: 1 character */
--	length[AT_ISO  ] = 6 + 1 + 1 + 1; /* channel: 1 character */
--	length[AT_TYPE ] = 6 + 1 + 1 + 1; /* call type: 1 character */
--	length[AT_HLC  ] = 0;
--
--	for (i = 0; i < AT_NUM; ++i) {
--		kfree(bcs->commands[i]);
--		bcs->commands[i] = NULL;
--		if (length[i] &&
--		    !(bcs->commands[i] = kmalloc(length[i], GFP_ATOMIC))) {
--			dev_err(bcs->cs->dev, "out of memory\n");
--			return -ENOMEM;
--		}
--	}
--
--	/* type = 1: extern, 0: intern, 2: recall, 3: door, 4: centrex */
--	if (sp->phone[0] == '*' && sp->phone[1] == '*') {
--		/* internal call: translate ** prefix to CTP value */
--		snprintf(bcs->commands[AT_DIAL], length[AT_DIAL],
--			 "D%s\r", sp->phone+2);
--		strncpy(bcs->commands[AT_TYPE], "^SCTP=0\r", length[AT_TYPE]);
--	} else {
--		snprintf(bcs->commands[AT_DIAL], length[AT_DIAL],
--			 "D%s\r", sp->phone);
--		strncpy(bcs->commands[AT_TYPE], "^SCTP=1\r", length[AT_TYPE]);
--	}
--
--	if (bcs->commands[AT_MSN])
--		snprintf(bcs->commands[AT_MSN], length[AT_MSN],
--			 "^SMSN=%s\r", sp->eazmsn);
--	snprintf(bcs->commands[AT_BC   ], length[AT_BC   ],
--		 "^SBC=%s\r", bc);
--	snprintf(bcs->commands[AT_PROTO], length[AT_PROTO],
--		 "^SBPR=%u\r", proto);
--	snprintf(bcs->commands[AT_ISO  ], length[AT_ISO  ],
--		 "^SISO=%u\r", (unsigned)bcs->channel + 1);
--
--	return 0;
--}
--
--int gigaset_isdn_setup_accept(struct at_state_t *at_state)
--{
--	unsigned proto;
--	size_t length[AT_NUM];
--	int i;
--	struct bc_state *bcs = at_state->bcs;
--
--	switch (bcs->proto2) {
--	case ISDN_PROTO_L2_HDLC:
--		proto = 1; /* 0: Bitsynchron, 1: HDLC, 2: voice */
--		break;
--	case ISDN_PROTO_L2_TRANS:
--		proto = 2; /* 0: Bitsynchron, 1: HDLC, 2: voice */
--		break;
--	default:
--		dev_err(at_state->cs->dev, "%s: invalid protocol: %u\n",
--			__func__, bcs->proto2);
--		return -EINVAL;
--	}
--
--	length[AT_DIAL ] = 0;
--	length[AT_MSN  ] = 0;
--	length[AT_BC   ] = 0;
--	length[AT_PROTO] = 6 + 1 + 1 + 1; /* proto: 1 character */
--	length[AT_ISO  ] = 6 + 1 + 1 + 1; /* channel: 1 character */
--	length[AT_TYPE ] = 0;
--	length[AT_HLC  ] = 0;
--
--	for (i = 0; i < AT_NUM; ++i) {
--		kfree(bcs->commands[i]);
--		bcs->commands[i] = NULL;
--		if (length[i] &&
--		    !(bcs->commands[i] = kmalloc(length[i], GFP_ATOMIC))) {
--			dev_err(at_state->cs->dev, "out of memory\n");
--			return -ENOMEM;
--		}
--	}
--
--	snprintf(bcs->commands[AT_PROTO], length[AT_PROTO],
--		 "^SBPR=%u\r", proto);
--	snprintf(bcs->commands[AT_ISO  ], length[AT_ISO  ],
--		 "^SISO=%u\r", (unsigned) bcs->channel + 1);
--
--	return 0;
-+	iif->statcallb(&command);
- }
- 
- /**
-@@ -482,6 +461,7 @@ int gigaset_isdn_icall(struct at_state_t *at_state)
- {
- 	struct cardstate *cs = at_state->cs;
- 	struct bc_state *bcs = at_state->bcs;
-+	isdn_if *iif = cs->iif;
- 	isdn_ctrl response;
- 	int retval;
- 
-@@ -531,7 +511,7 @@ int gigaset_isdn_icall(struct at_state_t *at_state)
- 		response.arg = bcs->channel; //FIXME
- 	}
- 	response.driver = cs->myid;
--	retval = cs->iif.statcallb(&response);
-+	retval = iif->statcallb(&response);
- 	gig_dbg(DEBUG_CMD, "Response: %d", retval);
- 	switch (retval) {
- 	case 0:	/* no takers */
-@@ -560,16 +540,108 @@ int gigaset_isdn_icall(struct at_state_t *at_state)
- 	}
- }
- 
--/* Set Callback function pointer */
--int gigaset_register_to_LL(struct cardstate *cs, const char *isdnid)
++/*
++ * send a DISCONNECT_B3_IND message to an application
++ * Parameters: NCCI = 1, NCPI empty, Reason_B3 = 0
++ * does not sleep, clobbers the controller's hcmsg structure
++ */
++static void send_disconnect_b3_ind(struct bc_state *bcs,
++				   struct gigaset_capi_appl *ap)
++{
++	struct cardstate *cs = bcs->cs;
++	struct gigaset_capi_ctr *iif = cs->iif;
++	struct sk_buff *skb;
++
++	/* nothing to do if no logical connection active */
++	if (ap->connected < APCONN_ACTIVE)
++		return;
++	ap->connected = APCONN_SETUP;
++
++	capi_cmsg_header(&iif->hcmsg, ap->id, CAPI_DISCONNECT_B3, CAPI_IND,
++			 ap->nextMessageNumber++,
++			 iif->ctr.cnr | ((bcs->channel + 1) << 8) | (1 << 16));
++	if ((skb = alloc_skb(CAPI_DISCONNECT_B3_IND_BASELEN, GFP_ATOMIC))
++	    == NULL) {
++		dev_err(cs->dev, "%s: out of memory\n", __func__);
++		return;
++	}
++	capi_cmsg2message(&iif->hcmsg,
++			  __skb_put(skb, CAPI_DISCONNECT_B3_IND_BASELEN));
++	dump_cmsg(DEBUG_CMD, __func__, &iif->hcmsg);
++	capi_ctr_handle_message(&iif->ctr, ap->id, skb);
++}
++
 +/**
 + * gigaset_isdn_connD() - signal D channel connect
 + * @bcs:	B channel descriptor structure.
 + *
-+ * Called by main module to notify the LL that the D channel connection has
-+ * been established.
++ * Called by main module at tasklet level to notify the LL that the D channel
++ * connection has been established.
 + */
 +void gigaset_isdn_connD(struct bc_state *bcs)
- {
--	isdn_if *iif = &cs->iif;
-+	gig_dbg(DEBUG_CMD, "sending DCONN");
-+	gigaset_i4l_channel_cmd(bcs, ISDN_STAT_DCONN);
++{
++	struct cardstate *cs = bcs->cs;
++	struct gigaset_capi_ctr *iif = cs->iif;
++	struct gigaset_capi_appl *ap = bcs->ap;
++	struct sk_buff *skb;
++	unsigned int msgsize;
++
++	if (!ap) {
++		dev_err(cs->dev, "%s: no application\n", __func__);
++		return;
++	}
++	while (ap->bcnext) {
++		/* this should never happen */
++		dev_warn(cs->dev, "%s: dropping extra application %u\n",
++			 __func__, ap->bcnext->id);
++		send_disconnect_ind(bcs, ap->bcnext,
++				    CapiCallGivenToOtherApplication);
++		ap->bcnext = ap->bcnext->bcnext;
++	}
++	if (ap->connected == APCONN_NONE) {
++		dev_warn(cs->dev, "%s: application %u not connected\n",
++			 __func__, ap->id);
++		return;
++	}
++
++	/* prepare CONNECT_ACTIVE_IND message
++	 * Note: LLC not supported by device
++	 */
++	capi_cmsg_header(&iif->hcmsg, ap->id, CAPI_CONNECT_ACTIVE, CAPI_IND,
++			 ap->nextMessageNumber++,
++			 iif->ctr.cnr | ((bcs->channel + 1) << 8));
++
++	/* minimum size, all structs empty */
++	msgsize = CAPI_CONNECT_ACTIVE_IND_BASELEN;
++
++	/* ToDo: set parameter: Connected number
++	 * (requires ev-layer state machine extension to collect
++	 * ZCON device reply)
++	 */
++
++	/* build and emit CONNECT_ACTIVE_IND message */
++	if ((skb = alloc_skb(msgsize, GFP_ATOMIC)) == NULL) {
++		dev_err(cs->dev, "%s: out of memory\n", __func__);
++		return;
++	}
++	capi_cmsg2message(&iif->hcmsg, __skb_put(skb, msgsize));
++	dump_cmsg(DEBUG_CMD, __func__, &iif->hcmsg);
++	capi_ctr_handle_message(&iif->ctr, ap->id, skb);
 +}
- 
--	gig_dbg(DEBUG_ANY, "Register driver capabilities to LL");
++
 +/**
 + * gigaset_isdn_hupD() - signal D channel hangup
 + * @bcs:	B channel descriptor structure.
 + *
-+ * Called by main module to notify the LL that the D channel connection has
-+ * been shut down.
++ * Called by main module at tasklet level to notify the LL that the D channel
++ * connection has been shut down.
 + */
 +void gigaset_isdn_hupD(struct bc_state *bcs)
 +{
-+	gig_dbg(DEBUG_CMD, "sending DHUP");
-+	gigaset_i4l_channel_cmd(bcs, ISDN_STAT_DHUP);
++	struct gigaset_capi_appl *ap;
++
++	/*
++	 * ToDo: pass on reason code reported by device
++	 * (requires ev-layer state machine extension to collect
++	 * ZCAU device reply)
++	 */
++	for (ap = bcs->ap; ap != NULL; ap = ap->bcnext) {
++		send_disconnect_b3_ind(bcs, ap);
++		send_disconnect_ind(bcs, ap, 0);
++	}
++	bcs->ap = NULL;
 +}
 +
 +/**
 + * gigaset_isdn_connB() - signal B channel connect
 + * @bcs:	B channel descriptor structure.
 + *
-+ * Called by main module to notify the LL that the B channel connection has
-+ * been established.
++ * Called by main module at tasklet level to notify the LL that the B channel
++ * connection has been established.
 + */
 +void gigaset_isdn_connB(struct bc_state *bcs)
 +{
-+	gig_dbg(DEBUG_CMD, "sending BCONN");
-+	gigaset_i4l_channel_cmd(bcs, ISDN_STAT_BCONN);
++	struct cardstate *cs = bcs->cs;
++	struct gigaset_capi_ctr *iif = cs->iif;
++	struct gigaset_capi_appl *ap = bcs->ap;
++	struct sk_buff *skb;
++	unsigned int msgsize;
++	u8 command;
++
++	if (!ap) {
++		dev_err(cs->dev, "%s: no application\n", __func__);
++		return;
++	}
++	while (ap->bcnext) {
++		/* this should never happen */
++		dev_warn(cs->dev, "%s: dropping extra application %u\n",
++			 __func__, ap->bcnext->id);
++		send_disconnect_ind(bcs, ap->bcnext,
++				    CapiCallGivenToOtherApplication);
++		ap->bcnext = ap->bcnext->bcnext;
++	}
++	if (!ap->connected) {
++		dev_warn(cs->dev, "%s: application %u not connected\n",
++			 __func__, ap->id);
++		return;
++	}
++
++	/*
++	 * emit CONNECT_B3_ACTIVE_IND if we already got CONNECT_B3_REQ;
++	 * otherwise we have to emit CONNECT_B3_IND first, and follow up with
++	 * CONNECT_B3_ACTIVE_IND in reply to CONNECT_B3_RESP
++	 * Parameters in both cases always: NCCI = 1, NCPI empty
++	 */
++	if (ap->connected >= APCONN_ACTIVE) {
++		command = CAPI_CONNECT_B3_ACTIVE;
++		msgsize = CAPI_CONNECT_B3_ACTIVE_IND_BASELEN;
++	} else {
++		command = CAPI_CONNECT_B3;
++		msgsize = CAPI_CONNECT_B3_IND_BASELEN;
++	}
++	capi_cmsg_header(&iif->hcmsg, ap->id, command, CAPI_IND,
++			 ap->nextMessageNumber++,
++			 iif->ctr.cnr | ((bcs->channel + 1) << 8) | (1 << 16));
++	if ((skb = alloc_skb(msgsize, GFP_ATOMIC)) == NULL) {
++		dev_err(cs->dev, "%s: out of memory\n", __func__);
++		return;
++	}
++	capi_cmsg2message(&iif->hcmsg, __skb_put(skb, msgsize));
++	dump_cmsg(DEBUG_CMD, __func__, &iif->hcmsg);
++	ap->connected = APCONN_ACTIVE;
++	capi_ctr_handle_message(&iif->ctr, ap->id, skb);
 +}
 +
 +/**
@@ -1328,8 +1063,17 @@ index 654489d..8ce97a3 100644
 + */
 +void gigaset_isdn_hupB(struct bc_state *bcs)
 +{
-+	gig_dbg(DEBUG_CMD, "sending BHUP");
-+	gigaset_i4l_channel_cmd(bcs, ISDN_STAT_BHUP);
++	struct cardstate *cs = bcs->cs;
++	struct gigaset_capi_appl *ap = bcs->ap;
++
++	/* ToDo: assure order of DISCONNECT_B3_IND and DISCONNECT_IND ? */
++
++	if (!ap) {
++		dev_err(cs->dev, "%s: no application\n", __func__);
++		return;
++	}
++
++	send_disconnect_b3_ind(bcs, ap);
 +}
 +
 +/**
@@ -1341,8 +1085,30 @@ index 654489d..8ce97a3 100644
 + */
 +void gigaset_isdn_start(struct cardstate *cs)
 +{
-+	gig_dbg(DEBUG_CMD, "sending RUN");
-+	gigaset_i4l_cmd(cs, ISDN_STAT_RUN);
++	struct gigaset_capi_ctr *iif = cs->iif;
++
++	/* fill profile data: manufacturer name */
++	strcpy(iif->ctr.manu, "Siemens");
++	/* CAPI and device version */
++	iif->ctr.version.majorversion = 2;		/* CAPI 2.0 */
++	iif->ctr.version.minorversion = 0;
++	/* ToDo: check/assert cs->gotfwver? */
++	iif->ctr.version.majormanuversion = cs->fwver[0];
++	iif->ctr.version.minormanuversion = cs->fwver[1];
++	/* number of B channels supported */
++	iif->ctr.profile.nbchannel = cs->channels;
++	/* global options: internal controller, supplementary services */
++	iif->ctr.profile.goptions = 0x11;
++	/* B1 protocols: 64 kbit/s HDLC or transparent */
++	iif->ctr.profile.support1 =  0x03;
++	/* B2 protocols: transparent only */
++	/* ToDo: X.75 SLP ? */
++	iif->ctr.profile.support2 =  0x02;
++	/* B3 protocols: transparent only */
++	iif->ctr.profile.support3 =  0x01;
++	/* no serial number */
++	strcpy(iif->ctr.serial, "0");
++	capi_ctr_ready(&iif->ctr);
 +}
 +
 +/**
@@ -1354,9 +1120,1106 @@ index 654489d..8ce97a3 100644
 + */
 +void gigaset_isdn_stop(struct cardstate *cs)
 +{
-+	gig_dbg(DEBUG_CMD, "sending STOP");
-+	gigaset_i4l_cmd(cs, ISDN_STAT_STOP);
++	struct gigaset_capi_ctr *iif = cs->iif;
++	capi_ctr_down(&iif->ctr);
 +}
++
++/*
++ * kernel CAPI callback methods
++ * ============================
++ */
++
++/*
++ * load firmware
++ */
++static int gigaset_load_firmware(struct capi_ctr *ctr, capiloaddata *data)
++{
++	struct cardstate *cs = ctr->driverdata;
++
++	/* AVM specific operation, not needed for Gigaset -- ignore */
++	dev_notice(cs->dev, "load_firmware ignored\n");
++
++	return 0;
++}
++
++/*
++ * reset (deactivate) controller
++ */
++static void gigaset_reset_ctr(struct capi_ctr *ctr)
++{
++	struct cardstate *cs = ctr->driverdata;
++
++	/* AVM specific operation, not needed for Gigaset -- ignore */
++	dev_notice(cs->dev, "reset_ctr ignored\n");
++}
++
++/*
++ * register CAPI application
++ */
++static void gigaset_register_appl(struct capi_ctr *ctr, u16 appl,
++			   capi_register_params *rp)
++{
++	struct gigaset_capi_ctr *iif
++		= container_of(ctr, struct gigaset_capi_ctr, ctr);
++	struct cardstate *cs = ctr->driverdata;
++	struct gigaset_capi_appl *ap;
++
++	list_for_each_entry(ap, &iif->appls, ctrlist)
++		if (ap->id == appl) {
++			dev_notice(cs->dev,
++				   "application %u already registered\n", appl);
++			return;
++		}
++
++	if ((ap = kzalloc(sizeof(*ap), GFP_KERNEL)) == NULL) {
++		dev_err(cs->dev, "%s: out of memory\n", __func__);
++		return;
++	}
++	ap->id = appl;
++
++	list_add(&ap->ctrlist, &iif->appls);
++}
++
++/*
++ * release CAPI application
++ */
++static void gigaset_release_appl(struct capi_ctr *ctr, u16 appl)
++{
++	struct gigaset_capi_ctr *iif
++		= container_of(ctr, struct gigaset_capi_ctr, ctr);
++	struct cardstate *cs = iif->ctr.driverdata;
++	struct gigaset_capi_appl *ap, *tmp;
++
++	list_for_each_entry_safe(ap, tmp, &iif->appls, ctrlist)
++		if (ap->id == appl) {
++			if (ap->connected != APCONN_NONE) {
++				dev_err(cs->dev,
++					"%s: application %u still connected\n",
++					__func__, ap->id);
++				/* ToDo: clear active connection */
++			}
++			list_del(&ap->ctrlist);
++			kfree(ap);
++		}
++
++}
++
++/*
++ * =====================================================================
++ * outgoing CAPI message handler
++ * =====================================================================
++ */
++
++/*
++ * helper function: emit reply message with given Info value
++ */
++static void send_conf(struct gigaset_capi_ctr *iif,
++		      struct gigaset_capi_appl *ap,
++		      struct sk_buff *skb,
++		      u16 info)
++{
++	/*
++	 * _CONF replies always only have NCCI and Info parameters
++	 * so they'll fit into the _REQ message skb
++	 */
++	capi_cmsg_answer(&iif->acmsg);
++	iif->acmsg.Info = info;
++	capi_cmsg2message(&iif->acmsg, skb->data);
++	__skb_trim(skb, CAPI_STDCONF_LEN);
++	dump_cmsg(DEBUG_CMD, __func__, &iif->acmsg);
++	capi_ctr_handle_message(&iif->ctr, ap->id, skb);
++}
++
++/*
++ * process LISTEN_REQ message
++ * just store the masks in the application data structure
++ */
++static void do_listen_req(struct gigaset_capi_ctr *iif,
++			  struct gigaset_capi_appl *ap,
++			  struct sk_buff *skb)
++{
++	/* decode message */
++	capi_message2cmsg(&iif->acmsg, skb->data);
++	dump_cmsg(DEBUG_CMD, __func__, &iif->acmsg);
++
++	/* store listening parameters */
++	ap->listenInfoMask = iif->acmsg.InfoMask;
++	ap->listenCIPmask = iif->acmsg.CIPmask;
++	send_conf(iif, ap, skb, CapiSuccess);
++}
++
++/*
++ * process ALERT_REQ message
++ * nothing to do, Gigaset always alerts anyway
++ */
++static void do_alert_req(struct gigaset_capi_ctr *iif,
++			 struct gigaset_capi_appl *ap,
++			 struct sk_buff *skb)
++{
++	/* decode message */
++	capi_message2cmsg(&iif->acmsg, skb->data);
++	dump_cmsg(DEBUG_CMD, __func__, &iif->acmsg);
++	send_conf(iif, ap, skb, CapiAlertAlreadySent);
++}
++
++/*
++ * process CONNECT_REQ message
++ * allocate a B channel, prepare dial commands, queue a DIAL event,
++ * emit CONNECT_CONF reply
++ */
++static void do_connect_req(struct gigaset_capi_ctr *iif,
++			   struct gigaset_capi_appl *ap,
++			   struct sk_buff *skb)
++{
++	struct cardstate *cs = iif->ctr.driverdata;
++	_cmsg *cmsg = &iif->acmsg;
++	struct bc_state *bcs;
++	char **commands;
++	char *s;
++	u8 *pp;
++	int i, l;
++	u16 info;
++
++	/* decode message */
++	capi_message2cmsg(&iif->acmsg, skb->data);
++	dump_cmsg(DEBUG_CMD, __func__, &iif->acmsg);
++
++	/* get free B channel & construct PLCI */
++	if ((bcs = gigaset_get_free_channel(cs)) == NULL) {
++		dev_notice(cs->dev, "%s: no B channel available\n",
++			   "CONNECT_REQ");
++		send_conf(iif, ap, skb, CapiNoPlciAvailable);
++		return;
++	}
++	ap->bcnext = NULL;
++	bcs->ap = ap;
++	cmsg->adr.adrPLCI |= (bcs->channel + 1) << 8;
++
++	/* build command table */
++	if ((commands = kzalloc(AT_NUM*(sizeof *commands), GFP_KERNEL)) == NULL)
++		goto oom;
++
++	/* encode parameter: Called party number */
++	pp = cmsg->CalledPartyNumber;
++	if (pp == NULL || *pp == 0) {
++		dev_notice(cs->dev, "%s: %s missing\n",
++			   "CONNECT_REQ", "Called party number");
++		info = CapiIllMessageParmCoding;
++		goto error;
++	}
++	l = *pp++;
++	/* check number type/numbering plan byte */
++	if (*pp != 0x80) {
++		dev_notice(cs->dev, "%s: %s type/plan 0x%02x unsupported\n",
++			   "CONNECT_REQ", "Called party number", *pp);
++		info = CapiIllMessageParmCoding;
++		goto error;
++	}
++	pp++;
++	l--;
++	/* translate "**" internal call prefix to CTP value */
++	if (l >= 2 && pp[0] == '*' && pp[1] == '*') {
++		s = "^SCTP=0\r";
++		pp += 2;
++		l -= 2;
++	} else {
++		s = "^SCTP=1\r";
++	}
++	if ((commands[AT_TYPE] = kstrdup(s, GFP_KERNEL)) == NULL ||
++	    (commands[AT_DIAL] = kmalloc(l+3, GFP_KERNEL)) == NULL)
++		goto oom;
++	snprintf(commands[AT_DIAL], l+3, "D%*s\r", l, pp);
++
++	/* encode parameter: Calling party number */
++	pp = cmsg->CallingPartyNumber;
++	if (pp != NULL && (l = *pp++) > 0) {
++		/* check number type/numbering plan byte */
++		if (*pp) {
++			/* ToDo: allow for Ext=1? */
++			dev_notice(cs->dev,
++				   "%s: %s type/plan 0x%02x unsupported\n",
++				   "CONNECT_REQ", "Calling party number", *pp);
++			info = CapiIllMessageParmCoding;
++			goto error;
++		}
++		pp++;
++		l--;
++
++		/* check presentation/screening indicator */
++		if (!l) {
++			dev_notice(cs->dev, "%s: %s IE truncated\n",
++				   "CONNECT_REQ", "Calling party number");
++			info = CapiIllMessageParmCoding;
++			goto error;
++		}
++		switch (*pp) {
++		case 0x80:	/* Presentation allowed */
++			s = "^SCLIP=1\r";
++			break;
++		case 0xa0:	/* Presentation restricted */
++			s = "^SCLIP=0\r";
++			break;
++		default:
++			dev_notice(cs->dev, "%s: invalid %s 0x%02x\n",
++				   "CONNECT_REQ",
++				   "Presentation/Screening indicator",
++				   *pp);
++			info = CapiIllMessageParmCoding;
++			goto error;
++		}
++		if ((commands[AT_CLIP] = kstrdup(s, GFP_KERNEL)) == NULL)
++			goto oom;
++		pp++;
++		l--;
++
++		if (l) {
++			/* number */
++			if ((commands[AT_MSN] = kmalloc(l+8, GFP_KERNEL))
++			    == NULL)
++				goto oom;
++			snprintf(commands[AT_MSN], l+8, "^SMSN=%*s\r", l, pp);
++		}
++	}
++
++	/* check parameter: CIP Value */
++	if (cmsg->CIPValue > ARRAY_SIZE(cip2bchlc) ||
++	    (cmsg->CIPValue > 0 && cip2bchlc[cmsg->CIPValue].bc == NULL)) {
++		dev_notice(cs->dev, "%s: unknown CIP value %d\n",
++			   "CONNECT_REQ", cmsg->CIPValue);
++		info = CapiCipValueUnknown;
++		goto error;
++	}
++
++	/* check/encode parameter: BC */
++	if (cmsg->BC && cmsg->BC[0]) {
++		/* explicit BC overrides CIP */
++		l = 2*cmsg->BC[0] + 7;
++		if ((commands[AT_BC] = kmalloc(l, GFP_KERNEL)) == NULL)
++			goto oom;
++		strcpy(commands[AT_BC], "^SBC=");
++		decode_ie(cmsg->BC, commands[AT_BC]+5);
++		strcpy(commands[AT_BC] + l - 2, "\r");
++	} else if (cip2bchlc[cmsg->CIPValue].bc) {
++		l = strlen(cip2bchlc[cmsg->CIPValue].bc) + 7;
++		if ((commands[AT_BC] = kmalloc(l, GFP_KERNEL)) == NULL)
++			goto oom;
++		snprintf(commands[AT_BC], l, "^SBC=%s\r",
++			 cip2bchlc[cmsg->CIPValue].bc);
++	}
++
++	/* check/encode parameter: HLC */
++	if (cmsg->HLC && cmsg->HLC[0]) {
++		/* explicit HLC overrides CIP */
++		l = 2*cmsg->HLC[0] + 7;
++		if ((commands[AT_HLC] = kmalloc(l, GFP_KERNEL)) == NULL)
++			goto oom;
++		strcpy(commands[AT_HLC], "^SHLC=");
++		decode_ie(cmsg->HLC, commands[AT_HLC]+5);
++		strcpy(commands[AT_HLC] + l - 2, "\r");
++	} else if (cip2bchlc[cmsg->CIPValue].hlc) {
++		l = strlen(cip2bchlc[cmsg->CIPValue].hlc) + 7;
++		if ((commands[AT_HLC] = kmalloc(l, GFP_KERNEL)) == NULL)
++			goto oom;
++		snprintf(commands[AT_HLC], l, "^SHLC=%s\r",
++			 cip2bchlc[cmsg->CIPValue].hlc);
++	}
++
++	/* check/encode parameter: B Protocol */
++	if (cmsg->BProtocol == CAPI_DEFAULT) {
++		bcs->proto2 = L2_HDLC;
++		dev_warn(cs->dev,
++		    "B2 Protocol X.75 SLP unsupported, using Transparent\n");
++	} else {
++		switch (cmsg->B1protocol) {
++		case 0:
++			bcs->proto2 = L2_HDLC;
++			break;
++		case 1:
++			bcs->proto2 = L2_BITSYNC;
++			break;
++		default:
++			dev_warn(cs->dev,
++			    "B1 Protocol %u unsupported, using Transparent\n",
++				 cmsg->B1protocol);
++			bcs->proto2 = L2_BITSYNC;
++		}
++		if (cmsg->B2protocol != 1)
++			dev_warn(cs->dev,
++			    "B2 Protocol %u unsupported, using Transparent\n",
++				 cmsg->B2protocol);
++		if (cmsg->B3protocol != 0)
++			dev_warn(cs->dev,
++			    "B3 Protocol %u unsupported, using Transparent\n",
++				 cmsg->B3protocol);
++		ignore_cstruct_param(cs, cmsg->B1configuration,
++					"CONNECT_REQ", "B1 Configuration");
++		ignore_cstruct_param(cs, cmsg->B2configuration,
++					"CONNECT_REQ", "B2 Configuration");
++		ignore_cstruct_param(cs, cmsg->B3configuration,
++					"CONNECT_REQ", "B3 Configuration");
++	}
++	if ((commands[AT_PROTO] = kmalloc(9, GFP_KERNEL)) == NULL)
++		goto oom;
++	snprintf(commands[AT_PROTO], 9, "^SBPR=%u\r", bcs->proto2);
++
++	/* ToDo: check/encode remaining parameters */
++	ignore_cstruct_param(cs, cmsg->CalledPartySubaddress,
++					"CONNECT_REQ", "Called pty subaddr");
++	ignore_cstruct_param(cs, cmsg->CallingPartySubaddress,
++					"CONNECT_REQ", "Calling pty subaddr");
++	ignore_cstruct_param(cs, cmsg->LLC,
++					"CONNECT_REQ", "LLC");
++	ignore_cmstruct_param(cs, cmsg->AdditionalInfo,
++					"CONNECT_REQ", "Additional Info");
++
++	/* encode parameter: B channel to use */
++	if ((commands[AT_ISO] = kmalloc(9, GFP_KERNEL)) == NULL)
++		goto oom;
++	snprintf(commands[AT_ISO], 9, "^SISO=%u\r",
++		 (unsigned) bcs->channel + 1);
++
++	/* queue & schedule EV_DIAL event */
++	if (!gigaset_add_event(cs, &bcs->at_state, EV_DIAL, commands,
++			       bcs->at_state.seq_index, NULL))
++		goto oom;
++	gig_dbg(DEBUG_CMD, "scheduling DIAL");
++	gigaset_schedule_event(cs);
++	ap->connected = APCONN_SETUP;
++	send_conf(iif, ap, skb, CapiSuccess);
++	return;
++
++oom:
++	dev_err(cs->dev, "%s: out of memory\n", __func__);
++	info = CAPI_MSGOSRESOURCEERR;
++error:
++	if (commands)
++		for (i = 0; i < AT_NUM; i++)
++			kfree(commands[i]);
++	kfree(commands);
++	gigaset_free_channel(bcs);
++	send_conf(iif, ap, skb, info);
++}
++
++/*
++ * process CONNECT_RESP message
++ * checks protocol parameters and queues an ACCEPT or HUP event
++ */
++static void do_connect_resp(struct gigaset_capi_ctr *iif,
++			    struct gigaset_capi_appl *ap,
++			    struct sk_buff *skb)
++{
++	struct cardstate *cs = iif->ctr.driverdata;
++	_cmsg *cmsg = &iif->acmsg;
++	struct bc_state *bcs;
++	struct gigaset_capi_appl *oap;
++	int channel;
++
++	/* decode message */
++	capi_message2cmsg(&iif->acmsg, skb->data);
++	dump_cmsg(DEBUG_CMD, __func__, &iif->acmsg);
++	dev_kfree_skb(skb);
++
++	/* extract and check channel number from PLCI */
++	channel = (cmsg->adr.adrPLCI >> 8) & 0xff;
++	if (!channel || channel > cs->channels) {
++		dev_notice(cs->dev, "%s: invalid %s 0x%02x\n",
++			   "CONNECT_RESP", "PLCI", cmsg->adr.adrPLCI);
++		return;
++	}
++	bcs = cs->bcs + channel - 1;
++
++	switch (cmsg->Reject) {
++	case 0:		/* Accept */
++		/* drop all competing applications, keep only this one */
++		for (oap = bcs->ap; oap != NULL; oap = oap->bcnext)
++			if (oap != ap)
++				send_disconnect_ind(bcs, oap,
++					CapiCallGivenToOtherApplication);
++		ap->bcnext = NULL;
++		bcs->ap = ap;
++		bcs->chstate |= CHS_NOTIFY_LL;
++
++		/* check/encode B channel protocol */
++		if (cmsg->BProtocol == CAPI_DEFAULT) {
++			bcs->proto2 = L2_HDLC;
++			dev_warn(cs->dev,
++		"B2 Protocol X.75 SLP unsupported, using Transparent\n");
++		} else {
++			switch (cmsg->B1protocol) {
++			case 0:
++				bcs->proto2 = L2_HDLC;
++				break;
++			case 1:
++				bcs->proto2 = L2_BITSYNC;
++				break;
++			default:
++				dev_warn(cs->dev,
++			"B1 Protocol %u unsupported, using Transparent\n",
++					 cmsg->B1protocol);
++				bcs->proto2 = L2_BITSYNC;
++			}
++			if (cmsg->B2protocol != 1)
++				dev_warn(cs->dev,
++			"B2 Protocol %u unsupported, using Transparent\n",
++					 cmsg->B2protocol);
++			if (cmsg->B3protocol != 0)
++				dev_warn(cs->dev,
++			"B3 Protocol %u unsupported, using Transparent\n",
++					 cmsg->B3protocol);
++			ignore_cstruct_param(cs, cmsg->B1configuration,
++					"CONNECT_RESP", "B1 Configuration");
++			ignore_cstruct_param(cs, cmsg->B2configuration,
++					"CONNECT_RESP", "B2 Configuration");
++			ignore_cstruct_param(cs, cmsg->B3configuration,
++					"CONNECT_RESP", "B3 Configuration");
++		}
++
++		/* ToDo: check/encode remaining parameters */
++		ignore_cstruct_param(cs, cmsg->ConnectedNumber,
++					"CONNECT_RESP", "Connected Number");
++		ignore_cstruct_param(cs, cmsg->ConnectedSubaddress,
++					"CONNECT_RESP", "Connected Subaddress");
++		ignore_cstruct_param(cs, cmsg->LLC,
++					"CONNECT_RESP", "LLC");
++		ignore_cmstruct_param(cs, cmsg->AdditionalInfo,
++					"CONNECT_RESP", "Additional Info");
++
++		/* Accept call */
++		if (!gigaset_add_event(cs, &cs->bcs[channel-1].at_state,
++				       EV_ACCEPT, NULL, 0, NULL))
++			return;
++		gig_dbg(DEBUG_CMD, "scheduling ACCEPT");
++		gigaset_schedule_event(cs);
++		return;
++
++	case 1:			/* Ignore */
++		/* send DISCONNECT_IND to this application */
++		send_disconnect_ind(bcs, ap, 0);
++
++		/* remove it from the list of listening apps */
++		if (bcs->ap == ap) {
++			if ((bcs->ap = ap->bcnext) == NULL)
++				/* last one: stop ev-layer hupD notifications */
++				bcs->chstate &= ~CHS_NOTIFY_LL;
++			return;
++		}
++		for (oap = bcs->ap; oap != NULL; oap = oap->bcnext) {
++			if (oap->bcnext == ap) {
++				oap->bcnext = oap->bcnext->bcnext;
++				return;
++			}
++		}
++		dev_err(cs->dev, "%s: application %u not found\n",
++			__func__, ap->id);
++		return;
++
++	default:		/* Reject */
++		/* drop all competing applications, keep only this one */
++		for (oap = bcs->ap; oap != NULL; oap = oap->bcnext)
++			if (oap != ap)
++				send_disconnect_ind(bcs, oap,
++					CapiCallGivenToOtherApplication);
++		ap->bcnext = NULL;
++		bcs->ap = ap;
++
++		/* reject call - will trigger DISCONNECT_IND for this app */
++		dev_info(cs->dev, "%s: Reject=%x\n",
++			 "CONNECT_RESP", cmsg->Reject);
++		if (!gigaset_add_event(cs, &cs->bcs[channel-1].at_state,
++				       EV_HUP, NULL, 0, NULL))
++			return;
++		gig_dbg(DEBUG_CMD, "scheduling HUP");
++		gigaset_schedule_event(cs);
++		return;
++	}
++}
++
++/*
++ * process CONNECT_B3_REQ message
++ * build NCCI and emit CONNECT_B3_CONF reply
++ */
++static void do_connect_b3_req(struct gigaset_capi_ctr *iif,
++			      struct gigaset_capi_appl *ap,
++			      struct sk_buff *skb)
++{
++	struct cardstate *cs = iif->ctr.driverdata;
++	int channel;
++
++	/* decode message */
++	capi_message2cmsg(&iif->acmsg, skb->data);
++	dump_cmsg(DEBUG_CMD, __func__, &iif->acmsg);
++
++	/* extract and check channel number from PLCI */
++	channel = (iif->acmsg.adr.adrPLCI >> 8) & 0xff;
++	if (!channel || channel > cs->channels) {
++		dev_notice(cs->dev, "%s: invalid %s 0x%02x\n",
++			   "CONNECT_B3_REQ", "PLCI", iif->acmsg.adr.adrPLCI);
++		send_conf(iif, ap, skb, CapiIllContrPlciNcci);
++		return;
++	}
++
++	/* mark logical connection active */
++	ap->connected = APCONN_ACTIVE;
++
++	/* build NCCI: always 1 (one B3 connection only) */
++	iif->acmsg.adr.adrNCCI |= 1 << 16;
++
++	/* NCPI parameter: not applicable for B3 Transparent */
++	ignore_cstruct_param(cs, iif->acmsg.NCPI,
++				"CONNECT_B3_REQ", "NCPI");
++	send_conf(iif, ap, skb,
++		  (iif->acmsg.NCPI && iif->acmsg.NCPI[0]) ?
++			CapiNcpiNotSupportedByProtocol : CapiSuccess);
++}
++
++/*
++ * process CONNECT_B3_RESP message
++ * Depending on the Reject parameter, either emit CONNECT_B3_ACTIVE_IND
++ * or queue EV_HUP and emit DISCONNECT_B3_IND.
++ * The emitted message is always shorter than the received one,
++ * allowing to reuse the skb.
++ */
++static void do_connect_b3_resp(struct gigaset_capi_ctr *iif,
++			       struct gigaset_capi_appl *ap,
++			       struct sk_buff *skb)
++{
++	struct cardstate *cs = iif->ctr.driverdata;
++	struct bc_state *bcs = NULL;
++	int channel;
++	unsigned int msgsize;
++	u8 command;
++
++	/* decode message */
++	capi_message2cmsg(&iif->acmsg, skb->data);
++	dump_cmsg(DEBUG_CMD, __func__, &iif->acmsg);
++
++	/* extract and check channel number and NCCI */
++	channel = (iif->acmsg.adr.adrNCCI >> 8) & 0xff;
++	if (!channel || channel > cs->channels ||
++	    ((iif->acmsg.adr.adrNCCI >> 16) & 0xffff) != 1) {
++		dev_notice(cs->dev, "%s: invalid %s 0x%02x\n",
++			   "CONNECT_B3_RESP", "NCCI", iif->acmsg.adr.adrNCCI);
++		dev_kfree_skb(skb);
++		return;
++	}
++	bcs = &cs->bcs[channel-1];
++
++	if (iif->acmsg.Reject) {
++		/* Reject: clear B3 connect received flag */
++		ap->connected = APCONN_SETUP;
++
++		/* trigger hangup, causing eventual DISCONNECT_IND */
++		if (!gigaset_add_event(cs, &bcs->at_state,
++				       EV_HUP, NULL, 0, NULL)) {
++			dev_err(cs->dev, "%s: out of memory\n", __func__);
++			dev_kfree_skb(skb);
++			return;
++		}
++		gig_dbg(DEBUG_CMD, "scheduling HUP");
++		gigaset_schedule_event(cs);
++
++		/* emit DISCONNECT_B3_IND */
++		command = CAPI_DISCONNECT_B3;
++		msgsize = CAPI_DISCONNECT_B3_IND_BASELEN;
++	} else {
++		/*
++		 * Accept: emit CONNECT_B3_ACTIVE_IND immediately, as
++		 * we only send CONNECT_B3_IND if the B channel is up
++		 */
++		command = CAPI_CONNECT_B3_ACTIVE;
++		msgsize = CAPI_CONNECT_B3_ACTIVE_IND_BASELEN;
++	}
++	capi_cmsg_header(&iif->acmsg, ap->id, command, CAPI_IND,
++			 ap->nextMessageNumber++, iif->acmsg.adr.adrNCCI);
++	__skb_trim(skb, msgsize);
++	capi_cmsg2message(&iif->acmsg, skb->data);
++	dump_cmsg(DEBUG_CMD, __func__, &iif->acmsg);
++	capi_ctr_handle_message(&iif->ctr, ap->id, skb);
++}
++
++/*
++ * process DISCONNECT_REQ message
++ * schedule EV_HUP and emit DISCONNECT_B3_IND if necessary,
++ * emit DISCONNECT_CONF reply
++ */
++static void do_disconnect_req(struct gigaset_capi_ctr *iif,
++			      struct gigaset_capi_appl *ap,
++			      struct sk_buff *skb)
++{
++	struct cardstate *cs = iif->ctr.driverdata;
++	struct bc_state *bcs;
++	_cmsg *b3cmsg;
++	struct sk_buff *b3skb;
++	int channel;
++
++	/* decode message */
++	capi_message2cmsg(&iif->acmsg, skb->data);
++	dump_cmsg(DEBUG_CMD, __func__, &iif->acmsg);
++
++	/* extract and check channel number from PLCI */
++	channel = (iif->acmsg.adr.adrPLCI >> 8) & 0xff;
++	if (!channel || channel > cs->channels) {
++		dev_notice(cs->dev, "%s: invalid %s 0x%02x\n",
++			   "DISCONNECT_REQ", "PLCI", iif->acmsg.adr.adrPLCI);
++		send_conf(iif, ap, skb, CapiIllContrPlciNcci);
++		return;
++	}
++	bcs = cs->bcs + channel - 1;
++
++	/* ToDo: process parameter: Additional info */
++	ignore_cmstruct_param(cs, iif->acmsg.AdditionalInfo,
++			      "DISCONNECT_REQ", "Additional Info");
++
++	/* skip if DISCONNECT_IND already sent */
++	if (!ap->connected)
++		return;
++
++	/* check for active logical connection */
++	if (ap->connected >= APCONN_ACTIVE) {
++		/*
++		 * emit DISCONNECT_B3_IND with cause 0x3301
++		 * use separate cmsg structure, as the content of iif->acmsg
++		 * is still needed for creating the _CONF message
++		 */
++		if ((b3cmsg = kmalloc(sizeof(*b3cmsg), GFP_KERNEL)) == NULL) {
++			dev_err(cs->dev, "%s: out of memory\n", __func__);
++			send_conf(iif, ap, skb, CAPI_MSGOSRESOURCEERR);
++			return;
++		}
++		capi_cmsg_header(b3cmsg, ap->id, CAPI_DISCONNECT_B3, CAPI_IND,
++				 ap->nextMessageNumber++,
++				 iif->acmsg.adr.adrPLCI | (1 << 16));
++		b3cmsg->Reason_B3 = CapiProtocolErrorLayer1;
++		b3skb = alloc_skb(CAPI_DISCONNECT_B3_IND_BASELEN, GFP_KERNEL);
++		if (b3skb == NULL) {
++			dev_err(cs->dev, "%s: out of memory\n", __func__);
++			send_conf(iif, ap, skb, CAPI_MSGOSRESOURCEERR);
++			return;
++		}
++		capi_cmsg2message(b3cmsg,
++			__skb_put(b3skb, CAPI_DISCONNECT_B3_IND_BASELEN));
++		kfree(b3cmsg);
++		capi_ctr_handle_message(&iif->ctr, ap->id, b3skb);
++	}
++
++	/* trigger hangup, causing eventual DISCONNECT_IND */
++	if (!gigaset_add_event(cs, &bcs->at_state, EV_HUP, NULL, 0, NULL)) {
++		dev_err(cs->dev, "%s: out of memory\n", __func__);
++		send_conf(iif, ap, skb, CAPI_MSGOSRESOURCEERR);
++		return;
++	}
++	gig_dbg(DEBUG_CMD, "scheduling HUP");
++	gigaset_schedule_event(cs);
++
++	/* emit reply */
++	send_conf(iif, ap, skb, CapiSuccess);
++}
++
++/*
++ * process DISCONNECT_B3_REQ message
++ * schedule EV_HUP and emit DISCONNECT_B3_CONF reply
++ */
++static void do_disconnect_b3_req(struct gigaset_capi_ctr *iif,
++				 struct gigaset_capi_appl *ap,
++				 struct sk_buff *skb)
++{
++	struct cardstate *cs = iif->ctr.driverdata;
++	int channel;
++
++	/* decode message */
++	capi_message2cmsg(&iif->acmsg, skb->data);
++	dump_cmsg(DEBUG_CMD, __func__, &iif->acmsg);
++
++	/* extract and check channel number and NCCI */
++	channel = (iif->acmsg.adr.adrNCCI >> 8) & 0xff;
++	if (!channel || channel > cs->channels ||
++	    ((iif->acmsg.adr.adrNCCI >> 16) & 0xffff) != 1) {
++		dev_notice(cs->dev, "%s: invalid %s 0x%02x\n",
++			   "DISCONNECT_B3_REQ", "NCCI", iif->acmsg.adr.adrNCCI);
++		send_conf(iif, ap, skb, CapiIllContrPlciNcci);
++		return;
++	}
++
++	/* reject if logical connection not active */
++	if (ap->connected < APCONN_ACTIVE) {
++		send_conf(iif, ap, skb,
++			  CapiMessageNotSupportedInCurrentState);
++		return;
++	}
++
++	/* trigger hangup, causing eventual DISCONNECT_B3_IND */
++	if (!gigaset_add_event(cs, &cs->bcs[channel-1].at_state,
++			       EV_HUP, NULL, 0, NULL)) {
++		dev_err(cs->dev, "%s: out of memory\n", __func__);
++		send_conf(iif, ap, skb, CAPI_MSGOSRESOURCEERR);
++		return;
++	}
++	gig_dbg(DEBUG_CMD, "scheduling HUP");
++	gigaset_schedule_event(cs);
++
++	/* NCPI parameter: not applicable for B3 Transparent */
++	ignore_cstruct_param(cs, iif->acmsg.NCPI,
++				"DISCONNECT_B3_REQ", "NCPI");
++	send_conf(iif, ap, skb,
++		  (iif->acmsg.NCPI && iif->acmsg.NCPI[0]) ?
++			CapiNcpiNotSupportedByProtocol : CapiSuccess);
++}
++
++/*
++ * process DATA_B3_REQ message
++ */
++static void do_data_b3_req(struct gigaset_capi_ctr *iif,
++			   struct gigaset_capi_appl *ap,
++			   struct sk_buff *skb)
++{
++	struct cardstate *cs = iif->ctr.driverdata;
++	int channel = CAPIMSG_PLCI_PART(skb->data);
++	u16 ncci = CAPIMSG_NCCI_PART(skb->data);
++	u16 msglen = CAPIMSG_LEN(skb->data);
++	u16 datalen = CAPIMSG_DATALEN(skb->data);
++	u16 flags = CAPIMSG_FLAGS(skb->data);
++
++	/* frequent message, avoid _cmsg overhead */
++	dump_rawmsg(DEBUG_LLDATA, "DATA_B3_REQ", skb->data);
++
++	gig_dbg(DEBUG_LLDATA,
++		"Receiving data from LL (ch: %d, flg: %x, sz: %d|%d)",
++		channel, flags, msglen, datalen);
++
++	/* check parameters */
++	if (channel == 0 || channel > cs->channels || ncci != 1) {
++		dev_notice(cs->dev, "%s: invalid %s 0x%02x\n",
++			   "DATA_B3_REQ", "NCCI", CAPIMSG_NCCI(skb->data));
++		send_conf(iif, ap, skb, CapiIllContrPlciNcci);
++		return;
++	}
++	if (msglen != CAPI_DATA_B3_REQ_LEN && msglen != CAPI_DATA_B3_REQ_LEN64)
++		dev_notice(cs->dev, "%s: unexpected length %d\n",
++			   "DATA_B3_REQ", msglen);
++	if (msglen + datalen != skb->len)
++		dev_notice(cs->dev, "%s: length mismatch (%d+%d!=%d)\n",
++			   "DATA_B3_REQ", msglen, datalen, skb->len);
++	if (msglen + datalen > skb->len) {
++		/* message too short for announced data length */
++		send_conf(iif, ap, skb, CapiIllMessageParmCoding); /* ? */
++		return;
++	}
++	if (flags & CAPI_FLAGS_RESERVED) {
++		dev_notice(cs->dev, "%s: reserved flags set (%x)\n",
++			   "DATA_B3_REQ", flags);
++		send_conf(iif, ap, skb, CapiIllMessageParmCoding);
++		return;
++	}
++
++	/* reject if logical connection not active */
++	if (ap->connected < APCONN_ACTIVE) {
++		send_conf(iif, ap, skb, CapiMessageNotSupportedInCurrentState);
++		return;
++	}
++
++	/*
++	 * pull CAPI message from skb,
++	 * pass payload data to device-specific module
++	 * CAPI message will be preserved in headroom
++	 */
++	skb_pull(skb, msglen);
++	if (cs->ops->send_skb(&cs->bcs[channel-1], skb) < 0) {
++		send_conf(iif, ap, skb, CAPI_MSGOSRESOURCEERR);
++		return;
++	}
++
++	/* DATA_B3_CONF reply will be sent by gigaset_skb_sent() */
++
++	/*
++	 * ToDo: honor unset "delivery confirmation" bit
++	 * (send DATA_B3_CONF immediately?)
++	 */
++}
++
++/*
++ * CAPI message handler: just reply "not supported in current state"
++ */
++static void do_unsupported(struct gigaset_capi_ctr *iif,
++			   struct gigaset_capi_appl *ap,
++			   struct sk_buff *skb)
++{
++	/* decode message */
++	capi_message2cmsg(&iif->acmsg, skb->data);
++	dump_cmsg(DEBUG_CMD, __func__, &iif->acmsg);
++	send_conf(iif, ap, skb, CapiMessageNotSupportedInCurrentState);
++}
++
++/*
++ * CAPI message handler: no-op
++ */
++static void do_nothing(struct gigaset_capi_ctr *iif,
++		       struct gigaset_capi_appl *ap,
++		       struct sk_buff *skb)
++{
++	dump_rawmsg(DEBUG_CMD, __func__, skb->data);
++	dev_kfree_skb(skb);
++}
++
++static void do_data_b3_resp(struct gigaset_capi_ctr *iif,
++			    struct gigaset_capi_appl *ap,
++			    struct sk_buff *skb)
++{
++	dump_rawmsg(DEBUG_LLDATA, __func__, skb->data);
++	dev_kfree_skb(skb);
++}
++
++/* table of outgoing CAPI message handlers with lookup function */
++typedef void (*capi_send_handler_t)(struct gigaset_capi_ctr *,
++				    struct gigaset_capi_appl *,
++				    struct sk_buff *);
++
++static struct {
++	u16 cmd;
++	capi_send_handler_t handler;
++} capi_send_handler_table[] = {
++	/* most frequent messages first for faster lookup */
++	{ CAPI_DATA_B3_REQ, do_data_b3_req },
++	{ CAPI_DATA_B3_RESP, do_data_b3_resp },
++	{ CAPI_ALERT_REQ, do_alert_req },
++	{ CAPI_CONNECT_ACTIVE_RESP, do_nothing },
++	{ CAPI_CONNECT_B3_ACTIVE_RESP, do_nothing },
++	{ CAPI_CONNECT_B3_REQ, do_connect_b3_req },
++	{ CAPI_CONNECT_B3_RESP, do_connect_b3_resp },
++	{ CAPI_CONNECT_B3_T90_ACTIVE_RESP, do_nothing },
++	{ CAPI_CONNECT_REQ, do_connect_req },
++	{ CAPI_CONNECT_RESP, do_connect_resp },
++	{ CAPI_DISCONNECT_B3_REQ, do_disconnect_b3_req },
++	{ CAPI_DISCONNECT_B3_RESP, do_nothing },
++	{ CAPI_DISCONNECT_REQ, do_disconnect_req },
++	{ CAPI_DISCONNECT_RESP, do_nothing },
++	{ CAPI_INFO_REQ, do_unsupported },
++	/*
++	 * ToDo: support overlap sending (requires ev-layer state
++	 * machine extension to generate additional ATD commands)
++	 */
++	{ CAPI_INFO_RESP, do_nothing },
++	{ CAPI_LISTEN_REQ, do_listen_req },
++	{ CAPI_SELECT_B_PROTOCOL_REQ, do_unsupported },
++	/*
++	 * ToDo:
++	 * CAPI_FACILITY_REQ
++	 * CAPI_FACILITY_RESP
++	 * CAPI_MANUFACTURER_REQ
++	 * CAPI_MANUFACTURER_RESP
++	 * CAPI_RESET_B3_REQ
++	 * CAPI_RESET_B3_RESP
++	 */
++};
++
++/* look up handler */
++static inline capi_send_handler_t lookup_capi_send_handler(const u16 cmd)
++{
++	size_t i;
++
++	for (i = 0; i < ARRAY_SIZE(capi_send_handler_table); i++)
++		if (capi_send_handler_table[i].cmd == cmd)
++			return capi_send_handler_table[i].handler;
++	return NULL;
++}
++
++
++/**
++ * gigaset_send_message() - accept a CAPI message from an application
++ * @ctr:	controller descriptor structure.
++ * @skb:	CAPI message.
++ *
++ * Return value: CAPI error code
++ * Note: capidrv (and probably others, too) only uses the return value to
++ * decide whether it has to free the skb (only if result != CAPI_NOERROR (0))
++ */
++static u16 gigaset_send_message(struct capi_ctr *ctr, struct sk_buff *skb)
++{
++	struct gigaset_capi_ctr *iif
++		= container_of(ctr, struct gigaset_capi_ctr, ctr);
++	struct cardstate *cs = ctr->driverdata;
++	struct gigaset_capi_appl *ap;
++	capi_send_handler_t handler;
++
++	/* can only handle linear sk_buffs */
++	if (skb_linearize(skb) < 0) {
++		dev_warn(cs->dev, "%s: skb_linearize failed\n", __func__);
++		return CAPI_MSGOSRESOURCEERR;
++	}
++
++	/* retrieve application data structure */
++	if ((ap = get_appl(iif, CAPIMSG_APPID(skb->data))) == NULL) {
++		dev_notice(cs->dev, "%s: application %u not registered\n",
++			   __func__, CAPIMSG_APPID(skb->data));
++		return CAPI_ILLAPPNR;
++	}
++
++	/* look up command */
++	if ((handler = lookup_capi_send_handler(CAPIMSG_CMD(skb->data)))
++	    == NULL) {
++		/* unknown/unsupported message type */
++		return CAPI_ILLCMDORSUBCMDORMSGTOSMALL;
++	}
++
++	/* serialize */
++	if (atomic_add_return(1, &iif->sendqlen) > 1) {
++		/* queue behind other messages */
++		skb_queue_tail(&iif->sendqueue, skb);
++		return CAPI_NOERROR;
++	}
++
++	/* process message */
++	handler(iif, ap, skb);
++
++	/* process other messages arrived in the meantime */
++	while (atomic_sub_return(1, &iif->sendqlen) > 0) {
++		if ((skb = skb_dequeue(&iif->sendqueue)) == NULL) {
++			/* should never happen */
++			dev_err(cs->dev, "%s: send queue empty\n", __func__);
++			continue;
++		}
++		if ((ap = get_appl(iif, CAPIMSG_APPID(skb->data))) == NULL) {
++			/* could that happen? */
++			dev_warn(cs->dev, "%s: application %u vanished\n",
++				 __func__, CAPIMSG_APPID(skb->data));
++			continue;
++		}
++		if ((handler = lookup_capi_send_handler(CAPIMSG_CMD(skb->data)))
++		    == NULL) {
++			/* should never happen */
++			dev_err(cs->dev, "%s: handler %x vanished\n",
++				__func__, CAPIMSG_CMD(skb->data));
++			continue;
++		}
++		handler(iif, ap, skb);
++	}
++
++	return CAPI_NOERROR;
++}
++
++/**
++ * gigaset_procinfo() - build single line description for controller
++ * @ctr:	controller descriptor structure.
++ *
++ * Return value: pointer to generated string (null terminated)
++ */
++static char *gigaset_procinfo(struct capi_ctr *ctr)
++{
++	return ctr->name;	/* ToDo: more? */
++}
++
++/**
++ * gigaset_ctr_read_proc() - build controller proc file entry
++ * @page:	buffer of PAGE_SIZE bytes for receiving the entry.
++ * @start:	unused.
++ * @off:	unused.
++ * @count:	unused.
++ * @eof:	unused.
++ * @ctr:	controller descriptor structure.
++ *
++ * Return value: length of generated entry
++ */
++static int gigaset_ctr_read_proc(char *page, char **start, off_t off,
++			  int count, int *eof, struct capi_ctr *ctr)
++{
++	struct cardstate *cs = ctr->driverdata;
++	char *s;
++	int i;
++	int len = 0;
++	len += sprintf(page+len, "%-16s %s\n", "name", ctr->name);
++	len += sprintf(page+len, "%-16s %s %s\n", "dev",
++			dev_driver_string(cs->dev), dev_name(cs->dev));
++	len += sprintf(page+len, "%-16s %d\n", "id", cs->myid);
++	if (cs->gotfwver)
++		len += sprintf(page+len, "%-16s %d.%d.%d.%d\n", "firmware",
++			cs->fwver[0], cs->fwver[1], cs->fwver[2], cs->fwver[3]);
++	len += sprintf(page+len, "%-16s %d\n", "channels",
++			cs->channels);
++	len += sprintf(page+len, "%-16s %s\n", "onechannel",
++			cs->onechannel ? "yes" : "no");
++
++	switch (cs->mode) {
++	case M_UNKNOWN:
++		s = "unknown";
++		break;
++	case M_CONFIG:
++		s = "config";
++		break;
++	case M_UNIMODEM:
++		s = "Unimodem";
++		break;
++	case M_CID:
++		s = "CID";
++		break;
++	default:
++		s = "??";
++	}
++	len += sprintf(page+len, "%-16s %s\n", "mode", s);
++
++	switch (cs->mstate) {
++	case MS_UNINITIALIZED:
++		s = "uninitialized";
++		break;
++	case MS_INIT:
++		s = "init";
++		break;
++	case MS_LOCKED:
++		s = "locked";
++		break;
++	case MS_SHUTDOWN:
++		s = "shutdown";
++		break;
++	case MS_RECOVER:
++		s = "recover";
++		break;
++	case MS_READY:
++		s = "ready";
++		break;
++	default:
++		s = "??";
++	}
++	len += sprintf(page+len, "%-16s %s\n", "mstate", s);
++
++	len += sprintf(page+len, "%-16s %s\n", "running",
++			cs->running ? "yes" : "no");
++	len += sprintf(page+len, "%-16s %s\n", "connected",
++			cs->connected ? "yes" : "no");
++	len += sprintf(page+len, "%-16s %s\n", "isdn_up",
++			cs->isdn_up ? "yes" : "no");
++	len += sprintf(page+len, "%-16s %s\n", "cidmode",
++			cs->cidmode ? "yes" : "no");
++
++	for (i = 0; i < cs->channels; i++) {
++		len += sprintf(page+len, "[%d]%-13s %d\n", i, "corrupted",
++				cs->bcs[i].corrupted);
++		len += sprintf(page+len, "[%d]%-13s %d\n", i, "trans_down",
++				cs->bcs[i].trans_down);
++		len += sprintf(page+len, "[%d]%-13s %d\n", i, "trans_up",
++				cs->bcs[i].trans_up);
++		len += sprintf(page+len, "[%d]%-13s %d\n", i, "chstate",
++				cs->bcs[i].chstate);
++		switch (cs->bcs[i].proto2) {
++		case L2_BITSYNC:
++			s = "bitsync";
++			break;
++		case L2_HDLC:
++			s = "HDLC";
++			break;
++		case L2_VOICE:
++			s = "voice";
++			break;
++		default:
++			s = "??";
++		}
++		len += sprintf(page+len, "[%d]%-13s %s\n", i, "proto2", s);
++	}
++	return len;
++}
++
++
++static struct capi_driver capi_driver_gigaset = {
++	.name		= "gigaset",
++	.revision	= "1.0",
++};
 +
 +/**
 + * gigaset_isdn_register() - register to LL
@@ -1369,35 +2232,48 @@ index 654489d..8ce97a3 100644
 + */
 +int gigaset_isdn_register(struct cardstate *cs, const char *isdnid)
 +{
-+	isdn_if *iif;
++	struct gigaset_capi_ctr *iif;
++	int rc;
 +
-+	pr_info("ISDN4Linux interface\n");
++	pr_info("Kernel CAPI interface\n");
 +
-+	if ((iif = kmalloc(sizeof *iif, GFP_KERNEL)) == NULL) {
-+		pr_err("out of memory\n");
++	if ((iif = kmalloc(sizeof(*iif), GFP_KERNEL)) == NULL) {
++		pr_err("%s: out of memory\n", __func__);
 +		return 0;
 +	}
- 
- 	if (snprintf(iif->id, sizeof iif->id, "%s_%u", isdnid, cs->minor_index)
- 	    >= sizeof iif->id) {
- 		pr_err("ID too long: %s\n", isdnid);
++
++	/* register driver with CAPI (ToDo: what for?) */
++	register_capi_driver(&capi_driver_gigaset);
++
++	/* prepare controller structure */
++	iif->ctr.owner         = THIS_MODULE;
++	iif->ctr.driverdata    = cs;
++	strncpy(iif->ctr.name, isdnid, sizeof(iif->ctr.name));
++	iif->ctr.driver_name   = "gigaset";
++	iif->ctr.load_firmware = gigaset_load_firmware;
++	iif->ctr.reset_ctr     = gigaset_reset_ctr;
++	iif->ctr.register_appl = gigaset_register_appl;
++	iif->ctr.release_appl  = gigaset_release_appl;
++	iif->ctr.send_message  = gigaset_send_message;
++	iif->ctr.procinfo      = gigaset_procinfo;
++	iif->ctr.ctr_read_proc = gigaset_ctr_read_proc;
++	INIT_LIST_HEAD(&iif->appls);
++	skb_queue_head_init(&iif->sendqueue);
++	atomic_set(&iif->sendqlen, 0);
++
++	/* register controller with CAPI */
++	rc = attach_capi_ctr(&iif->ctr);
++	if (rc) {
++		pr_err("attach_capi_ctr failed (%d)\n", rc);
++		unregister_capi_driver(&capi_driver_gigaset);
 +		kfree(iif);
- 		return 0;
- 	}
- 
-@@ -593,9 +665,26 @@ int gigaset_register_to_LL(struct cardstate *cs, const char *isdnid)
- 
- 	if (!register_isdn(iif)) {
- 		pr_err("register_isdn failed\n");
-+		kfree(iif);
- 		return 0;
- 	}
- 
++		return 0;
++	}
++
 +	cs->iif = iif;
- 	cs->myid = iif->channels;		/* Set my device id */
-+	cs->hw_hdr_len = HW_HDR_LEN;
- 	return 1;
- }
++	cs->hw_hdr_len = CAPI_DATA_B3_REQ_LEN;
++	return 1;
++}
 +
 +/**
 + * gigaset_isdn_unregister() - unregister from LL
@@ -1407,194 +2283,121 @@ index 654489d..8ce97a3 100644
 + */
 +void gigaset_isdn_unregister(struct cardstate *cs)
 +{
-+	gig_dbg(DEBUG_CMD, "sending UNLOAD");
-+	gigaset_i4l_cmd(cs, ISDN_STAT_UNLOAD);
-+	kfree(cs->iif);
++	struct gigaset_capi_ctr *iif = cs->iif;
++
++	detach_capi_ctr(&iif->ctr);
++	kfree(iif);
 +	cs->iif = NULL;
++	unregister_capi_driver(&capi_driver_gigaset);
 +}
-diff --git a/drivers/isdn/gigaset/isocdata.c b/drivers/isdn/gigaset/isocdata.c
-index 9f3ef7b..31743a6 100644
---- a/drivers/isdn/gigaset/isocdata.c
-+++ b/drivers/isdn/gigaset/isocdata.c
-@@ -500,7 +500,7 @@ int gigaset_isoc_buildframe(struct bc_state *bcs, unsigned char *in, int len)
- 	int result;
- 
- 	switch (bcs->proto2) {
--	case ISDN_PROTO_L2_HDLC:
-+	case L2_HDLC:
- 		result = hdlc_buildframe(bcs->hw.bas->isooutbuf, in, len);
- 		gig_dbg(DEBUG_ISO, "%s: %d bytes HDLC -> %d",
- 			__func__, len, result);
-@@ -542,8 +542,9 @@ static inline void hdlc_flush(struct bc_state *bcs)
- 	if (likely(bcs->skb != NULL))
- 		skb_trim(bcs->skb, 0);
- 	else if (!bcs->ignore) {
--		if ((bcs->skb = dev_alloc_skb(SBUFSIZE + HW_HDR_LEN)) != NULL)
--			skb_reserve(bcs->skb, HW_HDR_LEN);
-+		if ((bcs->skb = dev_alloc_skb(SBUFSIZE + bcs->cs->hw_hdr_len))
-+		    != NULL)
-+			skb_reserve(bcs->skb, bcs->cs->hw_hdr_len);
- 		else
- 			dev_err(bcs->cs->dev, "could not allocate skb\n");
- 	}
-@@ -557,7 +558,9 @@ static inline void hdlc_flush(struct bc_state *bcs)
-  */
- static inline void hdlc_done(struct bc_state *bcs)
- {
-+	struct cardstate *cs = bcs->cs;
- 	struct sk_buff *procskb;
-+	unsigned int len;
- 
- 	if (unlikely(bcs->ignore)) {
- 		bcs->ignore--;
-@@ -568,32 +571,30 @@ static inline void hdlc_done(struct bc_state *bcs)
- 	if ((procskb = bcs->skb) == NULL) {
- 		/* previous error */
- 		gig_dbg(DEBUG_ISO, "%s: skb=NULL", __func__);
--		gigaset_rcv_error(NULL, bcs->cs, bcs);
--	} else if (procskb->len < 2) {
--		dev_notice(bcs->cs->dev, "received short frame (%d octets)\n",
--			   procskb->len);
-+		gigaset_isdn_rcv_err(bcs);
-+	} else if ((len = procskb->len) < 2) {
-+		dev_notice(cs->dev, "received short frame (%d octets)\n", len);
- 		bcs->hw.bas->runts++;
--		gigaset_rcv_error(procskb, bcs->cs, bcs);
-+		dev_kfree_skb(procskb);
-+		gigaset_isdn_rcv_err(bcs);
- 	} else if (bcs->fcs != PPP_GOODFCS) {
--		dev_notice(bcs->cs->dev, "frame check error (0x%04x)\n",
--			   bcs->fcs);
-+		dev_notice(cs->dev, "frame check error (0x%04x)\n", bcs->fcs);
- 		bcs->hw.bas->fcserrs++;
--		gigaset_rcv_error(procskb, bcs->cs, bcs);
-+		dev_kfree_skb(procskb);
-+		gigaset_isdn_rcv_err(bcs);
- 	} else {
--		procskb->len -= 2;		/* subtract FCS */
--		procskb->tail -= 2;
--		gig_dbg(DEBUG_ISO, "%s: good frame (%d octets)",
--			__func__, procskb->len);
-+		__skb_trim(procskb, len -= 2);	/* subtract FCS */
-+		gig_dbg(DEBUG_ISO, "%s: good frame (%d octets)", __func__, len);
- 		dump_bytes(DEBUG_STREAM_DUMP,
--			   "rcv data", procskb->data, procskb->len);
--		bcs->hw.bas->goodbytes += procskb->len;
--		gigaset_rcv_skb(procskb, bcs->cs, bcs);
-+			   "rcv data", procskb->data, len);
-+		bcs->hw.bas->goodbytes += len;
-+		gigaset_skb_rcvd(bcs, procskb);
- 	}
- 
--	if ((bcs->skb = dev_alloc_skb(SBUFSIZE + HW_HDR_LEN)) != NULL)
--		skb_reserve(bcs->skb, HW_HDR_LEN);
-+	if ((bcs->skb = dev_alloc_skb(SBUFSIZE + cs->hw_hdr_len)) != NULL)
-+		skb_reserve(bcs->skb, cs->hw_hdr_len);
- 	else
--		dev_err(bcs->cs->dev, "could not allocate skb\n");
-+		dev_err(cs->dev, "could not allocate skb\n");
- 	bcs->fcs = PPP_INITFCS;
+diff --git a/drivers/isdn/gigaset/common.c b/drivers/isdn/gigaset/common.c
+index a2847c2..a21ff68 100644
+--- a/drivers/isdn/gigaset/common.c
++++ b/drivers/isdn/gigaset/common.c
+@@ -207,6 +207,32 @@ int gigaset_get_channel(struct bc_state *bcs)
+ 	return 1;
  }
  
-@@ -610,12 +611,8 @@ static inline void hdlc_frag(struct bc_state *bcs, unsigned inbits)
- 
- 	dev_notice(bcs->cs->dev, "received partial byte (%d bits)\n", inbits);
- 	bcs->hw.bas->alignerrs++;
--	gigaset_rcv_error(bcs->skb, bcs->cs, bcs);
++struct bc_state *gigaset_get_free_channel(struct cardstate *cs)
++{
++	unsigned long flags;
++	int i;
++
++	spin_lock_irqsave(&cs->lock, flags);
++	if (!try_module_get(cs->driver->owner)) {
++		gig_dbg(DEBUG_ANY,
++			"could not get module for allocating channel");
++		spin_unlock_irqrestore(&cs->lock, flags);
++		return NULL;
++	}
++	for (i = 0; i < cs->channels; ++i)
++		if (!cs->bcs[i].use_count) {
++			++cs->bcs[i].use_count;
++			cs->bcs[i].busy = 1;
++			spin_unlock_irqrestore(&cs->lock, flags);
++			gig_dbg(DEBUG_ANY, "allocated channel %d", i);
++			return cs->bcs + i;
++		}
++	module_put(cs->driver->owner);
++	spin_unlock_irqrestore(&cs->lock, flags);
++	gig_dbg(DEBUG_ANY, "no free channel");
++	return NULL;
++}
++
+ void gigaset_free_channel(struct bc_state *bcs)
+ {
+ 	unsigned long flags;
+diff --git a/drivers/isdn/gigaset/ev-layer.c b/drivers/isdn/gigaset/ev-layer.c
+index 950afd4..7319f96 100644
+--- a/drivers/isdn/gigaset/ev-layer.c
++++ b/drivers/isdn/gigaset/ev-layer.c
+@@ -291,21 +291,23 @@ struct reply_t gigaset_tab_cid[] =
+ 	{RSP_OK,      602,602, -1,                603, 5, {ACT_CMD+AT_PROTO}},
+ 	{RSP_OK,      603,603, -1,                604, 5, {ACT_CMD+AT_TYPE}},
+ 	{RSP_OK,      604,604, -1,                605, 5, {ACT_CMD+AT_MSN}},
+-	{RSP_OK,      605,605, -1,                606, 5, {ACT_CMD+AT_ISO}},
+-	{RSP_NULL,    605,605, -1,                606, 5, {ACT_CMD+AT_ISO}},
+-	{RSP_OK,      606,606, -1,                607, 5, {0}, "+VLS=17\r"},
+-	{RSP_OK,      607,607, -1,                608,-1},
+-	{RSP_ZSAU,    608,608,ZSAU_PROCEEDING,    609, 5, {ACT_CMD+AT_DIAL}},
+-	{RSP_OK,      609,609, -1,                650, 0, {ACT_DIALING}},
 -
--	if ((bcs->skb = dev_alloc_skb(SBUFSIZE + HW_HDR_LEN)) != NULL)
--		skb_reserve(bcs->skb, HW_HDR_LEN);
--	else
--		dev_err(bcs->cs->dev, "could not allocate skb\n");
-+	gigaset_isdn_rcv_err(bcs);
-+	__skb_trim(bcs->skb, 0);
- 	bcs->fcs = PPP_INITFCS;
- }
+-	{RSP_ERROR,   601,609, -1,                  0, 0, {ACT_ABORTDIAL}},
+-	{EV_TIMEOUT,  601,609, -1,                  0, 0, {ACT_ABORTDIAL}},
++	{RSP_NULL,    605,605, -1,                606, 5, {ACT_CMD+AT_CLIP}},
++	{RSP_OK,      605,605, -1,                606, 5, {ACT_CMD+AT_CLIP}},
++	{RSP_NULL,    606,606, -1,                607, 5, {ACT_CMD+AT_ISO}},
++	{RSP_OK,      606,606, -1,                607, 5, {ACT_CMD+AT_ISO}},
++	{RSP_OK,      607,607, -1,                608, 5, {0}, "+VLS=17\r"},
++	{RSP_OK,      608,608, -1,                609,-1},
++	{RSP_ZSAU,    609,609,ZSAU_PROCEEDING,    610, 5, {ACT_CMD+AT_DIAL}},
++	{RSP_OK,      610,610, -1,                650, 0, {ACT_DIALING}},
++
++	{RSP_ERROR,   601,610, -1,                  0, 0, {ACT_ABORTDIAL}},
++	{EV_TIMEOUT,  601,610, -1,                  0, 0, {ACT_ABORTDIAL}},
  
-@@ -648,8 +645,8 @@ static const unsigned char bitcounts[256] = {
- /* hdlc_unpack
-  * perform HDLC frame processing (bit unstuffing, flag detection, FCS calculation)
-  * on a sequence of received data bytes (8 bits each, LSB first)
-- * pass on successfully received, complete frames as SKBs via gigaset_rcv_skb
-- * notify of errors via gigaset_rcv_error
-+ * pass on successfully received, complete frames as SKBs via gigaset_skb_rcvd
-+ * notify of errors via gigaset_isdn_rcv_err
-  * tally frames, errors etc. in BC structure counters
-  * parameters:
-  *	src	received data
-@@ -841,7 +838,7 @@ static inline void hdlc_unpack(unsigned char *src, unsigned count,
- }
+ 	/* optional dialing responses */
+ 	{EV_BC_OPEN,  650,650, -1,                651,-1},
+-	{RSP_ZVLS,    608,651, 17,                 -1,-1, {ACT_DEBUG}},
+-	{RSP_ZCTP,    609,651, -1,                 -1,-1, {ACT_DEBUG}},
+-	{RSP_ZCPN,    609,651, -1,                 -1,-1, {ACT_DEBUG}},
++	{RSP_ZVLS,    609,651, 17,                 -1,-1, {ACT_DEBUG}},
++	{RSP_ZCTP,    610,651, -1,                 -1,-1, {ACT_DEBUG}},
++	{RSP_ZCPN,    610,651, -1,                 -1,-1, {ACT_DEBUG}},
+ 	{RSP_ZSAU,    650,651,ZSAU_CALL_DELIVERED, -1,-1, {ACT_DEBUG}},
  
- /* trans_receive
-- * pass on received USB frame transparently as SKB via gigaset_rcv_skb
-+ * pass on received USB frame transparently as SKB via gigaset_skb_rcvd
-  * invert bytes
-  * tally frames, errors etc. in BC structure counters
-  * parameters:
-@@ -852,6 +849,7 @@ static inline void hdlc_unpack(unsigned char *src, unsigned count,
- static inline void trans_receive(unsigned char *src, unsigned count,
- 				 struct bc_state *bcs)
- {
-+	struct cardstate *cs = bcs->cs;
- 	struct sk_buff *skb;
- 	int dobytes;
- 	unsigned char *dst;
-@@ -862,12 +860,12 @@ static inline void trans_receive(unsigned char *src, unsigned count,
- 		return;
- 	}
- 	if (unlikely((skb = bcs->skb) == NULL)) {
--		bcs->skb = skb = dev_alloc_skb(SBUFSIZE + HW_HDR_LEN);
-+		bcs->skb = skb = dev_alloc_skb(SBUFSIZE + cs->hw_hdr_len);
- 		if (!skb) {
--			dev_err(bcs->cs->dev, "could not allocate skb\n");
-+			dev_err(cs->dev, "could not allocate skb\n");
- 			return;
- 		}
--		skb_reserve(skb, HW_HDR_LEN);
-+		skb_reserve(skb, cs->hw_hdr_len);
- 	}
- 	bcs->hw.bas->goodbytes += skb->len;
- 	dobytes = TRANSBUFSIZE - skb->len;
-@@ -881,14 +879,14 @@ static inline void trans_receive(unsigned char *src, unsigned count,
- 		if (dobytes == 0) {
- 			dump_bytes(DEBUG_STREAM_DUMP,
- 				   "rcv data", skb->data, skb->len);
--			gigaset_rcv_skb(skb, bcs->cs, bcs);
--			bcs->skb = skb = dev_alloc_skb(SBUFSIZE + HW_HDR_LEN);
-+			gigaset_skb_rcvd(bcs, skb);
-+			bcs->skb = skb =
-+				dev_alloc_skb(SBUFSIZE + cs->hw_hdr_len);
- 			if (!skb) {
--				dev_err(bcs->cs->dev,
--					"could not allocate skb\n");
-+				dev_err(cs->dev, "could not allocate skb\n");
- 				return;
- 			}
--			skb_reserve(bcs->skb, HW_HDR_LEN);
-+			skb_reserve(skb, cs->hw_hdr_len);
- 			dobytes = TRANSBUFSIZE;
- 		}
- 	}
-@@ -897,7 +895,7 @@ static inline void trans_receive(unsigned char *src, unsigned count,
- void gigaset_isoc_receive(unsigned char *src, unsigned count, struct bc_state *bcs)
- {
- 	switch (bcs->proto2) {
--	case ISDN_PROTO_L2_HDLC:
-+	case L2_HDLC:
- 		hdlc_unpack(src, count, bcs);
- 		break;
- 	default:		/* assume transparent */
-@@ -981,8 +979,10 @@ void gigaset_isoc_input(struct inbuf_t *inbuf)
-  * @bcs:	B channel descriptor structure.
-  * @skb:	data to send.
-  *
-- * Called by i4l.c to queue an skb for sending, and start transmission if
-+ * Called by LL to queue an skb for sending, and start transmission if
-  * necessary.
-+ * Once the payload data has been transmitted completely, gigaset_skb_sent()
-+ * will be called with the first cs->hw_hdr_len bytes of skb->head preserved.
-  *
-  * Return value:
-  *	number of bytes accepted for sending (skb->len) if ok,
+ 	/* connect */
+diff --git a/drivers/isdn/gigaset/gigaset.h b/drivers/isdn/gigaset/gigaset.h
+index 1185da2..4749ef1 100644
+--- a/drivers/isdn/gigaset/gigaset.h
++++ b/drivers/isdn/gigaset/gigaset.h
+@@ -191,7 +191,9 @@ void gigaset_dbg_buffer(enum debuglevel level, const unsigned char *msg,
+ #define AT_PROTO	4
+ #define AT_TYPE		5
+ #define AT_HLC		6
+-#define AT_NUM		7
++#define AT_CLIP		7
++/* total number */
++#define AT_NUM		8
+ 
+ /* variables in struct at_state_t */
+ #define VAR_ZSAU	0
+@@ -412,6 +414,8 @@ struct bc_state {
+ 		struct usb_bc_state *usb;	/* usb hardware driver (m105) */
+ 		struct bas_bc_state *bas;	/* usb hardware driver (base) */
+ 	} hw;
++
++	void *ap;			/* LL application structure */
+ };
+ 
+ struct cardstate {
+@@ -725,6 +729,7 @@ void gigaset_bcs_reinit(struct bc_state *bcs);
+ void gigaset_at_init(struct at_state_t *at_state, struct bc_state *bcs,
+ 		     struct cardstate *cs, int cid);
+ int gigaset_get_channel(struct bc_state *bcs);
++struct bc_state *gigaset_get_free_channel(struct cardstate *cs);
+ void gigaset_free_channel(struct bc_state *bcs);
+ int gigaset_get_channels(struct cardstate *cs);
+ void gigaset_free_channels(struct cardstate *cs);
 -- 
 1.6.2.1.214.ge986c
