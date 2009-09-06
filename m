@@ -1,41 +1,50 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 02/12] gigaset: fix reject/hangup handling
+Subject: [PATCH 05/12] gigaset: announce if built with debugging
 Date: Sun,  6 Sep 2009 20:58:52 +0200 (CEST)
-Message-ID: <20090906-patch-gigaset-02.tilman@imap.cc>
+Message-ID: <20090906-patch-gigaset-05.tilman@imap.cc>
 References: <20090906-patch-gigaset-00.tilman@imap.cc>
 Cc: Hansjoerg Lipp <hjlipp@web.de>
 To: davem@davemloft.net, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758267AbZIFS75@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758260AbZIFS7z@vger.kernel.org>
 In-Reply-To: <20090906-patch-gigaset-00.tilman@imap.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signal D channel disconnect in a few cases where it was missed,
-including when an incoming call is disconnected before it was
-accepted.
+Mention in the driver load announcement whether the driver was built
+with debugging messages enabled, to facilitate support.
 
-Impact: error handling improvement
+Impact: informational message
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 ---
- drivers/isdn/gigaset/ev-layer.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+ drivers/isdn/gigaset/common.c |    8 +++++++-
+ 1 files changed, 7 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/isdn/gigaset/ev-layer.c b/drivers/isdn/gigaset/ev-layer.c
-index 2d91049..ff2ec2c 100644
---- a/drivers/isdn/gigaset/ev-layer.c
-+++ b/drivers/isdn/gigaset/ev-layer.c
-@@ -707,6 +707,11 @@ static void disconnect(struct at_state_t **at_state_p)
- 	if (bcs) {
- 		/* B channel assigned: invoke hardware specific handler */
- 		cs->ops->close_bchannel(bcs);
-+		/* notify LL */
-+		if (bcs->chstate & (CHS_D_UP | CHS_NOTIFY_LL)) {
-+			bcs->chstate &= ~(CHS_D_UP | CHS_NOTIFY_LL);
-+			gigaset_i4l_channel_cmd(bcs, ISDN_STAT_DHUP);
-+		}
- 	} else {
- 		/* no B channel assigned: just deallocate */
- 		spin_lock_irqsave(&cs->lock, flags);
+diff --git a/drivers/isdn/gigaset/common.c b/drivers/isdn/gigaset/common.c
+index e4141bf..edbcaa3 100644
+--- a/drivers/isdn/gigaset/common.c
++++ b/drivers/isdn/gigaset/common.c
+@@ -22,6 +22,12 @@
+ #define DRIVER_AUTHOR "Hansjoerg Lipp <hjlipp@web.de>, Tilman Schmidt <tilman@imap.cc>, Stefan Eilers"
+ #define DRIVER_DESC "Driver for Gigaset 307x"
+ 
++#ifdef CONFIG_GIGASET_DEBUG
++#define DRIVER_DESC_DEBUG " (debug build)"
++#else
++#define DRIVER_DESC_DEBUG ""
++#endif
++
+ /* Module parameters */
+ int gigaset_debuglevel = DEBUG_DEFAULT;
+ EXPORT_SYMBOL_GPL(gigaset_debuglevel);
+@@ -1110,7 +1116,7 @@ static int __init gigaset_init_module(void)
+ 	if (gigaset_debuglevel == 1)
+ 		gigaset_debuglevel = DEBUG_DEFAULT;
+ 
+-	pr_info(DRIVER_DESC "\n");
++	pr_info(DRIVER_DESC DRIVER_DESC_DEBUG "\n");
+ 	return 0;
+ }
+ 
 -- 
 1.6.2.1.214.ge986c
