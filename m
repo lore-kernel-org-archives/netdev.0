@@ -1,477 +1,366 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: net_sched 07/07: add classful multiqueue dummy scheduler
-Date: Sun, 6 Sep 2009 22:04:09 +0200
-Message-ID: <20090906200409.GB8833@ami.dom.local>
-References: <20090904164119.27300.23137.sendpatchset@x2.localnet>
+From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Subject: 2.6.31-rc9: Reported regressions from 2.6.30
+Date: Sun,  6 Sep 2009 19:15:07 +0200 (CEST)
+Message-ID: <2ehA7xoGvXL.A.4PB.3eBpKB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:31684 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752354AbZIFUEV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Sep 2009 16:04:21 -0400
-Received: by fg-out-1718.google.com with SMTP id 22so586224fge.1
-        for <netdev@vger.kernel.org>; Sun, 06 Sep 2009 13:04:23 -0700 (PDT)
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20090904164119.27300.23137.sendpatchset@x2.localnet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote, On 09/04/2009 06:41 PM:
+This message contains a list of some regressions from 2.6.30, for which=
+ there
+are no fixes in the mainline I know of.  If any of them have been fixed=
+ already,
+please let me know.
 
-> commit f114d0f02c9e72fea7bbc4d28a113946183fc65f
-> Author: Patrick McHardy <kaber@trash.net>
-> Date:   Fri Sep 4 18:25:04 2009 +0200
-> 
->     net_sched: add classful multiqueue dummy scheduler
->     
->     This patch adds a classful dummy scheduler which can be used as root qdisc
->     for multiqueue devices and exposes each device queue as a child class.
->     
->     This allows to address queues individually and graft them similar to regular
->     classes. Additionally it presents an accumulated view of the statistics of
->     all real root qdiscs in the dummy root.
->     
->     Two new callbacks are added to the qdisc_ops and qdisc_class_ops:
->     
->     - cl_ops->select_queue selects the tx queue number for new child classes.
->     
->     - qdisc_ops->attach() overrides root qdisc device grafting to attach
->       non-shared qdiscs to the queues.
->     
->     Signed-off-by: Patrick McHardy <kaber@trash.net>
-> 
-> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-> index a92dc62..9c69585 100644
-> --- a/include/net/sch_generic.h
-> +++ b/include/net/sch_generic.h
-> @@ -80,6 +80,7 @@ struct Qdisc
->  struct Qdisc_class_ops
->  {
->  	/* Child qdisc manipulation */
-> +	unsigned int		(*select_queue)(struct Qdisc *, struct tcmsg *);
->  	int			(*graft)(struct Qdisc *, unsigned long cl,
->  					struct Qdisc *, struct Qdisc **);
->  	struct Qdisc *		(*leaf)(struct Qdisc *, unsigned long cl);
-> @@ -122,6 +123,7 @@ struct Qdisc_ops
->  	void			(*reset)(struct Qdisc *);
->  	void			(*destroy)(struct Qdisc *);
->  	int			(*change)(struct Qdisc *, struct nlattr *arg);
-> +	void			(*attach)(struct Qdisc *);
+If you know of any other unresolved regressions from 2.6.30, please let=
+ me know
+either and I'll add them to the list.  Also, please let me know if any =
+of the
+entries below are invalid.
 
-Probably it's a matter of taste, but I wonder why these two methods
-used only by one qdisc in max 2 places can't be functions instead
-(maybe even static in case of select_queue)? (And this mq sched could
-be tested with some flag instead of ->attach, I guess.)
+Each entry from the list will be sent additionally in an automatic repl=
+y to
+this message with CCs to the people involved in reporting and handling =
+the
+issue.
 
->  
->  	int			(*dump)(struct Qdisc *, struct sk_buff *);
->  	int			(*dump_stats)(struct Qdisc *, struct gnet_dump *);
-> @@ -255,6 +257,8 @@ static inline void sch_tree_unlock(struct Qdisc *q)
->  
->  extern struct Qdisc noop_qdisc;
->  extern struct Qdisc_ops noop_qdisc_ops;
-> +extern struct Qdisc_ops pfifo_fast_ops;
-> +extern struct Qdisc_ops mq_qdisc_ops;
->  
->  struct Qdisc_class_common
->  {
-> diff --git a/net/sched/Makefile b/net/sched/Makefile
-> index 54d950c..f14e71b 100644
-> --- a/net/sched/Makefile
-> +++ b/net/sched/Makefile
-> @@ -2,7 +2,7 @@
->  # Makefile for the Linux Traffic Control Unit.
->  #
->  
-> -obj-y	:= sch_generic.o
-> +obj-y	:= sch_generic.o sch_mq.o
->  
->  obj-$(CONFIG_NET_SCHED)		+= sch_api.o sch_blackhole.o
->  obj-$(CONFIG_NET_CLS)		+= cls_api.o
-> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-> index d71f12b..2a78d54 100644
-> --- a/net/sched/sch_api.c
-> +++ b/net/sched/sch_api.c
-> @@ -678,6 +678,11 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
->  		if (dev->flags & IFF_UP)
->  			dev_deactivate(dev);
->  
-> +		if (new && new->ops->attach) {
-> +			new->ops->attach(new);
-> +			num_q = 0;
-> +		}
-> +
 
-Actually, I wonder if it's not cleaner to let replace all qdiscs with
-noops below like in qdisc delete case, and do this attaching in one
-place only (dev_activate).
+Listed regressions statistics:
 
->  		for (i = 0; i < num_q; i++) {
->  			struct netdev_queue *dev_queue = &dev->rx_queue;
->  
-> @@ -692,7 +697,7 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
->  		}
->  
->  		notify_and_destroy(skb, n, classid, dev->qdisc, new);
-> -		if (new)
-> +		if (new && !new->ops->attach)
->  			atomic_inc(&new->refcnt);
->  		dev->qdisc = new ? : &noop_qdisc;
->  
-> @@ -1095,10 +1100,16 @@ create_n_graft:
->  		q = qdisc_create(dev, &dev->rx_queue,
->  				 tcm->tcm_parent, tcm->tcm_parent,
->  				 tca, &err);
-> -	else
-> -		q = qdisc_create(dev, netdev_get_tx_queue(dev, 0),
-> +	else {
-> +		unsigned int ntx = 0;
-> +
-> +		if (p && p->ops->cl_ops && p->ops->cl_ops->select_queue)
-> +			ntx = p->ops->cl_ops->select_queue(p, tcm);
+  Date          Total  Pending  Unresolved
+  ----------------------------------------
+  2009-09-06      123       34          27
+  2009-08-26      108       33          26
+  2009-08-20      102       32          29
+  2009-08-10       89       27          24
+  2009-08-02       76       36          28
+  2009-07-27       70       51          43
+  2009-07-07       35       25          21
+  2009-06-29       22       22          15
 
-So, this if could be probably made shorter with a common function, but
-the main point is: this probably works only for qdiscs having mq as a
-parent, and not below.
 
-> +
-> +		q = qdisc_create(dev, netdev_get_tx_queue(dev, ntx),
->  				 tcm->tcm_parent, tcm->tcm_handle,
->  				 tca, &err);
-> +	}
->  	if (q == NULL) {
->  		if (err == -EAGAIN)
->  			goto replay;
-> @@ -1674,6 +1685,7 @@ static int __init pktsched_init(void)
->  {
->  	register_qdisc(&pfifo_qdisc_ops);
->  	register_qdisc(&bfifo_qdisc_ops);
-> +	register_qdisc(&mq_qdisc_ops);
->  	proc_net_fops_create(&init_net, "psched", 0, &psched_fops);
->  
->  	rtnl_register(PF_UNSPEC, RTM_NEWQDISC, tc_modify_qdisc, NULL);
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index e7c47ce..4ae6aa5 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -514,7 +514,7 @@ static int pfifo_fast_init(struct Qdisc *qdisc, struct nlattr *opt)
->  	return 0;
->  }
->  
-> -static struct Qdisc_ops pfifo_fast_ops __read_mostly = {
-> +struct Qdisc_ops pfifo_fast_ops __read_mostly = {
->  	.id		=	"pfifo_fast",
->  	.priv_size	=	sizeof(struct pfifo_fast_priv),
->  	.enqueue	=	pfifo_fast_enqueue,
-> @@ -670,6 +670,26 @@ static void attach_one_default_qdisc(struct net_device *dev,
->  	dev_queue->qdisc_sleeping = qdisc;
->  }
->  
-> +static void attach_default_qdiscs(struct net_device *dev)
-> +{
-> +	struct netdev_queue *txq;
-> +	struct Qdisc *qdisc;
-> +
-> +	txq = netdev_get_tx_queue(dev, 0);
-> +
-> +	if (!netif_is_multiqueue(dev) || dev->tx_queue_len == 0) {
-> +		netdev_for_each_tx_queue(dev, attach_one_default_qdisc, NULL);
-> +		dev->qdisc = txq->qdisc_sleeping;
-> +		atomic_inc(&dev->qdisc->refcnt);
-> +	} else {
-> +		qdisc = qdisc_create_dflt(dev, txq, &mq_qdisc_ops, TC_H_ROOT);
-> +		if (qdisc) {
-> +			qdisc->ops->attach(qdisc);
-> +			dev->qdisc = qdisc;
-> +		}
-> +	}
-> +}
-> +
->  static void transition_one_qdisc(struct net_device *dev,
->  				 struct netdev_queue *dev_queue,
->  				 void *_need_watchdog)
-> @@ -689,7 +709,6 @@ static void transition_one_qdisc(struct net_device *dev,
->  
->  void dev_activate(struct net_device *dev)
->  {
-> -	struct netdev_queue *txq;
->  	int need_watchdog;
->  
->  	/* No queueing discipline is attached to device;
-> @@ -698,13 +717,8 @@ void dev_activate(struct net_device *dev)
->  	   virtual interfaces
->  	 */
->  
-> -	if (dev->qdisc == &noop_qdisc) {
-> -		netdev_for_each_tx_queue(dev, attach_one_default_qdisc, NULL);
-> -
-> -		txq = netdev_get_tx_queue(dev, 0);
-> -		dev->qdisc = txq->qdisc_sleeping;
-> -		atomic_inc(&dev->qdisc->refcnt);
-> -	}
-> +	if (dev->qdisc == &noop_qdisc)
-> +		attach_default_qdiscs(dev);
->  
->  	if (!netif_carrier_ok(dev))
->  		/* Delay activation until next carrier-on event */
-> diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
-> new file mode 100644
-> index 0000000..5e453fd
-> --- /dev/null
-> +++ b/net/sched/sch_mq.c
-> @@ -0,0 +1,234 @@
-> +/*
-> + * net/sched/sch_mq.c		Classful multiqueue dummy scheduler
-> + *
-> + * Copyright (c) 2009 Patrick McHardy <kaber@trash.net>
-> + *
-> + * This program is free software; you can redistribute it and/or
-> + * modify it under the terms of the GNU General Public License
-> + * version 2 as published by the Free Software Foundation.
-> + */
-> +
-> +#include <linux/types.h>
-> +#include <linux/kernel.h>
-> +#include <linux/string.h>
-> +#include <linux/errno.h>
-> +#include <linux/skbuff.h>
-> +#include <net/netlink.h>
-> +#include <net/pkt_sched.h>
-> +
-> +struct mq_sched {
-> +	struct Qdisc		**qdiscs;
-> +};
-> +
-> +static void mq_destroy(struct Qdisc *sch)
-> +{
-> +	struct net_device *dev = qdisc_dev(sch);
-> +	struct mq_sched *priv = qdisc_priv(sch);
-> +	unsigned int ntx;
-> +
-> +	if (priv->qdiscs)
-> +		return;
-> +	for (ntx = 0; ntx < dev->num_tx_queues && priv->qdiscs[ntx]; ntx++)
-> +		qdisc_destroy(priv->qdiscs[ntx]);
-> +	kfree(priv->qdiscs);
-> +}
-> +
-> +static int mq_init(struct Qdisc *sch, struct nlattr *opt)
-> +{
-> +	struct net_device *dev = qdisc_dev(sch);
-> +	struct mq_sched *priv = qdisc_priv(sch);
-> +	struct netdev_queue *dev_queue;
-> +	struct Qdisc *qdisc;
-> +	unsigned int ntx;
-> +
-> +	if (sch->parent != TC_H_ROOT)
-> +		return -EOPNOTSUPP;
-> +
-> +	if (!netif_is_multiqueue(dev))
-> +		return -EOPNOTSUPP;
-> +
-> +	/* pre-allocate qdiscs, attachment can't fail */
-> +	priv->qdiscs = kcalloc(dev->num_tx_queues, sizeof(priv->qdiscs[0]),
-> +			       GFP_KERNEL);
+Unresolved regressions
+----------------------
 
-I guess we could avoid this at all or at least to do it in one step with
-current ->attach.
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14141
+Subject		: order 2 page allocation failures
+Submitter	: Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>
+Date		: 2009-09-06 7:40 (1 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125222287419691&w=3D=
+4
+Handled-By	: Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>
 
-> +	if (priv->qdiscs == NULL)
-> +		return -ENOMEM;
-> +
-> +	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
-> +		dev_queue = netdev_get_tx_queue(dev, ntx);
-> +		qdisc = qdisc_create_dflt(dev, dev_queue, &pfifo_fast_ops,
-> +					  TC_H_MAKE(TC_H_MAJ(sch->handle),
-> +						    TC_H_MIN(ntx + 1)));
 
-As I wrote in 05/07 comment, I wonder if we really can't achieve this
-with old TC_H_ROOT parentid, and maybe some mapping while dumping to
-the userspace only. Another possibility would be considering a new
-kind of root (mqroot?) to tell precisely, where a new qdisc should be
-added.
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14139
+Subject		: Output to external monitor is broken
+Submitter	: Carlos R. Mafra <crmafra2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2009-09-06 14:22 (1 days old)
+=46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
+s/linux-2.6.git;a=3Dcommit;h=3Df8aed700c6ec46ddade6570004ce25332283b306
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125224701520738&w=3D=
+4
 
-> +		if (qdisc == NULL)
-> +			goto err;
-> +		qdisc->flags |= TCQ_F_CAN_BYPASS;
-> +		priv->qdiscs[ntx] = qdisc;
-> +	}
-> +
-> +	return 0;
-> +
-> +err:
-> +	mq_destroy(sch);
-> +	return -ENOMEM;
-> +}
-> +
-> +static void mq_attach(struct Qdisc *sch)
-> +{
-> +	struct net_device *dev = qdisc_dev(sch);
-> +	struct mq_sched *priv = qdisc_priv(sch);
-> +	struct Qdisc *qdisc;
-> +	unsigned int ntx;
-> +
-> +	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
-> +		qdisc = priv->qdiscs[ntx];
-> +		qdisc = dev_graft_qdisc(qdisc->dev_queue, qdisc);
-> +		if (qdisc)
-> +			qdisc_destroy(qdisc);
-> +	}
-> +	kfree(priv->qdiscs);
-> +	priv->qdiscs = NULL;
-> +}
-> +
-> +static int mq_dump(struct Qdisc *sch, struct sk_buff *skb)
-> +{
-> +	struct net_device *dev = qdisc_dev(sch);
-> +	struct Qdisc *qdisc;
-> +	unsigned int ntx;
-> +
-> +	sch->q.qlen = 0;
-> +	memset(&sch->bstats, 0, sizeof(sch->bstats));
-> +	memset(&sch->qstats, 0, sizeof(sch->qstats));
-> +
-> +	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
-> +		qdisc = netdev_get_tx_queue(dev, ntx)->qdisc_sleeping;
-> +		spin_lock_bh(qdisc_lock(qdisc));
-> +		sch->q.qlen		+= qdisc->q.qlen;
-> +		sch->bstats.bytes	+= qdisc->bstats.bytes;
-> +		sch->bstats.packets	+= qdisc->bstats.packets;
-> +		sch->qstats.qlen	+= qdisc->qstats.qlen;
 
-Like in Christoph's case, we should probably use q.qlen instead.
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14135
+Subject		: NULL pointer dereference in ima_counts_put
+Submitter	: Ciprian Docan <docan-plZrL8KR64B+CIkdHa1UOg@public.gmane.org>
+Date		: 2009-09-02 13:49 (5 days old)
+=46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
+s/linux-2.6.git;a=3Dcommit;h=3D94e5d714f604d4cb4cb13163f01ede278e69258b
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125190146028116&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14133
+Subject		: WARNING: at arch/x86/kernel/smp.c:117 native_smp_send_resche=
+dule
+Submitter	: Jens Axboe <jens.axboe-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Date		: 2009-08-31 20:43 (7 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125175143918050&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14114
+Subject		: Tuning a saa7134 based card is broken in kernel 2.6.31-rc7
+Submitter	: Tsvety Petrov <Tsvetoslav.Petrov-qXmYkbEmOXkAvxtiuMwx3w@public.gmane.org>
+Date		: 2009-09-03 21:06 (4 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14103
+Subject		: cdc_acm gives I/O error
+Submitter	: Paul Martin <pm-8fiUuRrzOP0dnm+yROfE0A@public.gmane.org>
+Date		: 2009-09-01 13:30 (6 days old)
+Handled-By	: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14095
+Subject		: Asus EeePC 1005HA-M: Suspend hangs and disables the wireless
+Submitter	:  Karsten Jaeger <lists-CsyeHe0QoF4AvxtiuMwx3w@public.gmane.org>
+Date		: 2009-08-31 10:14 (7 days old)
+References	: http://lists.alioth.debian.org/pipermail/debian-eeepc-deve=
+l/2009-August/002513.html
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14070
+Subject		: lockdep warning triggered by dup_fd
+Submitter	: Bart Van Assche <bart.vanassche-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2009-08-23 09:36 (15 days old)
+References	: http://lkml.org/lkml/2009/8/23/8
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14058
+Subject		: Oops in fsnotify
+Submitter	: Grant Wilson <grant.wilson-1HOZaDBbGgxaa/9Udqfwiw@public.gmane.org>
+Date		: 2009-08-20 15:48 (18 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125078450923133&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14043
+Subject		: System sometimes hangs during boot
+Submitter	: Bart Van Assche <bart.vanassche-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2009-08-23 18:04 (15 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14018
+Subject		: kernel freezes, inotify problem
+Submitter	: Christoph Thielecke <christoph.thielecke-Mmb7MZpHnFY@public.gmane.org>
+Date		: 2009-08-19 12:48 (19 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125068616818353&w=3D=
+4
+Handled-By	: Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14013
+Subject		: hd don't show up
+Submitter	: Tim Blechmann <tim-xpEK/MU0Hawdnm+yROfE0A@public.gmane.org>
+Date		: 2009-08-14 8:26 (24 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125023842514480&w=3D=
+4
+Handled-By	: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13987
+Subject		: Received NMI interrupt at resume
+Submitter	: Christian Casteyde <casteyde.christian-GANU6spQydw@public.gmane.org>
+Date		: 2009-08-15 07:55 (23 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13950
+Subject		: Oops when USB Serial disconnected while in use
+Submitter	: Bruno Pr=C3=A9mont <bonbons-ud5FBsm0p/xEiooADzr8i9i2O/JbrIOy@public.gmane.org>
+Date		: 2009-08-08 17:47 (30 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D124975432900466&w=3D=
+4
+Handled-By	: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13943
+Subject		: WARNING: at net/mac80211/mlme.c:2292 with ath5k
+Submitter	: Fabio Comolli <fabio.comolli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2009-08-06 20:15 (32 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D124958978600600&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13942
+Subject		: Troubles with AoE and uninitialized object
+Submitter	: Bruno Pr=C3=A9mont <bonbons-ud5FBsm0p/xEiooADzr8i9i2O/JbrIOy@public.gmane.org>
+Date		: 2009-08-04 10:12 (34 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D124938117104811&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13941
+Subject		: x86 Geode issue
+Submitter	: Martin-=C3=89ric Racine <q-funk-X3B1VOXEql0@public.gmane.org>
+Date		: 2009-08-03 12:58 (35 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D124930434732481&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13940
+Subject		: iwlagn and sky2 stopped working, ACPI-related
+Submitter	: Ricardo Jorge da Fonseca Marques Ferreira <storm@sys49152.n=
+et>
+Date		: 2009-08-07 22:33 (31 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D124968457731107&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13935
+Subject		: 2.6.31-rcX breaks Apple MightyMouse (Bluetooth version)
+Submitter	: Adrian Ulrich <kernel-4ZM2p5qjiQGewZBzVTKGGg@public.gmane.org>
+Date		: 2009-08-08 22:08 (30 days old)
+=46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
+s/linux-2.6.git;a=3Dcommit;h=3Dfa047e4f6fa63a6e9d0ae4d7749538830d14a343
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13906
+Subject		: Huawei E169 GPRS connection causes Ooops
+Submitter	: Clemens Eisserer <linuxhippy-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2009-08-04 09:02 (34 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13869
+Subject		: Radeon framebuffer (w/o KMS) corruption at boot.
+Submitter	: Duncan <1i5t5.duncan-j9pdmedNgrk@public.gmane.org>
+Date		: 2009-07-29 16:44 (40 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13836
+Subject		: suspend script fails, related to stdout?
+Submitter	: Tomas M. <tmezzadra-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2009-07-17 21:24 (52 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D124785853811667&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13819
+Subject		: system freeze when switching to console
+Submitter	: Reinette Chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Date		: 2009-07-23 17:57 (46 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13809
+Subject		: oprofile: possible circular locking dependency detected
+Submitter	: Jerome Marchand <jmarchan-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Date		: 2009-07-22 13:35 (47 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13740
+Subject		: X server crashes with 2.6.31-rc2 when options are changed
+Submitter	: Michael S. Tsirkin <m.s.tsirkin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2009-07-07 15:19 (62 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13733
+Subject		: 2.6.31-rc2: irq 16: nobody cared
+Submitter	: Niel Lambrechts <niel.lambrechts-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2009-07-06 18:32 (63 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D124690524027166&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13645
+Subject		: NULL pointer dereference at (null) (level2_spare_pgt)
+Submitter	: poornima nayak <mpnayak-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Date		: 2009-06-17 17:56 (82 days old)
+References	: http://lkml.org/lkml/2009/6/17/194
+
+
+Regressions with patches
+------------------------
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14140
+Subject		: 2.6.31-rc9 breaks gianfar
+Submitter	: Michael Guntsche <mike-Z92qn3yYq0hWk0Htik3J/w@public.gmane.org>
+Date		: 2009-09-06 7:27 (1 days old)
+=46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
+s/linux-2.6.git;a=3Dcommit;h=3D38bddf04bcfe661fbdab94888c3b72c32f6873b3
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125222206218784&w=3D=
+4
+Handled-By	: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Patch		: http://patchwork.kernel.org/patch/45965/
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14138
+Subject		: Regression in suspend to ram
+Submitter	: Zdenek Kabelac <zdenek.kabelac-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2009-08-31 11:51 (7 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125171952817851&w=3D=
+4
+Handled-By	: OGAWA Hirofumi <hirofumi-UIVanBePwB70ZhReMnHkpc8NsWr+9BEh@public.gmane.org>
+Patch		: http://patchwork.kernel.org/patch/45945/
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14137
+Subject		: usb console regressions
+Submitter	: Jason Wessel <jason.wessel-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+Date		: 2009-09-05 21:08 (2 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125218501310512&w=3D=
+4
+Handled-By	: Jason Wessel <jason.wessel-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+Patch		: http://patchwork.kernel.org/patch/45953/
+		  http://patchwork.kernel.org/patch/45952/
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14136
+Subject		: readcd Oops
+Submitter	: Bob Tracy <rct-GsGdjl1a1FBK+8ot1e1MDQ@public.gmane.org>
+Date		: 2009-09-03 3:39 (4 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125195043617418&w=3D=
+4
+Handled-By	: Michal Schmidt <mschmidt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Patch		: http://patchwork.kernel.org/patch/45347/
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14017
+Subject		: _end symbol missing from Symbol.map
+Submitter	: Hannes Reinecke <hare-l3A5Bk7waGM@public.gmane.org>
+Date		: 2009-08-13 6:45 (25 days old)
+=46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
+s/linux-2.6.git;a=3Dcommit;h=3D091e52c3551d3031343df24b573b770b4c6c72b6
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125014649102253&w=3D=
+4
+Handled-By	: Hannes Reinecke <hare-l3A5Bk7waGM@public.gmane.org>
+Patch		: http://marc.info/?l=3Dlinux-kernel&m=3D125014649102253&w=3D4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13948
+Subject		: ath5k broken after suspend-to-ram
+Submitter	: Johannes Stezenbach <js-FF7aIK3TAVNeoWH0uzbU5w@public.gmane.org>
+Date		: 2009-08-07 21:51 (31 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D124968192727854&w=3D=
+4
+Handled-By	: Nick Kossifidis <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Patch		: http://patchwork.kernel.org/patch/38550/
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13947
+Subject		: Libertas: Association request to the driver failed
+Submitter	: Daniel Mack <daniel-rDUAYElUppE@public.gmane.org>
+Date		: 2009-08-07 19:11 (31 days old)
+=46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
+s/linux-2.6.git;a=3Dcommit;h=3D57921c312e8cef72ba35a4cfe870b376da0b1b87
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D124967234311481&w=3D=
+4
+Handled-By	: Roel Kluin <roel.kluin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+		  Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Patch		: http://patchwork.kernel.org/patch/43114/
+
+
+=46or details, please visit the bug entries and follow the links given =
+in
+references.
+
+As you can see, there is a Bugzilla entry for each of the listed regres=
+sions.
+There also is a Bugzilla entry used for tracking the regressions from 2=
+=2E6.30,
+unresolved as well as resolved, at:
+
+http://bugzilla.kernel.org/show_bug.cgi?id=3D13615
+
+Please let me know if there are any Bugzilla entries that should be add=
+ed to
+the list in there.
 
 Thanks,
-Jarek P.
-
-> +		sch->qstats.backlog	+= qdisc->qstats.backlog;
-> +		sch->qstats.drops	+= qdisc->qstats.drops;
-> +		sch->qstats.requeues	+= qdisc->qstats.requeues;
-> +		sch->qstats.overlimits	+= qdisc->qstats.overlimits;
-> +		spin_unlock_bh(qdisc_lock(qdisc));
-> +	}
-> +	return 0;
-> +}
-> +
-> +static struct netdev_queue *mq_queue_get(struct Qdisc *sch, unsigned long cl)
-> +{
-> +	struct net_device *dev = qdisc_dev(sch);
-> +	unsigned long ntx = cl - 1;
-> +
-> +	if (ntx >= dev->num_tx_queues)
-> +		return NULL;
-> +	return netdev_get_tx_queue(dev, ntx);
-> +}
-> +
-> +static unsigned int mq_select_queue(struct Qdisc *sch, struct tcmsg *tcm)
-> +{
-> +	unsigned int ntx = TC_H_MIN(tcm->tcm_parent);
-> +
-> +	if (!mq_queue_get(sch, ntx))
-> +		return 0;
-> +	return ntx - 1;
-> +}
-> +
-> +static int mq_graft(struct Qdisc *sch, unsigned long cl, struct Qdisc *new,
-> +		    struct Qdisc **old)
-> +{
-> +	struct netdev_queue *dev_queue = mq_queue_get(sch, cl);
-> +	struct net_device *dev = qdisc_dev(sch);
-> +
-> +	if (dev->flags & IFF_UP)
-> +		dev_deactivate(dev);
-> +
-> +	*old = dev_graft_qdisc(dev_queue, new);
-> +
-> +	if (dev->flags & IFF_UP)
-> +		dev_activate(dev);
-> +	return 0;
-> +}
-> +
-> +static struct Qdisc *mq_leaf(struct Qdisc *sch, unsigned long cl)
-> +{
-> +	struct netdev_queue *dev_queue = mq_queue_get(sch, cl);
-> +
-> +	return dev_queue->qdisc_sleeping;
-> +}
-> +
-> +static unsigned long mq_get(struct Qdisc *sch, u32 classid)
-> +{
-> +	unsigned int ntx = TC_H_MIN(classid);
-> +
-> +	if (!mq_queue_get(sch, ntx))
-> +		return 0;
-> +	return ntx;
-> +}
-> +
-> +static void mq_put(struct Qdisc *sch, unsigned long cl)
-> +{
-> +	return;
-> +}
-> +
-> +static int mq_dump_class(struct Qdisc *sch, unsigned long cl,
-> +			 struct sk_buff *skb, struct tcmsg *tcm)
-> +{
-> +	struct netdev_queue *dev_queue = mq_queue_get(sch, cl);
-> +
-> +	tcm->tcm_parent = TC_H_ROOT;
-> +	tcm->tcm_handle |= TC_H_MIN(cl);
-> +	tcm->tcm_info = dev_queue->qdisc_sleeping->handle;
-> +	return 0;
-> +}
-> +
-> +static int mq_dump_class_stats(struct Qdisc *sch, unsigned long cl,
-> +			       struct gnet_dump *d)
-> +{
-> +	struct netdev_queue *dev_queue = mq_queue_get(sch, cl);
-> +
-> +	sch = dev_queue->qdisc_sleeping;
-> +	if (gnet_stats_copy_basic(d, &sch->bstats) < 0 ||
-> +	    gnet_stats_copy_queue(d, &sch->qstats) < 0)
-> +		return -1;
-> +	return 0;
-> +}
-> +
-> +static void mq_walk(struct Qdisc *sch, struct qdisc_walker *arg)
-> +{
-> +	struct net_device *dev = qdisc_dev(sch);
-> +	unsigned int ntx;
-> +
-> +	if (arg->stop)
-> +		return;
-> +
-> +	arg->count = arg->skip;
-> +	for (ntx = arg->skip; ntx < dev->num_tx_queues; ntx++) {
-> +		if (arg->fn(sch, ntx + 1, arg) < 0) {
-> +			arg->stop = 1;
-> +			break;
-> +		}
-> +		arg->count++;
-> +	}
-> +}
-> +
-> +static const struct Qdisc_class_ops mq_class_ops = {
-> +	.select_queue	= mq_select_queue,
-> +	.graft		= mq_graft,
-> +	.leaf		= mq_leaf,
-> +	.get		= mq_get,
-> +	.put		= mq_put,
-> +	.walk		= mq_walk,
-> +	.dump		= mq_dump_class,
-> +	.dump_stats	= mq_dump_class_stats,
-> +};
-> +
-> +struct Qdisc_ops mq_qdisc_ops __read_mostly = {
-> +	.cl_ops		= &mq_class_ops,
-> +	.id		= "mq",
-> +	.priv_size	= sizeof(struct mq_sched),
-> +	.init		= mq_init,
-> +	.destroy	= mq_destroy,
-> +	.attach		= mq_attach,
-> +	.dump		= mq_dump,
-> +	.owner		= THIS_MODULE,
-> +};
-> --
+Rafael
