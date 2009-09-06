@@ -1,20 +1,41 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 0/4] ISDN patches for 2.6.32
+Subject: [PATCH 02/12] gigaset: fix reject/hangup handling
 Date: Sun,  6 Sep 2009 20:58:52 +0200 (CEST)
-Message-ID: <20090906-patch-capi-0.tilman@imap.cc>
-To: davem@davemloft.net, Karsten Keil <keil@b1-systems.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	i4ldeveloper@listserv.isdn4linux.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758166AbZIFS7K@vger.kernel.org>
+Message-ID: <20090906-patch-gigaset-02.tilman@imap.cc>
+References: <20090906-patch-gigaset-00.tilman@imap.cc>
+Cc: Hansjoerg Lipp <hjlipp@web.de>
+To: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758267AbZIFS75@vger.kernel.org>
+In-Reply-To: <20090906-patch-gigaset-00.tilman@imap.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave,
+Signal D channel disconnect in a few cases where it was missed,
+including when an incoming call is disconnected before it was
+accepted.
 
-following are four patches for the Kernel CAPI ISDN subsystem which arose as
-by-products of my work on the Gigaset driver: one documentation update, two
-bugfixes (acked by the ISDN maintainer), and a debugging aid. Would you please
-take them into your net tree for merging in kernel release 2.6.32.
+Impact: error handling improvement
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+---
+ drivers/isdn/gigaset/ev-layer.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-Thanks,
-Tilman
+diff --git a/drivers/isdn/gigaset/ev-layer.c b/drivers/isdn/gigaset/ev-layer.c
+index 2d91049..ff2ec2c 100644
+--- a/drivers/isdn/gigaset/ev-layer.c
++++ b/drivers/isdn/gigaset/ev-layer.c
+@@ -707,6 +707,11 @@ static void disconnect(struct at_state_t **at_state_p)
+ 	if (bcs) {
+ 		/* B channel assigned: invoke hardware specific handler */
+ 		cs->ops->close_bchannel(bcs);
++		/* notify LL */
++		if (bcs->chstate & (CHS_D_UP | CHS_NOTIFY_LL)) {
++			bcs->chstate &= ~(CHS_D_UP | CHS_NOTIFY_LL);
++			gigaset_i4l_channel_cmd(bcs, ISDN_STAT_DHUP);
++		}
+ 	} else {
+ 		/* no B channel assigned: just deallocate */
+ 		spin_lock_irqsave(&cs->lock, flags);
+-- 
+1.6.2.1.214.ge986c
