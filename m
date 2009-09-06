@@ -1,31 +1,47 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: [Bug #13328] b44: eth0: BUG! Timeout waiting for bit 00000002 of register 42c to clear.
-Date: Sun,  6 Sep 2009 20:11:48 +0200 (CEST)
-Message-ID: <hKF51Pczj6N.A.1CB.q5BpKB@chimera>
-References: <aIL9jMAYJnG.A.WjH.M3BpKB@chimera>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [iproute2] tc action mirred    question
+Date: Sun, 06 Sep 2009 14:13:26 -0400
+Message-ID: <1252260806.4580.6.camel@dogo.mojatatu.com>
+References: <210469.98452.qm@web111611.mail.gq1.yahoo.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Francis Moreau" <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"netdev" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <aIL9jMAYJnG.A.WjH.M3BpKB@chimera>
-Content-Disposition: inline
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux netdev <netdev@vger.kernel.org>
+To: Xiaofei Wu <xiaofei_wu08@yahoo.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f175.google.com ([209.85.211.175]:64662 "EHLO
+	mail-yw0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758554AbZIFV6y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Sep 2009 17:58:54 -0400
+Received: by ywh5 with SMTP id 5so3062144ywh.4
+        for <netdev@vger.kernel.org>; Sun, 06 Sep 2009 14:58:55 -0700 (PDT)
+In-Reply-To: <210469.98452.qm@web111611.mail.gq1.yahoo.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This message has been generated automatically as a part of a report
-of regressions introduced between 2.6.29 and 2.6.30.
-
-The following bug entry is on the current list of known regressions
-introduced between 2.6.29 and 2.6.30.  Please verify if it still should
-be listed and let me know (either way).
+On Sun, 2009-09-06 at 10:13 -0700, Xiaofei Wu wrote:
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13328
-Subject		: b44: eth0: BUG! Timeout waiting for bit 00000002 of register 42c to clear.
-Submitter	: Francis Moreau <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-05-03 16:22 (127 days old)
-References	: http://marc.info/?l=linux-kernel&m=124136778012280&w=4
+> On node A,
+> wlan0, IP address 192.168.1.1/24 ; wlan1, IP address 192.168.2.1/24
+> I use command 'tc filter add dev wlan0 ... match ip src 192.168.1.0/24 ...
+> action mirred egress mirror dev wlan1' to mirror packets.
+> When I use 'tcpdump -i wlan1', I can 'see' the packets  'A(wlan0)->B' (node B will forward them to C). 
+> How to forward the mirroring packets 'A(wlan1)' to D (then, node D forwards them to C) ?
+> 
+> 
+
+
+Is there a trick to this question or is it too basic? ;-> 
+You should repeat the same on wlan1 to mirror to wlan0 i.e on wlan1:
+match ip src 192.168.2.0/24 ...
+action mirred egress mirror dev wlan0
+
+Note the  node C will receive "wrong" src mac addresses on those
+interfaces; you may want to correct/edit them first before you send them
+out. Look at using the pedit action.
+
+cheers,
+jamal
+
