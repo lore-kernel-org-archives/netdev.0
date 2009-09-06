@@ -1,7 +1,7 @@
 From: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
-Subject: [PATCH 08/12] gigaset: correct debugging output selection
+Subject: [PATCH 04/12] gigaset: handle isoc frame errors more gracefully
 Date: Sun,  6 Sep 2009 20:58:52 +0200 (CEST)
-Message-ID: <20090906-patch-gigaset-08.tilman@imap.cc>
+Message-ID: <20090906-patch-gigaset-04.tilman@imap.cc>
 References: <20090906-patch-gigaset-00.tilman@imap.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,62 +22,61 @@ Sender: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 Errors-To: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Dump payload data consistently only when DEBUG_STREAM_DUMP debug bit
-is set.
+Don't drop the remainder of an URB if an isochronous frame has an error.
 
-Impact: debugging aid
+Impact: error handling improvement
 Signed-off-by: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
 ---
- drivers/isdn/gigaset/isocdata.c |    9 ++++++---
- 1 files changed, 6 insertions(+), 3 deletions(-)
+ drivers/isdn/gigaset/bas-gigaset.c |   18 +++++++-----------
+ 1 files changed, 7 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/isdn/gigaset/isocdata.c b/drivers/isdn/gigaset/isocdata.c
-index bed38fc..7fd32f0 100644
---- a/drivers/isdn/gigaset/isocdata.c
-+++ b/drivers/isdn/gigaset/isocdata.c
-@@ -429,7 +429,7 @@ static inline int hdlc_buildframe(struct isowbuf_t *iwb,
- 		return -EAGAIN;
- 	}
- 
--	dump_bytes(DEBUG_STREAM, "snd data", in, count);
-+	dump_bytes(DEBUG_STREAM_DUMP, "snd data", in, count);
- 
- 	/* bitstuff and checksum input data */
- 	fcs = PPP_INITFCS;
-@@ -448,7 +448,6 @@ static inline int hdlc_buildframe(struct isowbuf_t *iwb,
- 	/* put closing flag and repeat byte for flag idle */
- 	isowbuf_putflag(iwb);
- 	end = isowbuf_donewrite(iwb);
--	dump_bytes(DEBUG_STREAM_DUMP, "isowbuf", iwb->data, end + 1);
- 	return end;
- }
- 
-@@ -482,6 +481,8 @@ static inline int trans_buildframe(struct isowbuf_t *iwb,
- 	}
- 
- 	gig_dbg(DEBUG_STREAM, "put %d bytes", count);
-+	dump_bytes(DEBUG_STREAM_DUMP, "snd data", in, count);
-+
- 	write = iwb->write;
- 	do {
- 		c = bitrev8(*in++);
-@@ -583,7 +584,7 @@ static inline void hdlc_done(struct bc_state *bcs)
- 		procskb->tail -= 2;
- 		gig_dbg(DEBUG_ISO, "%s: good frame (%d octets)",
- 			__func__, procskb->len);
--		dump_bytes(DEBUG_STREAM,
-+		dump_bytes(DEBUG_STREAM_DUMP,
- 			   "rcv data", procskb->data, procskb->len);
- 		bcs->hw.bas->goodbytes += procskb->len;
- 		gigaset_rcv_skb(procskb, bcs->cs, bcs);
-@@ -878,6 +879,8 @@ static inline void trans_receive(unsigned char *src, unsigned count,
- 			dobytes--;
- 		}
- 		if (dobytes == 0) {
-+			dump_bytes(DEBUG_STREAM_DUMP,
-+				   "rcv data", skb->data, skb->len);
- 			gigaset_rcv_skb(skb, bcs->cs, bcs);
- 			bcs->skb = skb = dev_alloc_skb(SBUFSIZE + HW_HDR_LEN);
- 			if (!skb) {
+diff --git a/drivers/isdn/gigaset/bas-gigaset.c b/drivers/isdn/gigaset/bas-gigaset.c
+index 781c404..9e7108a 100644
+--- a/drivers/isdn/gigaset/bas-gigaset.c
++++ b/drivers/isdn/gigaset/bas-gigaset.c
+@@ -1331,28 +1331,24 @@ static void read_iso_tasklet(unsigned long data)
+ 		rcvbuf = urb->transfer_buffer;
+ 		totleft = urb->actual_length;
+ 		for (frame = 0; totleft > 0 && frame < BAS_NUMFRAMES; frame++) {
+-			if (unlikely(urb->iso_frame_desc[frame].status)) {
++			numbytes = urb->iso_frame_desc[frame].actual_length;
++			if (unlikely(urb->iso_frame_desc[frame].status))
+ 				dev_warn(cs->dev,
+-					 "isochronous read: frame %d: %s\n",
+-					 frame,
++					 "isochronous read: frame %d[%d]: %s\n",
++					 frame, numbytes,
+ 					 get_usb_statmsg(
+ 					    urb->iso_frame_desc[frame].status));
+-				break;
+-			}
+-			numbytes = urb->iso_frame_desc[frame].actual_length;
+-			if (unlikely(numbytes > BAS_MAXFRAME)) {
++			if (unlikely(numbytes > BAS_MAXFRAME))
+ 				dev_warn(cs->dev,
+ 					 "isochronous read: frame %d: "
+ 					 "numbytes (%d) > BAS_MAXFRAME\n",
+ 					 frame, numbytes);
+-				break;
+-			}
+ 			if (unlikely(numbytes > totleft)) {
+ 				dev_warn(cs->dev,
+ 					 "isochronous read: frame %d: "
+ 					 "numbytes (%d) > totleft (%d)\n",
+ 					 frame, numbytes, totleft);
+-				break;
++				numbytes = totleft;
+ 			}
+ 			offset = urb->iso_frame_desc[frame].offset;
+ 			if (unlikely(offset + numbytes > BAS_INBUFSIZE)) {
+@@ -1361,7 +1357,7 @@ static void read_iso_tasklet(unsigned long data)
+ 					 "offset (%d) + numbytes (%d) "
+ 					 "> BAS_INBUFSIZE\n",
+ 					 frame, offset, numbytes);
+-				break;
++				numbytes = BAS_INBUFSIZE - offset;
+ 			}
+ 			gigaset_isoc_receive(rcvbuf + offset, numbytes, bcs);
+ 			totleft -= numbytes;
 -- 
 1.6.2.1.214.ge986c
