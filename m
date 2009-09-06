@@ -1,33 +1,37 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 00/12] Gigaset driver patches for 2.6.32
+Subject: [PATCH 4/4] isdn: make capidrv module parameter "debugmode" writeable
 Date: Sun,  6 Sep 2009 20:58:52 +0200 (CEST)
-Message-ID: <20090906-patch-gigaset-00.tilman@imap.cc>
-Cc: Hansjoerg Lipp <hjlipp@web.de>
-To: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758155AbZIFS7H@vger.kernel.org>
+Message-ID: <20090906-patch-capi-4.tilman@imap.cc>
+References: <20090906-patch-capi-0.tilman@imap.cc>
+Cc: Carsten Paeth <calle@calle.de>
+To: davem@davemloft.net, Karsten Keil <keil@b1-systems.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	i4ldeveloper@listserv.isdn4linux.de
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758198AbZIFS70@vger.kernel.org>
+In-Reply-To: <20090906-patch-capi-0.tilman@imap.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave,
+Being able to change the debugmode module parameter of capidrv on the
+fly is quite useful for debugging and doesn't do any harm.
 
-following is a series of patches for the Gigaset driver which I would
-appreciate getting merged into kernel release 2.6.32.
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+---
+ drivers/isdn/capi/capidrv.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-The first one is a bugfix I had already submitted for 2.6.31 but which
-seems to have fallen through the cracks. Please disregard if it's
-already present your tree.
-
-The next eight patches provide various small bugfixes, error handling
-and documentation improvements.
-
-The final three patches add an alternative interface to the driver,
-connecting to the Kernel CAPI subsystem instead of the obsolescent
-ISDN4Linux subsystem. They have been presented on the i4ldeveloper
-mailing list and didn't draw any protests. (In fact, no comments at
-all. I'm determined to take that as a positive sign.)
-
-Would you please take these into your net tree for 2.6.32.
-
-Thanks,
-Tilman
+diff --git a/drivers/isdn/capi/capidrv.c b/drivers/isdn/capi/capidrv.c
+index c3f5472..75c691c 100644
+--- a/drivers/isdn/capi/capidrv.c
++++ b/drivers/isdn/capi/capidrv.c
+@@ -40,7 +40,7 @@ static int debugmode = 0;
+ MODULE_DESCRIPTION("CAPI4Linux: Interface to ISDN4Linux");
+ MODULE_AUTHOR("Carsten Paeth");
+ MODULE_LICENSE("GPL");
+-module_param(debugmode, uint, 0);
++module_param(debugmode, uint, S_IRUGO|S_IWUSR);
+ 
+ /* -------- type definitions ----------------------------------------- */
+ 
+-- 
+1.6.2.1.214.ge986c
