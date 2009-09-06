@@ -1,32 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Sun, 06 Sep 2009 14:14:19 -0700 (PDT)
-Message-ID: <20090906.141419.212222652.davem@davemloft.net>
+From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Subject: [Bug #13328] b44: eth0: BUG! Timeout waiting for bit 00000002 of register 42c to clear.
+Date: Sun,  6 Sep 2009 20:11:48 +0200 (CEST)
+Message-ID: <hKF51Pczj6N.A.1CB.q5BpKB@chimera>
+References: <aIL9jMAYJnG.A.WjH.M3BpKB@chimera>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758768AbZIFVOH@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Francis Moreau" <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"netdev" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <aIL9jMAYJnG.A.WjH.M3BpKB@chimera>
+Content-Disposition: inline
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+This message has been generated automatically as a part of a report
+of regressions introduced between 2.6.29 and 2.6.30.
 
-Please pull to get this build regression fix.
+The following bug entry is on the current list of known regressions
+introduced between 2.6.29 and 2.6.30.  Please verify if it still should
+be listed and let me know (either way).
 
-Thanks!
 
-The following changes since commit e07cccf4046978df10f2e13fe2b99b2f9b3a65db:
-  Linus Torvalds (1):
-        Linux 2.6.31-rc9
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-David S. Miller (1):
-      gianfar: Fix build.
-
- drivers/net/gianfar.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13328
+Subject		: b44: eth0: BUG! Timeout waiting for bit 00000002 of register 42c to clear.
+Submitter	: Francis Moreau <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2009-05-03 16:22 (127 days old)
+References	: http://marc.info/?l=linux-kernel&m=124136778012280&w=4
