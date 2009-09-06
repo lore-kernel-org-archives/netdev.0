@@ -1,16 +1,16 @@
 From: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
-Subject: [PATCH 07/12] gigaset: improve error recovery
+Subject: [PATCH 1/4] Documentation: expand isdn/INTERFACE.CAPI document
 Date: Sun,  6 Sep 2009 20:58:52 +0200 (CEST)
-Message-ID: <20090906-patch-gigaset-07.tilman@imap.cc>
-References: <20090906-patch-gigaset-00.tilman@imap.cc>
+Message-ID: <20090906-patch-capi-1.tilman@imap.cc>
+References: <20090906-patch-capi-0.tilman@imap.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Hansjoerg Lipp <hjlipp-S0/GAf8tV78@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Karsten Keil <keil-shG/GajIFYqbacvFa/9K2g@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         i4ldeveloper-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 Return-path: <i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org>
-In-Reply-To: <20090906-patch-gigaset-00.tilman-ZTO5kqT2PaM@public.gmane.org>
+In-Reply-To: <20090906-patch-capi-0.tilman-ZTO5kqT2PaM@public.gmane.org>
 List-Unsubscribe: <https://www.isdn4linux.de/mailman/listinfo/i4ldeveloper>,
 	<mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://www.isdn4linux.de/pipermail/i4ldeveloper>
@@ -22,150 +22,123 @@ Sender: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 Errors-To: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-When the Gigaset base stops responding, try resetting the USB
-connection to recover.
+Describe the storage of CAPI messages and payload data in SKBs,
+kernelcapi debugging output, and note that send_message() may
+in fact be called in interrupt context.
 
-Impact: error handling improvement
+Impact: documentation
 Signed-off-by: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
 ---
- drivers/isdn/gigaset/bas-gigaset.c |   69 +++++++++++++++++++++++------------
- 1 files changed, 45 insertions(+), 24 deletions(-)
+ Documentation/isdn/INTERFACE.CAPI |   68 ++++++++++++++++++++++++++++++++-----
+ 1 files changed, 59 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/isdn/gigaset/bas-gigaset.c b/drivers/isdn/gigaset/bas-gigaset.c
-index 9e7108a..44bcfd9 100644
---- a/drivers/isdn/gigaset/bas-gigaset.c
-+++ b/drivers/isdn/gigaset/bas-gigaset.c
-@@ -134,6 +134,7 @@ struct bas_cardstate {
- #define BS_ATRDPEND	0x040	/* urb_cmd_in in use */
- #define BS_ATWRPEND	0x080	/* urb_cmd_out in use */
- #define BS_SUSPEND	0x100	/* USB port suspended */
-+#define BS_RESETTING	0x200	/* waiting for HD_RESET_INTERRUPT_PIPE_ACK */
+diff --git a/Documentation/isdn/INTERFACE.CAPI b/Documentation/isdn/INTERFACE.CAPI
+index 686e107..e6bb1a7 100644
+--- a/Documentation/isdn/INTERFACE.CAPI
++++ b/Documentation/isdn/INTERFACE.CAPI
+@@ -60,10 +60,9 @@ open() operation on regular files or character devices.
+ 
+ After a successful return from register_appl(), CAPI messages from the
+ application may be passed to the driver for the device via calls to the
+-send_message() callback function. The CAPI message to send is stored in the
+-data portion of an skb. Conversely, the driver may call Kernel CAPI's
+-capi_ctr_handle_message() function to pass a received CAPI message to Kernel
+-CAPI for forwarding to an application, specifying its ApplID.
++send_message() callback function. Conversely, the driver may call Kernel
++CAPI's capi_ctr_handle_message() function to pass a received CAPI message to
++Kernel CAPI for forwarding to an application, specifying its ApplID.
+ 
+ Deregistration requests (CAPI operation CAPI_RELEASE) from applications are
+ forwarded as calls to the release_appl() callback function, passing the same
+@@ -142,6 +141,7 @@ u16  (*send_message)(struct capi_ctr *ctrlr, struct sk_buff *skb)
+ 	to accepting or queueing the message. Errors occurring during the
+ 	actual processing of the message should be signaled with an
+ 	appropriate reply message.
++	May be called in process or interrupt context.
+ 	Calls to this function are not serialized by Kernel CAPI, ie. it must
+ 	be prepared to be re-entered.
+ 
+@@ -154,7 +154,8 @@ read_proc_t *ctr_read_proc
+ 	system entry, /proc/capi/controllers/<n>; will be called with a
+ 	pointer to the device's capi_ctr structure as the last (data) argument
+ 
+-Note: Callback functions are never called in interrupt context.
++Note: Callback functions except send_message() are never called in interrupt
++context.
+ 
+ - to be filled in before calling capi_ctr_ready():
+ 
+@@ -171,14 +172,40 @@ u8 serial[CAPI_SERIAL_LEN]
+ 	value to return for CAPI_GET_SERIAL
  
  
- static struct gigaset_driver *driver = NULL;
-@@ -319,6 +320,21 @@ static int gigaset_set_line_ctrl(struct cardstate *cs, unsigned cflag)
- 	return -EINVAL;
- }
- 
-+/* set/clear bits in base connection state, return previous state
-+ */
-+inline static int update_basstate(struct bas_cardstate *ucs,
-+				  int set, int clear)
-+{
-+	unsigned long flags;
-+	int state;
+-4.3 The _cmsg Structure
++4.3 SKBs
 +
-+	spin_lock_irqsave(&ucs->lock, flags);
-+	state = ucs->basstate;
-+	ucs->basstate = (state & ~clear) | set;
-+	spin_unlock_irqrestore(&ucs->lock, flags);
-+	return state;
-+}
++CAPI messages are passed between Kernel CAPI and the driver via send_message()
++and capi_ctr_handle_message(), stored in the data portion of a socket buffer
++(skb).  Each skb contains a single CAPI message coded according to the CAPI 2.0
++standard.
 +
- /* error_hangup
-  * hang up any existing connection because of an unrecoverable error
-  * This function may be called from any context and takes care of scheduling
-@@ -350,12 +366,9 @@ static inline void error_hangup(struct bc_state *bcs)
-  */
- static inline void error_reset(struct cardstate *cs)
- {
--	/* close AT command channel to recover (ignore errors) */
--	req_submit(cs->bcs, HD_CLOSE_ATCHANNEL, 0, BAS_TIMEOUT);
--
--	//FIXME try to recover without bothering the user
--	dev_err(cs->dev,
--	    "unrecoverable error - please disconnect Gigaset base to reset\n");
-+	/* reset interrupt pipe to recover (ignore errors) */
-+	update_basstate(cs->hw.bas, BS_RESETTING, 0);
-+	req_submit(cs->bcs, HD_RESET_INTERRUPT_PIPE, 0, BAS_TIMEOUT);
- }
- 
- /* check_pending
-@@ -398,8 +411,13 @@ static void check_pending(struct bas_cardstate *ucs)
- 	case HD_DEVICE_INIT_ACK:		/* no reply expected */
- 		ucs->pending = 0;
- 		break;
--	/* HD_READ_ATMESSAGE, HD_WRITE_ATMESSAGE, HD_RESET_INTERRUPTPIPE
--	 * are handled separately and should never end up here
-+	case HD_RESET_INTERRUPT_PIPE:
-+		if (!(ucs->basstate & BS_RESETTING))
-+			ucs->pending = 0;
-+		break;
-+	/*
-+	 * HD_READ_ATMESSAGE and HD_WRITE_ATMESSAGE are handled separately
-+	 * and should never end up here
- 	 */
- 	default:
- 		dev_warn(&ucs->interface->dev,
-@@ -449,21 +467,6 @@ static void cmd_in_timeout(unsigned long data)
- 	error_reset(cs);
- }
- 
--/* set/clear bits in base connection state, return previous state
-- */
--inline static int update_basstate(struct bas_cardstate *ucs,
--				  int set, int clear)
--{
--	unsigned long flags;
--	int state;
--
--	spin_lock_irqsave(&ucs->lock, flags);
--	state = ucs->basstate;
--	ucs->basstate = (state & ~clear) | set;
--	spin_unlock_irqrestore(&ucs->lock, flags);
--	return state;
--}
--
- /* read_ctrl_callback
-  * USB completion handler for control pipe input
-  * called by the USB subsystem in interrupt context
-@@ -762,7 +765,8 @@ static void read_int_callback(struct urb *urb)
- 		break;
- 
- 	case HD_RESET_INTERRUPT_PIPE_ACK:
--		gig_dbg(DEBUG_USBREQ, "HD_RESET_INTERRUPT_PIPE_ACK");
-+		update_basstate(ucs, 0, BS_RESETTING);
-+		dev_notice(cs->dev, "interrupt pipe reset\n");
- 		break;
- 
- 	case HD_SUSPEND_END:
-@@ -1429,6 +1433,7 @@ static void req_timeout(unsigned long data)
- 
- 	case HD_CLOSE_ATCHANNEL:
- 		dev_err(bcs->cs->dev, "timeout closing AT channel\n");
-+		error_reset(bcs->cs);
- 		break;
- 
- 	case HD_CLOSE_B2CHANNEL:
-@@ -1438,6 +1443,13 @@ static void req_timeout(unsigned long data)
- 		error_reset(bcs->cs);
- 		break;
- 
-+	case HD_RESET_INTERRUPT_PIPE:
-+		/* error recovery escalation */
-+		dev_err(bcs->cs->dev,
-+			"reset interrupt pipe timeout, attempting USB reset\n");
-+		usb_queue_reset_device(bcs->cs->hw.bas->interface);
-+		break;
++For the data transfer messages, DATA_B3_REQ and DATA_B3_IND, the actual
++payload data immediately follows the CAPI message itself within the same skb.
++The Data and Data64 parameters are not used for processing. The Data64
++parameter may be omitted by setting the length field of the CAPI message to 22
++instead of 30.
 +
- 	default:
- 		dev_warn(bcs->cs->dev, "request 0x%02x timed out, clearing\n",
- 			 pending);
-@@ -1930,6 +1942,15 @@ static int gigaset_write_cmd(struct cardstate *cs,
- 		goto notqueued;
- 	}
- 
-+	/* translate "+++" escape sequence sent as a single separate command
-+	 * into "close AT channel" command for error recovery
-+	 * The next command will reopen the AT channel automatically.
-+	 */
-+	if (len == 3 && !memcmp(buf, "+++", 3)) {
-+		rc = req_submit(cs->bcs, HD_CLOSE_ATCHANNEL, 0, BAS_TIMEOUT);
-+		goto notqueued;
-+	}
 +
- 	if (len > IF_WRITEBUF)
- 		len = IF_WRITEBUF;
- 	if (!(cb = kmalloc(sizeof(struct cmdbuf_t) + len, GFP_ATOMIC))) {
++4.4 The _cmsg Structure
+ 
+ (declared in <linux/isdn/capiutil.h>)
+ 
+ The _cmsg structure stores the contents of a CAPI 2.0 message in an easily
+-accessible form. It contains members for all possible CAPI 2.0 parameters, of
+-which only those appearing in the message type currently being processed are
+-actually used. Unused members should be set to zero.
++accessible form. It contains members for all possible CAPI 2.0 parameters,
++including subparameters of the Additional Info and B Protocol structured
++parameters, with the following exceptions:
++
++* second Calling party number (CONNECT_IND)
++
++* Data64 (DATA_B3_REQ and DATA_B3_IND)
++
++* Sending complete (subparameter of Additional Info, CONNECT_REQ and INFO_REQ)
++
++* Global Configuration (subparameter of B Protocol, CONNECT_REQ, CONNECT_RESP
++  and SELECT_B_PROTOCOL_REQ)
++
++Only those parameters appearing in the message type currently being processed
++are actually used. Unused members should be set to zero.
+ 
+ Members are named after the CAPI 2.0 standard names of the parameters they
+ represent. See <linux/isdn/capiutil.h> for the exact spelling. Member data
+@@ -297,3 +324,26 @@ char *capi_cmd2str(u8 Command, u8 Subcommand)
+ 	be NULL if the command/subcommand is not one of those defined in the
+ 	CAPI 2.0 standard.
+ 
++
++7. Debugging
++
++The module kernelcapi has a module parameter showcapimsgs controlling some
++debugging output produced by the module. It can only be set when the module is
++loaded, via a parameter "showcapimsgs=<n>" to the modprobe command, either on
++the command line or in the configuration file.
++
++If the lowest bit of showcapimsgs is set, kernelcapi logs controller and
++application up and down events.
++
++In addition, every registered CAPI controller has an associated traceflag
++parameter controlling how CAPI messages sent from and to tha controller are
++logged. The traceflag parameter is initialized with the value of the
++showcapimsgs parameter when the controller is registered, but can later be
++changed via the MANUFACTURER_REQ command KCAPI_CMD_TRACE.
++
++If the value of traceflag is non-zero, CAPI messages are logged.
++DATA_B3 messages are only logged if the value of traceflag is > 2.
++
++If the lowest bit of traceflag is set, only the command/subcommand and message
++length are logged. Otherwise, kernelcapi logs a readable representation of
++the entire message.
 -- 
 1.6.2.1.214.ge986c
