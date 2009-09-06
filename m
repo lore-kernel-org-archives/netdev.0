@@ -1,149 +1,71 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 3/4] isdn: avoid races in capidrv
+Subject: [PATCH 01/12] gigaset: really fix chars_in_buffer
 Date: Sun,  6 Sep 2009 20:58:52 +0200 (CEST)
-Message-ID: <20090906-patch-capi-3.tilman@imap.cc>
-References: <20090906-patch-capi-0.tilman@imap.cc>
-Cc: Carsten Paeth <calle@calle.de>
-To: davem@davemloft.net, Karsten Keil <keil@b1-systems.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	i4ldeveloper@listserv.isdn4linux.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758283AbZIFTAF@vger.kernel.org>
-In-Reply-To: <20090906-patch-capi-0.tilman@imap.cc>
+Message-ID: <20090906-patch-gigaset-01.tilman@imap.cc>
+References: <20090906-patch-gigaset-00.tilman@imap.cc>
+Cc: Alan Cox <alan@linux.intel.com>, Hansjoerg Lipp <hjlipp@web.de>
+To: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758179AbZIFS7c@vger.kernel.org>
+In-Reply-To: <20090906-patch-gigaset-00.tilman@imap.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In several places, capidrv sends a CAPI message to the ISDN
-device and then updates its internal state accordingly.
-If the response message from the device arrives before the
-state is updated, it may be rejected or processed incorrectly.
-Avoid these races by updating the state before emitting the
-message.
+The tty_operation chars_in_buffer() is not allowed to return a
+negative value to signal an error. Corrects the problem flagged
+by commit 23198fda7182969b619613a555f8645fdc3dc334,
+"tty: fix chars_in_buffers".
 
+Impact: error handling bugfix
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
-Acked-by: Karsten Keil <keil@b1-systems.de>
 ---
- drivers/isdn/capi/capidrv.c |   24 ++++++++++++------------
- 1 files changed, 12 insertions(+), 12 deletions(-)
+ drivers/isdn/gigaset/interface.c |   19 +++++++------------
+ 1 files changed, 7 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/isdn/capi/capidrv.c b/drivers/isdn/capi/capidrv.c
-index 6501202..c3f5472 100644
---- a/drivers/isdn/capi/capidrv.c
-+++ b/drivers/isdn/capi/capidrv.c
-@@ -671,8 +671,8 @@ static void n0(capidrv_contr * card, capidrv_ncci * ncci)
- 				 NULL,	/* Useruserdata */   /* $$$$ */
- 				 NULL	/* Facilitydataarray */
- 	);
--	send_message(card, &cmsg);
- 	plci_change_state(card, ncci->plcip, EV_PLCI_DISCONNECT_REQ);
-+	send_message(card, &cmsg);
- 
- 	cmd.command = ISDN_STAT_BHUP;
- 	cmd.driver = card->myid;
-@@ -924,8 +924,8 @@ static void handle_incoming_call(capidrv_contr * card, _cmsg * cmsg)
- 		 */
- 		capi_cmsg_answer(cmsg);
- 		cmsg->Reject = 1;	/* ignore */
--		send_message(card, cmsg);
- 		plci_change_state(card, plcip, EV_PLCI_CONNECT_REJECT);
-+		send_message(card, cmsg);
- 		printk(KERN_INFO "capidrv-%d: incoming call %s,%d,%d,%s ignored\n",
- 			card->contrnr,
- 			cmd.parm.setup.phone,
-@@ -974,8 +974,8 @@ static void handle_incoming_call(capidrv_contr * card, _cmsg * cmsg)
- 	case 2:		/* Call will be rejected. */
- 		capi_cmsg_answer(cmsg);
- 		cmsg->Reject = 2;	/* reject call, normal call clearing */
--		send_message(card, cmsg);
- 		plci_change_state(card, plcip, EV_PLCI_CONNECT_REJECT);
-+		send_message(card, cmsg);
- 		break;
- 
- 	default:
-@@ -983,8 +983,8 @@ static void handle_incoming_call(capidrv_contr * card, _cmsg * cmsg)
- 		capi_cmsg_answer(cmsg);
- 		cmsg->Reject = 8;	/* reject call,
- 					   destination out of order */
--		send_message(card, cmsg);
- 		plci_change_state(card, plcip, EV_PLCI_CONNECT_REJECT);
-+		send_message(card, cmsg);
- 		break;
- 	}
- 	return;
-@@ -1020,8 +1020,8 @@ static void handle_plci(_cmsg * cmsg)
- 		card->bchans[plcip->chan].disconnecting = 1;
- 		plci_change_state(card, plcip, EV_PLCI_DISCONNECT_IND);
- 		capi_cmsg_answer(cmsg);
--		send_message(card, cmsg);
- 		plci_change_state(card, plcip, EV_PLCI_DISCONNECT_RESP);
-+		send_message(card, cmsg);
- 		break;
- 
- 	case CAPI_DISCONNECT_CONF:	/* plci */
-@@ -1078,8 +1078,8 @@ static void handle_plci(_cmsg * cmsg)
- 
- 		if (card->bchans[plcip->chan].incoming) {
- 			capi_cmsg_answer(cmsg);
--			send_message(card, cmsg);
- 			plci_change_state(card, plcip, EV_PLCI_CONNECT_ACTIVE_IND);
-+			send_message(card, cmsg);
- 		} else {
- 			capidrv_ncci *nccip;
- 			capi_cmsg_answer(cmsg);
-@@ -1098,13 +1098,13 @@ static void handle_plci(_cmsg * cmsg)
- 						 NULL	/* NCPI */
- 			);
- 			nccip->msgid = cmsg->Messagenumber;
-+			plci_change_state(card, plcip, EV_PLCI_CONNECT_ACTIVE_IND);
-+			ncci_change_state(card, nccip, EV_NCCI_CONNECT_B3_REQ);
- 			send_message(card, cmsg);
- 			cmd.command = ISDN_STAT_DCONN;
- 			cmd.driver = card->myid;
- 			cmd.arg = plcip->chan;
- 			card->interface.statcallb(&cmd);
--			plci_change_state(card, plcip, EV_PLCI_CONNECT_ACTIVE_IND);
--			ncci_change_state(card, nccip, EV_NCCI_CONNECT_B3_REQ);
- 		}
- 		break;
- 
-@@ -1193,8 +1193,8 @@ static void handle_ncci(_cmsg * cmsg)
- 			goto notfound;
- 
- 		capi_cmsg_answer(cmsg);
--		send_message(card, cmsg);
- 		ncci_change_state(card, nccip, EV_NCCI_CONNECT_B3_ACTIVE_IND);
-+		send_message(card, cmsg);
- 
- 		cmd.command = ISDN_STAT_BCONN;
- 		cmd.driver = card->myid;
-@@ -1222,8 +1222,8 @@ static void handle_ncci(_cmsg * cmsg)
- 							  0,	/* Reject */
- 							  NULL	/* NCPI */
- 				);
--				send_message(card, cmsg);
- 				ncci_change_state(card, nccip, EV_NCCI_CONNECT_B3_RESP);
-+				send_message(card, cmsg);
- 				break;
- 			}
- 			printk(KERN_ERR "capidrv-%d: no mem for ncci, sorry\n",							card->contrnr);
-@@ -1299,8 +1299,8 @@ static void handle_ncci(_cmsg * cmsg)
- 		card->bchans[nccip->chan].disconnecting = 1;
- 		ncci_change_state(card, nccip, EV_NCCI_DISCONNECT_B3_IND);
- 		capi_cmsg_answer(cmsg);
--		send_message(card, cmsg);
- 		ncci_change_state(card, nccip, EV_NCCI_DISCONNECT_B3_RESP);
-+		send_message(card, cmsg);
- 		break;
- 
- 	case CAPI_DISCONNECT_B3_CONF:	/* ncci */
-@@ -2014,8 +2014,8 @@ static void send_listen(capidrv_contr *card)
- 			     card->cipmask,
- 			     card->cipmask2,
- 			     NULL, NULL);
--	send_message(card, &cmdcmsg);
- 	listen_change_state(card, EV_LISTEN_REQ);
-+	send_message(card, &cmdcmsg);
+diff --git a/drivers/isdn/gigaset/interface.c b/drivers/isdn/gigaset/interface.c
+index 8ff7e35..f33ac27 100644
+--- a/drivers/isdn/gigaset/interface.c
++++ b/drivers/isdn/gigaset/interface.c
+@@ -408,33 +408,28 @@ static int if_write_room(struct tty_struct *tty)
+ 	return retval;
  }
  
- static void listentimerfunc(unsigned long x)
+-/* FIXME: This function does not have error returns */
+-
+ static int if_chars_in_buffer(struct tty_struct *tty)
+ {
+ 	struct cardstate *cs;
+-	int retval = -ENODEV;
++	int retval = 0;
+ 
+ 	cs = (struct cardstate *) tty->driver_data;
+ 	if (!cs) {
+ 		pr_err("%s: no cardstate\n", __func__);
+-		return -ENODEV;
++		return 0;
+ 	}
+ 
+ 	gig_dbg(DEBUG_IF, "%u: %s()", cs->minor_index, __func__);
+ 
+-	if (mutex_lock_interruptible(&cs->mutex))
+-		return -ERESTARTSYS; // FIXME -EINTR?
++	mutex_lock(&cs->mutex);
+ 
+-	if (!cs->connected) {
++	if (!cs->connected)
+ 		gig_dbg(DEBUG_IF, "not connected");
+-		retval = -ENODEV;
+-	} else if (!cs->open_count)
++	else if (!cs->open_count)
+ 		dev_warn(cs->dev, "%s: device not opened\n", __func__);
+-	else if (cs->mstate != MS_LOCKED) {
++	else if (cs->mstate != MS_LOCKED)
+ 		dev_warn(cs->dev, "can't write to unlocked device\n");
+-		retval = -EBUSY;
+-	} else
++	else
+ 		retval = cs->ops->chars_in_buffer(cs);
+ 
+ 	mutex_unlock(&cs->mutex);
 -- 
 1.6.2.1.214.ge986c
