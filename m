@@ -1,82 +1,57 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] headers: net/ipv[46]/protocol.c header trim
-Date: Mon, 7 Sep 2009 16:38:25 +0400
-Message-ID: <20090907123825.GB29858@x200.localdomain>
+From: Xiaofei Wu <xiaofei_wu08@yahoo.com>
+Subject: Re: [iproute2] tc action mirred    question
+Date: Mon, 7 Sep 2009 05:38:49 -0700 (PDT)
+Message-ID: <749852.6581.qm@web111606.mail.gq1.yahoo.com>
+References: <210469.98452.qm@web111611.mail.gq1.yahoo.com> <1252260806.4580.6.camel@dogo.mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: linux netdev <netdev@vger.kernel.org>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f217.google.com ([209.85.220.217]:49946 "EHLO
-	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751077AbZIGMi0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 08:38:26 -0400
-Received: by fxm17 with SMTP id 17so1955682fxm.37
-        for <netdev@vger.kernel.org>; Mon, 07 Sep 2009 05:38:27 -0700 (PDT)
-Content-Disposition: inline
+Received: from web111606.mail.gq1.yahoo.com ([67.195.23.48]:41526 "HELO
+	web111606.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750951AbZIGMir (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 08:38:47 -0400
+In-Reply-To: <1252260806.4580.6.camel@dogo.mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
 
- net/ipv4/protocol.c |   19 ++-----------------
- net/ipv6/protocol.c |   15 ++-------------
- 2 files changed, 4 insertions(+), 30 deletions(-)
 
---- a/net/ipv4/protocol.c
-+++ b/net/ipv4/protocol.c
-@@ -22,26 +22,11 @@
-  *		as published by the Free Software Foundation; either version
-  *		2 of the License, or (at your option) any later version.
-  */
--
--#include <asm/uaccess.h>
--#include <asm/system.h>
-+#include <linux/cache.h>
- #include <linux/module.h>
--#include <linux/types.h>
--#include <linux/kernel.h>
--#include <linux/string.h>
--#include <linux/socket.h>
--#include <linux/in.h>
--#include <linux/inet.h>
- #include <linux/netdevice.h>
--#include <linux/timer.h>
--#include <net/ip.h>
-+#include <linux/spinlock.h>
- #include <net/protocol.h>
--#include <linux/skbuff.h>
--#include <net/sock.h>
--#include <net/icmp.h>
--#include <net/udp.h>
--#include <net/ipip.h>
--#include <linux/igmp.h>
- 
- struct net_protocol *inet_protos[MAX_INET_PROTOS] ____cacheline_aligned_in_smp;
- static DEFINE_SPINLOCK(inet_proto_lock);
---- a/net/ipv6/protocol.c
-+++ b/net/ipv6/protocol.c
-@@ -20,20 +20,9 @@
-  *      - Removed unused variable 'inet6_protocol_base'
-  *      - Modified inet6_del_protocol() to correctly maintain copy bit.
-  */
--
--#include <linux/errno.h>
--#include <linux/types.h>
--#include <linux/socket.h>
--#include <linux/sockios.h>
--#include <linux/net.h>
--#include <linux/in6.h>
-+#include <linux/module.h>
- #include <linux/netdevice.h>
--#include <linux/if_arp.h>
--
--#include <net/sock.h>
--#include <net/snmp.h>
--
--#include <net/ipv6.h>
-+#include <linux/spinlock.h>
- #include <net/protocol.h>
- 
- struct inet6_protocol *inet6_protos[MAX_INET_PROTOS];
+
+
+>> On node A,
+>> wlan0, IP address 192.168.1.1/24 ; wlan1, IP address 192.168.2.1/24
+>> I use command 'tc filter add dev wlan0 ... match ip src 192.168.1.0/24 ...
+>> action mirred egress mirror dev wlan1' to mirror packets.
+>> When I use 'tcpdump -i wlan1', I can 'see' the packets  'A(wlan0)->B' (node B will forward them to C). 
+>> How to forward the mirroring packets 'A(wlan1)' to D (then, node D forwards them to C) ?
+>> 
+>> 
+
+>Is there a trick to this question or is it too basic? ;-> 
+
+I am sorry.
+Maybe it is very easy for you. But I didn't find enough documents(or examples) about 'tc' to help me.
+I just want to know:
+1) Could I forward the mirroring packets to another node ,and then route it to the destination(if I use 
+iproute2 (ip, tc ...)  )?  I described my purpose in my last email.
+2)  After I mirrored the packets, I should use 'ip route' , 'ip rule' to modify route tables.  Is this right?
+
+>You should repeat the same on wlan1 to mirror to wlan0 i.e on wlan1:
+>match ip src 192.168.2.0/24 ...
+>action mirred egress mirror dev wlan0
+
+Would this cause loops?
+
+
+>Note the  node C will receive "wrong" src mac addresses on those
+>interfaces; you may want to correct/edit them first before you send them
+>out. Look at using the pedit action.
+
+
+Regards,
+Wu
+
+
+      
