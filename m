@@ -1,99 +1,196 @@
-From: "Ilia K." <mail4ilia@gmail.com>
-Subject: Re: multicast routing and multiple interfaces with same IP
-Date: Mon, 7 Sep 2009 18:35:41 +0300
-Message-ID: <1b9338490909070835t3517bc36o396539e7ea1721fc@mail.gmail.com>
-References: <1b9338490908111626j55b49177q71b8a373b6e6381b@mail.gmail.com>
-	 <200908270253.19132.opurdila@ixiacom.com>
-	 <20090829.000154.263733862.davem@davemloft.net>
+From: Sebastian Haas <haas@ems-wuensche.com>
+Subject: Re: Staging: cpc-usb CAN driver TODO list
+Date: Mon, 07 Sep 2009 17:35:28 +0200
+Message-ID: <4AA52840.5090804@ems-wuensche.com>
+References: <4AA262CB.7060607@hartkopp.net> <4AA4A0A2.2070907@ems-wuensche.com> <4AA4B0C6.5080608@grandegger.com> <4AA4BDE6.7000707@ems-wuensche.com> <4AA4CB3F.3060200@grandegger.com> <4AA4DC09.8070803@hartkopp.net> <4AA4E93F.90209@ems-wuensche.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001636025e7d36cae00472fe9a18
-Cc: opurdila@ixiacom.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wolfgang Grandegger <wg@grandegger.com>, Greg KH <greg@kroah.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Felipe Balbi <me@felipebalbi.com>
+To: Oliver Hartkopp <oliver@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.159]:59639 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753931AbZIGPfj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 11:35:39 -0400
-Received: by fg-out-1718.google.com with SMTP id 22so775419fge.1
-        for <netdev@vger.kernel.org>; Mon, 07 Sep 2009 08:35:41 -0700 (PDT)
-In-Reply-To: <20090829.000154.263733862.davem@davemloft.net>
+Received: from ems-wuensche.com ([81.169.132.244]:43032 "EHLO
+	h559305.serverkompetenz.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753706AbZIGPfg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 11:35:36 -0400
+In-Reply-To: <4AA4E93F.90209@ems-wuensche.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---001636025e7d36cae00472fe9a18
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Hi,
-I'm attaching a new patch. The changes:
-mroute.h:
-- consistent name for interface index: vifc_lcl_ifindex
-- union of vifc_lcl_addr and vifc_lcl_ifindex since either one of them
-can be used
-ipmr.c:
-- case VIFF_USE_IFINDEX and case 0 had almost the same code, so using
-fall through and if to eliminate code duplication
+Oliver,
 
-Regards,
-Ilia.
+Okay, I've just finished the first version today. It is much less effort
+ as I previously thought. 95% is written and compiles fine. Just the
+sending part is missing and optimization (it is just a basic
+implementation without USB anchors and stuff like that).
 
-On Sat, Aug 29, 2009 at 10:01 AM, David Miller<davem@davemloft.net> wrote:
-> From: Octavian Purdila <opurdila@ixiacom.com>
-> Date: Thu, 27 Aug 2009 02:53:18 +0300
->
->> I don't have context on multicast routing, but this caught my attention:
->>
->>>@@ -61,11 +61,13 @@
->>> =A0 =A0 =A0unsigned int vifc_rate_limit; =A0 /* Rate limiter values (NI=
-) */
->>> =A0 =A0 =A0struct in_addr vifc_lcl_addr; =A0 /* Our address */
->>> =A0 =A0 =A0struct in_addr vifc_rmt_addr; =A0 /* IPIP tunnel addr */
->>>+ =A0 =A0 int ifindex; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* Local i=
-nterface index */
->>> };
->>>
->>
->> Wouldn't this break userspace ABI?
->>
->> Perhaps you could use a union between vifc_lcl_addr and vifc_ifindex, th=
-ey seem
->> to be exclusive.
->
-> Indeed, this will need to be fixed up.
->
+I think the further development should proceed at the Socket-CAN mailing
+list, cause of things needs to be clarified specific to the core.
 
---001636025e7d36cae00472fe9a18
-Content-Type: text/x-diff; charset=US-ASCII; name="vif_add.patch"
-Content-Disposition: attachment; filename="vif_add.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fzbddri00
+Cheers,
+Sebastian
 
-PT09IG1vZGlmaWVkIGZpbGUgJ2luY2x1ZGUvbGludXgvbXJvdXRlLmgnCi0tLSBpbmNsdWRlL2xp
-bnV4L21yb3V0ZS5oCTIwMDktMDgtMTAgMTE6MTc6MzIgKzAwMDAKKysrIGluY2x1ZGUvbGludXgv
-bXJvdXRlLmgJMjAwOS0wOS0wNyAxNToxNjo0MyArMDAwMApAQCAtNTksMTMgKzU5LDE3IEBACiAJ
-dW5zaWduZWQgY2hhciB2aWZjX2ZsYWdzOwkvKiBWSUZGXyBmbGFncyAqLwogCXVuc2lnbmVkIGNo
-YXIgdmlmY190aHJlc2hvbGQ7CS8qIHR0bCBsaW1pdCAqLwogCXVuc2lnbmVkIGludCB2aWZjX3Jh
-dGVfbGltaXQ7CS8qIFJhdGUgbGltaXRlciB2YWx1ZXMgKE5JKSAqLwotCXN0cnVjdCBpbl9hZGRy
-IHZpZmNfbGNsX2FkZHI7CS8qIE91ciBhZGRyZXNzICovCisJdW5pb24geworCQlzdHJ1Y3QgaW5f
-YWRkciB2aWZjX2xjbF9hZGRyOyAgICAgLyogTG9jYWwgaW50ZXJmYWNlIGFkZHJlc3MgKi8KKwkJ
-aW50ICAgICAgICAgICAgdmlmY19sY2xfaWZpbmRleDsgIC8qIExvY2FsIGludGVyZmFjZSBpbmRl
-eCAgICovCisJfTsKIAlzdHJ1Y3QgaW5fYWRkciB2aWZjX3JtdF9hZGRyOwkvKiBJUElQIHR1bm5l
-bCBhZGRyICovCiB9OwogCi0jZGVmaW5lIFZJRkZfVFVOTkVMCTB4MQkvKiBJUElQIHR1bm5lbCAq
-LwotI2RlZmluZSBWSUZGX1NSQ1JUCTB4MgkvKiBOSSAqLwotI2RlZmluZSBWSUZGX1JFR0lTVEVS
-CTB4NAkvKiByZWdpc3RlciB2aWYJKi8KKyNkZWZpbmUgVklGRl9UVU5ORUwJCTB4MQkvKiBJUElQ
-IHR1bm5lbCAqLworI2RlZmluZSBWSUZGX1NSQ1JUCQkweDIJLyogTkkgKi8KKyNkZWZpbmUgVklG
-Rl9SRUdJU1RFUgkJMHg0CS8qIHJlZ2lzdGVyIHZpZgkqLworI2RlZmluZSBWSUZGX1VTRV9JRklO
-REVYCTB4OAkvKiB1c2UgdmlmY19sY2xfaWZpbmRleCB0byBmaW5kIGFuIGludGVyZmFjZSAqLwog
-CiAvKgogICoJQ2FjaGUgbWFuaXB1bGF0aW9uIHN0cnVjdHVyZXMgZm9yIG1yb3V0ZWQgYW5kIFBJ
-TWQKCj09PSBtb2RpZmllZCBmaWxlICduZXQvaXB2NC9pcG1yLmMnCi0tLSBuZXQvaXB2NC9pcG1y
-LmMJMjAwOS0wOC0xMCAxMToxNzozMiArMDAwMAorKysgbmV0L2lwdjQvaXBtci5jCTIwMDktMDkt
-MDcgMTU6MjA6MDcgKzAwMDAKQEAgLTQ3MCw4ICs0NzAsMTggQEAKIAkJCXJldHVybiBlcnI7CiAJ
-CX0KIAkJYnJlYWs7CisKKwljYXNlIFZJRkZfVVNFX0lGSU5ERVg6CiAJY2FzZSAwOgotCQlkZXYg
-PSBpcF9kZXZfZmluZChuZXQsIHZpZmMtPnZpZmNfbGNsX2FkZHIuc19hZGRyKTsKKwkJaWYgKHZp
-ZmMtPnZpZmNfZmxhZ3M9PVZJRkZfVVNFX0lGSU5ERVgpIHsKKwkJCWRldiA9IGRldl9nZXRfYnlf
-aW5kZXgobmV0LCB2aWZjLT52aWZjX2xjbF9pZmluZGV4KTsKKwkJCWlmIChkZXYgJiYgZGV2LT5p
-cF9wdHIgPT0gTlVMTCkgeworCQkJCWRldl9wdXQoZGV2KTsKKwkJCQlyZXR1cm4gLUVBRERSTk9U
-QVZBSUw7CisJCQl9CisJCX0gZWxzZSB7CisJCQlkZXYgPSBpcF9kZXZfZmluZChuZXQsIHZpZmMt
-PnZpZmNfbGNsX2FkZHIuc19hZGRyKTsKKwkJfQogCQlpZiAoIWRldikKIAkJCXJldHVybiAtRUFE
-RFJOT1RBVkFJTDsKIAkJZXJyID0gZGV2X3NldF9hbGxtdWx0aShkZXYsIDEpOwoK
---001636025e7d36cae00472fe9a18--
+Sebastian Haas schrieb:
+> Okay, thanks for the tips. Lets see what I can create today.
+> 
+> Sebastian
+> 
+> Oliver Hartkopp schrieb:
+>> Wolfgang Grandegger wrote:
+>>> On 09/07/2009 10:01 AM, Sebastian Haas wrote:
+>>>> -----BEGIN PGP SIGNED MESSAGE-----
+>>>> Hash: SHA1
+>>>>
+>>>> Wolfgang,
+>>>>
+>>>> Wolfgang Grandegger schrieb:
+>>>>> Hi Sebastian,
+>>>>>
+>>>>> On 09/07/2009 07:56 AM, Sebastian Haas wrote:
+>>>>>> -----BEGIN PGP SIGNED MESSAGE-----
+>>>>>> Hash: SHA1
+>>>>>>
+>>>>>> Oliver,
+>>>>>>
+>>>>>> I'm not yet sure how to actually start the development. There is so
+>>>>>> much
+>>>>>> to do, and I've not much time to spend on this, unfortunately. Because
+>>>>>> of this I can't rewrite the whole driver on my own in order to get a
+>>>>>> Socket-CAN driver but I can provide support, review patches, rent
+>>>>>> devices and make tests here.
+>>>>>>
+>>>>>> Oliver, you are not familiar with USB and I'm not very familiar with
+>>>>>> CAN
+>>>>>> netdev internals, why not combining these twos. You are writing the CAN
+>>>>>> part and write the USB part.
+>>>>>>
+>>>>>> I'll also write a specification which contains any information you need
+>>>>>> to develop a CAN driver for the device (commands, sequences, error
+>>>>>> handling).
+>>>>> Alternatively, EMS Wuensche could also hire an expert doing the job ;-).
+>>>>> Note that we do a lot of Socket-CAN work in our free time, which is a
+>>>>> limited resource. Progress depends on funding to a certain extend.
+>>>> Money is also a limited resource. ;-)
+>>>>
+>>>> Let's become serious again, I know and respect that many of Socket-CAN
+>>>> and the Staging developers spend their free time working on it. We will
+>>>> of course work on the driver, but since we've not much time it may take
+>>>> several months. If someone wants to help, we would be very glad and
+>>>> happy to support the person as far as we can with devices, answers and
+>>>> tests.
+>>> OK, no problem. I really appreciate your support for Socket-CAN so far.
+>> Indeed. Me too.
+> 
+>> I tried to take a second look into cpc-usb_drv.c and i would suggest to remove
+>> all the procfs and the chardev stuff and then create a CAN netdev when you
+>> identified an USB node analogue to
+> 
+>>         /* Detect available channels */
+>>         for (i = 0; i < EMS_PCMCIA_MAX_CHAN; i++) {
+>>                 dev = alloc_sja1000dev(0);
+>>                 if (dev == NULL) {
+>>                         err = -ENOMEM;
+>>                         goto failure_cleanup;
+>>                 }
+> 
+>>                 card->net_dev[i] = dev;
+>>                 priv = netdev_priv(dev);
+>>                 priv->priv = card;
+>>                 SET_NETDEV_DEV(dev, &pdev->dev);
+> 
+>> as you know from your ems_pcmcia.c driver
+> 
+>> and
+> 
+>> struct net_device *alloc_sja1000dev(int sizeof_priv)
+>> {
+>>         struct net_device *dev;
+>>         struct sja1000_priv *priv;
+> 
+>>         dev = alloc_candev(sizeof(struct sja1000_priv) + sizeof_priv);
+>>         if (!dev)
+>>                 return NULL;
+> 
+>>         priv = netdev_priv(dev);
+> 
+>>         priv->dev = dev;
+>>         priv->can.bittiming_const = &sja1000_bittiming_const;
+>>         priv->can.do_set_bittiming = sja1000_set_bittiming;
+>>         priv->can.do_set_mode = sja1000_set_mode;
+> 
+>>         if (sizeof_priv)
+>>                 priv->priv = (void *)priv + sizeof(struct sja1000_priv);
+> 
+>>         return dev;
+>> }
+> 
+>> as you know from the sja1000.c (which can probably be used for the
+>> LPC2119_PRODUCT_ID we should try to implement first).
+> 
+>> Then we need something like this stuff
+> 
+>> static const struct net_device_ops sja1000_netdev_ops = {
+>>         .ndo_open               = sja1000_open,
+>>         .ndo_stop               = sja1000_close,
+>>         .ndo_start_xmit         = sja1000_start_xmit,
+>> };
+> 
+>> int register_sja1000dev(struct net_device *dev)
+>> {
+>>         if (!sja1000_probe_chip(dev))
+>>                 return -ENODEV;
+> 
+>>         dev->netdev_ops = &sja1000_netdev_ops;
+> 
+>>         dev->flags |= IFF_ECHO; /* we support local echo */
+> 
+>>         set_reset_mode(dev);
+>>         chipset_init(dev);
+> 
+>>         return register_candev(dev);
+>> }
+> 
+>> from sja1000.c
+> 
+>> And then we have an USB CAN node that has a belonging CAN netdevice (maybe
+>> there is something else we can look at that's used in other USB ethernet
+>> adapters).
+> 
+>> I know from the PEAK USB driver at
+> 
+>> http://www.peak-system.com/fileadmin/media/linux/files/peak-linux-driver.6.11.tar.gz
+> 
+>> that i just needed to duplicate and modify the usb rx/tx stuff and redirect
+>> the CAN frames into the network stack. But this PEAK driver does not have a
+>> netlink configuration interface and can only be taken as a limited example ...
+> 
+>> I assume, when the driver (cpc_usb.c or ems_usb.c analogue to the ems_pcmcia.c
+>> ?) is prepared as described above, one can go and connect the rx/tx dataflow
+>> and the netlink configuration.
+> 
+>> Unfortunately i'm short of time the next two weeks but maybe you can start and
+>> create such a new C-file (probably based on ems_pcmcia.c) ?
+> 
+>> Best regards,
+>> Oliver
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iEYEARECAAYFAkqlKDsACgkQpqRB8PJG7XwpdgCglYjvGi/z1z5tX1ozgF/YTA1j
+9pwAnAkIHScIlic0KZNZEDWT09jUt3N1
+=OVN3
+-----END PGP SIGNATURE-----
+-- 
+EMS Dr. Thomas Wuensche e.K.
+Sonnenhang 3
+85304 Ilmmuenster
+HRA Neuburg a.d. Donau, HR-Nr. 70.106
+Phone: +49-8441-490260
+Fax  : +49-8441-81860
+http://www.ems-wuensche.com
