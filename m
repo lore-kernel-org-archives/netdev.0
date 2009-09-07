@@ -1,133 +1,99 @@
-From: Atis Elsts <atis-uNdmHI/jfgRWk0Htik3J/w@public.gmane.org>
-Subject: Adding bridge interface to non-default network namespace crashes
-	kernel
-Date: Mon, 7 Sep 2009 18:07:54 +0300
-Message-ID: <200909071807.54511.atis@mikrotik.com>
+From: "Ilia K." <mail4ilia@gmail.com>
+Subject: Re: multicast routing and multiple interfaces with same IP
+Date: Mon, 7 Sep 2009 18:35:41 +0300
+Message-ID: <1b9338490909070835t3517bc36o396539e7ea1721fc@mail.gmail.com>
+References: <1b9338490908111626j55b49177q71b8a373b6e6381b@mail.gmail.com>
+	 <200908270253.19132.opurdila@ixiacom.com>
+	 <20090829.000154.263733862.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_KHSpKZAaBHAjZ3E"
-Cc: containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary=001636025e7d36cae00472fe9a18
+Cc: opurdila@ixiacom.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.159]:59639 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753931AbZIGPfj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 11:35:39 -0400
+Received: by fg-out-1718.google.com with SMTP id 22so775419fge.1
+        for <netdev@vger.kernel.org>; Mon, 07 Sep 2009 08:35:41 -0700 (PDT)
+In-Reply-To: <20090829.000154.263733862.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Boundary-00=_KHSpKZAaBHAjZ3E
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+--001636025e7d36cae00472fe9a18
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Trying to add bridge interface from userspace program, after moving the 
-program to a new network namespace, causes kernel to crash. I am using latest 
-kernel version from git (2.6.31-rc9).
-The bug is easy to reproduce - just compile and run the attached C program.
+Hi,
+I'm attaching a new patch. The changes:
+mroute.h:
+- consistent name for interface index: vifc_lcl_ifindex
+- union of vifc_lcl_addr and vifc_lcl_ifindex since either one of them
+can be used
+ipmr.c:
+- case VIFF_USE_IFINDEX and case 0 had almost the same code, so using
+fall through and if to eliminate code duplication
 
-I see that bridge interface has NETIF_F_NETNS_LOCAL flag, but as I understand, 
-this flag simply means that a device cannot be *moved* across network 
-namespaces, not that it cannot be *created* in other namespaces.
+Regards,
+Ilia.
 
---Atis
+On Sat, Aug 29, 2009 at 10:01 AM, David Miller<davem@davemloft.net> wrote:
+> From: Octavian Purdila <opurdila@ixiacom.com>
+> Date: Thu, 27 Aug 2009 02:53:18 +0300
+>
+>> I don't have context on multicast routing, but this caught my attention:
+>>
+>>>@@ -61,11 +61,13 @@
+>>> =A0 =A0 =A0unsigned int vifc_rate_limit; =A0 /* Rate limiter values (NI=
+) */
+>>> =A0 =A0 =A0struct in_addr vifc_lcl_addr; =A0 /* Our address */
+>>> =A0 =A0 =A0struct in_addr vifc_rmt_addr; =A0 /* IPIP tunnel addr */
+>>>+ =A0 =A0 int ifindex; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* Local i=
+nterface index */
+>>> };
+>>>
+>>
+>> Wouldn't this break userspace ABI?
+>>
+>> Perhaps you could use a union between vifc_lcl_addr and vifc_ifindex, th=
+ey seem
+>> to be exclusive.
+>
+> Indeed, this will need to be fixed up.
+>
 
---Boundary-00=_KHSpKZAaBHAjZ3E
-Content-Type: text/x-csrc;
-  charset="iso 8859-15";
-  name="crash.c"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="crash.c"
+--001636025e7d36cae00472fe9a18
+Content-Type: text/x-diff; charset=US-ASCII; name="vif_add.patch"
+Content-Disposition: attachment; filename="vif_add.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fzbddri00
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/socket.h>
-#include <linux/sched.h>
-#include <linux/sockios.h>
-
-int main() {
-    if (unshare(CLONE_NEWNET)) {
-        perror("unshare");
-        return -1;
-    }
-
-    int fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (fd < 0) {
-        perror("socket");
-        return -1;
-    }
-
-    const char *name = "lobridge";
-    if (ioctl(fd, SIOCBRADDBR, name) < 0) {
-        perror("ioctl SIOCBRADDBR");
-        return -1;
-    }
-
-    system("ip addr");
-    for (;;) {
-        printf("still running\n");
-        sleep(5);
-    }
-}
-
---Boundary-00=_KHSpKZAaBHAjZ3E
-Content-Type: text/plain;
-  charset="iso 8859-15";
-  name="syslog"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="syslog"
-
-Sep  7 16:06:19 debian kernel: [   91.040000] ------------[ cut here ]------------
-Sep  7 16:06:19 debian kernel: [   91.040000] kernel BUG at fs/sysfs/group.c:65!
-Sep  7 16:06:19 debian kernel: [   91.040000] invalid opcode: 0000 [#1] SMP
-Sep  7 16:06:19 debian kernel: [   91.040000] last sysfs file: /sys/devices/virtual/net/lo/operstate
-Sep  7 16:06:19 debian kernel: [   91.040000] Modules linked in:
-Sep  7 16:06:19 debian kernel: [   91.040000]
-Sep  7 16:06:19 debian kernel: [   91.040000] Pid: 1667, comm: a.out Not tainted (2.6.31-rc9 #16)
-Sep  7 16:06:19 debian kernel: [   91.040000] EIP: 0060:[<c0218c5e>] EFLAGS: 00000246 CPU: 0
-Sep  7 16:06:19 debian kernel: [   91.040000] EIP is at internal_create_group+0x14e/0x180
-Sep  7 16:06:19 debian kernel: [   91.040000] EAX: 00000000 EBX: c71fb000 ECX: c053aae0 EDX: 00000000
-Sep  7 16:06:19 debian kernel: [   91.040000] ESI: 00000000 EDI: c71fb25c EBP: c6dede58 ESP: c6dede30
-Sep  7 16:06:19 debian kernel: [   91.040000]  DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
-Sep  7 16:06:19 debian kernel: [   91.040000] Process a.out (pid: 1667, ti=c6dec000 task=c6df1920 task.ti=c6dec000)
-Sep  7 16:06:19 debian kernel: [   91.040000] Stack:
-Sep  7 16:06:19 debian kernel: [   91.040000]  c71fb008 c053aae0 00000000 c71fb25c 00000000 00000000 c6dede58 c71fb000
-Sep  7 16:06:19 debian kernel: [   91.040000] <0> 00000000 c71fb25c c6dede60 c0218cbc c6dede84 c03c6bc3 00000000 00000000
-Sep  7 16:06:19 debian kernel: [   91.040000] <0> 00000000 c7102000 c71fb000 00000000 c7102000 c6dedea0 c03c348f 00000001
-Sep  7 16:06:19 debian kernel: [   91.040000] Call Trace:
-Sep  7 16:06:19 debian kernel: [   91.040000]  [<c0218cbc>] ? sysfs_create_group+0xc/0x10
-Sep  7 16:06:19 debian kernel: [   91.040000]  [<c03c6bc3>] ? br_sysfs_addbr+0x23/0xf0
-Sep  7 16:06:19 debian kernel: [   91.040000]  [<c03c348f>] ? br_add_bridge+0x18f/0x1a0
-Sep  7 16:06:19 debian kernel: [   91.040000]  [<c03c4328>] ? br_ioctl_deviceless_stub+0x1f8/0x210
-Sep  7 16:06:19 debian kernel: [   91.040000]  [<c03c4130>] ? br_ioctl_deviceless_stub+0x0/0x210
-Sep  7 16:06:19 debian kernel: [   91.040000]  [<c032e0cf>] ? sock_ioctl+0xbf/0x220
-Sep  7 16:06:19 debian kernel: [   91.040000]  [<c032e010>] ? sock_ioctl+0x0/0x220
-Sep  7 16:06:19 debian kernel: [   91.040000]  [<c01d4e28>] ? vfs_ioctl+0x28/0x80
-Sep  7 16:06:19 debian kernel: [   91.040000]  [<c01d4faa>] ? do_vfs_ioctl+0x6a/0x520
-Sep  7 16:06:19 debian kernel: [   91.040000]  [<c032d2a3>] ? sock_map_fd+0x43/0x70
-Sep  7 16:06:19 debian kernel: [   91.040000]  [<c032db22>] ? sys_socket+0x52/0x70
-Sep  7 16:06:19 debian kernel: [   91.040000]  [<c0118138>] ? do_page_fault+0x168/0x310
-Sep  7 16:06:19 debian kernel: [   91.040000]  [<c01d54b3>] ? sys_ioctl+0x53/0x70
-Sep  7 16:06:19 debian kernel: [   91.040000]  [<c0102c04>] ? sysenter_do_call+0x12/0x22
-Sep  7 16:06:19 debian kernel: [   91.040000] Code: bd 8b 5d e0 83 45 ec 01 85 db 0f 84 63 ff ff ff 8b 12 89 f8 e8 e4 ce ff ff 8b 16 e9 53 ff ff ff 8b 40 18 85 c0 0f 85 e9 fe ff ff <0f> 0b eb fe 89 f8 e8 47 ea ff ff 8b 45 e8 83 c4 1c 5b 5e 5f 5d
-Sep  7 16:06:19 debian kernel: [   91.040000] EIP: [<c0218c5e>] internal_create_group+0x14e/0x180 SS:ESP 0068:c6dede30
-Sep  7 16:06:19 debian kernel: [   91.040000] ---[ end trace beadcfdb06c985eb ]---
-
---Boundary-00=_KHSpKZAaBHAjZ3E
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Containers mailing list
-Containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-https://lists.linux-foundation.org/mailman/listinfo/containers
---Boundary-00=_KHSpKZAaBHAjZ3E--
+PT09IG1vZGlmaWVkIGZpbGUgJ2luY2x1ZGUvbGludXgvbXJvdXRlLmgnCi0tLSBpbmNsdWRlL2xp
+bnV4L21yb3V0ZS5oCTIwMDktMDgtMTAgMTE6MTc6MzIgKzAwMDAKKysrIGluY2x1ZGUvbGludXgv
+bXJvdXRlLmgJMjAwOS0wOS0wNyAxNToxNjo0MyArMDAwMApAQCAtNTksMTMgKzU5LDE3IEBACiAJ
+dW5zaWduZWQgY2hhciB2aWZjX2ZsYWdzOwkvKiBWSUZGXyBmbGFncyAqLwogCXVuc2lnbmVkIGNo
+YXIgdmlmY190aHJlc2hvbGQ7CS8qIHR0bCBsaW1pdCAqLwogCXVuc2lnbmVkIGludCB2aWZjX3Jh
+dGVfbGltaXQ7CS8qIFJhdGUgbGltaXRlciB2YWx1ZXMgKE5JKSAqLwotCXN0cnVjdCBpbl9hZGRy
+IHZpZmNfbGNsX2FkZHI7CS8qIE91ciBhZGRyZXNzICovCisJdW5pb24geworCQlzdHJ1Y3QgaW5f
+YWRkciB2aWZjX2xjbF9hZGRyOyAgICAgLyogTG9jYWwgaW50ZXJmYWNlIGFkZHJlc3MgKi8KKwkJ
+aW50ICAgICAgICAgICAgdmlmY19sY2xfaWZpbmRleDsgIC8qIExvY2FsIGludGVyZmFjZSBpbmRl
+eCAgICovCisJfTsKIAlzdHJ1Y3QgaW5fYWRkciB2aWZjX3JtdF9hZGRyOwkvKiBJUElQIHR1bm5l
+bCBhZGRyICovCiB9OwogCi0jZGVmaW5lIFZJRkZfVFVOTkVMCTB4MQkvKiBJUElQIHR1bm5lbCAq
+LwotI2RlZmluZSBWSUZGX1NSQ1JUCTB4MgkvKiBOSSAqLwotI2RlZmluZSBWSUZGX1JFR0lTVEVS
+CTB4NAkvKiByZWdpc3RlciB2aWYJKi8KKyNkZWZpbmUgVklGRl9UVU5ORUwJCTB4MQkvKiBJUElQ
+IHR1bm5lbCAqLworI2RlZmluZSBWSUZGX1NSQ1JUCQkweDIJLyogTkkgKi8KKyNkZWZpbmUgVklG
+Rl9SRUdJU1RFUgkJMHg0CS8qIHJlZ2lzdGVyIHZpZgkqLworI2RlZmluZSBWSUZGX1VTRV9JRklO
+REVYCTB4OAkvKiB1c2UgdmlmY19sY2xfaWZpbmRleCB0byBmaW5kIGFuIGludGVyZmFjZSAqLwog
+CiAvKgogICoJQ2FjaGUgbWFuaXB1bGF0aW9uIHN0cnVjdHVyZXMgZm9yIG1yb3V0ZWQgYW5kIFBJ
+TWQKCj09PSBtb2RpZmllZCBmaWxlICduZXQvaXB2NC9pcG1yLmMnCi0tLSBuZXQvaXB2NC9pcG1y
+LmMJMjAwOS0wOC0xMCAxMToxNzozMiArMDAwMAorKysgbmV0L2lwdjQvaXBtci5jCTIwMDktMDkt
+MDcgMTU6MjA6MDcgKzAwMDAKQEAgLTQ3MCw4ICs0NzAsMTggQEAKIAkJCXJldHVybiBlcnI7CiAJ
+CX0KIAkJYnJlYWs7CisKKwljYXNlIFZJRkZfVVNFX0lGSU5ERVg6CiAJY2FzZSAwOgotCQlkZXYg
+PSBpcF9kZXZfZmluZChuZXQsIHZpZmMtPnZpZmNfbGNsX2FkZHIuc19hZGRyKTsKKwkJaWYgKHZp
+ZmMtPnZpZmNfZmxhZ3M9PVZJRkZfVVNFX0lGSU5ERVgpIHsKKwkJCWRldiA9IGRldl9nZXRfYnlf
+aW5kZXgobmV0LCB2aWZjLT52aWZjX2xjbF9pZmluZGV4KTsKKwkJCWlmIChkZXYgJiYgZGV2LT5p
+cF9wdHIgPT0gTlVMTCkgeworCQkJCWRldl9wdXQoZGV2KTsKKwkJCQlyZXR1cm4gLUVBRERSTk9U
+QVZBSUw7CisJCQl9CisJCX0gZWxzZSB7CisJCQlkZXYgPSBpcF9kZXZfZmluZChuZXQsIHZpZmMt
+PnZpZmNfbGNsX2FkZHIuc19hZGRyKTsKKwkJfQogCQlpZiAoIWRldikKIAkJCXJldHVybiAtRUFE
+RFJOT1RBVkFJTDsKIAkJZXJyID0gZGV2X3NldF9hbGxtdWx0aShkZXYsIDEpOwoK
+--001636025e7d36cae00472fe9a18--
