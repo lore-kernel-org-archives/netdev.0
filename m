@@ -1,79 +1,130 @@
-From: Toru UCHIYAMA <uchiyama.toru@jp.fujitsu.com>
-Subject: Re: 2.6.31-rc9 breaks gianfar
-Date: Mon, 07 Sep 2009 12:21:42 +0900
-Message-ID: <4AA47C46.8070900@jp.fujitsu.com>
-References: <20090906072707.GA5699@trillian.comsick.at> <20090906.014131.78926800.davem@davemloft.net>
+From: Sebastian Haas <haas@ems-wuensche.com>
+Subject: Re: Staging: cpc-usb CAN driver TODO list
+Date: Mon, 07 Sep 2009 07:56:50 +0200
+Message-ID: <4AA4A0A2.2070907@ems-wuensche.com>
+References: <4AA262CB.7060607@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: mike@it-loops.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758841AbZIGDWl@vger.kernel.org>
-In-Reply-To: <20090906.014131.78926800.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Greg KH <greg@kroah.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Felipe Balbi <me@felipebalbi.com>,
+	Wolfgang Grandegger <wg@grandegger.com>
+To: Oliver Hartkopp <oliver@hartkopp.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ems-wuensche.com ([81.169.132.244]:37281 "EHLO
+	h559305.serverkompetenz.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758918AbZIGGFW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 02:05:22 -0400
+In-Reply-To: <4AA262CB.7060607@hartkopp.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-I'm sorry.It was my mistake.
-I will note that it is not never in the future.
-Thank you for the correction.
+Oliver,
 
+I'm not yet sure how to actually start the development. There is so much
+to do, and I've not much time to spend on this, unfortunately. Because
+of this I can't rewrite the whole driver on my own in order to get a
+Socket-CAN driver but I can provide support, review patches, rent
+devices and make tests here.
 
-> From: Michael Guntsche <mike@it-loops.com>
-> Date: Sun, 6 Sep 2009 09:27:08 +0200
-> 
-> Please also report networking bugs to netdev@vger.kernel.org
-> and CC: the person who commited the problematic commit.
-> 
->> Commit 
->> 38bddf04bcfe661fbdab94888c3b72c32f6873b3 gianfar: gfar_remove needs to call unregister_netdev()
->>
->> breaks the build of the gianfar driver because "dev" is undefined in
->> this function. To quickly test rc9 I changed this to priv->ndev but I do
->> not know if this is the correct one.
-> 
-> Toru-chan, did you even compile test this again current kernels?
-> 
-> I'll commit the following fix and push it to Linus, thanks.
-> 
->>From 5db8bfee2dbb3ff28c18868081398fa6e2155053 Mon Sep 17 00:00:00 2001
-> From: David S. Miller <davem@davemloft.net>
-> Date: Sun, 6 Sep 2009 01:41:02 -0700
-> Subject: [PATCH] gianfar: Fix build.
-> 
-> Reported by Michael Guntsche <mike@it-loops.com>
-> 
-> --------------------
-> Commit
-> 38bddf04bcfe661fbdab94888c3b72c32f6873b3 gianfar: gfar_remove needs to call unregister_netdev()
-> 
-> breaks the build of the gianfar driver because "dev" is undefined in
-> this function. To quickly test rc9 I changed this to priv->ndev but I do
-> not know if this is the correct one.
-> --------------------
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  drivers/net/gianfar.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-> index 24f7ca5..a00ec63 100644
-> --- a/drivers/net/gianfar.c
-> +++ b/drivers/net/gianfar.c
-> @@ -491,7 +491,7 @@ static int gfar_remove(struct of_device *ofdev)
->  
->  	dev_set_drvdata(&ofdev->dev, NULL);
->  
-> -	unregister_netdev(dev);
-> +	unregister_netdev(priv->ndev);
->  	iounmap(priv->regs);
->  	free_netdev(priv->ndev);
->  
+Oliver, you are not familiar with USB and I'm not very familiar with CAN
+netdev internals, why not combining these twos. You are writing the CAN
+part and write the USB part.
+
+I'll also write a specification which contains any information you need
+to develop a CAN driver for the device (commands, sequences, error
+handling).
+
+- --
+Mit freundlichen Gruessen/Best Regards,
+
+Sebastian Haas
+Software Entwicklung/Software Development
+
+Phone: +49-9451-9432-22
+Fax  : +49-9451-9432-12
+Email: haas@ems-wuensche.com
+Web  : www.ems-wuensche.com
 
 
+Oliver Hartkopp schrieb:
+> Hello Greg and Sebastian,
+> 
+> i just looked around in the linux-next tree for the cpc-usb driver.
+> 
+> http://git.kernel.org/?p=linux/kernel/git/next/linux-next.git;a=tree;f=drivers/staging/cpc-usb;hb=HEAD
+> 
+> IMHO the sja2m16c* files are completely obsolete as the setting of the CAN
+> bittimings needs to be done by separate functions (one for the SJA1000 and one
+> for the M16C). For both of them a separate can_bittiming_const is needed, like
+> it is defined in drivers/net/can/sja1000/sja1000.c:
+> 
+> static struct can_bittiming_const sja1000_bittiming_const = {
+> 	.name = DRV_NAME,
+> 	.tseg1_min = 1,
+> 	.tseg1_max = 16,
+> 	.tseg2_min = 1,
+> 	.tseg2_max = 8,
+> 	.sjw_max = 4,
+> 	.brp_min = 1,
+> 	.brp_max = 64,
+> 	.brp_inc = 1,
+> };
+> 
+> Also a separate function to determine the register values from the calculated
+> bittiming values is needed for both hardware types (SJA1000(LPC2119)/M16C) of
+> the cpc-usb. How this is done can be checked in linux/drivers/net/can/* or in
+> the source code of upcoming drivers in
+> 
+> http://svn.berlios.de/svnroot/repos/socketcan/trunk/kernel/2.6/drivers/net/can/
+> 
+> I wondered about the following items in the TODO list:
+> 
+> 	- tie into CAN socket interfaces if possible
+> 	- figure out sane userspace api
+> 
+> This is definitely a no go! IMO there is no real alternative to make this
+> cpc-usb driver a real CAN network driver.
+> 
+> The CAN driver interface has a sane configuration API via netlink and brings
+> everything to configure CAN specific bitrates, error counters, recovery, etc.
+> 
+> The missing thing is to connect the usb-device to a netdevice (can%d), remove
+> all the chardev file-I/O stuff and adapt the cpc-usb to use the
+> bitrate-settings, error counters and whatever - which is already well-defined
+> and provided by the CAN driver interface library contributed by Wolfgang
+> Grandegger ( drivers/net/can/dev.c and include/linux/can/[dev.h|netlink.h] ).
+> 
+> Unfortunately i'm not an expert in USB programming and i don't have that
+> hardware - but if you need some ideas from the CAN driver peoples like
+> Wolfgang, questions are always welcome, e.g. on the socketcan-core ML:
+> 
+> http://developer.berlios.de/projects/socketcan
+> 
+> I don't think it's a big effort for people that know USB & CAN to clean up the
+> cpc-usb and make it a slim CAN netdev. Believe me, it took years to figure out
+> a sane userspace api for CAN interfaces, which is now provided by the netlink
+> interface ;-)
+> 
+> Best regards,
+> Oliver
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iEYEARECAAYFAkqkoJoACgkQpqRB8PJG7XxF/ACgjza8eG3U+ypyA0qCj60wDhmN
+8oQAnir3YRmXU7CTlaKXpbecPyitJHqX
+=hyD4
+-----END PGP SIGNATURE-----
 -- 
------------------------------------------------
-Toru UCHIYAMA      uchiyama.toru@jp.fujitsu.com
+EMS Dr. Thomas Wuensche e.K.
+Sonnenhang 3
+85304 Ilmmuenster
+HRA Neuburg a.d. Donau, HR-Nr. 70.106
+Phone: +49-8441-490260
+Fax  : +49-8441-81860
+http://www.ems-wuensche.com
