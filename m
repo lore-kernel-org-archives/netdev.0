@@ -1,45 +1,75 @@
-From: Daniel Walker <dwalker@fifo99.com>
-Subject: Re: [PATCH 00/12] Gigaset driver patches for 2.6.32
-Date: Mon, 07 Sep 2009 07:30:55 -0700
-Message-ID: <1252333855.2139.15.camel__38454.1409359828$1252344968$gmane$org@desktop>
-References: <20090906-patch-gigaset-00.tilman@imap.cc>
-	 <1252286806.2139.1.camel@desktop>  <4AA4CD64.4070501@imap.cc>
+From: "Torgny Johansson" <torgny.johansson@ericsson.com>
+Subject: [PATCH -next] cdc_ether: additional Ericsson MBM PID's to the whitelist
+Date: Mon, 7 Sep 2009 16:36:57 +0200
+Message-ID: <E86B0C24322D8648AC7F41E7CDA658E903DDD359@esealmw114.eemea.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
-	Hansjoerg Lipp <hjlipp@web.de>
-To: Tilman Schmidt <tilman@imap.cc>
+Content-Type: text/plain;
+	charset="UTF-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>
+To: "David Brownell" <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fifo99.com ([67.223.236.141]:45711 "EHLO fifo99.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753278AbZIGOaz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Sep 2009 10:30:55 -0400
-In-Reply-To: <4AA4CD64.4070501@imap.cc>
+Received: from mailgw5.ericsson.se ([193.180.251.36]:45826 "EHLO
+	mailgw5.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753424AbZIGOg5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 10:36:57 -0400
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-09-07 at 11:07 +0200, Tilman Schmidt wrote:
-> Daniel,
-> 
-> thanks for taking a look at my patches.
-> 
-> On Sun, 06 Sep 2009 18:26:46 -0700, Daniel Walker wrote:
-> > patches 6,7,10, and 12 all have checkpatch errors. Could you fix those? 
-> 
-> I have reissued patch 7, exchanging the "static" and "inline" keywords
-> as requested.
-> 
-> The other patches I'd much prefer to keep as they are. The "ERRORs"
-> checkpatch.pl reported for them are results of keeping to the existing
-> formatting of the patched files. Completely reformatting them would
-> cloud the actual changes made by the patches.
-
-Yeah, it looks like the whole file needs a checkpatch clean up.. Sounds
-like your not willing to do that? Usually if a checkpatch cleanup comes
-first prior to all your other changes , it doesn't usually cloud the
-rest of the changes..
-
-Daniel
-
+VGhpcyBpcyBhIHJlLXN1Ym1pdCBzaW5jZSBJIGRpZCBub3Qgc2VlIGFueSBmZWVkYmFjayBvbiB0
+aGUgZmlyc3Qgc3VibWl0dGFsLg0KDQpUaGlzIHBhdGNoIGFkZHMgc2V2ZW4gUElEJ3MgdG8gdGhl
+IHdoaXRlbGlzdCBzZXQgb2YgZGV2aWNlcy4NCg0KRGV2aWNlcyBhZGRlZCB0byB0aGUgd2hpdGVs
+aXN0Og0KDQpFcmljc3NvbiBNb2JpbGUgQnJvYWRiYW5kIE1vZHVsZSB2YXJpYW50cyAoRjM2MDdn
+dyBhbmQgRjMzMDcpDQpEZWxsIEYzNjA3Z3cgdmFyaWFudHMgDQpUb3NoaWJhIEYzNjA3Z3cgdmFy
+aWFudHMNCg0KU2lnbmVkLW9mZi1ieTogVG9yZ255IEpvaGFuc3NvbiA8dG9yZ255LmpvaGFuc3Nv
+bkBlcmljc3Nvbi5jb20+DQoNCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC91c2IvS2NvbmZpZyBi
+L2RyaXZlcnMvbmV0L3VzYi9LY29uZmlnIGluZGV4IGM0NzIzN2MuLjMyZDkzNTYgMTAwNjQ0DQot
+LS0gYS9kcml2ZXJzL25ldC91c2IvS2NvbmZpZw0KKysrIGIvZHJpdmVycy9uZXQvdXNiL0tjb25m
+aWcNCkBAIC0xNzQsNyArMTc0LDcgQEAgY29uZmlnIFVTQl9ORVRfQ0RDRVRIRVINCiAJICAgICog
+RXJpY3Nzb24gTW9iaWxlIEJyb2FkYmFuZCBNb2R1bGUgKGFsbCB2YXJpYW50cykNCiAgCSAgICAq
+IE1vdG9yb2xhIChETTEwMCBhbmQgU0I0MTAwKQ0KICAJICAgICogQnJvYWRjb20gQ2FibGUgTW9k
+ZW0gKHJlZmVyZW5jZSBkZXNpZ24pDQotCSAgICAqIFRvc2hpYmEgKFBDWDExMDBVIGFuZCBGMzUw
+N2cpDQorCSAgICAqIFRvc2hpYmEgKFBDWDExMDBVIGFuZCBGMzUwN2cvRjM2MDdndykNCiAJICAg
+ICogLi4uDQogDQogCSAgVGhpcyBkcml2ZXIgY3JlYXRlcyBhbiBpbnRlcmZhY2UgbmFtZWQgImV0
+aFgiLCB3aGVyZSBYIGRlcGVuZHMgb24gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3VzYi9jZGNf
+ZXRoZXIuYyBiL2RyaXZlcnMvbmV0L3VzYi9jZGNfZXRoZXIuYyBpbmRleCA0YTZhZmY1Li41ZDk5
+MTA2IDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvdXNiL2NkY19ldGhlci5jDQorKysgYi9kcml2
+ZXJzL25ldC91c2IvY2RjX2V0aGVyLmMNCkBAIC01NDQsMjAgKzU0NCw1NSBAQCBzdGF0aWMgY29u
+c3Qgc3RydWN0IHVzYl9kZXZpY2VfaWQJcHJvZHVjdHMgW10gPSB7DQogCQkJVVNCX0NEQ19TVUJD
+TEFTU19NRExNLCBVU0JfQ0RDX1BST1RPX05PTkUpLA0KIAkuZHJpdmVyX2luZm8gPSAodW5zaWdu
+ZWQgbG9uZykgJmNkY19pbmZvLCAgfSwgew0KLQkvKiBFcmljc3NvbiBGMzMwNyAqLw0KKwkvKiBF
+cmljc3NvbiBGMzYwN2d3IHZlciAyICovDQorCVVTQl9ERVZJQ0VfQU5EX0lOVEVSRkFDRV9JTkZP
+KDB4MGJkYiwgMHgxOTA1LCBVU0JfQ0xBU1NfQ09NTSwNCisJCQlVU0JfQ0RDX1NVQkNMQVNTX01E
+TE0sIFVTQl9DRENfUFJPVE9fTk9ORSksDQorCS5kcml2ZXJfaW5mbyA9ICh1bnNpZ25lZCBsb25n
+KSAmY2RjX2luZm8sIH0sIHsNCisJLyogRXJpY3Nzb24gRjM2MDdndyB2ZXIgMyAqLw0KIAlVU0Jf
+REVWSUNFX0FORF9JTlRFUkZBQ0VfSU5GTygweDBiZGIsIDB4MTkwNiwgVVNCX0NMQVNTX0NPTU0s
+DQogCQkJVVNCX0NEQ19TVUJDTEFTU19NRExNLCBVU0JfQ0RDX1BST1RPX05PTkUpLA0KIAkuZHJp
+dmVyX2luZm8gPSAodW5zaWduZWQgbG9uZykgJmNkY19pbmZvLCAgfSwgew0KKwkvKiBFcmljc3Nv
+biBGMzMwNyAqLw0KKwlVU0JfREVWSUNFX0FORF9JTlRFUkZBQ0VfSU5GTygweDBiZGIsIDB4MTkw
+YSwgVVNCX0NMQVNTX0NPTU0sDQorCQkJVVNCX0NEQ19TVUJDTEFTU19NRExNLCBVU0JfQ0RDX1BS
+T1RPX05PTkUpLA0KKwkuZHJpdmVyX2luZm8gPSAodW5zaWduZWQgbG9uZykgJmNkY19pbmZvLCB9
+LCB7DQorCS8qIEVyaWNzc29uIEYzMzA3IHZlciAyICovDQorCVVTQl9ERVZJQ0VfQU5EX0lOVEVS
+RkFDRV9JTkZPKDB4MGJkYiwgMHgxOTA5LCBVU0JfQ0xBU1NfQ09NTSwNCisJCQlVU0JfQ0RDX1NV
+QkNMQVNTX01ETE0sIFVTQl9DRENfUFJPVE9fTk9ORSksDQorCS5kcml2ZXJfaW5mbyA9ICh1bnNp
+Z25lZCBsb25nKSAmY2RjX2luZm8sIH0sIHsNCiAJLyogVG9zaGliYSBGMzUwN2cgKi8NCiAJVVNC
+X0RFVklDRV9BTkRfSU5URVJGQUNFX0lORk8oMHgwOTMwLCAweDEzMGIsIFVTQl9DTEFTU19DT01N
+LA0KIAkJCVVTQl9DRENfU1VCQ0xBU1NfTURMTSwgVVNCX0NEQ19QUk9UT19OT05FKSwNCiAJLmRy
+aXZlcl9pbmZvID0gKHVuc2lnbmVkIGxvbmcpICZjZGNfaW5mbywgIH0sIHsNCisJLyogVG9zaGli
+YSBGMzYwN2d3ICovDQorCVVTQl9ERVZJQ0VfQU5EX0lOVEVSRkFDRV9JTkZPKDB4MDkzMCwgMHgx
+MzBjLCBVU0JfQ0xBU1NfQ09NTSwNCisJCQlVU0JfQ0RDX1NVQkNMQVNTX01ETE0sIFVTQl9DRENf
+UFJPVE9fTk9ORSksDQorCS5kcml2ZXJfaW5mbyA9ICh1bnNpZ25lZCBsb25nKSAmY2RjX2luZm8s
+IH0sIHsNCisJLyogVG9zaGliYSBGMzYwN2d3IHZlciAyICovDQorCVVTQl9ERVZJQ0VfQU5EX0lO
+VEVSRkFDRV9JTkZPKDB4MDkzMCwgMHgxMzExLCBVU0JfQ0xBU1NfQ09NTSwNCisJCQlVU0JfQ0RD
+X1NVQkNMQVNTX01ETE0sIFVTQl9DRENfUFJPVE9fTk9ORSksDQorCS5kcml2ZXJfaW5mbyA9ICh1
+bnNpZ25lZCBsb25nKSAmY2RjX2luZm8sIH0sIHsNCiAJLyogRGVsbCBGMzUwN2cgKi8NCiAJVVNC
+X0RFVklDRV9BTkRfSU5URVJGQUNFX0lORk8oMHg0MTNjLCAweDgxNDcsIFVTQl9DTEFTU19DT01N
+LA0KIAkJCVVTQl9DRENfU1VCQ0xBU1NfTURMTSwgVVNCX0NEQ19QUk9UT19OT05FKSwNCiAJLmRy
+aXZlcl9pbmZvID0gKHVuc2lnbmVkIGxvbmcpICZjZGNfaW5mbywNCit9LCB7DQorCS8qIERlbGwg
+RjM2MDdndyAqLw0KKwlVU0JfREVWSUNFX0FORF9JTlRFUkZBQ0VfSU5GTygweDQxM2MsIDB4ODE4
+MywgVVNCX0NMQVNTX0NPTU0sDQorCQkJVVNCX0NEQ19TVUJDTEFTU19NRExNLCBVU0JfQ0RDX1BS
+T1RPX05PTkUpLA0KKwkuZHJpdmVyX2luZm8gPSAodW5zaWduZWQgbG9uZykgJmNkY19pbmZvLCB9
+LCB7DQorCS8qIERlbGwgRjM2MDdndyB2ZXIgMiAqLw0KKwlVU0JfREVWSUNFX0FORF9JTlRFUkZB
+Q0VfSU5GTygweDQxM2MsIDB4ODE4NCwgVVNCX0NMQVNTX0NPTU0sDQorCQkJVVNCX0NEQ19TVUJD
+TEFTU19NRExNLCBVU0JfQ0RDX1BST1RPX05PTkUpLA0KKwkuZHJpdmVyX2luZm8gPSAodW5zaWdu
+ZWQgbG9uZykgJmNkY19pbmZvLA0KIH0sDQogCXsgfSwJCS8vIEVORA0KIH07DQoNCg==
