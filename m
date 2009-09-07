@@ -1,183 +1,82 @@
-From: Sebastian Haas <haas@ems-wuensche.com>
-Subject: Re: Staging: cpc-usb CAN driver TODO list
-Date: Mon, 07 Sep 2009 13:06:39 +0200
-Message-ID: <4AA4E93F.90209@ems-wuensche.com>
-References: <4AA262CB.7060607@hartkopp.net> <4AA4A0A2.2070907@ems-wuensche.com> <4AA4B0C6.5080608@grandegger.com> <4AA4BDE6.7000707@ems-wuensche.com> <4AA4CB3F.3060200@grandegger.com> <4AA4DC09.8070803@hartkopp.net>
+From: Kurt Van Dijck <kurt.van.dijck@eia.be>
+Subject: Re: [PATCH 1/2] Add an alternative cs89x0 driver
+Date: Mon, 7 Sep 2009 14:35:54 +0200
+Message-ID: <20090907123554.GA2928@e-circ.dyndns.org>
+References: <1240387172-21818-1-git-send-email-s.hauer@pengutronix.de> <1240387172-21818-2-git-send-email-s.hauer@pengutronix.de> <20090826104634.GA14425@e-circ.dyndns.org> <20090907102434.GC31592@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wolfgang Grandegger <wg@grandegger.com>, Greg KH <greg@kroah.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Felipe Balbi <me@felipebalbi.com>
-To: Oliver Hartkopp <oliver@hartkopp.net>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Sascha Hauer <s.hauer@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ems-wuensche.com ([81.169.132.244]:56694 "EHLO
-	h559305.serverkompetenz.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752691AbZIGLGq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 07:06:46 -0400
-In-Reply-To: <4AA4DC09.8070803@hartkopp.net>
+Received: from gate.eia.be ([194.78.71.18]:47529 "EHLO mail.eia.be"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750928AbZIGMfz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Sep 2009 08:35:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20090907102434.GC31592@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Mon, Sep 07, 2009 at 12:24:34PM +0200, Sascha Hauer wrote:
+> Date: Mon, 7 Sep 2009 12:24:34 +0200
+> Subject: Re: [PATCH 1/2] Add an alternative cs89x0 driver
+> From: Sascha Hauer <s.hauer@pengutronix.de>
+> To: Kurt Van Dijck <kurt.van.dijck@eia.be>
+> Cc: netdev@vger.kernel.org
+> List-ID: <netdev.vger.kernel.org>
+> 
+> Hi Kurt,
+> 
+> On Wed, Aug 26, 2009 at 12:46:34PM +0200, Kurt Van Dijck wrote:
+> > Hi Sacha,
+> > 
+> > I'm using a 2.6.25.
+> > Converting to your platform_device based driver,
+> > I needed to configure the irq (see patch, irq flags).
+> > Looking in the old cs89x0.c, it's done in the driver. Should I have
+> > configured the irq level elsewhere? Or is this patch valid to do?
+> 
+> This is the way to go. I don't know if the cs89x0 has configurable
+> interrupt levels though.
+I haven't read any spec about cs89x0, but by looking in the existing
+code:
+1) IRQF_TRIGGER_HIGH seems like the default
+2) the old driver didn't do any irq config in the chip either.
+May I assume you were lucky testing the driver on a platform that had
+IRQF_TRIGGER_HIGH per default?
+I have it running (with patch) on a iMX31 (arm)
 
-Okay, thanks for the tips. Lets see what I can create today.
-
-Sebastian
-
-Oliver Hartkopp schrieb:
-> Wolfgang Grandegger wrote:
->> On 09/07/2009 10:01 AM, Sebastian Haas wrote:
->>> -----BEGIN PGP SIGNED MESSAGE-----
->>> Hash: SHA1
->>>
->>> Wolfgang,
->>>
->>> Wolfgang Grandegger schrieb:
->>>> Hi Sebastian,
->>>>
->>>> On 09/07/2009 07:56 AM, Sebastian Haas wrote:
->>>>> -----BEGIN PGP SIGNED MESSAGE-----
->>>>> Hash: SHA1
->>>>>
->>>>> Oliver,
->>>>>
->>>>> I'm not yet sure how to actually start the development. There is so
->>>>> much
->>>>> to do, and I've not much time to spend on this, unfortunately. Because
->>>>> of this I can't rewrite the whole driver on my own in order to get a
->>>>> Socket-CAN driver but I can provide support, review patches, rent
->>>>> devices and make tests here.
->>>>>
->>>>> Oliver, you are not familiar with USB and I'm not very familiar with
->>>>> CAN
->>>>> netdev internals, why not combining these twos. You are writing the CAN
->>>>> part and write the USB part.
->>>>>
->>>>> I'll also write a specification which contains any information you need
->>>>> to develop a CAN driver for the device (commands, sequences, error
->>>>> handling).
->>>> Alternatively, EMS Wuensche could also hire an expert doing the job ;-).
->>>> Note that we do a lot of Socket-CAN work in our free time, which is a
->>>> limited resource. Progress depends on funding to a certain extend.
->>> Money is also a limited resource. ;-)
->>>
->>> Let's become serious again, I know and respect that many of Socket-CAN
->>> and the Staging developers spend their free time working on it. We will
->>> of course work on the driver, but since we've not much time it may take
->>> several months. If someone wants to help, we would be very glad and
->>> happy to support the person as far as we can with devices, answers and
->>> tests.
->> OK, no problem. I really appreciate your support for Socket-CAN so far.
+Kurt
 > 
-> Indeed. Me too.
+> Sascha
 > 
-> I tried to take a second look into cpc-usb_drv.c and i would suggest to remove
-> all the procfs and the chardev stuff and then create a CAN netdev when you
-> identified an USB node analogue to
+> > 
+> > Kurt
+> > 
+> > Signed-off-by: Kurt Van Dijck <kurt.van.dijck@eia.be>
+> > ---
+> > Index: drivers/net/cirrus-cs89x0.c
+> > ===================================================================
+> > --- drivers/net/cirrus-cs89x0.c	(revision 7107)
+> > +++ drivers/net/cirrus-cs89x0.c	(working copy)
+> > @@ -487,7 +487,8 @@
+> >         }
+> >  
+> >         /* install interrupt handler */
+> > -       result = request_irq(ndev->irq, &cirrus_interrupt, 0, ndev->name, ndev);
+> > +       result = request_irq(ndev->irq, &cirrus_interrupt,
+> > +			IRQF_TRIGGER_HIGH, ndev->name, ndev);
+> >         if (result < 0) {
+> >                 printk(KERN_ERR "%s: could not register interrupt %d\n",
+> >                        ndev->name, ndev->irq);
+> > 
 > 
->         /* Detect available channels */
->         for (i = 0; i < EMS_PCMCIA_MAX_CHAN; i++) {
->                 dev = alloc_sja1000dev(0);
->                 if (dev == NULL) {
->                         err = -ENOMEM;
->                         goto failure_cleanup;
->                 }
-> 
->                 card->net_dev[i] = dev;
->                 priv = netdev_priv(dev);
->                 priv->priv = card;
->                 SET_NETDEV_DEV(dev, &pdev->dev);
-> 
-> as you know from your ems_pcmcia.c driver
-> 
-> and
-> 
-> struct net_device *alloc_sja1000dev(int sizeof_priv)
-> {
->         struct net_device *dev;
->         struct sja1000_priv *priv;
-> 
->         dev = alloc_candev(sizeof(struct sja1000_priv) + sizeof_priv);
->         if (!dev)
->                 return NULL;
-> 
->         priv = netdev_priv(dev);
-> 
->         priv->dev = dev;
->         priv->can.bittiming_const = &sja1000_bittiming_const;
->         priv->can.do_set_bittiming = sja1000_set_bittiming;
->         priv->can.do_set_mode = sja1000_set_mode;
-> 
->         if (sizeof_priv)
->                 priv->priv = (void *)priv + sizeof(struct sja1000_priv);
-> 
->         return dev;
-> }
-> 
-> as you know from the sja1000.c (which can probably be used for the
-> LPC2119_PRODUCT_ID we should try to implement first).
-> 
-> Then we need something like this stuff
-> 
-> static const struct net_device_ops sja1000_netdev_ops = {
->         .ndo_open               = sja1000_open,
->         .ndo_stop               = sja1000_close,
->         .ndo_start_xmit         = sja1000_start_xmit,
-> };
-> 
-> int register_sja1000dev(struct net_device *dev)
-> {
->         if (!sja1000_probe_chip(dev))
->                 return -ENODEV;
-> 
->         dev->netdev_ops = &sja1000_netdev_ops;
-> 
->         dev->flags |= IFF_ECHO; /* we support local echo */
-> 
->         set_reset_mode(dev);
->         chipset_init(dev);
-> 
->         return register_candev(dev);
-> }
-> 
-> from sja1000.c
-> 
-> And then we have an USB CAN node that has a belonging CAN netdevice (maybe
-> there is something else we can look at that's used in other USB ethernet
-> adapters).
-> 
-> I know from the PEAK USB driver at
-> 
-> http://www.peak-system.com/fileadmin/media/linux/files/peak-linux-driver.6.11.tar.gz
-> 
-> that i just needed to duplicate and modify the usb rx/tx stuff and redirect
-> the CAN frames into the network stack. But this PEAK driver does not have a
-> netlink configuration interface and can only be taken as a limited example ...
-> 
-> I assume, when the driver (cpc_usb.c or ems_usb.c analogue to the ems_pcmcia.c
-> ?) is prepared as described above, one can go and connect the rx/tx dataflow
-> and the netlink configuration.
-> 
-> Unfortunately i'm short of time the next two weeks but maybe you can start and
-> create such a new C-file (probably based on ems_pcmcia.c) ?
-> 
-> Best regards,
-> Oliver
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iEYEARECAAYFAkqk6TcACgkQpqRB8PJG7XzpQACePuMXFX6pSg7EyssTNnDfVomv
-Lm0AnA7WKWLHfRny2iF5krEaT966WmPJ
-=07pa
------END PGP SIGNATURE-----
--- 
-EMS Dr. Thomas Wuensche e.K.
-Sonnenhang 3
-85304 Ilmmuenster
-HRA Neuburg a.d. Donau, HR-Nr. 70.106
-Phone: +49-8441-490260
-Fax  : +49-8441-81860
-http://www.ems-wuensche.com
+> -- 
+> Pengutronix e.K.                           |                             |
+> Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+> Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+> Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
