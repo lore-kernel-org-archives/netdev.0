@@ -1,147 +1,125 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: net_sched 07/07: add classful multiqueue dummy scheduler
-Date: Mon, 07 Sep 2009 15:27:37 +0200
-Message-ID: <4AA50A49.7010905@trash.net>
-References: <20090906200409.GB8833@ami.dom.local>
+Subject: Re: net_sched 00/07: classful multiqueue dummy scheduler
+Date: Mon, 07 Sep 2009 16:23:27 +0200
+Message-ID: <4AA5175F.6030600@trash.net>
+References: <20090904164111.27300.29929.sendpatchset@x2.localnet>	<4AA14377.9020200@trash.net> <20090907.015039.154939751.davem@davemloft.net> <4AA503E4.2060504@gmail.com> <4AA50ACF.9010400@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: multipart/mixed;
+ boundary="------------070106020708090303040102"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34043 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:35285 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750970AbZIGN1j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 09:27:39 -0400
-In-Reply-To: <20090906200409.GB8833@ami.dom.local>
+	with ESMTP id S1753149AbZIGOX2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 10:23:28 -0400
+In-Reply-To: <4AA50ACF.9010400@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
->>  struct Qdisc_class_ops
->>  {
->>  	/* Child qdisc manipulation */
->> +	unsigned int		(*select_queue)(struct Qdisc *, struct tcmsg *);
->>  	int			(*graft)(struct Qdisc *, unsigned long cl,
->>  					struct Qdisc *, struct Qdisc **);
->>  	struct Qdisc *		(*leaf)(struct Qdisc *, unsigned long cl);
->> @@ -122,6 +123,7 @@ struct Qdisc_ops
->>  	void			(*reset)(struct Qdisc *);
->>  	void			(*destroy)(struct Qdisc *);
->>  	int			(*change)(struct Qdisc *, struct nlattr *arg);
->> +	void			(*attach)(struct Qdisc *);
+This is a multi-part message in MIME format.
+--------------070106020708090303040102
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+
+Patrick McHardy wrote:
+> Eric Dumazet wrote:
+>> Had very litle time to test this, but got problems very fast, if rate estimator configured.
 > 
-> Probably it's a matter of taste, but I wonder why these two methods
-> used only by one qdisc in max 2 places can't be functions instead
-> (maybe even static in case of select_queue)? (And this mq sched could
-> be tested with some flag instead of ->attach, I guess.)
-
-Yes, we could also use normal functions. Either way is fine with me.
-
->> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
->> index d71f12b..2a78d54 100644
->> --- a/net/sched/sch_api.c
->> +++ b/net/sched/sch_api.c
->> @@ -678,6 +678,11 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
->>  		if (dev->flags & IFF_UP)
->>  			dev_deactivate(dev);
->>  
->> +		if (new && new->ops->attach) {
->> +			new->ops->attach(new);
->> +			num_q = 0;
->> +		}
->> +
+> I didn't test that, but I'll look into it.
 > 
-> Actually, I wonder if it's not cleaner to let replace all qdiscs with
-> noops below like in qdisc delete case, and do this attaching in one
-> place only (dev_activate).
-
-I don't think that would work since dev_activate() allocates its own
-qdiscs, which use different handles than those specified by userspace.
-We also need the new qdisc for notifications. It would be a nice
-cleanup however if you can make it work.
-
->> @@ -1095,10 +1100,16 @@ create_n_graft:
->>  		q = qdisc_create(dev, &dev->rx_queue,
->>  				 tcm->tcm_parent, tcm->tcm_parent,
->>  				 tca, &err);
->> -	else
->> -		q = qdisc_create(dev, netdev_get_tx_queue(dev, 0),
->> +	else {
->> +		unsigned int ntx = 0;
->> +
->> +		if (p && p->ops->cl_ops && p->ops->cl_ops->select_queue)
->> +			ntx = p->ops->cl_ops->select_queue(p, tcm);
+>> qdisc mq 1: root
+>>  Sent 528702 bytes 3491 pkt (dropped 0, overlimits 0 requeues 0)
+>>  rate 177925Kbit 49pps backlog 0b 0p requeues 0
+>> qdisc pfifo 8001: parent 1:1 limit 1000p
+>>  Sent 528702 bytes 3491 pkt (dropped 0, overlimits 0 requeues 0)
+>>  rate 25400bit 21pps backlog 0b 0p requeues 0
+>>
+>> <<<crash>>>
 > 
-> So, this if could be probably made shorter with a common function, but
-> the main point is: this probably works only for qdiscs having mq as a
-> parent, and not below.
-
-Yes. mq can only be attached to the root however, so its not
-possible to use it as a child qdisc.
-
->> +static int mq_init(struct Qdisc *sch, struct nlattr *opt)
->> +{
->> +	struct net_device *dev = qdisc_dev(sch);
->> +	struct mq_sched *priv = qdisc_priv(sch);
->> +	struct netdev_queue *dev_queue;
->> +	struct Qdisc *qdisc;
->> +	unsigned int ntx;
->> +
->> +	if (sch->parent != TC_H_ROOT)
->> +		return -EOPNOTSUPP;
->> +
->> +	if (!netif_is_multiqueue(dev))
->> +		return -EOPNOTSUPP;
->> +
->> +	/* pre-allocate qdiscs, attachment can't fail */
->> +	priv->qdiscs = kcalloc(dev->num_tx_queues, sizeof(priv->qdiscs[0]),
->> +			       GFP_KERNEL);
+> Did you capture the crash?
 > 
-> I guess we could avoid this at all or at least to do it in one step with
-> current ->attach.
-
-It seemed easier this way, but I don't care much where its done exactly.
-
->> +	if (priv->qdiscs == NULL)
->> +		return -ENOMEM;
->> +
->> +	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
->> +		dev_queue = netdev_get_tx_queue(dev, ntx);
->> +		qdisc = qdisc_create_dflt(dev, dev_queue, &pfifo_fast_ops,
->> +					  TC_H_MAKE(TC_H_MAJ(sch->handle),
->> +						    TC_H_MIN(ntx + 1)));
+>> (On another term I had a "ping -i 0.1 192.168.20.120" that gave :
+>>
+>> 2009/08/07 14:53:42.498 64 bytes from 192.168.20.120: icmp_seq=1982 ttl=64 time=0.126 ms
+>> 2009/08/07 14:53:42.598 64 bytes from 192.168.20.120: icmp_seq=1983 ttl=64 time=0.118 ms
+>> 2009/08/07 14:53:42.698 64 bytes from 192.168.20.120: icmp_seq=1984 ttl=64 time=0.114 ms
+>> 2009/08/07 14:53:42.798 64 bytes from 192.168.20.120: icmp_seq=1985 ttl=64 time=0.123 ms
+>> 2009/08/07 14:53:42.898 64 bytes from 192.168.20.120: icmp_seq=1986 ttl=64 time=0.126 ms
+>> 2009/08/07 14:53:42.998 64 bytes from 192.168.20.120: icmp_seq=1987 ttl=64 time=0.119 ms
+>> 2009/08/07 14:53:43.098 64 bytes from 192.168.20.120: icmp_seq=1988 ttl=64 time=0.122 ms
+>> 2009/08/07 14:53:43.198 64 bytes from 192.168.20.120: icmp_seq=1989 ttl=64 time=0.119 ms
+>> 2009/08/07 14:53:43.298 64 bytes from 192.168.20.120: icmp_seq=1990 ttl=64 time=0.117 ms
+>> 2009/08/07 14:53:43.398 64 bytes from 192.168.20.120: icmp_seq=1991 ttl=64 time=0.117 ms
+>> ping: sendmsg: No buffer space available
 > 
-> As I wrote in 05/07 comment, I wonder if we really can't achieve this
-> with old TC_H_ROOT parentid, and maybe some mapping while dumping to
-> the userspace only.
+> Was this also with rate estimators? No buffer space available
+> indicates that some class/qdisc isn't dequeued or the packets
+> are leaking, so the output of tc -s -d qdisc show ... might be
+> helpful.
 
-I don't see the advantage.
+I figured out the bug, which is likely responsible for both
+problems. When grafting a mq class and creating a rate estimator,
+the new qdisc is not attached to the device queue yet and also
+doesn't have TC_H_ROOT as parent, so qdisc_create() selects
+qdisc_root_sleeping_lock() for the estimator, which belongs to
+the qdisc that is getting replaced.
 
-> Another possibility would be considering a new
-> kind of root (mqroot?) to tell precisely, where a new qdisc should be
-> added.
+This is a patch I used for testing, but I'll come up with
+something more elegant (I hope) as a final fix :)
 
-That's what mq is doing.
 
->> +static int mq_dump(struct Qdisc *sch, struct sk_buff *skb)
->> +{
->> +	struct net_device *dev = qdisc_dev(sch);
->> +	struct Qdisc *qdisc;
->> +	unsigned int ntx;
->> +
->> +	sch->q.qlen = 0;
->> +	memset(&sch->bstats, 0, sizeof(sch->bstats));
->> +	memset(&sch->qstats, 0, sizeof(sch->qstats));
->> +
->> +	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
->> +		qdisc = netdev_get_tx_queue(dev, ntx)->qdisc_sleeping;
->> +		spin_lock_bh(qdisc_lock(qdisc));
->> +		sch->q.qlen		+= qdisc->q.qlen;
->> +		sch->bstats.bytes	+= qdisc->bstats.bytes;
->> +		sch->bstats.packets	+= qdisc->bstats.packets;
->> +		sch->qstats.qlen	+= qdisc->qstats.qlen;
-> 
-> Like in Christoph's case, we should probably use q.qlen instead.
 
-Its done a few lines above. This simply sums up all members of qstats.
+--------------070106020708090303040102
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 2a78d54..428eb34 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -732,7 +732,8 @@ static struct lock_class_key qdisc_rx_lock;
+  */
+ 
+ static struct Qdisc *
+-qdisc_create(struct net_device *dev, struct netdev_queue *dev_queue,
++qdisc_create(struct net_device *dev, struct Qdisc *p,
++	     struct netdev_queue *dev_queue,
+ 	     u32 parent, u32 handle, struct nlattr **tca, int *errp)
+ {
+ 	int err;
+@@ -810,8 +811,9 @@ qdisc_create(struct net_device *dev, struct netdev_queue *dev_queue,
+ 		if (tca[TCA_RATE]) {
+ 			spinlock_t *root_lock;
+ 
+-			if ((sch->parent != TC_H_ROOT) &&
+-			    !(sch->flags & TCQ_F_INGRESS))
++			if (((sch->parent != TC_H_ROOT) &&
++			     !(sch->flags & TCQ_F_INGRESS)) &&
++			    (!p || !p->ops->attach))
+ 				root_lock = qdisc_root_sleeping_lock(sch);
+ 			else
+ 				root_lock = qdisc_lock(sch);
+@@ -1097,7 +1099,7 @@ create_n_graft:
+ 	if (!(n->nlmsg_flags&NLM_F_CREATE))
+ 		return -ENOENT;
+ 	if (clid == TC_H_INGRESS)
+-		q = qdisc_create(dev, &dev->rx_queue,
++		q = qdisc_create(dev, p, &dev->rx_queue,
+ 				 tcm->tcm_parent, tcm->tcm_parent,
+ 				 tca, &err);
+ 	else {
+@@ -1106,7 +1108,7 @@ create_n_graft:
+ 		if (p && p->ops->cl_ops && p->ops->cl_ops->select_queue)
+ 			ntx = p->ops->cl_ops->select_queue(p, tcm);
+ 
+-		q = qdisc_create(dev, netdev_get_tx_queue(dev, ntx),
++		q = qdisc_create(dev, p, netdev_get_tx_queue(dev, ntx),
+ 				 tcm->tcm_parent, tcm->tcm_handle,
+ 				 tca, &err);
+ 	}
+
+--------------070106020708090303040102--
