@@ -1,40 +1,62 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: net_sched 05/07: reintroduce dev->qdisc for use by sch_api
-Date: Mon, 07 Sep 2009 15:16:29 +0200
-Message-ID: <4AA507AD.6000403@trash.net>
-References: <20090906185757.GA8833@ami.dom.local>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH 1/2] Add an alternative cs89x0 driver
+Date: Mon, 7 Sep 2009 15:21:31 +0200
+Message-ID: <20090907132131.GA25789@pengutronix.de>
+References: <1240387172-21818-1-git-send-email-s.hauer@pengutronix.de> <1240387172-21818-2-git-send-email-s.hauer@pengutronix.de> <20090826104634.GA14425@e-circ.dyndns.org> <20090907102434.GC31592@pengutronix.de> <20090907123554.GA2928@e-circ.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+To: Kurt Van Dijck <kurt.van.dijck@eia.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33835 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751050AbZIGNQa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 09:16:30 -0400
-In-Reply-To: <20090906185757.GA8833@ami.dom.local>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:37002 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751462AbZIGNV3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 09:21:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20090907123554.GA2928@e-circ.dyndns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
->> @@ -1383,7 +1375,7 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
->>  			pid = TC_H_MAKE(qid, pid);
->>  	} else {
->>  		if (qid == 0)
->> -			qid = dev_queue->qdisc_sleeping->handle;
->> +			qid = dev->qdisc->handle;
-> 
-> Probably I miss something, but in mq root case it seems to never do
-> anything we need. If so, it could be the example of possible issues
-> elsewhere.
+On Mon, Sep 07, 2009 at 02:35:54PM +0200, Kurt Van Dijck wrote:
+> On Mon, Sep 07, 2009 at 12:24:34PM +0200, Sascha Hauer wrote:
+> > Date: Mon, 7 Sep 2009 12:24:34 +0200
+> > Subject: Re: [PATCH 1/2] Add an alternative cs89x0 driver
+> > From: Sascha Hauer <s.hauer@pengutronix.de>
+> > To: Kurt Van Dijck <kurt.van.dijck@eia.be>
+> > Cc: netdev@vger.kernel.org
+> > List-ID: <netdev.vger.kernel.org>
+> > 
+> > Hi Kurt,
+> > 
+> > On Wed, Aug 26, 2009 at 12:46:34PM +0200, Kurt Van Dijck wrote:
+> > > Hi Sacha,
+> > > 
+> > > I'm using a 2.6.25.
+> > > Converting to your platform_device based driver,
+> > > I needed to configure the irq (see patch, irq flags).
+> > > Looking in the old cs89x0.c, it's done in the driver. Should I have
+> > > configured the irq level elsewhere? Or is this patch valid to do?
+> > 
+> > This is the way to go. I don't know if the cs89x0 has configurable
+> > interrupt levels though.
+> I haven't read any spec about cs89x0, but by looking in the existing
+> code:
+> 1) IRQF_TRIGGER_HIGH seems like the default
+> 2) the old driver didn't do any irq config in the chip either.
+> May I assume you were lucky testing the driver on a platform that had
+> IRQF_TRIGGER_HIGH per default?
+> I have it running (with patch) on a iMX31 (arm)
 
-Sorry, I'm not sure what you're saying ..
+I tested it with an i.MX1. Looking at the code it seems that
+__irq_set_trigger is only called if one of the trigger mask bits is set.
+So the interrupt control registers are never touched when 0 is passed as
+irq flags. The reset default for i.MX is rising edge.
 
-> I thought this mq virtual root qdisc could be done more transparently
-> and invisible for the current code, but it seems, in your
-> implementation some pointers like this, or parent ids (especially
-> TC_H_ROOT) might be different, and even if it works OK, needs a lot of
-> verification. So, my question is, if it's really necessary.
+Sascha
 
-Same here.
+
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
