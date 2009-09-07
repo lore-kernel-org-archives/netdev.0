@@ -1,48 +1,56 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: net_sched 07/07: add classful multiqueue dummy scheduler
-Date: Mon, 7 Sep 2009 20:22:20 +0200
-Message-ID: <20090907182220.GB4451@ami.dom.local>
-References: <20090906200409.GB8833@ami.dom.local>
- <4AA50A49.7010905@trash.net>
+From: Karsten Keil <isdn@linux-pingi.de>
+Subject: Re: [PATCH 00/12] Gigaset driver patches for 2.6.32
+Date: Mon, 7 Sep 2009 20:56:48 +0200
+Message-ID: <200909072056.49437.isdn@linux-pingi.de>
+References: <20090906-patch-gigaset-00.tilman@imap.cc> <4AA4CE49.7040501@imap.cc> <20090907.021808.57016299.davem@davemloft.net>
+Reply-To: isdn@linux-pingi.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: tilman@imap.cc, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
+	hjlipp@web.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f217.google.com ([209.85.220.217]:58811 "EHLO
-	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752305AbZIGSWh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 14:22:37 -0400
-Received: by fxm17 with SMTP id 17so2148495fxm.37
-        for <netdev@vger.kernel.org>; Mon, 07 Sep 2009 11:22:39 -0700 (PDT)
+Received: from moutng.kundenserver.de ([212.227.126.187]:52711 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753376AbZIGS4u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 14:56:50 -0400
+In-Reply-To: <20090907.021808.57016299.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <4AA50A49.7010905@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 07, 2009 at 03:27:37PM +0200, Patrick McHardy wrote:
-> Jarek Poplawski wrote:
-...
-> >> @@ -1095,10 +1100,16 @@ create_n_graft:
-> >>  		q = qdisc_create(dev, &dev->rx_queue,
-> >>  				 tcm->tcm_parent, tcm->tcm_parent,
-> >>  				 tca, &err);
-> >> -	else
-> >> -		q = qdisc_create(dev, netdev_get_tx_queue(dev, 0),
-> >> +	else {
-> >> +		unsigned int ntx = 0;
-> >> +
-> >> +		if (p && p->ops->cl_ops && p->ops->cl_ops->select_queue)
-> >> +			ntx = p->ops->cl_ops->select_queue(p, tcm);
-> > 
-> > So, this if could be probably made shorter with a common function, but
-> > the main point is: this probably works only for qdiscs having mq as a
-> > parent, and not below.
-> 
-> Yes. mq can only be attached to the root however, so its not
-> possible to use it as a child qdisc.
+On Montag, 7. September 2009 11:18:08 David Miller wrote:
+> From: Tilman Schmidt <tilman@imap.cc>
+> Date: Mon, 07 Sep 2009 11:11:37 +0200
+>
+> > David Miller schrieb:
+> >> From: Tilman Schmidt <tilman@imap.cc>
+> >> Date: Sun,  6 Sep 2009 20:58:52 +0200 (CEST)
+> >>
+> >>> Would you please take these into your net tree for 2.6.32.
+> >>
+> >> So do we have an ISDN maintainer or not?
+> >>
+> >> If Karsten is still maintaining things, your work should
+> >> go through him not me.
+> >
+> > Last atime I asked, you said me you would take ISDN patches.
+> > Could you two please sort this out?
+>
+> Sure.
+>
+> Karsten, are you going to handle ISDN and ISDN driver patches
+> and queue them up to me?
+>
 
-I mean this ->select_queue() works OK for a child qdisc of mq, e.g.
-htb, but not for a child qdisc of this htb qdisc, e.g. sfq.
+Yes, I will  put them in my git tree after review and give you a ping.
 
-Jarek P.
+> > I am just a humble driver maintainer knowing nothing about
+> > maintainer politics.
+>
+> Understood.
+
+
