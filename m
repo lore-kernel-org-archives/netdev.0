@@ -1,45 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/12] Gigaset driver patches for 2.6.32
-Date: Mon, 07 Sep 2009 02:18:08 -0700 (PDT)
-Message-ID: <20090907.021808.57016299.davem@davemloft.net>
-References: <20090906-patch-gigaset-00.tilman@imap.cc>
-	<20090907.020038.248900438.davem@davemloft.net>
-	<4AA4CE49.7040501@imap.cc>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: net_sched 00/07: classful multiqueue dummy scheduler
+Date: Mon, 7 Sep 2009 09:46:21 +0000
+Message-ID: <20090907094621.GB5966@ff.dom.local>
+References: <20090907.015039.154939751.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	i4ldeveloper@listserv.isdn4linux.de, hjlipp@web.de,
-	isdn@linux-pingi.de
-To: tilman@imap.cc
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751787AbZIGJRy@vger.kernel.org>
-In-Reply-To: <4AA4CE49.7040501@imap.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:44584 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752491AbZIGJqY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 05:46:24 -0400
+Received: by bwz19 with SMTP id 19so1455938bwz.37
+        for <netdev@vger.kernel.org>; Mon, 07 Sep 2009 02:46:25 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20090907.015039.154939751.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tilman Schmidt <tilman@imap.cc>
-Date: Mon, 07 Sep 2009 11:11:37 +0200
-
-> David Miller schrieb:
->> From: Tilman Schmidt <tilman@imap.cc>
->> Date: Sun,  6 Sep 2009 20:58:52 +0200 (CEST)
->> 
->>> Would you please take these into your net tree for 2.6.32.
->> 
->> So do we have an ISDN maintainer or not?
->> 
->> If Karsten is still maintaining things, your work should
->> go through him not me.
+On 07-09-2009 10:50, David Miller wrote:
+> I gave these patches a very basic bashing with NIU, and it
+> seems to work from what I've tried.
 > 
-> Last atime I asked, you said me you would take ISDN patches.
-> Could you two please sort this out?
+> I know that Jarek has expressed some questions about the callback
+> scheme used by the new mq classful qdisc, as well as some other
+> issues, but we can refine this using followon patches.
+> 
+> For now I'm pushing this out so that it gets wider testing.
 
-Sure.
+Sure, it should make the further discussion easier (at least until
+a new backward compatibilty starts to matter ;-).
 
-Karsten, are you going to handle ISDN and ISDN driver patches
-and queue them up to me?
-
-> I am just a humble driver maintainer knowing nothing about
-> maintainer politics.
-
-Understood.
+Thanks,
+Jarek P.
