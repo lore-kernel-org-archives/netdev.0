@@ -1,41 +1,79 @@
-From: Daniel Walker <dwalker@fifo99.com>
-Subject: Re: [PATCH 00/12] Gigaset driver patches for 2.6.32
-Date: Sun, 06 Sep 2009 18:26:46 -0700
-Message-ID: <1252286806.2139.1.camel@desktop>
-References: <20090906-patch-gigaset-00.tilman@imap.cc>
+From: Toru UCHIYAMA <uchiyama.toru@jp.fujitsu.com>
+Subject: Re: 2.6.31-rc9 breaks gianfar
+Date: Mon, 07 Sep 2009 12:21:42 +0900
+Message-ID: <4AA47C46.8070900@jp.fujitsu.com>
+References: <20090906072707.GA5699@trillian.comsick.at> <20090906.014131.78926800.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
-	Hansjoerg Lipp <hjlipp@web.de>
-To: Tilman Schmidt <tilman@imap.cc>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758562AbZIGB0m@vger.kernel.org>
-In-Reply-To: <20090906-patch-gigaset-00.tilman@imap.cc>
+Cc: mike@it-loops.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758841AbZIGDWl@vger.kernel.org>
+In-Reply-To: <20090906.014131.78926800.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2009-09-06 at 20:58 +0200, Tilman Schmidt wrote:
-> Dave,
-> 
-> following is a series of patches for the Gigaset driver which I would
-> appreciate getting merged into kernel release 2.6.32.
-> 
-> The first one is a bugfix I had already submitted for 2.6.31 but which
-> seems to have fallen through the cracks. Please disregard if it's
-> already present your tree.
-> 
-> The next eight patches provide various small bugfixes, error handling
-> and documentation improvements.
-> 
-> The final three patches add an alternative interface to the driver,
-> connecting to the Kernel CAPI subsystem instead of the obsolescent
-> ISDN4Linux subsystem. They have been presented on the i4ldeveloper
-> mailing list and didn't draw any protests. (In fact, no comments at
-> all. I'm determined to take that as a positive sign.)
-> 
-> Would you please take these into your net tree for 2.6.32.
+Hi David,
 
-patches 6,7,10, and 12 all have checkpatch errors. Could you fix those? 
+I'm sorry.It was my mistake.
+I will note that it is not never in the future.
+Thank you for the correction.
 
-Daniel
+
+> From: Michael Guntsche <mike@it-loops.com>
+> Date: Sun, 6 Sep 2009 09:27:08 +0200
+> 
+> Please also report networking bugs to netdev@vger.kernel.org
+> and CC: the person who commited the problematic commit.
+> 
+>> Commit 
+>> 38bddf04bcfe661fbdab94888c3b72c32f6873b3 gianfar: gfar_remove needs to call unregister_netdev()
+>>
+>> breaks the build of the gianfar driver because "dev" is undefined in
+>> this function. To quickly test rc9 I changed this to priv->ndev but I do
+>> not know if this is the correct one.
+> 
+> Toru-chan, did you even compile test this again current kernels?
+> 
+> I'll commit the following fix and push it to Linus, thanks.
+> 
+>>From 5db8bfee2dbb3ff28c18868081398fa6e2155053 Mon Sep 17 00:00:00 2001
+> From: David S. Miller <davem@davemloft.net>
+> Date: Sun, 6 Sep 2009 01:41:02 -0700
+> Subject: [PATCH] gianfar: Fix build.
+> 
+> Reported by Michael Guntsche <mike@it-loops.com>
+> 
+> --------------------
+> Commit
+> 38bddf04bcfe661fbdab94888c3b72c32f6873b3 gianfar: gfar_remove needs to call unregister_netdev()
+> 
+> breaks the build of the gianfar driver because "dev" is undefined in
+> this function. To quickly test rc9 I changed this to priv->ndev but I do
+> not know if this is the correct one.
+> --------------------
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  drivers/net/gianfar.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+> index 24f7ca5..a00ec63 100644
+> --- a/drivers/net/gianfar.c
+> +++ b/drivers/net/gianfar.c
+> @@ -491,7 +491,7 @@ static int gfar_remove(struct of_device *ofdev)
+>  
+>  	dev_set_drvdata(&ofdev->dev, NULL);
+>  
+> -	unregister_netdev(dev);
+> +	unregister_netdev(priv->ndev);
+>  	iounmap(priv->regs);
+>  	free_netdev(priv->ndev);
+>  
+
+
+-- 
+-----------------------------------------------
+Toru UCHIYAMA      uchiyama.toru@jp.fujitsu.com
