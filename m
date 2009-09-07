@@ -1,34 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] WAN: remove deprecated PCI_DEVICE_ID from PCI200SYN
- driver.
-Date: Mon, 07 Sep 2009 01:58:37 -0700 (PDT)
-Message-ID: <20090907.015837.121897315.davem@davemloft.net>
-References: <m363byk3af.fsf@intrepid.localdomain>
-	<m3ljktek61.fsf@intrepid.localdomain>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: Staging: cpc-usb CAN driver TODO list
+Date: Mon, 07 Sep 2009 10:58:39 +0200
+Message-ID: <4AA4CB3F.3060200@grandegger.com>
+References: <4AA262CB.7060607@hartkopp.net> <4AA4A0A2.2070907@ems-wuensche.com> <4AA4B0C6.5080608@grandegger.com> <4AA4BDE6.7000707@ems-wuensche.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: khc@pm.waw.pl
+Cc: Oliver Hartkopp <oliver@hartkopp.net>, Greg KH <greg@kroah.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Felipe Balbi <me@felipebalbi.com>
+To: Sebastian Haas <haas@ems-wuensche.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36953
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752485AbZIGI6V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 04:58:21 -0400
-In-Reply-To: <m3ljktek61.fsf@intrepid.localdomain>
+Received: from mail-out.m-online.net ([212.18.0.9]:44974 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752470AbZIGI6o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 04:58:44 -0400
+In-Reply-To: <4AA4BDE6.7000707@ems-wuensche.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Date: Sat, 05 Sep 2009 12:54:30 +0200
+On 09/07/2009 10:01 AM, Sebastian Haas wrote:
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
+>
+> Wolfgang,
+>
+> Wolfgang Grandegger schrieb:
+>> Hi Sebastian,
+>>
+>> On 09/07/2009 07:56 AM, Sebastian Haas wrote:
+>>> -----BEGIN PGP SIGNED MESSAGE-----
+>>> Hash: SHA1
+>>>
+>>> Oliver,
+>>>
+>>> I'm not yet sure how to actually start the development. There is so much
+>>> to do, and I've not much time to spend on this, unfortunately. Because
+>>> of this I can't rewrite the whole driver on my own in order to get a
+>>> Socket-CAN driver but I can provide support, review patches, rent
+>>> devices and make tests here.
+>>>
+>>> Oliver, you are not familiar with USB and I'm not very familiar with CAN
+>>> netdev internals, why not combining these twos. You are writing the CAN
+>>> part and write the USB part.
+>>>
+>>> I'll also write a specification which contains any information you need
+>>> to develop a CAN driver for the device (commands, sequences, error
+>>> handling).
+>>
+>> Alternatively, EMS Wuensche could also hire an expert doing the job ;-).
+>> Note that we do a lot of Socket-CAN work in our free time, which is a
+>> limited resource. Progress depends on funding to a certain extend.
+> Money is also a limited resource. ;-)
+>
+> Let's become serious again, I know and respect that many of Socket-CAN
+> and the Staging developers spend their free time working on it. We will
+> of course work on the driver, but since we've not much time it may take
+> several months. If someone wants to help, we would be very glad and
+> happy to support the person as far as we can with devices, answers and
+> tests.
 
-> PCI200SYN has its own PCI subsystem device ID for 3+ years, now it's
-> time to remove the generic PLX905[02] ID from the driver. Anyone with
-> old EEPROM data will have to run the upgrade.
-> 
-> Having the generic PLX905[02] (PCI-local bus bridge) ID is harmful
-> as the driver tries to handle other devices based on these bridges.
-> 
-> Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
+OK, no problem. I really appreciate your support for Socket-CAN so far.
 
-Applied to net-next-2.6, thanks.
+Thanks,
+
+Wolfgang.
