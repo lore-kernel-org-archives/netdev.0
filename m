@@ -1,82 +1,82 @@
-From: Kurt Van Dijck <kurt.van.dijck@eia.be>
-Subject: Re: [PATCH 1/2] Add an alternative cs89x0 driver
-Date: Mon, 7 Sep 2009 14:35:54 +0200
-Message-ID: <20090907123554.GA2928@e-circ.dyndns.org>
-References: <1240387172-21818-1-git-send-email-s.hauer@pengutronix.de> <1240387172-21818-2-git-send-email-s.hauer@pengutronix.de> <20090826104634.GA14425@e-circ.dyndns.org> <20090907102434.GC31592@pengutronix.de>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] headers: net/ipv[46]/protocol.c header trim
+Date: Mon, 7 Sep 2009 16:38:25 +0400
+Message-ID: <20090907123825.GB29858@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Sascha Hauer <s.hauer@pengutronix.de>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.eia.be ([194.78.71.18]:47529 "EHLO mail.eia.be"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750928AbZIGMfz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Sep 2009 08:35:55 -0400
+Received: from mail-fx0-f217.google.com ([209.85.220.217]:49946 "EHLO
+	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751077AbZIGMi0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 08:38:26 -0400
+Received: by fxm17 with SMTP id 17so1955682fxm.37
+        for <netdev@vger.kernel.org>; Mon, 07 Sep 2009 05:38:27 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20090907102434.GC31592@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 07, 2009 at 12:24:34PM +0200, Sascha Hauer wrote:
-> Date: Mon, 7 Sep 2009 12:24:34 +0200
-> Subject: Re: [PATCH 1/2] Add an alternative cs89x0 driver
-> From: Sascha Hauer <s.hauer@pengutronix.de>
-> To: Kurt Van Dijck <kurt.van.dijck@eia.be>
-> Cc: netdev@vger.kernel.org
-> List-ID: <netdev.vger.kernel.org>
-> 
-> Hi Kurt,
-> 
-> On Wed, Aug 26, 2009 at 12:46:34PM +0200, Kurt Van Dijck wrote:
-> > Hi Sacha,
-> > 
-> > I'm using a 2.6.25.
-> > Converting to your platform_device based driver,
-> > I needed to configure the irq (see patch, irq flags).
-> > Looking in the old cs89x0.c, it's done in the driver. Should I have
-> > configured the irq level elsewhere? Or is this patch valid to do?
-> 
-> This is the way to go. I don't know if the cs89x0 has configurable
-> interrupt levels though.
-I haven't read any spec about cs89x0, but by looking in the existing
-code:
-1) IRQF_TRIGGER_HIGH seems like the default
-2) the old driver didn't do any irq config in the chip either.
-May I assume you were lucky testing the driver on a platform that had
-IRQF_TRIGGER_HIGH per default?
-I have it running (with patch) on a iMX31 (arm)
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-Kurt
-> 
-> Sascha
-> 
-> > 
-> > Kurt
-> > 
-> > Signed-off-by: Kurt Van Dijck <kurt.van.dijck@eia.be>
-> > ---
-> > Index: drivers/net/cirrus-cs89x0.c
-> > ===================================================================
-> > --- drivers/net/cirrus-cs89x0.c	(revision 7107)
-> > +++ drivers/net/cirrus-cs89x0.c	(working copy)
-> > @@ -487,7 +487,8 @@
-> >         }
-> >  
-> >         /* install interrupt handler */
-> > -       result = request_irq(ndev->irq, &cirrus_interrupt, 0, ndev->name, ndev);
-> > +       result = request_irq(ndev->irq, &cirrus_interrupt,
-> > +			IRQF_TRIGGER_HIGH, ndev->name, ndev);
-> >         if (result < 0) {
-> >                 printk(KERN_ERR "%s: could not register interrupt %d\n",
-> >                        ndev->name, ndev->irq);
-> > 
-> 
-> -- 
-> Pengutronix e.K.                           |                             |
-> Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-> Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-> Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ net/ipv4/protocol.c |   19 ++-----------------
+ net/ipv6/protocol.c |   15 ++-------------
+ 2 files changed, 4 insertions(+), 30 deletions(-)
+
+--- a/net/ipv4/protocol.c
++++ b/net/ipv4/protocol.c
+@@ -22,26 +22,11 @@
+  *		as published by the Free Software Foundation; either version
+  *		2 of the License, or (at your option) any later version.
+  */
+-
+-#include <asm/uaccess.h>
+-#include <asm/system.h>
++#include <linux/cache.h>
+ #include <linux/module.h>
+-#include <linux/types.h>
+-#include <linux/kernel.h>
+-#include <linux/string.h>
+-#include <linux/socket.h>
+-#include <linux/in.h>
+-#include <linux/inet.h>
+ #include <linux/netdevice.h>
+-#include <linux/timer.h>
+-#include <net/ip.h>
++#include <linux/spinlock.h>
+ #include <net/protocol.h>
+-#include <linux/skbuff.h>
+-#include <net/sock.h>
+-#include <net/icmp.h>
+-#include <net/udp.h>
+-#include <net/ipip.h>
+-#include <linux/igmp.h>
+ 
+ struct net_protocol *inet_protos[MAX_INET_PROTOS] ____cacheline_aligned_in_smp;
+ static DEFINE_SPINLOCK(inet_proto_lock);
+--- a/net/ipv6/protocol.c
++++ b/net/ipv6/protocol.c
+@@ -20,20 +20,9 @@
+  *      - Removed unused variable 'inet6_protocol_base'
+  *      - Modified inet6_del_protocol() to correctly maintain copy bit.
+  */
+-
+-#include <linux/errno.h>
+-#include <linux/types.h>
+-#include <linux/socket.h>
+-#include <linux/sockios.h>
+-#include <linux/net.h>
+-#include <linux/in6.h>
++#include <linux/module.h>
+ #include <linux/netdevice.h>
+-#include <linux/if_arp.h>
+-
+-#include <net/sock.h>
+-#include <net/snmp.h>
+-
+-#include <net/ipv6.h>
++#include <linux/spinlock.h>
+ #include <net/protocol.h>
+ 
+ struct inet6_protocol *inet6_protos[MAX_INET_PROTOS];
