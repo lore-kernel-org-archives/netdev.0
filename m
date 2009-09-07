@@ -1,31 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net_sched 00/07: classful multiqueue dummy scheduler
-Date: Mon, 07 Sep 2009 01:50:39 -0700 (PDT)
-Message-ID: <20090907.015039.154939751.davem@davemloft.net>
-References: <20090904164111.27300.29929.sendpatchset@x2.localnet>
-	<4AA14377.9020200@trash.net>
+Subject: Re: [PATCH NEXT 0/6] nexten: fixes and enhancements
+Date: Mon, 07 Sep 2009 01:54:50 -0700 (PDT)
+Message-ID: <20090907.015450.92840568.davem@davemloft.net>
+References: <1252208592-2240-1-git-send-email-dhananjay@netxen.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: kaber@trash.net
+To: dhananjay@netxen.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50725
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48137
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752322AbZIGIuY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 04:50:24 -0400
-In-Reply-To: <4AA14377.9020200@trash.net>
+	by vger.kernel.org with ESMTP id S1752478AbZIGIyf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 04:54:35 -0400
+In-Reply-To: <1252208592-2240-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Date: Sat,  5 Sep 2009 20:43:06 -0700
 
-I gave these patches a very basic bashing with NIU, and it
-seems to work from what I've tried.
+> Series of 6 driver enhancements / fixes, please apply to net-next-2.6.
 
-I know that Jarek has expressed some questions about the callback
-scheme used by the new mq classful qdisc, as well as some other
-issues, but we can refine this using followon patches.
-
-For now I'm pushing this out so that it gets wider testing.
-
-Thanks everyone!
+All applied, thanks.
