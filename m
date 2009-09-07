@@ -1,162 +1,118 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: Staging: cpc-usb CAN driver TODO list
-Date: Mon, 07 Sep 2009 12:10:17 +0200
-Message-ID: <4AA4DC09.8070803@hartkopp.net>
-References: <4AA262CB.7060607@hartkopp.net> <4AA4A0A2.2070907@ems-wuensche.com> <4AA4B0C6.5080608@grandegger.com> <4AA4BDE6.7000707@ems-wuensche.com> <4AA4CB3F.3060200@grandegger.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
+Date: Mon, 7 Sep 2009 13:15:37 +0300
+Message-ID: <20090907101537.GH3031@redhat.com>
+References: <cover.1251388414.git.mst@redhat.com> <20090827160750.GD23722@redhat.com> <20090903183945.GF28651@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wolfgang Grandegger <wg@grandegger.com>, Greg KH <greg@kroah.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Felipe Balbi <me@felipebalbi.com>
-To: Sebastian Haas <haas@ems-wuensche.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:17688 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752515AbZIGKKc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 06:10:32 -0400
-In-Reply-To: <4AA4CB3F.3060200@grandegger.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+        linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
+        gregory.haskins@gmail.com, Rusty Russell <rusty@rustcorp.com.au>,
+        s.hetze@linux-ag.com
+To: "Ira W. Snyder" <iws@ovro.caltech.edu>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20090903183945.GF28651@ovro.caltech.edu>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Wolfgang Grandegger wrote:
-> On 09/07/2009 10:01 AM, Sebastian Haas wrote:
->> -----BEGIN PGP SIGNED MESSAGE-----
->> Hash: SHA1
->>
->> Wolfgang,
->>
->> Wolfgang Grandegger schrieb:
->>> Hi Sebastian,
->>>
->>> On 09/07/2009 07:56 AM, Sebastian Haas wrote:
->>>> -----BEGIN PGP SIGNED MESSAGE-----
->>>> Hash: SHA1
->>>>
->>>> Oliver,
->>>>
->>>> I'm not yet sure how to actually start the development. There is so
->>>> much
->>>> to do, and I've not much time to spend on this, unfortunately. Because
->>>> of this I can't rewrite the whole driver on my own in order to get a
->>>> Socket-CAN driver but I can provide support, review patches, rent
->>>> devices and make tests here.
->>>>
->>>> Oliver, you are not familiar with USB and I'm not very familiar with
->>>> CAN
->>>> netdev internals, why not combining these twos. You are writing the CAN
->>>> part and write the USB part.
->>>>
->>>> I'll also write a specification which contains any information you need
->>>> to develop a CAN driver for the device (commands, sequences, error
->>>> handling).
->>>
->>> Alternatively, EMS Wuensche could also hire an expert doing the job ;-).
->>> Note that we do a lot of Socket-CAN work in our free time, which is a
->>> limited resource. Progress depends on funding to a certain extend.
->> Money is also a limited resource. ;-)
->>
->> Let's become serious again, I know and respect that many of Socket-CAN
->> and the Staging developers spend their free time working on it. We will
->> of course work on the driver, but since we've not much time it may take
->> several months. If someone wants to help, we would be very glad and
->> happy to support the person as far as we can with devices, answers and
->> tests.
+On Thu, Sep 03, 2009 at 11:39:45AM -0700, Ira W. Snyder wrote:
+> On Thu, Aug 27, 2009 at 07:07:50PM +0300, Michael S. Tsirkin wrote:
+> > What it is: vhost net is a character device that can be used to reduce
+> > the number of system calls involved in virtio networking.
+> > Existing virtio net code is used in the guest without modification.
+> > 
+> > There's similarity with vringfd, with some differences and reduced scope
+> > - uses eventfd for signalling
+> > - structures can be moved around in memory at any time (good for migration)
+> > - support memory table and not just an offset (needed for kvm)
+> > 
+> > common virtio related code has been put in a separate file vhost.c and
+> > can be made into a separate module if/when more backends appear.  I used
+> > Rusty's lguest.c as the source for developing this part : this supplied
+> > me with witty comments I wouldn't be able to write myself.
+> > 
+> > What it is not: vhost net is not a bus, and not a generic new system
+> > call. No assumptions are made on how guest performs hypercalls.
+> > Userspace hypervisors are supported as well as kvm.
+> > 
+> > How it works: Basically, we connect virtio frontend (configured by
+> > userspace) to a backend. The backend could be a network device, or a
+> > tun-like device. In this version I only support raw socket as a backend,
+> > which can be bound to e.g. SR IOV, or to macvlan device.  Backend is
+> > also configured by userspace, including vlan/mac etc.
+> > 
+> > Status:
+> > This works for me, and I haven't see any crashes.
+> > I have done some light benchmarking (with v4), compared to userspace, I
+> > see improved latency (as I save up to 4 system calls per packet) but not
+> > bandwidth/CPU (as TSO and interrupt mitigation are not supported).  For
+> > ping benchmark (where there's no TSO) troughput is also improved.
+> > 
+> > Features that I plan to look at in the future:
+> > - tap support
+> > - TSO
+> > - interrupt mitigation
+> > - zero copy
+> > 
 > 
-> OK, no problem. I really appreciate your support for Socket-CAN so far.
+> Hello Michael,
+> 
+> I've started looking at vhost with the intention of using it over PCI to
+> connect physical machines together.
+> 
+> The part that I am struggling with the most is figuring out which parts
+> of the rings are in the host's memory, and which parts are in the
+> guest's memory.
 
-Indeed. Me too.
+All rings are in guest's memory, to match existing virtio code.  vhost
+assumes that the memory space of the hypervisor userspace process covers
+the whole of guest memory. And there's a translation table.
+Ring addresses are userspace addresses, they do not undergo translation.
 
-I tried to take a second look into cpc-usb_drv.c and i would suggest to remove
-all the procfs and the chardev stuff and then create a CAN netdev when you
-identified an USB node analogue to
+> If I understand everything correctly, the rings are all userspace
+> addresses, which means that they can be moved around in physical memory,
+> and get pushed out to swap.
 
-        /* Detect available channels */
-        for (i = 0; i < EMS_PCMCIA_MAX_CHAN; i++) {
-                dev = alloc_sja1000dev(0);
-                if (dev == NULL) {
-                        err = -ENOMEM;
-                        goto failure_cleanup;
-                }
+Unless they are locked, yes.
 
-                card->net_dev[i] = dev;
-                priv = netdev_priv(dev);
-                priv->priv = card;
-                SET_NETDEV_DEV(dev, &pdev->dev);
+> AFAIK, this is impossible to handle when
+> connecting two physical systems, you'd need the rings available in IO
+> memory (PCI memory), so you can ioreadXX() them instead. To the best of
+> my knowledge, I shouldn't be using copy_to_user() on an __iomem address.
+> Also, having them migrate around in memory would be a bad thing.
+> 
+> Also, I'm having trouble figuring out how the packet contents are
+> actually copied from one system to the other. Could you point this out
+> for me?
 
-as you know from your ems_pcmcia.c driver
+The code in net/packet/af_packet.c does it when vhost calls sendmsg.
 
-and
+> Is there somewhere I can find the userspace code (kvm, qemu, lguest,
+> etc.) code needed for interacting with the vhost misc device so I can
+> get a better idea of how userspace is supposed to work?
 
-struct net_device *alloc_sja1000dev(int sizeof_priv)
-{
-        struct net_device *dev;
-        struct sja1000_priv *priv;
+Look in archives for kvm@vger.kernel.org. the subject is qemu-kvm: vhost net.
 
-        dev = alloc_candev(sizeof(struct sja1000_priv) + sizeof_priv);
-        if (!dev)
-                return NULL;
+> (Features
+> negotiation, etc.)
+> 
+> Thanks,
+> Ira
 
-        priv = netdev_priv(dev);
+That's not yet implemented as there are no features yet.  I'm working on
+tap support, which will add a feature bit.  Overall, qemu does an ioctl
+to query supported features, and then acks them with another ioctl.  I'm
+also trying to avoid duplicating functionality available elsewhere.  So
+that to check e.g. TSO support, you'd just look at the underlying
+hardware device you are binding to.
 
-        priv->dev = dev;
-        priv->can.bittiming_const = &sja1000_bittiming_const;
-        priv->can.do_set_bittiming = sja1000_set_bittiming;
-        priv->can.do_set_mode = sja1000_set_mode;
+-- 
+MST
 
-        if (sizeof_priv)
-                priv->priv = (void *)priv + sizeof(struct sja1000_priv);
-
-        return dev;
-}
-
-as you know from the sja1000.c (which can probably be used for the
-LPC2119_PRODUCT_ID we should try to implement first).
-
-Then we need something like this stuff
-
-static const struct net_device_ops sja1000_netdev_ops = {
-        .ndo_open               = sja1000_open,
-        .ndo_stop               = sja1000_close,
-        .ndo_start_xmit         = sja1000_start_xmit,
-};
-
-int register_sja1000dev(struct net_device *dev)
-{
-        if (!sja1000_probe_chip(dev))
-                return -ENODEV;
-
-        dev->netdev_ops = &sja1000_netdev_ops;
-
-        dev->flags |= IFF_ECHO; /* we support local echo */
-
-        set_reset_mode(dev);
-        chipset_init(dev);
-
-        return register_candev(dev);
-}
-
-from sja1000.c
-
-And then we have an USB CAN node that has a belonging CAN netdevice (maybe
-there is something else we can look at that's used in other USB ethernet
-adapters).
-
-I know from the PEAK USB driver at
-
-http://www.peak-system.com/fileadmin/media/linux/files/peak-linux-driver.6.11.tar.gz
-
-that i just needed to duplicate and modify the usb rx/tx stuff and redirect
-the CAN frames into the network stack. But this PEAK driver does not have a
-netlink configuration interface and can only be taken as a limited example ...
-
-I assume, when the driver (cpc_usb.c or ems_usb.c analogue to the ems_pcmcia.c
-?) is prepared as described above, one can go and connect the rx/tx dataflow
-and the netlink configuration.
-
-Unfortunately i'm short of time the next two weeks but maybe you can start and
-create such a new C-file (probably based on ems_pcmcia.c) ?
-
-Best regards,
-Oliver
-
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
