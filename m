@@ -1,50 +1,40 @@
-From: Xiaofei Wu <xiaofei_wu08@yahoo.com>
-Subject: Re: [iproute2] tc action mirred    question
-Date: Mon, 7 Sep 2009 09:05:47 -0700 (PDT)
-Message-ID: <404956.88336.qm@web111607.mail.gq1.yahoo.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: net_sched 05/07: reintroduce dev->qdisc for use by sch_api
+Date: Mon, 07 Sep 2009 15:16:29 +0200
+Message-ID: <4AA507AD.6000403@trash.net>
+References: <20090906185757.GA8833@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux netdev <netdev@vger.kernel.org>
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web111607.mail.gq1.yahoo.com ([67.195.23.49]:40765 "HELO
-	web111607.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753739AbZIGQFr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 12:05:47 -0400
+Received: from stinky.trash.net ([213.144.137.162]:33835 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751050AbZIGNQa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 09:16:30 -0400
+In-Reply-To: <20090906185757.GA8833@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Jarek Poplawski wrote:
+>> @@ -1383,7 +1375,7 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+>>  			pid = TC_H_MAKE(qid, pid);
+>>  	} else {
+>>  		if (qid == 0)
+>> -			qid = dev_queue->qdisc_sleeping->handle;
+>> +			qid = dev->qdisc->handle;
+> 
+> Probably I miss something, but in mq root case it seems to never do
+> anything we need. If so, it could be the example of possible issues
+> elsewhere.
 
-I am a newbie for 'traffic control' and Linux networking. So I ask some experts here  to help me.
-Maybe my questions are stupid. But I hope I can get your reply. Thank you!
+Sorry, I'm not sure what you're saying ..
 
+> I thought this mq virtual root qdisc could be done more transparently
+> and invisible for the current code, but it seems, in your
+> implementation some pointers like this, or parent ids (especially
+> TC_H_ROOT) might be different, and even if it works OK, needs a lot of
+> verification. So, my question is, if it's really necessary.
 
->> I just want to know:
->> 1) Could I forward the mirroring packets to another node ,and then route it to the destination(if I use 
->> iproute2 (ip, tc ...)  )?  I described my purpose in my last email.
-
->Yes, you can mirror to another node(B/D). To route on that node(B/D),
->your dst MAC address has to be correct for that destination node(B/D) to
->accept it. You could try to run  the destination node in promisc mode
->and you may be able to get away without changing dst mac.
-
-(1) Could I use  pedit action to modify the dst MAC, so the destination node D will accept it, then forward it to 
-node C?  (or use other tools to modify the dst MAC, please give me more information)
-
-(2) If I use 'ifconfig wlan0 promisc ... ' on node D, would it route the mirroring packets (the dst MAC is incorrect)
-to node C?
-
-
->> 2)  After I mirrored the packets, I should use 'ip route' , 'ip rule' to modify route tables.  Is this right?
->> 
-
->Assuming you are talking about B/D, yes you can do routing there if the
->node accepts it..
-
-
-Regards,
-Wu
-
-
-
-      
+Same here.
