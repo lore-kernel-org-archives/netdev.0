@@ -1,44 +1,38 @@
-From: Andreas Jaggi <aj@open.ch>
-Subject: Re: H.245v10+ support in nf_conntrack_h323?
-Date: Tue, 8 Sep 2009 15:04:24 +0200
-Message-ID: <20090908130424.GB7273@urbino.open.ch>
-References: <20090901092910.GC11354@urbino.open.ch> <20090901100230.GA18651@sirena.org.uk> <4A9D04A2.60307@trash.net> <20090901121033.GA18731@urbino.open.ch> <4A9D11A3.5070809@trash.net>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [PATCH] add vif using local interface index (was Re: multicast routing and multiple interfaces with same IP)
+Date: Tue, 8 Sep 2009 16:03:10 +0300
+Message-ID: <200909081603.10481.opurdila@ixiacom.com>
+References: <1b9338490909080021n6dcac8e8x40e7c4676df74e29@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mark Brown <broonie@opensource.wolfsonmicro.com>,
-	Jing Min Zhao <zhaojingmin@users.sourceforge.net>,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Ilia K." <mail4ilia@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail6.open.ch ([213.156.224.131]:11870 "EHLO mail6.open.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752912AbZIHNDl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Sep 2009 09:03:41 -0400
-Content-Disposition: inline
-In-Reply-To: <4A9D11A3.5070809@trash.net>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:4148 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753755AbZIHNFh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2009 09:05:37 -0400
+In-Reply-To: <1b9338490909080021n6dcac8e8x40e7c4676df74e29@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tuesday 08 September 2009 10:21:18 you wrote:
 
-By using the tcpdumps made during the video conferencing test, I was
-able to reproduce the problem with tcpreplay.
+> I'm just  used to place braces either on both if/else parts or none,
+> but since you think this breaks linux code style, I've removed braces.
+> Another coding style issues reported by checkpatch.pl are fixed too.
+> 
 
-Further investigation (eg. sprinkling a couple printks over
-nf_conntrack_h323_main.c) showed that the H.245 packet is dropped
-because the __nf_ct_expect_check() fails with -EMFILE.
-This because max_expected of the H.245 expect policy is reached.
+One more thing :)
 
-max_expected is set to 'H323_RTP_CHANNEL_MAX * 4 + 2' in
-nf_conntrack_h323_main.c and H323_RTP_CHANNEL_MAX is defined as '4'.
+Can you please re-send the mail in "submission ready" format:
+- subject line with [PATCH] and short summary of the change
+- description of the change in the mail message 
+- Signed-off-by line at the end of the description message
 
-Increasing H323_RTP_CHANNEL_MAX solves the problem that H.245 packets
-are dropped!
+Here is an example: http://patchwork.ozlabs.org/patch/32684/
 
-Now I would like to propose a patch to fix this permanently, but I don't
-know what a reasonable value for H323_RTP_CHANNEL_MAX would be (only
-that the current value is too low for our video conferencing setup).
-
-How was the current value of H323_RTP_CHANNEL_MAX determined? And what
-would be the implications of increasing this value?
-
-Andreas
+Thanks!
+tavi
