@@ -1,190 +1,140 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: [PATCH] genetlink: fix netns vs. netlink table locking
-Date: Tue, 08 Sep 2009 17:59:37 +0200
-Message-ID: <1252425578.3806.22.camel@johannes.local>
+From: "Ira W. Snyder" <iws@ovro.caltech.edu>
+Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
+Date: Tue, 8 Sep 2009 10:20:35 -0700
+Message-ID: <20090908172035.GB319@ovro.caltech.edu>
+References: <cover.1251388414.git.mst@redhat.com> <20090827160750.GD23722@redhat.com> <20090903183945.GF28651@ovro.caltech.edu> <20090907101537.GH3031@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+	linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
+	gregory.haskins@gmail.com, Rusty Russell <rusty@rustcorp.com.au>,
+	s.hetze@linux-ag.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20090907101537.GH3031@redhat.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Since my commits introducing netns awareness into
-genetlink we can get this problem:
+On Mon, Sep 07, 2009 at 01:15:37PM +0300, Michael S. Tsirkin wrote:
+> On Thu, Sep 03, 2009 at 11:39:45AM -0700, Ira W. Snyder wrote:
+> > On Thu, Aug 27, 2009 at 07:07:50PM +0300, Michael S. Tsirkin wrote:
+> > > What it is: vhost net is a character device that can be used to reduce
+> > > the number of system calls involved in virtio networking.
+> > > Existing virtio net code is used in the guest without modification.
+> > > 
+> > > There's similarity with vringfd, with some differences and reduced scope
+> > > - uses eventfd for signalling
+> > > - structures can be moved around in memory at any time (good for migration)
+> > > - support memory table and not just an offset (needed for kvm)
+> > > 
+> > > common virtio related code has been put in a separate file vhost.c and
+> > > can be made into a separate module if/when more backends appear.  I used
+> > > Rusty's lguest.c as the source for developing this part : this supplied
+> > > me with witty comments I wouldn't be able to write myself.
+> > > 
+> > > What it is not: vhost net is not a bus, and not a generic new system
+> > > call. No assumptions are made on how guest performs hypercalls.
+> > > Userspace hypervisors are supported as well as kvm.
+> > > 
+> > > How it works: Basically, we connect virtio frontend (configured by
+> > > userspace) to a backend. The backend could be a network device, or a
+> > > tun-like device. In this version I only support raw socket as a backend,
+> > > which can be bound to e.g. SR IOV, or to macvlan device.  Backend is
+> > > also configured by userspace, including vlan/mac etc.
+> > > 
+> > > Status:
+> > > This works for me, and I haven't see any crashes.
+> > > I have done some light benchmarking (with v4), compared to userspace, I
+> > > see improved latency (as I save up to 4 system calls per packet) but not
+> > > bandwidth/CPU (as TSO and interrupt mitigation are not supported).  For
+> > > ping benchmark (where there's no TSO) troughput is also improved.
+> > > 
+> > > Features that I plan to look at in the future:
+> > > - tap support
+> > > - TSO
+> > > - interrupt mitigation
+> > > - zero copy
+> > > 
+> > 
+> > Hello Michael,
+> > 
+> > I've started looking at vhost with the intention of using it over PCI to
+> > connect physical machines together.
+> > 
+> > The part that I am struggling with the most is figuring out which parts
+> > of the rings are in the host's memory, and which parts are in the
+> > guest's memory.
+> 
+> All rings are in guest's memory, to match existing virtio code.
 
-BUG: scheduling while atomic: modprobe/1178/0x00000002
-2 locks held by modprobe/1178:
- #0:  (genl_mutex){+.+.+.}, at: [<ffffffff8135ee1a>] genl_register_mc_grou
- #1:  (rcu_read_lock){.+.+..}, at: [<ffffffff8135eeb5>] genl_register_mc_g
-Pid: 1178, comm: modprobe Not tainted 2.6.31-rc8-wl-34789-g95cb731-dirty #
-Call Trace:
- [<ffffffff8103e285>] __schedule_bug+0x85/0x90
- [<ffffffff81403138>] schedule+0x108/0x588
- [<ffffffff8135b131>] netlink_table_grab+0xa1/0xf0
- [<ffffffff8135c3a7>] netlink_change_ngroups+0x47/0x100
- [<ffffffff8135ef0f>] genl_register_mc_group+0x12f/0x290
+Ok, this makes sense.
 
-because I overlooked that netlink_table_grab() will
-schedule, thinking it was just the rwlock. However,
-in the contention case, that isn't actually true.
+> vhost
+> assumes that the memory space of the hypervisor userspace process covers
+> the whole of guest memory.
 
-Fix this by letting the code grab the netlink table
-lock first and then the RCU for netns protection.
+Is this necessary? Why? The assumption seems very wrong when you're
+doing data transport between two physical systems via PCI.
 
-Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
----
- include/linux/netlink.h  |    4 +++
- net/netlink/af_netlink.c |   51 ++++++++++++++++++++++++++---------------------
- net/netlink/genetlink.c  |    5 +++-
- 3 files changed, 37 insertions(+), 23 deletions(-)
+I know vhost has not been designed for this specific situation, but it
+is good to be looking toward other possible uses.
 
---- wireless-testing.orig/include/linux/netlink.h	2009-09-08 17:49:54.000000000 +0200
-+++ wireless-testing/include/linux/netlink.h	2009-09-08 17:50:29.000000000 +0200
-@@ -176,12 +176,16 @@ struct netlink_skb_parms
- #define NETLINK_CREDS(skb)	(&NETLINK_CB((skb)).creds)
- 
- 
-+extern void netlink_table_grab(void);
-+extern void netlink_table_ungrab(void);
-+
- extern struct sock *netlink_kernel_create(struct net *net,
- 					  int unit,unsigned int groups,
- 					  void (*input)(struct sk_buff *skb),
- 					  struct mutex *cb_mutex,
- 					  struct module *module);
- extern void netlink_kernel_release(struct sock *sk);
-+extern int __netlink_change_ngroups(struct sock *sk, unsigned int groups);
- extern int netlink_change_ngroups(struct sock *sk, unsigned int groups);
- extern void netlink_clear_multicast_users(struct sock *sk, unsigned int group);
- extern void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err);
---- wireless-testing.orig/net/netlink/af_netlink.c	2009-09-08 17:37:57.000000000 +0200
-+++ wireless-testing/net/netlink/af_netlink.c	2009-09-08 17:52:45.000000000 +0200
-@@ -177,9 +177,11 @@ static void netlink_sock_destruct(struct
-  * this, _but_ remember, it adds useless work on UP machines.
-  */
- 
--static void netlink_table_grab(void)
-+void netlink_table_grab(void)
- 	__acquires(nl_table_lock)
- {
-+	might_sleep();
-+
- 	write_lock_irq(&nl_table_lock);
- 
- 	if (atomic_read(&nl_table_users)) {
-@@ -200,7 +202,7 @@ static void netlink_table_grab(void)
- 	}
- }
- 
--static void netlink_table_ungrab(void)
-+void netlink_table_ungrab(void)
- 	__releases(nl_table_lock)
- {
- 	write_unlock_irq(&nl_table_lock);
-@@ -1549,37 +1551,21 @@ static void netlink_free_old_listeners(s
- 	kfree(lrh->ptr);
- }
- 
--/**
-- * netlink_change_ngroups - change number of multicast groups
-- *
-- * This changes the number of multicast groups that are available
-- * on a certain netlink family. Note that it is not possible to
-- * change the number of groups to below 32. Also note that it does
-- * not implicitly call netlink_clear_multicast_users() when the
-- * number of groups is reduced.
-- *
-- * @sk: The kernel netlink socket, as returned by netlink_kernel_create().
-- * @groups: The new number of groups.
-- */
--int netlink_change_ngroups(struct sock *sk, unsigned int groups)
-+int __netlink_change_ngroups(struct sock *sk, unsigned int groups)
- {
- 	unsigned long *listeners, *old = NULL;
- 	struct listeners_rcu_head *old_rcu_head;
- 	struct netlink_table *tbl = &nl_table[sk->sk_protocol];
--	int err = 0;
- 
- 	if (groups < 32)
- 		groups = 32;
- 
--	netlink_table_grab();
- 	if (NLGRPSZ(tbl->groups) < NLGRPSZ(groups)) {
- 		listeners = kzalloc(NLGRPSZ(groups) +
- 				    sizeof(struct listeners_rcu_head),
- 				    GFP_ATOMIC);
--		if (!listeners) {
--			err = -ENOMEM;
--			goto out_ungrab;
--		}
-+		if (!listeners)
-+			return -ENOMEM;
- 		old = tbl->listeners;
- 		memcpy(listeners, old, NLGRPSZ(tbl->groups));
- 		rcu_assign_pointer(tbl->listeners, listeners);
-@@ -1597,8 +1583,29 @@ int netlink_change_ngroups(struct sock *
- 	}
- 	tbl->groups = groups;
- 
-- out_ungrab:
-+	return 0;
-+}
-+
-+/**
-+ * netlink_change_ngroups - change number of multicast groups
-+ *
-+ * This changes the number of multicast groups that are available
-+ * on a certain netlink family. Note that it is not possible to
-+ * change the number of groups to below 32. Also note that it does
-+ * not implicitly call netlink_clear_multicast_users() when the
-+ * number of groups is reduced.
-+ *
-+ * @sk: The kernel netlink socket, as returned by netlink_kernel_create().
-+ * @groups: The new number of groups.
-+ */
-+int netlink_change_ngroups(struct sock *sk, unsigned int groups)
-+{
-+	int err;
-+
-+	netlink_table_grab();
-+	err = __netlink_change_ngroups(sk, groups);
- 	netlink_table_ungrab();
-+
- 	return err;
- }
- EXPORT_SYMBOL(netlink_change_ngroups);
---- wireless-testing.orig/net/netlink/genetlink.c	2009-09-08 17:50:38.000000000 +0200
-+++ wireless-testing/net/netlink/genetlink.c	2009-09-08 17:58:50.000000000 +0200
-@@ -176,9 +176,10 @@ int genl_register_mc_group(struct genl_f
- 	if (family->netnsok) {
- 		struct net *net;
- 
-+		netlink_table_grab();
- 		rcu_read_lock();
- 		for_each_net_rcu(net) {
--			err = netlink_change_ngroups(net->genl_sock,
-+			err = __netlink_change_ngroups(net->genl_sock,
- 					mc_groups_longs * BITS_PER_LONG);
- 			if (err) {
- 				/*
-@@ -188,10 +189,12 @@ int genl_register_mc_group(struct genl_f
- 				 * increased on some sockets which is ok.
- 				 */
- 				rcu_read_unlock();
-+				netlink_table_ungrab();
- 				goto out;
- 			}
- 		}
- 		rcu_read_unlock();
-+		netlink_table_ungrab();
- 	} else {
- 		err = netlink_change_ngroups(init_net.genl_sock,
- 					     mc_groups_longs * BITS_PER_LONG);
+> And there's a translation table.
+> Ring addresses are userspace addresses, they do not undergo translation.
+> 
+> > If I understand everything correctly, the rings are all userspace
+> > addresses, which means that they can be moved around in physical memory,
+> > and get pushed out to swap.
+> 
+> Unless they are locked, yes.
+> 
+> > AFAIK, this is impossible to handle when
+> > connecting two physical systems, you'd need the rings available in IO
+> > memory (PCI memory), so you can ioreadXX() them instead. To the best of
+> > my knowledge, I shouldn't be using copy_to_user() on an __iomem address.
+> > Also, having them migrate around in memory would be a bad thing.
+> > 
+> > Also, I'm having trouble figuring out how the packet contents are
+> > actually copied from one system to the other. Could you point this out
+> > for me?
+> 
+> The code in net/packet/af_packet.c does it when vhost calls sendmsg.
+> 
 
+Ok. The sendmsg() implementation uses memcpy_fromiovec(). Is it possible
+to make this use a DMA engine instead? I know this was suggested in an
+earlier thread.
+
+> > Is there somewhere I can find the userspace code (kvm, qemu, lguest,
+> > etc.) code needed for interacting with the vhost misc device so I can
+> > get a better idea of how userspace is supposed to work?
+> 
+> Look in archives for kvm@vger.kernel.org. the subject is qemu-kvm: vhost net.
+> 
+> > (Features
+> > negotiation, etc.)
+> > 
+> 
+> That's not yet implemented as there are no features yet.  I'm working on
+> tap support, which will add a feature bit.  Overall, qemu does an ioctl
+> to query supported features, and then acks them with another ioctl.  I'm
+> also trying to avoid duplicating functionality available elsewhere.  So
+> that to check e.g. TSO support, you'd just look at the underlying
+> hardware device you are binding to.
+> 
+
+Ok. Do you have plans to support the VIRTIO_NET_F_MRG_RXBUF feature in
+the future? I found that this made an enormous improvement in throughput
+on my virtio-net <-> virtio-net system. Perhaps it isn't needed with
+vhost-net.
+
+Thanks for replying,
+Ira
 
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
