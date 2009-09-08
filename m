@@ -1,126 +1,95 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: Stop using tasklets for bottom halves
-Date: Tue, 8 Sep 2009 09:10:05 +0200
-Message-ID: <20090908071005.GA10273@elte.hu>
-References: <43e72e890909071558s637b45c7i10807587dc40e8c4@mail.gmail.com> <20090907171406.6a4b6116@nehalam> <1252376254.21261.2052.camel@gandalf.stny.rr.com> <200909080650.43181.mb@bu3sch.de>
+From: "Ilia K." <mail4ilia@gmail.com>
+Subject: [PATCH] add vif using local interface index (was Re: multicast
+	routing and multiple interfaces with same IP)
+Date: Tue, 8 Sep 2009 10:21:18 +0300
+Message-ID: <1b9338490909080021n6dcac8e8x40e7c4676df74e29@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rostedt@goodmis.org, Stephen Hemminger <shemminger@vyatta.com>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Matt Smith <Matt.Smith@atheros.com>,
-	Kevin Hayes <kevin@atheros.com>,
-	Bob Copeland <me@bobcopeland.com>, Jouni Malinen <j@w1.fi>,
-	Ivan Seskar <Seskar@winlab.rutgers.edu>, ic.felix@gmail.com
-To: Michael Buesch <mb@bu3sch.de>
+Content-Type: multipart/mixed; boundary=00c09ffb585c01f62804730bd07f
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:41358 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753562AbZIHHKZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Sep 2009 03:10:25 -0400
-Content-Disposition: inline
-In-Reply-To: <200909080650.43181.mb@bu3sch.de>
+Received: from fg-out-1718.google.com ([72.14.220.154]:48178 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753785AbZIHHVQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2009 03:21:16 -0400
+Received: by fg-out-1718.google.com with SMTP id 22so1863080fge.1
+        for <netdev@vger.kernel.org>; Tue, 08 Sep 2009 00:21:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+--00c09ffb585c01f62804730bd07f
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-* Michael Buesch <mb@bu3sch.de> wrote:
+On Mon, Sep 7, 2009 at 7:25 PM, Octavian Purdila<opurdila@ixiacom.com> wrot=
+e:
+> On Monday 07 September 2009 18:35:41 you wrote:
+>> Hi,
+>> I'm attaching a new patch. The changes:
+>> mroute.h:
+>> - consistent name for interface index: vifc_lcl_ifindex
+>> - union of vifc_lcl_addr and vifc_lcl_ifindex since either one of them
+>> can be used
+>> ipmr.c:
+>> - case VIFF_USE_IFINDEX and case 0 had almost the same code, so using
+>> fall through and if to eliminate code duplication
+>>
+>
+> Hi Ilia,
+>
+> Looks good to me, but there are a couple of code style issues reported by
+> ./scripts/checkpatch.pl.
+>
+> Also, here:
+>
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 } else {
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev =3D ip_dev_find(net, vi=
+fc->vifc_lcl_addr.s_addr);
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>
+> Usually no braces are used for single line statements in if/else.
 
-> There are two things that I noticed. When looking at the "idle" 
-> percentage in "top" it regressed quite a bit when using threaded 
-> IRQ handlers. It shows about 8% less idle. This is with threaded 
-> IRQs patched in, but without WQ TX mechanism. Applying the WQ TX 
-> mechanism does not show any noticeable effect in "top".
-> 
-> I'm not quite sure where the 8% slowdown on threaded IRQ handlers 
-> come from. I'm not really certain that it's _really_ a regression 
-> and not just a statistics accounting quirk. Why does threaded IRQs 
-> slow down stuff and threaded TX does not at all? That does not 
-> make sense at all to me.
+Hi,
+I'm just  used to place braces either on both if/else parts or none,
+but since you think this breaks linux code style, I've removed braces.
+Another coding style issues reported by checkpatch.pl are fixed too.
 
-Do you have an x86 box to test it on?
+Regards,
+Ilia.
 
-If yes then perfcounters can be used for _much_ more precise 
-measurements that you can trust. Do something like this:
+--00c09ffb585c01f62804730bd07f
+Content-Type: text/x-diff; charset=US-ASCII; name="vif_add.patch"
+Content-Disposition: attachment; filename="vif_add.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fzcaz8z70
 
-   perf stat -a --repeat 3 sleep 1
-
-The '-a/--all' option will measure all CPUs - everything: IRQ 
-context, irqs-off region, etc. That output will be comparable before 
-your threaded patch and after the patch.
-
-Here's an example. I started one infinite loop on a testbox, which 
-is using 100% of a single CPU. The system-wide stats look like this:
-
- # perf stat -a --repeat 3 sleep 1
-
- Performance counter stats for 'sleep 1' (3 runs):
-
-   16003.320239  task-clock-msecs         #     15.993 CPUs    ( +-   0.044% )
-             94  context-switches         #      0.000 M/sec   ( +-  11.373% )
-              3  CPU-migrations           #      0.000 M/sec   ( +-  25.000% )
-            170  page-faults              #      0.000 M/sec   ( +-  0.518% )
-     3294001334  cycles                   #    205.832 M/sec   ( +-  0.896% )
-     1088670782  instructions             #      0.331 IPC     ( +-  0.905% )
-        1720926  cache-references         #      0.108 M/sec   ( +-  1.880% )
-          61253  cache-misses             #      0.004 M/sec   ( +-  4.401% )
-
-    1.000623219  seconds time elapsed   ( +-   0.002% )
-
-the instructions count or the cycle count will go up or down, 
-precisely according to how the threaded handlers. These stats are 
-not time sampled but 'real', so they reflect reality and show 
-whether your workload had to spend more (or less) cycles / 
-instructions /etc.
-
-I started a second loop in addition to the first one, and perf stat 
-now gives me this output:
-
- # perf stat -a --repeat 3 sleep 1
-
- Performance counter stats for 'sleep 1' (3 runs):
-
-   16003.289509  task-clock-msecs         #     15.994 CPUs    ( +-   0.046% )
-             88  context-switches         #      0.000 M/sec   ( +-  15.933% )
-              2  CPU-migrations           #      0.000 M/sec   ( +-  14.286% )
-            188  page-faults              #      0.000 M/sec   ( +-   9.414% )
-     6481963224  cycles                   #    405.039 M/sec   ( +-   0.011% )
-     2152924468  instructions             #      0.332 IPC     ( +-   0.054% )
-         397564  cache-references         #      0.025 M/sec   ( +-   1.217% )
-          59835  cache-misses             #      0.004 M/sec   ( +-   3.732% )
-
-    1.000576354  seconds time elapsed   ( +-   0.005% )
-
-Compare the two results:
-
- before:
-     6481963224  cycles                   #    405.039 M/sec   ( +-   0.011% )
-     2152924468  instructions             #      0.332 IPC     ( +-   0.054% )
-
- after:
-     3294001334  cycles                   #    205.832 M/sec   ( +-  0.896% )
-     1088670782  instructions             #      0.331 IPC     ( +-  0.905% )
-
-The cycles/sec doubled - as expected. You could do the same with 
-your test and not have to rely in the very imprecise (and often 
-misleading) 'top' statistics for kernel development.
-
-The IPC (instructions per cycle) factor stayed roughly constant - 
-showing that both workloads can push the same amount of instructions 
-when normalized to a single CPU. If a workload becomes very 
-cache-missy or executes a lot of system calls then the IPC factor 
-goes down - if it becomes more optimal 'tight' code then the IPC 
-factor goes up.)
-
-(The cache-miss rate was very low in both cases - it's a simple 
-infinite loop i tested.)
-
-Furthermore the error bars in the rightmost column help you know 
-whether any difference in results is statistically significant, or 
-within the noise level.
-
-Hope this helps,
-
-	Ingo
+PT09IG1vZGlmaWVkIGZpbGUgJ2luY2x1ZGUvbGludXgvbXJvdXRlLmgnCi0tLSBvbGQvaW5jbHVk
+ZS9saW51eC9tcm91dGUuaAkyMDA5LTA4LTEwIDExOjE3OjMyICswMDAwCisrKyBuZXcvaW5jbHVk
+ZS9saW51eC9tcm91dGUuaAkyMDA5LTA5LTA4IDA2OjU4OjQ2ICswMDAwCkBAIC01OSwxMyArNTks
+MTggQEAKIAl1bnNpZ25lZCBjaGFyIHZpZmNfZmxhZ3M7CS8qIFZJRkZfIGZsYWdzICovCiAJdW5z
+aWduZWQgY2hhciB2aWZjX3RocmVzaG9sZDsJLyogdHRsIGxpbWl0ICovCiAJdW5zaWduZWQgaW50
+IHZpZmNfcmF0ZV9saW1pdDsJLyogUmF0ZSBsaW1pdGVyIHZhbHVlcyAoTkkpICovCi0Jc3RydWN0
+IGluX2FkZHIgdmlmY19sY2xfYWRkcjsJLyogT3VyIGFkZHJlc3MgKi8KKwl1bmlvbiB7CisJCXN0
+cnVjdCBpbl9hZGRyIHZpZmNfbGNsX2FkZHI7ICAgICAvKiBMb2NhbCBpbnRlcmZhY2UgYWRkcmVz
+cyAqLworCQlpbnQgICAgICAgICAgICB2aWZjX2xjbF9pZmluZGV4OyAgLyogTG9jYWwgaW50ZXJm
+YWNlIGluZGV4ICAgKi8KKwl9OwogCXN0cnVjdCBpbl9hZGRyIHZpZmNfcm10X2FkZHI7CS8qIElQ
+SVAgdHVubmVsIGFkZHIgKi8KIH07CiAKLSNkZWZpbmUgVklGRl9UVU5ORUwJMHgxCS8qIElQSVAg
+dHVubmVsICovCi0jZGVmaW5lIFZJRkZfU1JDUlQJMHgyCS8qIE5JICovCi0jZGVmaW5lIFZJRkZf
+UkVHSVNURVIJMHg0CS8qIHJlZ2lzdGVyIHZpZgkqLworI2RlZmluZSBWSUZGX1RVTk5FTAkJMHgx
+CS8qIElQSVAgdHVubmVsICovCisjZGVmaW5lIFZJRkZfU1JDUlQJCTB4MgkvKiBOSSAqLworI2Rl
+ZmluZSBWSUZGX1JFR0lTVEVSCQkweDQJLyogcmVnaXN0ZXIgdmlmCSovCisjZGVmaW5lIFZJRkZf
+VVNFX0lGSU5ERVgJMHg4CS8qIHVzZSB2aWZjX2xjbF9pZmluZGV4IGluc3RlYWQgb2YKKwkJCQkJ
+ICAgdmlmY19sY2xfYWRkciB0byBmaW5kIGFuIGludGVyZmFjZSAqLwogCiAvKgogICoJQ2FjaGUg
+bWFuaXB1bGF0aW9uIHN0cnVjdHVyZXMgZm9yIG1yb3V0ZWQgYW5kIFBJTWQKCj09PSBtb2RpZmll
+ZCBmaWxlICduZXQvaXB2NC9pcG1yLmMnCi0tLSBvbGQvbmV0L2lwdjQvaXBtci5jCTIwMDktMDgt
+MTAgMTE6MTc6MzIgKzAwMDAKKysrIG5ldy9uZXQvaXB2NC9pcG1yLmMJMjAwOS0wOS0wOCAwNjoz
+NDoyMSArMDAwMApAQCAtNDcwLDggKzQ3MCwxOCBAQAogCQkJcmV0dXJuIGVycjsKIAkJfQogCQli
+cmVhazsKKworCWNhc2UgVklGRl9VU0VfSUZJTkRFWDoKIAljYXNlIDA6Ci0JCWRldiA9IGlwX2Rl
+dl9maW5kKG5ldCwgdmlmYy0+dmlmY19sY2xfYWRkci5zX2FkZHIpOworCQlpZiAodmlmYy0+dmlm
+Y19mbGFncyA9PSBWSUZGX1VTRV9JRklOREVYKSB7CisJCQlkZXYgPSBkZXZfZ2V0X2J5X2luZGV4
+KG5ldCwgdmlmYy0+dmlmY19sY2xfaWZpbmRleCk7CisJCQlpZiAoZGV2ICYmIGRldi0+aXBfcHRy
+ID09IE5VTEwpIHsKKwkJCQlkZXZfcHV0KGRldik7CisJCQkJcmV0dXJuIC1FQUREUk5PVEFWQUlM
+OworCQkJfQorCQl9IGVsc2UKKwkJCWRldiA9IGlwX2Rldl9maW5kKG5ldCwgdmlmYy0+dmlmY19s
+Y2xfYWRkci5zX2FkZHIpOworCiAJCWlmICghZGV2KQogCQkJcmV0dXJuIC1FQUREUk5PVEFWQUlM
+OwogCQllcnIgPSBkZXZfc2V0X2FsbG11bHRpKGRldiwgMSk7Cgo=
+--00c09ffb585c01f62804730bd07f--
