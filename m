@@ -1,73 +1,47 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: [IB] 2.6.31-rc9: SW2HW_EQ failed on Dell R610
-Date: Tue, 8 Sep 2009 18:06:54 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0909081805110.7733@V090114053VZO-1>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] slub: fix slab_pad_check()
+Date: Tue, 8 Sep 2009 15:20:36 -0700
+Message-ID: <20090908222036.GM6753@linux.vnet.ibm.com>
+References: <4A9FCDC6.3060003@gmail.com> <alpine.DEB.1.10.0909031335430.29881@V090114053VZO-1> <4A9FDA72.8060001@gmail.com> <alpine.DEB.1.10.0909031414310.29881@V090114053VZO-1> <4AA00400.1030005@gmail.com> <alpine.DEB.1.10.0909031731540.24199@V090114053VZO-1> <20090903231757.GP6761@linux.vnet.ibm.com> <alpine.DEB.1.10.0909041140040.9781@V090114053VZO-1> <20090904204335.GG6751@linux.vnet.ibm.com> <alpine.DEB.1.10.0909081555410.26382@V090114053VZO-1>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.ultrahosting.com ([74.213.174.253]:46445 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751922AbZIHWHy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2009 18:07:54 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id A7EAF82C2BB
-	for <netdev@vger.kernel.org>; Tue,  8 Sep 2009 18:08:47 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.174.253])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id ugZo1DtBWD6w for <netdev@vger.kernel.org>;
-	Tue,  8 Sep 2009 18:08:43 -0400 (EDT)
-Received: from V090114053VZO-1 (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 0EC7982C2B4
-	for <netdev@vger.kernel.org>; Tue,  8 Sep 2009 18:08:40 -0400 (EDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Zdenek Kabelac <zdenek.kabelac@gmail.com>,
+	Patrick McHardy <kaber@trash.net>, Robin Holt <holt@sgi.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Jesper Dangaard Brouer <hawk@comx.dk>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>
+To: Christoph Lameter <cl@linux-foundation.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.1.10.0909081555410.26382@V090114053VZO-1>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The problem with the interrupts is not solved in rc9:
+On Tue, Sep 08, 2009 at 03:57:04PM -0400, Christoph Lameter wrote:
+> On Fri, 4 Sep 2009, Paul E. McKenney wrote:
+> 
+> > We have gotten along fine with only SLAB_DESTROY_BY_RCU for almost
+> > five years, so I think we are plenty fine with what we have.  So, as
+> > you say, "as the need arises".
+> 
+> These were the glory years where SLAB_DESTROY_BY_RCU was only used for
+> anonymous vmas. Now Eric has picked it up for the net subsystem. You may
+> see the RCU use proliferate.
+> 
+> The kmem_cache_destroy rcu barriers did not matter until
+> SLAB_DESTROY_BY_RCU spread.
 
-[    7.747804] mlx4_core: Mellanox ConnectX core driver v0.01 (May 1,
-2007)
-[    7.747806] mlx4_core: Initializing 0000:04:00.0
-[    7.747839] mlx4_core 0000:04:00.0: PCI INT A -> GSI 38 (level, low) ->
-IRQ 38
-[    7.747850] mlx4_core 0000:04:00.0: setting latency timer to 64
-[    9.759505] mlx4_core 0000:04:00.0: irq 62 for MSI/MSI-X
-[    9.759513] mlx4_core 0000:04:00.0: irq 63 for MSI/MSI-X
-[    9.759520] mlx4_core 0000:04:00.0: irq 64 for MSI/MSI-X
-[    9.759527] mlx4_core 0000:04:00.0: irq 65 for MSI/MSI-X
-[    9.759533] mlx4_core 0000:04:00.0: irq 66 for MSI/MSI-X
-[    9.759540] mlx4_core 0000:04:00.0: irq 67 for MSI/MSI-X
-[    9.759547] mlx4_core 0000:04:00.0: irq 68 for MSI/MSI-X
-[    9.759555] mlx4_core 0000:04:00.0: irq 69 for MSI/MSI-X
-[    9.759561] mlx4_core 0000:04:00.0: irq 70 for MSI/MSI-X
-[    9.759569] mlx4_core 0000:04:00.0: irq 71 for MSI/MSI-X
-[    9.759576] mlx4_core 0000:04:00.0: irq 72 for MSI/MSI-X
-[    9.759583] mlx4_core 0000:04:00.0: irq 73 for MSI/MSI-X
-[    9.759590] mlx4_core 0000:04:00.0: irq 74 for MSI/MSI-X
-[    9.759596] mlx4_core 0000:04:00.0: irq 75 for MSI/MSI-X
-[    9.759603] mlx4_core 0000:04:00.0: irq 76 for MSI/MSI-X
-[    9.759611] mlx4_core 0000:04:00.0: irq 77 for MSI/MSI-X
-[    9.759617] mlx4_core 0000:04:00.0: irq 78 for MSI/MSI-X
-[    9.759624] mlx4_core 0000:04:00.0: irq 79 for MSI/MSI-X
-[    9.759631] mlx4_core 0000:04:00.0: irq 80 for MSI/MSI-X
-[    9.759638] mlx4_core 0000:04:00.0: irq 81 for MSI/MSI-X
-[    9.759645] mlx4_core 0000:04:00.0: irq 82 for MSI/MSI-X
-[    9.759652] mlx4_core 0000:04:00.0: irq 83 for MSI/MSI-X
-[    9.759658] mlx4_core 0000:04:00.0: irq 84 for MSI/MSI-X
-[    9.759666] mlx4_core 0000:04:00.0: irq 85 for MSI/MSI-X
-[    9.759672] mlx4_core 0000:04:00.0: irq 86 for MSI/MSI-X
-[    9.759679] mlx4_core 0000:04:00.0: irq 87 for MSI/MSI-X
-[    9.759686] mlx4_core 0000:04:00.0: irq 88 for MSI/MSI-X
-[    9.759692] mlx4_core 0000:04:00.0: irq 89 for MSI/MSI-X
-[    9.759699] mlx4_core 0000:04:00.0: irq 90 for MSI/MSI-X
-[    9.759706] mlx4_core 0000:04:00.0: irq 91 for MSI/MSI-X
-[    9.759712] mlx4_core 0000:04:00.0: irq 92 for MSI/MSI-X
-[    9.759720] mlx4_core 0000:04:00.0: irq 93 for MSI/MSI-X
-[    9.759726] mlx4_core 0000:04:00.0: irq 94 for MSI/MSI-X
-[   10.044580] mlx4_core 0000:04:00.0: SW2HW_EQ failed (-5)
-[   10.058011] mlx4_core 0000:04:00.0: Failed to initialize event queue
-table, aborting.
-[   10.076589] mlx4_core 0000:04:00.0: PCI INT A disabled
-[   10.086805] mlx4_core: probe of 0000:04:00.0 failed with error -5
+Certainly it is true that increased use of RCU has resulted in new
+requirements, which have in turn led to any number of changes over
+the years.
 
+Are you saying that people have already asked you for additional
+variants of SLAB_DESTROY_BY_RCU?  If so, please don't keep them a secret!
+Otherwise, experience indicates that it is best to wait for the new uses,
+because they usually aren't quite what one might expect.
+
+							Thanx, Paul
