@@ -1,30 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net_sched 00/07: classful multiqueue dummy scheduler
-Date: Tue, 08 Sep 2009 02:31:40 -0700 (PDT)
-Message-ID: <20090908.023140.210471397.davem@davemloft.net>
-References: <4AA503E4.2060504@gmail.com>
-	<4AA50ACF.9010400@trash.net>
-	<4AA5175F.6030600@trash.net>
+From: robert@herjulf.net
+Subject: [PATCH 00/14] pktgen update for net-next (2.6.32)
+Date: Tue, 8 Sep 2009 13:52:16 +0200
+Message-ID: <19110.17776.721680.242313@gargle.gargle.HOWL>
+References: <20090827235506.624381734@vyatta.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: David Miller <davem@davemloft.net>,
+	Robert Olsson <robert.olsson@its.uu.se>,
+	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46019
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753625AbZIHJbZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2009 05:31:25 -0400
-In-Reply-To: <4AA5175F.6030600@trash.net>
+Received: from klais.its.uu.se ([130.238.7.59]:46830 "EHLO klais.its.uu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753993AbZIHJvI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Sep 2009 05:51:08 -0400
+In-Reply-To: <20090827235506.624381734@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Mon, 07 Sep 2009 16:23:27 +0200
 
-> This is a patch I used for testing, but I'll come up with
-> something more elegant (I hope) as a final fix :)
+Stephen Hemminger writes:
+ > The biggest change is switching to monotonic clock (ktime) and
+ > high resolution timers for the interpacket delay.
 
-Thanks for figuring this out Patrick.
+Opteron Barcelona 2.3 GHz with net-next 2.6.31-rc5bifrost-x86_64.
 
-Let me know when you have a final patch.
+Sending different pkt-sizes at maxrate using one CPU-core (of eight) 
+with ixgbe driver and Intel's 82598 chip.
+
+      w. patch
+64    4761904    3846153
+128   4545454    3703703
+256   4545454    3703703
+512   2380952    2380952
+1024  1204819    1204819
+1500   826446     826446
+
+We increase max sending rate from 3.8 Mpps to 4.8 Mpps for 64 byte pkts
+
+Thanks a lot Stephen.
+
+Cheers
+                                        --ro
