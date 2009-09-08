@@ -1,45 +1,59 @@
-From: robert@herjulf.net
-Subject: [PATCH 00/14] pktgen update for net-next (2.6.32)
-Date: Tue, 8 Sep 2009 13:52:16 +0200
-Message-ID: <19110.17776.721680.242313@gargle.gargle.HOWL>
-References: <20090827235506.624381734@vyatta.com>
+From: Mel Gorman <mel@csn.ul.ie>
+Subject: Re: ipw2200: firmware DMA loading rework
+Date: Tue, 8 Sep 2009 12:00:41 +0100
+Message-ID: <20090908110041.GE28127__25189.6113194109$1252407676$gmane$org@csn.ul.ie>
+References: <riPp5fx5ECC.A.2IG.qsGlKB@chimera> <1251430951.3704.181.camel@debian> <200908301437.42133.bzolnier@gmail.com> <200909021948.13262.bzolnier@gmail.com> <43e72e890909021102g7f844c79xefccf305f5f5c5b6@mail.gmail.com> <20090903124913.GA26110@csn.ul.ie> <20090905142837.GI16217@mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Robert Olsson <robert.olsson@its.uu.se>,
-	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=iso-8859-15
+To: Theodore Tso <tytso@mit.edu>,
+	"Luis R. Rodriguez" <mcgrof@gmail.com>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
+	Zhu Yi <yi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from klais.its.uu.se ([130.238.7.59]:46830 "EHLO klais.its.uu.se"
+Received: from gir.skynet.ie ([193.1.99.77]:41830 "EHLO gir.skynet.ie"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753993AbZIHJvI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Sep 2009 05:51:08 -0400
-In-Reply-To: <20090827235506.624381734@vyatta.com>
+	id S1754029AbZIHLAi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Sep 2009 07:00:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20090905142837.GI16217@mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, Sep 05, 2009 at 10:28:37AM -0400, Theodore Tso wrote:
+> On Thu, Sep 03, 2009 at 01:49:14PM +0100, Mel Gorman wrote:
+> > > 
+> > > This looks very similar to the kmemleak ext4 reports upon a mount. If
+> > > it is the same issue, which from the trace it seems it is, then this
+> > > is due to an extra kmalloc() allocation and this apparently will not
+> > > get fixed on 2.6.31 due to the closeness of the merge window and the
+> > > non-criticalness this issue has been deemed.
+> 
+> No, it's a different problem.
+> 
+> > I suspect the more pressing concern is why is this kmalloc() resulting in
+> > an order-5 allocation request? What size is the buffer being requested?
+> > Was that expected?  What is the contents of /proc/slabinfo in case a buffer
+> > that should have required order-1 or order-2 is using a higher order for
+> > some reason.
+> 
+> It's allocating 68,000 bytes for the mb_history structure, which is
+> used for debugging purposes.  That's why it's optional and we continue
+> if it's not allocated.  We should fix it to use vmalloc()
 
-Stephen Hemminger writes:
- > The biggest change is switching to monotonic clock (ktime) and
- > high resolution timers for the interpacket delay.
+You could call with kmalloc(FLAGS|GFP_NOWARN) with a fallback to
+vmalloc() and a disable if vmalloc() fails as well.  Maybe check out what
+kernel/profile.c#profile_init() to allocate a large buffer and do something
+similar?
 
-Opteron Barcelona 2.3 GHz with net-next 2.6.31-rc5bifrost-x86_64.
+> and I'm
+> inclined to turn it off by default since it's not worth the overhead,
+> and most ext4 users won't find it useful or interesting.
+> 
 
-Sending different pkt-sizes at maxrate using one CPU-core (of eight) 
-with ixgbe driver and Intel's 82598 chip.
+I can't comment as I don't know what sort of debugging it's useful for.
 
-      w. patch
-64    4761904    3846153
-128   4545454    3703703
-256   4545454    3703703
-512   2380952    2380952
-1024  1204819    1204819
-1500   826446     826446
-
-We increase max sending rate from 3.8 Mpps to 4.8 Mpps for 64 byte pkts
-
-Thanks a lot Stephen.
-
-Cheers
-                                        --ro
+-- 
+Mel Gorman
+Part-time Phd Student                          Linux Technology Center
+University of Limerick                         IBM Dublin Software Lab
