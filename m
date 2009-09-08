@@ -1,51 +1,133 @@
 From: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
-Subject: [PATCH 0/5] Adds implementation of TFRC-SP on DCCP test tree
-Date: Tue, 08 Sep 2009 15:28:34 -0300
-Message-ID: <4AA6A252.5060405@embedded.ufcg.edu.br>
+Subject: [PATCH 2/5] Implement loss counting on TFRC-SP receiver
+Date: Tue, 08 Sep 2009 15:28:47 -0300
+Message-ID: <4AA6A25F.4060100@embedded.ufcg.edu.br>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from embedded.ufcg.edu.br ([150.165.63.2]:18691 "EHLO
+Received: from mail.embedded.ufcg.edu.br ([150.165.63.2]:18702 "EHLO
 	mail.embedded.ufcg.edu.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751784AbZIHS2j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2009 14:28:39 -0400
+	with ESMTP id S1752320AbZIHS2x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2009 14:28:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Due to the problems in the previuos patch pointed by Gerrit Renker and all, I'm
-resending the patches.
+Implement loss counting on TFRC-SP receiver. Consider transmission's hole size as loss count.
 
+Changes:
+ - Adds field li_losses to tfrc_loss_interval to track loss count per interval
+ - Adds field num_losses to tfrc_rx_hist, used to store loss count per loss event
+ - Adds dccp_loss_count function to net/dccp/dccp.h, responsible for loss count using sequence numbers
 
-These patches adds implementation of TFRC-SP at the receiver side, and
-are targeted at the DCCP branch
+Signed-off-by: Ivo Calado, Erivaldo Xavier, Leandro Sales <ivocalado@embedded.ufcg.edu.br>, <desadoc@gmail.com>, <leandroal@gmail.com>
 
+Index: dccp_tree_work4/net/dccp/ccids/lib/loss_interval_sp.c
+===================================================================
+--- dccp_tree_work4.orig/net/dccp/ccids/lib/loss_interval_sp.c	2009-09-03 22:58:17.000000000 -0300
++++ dccp_tree_work4/net/dccp/ccids/lib/loss_interval_sp.c	2009-09-03 23:00:24.000000000 -0300
+@@ -187,6 +187,7 @@
+ 		s64 len = dccp_delta_seqno(cur->li_seqno, cong_evt_seqno);
+ 		if ((len <= 0) ||
+ 		    (!tfrc_lh_closed_check(cur, cong_evt->tfrchrx_ccval))) {
++			cur->li_losses += rh->num_losses;
+ 			return false;
+ 		}
+ 
+@@ -204,6 +205,7 @@
+ 	cur->li_seqno	  = cong_evt_seqno;
+ 	cur->li_ccval	  = cong_evt->tfrchrx_ccval;
+ 	cur->li_is_closed = false;
++	cur->li_losses	  = rh->num_losses;
+ 
+ 	if (++lh->counter == 1)
+ 		lh->i_mean = cur->li_length = (*calc_first_li)(sk);
+Index: dccp_tree_work4/net/dccp/ccids/lib/loss_interval_sp.h
+===================================================================
+--- dccp_tree_work4.orig/net/dccp/ccids/lib/loss_interval_sp.h	2009-09-03 22:58:17.000000000 -0300
++++ dccp_tree_work4/net/dccp/ccids/lib/loss_interval_sp.h	2009-09-03 23:00:24.000000000 -0300
+@@ -30,12 +30,14 @@
+  *  @li_ccval:		The CCVal belonging to @li_seqno
+  *  @li_is_closed:	Whether @li_seqno is older than 1 RTT
+  *  @li_length:		Loss interval sequence length
++ *  @li_losses: 	Number of losses counted on this interval
+  */
+ struct tfrc_loss_interval {
+ 	u64		 li_seqno:48,
+ 			 li_ccval:4,
+ 			 li_is_closed:1;
+ 	u32		 li_length;
++	u32		 li_losses;
+ };
+ 
+ /*
+Index: dccp_tree_work4/net/dccp/ccids/lib/packet_history_sp.c
+===================================================================
+--- dccp_tree_work4.orig/net/dccp/ccids/lib/packet_history_sp.c	2009-09-03 22:58:17.000000000 -0300
++++ dccp_tree_work4/net/dccp/ccids/lib/packet_history_sp.c	2009-09-03 23:00:24.000000000 -0300
+@@ -244,6 +244,7 @@
+ 		h->loss_count = 3;
+ 		tfrc_sp_rx_hist_entry_from_skb(tfrc_rx_hist_entry(h, 3),
+ 					       skb, n3);
++		h->num_losses = dccp_loss_count(s2, s3, n3);
+ 		return 1;
+ 	}
+ 
+@@ -257,6 +258,7 @@
+ 		tfrc_sp_rx_hist_entry_from_skb(tfrc_rx_hist_entry(h, 2),
+ 					       skb, n3);
+ 		h->loss_count = 3;
++		h->num_losses = dccp_loss_count(s1, s3, n3);
+ 		return 1;
+ 	}
+ 
+@@ -293,6 +295,7 @@
+ 	h->loss_start = tfrc_rx_hist_index(h, 3);
+ 	tfrc_sp_rx_hist_entry_from_skb(tfrc_rx_hist_entry(h, 1), skb, n3);
+ 	h->loss_count = 3;
++	h->num_losses = dccp_loss_count(s0, s3, n3);
+ 
+ 	return 1;
+ }
+Index: dccp_tree_work4/net/dccp/ccids/lib/packet_history_sp.h
+===================================================================
+--- dccp_tree_work4.orig/net/dccp/ccids/lib/packet_history_sp.h	2009-09-03 22:58:17.000000000 -0300
++++ dccp_tree_work4/net/dccp/ccids/lib/packet_history_sp.h	2009-09-03 22:58:29.000000000 -0300
+@@ -113,6 +113,7 @@
+ 	u32			  packet_size,
+ 				  bytes_recvd;
+ 	ktime_t			  bytes_start;
++	u8			  num_losses;
+ };
+ 
+ /*
+Index: dccp_tree_work4/net/dccp/dccp.h
+===================================================================
+--- dccp_tree_work4.orig/net/dccp/dccp.h	2009-09-03 22:58:17.000000000 -0300
++++ dccp_tree_work4/net/dccp/dccp.h	2009-09-03 22:58:29.000000000 -0300
+@@ -168,6 +168,21 @@
+ 	return (u64)delta <= ndp + 1;
+ }
+ 
++static inline u64 dccp_loss_count(const u64 s1, const u64 s2, const u64 ndp)
++{
++	s64 delta, count;
++
++	delta = dccp_delta_seqno(s1, s2);
++	WARN_ON(delta < 0);
++
++	count = ndp + 1;
++	count -= delta;
++
++	count = (count > 0) ? count : 0;
++
++	return (u64) count;
++}
++
+ enum {
+ 	DCCP_MIB_NUM = 0,
+ 	DCCP_MIB_ACTIVEOPENS,			/* ActiveOpens */
 
-
-Patch #1: First Patch on TFRC-SP. Copy base files from TFRC
-Patch #2: Implement loss counting on TFRC-SP receiver
-Patch #3: Implement TFRC-SP calc of mean length of loss intervals
-accordingly to section 3 of RFC 4828
-Patch #4: Adds options DROPPED PACKETS and LOSS INTERVALS to receiver
-Patch #5: Updating documentation accordingly
-
-
-Following this patches, we'll be sending the sender side of TFRC-SP.
-Once this code is integrated on the branch, we can proceed adding the
-CCID4 code that uses this new TFRC-SP.
-
---
-Ivo Augusto Andrade Rocha Calado
-MSc. Candidate
-Embedded Systems and Pervasive Computing Lab -
-http://embedded.ufcg.edu.br
-Systems and Computing Department - http://www.dsc.ufcg.edu.br
-Electrical Engineering and Informatics Center -
-http://www.ceei.ufcg.edu.br
-Federal University of Campina Grande - http://www.ufcg.edu.br
-
-PGP: 0x03422935
-Quidquid latine dictum sit, altum viditur.
 
