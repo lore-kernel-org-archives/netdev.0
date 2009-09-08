@@ -1,37 +1,41 @@
-From: thomas yang <lampsu@gmail.com>
-Subject: Re: [iproute2] tc action mirred question
-Date: Tue, 8 Sep 2009 22:35:00 +0800
-Message-ID: <f4f837ab0909080735m2a2a74eclce231965a7eb2c63@mail.gmail.com>
-References: <404956.88336.qm@web111607.mail.gq1.yahoo.com>
-	 <1252376168.5244.11.camel@dogo.mojatatu.com>
-	 <f4f837ab0909080650t343efbmeb2f121def40bd9f@mail.gmail.com>
-	 <1252419044.5244.17.camel@dogo.mojatatu.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH] ipv6: Add IFA_F_DADFAILED flag
+Date: Tue, 08 Sep 2009 11:18:44 -0400
+Message-ID: <4AA675D4.8030406@hp.com>
+References: <4AA1C0FF.4030109@hp.com> <1252418247.5827.8.camel@fnki-nb00130>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: david Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Jens Rosenboom <jens@mcbone.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f198.google.com ([209.85.223.198]:53539 "EHLO
-	mail-iw0-f198.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751164AbZIHOlo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2009 10:41:44 -0400
-Received: by iwn36 with SMTP id 36so50758iwn.22
-        for <netdev@vger.kernel.org>; Tue, 08 Sep 2009 07:41:47 -0700 (PDT)
-In-Reply-To: <1252419044.5244.17.camel@dogo.mojatatu.com>
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:38638 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750724AbZIHPSq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2009 11:18:46 -0400
+In-Reply-To: <1252418247.5827.8.camel@fnki-nb00130>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->
-> Yes, of course. That was an example on how to use pedit. If you want
-> to be pedantic then note that no eth1 device is being used in the
-> original example and neither is itsensible to make changes to the MAC
-> address on ingress ;->
-> In any case, please go and run some experiments to test the theories.
->
+Jens Rosenboom wrote:
+>> --- a/net/ipv6/addrconf.c
+>> +++ b/net/ipv6/addrconf.c
+>> @@ -1376,7 +1376,7 @@ static void addrconf_dad_stop(struct inet6_ifaddr *ifp)
+>>  	if (ifp->flags&IFA_F_PERMANENT) {
+>>  		spin_lock_bh(&ifp->lock);
+>>  		addrconf_del_timer(ifp);
+>> -		ifp->flags |= IFA_F_TENTATIVE;
+>> +		ifp->flags |= IFA_F_DADFAILED;
+> 
+> I think you still have to set IFA_F_TENTATIVE here, too, otherwise
+> ipv6_dev_get_saddr() will use this address. 		
 
-I think the idea of the original example is good,  'tc' is very useful.
-I will try some experiments to test the theories.   : )
+The tentative bit is still set from when this address was added back
+in ipv6_add_addr() from what I can tell, re-setting it here is actually
+unnecessary.  At least /sbin/ip was still showing it set during my
+testing.
 
-------
-regards,
-thomas
+-Brian
+
