@@ -1,68 +1,56 @@
-From: Davidlohr Bueso <dave@gnu.org>
-Subject: [PATCH resend] s2io: Remove unnecessary casts
-Date: Tue, 08 Sep 2009 00:26:55 -0400
-Message-ID: <1252384015.6396.11.camel@dbueso-pc>
-Reply-To: dave@gnu.org
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: Re: Stop using tasklets for bottom halves
+Date: Tue, 8 Sep 2009 06:50:41 +0200
+Message-ID: <200909080650.43181.mb@bu3sch.de>
+References: <43e72e890909071558s637b45c7i10807587dc40e8c4@mail.gmail.com> <20090907171406.6a4b6116@nehalam> <1252376254.21261.2052.camel@gandalf.stny.rr.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [186.40.58.177] ([186.40.58.177]:60294 "EHLO
-	localhost.localdomain" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752335AbZIHEgm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2009 00:36:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
+	"Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Matt Smith <Matt.Smith-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
+	Kevin Hayes <kevin-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
+	Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>, Jouni Malinen <j@w1.fi>,
+	Ivan Seskar <Seskar-NvJAj8134tRxEa0u/P/EHDe48wsgrGvP@public.gmane.org>, ic.felix-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1252376254.21261.2052.camel-f9ZlEuEWxVcI6MkJdU+c8EEOCMrvLtNR@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
+On Tuesday 08 September 2009 04:17:34 Steven Rostedt wrote:
+> > Process context is too slow.
+> 
+> Well, I'm hoping to prove the opposite. I'm working on some stuff that I
+> plan to present at Linux Plumbers. I've been too distracted by other
+> things, but hopefully I'll have some good numbers to present by then.
 
-Don't know why my email client corrupted the patch, anyways, here it is without white spaces.
+I recently converted the b43 driver to threaded interrupt handlers and
+a workqueue based TX mechanism. (My motivation was porting b43 to the SDIO bus that
+needs to sleep, so requires process context).
 
-No need to cast kmalloc.
+There are two things that I noticed. When looking at the "idle" percentage in "top"
+it regressed quite a bit when using threaded IRQ handlers. It shows about 8% less
+idle. This is with threaded IRQs patched in, but without WQ TX mechanism. Applying
+the WQ TX mechanism does not show any noticeable effect in "top".
 
-Thanks,
-Davidlohr
+I'm not quite sure where the 8% slowdown on threaded IRQ handlers come from. I'm not
+really certain that it's _really_ a regression and not just a statistics accounting quirk.
+Why does threaded IRQs slow down stuff and threaded TX does not at all? That does not
+make sense at all to me.
 
+I think there's no real reason for process context being slow in general. It's just that
+we have additional context switches. But these are fast on Linux.
 
-Signed-off-by: Davidlohr Bueso <dave@gnu.org>
-
----
- drivers/net/s2io.c |   12 ++++++++----
- 1 files changed, 8 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-index 458daa0..2bc62d3 100644
---- a/drivers/net/s2io.c
-+++ b/drivers/net/s2io.c
-@@ -870,8 +870,10 @@ static int init_shared_mem(struct s2io_nic *nic)
- 				while (k != rxd_count[nic->rxd_mode]) {
- 					ba = &mac_control->rings[i].ba[j][k];
- 
--					ba->ba_0_org = (void *) kmalloc
--					    (BUF0_LEN + ALIGN_SIZE, GFP_KERNEL);
-+					ba->ba_0_org = kmalloc
-+						(BUF0_LEN + ALIGN_SIZE,
-+						 GFP_KERNEL);
-+
- 					if (!ba->ba_0_org)
- 						return -ENOMEM;
- 					mem_allocated +=
-@@ -881,9 +883,10 @@ static int init_shared_mem(struct s2io_nic *nic)
- 					tmp &= ~((unsigned long) ALIGN_SIZE);
- 					ba->ba_0 = (void *) tmp;
- 
--					ba->ba_1_org = (void *) kmalloc
--					    (BUF1_LEN + ALIGN_SIZE, GFP_KERNEL);
-+					ba->ba_1_org = kmalloc
-+						(BUF1_LEN + ALIGN_SIZE,
-+						 GFP_KERNEL);
-+
- 					if (!ba->ba_1_org)
- 						return -ENOMEM;
- 					mem_allocated
+-- 
+Greetings, Michael.
 --
-1.6.0.4
-
-
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
