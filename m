@@ -1,60 +1,100 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [iproute2] tc action mirred    question
-Date: Mon, 07 Sep 2009 22:16:08 -0400
-Message-ID: <1252376168.5244.11.camel@dogo.mojatatu.com>
-References: <404956.88336.qm@web111607.mail.gq1.yahoo.com>
-Reply-To: hadi@cyberus.ca
+From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Stop using tasklets for bottom halves
+Date: Mon, 7 Sep 2009 21:16:38 -0700
+Message-ID: <43e72e890909072116v33ecafc4ma7f5a68825f14e9@mail.gmail.com>
+References: <43e72e890909071558s637b45c7i10807587dc40e8c4@mail.gmail.com>
+	<20090907171406.6a4b6116@nehalam> <1252376254.21261.2052.camel@gandalf.stny.rr.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux netdev <netdev@vger.kernel.org>
-To: Xiaofei Wu <xiaofei_wu08@yahoo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.221.181]:49464 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753170AbZIHCSc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2009 22:18:32 -0400
-Received: by qyk11 with SMTP id 11so2430642qyk.1
-        for <netdev@vger.kernel.org>; Mon, 07 Sep 2009 19:18:33 -0700 (PDT)
-In-Reply-To: <404956.88336.qm@web111607.mail.gq1.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
+	Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Matt Smith <Matt.Smith-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
+	Kevin Hayes <kevin-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
+	Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>, Jouni Malinen <j@w1.fi>,
+	Ivan Seskar <Seskar-NvJAj8134tRxEa0u/P/EHDe48wsgrGvP@public.gmane.org>, ic.felix-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1252376254.21261.2052.camel-f9ZlEuEWxVcI6MkJdU+c8EEOCMrvLtNR@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2009-09-07 at 09:05 -0700, Xiaofei Wu wrote:
+On Mon, Sep 7, 2009 at 7:17 PM, Steven Rostedt<rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org> wro=
+te:
+> On Mon, 2009-09-07 at 17:14 -0700, Stephen Hemminger wrote:
+>> On Mon, 7 Sep 2009 15:58:50 -0700
+>> "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>>
+>> > A while ago I had read about an effort to consider removing taskle=
+ts
+>> > [1] or at least trying to not use them. I'm unaware of the progres=
+s in
+>> > this respect but since reading that article have always tried to
+>> > evaluate whether or not we need tasklets on wireless drivers. I ha=
+ve
+>> > also wondered whether work in irq context in other parts of the ke=
+rnel
+>> > can be moved to process context, a curious example being timers. I=
+'ll
+>> > personally be trying to using only process context on bottom halve=
+s on
+>> > future drivers but I figured it may be a good time to ask how seri=
+ous
+>> > was avoiding tasklets or using wrappers in the future to avoid irq
+>> > context is or is it advised. Do we have a general agreement this i=
+s a
+>> > good step forward to take? Has anyone made tests or changes on a
+>> > specific driver from irq context to process context and proven the=
+re
+>> > are no significant advantages of using irq context where you would
+>> > have expected it?
+>> >
+>> > Wireless in particular should IMHO not require taskets for anythin=
+g
+>> > time sensitive that I can think about except perhaps changing chan=
+nels
+>> > quickly and to do that appropriately also process pending RX frame=
+s
+>> > prior to a switch. It remains to be seen experimentally whether or=
+ not
+>> > using a workqueue for RX processing would affect the time to switc=
+h
+>> > channels negatively but I doubt it would be significant. I hope to
+>> > test that with ath9k_htc.
+>> >
+>> > What about gigabit or 10 Gigabit Ethernet drivers ? Do they face a=
+ny
+>> > challenges which would yet need to be proven would not face issues
+>> > when processing bottom halves in process context?
+>> >
+>> > [1] http://lwn.net/Articles/239633/
+>> >
+>> > =C2=A0 Luis
+>> > --
+>> > To unsubscribe from this list: send the line "unsubscribe netdev" =
+in
+>> > the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>> > More majordomo info at =C2=A0http://vger.kernel.org/majordomo-info=
+=2Ehtml
+>>
+>> Why not use NAPI, which is soft irq? Almost all 1G and 10G drivers
+>> use NAPI.
+>>
+>> Process context is too slow.
+>
+> Well, I'm hoping to prove the opposite. I'm working on some stuff tha=
+t I
+> plan to present at Linux Plumbers. I've been too distracted by other
+> things, but hopefully I'll have some good numbers to present by then.
 
-> (1) Could I use  pedit action to modify the dst MAC, so the destination node D will accept it, 
-> then forward it to node C?  
+What day in specific was this planned for at Plumbers?
 
-Yes, you can achieve it with pedit; 
-
-
-> (or use other tools to modify the dst MAC, please give me more information)
-> 
-
-it is as usable as u32 is - you have to know your offsets
-example, here's something done on an incoming packet:
-=-=
-#Note:
-#dst MAC starts at -14
-#src MAC at -8
-#ethertype at -2
-#
-tc filter add dev eth1 parent ffff: protocol ip prio 10 u32 \
-match ip src 192.168.2.11/32 flowid 1:2 \
-action pedit munge offset -14 u16 set 0x0000 \
-munge offset -12 u32 set 0x00000200 \
-munge offset -8 u32 set 0x0aaf0100 \
-munge offset -4 u32 set 0x0008eb06 pipe \
-action mirred egress redirect dev eth0
-----
-
-> (2) If I use 'ifconfig wlan0 promisc ... ' on node D, would it route the mirroring packets
->  (the dst MAC is incorrect)
-> to node C?
-
-It may work.
-Go and try running some experiments.
-
-cheers,
-jamal
-
+  Luis
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
