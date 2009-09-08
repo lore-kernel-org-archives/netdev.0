@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
 Subject: Re: Stop using tasklets for bottom halves
-Date: Tue, 8 Sep 2009 09:11:43 -0700
-Message-ID: <20090908091143.1e613963@nehalam>
+Date: Tue, 8 Sep 2009 09:12:52 -0700
+Message-ID: <20090908091252.3e931e0d@nehalam>
 References: <43e72e890909071558s637b45c7i10807587dc40e8c4@mail.gmail.com>
 	<20090907171406.6a4b6116@nehalam>
 	<1252376254.21261.2052.camel@gandalf.stny.rr.com>
@@ -18,14 +18,10 @@ Cc: "Luis R. Rodriguez" <mcgrof@gmail.com>,
 	Bob Copeland <me@bobcopeland.com>, Jouni Malinen <j@w1.fi>,
 	Ivan Seskar <Seskar@winlab.rutgers.edu>, ic.felix@gmail.com
 To: rostedt@goodmis.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:51670 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750991AbZIHQLr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Sep 2009 12:11:47 -0400
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751621AbZIHQM5@vger.kernel.org>
 In-Reply-To: <1252376254.21261.2052.camel@gandalf.stny.rr.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 On Mon, 07 Sep 2009 22:17:34 -0400
 Steven Rostedt <rostedt@goodmis.org> wrote:
@@ -78,11 +74,12 @@ Steven Rostedt <rostedt@goodmis.org> wrote:
 > plan to present at Linux Plumbers. I've been too distracted by other
 > things, but hopefully I'll have some good numbers to present by then.
 > 
+> -- Steve
+> 
+> 
 
-
-That's great, does it keep the good properties of NAPI (irq disabling
-and throttling?)
-
-
+A good performance test is changing the behaviour of loopback
+device and running lmbench.  This checks overhead without the specter
+of real hardware.
 
 -- 
