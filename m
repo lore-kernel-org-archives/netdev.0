@@ -1,60 +1,190 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Stop using tasklets for bottom halves
-Date: Tue, 8 Sep 2009 10:01:44 -0700
-Message-ID: <20090908100144.6e06872b@nehalam>
-References: <43e72e890909071558s637b45c7i10807587dc40e8c4@mail.gmail.com>
-	<20090907171406.6a4b6116@nehalam>
-	<1252376254.21261.2052.camel@gandalf.stny.rr.com>
-	<20090908091143.1e613963@nehalam>
-	<1252428023.15626.30.camel@gandalf.stny.rr.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: [PATCH] genetlink: fix netns vs. netlink table locking
+Date: Tue, 08 Sep 2009 17:59:37 +0200
+Message-ID: <1252425578.3806.22.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Luis R. Rodriguez" <mcgrof@gmail.com>,
-	Ingo Molnar <mingo@elte.hu>, Michael Buesch <mb@bu3sch.de>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Matt Smith <Matt.Smith@atheros.com>,
-	Kevin Hayes <kevin@atheros.com>,
-	Bob Copeland <me@bobcopeland.com>, Jouni Malinen <j@w1.fi>,
-	Ivan Seskar <Seskar@winlab.rutgers.edu>, ic.felix@gmail.com
-To: rostedt@goodmis.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751864AbZIHRBu@vger.kernel.org>
-In-Reply-To: <1252428023.15626.30.camel@gandalf.stny.rr.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 08 Sep 2009 12:40:23 -0400
-Steven Rostedt <rostedt@goodmis.org> wrote:
+Since my commits introducing netns awareness into
+genetlink we can get this problem:
 
-> On Tue, 2009-09-08 at 09:11 -0700, Stephen Hemminger wrote:
-> 
-> > > > Process context is too slow.
-> > > 
-> > > Well, I'm hoping to prove the opposite. I'm working on some stuff that I
-> > > plan to present at Linux Plumbers. I've been too distracted by other
-> > > things, but hopefully I'll have some good numbers to present by then.
-> > > 
-> > 
-> > 
-> > That's great, does it keep the good properties of NAPI (irq disabling
-> > and throttling?)
-> 
-> Not exactly sure what you mean by throttling, but I'm assuming it will.
-> 
-> As for irqs disabling, I'm trying to avoid doing that. Note, the device
-> will have its interrupts disabled, but not all other devices will.
-> 
-> -- Steve
-> 
-> 
+BUG: scheduling while atomic: modprobe/1178/0x00000002
+2 locks held by modprobe/1178:
+ #0:  (genl_mutex){+.+.+.}, at: [<ffffffff8135ee1a>] genl_register_mc_grou
+ #1:  (rcu_read_lock){.+.+..}, at: [<ffffffff8135eeb5>] genl_register_mc_g
+Pid: 1178, comm: modprobe Not tainted 2.6.31-rc8-wl-34789-g95cb731-dirty #
+Call Trace:
+ [<ffffffff8103e285>] __schedule_bug+0x85/0x90
+ [<ffffffff81403138>] schedule+0x108/0x588
+ [<ffffffff8135b131>] netlink_table_grab+0xa1/0xf0
+ [<ffffffff8135c3a7>] netlink_change_ngroups+0x47/0x100
+ [<ffffffff8135ef0f>] genl_register_mc_group+0x12f/0x290
 
-The way NAPI works is that in irq routine, the device disables interrupts
-then schedules processing packets, when processing is done irq's are re-enabled.
-This means that if machine is being flooded, irq's stay off, and the packets
-get discarded (because device hardware ring is full), rather than in software
-(because software receive queue is full).
+because I overlooked that netlink_table_grab() will
+schedule, thinking it was just the rwlock. However,
+in the contention case, that isn't actually true.
+
+Fix this by letting the code grab the netlink table
+lock first and then the RCU for netns protection.
+
+Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+---
+ include/linux/netlink.h  |    4 +++
+ net/netlink/af_netlink.c |   51 ++++++++++++++++++++++++++---------------------
+ net/netlink/genetlink.c  |    5 +++-
+ 3 files changed, 37 insertions(+), 23 deletions(-)
+
+--- wireless-testing.orig/include/linux/netlink.h	2009-09-08 17:49:54.000000000 +0200
++++ wireless-testing/include/linux/netlink.h	2009-09-08 17:50:29.000000000 +0200
+@@ -176,12 +176,16 @@ struct netlink_skb_parms
+ #define NETLINK_CREDS(skb)	(&NETLINK_CB((skb)).creds)
+ 
+ 
++extern void netlink_table_grab(void);
++extern void netlink_table_ungrab(void);
++
+ extern struct sock *netlink_kernel_create(struct net *net,
+ 					  int unit,unsigned int groups,
+ 					  void (*input)(struct sk_buff *skb),
+ 					  struct mutex *cb_mutex,
+ 					  struct module *module);
+ extern void netlink_kernel_release(struct sock *sk);
++extern int __netlink_change_ngroups(struct sock *sk, unsigned int groups);
+ extern int netlink_change_ngroups(struct sock *sk, unsigned int groups);
+ extern void netlink_clear_multicast_users(struct sock *sk, unsigned int group);
+ extern void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err);
+--- wireless-testing.orig/net/netlink/af_netlink.c	2009-09-08 17:37:57.000000000 +0200
++++ wireless-testing/net/netlink/af_netlink.c	2009-09-08 17:52:45.000000000 +0200
+@@ -177,9 +177,11 @@ static void netlink_sock_destruct(struct
+  * this, _but_ remember, it adds useless work on UP machines.
+  */
+ 
+-static void netlink_table_grab(void)
++void netlink_table_grab(void)
+ 	__acquires(nl_table_lock)
+ {
++	might_sleep();
++
+ 	write_lock_irq(&nl_table_lock);
+ 
+ 	if (atomic_read(&nl_table_users)) {
+@@ -200,7 +202,7 @@ static void netlink_table_grab(void)
+ 	}
+ }
+ 
+-static void netlink_table_ungrab(void)
++void netlink_table_ungrab(void)
+ 	__releases(nl_table_lock)
+ {
+ 	write_unlock_irq(&nl_table_lock);
+@@ -1549,37 +1551,21 @@ static void netlink_free_old_listeners(s
+ 	kfree(lrh->ptr);
+ }
+ 
+-/**
+- * netlink_change_ngroups - change number of multicast groups
+- *
+- * This changes the number of multicast groups that are available
+- * on a certain netlink family. Note that it is not possible to
+- * change the number of groups to below 32. Also note that it does
+- * not implicitly call netlink_clear_multicast_users() when the
+- * number of groups is reduced.
+- *
+- * @sk: The kernel netlink socket, as returned by netlink_kernel_create().
+- * @groups: The new number of groups.
+- */
+-int netlink_change_ngroups(struct sock *sk, unsigned int groups)
++int __netlink_change_ngroups(struct sock *sk, unsigned int groups)
+ {
+ 	unsigned long *listeners, *old = NULL;
+ 	struct listeners_rcu_head *old_rcu_head;
+ 	struct netlink_table *tbl = &nl_table[sk->sk_protocol];
+-	int err = 0;
+ 
+ 	if (groups < 32)
+ 		groups = 32;
+ 
+-	netlink_table_grab();
+ 	if (NLGRPSZ(tbl->groups) < NLGRPSZ(groups)) {
+ 		listeners = kzalloc(NLGRPSZ(groups) +
+ 				    sizeof(struct listeners_rcu_head),
+ 				    GFP_ATOMIC);
+-		if (!listeners) {
+-			err = -ENOMEM;
+-			goto out_ungrab;
+-		}
++		if (!listeners)
++			return -ENOMEM;
+ 		old = tbl->listeners;
+ 		memcpy(listeners, old, NLGRPSZ(tbl->groups));
+ 		rcu_assign_pointer(tbl->listeners, listeners);
+@@ -1597,8 +1583,29 @@ int netlink_change_ngroups(struct sock *
+ 	}
+ 	tbl->groups = groups;
+ 
+- out_ungrab:
++	return 0;
++}
++
++/**
++ * netlink_change_ngroups - change number of multicast groups
++ *
++ * This changes the number of multicast groups that are available
++ * on a certain netlink family. Note that it is not possible to
++ * change the number of groups to below 32. Also note that it does
++ * not implicitly call netlink_clear_multicast_users() when the
++ * number of groups is reduced.
++ *
++ * @sk: The kernel netlink socket, as returned by netlink_kernel_create().
++ * @groups: The new number of groups.
++ */
++int netlink_change_ngroups(struct sock *sk, unsigned int groups)
++{
++	int err;
++
++	netlink_table_grab();
++	err = __netlink_change_ngroups(sk, groups);
+ 	netlink_table_ungrab();
++
+ 	return err;
+ }
+ EXPORT_SYMBOL(netlink_change_ngroups);
+--- wireless-testing.orig/net/netlink/genetlink.c	2009-09-08 17:50:38.000000000 +0200
++++ wireless-testing/net/netlink/genetlink.c	2009-09-08 17:58:50.000000000 +0200
+@@ -176,9 +176,10 @@ int genl_register_mc_group(struct genl_f
+ 	if (family->netnsok) {
+ 		struct net *net;
+ 
++		netlink_table_grab();
+ 		rcu_read_lock();
+ 		for_each_net_rcu(net) {
+-			err = netlink_change_ngroups(net->genl_sock,
++			err = __netlink_change_ngroups(net->genl_sock,
+ 					mc_groups_longs * BITS_PER_LONG);
+ 			if (err) {
+ 				/*
+@@ -188,10 +189,12 @@ int genl_register_mc_group(struct genl_f
+ 				 * increased on some sockets which is ok.
+ 				 */
+ 				rcu_read_unlock();
++				netlink_table_ungrab();
+ 				goto out;
+ 			}
+ 		}
+ 		rcu_read_unlock();
++		netlink_table_ungrab();
+ 	} else {
+ 		err = netlink_change_ngroups(init_net.genl_sock,
+ 					     mc_groups_longs * BITS_PER_LONG);
 
 
--- 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
