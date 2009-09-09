@@ -1,42 +1,42 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 2/2] cdc-phonet: autoconfigure Phonet address
-Date: Wed, 09 Sep 2009 12:33:09 +0200
-Message-ID: <1252492389.8931.31.camel@violet>
-References: <1252490406-27951-1-git-send-email-remi@remlab.net>
-	 <1252490406-27951-2-git-send-email-remi@remlab.net>
-	 <1252491850.8931.28.camel@violet>
-	 <1f7692749ea7722ba7f7f4ff9f86acd2@chewa.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH resend] s2io: Remove unnecessary casts
+Date: Wed, 09 Sep 2009 03:40:57 -0700 (PDT)
+Message-ID: <20090909.034057.58038960.davem@davemloft.net>
+References: <1252384015.6396.11.camel@dbueso-pc>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont <remi@remlab.net>
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: dave@gnu.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:32890 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751383AbZIIKdL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2009 06:33:11 -0400
-In-Reply-To: <1f7692749ea7722ba7f7f4ff9f86acd2@chewa.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51856
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752689AbZIIKkl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2009 06:40:41 -0400
+In-Reply-To: <1252384015.6396.11.camel@dbueso-pc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Remi,
+From: Davidlohr Bueso <dave@gnu.org>
+Date: Tue, 08 Sep 2009 00:26:55 -0400
 
-> > am I understanding this correctly, that even for the USB ones we still
-> > have to execute that ioctl() and can not just auto configure them all
-> > the time? For the USB ones, I would expect to should plug them in and
-> > they are getting configured right away.
+> Hi David,
 > 
-> The other patch makes the stack use the ioctl() internally.
-> But now I see that I forgot some debug statement :(
+> Don't know why my email client corrupted the patch, anyways, here it is without white spaces.
 > 
-> Still, something needs to ifconfig up/ip link set up.
+> No need to cast kmalloc.
+> 
+> Thanks,
+> Davidlohr
+> 
+> 
+> Signed-off-by: Davidlohr Bueso <dave@gnu.org>
 
-the ifup/ifdown is fine. And if the addresses get set when I plug the
-device in, that looks good to me.
+Since you last submitted this patch a large series of cleanup
+patches were added to this driver in the net-next-2.6 tree
+and as a result your patch no longer applies properly.
 
-Regards
+You'll need to respin these changes and make sure they
+apply cleanly to net-next-2.6
 
-Marcel
-
-
+Thanks.
