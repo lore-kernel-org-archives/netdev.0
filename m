@@ -1,37 +1,53 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: [PATCH] slub: fix slab_pad_check()
-Date: Wed, 9 Sep 2009 10:04:20 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0909091002440.28070@V090114053VZO-1>
-References: <4A9FDA72.8060001@gmail.com> <alpine.DEB.1.10.0909031414310.29881@V090114053VZO-1> <4AA00400.1030005@gmail.com> <alpine.DEB.1.10.0909031731540.24199@V090114053VZO-1> <20090903231757.GP6761@linux.vnet.ibm.com> <alpine.DEB.1.10.0909041140040.9781@V090114053VZO-1>
- <20090904204335.GG6751@linux.vnet.ibm.com> <alpine.DEB.1.10.0909081555410.26382@V090114053VZO-1> <20090908222036.GM6753@linux.vnet.ibm.com> <alpine.DEB.1.10.0909081839090.7733@V090114053VZO-1> <20090908225937.GO6753@linux.vnet.ibm.com>
+From: DDD <Dongdong.deng@windriver.com>
+Subject: Re: [PATCH 1/1] netpoll: fix race between skb_queue_len and
+	skb_dequeue
+Date: Wed, 09 Sep 2009 22:27:15 +0800
+Message-ID: <1252506435.16528.57.camel@dengdd-desktop>
+References: <1252396189.16528.19.camel@dengdd-desktop>
+	 <1252430825.7145.55.camel@calx>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Zdenek Kabelac <zdenek.kabelac@gmail.com>,
-	Patrick McHardy <kaber@trash.net>, Robin Holt <holt@sgi.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Jesper Dangaard Brouer <hawk@comx.dk>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090908225937.GO6753@linux.vnet.ibm.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Matt Mackall <mpm@selenic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:42412 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752150AbZIIOOF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2009 10:14:05 -0400
+In-Reply-To: <1252430825.7145.55.camel@calx>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 8 Sep 2009, Paul E. McKenney wrote:
+On Tue, 2009-09-08 at 12:27 -0500, Matt Mackall wrote:
+> On Tue, 2009-09-08 at 15:49 +0800, DDD wrote:
+> > This race will break the messages order.
+> > 
+> > Sequence of events in the problem case:
+> > 
+> > Assume there is one skb "A" in skb_queue and the next action of
+> > netpoll_send_skb() is: sending out "B" skb.
+> > The right order of messages should be: send A first, then send B.
+> > 
+> > But as following orders, it will send B first, then send A.
+> 
+> I would say no, the order of messages A and B queued on different CPUs
+> is undefined. The only issue is that we can queue a message A on CPU0,
+> then causally trigger a message on CPU1 B that arrives first. But bear
+> in mind that the message A >>may never arrive<< because the message is
+> about a lockup that kills processing of delayed work.
+> 
+> Generally speaking, queueing should be a last ditch effort. We should
+> instead aim to deliver all messages immediately, even if they might be
+> out of order. Because out of order is better than not arriving at all.
 
-> > No direct request but I have seen the network developers discover these
-> > features and their caching benefits over the last year. It is likely that
-> > they will try to push it into more components of the net subsystem.
->
-> So if they push it far enough, they might well decide that they need
-> a SLAB_DESTROY_BY_RCU_BH, for example.  Looks like seven bits left,
-> so unless I am missing something, should not be a huge problem should
-> this need arise.
+Ah, yes, out of order is better than not arriving at all. :-)
 
-I'd rather have the call_rcu in the slabs replaced by a function that
-can be set by the user. Then we can remove all rcu barriers from the code
-and the slabs could be used with any type of rcu functionality.
+Especially it is based on UDP, so I don't think the order of messages is
+important. :-)
 
+I take back this patch.  
+
+Thank you very much,
+Dongdong
+ 
