@@ -1,44 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Christoph Lameter <cl@linux-foundation.org>
 Subject: Re: UDP regression with packets rates < 10k per sec
-Date: Wed, 09 Sep 2009 19:08:10 +0200
-Message-ID: <4AA7E0FA.5070005@gmail.com>
+Date: Wed, 9 Sep 2009 13:26:22 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0909091323570.32067@V090114053VZO-1>
 References: <alpine.DEB.1.10.0909081820030.7733@V090114053VZO-1> <4AA6E039.4000907@gmail.com> <alpine.DEB.1.10.0909091000200.28070@V090114053VZO-1> <4AA7C512.6040100@gmail.com> <alpine.DEB.1.10.0909091234360.15538@V090114053VZO-1>
+ <4AA7E0FA.5070005@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org
-To: Christoph Lameter <cl@linux-foundation.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:58957 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752373AbZIIRIK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2009 13:08:10 -0400
-In-Reply-To: <alpine.DEB.1.10.0909091234360.15538@V090114053VZO-1>
+Received: from smtp2.ultrahosting.com ([74.213.174.253]:42940 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752923AbZIIR10 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2009 13:27:26 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id D2E9782C16B
+	for <netdev@vger.kernel.org>; Wed,  9 Sep 2009 13:28:25 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.253])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id yU7zPcPpPH+t for <netdev@vger.kernel.org>;
+	Wed,  9 Sep 2009 13:28:21 -0400 (EDT)
+Received: from V090114053VZO-1 (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 6F0DC82C290
+	for <netdev@vger.kernel.org>; Wed,  9 Sep 2009 13:28:20 -0400 (EDT)
+In-Reply-To: <4AA7E0FA.5070005@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Christoph Lameter a =E9crit :
-> On Wed, 9 Sep 2009, Eric Dumazet wrote:
->=20
->> Christoph Lameter a ?crit :
->>> On Wed, 9 Sep 2009, Eric Dumazet wrote:
->>>
->>>> In order to reproduce this here, could you tell me if you use
->>>>
->>>> Producer linux-2.6.22 -> Receiver 2.6.22
->>>> Producer linux-2.6.31 -> Receiver 2.6.31
->>> I use the above setup.
->> Then frames are sent on wire but not received
->>
->> (they are received via  mc loop, internal stack magic)
->=20
-> We are talking about two machines running 2.6.22 or 2.6.31. There is =
-no
-> magic mc loop between the two machines. -L was not used.
->=20
+On Wed, 9 Sep 2009, Eric Dumazet wrote:
 
+> I have no idea how you run the test then, and how are computed time deltas.
+>
+> Are you clocks synchronized to less than one us ? How is it done ?
 
-I have no idea how you run the test then, and how are computed time del=
-tas.
+Packets are sent one way and include a timestamp. Once in a while (probe
+interval) a packet is sent back to the sender (with the timestamp the
+sender took earlier). The sender takes a second timestamp and
+calculates the latency by dividing by two.
 
-Are you clocks synchronized to less than one us ? How is it done ?
+Seen this approach in multiple middleware test programs. Clocks are
+typically not synchronized enough to actually compare timestamps from two
+systems.
+
