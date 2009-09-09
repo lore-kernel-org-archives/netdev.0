@@ -1,31 +1,38 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [IB] 2.6.31-rc9: SW2HW_EQ failed on Dell R610
-Date: Tue, 08 Sep 2009 20:11:20 -0700
-Message-ID: <ada1vmgn76v.fsf@cisco.com>
-References: <alpine.DEB.1.10.0909081805110.7733@V090114053VZO-1>
+From: Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>
+Subject: Re: [PATCH] ath5k: do not free irq after resume when card has been
+	removed
+Date: Tue, 8 Sep 2009 23:32:37 -0400
+Message-ID: <20090909033237.GC13550@hash.localnet>
+References: <1252457551-4909-1-git-send-email-cascardo@holoscopio.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Christoph Lameter <cl@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-5.cisco.com ([171.68.10.87]:12871 "EHLO
-	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751191AbZIIDLT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2009 23:11:19 -0400
-In-Reply-To: <alpine.DEB.1.10.0909081805110.7733@V090114053VZO-1> (Christoph
-	Lameter's message of "Tue, 8 Sep 2009 18:06:54 -0400 (EDT)")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org, mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+To: Thadeu Lima de Souza Cascardo <cascardo-DmMZpsCg3uxeGPcbtGPokg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1252457551-4909-1-git-send-email-cascardo-DmMZpsCg3uxeGPcbtGPokg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, Sep 08, 2009 at 09:52:31PM -0300, Thadeu Lima de Souza Cascardo wrote:
+> ath5k will try to request irq when resuming and fails if the device
+> (like a PCMCIA card) has been removed.
 
- > The problem with the interrupts is not solved in rc9:
+That's not true, ath5k no longer requests an irq when resuming.
 
-Yes, by the time we got this all resolved, it was already rc8 and I
-though 2.6.31 was right around the corner ... the issue didn't seem
-severe enough to stick in so late in the cycle, so I queued the patch
-for .32 with a cc to stable to get in 2.6.31.1.
+> This solves this issue defining a new flag for the status bitmap to
+> indicate when irq has been successfully requested and does not try to
+> release it if not.
 
-The workaround of limiting possible cpus to 16 should be OK for the time
-between 2.6.31 and 2.6.31.1.
+I'd rather not fix it with a status bit.  What kernel is this against?
 
- - R.
+-- 
+Bob Copeland %% www.bobcopeland.com
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
