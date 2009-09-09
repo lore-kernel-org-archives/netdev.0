@@ -1,70 +1,39 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: net_sched 07/07: add classful multiqueue dummy scheduler
-Date: Wed, 9 Sep 2009 21:52:38 +0200
-Message-ID: <20090909195238.GA3043@ami.dom.local>
-References: <20090906200409.GB8833@ami.dom.local>
- <4AA50A49.7010905@trash.net>
- <20090907192429.GC4451@ami.dom.local>
- <4AA563B4.1060003@gmail.com>
- <4AA7D1B3.7010708@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [PATCH NEXT 1/2] netxen: fix check for ip addr hashing support
+Date: Wed,  9 Sep 2009 13:09:22 -0700
+Message-ID: <1252526963-25621-1-git-send-email-dhananjay@netxen.com>
+Cc: netdev@vger.kernel.org, Amit Kumar Salecha <amit@netxen.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.154]:23782 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752824AbZIITw6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2009 15:52:58 -0400
-Received: by fg-out-1718.google.com with SMTP id 22so1411279fge.1
-        for <netdev@vger.kernel.org>; Wed, 09 Sep 2009 12:53:00 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4AA7D1B3.7010708@trash.net>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:27043 "HELO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1752576AbZIIUJa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Sep 2009 16:09:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 09, 2009 at 06:02:59PM +0200, Patrick McHardy wrote:
-> Eric Dumazet wrote:
-> > Jarek Poplawski a =E9crit :
-> >> On Mon, Sep 07, 2009 at 03:27:37PM +0200, Patrick McHardy wrote:
-> >>> Jarek Poplawski wrote:
-> >> ...
-> >>>>> +static int mq_dump(struct Qdisc *sch, struct sk_buff *skb)
-> >>>>> +{
-> >>>>> +	struct net_device *dev =3D qdisc_dev(sch);
-> >>>>> +	struct Qdisc *qdisc;
-> >>>>> +	unsigned int ntx;
-> >>>>> +
-> >>>>> +	sch->q.qlen =3D 0;
-> >>>>> +	memset(&sch->bstats, 0, sizeof(sch->bstats));
-> >>>>> +	memset(&sch->qstats, 0, sizeof(sch->qstats));
-> >>>>> +
-> >>>>> +	for (ntx =3D 0; ntx < dev->num_tx_queues; ntx++) {
-> >>>>> +		qdisc =3D netdev_get_tx_queue(dev, ntx)->qdisc_sleeping;
-> >>>>> +		spin_lock_bh(qdisc_lock(qdisc));
-> >>>>> +		sch->q.qlen		+=3D qdisc->q.qlen;
-> >>>>> +		sch->bstats.bytes	+=3D qdisc->bstats.bytes;
-> >>>>> +		sch->bstats.packets	+=3D qdisc->bstats.packets;
-> >>>>> +		sch->qstats.qlen	+=3D qdisc->qstats.qlen;
-> >>>> Like in Christoph's case, we should probably use q.qlen instead.
-> >>> Its done a few lines above. This simply sums up all members of qs=
-tats.
-> >> AFAICS these members are updated only in tc_fill_qdisc, starting f=
-rom
-> >> the root, so they might be not up-to-date at the moment, unless I =
-miss
-> >> something.
-> >
-> > Yes, we might need an q->ops->update_stats(struct Qdisc *sch) metho=
-d, and
-> > to recursively call it from mq_update_stats()
->=20
-> Unless I'm missing something, that shouldn't be necessary since
-> sch->q.qlen contains the correct sum of all child qdiscs and
-> this is used by tc_fill_qdisc to update qstats.qlen.
+Fix typo in checking dest ip has support before
+programming destip addresses.
 
-You're perfectly right! (And the code is perfectly misleading.;-)
+Signed-off-by: Amit Kumar Salecha <amit@netxen.com>
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+---
+ drivers/net/netxen/netxen_nic_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Thanks,
-Jarek P.
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 304618a..81c24a7 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -2340,7 +2340,7 @@ netxen_config_indev_addr(struct net_device *dev, unsigned long event)
+ 	struct in_device *indev;
+ 	struct netxen_adapter *adapter = netdev_priv(dev);
+ 
+-	if (netxen_destip_supported(adapter))
++	if (!netxen_destip_supported(adapter))
+ 		return;
+ 
+ 	indev = in_dev_get(dev);
+-- 
+1.6.0.2
+
