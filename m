@@ -1,81 +1,68 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
-Subject: Re: [PATCH] ath5k: do not free irq after resume when card has been
-	removed
-Date: Wed, 9 Sep 2009 14:50:06 -0300
-Message-ID: <20090909175006.GA7945@vespa.holoscopio.com>
-References: <1252457551-4909-1-git-send-email-cascardo@holoscopio.com> <20090909033237.GC13550@hash.localnet>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: UDP regression with packets rates < 10k per sec
+Date: Wed, 9 Sep 2009 13:55:43 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0909091350590.32067@V090114053VZO-1>
+References: <alpine.DEB.1.10.0909081820030.7733@V090114053VZO-1> <4AA6E039.4000907@gmail.com> <alpine.DEB.1.10.0909091000200.28070@V090114053VZO-1> <4AA7C512.6040100@gmail.com> <alpine.DEB.1.10.0909091234360.15538@V090114053VZO-1>
+ <4AA7E082.90807@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="FL5UXtIhxfXey3p5"
-Cc: ath5k-devel@lists.ath5k.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	lrodriguez@atheros.com, mickflemm@gmail.com, jirislaby@gmail.com,
-	linville@tuxdriver.com, johannes@sipsolutions.net
-To: Bob Copeland <me@bobcopeland.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from liberdade.minaslivre.org ([72.232.18.203]:33170 "EHLO
-	liberdade.minaslivre.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752488AbZIIRuH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2009 13:50:07 -0400
-Content-Disposition: inline
-In-Reply-To: <20090909033237.GC13550@hash.localnet>
+Received: from smtp2.ultrahosting.com ([74.213.174.253]:57181 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752393AbZIIR4s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2009 13:56:48 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 2005082C399
+	for <netdev@vger.kernel.org>; Wed,  9 Sep 2009 13:57:48 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.253])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id YwHOifsjEDaP for <netdev@vger.kernel.org>;
+	Wed,  9 Sep 2009 13:57:42 -0400 (EDT)
+Received: from V090114053VZO-1 (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 3B4E582C39F
+	for <netdev@vger.kernel.org>; Wed,  9 Sep 2009 13:57:42 -0400 (EDT)
+In-Reply-To: <4AA7E082.90807@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 9 Sep 2009, Eric Dumazet wrote:
 
---FL5UXtIhxfXey3p5
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> > My loopback numbers also show the same trends.
+> >
+> > 2.6.22:
+> >
+> > mcast -Ln1
+> > TotalMsg   Lost SeqErr TXDrop Msg/Sec  KB/Sec  Min/us  Avg/us  Max/us StdDv
+> >      101      0      0      0      10     3.0    5.47    5.74    7.00  0.43
+> >
+> > 2.6.31-rc9
+> >
+> > mcast -Ln1
+> > TotalMsg   Lost SeqErr TXDrop Msg/Sec  KB/Sec  Min/us  Avg/us  Max/us StdDv
+> >      100      0      0      0      10     3.0   13.26   13.45   13.56  0.09
+> >
+> >
+> > So 2.6.22 is better at 10 msgs per second. 2.6.31 is slightly better at
+> > 10k.
+>
+> Linux nag001 2.6.26-2-amd64 #1 SMP Fri Mar 27 04:02:59 UTC 2009 x86_64 GNU/Linux
+>
+> TotalMsg   Lost SeqErr TXDrop Msg/Sec  KB/Sec  Min/us  Avg/us  Max/us StdDv
+>      101      0      0      0      10     3.0    8.42    9.47   11.53  0.85
+>
+> Also I believe you hit scheduler artefact at very low rate,
+> since there are two tasks that are considered as coupled.
+>
+> Check commit 6f3d09291b4982991680b61763b2541e53e2a95f
 
-On Tue, Sep 08, 2009 at 11:32:37PM -0400, Bob Copeland wrote:
-> On Tue, Sep 08, 2009 at 09:52:31PM -0300, Thadeu Lima de Souza Cascardo w=
-rote:
-> > ath5k will try to request irq when resuming and fails if the device
-> > (like a PCMCIA card) has been removed.
->=20
-> That's not true, ath5k no longer requests an irq when resuming.
->=20
+Reverting that patch yields:
 
-I've just saw there's a commit by you in the next tree that just removes
-the irq requesting and releasing in resume/suspend functions.
+clameter@rd-strategy3-deb64:~$ ./mcast -Ln1
 
-> > This solves this issue defining a new flag for the status bitmap to
-> > indicate when irq has been successfully requested and does not try to
-> > release it if not.
->=20
-> I'd rather not fix it with a status bit.  What kernel is this against?
->=20
+TotalMsg   Lost SeqErr TXDrop Msg/Sec  KB/Sec  Min/us  Avg/us  Max/us StdDv
+     101      0      0      0      10     3.0   27.21   31.28   52.68  8.16
 
-This is against v2.6.31-rc9, so I get a warning with a version that's
-about to get stable. Sorry I am late in the release cycle.
+Not good.
 
-I've used a status bit because the drivers I took a look at did
-release/request irq in suspend/resume. I couldn't find a message about
-not doing it was the right thing which I thought I saw in the latest
-updates to v2.6.31-rcX. I guess it was something just like your commit
-which I did see some weeks ago.
-
-Since this is warning, is this worth backporting to rc?
-
-> --=20
-> Bob Copeland %% www.bobcopeland.com
->=20
-
-Regards,
-Cascardo.
-
---FL5UXtIhxfXey3p5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAkqn6s4ACgkQyTpryRcqtS3r7ACggq2iFrVoYpQdP2BEPEYEyML/
-gxoAnj5GftdMAESCK2EoNVe5a4FmYxYE
-=wJs1
------END PGP SIGNATURE-----
-
---FL5UXtIhxfXey3p5--
