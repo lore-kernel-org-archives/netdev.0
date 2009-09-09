@@ -1,44 +1,70 @@
-From: Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>
-Subject: Re: [PATCH] ath5k: do not free irq after resume when
-	card has been	removed
-Date: Wed, 9 Sep 2009 15:31:40 -0400
-Message-ID: <20090909193140.GA17717@hash.localnet>
-References: <1252457551-4909-1-git-send-email-cascardo@holoscopio.com>
-	<20090909033237.GC13550@hash.localnet>
-	<20090909175006.GA7945@vespa.holoscopio.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: net_sched 07/07: add classful multiqueue dummy scheduler
+Date: Wed, 9 Sep 2009 21:52:38 +0200
+Message-ID: <20090909195238.GA3043@ami.dom.local>
+References: <20090906200409.GB8833@ami.dom.local>
+ <4AA50A49.7010905@trash.net>
+ <20090907192429.GC4451@ami.dom.local>
+ <4AA563B4.1060003@gmail.com>
+ <4AA7D1B3.7010708@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-To: Thadeu Lima de Souza Cascardo <cascardo-DmMZpsCg3uxeGPcbtGPokg@public.gmane.org>
-Return-path: <ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.154]:23782 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752824AbZIITw6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2009 15:52:58 -0400
+Received: by fg-out-1718.google.com with SMTP id 22so1411279fge.1
+        for <netdev@vger.kernel.org>; Wed, 09 Sep 2009 12:53:00 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20090909175006.GA7945-StA3NKSgq9XYLCA8tIpKU1aTQe2KTcn/@public.gmane.org>
-List-Unsubscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
-	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ath5k.org/pipermail/ath5k-devel>
-List-Post: <mailto:ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
-List-Help: <mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
-	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=subscribe>
-Sender: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
-Errors-To: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4AA7D1B3.7010708@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 09, 2009 at 02:50:06PM -0300, Thadeu Lima de Souza Cascardo wrote:
-> This is against v2.6.31-rc9, so I get a warning with a version that's
-> about to get stable. Sorry I am late in the release cycle.
+On Wed, Sep 09, 2009 at 06:02:59PM +0200, Patrick McHardy wrote:
+> Eric Dumazet wrote:
+> > Jarek Poplawski a =E9crit :
+> >> On Mon, Sep 07, 2009 at 03:27:37PM +0200, Patrick McHardy wrote:
+> >>> Jarek Poplawski wrote:
+> >> ...
+> >>>>> +static int mq_dump(struct Qdisc *sch, struct sk_buff *skb)
+> >>>>> +{
+> >>>>> +	struct net_device *dev =3D qdisc_dev(sch);
+> >>>>> +	struct Qdisc *qdisc;
+> >>>>> +	unsigned int ntx;
+> >>>>> +
+> >>>>> +	sch->q.qlen =3D 0;
+> >>>>> +	memset(&sch->bstats, 0, sizeof(sch->bstats));
+> >>>>> +	memset(&sch->qstats, 0, sizeof(sch->qstats));
+> >>>>> +
+> >>>>> +	for (ntx =3D 0; ntx < dev->num_tx_queues; ntx++) {
+> >>>>> +		qdisc =3D netdev_get_tx_queue(dev, ntx)->qdisc_sleeping;
+> >>>>> +		spin_lock_bh(qdisc_lock(qdisc));
+> >>>>> +		sch->q.qlen		+=3D qdisc->q.qlen;
+> >>>>> +		sch->bstats.bytes	+=3D qdisc->bstats.bytes;
+> >>>>> +		sch->bstats.packets	+=3D qdisc->bstats.packets;
+> >>>>> +		sch->qstats.qlen	+=3D qdisc->qstats.qlen;
+> >>>> Like in Christoph's case, we should probably use q.qlen instead.
+> >>> Its done a few lines above. This simply sums up all members of qs=
+tats.
+> >> AFAICS these members are updated only in tc_fill_qdisc, starting f=
+rom
+> >> the root, so they might be not up-to-date at the moment, unless I =
+miss
+> >> something.
+> >
+> > Yes, we might need an q->ops->update_stats(struct Qdisc *sch) metho=
+d, and
+> > to recursively call it from mq_update_stats()
+>=20
+> Unless I'm missing something, that shouldn't be necessary since
+> sch->q.qlen contains the correct sum of all child qdiscs and
+> this is used by tc_fill_qdisc to update qstats.qlen.
 
-Ok yes, that makes sense then.
+You're perfectly right! (And the code is perfectly misleading.;-)
 
-> Since this is warning, is this worth backporting to rc?
-
-It's too late probably, but we can send it to stable for 2.6.31.1.
-
-Thank you for the patch by the way, just keep in mind that wireless
-patches should be against the wireless-testing kernel in the future.
-
--- 
-Bob Copeland %% www.bobcopeland.com
+Thanks,
+Jarek P.
