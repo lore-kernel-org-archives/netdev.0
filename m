@@ -1,43 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: UDP regression with packets rates < 10k per sec
-Date: Thu, 10 Sep 2009 22:37:56 +0200
-Message-ID: <4AA963A4.5080509@gmail.com>
-References: <alpine.DEB.1.10.0909081820030.7733@V090114053VZO-1> <4AA6E039.4000907@gmail.com> <alpine.DEB.1.10.0909091000200.28070@V090114053VZO-1> <4AA7C512.6040100@gmail.com> <alpine.DEB.1.10.0909091234360.15538@V090114053VZO-1> <4AA7E082.90807@gmail.com> <alpine.DEB.1.10.0909091350590.32067@V090114053VZO-1>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: [PATCH v2 3/3] ucc_geth: Fix hangs after switching from full
+ to	half duplex
+Date: Fri, 11 Sep 2009 01:09:36 +0400
+Message-ID: <20090910210935.GA26037@oksana.dev.rtsoft.ru>
+References: <20090910020145.GC31083@oksana.dev.rtsoft.ru>
+ <20090910175852.GA18948@oksana.dev.rtsoft.ru>
+ <4AA93FB0.5060802@freescale.com>
+ <20090910194053.GA24363@oksana.dev.rtsoft.ru>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Christoph Lameter <cl@linux-foundation.org>
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Andy Fleming <afleming@freescale.com>,
+	Timur Tabi <timur@freescale.com>, linuxppc-dev@ozlabs.org
+To: Scott Wood <scottwood@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:52454 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752605AbZIJUh5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2009 16:37:57 -0400
-In-Reply-To: <alpine.DEB.1.10.0909091350590.32067@V090114053VZO-1>
+Received: from ru.mvista.com ([213.79.90.228]:2237 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752652AbZIJVJe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2009 17:09:34 -0400
+Content-Disposition: inline
+In-Reply-To: <20090910194053.GA24363@oksana.dev.rtsoft.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Something must be wrong with program or whatever...
+On Thu, Sep 10, 2009 at 11:40:53PM +0400, Anton Vorontsov wrote:
+> On Thu, Sep 10, 2009 at 01:04:32PM -0500, Scott Wood wrote:
+> > Anton Vorontsov wrote:
+> > >MPC8360 QE UCC ethernet controllers hang when changing link duplex
+> > >under a load (a bit of NFS activity is enough).
+> > >
+> > >  PHY: mdio@e0102120:00 - Link is Up - 1000/Full
+> > >  sh-3.00# ethtool -s eth0 speed 100 duplex half autoneg off
+> > >  PHY: mdio@e0102120:00 - Link is Down
+> > >  PHY: mdio@e0102120:00 - Link is Up - 100/Half
+> > >  NETDEV WATCHDOG: eth0 (ucc_geth): transmit queue 0 timed out
+> > >  ------------[ cut here ]------------
+> > >  Badness at c01fcbd0 [verbose debug info unavailable]
+> > >  NIP: c01fcbd0 LR: c01fcbd0 CTR: c0194e44
+> > >  ...
+> > >
+> > >The cure is to disable the controller before changing speed/duplex
+> > >and enable it afterwards.
+> > >
+> > >Since ugeth_graceful_stop_{tx,rx} now may be called from an atomic
+> > >context, switch the two functions from msleep() to mdelay().
+> > 
+> > Ouch.
+> 
+> Yeah, right... delaying for 10ms with irqs off isn't good.
+> 
+> > Can we put this in a workqueue or something?
+> 
+> adjust_link() itself isn't called from an atomic context.
 
-On the receiver I did this to trace the latency messages only
+Oops. I though that phylib calls us from a workqueue, not a timer. Hm...
 
-# tcpdump -i eth0 not host 239.0.192.2 and port 9002 -n
+Will be a little bit more work..
 
-22:28:07.223300 IP 55.225.18.7.9002 > 55.225.18.5.9002: UDP, length 32
-22:28:07.223403 IP 55.225.18.5.9002 > 55.225.18.7.9002: UDP, length 32
-
-22:28:08.223301 IP 55.225.18.7.9002 > 55.225.18.5.9002: UDP, length 32
-22:28:08.223416 IP 55.225.18.5.9002 > 55.225.18.7.9002: UDP, length 32
-
-22:28:09.223380 IP 55.225.18.7.9002 > 55.225.18.5.9002: UDP, length 32
-22:28:09.223494 IP 55.225.18.5.9002 > 55.225.18.7.9002: UDP, length 32
-
-22:28:10.223481 IP 55.225.18.7.9002 > 55.225.18.5.9002: UDP, length 32
-22:28:10.223597 IP 55.225.18.5.9002 > 55.225.18.7.9002: UDP, length 32
-
-22:28:11.223581 IP 55.225.18.7.9002 > 55.225.18.5.9002: UDP, length 32
-22:28:11.223678 IP 55.225.18.5.9002 > 55.225.18.7.9002: UDP, length 32
-
-
-See how the answer is *very* slow ? Something like > 100 us ?
-
+-- 
+Anton Vorontsov
+email: cbouatmailru@gmail.com
+irc://irc.freenode.net/bd2
