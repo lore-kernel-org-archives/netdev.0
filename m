@@ -1,37 +1,64 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: TCP kernel tables overflowing after sustained 1000 new connections per second
-Date: Thu, 10 Sep 2009 11:24:04 +0200
-Message-ID: <87k5075f0r.fsf@basil.nowhere.org>
-References: <c67e3dc60909091146j4aeaf422v4e0543eff87c7f9a@mail.gmail.com>
-	<20090909.170824.141343404.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: igb bandwidth allocation configuration
+Date: Thu, 10 Sep 2009 13:28:14 +0200
+Message-ID: <4AA8E2CE.2080707@trash.net>
+References: <20090910081844.GA5421@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: paulsheer@gmail.com, linux-kernel@vger.kernel.org,
-	roque@di.fc.ul.pt, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755310AbZIJJYH@vger.kernel.org>
-In-Reply-To: <20090909.170824.141343404.davem@davemloft.net> (David Miller's message of "Wed, 09 Sep 2009 17:08:24 -0700 (PDT)")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:59511 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751926AbZIJL2R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2009 07:28:17 -0400
+In-Reply-To: <20090910081844.GA5421@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Simon Horman wrote:
+> Hi,
+> 
+> I have been looking into adding support the 82586's per-PF/VF
+> bandwidth allocation to the igb driver. It seems that the trickiest
+> part is working out how to expose things to user-space.
+> 
+> I was thinking along the lines of an ethtool option as follows:
+> 
+> 	ethtool --bandwidth ethN LIMIT...
+> 
+> 	where:
+> 		* There is one LIMIT per PF/VF.
+> 		  The 82576 can have up to 7 VFs per PF,
+> 		  so there would be up to 8 LIMITS
+> 		* A keyword (none?) can be used to denote that
+> 		  bandwidth allocation should be disabled for the
+> 		  corresponding VM
+> 		* Otherwise LIMITS are in Megabits/s
+> 
+> This may get a bit combersome if there are a lot of VFs per PF,
+> perhaps a better syntax would be:
+> 
+> 	ethtool --bandwidth ethN M=LIMIT...
+> 
+> 	where:
+> 		* LIMIT is as above
+> 		* M is some key to denote which VF/PF is
+> 		  having its limit set.
+> 
+> Internally it seems that actually the limits are applied to HW Tx queues
+> rather than directly VMs. There are 16 such queues. Accordingly it might
+> be useful to design an interface to set limits per-queue using ethtool.
+> But this would seem to also require exposing which queues are associated
+> with which PF/VF.
 
-> On a gigabit local LAN I can set the timeouts very low to encourage
-> port reuse. A well known configuration issue with all OS's - just search
-> for MyOS+TIMED_WAIT on google. No problems here.
+Just an idea since I don't know much about this stuff:
 
-The timeouts are what they are for a reason to detect old packets in
-the network and prevent data corruption. That's why the RFCs require
-them. 
+Since we now have the mq packet scheduler, which exposes the device
+queues as qdisc classes, how about adding driver-specific configuration
+attributes that are passed to the driver by the mq scheduler? This
+would allow to configure per-queue bandwidth limits using regular TC
+commands and also use those limits without VFs for any kind of traffic.
+Drivers not supporting this would refuse unsupported options.
 
-Unless you never run on WANs or have very strong data integry checking
-in your application (e.g. SSL) it's normally not a good idea to mess
-with them.
-
-When you run out of port space you should use more local IP addresses.
-
-Possibly if you don't have problems with firewalls you could
-also increase the port space, but that's still limited.
-
--Andi
--- 
-ak@linux.intel.com -- Speaking for myself only.
