@@ -1,7 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 28/31: nf_conntrack: netns fix re reliable conntrack event delivery
-Date: Thu, 10 Sep 2009 18:12:22 +0200 (MEST)
-Message-ID: <20090910161218.31179.89011.sendpatchset@x2.localnet>
+Subject: netlink 25/31: constify nlmsghdr arguments
+Date: Thu, 10 Sep 2009 18:12:19 +0200 (MEST)
+Message-ID: <20090910161214.31179.78640.sendpatchset@x2.localnet>
 References: <20090910161142.31179.5256.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
@@ -11,45 +11,109 @@ In-Reply-To: <20090910161142.31179.5256.sendpatchset@x2.localnet>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-commit ee254fa44d902ab89fd0d66851701098f07872a7
-Author: Alexey Dobriyan <adobriyan@gmail.com>
-Date:   Mon Aug 31 14:23:15 2009 +0200
+commit 3a6c2b419b7768703cfb2cabdb894517c5065e33
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Tue Aug 25 16:07:40 2009 +0200
 
-    netfilter: nf_conntrack: netns fix re reliable conntrack event delivery
+    netlink: constify nlmsghdr arguments
     
-    Conntracks in netns other than init_net dying list were never killed.
+    Consitfy nlmsghdr arguments to a couple of functions as preparation
+    for the next patch, which will constify the netlink message data in
+    all nfnetlink users.
     
-    Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-    Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 565c3a8..b371098 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1089,14 +1089,14 @@ void nf_conntrack_flush_report(struct net *net, u32 pid, int report)
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index 5ba398e..0fbecbb 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -217,12 +217,13 @@ int netlink_sendskb(struct sock *sk, struct sk_buff *skb);
+ 
+ struct netlink_callback
+ {
+-	struct sk_buff	*skb;
+-	struct nlmsghdr	*nlh;
+-	int		(*dump)(struct sk_buff * skb, struct netlink_callback *cb);
+-	int		(*done)(struct netlink_callback *cb);
+-	int		family;
+-	long		args[6];
++	struct sk_buff		*skb;
++	const struct nlmsghdr	*nlh;
++	int			(*dump)(struct sk_buff * skb,
++					struct netlink_callback *cb);
++	int			(*done)(struct netlink_callback *cb);
++	int			family;
++	long			args[6];
+ };
+ 
+ struct netlink_notify
+@@ -258,7 +259,7 @@ __nlmsg_put(struct sk_buff *skb, u32 pid, u32 seq, int type, int len, int flags)
+ 	NLMSG_NEW(skb, pid, seq, type, len, 0)
+ 
+ extern int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
+-			      struct nlmsghdr *nlh,
++			      const struct nlmsghdr *nlh,
+ 			      int (*dump)(struct sk_buff *skb, struct netlink_callback*),
+ 			      int (*done)(struct netlink_callback*));
+ 
+diff --git a/include/net/netlink.h b/include/net/netlink.h
+index 007bdb0..a63b219 100644
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -365,7 +365,7 @@ static inline struct nlmsghdr *nlmsg_next(struct nlmsghdr *nlh, int *remaining)
+  *
+  * See nla_parse()
+  */
+-static inline int nlmsg_parse(struct nlmsghdr *nlh, int hdrlen,
++static inline int nlmsg_parse(const struct nlmsghdr *nlh, int hdrlen,
+ 			      struct nlattr *tb[], int maxtype,
+ 			      const struct nla_policy *policy)
+ {
+@@ -414,7 +414,7 @@ static inline int nlmsg_validate(struct nlmsghdr *nlh, int hdrlen, int maxtype,
+  *
+  * Returns 1 if a report back to the application is requested.
+  */
+-static inline int nlmsg_report(struct nlmsghdr *nlh)
++static inline int nlmsg_report(const struct nlmsghdr *nlh)
+ {
+ 	return !!(nlh->nlmsg_flags & NLM_F_ECHO);
  }
- EXPORT_SYMBOL_GPL(nf_conntrack_flush_report);
+diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
+index 3c1895e..85ba560 100644
+--- a/include/net/rtnetlink.h
++++ b/include/net/rtnetlink.h
+@@ -14,7 +14,7 @@ extern void	rtnl_register(int protocol, int msgtype,
+ extern int	rtnl_unregister(int protocol, int msgtype);
+ extern void	rtnl_unregister_all(int protocol);
  
--static void nf_ct_release_dying_list(void)
-+static void nf_ct_release_dying_list(struct net *net)
+-static inline int rtnl_msg_family(struct nlmsghdr *nlh)
++static inline int rtnl_msg_family(const struct nlmsghdr *nlh)
  {
- 	struct nf_conntrack_tuple_hash *h;
- 	struct nf_conn *ct;
- 	struct hlist_nulls_node *n;
+ 	if (nlmsg_len(nlh) >= sizeof(struct rtgenmsg))
+ 		return ((struct rtgenmsg *) nlmsg_data(nlh))->rtgen_family;
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index da3163d..d0ff382 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1705,7 +1705,7 @@ errout:
+ }
  
- 	spin_lock_bh(&nf_conntrack_lock);
--	hlist_nulls_for_each_entry(h, n, &init_net.ct.dying, hnnode) {
-+	hlist_nulls_for_each_entry(h, n, &net->ct.dying, hnnode) {
- 		ct = nf_ct_tuplehash_to_ctrack(h);
- 		/* never fails to remove them, no listeners at this point */
- 		nf_ct_kill(ct);
-@@ -1115,7 +1115,7 @@ static void nf_conntrack_cleanup_net(struct net *net)
+ int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
+-		       struct nlmsghdr *nlh,
++		       const struct nlmsghdr *nlh,
+ 		       int (*dump)(struct sk_buff *skb,
+ 				   struct netlink_callback *),
+ 		       int (*done)(struct netlink_callback *))
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 9d03cc3..2dfb3e7 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -1011,7 +1011,7 @@ replay:
+ }
+ 
+ static struct nlattr *
+-find_dump_kind(struct nlmsghdr *n)
++find_dump_kind(const struct nlmsghdr *n)
  {
-  i_see_dead_people:
- 	nf_ct_iterate_cleanup(net, kill_all, NULL);
--	nf_ct_release_dying_list();
-+	nf_ct_release_dying_list(net);
- 	if (atomic_read(&net->ct.count) != 0) {
- 		schedule();
- 		goto i_see_dead_people;
+ 	struct nlattr *tb1, *tb2[TCA_ACT_MAX+1];
+ 	struct nlattr *tb[TCA_ACT_MAX_PRIO + 1];
