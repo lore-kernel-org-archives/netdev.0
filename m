@@ -1,211 +1,151 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 03/31: xtables: remove xt_TOS v0
-Date: Thu, 10 Sep 2009 18:11:50 +0200 (MEST)
-Message-ID: <20090910161146.31179.89454.sendpatchset@x2.localnet>
+Subject: netfilter 08/31: xtables: remove xt_iprange v0
+Date: Thu, 10 Sep 2009 18:11:57 +0200 (MEST)
+Message-ID: <20090910161152.31179.23526.sendpatchset@x2.localnet>
 References: <20090910161142.31179.5256.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64628 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:64643 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752235AbZIJQLs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2009 12:11:48 -0400
+	with ESMTP id S1752249AbZIJQLy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2009 12:11:54 -0400
 In-Reply-To: <20090910161142.31179.5256.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 7cd1837b5d24417eca667d674a97bea936849785
+commit 36d4084dc8eb7a9a3655a2041097a46aff3061e9
 Author: Jan Engelhardt <jengelh@medozas.de>
-Date:   Fri Jun 12 18:36:33 2009 +0200
+Date:   Fri Jun 12 18:58:19 2009 +0200
 
-    netfilter: xtables: remove xt_TOS v0
+    netfilter: xtables: remove xt_iprange v0
     
-    Superseded by xt_TOS v1 (v2.6.24-2396-g5c350e5).
+    Superseded by xt_iprange v1 (v2.6.24-2928-g1a50c5a1).
     
     Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 
 diff --git a/Documentation/feature-removal-schedule.txt b/Documentation/feature-removal-schedule.txt
-index f8cd450..3aa4a77 100644
+index 6746473..8862b03 100644
 --- a/Documentation/feature-removal-schedule.txt
 +++ b/Documentation/feature-removal-schedule.txt
-@@ -235,9 +235,6 @@ Who:	Thomas Gleixner <tglx@linutronix.de>
- ---------------------------
- 
- What (Why):
--	- include/linux/netfilter_ipv4/ipt_TOS.h ipt_tos.h header files
--	  (superseded by xt_TOS/xt_tos target & match)
--
+@@ -238,10 +238,6 @@ What (Why):
  	- "forwarding" header files like ipt_mac.h in
  	  include/linux/netfilter_ipv4/ and include/linux/netfilter_ipv6/
  
+-	- xt_iprange match revision 0,
+-	  include/linux/netfilter_ipv4/ipt_iprange.h
+-	  (superseded by xt_iprange match revision 1)
+-
+ 	- xt_mark match revision 0
+ 	  (superseded by xt_mark match revision 1)
+ 
 diff --git a/include/linux/netfilter_ipv4/Kbuild b/include/linux/netfilter_ipv4/Kbuild
-index 3a7105b..86d81a2 100644
+index 86d81a2..5e361ef 100644
 --- a/include/linux/netfilter_ipv4/Kbuild
 +++ b/include/linux/netfilter_ipv4/Kbuild
-@@ -9,7 +9,6 @@ header-y += ipt_NFQUEUE.h
- header-y += ipt_REJECT.h
- header-y += ipt_SAME.h
- header-y += ipt_TCPMSS.h
--header-y += ipt_TOS.h
- header-y += ipt_TTL.h
- header-y += ipt_ULOG.h
- header-y += ipt_addrtype.h
-@@ -40,7 +39,6 @@ header-y += ipt_sctp.h
- header-y += ipt_state.h
- header-y += ipt_string.h
- header-y += ipt_tcpmss.h
--header-y += ipt_tos.h
- header-y += ipt_ttl.h
- 
- unifdef-y += ip_queue.h
-diff --git a/include/linux/netfilter_ipv4/ipt_TOS.h b/include/linux/netfilter_ipv4/ipt_TOS.h
+@@ -23,7 +23,6 @@ header-y += ipt_ecn.h
+ header-y += ipt_esp.h
+ header-y += ipt_hashlimit.h
+ header-y += ipt_helper.h
+-header-y += ipt_iprange.h
+ header-y += ipt_length.h
+ header-y += ipt_limit.h
+ header-y += ipt_mac.h
+diff --git a/include/linux/netfilter_ipv4/ipt_iprange.h b/include/linux/netfilter_ipv4/ipt_iprange.h
 deleted file mode 100644
-index 6bf9e1f..0000000
---- a/include/linux/netfilter_ipv4/ipt_TOS.h
+index 5f1aebd..0000000
+--- a/include/linux/netfilter_ipv4/ipt_iprange.h
 +++ /dev/null
-@@ -1,12 +0,0 @@
--#ifndef _IPT_TOS_H_target
--#define _IPT_TOS_H_target
+@@ -1,21 +0,0 @@
+-#ifndef _IPT_IPRANGE_H
+-#define _IPT_IPRANGE_H
 -
--#ifndef IPTOS_NORMALSVC
--#define IPTOS_NORMALSVC 0
--#endif
+-#include <linux/types.h>
+-#include <linux/netfilter/xt_iprange.h>
 -
--struct ipt_tos_target_info {
--	u_int8_t tos;
+-struct ipt_iprange {
+-	/* Inclusive: network order. */
+-	__be32 min_ip, max_ip;
 -};
 -
--#endif /*_IPT_TOS_H_target*/
-diff --git a/include/linux/netfilter_ipv4/ipt_tos.h b/include/linux/netfilter_ipv4/ipt_tos.h
-deleted file mode 100644
-index a21f5df..0000000
---- a/include/linux/netfilter_ipv4/ipt_tos.h
-+++ /dev/null
-@@ -1,13 +0,0 @@
--#ifndef _IPT_TOS_H
--#define _IPT_TOS_H
+-struct ipt_iprange_info
+-{
+-	struct ipt_iprange src;
+-	struct ipt_iprange dst;
 -
--struct ipt_tos_info {
--    u_int8_t tos;
--    u_int8_t invert;
+-	/* Flags from above */
+-	u_int8_t flags;
 -};
 -
--#ifndef IPTOS_NORMALSVC
--#define IPTOS_NORMALSVC 0
--#endif
--
--#endif /*_IPT_TOS_H*/
-diff --git a/net/netfilter/xt_DSCP.c b/net/netfilter/xt_DSCP.c
-index 6a347e7..74ce892 100644
---- a/net/netfilter/xt_DSCP.c
-+++ b/net/netfilter/xt_DSCP.c
-@@ -18,7 +18,6 @@
- 
+-#endif /* _IPT_IPRANGE_H */
+diff --git a/net/netfilter/xt_iprange.c b/net/netfilter/xt_iprange.c
+index 501f9b6..ffc9638 100644
+--- a/net/netfilter/xt_iprange.c
++++ b/net/netfilter/xt_iprange.c
+@@ -14,40 +14,6 @@
+ #include <linux/ipv6.h>
  #include <linux/netfilter/x_tables.h>
- #include <linux/netfilter/xt_DSCP.h>
--#include <linux/netfilter_ipv4/ipt_TOS.h>
- 
- MODULE_AUTHOR("Harald Welte <laforge@netfilter.org>");
- MODULE_DESCRIPTION("Xtables: DSCP/TOS field modification");
-@@ -73,41 +72,6 @@ static bool dscp_tg_check(const struct xt_tgchk_param *par)
- }
- 
- static unsigned int
--tos_tg_v0(struct sk_buff *skb, const struct xt_target_param *par)
+ #include <linux/netfilter/xt_iprange.h>
+-#include <linux/netfilter_ipv4/ipt_iprange.h>
+-
+-static bool
+-iprange_mt_v0(const struct sk_buff *skb, const struct xt_match_param *par)
 -{
--	const struct ipt_tos_target_info *info = par->targinfo;
--	struct iphdr *iph = ip_hdr(skb);
--	u_int8_t oldtos;
+-	const struct ipt_iprange_info *info = par->matchinfo;
+-	const struct iphdr *iph = ip_hdr(skb);
 -
--	if ((iph->tos & IPTOS_TOS_MASK) != info->tos) {
--		if (!skb_make_writable(skb, sizeof(struct iphdr)))
--			return NF_DROP;
--
--		iph      = ip_hdr(skb);
--		oldtos   = iph->tos;
--		iph->tos = (iph->tos & IPTOS_PREC_MASK) | info->tos;
--		csum_replace2(&iph->check, htons(oldtos), htons(iph->tos));
+-	if (info->flags & IPRANGE_SRC) {
+-		if ((ntohl(iph->saddr) < ntohl(info->src.min_ip)
+-			  || ntohl(iph->saddr) > ntohl(info->src.max_ip))
+-			 ^ !!(info->flags & IPRANGE_SRC_INV)) {
+-			pr_debug("src IP %pI4 NOT in range %s%pI4-%pI4\n",
+-				 &iph->saddr,
+-				 info->flags & IPRANGE_SRC_INV ? "(INV) " : "",
+-				 &info->src.min_ip,
+-				 &info->src.max_ip);
+-			return false;
+-		}
 -	}
--
--	return XT_CONTINUE;
--}
--
--static bool tos_tg_check_v0(const struct xt_tgchk_param *par)
--{
--	const struct ipt_tos_target_info *info = par->targinfo;
--	const uint8_t tos = info->tos;
--
--	if (tos != IPTOS_LOWDELAY && tos != IPTOS_THROUGHPUT &&
--	    tos != IPTOS_RELIABILITY && tos != IPTOS_MINCOST &&
--	    tos != IPTOS_NORMALSVC) {
--		printk(KERN_WARNING "TOS: bad tos value %#x\n", tos);
--		return false;
+-	if (info->flags & IPRANGE_DST) {
+-		if ((ntohl(iph->daddr) < ntohl(info->dst.min_ip)
+-			  || ntohl(iph->daddr) > ntohl(info->dst.max_ip))
+-			 ^ !!(info->flags & IPRANGE_DST_INV)) {
+-			pr_debug("dst IP %pI4 NOT in range %s%pI4-%pI4\n",
+-				 &iph->daddr,
+-				 info->flags & IPRANGE_DST_INV ? "(INV) " : "",
+-				 &info->dst.min_ip,
+-				 &info->dst.max_ip);
+-			return false;
+-		}
 -	}
--
 -	return true;
 -}
--
--static unsigned int
- tos_tg(struct sk_buff *skb, const struct xt_target_param *par)
- {
- 	const struct xt_tos_target_info *info = par->targinfo;
-@@ -168,16 +132,6 @@ static struct xt_target dscp_tg_reg[] __read_mostly = {
- 	},
+ 
+ static bool
+ iprange_mt4(const struct sk_buff *skb, const struct xt_match_param *par)
+@@ -127,14 +93,6 @@ iprange_mt6(const struct sk_buff *skb, const struct xt_match_param *par)
+ static struct xt_match iprange_mt_reg[] __read_mostly = {
  	{
- 		.name		= "TOS",
--		.revision	= 0,
--		.family		= NFPROTO_IPV4,
--		.table		= "mangle",
--		.target		= tos_tg_v0,
--		.targetsize	= sizeof(struct ipt_tos_target_info),
--		.checkentry	= tos_tg_check_v0,
--		.me		= THIS_MODULE,
+ 		.name      = "iprange",
+-		.revision  = 0,
+-		.family    = NFPROTO_IPV4,
+-		.match     = iprange_mt_v0,
+-		.matchsize = sizeof(struct ipt_iprange_info),
+-		.me        = THIS_MODULE,
 -	},
 -	{
--		.name		= "TOS",
- 		.revision	= 1,
- 		.family		= NFPROTO_IPV4,
- 		.table		= "mangle",
-diff --git a/net/netfilter/xt_dscp.c b/net/netfilter/xt_dscp.c
-index c3f8085..0280d3a 100644
---- a/net/netfilter/xt_dscp.c
-+++ b/net/netfilter/xt_dscp.c
-@@ -15,7 +15,6 @@
- 
- #include <linux/netfilter/x_tables.h>
- #include <linux/netfilter/xt_dscp.h>
--#include <linux/netfilter_ipv4/ipt_tos.h>
- 
- MODULE_AUTHOR("Harald Welte <laforge@netfilter.org>");
- MODULE_DESCRIPTION("Xtables: DSCP/TOS field match");
-@@ -55,14 +54,6 @@ static bool dscp_mt_check(const struct xt_mtchk_param *par)
- 	return true;
- }
- 
--static bool
--tos_mt_v0(const struct sk_buff *skb, const struct xt_match_param *par)
--{
--	const struct ipt_tos_info *info = par->matchinfo;
--
--	return (ip_hdr(skb)->tos == info->tos) ^ info->invert;
--}
--
- static bool tos_mt(const struct sk_buff *skb, const struct xt_match_param *par)
- {
- 	const struct xt_tos_match_info *info = par->matchinfo;
-@@ -94,14 +85,6 @@ static struct xt_match dscp_mt_reg[] __read_mostly = {
- 	},
- 	{
- 		.name		= "tos",
--		.revision	= 0,
--		.family		= NFPROTO_IPV4,
--		.match		= tos_mt_v0,
--		.matchsize	= sizeof(struct ipt_tos_info),
--		.me		= THIS_MODULE,
--	},
--	{
--		.name		= "tos",
- 		.revision	= 1,
- 		.family		= NFPROTO_IPV4,
- 		.match		= tos_mt,
+-		.name      = "iprange",
+ 		.revision  = 1,
+ 		.family    = NFPROTO_IPV4,
+ 		.match     = iprange_mt4,
+@@ -164,7 +122,8 @@ static void __exit iprange_mt_exit(void)
+ module_init(iprange_mt_init);
+ module_exit(iprange_mt_exit);
+ MODULE_LICENSE("GPL");
+-MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>, Jan Engelhardt <jengelh@computergmbh.de>");
++MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
++MODULE_AUTHOR("Jan Engelhardt <jengelh@medozas.de>");
+ MODULE_DESCRIPTION("Xtables: arbitrary IPv4 range matching");
+ MODULE_ALIAS("ipt_iprange");
+ MODULE_ALIAS("ip6t_iprange");
