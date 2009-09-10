@@ -1,7 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netlink 25/31: constify nlmsghdr arguments
-Date: Thu, 10 Sep 2009 18:12:19 +0200 (MEST)
-Message-ID: <20090910161214.31179.78640.sendpatchset@x2.localnet>
+Subject: IPVS 30/31: Add handling of incoming ICMPV6 messages
+Date: Thu, 10 Sep 2009 18:12:25 +0200 (MEST)
+Message-ID: <20090910161220.31179.91921.sendpatchset@x2.localnet>
 References: <20090910161142.31179.5256.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
@@ -11,109 +11,67 @@ In-Reply-To: <20090910161142.31179.5256.sendpatchset@x2.localnet>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-commit 3a6c2b419b7768703cfb2cabdb894517c5065e33
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Tue Aug 25 16:07:40 2009 +0200
+commit 94b265514a8398ba3cfecb5a821a027b68a5c38e
+Author: Julius Volz <julius.volz@gmail.com>
+Date:   Mon Aug 31 16:22:23 2009 +0200
 
-    netlink: constify nlmsghdr arguments
+    IPVS: Add handling of incoming ICMPV6 messages
     
-    Consitfy nlmsghdr arguments to a couple of functions as preparation
-    for the next patch, which will constify the netlink message data in
-    all nfnetlink users.
+    Add handling of incoming ICMPv6 messages.
+    This follows the handling of IPv4 ICMP messages.
     
+    Amongst ther things this problem allows IPVS to behave sensibly
+    when an ICMPV6_PKT_TOOBIG message is received:
+    
+    This message is received when a realserver sends a packet >PMTU to the
+    client. The hop on this path with insufficient MTU will generate an
+    ICMPv6 Packet Too Big message back to the VIP. The LVS server receives
+    this message, but the call to the function handling this has been
+    missing. Thus, IPVS fails to forward the message to the real server,
+    which then does not adjust the path MTU. This patch adds the missing
+    call to ip_vs_in_icmp_v6() in ip_vs_in() to handle this situation.
+    
+    Thanks to Rob Gallagher from HEAnet for reporting this issue and for
+    testing this patch in production (with direct routing mode).
+    
+    [horms@verge.net.au: tweaked changelog]
+    Signed-off-by: Julius Volz <julius.volz@gmail.com>
+    Tested-by: Rob Gallagher <robert.gallagher@heanet.ie>
+    Signed-off-by: Simon Horman <horms@verge.net.au>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index 5ba398e..0fbecbb 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -217,12 +217,13 @@ int netlink_sendskb(struct sock *sk, struct sk_buff *skb);
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index a986ee2..b95699f 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -1277,13 +1277,24 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb,
+ 		return NF_ACCEPT;
+ 	}
  
- struct netlink_callback
- {
--	struct sk_buff	*skb;
--	struct nlmsghdr	*nlh;
--	int		(*dump)(struct sk_buff * skb, struct netlink_callback *cb);
--	int		(*done)(struct netlink_callback *cb);
--	int		family;
--	long		args[6];
-+	struct sk_buff		*skb;
-+	const struct nlmsghdr	*nlh;
-+	int			(*dump)(struct sk_buff * skb,
-+					struct netlink_callback *cb);
-+	int			(*done)(struct netlink_callback *cb);
-+	int			family;
-+	long			args[6];
- };
+-	if (unlikely(iph.protocol == IPPROTO_ICMP)) {
+-		int related, verdict = ip_vs_in_icmp(skb, &related, hooknum);
++#ifdef CONFIG_IP_VS_IPV6
++	if (af == AF_INET6) {
++		if (unlikely(iph.protocol == IPPROTO_ICMPV6)) {
++			int related, verdict = ip_vs_in_icmp_v6(skb, &related, hooknum);
  
- struct netlink_notify
-@@ -258,7 +259,7 @@ __nlmsg_put(struct sk_buff *skb, u32 pid, u32 seq, int type, int len, int flags)
- 	NLMSG_NEW(skb, pid, seq, type, len, 0)
+-		if (related)
+-			return verdict;
+-		ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
+-	}
++			if (related)
++				return verdict;
++			ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
++		}
++	} else
++#endif
++		if (unlikely(iph.protocol == IPPROTO_ICMP)) {
++			int related, verdict = ip_vs_in_icmp(skb, &related, hooknum);
++
++			if (related)
++				return verdict;
++			ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
++		}
  
- extern int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
--			      struct nlmsghdr *nlh,
-+			      const struct nlmsghdr *nlh,
- 			      int (*dump)(struct sk_buff *skb, struct netlink_callback*),
- 			      int (*done)(struct netlink_callback*));
- 
-diff --git a/include/net/netlink.h b/include/net/netlink.h
-index 007bdb0..a63b219 100644
---- a/include/net/netlink.h
-+++ b/include/net/netlink.h
-@@ -365,7 +365,7 @@ static inline struct nlmsghdr *nlmsg_next(struct nlmsghdr *nlh, int *remaining)
-  *
-  * See nla_parse()
-  */
--static inline int nlmsg_parse(struct nlmsghdr *nlh, int hdrlen,
-+static inline int nlmsg_parse(const struct nlmsghdr *nlh, int hdrlen,
- 			      struct nlattr *tb[], int maxtype,
- 			      const struct nla_policy *policy)
- {
-@@ -414,7 +414,7 @@ static inline int nlmsg_validate(struct nlmsghdr *nlh, int hdrlen, int maxtype,
-  *
-  * Returns 1 if a report back to the application is requested.
-  */
--static inline int nlmsg_report(struct nlmsghdr *nlh)
-+static inline int nlmsg_report(const struct nlmsghdr *nlh)
- {
- 	return !!(nlh->nlmsg_flags & NLM_F_ECHO);
- }
-diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
-index 3c1895e..85ba560 100644
---- a/include/net/rtnetlink.h
-+++ b/include/net/rtnetlink.h
-@@ -14,7 +14,7 @@ extern void	rtnl_register(int protocol, int msgtype,
- extern int	rtnl_unregister(int protocol, int msgtype);
- extern void	rtnl_unregister_all(int protocol);
- 
--static inline int rtnl_msg_family(struct nlmsghdr *nlh)
-+static inline int rtnl_msg_family(const struct nlmsghdr *nlh)
- {
- 	if (nlmsg_len(nlh) >= sizeof(struct rtgenmsg))
- 		return ((struct rtgenmsg *) nlmsg_data(nlh))->rtgen_family;
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index da3163d..d0ff382 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1705,7 +1705,7 @@ errout:
- }
- 
- int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
--		       struct nlmsghdr *nlh,
-+		       const struct nlmsghdr *nlh,
- 		       int (*dump)(struct sk_buff *skb,
- 				   struct netlink_callback *),
- 		       int (*done)(struct netlink_callback *))
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 9d03cc3..2dfb3e7 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -1011,7 +1011,7 @@ replay:
- }
- 
- static struct nlattr *
--find_dump_kind(struct nlmsghdr *n)
-+find_dump_kind(const struct nlmsghdr *n)
- {
- 	struct nlattr *tb1, *tb2[TCA_ACT_MAX+1];
- 	struct nlattr *tb[TCA_ACT_MAX_PRIO + 1];
+ 	/* Protocol supported? */
+ 	pp = ip_vs_proto_get(iph.protocol);
