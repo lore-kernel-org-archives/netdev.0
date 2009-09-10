@@ -1,61 +1,78 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: igb bandwidth allocation configuration
-Date: Thu, 10 Sep 2009 18:18:45 +1000
-Message-ID: <20090910081844.GA5421@verge.net.au>
+From: Moni Shoua <monis@Voltaire.COM>
+Subject: Re: [PATCH RESEND] bonding: remap muticast addresses without using
+ dev_close() and dev_open()
+Date: Thu, 10 Sep 2009 11:47:05 +0300
+Message-ID: <4AA8BD09.2010607@Voltaire.COM>
+References: <4AA39E42.9070702@Voltaire.COM> <4AA8B19F.2080704@voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+	netdev <netdev@vger.kernel.org>,
+	bonding-devel@lists.sourceforge.net
+To: Or Gerlitz <ogerlitz@voltaire.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fwil.voltaire.com ([193.47.165.2]:20092 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751258AbZIJIrS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Sep 2009 04:47:18 -0400
+In-Reply-To: <4AA8B19F.2080704@voltaire.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Or Gerlitz wrote:
+> Moni Shoua wrote:
+>> This patch fixes commit e36b9d16c6a6d0f59803b3ef04ff3c22c3844c10. The
+>> approach there is to call dev_close()/dev_open() whenever the device
+>> type is changed in order to remap the device IP multicast addresses to
+>> HW multicast addresses. This approach suffers from 2 drawbacks [...]
+>> The fix here is to directly remap the IP multicast addresses to HW
+>> multicast addresses for a bonding device that changes its type, and
+>> nothing else.
+> 
+> Moni,
+> 
+> The approach and patch look good. First, I think it may be more easier
+> to review and maintain if you separate this to two patches, the first
+> simply reverting e36b9d16c6a6d0f59803b3ef04ff3c22c3844c10 and the second
+> the approach suggested by this patch. Second, I think you may be able to
+> do well with only one event, see next
+> 
+I don't need to revert the entire patch. Only the dev_open() and dev_close() functions need to be removed and it is quite easy to review it in one patch.
+>> @@ -1460,14 +1460,17 @@ int bond_enslave(struct net_device *bond_dev,
+>> struct net_device *slave_dev)
+>>       */
+>>      if (bond->slave_cnt == 0) {
+>>          if (bond_dev->type != slave_dev->type) {
+>> -            dev_close(bond_dev);
+>>              pr_debug("%s: change device type from %d to %d\n",
+>>                  bond_dev->name, bond_dev->type, slave_dev->type);
+>> +
+>> +            netdev_bonding_change(bond_dev, NETDEV_BONDING_OLDTYPE);
+>> +
+>>              if (slave_dev->type != ARPHRD_ETHER)
+>>                  bond_setup_by_slave(bond_dev, slave_dev);
+>>              else
+>>                  ether_setup(bond_dev);
+>> -            dev_open(bond_dev);
+>> +
+>> +            netdev_bonding_change(bond_dev, NETDEV_BONDING_NEWTYPE);
+>>          }
+> can't you achieve the same impact if just calling
+> netdev_bonding_change(bond_dev, NETDEV_BONDING_NEWTYPE) after doing the
+> setup_by_slave, and have the stack call ip_mc_unmap(...) and then
+> ip_mc_map(...) ???
+> 
+I thought about it but the function arp_mc_map() which is called before and after the change in dev->type, relies on the value of dev->type. I could write the patch with one event after the type has changed and passing the old device type somehow (field prev_type in struct net_device?) but the resulted code will look clumsy (at least to me).
 
-I have been looking into adding support the 82586's per-PF/VF
-bandwidth allocation to the igb driver. It seems that the trickiest
-part is working out how to expose things to user-space.
+> Or.
+> 
+> 
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-I was thinking along the lines of an ethtool option as follows:
-
-	ethtool --bandwidth ethN LIMIT...
-
-	where:
-		* There is one LIMIT per PF/VF.
-		  The 82576 can have up to 7 VFs per PF,
-		  so there would be up to 8 LIMITS
-		* A keyword (none?) can be used to denote that
-		  bandwidth allocation should be disabled for the
-		  corresponding VM
-		* Otherwise LIMITS are in Megabits/s
-
-This may get a bit combersome if there are a lot of VFs per PF,
-perhaps a better syntax would be:
-
-	ethtool --bandwidth ethN M=LIMIT...
-
-	where:
-		* LIMIT is as above
-		* M is some key to denote which VF/PF is
-		  having its limit set.
-
-Internally it seems that actually the limits are applied to HW Tx queues
-rather than directly VMs. There are 16 such queues. Accordingly it might
-be useful to design an interface to set limits per-queue using ethtool.
-But this would seem to also require exposing which queues are associated
-with which PF/VF.
-
-
-------------------------------------------------------------------------------
-Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day 
-trial. Simplify your report design, integration and deployment - and focus on 
-what you do best, core application coding. Discover what's new with 
-Crystal Reports now.  http://p.sf.net/sfu/bobj-july
