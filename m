@@ -1,60 +1,62 @@
-From: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
-Subject: Re: [PATCH 00/12] Gigaset driver patches for 2.6.32
-Date: Thu, 10 Sep 2009 16:05:47 +0200
-Message-ID: <200909101405.n8AE5qX3031699@listserv.isdn4linux.de>
+From: Jens Rosenboom <me@jayr.de>
+Subject: Re: [PATCH] ipv6: Add IFA_F_DADFAILED flag
+Date: Thu, 10 Sep 2009 18:11:20 +0200
+Message-ID: <1252599080.5980.3.camel@fnki-nb00130>
+References: <4AA1C0FF.4030109@hp.com> <1252418247.5827.8.camel@fnki-nb00130>
+	 <4AA675D4.8030406@hp.com> <1252424623.5827.14.camel@fnki-nb00130>
+	 <4AA84B3C.4000401@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: hjlipp-S0/GAf8tV78@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tilman-ZTO5kqT2PaM@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, i4ldeveloper-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <dwalker-zu3NM2574RrQT0dZR+AlfA@public.gmane.org>
-Return-path: <i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org>
-List-Unsubscribe: <https://www.isdn4linux.de/mailman/listinfo/i4ldeveloper>,
-	<mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://www.isdn4linux.de/pipermail/i4ldeveloper>
-List-Post: <mailto:i4ldeveloper-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org>
-List-Help: <mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=help>
-List-Subscribe: <https://www.isdn4linux.de/mailman/listinfo/i4ldeveloper>,
-	<mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=subscribe>
-Sender: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
-Errors-To: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: david Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Brian Haley <brian.haley@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from leia.mcbone.net ([194.97.104.42]:33997 "EHLO leia.mcbone.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750763AbZIJQL1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Sep 2009 12:11:27 -0400
+In-Reply-To: <4AA84B3C.4000401@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Von: "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-An: dwalker-zu3NM2574RrQT0dZR+AlfA@public.gmane.org
-Cc: tilman-ZTO5kqT2PaM@public.gmane.org; linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; i4ldeveloper-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org; hjlipp-S0/GAf8tV78@public.gmane.org
-Gesendet: 10.09.09 05:51
-Betreff: Re: [PATCH 00/12] Gigaset driver patches for 2.6.32
-
-> From: Daniel Walker <dwalker-zu3NM2574RrQT0dZR+AlfA@public.gmane.org>
-> Date: Wed, 09 Sep 2009 20:47:57 -0700
-
-> On Thu, 2009-09-10 at 00:32 +0200, Tilman Schmidt wrote:
->> Daniel Walker wrote 07.09.09 16:30:
->> > Yeah, it looks like the whole file needs a checkpatch clean up..
->> Sounds
->> like your not willing to do that?
->> 
->> It's not a question of willingness. You may notice I did a lot of
->> cleanup work already. But it's very time consuming work, and there has
->> been more important work to attend to first.
->> 
->> > Usually if a checkpatch cleanup comes
->> first prior to all your other changes , it doesn't usually cloud the
->> rest of the changes..
->> 
->> Sure. But that would mean postponing the merging of bugfixes until
->> someone finds the time to do a complete checkpatch cleanup of the
->> affected code. I don't think that's a sensible approach.
+On Wed, 2009-09-09 at 20:41 -0400, Brian Haley wrote:
+> Jens Rosenboom wrote:
+> > On Tue, 2009-09-08 at 11:18 -0400, Brian Haley wrote:
+> >> Jens Rosenboom wrote:
+> >>>> --- a/net/ipv6/addrconf.c
+> >>>> +++ b/net/ipv6/addrconf.c
+> >>>> @@ -1376,7 +1376,7 @@ static void addrconf_dad_stop(struct inet6_ifaddr *ifp)
+> >>>>  	if (ifp->flags&IFA_F_PERMANENT) {
+> >>>>  		spin_lock_bh(&ifp->lock);
+> >>>>  		addrconf_del_timer(ifp);
+> >>>> -		ifp->flags |= IFA_F_TENTATIVE;
+> >>>> +		ifp->flags |= IFA_F_DADFAILED;
+> >>> I think you still have to set IFA_F_TENTATIVE here, too, otherwise
+> >>> ipv6_dev_get_saddr() will use this address. 		
+> >> The tentative bit is still set from when this address was added back
+> >> in ipv6_add_addr() from what I can tell, re-setting it here is actually
+> >> unnecessary.  At least /sbin/ip was still showing it set during my
+> >> testing.
+> > 
+> > There is the possibility of a race when the dad_timer expires at the
+> > same time the NA triggering DAD failure is received. There isn't a big
+> > chance to see that during real world testing, though.
 > 
-> You shouldn't be adding any new checkpatch errors, but you currently
-> are .. Just clean up the individual patches w/o the entire gigaset
-> driver, that should be do-able (it's even a basic submission
-> requirement). The other issue is that your adding new files which aren't
-> clean, those can certainly be cleaned up.
+> Ok, how does this look?  I changed it to set the tentative flag as it did
+> before, plus clear the dad_failed flag if the device got restarted,
+> triggering DAD to happen again for any tentative address, that was an
+> oversight on my part.
 
-> Right, this is a very reasonable request.
+Looks fine to me so far, can you also send the patch for userspace? That
+would making testing this a bit easier. ;-)
 
-Then so be it. Will do as soon as time permits.
+> I'd still like to know if using this last ifa_flag is going to be an issue,
+> I actually finished a similar patch that uses a new IFA_ADDRFLAGS structure
+> to pass in/out this additional info.
 
-T.
+IMHO you should stick to this version, if any future feature needs
+another bit, it may happen also to need two of them and so will need a
+new structure then anyway, but why not keep it simple for now?
+
