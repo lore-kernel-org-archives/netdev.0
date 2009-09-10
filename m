@@ -1,42 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net_sched 07/07: add classful multiqueue dummy scheduler
-Date: Fri, 11 Sep 2009 15:27:42 -0700 (PDT)
-Message-ID: <20090911.152742.223184652.davem@davemloft.net>
-References: <20090911213812.GA3965@ami.dom.local>
-	<20090911.151039.40579542.davem@davemloft.net>
-	<20090911222122.GA6826@ami.dom.local>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: jarkao2@gmail.com
+From: Clifford Heath <clifford.heath@gmail.com>
+Subject: Re: Network hangs with 2.6.30.5
+Date: Fri, 11 Sep 2009 08:41:35 +1000
+Message-ID: <6529E18B-D422-4D83-95E6-02B6536E3D62@gmail.com>
+References: <20090907072143.GA5966@ff.dom.local>
+Mime-Version: 1.0 (Apple Message framework v936)
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed	delsp=yes
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53199
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752058AbZIKW1Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 18:27:25 -0400
-In-Reply-To: <20090911222122.GA6826@ami.dom.local>
+Received: from qw-out-2122.google.com ([74.125.92.25]:29300 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753391AbZIKWf7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 18:35:59 -0400
+Received: by qw-out-2122.google.com with SMTP id 9so519382qwb.37
+        for <netdev@vger.kernel.org>; Fri, 11 Sep 2009 15:36:02 -0700 (PDT)
+In-Reply-To: <20090907072143.GA5966@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Sat, 12 Sep 2009 00:21:22 +0200
+On 07/09/2009, at 5:21 PM, Jarek Poplawski wrote:
+> On 03-09-2009 21:55, Holger Hoffstaette wrote:
+>> On Thu, 03 Sep 2009 21:27:08 +0200, Eric Dumazet wrote:
+>>> Holger Hoffstaette a =E9crit :
+>>>> Problem found! At least for me..
+> ...
+>> Was that somewhat helpful? I can certainly create a full trace but =20
+>> that's
+>> going to be big.
+>
+> Congratulations for finding the culprit!
 
-> On Fri, Sep 11, 2009 at 03:10:39PM -0700, David Miller wrote:
->> From: Jarek Poplawski <jarkao2@gmail.com>
->> Date: Fri, 11 Sep 2009 23:38:13 +0200
->> 
->> > On Thu, Sep 10, 2009 at 01:28:59PM +0200, Patrick McHardy wrote:
->> > ...
->> >> I'll remove the misleading (and unnecessary) line of code, thanks Jarek.
->> > 
->> > Btw, I guess David owes you one classful(!) dummy(?) scheduler...
->> 
->> Did I forget to add the sch_mq.c file to the tree?  What are
->> you saying? :-)
-> 
-> commit 6ec1c69a8f6492fd25722f4762721921da074c12
-> Author: David S. Miller <davem@davemloft.net>
-> ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ?! ;-)
+While it's excellent that Holger has found his problem, the
+original problem (posted by me) remains. Unfortunately the
+machine affected has had a hard disk meltdown (too many
+kernel builds? :-)) and so I can't continue with my testing
+before I fix that. Just wanted to note that it's still a live issue.
 
-:-)
+Clifford Heath.
