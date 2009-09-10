@@ -1,7 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 20/31: xtables: check for standard verdicts in policies
-Date: Thu, 10 Sep 2009 18:12:12 +0200 (MEST)
-Message-ID: <20090910161208.31179.83644.sendpatchset@x2.localnet>
+Subject: netfilter 18/31: xtables: ignore unassigned hooks in check_entry_size_and_hooks
+Date: Thu, 10 Sep 2009 18:12:10 +0200 (MEST)
+Message-ID: <20090910161205.31179.87662.sendpatchset@x2.localnet>
 References: <20090910161142.31179.5256.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
@@ -11,134 +11,111 @@ In-Reply-To: <20090910161142.31179.5256.sendpatchset@x2.localnet>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-commit e2fe35c17fed62d4ab5038fa9bc489e967ff8416
+commit a7d51738e757c1ab94595e7d05594c61f0fb32ce
 Author: Jan Engelhardt <jengelh@medozas.de>
-Date:   Sat Jul 18 15:22:30 2009 +0200
+Date:   Sat Jul 18 14:52:58 2009 +0200
 
-    netfilter: xtables: check for standard verdicts in policies
+    netfilter: xtables: ignore unassigned hooks in check_entry_size_and_hooks
     
-    This adds the second check that Rusty wanted to have a long time ago. :-)
+    The "hook_entry" and "underflow" array contains values even for hooks
+    not provided, such as PREROUTING in conjunction with the "filter"
+    table. Usually, the values point to whatever the next rule is. For
+    the upcoming unconditionality and underflow checking patches however,
+    we must not inspect that arbitrary rule.
     
-    Base chain policies must have absolute verdicts that cease processing
-    in the table, otherwise rule execution may continue in an unexpected
-    spurious fashion (e.g. next chain that follows in memory).
+    Skipping unassigned hooks seems like a good idea, also because
+    newinfo->hook_entry and newinfo->underflow will then continue to have
+    the poison value for detecting abnormalities.
     
     Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 
 diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index 064082d..7bc11ff 100644
+index b9f7243..d91f083 100644
 --- a/net/ipv4/netfilter/arp_tables.c
 +++ b/net/ipv4/netfilter/arp_tables.c
-@@ -533,6 +533,21 @@ out:
- 	return ret;
- }
+@@ -539,6 +539,7 @@ static inline int check_entry_size_and_hooks(struct arpt_entry *e,
+ 					     unsigned char *limit,
+ 					     const unsigned int *hook_entries,
+ 					     const unsigned int *underflows,
++					     unsigned int valid_hooks,
+ 					     unsigned int *i)
+ {
+ 	unsigned int h;
+@@ -558,6 +559,8 @@ static inline int check_entry_size_and_hooks(struct arpt_entry *e,
  
-+static bool check_underflow(struct arpt_entry *e)
-+{
-+	const struct arpt_entry_target *t;
-+	unsigned int verdict;
-+
-+	if (!unconditional(&e->arp))
-+		return false;
-+	t = arpt_get_target(e);
-+	if (strcmp(t->u.user.name, XT_STANDARD_TARGET) != 0)
-+		return false;
-+	verdict = ((struct arpt_standard_target *)t)->verdict;
-+	verdict = -verdict - 1;
-+	return verdict == NF_DROP || verdict == NF_ACCEPT;
-+}
-+
- static inline int check_entry_size_and_hooks(struct arpt_entry *e,
- 					     struct xt_table_info *newinfo,
- 					     unsigned char *base,
-@@ -564,8 +579,10 @@ static inline int check_entry_size_and_hooks(struct arpt_entry *e,
+ 	/* Check hooks & underflows */
+ 	for (h = 0; h < NF_ARP_NUMHOOKS; h++) {
++		if (!(valid_hooks & (1 << h)))
++			continue;
  		if ((unsigned char *)e - base == hook_entries[h])
  			newinfo->hook_entry[h] = hook_entries[h];
- 		if ((unsigned char *)e - base == underflows[h]) {
--			if (!unconditional(&e->arp)) {
--				pr_err("Underflows must be unconditional\n");
-+			if (!check_underflow(e)) {
-+				pr_err("Underflows must be unconditional and "
-+				       "use the STANDARD target with "
-+				       "ACCEPT/DROP\n");
- 				return -EINVAL;
- 			}
- 			newinfo->underflow[h] = underflows[h];
+ 		if ((unsigned char *)e - base == underflows[h])
+@@ -626,7 +629,7 @@ static int translate_table(const char *name,
+ 				 newinfo,
+ 				 entry0,
+ 				 entry0 + size,
+-				 hook_entries, underflows, &i);
++				 hook_entries, underflows, valid_hooks, &i);
+ 	duprintf("translate_table: ARPT_ENTRY_ITERATE gives %d\n", ret);
+ 	if (ret != 0)
+ 		return ret;
 diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 6e546d5..0b43fd7 100644
+index 3431a77..6e7b7e8 100644
 --- a/net/ipv4/netfilter/ip_tables.c
 +++ b/net/ipv4/netfilter/ip_tables.c
-@@ -708,6 +708,21 @@ find_check_entry(struct ipt_entry *e, const char *name, unsigned int size,
- 	return ret;
- }
+@@ -714,6 +714,7 @@ check_entry_size_and_hooks(struct ipt_entry *e,
+ 			   unsigned char *limit,
+ 			   const unsigned int *hook_entries,
+ 			   const unsigned int *underflows,
++			   unsigned int valid_hooks,
+ 			   unsigned int *i)
+ {
+ 	unsigned int h;
+@@ -733,6 +734,8 @@ check_entry_size_and_hooks(struct ipt_entry *e,
  
-+static bool check_underflow(struct ipt_entry *e)
-+{
-+	const struct ipt_entry_target *t;
-+	unsigned int verdict;
-+
-+	if (!unconditional(&e->ip))
-+		return false;
-+	t = ipt_get_target(e);
-+	if (strcmp(t->u.user.name, XT_STANDARD_TARGET) != 0)
-+		return false;
-+	verdict = ((struct ipt_standard_target *)t)->verdict;
-+	verdict = -verdict - 1;
-+	return verdict == NF_DROP || verdict == NF_ACCEPT;
-+}
-+
- static int
- check_entry_size_and_hooks(struct ipt_entry *e,
- 			   struct xt_table_info *newinfo,
-@@ -740,8 +755,10 @@ check_entry_size_and_hooks(struct ipt_entry *e,
+ 	/* Check hooks & underflows */
+ 	for (h = 0; h < NF_INET_NUMHOOKS; h++) {
++		if (!(valid_hooks & (1 << h)))
++			continue;
  		if ((unsigned char *)e - base == hook_entries[h])
  			newinfo->hook_entry[h] = hook_entries[h];
- 		if ((unsigned char *)e - base == underflows[h]) {
--			if (!unconditional(&e->ip)) {
--				pr_err("Underflows must be unconditional\n");
-+			if (!check_underflow(e)) {
-+				pr_err("Underflows must be unconditional and "
-+				       "use the STANDARD target with "
-+				       "ACCEPT/DROP\n");
- 				return -EINVAL;
- 			}
- 			newinfo->underflow[h] = underflows[h];
+ 		if ((unsigned char *)e - base == underflows[h])
+@@ -804,7 +807,7 @@ translate_table(const char *name,
+ 				newinfo,
+ 				entry0,
+ 				entry0 + size,
+-				hook_entries, underflows, &i);
++				hook_entries, underflows, valid_hooks, &i);
+ 	if (ret != 0)
+ 		return ret;
+ 
 diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index b0599b9..a5d0c27 100644
+index 1389ad9..8e4921a 100644
 --- a/net/ipv6/netfilter/ip6_tables.c
 +++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -740,6 +740,21 @@ find_check_entry(struct ip6t_entry *e, const char *name, unsigned int size,
- 	return ret;
- }
+@@ -747,6 +747,7 @@ check_entry_size_and_hooks(struct ip6t_entry *e,
+ 			   unsigned char *limit,
+ 			   const unsigned int *hook_entries,
+ 			   const unsigned int *underflows,
++			   unsigned int valid_hooks,
+ 			   unsigned int *i)
+ {
+ 	unsigned int h;
+@@ -766,6 +767,8 @@ check_entry_size_and_hooks(struct ip6t_entry *e,
  
-+static bool check_underflow(struct ip6t_entry *e)
-+{
-+	const struct ip6t_entry_target *t;
-+	unsigned int verdict;
-+
-+	if (!unconditional(&e->ipv6))
-+		return false;
-+	t = ip6t_get_target(e);
-+	if (strcmp(t->u.user.name, XT_STANDARD_TARGET) != 0)
-+		return false;
-+	verdict = ((struct ip6t_standard_target *)t)->verdict;
-+	verdict = -verdict - 1;
-+	return verdict == NF_DROP || verdict == NF_ACCEPT;
-+}
-+
- static int
- check_entry_size_and_hooks(struct ip6t_entry *e,
- 			   struct xt_table_info *newinfo,
-@@ -772,8 +787,10 @@ check_entry_size_and_hooks(struct ip6t_entry *e,
+ 	/* Check hooks & underflows */
+ 	for (h = 0; h < NF_INET_NUMHOOKS; h++) {
++		if (!(valid_hooks & (1 << h)))
++			continue;
  		if ((unsigned char *)e - base == hook_entries[h])
  			newinfo->hook_entry[h] = hook_entries[h];
- 		if ((unsigned char *)e - base == underflows[h]) {
--			if (!unconditional(&e->ipv6)) {
--				pr_err("Underflows must be unconditional\n");
-+			if (!check_underflow(e)) {
-+				pr_err("Underflows must be unconditional and "
-+				       "use the STANDARD target with "
-+				       "ACCEPT/DROP\n");
- 				return -EINVAL;
- 			}
- 			newinfo->underflow[h] = underflows[h];
+ 		if ((unsigned char *)e - base == underflows[h])
+@@ -837,7 +840,7 @@ translate_table(const char *name,
+ 				newinfo,
+ 				entry0,
+ 				entry0 + size,
+-				hook_entries, underflows, &i);
++				hook_entries, underflows, valid_hooks, &i);
+ 	if (ret != 0)
+ 		return ret;
+ 
