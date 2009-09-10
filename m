@@ -1,45 +1,38 @@
-From: Karl Hiramoto <karl@hiramoto.org>
-Subject: Re: [Linux-ATM-General] [PATCH] atm/br2684: netif_stop_queue() when
- atm	device busy and netif_wake_queue() when we can send packets again.
-Date: Thu, 10 Sep 2009 23:30:44 +0200
-Message-ID: <4AA97004.2010904@hiramoto.org>
-References: <4A9901E7.9040804@hiramoto.org> <1251545092-18081-1-git-send-email-karl@hiramoto.org> <4AA95838.4010007@redfish-solutions.com>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: UDP regression with packets rates < 10k per sec
+Date: Thu, 10 Sep 2009 17:36:15 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0909101728250.27669@V090114053VZO-1>
+References: <alpine.DEB.1.10.0909081820030.7733@V090114053VZO-1> <4AA6E039.4000907@gmail.com> <alpine.DEB.1.10.0909091000200.28070@V090114053VZO-1> <4AA7C512.6040100@gmail.com> <alpine.DEB.1.10.0909091234360.15538@V090114053VZO-1> <4AA7E082.90807@gmail.com>
+ <alpine.DEB.1.10.0909091350590.32067@V090114053VZO-1> <4AA963A4.5080509@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-atm-general@lists.sourceforge.net
-To: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caiajhbdccac.dreamhost.com ([208.97.132.202]:34980 "EHLO
-	spunkymail-a13.g.dreamhost.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752643AbZIJVap (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2009 17:30:45 -0400
-In-Reply-To: <4AA95838.4010007@redfish-solutions.com>
+Received: from smtp2.ultrahosting.com ([74.213.174.253]:34155 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752376AbZIJVhd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2009 17:37:33 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 68B3B82C14A
+	for <netdev@vger.kernel.org>; Thu, 10 Sep 2009 17:38:39 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.253])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id ZuoCsUxdAhqP for <netdev@vger.kernel.org>;
+	Thu, 10 Sep 2009 17:38:34 -0400 (EDT)
+Received: from V090114053VZO-1 (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 98EE682C237
+	for <netdev@vger.kernel.org>; Thu, 10 Sep 2009 17:38:32 -0400 (EDT)
+In-Reply-To: <4AA963A4.5080509@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Philip A. Prindeville wrote:
-> I had noticed that with my Solos card, and using Qwest 7062/896kb/s
-> service that I was typically only getting ~400kb/s upstream, so I
-> thought that delayed transmitter restarts might be the culprit and
-> decided to try out this patch.
->
-> I'm running 2.6.27.26, and I modified the patch as below.
->
-> Has anyone confirmed this patch (Karl's) against 2.6.27?
->
-> Thanks,
->
-> -Philip
-I'd be interested in hearing comparisons with/without the patch.    What 
-i have is no upstream packet loss with this patch, however slightly 
-lower total throughput.  I think because the upper networking layers 
-take time to restart the packet flow.   I'm not really sure if or how 
-many packets to upper layers buffer.  I haven't had time to debug it 
-further.
+On Thu, 10 Sep 2009, Eric Dumazet wrote:
 
-I don't have a solos card, but you may have to tweak the solos driver 
-sk_sndbuf  value.
+> On the receiver I did this to trace the latency messages only
+>
+> # tcpdump -i eth0 not host 239.0.192.2 and port 9002 -n
 
---
-Karl
+You do not show the multicast traffic. The latency timestamps requests are
+send unicast and at larger intervals. About one per second per mc channel.
+
