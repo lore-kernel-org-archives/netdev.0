@@ -1,513 +1,1385 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?= <nicolas.2p.debian@free.fr>
-Subject: Re: [PATCH net-next-2.6 v2] bonding: introduce primary_passive option
-Date: Fri, 11 Sep 2009 00:06:13 +0200
-Message-ID: <4AA97855.8070301@free.fr>
-References: <20090910182059.GC2972@psychotron.redhat.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH -next] isdn: fix netjet/isdnhdlc build errors
+Date: Thu, 10 Sep 2009 15:15:41 -0700
+Message-ID: <20090910151541.00cabcbc.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, Karsten Keil <isdn@linux-pingi.de>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:41732 "EHLO smtp6-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754269AbZIJWGV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Sep 2009 18:06:21 -0400
-In-Reply-To: <20090910182059.GC2972@psychotron.redhat.com>
+Received: from acsinet11.oracle.com ([141.146.126.233]:46650 "EHLO
+	acsinet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753942AbZIJWPu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2009 18:15:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Pirko wrote:
-> (updated 2)
-> 
-> In some cases there is not desirable to switch back to primary interface when
-> it's link recovers and rather stay with currently active one. We need to avoid
-> packetloss as much as we can in some cases. This is solved by introducing
-> primary_passive option. Note that enslaved primary slave is set as current
-> active no matter what.
-> 
-> This patch depends on the following one:
-> [net-next-2.6] bonding: make ab_arp select active slaves as other modes
-> http://patchwork.ozlabs.org/patch/32684/
-> 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-> 
-> diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
-> index d5181ce..e5f2c31 100644
-> --- a/Documentation/networking/bonding.txt
-> +++ b/Documentation/networking/bonding.txt
-> @@ -614,6 +614,32 @@ primary
->  
->  	The primary option is only valid for active-backup mode.
->  
-> +primary_passive
-> +
-> +	Specifies the behavior of the current active slave when the primary was
-> +	down and comes back up.  This option is designed to prevent
-> +	flip-flopping between the primary slave and other slaves.  The possible
-> +	values and their respective effects are:
-> +
-> +	disabled or 0 (default)
-> +
-> +		The primary slave becomes the active slave whenever it comes
-> +		back up.
-> +
-> +	better or 1
-> +
-> +		The primary slave becomes the active slave when it comes back
-> +		up, if the speed and duplex of the primary slave is better
-> +		than the speed and duplex of the current active slave.
-> +
-> +	always or 2
-> +
-> +		The primary slave becomes the active slave only if the current
-> +		active slave fails and the primary slave is up.
-> +
-> +	When no slave are active, if the primary comes back up, it becomes the
-> +	active slave, regardless of the value of primary_return
-> +
->  updelay
+=46rom: Randy Dunlap <randy.dunlap@oracle.com>
 
-My feeling is that using primary_passive=disabled/better/always is far less 
-clear than primary_return=always/better/failure_only.
+The netjet driver uses isdnhdlc interfaces (as does another ISDN
+driver), so move that driver source file into the top-level
+drivers/isdn/ directory and make it available to any ISDN drivers.
 
-The normal (current) behavior is to always return to primay if it is up. You 
-want to add the ability to return to it only on failure of the current active 
-slave and I suggested to add the ability the return to it if it is "better" than 
-the current active slave.
+=46ixes these build errors:
 
-Hence the suggested name for the option and option values.
+ERROR: "isdnhdlc_decode" [drivers/isdn/hardware/mISDN/netjet.ko] undefi=
+ned!
+ERROR: "isdnhdlc_encode" [drivers/isdn/hardware/mISDN/netjet.ko] undefi=
+ned!
+ERROR: "isdnhdlc_out_init" [drivers/isdn/hardware/mISDN/netjet.ko] unde=
+fined!
+ERROR: "isdnhdlc_rcv_init" [drivers/isdn/hardware/mISDN/netjet.ko] unde=
+fined!
 
->  
->  	Specifies the time, in milliseconds, to wait before enabling a
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index a7e731f..193eca4 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -94,6 +94,7 @@ static int downdelay;
->  static int use_carrier	= 1;
->  static char *mode;
->  static char *primary;
-> +static char *primary_passive;
->  static char *lacp_rate;
->  static char *ad_select;
->  static char *xmit_hash_policy;
-> @@ -126,6 +127,13 @@ MODULE_PARM_DESC(mode, "Mode of operation : 0 for balance-rr, "
->  		       "6 for balance-alb");
->  module_param(primary, charp, 0);
->  MODULE_PARM_DESC(primary, "Primary network device to use");
-> +module_param(primary_passive, charp, 0);
-> +MODULE_PARM_DESC(primary_passive, "Do not set primary slave active "
-> +				  "once it comes up; "
-> +				  "0 for disabled (default), "
-> +				  "1 for on only if speed of primary is not "
-> +				  "better, "
-> +				  "2 for always on");
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+Cc: Karsten Keil <isdn@linux-pingi.de>
+---
+ drivers/isdn/Kconfig        |    5=20
+ drivers/isdn/Makefile       |    2=20
+ drivers/isdn/i4l/Kconfig    |    6=20
+ drivers/isdn/i4l/Makefile   |    1=20
+ drivers/isdn/i4l/isdnhdlc.c |  630 ----------------------------------
+ drivers/isdn/isdnhdlc.c     |  630 ++++++++++++++++++++++++++++++++++
+ 6 files changed, 637 insertions(+), 637 deletions(-)
 
-You have a double negative assertion here : a "do not" option whose value is 
-"disabled". For clarity, I suggest to have a "do" option whose value is "enabled".
+--- linux-next-20090909.orig/drivers/isdn/Makefile
++++ linux-next-20090909/drivers/isdn/Makefile
+@@ -15,3 +15,5 @@ obj-$(CONFIG_ISDN_DRV_LOOP)		+=3D isdnloop
+ obj-$(CONFIG_ISDN_DRV_ACT2000)		+=3D act2000/
+ obj-$(CONFIG_HYSDN)			+=3D hysdn/
+ obj-$(CONFIG_ISDN_DRV_GIGASET)		+=3D gigaset/
++
++obj-$(CONFIG_ISDN_HDLC)		+=3D isdnhdlc.o
+--- linux-next-20090909.orig/drivers/isdn/i4l/Makefile
++++ linux-next-20090909/drivers/isdn/i4l/Makefile
+@@ -4,7 +4,6 @@
+=20
+ obj-$(CONFIG_ISDN_I4L)		+=3D isdn.o
+ obj-$(CONFIG_ISDN_PPP_BSDCOMP)	+=3D isdn_bsdcomp.o
+-obj-$(CONFIG_ISDN_HDLC)		+=3D isdnhdlc.o
+=20
+ # Multipart objects.
+=20
+--- linux-next-20090909.orig/drivers/isdn/i4l/isdnhdlc.c
++++ /dev/null
+@@ -1,630 +0,0 @@
+-/*
+- * isdnhdlc.c  --  General purpose ISDN HDLC decoder.
+- *
+- * Copyright (C)
+- *	2009	Karsten Keil		<keil@b1-systems.de>
+- *	2002	Wolfgang M=FCes		<wolfgang@iksw-muees.de>
+- *	2001	Frode Isaksen		<fisaksen@bewan.com>
+- *      2001	Kai Germaschewski	<kai.germaschewski@gmx.de>
+- *
+- * This program is free software; you can redistribute it and/or modif=
+y
+- * it under the terms of the GNU General Public License as published b=
+y
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; if not, write to the Free Software
+- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+- */
+-
+-#include <linux/module.h>
+-#include <linux/init.h>
+-#include <linux/crc-ccitt.h>
+-#include <linux/isdn/hdlc.h>
+-#include <linux/bitrev.h>
+-
+-/*-------------------------------------------------------------------*=
+/
+-
+-MODULE_AUTHOR("Wolfgang M=FCes <wolfgang@iksw-muees.de>, "
+-	      "Frode Isaksen <fisaksen@bewan.com>, "
+-	      "Kai Germaschewski <kai.germaschewski@gmx.de>");
+-MODULE_DESCRIPTION("General purpose ISDN HDLC decoder");
+-MODULE_LICENSE("GPL");
+-
+-/*-------------------------------------------------------------------*=
+/
+-
+-enum {
+-	HDLC_FAST_IDLE, HDLC_GET_FLAG_B0, HDLC_GETFLAG_B1A6, HDLC_GETFLAG_B7,
+-	HDLC_GET_DATA, HDLC_FAST_FLAG
+-};
+-
+-enum {
+-	HDLC_SEND_DATA, HDLC_SEND_CRC1, HDLC_SEND_FAST_FLAG,
+-	HDLC_SEND_FIRST_FLAG, HDLC_SEND_CRC2, HDLC_SEND_CLOSING_FLAG,
+-	HDLC_SEND_IDLE1, HDLC_SEND_FAST_IDLE, HDLC_SENDFLAG_B0,
+-	HDLC_SENDFLAG_B1A6, HDLC_SENDFLAG_B7, STOPPED, HDLC_SENDFLAG_ONE
+-};
+-
+-void isdnhdlc_rcv_init(struct isdnhdlc_vars *hdlc, u32 features)
+-{
+-	memset(hdlc, 0, sizeof(struct isdnhdlc_vars));
+-	hdlc->state =3D HDLC_GET_DATA;
+-	if (features & HDLC_56KBIT)
+-		hdlc->do_adapt56 =3D 1;
+-	if (features & HDLC_BITREVERSE)
+-		hdlc->do_bitreverse =3D 1;
+-}
+-EXPORT_SYMBOL(isdnhdlc_out_init);
+-
+-void isdnhdlc_out_init(struct isdnhdlc_vars *hdlc, u32 features)
+-{
+-	memset(hdlc, 0, sizeof(struct isdnhdlc_vars));
+-	if (features & HDLC_DCHANNEL) {
+-		hdlc->dchannel =3D 1;
+-		hdlc->state =3D HDLC_SEND_FIRST_FLAG;
+-	} else {
+-		hdlc->dchannel =3D 0;
+-		hdlc->state =3D HDLC_SEND_FAST_FLAG;
+-		hdlc->ffvalue =3D 0x7e;
+-	}
+-	hdlc->cbin =3D 0x7e;
+-	if (features & HDLC_56KBIT) {
+-		hdlc->do_adapt56 =3D 1;
+-		hdlc->state =3D HDLC_SENDFLAG_B0;
+-	} else
+-		hdlc->data_bits =3D 8;
+-	if (features & HDLC_BITREVERSE)
+-		hdlc->do_bitreverse =3D 1;
+-}
+-EXPORT_SYMBOL(isdnhdlc_rcv_init);
+-
+-static int
+-check_frame(struct isdnhdlc_vars *hdlc)
+-{
+-	int status;
+-
+-	if (hdlc->dstpos < 2) 	/* too small - framing error */
+-		status =3D -HDLC_FRAMING_ERROR;
+-	else if (hdlc->crc !=3D 0xf0b8)	/* crc error */
+-		status =3D -HDLC_CRC_ERROR;
+-	else {
+-		/* remove CRC */
+-		hdlc->dstpos -=3D 2;
+-		/* good frame */
+-		status =3D hdlc->dstpos;
+-	}
+-	return status;
+-}
+-
+-/*
+-  isdnhdlc_decode - decodes HDLC frames from a transparent bit stream.
+-
+-  The source buffer is scanned for valid HDLC frames looking for
+-  flags (01111110) to indicate the start of a frame. If the start of
+-  the frame is found, the bit stuffing is removed (0 after 5 1's).
+-  When a new flag is found, the complete frame has been received
+-  and the CRC is checked.
+-  If a valid frame is found, the function returns the frame length
+-  excluding the CRC with the bit HDLC_END_OF_FRAME set.
+-  If the beginning of a valid frame is found, the function returns
+-  the length.
+-  If a framing error is found (too many 1s and not a flag) the functio=
+n
+-  returns the length with the bit HDLC_FRAMING_ERROR set.
+-  If a CRC error is found the function returns the length with the
+-  bit HDLC_CRC_ERROR set.
+-  If the frame length exceeds the destination buffer size, the functio=
+n
+-  returns the length with the bit HDLC_LENGTH_ERROR set.
+-
+-  src - source buffer
+-  slen - source buffer length
+-  count - number of bytes removed (decoded) from the source buffer
+-  dst _ destination buffer
+-  dsize - destination buffer size
+-  returns - number of decoded bytes in the destination buffer and stat=
+us
+-  flag.
+- */
+-int isdnhdlc_decode(struct isdnhdlc_vars *hdlc, const u8 *src, int sle=
+n,
+-	int *count, u8 *dst, int dsize)
+-{
+-	int status =3D 0;
+-
+-	static const unsigned char fast_flag[] =3D {
+-		0x00, 0x00, 0x00, 0x20, 0x30, 0x38, 0x3c, 0x3e, 0x3f
+-	};
+-
+-	static const unsigned char fast_flag_value[] =3D {
+-		0x00, 0x7e, 0xfc, 0xf9, 0xf3, 0xe7, 0xcf, 0x9f, 0x3f
+-	};
+-
+-	static const unsigned char fast_abort[] =3D {
+-		0x00, 0x00, 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff
+-	};
+-
+-#define handle_fast_flag(h) \
+-	do {\
+-		if (h->cbin =3D=3D fast_flag[h->bit_shift]) {\
+-			h->ffvalue =3D fast_flag_value[h->bit_shift];\
+-			h->state =3D HDLC_FAST_FLAG;\
+-			h->ffbit_shift =3D h->bit_shift;\
+-			h->bit_shift =3D 1;\
+-		} else {\
+-			h->state =3D HDLC_GET_DATA;\
+-			h->data_received =3D 0;\
+-		} \
+-	} while (0)
+-
+-#define handle_abort(h) \
+-	do {\
+-		h->shift_reg =3D fast_abort[h->ffbit_shift - 1];\
+-		h->hdlc_bits1 =3D h->ffbit_shift - 2;\
+-		if (h->hdlc_bits1 < 0)\
+-			h->hdlc_bits1 =3D 0;\
+-		h->data_bits =3D h->ffbit_shift - 1;\
+-		h->state =3D HDLC_GET_DATA;\
+-		h->data_received =3D 0;\
+-	} while (0)
+-
+-	*count =3D slen;
+-
+-	while (slen > 0) {
+-		if (hdlc->bit_shift =3D=3D 0) {
+-			/* the code is for bitreverse streams */
+-			if (hdlc->do_bitreverse =3D=3D 0)
+-				hdlc->cbin =3D bitrev8(*src++);
+-			else
+-				hdlc->cbin =3D *src++;
+-			slen--;
+-			hdlc->bit_shift =3D 8;
+-			if (hdlc->do_adapt56)
+-				hdlc->bit_shift--;
+-		}
+-
+-		switch (hdlc->state) {
+-		case STOPPED:
+-			return 0;
+-		case HDLC_FAST_IDLE:
+-			if (hdlc->cbin =3D=3D 0xff) {
+-				hdlc->bit_shift =3D 0;
+-				break;
+-			}
+-			hdlc->state =3D HDLC_GET_FLAG_B0;
+-			hdlc->hdlc_bits1 =3D 0;
+-			hdlc->bit_shift =3D 8;
+-			break;
+-		case HDLC_GET_FLAG_B0:
+-			if (!(hdlc->cbin & 0x80)) {
+-				hdlc->state =3D HDLC_GETFLAG_B1A6;
+-				hdlc->hdlc_bits1 =3D 0;
+-			} else {
+-				if ((!hdlc->do_adapt56) &&
+-				    (++hdlc->hdlc_bits1 >=3D 8) &&
+-				    (hdlc->bit_shift =3D=3D 1))
+-						hdlc->state =3D HDLC_FAST_IDLE;
+-			}
+-			hdlc->cbin <<=3D 1;
+-			hdlc->bit_shift--;
+-			break;
+-		case HDLC_GETFLAG_B1A6:
+-			if (hdlc->cbin & 0x80) {
+-				hdlc->hdlc_bits1++;
+-				if (hdlc->hdlc_bits1 =3D=3D 6)
+-					hdlc->state =3D HDLC_GETFLAG_B7;
+-			} else
+-				hdlc->hdlc_bits1 =3D 0;
+-			hdlc->cbin <<=3D 1;
+-			hdlc->bit_shift--;
+-			break;
+-		case HDLC_GETFLAG_B7:
+-			if (hdlc->cbin & 0x80) {
+-				hdlc->state =3D HDLC_GET_FLAG_B0;
+-			} else {
+-				hdlc->state =3D HDLC_GET_DATA;
+-				hdlc->crc =3D 0xffff;
+-				hdlc->shift_reg =3D 0;
+-				hdlc->hdlc_bits1 =3D 0;
+-				hdlc->data_bits =3D 0;
+-				hdlc->data_received =3D 0;
+-			}
+-			hdlc->cbin <<=3D 1;
+-			hdlc->bit_shift--;
+-			break;
+-		case HDLC_GET_DATA:
+-			if (hdlc->cbin & 0x80) {
+-				hdlc->hdlc_bits1++;
+-				switch (hdlc->hdlc_bits1) {
+-				case 6:
+-					break;
+-				case 7:
+-					if (hdlc->data_received)
+-						/* bad frame */
+-						status =3D -HDLC_FRAMING_ERROR;
+-					if (!hdlc->do_adapt56) {
+-						if (hdlc->cbin =3D=3D fast_abort
+-						    [hdlc->bit_shift + 1]) {
+-							hdlc->state =3D
+-								HDLC_FAST_IDLE;
+-							hdlc->bit_shift =3D 1;
+-							break;
+-						}
+-					} else
+-						hdlc->state =3D HDLC_GET_FLAG_B0;
+-					break;
+-				default:
+-					hdlc->shift_reg >>=3D 1;
+-					hdlc->shift_reg |=3D 0x80;
+-					hdlc->data_bits++;
+-					break;
+-				}
+-			} else {
+-				switch (hdlc->hdlc_bits1) {
+-				case 5:
+-					break;
+-				case 6:
+-					if (hdlc->data_received)
+-						status =3D check_frame(hdlc);
+-					hdlc->crc =3D 0xffff;
+-					hdlc->shift_reg =3D 0;
+-					hdlc->data_bits =3D 0;
+-					if (!hdlc->do_adapt56)
+-						handle_fast_flag(hdlc);
+-					else {
+-						hdlc->state =3D HDLC_GET_DATA;
+-						hdlc->data_received =3D 0;
+-					}
+-					break;
+-				default:
+-					hdlc->shift_reg >>=3D 1;
+-					hdlc->data_bits++;
+-					break;
+-				}
+-				hdlc->hdlc_bits1 =3D 0;
+-			}
+-			if (status) {
+-				hdlc->dstpos =3D 0;
+-				*count -=3D slen;
+-				hdlc->cbin <<=3D 1;
+-				hdlc->bit_shift--;
+-				return status;
+-			}
+-			if (hdlc->data_bits =3D=3D 8) {
+-				hdlc->data_bits =3D 0;
+-				hdlc->data_received =3D 1;
+-				hdlc->crc =3D crc_ccitt_byte(hdlc->crc,
+-						hdlc->shift_reg);
+-
+-				/* good byte received */
+-				if (hdlc->dstpos < dsize)
+-					dst[hdlc->dstpos++] =3D hdlc->shift_reg;
+-				else {
+-					/* frame too long */
+-					status =3D -HDLC_LENGTH_ERROR;
+-					hdlc->dstpos =3D 0;
+-				}
+-			}
+-			hdlc->cbin <<=3D 1;
+-			hdlc->bit_shift--;
+-			break;
+-		case HDLC_FAST_FLAG:
+-			if (hdlc->cbin =3D=3D hdlc->ffvalue) {
+-				hdlc->bit_shift =3D 0;
+-				break;
+-			} else {
+-				if (hdlc->cbin =3D=3D 0xff) {
+-					hdlc->state =3D HDLC_FAST_IDLE;
+-					hdlc->bit_shift =3D 0;
+-				} else if (hdlc->ffbit_shift =3D=3D 8) {
+-					hdlc->state =3D HDLC_GETFLAG_B7;
+-					break;
+-				} else
+-					handle_abort(hdlc);
+-			}
+-			break;
+-		default:
+-			break;
+-		}
+-	}
+-	*count -=3D slen;
+-	return 0;
+-}
+-EXPORT_SYMBOL(isdnhdlc_decode);
+-/*
+-  isdnhdlc_encode - encodes HDLC frames to a transparent bit stream.
+-
+-  The bit stream starts with a beginning flag (01111110). After
+-  that each byte is added to the bit stream with bit stuffing added
+-  (0 after 5 1's).
+-  When the last byte has been removed from the source buffer, the
+-  CRC (2 bytes is added) and the frame terminates with the ending flag=
+=2E
+-  For the dchannel, the idle character (all 1's) is also added at the =
+end.
+-  If this function is called with empty source buffer (slen=3D0), flag=
+s or
+-  idle character will be generated.
+-
+-  src - source buffer
+-  slen - source buffer length
+-  count - number of bytes removed (encoded) from source buffer
+-  dst _ destination buffer
+-  dsize - destination buffer size
+-  returns - number of encoded bytes in the destination buffer
+-*/
+-int isdnhdlc_encode(struct isdnhdlc_vars *hdlc, const u8 *src, u16 sle=
+n,
+-	int *count, u8 *dst, int dsize)
+-{
+-	static const unsigned char xfast_flag_value[] =3D {
+-		0x7e, 0x3f, 0x9f, 0xcf, 0xe7, 0xf3, 0xf9, 0xfc, 0x7e
+-	};
+-
+-	int len =3D 0;
+-
+-	*count =3D slen;
+-
+-	/* special handling for one byte frames */
+-	if ((slen =3D=3D 1) && (hdlc->state =3D=3D HDLC_SEND_FAST_FLAG))
+-		hdlc->state =3D HDLC_SENDFLAG_ONE;
+-	while (dsize > 0) {
+-		if (hdlc->bit_shift =3D=3D 0) {
+-			if (slen && !hdlc->do_closing) {
+-				hdlc->shift_reg =3D *src++;
+-				slen--;
+-				if (slen =3D=3D 0)
+-					/* closing sequence, CRC + flag(s) */
+-					hdlc->do_closing =3D 1;
+-				hdlc->bit_shift =3D 8;
+-			} else {
+-				if (hdlc->state =3D=3D HDLC_SEND_DATA) {
+-					if (hdlc->data_received) {
+-						hdlc->state =3D HDLC_SEND_CRC1;
+-						hdlc->crc ^=3D 0xffff;
+-						hdlc->bit_shift =3D 8;
+-						hdlc->shift_reg =3D
+-							hdlc->crc & 0xff;
+-					} else if (!hdlc->do_adapt56)
+-						hdlc->state =3D
+-							HDLC_SEND_FAST_FLAG;
+-					else
+-						hdlc->state =3D
+-							HDLC_SENDFLAG_B0;
+-				}
+-
+-			}
+-		}
+-
+-		switch (hdlc->state) {
+-		case STOPPED:
+-			while (dsize--)
+-				*dst++ =3D 0xff;
+-			return dsize;
+-		case HDLC_SEND_FAST_FLAG:
+-			hdlc->do_closing =3D 0;
+-			if (slen =3D=3D 0) {
+-				/* the code is for bitreverse streams */
+-				if (hdlc->do_bitreverse =3D=3D 0)
+-					*dst++ =3D bitrev8(hdlc->ffvalue);
+-				else
+-					*dst++ =3D hdlc->ffvalue;
+-				len++;
+-				dsize--;
+-				break;
+-			}
+-			/* fall through */
+-		case HDLC_SENDFLAG_ONE:
+-			if (hdlc->bit_shift =3D=3D 8) {
+-				hdlc->cbin =3D hdlc->ffvalue >>
+-					(8 - hdlc->data_bits);
+-				hdlc->state =3D HDLC_SEND_DATA;
+-				hdlc->crc =3D 0xffff;
+-				hdlc->hdlc_bits1 =3D 0;
+-				hdlc->data_received =3D 1;
+-			}
+-			break;
+-		case HDLC_SENDFLAG_B0:
+-			hdlc->do_closing =3D 0;
+-			hdlc->cbin <<=3D 1;
+-			hdlc->data_bits++;
+-			hdlc->hdlc_bits1 =3D 0;
+-			hdlc->state =3D HDLC_SENDFLAG_B1A6;
+-			break;
+-		case HDLC_SENDFLAG_B1A6:
+-			hdlc->cbin <<=3D 1;
+-			hdlc->data_bits++;
+-			hdlc->cbin++;
+-			if (++hdlc->hdlc_bits1 =3D=3D 6)
+-				hdlc->state =3D HDLC_SENDFLAG_B7;
+-			break;
+-		case HDLC_SENDFLAG_B7:
+-			hdlc->cbin <<=3D 1;
+-			hdlc->data_bits++;
+-			if (slen =3D=3D 0) {
+-				hdlc->state =3D HDLC_SENDFLAG_B0;
+-				break;
+-			}
+-			if (hdlc->bit_shift =3D=3D 8) {
+-				hdlc->state =3D HDLC_SEND_DATA;
+-				hdlc->crc =3D 0xffff;
+-				hdlc->hdlc_bits1 =3D 0;
+-				hdlc->data_received =3D 1;
+-			}
+-			break;
+-		case HDLC_SEND_FIRST_FLAG:
+-			hdlc->data_received =3D 1;
+-			if (hdlc->data_bits =3D=3D 8) {
+-				hdlc->state =3D HDLC_SEND_DATA;
+-				hdlc->crc =3D 0xffff;
+-				hdlc->hdlc_bits1 =3D 0;
+-				break;
+-			}
+-			hdlc->cbin <<=3D 1;
+-			hdlc->data_bits++;
+-			if (hdlc->shift_reg & 0x01)
+-				hdlc->cbin++;
+-			hdlc->shift_reg >>=3D 1;
+-			hdlc->bit_shift--;
+-			if (hdlc->bit_shift =3D=3D 0) {
+-				hdlc->state =3D HDLC_SEND_DATA;
+-				hdlc->crc =3D 0xffff;
+-				hdlc->hdlc_bits1 =3D 0;
+-			}
+-			break;
+-		case HDLC_SEND_DATA:
+-			hdlc->cbin <<=3D 1;
+-			hdlc->data_bits++;
+-			if (hdlc->hdlc_bits1 =3D=3D 5) {
+-				hdlc->hdlc_bits1 =3D 0;
+-				break;
+-			}
+-			if (hdlc->bit_shift =3D=3D 8)
+-				hdlc->crc =3D crc_ccitt_byte(hdlc->crc,
+-					hdlc->shift_reg);
+-			if (hdlc->shift_reg & 0x01) {
+-				hdlc->hdlc_bits1++;
+-				hdlc->cbin++;
+-				hdlc->shift_reg >>=3D 1;
+-				hdlc->bit_shift--;
+-			} else {
+-				hdlc->hdlc_bits1 =3D 0;
+-				hdlc->shift_reg >>=3D 1;
+-				hdlc->bit_shift--;
+-			}
+-			break;
+-		case HDLC_SEND_CRC1:
+-			hdlc->cbin <<=3D 1;
+-			hdlc->data_bits++;
+-			if (hdlc->hdlc_bits1 =3D=3D 5) {
+-				hdlc->hdlc_bits1 =3D 0;
+-				break;
+-			}
+-			if (hdlc->shift_reg & 0x01) {
+-				hdlc->hdlc_bits1++;
+-				hdlc->cbin++;
+-				hdlc->shift_reg >>=3D 1;
+-				hdlc->bit_shift--;
+-			} else {
+-				hdlc->hdlc_bits1 =3D 0;
+-				hdlc->shift_reg >>=3D 1;
+-				hdlc->bit_shift--;
+-			}
+-			if (hdlc->bit_shift =3D=3D 0) {
+-				hdlc->shift_reg =3D (hdlc->crc >> 8);
+-				hdlc->state =3D HDLC_SEND_CRC2;
+-				hdlc->bit_shift =3D 8;
+-			}
+-			break;
+-		case HDLC_SEND_CRC2:
+-			hdlc->cbin <<=3D 1;
+-			hdlc->data_bits++;
+-			if (hdlc->hdlc_bits1 =3D=3D 5) {
+-				hdlc->hdlc_bits1 =3D 0;
+-				break;
+-			}
+-			if (hdlc->shift_reg & 0x01) {
+-				hdlc->hdlc_bits1++;
+-				hdlc->cbin++;
+-				hdlc->shift_reg >>=3D 1;
+-				hdlc->bit_shift--;
+-			} else {
+-				hdlc->hdlc_bits1 =3D 0;
+-				hdlc->shift_reg >>=3D 1;
+-				hdlc->bit_shift--;
+-			}
+-			if (hdlc->bit_shift =3D=3D 0) {
+-				hdlc->shift_reg =3D 0x7e;
+-				hdlc->state =3D HDLC_SEND_CLOSING_FLAG;
+-				hdlc->bit_shift =3D 8;
+-			}
+-			break;
+-		case HDLC_SEND_CLOSING_FLAG:
+-			hdlc->cbin <<=3D 1;
+-			hdlc->data_bits++;
+-			if (hdlc->hdlc_bits1 =3D=3D 5) {
+-				hdlc->hdlc_bits1 =3D 0;
+-				break;
+-			}
+-			if (hdlc->shift_reg & 0x01)
+-				hdlc->cbin++;
+-			hdlc->shift_reg >>=3D 1;
+-			hdlc->bit_shift--;
+-			if (hdlc->bit_shift =3D=3D 0) {
+-				hdlc->ffvalue =3D
+-					xfast_flag_value[hdlc->data_bits];
+-				if (hdlc->dchannel) {
+-					hdlc->ffvalue =3D 0x7e;
+-					hdlc->state =3D HDLC_SEND_IDLE1;
+-					hdlc->bit_shift =3D 8-hdlc->data_bits;
+-					if (hdlc->bit_shift =3D=3D 0)
+-						hdlc->state =3D
+-							HDLC_SEND_FAST_IDLE;
+-				} else {
+-					if (!hdlc->do_adapt56) {
+-						hdlc->state =3D
+-							HDLC_SEND_FAST_FLAG;
+-						hdlc->data_received =3D 0;
+-					} else {
+-						hdlc->state =3D HDLC_SENDFLAG_B0;
+-						hdlc->data_received =3D 0;
+-					}
+-					/* Finished this frame, send flags */
+-					if (dsize > 1)
+-						dsize =3D 1;
+-				}
+-			}
+-			break;
+-		case HDLC_SEND_IDLE1:
+-			hdlc->do_closing =3D 0;
+-			hdlc->cbin <<=3D 1;
+-			hdlc->cbin++;
+-			hdlc->data_bits++;
+-			hdlc->bit_shift--;
+-			if (hdlc->bit_shift =3D=3D 0) {
+-				hdlc->state =3D HDLC_SEND_FAST_IDLE;
+-				hdlc->bit_shift =3D 0;
+-			}
+-			break;
+-		case HDLC_SEND_FAST_IDLE:
+-			hdlc->do_closing =3D 0;
+-			hdlc->cbin =3D 0xff;
+-			hdlc->data_bits =3D 8;
+-			if (hdlc->bit_shift =3D=3D 8) {
+-				hdlc->cbin =3D 0x7e;
+-				hdlc->state =3D HDLC_SEND_FIRST_FLAG;
+-			} else {
+-				/* the code is for bitreverse streams */
+-				if (hdlc->do_bitreverse =3D=3D 0)
+-					*dst++ =3D bitrev8(hdlc->cbin);
+-				else
+-					*dst++ =3D hdlc->cbin;
+-				hdlc->bit_shift =3D 0;
+-				hdlc->data_bits =3D 0;
+-				len++;
+-				dsize =3D 0;
+-			}
+-			break;
+-		default:
+-			break;
+-		}
+-		if (hdlc->do_adapt56) {
+-			if (hdlc->data_bits =3D=3D 7) {
+-				hdlc->cbin <<=3D 1;
+-				hdlc->cbin++;
+-				hdlc->data_bits++;
+-			}
+-		}
+-		if (hdlc->data_bits =3D=3D 8) {
+-			/* the code is for bitreverse streams */
+-			if (hdlc->do_bitreverse =3D=3D 0)
+-				*dst++ =3D bitrev8(hdlc->cbin);
+-			else
+-				*dst++ =3D hdlc->cbin;
+-			hdlc->data_bits =3D 0;
+-			len++;
+-			dsize--;
+-		}
+-	}
+-	*count -=3D slen;
+-
+-	return len;
+-}
+-EXPORT_SYMBOL(isdnhdlc_encode);
+--- /dev/null
++++ linux-next-20090909/drivers/isdn/isdnhdlc.c
+@@ -0,0 +1,630 @@
++/*
++ * isdnhdlc.c  --  General purpose ISDN HDLC decoder.
++ *
++ * Copyright (C)
++ *	2009	Karsten Keil		<keil@b1-systems.de>
++ *	2002	Wolfgang M=FCes		<wolfgang@iksw-muees.de>
++ *	2001	Frode Isaksen		<fisaksen@bewan.com>
++ *      2001	Kai Germaschewski	<kai.germaschewski@gmx.de>
++ *
++ * This program is free software; you can redistribute it and/or modif=
+y
++ * it under the terms of the GNU General Public License as published b=
+y
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++ */
++
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/crc-ccitt.h>
++#include <linux/isdn/hdlc.h>
++#include <linux/bitrev.h>
++
++/*-------------------------------------------------------------------*=
+/
++
++MODULE_AUTHOR("Wolfgang M=FCes <wolfgang@iksw-muees.de>, "
++	      "Frode Isaksen <fisaksen@bewan.com>, "
++	      "Kai Germaschewski <kai.germaschewski@gmx.de>");
++MODULE_DESCRIPTION("General purpose ISDN HDLC decoder");
++MODULE_LICENSE("GPL");
++
++/*-------------------------------------------------------------------*=
+/
++
++enum {
++	HDLC_FAST_IDLE, HDLC_GET_FLAG_B0, HDLC_GETFLAG_B1A6, HDLC_GETFLAG_B7,
++	HDLC_GET_DATA, HDLC_FAST_FLAG
++};
++
++enum {
++	HDLC_SEND_DATA, HDLC_SEND_CRC1, HDLC_SEND_FAST_FLAG,
++	HDLC_SEND_FIRST_FLAG, HDLC_SEND_CRC2, HDLC_SEND_CLOSING_FLAG,
++	HDLC_SEND_IDLE1, HDLC_SEND_FAST_IDLE, HDLC_SENDFLAG_B0,
++	HDLC_SENDFLAG_B1A6, HDLC_SENDFLAG_B7, STOPPED, HDLC_SENDFLAG_ONE
++};
++
++void isdnhdlc_rcv_init(struct isdnhdlc_vars *hdlc, u32 features)
++{
++	memset(hdlc, 0, sizeof(struct isdnhdlc_vars));
++	hdlc->state =3D HDLC_GET_DATA;
++	if (features & HDLC_56KBIT)
++		hdlc->do_adapt56 =3D 1;
++	if (features & HDLC_BITREVERSE)
++		hdlc->do_bitreverse =3D 1;
++}
++EXPORT_SYMBOL(isdnhdlc_out_init);
++
++void isdnhdlc_out_init(struct isdnhdlc_vars *hdlc, u32 features)
++{
++	memset(hdlc, 0, sizeof(struct isdnhdlc_vars));
++	if (features & HDLC_DCHANNEL) {
++		hdlc->dchannel =3D 1;
++		hdlc->state =3D HDLC_SEND_FIRST_FLAG;
++	} else {
++		hdlc->dchannel =3D 0;
++		hdlc->state =3D HDLC_SEND_FAST_FLAG;
++		hdlc->ffvalue =3D 0x7e;
++	}
++	hdlc->cbin =3D 0x7e;
++	if (features & HDLC_56KBIT) {
++		hdlc->do_adapt56 =3D 1;
++		hdlc->state =3D HDLC_SENDFLAG_B0;
++	} else
++		hdlc->data_bits =3D 8;
++	if (features & HDLC_BITREVERSE)
++		hdlc->do_bitreverse =3D 1;
++}
++EXPORT_SYMBOL(isdnhdlc_rcv_init);
++
++static int
++check_frame(struct isdnhdlc_vars *hdlc)
++{
++	int status;
++
++	if (hdlc->dstpos < 2) 	/* too small - framing error */
++		status =3D -HDLC_FRAMING_ERROR;
++	else if (hdlc->crc !=3D 0xf0b8)	/* crc error */
++		status =3D -HDLC_CRC_ERROR;
++	else {
++		/* remove CRC */
++		hdlc->dstpos -=3D 2;
++		/* good frame */
++		status =3D hdlc->dstpos;
++	}
++	return status;
++}
++
++/*
++  isdnhdlc_decode - decodes HDLC frames from a transparent bit stream.
++
++  The source buffer is scanned for valid HDLC frames looking for
++  flags (01111110) to indicate the start of a frame. If the start of
++  the frame is found, the bit stuffing is removed (0 after 5 1's).
++  When a new flag is found, the complete frame has been received
++  and the CRC is checked.
++  If a valid frame is found, the function returns the frame length
++  excluding the CRC with the bit HDLC_END_OF_FRAME set.
++  If the beginning of a valid frame is found, the function returns
++  the length.
++  If a framing error is found (too many 1s and not a flag) the functio=
+n
++  returns the length with the bit HDLC_FRAMING_ERROR set.
++  If a CRC error is found the function returns the length with the
++  bit HDLC_CRC_ERROR set.
++  If the frame length exceeds the destination buffer size, the functio=
+n
++  returns the length with the bit HDLC_LENGTH_ERROR set.
++
++  src - source buffer
++  slen - source buffer length
++  count - number of bytes removed (decoded) from the source buffer
++  dst _ destination buffer
++  dsize - destination buffer size
++  returns - number of decoded bytes in the destination buffer and stat=
+us
++  flag.
++ */
++int isdnhdlc_decode(struct isdnhdlc_vars *hdlc, const u8 *src, int sle=
+n,
++	int *count, u8 *dst, int dsize)
++{
++	int status =3D 0;
++
++	static const unsigned char fast_flag[] =3D {
++		0x00, 0x00, 0x00, 0x20, 0x30, 0x38, 0x3c, 0x3e, 0x3f
++	};
++
++	static const unsigned char fast_flag_value[] =3D {
++		0x00, 0x7e, 0xfc, 0xf9, 0xf3, 0xe7, 0xcf, 0x9f, 0x3f
++	};
++
++	static const unsigned char fast_abort[] =3D {
++		0x00, 0x00, 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff
++	};
++
++#define handle_fast_flag(h) \
++	do {\
++		if (h->cbin =3D=3D fast_flag[h->bit_shift]) {\
++			h->ffvalue =3D fast_flag_value[h->bit_shift];\
++			h->state =3D HDLC_FAST_FLAG;\
++			h->ffbit_shift =3D h->bit_shift;\
++			h->bit_shift =3D 1;\
++		} else {\
++			h->state =3D HDLC_GET_DATA;\
++			h->data_received =3D 0;\
++		} \
++	} while (0)
++
++#define handle_abort(h) \
++	do {\
++		h->shift_reg =3D fast_abort[h->ffbit_shift - 1];\
++		h->hdlc_bits1 =3D h->ffbit_shift - 2;\
++		if (h->hdlc_bits1 < 0)\
++			h->hdlc_bits1 =3D 0;\
++		h->data_bits =3D h->ffbit_shift - 1;\
++		h->state =3D HDLC_GET_DATA;\
++		h->data_received =3D 0;\
++	} while (0)
++
++	*count =3D slen;
++
++	while (slen > 0) {
++		if (hdlc->bit_shift =3D=3D 0) {
++			/* the code is for bitreverse streams */
++			if (hdlc->do_bitreverse =3D=3D 0)
++				hdlc->cbin =3D bitrev8(*src++);
++			else
++				hdlc->cbin =3D *src++;
++			slen--;
++			hdlc->bit_shift =3D 8;
++			if (hdlc->do_adapt56)
++				hdlc->bit_shift--;
++		}
++
++		switch (hdlc->state) {
++		case STOPPED:
++			return 0;
++		case HDLC_FAST_IDLE:
++			if (hdlc->cbin =3D=3D 0xff) {
++				hdlc->bit_shift =3D 0;
++				break;
++			}
++			hdlc->state =3D HDLC_GET_FLAG_B0;
++			hdlc->hdlc_bits1 =3D 0;
++			hdlc->bit_shift =3D 8;
++			break;
++		case HDLC_GET_FLAG_B0:
++			if (!(hdlc->cbin & 0x80)) {
++				hdlc->state =3D HDLC_GETFLAG_B1A6;
++				hdlc->hdlc_bits1 =3D 0;
++			} else {
++				if ((!hdlc->do_adapt56) &&
++				    (++hdlc->hdlc_bits1 >=3D 8) &&
++				    (hdlc->bit_shift =3D=3D 1))
++						hdlc->state =3D HDLC_FAST_IDLE;
++			}
++			hdlc->cbin <<=3D 1;
++			hdlc->bit_shift--;
++			break;
++		case HDLC_GETFLAG_B1A6:
++			if (hdlc->cbin & 0x80) {
++				hdlc->hdlc_bits1++;
++				if (hdlc->hdlc_bits1 =3D=3D 6)
++					hdlc->state =3D HDLC_GETFLAG_B7;
++			} else
++				hdlc->hdlc_bits1 =3D 0;
++			hdlc->cbin <<=3D 1;
++			hdlc->bit_shift--;
++			break;
++		case HDLC_GETFLAG_B7:
++			if (hdlc->cbin & 0x80) {
++				hdlc->state =3D HDLC_GET_FLAG_B0;
++			} else {
++				hdlc->state =3D HDLC_GET_DATA;
++				hdlc->crc =3D 0xffff;
++				hdlc->shift_reg =3D 0;
++				hdlc->hdlc_bits1 =3D 0;
++				hdlc->data_bits =3D 0;
++				hdlc->data_received =3D 0;
++			}
++			hdlc->cbin <<=3D 1;
++			hdlc->bit_shift--;
++			break;
++		case HDLC_GET_DATA:
++			if (hdlc->cbin & 0x80) {
++				hdlc->hdlc_bits1++;
++				switch (hdlc->hdlc_bits1) {
++				case 6:
++					break;
++				case 7:
++					if (hdlc->data_received)
++						/* bad frame */
++						status =3D -HDLC_FRAMING_ERROR;
++					if (!hdlc->do_adapt56) {
++						if (hdlc->cbin =3D=3D fast_abort
++						    [hdlc->bit_shift + 1]) {
++							hdlc->state =3D
++								HDLC_FAST_IDLE;
++							hdlc->bit_shift =3D 1;
++							break;
++						}
++					} else
++						hdlc->state =3D HDLC_GET_FLAG_B0;
++					break;
++				default:
++					hdlc->shift_reg >>=3D 1;
++					hdlc->shift_reg |=3D 0x80;
++					hdlc->data_bits++;
++					break;
++				}
++			} else {
++				switch (hdlc->hdlc_bits1) {
++				case 5:
++					break;
++				case 6:
++					if (hdlc->data_received)
++						status =3D check_frame(hdlc);
++					hdlc->crc =3D 0xffff;
++					hdlc->shift_reg =3D 0;
++					hdlc->data_bits =3D 0;
++					if (!hdlc->do_adapt56)
++						handle_fast_flag(hdlc);
++					else {
++						hdlc->state =3D HDLC_GET_DATA;
++						hdlc->data_received =3D 0;
++					}
++					break;
++				default:
++					hdlc->shift_reg >>=3D 1;
++					hdlc->data_bits++;
++					break;
++				}
++				hdlc->hdlc_bits1 =3D 0;
++			}
++			if (status) {
++				hdlc->dstpos =3D 0;
++				*count -=3D slen;
++				hdlc->cbin <<=3D 1;
++				hdlc->bit_shift--;
++				return status;
++			}
++			if (hdlc->data_bits =3D=3D 8) {
++				hdlc->data_bits =3D 0;
++				hdlc->data_received =3D 1;
++				hdlc->crc =3D crc_ccitt_byte(hdlc->crc,
++						hdlc->shift_reg);
++
++				/* good byte received */
++				if (hdlc->dstpos < dsize)
++					dst[hdlc->dstpos++] =3D hdlc->shift_reg;
++				else {
++					/* frame too long */
++					status =3D -HDLC_LENGTH_ERROR;
++					hdlc->dstpos =3D 0;
++				}
++			}
++			hdlc->cbin <<=3D 1;
++			hdlc->bit_shift--;
++			break;
++		case HDLC_FAST_FLAG:
++			if (hdlc->cbin =3D=3D hdlc->ffvalue) {
++				hdlc->bit_shift =3D 0;
++				break;
++			} else {
++				if (hdlc->cbin =3D=3D 0xff) {
++					hdlc->state =3D HDLC_FAST_IDLE;
++					hdlc->bit_shift =3D 0;
++				} else if (hdlc->ffbit_shift =3D=3D 8) {
++					hdlc->state =3D HDLC_GETFLAG_B7;
++					break;
++				} else
++					handle_abort(hdlc);
++			}
++			break;
++		default:
++			break;
++		}
++	}
++	*count -=3D slen;
++	return 0;
++}
++EXPORT_SYMBOL(isdnhdlc_decode);
++/*
++  isdnhdlc_encode - encodes HDLC frames to a transparent bit stream.
++
++  The bit stream starts with a beginning flag (01111110). After
++  that each byte is added to the bit stream with bit stuffing added
++  (0 after 5 1's).
++  When the last byte has been removed from the source buffer, the
++  CRC (2 bytes is added) and the frame terminates with the ending flag=
+=2E
++  For the dchannel, the idle character (all 1's) is also added at the =
+end.
++  If this function is called with empty source buffer (slen=3D0), flag=
+s or
++  idle character will be generated.
++
++  src - source buffer
++  slen - source buffer length
++  count - number of bytes removed (encoded) from source buffer
++  dst _ destination buffer
++  dsize - destination buffer size
++  returns - number of encoded bytes in the destination buffer
++*/
++int isdnhdlc_encode(struct isdnhdlc_vars *hdlc, const u8 *src, u16 sle=
+n,
++	int *count, u8 *dst, int dsize)
++{
++	static const unsigned char xfast_flag_value[] =3D {
++		0x7e, 0x3f, 0x9f, 0xcf, 0xe7, 0xf3, 0xf9, 0xfc, 0x7e
++	};
++
++	int len =3D 0;
++
++	*count =3D slen;
++
++	/* special handling for one byte frames */
++	if ((slen =3D=3D 1) && (hdlc->state =3D=3D HDLC_SEND_FAST_FLAG))
++		hdlc->state =3D HDLC_SENDFLAG_ONE;
++	while (dsize > 0) {
++		if (hdlc->bit_shift =3D=3D 0) {
++			if (slen && !hdlc->do_closing) {
++				hdlc->shift_reg =3D *src++;
++				slen--;
++				if (slen =3D=3D 0)
++					/* closing sequence, CRC + flag(s) */
++					hdlc->do_closing =3D 1;
++				hdlc->bit_shift =3D 8;
++			} else {
++				if (hdlc->state =3D=3D HDLC_SEND_DATA) {
++					if (hdlc->data_received) {
++						hdlc->state =3D HDLC_SEND_CRC1;
++						hdlc->crc ^=3D 0xffff;
++						hdlc->bit_shift =3D 8;
++						hdlc->shift_reg =3D
++							hdlc->crc & 0xff;
++					} else if (!hdlc->do_adapt56)
++						hdlc->state =3D
++							HDLC_SEND_FAST_FLAG;
++					else
++						hdlc->state =3D
++							HDLC_SENDFLAG_B0;
++				}
++
++			}
++		}
++
++		switch (hdlc->state) {
++		case STOPPED:
++			while (dsize--)
++				*dst++ =3D 0xff;
++			return dsize;
++		case HDLC_SEND_FAST_FLAG:
++			hdlc->do_closing =3D 0;
++			if (slen =3D=3D 0) {
++				/* the code is for bitreverse streams */
++				if (hdlc->do_bitreverse =3D=3D 0)
++					*dst++ =3D bitrev8(hdlc->ffvalue);
++				else
++					*dst++ =3D hdlc->ffvalue;
++				len++;
++				dsize--;
++				break;
++			}
++			/* fall through */
++		case HDLC_SENDFLAG_ONE:
++			if (hdlc->bit_shift =3D=3D 8) {
++				hdlc->cbin =3D hdlc->ffvalue >>
++					(8 - hdlc->data_bits);
++				hdlc->state =3D HDLC_SEND_DATA;
++				hdlc->crc =3D 0xffff;
++				hdlc->hdlc_bits1 =3D 0;
++				hdlc->data_received =3D 1;
++			}
++			break;
++		case HDLC_SENDFLAG_B0:
++			hdlc->do_closing =3D 0;
++			hdlc->cbin <<=3D 1;
++			hdlc->data_bits++;
++			hdlc->hdlc_bits1 =3D 0;
++			hdlc->state =3D HDLC_SENDFLAG_B1A6;
++			break;
++		case HDLC_SENDFLAG_B1A6:
++			hdlc->cbin <<=3D 1;
++			hdlc->data_bits++;
++			hdlc->cbin++;
++			if (++hdlc->hdlc_bits1 =3D=3D 6)
++				hdlc->state =3D HDLC_SENDFLAG_B7;
++			break;
++		case HDLC_SENDFLAG_B7:
++			hdlc->cbin <<=3D 1;
++			hdlc->data_bits++;
++			if (slen =3D=3D 0) {
++				hdlc->state =3D HDLC_SENDFLAG_B0;
++				break;
++			}
++			if (hdlc->bit_shift =3D=3D 8) {
++				hdlc->state =3D HDLC_SEND_DATA;
++				hdlc->crc =3D 0xffff;
++				hdlc->hdlc_bits1 =3D 0;
++				hdlc->data_received =3D 1;
++			}
++			break;
++		case HDLC_SEND_FIRST_FLAG:
++			hdlc->data_received =3D 1;
++			if (hdlc->data_bits =3D=3D 8) {
++				hdlc->state =3D HDLC_SEND_DATA;
++				hdlc->crc =3D 0xffff;
++				hdlc->hdlc_bits1 =3D 0;
++				break;
++			}
++			hdlc->cbin <<=3D 1;
++			hdlc->data_bits++;
++			if (hdlc->shift_reg & 0x01)
++				hdlc->cbin++;
++			hdlc->shift_reg >>=3D 1;
++			hdlc->bit_shift--;
++			if (hdlc->bit_shift =3D=3D 0) {
++				hdlc->state =3D HDLC_SEND_DATA;
++				hdlc->crc =3D 0xffff;
++				hdlc->hdlc_bits1 =3D 0;
++			}
++			break;
++		case HDLC_SEND_DATA:
++			hdlc->cbin <<=3D 1;
++			hdlc->data_bits++;
++			if (hdlc->hdlc_bits1 =3D=3D 5) {
++				hdlc->hdlc_bits1 =3D 0;
++				break;
++			}
++			if (hdlc->bit_shift =3D=3D 8)
++				hdlc->crc =3D crc_ccitt_byte(hdlc->crc,
++					hdlc->shift_reg);
++			if (hdlc->shift_reg & 0x01) {
++				hdlc->hdlc_bits1++;
++				hdlc->cbin++;
++				hdlc->shift_reg >>=3D 1;
++				hdlc->bit_shift--;
++			} else {
++				hdlc->hdlc_bits1 =3D 0;
++				hdlc->shift_reg >>=3D 1;
++				hdlc->bit_shift--;
++			}
++			break;
++		case HDLC_SEND_CRC1:
++			hdlc->cbin <<=3D 1;
++			hdlc->data_bits++;
++			if (hdlc->hdlc_bits1 =3D=3D 5) {
++				hdlc->hdlc_bits1 =3D 0;
++				break;
++			}
++			if (hdlc->shift_reg & 0x01) {
++				hdlc->hdlc_bits1++;
++				hdlc->cbin++;
++				hdlc->shift_reg >>=3D 1;
++				hdlc->bit_shift--;
++			} else {
++				hdlc->hdlc_bits1 =3D 0;
++				hdlc->shift_reg >>=3D 1;
++				hdlc->bit_shift--;
++			}
++			if (hdlc->bit_shift =3D=3D 0) {
++				hdlc->shift_reg =3D (hdlc->crc >> 8);
++				hdlc->state =3D HDLC_SEND_CRC2;
++				hdlc->bit_shift =3D 8;
++			}
++			break;
++		case HDLC_SEND_CRC2:
++			hdlc->cbin <<=3D 1;
++			hdlc->data_bits++;
++			if (hdlc->hdlc_bits1 =3D=3D 5) {
++				hdlc->hdlc_bits1 =3D 0;
++				break;
++			}
++			if (hdlc->shift_reg & 0x01) {
++				hdlc->hdlc_bits1++;
++				hdlc->cbin++;
++				hdlc->shift_reg >>=3D 1;
++				hdlc->bit_shift--;
++			} else {
++				hdlc->hdlc_bits1 =3D 0;
++				hdlc->shift_reg >>=3D 1;
++				hdlc->bit_shift--;
++			}
++			if (hdlc->bit_shift =3D=3D 0) {
++				hdlc->shift_reg =3D 0x7e;
++				hdlc->state =3D HDLC_SEND_CLOSING_FLAG;
++				hdlc->bit_shift =3D 8;
++			}
++			break;
++		case HDLC_SEND_CLOSING_FLAG:
++			hdlc->cbin <<=3D 1;
++			hdlc->data_bits++;
++			if (hdlc->hdlc_bits1 =3D=3D 5) {
++				hdlc->hdlc_bits1 =3D 0;
++				break;
++			}
++			if (hdlc->shift_reg & 0x01)
++				hdlc->cbin++;
++			hdlc->shift_reg >>=3D 1;
++			hdlc->bit_shift--;
++			if (hdlc->bit_shift =3D=3D 0) {
++				hdlc->ffvalue =3D
++					xfast_flag_value[hdlc->data_bits];
++				if (hdlc->dchannel) {
++					hdlc->ffvalue =3D 0x7e;
++					hdlc->state =3D HDLC_SEND_IDLE1;
++					hdlc->bit_shift =3D 8-hdlc->data_bits;
++					if (hdlc->bit_shift =3D=3D 0)
++						hdlc->state =3D
++							HDLC_SEND_FAST_IDLE;
++				} else {
++					if (!hdlc->do_adapt56) {
++						hdlc->state =3D
++							HDLC_SEND_FAST_FLAG;
++						hdlc->data_received =3D 0;
++					} else {
++						hdlc->state =3D HDLC_SENDFLAG_B0;
++						hdlc->data_received =3D 0;
++					}
++					/* Finished this frame, send flags */
++					if (dsize > 1)
++						dsize =3D 1;
++				}
++			}
++			break;
++		case HDLC_SEND_IDLE1:
++			hdlc->do_closing =3D 0;
++			hdlc->cbin <<=3D 1;
++			hdlc->cbin++;
++			hdlc->data_bits++;
++			hdlc->bit_shift--;
++			if (hdlc->bit_shift =3D=3D 0) {
++				hdlc->state =3D HDLC_SEND_FAST_IDLE;
++				hdlc->bit_shift =3D 0;
++			}
++			break;
++		case HDLC_SEND_FAST_IDLE:
++			hdlc->do_closing =3D 0;
++			hdlc->cbin =3D 0xff;
++			hdlc->data_bits =3D 8;
++			if (hdlc->bit_shift =3D=3D 8) {
++				hdlc->cbin =3D 0x7e;
++				hdlc->state =3D HDLC_SEND_FIRST_FLAG;
++			} else {
++				/* the code is for bitreverse streams */
++				if (hdlc->do_bitreverse =3D=3D 0)
++					*dst++ =3D bitrev8(hdlc->cbin);
++				else
++					*dst++ =3D hdlc->cbin;
++				hdlc->bit_shift =3D 0;
++				hdlc->data_bits =3D 0;
++				len++;
++				dsize =3D 0;
++			}
++			break;
++		default:
++			break;
++		}
++		if (hdlc->do_adapt56) {
++			if (hdlc->data_bits =3D=3D 7) {
++				hdlc->cbin <<=3D 1;
++				hdlc->cbin++;
++				hdlc->data_bits++;
++			}
++		}
++		if (hdlc->data_bits =3D=3D 8) {
++			/* the code is for bitreverse streams */
++			if (hdlc->do_bitreverse =3D=3D 0)
++				*dst++ =3D bitrev8(hdlc->cbin);
++			else
++				*dst++ =3D hdlc->cbin;
++			hdlc->data_bits =3D 0;
++			len++;
++			dsize--;
++		}
++	}
++	*count -=3D slen;
++
++	return len;
++}
++EXPORT_SYMBOL(isdnhdlc_encode);
+--- linux-next-20090909.orig/drivers/isdn/Kconfig
++++ linux-next-20090909/drivers/isdn/Kconfig
+@@ -61,4 +61,9 @@ endif # ISDN_CAPI
+=20
+ source "drivers/isdn/gigaset/Kconfig"
+=20
++config ISDN_HDLC
++	tristate
++	select CRC_CCITT
++	select BITREVERSE
++
+ endif # ISDN
+--- linux-next-20090909.orig/drivers/isdn/i4l/Kconfig
++++ linux-next-20090909/drivers/isdn/i4l/Kconfig
+@@ -140,9 +140,3 @@ endmenu
+ # end ISDN_I4L
+ endif
+=20
+-config ISDN_HDLC
+-	tristate=20
+-	depends on HISAX_ST5481
+-	select CRC_CCITT
+-	select BITREVERSE
+-
 
-This is probably the reason why I suggested primary_return instead of 
-primary_passive. primary_passive means "refuse to return to primary" and when 
-disabled, it becomes "don't refuse to return to primary", which should be 
-"accept to return to primary" instead :-)
 
-It might be seen as not being that important, but having an option whose name 
-and values are easy to understand leads to an easy to use option... :-)
 
->  module_param(lacp_rate, charp, 0);
->  MODULE_PARM_DESC(lacp_rate, "LACPDU tx rate to request from 802.3ad partner "
->  			    "(slow/fast)");
-> @@ -200,6 +208,13 @@ const struct bond_parm_tbl fail_over_mac_tbl[] = {
->  {	NULL,			-1},
->  };
->  
-> +const struct bond_parm_tbl pri_passive_tbl[] = {
-> +{	"disabled",		BOND_PRI_PASSIVE_DISABLED},
-> +{	"better",		BOND_PRI_PASSIVE_BETTER},
-> +{	"always",		BOND_PRI_PASSIVE_ALWAYS},
-> +{	NULL,			-1},
-> +};
-> +
->  struct bond_parm_tbl ad_select_tbl[] = {
->  {	"stable",	BOND_AD_STABLE},
->  {	"bandwidth",	BOND_AD_BANDWIDTH},
-> @@ -1070,6 +1085,25 @@ out:
->  
->  }
->  
-> +static bool bond_should_loose_active(struct bonding *bond)
-> +{
-> +	struct slave *prim = bond->primary_slave;
-> +	struct slave *curr = bond->curr_active_slave;
-> +
-> +	if (!prim || !curr || curr->link != BOND_LINK_UP)
-> +		return true;
-> +	if (bond->force_primary) {
-> +		bond->force_primary = false;
-> +		return true;
-> +	}
-> +	if (bond->params.primary_passive == 1 &&
 
-You should use the constants you defined in bonding.h and used in pri_passive_tbl :
-
-if (bond->params.primary_passive == BOND_PRI_PASSIVE_BETTER &&
-
-> +	    (prim->speed < curr->speed ||
-> +	     (prim->speed == curr->speed && prim->duplex <= curr->duplex)))
-> +		return false;
-> +	if (bond->params.primary_passive == 2)
-
-You should use the constants you defined in bonding.h and used in pri_passive_tbl :
-
-if (bond->params.primary_passive == BOND_PRI_PASSIVE_ALWAYS)
-
-> +		return false;
-> +	return true;
-> +}
->  
->  /**
->   * find_best_interface - select the best available slave to be the active one
-> @@ -1093,15 +1127,9 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
->  			return NULL; /* still no slave, return NULL */
->  	}
->  
-> -	/*
-> -	 * first try the primary link; if arping, a link must tx/rx
-> -	 * traffic before it can be considered the curr_active_slave.
-> -	 * also, we would skip slaves between the curr_active_slave
-> -	 * and primary_slave that may be up and able to arp
-> -	 */
->  	if ((bond->primary_slave) &&
-> -	    (!bond->params.arp_interval) &&
-> -	    (IS_UP(bond->primary_slave->dev))) {
-> +	    bond->primary_slave->link == BOND_LINK_UP &&
-> +	    bond_should_loose_active(bond)) {
->  		new_active = bond->primary_slave;
->  	}
->  
-> @@ -1109,15 +1137,14 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
->  	old_active = new_active;
->  
->  	bond_for_each_slave_from(bond, new_active, i, old_active) {
-> -		if (IS_UP(new_active->dev)) {
-> -			if (new_active->link == BOND_LINK_UP) {
-> -				return new_active;
-> -			} else if (new_active->link == BOND_LINK_BACK) {
-> -				/* link up, but waiting for stabilization */
-> -				if (new_active->delay < mintime) {
-> -					mintime = new_active->delay;
-> -					bestslave = new_active;
-> -				}
-> +		if (new_active->link == BOND_LINK_UP) {
-> +			return new_active;
-> +		} else if (new_active->link == BOND_LINK_BACK &&
-> +			   IS_UP(new_active->dev)) {
-> +			/* link up, but waiting for stabilization */
-> +			if (new_active->delay < mintime) {
-> +				mintime = new_active->delay;
-> +				bestslave = new_active;
->  			}
->  		}
->  	}
-> @@ -1683,8 +1710,10 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
->  
->  	if (USES_PRIMARY(bond->params.mode) && bond->params.primary[0]) {
->  		/* if there is a primary slave, remember it */
-> -		if (strcmp(bond->params.primary, new_slave->dev->name) == 0)
-> +		if (strcmp(bond->params.primary, new_slave->dev->name) == 0) {
->  			bond->primary_slave = new_slave;
-> +			bond->force_primary = true;
-> +		}
->  	}
->  
->  	write_lock_bh(&bond->curr_slave_lock);
-> @@ -2929,18 +2958,6 @@ static int bond_ab_arp_inspect(struct bonding *bond, int delta_in_ticks)
->  		}
->  	}
->  
-> -	read_lock(&bond->curr_slave_lock);
-> -
-> -	/*
-> -	 * Trigger a commit if the primary option setting has changed.
-> -	 */
-> -	if (bond->primary_slave &&
-> -	    (bond->primary_slave != bond->curr_active_slave) &&
-> -	    (bond->primary_slave->link == BOND_LINK_UP))
-> -		commit++;
-> -
-> -	read_unlock(&bond->curr_slave_lock);
-> -
->  	return commit;
->  }
->  
-> @@ -2961,90 +2978,58 @@ static void bond_ab_arp_commit(struct bonding *bond, int delta_in_ticks)
->  			continue;
->  
->  		case BOND_LINK_UP:
-> -			write_lock_bh(&bond->curr_slave_lock);
-> -
-> -			if (!bond->curr_active_slave &&
-> -			    time_before_eq(jiffies, dev_trans_start(slave->dev) +
-> -					   delta_in_ticks)) {
-> +			if ((!bond->curr_active_slave &&
-> +			     time_before_eq(jiffies,
-> +					    dev_trans_start(slave->dev) +
-> +					    delta_in_ticks)) ||
-> +			    bond->curr_active_slave != slave) {
->  				slave->link = BOND_LINK_UP;
-> -				bond_change_active_slave(bond, slave);
->  				bond->current_arp_slave = NULL;
->  
->  				pr_info(DRV_NAME
-> -				       ": %s: %s is up and now the "
-> -				       "active interface\n",
-> -				       bond->dev->name, slave->dev->name);
-> -
-> -			} else if (bond->curr_active_slave != slave) {
-> -				/* this slave has just come up but we
-> -				 * already have a current slave; this can
-> -				 * also happen if bond_enslave adds a new
-> -				 * slave that is up while we are searching
-> -				 * for a new slave
-> -				 */
-> -				slave->link = BOND_LINK_UP;
-> -				bond_set_slave_inactive_flags(slave);
-> -				bond->current_arp_slave = NULL;
-> +					": %s: link status definitely "
-> +					"up for interface %s.\n",
-> +					bond->dev->name, slave->dev->name);
->  
-> -				pr_info(DRV_NAME
-> -				       ": %s: backup interface %s is now up\n",
-> -				       bond->dev->name, slave->dev->name);
-> -			}
-> +				if (!bond->curr_active_slave ||
-> +				    (slave == bond->primary_slave))
-> +					goto do_failover;
->  
-> -			write_unlock_bh(&bond->curr_slave_lock);
-> +			}
->  
-> -			break;
-> +			continue;
->  
->  		case BOND_LINK_DOWN:
->  			if (slave->link_failure_count < UINT_MAX)
->  				slave->link_failure_count++;
->  
->  			slave->link = BOND_LINK_DOWN;
-> +			bond_set_slave_inactive_flags(slave);
->  
-> -			if (slave == bond->curr_active_slave) {
-> -				pr_info(DRV_NAME
-> -				       ": %s: link status down for active "
-> -				       "interface %s, disabling it\n",
-> -				       bond->dev->name, slave->dev->name);
-> -
-> -				bond_set_slave_inactive_flags(slave);
-> -
-> -				write_lock_bh(&bond->curr_slave_lock);
-> -
-> -				bond_select_active_slave(bond);
-> -				if (bond->curr_active_slave)
-> -					bond->curr_active_slave->jiffies =
-> -						jiffies;
-> -
-> -				write_unlock_bh(&bond->curr_slave_lock);
-> +			pr_info(DRV_NAME
-> +				": %s: link status definitely down for "
-> +				"interface %s, disabling it\n",
-> +				bond->dev->name, slave->dev->name);
->  
-> +			if (slave == bond->curr_active_slave) {
->  				bond->current_arp_slave = NULL;
-> -
-> -			} else if (slave->state == BOND_STATE_BACKUP) {
-> -				pr_info(DRV_NAME
-> -				       ": %s: backup interface %s is now down\n",
-> -				       bond->dev->name, slave->dev->name);
-> -
-> -				bond_set_slave_inactive_flags(slave);
-> +				goto do_failover;
->  			}
-> -			break;
-> +
-> +			continue;
->  
->  		default:
->  			pr_err(DRV_NAME
->  			       ": %s: impossible: new_link %d on slave %s\n",
->  			       bond->dev->name, slave->new_link,
->  			       slave->dev->name);
-> +			continue;
->  		}
-> -	}
->  
-> -	/*
-> -	 * No race with changes to primary via sysfs, as we hold rtnl.
-> -	 */
-> -	if (bond->primary_slave &&
-> -	    (bond->primary_slave != bond->curr_active_slave) &&
-> -	    (bond->primary_slave->link == BOND_LINK_UP)) {
-> +do_failover:
-> +		ASSERT_RTNL();
->  		write_lock_bh(&bond->curr_slave_lock);
-> -		bond_change_active_slave(bond, bond->primary_slave);
-> +		bond_select_active_slave(bond);
->  		write_unlock_bh(&bond->curr_slave_lock);
->  	}
->  
-> @@ -4695,7 +4680,7 @@ int bond_parse_parm(const char *buf, const struct bond_parm_tbl *tbl)
->  
->  static int bond_check_params(struct bond_params *params)
->  {
-> -	int arp_validate_value, fail_over_mac_value;
-> +	int arp_validate_value, fail_over_mac_value, primary_passive_value;
->  
->  	/*
->  	 * Convert string parameters.
-> @@ -4994,6 +4979,20 @@ static int bond_check_params(struct bond_params *params)
->  		primary = NULL;
->  	}
->  
-> +	if (primary && primary_passive) {
-> +		primary_passive_value = bond_parse_parm(primary_passive,
-> +							pri_passive_tbl);
-> +		if (primary_passive_value == -1) {
-> +			pr_err(DRV_NAME
-> +			       ": Error: Invalid primary_passive \"%s\"\n",
-> +			       primary_passive ==
-> +					NULL ? "NULL" : primary_passive);
-> +			return -EINVAL;
-> +		}
-> +	} else {
-> +		primary_passive_value = BOND_PRI_PASSIVE_DISABLED;
-> +	}
-> +
->  	if (fail_over_mac) {
->  		fail_over_mac_value = bond_parse_parm(fail_over_mac,
->  						      fail_over_mac_tbl);
-> @@ -5025,6 +5024,7 @@ static int bond_check_params(struct bond_params *params)
->  	params->use_carrier = use_carrier;
->  	params->lacp_fast = lacp_fast;
->  	params->primary[0] = 0;
-> +	params->primary_passive = primary_passive_value;
->  	params->fail_over_mac = fail_over_mac_value;
->  
->  	if (primary) {
-> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-> index 6044e12..84ce933 100644
-> --- a/drivers/net/bonding/bond_sysfs.c
-> +++ b/drivers/net/bonding/bond_sysfs.c
-> @@ -1212,6 +1212,59 @@ static DEVICE_ATTR(primary, S_IRUGO | S_IWUSR,
->  		   bonding_show_primary, bonding_store_primary);
->  
->  /*
-> + * Show and set the primary_passive flag.
-> + */
-> +static ssize_t bonding_show_primary_passive(struct device *d,
-> +					    struct device_attribute *attr,
-> +					    char *buf)
-> +{
-> +	struct bonding *bond = to_bond(d);
-> +
-> +	return sprintf(buf, "%s %d\n",
-> +		       pri_passive_tbl[bond->params.primary_passive].modename,
-> +		       bond->params.primary_passive);
-> +}
-> +
-> +static ssize_t bonding_store_primary_passive(struct device *d,
-> +					     struct device_attribute *attr,
-> +					     const char *buf, size_t count)
-> +{
-> +	int new_value, ret = count;
-> +	struct bonding *bond = to_bond(d);
-> +
-> +	if (!rtnl_trylock())
-> +		return restart_syscall();
-> +
-> +	new_value = bond_parse_parm(buf, pri_passive_tbl);
-> +	if (new_value < 0)  {
-> +		pr_err(DRV_NAME
-> +		       ": %s: Ignoring invalid primary_passive value %.*s.\n",
-> +		       bond->dev->name,
-> +		       (int) strlen(buf) - 1, buf);
-> +		ret = -EINVAL;
-> +		goto out;
-> +	} else {
-> +		bond->params.primary_passive = new_value;
-> +		pr_info(DRV_NAME ": %s: setting primary_passive to %s (%d).\n",
-> +		       bond->dev->name, pri_passive_tbl[new_value].modename,
-> +		       new_value);
-> +		if (new_value == 0 || new_value == 1) {
-> +			bond->force_primary = true;
-> +			read_lock(&bond->lock);
-> +			write_lock_bh(&bond->curr_slave_lock);
-> +			bond_select_active_slave(bond);
-> +			write_unlock_bh(&bond->curr_slave_lock);
-> +			read_unlock(&bond->lock);
-> +		}
-> +	}
-> +out:
-> +	rtnl_unlock();
-> +	return ret;
-> +}
-> +static DEVICE_ATTR(primary_passive, S_IRUGO | S_IWUSR,
-> +		   bonding_show_primary_passive, bonding_store_primary_passive);
-> +
-> +/*
->   * Show and set the use_carrier flag.
->   */
->  static ssize_t bonding_show_carrier(struct device *d,
-> @@ -1500,6 +1553,7 @@ static struct attribute *per_bond_attrs[] = {
->  	&dev_attr_num_unsol_na.attr,
->  	&dev_attr_miimon.attr,
->  	&dev_attr_primary.attr,
-> +	&dev_attr_primary_passive.attr,
->  	&dev_attr_use_carrier.attr,
->  	&dev_attr_active_slave.attr,
->  	&dev_attr_mii_status.attr,
-> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-> index 6824771..9a9e0c7 100644
-> --- a/drivers/net/bonding/bonding.h
-> +++ b/drivers/net/bonding/bonding.h
-> @@ -131,6 +131,7 @@ struct bond_params {
->  	int lacp_fast;
->  	int ad_select;
->  	char primary[IFNAMSIZ];
-> +	int primary_passive;
->  	__be32 arp_targets[BOND_MAX_ARP_TARGETS];
->  };
->  
-> @@ -190,6 +191,7 @@ struct bonding {
->  	struct   slave *curr_active_slave;
->  	struct   slave *current_arp_slave;
->  	struct   slave *primary_slave;
-> +	bool     force_primary;
->  	s32      slave_cnt; /* never change this value outside the attach/detach wrappers */
->  	rwlock_t lock;
->  	rwlock_t curr_slave_lock;
-> @@ -258,6 +260,10 @@ static inline bool bond_is_lb(const struct bonding *bond)
->  		|| bond->params.mode == BOND_MODE_ALB;
->  }
->  
-> +#define BOND_PRI_PASSIVE_DISABLED	0
-> +#define BOND_PRI_PASSIVE_BETTER		1
-> +#define BOND_PRI_PASSIVE_ALWAYS		2
-> +
->  #define BOND_FOM_NONE			0
->  #define BOND_FOM_ACTIVE			1
->  #define BOND_FOM_FOLLOW			2
-> @@ -348,6 +354,7 @@ extern const struct bond_parm_tbl bond_mode_tbl[];
->  extern const struct bond_parm_tbl xmit_hashtype_tbl[];
->  extern const struct bond_parm_tbl arp_validate_tbl[];
->  extern const struct bond_parm_tbl fail_over_mac_tbl[];
-> +extern const struct bond_parm_tbl pri_passive_tbl[];
->  extern struct bond_parm_tbl ad_select_tbl[];
->  
->  #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-> 
-
-	Nicolas.
+---
+~Randy
+LPC 2009, Sept. 23-25, Portland, Oregon
+http://linuxplumbersconf.org/2009/
