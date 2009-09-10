@@ -1,41 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [NIU] VLAN does not work with niu driver
-Date: Wed, 09 Sep 2009 18:10:33 -0700 (PDT)
-Message-ID: <20090909.181033.25374239.davem@davemloft.net>
-References: <4AA819D8.1020306@Sun.COM>
-	<20090909.171517.34998160.davem@davemloft.net>
-	<4AA84FE3.6030407@sun.com>
+Subject: Re: net_sched: fix estimator lock selection for mq child qdiscs
+Date: Wed, 09 Sep 2009 18:11:42 -0700 (PDT)
+Message-ID: <20090909.181142.130068809.davem@davemloft.net>
+References: <4AA7D0C5.9080601@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Joyce.Yu@Sun.COM, netdev@vger.kernel.org
-To: Matheos.Worku@Sun.COM
+Cc: netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35611
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35614
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753093AbZIJBKR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2009 21:10:17 -0400
-In-Reply-To: <4AA84FE3.6030407@sun.com>
+	by vger.kernel.org with ESMTP id S1752891AbZIJBL0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2009 21:11:26 -0400
+In-Reply-To: <4AA7D0C5.9080601@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matheos Worku <Matheos.Worku@Sun.COM>
-Date: Wed, 09 Sep 2009 18:01:23 -0700
+From: Patrick McHardy <kaber@trash.net>
+Date: Wed, 09 Sep 2009 17:59:01 +0200
 
-> The frame type in NIU HW is embedded in a HW header, so it is possible
-> to check the HW header and decide whether to pull up ETH_HLEN or VLAN
-> header size of bytes. However, considering the amount of work required
-> to get and examine the HW header (including endianess issues), we
-> thought pulling up 64 bytes by default (as used in cassini.c) would be
-> efficient.
+>     net_sched: fix estimator lock selection for mq child qdiscs
+>     
+>     When new child qdiscs are attached to the mq qdisc, they are actually
+>     attached as root qdiscs to the device queues. The lock selection for
+>     new estimators incorrectly picks the root lock of the existing and
+>     to be replaced qdisc, which results in a use-after-free once the old
+>     qdisc has been destroyed.
+>     
+>     Mark mq qdisc instances with a new flag and treat qdiscs attached to
+>     mq as children similar to regular root qdiscs.
+>     
+>     Additionally prevent estimators from being attached to the mq qdisc
+>     itself since it only updates its byte and packet counters during dumps.
+>     
+>     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Well, it was 64 in early versions of the driver, and I decreased it
-down to ETH_HLEN.
-
-The less the better since for forwarding applications anything past
-the IPV4 header pulled is going to be a waste of CPU cache lines and
-thus negatively effect forwarding rates.
-
-That's why I asked if this change was performance regression tested,
-because I know it's going to slow down forwarding rates for small
-packets.
+Applied, thanks!
