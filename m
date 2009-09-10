@@ -1,123 +1,74 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH] ipv6: Add IFA_F_DADFAILED flag
-Date: Wed, 09 Sep 2009 20:41:32 -0400
-Message-ID: <4AA84B3C.4000401@hp.com>
-References: <4AA1C0FF.4030109@hp.com> <1252418247.5827.8.camel@fnki-nb00130>	 <4AA675D4.8030406@hp.com> <1252424623.5827.14.camel@fnki-nb00130>
+From: Matheos Worku <Matheos.Worku@Sun.COM>
+Subject: Re: [PATCH] [NIU] VLAN does not work with niu driver
+Date: Wed, 09 Sep 2009 18:01:23 -0700
+Message-ID: <4AA84FE3.6030407@sun.com>
+References: <4AA819D8.1020306@Sun.COM>
+ <20090909.171517.34998160.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: david Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Jens Rosenboom <jens@mcbone.net>
+Content-Type: text/plain; CHARSET=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: Joyce.Yu@Sun.COM, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:3128 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752863AbZIJAmG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2009 20:42:06 -0400
-In-Reply-To: <1252424623.5827.14.camel@fnki-nb00130>
+Received: from sca-es-mail-1.Sun.COM ([192.18.43.132]:62822 "EHLO
+	sca-es-mail-1.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752945AbZIJBCi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2009 21:02:38 -0400
+Received: from fe-sfbay-09.sun.com ([192.18.43.129])
+	by sca-es-mail-1.sun.com (8.13.7+Sun/8.12.9) with ESMTP id n8A12f9O013017
+	for <netdev@vger.kernel.org>; Wed, 9 Sep 2009 18:02:41 -0700 (PDT)
+Received: from conversion-daemon.fe-sfbay-09.sun.com by fe-sfbay-09.sun.com
+ (Sun Java(tm) System Messaging Server 7u2-7.04 64bit (built Jul  2 2009))
+ id <0KPQ00800DH2N400@fe-sfbay-09.sun.com> for netdev@vger.kernel.org; Wed,
+ 09 Sep 2009 18:02:41 -0700 (PDT)
+In-reply-to: <20090909.171517.34998160.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jens Rosenboom wrote:
-> On Tue, 2009-09-08 at 11:18 -0400, Brian Haley wrote:
->> Jens Rosenboom wrote:
->>>> --- a/net/ipv6/addrconf.c
->>>> +++ b/net/ipv6/addrconf.c
->>>> @@ -1376,7 +1376,7 @@ static void addrconf_dad_stop(struct inet6_ifaddr *ifp)
->>>>  	if (ifp->flags&IFA_F_PERMANENT) {
->>>>  		spin_lock_bh(&ifp->lock);
->>>>  		addrconf_del_timer(ifp);
->>>> -		ifp->flags |= IFA_F_TENTATIVE;
->>>> +		ifp->flags |= IFA_F_DADFAILED;
->>> I think you still have to set IFA_F_TENTATIVE here, too, otherwise
->>> ipv6_dev_get_saddr() will use this address. 		
->> The tentative bit is still set from when this address was added back
->> in ipv6_add_addr() from what I can tell, re-setting it here is actually
->> unnecessary.  At least /sbin/ip was still showing it set during my
->> testing.
+
+
+David Miller wrote:
+> From: Joyce Yu <Joyce.Yu@sun.com>
+> Date: Wed, 09 Sep 2009 14:10:48 -0700
 > 
-> There is the possibility of a race when the dad_timer expires at the
-> same time the NA triggering DAD failure is received. There isn't a big
-> chance to see that during real world testing, though.
+>> drivers/net/niu.h |    2 +-
+>> 1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> Can I get a more verbose commit message than this?
+> 
+>> @@ -2700,7 +2700,7 @@ struct fcram_hash_ipv6 {
+>> #define RCR_PKT_TYPE_UDP               0x2
+>> #define RCR_PKT_TYPE_SCTP              0x3
+>>
+>> -#define NIU_RXPULL_MAX                 ETH_HLEN
+>> +#define NIU_RXPULL_MAX                 64
+>>
+> 
+> See, that's why I want a detailed commit message, because if you
+> described things more clearly I'd understand why you choose the value
+> '64' as opposed to, say, the size of a VLAN header which to me would
+> be a more appropriate value to use here.
 
-Ok, how does this look?  I changed it to set the tentative flag as it did
-before, plus clear the dad_failed flag if the device got restarted,
-triggering DAD to happen again for any tentative address, that was an
-oversight on my part.
+Dave,
 
-I'd still like to know if using this last ifa_flag is going to be an issue,
-I actually finished a similar patch that uses a new IFA_ADDRFLAGS structure
-to pass in/out this additional info.
+The frame type in NIU HW  is embedded  in a  HW header,  so it is 
+possible to check the HW header and decide whether to pull up ETH_HLEN 
+or  VLAN header size of bytes. However, considering the amount of work 
+required to get and examine the HW header (including endianess issues), 
+we thought pulling up 64 bytes by default (as used in cassini.c) would 
+be efficient.
 
--Brian
+Regards,
+Matheos
 
-
-diff --git a/include/linux/if_addr.h b/include/linux/if_addr.h
-index a60c821..fd97404 100644
---- a/include/linux/if_addr.h
-+++ b/include/linux/if_addr.h
-@@ -41,6 +41,7 @@ enum
- 
- #define	IFA_F_NODAD		0x02
- #define IFA_F_OPTIMISTIC	0x04
-+#define IFA_F_DADFAILED		0x08
- #define	IFA_F_HOMEADDRESS	0x10
- #define IFA_F_DEPRECATED	0x20
- #define IFA_F_TENTATIVE		0x40
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 43b3c9f..c9b3690 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1371,12 +1371,14 @@ struct inet6_ifaddr *ipv6_get_ifaddr(struct net *net, const struct in6_addr *add
- 
- /* Gets referenced address, destroys ifaddr */
- 
--static void addrconf_dad_stop(struct inet6_ifaddr *ifp)
-+static void addrconf_dad_stop(struct inet6_ifaddr *ifp, int dad_failed)
- {
- 	if (ifp->flags&IFA_F_PERMANENT) {
- 		spin_lock_bh(&ifp->lock);
- 		addrconf_del_timer(ifp);
- 		ifp->flags |= IFA_F_TENTATIVE;
-+		if (dad_failed)
-+			ifp->flags |= IFA_F_DADFAILED;
- 		spin_unlock_bh(&ifp->lock);
- 		in6_ifa_put(ifp);
- #ifdef CONFIG_IPV6_PRIVACY
-@@ -1422,7 +1424,7 @@ void addrconf_dad_failure(struct inet6_ifaddr *ifp)
- 		}
- 	}
- 
--	addrconf_dad_stop(ifp);
-+	addrconf_dad_stop(ifp, 1);
- }
- 
- /* Join to solicited addr multicast group. */
-@@ -2778,7 +2780,7 @@ static void addrconf_dad_start(struct inet6_ifaddr *ifp, u32 flags)
- 	    idev->cnf.accept_dad < 1 ||
- 	    !(ifp->flags&IFA_F_TENTATIVE) ||
- 	    ifp->flags & IFA_F_NODAD) {
--		ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC);
-+		ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC|IFA_F_DADFAILED);
- 		spin_unlock_bh(&ifp->lock);
- 		read_unlock_bh(&idev->lock);
- 
-@@ -2795,7 +2797,7 @@ static void addrconf_dad_start(struct inet6_ifaddr *ifp, u32 flags)
- 		 * - otherwise, kill it.
- 		 */
- 		in6_ifa_hold(ifp);
--		addrconf_dad_stop(ifp);
-+		addrconf_dad_stop(ifp, 0);
- 		return;
- 	}
- 
-@@ -2829,7 +2831,7 @@ static void addrconf_dad_timer(unsigned long data)
- 		 * DAD was successful
- 		 */
- 
--		ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC);
-+		ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC|IFA_F_DADFAILED);
- 		spin_unlock_bh(&ifp->lock);
- 		read_unlock_bh(&idev->lock);
- 
+> 
+> You just seem to be reverting a change I made a while back, and it
+> just so happens to fix your problem.  But '64' is too large a value
+> to use here and it will impact performance.
+> 
+> You did check to see if there were any performance regressions
+> resulting from your change, right?
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
