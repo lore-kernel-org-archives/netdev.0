@@ -1,50 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/12] Gigaset driver patches for 2.6.32
-Date: Wed, 09 Sep 2009 20:51:51 -0700 (PDT)
-Message-ID: <20090909.205151.123091735.davem@davemloft.net>
-References: <20090909223205.E9D632269516@fifo99.com>
-	<1252554477.30578.167.camel@desktop>
+From: Xiaofei Wu <xiaofei_wu08@yahoo.com>
+Subject: Re: [iproute2] tc action mirred    question
+Date: Wed, 9 Sep 2009 23:06:13 -0700 (PDT)
+Message-ID: <204967.7557.qm@web111613.mail.gq1.yahoo.com>
+References: <404956.88336.qm@web111607.mail.gq1.yahoo.com>  <1252376168.5244.11.camel@dogo.mojatatu.com>  <313388.35529.qm@web111617.mail.gq1.yahoo.com> <1252534266.4119.5.camel@dogo.mojatatu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tilman@imap.cc, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
-	hjlipp@web.de
-To: dwalker@fifo99.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux netdev <netdev@vger.kernel.org>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56357
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752091AbZIJDve (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2009 23:51:34 -0400
-In-Reply-To: <1252554477.30578.167.camel@desktop>
+Received: from n7.bullet.mail.ac4.yahoo.com ([76.13.13.235]:31155 "HELO
+	n7.bullet.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755043AbZIJGGM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2009 02:06:12 -0400
+In-Reply-To: <1252534266.4119.5.camel@dogo.mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Walker <dwalker@fifo99.com>
-Date: Wed, 09 Sep 2009 20:47:57 -0700
 
-> On Thu, 2009-09-10 at 00:32 +0200, Tilman Schmidt wrote:
->> Daniel Walker wrote 07.09.09 16:30:
->> > Yeah, it looks like the whole file needs a checkpatch clean up..
->> Sounds
->> like your not willing to do that?
->> 
->> It's not a question of willingness. You may notice I did a lot of
->> cleanup work already. But it's very time consuming work, and there has
->> been more important work to attend to first.
->> 
->> > Usually if a checkpatch cleanup comes
->> first prior to all your other changes , it doesn't usually cloud the
->> rest of the changes..
->> 
->> Sure. But that would mean postponing the merging of bugfixes until
->> someone finds the time to do a complete checkpatch cleanup of the
->> affected code. I don't think that's a sensible approach.
-> 
-> You shouldn't be adding any new checkpatch errors, but you currently
-> are .. Just clean up the individual patches w/o the entire gigaset
-> driver, that should be do-able (it's even a basic submission
-> requirement). The other issue is that your adding new files which aren't
-> clean, those can certainly be cleaned up.
 
-Right, this is a very reasonable request.
+>> After run 'tcpdump -i wlan1 -e', I can not capture any packets.
+
+>Could it be related to the wireless driver?
+Maybe. I will check it.
+
+>Here's something i tried on my laptop
+....
+>
+
+I tried your example.
+
+-on window1  'ping 127.0.0.2'
+....
+2616 packets transmitted, 0 received, 100% packet loss
+
+-on window2  'tcpdump -n -i eth0 -e' , i see
+....
+10:15:06.314420 00:23:cd:af:d0:74 > 00:23:cd:af:ec:da, ethertype IPv4 (0x0800), length 98: 127.0.0.2 > 127.0.0.2: ICMP echo request, id 17419, seq 234, length 64
+....
+
+-on window3  'tcpdump -i lo -e'
+....
+10:15:37.332527 00:23:cd:af:d0:74 (oui Unknown) > 00:23:cd:af:ec:da (oui Unknown), ethertype IPv4 (0x0800), length 98: 127.0.0.2 > 127.0.0.2: ICMP echo request, id 17419, seq 265, length 64
+....
+
+It seems that I modify the dst MAC, src MAC of the packets,  then transmit to 'lo'  and  mirror the packects to 'eth0'.  (On 'lo',  '2616 packets transmitted, 0 received, 100% packet loss' .)  How to let 'lo' receive the packets?
+
+But I want to only modify the dst MAC, src MAC of the mirroring packets, transmit them to next hop. (not modify the dst,src MAC of the packets to 'lo').  What should I do?
+
+When I change 'lo' to 'eth1' (or wlan1 ...), node A will have two paths (A-B-C, A-D-C) to transmit the "same"(IP header, data)  packets to node C simultaneously.
+
+
+regards,
+wu
+
+
+
+      
+
