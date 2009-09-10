@@ -1,63 +1,42 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH 3/3] ucc_geth: Fix hangs after switching from full to half
- duplex
-Date: Thu, 10 Sep 2009 06:01:45 +0400
-Message-ID: <20090910020145.GC31083@oksana.dev.rtsoft.ru>
+From: Daniel Walker <dwalker@fifo99.com>
+Subject: Re: [PATCH 00/12] Gigaset driver patches for 2.6.32
+Date: Wed, 09 Sep 2009 20:47:57 -0700
+Message-ID: <1252554477.30578.167.camel@desktop>
+References: <20090909223205.E9D632269516@fifo99.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Andy Fleming <afleming@freescale.com>,
-	Timur Tabi <timur@freescale.com>,
-	Li Yang <leoli@freescale.com>,
-	Kumar Gala <galak@kernel.crashing.org>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ru.mvista.com ([213.79.90.228]:26237 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754872AbZIJCBm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2009 22:01:42 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
+	Hansjoerg Lipp <hjlipp@web.de>
+To: Tilman Schmidt <tilman@imap.cc>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754122AbZIJDrb@vger.kernel.org>
+In-Reply-To: <20090909223205.E9D632269516@fifo99.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-MPC8360 QE UCC ethernet controllers hang when changing link duplex
-under a load (a bit of NFS activity is enough).
+On Thu, 2009-09-10 at 00:32 +0200, Tilman Schmidt wrote:
+> Daniel Walker wrote 07.09.09 16:30:
+> > Yeah, it looks like the whole file needs a checkpatch clean up..
+> Sounds
+> like your not willing to do that?
+> 
+> It's not a question of willingness. You may notice I did a lot of
+> cleanup work already. But it's very time consuming work, and there has
+> been more important work to attend to first.
+> 
+> > Usually if a checkpatch cleanup comes
+> first prior to all your other changes , it doesn't usually cloud the
+> rest of the changes..
+> 
+> Sure. But that would mean postponing the merging of bugfixes until
+> someone finds the time to do a complete checkpatch cleanup of the
+> affected code. I don't think that's a sensible approach.
 
-  PHY: mdio@e0102120:00 - Link is Up - 1000/Full
-  sh-3.00# ethtool -s eth0 speed 100 duplex half autoneg off
-  PHY: mdio@e0102120:00 - Link is Down
-  PHY: mdio@e0102120:00 - Link is Up - 100/Half
-  NETDEV WATCHDOG: eth0 (ucc_geth): transmit queue 0 timed out
-  ------------[ cut here ]------------
-  Badness at c01fcbd0 [verbose debug info unavailable]
-  NIP: c01fcbd0 LR: c01fcbd0 CTR: c0194e44
-  ...
+You shouldn't be adding any new checkpatch errors, but you currently
+are .. Just clean up the individual patches w/o the entire gigaset
+driver, that should be do-able (it's even a basic submission
+requirement). The other issue is that your adding new files which aren't
+clean, those can certainly be cleaned up.
 
-The cure is to disable the controller before changing speed/duplex
-and enable it afterwards.
-
-Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
----
- drivers/net/ucc_geth.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 2a2c973..9ad9015 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -1631,9 +1631,13 @@ static void adjust_link(struct net_device *dev)
- 			ugeth->oldspeed = phydev->speed;
- 		}
- 
-+		ugeth_disable(ugeth, COMM_DIR_RX_AND_TX);
-+
- 		out_be32(&ug_regs->maccfg2, tempval);
- 		out_be32(&uf_regs->upsmr, upsmr);
- 
-+		ugeth_enable(ugeth, COMM_DIR_RX_AND_TX);
-+
- 		if (!ugeth->oldlink) {
- 			new_state = 1;
- 			ugeth->oldlink = 1;
--- 
-1.6.3.3
+Daniel
