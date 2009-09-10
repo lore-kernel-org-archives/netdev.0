@@ -1,53 +1,48 @@
 From: Jens Rosenboom <me@jayr.de>
-Subject: Re: [RFC] net/core: Delay neighbor only if it has been used after
- confirmed
-Date: Thu, 10 Sep 2009 18:21:47 +0200
-Message-ID: <1252599707.5980.13.camel@fnki-nb00130>
-References: <1251883079.5813.18.camel@fnki-nb00130>
-	 <4A9E639B.20907@linux-ipv6.org>
+Subject: [PATCH net-next] ipv6: Ignore route option with ROUTER_PREF_INVALID
+Date: Thu, 10 Sep 2009 18:25:11 +0200
+Message-ID: <1252599911.5980.16.camel@fnki-nb00130>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Linux Network Developers <netdev@vger.kernel.org>
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Linux Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from leia.mcbone.net ([194.97.104.42]:60138 "EHLO leia.mcbone.net"
+Received: from leia.mcbone.net ([194.97.104.42]:32935 "EHLO leia.mcbone.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750804AbZIJQVw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Sep 2009 12:21:52 -0400
-In-Reply-To: <4A9E639B.20907@linux-ipv6.org>
+	id S1752762AbZIJQZP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Sep 2009 12:25:15 -0400
+Received: from fnki-ws00028.freenet-ag.de ([194.97.6.48])
+	by leia.mcbone.net with esmtpsa (TLS1.0:DHE_RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.69)
+	(envelope-from <me@jayr.de>)
+	id 1MlmSU-0006uo-1S
+	for netdev@vger.kernel.org; Thu, 10 Sep 2009 16:25:18 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-09-02 at 21:22 +0900, YOSHIFUJI Hideaki wrote:
-[...]
-> And, this "if" for REACHABLE->DELAY may be completely needless.
-> Timer in REACHABLE is only for state transition for toward REACHABLE
-> or STALE.
+RFC4191 says that "If the Reserved (10) value is received, the Route
+Information Option MUST be ignored.", so this patch makes us conform
+to the RFC. This is different to the usage of the Default Router
+Preference, where an invalid value must indeed be treated as
+PREF_MEDIUM.
 
-I did some testing with the following patch, which works fine for me, so
-I propose this one now instead of my previous one. I still have no real
-idea about the non-IPv6 implications of this, though.
+Signed-off-by: Jens Rosenboom <me@jayr.de>
 
 ---
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index e587e68..f61926f 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -819,13 +819,6 @@ static void neigh_timer_handler(unsigned long arg)
- 				   neigh->confirmed + neigh->parms->reachable_time)) {
- 			NEIGH_PRINTK2("neigh %p is still alive.\n", neigh);
- 			next = neigh->confirmed + neigh->parms->reachable_time;
--		} else if (time_before_eq(now,
--					  neigh->used + neigh->parms->delay_probe_time)) {
--			NEIGH_PRINTK2("neigh %p is delayed.\n", neigh);
--			neigh->nud_state = NUD_DELAY;
--			neigh->updated = jiffies;
--			neigh_suspect(neigh);
--			next = now + neigh->parms->delay_probe_time;
- 		} else {
- 			NEIGH_PRINTK2("neigh %p is suspected.\n", neigh);
- 			neigh->nud_state = NUD_STALE;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 1473ee0..f3635b7 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -481,7 +481,7 @@ int rt6_route_rcv(struct net_device *dev, u8 *opt,
+int len,
+ 
+ 	pref = rinfo->route_pref;
+ 	if (pref == ICMPV6_ROUTER_PREF_INVALID)
+-		pref = ICMPV6_ROUTER_PREF_MEDIUM;
++		return -EINVAL;
+ 
+ 	lifetime = addrconf_timeout_fixup(ntohl(rinfo->lifetime), HZ);
+ 
 
 
