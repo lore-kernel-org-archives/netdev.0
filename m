@@ -1,109 +1,160 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: TCP kernel tables overflowing after sustained 1000 new
- connections per second
-Date: Wed, 09 Sep 2009 17:08:24 -0700 (PDT)
-Message-ID: <20090909.170824.141343404.davem@davemloft.net>
-References: <c67e3dc60909091146j4aeaf422v4e0543eff87c7f9a@mail.gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless-next-2.6 2009-09-09
+Date: Wed, 9 Sep 2009 20:10:25 -0400
+Message-ID: <20090910001025.GA19645@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, roque@di.fc.ul.pt,
-	netdev@vger.kernel.org
-To: paulsheer@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59978
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752630AbZIJAII (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2009 20:08:08 -0400
-In-Reply-To: <c67e3dc60909091146j4aeaf422v4e0543eff87c7f9a@mail.gmail.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:46599 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752762AbZIJALJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2009 20:11:09 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Sheer <paulsheer@gmail.com>
-Date: Wed, 9 Sep 2009 20:46:07 +0200
+Dave,
 
-Can you please send networking reports and questions at least
-CC:'d to netdev@vger.kernel.org, which is where the networking
-developers are subscribed?  I've added it to the CC:
+One last batch of wireless bits for the 2.6.32 merge window... :-)
 
-> I am developing a high-performance application, and testing against Apache.
-> It makes 1000 new connections to Apache per second.
-> 
-> After 16 seconds the test grinds to a halt. A Linux kernel problem. There are
-> several hurdles to overcome when trying to sustain such through-put. Some
-> are configuration issues, others I believe are real problems with the kernel
-> internals. I'll discuss these all below.
-> 
-> Configuration:
-> 
-> These are the relavent kernel configuration parameters:
-> 
->  /proc/sys/net/ipv4/tcp_tw_recycle
->  /proc/sys/net/ipv4/tcp_tw_reuse
->  /proc/sys/net/ipv4/tcp_max_tw_buckets
->  /proc/sys/net/ipv4/ip_local_port_range
->  /proc/sys/net/ipv4/tcp_timestamps
->  /proc/sys/net/ipv4/tcp_fin_timeout
->  /proc/sys/net/ipv4/tcp_orphan_retries
->  /proc/sys/net/ipv4/tcp_rfc1337
->  /proc/sys/net/ipv4/tcp_max_orphans
->  /proc/sys/net/ipv4/tcp_max_syn_backlog
->  /proc/sys/net/ipv4/tcp_mem
-> 
-> On a gigabit local LAN I can set the timeouts very low to encourage
-> port reuse. A well known configuration issue with all OS's - just search
-> for MyOS+TIMED_WAIT on google. No problems here.
-> 
-> 
-> The second problem is the ip_conntrack module.
-> 
-> If you don't know that your distribution has enabled this module
-> by default, it not easy to work out that it has internal tables
-> that max out at 16384.  So this explains why my system
-> stops accepting connections after exactly 16 seconds.
-> If you stop the application, give it a few minutes, try again,
-> then you can do another 16 seconds of flat out load for it
-> grinds to a halt again. Doing an rm on the module ko and
-> rebooting fixed *this* problem.
-> 
-> The third problem seems to be connected to /proc/net/tcp6
-> 
-> look at the output of the script
-> 
-> while true ; do echo "`date`: `cat /proc/net/tcp6 | wc -l`  vs  `cat
-> /proc/net/tcp | wc -l`" ; sleep 1 ; done
-> 
-> while I run my load test:
-> 
-> 
->  Wed Sep  9 20:39:26 SAST 2009: 5  vs  20
->  Wed Sep  9 20:39:27 SAST 2009: 5  vs  20
->  Wed Sep  9 20:39:28 SAST 2009: 5  vs  20
->  Wed Sep  9 20:39:29 SAST 2009: 5  vs  20
->  Wed Sep  9 20:39:31 SAST 2009: 1233  vs  20
->  Wed Sep  9 20:39:32 SAST 2009: 2640  vs  21
->  Wed Sep  9 20:39:33 SAST 2009: 4190  vs  20
->  Wed Sep  9 20:39:34 SAST 2009: 5813  vs  20
->  Wed Sep  9 20:39:35 SAST 2009: 7527  vs  20
->  Wed Sep  9 20:39:37 SAST 2009: 9568  vs  44
->  Wed Sep  9 20:39:38 SAST 2009: 11819  vs  21
->  Wed Sep  9 20:39:40 SAST 2009: 14510  vs  21
->  Wed Sep  9 20:39:42 SAST 2009: 16971  vs  20
->  Wed Sep  9 20:39:44 SAST 2009: 16971  vs  20
->  Wed Sep  9 20:39:46 SAST 2009: 17013  vs  20
->  Wed Sep  9 20:39:48 SAST 2009: 17013  vs  20
->  Wed Sep  9 20:39:50 SAST 2009: 17013  vs  20
-> 
-> So it is clear "something" is filling up in tcp_ipv6.c
-> 
-> any ideas Pedro?
-> anyone?
-> 
-> Many thanks.
-> 
-> -paul
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+This includes a number of ath9k updates related especially to bluetooth
+coexistance, as well as a number of b43 changes related to support of SDIO
+and the associated SSB over SDIO bus support.
+
+Please let me know if there are problems!
+
+Thanks,
+
+John
+
+---
+
+Individual patches are available here:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-next-2.6/
+
+---
+
+The following changes since commit 6ec1c69a8f6492fd25722f4762721921da074c12:
+  David S. Miller (1):
+        net_sched: add classful multiqueue dummy scheduler
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git master
+
+Albert Herranz (1):
+      ssb: Implement SDIO host bus support
+
+Christian Lamparter (1):
+      ar9170: implement frequency calibration for one-stage/openfw
+
+Holger Schurig (1):
+      cfg80211: allow scanning on specified frequencies when using wext-compatibility
+
+Ivo van Doorn (1):
+      rt2x00: Hardcode TX ack timeout and consume time
+
+Joe Perches (1):
+      MAINTAINERS: Add Atheros Linux wireless drivers home page
+
+Joerg Albert (3):
+      ar9170: added phy register initialisation from eeprom values
+      ath,ar9170: move CTL_ defines into regd.h
+      ath,ar9170: implemented conformance test limit calc. for tx power
+
+Luis R. Rodriguez (5):
+      ath9k: propagate ieee80211_alloc_hw() failure
+      ath9k: propagate errors on ath_init_device() and request_irq()
+      ath9k: claim irq for ath9k, not ath for pci
+      wireless: update cfg80211 kconfig entry
+      wireless: mark prism54 as deprecated and mark for removal
+
+Michael Buesch (10):
+      b43: Use a threaded IRQ handler
+      b43: Remove TX spinlock
+      b43: Remove DMA/PIO queue locks
+      b43: Remove PIO RX workqueue
+      b43: remove SHM spinlock
+      ssb: Fail ssb modinit, if attach of the buses failed.
+      b43: PCMCIA is not experimental anymore
+      b43: Really disable QoS, if requested
+      b43: Fix sparse warning in hw-tkip code
+      b44/b43/b43legacy: Fix switch warnings introduced by SSB-SDIO
+
+Sujith (2):
+      ath9k: Fix RX Filter handling for BAR
+      ath9k: Fix channelFlags for 2GHZ
+
+Vasanthakumar Thiagarajan (6):
+      ath9k: Disable ASPM when btcoex is active
+      ath9k: Remove unnecessary casting to u8 in pci_read_config_byte() call
+      ath9k: Store subsystem id in struct hw_version
+      ath9k: Enable btcoex based on the subsystem id of the device
+      ath9k: Get rid of the modparam btcoex_enable
+      ath9k: Initialize the priority gpio for BT coex 3-wire
+
+ Documentation/feature-removal-schedule.txt |   29 ++
+ MAINTAINERS                                |    2 +
+ drivers/net/b44.c                          |   10 +-
+ drivers/net/wireless/Kconfig               |   57 +--
+ drivers/net/wireless/ath/ar9170/phy.c      |  420 +++++++++++++++++++-
+ drivers/net/wireless/ath/ath9k/ahb.c       |   10 +-
+ drivers/net/wireless/ath/ath9k/ath9k.h     |    2 +-
+ drivers/net/wireless/ath/ath9k/btcoex.c    |   23 +
+ drivers/net/wireless/ath/ath9k/btcoex.h    |    2 +
+ drivers/net/wireless/ath/ath9k/hw.c        |   30 +-
+ drivers/net/wireless/ath/ath9k/hw.h        |   10 +
+ drivers/net/wireless/ath/ath9k/mac.h       |    1 +
+ drivers/net/wireless/ath/ath9k/main.c      |   12 +-
+ drivers/net/wireless/ath/ath9k/pci.c       |   22 +-
+ drivers/net/wireless/ath/ath9k/recv.c      |    3 +
+ drivers/net/wireless/ath/ath9k/reg.h       |    1 -
+ drivers/net/wireless/ath/regd.h            |    6 +
+ drivers/net/wireless/ath/regd_common.h     |    6 -
+ drivers/net/wireless/b43/Kconfig           |    4 +-
+ drivers/net/wireless/b43/b43.h             |   30 +-
+ drivers/net/wireless/b43/debugfs.c         |   67 +---
+ drivers/net/wireless/b43/debugfs.h         |    3 +-
+ drivers/net/wireless/b43/dma.c             |   31 +--
+ drivers/net/wireless/b43/dma.h             |    3 -
+ drivers/net/wireless/b43/main.c            |  460 +++++++++++-----------
+ drivers/net/wireless/b43/main.h            |    4 -
+ drivers/net/wireless/b43/phy_common.c      |    1 -
+ drivers/net/wireless/b43/phy_common.h      |    3 +-
+ drivers/net/wireless/b43/phy_g.c           |    7 -
+ drivers/net/wireless/b43/phy_g.h           |    3 +-
+ drivers/net/wireless/b43/pio.c             |   71 +---
+ drivers/net/wireless/b43/pio.h             |    6 -
+ drivers/net/wireless/b43/sysfs.c           |    3 -
+ drivers/net/wireless/b43/xmit.c            |   10 +-
+ drivers/net/wireless/b43legacy/main.c      |    8 +-
+ drivers/net/wireless/rt2x00/rt2400pci.c    |    5 +-
+ drivers/net/wireless/rt2x00/rt2500pci.c    |    5 +-
+ drivers/net/wireless/rt2x00/rt2500usb.c    |    4 -
+ drivers/net/wireless/rt2x00/rt2800usb.c    |    3 +-
+ drivers/net/wireless/rt2x00/rt2x00.h       |    3 -
+ drivers/net/wireless/rt2x00/rt2x00config.c |   11 -
+ drivers/net/wireless/rt2x00/rt61pci.c      |    2 +-
+ drivers/net/wireless/rt2x00/rt73usb.c      |    2 +-
+ drivers/ssb/Kconfig                        |   14 +
+ drivers/ssb/Makefile                       |    1 +
+ drivers/ssb/main.c                         |   64 +++-
+ drivers/ssb/scan.c                         |   11 +
+ drivers/ssb/sdio.c                         |  610 ++++++++++++++++++++++++++++
+ drivers/ssb/ssb_private.h                  |   40 ++
+ include/linux/ssb/ssb.h                    |   25 +-
+ net/wireless/Kconfig                       |   11 +-
+ net/wireless/scan.c                        |   41 ++-
+ 52 files changed, 1673 insertions(+), 539 deletions(-)
+ create mode 100644 drivers/ssb/sdio.c
+
+Omnibus patch is available here:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-next-2.6-2009-09-09.patch.bz2
+
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
