@@ -1,38 +1,47 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 31/31: ebt_ulog: fix checkentry return value
-Date: Thu, 10 Sep 2009 18:12:26 +0200 (MEST)
-Message-ID: <20090910161222.31179.82109.sendpatchset@x2.localnet>
+Subject: netfilter 23/31: bridge: refcount fix
+Date: Thu, 10 Sep 2009 18:12:16 +0200 (MEST)
+Message-ID: <20090910161212.31179.82349.sendpatchset@x2.localnet>
 References: <20090910161142.31179.5256.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:64698 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752493AbZIJQMN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2009 12:12:13 -0400
 In-Reply-To: <20090910161142.31179.5256.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 8a56df0ae1690f8f42a3c6c4532f4b06f93febea
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Tue Sep 1 14:34:01 2009 +0200
+commit f3abc9b963e004b8c96cd7fbee6fd905f2bfd620
+Author: Eric Dumazet <eric.dumazet@gmail.com>
+Date:   Mon Aug 24 19:35:38 2009 +0200
 
-    netfilter: ebt_ulog: fix checkentry return value
+    netfilter: bridge: refcount fix
     
-    Commit 19eda87 (netfilter: change return types of check functions for
-    Ebtables extensions) broke the ebtables ulog module by missing a return
-    value conversion.
+    commit f216f082b2b37c4943f1e7c393e2786648d48f6f
+    ([NETFILTER]: bridge netfilter: deal with martians correctly)
+    added a refcount leak on in_dev.
     
+    Instead of using in_dev_get(), we can use __in_dev_get_rcu(),
+    as netfilter hooks are running under rcu_read_lock(), as pointed
+    by Patrick.
+    
+    Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/bridge/netfilter/ebt_ulog.c b/net/bridge/netfilter/ebt_ulog.c
-index 133eeae..ce50688 100644
---- a/net/bridge/netfilter/ebt_ulog.c
-+++ b/net/bridge/netfilter/ebt_ulog.c
-@@ -266,7 +266,7 @@ static bool ebt_ulog_tg_check(const struct xt_tgchk_param *par)
- 	if (uloginfo->qthreshold > EBT_ULOG_MAX_QLEN)
- 		uloginfo->qthreshold = EBT_ULOG_MAX_QLEN;
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index 4fde742..907a82e 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -359,7 +359,7 @@ static int br_nf_pre_routing_finish(struct sk_buff *skb)
+ 				},
+ 				.proto = 0,
+ 			};
+-			struct in_device *in_dev = in_dev_get(dev);
++			struct in_device *in_dev = __in_dev_get_rcu(dev);
  
--	return 0;
-+	return true;
- }
- 
- static struct xt_target ebt_ulog_tg_reg __read_mostly = {
+ 			/* If err equals -EHOSTUNREACH the error is due to a
+ 			 * martian destination or due to the fact that
