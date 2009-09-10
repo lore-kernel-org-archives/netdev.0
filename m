@@ -1,64 +1,45 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: Re: [PATCH v2 3/3] ucc_geth: Fix hangs after switching from full
- to	half duplex
-Date: Fri, 11 Sep 2009 01:09:36 +0400
-Message-ID: <20090910210935.GA26037@oksana.dev.rtsoft.ru>
-References: <20090910020145.GC31083@oksana.dev.rtsoft.ru>
- <20090910175852.GA18948@oksana.dev.rtsoft.ru>
- <4AA93FB0.5060802@freescale.com>
- <20090910194053.GA24363@oksana.dev.rtsoft.ru>
-Reply-To: avorontsov@ru.mvista.com
+From: Karl Hiramoto <karl@hiramoto.org>
+Subject: Re: [Linux-ATM-General] [PATCH] atm/br2684: netif_stop_queue() when
+ atm	device busy and netif_wake_queue() when we can send packets again.
+Date: Thu, 10 Sep 2009 23:30:44 +0200
+Message-ID: <4AA97004.2010904@hiramoto.org>
+References: <4A9901E7.9040804@hiramoto.org> <1251545092-18081-1-git-send-email-karl@hiramoto.org> <4AA95838.4010007@redfish-solutions.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Andy Fleming <afleming@freescale.com>,
-	Timur Tabi <timur@freescale.com>, linuxppc-dev@ozlabs.org
-To: Scott Wood <scottwood@freescale.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-atm-general@lists.sourceforge.net
+To: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ru.mvista.com ([213.79.90.228]:2237 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752652AbZIJVJe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2009 17:09:34 -0400
-Content-Disposition: inline
-In-Reply-To: <20090910194053.GA24363@oksana.dev.rtsoft.ru>
+Received: from caiajhbdccac.dreamhost.com ([208.97.132.202]:34980 "EHLO
+	spunkymail-a13.g.dreamhost.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752643AbZIJVap (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2009 17:30:45 -0400
+In-Reply-To: <4AA95838.4010007@redfish-solutions.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 10, 2009 at 11:40:53PM +0400, Anton Vorontsov wrote:
-> On Thu, Sep 10, 2009 at 01:04:32PM -0500, Scott Wood wrote:
-> > Anton Vorontsov wrote:
-> > >MPC8360 QE UCC ethernet controllers hang when changing link duplex
-> > >under a load (a bit of NFS activity is enough).
-> > >
-> > >  PHY: mdio@e0102120:00 - Link is Up - 1000/Full
-> > >  sh-3.00# ethtool -s eth0 speed 100 duplex half autoneg off
-> > >  PHY: mdio@e0102120:00 - Link is Down
-> > >  PHY: mdio@e0102120:00 - Link is Up - 100/Half
-> > >  NETDEV WATCHDOG: eth0 (ucc_geth): transmit queue 0 timed out
-> > >  ------------[ cut here ]------------
-> > >  Badness at c01fcbd0 [verbose debug info unavailable]
-> > >  NIP: c01fcbd0 LR: c01fcbd0 CTR: c0194e44
-> > >  ...
-> > >
-> > >The cure is to disable the controller before changing speed/duplex
-> > >and enable it afterwards.
-> > >
-> > >Since ugeth_graceful_stop_{tx,rx} now may be called from an atomic
-> > >context, switch the two functions from msleep() to mdelay().
-> > 
-> > Ouch.
-> 
-> Yeah, right... delaying for 10ms with irqs off isn't good.
-> 
-> > Can we put this in a workqueue or something?
-> 
-> adjust_link() itself isn't called from an atomic context.
+Philip A. Prindeville wrote:
+> I had noticed that with my Solos card, and using Qwest 7062/896kb/s
+> service that I was typically only getting ~400kb/s upstream, so I
+> thought that delayed transmitter restarts might be the culprit and
+> decided to try out this patch.
+>
+> I'm running 2.6.27.26, and I modified the patch as below.
+>
+> Has anyone confirmed this patch (Karl's) against 2.6.27?
+>
+> Thanks,
+>
+> -Philip
+I'd be interested in hearing comparisons with/without the patch.    What 
+i have is no upstream packet loss with this patch, however slightly 
+lower total throughput.  I think because the upper networking layers 
+take time to restart the packet flow.   I'm not really sure if or how 
+many packets to upper layers buffer.  I haven't had time to debug it 
+further.
 
-Oops. I though that phylib calls us from a workqueue, not a timer. Hm...
+I don't have a solos card, but you may have to tweak the solos driver 
+sk_sndbuf  value.
 
-Will be a little bit more work..
-
--- 
-Anton Vorontsov
-email: cbouatmailru@gmail.com
-irc://irc.freenode.net/bd2
+--
+Karl
