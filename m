@@ -1,78 +1,37 @@
-From: Moni Shoua <monis@Voltaire.COM>
-Subject: Re: [PATCH RESEND] bonding: remap muticast addresses without using
- dev_close() and dev_open()
-Date: Thu, 10 Sep 2009 11:47:05 +0300
-Message-ID: <4AA8BD09.2010607@Voltaire.COM>
-References: <4AA39E42.9070702@Voltaire.COM> <4AA8B19F.2080704@voltaire.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: TCP kernel tables overflowing after sustained 1000 new connections per second
+Date: Thu, 10 Sep 2009 11:24:04 +0200
+Message-ID: <87k5075f0r.fsf@basil.nowhere.org>
+References: <c67e3dc60909091146j4aeaf422v4e0543eff87c7f9a@mail.gmail.com>
+	<20090909.170824.141343404.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-	netdev <netdev@vger.kernel.org>,
-	bonding-devel@lists.sourceforge.net
-To: Or Gerlitz <ogerlitz@voltaire.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:20092 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751258AbZIJIrS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Sep 2009 04:47:18 -0400
-In-Reply-To: <4AA8B19F.2080704@voltaire.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: paulsheer@gmail.com, linux-kernel@vger.kernel.org,
+	roque@di.fc.ul.pt, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755310AbZIJJYH@vger.kernel.org>
+In-Reply-To: <20090909.170824.141343404.davem@davemloft.net> (David Miller's message of "Wed, 09 Sep 2009 17:08:24 -0700 (PDT)")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Or Gerlitz wrote:
-> Moni Shoua wrote:
->> This patch fixes commit e36b9d16c6a6d0f59803b3ef04ff3c22c3844c10. The
->> approach there is to call dev_close()/dev_open() whenever the device
->> type is changed in order to remap the device IP multicast addresses to
->> HW multicast addresses. This approach suffers from 2 drawbacks [...]
->> The fix here is to directly remap the IP multicast addresses to HW
->> multicast addresses for a bonding device that changes its type, and
->> nothing else.
-> 
-> Moni,
-> 
-> The approach and patch look good. First, I think it may be more easier
-> to review and maintain if you separate this to two patches, the first
-> simply reverting e36b9d16c6a6d0f59803b3ef04ff3c22c3844c10 and the second
-> the approach suggested by this patch. Second, I think you may be able to
-> do well with only one event, see next
-> 
-I don't need to revert the entire patch. Only the dev_open() and dev_close() functions need to be removed and it is quite easy to review it in one patch.
->> @@ -1460,14 +1460,17 @@ int bond_enslave(struct net_device *bond_dev,
->> struct net_device *slave_dev)
->>       */
->>      if (bond->slave_cnt == 0) {
->>          if (bond_dev->type != slave_dev->type) {
->> -            dev_close(bond_dev);
->>              pr_debug("%s: change device type from %d to %d\n",
->>                  bond_dev->name, bond_dev->type, slave_dev->type);
->> +
->> +            netdev_bonding_change(bond_dev, NETDEV_BONDING_OLDTYPE);
->> +
->>              if (slave_dev->type != ARPHRD_ETHER)
->>                  bond_setup_by_slave(bond_dev, slave_dev);
->>              else
->>                  ether_setup(bond_dev);
->> -            dev_open(bond_dev);
->> +
->> +            netdev_bonding_change(bond_dev, NETDEV_BONDING_NEWTYPE);
->>          }
-> can't you achieve the same impact if just calling
-> netdev_bonding_change(bond_dev, NETDEV_BONDING_NEWTYPE) after doing the
-> setup_by_slave, and have the stack call ip_mc_unmap(...) and then
-> ip_mc_map(...) ???
-> 
-I thought about it but the function arp_mc_map() which is called before and after the change in dev->type, relies on the value of dev->type. I could write the patch with one event after the type has changed and passing the old device type somehow (field prev_type in struct net_device?) but the resulted code will look clumsy (at least to me).
 
-> Or.
-> 
-> 
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> On a gigabit local LAN I can set the timeouts very low to encourage
+> port reuse. A well known configuration issue with all OS's - just search
+> for MyOS+TIMED_WAIT on google. No problems here.
 
+The timeouts are what they are for a reason to detect old packets in
+the network and prevent data corruption. That's why the RFCs require
+them. 
+
+Unless you never run on WANs or have very strong data integry checking
+in your application (e.g. SSL) it's normally not a good idea to mess
+with them.
+
+When you run out of port space you should use more local IP addresses.
+
+Possibly if you don't have problems with firewalls you could
+also increase the port space, but that's still limited.
+
+-Andi
+-- 
+ak@linux.intel.com -- Speaking for myself only.
