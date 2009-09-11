@@ -1,68 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: 5717 support commit is buggy
-Date: Fri, 11 Sep 2009 15:15:54 -0700 (PDT)
-Message-ID: <20090911.151554.181296228.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: net_sched 07/07: add classful multiqueue dummy scheduler
+Date: Sat, 12 Sep 2009 00:21:22 +0200
+Message-ID: <20090911222122.GA6826@ami.dom.local>
+References: <20090909195238.GA3043@ami.dom.local>
+ <4AA8E2FB.3040809@trash.net>
+ <20090911213812.GA3965@ami.dom.local>
+ <20090911.151039.40579542.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: benli@broadcom.com, netdev@vger.kernel.org
-To: mcarlson@broadcom.com
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33911
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755425AbZIKWPi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 18:15:38 -0400
+Received: from mail-fx0-f217.google.com ([209.85.220.217]:57948 "EHLO
+	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752015AbZIKWVd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 18:21:33 -0400
+Received: by fxm17 with SMTP id 17so1105752fxm.37
+        for <netdev@vger.kernel.org>; Fri, 11 Sep 2009 15:21:36 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20090911.151039.40579542.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Sep 11, 2009 at 03:10:39PM -0700, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Fri, 11 Sep 2009 23:38:13 +0200
+> 
+> > On Thu, Sep 10, 2009 at 01:28:59PM +0200, Patrick McHardy wrote:
+> > ...
+> >> I'll remove the misleading (and unnecessary) line of code, thanks Jarek.
+> > 
+> > Btw, I guess David owes you one classful(!) dummy(?) scheduler...
+> 
+> Did I forget to add the sch_mq.c file to the tree?  What are
+> you saying? :-)
 
-The change:
+commit 6ec1c69a8f6492fd25722f4762721921da074c12
+Author: David S. Miller <davem@davemloft.net>
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ?! ;-)
 
-commit f6eb9b1fc1411d22c073f5264e5630a541d0f7df
-Author: Matt Carlson <mcarlson@broadcom.com>
-Date:   Tue Sep 1 13:19:53 2009 +0000
-
-    tg3: Add 5717 asic rev
-    
-    This patch adds the 5717 asic rev.
-    
-    Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-    Reviewed-by: Benjamin Li <benli@broadcom.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-breaks 5703 chips on my workstation.
-
-I suspect it breaks a lot of other chips too.
-
-I'm about to do some tests, but I suspect it's this change:
-
-@@ -111,7 +111,8 @@
-  * replace things like '% foo' with '& (foo - 1)'.
-  */
- #define TG3_RX_RCB_RING_SIZE(tp)	\
--	((tp->tg3_flags2 & TG3_FLG2_5705_PLUS) ?  512 : 1024)
-+	(((tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) && \
-+	  !(tp->tg3_flags2 & TG3_FLG2_5780_CLASS)) ? 512 : 1024)
- 
- #define TG3_TX_RING_SIZE		512
- #define TG3_DEF_TX_RING_PENDING		(TG3_TX_RING_SIZE - 1)
-
-and thus an incorrect RCB ring size is being used which eventually
-locks up the card.
-
-Also:
-
-@@ -13486,7 +13556,8 @@ static void __devinit tg3_init_link_config(struct tg3 *tp)
- 
- static void __devinit tg3_init_bufmgr_config(struct tg3 *tp)
- {
--	if (tp->tg3_flags2 & TG3_FLG2_5705_PLUS) {
-+	if (tp->tg3_flags2 & TG3_FLG2_5705_PLUS &&
-+	    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5717) {
- 		tp->bufmgr_config.mbuf_read_dma_low_water =
- 			DEFAULT_MB_RDMA_LOW_WATER_5705;
- 		tp->bufmgr_config.mbuf_mac_rx_low_water =
-
-I wonder what that does with C precedence rules.  Probably need
-parenhesis around "tp->tg3_flags2 & TG3_FLG2_5705_PLUS" for
-safety.
+Jarek P.
