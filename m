@@ -1,51 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Add DEVTYPE support for Ethernet based devices
-Date: Fri, 11 Sep 2009 12:37:39 -0700 (PDT)
-Message-ID: <20090911.123739.202533046.davem@davemloft.net>
-References: <1251788899-30156-1-git-send-email-marcel@holtmann.org>
+Subject: Re: [PATCH] ipv6: Add IFA_F_DADFAILED flag
+Date: Fri, 11 Sep 2009 12:38:11 -0700 (PDT)
+Message-ID: <20090911.123811.168070421.davem@davemloft.net>
+References: <4AA1C0FF.4030109@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	johannes@sipsolutions.net
-To: marcel@holtmann.org
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: brian.haley@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51258
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51264
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756191AbZIKThX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 15:37:23 -0400
-In-Reply-To: <1251788899-30156-1-git-send-email-marcel@holtmann.org>
+	by vger.kernel.org with ESMTP id S1756238AbZIKThy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 15:37:54 -0400
+In-Reply-To: <4AA1C0FF.4030109@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Tue,  1 Sep 2009 00:08:19 -0700
+From: Brian Haley <brian.haley@hp.com>
+Date: Fri, 04 Sep 2009 21:38:07 -0400
 
-> The Ethernet framing is used for a lot of devices these days. Most
-> prominent are WiFi and WiMAX based devices. However for userspace
-> application it is important to classify these devices correctly and
-> not only see them as Ethernet devices. The daemons like HAL, DeviceKit
-> or even NetworkManager with udev support tries to do the classification
-> in userspace with a lot trickery and extra system calls. This is not
-> good and actually reaches its limitations. Especially since the kernel
-> does know the type of the Ethernet device it is pretty stupid.
+> [Note: if this is accepted I'll send out a patch for iproute,
+>  if you'd prefer to not use the last ifa_flag I'll send a
+>  much larger patch that does this differently :) ]
 > 
-> To solve this problem the underlying device type needs to be set and
-> then the value will be exported as DEVTYPE via uevents and available
-> within udev.
 > 
->   # cat /sys/class/net/wlan0/uevent
->   DEVTYPE=wlan
->   INTERFACE=wlan0
->   IFINDEX=5
+> Add IFA_F_DADFAILED flag to denote an IPv6 address that has
+> failed Duplicate Address Detection, that way tools like
+> /sbin/ip can be more informative.
 > 
-> This is similar to subsystems like USB and SCSI that distinguish
-> between hosts, devices, disks, partitions etc.
+> 3: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
+>     inet6 2001:db8::1/64 scope global tentative dadfailed 
+>        valid_lft forever preferred_lft forever
 > 
-> The new SET_NETDEV_DEVTYPE() is a convenience helper to set the actual
-> device type. All device types are free form, but for convenience the
-> same strings as used with RFKILL are choosen.
-> 
-> Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+> Signed-off-by: Brian Haley <brian.haley@hp.com>
 
-Applied to net-next-2.6, thanks.
+I applied the most recent iteration of this patch using
+the above commit message, thanks Brian.
