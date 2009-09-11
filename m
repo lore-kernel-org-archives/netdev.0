@@ -1,61 +1,107 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH iproute2] ss: adds a space before congestion string
-Date: Fri, 11 Sep 2009 10:32:29 +0200
-Message-ID: <4AAA0B1D.90402@gmail.com>
-References: <20090910120416.6fd03d1f@s6510>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH RFC] tun: export underlying socket
+Date: Fri, 11 Sep 2009 12:44:11 +0300
+Message-ID: <20090911094411.GA11086@redhat.com>
+References: <20090910125929.GA32593@redhat.com> <200909110017.27668.paul.moore@hp.com> <20090911045943.GA1613@redhat.com> <20090911053610.GA10324@redhat.com> <4AA9E9D3.5070406@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Paul Moore <paul.moore@hp.com>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, herbert@gondor.apana.org.au
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:54956 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753580AbZIKIc1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 04:32:27 -0400
-In-Reply-To: <20090910120416.6fd03d1f@s6510>
+Received: from mx1.redhat.com ([209.132.183.28]:20916 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753865AbZIKJpx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Sep 2009 05:45:53 -0400
+Content-Disposition: inline
+In-Reply-To: <4AA9E9D3.5070406@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger a =E9crit :
-> I am putting together release for 2.6.31 based tools.
-> The only open issue is how to deal with the error handling in command=
-s
-> that do monitoring filtering.  Right now leaning towards the two sock=
-et
-> solution.
+On Fri, Sep 11, 2009 at 08:10:27AM +0200, Eric Dumazet wrote:
+> Michael S. Tsirkin a =E9crit :
+> > On Fri, Sep 11, 2009 at 07:59:43AM +0300, Michael S. Tsirkin wrote:
+> >> On Fri, Sep 11, 2009 at 12:17:27AM -0400, Paul Moore wrote:
+> >>> On Thursday 10 September 2009 08:59:29 am Michael S. Tsirkin wrot=
+e:
+> >>>> Tun device looks similar to a packet socket
+> >>>> in that both pass complete frames from/to userspace.
+> >>>>
+> >>>> This patch fills in enough fields in the socket underlying tun d=
+river
+> >>>> to support sendmsg/recvmsg operations, and exports access to thi=
+s socket
+> >>>> to modules.
+> >>>>
+> >>>> This way, code using raw sockets to inject packets
+> >>>> into a physical device, can support injecting
+> >>>> packets into host network stack almost without modification.
+> >>>>
+> >>>> First user of this interface will be vhost virtualization
+> >>>> accelerator.
+> >>> No comments on the code at this point - I'm just trying to unders=
+tand the=20
+> >>> intended user right now which I'm assuming is the vhost-net bits =
+you sent=20
+> >>> previously?=20
+> >> Yes - these now use raw socket,
+> >=20
+> > More specifically, vhost would then be patched with:
+> >=20
+> > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> > index aeffb3a..b54f9d6 100644
+> > --- a/drivers/vhost/net.c
+> > +++ b/drivers/vhost/net.c
+> > @@ -331,15 +331,26 @@ err:
+> >  	return ERR_PTR(r);
+> >  }
+> > =20
+> > +static struct socket *get_tun_socket(int fd)
+> > +{
+> > +	struct file *file =3D fget(fd);
+> > +	if (!file)
+> > +		return ERR_PTR(-EBADF);
+> > +	return tun_get_socket(file);
 >=20
-> So if you have anything else that you have been waiting for,
-> please drop me a note.
+> This would leak a reference on file, if it happens not being a tun fi=
+le=20
 
-Another patch would be nice too :
+Good catch, thanks! So it should be:
 
-ss -io
-
-ESTAB      0      0                                         55.225.18.1=
-6:52668                                     55.225.18.187:49531
-         sackbic wscale:2,6 rto:219 rtt:19.75/16.5 ato:40 cwnd:4 send 2=
-=2E4Mbps rcv_space:5840
-
-Note the 'sackbic' string, instead of sack bic ?
-
-Thanks
-
-[PATCH] ss: adds a space before congestion string
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-diff --git a/misc/ss.c b/misc/ss.c
-index 651fe3b..9396468 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -1302,7 +1302,7 @@ static void tcp_show_info(const struct nlmsghdr *=
-nlh, struct inet_diag_msg *r)
- 		}
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index aeffb3a..e70f954 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -331,16 +331,30 @@ err:
+ 	return ERR_PTR(r);
+ }
 =20
- 		if (tb[INET_DIAG_CONG])
--			printf("%s", (char *) RTA_DATA(tb[INET_DIAG_CONG]));
-+			printf(" %s", (char *) RTA_DATA(tb[INET_DIAG_CONG]));
++static struct socket *get_tun_socket(int fd)
++{
++	struct file *file =3D fget(fd);
++	struct socket *sock;
++	if (!file)
++		return ERR_PTR(-EBADF);
++	sock =3D tun_get_socket(file);
++	if (IS_ERR(sock))
++		fput(file);
++	return sock;
++}
++
+ static struct socket *get_socket(int fd)
+ {
+ 	struct socket *sock;
+ 	sock =3D get_raw_socket(fd);
+ 	if (!IS_ERR(sock))
+ 		return sock;
++	sock =3D get_tun_socket(fd);
++	if (!IS_ERR(sock))
++		return sock;
+ 	return ERR_PTR(-ENOTSOCK);
+ }
 =20
- 		if (info->tcpi_options & TCPI_OPT_WSCALE)
- 			printf(" wscale:%d,%d", info->tcpi_snd_wscale,
+-
+ static long vhost_net_set_socket(struct vhost_net *n, int fd)
+ {
+ 	struct socket *sock, *oldsock =3D NULL;
