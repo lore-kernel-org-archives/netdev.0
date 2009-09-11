@@ -1,71 +1,41 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next PATCH V2] etherdevice.h: random_ether_addr update
-Date: Fri, 11 Sep 2009 13:44:22 -0700
-Message-ID: <1252701862.15292.73.camel@Joe-Laptop.home>
-References: <20090911014757.19631.66570.stgit@localhost.localdomain>
-	 <20090910190703.25d14533@nehalam>
-	 <1252638163.4355.35.camel@Joe-Laptop.home>
-	 <20090911.121542.45333246.davem@davemloft.net>
-	 <1252700442.15292.62.camel@Joe-Laptop.home>
+From: Jamie Lokier <jamie@shareable.org>
+Subject: Re: [PATCH 1/8] networking/fanotify: declare fanotify socket numbers
+Date: Fri, 11 Sep 2009 21:46:02 +0100
+Message-ID: <20090911204602.GA19371@shareable.org>
+References: <20090911052558.32359.18075.stgit@paris.rdu.redhat.com> <20090911.114620.260824240.davem@davemloft.net> <1252697613.2305.38.camel@dhcp231-106.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, gospo@redhat.com, gregory.v.rose@intel.com,
-	donald.c.skidmore@intel.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
+	viro@zeniv.linux.org.uk, alan@linux.intel.com, hch@infradead.org
+To: Eric Paris <eparis@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1116 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751760AbZIKUoU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Sep 2009 16:44:20 -0400
-In-Reply-To: <1252700442.15292.62.camel@Joe-Laptop.home>
+Received: from mail2.shareable.org ([80.68.89.115]:56239 "EHLO
+	mail2.shareable.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751760AbZIKUqF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 16:46:05 -0400
+Content-Disposition: inline
+In-Reply-To: <1252697613.2305.38.camel@dhcp231-106.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Perhaps this is slightly better, it doesn't call
-random32 for each octet and makes sure the leading
-octet is >= 0x04.
+Eric Paris wrote:
+> > I would really prefer if you worked on eliminating the problem that
+> > prevents you from using netlink instead.
+> 
+> I'm not really sure if I can, although I'd love to hear input from
+> someone who knows the netlink code on how I can make it do what I need.
+> I'm really not duplicating much other than the NLMSG_OK and NLMSG_NEXT
+> macros.  My code doesn't even use skbs and I'm not savy enough to really
+> know how I could.  I'm more than willing to work on it if someone can
+> point me to how it might work.
 
-random_ether_address should assign a leading octet >= "0x04"
+Let's turn the question around.
 
-Does not use get_random_bytes to avoid drawing down entropy pool.
+Since you're doing lots of non-sockety things, and can't tolerate
+dropped packets - why isn't it a character device?  What's the reason
+for using a socket at all?
 
-Signed-off-by: Joe Perches <joe@perches.com>
+(I'm reminded of /dev/poll, /dev/epoll and /dev/inotify :-)
 
-diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
-index 3d7a668..fddcabf 100644
---- a/include/linux/etherdevice.h
-+++ b/include/linux/etherdevice.h
-@@ -121,9 +121,26 @@ static inline int is_valid_ether_addr(const u8 *addr)
-  */
- static inline void random_ether_addr(u8 *addr)
- {
--	get_random_bytes (addr, ETH_ALEN);
--	addr [0] &= 0xfe;	/* clear multicast bit */
--	addr [0] |= 0x02;	/* set local assignment bit (IEEE802) */
-+	u32 val;
-+
-+	/* not calling get_random_bytes to avoid using entropy */
-+	do {
-+		val = random32();
-+		addr[0] = val;
-+	} while (addr[0] < 4);
-+	addr[0] &= 0xfe;	/* clear multicast bit */
-+	addr[0] |= 0x02;	/* set local assignment bit (IEEE802) */
-+
-+	val >>= 8;
-+	addr[1] = val;
-+	val >>= 8;
-+	addr[2] = val;
-+	val >>= 8;
-+	addr[3] = val;
-+	val = random32();
-+	addr[4] = val;
-+	val >>= 8;
-+	addr[5] = val;
- }
- 
- /**
-
-
+-- Jamie
