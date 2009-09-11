@@ -1,105 +1,91 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: mac80211: NOHZ: local_softirq_pending 08
-Date: Fri, 11 Sep 2009 18:13:33 +0200
-Message-ID: <200909111813.35810.mb@bu3sch.de>
-References: <200909111648.50902.mb@bu3sch.de> <200909111707.23971.mb@bu3sch.de> <4AAA75CB.6040803@hartkopp.net>
+From: Gregory Haskins <gregory.haskins@gmail.com>
+Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
+Date: Fri, 11 Sep 2009 12:14:07 -0400
+Message-ID: <4AAA774F.2050209@gmail.com>
+References: <cover.1251388414.git.mst@redhat.com> <20090827160750.GD23722@redhat.com> <20090903183945.GF28651@ovro.caltech.edu> <20090907101537.GH3031@redhat.com> <20090908172035.GB319@ovro.caltech.edu> <4AAA7415.5080204@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4AAA75CB.6040803-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig82C43E5F2EF2CEB5FEA90C83"
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+ virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+ linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
+ akpm@linux-foundation.org, hpa@zytor.com,
+ Rusty Russell <rusty@rustcorp.com.au>,
+ s.hetze@linux-ag.com
+To: "Ira W. Snyder" <iws@ovro.caltech.edu>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <4AAA7415.5080204@gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 11 September 2009 18:07:39 Oliver Hartkopp wrote:
-> Michael Buesch wrote:
-> > On Friday 11 September 2009 16:57:54 Kalle Valo wrote:
-> >> Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org> writes:
-> >>
-> >>> Hi,
-> >> Hallo,
-> >>
-> >>> mac80211 (or some other part of the networking stack) triggers this
-> >>> warning in the NOHZ code: NOHZ: local_softirq_pending 08
-> >>>
-> >>> 08 seems to be NET_RX_SOFTIRQ.
-> >>>
-> >>> It happens, because my test driver b43 handles all RX and TX-status
-> >>> callbacks in process context. I guess some part of the networking
-> >>> stack expects RX to be in tasklet and/or softirq context.
-> >>>
-> >>> We also have a report of this warning in wl1251, so it's probably not
-> >>> a b43 problem.
-> >> Yes, I see this with wl1251. It uses workqueues everywhere.
-> >>
-> > 
-> > This patch seems to fix it.
-> > 
-> > Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-> > 
-> > Index: wireless-testing/net/mac80211/cfg.c
-> > ===================================================================
-> > --- wireless-testing.orig/net/mac80211/cfg.c	2009-08-09 18:47:11.000000000 +0200
-> > +++ wireless-testing/net/mac80211/cfg.c	2009-09-11 16:59:12.000000000 +0200
-> > @@ -606,7 +606,7 @@ static void ieee80211_send_layer2_update
-> >  	skb->dev = sta->sdata->dev;
-> >  	skb->protocol = eth_type_trans(skb, sta->sdata->dev);
-> >  	memset(skb->cb, 0, sizeof(skb->cb));
-> > -	netif_rx(skb);
-> > +	ieee80211_netif_rx(skb);
-> >  }
-> >  
-> >  static void sta_apply_parameters(struct ieee80211_local *local,
-> > Index: wireless-testing/net/mac80211/ieee80211_i.h
-> > ===================================================================
-> > --- wireless-testing.orig/net/mac80211/ieee80211_i.h	2009-08-23 00:06:41.000000000 +0200
-> > +++ wireless-testing/net/mac80211/ieee80211_i.h	2009-09-11 17:02:05.000000000 +0200
-> > @@ -1053,6 +1053,14 @@ void ieee80211_tx_pending(unsigned long 
-> >  int ieee80211_monitor_start_xmit(struct sk_buff *skb, struct net_device *dev);
-> >  int ieee80211_subif_start_xmit(struct sk_buff *skb, struct net_device *dev);
-> >  
-> > +/* rx handling */
-> > +static inline int ieee80211_netif_rx(struct sk_buff *skb)
-> > +{
-> > +	if (in_interrupt())
-> > +		return netif_rx(skb);
-> > +	return netif_rx_ni(skb);
-> > +}
-> > +
-> 
-> Hello Michael,
-> 
-> i know this NOHZ warning from the CAN stack also - but now, i know what caused
-> this warning. I fixed it in my local tree and it works. Thanks!
-> 
-> As there are several users in the kernel do exact this test and call the
-> appropriate netif_rx() function, i would suggest to create a static inline
-> function:
-> 
-> static inline int netif_rx_ti(struct sk_buff *skb)
-> {
-> 	if (in_interrupt())
-> 		return netif_rx(skb);
-> 	return netif_rx_ni(skb);
-> }
-> 
-> ('ti' for test in_interrupt())
-> 
-> in include/linux/netdevice.h
-> 
-> What do you think about that?
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig82C43E5F2EF2CEB5FEA90C83
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Yeah, I'm fine with that.
+Gregory Haskins wrote:
 
--- 
-Greetings, Michael.
+[snip]
+
+>=20
+> FWIW: VBUS handles this situation via the "memctx" abstraction.  IOW,
+> the memory is not assumed to be a userspace address.  Rather, it is a
+> memctx-specific address, which can be userspace, or any other type
+> (including hardware, dma-engine, etc).  As long as the memctx knows how=
+
+> to translate it, it will work.
+>=20
+
+citations:
+
+Here is a packet import (from the perspective of the host side "venet"
+device model, similar to Michaels "vhost")
+
+http://git.kernel.org/?p=3Dlinux/kernel/git/ghaskins/alacrityvm/linux-2.6=
+=2Egit;a=3Dblob;f=3Dkernel/vbus/devices/venet-tap.c;h=3Dee091c47f06e9bb84=
+87a45e72d493273fe08329f;hb=3Dded8ce2005a85c174ba93ee26f8d67049ef11025#l53=
+5
+
+Here is the KVM specific memctx:
+
+http://git.kernel.org/?p=3Dlinux/kernel/git/ghaskins/alacrityvm/linux-2.6=
+=2Egit;a=3Dblob;f=3Dkernel/vbus/kvm.c;h=3D56e2c5682a7ca8432c159377b0f7389=
+cf34cbc1b;hb=3Dded8ce2005a85c174ba93ee26f8d67049ef11025#l188
+
+and
+
+http://git.kernel.org/?p=3Dlinux/kernel/git/ghaskins/alacrityvm/linux-2.6=
+=2Egit;a=3Dblob;f=3Dvirt/kvm/xinterface.c;h=3D0cccb6095ca2a51bad01f7ba213=
+7fdd9111b63d3;hb=3Dded8ce2005a85c174ba93ee26f8d67049ef11025#l289
+
+You could alternatively define a memctx for your environment which knows
+how to deal with your PPC boards PCI based memory, and the devices would
+all "just work".
+
+Kind Regards,
+-Greg
+
+
+
+--------------enig82C43E5F2EF2CEB5FEA90C83
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAkqqd08ACgkQP5K2CMvXmqEaqQCfXWSJFQS12SmLB3k+J4WDiEJq
+68cAoIjRCya0FvGnWGkZBETyFAe17+a/
+=8hCs
+-----END PGP SIGNATURE-----
+
+--------------enig82C43E5F2EF2CEB5FEA90C83--
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
