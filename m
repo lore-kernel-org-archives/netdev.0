@@ -1,57 +1,72 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [net-next PATCH] etherdevice.h: random_ether_addr update
-Date: Fri, 11 Sep 2009 14:15:54 -0700
-Message-ID: <20090911141554.0072d365@nehalam>
-References: <20090911014757.19631.66570.stgit@localhost.localdomain>
-	<20090910190703.25d14533@nehalam>
-	<1252638163.4355.35.camel@Joe-Laptop.home>
-	<20090911.121542.45333246.davem@davemloft.net>
-	<1252700442.15292.62.camel@Joe-Laptop.home>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 1/8] networking/fanotify: declare fanotify socket
+	numbers
+Date: Fri, 11 Sep 2009 17:21:42 -0400
+Message-ID: <1252704102.25158.36.camel@dogo.mojatatu.com>
+References: <20090911052558.32359.18075.stgit@paris.rdu.redhat.com>
+	 <20090911.114620.260824240.davem@davemloft.net>
+	 <1252697613.2305.38.camel@dhcp231-106.rdu.redhat.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, gospo@redhat.com, gregory.v.rose@intel.com,
-	donald.c.skidmore@intel.com
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:52797 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756854AbZIKVP5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Sep 2009 17:15:57 -0400
-In-Reply-To: <1252700442.15292.62.camel@Joe-Laptop.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Fri, 11 Sep 2009 13:20:42 -0700
-Joe Perches <joe@perches.com> wrote:
-
-> On Fri, 2009-09-11 at 12:15 -0700, David Miller wrote:
-> > From: Joe Perches <joe@perches.com>
-> > Date: Thu, 10 Sep 2009 20:02:43 -0700
-> > > On Thu, 2009-09-10 at 19:07 -0700, Stephen Hemminger wrote:
-> > >> On Thu, 10 Sep 2009 18:48:27 -0700
-> > >> Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
-> > >> > From: Gregory Rose <gregory.v.rose@intel.com>
-> > >> > This patch changes the default VF MAC address generation to use an Intel
-> > >> > Organizational Unit Identifier (OUI), instead of a fully randomized
-> > >> > Ethernet address.  This is to help prevent accidental MAC address
-> > >> > collisions.
-> > > I think this not a very good idea.
-> > I also completely agree that this patch is not a wise move.
-> 
-> Perhaps this?
-> 
-> random_ether_address should not assign an "0x02" leading octet.
-> 
-> "02" has the local assignment bit set,
-> but is actually a value assigned via OUI.
-> 
-> Do not use get_random_bytes to avoid drawing down entropy pool.
-> 
-
-Getting 6 bytes once is not going to be enough of a problem
-to drain the pool. I prefer not to weaken the randomness here.
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
+	viro@zeniv.linux.org.uk, alan@linux.intel.com, hch@infradead.org,
+	balbir@in.ibm.com
+To: Eric Paris <eparis@redhat.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <1252697613.2305.38.camel@dhcp231-106.rdu.redhat.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
--- 
+On Fri, 2009-09-11 at 15:33 -0400, Eric Paris wrote:
+
+
+> 
+> I'm willing to try to make this happen, I'm just sure I see the benefit
+> and I don't know anyone who knows the net/netlink code well enough who
+> owuld be interested to help.....
+> 
+
+I can help you on the netlink side but maybe we need to define the
+problem scope properly first. I dont know anything about fanotify, but
+i then dont need to. Can I re-phrase your problem as follows:
+
+You have kernel code which wishes to communicate information to multiple
+listeners in user space. The listeners register some form of filter
+(that you term as a monitor) for an object of interest.  For a specific
+filter you wish to send them events when something happens to
+the object they registered for.
+Would the above be accurate?
+
+One good place to start is the taskstats code in linux. Look at
+Documentation/accounting in the kernel code. Ive also CCed Balbir who
+was involved in that work since i think it bears similarity to what you
+are trying to achieve conceptually.
+
+To your other statements:
+0) A single skb can be used to send to all the listners..
+1) Netlink messages wont get lost unless the listener is not keeping up
+and the kernel sending it messages ends up filling its queues. In such a
+case your event message will be delivered to the 49 other users but
+not the overloaded one. You can add sequence numbers to the event
+messages you send to the listeners and any gaps in sequences on received
+events imply lost events. You can add a mechanism to query your user
+space kernel when something like that gets lost.
+2) Your architecture has to take care of maintaining the state of what
+you want to deliver. So your editing has nothing to do with skbs.
+i.e an event happens, you update your state. If you need to send the
+event to the listeners, you alloc an skb - populate it with the info;
+multicast it to all the listeners. If something else happens, i would
+suggest for sake of simplicity you rinse and repeat. Sure, the listener
+may get contradicting events - but they should be able to handle it.
+
+I hope this helps...
+
+cheers,
+jamal
+
+
+
