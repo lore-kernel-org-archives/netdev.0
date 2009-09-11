@@ -1,97 +1,97 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: [PATCH 3/4] bonding: send ARP requests on interfaces other than
-	the primary for tlb/alb
-Date: Fri, 11 Sep 2009 17:11:42 -0400
-Message-ID: <20090911211142.GS8515@gospo.rdu.redhat.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [net-next PATCH V2] etherdevice.h: random_ether_addr update
+Date: Fri, 11 Sep 2009 14:13:04 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F07556A7EAC63@orsmsx508.amr.corp.intel.com>
+References: <20090911014757.19631.66570.stgit@localhost.localdomain>
+	 <20090910190703.25d14533@nehalam>
+	 <1252638163.4355.35.camel@Joe-Laptop.home>
+	 <20090911.121542.45333246.davem@davemloft.net>
+	 <1252700442.15292.62.camel@Joe-Laptop.home>
+ <1252701862.15292.73.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>
+To: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19164 "EHLO mx1.redhat.com"
+Received: from mga01.intel.com ([192.55.52.88]:48560 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756830AbZIKVL4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Sep 2009 17:11:56 -0400
-Content-Disposition: inline
+	id S1756838AbZIKVNE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 17:13:04 -0400
+In-Reply-To: <1252701862.15292.73.camel@Joe-Laptop.home>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Subject: [PATCH] bonding: send ARP requests on interfaces other than the primary for tlb/alb
+The addresses generated here will likely never be used in a production environment.  They are place holders so that the device will function before any management console has done what 99.9% of all vendors will do, which is assign their own address.  OK, that 99% is not a real number, but consider it illustrative of the fact that almost all VMM vendors will assign their own MAC addresses.
 
-This patch sends ARP request on the correct destination output interface
-rather than always sending them on the primary interface.  I've also
-added some bits to make sure that the source and destination address in
-the ARP header are correct since simply changing the source MAC and
-output interface will not be that helpful.
+They're useful for test and development and that's about it.  We're in discussion with partners about how best to approach the management interface for this and each vendor has his own preferred approach (which complicates the solution) but for now the accepted method is for the igbvf driver to set it's own assigned MAC address in the guest.
 
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+The discussion is useful but I think we should keep in mind that the addresses in question will be transitory in nature, likely to be never used except for test and development.
 
----
- drivers/net/bonding/bond_alb.c |   45 ++++++++++++++++++---------------------
- 1 files changed, 21 insertions(+), 24 deletions(-)
+One thing, the original patch described it as ncessary to help prevent collisions among MAC address and this is incorrect.  It was intended to help reduce collisions with other vendors MAC addresses.  If the list doesn't consider that a worth while goal then we can withdraw the patch or take one of the suggested permutations.
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index a88d0ec..7db8835 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -747,35 +747,32 @@ static struct slave *rlb_arp_xmit(struct sk_buff *skb, struct bonding *bond)
- 	struct arp_pkt *arp = arp_pkt(skb);
- 	struct slave *tx_slave = NULL;
- 
--	if (arp->op_code == htons(ARPOP_REPLY)) {
--		/* the arp must be sent on the selected
--		* rx channel
--		*/
--		tx_slave = rlb_choose_channel(skb, bond);
--		if (tx_slave) {
--			memcpy(arp->mac_src,tx_slave->dev->dev_addr, ETH_ALEN);
--		}
--		pr_debug("Server sent ARP Reply packet\n");
--	} else if (arp->op_code == htons(ARPOP_REQUEST)) {
--		/* Create an entry in the rx_hashtbl for this client as a
--		 * place holder.
--		 * When the arp reply is received the entry will be updated
--		 * with the correct unicast address of the client.
--		 */
--		rlb_choose_channel(skb, bond);
-+	/* Choose an output channel for the ARP frame */
-+	tx_slave = rlb_choose_channel(skb, bond);
- 
--		/* The ARP relpy packets must be delayed so that
--		 * they can cancel out the influence of the ARP request.
--		 */
-+	/* If a valid interface is returned, make sure the sender and target MAC
-+	 * addresses are correct based on the interface that will be transmitting
-+	 * the frame. */
-+	if (tx_slave) {
-+		/* If sender mac is the bond's address, rewrite */
-+		if (!compare_ether_addr_64bits(arp->mac_src,bond->dev->dev_addr))
-+			memcpy(arp->mac_src,tx_slave->dev->dev_addr,bond->dev->addr_len);
+Thanks,
+
+- Greg Rose
+LAN Access Division
+Intel Corp.
+
+-----Original Message-----
+From: Joe Perches [mailto:joe@perches.com] 
+Sent: Friday, September 11, 2009 1:44 PM
+To: David Miller
+Cc: shemminger@vyatta.com; Kirsher, Jeffrey T; netdev@vger.kernel.org; gospo@redhat.com; Rose, Gregory V; Skidmore, Donald C
+Subject: Re: [net-next PATCH V2] etherdevice.h: random_ether_addr update
+
+Perhaps this is slightly better, it doesn't call
+random32 for each octet and makes sure the leading
+octet is >= 0x04.
+
+random_ether_address should assign a leading octet >= "0x04"
+
+Does not use get_random_bytes to avoid drawing down entropy pool.
+
+Signed-off-by: Joe Perches <joe@perches.com>
+
+diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
+index 3d7a668..fddcabf 100644
+--- a/include/linux/etherdevice.h
++++ b/include/linux/etherdevice.h
+@@ -121,9 +121,26 @@ static inline int is_valid_ether_addr(const u8 *addr)
+  */
+ static inline void random_ether_addr(u8 *addr)
+ {
+-	get_random_bytes (addr, ETH_ALEN);
+-	addr [0] &= 0xfe;	/* clear multicast bit */
+-	addr [0] |= 0x02;	/* set local assignment bit (IEEE802) */
++	u32 val;
 +
-+		/* If target mac is the bond's address, rewrite */
-+		if (!compare_ether_addr_64bits(arp->mac_dst,bond->dev->dev_addr))
-+			memcpy(arp->mac_dst,tx_slave->dev->dev_addr,bond->dev->addr_len);
++	/* not calling get_random_bytes to avoid using entropy */
++	do {
++		val = random32();
++		addr[0] = val;
++	} while (addr[0] < 4);
++	addr[0] &= 0xfe;	/* clear multicast bit */
++	addr[0] |= 0x02;	/* set local assignment bit (IEEE802) */
 +
-+	} else if (arp->op_code == htons(ARPOP_REQUEST)) {
-+		/* if tx_slave is NULL, the periodic ARP replies must
-+		 * be delayed so they can cancel out the influence of
-+		 * the ARP request. */
- 		bond->alb_info.rlb_update_delay_counter = RLB_UPDATE_DELAY;
++	val >>= 8;
++	addr[1] = val;
++	val >>= 8;
++	addr[2] = val;
++	val >>= 8;
++	addr[3] = val;
++	val = random32();
++	addr[4] = val;
++	val >>= 8;
++	addr[5] = val;
+ }
  
--		/* arp requests are broadcast and are sent on the primary
--		 * the arp request will collapse all clients on the subnet to
-+		/* ARP requests are broadcast and are sent on the primary
-+		 * the ARP request will collapse all clients on the subnet to
- 		 * the primary slave. We must register these clients to be
--		 * updated with their assigned mac.
--		 */
-+		 * updated with their assigned MAC. */
- 		rlb_req_update_subnet_clients(bond, arp->ip_src);
--		pr_debug("Server sent ARP Request packet\n");
- 	}
- 
- 	return tx_slave;
--- 
-1.5.5.6
+ /**
+
 
