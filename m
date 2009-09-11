@@ -1,97 +1,199 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [net-next PATCH V2] etherdevice.h: random_ether_addr update
-Date: Fri, 11 Sep 2009 14:13:04 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F07556A7EAC63@orsmsx508.amr.corp.intel.com>
-References: <20090911014757.19631.66570.stgit@localhost.localdomain>
-	 <20090910190703.25d14533@nehalam>
-	 <1252638163.4355.35.camel@Joe-Laptop.home>
-	 <20090911.121542.45333246.davem@davemloft.net>
-	 <1252700442.15292.62.camel@Joe-Laptop.home>
- <1252701862.15292.73.camel@Joe-Laptop.home>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH 4/4] bonding: add sysfs files to display tlb and alb hash
+	table contents
+Date: Fri, 11 Sep 2009 17:13:17 -0400
+Message-ID: <20090911211317.GT8515@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>
-To: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:48560 "EHLO mga01.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:56651 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756838AbZIKVNE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 17:13:04 -0400
-In-Reply-To: <1252701862.15292.73.camel@Joe-Laptop.home>
-Content-Language: en-US
+	id S1756863AbZIKVN3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Sep 2009 17:13:29 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-The addresses generated here will likely never be used in a production environment.  They are place holders so that the device will function before any management console has done what 99.9% of all vendors will do, which is assign their own address.  OK, that 99% is not a real number, but consider it illustrative of the fact that almost all VMM vendors will assign their own MAC addresses.
+bonding: add sysfs files to display tlb and alb hash table contents
 
-They're useful for test and development and that's about it.  We're in discussion with partners about how best to approach the management interface for this and each vendor has his own preferred approach (which complicates the solution) but for now the accepted method is for the igbvf driver to set it's own assigned MAC address in the guest.
+While debugging some problems with alb (mode 6) bonding I realized that
+being able to output the contents of both hash tables would be helpful.
+This is what the output looks like for the two files:
 
-The discussion is useful but I think we should keep in mind that the addresses in question will be transitory in nature, likely to be never used except for test and development.
+device  load
+eth1    491
+eth2    491
+hash device   last device   tx bytes       load        next previous
+2    eth1     eth1          2254           491         0    0
+3    eth2     eth2          2744           491         0    0
+6             eth2          0              488         0    0
+8             eth2          0              461698      0    0
+1b            eth2          0              249         0    0
+eb            eth2          0              21          0    0
+ff            eth2          0              22          0    0
 
-One thing, the original patch described it as ncessary to help prevent collisions among MAC address and this is incorrect.  It was intended to help reduce collisions with other vendors MAC addresses.  If the list doesn't consider that a worth while goal then we can withdraw the patch or take one of the suggested permutations.
+hash ip_src          ip_dst          mac_dst           slave assign ntt
+2    10.0.3.2        10.0.3.11       00:e0:81:71:ee:a9 eth1  1      0
+3    10.0.3.2        10.0.3.10       00:e0:81:71:ee:a9 eth2  1      0
+8    10.0.3.2        10.0.3.1        00:e0:81:71:ee:a9 eth2  1      0
 
-Thanks,
+These were a great help debugging the fixes I have just posted and they
+might be helpful for others, so I decided to include them in my
+patchset.
 
-- Greg Rose
-LAN Access Division
-Intel Corp.
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 
------Original Message-----
-From: Joe Perches [mailto:joe@perches.com] 
-Sent: Friday, September 11, 2009 1:44 PM
-To: David Miller
-Cc: shemminger@vyatta.com; Kirsher, Jeffrey T; netdev@vger.kernel.org; gospo@redhat.com; Rose, Gregory V; Skidmore, Donald C
-Subject: Re: [net-next PATCH V2] etherdevice.h: random_ether_addr update
+---
+ drivers/net/bonding/bond_alb.c   |   61 ++++++++++++++++++++++++++++++++++++++
+ drivers/net/bonding/bond_alb.h   |    2 +
+ drivers/net/bonding/bond_sysfs.c |   40 +++++++++++++++++++++++++
+ 3 files changed, 103 insertions(+), 0 deletions(-)
 
-Perhaps this is slightly better, it doesn't call
-random32 for each octet and makes sure the leading
-octet is >= 0x04.
-
-random_ether_address should assign a leading octet >= "0x04"
-
-Does not use get_random_bytes to avoid drawing down entropy pool.
-
-Signed-off-by: Joe Perches <joe@perches.com>
-
-diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
-index 3d7a668..fddcabf 100644
---- a/include/linux/etherdevice.h
-+++ b/include/linux/etherdevice.h
-@@ -121,9 +121,26 @@ static inline int is_valid_ether_addr(const u8 *addr)
-  */
- static inline void random_ether_addr(u8 *addr)
- {
--	get_random_bytes (addr, ETH_ALEN);
--	addr [0] &= 0xfe;	/* clear multicast bit */
--	addr [0] |= 0x02;	/* set local assignment bit (IEEE802) */
-+	u32 val;
-+
-+	/* not calling get_random_bytes to avoid using entropy */
-+	do {
-+		val = random32();
-+		addr[0] = val;
-+	} while (addr[0] < 4);
-+	addr[0] &= 0xfe;	/* clear multicast bit */
-+	addr[0] |= 0x02;	/* set local assignment bit (IEEE802) */
-+
-+	val >>= 8;
-+	addr[1] = val;
-+	val >>= 8;
-+	addr[2] = val;
-+	val >>= 8;
-+	addr[3] = val;
-+	val = random32();
-+	addr[4] = val;
-+	val >>= 8;
-+	addr[5] = val;
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 7db8835..4e930e3 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -778,6 +778,67 @@ static struct slave *rlb_arp_xmit(struct sk_buff *skb, struct bonding *bond)
+ 	return tx_slave;
  }
  
- /**
-
++int rlb_print_rx_hashtbl(struct bonding *bond, char *buf)
++{
++	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
++	struct rlb_client_info *client_info;
++	u32 hash_index;
++	u32 count = 0;
++	
++	_lock_rx_hashtbl(bond);
++
++	count = sprintf(buf, "hash ip_src          ip_dst          mac_dst           slave assign ntt\n");
++	hash_index = bond_info->rx_hashtbl_head;
++	for (; hash_index != RLB_NULL_INDEX; hash_index = client_info->next) {
++		client_info = &(bond_info->rx_hashtbl[hash_index]);
++		count += sprintf(buf + count,"%-4x %-15pi4 %-15pi4 %pM %-5s %-6d %d\n",
++				 hash_index,
++				 &client_info->ip_src,
++				 &client_info->ip_dst,
++				 client_info->mac_dst,
++				 client_info->slave->dev->name,
++				 client_info->assigned,
++				 client_info->ntt);
++	}
++
++	_unlock_rx_hashtbl(bond);
++	return count;
++}
++
++int tlb_print_tx_hashtbl(struct bonding *bond, char *buf)
++{
++	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
++	u32 hash_index;
++	u32 count = 0;
++	struct slave *slave;
++	int i;
++	
++	_lock_tx_hashtbl(bond);
++
++	count += sprintf(buf, "device  load\n");
++	bond_for_each_slave(bond, slave, i) {
++		struct tlb_slave_info *slave_info = &(SLAVE_TLB_INFO(slave));
++		count += sprintf(buf + count,"%-7s %d\n",slave->dev->name,slave_info->load);
++	}
++	count += sprintf(buf + count, "hash device   last device   tx bytes       load        next previous\n");
++	for (hash_index = 0; hash_index < TLB_HASH_TABLE_SIZE; hash_index++) {
++		struct tlb_client_info *client_info = &(bond_info->tx_hashtbl[hash_index]);
++		if (client_info->tx_slave || client_info->last_slave) {
++			count += sprintf(buf + count,"%-4x %-8s %-13s %-14d %-11d %-4x %d\n",
++					 hash_index,
++					 (client_info->tx_slave) ? client_info->tx_slave->dev->name : "",
++					 (client_info->last_slave) ? client_info->last_slave->dev->name : "",
++					 client_info->tx_bytes,
++					 client_info->load_history,
++					 (client_info->next != TLB_NULL_INDEX) ? client_info->next : 0,
++					 (client_info->prev != TLB_NULL_INDEX) ? client_info->prev : 0);
++		}
++	}
++
++	_unlock_tx_hashtbl(bond);
++	return count;
++}
++
+ /* Caller must hold rx_hashtbl lock */
+ static void rlb_init_table_entry(struct rlb_client_info *entry)
+ {
+diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
+index b65fd29..8543447 100644
+--- a/drivers/net/bonding/bond_alb.h
++++ b/drivers/net/bonding/bond_alb.h
+@@ -132,5 +132,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev);
+ void bond_alb_monitor(struct work_struct *);
+ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr);
+ void bond_alb_clear_vlan(struct bonding *bond, unsigned short vlan_id);
++int rlb_print_rx_hashtbl(struct bonding *bond, char *buf);
++int tlb_print_tx_hashtbl(struct bonding *bond, char *buf);
+ #endif /* __BOND_ALB_H__ */
+ 
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 55bf34f..1123e1f 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -1480,6 +1480,44 @@ static ssize_t bonding_show_ad_partner_mac(struct device *d,
+ static DEVICE_ATTR(ad_partner_mac, S_IRUGO, bonding_show_ad_partner_mac, NULL);
+ 
+ 
++/*
++ * Show current tlb/alb tx hash table.
++ */
++static ssize_t bonding_show_tlb_tx_hash(struct device *d,
++					   struct device_attribute *attr,
++					   char *buf)
++{
++	int count = 0;
++	struct bonding *bond = to_bond(d);
++
++	if (bond->params.mode == BOND_MODE_ALB ||
++	    bond->params.mode == BOND_MODE_TLB) {
++		count = tlb_print_tx_hashtbl(bond, buf);
++	}
++
++	return count;
++}
++static DEVICE_ATTR(tlb_tx_hash, S_IRUGO, bonding_show_tlb_tx_hash, NULL);
++
++
++/*
++ * Show current alb rx hash table.
++ */
++static ssize_t bonding_show_alb_rx_hash(struct device *d,
++					   struct device_attribute *attr,
++					   char *buf)
++{
++	int count = 0;
++	struct bonding *bond = to_bond(d);
++
++	if (bond->params.mode == BOND_MODE_ALB) {
++		count = rlb_print_rx_hashtbl(bond, buf);
++	}
++
++	return count;
++}
++static DEVICE_ATTR(alb_rx_hash, S_IRUGO, bonding_show_alb_rx_hash, NULL);
++
+ 
+ static struct attribute *per_bond_attrs[] = {
+ 	&dev_attr_slaves.attr,
+@@ -1505,6 +1543,8 @@ static struct attribute *per_bond_attrs[] = {
+ 	&dev_attr_ad_actor_key.attr,
+ 	&dev_attr_ad_partner_key.attr,
+ 	&dev_attr_ad_partner_mac.attr,
++	&dev_attr_alb_rx_hash.attr,
++	&dev_attr_tlb_tx_hash.attr,
+ 	NULL,
+ };
+ 
+-- 
+1.5.5.6
 
