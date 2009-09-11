@@ -1,52 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix sock_wfree() race
-Date: Fri, 11 Sep 2009 12:52:42 -0700 (PDT)
-Message-ID: <20090911.125242.244008840.davem@davemloft.net>
-References: <4AA64A11.7090804@gmail.com>
-	<4AA6DF7B.7060105@gmail.com>
-	<20090911.114337.150207703.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 14147] New: System unresponsive if I unplug
+ network cable while ethtool -p is running
+Date: Fri, 11 Sep 2009 12:55:46 -0700
+Message-ID: <20090911125546.52185035.akpm@linux-foundation.org>
+References: <bug-14147-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: albcamus@gmail.com, parag.lkml@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, david.graham@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50799
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755908AbZIKTwZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 15:52:25 -0400
-In-Reply-To: <20090911.114337.150207703.davem@davemloft.net>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:45885 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756105AbZIKTzp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 15:55:45 -0400
+In-Reply-To: <bug-14147-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Fri, 11 Sep 2009 11:43:37 -0700 (PDT)
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 09 Sep 2009 00:49:31 +0200
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Wed, 9 Sep 2009 00:06:10 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
+
+> http://bugzilla.kernel.org/show_bug.cgi?id=14147
 > 
->> [PATCH] net: Fix sock_wfree() race
->> 
->> Commit 2b85a34e911bf483c27cfdd124aeb1605145dc80
->> (net: No more expensive sock_hold()/sock_put() on each tx)
->> opens a window in sock_wfree() where another cpu
->> might free the socket we are working on.
->> 
->> Fix is to call sk->sk_write_space(sk) only
->> while still holding a reference on sk.
->> 
->> Since doing this call is done before the 
->> atomic_sub(truesize, &sk->sk_wmem_alloc), we should pass truesize as 
->> a bias for possible sk_wmem_alloc evaluations.
->> 
->> Reported-by: Jike Song <albcamus@gmail.com>
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>            Summary: System unresponsive if I unplug network cable while
+>                     ethtool -p is running
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 2.6.30
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: acme@ghostprotocols.net
+>         ReportedBy: david.graham@intel.com
+>         Regression: No
 > 
-> Applied to net-next-2.6, thanks.  I'll queue up your simpler
-> version for -stable.
+> 
+> When a user runs the "ethtool -p ethX" to identify the physical interface by
+> flashing the appropriate interface LED, and then removes the cable at that
+> interface, the keyboard locks up. This is naturally annoying to customers with
+> multi-port systems, who wish to use ethtool -p so that they can
+> disconnect/connect interface cables to appropriate ports. 
+> 
+> I am told that this is because "the RTNL lock is held by ethtool, and the link
+> [down] message needs the RTNL", which would, I think, make this a kernel issue. 
+> 
+> This has been known about within INTEL for over 3 years, but only recently come
+> to my attention. I have verified it on a 2.6.30 system using a default kernel
+> configuration and the e1000e driver.
+> 
 
-Eric, I have to revert, as you didn't update the callbacks
-of several protocols such as SCTP and RDS in this change.
-
-Let me know when you have a fixed version of this patch :-)
+hah.  cute.
