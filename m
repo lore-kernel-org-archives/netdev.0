@@ -1,78 +1,225 @@
-From: Jamie Lokier <jamie@shareable.org>
-Subject: Re: [PATCH 1/8] networking/fanotify: declare fanotify socket numbers
-Date: Fri, 11 Sep 2009 22:42:54 +0100
-Message-ID: <20090911214254.GB19901@shareable.org>
-References: <20090911052558.32359.18075.stgit@paris.rdu.redhat.com> <20090911.114620.260824240.davem@davemloft.net> <1252697613.2305.38.camel@dhcp231-106.rdu.redhat.com> <1252704102.25158.36.camel@dogo.mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Paris <eparis@redhat.com>, David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
-	alan@linux.intel.com, hch@infradead.org, balbir@in.ibm.com
-To: jamal <hadi@cyberus.ca>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756957AbZIKVnN@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1252704102.25158.36.camel@dogo.mojatatu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH 4/4] bonding: add sysfs files to display tlb and alb hash table contents
+Date: Fri, 11 Sep 2009 14:48:17 -0700
+Message-ID: <26430.1252705697@death.nxdomain.ibm.com>
+References: <20090911211317.GT8515@gospo.rdu.redhat.com>
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
+To: Andy Gospodarek <andy@greyhouse.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:39760 "EHLO e3.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756695AbZIKVsS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Sep 2009 17:48:18 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e3.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id n8BLfION016502
+	for <netdev@vger.kernel.org>; Fri, 11 Sep 2009 17:41:18 -0400
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n8BLmLxa245724
+	for <netdev@vger.kernel.org>; Fri, 11 Sep 2009 17:48:21 -0400
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n8BLmLul022090
+	for <netdev@vger.kernel.org>; Fri, 11 Sep 2009 17:48:21 -0400
+In-reply-to: <20090911211317.GT8515@gospo.rdu.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-jamal wrote:
-> 1) Netlink messages wont get lost unless the listener is not keeping up
-> and the kernel sending it messages ends up filling its queues. In such a
-> case your event message will be delivered to the 49 other users but
-> not the overloaded one. You can add sequence numbers to the event
-> messages you send to the listeners and any gaps in sequences on received
-> events imply lost events. You can add a mechanism to query your user
-> space kernel when something like that gets lost.
+Andy Gospodarek <andy@greyhouse.net> wrote:
 
-One of the uses of fanotify is as a security or auditing mechanism.
-That can't tolerate gaps.
+>bonding: add sysfs files to display tlb and alb hash table contents
 
-It's fundemantally different from inotify in one important respect:
-inotify apps can recover from losing events by checking what they are
-watching.
+	Isn't it considered bad form to have sysfs files that kick out
+large amounts of data like this?  Not that I think this is a bad
+facility to have, just checking on the mechanism.
 
-The fanotify application will know that it missed events, but what
-happens to the other application which _caused_ those events?  Does it
-get to do things it shouldn't, or hide them from the fanotify app, by
-simply overloading the system?  Or the opposite, does it get access
-denied - spurious file errors when the system is overloaded?
+>While debugging some problems with alb (mode 6) bonding I realized that
+>being able to output the contents of both hash tables would be helpful.
+>This is what the output looks like for the two files:
+>
+>device  load
+>eth1    491
+>eth2    491
+>hash device   last device   tx bytes       load        next previous
+>2    eth1     eth1          2254           491         0    0
+>3    eth2     eth2          2744           491         0    0
+>6             eth2          0              488         0    0
+>8             eth2          0              461698      0    0
+>1b            eth2          0              249         0    0
+>eb            eth2          0              21          0    0
+>ff            eth2          0              22          0    0
+>
+>hash ip_src          ip_dst          mac_dst           slave assign ntt
+>2    10.0.3.2        10.0.3.11       00:e0:81:71:ee:a9 eth1  1      0
+>3    10.0.3.2        10.0.3.10       00:e0:81:71:ee:a9 eth2  1      0
+>8    10.0.3.2        10.0.3.1        00:e0:81:71:ee:a9 eth2  1      0
+>
+>These were a great help debugging the fixes I have just posted and they
+>might be helpful for others, so I decided to include them in my
+>patchset.
+>
+>Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+>
+>---
+> drivers/net/bonding/bond_alb.c   |   61 ++++++++++++++++++++++++++++++++++++++
+> drivers/net/bonding/bond_alb.h   |    2 +
+> drivers/net/bonding/bond_sysfs.c |   40 +++++++++++++++++++++++++
+> 3 files changed, 103 insertions(+), 0 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+>index 7db8835..4e930e3 100644
+>--- a/drivers/net/bonding/bond_alb.c
+>+++ b/drivers/net/bonding/bond_alb.c
+>@@ -778,6 +778,67 @@ static struct slave *rlb_arp_xmit(struct sk_buff *skb, struct bonding *bond)
+> 	return tx_slave;
+> }
+>
+>+int rlb_print_rx_hashtbl(struct bonding *bond, char *buf)
+>+{
+>+	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+>+	struct rlb_client_info *client_info;
+>+	u32 hash_index;
+>+	u32 count = 0;
+>+	
+>+	_lock_rx_hashtbl(bond);
+>+
+>+	count = sprintf(buf, "hash ip_src          ip_dst          mac_dst           slave assign ntt\n");
+>+	hash_index = bond_info->rx_hashtbl_head;
+>+	for (; hash_index != RLB_NULL_INDEX; hash_index = client_info->next) {
+>+		client_info = &(bond_info->rx_hashtbl[hash_index]);
+>+		count += sprintf(buf + count,"%-4x %-15pi4 %-15pi4 %pM %-5s %-6d %d\n",
+>+				 hash_index,
+>+				 &client_info->ip_src,
+>+				 &client_info->ip_dst,
+>+				 client_info->mac_dst,
+>+				 client_info->slave->dev->name,
+>+				 client_info->assigned,
+>+				 client_info->ntt);
+>+	}
+>+
+>+	_unlock_rx_hashtbl(bond);
+>+	return count;
+>+}
+>+
+>+int tlb_print_tx_hashtbl(struct bonding *bond, char *buf)
+>+{
+>+	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+>+	u32 hash_index;
+>+	u32 count = 0;
+>+	struct slave *slave;
+>+	int i;
+>+	
+>+	_lock_tx_hashtbl(bond);
+>+
+>+	count += sprintf(buf, "device  load\n");
+>+	bond_for_each_slave(bond, slave, i) {
+>+		struct tlb_slave_info *slave_info = &(SLAVE_TLB_INFO(slave));
+>+		count += sprintf(buf + count,"%-7s %d\n",slave->dev->name,slave_info->load);
+>+	}
+>+	count += sprintf(buf + count, "hash device   last device   tx bytes       load        next previous\n");
+>+	for (hash_index = 0; hash_index < TLB_HASH_TABLE_SIZE; hash_index++) {
+>+		struct tlb_client_info *client_info = &(bond_info->tx_hashtbl[hash_index]);
+>+		if (client_info->tx_slave || client_info->last_slave) {
+>+			count += sprintf(buf + count,"%-4x %-8s %-13s %-14d %-11d %-4x %d\n",
+>+					 hash_index,
+>+					 (client_info->tx_slave) ? client_info->tx_slave->dev->name : "",
+>+					 (client_info->last_slave) ? client_info->last_slave->dev->name : "",
+>+					 client_info->tx_bytes,
+>+					 client_info->load_history,
+>+					 (client_info->next != TLB_NULL_INDEX) ? client_info->next : 0,
+>+					 (client_info->prev != TLB_NULL_INDEX) ? client_info->prev : 0);
+>+		}
+>+	}
+>+
+>+	_unlock_tx_hashtbl(bond);
+>+	return count;
+>+}
+>+
+> /* Caller must hold rx_hashtbl lock */
+> static void rlb_init_table_entry(struct rlb_client_info *entry)
+> {
+>diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
+>index b65fd29..8543447 100644
+>--- a/drivers/net/bonding/bond_alb.h
+>+++ b/drivers/net/bonding/bond_alb.h
+>@@ -132,5 +132,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev);
+> void bond_alb_monitor(struct work_struct *);
+> int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr);
+> void bond_alb_clear_vlan(struct bonding *bond, unsigned short vlan_id);
+>+int rlb_print_rx_hashtbl(struct bonding *bond, char *buf);
+>+int tlb_print_tx_hashtbl(struct bonding *bond, char *buf);
+> #endif /* __BOND_ALB_H__ */
+>
+>diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+>index 55bf34f..1123e1f 100644
+>--- a/drivers/net/bonding/bond_sysfs.c
+>+++ b/drivers/net/bonding/bond_sysfs.c
+>@@ -1480,6 +1480,44 @@ static ssize_t bonding_show_ad_partner_mac(struct device *d,
+> static DEVICE_ATTR(ad_partner_mac, S_IRUGO, bonding_show_ad_partner_mac, NULL);
+>
+>
+>+/*
+>+ * Show current tlb/alb tx hash table.
+>+ */
+>+static ssize_t bonding_show_tlb_tx_hash(struct device *d,
+>+					   struct device_attribute *attr,
+>+					   char *buf)
+>+{
+>+	int count = 0;
+>+	struct bonding *bond = to_bond(d);
+>+
+>+	if (bond->params.mode == BOND_MODE_ALB ||
+>+	    bond->params.mode == BOND_MODE_TLB) {
+>+		count = tlb_print_tx_hashtbl(bond, buf);
+>+	}
+>+
+>+	return count;
+>+}
+>+static DEVICE_ATTR(tlb_tx_hash, S_IRUGO, bonding_show_tlb_tx_hash, NULL);
 
-There's no way to handle that by dropping events.  A transport
-mechanism can be dropped (say skbs), but the event itself has to be
-kept, and then retried.
+	Should the mode here be S_IRUSR (0400, instead of 0444)?
+Otherwise, a nefarious user could "while 1 cat /sys/.../tlb_tx_hash" and
+keep the hash table lock fairly busy.  Since the lock is acquired for
+every packet on tx, that's probably a bad thing.
 
-Since you have to keep an event object around until it's handled,
-there's no point tying it to an unreliable delivery mechanism which
-you'd have to wrap a retry mechanism around.
+>+
+>+/*
+>+ * Show current alb rx hash table.
+>+ */
+>+static ssize_t bonding_show_alb_rx_hash(struct device *d,
+>+					   struct device_attribute *attr,
+>+					   char *buf)
+>+{
+>+	int count = 0;
+>+	struct bonding *bond = to_bond(d);
+>+
+>+	if (bond->params.mode == BOND_MODE_ALB) {
+>+		count = rlb_print_rx_hashtbl(bond, buf);
+>+	}
+>+
+>+	return count;
+>+}
+>+static DEVICE_ATTR(alb_rx_hash, S_IRUGO, bonding_show_alb_rx_hash, NULL);
 
-In other words, that part of netlink is a poor match.  It would match
-inotify much better.
+	Same comment as for the mode of the tlb_tx_hash, although the rx
+hash table lock is much more lightly used, so it might not be a real
+problem.
 
-> 2) Your architecture has to take care of maintaining the state of what
-> you want to deliver. So your editing has nothing to do with skbs.
-> i.e an event happens, you update your state. If you need to send the
-> event to the listeners, you alloc an skb - populate it with the info;
-> multicast it to all the listeners. If something else happens, i would
-> suggest for sake of simplicity you rinse and repeat. Sure, the listener
-> may get contradicting events - but they should be able to handle it.
+>
+> static struct attribute *per_bond_attrs[] = {
+> 	&dev_attr_slaves.attr,
+>@@ -1505,6 +1543,8 @@ static struct attribute *per_bond_attrs[] = {
+> 	&dev_attr_ad_actor_key.attr,
+> 	&dev_attr_ad_partner_key.attr,
+> 	&dev_attr_ad_partner_mac.attr,
+>+	&dev_attr_alb_rx_hash.attr,
+>+	&dev_attr_tlb_tx_hash.attr,
+> 	NULL,
+> };
+>
+>-- 
+>1.5.5.6
+>
 
-Speaking of skbs, how fast and compact are they for this?
+	-J
 
-Eric's explained that it would be normal for _every_ file operation on
-some systems to trigger a fanotify event and possibly wait on the
-response, or at least in major directory trees on the filesystem.
-Even if it's just for the fanotify app to say "oh I don't care about
-that file, carry on".
-
-File performance is one of those things which really needs to be fast
-for a good user experience - and it's not unusual to grep the odd
-10,000 files here or there (just think of what a kernel developer
-does), or to replace a few thousand quickly (rpm/dpkg) and things like
-that.
-
-While skbs and netlink aren't that slow, I suspect they're an order of
-magnitude or two slower than, say, epoll or inotify at passing events
-around.
-
--- Jamie
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
