@@ -1,40 +1,52 @@
-From: Clifford Heath <clifford.heath@gmail.com>
-Subject: Re: Network hangs with 2.6.30.5
-Date: Fri, 11 Sep 2009 08:41:35 +1000
-Message-ID: <6529E18B-D422-4D83-95E6-02B6536E3D62@gmail.com>
-References: <20090907072143.GA5966@ff.dom.local>
-Mime-Version: 1.0 (Apple Message framework v936)
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed	delsp=yes
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Jarek Poplawski <jarkao2@gmail.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH -next] netxen: build fix for INET=n
+Date: Fri, 11 Sep 2009 15:41:04 -0700
+Message-ID: <20090911154104.1804a82f.randy.dunlap@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Dhananjay Phadke <dhananjay@netxen.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.25]:29300 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753391AbZIKWf7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 18:35:59 -0400
-Received: by qw-out-2122.google.com with SMTP id 9so519382qwb.37
-        for <netdev@vger.kernel.org>; Fri, 11 Sep 2009 15:36:02 -0700 (PDT)
-In-Reply-To: <20090907072143.GA5966@ff.dom.local>
+Received: from acsinet12.oracle.com ([141.146.126.234]:58707 "EHLO
+	acsinet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755435AbZIKWlI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 18:41:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/09/2009, at 5:21 PM, Jarek Poplawski wrote:
-> On 03-09-2009 21:55, Holger Hoffstaette wrote:
->> On Thu, 03 Sep 2009 21:27:08 +0200, Eric Dumazet wrote:
->>> Holger Hoffstaette a =E9crit :
->>>> Problem found! At least for me..
-> ...
->> Was that somewhat helpful? I can certainly create a full trace but =20
->> that's
->> going to be big.
->
-> Congratulations for finding the culprit!
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-While it's excellent that Holger has found his problem, the
-original problem (posted by me) remains. Unfortunately the
-machine affected has had a hard disk meltdown (too many
-kernel builds? :-)) and so I can't continue with my testing
-before I fix that. Just wanted to note that it's still a live issue.
+When CONFIG_INET is disabled, netxen has a build failure:
 
-Clifford Heath.
+netxen_nic_main.c:(.text+0x118fd1): undefined reference to `netxen_config_indev_addr'
+
+so make that function just an empty stub when CONFIG_INET=n.
+(not "inline" since that conflicts with other declarations of it)
+
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ drivers/net/netxen/netxen_nic_main.c |    4 ++++
+ 1 file changed, 4 insertions(+)
+
+--- linux-next-20090911.orig/drivers/net/netxen/netxen_nic_main.c
++++ linux-next-20090911/drivers/net/netxen/netxen_nic_main.c
+@@ -2450,6 +2450,10 @@ static struct notifier_block	netxen_netd
+ static struct notifier_block netxen_inetaddr_cb = {
+ 	.notifier_call = netxen_inetaddr_event,
+ };
++#else
++static void
++netxen_config_indev_addr(struct net_device *dev, unsigned long event)
++{ }
+ #endif
+ 
+ static struct pci_driver netxen_driver = {
+
+
+
+
+---
+~Randy
+LPC 2009, Sept. 23-25, Portland, Oregon
+http://linuxplumbersconf.org/2009/
