@@ -1,52 +1,43 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH -next] netxen: build fix for INET=n
-Date: Fri, 11 Sep 2009 15:41:04 -0700
-Message-ID: <20090911154104.1804a82f.randy.dunlap@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 5717 support commit is buggy
+Date: Fri, 11 Sep 2009 15:41:25 -0700 (PDT)
+Message-ID: <20090911.154125.182458823.davem@davemloft.net>
+References: <20090911.151554.181296228.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Dhananjay Phadke <dhananjay@netxen.com>
-To: netdev <netdev@vger.kernel.org>
+Cc: benli@broadcom.com, netdev@vger.kernel.org
+To: mcarlson@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet12.oracle.com ([141.146.126.234]:58707 "EHLO
-	acsinet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755435AbZIKWlI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 18:41:08 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39921
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757128AbZIKWlJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 18:41:09 -0400
+In-Reply-To: <20090911.151554.181296228.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+From: David Miller <davem@davemloft.net>
+Date: Fri, 11 Sep 2009 15:15:54 -0700 (PDT)
 
-When CONFIG_INET is disabled, netxen has a build failure:
+> I'm about to do some tests, but I suspect it's this change:
+> 
+> @@ -111,7 +111,8 @@
+>   * replace things like '% foo' with '& (foo - 1)'.
+>   */
+>  #define TG3_RX_RCB_RING_SIZE(tp)	\
+> -	((tp->tg3_flags2 & TG3_FLG2_5705_PLUS) ?  512 : 1024)
+> +	(((tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) && \
+> +	  !(tp->tg3_flags2 & TG3_FLG2_5780_CLASS)) ? 512 : 1024)
+>  
+>  #define TG3_TX_RING_SIZE		512
+>  #define TG3_DEF_TX_RING_PENDING		(TG3_TX_RING_SIZE - 1)
+> 
+> and thus an incorrect RCB ring size is being used which eventually
+> locks up the card.
 
-netxen_nic_main.c:(.text+0x118fd1): undefined reference to `netxen_config_indev_addr'
+Confirmed, reverting that part of the change makes my card
+work again.
 
-so make that function just an empty stub when CONFIG_INET=n.
-(not "inline" since that conflicts with other declarations of it)
-
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- drivers/net/netxen/netxen_nic_main.c |    4 ++++
- 1 file changed, 4 insertions(+)
-
---- linux-next-20090911.orig/drivers/net/netxen/netxen_nic_main.c
-+++ linux-next-20090911/drivers/net/netxen/netxen_nic_main.c
-@@ -2450,6 +2450,10 @@ static struct notifier_block	netxen_netd
- static struct notifier_block netxen_inetaddr_cb = {
- 	.notifier_call = netxen_inetaddr_event,
- };
-+#else
-+static void
-+netxen_config_indev_addr(struct net_device *dev, unsigned long event)
-+{ }
- #endif
- 
- static struct pci_driver netxen_driver = {
-
-
-
-
----
-~Randy
-LPC 2009, Sept. 23-25, Portland, Oregon
-http://linuxplumbersconf.org/2009/
+Broadcom folks, that is the correct test?  This needs to be fixed
+urgently.
