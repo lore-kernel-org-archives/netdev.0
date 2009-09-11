@@ -1,93 +1,65 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [iproute2] tc action mirred    question
-Date: Fri, 11 Sep 2009 17:28:44 -0400
-Message-ID: <1252704524.25158.42.camel@dogo.mojatatu.com>
-References: <404956.88336.qm@web111607.mail.gq1.yahoo.com>
-	 <1252376168.5244.11.camel@dogo.mojatatu.com>
-	 <313388.35529.qm@web111617.mail.gq1.yahoo.com>
-	 <1252534266.4119.5.camel@dogo.mojatatu.com>
-	 <204967.7557.qm@web111613.mail.gq1.yahoo.com>
-	 <1252671940.25158.5.camel@dogo.mojatatu.com>
-	 <510605.34044.qm@web111611.mail.gq1.yahoo.com>
-Reply-To: hadi@cyberus.ca
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: net_sched 07/07: add classful multiqueue dummy scheduler
+Date: Fri, 11 Sep 2009 23:38:13 +0200
+Message-ID: <20090911213812.GA3965@ami.dom.local>
+References: <20090906200409.GB8833@ami.dom.local>
+ <4AA50A49.7010905@trash.net>
+ <20090907192429.GC4451@ami.dom.local>
+ <4AA563B4.1060003@gmail.com>
+ <4AA7D1B3.7010708@trash.net>
+ <20090909195238.GA3043@ami.dom.local>
+ <4AA8E2FB.3040809@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux netdev <netdev@vger.kernel.org>
-To: Xiaofei Wu <xiaofei_wu08@yahoo.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.24]:1036 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756893AbZIKVbK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 17:31:10 -0400
-Received: by qw-out-2122.google.com with SMTP id 9so504310qwb.37
-        for <netdev@vger.kernel.org>; Fri, 11 Sep 2009 14:31:13 -0700 (PDT)
-In-Reply-To: <510605.34044.qm@web111611.mail.gq1.yahoo.com>
+Received: from mail-fx0-f217.google.com ([209.85.220.217]:53706 "EHLO
+	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753132AbZIKVig (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 17:38:36 -0400
+Received: by fxm17 with SMTP id 17so1089638fxm.37
+        for <netdev@vger.kernel.org>; Fri, 11 Sep 2009 14:38:39 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4AA8E2FB.3040809@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-09-11 at 11:45 -0700, Xiaofei Wu wrote:
-> I run your example ( mirror  lo -> eth0) on Sep. 10th, got almost the same result(in my last email) as yours.
-> I think interface 'lo' is very special.
-> 
-> When I do the following (eth0 -> lo), the results are very strange.
-> 1> run 'tc qdisc add dev eth0 handle 1: root prio'
-> 
-> 2>  tc filter add dev eth0 parent 1: protocol ip prio 10 u32 \
-> match ip src 192.168.1.0/32 flowid 1:16 \
-> action pedit munge offset -14 u16 set 0x0023 \
-> munge offset -12 u32 set 0xcdafecda \
-> munge offset -8 u32 set 0x0023cdaf \
-> munge offset -4 u32 set 0xd0740800 pipe \
-> action mirred egress mirror dev lo
-> 
-> window1  run ' ping 192.168.1.1'
-> window2  'tcpdump -i lo -e', I can not capture any packets.
-> 
+On Thu, Sep 10, 2009 at 01:28:59PM +0200, Patrick McHardy wrote:
+...
+> I'll remove the misleading (and unnecessary) line of code, thanks Jarek.
 
-I think you are doing something wrong. Are there really packets
-being generated with that source address.
-I just did:
-----
-tc qdisc add dev eth0 handle 1: root prio
+Btw, I guess David owes you one classful(!) dummy(?) scheduler...
 
-tc filter add dev eth0 parent 1: protocol ip prio 10 u32 match ip dst
-10.0.0.27 flowid 1:16 action pedit munge offset -14 u16 set 0x0023 munge
-offset -12 u32 set 0xcdafecda munge offset -8 u32 set 0x0023cdaf munge
-offset -4 u32 set 0xd0740800 pipe action mirred egress mirror dev lo
-----
+Jarek P.
 
-I then ping 10.0.0.27 and i can see the packets on tcpdump lo,
+commit 6ec1c69a8f6492fd25722f4762721921da074c12
+Author: David S. Miller <davem@davemloft.net>
+Date:   Sun Sep 6 01:58:51 2009 -0700
 
-> mirror  lo -> eth0 ok, eth0 -> lo  can not work ???
-> 
-> 2'> change 'action mirred egress mirror dev lo' to 'action mirred egress mirror dev eth1' ,
-> 'tcpdump -i eth1 -e'    also capture nothing.
-> Does this mean something wrong with ' action pedit ...' ?   ("offset must be on 32 bit boundaries"?)
-> 
+    net_sched: add classful multiqueue dummy scheduler
+    
+    This patch adds a classful dummy scheduler which can be used as root qdisc
+    for multiqueue devices and exposes each device queue as a child class.
+    
+    This allows to address queues individually and graft them similar to regular
+    classes. Additionally it presents an accumulated view of the statistics of
+    all real root qdiscs in the dummy root.
+    
+    Two new callbacks are added to the qdisc_ops and qdisc_class_ops:
+    
+    - cl_ops->select_queue selects the tx queue number for new child classes.
+    
+    - qdisc_ops->attach() overrides root qdisc device grafting to attach
+      non-shared qdiscs to the queues.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-
-Just make sure it all works first. Perhaps you need to run tcpdump with
--n to avoid name lookup or make sure you are not just arping and not
-issuing icmp etc.
-
-
->  
-> >> lo -> eth0
-> >> But I want to only modify the dst MAC, src MAC of the mirroring packets, transmit them to next hop. 
-> >> (not modify the dst,src MAC of the packets to 'lo').  What should I do?
-> 
-> >Ok, so modifying then mirroring wont work on ingress;->
-> >One thing you can try is first to mirror lo->eth0, then pedit only
-> >specific flow on eth0 that came from lo.
-> 
-> How to do this. Could you show me the example commands?   Thank you.
-> 
-
-Add the rule to mirror on lo
-Add the rule to pedit for mirrored packet on eth0
-
-cheers,
-jamal
-
+diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
+new file mode 100644
+index 0000000..c84dec9
+--- /dev/null
++++ b/net/sched/sch_mq.c
 
