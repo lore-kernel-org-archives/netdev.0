@@ -1,71 +1,115 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: Re: bisect results of MSI-X related panic (help!)
-Date: Fri, 11 Sep 2009 23:05:03 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.0909112253180.31018@swampdragon.chaosbits.net>
-References: <1252699744.3877.15.camel@jbrandeb-hc.jf.intel.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH 1/4] bonding: allow previous slave to be used when
+	re-balancing traffic on tlb/alb interfaces
+Date: Fri, 11 Sep 2009 17:10:10 -0400
+Message-ID: <20090911211009.GQ8515@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756706AbZIKVFD@vger.kernel.org>
-In-Reply-To: <1252699744.3877.15.camel@jbrandeb-hc.jf.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:19660 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751307AbZIKVKV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Sep 2009 17:10:21 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 11 Sep 2009, Jesse Brandeburg wrote:
+[PATCH] bonding: allow previous slave to be used when re-balancing traffic on tlb/alb interfaces
 
-> I've been attempting to isolate a problem that we see on x86_64, when we
-> have many (6 or more) MSI-X enabled LAN ports with 33 MSI-X vectors
-> each.
->
-> The system panics, but with almost random panic traces, usually
-> somewhere around something to do with an interrupt. 2.6.29 is fine,
-> 2.6.30-rc1 is not, and 2.6.31-rc8 fails as well.
->
-> The test I am using to reproduce is
-> rmmod ixgbe
-> modprobe ixgbe
-> ip l set ethX up (X = 1 8 9 10 11 12 13 14 15)
-> run set_irq_affinity script (binds rx0/tx0 to cpu0, rx1/tx1 to cpu1, for
-> each ethX)
-> ping -f -c 5000 host
->
-> I've bisected, here is my bisect log, problem is that the commit
-> identified is a merge commit, and *I don't know what to revert to test*.
-> It appears the parent of the merge:
-> 6e15cf04860074ad032e88c306bea656bbdd0f22 is marked good, but looks to be
-> in a possibly related area to the panic.
->
-> Can someone please help me figure out what to do next?
+When using tlb (mode 5) or alb (mode 6) bonding, a task runs every 10s
+and re-balances the output devices based on load.  I was trying to
+diagnose some connectivity issues and realized that a high-traffic host
+would often switch output interfaces every 10s.  I discovered this
+happened because the 'least loaded interface' was chosen as the next
+output interface for any given stream and quite often some lower load
+traffic would slip in an take the interface previously used by our
+stream.  This meant the 'least loaded interface' was no longer the one
+we used during the last interval.
 
-I don't know if I can help, but I'll try. At least I can tell you what I'd 
-do if I had no other input - perhaps it'll help you, perhaps not...
+The switching of streams to another interface was not extremely helpful
+as it would force the destination host or router to update its ARP
+tables and produce some additional ARP traffic as the destination host
+verified that is was using the MAC address it expected.  Having the
+destination MAC for a given IP change every 10s seems undesirable.
 
-First thing I'd do would be to test with the final 2.6.31 and the latest 
-git kernel. Who knows, if you're lucky it may already be fixed.
+The decision was made to use the same slave during this interval if the
+current load on that interface was < 10.  A load of < 10 indicates that
+during the last 10s sample, roughly 100bytes were sent by all streams
+currently assigned to that interface.  This essentially means the
+interface is unloaded, but allows for a few frames that will probably
+have minimal impact to slip into the same interface we were using in the
+past.
 
-Second thing I'd do would be to try and cut down my .config to the bare 
-minimum needed to boot and reproduce the bug on the box in question.
-I'd do this for two reasons; 1) perhaps you'll discover that 
-disabeling/enabeling a certain kernel option makes the problem go away. 
-That would be useful info. 2) having a bare minimum .config makes it 
-faster to re-build kernels when doing a bisect.
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 
-Third thing I'd do would be to re-do the bisect using the 2.6.31 (or 
-latest git) kernel as the starting point. The new bisect will pick 
-different patches as the test points and may lead to a better result (at 
-least it sometimes has for me).
+---
+ drivers/net/bonding/bond_alb.c |   21 ++++++++++++++++++++-
+ drivers/net/bonding/bond_alb.h |    4 ++++
+ 2 files changed, 24 insertions(+), 1 deletions(-)
 
-Fourth thing I'd do (assuming the above did not produce anything useful) 
-would be to take my minimal config and enable every single debug option 
-(no matter how irrelevant it seemed) I could on top of it, and hope that 
-one of them would catch something that would help me identify the problem.
-
-If all of the above failed to produce any clue I'd ask for help on the 
-mailing lists :)   Sorry, but that's all I can think of.  Hope it helps.
-
-
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 46d312b..bcf25c6 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -143,6 +143,7 @@ static inline void tlb_init_table_entry(struct tlb_client_info *entry, int save_
+ 		entry->load_history = 1 + entry->tx_bytes /
+ 				      BOND_TLB_REBALANCE_INTERVAL;
+ 		entry->tx_bytes = 0;
++		entry->last_slave = entry->tx_slave;
+ 	}
+ 
+ 	entry->tx_slave = NULL;
+@@ -263,6 +264,24 @@ static struct slave *tlb_get_least_loaded_slave(struct bonding *bond)
+ 	return least_loaded;
+ }
+ 
++/* Caller must hold bond lock for read and hashtbl lock */
++static struct slave *tlb_get_best_slave(struct bonding *bond, u32 hash_index)
++{
++	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
++	struct tlb_client_info *tx_hash_table = bond_info->tx_hashtbl;
++	struct slave *last_slave = tx_hash_table[hash_index].last_slave;
++	struct slave *next_slave = NULL;
++
++	if (last_slave && SLAVE_IS_OK(last_slave)) {
++		/* Use the last slave listed in the tx hashtbl if:
++		   the last slave currently is essentially unloaded. */
++		if (SLAVE_TLB_INFO(last_slave).load < 10)
++			next_slave = last_slave;
++	}
++
++	return next_slave ? next_slave : tlb_get_least_loaded_slave(bond);
++}
++
+ /* Caller must hold bond lock for read */
+ static struct slave *tlb_choose_channel(struct bonding *bond, u32 hash_index, u32 skb_len)
+ {
+@@ -275,7 +294,7 @@ static struct slave *tlb_choose_channel(struct bonding *bond, u32 hash_index, u3
+ 	hash_table = bond_info->tx_hashtbl;
+ 	assigned_slave = hash_table[hash_index].tx_slave;
+ 	if (!assigned_slave) {
+-		assigned_slave = tlb_get_least_loaded_slave(bond);
++		assigned_slave = tlb_get_best_slave(bond, hash_index);
+ 
+ 		if (assigned_slave) {
+ 			struct tlb_slave_info *slave_info =
+diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
+index 50968f8..b65fd29 100644
+--- a/drivers/net/bonding/bond_alb.h
++++ b/drivers/net/bonding/bond_alb.h
+@@ -36,6 +36,10 @@ struct tlb_client_info {
+ 				 * packets to a Client that the Hash function
+ 				 * gave this entry index.
+ 				 */
++	struct slave *last_slave; /* Pointer to last slave used for transmiting
++				 * packets to a Client that the Hash function
++				 * gave this entry index.
++				 */
+ 	u32 tx_bytes;		/* Each Client acumulates the BytesTx that
+ 				 * were tranmitted to it, and after each
+ 				 * CallBack the LoadHistory is devided
 -- 
-Jesper Juhl <jj@chaosbits.net>             http://www.chaosbits.net/
-Plain text mails only, please      http://www.expita.com/nomime.html
-Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
+1.5.5.6
+
