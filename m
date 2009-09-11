@@ -1,62 +1,53 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 14147] New: System unresponsive if I unplug
- network cable while ethtool -p is running
-Date: Fri, 11 Sep 2009 12:55:46 -0700
-Message-ID: <20090911125546.52185035.akpm@linux-foundation.org>
-References: <bug-14147-10286@http.bugzilla.kernel.org/>
+From: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
+Subject: Re: [Linux-ATM-General] [PATCH] atm/br2684: netif_stop_queue() when
+ atm	device busy and netif_wake_queue() when we can send packets again.
+Date: Fri, 11 Sep 2009 12:56:59 -0700
+Message-ID: <4AAAAB8B.1050304@redfish-solutions.com>
+References: <4A9901E7.9040804@hiramoto.org> <1251545092-18081-1-git-send-email-karl@hiramoto.org> <4AA95838.4010007@redfish-solutions.com> <4AA97004.2010904@hiramoto.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, david.graham@intel.com
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-atm-general@lists.sourceforge.net
+To: Karl Hiramoto <karl@hiramoto.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:45885 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756105AbZIKTzp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 15:55:45 -0400
-In-Reply-To: <bug-14147-10286@http.bugzilla.kernel.org/>
+Received: from mail.redfish-solutions.com ([66.232.79.143]:60566 "EHLO
+	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751923AbZIKT6U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 15:58:20 -0400
+In-Reply-To: <4AA97004.2010904@hiramoto.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Karl Hiramoto wrote:
+> Philip A. Prindeville wrote:
+>> I had noticed that with my Solos card, and using Qwest 7062/896kb/s
+>> service that I was typically only getting ~400kb/s upstream, so I
+>> thought that delayed transmitter restarts might be the culprit and
+>> decided to try out this patch.
+>>
+>> I'm running 2.6.27.26, and I modified the patch as below.
+>>
+>> Has anyone confirmed this patch (Karl's) against 2.6.27?
+>>
+>> Thanks,
+>>
+>> -Philip
+> I'd be interested in hearing comparisons with/without the patch.    What
+> i have is no upstream packet loss with this patch, however slightly
+> lower total throughput.  I think because the upper networking layers
+> take time to restart the packet flow.   I'm not really sure if or how
+> many packets to upper layers buffer.  I haven't had time to debug it
+> further.
+> 
+> I don't have a solos card, but you may have to tweak the solos driver
+> sk_sndbuf  value.
+> 
+> -- 
+> Karl
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+I'm running with the patch right now...  Can't tell if latency has been affected.
 
-On Wed, 9 Sep 2009 00:06:10 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+Seems to be working a bit better, but I've not done any formalized testing.
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=14147
-> 
->            Summary: System unresponsive if I unplug network cable while
->                     ethtool -p is running
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 2.6.30
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->         AssignedTo: acme@ghostprotocols.net
->         ReportedBy: david.graham@intel.com
->         Regression: No
-> 
-> 
-> When a user runs the "ethtool -p ethX" to identify the physical interface by
-> flashing the appropriate interface LED, and then removes the cable at that
-> interface, the keyboard locks up. This is naturally annoying to customers with
-> multi-port systems, who wish to use ethtool -p so that they can
-> disconnect/connect interface cables to appropriate ports. 
-> 
-> I am told that this is because "the RTNL lock is held by ethtool, and the link
-> [down] message needs the RTNL", which would, I think, make this a kernel issue. 
-> 
-> This has been known about within INTEL for over 3 years, but only recently come
-> to my attention. I have verified it on a 2.6.30 system using a default kernel
-> configuration and the e1000e driver.
-> 
+-Philip
 
-hah.  cute.
