@@ -1,49 +1,44 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [iproute2] tc action mirred    question
-Date: Fri, 11 Sep 2009 08:25:40 -0400
-Message-ID: <1252671940.25158.5.camel@dogo.mojatatu.com>
-References: <404956.88336.qm@web111607.mail.gq1.yahoo.com>
-	 <1252376168.5244.11.camel@dogo.mojatatu.com>
-	 <313388.35529.qm@web111617.mail.gq1.yahoo.com>
-	 <1252534266.4119.5.camel@dogo.mojatatu.com>
-	 <204967.7557.qm@web111613.mail.gq1.yahoo.com>
-Reply-To: hadi@cyberus.ca
+From: Daniel Walker <dwalker@fifo99.com>
+Subject: Re: [PATCH 8/8] fanotify: send events to userspace over socket
+ reads
+Date: Fri, 11 Sep 2009 07:08:50 -0700
+Message-ID: <1252678130.30578.848.camel@desktop>
+References: <20090911052558.32359.18075.stgit@paris.rdu.redhat.com>
+	 <20090911052649.32359.18553.stgit@paris.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux netdev <netdev@vger.kernel.org>
-To: Xiaofei Wu <xiaofei_wu08@yahoo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f172.google.com ([209.85.221.172]:54822 "EHLO
-	mail-qy0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752119AbZIKM2H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 08:28:07 -0400
-Received: by qyk2 with SMTP id 2so877435qyk.21
-        for <netdev@vger.kernel.org>; Fri, 11 Sep 2009 05:28:09 -0700 (PDT)
-In-Reply-To: <204967.7557.qm@web111613.mail.gq1.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	viro@zeniv.linux.org.uk, alan@linux.intel.com, hch@infradead.org
+To: Eric Paris <eparis@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753065AbZIKOIT@vger.kernel.org>
+In-Reply-To: <20090911052649.32359.18553.stgit@paris.rdu.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2009-09-09 at 23:06 -0700, Xiaofei Wu wrote:
+On Fri, 2009-09-11 at 01:26 -0400, Eric Paris wrote:
+> fanotify sends event notification to userspace when userspace reads from the
+> fanotify socket. This patch implements the operations that happen at read
+> time.  These include opening the file descriptor to the original object and
+> then filling the userspace buffer.  The fd should be pollable to indicate when
+> it has data present and it should return how much data it has to send when the
+> FIONREAD ioctl is checked.
 > 
 
+This patch has one checkpatch error, could you fix that? .. Also your
+whole series has several very long lines over 80 characters , you might
+want to consider trimming those down to 80 or less.. If you run these
+patches through checkpatch you should output like the following denoting
+the issues,
 
-> It seems that I modify the dst MAC, src MAC of the packets,  then transmit to 'lo'  and  mirror the packects to 'eth0'.  
-> (On 'lo',  '2616 packets transmitted, 0 received, 100% packet loss' .)  How to let 'lo' receive the packets?
+ERROR: "(foo*)" should be "(foo *)"
+#381: FILE: include/linux/fanotify.h:84:
++                                  (struct fanotify_event_metadata*)(((char *)(meta)) + \
 
-By not modifying the packets. I am a little suprised that changing the
-Mac address on lo has that effect.
-Note it should work on ingress as i described because ingress doesnt
-queue packets.
+WARNING: line over 80 characters
+#384: FILE: include/linux/fanotify.h:87:
++#define FAN_EVENT_OK(meta, len)        ((long)(len) >= (long)FAN_EVENT_METADATA_LEN && \
 
-> 
-> But I want to only modify the dst MAC, src MAC of the mirroring packets, transmit them to next hop. 
-> (not modify the dst,src MAC of the packets to 'lo').  What should I do?
 
-Ok, so modifying then mirroring wont work on ingress;->
-One thing you can try is first to mirror lo->eth0, then pedit only
-specific flow on eth0 that came from lo.
-
-cheers,
-jamal
-
+Daniel
