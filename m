@@ -1,8 +1,7 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: [patch] e1000: Tidy up logic in
-	e1000_enable_tx_pkt_filtering()
-Date: Fri, 11 Sep 2009 12:17:44 +1000
-Message-ID: <20090911021744.GB3221@verge.net.au>
+Subject: [patch] igb: Tidy vf initialisation
+Date: Fri, 11 Sep 2009 12:18:42 +1000
+Message-ID: <20090911021842.GC3221@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -28,69 +27,103 @@ to follow.
 
 Signed-off-by: Simon Horman <horms@verge.net.au>
 
---- 
-
-Lightly tested.
-
-Index: net-next-2.6/drivers/net/e1000/e1000_hw.c
+Index: net-next-2.6/drivers/net/igb/igb_main.c
 ===================================================================
---- net-next-2.6.orig/drivers/net/e1000/e1000_hw.c	2009-08-31 17:44:07.000000000 +1000
-+++ net-next-2.6/drivers/net/e1000/e1000_hw.c	2009-09-09 11:40:14.000000000 +1000
-@@ -7604,31 +7604,33 @@ bool e1000_enable_tx_pkt_filtering(struc
- {
-     /* called in init as well as watchdog timer functions */
+--- net-next-2.6.orig/drivers/net/igb/igb_main.c	2009-09-09 15:04:34.000000000 +1000
++++ net-next-2.6/drivers/net/igb/igb_main.c	2009-09-09 16:06:59.000000000 +1000
+@@ -1194,6 +1194,44 @@ static const struct net_device_ops igb_n
+ #endif
+ };
  
--    s32 ret_val, checksum;
--    bool tx_filter = false;
-+    s32 checksum;
-+    bool tx_filter = true;
-     struct e1000_host_mng_dhcp_cookie *hdr = &(hw->mng_cookie);
-     u8 *buffer = (u8 *) &(hw->mng_cookie);
++/* Since IOV functionality isn't critical to base device function we can
++ * accept failure.  If it fails we don't allow IOV to be enabled */
++static void __devinit igb_probe_vf(struct pci_dev *pdev,
++				   struct igb_adapter *adapter)
++{
++#ifdef CONFIG_PCI_IOV
++	/* 82576 supports a maximum of 7 VFs in addition to the PF */
++	unsigned int num_vfs = (max_vfs > 7) ? 7 : max_vfs;
++	int i;
++	unsigned char mac_addr[ETH_ALEN];
++
++	if (adapter->hw.mac.type != e1000_82576 || !num_vfs)
++		return;
++
++	adapter->vf_data = kcalloc(num_vfs, sizeof(struct vf_data_storage),
++				   GFP_KERNEL);
++	if (!adapter->vf_data) {
++		dev_err(&pdev->dev, "Could not allocate VF private data - "
++				    "IOV enable failed\n");
++		return;
++	}
++
++	if (pci_enable_sriov(pdev, num_vfs)) {
++		kfree(adapter->vf_data);
++		adapter->vf_data = NULL;
++		return;
++	}
++
++	adapter->vfs_allocated_count = num_vfs;
++	dev_info(&pdev->dev, "%d vfs allocated\n", num_vfs);
++	for (i = 0; i < adapter->vfs_allocated_count; i++) {
++		random_ether_addr(mac_addr);
++		igb_set_vf_mac(adapter, i, mac_addr);
++	}
++#endif
++	return;
++}
++
+ /**
+  * igb_probe - Device Initialization Routine
+  * @pdev: PCI device information struct
+@@ -1307,46 +1345,8 @@ static int __devinit igb_probe(struct pc
+ 	if (err)
+ 		goto err_sw_init;
  
--    if (e1000_check_mng_mode(hw)) {
--        ret_val = e1000_mng_enable_host_if(hw);
--        if (ret_val == E1000_SUCCESS) {
--            ret_val = e1000_host_if_read_cookie(hw, buffer);
--            if (ret_val == E1000_SUCCESS) {
--                checksum = hdr->checksum;
--                hdr->checksum = 0;
--                if ((hdr->signature == E1000_IAMT_SIGNATURE) &&
--                    checksum == e1000_calculate_mng_checksum((char *)buffer,
--                                               E1000_MNG_DHCP_COOKIE_LENGTH)) {
--                    if (hdr->status &
--                        E1000_MNG_DHCP_COOKIE_STATUS_PARSING_SUPPORT)
--                        tx_filter = true;
--                } else
--                    tx_filter = true;
--            } else
--                tx_filter = true;
--        }
--    }
-+    if (!e1000_check_mng_mode(hw))
-+        goto out_false;
-+
-+    if (e1000_mng_enable_host_if(hw) != E1000_SUCCESS)
-+        goto out_false;
-+
-+    if (e1000_host_if_read_cookie(hw, buffer) != E1000_SUCCESS)
-+	goto out_true;
+-#ifdef CONFIG_PCI_IOV
+-	/* since iov functionality isn't critical to base device function we
+-	 * can accept failure.  If it fails we don't allow iov to be enabled */
+-	if (hw->mac.type == e1000_82576) {
+-		/* 82576 supports a maximum of 7 VFs in addition to the PF */
+-		unsigned int num_vfs = (max_vfs > 7) ? 7 : max_vfs;
+-		int i;
+-		unsigned char mac_addr[ETH_ALEN];
+-
+-		if (num_vfs) {
+-			adapter->vf_data = kcalloc(num_vfs,
+-						sizeof(struct vf_data_storage),
+-						GFP_KERNEL);
+-			if (!adapter->vf_data) {
+-				dev_err(&pdev->dev,
+-				        "Could not allocate VF private data - "
+-					"IOV enable failed\n");
+-			} else {
+-				err = pci_enable_sriov(pdev, num_vfs);
+-				if (!err) {
+-					adapter->vfs_allocated_count = num_vfs;
+-					dev_info(&pdev->dev,
+-					         "%d vfs allocated\n",
+-					         num_vfs);
+-					for (i = 0;
+-					     i < adapter->vfs_allocated_count;
+-					     i++) {
+-						random_ether_addr(mac_addr);
+-						igb_set_vf_mac(adapter, i,
+-						               mac_addr);
+-					}
+-				} else {
+-					kfree(adapter->vf_data);
+-					adapter->vf_data = NULL;
+-				}
+-			}
+-		}
+-	}
++	igb_probe_vf(pdev, adapter);
  
-+    checksum = hdr->checksum;
-+    hdr->checksum = 0;
-+    if ((hdr->signature != E1000_IAMT_SIGNATURE) ||
-+        checksum != e1000_calculate_mng_checksum((char *)buffer,
-+                                   E1000_MNG_DHCP_COOKIE_LENGTH))
-+	goto out_true;
-+
-+    if (hdr->status & E1000_MNG_DHCP_COOKIE_STATUS_PARSING_SUPPORT)
-+	goto out_true;
-+
-+out_false:
-+    tx_filter = false;
-+out_true:
-     hw->tx_pkt_filtering = tx_filter;
-     return tx_filter;
- }
+-#endif
+ 	/* setup the private structure */
+ 	err = igb_sw_init(adapter);
+ 	if (err)
 
 ------------------------------------------------------------------------------
 Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day 
