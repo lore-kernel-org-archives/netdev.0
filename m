@@ -1,62 +1,36 @@
-From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH -next] netxen: build fix for INET=n
-Date: Fri, 11 Sep 2009 15:46:29 -0700
-Message-ID: <4AAAD345.4090902@qlogic.com>
+Date: Fri, 11 Sep 2009 15:52:23 -0700 (PDT)
+Message-ID: <20090911.155223.241414627.davem@davemloft.net>
 References: <20090911154104.1804a82f.randy.dunlap@oracle.com>
+	<4AAAD345.4090902@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Randy Dunlap <randy.dunlap@oracle.com>
+Cc: randy.dunlap@oracle.com, netdev@vger.kernel.org
+To: dhananjay.phadke@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:35204 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751365AbZIKWq1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 18:46:27 -0400
-In-Reply-To: <20090911154104.1804a82f.randy.dunlap@oracle.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42499
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753713AbZIKWwH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 18:52:07 -0400
+In-Reply-To: <4AAAD345.4090902@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-grr .. I broke it again!
+From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+Date: Fri, 11 Sep 2009 15:46:29 -0700
 
-Thanks Randy for fixing.
+> grr .. I broke it again!
+> 
+> Thanks Randy for fixing.
 
-Acked-by: Dhananjay Phadke <dhananjay@netxen.com>
+Please don't top post, put your replies underneath the quoted
+content so people read the context of what you're replying
+to and then see your reply, not the other way around.
 
-Randy Dunlap wrote:
-> From: Randy Dunlap <randy.dunlap@oracle.com>
-> 
-> When CONFIG_INET is disabled, netxen has a build failure:
-> 
-> netxen_nic_main.c:(.text+0x118fd1): undefined reference to `netxen_config_indev_addr'
-> 
-> so make that function just an empty stub when CONFIG_INET=n.
-> (not "inline" since that conflicts with other declarations of it)
-> 
-> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-> ---
->  drivers/net/netxen/netxen_nic_main.c |    4 ++++
->  1 file changed, 4 insertions(+)
-> 
-> --- linux-next-20090911.orig/drivers/net/netxen/netxen_nic_main.c
-> +++ linux-next-20090911/drivers/net/netxen/netxen_nic_main.c
-> @@ -2450,6 +2450,10 @@ static struct notifier_block	netxen_netd
->  static struct notifier_block netxen_inetaddr_cb = {
->  	.notifier_call = netxen_inetaddr_event,
->  };
-> +#else
-> +static void
-> +netxen_config_indev_addr(struct net_device *dev, unsigned long event)
-> +{ }
->  #endif
->  
->  static struct pci_driver netxen_driver = {
-> 
-> 
-> 
-> 
-> ---
-> ~Randy
-> LPC 2009, Sept. 23-25, Portland, Oregon
-> http://linuxplumbersconf.org/2009/
+Thanks.
+
+> Acked-by: Dhananjay Phadke <dhananjay@netxen.com>
+
+Applied, thanks everyone.
