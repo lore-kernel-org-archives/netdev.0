@@ -1,240 +1,90 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC] tun: export underlying socket
-Date: Fri, 11 Sep 2009 07:59:43 +0300
-Message-ID: <20090911045943.GA1613@redhat.com>
-References: <20090910125929.GA32593@redhat.com> <200909110017.27668.paul.moore@hp.com>
+From: Eric Paris <eparis@redhat.com>
+Subject: [PATCH 1/8] networking/fanotify: declare fanotify socket numbers
+Date: Fri, 11 Sep 2009 01:25:58 -0400
+Message-ID: <20090911052558.32359.18075.stgit@paris.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: Paul Moore <paul.moore@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3336 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751222AbZIKFBY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Sep 2009 01:01:24 -0400
-Content-Disposition: inline
-In-Reply-To: <200909110017.27668.paul.moore@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, viro@zeniv.linux.org.uk, alan@linux.intel.com,
+	hch@infradead.org
+To: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 11, 2009 at 12:17:27AM -0400, Paul Moore wrote:
-> On Thursday 10 September 2009 08:59:29 am Michael S. Tsirkin wrote:
-> > Tun device looks similar to a packet socket
-> > in that both pass complete frames from/to userspace.
-> > 
-> > This patch fills in enough fields in the socket underlying tun driver
-> > to support sendmsg/recvmsg operations, and exports access to this socket
-> > to modules.
-> > 
-> > This way, code using raw sockets to inject packets
-> > into a physical device, can support injecting
-> > packets into host network stack almost without modification.
-> > 
-> > First user of this interface will be vhost virtualization
-> > accelerator.
-> 
-> No comments on the code at this point - I'm just trying to understand the 
-> intended user right now which I'm assuming is the vhost-net bits you sent 
-> previously? 
+fanotify's user interface uses a custom socket (it doesn't use netlink
+since work must be done in the context of the receive side of the socket)
 
-Yes - these now use raw socket, I'll add
-something like 
+This patch simply defines the fanotify socket number declarations.  The
+actual implementation of the socket is in a later patch.
 
-	sock = tun_get_socket(file)
-	if (!IS_ERR(sock)) {
-		return sock;
-	}
+Signed-off-by: Eric Paris <eparis@redhat.com>
+---
 
+ include/linux/socket.h |    5 ++++-
+ net/core/sock.c        |    6 +++---
+ 2 files changed, 7 insertions(+), 4 deletions(-)
 
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > ---
-> > 
-> > This patch is on top of net-next master.
-> > An alternative approach would be to add an ioctl to tun, to export the
-> > underlying socket to userspace: a uniform way to work with a network
-> > device and the host stack might be useful there, as well.
-> > Kernel users could then do sockfd_lookup to get the socket.
-> > I decided against it for now as it requires more code.
-> > Please comment.
-> > 
-> >  drivers/net/tun.c      |   78
-> >  +++++++++++++++++++++++++++++++++++++++++++---- include/linux/if_tun.h |  
-> >  14 ++++++++
-> >  2 files changed, 85 insertions(+), 7 deletions(-)
-> > 
-> > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> > index 589a44a..76f5faa 100644
-> > --- a/drivers/net/tun.c
-> > +++ b/drivers/net/tun.c
-> > @@ -151,6 +151,7 @@ static int tun_attach(struct tun_struct *tun, struct
-> >  file *file) err = 0;
-> >  	tfile->tun = tun;
-> >  	tun->tfile = tfile;
-> > +	tun->socket.file = file;
-> >  	dev_hold(tun->dev);
-> >  	sock_hold(tun->socket.sk);
-> >  	atomic_inc(&tfile->count);
-> > @@ -165,6 +166,7 @@ static void __tun_detach(struct tun_struct *tun)
-> >  	/* Detach from net device */
-> >  	netif_tx_lock_bh(tun->dev);
-> >  	tun->tfile = NULL;
-> > +	tun->socket.file = NULL;
-> >  	netif_tx_unlock_bh(tun->dev);
-> > 
-> >  	/* Drop read queue */
-> > @@ -750,7 +752,7 @@ static __inline__ ssize_t tun_put_user(struct
-> >  tun_struct *tun, len = min_t(int, skb->len, len);
-> > 
-> >  	skb_copy_datagram_const_iovec(skb, 0, iv, total, len);
-> > -	total += len;
-> > +	total += skb->len;
-> > 
-> >  	tun->dev->stats.tx_packets++;
-> >  	tun->dev->stats.tx_bytes += len;
-> > @@ -758,12 +760,10 @@ static __inline__ ssize_t tun_put_user(struct
-> >  tun_struct *tun, return total;
-> >  }
-> > 
-> > -static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec
-> >  *iv, -			    unsigned long count, loff_t pos)
-> > +static ssize_t tun_do_read(struct tun_struct *tun,
-> > +			   struct kiocb *iocb, const struct iovec *iv,
-> > +			   unsigned long count, int noblock)
-> >  {
-> > -	struct file *file = iocb->ki_filp;
-> > -	struct tun_file *tfile = file->private_data;
-> > -	struct tun_struct *tun = __tun_get(tfile);
-> >  	DECLARE_WAITQUEUE(wait, current);
-> >  	struct sk_buff *skb;
-> >  	ssize_t len, ret = 0;
-> > @@ -785,7 +785,7 @@ static ssize_t tun_chr_aio_read(struct kiocb *iocb,
-> >  const struct iovec *iv,
-> > 
-> >  		/* Read frames from the queue */
-> >  		if (!(skb=skb_dequeue(&tun->socket.sk->sk_receive_queue))) {
-> > -			if (file->f_flags & O_NONBLOCK) {
-> > +			if (noblock) {
-> >  				ret = -EAGAIN;
-> >  				break;
-> >  			}
-> > @@ -813,6 +813,21 @@ static ssize_t tun_chr_aio_read(struct kiocb *iocb,
-> >  const struct iovec *iv, remove_wait_queue(&tun->socket.wait, &wait);
-> > 
-> >  out:
-> > +	return ret;
-> > +}
-> > +
-> > +static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec
-> >  *iv, +			    unsigned long count, loff_t pos)
-> > +{
-> > +	struct file *file = iocb->ki_filp;
-> > +	struct tun_file *tfile = file->private_data;
-> > +	struct tun_struct *tun = __tun_get(tfile);
-> > +	ssize_t ret;
-> > +
-> > +	if (!tun)
-> > +		return -EBADFD;
-> > +	ret = tun_do_read(tun, iocb, iv, count, file->f_flags & O_NONBLOCK);
-> > +	ret = min_t(ssize_t, ret, count);
-> >  	tun_put(tun);
-> >  	return ret;
-> >  }
-> > @@ -865,6 +880,37 @@ static void tun_sock_destruct(struct sock *sk)
-> >  	free_netdev(container_of(sk, struct tun_sock, sk)->tun->dev);
-> >  }
-> > 
-> > +static int tun_sendmsg(struct kiocb *iocb, struct socket *sock,
-> > +		       struct msghdr *m, size_t total_len)
-> > +{
-> > +	struct tun_struct *tun = container_of(sock, struct tun_struct, socket);
-> > +	return tun_get_user(tun, m->msg_iov, total_len,
-> > +			    m->msg_flags & MSG_DONTWAIT);
-> > +}
-> > +
-> > +static int tun_recvmsg(struct kiocb *iocb, struct socket *sock,
-> > +		       struct msghdr *m, size_t total_len,
-> > +		       int flags)
-> > +{
-> > +	struct tun_struct *tun = container_of(sock, struct tun_struct, socket);
-> > +	int ret;
-> > +	if (flags & ~(MSG_DONTWAIT|MSG_TRUNC))
-> > +		return -EINVAL;
-> > +	ret = tun_do_read(tun, iocb, m->msg_iov, total_len,
-> > +			  flags & MSG_DONTWAIT);
-> > +	if (ret > total_len) {
-> > +		m->msg_flags |= MSG_TRUNC;
-> > +		ret = flags & MSG_TRUNC ? ret : total_len;
-> > +	}
-> > +	return ret;
-> > +}
-> > +
-> > +/* Ops structure to mimic raw sockets with tun */
-> > +static const struct proto_ops tun_socket_ops = {
-> > +	.sendmsg = tun_sendmsg,
-> > +	.recvmsg = tun_recvmsg,
-> > +};
-> > +
-> >  static struct proto tun_proto = {
-> >  	.name		= "tun",
-> >  	.owner		= THIS_MODULE,
-> > @@ -982,6 +1028,7 @@ static int tun_set_iff(struct net *net, struct file
-> >  *file, struct ifreq *ifr) goto err_free_dev;
-> > 
-> >  		init_waitqueue_head(&tun->socket.wait);
-> > +		tun->socket.ops = &tun_socket_ops;
-> >  		sock_init_data(&tun->socket, sk);
-> >  		sk->sk_write_space = tun_sock_write_space;
-> >  		sk->sk_sndbuf = INT_MAX;
-> > @@ -1483,6 +1530,23 @@ static void tun_cleanup(void)
-> >  	rtnl_link_unregister(&tun_link_ops);
-> >  }
-> > 
-> > +/* Get an underlying socket object from tun file.  Returns error unless
-> >  file is + * attached to a device.  The returned object works like a packet
-> >  socket, it + * can be used for sock_sendmsg/sock_recvmsg.  The caller is
-> >  responsible for + * holding a reference to the file for as long as the
-> >  socket is in use. */ +struct socket *tun_get_socket(struct file *file)
-> > +{
-> > +	struct tun_struct *tun;
-> > +	if (file->f_op != &tun_fops)
-> > +		return ERR_PTR(-EINVAL);
-> > +	tun = tun_get(file);
-> > +	if (!tun)
-> > +		return ERR_PTR(-EBADFD);
-> > +	tun_put(tun);
-> > +	return &tun->socket;
-> > +}
-> > +EXPORT_SYMBOL_GPL(tun_get_socket);
-> > +
-> >  module_init(tun_init);
-> >  module_exit(tun_cleanup);
-> >  MODULE_DESCRIPTION(DRV_DESCRIPTION);
-> > diff --git a/include/linux/if_tun.h b/include/linux/if_tun.h
-> > index 3f5fd52..404abe0 100644
-> > --- a/include/linux/if_tun.h
-> > +++ b/include/linux/if_tun.h
-> > @@ -86,4 +86,18 @@ struct tun_filter {
-> >  	__u8   addr[0][ETH_ALEN];
-> >  };
-> > 
-> > +#ifdef __KERNEL__
-> > +#if defined(CONFIG_TUN) || defined(CONFIG_TUN_MODULE)
-> > +struct socket *tun_get_socket(struct file *);
-> > +#else
-> > +#include <linux/err.h>
-> > +#include <linux/errno.h>
-> > +struct file;
-> > +struct socket;
-> > +static inline struct socket *tun_get_socket(struct file *f)
-> > +{
-> > +	return ERR_PTR(-EINVAL);
-> > +}
-> > +#endif /* CONFIG_TUN */
-> > +#endif /* __KERNEL__ */
-> >  #endif /* __IF_TUN_H */
-> > 
-> 
-> -- 
-> paul moore
-> linux @ hp
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index 3b461df..e03f47b 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -195,7 +195,8 @@ struct ucred {
+ #define AF_ISDN		34	/* mISDN sockets 		*/
+ #define AF_PHONET	35	/* Phonet sockets		*/
+ #define AF_IEEE802154	36	/* IEEE802154 sockets		*/
+-#define AF_MAX		37	/* For now.. */
++#define AF_FANOTIFY	37	/* fscking all access sockets	*/
++#define AF_MAX		38	/* For now.. */
+ 
+ /* Protocol families, same as address families. */
+ #define PF_UNSPEC	AF_UNSPEC
+@@ -235,6 +236,7 @@ struct ucred {
+ #define PF_ISDN		AF_ISDN
+ #define PF_PHONET	AF_PHONET
+ #define PF_IEEE802154	AF_IEEE802154
++#define PF_FANOTIFY	AF_FANOTIFY
+ #define PF_MAX		AF_MAX
+ 
+ /* Maximum queue length specifiable by listen.  */
+@@ -306,6 +308,7 @@ struct ucred {
+ #define SOL_PNPIPE	275
+ #define SOL_RDS		276
+ #define SOL_IUCV	277
++#define SOL_FANOTIFY	278
+ 
+ /* IPX options */
+ #define IPX_TYPE	1
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 30d5446..28a99bf 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -155,7 +155,7 @@ static const char *const af_family_key_strings[AF_MAX+1] = {
+   "sk_lock-27"       , "sk_lock-28"          , "sk_lock-AF_CAN"      ,
+   "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-IUCV"        ,
+   "sk_lock-AF_RXRPC" , "sk_lock-AF_ISDN"     , "sk_lock-AF_PHONET"   ,
+-  "sk_lock-AF_IEEE802154",
++  "sk_lock-AF_IEEE802154", "sk_lock-AF_FANOTIFY",
+   "sk_lock-AF_MAX"
+ };
+ static const char *const af_family_slock_key_strings[AF_MAX+1] = {
+@@ -171,7 +171,7 @@ static const char *const af_family_slock_key_strings[AF_MAX+1] = {
+   "slock-27"       , "slock-28"          , "slock-AF_CAN"      ,
+   "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_IUCV"     ,
+   "slock-AF_RXRPC" , "slock-AF_ISDN"     , "slock-AF_PHONET"   ,
+-  "slock-AF_IEEE802154",
++  "slock-AF_IEEE802154", "slock=AF_FANOTIFY",
+   "slock-AF_MAX"
+ };
+ static const char *const af_family_clock_key_strings[AF_MAX+1] = {
+@@ -187,7 +187,7 @@ static const char *const af_family_clock_key_strings[AF_MAX+1] = {
+   "clock-27"       , "clock-28"          , "clock-AF_CAN"      ,
+   "clock-AF_TIPC"  , "clock-AF_BLUETOOTH", "clock-AF_IUCV"     ,
+   "clock-AF_RXRPC" , "clock-AF_ISDN"     , "clock-AF_PHONET"   ,
+-  "clock-AF_IEEE802154",
++  "clock-AF_IEEE802154", "clock-AF_FANOTIFY",
+   "clock-AF_MAX"
+ };
+ 
+
