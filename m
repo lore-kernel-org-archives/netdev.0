@@ -1,7 +1,8 @@
 From: Eric Paris <eparis@redhat.com>
-Subject: [PATCH 2/8] vfs: introduce FMODE_NONOTIFY
-Date: Fri, 11 Sep 2009 01:26:06 -0400
-Message-ID: <20090911052605.32359.13248.stgit@paris.rdu.redhat.com>
+Subject: [PATCH 4/8] fanotify:drop notification if they exist in the outgoing
+	queue
+Date: Fri, 11 Sep 2009 01:26:20 -0400
+Message-ID: <20090911052620.32359.13430.stgit@paris.rdu.redhat.com>
 References: <20090911052558.32359.18075.stgit@paris.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,51 +11,83 @@ Cc: davem@davemloft.net, viro@zeniv.linux.org.uk, alan@linux.intel.com,
 	hch@infradead.org
 To: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752647AbZIKF0V@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:30709 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752655AbZIKF00 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Sep 2009 01:26:26 -0400
 In-Reply-To: <20090911052558.32359.18075.stgit@paris.rdu.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a new f_mode which can only be set by the kernel.  It indicates
-that the fd was opened by fanotify and should not cause future fanotify
-events.  This is needed to prevent fanotify livelock.  An example of
-obvious livelock is from fanotify close events.
-
-Process A closes file1
-This creates a close event for file1.
-fanotify opens file1 for Listener X
-Listener X deals with the event and closes its fd for file1.
-This creates a close event for file1.
-fanotify opens file1 for Listener X
-Listener X deals with the event and closes its fd for file1.
-This creates a close event for file1.
-fanotify opens file1 for Listener X
-Listener X deals with the event and closes its fd for file1.
-notice a pattern?
-
-The fix is to add the FMODE_NONOTIFY bit to the open filp done by the kernel
-for fanotify.  Thus when that file is used it will not generate future
-events.
-
-This patch simply defines the bit.
+fanotify listeners get an open file descriptor to the object in question so
+the ordering of operations is not as important as in other notification
+systems.  inotify will drop events if the last event in the event FIFO is
+the same as the current event.  This patch will drop fanotify events if
+they are the same as another event anywhere in the event FIFO.
 
 Signed-off-by: Eric Paris <eparis@redhat.com>
 ---
 
- include/linux/fs.h |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ fs/notify/fanotify/fanotify.c |   40 ++++++++++++++++++++++++++++++++++++++--
+ 1 files changed, 38 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/fs.h b/include/linux/fs.h
-index 02e111c..433db62 100644
---- a/include/linux/fs.h
-+++ b/include/linux/fs.h
-@@ -87,6 +87,9 @@ struct inodes_stat_t {
-  */
- #define FMODE_NOCMTIME		((__force fmode_t)2048)
+diff --git a/fs/notify/fanotify/fanotify.c b/fs/notify/fanotify/fanotify.c
+index b5c2e32..f054300 100644
+--- a/fs/notify/fanotify/fanotify.c
++++ b/fs/notify/fanotify/fanotify.c
+@@ -8,6 +8,40 @@
  
-+/* File was opened by fanotify and shouldn't generate fanotify events */
-+#define FMODE_NONOTIFY		((__force fmode_t)4096)
+ #include "fanotify.h"
+ 
++static bool try_merge(struct fsnotify_event *old, struct fsnotify_event *new)
++{
++	if ((old->mask == new->mask) &&
++	    (old->to_tell == new->to_tell) &&
++	    (old->data_type == new->data_type)) {
++		switch (old->data_type) {
++		case (FSNOTIFY_EVENT_PATH):
++			if ((old->path.mnt == new->path.mnt) &&
++			    (old->path.dentry == new->path.dentry))
++				return true;
++		case (FSNOTIFY_EVENT_NONE):
++			return true;
++		default:
++			BUG();
++		};
++	}
++	return false;
++}
 +
- /*
-  * The below are the various read and write types that we support. Some of
-  * them include behavioral modifiers that send information down to the
++static int fanotify_merge(struct list_head *list, struct fsnotify_event *event)
++{
++	struct fsnotify_event_holder *holder;
++	struct fsnotify_event *test_event;
++
++	/* and the list better be locked by something too! */
++
++	list_for_each_entry_reverse(holder, list, event_list) {
++		test_event = holder->event;
++		if (try_merge(test_event, event))
++			return -EEXIST;
++	}
++
++	return 0;
++}
+ static int fanotify_handle_event(struct fsnotify_group *group, struct fsnotify_event *event)
+ {
+ 	int ret;
+@@ -20,8 +54,10 @@ static int fanotify_handle_event(struct fsnotify_group *group, struct fsnotify_e
+ 	BUILD_BUG_ON(FAN_EVENT_ON_CHILD != FS_EVENT_ON_CHILD);
+ 	BUILD_BUG_ON(FAN_Q_OVERFLOW != FS_Q_OVERFLOW);
+ 
+-	ret = fsnotify_add_notify_event(group, event, NULL, NULL);
+-
++	ret = fsnotify_add_notify_event(group, event, NULL, fanotify_merge);
++	/* -EEXIST means this event was merged with another, not that it was an error */
++	if (ret == -EEXIST)
++		ret = 0;
+ 	return ret;
+ }
+ 
+
