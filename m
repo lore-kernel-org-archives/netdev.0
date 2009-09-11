@@ -1,57 +1,57 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: Re: [PATCH 1/8] networking/fanotify: declare fanotify socket
- numbers
-Date: Fri, 11 Sep 2009 17:13:46 -0400
-Message-ID: <1252703626.2305.50.camel@dhcp231-106.rdu.redhat.com>
-References: <20090911052558.32359.18075.stgit@paris.rdu.redhat.com>
-	 <20090911.114620.260824240.davem@davemloft.net>
-	 <1252697613.2305.38.camel@dhcp231-106.rdu.redhat.com>
-	 <20090911204602.GA19371@shareable.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [net-next PATCH] etherdevice.h: random_ether_addr update
+Date: Fri, 11 Sep 2009 14:15:54 -0700
+Message-ID: <20090911141554.0072d365@nehalam>
+References: <20090911014757.19631.66570.stgit@localhost.localdomain>
+	<20090910190703.25d14533@nehalam>
+	<1252638163.4355.35.camel@Joe-Laptop.home>
+	<20090911.121542.45333246.davem@davemloft.net>
+	<1252700442.15292.62.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
-	viro@zeniv.linux.org.uk, alan@linux.intel.com, hch@infradead.org
-To: Jamie Lokier <jamie@shareable.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20090911204602.GA19371@shareable.org>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, gospo@redhat.com, gregory.v.rose@intel.com,
+	donald.c.skidmore@intel.com
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:52797 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756854AbZIKVP5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Sep 2009 17:15:57 -0400
+In-Reply-To: <1252700442.15292.62.camel@Joe-Laptop.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-09-11 at 21:46 +0100, Jamie Lokier wrote:
-> Eric Paris wrote:
-> > > I would really prefer if you worked on eliminating the problem that
-> > > prevents you from using netlink instead.
-> > 
-> > I'm not really sure if I can, although I'd love to hear input from
-> > someone who knows the netlink code on how I can make it do what I need.
-> > I'm really not duplicating much other than the NLMSG_OK and NLMSG_NEXT
-> > macros.  My code doesn't even use skbs and I'm not savy enough to really
-> > know how I could.  I'm more than willing to work on it if someone can
-> > point me to how it might work.
+On Fri, 11 Sep 2009 13:20:42 -0700
+Joe Perches <joe@perches.com> wrote:
+
+> On Fri, 2009-09-11 at 12:15 -0700, David Miller wrote:
+> > From: Joe Perches <joe@perches.com>
+> > Date: Thu, 10 Sep 2009 20:02:43 -0700
+> > > On Thu, 2009-09-10 at 19:07 -0700, Stephen Hemminger wrote:
+> > >> On Thu, 10 Sep 2009 18:48:27 -0700
+> > >> Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+> > >> > From: Gregory Rose <gregory.v.rose@intel.com>
+> > >> > This patch changes the default VF MAC address generation to use an Intel
+> > >> > Organizational Unit Identifier (OUI), instead of a fully randomized
+> > >> > Ethernet address.  This is to help prevent accidental MAC address
+> > >> > collisions.
+> > > I think this not a very good idea.
+> > I also completely agree that this patch is not a wise move.
 > 
-> Let's turn the question around.
+> Perhaps this?
 > 
-> Since you're doing lots of non-sockety things, and can't tolerate
-> dropped packets - why isn't it a character device?  What's the reason
-> for using a socket at all?
+> random_ether_address should not assign an "0x02" leading octet.
 > 
-> (I'm reminded of /dev/poll, /dev/epoll and /dev/inotify :-)
+> "02" has the local assignment bit set,
+> but is actually a value assigned via OUI.
+> 
+> Do not use get_random_bytes to avoid drawing down entropy pool.
+> 
 
-Originally it was a char device and I was told to use a socket protocol
-so I could use get/set sockopt rather than ioctl, because ioctl is the
-devil (even if those aren't THAT much better).
+Getting 6 bytes once is not going to be enough of a problem
+to drain the pool. I prefer not to weaken the randomness here.
 
-The queuing being done using events instead of skbs was done reusing
-inotify code, reusing network code would be just as good with me.  What
-I really need is a way to convey a pointer from one process to another.
-That's why I claim loss is not an option, since I'm holding a reference
-to the pointer I can't have that conveyance disappear under us.
 
-If network people want me to get back out of the network system I can go
-back to a char file with lots of ioctls.  I'd love to reuse code, I just
-don't know what's possible...
-
--Eric
-
+-- 
