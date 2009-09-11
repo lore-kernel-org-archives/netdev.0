@@ -1,7 +1,7 @@
 From: Eric Paris <eparis@redhat.com>
-Subject: [PATCH 8/8] fanotify: send events to userspace over socket reads
-Date: Fri, 11 Sep 2009 01:26:50 -0400
-Message-ID: <20090911052649.32359.18553.stgit@paris.rdu.redhat.com>
+Subject: [PATCH 3/8] fanotify: fscking all notification system
+Date: Fri, 11 Sep 2009 01:26:13 -0400
+Message-ID: <20090911052613.32359.30717.stgit@paris.rdu.redhat.com>
 References: <20090911052558.32359.18075.stgit@paris.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,351 +10,247 @@ Cc: davem@davemloft.net, viro@zeniv.linux.org.uk, alan@linux.intel.com,
 	hch@infradead.org
 To: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752940AbZIKF1X@vger.kernel.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 In-Reply-To: <20090911052558.32359.18075.stgit@paris.rdu.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-fanotify sends event notification to userspace when userspace reads from the
-fanotify socket. This patch implements the operations that happen at read
-time.  These include opening the file descriptor to the original object and
-then filling the userspace buffer.  The fd should be pollable to indicate when
-it has data present and it should return how much data it has to send when the
-FIONREAD ioctl is checked.
+fanotify is a novel file notification system which bases notification on
+giving userspace both an event type (open, close, read, write) and an open
+file descriptor to the object in question.  This should address a number of
+races and problems with other notification systems like inotify and dnotify
+and should allow the future implementation of blocking or access controlled
+notification.  These are useful for on access scanners or hierachical storage
+management schemes.
+
+This patch just implements the basics of the fsnotify functions.
 
 Signed-off-by: Eric Paris <eparis@redhat.com>
 ---
 
- fs/notify/fanotify/af_fanotify.c |  228 ++++++++++++++++++++++++++++++++++++++
- fs/notify/fanotify/fanotify.h    |    5 +
- include/linux/fanotify.h         |   25 ++++
- 3 files changed, 256 insertions(+), 2 deletions(-)
+ fs/notify/Kconfig             |    1 
+ fs/notify/Makefile            |    1 
+ fs/notify/fanotify/Kconfig    |   11 +++++
+ fs/notify/fanotify/Makefile   |    1 
+ fs/notify/fanotify/fanotify.c |   86 +++++++++++++++++++++++++++++++++++++++++
+ fs/notify/fanotify/fanotify.h |   12 ++++++
+ include/linux/Kbuild          |    1 
+ include/linux/fanotify.h      |   40 +++++++++++++++++++
+ 8 files changed, 153 insertions(+), 0 deletions(-)
+ create mode 100644 fs/notify/fanotify/Kconfig
+ create mode 100644 fs/notify/fanotify/Makefile
+ create mode 100644 fs/notify/fanotify/fanotify.c
+ create mode 100644 fs/notify/fanotify/fanotify.h
+ create mode 100644 include/linux/fanotify.h
 
-diff --git a/fs/notify/fanotify/af_fanotify.c b/fs/notify/fanotify/af_fanotify.c
-index ac6aee1..2ae871b 100644
---- a/fs/notify/fanotify/af_fanotify.c
-+++ b/fs/notify/fanotify/af_fanotify.c
-@@ -2,6 +2,7 @@
- #include <linux/fdtable.h>
- #include <linux/file.h>
- #include <linux/fsnotify_backend.h>
-+#include <linux/ima.h> /* ima_path_check */
- #include <linux/init.h>
- #include <linux/kernel.h> /* UINT_MAX */
- #include <linux/mount.h> /* mntget() */
-@@ -16,6 +17,8 @@
- #include "fanotify.h"
- #include "af_fanotify.h"
+diff --git a/fs/notify/Kconfig b/fs/notify/Kconfig
+index dffbb09..22c629e 100644
+--- a/fs/notify/Kconfig
++++ b/fs/notify/Kconfig
+@@ -3,3 +3,4 @@ config FSNOTIFY
  
-+#include <asm/ioctls.h>
-+
- static const struct proto_ops fanotify_proto_ops;
- static struct kmem_cache *fanotify_mark_cache __read_mostly;
+ source "fs/notify/dnotify/Kconfig"
+ source "fs/notify/inotify/Kconfig"
++source "fs/notify/fanotify/Kconfig"
+diff --git a/fs/notify/Makefile b/fs/notify/Makefile
+index 0922cc8..396a387 100644
+--- a/fs/notify/Makefile
++++ b/fs/notify/Makefile
+@@ -2,3 +2,4 @@ obj-$(CONFIG_FSNOTIFY)		+= fsnotify.o notification.o group.o inode_mark.o
  
-@@ -114,6 +117,36 @@ static int fan_bind(struct socket *sock, struct sockaddr *addr, int addr_len)
- 	return 0;
- }
- 
-+static int fan_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ obj-y			+= dnotify/
+ obj-y			+= inotify/
++obj-y			+= fanotify/
+diff --git a/fs/notify/fanotify/Kconfig b/fs/notify/fanotify/Kconfig
+new file mode 100644
+index 0000000..70631ed
+--- /dev/null
++++ b/fs/notify/fanotify/Kconfig
+@@ -0,0 +1,11 @@
++config FANOTIFY
++	bool "Filesystem wide access notification"
++	select FSNOTIFY
++	default y
++	---help---
++	   Say Y here to enable fanotify suport.  fanotify is a system wide
++	   file access notification interface.  Events are read from from a
++	   socket and in doing so an fd is created in the reading process
++	   which points to the same data as the one on which the event occured.
++
++	   If unsure, say Y.
+diff --git a/fs/notify/fanotify/Makefile b/fs/notify/fanotify/Makefile
+new file mode 100644
+index 0000000..e7d39c0
+--- /dev/null
++++ b/fs/notify/fanotify/Makefile
+@@ -0,0 +1 @@
++obj-$(CONFIG_FANOTIFY)		+= fanotify.o
+diff --git a/fs/notify/fanotify/fanotify.c b/fs/notify/fanotify/fanotify.c
+new file mode 100644
+index 0000000..b5c2e32
+--- /dev/null
++++ b/fs/notify/fanotify/fanotify.c
+@@ -0,0 +1,86 @@
++#include <linux/fdtable.h>
++#include <linux/fsnotify_backend.h>
++#include <linux/init.h>
++#include <linux/kernel.h> /* UINT_MAX */
++#include <linux/net.h> /* struct socket */
++#include <linux/sched.h> /* task_struct */
++#include <linux/types.h>
++
++#include "fanotify.h"
++
++static int fanotify_handle_event(struct fsnotify_group *group, struct fsnotify_event *event)
 +{
-+	struct fanotify_sock *fan_sock;
-+	struct fsnotify_group *group;
-+	struct fsnotify_event_holder *holder;
-+	void __user *p;
-+	int ret = -ENOTTY;
-+	size_t send_len = 0;
-+
-+	if (sock->state != SS_CONNECTED)
-+		return -EBADF;
-+
-+	fan_sock = fan_sk(sock->sk);
-+	group = fan_sock->group;
-+
-+	p = (void __user *) arg;
-+
-+	switch (cmd) {
-+	case FIONREAD:
-+		mutex_lock(&group->notification_mutex);
-+		list_for_each_entry(holder, &group->notification_list, event_list)
-+			send_len += FAN_EVENT_METADATA_LEN;
-+		mutex_unlock(&group->notification_mutex);
-+		ret = put_user(send_len, (int __user *) p);
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
- static void fanotify_free_mark(struct fsnotify_mark_entry *entry)
- {
- 	kmem_cache_free(fanotify_mark_cache, entry);
-@@ -278,6 +311,197 @@ static int fan_setsockopt(struct socket *sock, int level, int optname,
- 	return ret;
- }
- 
-+/*
-+ * Get an fsnotify notification event if one exists and is small
-+ * enough to fit in "count". Return an error pointer if the count
-+ * is not large enough.
-+ *
-+ * Called with the group->notification_mutex held.
-+ */
-+static struct fsnotify_event *get_one_event(struct fsnotify_group *group,
-+					    size_t count)
-+{
-+	BUG_ON(!mutex_is_locked(&group->notification_mutex));
-+
-+	if (fsnotify_notify_queue_is_empty(group))
-+		return NULL;
-+
-+	if (FAN_EVENT_METADATA_LEN > count)
-+		return ERR_PTR(-EINVAL);
-+
-+	/* held the notification_mutex the whole time, so this is the
-+	 * same event we peeked above */
-+	return fsnotify_remove_notify_event(group);
-+}
-+
-+static int create_and_fill_fd(struct fsnotify_group *group,
-+			      struct fanotify_event_metadata *metadata,
-+			      struct fsnotify_event *event)
-+{
-+	int client_fd, err;
-+	struct dentry *dentry;
-+	struct vfsmount *mnt;
-+	struct file *new_file;
-+
-+	client_fd = get_unused_fd();
-+	if (client_fd < 0)
-+		return client_fd;
-+
-+	if (event->data_type != FSNOTIFY_EVENT_PATH) {
-+		WARN_ON(1);
-+		put_unused_fd(client_fd);
-+		return -EINVAL;
-+	}
-+
-+	/*
-+	 * we need a new file handle for the userspace program so it can read even if it was
-+	 * originally opened O_WRONLY.
-+	 */
-+	dentry = dget(event->path.dentry);
-+	mnt = mntget(event->path.mnt);
-+	/* it's possible this event was an overflow event.  in that case dentry and mnt
-+	 * are NULL;  That's fine, just don't call dentry open */
-+	if (dentry && mnt) {
-+		err = ima_path_check(&event->path, MAY_READ, IMA_COUNT_UPDATE);
-+		if (err)
-+			new_file = ERR_PTR(err);
-+		else
-+			new_file = dentry_open(dentry, mnt, O_RDONLY | O_LARGEFILE,
-+					       current_cred());
-+	} else
-+		new_file = ERR_PTR(-EOVERFLOW);
-+	if (IS_ERR(new_file)) {
-+		/*
-+		 * we still send an event even if we can't open the file.  this
-+		 * can happen when say tasks are gone and we try to open their
-+		 * /proc entries or we try to open a WRONLY file like in sysfs
-+		 * we just send the errno to userspace since there isn't much
-+		 * else we can do.
-+		 */
-+		put_unused_fd(client_fd);
-+		client_fd = PTR_ERR(new_file);
-+	} else {
-+		new_file->f_mode |= FMODE_NONOTIFY;
-+		fd_install(client_fd, new_file);
-+	}
-+
-+	metadata->fd = client_fd;
-+
-+	return 0;
-+}
-+
-+static ssize_t fill_event_metadata(struct fsnotify_group *group,
-+				   struct fanotify_event_metadata *metadata,
-+				   struct fsnotify_event *event)
-+{
-+	pr_debug("%s: \n", __func__);
-+
-+	metadata->event_len = FAN_EVENT_METADATA_LEN;
-+	metadata->vers = FANOTIFY_METADATA_VERSION;
-+	metadata->mask = fanotify_outgoing_mask(event->mask);
-+
-+	return create_and_fill_fd(group, metadata, event);
-+
-+}
-+
-+static ssize_t copy_event_to_iov(struct fsnotify_group *group,
-+				 struct fsnotify_event *event,
-+				 struct iovec *iov)
-+{
-+	struct fanotify_event_metadata fanotify_event_metadata;
 +	int ret;
 +
-+	pr_debug("%s: \n", __func__);
++	BUILD_BUG_ON(FAN_ACCESS != FS_ACCESS);
++	BUILD_BUG_ON(FAN_MODIFY != FS_MODIFY);
++	BUILD_BUG_ON(FAN_CLOSE_NOWRITE != FS_CLOSE_NOWRITE);
++	BUILD_BUG_ON(FAN_CLOSE_WRITE != FS_CLOSE_WRITE);
++	BUILD_BUG_ON(FAN_OPEN != FS_OPEN);
++	BUILD_BUG_ON(FAN_EVENT_ON_CHILD != FS_EVENT_ON_CHILD);
++	BUILD_BUG_ON(FAN_Q_OVERFLOW != FS_Q_OVERFLOW);
 +
-+	ret = fill_event_metadata(group, &fanotify_event_metadata, event);
-+	if (ret)
-+		return ret;
++	ret = fsnotify_add_notify_event(group, event, NULL, NULL);
 +
-+	/* send the main event */
-+	ret = memcpy_toiovec(iov, (unsigned char *)&fanotify_event_metadata,
-+			     FAN_EVENT_METADATA_LEN);
-+	if (ret < 0)
-+		return ret;
-+
-+	return FAN_EVENT_METADATA_LEN;
-+}
-+
-+static ssize_t fan_recv_events(struct fsnotify_group *group, struct msghdr *msg,
-+				int count, int nonblock)
-+{
-+	struct fsnotify_event *event;
-+	int ret, len_sent = 0;
-+	DEFINE_WAIT(wait);
-+
-+	pr_debug("%s: \n", __func__);
-+
-+	while (1) {
-+		prepare_to_wait(&group->notification_waitq, &wait, TASK_INTERRUPTIBLE);
-+
-+		mutex_lock(&group->notification_mutex);
-+		event = get_one_event(group, count);
-+		mutex_unlock(&group->notification_mutex);
-+
-+		if (event) {
-+			ret = PTR_ERR(event);
-+			if (IS_ERR(event))
-+				break;
-+
-+			ret = copy_event_to_iov(group, event, msg->msg_iov);
-+			fsnotify_put_event(event);
-+			if (ret < 0)
-+				break;
-+			len_sent += ret;
-+			count -= ret;
-+			continue;
-+		}
-+
-+		ret = -EAGAIN;
-+		if (nonblock)
-+			break;
-+		ret = -EINTR;
-+		if (signal_pending(current))
-+			break;
-+
-+		if (len_sent)
-+			break;
-+
-+		schedule();
-+	}
-+
-+	finish_wait(&group->notification_waitq, &wait);
-+	if (len_sent && ret != -EFAULT)
-+		ret = len_sent;
 +	return ret;
 +}
 +
-+static int fan_recvmsg(struct kiocb *iocb, struct socket *sock,
-+		       struct msghdr *msg, size_t size, int flags)
++static bool fanotify_should_send_event(struct fsnotify_group *group, struct inode *inode,
++				       __u32 mask, void *data, int data_type)
 +{
-+	struct fanotify_sock *fan_sock;
-+	struct fsnotify_group *group;
-+	int nonblock;
++	struct fsnotify_mark_entry *entry;
++	bool send;
 +
-+	pr_debug("%s: \n", __func__);
++	/* sorry, fanotify only gives a damn about files and dirs */
++	if (!S_ISREG(inode->i_mode) &&
++	    !S_ISDIR(inode->i_mode))
++		return false;
 +
-+	if (sock->state != SS_CONNECTED)
-+		return -EBADF;
++	/* if we don't have enough info to send an event to userspace say no */
++	if ((data_type != FSNOTIFY_EVENT_FILE) &&
++	    (data_type != FSNOTIFY_EVENT_PATH))
++		return false;
 +
-+	if (size < FAN_EVENT_METADATA_LEN)
-+		return -ENOMEM;
++	/* if this file was opened by fanotify don't send events about it */
++	if (data_type == FSNOTIFY_EVENT_FILE) {
++		struct file *file;
 +
-+	fan_sock = fan_sk(sock->sk);
-+	group = fan_sock->group;
++		file = (struct file *)data;
++		if (file->f_mode & FMODE_NONOTIFY)
++			return false;
++	}
 +
-+	/* hey, nonblock no matter how they ask */
-+	nonblock = !!(sock->file->f_flags & O_NONBLOCK);
-+	nonblock |= !!(flags & MSG_DONTWAIT);
++	spin_lock(&inode->i_lock);
++	entry = fsnotify_find_mark_entry(group, inode);
++	spin_unlock(&inode->i_lock);
++	if (!entry)
++		return false;
 +
-+	size = fan_recv_events(group, msg, size, nonblock);
++	/* if the event is for a child and this inode doesn't care about
++	 * events on the child, don't send it! */
++	if ((mask & FS_EVENT_ON_CHILD) &&
++	    !(entry->mask & FS_EVENT_ON_CHILD))
++		send = false;
++	else {
++		if (!(entry->mask & FS_EVENT_ON_CHILD) &&
++		    (mask & FS_EVENT_ON_CHILD))
++			send = false;
++		else {
++			mask = (mask & ~FS_EVENT_ON_CHILD);
++			send = (entry->mask & mask);
++		}
++	}
 +
-+	return size;
++	/* find took a reference */
++	fsnotify_put_mark(entry);
++
++	return send;
 +}
 +
- static const struct net_proto_family fanotify_family_ops = {
- 	.family		=	PF_FANOTIFY,
- 	.create		=	fan_sock_create,
-@@ -294,13 +518,13 @@ static const struct proto_ops fanotify_proto_ops = {
- 	.accept =	sock_no_accept,
- 	.getname =	sock_no_getname,
- 	.poll =		sock_no_poll,
--	.ioctl =	sock_no_ioctl,
-+	.ioctl =	fan_ioctl,
- 	.listen =	sock_no_listen,
- 	.shutdown =	sock_no_shutdown,
- 	.setsockopt =	fan_setsockopt,
- 	.getsockopt =	sock_no_getsockopt,
- 	.sendmsg =	sock_no_sendmsg,
--	.recvmsg =	sock_no_recvmsg,
-+	.recvmsg =	fan_recvmsg,
- 	.mmap =		sock_no_mmap,
- 	.sendpage =	sock_no_sendpage,
- };
++const struct fsnotify_ops fanotify_ops = {
++	.handle_event = fanotify_handle_event,
++	.should_send_event = fanotify_should_send_event,
++	.free_group_priv = NULL,
++	.free_event_priv = NULL,
++	.freeing_mark = NULL,
++};
 diff --git a/fs/notify/fanotify/fanotify.h b/fs/notify/fanotify/fanotify.h
-index 6c7bf06..4a5c785 100644
---- a/fs/notify/fanotify/fanotify.h
+new file mode 100644
+index 0000000..a8785c1
+--- /dev/null
 +++ b/fs/notify/fanotify/fanotify.h
-@@ -12,3 +12,8 @@ static inline bool fanotify_is_mask_valid(__u32 mask)
- 		return false;
- 	return true;
- }
+@@ -0,0 +1,12 @@
++#include <linux/fanotify.h>
++#include <linux/fsnotify_backend.h>
++#include <linux/net.h>
++#include <linux/kernel.h>
++#include <linux/types.h>
 +
-+static inline __u32 fanotify_outgoing_mask(__u32 mask)
++static inline bool fanotify_is_mask_valid(__u32 mask)
 +{
-+	return mask & FAN_ALL_OUTGOING_EVENTS;
++	if (mask & ~(FAN_ALL_INCOMING_EVENTS))
++		return false;
++	return true;
 +}
+diff --git a/include/linux/Kbuild b/include/linux/Kbuild
+index e7d84ff..b298c0e 100644
+--- a/include/linux/Kbuild
++++ b/include/linux/Kbuild
+@@ -206,6 +206,7 @@ unifdef-y += ethtool.h
+ unifdef-y += eventpoll.h
+ unifdef-y += signalfd.h
+ unifdef-y += ext2_fs.h
++unifdef-y += fanotify.h
+ unifdef-y += fb.h
+ unifdef-y += fcntl.h
+ unifdef-y += filter.h
 diff --git a/include/linux/fanotify.h b/include/linux/fanotify.h
-index 6ecbcea..17f9550 100644
---- a/include/linux/fanotify.h
+new file mode 100644
+index 0000000..b560f86
+--- /dev/null
 +++ b/include/linux/fanotify.h
-@@ -35,6 +35,10 @@
-  */
- #define FAN_ALL_INCOMING_EVENTS	(FAN_ALL_EVENTS |\
- 				 FAN_EVENT_ON_CHILD)
+@@ -0,0 +1,40 @@
++#ifndef _LINUX_FANOTIFY_H
++#define _LINUX_FANOTIFY_H
 +
-+#define FAN_ALL_OUTGOING_EVENTS	(FAN_ALL_EVENTS |\
-+				 FAN_Q_OVERFLOW)
++#include <linux/types.h>
 +
- #ifndef SOL_FANOTIFY
- #define SOL_FANOTIFY	278
- #endif
-@@ -63,6 +67,27 @@ struct fanotify_so_inode_mark {
- #define FANOTIFY_SET_MARK	1
- #define FANOTIFY_REMOVE_MARK	2
- 
-+#define FANOTIFY_METADATA_VERSION	1
++/* the following events that user-space can register for */
++#define FAN_ACCESS		0x00000001	/* File was accessed */
++#define FAN_MODIFY		0x00000002	/* File was modified */
++#define FAN_CLOSE_WRITE		0x00000008	/* Unwrittable file closed */
++#define FAN_CLOSE_NOWRITE	0x00000010	/* Writtable file closed */
++#define FAN_OPEN		0x00000020	/* File was opened */
 +
-+struct fanotify_event_metadata {
-+	__u32 event_len;
-+	__u32 vers;
-+	__s32 fd;
-+	__u32 mask;
-+}  __attribute__((packed));
++#define FAN_EVENT_ON_CHILD	0x08000000	/* interested in child events */
 +
++/* FIXME currently Q's have no limit.... */
++#define FAN_Q_OVERFLOW		0x00004000	/* Event queued overflowed */
 +
-+/* Helper functions to deal with fanotify_event_metadata buffers */
-+#define FAN_EVENT_METADATA_LEN	(sizeof(struct fanotify_event_metadata))
++/* helper events */
++#define FAN_CLOSE		(FAN_CLOSE_WRITE | FAN_CLOSE_NOWRITE) /* close */
 +
-+#define FAN_EVENT_NEXT(meta, len) ((len) -= (meta)->event_len, \
-+				   (struct fanotify_event_metadata*)(((char *)(meta)) + \
-+				   (meta)->event_len))
++/*
++ * All of the events - we build the list by hand so that we can add flags in
++ * the future and not break backward compatibility.  Apps will get only the
++ * events that they originally wanted.  Be sure to add new events here!
++ */
++#define FAN_ALL_EVENTS (FAN_ACCESS |\
++			FAN_MODIFY |\
++			FAN_CLOSE |\
++			FAN_OPEN)
 +
-+#define FAN_EVENT_OK(meta, len)	((long)(len) >= (long)FAN_EVENT_METADATA_LEN && \
-+				 (long)(meta)->event_len >= (long)FAN_EVENT_METADATA_LEN && \
-+				 (long)(meta)->event_len <= (long)(len))
++/*
++ * All legal FAN bits userspace can request (although possibly not all
++ * at the same time.
++ */
++#define FAN_ALL_INCOMING_EVENTS	(FAN_ALL_EVENTS |\
++				 FAN_EVENT_ON_CHILD)
++#ifdef __KERNEL__
 +
- #ifdef __KERNEL__
- 
- #endif /* __KERNEL__ */
++#endif /* __KERNEL__ */
++#endif /* _LINUX_FANOTIFY_H */
+
