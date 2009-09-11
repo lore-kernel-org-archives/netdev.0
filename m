@@ -1,256 +1,76 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: [PATCH 3/8] fanotify: fscking all notification system
-Date: Fri, 11 Sep 2009 01:26:13 -0400
-Message-ID: <20090911052613.32359.30717.stgit@paris.rdu.redhat.com>
-References: <20090911052558.32359.18075.stgit@paris.rdu.redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH RFC] tun: export underlying socket
+Date: Fri, 11 Sep 2009 08:36:10 +0300
+Message-ID: <20090911053610.GA10324@redhat.com>
+References: <20090910125929.GA32593@redhat.com> <200909110017.27668.paul.moore@hp.com> <20090911045943.GA1613@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, viro@zeniv.linux.org.uk, alan@linux.intel.com,
-	hch@infradead.org
-To: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20090911052558.32359.18075.stgit@paris.rdu.redhat.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: Paul Moore <paul.moore@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:13035 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751068AbZIKFhy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Sep 2009 01:37:54 -0400
+Content-Disposition: inline
+In-Reply-To: <20090911045943.GA1613@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-fanotify is a novel file notification system which bases notification on
-giving userspace both an event type (open, close, read, write) and an open
-file descriptor to the object in question.  This should address a number of
-races and problems with other notification systems like inotify and dnotify
-and should allow the future implementation of blocking or access controlled
-notification.  These are useful for on access scanners or hierachical storage
-management schemes.
+On Fri, Sep 11, 2009 at 07:59:43AM +0300, Michael S. Tsirkin wrote:
+> On Fri, Sep 11, 2009 at 12:17:27AM -0400, Paul Moore wrote:
+> > On Thursday 10 September 2009 08:59:29 am Michael S. Tsirkin wrote:
+> > > Tun device looks similar to a packet socket
+> > > in that both pass complete frames from/to userspace.
+> > > 
+> > > This patch fills in enough fields in the socket underlying tun driver
+> > > to support sendmsg/recvmsg operations, and exports access to this socket
+> > > to modules.
+> > > 
+> > > This way, code using raw sockets to inject packets
+> > > into a physical device, can support injecting
+> > > packets into host network stack almost without modification.
+> > > 
+> > > First user of this interface will be vhost virtualization
+> > > accelerator.
+> > 
+> > No comments on the code at this point - I'm just trying to understand the 
+> > intended user right now which I'm assuming is the vhost-net bits you sent 
+> > previously? 
+> 
+> Yes - these now use raw socket,
 
-This patch just implements the basics of the fsnotify functions.
+More specifically, vhost would then be patched with:
 
-Signed-off-by: Eric Paris <eparis@redhat.com>
----
-
- fs/notify/Kconfig             |    1 
- fs/notify/Makefile            |    1 
- fs/notify/fanotify/Kconfig    |   11 +++++
- fs/notify/fanotify/Makefile   |    1 
- fs/notify/fanotify/fanotify.c |   86 +++++++++++++++++++++++++++++++++++++++++
- fs/notify/fanotify/fanotify.h |   12 ++++++
- include/linux/Kbuild          |    1 
- include/linux/fanotify.h      |   40 +++++++++++++++++++
- 8 files changed, 153 insertions(+), 0 deletions(-)
- create mode 100644 fs/notify/fanotify/Kconfig
- create mode 100644 fs/notify/fanotify/Makefile
- create mode 100644 fs/notify/fanotify/fanotify.c
- create mode 100644 fs/notify/fanotify/fanotify.h
- create mode 100644 include/linux/fanotify.h
-
-diff --git a/fs/notify/Kconfig b/fs/notify/Kconfig
-index dffbb09..22c629e 100644
---- a/fs/notify/Kconfig
-+++ b/fs/notify/Kconfig
-@@ -3,3 +3,4 @@ config FSNOTIFY
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index aeffb3a..b54f9d6 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -331,15 +331,26 @@ err:
+ 	return ERR_PTR(r);
+ }
  
- source "fs/notify/dnotify/Kconfig"
- source "fs/notify/inotify/Kconfig"
-+source "fs/notify/fanotify/Kconfig"
-diff --git a/fs/notify/Makefile b/fs/notify/Makefile
-index 0922cc8..396a387 100644
---- a/fs/notify/Makefile
-+++ b/fs/notify/Makefile
-@@ -2,3 +2,4 @@ obj-$(CONFIG_FSNOTIFY)		+= fsnotify.o notification.o group.o inode_mark.o
++static struct socket *get_tun_socket(int fd)
++{
++	struct file *file = fget(fd);
++	if (!file)
++		return ERR_PTR(-EBADF);
++	return tun_get_socket(file);
++}
++
+ static struct socket *get_socket(int fd)
+ {
+ 	struct socket *sock;
+ 	sock = get_raw_socket(fd);
+ 	if (!IS_ERR(sock))
+ 		return sock;
++	sock = get_tun_socket(fd);
++	if (!IS_ERR(sock))
++		return sock;
+ 	return ERR_PTR(-ENOTSOCK);
+ }
  
- obj-y			+= dnotify/
- obj-y			+= inotify/
-+obj-y			+= fanotify/
-diff --git a/fs/notify/fanotify/Kconfig b/fs/notify/fanotify/Kconfig
-new file mode 100644
-index 0000000..70631ed
---- /dev/null
-+++ b/fs/notify/fanotify/Kconfig
-@@ -0,0 +1,11 @@
-+config FANOTIFY
-+	bool "Filesystem wide access notification"
-+	select FSNOTIFY
-+	default y
-+	---help---
-+	   Say Y here to enable fanotify suport.  fanotify is a system wide
-+	   file access notification interface.  Events are read from from a
-+	   socket and in doing so an fd is created in the reading process
-+	   which points to the same data as the one on which the event occured.
-+
-+	   If unsure, say Y.
-diff --git a/fs/notify/fanotify/Makefile b/fs/notify/fanotify/Makefile
-new file mode 100644
-index 0000000..e7d39c0
---- /dev/null
-+++ b/fs/notify/fanotify/Makefile
-@@ -0,0 +1 @@
-+obj-$(CONFIG_FANOTIFY)		+= fanotify.o
-diff --git a/fs/notify/fanotify/fanotify.c b/fs/notify/fanotify/fanotify.c
-new file mode 100644
-index 0000000..b5c2e32
---- /dev/null
-+++ b/fs/notify/fanotify/fanotify.c
-@@ -0,0 +1,86 @@
-+#include <linux/fdtable.h>
-+#include <linux/fsnotify_backend.h>
-+#include <linux/init.h>
-+#include <linux/kernel.h> /* UINT_MAX */
-+#include <linux/net.h> /* struct socket */
-+#include <linux/sched.h> /* task_struct */
-+#include <linux/types.h>
-+
-+#include "fanotify.h"
-+
-+static int fanotify_handle_event(struct fsnotify_group *group, struct fsnotify_event *event)
-+{
-+	int ret;
-+
-+	BUILD_BUG_ON(FAN_ACCESS != FS_ACCESS);
-+	BUILD_BUG_ON(FAN_MODIFY != FS_MODIFY);
-+	BUILD_BUG_ON(FAN_CLOSE_NOWRITE != FS_CLOSE_NOWRITE);
-+	BUILD_BUG_ON(FAN_CLOSE_WRITE != FS_CLOSE_WRITE);
-+	BUILD_BUG_ON(FAN_OPEN != FS_OPEN);
-+	BUILD_BUG_ON(FAN_EVENT_ON_CHILD != FS_EVENT_ON_CHILD);
-+	BUILD_BUG_ON(FAN_Q_OVERFLOW != FS_Q_OVERFLOW);
-+
-+	ret = fsnotify_add_notify_event(group, event, NULL, NULL);
-+
-+	return ret;
-+}
-+
-+static bool fanotify_should_send_event(struct fsnotify_group *group, struct inode *inode,
-+				       __u32 mask, void *data, int data_type)
-+{
-+	struct fsnotify_mark_entry *entry;
-+	bool send;
-+
-+	/* sorry, fanotify only gives a damn about files and dirs */
-+	if (!S_ISREG(inode->i_mode) &&
-+	    !S_ISDIR(inode->i_mode))
-+		return false;
-+
-+	/* if we don't have enough info to send an event to userspace say no */
-+	if ((data_type != FSNOTIFY_EVENT_FILE) &&
-+	    (data_type != FSNOTIFY_EVENT_PATH))
-+		return false;
-+
-+	/* if this file was opened by fanotify don't send events about it */
-+	if (data_type == FSNOTIFY_EVENT_FILE) {
-+		struct file *file;
-+
-+		file = (struct file *)data;
-+		if (file->f_mode & FMODE_NONOTIFY)
-+			return false;
-+	}
-+
-+	spin_lock(&inode->i_lock);
-+	entry = fsnotify_find_mark_entry(group, inode);
-+	spin_unlock(&inode->i_lock);
-+	if (!entry)
-+		return false;
-+
-+	/* if the event is for a child and this inode doesn't care about
-+	 * events on the child, don't send it! */
-+	if ((mask & FS_EVENT_ON_CHILD) &&
-+	    !(entry->mask & FS_EVENT_ON_CHILD))
-+		send = false;
-+	else {
-+		if (!(entry->mask & FS_EVENT_ON_CHILD) &&
-+		    (mask & FS_EVENT_ON_CHILD))
-+			send = false;
-+		else {
-+			mask = (mask & ~FS_EVENT_ON_CHILD);
-+			send = (entry->mask & mask);
-+		}
-+	}
-+
-+	/* find took a reference */
-+	fsnotify_put_mark(entry);
-+
-+	return send;
-+}
-+
-+const struct fsnotify_ops fanotify_ops = {
-+	.handle_event = fanotify_handle_event,
-+	.should_send_event = fanotify_should_send_event,
-+	.free_group_priv = NULL,
-+	.free_event_priv = NULL,
-+	.freeing_mark = NULL,
-+};
-diff --git a/fs/notify/fanotify/fanotify.h b/fs/notify/fanotify/fanotify.h
-new file mode 100644
-index 0000000..a8785c1
---- /dev/null
-+++ b/fs/notify/fanotify/fanotify.h
-@@ -0,0 +1,12 @@
-+#include <linux/fanotify.h>
-+#include <linux/fsnotify_backend.h>
-+#include <linux/net.h>
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+
-+static inline bool fanotify_is_mask_valid(__u32 mask)
-+{
-+	if (mask & ~(FAN_ALL_INCOMING_EVENTS))
-+		return false;
-+	return true;
-+}
-diff --git a/include/linux/Kbuild b/include/linux/Kbuild
-index e7d84ff..b298c0e 100644
---- a/include/linux/Kbuild
-+++ b/include/linux/Kbuild
-@@ -206,6 +206,7 @@ unifdef-y += ethtool.h
- unifdef-y += eventpoll.h
- unifdef-y += signalfd.h
- unifdef-y += ext2_fs.h
-+unifdef-y += fanotify.h
- unifdef-y += fb.h
- unifdef-y += fcntl.h
- unifdef-y += filter.h
-diff --git a/include/linux/fanotify.h b/include/linux/fanotify.h
-new file mode 100644
-index 0000000..b560f86
---- /dev/null
-+++ b/include/linux/fanotify.h
-@@ -0,0 +1,40 @@
-+#ifndef _LINUX_FANOTIFY_H
-+#define _LINUX_FANOTIFY_H
-+
-+#include <linux/types.h>
-+
-+/* the following events that user-space can register for */
-+#define FAN_ACCESS		0x00000001	/* File was accessed */
-+#define FAN_MODIFY		0x00000002	/* File was modified */
-+#define FAN_CLOSE_WRITE		0x00000008	/* Unwrittable file closed */
-+#define FAN_CLOSE_NOWRITE	0x00000010	/* Writtable file closed */
-+#define FAN_OPEN		0x00000020	/* File was opened */
-+
-+#define FAN_EVENT_ON_CHILD	0x08000000	/* interested in child events */
-+
-+/* FIXME currently Q's have no limit.... */
-+#define FAN_Q_OVERFLOW		0x00004000	/* Event queued overflowed */
-+
-+/* helper events */
-+#define FAN_CLOSE		(FAN_CLOSE_WRITE | FAN_CLOSE_NOWRITE) /* close */
-+
-+/*
-+ * All of the events - we build the list by hand so that we can add flags in
-+ * the future and not break backward compatibility.  Apps will get only the
-+ * events that they originally wanted.  Be sure to add new events here!
-+ */
-+#define FAN_ALL_EVENTS (FAN_ACCESS |\
-+			FAN_MODIFY |\
-+			FAN_CLOSE |\
-+			FAN_OPEN)
-+
-+/*
-+ * All legal FAN bits userspace can request (although possibly not all
-+ * at the same time.
-+ */
-+#define FAN_ALL_INCOMING_EVENTS	(FAN_ALL_EVENTS |\
-+				 FAN_EVENT_ON_CHILD)
-+#ifdef __KERNEL__
-+
-+#endif /* __KERNEL__ */
-+#endif /* _LINUX_FANOTIFY_H */
-
+ static long vhost_net_set_socket(struct vhost_net *n, int fd)
+ {
+ 	struct socket *sock, *oldsock = NULL;
