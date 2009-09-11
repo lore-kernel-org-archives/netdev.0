@@ -1,50 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 3/3] ucc_geth: Fix hangs after switching from full
- to half duplex
-Date: Fri, 11 Sep 2009 12:19:58 -0700 (PDT)
-Message-ID: <20090911.121958.06510883.davem@davemloft.net>
-References: <20090910194053.GA24363@oksana.dev.rtsoft.ru>
-	<20090910210935.GA26037@oksana.dev.rtsoft.ru>
-	<20090910214812.GA30564@oksana.dev.rtsoft.ru>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [AX25] kernel panic
+Date: Fri, 11 Sep 2009 21:21:40 +0200
+Message-ID: <4AAAA344.4030200@gmail.com>
+References: <4AA82BF0.7040203@upmc.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: scottwood@freescale.com, netdev@vger.kernel.org,
-	afleming@freescale.com, timur@freescale.com,
-	linuxppc-dev@ozlabs.org
-To: avorontsov@ru.mvista.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39469
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755785AbZIKTTm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2009 15:19:42 -0400
-In-Reply-To: <20090910214812.GA30564@oksana.dev.rtsoft.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Ralf Baechle DL5RB <ralf@linux-mips.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	linux-hams <linux-hams@vger.kernel.org>
+To: Bernard Pidoux <bernard.pidoux@upmc.fr>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <4AA82BF0.7040203@upmc.fr>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Date: Fri, 11 Sep 2009 01:48:12 +0400
+Bernard Pidoux wrote, On 09/10/2009 12:28 AM:
 
-> MPC8360 QE UCC ethernet controllers hang when changing link duplex
-> under a load (a bit of NFS activity is enough).
+> Hi Ralf,
 > 
->   PHY: mdio@e0102120:00 - Link is Up - 1000/Full
->   sh-3.00# ethtool -s eth0 speed 100 duplex half autoneg off
->   PHY: mdio@e0102120:00 - Link is Down
->   PHY: mdio@e0102120:00 - Link is Up - 100/Half
->   NETDEV WATCHDOG: eth0 (ucc_geth): transmit queue 0 timed out
->   ------------[ cut here ]------------
->   Badness at c01fcbd0 [verbose debug info unavailable]
->   NIP: c01fcbd0 LR: c01fcbd0 CTR: c0194e44
->   ...
+> Here is a set of not so frequent kernel panics captured via netconsole
+> that seem related to AX25 timer. 
 > 
-> The cure is to disable the controller before changing speed/duplex
-> and enable it afterwards.
+> Regards,
 > 
-> Though, disabling the controller might take quite a while, so we
-> better not grab any spinlocks in adjust_link(). Instead, we quiesce
-> the driver's activity, and only then disable the controller.
+> Bernard Pidoux
 > 
-> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 
-Applied.
+Hi Bernard,
+
+Could/did you try to turn on this debugging option below, btw?
+
+Regards,
+Jarek P.
+
+   CONFIG_DEBUG_OBJECTS_TIMERS:
+  ?                                                                                                        ?  
+  ? If you say Y here, additional code will be inserted into the                                           ?  
+  ? timer routines to track the life time of timer objects and                                             ?  
+  ? validate the timer operations.                                                                         ?  
+  ?                                                                                                        ?  
+  ? Symbol: DEBUG_OBJECTS_TIMERS [=y]                                                                      ?  
+  ? Prompt: Debug timer objects                                                                            ?  
+  ?   Defined at lib/Kconfig.debug:247                                                                     ?  
+  ?   Depends on: DEBUG_OBJECTS                                                                            ?  
+  ?   Location:                                                                                            ?  
+  ?     -> Kernel hacking                                                                                  ?  
+  ?       -> Kernel debugging (DEBUG_KERNEL [=y])                                                          ?  
+  ?         -> Debug object operations (DEBUG_OBJECTS [=y])                                                ?  
+  ?                                                                      
+
