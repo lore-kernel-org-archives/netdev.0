@@ -1,118 +1,98 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: mac80211: NOHZ: local_softirq_pending 08
-Date: Sat, 12 Sep 2009 20:07:09 +0200
-Message-ID: <4AABE34D.30401@hartkopp.net>
-References: <200909111648.50902.mb@bu3sch.de> <200909111813.35810.mb@bu3sch.de> <4AABCF28.6090505@hartkopp.net> <200909121851.46002.mb@bu3sch.de>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 1/5] First Patch on TFRC-SP. Copy base files from TFRC
+Date: Sat, 12 Sep 2009 20:32:22 +0200
+Message-ID: <20090912183222.GA5706@gerrit.erg.abdn.ac.uk>
+References: <4AA6A25A.5040508@embedded.ufcg.edu.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200909121851.46002.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55373 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754722AbZILSc3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Sep 2009 14:32:29 -0400
+Content-Disposition: inline
+In-Reply-To: <4AA6A25A.5040508@embedded.ufcg.edu.br>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michael Buesch wrote:
-> On Saturday 12 September 2009 18:41:12 Oliver Hartkopp wrote:
->> Michael Buesch wrote:
->>
->>>> As there are several users in the kernel do exact this test and call the
->>>> appropriate netif_rx() function, i would suggest to create a static inline
->>>> function:
->>>>
->>>> static inline int netif_rx_ti(struct sk_buff *skb)
->>>> {
->>>> 	if (in_interrupt())
->>>> 		return netif_rx(skb);
->>>> 	return netif_rx_ni(skb);
->>>> }
->>>>
->>>> ('ti' for test in_interrupt())
->>>>
->>>> in include/linux/netdevice.h
->>>>
->>>> What do you think about that?
->>> Yeah, I'm fine with that.
->>>
->> Hi Michael,
->>
->> i cooked a patch that introduces netif_rx_ti() and fixes up the problems in
->> mac80211 and the CAN subsystem.
->>
->> Currently i'm pondering whether netif_rx_ti() is needed in all cases or if
->> there are code sections that'll never be executed from irq-context.
->>
->> In theses cases netif_rx_ni() should be prefered to netif_rx_ti() to prevent
->> the obsolete check ...
->>
->> Is there any of your changes that should better use netif_rx_ni() ?
->>
->> Regards,
->> Oliver
->>
-> 
-> Well, I'd say this check does not cost much at all.
-> If I were the net maintainer, I'd get rid of netif_rx_ni() _and_ netif_rx_ti() and
-> do the check internally in netif_rx().
-> But as I don't have to decide that, I just want the mac80211 issue fixed.
-> 
+Hi Ivo,
 
-Like this?
+you have made a really good job of sticking to code conventions (see other
+posting). There are a few things that needed tending to in the first patch.
 
-int netif_rx(struct sk_buff *skb)
+(1) Version changes
+===================
+It seems that you applied something like s/\*\*/*/g to the first instance of
+the patch, in order to remove duplicate asterisks. This caused a problem:
+
+--- tfrc_sp_receiver_01.patch   2009/09/12 08:37:12     1.1
++++ tfrc_sp_receiver_01.patch   2009/09/08 17:34:40
+@@ -1001,8 +1001,8 @@ Index: dccp_tree_work4/net/dccp/ccids/li
+ +
+ +#endif
+ +
+-+extern int  tfrc_sp_tx_hist_add(struct tfrc_tx_hist_entry **headp, u64 seqno);
+-+extern void tfrc_sp_tx_hist_purge(struct tfrc_tx_hist_entry **headp);
+++extern int  tfrc_sp_tx_hist_add(struct tfrc_tx_hist_entry *headp, u64 seqno);
+++extern void tfrc_sp_tx_hist_purge(struct tfrc_tx_hist_entry *headp);
+
+I have reverted the bug, also to minimise the difference to the existing (non
+TFRC-SP) files.
+
+
+(2) Other changes that I edited out
+===================================
+(Other than whitespace changes.)
+
+net/dccp/ccids/lib/loss_interval_sp.c
+-------------------------------------
+I replaced the following dead code
+        if ((tfrc_lh_slab != NULL))
+                return 0;
+
+        if (tfrc_lh_slab != NULL) {
+                kmem_cache_destroy(tfrc_lh_slab);
+                tfrc_lh_slab = NULL;
+        }
+        return -ENOBUFS;
+with 
+        return tfrc_lh_slab == NULL ? -ENOBUFS : 0;
+
+Also separated the conditions
++               if ((len <= 0) || 
++                   (!tfrc_lh_closed_check(cur, cong_evt->tfrchrx_ccval))) {
+back into 
+                if (len <= 0)
+                        return false;
+
+                if (!tfrc_lh_closed_check(cur, cong_evt->tfrchrx_ccval))
+                        return false;
+
+I removed the following unnecessary inclusion:
++#include <linux/random.h>
+
+
+The following function pokes a hole in thei so far "abstract" data type;
+the convention has been to access the internals of the struct only via
+get-functions:
+
+static inline struct tfrc_loss_interval
+        *tfrc_lh_get_loss_interval(struct tfrc_loss_hist *lh, const u8 i)
 {
-	int err;
-
-	if (likely(in_interrupt()))
-		err = __netif_rx(skb);
-	else {
-		preempt_disable();
-		err = __netif_rx(skb);
-		if (local_softirq_pending())
-			do_softirq();
-		preempt_enable();
-	}
-
-	return err;
+        BUG_ON(i >= lh->counter);
+        return lh->ring[LIH_INDEX(lh->counter - i - 1)];
 }
 
-I don't know how expensive in_interrupt() is ... checking the code does not
-give any answers to *me* ;-)
-
-But i found
-
-356 netif_rx()
-
-but only
-
-18 netif_rx_ni()
-
-in the kernel tree.
-
-And three of them check for in_interrupt() before using netif_rx() or
-netif_rx_ni() ...
+(You use it in patch 3/5 to gain access to li_ccval and li_losses.
+Better would be to have two separate accessor functions.)
 
 
-Finally i would tend to introduce netif_rx_ti() in include/linux/netdevice.h
-as described above, for the rare code that can be used inside and outside the
-irq context.
+net/dccp/ccids/lib/tfrc_equation_sp.c
+-------------------------------------
+This is a prime candidate for removal. After editing out the whitespace
+differences, I found that it is 100% identical with tfrc_equation.c.
 
-I assume the affected code in the CAN stuff has to use netif_rx_ni() - but i
-will doublecheck that (and prepare a separate CAN patch).
-
-For the mac80211 i would suggest to check whether you really need
-netif_rx()/netif_rx_ni()/netif_rx_ti() in all the regarded cases.
-
-I assume always using netif_rx_ti() (as you proposed in the original patch) is
-not the most efficient approach.
-
-Best regards,
-Oliver
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The result of this editing has been uploaded to
+http://eden-feed.erg.abdn.ac.uk/tfrc_sp_receiver_01.patch
