@@ -1,38 +1,41 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont" <remi@remlab.net>
-Subject: Re: [PATCH 2/2] cdc-phonet: autoconfigure Phonet address
-Date: Sat, 12 Sep 2009 12:20:34 +0300
-Message-ID: <200909121220.36329.remi@remlab.net>
-References: <1252490406-27951-1-git-send-email-remi@remlab.net> <1252490406-27951-2-git-send-email-remi@remlab.net> <20090911.123835.218761422.davem@davemloft.net>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH 1/8] networking/fanotify: declare fanotify socket numbers
+Date: Sat, 12 Sep 2009 13:41:10 +0400
+Message-ID: <20090912094110.GB24709@ioremap.net>
+References: <20090911052558.32359.18075.stgit@paris.rdu.redhat.com> <20090911.114620.260824240.davem@davemloft.net> <1252697613.2305.38.camel@dhcp231-106.rdu.redhat.com> <20090911204602.GA19371@shareable.org> <1252703626.2305.50.camel@dhcp231-106.rdu.redhat.com> <20090911212731.GA19901@shareable.org> <1252705902.2305.83.camel@dhcp231-106.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamie Lokier <jamie@shareable.org>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
+	alan@linux.intel.com, hch@infradead.org
+To: Eric Paris <eparis@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:44778 "EHLO yop.chewa.net"
+Received: from tservice.net.ru ([195.178.208.66]:35637 "EHLO tservice.net.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752273AbZILJUg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Sep 2009 05:20:36 -0400
-In-Reply-To: <20090911.123835.218761422.davem@davemloft.net>
+	id S1752318AbZILJlJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Sep 2009 05:41:09 -0400
+Content-Disposition: inline
+In-Reply-To: <1252705902.2305.83.camel@dhcp231-106.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 11 septembre 2009 22:38:35 David Miller, vous avez =E9crit =
-:
-> From: R=E9mi Denis-Courmont <remi@remlab.net>
-> Date: Wed,  9 Sep 2009 13:00:06 +0300
->=20
-> > From: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
-> >
-> > Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com=
->
->=20
-> Applied.
+On Fri, Sep 11, 2009 at 05:51:42PM -0400, Eric Paris (eparis@redhat.com) wrote:
+> For some things yes, some things no.  I'd have to understand where loss
+> can happen to know if it's feasible.  If I know loss happens in the
+> sender context that's great.  If it's somewhere in the middle and the
+> sender doesn't immediately know it'll never be delivered, yes, I don't
+> think it can solve all my needs.  How many places can and skb get lost
+> between the sender and the receiver?
 
-THanks and oops, I just had an updated patch set coming. I guess I will=
- rebase=20
-it then.
+When queue is full or you do not have enough RAM. Both are reported at
+'sending' time.
 
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
+As of your description of netlink/socket usage - you will have to peek
+skb queue, which is rather error-prone operation. Also you will have to
+implement own skb destructor to mess with private reference counters and
+netlink bits.
+
+-- 
+	Evgeniy Polyakov
