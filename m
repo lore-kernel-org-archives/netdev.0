@@ -1,43 +1,47 @@
-From: Francis Moreau <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [Bug #13328] b44: eth0: BUG! Timeout waiting for bit 00000002 of
-	register 42c to clear.
-Date: Sat, 12 Sep 2009 21:27:11 +0200
-Message-ID: <38b2ab8a0909121227k6b6af281i3eaf5213c0ef25a1@mail.gmail.com>
-References: <aIL9jMAYJnG.A.WjH.M3BpKB@chimera>
-	 <hKF51Pczj6N.A.1CB.q5BpKB@chimera>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [iproute2] tc action mirred    question
+Date: Sat, 12 Sep 2009 17:49:01 -0400
+Message-ID: <1252792141.25158.68.camel@dogo.mojatatu.com>
+References: <404956.88336.qm@web111607.mail.gq1.yahoo.com>
+	 <1252376168.5244.11.camel@dogo.mojatatu.com>
+	 <313388.35529.qm@web111617.mail.gq1.yahoo.com>
+	 <1252534266.4119.5.camel@dogo.mojatatu.com>
+	 <204967.7557.qm@web111613.mail.gq1.yahoo.com>
+	 <1252671940.25158.5.camel@dogo.mojatatu.com>
+	 <510605.34044.qm@web111611.mail.gq1.yahoo.com>
+	 <1252704524.25158.42.camel@dogo.mojatatu.com>
+	 <463375.95638.qm@web111612.mail.gq1.yahoo.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <hKF51Pczj6N.A.1CB.q5BpKB@chimera>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux netdev <netdev@vger.kernel.org>
+To: Xiaofei Wu <xiaofei_wu08@yahoo.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qy0-f181.google.com ([209.85.221.181]:32772 "EHLO
+	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754453AbZILVv3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Sep 2009 17:51:29 -0400
+Received: by qyk11 with SMTP id 11so1764157qyk.1
+        for <netdev@vger.kernel.org>; Sat, 12 Sep 2009 14:51:32 -0700 (PDT)
+In-Reply-To: <463375.95638.qm@web111612.mail.gq1.yahoo.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 6, 2009 at 8:11 PM, Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org> wrote:
-> This message has been generated automatically as a part of a report
-> of regressions introduced between 2.6.29 and 2.6.30.
->
-> The following bug entry is on the current list of known regressions
-> introduced between 2.6.29 and 2.6.30. =A0Please verify if it still sh=
-ould
-> be listed and let me know (either way).
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-13328
-> Subject =A0 =A0 =A0 =A0 : b44: eth0: BUG! Timeout waiting for bit 000=
-00002 of register 42c to clear.
-> Submitter =A0 =A0 =A0 : Francis Moreau <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2009-05-03 16:22 (127 days old)
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D124136=
-778012280&w=3D4
->
+On Sat, 2009-09-12 at 09:01 -0700, Xiaofei Wu wrote:
 
-still in 2.6.31
+> I can mirror the packets (A -> B) to D. Node D forwards them to C.
+> Sometimes the same packets through the path A-B-C, A-D-C are not lost. Node C will receive the
+> same packets twice. How to handle the duplicate packet on node C ?
+> 
+> Maybe the duplicate packets have side effects to TCP.
+> 
 
---=20
-=46rancis
+I will leave this to you. This is where you go and do interesting
+things, publish your results and maybe write a paper.
+I dont think its a big deal to receive duplicate packets.
+
+cheers,
+jamal
+
+
