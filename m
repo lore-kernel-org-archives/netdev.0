@@ -1,66 +1,43 @@
-From: Jaswinder Singh Rajput <jaswinder@kernel.org>
-Subject: [RFC][PATCH] pcmcia: pcnet_cs.c removing useless condition
-Date: Sun, 13 Sep 2009 00:38:49 +0530
-Message-ID: <1252782529.3687.26.camel@ht.satnam>
+From: Francis Moreau <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [Bug #13328] b44: eth0: BUG! Timeout waiting for bit 00000002 of
+	register 42c to clear.
+Date: Sat, 12 Sep 2009 21:27:11 +0200
+Message-ID: <38b2ab8a0909121227k6b6af281i3eaf5213c0ef25a1@mail.gmail.com>
+References: <aIL9jMAYJnG.A.WjH.M3BpKB@chimera>
+	 <hKF51Pczj6N.A.1CB.q5BpKB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: David Miller <davem@davemloft.net>, Jeff Garzik <jeff@garzik.org>,
-	netdev <netdev@vger.kernel.org>,
-	linux-pcmcia@lists.infradead.org,
-	Dominik Brodowski <linux@dominikbrodowski.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:51919 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753634AbZILTI5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Sep 2009 15:08:57 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <hKF51Pczj6N.A.1CB.q5BpKB@chimera>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-[This is untested]
+On Sun, Sep 6, 2009 at 8:11 PM, Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org> wrote:
+> This message has been generated automatically as a part of a report
+> of regressions introduced between 2.6.29 and 2.6.30.
+>
+> The following bug entry is on the current list of known regressions
+> introduced between 2.6.29 and 2.6.30. =A0Please verify if it still sh=
+ould
+> be listed and let me know (either way).
+>
+>
+> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
+13328
+> Subject =A0 =A0 =A0 =A0 : b44: eth0: BUG! Timeout waiting for bit 000=
+00002 of register 42c to clear.
+> Submitter =A0 =A0 =A0 : Francis Moreau <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date =A0 =A0 =A0 =A0 =A0 =A0: 2009-05-03 16:22 (127 days old)
+> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D124136=
+778012280&w=3D4
+>
 
-'if (i < NR_INFO)' will only true if we breaks from 'for (i =3D 0; i < =
-NR_INFO; i++)'
-So removing useless 'if (i < NR_INFO)'
+still in 2.6.31
 
-This also fixed following compilation warning :
-
-  CC [M]  drivers/net/pcmcia/pcnet_cs.o
-drivers/net/pcmcia/pcnet_cs.c: In function =E2=80=98get_hwinfo=E2=80=99=
-:
-drivers/net/pcmcia/pcnet_cs.c:321: warning: =E2=80=98base=E2=80=99 may =
-be used uninitialized in this function
-
-Signed-off-by: Jaswinder Singh Rajput <jaswinderrajput@gmail.com>
----
- drivers/net/pcmcia/pcnet_cs.c |   11 +++++------
- 1 files changed, 5 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/pcmcia/pcnet_cs.c b/drivers/net/pcmcia/pcnet_c=
-s.c
-index 9ef1c1b..6a60227 100644
---- a/drivers/net/pcmcia/pcnet_cs.c
-+++ b/drivers/net/pcmcia/pcnet_cs.c
-@@ -339,12 +339,11 @@ static hw_info_t *get_hwinfo(struct pcmcia_device=
- *link)
- 	base =3D &virt[hw_info[i].offset & (req.Size-1)];
- 	if ((readb(base+0) =3D=3D hw_info[i].a0) &&
- 	    (readb(base+2) =3D=3D hw_info[i].a1) &&
--	    (readb(base+4) =3D=3D hw_info[i].a2))
--	    break;
--    }
--    if (i < NR_INFO) {
--	for (j =3D 0; j < 6; j++)
--	    dev->dev_addr[j] =3D readb(base + (j<<1));
-+	    (readb(base+4) =3D=3D hw_info[i].a2)) {
-+		for (j =3D 0; j < 6; j++)
-+		    dev->dev_addr[j] =3D readb(base + (j<<1));
-+		break;
-+	}
-     }
-=20
-     iounmap(virt);
 --=20
-1.6.4.2
-
-
+=46rancis
