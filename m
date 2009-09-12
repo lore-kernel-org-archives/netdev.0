@@ -1,50 +1,43 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] sky2: Make hw->ports the number of ports allocated
-Date: Fri, 11 Sep 2009 21:43:58 -0700
-Message-ID: <20090911214358.7096f544@nehalam>
-References: <4AAB133B.8070900@ring3k.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [build fail] rt2x00dev.c from next tree causes build fail
+Date: Sat, 12 Sep 2009 00:46:50 -0700 (PDT)
+Message-ID: <20090912.004650.21685836.davem@davemloft.net>
+References: <5a44caba0909120042x6592e261icca4b21c4184e0d3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Mike McCormack <mikem@ring3k.org>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org
+To: kennylewis@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:58509 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750705AbZILEoK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Sep 2009 00:44:10 -0400
-In-Reply-To: <4AAB133B.8070900@ring3k.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51249
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751399AbZILHqe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Sep 2009 03:46:34 -0400
+In-Reply-To: <5a44caba0909120042x6592e261icca4b21c4184e0d3@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 12 Sep 2009 12:19:23 +0900
-Mike McCormack <mikem@ring3k.org> wrote:
-
-> If allocation of the second ports fails, make sure that hw->ports
->  is not 2 otherwise we'll crash trying to access the second port.
-> 
-> Signed-off-by: Mike McCormack <mikem@ring3k.org>
-> ---
->  drivers/net/sky2.c |    4 ++++
->  1 files changed, 4 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-> index 018aa58..c17ee26 100644
-> --- a/drivers/net/sky2.c
-> +++ b/drivers/net/sky2.c
-> @@ -4563,6 +4563,10 @@ static int __devinit sky2_probe(struct pci_dev *pdev,
->  			free_netdev(dev1);
->  		} else
->  			sky2_show_addr(dev1);
-> +
-> +		/* couldn't allocate the second port */
-> +		if (!hw->dev[1])
-> +			--hw->ports;
->  	}
->  
->  	setup_timer(&hw->watchdog_timer, sky2_watchdog, (unsigned long) hw);
-
-If it couldn't allocate the port, would be better to unwind the first port
-and fail the probe, rather than silently failing in a really sick system.
-
--- 
+RnJvbTogS2VuIExld2lzIDxrZW5ueWxld2lzQGdtYWlsLmNvbT4NCkRhdGU6IFNhdCwgMTIgU2Vw
+IDIwMDkgMDg6NDI6MTcgKzAxMDANCg0KPiBJJ3ZlIGJlZW4gZ2V0dGluZyBidWlsZCBmYWlsdXJl
+cyBpbiB0aGUgbmV4dCB0cmVlIHNpbmNlIG5leHQtMjAwOTA5MDMsDQo+IGFsc28gZXhwZXJpZW5j
+ZWQgdXAgdG8gbmV4dC0yMDA5MDkxMCwgd2hpY2ggSSd2ZSBub3QgYmVlbiBhYmxlIHRvDQo+IGlu
+dmVzdGlnYXRlLCBkdWUgdG8gYSBsYWNrIG9mIHRpbWUgYW5kIGdpdC1mdS4gIHJ0MngwMGRldi5j
+IGNhdXNlcyB0aGUNCj4gZm9sbG93aW5nOg0KDQpQbGVhc2UgdXNlIG5ldGRldiBub3QgbGludXgt
+bmV0LCBmb3IgZGV2ZWxvcG1lbnQgZGlzY3Vzc2lvbg0KDQo+IA0KPiBMRCAgICAgIGRyaXZlcnMv
+bmV0L3dpcmVsZXNzL3J0MngwMC9idWlsdC1pbi5vDQo+ICBDQyBbTV0gIGRyaXZlcnMvbmV0L3dp
+cmVsZXNzL3J0MngwMC9ydDJ4MDBkZXYubw0KPiBkcml2ZXJzL25ldC93aXJlbGVzcy9ydDJ4MDAv
+cnQyeDAwZGV2LmM6IEluIGZ1bmN0aW9uIOKAmHJ0MngwMGxpYl9yeGRvbmXigJk6DQo+IGRyaXZl
+cnMvbmV0L3dpcmVsZXNzL3J0MngwMC9ydDJ4MDBkZXYuYzo0MDU6IHdhcm5pbmc6IHBhc3Npbmcg
+YXJndW1lbnQNCj4gMyBvZiDigJhydDJ4MDBjcnlwdG9fcnhfaW5zZXJ0X2l24oCZIG1ha2VzIGlu
+dGVnZXIgZnJvbSBwb2ludGVyIHdpdGhvdXQgYQ0KPiBjYXN0DQo+IGRyaXZlcnMvbmV0L3dpcmVs
+ZXNzL3J0MngwMC9ydDJ4MDBsaWIuaDozODM6IG5vdGU6IGV4cGVjdGVkIOKAmHVuc2lnbmVkDQo+
+IGludOKAmSBidXQgYXJndW1lbnQgaXMgb2YgdHlwZSDigJhzdHJ1Y3Qgcnhkb25lX2VudHJ5X2Rl
+c2MgKuKAmQ0KPiBkcml2ZXJzL25ldC93aXJlbGVzcy9ydDJ4MDAvcnQyeDAwZGV2LmM6NDA1OiBl
+cnJvcjogdG9vIGZldyBhcmd1bWVudHMNCj4gdG8gZnVuY3Rpb24g4oCYcnQyeDAwY3J5cHRvX3J4
+X2luc2VydF9pduKAmQ0KPiBtYWtlWzRdOiAqKiogW2RyaXZlcnMvbmV0L3dpcmVsZXNzL3J0Mngw
+MC9ydDJ4MDBkZXYub10gRXJyb3IgMQ0KPiBtYWtlWzNdOiAqKiogW2RyaXZlcnMvbmV0L3dpcmVs
+ZXNzL3J0MngwMF0gRXJyb3IgMg0KPiBtYWtlWzJdOiAqKiogW2RyaXZlcnMvbmV0L3dpcmVsZXNz
+XSBFcnJvciAyDQo+IG1ha2VbMV06ICoqKiBbZHJpdmVycy9uZXRdIEVycm9yIDINCj4gbWFrZTog
+KioqIFtkcml2ZXJzXSBFcnJvciAyDQo+IA0KPiBJJ3ZlIGF0dGFjaGVkIG15IC5jb25maWcgaWYg
+cmVsZXZhbnQuDQoNCkkgd29uZGVyIGlmIHRoaXMgd2FzIGNyZWF0ZWQgYnkgdGhlIGNyeXB0byBt
+ZXJnZS4NCg==
