@@ -1,38 +1,68 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: Re: bisect results of MSI-X related panic (help!)
-Date: Sat, 12 Sep 2009 06:23:47 +0200
-Message-ID: <200909120623.49764.elendil@planet.nl>
-References: <1252699744.3877.15.camel@jbrandeb-hc.jf.intel.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] sky2: Account for VLAN tag in tx_le_req
+Date: Fri, 11 Sep 2009 21:42:18 -0700
+Message-ID: <20090911214218.0cac5253@nehalam>
+References: <4AAB12C9.3070707@ring3k.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>, Tejun Heo <tj@kernel.org>
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752808AbZILEXu@vger.kernel.org>
-In-reply-To: <1252699744.3877.15.camel@jbrandeb-hc.jf.intel.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Mike McCormack <mikem@ring3k.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:36278 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751036AbZILEmg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Sep 2009 00:42:36 -0400
+In-Reply-To: <4AAB12C9.3070707@ring3k.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jesse Brandeburg wrote:
-> I've bisected, here is my bisect log, problem is that the commit
-> identified is a merge commit, and *I don't know what to revert to test*.
-> It appears the parent of the merge:
-> 6e15cf04860074ad032e88c306bea656bbdd0f22 is marked good, but looks to be
-> in a possibly related area to the panic.
+On Sat, 12 Sep 2009 12:17:29 +0900
+Mike McCormack <mikem@ring3k.org> wrote:
 
-That merge does contain quite a few merge fixups, so it's quite possible 
-one of them is the cause of the failure.
-Maybe the simplest way to verify that is to compile both parents of the 
-merge to doublecheck that they work OK. Then, if a compile of the merge 
-itself is bad, the problem really is in the merge commit itself.
+> With VLAN enabled, tx_le_req would return on less list elements than required,
+>  leading to a potential wrap around of the transmit ring buffer.
+> 
+> Signed-off-by: Mike McCormack <mikem@ring3k.org>
+> ---
+>  drivers/net/sky2.c |    7 ++++++-
+>  1 files changed, 6 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+> index 00bc65a..018aa58 100644
+> --- a/drivers/net/sky2.c
+> +++ b/drivers/net/sky2.c
+> @@ -66,7 +66,7 @@
+>  
+>  /* This is the worst case number of transmit list elements for a single skb:
+>     VLAN + TSO + CKSUM + Data + skb_frags * DMA */
+> -#define MAX_SKB_TX_LE	(4 + (sizeof(dma_addr_t)/sizeof(u32))*MAX_SKB_FRAGS)
+> +#define MAX_SKB_TX_LE	(5 + (sizeof(dma_addr_t)/sizeof(u32))*MAX_SKB_FRAGS)
+>  #define TX_MIN_PENDING		(MAX_SKB_TX_LE+1)
+>  #define TX_MAX_PENDING		4096
+>  #define TX_DEF_PENDING		127
+> @@ -1576,6 +1576,11 @@ static unsigned tx_le_req(const struct sk_buff *skb)
+>  	if (skb->ip_summed == CHECKSUM_PARTIAL)
+>  		++count;
+>  
+> +#ifdef SKY2_VLAN_TAG_USED
+> +	if (vlan_tx_tag_present(skb))
+> +		++count;
+> +#endif
+> +
+>  	return count;
+>  }
+>  
 
-That commit is the "percpu" merge, so I've added Tejun (author of most of 
-that branch) and Ingo (merger) in CC.
+The vlan tag can be nested with either ADDR64 or GSO element.
+The correct test would be to do something like:
 
-Hope that helps.
+    	if (skb_is_gso(skb))
+		++count;
+        else if (sizeof(dma_addr_t) == sizeof(u32) && 
+                 vlan_tx_tag_present(skb))
+                ++count;
 
-Cheers,
-FJP
+And the MAX_SKB_TX_LE value is fine. 
+
+-- 
