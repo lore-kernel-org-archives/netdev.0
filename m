@@ -1,98 +1,66 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 1/5] First Patch on TFRC-SP. Copy base files from TFRC
-Date: Sat, 12 Sep 2009 20:32:22 +0200
-Message-ID: <20090912183222.GA5706@gerrit.erg.abdn.ac.uk>
-References: <4AA6A25A.5040508@embedded.ufcg.edu.br>
+From: Jaswinder Singh Rajput <jaswinder@kernel.org>
+Subject: [RFC][PATCH] pcmcia: pcnet_cs.c removing useless condition
+Date: Sun, 13 Sep 2009 00:38:49 +0530
+Message-ID: <1252782529.3687.26.camel@ht.satnam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: David Miller <davem@davemloft.net>, Jeff Garzik <jeff@garzik.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-pcmcia@lists.infradead.org,
+	Dominik Brodowski <linux@dominikbrodowski.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55373 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754722AbZILSc3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Sep 2009 14:32:29 -0400
-Content-Disposition: inline
-In-Reply-To: <4AA6A25A.5040508@embedded.ufcg.edu.br>
+Received: from hera.kernel.org ([140.211.167.34]:51919 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753634AbZILTI5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Sep 2009 15:08:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Ivo,
+[This is untested]
 
-you have made a really good job of sticking to code conventions (see other
-posting). There are a few things that needed tending to in the first patch.
+'if (i < NR_INFO)' will only true if we breaks from 'for (i =3D 0; i < =
+NR_INFO; i++)'
+So removing useless 'if (i < NR_INFO)'
 
-(1) Version changes
-===================
-It seems that you applied something like s/\*\*/*/g to the first instance of
-the patch, in order to remove duplicate asterisks. This caused a problem:
+This also fixed following compilation warning :
 
---- tfrc_sp_receiver_01.patch   2009/09/12 08:37:12     1.1
-+++ tfrc_sp_receiver_01.patch   2009/09/08 17:34:40
-@@ -1001,8 +1001,8 @@ Index: dccp_tree_work4/net/dccp/ccids/li
- +
- +#endif
- +
--+extern int  tfrc_sp_tx_hist_add(struct tfrc_tx_hist_entry **headp, u64 seqno);
--+extern void tfrc_sp_tx_hist_purge(struct tfrc_tx_hist_entry **headp);
-++extern int  tfrc_sp_tx_hist_add(struct tfrc_tx_hist_entry *headp, u64 seqno);
-++extern void tfrc_sp_tx_hist_purge(struct tfrc_tx_hist_entry *headp);
+  CC [M]  drivers/net/pcmcia/pcnet_cs.o
+drivers/net/pcmcia/pcnet_cs.c: In function =E2=80=98get_hwinfo=E2=80=99=
+:
+drivers/net/pcmcia/pcnet_cs.c:321: warning: =E2=80=98base=E2=80=99 may =
+be used uninitialized in this function
 
-I have reverted the bug, also to minimise the difference to the existing (non
-TFRC-SP) files.
+Signed-off-by: Jaswinder Singh Rajput <jaswinderrajput@gmail.com>
+---
+ drivers/net/pcmcia/pcnet_cs.c |   11 +++++------
+ 1 files changed, 5 insertions(+), 6 deletions(-)
 
-
-(2) Other changes that I edited out
-===================================
-(Other than whitespace changes.)
-
-net/dccp/ccids/lib/loss_interval_sp.c
--------------------------------------
-I replaced the following dead code
-        if ((tfrc_lh_slab != NULL))
-                return 0;
-
-        if (tfrc_lh_slab != NULL) {
-                kmem_cache_destroy(tfrc_lh_slab);
-                tfrc_lh_slab = NULL;
-        }
-        return -ENOBUFS;
-with 
-        return tfrc_lh_slab == NULL ? -ENOBUFS : 0;
-
-Also separated the conditions
-+               if ((len <= 0) || 
-+                   (!tfrc_lh_closed_check(cur, cong_evt->tfrchrx_ccval))) {
-back into 
-                if (len <= 0)
-                        return false;
-
-                if (!tfrc_lh_closed_check(cur, cong_evt->tfrchrx_ccval))
-                        return false;
-
-I removed the following unnecessary inclusion:
-+#include <linux/random.h>
+diff --git a/drivers/net/pcmcia/pcnet_cs.c b/drivers/net/pcmcia/pcnet_c=
+s.c
+index 9ef1c1b..6a60227 100644
+--- a/drivers/net/pcmcia/pcnet_cs.c
++++ b/drivers/net/pcmcia/pcnet_cs.c
+@@ -339,12 +339,11 @@ static hw_info_t *get_hwinfo(struct pcmcia_device=
+ *link)
+ 	base =3D &virt[hw_info[i].offset & (req.Size-1)];
+ 	if ((readb(base+0) =3D=3D hw_info[i].a0) &&
+ 	    (readb(base+2) =3D=3D hw_info[i].a1) &&
+-	    (readb(base+4) =3D=3D hw_info[i].a2))
+-	    break;
+-    }
+-    if (i < NR_INFO) {
+-	for (j =3D 0; j < 6; j++)
+-	    dev->dev_addr[j] =3D readb(base + (j<<1));
++	    (readb(base+4) =3D=3D hw_info[i].a2)) {
++		for (j =3D 0; j < 6; j++)
++		    dev->dev_addr[j] =3D readb(base + (j<<1));
++		break;
++	}
+     }
+=20
+     iounmap(virt);
+--=20
+1.6.4.2
 
 
-The following function pokes a hole in thei so far "abstract" data type;
-the convention has been to access the internals of the struct only via
-get-functions:
-
-static inline struct tfrc_loss_interval
-        *tfrc_lh_get_loss_interval(struct tfrc_loss_hist *lh, const u8 i)
-{
-        BUG_ON(i >= lh->counter);
-        return lh->ring[LIH_INDEX(lh->counter - i - 1)];
-}
-
-(You use it in patch 3/5 to gain access to li_ccval and li_losses.
-Better would be to have two separate accessor functions.)
-
-
-net/dccp/ccids/lib/tfrc_equation_sp.c
--------------------------------------
-This is a prime candidate for removal. After editing out the whitespace
-differences, I found that it is 100% identical with tfrc_equation.c.
-
-The result of this editing has been uploaded to
-http://eden-feed.erg.abdn.ac.uk/tfrc_sp_receiver_01.patch
