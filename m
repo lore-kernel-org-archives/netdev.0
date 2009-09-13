@@ -1,111 +1,457 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 3/5] Implement TFRC-SP calc of mean length of loss
-	intervals, accordingly to section 3 of RFC 4828
-Date: Sun, 13 Sep 2009 19:28:04 +0200
-Message-ID: <20090913172804.GA6109@gerrit.erg.abdn.ac.uk>
-References: <4AA6A263.8000106@embedded.ufcg.edu.br>
+Subject: Re: [PATCH 4/5] Adds options DROPPED PACKETS and LOSS INTERVALS to
+	receiver
+Date: Sun, 13 Sep 2009 20:41:28 +0200
+Message-ID: <20090913184128.GA7165@gerrit.erg.abdn.ac.uk>
+References: <4AA6A267.7080500@embedded.ufcg.edu.br>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
 To: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:52439 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:54100 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751524AbZIMR2L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Sep 2009 13:28:11 -0400
+	id S1751930AbZIMSli (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Sep 2009 14:41:38 -0400
 Content-Disposition: inline
-In-Reply-To: <4AA6A263.8000106@embedded.ufcg.edu.br>
+In-Reply-To: <4AA6A267.7080500@embedded.ufcg.edu.br>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| Implement TFRC-SP calc of mean length of loss intervals accordingly to
-| section 3 of RFC 4828
-Sorry this also has problems.
+| Adds options DROPPED PACKETS and LOSS INTERVALS to receiver. In this patch is added the
+| mechanism of gathering information about loss intervals and storing it, for later
+| construction of these two options.
+This also needs some more work, please see inline.
+
+--- dccp_tree_work5.orig/net/dccp/ccids/lib/packet_history_sp.c
++++ dccp_tree_work5/net/dccp/ccids/lib/packet_history_sp.c
+@@ -233,7 +233,9 @@
+ }
+ 
+ /* return 1 if a new loss event has been identified */
+-static int __two_after_loss(struct tfrc_rx_hist *h, struct sk_buff *skb, u32 n3)
++static int __two_after_loss(struct tfrc_rx_hist *h,
++			    struct sk_buff *skb, u32 n3,
++			    bool *new_loss)
+ {
+ 	u64 s0 = tfrc_rx_hist_loss_prev(h)->tfrchrx_seqno,
+ 	    s1 = tfrc_rx_hist_entry(h, 1)->tfrchrx_seqno,
+@@ -245,6 +247,7 @@
+ 		tfrc_sp_rx_hist_entry_from_skb(tfrc_rx_hist_entry(h, 3),
+ 					       skb, n3);
+ 		h->num_losses = dccp_loss_count(s2, s3, n3);
++		*new_loss = 1;
+ 		return 1;
+ 	}
+ 
+@@ -259,6 +262,7 @@
+ 					       skb, n3);
+ 		h->loss_count = 3;
+ 		h->num_losses = dccp_loss_count(s1, s3, n3);
++		*new_loss = 1;
+ 		return 1;
+ 	}
+ 
+@@ -284,6 +288,7 @@
+ 			tfrc_sp_rx_hist_entry_from_skb(
+ 					tfrc_rx_hist_loss_prev(h), skb, n3);
+ 
++		*new_loss = 0;
+ 		return 0;
+ 	}
+ 
+@@ -297,6 +302,7 @@
+ 	h->loss_count = 3;
+ 	h->num_losses = dccp_loss_count(s0, s3, n3);
+ 
++	*new_loss = 1;
+ 	return 1;
+ }
+The 'new_loss' parameter is completely redundant, since it duplicates the
+return value of the function.
+
+
+@@ -348,11 +354,14 @@
+  *  operations when loss_count is greater than 0 after calling this function.
+  */
+ bool tfrc_sp_rx_congestion_event(struct tfrc_rx_hist *h,
+-			      struct tfrc_loss_hist *lh,
+-	 struct sk_buff *skb, const u64 ndp,
+-  u32 (*first_li)(struct sock *), struct sock *sk)
++				 struct tfrc_loss_hist *lh,
++				 struct tfrc_loss_data *ld,
++				 struct sk_buff *skb, const u64 ndp,
++				 u32 (*first_li)(struct sock *),
++				 struct sock *sk)
+ {
+ 	bool new_event = false;
++	bool new_loss = false;
+ 
+ 	if (tfrc_sp_rx_hist_duplicate(h, skb))
+ 		return 0;
+@@ -365,12 +374,13 @@
+ 		__one_after_loss(h, skb, ndp);
+ 	} else if (h->loss_count != 2) {
+ 		DCCP_BUG("invalid loss_count %d", h->loss_count);
+-	} else if (__two_after_loss(h, skb, ndp)) {
++	} else if (__two_after_loss(h, skb, ndp, &new_loss)) {
+ 		/*
+ 		* Update Loss Interval database and recycle RX records
+ 		*/
+ 		new_event = tfrc_sp_lh_interval_add(lh, h, first_li, sk,
+ 						dccp_hdr(skb)->dccph_ccval);
++		tfrc_sp_update_li_data(ld, h, skb, new_loss, new_event);
+ 		__three_after_loss(h);
+ 
+ 	} else if (dccp_data_packet(skb) && dccp_skb_is_ecn_ce(skb)) {
+@@ -396,6 +406,8 @@
+ 		}
+ 	}
+ 
++	tfrc_sp_update_li_data(ld, h, skb, new_loss, new_event);
++
+I don't understand why 'tfrc_sp_update_li_data' is called twice, one call seems
+to be redundant. What it seems to be wanting to do is
+	bool new_loss = false;
+
+	//...
+	} else if (__two_after_loss(h, skb, ndp)) {
+		new_loss  = true;
+		new_event = tfrc_sp_lh_interval_add(...);
+		// ...
+	}
+	// ...
+	tfrc_sp_update_li_data(ld, h, skb, new_loss, new_event);
+	
+
 
 --- dccp_tree_work5.orig/net/dccp/ccids/lib/loss_interval_sp.c
 +++ dccp_tree_work5/net/dccp/ccids/lib/loss_interval_sp.c
-@@ -67,10 +67,11 @@
- 		}
- }
  
--static void tfrc_sp_lh_calc_i_mean(struct tfrc_loss_hist *lh)
-+static void tfrc_sp_lh_calc_i_mean(struct tfrc_loss_hist *lh, __u8 curr_ccval)
- {
- 	u32 i_i, i_tot0 = 0, i_tot1 = 0, w_tot = 0;
- 	int i, k = tfrc_lh_length(lh) - 1; /* k is as in rfc3448bis, 5.4 */
-+	u32 losses;
- 
- 	if (k <= 0)
- 		return;
-@@ -78,6 +79,15 @@
- 	for (i = 0; i <= k; i++) {
- 		i_i = tfrc_lh_get_interval(lh, i);
- 
-+		if (SUB16(curr_ccval,
-+		    tfrc_lh_get_loss_interval(lh, i)->li_ccval) <= 8) {
++void tfrc_sp_ld_cleanup(struct tfrc_loss_data *ld)
++{
++	struct tfrc_loss_data_entry *next, *h = ld->head;
 +
-+			losses = tfrc_lh_get_loss_interval(lh, i)->li_losses;
++	if (!h)
++		return;
 +
-+			if (losses > 0)
-+				i_i = div64_u64(i_i, losses);
++	while (h) {
++		next = h->next;
++		kmem_cache_free(tfrc_ld_slab, h);
++		h = next;
++	}
++
++	ld->head = NULL;
++	ld->counter = 0;
++}
+The if(!h) statement is not needed above and prevents resetting 
+the head/counter values.
+
+
++void tfrc_sp_ld_prepare_data(u8 loss_count, struct tfrc_loss_data *ld)
++{
++	u8 *li_ofs, *d_ofs;
++	struct tfrc_loss_data_entry *e;
++	u16 count;
++
++	li_ofs = &ld->loss_intervals_opts[0];
++	d_ofs = &ld->drop_opts[0];
++
++	count = 0;
++	e = ld->head;
++
++	*li_ofs = loss_count + 1;
++	li_ofs++;
++
++	while (e != NULL) {
++
++		if (count < TFRC_LOSS_INTERVALS_OPT_MAX_LENGTH) {
++			*li_ofs = ((htonl(e->lossless_length) & 0x00FFFFFF)<<8);
++			li_ofs += 3;
++			*li_ofs = ((e->ecn_nonce_sum&0x1) << 31) &
++				  (htonl((e->loss_length & 0x00FFFFFF))<<8);
+==> This does not seem right: mixing htonl with non-htonl data, using '&' where
+    probably '|' is meant.
++			li_ofs += 3;
++			*li_ofs = ((htonl(e->data_length) & 0x00FFFFFF)<<8);
+==> I think you mean "e->data_length & 0xFFFFFF".
+
++			li_ofs += 3;
 +		}
 +
-(Both 'i_i' and 'losses' are u32, so could write "i_i /= losses" instead.)
++		if (count < TFRC_DROP_OPT_MAX_LENGTH) {
++			*d_ofs = (htonl(e->drop_count) & 0x00FFFFFF)<<8;
++			d_ofs += 3;
++		}
++
++		if ((count >= TFRC_LOSS_INTERVALS_OPT_MAX_LENGTH) &&
++		    (count >= TFRC_DROP_OPT_MAX_LENGTH))
++			break;
+==> This could be better handled using 'else' cases above, it seems the '&&' means '||'.
++
++		count++;
++		e = e->next;
++	}
++}
 
-However, this computation is done in the wrong place: here it is already too
-late. The N/K in RFC 4828 refers to entering each individual interval I_0, so
-the division (and the check whether this is a "short" interval) needs to be
-done when adding the interval, in tfrc_sp_lh_interval_add(). (There also exists
-a special rule for the open interval I_0, see RFC 5348, 5.3.)
++void tfrc_sp_update_li_data(struct tfrc_loss_data *ld,
++			    struct tfrc_rx_hist *rh,
++			    struct sk_buff *skb,
++			    bool new_loss, bool new_event)
++{
++	struct tfrc_loss_data_entry *new, *h;
++
++	if (!dccp_data_packet(skb))
++		return;
++
++	if (ld->head == NULL) {
++		new = tfrc_ld_add_new(ld);
++		if (unlikely(new == NULL)) {
++			DCCP_CRIT("Cannot allocate new loss data registry.");
++			return;
++		}
++
++		if (new_loss) {
++			new->drop_count = rh->num_losses;
++			new->lossless_length = 1;
++			new->loss_length = rh->num_losses;
++
++			if (dccp_data_packet(skb))
++				new->data_length = 1;
++
++			if (dccp_data_packet(skb) && dccp_skb_is_ecn_ect1(skb))
++				new->ecn_nonce_sum = 1;
++			else
++				new->ecn_nonce_sum = 0;
++		} else {
++			new->drop_count = 0;
++			new->lossless_length = 1;
++			new->loss_length = 0;
++
++			if (dccp_data_packet(skb))
++				new->data_length = 1;
++
++			if (dccp_data_packet(skb) && dccp_skb_is_ecn_ect1(skb))
++				new->ecn_nonce_sum = 1;
++			else
++				new->ecn_nonce_sum = 0;
++		}
++
++		return;
++	}
++
++	if (new_event) {
++		new = tfrc_ld_add_new(ld);
++		if (unlikely(new == NULL)) {
++			DCCP_CRIT("Cannot allocate new loss data registry. \
++					Cleaning up.");
++			tfrc_sp_ld_cleanup(ld);
++			return;
++		}
++
++		new->drop_count = rh->num_losses;
++		new->lossless_length = (ld->last_loss_count - rh->loss_count);
++		new->loss_length = rh->num_losses;
++
++		new->ecn_nonce_sum = 0;
++		new->data_length = 0;
++
++		while (ld->last_loss_count > rh->loss_count) {
++			ld->last_loss_count--;
++
++			if (ld->sto_is_data & (1 << (ld->last_loss_count))) {
++				new->data_length++;
++
++				if (ld->sto_ecn & (1 << (ld->last_loss_count)))
++					new->ecn_nonce_sum =
++						!new->ecn_nonce_sum;
++			}
++		}
++
++		return;
++	}
++
++	h = ld->head;
++
++	if (rh->loss_count > ld->last_loss_count) {
++		ld->last_loss_count = rh->loss_count;
++
++		if (dccp_data_packet(skb))
++			ld->sto_is_data |= (1 << (ld->last_loss_count - 1));
++
++		if (dccp_skb_is_ecn_ect1(skb))
++			ld->sto_ecn |= (1 << (ld->last_loss_count - 1));
++
++		return;
++	}
++
++	if (new_loss) {
++		h->drop_count += rh->num_losses;
++		h->lossless_length = (ld->last_loss_count - rh->loss_count);
++		h->loss_length += h->lossless_length + rh->num_losses;
++
++		h->ecn_nonce_sum = 0;
++		h->data_length = 0;
++
++		while (ld->last_loss_count > rh->loss_count) {
++			ld->last_loss_count--;
++
++			if (ld->sto_is_data&(1 << (ld->last_loss_count))) {
++				h->data_length++;
++
++				if (ld->sto_ecn & (1 << (ld->last_loss_count)))
++					h->ecn_nonce_sum = !h->ecn_nonce_sum;
++			}
++		}
++
++		return;
++	}
++
++	if (ld->last_loss_count > rh->loss_count) {
++		while (ld->last_loss_count > rh->loss_count) {
++			ld->last_loss_count--;
++
++			h->lossless_length++;
++
++			if (ld->sto_is_data & (1 << (ld->last_loss_count))) {
++				h->data_length++;
++
++				if (ld->sto_ecn & (1 << (ld->last_loss_count)))
++					h->ecn_nonce_sum = !h->ecn_nonce_sum;
++			}
++		}
++
++		return;
++	}
++
++	h->lossless_length++;
++
++	if (dccp_data_packet(skb)) {
++		h->data_length++;
++
++		if (dccp_skb_is_ecn_ect1(skb))
++			h->ecn_nonce_sum = !h->ecn_nonce_sum;
++	}
++}
+Due to the 
+       if (!dccp_data_packet(skb))
+               return;
+at the begin of the function, all subsequent 'dccp_data_packet(skb)' are unnecessary.
+Almost every 'if' statement ends in 'return', this seems ad-hoc and could be reduced
+by adding if-else-if-else-if..., which would probably also reduce the code duplication.
 
-A second problem is a divide-by-zero condition encoded in the above: if
-i_i < losses, the result is 0, if all intervals are 0 then I_mean = 0, and
-thus p = 1/I_mean triggers a panic. In all other cases, the integer arithmetic
-has the effect of floor(N/K), i.e. it decreases the interval length.
 
-A way out (which does not fix the truncation problem) is to round up:
-
-	if (losses > 0)
-		i_i = DIV_ROUND_UP(i_i, losses);
-
-In fact, we have to do this, to avoid the divide-by-zero condition.
-
-The third problem is that the CCVal can be wrong, i.e. "less than 8" can
-also mean that it just wrapped around one or more times. But this is noted
-already in RFC 5622, it is a problem of the specification.
-
-@@ -87,6 +97,11 @@
+@@ -244,8 +463,11 @@
+ 	tfrc_lh_slab = kmem_cache_create("tfrc_sp_li_hist",
+ 					 sizeof(struct tfrc_loss_interval), 0,
+ 					 SLAB_HWCACHE_ALIGN, NULL);
++	tfrc_ld_slab = kmem_cache_create("tfrc_sp_li_data",
++					 sizeof(struct tfrc_loss_data_entry), 0,
++					 SLAB_HWCACHE_ALIGN, NULL);
+ 
+-	if ((tfrc_lh_slab != NULL))
++	if ((tfrc_lh_slab != NULL) || (tfrc_ld_slab != NULL))
+ 		return 0;
+ 
+ 	if (tfrc_lh_slab != NULL) {
+@@ -253,6 +475,11 @@
+ 		tfrc_lh_slab = NULL;
  	}
  
- 	lh->i_mean = max(i_tot0, i_tot1) / w_tot;
-+	BUG_ON(w_tot == 0);
-+	if (SUB16(curr_ccval, tfrc_lh_get_loss_interval(lh, 0)->li_ccval) > 8)
-+		lh->i_mean = max(i_tot0, i_tot1) / w_tot;
-+	else
-+		lh->i_mean = i_tot1 / w_tot;
++	if (tfrc_ld_slab != NULL) {
++		kmem_cache_destroy(tfrc_ld_slab);
++		tfrc_ld_slab = NULL;
++	}
++
+ 	return -ENOBUFS;
  }
-The line above the BUG_ON is probably a leftover. For the BUG_ON, this would
-be too late (division by zero). 
-In fact, the BUG_ON is not needed, due to testing for k <= 0, see
-http://mirror.celinuxforum.org/gitstat//commit-detail.php?commit=eff253c4272cd2aac95ccff46d3d2e1a495f22b1
+The condition above should be '&&', not '||'. Suggested alternative:
 
-@@ -127,7 +142,7 @@
- 		return;
- 
- 	cur->li_length = len;
--	tfrc_sp_lh_calc_i_mean(lh);
-+	tfrc_sp_lh_calc_i_mean(lh, dccp_hdr(skb)->dccph_ccval);
++	if (tfrc_lh_slab == NULL)
++		goto lh_failed;
++
++	tfrc_ld_slab = kmem_cache_create("tfrc_sp_li_data",
++					 sizeof(struct tfrc_loss_data_entry), 0,
++					 SLAB_HWCACHE_ALIGN, NULL);
++	if (tfrc_ld_slab != NULL)
++		return 0;
++
++	kmem_cache_destroy(tfrc_lh_slab);
++	tfrc_lh_slab = NULL;
++lh_failed:
++	return -ENOBUFS;
  }
-Should be division as per above.
+ 
+
+
 
 --- dccp_tree_work5.orig/net/dccp/ccids/lib/loss_interval_sp.h
 +++ dccp_tree_work5/net/dccp/ccids/lib/loss_interval_sp.h
-@@ -73,7 +73,8 @@
- extern bool tfrc_sp_lh_interval_add(struct tfrc_loss_hist *,
- 				    struct tfrc_rx_hist *,
- 				    u32 (*first_li)(struct sock *),
--				    struct sock *);
-+				    struct sock *,
-+				    __u8 ccval);
-This function already has the ccval available, so could use it instead
-of just passing it through.
+@@ -70,13 +70,52 @@
+ struct tfrc_rx_hist;
+ #endif
+ 
++struct tfrc_loss_data_entry {
++	struct tfrc_loss_data_entry	*next;
++	u32				lossless_length:24;
++	u8				ecn_nonce_sum:1;
++	u32				loss_length:24;
++	u32				data_length:24;
++	u32				drop_count:24;
++};
+According to RFC 4342, 8.6.1, Loss Length is a 23-bit number, i.e.
+	u32				loss_length:23;
+
+
+
+
++#define TFRC_LOSS_INTERVALS_OPT_MAX_LENGTH	28
++#define TFRC_DROP_OPT_MAX_LENGTH		84
++#define TFRC_LI_OPT_SZ	\
++	(2 + TFRC_LOSS_INTERVALS_OPT_MAX_LENGTH*9)
++#define TFRC_DROPPED_OPT_SZ \
++	(1 + TFRC_DROP_OPT_MAX_LENGTH*3)
+It would be good to have a reminder where the numbers come from, i.e.
+ * the "28" comes from RFC 4342, 8.6
+ * the "84" comes from RFC 5622, 8.7
+ * the "9" again is from RFC 4342, 8.6
+ * the 1 + TFRC_DROP_OPT_MAX_LENGTH*3 = DCCP_SINGLE_OPT_MAXLEN (linux/dccp.h)
+
+
++struct tfrc_loss_data {
++	struct tfrc_loss_data_entry	*head;
++	u16				counter;
++	u8				loss_intervals_opts[TFRC_LI_OPT_SZ];
++	u8				drop_opts[TFRC_DROPPED_OPT_SZ];
++	u8				last_loss_count;
++	u8				sto_ecn;
++	u8				sto_is_data;
++};
+
+
+
++static inline void tfrc_ld_init(struct tfrc_loss_data *ld)
++{
++	memset(ld, 0, sizeof(struct tfrc_loss_data));
++}
+A tip from CodingStyle - using "sizeof(*ld)" will continue to work if there
+are changes in the interface.
+
+
+--- dccp_tree_work5.orig/net/dccp/dccp.h
++++ dccp_tree_work5/net/dccp/dccp.h
+@@ -403,6 +403,16 @@
+ 	return (DCCP_SKB_CB(skb)->dccpd_ecn & INET_ECN_MASK) == INET_ECN_CE;
+ }
+ 
++static inline bool dccp_skb_is_ecn_ect0(const struct sk_buff *skb)
++{
++	return (DCCP_SKB_CB(skb)->dccpd_ecn & INET_ECN_MASK) == INET_ECN_ECT_0;
++}
++
++static inline bool dccp_skb_is_ecn_ect1(const struct sk_buff *skb)
++{
++	return (DCCP_SKB_CB(skb)->dccpd_ecn & INET_ECN_MASK) == INET_ECN_ECT_0;
++}
+The routines are not needed, because the dccpd_ecn field is (deliberately) only
+2 bits wide. In the second case it should have been INET_ECN_ECT_1.
