@@ -1,139 +1,157 @@
-From: Alan Jenkins <alan-jenkins@tuffmail.co.uk>
-Subject: INFO: possible circular locking detected [when unloading the bonding
- driver]
-Date: Sun, 13 Sep 2009 13:26:22 +0100
-Message-ID: <4AACE4EE.4080707@tuffmail.co.uk>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 2/5] Implement loss counting on TFRC-SP receiver
+Date: Sun, 13 Sep 2009 18:12:24 +0200
+Message-ID: <20090913161224.GA5121@gerrit.erg.abdn.ac.uk>
+References: <4AA6A25F.4060100@embedded.ufcg.edu.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f206.google.com ([209.85.219.206]:44349 "EHLO
-	mail-ew0-f206.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753305AbZIMM0X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Sep 2009 08:26:23 -0400
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:50891 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754031AbZIMQMb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Sep 2009 12:12:31 -0400
+Content-Disposition: inline
+In-Reply-To: <4AA6A25F.4060100@embedded.ufcg.edu.br>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I found this warning after loading and unloading all the modules I had
-available.  I can reproduce it by hibernating the system, then loading
-and unloading the bonding module. 
+| Implement loss counting on TFRC-SP receiver. 
+| Consider transmission's hole size as loss count.
+The implementation of loss counts as the basis for Dropped Packet option has
+problems and can in its current form not be used. Please see below.
 
-Regards
-Alan
 
-[  123.484225] Ethernet Channel Bonding Driver: v3.5.0 (November 4, 2008)
-[  123.484229] bonding: Warning: either miimon or arp_interval and
-arp_ip_target module parameters must be specified, otherwise bonding
-will not detect link failures! see bonding.txt for details.
-[  125.790929]
-[  125.790931] =======================================================
-[  125.790936] [ INFO: possible circular locking dependency detected ]
-[  125.790940] 2.6.31-rc8debug #50
-[  125.790942] -------------------------------------------------------
-[  125.790946] modprobe/8372 is trying to acquire lock:
-[  125.790948]  (cpu_add_remove_lock){+.+.+.}, at: [<ffffffff81048ef2>]
-cpu_maps_update_begin+0x12/0x20
-[  125.790961]
-[  125.790962] but task is already holding lock:
-[  125.790965]  (rtnl_mutex){+.+.+.}, at: [<ffffffff812d0aa2>]
-rtnl_lock+0x12/0x20
-[  125.790974]
-[  125.790975] which lock already depends on the new lock.
-[  125.790976]
-[  125.790978]
-[  125.790979] the existing dependency chain (in reverse order) is:
-[  125.790982]
-[  125.790983] -> #3 (rtnl_mutex){+.+.+.}:
-[  125.790989]        [<ffffffff810741d9>] validate_chain+0xb99/0x11d0
-[  125.790996]        [<ffffffff81074b6e>] __lock_acquire+0x35e/0xa30
-[  125.791001]        [<ffffffff810752d7>] lock_acquire+0x97/0x110
-[  125.791006]        [<ffffffff8134f046>] mutex_lock_nested+0x56/0x310
-[  125.791012]        [<ffffffff812d0aa2>] rtnl_lock+0x12/0x20
-[  125.791016]        [<ffffffff812d2079>] linkwatch_event+0x9/0x40
-[  125.791021]        [<ffffffff8105cafa>] worker_thread+0x23a/0x350
-[  125.791027]        [<ffffffff81060f56>] kthread+0xa6/0xb0
-[  125.791032]        [<ffffffff8100ce5a>] child_rip+0xa/0x20
-[  125.791037]        [<ffffffffffffffff>] 0xffffffffffffffff
-[  125.791051]
-[  125.791052] -> #2 ((linkwatch_work).work){+.+.+.}:
-[  125.791058]        [<ffffffff810741d9>] validate_chain+0xb99/0x11d0
-[  125.791063]        [<ffffffff81074b6e>] __lock_acquire+0x35e/0xa30
-[  125.791068]        [<ffffffff810752d7>] lock_acquire+0x97/0x110
-[  125.791073]        [<ffffffff8105caf4>] worker_thread+0x234/0x350
-[  125.791077]        [<ffffffff81060f56>] kthread+0xa6/0xb0
-[  125.791082]        [<ffffffff8100ce5a>] child_rip+0xa/0x20
-[  125.791087]        [<ffffffffffffffff>] 0xffffffffffffffff
-[  125.791092]
-[  125.791093] -> #1 (events){+.+.+.}:
-[  125.791098]        [<ffffffff810741d9>] validate_chain+0xb99/0x11d0
-[  125.791104]        [<ffffffff81074b6e>] __lock_acquire+0x35e/0xa30
-[  125.791108]        [<ffffffff810752d7>] lock_acquire+0x97/0x110
-[  125.791114]        [<ffffffff8105b758>]
-cleanup_workqueue_thread+0x48/0xd0
-[  125.791119]        [<ffffffff8133dffa>] workqueue_cpu_callback+0x9a/0x130
-[  125.791125]        [<ffffffff81353dce>] notifier_call_chain+0x5e/0xa0
-[  125.791130]        [<ffffffff81065549>]
-__raw_notifier_call_chain+0x9/0x10
-[  125.791136]        [<ffffffff81065561>] raw_notifier_call_chain+0x11/0x20
-[  125.791141]        [<ffffffff8133c213>] _cpu_down+0x173/0x2b0
-[  125.791145]        [<ffffffff81049148>] disable_nonboot_cpus+0x98/0x130
-[  125.791150]        [<ffffffff81081f97>] hibernation_snapshot+0x187/0x250
-[  125.791156]        [<ffffffff81082178>] hibernate+0x118/0x1c0
-[  125.791160]        [<ffffffff81080863>] state_store+0xd3/0xf0
-[  125.791165]        [<ffffffff81199fe7>] kobj_attr_store+0x17/0x20
-[  125.791172]        [<ffffffff8113e7b4>] sysfs_write_file+0xf4/0x150
-[  125.791178]        [<ffffffff810e3557>] vfs_write+0xc7/0x1a0
-[  125.791184]        [<ffffffff810e3ba0>] sys_write+0x50/0x90
-[  125.791189]        [<ffffffff8100bdab>] system_call_fastpath+0x16/0x1b
-[  125.791194]        [<ffffffffffffffff>] 0xffffffffffffffff
-[  125.791205]
-[  125.791205] -> #0 (cpu_add_remove_lock){+.+.+.}:
-[  125.791211]        [<ffffffff81073c0d>] validate_chain+0x5cd/0x11d0
-[  125.791216]        [<ffffffff81074b6e>] __lock_acquire+0x35e/0xa30
-[  125.791221]        [<ffffffff810752d7>] lock_acquire+0x97/0x110
-[  125.791225]        [<ffffffff8134f046>] mutex_lock_nested+0x56/0x310
-[  125.791230]        [<ffffffff81048ef2>] cpu_maps_update_begin+0x12/0x20
-[  125.791235]        [<ffffffff8105b842>] destroy_workqueue+0x22/0xc0
-[  125.791240]        [<ffffffffa03afdfa>] bond_uninit+0x3a/0x70 [bonding]
-[  125.791252]        [<ffffffff812c5e8d>] rollback_registered+0xbd/0x120
-[  125.791258]        [<ffffffff812c5f0d>] unregister_netdevice+0x1d/0x70
-[  125.791262]        [<ffffffffa03ad71f>] bond_free_all+0x4f/0xa0 [bonding]
-[  125.791273]        [<ffffffffa03ba075>] bonding_exit+0x35/0x3c [bonding]
-[  125.791283]        [<ffffffff8107ddc6>] sys_delete_module+0x176/0x230
-[  125.791288]        [<ffffffff8100bdab>] system_call_fastpath+0x16/0x1b
-[  125.791293]        [<ffffffffffffffff>] 0xffffffffffffffff
-[  125.791298]
-[  125.791299] other info that might help us debug this:
-[  125.791300]
-[  125.791304] 1 lock held by modprobe/8372:
-[  125.791306]  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff812d0aa2>]
-rtnl_lock+0x12/0x20
-[  125.791314]
-[  125.791315] stack backtrace:
-[  125.791319] Pid: 8372, comm: modprobe Not tainted 2.6.31-rc8debug #50
-[  125.791322] Call Trace:
-[  125.791328]  [<ffffffff81073494>] print_circular_bug_tail+0x94/0xe0
-[  125.791333]  [<ffffffff81073c0d>] validate_chain+0x5cd/0x11d0
-[  125.791338]  [<ffffffff81074b6e>] __lock_acquire+0x35e/0xa30
-[  125.791343]  [<ffffffff810752d7>] lock_acquire+0x97/0x110
-[  125.791349]  [<ffffffff81048ef2>] ? cpu_maps_update_begin+0x12/0x20
-[  125.791354]  [<ffffffff8134f046>] mutex_lock_nested+0x56/0x310
-[  125.791358]  [<ffffffff81048ef2>] ? cpu_maps_update_begin+0x12/0x20
-[  125.791363]  [<ffffffff8113f974>] ? release_sysfs_dirent+0x54/0xc0
-[  125.791368]  [<ffffffff81048ef2>] cpu_maps_update_begin+0x12/0x20
-[  125.791373]  [<ffffffff8105b842>] destroy_workqueue+0x22/0xc0
-[  125.791383]  [<ffffffffa03afdfa>] bond_uninit+0x3a/0x70 [bonding]
-[  125.791388]  [<ffffffff812c5e8d>] rollback_registered+0xbd/0x120
-[  125.791397]  [<ffffffffa03abfb6>] ? bond_work_cancel_all+0x16/0x130
-[bonding]
-[  125.791402]  [<ffffffff812c5f0d>] unregister_netdevice+0x1d/0x70
-[  125.791411]  [<ffffffffa03ad71f>] bond_free_all+0x4f/0xa0 [bonding]
-[  125.791421]  [<ffffffffa03ba075>] bonding_exit+0x35/0x3c [bonding]
-[  125.791425]  [<ffffffff8107ddc6>] sys_delete_module+0x176/0x230
-[  125.791430]  [<ffffffff8107186d>] ? trace_hardirqs_on_caller+0x14d/0x1a0
-[  125.791435]  [<ffffffff81350a04>] ? trace_hardirqs_on_thunk+0x3a/0x3f
-[  125.791441]  [<ffffffff8100bdab>] system_call_fastpath+0x16/0x1b
+--- dccp_tree_work4.orig/net/dccp/ccids/lib/loss_interval_sp.c
++++ dccp_tree_work4/net/dccp/ccids/lib/loss_interval_sp.c
+@@ -187,6 +187,7 @@
+ 		s64 len = dccp_delta_seqno(cur->li_seqno, cong_evt_seqno);
+ 		if ((len <= 0) ||
+ 		    (!tfrc_lh_closed_check(cur, cong_evt->tfrchrx_ccval))) {
++			cur->li_losses += rh->num_losses;
+ 			return false;
+ 		}
+This has a multiplicative effect, since rh->num_losses is added to cur->li_losses
+each time the condition is evaluated. E.g. if 3 times in a row reordered (earlier)
+sequence numbers arrive, or if the CCvals do not differ (high-speed networks),
+we end up with 3 * rh->num_losses, which can't be correct.
 
+
+
+--- dccp_tree_work4.orig/net/dccp/ccids/lib/packet_history_sp.c
++++ dccp_tree_work4/net/dccp/ccids/lib/packet_history_sp.c
+@@ -244,6 +244,7 @@
+ 		h->loss_count = 3;
+ 		tfrc_sp_rx_hist_entry_from_skb(tfrc_rx_hist_entry(h, 3),
+ 					       skb, n3);
++		h->num_losses = dccp_loss_count(s2, s3, n3);
+ 		return 1;
+ 	}
+This only measures the gap between s2 and s3, but the "hole" starts at s0,
+so it would need to be dccp_loss_count(s0, s3, n3). Algorithm is documented at
+http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/\
+ccid3/ccid3_packet_reception/loss_detection/loss_detection_algorithm_notes.txt
+ 
+@@ -257,6 +258,7 @@
+ 		tfrc_sp_rx_hist_entry_from_skb(tfrc_rx_hist_entry(h, 2),
+ 					       skb, n3);
+ 		h->loss_count = 3;
++		h->num_losses = dccp_loss_count(s1, s3, n3);
+ 		return 1;
+ 	}
+In this case, the "hole" is between s0 and s2, it is case VI(d) in the above.
+ 
+@@ -293,6 +295,7 @@
+ 	h->loss_start = tfrc_rx_hist_index(h, 3);
+ 	tfrc_sp_rx_hist_entry_from_skb(tfrc_rx_hist_entry(h, 1), skb, n3);
+ 	h->loss_count = 3;
++	h->num_losses = dccp_loss_count(s0, s3, n3);
+ 
+ 	return 1;
+ }
+Here it is also between s0 and s2, not between s0 and s3. It is case VI(c.3).
+
+However, the above still is a crude approximation, since it only measures between
+the last sequence number received before the loss and the third sequence number
+after the loss. It would be better to either
+
+ * use the first sequence number after the loss (this can be s1, s2, or s3) or
+ * check if there are more holes between the first/second and the second/third
+   sequence numbers after the loss.
+
+The second option would be the correct one, it should also take the NDP counts
+of each gap into account. And already we have a fairly complicated algorithm.
+ 		  
+Another observation is that this function is only called in packet_history_sp.c,
+and only in __two_after_loss(), so that dccp_loss_count() could be made static,
+and without the need for the WARN_ON (see below), since in all above cases it is
+ensured that the first sequence number argument is "before" the second one.
+
+
+--- dccp_tree_work4.orig/net/dccp/ccids/lib/packet_history_sp.h
++++ dccp_tree_work4/net/dccp/ccids/lib/packet_history_sp.h
+@@ -113,6 +113,7 @@
+ 	u32			  packet_size,
+ 				  bytes_recvd;
+ 	ktime_t			  bytes_start;
++	u8			  num_losses;
+ };
+No more than 255 losses? NDP count option has space for up to 6 bytes, i.e. 2^48-1.
+Suggest u64 for consistency with the other parts.
+ 
+
+--- dccp_tree_work4.orig/net/dccp/dccp.h
++++ dccp_tree_work4/net/dccp/dccp.h
+@@ -168,6 +168,21 @@
+ 	return (u64)delta <= ndp + 1;
+ }
+ 
++static inline u64 dccp_loss_count(const u64 s1, const u64 s2, const u64 ndp)
++{
++	s64 delta, count;
++
++	delta = dccp_delta_seqno(s1, s2);
++	WARN_ON(delta < 0);
++
++	count = ndp + 1;
++	count -= delta;
++
++	count = (count > 0) ? count : 0;
++
++	return (u64) count;
++}
+Let S_A, S_B be sequence numbers such that S_B is "after" S_A, and let
+N_B be the NDP count of packet S_B. Then, using module-2^48 arithmetic,
+ D = S_B - S_A - 1  is an upper bound of the number of lost data packets,
+ D - N_B            is an approximation of the number of lost data 
+                    packets (there are cases where this is not exact).
+
+But your formula computes N_B - D, i.e. it negates this value. What you
+want is dccp_loss_count(S_A, S_B, N_B) := max(S_B - S_A - 1 - N_B, 0).
+
+A short implementation would be:
+
+/**
+ * dccp_loss_count - Approximate the number of data packets lost in a row
+ * @s1:   last known sequence number before the loss ('hole')
+ * @s2:   first sequence number seen after the 'hole'
+ * @ndp:  ndp count associated with packet having sequence number @s2
+ */
+u64 dccp_loss_count(const u64 s1, const u64 s2, const u64 ndp)
+{
+	s64 delta = dccp_delta_seqno(s1, s2);
+	
+	WARN_ON(delta < 0);
+	delta -= ndp + 1;
+
+	return delta > 0 ? delta : 0;
+}
+
+But then dccp_loss_free reduces to a specialisation of the above:
+bool dccp_loss_free(const u64 s1, const u64 s2, const u64 ndp)
+{
+	return dccp_loss_count(s1, s2, ndp) == 0;
+}
+
+But please see above -- the function needs to be called for each hole in a row.
