@@ -1,65 +1,113 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
-Date: Sun, 13 Sep 2009 08:46:10 +0300
-Message-ID: <20090913054610.GA4446@redhat.com>
-References: <cover.1251388414.git.mst@redhat.com> <20090827160750.GD23722@redhat.com> <20090903183945.GF28651@ovro.caltech.edu> <20090907101537.GH3031@redhat.com> <20090908172035.GB319@ovro.caltech.edu> <20090908201428.GA12420@redhat.com> <C85CEDA13AB1CF4D9D597824A86D2B9006AECB9C1D@PDSMSX501.ccr.corp.intel.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next PATCH] etherdevice.h: random_ether_addr update
+Date: Sat, 12 Sep 2009 23:09:12 -0700
+Message-ID: <1252822152.4400.108.camel@Joe-Laptop.home>
+References: <20090911014757.19631.66570.stgit@localhost.localdomain>
+	 <20090910190703.25d14533@nehalam>
+	 <1252638163.4355.35.camel@Joe-Laptop.home>
+	 <20090911.121542.45333246.davem@davemloft.net>
+	 <1252700442.15292.62.camel@Joe-Laptop.home>
+	 <20090911141554.0072d365@nehalam>
+	 <1252717067.29420.22.camel@Joe-Laptop.home>
+	 <20090913094409.2dd88212@opy.nosense.org>
+	 <20090913100342.4f6a2417@opy.nosense.org>
+	 <1252802686.4400.19.camel@Joe-Laptop.home>
+	 <20090913131752.462abc01@opy.nosense.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Ira W. Snyder" <iws@ovro.caltech.edu>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "virtualization@lists.linux-foundation.org" <virtualization@lists.linux-foundation.org>,
-        "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "mingo@elte.hu" <mingo@elte.hu>,
-        "linux-mm@kvack.org" <linux-mm@kvack.org>,
-        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-        "hpa@zytor.com" <hpa@zytor.com>,
-        "gregory.haskins@gmail.com" <gregory.haskins@gmail.com>,
-        Rusty Russell <rusty@rustcorp.com.au>,
-        "s.hetze@linux-ag.com" <s.hetze@linux-ag.com>, avi@redhat.com
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <C85CEDA13AB1CF4D9D597824A86D2B9006AECB9C1D@PDSMSX501.ccr.corp.intel.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, gregory.v.rose@intel.com,
+	donald.c.skidmore@intel.com
+To: Mark Smith <lk-netdev@lk-netdev.nosense.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1132 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752239AbZIMGJL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Sep 2009 02:09:11 -0400
+In-Reply-To: <20090913131752.462abc01@opy.nosense.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 11, 2009 at 11:17:33PM +0800, Xin, Xiaohui wrote:
-> Michael,
-> We are very interested in your patch and want to have a try with it.
-> I have collected your 3 patches in kernel side and 4 patches in queue side.
-> The patches are listed here:
-> 
-> PATCHv5-1-3-mm-export-use_mm-unuse_mm-to-modules.patch
-> PATCHv5-2-3-mm-reduce-atomic-use-on-use_mm-fast-path.patch
-> PATCHv5-3-3-vhost_net-a-kernel-level-virtio-server.patch
-> 
-> PATCHv3-1-4-qemu-kvm-move-virtio-pci[1].o-to-near-pci.o.patch
-> PATCHv3-2-4-virtio-move-features-to-an-inline-function.patch
-> PATCHv3-3-4-qemu-kvm-vhost-net-implementation.patch
-> PATCHv3-4-4-qemu-kvm-add-compat-eventfd.patch
-> 
-> I applied the kernel patches on v2.6.31-rc4 and the qemu patches on latest kvm qemu.
-> But seems there are some patches are needed at least irqfd and ioeventfd patches on
-> current qemu. I cannot create a kvm guest with "-net nic,model=virtio,vhost=vethX".
-> 
-> May you kindly advice us the patch lists all exactly to make it work?
-> Thanks a lot. :-)
-> 
-> Thanks
-> Xiaohui
+On Sun, 2009-09-13 at 13:17 +0930, Mark Smith wrote:
+> On Sat, 12 Sep 2009 17:44:46 -0700
+> Joe Perches <joe@perches.com> wrote:
+> > Avoiding an initial octet of "02", which is partially
+> > assigned to 3Com and others, might be useful.
+> I wouldn't necessarily disagree. I would say that if that path was
+> taken, then you'd probably also want to be avoiding all the other
+> well known mac addresses that do or can fall within the locally
+> assigned range e.g. DECnet 0xAA addresses, Microsoft's  use of
+> 02:01:00:00:00:00 and similar addresses for their Network Load
+> Balancing software, the unicast version of the CF:00:00:00:00:00
+> multicast address use for ECTP, the unicast version of the
+> 33:33:xx:xx:xx:xx IPv6 ND multicast ranges etc.
+
+The existing code already has the first wire bit cleared so it
+is not multicast and has the locally assigned bit set so the
+first octet is a multiple of 2.
+
+The suggested patch requires an initial octet >= 0x04.
+
+Skipping AA seems a good idea.
+
+> Having thought about this issue a bit before, another thought might be
+> to have somebody get the Linux kernel its own OUI,
+
+That's been suggested.
+
+> > Not drawing from entropy I think useful, but it's debatable.
+> I'm guessing there are other things in the kernel that would be taking
+> away far more entropy, far more often. IIRC, TCP connection initial
+> sequence number selection would be one example.
+
+These MAC assignments are generally done at system startup
+when entropy often isn't available and possibly should be
+conserved.
+
+Maybe this:
+
+Signed-off-by: Joe Perches <joe@perches.com>
+
+diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
+index 3d7a668..40233db 100644
+--- a/include/linux/etherdevice.h
++++ b/include/linux/etherdevice.h
+@@ -118,12 +118,30 @@ static inline int is_valid_ether_addr(const u8 *addr)
+  *
+  * Generate a random Ethernet address (MAC) that is not multicast
+  * and has the local assigned bit set.
++ * Does not assign a leading octet of 0x02 or 0xaa.
+  */
+ static inline void random_ether_addr(u8 *addr)
+ {
+-	get_random_bytes (addr, ETH_ALEN);
+-	addr [0] &= 0xfe;	/* clear multicast bit */
+-	addr [0] |= 0x02;	/* set local assignment bit (IEEE802) */
++	u32 val;
++
++	/* not calling get_random_bytes to avoid using entropy */
++	do {
++		val = random32();
++		addr[0] = val;
++		addr[0] &= 0xfe;	/* clear multicast bit */
++		addr[0] |= 0x02;	/* set local assignment bit (IEEE802) */
++	} while (addr[0] == 0x02 || addr[0] == 0xaa);
++
++	val >>= 8;
++	addr[1] = val;
++	val >>= 8;
++	addr[2] = val;
++	val >>= 8;
++	addr[3] = val;
++	val = random32();
++	addr[4] = val;
++	val >>= 8;
++	addr[5] = val;
+ }
+ 
+ /**
 
 
-The irqfd/ioeventfd patches are part of Avi's kvm.git tree:
-git://git.kernel.org/pub/scm/linux/kernel/git/avi/kvm.git
-
-I expect them to be merged by 2.6.32-rc1 - right, Avi?
-
--- 
-MST
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
