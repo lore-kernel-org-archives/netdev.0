@@ -1,157 +1,111 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 2/5] Implement loss counting on TFRC-SP receiver
-Date: Sun, 13 Sep 2009 18:12:24 +0200
-Message-ID: <20090913161224.GA5121@gerrit.erg.abdn.ac.uk>
-References: <4AA6A25F.4060100@embedded.ufcg.edu.br>
+Subject: Re: [PATCH 3/5] Implement TFRC-SP calc of mean length of loss
+	intervals, accordingly to section 3 of RFC 4828
+Date: Sun, 13 Sep 2009 19:28:04 +0200
+Message-ID: <20090913172804.GA6109@gerrit.erg.abdn.ac.uk>
+References: <4AA6A263.8000106@embedded.ufcg.edu.br>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
 To: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:50891 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:52439 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754031AbZIMQMb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Sep 2009 12:12:31 -0400
+	id S1751524AbZIMR2L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Sep 2009 13:28:11 -0400
 Content-Disposition: inline
-In-Reply-To: <4AA6A25F.4060100@embedded.ufcg.edu.br>
+In-Reply-To: <4AA6A263.8000106@embedded.ufcg.edu.br>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| Implement loss counting on TFRC-SP receiver. 
-| Consider transmission's hole size as loss count.
-The implementation of loss counts as the basis for Dropped Packet option has
-problems and can in its current form not be used. Please see below.
+| Implement TFRC-SP calc of mean length of loss intervals accordingly to
+| section 3 of RFC 4828
+Sorry this also has problems.
 
-
---- dccp_tree_work4.orig/net/dccp/ccids/lib/loss_interval_sp.c
-+++ dccp_tree_work4/net/dccp/ccids/lib/loss_interval_sp.c
-@@ -187,6 +187,7 @@
- 		s64 len = dccp_delta_seqno(cur->li_seqno, cong_evt_seqno);
- 		if ((len <= 0) ||
- 		    (!tfrc_lh_closed_check(cur, cong_evt->tfrchrx_ccval))) {
-+			cur->li_losses += rh->num_losses;
- 			return false;
+--- dccp_tree_work5.orig/net/dccp/ccids/lib/loss_interval_sp.c
++++ dccp_tree_work5/net/dccp/ccids/lib/loss_interval_sp.c
+@@ -67,10 +67,11 @@
  		}
-This has a multiplicative effect, since rh->num_losses is added to cur->li_losses
-each time the condition is evaluated. E.g. if 3 times in a row reordered (earlier)
-sequence numbers arrive, or if the CCvals do not differ (high-speed networks),
-we end up with 3 * rh->num_losses, which can't be correct.
-
-
-
---- dccp_tree_work4.orig/net/dccp/ccids/lib/packet_history_sp.c
-+++ dccp_tree_work4/net/dccp/ccids/lib/packet_history_sp.c
-@@ -244,6 +244,7 @@
- 		h->loss_count = 3;
- 		tfrc_sp_rx_hist_entry_from_skb(tfrc_rx_hist_entry(h, 3),
- 					       skb, n3);
-+		h->num_losses = dccp_loss_count(s2, s3, n3);
- 		return 1;
- 	}
-This only measures the gap between s2 and s3, but the "hole" starts at s0,
-so it would need to be dccp_loss_count(s0, s3, n3). Algorithm is documented at
-http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/\
-ccid3/ccid3_packet_reception/loss_detection/loss_detection_algorithm_notes.txt
- 
-@@ -257,6 +258,7 @@
- 		tfrc_sp_rx_hist_entry_from_skb(tfrc_rx_hist_entry(h, 2),
- 					       skb, n3);
- 		h->loss_count = 3;
-+		h->num_losses = dccp_loss_count(s1, s3, n3);
- 		return 1;
- 	}
-In this case, the "hole" is between s0 and s2, it is case VI(d) in the above.
- 
-@@ -293,6 +295,7 @@
- 	h->loss_start = tfrc_rx_hist_index(h, 3);
- 	tfrc_sp_rx_hist_entry_from_skb(tfrc_rx_hist_entry(h, 1), skb, n3);
- 	h->loss_count = 3;
-+	h->num_losses = dccp_loss_count(s0, s3, n3);
- 
- 	return 1;
- }
-Here it is also between s0 and s2, not between s0 and s3. It is case VI(c.3).
-
-However, the above still is a crude approximation, since it only measures between
-the last sequence number received before the loss and the third sequence number
-after the loss. It would be better to either
-
- * use the first sequence number after the loss (this can be s1, s2, or s3) or
- * check if there are more holes between the first/second and the second/third
-   sequence numbers after the loss.
-
-The second option would be the correct one, it should also take the NDP counts
-of each gap into account. And already we have a fairly complicated algorithm.
- 		  
-Another observation is that this function is only called in packet_history_sp.c,
-and only in __two_after_loss(), so that dccp_loss_count() could be made static,
-and without the need for the WARN_ON (see below), since in all above cases it is
-ensured that the first sequence number argument is "before" the second one.
-
-
---- dccp_tree_work4.orig/net/dccp/ccids/lib/packet_history_sp.h
-+++ dccp_tree_work4/net/dccp/ccids/lib/packet_history_sp.h
-@@ -113,6 +113,7 @@
- 	u32			  packet_size,
- 				  bytes_recvd;
- 	ktime_t			  bytes_start;
-+	u8			  num_losses;
- };
-No more than 255 losses? NDP count option has space for up to 6 bytes, i.e. 2^48-1.
-Suggest u64 for consistency with the other parts.
- 
-
---- dccp_tree_work4.orig/net/dccp/dccp.h
-+++ dccp_tree_work4/net/dccp/dccp.h
-@@ -168,6 +168,21 @@
- 	return (u64)delta <= ndp + 1;
  }
  
-+static inline u64 dccp_loss_count(const u64 s1, const u64 s2, const u64 ndp)
-+{
-+	s64 delta, count;
+-static void tfrc_sp_lh_calc_i_mean(struct tfrc_loss_hist *lh)
++static void tfrc_sp_lh_calc_i_mean(struct tfrc_loss_hist *lh, __u8 curr_ccval)
+ {
+ 	u32 i_i, i_tot0 = 0, i_tot1 = 0, w_tot = 0;
+ 	int i, k = tfrc_lh_length(lh) - 1; /* k is as in rfc3448bis, 5.4 */
++	u32 losses;
+ 
+ 	if (k <= 0)
+ 		return;
+@@ -78,6 +79,15 @@
+ 	for (i = 0; i <= k; i++) {
+ 		i_i = tfrc_lh_get_interval(lh, i);
+ 
++		if (SUB16(curr_ccval,
++		    tfrc_lh_get_loss_interval(lh, i)->li_ccval) <= 8) {
 +
-+	delta = dccp_delta_seqno(s1, s2);
-+	WARN_ON(delta < 0);
++			losses = tfrc_lh_get_loss_interval(lh, i)->li_losses;
 +
-+	count = ndp + 1;
-+	count -= delta;
++			if (losses > 0)
++				i_i = div64_u64(i_i, losses);
++		}
 +
-+	count = (count > 0) ? count : 0;
-+
-+	return (u64) count;
-+}
-Let S_A, S_B be sequence numbers such that S_B is "after" S_A, and let
-N_B be the NDP count of packet S_B. Then, using module-2^48 arithmetic,
- D = S_B - S_A - 1  is an upper bound of the number of lost data packets,
- D - N_B            is an approximation of the number of lost data 
-                    packets (there are cases where this is not exact).
+(Both 'i_i' and 'losses' are u32, so could write "i_i /= losses" instead.)
 
-But your formula computes N_B - D, i.e. it negates this value. What you
-want is dccp_loss_count(S_A, S_B, N_B) := max(S_B - S_A - 1 - N_B, 0).
+However, this computation is done in the wrong place: here it is already too
+late. The N/K in RFC 4828 refers to entering each individual interval I_0, so
+the division (and the check whether this is a "short" interval) needs to be
+done when adding the interval, in tfrc_sp_lh_interval_add(). (There also exists
+a special rule for the open interval I_0, see RFC 5348, 5.3.)
 
-A short implementation would be:
+A second problem is a divide-by-zero condition encoded in the above: if
+i_i < losses, the result is 0, if all intervals are 0 then I_mean = 0, and
+thus p = 1/I_mean triggers a panic. In all other cases, the integer arithmetic
+has the effect of floor(N/K), i.e. it decreases the interval length.
 
-/**
- * dccp_loss_count - Approximate the number of data packets lost in a row
- * @s1:   last known sequence number before the loss ('hole')
- * @s2:   first sequence number seen after the 'hole'
- * @ndp:  ndp count associated with packet having sequence number @s2
- */
-u64 dccp_loss_count(const u64 s1, const u64 s2, const u64 ndp)
-{
-	s64 delta = dccp_delta_seqno(s1, s2);
-	
-	WARN_ON(delta < 0);
-	delta -= ndp + 1;
+A way out (which does not fix the truncation problem) is to round up:
 
-	return delta > 0 ? delta : 0;
-}
+	if (losses > 0)
+		i_i = DIV_ROUND_UP(i_i, losses);
 
-But then dccp_loss_free reduces to a specialisation of the above:
-bool dccp_loss_free(const u64 s1, const u64 s2, const u64 ndp)
-{
-	return dccp_loss_count(s1, s2, ndp) == 0;
-}
+In fact, we have to do this, to avoid the divide-by-zero condition.
 
-But please see above -- the function needs to be called for each hole in a row.
+The third problem is that the CCVal can be wrong, i.e. "less than 8" can
+also mean that it just wrapped around one or more times. But this is noted
+already in RFC 5622, it is a problem of the specification.
+
+@@ -87,6 +97,11 @@
+ 	}
+ 
+ 	lh->i_mean = max(i_tot0, i_tot1) / w_tot;
++	BUG_ON(w_tot == 0);
++	if (SUB16(curr_ccval, tfrc_lh_get_loss_interval(lh, 0)->li_ccval) > 8)
++		lh->i_mean = max(i_tot0, i_tot1) / w_tot;
++	else
++		lh->i_mean = i_tot1 / w_tot;
+ }
+The line above the BUG_ON is probably a leftover. For the BUG_ON, this would
+be too late (division by zero). 
+In fact, the BUG_ON is not needed, due to testing for k <= 0, see
+http://mirror.celinuxforum.org/gitstat//commit-detail.php?commit=eff253c4272cd2aac95ccff46d3d2e1a495f22b1
+
+@@ -127,7 +142,7 @@
+ 		return;
+ 
+ 	cur->li_length = len;
+-	tfrc_sp_lh_calc_i_mean(lh);
++	tfrc_sp_lh_calc_i_mean(lh, dccp_hdr(skb)->dccph_ccval);
+ }
+Should be division as per above.
+
+--- dccp_tree_work5.orig/net/dccp/ccids/lib/loss_interval_sp.h
++++ dccp_tree_work5/net/dccp/ccids/lib/loss_interval_sp.h
+@@ -73,7 +73,8 @@
+ extern bool tfrc_sp_lh_interval_add(struct tfrc_loss_hist *,
+ 				    struct tfrc_rx_hist *,
+ 				    u32 (*first_li)(struct sock *),
+-				    struct sock *);
++				    struct sock *,
++				    __u8 ccval);
+This function already has the ccval available, so could use it instead
+of just passing it through.
