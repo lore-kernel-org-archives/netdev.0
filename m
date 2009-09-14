@@ -1,82 +1,86 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] pkt_sched: Fix tx queue selection in tc_modify_qdisc
-Date: Mon, 14 Sep 2009 21:03:38 +0200
-Message-ID: <20090914190338.GA3065@ami.dom.local>
-References: <20090914122226.GA14087@ff.dom.local>
- <4AAE85F9.2060600@trash.net>
+From: Eric Paris <eparis@redhat.com>
+Subject: fanotify as syscalls
+Date: Mon, 14 Sep 2009 15:08:15 -0400
+Message-ID: <1252955295.2246.35.camel@dhcp231-106.rdu.redhat.com>
+References: <20090911052558.32359.18075.stgit@paris.rdu.redhat.com>
+	 <20090911.114620.260824240.davem@davemloft.net>
+	 <1252697613.2305.38.camel@dhcp231-106.rdu.redhat.com>
+	 <20090911204602.GA19371@shareable.org>
+	 <1252703626.2305.50.camel@dhcp231-106.rdu.redhat.com>
+	 <20090911212731.GA19901@shareable.org>
+	 <1252705902.2305.83.camel@dhcp231-106.rdu.redhat.com>
+	 <20090912094110.GB24709@ioremap.net> <20090914001759.GB30621@shareable.org>
+	 <20090914140720.GA8564@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.157]:2956 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756801AbZINTDx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2009 15:03:53 -0400
-Received: by fg-out-1718.google.com with SMTP id 22so1054696fge.1
-        for <netdev@vger.kernel.org>; Mon, 14 Sep 2009 12:03:55 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4AAE85F9.2060600@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jamie Lokier <jamie@shareable.org>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
+	alan@linux.intel.com, hch@infradead.org,
+	torvalds@linux-foundation.org
+To: Evgeniy Polyakov <zbr@ioremap.net>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20090914140720.GA8564@ioremap.net>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 14, 2009 at 08:05:45PM +0200, Patrick McHardy wrote:
-> Jarek Poplawski wrote:
-> > After the recent mq change there is the new select_queue qdisc class
-> > method used in tc_modify_qdisc, but it works OK only for direct child
-> > qdiscs of mq qdisc. Grandchildren always get the first tx queue, which
-> > would give wrong qdisc_root etc. results (e.g. for sch_htb as child of
-> > sch_prio). This patch fixes it by using parent's dev_queue for such
-> > grandchildren qdiscs. The select_queue method is replaced BTW with the
-> > static qdisc_select_tx_queue function (it's used only in one place).
-> 
-> Thanks, this looks correct. My assumption was that we shouldn't
-> be using the locks of grandchildren anyways, but we do need the
-> proper root lock for estimators.
+Long ago I implemented fanotify as basically a /dev interface using
+ioctls().  Alan suggested I use a socket protocol and could then make
+use of get/setsockopt() which although still not great is light years
+better than ioctl.  Currently the fanotify interface as I want to push
+it to Linus and as I've been requesting comments on for the last 1.25
+years is just that.  It really makes no use of the networking system
+other than bind() and setsockopt() and everyone tends to agree the
+things I want to do can't reasonably be done using network hooks and a
+'real' socket protocol.  I like this interface, setsockopt() makes it so
+easy to add new functionality as we flush out other users.  fanotify as
+it stands today has a number of groups who will port to it, has a nubmer
+of advantages over inotify, and I have been told privately meets the
+needs of the original group of people who paid me to work on it (two
+very large anti-malware companies who currently unprotect and hack the
+syscall table of their users)
 
-Actually, in the above example I was mainly concerned with a watchdog
-parameter. But of course there should more (etc.).
+Just this week I got another request to look at syscalls.  So I did, I
+haven't prototyped it, but I can do it with syscalls, they would look
+like this:
 
-> > diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-> > index 88eb9de..865120c 100644
-> > --- a/include/net/sch_generic.h
-> > +++ b/include/net/sch_generic.h
-> > @@ -81,7 +81,6 @@ struct Qdisc
-> >  struct Qdisc_class_ops
-> >  {
-> >  	/* Child qdisc manipulation */
-> > -	unsigned int		(*select_queue)(struct Qdisc *, struct tcmsg *);
-> >  	int			(*graft)(struct Qdisc *, unsigned long cl,
-> >  					struct Qdisc *, struct Qdisc **);
-> >  	struct Qdisc *		(*leaf)(struct Qdisc *, unsigned long cl);
-> > diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-> > index 3af1061..223a6bc 100644
-> > --- a/net/sched/sch_api.c
-> > +++ b/net/sched/sch_api.c
-> > @@ -990,6 +990,24 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
-> >  	return 0;
-> >  }
-> >  
-> > +static struct netdev_queue *qdisc_select_tx_queue(struct net_device *dev,
-> > +						  struct Qdisc *p, u32 clid)
-> > +{
-> > +	unsigned long ntx;
-> > +
-> > +	if (!p)
-> > +		return netdev_get_tx_queue(dev, 0);
-> > +
-> > +	if (!(p->flags & TCQ_F_MQROOT))
-> > +		return p->dev_queue;
-> > +
-> > +	ntx = TC_H_MIN(clid) - 1;
-> 
-> I didn't want to expose the numbering scheme used by sch_mq internally,
-> but fine, I see you really don't like the callback :)
+int fanotify_init(int flags, int f_flags, __u64 mask, unsigned int priority);
 
-I only don't like the callback just for one exceptional qdisc. On the
-other hand it would look more sensible to me if implemented at least
-by all classful qdiscs to return parent's dev_queue always; so I could
-re-do it like this, or simply mix this fix with the current
-implementation, no problem (I don't "don't like it" too much).
+int fanotify_add_mark(int fanotify_fd, char *path, __u64 mask, __u64 ignored_mask);
+int fanotify_add_mark_fd(int fanotify_fd, int fd, __u64 mask, __u64 ignored_mask);
+int fanotify_rm_mark(int fanotify_fd, char *path, __u64 mask);
+int fanotify_rm_mark_fd(int fanotify_fd, int fd, __u64 mask);
+	Those above 4 could probably be squashed into 2 syscalls with an extra
+flags field.
 
-Jarek P.
+int fanotify_clear_marks(int fanotify_fd);
+
+int fanotify_perm_response(int fanotify_fd, __u64 cookie, int response);
+
+int fanotify_ignore_sb(int fanotify_fd, long f_type);
+int fanotify_ignore_fsid(int fanotify_fd, fsid_t f_fsid);
+	These 2 are the most questionable, they would honestly only be used for
+things that wanted system wide notification, I can't imagine that being
+many things other than AV vendors.  But they really need a way to
+exclude notification when people open/close/read/write to /proc (which
+is the point of the ignore_sb.)
+
+Since I don't have a solution to subtree notification I don't know if it
+will work in this syscall framework.  I know people want subtree
+notification and I'm willing to take a stab at it after the fscking all
+notification is accepted.  That's one of the main reasons I like
+setsockopt over tons of syscalls.  I can add a new one very easily.  I
+also can easily expand arguments by just creating a new sockopt.  No
+userspace headaches.
+
+Are there demands that I convert to syscalls?  Do I really gain anything
+using 9 new inextensible syscalls over socket(), bind(), and 8
+setsockopt() calls?
+
+I'd like to send these patches along, so a ruling from on high would be
+great....
+
+-Eric
+
