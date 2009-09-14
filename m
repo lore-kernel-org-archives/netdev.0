@@ -1,86 +1,99 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: fanotify as syscalls
-Date: Mon, 14 Sep 2009 15:08:15 -0400
-Message-ID: <1252955295.2246.35.camel@dhcp231-106.rdu.redhat.com>
-References: <20090911052558.32359.18075.stgit@paris.rdu.redhat.com>
-	 <20090911.114620.260824240.davem@davemloft.net>
-	 <1252697613.2305.38.camel@dhcp231-106.rdu.redhat.com>
-	 <20090911204602.GA19371@shareable.org>
-	 <1252703626.2305.50.camel@dhcp231-106.rdu.redhat.com>
-	 <20090911212731.GA19901@shareable.org>
-	 <1252705902.2305.83.camel@dhcp231-106.rdu.redhat.com>
-	 <20090912094110.GB24709@ioremap.net> <20090914001759.GB30621@shareable.org>
-	 <20090914140720.GA8564@ioremap.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: : Release of iptables-1.4.5
+Date: Mon, 14 Sep 2009 19:05:11 +0200
+Message-ID: <4AAE77C7.200@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jamie Lokier <jamie@shareable.org>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
-	alan@linux.intel.com, hch@infradead.org,
-	torvalds@linux-foundation.org
-To: Evgeniy Polyakov <zbr@ioremap.net>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20090914140720.GA8564@ioremap.net>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="------------000005020408020500020003"
+To: Netfilter Development Mailinglist <netfilter-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"'netfilter@vger.kernel.org'" <netfilter@vger.kernel.org>,
+	netfilter
+Return-path: <netfilter-announce-bounces@lists.netfilter.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-announce>,
+	<mailto:netfilter-announce-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: <http://lists.netfilter.org/pipermail/netfilter-announce>
+List-Post: <mailto:netfilter-announce@lists.netfilter.org>
+List-Help: <mailto:netfilter-announce-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-announce>,
+	<mailto:netfilter-announce-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-announce-bounces@lists.netfilter.org
+Errors-To: netfilter-announce-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Long ago I implemented fanotify as basically a /dev interface using
-ioctls().  Alan suggested I use a socket protocol and could then make
-use of get/setsockopt() which although still not great is light years
-better than ioctl.  Currently the fanotify interface as I want to push
-it to Linus and as I've been requesting comments on for the last 1.25
-years is just that.  It really makes no use of the networking system
-other than bind() and setsockopt() and everyone tends to agree the
-things I want to do can't reasonably be done using network hooks and a
-'real' socket protocol.  I like this interface, setsockopt() makes it so
-easy to add new functionality as we flush out other users.  fanotify as
-it stands today has a number of groups who will port to it, has a nubmer
-of advantages over inotify, and I have been told privately meets the
-needs of the original group of people who paid me to work on it (two
-very large anti-malware companies who currently unprotect and hack the
-syscall table of their users)
+This is a multi-part message in MIME format.
+--------------000005020408020500020003
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Just this week I got another request to look at syscalls.  So I did, I
-haven't prototyped it, but I can do it with syscalls, they would look
-like this:
+The netfilter coreteam presents:
 
-int fanotify_init(int flags, int f_flags, __u64 mask, unsigned int priority);
+    iptables version 1.4.5
 
-int fanotify_add_mark(int fanotify_fd, char *path, __u64 mask, __u64 ignored_mask);
-int fanotify_add_mark_fd(int fanotify_fd, int fd, __u64 mask, __u64 ignored_mask);
-int fanotify_rm_mark(int fanotify_fd, char *path, __u64 mask);
-int fanotify_rm_mark_fd(int fanotify_fd, int fd, __u64 mask);
-	Those above 4 could probably be squashed into 2 syscalls with an extra
-flags field.
+the iptables release for the 2.6.31 kernel. Changes include:
 
-int fanotify_clear_marks(int fanotify_fd);
+- support for nfnetlink_queue queue balancing
 
-int fanotify_perm_response(int fanotify_fd, __u64 cookie, int response);
+- support for revision 2 of the conntrack match, which fixes a
+  regression in state matching
 
-int fanotify_ignore_sb(int fanotify_fd, long f_type);
-int fanotify_ignore_fsid(int fanotify_fd, fsid_t f_fsid);
-	These 2 are the most questionable, they would honestly only be used for
-things that wanted system wide notification, I can't imagine that being
-many things other than AV vendors.  But they really need a way to
-exclude notification when people open/close/read/write to /proc (which
-is the point of the ignore_sb.)
+- support for multiple IP address specifications with -s/-d
 
-Since I don't have a solution to subtree notification I don't know if it
-will work in this syscall framework.  I know people want subtree
-notification and I'm willing to take a stab at it after the fscking all
-notification is accepted.  That's one of the main reasons I like
-setsockopt over tons of syscalls.  I can add a new one very easily.  I
-also can easily expand arguments by just creating a new sockopt.  No
-userspace headaches.
+- various internal cleanups and improvements
 
-Are there demands that I convert to syscalls?  Do I really gain anything
-using 9 new inextensible syscalls over socket(), bind(), and 8
-setsockopt() calls?
+- manpage updates
 
-I'd like to send these patches along, so a ruling from on high would be
-great....
+Version 1.4.5 can be obtained from:
 
--Eric
+http://www.netfilter.org/projects/iptables/downloads.html
+ftp://ftp.netfilter.org/pub/iptables/
+git://git.netfilter.org/iptables.git
 
+On behalf of the Netfilter Core Team.
+Happy firewalling!
+
+
+--------------000005020408020500020003
+Content-Type: text/plain;
+ name="changes-iptables-1.4.5.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="changes-iptables-1.4.5.txt"
+
+Florian Westphal (1):
+      libxt_NFQUEUE: add new v1 version with queue-balance option
+
+Jan Engelhardt (18):
+      xt_conntrack: revision 2 for enlarged state_mask member
+      libxt_helper: fix invalid passed option to check_inverse
+      libiptc: split v4 and v6
+      extensions: collapse registration structures
+      iptables: allow for parse-less extensions
+      iptables: allow for help-less extensions
+      extensions: remove empty help and parse functions
+      xtables: add multi-registration functions
+      extensions: collapse data variables to use multi-reg calls
+      xtables: warn of missing version identifier in extensions
+      COMMIT_NOTES: notice to check for soversion bumps
+      build: order of dependent libs is sensitive
+      multi binary: allow subcommand via argv[1]
+      build: fix struct size mismatch
+      build: combine iptables-multi and iptables-static
+      build: build only iptables-multi
+      Merge branch 'stable'
+      manpages: more fixes to minuses, hyphens, dashes
+
+Laurence J. Lane (1):
+      manpage: fix lintian warnings
+
+Michael Granzow (1):
+      iptables: accept multiple IP address specifications for -s, -d
+
+Patrick McHardy (2):
+      man: fix incorrect plural in libipt_set.man
+      Bump version number to 1.4.5
+
+Trent W. Buck (1):
+      ipt_set: fix a typo in the manpage
+
+
+--------------000005020408020500020003--
