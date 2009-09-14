@@ -1,148 +1,246 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH] tcp: fix ssthresh u16 leftover
-Date: Mon, 14 Sep 2009 17:09:08 +0300 (EEST)
-Message-ID: <alpine.DEB.2.00.0909141705500.7424@wel-95.cs.helsinki.fi>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH 4/4] bonding: add sysfs files to display tlb and alb
+	hash table contents
+Date: Mon, 14 Sep 2009 10:45:32 -0400
+Message-ID: <20090914144532.GU8515@gospo.rdu.redhat.com>
+References: <20090911211317.GT8515@gospo.rdu.redhat.com> <26430.1252705697@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-17586308-1252937349=:7424"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:39491 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754660AbZINOJG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2009 10:09:06 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:43689 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755575AbZINOpz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Sep 2009 10:45:55 -0400
+Content-Disposition: inline
+In-Reply-To: <26430.1252705697@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Fri, Sep 11, 2009 at 02:48:17PM -0700, Jay Vosburgh wrote:
+> Andy Gospodarek <andy@greyhouse.net> wrote:
+> 
+> >bonding: add sysfs files to display tlb and alb hash table contents
+> 
+> 	Isn't it considered bad form to have sysfs files that kick out
+> large amounts of data like this?  Not that I think this is a bad
+> facility to have, just checking on the mechanism.
+> 
 
---8323329-17586308-1252937349=:7424
-Content-Type: TEXT/PLAIN; format=flowed; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
+I'm not aware of such a restriction -- though I'm sure at least one
+person out there doesn't like it.
 
-It was once upon time so that snd_sthresh was a 16-bit quantity.
-...That has not been true for long period of time. I run across
-some ancient compares which still seem to trust such legacy.
-Put all that magic into a single place, I hopefully found all
-of them.
+If that's the case, there are certainly a few files that should be
+cleaned up:
 
-Compile tested, though linking of allyesconfig is ridiculous
-nowadays it seems.
+# find -type f -exec wc -l {} 2> /dev/null \; | sort -r -n | head -10
+1657 ./firmware/acpi/tables/SSDT
+132 ./firmware/acpi/tables/dynamic/SSDT2
+128 ./devices/pci0000:00/0000:00:1c.5/0000:3f:00.0/vpd
+27 ./devices/system/node/node0/meminfo
+24 ./devices/pnp0/00:08/options
+24 ./devices/pnp0/00:07/options
+12 ./devices/pci0000:00/0000:00:1e.0/resource
+12 ./devices/pci0000:00/0000:00:1c.5/resource
+12 ./devices/pci0000:00/0000:00:1c.4/resource
+12 ./devices/pci0000:00/0000:00:1c.0/resource
 
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
 
----
-  include/net/tcp.h        |    7 +++++++
-  net/ipv4/tcp.c           |    2 +-
-  net/ipv4/tcp_input.c     |    2 +-
-  net/ipv4/tcp_ipv4.c      |    4 ++--
-  net/ipv4/tcp_minisocks.c |    2 +-
-  net/ipv6/tcp_ipv6.c      |    5 +++--
-  6 files changed, 15 insertions(+), 7 deletions(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index b71a446..56b7602 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -793,6 +793,13 @@ static inline unsigned int tcp_packets_in_flight(const struct tcp_sock *tp)
-  	return tp->packets_out - tcp_left_out(tp) + tp->retrans_out;
-  }
-
-+#define TCP_INFINITE_SSTHRESH	0x7fffffff
-+
-+static inline bool tcp_in_initial_slowstart(const struct tcp_sock *tp)
-+{
-+	return tp->snd_ssthresh >= TCP_INFINITE_SSTHRESH;
-+}
-+
-  /* If cwnd > ssthresh, we may raise ssthresh to be half-way to cwnd.
-   * The exception is rate halving phase, when cwnd is decreasing towards
-   * ssthresh.
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index edeea06..19a0612 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2012,7 +2012,7 @@ int tcp_disconnect(struct sock *sk, int flags)
-  	tp->snd_cwnd = 2;
-  	icsk->icsk_probes_out = 0;
-  	tp->packets_out = 0;
--	tp->snd_ssthresh = 0x7fffffff;
-+	tp->snd_ssthresh = TCP_INFINITE_SSTHRESH;
-  	tp->snd_cwnd_cnt = 0;
-  	tp->bytes_acked = 0;
-  	tcp_set_ca_state(sk, TCP_CA_Open);
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index af6d6fa..d86784b 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -761,7 +761,7 @@ void tcp_update_metrics(struct sock *sk)
-  			set_dst_metric_rtt(dst, RTAX_RTTVAR, var);
-  		}
-
--		if (tp->snd_ssthresh >= 0xFFFF) {
-+		if (tcp_in_initial_slowstart(tp)) {
-  			/* Slow start still did not finish. */
-  			if (dst_metric(dst, RTAX_SSTHRESH) &&
-  			    !dst_metric_locked(dst, RTAX_SSTHRESH) &&
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 0543561..7cda24b 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1808,7 +1808,7 @@ static int tcp_v4_init_sock(struct sock *sk)
-  	/* See draft-stevens-tcpca-spec-01 for discussion of the
-  	 * initialization of these values.
-  	 */
--	tp->snd_ssthresh = 0x7fffffff;	/* Infinity */
-+	tp->snd_ssthresh = TCP_INFINITE_SSTHRESH;
-  	tp->snd_cwnd_clamp = ~0;
-  	tp->mss_cache = 536;
-
-@@ -2284,7 +2284,7 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i, int *len)
-  		jiffies_to_clock_t(icsk->icsk_ack.ato),
-  		(icsk->icsk_ack.quick << 1) | icsk->icsk_ack.pingpong,
-  		tp->snd_cwnd,
--		tp->snd_ssthresh >= 0xFFFF ? -1 : tp->snd_ssthresh,
-+		tcp_in_initial_slowstart(tp) ? -1 : tp->snd_ssthresh,
-  		len);
-  }
-
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index e48c37d..045bcfd 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -410,7 +410,7 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
-  		newtp->retrans_out = 0;
-  		newtp->sacked_out = 0;
-  		newtp->fackets_out = 0;
--		newtp->snd_ssthresh = 0x7fffffff;
-+		newtp->snd_ssthresh = TCP_INFINITE_SSTHRESH;
-
-  		/* So many TCP implementations out there (incorrectly) count the
-  		 * initial SYN frame in their delayed-ACK and congestion control
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 3aae0f2..6e3f0dc 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1846,7 +1846,7 @@ static int tcp_v6_init_sock(struct sock *sk)
-  	/* See draft-stevens-tcpca-spec-01 for discussion of the
-  	 * initialization of these values.
-  	 */
--	tp->snd_ssthresh = 0x7fffffff;
-+	tp->snd_ssthresh = TCP_INFINITE_SSTHRESH;
-  	tp->snd_cwnd_clamp = ~0;
-  	tp->mss_cache = 536;
-
-@@ -1969,7 +1969,8 @@ static void get_tcp6_sock(struct seq_file *seq, struct sock *sp, int i)
-  		   jiffies_to_clock_t(icsk->icsk_rto),
-  		   jiffies_to_clock_t(icsk->icsk_ack.ato),
-  		   (icsk->icsk_ack.quick << 1 ) | icsk->icsk_ack.pingpong,
--		   tp->snd_cwnd, tp->snd_ssthresh>=0xFFFF?-1:tp->snd_ssthresh
-+		   tp->snd_cwnd,
-+		   tcp_in_initial_slowstart(tp) ? -1 : tp->snd_ssthresh
-  		   );
-  }
-
--- 
-tg: (13af7a6..) fix/ssthresh (depends on: origin/master)
---8323329-17586308-1252937349=:7424--
+> >While debugging some problems with alb (mode 6) bonding I realized that
+> >being able to output the contents of both hash tables would be helpful.
+> >This is what the output looks like for the two files:
+> >
+> >device  load
+> >eth1    491
+> >eth2    491
+> >hash device   last device   tx bytes       load        next previous
+> >2    eth1     eth1          2254           491         0    0
+> >3    eth2     eth2          2744           491         0    0
+> >6             eth2          0              488         0    0
+> >8             eth2          0              461698      0    0
+> >1b            eth2          0              249         0    0
+> >eb            eth2          0              21          0    0
+> >ff            eth2          0              22          0    0
+> >
+> >hash ip_src          ip_dst          mac_dst           slave assign ntt
+> >2    10.0.3.2        10.0.3.11       00:e0:81:71:ee:a9 eth1  1      0
+> >3    10.0.3.2        10.0.3.10       00:e0:81:71:ee:a9 eth2  1      0
+> >8    10.0.3.2        10.0.3.1        00:e0:81:71:ee:a9 eth2  1      0
+> >
+> >These were a great help debugging the fixes I have just posted and they
+> >might be helpful for others, so I decided to include them in my
+> >patchset.
+> >
+> >Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> >
+> >---
+> > drivers/net/bonding/bond_alb.c   |   61 ++++++++++++++++++++++++++++++++++++++
+> > drivers/net/bonding/bond_alb.h   |    2 +
+> > drivers/net/bonding/bond_sysfs.c |   40 +++++++++++++++++++++++++
+> > 3 files changed, 103 insertions(+), 0 deletions(-)
+> >
+> >diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+> >index 7db8835..4e930e3 100644
+> >--- a/drivers/net/bonding/bond_alb.c
+> >+++ b/drivers/net/bonding/bond_alb.c
+> >@@ -778,6 +778,67 @@ static struct slave *rlb_arp_xmit(struct sk_buff *skb, struct bonding *bond)
+> > 	return tx_slave;
+> > }
+> >
+> >+int rlb_print_rx_hashtbl(struct bonding *bond, char *buf)
+> >+{
+> >+	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+> >+	struct rlb_client_info *client_info;
+> >+	u32 hash_index;
+> >+	u32 count = 0;
+> >+	
+> >+	_lock_rx_hashtbl(bond);
+> >+
+> >+	count = sprintf(buf, "hash ip_src          ip_dst          mac_dst           slave assign ntt\n");
+> >+	hash_index = bond_info->rx_hashtbl_head;
+> >+	for (; hash_index != RLB_NULL_INDEX; hash_index = client_info->next) {
+> >+		client_info = &(bond_info->rx_hashtbl[hash_index]);
+> >+		count += sprintf(buf + count,"%-4x %-15pi4 %-15pi4 %pM %-5s %-6d %d\n",
+> >+				 hash_index,
+> >+				 &client_info->ip_src,
+> >+				 &client_info->ip_dst,
+> >+				 client_info->mac_dst,
+> >+				 client_info->slave->dev->name,
+> >+				 client_info->assigned,
+> >+				 client_info->ntt);
+> >+	}
+> >+
+> >+	_unlock_rx_hashtbl(bond);
+> >+	return count;
+> >+}
+> >+
+> >+int tlb_print_tx_hashtbl(struct bonding *bond, char *buf)
+> >+{
+> >+	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+> >+	u32 hash_index;
+> >+	u32 count = 0;
+> >+	struct slave *slave;
+> >+	int i;
+> >+	
+> >+	_lock_tx_hashtbl(bond);
+> >+
+> >+	count += sprintf(buf, "device  load\n");
+> >+	bond_for_each_slave(bond, slave, i) {
+> >+		struct tlb_slave_info *slave_info = &(SLAVE_TLB_INFO(slave));
+> >+		count += sprintf(buf + count,"%-7s %d\n",slave->dev->name,slave_info->load);
+> >+	}
+> >+	count += sprintf(buf + count, "hash device   last device   tx bytes       load        next previous\n");
+> >+	for (hash_index = 0; hash_index < TLB_HASH_TABLE_SIZE; hash_index++) {
+> >+		struct tlb_client_info *client_info = &(bond_info->tx_hashtbl[hash_index]);
+> >+		if (client_info->tx_slave || client_info->last_slave) {
+> >+			count += sprintf(buf + count,"%-4x %-8s %-13s %-14d %-11d %-4x %d\n",
+> >+					 hash_index,
+> >+					 (client_info->tx_slave) ? client_info->tx_slave->dev->name : "",
+> >+					 (client_info->last_slave) ? client_info->last_slave->dev->name : "",
+> >+					 client_info->tx_bytes,
+> >+					 client_info->load_history,
+> >+					 (client_info->next != TLB_NULL_INDEX) ? client_info->next : 0,
+> >+					 (client_info->prev != TLB_NULL_INDEX) ? client_info->prev : 0);
+> >+		}
+> >+	}
+> >+
+> >+	_unlock_tx_hashtbl(bond);
+> >+	return count;
+> >+}
+> >+
+> > /* Caller must hold rx_hashtbl lock */
+> > static void rlb_init_table_entry(struct rlb_client_info *entry)
+> > {
+> >diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
+> >index b65fd29..8543447 100644
+> >--- a/drivers/net/bonding/bond_alb.h
+> >+++ b/drivers/net/bonding/bond_alb.h
+> >@@ -132,5 +132,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev);
+> > void bond_alb_monitor(struct work_struct *);
+> > int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr);
+> > void bond_alb_clear_vlan(struct bonding *bond, unsigned short vlan_id);
+> >+int rlb_print_rx_hashtbl(struct bonding *bond, char *buf);
+> >+int tlb_print_tx_hashtbl(struct bonding *bond, char *buf);
+> > #endif /* __BOND_ALB_H__ */
+> >
+> >diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+> >index 55bf34f..1123e1f 100644
+> >--- a/drivers/net/bonding/bond_sysfs.c
+> >+++ b/drivers/net/bonding/bond_sysfs.c
+> >@@ -1480,6 +1480,44 @@ static ssize_t bonding_show_ad_partner_mac(struct device *d,
+> > static DEVICE_ATTR(ad_partner_mac, S_IRUGO, bonding_show_ad_partner_mac, NULL);
+> >
+> >
+> >+/*
+> >+ * Show current tlb/alb tx hash table.
+> >+ */
+> >+static ssize_t bonding_show_tlb_tx_hash(struct device *d,
+> >+					   struct device_attribute *attr,
+> >+					   char *buf)
+> >+{
+> >+	int count = 0;
+> >+	struct bonding *bond = to_bond(d);
+> >+
+> >+	if (bond->params.mode == BOND_MODE_ALB ||
+> >+	    bond->params.mode == BOND_MODE_TLB) {
+> >+		count = tlb_print_tx_hashtbl(bond, buf);
+> >+	}
+> >+
+> >+	return count;
+> >+}
+> >+static DEVICE_ATTR(tlb_tx_hash, S_IRUGO, bonding_show_tlb_tx_hash, NULL);
+> 
+> 	Should the mode here be S_IRUSR (0400, instead of 0444)?
+> Otherwise, a nefarious user could "while 1 cat /sys/.../tlb_tx_hash" and
+> keep the hash table lock fairly busy.  Since the lock is acquired for
+> every packet on tx, that's probably a bad thing.
+> 
+> >+
+> >+/*
+> >+ * Show current alb rx hash table.
+> >+ */
+> >+static ssize_t bonding_show_alb_rx_hash(struct device *d,
+> >+					   struct device_attribute *attr,
+> >+					   char *buf)
+> >+{
+> >+	int count = 0;
+> >+	struct bonding *bond = to_bond(d);
+> >+
+> >+	if (bond->params.mode == BOND_MODE_ALB) {
+> >+		count = rlb_print_rx_hashtbl(bond, buf);
+> >+	}
+> >+
+> >+	return count;
+> >+}
+> >+static DEVICE_ATTR(alb_rx_hash, S_IRUGO, bonding_show_alb_rx_hash, NULL);
+> 
+> 	Same comment as for the mode of the tlb_tx_hash, although the rx
+> hash table lock is much more lightly used, so it might not be a real
+> problem.
+> 
+> >
+> > static struct attribute *per_bond_attrs[] = {
+> > 	&dev_attr_slaves.attr,
+> >@@ -1505,6 +1543,8 @@ static struct attribute *per_bond_attrs[] = {
+> > 	&dev_attr_ad_actor_key.attr,
+> > 	&dev_attr_ad_partner_key.attr,
+> > 	&dev_attr_ad_partner_mac.attr,
+> >+	&dev_attr_alb_rx_hash.attr,
+> >+	&dev_attr_tlb_tx_hash.attr,
+> > 	NULL,
+> > };
+> >
+> >-- 
+> >1.5.5.6
+> >
+> 
+> 	-J
+> 
+> ---
+> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
