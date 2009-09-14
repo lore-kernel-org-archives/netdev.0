@@ -1,129 +1,45 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH v2] pkt_sched: Fix tx queue selection in tc_modify_qdisc
-Date: Tue, 15 Sep 2009 00:50:22 +0200
-Message-ID: <20090914225022.GA13363@ami.dom.local>
-References: <20090914122226.GA14087@ff.dom.local>
- <4AAE85F9.2060600@trash.net>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: Fwd: [RFC v3] net: Introduce recvmmsg socket syscall
+Date: Mon, 14 Sep 2009 20:09:02 -0300
+Message-ID: <20090914230902.GC22743@ghostprotocols.net>
+References: <9b2db90b0908060014r6a1763e8t1b3ee9310e012c25@mail.gmail.com> <9b2db90b0908060015v45d31060me94cf436f4a25e42@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: Linux Networking Development Mailing List <netdev@vger.kernel.org>
+To: Nir Tzachar <nir.tzachar@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f217.google.com ([209.85.220.217]:38381 "EHLO
-	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757424AbZINWug (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2009 18:50:36 -0400
-Received: by fxm17 with SMTP id 17so1200119fxm.37
-        for <netdev@vger.kernel.org>; Mon, 14 Sep 2009 15:50:38 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:12804 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757469AbZINXJG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Sep 2009 19:09:06 -0400
+Received: from int-mx03.intmail.prod.int.phx2.redhat.com (int-mx03.intmail.prod.int.phx2.redhat.com [10.5.11.16])
+	by mx1.redhat.com (8.13.8/8.13.8) with ESMTP id n8EN99T3022282
+	for <netdev@vger.kernel.org>; Mon, 14 Sep 2009 19:09:09 -0400
+Received: from doppio.ghostprotocols.net (vpn-12-60.rdu.redhat.com [10.11.12.60])
+	by int-mx03.intmail.prod.int.phx2.redhat.com (8.13.8/8.13.8) with ESMTP id n8EN94aC025668
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Mon, 14 Sep 2009 19:09:08 -0400
 Content-Disposition: inline
-In-Reply-To: <4AAE85F9.2060600@trash.net>
+In-Reply-To: <9b2db90b0908060015v45d31060me94cf436f4a25e42@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 14, 2009 at 08:05:45PM +0200, Patrick McHardy wrote:
-> Jarek Poplawski wrote:
-> > After the recent mq change there is the new select_queue qdisc class
-> > method used in tc_modify_qdisc, but it works OK only for direct child
-> > qdiscs of mq qdisc. Grandchildren always get the first tx queue, which
-> > would give wrong qdisc_root etc. results (e.g. for sch_htb as child of
-> > sch_prio). This patch fixes it by using parent's dev_queue for such
-> > grandchildren qdiscs. The select_queue method is replaced BTW with the
-> > static qdisc_select_tx_queue function (it's used only in one place).
+Em Thu, Aug 06, 2009 at 10:15:26AM +0300, Nir Tzachar escreveu:
+> Hello.
 > 
-> Thanks, this looks correct. My assumption was that we shouldn't
-> be using the locks of grandchildren anyways, but we do need the
-> proper root lock for estimators.
-...
-> I didn't want to expose the numbering scheme used by sch_mq internally,
-> but fine, I see you really don't like the callback :)
+> Is there anything new with this patch? What are the plans for merging
+> it upstream?
 
-So here is an alternative version with the callback saved (the return
-type is changed) for consideration.
+I'm doing perf runs using a test app using recvmsg, then with the first
+patch, that introduces recvmmsg, then with the second, that locks the
+series of unlocked_recvmmsg calls just once, will try to get this posted
+here soon.
 
-Thanks,
-Jarek P.
------------------------> (take 2)
-pkt_sched: Fix tx queue selection in tc_modify_qdisc
+I'd really appreciate if the people interested in this could try it and
+post numbers too, to get this ball rolling again.
 
-After the recent mq change there is the new select_queue qdisc class
-method used in tc_modify_qdisc, but it works OK only for direct child
-qdiscs of mq qdisc. Grandchildren always get the first tx queue, which
-would give wrong qdisc_root etc. results (e.g. for sch_htb as child of
-sch_prio). This patch fixes it by using parent's dev_queue for such
-grandchildren qdiscs. The select_queue method's return type is changed
-BTW.
+As for getting it upstream, well, posting numbers here would definetely
+help with that :-)
 
-With feedback from: Patrick McHardy <kaber@trash.net>
+- Arnaldo
 
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
----
-
- include/net/sch_generic.h |    2 +-
- net/sched/sch_api.c       |   10 +++++++---
- net/sched/sch_mq.c        |   13 +++++++++----
- 3 files changed, 17 insertions(+), 8 deletions(-)
-
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 88eb9de..c33180d 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -81,7 +81,7 @@ struct Qdisc
- struct Qdisc_class_ops
- {
- 	/* Child qdisc manipulation */
--	unsigned int		(*select_queue)(struct Qdisc *, struct tcmsg *);
-+	struct netdev_queue *	(*select_queue)(struct Qdisc *, struct tcmsg *);
- 	int			(*graft)(struct Qdisc *, unsigned long cl,
- 					struct Qdisc *, struct Qdisc **);
- 	struct Qdisc *		(*leaf)(struct Qdisc *, unsigned long cl);
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 3af1061..a1184b2 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -1111,12 +1111,16 @@ create_n_graft:
- 				 tcm->tcm_parent, tcm->tcm_parent,
- 				 tca, &err);
- 	else {
--		unsigned int ntx = 0;
-+		struct netdev_queue *dev_queue;
- 
- 		if (p && p->ops->cl_ops && p->ops->cl_ops->select_queue)
--			ntx = p->ops->cl_ops->select_queue(p, tcm);
-+			dev_queue = p->ops->cl_ops->select_queue(p, tcm);
-+		else if (p)
-+			dev_queue = p->dev_queue;
-+		else
-+			dev_queue = netdev_get_tx_queue(dev, 0);
- 
--		q = qdisc_create(dev, netdev_get_tx_queue(dev, ntx), p,
-+		q = qdisc_create(dev, dev_queue, p,
- 				 tcm->tcm_parent, tcm->tcm_handle,
- 				 tca, &err);
- 	}
-diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
-index dd5ee02..600c501 100644
---- a/net/sched/sch_mq.c
-+++ b/net/sched/sch_mq.c
-@@ -125,13 +125,18 @@ static struct netdev_queue *mq_queue_get(struct Qdisc *sch, unsigned long cl)
- 	return netdev_get_tx_queue(dev, ntx);
- }
- 
--static unsigned int mq_select_queue(struct Qdisc *sch, struct tcmsg *tcm)
-+static struct netdev_queue *mq_select_queue(struct Qdisc *sch,
-+					    struct tcmsg *tcm)
- {
- 	unsigned int ntx = TC_H_MIN(tcm->tcm_parent);
-+	struct netdev_queue *dev_queue = mq_queue_get(sch, ntx);
- 
--	if (!mq_queue_get(sch, ntx))
--		return 0;
--	return ntx - 1;
-+	if (!dev_queue) {
-+		struct net_device *dev = qdisc_dev(sch);
-+
-+		return netdev_get_tx_queue(dev, 0);
-+	}
-+	return dev_queue;
- }
- 
- static int mq_graft(struct Qdisc *sch, unsigned long cl, struct Qdisc *new,
