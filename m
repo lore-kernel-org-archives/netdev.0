@@ -1,28 +1,48 @@
-From: Mike Galbraith <efault@gmx.de>
-Subject: Re: INGO Why you remove  set_user_nice() from kernel/kthread.c
-Date: Mon, 14 Sep 2009 18:36:20 +0200
-Message-ID: <1252946180.6404.20.camel@marge.simson.net>
-References: <200909141742.45487.pavel@pavlinux.ru>
-	 <1252937140.6500.11.camel@marge.simson.net>  <4AAE5D60.2080703@nortel.com>
-	 <1252943123.12986.70.camel@marge.simson.net>  <4AAE6FD7.5070401@nortel.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
+Date: Mon, 14 Sep 2009 19:47:50 +0300
+Message-ID: <20090914164750.GB3745@redhat.com>
+References: <cover.1251388414.git.mst@redhat.com> <20090827160750.GD23722@redhat.com> <20090903183945.GF28651@ovro.caltech.edu> <20090907101537.GH3031@redhat.com> <20090908172035.GB319@ovro.caltech.edu> <4AAA7415.5080204@gmail.com> <20090913120140.GA31218@redhat.com> <4AAE6A97.7090808@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: pavel@pavlinux.ru, linux-kernel@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Chris Friesen <cfriesen@nortel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756150AbZINQgm@vger.kernel.org>
-In-Reply-To: <4AAE6FD7.5070401@nortel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Ira W. Snyder" <iws@ovro.caltech.edu>, netdev@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+        linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
+        akpm@linux-foundation.org, hpa@zytor.com,
+        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com
+To: Gregory Haskins <gregory.haskins@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <4AAE6A97.7090808@gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2009-09-14 at 10:31 -0600, Chris Friesen wrote:
+On Mon, Sep 14, 2009 at 12:08:55PM -0400, Gregory Haskins wrote:
+> For Ira's example, the addresses would represent a physical address on
+> the PCI boards, and would follow any kind of relevant rules for
+> converting a "GPA" to a host accessible address (even if indirectly, via
+> a dma controller).
 
-> I've added netdev to the CC list.  Maybe some of the people there have
-> an opinion on what the default priority should be for ksoftirqd.
+I don't think limiting addresses to PCI physical addresses will work
+well.  From what I rememeber, Ira's x86 can not initiate burst
+transactions on PCI, and it's the ppc that initiates all DMA.
 
-Good idea.
+> 
+> >  But we can't let the guest specify physical addresses.
+> 
+> Agreed.  Neither your proposal nor mine operate this way afaict.
 
-	-Mike
+But this seems to be what Ira needs.
+
+> HTH
+> 
+> Kind Regards,
+> -Greg
+> 
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
