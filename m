@@ -1,64 +1,116 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?= <nicolas.2p.debian@free.fr>
-Subject: Re: [Bonding-devel] [PATCH 4/4] bonding: add sysfs files to display
- tlb and alb	hash table contents
-Date: Mon, 14 Sep 2009 21:37:33 +0200
-Message-ID: <4AAE9B7D.7030608@free.fr>
-References: <20090911211317.GT8515@gospo.rdu.redhat.com>	<26430.1252705697@death.nxdomain.ibm.com> <20090914144532.GU8515@gospo.rdu.redhat.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: [PATCH iproute2] ip: add support for IFA_F_DADFAILED
+Date: Mon, 14 Sep 2009 17:00:23 -0400
+Message-ID: <4AAEAEE7.4090507@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net
-To: Andy Gospodarek <andy@greyhouse.net>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:33688 "EHLO smtp6-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756806AbZINThk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Sep 2009 15:37:40 -0400
-In-Reply-To: <20090914144532.GU8515@gospo.rdu.redhat.com>
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:11796 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754073AbZINVAW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2009 17:00:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Gospodarek wrote:
-> On Fri, Sep 11, 2009 at 02:48:17PM -0700, Jay Vosburgh wrote:
->> Andy Gospodarek <andy@greyhouse.net> wrote:
->>
->>> bonding: add sysfs files to display tlb and alb hash table contents
->> 	Isn't it considered bad form to have sysfs files that kick out
->> large amounts of data like this?  Not that I think this is a bad
->> facility to have, just checking on the mechanism.
->>
-> 
-> I'm not aware of such a restriction -- though I'm sure at least one
-> person out there doesn't like it.
+[I'm not sure if I needed to update if_addr.h, or if that will happen
+ automatically when you update the headers to 2.6.32]
 
-In Documentation/filesystems/sysfs.txt:
 
-"Attributes should be ASCII text files, preferably with only one value
-per file. It is noted that it may not be efficient to contain only one
-value per file, so it is socially acceptable to express an array of
-values of the same type.
+Add support for IFA_F_DADFAILED and update ip.8 man page.
 
-Mixing types, expressing multiple lines of data, and doing fancy
-formatting of data is heavily frowned upon. Doing these things may get
-you publically humiliated and your code rewritten without notice."
+Signed-off-by: Brian Haley <brian.haley@hp.com>
+---
 
-Apparently, thinks are becoming more relaxed these days.
-
-	Nicolas.
-
-> If that's the case, there are certainly a few files that should be
-> cleaned up:
-> 
-> # find -type f -exec wc -l {} 2> /dev/null \; | sort -r -n | head -10
-> 1657 ./firmware/acpi/tables/SSDT
-> 132 ./firmware/acpi/tables/dynamic/SSDT2
-> 128 ./devices/pci0000:00/0000:00:1c.5/0000:3f:00.0/vpd
-> 27 ./devices/system/node/node0/meminfo
-> 24 ./devices/pnp0/00:08/options
-> 24 ./devices/pnp0/00:07/options
-> 12 ./devices/pci0000:00/0000:00:1e.0/resource
-> 12 ./devices/pci0000:00/0000:00:1c.5/resource
-> 12 ./devices/pci0000:00/0000:00:1c.4/resource
-> 12 ./devices/pci0000:00/0000:00:1c.0/resource
-
+diff --git a/include/linux/if_addr.h b/include/linux/if_addr.h
+index 08ea980..41b0193 100644
+--- a/include/linux/if_addr.h
++++ b/include/linux/if_addr.h
+@@ -41,6 +41,7 @@ enum
+ 
+ #define	IFA_F_NODAD		0x02
+ #define IFA_F_OPTIMISTIC	0x04
++#define IFA_F_DADFAILED		0x08
+ #define	IFA_F_HOMEADDRESS	0x10
+ #define IFA_F_DEPRECATED	0x20
+ #define IFA_F_TENTATIVE		0x40
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 267ecb3..32c9008 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -64,7 +64,7 @@ static void usage(void)
+ 		iplink_usage();
+ 	}
+ 	fprintf(stderr, "Usage: ip addr {add|change|replace} IFADDR dev STRING [ LIFETIME ]\n");
+-	fprintf(stderr, "                                                      [ CONFFLAG-LIST]\n");
++	fprintf(stderr, "                                                      [ CONFFLAG-LIST ]\n");
+ 	fprintf(stderr, "       ip addr del IFADDR dev STRING\n");
+ 	fprintf(stderr, "       ip addr {show|flush} [ dev STRING ] [ scope SCOPE-ID ]\n");
+ 	fprintf(stderr, "                            [ to PREFIX ] [ FLAG-LIST ] [ label PATTERN ]\n");
+@@ -74,7 +74,8 @@ static void usage(void)
+ 	fprintf(stderr, "SCOPE-ID := [ host | link | global | NUMBER ]\n");
+ 	fprintf(stderr, "FLAG-LIST := [ FLAG-LIST ] FLAG\n");
+ 	fprintf(stderr, "FLAG  := [ permanent | dynamic | secondary | primary |\n");
+-	fprintf(stderr, "           tentative | deprecated | CONFFLAG-LIST ]\n");
++	fprintf(stderr, "           tentative | deprecated | dadfailed |\n");
++	fprintf(stderr, "           CONFFLAG-LIST ]\n");
+ 	fprintf(stderr, "CONFFLAG-LIST := [ CONFFLAG-LIST ] CONFFLAG\n");
+ 	fprintf(stderr, "CONFFLAG  := [ home | nodad ]\n");
+ 	fprintf(stderr, "LIFETIME := [ valid_lft LFT ] [ preferred_lft LFT ]\n");
+@@ -508,6 +509,10 @@ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
+ 		fprintf(fp, "dynamic ");
+ 	} else
+ 		ifa->ifa_flags &= ~IFA_F_PERMANENT;
++	if (ifa->ifa_flags&IFA_F_DADFAILED) {
++		ifa->ifa_flags &= ~IFA_F_DADFAILED;
++		fprintf(fp, "dadfailed ");
++	}
+ 	if (ifa->ifa_flags)
+ 		fprintf(fp, "flags %02x ", ifa->ifa_flags);
+ 	if (rta_tb[IFA_LABEL])
+@@ -655,6 +660,9 @@ static int ipaddr_list_or_flush(int argc, char **argv, int flush)
+ 		} else if (strcmp(*argv, "nodad") == 0) {
+ 			filter.flags |= IFA_F_NODAD;
+ 			filter.flagmask |= IFA_F_NODAD;
++		} else if (strcmp(*argv, "dadfailed") == 0) {
++			filter.flags |= IFA_F_DADFAILED;
++			filter.flagmask |= IFA_F_DADFAILED;
+ 		} else if (strcmp(*argv, "label") == 0) {
+ 			NEXT_ARG();
+ 			filter.label = *argv;
+diff --git a/man/man8/ip.8 b/man/man8/ip.8
+index a8fccc4..1145b28 100644
+--- a/man/man8/ip.8
++++ b/man/man8/ip.8
+@@ -97,7 +97,7 @@ ip \- show / manipulate routing, devices, policy routing and tunnels
+ .ti -8
+ .IR FLAG " := "
+ .RB "[ " permanent " | " dynamic " | " secondary " | " primary " | "\
+-tentative " | " deprecated " ]"
++tentative " | " deprecated " | " dadfailed " ]"
+ 
+ .ti -8
+ .BR "ip addrlabel" " { " add " | " del " } " prefix
+@@ -1030,7 +1030,7 @@ addresses.
+ 
+ .TP
+ .B tentative
+-(IPv6 only) only list addresses which did not pass duplicate
++(IPv6 only) only list addresses which have not yet passed duplicate
+ address detection.
+ 
+ .TP
+@@ -1038,6 +1038,11 @@ address detection.
+ (IPv6 only) only list deprecated addresses.
+ 
+ .TP
++.B dadfailed
++(IPv6 only) only list addresses which have failed duplicate
++address detection.
++
++.TP
+ .BR primary " and " secondary
+ only list primary (or secondary) addresses.
+ 
