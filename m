@@ -1,96 +1,78 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
-Date: Mon, 14 Sep 2009 10:05:59 +0300
-Message-ID: <20090914070559.GB14030@redhat.com>
-References: <cover.1251388414.git.mst@redhat.com> <20090827160750.GD23722@redhat.com> <20090903183945.GF28651@ovro.caltech.edu> <20090907101537.GH3031@redhat.com> <20090908172035.GB319@ovro.caltech.edu> <20090908201428.GA12420@redhat.com> <C85CEDA13AB1CF4D9D597824A86D2B9006AECB9C1D@PDSMSX501.ccr.corp.intel.com> <20090913054610.GA4446@redhat.com> <C85CEDA13AB1CF4D9D597824A86D2B9006AECB9FE7@PDSMSX501.ccr.corp.intel.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH RFC] tun: export underlying socket
+Date: Mon, 14 Sep 2009 11:01:54 +0300
+Message-ID: <15ddcffd0909140101waf04e91i918dd94143b1a7f4@mail.gmail.com>
+References: <20090910125929.GA32593@redhat.com>
+	 <200909110017.27668.paul.moore@hp.com>
+	 <20090911045943.GA1613@redhat.com> <20090911053610.GA10324@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Ira W. Snyder" <iws@ovro.caltech.edu>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "virtualization@lists.linux-foundation.org" <virtualization@lists.linux-foundation.org>,
-        "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "mingo@elte.hu" <mingo@elte.hu>,
-        "linux-mm@kvack.org" <linux-mm@kvack.org>,
-        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-        "hpa@zytor.com" <hpa@zytor.com>,
-        "gregory.haskins@gmail.com" <gregory.haskins@gmail.com>,
-        Rusty Russell <rusty@rustcorp.com.au>,
-        "s.hetze@linux-ag.com" <s.hetze@linux-ag.com>,
-        "avi@redhat.com" <avi@redhat.com>
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <C85CEDA13AB1CF4D9D597824A86D2B9006AECB9FE7@PDSMSX501.ccr.corp.intel.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Paul Moore <paul.moore@hp.com>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	Or Gerlitz <ogerlitz@voltaire.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.152]:8628 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752996AbZINIBw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2009 04:01:52 -0400
+Received: by fg-out-1718.google.com with SMTP id 22so463708fge.1
+        for <netdev@vger.kernel.org>; Mon, 14 Sep 2009 01:01:54 -0700 (PDT)
+In-Reply-To: <20090911053610.GA10324@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 14, 2009 at 01:57:06PM +0800, Xin, Xiaohui wrote:
-> >The irqfd/ioeventfd patches are part of Avi's kvm.git tree:
-> >git://git.kernel.org/pub/scm/linux/kernel/git/avi/kvm.git
-> >
-> >I expect them to be merged by 2.6.32-rc1 - right, Avi?
-> 
-> Michael,
-> 
-> I think I have the kernel patch for kvm_irqfd and kvm_ioeventfd, but missed the qemu side patch for irqfd and ioeventfd.
-> 
-> I met the compile error when I compiled virtio-pci.c file in qemu-kvm like this:
-> 
-> /root/work/vmdq/vhost/qemu-kvm/hw/virtio-pci.c:384: error: `KVM_IRQFD` undeclared (first use in this function)
-> /root/work/vmdq/vhost/qemu-kvm/hw/virtio-pci.c:400: error: `KVM_IOEVENTFD` undeclared (first use in this function)
-> 
-> Which qemu tree or patch do you use for kvm_irqfd and kvm_ioeventfd?
+On 9/11/09, Michael S. Tsirkin <mst@redhat.com> wrote:
+>> On Fri, Sep 11, 2009 at 12:17:27AM -0400, Paul Moore wrote:
+>>> No comments on the code at this point - I'm just trying to understa=
+nd the
+>>> intended user right now which I'm assuming is the vhost-net bits yo=
+u sent previously
 
-I'm using the headers from upstream kernel.
-I'll send a patch for that.
+> More specifically, vhost would then be patched with:
+>
+>=A0=A0diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+>=A0=A0index aeffb3a..b54f9d6 100644
+>=A0=A0--- a/drivers/vhost/net.c
+>=A0=A0+++ b/drivers/vhost/net.c
+>=A0=A0@@ -331,15 +331,26 @@ err:
+> =A0=A0=A0=A0=A0=A0=A0=A0return ERR_PTR(r);
+> =A0=A0}
+>
+>=A0=A0+static struct socket *get_tun_socket(int fd)
+>=A0=A0+{
+>=A0=A0+=A0=A0=A0=A0=A0=A0 struct file *file =3D fget(fd);
+>=A0=A0+=A0=A0=A0=A0=A0=A0 if (!file)
+>=A0=A0+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 return ERR_PTR(-EBAD=
+=46);
+>=A0=A0+=A0=A0=A0=A0=A0=A0 return tun_get_socket(file);
+>=A0=A0+}
+>=A0=A0+
+> =A0=A0static struct socket *get_socket(int fd)
 
-> Thanks
-> Xiaohui
-> 
-> -----Original Message-----
-> From: Michael S. Tsirkin [mailto:mst@redhat.com] 
-> Sent: Sunday, September 13, 2009 1:46 PM
-> To: Xin, Xiaohui
-> Cc: Ira W. Snyder; netdev@vger.kernel.org; virtualization@lists.linux-foundation.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org; mingo@elte.hu; linux-mm@kvack.org; akpm@linux-foundation.org; hpa@zytor.com; gregory.haskins@gmail.com; Rusty Russell; s.hetze@linux-ag.com; avi@redhat.com
-> Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
-> 
-> On Fri, Sep 11, 2009 at 11:17:33PM +0800, Xin, Xiaohui wrote:
-> > Michael,
-> > We are very interested in your patch and want to have a try with it.
-> > I have collected your 3 patches in kernel side and 4 patches in queue side.
-> > The patches are listed here:
-> > 
-> > PATCHv5-1-3-mm-export-use_mm-unuse_mm-to-modules.patch
-> > PATCHv5-2-3-mm-reduce-atomic-use-on-use_mm-fast-path.patch
-> > PATCHv5-3-3-vhost_net-a-kernel-level-virtio-server.patch
-> > 
-> > PATCHv3-1-4-qemu-kvm-move-virtio-pci[1].o-to-near-pci.o.patch
-> > PATCHv3-2-4-virtio-move-features-to-an-inline-function.patch
-> > PATCHv3-3-4-qemu-kvm-vhost-net-implementation.patch
-> > PATCHv3-4-4-qemu-kvm-add-compat-eventfd.patch
-> > 
-> > I applied the kernel patches on v2.6.31-rc4 and the qemu patches on latest kvm qemu.
-> > But seems there are some patches are needed at least irqfd and ioeventfd patches on
-> > current qemu. I cannot create a kvm guest with "-net nic,model=virtio,vhost=vethX".
-> > 
-> > May you kindly advice us the patch lists all exactly to make it work?
-> > Thanks a lot. :-)
-> > 
-> > Thanks
-> > Xiaohui
-> 
-> 
-> The irqfd/ioeventfd patches are part of Avi's kvm.git tree:
-> git://git.kernel.org/pub/scm/linux/kernel/git/avi/kvm.git
-> 
-> I expect them to be merged by 2.6.32-rc1 - right, Avi?
-> 
-> -- 
-> MST
+Michael,
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+your latest posting "[PATCHv5 3/3] vhost_net: a kernel-level virtio
+server" doesn't have a function named get_socket, so I don't see how
+one can really get what you are up with this snip from vhost/net.c
+
+Or.
+
+> =A0=A0{
+> =A0=A0=A0=A0=A0=A0=A0=A0struct socket *sock;
+> =A0=A0=A0=A0=A0=A0=A0=A0sock =3D get_raw_socket(fd);
+>
+> =A0=A0=A0=A0=A0=A0=A0=A0if (!IS_ERR(sock))
+> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0return sock;
+>
+> +=A0=A0=A0=A0=A0=A0 sock =3D get_tun_socket(fd);
+>=A0=A0+=A0=A0=A0=A0=A0=A0 if (!IS_ERR(sock))
+>=A0=A0+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 return sock;
+> =A0=A0=A0=A0=A0=A0=A0=A0return ERR_PTR(-ENOTSOCK);
+> =A0=A0}
+>
+> =A0=A0static long vhost_net_set_socket(struct vhost_net *n, int fd)
+> =A0=A0{
+> =A0=A0=A0=A0=A0=A0=A0=A0struct socket *sock, *oldsock =3D NULL;
+>
