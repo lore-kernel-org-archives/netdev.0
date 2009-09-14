@@ -1,7 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 2/4] RxRPC: Allow key payloads to be passed in XDR form
-Date: Mon, 14 Sep 2009 12:17:35 +0100
-Message-ID: <20090914111735.10233.64676.stgit@warthog.procyon.org.uk>
+Subject: [PATCH 4/4] RxRPC: Parse security index 5 keys (Kerberos 5)
+Date: Mon, 14 Sep 2009 12:17:46 +0100
+Message-ID: <20090914111745.10233.73904.stgit@warthog.procyon.org.uk>
 References: <20090914111730.10233.44007.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,677 +10,778 @@ Cc: linux-afs@lists.infradead.org, netdev@vger.kernel.org,
 	David Howells <dhowells@redhat.com>
 To: torvalds@osdl.org, akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3154 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:29331 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754661AbZINLRq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Sep 2009 07:17:46 -0400
+	id S1755315AbZINLRz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Sep 2009 07:17:55 -0400
 In-Reply-To: <20090914111730.10233.44007.stgit@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow add_key() and KEYCTL_INSTANTIATE to accept key payloads in XDR form as
-described by openafs-1.4.10/src/auth/afs_token.xg.  This provides a way of
-passing kaserver, Kerberos 4, Kerberos 5 and GSSAPI keys from userspace, and
-allows for future expansion.
+Parse RxRPC security index 5 type keys (Kerberos 5 tokens).
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- include/keys/rxrpc-type.h |   55 ++++++++
- net/rxrpc/ar-internal.h   |   16 --
- net/rxrpc/ar-key.c        |  308 +++++++++++++++++++++++++++++++++++++++------
- net/rxrpc/ar-security.c   |    8 +
- net/rxrpc/rxkad.c         |   41 +++---
- 5 files changed, 353 insertions(+), 75 deletions(-)
+ include/keys/rxrpc-type.h |   52 ++++
+ net/rxrpc/ar-key.c        |  577 ++++++++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 589 insertions(+), 40 deletions(-)
 
 
 diff --git a/include/keys/rxrpc-type.h b/include/keys/rxrpc-type.h
-index 7609365..c0d9121 100644
+index c0d9121..5eb2357 100644
 --- a/include/keys/rxrpc-type.h
 +++ b/include/keys/rxrpc-type.h
-@@ -21,4 +21,59 @@ extern struct key_type key_type_rxrpc;
- 
- extern struct key *rxrpc_get_null_key(const char *);
- 
-+/*
-+ * RxRPC key for Kerberos IV (type-2 security)
-+ */
-+struct rxkad_key {
-+	u32	vice_id;
-+	u32	start;			/* time at which ticket starts */
-+	u32	expiry;			/* time at which ticket expires */
-+	u32	kvno;			/* key version number */
-+	u8	primary_flag;		/* T if key for primary cell for this user */
-+	u16	ticket_len;		/* length of ticket[] */
-+	u8	session_key[8];		/* DES session key */
-+	u8	ticket[0];		/* the encrypted ticket */
-+};
-+
-+/*
-+ * list of tokens attached to an rxrpc key
-+ */
-+struct rxrpc_key_token {
-+	u16	security_index;		/* RxRPC header security index */
-+	struct rxrpc_key_token *next;	/* the next token in the list */
-+	union {
-+		struct rxkad_key *kad;
-+	};
-+};
-+
-+/*
-+ * structure of raw payloads passed to add_key() or instantiate key
-+ */
-+struct rxrpc_key_data_v1 {
-+	u32		kif_version;		/* 1 */
-+	u16		security_index;
-+	u16		ticket_length;
-+	u32		expiry;			/* time_t */
-+	u32		kvno;
-+	u8		session_key[8];
-+	u8		ticket[0];
-+};
-+
-+/*
-+ * AF_RXRPC key payload derived from XDR format
-+ * - based on openafs-1.4.10/src/auth/afs_token.xg
-+ */
-+#define AFSTOKEN_LENGTH_MAX		16384	/* max payload size */
-+#define AFSTOKEN_CELL_MAX		64	/* max cellname length */
-+#define AFSTOKEN_MAX			8	/* max tokens per payload */
-+#define AFSTOKEN_RK_TIX_MAX		12000	/* max RxKAD ticket size */
-+#define AFSTOKEN_GK_KEY_MAX		64	/* max GSSAPI key size */
-+#define AFSTOKEN_GK_TOKEN_MAX		16384	/* max GSSAPI token size */
-+#define AFSTOKEN_K5_COMPONENTS_MAX	16	/* max K5 components */
-+#define AFSTOKEN_K5_NAME_MAX		128	/* max K5 name length */
-+#define AFSTOKEN_K5_REALM_MAX		64	/* max K5 realm name length */
-+#define AFSTOKEN_K5_TIX_MAX		16384	/* max K5 ticket size */
-+#define AFSTOKEN_K5_ADDRESSES_MAX	16	/* max K5 addresses */
-+#define AFSTOKEN_K5_AUTHDATA_MAX	16	/* max K5 pieces of auth data */
-+
- #endif /* _KEYS_RXRPC_TYPE_H */
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index 3e7318c..46c6d88 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -402,22 +402,6 @@ struct rxrpc_call {
+@@ -36,6 +36,54 @@ struct rxkad_key {
  };
  
  /*
-- * RxRPC key for Kerberos (type-2 security)
-- */
--struct rxkad_key {
--	u16	security_index;		/* RxRPC header security index */
--	u16	ticket_len;		/* length of ticket[] */
--	u32	expiry;			/* time at which expires */
--	u32	kvno;			/* key version number */
--	u8	session_key[8];		/* DES session key */
--	u8	ticket[0];		/* the encrypted ticket */
--};
--
--struct rxrpc_key_payload {
--	struct rxkad_key k;
--};
--
--/*
-  * locally abort an RxRPC call
++ * Kerberos 5 principal
++ *	name/name/name@realm
++ */
++struct krb5_principal {
++	u8	n_name_parts;		/* N of parts of the name part of the principal */
++	char	**name_parts;		/* parts of the name part of the principal */
++	char	*realm;			/* parts of the realm part of the principal */
++};
++
++/*
++ * Kerberos 5 tagged data
++ */
++struct krb5_tagged_data {
++	/* for tag value, see /usr/include/krb5/krb5.h
++	 * - KRB5_AUTHDATA_* for auth data
++	 * - 
++	 */
++	int32_t		tag;
++	uint32_t	data_len;
++	u8		*data;
++};
++
++/*
++ * RxRPC key for Kerberos V (type-5 security)
++ */
++struct rxk5_key {
++	uint64_t		authtime;	/* time at which auth token generated */
++	uint64_t		starttime;	/* time at which auth token starts */
++	uint64_t		endtime;	/* time at which auth token expired */
++	uint64_t		renew_till;	/* time to which auth token can be renewed */
++	int32_t			is_skey;	/* T if ticket is encrypted in another ticket's
++						 * skey */
++	int32_t			flags;		/* mask of TKT_FLG_* bits (krb5/krb5.h) */
++	struct krb5_principal	client;		/* client principal name */
++	struct krb5_principal	server;		/* server principal name */
++	uint16_t		ticket_len;	/* length of ticket */
++	uint16_t		ticket2_len;	/* length of second ticket */
++	u8			n_authdata;	/* number of authorisation data elements */
++	u8			n_addresses;	/* number of addresses */
++	struct krb5_tagged_data	session;	/* session data; tag is enctype */
++	struct krb5_tagged_data *addresses;	/* addresses */
++	u8			*ticket;	/* krb5 ticket */
++	u8			*ticket2;	/* second krb5 ticket, if related to ticket (via
++						 * DUPLICATE-SKEY or ENC-TKT-IN-SKEY) */
++	struct krb5_tagged_data *authdata;	/* authorisation data */
++};
++
++/*
+  * list of tokens attached to an rxrpc key
   */
- static inline void rxrpc_abort_call(struct rxrpc_call *call, u32 abort_code)
+ struct rxrpc_key_token {
+@@ -43,6 +91,7 @@ struct rxrpc_key_token {
+ 	struct rxrpc_key_token *next;	/* the next token in the list */
+ 	union {
+ 		struct rxkad_key *kad;
++		struct rxk5_key *k5;
+ 	};
+ };
+ 
+@@ -64,8 +113,11 @@ struct rxrpc_key_data_v1 {
+  * - based on openafs-1.4.10/src/auth/afs_token.xg
+  */
+ #define AFSTOKEN_LENGTH_MAX		16384	/* max payload size */
++#define AFSTOKEN_STRING_MAX		256	/* max small string length */
++#define AFSTOKEN_DATA_MAX		64	/* max small data length */
+ #define AFSTOKEN_CELL_MAX		64	/* max cellname length */
+ #define AFSTOKEN_MAX			8	/* max tokens per payload */
++#define AFSTOKEN_BDATALN_MAX		16384	/* max big data length */
+ #define AFSTOKEN_RK_TIX_MAX		12000	/* max RxKAD ticket size */
+ #define AFSTOKEN_GK_KEY_MAX		64	/* max GSSAPI key size */
+ #define AFSTOKEN_GK_TOKEN_MAX		16384	/* max GSSAPI token size */
 diff --git a/net/rxrpc/ar-key.c b/net/rxrpc/ar-key.c
-index b3d10e7..a3a7acb 100644
+index bf4d623..44836f6 100644
 --- a/net/rxrpc/ar-key.c
 +++ b/net/rxrpc/ar-key.c
-@@ -17,6 +17,7 @@
- #include <linux/skbuff.h>
- #include <linux/key-type.h>
- #include <linux/crypto.h>
-+#include <linux/ctype.h>
- #include <net/sock.h>
- #include <net/af_rxrpc.h>
- #include <keys/rxrpc-type.h>
-@@ -55,6 +56,202 @@ struct key_type key_type_rxrpc_s = {
- };
+@@ -64,7 +64,7 @@ struct key_type key_type_rxrpc_s = {
+ static int rxrpc_instantiate_xdr_rxkad(struct key *key, const __be32 *xdr,
+ 				       unsigned toklen)
+ {
+-	struct rxrpc_key_token *token;
++	struct rxrpc_key_token *token, **pptoken;
+ 	size_t plen;
+ 	u32 tktlen;
+ 	int ret;
+@@ -129,13 +129,398 @@ static int rxrpc_instantiate_xdr_rxkad(struct key *key, const __be32 *xdr,
+ 	key->type_data.x[0]++;
  
- /*
-+ * parse an RxKAD type XDR format token
+ 	/* attach the data */
+-	token->next = key->payload.data;
+-	key->payload.data = token;
++	for (pptoken = (struct rxrpc_key_token **)&key->payload.data;
++	     *pptoken;
++	     pptoken = &(*pptoken)->next)
++		continue;
++	*pptoken = token;
++	if (token->kad->expiry < key->expiry)
++		key->expiry = token->kad->expiry;
++
++	_leave(" = 0");
++	return 0;
++}
++
++static void rxrpc_free_krb5_principal(struct krb5_principal *princ)
++{
++	int loop;
++
++	if (princ->name_parts) {
++		for (loop = princ->n_name_parts - 1; loop >= 0; loop--)
++			kfree(princ->name_parts[loop]);
++		kfree(princ->name_parts);
++	}
++	kfree(princ->realm);
++}
++
++static void rxrpc_free_krb5_tagged(struct krb5_tagged_data *td)
++{
++	kfree(td->data);
++}
++
++/*
++ * free up an RxK5 token
++ */
++static void rxrpc_rxk5_free(struct rxk5_key *rxk5)
++{
++	int loop;
++
++	rxrpc_free_krb5_principal(&rxk5->client);
++	rxrpc_free_krb5_principal(&rxk5->server);
++	rxrpc_free_krb5_tagged(&rxk5->session);
++
++	if (rxk5->addresses) {
++		for (loop = rxk5->n_addresses - 1; loop >= 0; loop--)
++			rxrpc_free_krb5_tagged(&rxk5->addresses[loop]);
++		kfree(rxk5->addresses);
++	}
++	if (rxk5->authdata) {
++		for (loop = rxk5->n_authdata - 1; loop >= 0; loop--)
++			rxrpc_free_krb5_tagged(&rxk5->authdata[loop]);
++		kfree(rxk5->authdata);
++	}
++
++	kfree(rxk5->ticket);
++	kfree(rxk5->ticket2);
++	kfree(rxk5);
++}
++
++/*
++ * extract a krb5 principal
++ */
++static int rxrpc_krb5_decode_principal(struct krb5_principal *princ,
++				       const __be32 **_xdr,
++				       unsigned *_toklen)
++{
++	const __be32 *xdr = *_xdr;
++	unsigned toklen = *_toklen, n_parts, loop, tmp;
++
++	/* there must be at least one name, and at least #names+1 length
++	 * words */
++	if (toklen <= 12)
++		return -EINVAL;
++
++	_enter(",{%x,%x,%x},%u",
++	       ntohl(xdr[0]), ntohl(xdr[1]), ntohl(xdr[2]), toklen);
++
++	n_parts = ntohl(*xdr++);
++	toklen -= 4;
++	if (n_parts <= 0 || n_parts > AFSTOKEN_K5_COMPONENTS_MAX)
++		return -EINVAL;
++	princ->n_name_parts = n_parts;
++
++	if (toklen <= (n_parts + 1) * 4)
++		return -EINVAL;
++
++	princ->name_parts = kcalloc(sizeof(char *), n_parts, GFP_KERNEL);
++	if (!princ->name_parts)
++		return -ENOMEM;
++
++	for (loop = 0; loop < n_parts; loop++) {
++		if (toklen < 4)
++			return -EINVAL;
++		tmp = ntohl(*xdr++);
++		toklen -= 4;
++		if (tmp <= 0 || tmp > AFSTOKEN_STRING_MAX)
++			return -EINVAL;
++		if (tmp > toklen)
++			return -EINVAL;
++		princ->name_parts[loop] = kmalloc(tmp + 1, GFP_KERNEL);
++		if (!princ->name_parts[loop])
++			return -ENOMEM;
++		memcpy(princ->name_parts[loop], xdr, tmp);
++		princ->name_parts[loop][tmp] = 0;
++		tmp = (tmp + 3) & ~3;
++		toklen -= tmp;
++		xdr += tmp >> 2;
++	}
++
++	if (toklen < 4)
++		return -EINVAL;
++	tmp = ntohl(*xdr++);
++	toklen -= 4;
++	if (tmp <= 0 || tmp > AFSTOKEN_K5_REALM_MAX)
++		return -EINVAL;
++	if (tmp > toklen)
++		return -EINVAL;
++	princ->realm = kmalloc(tmp + 1, GFP_KERNEL);
++	if (!princ->realm)
++		return -ENOMEM;
++	memcpy(princ->realm, xdr, tmp);
++	princ->realm[tmp] = 0;
++	tmp = (tmp + 3) & ~3;
++	toklen -= tmp;
++	xdr += tmp >> 2;
++
++	_debug("%s/...@%s", princ->name_parts[0], princ->realm);
++
++	*_xdr = xdr;
++	*_toklen = toklen;
++	_leave(" = 0 [toklen=%u]", toklen);
++	return 0;
++}
++
++/*
++ * extract a piece of krb5 tagged data
++ */
++static int rxrpc_krb5_decode_tagged_data(struct krb5_tagged_data *td,
++					 size_t max_data_size,
++					 const __be32 **_xdr,
++					 unsigned *_toklen)
++{
++	const __be32 *xdr = *_xdr;
++	unsigned toklen = *_toklen, len;
++
++	/* there must be at least one tag and one length word */
++	if (toklen <= 8)
++		return -EINVAL;
++
++	_enter(",%zu,{%x,%x},%u",
++	       max_data_size, ntohl(xdr[0]), ntohl(xdr[1]), toklen);
++
++	td->tag = ntohl(*xdr++);
++	len = ntohl(*xdr++);
++	toklen -= 8;
++	if (len > max_data_size)
++		return -EINVAL;
++	td->data_len = len;
++
++	if (len > 0) {
++		td->data = kmalloc(len, GFP_KERNEL);
++		if (!td->data)
++			return -ENOMEM;
++		memcpy(td->data, xdr, len);
++		len = (len + 3) & ~3;
++		toklen -= len;
++		xdr += len >> 2;
++	}
++
++	_debug("tag %x len %x", td->tag, td->data_len);
++
++	*_xdr = xdr;
++	*_toklen = toklen;
++	_leave(" = 0 [toklen=%u]", toklen);
++	return 0;
++}
++
++/*
++ * extract an array of tagged data
++ */
++static int rxrpc_krb5_decode_tagged_array(struct krb5_tagged_data **_td,
++					  u8 *_n_elem,
++					  u8 max_n_elem,
++					  size_t max_elem_size,
++					  const __be32 **_xdr,
++					  unsigned *_toklen)
++{
++	struct krb5_tagged_data *td;
++	const __be32 *xdr = *_xdr;
++	unsigned toklen = *_toklen, n_elem, loop;
++	int ret;
++
++	/* there must be at least one count */
++	if (toklen < 4)
++		return -EINVAL;
++
++	_enter(",,%u,%zu,{%x},%u",
++	       max_n_elem, max_elem_size, ntohl(xdr[0]), toklen);
++
++	n_elem = ntohl(*xdr++);
++	toklen -= 4;
++	if (n_elem < 0 || n_elem > max_n_elem)
++		return -EINVAL;
++	*_n_elem = n_elem;
++	if (n_elem > 0) {
++		if (toklen <= (n_elem + 1) * 4)
++			return -EINVAL;
++
++		_debug("n_elem %d", n_elem);
++
++		td = kcalloc(sizeof(struct krb5_tagged_data), n_elem,
++			     GFP_KERNEL);
++		if (!td)
++			return -ENOMEM;
++		*_td = td;
++
++		for (loop = 0; loop < n_elem; loop++) {
++			ret = rxrpc_krb5_decode_tagged_data(&td[loop],
++							    max_elem_size,
++							    &xdr, &toklen);
++			if (ret < 0)
++				return ret;
++		}
++	}
++
++	*_xdr = xdr;
++	*_toklen = toklen;
++	_leave(" = 0 [toklen=%u]", toklen);
++	return 0;
++}
++
++/*
++ * extract a krb5 ticket
++ */
++static int rxrpc_krb5_decode_ticket(u8 **_ticket, uint16_t *_tktlen,
++				    const __be32 **_xdr, unsigned *_toklen)
++{
++	const __be32 *xdr = *_xdr;
++	unsigned toklen = *_toklen, len;
++
++	/* there must be at least one length word */
++	if (toklen <= 4)
++		return -EINVAL;
++
++	_enter(",{%x},%u", ntohl(xdr[0]), toklen);
++
++	len = ntohl(*xdr++);
++	toklen -= 4;
++	if (len > AFSTOKEN_K5_TIX_MAX)
++		return -EINVAL;
++	*_tktlen = len;
++
++	_debug("ticket len %u", len);
++
++	if (len > 0) {
++		*_ticket = kmalloc(len, GFP_KERNEL);
++		if (!*_ticket)
++			return -ENOMEM;
++		memcpy(*_ticket, xdr, len);
++		len = (len + 3) & ~3;
++		toklen -= len;
++		xdr += len >> 2;
++	}
++
++	*_xdr = xdr;
++	*_toklen = toklen;
++	_leave(" = 0 [toklen=%u]", toklen);
++	return 0;
++}
++
++/*
++ * parse an RxK5 type XDR format token
 + * - the caller guarantees we have at least 4 words
 + */
-+static int rxrpc_instantiate_xdr_rxkad(struct key *key, const __be32 *xdr,
-+				       unsigned toklen)
++static int rxrpc_instantiate_xdr_rxk5(struct key *key, const __be32 *xdr,
++				      unsigned toklen)
 +{
-+	struct rxrpc_key_token *token;
-+	size_t plen;
-+	u32 tktlen;
++	struct rxrpc_key_token *token, **pptoken;
++	struct rxk5_key *rxk5;
++	const __be32 *end_xdr = xdr + (toklen >> 2);
 +	int ret;
 +
 +	_enter(",{%x,%x,%x,%x},%u",
 +	       ntohl(xdr[0]), ntohl(xdr[1]), ntohl(xdr[2]), ntohl(xdr[3]),
 +	       toklen);
 +
-+	if (toklen <= 8 * 4)
-+		return -EKEYREJECTED;
-+	tktlen = ntohl(xdr[7]);
-+	_debug("tktlen: %x", tktlen);
-+	if (tktlen > AFSTOKEN_RK_TIX_MAX)
-+		return -EKEYREJECTED;
-+	if (8 * 4 + tktlen != toklen)
-+		return -EKEYREJECTED;
-+
-+	plen = sizeof(*token) + sizeof(*token->kad) + tktlen;
-+	ret = key_payload_reserve(key, key->datalen + plen);
++	/* reserve some payload space for this subkey - the length of the token
++	 * is a reasonable approximation */
++	ret = key_payload_reserve(key, key->datalen + toklen);
 +	if (ret < 0)
 +		return ret;
 +
-+	plen -= sizeof(*token);
-+	token = kmalloc(sizeof(*token), GFP_KERNEL);
++	token = kzalloc(sizeof(*token), GFP_KERNEL);
 +	if (!token)
 +		return -ENOMEM;
 +
-+	token->kad = kmalloc(plen, GFP_KERNEL);
-+	if (!token->kad) {
++	rxk5 = kzalloc(sizeof(*rxk5), GFP_KERNEL);
++	if (!rxk5) {
 +		kfree(token);
 +		return -ENOMEM;
 +	}
 +
-+	token->security_index	= RXRPC_SECURITY_RXKAD;
-+	token->kad->ticket_len	= tktlen;
-+	token->kad->vice_id	= ntohl(xdr[0]);
-+	token->kad->kvno	= ntohl(xdr[1]);
-+	token->kad->start	= ntohl(xdr[4]);
-+	token->kad->expiry	= ntohl(xdr[5]);
-+	token->kad->primary_flag = ntohl(xdr[6]);
-+	memcpy(&token->kad->session_key, &xdr[2], 8);
-+	memcpy(&token->kad->ticket, &xdr[8], tktlen);
++	token->security_index = RXRPC_SECURITY_RXK5;
++	token->k5 = rxk5;
 +
-+	_debug("SCIX: %u", token->security_index);
-+	_debug("TLEN: %u", token->kad->ticket_len);
-+	_debug("EXPY: %x", token->kad->expiry);
-+	_debug("KVNO: %u", token->kad->kvno);
-+	_debug("PRIM: %u", token->kad->primary_flag);
-+	_debug("SKEY: %02x%02x%02x%02x%02x%02x%02x%02x",
-+	       token->kad->session_key[0], token->kad->session_key[1],
-+	       token->kad->session_key[2], token->kad->session_key[3],
-+	       token->kad->session_key[4], token->kad->session_key[5],
-+	       token->kad->session_key[6], token->kad->session_key[7]);
-+	if (token->kad->ticket_len >= 8)
-+		_debug("TCKT: %02x%02x%02x%02x%02x%02x%02x%02x",
-+		       token->kad->ticket[0], token->kad->ticket[1],
-+		       token->kad->ticket[2], token->kad->ticket[3],
-+		       token->kad->ticket[4], token->kad->ticket[5],
-+		       token->kad->ticket[6], token->kad->ticket[7]);
++	/* extract the principals */
++	ret = rxrpc_krb5_decode_principal(&rxk5->client, &xdr, &toklen);
++	if (ret < 0)
++		goto error;
++	ret = rxrpc_krb5_decode_principal(&rxk5->server, &xdr, &toklen);
++	if (ret < 0)
++		goto error;
 +
-+	/* count the number of tokens attached */
-+	key->type_data.x[0]++;
++	/* extract the session key and the encoding type (the tag field ->
++	 * ENCTYPE_xxx) */
++	ret = rxrpc_krb5_decode_tagged_data(&rxk5->session, AFSTOKEN_DATA_MAX,
++					    &xdr, &toklen);
++	if (ret < 0)
++		goto error;
 +
-+	/* attach the data */
-+	token->next = key->payload.data;
-+	key->payload.data = token;
-+	if (token->kad->expiry < key->expiry)
-+		key->expiry = token->kad->expiry;
++	if (toklen < 4 * 8 + 2 * 4)
++		goto inval;
++	rxk5->authtime	= be64_to_cpup((const __be64 *) xdr);
++	xdr += 2;
++	rxk5->starttime	= be64_to_cpup((const __be64 *) xdr);
++	xdr += 2;
++	rxk5->endtime	= be64_to_cpup((const __be64 *) xdr);
++	xdr += 2;
++	rxk5->renew_till = be64_to_cpup((const __be64 *) xdr);
++	xdr += 2;
++	rxk5->is_skey = ntohl(*xdr++);
++	rxk5->flags = ntohl(*xdr++);
++	toklen -= 4 * 8 + 2 * 4;
 +
-+	_leave(" = 0");
-+	return 0;
-+}
++	_debug("times: a=%llx s=%llx e=%llx rt=%llx",
++	       rxk5->authtime, rxk5->starttime, rxk5->endtime,
++	       rxk5->renew_till);
++	_debug("is_skey=%x flags=%x", rxk5->is_skey, rxk5->flags);
 +
-+/*
-+ * attempt to parse the data as the XDR format
-+ * - the caller guarantees we have more than 7 words
-+ */
-+static int rxrpc_instantiate_xdr(struct key *key, const void *data, size_t datalen)
-+{
-+	const __be32 *xdr = data, *token;
-+	const char *cp;
-+	unsigned len, tmp, loop, ntoken, toklen, sec_ix;
-+	int ret;
++	/* extract the permitted client addresses */
++	ret = rxrpc_krb5_decode_tagged_array(&rxk5->addresses,
++					     &rxk5->n_addresses,
++					     AFSTOKEN_K5_ADDRESSES_MAX,
++					     AFSTOKEN_DATA_MAX,
++					     &xdr, &toklen);
++	if (ret < 0)
++		goto error;
 +
-+	_enter(",{%x,%x,%x,%x},%zu",
-+	       ntohl(xdr[0]), ntohl(xdr[1]), ntohl(xdr[2]), ntohl(xdr[3]),
-+	       datalen);
++	ASSERTCMP((end_xdr - xdr) << 2, ==, toklen);
 +
-+	if (datalen > AFSTOKEN_LENGTH_MAX)
-+		goto not_xdr;
++	/* extract the tickets */
++	ret = rxrpc_krb5_decode_ticket(&rxk5->ticket, &rxk5->ticket_len,
++				       &xdr, &toklen);
++	if (ret < 0)
++		goto error;
++	ret = rxrpc_krb5_decode_ticket(&rxk5->ticket2, &rxk5->ticket2_len,
++				       &xdr, &toklen);
++	if (ret < 0)
++		goto error;
 +
-+	/* XDR is an array of __be32's */
-+	if (datalen & 3)
-+		goto not_xdr;
++	ASSERTCMP((end_xdr - xdr) << 2, ==, toklen);
 +
-+	/* the flags should be 0 (the setpag bit must be handled by
-+	 * userspace) */
-+	if (ntohl(*xdr++) != 0)
-+		goto not_xdr;
-+	datalen -= 4;
++	/* extract the typed auth data */
++	ret = rxrpc_krb5_decode_tagged_array(&rxk5->authdata,
++					     &rxk5->n_authdata,
++					     AFSTOKEN_K5_AUTHDATA_MAX,
++					     AFSTOKEN_BDATALN_MAX,
++					     &xdr, &toklen);
++	if (ret < 0)
++		goto error;
 +
-+	/* check the cell name */
-+	len = ntohl(*xdr++);
-+	if (len < 1 || len > AFSTOKEN_CELL_MAX)
-+		goto not_xdr;
-+	datalen -= 4;
-+	tmp = (len + 3) & ~3;
-+	if (tmp > datalen)
-+		goto not_xdr;
++	ASSERTCMP((end_xdr - xdr) << 2, ==, toklen);
 +
-+	cp = (const char *) xdr;
-+	for (loop = 0; loop < len; loop++)
-+		if (!isprint(cp[loop]))
-+			goto not_xdr;
-+	if (len < tmp)
-+		for (; loop < tmp; loop++)
-+			if (cp[loop])
-+				goto not_xdr;
-+	_debug("cellname: [%u/%u] '%*.*s'",
-+	       len, tmp, len, len, (const char *) xdr);
-+	datalen -= tmp;
-+	xdr += tmp >> 2;
++	if (toklen != 0)
++		goto inval;
 +
-+	/* get the token count */
-+	if (datalen < 12)
-+		goto not_xdr;
-+	ntoken = ntohl(*xdr++);
-+	datalen -= 4;
-+	_debug("ntoken: %x", ntoken);
-+	if (ntoken < 1 || ntoken > AFSTOKEN_MAX)
-+		goto not_xdr;
++	/* attach the payload to the key */
++	for (pptoken = (struct rxrpc_key_token **)&key->payload.data;
++	     *pptoken;
++	     pptoken = &(*pptoken)->next)
++		continue;
++	*pptoken = token;
+ 	if (token->kad->expiry < key->expiry)
+ 		key->expiry = token->kad->expiry;
+ 
+ 	_leave(" = 0");
+ 	return 0;
 +
-+	/* check each token wrapper */
-+	token = xdr;
-+	loop = ntoken;
-+	do {
-+		if (datalen < 8)
-+			goto not_xdr;
-+		toklen = ntohl(*xdr++);
-+		sec_ix = ntohl(*xdr);
-+		datalen -= 4;
-+		_debug("token: [%x/%zx] %x", toklen, datalen, sec_ix);
-+		if (toklen < 20 || toklen > datalen)
-+			goto not_xdr;
-+		datalen -= (toklen + 3) & ~3;
-+		xdr += (toklen + 3) >> 2;
++inval:
++	ret = -EINVAL;
++error:
++	rxrpc_rxk5_free(rxk5);
++	kfree(token);
++	_leave(" = %d", ret);
++	return ret;
+ }
+ 
+ /*
+@@ -228,6 +613,8 @@ static int rxrpc_instantiate_xdr(struct key *key, const void *data, size_t datal
+ 		sec_ix = ntohl(*xdr++);
+ 		toklen -= 4;
+ 
++		_debug("TOKEN type=%u [%p-%p]", sec_ix, xdr, token);
 +
-+	} while (--loop > 0);
-+
-+	_debug("remainder: %zu", datalen);
-+	if (datalen != 0)
-+		goto not_xdr;
-+
-+	/* okay: we're going to assume it's valid XDR format
-+	 * - we ignore the cellname, relying on the key to be correctly named
-+	 */
-+	do {
-+		xdr = token;
-+		toklen = ntohl(*xdr++);
-+		token = xdr + ((toklen + 3) >> 2);
-+		sec_ix = ntohl(*xdr++);
-+		toklen -= 4;
-+
-+		switch (sec_ix) {
-+		case RXRPC_SECURITY_RXKAD:
-+			ret = rxrpc_instantiate_xdr_rxkad(key, xdr, toklen);
+ 		switch (sec_ix) {
+ 		case RXRPC_SECURITY_RXKAD:
+ 			ret = rxrpc_instantiate_xdr_rxkad(key, xdr, toklen);
+@@ -235,6 +622,12 @@ static int rxrpc_instantiate_xdr(struct key *key, const void *data, size_t datal
+ 				goto error;
+ 			break;
+ 
++		case RXRPC_SECURITY_RXK5:
++			ret = rxrpc_instantiate_xdr_rxk5(key, xdr, toklen);
 +			if (ret != 0)
 +				goto error;
 +			break;
 +
-+		default:
-+			ret = -EPROTONOSUPPORT;
-+			goto error;
-+		}
-+
-+	} while (--ntoken > 0);
-+
-+	_leave(" = 0");
-+	return 0;
-+
-+not_xdr:
-+	_leave(" = -EPROTO");
-+	return -EPROTO;
-+error:
-+	_leave(" = %d", ret);
-+	return ret;
-+}
-+
-+/*
-  * instantiate an rxrpc defined key
-  * data should be of the form:
-  *	OFFSET	LEN	CONTENT
-@@ -70,8 +267,8 @@ struct key_type key_type_rxrpc_s = {
-  */
- static int rxrpc_instantiate(struct key *key, const void *data, size_t datalen)
- {
--	const struct rxkad_key *tsec;
--	struct rxrpc_key_payload *upayload;
-+	const struct rxrpc_key_data_v1 *v1;
-+	struct rxrpc_key_token *token, **pp;
- 	size_t plen;
- 	u32 kver;
- 	int ret;
-@@ -82,6 +279,13 @@ static int rxrpc_instantiate(struct key *key, const void *data, size_t datalen)
- 	if (!data && datalen == 0)
- 		return 0;
- 
-+	/* determine if the XDR payload format is being used */
-+	if (datalen > 7 * 4) {
-+		ret = rxrpc_instantiate_xdr(key, data, datalen);
-+		if (ret != -EPROTO)
-+			return ret;
-+	}
-+
- 	/* get the key interface version number */
- 	ret = -EINVAL;
- 	if (datalen <= 4 || !data)
-@@ -98,53 +302,67 @@ static int rxrpc_instantiate(struct key *key, const void *data, size_t datalen)
- 
- 	/* deal with a version 1 key */
- 	ret = -EINVAL;
--	if (datalen < sizeof(*tsec))
-+	if (datalen < sizeof(*v1))
- 		goto error;
- 
--	tsec = data;
--	if (datalen != sizeof(*tsec) + tsec->ticket_len)
-+	v1 = data;
-+	if (datalen != sizeof(*v1) + v1->ticket_length)
- 		goto error;
- 
--	_debug("SCIX: %u", tsec->security_index);
--	_debug("TLEN: %u", tsec->ticket_len);
--	_debug("EXPY: %x", tsec->expiry);
--	_debug("KVNO: %u", tsec->kvno);
-+	_debug("SCIX: %u", v1->security_index);
-+	_debug("TLEN: %u", v1->ticket_length);
-+	_debug("EXPY: %x", v1->expiry);
-+	_debug("KVNO: %u", v1->kvno);
- 	_debug("SKEY: %02x%02x%02x%02x%02x%02x%02x%02x",
--	       tsec->session_key[0], tsec->session_key[1],
--	       tsec->session_key[2], tsec->session_key[3],
--	       tsec->session_key[4], tsec->session_key[5],
--	       tsec->session_key[6], tsec->session_key[7]);
--	if (tsec->ticket_len >= 8)
-+	       v1->session_key[0], v1->session_key[1],
-+	       v1->session_key[2], v1->session_key[3],
-+	       v1->session_key[4], v1->session_key[5],
-+	       v1->session_key[6], v1->session_key[7]);
-+	if (v1->ticket_length >= 8)
- 		_debug("TCKT: %02x%02x%02x%02x%02x%02x%02x%02x",
--		       tsec->ticket[0], tsec->ticket[1],
--		       tsec->ticket[2], tsec->ticket[3],
--		       tsec->ticket[4], tsec->ticket[5],
--		       tsec->ticket[6], tsec->ticket[7]);
-+		       v1->ticket[0], v1->ticket[1],
-+		       v1->ticket[2], v1->ticket[3],
-+		       v1->ticket[4], v1->ticket[5],
-+		       v1->ticket[6], v1->ticket[7]);
- 
- 	ret = -EPROTONOSUPPORT;
--	if (tsec->security_index != RXRPC_SECURITY_RXKAD)
-+	if (v1->security_index != RXRPC_SECURITY_RXKAD)
- 		goto error;
- 
--	key->type_data.x[0] = tsec->security_index;
--
--	plen = sizeof(*upayload) + tsec->ticket_len;
--	ret = key_payload_reserve(key, plen);
-+	plen = sizeof(*token->kad) + v1->ticket_length;
-+	ret = key_payload_reserve(key, plen + sizeof(*token));
- 	if (ret < 0)
- 		goto error;
- 
- 	ret = -ENOMEM;
--	upayload = kmalloc(plen, GFP_KERNEL);
--	if (!upayload)
-+	token = kmalloc(sizeof(*token), GFP_KERNEL);
-+	if (!token)
- 		goto error;
-+	token->kad = kmalloc(plen, GFP_KERNEL);
-+	if (!token->kad)
-+		goto error_free;
-+
-+	token->security_index		= RXRPC_SECURITY_RXKAD;
-+	token->kad->ticket_len		= v1->ticket_length;
-+	token->kad->expiry		= v1->expiry;
-+	token->kad->kvno		= v1->kvno;
-+	memcpy(&token->kad->session_key, &v1->session_key, 8);
-+	memcpy(&token->kad->ticket, v1->ticket, v1->ticket_length);
- 
- 	/* attach the data */
--	memcpy(&upayload->k, tsec, sizeof(*tsec));
--	memcpy(&upayload->k.ticket, (void *)tsec + sizeof(*tsec),
--	       tsec->ticket_len);
--	key->payload.data = upayload;
--	key->expiry = tsec->expiry;
-+	key->type_data.x[0]++;
-+
-+	pp = (struct rxrpc_key_token **)&key->payload.data;
-+	while (*pp)
-+		pp = &(*pp)->next;
-+	*pp = token;
-+	if (token->kad->expiry < key->expiry)
-+		key->expiry = token->kad->expiry;
-+	token = NULL;
- 	ret = 0;
- 
-+error_free:
-+	kfree(token);
- error:
- 	return ret;
- }
-@@ -184,7 +402,22 @@ static int rxrpc_instantiate_s(struct key *key, const void *data,
-  */
- static void rxrpc_destroy(struct key *key)
- {
--	kfree(key->payload.data);
-+	struct rxrpc_key_token *token;
-+
-+	while ((token = key->payload.data)) {
-+		key->payload.data = token->next;
-+		switch (token->security_index) {
-+		case RXRPC_SECURITY_RXKAD:
-+			kfree(token->kad);
+ 		default:
+ 			ret = -EPROTONOSUPPORT;
+ 			goto error;
+@@ -412,6 +805,10 @@ static void rxrpc_destroy(struct key *key)
+ 		case RXRPC_SECURITY_RXKAD:
+ 			kfree(token->kad);
+ 			break;
++		case RXRPC_SECURITY_RXK5:
++			if (token->k5)
++				rxrpc_rxk5_free(token->k5);
 +			break;
-+		default:
-+			printk(KERN_ERR "Unknown token type %x on rxrpc key\n",
-+			       token->security_index);
-+			BUG();
-+		}
-+
-+		kfree(token);
-+	}
- }
- 
- /*
-@@ -293,7 +526,7 @@ int rxrpc_get_server_data_key(struct rxrpc_connection *conn,
- 
- 	struct {
- 		u32 kver;
--		struct rxkad_key tsec;
-+		struct rxrpc_key_data_v1 v1;
- 	} data;
+ 		default:
+ 			printk(KERN_ERR "Unknown token type %x on rxrpc key\n",
+ 			       token->security_index);
+@@ -602,10 +999,13 @@ EXPORT_SYMBOL(rxrpc_get_null_key);
+ static long rxrpc_read(const struct key *key,
+ 		       char __user *buffer, size_t buflen)
+ {
+-	struct rxrpc_key_token *token;
+-	size_t size, toksize;
+-	__be32 __user *xdr;
+-	u32 cnlen, tktlen, ntoks, zero;
++	const struct rxrpc_key_token *token;
++	const struct krb5_principal *princ;
++	size_t size;
++	__be32 __user *xdr, *oldxdr;
++	u32 cnlen, toksize, ntoks, tok, zero;
++	u16 toksizes[AFSTOKEN_MAX];
++	int loop;
  
  	_enter("");
-@@ -308,13 +541,12 @@ int rxrpc_get_server_data_key(struct rxrpc_connection *conn,
- 	_debug("key %d", key_serial(key));
  
- 	data.kver = 1;
--	data.tsec.security_index = RXRPC_SECURITY_RXKAD;
--	data.tsec.ticket_len = 0;
--	data.tsec.expiry = expiry;
--	data.tsec.kvno = 0;
-+	data.v1.security_index = RXRPC_SECURITY_RXKAD;
-+	data.v1.ticket_length = 0;
-+	data.v1.expiry = expiry;
-+	data.v1.kvno = 0;
+@@ -614,28 +1014,68 @@ static long rxrpc_read(const struct key *key,
+ 		return -EOPNOTSUPP;
+ 	cnlen = strlen(key->description + 4);
  
--	memcpy(&data.tsec.session_key, session_key,
--	       sizeof(data.tsec.session_key));
-+	memcpy(&data.v1.session_key, session_key, sizeof(data.v1.session_key));
- 
- 	ret = key_instantiate_and_link(key, &data, sizeof(data), NULL, NULL);
- 	if (ret < 0)
-diff --git a/net/rxrpc/ar-security.c b/net/rxrpc/ar-security.c
-index dc62920..49b3cc3 100644
---- a/net/rxrpc/ar-security.c
-+++ b/net/rxrpc/ar-security.c
-@@ -16,6 +16,7 @@
- #include <linux/crypto.h>
- #include <net/sock.h>
- #include <net/af_rxrpc.h>
-+#include <keys/rxrpc-type.h>
- #include "ar-internal.h"
- 
- static LIST_HEAD(rxrpc_security_methods);
-@@ -122,6 +123,7 @@ EXPORT_SYMBOL_GPL(rxrpc_unregister_security);
-  */
- int rxrpc_init_client_conn_security(struct rxrpc_connection *conn)
- {
-+	struct rxrpc_key_token *token;
- 	struct rxrpc_security *sec;
- 	struct key *key = conn->key;
- 	int ret;
-@@ -135,7 +137,11 @@ int rxrpc_init_client_conn_security(struct rxrpc_connection *conn)
- 	if (ret < 0)
- 		return ret;
- 
--	sec = rxrpc_security_lookup(key->type_data.x[0]);
-+	if (!key->payload.data)
-+		return -EKEYREJECTED;
-+	token = key->payload.data;
++#define RND(X) (((X) + 3) & ~3)
 +
-+	sec = rxrpc_security_lookup(token->security_index);
- 	if (!sec)
- 		return -EKEYREJECTED;
- 	conn->security = sec;
-diff --git a/net/rxrpc/rxkad.c b/net/rxrpc/rxkad.c
-index acec762..713ac59 100644
---- a/net/rxrpc/rxkad.c
-+++ b/net/rxrpc/rxkad.c
-@@ -18,6 +18,7 @@
- #include <linux/ctype.h>
- #include <net/sock.h>
- #include <net/af_rxrpc.h>
-+#include <keys/rxrpc-type.h>
- #define rxrpc_debug rxkad_debug
- #include "ar-internal.h"
+ 	/* AFS keys we return in XDR form, so we need to work out the size of
+ 	 * the XDR */
+ 	size = 2 * 4;	/* flags, cellname len */
+-	size += (cnlen + 3) & ~3;	/* cellname */
++	size += RND(cnlen);	/* cellname */
+ 	size += 1 * 4;	/* token count */
  
-@@ -59,14 +60,14 @@ static DEFINE_MUTEX(rxkad_ci_mutex);
-  */
- static int rxkad_init_connection_security(struct rxrpc_connection *conn)
- {
--	struct rxrpc_key_payload *payload;
- 	struct crypto_blkcipher *ci;
-+	struct rxrpc_key_token *token;
- 	int ret;
+ 	ntoks = 0;
+ 	for (token = key->payload.data; token; token = token->next) {
++		toksize = 4;	/* sec index */
++
+ 		switch (token->security_index) {
+ 		case RXRPC_SECURITY_RXKAD:
+-			size += 2 * 4;	/* length, security index (switch ID) */
+-			size += 8 * 4;	/* viceid, kvno, key*2, begin, end,
+-					 * primary, tktlen */
+-			size += (token->kad->ticket_len + 3) & ~3; /* ticket */
+-			ntoks++;
++			toksize += 8 * 4;	/* viceid, kvno, key*2, begin,
++						 * end, primary, tktlen */
++			toksize += RND(token->kad->ticket_len);
+ 			break;
  
- 	_enter("{%d},{%x}", conn->debug_id, key_serial(conn->key));
- 
--	payload = conn->key->payload.data;
--	conn->security_ix = payload->k.security_index;
-+	token = conn->key->payload.data;
-+	conn->security_ix = token->security_index;
- 
- 	ci = crypto_alloc_blkcipher("pcbc(fcrypt)", 0, CRYPTO_ALG_ASYNC);
- 	if (IS_ERR(ci)) {
-@@ -75,8 +76,8 @@ static int rxkad_init_connection_security(struct rxrpc_connection *conn)
- 		goto error;
+-		default: /* can't encode */
++		case RXRPC_SECURITY_RXK5:
++			princ = &token->k5->client;
++			toksize += 4 + princ->n_name_parts * 4;
++			for (loop = 0; loop < princ->n_name_parts; loop++)
++				toksize += RND(strlen(princ->name_parts[loop]));
++			toksize += 4 + RND(strlen(princ->realm));
++
++			princ = &token->k5->server;
++			toksize += 4 + princ->n_name_parts * 4;
++			for (loop = 0; loop < princ->n_name_parts; loop++)
++				toksize += RND(strlen(princ->name_parts[loop]));
++			toksize += 4 + RND(strlen(princ->realm));
++
++			toksize += 8 + RND(token->k5->session.data_len);
++
++			toksize += 4 * 8 + 2 * 4;
++
++			toksize += 4 + token->k5->n_addresses * 8;
++			for (loop = 0; loop < token->k5->n_addresses; loop++)
++				toksize += RND(token->k5->addresses[loop].data_len);
++
++			toksize += 4 + RND(token->k5->ticket_len);
++			toksize += 4 + RND(token->k5->ticket2_len);
++
++			toksize += 4 + token->k5->n_authdata * 8;
++			for (loop = 0; loop < token->k5->n_authdata; loop++)
++				toksize += RND(token->k5->authdata[loop].data_len);
+ 			break;
++
++		default: /* we have a ticket we can't encode */
++			BUG();
++			continue;
+ 		}
++
++		_debug("token[%u]: toksize=%u", ntoks, toksize);
++		ASSERTCMP(toksize, <=, AFSTOKEN_LENGTH_MAX);
++
++		toksizes[ntoks++] = toksize;
++		size += toksize + 4; /* each token has a length word */
  	}
  
--	if (crypto_blkcipher_setkey(ci, payload->k.session_key,
--				    sizeof(payload->k.session_key)) < 0)
-+	if (crypto_blkcipher_setkey(ci, token->kad->session_key,
-+				    sizeof(token->kad->session_key)) < 0)
- 		BUG();
++#undef RND
++
+ 	if (!buffer || buflen < size)
+ 		return size;
  
- 	switch (conn->security_level) {
-@@ -110,7 +111,7 @@ error:
-  */
- static void rxkad_prime_packet_security(struct rxrpc_connection *conn)
- {
--	struct rxrpc_key_payload *payload;
-+	struct rxrpc_key_token *token;
- 	struct blkcipher_desc desc;
- 	struct scatterlist sg[2];
- 	struct rxrpc_crypt iv;
-@@ -123,8 +124,8 @@ static void rxkad_prime_packet_security(struct rxrpc_connection *conn)
- 	if (!conn->key)
- 		return;
+@@ -647,52 +1087,109 @@ static long rxrpc_read(const struct key *key,
+ 		if (put_user(y, xdr++) < 0)	\
+ 			goto fault;		\
+ 	} while(0)
++#define ENCODE_DATA(l, s)						\
++	do {								\
++		u32 _l = (l);						\
++		ENCODE(l);						\
++		if (copy_to_user(xdr, (s), _l) != 0)			\
++			goto fault;					\
++		if (_l & 3 &&						\
++		    copy_to_user((u8 *)xdr + _l, &zero, 4 - (_l & 3)) != 0) \
++			goto fault;					\
++		xdr += (_l + 3) >> 2;					\
++	} while(0)
++#define ENCODE64(x)					\
++	do {						\
++		__be64 y = cpu_to_be64(x);		\
++		if (copy_to_user(xdr, &y, 8) != 0)	\
++			goto fault;			\
++		xdr += 8 >> 2;				\
++	} while(0)
++#define ENCODE_STR(s)				\
++	do {					\
++		const char *_s = (s);		\
++		ENCODE_DATA(strlen(_s), _s);	\
++	} while(0)
  
--	payload = conn->key->payload.data;
--	memcpy(&iv, payload->k.session_key, sizeof(iv));
-+	token = conn->key->payload.data;
-+	memcpy(&iv, token->kad->session_key, sizeof(iv));
+-	ENCODE(0);	/* flags */
+-	ENCODE(cnlen);	/* cellname length */
+-	if (copy_to_user(xdr, key->description + 4, cnlen) != 0)
+-		goto fault;
+-	if (cnlen & 3 &&
+-	    copy_to_user((u8 *)xdr + cnlen, &zero, 4 - (cnlen & 3)) != 0)
+-		goto fault;
+-	xdr += (cnlen + 3) >> 2;
+-	ENCODE(ntoks);	/* token count */
++	ENCODE(0);					/* flags */
++	ENCODE_DATA(cnlen, key->description + 4);	/* cellname */
++	ENCODE(ntoks);
  
- 	desc.tfm = conn->cipher;
- 	desc.info = iv.x;
-@@ -197,7 +198,7 @@ static int rxkad_secure_packet_encrypt(const struct rxrpc_call *call,
- 					u32 data_size,
- 					void *sechdr)
- {
--	const struct rxrpc_key_payload *payload;
-+	const struct rxrpc_key_token *token;
- 	struct rxkad_level2_hdr rxkhdr
- 		__attribute__((aligned(8))); /* must be all on one page */
- 	struct rxrpc_skb_priv *sp;
-@@ -219,8 +220,8 @@ static int rxkad_secure_packet_encrypt(const struct rxrpc_call *call,
- 	rxkhdr.checksum = 0;
++	tok = 0;
+ 	for (token = key->payload.data; token; token = token->next) {
+-		toksize = 1 * 4;	/* sec index */
++		toksize = toksizes[tok++];
++		ENCODE(toksize);
++		oldxdr = xdr;
++		ENCODE(token->security_index);
  
- 	/* encrypt from the session key */
--	payload = call->conn->key->payload.data;
--	memcpy(&iv, payload->k.session_key, sizeof(iv));
-+	token = call->conn->key->payload.data;
-+	memcpy(&iv, token->kad->session_key, sizeof(iv));
- 	desc.tfm = call->conn->cipher;
- 	desc.info = iv.x;
- 	desc.flags = 0;
-@@ -400,7 +401,7 @@ static int rxkad_verify_packet_encrypt(const struct rxrpc_call *call,
- 				       struct sk_buff *skb,
- 				       u32 *_abort_code)
- {
--	const struct rxrpc_key_payload *payload;
-+	const struct rxrpc_key_token *token;
- 	struct rxkad_level2_hdr sechdr;
- 	struct rxrpc_skb_priv *sp;
- 	struct blkcipher_desc desc;
-@@ -431,8 +432,8 @@ static int rxkad_verify_packet_encrypt(const struct rxrpc_call *call,
- 	skb_to_sgvec(skb, sg, 0, skb->len);
+ 		switch (token->security_index) {
+ 		case RXRPC_SECURITY_RXKAD:
+-			toksize += 8 * 4;
+-			toksize += (token->kad->ticket_len + 3) & ~3;
+-			ENCODE(toksize);
+-			ENCODE(token->security_index);
+ 			ENCODE(token->kad->vice_id);
+ 			ENCODE(token->kad->kvno);
+-			if (copy_to_user(xdr, token->kad->session_key, 8) != 0)
+-				goto fault;
+-			xdr += 8 >> 2;
++			ENCODE_DATA(8, token->kad->session_key);
+ 			ENCODE(token->kad->start);
+ 			ENCODE(token->kad->expiry);
+ 			ENCODE(token->kad->primary_flag);
+-			tktlen = token->kad->ticket_len;
+-			ENCODE(tktlen);
+-			if (copy_to_user(xdr, token->kad->ticket, tktlen) != 0)
+-				goto fault;
+-			if (tktlen & 3 &&
+-			    copy_to_user((u8 *)xdr + tktlen, &zero,
+-					 4 - (tktlen & 3)) != 0)
+-				goto fault;
+-			xdr += (tktlen + 3) >> 2;
++			ENCODE_DATA(token->kad->ticket_len, token->kad->ticket);
++			break;
++
++		case RXRPC_SECURITY_RXK5:
++			princ = &token->k5->client;
++			ENCODE(princ->n_name_parts);
++			for (loop = 0; loop < princ->n_name_parts; loop++)
++				ENCODE_STR(princ->name_parts[loop]);
++			ENCODE_STR(princ->realm);
++
++			princ = &token->k5->server;
++			ENCODE(princ->n_name_parts);
++			for (loop = 0; loop < princ->n_name_parts; loop++)
++				ENCODE_STR(princ->name_parts[loop]);
++			ENCODE_STR(princ->realm);
++
++			ENCODE(token->k5->session.tag);
++			ENCODE_DATA(token->k5->session.data_len,
++				    token->k5->session.data);
++
++			ENCODE64(token->k5->authtime);
++			ENCODE64(token->k5->starttime);
++			ENCODE64(token->k5->endtime);
++			ENCODE64(token->k5->renew_till);
++			ENCODE(token->k5->is_skey);
++			ENCODE(token->k5->flags);
++
++			ENCODE(token->k5->n_addresses);
++			for (loop = 0; loop < token->k5->n_addresses; loop++) {
++				ENCODE(token->k5->addresses[loop].tag);
++				ENCODE_DATA(token->k5->addresses[loop].data_len,
++					    token->k5->addresses[loop].data);
++			}
++
++			ENCODE_DATA(token->k5->ticket_len, token->k5->ticket);
++			ENCODE_DATA(token->k5->ticket2_len, token->k5->ticket2);
++
++			ENCODE(token->k5->n_authdata);
++			for (loop = 0; loop < token->k5->n_authdata; loop++) {
++				ENCODE(token->k5->authdata[loop].tag);
++				ENCODE_DATA(token->k5->authdata[loop].data_len,
++					    token->k5->authdata[loop].data);
++			}
+ 			break;
  
- 	/* decrypt from the session key */
--	payload = call->conn->key->payload.data;
--	memcpy(&iv, payload->k.session_key, sizeof(iv));
-+	token = call->conn->key->payload.data;
-+	memcpy(&iv, token->kad->session_key, sizeof(iv));
- 	desc.tfm = call->conn->cipher;
- 	desc.info = iv.x;
- 	desc.flags = 0;
-@@ -737,7 +738,7 @@ static int rxkad_respond_to_challenge(struct rxrpc_connection *conn,
- 				      struct sk_buff *skb,
- 				      u32 *_abort_code)
- {
--	const struct rxrpc_key_payload *payload;
-+	const struct rxrpc_key_token *token;
- 	struct rxkad_challenge challenge;
- 	struct rxkad_response resp
- 		__attribute__((aligned(8))); /* must be aligned for crypto */
-@@ -778,7 +779,7 @@ static int rxkad_respond_to_challenge(struct rxrpc_connection *conn,
- 	if (conn->security_level < min_level)
- 		goto protocol_error;
+ 		default:
++			BUG();
+ 			break;
+ 		}
++
++		ASSERTCMP((unsigned long)xdr - (unsigned long)oldxdr, ==,
++			  toksize);
+ 	}
  
--	payload = conn->key->payload.data;
-+	token = conn->key->payload.data;
++#undef ENCODE_STR
++#undef ENCODE_DATA
++#undef ENCODE64
+ #undef ENCODE
  
- 	/* build the response packet */
- 	memset(&resp, 0, sizeof(resp));
-@@ -797,13 +798,13 @@ static int rxkad_respond_to_challenge(struct rxrpc_connection *conn,
- 		(conn->channels[3] ? conn->channels[3]->call_id : 0);
- 	resp.encrypted.inc_nonce = htonl(nonce + 1);
- 	resp.encrypted.level = htonl(conn->security_level);
--	resp.kvno = htonl(payload->k.kvno);
--	resp.ticket_len = htonl(payload->k.ticket_len);
-+	resp.kvno = htonl(token->kad->kvno);
-+	resp.ticket_len = htonl(token->kad->ticket_len);
- 
- 	/* calculate the response checksum and then do the encryption */
- 	rxkad_calc_response_checksum(&resp);
--	rxkad_encrypt_response(conn, &resp, &payload->k);
--	return rxkad_send_response(conn, &sp->hdr, &resp, &payload->k);
-+	rxkad_encrypt_response(conn, &resp, token->kad);
-+	return rxkad_send_response(conn, &sp->hdr, &resp, token->kad);
- 
- protocol_error:
- 	*_abort_code = abort_code;
++	ASSERTCMP(tok, ==, ntoks);
+ 	ASSERTCMP((char __user *) xdr - buffer, ==, size);
+ 	_leave(" = %zu", size);
+ 	return size;
 
