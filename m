@@ -1,90 +1,145 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
-Date: Mon, 14 Sep 2009 12:08:55 -0400
-Message-ID: <4AAE6A97.7090808@gmail.com>
-References: <cover.1251388414.git.mst@redhat.com> <20090827160750.GD23722@redhat.com> <20090903183945.GF28651@ovro.caltech.edu> <20090907101537.GH3031@redhat.com> <20090908172035.GB319@ovro.caltech.edu> <4AAA7415.5080204@gmail.com> <20090913120140.GA31218@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: ipv4 regression in 2.6.31 ?
+Date: Mon, 14 Sep 2009 18:10:21 +0200
+Message-ID: <4AAE6AED.1070609@gmail.com>
+References: <20090914150935.cc895a3c.skraw@ithnet.com>	<4AAE4BAF.2010406@gmail.com> <20090914175505.a3f132ee.skraw@ithnet.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig4A7B9E21588ECA3868FA009B"
-Cc: "Ira W. Snyder" <iws@ovro.caltech.edu>, netdev@vger.kernel.org,
- virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
- linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
- akpm@linux-foundation.org, hpa@zytor.com,
- Rusty Russell <rusty@rustcorp.com.au>,
- s.hetze@linux-ag.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20090913120140.GA31218@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig4A7B9E21588ECA3868FA009B
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Stephan von Krawczynski <skraw@ithnet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:39473 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751078AbZINQKY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2009 12:10:24 -0400
+In-Reply-To: <20090914175505.a3f132ee.skraw@ithnet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michael S. Tsirkin wrote:
-> On Fri, Sep 11, 2009 at 12:00:21PM -0400, Gregory Haskins wrote:
->> FWIW: VBUS handles this situation via the "memctx" abstraction.  IOW,
->> the memory is not assumed to be a userspace address.  Rather, it is a
->> memctx-specific address, which can be userspace, or any other type
->> (including hardware, dma-engine, etc).  As long as the memctx knows ho=
-w
->> to translate it, it will work.
+Stephan von Krawczynski a =E9crit :
+> On Mon, 14 Sep 2009 15:57:03 +0200
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
 >=20
-> How would permissions be handled?
+>> Stephan von Krawczynski a =E9crit :
+>>> Hello all,
+>>>
+>>> today we experienced some sort of regression in 2.6.31 ipv4 impleme=
+ntation, or
+>>> at least some incompatibility with former 2.6.30.X kernels.
+>>>
+>>> We have the following situation:
+>>>
+>>>                                        ---------- vlan1@eth0 192.16=
+8.2.1/24
+>>>                                       /
+>>> host A 192.168.1.1/24 eth0  -------<router>            host B
+>>>                                       \
+>>>                                        ---------- eth1 192.168.3.1/=
+24
+>>>
+>>>
+>>> Now, if you route 192.168.1.0/24 via interface vlan1@eth0 on host B=
+ and let
+>>> host A ping 192.168.2.1 everything works. But if you route 192.168.=
+1.0/24 via
+>>> interface eth1 on host B and let host A ping 192.168.2.1 you get no=
+ reply.
+>>> With tcpdump we see the icmp packets arrive at vlan1@eth0, but no i=
+cmp echo
+>>> reply being generated neither on vlan1 nor eth1.
+>>> Kernels 2.6.30.X and below do not show this behaviour.
+>>> Is this intended? Do we need to reconfigure something to restore th=
+e old
+>>> behaviour?
+>>>
+>> Asymetric routing ?
+>>
+>> Check your rp_filter settings
+>>
+>> grep . `find /proc/sys/net -name rp_filter`
+>>
+>> rp_filter - INTEGER
+>>         0 - No source validation.
+>>         1 - Strict mode as defined in RFC3704 Strict Reverse Path
+>>             Each incoming packet is tested against the FIB and if th=
+e interface
+>>             is not the best reverse path the packet check will fail.
+>>             By default failed packets are discarded.
+>>         2 - Loose mode as defined in RFC3704 Loose Reverse Path
+>>             Each incoming packet's source address is also tested aga=
+inst the FIB
+>>             and if the source address is not reachable via any inter=
+face
+>>             the packet check will fail.
+>>
+>>         Current recommended practice in RFC3704 is to enable strict =
+mode
+>>         to prevent IP spoofing from DDos attacks. If using asymmetri=
+c routing
+>>         or other complicated routing, then loose mode is recommended=
+=2E
+>>
+>>         conf/all/rp_filter must also be set to non-zero to do source=
+ validation
+>>         on the interface
+>>
+>>         Default value is 0. Note that some distributions enable it
+>>         in startup scripts.
+>=20
+> Ok, here you can see 2.6.31 values from the discussed box:
+> (remember, no ping reply in this setup)
+>=20
+> /proc/sys/net/ipv4/conf/all/rp_filter:1
+> /proc/sys/net/ipv4/conf/default/rp_filter:0
+> /proc/sys/net/ipv4/conf/lo/rp_filter:0
+> /proc/sys/net/ipv4/conf/eth2/rp_filter:0
+> /proc/sys/net/ipv4/conf/eth0/rp_filter:0
+> /proc/sys/net/ipv4/conf/eth1/rp_filter:0
+> /proc/sys/net/ipv4/conf/vlan1/rp_filter:0
+>=20
+>=20
+> And these are from the same box with 2.6.30.5:
+> (ping reply works)
+>=20
+> /proc/sys/net/ipv4/conf/all/rp_filter:1
+> /proc/sys/net/ipv4/conf/default/rp_filter:0
+> /proc/sys/net/ipv4/conf/lo/rp_filter:0
+> /proc/sys/net/ipv4/conf/eth2/rp_filter:0
+> /proc/sys/net/ipv4/conf/eth0/rp_filter:0
+> /proc/sys/net/ipv4/conf/eth1/rp_filter:0
+> /proc/sys/net/ipv4/conf/vlan1/rp_filter:0
+>=20
+> As you can see they're all the same. Does this mean that rp_filter ne=
+ver
+> really worked as intended before 2.6.31 ? Or does it mean that rp_fil=
+ter=3D0
+> (eth1 and vlan1) gets overriden by all/rp_filter=3D1 in 2.6.31 and no=
+t before?
+>
 
-Same as anything else, really.  Read on for details.
+Yes, previous kernels ignored /proc/sys/net/ipv4/conf/all/rp_filter val=
+ue, it was a bug.
 
-> it's easy to allow an app to pass in virtual addresses in its own addre=
-ss space.
+commit 27fed4175acf81ddd91d9a4ee2fd298981f60295
+Author: Stephen Hemminger <shemminger@vyatta.com>
+Date:   Mon Jul 27 18:39:45 2009 -0700
 
-Agreed, and this is what I do.
+    ip: fix logic of reverse path filter sysctl
 
-The guest always passes its own physical addresses (using things like
-__pa() in linux).  This address passed is memctx specific, but generally
-would fall into the category of "virtual-addresses" from the hosts
-perspective.
+    Even though reverse path filter was changed from simple boolean to
+    trinary control, the loose mode only works if both all and device a=
+re
+    configured because of this logic error.
 
-For a KVM/AlacrityVM guest example, the addresses are GPAs, accessed
-internally to the context via a gfn_to_hva conversion (you can see this
-occuring in the citation links I sent)
-
-For Ira's example, the addresses would represent a physical address on
-the PCI boards, and would follow any kind of relevant rules for
-converting a "GPA" to a host accessible address (even if indirectly, via
-a dma controller).
+    Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
 
->  But we can't let the guest specify physical addresses.
+In your case, you *need*
+echo 0 >/proc/sys/net/ipv4/conf/all/rp_filter
+or
+echo 2 >/proc/sys/net/ipv4/conf/all/rp_filter
 
-Agreed.  Neither your proposal nor mine operate this way afaict.
-
-HTH
-
-Kind Regards,
--Greg
-
-
---------------enig4A7B9E21588ECA3868FA009B
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkquapcACgkQP5K2CMvXmqEsZQCfcQ2o0HqEYlWAuk3Qckq/ciWq
-JrgAn0itJih00Z/pLWaEa7xiy99pwjUj
-=Y/uW
------END PGP SIGNATURE-----
-
---------------enig4A7B9E21588ECA3868FA009B--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
