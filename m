@@ -1,44 +1,51 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: bisect results of MSI-X related panic (help!)
-Date: Mon, 14 Sep 2009 18:43:58 +0900
-Message-ID: <4AAE105E.1080005@kernel.org>
-References: <1252699744.3877.15.camel@jbrandeb-hc.jf.intel.com> <200909120623.49764.elendil@planet.nl> <4AAE0F7B.5050203@kernel.org>
+From: Or Gerlitz <ogerlitz@voltaire.com>
+Subject: Re: L2 switching in igb
+Date: Mon, 14 Sep 2009 13:02:52 +0300
+Message-ID: <4AAE14CC.2000609@voltaire.com>
+References: <Pine.LNX.4.64.0909031116070.22050@zuben.voltaire.com>	<5f2db9d90909032135l26cfdba6n52329f6be75c16a5@mail.gmail.com>	<4AA8B317.2080706@voltaire.com> <4AA937A1.9070504@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>
-To: Frans Pop <elendil@planet.nl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755338AbZINJoS@vger.kernel.org>
-In-Reply-To: <4AAE0F7B.5050203@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Fischer, Anna" <anna.fischer@hp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fwil.voltaire.com ([193.47.165.2]:42405 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750746AbZINKC5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Sep 2009 06:02:57 -0400
+In-Reply-To: <4AA937A1.9070504@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Tejun Heo wrote:
-> Frans Pop wrote:
->> Jesse Brandeburg wrote:
->>> I've bisected, here is my bisect log, problem is that the commit
->>> identified is a merge commit, and *I don't know what to revert to test*.
->>> It appears the parent of the merge:
->>> 6e15cf04860074ad032e88c306bea656bbdd0f22 is marked good, but looks to be
->>> in a possibly related area to the panic.
->> That merge does contain quite a few merge fixups, so it's quite possible 
->> one of them is the cause of the failure.
->> Maybe the simplest way to verify that is to compile both parents of the 
->> merge to doublecheck that they work OK. Then, if a compile of the merge 
->> itself is bad, the problem really is in the merge commit itself.
->>
->> That commit is the "percpu" merge, so I've added Tejun (author of most of 
->> that branch) and Ingo (merger) in CC.
-> 
-> Sorry, the oops doesn't ring a bell, well, not yet at least.  It would
-> be great if the bisection can be narrowed down more.
+Alexander Duyck wrote:
+> You are correct, the vSwitch can basically do VEPA by disabling local 
+> loopback enable bit in the DTXSWC register.  This would force all 
+> traffic from the PF/VFs out the lan physical port and from the lan 
+> physical port to the appropriate PF/VFs without doing any switching in 
+> between PF/VFs.
+To have VEPA support another bit has to be programmed... its the one 
+that doesn't let the PF to forward a packet to a VF whose source mac 
+matches the one in the packet (e.g multicast sender).
 
-Also, building w/ debug option on, capturing more oops traces and
-pasting gdb output of l *<oops address> might shed some more light.
+> add an rtnl_link_ops interface to handle vSwitch configuration that 
+> could then be applied to the igb netdevs that support VEPA/vSwitch 
+> technologies.  A subset of that interface could then be dedicated to 
+> VF configuration to handle things such as spawning VFs, setting the 
+> default mac addresses, security controls, etc.
+Yes, lets do that. I'd like to suggest that a "VF programmable from user 
+space" context  will contain a <mac, vlan-id, priority-bits, rate> 
+tuple, such that in the absence of vlan tag, the VF driver will "sign" 
+the packet (skb) with vlan-id and priority-bits assigned by the admin 
+and the PF NIC will mandate that the VF originated traffic will not 
+exceed the rate.
 
-Thanks.
+Or.
 
--- 
-tejun
+
+Or.
+
