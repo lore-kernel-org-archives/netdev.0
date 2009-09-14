@@ -1,31 +1,59 @@
 From: Gregory Haskins <gregory.haskins@gmail.com>
 Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
-Date: Mon, 14 Sep 2009 15:14:35 -0400
-Message-ID: <4AAE961B.6020509@gmail.com>
-References: <cover.1251388414.git.mst@redhat.com> <20090827160750.GD23722@redhat.com> <20090903183945.GF28651@ovro.caltech.edu> <20090907101537.GH3031@redhat.com> <20090908172035.GB319@ovro.caltech.edu> <4AAA7415.5080204@gmail.com> <20090913120140.GA31218@redhat.com> <4AAE6A97.7090808@gmail.com> <20090914164750.GB3745@redhat.com>
+Date: Mon, 14 Sep 2009 15:28:39 -0400
+Message-ID: <4AAE9967.9060406@gmail.com>
+References: <cover.1251388414.git.mst@redhat.com> <20090827160750.GD23722@redhat.com> <20090903183945.GF28651@ovro.caltech.edu> <20090907101537.GH3031@redhat.com> <20090908172035.GB319@ovro.caltech.edu> <4AAA7415.5080204@gmail.com> <20090913120140.GA31218@redhat.com> <4AAE6A97.7090808@gmail.com> <20090914165320.GA3851@redhat.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
  protocol="application/pgp-signature";
- boundary="------------enig2959D78D936A954B1F0C2FB2"
+ boundary="------------enigA42345AD71EBB21A4FC6AED0"
 Cc: "Ira W. Snyder" <iws@ovro.caltech.edu>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
-	akpm@linux-foundation.org, hpa@zytor.com,
-	Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com,
-	alacrityvm-devel@lists.sourceforge.net
+ virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+ linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
+ akpm@linux-foundation.org, hpa@zytor.com,
+ Rusty Russell <rusty@rustcorp.com.au>,
+ s.hetze@linux-ag.com
 To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20090914164750.GB3745@redhat.com>
-Sender: kvm-owner@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20090914165320.GA3851@redhat.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig2959D78D936A954B1F0C2FB2
+--------------enigA42345AD71EBB21A4FC6AED0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: quoted-printable
 
 Michael S. Tsirkin wrote:
 > On Mon, Sep 14, 2009 at 12:08:55PM -0400, Gregory Haskins wrote:
+>> Michael S. Tsirkin wrote:
+>>> On Fri, Sep 11, 2009 at 12:00:21PM -0400, Gregory Haskins wrote:
+>>>> FWIW: VBUS handles this situation via the "memctx" abstraction.  IOW=
+,
+>>>> the memory is not assumed to be a userspace address.  Rather, it is =
+a
+>>>> memctx-specific address, which can be userspace, or any other type
+>>>> (including hardware, dma-engine, etc).  As long as the memctx knows =
+how
+>>>> to translate it, it will work.
+>>> How would permissions be handled?
+>> Same as anything else, really.  Read on for details.
+>>
+>>> it's easy to allow an app to pass in virtual addresses in its own add=
+ress space.
+>> Agreed, and this is what I do.
+>>
+>> The guest always passes its own physical addresses (using things like
+>> __pa() in linux).  This address passed is memctx specific, but general=
+ly
+>> would fall into the category of "virtual-addresses" from the hosts
+>> perspective.
+>>
+>> For a KVM/AlacrityVM guest example, the addresses are GPAs, accessed
+>> internally to the context via a gfn_to_hva conversion (you can see thi=
+s
+>> occuring in the citation links I sent)
+>>
 >> For Ira's example, the addresses would represent a physical address on=
 
 >> the PCI boards, and would follow any kind of relevant rules for
@@ -33,48 +61,29 @@ Michael S. Tsirkin wrote:
 ia
 >> a dma controller).
 >=20
-> I don't think limiting addresses to PCI physical addresses will work
-> well.
+> So vbus can let an application
 
-The only "limit" is imposed by the memctx.  If a given context needs to
-meet certain requirements beyond PCI physical addresses, it would
-presumably be designed that way.
+"application" means KVM guest, or ppc board, right?
 
+> access either its own virtual memory or a physical memory on a PCI devi=
+ce.
 
->  From what I rememeber, Ira's x86 can not initiate burst
-> transactions on PCI, and it's the ppc that initiates all DMA.
+To reiterate from the last reply: the model is the "guest" owns the
+memory.  The host is granted access to that memory by means of a memctx
+object, which must be admitted to the host kernel and accessed according
+ to standard access-policy mechanisms.  Generally the "application" or
+guest would never be accessing anything other than its own memory.
 
-The only requirement is that the "guest" "owns" the memory.  IOW: As
-with virtio/vhost, the guest can access the pointers in the ring
-directly but the host must pass through a translation function.
+> My question is, is any application
+> that's allowed to do the former also granted rights to do the later?
 
-Your translation is direct: you use a slots/hva scheme.  My translation
-is abstracted, which means it can support slots/hva (such as in
-alacrityvm) or some other scheme as long as the general model of "guest
-owned" holds true.
-
->=20
->>>  But we can't let the guest specify physical addresses.
->> Agreed.  Neither your proposal nor mine operate this way afaict.
->=20
-> But this seems to be what Ira needs.
-
-So what he could do then is implement the memctx to integrate with the
-ppc side dma controller.  E.g. "translation" in his box means a protocol
-from the x86 to the ppc to initiate the dma cycle.  This could be
-exposed as a dma facility in the register file of the ppc boards, for
-instance.
-
-To reiterate, as long as the model is such that the ppc boards are
-considered the "owner" (direct access, no translation needed) I believe
-it will work.  If the pointers are expected to be owned by the host,
-then my model doesn't work well either.
+If I understand your question, no.  Can you elaborate?
 
 Kind Regards,
 -Greg
 
 
---------------enig2959D78D936A954B1F0C2FB2
+--------------enigA42345AD71EBB21A4FC6AED0
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -83,9 +92,15 @@ Content-Disposition: attachment; filename="signature.asc"
 Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
 Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
 
-iEYEARECAAYFAkqulhsACgkQP5K2CMvXmqHsYACePYzh0H3oY5W3aAc6pFFp4w3u
-tYEAnRNmpU/44+9P++MVTtjbqreGPiiM
-=J8am
+iEYEARECAAYFAkqumWcACgkQP5K2CMvXmqFy7ACgi8TyUR3Jecgzz5GkKkFbPghh
+68MAnjdJj8I2gXA9aTDBmumt62C11d3G
+=yoUM
 -----END PGP SIGNATURE-----
 
---------------enig2959D78D936A954B1F0C2FB2--
+--------------enigA42345AD71EBB21A4FC6AED0--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
