@@ -1,70 +1,54 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
-Date: Mon, 14 Sep 2009 19:53:20 +0300
-Message-ID: <20090914165320.GA3851@redhat.com>
-References: <cover.1251388414.git.mst@redhat.com> <20090827160750.GD23722@redhat.com> <20090903183945.GF28651@ovro.caltech.edu> <20090907101537.GH3031@redhat.com> <20090908172035.GB319@ovro.caltech.edu> <4AAA7415.5080204@gmail.com> <20090913120140.GA31218@redhat.com> <4AAE6A97.7090808@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next PATCH 1/3] ixgbe: Properly disable packet split per-ring
+	when globally disabled
+Date: Mon, 14 Sep 2009 10:47:27 -0700
+Message-ID: <20090914174659.4560.28814.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Ira W. Snyder" <iws@ovro.caltech.edu>, netdev@vger.kernel.org,
-        virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
-        linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
-        akpm@linux-foundation.org, hpa@zytor.com,
-        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com
-To: Gregory Haskins <gregory.haskins@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <4AAE6A97.7090808@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta02.westchester.pa.mail.comcast.net ([76.96.62.24]:43909
+	"EHLO QMTA02.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751242AbZINRro (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2009 13:47:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 14, 2009 at 12:08:55PM -0400, Gregory Haskins wrote:
-> Michael S. Tsirkin wrote:
-> > On Fri, Sep 11, 2009 at 12:00:21PM -0400, Gregory Haskins wrote:
-> >> FWIW: VBUS handles this situation via the "memctx" abstraction.  IOW,
-> >> the memory is not assumed to be a userspace address.  Rather, it is a
-> >> memctx-specific address, which can be userspace, or any other type
-> >> (including hardware, dma-engine, etc).  As long as the memctx knows how
-> >> to translate it, it will work.
-> > 
-> > How would permissions be handled?
-> 
-> Same as anything else, really.  Read on for details.
-> 
-> > it's easy to allow an app to pass in virtual addresses in its own address space.
-> 
-> Agreed, and this is what I do.
-> 
-> The guest always passes its own physical addresses (using things like
-> __pa() in linux).  This address passed is memctx specific, but generally
-> would fall into the category of "virtual-addresses" from the hosts
-> perspective.
-> 
-> For a KVM/AlacrityVM guest example, the addresses are GPAs, accessed
-> internally to the context via a gfn_to_hva conversion (you can see this
-> occuring in the citation links I sent)
-> 
-> For Ira's example, the addresses would represent a physical address on
-> the PCI boards, and would follow any kind of relevant rules for
-> converting a "GPA" to a host accessible address (even if indirectly, via
-> a dma controller).
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 
-So vbus can let an application access either its own virtual memory or a
-physical memory on a PCI device.  My question is, is any application
-that's allowed to do the former also granted rights to do the later?
+The packet split feature was recently moved out of the adapter-wide flags
+feature field and into a per-Rx ring feature field.  In the process, packet
+split isn't properly disabled in the Rx ring if the adapter has it globally
+disabled, followed by a device reset.
 
-> >  But we can't let the guest specify physical addresses.
-> 
-> Agreed.  Neither your proposal nor mine operate this way afaict.
-> 
-> HTH
-> 
-> Kind Regards,
-> -Greg
-> 
+This won't impact the driver today, since it's always in packet split mode.
+However, this will prevent any pitfalls if someone disables packet split on
+the adapter in the future and doesn't disable it in each ring.
 
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+---
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+ drivers/net/ixgbe/ixgbe_main.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 45bf8b9..b47aaa8 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -2055,6 +2055,8 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ 
+ 		if (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED)
+ 			rx_ring->flags |= IXGBE_RING_RX_PS_ENABLED;
++		else
++			rx_ring->flags &= ~IXGBE_RING_RX_PS_ENABLED;
+ 
+ #ifdef IXGBE_FCOE
+ 		if (netdev->features & NETIF_F_FCOE_MTU) {
+
