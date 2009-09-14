@@ -1,74 +1,124 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: Re: more troubles with bridge in netns
-Date: Mon, 14 Sep 2009 13:28:59 +0200
-Message-ID: <4AAE28FB.4060201@free.fr>
-References: <200909071807.54511.atis@mikrotik.com> <4AA6188C.1070806@free.fr> <200909141419.12330.atis@mikrotik.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH] pkt_sched: Fix tx queue selection in tc_modify_qdisc
+Date: Mon, 14 Sep 2009 12:22:26 +0000
+Message-ID: <20090914122226.GA14087@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Atis Elsts <atis@mikrotik.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.uk.ibm.com ([194.196.100.162]:59269 "EHLO
-	mtagate2.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750895AbZINL3B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2009 07:29:01 -0400
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate2.uk.ibm.com (8.13.1/8.13.1) with ESMTP id n8EBT4G3019141
-	for <netdev@vger.kernel.org>; Mon, 14 Sep 2009 11:29:04 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n8EBT4GE1167564
-	for <netdev@vger.kernel.org>; Mon, 14 Sep 2009 12:29:04 +0100
-Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n8EBT3Br005028
-	for <netdev@vger.kernel.org>; Mon, 14 Sep 2009 12:29:03 +0100
-In-Reply-To: <200909141419.12330.atis@mikrotik.com>
+Received: from mail-fx0-f217.google.com ([209.85.220.217]:57709 "EHLO
+	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753179AbZINMW3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2009 08:22:29 -0400
+Received: by fxm17 with SMTP id 17so788104fxm.37
+        for <netdev@vger.kernel.org>; Mon, 14 Sep 2009 05:22:32 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Atis Elsts wrote:
-> On Tuesday 08 September 2009 11:40:44 Daniel Lezcano wrote:
->   
->> Atis Elsts wrote:
->>     
->>> Trying to add bridge interface from userspace program, after moving the
->>> program to a new network namespace, causes kernel to crash. I am using
->>> latest kernel version from git (2.6.31-rc9).
->>> The bug is easy to reproduce - just compile and run the attached C
->>> program.
->>>
->>> I see that bridge interface has NETIF_F_NETNS_LOCAL flag, but as I
->>> understand, this flag simply means that a device cannot be *moved* across
->>> network namespaces, not that it cannot be *created* in other namespaces.
->>>       
->> Yep, very easy to reproduce :/
->> The sysfs has not been disabled for the bridge. I will try to fix it as
->> soon as I can.
->>
->> Thanks
->>   -- Daniel
->>     
->
-> Hello,
->
-> please let me know when the sysfs patch for bridge is available. At the moment 
-> I managed to get it to work by just commenting out all sysfs stuff for bridge 
-> module. However, a new problem appears now. After running C program 
-> (attached) that creates a bridge in network namespace and attaches an 
-> interface to it, I got this message repeatedly:
->  kernel:[  466.758908] unregister_netdevice: waiting for lo to become free. 
-> Usage count = 2
->
-> It sems pretty unlikely that my kernel changes could have caused this?
->
-> The unregister_netdevice message does not appear, however, if I uncomment this 
-> line in child.c:
->     system("brctl setfd sim_br0 0");
->   
+After the recent mq change there is the new select_queue qdisc class
+method used in tc_modify_qdisc, but it works OK only for direct child
+qdiscs of mq qdisc. Grandchildren always get the first tx queue, which
+would give wrong qdisc_root etc. results (e.g. for sch_htb as child of
+sch_prio). This patch fixes it by using parent's dev_queue for such
+grandchildren qdiscs. The select_queue method is replaced BTW with the
+static qdisc_select_tx_queue function (it's used only in one place).
 
-I was about to send a patch to disable the bridge per namespace as it 
-seems it was never tested.
-Can you send me your kernel patch ?
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
 
-Thanks.
-  -- Daniel
+ include/net/sch_generic.h |    1 -
+ net/sched/sch_api.c       |   29 +++++++++++++++++++++--------
+ net/sched/sch_mq.c        |   10 ----------
+ 3 files changed, 21 insertions(+), 19 deletions(-)
+
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 88eb9de..865120c 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -81,7 +81,6 @@ struct Qdisc
+ struct Qdisc_class_ops
+ {
+ 	/* Child qdisc manipulation */
+-	unsigned int		(*select_queue)(struct Qdisc *, struct tcmsg *);
+ 	int			(*graft)(struct Qdisc *, unsigned long cl,
+ 					struct Qdisc *, struct Qdisc **);
+ 	struct Qdisc *		(*leaf)(struct Qdisc *, unsigned long cl);
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 3af1061..223a6bc 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -990,6 +990,24 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 	return 0;
+ }
+ 
++static struct netdev_queue *qdisc_select_tx_queue(struct net_device *dev,
++						  struct Qdisc *p, u32 clid)
++{
++	unsigned long ntx;
++
++	if (!p)
++		return netdev_get_tx_queue(dev, 0);
++
++	if (!(p->flags & TCQ_F_MQROOT))
++		return p->dev_queue;
++
++	ntx = TC_H_MIN(clid) - 1;
++	if (ntx >= dev->num_tx_queues)
++		ntx = 0;
++
++	return netdev_get_tx_queue(dev, ntx);
++}
++
+ /*
+    Create/change qdisc.
+  */
+@@ -1110,16 +1128,11 @@ create_n_graft:
+ 		q = qdisc_create(dev, &dev->rx_queue, p,
+ 				 tcm->tcm_parent, tcm->tcm_parent,
+ 				 tca, &err);
+-	else {
+-		unsigned int ntx = 0;
+-
+-		if (p && p->ops->cl_ops && p->ops->cl_ops->select_queue)
+-			ntx = p->ops->cl_ops->select_queue(p, tcm);
+-
+-		q = qdisc_create(dev, netdev_get_tx_queue(dev, ntx), p,
++	else
++		q = qdisc_create(dev, qdisc_select_tx_queue(dev, p, clid), p,
+ 				 tcm->tcm_parent, tcm->tcm_handle,
+ 				 tca, &err);
+-	}
++
+ 	if (q == NULL) {
+ 		if (err == -EAGAIN)
+ 			goto replay;
+diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
+index dd5ee02..4ad949b 100644
+--- a/net/sched/sch_mq.c
++++ b/net/sched/sch_mq.c
+@@ -125,15 +125,6 @@ static struct netdev_queue *mq_queue_get(struct Qdisc *sch, unsigned long cl)
+ 	return netdev_get_tx_queue(dev, ntx);
+ }
+ 
+-static unsigned int mq_select_queue(struct Qdisc *sch, struct tcmsg *tcm)
+-{
+-	unsigned int ntx = TC_H_MIN(tcm->tcm_parent);
+-
+-	if (!mq_queue_get(sch, ntx))
+-		return 0;
+-	return ntx - 1;
+-}
+-
+ static int mq_graft(struct Qdisc *sch, unsigned long cl, struct Qdisc *new,
+ 		    struct Qdisc **old)
+ {
+@@ -213,7 +204,6 @@ static void mq_walk(struct Qdisc *sch, struct qdisc_walker *arg)
+ }
+ 
+ static const struct Qdisc_class_ops mq_class_ops = {
+-	.select_queue	= mq_select_queue,
+ 	.graft		= mq_graft,
+ 	.leaf		= mq_leaf,
+ 	.get		= mq_get,
