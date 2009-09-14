@@ -1,86 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: ipv4 regression in 2.6.31 ?
-Date: Mon, 14 Sep 2009 15:57:03 +0200
-Message-ID: <4AAE4BAF.2010406@gmail.com>
-References: <20090914150935.cc895a3c.skraw@ithnet.com>
+From: Or Gerlitz <ogerlitz@voltaire.com>
+Subject: Re: [PATCH RFC] tun: export underlying socket
+Date: Mon, 14 Sep 2009 17:06:52 +0300
+Message-ID: <4AAE4DFC.9080500@voltaire.com>
+References: <20090910125929.GA32593@redhat.com>	<15ddcffd0909140107m4d94f5abh5405074b654bd15d@mail.gmail.com>	<20090914080923.GC14030@redhat.com> <4AADFC0A.30305@voltaire.com>	<20090914091151.GE14030@redhat.com> <4AAE1026.4090702@voltaire.com> <20090914101012.GA14176@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Stephan von Krawczynski <skraw@ithnet.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:50915 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753000AbZINN5G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2009 09:57:06 -0400
-In-Reply-To: <20090914150935.cc895a3c.skraw@ithnet.com>
+Received: from fwil.voltaire.com ([193.47.165.2]:33250 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754992AbZINOG7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Sep 2009 10:06:59 -0400
+In-Reply-To: <20090914101012.GA14176@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephan von Krawczynski a =E9crit :
-> Hello all,
->=20
-> today we experienced some sort of regression in 2.6.31 ipv4 implement=
-ation, or
-> at least some incompatibility with former 2.6.30.X kernels.
->=20
-> We have the following situation:
->=20
->                                        ---------- vlan1@eth0 192.168.=
-2.1/24
->                                       /
-> host A 192.168.1.1/24 eth0  -------<router>            host B
->                                       \
->                                        ---------- eth1 192.168.3.1/24
->=20
->=20
-> Now, if you route 192.168.1.0/24 via interface vlan1@eth0 on host B a=
-nd let
-> host A ping 192.168.2.1 everything works. But if you route 192.168.1.=
-0/24 via
-> interface eth1 on host B and let host A ping 192.168.2.1 you get no r=
-eply.
-> With tcpdump we see the icmp packets arrive at vlan1@eth0, but no icm=
-p echo
-> reply being generated neither on vlan1 nor eth1.
-> Kernels 2.6.30.X and below do not show this behaviour.
-> Is this intended? Do we need to reconfigure something to restore the =
-old
-> behaviour?
->=20
+Michael S. Tsirkin wrote:
+>> how  would the use case with vhost will look like?
+> - Configure bridge and tun using existing scripts
+> - pass tun fd to vhost via an ioctl
+> - vhost calls tun_get_socket
+> - from this point, guest networking just goes faster
 
-Asymetric routing ?
+let me see I am with you:
 
-Check your rp_filter settings
+1. vhost gets from user space through ioctl packet socket fd OR tun fd - 
+but never both
 
-grep . `find /proc/sys/net -name rp_filter`
+2. for packet socket fd
+VM.TX is translated by vhost to sendmsg which goes through the NIC
+NIC RX  makes the fd poll to signal and then recvmsg is called on the 
+fd, then vhost places the packet in a virtq
 
-rp_filter - INTEGER
-        0 - No source validation.
-        1 - Strict mode as defined in RFC3704 Strict Reverse Path
-            Each incoming packet is tested against the FIB and if the i=
-nterface
-            is not the best reverse path the packet check will fail.
-            By default failed packets are discarded.
-        2 - Loose mode as defined in RFC3704 Loose Reverse Path
-            Each incoming packet's source address is also tested agains=
-t the FIB
-            and if the source address is not reachable via any interfac=
-e
-            the packet check will fail.
+3. for tun fd
+VM.TX is translated by vhost to sendmsg which is translated by tun to 
+netif_rx which is then handled by the bridge
+NIC RX  goes to the bridge which xmits the packet a tun interface, now 
+what makes tun provide this packet to vhost and how it is done?
 
-        Current recommended practice in RFC3704 is to enable strict mod=
-e
-        to prevent IP spoofing from DDos attacks. If using asymmetric r=
-outing
-        or other complicated routing, then loose mode is recommended.
 
-        conf/all/rp_filter must also be set to non-zero to do source va=
-lidation
-        on the interface
+> A lot of people have asked for tun support in vhost, because qemu currently uses tun.  With this scheme existing code and scripts can be used to configure both tun and bridge.  You also can utilize virtualization-specific features in tun.
+Tun has code to support some virtualization-specific features, however, 
+it has also some inherent problems, I think, for example, you don't know 
+over which NIC eventually a packet will be sent and as such, the feature 
+advertising to the guest (virtio-net) NIC is problematic, for example, 
+TSO. With vhost, since you are directly attached to a NIC and assuming 
+its a PF or VF NIC and not something like macvlan/veth you can actually 
+know what features are supported by this NIC.
 
-        Default value is 0. Note that some distributions enable it
-        in startup scripts.
+Or.
+
 
 
