@@ -1,99 +1,91 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: : Release of iptables-1.4.5
-Date: Mon, 14 Sep 2009 19:05:11 +0200
-Message-ID: <4AAE77C7.200@trash.net>
+From: Gregory Haskins <gregory.haskins@gmail.com>
+Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
+Date: Mon, 14 Sep 2009 15:14:35 -0400
+Message-ID: <4AAE961B.6020509@gmail.com>
+References: <cover.1251388414.git.mst@redhat.com> <20090827160750.GD23722@redhat.com> <20090903183945.GF28651@ovro.caltech.edu> <20090907101537.GH3031@redhat.com> <20090908172035.GB319@ovro.caltech.edu> <4AAA7415.5080204@gmail.com> <20090913120140.GA31218@redhat.com> <4AAE6A97.7090808@gmail.com> <20090914164750.GB3745@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------000005020408020500020003"
-To: Netfilter Development Mailinglist <netfilter-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"'netfilter@vger.kernel.org'" <netfilter@vger.kernel.org>,
-	netfilter
-Return-path: <netfilter-announce-bounces@lists.netfilter.org>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-announce>,
-	<mailto:netfilter-announce-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: <http://lists.netfilter.org/pipermail/netfilter-announce>
-List-Post: <mailto:netfilter-announce@lists.netfilter.org>
-List-Help: <mailto:netfilter-announce-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-announce>,
-	<mailto:netfilter-announce-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-announce-bounces@lists.netfilter.org
-Errors-To: netfilter-announce-bounces@lists.netfilter.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig2959D78D936A954B1F0C2FB2"
+Cc: "Ira W. Snyder" <iws@ovro.caltech.edu>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
+	akpm@linux-foundation.org, hpa@zytor.com,
+	Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com,
+	alacrityvm-devel@lists.sourceforge.net
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20090914164750.GB3745@redhat.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000005020408020500020003
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig2959D78D936A954B1F0C2FB2
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-The netfilter coreteam presents:
+Michael S. Tsirkin wrote:
+> On Mon, Sep 14, 2009 at 12:08:55PM -0400, Gregory Haskins wrote:
+>> For Ira's example, the addresses would represent a physical address on=
 
-    iptables version 1.4.5
+>> the PCI boards, and would follow any kind of relevant rules for
+>> converting a "GPA" to a host accessible address (even if indirectly, v=
+ia
+>> a dma controller).
+>=20
+> I don't think limiting addresses to PCI physical addresses will work
+> well.
 
-the iptables release for the 2.6.31 kernel. Changes include:
-
-- support for nfnetlink_queue queue balancing
-
-- support for revision 2 of the conntrack match, which fixes a
-  regression in state matching
-
-- support for multiple IP address specifications with -s/-d
-
-- various internal cleanups and improvements
-
-- manpage updates
-
-Version 1.4.5 can be obtained from:
-
-http://www.netfilter.org/projects/iptables/downloads.html
-ftp://ftp.netfilter.org/pub/iptables/
-git://git.netfilter.org/iptables.git
-
-On behalf of the Netfilter Core Team.
-Happy firewalling!
+The only "limit" is imposed by the memctx.  If a given context needs to
+meet certain requirements beyond PCI physical addresses, it would
+presumably be designed that way.
 
 
---------------000005020408020500020003
-Content-Type: text/plain;
- name="changes-iptables-1.4.5.txt"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="changes-iptables-1.4.5.txt"
+>  From what I rememeber, Ira's x86 can not initiate burst
+> transactions on PCI, and it's the ppc that initiates all DMA.
 
-Florian Westphal (1):
-      libxt_NFQUEUE: add new v1 version with queue-balance option
+The only requirement is that the "guest" "owns" the memory.  IOW: As
+with virtio/vhost, the guest can access the pointers in the ring
+directly but the host must pass through a translation function.
 
-Jan Engelhardt (18):
-      xt_conntrack: revision 2 for enlarged state_mask member
-      libxt_helper: fix invalid passed option to check_inverse
-      libiptc: split v4 and v6
-      extensions: collapse registration structures
-      iptables: allow for parse-less extensions
-      iptables: allow for help-less extensions
-      extensions: remove empty help and parse functions
-      xtables: add multi-registration functions
-      extensions: collapse data variables to use multi-reg calls
-      xtables: warn of missing version identifier in extensions
-      COMMIT_NOTES: notice to check for soversion bumps
-      build: order of dependent libs is sensitive
-      multi binary: allow subcommand via argv[1]
-      build: fix struct size mismatch
-      build: combine iptables-multi and iptables-static
-      build: build only iptables-multi
-      Merge branch 'stable'
-      manpages: more fixes to minuses, hyphens, dashes
+Your translation is direct: you use a slots/hva scheme.  My translation
+is abstracted, which means it can support slots/hva (such as in
+alacrityvm) or some other scheme as long as the general model of "guest
+owned" holds true.
 
-Laurence J. Lane (1):
-      manpage: fix lintian warnings
+>=20
+>>>  But we can't let the guest specify physical addresses.
+>> Agreed.  Neither your proposal nor mine operate this way afaict.
+>=20
+> But this seems to be what Ira needs.
 
-Michael Granzow (1):
-      iptables: accept multiple IP address specifications for -s, -d
+So what he could do then is implement the memctx to integrate with the
+ppc side dma controller.  E.g. "translation" in his box means a protocol
+from the x86 to the ppc to initiate the dma cycle.  This could be
+exposed as a dma facility in the register file of the ppc boards, for
+instance.
 
-Patrick McHardy (2):
-      man: fix incorrect plural in libipt_set.man
-      Bump version number to 1.4.5
+To reiterate, as long as the model is such that the ppc boards are
+considered the "owner" (direct access, no translation needed) I believe
+it will work.  If the pointers are expected to be owned by the host,
+then my model doesn't work well either.
 
-Trent W. Buck (1):
-      ipt_set: fix a typo in the manpage
+Kind Regards,
+-Greg
 
 
---------------000005020408020500020003--
+--------------enig2959D78D936A954B1F0C2FB2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAkqulhsACgkQP5K2CMvXmqHsYACePYzh0H3oY5W3aAc6pFFp4w3u
+tYEAnRNmpU/44+9P++MVTtjbqreGPiiM
+=J8am
+-----END PGP SIGNATURE-----
+
+--------------enig2959D78D936A954B1F0C2FB2--
