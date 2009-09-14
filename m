@@ -1,96 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: ipv4 regression in 2.6.31 ?
-Date: Mon, 14 Sep 2009 17:21:18 +0200
-Message-ID: <4AAE5F6E.3030008@gmail.com>
-References: <20090914150935.cc895a3c.skraw@ithnet.com>	<4AAE4BAF.2010406@gmail.com> <20090914171001.47371b3d.skraw@ithnet.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH RFC] tun: export underlying socket
+Date: Mon, 14 Sep 2009 18:40:11 +0300
+Message-ID: <20090914154011.GB3556@redhat.com>
+References: <20090910125929.GA32593@redhat.com> <15ddcffd0909140107m4d94f5abh5405074b654bd15d@mail.gmail.com> <20090914080923.GC14030@redhat.com> <4AADFC0A.30305@voltaire.com> <20090914091151.GE14030@redhat.com> <4AAE1026.4090702@voltaire.com> <20090914101012.GA14176@redhat.com> <4AAE4DFC.9080500@voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Stephan von Krawczynski <skraw@ithnet.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755424AbZINPVW@vger.kernel.org>
-In-Reply-To: <20090914171001.47371b3d.skraw@ithnet.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: Or Gerlitz <ogerlitz@voltaire.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46239 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755802AbZINPqK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Sep 2009 11:46:10 -0400
+Content-Disposition: inline
+In-Reply-To: <4AAE4DFC.9080500@voltaire.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stephan von Krawczynski a =E9crit :
-> On Mon, 14 Sep 2009 15:57:03 +0200
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->=20
->> Stephan von Krawczynski a =E9crit :
->>> Hello all,
->>>
->>> today we experienced some sort of regression in 2.6.31 ipv4 impleme=
-ntation, or
->>> at least some incompatibility with former 2.6.30.X kernels.
->>>
->>> We have the following situation:
->>>
->>>                                        ---------- vlan1@eth0 192.16=
-8.2.1/24
->>>                                       /
->>> host A 192.168.1.1/24 eth0  -------<router>            host B
->>>                                       \
->>>                                        ---------- eth1 192.168.3.1/=
-24
->>>
->>>
->>> Now, if you route 192.168.1.0/24 via interface vlan1@eth0 on host B=
- and let
->>> host A ping 192.168.2.1 everything works. But if you route 192.168.=
-1.0/24 via
->>> interface eth1 on host B and let host A ping 192.168.2.1 you get no=
- reply.
->>> With tcpdump we see the icmp packets arrive at vlan1@eth0, but no i=
-cmp echo
->>> reply being generated neither on vlan1 nor eth1.
->>> Kernels 2.6.30.X and below do not show this behaviour.
->>> Is this intended? Do we need to reconfigure something to restore th=
-e old
->>> behaviour?
->>>
->> Asymetric routing ?
->>
->> Check your rp_filter settings
->>
->> grep . `find /proc/sys/net -name rp_filter`
->>
->> rp_filter - INTEGER
->>         0 - No source validation.
->>         1 - Strict mode as defined in RFC3704 Strict Reverse Path
->>             Each incoming packet is tested against the FIB and if th=
-e interface
->>             is not the best reverse path the packet check will fail.
->>             By default failed packets are discarded.
->>         2 - Loose mode as defined in RFC3704 Loose Reverse Path
->>             Each incoming packet's source address is also tested aga=
-inst the FIB
->>             and if the source address is not reachable via any inter=
-face
->>             the packet check will fail.
->>
->>         Current recommended practice in RFC3704 is to enable strict =
-mode
->>         to prevent IP spoofing from DDos attacks. If using asymmetri=
-c routing
->>         or other complicated routing, then loose mode is recommended=
-=2E
->>
->>         conf/all/rp_filter must also be set to non-zero to do source=
- validation
->>         on the interface
->>
->>         Default value is 0. Note that some distributions enable it
->>         in startup scripts.
->=20
-> Problem is this:
-> Kernel 2.6.30.X and below work flawlessly in this setup, only kernel =
-2.6.31
-> acts different. Is this an intended change in policy?
->=20
+On Mon, Sep 14, 2009 at 05:06:52PM +0300, Or Gerlitz wrote:
+> Michael S. Tsirkin wrote:
+>>> how  would the use case with vhost will look like?
+>> - Configure bridge and tun using existing scripts
+>> - pass tun fd to vhost via an ioctl
+>> - vhost calls tun_get_socket
+>> - from this point, guest networking just goes faster
+>
+> let me see I am with you:
+>
+> 1. vhost gets from user space through ioctl packet socket fd OR tun fd -  
+> but never both
 
-Here, it only depends on rp_filter settings, kernel 2.6.30 or 2.6.31
+Right
 
-Please give your settings for further investigations, for all hosts inv=
-olved.
+> 2. for packet socket fd
+> VM.TX is translated by vhost to sendmsg which goes through the NIC
+> NIC RX  makes the fd poll to signal and then recvmsg is called on the  
+> fd, then vhost places the packet in a virtq
+>
+> 3. for tun fd
+> VM.TX is translated by vhost to sendmsg which is translated by tun to  
+> netif_rx which is then handled by the bridge
+> NIC RX  goes to the bridge which xmits the packet a tun interface, now  
+> what makes tun provide this packet to vhost and how it is done?
+
+Same as above. vhost polls tun and calls recvmsg on the socket.
+
+>
+>> A lot of people have asked for tun support in vhost, because qemu
+>> currently uses tun.  With this scheme existing code and scripts can
+>> be used to configure both tun and bridge.  You also can utilize
+>> virtualization-specific features in tun.
+
+( broken too-long lines up. please do not merge them. )
+
+> Tun has code to support some virtualization-specific features, however,  
+> it has also some inherent problems, I think, for example, you don't know  
+> over which NIC eventually a packet will be sent and as such, the feature  
+> advertising to the guest (virtio-net) NIC is problematic,
+> for example,  
+> TSO. With vhost, since you are directly attached to a NIC and assuming  
+> its a PF or VF NIC and not something like macvlan/veth you can actually  
+> know what features are supported by this NIC.
+>
+> Or.
+
+Herbert addressed the TSO example.
+
+Generally, feature negotiation does become more complicated in bridged
+configurations, but some users require bridging. So with vhost, feature
+negotiation is mostly done in userspace (e.g. vhost does not expose a
+TSO cpability, devices do this already); vhost itself only cares about
+virtio features such as mergeable buffers.
+Policy decisions, including whether to use packet socket or
+tun+bridge, are up to the user.
+
+-- 
+MST
