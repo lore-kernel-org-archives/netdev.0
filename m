@@ -1,35 +1,148 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH 1/8] networking/fanotify: declare fanotify socket numbers
-Date: Mon, 14 Sep 2009 18:07:20 +0400
-Message-ID: <20090914140720.GA8564@ioremap.net>
-References: <20090911052558.32359.18075.stgit@paris.rdu.redhat.com> <20090911.114620.260824240.davem@davemloft.net> <1252697613.2305.38.camel@dhcp231-106.rdu.redhat.com> <20090911204602.GA19371@shareable.org> <1252703626.2305.50.camel@dhcp231-106.rdu.redhat.com> <20090911212731.GA19901@shareable.org> <1252705902.2305.83.camel@dhcp231-106.rdu.redhat.com> <20090912094110.GB24709@ioremap.net> <20090914001759.GB30621@shareable.org>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH] tcp: fix ssthresh u16 leftover
+Date: Mon, 14 Sep 2009 17:09:08 +0300 (EEST)
+Message-ID: <alpine.DEB.2.00.0909141705500.7424@wel-95.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Paris <eparis@redhat.com>, David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
-	alan@linux.intel.com, hch@infradead.org
-To: Jamie Lokier <jamie@shareable.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090914001759.GB30621@shareable.org>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-17586308-1252937349=:7424"
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:39491 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754660AbZINOJG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2009 10:09:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 14, 2009 at 01:17:59AM +0100, Jamie Lokier (jamie@shareable.org) wrote:
-> > When queue is full or you do not have enough RAM. Both are reported at
-> > 'sending' time.
-> 
-> Can you ->poll() and wait reliably until the queue will accept an skb?
-> (A few spurious EAGAINs/ENOBUFs is ok, as long as it's not the norm).
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Not that simple and for memory allocation error just can't.
+--8323329-17586308-1252937349=:7424
+Content-Type: TEXT/PLAIN; format=flowed; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
 
-There is no direct access to remote peer sockets, i.e. to userspace
-ones, so one will have to lock netlink table and run over listeners and
-check whether they can accept the message and wait/poll for queue size
-to become big enough. Netlink table and its locking is not exported,
-so effectively there is no simple way to do this.
+It was once upon time so that snd_sthresh was a 16-bit quantity.
+...That has not been true for long period of time. I run across
+some ancient compares which still seem to trust such legacy.
+Put all that magic into a single place, I hopefully found all
+of them.
+
+Compile tested, though linking of allyesconfig is ridiculous
+nowadays it seems.
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+
+---
+  include/net/tcp.h        |    7 +++++++
+  net/ipv4/tcp.c           |    2 +-
+  net/ipv4/tcp_input.c     |    2 +-
+  net/ipv4/tcp_ipv4.c      |    4 ++--
+  net/ipv4/tcp_minisocks.c |    2 +-
+  net/ipv6/tcp_ipv6.c      |    5 +++--
+  6 files changed, 15 insertions(+), 7 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index b71a446..56b7602 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -793,6 +793,13 @@ static inline unsigned int tcp_packets_in_flight(const struct tcp_sock *tp)
+  	return tp->packets_out - tcp_left_out(tp) + tp->retrans_out;
+  }
+
++#define TCP_INFINITE_SSTHRESH	0x7fffffff
++
++static inline bool tcp_in_initial_slowstart(const struct tcp_sock *tp)
++{
++	return tp->snd_ssthresh >= TCP_INFINITE_SSTHRESH;
++}
++
+  /* If cwnd > ssthresh, we may raise ssthresh to be half-way to cwnd.
+   * The exception is rate halving phase, when cwnd is decreasing towards
+   * ssthresh.
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index edeea06..19a0612 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2012,7 +2012,7 @@ int tcp_disconnect(struct sock *sk, int flags)
+  	tp->snd_cwnd = 2;
+  	icsk->icsk_probes_out = 0;
+  	tp->packets_out = 0;
+-	tp->snd_ssthresh = 0x7fffffff;
++	tp->snd_ssthresh = TCP_INFINITE_SSTHRESH;
+  	tp->snd_cwnd_cnt = 0;
+  	tp->bytes_acked = 0;
+  	tcp_set_ca_state(sk, TCP_CA_Open);
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index af6d6fa..d86784b 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -761,7 +761,7 @@ void tcp_update_metrics(struct sock *sk)
+  			set_dst_metric_rtt(dst, RTAX_RTTVAR, var);
+  		}
+
+-		if (tp->snd_ssthresh >= 0xFFFF) {
++		if (tcp_in_initial_slowstart(tp)) {
+  			/* Slow start still did not finish. */
+  			if (dst_metric(dst, RTAX_SSTHRESH) &&
+  			    !dst_metric_locked(dst, RTAX_SSTHRESH) &&
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 0543561..7cda24b 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1808,7 +1808,7 @@ static int tcp_v4_init_sock(struct sock *sk)
+  	/* See draft-stevens-tcpca-spec-01 for discussion of the
+  	 * initialization of these values.
+  	 */
+-	tp->snd_ssthresh = 0x7fffffff;	/* Infinity */
++	tp->snd_ssthresh = TCP_INFINITE_SSTHRESH;
+  	tp->snd_cwnd_clamp = ~0;
+  	tp->mss_cache = 536;
+
+@@ -2284,7 +2284,7 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i, int *len)
+  		jiffies_to_clock_t(icsk->icsk_ack.ato),
+  		(icsk->icsk_ack.quick << 1) | icsk->icsk_ack.pingpong,
+  		tp->snd_cwnd,
+-		tp->snd_ssthresh >= 0xFFFF ? -1 : tp->snd_ssthresh,
++		tcp_in_initial_slowstart(tp) ? -1 : tp->snd_ssthresh,
+  		len);
+  }
+
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index e48c37d..045bcfd 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -410,7 +410,7 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
+  		newtp->retrans_out = 0;
+  		newtp->sacked_out = 0;
+  		newtp->fackets_out = 0;
+-		newtp->snd_ssthresh = 0x7fffffff;
++		newtp->snd_ssthresh = TCP_INFINITE_SSTHRESH;
+
+  		/* So many TCP implementations out there (incorrectly) count the
+  		 * initial SYN frame in their delayed-ACK and congestion control
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 3aae0f2..6e3f0dc 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1846,7 +1846,7 @@ static int tcp_v6_init_sock(struct sock *sk)
+  	/* See draft-stevens-tcpca-spec-01 for discussion of the
+  	 * initialization of these values.
+  	 */
+-	tp->snd_ssthresh = 0x7fffffff;
++	tp->snd_ssthresh = TCP_INFINITE_SSTHRESH;
+  	tp->snd_cwnd_clamp = ~0;
+  	tp->mss_cache = 536;
+
+@@ -1969,7 +1969,8 @@ static void get_tcp6_sock(struct seq_file *seq, struct sock *sp, int i)
+  		   jiffies_to_clock_t(icsk->icsk_rto),
+  		   jiffies_to_clock_t(icsk->icsk_ack.ato),
+  		   (icsk->icsk_ack.quick << 1 ) | icsk->icsk_ack.pingpong,
+-		   tp->snd_cwnd, tp->snd_ssthresh>=0xFFFF?-1:tp->snd_ssthresh
++		   tp->snd_cwnd,
++		   tcp_in_initial_slowstart(tp) ? -1 : tp->snd_ssthresh
+  		   );
+  }
 
 -- 
-	Evgeniy Polyakov
+tg: (13af7a6..) fix/ssthresh (depends on: origin/master)
+--8323329-17586308-1252937349=:7424--
