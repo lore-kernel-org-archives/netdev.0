@@ -1,106 +1,64 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
-Date: Mon, 14 Sep 2009 15:28:39 -0400
-Message-ID: <4AAE9967.9060406@gmail.com>
-References: <cover.1251388414.git.mst@redhat.com> <20090827160750.GD23722@redhat.com> <20090903183945.GF28651@ovro.caltech.edu> <20090907101537.GH3031@redhat.com> <20090908172035.GB319@ovro.caltech.edu> <4AAA7415.5080204@gmail.com> <20090913120140.GA31218@redhat.com> <4AAE6A97.7090808@gmail.com> <20090914165320.GA3851@redhat.com>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?= <nicolas.2p.debian@free.fr>
+Subject: Re: [Bonding-devel] [PATCH 4/4] bonding: add sysfs files to display
+ tlb and alb	hash table contents
+Date: Mon, 14 Sep 2009 21:37:33 +0200
+Message-ID: <4AAE9B7D.7030608@free.fr>
+References: <20090911211317.GT8515@gospo.rdu.redhat.com>	<26430.1252705697@death.nxdomain.ibm.com> <20090914144532.GU8515@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigA42345AD71EBB21A4FC6AED0"
-Cc: "Ira W. Snyder" <iws@ovro.caltech.edu>, netdev@vger.kernel.org,
- virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
- linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
- akpm@linux-foundation.org, hpa@zytor.com,
- Rusty Russell <rusty@rustcorp.com.au>,
- s.hetze@linux-ag.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20090914165320.GA3851@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net
+To: Andy Gospodarek <andy@greyhouse.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp6-g21.free.fr ([212.27.42.6]:33688 "EHLO smtp6-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756806AbZINThk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Sep 2009 15:37:40 -0400
+In-Reply-To: <20090914144532.GU8515@gospo.rdu.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigA42345AD71EBB21A4FC6AED0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-Michael S. Tsirkin wrote:
-> On Mon, Sep 14, 2009 at 12:08:55PM -0400, Gregory Haskins wrote:
->> Michael S. Tsirkin wrote:
->>> On Fri, Sep 11, 2009 at 12:00:21PM -0400, Gregory Haskins wrote:
->>>> FWIW: VBUS handles this situation via the "memctx" abstraction.  IOW=
-,
->>>> the memory is not assumed to be a userspace address.  Rather, it is =
-a
->>>> memctx-specific address, which can be userspace, or any other type
->>>> (including hardware, dma-engine, etc).  As long as the memctx knows =
-how
->>>> to translate it, it will work.
->>> How would permissions be handled?
->> Same as anything else, really.  Read on for details.
+Andy Gospodarek wrote:
+> On Fri, Sep 11, 2009 at 02:48:17PM -0700, Jay Vosburgh wrote:
+>> Andy Gospodarek <andy@greyhouse.net> wrote:
 >>
->>> it's easy to allow an app to pass in virtual addresses in its own add=
-ress space.
->> Agreed, and this is what I do.
+>>> bonding: add sysfs files to display tlb and alb hash table contents
+>> 	Isn't it considered bad form to have sysfs files that kick out
+>> large amounts of data like this?  Not that I think this is a bad
+>> facility to have, just checking on the mechanism.
 >>
->> The guest always passes its own physical addresses (using things like
->> __pa() in linux).  This address passed is memctx specific, but general=
-ly
->> would fall into the category of "virtual-addresses" from the hosts
->> perspective.
->>
->> For a KVM/AlacrityVM guest example, the addresses are GPAs, accessed
->> internally to the context via a gfn_to_hva conversion (you can see thi=
-s
->> occuring in the citation links I sent)
->>
->> For Ira's example, the addresses would represent a physical address on=
+> 
+> I'm not aware of such a restriction -- though I'm sure at least one
+> person out there doesn't like it.
 
->> the PCI boards, and would follow any kind of relevant rules for
->> converting a "GPA" to a host accessible address (even if indirectly, v=
-ia
->> a dma controller).
->=20
-> So vbus can let an application
+In Documentation/filesystems/sysfs.txt:
 
-"application" means KVM guest, or ppc board, right?
+"Attributes should be ASCII text files, preferably with only one value
+per file. It is noted that it may not be efficient to contain only one
+value per file, so it is socially acceptable to express an array of
+values of the same type.
 
-> access either its own virtual memory or a physical memory on a PCI devi=
-ce.
+Mixing types, expressing multiple lines of data, and doing fancy
+formatting of data is heavily frowned upon. Doing these things may get
+you publically humiliated and your code rewritten without notice."
 
-To reiterate from the last reply: the model is the "guest" owns the
-memory.  The host is granted access to that memory by means of a memctx
-object, which must be admitted to the host kernel and accessed according
- to standard access-policy mechanisms.  Generally the "application" or
-guest would never be accessing anything other than its own memory.
+Apparently, thinks are becoming more relaxed these days.
 
-> My question is, is any application
-> that's allowed to do the former also granted rights to do the later?
+	Nicolas.
 
-If I understand your question, no.  Can you elaborate?
+> If that's the case, there are certainly a few files that should be
+> cleaned up:
+> 
+> # find -type f -exec wc -l {} 2> /dev/null \; | sort -r -n | head -10
+> 1657 ./firmware/acpi/tables/SSDT
+> 132 ./firmware/acpi/tables/dynamic/SSDT2
+> 128 ./devices/pci0000:00/0000:00:1c.5/0000:3f:00.0/vpd
+> 27 ./devices/system/node/node0/meminfo
+> 24 ./devices/pnp0/00:08/options
+> 24 ./devices/pnp0/00:07/options
+> 12 ./devices/pci0000:00/0000:00:1e.0/resource
+> 12 ./devices/pci0000:00/0000:00:1c.5/resource
+> 12 ./devices/pci0000:00/0000:00:1c.4/resource
+> 12 ./devices/pci0000:00/0000:00:1c.0/resource
 
-Kind Regards,
--Greg
-
-
---------------enigA42345AD71EBB21A4FC6AED0
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkqumWcACgkQP5K2CMvXmqFy7ACgi8TyUR3Jecgzz5GkKkFbPghh
-68MAnjdJj8I2gXA9aTDBmumt62C11d3G
-=yoUM
------END PGP SIGNATURE-----
-
---------------enigA42345AD71EBB21A4FC6AED0--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
