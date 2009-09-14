@@ -1,33 +1,44 @@
-From: Or Gerlitz <ogerlitz@voltaire.com>
-Subject: Re: [PATCH RFC] tun: export underlying socket
-Date: Mon, 14 Sep 2009 12:43:02 +0300
-Message-ID: <4AAE1026.4090702@voltaire.com>
-References: <20090910125929.GA32593@redhat.com>	<15ddcffd0909140107m4d94f5abh5405074b654bd15d@mail.gmail.com>	<20090914080923.GC14030@redhat.com> <4AADFC0A.30305@voltaire.com> <20090914091151.GE14030@redhat.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: bisect results of MSI-X related panic (help!)
+Date: Mon, 14 Sep 2009 18:43:58 +0900
+Message-ID: <4AAE105E.1080005@kernel.org>
+References: <1252699744.3877.15.camel@jbrandeb-hc.jf.intel.com> <200909120623.49764.elendil@planet.nl> <4AAE0F7B.5050203@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:29030 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755017AbZINJm7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Sep 2009 05:42:59 -0400
-In-Reply-To: <20090914091151.GE14030@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Ingo Molnar <mingo@elte.hu>
+To: Frans Pop <elendil@planet.nl>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755338AbZINJoS@vger.kernel.org>
+In-Reply-To: <4AAE0F7B.5050203@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Michael S. Tsirkin wrote:
-> That's already possible. However virtualization users are familiar with configuring the tun device, and tun has grown virtualization-specific extensions, so I don't see a reason not to accomodate these uses
-Today packets are written/read from/to Qemu to/from tun device, how 
-would the use case with vhost will look like?
+Tejun Heo wrote:
+> Frans Pop wrote:
+>> Jesse Brandeburg wrote:
+>>> I've bisected, here is my bisect log, problem is that the commit
+>>> identified is a merge commit, and *I don't know what to revert to test*.
+>>> It appears the parent of the merge:
+>>> 6e15cf04860074ad032e88c306bea656bbdd0f22 is marked good, but looks to be
+>>> in a possibly related area to the panic.
+>> That merge does contain quite a few merge fixups, so it's quite possible 
+>> one of them is the cause of the failure.
+>> Maybe the simplest way to verify that is to compile both parents of the 
+>> merge to doublecheck that they work OK. Then, if a compile of the merge 
+>> itself is bad, the problem really is in the merge commit itself.
+>>
+>> That commit is the "percpu" merge, so I've added Tejun (author of most of 
+>> that branch) and Ingo (merger) in CC.
+> 
+> Sorry, the oops doesn't ring a bell, well, not yet at least.  It would
+> be great if the bisection can be narrowed down more.
 
-Is this the user setting an uplink NIC + bridge + per VM tun device but 
-the packets will go from/to virtio-net in the guest kernel to/from vhost 
-in the host kernel and then from/to vhost to/from tun? so eventually no 
-packets will be seen by the qemu process? I don't see what these scheme 
-buys people, I got very much confused.
+Also, building w/ debug option on, capturing more oops traces and
+pasting gdb output of l *<oops address> might shed some more light.
 
-Or.
+Thanks.
 
+-- 
+tejun
