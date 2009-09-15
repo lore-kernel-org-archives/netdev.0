@@ -1,54 +1,38 @@
-From: Robert Varga <nite@hq.alert.sk>
-Subject: [PATCH] fix CONFIG_TCP_MD5SIG + CONFIG_PREEMPT timer BUG()
-Date: Wed, 16 Sep 2009 01:01:26 +0200
-Message-ID: <20090915230126.GA21539@hq.alert.sk>
+From: Dan Williams <dan.j.williams@intel.com>
+Subject: Re: [PATCH 21/29] ioat2,3: dynamically resize descriptor ring
+Date: Tue, 15 Sep 2009 16:07:05 -0700
+Message-ID: <e9c3a7c20909151607h5171784ence5e6722adab4ad7@mail.gmail.com>
+References: <20090904022733.32667.77626.stgit@dwillia2-linux.ch.intel.com>
+	 <20090904023216.32667.55942.stgit@dwillia2-linux.ch.intel.com>
+	 <129600E5E5FB004392DDC3FB599660D7B5548192@irsmsx504.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hq.alert.sk ([195.95.205.245]:58665 "EHLO hq.alert.sk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752698AbZIOXBY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Sep 2009 19:01:24 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-raid@vger.kernel.org" <linux-raid@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Sosnowski, Maciej" <maciej.sosnowski@intel.com>
+Return-path: <linux-raid-owner@vger.kernel.org>
+In-Reply-To: <129600E5E5FB004392DDC3FB599660D7B5548192@irsmsx504.ger.corp.intel.com>
+Sender: linux-raid-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Mon, Sep 14, 2009 at 8:00 AM, Sosnowski, Maciej
+<maciej.sosnowski@intel.com> wrote:
+> Making the max_alloc_order a module parameter gives impression
+> that it can be modified by an user, including making it larger than default.
+> The default is however its maximum value, which may be confusing.
+> Why not to use parameter only as the upper limit?
 
-I have recently came across a preemption imbalance detected by:
+It is the upper limit.
 
-<4>huh, entered ffffffff80644630 with preempt_count 00000102, exited with 00000101?
-<0>------------[ cut here ]------------
-<2>kernel BUG at /usr/src/linux/kernel/timer.c:664!
-<0>invalid opcode: 0000 [1] PREEMPT SMP
+The user can limit the upper size of the descriptor ring by setting
+this to a value less than 16.  By default it is the maximum ring size
+that the driver/hardware* supports.  Specifying values greater than 16
+are not supported by the so we need enforce a ceiling at 16.
 
-with ffffffff80644630 being inet_twdr_hangman().
+--
+Dan
 
-This appeared after I enabled CONFIG_TCP_MD5SIG and played with it a
-bit, so I looked at what might have caused it.
-
-One thing that struck me as strange is tcp_twsk_destructor(), as it
-calls tcp_put_md5sig_pool() -- which entails a put_cpu(), causing the
-detected imbalance. Found on 2.6.23.9, but 2.6.31 is affected as well,
-as far as I can tell.
-
-Signed-off-by: Robert Varga <nite@hq.alert.sk>
----
-
---- vanilla/net/ipv4/tcp_minisocks.c	2009-09-10 00:13:59.000000000 +0200
-+++ patched/net/ipv4/tcp_minisocks.c	2009-09-16 00:48:15.904089024 +0200
-@@ -363,7 +363,7 @@ void tcp_twsk_destructor(struct sock *sk
- #ifdef CONFIG_TCP_MD5SIG
- 	struct tcp_timewait_sock *twsk = tcp_twsk(sk);
- 	if (twsk->tw_md5_keylen)
--		tcp_put_md5sig_pool();
-+		tcp_free_md5sig_pool();
- #endif
- }
- 
--- 
-Bye,
-Robert Varga
-
-Reality continues to ruin my life. -- Calvin
+* We could support ring sizes larger than 1 << 16 but we would need to
+extra logic to ensure that the pending count never exceeded 1 << 16.
+Simpler I think to just limit the maximum ring size.
