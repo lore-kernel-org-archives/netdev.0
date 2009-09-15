@@ -1,67 +1,44 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: igb bandwidth allocation configuration
-Date: Tue, 15 Sep 2009 21:32:46 +1000
-Message-ID: <20090915113239.GI24194@verge.net.au>
-References: <20090910081844.GA5421@verge.net.au>
- <4AA8E2CE.2080707@trash.net>
- <4AA8E939.6050208@trash.net>
- <20090911003838.GA19376@verge.net.au>
+From: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
+Subject: Re: [PATCH 2/2] ems_usb: Added support for EMS CPC-USB/ARM7 CAN/USB
+	interface
+Date: Tue, 15 Sep 2009 13:36:40 +0200
+Message-ID: <4AAF7C48.6080003@ems-wuensche.com>
+References: <20090914080945.5441.45509.stgit@localhost.localdomain>
+	<20090914082229.5441.16650.stgit@localhost.localdomain>
+	<4AAF762A.5030605@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:53402 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753136AbZIOLco (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 07:32:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20090911003838.GA19376@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org,
+	greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4AAF762A.5030605-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 11, 2009 at 10:38:38AM +1000, Simon Horman wrote:
-> On Thu, Sep 10, 2009 at 01:55:37PM +0200, Patrick McHardy wrote:
-> > Patrick McHardy wrote:
-> > > Simon Horman wrote:
-> > >>
-> > >> I have been looking into adding support the 82586's per-PF/VF
-> > >> bandwidth allocation to the igb driver. It seems that the trickiest
-> > >> part is working out how to expose things to user-space.
-> > >>
-> > >> ...
-> > >> Internally it seems that actually the limits are applied to HW Tx queues
-> > >> rather than directly VMs. There are 16 such queues. Accordingly it might
-> > >> be useful to design an interface to set limits per-queue using ethtool.
-> > >> But this would seem to also require exposing which queues are associated
-> > >> with which PF/VF.
-> > > 
-> > > Just an idea since I don't know much about this stuff:
-> > > 
-> > > Since we now have the mq packet scheduler, which exposes the device
-> > > queues as qdisc classes, how about adding driver-specific configuration
-> > > attributes that are passed to the driver by the mq scheduler? This
-> > > would allow to configure per-queue bandwidth limits using regular TC
-> > > commands and also use those limits without VFs for any kind of traffic.
-> > > Drivers not supporting this would refuse unsupported options.
-> > 
-> > Attached patch demonstrates the idea. Compile-tested only.
-> > 
-> 
-> Thanks, that seems like a pretty good idea to me.
-> I'll see if I can make it work.
-
-I've been looking over this a little more closely. While using mq
-does seem to be a good way to configure the hw bandwith allocation
-for queues belonging to the PF I don't think it can be used
-for queues belonging to any VFs. Primarily because the VFs will
-belong be different devices, possibly in different OSes.
-
-A further complication is that although the PF and VFs have different
-devices they do share hw and the bandwidth allocation rules in the
-datasheet seem to imply that they bandwidth allocations need to be
-made together to ensure that the rules aren't violated. That is,
-they need to be verified as a group at some point. Which is
-what let to my original suggestion of using ethtool on the device
-corresponding to the PF.
-
+RXJpYywKCkVyaWMgRHVtYXpldCBzY2hyaWViOgo+IFNlYmFzdGlhbiBIYWFzIGEgw6ljcml0IDoK
+Pj4gVGhpcyBwYXRjaCBhZGRzIHN1cHBvcnQgZm9yIG9uZSBjaGFubmVsIENBTi9VU0IgaW50ZXJh
+Y2UgQ1BDLVVTQi9BUk03IGZyb20KPj4gRU1TIERyLiBUaG9tYXMgV3VlbnNjaGUgKGh0dHA6Ly93
+d3cuZW1zLXd1ZW5zY2hlLmNvbSkuCj4+Cj4+IFNpZ25lZC1vZmYtYnk6IFNlYmFzdGlhbiBIYWFz
+IDxoYWFzQGVtcy13dWVuc2NoZS5jb20+Cj4+IC0tLQo+Pgo+IAo+IC4uLgo+IAo+PiArCW5ldGlm
+X3J4KHNrYik7Cj4+ICsKPj4gKwlkZXYtPm5ldGRldi0+bGFzdF9yeCA9IGppZmZpZXM7Cj4gCj4g
+UGxlYXNlIGRvbnQgdXBkYXRlIGxhc3RfcnggdW5sZXNzIHlvdXIgZHJpdmVyICpyZWFsbHkqIG5l
+ZWRzIHRvLgo+IAo+IGRyaXZlcnMvbmV0L3NreTIuYyBpcyBhbiBleGFtcGxlIG9mIGRyaXZlciB0
+aGF0IGhhcyB0byB1cGRhdGUgLT5sYXN0X3J4Cj4gZm9yIGl0cyBpbnRlcm5hbCB1c2UuCk9rYXks
+IEkgc2VlLiBSZW1vdmVkLCB0aGFua3MuCgpDaGVlcnMsIFNlYmFzdGlhbiBIYWFzCi0tIApFTVMg
+RHIuIFRob21hcyBXdWVuc2NoZSBlLksuClNvbm5lbmhhbmcgMwo4NTMwNCBJbG1tdWVuc3RlcgpI
+UkEgTmV1YnVyZyBhLmQuIERvbmF1LCBIUi1Oci4gNzAuMTA2ClBob25lOiArNDktODQ0MS00OTAy
+NjAKRmF4ICA6ICs0OS04NDQxLTgxODYwCmh0dHA6Ly93d3cuZW1zLXd1ZW5zY2hlLmNvbQpfX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpTb2NrZXRjYW4tY29y
+ZSBtYWlsaW5nIGxpc3QKU29ja2V0Y2FuLWNvcmVAbGlzdHMuYmVybGlvcy5kZQpodHRwczovL2xp
+c3RzLmJlcmxpb3MuZGUvbWFpbG1hbi9saXN0aW5mby9zb2NrZXRjYW4tY29yZQo=
