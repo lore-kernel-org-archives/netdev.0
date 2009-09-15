@@ -1,39 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2nd try] tcp: fix ssthresh u16 leftover
-Date: Tue, 15 Sep 2009 01:30:47 -0700 (PDT)
-Message-ID: <20090915.013047.33116195.davem@davemloft.net>
-References: <alpine.DEB.2.00.0909141705500.7424@wel-95.cs.helsinki.fi>
-	<20090914.170555.154302240.davem@davemloft.net>
-	<alpine.DEB.2.00.0909151111250.7424@wel-95.cs.helsinki.fi>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: alloc skb based on a given data buffer
+Date: Tue, 15 Sep 2009 01:33:21 -0700 (PDT)
+Message-ID: <20090915.013321.07006714.davem@davemloft.net>
+References: <1252897270.5650.169.camel@debian>
+	<20090914130612.GA11778@csn.ul.ie>
+	<1253003420.7549.51.camel@debian>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33582
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751614AbZIOIab convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Sep 2009 04:30:31 -0400
-In-Reply-To: <alpine.DEB.2.00.0909151111250.7424@wel-95.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org, reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org,
+	Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, assaf.krauss-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, mohamed.abbas-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1253003420.7549.51.camel@debian>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Tue, 15 Sep 2009 11:19:11 +0300 (EEST)
+From: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Date: Tue, 15 Sep 2009 16:30:20 +0800
 
-> [PATCH 2nd try] tcp: fix ssthresh u16 leftover
->=20
-> It was once upon time so that snd_sthresh was a 16-bit quantity.
-> ...That has not been true for long period of time. I run across
-> some ancient compares which still seem to trust such legacy.
-> Put all that magic into a single place, I hopefully found all
-> of them.
->=20
-> Compile tested, though linking of allyesconfig is ridiculous
-> nowadays it seems.
->=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> This way, device drivers can allocate the Rx buffers with their own size
+> and alignment requirement. i.e. do an order-1 page allocation directly
+> with free_pages() in the iwlagn driver for a 256 bytes aligned 8K Rx
+> buffer. After DMA is finished, drivers can use the above function to
+> assemble an skb based on the Rx buffer. It should resolve the problem
+> for requiring an order-2 allocation by alloc_skb() in the first place.
 
-Much better, applied, thanks!
+You can create paged RX skbs just like drivers such as niu.c
+and others already do, there is no need for special APIs for
+this.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
