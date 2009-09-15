@@ -1,30 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] Phonet: basic routing support
-Date: Tue, 15 Sep 2009 14:22:21 -0700 (PDT)
-Message-ID: <20090915.142221.71291613.davem@davemloft.net>
-References: <a9972d3fe3d2bf09387bee7827b571c0@chewa.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
+Date: Wed, 16 Sep 2009 00:25:45 +0300
+Message-ID: <20090915212545.GC27954@redhat.com>
+References: <20090914164750.GB3745@redhat.com> <4AAE961B.6020509@gmail.com> <4AAF8A03.5020806@redhat.com> <4AAF909F.9080306@gmail.com> <4AAF95D1.1080600@redhat.com> <4AAF9BAF.3030109@gmail.com> <4AAFACB5.9050808@redhat.com> <4AAFF437.7060100@gmail.com> <20090915204036.GA27954@redhat.com> <4AAFFC8E.9010404@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: remi@remlab.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51398
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751790AbZIOVWF convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Sep 2009 17:22:05 -0400
-In-Reply-To: <a9972d3fe3d2bf09387bee7827b571c0@chewa.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Avi Kivity <avi@redhat.com>, "Ira W. Snyder" <iws@ovro.caltech.edu>,
+        netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+        linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
+        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com,
+        alacrityvm-devel@lists.sourceforge.net
+To: Gregory Haskins <gregory.haskins@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <4AAFFC8E.9010404@gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: R=E9mi Denis-Courmont <remi@remlab.net>
-Date: Tue, 15 Sep 2009 13:30:19 +0200
+On Tue, Sep 15, 2009 at 04:43:58PM -0400, Gregory Haskins wrote:
+> Michael S. Tsirkin wrote:
+> > On Tue, Sep 15, 2009 at 04:08:23PM -0400, Gregory Haskins wrote:
+> >> No, what I mean is how do you surface multiple ethernet and consoles to
+> >> the guests?  For Ira's case, I think he needs at minimum at least one of
+> >> each, and he mentioned possibly having two unique ethernets at one point.
+> >>
+> >> His slave boards surface themselves as PCI devices to the x86
+> >> host.  So how do you use that to make multiple vhost-based devices (say
+> >> two virtio-nets, and a virtio-console) communicate across the transport?
+> >>
+> >> There are multiple ways to do this, but what I am saying is that
+> >> whatever is conceived will start to look eerily like a vbus-connector,
+> >> since this is one of its primary purposes ;)
+> > 
+> > Can't all this be in userspace?
+> 
+> Can you outline your proposal?
+> 
+> -Greg
+> 
 
-> I am not sure if feature patches are still allowed. If not, I can jus=
-t
-> repost this at a more convenient time.
+Userspace in x86 maps a PCI region, uses it for communication with ppc?
 
-Please resend these when net-next-2.6 opens back up.
-
-Thank you.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
