@@ -1,75 +1,89 @@
-From: Christian Samsel <Christian.Samsel@rwth-aachen.de>
-Subject: [PATCH] early retransmit
-Date: Tue, 15 Sep 2009 11:31:20 +0000 (GMT)
-Message-ID: <fbcff4b4d3bd.4aaf7b08@rwth-aachen.de>
+From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?= <remi@remlab.net>
+Subject: [PATCH 4/5] Phonet: route outgoing packets
+Date: Tue, 15 Sep 2009 14:32:22 +0300
+Message-ID: <1253014343-20326-4-git-send-email-remi@remlab.net>
+References: <a9972d3fe3d2bf09387bee7827b571c0@chewa.net>
+ <1253014343-20326-1-git-send-email-remi@remlab.net>
+ <1253014343-20326-2-git-send-email-remi@remlab.net>
+ <1253014343-20326-3-git-send-email-remi@remlab.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:41452 "EHLO
-	mta-1.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752031AbZIOLbR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 07:31:17 -0400
-Content-disposition: inline
-Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
- by mta-1.ms.rz.RWTH-Aachen.de
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
- with ESMTP id <0KQ000DHBG08UK20@mta-1.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Tue, 15 Sep 2009 13:31:20 +0200 (CEST)
-Received: from mem-1.ms.rz.rwth-aachen.de
- (ms-frontend-134-130-7-83.nn.RWTH-Aachen.DE [134.130.7.83] (may be forged))
-	by smarthost.rwth-aachen.de (8.13.8+Sun/8.13.8/1) with ESMTP id n8FBVKXX015504
-	for <netdev@vger.kernel.org>; Tue, 15 Sep 2009 13:31:20 +0200 (CEST)
-Received: from msg-int.RWTH-Aachen.de (localhost [127.0.0.1])
-	by mem-1.ms.rz.rwth-aachen.de (8.13.8+Sun/8.13.8) with ESMTP id n8FBVKPJ015501
-	for <netdev@vger.kernel.org>; Tue, 15 Sep 2009 13:31:20 +0200 (CEST)
-Content-language: de
+Received: from yop.chewa.net ([91.121.105.214]:59539 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753064AbZIOLcU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Sep 2009 07:32:20 -0400
+In-Reply-To: <1253014343-20326-3-git-send-email-remi@remlab.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch implements draft-ietf-tcpm-early-rexmt.
-It prevents a rto by lowering the dupack threshold in case
-we expect less dupacks then the usual threshold.
-Signed-off-by: Christian Samsel <christian.samsel@rwth-aachen.de>
+=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
+=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+
+Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 ---
- net/ipv4/tcp_input.c |   16 ++++++++++++++++
- 1 files changed, 16 insertions(+), 0 deletions(-)
+ net/phonet/af_phonet.c |   17 ++++++++++++-----
+ 1 files changed, 12 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index af6d6fa..c0cc4fd 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2913,6 +2913,7 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked, int flag)
- 	int do_lost = is_dupack || ((flag & FLAG_DATA_SACKED) &&
- 				    (tcp_fackets_out(tp) > tp->reordering));
- 	int fast_rexmit = 0, mib_idx;
-+	u32 in_flight;
- 
- 	if (WARN_ON(!tp->packets_out && tp->sacked_out))
- 		tp->sacked_out = 0;
-@@ -3062,6 +3063,21 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked, int flag)
- 	if (do_lost || (tcp_is_fack(tp) && tcp_head_timedout(sk)))
- 		tcp_update_scoreboard(sk, fast_rexmit);
- 	tcp_cwnd_down(sk, flag);
-+        
+diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
+index 013f471..f0ef6f8 100644
+--- a/net/phonet/af_phonet.c
++++ b/net/phonet/af_phonet.c
+@@ -190,9 +190,8 @@ static int pn_send(struct sk_buff *skb, struct net_=
+device *dev,
+ 	skb->priority =3D 0;
+ 	skb->dev =3D dev;
+=20
+-	if (pn_addr(src) =3D=3D pn_addr(dst)) {
++	if (skb->pkt_type =3D=3D PACKET_LOOPBACK) {
+ 		skb_reset_mac_header(skb);
+-		skb->pkt_type =3D PACKET_LOOPBACK;
+ 		skb_orphan(skb);
+ 		if (irq)
+ 			netif_rx(skb);
+@@ -222,6 +221,9 @@ static int pn_raw_send(const void *data, int len, s=
+truct net_device *dev,
+ 	if (skb =3D=3D NULL)
+ 		return -ENOMEM;
+=20
++	if (phonet_address_lookup(dev_net(dev), pn_addr(dst)) =3D=3D 0)
++		skb->pkt_type =3D PACKET_LOOPBACK;
 +
-+	/* draft-ietf-tcpm-early-rexmt: lowers dup ack threshold to prevent rto
-+	 * in case we don't expect enough dup ack. if number of outstanding 
-+	 * packets is less than four and there is either no unsent data ready
-+	 * for transmission or the advertised window does not permit new 
-+	 * segments.
-+	 */
-+	in_flight = tcp_packets_in_flight(tp);
-+	if ( in_flight < 4 && (skb_queue_empty(&sk->sk_write_queue) || 
-+		tcp_may_send_now(sk) == 0) )
-+		tp->reordering = in_flight - 1;
-+	else if (tp->reordering != sysctl_tcp_reordering)
-+		tp->reordering = sysctl_tcp_reordering;
-+	
- 	tcp_xmit_retransmit_queue(sk);
- }
- 
--- 
-1.6.4.1
+ 	skb_reserve(skb, MAX_PHONET_HEADER);
+ 	__skb_put(skb, len);
+ 	skb_copy_to_linear_data(skb, data, len);
+@@ -235,6 +237,7 @@ static int pn_raw_send(const void *data, int len, s=
+truct net_device *dev,
+ int pn_skb_send(struct sock *sk, struct sk_buff *skb,
+ 		const struct sockaddr_pn *target)
+ {
++	struct net *net =3D sock_net(sk);
+ 	struct net_device *dev;
+ 	struct pn_sock *pn =3D pn_sk(sk);
+ 	int err;
+@@ -243,9 +246,13 @@ int pn_skb_send(struct sock *sk, struct sk_buff *s=
+kb,
+=20
+ 	err =3D -EHOSTUNREACH;
+ 	if (sk->sk_bound_dev_if)
+-		dev =3D dev_get_by_index(sock_net(sk), sk->sk_bound_dev_if);
+-	else
+-		dev =3D phonet_device_get(sock_net(sk));
++		dev =3D dev_get_by_index(net, sk->sk_bound_dev_if);
++	else if (phonet_address_lookup(net, daddr) =3D=3D 0) {
++		dev =3D phonet_device_get(net);
++		skb->pkt_type =3D PACKET_LOOPBACK;
++	} else
++		dev =3D phonet_route_output(net, daddr);
++
+ 	if (!dev || !(dev->flags & IFF_UP))
+ 		goto drop;
+=20
+--=20
+1.6.0.4
+
