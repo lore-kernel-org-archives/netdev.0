@@ -1,58 +1,53 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
-Date: Wed, 16 Sep 2009 00:38:54 +0300
-Message-ID: <20090915213854.GE27954@redhat.com>
-References: <4AAF8A03.5020806@redhat.com> <4AAF909F.9080306@gmail.com> <4AAF95D1.1080600@redhat.com> <4AAF9BAF.3030109@gmail.com> <4AAFACB5.9050808@redhat.com> <4AAFF437.7060100@gmail.com> <20090915204036.GA27954@redhat.com> <4AAFFC8E.9010404@gmail.com> <20090915212545.GC27954@redhat.com> <4AB0098F.9030207@gmail.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH -next] ssb/sdio: fix printk format warnings
+Date: Tue, 15 Sep 2009 14:52:40 -0700
+Message-ID: <20090915145240.d847dea8.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Avi Kivity <avi@redhat.com>, "Ira W. Snyder" <iws@ovro.caltech.edu>,
-        netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
-        linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
-        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com,
-        alacrityvm-devel@lists.sourceforge.net
-To: Gregory Haskins <gregory.haskins@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <4AB0098F.9030207@gmail.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, akpm <akpm@linux-foundation.org>
+To: linux-mmc@vger.kernel.org, Michael Buesch <mb@bu3sch.de>
+Return-path: <linux-mmc-owner@vger.kernel.org>
+Sender: linux-mmc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 15, 2009 at 05:39:27PM -0400, Gregory Haskins wrote:
-> Michael S. Tsirkin wrote:
-> > On Tue, Sep 15, 2009 at 04:43:58PM -0400, Gregory Haskins wrote:
-> >> Michael S. Tsirkin wrote:
-> >>> On Tue, Sep 15, 2009 at 04:08:23PM -0400, Gregory Haskins wrote:
-> >>>> No, what I mean is how do you surface multiple ethernet and consoles to
-> >>>> the guests?  For Ira's case, I think he needs at minimum at least one of
-> >>>> each, and he mentioned possibly having two unique ethernets at one point.
-> >>>>
-> >>>> His slave boards surface themselves as PCI devices to the x86
-> >>>> host.  So how do you use that to make multiple vhost-based devices (say
-> >>>> two virtio-nets, and a virtio-console) communicate across the transport?
-> >>>>
-> >>>> There are multiple ways to do this, but what I am saying is that
-> >>>> whatever is conceived will start to look eerily like a vbus-connector,
-> >>>> since this is one of its primary purposes ;)
-> >>> Can't all this be in userspace?
-> >> Can you outline your proposal?
-> >>
-> >> -Greg
-> >>
-> > 
-> > Userspace in x86 maps a PCI region, uses it for communication with ppc?
-> > 
-> 
-> And what do you propose this communication to look like?
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Who cares? Implement vbus protocol there if you like.
+Fix printk format warnings:
 
-> -Greg
-> 
+drivers/ssb/sdio.c:336: warning: format '%u' expects type 'unsigned int', but argument 7 has type 'size_t'
+drivers/ssb/sdio.c:443: warning: format '%u' expects type 'unsigned int', but argument 7 has type 'size_t'
+
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ drivers/ssb/sdio.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- linux-next-20090914.orig/drivers/ssb/sdio.c
++++ linux-next-20090914/drivers/ssb/sdio.c
+@@ -333,7 +333,7 @@ static void ssb_sdio_block_read(struct s
+ 		goto out;
+ 
+ err_out:
+-	dev_dbg(ssb_sdio_dev(bus), "%04X:%04X (width=%u, len=%u), error %d\n",
++	dev_dbg(ssb_sdio_dev(bus), "%04X:%04X (width=%u, len=%zu), error %d\n",
+ 		bus->sdio_sbaddr >> 16, offset, reg_width, saved_count, error);
+ out:
+ 	sdio_release_host(bus->host_sdio);
+@@ -440,7 +440,7 @@ static void ssb_sdio_block_write(struct 
+ 		goto out;
+ 
+ err_out:
+-	dev_dbg(ssb_sdio_dev(bus), "%04X:%04X (width=%u, len=%u), error %d\n",
++	dev_dbg(ssb_sdio_dev(bus), "%04X:%04X (width=%u, len=%zu), error %d\n",
+ 		bus->sdio_sbaddr >> 16, offset, reg_width, saved_count, error);
+ out:
+ 	sdio_release_host(bus->host_sdio);
 
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+
+
+---
+~Randy
+LPC 2009, Sept. 23-25, Portland, Oregon
+http://linuxplumbersconf.org/2009/
