@@ -1,60 +1,46 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: L2 switching in igb
-Date: Mon, 14 Sep 2009 19:52:48 -0700
-Message-ID: <5f2db9d90909141952r7ee9a4aj1d5e0dcdbceba111@mail.gmail.com>
-References: <Pine.LNX.4.64.0909031116070.22050@zuben.voltaire.com>
-	 <5f2db9d90909032135l26cfdba6n52329f6be75c16a5@mail.gmail.com>
-	 <4AA8B317.2080706@voltaire.com> <4AA937A1.9070504@intel.com>
-	 <4AAE14CC.2000609@voltaire.com>
+From: Ian McDonald <ian.mcdonald@jandi.co.uk>
+Subject: Re: [PATCH 1/5] First Patch on TFRC-SP. Copy base files from TFRC
+Date: Tue, 15 Sep 2009 06:25:23 +0100
+Message-ID: <5640c8aa0909142225q73e477fcga99a48c218d10e0b@mail.gmail.com>
+References: <4AA6A25A.5040508@embedded.ufcg.edu.br>
+	 <20090912183222.GA5706@gerrit.erg.abdn.ac.uk>
+	 <cb00fa210909141738l60d02cd5p287d990326ce6c3c@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Fischer, Anna" <anna.fischer@hp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: Or Gerlitz <ogerlitz@voltaire.com>
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f189.google.com ([209.85.216.189]:55630 "EHLO
-	mail-px0-f189.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933089AbZIOCwo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2009 22:52:44 -0400
-Received: by pxi27 with SMTP id 27so2780152pxi.15
-        for <netdev@vger.kernel.org>; Mon, 14 Sep 2009 19:52:48 -0700 (PDT)
-In-Reply-To: <4AAE14CC.2000609@voltaire.com>
+Received: from mail-ew0-f206.google.com ([209.85.219.206]:58587 "EHLO
+	mail-ew0-f206.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752045AbZIOFZV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 01:25:21 -0400
+In-Reply-To: <cb00fa210909141738l60d02cd5p287d990326ce6c3c@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 14, 2009 at 3:02 AM, Or Gerlitz <ogerlitz@voltaire.com> wro=
-te:
-> To have VEPA support another bit has to be programmed... its the one =
-that
-> doesn't let the PF to forward a packet to a VF whose source mac match=
-es the
-> one in the packet (e.g multicast sender).
+2009/9/15 Ivo Calado <ivocalado@embedded.ufcg.edu.br>
+>
+> Hi Gerrit and all.
+> Thank you for your fast reply. My comments follow below
+>
+> >
+> > net/dccp/ccids/lib/tfrc_equation_sp.c
+> > -------------------------------------
+> > This is a prime candidate for removal. After editing out the whitespace
+> > differences, I found that it is 100% identical with tfrc_equation.c.
+> >
+> > The result of this editing has been uploaded to
+> > http://eden-feed.erg.abdn.ac.uk/tfrc_sp_receiver_01.patch
+> >
+> One future patch will need to modify this file, but now it's really an
+> exact copy.
+>
+>
+Basically the rule with a patch set is that all the patches should
+make sense together.
 
-The bit I was referring to not setting would handle that.  By
-disabling the DTXSWC local loopback bit the PF will not send anything
-to the VFs or visa versa.
+It may well be that it makes sense to make a copy, but if you want to
+do this then present it with the patch that then modifies it.
 
-> Yes, lets do that. I'd like to suggest that a "VF programmable from u=
-ser
-> space" context =A0will contain a <mac, vlan-id, priority-bits, rate> =
-tuple,
-> such that in the absence of vlan tag, the VF driver will "sign" the p=
-acket
-> (skb) with vlan-id and priority-bits assigned by the admin and the PF=
- NIC
-> will mandate that the VF originated traffic will not exceed the rate.
-
-Well whenever I can get to it I will try to add that support.  In the
-meantime I believe there is a BOF session covering "Virtual Ethernet
-switch enhancements and configuration" at the Linux Plumbers Conf that
-will cover some of this so hopefully we can come up with a solid plan
-on how to address this.
-
-Thanks,
-
-Alex
+Ian
