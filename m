@@ -1,98 +1,245 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
-Date: Tue, 15 Sep 2009 18:03:17 +0300
-Message-ID: <4AAFACB5.9050808@redhat.com>
-References: <cover.1251388414.git.mst@redhat.com> <20090827160750.GD23722@redhat.com> <20090903183945.GF28651@ovro.caltech.edu> <20090907101537.GH3031@redhat.com> <20090908172035.GB319@ovro.caltech.edu> <4AAA7415.5080204@gmail.com> <20090913120140.GA31218@redhat.com> <4AAE6A97.7090808@gmail.com> <20090914164750.GB3745@redhat.com> <4AAE961B.6020509@gmail.com> <4AAF8A03.5020806@redhat.com> <4AAF909F.9080306@gmail.com> <4AAF95D1.1080600@redhat.com> <4AAF9BAF.3030109@gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH net-next-2.6] bonding: make ab_arp select active slaves
+	as other modes
+Date: Tue, 15 Sep 2009 17:08:49 +0200
+Message-ID: <20090915150848.GC6624@psychotron.lab.eng.brq.redhat.com>
+References: <20090831210937.GA3152@psychotron.redhat.com> <26579.1252629138@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-        "Ira W. Snyder" <iws@ovro.caltech.edu>, netdev@vger.kernel.org,
-        virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
-        linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
-        akpm@linux-foundation.org, hpa@zytor.com,
-        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com,
-        alacrityvm-devel@lists.sourceforge.net
-To: Gregory Haskins <gregory.haskins@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4AAF9BAF.3030109@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	bonding-devel@lists.sourceforge.net, nicolas.2p.debian@free.fr
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35788 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754575AbZIOPJA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Sep 2009 11:09:00 -0400
+Content-Disposition: inline
+In-Reply-To: <26579.1252629138@death.nxdomain.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/15/2009 04:50 PM, Gregory Haskins wrote:
->> Why?  vhost will call get_user_pages() or copy_*_user() which ought to
->> do the right thing.
->>      
-> I was speaking generally, not specifically to Ira's architecture.  What
-> I mean is that vbus was designed to work without assuming that the
-> memory is pageable.  There are environments in which the host is not
-> capable of mapping hvas/*page, but the memctx->copy_to/copy_from
-> paradigm could still work (think rdma, for instance).
->    
-
-Sure, vbus is more flexible here.
-
->>> As an aside: a bigger issue is that, iiuc, Ira wants more than a single
->>> ethernet channel in his design (multiple ethernets, consoles, etc).  A
->>> vhost solution in this environment is incomplete.
->>>
->>>        
->> Why?  Instantiate as many vhost-nets as needed.
->>      
-> a) what about non-ethernets?
->    
-
-There's virtio-console, virtio-blk etc.  None of these have kernel-mode 
-servers, but these could be implemented if/when needed.
-
-> b) what do you suppose this protocol to aggregate the connections would
-> look like? (hint: this is what a vbus-connector does).
->    
-
-You mean multilink?  You expose the device as a multiqueue.
-
-> c) how do you manage the configuration, especially on a per-board basis?
->    
-
-pci (for kvm/x86).
-
-> Actually I have patches queued to allow vbus to be managed via ioctls as
-> well, per your feedback (and it solves the permissions/lifetime
-> critisims in alacrityvm-v0.1).
->    
-
-That will make qemu integration easier.
-
->>   The only difference is the implementation.  vhost-net
->> leaves much more to userspace, that's the main difference.
->>      
-> Also,
+Fri, Sep 11, 2009 at 02:32:18AM CEST, fubar@us.ibm.com wrote:
+>Jiri Pirko <jpirko@redhat.com> wrote:
 >
-> *) vhost is virtio-net specific, whereas vbus is a more generic device
-> model where thing like virtio-net or venet ride on top.
->    
+>>When I was implementing primary_passive option (formely named primary_lazy) I've
+>>run into troubles with ab_arp. This is the only mode which is not using
+>>bond_select_active_slave() function to select active slave and instead it
+>>selects it itself. This seems to be not the right behaviour and it would be
+>>better to do it in bond_select_active_slave() for all cases. This patch makes
+>>this happen. Please review.
+>
+>	Sorry for the delay in response; was out of the office.
+>
+>	My first question is whether this affect the "current_arp_slave"
+>behavior, i.e., the round-robining of the ARP probes when no slaves are
+>active.  Is that something you checked?
 
-I think vhost-net is separated into vhost and vhost-net.
+Yes, according to my tests this behaves the same way as original code.
+How about your tests?
 
-> *) vhost is only designed to work with environments that look very
-> similar to a KVM guest (slot/hva translatable).  vbus can bridge various
-> environments by abstracting the key components (such as memory access).
->    
+Jirka
 
-Yes.  virtio is really virtualization oriented.
-
-> *) vhost requires an active userspace management daemon, whereas vbus
-> can be driven by transient components, like scripts (ala udev)
->    
-
-vhost by design leaves configuration and handshaking to userspace.  I 
-see it as an advantage.
-
--- 
-error compiling committee.c: too many arguments to function
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+>
+>	I'll give this a test tomorrow as well.
+>
+>	-J
+>
+>---
+>	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+>
+>>Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>>
+>>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>>index 7c0e0bd..6ebd88d 100644
+>>--- a/drivers/net/bonding/bond_main.c
+>>+++ b/drivers/net/bonding/bond_main.c
+>>@@ -1093,15 +1093,8 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
+>> 			return NULL; /* still no slave, return NULL */
+>> 	}
+>>
+>>-	/*
+>>-	 * first try the primary link; if arping, a link must tx/rx
+>>-	 * traffic before it can be considered the curr_active_slave.
+>>-	 * also, we would skip slaves between the curr_active_slave
+>>-	 * and primary_slave that may be up and able to arp
+>>-	 */
+>> 	if ((bond->primary_slave) &&
+>>-	    (!bond->params.arp_interval) &&
+>>-	    (IS_UP(bond->primary_slave->dev))) {
+>>+	    bond->primary_slave->link == BOND_LINK_UP) {
+>> 		new_active = bond->primary_slave;
+>> 	}
+>>
+>>@@ -1109,15 +1102,14 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
+>> 	old_active = new_active;
+>>
+>> 	bond_for_each_slave_from(bond, new_active, i, old_active) {
+>>-		if (IS_UP(new_active->dev)) {
+>>-			if (new_active->link == BOND_LINK_UP) {
+>>-				return new_active;
+>>-			} else if (new_active->link == BOND_LINK_BACK) {
+>>-				/* link up, but waiting for stabilization */
+>>-				if (new_active->delay < mintime) {
+>>-					mintime = new_active->delay;
+>>-					bestslave = new_active;
+>>-				}
+>>+		if (new_active->link == BOND_LINK_UP) {
+>>+			return new_active;
+>>+		} else if (new_active->link == BOND_LINK_BACK &&
+>>+			   IS_UP(new_active->dev)) {
+>>+			/* link up, but waiting for stabilization */
+>>+			if (new_active->delay < mintime) {
+>>+				mintime = new_active->delay;
+>>+				bestslave = new_active;
+>
+>	Is there a functional reason for rearranging this (i.e., did the
+>use of select_active_slave need this for some reason)?
+>
+>
+>> 			}
+>> 		}
+>> 	}
+>>@@ -2929,18 +2921,6 @@ static int bond_ab_arp_inspect(struct bonding *bond, int delta_in_ticks)
+>> 		}
+>> 	}
+>>
+>>-	read_lock(&bond->curr_slave_lock);
+>>-
+>>-	/*
+>>-	 * Trigger a commit if the primary option setting has changed.
+>>-	 */
+>>-	if (bond->primary_slave &&
+>>-	    (bond->primary_slave != bond->curr_active_slave) &&
+>>-	    (bond->primary_slave->link == BOND_LINK_UP))
+>>-		commit++;
+>>-
+>>-	read_unlock(&bond->curr_slave_lock);
+>>-
+>> 	return commit;
+>> }
+>>
+>>@@ -2961,90 +2941,58 @@ static void bond_ab_arp_commit(struct bonding *bond, int delta_in_ticks)
+>> 			continue;
+>>
+>> 		case BOND_LINK_UP:
+>>-			write_lock_bh(&bond->curr_slave_lock);
+>>-
+>>-			if (!bond->curr_active_slave &&
+>>-			    time_before_eq(jiffies, dev_trans_start(slave->dev) +
+>>-					   delta_in_ticks)) {
+>>+			if ((!bond->curr_active_slave &&
+>>+			     time_before_eq(jiffies,
+>>+					    dev_trans_start(slave->dev) +
+>>+					    delta_in_ticks)) ||
+>>+			    bond->curr_active_slave != slave) {
+>> 				slave->link = BOND_LINK_UP;
+>>-				bond_change_active_slave(bond, slave);
+>> 				bond->current_arp_slave = NULL;
+>>
+>> 				pr_info(DRV_NAME
+>>-				       ": %s: %s is up and now the "
+>>-				       "active interface\n",
+>>-				       bond->dev->name, slave->dev->name);
+>>-
+>>-			} else if (bond->curr_active_slave != slave) {
+>>-				/* this slave has just come up but we
+>>-				 * already have a current slave; this can
+>>-				 * also happen if bond_enslave adds a new
+>>-				 * slave that is up while we are searching
+>>-				 * for a new slave
+>>-				 */
+>>-				slave->link = BOND_LINK_UP;
+>>-				bond_set_slave_inactive_flags(slave);
+>>-				bond->current_arp_slave = NULL;
+>>+					": %s: link status definitely "
+>>+					"up for interface %s.\n",
+>>+					bond->dev->name, slave->dev->name);
+>>
+>>-				pr_info(DRV_NAME
+>>-				       ": %s: backup interface %s is now up\n",
+>>-				       bond->dev->name, slave->dev->name);
+>>-			}
+>>+				if (!bond->curr_active_slave ||
+>>+				    (slave == bond->primary_slave))
+>>+					goto do_failover;
+>>
+>>-			write_unlock_bh(&bond->curr_slave_lock);
+>>+			}
+>>
+>>-			break;
+>>+			continue;
+>>
+>> 		case BOND_LINK_DOWN:
+>> 			if (slave->link_failure_count < UINT_MAX)
+>> 				slave->link_failure_count++;
+>>
+>> 			slave->link = BOND_LINK_DOWN;
+>>+			bond_set_slave_inactive_flags(slave);
+>>
+>>-			if (slave == bond->curr_active_slave) {
+>>-				pr_info(DRV_NAME
+>>-				       ": %s: link status down for active "
+>>-				       "interface %s, disabling it\n",
+>>-				       bond->dev->name, slave->dev->name);
+>>-
+>>-				bond_set_slave_inactive_flags(slave);
+>>-
+>>-				write_lock_bh(&bond->curr_slave_lock);
+>>-
+>>-				bond_select_active_slave(bond);
+>>-				if (bond->curr_active_slave)
+>>-					bond->curr_active_slave->jiffies =
+>>-						jiffies;
+>>-
+>>-				write_unlock_bh(&bond->curr_slave_lock);
+>>+			pr_info(DRV_NAME
+>>+				": %s: link status definitely down for "
+>>+				"interface %s, disabling it\n",
+>>+				bond->dev->name, slave->dev->name);
+>>
+>>+			if (slave == bond->curr_active_slave) {
+>> 				bond->current_arp_slave = NULL;
+>>-
+>>-			} else if (slave->state == BOND_STATE_BACKUP) {
+>>-				pr_info(DRV_NAME
+>>-				       ": %s: backup interface %s is now down\n",
+>>-				       bond->dev->name, slave->dev->name);
+>>-
+>>-				bond_set_slave_inactive_flags(slave);
+>>+				goto do_failover;
+>> 			}
+>>-			break;
+>>+
+>>+			continue;
+>>
+>> 		default:
+>> 			pr_err(DRV_NAME
+>> 			       ": %s: impossible: new_link %d on slave %s\n",
+>> 			       bond->dev->name, slave->new_link,
+>> 			       slave->dev->name);
+>>+			continue;
+>> 		}
+>>-	}
+>>
+>>-	/*
+>>-	 * No race with changes to primary via sysfs, as we hold rtnl.
+>>-	 */
+>>-	if (bond->primary_slave &&
+>>-	    (bond->primary_slave != bond->curr_active_slave) &&
+>>-	    (bond->primary_slave->link == BOND_LINK_UP)) {
+>>+do_failover:
+>>+		ASSERT_RTNL();
+>> 		write_lock_bh(&bond->curr_slave_lock);
+>>-		bond_change_active_slave(bond, bond->primary_slave);
+>>+		bond_select_active_slave(bond);
+>> 		write_unlock_bh(&bond->curr_slave_lock);
+>> 	}
+>>
+>>--
+>>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>the body of a message to majordomo@vger.kernel.org
+>>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
+>
