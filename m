@@ -1,274 +1,63 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH net-next-2.6] bonding: make ab_arp select active slaves as other modes
-Date: Tue, 15 Sep 2009 09:20:53 -0700
-Message-ID: <30429.1253031653@death.nxdomain.ibm.com>
-References: <20090831210937.GA3152@psychotron.redhat.com> <26579.1252629138@death.nxdomain.ibm.com> <20090915150848.GC6624@psychotron.lab.eng.brq.redhat.com>
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	bonding-devel@lists.sourceforge.net, nicolas.2p.debian@free.fr
-To: Jiri Pirko <jpirko@redhat.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: igb bandwidth allocation configuration
+Date: Tue, 15 Sep 2009 11:01:52 -0700
+Message-ID: <4AAFD690.5040900@intel.com>
+References: <20090910081844.GA5421@verge.net.au>	<15ddcffd0909140142n2a110708ld619177c65f4588b@mail.gmail.com> <20090915113659.GJ24194@verge.net.au> <4AAF963D.4060708@voltaire.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Simon Horman <horms@verge.net.au>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Or Gerlitz <ogerlitz@voltaire.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:57705 "EHLO e8.ny.us.ibm.com"
+Received: from mga09.intel.com ([134.134.136.24]:65014 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755446AbZIOQU7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Sep 2009 12:20:59 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e8.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id n8FGKIrc011502
-	for <netdev@vger.kernel.org>; Tue, 15 Sep 2009 12:20:18 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n8FGL2vH230350
-	for <netdev@vger.kernel.org>; Tue, 15 Sep 2009 12:21:02 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n8FGKwlD014908
-	for <netdev@vger.kernel.org>; Tue, 15 Sep 2009 12:21:02 -0400
-In-reply-to: <20090915150848.GC6624@psychotron.lab.eng.brq.redhat.com>
+	id S1752252AbZIOSBw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Sep 2009 14:01:52 -0400
+In-Reply-To: <4AAF963D.4060708@voltaire.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Pirko <jpirko@redhat.com> wrote:
+Or Gerlitz wrote:
+> If the rate limiter is exposed as a feature of the VF, it doesn't matter 
+> who really enforces it, the "VF portion" of the HW or the PF itself. I 
+> agree that if you have to program the PF for the rate of a specific VF, 
+> then its more complex. Basically, I would expect that a VF can be 
+> configured with <mac, vlad-id, priority, rate> such that it can be done 
+> where the VF NIC is spawned, host kernel or guest kernel.
 
->Fri, Sep 11, 2009 at 02:32:18AM CEST, fubar@us.ibm.com wrote:
->>Jiri Pirko <jpirko@redhat.com> wrote:
->>
->>>When I was implementing primary_passive option (formely named primary_lazy) I've
->>>run into troubles with ab_arp. This is the only mode which is not using
->>>bond_select_active_slave() function to select active slave and instead it
->>>selects it itself. This seems to be not the right behaviour and it would be
->>>better to do it in bond_select_active_slave() for all cases. This patch makes
->>>this happen. Please review.
->>
->>	Sorry for the delay in response; was out of the office.
->>
->>	My first question is whether this affect the "current_arp_slave"
->>behavior, i.e., the round-robining of the ARP probes when no slaves are
->>active.  Is that something you checked?
->
->Yes, according to my tests this behaves the same way as original code.
->How about your tests?
+Adding the rate limiter as a feature of the VF doesn't make much sense 
+since the VF could be direct assigned to another OS for all we know so 
+we won't have control over it from there.
 
-	Yah, it seems to work like it should.  I just have this nagging
-feeling I'm forgetting something; that there was a reason that the ab
-ARP was doing things differently.  I sure don't remember, though;
-probably just getting old.
+The interface for all of this would make sense as part of a virtual 
+ethernet switch control which is the way I am currently leaning on all 
+this.  As such it is probably another thing we can bring up at the BOF 
+session at the Linux Plumbers Conference.
 
-	The only nitpicks I see are a couple of changes that appear to
-be just for style ("break" changed to "continue"; some code rearranged
-in bond_find_best_slave, which is noted below) and one locking nit:
-strictly speaking, curr_slave_lock should be held for read when
-inspecting curr_active_slave.  The place it happens, though, already
-holds rtnl, and all changes to curr_active_slave happen under rtnl, so
-it won't actually fail, but it's different than everywhere else.
+> I'm was asking/wondering if the Intel NICs have a rate limiter (i.e one 
+> can program the VF such that its rate doesn't exceed XX MB/s) or a "rate 
+> guarantee"  (i.e one can program the VF such that its guaranteed it will 
+> get YY MB/s in case it wants to xmit at least this bandwidth)
 
-	I've been gnawing on getting rid of curr_slave_lock for a while;
-I think it can go away, and be subsumed into the general bond->lock.
-The curr_active_slave is (today, this didn't used to be true) only
-changed under rtnl, but some other code does inspect it outside of rtnl.
+Based on the way I am reading the documentation I would say the all 
+these registers do is guarantee a minimum percentage of the bandwidth. 
+With these registers set you can repartition the traffic so that a 
+percentage can be guaranteed to the PF/VFs if needed.  It works very 
+similar to how DCB allows you to guarantee a certain amount of bandwidth 
+for each of the traffic classes.  However any time the full tx bandwidth 
+is not being used it will be reallocated to the other queues and then 
+end up back in the default behavior.
 
-	-J
+The default behavior is to DMA descriptors from the rings in a round 
+robin fashion.  Since this effectively guarantees that there will be 
+packets being pulled off the rings I didn't really feel the necessity to 
+add the additional overhead of doing this on a per PF/VF bandwidth basis.
 
+Thanks,
 
-
->Jirka
->
->>
->>	I'll give this a test tomorrow as well.
->>
->>	-J
->>
->>---
->>	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
->>
->>>Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->>>
->>>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->>>index 7c0e0bd..6ebd88d 100644
->>>--- a/drivers/net/bonding/bond_main.c
->>>+++ b/drivers/net/bonding/bond_main.c
->>>@@ -1093,15 +1093,8 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
->>> 			return NULL; /* still no slave, return NULL */
->>> 	}
->>>
->>>-	/*
->>>-	 * first try the primary link; if arping, a link must tx/rx
->>>-	 * traffic before it can be considered the curr_active_slave.
->>>-	 * also, we would skip slaves between the curr_active_slave
->>>-	 * and primary_slave that may be up and able to arp
->>>-	 */
->>> 	if ((bond->primary_slave) &&
->>>-	    (!bond->params.arp_interval) &&
->>>-	    (IS_UP(bond->primary_slave->dev))) {
->>>+	    bond->primary_slave->link == BOND_LINK_UP) {
->>> 		new_active = bond->primary_slave;
->>> 	}
->>>
->>>@@ -1109,15 +1102,14 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
->>> 	old_active = new_active;
->>>
->>> 	bond_for_each_slave_from(bond, new_active, i, old_active) {
->>>-		if (IS_UP(new_active->dev)) {
->>>-			if (new_active->link == BOND_LINK_UP) {
->>>-				return new_active;
->>>-			} else if (new_active->link == BOND_LINK_BACK) {
->>>-				/* link up, but waiting for stabilization */
->>>-				if (new_active->delay < mintime) {
->>>-					mintime = new_active->delay;
->>>-					bestslave = new_active;
->>>-				}
->>>+		if (new_active->link == BOND_LINK_UP) {
->>>+			return new_active;
->>>+		} else if (new_active->link == BOND_LINK_BACK &&
->>>+			   IS_UP(new_active->dev)) {
->>>+			/* link up, but waiting for stabilization */
->>>+			if (new_active->delay < mintime) {
->>>+				mintime = new_active->delay;
->>>+				bestslave = new_active;
->>
->>	Is there a functional reason for rearranging this (i.e., did the
->>use of select_active_slave need this for some reason)?
->>
->>
->>> 			}
->>> 		}
->>> 	}
->>>@@ -2929,18 +2921,6 @@ static int bond_ab_arp_inspect(struct bonding *bond, int delta_in_ticks)
->>> 		}
->>> 	}
->>>
->>>-	read_lock(&bond->curr_slave_lock);
->>>-
->>>-	/*
->>>-	 * Trigger a commit if the primary option setting has changed.
->>>-	 */
->>>-	if (bond->primary_slave &&
->>>-	    (bond->primary_slave != bond->curr_active_slave) &&
->>>-	    (bond->primary_slave->link == BOND_LINK_UP))
->>>-		commit++;
->>>-
->>>-	read_unlock(&bond->curr_slave_lock);
->>>-
->>> 	return commit;
->>> }
->>>
->>>@@ -2961,90 +2941,58 @@ static void bond_ab_arp_commit(struct bonding *bond, int delta_in_ticks)
->>> 			continue;
->>>
->>> 		case BOND_LINK_UP:
->>>-			write_lock_bh(&bond->curr_slave_lock);
->>>-
->>>-			if (!bond->curr_active_slave &&
->>>-			    time_before_eq(jiffies, dev_trans_start(slave->dev) +
->>>-					   delta_in_ticks)) {
->>>+			if ((!bond->curr_active_slave &&
->>>+			     time_before_eq(jiffies,
->>>+					    dev_trans_start(slave->dev) +
->>>+					    delta_in_ticks)) ||
->>>+			    bond->curr_active_slave != slave) {
->>> 				slave->link = BOND_LINK_UP;
->>>-				bond_change_active_slave(bond, slave);
->>> 				bond->current_arp_slave = NULL;
->>>
->>> 				pr_info(DRV_NAME
->>>-				       ": %s: %s is up and now the "
->>>-				       "active interface\n",
->>>-				       bond->dev->name, slave->dev->name);
->>>-
->>>-			} else if (bond->curr_active_slave != slave) {
->>>-				/* this slave has just come up but we
->>>-				 * already have a current slave; this can
->>>-				 * also happen if bond_enslave adds a new
->>>-				 * slave that is up while we are searching
->>>-				 * for a new slave
->>>-				 */
->>>-				slave->link = BOND_LINK_UP;
->>>-				bond_set_slave_inactive_flags(slave);
->>>-				bond->current_arp_slave = NULL;
->>>+					": %s: link status definitely "
->>>+					"up for interface %s.\n",
->>>+					bond->dev->name, slave->dev->name);
->>>
->>>-				pr_info(DRV_NAME
->>>-				       ": %s: backup interface %s is now up\n",
->>>-				       bond->dev->name, slave->dev->name);
->>>-			}
->>>+				if (!bond->curr_active_slave ||
->>>+				    (slave == bond->primary_slave))
->>>+					goto do_failover;
->>>
->>>-			write_unlock_bh(&bond->curr_slave_lock);
->>>+			}
->>>
->>>-			break;
->>>+			continue;
->>>
->>> 		case BOND_LINK_DOWN:
->>> 			if (slave->link_failure_count < UINT_MAX)
->>> 				slave->link_failure_count++;
->>>
->>> 			slave->link = BOND_LINK_DOWN;
->>>+			bond_set_slave_inactive_flags(slave);
->>>
->>>-			if (slave == bond->curr_active_slave) {
->>>-				pr_info(DRV_NAME
->>>-				       ": %s: link status down for active "
->>>-				       "interface %s, disabling it\n",
->>>-				       bond->dev->name, slave->dev->name);
->>>-
->>>-				bond_set_slave_inactive_flags(slave);
->>>-
->>>-				write_lock_bh(&bond->curr_slave_lock);
->>>-
->>>-				bond_select_active_slave(bond);
->>>-				if (bond->curr_active_slave)
->>>-					bond->curr_active_slave->jiffies =
->>>-						jiffies;
->>>-
->>>-				write_unlock_bh(&bond->curr_slave_lock);
->>>+			pr_info(DRV_NAME
->>>+				": %s: link status definitely down for "
->>>+				"interface %s, disabling it\n",
->>>+				bond->dev->name, slave->dev->name);
->>>
->>>+			if (slave == bond->curr_active_slave) {
->>> 				bond->current_arp_slave = NULL;
->>>-
->>>-			} else if (slave->state == BOND_STATE_BACKUP) {
->>>-				pr_info(DRV_NAME
->>>-				       ": %s: backup interface %s is now down\n",
->>>-				       bond->dev->name, slave->dev->name);
->>>-
->>>-				bond_set_slave_inactive_flags(slave);
->>>+				goto do_failover;
->>> 			}
->>>-			break;
->>>+
->>>+			continue;
->>>
->>> 		default:
->>> 			pr_err(DRV_NAME
->>> 			       ": %s: impossible: new_link %d on slave %s\n",
->>> 			       bond->dev->name, slave->new_link,
->>> 			       slave->dev->name);
->>>+			continue;
->>> 		}
->>>-	}
->>>
->>>-	/*
->>>-	 * No race with changes to primary via sysfs, as we hold rtnl.
->>>-	 */
->>>-	if (bond->primary_slave &&
->>>-	    (bond->primary_slave != bond->curr_active_slave) &&
->>>-	    (bond->primary_slave->link == BOND_LINK_UP)) {
->>>+do_failover:
->>>+		ASSERT_RTNL();
->>> 		write_lock_bh(&bond->curr_slave_lock);
->>>-		bond_change_active_slave(bond, bond->primary_slave);
->>>+		bond_select_active_slave(bond);
->>> 		write_unlock_bh(&bond->curr_slave_lock);
->>> 	}
->>>
->>>--
->>>To unsubscribe from this list: send the line "unsubscribe netdev" in
->>>the body of a message to majordomo@vger.kernel.org
->>>More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->>
->>
+Alex
