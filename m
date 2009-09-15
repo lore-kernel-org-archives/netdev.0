@@ -1,34 +1,49 @@
-From: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
-Subject: Re: [PATCH 2/2] ems_usb: Added support for EMS CPC-USB/ARM7 CAN/USB
-   interface
-Date: Tue, 15 Sep 2009 15:33:51 +0200
-Message-ID: <4AAF97BF.8030105@ems-wuensche.com>
-References: <20090914080945.5441.45509.stgit@localhost.localdomain>	<20090914082229.5441.16650.stgit@localhost.localdomain>	<4AAF7301.60608@grandegger.com> <4AAF7D47.1070005@ems-wuensche.com> <4AAF82F4.6040708@grandegger.com>
+From: Karl Hiramoto <karl@hiramoto.org>
+Subject: Re: [Linux-ATM-General] [PATCH] atm/br2684: netif_stop_queue() when
+ atm device busy and netif_wake_queue() when we can send packets again.
+Date: Tue, 15 Sep 2009 15:44:53 +0200
+Message-ID: <4AAF9A55.8030207@hiramoto.org>
+References: <1251545092-18081-1-git-send-email-karl@hiramoto.org>	<4AA95838.4010007@redfish-solutions.com>	<4AA97004.2010904@hiramoto.org> <20090911.114848.177667600.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4AAF82F4.6040708-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: philipp_subx@redfish-solutions.com, netdev@vger.kernel.org,
+	linux-atm-general@lists.sourceforge.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from caiajhbdcaid.dreamhost.com ([208.97.132.83]:54831 "EHLO
+	spunkymail-a11.g.dreamhost.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754116AbZIONow (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 09:44:52 -0400
+In-Reply-To: <20090911.114848.177667600.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wolfgang Grandegger schrieb:
-> Sebastian Haas wrote:
->> Wolfgang Grandegger schrieb:
-> 
->>> It would also be nice, if some USB guru's could have a look as well.
->> Oliver Neukum already did a quick review. I've fixed serveral
->> GFP_ATOMIC/KERNEL issues and a problem with DMA coherency on his feedback.
-> 
-> Good, just found the thread pointing out various serious issues.
-I will wait until tomorrow before sending V2, maybe Dave or someone else
-have some annotations too.
+David Miller wrote:
+> From: Karl Hiramoto <karl@hiramoto.org>
+> Date: Thu, 10 Sep 2009 23:30:44 +0200
+>
+>   
+>> I'm not really sure if or how many packets to upper layers buffer.
+>>     
+>
+> This is determined by ->tx_queue_len, so whatever value is being
+> set for ATM network devices is what the core will use for backlog
+> limiting while the device's TX queue is stopped.
+I tried varying tx_queue_len by 10, 100,  and 1000x, but it didn't seem 
+to help much.  Whenever the atm dev called netif_wake_queue() it seems 
+like the driver still starves for packets  and still takes time to get 
+going again.
 
-Cheers, Sebastian
+
+It seem like when the driver calls netif_wake_queue() it's TX hardware 
+queue is nearly full, but it has space to accept new packets.  The TX 
+hardware queue has time to empty, devices starves for packets(goes 
+idle), then finally a packet comes in from the upper networking 
+layers.   I'm not really sure at the moment where the problem lies to my 
+maximum throughput dropping.
+
+I did try changing sk_sndbuf to 256K but that didn't seem to help either.
 
 --
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Karl
