@@ -1,38 +1,58 @@
-From: Dan Williams <dan.j.williams@intel.com>
-Subject: Re: [PATCH 21/29] ioat2,3: dynamically resize descriptor ring
-Date: Tue, 15 Sep 2009 16:07:05 -0700
-Message-ID: <e9c3a7c20909151607h5171784ence5e6722adab4ad7@mail.gmail.com>
-References: <20090904022733.32667.77626.stgit@dwillia2-linux.ch.intel.com>
-	 <20090904023216.32667.55942.stgit@dwillia2-linux.ch.intel.com>
-	 <129600E5E5FB004392DDC3FB599660D7B5548192@irsmsx504.ger.corp.intel.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: fanotify as syscalls
+Date: Tue, 15 Sep 2009 16:49:34 -0700 (PDT)
+Message-ID: <alpine.LFD.2.01.0909151643540.4950@localhost.localdomain>
+References: <20090911.114620.260824240.davem@davemloft.net>  <1252697613.2305.38.camel@dhcp231-106.rdu.redhat.com>  <20090911204602.GA19371@shareable.org>  <1252703626.2305.50.camel@dhcp231-106.rdu.redhat.com>  <20090911212731.GA19901@shareable.org>
+ <1252705902.2305.83.camel@dhcp231-106.rdu.redhat.com>  <20090912094110.GB24709@ioremap.net> <20090914001759.GB30621@shareable.org>  <20090914140720.GA8564@ioremap.net>  <1252955295.2246.35.camel@dhcp231-106.rdu.redhat.com>  <20090915201620.GB32192@ioremap.net>
+ <1253051699.5213.18.camel@dhcp231-106.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-raid@vger.kernel.org" <linux-raid@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Sosnowski, Maciej" <maciej.sosnowski@intel.com>
-Return-path: <linux-raid-owner@vger.kernel.org>
-In-Reply-To: <129600E5E5FB004392DDC3FB599660D7B5548192@irsmsx504.ger.corp.intel.com>
-Sender: linux-raid-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Evgeniy Polyakov <zbr@ioremap.net>,
+	Jamie Lokier <jamie@shareable.org>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
+	alan@linux.intel.com, hch@infradead.org
+To: Eric Paris <eparis@redhat.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <1253051699.5213.18.camel@dhcp231-106.rdu.redhat.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 14, 2009 at 8:00 AM, Sosnowski, Maciej
-<maciej.sosnowski@intel.com> wrote:
-> Making the max_alloc_order a module parameter gives impression
-> that it can be modified by an user, including making it larger than default.
-> The default is however its maximum value, which may be confusing.
-> Why not to use parameter only as the upper limit?
 
-It is the upper limit.
 
-The user can limit the upper size of the descriptor ring by setting
-this to a value less than 16.  By default it is the maximum ring size
-that the driver/hardware* supports.  Specifying values greater than 16
-are not supported by the so we need enforce a ceiling at 16.
+On Tue, 15 Sep 2009, Eric Paris wrote:
+> 
+> I don't see what's gained using netlink.
 
---
-Dan
+I'm personally not a big believer in netlink. What's the point, really? If 
+you are sending datagrams back-and-forth, go wild. But if it's more 
+structured than that, netlink has no actual upsides as far as I can tell.
 
-* We could support ring sizes larger than 1 << 16 but we would need to
-extra logic to ensure that the pending count never exceeded 1 << 16.
-Simpler I think to just limit the maximum ring size.
+Same goes for sockets in this case, actually. What's the upside?
+
+I'll throw out a couple of upsides of actual system calls, people can feel 
+free to comment:
+
+ - things like 'strace' _work_ and the traces make sense, and you 
+   generally see what the app is trying to do from the traces (sure, it 
+   takes some time for strace to learn new system calls, but even when it 
+   only gives a system call number, it's never any worse than some 
+   "made-up packet interface".
+
+ - if you have a system call definition, it tends to be a much stricter 
+   interface than "let's send some packets around with a network 
+   interface".
+
+ - No unnecessary infrastructure.
+
+That said, maybe the netlink/socket people can argue for their 
+standpoints.
+
+(And btw, I still want to know what's so wonderful about fanotify that we 
+would actually want yet-another-filesystem-notification-interface. So I'm 
+not sayying that I'll take a system call interface. I just don't think 
+that hiding interfaces behind some random packet interface is at all any 
+better)
+
+		Linus
