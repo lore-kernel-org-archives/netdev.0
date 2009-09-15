@@ -1,103 +1,54 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: ipv4 regression in 2.6.31 ?
-Date: Tue, 15 Sep 2009 15:57:19 -0700
-Message-ID: <20090915155719.22bae41e@nehalam>
-References: <20090914093128.4d709ff6@nehalam>
-	<20090915081354.GA10037@ff.dom.local>
+From: Robert Varga <nite@hq.alert.sk>
+Subject: [PATCH] fix CONFIG_TCP_MD5SIG + CONFIG_PREEMPT timer BUG()
+Date: Wed, 16 Sep 2009 01:01:26 +0200
+Message-ID: <20090915230126.GA21539@hq.alert.sk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephan von Krawczynski <skraw@ithnet.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60956 "EHLO mail.vyatta.com"
+Received: from hq.alert.sk ([195.95.205.245]:58665 "EHLO hq.alert.sk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751163AbZIOW7Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Sep 2009 18:59:24 -0400
-In-Reply-To: <20090915081354.GA10037@ff.dom.local>
+	id S1752698AbZIOXBY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Sep 2009 19:01:24 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 15 Sep 2009 08:13:55 +0000
-Jarek Poplawski <jarkao2@gmail.com> wrote:
+Hi,
 
-> On 14-09-2009 18:31, Stephen Hemminger wrote:
-> > On Mon, 14 Sep 2009 17:55:05 +0200
-> > Stephan von Krawczynski <skraw@ithnet.com> wrote:
-> > 
-> >> On Mon, 14 Sep 2009 15:57:03 +0200
-> >> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >>
-> >>> Stephan von Krawczynski a A~(c)crit :
-> >>>> Hello all,
-> ...
-> >>> rp_filter - INTEGER
-> >>>         0 - No source validation.
-> >>>         1 - Strict mode as defined in RFC3704 Strict Reverse Path
-> >>>             Each incoming packet is tested against the FIB and if the interface
-> >>>             is not the best reverse path the packet check will fail.
-> >>>             By default failed packets are discarded.
-> >>>         2 - Loose mode as defined in RFC3704 Loose Reverse Path
-> >>>             Each incoming packet's source address is also tested against the FIB
-> >>>             and if the source address is not reachable via any interface
-> >>>             the packet check will fail.
-> ...
-> > RP filter did not work correctly in 2.6.30. The code added to to the loose
-> > mode caused a bug; the rp_filter value was being computed as:
-> >   rp_filter = interface_value & all_value;
-> > So in order to get reverse path filter both would have to be set.
-> > 
-> > In 2.6.31 this was change to:
-> >    rp_filter = max(interface_value, all_value);
-> > 
-> > This was the intended behaviour, if user asks all interfaces to have rp
-> > filtering turned on, then set /proc/sys/net/ipv4/conf/all/rp_filter = 1
-> > or to turn on just one interface, set it for just that interface.
-> 
-> Alas this max() formula handles also cases where both values are set
-> and it doesn't look very natural/"user friendly" to me. Especially
-> with something like this: all_value = 2; interface_value = 1
-> Why would anybody care to bother with interface_value in such a case?
-> 
-> "All" suggests "default" in this context, so I'd rather expect
-> something like:
->     rp_filter = interface_value ? : all_value;
-> which gives "the inteded behaviour" too, plus more...
-> 
-> We'd only need to add e.g.:
->  0 - Default ("all") validation. (No source validation if "all" is 0).
->  3 - No source validation on this interface.
+I have recently came across a preemption imbalance detected by:
 
-More values == more confusion.
-I chose the maxconf() method to make rp_filter consistent with other
-multi valued variables (arp_announce and arp_ignore).
+<4>huh, entered ffffffff80644630 with preempt_count 00000102, exited with 00000101?
+<0>------------[ cut here ]------------
+<2>kernel BUG at /usr/src/linux/kernel/timer.c:664!
+<0>invalid opcode: 0000 [1] PREEMPT SMP
 
---------
-Subject: [PATCH] Document rp_filter behaviour
+with ffffffff80644630 being inet_twdr_hangman().
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+This appeared after I enabled CONFIG_TCP_MD5SIG and played with it a
+bit, so I looked at what might have caused it.
 
+One thing that struck me as strange is tcp_twsk_destructor(), as it
+calls tcp_put_md5sig_pool() -- which entails a put_cpu(), causing the
+detected imbalance. Found on 2.6.23.9, but 2.6.31 is affected as well,
+as far as I can tell.
 
---- a/Documentation/networking/ip-sysctl.txt	2009-09-15 15:54:25.844934373 -0700
-+++ b/Documentation/networking/ip-sysctl.txt	2009-09-15 15:55:40.709205883 -0700
-@@ -744,6 +744,8 @@ rp_filter - INTEGER
- 	Default value is 0. Note that some distributions enable it
- 	in startup scripts.
+Signed-off-by: Robert Varga <nite@hq.alert.sk>
+---
+
+--- vanilla/net/ipv4/tcp_minisocks.c	2009-09-10 00:13:59.000000000 +0200
++++ patched/net/ipv4/tcp_minisocks.c	2009-09-16 00:48:15.904089024 +0200
+@@ -363,7 +363,7 @@ void tcp_twsk_destructor(struct sock *sk
+ #ifdef CONFIG_TCP_MD5SIG
+ 	struct tcp_timewait_sock *twsk = tcp_twsk(sk);
+ 	if (twsk->tw_md5_keylen)
+-		tcp_put_md5sig_pool();
++		tcp_free_md5sig_pool();
+ #endif
+ }
  
-+	The max value from conf/{all,interface}/rp_filter is used.
-+
- arp_filter - BOOLEAN
- 	1 - Allows you to have multiple network interfaces on the same
- 	subnet, and have the ARPs for each interface be answered
-
-
-
-
-
-
-
 -- 
+Bye,
+Robert Varga
+
+Reality continues to ruin my life. -- Calvin
