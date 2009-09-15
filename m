@@ -1,10 +1,9 @@
 From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?= <remi@remlab.net>
-Subject: [PATCH 3/5] Phonet: routing table Netlink interface
-Date: Tue, 15 Sep 2009 14:32:21 +0300
-Message-ID: <1253014343-20326-3-git-send-email-remi@remlab.net>
+Subject: [PATCH 2/5] Phonet: routing table backend
+Date: Tue, 15 Sep 2009 14:32:20 +0300
+Message-ID: <1253014343-20326-2-git-send-email-remi@remlab.net>
 References: <a9972d3fe3d2bf09387bee7827b571c0@chewa.net>
  <1253014343-20326-1-git-send-email-remi@remlab.net>
- <1253014343-20326-2-git-send-email-remi@remlab.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -12,11 +11,11 @@ Cc: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
 	<remi.denis-courmont@nokia.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:59540 "EHLO yop.chewa.net"
+Received: from yop.chewa.net ([91.121.105.214]:59538 "EHLO yop.chewa.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753019AbZIOLcU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753056AbZIOLcU (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 15 Sep 2009 07:32:20 -0400
-In-Reply-To: <1253014343-20326-2-git-send-email-remi@remlab.net>
+In-Reply-To: <1253014343-20326-1-git-send-email-remi@remlab.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -24,250 +23,188 @@ List-ID: <netdev.vger.kernel.org>
 
 =46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
+The Phonet "universe" only has 64 addresses, so we keep a trivial flat
+routing table.
+
 Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 ---
- include/net/phonet/pn_dev.h |    1 +
- net/phonet/pn_dev.c         |   31 ++++++++++
- net/phonet/pn_netlink.c     |  130 +++++++++++++++++++++++++++++++++++=
-++++++++
- 3 files changed, 162 insertions(+), 0 deletions(-)
+ include/net/phonet/pn_dev.h |    5 ++
+ net/phonet/pn_dev.c         |  100 +++++++++++++++++++++++++++++++++++=
++++++---
+ 2 files changed, 99 insertions(+), 6 deletions(-)
 
 diff --git a/include/net/phonet/pn_dev.h b/include/net/phonet/pn_dev.h
-index 87b5d81..afa7def 100644
+index 44c923c..87b5d81 100644
 --- a/include/net/phonet/pn_dev.h
 +++ b/include/net/phonet/pn_dev.h
-@@ -49,6 +49,7 @@ void phonet_address_notify(int event, struct net_devi=
-ce *dev, u8 addr);
+@@ -47,6 +47,11 @@ u8 phonet_address_get(struct net_device *dev, u8 add=
+r);
+ int phonet_address_lookup(struct net *net, u8 addr);
+ void phonet_address_notify(int event, struct net_device *dev, u8 addr)=
+;
 =20
- int phonet_route_add(struct net_device *dev, u8 daddr);
- int phonet_route_del(struct net_device *dev, u8 daddr);
-+void rtm_phonet_notify(int event, struct net_device *dev, u8 dst);
- struct net_device *phonet_route_get(struct net *net, u8 daddr);
- struct net_device *phonet_route_output(struct net *net, u8 daddr);
++int phonet_route_add(struct net_device *dev, u8 daddr);
++int phonet_route_del(struct net_device *dev, u8 daddr);
++struct net_device *phonet_route_get(struct net *net, u8 daddr);
++struct net_device *phonet_route_output(struct net *net, u8 daddr);
++
+ #define PN_NO_ADDR	0xff
 =20
+ extern const struct file_operations pn_sock_seq_fops;
 diff --git a/net/phonet/pn_dev.c b/net/phonet/pn_dev.c
-index 71fffa5..6d64fda 100644
+index 5f42f30..71fffa5 100644
 --- a/net/phonet/pn_dev.c
 +++ b/net/phonet/pn_dev.c
-@@ -240,6 +240,27 @@ static int phonet_device_autoconf(struct net_devic=
-e *dev)
- 	return 0;
- }
-=20
-+static void phonet_route_autodel(struct net_device *dev)
-+{
-+	struct phonet_net *pnn =3D net_generic(dev_net(dev), phonet_net_id);
-+	unsigned i;
-+	DECLARE_BITMAP(deleted, 64);
-+
-+	/* Remove left-over Phonet routes */
-+	bitmap_zero(deleted, 64);
-+	spin_lock_bh(&pnn->routes.lock);
-+	for (i =3D 0; i < 64; i++)
-+		if (dev =3D=3D pnn->routes.table[i]) {
-+			set_bit(i, deleted);
-+			pnn->routes.table[i] =3D NULL;
-+			dev_put(dev);
-+		}
-+	spin_unlock_bh(&pnn->routes.lock);
-+	for (i =3D find_first_bit(deleted, 64); i < 64;
-+			i =3D find_next_bit(deleted, 64, i + 1))
-+		rtm_phonet_notify(RTM_DELROUTE, dev, i);
-+}
-+
- /* notify Phonet of device events */
- static int phonet_device_notify(struct notifier_block *me, unsigned lo=
-ng what,
- 				void *arg)
-@@ -253,6 +274,7 @@ static int phonet_device_notify(struct notifier_blo=
-ck *me, unsigned long what,
- 		break;
- 	case NETDEV_UNREGISTER:
- 		phonet_device_destroy(dev);
-+		phonet_route_autodel(dev);
- 		break;
- 	}
- 	return 0;
-@@ -287,10 +309,19 @@ static void phonet_exit_net(struct net *net)
- {
- 	struct phonet_net *pnn =3D net_generic(net, phonet_net_id);
- 	struct net_device *dev;
-+	unsigned i;
-=20
- 	rtnl_lock();
- 	for_each_netdev(net, dev)
- 		phonet_device_destroy(dev);
-+
-+	for (i =3D 0; i < 64; i++) {
-+		dev =3D pnn->routes.table[i];
-+		if (dev) {
-+			rtm_phonet_notify(RTM_DELROUTE, dev, i);
-+			dev_put(dev);
-+		}
-+	}
- 	rtnl_unlock();
-=20
- 	proc_net_remove(net, "phonet");
-diff --git a/net/phonet/pn_netlink.c b/net/phonet/pn_netlink.c
-index d21fd35..d8f5d3f 100644
---- a/net/phonet/pn_netlink.c
-+++ b/net/phonet/pn_netlink.c
-@@ -29,6 +29,8 @@
- #include <net/sock.h>
+@@ -33,8 +33,14 @@
+ #include <net/netns/generic.h>
  #include <net/phonet/pn_dev.h>
 =20
-+/* Device address handling */
-+
- static int fill_addr(struct sk_buff *skb, struct net_device *dev, u8 a=
-ddr,
- 		     u32 pid, u32 seq, int event);
-=20
-@@ -160,6 +162,131 @@ out:
- 	return skb->len;
- }
-=20
-+/* Routes handling */
-+
-+static int fill_route(struct sk_buff *skb, struct net_device *dev, u8 =
-dst,
-+			u32 pid, u32 seq, int event)
-+{
-+	struct rtmsg *rtm;
-+	struct nlmsghdr *nlh;
-+
-+	nlh =3D nlmsg_put(skb, pid, seq, event, sizeof(*rtm), 0);
-+	if (nlh =3D=3D NULL)
-+		return -EMSGSIZE;
-+
-+	rtm =3D nlmsg_data(nlh);
-+	rtm->rtm_family =3D AF_PHONET;
-+	rtm->rtm_dst_len =3D 6;
-+	rtm->rtm_src_len =3D 0;
-+	rtm->rtm_tos =3D 0;
-+	rtm->rtm_table =3D RT_TABLE_MAIN;
-+	rtm->rtm_protocol =3D RTPROT_STATIC;
-+	rtm->rtm_scope =3D RT_SCOPE_UNIVERSE;
-+	rtm->rtm_type =3D RTN_UNICAST;
-+	rtm->rtm_flags =3D 0;
-+	NLA_PUT_U8(skb, RTA_DST, dst);
-+	NLA_PUT_U32(skb, RTA_OIF, dev->ifindex);
-+	return nlmsg_end(skb, nlh);
-+
-+nla_put_failure:
-+	nlmsg_cancel(skb, nlh);
-+	return -EMSGSIZE;
-+}
-+
-+void rtm_phonet_notify(int event, struct net_device *dev, u8 dst)
-+{
-+	struct sk_buff *skb;
-+	int err =3D -ENOBUFS;
-+
-+	skb =3D nlmsg_new(NLMSG_ALIGN(sizeof(struct ifaddrmsg)) +
-+			nla_total_size(1) + nla_total_size(4), GFP_KERNEL);
-+	if (skb =3D=3D NULL)
-+		goto errout;
-+	err =3D fill_route(skb, dev, dst, 0, 0, event);
-+	if (err < 0) {
-+		WARN_ON(err =3D=3D -EMSGSIZE);
-+		kfree_skb(skb);
-+		goto errout;
-+	}
-+	rtnl_notify(skb, dev_net(dev), 0,
-+			  RTNLGRP_PHONET_ROUTE, NULL, GFP_KERNEL);
-+	return;
-+errout:
-+	if (err < 0)
-+		rtnl_set_sk_err(dev_net(dev), RTNLGRP_PHONET_ROUTE, err);
-+}
-+
-+static const struct nla_policy rtm_phonet_policy[RTA_MAX+1] =3D {
-+	[RTA_DST] =3D { .type =3D NLA_U8 },
-+	[RTA_OIF] =3D { .type =3D NLA_U32 },
++struct phonet_routes {
++	spinlock_t		lock;
++	struct net_device	*table[64];
 +};
 +
-+static int route_doit(struct sk_buff *skb, struct nlmsghdr *nlh, void =
-*attr)
-+{
-+	struct net *net =3D sock_net(skb->sk);
-+	struct nlattr *tb[RTA_MAX+1];
-+	struct net_device *dev;
-+	struct rtmsg *rtm;
-+	int err;
-+	u8 dst;
-+
-+	if (!capable(CAP_SYS_ADMIN))
-+		return -EPERM;
-+
-+	ASSERT_RTNL();
-+
-+	err =3D nlmsg_parse(nlh, sizeof(*rtm), tb, RTA_MAX, rtm_phonet_policy=
+ struct phonet_net {
+ 	struct phonet_device_list pndevs;
++	struct phonet_routes routes;
+ };
+=20
+ int phonet_net_id;
+@@ -154,10 +160,11 @@ int phonet_address_del(struct net_device *dev, u8=
+ addr)
+ }
+=20
+ /* Gets a source address toward a destination, through a interface. */
+-u8 phonet_address_get(struct net_device *dev, u8 addr)
++u8 phonet_address_get(struct net_device *dev, u8 daddr)
+ {
+ 	struct phonet_device_list *pndevs =3D phonet_device_list(dev_net(dev)=
 );
-+	if (err < 0)
-+		return err;
+ 	struct phonet_device *pnd;
++	u8 saddr;
+=20
+ 	spin_lock_bh(&pndevs->lock);
+ 	pnd =3D __phonet_get(dev);
+@@ -165,12 +172,26 @@ u8 phonet_address_get(struct net_device *dev, u8 =
+addr)
+ 		BUG_ON(bitmap_empty(pnd->addrs, 64));
+=20
+ 		/* Use same source address as destination, if possible */
+-		if (!test_bit(addr >> 2, pnd->addrs))
+-			addr =3D find_first_bit(pnd->addrs, 64) << 2;
++		if (test_bit(daddr >> 2, pnd->addrs))
++			saddr =3D daddr;
++		else
++			saddr =3D find_first_bit(pnd->addrs, 64) << 2;
+ 	} else
+-		addr =3D PN_NO_ADDR;
++		saddr =3D PN_NO_ADDR;
+ 	spin_unlock_bh(&pndevs->lock);
+-	return addr;
 +
-+	rtm =3D nlmsg_data(nlh);
-+	if (rtm->rtm_table !=3D RT_TABLE_MAIN || rtm->rtm_type !=3D RTN_UNICA=
-ST)
-+		return -EINVAL;
-+	if (tb[RTA_DST] =3D=3D NULL || tb[RTA_OIF] =3D=3D NULL)
-+		return -EINVAL;
-+	dst =3D nla_get_u8(tb[RTA_DST]);
-+	if (dst & 3) /* Phonet addresses only have 6 high-order bits */
-+		return -EINVAL;
++	if (saddr =3D=3D PN_NO_ADDR) {
++		/* Fallback to another device */
++		struct net_device *def_dev;
 +
-+	dev =3D __dev_get_by_index(net, nla_get_u32(tb[RTA_OIF]));
-+	if (dev =3D=3D NULL)
-+		return -ENODEV;
++		def_dev =3D phonet_device_get(dev_net(dev));
++		if (def_dev) {
++			if (def_dev !=3D dev)
++				saddr =3D phonet_address_get(def_dev, daddr);
++			dev_put(def_dev);
++		}
++	}
++	return saddr;
+ }
+=20
+ int phonet_address_lookup(struct net *net, u8 addr)
+@@ -246,7 +267,7 @@ static struct notifier_block phonet_device_notifier=
+ =3D {
+ /* Per-namespace Phonet devices handling */
+ static int phonet_init_net(struct net *net)
+ {
+-	struct phonet_net *pnn =3D kmalloc(sizeof(*pnn), GFP_KERNEL);
++	struct phonet_net *pnn =3D kzalloc(sizeof(*pnn), GFP_KERNEL);
+ 	if (!pnn)
+ 		return -ENOMEM;
+=20
+@@ -257,6 +278,7 @@ static int phonet_init_net(struct net *net)
+=20
+ 	INIT_LIST_HEAD(&pnn->pndevs.list);
+ 	spin_lock_init(&pnn->pndevs.lock);
++	spin_lock_init(&pnn->routes.lock);
+ 	net_assign_generic(net, phonet_net_id, pnn);
+ 	return 0;
+ }
+@@ -300,3 +322,69 @@ void phonet_device_exit(void)
+ 	unregister_netdevice_notifier(&phonet_device_notifier);
+ 	unregister_pernet_gen_device(phonet_net_id, &phonet_net_ops);
+ }
 +
-+	if (nlh->nlmsg_type =3D=3D RTM_NEWROUTE)
-+		err =3D phonet_route_add(dev, dst);
-+	else
-+		err =3D phonet_route_del(dev, dst);
-+	if (!err)
-+		rtm_phonet_notify(nlh->nlmsg_type, dev, dst);
++int phonet_route_add(struct net_device *dev, u8 daddr)
++{
++	struct phonet_net *pnn =3D net_generic(dev_net(dev), phonet_net_id);
++	struct phonet_routes *routes =3D &pnn->routes;
++	int err =3D -EEXIST;
++
++	daddr =3D daddr >> 2;
++	spin_lock_bh(&routes->lock);
++	if (routes->table[daddr] =3D=3D NULL) {
++		routes->table[daddr] =3D dev;
++		dev_hold(dev);
++		err =3D 0;
++	}
++	spin_unlock_bh(&routes->lock);
 +	return err;
 +}
 +
-+static int route_dumpit(struct sk_buff *skb, struct netlink_callback *=
-cb)
++int phonet_route_del(struct net_device *dev, u8 daddr)
 +{
-+	struct net *net =3D sock_net(skb->sk);
-+	u8 addr, addr_idx =3D 0, addr_start_idx =3D cb->args[0];
++	struct phonet_net *pnn =3D net_generic(dev_net(dev), phonet_net_id);
++	struct phonet_routes *routes =3D &pnn->routes;
++	int err =3D -ENOENT;
 +
-+	for (addr =3D 0; addr < 64; addr++) {
-+		struct net_device *dev;
-+
-+		dev =3D phonet_route_get(net, addr << 2);
-+		if (!dev)
-+			continue;
-+
-+		if (addr_idx++ < addr_start_idx)
-+			continue;
-+		if (fill_route(skb, dev, addr << 2, NETLINK_CB(cb->skb).pid,
-+				cb->nlh->nlmsg_seq, RTM_NEWROUTE))
-+			goto out;
++	daddr =3D daddr >> 2;
++	spin_lock_bh(&routes->lock);
++	if (dev =3D=3D routes->table[daddr]) {
++		routes->table[daddr] =3D NULL;
++		dev_put(dev);
++		err =3D 0;
 +	}
-+
-+out:
-+	cb->args[0] =3D addr_idx;
-+	cb->args[1] =3D 0;
-+
-+	return skb->len;
++	spin_unlock_bh(&routes->lock);
++	return err;
 +}
 +
- int __init phonet_netlink_register(void)
- {
- 	int err =3D __rtnl_register(PF_PHONET, RTM_NEWADDR, addr_doit, NULL);
-@@ -169,5 +296,8 @@ int __init phonet_netlink_register(void)
- 	/* Further __rtnl_register() cannot fail */
- 	__rtnl_register(PF_PHONET, RTM_DELADDR, addr_doit, NULL);
- 	__rtnl_register(PF_PHONET, RTM_GETADDR, NULL, getaddr_dumpit);
-+	__rtnl_register(PF_PHONET, RTM_NEWROUTE, route_doit, NULL);
-+	__rtnl_register(PF_PHONET, RTM_DELROUTE, route_doit, NULL);
-+	__rtnl_register(PF_PHONET, RTM_GETROUTE, NULL, route_dumpit);
- 	return 0;
- }
++struct net_device *phonet_route_get(struct net *net, u8 daddr)
++{
++	struct phonet_net *pnn =3D net_generic(net, phonet_net_id);
++	struct phonet_routes *routes =3D &pnn->routes;
++	struct net_device *dev;
++
++	ASSERT_RTNL(); /* no need to hold the device */
++
++	daddr >>=3D 2;
++	spin_lock_bh(&routes->lock);
++	dev =3D routes->table[daddr];
++	spin_unlock_bh(&routes->lock);
++	return dev;
++}
++
++struct net_device *phonet_route_output(struct net *net, u8 daddr)
++{
++	struct phonet_net *pnn =3D net_generic(net, phonet_net_id);
++	struct phonet_routes *routes =3D &pnn->routes;
++	struct net_device *dev;
++
++	spin_lock_bh(&routes->lock);
++	dev =3D routes->table[daddr >> 2];
++	if (dev)
++		dev_hold(dev);
++	spin_unlock_bh(&routes->lock);
++
++	if (!dev)
++		dev =3D phonet_device_get(net); /* Default route */
++	return dev;
++}
 --=20
 1.6.0.4
 
