@@ -1,46 +1,39 @@
-From: Ian McDonald <ian.mcdonald@jandi.co.uk>
-Subject: Re: [PATCH 1/5] First Patch on TFRC-SP. Copy base files from TFRC
-Date: Tue, 15 Sep 2009 06:25:23 +0100
-Message-ID: <5640c8aa0909142225q73e477fcga99a48c218d10e0b@mail.gmail.com>
-References: <4AA6A25A.5040508@embedded.ufcg.edu.br>
-	 <20090912183222.GA5706@gerrit.erg.abdn.ac.uk>
-	 <cb00fa210909141738l60d02cd5p287d990326ce6c3c@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: UDP regression with packets rates < 10k per sec
+Date: Tue, 15 Sep 2009 07:29:34 +0200
+Message-ID: <4AAF263E.9010405@gmail.com>
+References: <alpine.DEB.1.10.0909081820030.7733@V090114053VZO-1> <4AA6E039.4000907@gmail.com> <alpine.DEB.1.10.0909091000200.28070@V090114053VZO-1> <4AA7C512.6040100@gmail.com> <alpine.DEB.1.10.0909091234360.15538@V090114053VZO-1> <4AA7E082.90807@gmail.com> <alpine.DEB.1.10.0909091350590.32067@V090114053VZO-1> <4AA963A4.5080509@gmail.com> <4AA97183.3030008@gmail.com> <alpine.DEB.1.10.0909101741520.9964@V090114053VZO-1> <alpine.DEB.1.10.0909141708150.8051@V090114053VZO-1>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Christoph Lameter <cl@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f206.google.com ([209.85.219.206]:58587 "EHLO
-	mail-ew0-f206.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752045AbZIOFZV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 01:25:21 -0400
-In-Reply-To: <cb00fa210909141738l60d02cd5p287d990326ce6c3c@mail.gmail.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:59555 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752190AbZIOFaF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 01:30:05 -0400
+In-Reply-To: <alpine.DEB.1.10.0909141708150.8051@V090114053VZO-1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2009/9/15 Ivo Calado <ivocalado@embedded.ufcg.edu.br>
->
-> Hi Gerrit and all.
-> Thank you for your fast reply. My comments follow below
->
-> >
-> > net/dccp/ccids/lib/tfrc_equation_sp.c
-> > -------------------------------------
-> > This is a prime candidate for removal. After editing out the whitespace
-> > differences, I found that it is 100% identical with tfrc_equation.c.
-> >
-> > The result of this editing has been uploaded to
-> > http://eden-feed.erg.abdn.ac.uk/tfrc_sp_receiver_01.patch
-> >
-> One future patch will need to modify this file, but now it's really an
-> exact copy.
->
->
-Basically the rule with a patch set is that all the patches should
-make sense together.
+Christoph Lameter a =E9crit :
+> Where are we on this? Definitely a regression?
 
-It may well be that it makes sense to make a copy, but if you want to
-do this then present it with the patch that then modifies it.
+??
 
-Ian
+I tried to reproduce your numbers and failed on my machines.
+
+2.6.31 is actually faster than 2.6.22 on the bench you provided.
+
+Must be specific to the hardware I guess ?
+
+
+As text size presumably is bigger in 2.6.31, fetching code
+in cpu caches to handle 10 packets per second is what we call
+a cold path anyway.
+
+If you want to make it a fast path, you want to make sure code its
+always hot in cpu caches, and find a way to inject packets into
+the kernel to make sure cpu keep the path hot.
+
