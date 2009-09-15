@@ -1,227 +1,39 @@
 From: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
-Subject: Re: [PATCH 4/5] Adds options DROPPED PACKETS and LOSS INTERVALS to
-	receiver
-Date: Mon, 14 Sep 2009 21:40:40 -0300
-Message-ID: <cb00fa210909141740u585116c7i45165054d741a022@mail.gmail.com>
-References: <4AA6A267.7080500@embedded.ufcg.edu.br> <20090913184128.GA7165@gerrit.erg.abdn.ac.uk>
+Subject: Re: [PATCH 5/5] Updating documentation accordingly
+Date: Mon, 14 Sep 2009 21:41:13 -0300
+Message-ID: <cb00fa210909141741r54cd541fi242b110a727fbfcc@mail.gmail.com>
+References: <4AA6A26A.6080808@embedded.ufcg.edu.br> <20090913185050.GA7475@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: Gerrit Renker <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f180.google.com ([209.85.211.180]:49054 "EHLO
+Received: from mail-yw0-f180.google.com ([209.85.211.180]:39214 "EHLO
 	mail-yw0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755623AbZIOArM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2009 20:47:12 -0400
-In-Reply-To: <20090913184128.GA7165@gerrit.erg.abdn.ac.uk>
+	with ESMTP id S1754720AbZIOAtE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2009 20:49:04 -0400
+In-Reply-To: <20090913185050.GA7475@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The comments follow below
-
-
-On Sun, Sep 13, 2009 at 15:41, Gerrit Renker <gerrit@erg.abdn.ac.uk> wr=
+On Sun, Sep 13, 2009 at 15:50, Gerrit Renker <gerrit@erg.abdn.ac.uk> wr=
 ote:
-> | Adds options DROPPED PACKETS and LOSS INTERVALS to receiver. In thi=
-s patch is added the
-> | mechanism of gathering information about loss intervals and storing=
- it, for later
-> | construction of these two options.
-> This also needs some more work, please see inline.
+> | Updating documentation accordingly
+>
+> +/* As defined at section 8.6.1. of RFC 4342 */
+> =A0#define TFRC_LOSS_INTERVALS_OPT_MAX_LENGTH =A0 =A0 28
+> +/* Specified on section 8.7. of CCID4 draft */
+> =A0#define TFRC_DROP_OPT_MAX_LENGTH =A0 =A0 =A0 =A0 =A0 =A0 =A0 84
+> Need to update the references to CCID4 draft with RFC 5622. See also =
+4/5.
+>
+> It would be more helpful to include the documentation for structs wit=
+h
+> the patches that use these structs.
 >
 
-<snip>
-
->
-> + =A0 =A0 =A0 tfrc_sp_update_li_data(ld, h, skb, new_loss, new_event)=
-;
-> +
-> I don't understand why 'tfrc_sp_update_li_data' is called twice, one =
-call seems
-> to be redundant. What it seems to be wanting to do is
-
-When we are designing the loss count algorithm it seemed to be
-necessary, but now that i need to revise this (patch n=BA 2),  I'll
-observe this.
-
-
-> =A0 =A0 =A0 =A0bool new_loss =3D false;
->
-> =A0 =A0 =A0 =A0//...
-<snip>
-> at the begin of the function, all subsequent 'dccp_data_packet(skb)' =
-are unnecessary.
-> Almost every 'if' statement ends in 'return', this seems ad-hoc and c=
-ould be reduced
-> by adding if-else-if-else-if..., which would probably also reduce the=
- code duplication.
->
-
-I'll try to reduce code duplication, thanks.
-
->
-> @@ -244,8 +463,11 @@
-> =A0 =A0 =A0 =A0tfrc_lh_slab =3D kmem_cache_create("tfrc_sp_li_hist",
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 sizeof(struct tfrc_loss_interval), 0,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 SLAB_HWCACHE_ALIGN, NULL);
-> + =A0 =A0 =A0 tfrc_ld_slab =3D kmem_cache_create("tfrc_sp_li_data",
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0sizeof(struct tfrc_loss_data_entry), 0,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0SLAB_HWCACHE_ALIGN, NULL);
->
-> - =A0 =A0 =A0 if ((tfrc_lh_slab !=3D NULL))
-> + =A0 =A0 =A0 if ((tfrc_lh_slab !=3D NULL) || (tfrc_ld_slab !=3D NULL=
-))
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return 0;
->
-> =A0 =A0 =A0 =A0if (tfrc_lh_slab !=3D NULL) {
-> @@ -253,6 +475,11 @@
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tfrc_lh_slab =3D NULL;
-> =A0 =A0 =A0 =A0}
->
-> + =A0 =A0 =A0 if (tfrc_ld_slab !=3D NULL) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 kmem_cache_destroy(tfrc_ld_slab);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 tfrc_ld_slab =3D NULL;
-> + =A0 =A0 =A0 }
-> +
-> =A0 =A0 =A0 =A0return -ENOBUFS;
-> =A0}
-> The condition above should be '&&', not '||'. Suggested alternative:
->
-> + =A0 =A0 =A0 if (tfrc_lh_slab =3D=3D NULL)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto lh_failed;
-> +
-> + =A0 =A0 =A0 tfrc_ld_slab =3D kmem_cache_create("tfrc_sp_li_data",
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0sizeof(struct tfrc_loss_data_entry), 0,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0SLAB_HWCACHE_ALIGN, NULL);
-> + =A0 =A0 =A0 if (tfrc_ld_slab !=3D NULL)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return 0;
-> +
-> + =A0 =A0 =A0 kmem_cache_destroy(tfrc_lh_slab);
-> + =A0 =A0 =A0 tfrc_lh_slab =3D NULL;
-> +lh_failed:
-> + =A0 =A0 =A0 return -ENOBUFS;
-> =A0}
->
-
-Thanks for revising this. Adding one label for each failure case will
-not scale well. In another patch it will be needed to create another
-structure, and so, requiring another label.
-
-
-
->
->
->
-> --- dccp_tree_work5.orig/net/dccp/ccids/lib/loss_interval_sp.h
-> +++ dccp_tree_work5/net/dccp/ccids/lib/loss_interval_sp.h
-> @@ -70,13 +70,52 @@
-> =A0struct tfrc_rx_hist;
-> =A0#endif
->
-> +struct tfrc_loss_data_entry {
-> + =A0 =A0 =A0 struct tfrc_loss_data_entry =A0 =A0 *next;
-> + =A0 =A0 =A0 u32 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 lossless_length:24;
-> + =A0 =A0 =A0 u8 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0ecn_nonce_sum:1;
-> + =A0 =A0 =A0 u32 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 loss_length:24;
-> + =A0 =A0 =A0 u32 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 data_length:24;
-> + =A0 =A0 =A0 u32 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 drop_count:24;
-> +};
-> According to RFC 4342, 8.6.1, Loss Length is a 23-bit number, i.e.
-> =A0 =A0 =A0 =A0u32 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 loss_length:23;
->
-
-Thanks!
-
->
->
->
-> +#define TFRC_LOSS_INTERVALS_OPT_MAX_LENGTH =A0 =A0 28
-> +#define TFRC_DROP_OPT_MAX_LENGTH =A0 =A0 =A0 =A0 =A0 =A0 =A0 84
-> +#define TFRC_LI_OPT_SZ \
-> + =A0 =A0 =A0 (2 + TFRC_LOSS_INTERVALS_OPT_MAX_LENGTH*9)
-> +#define TFRC_DROPPED_OPT_SZ \
-> + =A0 =A0 =A0 (1 + TFRC_DROP_OPT_MAX_LENGTH*3)
-> It would be good to have a reminder where the numbers come from, i.e.
-> =A0* the "28" comes from RFC 4342, 8.6
-> =A0* the "84" comes from RFC 5622, 8.7
-> =A0* the "9" again is from RFC 4342, 8.6
-> =A0* the 1 + TFRC_DROP_OPT_MAX_LENGTH*3 =3D DCCP_SINGLE_OPT_MAXLEN (l=
-inux/dccp.h)
->
-Sorry, this documentation was written, but i left it in another future =
-patch.
-
->
-> +struct tfrc_loss_data {
-> + =A0 =A0 =A0 struct tfrc_loss_data_entry =A0 =A0 *head;
-> + =A0 =A0 =A0 u16 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 counter;
-> + =A0 =A0 =A0 u8 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0loss_intervals_opts[TFRC_LI_OPT_SZ];
-> + =A0 =A0 =A0 u8 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0drop_opts[TFRC_DROPPED_OPT_SZ];
-> + =A0 =A0 =A0 u8 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0last_loss_count;
-> + =A0 =A0 =A0 u8 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0sto_ecn;
-> + =A0 =A0 =A0 u8 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0sto_is_data;
-> +};
->
->
->
-> +static inline void tfrc_ld_init(struct tfrc_loss_data *ld)
-> +{
-> + =A0 =A0 =A0 memset(ld, 0, sizeof(struct tfrc_loss_data));
-> +}
-> A tip from CodingStyle - using "sizeof(*ld)" will continue to work if=
- there
-> are changes in the interface.
->
-
-Thanks.
-
-
->
-> --- dccp_tree_work5.orig/net/dccp/dccp.h
-> +++ dccp_tree_work5/net/dccp/dccp.h
-> @@ -403,6 +403,16 @@
-> =A0 =A0 =A0 =A0return (DCCP_SKB_CB(skb)->dccpd_ecn & INET_ECN_MASK) =3D=
-=3D INET_ECN_CE;
-> =A0}
->
-> +static inline bool dccp_skb_is_ecn_ect0(const struct sk_buff *skb)
-> +{
-> + =A0 =A0 =A0 return (DCCP_SKB_CB(skb)->dccpd_ecn & INET_ECN_MASK) =3D=
-=3D INET_ECN_ECT_0;
-> +}
-> +
-> +static inline bool dccp_skb_is_ecn_ect1(const struct sk_buff *skb)
-> +{
-> + =A0 =A0 =A0 return (DCCP_SKB_CB(skb)->dccpd_ecn & INET_ECN_MASK) =3D=
-=3D INET_ECN_ECT_0;
-> +}
-> The routines are not needed, because the dccpd_ecn field is (delibera=
-tely) only
-> 2 bits wide. In the second case it should have been INET_ECN_ECT_1.
->
-
-And how would be to determine if one packet's ecn is set to ECT 0 or EC=
-T 1?
-
+Thanks, I'll fix this.
 
 --=20
 Ivo Augusto Andrade Rocha Calado
