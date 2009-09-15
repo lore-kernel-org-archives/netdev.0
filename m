@@ -1,50 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2] ems_usb: Added support for EMS CPC-USB/ARM7 CAN/USB
- interface
-Date: Tue, 15 Sep 2009 13:10:34 +0200
-Message-ID: <4AAF762A.5030605@gmail.com>
-References: <20090914080945.5441.45509.stgit@localhost.localdomain> <20090914082229.5441.16650.stgit@localhost.localdomain>
+From: =?UTF-8?Q?R=C3=A9mi_Denis-Courmont?= <remi@remlab.net>
+Subject: [PATCH 0/5] Phonet: basic routing support
+Date: Tue, 15 Sep 2009 13:30:19 +0200
+Message-ID: <a9972d3fe3d2bf09387bee7827b571c0@chewa.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, greg@kroah.com, wg@grandegger.com,
-	oliver@hartkopp.net, socketcan-core@lists.berlios.de,
-	linux-usb@vger.kernel.org
-To: Sebastian Haas <haas@ems-wuensche.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:59354 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750913AbZIOLKn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 07:10:43 -0400
-In-Reply-To: <20090914082229.5441.16650.stgit@localhost.localdomain>
+Received: from yop.chewa.net ([91.121.105.214]:59198 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752031AbZIOLaR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Sep 2009 07:30:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sebastian Haas a =C3=A9crit :
-> This patch adds support for one channel CAN/USB interace CPC-USB/ARM7=
- from
-> EMS Dr. Thomas Wuensche (http://www.ems-wuensche.com).
->=20
-> Signed-off-by: Sebastian Haas <haas@ems-wuensche.com>
-> ---
->=20
 
-=2E..
+   Hello,=0D
+=0D
+This small patch series adds simplistic routing support to the Phonet=0D
+stack. Usually, there is an "upstream" interface to the Phonet modem.=0D
+However, if Linux runs on an embedded USB gadget, we have two interface=
+s in=0D
+the same namespace:=0D
+- an internal interface to the modem (e.g. OMAP SSI bus), and=0D
+- an external interface to the USB host (CDC Phonet).=0D
+=0D
+Patches follow.=0D
+ include/linux/phonet.h      |    1=0D
+ include/net/phonet/pn_dev.h |    6 ++=0D
+ net/phonet/af_phonet.c      |   55 ++++++++++++++++--=0D
+ net/phonet/pn_dev.c         |  131=0D
++++++++++++++++++++++++++++++++++++++++++---=0D
+ net/phonet/pn_netlink.c     |  130=0D
++++++++++++++++++++++++++++++++++++++++++++=0D
+ 5 files changed, 312 insertions(+), 11 deletions(-)=0D
+=0D
+I am not sure if feature patches are still allowed. If not, I can just=0D
+repost this at a more convenient time.=0D
+=0D
+-- =0D
+R=C3=A9mi Denis-Courmont
 
-> +	netif_rx(skb);
-> +
-> +	dev->netdev->last_rx =3D jiffies;
-
-Please dont update last_rx unless your driver *really* needs to.
-
-drivers/net/sky2.c is an example of driver that has to update ->last_rx
-for its internal use.
-
-But most drivers dont need it anymore, since core network
-already update it if necessary  (check skb_bond_should_drop())
-
-
-> +	stats->rx_packets++;
-> +	stats->rx_bytes +=3D cf->can_dlc;
-> +}
-> +
