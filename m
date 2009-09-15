@@ -1,44 +1,65 @@
-From: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
-Subject: Re: [PATCH 2/2] ems_usb: Added support for EMS CPC-USB/ARM7 CAN/USB
-	interface
-Date: Tue, 15 Sep 2009 13:36:40 +0200
-Message-ID: <4AAF7C48.6080003@ems-wuensche.com>
-References: <20090914080945.5441.45509.stgit@localhost.localdomain>
-	<20090914082229.5441.16650.stgit@localhost.localdomain>
-	<4AAF762A.5030605@gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: igb bandwidth allocation configuration
+Date: Tue, 15 Sep 2009 21:36:59 +1000
+Message-ID: <20090915113659.GJ24194@verge.net.au>
+References: <20090910081844.GA5421@verge.net.au>
+	<15ddcffd0909140142n2a110708ld619177c65f4588b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org,
-	greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4AAF762A.5030605-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org, "Kirsher,
+	Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Or Gerlitz <ogerlitz@voltaire.com>
+To: Or Gerlitz <or.gerlitz@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <15ddcffd0909140142n2a110708ld619177c65f4588b@mail.gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-RXJpYywKCkVyaWMgRHVtYXpldCBzY2hyaWViOgo+IFNlYmFzdGlhbiBIYWFzIGEgw6ljcml0IDoK
-Pj4gVGhpcyBwYXRjaCBhZGRzIHN1cHBvcnQgZm9yIG9uZSBjaGFubmVsIENBTi9VU0IgaW50ZXJh
-Y2UgQ1BDLVVTQi9BUk03IGZyb20KPj4gRU1TIERyLiBUaG9tYXMgV3VlbnNjaGUgKGh0dHA6Ly93
-d3cuZW1zLXd1ZW5zY2hlLmNvbSkuCj4+Cj4+IFNpZ25lZC1vZmYtYnk6IFNlYmFzdGlhbiBIYWFz
-IDxoYWFzQGVtcy13dWVuc2NoZS5jb20+Cj4+IC0tLQo+Pgo+IAo+IC4uLgo+IAo+PiArCW5ldGlm
-X3J4KHNrYik7Cj4+ICsKPj4gKwlkZXYtPm5ldGRldi0+bGFzdF9yeCA9IGppZmZpZXM7Cj4gCj4g
-UGxlYXNlIGRvbnQgdXBkYXRlIGxhc3RfcnggdW5sZXNzIHlvdXIgZHJpdmVyICpyZWFsbHkqIG5l
-ZWRzIHRvLgo+IAo+IGRyaXZlcnMvbmV0L3NreTIuYyBpcyBhbiBleGFtcGxlIG9mIGRyaXZlciB0
-aGF0IGhhcyB0byB1cGRhdGUgLT5sYXN0X3J4Cj4gZm9yIGl0cyBpbnRlcm5hbCB1c2UuCk9rYXks
-IEkgc2VlLiBSZW1vdmVkLCB0aGFua3MuCgpDaGVlcnMsIFNlYmFzdGlhbiBIYWFzCi0tIApFTVMg
-RHIuIFRob21hcyBXdWVuc2NoZSBlLksuClNvbm5lbmhhbmcgMwo4NTMwNCBJbG1tdWVuc3RlcgpI
-UkEgTmV1YnVyZyBhLmQuIERvbmF1LCBIUi1Oci4gNzAuMTA2ClBob25lOiArNDktODQ0MS00OTAy
-NjAKRmF4ICA6ICs0OS04NDQxLTgxODYwCmh0dHA6Ly93d3cuZW1zLXd1ZW5zY2hlLmNvbQpfX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpTb2NrZXRjYW4tY29y
-ZSBtYWlsaW5nIGxpc3QKU29ja2V0Y2FuLWNvcmVAbGlzdHMuYmVybGlvcy5kZQpodHRwczovL2xp
-c3RzLmJlcmxpb3MuZGUvbWFpbG1hbi9saXN0aW5mby9zb2NrZXRjYW4tY29yZQo=
+On Mon, Sep 14, 2009 at 11:42:50AM +0300, Or Gerlitz wrote:
+> On 9/10/09, Simon Horman <horms@verge.net.au> wrote:
+> > I have been looking into adding support the 82586's per-PF/VF bandwidth allocation to
+> > the igb driver. It seems that the trickiest part is working out how to expose things to
+> > user-space.
+> 
+> Please note that there are bunch (not many, but more then 1-2) of
+> things to configure from user space in a PF/VF scheme, and I think it
+> would be best if we do that through one mechanism, which may be
+> netlink based or extension to ethtool as you suggested, we've started
+> to discuss this on the "L2 switching in igb" thread
+
+Thanks, I've read that thread now. I'm certainly in favour
+of discussing what mechanisms make sense.
+
+It seems to me that the main problem is that from a driver point
+of view the PF and VFs are independent. But from a hardware point
+of view they aren't so its not always possible for their configuration
+to be independent of each other. And I'm not sure what (existing) interfaces
+can handle that nicely.
+
+> The "82576 SR-IOV Driver Companion Guide" document, section 7.6
+> mentions "Transmit Bandwidth Allocation to VFs... define minimum
+> transmit bandwidth for individual VMs".
+> 
+> I'm not clear if one can program rate limiter (upper bound) per VF or
+> actually rate guarantee per VF, even  with these being  just details
+> of specific device, alex, I would be happy if you can clarify that.
+
+Its not clear to me what you are asking.
+
+
+------------------------------------------------------------------------------
+Come build with us! The BlackBerry&reg; Developer Conference in SF, CA
+is the only developer event you need to attend this year. Jumpstart your
+developing skills, take BlackBerry mobile applications to market and stay 
+ahead of the curve. Join us from November 9&#45;12, 2009. Register now&#33;
+http://p.sf.net/sfu/devconf
