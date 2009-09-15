@@ -1,99 +1,98 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: Fwd: [RFC v3] net: Introduce recvmmsg socket syscall
-Date: Tue, 15 Sep 2009 11:11:10 -0300
-Message-ID: <20090915141110.GG22743@ghostprotocols.net>
-References: <9b2db90b0908060014r6a1763e8t1b3ee9310e012c25@mail.gmail.com> <9b2db90b0908060015v45d31060me94cf436f4a25e42@mail.gmail.com> <20090914230902.GC22743@ghostprotocols.net> <9b2db90b0909150137j16c46340o89b55af62f7b613e@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
+Date: Tue, 15 Sep 2009 17:28:21 +0300
+Message-ID: <20090915142821.GA24488@redhat.com>
+References: <20090908172035.GB319@ovro.caltech.edu> <4AAA7415.5080204@gmail.com> <20090913120140.GA31218@redhat.com> <4AAE6A97.7090808@gmail.com> <20090914164750.GB3745@redhat.com> <4AAE961B.6020509@gmail.com> <4AAF8A03.5020806@redhat.com> <4AAF909F.9080306@gmail.com> <4AAF95D1.1080600@redhat.com> <4AAF9BAF.3030109@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Networking Development Mailing List
-	<netdev@vger.kernel.org>, Ziv Ayalon <ziv@final.co.il>
-To: Nir Tzachar <nir.tzachar@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40918 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754344AbZIOOLP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Sep 2009 10:11:15 -0400
+Cc: Avi Kivity <avi@redhat.com>, "Ira W. Snyder" <iws@ovro.caltech.edu>,
+        netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+        linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
+        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com,
+        alacrityvm-devel@lists.sourceforge.net
+To: Gregory Haskins <gregory.haskins@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <9b2db90b0909150137j16c46340o89b55af62f7b613e@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4AAF9BAF.3030109@gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Em Tue, Sep 15, 2009 at 11:37:36AM +0300, Nir Tzachar escreveu:
-> On Tue, Sep 15, 2009 at 2:09 AM, Arnaldo Carvalho de
-> Melo<acme@ghostprotocols.net> wrote:
-> > Em Thu, Aug 06, 2009 at 10:15:26AM +0300, Nir Tzachar escreveu:
-> >> Hello.
+On Tue, Sep 15, 2009 at 09:50:39AM -0400, Gregory Haskins wrote:
+> Avi Kivity wrote:
+> > On 09/15/2009 04:03 PM, Gregory Haskins wrote:
 > >>
-> >> Is there anything new with this patch? What are the plans for merging
-> >> it upstream?
-> >
-> > I'm doing perf runs using a test app using recvmsg, then with the first
-> > patch, that introduces recvmmsg, then with the second, that locks the
-> > series of unlocked_recvmmsg calls just once, will try to get this posted
-> > here soon.
-> >
-> > I'd really appreciate if the people interested in this could try it and
-> > post numbers too, to get this ball rolling again.
-> >
-> > As for getting it upstream, well, posting numbers here would definetely
-> > help with that :-)
+> >>> In this case the x86 is the owner and the ppc boards use translated
+> >>> access.  Just switch drivers and device and it falls into place.
+> >>>
+> >>>      
+> >> You could switch vbus roles as well, I suppose.
+> > 
+> > Right, there's not real difference in this regard.
+> > 
+> >> Another potential
+> >> option is that he can stop mapping host memory on the guest so that it
+> >> follows the more traditional model.  As a bus-master device, the ppc
+> >> boards should have access to any host memory at least in the GFP_DMA
+> >> range, which would include all relevant pointers here.
+> >>
+> >> I digress:  I was primarily addressing the concern that Ira would need
+> >> to manage the "host" side of the link using hvas mapped from userspace
+> >> (even if host side is the ppc boards).  vbus abstracts that access so as
+> >> to allow something other than userspace/hva mappings.  OTOH, having each
+> >> ppc board run a userspace app to do the mapping on its behalf and feed
+> >> it to vhost is probably not a huge deal either.  Where vhost might
+> >> really fall apart is when any assumptions about pageable memory occur,
+> >> if any.
+> >>    
+> > 
+> > Why?  vhost will call get_user_pages() or copy_*_user() which ought to
+> > do the right thing.
 > 
-> Ok, here are some crude results:
+> I was speaking generally, not specifically to Ira's architecture.  What
+> I mean is that vbus was designed to work without assuming that the
+> memory is pageable.  There are environments in which the host is not
+> capable of mapping hvas/*page, but the memctx->copy_to/copy_from
+> paradigm could still work (think rdma, for instance).
+
+rdma interfaces are typically asynchronous, so blocking
+copy_from/copy_to can be made to work, but likely won't work
+that well. DMA might work better if it is asynchronous as well.
+
+Assuming a synchronous copy is what we need - maybe the issue is that
+there aren't good APIs for x86/ppc communication? If so, sticking them in
+vhost might not be the best place.  Maybe the specific platform can
+redefine copy_to/from_user to do the right thing? Or, maybe add another
+API for that ...
+
+> > 
+> >> As an aside: a bigger issue is that, iiuc, Ira wants more than a single
+> >> ethernet channel in his design (multiple ethernets, consoles, etc).  A
+> >> vhost solution in this environment is incomplete.
+> >>    
+> > 
+> > Why?  Instantiate as many vhost-nets as needed.
 > 
-> Setup:
-> linux 2.6.29.2 with the third version of the patch, running on an
-> Intel Xeon X3220 2.4GHz quad core, with 4Gbyte of ram, running Ubuntu
-> 9.04
+> a) what about non-ethernets?
 
-Which NIC? 10 Gbit/s?
- 
-> Application:
-> A financial application, subscribing to quotes from a stock exchange.
-> Typical traffic is small (around 50-100 bytes) multicast packets in
-> large volumes. The application just receives  the quotes and pass them
-> along.
+vhost-net actually does not care.
+the packet is passed on to a socket, we are done.
 
-Exactly what made me work on this patch :-)
- 
-> The test:
-> Run two version of the application, head to head. one version using
-> recvmsg and the other recvmmsg. The data is passed to a third
-> application measuring the latency of the data.
-> 
-> Results:
-> On general, the recvmmsg beats the pants off the regular recvmsg by a
-> whole millisecond (which might not sound much, but is _really_ a lot
-> for us ;). The exact distribution fluctuates between half a milli and
-> 2 millis, but the average is 1 milli.
+> b) what do you suppose this protocol to aggregate the connections would
+> look like? (hint: this is what a vbus-connector does).
 
-Do you have any testcase using publicly available software? Like qpidd,
-etc? I'll eventually have to do that, for now I'm just using that
-recvmmsg tool I posted, now with a recvmsg mode, then collecting 'perf
-record' with and without callgraphs to post here. The client is just
-pktgen spitting datagrams as if there is no tomorrow :-)
- 
-> Conclusions:
-> We would _really_ like to see this patch go upstream. It gives an
-> important performance boost in out use cases.
+You are talking about management protocol between ppc and x86, right?
+One wonders why does it have to be in kernel at all.
 
-Great! I'll work on the lower layer unlocked_recvmmsg followup patch
-addressing the concerns raised when I first posted it and we should see
-some more gains.
- 
-> We are willing to perform more accurate tests if needed, and would
-> appreciate the feedback on how to conduct them.
+> c) how do you manage the configuration, especially on a per-board basis?
 
-Showing that we get latency improvements is complementary to what I'm
-doing, that is for now just showing the performance improvements and
-showing what gives this improvement (perf counters runs).
+not sure what a board is, but configuration is done in userspace.
 
-If you could come up with a testcase that you could share with us,
-perhaps using one of these AMQP implementations, that would be great
-too.
- 
-> Cheers,
-> Nir.
+-- 
+MST
 
-Thanks a lot for sharing your results with us!
-
-- Arnaldo
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
