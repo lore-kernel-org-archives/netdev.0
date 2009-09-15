@@ -1,58 +1,98 @@
-From: Karl Hiramoto <karl@hiramoto.org>
-Subject: Re: [Linux-ATM-General] [PATCH] atm/br2684: netif_stop_queue() when
- atm device busy and netif_wake_queue() when we can send packets again.
-Date: Tue, 15 Sep 2009 16:57:36 +0200
-Message-ID: <4AAFAB60.4080302@hiramoto.org>
-References: <1251545092-18081-1-git-send-email-karl@hiramoto.org>	<4AA95838.4010007@redfish-solutions.com>	<4AA97004.2010904@hiramoto.org>	<20090911.114848.177667600.davem@davemloft.net> <4AAF9A55.8030207@hiramoto.org>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
+Date: Tue, 15 Sep 2009 18:03:17 +0300
+Message-ID: <4AAFACB5.9050808@redhat.com>
+References: <cover.1251388414.git.mst@redhat.com> <20090827160750.GD23722@redhat.com> <20090903183945.GF28651@ovro.caltech.edu> <20090907101537.GH3031@redhat.com> <20090908172035.GB319@ovro.caltech.edu> <4AAA7415.5080204@gmail.com> <20090913120140.GA31218@redhat.com> <4AAE6A97.7090808@gmail.com> <20090914164750.GB3745@redhat.com> <4AAE961B.6020509@gmail.com> <4AAF8A03.5020806@redhat.com> <4AAF909F.9080306@gmail.com> <4AAF95D1.1080600@redhat.com> <4AAF9BAF.3030109@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-atm-general@lists.sourceforge.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from caiajhbdcagg.dreamhost.com ([208.97.132.66]:53633 "EHLO
-	spunkymail-a11.g.dreamhost.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754538AbZIOO5e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 10:57:34 -0400
-In-Reply-To: <4AAF9A55.8030207@hiramoto.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+        "Ira W. Snyder" <iws@ovro.caltech.edu>, netdev@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+        linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
+        akpm@linux-foundation.org, hpa@zytor.com,
+        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com,
+        alacrityvm-devel@lists.sourceforge.net
+To: Gregory Haskins <gregory.haskins@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <4AAF9BAF.3030109@gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Karl Hiramoto wrote:
-> David Miller wrote:
->   
->> From: Karl Hiramoto <karl@hiramoto.org>
->> Date: Thu, 10 Sep 2009 23:30:44 +0200
->>
->>   
->>     
->>> I'm not really sure if or how many packets to upper layers buffer.
->>>     
->>>       
->> This is determined by ->tx_queue_len, so whatever value is being
->> set for ATM network devices is what the core will use for backlog
->> limiting while the device's TX queue is stopped.
->>     
-> I tried varying tx_queue_len by 10, 100,  and 1000x, but it didn't seem 
-> to help much.  Whenever the atm dev called netif_wake_queue() it seems 
-> like the driver still starves for packets  and still takes time to get 
-> going again.
+On 09/15/2009 04:50 PM, Gregory Haskins wrote:
+>> Why?  vhost will call get_user_pages() or copy_*_user() which ought to
+>> do the right thing.
+>>      
+> I was speaking generally, not specifically to Ira's architecture.  What
+> I mean is that vbus was designed to work without assuming that the
+> memory is pageable.  There are environments in which the host is not
+> capable of mapping hvas/*page, but the memctx->copy_to/copy_from
+> paradigm could still work (think rdma, for instance).
+>    
+
+Sure, vbus is more flexible here.
+
+>>> As an aside: a bigger issue is that, iiuc, Ira wants more than a single
+>>> ethernet channel in his design (multiple ethernets, consoles, etc).  A
+>>> vhost solution in this environment is incomplete.
+>>>
+>>>        
+>> Why?  Instantiate as many vhost-nets as needed.
+>>      
+> a) what about non-ethernets?
+>    
+
+There's virtio-console, virtio-blk etc.  None of these have kernel-mode 
+servers, but these could be implemented if/when needed.
+
+> b) what do you suppose this protocol to aggregate the connections would
+> look like? (hint: this is what a vbus-connector does).
+>    
+
+You mean multilink?  You expose the device as a multiqueue.
+
+> c) how do you manage the configuration, especially on a per-board basis?
+>    
+
+pci (for kvm/x86).
+
+> Actually I have patches queued to allow vbus to be managed via ioctls as
+> well, per your feedback (and it solves the permissions/lifetime
+> critisims in alacrityvm-v0.1).
+>    
+
+That will make qemu integration easier.
+
+>>   The only difference is the implementation.  vhost-net
+>> leaves much more to userspace, that's the main difference.
+>>      
+> Also,
 >
->
-> It seem like when the driver calls netif_wake_queue() it's TX hardware 
-> queue is nearly full, but it has space to accept new packets.  The TX 
-> hardware queue has time to empty, devices starves for packets(goes 
-> idle), then finally a packet comes in from the upper networking 
-> layers.   I'm not really sure at the moment where the problem lies to my 
-> maximum throughput dropping.
->
-> I did try changing sk_sndbuf to 256K but that didn't seem to help either.
->
-> --
-Actually i think i spoke too soon,  tuning TCP parameters, txqueuelen on 
-all machines the server, router and client it seems my performance came 
-back.
+> *) vhost is virtio-net specific, whereas vbus is a more generic device
+> model where thing like virtio-net or venet ride on top.
+>    
+
+I think vhost-net is separated into vhost and vhost-net.
+
+> *) vhost is only designed to work with environments that look very
+> similar to a KVM guest (slot/hva translatable).  vbus can bridge various
+> environments by abstracting the key components (such as memory access).
+>    
+
+Yes.  virtio is really virtualization oriented.
+
+> *) vhost requires an active userspace management daemon, whereas vbus
+> can be driven by transient components, like scripts (ala udev)
+>    
+
+vhost by design leaves configuration and handshaking to userspace.  I 
+see it as an advantage.
+
+-- 
+error compiling committee.c: too many arguments to function
 
 --
-Karl
-
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
