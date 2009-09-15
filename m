@@ -1,65 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] net/core: Delay neighbor only if it has been used after
- confirmed
-Date: Tue, 15 Sep 2009 03:13:50 -0700 (PDT)
-Message-ID: <20090915.031350.61645231.davem@davemloft.net>
-References: <4A9E639B.20907@linux-ipv6.org>
-	<1252599707.5980.13.camel@fnki-nb00130>
-	<1253009246.8352.10.camel@fnki-nb00130>
+From: Bernard Pidoux <bernard.pidoux@upmc.fr>
+Subject: Re: [AX25] kernel panic
+Date: Tue, 15 Sep 2009 12:16:43 +0200
+Message-ID: <4AAF698B.8010608@upmc.fr>
+References: <4AA82BF0.7040203@upmc.fr> <4AAAA344.4030200@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: jens@mcbone.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35931
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752417AbZIOKNd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 06:13:33 -0400
-In-Reply-To: <1253009246.8352.10.camel@fnki-nb00130>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ralf Baechle DL5RB <ralf@linux-mips.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	linux-hams <linux-hams@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <4AAAA344.4030200@gmail.com>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jens Rosenboom <jens@mcbone.net>
-Date: Tue, 15 Sep 2009 12:07:26 +0200
+Hi Jarek,
 
-> On Thu, 2009-09-10 at 18:21 +0200, Jens Rosenboom wrote:
->> On Wed, 2009-09-02 at 21:22 +0900, YOSHIFUJI Hideaki wrote:
->> [...]
->> > And, this "if" for REACHABLE->DELAY may be completely needless.
->> > Timer in REACHABLE is only for state transition for toward REACHABLE
->> > or STALE.
->> 
->> I did some testing with the following patch, which works fine for me, so
->> I propose this one now instead of my previous one. I still have no real
->> idea about the non-IPv6 implications of this, though.
->> 
->> ---
->> 
->> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
->> index e587e68..f61926f 100644
->> --- a/net/core/neighbour.c
->> +++ b/net/core/neighbour.c
->> @@ -819,13 +819,6 @@ static void neigh_timer_handler(unsigned long arg)
->>  				   neigh->confirmed + neigh->parms->reachable_time)) {
->>  			NEIGH_PRINTK2("neigh %p is still alive.\n", neigh);
->>  			next = neigh->confirmed + neigh->parms->reachable_time;
->> -		} else if (time_before_eq(now,
->> -					  neigh->used + neigh->parms->delay_probe_time)) {
->> -			NEIGH_PRINTK2("neigh %p is delayed.\n", neigh);
->> -			neigh->nud_state = NUD_DELAY;
->> -			neigh->updated = jiffies;
->> -			neigh_suspect(neigh);
->> -			next = now + neigh->parms->delay_probe_time;
->>  		} else {
->>  			NEIGH_PRINTK2("neigh %p is suspected.\n", neigh);
->>  			neigh->nud_state = NUD_STALE;
->> 
-> 
-> Hi David, what are your thoughts on this one? There is IMHO a real bug
-> to fix, namely sending tons of repeated neighbor solicitations when
-> there is no actual traffic to be sent, so this should qualify to go into
-> 2.6.32. Do you want to wait for further comments or should I submit this
-> for net-2.6 so it can get some testing?
+I was not aware of this debug option and will turn it ON.
+Thanks for the suggestion.
 
-I'm waiting for Yoshifuji's feedback to your latest patch.
+Bernard
+
+Jarek Poplawski a =E9crit :
+> Bernard Pidoux wrote, On 09/10/2009 12:28 AM:
+>
+>  =20
+>> Hi Ralf,
+>>
+>> Here is a set of not so frequent kernel panics captured via netconso=
+le
+>> that seem related to AX25 timer.=20
+>>
+>> Regards,
+>>
+>> Bernard Pidoux
+>>
+>>    =20
+>
+> Hi Bernard,
+>
+> Could/did you try to turn on this debugging option below, btw?
+>
+> Regards,
+> Jarek P.
+>
+>    CONFIG_DEBUG_OBJECTS_TIMERS:
+>   ?                                                                  =
+                                      ? =20
+>   ? If you say Y here, additional code will be inserted into the     =
+                                      ? =20
+>   ? timer routines to track the life time of timer objects and       =
+                                      ? =20
+>   ? validate the timer operations.                                   =
+                                      ? =20
+>   ?                                                                  =
+                                      ? =20
+>   ? Symbol: DEBUG_OBJECTS_TIMERS [=3Dy]                              =
+                                        ? =20
+>   ? Prompt: Debug timer objects                                      =
+                                      ? =20
+>   ?   Defined at lib/Kconfig.debug:247                               =
+                                      ? =20
+>   ?   Depends on: DEBUG_OBJECTS                                      =
+                                      ? =20
+>   ?   Location:                                                      =
+                                      ? =20
+>   ?     -> Kernel hacking                                            =
+                                      ? =20
+>   ?       -> Kernel debugging (DEBUG_KERNEL [=3Dy])                  =
+                                        ? =20
+>   ?         -> Debug object operations (DEBUG_OBJECTS [=3Dy])        =
+                                        ? =20
+>   ?                                                                  =
+   =20
+>
+>  =20
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-hams" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
