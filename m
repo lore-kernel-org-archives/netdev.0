@@ -1,245 +1,116 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH net-next-2.6] bonding: make ab_arp select active slaves
-	as other modes
-Date: Tue, 15 Sep 2009 17:08:49 +0200
-Message-ID: <20090915150848.GC6624@psychotron.lab.eng.brq.redhat.com>
-References: <20090831210937.GA3152@psychotron.redhat.com> <26579.1252629138@death.nxdomain.ibm.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: alloc skb based on a given data buffer
+Date: Tue, 15 Sep 2009 08:30:31 -0700
+Message-ID: <1253028631.23427.55.camel@johannes.local>
+References: <1253003420.7549.51.camel@debian>
+	 <20090915.013321.07006714.davem@davemloft.net>
+	 <1253005050.7549.58.camel@debian>
+	 <20090915.020903.93643290.davem@davemloft.net>
+	 <1253006111.7549.61.camel@debian>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	bonding-devel@lists.sourceforge.net, nicolas.2p.debian@free.fr
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35788 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754575AbZIOPJA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Sep 2009 11:09:00 -0400
-Content-Disposition: inline
-In-Reply-To: <26579.1252629138@death.nxdomain.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-fzAflWusSa20Mep4aX4E"
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org" <mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>,
+	"Chatre, Reinette" <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org" <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>,
+	"Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org" <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	"linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org" <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org"
+	<ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	"akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"Krauss, Assaf" <assaf.krauss-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Abbas, Mohamed" <mohamed.abbas-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1253006111.7549.61.camel@debian>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Fri, Sep 11, 2009 at 02:32:18AM CEST, fubar@us.ibm.com wrote:
->Jiri Pirko <jpirko@redhat.com> wrote:
->
->>When I was implementing primary_passive option (formely named primary_lazy) I've
->>run into troubles with ab_arp. This is the only mode which is not using
->>bond_select_active_slave() function to select active slave and instead it
->>selects it itself. This seems to be not the right behaviour and it would be
->>better to do it in bond_select_active_slave() for all cases. This patch makes
->>this happen. Please review.
->
->	Sorry for the delay in response; was out of the office.
->
->	My first question is whether this affect the "current_arp_slave"
->behavior, i.e., the round-robining of the ARP probes when no slaves are
->active.  Is that something you checked?
 
-Yes, according to my tests this behaves the same way as original code.
-How about your tests?
+--=-fzAflWusSa20Mep4aX4E
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Jirka
+On Tue, 2009-09-15 at 17:15 +0800, Zhu Yi wrote:
+> On Tue, 2009-09-15 at 17:09 +0800, David Miller wrote:
+> > From: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> > Date: Tue, 15 Sep 2009 16:57:29 +0800
+> >=20
+> > > Thanks. So we can put the 8K buffer into 2 skb_shinfo()->frags[] slot=
+s
+> > > and set nr_frags to 2, right? Is this supported allover the network c=
+ode
+> > > already? At a first glance, I didn't find any frags handling in mac80=
+211
+> > > stack.
+> >=20
+> > You have to pre-pull the link level protocol headers into the
+> > linear area, but that's it.
+> >=20
+> > Again, see niu.c for details, it does:
+> >=20
+> > static void niu_rx_skb_append(struct sk_buff *skb, struct page *page,
+> > 			      u32 offset, u32 size)
+> > {
+> > 	int i =3D skb_shinfo(skb)->nr_frags;
+> > 	skb_frag_t *frag =3D &skb_shinfo(skb)->frags[i];
+> >=20
+> > 	frag->page =3D page;
+> > 	frag->page_offset =3D offset;
+> > 	frag->size =3D size;
+> >=20
+> > 	skb->len +=3D size;
+> > 	skb->data_len +=3D size;
+> > 	skb->truesize +=3D size;
+> >=20
+> > 	skb_shinfo(skb)->nr_frags =3D i + 1;
+> > }
+> >=20
+> > to add pages to SKBs and then at the end it goes:
+> >=20
+> > 	skb_reserve(skb, NET_IP_ALIGN);
+> > 	__pskb_pull_tail(skb, min(len, NIU_RXPULL_MAX));
+> >=20
+> > Right before giving the SKB to the networking stack.  NIU_RXPULL_MAX
+> > should be a value that will be large enough to cover the largest
+> > possible link level header.
+>=20
+> I see. Thanks for this info. I'll try implementing the same for iwlagn.
 
->
->	I'll give this a test tomorrow as well.
->
->	-J
->
->---
->	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
->
->>Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->>
->>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->>index 7c0e0bd..6ebd88d 100644
->>--- a/drivers/net/bonding/bond_main.c
->>+++ b/drivers/net/bonding/bond_main.c
->>@@ -1093,15 +1093,8 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
->> 			return NULL; /* still no slave, return NULL */
->> 	}
->>
->>-	/*
->>-	 * first try the primary link; if arping, a link must tx/rx
->>-	 * traffic before it can be considered the curr_active_slave.
->>-	 * also, we would skip slaves between the curr_active_slave
->>-	 * and primary_slave that may be up and able to arp
->>-	 */
->> 	if ((bond->primary_slave) &&
->>-	    (!bond->params.arp_interval) &&
->>-	    (IS_UP(bond->primary_slave->dev))) {
->>+	    bond->primary_slave->link == BOND_LINK_UP) {
->> 		new_active = bond->primary_slave;
->> 	}
->>
->>@@ -1109,15 +1102,14 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
->> 	old_active = new_active;
->>
->> 	bond_for_each_slave_from(bond, new_active, i, old_active) {
->>-		if (IS_UP(new_active->dev)) {
->>-			if (new_active->link == BOND_LINK_UP) {
->>-				return new_active;
->>-			} else if (new_active->link == BOND_LINK_BACK) {
->>-				/* link up, but waiting for stabilization */
->>-				if (new_active->delay < mintime) {
->>-					mintime = new_active->delay;
->>-					bestslave = new_active;
->>-				}
->>+		if (new_active->link == BOND_LINK_UP) {
->>+			return new_active;
->>+		} else if (new_active->link == BOND_LINK_BACK &&
->>+			   IS_UP(new_active->dev)) {
->>+			/* link up, but waiting for stabilization */
->>+			if (new_active->delay < mintime) {
->>+				mintime = new_active->delay;
->>+				bestslave = new_active;
->
->	Is there a functional reason for rearranging this (i.e., did the
->use of select_active_slave need this for some reason)?
->
->
->> 			}
->> 		}
->> 	}
->>@@ -2929,18 +2921,6 @@ static int bond_ab_arp_inspect(struct bonding *bond, int delta_in_ticks)
->> 		}
->> 	}
->>
->>-	read_lock(&bond->curr_slave_lock);
->>-
->>-	/*
->>-	 * Trigger a commit if the primary option setting has changed.
->>-	 */
->>-	if (bond->primary_slave &&
->>-	    (bond->primary_slave != bond->curr_active_slave) &&
->>-	    (bond->primary_slave->link == BOND_LINK_UP))
->>-		commit++;
->>-
->>-	read_unlock(&bond->curr_slave_lock);
->>-
->> 	return commit;
->> }
->>
->>@@ -2961,90 +2941,58 @@ static void bond_ab_arp_commit(struct bonding *bond, int delta_in_ticks)
->> 			continue;
->>
->> 		case BOND_LINK_UP:
->>-			write_lock_bh(&bond->curr_slave_lock);
->>-
->>-			if (!bond->curr_active_slave &&
->>-			    time_before_eq(jiffies, dev_trans_start(slave->dev) +
->>-					   delta_in_ticks)) {
->>+			if ((!bond->curr_active_slave &&
->>+			     time_before_eq(jiffies,
->>+					    dev_trans_start(slave->dev) +
->>+					    delta_in_ticks)) ||
->>+			    bond->curr_active_slave != slave) {
->> 				slave->link = BOND_LINK_UP;
->>-				bond_change_active_slave(bond, slave);
->> 				bond->current_arp_slave = NULL;
->>
->> 				pr_info(DRV_NAME
->>-				       ": %s: %s is up and now the "
->>-				       "active interface\n",
->>-				       bond->dev->name, slave->dev->name);
->>-
->>-			} else if (bond->curr_active_slave != slave) {
->>-				/* this slave has just come up but we
->>-				 * already have a current slave; this can
->>-				 * also happen if bond_enslave adds a new
->>-				 * slave that is up while we are searching
->>-				 * for a new slave
->>-				 */
->>-				slave->link = BOND_LINK_UP;
->>-				bond_set_slave_inactive_flags(slave);
->>-				bond->current_arp_slave = NULL;
->>+					": %s: link status definitely "
->>+					"up for interface %s.\n",
->>+					bond->dev->name, slave->dev->name);
->>
->>-				pr_info(DRV_NAME
->>-				       ": %s: backup interface %s is now up\n",
->>-				       bond->dev->name, slave->dev->name);
->>-			}
->>+				if (!bond->curr_active_slave ||
->>+				    (slave == bond->primary_slave))
->>+					goto do_failover;
->>
->>-			write_unlock_bh(&bond->curr_slave_lock);
->>+			}
->>
->>-			break;
->>+			continue;
->>
->> 		case BOND_LINK_DOWN:
->> 			if (slave->link_failure_count < UINT_MAX)
->> 				slave->link_failure_count++;
->>
->> 			slave->link = BOND_LINK_DOWN;
->>+			bond_set_slave_inactive_flags(slave);
->>
->>-			if (slave == bond->curr_active_slave) {
->>-				pr_info(DRV_NAME
->>-				       ": %s: link status down for active "
->>-				       "interface %s, disabling it\n",
->>-				       bond->dev->name, slave->dev->name);
->>-
->>-				bond_set_slave_inactive_flags(slave);
->>-
->>-				write_lock_bh(&bond->curr_slave_lock);
->>-
->>-				bond_select_active_slave(bond);
->>-				if (bond->curr_active_slave)
->>-					bond->curr_active_slave->jiffies =
->>-						jiffies;
->>-
->>-				write_unlock_bh(&bond->curr_slave_lock);
->>+			pr_info(DRV_NAME
->>+				": %s: link status definitely down for "
->>+				"interface %s, disabling it\n",
->>+				bond->dev->name, slave->dev->name);
->>
->>+			if (slave == bond->curr_active_slave) {
->> 				bond->current_arp_slave = NULL;
->>-
->>-			} else if (slave->state == BOND_STATE_BACKUP) {
->>-				pr_info(DRV_NAME
->>-				       ": %s: backup interface %s is now down\n",
->>-				       bond->dev->name, slave->dev->name);
->>-
->>-				bond_set_slave_inactive_flags(slave);
->>+				goto do_failover;
->> 			}
->>-			break;
->>+
->>+			continue;
->>
->> 		default:
->> 			pr_err(DRV_NAME
->> 			       ": %s: impossible: new_link %d on slave %s\n",
->> 			       bond->dev->name, slave->new_link,
->> 			       slave->dev->name);
->>+			continue;
->> 		}
->>-	}
->>
->>-	/*
->>-	 * No race with changes to primary via sysfs, as we hold rtnl.
->>-	 */
->>-	if (bond->primary_slave &&
->>-	    (bond->primary_slave != bond->curr_active_slave) &&
->>-	    (bond->primary_slave->link == BOND_LINK_UP)) {
->>+do_failover:
->>+		ASSERT_RTNL();
->> 		write_lock_bh(&bond->curr_slave_lock);
->>-		bond_change_active_slave(bond, bond->primary_slave);
->>+		bond_select_active_slave(bond);
->> 		write_unlock_bh(&bond->curr_slave_lock);
->> 	}
->>
->>--
->>To unsubscribe from this list: send the line "unsubscribe netdev" in
->>the body of a message to majordomo@vger.kernel.org
->>More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
->
+Hold, mac80211 can't cope with that at this point for sw crypto and
+possibly other things.
+
+johannes
+
+--=-fzAflWusSa20Mep4aX4E
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAABAgAGBQJKr7MTAAoJEODzc/N7+QmaQLwP/1psaHMJvQwqhroEfiUvI1lL
+kHDoeGDMCTed8tnZ3d8OfyEOlzINTnRxP0TsAo+jrkpL6fq6LuS7ZzuHwSI3yi3m
+CxY7/9Lssp+0AstkiZTPKRLAbHp2UfDxE+pr24eDH3al3gLhUNm1QmhOv9gHCsrR
+gIlIPI661po9bIzYFywA+LOSEsL4aaRugfQNArSUtHgBPTWIb8l8u5v0+hg1Y89P
+z9J7sMh0WcJ1gUdiL6pD+2iPL1aM8kRq05AxpXCPy4swEFoPD89wjyM+0W3SZL4s
+JsG9ropdJDO12tEQp+4MoQYQPX+eIcLgyWSV+kYMUZu6ggvR9LV5544BCqnr8tq9
+ogCbbOEb9tm7BFCV9dNC6FXrMfg3yPheUP6hYwo00mfE/Brjwy64fIOrXHeTK4Gw
+RmZTwndT0TaBwPcIFi6Mus+GyKOP3+35RFHWLPg99ev78xTpvRZ2PjPZ8IJRLsYF
+UnEcCJZBRWelgHj4iZtDI3pyRQ5zx+rS//8NT9om15vSdbSGNJ0aZG5ox0pXC5uv
+kGVGnmBr/V3Cjtb7W3NIHz0LQJwJqIsClEmVha0bjXc7tU9Fby0W09naFpWZKyFX
+9t7PwP4D7DCKdhmKID6qDmoqnDBNjJhdDnHO9b199BaJju0f2qZzLvDXwEvlCBso
+wb/AjDoqeQE/97V5pipl
+=s1h9
+-----END PGP SIGNATURE-----
+
+--=-fzAflWusSa20Mep4aX4E--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
