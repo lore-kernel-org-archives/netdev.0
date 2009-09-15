@@ -1,75 +1,59 @@
-From: Nir Tzachar <nir.tzachar@gmail.com>
-Subject: Re: Fwd: [RFC v3] net: Introduce recvmmsg socket syscall
-Date: Tue, 15 Sep 2009 11:37:36 +0300
-Message-ID: <9b2db90b0909150137j16c46340o89b55af62f7b613e@mail.gmail.com>
-References: <9b2db90b0908060014r6a1763e8t1b3ee9310e012c25@mail.gmail.com>
-	 <9b2db90b0908060015v45d31060me94cf436f4a25e42@mail.gmail.com>
-	 <20090914230902.GC22743@ghostprotocols.net>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: Re: alloc skb based on a given data buffer
+Date: Tue, 15 Sep 2009 16:57:29 +0800
+Message-ID: <1253005050.7549.58.camel@debian>
+References: <1252897270.5650.169.camel@debian>
+	 <20090914130612.GA11778@csn.ul.ie>	<1253003420.7549.51.camel@debian>
+	 <20090915.013321.07006714.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Linux Networking Development Mailing List
-	<netdev@vger.kernel.org>, Ziv Ayalon <ziv@final.co.il>
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "mel@csn.ul.ie" <mel@csn.ul.ie>,
+	"Chatre, Reinette" <reinette.chatre@intel.com>,
+	"elendil@planet.nl" <elendil@planet.nl>,
+	"Larry.Finger@lwfinger.net" <Larry.Finger@lwfinger.net>,
+	"linville@tuxdriver.com" <linville@tuxdriver.com>,
+	"penberg@cs.helsinki.fi" <penberg@cs.helsinki.fi>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"ipw3945-devel@lists.sourceforge.net"
+	<ipw3945-devel@lists.sourceforge.net>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"cl@linux-foundation.org" <cl@linux-foundation.org>,
+	"Krauss, Assaf" <assaf.krauss@intel.com>,
+	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
+	"Abbas, Mohamed" <mohamed.abbas@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f217.google.com ([209.85.220.217]:44913 "EHLO
-	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750711AbZIOIhe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 04:37:34 -0400
-Received: by fxm17 with SMTP id 17so1385771fxm.37
-        for <netdev@vger.kernel.org>; Tue, 15 Sep 2009 01:37:36 -0700 (PDT)
-In-Reply-To: <20090914230902.GC22743@ghostprotocols.net>
+Received: from mga03.intel.com ([143.182.124.21]:64475 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750905AbZIOI5b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Sep 2009 04:57:31 -0400
+In-Reply-To: <20090915.013321.07006714.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 15, 2009 at 2:09 AM, Arnaldo Carvalho de
-Melo<acme@ghostprotocols.net> wrote:
-> Em Thu, Aug 06, 2009 at 10:15:26AM +0300, Nir Tzachar escreveu:
->> Hello.
->>
->> Is there anything new with this patch? What are the plans for merging
->> it upstream?
->
-> I'm doing perf runs using a test app using recvmsg, then with the first
-> patch, that introduces recvmmsg, then with the second, that locks the
-> series of unlocked_recvmmsg calls just once, will try to get this posted
-> here soon.
->
-> I'd really appreciate if the people interested in this could try it and
-> post numbers too, to get this ball rolling again.
->
-> As for getting it upstream, well, posting numbers here would definetely
-> help with that :-)
+On Tue, 2009-09-15 at 16:33 +0800, David Miller wrote:
+> From: Zhu Yi <yi.zhu@intel.com>
+> Date: Tue, 15 Sep 2009 16:30:20 +0800
+> 
+> > This way, device drivers can allocate the Rx buffers with their own size
+> > and alignment requirement. i.e. do an order-1 page allocation directly
+> > with free_pages() in the iwlagn driver for a 256 bytes aligned 8K Rx
+> > buffer. After DMA is finished, drivers can use the above function to
+> > assemble an skb based on the Rx buffer. It should resolve the problem
+> > for requiring an order-2 allocation by alloc_skb() in the first place.
+> 
+> You can create paged RX skbs just like drivers such as niu.c
+> and others already do, there is no need for special APIs for
+> this.
 
-Ok, here are some crude results:
+Thanks. So we can put the 8K buffer into 2 skb_shinfo()->frags[] slots
+and set nr_frags to 2, right? Is this supported allover the network code
+already? At a first glance, I didn't find any frags handling in mac80211
+stack.
 
-Setup:
-linux 2.6.29.2 with the third version of the patch, running on an
-Intel Xeon X3220 2.4GHz quad core, with 4Gbyte of ram, running Ubuntu
-9.04
+Thanks,
+-yi
 
-Application:
-A financial application, subscribing to quotes from a stock exchange.
-Typical traffic is small (around 50-100 bytes) multicast packets in
-large volumes. The application just receives  the quotes and pass them
-along.
-
-The test:
-Run two version of the application, head to head. one version using
-recvmsg and the other recvmmsg. The data is passed to a third
-application measuring the latency of the data.
-
-Results:
-On general, the recvmmsg beats the pants off the regular recvmsg by a
-whole millisecond (which might not sound much, but is _really_ a lot
-for us ;). The exact distribution fluctuates between half a milli and
-2 millis, but the average is 1 milli.
-
-Conclusions:
-We would _really_ like to see this patch go upstream. It gives an
-important performance boost in out use cases.
-
-We are willing to perform more accurate tests if needed, and would
-appreciate the feedback on how to conduct them.
-
-Cheers,
-Nir.
