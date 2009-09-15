@@ -1,92 +1,80 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: Fwd: [RFC v3] net: Introduce recvmmsg socket syscall
-Date: Tue, 15 Sep 2009 17:52:07 -0300
-Message-ID: <20090915205207.GI22743@ghostprotocols.net>
-References: <9b2db90b0908060014r6a1763e8t1b3ee9310e012c25@mail.gmail.com> <9b2db90b0908060015v45d31060me94cf436f4a25e42@mail.gmail.com> <20090914230902.GC22743@ghostprotocols.net> <9b2db90b0909150137j16c46340o89b55af62f7b613e@mail.gmail.com> <20090915141110.GG22743@ghostprotocols.net> <9b2db90b0909151120l71498303w26cfd657c9f18092@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: UDP regression with packets rates < 10k per sec
+Date: Tue, 15 Sep 2009 21:02:15 +0200
+Message-ID: <4AAFE4B7.50606@gmail.com>
+References: <alpine.DEB.1.10.0909081820030.7733@V090114053VZO-1> <4AA6E039.4000907@gmail.com> <alpine.DEB.1.10.0909091000200.28070@V090114053VZO-1> <4AA7C512.6040100@gmail.com> <alpine.DEB.1.10.0909091234360.15538@V090114053VZO-1> <4AA7E082.90807@gmail.com> <alpine.DEB.1.10.0909091350590.32067@V090114053VZO-1> <4AA963A4.5080509@gmail.com> <4AA97183.3030008@gmail.com> <alpine.DEB.1.10.0909101741520.9964@V090114053VZO-1> <alpine.DEB.1.10.0909141708150.8051@V090114053VZO-1> <4AAF263E.9010405@gmail.com> <alpine.DEB.1.10.0909151000230.20318@V090114053VZO-1> <4AAFCE3A.8060102@gmail.com> <alpine.DEB.1.10.0909151550200.3340@V090114053VZO-1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Networking Development Mailing List
-	<netdev@vger.kernel.org>, Ziv Ayalon <ziv@final.co.il>
-To: Nir Tzachar <nir.tzachar@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Christoph Lameter <cl@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2813 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756797AbZIOUwO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Sep 2009 16:52:14 -0400
-Content-Disposition: inline
-In-Reply-To: <9b2db90b0909151120l71498303w26cfd657c9f18092@mail.gmail.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:43171 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758079AbZIOVCR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 17:02:17 -0400
+In-Reply-To: <alpine.DEB.1.10.0909151550200.3340@V090114053VZO-1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Tue, Sep 15, 2009 at 09:20:13PM +0300, Nir Tzachar escreveu:
-> >> Setup:
-> >> linux 2.6.29.2 with the third version of the patch, running on an
-> >> Intel Xeon X3220 2.4GHz quad core, with 4Gbyte of ram, running Ubuntu
-> >> 9.04
-> >
-> > Which NIC? 10 Gbit/s?
-> 
-> 1G. We do not care as much for throughput as we do about latency...
+Christoph Lameter a =E9crit :
+> On Tue, 15 Sep 2009, Eric Dumazet wrote:
+>=20
+>> Once I understood my 2.6.31 kernel had much more features than 2.6.2=
+2 and that I tuned
+>> it to :
+>>
+>> - Let cpu run at full speed (3GHz instead of 2GHz) : before tuning, =
+2.6.31 was
+>> using "ondemand" governor and my cpus were running at 2GHz, while th=
+ey where
+>> running at 3GHz on my 2.6.22 config
+>=20
+> My kernel did not have support for any governors compiled in.
+>=20
+>> - Dont let cpus enter C2/C3 wait states (idle=3Dmwait)
+>=20
+> Ok. Trying idle=3Dmwait.
+>=20
+>> - Correctly affine cpu to ethX irq (2.6.22 was running ethX irq on o=
+ne cpu, while
+>>  on 2.6.31, irqs were distributed to all online cpus)
+>=20
+> Interrupts of both 2.6.22 and 2.6.31 go to cpu 0. Does it matter for
+> loopback?
 
-OK, but anyway the 10 Gbit/s cards I've briefly played with all
-exhibited lower latencies than all 1 gbit/s ones, in fact I've heard
-about people moving to 10 Gbit/s not for the bw, but for the lower
-latencies :-)
- 
-> 
-> >> Results:
-> >> On general, the recvmmsg beats the pants off the regular recvmsg by a
-> >> whole millisecond (which might not sound much, but is _really_ a lot
-> >> for us ;). The exact distribution fluctuates between half a milli and
-> >> 2 millis, but the average is 1 milli.
-> >
-> > Do you have any testcase using publicly available software? Like qpidd,
-> > etc? I'll eventually have to do that, for now I'm just using that
-> > recvmmsg tool I posted, now with a recvmsg mode, then collecting 'perf
-> > record' with and without callgraphs to post here. The client is just
-> > pktgen spitting datagrams as if there is no tomorrow :-)
-> 
-> No. This was on a live, production system.
+No of course, loopback triggers softirq on the local cpu, no special se=
+tup
+to respect.
 
-Wow :-)
-> 
-> > Showing that we get latency improvements is complementary to what I'm
-> > doing, that is for now just showing the performance improvements and
-> > showing what gives this improvement (perf counters runs).
-> 
-> We are more latency oriented, and, naturally, concentrate on this
-> aspect of the problem. Producing numbers here is much more easier....
-> I can easily come up with a test application which just measures the
-> latency of processing packets, by employing a sending loop between two
-> hosts.
-> 
-> > If you could come up with a testcase that you could share with us,
-> > perhaps using one of these AMQP implementations, that would be great
-> > too.
-> 
-> Well, in our experience, AMQP and other solutions have latency issues.
-> Moreover, the receiving end of our application is a regular multicast
-> stream. I will implement the simple latency test I mentioned earlier,
-> and post some results soon.
+>=20
+>> Then, your mcast test gives same results, at 10pps, 100pps, 1000pps,=
+ 10000pps
+>=20
+> loopback via mcast -Ln1 -r <rate>
+>=20
+> 		10pps	100pps	1000pps	10000pps
+> 2.6.22(32bit)	7.36	7.28	7.15	7.16
+> 2.6.31(64bit)	9.28	10.27	9.70	9.79
+>=20
+> What a difference. Now the initial latency rampup for 2.6.31 is gone.=
+ So
+> even w/o governors the kernel does something to increase the latencie=
+s.
+>=20
+> We sacrificed 2 - 3 microseconds per message to kernel features, bloa=
+t and
+> 64 bitness?
 
-OK.
+Well, I dont know, I mainly use 32bits kernel, but yes, using 64bits ha=
+s a cost,
+since skbs for example are bigger, sockets are bigger, so we touch more=
+ cache lines
+per transaction...
 
-And here are some callgraphs for a very simple app (attached) that stops
-after receiving 1 million datagrams, collected with the perf tools in
-the kernel. No packets per sec numbers besides the fact that the
-recvmmsg test run collected way less samples (finished quicker).
 
-Client is pktgen sending 100 byte datagrams over a single tg3 1 Gbit/s
-NIC, server is running over a bnx2 1 Gbit/s link as well, just a sink:
-
-With recvmmsg, batch of 8 datagrams, no timeout:
-
-http://oops.ghostprotocols.net:81/acme/perf.recvmmsg.step1.cg.data.txt.bz2
-
-And with recvmsg:
-
-http://oops.ghostprotocols.net:81/acme/perf.recvmsg.step1.cg.data.txt.bz2
-
-Notice where we are spending time in the recvmmsg case... :-)
-
-- Arnaldo
+You could precisely compute number of cycles per transaction, with "per=
+f" tools
+(only on 2.6.31), between 64bit and 32bit kernels, benching 100000 pps =
+for example
+and counting number of perf counter irqs per second
