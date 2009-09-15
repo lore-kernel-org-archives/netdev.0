@@ -1,80 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: UDP regression with packets rates < 10k per sec
-Date: Tue, 15 Sep 2009 21:02:15 +0200
-Message-ID: <4AAFE4B7.50606@gmail.com>
-References: <alpine.DEB.1.10.0909081820030.7733@V090114053VZO-1> <4AA6E039.4000907@gmail.com> <alpine.DEB.1.10.0909091000200.28070@V090114053VZO-1> <4AA7C512.6040100@gmail.com> <alpine.DEB.1.10.0909091234360.15538@V090114053VZO-1> <4AA7E082.90807@gmail.com> <alpine.DEB.1.10.0909091350590.32067@V090114053VZO-1> <4AA963A4.5080509@gmail.com> <4AA97183.3030008@gmail.com> <alpine.DEB.1.10.0909101741520.9964@V090114053VZO-1> <alpine.DEB.1.10.0909141708150.8051@V090114053VZO-1> <4AAF263E.9010405@gmail.com> <alpine.DEB.1.10.0909151000230.20318@V090114053VZO-1> <4AAFCE3A.8060102@gmail.com> <alpine.DEB.1.10.0909151550200.3340@V090114053VZO-1>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: alloc skb based on a given data buffer
+Date: Tue, 15 Sep 2009 14:16:06 -0700 (PDT)
+Message-ID: <20090915.141606.134994761.davem@davemloft.net>
+References: <20090915.020903.93643290.davem@davemloft.net>
+	<1253006111.7549.61.camel@debian>
+	<1253028631.23427.55.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Christoph Lameter <cl@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:43171 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758079AbZIOVCR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 17:02:17 -0400
-In-Reply-To: <alpine.DEB.1.10.0909151550200.3340@V090114053VZO-1>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org, reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org, Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, assaf.krauss-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	mohamed.abbas-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1253028631.23427.55.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Christoph Lameter a =E9crit :
-> On Tue, 15 Sep 2009, Eric Dumazet wrote:
->=20
->> Once I understood my 2.6.31 kernel had much more features than 2.6.2=
-2 and that I tuned
->> it to :
->>
->> - Let cpu run at full speed (3GHz instead of 2GHz) : before tuning, =
-2.6.31 was
->> using "ondemand" governor and my cpus were running at 2GHz, while th=
-ey where
->> running at 3GHz on my 2.6.22 config
->=20
-> My kernel did not have support for any governors compiled in.
->=20
->> - Dont let cpus enter C2/C3 wait states (idle=3Dmwait)
->=20
-> Ok. Trying idle=3Dmwait.
->=20
->> - Correctly affine cpu to ethX irq (2.6.22 was running ethX irq on o=
-ne cpu, while
->>  on 2.6.31, irqs were distributed to all online cpus)
->=20
-> Interrupts of both 2.6.22 and 2.6.31 go to cpu 0. Does it matter for
-> loopback?
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Tue, 15 Sep 2009 08:30:31 -0700
 
-No of course, loopback triggers softirq on the local cpu, no special se=
-tup
-to respect.
+> Hold, mac80211 can't cope with that at this point for sw crypto and
+> possibly other things.
 
->=20
->> Then, your mcast test gives same results, at 10pps, 100pps, 1000pps,=
- 10000pps
->=20
-> loopback via mcast -Ln1 -r <rate>
->=20
-> 		10pps	100pps	1000pps	10000pps
-> 2.6.22(32bit)	7.36	7.28	7.15	7.16
-> 2.6.31(64bit)	9.28	10.27	9.70	9.79
->=20
-> What a difference. Now the initial latency rampup for 2.6.31 is gone.=
- So
-> even w/o governors the kernel does something to increase the latencie=
-s.
->=20
-> We sacrificed 2 - 3 microseconds per message to kernel features, bloa=
-t and
-> 64 bitness?
-
-Well, I dont know, I mainly use 32bits kernel, but yes, using 64bits ha=
-s a cost,
-since skbs for example are bigger, sockets are bigger, so we touch more=
- cache lines
-per transaction...
-
-
-You could precisely compute number of cycles per transaction, with "per=
-f" tools
-(only on 2.6.31), between 64bit and 32bit kernels, benching 100000 pps =
-for example
-and counting number of perf counter irqs per second
+Then it should skb_linearize() at input, or similar.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
