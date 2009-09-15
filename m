@@ -1,65 +1,50 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: igb bandwidth allocation configuration
-Date: Tue, 15 Sep 2009 21:36:59 +1000
-Message-ID: <20090915113659.GJ24194@verge.net.au>
-References: <20090910081844.GA5421@verge.net.au>
-	<15ddcffd0909140142n2a110708ld619177c65f4588b@mail.gmail.com>
+From: Vitaliy Gusev <vgusev@openvz.org>
+Subject: [PATCH] mlx4: Fix access to freed memory
+Date: Tue, 15 Sep 2009 14:52:40 +0400
+Message-ID: <200909151452.41206.vgusev@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org, "Kirsher,
-	Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Or Gerlitz <ogerlitz@voltaire.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Cc: Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Roland Dreier <rolandd@cisco.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:3886 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752950AbZIOLiO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Sep 2009 07:38:14 -0400
 Content-Disposition: inline
-In-Reply-To: <15ddcffd0909140142n2a110708ld619177c65f4588b@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 14, 2009 at 11:42:50AM +0300, Or Gerlitz wrote:
-> On 9/10/09, Simon Horman <horms@verge.net.au> wrote:
-> > I have been looking into adding support the 82586's per-PF/VF bandwidth allocation to
-> > the igb driver. It seems that the trickiest part is working out how to expose things to
-> > user-space.
-> 
-> Please note that there are bunch (not many, but more then 1-2) of
-> things to configure from user space in a PF/VF scheme, and I think it
-> would be best if we do that through one mechanism, which may be
-> netlink based or extension to ethtool as you suggested, we've started
-> to discuss this on the "L2 switching in igb" thread
+catas_reset() uses pointer to mlx4_priv, but mlx4_priv is not valid after
+call mlx4_restart_one().
 
-Thanks, I've read that thread now. I'm certainly in favour
-of discussing what mechanisms make sense.
+Signed-off-by: Vitaliy Gusev <vgusev@openvz.org>
 
-It seems to me that the main problem is that from a driver point
-of view the PF and VFs are independent. But from a hardware point
-of view they aren't so its not always possible for their configuration
-to be independent of each other. And I'm not sure what (existing) interfaces
-can handle that nicely.
-
-> The "82576 SR-IOV Driver Companion Guide" document, section 7.6
-> mentions "Transmit Bandwidth Allocation to VFs... define minimum
-> transmit bandwidth for individual VMs".
-> 
-> I'm not clear if one can program rate limiter (upper bound) per VF or
-> actually rate guarantee per VF, even  with these being  just details
-> of specific device, alex, I would be happy if you can clarify that.
-
-Its not clear to me what you are asking.
-
-
-------------------------------------------------------------------------------
-Come build with us! The BlackBerry&reg; Developer Conference in SF, CA
-is the only developer event you need to attend this year. Jumpstart your
-developing skills, take BlackBerry mobile applications to market and stay 
-ahead of the curve. Join us from November 9&#45;12, 2009. Register now&#33;
-http://p.sf.net/sfu/devconf
+diff --git a/drivers/net/mlx4/catas.c b/drivers/net/mlx4/catas.c
+index aa9674b..f599294 100644
+--- a/drivers/net/mlx4/catas.c
++++ b/drivers/net/mlx4/catas.c
+@@ -96,12 +96,17 @@ static void catas_reset(struct work_struct *work)
+ 	spin_unlock_irq(&catas_lock);
+ 
+ 	list_for_each_entry_safe(priv, tmppriv, &tlist, catas_err.list) {
++		struct pci_dev *pdev = priv->dev.pdev;
++
+ 		ret = mlx4_restart_one(priv->dev.pdev);
+-		dev = &priv->dev;
++		/* 'priv' now is not valid */
+ 		if (ret)
+-			mlx4_err(dev, "Reset failed (%d)\n", ret);
+-		else
++			printk(KERN_ERR "mlx4 %s: Reset failed (%d)\n",
++				pci_name(pdev), ret);
++		else {
++			dev  = pci_get_drvdata(pdev);
+ 			mlx4_dbg(dev, "Reset succeeded\n");
++		}
+ 	}
+ }
+ 
