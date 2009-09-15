@@ -1,60 +1,56 @@
 From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: [GIT PULL 0/7] Small IEEE 802.15.4 updates
-Date: Wed, 16 Sep 2009 02:12:58 +0400
-Message-ID: <1253052785-26190-1-git-send-email-dbaryshkov@gmail.com>
+Subject: [PATCH 1/7] af_ieee802154: setsockopt optlen arg isn't __user
+Date: Wed, 16 Sep 2009 02:12:59 +0400
+Message-ID: <1253052785-26190-2-git-send-email-dbaryshkov@gmail.com>
+References: <1253052785-26190-1-git-send-email-dbaryshkov@gmail.com>
 Cc: linux-zigbee-devel@lists.sourceforge.net,
 	Sergey Lapin <slapin@ossfans.org>, netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f206.google.com ([209.85.219.206]:63125 "EHLO
+Received: from mail-ew0-f206.google.com ([209.85.219.206]:42420 "EHLO
 	mail-ew0-f206.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751869AbZIOWNx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 18:13:53 -0400
-Received: by ewy2 with SMTP id 2so922640ewy.17
-        for <netdev@vger.kernel.org>; Tue, 15 Sep 2009 15:13:56 -0700 (PDT)
+	with ESMTP id S1751917AbZIOWNy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 18:13:54 -0400
+Received: by ewy2 with SMTP id 2so922680ewy.17
+        for <netdev@vger.kernel.org>; Tue, 15 Sep 2009 15:13:57 -0700 (PDT)
+In-Reply-To: <1253052785-26190-1-git-send-email-dbaryshkov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Dave,
+Remove __user annotation from optlen arg as it's bogus.
 
-Could you please pull small updates for IEEE 802.15.4 targeted
-into 2.6.32-rcX. Thank you.
+Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+---
+ net/ieee802154/dgram.c |    2 +-
+ net/ieee802154/raw.c   |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-
-The following changes since commit 4142e0d1def2c0176c27fd2e810243045a62eb6d:
-  Linus Torvalds (1):
-        Merge branch 'osync_cleanup' of git://git.kernel.org/.../jack/linux-fs-2.6
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/lowpan/lowpan.git for-next
-
-Dmitry Eremin-Solenikov (7):
-      af_ieee802154: setsockopt optlen arg isn't __user
-      ieee802154: add locking for seq numbers
-      ieee802154: add a helper to put the wpan_phy device
-      ieee802154: add wpan-phy iteration functions
-      ieee802154: merge nl802154 and wpan-class in single module
-      nl802154: split away MAC commands implementation
-      ieee802154: add LIST_PHY command support
-
- include/linux/nl802154.h    |    1 +
- include/net/wpan-phy.h      |    8 +
- net/ieee802154/Makefile     |    4 +-
- net/ieee802154/dgram.c      |    2 +-
- net/ieee802154/ieee802154.h |   48 ++++
- net/ieee802154/netlink.c    |  616 ++-----------------------------------------
- net/ieee802154/nl-mac.c     |  609 ++++++++++++++++++++++++++++++++++++++++++
- net/ieee802154/nl-phy.c     |  175 ++++++++++++
- net/ieee802154/raw.c        |    2 +-
- net/ieee802154/wpan-class.c |   48 ++++-
- 10 files changed, 908 insertions(+), 605 deletions(-)
- create mode 100644 net/ieee802154/ieee802154.h
- create mode 100644 net/ieee802154/nl-mac.c
- create mode 100644 net/ieee802154/nl-phy.c
-
-
+diff --git a/net/ieee802154/dgram.c b/net/ieee802154/dgram.c
+index 77ae685..51593a4 100644
+--- a/net/ieee802154/dgram.c
++++ b/net/ieee802154/dgram.c
+@@ -414,7 +414,7 @@ static int dgram_getsockopt(struct sock *sk, int level, int optname,
+ }
+ 
+ static int dgram_setsockopt(struct sock *sk, int level, int optname,
+-		    char __user *optval, int __user optlen)
++		    char __user *optval, int optlen)
+ {
+ 	struct dgram_sock *ro = dgram_sk(sk);
+ 	int val;
+diff --git a/net/ieee802154/raw.c b/net/ieee802154/raw.c
+index 4681501..1319885 100644
+--- a/net/ieee802154/raw.c
++++ b/net/ieee802154/raw.c
+@@ -244,7 +244,7 @@ static int raw_getsockopt(struct sock *sk, int level, int optname,
+ }
+ 
+ static int raw_setsockopt(struct sock *sk, int level, int optname,
+-		    char __user *optval, int __user optlen)
++		    char __user *optval, int optlen)
+ {
+ 	return -EOPNOTSUPP;
+ }
 -- 
-With best wishes
-Dmitry
+1.6.3.3
 
