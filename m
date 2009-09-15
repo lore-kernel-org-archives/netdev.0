@@ -1,56 +1,46 @@
 From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: [PATCH 1/7] af_ieee802154: setsockopt optlen arg isn't __user
-Date: Wed, 16 Sep 2009 02:12:59 +0400
-Message-ID: <1253052785-26190-2-git-send-email-dbaryshkov@gmail.com>
+Subject: [PATCH 3/7] ieee802154: add a helper to put the wpan_phy device
+Date: Wed, 16 Sep 2009 02:13:01 +0400
+Message-ID: <1253052785-26190-4-git-send-email-dbaryshkov@gmail.com>
 References: <1253052785-26190-1-git-send-email-dbaryshkov@gmail.com>
+ <1253052785-26190-2-git-send-email-dbaryshkov@gmail.com>
+ <1253052785-26190-3-git-send-email-dbaryshkov@gmail.com>
 Cc: linux-zigbee-devel@lists.sourceforge.net,
 	Sergey Lapin <slapin@ossfans.org>, netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-ew0-f206.google.com ([209.85.219.206]:42420 "EHLO
 	mail-ew0-f206.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751917AbZIOWNy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 18:13:54 -0400
-Received: by ewy2 with SMTP id 2so922680ewy.17
-        for <netdev@vger.kernel.org>; Tue, 15 Sep 2009 15:13:57 -0700 (PDT)
-In-Reply-To: <1253052785-26190-1-git-send-email-dbaryshkov@gmail.com>
+	with ESMTP id S1752360AbZIOWN5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 18:13:57 -0400
+Received: by mail-ew0-f206.google.com with SMTP id 2so922680ewy.17
+        for <netdev@vger.kernel.org>; Tue, 15 Sep 2009 15:14:00 -0700 (PDT)
+In-Reply-To: <1253052785-26190-3-git-send-email-dbaryshkov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove __user annotation from optlen arg as it's bogus.
-
 Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
 ---
- net/ieee802154/dgram.c |    2 +-
- net/ieee802154/raw.c   |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ include/net/wpan-phy.h |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-diff --git a/net/ieee802154/dgram.c b/net/ieee802154/dgram.c
-index 77ae685..51593a4 100644
---- a/net/ieee802154/dgram.c
-+++ b/net/ieee802154/dgram.c
-@@ -414,7 +414,7 @@ static int dgram_getsockopt(struct sock *sk, int level, int optname,
+diff --git a/include/net/wpan-phy.h b/include/net/wpan-phy.h
+index 547b1e2..5e803a0 100644
+--- a/include/net/wpan-phy.h
++++ b/include/net/wpan-phy.h
+@@ -56,6 +56,12 @@ static inline void *wpan_phy_priv(struct wpan_phy *phy)
  }
  
- static int dgram_setsockopt(struct sock *sk, int level, int optname,
--		    char __user *optval, int __user optlen)
-+		    char __user *optval, int optlen)
+ struct wpan_phy *wpan_phy_find(const char *str);
++
++static inline void wpan_phy_put(struct wpan_phy *phy)
++{
++	put_device(&phy->dev);
++}
++
+ static inline const char *wpan_phy_name(struct wpan_phy *phy)
  {
- 	struct dgram_sock *ro = dgram_sk(sk);
- 	int val;
-diff --git a/net/ieee802154/raw.c b/net/ieee802154/raw.c
-index 4681501..1319885 100644
---- a/net/ieee802154/raw.c
-+++ b/net/ieee802154/raw.c
-@@ -244,7 +244,7 @@ static int raw_getsockopt(struct sock *sk, int level, int optname,
- }
- 
- static int raw_setsockopt(struct sock *sk, int level, int optname,
--		    char __user *optval, int __user optlen)
-+		    char __user *optval, int optlen)
- {
- 	return -EOPNOTSUPP;
- }
+ 	return dev_name(&phy->dev);
 -- 
 1.6.3.3
 
