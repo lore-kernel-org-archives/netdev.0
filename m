@@ -1,210 +1,67 @@
-From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?= <remi@remlab.net>
-Subject: [PATCH 2/5] Phonet: routing table backend
-Date: Tue, 15 Sep 2009 14:32:20 +0300
-Message-ID: <1253014343-20326-2-git-send-email-remi@remlab.net>
-References: <a9972d3fe3d2bf09387bee7827b571c0@chewa.net>
- <1253014343-20326-1-git-send-email-remi@remlab.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: igb bandwidth allocation configuration
+Date: Tue, 15 Sep 2009 21:32:46 +1000
+Message-ID: <20090915113239.GI24194@verge.net.au>
+References: <20090910081844.GA5421@verge.net.au>
+ <4AA8E2CE.2080707@trash.net>
+ <4AA8E939.6050208@trash.net>
+ <20090911003838.GA19376@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
-	<remi.denis-courmont@nokia.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:59538 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753056AbZIOLcU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Sep 2009 07:32:20 -0400
-In-Reply-To: <1253014343-20326-1-git-send-email-remi@remlab.net>
+Received: from kirsty.vergenet.net ([202.4.237.240]:53402 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753136AbZIOLco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 07:32:44 -0400
+Content-Disposition: inline
+In-Reply-To: <20090911003838.GA19376@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+On Fri, Sep 11, 2009 at 10:38:38AM +1000, Simon Horman wrote:
+> On Thu, Sep 10, 2009 at 01:55:37PM +0200, Patrick McHardy wrote:
+> > Patrick McHardy wrote:
+> > > Simon Horman wrote:
+> > >>
+> > >> I have been looking into adding support the 82586's per-PF/VF
+> > >> bandwidth allocation to the igb driver. It seems that the trickiest
+> > >> part is working out how to expose things to user-space.
+> > >>
+> > >> ...
+> > >> Internally it seems that actually the limits are applied to HW Tx queues
+> > >> rather than directly VMs. There are 16 such queues. Accordingly it might
+> > >> be useful to design an interface to set limits per-queue using ethtool.
+> > >> But this would seem to also require exposing which queues are associated
+> > >> with which PF/VF.
+> > > 
+> > > Just an idea since I don't know much about this stuff:
+> > > 
+> > > Since we now have the mq packet scheduler, which exposes the device
+> > > queues as qdisc classes, how about adding driver-specific configuration
+> > > attributes that are passed to the driver by the mq scheduler? This
+> > > would allow to configure per-queue bandwidth limits using regular TC
+> > > commands and also use those limits without VFs for any kind of traffic.
+> > > Drivers not supporting this would refuse unsupported options.
+> > 
+> > Attached patch demonstrates the idea. Compile-tested only.
+> > 
+> 
+> Thanks, that seems like a pretty good idea to me.
+> I'll see if I can make it work.
 
-=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+I've been looking over this a little more closely. While using mq
+does seem to be a good way to configure the hw bandwith allocation
+for queues belonging to the PF I don't think it can be used
+for queues belonging to any VFs. Primarily because the VFs will
+belong be different devices, possibly in different OSes.
 
-The Phonet "universe" only has 64 addresses, so we keep a trivial flat
-routing table.
-
-Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
----
- include/net/phonet/pn_dev.h |    5 ++
- net/phonet/pn_dev.c         |  100 +++++++++++++++++++++++++++++++++++=
-+++++---
- 2 files changed, 99 insertions(+), 6 deletions(-)
-
-diff --git a/include/net/phonet/pn_dev.h b/include/net/phonet/pn_dev.h
-index 44c923c..87b5d81 100644
---- a/include/net/phonet/pn_dev.h
-+++ b/include/net/phonet/pn_dev.h
-@@ -47,6 +47,11 @@ u8 phonet_address_get(struct net_device *dev, u8 add=
-r);
- int phonet_address_lookup(struct net *net, u8 addr);
- void phonet_address_notify(int event, struct net_device *dev, u8 addr)=
-;
-=20
-+int phonet_route_add(struct net_device *dev, u8 daddr);
-+int phonet_route_del(struct net_device *dev, u8 daddr);
-+struct net_device *phonet_route_get(struct net *net, u8 daddr);
-+struct net_device *phonet_route_output(struct net *net, u8 daddr);
-+
- #define PN_NO_ADDR	0xff
-=20
- extern const struct file_operations pn_sock_seq_fops;
-diff --git a/net/phonet/pn_dev.c b/net/phonet/pn_dev.c
-index 5f42f30..71fffa5 100644
---- a/net/phonet/pn_dev.c
-+++ b/net/phonet/pn_dev.c
-@@ -33,8 +33,14 @@
- #include <net/netns/generic.h>
- #include <net/phonet/pn_dev.h>
-=20
-+struct phonet_routes {
-+	spinlock_t		lock;
-+	struct net_device	*table[64];
-+};
-+
- struct phonet_net {
- 	struct phonet_device_list pndevs;
-+	struct phonet_routes routes;
- };
-=20
- int phonet_net_id;
-@@ -154,10 +160,11 @@ int phonet_address_del(struct net_device *dev, u8=
- addr)
- }
-=20
- /* Gets a source address toward a destination, through a interface. */
--u8 phonet_address_get(struct net_device *dev, u8 addr)
-+u8 phonet_address_get(struct net_device *dev, u8 daddr)
- {
- 	struct phonet_device_list *pndevs =3D phonet_device_list(dev_net(dev)=
-);
- 	struct phonet_device *pnd;
-+	u8 saddr;
-=20
- 	spin_lock_bh(&pndevs->lock);
- 	pnd =3D __phonet_get(dev);
-@@ -165,12 +172,26 @@ u8 phonet_address_get(struct net_device *dev, u8 =
-addr)
- 		BUG_ON(bitmap_empty(pnd->addrs, 64));
-=20
- 		/* Use same source address as destination, if possible */
--		if (!test_bit(addr >> 2, pnd->addrs))
--			addr =3D find_first_bit(pnd->addrs, 64) << 2;
-+		if (test_bit(daddr >> 2, pnd->addrs))
-+			saddr =3D daddr;
-+		else
-+			saddr =3D find_first_bit(pnd->addrs, 64) << 2;
- 	} else
--		addr =3D PN_NO_ADDR;
-+		saddr =3D PN_NO_ADDR;
- 	spin_unlock_bh(&pndevs->lock);
--	return addr;
-+
-+	if (saddr =3D=3D PN_NO_ADDR) {
-+		/* Fallback to another device */
-+		struct net_device *def_dev;
-+
-+		def_dev =3D phonet_device_get(dev_net(dev));
-+		if (def_dev) {
-+			if (def_dev !=3D dev)
-+				saddr =3D phonet_address_get(def_dev, daddr);
-+			dev_put(def_dev);
-+		}
-+	}
-+	return saddr;
- }
-=20
- int phonet_address_lookup(struct net *net, u8 addr)
-@@ -246,7 +267,7 @@ static struct notifier_block phonet_device_notifier=
- =3D {
- /* Per-namespace Phonet devices handling */
- static int phonet_init_net(struct net *net)
- {
--	struct phonet_net *pnn =3D kmalloc(sizeof(*pnn), GFP_KERNEL);
-+	struct phonet_net *pnn =3D kzalloc(sizeof(*pnn), GFP_KERNEL);
- 	if (!pnn)
- 		return -ENOMEM;
-=20
-@@ -257,6 +278,7 @@ static int phonet_init_net(struct net *net)
-=20
- 	INIT_LIST_HEAD(&pnn->pndevs.list);
- 	spin_lock_init(&pnn->pndevs.lock);
-+	spin_lock_init(&pnn->routes.lock);
- 	net_assign_generic(net, phonet_net_id, pnn);
- 	return 0;
- }
-@@ -300,3 +322,69 @@ void phonet_device_exit(void)
- 	unregister_netdevice_notifier(&phonet_device_notifier);
- 	unregister_pernet_gen_device(phonet_net_id, &phonet_net_ops);
- }
-+
-+int phonet_route_add(struct net_device *dev, u8 daddr)
-+{
-+	struct phonet_net *pnn =3D net_generic(dev_net(dev), phonet_net_id);
-+	struct phonet_routes *routes =3D &pnn->routes;
-+	int err =3D -EEXIST;
-+
-+	daddr =3D daddr >> 2;
-+	spin_lock_bh(&routes->lock);
-+	if (routes->table[daddr] =3D=3D NULL) {
-+		routes->table[daddr] =3D dev;
-+		dev_hold(dev);
-+		err =3D 0;
-+	}
-+	spin_unlock_bh(&routes->lock);
-+	return err;
-+}
-+
-+int phonet_route_del(struct net_device *dev, u8 daddr)
-+{
-+	struct phonet_net *pnn =3D net_generic(dev_net(dev), phonet_net_id);
-+	struct phonet_routes *routes =3D &pnn->routes;
-+	int err =3D -ENOENT;
-+
-+	daddr =3D daddr >> 2;
-+	spin_lock_bh(&routes->lock);
-+	if (dev =3D=3D routes->table[daddr]) {
-+		routes->table[daddr] =3D NULL;
-+		dev_put(dev);
-+		err =3D 0;
-+	}
-+	spin_unlock_bh(&routes->lock);
-+	return err;
-+}
-+
-+struct net_device *phonet_route_get(struct net *net, u8 daddr)
-+{
-+	struct phonet_net *pnn =3D net_generic(net, phonet_net_id);
-+	struct phonet_routes *routes =3D &pnn->routes;
-+	struct net_device *dev;
-+
-+	ASSERT_RTNL(); /* no need to hold the device */
-+
-+	daddr >>=3D 2;
-+	spin_lock_bh(&routes->lock);
-+	dev =3D routes->table[daddr];
-+	spin_unlock_bh(&routes->lock);
-+	return dev;
-+}
-+
-+struct net_device *phonet_route_output(struct net *net, u8 daddr)
-+{
-+	struct phonet_net *pnn =3D net_generic(net, phonet_net_id);
-+	struct phonet_routes *routes =3D &pnn->routes;
-+	struct net_device *dev;
-+
-+	spin_lock_bh(&routes->lock);
-+	dev =3D routes->table[daddr >> 2];
-+	if (dev)
-+		dev_hold(dev);
-+	spin_unlock_bh(&routes->lock);
-+
-+	if (!dev)
-+		dev =3D phonet_device_get(net); /* Default route */
-+	return dev;
-+}
---=20
-1.6.0.4
+A further complication is that although the PF and VFs have different
+devices they do share hw and the bandwidth allocation rules in the
+datasheet seem to imply that they bandwidth allocations need to be
+made together to ensure that the rules aren't violated. That is,
+they need to be verified as a group at some point. Which is
+what let to my original suggestion of using ethtool on the device
+corresponding to the PF.
 
