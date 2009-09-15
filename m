@@ -1,32 +1,54 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH 2/2] ems_usb: Added support for EMS CPC-USB/ARM7 CAN/USB
- interface
-Date: Tue, 15 Sep 2009 14:05:08 +0200
-Message-ID: <4AAF82F4.6040708@grandegger.com>
-References: <20090914080945.5441.45509.stgit@localhost.localdomain>	<20090914082229.5441.16650.stgit@localhost.localdomain>	<4AAF7301.60608@grandegger.com> <4AAF7D47.1070005@ems-wuensche.com>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
+Date: Tue, 15 Sep 2009 15:32:38 +0300
+Message-ID: <4AAF8966.3040602@redhat.com>
+References: <cover.1251388414.git.mst@redhat.com> <20090827160750.GD23722@redhat.com> <20090903183945.GF28651@ovro.caltech.edu> <20090907101537.GH3031@redhat.com> <20090908172035.GB319@ovro.caltech.edu> <4AAA7415.5080204@gmail.com> <20090913120140.GA31218@redhat.com> <4AAE6A97.7090808@gmail.com> <20090914164750.GB3745@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org, greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org
-To: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4AAF7D47.1070005-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Gregory Haskins <gregory.haskins@gmail.com>,
+        "Ira W. Snyder" <iws@ovro.caltech.edu>, netdev@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+        linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
+        akpm@linux-foundation.org, hpa@zytor.com,
+        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20090914164750.GB3745@redhat.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Sebastian Haas wrote:
-> Wolfgang Grandegger schrieb:
+On 09/14/2009 07:47 PM, Michael S. Tsirkin wrote:
+> On Mon, Sep 14, 2009 at 12:08:55PM -0400, Gregory Haskins wrote:
+>    
+>> For Ira's example, the addresses would represent a physical address on
+>> the PCI boards, and would follow any kind of relevant rules for
+>> converting a "GPA" to a host accessible address (even if indirectly, via
+>> a dma controller).
+>>      
+> I don't think limiting addresses to PCI physical addresses will work
+> well.  From what I rememeber, Ira's x86 can not initiate burst
+> transactions on PCI, and it's the ppc that initiates all DMA.
+>    
 
->> It would also be nice, if some USB guru's could have a look as well.
-> Oliver Neukum already did a quick review. I've fixed serveral
-> GFP_ATOMIC/KERNEL issues and a problem with DMA coherency on his feedback.
+vhost-net would run on the PPC then.
 
-Good, just found the thread pointing out various serious issues.
+>>>   But we can't let the guest specify physical addresses.
+>>>        
+>> Agreed.  Neither your proposal nor mine operate this way afaict.
+>>      
+> But this seems to be what Ira needs.
+>    
 
-Wolfgang.
+In Ira's scenario, the "guest" (x86 host) specifies x86 physical 
+addresses, and the ppc dmas to them.  It's the virtio model without any 
+change.  A normal guest also specifis physical addresses.
+
+-- 
+error compiling committee.c: too many arguments to function
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
