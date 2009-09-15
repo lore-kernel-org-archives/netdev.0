@@ -1,40 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] can: fix NOHZ local_softirq_pending 08 warning
-Date: Tue, 15 Sep 2009 01:31:40 -0700 (PDT)
-Message-ID: <20090915.013140.97444184.davem@davemloft.net>
-References: <4AAF3AF2.60309@hartkopp.net>
+Subject: Re: [PATCH 2nd try] tcp: fix ssthresh u16 leftover
+Date: Tue, 15 Sep 2009 01:30:47 -0700 (PDT)
+Message-ID: <20090915.013047.33116195.davem@davemloft.net>
+References: <alpine.DEB.2.00.0909141705500.7424@wel-95.cs.helsinki.fi>
+	<20090914.170555.154302240.davem@davemloft.net>
+	<alpine.DEB.2.00.0909151111250.7424@wel-95.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stable@kernel.org, netdev@vger.kernel.org, urs@isnogud.escape.de,
-	mb@bu3sch.de
-To: oliver@hartkopp.net
+Content-Type: Text/Plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33585
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33582
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750738AbZIOIbX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 04:31:23 -0400
-In-Reply-To: <4AAF3AF2.60309@hartkopp.net>
+	by vger.kernel.org with ESMTP id S1751614AbZIOIab convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Sep 2009 04:30:31 -0400
+In-Reply-To: <alpine.DEB.2.00.0909151111250.7424@wel-95.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Date: Tue, 15 Sep 2009 08:57:54 +0200
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Tue, 15 Sep 2009 11:19:11 +0300 (EEST)
 
-> When using nanosleep() in an userspace application we get a ratelimit warning
-> 
-> NOHZ: local_softirq_pending 08
-> 
-> for 10 times.
-> 
-> The echo of CAN frames is done from process context and softirq context only.
-> Therefore the usage of netif_rx() was wrong (for years).
-> 
-> This patch replaces netif_rx() with netif_rx_ni() which has to be used from
-> process/softirq context. It also adds a missing comment that can_send() must
-> no be used from hardirq context.
-> 
-> Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
-> Signed-off-by: Urs Thuermann <urs@isnogud.escape.de>
+> [PATCH 2nd try] tcp: fix ssthresh u16 leftover
+>=20
+> It was once upon time so that snd_sthresh was a 16-bit quantity.
+> ...That has not been true for long period of time. I run across
+> some ancient compares which still seem to trust such legacy.
+> Put all that magic into a single place, I hopefully found all
+> of them.
+>=20
+> Compile tested, though linking of allyesconfig is ridiculous
+> nowadays it seems.
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-Applied, thanks.
+Much better, applied, thanks!
