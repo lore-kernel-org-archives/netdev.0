@@ -1,58 +1,61 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] pkt_sched: Fix qdisc_create on stab error handling
-Date: Tue, 15 Sep 2009 20:46:51 +0200
-Message-ID: <20090915184651.GA8373@ami.dom.local>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [crash] kernel BUG at net/core/pktgen.c:3503!
+Date: Tue, 15 Sep 2009 22:51:12 +0400
+Message-ID: <20090915185112.GA17587@lenovo>
+References: <20090911.202543.52533792.davem@davemloft.net> <20090915183647.GA11628@elte.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.156]:56191 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750862AbZIOSq6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 14:46:58 -0400
-Received: by fg-out-1718.google.com with SMTP id 22so961006fge.1
-        for <netdev@vger.kernel.org>; Tue, 15 Sep 2009 11:47:01 -0700 (PDT)
+Received: from mail-ew0-f206.google.com ([209.85.219.206]:44661 "EHLO
+	mail-ew0-f206.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750862AbZIOSvL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 14:51:11 -0400
 Content-Disposition: inline
+In-Reply-To: <20090915183647.GA11628@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If qdisc_get_stab returns error in qdisc_create there is skipped qdisc
-ops->destroy, which is necessary because it's after ops->init at the
-moment, so memory leaks are quite probable.
+[Ingo Molnar - Tue, Sep 15, 2009 at 08:36:47PM +0200]
+| 
+| not sure which merge caused this, but i got this boot crash with latest 
+| -git:
+| 
+| calling  flow_cache_init+0x0/0x1b9 @ 1
+| initcall flow_cache_init+0x0/0x1b9 returned 0 after 64 usecs
+| calling  pg_init+0x0/0x37c @ 1
+| pktgen 2.72: Packet Generator for packet performance testing.
+| ------------[ cut here ]------------
+| kernel BUG at net/core/pktgen.c:3503!
+| invalid opcode: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
+| last sysfs file: 
+| 
 
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+Hi Ingo,
+
+just curious, will the following patch fix the problem?
+I've been fixing problem with familiar symthoms on
+system with custome virtual cpu implementation so
+it may not help in mainline but anyway :)
+
+	-- Cyrill
 ---
+ net/core/pktgen.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- net/sched/sch_api.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 692d9a4..329be0c 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -804,7 +804,7 @@ qdisc_create(struct net_device *dev, struct netdev_queue *dev_queue,
- 			stab = qdisc_get_stab(tca[TCA_STAB]);
- 			if (IS_ERR(stab)) {
- 				err = PTR_ERR(stab);
--				goto err_out3;
-+				goto err_out4;
- 			}
- 			sch->stab = stab;
- 		}
-@@ -833,7 +833,6 @@ qdisc_create(struct net_device *dev, struct netdev_queue *dev_queue,
- 		return sch;
- 	}
- err_out3:
--	qdisc_put_stab(sch->stab);
- 	dev_put(dev);
- 	kfree((char *) sch - sch->padded);
- err_out2:
-@@ -847,6 +846,7 @@ err_out4:
- 	 * Any broken qdiscs that would require a ops->reset() here?
- 	 * The qdisc was never in action so it shouldn't be necessary.
- 	 */
-+	qdisc_put_stab(sch->stab);
- 	if (ops->destroy)
- 		ops->destroy(sch);
- 	goto err_out3;
+Index: linux-2.6.git/net/core/pktgen.c
+=====================================================================
+--- linux-2.6.git.orig/net/core/pktgen.c
++++ linux-2.6.git/net/core/pktgen.c
+@@ -3511,7 +3511,7 @@ static int pktgen_thread_worker(void *ar
+ 	struct pktgen_dev *pkt_dev = NULL;
+ 	int cpu = t->cpu;
+ 
+-	BUG_ON(smp_processor_id() != cpu);
++	BUG_ON(task_cpu(current) != cpu);
+ 
+ 	init_waitqueue_head(&t->queue);
+ 	complete(&t->start_done);
