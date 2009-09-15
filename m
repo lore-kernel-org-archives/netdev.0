@@ -1,55 +1,99 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: UDP regression with packets rates < 10k per sec
-Date: Tue, 15 Sep 2009 10:07:01 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0909151000230.20318@V090114053VZO-1>
-References: <alpine.DEB.1.10.0909081820030.7733@V090114053VZO-1> <4AA6E039.4000907@gmail.com> <alpine.DEB.1.10.0909091000200.28070@V090114053VZO-1> <4AA7C512.6040100@gmail.com> <alpine.DEB.1.10.0909091234360.15538@V090114053VZO-1> <4AA7E082.90807@gmail.com>
- <alpine.DEB.1.10.0909091350590.32067@V090114053VZO-1> <4AA963A4.5080509@gmail.com> <4AA97183.3030008@gmail.com> <alpine.DEB.1.10.0909101741520.9964@V090114053VZO-1> <alpine.DEB.1.10.0909141708150.8051@V090114053VZO-1> <4AAF263E.9010405@gmail.com>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: Fwd: [RFC v3] net: Introduce recvmmsg socket syscall
+Date: Tue, 15 Sep 2009 11:11:10 -0300
+Message-ID: <20090915141110.GG22743@ghostprotocols.net>
+References: <9b2db90b0908060014r6a1763e8t1b3ee9310e012c25@mail.gmail.com> <9b2db90b0908060015v45d31060me94cf436f4a25e42@mail.gmail.com> <20090914230902.GC22743@ghostprotocols.net> <9b2db90b0909150137j16c46340o89b55af62f7b613e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Networking Development Mailing List
+	<netdev@vger.kernel.org>, Ziv Ayalon <ziv@final.co.il>
+To: Nir Tzachar <nir.tzachar@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.ultrahosting.com ([74.213.174.253]:44292 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751511AbZIOOJH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 10:09:07 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 04EF682C776
-	for <netdev@vger.kernel.org>; Tue, 15 Sep 2009 10:10:42 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.174.253])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id qZJcRM+qBwfE for <netdev@vger.kernel.org>;
-	Tue, 15 Sep 2009 10:10:37 -0400 (EDT)
-Received: from V090114053VZO-1 (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 5803982C6D5
-	for <netdev@vger.kernel.org>; Tue, 15 Sep 2009 10:10:37 -0400 (EDT)
-In-Reply-To: <4AAF263E.9010405@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:40918 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754344AbZIOOLP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Sep 2009 10:11:15 -0400
+Content-Disposition: inline
+In-Reply-To: <9b2db90b0909150137j16c46340o89b55af62f7b613e@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 15 Sep 2009, Eric Dumazet wrote:
+Em Tue, Sep 15, 2009 at 11:37:36AM +0300, Nir Tzachar escreveu:
+> On Tue, Sep 15, 2009 at 2:09 AM, Arnaldo Carvalho de
+> Melo<acme@ghostprotocols.net> wrote:
+> > Em Thu, Aug 06, 2009 at 10:15:26AM +0300, Nir Tzachar escreveu:
+> >> Hello.
+> >>
+> >> Is there anything new with this patch? What are the plans for merging
+> >> it upstream?
+> >
+> > I'm doing perf runs using a test app using recvmsg, then with the first
+> > patch, that introduces recvmmsg, then with the second, that locks the
+> > series of unlocked_recvmmsg calls just once, will try to get this posted
+> > here soon.
+> >
+> > I'd really appreciate if the people interested in this could try it and
+> > post numbers too, to get this ball rolling again.
+> >
+> > As for getting it upstream, well, posting numbers here would definetely
+> > help with that :-)
+> 
+> Ok, here are some crude results:
+> 
+> Setup:
+> linux 2.6.29.2 with the third version of the patch, running on an
+> Intel Xeon X3220 2.4GHz quad core, with 4Gbyte of ram, running Ubuntu
+> 9.04
 
-> 2.6.31 is actually faster than 2.6.22 on the bench you provided.
+Which NIC? 10 Gbit/s?
+ 
+> Application:
+> A financial application, subscribing to quotes from a stock exchange.
+> Typical traffic is small (around 50-100 bytes) multicast packets in
+> large volumes. The application just receives  the quotes and pass them
+> along.
 
-Well at high packet rates which were not the topic.
+Exactly what made me work on this patch :-)
+ 
+> The test:
+> Run two version of the application, head to head. one version using
+> recvmsg and the other recvmmsg. The data is passed to a third
+> application measuring the latency of the data.
+> 
+> Results:
+> On general, the recvmmsg beats the pants off the regular recvmsg by a
+> whole millisecond (which might not sound much, but is _really_ a lot
+> for us ;). The exact distribution fluctuates between half a milli and
+> 2 millis, but the average is 1 milli.
 
-> Must be specific to the hardware I guess ?
+Do you have any testcase using publicly available software? Like qpidd,
+etc? I'll eventually have to do that, for now I'm just using that
+recvmmsg tool I posted, now with a recvmsg mode, then collecting 'perf
+record' with and without callgraphs to post here. The client is just
+pktgen spitting datagrams as if there is no tomorrow :-)
+ 
+> Conclusions:
+> We would _really_ like to see this patch go upstream. It gives an
+> important performance boost in out use cases.
 
-Huh? Even your loopback numbers did show the regression up to 10k.
+Great! I'll work on the lower layer unlocked_recvmmsg followup patch
+addressing the concerns raised when I first posted it and we should see
+some more gains.
+ 
+> We are willing to perform more accurate tests if needed, and would
+> appreciate the feedback on how to conduct them.
 
-> As text size presumably is bigger in 2.6.31, fetching code
-> in cpu caches to handle 10 packets per second is what we call
-> a cold path anyway.
+Showing that we get latency improvements is complementary to what I'm
+doing, that is for now just showing the performance improvements and
+showing what gives this improvement (perf counters runs).
 
-Ok so its an accepted regression? This is a significant reason not to use
-newer versions of kernels for latency critical applications that may have
-to send a packet once in a while for notification. The latency is doubled
-(1G) / tripled / quadrupled (IB) vs 2.6.22.
+If you could come up with a testcase that you could share with us,
+perhaps using one of these AMQP implementations, that would be great
+too.
+ 
+> Cheers,
+> Nir.
 
-> If you want to make it a fast path, you want to make sure code its
-> always hot in cpu caches, and find a way to inject packets into
-> the kernel to make sure cpu keep the path hot.
+Thanks a lot for sharing your results with us!
 
-Oh, gosh.
-
-
+- Arnaldo
