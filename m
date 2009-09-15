@@ -1,74 +1,50 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
-Date: Tue, 15 Sep 2009 16:25:37 +0300
-Message-ID: <4AAF95D1.1080600@redhat.com>
-References: <cover.1251388414.git.mst@redhat.com> <20090827160750.GD23722@redhat.com> <20090903183945.GF28651@ovro.caltech.edu> <20090907101537.GH3031@redhat.com> <20090908172035.GB319@ovro.caltech.edu> <4AAA7415.5080204@gmail.com> <20090913120140.GA31218@redhat.com> <4AAE6A97.7090808@gmail.com> <20090914164750.GB3745@redhat.com> <4AAE961B.6020509@gmail.com> <4AAF8A03.5020806@redhat.com> <4AAF909F.9080306@gmail.com>
+From: Or Gerlitz <ogerlitz@voltaire.com>
+Subject: Re: igb bandwidth allocation configuration
+Date: Tue, 15 Sep 2009 16:27:25 +0300
+Message-ID: <4AAF963D.4060708@voltaire.com>
+References: <20090910081844.GA5421@verge.net.au>	<15ddcffd0909140142n2a110708ld619177c65f4588b@mail.gmail.com>
+	<20090915113659.GJ24194@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-        "Ira W. Snyder" <iws@ovro.caltech.edu>, netdev@vger.kernel.org,
-        virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
-        linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
-        akpm@linux-foundation.org, hpa@zytor.com,
-        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com,
-        alacrityvm-devel@lists.sourceforge.net
-To: Gregory Haskins <gregory.haskins@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4AAF909F.9080306@gmail.com>
-Sender: owner-linux-mm@kvack.org
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org, "Kirsher,
+	Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20090915113659.GJ24194@verge.net.au>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On 09/15/2009 04:03 PM, Gregory Haskins wrote:
->
->> In this case the x86 is the owner and the ppc boards use translated
->> access.  Just switch drivers and device and it falls into place.
->>
->>      
-> You could switch vbus roles as well, I suppose.
+Simon Horman wrote:
+> It seems to me that the main problem is that from a driver point of view the PF and VFs are independent. But from a hardware point of view they aren't so its not always possible for their configuration to be independent of each other. And I'm not sure what (existing) interfaces can handle that nicely.
 
-Right, there's not real difference in this regard.
+If the rate limiter is exposed as a feature of the VF, it doesn't matter 
+who really enforces it, the "VF portion" of the HW or the PF itself. I 
+agree that if you have to program the PF for the rate of a specific VF, 
+then its more complex. Basically, I would expect that a VF can be 
+configured with <mac, vlad-id, priority, rate> such that it can be done 
+where the VF NIC is spawned, host kernel or guest kernel.
 
-> Another potential
-> option is that he can stop mapping host memory on the guest so that it
-> follows the more traditional model.  As a bus-master device, the ppc
-> boards should have access to any host memory at least in the GFP_DMA
-> range, which would include all relevant pointers here.
->
-> I digress:  I was primarily addressing the concern that Ira would need
-> to manage the "host" side of the link using hvas mapped from userspace
-> (even if host side is the ppc boards).  vbus abstracts that access so as
-> to allow something other than userspace/hva mappings.  OTOH, having each
-> ppc board run a userspace app to do the mapping on its behalf and feed
-> it to vhost is probably not a huge deal either.  Where vhost might
-> really fall apart is when any assumptions about pageable memory occur,
-> if any.
->    
+> Its not clear to me what you are asking.
+I'm was asking/wondering if the Intel NICs have a rate limiter (i.e one 
+can program the VF such that its rate doesn't exceed XX MB/s) or a "rate 
+guarantee"  (i.e one can program the VF such that its guaranteed it will 
+get YY MB/s in case it wants to xmit at least this bandwidth)
 
-Why?  vhost will call get_user_pages() or copy_*_user() which ought to 
-do the right thing.
+Or.
 
-> As an aside: a bigger issue is that, iiuc, Ira wants more than a single
-> ethernet channel in his design (multiple ethernets, consoles, etc).  A
-> vhost solution in this environment is incomplete.
->    
 
-Why?  Instantiate as many vhost-nets as needed.
-
-> Note that Ira's architecture highlights that vbus's explicit management
-> interface is more valuable here than it is in KVM, since KVM already has
-> its own management interface via QEMU.
->    
-
-vhost-net and vbus both need management, vhost-net via ioctls and vbus 
-via configfs.  The only difference is the implementation.  vhost-net 
-leaves much more to userspace, that's the main difference.
-
--- 
-error compiling committee.c: too many arguments to function
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+------------------------------------------------------------------------------
+Come build with us! The BlackBerry&reg; Developer Conference in SF, CA
+is the only developer event you need to attend this year. Jumpstart your
+developing skills, take BlackBerry mobile applications to market and stay 
+ahead of the curve. Join us from November 9&#45;12, 2009. Register now&#33;
+http://p.sf.net/sfu/devconf
