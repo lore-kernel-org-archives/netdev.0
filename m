@@ -1,49 +1,46 @@
-From: "Graham, David" <david.graham@intel.com>
-Subject: Re: [BUG 2.6.30+] e100 sometimes causes oops during
- resume
-Date: Wed, 16 Sep 2009 14:06:55 -0700
-Message-ID: <4AB1536F.9070205@intel.com>
-References: <20090915120538.GA26806@bizet.domek.prywatny>
-	<13830B75AD5A2F42848F92269B11996F5BF592C3@orsmsx509.amr.corp.intel.com>
-	<20090916014448.GA1070@bizet.domek.prywatny>
-Reply-To: david.graham@intel.com
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: question about niu linux driver behaviour
+Date: Wed, 16 Sep 2009 15:13:00 -0600
+Message-ID: <4AB154DC.7070305@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Karol Lewandowski <karol.k.lewandowski@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20090916014448.GA1070@bizet.domek.prywatny>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Santwona.Behera@sun.com, Matheos Worku <Matheos.Worku@Sun.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zcars04e.nortel.com ([47.129.242.56]:59552 "EHLO
+	zcars04e.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753583AbZIPVOQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 17:14:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Karol Lewandowski wrote:
-> 
-> I can test, or rather -- start testing this tommorow, if this makes
-> sense to you.
-> 
-Yes please Karol, test with 6905b1f1...removed. I will continue testing 
-here too on 2.6.31, though I have not had a repro yet. And are you 
-performing a standby or hibernate, I want to be sure that I'm resuming 
-from the same state.
-Thanks.
-> Thanks.
-> 
+Hi all,
 
+I've got a Sun 3320 ATCA "alonso" board with Neptune network devices.
+I'm running basically 2.6.27.8, and I'm seeing some odd behaviour in the
+niu driver.
 
-------------------------------------------------------------------------------
-Come build with us! The BlackBerry&reg; Developer Conference in SF, CA
-is the only developer event you need to attend this year. Jumpstart your
-developing skills, take BlackBerry mobile applications to market and stay 
-ahead of the curve. Join us from November 9&#45;12, 2009. Register now&#33;
-http://p.sf.net/sfu/devconf
+My understanding is that there are four ports. 0 and 1 are XMAC links,
+while 10, and 11 are BMAC links.  On our board these normally map to
+eth4/5/6/7.
+
+At boot time, if the other end for the XMAC links is not up, then we see
+messages that look like:
+
+niu 0000:08:00.0: niu: Port 0 signal bits [00000000] are not [30000000]
+niu 0000:08:00.0: niu: Port 0 10G/1G SERDES Link Failed
+niu 0000:08:00.1: niu: Port 1 signal bits [00000000] are not [0c000000]
+niu 0000:08:00.1: niu: Port 1 10G/1G SERDES Link Failed
+
+and the BMAC links come up as eth4/eth5.
+
+This seems to be due to the fact that we're checking ESR_INT_SIGNALS for
+ESR_INT_DET0_P0 and ESR_INT_DET0_P1, and then failing because they're
+not set.  (The 10G initialization behaves similarly.)
+
+Is this valid behaviour?  I seems fragile for successful serdes
+initialization to depend on the other end of the link being up at driver
+init time.
+
+Chris
