@@ -1,83 +1,67 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] pkt_sched: Fix qstats.qlen updating in dump_stats
-Date: Wed, 16 Sep 2009 10:38:38 +0000
-Message-ID: <20090916103838.GA9719@ff.dom.local>
+From: Alan Cox <alan@linux.intel.com>
+Subject: Re: fanotify as syscalls
+Date: Wed, 16 Sep 2009 11:41:11 +0100
+Message-ID: <20090916114111.2228f0fc@linux.intel.com>
+References: <20090911212731.GA19901@shareable.org>
+	<1252705902.2305.83.camel@dhcp231-106.rdu.redhat.com>
+	<20090912094110.GB24709@ioremap.net>
+	<20090914001759.GB30621@shareable.org>
+	<20090914140720.GA8564@ioremap.net>
+	<1252955295.2246.35.camel@dhcp231-106.rdu.redhat.com>
+	<20090915201620.GB32192@ioremap.net>
+	<1253051699.5213.18.camel@dhcp231-106.rdu.redhat.com>
+	<alpine.LFD.2.01.0909151643540.4950@localhost.localdomain>
+	<1253064391.5213.37.camel@dhcp231-106.rdu.redhat.com>
+	<20090916075219.GA22024@shareable.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Eric Paris <eparis@redhat.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, viro@zeniv.linux.org.uk, hch@infradead.org
+To: Jamie Lokier <jamie@shareable.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f217.google.com ([209.85.220.217]:51092 "EHLO
-	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752593AbZIPKik (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 06:38:40 -0400
-Received: by fxm17 with SMTP id 17so2172115fxm.37
-        for <netdev@vger.kernel.org>; Wed, 16 Sep 2009 03:38:43 -0700 (PDT)
-Content-Disposition: inline
+Received: from mga06.intel.com ([134.134.136.21]:43639 "EHLO
+	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751847AbZIPKqu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 06:46:50 -0400
+In-Reply-To: <20090916075219.GA22024@shareable.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some classful qdiscs miss qstats.qlen updating with q.qlen of their
-child qdiscs in dump_stats methods.
+> - fanotify does not provide subtree notification in it's
+>   present form.  When it is extended to do that, why wouldn't
+>   inotify be as well?  That's an fsnotify feature, common to both.
 
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
----
+Because inotify gives you no reliable access to the object monitored as
+the name passed back is not an object reference and is racy. Inotify is
+fine for making pretty icons pop up on desktops and making file
+selectors update, but it is somewhat inadequate for indexers and
+completely useless for stuff like HSM.
 
- net/sched/sch_drr.c    |    4 +++-
- net/sched/sch_mq.c     |    1 +
- net/sched/sch_multiq.c |    1 +
- net/sched/sch_prio.c   |    1 +
- 4 files changed, 6 insertions(+), 1 deletions(-)
+> - fanotify requires you call readlink(/proc/fd/N) for every event to
+>   get the path.  It's not a particularly efficient way to get it,
 
-diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
-index 12b2fb0..5a888af 100644
---- a/net/sched/sch_drr.c
-+++ b/net/sched/sch_drr.c
-@@ -274,8 +274,10 @@ static int drr_dump_class_stats(struct Qdisc *sch, unsigned long arg,
- 	struct tc_drr_stats xstats;
- 
- 	memset(&xstats, 0, sizeof(xstats));
--	if (cl->qdisc->q.qlen)
-+	if (cl->qdisc->q.qlen) {
- 		xstats.deficit = cl->deficit;
-+		cl->qdisc->qstats.qlen = cl->qdisc->q.qlen;
-+	}
- 
- 	if (gnet_stats_copy_basic(d, &cl->bstats) < 0 ||
- 	    gnet_stats_copy_rate_est(d, &cl->rate_est) < 0 ||
-diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
-index dd5ee02..d44eddd 100644
---- a/net/sched/sch_mq.c
-+++ b/net/sched/sch_mq.c
-@@ -188,6 +188,7 @@ static int mq_dump_class_stats(struct Qdisc *sch, unsigned long cl,
- 	struct netdev_queue *dev_queue = mq_queue_get(sch, cl);
- 
- 	sch = dev_queue->qdisc_sleeping;
-+	sch->qstats.qlen = sch->q.qlen;
- 	if (gnet_stats_copy_basic(d, &sch->bstats) < 0 ||
- 	    gnet_stats_copy_queue(d, &sch->qstats) < 0)
- 		return -1;
-diff --git a/net/sched/sch_multiq.c b/net/sched/sch_multiq.c
-index 069f81c..7db2c88 100644
---- a/net/sched/sch_multiq.c
-+++ b/net/sched/sch_multiq.c
-@@ -359,6 +359,7 @@ static int multiq_dump_class_stats(struct Qdisc *sch, unsigned long cl,
- 	struct Qdisc *cl_q;
- 
- 	cl_q = q->queues[cl - 1];
-+	cl_q->qstats.qlen = cl_q->q.qlen;
- 	if (gnet_stats_copy_basic(d, &cl_q->bstats) < 0 ||
- 	    gnet_stats_copy_queue(d, &cl_q->qstats) < 0)
- 		return -1;
-diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-index 0f73c41..93285ce 100644
---- a/net/sched/sch_prio.c
-+++ b/net/sched/sch_prio.c
-@@ -322,6 +322,7 @@ static int prio_dump_class_stats(struct Qdisc *sch, unsigned long cl,
- 	struct Qdisc *cl_q;
- 
- 	cl_q = q->queues[cl - 1];
-+	cl_q->qstats.qlen = cl_q->q.qlen;
- 	if (gnet_stats_copy_basic(d, &cl_q->bstats) < 0 ||
- 	    gnet_stats_copy_queue(d, &cl_q->qstats) < 0)
- 		return -1;
+IFF you want the path, but the path isn't usually the most valuable bit.
+Plus you'll find the readlink is extremely quick anyway.
+
+> People who want to break out of chroot/namespace jails using the
+> conveniently provided open file descriptor? :-)
+
+chroot isn't a security model. You can already do this with AF_UNIX
+sockets (and there are apps that intentionally use fchdir that way)
+
+> I'd expect anti-malware to want to be run inside VMs quite often...
+
+Inside of containers - unlikely. Inside of guests sure but thats not
+going to relevant to fanotify()
+
+> the accessing process until acked), that's ok with me.  It makes
+> sense.  But then it's messy that neither offers a superset of the
+> other regarding which files and events are tracked.
+
+Agreed.
+
