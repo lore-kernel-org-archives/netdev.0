@@ -1,49 +1,84 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: Fwd: [RFC v3] net: Introduce recvmmsg socket syscall
-Date: Wed, 16 Sep 2009 08:52:18 -0300
-Message-ID: <20090916115218.GK22743@ghostprotocols.net>
-References: <9b2db90b0908060014r6a1763e8t1b3ee9310e012c25@mail.gmail.com> <9b2db90b0908060015v45d31060me94cf436f4a25e42@mail.gmail.com> <20090914230902.GC22743@ghostprotocols.net> <9b2db90b0909150137j16c46340o89b55af62f7b613e@mail.gmail.com> <20090915141110.GG22743@ghostprotocols.net> <9b2db90b0909151120l71498303w26cfd657c9f18092@mail.gmail.com> <20090915205207.GI22743@ghostprotocols.net> <20090916045333.GA18325@verge.net.au>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: fanotify as syscalls
+Date: Wed, 16 Sep 2009 13:01:27 +0100
+Message-ID: <20090916130127.439c9222@lxorguk.ukuu.org.uk>
+References: <20090912094110.GB24709@ioremap.net>
+	<20090914001759.GB30621@shareable.org>
+	<20090914140720.GA8564@ioremap.net>
+	<1252955295.2246.35.camel@dhcp231-106.rdu.redhat.com>
+	<20090915201620.GB32192@ioremap.net>
+	<1253051699.5213.18.camel@dhcp231-106.rdu.redhat.com>
+	<alpine.LFD.2.01.0909151643540.4950@localhost.localdomain>
+	<1253064391.5213.37.camel@dhcp231-106.rdu.redhat.com>
+	<20090916075219.GA22024@shareable.org>
+	<20090916114111.2228f0fc@linux.intel.com>
+	<20090916114107.GB29359@shareable.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
-	Nir Tzachar <nir.tzachar@gmail.com>,
-	Linux Networking Development Mailing List
-	<netdev@vger.kernel.org>, Ziv Ayalon <ziv@final.co.il>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53671 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755873AbZIPLwc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Sep 2009 07:52:32 -0400
-Content-Disposition: inline
-In-Reply-To: <20090916045333.GA18325@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Alan Cox <alan@linux.intel.com>, Eric Paris <eparis@redhat.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, viro@zeniv.linux.org.uk, hch@infradead.org
+To: Jamie Lokier <jamie@shareable.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756123AbZIPMAl@vger.kernel.org>
+In-Reply-To: <20090916114107.GB29359@shareable.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Em Wed, Sep 16, 2009 at 02:53:44PM +1000, Simon Horman escreveu:
-> On Tue, Sep 15, 2009 at 05:52:07PM -0300, Arnaldo Carvalho de Melo wrote:
-> > Em Tue, Sep 15, 2009 at 09:20:13PM +0300, Nir Tzachar escreveu:
-> > > >> Setup:
-> > > >> linux 2.6.29.2 with the third version of the patch, running on an
-> > > >> Intel Xeon X3220 2.4GHz quad core, with 4Gbyte of ram, running Ubuntu
-> > > >> 9.04
-> > > >
-> > > > Which NIC? 10 Gbit/s?
-> > > 
-> > > 1G. We do not care as much for throughput as we do about latency...
-> > 
-> > OK, but anyway the 10 Gbit/s cards I've briefly played with all
-> > exhibited lower latencies than all 1 gbit/s ones, in fact I've heard
-> > about people moving to 10 Gbit/s not for the bw, but for the lower
-> > latencies :-)
+> You can't rely on the name being non-racy, but you _can_ reliably
+> invalidate application-level caches from the sequence of events
+> including file writes, creates, renames, links, unlinks, mounts.  And
+> revalidate such caches by the absence of pending events.
+
+You can't however create the caches reliably because you've no idea if
+you are referencing the right object in the first place - which is why
+you want a handle in these cases. I see fanotify as a handle producing
+addition to inotify, not as a replacement (plus some other bits around
+open blocking for HSM etc)
+
+> Clearly, I'm going to have to explain with working code :-)
+
+Always a good demo
+
+> > but it is somewhat inadequate for indexers
 > 
-> Hi Arnaldo,
+> For indexers, the real inadequacy is the need to attach inotify
+> watches to every directory at system startup, and to stat() everything
+> to check it hasn't changed since the indexer was last running.  Both
+
+stat doesn't help you - inode numbers are only guaranteed unqiue (and
+constant) while a reference to the object is held.
+
+> Descriptors don't tell you which subtree a file is in any better than
+> inotify watches.  I.e. they do, if you track them and their containing
+> directories all individually.
+
+Don't get me wrong - I don't think fanotify is sufficient on its own -
+and this is one reason. Some things care about the namespace, some about
+getting the exact content.
+
+> > chroot isn't a security model. You can already do this with AF_UNIX
+> > sockets (and there are apps that intentionally use fchdir that way)
 > 
-> Out of curiosity, is that using a 10Gbit card with
-> a 10Gbit link or a 1Gbit link?
+> Ah, no.  AF_UNIX works with explicit sender cooperation.
+> 
+> fanotify gives you access to files without sender cooperation, as it
+> intercepts every open().
 
-Its been a while, but most details should be publicly available here:
+and is currently not general user accessible for this reason.
 
-http://www.stacresearch.com/node/4211
+> > Inside of containers - unlikely.
+> 
+> Why not?  Some people run entire distributions in containiners, and
+> present them as VMs to the world for other people to admin.
 
-- Arnaldo
+In a word - performance. In two words performance and security. It isn't
+a sensible setup because you want to scan the most efficient way possible
+and you want to keep your malware scan as far away from attackers, so it
+makes sense to keep it outside of the containers and do the job once
+- one scan, one database of things to keep current.
+
+Alan
