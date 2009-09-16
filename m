@@ -1,31 +1,43 @@
-From: Daniel Walker <dwalker@fifo99.com>
-Subject: Re: [Patch net-next]atl1e:fix 2.6.31-git4 -- ATL1E 0000:03:00.0:
- DMA-API: device driver frees DMA
-Date: Wed, 16 Sep 2009 02:10:51 -0700
-Message-ID: <1253092251.11643.569.camel@desktop>
-References: <12530821133392-git-send-email-jie.yang@atheros.com>
+From: Karol Lewandowski <karol.k.lewandowski@gmail.com>
+Subject: Re: [E1000-devel] [BUG 2.6.30+] e100 sometimes causes oops during
+	resume
+Date: Wed, 16 Sep 2009 11:19:11 +0200
+Message-ID: <20090916091911.GA1496@bizet.domek.prywatny>
+References: <20090915120538.GA26806@bizet.domek.prywatny> <13830B75AD5A2F42848F92269B11996F5BF592C3@orsmsx509.amr.corp.intel.com> <20090916014448.GA1070@bizet.domek.prywatny>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, miles.lane@gmail.com, chris.snook@gmail.com,
-	jcliburn@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jie.yang@atheros.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758227AbZIPJJ5@vger.kernel.org>
-In-Reply-To: <12530821133392-git-send-email-jie.yang@atheros.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Graham, David" <david.graham@intel.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Karol Lewandowski <karol.k.lewandowski@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758256AbZIPJTQ@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090916014448.GA1070@bizet.domek.prywatny>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2009-09-16 at 14:21 +0800, jie.yang@atheros.com wrote:
-> -           pci_unmap_page(pdev, tx_buffer->dma,
-> +           if (tx_buffer->flags & ATL1E_TX_PCIMAP_SINGLE)
-> +               pci_unmap_single(pdev, tx_buffer->dma,
-> +                   tx_buffer->length, PCI_DMA_TODEVICE);
-> +           else if (tx_buffer->flags & ATL1E_TX_PCIMAP_PAGE)
-> +               pci_unmap_page(pdev, tx_buffer->dma,
+On Wed, Sep 16, 2009 at 03:44:48AM +0200, Karol Lewandowski wrote:
+> On Tue, Sep 15, 2009 at 03:54:20PM -0700, Graham, David wrote:
+> 
+> > A v2.6.30..v2.6.31 diff shows that this is probably exposed by
+> > Rafael Wysocki's commit 6905b1f1, which now allows systems with e100
+> > to sleep. If I understand correctly, it looks like these systems
+> > simply couldn't sleep before. Is that right Rafael?.
+> 
+> Probably true, but that wasn't the case for my (I guess
+> ACPI-controlled) system.
+> 
+> 
+> > I don't think its likely that the commit is a direct cause of the
+> > problem, but that the suspend/resume cycle now allows us to see
+> > another issue.
+> 
+> From my (very limited) understanding commit message is at least in
+> conflict with patch body.
 
-Could you run this through checkpatch, and fix any errors if find? It
-looks like you uses spaces for tabs in the code above, maybe in the
-other block too..
+No, it isn't, I must just go to bed earlier than 4AM. :/
 
-Daniel
+Sorry for noise.
