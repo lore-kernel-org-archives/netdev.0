@@ -1,84 +1,71 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: fanotify as syscalls
-Date: Wed, 16 Sep 2009 13:01:27 +0100
-Message-ID: <20090916130127.439c9222@lxorguk.ukuu.org.uk>
-References: <20090912094110.GB24709@ioremap.net>
-	<20090914001759.GB30621@shareable.org>
-	<20090914140720.GA8564@ioremap.net>
-	<1252955295.2246.35.camel@dhcp231-106.rdu.redhat.com>
-	<20090915201620.GB32192@ioremap.net>
-	<1253051699.5213.18.camel@dhcp231-106.rdu.redhat.com>
-	<alpine.LFD.2.01.0909151643540.4950@localhost.localdomain>
-	<1253064391.5213.37.camel@dhcp231-106.rdu.redhat.com>
-	<20090916075219.GA22024@shareable.org>
-	<20090916114111.2228f0fc@linux.intel.com>
-	<20090916114107.GB29359@shareable.org>
+From: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
+Subject: [PATCH V3 0/2 -next] ems_usb: Added support for EMS CPC-USB/ARM7 CAN
+	interface
+Date: Wed, 16 Sep 2009 14:04:10 +0200
+Message-ID: <20090916120409.30391.22292.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Alan Cox <alan@linux.intel.com>, Eric Paris <eparis@redhat.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, viro@zeniv.linux.org.uk, hch@infradead.org
-To: Jamie Lokier <jamie@shareable.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756123AbZIPMAl@vger.kernel.org>
-In-Reply-To: <20090916114107.GB29359@shareable.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> You can't rely on the name being non-racy, but you _can_ reliably
-> invalidate application-level caches from the sequence of events
-> including file writes, creates, renames, links, unlinks, mounts.  And
-> revalidate such caches by the absence of pending events.
+The following series replaces the staging driver cpc-usb with the newly written
+ems_usb CAN driver.
 
-You can't however create the caches reliably because you've no idea if
-you are referencing the right object in the first place - which is why
-you want a handle in these cases. I see fanotify as a handle producing
-addition to inotify, not as a replacement (plus some other bits around
-open blocking for HSM etc)
+---
 
-> Clearly, I'm going to have to explain with working code :-)
+Sebastian Haas (2):
+      ems_usb: Added support for EMS CPC-USB/ARM7 CAN/USB interface
+      cpc-usb: Removed driver from staging tree
 
-Always a good demo
 
-> > but it is somewhat inadequate for indexers
-> 
-> For indexers, the real inadequacy is the need to attach inotify
-> watches to every directory at system startup, and to stat() everything
-> to check it hasn't changed since the indexer was last running.  Both
+ drivers/net/can/Kconfig               |    7 
+ drivers/net/can/Makefile              |    2 
+ drivers/net/can/usb/Makefile          |    5 
+ drivers/net/can/usb/ems_usb.c         | 1151 ++++++++++++++++++++++++++++++++
+ drivers/staging/Kconfig               |    2 
+ drivers/staging/Makefile              |    1 
+ drivers/staging/cpc-usb/Kconfig       |    4 
+ drivers/staging/cpc-usb/Makefile      |    3 
+ drivers/staging/cpc-usb/TODO          |    9 
+ drivers/staging/cpc-usb/cpc-usb_drv.c | 1185 ---------------------------------
+ drivers/staging/cpc-usb/cpc.h         |  440 ------------
+ drivers/staging/cpc-usb/cpc_int.h     |   83 --
+ drivers/staging/cpc-usb/cpcusb.h      |   86 --
+ drivers/staging/cpc-usb/sja2m16c.h    |   41 -
+ drivers/staging/cpc-usb/sja2m16c_2.c  |  452 -------------
+ 15 files changed, 1165 insertions(+), 2306 deletions(-)
+ create mode 100644 drivers/net/can/usb/Makefile
+ create mode 100644 drivers/net/can/usb/ems_usb.c
+ delete mode 100644 drivers/staging/cpc-usb/Kconfig
+ delete mode 100644 drivers/staging/cpc-usb/Makefile
+ delete mode 100644 drivers/staging/cpc-usb/TODO
+ delete mode 100644 drivers/staging/cpc-usb/cpc-usb_drv.c
+ delete mode 100644 drivers/staging/cpc-usb/cpc.h
+ delete mode 100644 drivers/staging/cpc-usb/cpc_int.h
+ delete mode 100644 drivers/staging/cpc-usb/cpcusb.h
+ delete mode 100644 drivers/staging/cpc-usb/sja2m16c.h
+ delete mode 100644 drivers/staging/cpc-usb/sja2m16c_2.c
 
-stat doesn't help you - inode numbers are only guaranteed unqiue (and
-constant) while a reference to the object is held.
-
-> Descriptors don't tell you which subtree a file is in any better than
-> inotify watches.  I.e. they do, if you track them and their containing
-> directories all individually.
-
-Don't get me wrong - I don't think fanotify is sufficient on its own -
-and this is one reason. Some things care about the namespace, some about
-getting the exact content.
-
-> > chroot isn't a security model. You can already do this with AF_UNIX
-> > sockets (and there are apps that intentionally use fchdir that way)
-> 
-> Ah, no.  AF_UNIX works with explicit sender cooperation.
-> 
-> fanotify gives you access to files without sender cooperation, as it
-> intercepts every open().
-
-and is currently not general user accessible for this reason.
-
-> > Inside of containers - unlikely.
-> 
-> Why not?  Some people run entire distributions in containiners, and
-> present them as VMs to the world for other people to admin.
-
-In a word - performance. In two words performance and security. It isn't
-a sensible setup because you want to scan the most efficient way possible
-and you want to keep your malware scan as far away from attackers, so it
-makes sense to keep it outside of the containers and do the job once
-- one scan, one database of things to keep current.
-
-Alan
+-- 
+Cheers, Sebastian
+-- 
+EMS Dr. Thomas Wuensche e.K.
+Sonnenhang 3
+85304 Ilmmuenster
+HRA Neuburg a.d. Donau, HR-Nr. 70.106
+Phone: +49-8441-490260
+Fax  : +49-8441-81860
+http://www.ems-wuensche.com
