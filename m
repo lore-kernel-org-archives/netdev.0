@@ -1,55 +1,69 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: igb bandwidth allocation configuration
-Date: Wed, 16 Sep 2009 08:53:48 -0700
-Message-ID: <4AB10A0C.5010703@intel.com>
-References: <20090910081844.GA5421@verge.net.au>	<15ddcffd0909140142n2a110708ld619177c65f4588b@mail.gmail.com>	<20090915113659.GJ24194@verge.net.au> <4AAF963D.4060708@voltaire.com> <4AAFD690.5040900@intel.com> <4AB0F1BD.4020206@voltaire.com>
+From: Eric Paris <eparis@redhat.com>
+Subject: Re: fanotify as syscalls
+Date: Wed, 16 Sep 2009 11:53:00 -0400
+Message-ID: <1253116380.5213.121.camel@dhcp231-106.rdu.redhat.com>
+References: <20090914140720.GA8564@ioremap.net>
+	 <1252955295.2246.35.camel@dhcp231-106.rdu.redhat.com>
+	 <20090915201620.GB32192@ioremap.net>
+	 <1253051699.5213.18.camel@dhcp231-106.rdu.redhat.com>
+	 <alpine.LFD.2.01.0909151643540.4950@localhost.localdomain>
+	 <1253064391.5213.37.camel@dhcp231-106.rdu.redhat.com>
+	 <20090916075219.GA22024@shareable.org>
+	 <20090916114111.2228f0fc@linux.intel.com>
+	 <20090916114107.GB29359@shareable.org>
+	 <20090916130127.439c9222@lxorguk.ukuu.org.uk>
+	 <20090916125658.GF29359@shareable.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms@verge.net.au>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Or Gerlitz <ogerlitz@voltaire.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:46940 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751430AbZIPPxq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Sep 2009 11:53:46 -0400
-In-Reply-To: <4AB0F1BD.4020206@voltaire.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Alan Cox <alan@linux.intel.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, viro@zeniv.linux.org.uk, hch@infradead.org
+To: Jamie Lokier <jamie@shareable.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20090916125658.GF29359@shareable.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Or Gerlitz wrote:
-> Alexander Duyck wrote:
->> The interface for all of this would make sense as part of a virtual 
->> ethernet switch control which is the way I am currently leaning on all 
->> this.
-> Yes, you can say that out of the per VF <mac, vlan-id, priority, rate> 
-> tuple I mentioned, except for the mac, the other parameters actually 
-> belong to the egress flow of the virtual switch port this VF is 
-> connected to. So the vswitch actually signs the packet with vlan+pbits 
-> and enforces the rate. Now vswitch can be software based, or hardware 
-> NIC based.
+On Wed, 2009-09-16 at 13:56 +0100, Jamie Lokier wrote:
+> Alan Cox wrote:
+> > > You can't rely on the name being non-racy, but you _can_ reliably
+> > > invalidate application-level caches from the sequence of events
+> > > including file writes, creates, renames, links, unlinks, mounts.  And
+> > > revalidate such caches by the absence of pending events.
+> > 
+> > You can't however create the caches reliably because you've no idea if
+> > you are referencing the right object in the first place - which is why
+> > you want a handle in these cases. I see fanotify as a handle producing
+> > addition to inotify, not as a replacement (plus some other bits around
+> > open blocking for HSM etc)
+> 
+> There are two sets of events getting mixed up here.  Inode events -
+> reads, writes, truncates, chmods; and directory events - renames,
+> links, creates, unlinks.
 
-Even something such as MAC address would make sense for a virtual 
-ethernet switch configuration in that you could restrict unicast ingress 
-traffic for the VF to a specific address much like you would do on a 
-regular L2 switch.
+My understanding of you argument is that fanotify does not yet provide
+all inotify events, namely those of directories operations and thus is
+not suitable to wholesale replace everything inotify can do.  I've
+already said that working towards that goal is something I plan to
+pursue, but for now, you still have inotify.
 
-> Now, I assume there may be NICs which will let you configure the 
-> <vlan-id, priority, rate> as part of the their virtual switch config, 
-> but others, e.g
-> the 82576 as an example, and following our discussion, will let you do 
-> that for the VF, in the VF driver which as you said may run the guest OS 
-> where we can't control it...
+The mlocate/updatedb people ask me about fanotify and it's on the todo
+list to allow global reception of of such events.  The fd you get would
+be of the dir where the event happened.  They didn't care, and I haven't
+decided if we would provide the path component like inotify does.  Most
+users are perfectly happy to stat everything in the dir.
 
-I think you may be a bit confused.  The configuration for the VFs would 
-be part of the PF via the virtual ethernet switch control.  As a result 
-it is only the PF which needs to be running on the host.
+It's hopefully feasible, but it's going to take some fsnotify hook
+movements and possibly so arguments with Al to get the information I
+want where I want it.  But there is nothing about the interface that
+precludes it and it has been discussed and considered.
 
-Thanks,
+Am I still missing it?
 
-Alex
+-Eric
+
