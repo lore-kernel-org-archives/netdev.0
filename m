@@ -1,95 +1,49 @@
-From: Karol Lewandowski <karol.k.lewandowski@gmail.com>
-Subject: Re: [E1000-devel] [BUG 2.6.30+] e100 sometimes causes oops during
-	resume
-Date: Wed, 16 Sep 2009 03:44:48 +0200
-Message-ID: <20090916014448.GA1070@bizet.domek.prywatny>
-References: <20090915120538.GA26806@bizet.domek.prywatny> <13830B75AD5A2F42848F92269B11996F5BF592C3@orsmsx509.amr.corp.intel.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: Fwd: [RFC v3] net: Introduce recvmmsg socket syscall
+Date: Wed, 16 Sep 2009 14:53:44 +1000
+Message-ID: <20090916045333.GA18325@verge.net.au>
+References: <9b2db90b0908060014r6a1763e8t1b3ee9310e012c25@mail.gmail.com>
+ <9b2db90b0908060015v45d31060me94cf436f4a25e42@mail.gmail.com>
+ <20090914230902.GC22743@ghostprotocols.net>
+ <9b2db90b0909150137j16c46340o89b55af62f7b613e@mail.gmail.com>
+ <20090915141110.GG22743@ghostprotocols.net>
+ <9b2db90b0909151120l71498303w26cfd657c9f18092@mail.gmail.com>
+ <20090915205207.GI22743@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Karol Lewandowski <karol.k.lewandowski@gmail.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Graham, David" <david.graham@intel.com>
+Cc: Nir Tzachar <nir.tzachar@gmail.com>,
+	Linux Networking Development Mailing List
+	<netdev@vger.kernel.org>, Ziv Ayalon <ziv@final.co.il>
+To: Arnaldo Carvalho de Melo <acme@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f217.google.com ([209.85.220.217]:60313 "EHLO
-	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751205AbZIPBow (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 21:44:52 -0400
+Received: from kirsty.vergenet.net ([202.4.237.240]:48886 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751804AbZIPExm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 00:53:42 -0400
 Content-Disposition: inline
-In-Reply-To: <13830B75AD5A2F42848F92269B11996F5BF592C3@orsmsx509.amr.corp.intel.com>
+In-Reply-To: <20090915205207.GI22743@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 15, 2009 at 03:54:20PM -0700, Graham, David wrote:
+On Tue, Sep 15, 2009 at 05:52:07PM -0300, Arnaldo Carvalho de Melo wrote:
+> Em Tue, Sep 15, 2009 at 09:20:13PM +0300, Nir Tzachar escreveu:
+> > >> Setup:
+> > >> linux 2.6.29.2 with the third version of the patch, running on an
+> > >> Intel Xeon X3220 2.4GHz quad core, with 4Gbyte of ram, running Ubuntu
+> > >> 9.04
+> > >
+> > > Which NIC? 10 Gbit/s?
+> > 
+> > 1G. We do not care as much for throughput as we do about latency...
+> 
+> OK, but anyway the 10 Gbit/s cards I've briefly played with all
+> exhibited lower latencies than all 1 gbit/s ones, in fact I've heard
+> about people moving to 10 Gbit/s not for the bw, but for the lower
+> latencies :-)
 
-> A v2.6.30..v2.6.31 diff shows that this is probably exposed by
-> Rafael Wysocki's commit 6905b1f1, which now allows systems with e100
-> to sleep. If I understand correctly, it looks like these systems
-> simply couldn't sleep before. Is that right Rafael?.
+Hi Arnaldo,
 
-Probably true, but that wasn't the case for my (I guess
-ACPI-controlled) system.
-
-
-> I don't think its likely that the commit is a direct cause of the
-> problem, but that the suspend/resume cycle now allows us to see
-> another issue.
-
->From my (very limited) understanding commit message is at least in
-conflict with patch body.
-
-Precisely patch was supposed to "Fix this problem by ignoring the
-return value of pci_set_power_state() in __e100_power_off()."
-
-That patch is doing something rather different -- it returns 0, yes,
-but it also ignores 'wake' bool as set by __e100_shutdown().  That
-seems wrong to me.
+Out of curiosity, is that using a 10Gbit card with
+a 10Gbit link or a 1Gbit link?
 
 
---- a/drivers/net/e100.c
-+++ b/drivers/net/e100.c
-@@ -2895,12 +2895,13 @@ static void __e100_shutdown(struct pci_dev *pdev, bool *enable_wake)
- 
- static int __e100_power_off(struct pci_dev *pdev, bool wake)
- {
--       if (wake) {
-+       if (wake)
-                return pci_prepare_to_sleep(pdev);
--       } else {
--               pci_wake_from_d3(pdev, false);
--               return pci_set_power_state(pdev, PCI_D3hot);
--       }
-+
-+       pci_wake_from_d3(pdev, false);
-+       pci_set_power_state(pdev, PCI_D3hot);
-+
-+       return 0;
- }
-
-
-Correct patch would be that (hand-made), right?
-
-
-+++ b/drivers/net/e100.c
-@@ -2895,12 +2895,13 @@ static void __e100_shutdown(struct pci_dev *pdev, bool *enable_wake)
- 
- static int __e100_power_off(struct pci_dev *pdev, bool wake)
- {
-        if (wake) {
-                return pci_prepare_to_sleep(pdev);
-        } else {
-                pci_wake_from_d3(pdev, false);
--               return pci_set_power_state(pdev, PCI_D3hot);
-+               pci_set_power_state(pdev, PCI_D3hot);
-        }
-+
-+       return 0;
- }
-
-I can test, or rather -- start testing this tommorow, if this makes
-sense to you.
-
-Thanks.
