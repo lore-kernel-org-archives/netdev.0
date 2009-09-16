@@ -1,50 +1,91 @@
-From: "Nelson, Shannon" <shannon.nelson@intel.com>
-Subject: Re: igb bandwidth allocation configuration
-Date: Wed, 16 Sep 2009 09:10:40 -0700
-Message-ID: <382A478CAD40FA4FB46605CF81FE39F43AE5C7ED@orsmsx507.amr.corp.intel.com>
-References: <20090910081844.GA5421@verge.net.au>
-	<15ddcffd0909140142n2a110708ld619177c65f4588b@mail.gmail.com>
-	<20090915113659.GJ24194@verge.net.au>	<4AAF963D.4060708@voltaire.com>
-	<4AAFD690.5040900@intel.com>	<20090915222926.GA24467@verge.net.au>
-	<4AB08A00.40102@voltaire.com> <20090916070443.GB22495@verge.net.au>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: ipv4 regression in 2.6.31 ?
+Date: Wed, 16 Sep 2009 10:00:28 -0700
+Message-ID: <20090916100028.654f7893@nehalam>
+References: <20090914093128.4d709ff6@nehalam>
+	<20090915081354.GA10037@ff.dom.local>
+	<20090915155719.22bae41e@nehalam>
+	<20090916052304.GA4894@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	netdev <netdev@vger.kernel.org>, "Kirsher,
-	Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>
-To: Simon Horman <horms@verge.net.au>, Or Gerlitz <ogerlitz@voltaire.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20090916070443.GB22495@verge.net.au>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Stephan von Krawczynski <skraw@ithnet.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:49443 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753283AbZIPRAb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Sep 2009 13:00:31 -0400
+In-Reply-To: <20090916052304.GA4894@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Simon Horman wrote:
->On Wed, Sep 16, 2009 at 09:47:28AM +0300, Or Gerlitz wrote:
->> also is there
->> 82599 (Niantic) documentation which is publicly avail and I can look
->> at? specifically, I would love taking a look on the equivalent of
->> the "Intel 82576 SR-IOV Driver Companion Guide"
->
->Sorry, I don't know anything about the 82599. But I am only working
->with publicly available documentation.
+On Wed, 16 Sep 2009 05:23:04 +0000
+Jarek Poplawski <jarkao2@gmail.com> wrote:
 
-The "82599 Developer Manual" is available at http://sourceforge.net/projects/e1000/files/.
+> On Tue, Sep 15, 2009 at 03:57:19PM -0700, Stephen Hemminger wrote:
+> > On Tue, 15 Sep 2009 08:13:55 +0000
+> > Jarek Poplawski <jarkao2@gmail.com> wrote:
+> > 
+> > > On 14-09-2009 18:31, Stephen Hemminger wrote:
+> > > > On Mon, 14 Sep 2009 17:55:05 +0200
+> > > > Stephan von Krawczynski <skraw@ithnet.com> wrote:
+> > > > 
+> > > >> On Mon, 14 Sep 2009 15:57:03 +0200
+> > > >> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > > >>
+> > > >>> Stephan von Krawczynski a A~(c)crit :
+> > > >>>> Hello all,
+> > > ...
+> > > >>> rp_filter - INTEGER
+> > > >>>         0 - No source validation.
+> > > >>>         1 - Strict mode as defined in RFC3704 Strict Reverse Path
+> > > >>>             Each incoming packet is tested against the FIB and if the interface
+> > > >>>             is not the best reverse path the packet check will fail.
+> > > >>>             By default failed packets are discarded.
+> > > >>>         2 - Loose mode as defined in RFC3704 Loose Reverse Path
+> > > >>>             Each incoming packet's source address is also tested against the FIB
+> > > >>>             and if the source address is not reachable via any interface
+> > > >>>             the packet check will fail.
+> > > ...
+> > > > RP filter did not work correctly in 2.6.30. The code added to to the loose
+> > > > mode caused a bug; the rp_filter value was being computed as:
+> > > >   rp_filter = interface_value & all_value;
+> > > > So in order to get reverse path filter both would have to be set.
+> > > > 
+> > > > In 2.6.31 this was change to:
+> > > >    rp_filter = max(interface_value, all_value);
+> > > > 
+> > > > This was the intended behaviour, if user asks all interfaces to have rp
+> > > > filtering turned on, then set /proc/sys/net/ipv4/conf/all/rp_filter = 1
+> > > > or to turn on just one interface, set it for just that interface.
+> > > 
+> > > Alas this max() formula handles also cases where both values are set
+> > > and it doesn't look very natural/"user friendly" to me. Especially
+> > > with something like this: all_value = 2; interface_value = 1
+> > > Why would anybody care to bother with interface_value in such a case?
+> > > 
+> > > "All" suggests "default" in this context, so I'd rather expect
+> > > something like:
+> > >     rp_filter = interface_value ? : all_value;
+> > > which gives "the inteded behaviour" too, plus more...
+> > > 
+> > > We'd only need to add e.g.:
+> > >  0 - Default ("all") validation. (No source validation if "all" is 0).
+> > >  3 - No source validation on this interface.
+> > 
+> > More values == more confusion.
+> > I chose the maxconf() method to make rp_filter consistent with other
+> > multi valued variables (arp_announce and arp_ignore).
+> 
+> This additional value is not necessary (it'd give as superpowers).
+> Max seems logical to me only when values are sorted (especially if
+> max is the strictest).
 
-sln
-
-------------------------------------------------------------------------------
-Come build with us! The BlackBerry&reg; Developer Conference in SF, CA
-is the only developer event you need to attend this year. Jumpstart your
-developing skills, take BlackBerry mobile applications to market and stay 
-ahead of the curve. Join us from November 9&#45;12, 2009. Register now&#33;
-http://p.sf.net/sfu/devconf
+The values had to be unsorted because of the requirement to retain
+interface compatibility with older releases.
+-- 
