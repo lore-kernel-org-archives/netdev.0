@@ -1,67 +1,138 @@
-From: Alan Cox <alan@linux.intel.com>
-Subject: Re: fanotify as syscalls
-Date: Wed, 16 Sep 2009 11:41:11 +0100
-Message-ID: <20090916114111.2228f0fc@linux.intel.com>
-References: <20090911212731.GA19901@shareable.org>
-	<1252705902.2305.83.camel@dhcp231-106.rdu.redhat.com>
-	<20090912094110.GB24709@ioremap.net>
-	<20090914001759.GB30621@shareable.org>
-	<20090914140720.GA8564@ioremap.net>
-	<1252955295.2246.35.camel@dhcp231-106.rdu.redhat.com>
-	<20090915201620.GB32192@ioremap.net>
-	<1253051699.5213.18.camel@dhcp231-106.rdu.redhat.com>
-	<alpine.LFD.2.01.0909151643540.4950@localhost.localdomain>
-	<1253064391.5213.37.camel@dhcp231-106.rdu.redhat.com>
-	<20090916075219.GA22024@shareable.org>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 3/3] at91_can: add driver for Atmel's CAN controller on
+ AT91SAM9263
+Date: Wed, 16 Sep 2009 12:47:22 +0200
+Message-ID: <4AB0C23A.8070502@pengutronix.de>
+References: <1253094405-3216-1-git-send-email-mkl@pengutronix.de>	<1253094405-3216-2-git-send-email-mkl@pengutronix.de>	<1253094405-3216-3-git-send-email-mkl@pengutronix.de> <1253094405-3216-4-git-send-email-mkl@pengutronix.de> <4AB0B8F4.50301@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Eric Paris <eparis@redhat.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, viro@zeniv.linux.org.uk, hch@infradead.org
-To: Jamie Lokier <jamie@shareable.org>
+Cc: netdev@vger.kernel.org, Socketcan-core@lists.berlios.de,
+	linux-arm-kernel@lists.infradead.org
+To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.21]:43639 "EHLO
-	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751847AbZIPKqu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 06:46:50 -0400
-In-Reply-To: <20090916075219.GA22024@shareable.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:48092 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751641AbZIPKsx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 06:48:53 -0400
+In-Reply-To: <4AB0B8F4.50301@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> - fanotify does not provide subtree notification in it's
->   present form.  When it is extended to do that, why wouldn't
->   inotify be as well?  That's an fsnotify feature, common to both.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Because inotify gives you no reliable access to the object monitored as
-the name passed back is not an object reference and is racy. Inotify is
-fine for making pretty icons pop up on desktops and making file
-selectors update, but it is somewhat inadequate for indexers and
-completely useless for stuff like HSM.
+Wolfgang Grandegger wrote:
+> Marc Kleine-Budde wrote:
+>> This patch add the driver for the SoC CAN controller in Atmel's AT91SAM9263.
+>>
+>> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> 
+> I already reviewed at91_can.c on the Socket-CAN ML and it's almost OK
+> from the Socket-CAN point of view. I just realized two minor issues:
+> 
+>> ---
+>>  drivers/net/can/Kconfig    |    6 +
+>>  drivers/net/can/Makefile   |    1 +
+>>  drivers/net/can/at91_can.c | 1177 ++++++++++++++++++++++++++++++++++++++++++++
+>>  3 files changed, 1184 insertions(+), 0 deletions(-)
+>>  create mode 100644 drivers/net/can/at91_can.c
+>>
+>> diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
+>> index 0900743..b6d2af1 100644
+>> --- a/drivers/net/can/Kconfig
+>> +++ b/drivers/net/can/Kconfig
+>> @@ -82,6 +82,12 @@ config CAN_KVASER_PCI
+>>  	  This driver is for the the PCIcanx and PCIcan cards (1, 2 or
+>>  	  4 channel) from Kvaser (http://www.kvaser.com).
+>>  
+>> +config CAN_AT91
+>> +	tristate "Atmel AT91 onchip CAN controller"
+>> +	depends on CAN && ARCH_AT91SAM9263
+> 
+> It should depend on CAN_DEV because it used the CAN device driver interface.
 
-> - fanotify requires you call readlink(/proc/fd/N) for every event to
->   get the path.  It's not a particularly efficient way to get it,
+will fix
 
-IFF you want the path, but the path isn't usually the most valuable bit.
-Plus you'll find the readlink is extremely quick anyway.
+> 
+>> +	---help---
+>> +	  This is a driver for the SoC CAN controller in Atmel's AT91SAM9263.
+>> +
+>>  config CAN_DEBUG_DEVICES
+>>  	bool "CAN devices debugging messages"
+>>  	depends on CAN
+>> diff --git a/drivers/net/can/Makefile b/drivers/net/can/Makefile
+>> index 523a941..3a54a12 100644
+>> --- a/drivers/net/can/Makefile
+>> +++ b/drivers/net/can/Makefile
+>> @@ -8,5 +8,6 @@ obj-$(CONFIG_CAN_DEV)		+= can-dev.o
+>>  can-dev-y			:= dev.o
+>>  
+>>  obj-$(CONFIG_CAN_SJA1000)	+= sja1000/
+>> +obj-$(CONFIG_CAN_AT91)		+= at91_can.o
+>>  
+>>  ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
+>> diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
+>> new file mode 100644
+>> index 0000000..cd1e8cb
+>> --- /dev/null
+>> +++ b/drivers/net/can/at91_can.c
+>> @@ -0,0 +1,1177 @@
+>> +/*
+>> + * at91_can.c - CAN network driver for AT91 SoC CAN controller
+>> + *
+>> + * (C) 2007 by Hans J. Koch <hjk@linutronix.de>
+>> + * (C) 2008, 2009 by Marc Kleine-Budde <kernel@pengutronix.de>
+>> + *
+>> + * This software may be distributed under the terms of the GNU General
+>> + * Public License ("GPL") version 2 as distributed in the 'COPYING'
+>> + * file from the main directory of the linux kernel source.
+>> + *
+>> + * Send feedback to <socketcan-users@lists.berlios.de>
+> 
+> This driver uses platform data. Could you please add some description on
+> how they should be used, e.g. like for the MCP251x:
+> 
+>  * Your platform definition file should specify something like:
+>  *
+>  * static struct mcp251x_platform_data mcp251x_info = {
+>  *         .oscillator_frequency = 8000000,
+>  *         .board_specific_setup = &mcp251x_setup,
+>  *         .model = CAN_MCP251X_MCP2510,
+>  *         .power_enable = mcp251x_power_enable,
+>  *         .transceiver_enable = NULL,
+>  * };
+>  *
+>  * static struct spi_board_info spi_board_info[] = {
+>  *         {
+>  *                 .modalias      = "mcp251x",
+>  *                 .platform_data = &mcp251x_info,
+>  *                 .irq           = IRQ_EINT13,
+>  *                 .max_speed_hz  = 2*1000*1000,
+>  *                 .chip_select   = 2,
+>  *         },
+>  * };
+>  *
+>  * Please see mcp251x.h for a description of the fields in
+>  * struct mcp251x_platform_data.
+> 
+> I find that really useful.
 
-> People who want to break out of chroot/namespace jails using the
-> conveniently provided open file descriptor? :-)
+good point, I'll add a help text
 
-chroot isn't a security model. You can already do this with AF_UNIX
-sockets (and there are apps that intentionally use fchdir that way)
+tnx for the review,
+Marc
 
-> I'd expect anti-malware to want to be run inside VMs quite often...
+- --
+Pengutronix e.K.                         | Marc Kleine-Budde           |
+Linux Solutions for Science and Industry | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund                 | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686         | http://www.pengutronix.de   |
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
 
-Inside of containers - unlikely. Inside of guests sure but thats not
-going to relevant to fanotify()
-
-> the accessing process until acked), that's ok with me.  It makes
-> sense.  But then it's messy that neither offers a superset of the
-> other regarding which files and events are tracked.
-
-Agreed.
-
+iEYEARECAAYFAkqwwecACgkQjTAFq1RaXHNb9wCfTQ18W790/Bqsk8gEVWYnxsL6
+sTkAmgNF3KzD8ics9UwemxHEi/HE4jIM
+=pyRS
+-----END PGP SIGNATURE-----
