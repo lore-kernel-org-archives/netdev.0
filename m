@@ -1,91 +1,116 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: ipv4 regression in 2.6.31 ?
-Date: Wed, 16 Sep 2009 10:00:28 -0700
-Message-ID: <20090916100028.654f7893@nehalam>
-References: <20090914093128.4d709ff6@nehalam>
-	<20090915081354.GA10037@ff.dom.local>
-	<20090915155719.22bae41e@nehalam>
-	<20090916052304.GA4894@ff.dom.local>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: [RFCv4 PATCH 0/2] net: Introduce recvmmsg socket syscall
+Date: Wed, 16 Sep 2009 14:07:33 -0300
+Message-ID: <20090916170733.GB7699@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Stephan von Krawczynski <skraw@ithnet.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Caitlin Bestler <caitlin.bestler@gmail.com>,
+	Chris Van Hoof <vanhoof@redhat.com>,
+	Clark Williams <williams@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Nir Tzachar <nir.tzachar@gmail.com>,
+	Nivedita Singhvi <niv@us.ibm.com>,
+	Paul Moore <paul.moore@hp.com>,
+	=?iso-8859-1?Q?R=E9mi?= Denis-Courmont
+	<remi.denis-courmont@nokia.com>,
+	Steven Whitehouse <steve@chygwyn.com>,
+	Linux Networking Development Mailing List
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49443 "EHLO mail.vyatta.com"
+Received: from mx1.redhat.com ([209.132.183.28]:48660 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753283AbZIPRAb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Sep 2009 13:00:31 -0400
-In-Reply-To: <20090916052304.GA4894@ff.dom.local>
+	id S1752473AbZIPRIA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Sep 2009 13:08:00 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 16 Sep 2009 05:23:04 +0000
-Jarek Poplawski <jarkao2@gmail.com> wrote:
+Hi,
 
-> On Tue, Sep 15, 2009 at 03:57:19PM -0700, Stephen Hemminger wrote:
-> > On Tue, 15 Sep 2009 08:13:55 +0000
-> > Jarek Poplawski <jarkao2@gmail.com> wrote:
-> > 
-> > > On 14-09-2009 18:31, Stephen Hemminger wrote:
-> > > > On Mon, 14 Sep 2009 17:55:05 +0200
-> > > > Stephan von Krawczynski <skraw@ithnet.com> wrote:
-> > > > 
-> > > >> On Mon, 14 Sep 2009 15:57:03 +0200
-> > > >> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > > >>
-> > > >>> Stephan von Krawczynski a A~(c)crit :
-> > > >>>> Hello all,
-> > > ...
-> > > >>> rp_filter - INTEGER
-> > > >>>         0 - No source validation.
-> > > >>>         1 - Strict mode as defined in RFC3704 Strict Reverse Path
-> > > >>>             Each incoming packet is tested against the FIB and if the interface
-> > > >>>             is not the best reverse path the packet check will fail.
-> > > >>>             By default failed packets are discarded.
-> > > >>>         2 - Loose mode as defined in RFC3704 Loose Reverse Path
-> > > >>>             Each incoming packet's source address is also tested against the FIB
-> > > >>>             and if the source address is not reachable via any interface
-> > > >>>             the packet check will fail.
-> > > ...
-> > > > RP filter did not work correctly in 2.6.30. The code added to to the loose
-> > > > mode caused a bug; the rp_filter value was being computed as:
-> > > >   rp_filter = interface_value & all_value;
-> > > > So in order to get reverse path filter both would have to be set.
-> > > > 
-> > > > In 2.6.31 this was change to:
-> > > >    rp_filter = max(interface_value, all_value);
-> > > > 
-> > > > This was the intended behaviour, if user asks all interfaces to have rp
-> > > > filtering turned on, then set /proc/sys/net/ipv4/conf/all/rp_filter = 1
-> > > > or to turn on just one interface, set it for just that interface.
-> > > 
-> > > Alas this max() formula handles also cases where both values are set
-> > > and it doesn't look very natural/"user friendly" to me. Especially
-> > > with something like this: all_value = 2; interface_value = 1
-> > > Why would anybody care to bother with interface_value in such a case?
-> > > 
-> > > "All" suggests "default" in this context, so I'd rather expect
-> > > something like:
-> > >     rp_filter = interface_value ? : all_value;
-> > > which gives "the inteded behaviour" too, plus more...
-> > > 
-> > > We'd only need to add e.g.:
-> > >  0 - Default ("all") validation. (No source validation if "all" is 0).
-> > >  3 - No source validation on this interface.
-> > 
-> > More values == more confusion.
-> > I chose the maxconf() method to make rp_filter consistent with other
-> > multi valued variables (arp_announce and arp_ignore).
-> 
-> This additional value is not necessary (it'd give as superpowers).
-> Max seems logical to me only when values are sorted (especially if
-> max is the strictest).
+	Nir, can you please test with this patchset and check if latency
+numbers improved? They should, I think :-)
 
-The values had to be unsorted because of the requirement to retain
-interface compatibility with older releases.
--- 
+	New perf callgraphs here:
+
+http://oops.ghostprotocols.net:81/acme/perf.recvmsg.step2.cg.data.txt.bz2
+
+versus
+
+http://oops.ghostprotocols.net:81/acme/perf.recvmmsg.step2.cg.data.txt.bz2
+
+	Look at what appears now on the radar, its not locking :-)
+	
+	Or course, I need to do more tests, but it looks promising, please give
+it a go and report back here if you can!
+
+- Arnaldo
+
+# Samples: 761074
+#
+# Overhead   Command             Shared Object  Symbol
+# ........  ........  ........................  ......
+#
+     6.54%  recvmmsg  [kernel]                  [k] skb_set_owner_r
+                |
+                |--99.43%-- sock_queue_rcv_skb
+                |          __udp_queue_rcv_skb
+                |          sk_backlog_rcv
+                |          release_sock
+                |          __sys_recvmmsg
+                |          sys_recvmmsg
+                |          system_call_fastpath
+                |          syscall
+                |          |
+                |           --12.76%-- main
+                |                     __libc_start_main
+                |
+                 --0.57%-- __udp_queue_rcv_skb
+                           sk_backlog_rcv
+                           release_sock
+                           __sys_recvmmsg
+                           sys_recvmmsg
+                           system_call_fastpath
+                           syscall
+                           |
+                            --10.84%-- main
+                                      __libc_start_main
+
+     5.88%  recvmmsg  [kernel]                  [k] _spin_lock_irqsave
+                |
+                |--47.58%-- skb_queue_tail
+                |          sock_queue_rcv_skb
+                |          __udp_queue_rcv_skb
+                |          sk_backlog_rcv
+                |          release_sock
+                |          __sys_recvmmsg
+                |          sys_recvmmsg
+                |          system_call_fastpath
+                |          syscall
+                |          |
+                |           --12.56%-- main
+                |                     __libc_start_main
+                |
+                |--41.85%-- __skb_recv_datagram
+                |          __udp_recvmsg
+                |          udp_unlocked_recvmsg
+                |          sock_common_unlocked_recvmsg
+                |          __sock_unlocked_recvmsg_nosec
+                |          |
+                |          |--98.41%-- sock_unlocked_recvmsg_nosec
+                |          |          __sys_recvmsg
+                |          |          __sys_recvmmsg
+                |          |          sys_recvmmsg
+                |          |          system_call_fastpath
+                |          |          syscall
+                |          |          |
+                |          |           --12.82%-- main
+                |          |                     __libc_start_main
+                |          |
+                |           --1.59%-- sock_unlocked_recvmsg
+                |                     __sys_recvmsg
+                |                     __sys_recvmmsg
+                |                     sys_recvmmsg
+
+
+- Arnaldo
