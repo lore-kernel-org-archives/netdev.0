@@ -1,7 +1,8 @@
 From: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
-Subject: [PATCH V3 1/2] cpc-usb: Removed driver from staging tree
-Date: Wed, 16 Sep 2009 14:04:15 +0200
-Message-ID: <20090916120415.30391.69148.stgit@localhost.localdomain>
+Subject: [PATCH V3 2/2] ems_usb: Added support for EMS CPC-USB/ARM7 CAN/USB
+	interface
+Date: Wed, 16 Sep 2009 14:04:20 +0200
+Message-ID: <20090916120420.30391.40000.stgit@localhost.localdomain>
 References: <20090916120409.30391.22292.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,2416 +23,1223 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch prepares replacing the staging driver cpc-usb with the new
-developed ems_usb CAN driver.
+This patch adds support for one channel CAN/USB interace CPC-USB/ARM7 from
+EMS Dr. Thomas Wuensche (http://www.ems-wuensche.com).
 
 Signed-off-by: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
-Acked-by: Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
 ---
 
- drivers/staging/Kconfig               |    2 
- drivers/staging/Makefile              |    1 
- drivers/staging/cpc-usb/Kconfig       |    4 
- drivers/staging/cpc-usb/Makefile      |    3 
- drivers/staging/cpc-usb/TODO          |    9 
- drivers/staging/cpc-usb/cpc-usb_drv.c | 1185 ---------------------------------
- drivers/staging/cpc-usb/cpc.h         |  440 ------------
- drivers/staging/cpc-usb/cpc_int.h     |   83 --
- drivers/staging/cpc-usb/cpcusb.h      |   86 --
- drivers/staging/cpc-usb/sja2m16c.h    |   41 -
- drivers/staging/cpc-usb/sja2m16c_2.c  |  452 -------------
- 11 files changed, 0 insertions(+), 2306 deletions(-)
- delete mode 100644 drivers/staging/cpc-usb/Kconfig
- delete mode 100644 drivers/staging/cpc-usb/Makefile
- delete mode 100644 drivers/staging/cpc-usb/TODO
- delete mode 100644 drivers/staging/cpc-usb/cpc-usb_drv.c
- delete mode 100644 drivers/staging/cpc-usb/cpc.h
- delete mode 100644 drivers/staging/cpc-usb/cpc_int.h
- delete mode 100644 drivers/staging/cpc-usb/cpcusb.h
- delete mode 100644 drivers/staging/cpc-usb/sja2m16c.h
- delete mode 100644 drivers/staging/cpc-usb/sja2m16c_2.c
+ drivers/net/can/Kconfig       |    7 
+ drivers/net/can/Makefile      |    2 
+ drivers/net/can/usb/Makefile  |    5 
+ drivers/net/can/usb/ems_usb.c | 1155 +++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 1169 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/can/usb/Makefile
+ create mode 100644 drivers/net/can/usb/ems_usb.c
 
-diff --git a/drivers/staging/Kconfig b/drivers/staging/Kconfig
-index 975ecdd..5e4b865 100644
---- a/drivers/staging/Kconfig
-+++ b/drivers/staging/Kconfig
-@@ -121,8 +121,6 @@ source "drivers/staging/serqt_usb2/Kconfig"
+diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
+index 0900743..6ac5aa5 100644
+--- a/drivers/net/can/Kconfig
++++ b/drivers/net/can/Kconfig
+@@ -75,6 +75,13 @@ config CAN_EMS_PCI
+ 	  CPC-PCIe and CPC-104P cards from EMS Dr. Thomas Wuensche
+ 	  (http://www.ems-wuensche.de).
  
- source "drivers/staging/vt6655/Kconfig"
++config CAN_EMS_USB
++	tristate "EMS CPC-USB/ARM7 CAN/USB interface"
++	depends on USB && CAN_DEV
++	---help---
++	  This driver is for the one channel CPC-USB/ARM7 CAN/USB interface
++	  from from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
++
+ config CAN_KVASER_PCI
+ 	tristate "Kvaser PCIcanx and Kvaser PCIcan PCI Cards"
+ 	depends on PCI && CAN_SJA1000
+diff --git a/drivers/net/can/Makefile b/drivers/net/can/Makefile
+index 523a941..9b035ec 100644
+--- a/drivers/net/can/Makefile
++++ b/drivers/net/can/Makefile
+@@ -7,6 +7,8 @@ obj-$(CONFIG_CAN_VCAN)		+= vcan.o
+ obj-$(CONFIG_CAN_DEV)		+= can-dev.o
+ can-dev-y			:= dev.o
  
--source "drivers/staging/cpc-usb/Kconfig"
--
- source "drivers/staging/pata_rdc/Kconfig"
++obj-y				+= usb/
++
+ obj-$(CONFIG_CAN_SJA1000)	+= sja1000/
  
- source "drivers/staging/udlfb/Kconfig"
-diff --git a/drivers/staging/Makefile b/drivers/staging/Makefile
-index 2241ae1..ede1599 100644
---- a/drivers/staging/Makefile
-+++ b/drivers/staging/Makefile
-@@ -42,6 +42,5 @@ obj-$(CONFIG_LINE6_USB)		+= line6/
- obj-$(CONFIG_USB_SERIAL_QUATECH2)	+= serqt_usb2/
- obj-$(CONFIG_OCTEON_ETHERNET)	+= octeon/
- obj-$(CONFIG_VT6655)		+= vt6655/
--obj-$(CONFIG_USB_CPC)		+= cpc-usb/
- obj-$(CONFIG_RDC_17F3101X)	+= pata_rdc/
- obj-$(CONFIG_FB_UDL)		+= udlfb/
-diff --git a/drivers/staging/cpc-usb/Kconfig b/drivers/staging/cpc-usb/Kconfig
-deleted file mode 100644
-index 2be0bc9..0000000
---- a/drivers/staging/cpc-usb/Kconfig
-+++ /dev/null
-@@ -1,4 +0,0 @@
--config USB_CPC
--	tristate "CPC CAN USB driver"
--	depends on USB && PROC_FS
--	default n
-diff --git a/drivers/staging/cpc-usb/Makefile b/drivers/staging/cpc-usb/Makefile
-deleted file mode 100644
-index 3f83170..0000000
---- a/drivers/staging/cpc-usb/Makefile
-+++ /dev/null
-@@ -1,3 +0,0 @@
--obj-$(CONFIG_USB_CPC)	+= cpc-usb.o
--
--cpc-usb-y := cpc-usb_drv.o sja2m16c_2.o
-diff --git a/drivers/staging/cpc-usb/TODO b/drivers/staging/cpc-usb/TODO
-deleted file mode 100644
-index 000e8bb..0000000
---- a/drivers/staging/cpc-usb/TODO
-+++ /dev/null
-@@ -1,9 +0,0 @@
--Things to do for this driver to get merged into the main portion of the
--kernel:
--	- checkpatch cleanups
--	- sparse clean
--	- remove proc code
--	- tie into CAN socket interfaces if possible
--	- figure out sane userspace api
--
--Send patches to Greg Kroah-Hartman <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-diff --git a/drivers/staging/cpc-usb/cpc-usb_drv.c b/drivers/staging/cpc-usb/cpc-usb_drv.c
-deleted file mode 100644
-index 9bf3f98..0000000
---- a/drivers/staging/cpc-usb/cpc-usb_drv.c
-+++ /dev/null
-@@ -1,1185 +0,0 @@
--/*
-- * CPC-USB CAN Interface Kernel Driver
-- *
-- * Copyright (C) 2004-2009 EMS Dr. Thomas Wuensche
-- *
-- * This program is free software; you can redistribute it and/or modify it
-- * under the terms of the GNU General Public License as published
-- * by the Free Software Foundation; version 2 of the License.
-- *
-- * This program is distributed in the hope that it will be useful, but
-- * WITHOUT ANY WARRANTY; without even the implied warranty of
-- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-- * General Public License for more details.
-- *
-- * You should have received a copy of the GNU General Public License along
-- * with this program; if not, write to the Free Software Foundation, Inc.,
-- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-- */
--#include <linux/kernel.h>
--#include <linux/errno.h>
--#include <linux/init.h>
--#include <linux/slab.h>
--#include <linux/vmalloc.h>
--#include <linux/module.h>
--#include <linux/poll.h>
--#include <linux/smp_lock.h>
--#include <linux/completion.h>
--#include <asm/uaccess.h>
--#include <linux/usb.h>
--
--#include <linux/version.h>
--
--#include <linux/proc_fs.h>
--
--#include "cpc.h"
--
--#include "cpc_int.h"
--#include "cpcusb.h"
--
--#include "sja2m16c.h"
--
--/* Version Information */
--#define DRIVER_AUTHOR  "Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>"
--#define DRIVER_DESC    "CPC-USB Driver for Linux Kernel 2.6"
--#define DRIVER_VERSION CPC_DRIVER_VERSION
--
--MODULE_AUTHOR(DRIVER_AUTHOR);
--MODULE_DESCRIPTION(DRIVER_DESC);
--MODULE_VERSION(DRIVER_VERSION);
--MODULE_LICENSE("GPL v2");
--
--/* Define these values to match your devices */
--#define USB_CPCUSB_VENDOR_ID	0x12D6
--
--#define USB_CPCUSB_M16C_PRODUCT_ID    0x0888
--#define USB_CPCUSB_LPC2119_PRODUCT_ID 0x0444
--
--#define CPC_USB_PROC_DIR     CPC_PROC_DIR "cpc-usb"
--
--static struct proc_dir_entry *procDir;
--static struct proc_dir_entry *procEntry;
--
--/* Module parameters */
--static int debug;
--module_param(debug, int, S_IRUGO);
--
--/* table of devices that work with this driver */
--static struct usb_device_id cpcusb_table[] = {
--	{USB_DEVICE(USB_CPCUSB_VENDOR_ID, USB_CPCUSB_M16C_PRODUCT_ID)},
--	{USB_DEVICE(USB_CPCUSB_VENDOR_ID, USB_CPCUSB_LPC2119_PRODUCT_ID)},
--	{}			/* Terminating entry */
--};
--
--MODULE_DEVICE_TABLE(usb, cpcusb_table);
--
--/* use to prevent kernel panic if driver is unloaded
-- * while a programm has still open the device
-- */
--DECLARE_WAIT_QUEUE_HEAD(rmmodWq);
--atomic_t useCount;
--
--static CPC_USB_T *CPCUSB_Table[CPC_USB_CARD_CNT] = { 0 };
--static unsigned int CPCUsbCnt;
--
--/* prevent races between open() and disconnect() */
--static DECLARE_MUTEX(disconnect_sem);
--
--/* local function prototypes */
--static ssize_t cpcusb_read(struct file *file, char *buffer, size_t count,
--			   loff_t *ppos);
--static ssize_t cpcusb_write(struct file *file, const char *buffer,
--			    size_t count, loff_t *ppos);
--static unsigned int cpcusb_poll(struct file *file, poll_table * wait);
--static int cpcusb_open(struct inode *inode, struct file *file);
--static int cpcusb_release(struct inode *inode, struct file *file);
--
--static int cpcusb_probe(struct usb_interface *interface,
--			const struct usb_device_id *id);
--static void cpcusb_disconnect(struct usb_interface *interface);
--
--static void cpcusb_read_bulk_callback(struct urb *urb);
--static void cpcusb_write_bulk_callback(struct urb *urb);
--static void cpcusb_read_interrupt_callback(struct urb *urb);
--
--static int cpcusb_setup_intrep(CPC_USB_T *card);
--
--static struct file_operations cpcusb_fops = {
--	/*
--	 * The owner field is part of the module-locking
--	 * mechanism. The idea is that the kernel knows
--	 * which module to increment the use-counter of
--	 * BEFORE it calls the device's open() function.
--	 * This also means that the kernel can decrement
--	 * the use-counter again before calling release()
--	 * or should the open() function fail.
--	 */
--	.owner = THIS_MODULE,
--
--	.read = cpcusb_read,
--	.write = cpcusb_write,
--	.poll = cpcusb_poll,
--	.open = cpcusb_open,
--	.release = cpcusb_release,
--};
--
--/*
-- * usb class driver info in order to get a minor number from the usb core,
-- * and to have the device registered with devfs and the driver core
-- */
--static struct usb_class_driver cpcusb_class = {
--	.name = "usb/cpc_usb%d",
--	.fops = &cpcusb_fops,
--	.minor_base = CPC_USB_BASE_MNR,
--};
--
--/* usb specific object needed to register this driver with the usb subsystem */
--static struct usb_driver cpcusb_driver = {
--	.name = "cpc-usb",
--	.probe = cpcusb_probe,
--	.disconnect = cpcusb_disconnect,
--	.id_table = cpcusb_table,
--};
--
--static int cpcusb_create_info_output(char *buf)
--{
--	int i = 0, j;
--
--	for (j = 0; j < CPC_USB_CARD_CNT; j++) {
--		if (CPCUSB_Table[j]) {
--			CPC_USB_T *card = CPCUSB_Table[j];
--			CPC_CHAN_T *chan = card->chan;
--
--			/* MINOR CHANNELNO BUSNO SLOTNO */
--			i += sprintf(&buf[i], "%d %s\n", chan->minor,
--				     card->serialNumber);
--		}
--	}
--
--	return i;
--}
--
--static int cpcusb_proc_read_info(char *page, char **start, off_t off,
--				 int count, int *eof, void *data)
--{
--	int len = cpcusb_create_info_output(page);
--
--	if (len <= off + count)
--		*eof = 1;
--	*start = page + off;
--	len -= off;
--	if (len > count)
--		len = count;
--	if (len < 0)
--		len = 0;
--
--	return len;
--}
--
--/*
-- * Remove CPC-USB and cleanup
-- */
--static inline void cpcusb_delete(CPC_USB_T *card)
--{
--	if (card) {
--		if (card->chan) {
--			if (card->chan->buf)
--				vfree(card->chan->buf);
--
--			if (card->chan->CPCWait_q)
--				kfree(card->chan->CPCWait_q);
--
--			kfree(card->chan);
--		}
--
--		CPCUSB_Table[card->idx] = NULL;
--		kfree(card);
--	}
--}
--
--/*
-- * setup the interrupt IN endpoint of a specific CPC-USB device
-- */
--static int cpcusb_setup_intrep(CPC_USB_T *card)
--{
--	int retval = 0;
--	struct usb_endpoint_descriptor *ep;
--
--	ep = &card->interface->altsetting[0].endpoint[card->num_intr_in].desc;
--
--	card->intr_in_buffer[0] = 0;
--	card->free_slots = 15;	/* initial size */
--
--	/* setup the urb */
--	usb_fill_int_urb(card->intr_in_urb, card->udev,
--			 usb_rcvintpipe(card->udev, card->num_intr_in),
--			 card->intr_in_buffer,
--			 sizeof(card->intr_in_buffer),
--			 cpcusb_read_interrupt_callback,
--			 card,
--			 ep->bInterval);
--
--	card->intr_in_urb->status = 0;	/* needed! */
--
--	/* submit the urb */
--	retval = usb_submit_urb(card->intr_in_urb, GFP_KERNEL);
--
--	if (retval)
--		err("%s - failed submitting intr urb, error %d", __func__,
--		    retval);
--
--	return retval;
--}
--
--static int cpcusb_open(struct inode *inode, struct file *file)
--{
--	CPC_USB_T *card = NULL;
--	struct usb_interface *interface;
--	int subminor;
--	int j, retval = 0;
--
--	subminor = iminor(inode);
--
--	/* prevent disconnects */
--	down(&disconnect_sem);
--
--	interface = usb_find_interface(&cpcusb_driver, subminor);
--	if (!interface) {
--		err("%s - error, can't find device for minor %d",
--				__func__, subminor);
--		retval = CPC_ERR_NO_INTERFACE_PRESENT;
--		goto exit_no_device;
--	}
--
--	card = usb_get_intfdata(interface);
--	if (!card) {
--		retval = CPC_ERR_NO_INTERFACE_PRESENT;
--		goto exit_no_device;
--	}
--
--	/* lock this device */
--	down(&card->sem);
--
--	/* increment our usage count for the driver */
--	if (card->open) {
--		dbg("device already opened");
--		retval = CPC_ERR_CHANNEL_ALREADY_OPEN;
--		goto exit_on_error;
--	}
--
--	/* save our object in the file's private structure */
--	file->private_data = card;
--	for (j = 0; j < CPC_USB_URB_CNT; j++) {
--		usb_fill_bulk_urb(card->urbs[j].urb, card->udev,
--				  usb_rcvbulkpipe(card->udev, card->num_bulk_in),
--				  card->urbs[j].buffer, card->urbs[j].size,
--				  cpcusb_read_bulk_callback, card);
--
--		retval = usb_submit_urb(card->urbs[j].urb, GFP_KERNEL);
--
--		if (retval) {
--			err("%s - failed submitting read urb, error %d",
--			    __func__, retval);
--			retval = CPC_ERR_TRANSMISSION_FAILED;
--			goto exit_on_error;
--		}
--	}
--
--	info("%s - %d URB's submitted", __func__, j);
--
--	ResetBuffer(card->chan);
--
--	cpcusb_setup_intrep(card);
--	card->open = 1;
--
--	atomic_inc(&useCount);
--
--exit_on_error:
--	/* unlock this device */
--	up(&card->sem);
--
--exit_no_device:
--	up(&disconnect_sem);
--
--	return retval;
--}
--
--static unsigned int cpcusb_poll(struct file *file, poll_table * wait)
--{
--	CPC_USB_T *card = (CPC_USB_T *) file->private_data;
--	unsigned int retval = 0;
--
--	if (!card) {
--		err("%s - device object lost", __func__);
--		return -EIO;
--	}
--
--	poll_wait(file, card->chan->CPCWait_q, wait);
--
--	if (IsBufferNotEmpty(card->chan) || !(card->present))
--		retval |= (POLLIN | POLLRDNORM);
--
--	if (card->free_slots)
--		retval |= (POLLOUT | POLLWRNORM);
--
--	return retval;
--}
--
--static int cpcusb_release(struct inode *inode, struct file *file)
--{
--	CPC_USB_T *card = (CPC_USB_T *) file->private_data;
--	int j, retval = 0;
--
--	if (card == NULL) {
--		dbg("%s - object is NULL", __func__);
--		return CPC_ERR_NO_INTERFACE_PRESENT;
--	}
--
--	/* lock our device */
--	down(&card->sem);
--
--	if (!card->open) {
--		dbg("%s - device not opened", __func__);
--		retval = CPC_ERR_NO_INTERFACE_PRESENT;
--		goto exit_not_opened;
--	}
--
--	/* if device wasn't unplugged kill all urbs */
--	if (card->present) {
--		/* kill read urbs */
--		for (j = 0; j < CPC_USB_URB_CNT; j++) {
--			usb_kill_urb(card->urbs[j].urb);
--		}
--
--		/* kill irq urb */
--		usb_kill_urb(card->intr_in_urb);
--
--		/* kill write urbs */
--		for (j = 0; j < CPC_USB_URB_CNT; j++) {
--			if (atomic_read(&card->wrUrbs[j].busy)) {
--				usb_kill_urb(card->wrUrbs[j].urb);
--				wait_for_completion(&card->wrUrbs[j].finished);
--			}
--		}
--	}
--
--	atomic_dec(&useCount);
--
--	/* last process detached */
--	if (atomic_read(&useCount) == 0) {
--		wake_up(&rmmodWq);
--	}
--
--	if (!card->present && card->open) {
--		/* the device was unplugged before the file was released */
--		up(&card->sem);
--		cpcusb_delete(card);
--		return 0;
--	}
--
--	card->open = 0;
--
--exit_not_opened:
--	up(&card->sem);
--
--	return 0;
--}
--
--static ssize_t cpcusb_read(struct file *file, char *buffer, size_t count,
--			   loff_t *ppos)
--{
--	CPC_USB_T *card = (CPC_USB_T *) file->private_data;
--	CPC_CHAN_T *chan;
--	int retval = 0;
--
--	if (count < sizeof(CPC_MSG_T))
--		return CPC_ERR_UNKNOWN;
--
--	/* check if can read from the given address */
--	if (!access_ok(VERIFY_WRITE, buffer, count))
--		return CPC_ERR_UNKNOWN;
--
--	/* lock this object */
--	down(&card->sem);
--
--	/* verify that the device wasn't unplugged */
--	if (!card->present) {
--		up(&card->sem);
--		return CPC_ERR_NO_INTERFACE_PRESENT;
--	}
--
--	if (IsBufferEmpty(card->chan)) {
--		retval = 0;
--	} else {
--		chan = card->chan;
--
--#if 0
--		/* convert LPC2119 params back to SJA1000 params */
--		if (card->deviceRevision >= 0x0200
--		    && chan->buf[chan->oidx].type == CPC_MSG_T_CAN_PRMS) {
--			LPC2119_TO_SJA1000_Params(&chan->buf[chan->oidx]);
--		}
--#endif
--
--		if (copy_to_user(buffer, &chan->buf[chan->oidx], count) != 0) {
--			retval = CPC_ERR_IO_TRANSFER;
--		} else {
--			chan->oidx = (chan->oidx + 1) % CPC_MSG_BUF_CNT;
--			chan->WnR = 1;
--			retval = sizeof(CPC_MSG_T);
--		}
--	}
--/*	spin_unlock_irqrestore(&card->slock, flags); */
--
--	/* unlock the device */
--	up(&card->sem);
--
--	return retval;
--}
--
--#define SHIFT  1
--static inline void cpcusb_align_buffer_alignment(unsigned char *buf)
--{
--	/* CPC-USB uploads packed bytes. */
--	CPC_MSG_T *cpc = (CPC_MSG_T *) buf;
--	unsigned int i;
--
--	for (i = 0; i < cpc->length + (2 * sizeof(unsigned long)); i++) {
--		((unsigned char *) &cpc->msgid)[1 + i] =
--		    ((unsigned char *) &cpc->msgid)[1 + SHIFT + i];
--	}
--}
--
--static int cpc_get_buffer_count(CPC_CHAN_T *chan)
--{
--	/* check the buffer parameters */
--	if (chan->iidx == chan->oidx)
--		return !chan->WnR ? CPC_MSG_BUF_CNT : 0;
--	else if (chan->iidx >= chan->oidx)
--		return (chan->iidx - chan->oidx) % CPC_MSG_BUF_CNT;
--
--	return (chan->iidx + CPC_MSG_BUF_CNT - chan->oidx) % CPC_MSG_BUF_CNT;
--}
--
--static ssize_t cpcusb_write(struct file *file, const char *buffer,
--			    size_t count, loff_t *ppos)
--{
--	CPC_USB_T *card = (CPC_USB_T *) file->private_data;
--	CPC_USB_WRITE_URB_T *wrUrb = NULL;
--
--	ssize_t bytes_written = 0;
--	int retval = 0;
--	int j;
--
--	unsigned char *obuf = NULL;
--	unsigned char type = 0;
--	CPC_MSG_T *info = NULL;
--
--	dbg("%s - entered minor %d, count = %zu, present = %d",
--	    __func__, card->minor, count, card->present);
--
--	if (count > sizeof(CPC_MSG_T))
--		return CPC_ERR_UNKNOWN;
--
--	/* check if can read from the given address */
--	if (!access_ok(VERIFY_READ, buffer, count))
--		return CPC_ERR_UNKNOWN;
--
--	/* lock this object */
--	down(&card->sem);
--
--	/* verify that the device wasn't unplugged */
--	if (!card->present) {
--		retval = CPC_ERR_NO_INTERFACE_PRESENT;
--		goto exit;
--	}
--
--	/* verify that we actually have some data to write */
--	if (count == 0) {
--		dbg("%s - write request of 0 bytes", __func__);
--		goto exit;
--	}
--
--	if (card->free_slots <= 5) {
--		info = (CPC_MSG_T *) buffer;
--
--		if (info->type != CPC_CMD_T_CLEAR_CMD_QUEUE
--		    || card->free_slots <= 0) {
--			dbg("%s - send buffer full please try again %d",
--			    __func__, card->free_slots);
--			retval = CPC_ERR_CAN_NO_TRANSMIT_BUF;
--			goto exit;
--		}
--	}
--
--	/* Find a free write urb */
--	for (j = 0; j < CPC_USB_URB_CNT; j++) {
--		if (!atomic_read(&card->wrUrbs[j].busy)) {
--			wrUrb = &card->wrUrbs[j];	/* remember found URB */
--			atomic_set(&wrUrb->busy, 1);	/* lock this URB      */
--			init_completion(&wrUrb->finished);	/* init completion    */
--			dbg("WR URB no. %d started", j);
--			break;
--		}
--	}
--
--	/* don't found write urb say error */
--	if (!wrUrb) {
--		dbg("%s - no free send urb available", __func__);
--		retval = CPC_ERR_CAN_NO_TRANSMIT_BUF;
--		goto exit;
--	}
--	dbg("URB write req");
--
--	obuf = (unsigned char *) wrUrb->urb->transfer_buffer;
--
--	/* copy the data from userspace into our transfer buffer;
--	 * this is the only copy required.
--	 */
--	if (copy_from_user(&obuf[4], buffer, count) != 0) {
--		atomic_set(&wrUrb->busy, 0);	/* release urb */
--		retval = CPC_ERR_IO_TRANSFER;
--		goto exit;
--	}
--
--	/* check if it is a DRIVER information message, so we can
--	 * response to that message and not the USB
--	 */
--	info = (CPC_MSG_T *) &obuf[4];
--
--	bytes_written = 11 + info->length;
--	if (bytes_written >= wrUrb->size) {
--		retval = CPC_ERR_IO_TRANSFER;
--		goto exit;
--	}
--
--	switch (info->type) {
--	case CPC_CMD_T_CLEAR_MSG_QUEUE:
--		ResetBuffer(card->chan);
--		break;
--
--	case CPC_CMD_T_INQ_MSG_QUEUE_CNT:
--		retval = cpc_get_buffer_count(card->chan);
--		atomic_set(&wrUrb->busy, 0);
--
--		goto exit;
--
--	case CPC_CMD_T_INQ_INFO:
--		if (info->msg.info.source == CPC_INFOMSG_T_DRIVER) {
--			/* release urb cause we'll use it for driver
--			 * information
--			 */
--			atomic_set(&wrUrb->busy, 0);
--			if (IsBufferFull(card->chan)) {
--				retval = CPC_ERR_IO_TRANSFER;
--				goto exit;
--			}
--
--			/* it is a driver information request message and we have
--			 * free rx slots to store the response
--			 */
--			type = info->msg.info.type;
--			info = &card->chan->buf[card->chan->iidx];
--
--			info->type = CPC_MSG_T_INFO;
--			info->msg.info.source = CPC_INFOMSG_T_DRIVER;
--			info->msg.info.type = type;
--
--			switch (type) {
--			case CPC_INFOMSG_T_VERSION:
--				info->length = strlen(CPC_DRIVER_VERSION) + 2;
--				sprintf(info->msg.info.msg, "%s\n",
--					CPC_DRIVER_VERSION);
--				break;
--
--			case CPC_INFOMSG_T_SERIAL:
--				info->length = strlen(CPC_DRIVER_SERIAL) + 2;
--				sprintf(info->msg.info.msg, "%s\n",
--					CPC_DRIVER_SERIAL);
--				break;
--
--			default:
--				info->length = 2;
--				info->msg.info.type =
--				    CPC_INFOMSG_T_UNKNOWN_TYPE;
--			}
--
--			card->chan->WnR = 0;
--			card->chan->iidx =
--			    (card->chan->iidx + 1) % CPC_MSG_BUF_CNT;
--
--			retval = info->length;
--			goto exit;
--		}
--		break;
--	case CPC_CMD_T_CAN_PRMS:
--		/* Check the controller type. If it's the new CPC-USB, make sure if these are SJA1000 params */
--		if (info->msg.canparams.cc_type != SJA1000
--		    && info->msg.canparams.cc_type != M16C_BASIC
--		    && (card->productId == USB_CPCUSB_LPC2119_PRODUCT_ID
--			&& info->msg.canparams.cc_type != SJA1000)) {
--			/* don't forget to release the urb */
--			atomic_set(&wrUrb->busy, 0);
--			retval = CPC_ERR_WRONG_CONTROLLER_TYPE;
--			goto exit;
--		}
--		break;
--	}
--
--	/* just convert the params if it is an old CPC-USB with M16C controller */
--	if (card->productId == USB_CPCUSB_M16C_PRODUCT_ID) {
--		/* if it is a parameter message convert it from SJA1000 controller
--		 * settings to M16C Basic controller settings
--		 */
--		SJA1000_TO_M16C_BASIC_Params((CPC_MSG_T *) &obuf[4]);
--	}
--
--	/* don't forget the byte alignment */
--	cpcusb_align_buffer_alignment(&obuf[4]);
--
--	/* setup a the 4 byte header */
--	obuf[0] = obuf[1] = obuf[2] = obuf[3] = 0;
--
--	/* this urb was already set up, except for this write size */
--	wrUrb->urb->transfer_buffer_length = bytes_written + 4;
--
--	/* send the data out the bulk port */
--	/* a character device write uses GFP_KERNEL,
--	   unless a spinlock is held */
--	retval = usb_submit_urb(wrUrb->urb, GFP_KERNEL);
--	if (retval) {
--		atomic_set(&wrUrb->busy, 0);	/* release urb */
--		err("%s - failed submitting write urb, error %d",
--		    __func__, retval);
--	} else {
--		retval = bytes_written;
--	}
--
--exit:
--	/* unlock the device */
--	up(&card->sem);
--
--	dbg("%s - leaved", __func__);
--
--	return retval;
--}
--
--/*
-- * callback for interrupt IN urb
-- */
--static void cpcusb_read_interrupt_callback(struct urb *urb)
--{
--	CPC_USB_T *card = (CPC_USB_T *) urb->context;
--	int retval;
--	unsigned long flags;
--
--	spin_lock_irqsave(&card->slock, flags);
--
--	if (!card->present) {
--		spin_unlock_irqrestore(&card->slock, flags);
--		info("%s - no such device", __func__);
--		return;
--	}
--
--	switch (urb->status) {
--	case 0: /* success */
--		card->free_slots = card->intr_in_buffer[1];
--		break;
--	case -ECONNRESET:
--	case -ENOENT:
--	case -ESHUTDOWN:
--		/* urb was killed */
--		spin_unlock_irqrestore(&card->slock, flags);
--		dbg("%s - intr urb killed", __func__);
--		return;
--	default:
--		info("%s - nonzero urb status %d", __func__, urb->status);
--		break;
--	}
--
--	retval = usb_submit_urb(urb, GFP_ATOMIC);
--	if (retval) {
--		err("%s - failed resubmitting intr urb, error %d",
--		    __func__, retval);
--	}
--
--	spin_unlock_irqrestore(&card->slock, flags);
--	wake_up_interruptible(card->chan->CPCWait_q);
--
--	return;
--}
--
--#define UN_SHIFT  1
--#define CPCMSG_HEADER_LEN_FIRMWARE   11
--static inline int cpcusb_unalign_and_copy_buffy(unsigned char *out,
--						unsigned char *in)
--{
--	unsigned int i, j;
--
--	for (i = 0; i < 3; i++)
--		out[i] = in[i];
--
--	for (j = 0; j < (in[1] + (CPCMSG_HEADER_LEN_FIRMWARE - 3)); j++)
--		out[j + i + UN_SHIFT] = in[j + i];
--
--	return i + j;
--}
--
--/*
-- * callback for bulk IN urb
-- */
--static void cpcusb_read_bulk_callback(struct urb *urb)
--{
--	CPC_USB_T *card = (CPC_USB_T *) urb->context;
--	CPC_CHAN_T *chan;
--	unsigned char *ibuf = urb->transfer_buffer;
--	int retval, msgCnt, start, again = 0;
--	unsigned long flags;
--
--	if (!card) {
--		err("%s - device object lost", __func__);
--		return;
--	}
--
--	spin_lock_irqsave(&card->slock, flags);
--
--	if (!card->present) {
--		spin_unlock_irqrestore(&card->slock, flags);
--		info("%s - no such device", __func__);
--		return;
--	}
--
--	switch (urb->status) {
--	case 0:		/* success */
--		break;
--	case -ECONNRESET:
--	case -ENOENT:
--	case -ESHUTDOWN:
--		/* urb was killed */
--		spin_unlock_irqrestore(&card->slock, flags);
--		dbg("%s - read urb killed", __func__);
--		return;
--	default:
--		info("%s - nonzero urb status %d", __func__, urb->status);
--		break;
--	}
--
--	if (urb->actual_length) {
--		msgCnt = ibuf[0] & ~0x80;
--		again = ibuf[0] & 0x80;
--
--		/* we have a 4 byte header */
--		start = 4;
--		chan = card->chan;
--		while (msgCnt) {
--			if (!(IsBufferFull(card->chan))) {
--				start +=
--				    cpcusb_unalign_and_copy_buffy((unsigned char *)
--							  &chan->buf[chan->iidx], &ibuf[start]);
--
--				if (start > urb->transfer_buffer_length) {
--					err("%d > %d", start, urb->transfer_buffer_length);
--					break;
--				}
--
--				chan->WnR = 0;
--				chan->iidx = (chan->iidx + 1) % CPC_MSG_BUF_CNT;
--				msgCnt--;
--			} else {
--				break;
--			}
--		}
--	}
--
--	usb_fill_bulk_urb(urb, card->udev,
--			  usb_rcvbulkpipe(card->udev, card->num_bulk_in),
--			  urb->transfer_buffer,
--			  urb->transfer_buffer_length,
--			  cpcusb_read_bulk_callback, card);
--
--	retval = usb_submit_urb(urb, GFP_ATOMIC);
--
--	if (retval) {
--		err("%s - failed resubmitting read urb, error %d", __func__, retval);
--	}
--
--	spin_unlock_irqrestore(&card->slock, flags);
--
--	wake_up_interruptible(card->chan->CPCWait_q);
--}
--
--/*
-- * callback for bulk IN urb
-- */
--static void cpcusb_write_bulk_callback(struct urb *urb)
--{
--	CPC_USB_T *card = (CPC_USB_T *) urb->context;
--	unsigned long flags;
--	int j;
--
--	spin_lock_irqsave(&card->slock, flags);
--
--	/* find this urb */
--	for (j = 0; j < CPC_USB_URB_CNT; j++) {
--		if (card->wrUrbs[j].urb == urb) {
--			dbg("URB found no. %d", j);
--			/* notify anyone waiting that the write has finished */
--			complete(&card->wrUrbs[j].finished);
--			atomic_set(&card->wrUrbs[j].busy, 0);
--			break;
--		}
--	}
--
--	switch (urb->status) {
--	case 0:		/* success */
--		break;
--	case -ECONNRESET:
--	case -ENOENT:
--	case -ESHUTDOWN:
--		/* urb was killed */
--		spin_unlock_irqrestore(&card->slock, flags);
--		dbg("%s - write urb no. %d killed", __func__, j);
--		return;
--	default:
--		info("%s - nonzero urb status %d", __func__, urb->status);
--		break;
--	}
--
--	spin_unlock_irqrestore(&card->slock, flags);
--
--	wake_up_interruptible(card->chan->CPCWait_q);
--}
--
--static inline int cpcusb_get_free_slot(void)
--{
--	int i;
--
--	for (i = 0; i < CPC_USB_CARD_CNT; i++) {
--		if (!CPCUSB_Table[i])
--			return i;
--	}
--
--	return -1;
--}
--
--/*
-- * probe function for new CPC-USB devices
-- */
--static int cpcusb_probe(struct usb_interface *interface,
--			const struct usb_device_id *id)
--{
--	CPC_USB_T *card = NULL;
--	CPC_CHAN_T *chan = NULL;
--
--	struct usb_device *udev = interface_to_usbdev(interface);
--	struct usb_host_interface *iface_desc;
--	struct usb_endpoint_descriptor *endpoint;
--
--	int i, j, retval = -ENOMEM, slot;
--
--	slot = cpcusb_get_free_slot();
--	if (slot < 0) {
--		info("No more devices supported");
--		return -ENOMEM;
--	}
--
--	/* allocate memory for our device state and initialize it */
--	card = kzalloc(sizeof(CPC_USB_T), GFP_KERNEL);
--	if (!card) {
--		err("Out of memory");
--		return -ENOMEM;
--	}
--	CPCUSB_Table[slot] = card;
--
--	/* allocate and initialize the channel struct */
--	card->chan = kmalloc(sizeof(CPC_CHAN_T), GFP_KERNEL);
--	if (!card->chan) {
--		kfree(card);
--		err("Out of memory");
--		return -ENOMEM;
--	}
--
--	chan = card->chan;
--	memset(chan, 0, sizeof(CPC_CHAN_T));
--	ResetBuffer(chan);
--
--	init_MUTEX(&card->sem);
--	spin_lock_init(&card->slock);
--
--	card->udev = udev;
--	card->interface = interface;
--	if (udev->descriptor.iSerialNumber) {
--		usb_string(udev, udev->descriptor.iSerialNumber, card->serialNumber,
--				   128);
--		info("Serial %s", card->serialNumber);
--	}
--
--	card->productId = udev->descriptor.idProduct;
--	info("Product %s",
--	     card->productId == USB_CPCUSB_LPC2119_PRODUCT_ID ?
--			 "CPC-USB/ARM7" : "CPC-USB/M16C");
--
--	/* set up the endpoint information */
--	/* check out the endpoints */
--	/* use only the first bulk-in and bulk-out endpoints */
--	iface_desc = &interface->altsetting[0];
--	for (i = 0; i < iface_desc->desc.bNumEndpoints; ++i) {
--		endpoint = &iface_desc->endpoint[i].desc;
--
--		if (!card->num_intr_in &&
--		    (endpoint->bEndpointAddress & USB_DIR_IN) &&
--		    ((endpoint->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK)
--		     == USB_ENDPOINT_XFER_INT)) {
--			card->intr_in_urb = usb_alloc_urb(0, GFP_KERNEL);
--			card->num_intr_in = 1;
--
--			if (!card->intr_in_urb) {
--				err("No free urbs available");
--				goto error;
--			}
--
--			dbg("intr_in urb %d", card->num_intr_in);
--		}
--
--		if (!card->num_bulk_in &&
--		    (endpoint->bEndpointAddress & USB_DIR_IN) &&
--		    ((endpoint->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK)
--		     == USB_ENDPOINT_XFER_BULK)) {
--			card->num_bulk_in = 2;
--			for (j = 0; j < CPC_USB_URB_CNT; j++) {
--				card->urbs[j].size = endpoint->wMaxPacketSize;
--				card->urbs[j].urb = usb_alloc_urb(0, GFP_KERNEL);
--				if (!card->urbs[j].urb) {
--					err("No free urbs available");
--					goto error;
--				}
--				card->urbs[j].buffer =
--				    usb_buffer_alloc(udev,
--						     card->urbs[j].size,
--						     GFP_KERNEL,
--						     &card->urbs[j].urb->transfer_dma);
--				if (!card->urbs[j].buffer) {
--					err("Couldn't allocate bulk_in_buffer");
--					goto error;
--				}
--			}
--			info("%s - %d reading URB's allocated",
--			     __func__, CPC_USB_URB_CNT);
--		}
--
--		if (!card->num_bulk_out &&
--		    !(endpoint->bEndpointAddress & USB_DIR_IN) &&
--		    ((endpoint->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK)
--		     == USB_ENDPOINT_XFER_BULK)) {
--
--			card->num_bulk_out = 2;
--
--			for (j = 0; j < CPC_USB_URB_CNT; j++) {
--				card->wrUrbs[j].size =
--				    endpoint->wMaxPacketSize;
--				card->wrUrbs[j].urb =
--				    usb_alloc_urb(0, GFP_KERNEL);
--				if (!card->wrUrbs[j].urb) {
--					err("No free urbs available");
--					goto error;
--				}
--				card->wrUrbs[j].buffer = usb_buffer_alloc(udev,
--							       card->wrUrbs[j].size, GFP_KERNEL,
--							       &card->wrUrbs[j].urb->transfer_dma);
--
--				if (!card->wrUrbs[j].buffer) {
--					err("Couldn't allocate bulk_out_buffer");
--					goto error;
--				}
--
--				usb_fill_bulk_urb(card->wrUrbs[j].urb, udev,
--						usb_sndbulkpipe(udev, endpoint->bEndpointAddress),
--						card->wrUrbs[j].buffer,
--						card->wrUrbs[j].size,
--						cpcusb_write_bulk_callback,
--						card);
--			}
--
--			info("%s - %d writing URB's allocated", __func__, CPC_USB_URB_CNT);
--		}
--	}
--
--	if (!(card->num_bulk_in && card->num_bulk_out)) {
--		err("Couldn't find both bulk-in and bulk-out endpoints");
--		goto error;
--	}
--
--	/* allow device read, write and ioctl */
--	card->present = 1;
--
--	/* we can register the device now, as it is ready */
--	usb_set_intfdata(interface, card);
--	retval = usb_register_dev(interface, &cpcusb_class);
--
--	if (retval) {
--		/* something prevented us from registering this driver */
--		err("Not able to get a minor for this device.");
--		usb_set_intfdata(interface, NULL);
--		goto error;
--	}
--
--	card->chan->minor = card->minor = interface->minor;
--
--	chan->buf = vmalloc(sizeof(CPC_MSG_T) * CPC_MSG_BUF_CNT);
--	if (chan->buf == NULL) {
--		err("Out of memory");
--		retval = -ENOMEM;
--		goto error;
--	}
--	info("Allocated memory for %d messages (%lu kbytes)",
--	     CPC_MSG_BUF_CNT, (long unsigned int)(sizeof(CPC_MSG_T) * CPC_MSG_BUF_CNT) / 1000);
--	memset(chan->buf, 0, sizeof(CPC_MSG_T) * CPC_MSG_BUF_CNT);
--
--	ResetBuffer(chan);
--
--	card->chan->CPCWait_q = kmalloc(sizeof(wait_queue_head_t), GFP_KERNEL);
--	if (!card->chan->CPCWait_q) {
--		err("Out of memory");
--		retval = -ENOMEM;
--		goto error;
--	}
--	init_waitqueue_head(card->chan->CPCWait_q);
--
--	CPCUSB_Table[slot] = card;
--	card->idx = slot;
--	CPCUsbCnt++;
--
--	/* let the user know what node this device is now attached to */
--	info("Device now attached to USB-%d", card->minor);
--	return 0;
--
--error:
--	for (j = 0; j < CPC_USB_URB_CNT; j++) {
--		if (card->urbs[j].buffer) {
--			usb_buffer_free(card->udev, card->urbs[j].size,
--					card->urbs[j].buffer,
--					card->urbs[j].urb->transfer_dma);
--			card->urbs[j].buffer = NULL;
--		}
--		if (card->urbs[j].urb) {
--			usb_free_urb(card->urbs[j].urb);
--			card->urbs[j].urb = NULL;
--		}
--	}
--
--	cpcusb_delete(card);
--	return retval;
--}
--
--/*
-- * called by the usb core when the device is removed from the system
-- */
--static void cpcusb_disconnect(struct usb_interface *interface)
--{
--	CPC_USB_T *card = NULL;
--	int minor, j;
--
--	/* prevent races with open() */
--	down(&disconnect_sem);
--
--	card = usb_get_intfdata(interface);
--	usb_set_intfdata(interface, NULL);
--
--	down(&card->sem);
--
--	/* prevent device read, write and ioctl */
--	card->present = 0;
--
--	minor = card->minor;
--
--	/* free all urbs and their buffers */
--	for (j = 0; j < CPC_USB_URB_CNT; j++) {
--		/* terminate an ongoing write */
--		if (atomic_read(&card->wrUrbs[j].busy)) {
--			usb_kill_urb(card->wrUrbs[j].urb);
--			wait_for_completion(&card->wrUrbs[j].finished);
--		}
--		usb_buffer_free(card->udev, card->wrUrbs[j].size,
--				card->wrUrbs[j].buffer,
--				card->wrUrbs[j].urb->transfer_dma);
--		usb_free_urb(card->wrUrbs[j].urb);
--	}
--	info("%d write URBs freed", CPC_USB_URB_CNT);
--
--	/* free all urbs and their buffers */
--	for (j = 0; j < CPC_USB_URB_CNT; j++) {
--		usb_buffer_free(card->udev, card->urbs[j].size,
--				card->urbs[j].buffer,
--				card->urbs[j].urb->transfer_dma);
--		usb_free_urb(card->urbs[j].urb);
--	}
--	info("%d read URBs freed", CPC_USB_URB_CNT);
--	usb_free_urb(card->intr_in_urb);
--
--	/* give back our minor */
--	usb_deregister_dev(interface, &cpcusb_class);
--
--	up(&card->sem);
--
--	/* if the device is opened, cpcusb_release will clean this up */
--	if (!card->open)
--		cpcusb_delete(card);
--	else
--		wake_up_interruptible(card->chan->CPCWait_q);
--
--	up(&disconnect_sem);
--
--	CPCUsbCnt--;
--	info("USB-%d now disconnected", minor);
--}
--
--static int __init CPCUsb_Init(void)
--{
--	int result, i;
--
--	info(DRIVER_DESC " v" DRIVER_VERSION);
--	info("Build on " __DATE__ " at " __TIME__);
--
--	for (i = 0; i < CPC_USB_CARD_CNT; i++)
--		CPCUSB_Table[i] = 0;
--
--	/* register this driver with the USB subsystem */
--	result = usb_register(&cpcusb_driver);
--	if (result) {
--		err("usb_register failed. Error number %d", result);
--		return result;
--	}
--
--	procDir = proc_mkdir(CPC_USB_PROC_DIR, NULL);
--	if (!procDir) {
--		err("Could not create proc entry");
--	} else {
--		procEntry = create_proc_read_entry("info", 0444, procDir,
--						   cpcusb_proc_read_info,
--						   NULL);
--		if (!procEntry) {
--			err("Could not create proc entry %s", CPC_USB_PROC_DIR "/info");
--			remove_proc_entry(CPC_USB_PROC_DIR, NULL);
--			procDir = NULL;
--		}
--	}
--
--	return 0;
--}
--
--static void __exit CPCUsb_Exit(void)
--{
--	wait_event(rmmodWq, !atomic_read(&useCount));
--
--	/* deregister this driver with the USB subsystem */
--	usb_deregister(&cpcusb_driver);
--
--	if (procDir) {
--		if (procEntry)
--			remove_proc_entry("info", procDir);
--		remove_proc_entry(CPC_USB_PROC_DIR, NULL);
--	}
--}
--
--module_init(CPCUsb_Init);
--module_exit(CPCUsb_Exit);
-diff --git a/drivers/staging/cpc-usb/cpc.h b/drivers/staging/cpc-usb/cpc.h
-deleted file mode 100644
-index ed8cb34..0000000
---- a/drivers/staging/cpc-usb/cpc.h
-+++ /dev/null
-@@ -1,440 +0,0 @@
--/*
-- * CPC CAN Interface Definitions
-- *
-- * Copyright (C) 2000-2008 EMS Dr. Thomas Wuensche
-- *
-- * This program is distributed in the hope that it will be useful, but
-- * WITHOUT ANY WARRANTY; without even the implied warranty of
-- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-- */
--#ifndef CPC_HEADER
--#define CPC_HEADER
--
--// the maximum length of the union members within a CPC_MSG
--// this value can be defined by the customer, but has to be
--// >= 64 bytes
--// however, if not defined before, we set a length of 64 byte
--#if !defined(CPC_MSG_LEN) || (CPC_MSG_LEN < 64)
--#undef CPC_MSG_LEN
--#define CPC_MSG_LEN 64
--#endif
--
--// check the operating system used
--#ifdef _WIN32 // running a Windows OS
--
--// define basic types on Windows platforms
--#ifdef _MSC_VER // Visual Studio
--	typedef unsigned __int8 u8;
--	typedef unsigned __int16 u16;
--	typedef unsigned __int32 u32;
--#else // Borland Compiler
--	typedef unsigned char u8;
--	typedef unsigned short u16;
--	typedef unsigned int u32;
--#endif
--	// on Windows OS we use a byte alignment of 1
--	#pragma pack(push, 1)
--
--	// set the calling conventions for the library function calls
--	#define CALL_CONV __stdcall
--#else
--	// Kernel headers already define this types
--	#ifndef __KERNEL__
--		// define basic types
--		typedef unsigned char u8;
--		typedef unsigned short u16;
--		typedef unsigned int u32;
--	#endif
--
--	// Linux does not use this calling convention
--	#define CALL_CONV
--#endif
--
--// Transmission of events from CPC interfaces to PC can be individually
--// controlled per event type. Default state is: don't transmit
--// Control values are constructed by bit-or of Subject and Action
--// and passed to CPC_Control()
--
--// Control-Values for CPC_Control() Command Subject Selection
--#define CONTR_CAN_Message 0x04
--#define CONTR_Busload	  0x08
--#define	CONTR_CAN_State	  0x0C
--#define	CONTR_SendAck	  0x10
--#define	CONTR_Filter	  0x14
--#define CONTR_CmdQueue    0x18	// reserved, do not use
--#define CONTR_BusError    0x1C
--
--// Control Command Actions
--#define CONTR_CONT_OFF    0
--#define CONTR_CONT_ON     1
--#define CONTR_SING_ON     2
--// CONTR_SING_ON doesn't change CONTR_CONT_ON state, so it should be
--// read as: transmit at least once
--
--// defines for confirmed request
--#define DO_NOT_CONFIRM 0
--#define DO_CONFIRM     1
--
--// event flags
--#define EVENT_READ 0x01
--#define EVENT_WRITE 0x02
--
--// Messages from CPC to PC contain a message object type field.
--// The following message types are sent by CPC and can be used in
--// handlers, others should be ignored.
--#define CPC_MSG_T_RESYNC        0 // Normally to be ignored
--#define CPC_MSG_T_CAN           1 // CAN data frame
--#define CPC_MSG_T_BUSLOAD       2 // Busload message
--#define CPC_MSG_T_STRING        3 // Normally to be ignored
--#define CPC_MSG_T_CONTI         4 // Normally to be ignored
--#define CPC_MSG_T_MEM           7 // Normally not to be handled
--#define	CPC_MSG_T_RTR           8 // CAN remote frame
--#define CPC_MSG_T_TXACK	        9 // Send acknowledge
--#define CPC_MSG_T_POWERUP      10 // Power-up message
--#define	CPC_MSG_T_CMD_NO       11 // Normally to be ignored
--#define	CPC_MSG_T_CAN_PRMS     12 // Actual CAN parameters
--#define	CPC_MSG_T_ABORTED      13 // Command aborted message
--#define	CPC_MSG_T_CANSTATE     14 // CAN state message
--#define CPC_MSG_T_RESET        15 // used to reset CAN-Controller
--#define	CPC_MSG_T_XCAN         16 // XCAN data frame
--#define CPC_MSG_T_XRTR         17 // XCAN remote frame
--#define CPC_MSG_T_INFO         18 // information strings
--#define CPC_MSG_T_CONTROL      19 // used for control of interface/driver behaviour
--#define CPC_MSG_T_CONFIRM      20 // response type for confirmed requests
--#define CPC_MSG_T_OVERRUN      21 // response type for overrun conditions
--#define CPC_MSG_T_KEEPALIVE    22 // response type for keep alive conditions
--#define CPC_MSG_T_CANERROR     23 // response type for bus error conditions
--#define CPC_MSG_T_DISCONNECTED 24 // response type for a disconnected interface
--#define CPC_MSG_T_ERR_COUNTER  25 // RX/TX error counter of CAN controller
--
--#define CPC_MSG_T_FIRMWARE    100 // response type for USB firmware download
--
--// Messages from the PC to the CPC interface contain a command field
--// Most of the command types are wrapped by the library functions and have therefore
--// normally not to be used.
--// However, programmers who wish to circumvent the library and talk directly
--// to the drivers (mainly Linux programmers) can use the following
--// command types:
--
--#define CPC_CMD_T_CAN                 1	// CAN data frame
--#define CPC_CMD_T_CONTROL             3	// used for control of interface/driver behaviour
--#define	CPC_CMD_T_CAN_PRMS            6	// set CAN parameters
--#define	CPC_CMD_T_CLEARBUF            8	// clears input queue; this is depricated, use CPC_CMD_T_CLEAR_MSG_QUEUE instead
--#define	CPC_CMD_T_INQ_CAN_PARMS      11	// inquire actual CAN parameters
--#define	CPC_CMD_T_FILTER_PRMS        12	// set filter parameter
--#define	CPC_CMD_T_RTR                13	// CAN remote frame
--#define	CPC_CMD_T_CANSTATE           14	// CAN state message
--#define	CPC_CMD_T_XCAN               15	// XCAN data frame
--#define CPC_CMD_T_XRTR               16	// XCAN remote frame
--#define CPC_CMD_T_RESET              17	// used to reset CAN-Controller
--#define CPC_CMD_T_INQ_INFO           18	// miscellanous information strings
--#define CPC_CMD_T_OPEN_CHAN          19	// open a channel
--#define CPC_CMD_T_CLOSE_CHAN         20	// close a channel
--#define CPC_CMD_T_CNTBUF             21	// this is depricated, use CPC_CMD_T_INQ_MSG_QUEUE_CNT instead
--#define CPC_CMD_T_CAN_EXIT          200 // exit the CAN (disable interrupts; reset bootrate; reset output_cntr; mode = 1)
--
--#define CPC_CMD_T_INQ_MSG_QUEUE_CNT  CPC_CMD_T_CNTBUF   // inquires the count of elements in the message queue
--#define CPC_CMD_T_INQ_ERR_COUNTER    25	                // request the CAN controllers error counter
--#define	CPC_CMD_T_CLEAR_MSG_QUEUE    CPC_CMD_T_CLEARBUF // clear CPC_MSG queue
--#define	CPC_CMD_T_CLEAR_CMD_QUEUE    28	                // clear CPC_CMD queue
--#define CPC_CMD_T_FIRMWARE          100                 // reserved, must not be used
--#define CPC_CMD_T_USB_RESET         101                 // reserved, must not be used
--#define CPC_CMD_T_WAIT_NOTIFY       102                 // reserved, must not be used
--#define CPC_CMD_T_WAIT_SETUP        103                 // reserved, must not be used
--#define	CPC_CMD_T_ABORT             255                 // Normally not to be used
--
--// definitions for CPC_MSG_T_INFO
--// information sources
--#define CPC_INFOMSG_T_UNKNOWN_SOURCE 0
--#define CPC_INFOMSG_T_INTERFACE      1
--#define CPC_INFOMSG_T_DRIVER         2
--#define CPC_INFOMSG_T_LIBRARY        3
--
--// information types
--#define CPC_INFOMSG_T_UNKNOWN_TYPE   0
--#define CPC_INFOMSG_T_VERSION        1
--#define CPC_INFOMSG_T_SERIAL         2
--
--// definitions for controller types
--#define PCA82C200   1 // Philips basic CAN controller, replaced by SJA1000
--#define SJA1000     2 // Philips basic CAN controller
--#define AN82527     3 // Intel full CAN controller
--#define M16C_BASIC  4 // M16C controller running in basic CAN (not full CAN) mode
--
--// channel open error codes
--#define CPC_ERR_NO_FREE_CHANNEL            -1	// no more free space within the channel array
--#define CPC_ERR_CHANNEL_ALREADY_OPEN       -2	// the channel is already open
--#define CPC_ERR_CHANNEL_NOT_ACTIVE         -3	// access to a channel not active failed
--#define CPC_ERR_NO_DRIVER_PRESENT          -4	// no driver at the location searched by the library
--#define CPC_ERR_NO_INIFILE_PRESENT         -5	// the library could not find the inifile
--#define CPC_ERR_WRONG_PARAMETERS           -6	// wrong parameters in the inifile
--#define CPC_ERR_NO_INTERFACE_PRESENT       -7	// 1. The specified interface is not connected
--						// 2. The interface (mostly CPC-USB) was disconnected upon operation
--#define CPC_ERR_NO_MATCHING_CHANNEL        -8	// the driver couldn't find a matching channel
--#define CPC_ERR_NO_BUFFER_AVAILABLE        -9	// the driver couldn't allocate buffer for messages
--#define CPC_ERR_NO_INTERRUPT               -10	// the requested interrupt couldn't be claimed
--#define CPC_ERR_NO_MATCHING_INTERFACE      -11	// no interface type related to this channel was found
--#define CPC_ERR_NO_RESOURCES               -12	// the requested resources could not be claimed
--#define CPC_ERR_SOCKET                     -13	// error concerning TCP sockets
--
--// init error codes
--#define CPC_ERR_WRONG_CONTROLLER_TYPE      -14	// wrong CAN controller type within initialization
--#define CPC_ERR_NO_RESET_MODE              -15	// the controller could not be set into reset mode
--#define CPC_ERR_NO_CAN_ACCESS              -16	// the CAN controller could not be accessed
--
--// transmit error codes
--#define CPC_ERR_CAN_WRONG_ID               -20	// the provided CAN id is too big
--#define CPC_ERR_CAN_WRONG_LENGTH           -21	// the provided CAN length is too long
--#define CPC_ERR_CAN_NO_TRANSMIT_BUF        -22	// the transmit buffer was occupied
--#define CPC_ERR_CAN_TRANSMIT_TIMEOUT       -23	// The message could not be sent within a
--						// specified time
--
--// other error codes
--#define CPC_ERR_SERVICE_NOT_SUPPORTED      -30	// the requested service is not supported by the interface
--#define CPC_ERR_IO_TRANSFER                -31	// a transmission error down to the driver occurred
--#define CPC_ERR_TRANSMISSION_FAILED        -32	// a transmission error down to the interface occurred
--#define CPC_ERR_TRANSMISSION_TIMEOUT       -33	// a timeout occurred within transmission to the interface
--#define CPC_ERR_OP_SYS_NOT_SUPPORTED       -35	// the operating system is not supported
--#define CPC_ERR_UNKNOWN                    -40	// an unknown error ocurred (mostly IOCTL errors)
--
--#define CPC_ERR_LOADING_DLL                -50	// the library 'cpcwin.dll' could not be loaded
--#define CPC_ERR_ASSIGNING_FUNCTION         -51	// the specified function could not be assigned
--#define CPC_ERR_DLL_INITIALIZATION         -52	// the DLL was not initialized correctly
--#define CPC_ERR_MISSING_LICFILE            -55	// the file containing the licenses does not exist
--#define CPC_ERR_MISSING_LICENSE            -56	// a required license was not found
--
--// CAN state bit values. Ignore any bits not listed
--#define CPC_CAN_STATE_BUSOFF     0x80
--#define CPC_CAN_STATE_ERROR      0x40
--
--// Mask to help ignore undefined bits
--#define CPC_CAN_STATE_MASK       0xc0
--
--// CAN-Message representation in a CPC_MSG
--// Message object type is CPC_MSG_T_CAN or CPC_MSG_T_RTR
--// or CPC_MSG_T_XCAN or CPC_MSG_T_XRTR
--typedef struct CPC_CAN_MSG {
--	u32 id;
--	u8 length;
--	u8 msg[8];
--} CPC_CAN_MSG_T;
--
--
--// representation of the CAN parameters for the PCA82C200 controller
--typedef struct CPC_PCA82C200_PARAMS {
--	u8 acc_code;	// Acceptance-code for receive, Standard: 0
--	u8 acc_mask;	// Acceptance-mask for receive, Standard: 0xff (everything)
--	u8 btr0;	// Bus-timing register 0
--	u8 btr1;	// Bus-timing register 1
--	u8 outp_contr;	// Output-control register
--} CPC_PCA82C200_PARAMS_T;
--
--// representation of the CAN parameters for the SJA1000 controller
--typedef struct CPC_SJA1000_PARAMS {
--	u8 mode;	// enables single or dual acceptance filtering
--	u8 acc_code0;	// Acceptance-code for receive, Standard: 0
--	u8 acc_code1;
--	u8 acc_code2;
--	u8 acc_code3;
--	u8 acc_mask0;	// Acceptance-mask for receive, Standard: 0xff (everything)
--	u8 acc_mask1;
--	u8 acc_mask2;
--	u8 acc_mask3;
--	u8 btr0;	// Bus-timing register 0
--	u8 btr1;	// Bus-timing register 1
--	u8 outp_contr;	// Output-control register
--} CPC_SJA1000_PARAMS_T;
--
--// representation of the CAN parameters for the M16C controller
--// in basic CAN mode (means no full CAN)
--typedef struct CPC_M16C_BASIC_PARAMS {
--	u8 con0;
--	u8 con1;
--	u8 ctlr0;
--	u8 ctlr1;
--	u8 clk;
--	u8 acc_std_code0;
--	u8 acc_std_code1;
--	u8 acc_ext_code0;
--	u8 acc_ext_code1;
--	u8 acc_ext_code2;
--	u8 acc_ext_code3;
--	u8 acc_std_mask0;
--	u8 acc_std_mask1;
--	u8 acc_ext_mask0;
--	u8 acc_ext_mask1;
--	u8 acc_ext_mask2;
--	u8 acc_ext_mask3;
--} CPC_M16C_BASIC_PARAMS_T;
--
--// CAN params message representation
--typedef struct CPC_CAN_PARAMS {
--	u8 cc_type;	// represents the controller type
--	union {
--		CPC_M16C_BASIC_PARAMS_T m16c_basic;
--		CPC_SJA1000_PARAMS_T sja1000;
--		CPC_PCA82C200_PARAMS_T pca82c200;
--	} cc_params;
--} CPC_CAN_PARAMS_T;
--
--// the following structures are slightly different for Windows and Linux
--// To be able to use the 'Select' mechanism with Linux the application
--// needs to know the devices file desciptor.
--// This mechanism is not implemented within Windows and the file descriptor
--// is therefore not needed
--#ifdef _WIN32
--
--// CAN init params message representation
--typedef struct CPC_INIT_PARAMS {
--	CPC_CAN_PARAMS_T canparams;
--} CPC_INIT_PARAMS_T;
--
--#else// Linux
--
--// CHAN init params representation
--typedef struct CPC_CHAN_PARAMS {
--	int fd;
--} CPC_CHAN_PARAMS_T;
--
--// CAN init params message representation
--typedef struct CPC_INIT_PARAMS {
--	CPC_CHAN_PARAMS_T chanparams;
--	CPC_CAN_PARAMS_T canparams;
--} CPC_INIT_PARAMS_T;
--
--#endif
--
--// structure for confirmed message handling
--typedef struct CPC_CONFIRM {
--	u8 result; // error code
--} CPC_CONFIRM_T;
--
--// structure for information requests
--typedef struct CPC_INFO {
--	u8 source;                 // interface, driver or library
--	u8 type;                   // version or serial number
--	char msg[CPC_MSG_LEN - 2]; // string holding the requested information
--} CPC_INFO_T;
--
--// OVERRUN ///////////////////////////////////////
--// In general two types of overrun may occur.
--// A hardware overrun, where the CAN controller
--// lost a message, because the interrupt was
--// not handled before the next messgae comes in.
--// Or a software overrun, where i.e. a received
--// message could not be stored in the CPC_MSG
--// buffer.
--
--// After a software overrun has occurred
--// we wait until we have CPC_OVR_GAP slots
--// free in the CPC_MSG buffer.
--#define CPC_OVR_GAP               10
--
--// Two types of software overrun may occur.
--// A received CAN message or a CAN state event
--// can cause an overrun.
--// Note: A CPC_CMD which would normally store
--// its result immediately in the CPC_MSG
--// queue may fail, because the message queue is full.
--// This will not generate an overrun message, but
--// will halt command execution, until this command
--// is able to store its message in the message queue.
--#define CPC_OVR_EVENT_CAN       0x01
--#define CPC_OVR_EVENT_CANSTATE  0x02
--#define CPC_OVR_EVENT_BUSERROR  0x04
--
--// If the CAN controller lost a message
--// we indicate it with the highest bit
--// set in the count field.
--#define CPC_OVR_HW              0x80
--
--// structure for overrun conditions
--typedef struct {
--	u8 event;
--	u8 count;
--} CPC_OVERRUN_T;
--
--// CAN errors ////////////////////////////////////
--// Each CAN controller type has different
--// registers to record errors.
--// Therefor a structure containing the specific
--// errors is set up for each controller here
--
--// SJA1000 error structure
--// see the SJA1000 datasheet for detailed
--// explanation of the registers
--typedef struct CPC_SJA1000_CAN_ERROR {
--	u8 ecc;   // error capture code register
--	u8 rxerr; // RX error counter register
--	u8 txerr; // TX error counter register
--} CPC_SJA1000_CAN_ERROR_T;
--
--// M16C error structure
--// see the M16C datasheet for detailed
--// explanation of the registers
--typedef struct CPC_M16C_CAN_ERROR {
--	u8 tbd;	// to be defined
--} CPC_M16C_CAN_ERROR_T;
--
--// structure for CAN error conditions
--#define  CPC_CAN_ECODE_ERRFRAME   0x01
--typedef struct CPC_CAN_ERROR {
--	u8 ecode;
--	struct {
--		u8 cc_type; // CAN controller type
--		union {
--			CPC_SJA1000_CAN_ERROR_T sja1000;
--			CPC_M16C_CAN_ERROR_T m16c;
--		} regs;
--	} cc;
--} CPC_CAN_ERROR_T;
--
--// Structure containing RX/TX error counter.
--// This structure is used to request the
--// values of the CAN controllers TX and RX
--// error counter.
--typedef struct CPC_CAN_ERR_COUNTER {
--	u8 rx;
--	u8 tx;
--} CPC_CAN_ERR_COUNTER_T;
--
--// If this flag is set, transmissions from PC to CPC are protected against loss
--#define CPC_SECURE_TO_CPC	0x01
--
--// If this flag is set, transmissions from CPC to PC are protected against loss
--#define CPC_SECURE_TO_PC	0x02
--
--// If this flag is set, the CAN-transmit buffer is checked to be free before sending a message
--#define CPC_SECURE_SEND		0x04
--
--// If this flag is set, the transmission complete flag is checked
--// after sending a message
--// THIS IS CURRENTLY ONLY IMPLEMENTED IN THE PASSIVE INTERFACE DRIVERS
--#define CPC_SECURE_TRANSMIT	0x08
--
--// main message type used between library and application
--typedef struct CPC_MSG {
--	u8 type;	// type of message
--	u8 length;	// length of data within union 'msg'
--	u8 msgid;	// confirmation handle
--	u32 ts_sec;	// timestamp in seconds
--	u32 ts_nsec;	// timestamp in nano seconds
--	union {
--		u8 generic[CPC_MSG_LEN];
--		CPC_CAN_MSG_T canmsg;
--		CPC_CAN_PARAMS_T canparams;
--		CPC_CONFIRM_T confirmation;
--		CPC_INFO_T info;
--		CPC_OVERRUN_T overrun;
--		CPC_CAN_ERROR_T error;
--		CPC_CAN_ERR_COUNTER_T err_counter;
--		u8 busload;
--		u8 canstate;
--	} msg;
--} CPC_MSG_T;
--
--#ifdef _WIN32
--#pragma pack(pop)		// reset the byte alignment
--#endif
--
--#endif				// CPC_HEADER
-diff --git a/drivers/staging/cpc-usb/cpc_int.h b/drivers/staging/cpc-usb/cpc_int.h
-deleted file mode 100644
-index a0d60c0..0000000
---- a/drivers/staging/cpc-usb/cpc_int.h
-+++ /dev/null
-@@ -1,83 +0,0 @@
--/*
-- * CPCLIB
-- *
-- * Copyright (C) 2000-2008 EMS Dr. Thomas Wuensche
-- *
-- * This program is distributed in the hope that it will be useful, but
-- * WITHOUT ANY WARRANTY; without even the implied warranty of
-- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-- *
-- */
--#ifndef CPC_INT_H
--#define CPC_INT_H
--
--#include <linux/wait.h>
--
--#define CPC_MSG_BUF_CNT	1500
--
--#define CPC_PROC_DIR "driver/"
--
--#undef dbg
--#undef err
--#undef info
--
--/* Use our own dbg macro */
--#define dbg(format, arg...) do { if (debug) printk( KERN_INFO format "\n" , ## arg); } while (0)
--#define err(format, arg...) do { printk( KERN_INFO "ERROR " format "\n" , ## arg); } while (0)
--#define info(format, arg...) do { printk( KERN_INFO format "\n" , ## arg); } while (0)
--
--/* Macros help using of our buffers */
--#define IsBufferFull(x)     (!(x)->WnR) && ((x)->iidx == (x)->oidx)
--#define IsBufferEmpty(x)    ((x)->WnR) && ((x)->iidx == (x)->oidx)
--#define IsBufferNotEmpty(x) (!(x)->WnR) || ((x)->iidx != (x)->oidx)
--#define ResetBuffer(x)      do { (x)->oidx = (x)->iidx=0; (x)->WnR = 1; } while(0);
--
--#define CPC_BufWriteAllowed ((chan->oidx != chan->iidx) || chan->WnR)
--
--typedef void (*chan_write_byte_t) (void *chan, unsigned int reg,
--				   unsigned char val);
--typedef unsigned char (*chan_read_byte_t) (void *chan, unsigned int reg);
--
--typedef struct CPC_CHAN {
--	void __iomem * canBase;	// base address of SJA1000
--	chan_read_byte_t read_byte;	// CAN controller read access routine
--	chan_write_byte_t write_byte;	// CAN controller write access routine
--	CPC_MSG_T *buf;		// buffer for CPC msg
--	unsigned int iidx;
--	unsigned int oidx;
--	unsigned int WnR;
--	unsigned int minor;
--	unsigned int locked;
--	unsigned int irqDisabled;
--
--	unsigned char cpcCtrlCANMessage;
--	unsigned char cpcCtrlCANState;
--	unsigned char cpcCtrlBUSState;
--
--	unsigned char controllerType;
--
--	unsigned long ovrTimeSec;
--	unsigned long ovrTimeNSec;
--	unsigned long ovrLockedBuffer;
--	CPC_OVERRUN_T ovr;
--
--	/* for debugging only */
--	unsigned int handledIrqs;
--	unsigned int lostMessages;
--
--	unsigned int sentStdCan;
--	unsigned int sentExtCan;
--	unsigned int sentStdRtr;
--	unsigned int sentExtRtr;
--
--	unsigned int recvStdCan;
--	unsigned int recvExtCan;
--	unsigned int recvStdRtr;
--	unsigned int recvExtRtr;
--
--	wait_queue_head_t *CPCWait_q;
--
--	void *private;
--} CPC_CHAN_T;
--
--#endif
-diff --git a/drivers/staging/cpc-usb/cpcusb.h b/drivers/staging/cpc-usb/cpcusb.h
-deleted file mode 100644
-index e5273dd..0000000
---- a/drivers/staging/cpc-usb/cpcusb.h
-+++ /dev/null
-@@ -1,86 +0,0 @@
--/* Header for CPC-USB Driver ********************
-- * Copyright 1999, 2000, 2001
-- *
-- * Company:  EMS Dr. Thomas Wuensche
-- *           Sonnenhang 3
-- *           85304 Ilmmuenster
-- *           Phone: +49-8441-490260
-- *           Fax:   +49-8441-81860
-- *           email: support-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org
-- *           WWW:   www.ems-wuensche.com
-- */
--
--#ifndef CPCUSB_H
--#define CPCUSB_H
--
--#undef err
--#undef dbg
--#undef info
--
--/* Use our own dbg macro */
--#define dbg(format, arg...) do { if (debug) printk(KERN_INFO "CPC-USB: " format "\n" , ## arg); } while (0)
--#define info(format, arg...) do { printk(KERN_INFO "CPC-USB: " format "\n" , ## arg); } while (0)
--#define err(format, arg...) do { printk(KERN_INFO "CPC-USB(ERROR): " format "\n" , ## arg); } while (0)
--
--#define CPC_USB_CARD_CNT      4
--
--typedef struct CPC_USB_READ_URB {
--	unsigned char *buffer;	/* the buffer to send data */
--	size_t size;		/* the size of the send buffer */
--	struct urb *urb;	/* the urb used to send data */
--} CPC_USB_READ_URB_T;
--
--typedef struct CPC_USB_WRITE_URB {
--	unsigned char *buffer;	/* the buffer to send data */
--	size_t size;		/* the size of the send buffer */
--	struct urb *urb;	/* the urb used to send data */
--	atomic_t busy;		/* true if write urb is busy */
--	struct completion finished;	/* wait for the write to finish */
--} CPC_USB_WRITE_URB_T;
--
--#define CPC_USB_URB_CNT  10
--
--typedef struct CPC_USB {
--	struct usb_device *udev;	/* save off the usb device pointer */
--	struct usb_interface *interface;	/* the interface for this device */
--	unsigned char minor;	/* the starting minor number for this device */
--	unsigned char num_ports;	/* the number of ports this device has */
--	int num_intr_in;	/* number of interrupt in endpoints we have */
--	int num_bulk_in;	/* number of bulk in endpoints we have */
--	int num_bulk_out;	/* number of bulk out endpoints we have */
--
--	CPC_USB_READ_URB_T urbs[CPC_USB_URB_CNT];
--
--	unsigned char intr_in_buffer[4];	/* interrupt transfer buffer */
--	struct urb *intr_in_urb;	/* interrupt transfer urb */
--
--	CPC_USB_WRITE_URB_T wrUrbs[CPC_USB_URB_CNT];
--
--	int open;		/* if the port is open or not */
--	int present;		/* if the device is not disconnected */
--	struct semaphore sem;	/* locks this structure */
--
--	int free_slots;		/* free send slots of CPC-USB */
--	int idx;
--
--	spinlock_t slock;
--
--	char serialNumber[128];	/* serial number */
--	int productId;		/* product id to differ between M16C and LPC2119 */
--	CPC_CHAN_T *chan;
--} CPC_USB_T;
--
--#define CPCTable               CPCUSB_Table
--
--#define CPC_DRIVER_VERSION "0.724"
--#define CPC_DRIVER_SERIAL  "not applicable"
--
--#define OBUF_SIZE 255		// 4096
--
--/* read timeouts -- RD_NAK_TIMEOUT * RD_EXPIRE = Number of seconds */
--#define RD_NAK_TIMEOUT (10*HZ)	/* Default number of X seconds to wait */
--#define RD_EXPIRE 12		/* Number of attempts to wait X seconds */
--
--#define CPC_USB_BASE_MNR 0	/* CPC-USB start at minor 0  */
--
--#endif
-diff --git a/drivers/staging/cpc-usb/sja2m16c.h b/drivers/staging/cpc-usb/sja2m16c.h
-deleted file mode 100644
-index 654bd3f..0000000
---- a/drivers/staging/cpc-usb/sja2m16c.h
-+++ /dev/null
-@@ -1,41 +0,0 @@
--#ifndef _SJA2M16C_H
--#define _SJA2M16C_H
--
--#include "cpc.h"
--
--#define BAUDRATE_TOLERANCE_PERCENT	1
--#define SAMPLEPOINT_TOLERANCE_PERCENT	5
--#define SAMPLEPOINT_UPPER_LIMIT		88
--
--/* M16C parameters */
--struct FIELD_C0CONR {
--	unsigned int brp:4;
--	unsigned int sam:1;
--	unsigned int pr:3;
--	unsigned int dummy:8;
--};
--struct FIELD_C1CONR {
--	unsigned int ph1:3;
--	unsigned int ph2:3;
--	unsigned int sjw:2;
--	unsigned int dummy:8;
--};
--typedef union C0CONR {
--	unsigned char c0con;
--	struct FIELD_C0CONR bc0con;
--} C0CONR_T;
--typedef union C1CONR {
--	unsigned char c1con;
--	struct FIELD_C1CONR bc1con;
--} C1CONR_T;
--
--#define SJA_TSEG1	((pParams->btr1 & 0x0f)+1)
--#define SJA_TSEG2	(((pParams->btr1 & 0x70)>>4)+1)
--#define SJA_BRP		((pParams->btr0 & 0x3f)+1)
--#define SJA_SJW		((pParams->btr0 & 0xc0)>>6)
--#define SJA_SAM		((pParams->btr1 & 0x80)>>7)
--int baudrate_m16c(int clk, int brp, int pr, int ph1, int ph2);
--int samplepoint_m16c(int brp, int pr, int ph1, int ph2);
--int SJA1000_TO_M16C_BASIC_Params(CPC_MSG_T *pMsg);
--
--#endif
-diff --git a/drivers/staging/cpc-usb/sja2m16c_2.c b/drivers/staging/cpc-usb/sja2m16c_2.c
-deleted file mode 100644
-index bf0230f..0000000
---- a/drivers/staging/cpc-usb/sja2m16c_2.c
-+++ /dev/null
-@@ -1,452 +0,0 @@
--/****************************************************************************
--*
--*      Copyright (c) 2003,2004 by EMS Dr. Thomas Wuensche
--*
--*                  - All rights reserved -
--*
--* This code is provided "as is" without warranty of any kind, either
--* expressed or implied, including but not limited to the liability
--* concerning the freedom from material defects, the fitness for parti-
--* cular purposes or the freedom of proprietary rights of third parties.
--*
--*****************************************************************************
--* Module name.: cpcusb
--*****************************************************************************
--* Include file: cpc.h
--*****************************************************************************
--* Project.....: Windows Driver Development Kit
--* Filename....: sja2m16c.cpp
--* Authors.....: (GU) Gerhard Uttenthaler
--*               (CS) Christian Schoett
--*****************************************************************************
--* Short descr.: converts baudrate between SJA1000 and M16C
--*****************************************************************************
--* Description.: handles the baudrate conversion from SJA1000 parameters to
--*               M16C parameters
--*****************************************************************************
--* Address     : EMS Dr. Thomas Wuensche
--*               Sonnenhang 3
--*               D-85304 Ilmmuenster
--*               Tel. : +49-8441-490260
--*               Fax. : +49-8441-81860
--*               email: support-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org
--*****************************************************************************
--*                            History
--*****************************************************************************
--* Version  Date        Auth Remark
--*
--* 01.00    ??          GU   - initial release
--* 01.10    ??????????  CS   - adapted to fit into the USB Windows driver
--* 02.00    18.08.2004  GU   - improved the baudrate calculating algorithm
--*                           - implemented acceptance filtering
--* 02.10    10.09.2004  CS   - adapted to fit into the USB Windows driver
--*****************************************************************************
--*                            ToDo's
--*****************************************************************************
--*/
--
--/****************************************************************************/
--/*     I N C L U D E S
--*/
--#include <linux/kernel.h>
--#include <linux/errno.h>
--#include <linux/init.h>
--#include <linux/slab.h>
--#include <linux/vmalloc.h>
--#include <linux/module.h>
--#include <linux/poll.h>
--#include <linux/smp_lock.h>
--#include <linux/completion.h>
--#include <asm/uaccess.h>
--#include <linux/usb.h>
--
--#include "cpc.h"
--#include "cpc_int.h"
--#include "cpcusb.h"
--
--#include "sja2m16c.h"
--
--/*********************************************************************/
--int baudrate_m16c(int clk, int brp, int pr, int ph1, int ph2)
--{
--	return (16000000 / (1 << clk)) / 2 / (brp + 1) / (1 + pr + 1 +
--							    ph1 + 1 + ph2 +
--							    1);
--}
--
--
--/*********************************************************************/
--int samplepoint_m16c(int brp, int pr, int ph1, int ph2)
--{
--	return (100 * (1 + pr + 1 + ph1 + 1)) / (1 + pr + 1 + ph1 + 1 +
--						  ph2 + 1);
--}
--
--
--/****************************************************************************
--* Function.....: SJA1000_TO_M16C_BASIC_Params
--*
--* Task.........: This routine converts SJA1000 CAN btr parameters into M16C
--*                parameters based on the sample point and the error. In
--*                addition it converts the acceptance filter parameters to
--*                suit the M16C parameters
--*
--* Parameters...: None
--*
--* Return values: None
--*
--* Comments.....:
--*****************************************************************************
--*                History
--*****************************************************************************
--* 19.01.2005  CS   - modifed the conversion of SJA1000 filter params into
--*                    M16C params. Due to compatibility reasons with the
--*                    older 82C200 CAN controller the SJA1000
--****************************************************************************/
--int SJA1000_TO_M16C_BASIC_Params(CPC_MSG_T * in)
--{
--	int sjaBaudrate;
--	int sjaSamplepoint;
--	int *baudrate_error;	// BRP[0..15], PR[0..7], PH1[0..7], PH2[0..7]
--	int *samplepoint_error;	// BRP[0..15], PR[0..7], PH1[0..7], PH2[0..7]
--	int baudrate_error_merk;
--	int clk, brp, pr, ph1, ph2;
--	int clk_merk, brp_merk, pr_merk, ph1_merk, ph2_merk;
--	int index;
--	unsigned char acc_code0, acc_code1, acc_code2, acc_code3;
--	unsigned char acc_mask0, acc_mask1, acc_mask2, acc_mask3;
--	CPC_MSG_T * out;
--	C0CONR_T c0con;
--	C1CONR_T c1con;
--	int tmpAccCode;
--	int tmpAccMask;
--
--	    // we have to convert the parameters into M16C parameters
--	    CPC_SJA1000_PARAMS_T * pParams;
--
--	    // check if the type is CAN parameters and if we have to convert the given params
--	    if (in->type != CPC_CMD_T_CAN_PRMS
--		|| in->msg.canparams.cc_type != SJA1000)
--		return 0;
--	pParams =
--	    (CPC_SJA1000_PARAMS_T *) & in->msg.canparams.cc_params.sja1000;
--	acc_code0 = pParams->acc_code0;
--	acc_code1 = pParams->acc_code1;
--	acc_code2 = pParams->acc_code2;
--	acc_code3 = pParams->acc_code3;
--	acc_mask0 = pParams->acc_mask0;
--	acc_mask1 = pParams->acc_mask1;
--	acc_mask2 = pParams->acc_mask2;
--	acc_mask3 = pParams->acc_mask3;
--
--#ifdef _DEBUG_OUTPUT_CAN_PARAMS
--	    info("acc_code0: %2.2Xh\n", acc_code0);
--	info("acc_code1: %2.2Xh\n", acc_code1);
--	info("acc_code2: %2.2Xh\n", acc_code2);
--	info("acc_code3: %2.2Xh\n", acc_code3);
--	info("acc_mask0: %2.2Xh\n", acc_mask0);
--	info("acc_mask1: %2.2Xh\n", acc_mask1);
--	info("acc_mask2: %2.2Xh\n", acc_mask2);
--	info("acc_mask3: %2.2Xh\n", acc_mask3);
--
--#endif	/*  */
--	    if (!
--		 (baudrate_error =
--		  (int *) vmalloc(sizeof(int) * 16 * 8 * 8 * 8 * 5))) {
--		err("Could not allocate memory\n");
--		return -3;
--	}
--	if (!
--	      (samplepoint_error =
--	       (int *) vmalloc(sizeof(int) * 16 * 8 * 8 * 8 * 5))) {
--		err("Could not allocate memory\n");
--		vfree(baudrate_error);
--		return -3;
--	}
--	memset(baudrate_error, 0xff, sizeof(baudrate_error));
--	memset(samplepoint_error, 0xff, sizeof(baudrate_error));
--	sjaBaudrate =
--	    16000000 / 2 / SJA_BRP / (1 + SJA_TSEG1 + SJA_TSEG2);
--	sjaSamplepoint =
--	    100 * (1 + SJA_TSEG1) / (1 + SJA_TSEG1 + SJA_TSEG2);
--	if (sjaBaudrate == 0) {
--		vfree(baudrate_error);
--		vfree(samplepoint_error);
--		return -2;
--	}
--
--#ifdef _DEBUG_OUTPUT_CAN_PARAMS
--	    info("\nStarting SJA CAN params\n");
--	info("-------------------------\n");
--	info("TS1     : %2.2Xh TS2 : %2.2Xh\n", SJA_TSEG1, SJA_TSEG2);
--	info("BTR0    : %2.2Xh BTR1: %2.2Xh\n", pParams->btr0,
--	      pParams->btr1);
--	info("Baudrate: %d.%dkBaud\n", sjaBaudrate / 1000,
--	      sjaBaudrate % 1000);
--	info("Sample P: 0.%d\n", sjaSamplepoint);
--	info("\n");
--
--#endif	/*  */
--	    c0con.bc0con.sam = SJA_SAM;
--	c1con.bc1con.sjw = SJA_SJW;
--
--	    // calculate errors for all baudrates
--	    index = 0;
--	for (clk = 0; clk < 5; clk++) {
--		for (brp = 0; brp < 16; brp++) {
--			for (pr = 0; pr < 8; pr++) {
--				for (ph1 = 0; ph1 < 8; ph1++) {
--					for (ph2 = 0; ph2 < 8; ph2++) {
--						baudrate_error[index] =
--						    100 *
--						    abs(baudrate_m16c
--							(clk, brp, pr, ph1,
--							 ph2) -
--							sjaBaudrate) /
--						    sjaBaudrate;
--						samplepoint_error[index] =
--						    abs(samplepoint_m16c
--							(brp, pr, ph1,
--							 ph2) -
--							sjaSamplepoint);
--
--#if 0
--						    info
--						    ("Baudrate      : %d kBaud\n",
--						     baudrate_m16c(clk,
--								   brp, pr,
--								   ph1,
--								   ph2));
--						info
--						    ("Baudrate Error: %d\n",
--						     baudrate_error
--						     [index]);
--						info
--						    ("Sample P Error: %d\n",
--						     samplepoint_error
--						     [index]);
--						info
--						    ("clk           : %d\n",
--						     clk);
--
--#endif	/*  */
--						    index++;
--					}
--				}
--			}
--		}
--	}
--
--	    // mark all baudrate_error entries which are outer limits
--	    index = 0;
--	for (clk = 0; clk < 5; clk++) {
--		for (brp = 0; brp < 16; brp++) {
--			for (pr = 0; pr < 8; pr++) {
--				for (ph1 = 0; ph1 < 8; ph1++) {
--					for (ph2 = 0; ph2 < 8; ph2++) {
--						if ((baudrate_error[index]
--						      >
--						      BAUDRATE_TOLERANCE_PERCENT)
--						     ||
--						     (samplepoint_error
--						       [index] >
--						       SAMPLEPOINT_TOLERANCE_PERCENT)
--						     ||
--						     (samplepoint_m16c
--						       (brp, pr, ph1,
--							ph2) >
--						       SAMPLEPOINT_UPPER_LIMIT))
--						{
--							baudrate_error
--							    [index] = -1;
--						} else
--						    if (((1 + pr + 1 +
--							  ph1 + 1 + ph2 +
--							  1) < 8)
--							||
--							((1 + pr + 1 +
--							  ph1 + 1 + ph2 +
--							  1) > 25)) {
--							baudrate_error
--							    [index] = -1;
--						}
--
--#if 0
--						    else {
--							info
--							    ("Baudrate      : %d kBaud\n",
--							     baudrate_m16c
--							     (clk, brp, pr,
--							      ph1, ph2));
--							info
--							    ("Baudrate Error: %d\n",
--							     baudrate_error
--							     [index]);
--							info
--							    ("Sample P Error: %d\n",
--							     samplepoint_error
--							     [index]);
--						}
--
--#endif	/*  */
--						    index++;
--					}
--				}
--			}
--		}
--	}
--
--	    // find list of minimum of baudrate_error within unmarked entries
--	    clk_merk = brp_merk = pr_merk = ph1_merk = ph2_merk = 0;
--	baudrate_error_merk = 100;
--	index = 0;
--	for (clk = 0; clk < 5; clk++) {
--		for (brp = 0; brp < 16; brp++) {
--			for (pr = 0; pr < 8; pr++) {
--				for (ph1 = 0; ph1 < 8; ph1++) {
--					for (ph2 = 0; ph2 < 8; ph2++) {
--						if (baudrate_error[index]
--						     != -1) {
--							if (baudrate_error
--							     [index] <
--							     baudrate_error_merk)
--							{
--								baudrate_error_merk
--								    =
--								    baudrate_error
--								    [index];
--								brp_merk =
--								    brp;
--								pr_merk =
--								    pr;
--								ph1_merk =
--								    ph1;
--								ph2_merk =
--								    ph2;
--								clk_merk =
--								    clk;
--
--#if 0
--								    info
--								    ("brp: %2.2Xh pr: %2.2Xh ph1: %2.2Xh ph2: %2.2Xh\n",
--								     brp,
--								     pr,
--								     ph1,
--								     ph2);
--								info
--								    ("Baudrate      : %d kBaud\n",
--								     baudrate_m16c
--								     (clk,
--								      brp,
--								      pr,
--								      ph1,
--								      ph2));
--								info
--								    ("Baudrate Error: %d\n",
--								     baudrate_error
--								     [index]);
--								info
--								    ("Sample P Error: %d\n",
--								     samplepoint_error
--								     [index]);
--
--#endif	/*  */
--							}
--						}
--						index++;
--					}
--				}
--			}
--		}
--	}
--	if (baudrate_error_merk == 100) {
--		info("ERROR: Could not convert CAN init parameter\n");
--		vfree(baudrate_error);
--		vfree(samplepoint_error);
--		return -1;
--	}
--
--	    // setting m16c CAN parameter
--	    c0con.bc0con.brp = brp_merk;
--	c0con.bc0con.pr = pr_merk;
--	c1con.bc1con.ph1 = ph1_merk;
--	c1con.bc1con.ph2 = ph2_merk;
--
--#ifdef _DEBUG_OUTPUT_CAN_PARAMS
--	    info("\nResulting M16C CAN params\n");
--	info("-------------------------\n");
--	info("clk     : %2.2Xh\n", clk_merk);
--	info("ph1     : %2.2Xh ph2: %2.2Xh\n", c1con.bc1con.ph1 + 1,
--	      c1con.bc1con.ph2 + 1);
--	info("pr      : %2.2Xh brp: %2.2Xh\n", c0con.bc0con.pr + 1,
--	      c0con.bc0con.brp + 1);
--	info("sjw     : %2.2Xh sam: %2.2Xh\n", c1con.bc1con.sjw,
--	      c0con.bc0con.sam);
--	info("co1     : %2.2Xh co0: %2.2Xh\n", c1con.c1con, c0con.c0con);
--	info("Baudrate: %d.%dBaud\n",
--	       baudrate_m16c(clk_merk, c0con.bc0con.brp, c0con.bc0con.pr,
--			     c1con.bc1con.ph1, c1con.bc1con.ph2) / 1000,
--	       baudrate_m16c(clk_merk, c0con.bc0con.brp, c0con.bc0con.pr,
--			      c1con.bc1con.ph1, c1con.bc1con.ph2) % 1000);
--	info("Sample P: 0.%d\n",
--	      samplepoint_m16c(c0con.bc0con.brp, c0con.bc0con.pr,
--			       c1con.bc1con.ph1, c1con.bc1con.ph2));
--	info("\n");
--
--#endif	/*  */
--	    out = in;
--	out->type = 6;
--	out->length = sizeof(CPC_M16C_BASIC_PARAMS_T) + 1;
--	out->msg.canparams.cc_type = M16C_BASIC;
--	out->msg.canparams.cc_params.m16c_basic.con0 = c0con.c0con;
--	out->msg.canparams.cc_params.m16c_basic.con1 = c1con.c1con;
--	out->msg.canparams.cc_params.m16c_basic.ctlr0 = 0x4C;
--	out->msg.canparams.cc_params.m16c_basic.ctlr1 = 0x00;
--	out->msg.canparams.cc_params.m16c_basic.clk = clk_merk;
--	out->msg.canparams.cc_params.m16c_basic.acc_std_code0 =
--	    acc_code0;
--	out->msg.canparams.cc_params.m16c_basic.acc_std_code1 = acc_code1;
--
--//      info("code0: 0x%2.2X, code1: 0x%2.2X\n", out->msg.canparams.cc_params.m16c_basic.acc_std_code0, out->msg.canparams.cc_params.m16c_basic.acc_std_code1);
--	    tmpAccCode = (acc_code1 >> 5) + (acc_code0 << 3);
--	out->msg.canparams.cc_params.m16c_basic.acc_std_code0 =
--	    (unsigned char) tmpAccCode;
--	out->msg.canparams.cc_params.m16c_basic.acc_std_code1 =
--	    (unsigned char) (tmpAccCode >> 8);
--
--//      info("code0: 0x%2.2X, code1: 0x%2.2X\n", out->msg.canparams.cc_params.m16c_basic.acc_std_code0, out->msg.canparams.cc_params.m16c_basic.acc_std_code1);
--	    out->msg.canparams.cc_params.m16c_basic.acc_std_mask0 =
--	    ~acc_mask0;
--	out->msg.canparams.cc_params.m16c_basic.acc_std_mask1 =
--	    ~acc_mask1;
--
--//      info("mask0: 0x%2.2X, mask1: 0x%2.2X\n", out->msg.canparams.cc_params.m16c_basic.acc_std_mask0, out->msg.canparams.cc_params.m16c_basic.acc_std_mask1);
--	    tmpAccMask = ((acc_mask1) >> 5) + ((acc_mask0) << 3);
--
--//      info("tmpAccMask: 0x%4.4X\n", tmpAccMask);
--	    out->msg.canparams.cc_params.m16c_basic.acc_std_mask0 =
--	    (unsigned char) ~tmpAccMask;
--	out->msg.canparams.cc_params.m16c_basic.acc_std_mask1 =
--	    (unsigned char) ~(tmpAccMask >> 8);
--
--//      info("mask0: 0x%2.2X, mask1: 0x%2.2X\n", out->msg.canparams.cc_params.m16c_basic.acc_std_mask0, out->msg.canparams.cc_params.m16c_basic.acc_std_mask1);
--	    out->msg.canparams.cc_params.m16c_basic.acc_ext_code0 =
--	    (unsigned char) tmpAccCode;
--	out->msg.canparams.cc_params.m16c_basic.acc_ext_code1 =
--	    (unsigned char) (tmpAccCode >> 8);
--	out->msg.canparams.cc_params.m16c_basic.acc_ext_code2 = acc_code2;
--	out->msg.canparams.cc_params.m16c_basic.acc_ext_code3 = acc_code3;
--	out->msg.canparams.cc_params.m16c_basic.acc_ext_mask0 =
--	    (unsigned char) ~tmpAccMask;
--	out->msg.canparams.cc_params.m16c_basic.acc_ext_mask1 =
--	    (unsigned char) ~(tmpAccMask >> 8);
--	out->msg.canparams.cc_params.m16c_basic.acc_ext_mask2 =
--	    ~acc_mask2;
--	out->msg.canparams.cc_params.m16c_basic.acc_ext_mask3 =
--	    ~acc_mask3;
--	vfree(baudrate_error);
--	vfree(samplepoint_error);
--	return 0;
--}
--
--
+ ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
+diff --git a/drivers/net/can/usb/Makefile b/drivers/net/can/usb/Makefile
+new file mode 100644
+index 0000000..c3f75ba
+--- /dev/null
++++ b/drivers/net/can/usb/Makefile
+@@ -0,0 +1,5 @@
++#
++#  Makefile for the Linux Controller Area Network USB drivers.
++#
++
++obj-$(CONFIG_CAN_EMS_USB) += ems_usb.o
+diff --git a/drivers/net/can/usb/ems_usb.c b/drivers/net/can/usb/ems_usb.c
+new file mode 100644
+index 0000000..9012e0a
+--- /dev/null
++++ b/drivers/net/can/usb/ems_usb.c
+@@ -0,0 +1,1155 @@
++/*
++ * CAN driver for EMS Dr. Thomas Wuensche CPC-USB/ARM7
++ *
++ * Copyright (C) 2004-2009 EMS Dr. Thomas Wuensche
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License as published
++ * by the Free Software Foundation; version 2 of the License.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++#include <linux/init.h>
++#include <linux/signal.h>
++#include <linux/slab.h>
++#include <linux/module.h>
++#include <linux/netdevice.h>
++#include <linux/usb.h>
++
++#include <linux/can.h>
++#include <linux/can/dev.h>
++#include <linux/can/error.h>
++
++MODULE_AUTHOR("Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>");
++MODULE_DESCRIPTION("CAN driver for EMS Dr. Thomas Wuensche CAN/USB interfaces");
++MODULE_LICENSE("GPL v2");
++
++/* Control-Values for CPC_Control() Command Subject Selection */
++#define CONTR_CAN_MESSAGE 0x04
++#define CONTR_CAN_STATE   0x0C
++#define CONTR_BUS_ERROR   0x1C
++
++/* Control Command Actions */
++#define CONTR_CONT_OFF 0
++#define CONTR_CONT_ON  1
++#define CONTR_ONCE     2
++
++/* Messages from CPC to PC */
++#define CPC_MSG_TYPE_CAN_FRAME       1  /* CAN data frame */
++#define CPC_MSG_TYPE_RTR_FRAME       8  /* CAN remote frame */
++#define CPC_MSG_TYPE_CAN_PARAMS      12 /* Actual CAN parameters */
++#define CPC_MSG_TYPE_CAN_STATE       14 /* CAN state message */
++#define CPC_MSG_TYPE_EXT_CAN_FRAME   16 /* Extended CAN data frame */
++#define CPC_MSG_TYPE_EXT_RTR_FRAME   17 /* Extended remote frame */
++#define CPC_MSG_TYPE_CONTROL         19 /* change interface behavior */
++#define CPC_MSG_TYPE_CONFIRM         20 /* command processed confirmation */
++#define CPC_MSG_TYPE_OVERRUN         21 /* overrun events */
++#define CPC_MSG_TYPE_CAN_FRAME_ERROR 23 /* detected bus errors */
++#define CPC_MSG_TYPE_ERR_COUNTER     25 /* RX/TX error counter */
++
++/* Messages from the PC to the CPC interface  */
++#define CPC_CMD_TYPE_CAN_FRAME     1   /* CAN data frame */
++#define CPC_CMD_TYPE_CONTROL       3   /* control of interface behavior */
++#define CPC_CMD_TYPE_CAN_PARAMS    6   /* set CAN parameters */
++#define CPC_CMD_TYPE_RTR_FRAME     13  /* CAN remote frame */
++#define CPC_CMD_TYPE_CAN_STATE     14  /* CAN state message */
++#define CPC_CMD_TYPE_EXT_CAN_FRAME 15  /* Extended CAN data frame */
++#define CPC_CMD_TYPE_EXT_RTR_FRAME 16  /* Extended CAN remote frame */
++#define CPC_CMD_TYPE_CAN_EXIT      200 /* exit the CAN */
++
++#define CPC_CMD_TYPE_INQ_ERR_COUNTER 25 /* request the CAN error counters */
++#define CPC_CMD_TYPE_CLEAR_MSG_QUEUE 8  /* clear CPC_MSG queue */
++#define CPC_CMD_TYPE_CLEAR_CMD_QUEUE 28 /* clear CPC_CMD queue */
++
++#define CPC_CC_TYPE_SJA1000 2 /* Philips basic CAN controller */
++
++#define CPC_CAN_ECODE_ERRFRAME 0x01 /* Ecode type */
++
++/* Overrun types */
++#define CPC_OVR_EVENT_CAN       0x01
++#define CPC_OVR_EVENT_CANSTATE  0x02
++#define CPC_OVR_EVENT_BUSERROR  0x04
++
++/*
++ * If the CAN controller lost a message we indicate it with the highest bit
++ * set in the count field.
++ */
++#define CPC_OVR_HW 0x80
++
++/* Size of the "struct ems_cpc_msg" without the union */
++#define CPC_MSG_HEADER_LEN   11
++#define CPC_CAN_MSG_MIN_SIZE 5
++
++/* Define these values to match your devices */
++#define USB_CPCUSB_VENDOR_ID 0x12D6
++
++#define USB_CPCUSB_ARM7_PRODUCT_ID 0x0444
++
++/* Mode register NXP LPC2119/SJA1000 CAN Controller */
++#define SJA1000_MOD_NORMAL 0x00
++#define SJA1000_MOD_RM     0x01
++
++/* ECC register NXP LPC2119/SJA1000 CAN Controller */
++#define SJA1000_ECC_SEG   0x1F
++#define SJA1000_ECC_DIR   0x20
++#define SJA1000_ECC_ERR   0x06
++#define SJA1000_ECC_BIT   0x00
++#define SJA1000_ECC_FORM  0x40
++#define SJA1000_ECC_STUFF 0x80
++#define SJA1000_ECC_MASK  0xc0
++
++/* Status register content */
++#define SJA1000_SR_BS 0x80
++#define SJA1000_SR_ES 0x40
++
++#define SJA1000_DEFAULT_OUTPUT_CONTROL 0xDA
++
++/*
++ * The device actually uses a 16MHz clock to generate the CAN clock
++ * but it expects SJA1000 bit settings based on 8MHz (is internally
++ * converted).
++ */
++#define EMS_USB_ARM7_CLOCK 8000000
++
++/*
++ * CAN-Message representation in a CPC_MSG. Message object type is
++ * CPC_MSG_TYPE_CAN_FRAME or CPC_MSG_TYPE_RTR_FRAME or
++ * CPC_MSG_TYPE_EXT_CAN_FRAME or CPC_MSG_TYPE_EXT_RTR_FRAME.
++ */
++struct cpc_can_msg {
++	u32 id;
++	u8 length;
++	u8 msg[8];
++};
++
++/* Representation of the CAN parameters for the SJA1000 controller */
++struct cpc_sja1000_params {
++	u8 mode;
++	u8 acc_code0;
++	u8 acc_code1;
++	u8 acc_code2;
++	u8 acc_code3;
++	u8 acc_mask0;
++	u8 acc_mask1;
++	u8 acc_mask2;
++	u8 acc_mask3;
++	u8 btr0;
++	u8 btr1;
++	u8 outp_contr;
++};
++
++/* CAN params message representation */
++struct cpc_can_params {
++	u8 cc_type;
++
++	/* Will support M16C CAN controller in the future */
++	union {
++		struct cpc_sja1000_params sja1000;
++	} cc_params;
++};
++
++/* Structure for confirmed message handling */
++struct cpc_confirm {
++	u8 error; /* error code */
++};
++
++/* Structure for overrun conditions */
++struct cpc_overrun {
++	u8 event;
++	u8 count;
++};
++
++/* SJA1000 CAN errors (compatible to NXP LPC2119) */
++struct cpc_sja1000_can_error {
++	u8 ecc;
++	u8 rxerr;
++	u8 txerr;
++};
++
++/* structure for CAN error conditions */
++struct cpc_can_error {
++	u8 ecode;
++
++	struct {
++		u8 cc_type;
++
++		/* Other controllers may also provide error code capture regs */
++		union {
++			struct cpc_sja1000_can_error sja1000;
++		} regs;
++	} cc;
++};
++
++/*
++ * Structure containing RX/TX error counter. This structure is used to request
++ * the values of the CAN controllers TX and RX error counter.
++ */
++struct cpc_can_err_counter {
++	u8 rx;
++	u8 tx;
++};
++
++/* Main message type used between library and application */
++struct __attribute__ ((packed)) ems_cpc_msg {
++	u8 type;	/* type of message */
++	u8 length;	/* length of data within union 'msg' */
++	u8 msgid;	/* confirmation handle */
++	u32 ts_sec;	/* timestamp in seconds */
++	u32 ts_nsec;	/* timestamp in nano seconds */
++
++	union {
++		u8 generic[64];
++		struct cpc_can_msg can_msg;
++		struct cpc_can_params can_params;
++		struct cpc_confirm confirmation;
++		struct cpc_overrun overrun;
++		struct cpc_can_error error;
++		struct cpc_can_err_counter err_counter;
++		u8 can_state;
++	} msg;
++};
++
++/*
++ * Table of devices that work with this driver
++ * NOTE: This driver supports only CPC-USB/ARM7 (LPC2119) yet.
++ */
++static struct usb_device_id ems_usb_table[] = {
++	{USB_DEVICE(USB_CPCUSB_VENDOR_ID, USB_CPCUSB_ARM7_PRODUCT_ID)},
++	{} /* Terminating entry */
++};
++
++MODULE_DEVICE_TABLE(usb, ems_usb_table);
++
++#define RX_BUFFER_SIZE      64
++#define CPC_HEADER_SIZE     4
++#define INTR_IN_BUFFER_SIZE 4
++
++#define MAX_RX_URBS 10
++#define MAX_TX_URBS CAN_ECHO_SKB_MAX
++
++struct ems_usb;
++
++struct ems_tx_urb_context {
++	struct ems_usb *dev;
++
++	u32 echo_index;
++	u8 dlc;
++};
++
++struct ems_usb {
++	struct can_priv can; /* must be the first member */
++	int open_time;
++
++	struct sk_buff *echo_skb[MAX_TX_URBS];
++
++	struct usb_device *udev;
++	struct net_device *netdev;
++
++	atomic_t active_tx_urbs;
++	struct usb_anchor tx_submitted;
++	struct ems_tx_urb_context tx_contexts[MAX_TX_URBS];
++
++	struct usb_anchor rx_submitted;
++
++	struct urb *intr_urb;
++
++	u8 *tx_msg_buffer;
++
++	u8 *intr_in_buffer;
++	unsigned int free_slots; /* remember number of available slots */
++
++	struct ems_cpc_msg active_params; /* active controller parameters */
++};
++
++static void ems_usb_read_interrupt_callback(struct urb *urb)
++{
++	struct ems_usb *dev = urb->context;
++	struct net_device *netdev = dev->netdev;
++	int err;
++
++	if (!netif_device_present(netdev))
++		return;
++
++	switch (urb->status) {
++	case 0:
++		dev->free_slots = dev->intr_in_buffer[1];
++		break;
++
++	case -ECONNRESET: /* unlink */
++	case -ENOENT:
++	case -ESHUTDOWN:
++		return;
++
++	default:
++		dev_info(netdev->dev.parent, "Rx interrupt aborted %d\n",
++			 urb->status);
++		break;
++	}
++
++	err = usb_submit_urb(urb, GFP_ATOMIC);
++
++	if (err == -ENODEV)
++		netif_device_detach(netdev);
++	else if (err)
++		dev_err(netdev->dev.parent,
++			"failed resubmitting intr urb: %d\n", err);
++
++	return;
++}
++
++static void ems_usb_rx_can_msg(struct ems_usb *dev, struct ems_cpc_msg *msg)
++{
++	struct can_frame *cf;
++	struct sk_buff *skb;
++	int i;
++	struct net_device_stats *stats = &dev->netdev->stats;
++
++	skb = netdev_alloc_skb(dev->netdev, sizeof(struct can_frame));
++	if (skb == NULL)
++		return;
++
++	skb->protocol = htons(ETH_P_CAN);
++
++	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
++
++	cf->can_id = msg->msg.can_msg.id;
++	cf->can_dlc = min_t(u8, msg->msg.can_msg.length, 8);
++
++	if (msg->type == CPC_MSG_TYPE_EXT_CAN_FRAME
++	    || msg->type == CPC_MSG_TYPE_EXT_RTR_FRAME)
++		cf->can_id |= CAN_EFF_FLAG;
++
++	if (msg->type == CPC_MSG_TYPE_RTR_FRAME
++	    || msg->type == CPC_MSG_TYPE_EXT_RTR_FRAME) {
++		cf->can_id |= CAN_RTR_FLAG;
++	} else {
++		for (i = 0; i < cf->can_dlc; i++)
++			cf->data[i] = msg->msg.can_msg.msg[i];
++	}
++
++	netif_rx(skb);
++
++	stats->rx_packets++;
++	stats->rx_bytes += cf->can_dlc;
++}
++
++static void ems_usb_rx_err(struct ems_usb *dev, struct ems_cpc_msg *msg)
++{
++	struct can_frame *cf;
++	struct sk_buff *skb;
++	struct net_device_stats *stats = &dev->netdev->stats;
++
++	skb = netdev_alloc_skb(dev->netdev, sizeof(struct can_frame));
++	if (skb == NULL)
++		return;
++
++	skb->protocol = htons(ETH_P_CAN);
++
++	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
++	memset(cf, 0, sizeof(struct can_frame));
++
++	cf->can_id = CAN_ERR_FLAG;
++	cf->can_dlc = CAN_ERR_DLC;
++
++	if (msg->type == CPC_MSG_TYPE_CAN_STATE) {
++		u8 state = msg->msg.can_state;
++
++		if (state & SJA1000_SR_BS) {
++			dev->can.state = CAN_STATE_BUS_OFF;
++			cf->can_id |= CAN_ERR_BUSOFF;
++
++			can_bus_off(dev->netdev);
++		} else if (state & SJA1000_SR_ES) {
++			dev->can.state = CAN_STATE_ERROR_WARNING;
++			dev->can.can_stats.error_warning++;
++		} else {
++			dev->can.state = CAN_STATE_ERROR_ACTIVE;
++			dev->can.can_stats.error_passive++;
++		}
++	} else if (msg->type == CPC_MSG_TYPE_CAN_FRAME_ERROR) {
++		u8 ecc = msg->msg.error.cc.regs.sja1000.ecc;
++		u8 txerr = msg->msg.error.cc.regs.sja1000.txerr;
++		u8 rxerr = msg->msg.error.cc.regs.sja1000.rxerr;
++
++		/* bus error interrupt */
++		dev->can.can_stats.bus_error++;
++		stats->rx_errors++;
++
++		cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
++
++		switch (ecc & SJA1000_ECC_MASK) {
++		case SJA1000_ECC_BIT:
++			cf->data[2] |= CAN_ERR_PROT_BIT;
++			break;
++		case SJA1000_ECC_FORM:
++			cf->data[2] |= CAN_ERR_PROT_FORM;
++			break;
++		case SJA1000_ECC_STUFF:
++			cf->data[2] |= CAN_ERR_PROT_STUFF;
++			break;
++		default:
++			cf->data[2] |= CAN_ERR_PROT_UNSPEC;
++			cf->data[3] = ecc & SJA1000_ECC_SEG;
++			break;
++		}
++
++		/* Error occured during transmission? */
++		if ((ecc & SJA1000_ECC_DIR) == 0)
++			cf->data[2] |= CAN_ERR_PROT_TX;
++
++		if (dev->can.state == CAN_STATE_ERROR_WARNING ||
++		    dev->can.state == CAN_STATE_ERROR_PASSIVE) {
++			cf->data[1] = (txerr > rxerr) ?
++			    CAN_ERR_CRTL_TX_PASSIVE : CAN_ERR_CRTL_RX_PASSIVE;
++		}
++	} else if (msg->type == CPC_MSG_TYPE_OVERRUN) {
++		cf->can_id |= CAN_ERR_CRTL;
++		cf->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
++
++		stats->rx_over_errors++;
++		stats->rx_errors++;
++	}
++
++	netif_rx(skb);
++
++	stats->rx_packets++;
++	stats->rx_bytes += cf->can_dlc;
++}
++
++/*
++ * callback for bulk IN urb
++ */
++static void ems_usb_read_bulk_callback(struct urb *urb)
++{
++	struct ems_usb *dev = urb->context;
++	struct net_device *netdev;
++	int retval;
++
++	netdev = dev->netdev;
++
++	if (!netif_device_present(netdev))
++		return;
++
++	switch (urb->status) {
++	case 0: /* success */
++		break;
++
++	case -ENOENT:
++		return;
++
++	default:
++		dev_info(netdev->dev.parent, "Rx URB aborted (%d)\n",
++			 urb->status);
++		goto resubmit_urb;
++	}
++
++	if (urb->actual_length > CPC_HEADER_SIZE) {
++		struct ems_cpc_msg *msg;
++		u8 *ibuf = urb->transfer_buffer;
++		u8 msg_count, again, start;
++
++		msg_count = ibuf[0] & ~0x80;
++		again = ibuf[0] & 0x80;
++
++		start = CPC_HEADER_SIZE;
++
++		while (msg_count) {
++			msg = (struct ems_cpc_msg *)&ibuf[start];
++
++			switch (msg->type) {
++			case CPC_MSG_TYPE_CAN_STATE:
++				/* Process CAN state changes */
++				ems_usb_rx_err(dev, msg);
++				break;
++
++			case CPC_MSG_TYPE_CAN_FRAME:
++			case CPC_MSG_TYPE_EXT_CAN_FRAME:
++			case CPC_MSG_TYPE_RTR_FRAME:
++			case CPC_MSG_TYPE_EXT_RTR_FRAME:
++				ems_usb_rx_can_msg(dev, msg);
++				break;
++
++			case CPC_MSG_TYPE_CAN_FRAME_ERROR:
++				/* Process errorframe */
++				ems_usb_rx_err(dev, msg);
++				break;
++
++			case CPC_MSG_TYPE_OVERRUN:
++				/* Message lost while receiving */
++				ems_usb_rx_err(dev, msg);
++				break;
++			}
++
++			start += CPC_MSG_HEADER_LEN + msg->length;
++			msg_count--;
++
++			if (start > urb->transfer_buffer_length) {
++				dev_err(netdev->dev.parent, "format error\n");
++				break;
++			}
++		}
++	}
++
++resubmit_urb:
++	usb_fill_bulk_urb(urb, dev->udev, usb_rcvbulkpipe(dev->udev, 2),
++			  urb->transfer_buffer, RX_BUFFER_SIZE,
++			  ems_usb_read_bulk_callback, dev);
++
++	retval = usb_submit_urb(urb, GFP_ATOMIC);
++
++	if (retval == -ENODEV)
++		netif_device_detach(netdev);
++	else if (retval)
++		dev_err(netdev->dev.parent,
++			"failed resubmitting read bulk urb: %d\n", retval);
++
++	return;
++}
++
++/*
++ * callback for bulk IN urb
++ */
++static void ems_usb_write_bulk_callback(struct urb *urb)
++{
++	struct ems_tx_urb_context *context = urb->context;
++	struct ems_usb *dev;
++	struct net_device *netdev;
++
++	BUG_ON(!context);
++
++	dev = context->dev;
++	netdev = dev->netdev;
++
++	/* free up our allocated buffer */
++	usb_buffer_free(urb->dev, urb->transfer_buffer_length,
++			urb->transfer_buffer, urb->transfer_dma);
++
++	atomic_dec(&dev->active_tx_urbs);
++
++	if (!netif_device_present(netdev))
++		return;
++
++	if (urb->status)
++		dev_info(netdev->dev.parent, "Tx URB aborted (%d)\n",
++			 urb->status);
++
++	netdev->trans_start = jiffies;
++
++	/* transmission complete interrupt */
++	netdev->stats.tx_packets++;
++	netdev->stats.tx_bytes += context->dlc;
++
++	can_get_echo_skb(netdev, context->echo_index);
++
++	/* Release context */
++	context->echo_index = MAX_TX_URBS;
++
++	if (netif_queue_stopped(netdev))
++		netif_wake_queue(netdev);
++}
++
++/*
++ * Send the given CPC command synchronously
++ */
++static int ems_usb_command_msg(struct ems_usb *dev, struct ems_cpc_msg *msg)
++{
++	int actual_length;
++
++	/* Copy payload */
++	memcpy(&dev->tx_msg_buffer[CPC_HEADER_SIZE], msg,
++	       msg->length + CPC_MSG_HEADER_LEN);
++
++	/* Clear header */
++	memset(&dev->tx_msg_buffer[0], 0, CPC_HEADER_SIZE);
++
++	return usb_bulk_msg(dev->udev, usb_sndbulkpipe(dev->udev, 2),
++			    &dev->tx_msg_buffer[0],
++			    msg->length + CPC_MSG_HEADER_LEN + CPC_HEADER_SIZE,
++			    &actual_length, 1000);
++}
++
++/*
++ * Change CAN controllers' mode register
++ */
++static int ems_usb_write_mode(struct ems_usb *dev, u8 mode)
++{
++	dev->active_params.msg.can_params.cc_params.sja1000.mode = mode;
++
++	return ems_usb_command_msg(dev, &dev->active_params);
++}
++
++/*
++ * Send a CPC_Control command to change behaviour when interface receives a CAN
++ * message, bus error or CAN state changed notifications.
++ */
++static int ems_usb_control_cmd(struct ems_usb *dev, u8 val)
++{
++	struct ems_cpc_msg cmd;
++
++	cmd.type = CPC_CMD_TYPE_CONTROL;
++	cmd.length = CPC_MSG_HEADER_LEN + 1;
++
++	cmd.msgid = 0;
++
++	cmd.msg.generic[0] = val;
++
++	return ems_usb_command_msg(dev, &cmd);
++}
++
++/*
++ * Start interface
++ */
++static int ems_usb_start(struct ems_usb *dev)
++{
++	struct net_device *netdev = dev->netdev;
++	int err, i;
++
++	dev->intr_in_buffer[0] = 0;
++	dev->free_slots = 15; /* initial size */
++
++	for (i = 0; i < MAX_RX_URBS; i++) {
++		struct urb *urb = NULL;
++		u8 *buf = NULL;
++
++		/* create a URB, and a buffer for it */
++		urb = usb_alloc_urb(0, GFP_KERNEL);
++		if (!urb) {
++			dev_err(netdev->dev.parent,
++				"No memory left for URBs\n");
++			return -ENOMEM;
++		}
++
++		buf = usb_buffer_alloc(dev->udev, RX_BUFFER_SIZE, GFP_KERNEL,
++				       &urb->transfer_dma);
++		if (!buf) {
++			dev_err(netdev->dev.parent,
++				"No memory left for USB buffer\n");
++			usb_free_urb(urb);
++			return -ENOMEM;
++		}
++
++		usb_fill_bulk_urb(urb, dev->udev, usb_rcvbulkpipe(dev->udev, 2),
++				  buf, RX_BUFFER_SIZE,
++				  ems_usb_read_bulk_callback, dev);
++		urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
++		usb_anchor_urb(urb, &dev->rx_submitted);
++
++		err = usb_submit_urb(urb, GFP_KERNEL);
++		if (err) {
++			if (err == -ENODEV)
++				netif_device_detach(dev->netdev);
++
++			usb_unanchor_urb(urb);
++			usb_buffer_free(dev->udev, RX_BUFFER_SIZE, buf,
++					urb->transfer_dma);
++			break;
++		}
++
++		/* Drop reference, USB core will take care of freeing it */
++		usb_free_urb(urb);
++	}
++
++	/* Did we submit any URBs */
++	if (i == 0) {
++		dev_warn(netdev->dev.parent, "couldn't setup read URBs\n");
++		return err;
++	}
++
++	/* Warn if we've couldn't transmit all the URBs */
++	if (i < MAX_RX_URBS)
++		dev_warn(netdev->dev.parent, "rx performance may be slow\n");
++
++	/* Setup and start interrupt URB */
++	usb_fill_int_urb(dev->intr_urb, dev->udev,
++			 usb_rcvintpipe(dev->udev, 1),
++			 dev->intr_in_buffer,
++			 INTR_IN_BUFFER_SIZE,
++			 ems_usb_read_interrupt_callback, dev, 1);
++
++	err = usb_submit_urb(dev->intr_urb, GFP_KERNEL);
++	if (err) {
++		if (err == -ENODEV)
++			netif_device_detach(dev->netdev);
++
++		dev_warn(netdev->dev.parent, "intr URB submit failed: %d\n",
++			 err);
++
++		return err;
++	}
++
++	/* CPC-USB will transfer received message to host */
++	err = ems_usb_control_cmd(dev, CONTR_CAN_MESSAGE | CONTR_CONT_ON);
++	if (err)
++		goto failed;
++
++	/* CPC-USB will transfer CAN state changes to host */
++	err = ems_usb_control_cmd(dev, CONTR_CAN_STATE | CONTR_CONT_ON);
++	if (err)
++		goto failed;
++
++	/* CPC-USB will transfer bus errors to host */
++	err = ems_usb_control_cmd(dev, CONTR_BUS_ERROR | CONTR_CONT_ON);
++	if (err)
++		goto failed;
++
++	err = ems_usb_write_mode(dev, SJA1000_MOD_NORMAL);
++	if (err)
++		goto failed;
++
++	dev->can.state = CAN_STATE_ERROR_ACTIVE;
++
++	return 0;
++
++failed:
++	if (err == -ENODEV)
++		netif_device_detach(dev->netdev);
++
++	dev_warn(netdev->dev.parent, "couldn't submit control: %d\n", err);
++
++	return err;
++}
++
++static void unlink_all_urbs(struct ems_usb *dev)
++{
++	int i;
++
++	usb_unlink_urb(dev->intr_urb);
++
++	usb_kill_anchored_urbs(&dev->rx_submitted);
++
++	usb_kill_anchored_urbs(&dev->tx_submitted);
++	atomic_set(&dev->active_tx_urbs, 0);
++
++	for (i = 0; i < MAX_TX_URBS; i++)
++		dev->tx_contexts[i].echo_index = MAX_TX_URBS;
++}
++
++static int ems_usb_open(struct net_device *netdev)
++{
++	struct ems_usb *dev = netdev_priv(netdev);
++	int err;
++
++	err = ems_usb_write_mode(dev, SJA1000_MOD_RM);
++	if (err)
++		return err;
++
++	/* common open */
++	err = open_candev(netdev);
++	if (err)
++		return err;
++
++	/* finally start device */
++	err = ems_usb_start(dev);
++	if (err) {
++		if (err == -ENODEV)
++			netif_device_detach(dev->netdev);
++
++		dev_warn(netdev->dev.parent, "couldn't start device: %d\n",
++			 err);
++
++		close_candev(netdev);
++
++		return err;
++	}
++
++	dev->open_time = jiffies;
++
++	netif_start_queue(netdev);
++
++	return 0;
++}
++
++static netdev_tx_t ems_usb_start_xmit(struct sk_buff *skb, struct net_device *netdev)
++{
++	struct ems_usb *dev = netdev_priv(netdev);
++	struct ems_tx_urb_context *context = NULL;
++	struct net_device_stats *stats = &netdev->stats;
++	struct can_frame *cf = (struct can_frame *)skb->data;
++	struct ems_cpc_msg *msg;
++	struct urb *urb;
++	u8 *buf;
++	int i, err;
++	size_t size = CPC_HEADER_SIZE + CPC_MSG_HEADER_LEN
++			+ sizeof(struct cpc_can_msg);
++
++	/* create a URB, and a buffer for it, and copy the data to the URB */
++	urb = usb_alloc_urb(0, GFP_ATOMIC);
++	if (!urb) {
++		dev_err(netdev->dev.parent, "No memory left for URBs\n");
++		goto nomem;
++	}
++
++	buf = usb_buffer_alloc(dev->udev, size, GFP_ATOMIC, &urb->transfer_dma);
++	if (!buf) {
++		dev_err(netdev->dev.parent, "No memory left for USB buffer\n");
++		usb_free_urb(urb);
++		goto nomem;
++	}
++
++	msg = (struct ems_cpc_msg *)&buf[CPC_HEADER_SIZE];
++
++	msg->msg.can_msg.id = cf->can_id & CAN_ERR_MASK;
++	msg->msg.can_msg.length = cf->can_dlc;
++
++	if (cf->can_id & CAN_RTR_FLAG) {
++		msg->type = cf->can_id & CAN_EFF_FLAG ?
++			CPC_CMD_TYPE_EXT_RTR_FRAME : CPC_CMD_TYPE_RTR_FRAME;
++
++		msg->length = CPC_CAN_MSG_MIN_SIZE;
++	} else {
++		msg->type = cf->can_id & CAN_EFF_FLAG ?
++			CPC_CMD_TYPE_EXT_CAN_FRAME : CPC_CMD_TYPE_CAN_FRAME;
++
++		for (i = 0; i < cf->can_dlc; i++)
++			msg->msg.can_msg.msg[i] = cf->data[i];
++
++		msg->length = CPC_CAN_MSG_MIN_SIZE + cf->can_dlc;
++	}
++
++	for (i = 0; i < MAX_TX_URBS; i++) {
++		if (dev->tx_contexts[i].echo_index == MAX_TX_URBS) {
++			context = &dev->tx_contexts[i];
++			break;
++		}
++	}
++
++	/*
++	 * May never happen! When this happens we'd more URBs in flight as
++	 * allowed (MAX_TX_URBS).
++	 */
++	if (!context) {
++		usb_unanchor_urb(urb);
++		usb_buffer_free(dev->udev, size, buf, urb->transfer_dma);
++
++		dev_warn(netdev->dev.parent, "couldn't find free context\n");
++
++		return NETDEV_TX_BUSY;
++	}
++
++	context->dev = dev;
++	context->echo_index = i;
++	context->dlc = cf->can_dlc;
++
++	usb_fill_bulk_urb(urb, dev->udev, usb_sndbulkpipe(dev->udev, 2), buf,
++			  size, ems_usb_write_bulk_callback, context);
++	urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
++	usb_anchor_urb(urb, &dev->tx_submitted);
++
++	can_put_echo_skb(skb, netdev, context->echo_index);
++
++	atomic_inc(&dev->active_tx_urbs);
++
++	err = usb_submit_urb(urb, GFP_ATOMIC);
++	if (unlikely(err)) {
++		can_free_echo_skb(netdev, context->echo_index);
++
++		usb_unanchor_urb(urb);
++		usb_buffer_free(dev->udev, size, buf, urb->transfer_dma);
++		dev_kfree_skb(skb);
++
++		atomic_dec(&dev->active_tx_urbs);
++
++		if (err == -ENODEV) {
++			netif_device_detach(netdev);
++		} else {
++			dev_warn(netdev->dev.parent, "failed tx_urb %d\n", err);
++
++			stats->tx_dropped++;
++		}
++	} else {
++		netdev->trans_start = jiffies;
++
++		/* Slow down tx path */
++		if (atomic_read(&dev->active_tx_urbs) >= MAX_TX_URBS ||
++		    dev->free_slots < 5) {
++			netif_stop_queue(netdev);
++		}
++	}
++
++	/*
++	 * Release our reference to this URB, the USB core will eventually free
++	 * it entirely.
++	 */
++	usb_free_urb(urb);
++
++	return NETDEV_TX_OK;
++
++nomem:
++	if (skb)
++		dev_kfree_skb(skb);
++
++	stats->tx_dropped++;
++
++	return NETDEV_TX_OK;
++}
++
++static int ems_usb_close(struct net_device *netdev)
++{
++	struct ems_usb *dev = netdev_priv(netdev);
++
++	/* Stop polling */
++	unlink_all_urbs(dev);
++
++	netif_stop_queue(netdev);
++
++	/* Set CAN controller to reset mode */
++	if (ems_usb_write_mode(dev, SJA1000_MOD_RM))
++		dev_warn(netdev->dev.parent, "couldn't stop device");
++
++	close_candev(netdev);
++
++	dev->open_time = 0;
++
++	return 0;
++}
++
++static const struct net_device_ops ems_usb_netdev_ops = {
++	.ndo_open = ems_usb_open,
++	.ndo_stop = ems_usb_close,
++	.ndo_start_xmit = ems_usb_start_xmit,
++};
++
++static struct can_bittiming_const ems_usb_bittiming_const = {
++	.name = "ems_usb",
++	.tseg1_min = 1,
++	.tseg1_max = 16,
++	.tseg2_min = 1,
++	.tseg2_max = 8,
++	.sjw_max = 4,
++	.brp_min = 1,
++	.brp_max = 64,
++	.brp_inc = 1,
++};
++
++static int ems_usb_set_mode(struct net_device *netdev, enum can_mode mode)
++{
++	struct ems_usb *dev = netdev_priv(netdev);
++
++	if (!dev->open_time)
++		return -EINVAL;
++
++	switch (mode) {
++	case CAN_MODE_START:
++		if (ems_usb_write_mode(dev, SJA1000_MOD_NORMAL))
++			dev_warn(netdev->dev.parent, "couldn't start device");
++
++		if (netif_queue_stopped(netdev))
++			netif_wake_queue(netdev);
++		break;
++
++	default:
++		return -EOPNOTSUPP;
++	}
++
++	return 0;
++}
++
++static int ems_usb_set_bittiming(struct net_device *netdev)
++{
++	struct ems_usb *dev = netdev_priv(netdev);
++	struct can_bittiming *bt = &dev->can.bittiming;
++	u8 btr0, btr1;
++
++	btr0 = ((bt->brp - 1) & 0x3f) | (((bt->sjw - 1) & 0x3) << 6);
++	btr1 = ((bt->prop_seg + bt->phase_seg1 - 1) & 0xf) |
++		(((bt->phase_seg2 - 1) & 0x7) << 4);
++	if (dev->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES)
++		btr1 |= 0x80;
++
++	dev_info(netdev->dev.parent, "setting BTR0=0x%02x BTR1=0x%02x\n",
++		 btr0, btr1);
++
++	dev->active_params.msg.can_params.cc_params.sja1000.btr0 = btr0;
++	dev->active_params.msg.can_params.cc_params.sja1000.btr1 = btr1;
++
++	return ems_usb_command_msg(dev, &dev->active_params);
++}
++
++static void init_params_sja1000(struct ems_cpc_msg *msg)
++{
++	struct cpc_sja1000_params *sja1000 =
++		&msg->msg.can_params.cc_params.sja1000;
++
++	msg->type = CPC_CMD_TYPE_CAN_PARAMS;
++	msg->length = sizeof(struct cpc_can_params);
++	msg->msgid = 0;
++
++	msg->msg.can_params.cc_type = CPC_CC_TYPE_SJA1000;
++
++	/* Acceptance filter open */
++	sja1000->acc_code0 = 0x00;
++	sja1000->acc_code1 = 0x00;
++	sja1000->acc_code2 = 0x00;
++	sja1000->acc_code3 = 0x00;
++
++	/* Acceptance filter open */
++	sja1000->acc_mask0 = 0xFF;
++	sja1000->acc_mask1 = 0xFF;
++	sja1000->acc_mask2 = 0xFF;
++	sja1000->acc_mask3 = 0xFF;
++
++	sja1000->btr0 = 0;
++	sja1000->btr1 = 0;
++
++	sja1000->outp_contr = SJA1000_DEFAULT_OUTPUT_CONTROL;
++	sja1000->mode = SJA1000_MOD_RM;
++}
++
++/*
++ * probe function for new CPC-USB devices
++ */
++static int ems_usb_probe(struct usb_interface *intf,
++			 const struct usb_device_id *id)
++{
++	struct net_device *netdev;
++	struct ems_usb *dev;
++	int i, err = -ENOMEM;
++
++	netdev = alloc_candev(sizeof(struct ems_usb));
++	if (!netdev) {
++		dev_err(netdev->dev.parent, "Couldn't alloc candev\n");
++		return -ENOMEM;
++	}
++
++	dev = netdev_priv(netdev);
++
++	dev->udev = interface_to_usbdev(intf);
++	dev->netdev = netdev;
++
++	dev->can.state = CAN_STATE_STOPPED;
++	dev->can.clock.freq = EMS_USB_ARM7_CLOCK;
++	dev->can.bittiming_const = &ems_usb_bittiming_const;
++	dev->can.do_set_bittiming = ems_usb_set_bittiming;
++	dev->can.do_set_mode = ems_usb_set_mode;
++
++	netdev->flags |= IFF_ECHO; /* we support local echo */
++
++	netdev->netdev_ops = &ems_usb_netdev_ops;
++
++	netdev->flags |= IFF_ECHO; /* we support local echo */
++
++	init_usb_anchor(&dev->rx_submitted);
++
++	init_usb_anchor(&dev->tx_submitted);
++	atomic_set(&dev->active_tx_urbs, 0);
++
++	for (i = 0; i < MAX_TX_URBS; i++)
++		dev->tx_contexts[i].echo_index = MAX_TX_URBS;
++
++	dev->intr_urb = usb_alloc_urb(0, GFP_KERNEL);
++	if (!dev->intr_urb) {
++		dev_err(netdev->dev.parent, "Couldn't alloc intr URB\n");
++		goto cleanup_candev;
++	}
++
++	dev->intr_in_buffer = kzalloc(INTR_IN_BUFFER_SIZE, GFP_KERNEL);
++	if (!dev->intr_in_buffer) {
++		dev_err(netdev->dev.parent, "Couldn't alloc Intr buffer\n");
++		goto cleanup_intr_urb;
++	}
++
++	dev->tx_msg_buffer = kzalloc(CPC_HEADER_SIZE +
++				     sizeof(struct ems_cpc_msg), GFP_KERNEL);
++	if (!dev->tx_msg_buffer) {
++		dev_err(netdev->dev.parent, "Couldn't alloc Tx buffer\n");
++		goto cleanup_intr_in_buffer;
++	}
++
++	usb_set_intfdata(intf, dev);
++
++	SET_NETDEV_DEV(netdev, &intf->dev);
++
++	init_params_sja1000(&dev->active_params);
++
++	err = ems_usb_command_msg(dev, &dev->active_params);
++	if (err) {
++		dev_err(netdev->dev.parent,
++			"couldn't initialize controller: %d\n", err);
++		goto cleanup_tx_msg_buffer;
++	}
++
++	err = register_candev(netdev);
++	if (err) {
++		dev_err(netdev->dev.parent,
++			"couldn't register CAN device: %d\n", err);
++		goto cleanup_tx_msg_buffer;
++	}
++
++	return 0;
++
++cleanup_tx_msg_buffer:
++	kfree(dev->tx_msg_buffer);
++
++cleanup_intr_in_buffer:
++	kfree(dev->intr_in_buffer);
++
++cleanup_intr_urb:
++	usb_free_urb(dev->intr_urb);
++
++cleanup_candev:
++	free_candev(netdev);
++
++	return err;
++}
++
++/*
++ * called by the usb core when the device is removed from the system
++ */
++static void ems_usb_disconnect(struct usb_interface *intf)
++{
++	struct ems_usb *dev = usb_get_intfdata(intf);
++
++	usb_set_intfdata(intf, NULL);
++
++	if (dev) {
++		unregister_netdev(dev->netdev);
++		free_candev(dev->netdev);
++
++		unlink_all_urbs(dev);
++
++		usb_free_urb(dev->intr_urb);
++
++		kfree(dev->intr_in_buffer);
++	}
++}
++
++/* usb specific object needed to register this driver with the usb subsystem */
++static struct usb_driver ems_usb_driver = {
++	.name = "ems_usb",
++	.probe = ems_usb_probe,
++	.disconnect = ems_usb_disconnect,
++	.id_table = ems_usb_table,
++};
++
++static int __init ems_usb_init(void)
++{
++	int err;
++
++	printk(KERN_INFO "CPC-USB kernel driver loaded\n");
++
++	/* register this driver with the USB subsystem */
++	err = usb_register(&ems_usb_driver);
++
++	if (err) {
++		err("usb_register failed. Error number %d\n", err);
++		return err;
++	}
++
++	return 0;
++}
++
++static void __exit ems_usb_exit(void)
++{
++	/* deregister this driver with the USB subsystem */
++	usb_deregister(&ems_usb_driver);
++}
++
++module_init(ems_usb_init);
++module_exit(ems_usb_exit);
 
 -- 
 EMS Dr. Thomas Wuensche e.K.
