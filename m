@@ -1,69 +1,95 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: Re: fanotify as syscalls
-Date: Tue, 15 Sep 2009 21:26:31 -0400
-Message-ID: <1253064391.5213.37.camel@dhcp231-106.rdu.redhat.com>
-References: <20090911.114620.260824240.davem@davemloft.net>
-	 <1252697613.2305.38.camel@dhcp231-106.rdu.redhat.com>
-	 <20090911204602.GA19371@shareable.org>
-	 <1252703626.2305.50.camel@dhcp231-106.rdu.redhat.com>
-	 <20090911212731.GA19901@shareable.org>
-	 <1252705902.2305.83.camel@dhcp231-106.rdu.redhat.com>
-	 <20090912094110.GB24709@ioremap.net> <20090914001759.GB30621@shareable.org>
-	  <20090914140720.GA8564@ioremap.net>
-	 <1252955295.2246.35.camel@dhcp231-106.rdu.redhat.com>
-	 <20090915201620.GB32192@ioremap.net>
-	 <1253051699.5213.18.camel@dhcp231-106.rdu.redhat.com>
-	 <alpine.LFD.2.01.0909151643540.4950@localhost.localdomain>
+From: Karol Lewandowski <karol.k.lewandowski@gmail.com>
+Subject: Re: [E1000-devel] [BUG 2.6.30+] e100 sometimes causes oops during
+	resume
+Date: Wed, 16 Sep 2009 03:44:48 +0200
+Message-ID: <20090916014448.GA1070@bizet.domek.prywatny>
+References: <20090915120538.GA26806@bizet.domek.prywatny> <13830B75AD5A2F42848F92269B11996F5BF592C3@orsmsx509.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <zbr@ioremap.net>,
-	Jamie Lokier <jamie@shareable.org>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
-	alan@linux.intel.com, hch@infradead.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.01.0909151643540.4950@localhost.localdomain>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Karol Lewandowski <karol.k.lewandowski@gmail.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Graham, David" <david.graham@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f217.google.com ([209.85.220.217]:60313 "EHLO
+	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751205AbZIPBow (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2009 21:44:52 -0400
+Content-Disposition: inline
+In-Reply-To: <13830B75AD5A2F42848F92269B11996F5BF592C3@orsmsx509.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-09-15 at 16:49 -0700, Linus Torvalds wrote:
+On Tue, Sep 15, 2009 at 03:54:20PM -0700, Graham, David wrote:
 
-> And btw, I still want to know what's so wonderful about fanotify that we 
-> would actually want yet-another-filesystem-notification-interface. So I'm 
-> not sayying that I'll take a system call interface.
+> A v2.6.30..v2.6.31 diff shows that this is probably exposed by
+> Rafael Wysocki's commit 6905b1f1, which now allows systems with e100
+> to sleep. If I understand correctly, it looks like these systems
+> simply couldn't sleep before. Is that right Rafael?.
 
-The real thing that fanotify provides is an open fd with the event
-rather than some arbitrary 'watch descriptor' that userspace must
-somehow magically map back to data on disk.  This means that it could be
-used to provide subtree notification, which inotify is completely
-incapable of doing.  And it can be used to provide system wide
-notification.  We all know who wants that.
+Probably true, but that wasn't the case for my (I guess
+ACPI-controlled) system.
 
-It provides an extensible data format which allows growth impossible in
-inotify.  I don't know if anyone remember the inotify patches which
-wanted to overload the inotify cookie field for some other information,
-but inotify information extension is not reasonable or backwards
-compatible.
 
-fanotify also allows userspace to make access decisions and cache those
-in the kernel.  Useful for integrity checkers (anti-malware people) and
-for hierarchical storage management people.
+> I don't think its likely that the commit is a direct cause of the
+> problem, but that the suspend/resume cycle now allows us to see
+> another issue.
 
-I've got private commitments for two very large anti malware companies,
-both of which unprotect and hack syscall tables in their customer's
-kernels, that they would like to move to an fanotify interface.  Both
-Red Hat and Suse have expressed interest in these patches and have
-contributed to the patch set.
+>From my (very limited) understanding commit message is at least in
+conflict with patch body.
 
-The patch set is actually rather small (entire set of about 20 patches
-is 1800 lines) as it builds on the fsnotify work already in 2.6.31 to
-reuse code from inotify rather than reimplement the same things over and
-over (like we previously had with inotify and dnotify)
+Precisely patch was supposed to "Fix this problem by ignoring the
+return value of pci_set_power_state() in __e100_power_off()."
 
-Don't know what else to say.....
+That patch is doing something rather different -- it returns 0, yes,
+but it also ignores 'wake' bool as set by __e100_shutdown().  That
+seems wrong to me.
 
--Eric
 
+--- a/drivers/net/e100.c
++++ b/drivers/net/e100.c
+@@ -2895,12 +2895,13 @@ static void __e100_shutdown(struct pci_dev *pdev, bool *enable_wake)
+ 
+ static int __e100_power_off(struct pci_dev *pdev, bool wake)
+ {
+-       if (wake) {
++       if (wake)
+                return pci_prepare_to_sleep(pdev);
+-       } else {
+-               pci_wake_from_d3(pdev, false);
+-               return pci_set_power_state(pdev, PCI_D3hot);
+-       }
++
++       pci_wake_from_d3(pdev, false);
++       pci_set_power_state(pdev, PCI_D3hot);
++
++       return 0;
+ }
+
+
+Correct patch would be that (hand-made), right?
+
+
++++ b/drivers/net/e100.c
+@@ -2895,12 +2895,13 @@ static void __e100_shutdown(struct pci_dev *pdev, bool *enable_wake)
+ 
+ static int __e100_power_off(struct pci_dev *pdev, bool wake)
+ {
+        if (wake) {
+                return pci_prepare_to_sleep(pdev);
+        } else {
+                pci_wake_from_d3(pdev, false);
+-               return pci_set_power_state(pdev, PCI_D3hot);
++               pci_set_power_state(pdev, PCI_D3hot);
+        }
++
++       return 0;
+ }
+
+I can test, or rather -- start testing this tommorow, if this makes
+sense to you.
+
+Thanks.
