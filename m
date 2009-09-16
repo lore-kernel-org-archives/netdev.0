@@ -1,110 +1,86 @@
-From: <jie.yang@atheros.com>
-Subject: [Patch net-next]atl1e:fix 2.6.31-git4 -- ATL1E 0000:03:00.0: DMA-API: device driver frees DMA
-Date: Wed, 16 Sep 2009 15:23:04 +0800
-Message-ID: <12530857843502-git-send-email-jie.yang@atheros.com>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: [PATCH] cpmac: fix compilation errors against undeclared BUS_ID_SIZE
+Date: Wed, 16 Sep 2009 09:44:22 +0200
+Message-ID: <200909160944.24265.florian@openwrt.org>
+Reply-To: Florian Fainelli <florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <miles.lane@gmail.com>, <chris.snook@gmail.com>,
-	<jcliburn@gmail.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, Jie Yang <jie.yang@atheros.com>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753467AbZIPHYE@vger.kernel.org>
-Received: from mail.atheros.com ([10.10.20.105])
-	by sidewinder.atheros.com
-	for <netdev@vger.kernel.org>; Wed, 16 Sep 2009 00:24:07 -0700
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>,
+	linux-mips@linux-mips.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ey-out-2122.google.com ([74.125.78.24]:32191 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751251AbZIPHoY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 03:44:24 -0400
+Received: by ey-out-2122.google.com with SMTP id 25so931798eya.19
+        for <netdev@vger.kernel.org>; Wed, 16 Sep 2009 00:44:26 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[   25.059969] WARNING: at lib/dma-debug.c:816 check_unmap+0x383/0x55c()
-[   25.059976] Hardware name: 1000HE
-[   25.059984] ATL1E 0000:03:00.0: DMA-API: device driver frees DMA
-     memory with wrong function [device address=0x0000000036b92802]
-     [size=90 bytes] [mapped as single] [unmapped as page]
+Hi David,
 
-use the wrong API when free dma. So when map dma use a flag to 
-demostrate whether it is 'pci_map_single' or 'pci_map_page'. When free 
-the dma, check the flags to select the right APIs('pci_unmap_single' or 'pci_unmap_page').
+This is relevant for 2.6.32-rc0, thanks !
+--
+From: Florian Fainelli <florian@openwrt.org>
+Subject: [PATCH] cpmac: fix compilation errors against undeclared BUS_ID_SIZE
 
-set the flags type to u16  instead of unsigned long  on David's comments.
+With the removal of BUS_ID_SIZE, cpmac was not fully
+converted to use MII_BUS_ID_SIZE as it ought to. This
+patch fixes the following cpmac build failure:
+ CC      drivers/net/cpmac.o
+drivers/net/cpmac.c: In function 'cpmac_start_xmit':
+drivers/net/cpmac.c:563: warning: comparison of distinct pointer types lacks a cast
+drivers/net/cpmac.c: In function 'cpmac_probe':
+drivers/net/cpmac.c:1112: error: 'BUS_ID_SIZE' undeclared (first use in this function)
+drivers/net/cpmac.c:1112: error: (Each undeclared identifier is reported only once
+drivers/net/cpmac.c:1112: error: for each function it appears in.)
 
-Signed-off-by: Jie Yang <jie.yang@atheros.com>
+Reported-by: Ralf Baechle <ralf@linux-mips.org>
+Signed-off-by: Florian Fainelli <florian@openwrt.org>
 ---
-
-diff --git a/drivers/net/atl1e/atl1e.h b/drivers/net/atl1e/atl1e.h
-index ba48220..490d3b3 100644
---- a/drivers/net/atl1e/atl1e.h
-+++ b/drivers/net/atl1e/atl1e.h
-@@ -377,10 +377,19 @@ struct atl1e_hw {
-  */
- struct atl1e_tx_buffer {
-    struct sk_buff *skb;
-+   u16 flags;
-+#define ATL1E_TX_PCIMAP_SINGLE     0x0001
-+#define ATL1E_TX_PCIMAP_PAGE       0x0002
-+#define ATL1E_TX_PCIMAP_TYPE_MASK  0x0003
-    u16 length;
-    dma_addr_t dma;
- };
+diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
+index 3e3fab8..61f9da2 100644
+--- a/drivers/net/cpmac.c
++++ b/drivers/net/cpmac.c
+@@ -1109,7 +1109,7 @@ static int external_switch;
+ static int __devinit cpmac_probe(struct platform_device *pdev)
+ {
+ 	int rc, phy_id;
+-	char mdio_bus_id[BUS_ID_SIZE];
++	char mdio_bus_id[MII_BUS_ID_SIZE];
+ 	struct resource *mem;
+ 	struct cpmac_priv *priv;
+ 	struct net_device *dev;
+@@ -1118,7 +1118,7 @@ static int __devinit cpmac_probe(struct platform_device *pdev)
+ 	pdata = pdev->dev.platform_data;
  
-+#define ATL1E_SET_PCIMAP_TYPE(tx_buff, type) do {      \
-+   ((tx_buff)->flags) &= ~ATL1E_TX_PCIMAP_TYPE_MASK;   \
-+   ((tx_buff)->flags) |= (type);               \
-+   } while (0)
-+
- struct atl1e_rx_page {
-    dma_addr_t  dma;    /* receive rage DMA address */
-    u8      *addr;   /* receive rage virtual address */
-diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
-index 69b830f..955da73 100644
---- a/drivers/net/atl1e/atl1e_main.c
-+++ b/drivers/net/atl1e/atl1e_main.c
-@@ -635,7 +635,11 @@ static void atl1e_clean_tx_ring(struct atl1e_adapter *adapter)
-    for (index = 0; index < ring_count; index++) {
-        tx_buffer = &tx_ring->tx_buffer[index];
-        if (tx_buffer->dma) {
--           pci_unmap_page(pdev, tx_buffer->dma,
-+           if (tx_buffer->flags & ATL1E_TX_PCIMAP_SINGLE)
-+               pci_unmap_single(pdev, tx_buffer->dma,
-+                   tx_buffer->length, PCI_DMA_TODEVICE);
-+           else if (tx_buffer->flags & ATL1E_TX_PCIMAP_PAGE)
-+               pci_unmap_page(pdev, tx_buffer->dma,
-                    tx_buffer->length, PCI_DMA_TODEVICE);
-            tx_buffer->dma = 0;
-        }
-@@ -1220,7 +1224,11 @@ static bool atl1e_clean_tx_irq(struct atl1e_adapter *adapter)
-    while (next_to_clean != hw_next_to_clean) {
-        tx_buffer = &tx_ring->tx_buffer[next_to_clean];
-        if (tx_buffer->dma) {
--           pci_unmap_page(adapter->pdev, tx_buffer->dma,
-+           if (tx_buffer->flags & ATL1E_TX_PCIMAP_SINGLE)
-+               pci_unmap_single(adapter->pdev, tx_buffer->dma,
-+                   tx_buffer->length, PCI_DMA_TODEVICE);
-+           else if (tx_buffer->flags & ATL1E_TX_PCIMAP_PAGE)
-+               pci_unmap_page(adapter->pdev, tx_buffer->dma,
-                    tx_buffer->length, PCI_DMA_TODEVICE);
-            tx_buffer->dma = 0;
-        }
-@@ -1741,6 +1749,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
-        tx_buffer->length = map_len;
-        tx_buffer->dma = pci_map_single(adapter->pdev,
-                    skb->data, hdr_len, PCI_DMA_TODEVICE);
-+       ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_SINGLE);
-        mapped_len += map_len;
-        use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
-        use_tpd->word2 = (use_tpd->word2 & (~TPD_BUFLEN_MASK)) |
-@@ -1766,6 +1775,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
-        tx_buffer->dma =
-            pci_map_single(adapter->pdev, skb->data + mapped_len,
-                    map_len, PCI_DMA_TODEVICE);
-+       ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_SINGLE);
-        mapped_len  += map_len;
-        use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
-        use_tpd->word2 = (use_tpd->word2 & (~TPD_BUFLEN_MASK)) |
-@@ -1801,6 +1811,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
-                        (i * MAX_TX_BUF_LEN),
-                        tx_buffer->length,
-                        PCI_DMA_TODEVICE);
-+           ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_PAGE);
-            use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
-            use_tpd->word2 = (use_tpd->word2 & (~TPD_BUFLEN_MASK)) |
-                    ((cpu_to_le32(tx_buffer->length) &
+ 	if (external_switch || dumb_switch) {
+-		strncpy(mdio_bus_id, "0", BUS_ID_SIZE); /* fixed phys bus */
++		strncpy(mdio_bus_id, "0", MII_BUS_ID_SIZE); /* fixed phys bus */
+ 		phy_id = pdev->id;
+ 	} else {
+ 		for (phy_id = 0; phy_id < PHY_MAX_ADDR; phy_id++) {
+@@ -1126,7 +1126,7 @@ static int __devinit cpmac_probe(struct platform_device *pdev)
+ 				continue;
+ 			if (!cpmac_mii->phy_map[phy_id])
+ 				continue;
+-			strncpy(mdio_bus_id, cpmac_mii->id, BUS_ID_SIZE);
++			strncpy(mdio_bus_id, cpmac_mii->id, MII_BUS_ID_SIZE);
+ 			break;
+ 		}
+ 	}
+@@ -1167,7 +1167,7 @@ static int __devinit cpmac_probe(struct platform_device *pdev)
+ 	priv->msg_enable = netif_msg_init(debug_level, 0xff);
+ 	memcpy(dev->dev_addr, pdata->dev_addr, sizeof(dev->dev_addr));
+ 
+-	snprintf(priv->phy_name, BUS_ID_SIZE, PHY_ID_FMT, mdio_bus_id, phy_id);
++	snprintf(priv->phy_name, MII_BUS_ID_SIZE, PHY_ID_FMT, mdio_bus_id, phy_id);
+ 
+ 	priv->phy = phy_connect(dev, priv->phy_name, &cpmac_adjust_link, 0,
+ 						PHY_INTERFACE_MODE_MII);
+
+
