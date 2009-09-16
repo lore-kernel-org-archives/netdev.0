@@ -1,140 +1,114 @@
-From: Jamie Lokier <jamie@shareable.org>
-Subject: Re: fanotify as syscalls
-Date: Wed, 16 Sep 2009 08:52:19 +0100
-Message-ID: <20090916075219.GA22024@shareable.org>
-References: <20090911212731.GA19901@shareable.org> <1252705902.2305.83.camel@dhcp231-106.rdu.redhat.com> <20090912094110.GB24709@ioremap.net> <20090914001759.GB30621@shareable.org> <20090914140720.GA8564@ioremap.net> <1252955295.2246.35.camel@dhcp231-106.rdu.redhat.com> <20090915201620.GB32192@ioremap.net> <1253051699.5213.18.camel@dhcp231-106.rdu.redhat.com> <alpine.LFD.2.01.0909151643540.4950@localhost.localdomain> <1253064391.5213.37.camel@dhcp231-106.rdu.redhat.com>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
+Date: Wed, 16 Sep 2009 11:23:12 +0300
+Message-ID: <4AB0A070.1050400@redhat.com>
+References: <cover.1251388414.git.mst@redhat.com> <20090827160750.GD23722@redhat.com> <20090903183945.GF28651@ovro.caltech.edu> <20090907101537.GH3031@redhat.com> <20090908172035.GB319@ovro.caltech.edu> <4AAA7415.5080204@gmail.com> <20090913120140.GA31218@redhat.com> <4AAE6A97.7090808@gmail.com> <20090914164750.GB3745@redhat.com> <4AAE961B.6020509@gmail.com> <4AAF8A03.5020806@redhat.com> <4AAF909F.9080306@gmail.com> <4AAF95D1.1080600@redhat.com> <4AAF9BAF.3030109@gmail.com> <4AAFACB5.9050808@redhat.com> <4AAFF437.7060100@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
-	alan@linux.intel.com, hch@infradead.org
-To: Eric Paris <eparis@redhat.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1253064391.5213.37.camel@dhcp231-106.rdu.redhat.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+        "Ira W. Snyder" <iws@ovro.caltech.edu>, netdev@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+        linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
+        akpm@linux-foundation.org, hpa@zytor.com,
+        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com,
+        alacrityvm-devel@lists.sourceforge.net
+To: Gregory Haskins <gregory.haskins@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <4AAFF437.7060100@gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Eric Paris wrote:
-> On Tue, 2009-09-15 at 16:49 -0700, Linus Torvalds wrote:
-> > And btw, I still want to know what's so wonderful about fanotify that we 
-> > would actually want yet-another-filesystem-notification-interface. So I'm 
-> > not sayying that I'll take a system call interface.
-> 
-> The real thing that fanotify provides is an open fd with the event
-> rather than some arbitrary 'watch descriptor' that userspace must
-> somehow magically map back to data on disk.  This means that it could be
-> used to provide subtree notification, which inotify is completely
-> incapable of doing.
+On 09/15/2009 11:08 PM, Gregory Haskins wrote:
+>
+>> There's virtio-console, virtio-blk etc.  None of these have kernel-mode
+>> servers, but these could be implemented if/when needed.
+>>      
+> IIUC, Ira already needs at least ethernet and console capability.
+>
+>    
 
-That's a bit of a spurious claim.
+He's welcome to pick up the necessary code from qemu.
 
-- fanotify does not provide subtree notification in it's
-  present form.  When it is extended to do that, why wouldn't
-  inotify be as well?  That's an fsnotify feature, common to both.
+>>> b) what do you suppose this protocol to aggregate the connections would
+>>> look like? (hint: this is what a vbus-connector does).
+>>>
+>>>        
+>> You mean multilink?  You expose the device as a multiqueue.
+>>      
+> No, what I mean is how do you surface multiple ethernet and consoles to
+> the guests?  For Ira's case, I think he needs at minimum at least one of
+> each, and he mentioned possibly having two unique ethernets at one point.
+>    
 
-- fanotify does not provide notification at all for some events that
-  you get with inotify.  It is not a superset, so you can't use
-  fanotify to provide a subtree-capable equivalent to inotify.  What
-  a mess when you need the combination of both features!
+You instantiate multiple vhost-nets.  Multiple ethernet NICs is a 
+supported configuration for kvm.
 
-- fanotify requires you call readlink(/proc/fd/N) for every event to
-  get the path.  It's not a particularly efficient way to get it,
-  especially when an apps wants to know if it's something in it's
-  region of interest but doesn't care about the actual path.
-  When an apps knows it needs the map back to to path, why make it
-  slow to get it?  That "extensible data format" is being
-  underutilised...
+> His slave boards surface themselves as PCI devices to the x86
+> host.  So how do you use that to make multiple vhost-based devices (say
+> two virtio-nets, and a virtio-console) communicate across the transport?
+>    
 
-- fanotify's descriptor may be race-prone as a way to get the subtree
-  used for access, because any of the parent directories could have
-  moved and even been deleted before the app calls
-  readlink(/proc/fd/N).  I don't know if a _reliable_ way to track
-  changes in a subtree can be built on it.  Maybe it can but it
-  appears this hasn't been analysed.  It depends on
-  readlink(/proc/fd/N)'s behaviour when the dentry's have been
-  changed, among other things.
+I don't really see the difference between 1 and N here.
 
-- Does the descriptor cause umount to fail when user does "do some
-  stuff in baz; umount baz", or does it serialise nicely?  That's one
-  of inotify's nice features - it doesn't cause umounts to fail.
+> There are multiple ways to do this, but what I am saying is that
+> whatever is conceived will start to look eerily like a vbus-connector,
+> since this is one of its primary purposes ;)
+>    
 
-> And it can be used to provide system wide notification.  We all know
-> who wants that.
+I'm not sure if you're talking about the configuration interface or data 
+path here.
 
-People who want to break out of chroot/namespace jails using the
-conveniently provided open file descriptor? :-)
+>>> c) how do you manage the configuration, especially on a per-board basis?
+>>>
+>>>        
+>> pci (for kvm/x86).
+>>      
+> Ok, for kvm understood (and I would also add "qemu" to that mix).  But
+> we are talking about vhost's application in a non-kvm environment here,
+> right?.
+>
+> So if the vhost-X devices are in the "guest",
 
-Seriously, what does system-wide fanotify do when run from a
-chroot/namespace/cgroup, and a file outside them is accessed?
+They aren't in the "guest".  The best way to look at it is
 
-If the event is delivered with file desciptor, that's a security hole.
-If it's not delivered, that sounds like working subtree support?
+- a device side, with a dma engine: vhost-net
+- a driver side, only accessing its own memory: virtio-net
 
-I'd expect anti-malware to want to be run inside VMs quite often...
+Given that Ira's config has the dma engine in the ppc boards, that's 
+where vhost-net would live (the ppc boards acting as NICs to the x86 
+board, essentially).
 
-Note that there's no such thing as "the real system root" any more.
+> and the x86 board is just
+> a slave...How do you tell each ppc board how many devices and what
+> config (e.g. MACs, etc) to instantiate?  Do you assume that they should
+> all be symmetric and based on positional (e.g. slot) data?  What if you
+> want asymmetric configurations (if not here, perhaps in a different
+> environment)?
+>    
 
-> It provides an extensible data format which allows growth impossible in
-> inotify.  I don't know if anyone remember the inotify patches which
-> wanted to overload the inotify cookie field for some other information,
-> but inotify information extension is not reasonable or backwards
-> compatible.
+I have no idea, that's for Ira to solve.  If he could fake the PCI 
+config space as seen by the x86 board, he would just show the normal pci 
+config and use virtio-pci (multiple channels would show up as a 
+multifunction device).  Given he can't, he needs to tunnel the virtio 
+config space some other way.
 
-I agree with this (although that's what flags are for -- see clone).
+>> Yes.  virtio is really virtualization oriented.
+>>      
+> I would say that its vhost in particular that is virtualization
+> oriented.  virtio, as a concept, generally should work in physical
+> systems, if perhaps with some minor modifications.  The biggest "limit"
+> is having "virt" in its name ;)
+>    
 
-I don't have a problem with the next interface being fanotify (despite
-arguing a lot); I just want to see the next one being useful for the
-things I would otherwise be proposing my own yet-another-interface
-for.  So we don't need a fourth one soon after the third due to
-easily foreseen limitations.
+Let me rephrase.  The virtio developers are virtualization oriented.  If 
+it works for non-virt applications, that's good, but not a design goal.
 
-> I've got private commitments for two very large anti malware companies,
-> both of which unprotect and hack syscall tables in their customer's
-> kernels, that they would like to move to an fanotify interface.  Both
-> Red Hat and Suse have expressed interest in these patches and have
-> contributed to the patch set.
-> 
-> The patch set is actually rather small (entire set of about 20 patches
-> is 1800 lines) as it builds on the fsnotify work already in 2.6.31 to
-> reuse code from inotify rather than reimplement the same things over and
-> over (like we previously had with inotify and dnotify)
+-- 
+error compiling committee.c: too many arguments to function
 
-I don't have any problem with either of these, and _fs_notify
-generally seems like an improvement.  I don't have a problem with
-fanotify either.  For what it does, it's ok.
-
-> Don't know what else to say.....
-
-Answer questions about use-cases that you're not interested in?  Why
-block them?  What about Evigny's request for an event without an open
-fd - because he needs the pid information (inotify doesn't provide)
-but not the fd?
-
-Sorry to be so harsh.  I'm really trying to make sure we don't repeat
-the mistakes of dnotify and inotify, and end up with a third interface
-which also is too restrictive (because it's good enough for your
-anti-malware and HSM customers) so that a fourth interface will be
-needed soon after.
-
-I'd like to be able to use it from some applications to accelerate
-userspace caching of things (faster Make, faster Samba) without
-penalising all other applications touching unrelated parts of the
-filesystem.  The attitude "you can live with 10% slowdown" worries me.
-I'm sure that can be fixed with a bit of care.
-
-If the intention is to maintain fanotify and inotify side-by-side for
-different uses (because fanotify returns open descriptors and blocks
-the accessing process until acked), that's ok with me.  It makes
-sense.  But then it's messy that neither offers a superset of the
-other regarding which files and events are tracked.
-
-If it's right that inotify has no room for extensibility (I'm not sure
-about this), than it appears we already made a mess with dnotify and
-inotify, so it would be a shame to repeat the same mistakes again.
-Let's get the next one right, even it takes a bit longer, ok?
-
--- Jamie
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
