@@ -1,11 +1,14 @@
 From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: [RFCv4 PATCH 1/2] net: Introduce recvmmsg socket syscall
-Date: Wed, 16 Sep 2009 14:07:38 -0300
-Message-ID: <20090916170738.GC7699@ghostprotocols.net>
+Subject: [RFCv4 PATCH 2/2] net: Allow protocols to provide an
+	unlocked_recvmsg socket method
+Date: Wed, 16 Sep 2009 14:07:45 -0300
+Message-ID: <20090916170745.GD7699@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Caitlin Bestler <caitlin.bestler@gmail.com>,
+Cc: Linux Networking Development Mailing List
+	<netdev@vger.kernel.org>,
+	Caitlin Bestler <caitlin.bestler@gmail.com>,
 	Chris Van Hoof <vanhoof@redhat.com>,
 	Clark Williams <williams@redhat.com>,
 	Neil Horman <nhorman@tuxdriver.com>,
@@ -14,48 +17,39 @@ Cc: Caitlin Bestler <caitlin.bestler@gmail.com>,
 	Paul Moore <paul.moore@hp.com>,
 	=?iso-8859-1?Q?R=E9mi?= Denis-Courmont
 	<remi.denis-courmont@nokia.com>,
-	Steven Whitehouse <steve@chygwyn.com>,
-	Linux Networking Development Mailing List
-	<netdev@vger.kernel.org>
+	Steven Whitehouse <steve@chygwyn.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29355 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:42172 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753107AbZIPRIC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Sep 2009 13:08:02 -0400
+	id S1753605AbZIPRIR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Sep 2009 13:08:17 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Meaning receive multiple messages, reducing the number of syscalls and
-net stack entry/exit operations.
+So thar recvmmsg can use it. With this patch recvmmsg actually _require=
+s_ that
+socket->ops->unlocked_recvmsg exists, and that socket->sk->sk_prot->unl=
+ocked_recvmsg
+is non NULL.
 
-Next patches will introduce mechanisms where protocols that want to
-optimize this operation will provide an unlocked_recvmsg operation.
+We may well switch back to the previous scheme where sys_recvmmsg check=
+s if
+the underlying protocol provides an unlocked version and uses it, falli=
+ng
+back to the locked version if there is none.
 
-This takes into account comments made by:
+But first lets see if this works with recvmmsg alone and what kinds of =
+gains we
+get with the unlocked_recvmmsg implementation in UDP. Followup patches =
+can
+restore that behaviour if we want to use it with, say, DCCP and SCTP wi=
+thout an
+specific unlocked version.
 
-=2E Paul Moore: sock_recvmsg is called only for the first datagram,
-  sock_recvmsg_nosec is used for the rest.
-
-=2E Caitlin Bestler: recvmmsg now has a struct timespec timeout, that
-  works in the same fashion as the ppoll one.
-
-  If the underlying protocol returns a datagram with MSG_OOB set, this
-  will make recvmmsg return right away with as many datagrams (+ the OO=
-B
-  one) it has received so far.
-
-=2E R=E9mi Denis-Courmont & Steven Whitehouse: If we receive N < vlen
-  datagrams and then recvmsg returns an error, recvmmsg will return
-  the successfully received datagrams, store the error and return it
-  in the next call.
-
-This paves the way for a subsequent optimization, sk_prot->unlocked_rec=
-vmsg,
-where we will be able to acquire the lock only at batch start and end, =
-not at
-every underlying recvmsg call.
+This should address the concerns raised by R=E9mi about the MSG_UNLOCKE=
+D problem.
 
 Cc: Caitlin Bestler <caitlin.bestler@gmail.com>
 Cc: Chris Van Hoof <vanhoof@redhat.com>
@@ -68,489 +62,880 @@ Cc: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 Cc: Steven Whitehouse <steve@chygwyn.com>
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- arch/alpha/kernel/systbls.S            |    1 +
- arch/arm/kernel/calls.S                |    1 +
- arch/avr32/kernel/syscall_table.S      |    1 +
- arch/blackfin/mach-common/entry.S      |    1 +
- arch/ia64/kernel/entry.S               |    1 +
- arch/microblaze/kernel/syscall_table.S |    1 +
- arch/mips/kernel/scall32-o32.S         |    1 +
- arch/mips/kernel/scall64-64.S          |    1 +
- arch/mips/kernel/scall64-n32.S         |    1 +
- arch/mips/kernel/scall64-o32.S         |    1 +
- arch/sh/kernel/syscalls_64.S           |    1 +
- arch/sparc/kernel/systbls_64.S         |    4 +-
- arch/x86/ia32/ia32entry.S              |    1 +
- arch/x86/include/asm/unistd_32.h       |    1 +
- arch/x86/include/asm/unistd_64.h       |    2 +
- arch/x86/kernel/syscall_table_32.S     |    1 +
- arch/xtensa/include/asm/unistd.h       |    4 +-
- include/linux/net.h                    |    1 +
- include/linux/socket.h                 |   10 ++
- include/linux/syscalls.h               |    4 +
- include/net/compat.h                   |    8 +
- kernel/sys_ni.c                        |    2 +
- net/compat.c                           |   33 +++++-
- net/socket.c                           |  225 ++++++++++++++++++++++++=
-++------
- 24 files changed, 259 insertions(+), 48 deletions(-)
+ drivers/isdn/mISDN/socket.c    |    2 +
+ drivers/net/pppoe.c            |    1 +
+ drivers/net/pppol2tp.c         |    1 +
+ include/linux/net.h            |    7 +++
+ include/net/sock.h             |   13 +++++
+ net/appletalk/ddp.c            |    1 +
+ net/atm/pvc.c                  |    1 +
+ net/atm/svc.c                  |    1 +
+ net/ax25/af_ax25.c             |    1 +
+ net/bluetooth/bnep/sock.c      |    1 +
+ net/bluetooth/cmtp/sock.c      |    1 +
+ net/bluetooth/hci_sock.c       |    1 +
+ net/bluetooth/hidp/sock.c      |    1 +
+ net/bluetooth/l2cap.c          |    1 +
+ net/bluetooth/rfcomm/sock.c    |    1 +
+ net/bluetooth/sco.c            |    1 +
+ net/can/bcm.c                  |    1 +
+ net/can/raw.c                  |    1 +
+ net/core/sock.c                |   26 +++++++++
+ net/dccp/ipv4.c                |    1 +
+ net/dccp/ipv6.c                |    1 +
+ net/decnet/af_decnet.c         |    1 +
+ net/econet/af_econet.c         |    1 +
+ net/ieee802154/af_ieee802154.c |    2 +
+ net/ipv4/af_inet.c             |    3 +
+ net/ipv4/udp.c                 |   52 +++++++++++++++---
+ net/ipv6/af_inet6.c            |    2 +
+ net/ipv6/raw.c                 |    1 +
+ net/ipx/af_ipx.c               |    1 +
+ net/irda/af_irda.c             |    4 ++
+ net/iucv/af_iucv.c             |    1 +
+ net/key/af_key.c               |    1 +
+ net/llc/af_llc.c               |    1 +
+ net/netlink/af_netlink.c       |    1 +
+ net/netrom/af_netrom.c         |    1 +
+ net/packet/af_packet.c         |    2 +
+ net/phonet/socket.c            |    2 +
+ net/rds/af_rds.c               |    1 +
+ net/rose/af_rose.c             |    1 +
+ net/rxrpc/af_rxrpc.c           |    1 +
+ net/sctp/ipv6.c                |    1 +
+ net/sctp/protocol.c            |    1 +
+ net/socket.c                   |  112 ++++++++++++++++++++++++++++++++=
++++----
+ net/tipc/socket.c              |    3 +
+ net/unix/af_unix.c             |    3 +
+ net/x25/af_x25.c               |    1 +
+ 46 files changed, 244 insertions(+), 21 deletions(-)
 
-diff --git a/arch/alpha/kernel/systbls.S b/arch/alpha/kernel/systbls.S
-index 95c9aef..cda6b8b 100644
---- a/arch/alpha/kernel/systbls.S
-+++ b/arch/alpha/kernel/systbls.S
-@@ -497,6 +497,7 @@ sys_call_table:
- 	.quad sys_signalfd
- 	.quad sys_ni_syscall
- 	.quad sys_eventfd
-+	.quad sys_recvmmsg
-=20
- 	.size sys_call_table, . - sys_call_table
- 	.type sys_call_table, @object
-diff --git a/arch/arm/kernel/calls.S b/arch/arm/kernel/calls.S
-index f776e72..43995f6 100644
---- a/arch/arm/kernel/calls.S
-+++ b/arch/arm/kernel/calls.S
-@@ -374,6 +374,7 @@
- 		CALL(sys_pwritev)
- 		CALL(sys_rt_tgsigqueueinfo)
- 		CALL(sys_perf_counter_open)
-+		CALL(sys_recvmmsg)
- #ifndef syscalls_counted
- .equ syscalls_padding, ((NR_syscalls + 3) & ~3) - NR_syscalls
- #define syscalls_counted
-diff --git a/arch/avr32/kernel/syscall_table.S b/arch/avr32/kernel/sysc=
-all_table.S
-index 7ee0057..e76bad1 100644
---- a/arch/avr32/kernel/syscall_table.S
-+++ b/arch/avr32/kernel/syscall_table.S
-@@ -295,4 +295,5 @@ sys_call_table:
- 	.long	sys_signalfd
- 	.long	sys_ni_syscall		/* 280, was sys_timerfd */
- 	.long	sys_eventfd
-+	.long	sys_recvmmsg
- 	.long	sys_ni_syscall		/* r8 is saturated at nr_syscalls */
-diff --git a/arch/blackfin/mach-common/entry.S b/arch/blackfin/mach-com=
-mon/entry.S
-index fb1795d..e4d3d0f 100644
---- a/arch/blackfin/mach-common/entry.S
-+++ b/arch/blackfin/mach-common/entry.S
-@@ -1612,6 +1612,7 @@ ENTRY(_sys_call_table)
- 	.long _sys_pwritev
- 	.long _sys_rt_tgsigqueueinfo
- 	.long _sys_perf_counter_open
-+	.long _sys_recvmmsg
-=20
- 	.rept NR_syscalls-(.-_sys_call_table)/4
- 	.long _sys_ni_syscall
-diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
-index d0e7d37..d75b872 100644
---- a/arch/ia64/kernel/entry.S
-+++ b/arch/ia64/kernel/entry.S
-@@ -1806,6 +1806,7 @@ sys_call_table:
- 	data8 sys_preadv
- 	data8 sys_pwritev			// 1320
- 	data8 sys_rt_tgsigqueueinfo
-+	data8 sys_recvmmsg
-=20
- 	.org sys_call_table + 8*NR_syscalls	// guard against failures to incr=
-ease NR_syscalls
- #endif /* __IA64_ASM_PARAVIRTUALIZED_NATIVE */
-diff --git a/arch/microblaze/kernel/syscall_table.S b/arch/microblaze/k=
-ernel/syscall_table.S
-index 4572160..623dbf1 100644
---- a/arch/microblaze/kernel/syscall_table.S
-+++ b/arch/microblaze/kernel/syscall_table.S
-@@ -371,3 +371,4 @@ ENTRY(sys_call_table)
- 	.long sys_ni_syscall
- 	.long sys_rt_tgsigqueueinfo	/* 365 */
- 	.long sys_perf_counter_open
-+	.long sys_recvmmsg
-diff --git a/arch/mips/kernel/scall32-o32.S b/arch/mips/kernel/scall32-=
-o32.S
-index b570821..b92aa3e 100644
---- a/arch/mips/kernel/scall32-o32.S
-+++ b/arch/mips/kernel/scall32-o32.S
-@@ -655,6 +655,7 @@ einval:	li	v0, -ENOSYS
- 	sys	sys_rt_tgsigqueueinfo	4
- 	sys	sys_perf_counter_open	5
- 	sys	sys_accept4		4
-+	sys     sys_recvmmsg            5
- 	.endm
-=20
- 	/* We pre-compute the number of _instruction_ bytes needed to
-diff --git a/arch/mips/kernel/scall64-64.S b/arch/mips/kernel/scall64-6=
-4.S
-index 3d866f2..d3384d8 100644
---- a/arch/mips/kernel/scall64-64.S
-+++ b/arch/mips/kernel/scall64-64.S
-@@ -492,4 +492,5 @@ sys_call_table:
- 	PTR	sys_rt_tgsigqueueinfo
- 	PTR	sys_perf_counter_open
- 	PTR	sys_accept4
-+	PTR     sys_recvmmsg
- 	.size	sys_call_table,.-sys_call_table
-diff --git a/arch/mips/kernel/scall64-n32.S b/arch/mips/kernel/scall64-=
-n32.S
-index 1a6ae12..15412f7 100644
---- a/arch/mips/kernel/scall64-n32.S
-+++ b/arch/mips/kernel/scall64-n32.S
-@@ -418,4 +418,5 @@ EXPORT(sysn32_call_table)
- 	PTR	compat_sys_rt_tgsigqueueinfo	/* 5295 */
- 	PTR	sys_perf_counter_open
- 	PTR	sys_accept4
-+	PTR     compat_sys_recvmmsg
- 	.size	sysn32_call_table,.-sysn32_call_table
-diff --git a/arch/mips/kernel/scall64-o32.S b/arch/mips/kernel/scall64-=
-o32.S
-index cd31087..ba1e940 100644
---- a/arch/mips/kernel/scall64-o32.S
-+++ b/arch/mips/kernel/scall64-o32.S
-@@ -538,4 +538,5 @@ sys_call_table:
- 	PTR	compat_sys_rt_tgsigqueueinfo
- 	PTR	sys_perf_counter_open
- 	PTR	sys_accept4
-+	PTR     compat_sys_recvmmsg
- 	.size	sys_call_table,.-sys_call_table
-diff --git a/arch/sh/kernel/syscalls_64.S b/arch/sh/kernel/syscalls_64.=
-S
-index bf420b6..056e0a7 100644
---- a/arch/sh/kernel/syscalls_64.S
-+++ b/arch/sh/kernel/syscalls_64.S
-@@ -391,3 +391,4 @@ sys_call_table:
- 	.long sys_pwritev
- 	.long sys_rt_tgsigqueueinfo
- 	.long sys_perf_counter_open
-+	.long sys_recvmmsg		/* 365 */
-diff --git a/arch/sparc/kernel/systbls_64.S b/arch/sparc/kernel/systbls=
-_64.S
-index 91b06b7..ff40e70 100644
---- a/arch/sparc/kernel/systbls_64.S
-+++ b/arch/sparc/kernel/systbls_64.S
-@@ -83,7 +83,7 @@ sys_call_table32:
- /*310*/	.word compat_sys_utimensat, compat_sys_signalfd, sys_timerfd_c=
-reate, sys_eventfd, compat_sys_fallocate
- 	.word compat_sys_timerfd_settime, compat_sys_timerfd_gettime, compat_=
-sys_signalfd4, sys_eventfd2, sys_epoll_create1
- /*320*/	.word sys_dup3, sys_pipe2, sys_inotify_init1, sys_accept4, com=
-pat_sys_preadv
--	.word compat_sys_pwritev, compat_sys_rt_tgsigqueueinfo, sys_perf_coun=
-ter_open
-+	.word compat_sys_pwritev, compat_sys_rt_tgsigqueueinfo, sys_perf_coun=
-ter_open, compat_sys_recvmmsg
-=20
- #endif /* CONFIG_COMPAT */
-=20
-@@ -158,4 +158,4 @@ sys_call_table:
- /*310*/	.word sys_utimensat, sys_signalfd, sys_timerfd_create, sys_eve=
-ntfd, sys_fallocate
- 	.word sys_timerfd_settime, sys_timerfd_gettime, sys_signalfd4, sys_ev=
-entfd2, sys_epoll_create1
- /*320*/	.word sys_dup3, sys_pipe2, sys_inotify_init1, sys_accept4, sys=
-_preadv
--	.word sys_pwritev, sys_rt_tgsigqueueinfo, sys_perf_counter_open
-+	.word sys_pwritev, sys_rt_tgsigqueueinfo, sys_perf_counter_open, sys_=
-recvmmsg
-diff --git a/arch/x86/ia32/ia32entry.S b/arch/x86/ia32/ia32entry.S
-index ba331bf..94dc323 100644
---- a/arch/x86/ia32/ia32entry.S
-+++ b/arch/x86/ia32/ia32entry.S
-@@ -832,4 +832,5 @@ ia32_sys_call_table:
- 	.quad compat_sys_pwritev
- 	.quad compat_sys_rt_tgsigqueueinfo	/* 335 */
- 	.quad sys_perf_counter_open
-+	.quad compat_sys_recvmmsg
- ia32_syscall_end:
-diff --git a/arch/x86/include/asm/unistd_32.h b/arch/x86/include/asm/un=
-istd_32.h
-index 8deaada..665ea30 100644
---- a/arch/x86/include/asm/unistd_32.h
-+++ b/arch/x86/include/asm/unistd_32.h
-@@ -342,6 +342,7 @@
- #define __NR_pwritev		334
- #define __NR_rt_tgsigqueueinfo	335
- #define __NR_perf_counter_open	336
-+#define __NR_recvmmsg		337
-=20
- #ifdef __KERNEL__
-=20
-diff --git a/arch/x86/include/asm/unistd_64.h b/arch/x86/include/asm/un=
-istd_64.h
-index b9f3c60..f837601 100644
---- a/arch/x86/include/asm/unistd_64.h
-+++ b/arch/x86/include/asm/unistd_64.h
-@@ -661,6 +661,8 @@ __SYSCALL(__NR_pwritev, sys_pwritev)
- __SYSCALL(__NR_rt_tgsigqueueinfo, sys_rt_tgsigqueueinfo)
- #define __NR_perf_counter_open			298
- __SYSCALL(__NR_perf_counter_open, sys_perf_counter_open)
-+#define __NR_recvmmsg				299
-+__SYSCALL(__NR_recvmmsg, sys_recvmmsg)
-=20
- #ifndef __NO_STUBS
- #define __ARCH_WANT_OLD_READDIR
-diff --git a/arch/x86/kernel/syscall_table_32.S b/arch/x86/kernel/sysca=
-ll_table_32.S
-index d51321d..4881b14 100644
---- a/arch/x86/kernel/syscall_table_32.S
-+++ b/arch/x86/kernel/syscall_table_32.S
-@@ -336,3 +336,4 @@ ENTRY(sys_call_table)
- 	.long sys_pwritev
- 	.long sys_rt_tgsigqueueinfo	/* 335 */
- 	.long sys_perf_counter_open
-+	.long sys_recvmmsg
-diff --git a/arch/xtensa/include/asm/unistd.h b/arch/xtensa/include/asm=
-/unistd.h
-index c092c8f..4e55dc7 100644
---- a/arch/xtensa/include/asm/unistd.h
-+++ b/arch/xtensa/include/asm/unistd.h
-@@ -681,8 +681,10 @@ __SYSCALL(304, sys_signalfd, 3)
- __SYSCALL(305, sys_ni_syscall, 0)
- #define __NR_eventfd				306
- __SYSCALL(306, sys_eventfd, 1)
-+#define __NR_recvmmsg				307
-+__SYSCALL(307, sys_recvmmsg, 5)
-=20
--#define __NR_syscall_count			307
-+#define __NR_syscall_count			308
-=20
- /*
-  * sysxtensa syscall handler
+diff --git a/drivers/isdn/mISDN/socket.c b/drivers/isdn/mISDN/socket.c
+index c36f521..6da3a71 100644
+--- a/drivers/isdn/mISDN/socket.c
++++ b/drivers/isdn/mISDN/socket.c
+@@ -590,6 +590,7 @@ static const struct proto_ops data_sock_ops =3D {
+ 	.getname	=3D data_sock_getname,
+ 	.sendmsg	=3D mISDN_sock_sendmsg,
+ 	.recvmsg	=3D mISDN_sock_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.poll		=3D datagram_poll,
+ 	.listen		=3D sock_no_listen,
+ 	.shutdown	=3D sock_no_shutdown,
+@@ -743,6 +744,7 @@ static const struct proto_ops base_sock_ops =3D {
+ 	.getname	=3D sock_no_getname,
+ 	.sendmsg	=3D sock_no_sendmsg,
+ 	.recvmsg	=3D sock_no_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.poll		=3D sock_no_poll,
+ 	.listen		=3D sock_no_listen,
+ 	.shutdown	=3D sock_no_shutdown,
+diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
+index 7cbf6f9..cbcd3d5 100644
+--- a/drivers/net/pppoe.c
++++ b/drivers/net/pppoe.c
+@@ -1121,6 +1121,7 @@ static const struct proto_ops pppoe_ops =3D {
+ 	.getsockopt	=3D sock_no_getsockopt,
+ 	.sendmsg	=3D pppoe_sendmsg,
+ 	.recvmsg	=3D pppoe_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap		=3D sock_no_mmap,
+ 	.ioctl		=3D pppox_ioctl,
+ };
+diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
+index e0f9219..af6160c 100644
+--- a/drivers/net/pppol2tp.c
++++ b/drivers/net/pppol2tp.c
+@@ -2590,6 +2590,7 @@ static struct proto_ops pppol2tp_ops =3D {
+ 	.getsockopt	=3D pppol2tp_getsockopt,
+ 	.sendmsg	=3D pppol2tp_sendmsg,
+ 	.recvmsg	=3D pppol2tp_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap		=3D sock_no_mmap,
+ 	.ioctl		=3D pppox_ioctl,
+ };
 diff --git a/include/linux/net.h b/include/linux/net.h
-index 4fc2ffd..d67587a 100644
+index d67587a..8b852de 100644
 --- a/include/linux/net.h
 +++ b/include/linux/net.h
-@@ -41,6 +41,7 @@
- #define SYS_SENDMSG	16		/* sys_sendmsg(2)		*/
- #define SYS_RECVMSG	17		/* sys_recvmsg(2)		*/
- #define SYS_ACCEPT4	18		/* sys_accept4(2)		*/
-+#define SYS_RECVMMSG	19		/* sys_recvmmsg(2)		*/
-=20
- typedef enum {
- 	SS_FREE =3D 0,			/* not allocated		*/
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index 3b461df..c192bf8 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -65,6 +65,12 @@ struct msghdr {
- 	unsigned	msg_flags;
+@@ -186,6 +186,10 @@ struct proto_ops {
+ 	int		(*recvmsg)   (struct kiocb *iocb, struct socket *sock,
+ 				      struct msghdr *m, size_t total_len,
+ 				      int flags);
++	int		(*unlocked_recvmsg)(struct kiocb *iocb,
++					    struct socket *sock,
++					    struct msghdr *m,
++					    size_t total_len, int flags);
+ 	int		(*mmap)	     (struct file *file, struct socket *sock,
+ 				      struct vm_area_struct * vma);
+ 	ssize_t		(*sendpage)  (struct socket *sock, struct page *page,
+@@ -316,6 +320,8 @@ SOCKCALL_WRAP(name, sendmsg, (struct kiocb *iocb, s=
+truct socket *sock, struct ms
+ 	      (iocb, sock, m, len)) \
+ SOCKCALL_WRAP(name, recvmsg, (struct kiocb *iocb, struct socket *sock,=
+ struct msghdr *m, size_t len, int flags), \
+ 	      (iocb, sock, m, len, flags)) \
++SOCKCALL_WRAP(name, unlocked_recvmsg, (struct kiocb *iocb, struct sock=
+et *sock, struct msghdr *m, size_t len, int flags), \
++	      (iocb, sock, m, len, flags)) \
+ SOCKCALL_WRAP(name, mmap, (struct file *file, struct socket *sock, str=
+uct vm_area_struct *vma), \
+ 	      (file, sock, vma)) \
+ 	      \
+@@ -337,6 +343,7 @@ static const struct proto_ops name##_ops =3D {			\
+ 	.getsockopt	=3D __lock_##name##_getsockopt,	\
+ 	.sendmsg	=3D __lock_##name##_sendmsg,	\
+ 	.recvmsg	=3D __lock_##name##_recvmsg,	\
++	.unlocked_recvmsg =3D __lock_##name##_unlocked_recvmsg,	\
+ 	.mmap		=3D __lock_##name##_mmap,		\
  };
 =20
-+/* For recvmmsg/sendmmsg */
-+struct mmsghdr {
-+	struct msghdr   msg_hdr;
-+	unsigned        msg_len;
-+};
-+
- /*
-  *	POSIX 1003.1g - ancillary data object information
-  *	Ancillary data consits of a sequence of pairs of
-@@ -327,6 +333,10 @@ extern int move_addr_to_user(struct sockaddr *kadd=
-r, int klen, void __user *uadd
- extern int move_addr_to_kernel(void __user *uaddr, int ulen, struct so=
-ckaddr *kaddr);
- extern int put_cmsg(struct msghdr*, int level, int type, int len, void=
- *data);
-=20
-+struct timespec;
-+
-+extern int __sys_recvmmsg(int fd, struct mmsghdr __user *mmsg, unsigne=
-d int vlen,
-+			  unsigned int flags, struct timespec *timeout);
- #endif
- #endif /* not kernel and not glibc */
- #endif /* _LINUX_SOCKET_H */
-diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
-index a8e3782..b21818c 100644
---- a/include/linux/syscalls.h
-+++ b/include/linux/syscalls.h
-@@ -25,6 +25,7 @@ struct linux_dirent64;
- struct list_head;
- struct msgbuf;
- struct msghdr;
-+struct mmsghdr;
- struct msqid_ds;
- struct new_utsname;
- struct nfsctl_arg;
-@@ -686,6 +687,9 @@ asmlinkage long sys_recv(int, void __user *, size_t=
-, unsigned);
- asmlinkage long sys_recvfrom(int, void __user *, size_t, unsigned,
- 				struct sockaddr __user *, int __user *);
- asmlinkage long sys_recvmsg(int fd, struct msghdr __user *msg, unsigne=
-d flags);
-+asmlinkage long sys_recvmmsg(int fd, struct mmsghdr __user *msg,
-+			     unsigned int vlen, unsigned flags,
-+			     struct timespec __user *timeout);
- asmlinkage long sys_socket(int, int, int);
- asmlinkage long sys_socketpair(int, int, int, int __user *);
- asmlinkage long sys_socketcall(int call, unsigned long __user *args);
-diff --git a/include/net/compat.h b/include/net/compat.h
-index 5bbf8bf..96c38d8 100644
---- a/include/net/compat.h
-+++ b/include/net/compat.h
-@@ -18,6 +18,11 @@ struct compat_msghdr {
- 	compat_uint_t	msg_flags;
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 950409d..7c62428 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -644,6 +644,11 @@ struct proto {
+ 					   struct msghdr *msg,
+ 					size_t len, int noblock, int flags,=20
+ 					int *addr_len);
++	int			(*unlocked_recvmsg)(struct kiocb *iocb,
++						    struct sock *sk,
++						    struct msghdr *msg,
++						    size_t len, int noblock,
++						    int flags, int *addr_len);
+ 	int			(*sendpage)(struct sock *sk, struct page *page,
+ 					int offset, size_t size, int flags);
+ 	int			(*bind)(struct sock *sk,=20
+@@ -998,6 +1003,11 @@ extern int                      sock_no_sendmsg(s=
+truct kiocb *, struct socket *,
+ 						struct msghdr *, size_t);
+ extern int                      sock_no_recvmsg(struct kiocb *, struct=
+ socket *,
+ 						struct msghdr *, size_t, int);
++extern int			sock_no_unlocked_recvmsg(struct kiocb *iocb,
++							 struct socket *sock,
++							 struct msghdr *msg,
++							 size_t size,
++							 int flags);
+ extern int			sock_no_mmap(struct file *file,
+ 					     struct socket *sock,
+ 					     struct vm_area_struct *vma);
+@@ -1014,6 +1024,9 @@ extern int sock_common_getsockopt(struct socket *=
+sock, int level, int optname,
+ 				  char __user *optval, int __user *optlen);
+ extern int sock_common_recvmsg(struct kiocb *iocb, struct socket *sock=
+,
+ 			       struct msghdr *msg, size_t size, int flags);
++extern int sock_common_unlocked_recvmsg(struct kiocb *iocb, struct soc=
+ket *sock,
++					struct msghdr *msg, size_t size,
++					int flags);
+ extern int sock_common_setsockopt(struct socket *sock, int level, int =
+optname,
+ 				  char __user *optval, int optlen);
+ extern int compat_sock_common_getsockopt(struct socket *sock, int leve=
+l,
+diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+index 4a6ff2b..bb2e1bb 100644
+--- a/net/appletalk/ddp.c
++++ b/net/appletalk/ddp.c
+@@ -1847,6 +1847,7 @@ static const struct proto_ops SOCKOPS_WRAPPED(ata=
+lk_dgram_ops) =3D {
+ 	.getsockopt	=3D sock_no_getsockopt,
+ 	.sendmsg	=3D atalk_sendmsg,
+ 	.recvmsg	=3D atalk_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap		=3D sock_no_mmap,
+ 	.sendpage	=3D sock_no_sendpage,
  };
-=20
-+struct compat_mmsghdr {
-+	struct compat_msghdr msg_hdr;
-+	compat_uint_t        msg_len;
-+};
-+
- struct compat_cmsghdr {
- 	compat_size_t	cmsg_len;
- 	compat_int_t	cmsg_level;
-@@ -35,6 +40,9 @@ extern int get_compat_msghdr(struct msghdr *, struct =
-compat_msghdr __user *);
- extern int verify_compat_iovec(struct msghdr *, struct iovec *, struct=
- sockaddr *, int);
- extern asmlinkage long compat_sys_sendmsg(int,struct compat_msghdr __u=
-ser *,unsigned);
- extern asmlinkage long compat_sys_recvmsg(int,struct compat_msghdr __u=
-ser *,unsigned);
-+extern asmlinkage long compat_sys_recvmmsg(int, struct compat_mmsghdr =
-__user *,
-+					   unsigned, unsigned,
-+					   struct timespec __user *);
- extern asmlinkage long compat_sys_getsockopt(int, int, int, char __use=
-r *, int __user *);
- extern int put_cmsg_compat(struct msghdr*, int, int, int, void *);
-=20
-diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
-index 68320f6..f581fb0 100644
---- a/kernel/sys_ni.c
-+++ b/kernel/sys_ni.c
-@@ -48,7 +48,9 @@ cond_syscall(sys_shutdown);
- cond_syscall(sys_sendmsg);
- cond_syscall(compat_sys_sendmsg);
- cond_syscall(sys_recvmsg);
-+cond_syscall(sys_recvmmsg);
- cond_syscall(compat_sys_recvmsg);
-+cond_syscall(compat_sys_recvmmsg);
- cond_syscall(sys_socketcall);
- cond_syscall(sys_futex);
- cond_syscall(compat_sys_futex);
-diff --git a/net/compat.c b/net/compat.c
-index 12728b1..ee57376 100644
---- a/net/compat.c
-+++ b/net/compat.c
-@@ -727,10 +727,10 @@ EXPORT_SYMBOL(compat_mc_getsockopt);
-=20
- /* Argument list sizes for compat_sys_socketcall */
- #define AL(x) ((x) * sizeof(u32))
--static unsigned char nas[19]=3D{AL(0),AL(3),AL(3),AL(3),AL(2),AL(3),
-+static unsigned char nas[20]=3D{AL(0),AL(3),AL(3),AL(3),AL(2),AL(3),
- 				AL(3),AL(3),AL(4),AL(4),AL(4),AL(6),
- 				AL(6),AL(2),AL(5),AL(5),AL(3),AL(3),
--				AL(4)};
-+				AL(4),AL(5)};
- #undef AL
-=20
- asmlinkage long compat_sys_sendmsg(int fd, struct compat_msghdr __user=
- *msg, unsigned flags)
-@@ -755,13 +755,36 @@ asmlinkage long compat_sys_recvfrom(int fd, void =
-__user *buf, size_t len,
- 	return sys_recvfrom(fd, buf, len, flags | MSG_CMSG_COMPAT, addr, addr=
-len);
+diff --git a/net/atm/pvc.c b/net/atm/pvc.c
+index e1d22d9..5c03749 100644
+--- a/net/atm/pvc.c
++++ b/net/atm/pvc.c
+@@ -122,6 +122,7 @@ static const struct proto_ops pvc_proto_ops =3D {
+ 	.getsockopt =3D	pvc_getsockopt,
+ 	.sendmsg =3D	vcc_sendmsg,
+ 	.recvmsg =3D	vcc_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap =3D		sock_no_mmap,
+ 	.sendpage =3D	sock_no_sendpage,
+ };
+diff --git a/net/atm/svc.c b/net/atm/svc.c
+index 7b831b5..6c66ae9 100644
+--- a/net/atm/svc.c
++++ b/net/atm/svc.c
+@@ -644,6 +644,7 @@ static const struct proto_ops svc_proto_ops =3D {
+ 	.setsockopt =3D	svc_setsockopt,
+ 	.getsockopt =3D	svc_getsockopt,
+ 	.sendmsg =3D	vcc_sendmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.recvmsg =3D	vcc_recvmsg,
+ 	.mmap =3D		sock_no_mmap,
+ 	.sendpage =3D	sock_no_sendpage,
+diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
+index da0f64f..43f4f57 100644
+--- a/net/ax25/af_ax25.c
++++ b/net/ax25/af_ax25.c
+@@ -1976,6 +1976,7 @@ static const struct proto_ops ax25_proto_ops =3D =
+{
+ 	.getsockopt	=3D ax25_getsockopt,
+ 	.sendmsg	=3D ax25_sendmsg,
+ 	.recvmsg	=3D ax25_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap		=3D sock_no_mmap,
+ 	.sendpage	=3D sock_no_sendpage,
+ };
+diff --git a/net/bluetooth/bnep/sock.c b/net/bluetooth/bnep/sock.c
+index e857628..0b26b3c 100644
+--- a/net/bluetooth/bnep/sock.c
++++ b/net/bluetooth/bnep/sock.c
+@@ -178,6 +178,7 @@ static const struct proto_ops bnep_sock_ops =3D {
+ 	.getname	=3D sock_no_getname,
+ 	.sendmsg	=3D sock_no_sendmsg,
+ 	.recvmsg	=3D sock_no_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.poll		=3D sock_no_poll,
+ 	.listen		=3D sock_no_listen,
+ 	.shutdown	=3D sock_no_shutdown,
+diff --git a/net/bluetooth/cmtp/sock.c b/net/bluetooth/cmtp/sock.c
+index 16b0fad..72a4b5d 100644
+--- a/net/bluetooth/cmtp/sock.c
++++ b/net/bluetooth/cmtp/sock.c
+@@ -173,6 +173,7 @@ static const struct proto_ops cmtp_sock_ops =3D {
+ 	.getname	=3D sock_no_getname,
+ 	.sendmsg	=3D sock_no_sendmsg,
+ 	.recvmsg	=3D sock_no_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.poll		=3D sock_no_poll,
+ 	.listen		=3D sock_no_listen,
+ 	.shutdown	=3D sock_no_shutdown,
+diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
+index 4f9621f..bd0aace 100644
+--- a/net/bluetooth/hci_sock.c
++++ b/net/bluetooth/hci_sock.c
+@@ -603,6 +603,7 @@ static const struct proto_ops hci_sock_ops =3D {
+ 	.getname	=3D hci_sock_getname,
+ 	.sendmsg	=3D hci_sock_sendmsg,
+ 	.recvmsg	=3D hci_sock_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.ioctl		=3D hci_sock_ioctl,
+ 	.poll		=3D datagram_poll,
+ 	.listen		=3D sock_no_listen,
+diff --git a/net/bluetooth/hidp/sock.c b/net/bluetooth/hidp/sock.c
+index 37c9d7d..90b40e2 100644
+--- a/net/bluetooth/hidp/sock.c
++++ b/net/bluetooth/hidp/sock.c
+@@ -224,6 +224,7 @@ static const struct proto_ops hidp_sock_ops =3D {
+ 	.getname	=3D sock_no_getname,
+ 	.sendmsg	=3D sock_no_sendmsg,
+ 	.recvmsg	=3D sock_no_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.poll		=3D sock_no_poll,
+ 	.listen		=3D sock_no_listen,
+ 	.shutdown	=3D sock_no_shutdown,
+diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
+index b030125..dc73bd4 100644
+--- a/net/bluetooth/l2cap.c
++++ b/net/bluetooth/l2cap.c
+@@ -3907,6 +3907,7 @@ static const struct proto_ops l2cap_sock_ops =3D =
+{
+ 	.getname	=3D l2cap_sock_getname,
+ 	.sendmsg	=3D l2cap_sock_sendmsg,
+ 	.recvmsg	=3D l2cap_sock_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.poll		=3D bt_sock_poll,
+ 	.ioctl		=3D bt_sock_ioctl,
+ 	.mmap		=3D sock_no_mmap,
+diff --git a/net/bluetooth/rfcomm/sock.c b/net/bluetooth/rfcomm/sock.c
+index 0b85e81..00b1a41 100644
+--- a/net/bluetooth/rfcomm/sock.c
++++ b/net/bluetooth/rfcomm/sock.c
+@@ -1092,6 +1092,7 @@ static const struct proto_ops rfcomm_sock_ops =3D=
+ {
+ 	.getname	=3D rfcomm_sock_getname,
+ 	.sendmsg	=3D rfcomm_sock_sendmsg,
+ 	.recvmsg	=3D rfcomm_sock_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.shutdown	=3D rfcomm_sock_shutdown,
+ 	.setsockopt	=3D rfcomm_sock_setsockopt,
+ 	.getsockopt	=3D rfcomm_sock_getsockopt,
+diff --git a/net/bluetooth/sco.c b/net/bluetooth/sco.c
+index 13c27f1..fda79b8 100644
+--- a/net/bluetooth/sco.c
++++ b/net/bluetooth/sco.c
+@@ -984,6 +984,7 @@ static const struct proto_ops sco_sock_ops =3D {
+ 	.getname	=3D sco_sock_getname,
+ 	.sendmsg	=3D sco_sock_sendmsg,
+ 	.recvmsg	=3D bt_sock_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.poll		=3D bt_sock_poll,
+ 	.ioctl		=3D bt_sock_ioctl,
+ 	.mmap		=3D sock_no_mmap,
+diff --git a/net/can/bcm.c b/net/can/bcm.c
+index 597da4f..e0aff9e 100644
+--- a/net/can/bcm.c
++++ b/net/can/bcm.c
+@@ -1562,6 +1562,7 @@ static struct proto_ops bcm_ops __read_mostly =3D=
+ {
+ 	.getsockopt    =3D sock_no_getsockopt,
+ 	.sendmsg       =3D bcm_sendmsg,
+ 	.recvmsg       =3D bcm_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap          =3D sock_no_mmap,
+ 	.sendpage      =3D sock_no_sendpage,
+ };
+diff --git a/net/can/raw.c b/net/can/raw.c
+index db3152d..b8fa610 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -730,6 +730,7 @@ static struct proto_ops raw_ops __read_mostly =3D {
+ 	.getsockopt    =3D raw_getsockopt,
+ 	.sendmsg       =3D raw_sendmsg,
+ 	.recvmsg       =3D raw_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap          =3D sock_no_mmap,
+ 	.sendpage      =3D sock_no_sendpage,
+ };
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 30d5446..6ac86d4 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1653,6 +1653,13 @@ int sock_no_connect(struct socket *sock, struct =
+sockaddr *saddr,
  }
+ EXPORT_SYMBOL(sock_no_connect);
 =20
-+asmlinkage long compat_sys_recvmmsg(int fd, struct compat_mmsghdr __us=
-er *mmsg,
-+				    unsigned vlen, unsigned int flags,
-+				    struct timespec __user *timeout)
++int sock_no_unlocked_recvmsg(struct kiocb *iocb, struct socket *sock,
++			     struct msghdr *msg, size_t size, int flags)
 +{
-+	int datagrams;
-+	struct timespec ktspec;
-+	struct compat_timespec __user *utspec =3D
-+			(struct compat_timespec __user *)timeout;
-+
-+	if (get_user(ktspec.tv_sec, &utspec->tv_sec) ||
-+	    get_user(ktspec.tv_nsec, &utspec->tv_nsec))
-+		return -EFAULT;
-+
-+	datagrams =3D __sys_recvmmsg(fd, (struct mmsghdr __user *)mmsg, vlen,
-+				   flags | MSG_CMSG_COMPAT, &ktspec);
-+	if (datagrams > 0 &&
-+	    (put_user(ktspec.tv_sec, &utspec->tv_sec) ||
-+	     put_user(ktspec.tv_nsec, &utspec->tv_nsec)))
-+		datagrams =3D -EFAULT;
-+
-+	return datagrams;
++	return -EOPNOTSUPP;
 +}
++EXPORT_SYMBOL(sock_no_unlocked_recvmsg);
 +
- asmlinkage long compat_sys_socketcall(int call, u32 __user *args)
+ int sock_no_socketpair(struct socket *sock1, struct socket *sock2)
  {
- 	int ret;
- 	u32 a[6];
- 	u32 a0, a1;
-=20
--	if (call < SYS_SOCKET || call > SYS_ACCEPT4)
-+	if (call < SYS_SOCKET || call > SYS_RECVMMSG)
- 		return -EINVAL;
- 	if (copy_from_user(a, args, nas[call]))
- 		return -EFAULT;
-@@ -823,6 +846,10 @@ asmlinkage long compat_sys_socketcall(int call, u3=
-2 __user *args)
- 	case SYS_RECVMSG:
- 		ret =3D compat_sys_recvmsg(a0, compat_ptr(a1), a[2]);
- 		break;
-+	case SYS_RECVMMSG:
-+		ret =3D compat_sys_recvmmsg(a0, compat_ptr(a1), a[2], a[3],
-+					  compat_ptr(a[4]));
-+		break;
- 	case SYS_ACCEPT4:
- 		ret =3D sys_accept4(a0, compat_ptr(a1), compat_ptr(a[2]), a[3]);
- 		break;
-diff --git a/net/socket.c b/net/socket.c
-index 6d47165..32db56a 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -668,10 +668,9 @@ void __sock_recv_timestamp(struct msghdr *msg, str=
-uct sock *sk,
-=20
- EXPORT_SYMBOL_GPL(__sock_recv_timestamp);
-=20
--static inline int __sock_recvmsg(struct kiocb *iocb, struct socket *so=
-ck,
--				 struct msghdr *msg, size_t size, int flags)
-+static inline int __sock_recvmsg_nosec(struct kiocb *iocb, struct sock=
-et *sock,
-+				       struct msghdr *msg, size_t size, int flags)
- {
--	int err;
- 	struct sock_iocb *si =3D kiocb_to_siocb(iocb);
-=20
- 	si->sock =3D sock;
-@@ -680,13 +679,17 @@ static inline int __sock_recvmsg(struct kiocb *io=
-cb, struct socket *sock,
- 	si->size =3D size;
- 	si->flags =3D flags;
-=20
--	err =3D security_socket_recvmsg(sock, msg, size, flags);
--	if (err)
--		return err;
--
- 	return sock->ops->recvmsg(iocb, sock, msg, size, flags);
+ 	return -EOPNOTSUPP;
+@@ -2014,6 +2021,25 @@ int sock_common_recvmsg(struct kiocb *iocb, stru=
+ct socket *sock,
  }
+ EXPORT_SYMBOL(sock_common_recvmsg);
 =20
-+static inline int __sock_recvmsg(struct kiocb *iocb, struct socket *so=
++int sock_common_unlocked_recvmsg(struct kiocb *iocb, struct socket *so=
 ck,
 +				 struct msghdr *msg, size_t size, int flags)
 +{
++	struct sock *sk =3D sock->sk;
++	int addr_len =3D 0;
++	int err;
++
++	if (sk->sk_prot->unlocked_recvmsg =3D=3D NULL)
++		return -EOPNOTSUPP;
++
++	err =3D sk->sk_prot->unlocked_recvmsg(iocb, sk, msg, size,
++					    flags & MSG_DONTWAIT,
++					    flags & ~MSG_DONTWAIT, &addr_len);
++	if (err >=3D 0)
++		msg->msg_namelen =3D addr_len;
++	return err;
++}
++EXPORT_SYMBOL(sock_common_unlocked_recvmsg);
++
+ /*
+  *	Set socket options on an inet socket.
+  */
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index d01c00d..e781f01 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -974,6 +974,7 @@ static const struct proto_ops inet_dccp_ops =3D {
+ 	.getsockopt	   =3D sock_common_getsockopt,
+ 	.sendmsg	   =3D inet_sendmsg,
+ 	.recvmsg	   =3D sock_common_recvmsg,
++	.unlocked_recvmsg  =3D sock_no_unlocked_recvmsg,
+ 	.mmap		   =3D sock_no_mmap,
+ 	.sendpage	   =3D sock_no_sendpage,
+ #ifdef CONFIG_COMPAT
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index 64f011c..f530e37 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -1175,6 +1175,7 @@ static struct proto_ops inet6_dccp_ops =3D {
+ 	.getsockopt	   =3D sock_common_getsockopt,
+ 	.sendmsg	   =3D inet_sendmsg,
+ 	.recvmsg	   =3D sock_common_recvmsg,
++	.unlocked_recvmsg  =3D sock_no_unlocked_recvmsg,
+ 	.mmap		   =3D sock_no_mmap,
+ 	.sendpage	   =3D sock_no_sendpage,
+ #ifdef CONFIG_COMPAT
+diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
+index 77d4028..aa1af0b 100644
+--- a/net/decnet/af_decnet.c
++++ b/net/decnet/af_decnet.c
+@@ -2348,6 +2348,7 @@ static const struct proto_ops dn_proto_ops =3D {
+ 	.getsockopt =3D	dn_getsockopt,
+ 	.sendmsg =3D	dn_sendmsg,
+ 	.recvmsg =3D	dn_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap =3D		sock_no_mmap,
+ 	.sendpage =3D	sock_no_sendpage,
+ };
+diff --git a/net/econet/af_econet.c b/net/econet/af_econet.c
+index 0e0254f..7891aad 100644
+--- a/net/econet/af_econet.c
++++ b/net/econet/af_econet.c
+@@ -765,6 +765,7 @@ static const struct proto_ops econet_ops =3D {
+ 	.getsockopt =3D	sock_no_getsockopt,
+ 	.sendmsg =3D	econet_sendmsg,
+ 	.recvmsg =3D	econet_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap =3D		sock_no_mmap,
+ 	.sendpage =3D	sock_no_sendpage,
+ };
+diff --git a/net/ieee802154/af_ieee802154.c b/net/ieee802154/af_ieee802=
+154.c
+index cd949d5..98cf2be 100644
+--- a/net/ieee802154/af_ieee802154.c
++++ b/net/ieee802154/af_ieee802154.c
+@@ -195,6 +195,7 @@ static const struct proto_ops ieee802154_raw_ops =3D=
+ {
+ 	.getsockopt	   =3D sock_common_getsockopt,
+ 	.sendmsg	   =3D ieee802154_sock_sendmsg,
+ 	.recvmsg	   =3D sock_common_recvmsg,
++	.unlocked_recvmsg  =3D sock_no_unlocked_recvmsg,
+ 	.mmap		   =3D sock_no_mmap,
+ 	.sendpage	   =3D sock_no_sendpage,
+ #ifdef CONFIG_COMPAT
+@@ -220,6 +221,7 @@ static const struct proto_ops ieee802154_dgram_ops =
+=3D {
+ 	.getsockopt	   =3D sock_common_getsockopt,
+ 	.sendmsg	   =3D ieee802154_sock_sendmsg,
+ 	.recvmsg	   =3D sock_common_recvmsg,
++	.unlocked_recvmsg  =3D sock_no_unlocked_recvmsg,
+ 	.mmap		   =3D sock_no_mmap,
+ 	.sendpage	   =3D sock_no_sendpage,
+ #ifdef CONFIG_COMPAT
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 6c30a73..4981d8e 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -866,6 +866,7 @@ const struct proto_ops inet_stream_ops =3D {
+ 	.getsockopt	   =3D sock_common_getsockopt,
+ 	.sendmsg	   =3D tcp_sendmsg,
+ 	.recvmsg	   =3D sock_common_recvmsg,
++	.unlocked_recvmsg  =3D sock_no_unlocked_recvmsg,
+ 	.mmap		   =3D sock_no_mmap,
+ 	.sendpage	   =3D tcp_sendpage,
+ 	.splice_read	   =3D tcp_splice_read,
+@@ -893,6 +894,7 @@ const struct proto_ops inet_dgram_ops =3D {
+ 	.getsockopt	   =3D sock_common_getsockopt,
+ 	.sendmsg	   =3D inet_sendmsg,
+ 	.recvmsg	   =3D sock_common_recvmsg,
++	.unlocked_recvmsg  =3D sock_common_unlocked_recvmsg,
+ 	.mmap		   =3D sock_no_mmap,
+ 	.sendpage	   =3D inet_sendpage,
+ #ifdef CONFIG_COMPAT
+@@ -923,6 +925,7 @@ static const struct proto_ops inet_sockraw_ops =3D =
+{
+ 	.getsockopt	   =3D sock_common_getsockopt,
+ 	.sendmsg	   =3D inet_sendmsg,
+ 	.recvmsg	   =3D sock_common_recvmsg,
++	.unlocked_recvmsg  =3D sock_no_unlocked_recvmsg,
+ 	.mmap		   =3D sock_no_mmap,
+ 	.sendpage	   =3D inet_sendpage,
+ #ifdef CONFIG_COMPAT
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index ebaaa7f..fcb34bd 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -882,13 +882,34 @@ int udp_ioctl(struct sock *sk, int cmd, unsigned =
+long arg)
+ }
+ EXPORT_SYMBOL(udp_ioctl);
+=20
++static void skb_free_datagram_locked(struct sock *sk, struct sk_buff *=
+skb)
++{
++	lock_sock(sk);
++	skb_free_datagram(sk, skb);
++	release_sock(sk);
++}
++
++static int skb_kill_datagram_locked(struct sock *sk, struct sk_buff *s=
+kb,
++                                   unsigned int flags)
++{
++	int ret;
++	lock_sock(sk);
++	ret =3D skb_kill_datagram(sk, skb, flags);
++	release_sock(sk);
++	return ret;
++}
++
+ /*
+  * 	This should be easy, if there is something there we
+  * 	return it, otherwise we block.
+  */
+-
+-int udp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *ms=
+g,
+-		size_t len, int noblock, int flags, int *addr_len)
++static int __udp_recvmsg(struct kiocb *iocb, struct sock *sk,
++			 struct msghdr *msg, size_t len, int noblock,
++			 int flags, int *addr_len,
++			 void (*free_datagram)(struct sock *,
++					       struct sk_buff *),
++			 int  (*kill_datagram)(struct sock *,
++					       struct sk_buff *, unsigned int))
+ {
+ 	struct inet_sock *inet =3D inet_sk(sk);
+ 	struct sockaddr_in *sin =3D (struct sockaddr_in *)msg->msg_name;
+@@ -967,23 +988,35 @@ try_again:
+ 		err =3D ulen;
+=20
+ out_free:
+-	lock_sock(sk);
+-	skb_free_datagram(sk, skb);
+-	release_sock(sk);
++	free_datagram(sk, skb);
+ out:
+ 	return err;
+=20
+ csum_copy_err:
+-	lock_sock(sk);
+-	if (!skb_kill_datagram(sk, skb, flags))
++	if (!kill_datagram(sk, skb, flags))
+ 		UDP_INC_STATS_USER(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
+-	release_sock(sk);
+=20
+ 	if (noblock)
+ 		return -EAGAIN;
+ 	goto try_again;
+ }
+=20
++int udp_recvmsg(struct kiocb *iocb, struct sock *sk,
++		struct msghdr *msg, size_t len, int noblock,
++		int flags, int *addr_len)
++{
++	return __udp_recvmsg(iocb, sk, msg, len, noblock, flags, addr_len,
++			     skb_free_datagram_locked,
++			     skb_kill_datagram_locked);
++}
++
++int udp_unlocked_recvmsg(struct kiocb *iocb, struct sock *sk,
++			 struct msghdr *msg, size_t len, int noblock,
++			 int flags, int *addr_len)
++{
++	return __udp_recvmsg(iocb, sk, msg, len, noblock, flags, addr_len,
++			     skb_free_datagram, skb_kill_datagram);
++}
+=20
+ int udp_disconnect(struct sock *sk, int flags)
+ {
+@@ -1580,6 +1613,7 @@ struct proto udp_prot =3D {
+ 	.getsockopt	   =3D udp_getsockopt,
+ 	.sendmsg	   =3D udp_sendmsg,
+ 	.recvmsg	   =3D udp_recvmsg,
++	.unlocked_recvmsg  =3D udp_unlocked_recvmsg,
+ 	.sendpage	   =3D udp_sendpage,
+ 	.backlog_rcv	   =3D __udp_queue_rcv_skb,
+ 	.hash		   =3D udp_lib_hash,
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index a123a32..b72c518 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -518,6 +518,7 @@ const struct proto_ops inet6_stream_ops =3D {
+ 	.getsockopt	   =3D sock_common_getsockopt,	/* ok		*/
+ 	.sendmsg	   =3D tcp_sendmsg,		/* ok		*/
+ 	.recvmsg	   =3D sock_common_recvmsg,	/* ok		*/
++	.unlocked_recvmsg  =3D sock_no_unlocked_recvmsg,
+ 	.mmap		   =3D sock_no_mmap,
+ 	.sendpage	   =3D tcp_sendpage,
+ 	.splice_read	   =3D tcp_splice_read,
+@@ -544,6 +545,7 @@ const struct proto_ops inet6_dgram_ops =3D {
+ 	.getsockopt	   =3D sock_common_getsockopt,	/* ok		*/
+ 	.sendmsg	   =3D inet_sendmsg,		/* ok		*/
+ 	.recvmsg	   =3D sock_common_recvmsg,	/* ok		*/
++	.unlocked_recvmsg  =3D sock_common_unlocked_recvmsg,
+ 	.mmap		   =3D sock_no_mmap,
+ 	.sendpage	   =3D sock_no_sendpage,
+ #ifdef CONFIG_COMPAT
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 7d675b8..d17db28 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -1325,6 +1325,7 @@ static const struct proto_ops inet6_sockraw_ops =3D=
+ {
+ 	.getsockopt	   =3D sock_common_getsockopt,	/* ok		*/
+ 	.sendmsg	   =3D inet_sendmsg,		/* ok		*/
+ 	.recvmsg	   =3D sock_common_recvmsg,	/* ok		*/
++	.unlocked_recvmsg  =3D sock_no_unlocked_recvmsg,
+ 	.mmap		   =3D sock_no_mmap,
+ 	.sendpage	   =3D sock_no_sendpage,
+ #ifdef CONFIG_COMPAT
+diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
+index f1118d9..45048a0 100644
+--- a/net/ipx/af_ipx.c
++++ b/net/ipx/af_ipx.c
+@@ -1953,6 +1953,7 @@ static const struct proto_ops SOCKOPS_WRAPPED(ipx=
+_dgram_ops) =3D {
+ 	.getsockopt	=3D ipx_getsockopt,
+ 	.sendmsg	=3D ipx_sendmsg,
+ 	.recvmsg	=3D ipx_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap		=3D sock_no_mmap,
+ 	.sendpage	=3D sock_no_sendpage,
+ };
+diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
+index 50b43c5..7e97581 100644
+--- a/net/irda/af_irda.c
++++ b/net/irda/af_irda.c
+@@ -2489,6 +2489,7 @@ static const struct proto_ops SOCKOPS_WRAPPED(ird=
+a_stream_ops) =3D {
+ 	.getsockopt =3D	irda_getsockopt,
+ 	.sendmsg =3D	irda_sendmsg,
+ 	.recvmsg =3D	irda_recvmsg_stream,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap =3D		sock_no_mmap,
+ 	.sendpage =3D	sock_no_sendpage,
+ };
+@@ -2513,6 +2514,7 @@ static const struct proto_ops SOCKOPS_WRAPPED(ird=
+a_seqpacket_ops) =3D {
+ 	.getsockopt =3D	irda_getsockopt,
+ 	.sendmsg =3D	irda_sendmsg,
+ 	.recvmsg =3D	irda_recvmsg_dgram,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap =3D		sock_no_mmap,
+ 	.sendpage =3D	sock_no_sendpage,
+ };
+@@ -2537,6 +2539,7 @@ static const struct proto_ops SOCKOPS_WRAPPED(ird=
+a_dgram_ops) =3D {
+ 	.getsockopt =3D	irda_getsockopt,
+ 	.sendmsg =3D	irda_sendmsg_dgram,
+ 	.recvmsg =3D	irda_recvmsg_dgram,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap =3D		sock_no_mmap,
+ 	.sendpage =3D	sock_no_sendpage,
+ };
+@@ -2562,6 +2565,7 @@ static const struct proto_ops SOCKOPS_WRAPPED(ird=
+a_ultra_ops) =3D {
+ 	.getsockopt =3D	irda_getsockopt,
+ 	.sendmsg =3D	irda_sendmsg_ultra,
+ 	.recvmsg =3D	irda_recvmsg_dgram,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap =3D		sock_no_mmap,
+ 	.sendpage =3D	sock_no_sendpage,
+ };
+diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
+index 49c15b4..c208622 100644
+--- a/net/iucv/af_iucv.c
++++ b/net/iucv/af_iucv.c
+@@ -1693,6 +1693,7 @@ static struct proto_ops iucv_sock_ops =3D {
+ 	.getname	=3D iucv_sock_getname,
+ 	.sendmsg	=3D iucv_sock_sendmsg,
+ 	.recvmsg	=3D iucv_sock_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.poll		=3D iucv_sock_poll,
+ 	.ioctl		=3D sock_no_ioctl,
+ 	.mmap		=3D sock_no_mmap,
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 4e98193..3ef1f26 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -3636,6 +3636,7 @@ static const struct proto_ops pfkey_ops =3D {
+ 	.getsockopt	=3D	sock_no_getsockopt,
+ 	.mmap		=3D	sock_no_mmap,
+ 	.sendpage	=3D	sock_no_sendpage,
++	.unlocked_recvmsg =3D	sock_no_unlocked_recvmsg,
+=20
+ 	/* Now the operations that really occur. */
+ 	.release	=3D	pfkey_release,
+diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
+index c45eee1..d948caf 100644
+--- a/net/llc/af_llc.c
++++ b/net/llc/af_llc.c
+@@ -1115,6 +1115,7 @@ static const struct proto_ops llc_ui_ops =3D {
+ 	.getsockopt  =3D llc_ui_getsockopt,
+ 	.sendmsg     =3D llc_ui_sendmsg,
+ 	.recvmsg     =3D llc_ui_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap	     =3D sock_no_mmap,
+ 	.sendpage    =3D sock_no_sendpage,
+ };
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index d0ff382..0d1b446 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -2036,6 +2036,7 @@ static const struct proto_ops netlink_ops =3D {
+ 	.getsockopt =3D	netlink_getsockopt,
+ 	.sendmsg =3D	netlink_sendmsg,
+ 	.recvmsg =3D	netlink_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap =3D		sock_no_mmap,
+ 	.sendpage =3D	sock_no_sendpage,
+ };
+diff --git a/net/netrom/af_netrom.c b/net/netrom/af_netrom.c
+index ce1a34b..3550d34 100644
+--- a/net/netrom/af_netrom.c
++++ b/net/netrom/af_netrom.c
+@@ -1395,6 +1395,7 @@ static const struct proto_ops nr_proto_ops =3D {
+ 	.getsockopt	=3D	nr_getsockopt,
+ 	.sendmsg	=3D	nr_sendmsg,
+ 	.recvmsg	=3D	nr_recvmsg,
++	.unlocked_recvmsg =3D	sock_no_unlocked_recvmsg,
+ 	.mmap		=3D	sock_no_mmap,
+ 	.sendpage	=3D	sock_no_sendpage,
+ };
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index d3d52c6..d987e23 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2338,6 +2338,7 @@ static const struct proto_ops packet_ops_spkt =3D=
+ {
+ 	.getsockopt =3D	sock_no_getsockopt,
+ 	.sendmsg =3D	packet_sendmsg_spkt,
+ 	.recvmsg =3D	packet_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap =3D		sock_no_mmap,
+ 	.sendpage =3D	sock_no_sendpage,
+ };
+@@ -2359,6 +2360,7 @@ static const struct proto_ops packet_ops =3D {
+ 	.getsockopt =3D	packet_getsockopt,
+ 	.sendmsg =3D	packet_sendmsg,
+ 	.recvmsg =3D	packet_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap =3D		packet_mmap,
+ 	.sendpage =3D	sock_no_sendpage,
+ };
+diff --git a/net/phonet/socket.c b/net/phonet/socket.c
+index 7a4ee39..248e8b2 100644
+--- a/net/phonet/socket.c
++++ b/net/phonet/socket.c
+@@ -327,6 +327,7 @@ const struct proto_ops phonet_dgram_ops =3D {
+ #endif
+ 	.sendmsg	=3D pn_socket_sendmsg,
+ 	.recvmsg	=3D sock_common_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap		=3D sock_no_mmap,
+ 	.sendpage	=3D sock_no_sendpage,
+ };
+@@ -352,6 +353,7 @@ const struct proto_ops phonet_stream_ops =3D {
+ #endif
+ 	.sendmsg	=3D pn_socket_sendmsg,
+ 	.recvmsg	=3D sock_common_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap		=3D sock_no_mmap,
+ 	.sendpage	=3D sock_no_sendpage,
+ };
+diff --git a/net/rds/af_rds.c b/net/rds/af_rds.c
+index 108ed2e..1f2e8db 100644
+--- a/net/rds/af_rds.c
++++ b/net/rds/af_rds.c
+@@ -376,6 +376,7 @@ static struct proto_ops rds_proto_ops =3D {
+ 	.getsockopt =3D	rds_getsockopt,
+ 	.sendmsg =3D	rds_sendmsg,
+ 	.recvmsg =3D	rds_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap =3D		sock_no_mmap,
+ 	.sendpage =3D	sock_no_sendpage,
+ };
+diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
+index e5f478c..a64c623 100644
+--- a/net/rose/af_rose.c
++++ b/net/rose/af_rose.c
+@@ -1532,6 +1532,7 @@ static struct proto_ops rose_proto_ops =3D {
+ 	.getsockopt	=3D	rose_getsockopt,
+ 	.sendmsg	=3D	rose_sendmsg,
+ 	.recvmsg	=3D	rose_recvmsg,
++	.unlocked_recvmsg =3D	sock_no_unlocked_recvmsg,
+ 	.mmap		=3D	sock_no_mmap,
+ 	.sendpage	=3D	sock_no_sendpage,
+ };
+diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+index bfe493e..bf4c38a 100644
+--- a/net/rxrpc/af_rxrpc.c
++++ b/net/rxrpc/af_rxrpc.c
+@@ -766,6 +766,7 @@ static const struct proto_ops rxrpc_rpc_ops =3D {
+ 	.getsockopt	=3D sock_no_getsockopt,
+ 	.sendmsg	=3D rxrpc_sendmsg,
+ 	.recvmsg	=3D rxrpc_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap		=3D sock_no_mmap,
+ 	.sendpage	=3D sock_no_sendpage,
+ };
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index 6a4b190..b68d9f9 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -918,6 +918,7 @@ static const struct proto_ops inet6_seqpacket_ops =3D=
+ {
+ 	.getsockopt	   =3D sock_common_getsockopt,
+ 	.sendmsg	   =3D inet_sendmsg,
+ 	.recvmsg	   =3D sock_common_recvmsg,
++	.unlocked_recvmsg  =3D sock_no_unlocked_recvmsg,
+ 	.mmap		   =3D sock_no_mmap,
+ #ifdef CONFIG_COMPAT
+ 	.compat_setsockopt =3D compat_sock_common_setsockopt,
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 60093be..8caedcb 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -895,6 +895,7 @@ static const struct proto_ops inet_seqpacket_ops =3D=
+ {
+ 	.getsockopt	   =3D sock_common_getsockopt,
+ 	.sendmsg	   =3D inet_sendmsg,
+ 	.recvmsg	   =3D sock_common_recvmsg,
++	.unlocked_recvmsg  =3D sock_no_unlocked_recvmsg,
+ 	.mmap		   =3D sock_no_mmap,
+ 	.sendpage	   =3D sock_no_sendpage,
+ #ifdef CONFIG_COMPAT
+diff --git a/net/socket.c b/net/socket.c
+index 32db56a..dc5b976 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -690,6 +690,32 @@ static inline int __sock_recvmsg(struct kiocb *ioc=
+b, struct socket *sock,
+ 	return err ?: __sock_recvmsg_nosec(iocb, sock, msg, size, flags);
+ }
+=20
++static inline int __sock_unlocked_recvmsg_nosec(struct kiocb *iocb,
++						struct socket *sock,
++						struct msghdr *msg,
++						size_t size, int flags)
++{
++	struct sock_iocb *si =3D kiocb_to_siocb(iocb);
++
++	si->sock =3D sock;
++	si->scm =3D NULL;
++	si->msg =3D msg;
++	si->size =3D size;
++	si->flags =3D flags;
++
++	return sock->ops->unlocked_recvmsg(iocb, sock, msg, size, flags);
++}
++
++static inline int __sock_unlocked_recvmsg(struct kiocb *iocb,
++					  struct socket *sock,
++					  struct msghdr *msg, size_t size,
++					  int flags)
++{
 +	int err =3D security_socket_recvmsg(sock, msg, size, flags);
 +
-+	return err ?: __sock_recvmsg_nosec(iocb, sock, msg, size, flags);
++	return err ?: __sock_unlocked_recvmsg_nosec(iocb, sock, msg, size, fl=
+ags);
 +}
 +
  int sock_recvmsg(struct socket *sock, struct msghdr *msg,
  		 size_t size, int flags)
  {
-@@ -702,6 +705,21 @@ int sock_recvmsg(struct socket *sock, struct msghd=
-r *msg,
+@@ -720,6 +746,58 @@ static int sock_recvmsg_nosec(struct socket *sock,=
+ struct msghdr *msg,
  	return ret;
  }
 =20
-+static int sock_recvmsg_nosec(struct socket *sock, struct msghdr *msg,
-+			      size_t size, int flags)
++static int sock_unlocked_recvmsg(struct socket *sock, struct msghdr *m=
+sg,
++				 size_t size, int flags)
 +{
 +	struct kiocb iocb;
 +	struct sock_iocb siocb;
@@ -558,316 +943,224 @@ r *msg,
 +
 +	init_sync_kiocb(&iocb, NULL);
 +	iocb.private =3D &siocb;
-+	ret =3D __sock_recvmsg_nosec(&iocb, sock, msg, size, flags);
++	ret =3D __sock_unlocked_recvmsg(&iocb, sock, msg, size, flags);
 +	if (-EIOCBQUEUED =3D=3D ret)
 +		ret =3D wait_on_sync_kiocb(&iocb);
 +	return ret;
 +}
 +
++static int sock_unlocked_recvmsg_nosec(struct socket *sock, struct msg=
+hdr *msg,
++				       size_t size, int flags)
++{
++	struct kiocb iocb;
++	struct sock_iocb siocb;
++	int ret;
++
++	init_sync_kiocb(&iocb, NULL);
++	iocb.private =3D &siocb;
++	ret =3D __sock_unlocked_recvmsg_nosec(&iocb, sock, msg, size, flags);
++	if (-EIOCBQUEUED =3D=3D ret)
++		ret =3D wait_on_sync_kiocb(&iocb);
++	return ret;
++}
++
++enum sock_recvmsg_security {
++	SOCK_RECVMSG_SEC =3D 0,
++	SOCK_RECVMSG_NOSEC,
++};
++
++enum sock_recvmsg_locking {
++	SOCK_LOCKED_RECVMSG =3D 0,
++	SOCK_UNLOCKED_RECVMSG,
++};
++
++static int (*sock_recvmsg_table[2][2])(struct socket *sock, struct msg=
+hdr *msg,
++				       size_t size, int flags) =3D {
++	[SOCK_RECVMSG_SEC] =3D {
++		[SOCK_LOCKED_RECVMSG]	=3D sock_recvmsg, /* The old one */
++		[SOCK_UNLOCKED_RECVMSG] =3D sock_unlocked_recvmsg,
++	},
++	[SOCK_RECVMSG_NOSEC] =3D {
++		[SOCK_LOCKED_RECVMSG]	=3D sock_recvmsg_nosec,
++		[SOCK_UNLOCKED_RECVMSG] =3D sock_unlocked_recvmsg_nosec,
++	},
++};
++
  int kernel_recvmsg(struct socket *sock, struct msghdr *msg,
  		   struct kvec *vec, size_t num, size_t size, int flags)
  {
-@@ -1965,22 +1983,15 @@ out:
- 	return err;
+@@ -1984,7 +2062,9 @@ out:
  }
 =20
--/*
-- *	BSD recvmsg interface
-- */
--
--SYSCALL_DEFINE3(recvmsg, int, fd, struct msghdr __user *, msg,
--		unsigned int, flags)
-+static int __sys_recvmsg(struct socket *sock, struct msghdr __user *ms=
+ static int __sys_recvmsg(struct socket *sock, struct msghdr __user *ms=
 g,
-+			 struct msghdr *msg_sys, unsigned flags, int nosec)
+-			 struct msghdr *msg_sys, unsigned flags, int nosec)
++			 struct msghdr *msg_sys, unsigned flags,
++			 enum sock_recvmsg_security security,
++			 enum sock_recvmsg_locking locking)
  {
  	struct compat_msghdr __user *msg_compat =3D
  	    (struct compat_msghdr __user *)msg;
--	struct socket *sock;
- 	struct iovec iovstack[UIO_FASTIOV];
- 	struct iovec *iov =3D iovstack;
--	struct msghdr msg_sys;
- 	unsigned long cmsg_ptr;
- 	int err, iov_size, total_len, len;
--	int fput_needed;
-=20
- 	/* kernel mode address */
- 	struct sockaddr_storage addr;
-@@ -1990,27 +2001,23 @@ SYSCALL_DEFINE3(recvmsg, int, fd, struct msghdr=
- __user *, msg,
- 	int __user *uaddr_len;
-=20
- 	if (MSG_CMSG_COMPAT & flags) {
--		if (get_compat_msghdr(&msg_sys, msg_compat))
-+		if (get_compat_msghdr(msg_sys, msg_compat))
- 			return -EFAULT;
- 	}
--	else if (copy_from_user(&msg_sys, msg, sizeof(struct msghdr)))
-+	else if (copy_from_user(msg_sys, msg, sizeof(struct msghdr)))
- 		return -EFAULT;
-=20
--	sock =3D sockfd_lookup_light(fd, &err, &fput_needed);
--	if (!sock)
--		goto out;
--
- 	err =3D -EMSGSIZE;
--	if (msg_sys.msg_iovlen > UIO_MAXIOV)
--		goto out_put;
-+	if (msg_sys->msg_iovlen > UIO_MAXIOV)
-+		goto out;
-=20
- 	/* Check whether to allocate the iovec area */
- 	err =3D -ENOMEM;
--	iov_size =3D msg_sys.msg_iovlen * sizeof(struct iovec);
--	if (msg_sys.msg_iovlen > UIO_FASTIOV) {
-+	iov_size =3D msg_sys->msg_iovlen * sizeof(struct iovec);
-+	if (msg_sys->msg_iovlen > UIO_FASTIOV) {
- 		iov =3D sock_kmalloc(sock->sk, iov_size, GFP_KERNEL);
- 		if (!iov)
--			goto out_put;
-+			goto out;
- 	}
-=20
- 	/*
-@@ -2018,46 +2025,47 @@ SYSCALL_DEFINE3(recvmsg, int, fd, struct msghdr=
- __user *, msg,
- 	 *      kernel msghdr to use the kernel address space)
- 	 */
-=20
--	uaddr =3D (__force void __user *)msg_sys.msg_name;
-+	uaddr =3D (__force void __user *)msg_sys->msg_name;
- 	uaddr_len =3D COMPAT_NAMELEN(msg);
- 	if (MSG_CMSG_COMPAT & flags) {
--		err =3D verify_compat_iovec(&msg_sys, iov,
-+		err =3D verify_compat_iovec(msg_sys, iov,
- 					  (struct sockaddr *)&addr,
- 					  VERIFY_WRITE);
- 	} else
--		err =3D verify_iovec(&msg_sys, iov,
-+		err =3D verify_iovec(msg_sys, iov,
- 				   (struct sockaddr *)&addr,
- 				   VERIFY_WRITE);
- 	if (err < 0)
- 		goto out_freeiov;
- 	total_len =3D err;
-=20
--	cmsg_ptr =3D (unsigned long)msg_sys.msg_control;
--	msg_sys.msg_flags =3D flags & (MSG_CMSG_CLOEXEC|MSG_CMSG_COMPAT);
-+	cmsg_ptr =3D (unsigned long)msg_sys->msg_control;
-+	msg_sys->msg_flags =3D flags & (MSG_CMSG_CLOEXEC|MSG_CMSG_COMPAT);
+@@ -2044,8 +2124,8 @@ static int __sys_recvmsg(struct socket *sock, str=
+uct msghdr __user *msg,
 =20
  	if (sock->file->f_flags & O_NONBLOCK)
  		flags |=3D MSG_DONTWAIT;
--	err =3D sock_recvmsg(sock, &msg_sys, total_len, flags);
-+	err =3D (nosec ? sock_recvmsg_nosec : sock_recvmsg)(sock, msg_sys,
-+							  total_len, flags);
+-	err =3D (nosec ? sock_recvmsg_nosec : sock_recvmsg)(sock, msg_sys,
+-							  total_len, flags);
++	err =3D sock_recvmsg_table[security][locking](sock, msg_sys,
++						    total_len, flags);
  	if (err < 0)
  		goto out_freeiov;
  	len =3D err;
+@@ -2092,7 +2172,8 @@ SYSCALL_DEFINE3(recvmsg, int, fd, struct msghdr _=
+_user *, msg,
+ 	if (!sock)
+ 		goto out;
 =20
- 	if (uaddr !=3D NULL) {
- 		err =3D move_addr_to_user((struct sockaddr *)&addr,
--					msg_sys.msg_namelen, uaddr,
-+					msg_sys->msg_namelen, uaddr,
- 					uaddr_len);
- 		if (err < 0)
- 			goto out_freeiov;
- 	}
--	err =3D __put_user((msg_sys.msg_flags & ~MSG_CMSG_COMPAT),
-+	err =3D __put_user((msg_sys->msg_flags & ~MSG_CMSG_COMPAT),
- 			 COMPAT_FLAGS(msg));
- 	if (err)
- 		goto out_freeiov;
- 	if (MSG_CMSG_COMPAT & flags)
--		err =3D __put_user((unsigned long)msg_sys.msg_control - cmsg_ptr,
-+		err =3D __put_user((unsigned long)msg_sys->msg_control - cmsg_ptr,
- 				 &msg_compat->msg_controllen);
- 	else
--		err =3D __put_user((unsigned long)msg_sys.msg_control - cmsg_ptr,
-+		err =3D __put_user((unsigned long)msg_sys->msg_control - cmsg_ptr,
- 				 &msg->msg_controllen);
- 	if (err)
- 		goto out_freeiov;
-@@ -2066,21 +2074,150 @@ SYSCALL_DEFINE3(recvmsg, int, fd, struct msghd=
-r __user *, msg,
- out_freeiov:
- 	if (iov !=3D iovstack)
- 		sock_kfree_s(sock->sk, iov, iov_size);
--out_put:
-+out:
-+	return err;
-+}
-+
-+/*
-+ *	BSD recvmsg interface
-+ */
-+
-+SYSCALL_DEFINE3(recvmsg, int, fd, struct msghdr __user *, msg,
-+		unsigned int, flags)
-+{
-+	int fput_needed, err;
-+	struct msghdr msg_sys;
-+	struct socket *sock =3D sockfd_lookup_light(fd, &err, &fput_needed);
-+
-+	if (!sock)
-+		goto out;
-+
-+	err =3D __sys_recvmsg(sock, msg, &msg_sys, flags, 0);
-+
+-	err =3D __sys_recvmsg(sock, msg, &msg_sys, flags, 0);
++	err =3D __sys_recvmsg(sock, msg, &msg_sys, flags,
++			    SOCK_RECVMSG_SEC, SOCK_LOCKED_RECVMSG);
+=20
  	fput_light(sock->file, fput_needed);
  out:
- 	return err;
- }
+@@ -2111,6 +2192,7 @@ int __sys_recvmmsg(int fd, struct mmsghdr __user =
+*mmsg, unsigned int vlen,
+ 	struct mmsghdr __user *entry;
+ 	struct msghdr msg_sys;
+ 	struct timespec end_time;
++	enum sock_recvmsg_security security;
 =20
--#ifdef __ARCH_WANT_SYS_SOCKETCALL
-+/*
-+ *     Linux recvmmsg interface
-+ */
+ 	if (timeout &&
+ 	    poll_select_set_timeout(&end_time, timeout->tv_sec,
+@@ -2123,20 +2205,25 @@ int __sys_recvmmsg(int fd, struct mmsghdr __use=
+r *mmsg, unsigned int vlen,
+ 	if (!sock)
+ 		return err;
+=20
++	lock_sock(sock->sk);
 +
-+int __sys_recvmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int v=
-len,
-+		   unsigned int flags, struct timespec *timeout)
-+{
-+	int fput_needed, err, datagrams;
-+	struct socket *sock;
-+	struct mmsghdr __user *entry;
-+	struct msghdr msg_sys;
-+	struct timespec end_time;
-+
-+	if (timeout &&
-+	    poll_select_set_timeout(&end_time, timeout->tv_sec,
-+				    timeout->tv_nsec))
-+		return -EINVAL;
-+
-+	datagrams =3D 0;
-+
-+	sock =3D sockfd_lookup_light(fd, &err, &fput_needed);
-+	if (!sock)
-+		return err;
-+
-+	err =3D sock_error(sock->sk);
-+	if (err)
-+		goto out_put;
-+
-+	entry =3D mmsg;
-+
-+	while (datagrams < vlen) {
+ 	err =3D sock_error(sock->sk);
+ 	if (err)
+ 		goto out_put;
+=20
+ 	entry =3D mmsg;
+=20
++	security =3D SOCK_RECVMSG_SEC;
+ 	while (datagrams < vlen) {
+-		/*
+-		 * No need to ask LSM for more than the first datagram.
+-		 */
+ 		err =3D __sys_recvmsg(sock, (struct msghdr __user *)entry,
+-				    &msg_sys, flags, datagrams);
++				    &msg_sys, flags, security,
++				    SOCK_UNLOCKED_RECVMSG);
+ 		if (err < 0)
+ 			break;
 +		/*
 +		 * No need to ask LSM for more than the first datagram.
 +		 */
-+		err =3D __sys_recvmsg(sock, (struct msghdr __user *)entry,
-+				    &msg_sys, flags, datagrams);
-+		if (err < 0)
-+			break;
-+		err =3D put_user(err, &entry->msg_len);
-+		if (err)
-+			break;
-+		++entry;
-+		++datagrams;
-+
-+		if (timeout) {
-+			ktime_get_ts(timeout);
-+			*timeout =3D timespec_sub(end_time, *timeout);
-+			if (timeout->tv_sec < 0) {
-+				timeout->tv_sec =3D timeout->tv_nsec =3D 0;
-+				break;
-+			}
-+
-+			/* Timeout, return less than vlen datagrams */
-+			if (timeout->tv_nsec =3D=3D 0 && timeout->tv_sec =3D=3D 0)
-+				break;
-+		}
-+
-+		/* Out of band data, return right away */
-+		if (msg_sys.msg_flags & MSG_OOB)
-+			break;
-+	}
-+
-+out_put:
-+	fput_light(sock->file, fput_needed);
++		security =3D SOCK_RECVMSG_NOSEC;
+ 		err =3D put_user(err, &entry->msg_len);
+ 		if (err)
+ 			break;
+@@ -2165,9 +2252,8 @@ out_put:
+ 	fput_light(sock->file, fput_needed);
 =20
-+	if (err =3D=3D 0)
-+		return datagrams;
+ 	if (err =3D=3D 0)
+-		return datagrams;
+-
+-	if (datagrams !=3D 0) {
++		err =3D datagrams;
++	else if (datagrams !=3D 0) {
+ 		/*
+ 		 * We may return less entries than requested (vlen) if the
+ 		 * sock is non block and there aren't enough datagrams...
+@@ -2182,9 +2268,11 @@ out_put:
+ 			sock->sk->sk_err =3D -err;
+ 		}
+=20
+-		return datagrams;
++		err =3D datagrams;
+ 	}
+=20
++	release_sock(sock->sk);
 +
-+	if (datagrams !=3D 0) {
-+		/*
-+		 * We may return less entries than requested (vlen) if the
-+		 * sock is non block and there aren't enough datagrams...
-+		 */
-+		if (err !=3D -EAGAIN) {
-+			/*
-+			 * ... or  if recvmsg returns an error after we
-+			 * received some datagrams, where we record the
-+			 * error to return on the next call or if the
-+			 * app asks about it using getsockopt(SO_ERROR).
-+			 */
-+			sock->sk->sk_err =3D -err;
-+		}
-+
-+		return datagrams;
-+	}
-+
-+	return err;
-+}
-+
-+SYSCALL_DEFINE5(recvmmsg, int, fd, struct mmsghdr __user *, mmsg,
-+		unsigned int, vlen, unsigned int, flags,
-+		struct timespec __user *, timeout)
-+{
-+	int datagrams;
-+	struct timespec timeout_sys;
-+
-+	if (!timeout)
-+		return __sys_recvmmsg(fd, mmsg, vlen, flags, NULL);
-+
-+	if (copy_from_user(&timeout_sys, timeout, sizeof(timeout_sys)))
-+		return -EFAULT;
-+
-+	datagrams =3D __sys_recvmmsg(fd, mmsg, vlen, flags, &timeout_sys);
-+
-+	if (datagrams > 0 &&
-+	    copy_to_user(timeout, &timeout_sys, sizeof(timeout_sys)))
-+		datagrams =3D -EFAULT;
-+
-+	return datagrams;
-+}
-+
-+#ifdef __ARCH_WANT_SYS_SOCKETCALL
- /* Argument list sizes for sys_socketcall */
- #define AL(x) ((x) * sizeof(unsigned long))
--static const unsigned char nargs[19]=3D{
-+static const unsigned char nargs[20] =3D {
- 	AL(0),AL(3),AL(3),AL(3),AL(2),AL(3),
- 	AL(3),AL(3),AL(4),AL(4),AL(4),AL(6),
- 	AL(6),AL(2),AL(5),AL(5),AL(3),AL(3),
--	AL(4)
-+	AL(4),AL(5)
+ 	return err;
+ }
+=20
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index e8254e8..97b3f05 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -1797,6 +1797,7 @@ static const struct proto_ops msg_ops =3D {
+ 	.getsockopt	=3D getsockopt,
+ 	.sendmsg	=3D send_msg,
+ 	.recvmsg	=3D recv_msg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap		=3D sock_no_mmap,
+ 	.sendpage	=3D sock_no_sendpage
  };
-=20
- #undef AL
-@@ -2099,7 +2236,7 @@ SYSCALL_DEFINE2(socketcall, int, call, unsigned l=
-ong __user *, args)
- 	unsigned long a0, a1;
- 	int err;
-=20
--	if (call < 1 || call > SYS_ACCEPT4)
-+	if (call < 1 || call > SYS_RECVMMSG)
- 		return -EINVAL;
-=20
- 	/* copy_from_user should be SMP safe. */
-@@ -2173,6 +2310,10 @@ SYSCALL_DEFINE2(socketcall, int, call, unsigned =
-long __user *, args)
- 	case SYS_RECVMSG:
- 		err =3D sys_recvmsg(a0, (struct msghdr __user *)a1, a[2]);
- 		break;
-+	case SYS_RECVMMSG:
-+		err =3D sys_recvmmsg(a0, (struct mmsghdr __user *)a1, a[2], a[3],
-+				   (struct timespec __user *)a[4]);
-+		break;
- 	case SYS_ACCEPT4:
- 		err =3D sys_accept4(a0, (struct sockaddr __user *)a1,
- 				  (int __user *)a[2], a[3]);
+@@ -1818,6 +1819,7 @@ static const struct proto_ops packet_ops =3D {
+ 	.getsockopt	=3D getsockopt,
+ 	.sendmsg	=3D send_packet,
+ 	.recvmsg	=3D recv_msg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap		=3D sock_no_mmap,
+ 	.sendpage	=3D sock_no_sendpage
+ };
+@@ -1839,6 +1841,7 @@ static const struct proto_ops stream_ops =3D {
+ 	.getsockopt	=3D getsockopt,
+ 	.sendmsg	=3D send_stream,
+ 	.recvmsg	=3D recv_stream,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap		=3D sock_no_mmap,
+ 	.sendpage	=3D sock_no_sendpage
+ };
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 51ab497..9e7aa9a 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -521,6 +521,7 @@ static const struct proto_ops unix_stream_ops =3D {
+ 	.getsockopt =3D	sock_no_getsockopt,
+ 	.sendmsg =3D	unix_stream_sendmsg,
+ 	.recvmsg =3D	unix_stream_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap =3D		sock_no_mmap,
+ 	.sendpage =3D	sock_no_sendpage,
+ };
+@@ -542,6 +543,7 @@ static const struct proto_ops unix_dgram_ops =3D {
+ 	.getsockopt =3D	sock_no_getsockopt,
+ 	.sendmsg =3D	unix_dgram_sendmsg,
+ 	.recvmsg =3D	unix_dgram_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap =3D		sock_no_mmap,
+ 	.sendpage =3D	sock_no_sendpage,
+ };
+@@ -563,6 +565,7 @@ static const struct proto_ops unix_seqpacket_ops =3D=
+ {
+ 	.getsockopt =3D	sock_no_getsockopt,
+ 	.sendmsg =3D	unix_seqpacket_sendmsg,
+ 	.recvmsg =3D	unix_dgram_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap =3D		sock_no_mmap,
+ 	.sendpage =3D	sock_no_sendpage,
+ };
+diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+index 5e6c072..7c20b26 100644
+--- a/net/x25/af_x25.c
++++ b/net/x25/af_x25.c
+@@ -1620,6 +1620,7 @@ static const struct proto_ops SOCKOPS_WRAPPED(x25=
+_proto_ops) =3D {
+ 	.getsockopt =3D	x25_getsockopt,
+ 	.sendmsg =3D	x25_sendmsg,
+ 	.recvmsg =3D	x25_recvmsg,
++	.unlocked_recvmsg =3D sock_no_unlocked_recvmsg,
+ 	.mmap =3D		sock_no_mmap,
+ 	.sendpage =3D	sock_no_sendpage,
+ };
 --=20
 1.5.5.1
-
 
