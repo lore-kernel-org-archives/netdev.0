@@ -1,15 +1,31 @@
-From: vera_dona4@ecunet.org
-Subject: hello dearest
-Date: Wed, 16 Sep 2009 05:04:21 -0400
-Message-ID: <200909160904.n8G94LNn005771@ecunet-web-1.ecunet.org>
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.ecunet.org ([72.250.175.169]:42309 "EHLO mail2.ecunet.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751780AbZIPJJG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Sep 2009 05:09:06 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Walker <dwalker@fifo99.com>
+Subject: Re: [Patch net-next]atl1e:fix 2.6.31-git4 -- ATL1E 0000:03:00.0:
+ DMA-API: device driver frees DMA
+Date: Wed, 16 Sep 2009 02:10:51 -0700
+Message-ID: <1253092251.11643.569.camel@desktop>
+References: <12530821133392-git-send-email-jie.yang@atheros.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, miles.lane@gmail.com, chris.snook@gmail.com,
+	jcliburn@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jie.yang@atheros.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758227AbZIPJJ5@vger.kernel.org>
+In-Reply-To: <12530821133392-git-send-email-jie.yang@atheros.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-How are you ? I guess you are fine and living good. my name is vera a beautiful young girl I find you and i'm interesting to know you and establish a serious relationship with you. I wanna be your friend for first friendship cannot be seen or even be touched, it must be felt within the heart.Hoping you feel just the way i do. Wow! friends are like clothes without them you feel naked!I guess am right.I will tell you more about me, my family and all that maybe necessary in this relationship, If this is okay by you feel free to contact me as to enable us get to know each other better. Have a wonderful day with lot of happiness.
-best regards
+On Wed, 2009-09-16 at 14:21 +0800, jie.yang@atheros.com wrote:
+> -           pci_unmap_page(pdev, tx_buffer->dma,
+> +           if (tx_buffer->flags & ATL1E_TX_PCIMAP_SINGLE)
+> +               pci_unmap_single(pdev, tx_buffer->dma,
+> +                   tx_buffer->length, PCI_DMA_TODEVICE);
+> +           else if (tx_buffer->flags & ATL1E_TX_PCIMAP_PAGE)
+> +               pci_unmap_page(pdev, tx_buffer->dma,
+
+Could you run this through checkpatch, and fix any errors if find? It
+looks like you uses spaces for tabs in the code above, maybe in the
+other block too..
+
+Daniel
