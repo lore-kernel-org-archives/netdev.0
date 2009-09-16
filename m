@@ -1,44 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next]atl1e:fix 2.6.31-git4 -- ATL1E 0000:03:00.0:
- DMA-API: device driver frees DMA
-Date: Tue, 15 Sep 2009 23:57:21 -0700 (PDT)
-Message-ID: <20090915.235721.252164710.davem@davemloft.net>
-References: <12530821133392-git-send-email-jie.yang@atheros.com>
+Subject: Re: [PATCH] mlx4: Fix access to freed memory
+Date: Wed, 16 Sep 2009 00:00:29 -0700 (PDT)
+Message-ID: <20090916.000029.112056936.davem@davemloft.net>
+References: <200909151452.41206.vgusev@openvz.org>
+	<adad45sf4nu.fsf@cisco.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: miles.lane@gmail.com, chris.snook@gmail.com, jcliburn@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jie.yang@atheros.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757343AbZIPG5J@vger.kernel.org>
-In-Reply-To: <12530821133392-git-send-email-jie.yang@atheros.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: vgusev@openvz.org, jackm@dev.mellanox.co.il, rolandd@cisco.com,
+	netdev@vger.kernel.org
+To: rdreier@cisco.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57235
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756366AbZIPHAM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 03:00:12 -0400
+In-Reply-To: <adad45sf4nu.fsf@cisco.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: <jie.yang@atheros.com>
-Date: Wed, 16 Sep 2009 14:21:53 +0800
+From: Roland Dreier <rdreier@cisco.com>
+Date: Tue, 15 Sep 2009 11:23:33 -0700
 
 > 
-> [   25.059969] WARNING: at lib/dma-debug.c:816 check_unmap+0x383/0x55c()
-> [   25.059976] Hardware name: 1000HE
-> [   25.059984] ATL1E 0000:03:00.0: DMA-API: device driver frees DMA
->     memory with wrong function [device address=0x0000000036b92802] 
->     [size=90 bytes] [mapped as single] [unmapped as page]
+>  > catas_reset() uses pointer to mlx4_priv, but mlx4_priv is not valid after
+>  > call mlx4_restart_one().
+>  > 
+>  > Signed-off-by: Vitaliy Gusev <vgusev@openvz.org>
 > 
-> use the wrong API when free dma. So when map dma use a flag to demostrate
-> whether it is 'pci_map_single' or 'pci_map_page'. When free the dma, check
-> the flags to select the right APIs('pci_unmap_single' or 'pci_unmap_page').
->  
-> Signed-off-by: Jie Yang <jie.yang@atheros.com>
+> Good catch.  Dave, if you want me to take this, let me know, otherwise:
+> 
+> Acked-by: Roland Dreier <rolandd@cisco.com>
 
-An 'unsigned long' is an enormous type to use just to store
-3 bits of information.  Use a u16 or similar to compact the
-size of struct atl1e_tx_buffer
-
-Also, it looks terribly ugle to define the flag macros, some with
-three leading zeros in the hexadecimal values and one without.
-
-Please make them consistent, thanks.
-
-Generally, I see that this change was put together very hastily
-and without very much care.
+I've got it, thanks everyone.
