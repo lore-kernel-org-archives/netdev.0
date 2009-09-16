@@ -1,106 +1,108 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: ipv4 regression in 2.6.31 ?
-Date: Wed, 16 Sep 2009 05:23:04 +0000
-Message-ID: <20090916052304.GA4894@ff.dom.local>
-References: <20090914093128.4d709ff6@nehalam> <20090915081354.GA10037@ff.dom.local> <20090915155719.22bae41e@nehalam>
+From: <jie.yang@atheros.com>
+Subject: [Patch net-next]atl1e:fix 2.6.31-git4 -- ATL1E 0000:03:00.0: DMA-API: device driver frees DMA
+Date: Wed, 16 Sep 2009 14:21:53 +0800
+Message-ID: <12530821133392-git-send-email-jie.yang@atheros.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Stephan von Krawczynski <skraw@ithnet.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754970AbZIPFXX@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090915155719.22bae41e@nehalam>
+Content-Type: text/plain
+Cc: <miles.lane@gmail.com>, <chris.snook@gmail.com>,
+	<jcliburn@gmail.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, Jie Yang <jie.yang@atheros.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755696AbZIPGW4@vger.kernel.org>
+Received: from mail.atheros.com ([10.10.20.108])
+	by sidewinder.atheros.com
+	for <netdev@vger.kernel.org>; Tue, 15 Sep 2009 23:22:59 -0700
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 15, 2009 at 03:57:19PM -0700, Stephen Hemminger wrote:
-> On Tue, 15 Sep 2009 08:13:55 +0000
-> Jarek Poplawski <jarkao2@gmail.com> wrote:
-> 
-> > On 14-09-2009 18:31, Stephen Hemminger wrote:
-> > > On Mon, 14 Sep 2009 17:55:05 +0200
-> > > Stephan von Krawczynski <skraw@ithnet.com> wrote:
-> > > 
-> > >> On Mon, 14 Sep 2009 15:57:03 +0200
-> > >> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > >>
-> > >>> Stephan von Krawczynski a A~(c)crit :
-> > >>>> Hello all,
-> > ...
-> > >>> rp_filter - INTEGER
-> > >>>         0 - No source validation.
-> > >>>         1 - Strict mode as defined in RFC3704 Strict Reverse Path
-> > >>>             Each incoming packet is tested against the FIB and if the interface
-> > >>>             is not the best reverse path the packet check will fail.
-> > >>>             By default failed packets are discarded.
-> > >>>         2 - Loose mode as defined in RFC3704 Loose Reverse Path
-> > >>>             Each incoming packet's source address is also tested against the FIB
-> > >>>             and if the source address is not reachable via any interface
-> > >>>             the packet check will fail.
-> > ...
-> > > RP filter did not work correctly in 2.6.30. The code added to to the loose
-> > > mode caused a bug; the rp_filter value was being computed as:
-> > >   rp_filter = interface_value & all_value;
-> > > So in order to get reverse path filter both would have to be set.
-> > > 
-> > > In 2.6.31 this was change to:
-> > >    rp_filter = max(interface_value, all_value);
-> > > 
-> > > This was the intended behaviour, if user asks all interfaces to have rp
-> > > filtering turned on, then set /proc/sys/net/ipv4/conf/all/rp_filter = 1
-> > > or to turn on just one interface, set it for just that interface.
-> > 
-> > Alas this max() formula handles also cases where both values are set
-> > and it doesn't look very natural/"user friendly" to me. Especially
-> > with something like this: all_value = 2; interface_value = 1
-> > Why would anybody care to bother with interface_value in such a case?
-> > 
-> > "All" suggests "default" in this context, so I'd rather expect
-> > something like:
-> >     rp_filter = interface_value ? : all_value;
-> > which gives "the inteded behaviour" too, plus more...
-> > 
-> > We'd only need to add e.g.:
-> >  0 - Default ("all") validation. (No source validation if "all" is 0).
-> >  3 - No source validation on this interface.
-> 
-> More values == more confusion.
-> I chose the maxconf() method to make rp_filter consistent with other
-> multi valued variables (arp_announce and arp_ignore).
 
-This additional value is not necessary (it'd give as superpowers).
-Max seems logical to me only when values are sorted (especially if
-max is the strictest).
+[   25.059969] WARNING: at lib/dma-debug.c:816 check_unmap+0x383/0x55c()
+[   25.059976] Hardware name: 1000HE
+[   25.059984] ATL1E 0000:03:00.0: DMA-API: device driver frees DMA
+    memory with wrong function [device address=0x0000000036b92802] 
+    [size=90 bytes] [mapped as single] [unmapped as page]
 
-Jarek P.
-
-> 
-> --------
-> Subject: [PATCH] Document rp_filter behaviour
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> 
-> --- a/Documentation/networking/ip-sysctl.txt	2009-09-15 15:54:25.844934373 -0700
-> +++ b/Documentation/networking/ip-sysctl.txt	2009-09-15 15:55:40.709205883 -0700
-> @@ -744,6 +744,8 @@ rp_filter - INTEGER
->  	Default value is 0. Note that some distributions enable it
->  	in startup scripts.
->  
-> +	The max value from conf/{all,interface}/rp_filter is used.
-> +
->  arp_filter - BOOLEAN
->  	1 - Allows you to have multiple network interfaces on the same
->  	subnet, and have the ARPs for each interface be answered
-> 
-> 
-> 
-> 
-> 
-> 
-> 
-> -- 
+use the wrong API when free dma. So when map dma use a flag to demostrate
+whether it is 'pci_map_single' or 'pci_map_page'. When free the dma, check
+the flags to select the right APIs('pci_unmap_single' or 'pci_unmap_page').
+ 
+Signed-off-by: Jie Yang <jie.yang@atheros.com>
+---
+diff --git a/drivers/net/atl1e/atl1e.h b/drivers/net/atl1e/atl1e.h
+index ba48220..d63be5c 100644
+--- a/drivers/net/atl1e/atl1e.h
++++ b/drivers/net/atl1e/atl1e.h
+@@ -377,10 +377,19 @@ struct atl1e_hw {
+  */
+ struct atl1e_tx_buffer {
+    struct sk_buff *skb;
++   unsigned long flags;
++#define ATL1E_TX_PCIMAP_SINGLE     0x0001
++#define ATL1E_TX_PCIMAP_PAGE       0x0002
++#define ATL1E_TX_PCIMAP_TYPE_MASK  0x3
+    u16 length;
+    dma_addr_t dma;
+ };
+ 
++#define ATL1E_SET_PCIMAP_TYPE(tx_buff, type) do {      \
++   ((tx_buff)->flags) &= ~ATL1E_TX_PCIMAP_TYPE_MASK;   \
++   ((tx_buff)->flags) |= (type);               \
++   } while (0)
++
+ struct atl1e_rx_page {
+    dma_addr_t  dma;    /* receive rage DMA address */
+    u8      *addr;   /* receive rage virtual address */
+diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
+index 69b830f..955da73 100644
+--- a/drivers/net/atl1e/atl1e_main.c
++++ b/drivers/net/atl1e/atl1e_main.c
+@@ -635,7 +635,11 @@ static void atl1e_clean_tx_ring(struct atl1e_adapter *adapter)
+    for (index = 0; index < ring_count; index++) {
+        tx_buffer = &tx_ring->tx_buffer[index];
+        if (tx_buffer->dma) {
+-           pci_unmap_page(pdev, tx_buffer->dma,
++           if (tx_buffer->flags & ATL1E_TX_PCIMAP_SINGLE)
++               pci_unmap_single(pdev, tx_buffer->dma,
++                   tx_buffer->length, PCI_DMA_TODEVICE);
++           else if (tx_buffer->flags & ATL1E_TX_PCIMAP_PAGE)
++               pci_unmap_page(pdev, tx_buffer->dma,
+                    tx_buffer->length, PCI_DMA_TODEVICE);
+            tx_buffer->dma = 0;
+        }
+@@ -1220,7 +1224,11 @@ static bool atl1e_clean_tx_irq(struct atl1e_adapter *adapter)
+    while (next_to_clean != hw_next_to_clean) {
+        tx_buffer = &tx_ring->tx_buffer[next_to_clean];
+        if (tx_buffer->dma) {
+-           pci_unmap_page(adapter->pdev, tx_buffer->dma,
++           if (tx_buffer->flags & ATL1E_TX_PCIMAP_SINGLE)
++               pci_unmap_single(adapter->pdev, tx_buffer->dma,
++                   tx_buffer->length, PCI_DMA_TODEVICE);
++           else if (tx_buffer->flags & ATL1E_TX_PCIMAP_PAGE)
++               pci_unmap_page(adapter->pdev, tx_buffer->dma,
+                    tx_buffer->length, PCI_DMA_TODEVICE);
+            tx_buffer->dma = 0;
+        }
+@@ -1741,6 +1749,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+        tx_buffer->length = map_len;
+        tx_buffer->dma = pci_map_single(adapter->pdev,
+                    skb->data, hdr_len, PCI_DMA_TODEVICE);
++       ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_SINGLE);
+        mapped_len += map_len;
+        use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
+        use_tpd->word2 = (use_tpd->word2 & (~TPD_BUFLEN_MASK)) |
+@@ -1766,6 +1775,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+        tx_buffer->dma =
+            pci_map_single(adapter->pdev, skb->data + mapped_len,
+                    map_len, PCI_DMA_TODEVICE);
++       ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_SINGLE);
+        mapped_len  += map_len;
+        use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
+        use_tpd->word2 = (use_tpd->word2 & (~TPD_BUFLEN_MASK)) |
+@@ -1801,6 +1811,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+                        (i * MAX_TX_BUF_LEN),
+                        tx_buffer->length,
+                        PCI_DMA_TODEVICE);
++           ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_PAGE);
+            use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
+            use_tpd->word2 = (use_tpd->word2 & (~TPD_BUFLEN_MASK)) |
+                    ((cpu_to_le32(tx_buffer->length) &
