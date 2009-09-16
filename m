@@ -1,47 +1,47 @@
-From: Ursula Braun <ursula.braun@de.ibm.com>
-Subject: [patch 4/7] [PATCH] af_iucv: fix race in __iucv_sock_wait()
-Date: Wed, 16 Sep 2009 16:37:25 +0200
-Message-ID: <20090916144304.540352000@linux.vnet.ibm.com>
-References: <20090916143721.863799000@linux.vnet.ibm.com>
-Cc: schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-	Hendrik Brueckner <brueckner@linux.vnet.ibm.com>,
-	Ursula Braun <ursula.braun@de.ibm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.de.ibm.com ([195.212.17.163]:48390 "EHLO
-	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751844AbZIPOnD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 10:43:03 -0400
-Content-Disposition: inline; filename=604-af_iucv-sock-wait-race.diff
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
+Date: Wed, 16 Sep 2009 16:57:42 +0200
+Message-ID: <200909161657.42628.arnd@arndb.de>
+References: <20090914164750.GB3745@redhat.com> <4AAFFC8E.9010404@gmail.com> <20090915212545.GC27954@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Gregory Haskins <gregory.haskins@gmail.com>,
+ Avi Kivity <avi@redhat.com>,
+ "Ira W. Snyder" <iws@ovro.caltech.edu>,
+ netdev@vger.kernel.org,
+ virtualization@lists.linux-foundation.org,
+ kvm@vger.kernel.org,
+ linux-kernel@vger.kernel.org,
+ mingo@elte.hu,
+ linux-mm@kvack.org,
+ akpm@linux-foundation.org,
+ hpa@zytor.com,
+ Rusty Russell <rusty@rustcorp.com.au>,
+ s.hetze@linux-ag.com,
+ alacrityvm-devel@lists.sourceforge.net
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20090915212545.GC27954@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Hendrik Brueckner <brueckner@linux.vnet.ibm.com>
+On Tuesday 15 September 2009, Michael S. Tsirkin wrote:
+> Userspace in x86 maps a PCI region, uses it for communication with ppc?
 
-Moving prepare_to_wait before the condition to avoid a race between
-schedule_timeout and wake up.
-The race can appear during iucv_sock_connect() and iucv_callback_connack().
+This might have portability issues. On x86 it should work, but if the
+host is powerpc or similar, you cannot reliably access PCI I/O memory
+through copy_tofrom_user but have to use memcpy_toio/fromio or readl/writel
+calls, which don't work on user pointers.
 
-Signed-off-by: Hendrik Brueckner <brueckner@linux.vnet.ibm.com>
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
----
+Specifically on powerpc, copy_from_user cannot access unaligned buffers
+if they are on an I/O mapping.
 
- net/iucv/af_iucv.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+	Arnd <><
 
-Index: linux-2.6-uschi/net/iucv/af_iucv.c
-===================================================================
---- linux-2.6-uschi.orig/net/iucv/af_iucv.c
-+++ linux-2.6-uschi/net/iucv/af_iucv.c
-@@ -59,8 +59,8 @@ do {									\
- 	DEFINE_WAIT(__wait);						\
- 	long __timeo = timeo;						\
- 	ret = 0;							\
-+	prepare_to_wait(sk->sk_sleep, &__wait, TASK_INTERRUPTIBLE);	\
- 	while (!(condition)) {						\
--		prepare_to_wait(sk->sk_sleep, &__wait, TASK_INTERRUPTIBLE); \
- 		if (!__timeo) {						\
- 			ret = -EAGAIN;					\
- 			break;						\
-
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
