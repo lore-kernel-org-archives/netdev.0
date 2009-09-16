@@ -1,56 +1,45 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: [PATCH 2/2] ieee802154: add locking for seq numbers
-Date: Wed, 16 Sep 2009 17:22:13 +0400
-Message-ID: <1253107333-25043-3-git-send-email-dbaryshkov@gmail.com>
-References: <1253107333-25043-1-git-send-email-dbaryshkov@gmail.com>
- <1253107333-25043-2-git-send-email-dbaryshkov@gmail.com>
-Cc: linux-zigbee-devel@lists.sourceforge.net,
-	Sergey Lapin <slapin@ossfans.org>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Or Gerlitz <ogerlitz@voltaire.com>
+Subject: Re: igb bandwidth allocation configuration
+Date: Wed, 16 Sep 2009 17:10:05 +0300
+Message-ID: <4AB0F1BD.4020206@voltaire.com>
+References: <20090910081844.GA5421@verge.net.au>	<15ddcffd0909140142n2a110708ld619177c65f4588b@mail.gmail.com>	<20090915113659.GJ24194@verge.net.au> <4AAF963D.4060708@voltaire.com> <4AAFD690.5040900@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Simon Horman <horms@verge.net.au>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f206.google.com ([209.85.219.206]:38276 "EHLO
-	mail-ew0-f206.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750812AbZIPNW7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 09:22:59 -0400
-Received: by mail-ew0-f206.google.com with SMTP id 2so1405814ewy.17
-        for <netdev@vger.kernel.org>; Wed, 16 Sep 2009 06:23:02 -0700 (PDT)
-In-Reply-To: <1253107333-25043-2-git-send-email-dbaryshkov@gmail.com>
+Received: from fwil.voltaire.com ([193.47.165.2]:28557 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753111AbZIPOKM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Sep 2009 10:10:12 -0400
+In-Reply-To: <4AAFD690.5040900@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
----
- net/ieee802154/netlink.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+Alexander Duyck wrote:
+> The interface for all of this would make sense as part of a virtual 
+> ethernet switch control which is the way I am currently leaning on all 
+> this.
+Yes, you can say that out of the per VF <mac, vlan-id, priority, rate> 
+tuple I mentioned, except for the mac, the other parameters actually 
+belong to the egress flow of the virtual switch port this VF is 
+connected to. So the vswitch actually signs the packet with vlan+pbits 
+and enforces the rate. Now vswitch can be software based, or hardware 
+NIC based.
 
-diff --git a/net/ieee802154/netlink.c b/net/ieee802154/netlink.c
-index 2106ecb..ca767bd 100644
---- a/net/ieee802154/netlink.c
-+++ b/net/ieee802154/netlink.c
-@@ -35,6 +35,7 @@
- #include <net/ieee802154_netdev.h>
- 
- static unsigned int ieee802154_seq_num;
-+static DEFINE_SPINLOCK(ieee802154_seq_lock);
- 
- static struct genl_family ieee802154_coordinator_family = {
- 	.id		= GENL_ID_GENERATE,
-@@ -57,12 +58,15 @@ static struct sk_buff *ieee802154_nl_create(int flags, u8 req)
- {
- 	void *hdr;
- 	struct sk_buff *msg = nlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
-+	unsigned long f;
- 
- 	if (!msg)
- 		return NULL;
- 
-+	spin_lock_irqsave(&ieee802154_seq_lock, f);
- 	hdr = genlmsg_put(msg, 0, ieee802154_seq_num++,
- 			&ieee802154_coordinator_family, flags, req);
-+	spin_unlock_irqrestore(&ieee802154_seq_lock, f);
- 	if (!hdr) {
- 		nlmsg_free(msg);
- 		return NULL;
--- 
-1.6.3.3
+Now, I assume there may be NICs which will let you configure the 
+<vlan-id, priority, rate> as part of the their virtual switch config, 
+but others, e.g
+the 82576 as an example, and following our discussion, will let you do 
+that for the VF, in the VF driver which as you said may run the guest OS 
+where we can't control it...
+
+Or.
+
 
