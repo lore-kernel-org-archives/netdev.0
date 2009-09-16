@@ -1,102 +1,46 @@
-From: <jie.yang@atheros.com>
-Subject: [Patch net-next]atl1e:fix 2.6.31-git4 -- ATL1E 0000:03:00.0: DMA-API: device driver frees DMA
-Date: Wed, 16 Sep 2009 17:28:30 +0800
-Message-ID: <12530933101782-git-send-email-jie.yang@atheros.com>
+From: Jie Yang <Jie.Yang@Atheros.com>
+Subject: RE: [Patch net-next]atl1e:fix 2.6.31-git4 -- ATL1E 0000:03:00.0:
+ DMA-API: device driver frees DMA
+Date: Wed, 16 Sep 2009 17:31:40 +0800
+Message-ID: <72981EBCFD196144B7C6999B9FC34A9A493DE96CD7@SHEXMB-01.global.atheros.com>
+References: <12530821133392-git-send-email-jie.yang@atheros.com>
+ <1253092251.11643.569.camel@desktop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <miles.lane@gmail.com>, <chris.snook@gmail.com>,
-	<jcliburn@gmail.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, Jie Yang <jie.yang@atheros.com>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758566AbZIPJ3a@vger.kernel.org>
-Received: from mail.atheros.com ([10.10.20.108])
-	by sidewinder.atheros.com
-	for <netdev@vger.kernel.org>; Wed, 16 Sep 2009 02:29:32 -0700
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"miles.lane@gmail.com" <miles.lane@gmail.com>,
+	"chris.snook@gmail.com" <chris.snook@gmail.com>,
+	"jcliburn@gmail.com" <jcliburn@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Daniel Walker <dwalker@fifo99.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932136AbZIPJhG@vger.kernel.org>
+In-Reply-To: <1253092251.11643.569.camel@desktop>
+Content-Language: zh-CN
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-use the wrong API when free dma. So when map dma use a flag to demostrate whether it is 'pci_map_single' or 'pci_map_page'. When free the dma, check the flags to select the right APIs('pci_unmap_single' or 'pci_unmap_page').
+On Wednesday, September 16, 2009 5:11 PM
+Daniel Walker <dwalker@fifo99.com> wrote:
 
-set the flags type to u16  instead of unsigned long  on David's comments.
+> On Wed, 2009-09-16 at 14:21 +0800, jie.yang@atheros.com wrote:
+> > -           pci_unmap_page(pdev, tx_buffer->dma,
+> > +           if (tx_buffer->flags & ATL1E_TX_PCIMAP_SINGLE)
+> > +               pci_unmap_single(pdev, tx_buffer->dma,
+> > +                   tx_buffer->length, PCI_DMA_TODEVICE);
+> > +           else if (tx_buffer->flags & ATL1E_TX_PCIMAP_PAGE)
+> > +               pci_unmap_page(pdev, tx_buffer->dma,
+>
+> Could you run this through checkpatch, and fix any errors if
+> find? It looks like you uses spaces for tabs in the code
+> above, maybe in the other block too..
+>
+> Daniel
+>
+>
 
-Signed-off-by: Jie Yang <jie.yang@atheros.com>
----
+ou, my mistake, just resend.
 
-diff --git a/drivers/net/atl1e/atl1e.h b/drivers/net/atl1e/atl1e.h
-index ba48220..490d3b3 100644
---- a/drivers/net/atl1e/atl1e.h
-+++ b/drivers/net/atl1e/atl1e.h
-@@ -377,10 +377,19 @@ struct atl1e_hw {
-  */
- struct atl1e_tx_buffer {
- 	struct sk_buff *skb;
-+	u16 flags;
-+#define ATL1E_TX_PCIMAP_SINGLE		0x0001
-+#define ATL1E_TX_PCIMAP_PAGE		0x0002
-+#define ATL1E_TX_PCIMAP_TYPE_MASK	0x0003
- 	u16 length;
- 	dma_addr_t dma;
- };
- 
-+#define ATL1E_SET_PCIMAP_TYPE(tx_buff, type) do {		\
-+	((tx_buff)->flags) &= ~ATL1E_TX_PCIMAP_TYPE_MASK;	\
-+	((tx_buff)->flags) |= (type);				\
-+	} while (0)
-+
- struct atl1e_rx_page {
- 	dma_addr_t	dma;    /* receive rage DMA address */
- 	u8		*addr;   /* receive rage virtual address */
-diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
-index 69b830f..955da73 100644
---- a/drivers/net/atl1e/atl1e_main.c
-+++ b/drivers/net/atl1e/atl1e_main.c
-@@ -635,7 +635,11 @@ static void atl1e_clean_tx_ring(struct atl1e_adapter *adapter)
- 	for (index = 0; index < ring_count; index++) {
- 		tx_buffer = &tx_ring->tx_buffer[index];
- 		if (tx_buffer->dma) {
--			pci_unmap_page(pdev, tx_buffer->dma,
-+			if (tx_buffer->flags & ATL1E_TX_PCIMAP_SINGLE)
-+				pci_unmap_single(pdev, tx_buffer->dma,
-+					tx_buffer->length, PCI_DMA_TODEVICE);
-+			else if (tx_buffer->flags & ATL1E_TX_PCIMAP_PAGE)
-+				pci_unmap_page(pdev, tx_buffer->dma,
- 					tx_buffer->length, PCI_DMA_TODEVICE);
- 			tx_buffer->dma = 0;
- 		}
-@@ -1220,7 +1224,11 @@ static bool atl1e_clean_tx_irq(struct atl1e_adapter *adapter)
- 	while (next_to_clean != hw_next_to_clean) {
- 		tx_buffer = &tx_ring->tx_buffer[next_to_clean];
- 		if (tx_buffer->dma) {
--			pci_unmap_page(adapter->pdev, tx_buffer->dma,
-+			if (tx_buffer->flags & ATL1E_TX_PCIMAP_SINGLE)
-+				pci_unmap_single(adapter->pdev, tx_buffer->dma,
-+					tx_buffer->length, PCI_DMA_TODEVICE);
-+			else if (tx_buffer->flags & ATL1E_TX_PCIMAP_PAGE)
-+				pci_unmap_page(adapter->pdev, tx_buffer->dma,
- 					tx_buffer->length, PCI_DMA_TODEVICE);
- 			tx_buffer->dma = 0;
- 		}
-@@ -1741,6 +1749,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
- 		tx_buffer->length = map_len;
- 		tx_buffer->dma = pci_map_single(adapter->pdev,
- 					skb->data, hdr_len, PCI_DMA_TODEVICE);
-+		ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_SINGLE);
- 		mapped_len += map_len;
- 		use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
- 		use_tpd->word2 = (use_tpd->word2 & (~TPD_BUFLEN_MASK)) |
-@@ -1766,6 +1775,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
- 		tx_buffer->dma =
- 			pci_map_single(adapter->pdev, skb->data + mapped_len,
- 					map_len, PCI_DMA_TODEVICE);
-+		ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_SINGLE);
- 		mapped_len  += map_len;
- 		use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
- 		use_tpd->word2 = (use_tpd->word2 & (~TPD_BUFLEN_MASK)) |
-@@ -1801,6 +1811,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
- 						(i * MAX_TX_BUF_LEN),
- 						tx_buffer->length,
- 						PCI_DMA_TODEVICE);
-+			ATL1E_SET_PCIMAP_TYPE(tx_buffer, ATL1E_TX_PCIMAP_PAGE);
- 			use_tpd->buffer_addr = cpu_to_le64(tx_buffer->dma);
- 			use_tpd->word2 = (use_tpd->word2 & (~TPD_BUFLEN_MASK)) |
- 					((cpu_to_le32(tx_buffer->length) &
+Best  wishes
+jie
