@@ -1,391 +1,565 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
-Date: Wed, 16 Sep 2009 15:22:49 -0400
-Message-ID: <4AB13B09.5040308@gmail.com>
-References: <cover.1251388414.git.mst@redhat.com> <20090827160750.GD23722@redhat.com> <20090903183945.GF28651@ovro.caltech.edu> <20090907101537.GH3031@redhat.com> <20090908172035.GB319@ovro.caltech.edu> <4AAA7415.5080204@gmail.com> <20090913120140.GA31218@redhat.com> <4AAE6A97.7090808@gmail.com> <20090914164750.GB3745@redhat.com> <4AAE961B.6020509@gmail.com> <4AAF8A03.5020806@redhat.com> <4AAF909F.9080306@gmail.com> <4AAF95D1.1080600@redhat.com> <4AAF9BAF.3030109@gmail.com> <4AAFACB5.9050808@redhat.com> <4AAFF437.7060100@gmail.com> <4AB0A070.1050400@redhat.com> <4AB0CFA5.6040104@gmail.com> <4AB0E2A2.3080409@redhat.com> <4AB0F1EF.5050102@gmail.com> <4AB10B67.2050108@redhat.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless-next-2.6 2009-09-16
+Date: Wed, 16 Sep 2009 16:41:51 -0400
+Message-ID: <20090916204150.GG10634@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig8A5C8AA90691DAD872962AF3"
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	"Ira W. Snyder" <iws@ovro.caltech.edu>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
-	akpm@linux-foundation.org, hpa@zytor.com,
-	Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com,
-	alacrityvm-devel@lists.sourceforge.net
-To: Avi Kivity <avi@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4AB10B67.2050108@redhat.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760067AbZIPUph@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig8A5C8AA90691DAD872962AF3
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-Avi Kivity wrote:
-> On 09/16/2009 05:10 PM, Gregory Haskins wrote:
->>
->>> If kvm can do it, others can.
->>>     =20
->> The problem is that you seem to either hand-wave over details like thi=
-s,
->> or you give details that are pretty much exactly what vbus does alread=
-y.
->>   My point is that I've already sat down and thought about these issue=
-s
->> and solved them in a freely available GPL'ed software package.
->>   =20
->=20
-> In the kernel.  IMO that's the wrong place for it.
-
-In conversations with Ira, he indicated he needs kernel-to-kernel
-ethernet for performance, and needs at least an ethernet and console
-connectivity.  You could conceivably build a solution for this system 3
-basic ways:
-
-1) "completely" in userspace: use things like tuntap on the ppc boards,
-and tunnel packets across a custom point-to-point connection formed over
-the pci link to a userspace app on the x86 board.  This app then
-reinjects the packets into the x86 kernel as a raw socket or tuntap,
-etc.  Pretty much vanilla tuntap/vpn kind of stuff.  Advantage: very
-little kernel code.  Problem: performance (citation: hopefully obvious).
-
-2) "partially" in userspace: have an in-kernel virtio-net driver talk to
-a userspace based virtio-net backend.  This is the (current, non-vhost
-oriented) KVM/qemu model.  Advantage, re-uses existing kernel-code.
-Problem: performance (citation: see alacrityvm numbers).
-
-3) "in-kernel": You can do something like virtio-net to vhost to
-potentially meet some of the requirements, but not all.
-
-In order to fully meet (3), you would need to do some of that stuff you
-mentioned in the last reply with muxing device-nr/reg-nr.  In addition,
-we need to have a facility for mapping eventfds and establishing a
-signaling mechanism (like PIO+qid), etc. KVM does this with
-IRQFD/IOEVENTFD, but we dont have KVM in this case so it needs to be
-invented.
-
-To meet performance, this stuff has to be in kernel and there has to be
-a way to manage it.  Since vbus was designed to do exactly that, this is
-what I would advocate.  You could also reinvent these concepts and put
-your own mux and mapping code in place, in addition to all the other
-stuff that vbus does.  But I am not clear why anyone would want to.
-
-So no, the kernel is not the wrong place for it.  Its the _only_ place
-for it.  Otherwise, just use (1) and be done with it.
-
->  Further, if we adopt
-> vbus, if drop compatibility with existing guests or have to support bot=
-h
-> vbus and virtio-pci.
-
-We already need to support both (at least to support Ira).  virtio-pci
-doesn't work here.  Something else (vbus, or vbus-like) is needed.
-
->=20
->> So the question is: is your position that vbus is all wrong and you wi=
-sh
->> to create a new bus-like thing to solve the problem?
->=20
-> I don't intend to create anything new, I am satisfied with virtio.  If
-> it works for Ira, excellent.  If not, too bad.
-
-I think that about sums it up, then.
-
-
->  I believe it will work without too much trouble.
-
-Afaict it wont for the reasons I mentioned.
-
->=20
->> If so, how is it
->> different from what Ive already done?  More importantly, what specific=
-
->> objections do you have to what Ive done, as perhaps they can be fixed
->> instead of starting over?
->>   =20
->=20
-> The two biggest objections are:
-> - the host side is in the kernel
-
-As it needs to be.
-
-> - the guest side is a new bus instead of reusing pci (on x86/kvm),
-> making Windows support more difficult
-
-Thats a function of the vbus-connector, which is different from
-vbus-core.  If you don't like it (and I know you don't), we can write
-one that interfaces to qemu's pci system.  I just don't like the
-limitations that imposes, nor do I think we need that complexity of
-dealing with a split PCI model, so I chose to not implement vbus-kvm
-this way.
-
-With all due respect, based on all of your comments in aggregate I
-really do not think you are truly grasping what I am actually building he=
-re.
-
->=20
-> I guess these two are exactly what you think are vbus' greatest
-> advantages, so we'll probably have to extend our agree-to-disagree on
-> this one.
->=20
-> I also had issues with using just one interrupt vector to service all
-> events, but that's easily fixed.
-
-Again, function of the connector.
-
->=20
->>> There is no guest and host in this scenario.  There's a device side
->>> (ppc) and a driver side (x86).  The driver side can access configurat=
-ion
->>> information on the device side.  How to multiplex multiple devices is=
- an
->>> interesting exercise for whoever writes the virtio binding for that
->>> setup.
->>>     =20
->> Bingo.  So now its a question of do you want to write this layer from
->> scratch, or re-use my framework.
->>   =20
->=20
-> You will have to implement a connector or whatever for vbus as well.=20
-> vbus has more layers so it's probably smaller for vbus.
-
-Bingo! That is precisely the point.
-
-All the stuff for how to map eventfds, handle signal mitigation, demux
-device/function pointers, isolation, etc, are built in.  All the
-connector has to do is transport the 4-6 verbs and provide a memory
-mapping/copy function, and the rest is reusable.  The device models
-would then work in all environments unmodified, and likewise the
-connectors could use all device-models unmodified.
-
->=20
->>>>>
->>>>>         =20
->>>> I am talking about how we would tunnel the config space for N device=
-s
->>>> across his transport.
->>>>
->>>>       =20
->>> Sounds trivial.
->>>     =20
->> No one said it was rocket science.  But it does need to be designed an=
-d
->> implemented end-to-end, much of which Ive already done in what I hope =
-is
->> an extensible way.
->>   =20
->=20
-> It was already implemented three times for virtio, so apparently that's=
-
-> extensible too.
-
-And to my point, I'm trying to commoditize as much of that process as
-possible on both the front and backends (at least for cases where
-performance matters) so that you don't need to reinvent the wheel for
-each one.
-
->=20
->>>   Write an address containing the device number and
->>> register number to on location, read or write data from another.
->>>     =20
->> You mean like the "u64 devh", and "u32 func" fields I have here for th=
-e
->> vbus-kvm connector?
->>
->> http://git.kernel.org/?p=3Dlinux/kernel/git/ghaskins/alacrityvm/linux-=
-2.6.git;a=3Dblob;f=3Dinclude/linux/vbus_pci.h;h=3Dfe337590e644017392e4c9d=
-9236150adb2333729;hb=3Dded8ce2005a85c174ba93ee26f8d67049ef11025#l64
->>
->>
->>   =20
->=20
-> Probably.
->=20
->=20
->=20
->>>> That sounds convenient given his hardware, but it has its own set of=
-
->>>> problems.  For one, the configuration/inventory of these boards is n=
-ow
->>>> driven by the wrong side and has to be addressed.
->>>>       =20
->>> Why is it the wrong side?
->>>     =20
->> "Wrong" is probably too harsh a word when looking at ethernet.  Its
->> certainly "odd", and possibly inconvenient.  It would be like having
->> vhost in a KVM guest, and virtio-net running on the host.  You could d=
-o
->> it, but its weird and awkward.  Where it really falls apart and enters=
-
->> the "wrong" category is for non-symmetric devices, like disk-io.
->>
->>   =20
->=20
->=20
-> It's not odd or wrong or wierd or awkward.
-
-Its weird IMO because IIUC the ppc boards are not really "NICs".  Yes,
-their arrangement as bus-master PCI devices makes them look and smell
-like "devices", but that is an implementation detail of its transport
-(like hypercalls/PIO in KVM) and not relevant to its broader role in the
-system.
-
-They are more or less like "guests" from the KVM world.  The x86 is
-providing connectivity resources to these guests, not the other way
-around.  It is not a goal to make the x86 look like it has a multihomed
-array of ppc based NIC adapters.  The only reason we would treat these
-ppc boards like NICs is because (iiuc) that is the only way vhost can be
-hacked to work with the system, not because its the optimal design.
-
-FWIW: There are a ton of chassis-based systems that look similar to
-Ira's out there (PCI inter-connected nodes), and I would like to support
-them, too.  So its not like this is a one-off.
-
-
-> An ethernet NIC is not
-> symmetric, one side does DMA and issues interrupts, the other uses its
-> own memory.
-
-I never said a NIC was.  I meant the ethernet _protocol_ is symmetric.
-I meant it in the sense that you can ingress/egress packets in either
-direction and as long as "TX" on one side is "RX" on the other and vice
-versa, it all kind of works.  You can even loop it back and it still work=
-s.
-
-Contrast this to something like a disk-block protocol where a "read"
-message is expected to actually do a read, etc.  In this case, you
-cannot arbitrarily assign the location of the "driver" and "device" like
-you can with ethernet.  The device should presumably be where the
-storage is, and the driver should be where the consumer is.
-
->  That's exactly the case with Ira's setup.
-
-See "implementation detail" comment above.
-
-
->=20
-> If the ppc boards were to emulate a disk controller, you'd run
-> virtio-blk on x86 and vhost-blk on the ppc boards.
-
-Agreed.
-
->=20
->>>> Second, the role
->>>> reversal will likely not work for many models other than ethernet (e=
-=2Eg.
->>>> virtio-console or virtio-blk drivers running on the x86 board would =
-be
->>>> naturally consuming services from the slave boards...virtio-net is a=
-n
->>>> exception because 802.x is generally symmetrical).
->>>>
->>>>       =20
->>> There is no role reversal.
->>>     =20
->> So if I have virtio-blk driver running on the x86 and vhost-blk device=
-
->> running on the ppc board, I can use the ppc board as a block-device.
->> What if I really wanted to go the other way?
->>   =20
->=20
-> You mean, if the x86 board was able to access the disks and dma into th=
-e
-> ppb boards memory?  You'd run vhost-blk on x86 and virtio-net on ppc.
-
-But as we discussed, vhost doesn't work well if you try to run it on the
-x86 side due to its assumptions about pagable "guest" memory, right?  So
-is that even an option?  And even still, you would still need to solve
-the aggregation problem so that multiple devices can coexist.
-
->=20
-> As long as you don't use the words "guest" and "host" but keep to
-> "driver" and "device", it all works out.
->=20
->>> The side doing dma is the device, the side
->>> accessing its own memory is the driver.  Just like that other 1e12
->>> driver/device pairs out there.
->>>     =20
->> IIUC, his ppc boards really can be seen as "guests" (they are linux
->> instances that are utilizing services from the x86, not the other way
->> around).
->=20
-> They aren't guests.  Guests don't dma into their host's memory.
-
-Thats not relevant.  They are not guests in the sense of isolated
-virtualized guests like KVM.  They are guests in the sense that they are
-subordinate linux instances which utilize IO resources on the x86 (host).=
-
-
-The way this would work is that the x86 would be driving the dma
-controller on the ppc board, not the other way around.  The fact that
-the controller lives on the ppc board is an implementation detail.
-
-The way I envision this to work would be that the ppc board exports two
-functions in its device:
-
-1) a vbus-bridge like device
-2) a dma-controller that accepts "gpas" as one parameter
-
-so function (1) does the 4-6 verbs I mentioned for device addressing,
-etc.  function (2) is utilized by the x86 memctx whenever a
-->copy_from() or ->copy_to() operation is invoked.  The ppc board's
-would be doing their normal virtio kind of things, like
-->add_buf(_pa(skb->data))).
-
->=20
->> vhost forces the model to have the ppc boards act as IO-hosts,
->> whereas vbus would likely work in either direction due to its more
->> refined abstraction layer.
->>   =20
->=20
-> vhost=3Ddevice=3Ddma, virtio=3Ddriver=3Down-memory.
-
-I agree that virtio=3Ddriver=3Down-memory.  The problem is vhost !=3D dma=
-=2E
-vhost =3D hva*, and it just so happens that Ira's ppc boards support host=
-
-mapping/dma so it kind of works.
-
-What I have been trying to say is that the extra abstraction to the
-memctx gets the "vhost" side away from hva*, such that it can support
-hva if that makes sense, or something else (like a custom dma engine if
-it doesn't)
-
->=20
->>> Of course vhost is incomplete, in the same sense that Linux is
->>> incomplete.  Both require userspace.
->>>     =20
->> A vhost based solution to Iras design is missing more than userspace.
->> Many of those gaps are addressed by a vbus based solution.
->>   =20
->=20
-> Maybe.  Ira can fill the gaps or use vbus.
->=20
->=20
-
-Agreed.
-
-Kind Regards,
--Greg
-
-
-
---------------enig8A5C8AA90691DAD872962AF3
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkqxOwkACgkQP5K2CMvXmqGEJgCfaEc3EkZ/Y3/Mno/4/XypLjpO
-ms0AnRS1V0MtT+18ryuZ043Zl/kL6iSo
-=2BoS
------END PGP SIGNATURE-----
-
---------------enig8A5C8AA90691DAD872962AF3--
+Dave,
+
+Here is a batch of fixes for 2.6.32...nothing too controversial
+AFAICT...
+
+Please let me know if there are problems!
+
+John
+
+---
+
+Individual patches are available here:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-next-2.6/
+
+---
+
+The following changes since commit 13af7a6ea502fcdd4c0e3d7de6e332b102309491:
+  Dhananjay Phadke (1):
+        netxen: update copyright
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git master
+
+Christian Lamparter (1):
+      p54usb: add Zcomax XG-705A usbid
+
+Daniel C Halperin (1):
+      iwlwifi: fix HT operation in 2.4 GHz band
+
+Holger Schurig (2):
+      cfg80211: use cfg80211_wext_freq() for freq conversion
+      cfg80211: minimal error handling for wext-compat freq scanning
+
+Johannes Berg (2):
+      iwlwifi: disable powersave for 4965
+      cfg80211: fix SME connect
+
+Larry Finger (1):
+      ssb: Fix error when V1 SPROM extraction is forced
+
+Luis R. Rodriguez (1):
+      wireless: default CONFIG_WLAN to y
+
+Martin Decky (1):
+      hostap: Revert a toxic part of the conversion to net_device_ops
+
+Michael Buesch (3):
+      b43: Force-wake queues on init
+      ssb: Disable verbose SDIO coreswitch
+      b43: Fix resume failure
+
+Pavel Roskin (1):
+      rc80211_minstrel: fix contention window calculation
+
+Randy Dunlap (1):
+      ssb/sdio: fix printk format warnings
+
+Reinette Chatre (1):
+      iwlwifi: fix potential rx buffer loss
+
+Sujith (1):
+      ath9k: Fix bug in ANI channel handling
+
+Wey-Yi Guy (1):
+      iwlwifi: find the correct first antenna
+
+ drivers/net/wireless/Kconfig                |    1 +
+ drivers/net/wireless/ath/ath9k/ani.c        |    6 ++++--
+ drivers/net/wireless/b43/main.c             |    8 +++-----
+ drivers/net/wireless/hostap/hostap_main.c   |    3 ++-
+ drivers/net/wireless/iwlwifi/iwl-4965.c     |    1 +
+ drivers/net/wireless/iwlwifi/iwl-agn-rs.c   |   10 +++++++++-
+ drivers/net/wireless/iwlwifi/iwl-core.c     |    9 ++++++---
+ drivers/net/wireless/iwlwifi/iwl-core.h     |    1 +
+ drivers/net/wireless/iwlwifi/iwl-power.c    |    5 +++--
+ drivers/net/wireless/iwlwifi/iwl-rx.c       |   24 +++++++++++++++++-------
+ drivers/net/wireless/iwlwifi/iwl3945-base.c |   24 ++++++++++++++++--------
+ drivers/net/wireless/p54/p54usb.c           |    1 +
+ drivers/ssb/pci.c                           |    1 +
+ drivers/ssb/sdio.c                          |    6 +++---
+ net/mac80211/rc80211_minstrel.c             |    2 +-
+ net/wireless/scan.c                         |    7 ++++++-
+ net/wireless/sme.c                          |   21 +++++++++++++--------
+ 17 files changed, 88 insertions(+), 42 deletions(-)
+
+diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
+index ad89d23..49ea9c9 100644
+--- a/drivers/net/wireless/Kconfig
++++ b/drivers/net/wireless/Kconfig
+@@ -5,6 +5,7 @@
+ menuconfig WLAN
+ 	bool "Wireless LAN"
+ 	depends on !S390
++	default y
+ 	---help---
+ 	  This section contains all the pre 802.11 and 802.11 wireless
+ 	  device drivers. For a complete list of drivers and documentation
+diff --git a/drivers/net/wireless/ath/ath9k/ani.c b/drivers/net/wireless/ath/ath9k/ani.c
+index a7cbb07..2b49374 100644
+--- a/drivers/net/wireless/ath/ath9k/ani.c
++++ b/drivers/net/wireless/ath/ath9k/ani.c
+@@ -327,7 +327,8 @@ static void ath9k_hw_ani_ofdm_err_trigger(struct ath_hw *ah)
+ 					     aniState->firstepLevel + 1);
+ 		return;
+ 	} else {
+-		if (conf->channel->band == IEEE80211_BAND_2GHZ) {
++		if ((conf->channel->band == IEEE80211_BAND_2GHZ) &&
++		    !conf_is_ht(conf)) {
+ 			if (!aniState->ofdmWeakSigDetectOff)
+ 				ath9k_hw_ani_control(ah,
+ 				     ATH9K_ANI_OFDM_WEAK_SIGNAL_DETECTION,
+@@ -369,7 +370,8 @@ static void ath9k_hw_ani_cck_err_trigger(struct ath_hw *ah)
+ 			ath9k_hw_ani_control(ah, ATH9K_ANI_FIRSTEP_LEVEL,
+ 					     aniState->firstepLevel + 1);
+ 	} else {
+-		if (conf->channel->band == IEEE80211_BAND_2GHZ) {
++		if ((conf->channel->band == IEEE80211_BAND_2GHZ) &&
++		    !conf_is_ht(conf)) {
+ 			if (aniState->firstepLevel > 0)
+ 				ath9k_hw_ani_control(ah,
+ 					     ATH9K_ANI_FIRSTEP_LEVEL, 0);
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+index 7a9a3fa..e789792 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -2289,11 +2289,7 @@ static int b43_upload_microcode(struct b43_wldev *dev)
+ 			err = -ENODEV;
+ 			goto error;
+ 		}
+-		msleep_interruptible(50);
+-		if (signal_pending(current)) {
+-			err = -EINTR;
+-			goto error;
+-		}
++		msleep(50);
+ 	}
+ 	b43_read32(dev, B43_MMIO_GEN_IRQ_REASON);	/* dummy read */
+ 
+@@ -4287,6 +4283,8 @@ static int b43_wireless_core_init(struct b43_wldev *dev)
+ 	if (!dev->suspend_in_progress)
+ 		b43_rng_init(wl);
+ 
++	ieee80211_wake_queues(dev->wl->hw);
++
+ 	b43_set_status(dev, B43_STAT_INITIALIZED);
+ 
+ 	if (!dev->suspend_in_progress)
+diff --git a/drivers/net/wireless/hostap/hostap_main.c b/drivers/net/wireless/hostap/hostap_main.c
+index 6fe122f..eb57d1e 100644
+--- a/drivers/net/wireless/hostap/hostap_main.c
++++ b/drivers/net/wireless/hostap/hostap_main.c
+@@ -875,15 +875,16 @@ void hostap_setup_dev(struct net_device *dev, local_info_t *local,
+ 
+ 	switch(type) {
+ 	case HOSTAP_INTERFACE_AP:
++		dev->tx_queue_len = 0;	/* use main radio device queue */
+ 		dev->netdev_ops = &hostap_mgmt_netdev_ops;
+ 		dev->type = ARPHRD_IEEE80211;
+ 		dev->header_ops = &hostap_80211_ops;
+ 		break;
+ 	case HOSTAP_INTERFACE_MASTER:
+-		dev->tx_queue_len = 0;	/* use main radio device queue */
+ 		dev->netdev_ops = &hostap_master_ops;
+ 		break;
+ 	default:
++		dev->tx_queue_len = 0;	/* use main radio device queue */
+ 		dev->netdev_ops = &hostap_netdev_ops;
+ 	}
+ 
+diff --git a/drivers/net/wireless/iwlwifi/iwl-4965.c b/drivers/net/wireless/iwlwifi/iwl-4965.c
+index 6a13bfb..ca61d37 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-4965.c
++++ b/drivers/net/wireless/iwlwifi/iwl-4965.c
+@@ -2346,6 +2346,7 @@ struct iwl_cfg iwl4965_agn_cfg = {
+ 	.mod_params = &iwl4965_mod_params,
+ 	.use_isr_legacy = true,
+ 	.ht_greenfield_support = false,
++	.broken_powersave = true,
+ };
+ 
+ /* Module firmware */
+diff --git a/drivers/net/wireless/iwlwifi/iwl-agn-rs.c b/drivers/net/wireless/iwlwifi/iwl-agn-rs.c
+index 40b207a..346dc06 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-agn-rs.c
++++ b/drivers/net/wireless/iwlwifi/iwl-agn-rs.c
+@@ -760,6 +760,7 @@ static u32 rs_get_lower_rate(struct iwl_lq_sta *lq_sta,
+ 	u16 high_low;
+ 	u8 switch_to_legacy = 0;
+ 	u8 is_green = lq_sta->is_green;
++	struct iwl_priv *priv = lq_sta->drv;
+ 
+ 	/* check if we need to switch from HT to legacy rates.
+ 	 * assumption is that mandatory rates (1Mbps or 6Mbps)
+@@ -773,7 +774,8 @@ static u32 rs_get_lower_rate(struct iwl_lq_sta *lq_sta,
+ 			tbl->lq_type = LQ_G;
+ 
+ 		if (num_of_ant(tbl->ant_type) > 1)
+-			tbl->ant_type = ANT_A;/*FIXME:RS*/
++			tbl->ant_type =
++				first_antenna(priv->hw_params.valid_tx_ant);
+ 
+ 		tbl->is_ht40 = 0;
+ 		tbl->is_SGI = 0;
+@@ -883,6 +885,12 @@ static void rs_tx_status(void *priv_r, struct ieee80211_supported_band *sband,
+ 		mac_index &= RATE_MCS_CODE_MSK;	/* Remove # of streams */
+ 		if (mac_index >= (IWL_RATE_9M_INDEX - IWL_FIRST_OFDM_RATE))
+ 			mac_index++;
++		/*
++		 * mac80211 HT index is always zero-indexed; we need to move
++		 * HT OFDM rates after CCK rates in 2.4 GHz band
++		 */
++		if (priv->band == IEEE80211_BAND_2GHZ)
++			mac_index += IWL_FIRST_OFDM_RATE;
+ 	}
+ 
+ 	if ((mac_index < 0) ||
+diff --git a/drivers/net/wireless/iwlwifi/iwl-core.c b/drivers/net/wireless/iwlwifi/iwl-core.c
+index acfd7b4..fd26c0d 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-core.c
++++ b/drivers/net/wireless/iwlwifi/iwl-core.c
+@@ -1585,9 +1585,12 @@ int iwl_setup_mac(struct iwl_priv *priv)
+ 	hw->flags = IEEE80211_HW_SIGNAL_DBM |
+ 		    IEEE80211_HW_NOISE_DBM |
+ 		    IEEE80211_HW_AMPDU_AGGREGATION |
+-		    IEEE80211_HW_SPECTRUM_MGMT |
+-		    IEEE80211_HW_SUPPORTS_PS |
+-		    IEEE80211_HW_SUPPORTS_DYNAMIC_PS;
++		    IEEE80211_HW_SPECTRUM_MGMT;
++
++	if (!priv->cfg->broken_powersave)
++		hw->flags |= IEEE80211_HW_SUPPORTS_PS |
++			     IEEE80211_HW_SUPPORTS_DYNAMIC_PS;
++
+ 	hw->wiphy->interface_modes =
+ 		BIT(NL80211_IFTYPE_STATION) |
+ 		BIT(NL80211_IFTYPE_ADHOC);
+diff --git a/drivers/net/wireless/iwlwifi/iwl-core.h b/drivers/net/wireless/iwlwifi/iwl-core.h
+index c04d2a2..7ff9ffb 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-core.h
++++ b/drivers/net/wireless/iwlwifi/iwl-core.h
+@@ -252,6 +252,7 @@ struct iwl_cfg {
+ 	const u16 max_ll_items;
+ 	const bool shadow_ram_support;
+ 	const bool ht_greenfield_support;
++	const bool broken_powersave;
+ };
+ 
+ /***************************
+diff --git a/drivers/net/wireless/iwlwifi/iwl-power.c b/drivers/net/wireless/iwlwifi/iwl-power.c
+index 4ec6a83..60be976 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-power.c
++++ b/drivers/net/wireless/iwlwifi/iwl-power.c
+@@ -292,8 +292,9 @@ int iwl_power_update_mode(struct iwl_priv *priv, bool force)
+ 	else
+ 		dtimper = 1;
+ 
+-	/* TT power setting overwrites everything */
+-	if (tt->state >= IWL_TI_1)
++	if (priv->cfg->broken_powersave)
++		iwl_power_sleep_cam_cmd(priv, &cmd);
++	else if (tt->state >= IWL_TI_1)
+ 		iwl_static_sleep_cmd(priv, &cmd, tt->tt_power_mode, dtimper);
+ 	else if (!enabled)
+ 		iwl_power_sleep_cam_cmd(priv, &cmd);
+diff --git a/drivers/net/wireless/iwlwifi/iwl-rx.c b/drivers/net/wireless/iwlwifi/iwl-rx.c
+index 8150c5c..b90adcb 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-rx.c
++++ b/drivers/net/wireless/iwlwifi/iwl-rx.c
+@@ -239,26 +239,22 @@ void iwl_rx_allocate(struct iwl_priv *priv, gfp_t priority)
+ 	struct iwl_rx_queue *rxq = &priv->rxq;
+ 	struct list_head *element;
+ 	struct iwl_rx_mem_buffer *rxb;
++	struct sk_buff *skb;
+ 	unsigned long flags;
+ 
+ 	while (1) {
+ 		spin_lock_irqsave(&rxq->lock, flags);
+-
+ 		if (list_empty(&rxq->rx_used)) {
+ 			spin_unlock_irqrestore(&rxq->lock, flags);
+ 			return;
+ 		}
+-		element = rxq->rx_used.next;
+-		rxb = list_entry(element, struct iwl_rx_mem_buffer, list);
+-		list_del(element);
+-
+ 		spin_unlock_irqrestore(&rxq->lock, flags);
+ 
+ 		/* Alloc a new receive buffer */
+-		rxb->skb = alloc_skb(priv->hw_params.rx_buf_size + 256,
++		skb = alloc_skb(priv->hw_params.rx_buf_size + 256,
+ 						priority);
+ 
+-		if (!rxb->skb) {
++		if (!skb) {
+ 			IWL_CRIT(priv, "Can not allocate SKB buffers\n");
+ 			/* We don't reschedule replenish work here -- we will
+ 			 * call the restock method and if it still needs
+@@ -266,6 +262,20 @@ void iwl_rx_allocate(struct iwl_priv *priv, gfp_t priority)
+ 			break;
+ 		}
+ 
++		spin_lock_irqsave(&rxq->lock, flags);
++
++		if (list_empty(&rxq->rx_used)) {
++			spin_unlock_irqrestore(&rxq->lock, flags);
++			dev_kfree_skb_any(skb);
++			return;
++		}
++		element = rxq->rx_used.next;
++		rxb = list_entry(element, struct iwl_rx_mem_buffer, list);
++		list_del(element);
++
++		spin_unlock_irqrestore(&rxq->lock, flags);
++
++		rxb->skb = skb;
+ 		/* Get physical address of RB/SKB */
+ 		rxb->real_dma_addr = pci_map_single(
+ 					priv->pci_dev,
+diff --git a/drivers/net/wireless/iwlwifi/iwl3945-base.c b/drivers/net/wireless/iwlwifi/iwl3945-base.c
+index 2238c9f..0909668 100644
+--- a/drivers/net/wireless/iwlwifi/iwl3945-base.c
++++ b/drivers/net/wireless/iwlwifi/iwl3945-base.c
+@@ -1134,6 +1134,7 @@ static void iwl3945_rx_allocate(struct iwl_priv *priv, gfp_t priority)
+ 	struct iwl_rx_queue *rxq = &priv->rxq;
+ 	struct list_head *element;
+ 	struct iwl_rx_mem_buffer *rxb;
++	struct sk_buff *skb;
+ 	unsigned long flags;
+ 
+ 	while (1) {
+@@ -1143,17 +1144,11 @@ static void iwl3945_rx_allocate(struct iwl_priv *priv, gfp_t priority)
+ 			spin_unlock_irqrestore(&rxq->lock, flags);
+ 			return;
+ 		}
+-
+-		element = rxq->rx_used.next;
+-		rxb = list_entry(element, struct iwl_rx_mem_buffer, list);
+-		list_del(element);
+ 		spin_unlock_irqrestore(&rxq->lock, flags);
+ 
+ 		/* Alloc a new receive buffer */
+-		rxb->skb =
+-		    alloc_skb(priv->hw_params.rx_buf_size,
+-				priority);
+-		if (!rxb->skb) {
++		skb = alloc_skb(priv->hw_params.rx_buf_size, priority);
++		if (!skb) {
+ 			if (net_ratelimit())
+ 				IWL_CRIT(priv, ": Can not allocate SKB buffers\n");
+ 			/* We don't reschedule replenish work here -- we will
+@@ -1162,6 +1157,19 @@ static void iwl3945_rx_allocate(struct iwl_priv *priv, gfp_t priority)
+ 			break;
+ 		}
+ 
++		spin_lock_irqsave(&rxq->lock, flags);
++		if (list_empty(&rxq->rx_used)) {
++			spin_unlock_irqrestore(&rxq->lock, flags);
++			dev_kfree_skb_any(skb);
++			return;
++		}
++		element = rxq->rx_used.next;
++		rxb = list_entry(element, struct iwl_rx_mem_buffer, list);
++		list_del(element);
++		spin_unlock_irqrestore(&rxq->lock, flags);
++
++		rxb->skb = skb;
++
+ 		/* If radiotap head is required, reserve some headroom here.
+ 		 * The physical head count is a variable rx_stats->phy_count.
+ 		 * We reserve 4 bytes here. Plus these extra bytes, the
+diff --git a/drivers/net/wireless/p54/p54usb.c b/drivers/net/wireless/p54/p54usb.c
+index e44460f..17e1995 100644
+--- a/drivers/net/wireless/p54/p54usb.c
++++ b/drivers/net/wireless/p54/p54usb.c
+@@ -67,6 +67,7 @@ static struct usb_device_id p54u_table[] __devinitdata = {
+ 	{USB_DEVICE(0x0bf8, 0x1009)},   /* FUJITSU E-5400 USB D1700*/
+ 	{USB_DEVICE(0x0cde, 0x0006)},   /* Medion MD40900 */
+ 	{USB_DEVICE(0x0cde, 0x0008)},	/* Sagem XG703A */
++	{USB_DEVICE(0x0cde, 0x0015)},	/* Zcomax XG-705A */
+ 	{USB_DEVICE(0x0d8e, 0x3762)},	/* DLink DWL-G120 Cohiba */
+ 	{USB_DEVICE(0x124a, 0x4025)},	/* IOGear GWU513 (GW3887IK chip) */
+ 	{USB_DEVICE(0x1260, 0xee22)},	/* SMC 2862W-G version 2 */
+diff --git a/drivers/ssb/pci.c b/drivers/ssb/pci.c
+index f853d56..9e50896 100644
+--- a/drivers/ssb/pci.c
++++ b/drivers/ssb/pci.c
+@@ -600,6 +600,7 @@ static int sprom_extract(struct ssb_bus *bus, struct ssb_sprom *out,
+ 			ssb_printk(KERN_WARNING PFX "Unsupported SPROM"
+ 				   "  revision %d detected. Will extract"
+ 				   " v1\n", out->revision);
++			out->revision = 1;
+ 			sprom_extract_r123(out, in);
+ 		}
+ 	}
+diff --git a/drivers/ssb/sdio.c b/drivers/ssb/sdio.c
+index 1140510..65a6080 100644
+--- a/drivers/ssb/sdio.c
++++ b/drivers/ssb/sdio.c
+@@ -21,7 +21,7 @@
+ #include "ssb_private.h"
+ 
+ /* Define the following to 1 to enable a printk on each coreswitch. */
+-#define SSB_VERBOSE_SDIOCORESWITCH_DEBUG		1
++#define SSB_VERBOSE_SDIOCORESWITCH_DEBUG		0
+ 
+ 
+ /* Hardware invariants CIS tuples */
+@@ -333,7 +333,7 @@ static void ssb_sdio_block_read(struct ssb_device *dev, void *buffer,
+ 		goto out;
+ 
+ err_out:
+-	dev_dbg(ssb_sdio_dev(bus), "%04X:%04X (width=%u, len=%u), error %d\n",
++	dev_dbg(ssb_sdio_dev(bus), "%04X:%04X (width=%u, len=%zu), error %d\n",
+ 		bus->sdio_sbaddr >> 16, offset, reg_width, saved_count, error);
+ out:
+ 	sdio_release_host(bus->host_sdio);
+@@ -440,7 +440,7 @@ static void ssb_sdio_block_write(struct ssb_device *dev, const void *buffer,
+ 		goto out;
+ 
+ err_out:
+-	dev_dbg(ssb_sdio_dev(bus), "%04X:%04X (width=%u, len=%u), error %d\n",
++	dev_dbg(ssb_sdio_dev(bus), "%04X:%04X (width=%u, len=%zu), error %d\n",
+ 		bus->sdio_sbaddr >> 16, offset, reg_width, saved_count, error);
+ out:
+ 	sdio_release_host(bus->host_sdio);
+diff --git a/net/mac80211/rc80211_minstrel.c b/net/mac80211/rc80211_minstrel.c
+index 7c51429..6e5d68b 100644
+--- a/net/mac80211/rc80211_minstrel.c
++++ b/net/mac80211/rc80211_minstrel.c
+@@ -418,7 +418,7 @@ minstrel_rate_init(void *priv, struct ieee80211_supported_band *sband,
+ 
+ 			/* contention window */
+ 			tx_time_single += t_slot + min(cw, mp->cw_max);
+-			cw = (cw + 1) << 1;
++			cw = (cw << 1) | 1;
+ 
+ 			tx_time += tx_time_single;
+ 			tx_time_cts += tx_time_single + mi->sp_ack_dur;
+diff --git a/net/wireless/scan.c b/net/wireless/scan.c
+index 4c210c2..e5f92ee 100644
+--- a/net/wireless/scan.c
++++ b/net/wireless/scan.c
+@@ -662,7 +662,7 @@ int cfg80211_wext_siwscan(struct net_device *dev,
+ 				int k;
+ 				int wiphy_freq = wiphy->bands[band]->channels[j].center_freq;
+ 				for (k = 0; k < wreq->num_channels; k++) {
+-					int wext_freq = wreq->channel_list[k].m / 100000;
++					int wext_freq = cfg80211_wext_freq(wiphy, &wreq->channel_list[k]);
+ 					if (wext_freq == wiphy_freq)
+ 						goto wext_freq_found;
+ 				}
+@@ -675,6 +675,11 @@ int cfg80211_wext_siwscan(struct net_device *dev,
+ 		wext_freq_not_found: ;
+ 		}
+ 	}
++	/* No channels found? */
++	if (!i) {
++		err = -EINVAL;
++		goto out;
++	}
+ 
+ 	/* Set real number of channels specified in creq->channels[] */
+ 	creq->n_channels = i;
+diff --git a/net/wireless/sme.c b/net/wireless/sme.c
+index 6830788..7fae7ee 100644
+--- a/net/wireless/sme.c
++++ b/net/wireless/sme.c
+@@ -188,7 +188,7 @@ void cfg80211_conn_work(struct work_struct *work)
+ 	rtnl_unlock();
+ }
+ 
+-static bool cfg80211_get_conn_bss(struct wireless_dev *wdev)
++static struct cfg80211_bss *cfg80211_get_conn_bss(struct wireless_dev *wdev)
+ {
+ 	struct cfg80211_registered_device *rdev = wiphy_to_dev(wdev->wiphy);
+ 	struct cfg80211_bss *bss;
+@@ -205,7 +205,7 @@ static bool cfg80211_get_conn_bss(struct wireless_dev *wdev)
+ 			       WLAN_CAPABILITY_ESS | WLAN_CAPABILITY_PRIVACY,
+ 			       capa);
+ 	if (!bss)
+-		return false;
++		return NULL;
+ 
+ 	memcpy(wdev->conn->bssid, bss->bssid, ETH_ALEN);
+ 	wdev->conn->params.bssid = wdev->conn->bssid;
+@@ -213,14 +213,14 @@ static bool cfg80211_get_conn_bss(struct wireless_dev *wdev)
+ 	wdev->conn->state = CFG80211_CONN_AUTHENTICATE_NEXT;
+ 	schedule_work(&rdev->conn_work);
+ 
+-	cfg80211_put_bss(bss);
+-	return true;
++	return bss;
+ }
+ 
+ static void __cfg80211_sme_scan_done(struct net_device *dev)
+ {
+ 	struct wireless_dev *wdev = dev->ieee80211_ptr;
+ 	struct cfg80211_registered_device *rdev = wiphy_to_dev(wdev->wiphy);
++	struct cfg80211_bss *bss;
+ 
+ 	ASSERT_WDEV_LOCK(wdev);
+ 
+@@ -234,7 +234,10 @@ static void __cfg80211_sme_scan_done(struct net_device *dev)
+ 	    wdev->conn->state != CFG80211_CONN_SCAN_AGAIN)
+ 		return;
+ 
+-	if (!cfg80211_get_conn_bss(wdev)) {
++	bss = cfg80211_get_conn_bss(wdev);
++	if (bss) {
++		cfg80211_put_bss(bss);
++	} else {
+ 		/* not found */
+ 		if (wdev->conn->state == CFG80211_CONN_SCAN_AGAIN)
+ 			schedule_work(&rdev->conn_work);
+@@ -670,6 +673,7 @@ int __cfg80211_connect(struct cfg80211_registered_device *rdev,
+ {
+ 	struct wireless_dev *wdev = dev->ieee80211_ptr;
+ 	struct ieee80211_channel *chan;
++	struct cfg80211_bss *bss = NULL;
+ 	int err;
+ 
+ 	ASSERT_WDEV_LOCK(wdev);
+@@ -760,7 +764,7 @@ int __cfg80211_connect(struct cfg80211_registered_device *rdev,
+ 
+ 		/* don't care about result -- but fill bssid & channel */
+ 		if (!wdev->conn->params.bssid || !wdev->conn->params.channel)
+-			cfg80211_get_conn_bss(wdev);
++			bss = cfg80211_get_conn_bss(wdev);
+ 
+ 		wdev->sme_state = CFG80211_SME_CONNECTING;
+ 		wdev->connect_keys = connkeys;
+@@ -770,10 +774,11 @@ int __cfg80211_connect(struct cfg80211_registered_device *rdev,
+ 			wdev->conn->prev_bssid_valid = true;
+ 		}
+ 
+-		/* we're good if we have both BSSID and channel */
+-		if (wdev->conn->params.bssid && wdev->conn->params.channel) {
++		/* we're good if we have a matching bss struct */
++		if (bss) {
+ 			wdev->conn->state = CFG80211_CONN_AUTHENTICATE_NEXT;
+ 			err = cfg80211_conn_do_work(wdev);
++			cfg80211_put_bss(bss);
+ 		} else {
+ 			/* otherwise we'll need to scan for the AP first */
+ 			err = cfg80211_conn_scan(wdev);
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
