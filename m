@@ -1,41 +1,45 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: bonding...
-Date: Wed, 16 Sep 2009 08:02:14 -0700
-Message-ID: <25679.1253113334@death.nxdomain.ibm.com>
-References: <20090916.014459.86856955.davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:34039 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759166AbZIPPC3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Sep 2009 11:02:29 -0400
-Received: from d01relay06.pok.ibm.com (d01relay06.pok.ibm.com [9.56.227.116])
-	by e3.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id n8GEtMH1031735
-	for <netdev@vger.kernel.org>; Wed, 16 Sep 2009 10:55:22 -0400
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d01relay06.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n8GF2KoH1683656
-	for <netdev@vger.kernel.org>; Wed, 16 Sep 2009 11:02:20 -0400
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n8GF2Jiu028721
-	for <netdev@vger.kernel.org>; Wed, 16 Sep 2009 09:02:19 -0600
-In-reply-to: <20090916.014459.86856955.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
+Date: Wed, 16 Sep 2009 18:13:29 +0300
+Message-ID: <20090916151329.GC5513@redhat.com>
+References: <20090914164750.GB3745@redhat.com> <4AAFFC8E.9010404@gmail.com> <20090915212545.GC27954@redhat.com> <200909161657.42628.arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Gregory Haskins <gregory.haskins@gmail.com>, Avi Kivity <avi@redhat.com>,
+        "Ira W. Snyder" <iws@ovro.caltech.edu>, netdev@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+        linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
+        akpm@linux-foundation.org, hpa@zytor.com,
+        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com,
+        alacrityvm-devel@lists.sourceforge.net
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <200909161657.42628.arnd@arndb.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote:
+On Wed, Sep 16, 2009 at 04:57:42PM +0200, Arnd Bergmann wrote:
+> On Tuesday 15 September 2009, Michael S. Tsirkin wrote:
+> > Userspace in x86 maps a PCI region, uses it for communication with ppc?
+> 
+> This might have portability issues. On x86 it should work, but if the
+> host is powerpc or similar, you cannot reliably access PCI I/O memory
+> through copy_tofrom_user but have to use memcpy_toio/fromio or readl/writel
+> calls, which don't work on user pointers.
+> 
+> Specifically on powerpc, copy_from_user cannot access unaligned buffers
+> if they are on an I/O mapping.
+> 
+> 	Arnd <><
 
->
->Jay, there is quite a backlog of bonding patches in the queue right
->now.
->
->I'd like to know when you'll get to processing them because it's more
->then two weeks (!!) for some of them and these folks are going to miss
->the merge window out of no fault of their own.
+We are talking about doing this in userspace, not in kernel.
 
-	I'll get through them today.
+-- 
+MST
 
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
