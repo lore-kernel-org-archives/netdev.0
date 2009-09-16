@@ -1,8 +1,8 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
 Subject: Re: [PATCH 3/3] at91_can: add driver for Atmel's CAN controller on
  AT91SAM9263
-Date: Wed, 16 Sep 2009 12:47:22 +0200
-Message-ID: <4AB0C23A.8070502@pengutronix.de>
+Date: Wed, 16 Sep 2009 12:45:59 +0200
+Message-ID: <4AB0C1E7.9070708@pengutronix.de>
 References: <1253094405-3216-1-git-send-email-mkl@pengutronix.de>	<1253094405-3216-2-git-send-email-mkl@pengutronix.de>	<1253094405-3216-3-git-send-email-mkl@pengutronix.de> <1253094405-3216-4-git-send-email-mkl@pengutronix.de> <4AB0B8F4.50301@grandegger.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -11,10 +11,10 @@ Cc: netdev@vger.kernel.org, Socketcan-core@lists.berlios.de,
 	linux-arm-kernel@lists.infradead.org
 To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:48092 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:48150 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751641AbZIPKsx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 06:48:53 -0400
+	with ESMTP id S1752413AbZIPKuD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 06:50:03 -0400
 In-Reply-To: <4AB0B8F4.50301@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
