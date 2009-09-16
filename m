@@ -1,96 +1,73 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 1/3] at91sam9263: add at91_can device to generic device definition
-Date: Wed, 16 Sep 2009 11:46:43 +0200
-Message-ID: <1253094405-3216-2-git-send-email-mkl@pengutronix.de>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: [PATCH 2/3] at91sam9263ek: activate at91 CAN controller
+Date: Wed, 16 Sep 2009 11:46:44 +0200
+Message-ID: <1253094405-3216-3-git-send-email-mkl@pengutronix.de>
 References: <1253094405-3216-1-git-send-email-mkl@pengutronix.de>
-Cc: linux-arm-kernel@lists.infradead.org,
-	Socketcan-core@lists.berlios.de,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	"Hans J. Koch" <hjk@linutronix.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:57241 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751148AbZIPJrC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 05:47:02 -0400
-In-Reply-To: <1253094405-3216-1-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	<1253094405-3216-2-git-send-email-mkl@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1253094405-3216-2-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds the device definition for the at91_can device to
-the generic device definiton file for the at91sam9263.
+This patch activates the at91 CAN controller for the at91sam9263ek
+development board.
 
-Signed-off-by: Hans J. Koch <hjk@linutronix.de>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Signed-off-by: Hans J. Koch <hjk-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 ---
- arch/arm/mach-at91/at91sam9263_devices.c |   36 ++++++++++++++++++++++++++++++
- arch/arm/mach-at91/include/mach/board.h  |    6 +++++
- 2 files changed, 42 insertions(+), 0 deletions(-)
+ arch/arm/mach-at91/board-sam9263ek.c |   19 +++++++++++++++++++
+ 1 files changed, 19 insertions(+), 0 deletions(-)
 
-diff --git a/arch/arm/mach-at91/at91sam9263_devices.c b/arch/arm/mach-at91/at91sam9263_devices.c
-index b7f2332..6026c2e 100644
---- a/arch/arm/mach-at91/at91sam9263_devices.c
-+++ b/arch/arm/mach-at91/at91sam9263_devices.c
-@@ -757,6 +757,42 @@ void __init at91_add_device_ac97(struct atmel_ac97_data *data)
- void __init at91_add_device_ac97(struct atmel_ac97_data *data) {}
- #endif
+diff --git a/arch/arm/mach-at91/board-sam9263ek.c b/arch/arm/mach-at91/board-sam9263ek.c
+index 57d5252..e6268b3 100644
+--- a/arch/arm/mach-at91/board-sam9263ek.c
++++ b/arch/arm/mach-at91/board-sam9263ek.c
+@@ -400,6 +400,23 @@ static struct gpio_led ek_pwm_led[] = {
+ 	}
+ };
  
-+/* --------------------------------------------------------------------
-+ *  CAN Controller
-+ * -------------------------------------------------------------------- */
-+
-+#if defined(CONFIG_CAN_AT91) || defined(CONFIG_CAN_AT91_MODULE)
-+static struct resource can_resources[] = {
-+	[0] = {
-+		.start	= AT91SAM9263_BASE_CAN,
-+		.end	= AT91SAM9263_BASE_CAN + SZ_16K - 1,
-+		.flags	= IORESOURCE_MEM,
-+	},
-+	[1] = {
-+		.start	= AT91SAM9263_ID_CAN,
-+		.end	= AT91SAM9263_ID_CAN,
-+		.flags	= IORESOURCE_IRQ,
-+	},
-+};
-+
-+static struct platform_device at91sam9263_can_device = {
-+	.name		= "at91_can",
-+	.id		= -1,
-+	.resource	= can_resources,
-+	.num_resources	= ARRAY_SIZE(can_resources),
-+};
-+
-+void __init at91_add_device_can(struct at91_can_data *data)
++/*
++ * CAN
++ */
++static void sam9263ek_transceiver_switch(int on)
 +{
-+	at91_set_A_periph(AT91_PIN_PA13, 0);	/* CANTX */
-+	at91_set_A_periph(AT91_PIN_PA14, 0);	/* CANRX */
-+	at91sam9263_can_device.dev.platform_data = data;
-+
-+	platform_device_register(&at91sam9263_can_device);
++	if (on) {
++		at91_set_gpio_output(AT91_PIN_PA18, 1); /* CANRXEN */
++		at91_set_gpio_output(AT91_PIN_PA19, 0); /* CANRS */
++	} else {
++		at91_set_gpio_output(AT91_PIN_PA18, 0); /* CANRXEN */
++		at91_set_gpio_output(AT91_PIN_PA19, 1); /* CANRS */
++	}
 +}
-+#else
-+void __init at91_add_device_can(struct at91_can_data *data) {}
-+#endif
- 
- /* --------------------------------------------------------------------
-  *  LCD Controller
-diff --git a/arch/arm/mach-at91/include/mach/board.h b/arch/arm/mach-at91/include/mach/board.h
-index e6afff8..134731c 100644
---- a/arch/arm/mach-at91/include/mach/board.h
-+++ b/arch/arm/mach-at91/include/mach/board.h
-@@ -179,6 +179,12 @@ extern void __init at91_add_device_isi(void);
-  /* Touchscreen Controller */
- extern void __init at91_add_device_tsadcc(void);
- 
-+/* CAN */
-+struct at91_can_data {
-+	void (*transceiver_switch)(int on);
-+};
-+extern void __init at91_add_device_can(struct at91_can_data *data);
 +
-  /* LEDs */
- extern void __init at91_init_leds(u8 cpu_led, u8 timer_led);
- extern void __init at91_gpio_leds(struct gpio_led *leds, int nr);
++static struct at91_can_data ek_can_data = {
++	.transceiver_switch = sam9263ek_transceiver_switch,
++};
+ 
+ static void __init ek_board_init(void)
+ {
+@@ -431,6 +448,8 @@ static void __init ek_board_init(void)
+ 	/* LEDs */
+ 	at91_gpio_leds(ek_leds, ARRAY_SIZE(ek_leds));
+ 	at91_pwm_leds(ek_pwm_led, ARRAY_SIZE(ek_pwm_led));
++	/* CAN */
++	at91_add_device_can(&ek_can_data);
+ }
+ 
+ MACHINE_START(AT91SAM9263EK, "Atmel AT91SAM9263-EK")
 -- 
 1.6.3.3
-
