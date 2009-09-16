@@ -1,58 +1,69 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
+From: Eric Paris <eparis@redhat.com>
 Subject: Re: fanotify as syscalls
-Date: Tue, 15 Sep 2009 16:49:34 -0700 (PDT)
-Message-ID: <alpine.LFD.2.01.0909151643540.4950@localhost.localdomain>
-References: <20090911.114620.260824240.davem@davemloft.net>  <1252697613.2305.38.camel@dhcp231-106.rdu.redhat.com>  <20090911204602.GA19371@shareable.org>  <1252703626.2305.50.camel@dhcp231-106.rdu.redhat.com>  <20090911212731.GA19901@shareable.org>
- <1252705902.2305.83.camel@dhcp231-106.rdu.redhat.com>  <20090912094110.GB24709@ioremap.net> <20090914001759.GB30621@shareable.org>  <20090914140720.GA8564@ioremap.net>  <1252955295.2246.35.camel@dhcp231-106.rdu.redhat.com>  <20090915201620.GB32192@ioremap.net>
- <1253051699.5213.18.camel@dhcp231-106.rdu.redhat.com>
+Date: Tue, 15 Sep 2009 21:26:31 -0400
+Message-ID: <1253064391.5213.37.camel@dhcp231-106.rdu.redhat.com>
+References: <20090911.114620.260824240.davem@davemloft.net>
+	 <1252697613.2305.38.camel@dhcp231-106.rdu.redhat.com>
+	 <20090911204602.GA19371@shareable.org>
+	 <1252703626.2305.50.camel@dhcp231-106.rdu.redhat.com>
+	 <20090911212731.GA19901@shareable.org>
+	 <1252705902.2305.83.camel@dhcp231-106.rdu.redhat.com>
+	 <20090912094110.GB24709@ioremap.net> <20090914001759.GB30621@shareable.org>
+	  <20090914140720.GA8564@ioremap.net>
+	 <1252955295.2246.35.camel@dhcp231-106.rdu.redhat.com>
+	 <20090915201620.GB32192@ioremap.net>
+	 <1253051699.5213.18.camel@dhcp231-106.rdu.redhat.com>
+	 <alpine.LFD.2.01.0909151643540.4950@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: Evgeniy Polyakov <zbr@ioremap.net>,
 	Jamie Lokier <jamie@shareable.org>,
 	David Miller <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
 	alan@linux.intel.com, hch@infradead.org
-To: Eric Paris <eparis@redhat.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <1253051699.5213.18.camel@dhcp231-106.rdu.redhat.com>
+In-Reply-To: <alpine.LFD.2.01.0909151643540.4950@localhost.localdomain>
 Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 2009-09-15 at 16:49 -0700, Linus Torvalds wrote:
 
+> And btw, I still want to know what's so wonderful about fanotify that we 
+> would actually want yet-another-filesystem-notification-interface. So I'm 
+> not sayying that I'll take a system call interface.
 
-On Tue, 15 Sep 2009, Eric Paris wrote:
-> 
-> I don't see what's gained using netlink.
+The real thing that fanotify provides is an open fd with the event
+rather than some arbitrary 'watch descriptor' that userspace must
+somehow magically map back to data on disk.  This means that it could be
+used to provide subtree notification, which inotify is completely
+incapable of doing.  And it can be used to provide system wide
+notification.  We all know who wants that.
 
-I'm personally not a big believer in netlink. What's the point, really? If 
-you are sending datagrams back-and-forth, go wild. But if it's more 
-structured than that, netlink has no actual upsides as far as I can tell.
+It provides an extensible data format which allows growth impossible in
+inotify.  I don't know if anyone remember the inotify patches which
+wanted to overload the inotify cookie field for some other information,
+but inotify information extension is not reasonable or backwards
+compatible.
 
-Same goes for sockets in this case, actually. What's the upside?
+fanotify also allows userspace to make access decisions and cache those
+in the kernel.  Useful for integrity checkers (anti-malware people) and
+for hierarchical storage management people.
 
-I'll throw out a couple of upsides of actual system calls, people can feel 
-free to comment:
+I've got private commitments for two very large anti malware companies,
+both of which unprotect and hack syscall tables in their customer's
+kernels, that they would like to move to an fanotify interface.  Both
+Red Hat and Suse have expressed interest in these patches and have
+contributed to the patch set.
 
- - things like 'strace' _work_ and the traces make sense, and you 
-   generally see what the app is trying to do from the traces (sure, it 
-   takes some time for strace to learn new system calls, but even when it 
-   only gives a system call number, it's never any worse than some 
-   "made-up packet interface".
+The patch set is actually rather small (entire set of about 20 patches
+is 1800 lines) as it builds on the fsnotify work already in 2.6.31 to
+reuse code from inotify rather than reimplement the same things over and
+over (like we previously had with inotify and dnotify)
 
- - if you have a system call definition, it tends to be a much stricter 
-   interface than "let's send some packets around with a network 
-   interface".
+Don't know what else to say.....
 
- - No unnecessary infrastructure.
+-Eric
 
-That said, maybe the netlink/socket people can argue for their 
-standpoints.
-
-(And btw, I still want to know what's so wonderful about fanotify that we 
-would actually want yet-another-filesystem-notification-interface. So I'm 
-not sayying that I'll take a system call interface. I just don't think 
-that hiding interfaces behind some random packet interface is at all any 
-better)
-
-		Linus
