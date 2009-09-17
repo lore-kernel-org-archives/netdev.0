@@ -1,44 +1,59 @@
-From: Javier Guerra <javier@guerrag.com>
-Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
-Date: Thu, 17 Sep 2009 09:16:56 -0500
-Message-ID: <90eb1dc70909170716i5de0b909tf69c93e679f5fbc8@mail.gmail.com>
-References: <cover.1251388414.git.mst@redhat.com> <4AAFF437.7060100@gmail.com>
-	 <4AB0A070.1050400@redhat.com> <4AB0CFA5.6040104@gmail.com>
-	 <4AB0E2A2.3080409@redhat.com> <4AB0F1EF.5050102@gmail.com>
-	 <4AB10B67.2050108@redhat.com> <4AB13B09.5040308@gmail.com>
-	 <4AB151D7.10402@redhat.com> <4AB1A8FD.2010805@gmail.com>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: Re: [PATCH 1/2] wl12xx: switch to %pM to print the mac address
+Date: Thu, 17 Sep 2009 16:42:08 +0200
+Message-ID: <20090917144208.GH29905@game.jcrosoft.org>
+References: <1253146059-4169-1-git-send-email-plagnioj@jcrosoft.com>
+ <1253150571.4989.33.camel@localhost>
+ <20090917125521.GA2577@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Avi Kivity <avi@redhat.com>, "Michael S. Tsirkin" <mst@redhat.com>,
-	"Ira W. Snyder" <iws@ovro.caltech.edu>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
-	akpm@linux-foundation.org, hpa@zytor.com,
-	Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com,
-	alacrityvm-devel@lists.sourceforge.net
-To: Gregory Haskins <gregory.haskins@gmail.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4AB1A8FD.2010805@gmail.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 30.mail-out.ovh.net ([213.186.62.213]:33298 "HELO
+	30.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751832AbZIQOzA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 10:55:00 -0400
+Content-Disposition: inline
+In-Reply-To: <20090917125521.GA2577@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 16, 2009 at 10:11 PM, Gregory Haskins
-<gregory.haskins@gmail.com> wrote:
->=C2=A0It is certainly not a requirement to make said
-> chip somehow work with existing drivers/facilities on bare metal, per
-> se. =C2=A0Why should virtual systems be different?
+On 08:55 Thu 17 Sep     , John W. Linville wrote:
+> On Thu, Sep 17, 2009 at 02:22:51AM +0100, Ben Hutchings wrote:
+> > On Thu, 2009-09-17 at 02:07 +0200, Jean-Christophe PLAGNIOL-VILLARD
+> > wrote:
+> > > Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+> > > ---
+> > >  drivers/net/wireless/wl12xx/wl1271_main.c |    3 +--
+> > >  1 files changed, 1 insertions(+), 2 deletions(-)
+> > > 
+> > > diff --git a/drivers/net/wireless/wl12xx/wl1271_main.c b/drivers/net/wireless/wl12xx/wl1271_main.c
+> > > index d9169b4..f6f8895 100644
+> > > --- a/drivers/net/wireless/wl12xx/wl1271_main.c
+> > > +++ b/drivers/net/wireless/wl12xx/wl1271_main.c
+> > > @@ -644,11 +644,10 @@ static int wl1271_op_config_interface(struct ieee80211_hw *hw,
+> > >  {
+> > >  	struct wl1271 *wl = hw->priv;
+> > >  	struct sk_buff *beacon;
+> > > -	DECLARE_MAC_BUF(mac);
+> > >  	int ret;
+> > >  
+> > >  	wl1271_debug(DEBUG_MAC80211, "mac80211 config_interface bssid %s",
+> > > -		     print_mac(mac, conf->bssid));
+> > > +		     printf("%pM", conf->bssid);
+> > >  	wl1271_dump_ascii(DEBUG_MAC80211, "ssid: ", conf->ssid,
+> > >  			  conf->ssid_len);
+> > >  
+> > 
+> > That isn't even syntactically valid, let alone correct.
+> 
+> Ugh, you're right -- remind me not to ACK things before bed...
+> 
+> Jean-Christophe posted a new patch that looked better, although it
+> probably needs to be rebased on this one since I think Dave applied
+> it after my (misguided) ACK.
+ok I'll do asap really sorry
 
-i'd guess it's an issue of support resources.  a hardware developer
-creates a chip and immediately sells it, getting small but assured
-revenue, with it they write (or pays to write) drivers for a couple of
-releases, and stop to manufacture it as soon as it's not profitable.
-
-software has a much longer lifetime, especially at the platform-level
-(and KVM is a platform for a lot of us). also, being GPL, it's cheaper
-to produce but has (much!) more limited resources.  creating a new
-support issue is a scary thought.
-
-
---=20
-Javier
+Best Regards,
+J.
