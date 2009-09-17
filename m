@@ -1,92 +1,67 @@
-From: Eric Leblond <eric@inl.fr>
-Subject: Re: [ANNOUNCE] new iptables module match large amount of ip
- addresses
-Date: Thu, 17 Sep 2009 22:03:37 +0200
-Message-ID: <1253217817.21074.9.camel@ice-age>
-References: <Pine.LNX.4.64.0909172100220.27299@artax.karlin.mff.cuni.cz>
+From: Dan Williams <dcbw@redhat.com>
+Subject: [PATCH] i2400m: minimal ethtool support
+Date: Thu, 17 Sep 2009 13:06:14 -0700
+Message-ID: <1253217974.11454.12.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-H3g82aLcxsv9S0OuloLS"
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0909172100220.27299@artax.karlin.mff.cuni.cz>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "wimax@linuxwimax.org" <wimax@linuxwimax.org>,
+	netdev@vger.kernel.org
+To: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60322 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752735AbZIQUF2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Sep 2009 16:05:28 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Add minimal ethtool support for carrier detection.
+
+Signed-off-by: Dan Williams <dcbw@redhat.com>
 
 
---=-H3g82aLcxsv9S0OuloLS
-Content-Type: text/plain; charset="ISO-8859-15"
-Content-Transfer-Encoding: quoted-printable
-
-Hi,
-
-Le jeudi 17 septembre 2009 =E0 21:15 +0200, Mikulas Patocka a =E9crit :
-> Hi
->=20
-> Here I submit an iptables module that can match large amounts (millions)=20
-> of ip addresses efficiently using binary search.
-
-What are the differences with ipset ? (http://ipset.netfilter.org/)
-
-BR,
-
->  I needed it to protect my=20
-> home network from spam. It may be useful for other people too, so if you=20
-> want it, you can take it and add it to the kernel.
->=20
-> Get the patches for netfilter and kernel at:
-> http://artax.karlin.mff.cuni.cz/~mikulas/xt_ipfile/
-> (you need to copy the file include/linux/netfilter/xt_ipfile.h from kerne=
-l=20
-> sources to /usr/include/linux/netfilter/ to compile the userspace)
->=20
-> The main features:
-> - fast matching of large amount of ip addresses using binary search.
-> - an ability to match ranges of addresses or address/mask subnets.
-> - fast loading of the addresses (on Pentium 3 850, 2 million addresses=20
-> load in 5.5s, if they are already sorted in the file, the load time is=20
-> just 1.5s).
-> - memory efficient --- consumes only 8 bytes per address.
->=20
-> USAGE:
->=20
-> prepare a file with addreses, in this example /root/firewall/bad-ips. One=
-=20
-> entry per line, the allowed formats are:
-> 1.2.3.4
-> 1.2.3.0/24
-> 1.2.3.4-1.2.3.8
->=20
-> insert it into iptables with:
-> iptables -A SPAM -m ipfile --src-file /root/firewall/bad-ips -j DROP
->=20
-> The module doesn't support ipv6 because I don't use it, but it's generic=20
-> enough that it could be extended for it. It could be also extended to=20
-> match ethernet MAC addresses.
->=20
-> Mikulas
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-devel=
-" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
---=20
-Eric Leblond <eric@inl.fr>
-INL: http://www.inl.fr/
-NuFW: http://www.nufw.org/
-
---=-H3g82aLcxsv9S0OuloLS
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Ceci est une partie de message
- =?ISO-8859-1?Q?num=E9riquement?= =?ISO-8859-1?Q?_sign=E9e?=
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iD8DBQBKspYWnxA7CdMWjzIRAmdCAJ4r8ajggUeKdq0PKlwW7/Gm+3T9OACfbOGc
-KPQLamFjHvXq3FQIO3/lHhE=
-=GPlT
------END PGP SIGNATURE-----
-
---=-H3g82aLcxsv9S0OuloLS--
+diff --git a/drivers/net/wimax/i2400m/netdev.c b/drivers/net/wimax/i2400m/netdev.c
+index 9653f47..c915775 100644
+--- a/drivers/net/wimax/i2400m/netdev.c
++++ b/drivers/net/wimax/i2400m/netdev.c
+@@ -74,6 +74,7 @@
+  */
+ #include <linux/if_arp.h>
+ #include <linux/netdevice.h>
++#include <linux/ethtool.h>
+ #include "i2400m.h"
+ 
+ 
+@@ -559,6 +560,22 @@ static const struct net_device_ops i2400m_netdev_ops = {
+ 	.ndo_change_mtu = i2400m_change_mtu,
+ };
+ 
++static void i2400m_get_drvinfo(struct net_device *net_dev,
++			       struct ethtool_drvinfo *info)
++{
++	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
++
++	strncpy(info->driver, KBUILD_MODNAME, sizeof(info->driver) - 1);
++	strncpy(info->fw_version, i2400m->fw_name, sizeof(info->fw_version) - 1);
++	if (net_dev->dev.parent)
++		strncpy(info->bus_info, dev_name(net_dev->dev.parent),
++			sizeof(info->bus_info) - 1);
++}
++
++static const struct ethtool_ops i2400m_ethtool_ops = {
++	.get_drvinfo = i2400m_get_drvinfo,
++	.get_link = ethtool_op_get_link,
++};
+ 
+ /**
+  * i2400m_netdev_setup - Setup setup @net_dev's i2400m private data
+@@ -580,6 +597,7 @@ void i2400m_netdev_setup(struct net_device *net_dev)
+ 		   & ~IFF_MULTICAST);
+ 	net_dev->watchdog_timeo = I2400M_TX_TIMEOUT;
+ 	net_dev->netdev_ops = &i2400m_netdev_ops;
++	net_dev->ethtool_ops = &i2400m_ethtool_ops;
+ 	d_fnend(3, NULL, "(net_dev %p) = void\n", net_dev);
+ }
+ EXPORT_SYMBOL_GPL(i2400m_netdev_setup);
 
