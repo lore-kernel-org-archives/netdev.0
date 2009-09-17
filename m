@@ -1,28 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pkt_sched: Fix qstats.qlen updating in dump_stats
-Date: Thu, 17 Sep 2009 10:26:14 -0700 (PDT)
-Message-ID: <20090917.102614.60596483.davem@davemloft.net>
-References: <20090916103838.GA9719@ff.dom.local>
+Subject: Re: [Patch net-next]atl1e:fix 2.6.31-git4 -- ATL1E 0000:03:00.0:
+ DMA-API: device driver frees DMA
+Date: Thu, 17 Sep 2009 10:27:35 -0700 (PDT)
+Message-ID: <20090917.102735.33788478.davem@davemloft.net>
+References: <12530933101782-git-send-email-jie.yang@atheros.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: jarkao2@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35535
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754830AbZIQRZ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 13:25:57 -0400
-In-Reply-To: <20090916103838.GA9719@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: miles.lane@gmail.com, chris.snook@gmail.com, jcliburn@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jie.yang@atheros.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755492AbZIQR1U@vger.kernel.org>
+In-Reply-To: <12530933101782-git-send-email-jie.yang@atheros.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Wed, 16 Sep 2009 10:38:38 +0000
+From: <jie.yang@atheros.com>
+Date: Wed, 16 Sep 2009 17:28:30 +0800
 
-> Some classful qdiscs miss qstats.qlen updating with q.qlen of their
-> child qdiscs in dump_stats methods.
+> use the wrong API when free dma. So when map dma use a flag to demostrate whether it is 'pci_map_single' or 'pci_map_page'. When free the dma, check the flags to select the right APIs('pci_unmap_single' or 'pci_unmap_page').
 > 
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> set the flags type to u16  instead of unsigned long  on David's comments.
+> 
+> Signed-off-by: Jie Yang <jie.yang@atheros.com>
 
-Applied, thanks.
+Applied.
