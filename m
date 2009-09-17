@@ -1,53 +1,44 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCHv2 1/2] mm: export use_mm/unuse_mm to modules
-Date: Wed, 16 Sep 2009 22:43:45 -0700
-Message-ID: <20090916224345.3b5212b4.akpm@linux-foundation.org>
-References: <cover.1249992497.git.mst@redhat.com>
-	<20090811212752.GB26309@redhat.com>
-	<20090811151010.c9c56955.akpm@linux-foundation.org>
-	<20090917053817.GB6770@redhat.com>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: Re: [PATCH 2/2] net: remove print_mac as it's not anymore used
+Date: Thu, 17 Sep 2009 07:48:55 +0200
+Message-ID: <20090917054855.GA29905@game.jcrosoft.org>
+References: <1253146059-4169-1-git-send-email-plagnioj@jcrosoft.com>
+ <1253146059-4169-2-git-send-email-plagnioj@jcrosoft.com>
+ <20090916.205159.191998627.davem@davemloft.net>
+ <20090916.205417.253183573.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
-        linux-mm@kvack.org, hpa@zytor.com, aarcange@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20090917053817.GB6770@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 30.mail-out.ovh.net ([213.186.62.213]:47664 "HELO
+	30.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752761AbZIQGBn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 02:01:43 -0400
+Content-Disposition: inline
+In-Reply-To: <20090916.205417.253183573.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 17 Sep 2009 08:38:18 +0300 "Michael S. Tsirkin" <mst@redhat.com> wrote:
-
-> Hi Andrew,
-> On Tue, Aug 11, 2009 at 03:10:10PM -0700, Andrew Morton wrote:
-> > On Wed, 12 Aug 2009 00:27:52 +0300
-> > "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> > 
-> > > vhost net module wants to do copy to/from user from a kernel thread,
-> > > which needs use_mm (like what fs/aio has).  Move that into mm/ and
-> > > export to modules.
-> > 
-> > OK by me.  Please include this change in the virtio patchset.  Which I
-> > shall cheerfully not be looking at :)
+On 20:54 Wed 16 Sep     , David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Wed, 16 Sep 2009 20:51:59 -0700 (PDT)
 > 
-> The virtio patches are somewhat delayed as we are ironing out the
-> kernel/user interface with Rusty. Can the patch moving use_mm to mm/ be
-> applied without exporting to modules for now? This will make it easier
-> for virtio which will only have to patch in the EXPORT line.
-
-That was 10,000 patches ago.
-
-> I also have a small patch optimizing atomic usage in use_mm (which I did for
-> virtio) and it's easier to apply it if the code is in the new place.
+> > From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+> > Date: Thu, 17 Sep 2009 02:07:39 +0200
+> > 
+> >> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+> > 
+> > Applied.
 > 
-> If ok, pls let me know and I'll post the patch without the EXPORT line.
+> Actually I had to revert.  It's still used by the FCOE stack in
+> the scsi layer.
+> 
+> Did you actually run grep on the entire tree to see if it's still used
+> anywhere or did you only check drivers/net/ and net/ or something
+> equally lazy?
+Yes I've done a git grep print_mac + cscope on the current Linus tree and
+see no more use of print_mac
 
-Please just send them all out.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Best Regards,
+J.
