@@ -1,7 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter -stable 01/04: nf_nat: fix inverted logic for persistent NAT mappings
-Date: Thu, 17 Sep 2009 13:58:26 +0200 (MEST)
-Message-ID: <20090917115824.12728.59451.sendpatchset@x2.localnet>
+Subject: netfilter -stable 02/04: nf_conntrack: netns fix re reliable conntrack event delivery
+Date: Thu, 17 Sep 2009 13:58:28 +0200 (MEST)
+Message-ID: <20090917115825.12728.69202.sendpatchset@x2.localnet>
 References: <20090917115823.12728.87778.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org, davem@davemloft.net
@@ -11,39 +11,47 @@ In-Reply-To: <20090917115823.12728.87778.sendpatchset@x2.localnet>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-commit c9aa9e5a37216258a9d18e42e764f423c818ad4f
+commit 352a76c896217cfa1d61a49e5b2e3f1e9760943f
 Author: Patrick McHardy <kaber@trash.net>
-Date:   Thu Sep 17 13:27:42 2009 +0200
+Date:   Thu Sep 17 13:28:48 2009 +0200
 
-    netfilter: nf_nat: fix inverted logic for persistent NAT mappings
+    netfilter: nf_conntrack: netns fix re reliable conntrack event delivery
     
-    Upstream commit cce5a5c3:
+    Upstream commit ee254fa4:
     
-    Kernel 2.6.30 introduced a patch [1] for the persistent option in the
-    netfilter SNAT target. This is exactly what we need here so I had a quick look
-    at the code and noticed that the patch is wrong. The logic is simply inverted.
-    The patch below fixes this.
+    Conntracks in netns other than init_net dying list were never killed.
     
-    Also note that because of this the default behavior of the SNAT target has
-    changed since kernel 2.6.30 as it now ignores the destination IP in choosing
-    the source IP for nating (which should only be the case if the persistent
-    option is set).
-    
-    [1] http://git.eu.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=98d500d66cb7940747b424b245fc6a51ecfbf005
-    
-    Signed-off-by: Maximilian Engelhardt <maxi@daemonizer.de>
+    Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+    Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
-index 3229e0a..b6ddd56 100644
---- a/net/ipv4/netfilter/nf_nat_core.c
-+++ b/net/ipv4/netfilter/nf_nat_core.c
-@@ -212,7 +212,7 @@ find_best_ips_proto(struct nf_conntrack_tuple *tuple,
- 	maxip = ntohl(range->max_ip);
- 	j = jhash_2words((__force u32)tuple->src.u3.ip,
- 			 range->flags & IP_NAT_RANGE_PERSISTENT ?
--				(__force u32)tuple->dst.u3.ip : 0, 0);
-+				0 : (__force u32)tuple->dst.u3.ip, 0);
- 	j = ((u64)j * (maxip - minip + 1)) >> 32;
- 	*var_ipp = htonl(minip + j);
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index b5869b9..b8614c6 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1089,14 +1089,14 @@ void nf_conntrack_flush_report(struct net *net, u32 pid, int report)
  }
+ EXPORT_SYMBOL_GPL(nf_conntrack_flush_report);
+ 
+-static void nf_ct_release_dying_list(void)
++static void nf_ct_release_dying_list(struct net *net)
+ {
+ 	struct nf_conntrack_tuple_hash *h;
+ 	struct nf_conn *ct;
+ 	struct hlist_nulls_node *n;
+ 
+ 	spin_lock_bh(&nf_conntrack_lock);
+-	hlist_nulls_for_each_entry(h, n, &init_net.ct.dying, hnnode) {
++	hlist_nulls_for_each_entry(h, n, &net->ct.dying, hnnode) {
+ 		ct = nf_ct_tuplehash_to_ctrack(h);
+ 		/* never fails to remove them, no listeners at this point */
+ 		nf_ct_kill(ct);
+@@ -1115,7 +1115,7 @@ static void nf_conntrack_cleanup_net(struct net *net)
+ {
+  i_see_dead_people:
+ 	nf_ct_iterate_cleanup(net, kill_all, NULL);
+-	nf_ct_release_dying_list();
++	nf_ct_release_dying_list(net);
+ 	if (atomic_read(&net->ct.count) != 0) {
+ 		schedule();
+ 		goto i_see_dead_people;
