@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: Log the affected address when DAD failure occurs
-Date: Thu, 17 Sep 2009 10:24:30 -0700 (PDT)
-Message-ID: <20090917.102430.172893626.davem@davemloft.net>
-References: <1253101477.10715.8.camel@fnki-nb00130>
+Subject: Re: [PATCH] pkt_sched: Fix qstats.qlen updating in dump_stats
+Date: Thu, 17 Sep 2009 10:26:14 -0700 (PDT)
+Message-ID: <20090917.102614.60596483.davem@davemloft.net>
+References: <20090916103838.GA9719@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: me@jayr.de
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50536
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35535
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751402AbZIQRYN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 13:24:13 -0400
-In-Reply-To: <1253101477.10715.8.camel@fnki-nb00130>
+	by vger.kernel.org with ESMTP id S1754830AbZIQRZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 13:25:57 -0400
+In-Reply-To: <20090916103838.GA9719@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jens Rosenboom <me@jayr.de>
-Date: Wed, 16 Sep 2009 13:44:37 +0200
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Wed, 16 Sep 2009 10:38:38 +0000
 
-> From: Jens Rosenboom <me@jayr.de>
+> Some classful qdiscs miss qstats.qlen updating with q.qlen of their
+> child qdiscs in dump_stats methods.
 > 
-> If an interface has multiple addresses, the current message for DAD
-> failure isn't really helpful, so this patch adds the address itself to
-> the printk.
-> 
-> Signed-off-by: Jens Rosenboom <me@jayr.de>
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-Applied.
+Applied, thanks.
