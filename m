@@ -1,117 +1,90 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: Re: fanotify as syscalls
-Date: Thu, 17 Sep 2009 14:53:58 -0400
-Message-ID: <1253213638.5213.323.camel@dhcp231-106.rdu.redhat.com>
-References: <1252703626.2305.50.camel@dhcp231-106.rdu.redhat.com>
-	 <20090911212731.GA19901@shareable.org>
-	 <1252705902.2305.83.camel@dhcp231-106.rdu.redhat.com>
-	 <20090912094110.GB24709@ioremap.net> <20090914001759.GB30621@shareable.org>
-	 <20090914140720.GA8564@ioremap.net>
-	 <1252955295.2246.35.camel@dhcp231-106.rdu.redhat.com>
-	 <20090915201620.GB32192@ioremap.net>
-	 <1253051699.5213.18.camel@dhcp231-106.rdu.redhat.com>
-	 <20090916120523.GA12830@ioremap.net> <20090916122723.GE29359@shareable.org>
-	 <alpine.LFD.2.01.0909170934450.4950@localhost.localdomain>
+From: "Choi, David" <David.Choi@Micrel.Com>
+Subject: RE: [PATCH] ks8851_ml ethernet network driver
+Date: Thu, 17 Sep 2009 12:11:26 -0700
+Message-ID: <C43529A246480145B0A6D0234BDB0F0DE89F@MELANITE.micrel.com>
+References: <20090916210315.04dc743e@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jamie Lokier <jamie@shareable.org>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
-	alan@linux.intel.com, hch@infradead.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Greg KH" <greg@kroah.com>, <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, <Choi@kroah.com>,
+	"Jeff Garzik" <jgarzik@redhat.com>
+To: "Stephen Hemminger" <shemminger@vyatta.com>,
+	"Li, Charles" <Charles.Li@Micrel.Com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33786 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754388AbZIQSyy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Sep 2009 14:54:54 -0400
-In-Reply-To: <alpine.LFD.2.01.0909170934450.4950@localhost.localdomain>
+Received: from p01c12o143.mxlogic.net ([208.65.145.66]:48125 "EHLO
+	p01c12o143.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754894AbZIQTPo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 15:15:44 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20090916210315.04dc743e@s6510>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-09-17 at 09:40 -0700, Linus Torvalds wrote:
-> 
-> On Wed, 16 Sep 2009, Jamie Lokier wrote:
-> > 
-> > I'd forgotten about Linus' strace argument.  That's a good one.
-> > 
-> > Of course everything should be a syscall by that argument :-)
-> 
-> Oh yes, everything _should_ be a syscall.
+Hello Stephen Hemminger,
 
-I rewrote the interface and prototyped out a working fanotify like so:
+My fix up is as followings;
+	Even if the irq is not shared, it is safe not to process
+	when there is no interrupt status change in the hardware.
 
-SYSCALL_DEFINE4(fanotify_init, unsigned int, flags, int, event_f_flags,
-		__u64, mask, int, priority)
+====================
+@@ -818,6 +811,11 @@ static irqreturn_t ks_irq(int irq, void 
+ 	ks_save_cmd_reg(ks);
+ 
+ 	status = ks_rdreg16(ks, KS_ISR);
++	if (unlikely(!status)) {
++		ks_restore_cmd_reg(ks);
++		return IRQ_NONE;
++	}
++
+ 	ks_wrreg16(ks, KS_ISR, status);
+ 
+ 	if (likely(status & IRQ_RXI))
 
-int flags indicates - things like global or directed, fd's or wd's,
-could include fail allow vs fail deny, O_CLOEXEC, O_NONBLOCK, etc
-int event_f_flags - flags used when opening an fd for the listener
-__u64 mask - in global mode the events of interest
-int priority - the order fanotify listeners should be checked (so HSM
-		can be before AV scanners)
 
-Do we need a timeout for access decisions?  I left room for that in the
-bind address, but we can't just leave room to spare with a syscall...
 
-SYSCALL_DEFINE6(fanotify_modify_mark, int, fanotify_fd,
-		unsigned int, flags, int, fd,
-		const char  __user *, pathname, __u64, mask,
-		__u64, ignored_mask)
+Regards,
+David J. Choi
 
-int fanotify_fd - duh
-int flags - add, remove, flush, events on child, event on subtree?
-int fd - either fd to object or fd to dir for relative pathname
-const char __user * pathname - either pathname or null if only use fd
-__u64 mask - events this inode cares about
-__u64 ignored_mask - events this inode does NOT care about
 
-(not yet done, would someone like to comment?)
-fanotify_response(int fanotify_fd, __u64 cookie, __u32 response);
-__u64 cookie - which of our permission requests we are waiting on
-__u32 response - allow, deny, wait longer
+-----Original Message-----
+From: Stephen Hemminger [mailto:shemminger@vyatta.com] 
+Sent: Wednesday, September 16, 2009 9:03 PM
+To: Li, Charles
+Cc: Greg KH; netdev@vger.kernel.org; David S. Miller; Choi@kroah.com;
+Choi, David; Jeff Garzik
+Subject: Re: [PATCH] ks8851_ml ethernet network driver
 
-Could be done using write(), but I think the strace argument clearly
-says that this should be a syscall that can be easily found and reported
+On Wed, 16 Sep 2009 19:38:36 -0700
+Greg KH <greg@kroah.com> wrote:
 
-(not settled in my mind)
-int fanotify_ignore_sb(int fanotify_fd, unsigned int flags,
-                       long f_type, fsid_t f_fsid)
-int fanotify_fd - duh
-unsigned int flags - f_type or fsid?
-long f_type - statfs(2) f_type
-fsid_t f_fsid - statfs(2) f_fsid
+> /**
+> + * ks_irq - device interrupt handler
+> + * @irq: Interrupt number passed from the IRQ hnalder.
+> + * @pw: The private word passed to register_irq(), our struct ks_net.
+> + *
+> + * This is the handler invoked to find out what happened
+> + *
+> + * Read the interrupt status, work out what needs to be done and then
+clear
+> + * any of the interrupts that are not needed.
+> + */
+> +
+> +static irqreturn_t ks_irq(int irq, void *pw)
+> +{
+> +	struct ks_net *ks = pw;
+> +	struct net_device *netdev = ks->netdev;
+> +	u16 status;
+> +
+> +	/*this should be the first in IRQ handler */
+> +	ks_save_cmd_reg(ks);
+> +
+> +	status = ks_rdreg16(ks, KS_ISR);
+> +	ks_wrreg16(ks, KS_ISR, status);
 
-Reads from the fd would return data of this structure:
-
-struct fanotify_event_metadata {
-	__u32 event_len;
-	__u32 vers;
-	__s32 fd;
-	__u32 mask;
-	__u32 f_flags;
-	__s32 pid;
-	__s32 uid;
-	__s32 tgid;
-	__u64 cookie;
-}  __attribute__((packed));
-
-Thanks to event_len and vers, we could extend it to include
-
-__u32 filename1_len,
-char filename1[filename1_len]
-__u32 filename2_len,
-char filename2[filename2_len]
-
-This can all take shape as that work is completed and I don't believe
-should block merging.
-
-Do my syscalls look pretty enough?  I'm down to 3 or 4.
-Jamie, you tend to agree that the interface and the event types are nice
-enough that we can build out (if we get the right hooks in the right
-places) everywhere we need to go?
-
--Eric
-
+if status == 0 or status == ~0 then device should not return
+IRQ_HANDLED.
+In the former case, the IRQ is shared, in later case the device is not
+present
+on the bus (hotplug).
