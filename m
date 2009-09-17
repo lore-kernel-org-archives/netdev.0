@@ -1,52 +1,47 @@
-From: Danny Feng <dfeng@redhat.com>
-Subject: Re: [PATCH 2/2] ipv4: make do_ip_setsockopt for IP_MULTICAST_IF support
- ip_mreq struct
-Date: Thu, 17 Sep 2009 17:19:16 +0800
-Message-ID: <4AB1FF14.6000801@redhat.com>
-References: <1253164811-15820-1-git-send-email-dfeng@redhat.com> <4AB1FE6E.9000201@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kaber@trash.net, yoshfuji@linux-ipv6.org,
-	jmorris@namei.org, pekkas@netcore.fi, kuznet@ms2.inr.ac.ru,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Marc Milgram <mmilgram@redhat.com>
-To: Shan Wei <shanwei@cn.fujitsu.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: (unknown)
+Date: Thu, 17 Sep 2009 11:37:31 +0200
+Message-ID: <1253180254-11910-1-git-send-email-mkl@pengutronix.de>
+Cc: linux-arm-kernel@lists.infradead.org,
+	Socketcan-core@lists.berlios.de,
+	Andrew Victor <linux@maxim.org.za>, wg@grandegger.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58320 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758428AbZIQJUM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Sep 2009 05:20:12 -0400
-In-Reply-To: <4AB1FE6E.9000201@cn.fujitsu.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:33856 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751726AbZIQJhr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 05:37:47 -0400
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/17/2009 05:16 PM, Shan Wei wrote:
-> Xiaotian Feng wrote, at 09/17/2009 01:20 PM:
->> ip_mreq and ip_mreqn is almost the same, and do_ip_setsockopt for IP_MULTICAST_IF
->> part supported ip_mreqn struct. This patch adds support for ip_mreq struct.
->>
->
-> It's not meaning to support the ip_mreq struct, the imr_multiaddr member
-> never be used by the IP_MULTICAST_IF.
->
-> In addition, using the option normally like this:
->    struct in_addr interface_addr;
->    setsockopt (socket, IPPROTO_IP, IP_MULTICAST_IF,&interface_addr, sizeof(interface_addr));
->
-> Do your patch suggest using the option like this?
->    struct ip_mreq  mreq;
->    setsockopt (socket, IPPROTO_IP, IP_MULTICAST_IF,&mreq, sizeof(mreq));
->
-In fact, current implemetation supports:
+Hi,
 
-struct ip_mreqn mreqn;
-setsockopt(socket, IPPROTO_IP, IP_MULTICAST_IF, &mreqn, sizeof(mreqn));
+This patch series adds support for the Atmel CAN controller as found
+on the AT91SAM9263.
 
-Then why not support mreq?
->
-> Best Regards
-> -----
-> Shan Wei
->
+It adds the at91_can to the generic device definition, activates the CAN
+controller on the at91sam9263ek and adds the driver itself.
+
+Changes since V1:
+- let Kconfig depend on CAN_DEV
+- add example how driver is used in baord file
+
+Please review and consider for inclusion.
+
+cheers, Marc
+
+Marc Kleine-Budde (3):
+      at91sam9263: add at91_can device to generic device definition
+      at91sam9263ek: activate at91 CAN controller
+      at91_can: add driver for Atmel's CAN controller on AT91SAM9263
+
+ arch/arm/mach-at91/at91sam9263_devices.c |   36 +
+ arch/arm/mach-at91/board-sam9263ek.c     |   19 +
+ arch/arm/mach-at91/include/mach/board.h  |    6 +
+ drivers/net/can/Kconfig                  |    6 +
+ drivers/net/can/Makefile                 |    1 +
+ drivers/net/can/at91_can.c               | 1186 ++++++++++++++++++++++++++++++
+ 6 files changed, 1254 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/can/at91_can.c
 
