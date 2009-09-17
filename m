@@ -1,48 +1,64 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 1/2] wl12xx: switch to %pM to print the mac address
-Date: Wed, 16 Sep 2009 20:28:52 -0400
-Message-ID: <20090917002852.GE14393@tuxdriver.com>
-References: <1253146059-4169-1-git-send-email-plagnioj@jcrosoft.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: igb bandwidth allocation configuration
+Date: Thu, 17 Sep 2009 11:09:35 +1000
+Message-ID: <20090917010935.GA19201@verge.net.au>
+References: <20090910081844.GA5421@verge.net.au>
+	<15ddcffd0909140142n2a110708ld619177c65f4588b@mail.gmail.com>
+	<20090915113659.GJ24194@verge.net.au>
+	<4AAF963D.4060708@voltaire.com> <4AAFD690.5040900@intel.com>
+	<20090915222926.GA24467@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:38483 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755417AbZIQAab (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 20:30:31 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Or Gerlitz <ogerlitz@voltaire.com>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-In-Reply-To: <1253146059-4169-1-git-send-email-plagnioj@jcrosoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20090915222926.GA24467@verge.net.au>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 17, 2009 at 02:07:38AM +0200, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-> ---
->  drivers/net/wireless/wl12xx/wl1271_main.c |    3 +--
->  1 files changed, 1 insertions(+), 2 deletions(-)
+On Wed, Sep 16, 2009 at 08:29:26AM +1000, Simon Horman wrote:
+> On Tue, Sep 15, 2009 at 11:01:52AM -0700, Alexander Duyck wrote:
+> > Or Gerlitz wrote:
+> > >If the rate limiter is exposed as a feature of the VF, it doesn't
+> > >matter who really enforces it, the "VF portion" of the HW or the
+> > >PF itself. I agree that if you have to program the PF for the rate
+> > >of a specific VF, then its more complex. Basically, I would expect
+> > >that a VF can be configured with <mac, vlad-id, priority, rate>
+> > >such that it can be done where the VF NIC is spawned, host kernel
+> > >or guest kernel.
+> > 
+> > Adding the rate limiter as a feature of the VF doesn't make much
+> > sense since the VF could be direct assigned to another OS for all we
+> > know so we won't have control over it from there.
+> > 
+> > The interface for all of this would make sense as part of a virtual
+> > ethernet switch control which is the way I am currently leaning on
+> > all this.  As such it is probably another thing we can bring up at
+> > the BOF session at the Linux Plumbers Conference.
 > 
-> diff --git a/drivers/net/wireless/wl12xx/wl1271_main.c b/drivers/net/wireless/wl12xx/wl1271_main.c
-> index d9169b4..f6f8895 100644
-> --- a/drivers/net/wireless/wl12xx/wl1271_main.c
-> +++ b/drivers/net/wireless/wl12xx/wl1271_main.c
-> @@ -644,11 +644,10 @@ static int wl1271_op_config_interface(struct ieee80211_hw *hw,
->  {
->  	struct wl1271 *wl = hw->priv;
->  	struct sk_buff *beacon;
-> -	DECLARE_MAC_BUF(mac);
->  	int ret;
->  
->  	wl1271_debug(DEBUG_MAC80211, "mac80211 config_interface bssid %s",
-> -		     print_mac(mac, conf->bssid));
-> +		     printf("%pM", conf->bssid);
->  	wl1271_dump_ascii(DEBUG_MAC80211, "ssid: ", conf->ssid,
->  			  conf->ssid_len);
->  
+> Unfortunately I won't be able to make it to the BOF or Plumbers.
+> I look forward to hearing what is discussed.
 
-ACK
+Is there any chance of being able to participate in this remotely,
+even just a listen-only feed of some sort would be quite valuable to me
+and possibly others.
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+------------------------------------------------------------------------------
+Come build with us! The BlackBerry&reg; Developer Conference in SF, CA
+is the only developer event you need to attend this year. Jumpstart your
+developing skills, take BlackBerry mobile applications to market and stay 
+ahead of the curve. Join us from November 9&#45;12, 2009. Register now&#33;
+http://p.sf.net/sfu/devconf
