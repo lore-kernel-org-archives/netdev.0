@@ -1,82 +1,36 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [PATCH] d44: the poll handler b44_poll must not enable IRQ unconditionally
-Date: Thu, 17 Sep 2009 11:45:52 -0500
-Message-ID: <20090917164552.GH8789@waste.org>
-References: <1253153447.24160.12.camel@dengdd-desktop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] wl12xx: switch to %pM to print the mac address
+Date: Thu, 17 Sep 2009 10:19:39 -0700 (PDT)
+Message-ID: <20090917.101939.109704983.davem@davemloft.net>
+References: <1253150571.4989.33.camel@localhost>
+	<20090917125521.GA2577@tuxdriver.com>
+	<20090917144208.GH29905@game.jcrosoft.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: DDD <Dongdong.deng@windriver.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, bhutchings@solarflare.com,
+	netdev@vger.kernel.org
+To: plagnioj@jcrosoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([173.11.57.241]:51602 "EHLO waste.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751480AbZIQQza (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Sep 2009 12:55:30 -0400
-Content-Disposition: inline
-In-Reply-To: <1253153447.24160.12.camel@dengdd-desktop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41342
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752165AbZIQRTV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 13:19:21 -0400
+In-Reply-To: <20090917144208.GH29905@game.jcrosoft.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 17, 2009 at 10:10:47AM +0800, DDD wrote:
-> net/core/netpoll.c::netpoll_send_skb() calls the poll handler when
-> it is available. As netconsole can be used from almost any context,
-> IRQ must not be enabled blindly in the NAPI handler of the driver
-> which supports netpoll.
-> 
-> Call trace:
-> netpoll_send_skb()
-> {
-> local_irq_save(flags)
->   -> netpoll_poll()
->     -> poll_napi()
->       -> poll_one_napi()
->         -> napi->poll()
->             -> b44_poll()
-> local_irq_restore(flags)
-> }
-> 
-> Signed-off-by: Dongdong Deng <dongdong.deng@windriver.com>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Date: Thu, 17 Sep 2009 16:42:08 +0200
 
-Acked-by: Matt Mackall <mpm@selenic.com>
+> On 08:55 Thu 17 Sep     , John W. Linville wrote:
+>> Ugh, you're right -- remind me not to ACK things before bed...
+>> 
+>> Jean-Christophe posted a new patch that looked better, although it
+>> probably needs to be rebased on this one since I think Dave applied
+>> it after my (misguided) ACK.
+> ok I'll do asap really sorry
 
-> ---
->  drivers/net/b44.c |    7 +++----
->  1 files changed, 3 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/b44.c b/drivers/net/b44.c
-> index 0189dcd..e046943 100644
-> --- a/drivers/net/b44.c
-> +++ b/drivers/net/b44.c
-> @@ -847,23 +847,22 @@ static int b44_poll(struct napi_struct *napi, int budget)
->  {
->  	struct b44 *bp = container_of(napi, struct b44, napi);
->  	int work_done;
-> +	unsigned long flags;
->  
-> -	spin_lock_irq(&bp->lock);
-> +	spin_lock_irqsave(&bp->lock, flags);
->  
->  	if (bp->istat & (ISTAT_TX | ISTAT_TO)) {
->  		/* spin_lock(&bp->tx_lock); */
->  		b44_tx(bp);
->  		/* spin_unlock(&bp->tx_lock); */
->  	}
-> -	spin_unlock_irq(&bp->lock);
-> +	spin_unlock_irqrestore(&bp->lock, flags);
->  
->  	work_done = 0;
->  	if (bp->istat & ISTAT_RX)
->  		work_done += b44_rx(bp, budget);
->  
->  	if (bp->istat & ISTAT_ERRORS) {
-> -		unsigned long flags;
-> -
->  		spin_lock_irqsave(&bp->lock, flags);
->  		b44_halt(bp);
->  		b44_init_rings(bp);
-> -- 
-> 1.6.0.4
-> 
+I've already fixed this in my tree.
 
--- 
-Mathematics is the supreme nostalgia of our time.
+
