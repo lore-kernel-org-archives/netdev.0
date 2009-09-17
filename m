@@ -1,76 +1,41 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH V2 0/3] at91_can: add support for Atmel's CAN controller
-	on AT91SAM9263
-Date: Thu, 17 Sep 2009 12:04:59 +0200
-Message-ID: <4AB209CB.10707@pengutronix.de>
-References: <1253180254-11910-1-git-send-email-mkl@pengutronix.de>
-	<4AB20679.2040602@grandegger.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH 2/2] ipv4: make do_ip_setsockopt for IP_MULTICAST_IF support ip_mreq struct
+Date: Thu, 17 Sep 2009 13:36:22 +0400
+Message-ID: <20090917093622.GA19142@ms2.inr.ac.ru>
+References: <1253164811-15820-1-git-send-email-dfeng@redhat.com> <4AB1FE6E.9000201@cn.fujitsu.com> <4AB1FF14.6000801@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Victor <linux-PelNFVqkFnVyf+4FbqDuWQ@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4AB20679.2040602-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Shan Wei <shanwei@cn.fujitsu.com>, davem@davemloft.net,
+	kaber@trash.net, yoshfuji@linux-ipv6.org, jmorris@namei.org,
+	pekkas@netcore.fi, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Marc Milgram <mmilgram@redhat.com>
+To: Danny Feng <dfeng@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from minus.inr.ac.ru ([194.67.69.97]:54194 "HELO ms2.inr.ac.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1751778AbZIQK3Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Sep 2009 06:29:25 -0400
+Content-Disposition: inline
+In-Reply-To: <4AB1FF14.6000801@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+Hello!
 
-Wolfgang Grandegger wrote:
->> This patch series adds support for the Atmel CAN controller as found
->> on the AT91SAM9263.
->>
->> It adds the at91_can to the generic device definition, activates the CAN
->> controller on the at91sam9263ek and adds the driver itself.
->>
->> Changes since V1:
->> - let Kconfig depend on CAN_DEV
->> - add example how driver is used in baord file
->>
->> Please review and consider for inclusion.
+On Thu, Sep 17, 2009 at 05:19:16PM +0800, Danny Feng wrote:
+> In fact, current implemetation supports:
 > 
-> A Vx patch suffix would be nice next time.
-
-Sorry, missed that. I was in a hurry, because they wanted to reboot the
-server....
-
->> cheers, Marc
->>
->> Marc Kleine-Budde (3):
->>       at91sam9263: add at91_can device to generic device definition
->>       at91sam9263ek: activate at91 CAN controller
->>       at91_can: add driver for Atmel's CAN controller on AT91SAM9263
+> struct ip_mreqn mreqn;
+> setsockopt(socket, IPPROTO_IP, IP_MULTICAST_IF, &mreqn, sizeof(mreqn));
 > 
-> I have just added my "signed-off-by" for the Socket-CAN patch #3. Don't
-> known who will take care of the other patches.
+> Then why not support mreq?
 
-Thanks Wolfgang.
+Because support of ip_mreqn makes sense (it user interface index)
+and support of ip_mreq, which does not contain interface index,
+does not. "Polymorphic" IP_MULTICAST_IF was a stupid mistake (mine),
+which should not grow like a tumor.
 
-Andrew, are the first two going throught the arm tree?
+Ack to patch #1, nack to #2.
 
-cheers, Marc
+Alexey
 
-- --
-Pengutronix e.K.                         | Marc Kleine-Budde           |
-Linux Solutions for Science and Industry | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund                 | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686         | http://www.pengutronix.de   |
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iEYEARECAAYFAkqyCMwACgkQjTAFq1RaXHP/bACfbWSs52bkNoPICUMTufN8lA4v
-yqIAoI0VIrCZKEHja/XEOLHum51zpJ4V
-=dn2a
------END PGP SIGNATURE-----
