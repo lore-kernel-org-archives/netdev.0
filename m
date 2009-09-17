@@ -1,27 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next]atl1e:fix 2.6.31-git4 -- ATL1E 0000:03:00.0:
- DMA-API: device driver frees DMA
-Date: Thu, 17 Sep 2009 10:27:35 -0700 (PDT)
-Message-ID: <20090917.102735.33788478.davem@davemloft.net>
-References: <12530933101782-git-send-email-jie.yang@atheros.com>
+Subject: Re: [crash] kernel BUG at net/core/pktgen.c:3503!
+Date: Thu, 17 Sep 2009 10:29:23 -0700 (PDT)
+Message-ID: <20090917.102923.174779685.davem@davemloft.net>
+References: <20090911.202543.52533792.davem@davemloft.net>
+	<20090915183647.GA11628@elte.hu>
+	<20090915185112.GA17587@lenovo>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: miles.lane@gmail.com, chris.snook@gmail.com, jcliburn@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jie.yang@atheros.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755492AbZIQR1U@vger.kernel.org>
-In-Reply-To: <12530933101782-git-send-email-jie.yang@atheros.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mingo@elte.hu, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: gorcunov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35543
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753094AbZIQR3G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 13:29:06 -0400
+In-Reply-To: <20090915185112.GA17587@lenovo>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: <jie.yang@atheros.com>
-Date: Wed, 16 Sep 2009 17:28:30 +0800
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Date: Tue, 15 Sep 2009 22:51:12 +0400
 
-> use the wrong API when free dma. So when map dma use a flag to demostrate whether it is 'pci_map_single' or 'pci_map_page'. When free the dma, check the flags to select the right APIs('pci_unmap_single' or 'pci_unmap_page').
+> [Ingo Molnar - Tue, Sep 15, 2009 at 08:36:47PM +0200]
+> | 
+> | not sure which merge caused this, but i got this boot crash with latest 
+> | -git:
+> | 
+> | calling  flow_cache_init+0x0/0x1b9 @ 1
+> | initcall flow_cache_init+0x0/0x1b9 returned 0 after 64 usecs
+> | calling  pg_init+0x0/0x37c @ 1
+> | pktgen 2.72: Packet Generator for packet performance testing.
+> | ------------[ cut here ]------------
+> | kernel BUG at net/core/pktgen.c:3503!
+> | invalid opcode: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
+> | last sysfs file: 
+> | 
 > 
-> set the flags type to u16  instead of unsigned long  on David's comments.
+> Hi Ingo,
 > 
-> Signed-off-by: Jie Yang <jie.yang@atheros.com>
+> just curious, will the following patch fix the problem?
+> I've been fixing problem with familiar symthoms on
+> system with custome virtual cpu implementation so
+> it may not help in mainline but anyway :)
 
-Applied.
+Ingo, does Cyrill's patch help?
