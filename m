@@ -1,44 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] bonding: make ab_arp select active slaves
- as other modes
-Date: Wed, 16 Sep 2009 17:05:20 -0700 (PDT)
-Message-ID: <20090916.170520.233815224.davem@davemloft.net>
-References: <20090831210937.GA3152@psychotron.redhat.com>
-	<30814.1253145765@death.nxdomain.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jpirko@redhat.com, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net, nicolas.2p.debian@free.fr
-To: fubar@us.ibm.com
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: [PATCH 2/2] net: remove print_mac as it's not anymore used
+Date: Thu, 17 Sep 2009 02:07:39 +0200
+Message-ID: <1253146059-4169-2-git-send-email-plagnioj@jcrosoft.com>
+References: <1253146059-4169-1-git-send-email-plagnioj@jcrosoft.com>
+Cc: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54420
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760272AbZIQAFE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 20:05:04 -0400
-In-Reply-To: <30814.1253145765@death.nxdomain.ibm.com>
+Received: from 30.mail-out.ovh.net ([213.186.62.213]:45524 "HELO
+	30.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1750759AbZIQAJG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 20:09:06 -0400
+In-Reply-To: <1253146059-4169-1-git-send-email-plagnioj@jcrosoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jay Vosburgh <fubar@us.ibm.com>
-Date: Wed, 16 Sep 2009 17:02:45 -0700
+Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+---
+ include/linux/if_ether.h |    8 --------
+ net/ethernet/eth.c       |    7 -------
+ 2 files changed, 0 insertions(+), 15 deletions(-)
 
-> Jiri Pirko <jpirko@redhat.com> wrote:
-> 
->>When I was implementing primary_passive option (formely named primary_lazy) I've
->>run into troubles with ab_arp. This is the only mode which is not using
->>bond_select_active_slave() function to select active slave and instead it
->>selects it itself. This seems to be not the right behaviour and it would be
->>better to do it in bond_select_active_slave() for all cases. This patch makes
->>this happen. Please review.
->>
->>Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-> 
-> 	I tried to break this, and couldn't.  Tested with regular
-> ethernet interfaces, as well as VLANs, and it does the right thing.
-> 
-> 	-J
-> 
-> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
+index 580b600..b1a19a7 100644
+--- a/include/linux/if_ether.h
++++ b/include/linux/if_ether.h
+@@ -136,14 +136,6 @@ extern struct ctl_table ether_table[];
+ 
+ extern ssize_t sysfs_format_mac(char *buf, const unsigned char *addr, int len);
+ 
+-/*
+- *	Display a 6 byte device address (MAC) in a readable format.
+- */
+-extern char *print_mac(char *buf, const unsigned char *addr) __deprecated;
+-#define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
+-#define MAC_BUF_SIZE	18
+-#define DECLARE_MAC_BUF(var) char var[MAC_BUF_SIZE]
+-
+ #endif
+ 
+ #endif	/* _LINUX_IF_ETHER_H */
+diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+index 5a883af..dd3db88 100644
+--- a/net/ethernet/eth.c
++++ b/net/ethernet/eth.c
+@@ -393,10 +393,3 @@ ssize_t sysfs_format_mac(char *buf, const unsigned char *addr, int len)
+ 	return ((ssize_t) l);
+ }
+ EXPORT_SYMBOL(sysfs_format_mac);
+-
+-char *print_mac(char *buf, const unsigned char *addr)
+-{
+-	_format_mac_addr(buf, MAC_BUF_SIZE, addr, ETH_ALEN);
+-	return buf;
+-}
+-EXPORT_SYMBOL(print_mac);
+-- 
+1.6.4
 
-Applied, thanks everyone.
