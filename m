@@ -1,40 +1,40 @@
-From: hong liu <hong.liu96@gmail.com>
-Subject: question about tcp_ack_update_window
-Date: Thu, 17 Sep 2009 11:24:03 +0800
-Message-ID: <204986780909162024s785004e3q319f1b85c68f66@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ks8851_ml ethernet network driver
+Date: Wed, 16 Sep 2009 20:48:01 -0700 (PDT)
+Message-ID: <20090916.204801.190052862.davem@davemloft.net>
+References: <20090917023836.GA15260@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, Charles.Li@Micrel.Com, Choi@kroah.com,
+	David.Choi@Micrel.Com, jgarzik@redhat.com, shemminger@vyatta.com
+To: greg@kroah.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f175.google.com ([209.85.211.175]:49262 "EHLO
-	mail-yw0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752628AbZIQDYA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 23:24:00 -0400
-Received: by ywh5 with SMTP id 5so8276947ywh.4
-        for <netdev@vger.kernel.org>; Wed, 16 Sep 2009 20:24:03 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53444
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759803AbZIQDrn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 23:47:43 -0400
+In-Reply-To: <20090917023836.GA15260@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-In tcp_ack_update_window, we don't scale the window if it's a SYN packet.
-This modification is introduced by Kevin Lahey during 2.5.75
-(http://oss.sgi.com/archives/netdev/2003-10/msg01391.html).
-
-tcp_ack_update_window is only called by tcp_ack, which is called by
-tcp_rcv_synsent_state_process & tcp_rcv_established, and we change the
-snd_wnd back to th->window in tcp_rcv_synsent_state_process, so why we
-still need this  check in tcp_ack_update_window?
-
-I think we may need to add tp->max_window = tp->snd_wnd in
-tcp_rcv_syssent_state_process if we remove the check in tcp_ack_update_window.
-
-The only problem I can see is: client entered into established state and sent
-an ack (the last packet in 3-way handershake) to the server, but the packet
-got lost / arrived slightly late. Then server resent a SYN+ACK packet,
-then client can get a SYN packet and call tcp_ack in tcp_rcv_established.
-
-Is this the only concern?
-
-Thanks,
-Hong
+RnJvbTogR3JlZyBLSCA8Z3JlZ0Brcm9haC5jb20+DQpEYXRlOiBXZWQsIDE2IFNlcCAyMDA5IDE5
+OjM4OjM2IC0wNzAwDQoNCj4gRnJvbTogQ2hvaSwgRGF2aWQgPERhdmlkLkNob2lATWljcmVsLkNv
+bT4NCj4gDQo+IFRoaXMgaXMgYSBuZXR3b3JrIGRyaXZlciBmb3IgdGhlIGtzODg1MSAxNmJpdCBN
+TEwgZXRoZXJuZXQgZGV2aWNlLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogRGF2aWQgSi4gQ2hvaSA8
+ZGF2aWQuY2hvaUBtaWNyZWwuY29tPg0KPiBTaWduZWQtb2ZmLWJ5OiBHcmVnIEtyb2FoLUhhcnRt
+YW4gPGdyZWdraEBzdXNlLmRlPg0KDQpUaGlzIGRvZXNuJ3QgZXZlbiBidWlsZCBjbGVhbmx5Og0K
+DQpkcml2ZXJzL25ldC9rczg4NTFfbWxsLmM6IEluIGZ1bmN0aW9uIOKAmGtzX2luYmxr4oCZOg0K
+ZHJpdmVycy9uZXQva3M4ODUxX21sbC5jOjU1NTogd2FybmluZzogY2FzdCBmcm9tIHBvaW50ZXIg
+dG8gaW50ZWdlciBvZiBkaWZmZXJlbnQgc2l6ZQ0KZHJpdmVycy9uZXQva3M4ODUxX21sbC5jOjU1
+ODogd2FybmluZzogcGFzc2luZyBhcmd1bWVudCAxIG9mIOKAmF9yZWFkd+KAmSBtYWtlcyBwb2lu
+dGVyIGZyb20gaW50ZWdlciB3aXRob3V0IGEgY2FzdA0KZHJpdmVycy9uZXQva3M4ODUxX21sbC5j
+OiBJbiBmdW5jdGlvbiDigJhrc19vdXRibGvigJk6DQpkcml2ZXJzL25ldC9rczg4NTFfbWxsLmM6
+NTcxOiB3YXJuaW5nOiBjYXN0IGZyb20gcG9pbnRlciB0byBpbnRlZ2VyIG9mIGRpZmZlcmVudCBz
+aXplDQpkcml2ZXJzL25ldC9rczg4NTFfbWxsLmM6NTc0OiB3YXJuaW5nOiBwYXNzaW5nIGFyZ3Vt
+ZW50IDIgb2Yg4oCYX3dyaXRld+KAmSBtYWtlcyBwb2ludGVyIGZyb20gaW50ZWdlciB3aXRob3V0
+IGEgY2FzdA0KDQpJdCBhbHNvIGhhcyBhIGJpZyAiI2RlZmluZSBERUJVRyIgYXQgdGhlIGJlZ2lu
+bmluZyBvZiB0aGUgZHJpdmVyLg0KDQpBbmQgaXQgYWxzbyBoYXMgc3R1ZmYgbGlrZToNCg0KKyNk
+ZWZpbmUgTUFMTE9DKHgpCQlrbWFsbG9jKHgsIEdGUF9LRVJORUwpDQoNCndoaWNoIGFjdHVhbGx5
+IGRlY3JlYXNlcyB0aGUgcmVhZGFiaWxpdHkgb2YgdGhpcyBkcml2ZXIuDQoNClBsZWFzZSBmaXgg
+dGhpcyB1cC4NCg==
