@@ -1,32 +1,52 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH 3/3] at91_can: add driver for Atmel's CAN controller on
- AT91SAM9263
-Date: Thu, 17 Sep 2009 11:48:25 +0200
-Message-ID: <4AB205E9.3090902@grandegger.com>
-References: <1253180254-11910-1-git-send-email-mkl@pengutronix.de>	<1253180254-11910-2-git-send-email-mkl@pengutronix.de>	<1253180254-11910-3-git-send-email-mkl@pengutronix.de> <1253180254-11910-4-git-send-email-mkl@pengutronix.de>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re:
+Date: Thu, 17 Sep 2009 11:50:49 +0200
+Message-ID: <4AB20679.2040602@grandegger.com>
+References: <1253180254-11910-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Socketcan-core@lists.berlios.de,
-	Andrew Victor <linux@maxim.org.za>,
-	linux-arm-kernel@lists.infradead.org
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:35625 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751726AbZIQJsd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 05:48:33 -0400
-In-Reply-To: <1253180254-11910-4-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Andrew Victor <linux-PelNFVqkFnVyf+4FbqDuWQ@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1253180254-11910-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 Marc Kleine-Budde wrote:
-> This patch add the driver for the SoC CAN controller in Atmel's AT91SAM9263.
+> Hi,
 > 
-> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> This patch series adds support for the Atmel CAN controller as found
+> on the AT91SAM9263.
+> 
+> It adds the at91_can to the generic device definition, activates the CAN
+> controller on the at91sam9263ek and adds the driver itself.
+> 
+> Changes since V1:
+> - let Kconfig depend on CAN_DEV
+> - add example how driver is used in baord file
+> 
+> Please review and consider for inclusion.
 
-Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+A Vx patch suffix would be nice next time.
 
-Thanks for your contribution.
+> cheers, Marc
+> 
+> Marc Kleine-Budde (3):
+>       at91sam9263: add at91_can device to generic device definition
+>       at91sam9263ek: activate at91 CAN controller
+>       at91_can: add driver for Atmel's CAN controller on AT91SAM9263
+
+I have just added my "signed-off-by" for the Socket-CAN patch #3. Don't
+known who will take care of the other patches.
 
 Wolfgang.
