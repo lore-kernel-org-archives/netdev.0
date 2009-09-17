@@ -1,129 +1,90 @@
 From: "Choi, David" <David.Choi@Micrel.Com>
 Subject: RE: [PATCH] ks8851_ml ethernet network driver
-Date: Thu, 17 Sep 2009 12:06:17 -0700
-Message-ID: <C43529A246480145B0A6D0234BDB0F0DE89E@MELANITE.micrel.com>
-References: <20090916.204801.190052862.davem@davemloft.net>
+Date: Thu, 17 Sep 2009 12:20:32 -0700
+Message-ID: <C43529A246480145B0A6D0234BDB0F0DE8A0@MELANITE.micrel.com>
+References: <20090916210702.617b5069@s6510>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, "Li, Charles" <Charles.Li@Micrel.Com>,
-	<Choi@kroah.com>, <jgarzik@redhat.com>, <shemminger@vyatta.com>
-To: "David Miller" <davem@davemloft.net>, <greg@kroah.com>
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+	<Choi@kroah.com>, "Jeff Garzik" <jgarzik@redhat.com>
+To: "Stephen Hemminger" <shemminger@vyatta.com>,
+	"Greg KH" <greg@kroah.com>, "Li, Charles" <Charles.Li@Micrel.Com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p01c12o145.mxlogic.net ([208.65.145.68]:50411 "EHLO
-	p01c12o145.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751360AbZIQTRk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 15:17:40 -0400
+Received: from p01c12o144.mxlogic.net ([208.65.145.67]:45739 "EHLO
+	p01c12o144.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752206AbZIQTUd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 15:20:33 -0400
 Content-class: urn:content-classes:message
-In-Reply-To: <20090916.204801.190052862.davem@davemloft.net>
+In-Reply-To: <20090916210702.617b5069@s6510>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David Miller,
+Hello Stephen Hemminger,
 
-My fix ups are as followings;
-	-Remove DEBUG definition
-	-Remove MALLOC definition
-	-Intent to fix compile warnings, which I can not reproduce
-	 in my test environment(linux-2.6.31-rc3 source tree and
-gcc4.2.1.)
-	 If you have still warnings with my fix ups, give me brief
-description 
-	 To reproduce the warnings.
+Here is my fix ups.
+	-mutex_lock is intended to gurantee to access the hardware
+registers 
+	 exclusively. But as you mentioned, this mutex is redundancy in
+ks_net_open() because this function does not access the hardware. So I
+remove it.
 
-=================
---- linux-2.6.31-rc3/drivers/net/ks8851_mll.c.orig	2009-09-17
-10:18:56.000000000 -0700
-+++ linux-2.6.31-rc3/drivers/net/ks8851_mll.c	2009-09-17
-10:09:37.000000000 -0700
-@@ -21,8 +21,6 @@
-  * KS8851 16bit MLL chip from Micrel Inc.
-  */
+================
+@@ -858,7 +856,6 @@ static int ks_net_open(struct net_device
+ 	/* lock the card, even if we may not actually do anything
+ 	 * else at the moment.
+ 	 */
+-	mutex_lock(&ks->lock);
  
--#define DEBUG
+ 	if (netif_msg_ifup(ks))
+ 		ks_dbg(ks, "%s - entry\n", __func__);
+@@ -875,8 +872,6 @@ static int ks_net_open(struct net_device
+ 	if (netif_msg_ifup(ks))
+ 		ks_dbg(ks, "network device %s up\n", netdev->name);
+ 
+-	mutex_unlock(&ks->lock);
 -
- #include <linux/module.h>
- #include <linux/kernel.h>
- #include <linux/netdevice.h>
-@@ -419,7 +417,6 @@ union ks_tx_hdr {
-  * or one of the work queues.
-  *
-  */
--#define MALLOC(x)		kmalloc(x, GFP_KERNEL)
- 
- /* Receive multiplex framer header info */
- struct type_frame_head {
-@@ -552,11 +549,9 @@ static void ks_wrreg16(struct ks_net *ks
-  */
- static inline void ks_inblk(struct ks_net *ks, u16 *wptr, u32 len)
- {
--	u32 data_port = (u32)ks->hw_addr;
- 	len >>= 1;
--	do {
--		*wptr++ = (u16)ioread16(data_port);
--	} while (--len);
-+	while (len--)
-+		*wptr++ = (u16)ioread16(ks->hw_addr);
+ 	return 0;
  }
- 
- /**
-@@ -568,11 +563,9 @@ static inline void ks_inblk(struct ks_ne
-  */
- static inline void ks_outblk(struct ks_net *ks, u16 *wptr, u32 len)
- {
--	u32 data_port = (u32)ks->hw_addr;
- 	len >>= 1;
--	do {
--		iowrite16(*wptr++, data_port);
--	} while (--len);
-+	while (len--)
-+		iowrite16(*wptr++, ks->hw_addr);
- }
- 
- /**
+
 
 Regards,
 David J. Choi
 
 
 -----Original Message-----
-From: David Miller [mailto:davem@davemloft.net] 
-Sent: Wednesday, September 16, 2009 8:48 PM
-To: greg@kroah.com
-Cc: netdev@vger.kernel.org; Li, Charles; Choi@kroah.com; Choi, David;
-jgarzik@redhat.com; shemminger@vyatta.com
+From: Stephen Hemminger [mailto:shemminger@vyatta.com] 
+Sent: Wednesday, September 16, 2009 9:07 PM
+To: Greg KH; Li, Charles
+Cc: netdev@vger.kernel.org; David S. Miller; Choi@kroah.com; Choi,
+David; Jeff Garzik
 Subject: Re: [PATCH] ks8851_ml ethernet network driver
 
-From: Greg KH <greg@kroah.com>
-Date: Wed, 16 Sep 2009 19:38:36 -0700
+On Wed, 16 Sep 2009 19:38:36 -0700
+Greg KH <greg@kroah.com> wrote:
 
-> From: Choi, David <David.Choi@Micrel.Com>
-> 
-> This is a network driver for the ks8851 16bit MLL ethernet device.
-> 
-> Signed-off-by: David J. Choi <david.choi@micrel.com>
-> Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+> +
+> +/**
+> + * ks_net_open - open network device
+> + * @netdev: The network device being opened.
+> + *
+> + * Called when the network device is marked active, such as a user
+executing
+> + * 'ifconfig up' on the device.
+> + */
+> +static int ks_net_open(struct net_device *netdev)
+> +{
+> +	struct ks_net *ks = netdev_priv(netdev);
+> +	int err;
+> +
+> +#define	KS_INT_FLAGS	(IRQF_DISABLED|IRQF_TRIGGER_LOW)
+> +	/* lock the card, even if we may not actually do anything
+> +	 * else at the moment.
+> +	 */
+> +	mutex_lock(&ks->lock);
+> +
 
-This doesn't even build cleanly:
-
-drivers/net/ks8851_mll.c: In function 'ks_inblk':
-drivers/net/ks8851_mll.c:555: warning: cast from pointer to integer of
-different size
-drivers/net/ks8851_mll.c:558: warning: passing argument 1 of '_readw'
-makes pointer from integer without a cast
-drivers/net/ks8851_mll.c: In function 'ks_outblk':
-drivers/net/ks8851_mll.c:571: warning: cast from pointer to integer of
-different size
-drivers/net/ks8851_mll.c:574: warning: passing argument 2 of '_writew'
-makes pointer from integer without a cast
-
-It also has a big "#define DEBUG" at the beginning of the driver.
-
-And it also has stuff like:
-
-+#define MALLOC(x)		kmalloc(x, GFP_KERNEL)
-
-which actually decreases the readability of this driver.
-
-Please fix this up.
+I don't understand the purpose of ks->lock mutex. What is it
+really protecting? open/close are already protected by rtnl_mutex,
+is it really only for the PHY?
