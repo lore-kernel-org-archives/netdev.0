@@ -1,44 +1,49 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter -stable 04/04: ebt_ulog: fix checkentry return value
-Date: Thu, 17 Sep 2009 13:58:30 +0200 (MEST)
-Message-ID: <20090917115828.12728.63548.sendpatchset@x2.localnet>
+Subject: netfilter -stable 01/04: nf_nat: fix inverted logic for persistent NAT mappings
+Date: Thu, 17 Sep 2009 13:58:26 +0200 (MEST)
+Message-ID: <20090917115824.12728.59451.sendpatchset@x2.localnet>
 References: <20090917115823.12728.87778.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org, davem@davemloft.net
 To: stable@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59499 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757204AbZIQL61 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 07:58:27 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <20090917115823.12728.87778.sendpatchset@x2.localnet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit 0ca92f7712ddfd00f47417ff66edbb27c4740fec
+commit c9aa9e5a37216258a9d18e42e764f423c818ad4f
 Author: Patrick McHardy <kaber@trash.net>
-Date:   Thu Sep 17 13:31:35 2009 +0200
+Date:   Thu Sep 17 13:27:42 2009 +0200
 
-    netfilter: ebt_ulog: fix checkentry return value
+    netfilter: nf_nat: fix inverted logic for persistent NAT mappings
     
-    Upstream commit 8a56df0a:
+    Upstream commit cce5a5c3:
     
-    Commit 19eda87 (netfilter: change return types of check functions for
-    Ebtables extensions) broke the ebtables ulog module by missing a return
-    value conversion.
+    Kernel 2.6.30 introduced a patch [1] for the persistent option in the
+    netfilter SNAT target. This is exactly what we need here so I had a quick look
+    at the code and noticed that the patch is wrong. The logic is simply inverted.
+    The patch below fixes this.
     
+    Also note that because of this the default behavior of the SNAT target has
+    changed since kernel 2.6.30 as it now ignores the destination IP in choosing
+    the source IP for nating (which should only be the case if the persistent
+    option is set).
+    
+    [1] http://git.eu.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=98d500d66cb7940747b424b245fc6a51ecfbf005
+    
+    Signed-off-by: Maximilian Engelhardt <maxi@daemonizer.de>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/bridge/netfilter/ebt_ulog.c b/net/bridge/netfilter/ebt_ulog.c
-index 133eeae..ce50688 100644
---- a/net/bridge/netfilter/ebt_ulog.c
-+++ b/net/bridge/netfilter/ebt_ulog.c
-@@ -266,7 +266,7 @@ static bool ebt_ulog_tg_check(const struct xt_tgchk_param *par)
- 	if (uloginfo->qthreshold > EBT_ULOG_MAX_QLEN)
- 		uloginfo->qthreshold = EBT_ULOG_MAX_QLEN;
- 
--	return 0;
-+	return true;
+diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
+index 3229e0a..b6ddd56 100644
+--- a/net/ipv4/netfilter/nf_nat_core.c
++++ b/net/ipv4/netfilter/nf_nat_core.c
+@@ -212,7 +212,7 @@ find_best_ips_proto(struct nf_conntrack_tuple *tuple,
+ 	maxip = ntohl(range->max_ip);
+ 	j = jhash_2words((__force u32)tuple->src.u3.ip,
+ 			 range->flags & IP_NAT_RANGE_PERSISTENT ?
+-				(__force u32)tuple->dst.u3.ip : 0, 0);
++				0 : (__force u32)tuple->dst.u3.ip, 0);
+ 	j = ((u64)j * (maxip - minip + 1)) >> 32;
+ 	*var_ipp = htonl(minip + j);
  }
- 
- static struct xt_target ebt_ulog_tg_reg __read_mostly = {
