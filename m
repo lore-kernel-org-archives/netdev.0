@@ -1,65 +1,99 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH] ks8851_ml ethernet network driver
-Date: Thu, 17 Sep 2009 06:03:15 -0700
-Message-ID: <20090917130315.GA4157@kroah.com>
-References: <20090917023836.GA15260@kroah.com> <20090916.204801.190052862.davem@davemloft.net>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH 1/3] at91sam9263: add at91_can device to generic device
+ definition
+Date: Thu, 17 Sep 2009 15:14:22 +0200
+Message-ID: <4AB2362E.3070509@grandegger.com>
+References: <1253180254-11910-1-git-send-email-mkl@pengutronix.de> <1253180254-11910-2-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Charles.Li@Micrel.Com, Choi@kroah.com,
-	David.Choi@Micrel.Com, jgarzik@redhat.com, shemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Socketcan-core@lists.berlios.de,
+	Andrew Victor <linux@maxim.org.za>,
+	linux-arm-kernel@lists.infradead.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:37951 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753224AbZIQNEK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 09:04:10 -0400
-Content-Disposition: inline
-In-Reply-To: <20090916.204801.190052862.davem@davemloft.net>
+Received: from mail-out.m-online.net ([212.18.0.10]:52338 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753379AbZIQNOb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 09:14:31 -0400
+In-Reply-To: <1253180254-11910-2-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 16, 2009 at 08:48:01PM -0700, David Miller wrote:
-> From: Greg KH <greg@kroah.com>
-> Date: Wed, 16 Sep 2009 19:38:36 -0700
->=20
-> > From: Choi, David <David.Choi@Micrel.Com>
-> >=20
-> > This is a network driver for the ks8851 16bit MLL ethernet device.
-> >=20
-> > Signed-off-by: David J. Choi <david.choi@micrel.com>
-> > Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
->=20
-> This doesn't even build cleanly:
->=20
-> drivers/net/ks8851_mll.c: In function =E2=80=98ks_inblk=E2=80=99:
-> drivers/net/ks8851_mll.c:555: warning: cast from pointer to integer o=
-f different size
-> drivers/net/ks8851_mll.c:558: warning: passing argument 1 of =E2=80=98=
-_readw=E2=80=99 makes pointer from integer without a cast
-> drivers/net/ks8851_mll.c: In function =E2=80=98ks_outblk=E2=80=99:
-> drivers/net/ks8851_mll.c:571: warning: cast from pointer to integer o=
-f different size
-> drivers/net/ks8851_mll.c:574: warning: passing argument 2 of =E2=80=98=
-_writew=E2=80=99 makes pointer from integer without a cast
+Marc Kleine-Budde wrote:
+> This patch adds the device definition for the at91_can device to
+> the generic device definiton file for the at91sam9263.
+> 
+> Signed-off-by: Hans J. Koch <hjk@linutronix.de>
+> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> ---
+>  arch/arm/mach-at91/at91sam9263_devices.c |   36 ++++++++++++++++++++++++++++++
+>  arch/arm/mach-at91/include/mach/board.h  |    6 +++++
+>  2 files changed, 42 insertions(+), 0 deletions(-)
+> 
+> diff --git a/arch/arm/mach-at91/at91sam9263_devices.c b/arch/arm/mach-at91/at91sam9263_devices.c
+> index b7f2332..6026c2e 100644
+> --- a/arch/arm/mach-at91/at91sam9263_devices.c
+> +++ b/arch/arm/mach-at91/at91sam9263_devices.c
+> @@ -757,6 +757,42 @@ void __init at91_add_device_ac97(struct atmel_ac97_data *data)
+>  void __init at91_add_device_ac97(struct atmel_ac97_data *data) {}
+>  #endif
+>  
+> +/* --------------------------------------------------------------------
+> + *  CAN Controller
+> + * -------------------------------------------------------------------- */
+> +
+> +#if defined(CONFIG_CAN_AT91) || defined(CONFIG_CAN_AT91_MODULE)
+> +static struct resource can_resources[] = {
+> +	[0] = {
+> +		.start	= AT91SAM9263_BASE_CAN,
+> +		.end	= AT91SAM9263_BASE_CAN + SZ_16K - 1,
+> +		.flags	= IORESOURCE_MEM,
+> +	},
+> +	[1] = {
+> +		.start	= AT91SAM9263_ID_CAN,
+> +		.end	= AT91SAM9263_ID_CAN,
+> +		.flags	= IORESOURCE_IRQ,
+> +	},
+> +};
+> +
+> +static struct platform_device at91sam9263_can_device = {
+> +	.name		= "at91_can",
+> +	.id		= -1,
+> +	.resource	= can_resources,
+> +	.num_resources	= ARRAY_SIZE(can_resources),
+> +};
+> +
+> +void __init at91_add_device_can(struct at91_can_data *data)
+> +{
+> +	at91_set_A_periph(AT91_PIN_PA13, 0);	/* CANTX */
+> +	at91_set_A_periph(AT91_PIN_PA14, 0);	/* CANRX */
+> +	at91sam9263_can_device.dev.platform_data = data;
+> +
+> +	platform_device_register(&at91sam9263_can_device);
+> +}
+> +#else
+> +void __init at91_add_device_can(struct at91_can_data *data) {}
+> +#endif
+>  
+>  /* --------------------------------------------------------------------
+>   *  LCD Controller
+> diff --git a/arch/arm/mach-at91/include/mach/board.h b/arch/arm/mach-at91/include/mach/board.h
+> index e6afff8..134731c 100644
+> --- a/arch/arm/mach-at91/include/mach/board.h
+> +++ b/arch/arm/mach-at91/include/mach/board.h
+> @@ -179,6 +179,12 @@ extern void __init at91_add_device_isi(void);
+>   /* Touchscreen Controller */
+>  extern void __init at91_add_device_tsadcc(void);
+>  
+> +/* CAN */
+> +struct at91_can_data {
+> +	void (*transceiver_switch)(int on);
+> +};
+> +extern void __init at91_add_device_can(struct at91_can_data *data);
+> +
+>   /* LEDs */
+>  extern void __init at91_init_leds(u8 cpu_led, u8 timer_led);
+>  extern void __init at91_gpio_leds(struct gpio_led *leds, int nr);
 
-Ick, David Choi, what happened here?
-
-> It also has a big "#define DEBUG" at the beginning of the driver.
->=20
-> And it also has stuff like:
->=20
-> +#define MALLOC(x)		kmalloc(x, GFP_KERNEL)
->=20
-> which actually decreases the readability of this driver.
->=20
-> Please fix this up.
-
-Sorry about that, I'll do a closer review next time before resubmitting=
-=2E
-
-David Choi, care to fix this, and the comments from Stephen up?
-
-thanks,
-
-greg k-h
+Acked-by: Wolfgang Grandegger <wg@grandegger.com>
