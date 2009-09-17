@@ -1,32 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: Ignore route option with
- ROUTER_PREF_INVALID
-Date: Wed, 16 Sep 2009 17:12:56 -0700 (PDT)
-Message-ID: <20090916.171256.218164875.davem@davemloft.net>
-References: <1252599911.5980.16.camel@fnki-nb00130>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH 1/2] wl12xx: switch to %pM to print the mac address
+Date: Wed, 16 Sep 2009 20:28:52 -0400
+Message-ID: <20090917002852.GE14393@tuxdriver.com>
+References: <1253146059-4169-1-git-send-email-plagnioj@jcrosoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: me@jayr.de
+To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32821
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751998AbZIQAMj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 20:12:39 -0400
-In-Reply-To: <1252599911.5980.16.camel@fnki-nb00130>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:38483 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755417AbZIQAab (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 20:30:31 -0400
+Content-Disposition: inline
+In-Reply-To: <1253146059-4169-1-git-send-email-plagnioj@jcrosoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jens Rosenboom <me@jayr.de>
-Date: Thu, 10 Sep 2009 18:25:11 +0200
-
-> RFC4191 says that "If the Reserved (10) value is received, the Route
-> Information Option MUST be ignored.", so this patch makes us conform
-> to the RFC. This is different to the usage of the Default Router
-> Preference, where an invalid value must indeed be treated as
-> PREF_MEDIUM.
+On Thu, Sep 17, 2009 at 02:07:38AM +0200, Jean-Christophe PLAGNIOL-VILLARD wrote:
+> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+> ---
+>  drivers/net/wireless/wl12xx/wl1271_main.c |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
 > 
-> Signed-off-by: Jens Rosenboom <me@jayr.de>
+> diff --git a/drivers/net/wireless/wl12xx/wl1271_main.c b/drivers/net/wireless/wl12xx/wl1271_main.c
+> index d9169b4..f6f8895 100644
+> --- a/drivers/net/wireless/wl12xx/wl1271_main.c
+> +++ b/drivers/net/wireless/wl12xx/wl1271_main.c
+> @@ -644,11 +644,10 @@ static int wl1271_op_config_interface(struct ieee80211_hw *hw,
+>  {
+>  	struct wl1271 *wl = hw->priv;
+>  	struct sk_buff *beacon;
+> -	DECLARE_MAC_BUF(mac);
+>  	int ret;
+>  
+>  	wl1271_debug(DEBUG_MAC80211, "mac80211 config_interface bssid %s",
+> -		     print_mac(mac, conf->bssid));
+> +		     printf("%pM", conf->bssid);
+>  	wl1271_dump_ascii(DEBUG_MAC80211, "ssid: ", conf->ssid,
+>  			  conf->ssid_len);
+>  
 
-Applied, thanks Jens.
+ACK
+
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
