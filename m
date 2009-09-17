@@ -1,39 +1,50 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
-Date: Thu, 17 Sep 2009 06:57:17 +0300
-Message-ID: <20090917035717.GB3088@redhat.com>
-References: <4AAF8A03.5020806@redhat.com> <4AAF909F.9080306@gmail.com> <4AAF95D1.1080600@redhat.com> <4AAF9BAF.3030109@gmail.com> <4AAFACB5.9050808@redhat.com> <4AAFF437.7060100@gmail.com> <4AB0A070.1050400@redhat.com> <4AB0CFA5.6040104@gmail.com> <4AB0E2A2.3080409@redhat.com> <4AB0F1EF.5050102@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] ks8851_ml ethernet network driver
+Date: Wed, 16 Sep 2009 21:03:15 -0700
+Message-ID: <20090916210315.04dc743e@s6510>
+References: <20090917023836.GA15260@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Avi Kivity <avi@redhat.com>, "Ira W. Snyder" <iws@ovro.caltech.edu>,
-        netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
-        linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
-        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com,
-        alacrityvm-devel@lists.sourceforge.net
-To: Gregory Haskins <gregory.haskins@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <4AB0F1EF.5050102@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Greg KH <greg@kroah.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, Choi@kroah.com,
+	David <David.Choi@Micrel.Com>, Jeff Garzik <jgarzik@redhat.com>
+To: "Li, Charles" <Charles.Li@Micrel.Com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:51961 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750730AbZIQEDS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Sep 2009 00:03:18 -0400
+In-Reply-To: <20090917023836.GA15260@kroah.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 16, 2009 at 10:10:55AM -0400, Gregory Haskins wrote:
-> > There is no role reversal.
-> 
-> So if I have virtio-blk driver running on the x86 and vhost-blk device
-> running on the ppc board, I can use the ppc board as a block-device.
-> What if I really wanted to go the other way?
+On Wed, 16 Sep 2009 19:38:36 -0700
+Greg KH <greg@kroah.com> wrote:
 
-It seems ppc is the only one that can initiate DMA to an arbitrary
-address, so you can't do this really, or you can by tunneling each
-request back to ppc, or doing an extra data copy, but it's unlikely to
-work well.
+> /**
+> + * ks_irq - device interrupt handler
+> + * @irq: Interrupt number passed from the IRQ hnalder.
+> + * @pw: The private word passed to register_irq(), our struct ks_net.
+> + *
+> + * This is the handler invoked to find out what happened
+> + *
+> + * Read the interrupt status, work out what needs to be done and then clear
+> + * any of the interrupts that are not needed.
+> + */
+> +
+> +static irqreturn_t ks_irq(int irq, void *pw)
+> +{
+> +	struct ks_net *ks = pw;
+> +	struct net_device *netdev = ks->netdev;
+> +	u16 status;
+> +
+> +	/*this should be the first in IRQ handler */
+> +	ks_save_cmd_reg(ks);
+> +
+> +	status = ks_rdreg16(ks, KS_ISR);
+> +	ks_wrreg16(ks, KS_ISR, status);
 
-The limitation comes from hardware, not from the API we use.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+if status == 0 or status == ~0 then device should not return IRQ_HANDLED.
+In the former case, the IRQ is shared, in later case the device is not present
+on the bus (hotplug).
