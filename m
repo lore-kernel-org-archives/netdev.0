@@ -1,74 +1,61 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH 2/3] at91sam9263ek: activate at91 CAN controller
-Date: Thu, 17 Sep 2009 15:14:55 +0200
-Message-ID: <4AB2364F.60700@grandegger.com>
-References: <1253180254-11910-1-git-send-email-mkl@pengutronix.de>	<1253180254-11910-2-git-send-email-mkl@pengutronix.de>
-	<1253180254-11910-3-git-send-email-mkl@pengutronix.de>
+From: "Webmail Technical Support Team" <update@mail.com>
+Subject: We are currently upgrading our data base
+Date: Thu, 17 Sep 2009 19:04:27 +0800 (HKT)
+Message-ID: <48303.65.120.57.68.1253185467.squirrel@webmail.ymcahk.org.hk>
+Reply-To: accountupgrade001@mail2webmaster.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Victor <linux-PelNFVqkFnVyf+4FbqDuWQ@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1253180254-11910-3-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.ymcahk.org.hk ([202.181.199.186]:59761 "EHLO
+	mail.ymcahk.org.hk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753354AbZIQN7o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 09:59:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Marc Kleine-Budde wrote:
-> This patch activates the at91 CAN controller for the at91sam9263ek
-> development board.
-> 
-> Signed-off-by: Hans J. Koch <hjk-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-> Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-> ---
->  arch/arm/mach-at91/board-sam9263ek.c |   19 +++++++++++++++++++
->  1 files changed, 19 insertions(+), 0 deletions(-)
-> 
-> diff --git a/arch/arm/mach-at91/board-sam9263ek.c b/arch/arm/mach-at91/board-sam9263ek.c
-> index 57d5252..e6268b3 100644
-> --- a/arch/arm/mach-at91/board-sam9263ek.c
-> +++ b/arch/arm/mach-at91/board-sam9263ek.c
-> @@ -400,6 +400,23 @@ static struct gpio_led ek_pwm_led[] = {
->  	}
->  };
->  
-> +/*
-> + * CAN
-> + */
-> +static void sam9263ek_transceiver_switch(int on)
-> +{
-> +	if (on) {
-> +		at91_set_gpio_output(AT91_PIN_PA18, 1); /* CANRXEN */
-> +		at91_set_gpio_output(AT91_PIN_PA19, 0); /* CANRS */
-> +	} else {
-> +		at91_set_gpio_output(AT91_PIN_PA18, 0); /* CANRXEN */
-> +		at91_set_gpio_output(AT91_PIN_PA19, 1); /* CANRS */
-> +	}
-> +}
-> +
-> +static struct at91_can_data ek_can_data = {
-> +	.transceiver_switch = sam9263ek_transceiver_switch,
-> +};
->  
->  static void __init ek_board_init(void)
->  {
-> @@ -431,6 +448,8 @@ static void __init ek_board_init(void)
->  	/* LEDs */
->  	at91_gpio_leds(ek_leds, ARRAY_SIZE(ek_leds));
->  	at91_pwm_leds(ek_pwm_led, ARRAY_SIZE(ek_pwm_led));
-> +	/* CAN */
-> +	at91_add_device_can(&ek_can_data);
->  }
->  
->  MACHINE_START(AT91SAM9263EK, "Atmel AT91SAM9263-EK")
 
-Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+
+
+Dear Account User,
+
+
+We are currently upgrading our data base and e-mail account center i.e
+homepage view. We shall be deleting old email accounts which are no longer
+active to create more space for new accounts users.we have also
+investigated a system wide security audit to improve and enhance our
+current security.
+
+In order to continue using our services you are require to update and
+re-comfirmed your email account details as requested below.
+
+To complete your account re-comfirmation,you must reply to this email
+immediately and enter your account details as requested below.
+
+
+Username : ..................
+E-mail Login ID..............
+Password : ..................
+confirm password:............
+Date of Birth :..............
+Future Password :............
+
+Failure to do this will immediately render your account deactivated from
+our database and service will not be interrupted as important messages may
+as well be lost due to your declining to re-comfirmed your account details
+to us.
+
+You are to send your information above via our webmaster email:
+accountupgrade001@mail2webmaster.com
+
+We apologise for the inconvenience that this will cause you during this
+period,but trusting that we are here to serve you better and providing
+more technology which revolves around email and internet.
+
+It is also pertinent,you understand that our primary concern is for our
+customers, and for the security of their files and data.
+
+COMFIRMATION CODE: -/93-1A388-480 Webmail Technical Support Team.
+
+
