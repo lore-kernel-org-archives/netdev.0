@@ -1,53 +1,75 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/2] wl12xx: switch to %pM to print the mac address
-Date: Thu, 17 Sep 2009 02:22:51 +0100
-Message-ID: <1253150571.4989.33.camel@localhost>
-References: <1253146059-4169-1-git-send-email-plagnioj@jcrosoft.com>
+From: DDD <Dongdong.deng@windriver.com>
+Subject: [PATCH] d44: the poll handler b44_poll must not enable IRQ
+	unconditionally
+Date: Thu, 17 Sep 2009 10:10:47 +0800
+Message-ID: <1253153447.24160.12.camel@dengdd-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+To: davem@davemloft.net, mpm@selenic.com, romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:26943 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754551AbZIQBiJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 21:38:09 -0400
-In-Reply-To: <1253146059-4169-1-git-send-email-plagnioj@jcrosoft.com>
+Received: from mail.windriver.com ([147.11.1.11]:44723 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752963AbZIQB5Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 21:57:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-09-17 at 02:07 +0200, Jean-Christophe PLAGNIOL-VILLARD
-wrote:
-> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-> ---
->  drivers/net/wireless/wl12xx/wl1271_main.c |    3 +--
->  1 files changed, 1 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/wl12xx/wl1271_main.c b/drivers/net/wireless/wl12xx/wl1271_main.c
-> index d9169b4..f6f8895 100644
-> --- a/drivers/net/wireless/wl12xx/wl1271_main.c
-> +++ b/drivers/net/wireless/wl12xx/wl1271_main.c
-> @@ -644,11 +644,10 @@ static int wl1271_op_config_interface(struct ieee80211_hw *hw,
->  {
->  	struct wl1271 *wl = hw->priv;
->  	struct sk_buff *beacon;
-> -	DECLARE_MAC_BUF(mac);
->  	int ret;
->  
->  	wl1271_debug(DEBUG_MAC80211, "mac80211 config_interface bssid %s",
-> -		     print_mac(mac, conf->bssid));
-> +		     printf("%pM", conf->bssid);
->  	wl1271_dump_ascii(DEBUG_MAC80211, "ssid: ", conf->ssid,
->  			  conf->ssid_len);
->  
+net/core/netpoll.c::netpoll_send_skb() calls the poll handler when
+it is available. As netconsole can be used from almost any context,
+IRQ must not be enabled blindly in the NAPI handler of the driver
+which supports netpoll.
 
-That isn't even syntactically valid, let alone correct.
+Call trace:
+netpoll_send_skb()
+{
+local_irq_save(flags)
+  -> netpoll_poll()
+    -> poll_napi()
+      -> poll_one_napi()
+        -> napi->poll()
+            -> b44_poll()
+local_irq_restore(flags)
+}
 
-Ben.
+Signed-off-by: Dongdong Deng <dongdong.deng@windriver.com>
+---
+ drivers/net/b44.c |    7 +++----
+ 1 files changed, 3 insertions(+), 4 deletions(-)
 
+diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+index 0189dcd..e046943 100644
+--- a/drivers/net/b44.c
++++ b/drivers/net/b44.c
+@@ -847,23 +847,22 @@ static int b44_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct b44 *bp = container_of(napi, struct b44, napi);
+ 	int work_done;
++	unsigned long flags;
+ 
+-	spin_lock_irq(&bp->lock);
++	spin_lock_irqsave(&bp->lock, flags);
+ 
+ 	if (bp->istat & (ISTAT_TX | ISTAT_TO)) {
+ 		/* spin_lock(&bp->tx_lock); */
+ 		b44_tx(bp);
+ 		/* spin_unlock(&bp->tx_lock); */
+ 	}
+-	spin_unlock_irq(&bp->lock);
++	spin_unlock_irqrestore(&bp->lock, flags);
+ 
+ 	work_done = 0;
+ 	if (bp->istat & ISTAT_RX)
+ 		work_done += b44_rx(bp, budget);
+ 
+ 	if (bp->istat & ISTAT_ERRORS) {
+-		unsigned long flags;
+-
+ 		spin_lock_irqsave(&bp->lock, flags);
+ 		b44_halt(bp);
+ 		b44_init_rings(bp);
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.6.0.4
+
 
