@@ -1,37 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL 0/2] Fixes for IEEE 802.15.4
-Date: Wed, 16 Sep 2009 20:55:59 -0700 (PDT)
-Message-ID: <20090916.205559.141815103.davem@davemloft.net>
-References: <1253107333-25043-1-git-send-email-dbaryshkov@gmail.com>
+Subject: Re: [patch 0/7] s390: iucv / af_iucv fixes for 2.6.31+
+Date: Wed, 16 Sep 2009 20:58:03 -0700 (PDT)
+Message-ID: <20090916.205803.120599769.davem@davemloft.net>
+References: <20090916143721.863799000@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-zigbee-devel@lists.sourceforge.net, slapin@ossfans.org,
-	netdev@vger.kernel.org
-To: dbaryshkov@gmail.com
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com
+To: ursula.braun@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34970
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34976
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760193AbZIQDzm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 23:55:42 -0400
-In-Reply-To: <1253107333-25043-1-git-send-email-dbaryshkov@gmail.com>
+	by vger.kernel.org with ESMTP id S1760656AbZIQD5q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 23:57:46 -0400
+In-Reply-To: <20090916143721.863799000@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Date: Wed, 16 Sep 2009 17:22:11 +0400
+From: Ursula Braun <ursula.braun@de.ibm.com>
+Date: Wed, 16 Sep 2009 16:37:21 +0200
 
-> Hi, David,
+> Summary:
 > 
-> Please pull both into net/master and net-next/master (as I'd like
-> to submit few patches into net-next/master depending on this).
+> Ursula Braun (1)
+> iucv: suspend/resume error msg for left over pathes
 > 
-> The following changes since commit 4e36a95e591e9c58dd10bb4103c00993917c27fd:
->   David Howells (1):
->         RxRPC: Use uX/sX rather than uintX_t/intX_t types
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/lowpan/lowpan.git for-linus
+> Hendrik Brueckner (6)
+> iucv: fix iucv_buffer_cpumask check when calling IUCV functions
+> iucv: use correct output register in iucv_query_maxconn()
+> af_iucv: fix race in __iucv_sock_wait()
+> af_iucv: handle non-accepted sockets after resuming from suspend
+> af_iucv: do not call iucv_sock_kill() twice
+> af_iucv: fix race when queueing skbs on the backlog queue
 
-Pulled thanks.
+All applied, thank you.
