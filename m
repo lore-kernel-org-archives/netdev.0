@@ -1,48 +1,47 @@
-From: Xiaotian Feng <dfeng@redhat.com>
-Subject: [PATCH 2/2] ipv4: make do_ip_setsockopt for IP_MULTICAST_IF support ip_mreq struct
-Date: Thu, 17 Sep 2009 13:20:11 +0800
-Message-ID: <1253164811-15820-1-git-send-email-dfeng@redhat.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Xiaotian Feng <dfeng@redhat.com>,
-	Marc Milgram <mmilgram@redhat.com>
-To: davem@davemloft.net, kaber@trash.net, yoshfuji@linux-ipv6.org,
-	jmorris@namei.org, pekkas@netcore.fi, kuznet@ms2.inr.ac.ru
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753666AbZIQFVX@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv2 1/2] mm: export use_mm/unuse_mm to modules
+Date: Thu, 17 Sep 2009 08:38:18 +0300
+Message-ID: <20090917053817.GB6770@redhat.com>
+References: <cover.1249992497.git.mst@redhat.com> <20090811212752.GB26309@redhat.com> <20090811151010.c9c56955.akpm@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+        linux-mm@kvack.org, hpa@zytor.com, aarcange@redhat.com
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20090811151010.c9c56955.akpm@linux-foundation.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-ip_mreq and ip_mreqn is almost the same, and do_ip_setsockopt for IP_MULTICAST_IF
-part supported ip_mreqn struct. This patch adds support for ip_mreq struct.
+Hi Andrew,
+On Tue, Aug 11, 2009 at 03:10:10PM -0700, Andrew Morton wrote:
+> On Wed, 12 Aug 2009 00:27:52 +0300
+> "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> 
+> > vhost net module wants to do copy to/from user from a kernel thread,
+> > which needs use_mm (like what fs/aio has).  Move that into mm/ and
+> > export to modules.
+> 
+> OK by me.  Please include this change in the virtio patchset.  Which I
+> shall cheerfully not be looking at :)
 
-Signed-off-by: Marc Milgram <mmilgram@redhat.com>
-Signed-off-by: Xiaotian Feng <dfeng@redhat.com>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: David S. Miller <davem@davemloft.net>
----
- net/ipv4/ip_sockglue.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
+The virtio patches are somewhat delayed as we are ironing out the
+kernel/user interface with Rusty. Can the patch moving use_mm to mm/ be
+applied without exporting to modules for now? This will make it easier
+for virtio which will only have to patch in the EXPORT line.
 
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 5a29dce..1e8d026 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -612,11 +612,16 @@ static int do_ip_setsockopt(struct sock *sk, int level,
- 		 */
- 
- 		err = -EFAULT;
-+		memset(&mreq, 0, sizeof(mreq));
-+
- 		if (optlen >= sizeof(struct ip_mreqn)) {
- 			if (copy_from_user(&mreq, optval, sizeof(mreq)))
- 				break;
-+		} else if (optlen >= sizeof(struct ip_mreq)) {
-+			if (copy_from_user(&mreq, optval,
-+					   sizeof(struct ip_mreq)))
-+				break;
- 		} else if (optlen >= sizeof(struct in_addr)) {
--			memset(&mreq, 0, sizeof(mreq));
- 			if (copy_from_user(&mreq.imr_address, optval,
- 					   sizeof(struct in_addr)))
- 				break;
+I also have a small patch optimizing atomic usage in use_mm (which I did for
+virtio) and it's easier to apply it if the code is in the new place.
+
+If ok, pls let me know and I'll post the patch without the EXPORT line.
+
 -- 
-1.6.2.5
+MST
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
