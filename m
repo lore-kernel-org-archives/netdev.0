@@ -1,63 +1,82 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: fanotify as syscalls
-Date: Thu, 17 Sep 2009 09:40:16 -0700 (PDT)
-Message-ID: <alpine.LFD.2.01.0909170934450.4950@localhost.localdomain>
-References: <1252703626.2305.50.camel@dhcp231-106.rdu.redhat.com> <20090911212731.GA19901@shareable.org> <1252705902.2305.83.camel@dhcp231-106.rdu.redhat.com> <20090912094110.GB24709@ioremap.net> <20090914001759.GB30621@shareable.org> <20090914140720.GA8564@ioremap.net>
- <1252955295.2246.35.camel@dhcp231-106.rdu.redhat.com> <20090915201620.GB32192@ioremap.net> <1253051699.5213.18.camel@dhcp231-106.rdu.redhat.com> <20090916120523.GA12830@ioremap.net> <20090916122723.GE29359@shareable.org>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [PATCH] d44: the poll handler b44_poll must not enable IRQ unconditionally
+Date: Thu, 17 Sep 2009 11:45:52 -0500
+Message-ID: <20090917164552.GH8789@waste.org>
+References: <1253153447.24160.12.camel@dengdd-desktop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Evgeniy Polyakov <zbr@ioremap.net>, Eric Paris <eparis@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
-	alan@linux.intel.com, hch@infradead.org
-To: Jamie Lokier <jamie@shareable.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: DDD <Dongdong.deng@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:37225 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751718AbZIQQkt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 12:40:49 -0400
-In-Reply-To: <20090916122723.GE29359@shareable.org>
+Received: from waste.org ([173.11.57.241]:51602 "EHLO waste.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751480AbZIQQza (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Sep 2009 12:55:30 -0400
+Content-Disposition: inline
+In-Reply-To: <1253153447.24160.12.camel@dengdd-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On Wed, 16 Sep 2009, Jamie Lokier wrote:
+On Thu, Sep 17, 2009 at 10:10:47AM +0800, DDD wrote:
+> net/core/netpoll.c::netpoll_send_skb() calls the poll handler when
+> it is available. As netconsole can be used from almost any context,
+> IRQ must not be enabled blindly in the NAPI handler of the driver
+> which supports netpoll.
 > 
-> I'd forgotten about Linus' strace argument.  That's a good one.
+> Call trace:
+> netpoll_send_skb()
+> {
+> local_irq_save(flags)
+>   -> netpoll_poll()
+>     -> poll_napi()
+>       -> poll_one_napi()
+>         -> napi->poll()
+>             -> b44_poll()
+> local_irq_restore(flags)
+> }
 > 
-> Of course everything should be a syscall by that argument :-)
+> Signed-off-by: Dongdong Deng <dongdong.deng@windriver.com>
 
-Oh yes, everything _should_ be a syscall.
+Acked-by: Matt Mackall <mpm@selenic.com>
 
-The problem is that many things are too "amorphous" to be system calls, 
-and don't have any sane generic semantics (ie they only act on a specific 
-device node). So we have ioctl's etc for those things.
+> ---
+>  drivers/net/b44.c |    7 +++----
+>  1 files changed, 3 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+> index 0189dcd..e046943 100644
+> --- a/drivers/net/b44.c
+> +++ b/drivers/net/b44.c
+> @@ -847,23 +847,22 @@ static int b44_poll(struct napi_struct *napi, int budget)
+>  {
+>  	struct b44 *bp = container_of(napi, struct b44, napi);
+>  	int work_done;
+> +	unsigned long flags;
+>  
+> -	spin_lock_irq(&bp->lock);
+> +	spin_lock_irqsave(&bp->lock, flags);
+>  
+>  	if (bp->istat & (ISTAT_TX | ISTAT_TO)) {
+>  		/* spin_lock(&bp->tx_lock); */
+>  		b44_tx(bp);
+>  		/* spin_unlock(&bp->tx_lock); */
+>  	}
+> -	spin_unlock_irq(&bp->lock);
+> +	spin_unlock_irqrestore(&bp->lock, flags);
+>  
+>  	work_done = 0;
+>  	if (bp->istat & ISTAT_RX)
+>  		work_done += b44_rx(bp, budget);
+>  
+>  	if (bp->istat & ISTAT_ERRORS) {
+> -		unsigned long flags;
+> -
+>  		spin_lock_irqsave(&bp->lock, flags);
+>  		b44_halt(bp);
+>  		b44_init_rings(bp);
+> -- 
+> 1.6.0.4
+> 
 
-And then we have page faults. I've long wished that from a system call 
-tracing standpoint we could show page faults as pseudo-system-calls (at 
-least as long as they happen from user space - trying to handle nesting is 
-not worth it). It would make it _so_ much more obvious what the 
-performance patterns are if you could just do
-
-	strace -ttT firefox
-
-for the cold-cache case and you'd see where the time is really spent.
-
-(yeah, yeah, you can get that kind of information other ways, but it's a 
-hell of a lot less convenient than just getting a nice trace with 
-timestamps).
-
-> And strace can trace some ioctls and setsockopts.  (But it's never
-> pretty to see isatty() showing in strace as SNDCTL_TMR_TIMEBASE :-)
-
-Yes, strace can fix things up, and show "send a packet" as "fanotify". But 
-it's nasty and hard. 
-
-Quite frankly, I have _never_ever_ seen a good reason for talking to the 
-kernel with some idiotic packet interface. It's just a fancy way to do 
-ioctl's, and everybody knows that ioctl's are bad and evil. Why are fancy 
-packet interfaces suddenly much better?
-
-			Linus
+-- 
+Mathematics is the supreme nostalgia of our time.
