@@ -1,37 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 0/7] s390: iucv / af_iucv fixes for 2.6.31+
-Date: Wed, 16 Sep 2009 20:58:03 -0700 (PDT)
-Message-ID: <20090916.205803.120599769.davem@davemloft.net>
-References: <20090916143721.863799000@linux.vnet.ibm.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
+Date: Thu, 17 Sep 2009 06:57:17 +0300
+Message-ID: <20090917035717.GB3088@redhat.com>
+References: <4AAF8A03.5020806@redhat.com> <4AAF909F.9080306@gmail.com> <4AAF95D1.1080600@redhat.com> <4AAF9BAF.3030109@gmail.com> <4AAFACB5.9050808@redhat.com> <4AAFF437.7060100@gmail.com> <4AB0A070.1050400@redhat.com> <4AB0CFA5.6040104@gmail.com> <4AB0E2A2.3080409@redhat.com> <4AB0F1EF.5050102@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com
-To: ursula.braun@de.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34976
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760656AbZIQD5q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2009 23:57:46 -0400
-In-Reply-To: <20090916143721.863799000@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Avi Kivity <avi@redhat.com>, "Ira W. Snyder" <iws@ovro.caltech.edu>,
+        netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+        linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
+        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com,
+        alacrityvm-devel@lists.sourceforge.net
+To: Gregory Haskins <gregory.haskins@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <4AB0F1EF.5050102@gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
-Date: Wed, 16 Sep 2009 16:37:21 +0200
-
-> Summary:
+On Wed, Sep 16, 2009 at 10:10:55AM -0400, Gregory Haskins wrote:
+> > There is no role reversal.
 > 
-> Ursula Braun (1)
-> iucv: suspend/resume error msg for left over pathes
-> 
-> Hendrik Brueckner (6)
-> iucv: fix iucv_buffer_cpumask check when calling IUCV functions
-> iucv: use correct output register in iucv_query_maxconn()
-> af_iucv: fix race in __iucv_sock_wait()
-> af_iucv: handle non-accepted sockets after resuming from suspend
-> af_iucv: do not call iucv_sock_kill() twice
-> af_iucv: fix race when queueing skbs on the backlog queue
+> So if I have virtio-blk driver running on the x86 and vhost-blk device
+> running on the ppc board, I can use the ppc board as a block-device.
+> What if I really wanted to go the other way?
 
-All applied, thank you.
+It seems ppc is the only one that can initiate DMA to an arbitrary
+address, so you can't do this really, or you can by tunneling each
+request back to ppc, or doing an extra data copy, but it's unlikely to
+work well.
+
+The limitation comes from hardware, not from the API we use.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
