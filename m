@@ -1,28 +1,33 @@
-From: Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>
-Subject: Re: [ANNOUNCE] new iptables module match large amount of ip addresses
-Date: Fri, 18 Sep 2009 01:46:45 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0909180142130.27543@artax.karlin.mff.cuni.cz>
-References: <Pine.LNX.4.64.0909172100220.27299@artax.karlin.mff.cuni.cz>
- <alpine.LSU.2.00.0909180046410.20781@obet.zrqbmnf.qr>
- <Pine.LNX.4.64.0909180054410.21427@artax.karlin.mff.cuni.cz>
- <alpine.LSU.2.00.0909180130110.20781@obet.zrqbmnf.qr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ks8851_ml ethernet network driver
+Date: Thu, 17 Sep 2009 16:49:52 -0700 (PDT)
+Message-ID: <20090917.164952.33104590.davem@davemloft.net>
+References: <20090916.204801.190052862.davem@davemloft.net>
+	<C43529A246480145B0A6D0234BDB0F0DE8A1@MELANITE.micrel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.00.0909180130110.20781@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: greg@kroah.com, netdev@vger.kernel.org, Charles.Li@Micrel.Com,
+	Choi@kroah.com, jgarzik@redhat.com, shemminger@vyatta.com
+To: David.Choi@Micrel.Com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53720
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753662AbZIQXtf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 19:49:35 -0400
+In-Reply-To: <C43529A246480145B0A6D0234BDB0F0DE8A1@MELANITE.micrel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> >I was saying how OpenBSD is better than Linux because OpenBSD has 
-> >tree-based firewall tables --- hmm --- well --- Linux has them too, except 
-> >that noone can really find them because they are not in the kernel.
-> 
-> You can build trees of chains with iptables. (Which would be quite a 
-> fast thing if you do not have modules at hand.)
+From: "Choi, David" <David.Choi@Micrel.Com>
+Date: Thu, 17 Sep 2009 12:30:27 -0700
 
-I thought about this too but I realized that building the tree in kernel 
-would be easier to write than building it with a shell script :)
+> --- linux-2.6.31-rc3/drivers/net/ks8851_mll.c.orig	2009-09-17
+> 10:18:56.000000000 -0700
+> +++ linux-2.6.31-rc3/drivers/net/ks8851_mll.c	2009-09-17
+> 10:09:37.000000000 -0700
+> @@ -21,8 +21,6 @@
+>   * KS8851 16bit MLL chip from Micrel Inc.
 
-Mikulas
+I can't use this patch or even test it, as your email client
+has corrupted it by, for example, breaking up long lines.
