@@ -1,58 +1,65 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 1/2] wl12xx: switch to %pM to print the mac address
-Date: Thu, 17 Sep 2009 08:55:21 -0400
-Message-ID: <20090917125521.GA2577@tuxdriver.com>
-References: <1253146059-4169-1-git-send-email-plagnioj@jcrosoft.com> <1253150571.4989.33.camel@localhost>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] ks8851_ml ethernet network driver
+Date: Thu, 17 Sep 2009 06:03:15 -0700
+Message-ID: <20090917130315.GA4157@kroah.com>
+References: <20090917023836.GA15260@kroah.com> <20090916.204801.190052862.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
-	netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Charles.Li@Micrel.Com, Choi@kroah.com,
+	David.Choi@Micrel.Com, jgarzik@redhat.com, shemminger@vyatta.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:42354 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753532AbZIQNAd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 09:00:33 -0400
+Received: from bombadil.infradead.org ([18.85.46.34]:37951 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753224AbZIQNEK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 09:04:10 -0400
 Content-Disposition: inline
-In-Reply-To: <1253150571.4989.33.camel@localhost>
+In-Reply-To: <20090916.204801.190052862.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 17, 2009 at 02:22:51AM +0100, Ben Hutchings wrote:
-> On Thu, 2009-09-17 at 02:07 +0200, Jean-Christophe PLAGNIOL-VILLARD
-> wrote:
-> > Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-> > ---
-> >  drivers/net/wireless/wl12xx/wl1271_main.c |    3 +--
-> >  1 files changed, 1 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/drivers/net/wireless/wl12xx/wl1271_main.c b/drivers/net/wireless/wl12xx/wl1271_main.c
-> > index d9169b4..f6f8895 100644
-> > --- a/drivers/net/wireless/wl12xx/wl1271_main.c
-> > +++ b/drivers/net/wireless/wl12xx/wl1271_main.c
-> > @@ -644,11 +644,10 @@ static int wl1271_op_config_interface(struct ieee80211_hw *hw,
-> >  {
-> >  	struct wl1271 *wl = hw->priv;
-> >  	struct sk_buff *beacon;
-> > -	DECLARE_MAC_BUF(mac);
-> >  	int ret;
-> >  
-> >  	wl1271_debug(DEBUG_MAC80211, "mac80211 config_interface bssid %s",
-> > -		     print_mac(mac, conf->bssid));
-> > +		     printf("%pM", conf->bssid);
-> >  	wl1271_dump_ascii(DEBUG_MAC80211, "ssid: ", conf->ssid,
-> >  			  conf->ssid_len);
-> >  
-> 
-> That isn't even syntactically valid, let alone correct.
+On Wed, Sep 16, 2009 at 08:48:01PM -0700, David Miller wrote:
+> From: Greg KH <greg@kroah.com>
+> Date: Wed, 16 Sep 2009 19:38:36 -0700
+>=20
+> > From: Choi, David <David.Choi@Micrel.Com>
+> >=20
+> > This is a network driver for the ks8851 16bit MLL ethernet device.
+> >=20
+> > Signed-off-by: David J. Choi <david.choi@micrel.com>
+> > Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+>=20
+> This doesn't even build cleanly:
+>=20
+> drivers/net/ks8851_mll.c: In function =E2=80=98ks_inblk=E2=80=99:
+> drivers/net/ks8851_mll.c:555: warning: cast from pointer to integer o=
+f different size
+> drivers/net/ks8851_mll.c:558: warning: passing argument 1 of =E2=80=98=
+_readw=E2=80=99 makes pointer from integer without a cast
+> drivers/net/ks8851_mll.c: In function =E2=80=98ks_outblk=E2=80=99:
+> drivers/net/ks8851_mll.c:571: warning: cast from pointer to integer o=
+f different size
+> drivers/net/ks8851_mll.c:574: warning: passing argument 2 of =E2=80=98=
+_writew=E2=80=99 makes pointer from integer without a cast
 
-Ugh, you're right -- remind me not to ACK things before bed...
+Ick, David Choi, what happened here?
 
-Jean-Christophe posted a new patch that looked better, although it
-probably needs to be rebased on this one since I think Dave applied
-it after my (misguided) ACK.
+> It also has a big "#define DEBUG" at the beginning of the driver.
+>=20
+> And it also has stuff like:
+>=20
+> +#define MALLOC(x)		kmalloc(x, GFP_KERNEL)
+>=20
+> which actually decreases the readability of this driver.
+>=20
+> Please fix this up.
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Sorry about that, I'll do a closer review next time before resubmitting=
+=2E
+
+David Choi, care to fix this, and the comments from Stephen up?
+
+thanks,
+
+greg k-h
