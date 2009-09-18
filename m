@@ -1,44 +1,50 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 2/4] isdn: accept CAPI Informational Info values as success
-Date: Sat, 19 Sep 2009 01:57:42 +0200 (CEST)
-Message-ID: <20090919-patch-capi-2.tilman@imap.cc>
-References: <20090919-patch-capi-0.tilman@imap.cc>
-Cc: davem@davemloft.net, i4ldeveloper@listserv.isdn4linux.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Subject: [PATCH 03/12] gigaset: linearize skb
+Date: Sat, 19 Sep 2009 01:57:43 +0200 (CEST)
+Message-ID: <20090919-patch-gigaset-03.tilman@imap.cc>
+References: <20090919-patch-gigaset-00.tilman@imap.cc>
+Cc: Hansjoerg Lipp <hjlipp@web.de>, davem@davemloft.net,
+	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: Karsten Keil <isdn@linux-pingi.de>,
 	Karsten Keil <keil@b1-systems.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gimli.pxnet.com ([195.227.45.7]:35033 "EHLO mail.pxnet.com"
+Received: from mail.pxnet.com ([195.227.45.7]:35098 "EHLO mail.pxnet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751317AbZIRX6Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Sep 2009 19:58:16 -0400
-In-Reply-To: <20090919-patch-capi-0.tilman@imap.cc>
+	id S1754129AbZIRX6o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Sep 2009 19:58:44 -0400
+In-Reply-To: <20090919-patch-gigaset-00.tilman@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Info values in the 0x00xx range are defined in the CAPI standard
-as "Informational, message processed successfully". Therefore a
-CONNECT_B3_CONF message with an Info value in that range should
-open an NCCI just as with Info==0.
+The code of the Gigaset driver assumes that sk_buff-s coming
+from the ISDN4Linux subsystem are always linear. Explicitly
+calling skb_linearize() is cheap if they are, but much more
+robust in case they ever aren't.
 
+Impact: robustness improvement
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 ---
- drivers/isdn/capi/capi.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/isdn/gigaset/i4l.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/isdn/capi/capi.c b/drivers/isdn/capi/capi.c
-index 2d83524..65bf91e 100644
---- a/drivers/isdn/capi/capi.c
-+++ b/drivers/isdn/capi/capi.c
-@@ -603,7 +603,7 @@ static void capi_recv_message(struct capi20_appl *ap, struct sk_buff *skb)
+diff --git a/drivers/isdn/gigaset/i4l.c b/drivers/isdn/gigaset/i4l.c
+index 9b22f9c..322f16e 100644
+--- a/drivers/isdn/gigaset/i4l.c
++++ b/drivers/isdn/gigaset/i4l.c
+@@ -51,6 +51,12 @@ static int writebuf_from_LL(int driverID, int channel, int ack,
+ 		return -ENODEV;
+ 	}
+ 	bcs = &cs->bcs[channel];
++
++	/* can only handle linear sk_buffs */
++	if (skb_linearize(skb) < 0) {
++		dev_err(cs->dev, "%s: skb_linearize failed\n", __func__);
++		return -ENOMEM;
++	}
+ 	len = skb->len;
  
- 	if (CAPIMSG_CMD(skb->data) == CAPI_CONNECT_B3_CONF) {
- 		u16 info = CAPIMSG_U16(skb->data, 12); // Info field
--		if (info == 0) {
-+		if ((info & 0xff00) == 0) {
- 			mutex_lock(&cdev->ncci_list_mtx);
- 			capincci_alloc(cdev, CAPIMSG_NCCI(skb->data));
- 			mutex_unlock(&cdev->ncci_list_mtx);
+ 	gig_dbg(DEBUG_LLDATA,
 -- 
 1.6.2.1.214.ge986c
 
