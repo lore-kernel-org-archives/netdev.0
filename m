@@ -1,74 +1,52 @@
-From: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
-	<nicolas.2p.debian@free.fr>
-Subject: Re: [Bonding-devel] [PATCH net-next-2.6] bonding: set primary param
- via	sysfs
-Date: Fri, 18 Sep 2009 22:21:21 +0200
-Message-ID: <4AB3EBC1.6070100@free.fr>
-References: <20090918121321.GB2801@psychotron.redhat.com>
+From: Eric Paris <eparis@redhat.com>
+Subject: Re: fanotify as syscalls
+Date: Fri, 18 Sep 2009 16:52:08 -0400
+Message-ID: <1253307128.2552.21.camel@dhcp231-106.rdu.redhat.com>
+References: <20090912094110.GB24709@ioremap.net>
+	 <1253094537.5213.89.camel@dhcp231-106.rdu.redhat.com>
+	 <20090916121708.GD29359@shareable.org>  <200909172207.01764.agruen@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, davem@davemloft.net,
-	bonding-devel@lists.sourceforge.net
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:45533 "EHLO smtp6-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757789AbZIRUV2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Sep 2009 16:21:28 -0400
-In-Reply-To: <20090918121321.GB2801@psychotron.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jamie Lokier <jamie@shareable.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
+	alan@linux.intel.com, hch@infradead.org
+To: Andreas Gruenbacher <agruen@suse.de>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <200909172207.01764.agruen@suse.de>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jiri Pirko wrote:
-> Primary module parameter passed to bonding is pernament. That means if you
+On Thu, 2009-09-17 at 22:07 +0200, Andreas Gruenbacher wrote:
 
-typo in "permanent".
+> From my point of view, "global" events make no sense, and fanotify listeners 
+> should register which directories they are interested in (e.g., include "/", 
+> exclude "/proc"). This takes care of chroots and namespaces as well.
 
-> release the primary slave and enslave it again, it becomes the primary slave
-> again. But if you set primary slave via sysfs, the primary slave is only set
-> once and it's not remembered in bond->params structure. Therefore the setting is
-> lost after releasing the primary slave. This simple one-liner fixes this.
+While I completely agree that most users don't want global events, the
+antimalware vendors who today, unprotect and hack the syscall table on
+their unsuspecting customer's machines to intercept every read, write,
+open, close, mmap, etc syscall want EXACTLY that.  They'd been asking
+for a way to get this information for quite some time now.  The largest
+vendors in this market have agreed the interface (well, when it was a
+socket interface that I talked about for so long) should meet their
+needs.
 
-You patch also has the side effect of fixing this strange behavior:
+Subtree watching / isn't any different or better, just harder and more
+complex to implement.  You still have to exclude /proc and /sys and
+everything else.  Just like one must with a global listener.  Still
+though, this sounds like an issue for the f_type and f_fsid exclusion
+syscall I say I'm still not settled on.  Not and issue with the basis of
+fanotify or with the 3 proposed syscalls.
 
-If you move the primary slave from one bond device to another one, it becomes 
-the primary for this other bond device, ignoring what you might have set as the 
-primary for this other bond device.
+Jamie, do you see a problem with what I have been asking for review on
+or see a problem with extending it moving forward?
 
-#modprobe bonding mode=active-backup primary=eth0
-#echo +eth0 > /sys/class/net/bond0/bonding/slaves
-#cat /sys/class/net/bond0/bonding/primary
-eth0
-#echo -eth0 > /sys/class/net/bond0/bonding/slaves
+Linus, do you see the value of 'yet another notification scheme' ?
 
-#echo +eth1 > /sys/class/net/bond1/bonding/slaves
-#echo eth1 > /sys/class/net/bond1/bonding/primary
-#cat /sys/class/net/bond1/bonding/primary
-eth1
-#echo +eth0 > /sys/class/net/bond1/bonding/slaves
-#cat /sys/class/net/bond1/bonding/primary
-eth0
-
-=> Primary just changed, for no good reason.
-
-Can someone imagine that some current configurations rely on this incredible 
-side effect ?
-
-	Nicolas.
-
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-> 
-> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-> index 6044e12..ff449de 100644
-> --- a/drivers/net/bonding/bond_sysfs.c
-> +++ b/drivers/net/bonding/bond_sysfs.c
-> @@ -1182,6 +1182,7 @@ static ssize_t bonding_store_primary(struct device *d,
->  				       ": %s: Setting %s as primary slave.\n",
->  				       bond->dev->name, slave->dev->name);
->  				bond->primary_slave = slave;
-> +				strcpy(bond->params.primary, slave->dev->name);
->  				bond_select_active_slave(bond);
->  				goto out;
->  			}
+-Eric
 
