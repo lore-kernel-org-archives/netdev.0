@@ -1,45 +1,32 @@
-From: akpm@linux-foundation.org
-Subject: [patch 2/6] hfc_usb: fix read buffer overflow
-Date: Fri, 18 Sep 2009 12:53:02 -0700
-Message-ID: <200909181953.n8IJr3YN026236@imap1.linux-foundation.org>
+From: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
+Subject: Re: [PATCH] i2400m: minimal ethtool support
+Date: Fri, 18 Sep 2009 12:57:30 -0700
+Message-ID: <1253303850.3647.76.camel@localhost.localdomain>
+References: <1253217974.11454.12.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	roel.kluin@gmail.com
-To: isdn@linux-pingi.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:38796 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752931AbZIRTxs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2009 15:53:48 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "wimax@linuxwimax.org" <wimax@linuxwimax.org>
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <wimax-bounces@linuxwimax.org>
+In-Reply-To: <1253217974.11454.12.camel@localhost.localdomain>
+List-Unsubscribe: <http://lists.linuxwimax.org/options/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxwimax.org/pipermail/wimax>
+List-Post: <mailto:wimax@linuxwimax.org>
+List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
+List-Subscribe: <http://lists.linuxwimax.org/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
+Sender: wimax-bounces@linuxwimax.org
+Errors-To: wimax-bounces@linuxwimax.org
+List-Id: netdev.vger.kernel.org
 
-From: Roel Kluin <roel.kluin@gmail.com>
+On Thu, 2009-09-17 at 13:06 -0700, Dan Williams wrote:
+> Add minimal ethtool support for carrier detection.
+> 
+> Signed-off-by: Dan Williams <dcbw@redhat.com>
 
-Check whether index is within bounds before testing the element.
+Merged, thanks
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-Cc: Karsten Keil <isdn@linux-pingi.de>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
-
- drivers/isdn/hisax/hfc_usb.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff -puN drivers/isdn/hisax/hfc_usb.c~hfc_usb-fix-read-buffer-overflow drivers/isdn/hisax/hfc_usb.c
---- a/drivers/isdn/hisax/hfc_usb.c~hfc_usb-fix-read-buffer-overflow
-+++ a/drivers/isdn/hisax/hfc_usb.c
-@@ -817,8 +817,8 @@ collect_rx_frame(usb_fifo * fifo, __u8 *
- 	}
- 	/* we have a complete hdlc packet */
- 	if (finish) {
--		if ((!fifo->skbuff->data[fifo->skbuff->len - 1])
--		    && (fifo->skbuff->len > 3)) {
-+		if (fifo->skbuff->len > 3 &&
-+				!fifo->skbuff->data[fifo->skbuff->len - 1]) {
- 
- 			if (fifon == HFCUSB_D_RX) {
- 				DBG(HFCUSB_DBG_DCHANNEL,
-_
+-- 
+-- Inaky
