@@ -1,52 +1,107 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH net-next-2.6] bonding: set primary param via sysfs
-Date: Fri, 18 Sep 2009 16:02:31 -0700
-Message-ID: <10714.1253314951@death.nxdomain.ibm.com>
-References: <20090918121321.GB2801@psychotron.redhat.com>
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	bonding-devel@lists.sourceforge.net
-To: Jiri Pirko <jpirko@redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] lib/vsprintf.c: Avoid possible unaligned accesses in %pI6c
+Date: Fri, 18 Sep 2009 16:04:06 -0700
+Message-ID: <1253315046.2543.475.camel@Joe-Laptop.home>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jens Rosenboom <me@jayr.de>, David Miller <davem@davemloft.net>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:36636 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753658AbZIRXCh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2009 19:02:37 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e35.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id n8IMqb23015207
-	for <netdev@vger.kernel.org>; Fri, 18 Sep 2009 16:52:37 -0600
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n8IN2aQ3233942
-	for <netdev@vger.kernel.org>; Fri, 18 Sep 2009 17:02:36 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n8IN2ZLE004784
-	for <netdev@vger.kernel.org>; Fri, 18 Sep 2009 17:02:36 -0600
-In-reply-to: <20090918121321.GB2801@psychotron.redhat.com>
+Received: from mail.perches.com ([173.55.12.10]:1026 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758295AbZIRXEE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Sep 2009 19:04:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Pirko <jpirko@redhat.com> wrote:
+Jens Rosenboom noticed that a possibly unaligned const char*
+is cast to a const struct in6_addr *.
 
->Primary module parameter passed to bonding is pernament. That means if you
->release the primary slave and enslave it again, it becomes the primary slave
->again. But if you set primary slave via sysfs, the primary slave is only set
->once and it's not remembered in bond->params structure. Therefore the setting is
->lost after releasing the primary slave. This simple one-liner fixes this.
->
->Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->
->diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
->index 6044e12..ff449de 100644
->--- a/drivers/net/bonding/bond_sysfs.c
->+++ b/drivers/net/bonding/bond_sysfs.c
->@@ -1182,6 +1182,7 @@ static ssize_t bonding_store_primary(struct device *d,
-> 				       ": %s: Setting %s as primary slave.\n",
-> 				       bond->dev->name, slave->dev->name);
-> 				bond->primary_slave = slave;
->+				strcpy(bond->params.primary, slave->dev->name);
-> 				bond_select_active_slave(bond);
-> 				goto out;
-> 			}
+Avoid this at the cost of a struct in6_addr copy on the stack.
 
-	Looks good, fixes another bug I'd not heard of previously.
+Signed-off-by: Joe Perches <joe@perches.com>
 
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+diff --git a/lib/vsprintf.c b/lib/vsprintf.c
+index d320c18..5d299d0 100644
+--- a/lib/vsprintf.c
++++ b/lib/vsprintf.c
+@@ -671,7 +671,7 @@ static char *ip4_string(char *p, const u8 *addr, bool leading_zeros)
+ 	return p;
+ }
+ 
+-static char *ip6_compressed_string(char *p, const struct in6_addr *addr)
++static char *ip6_compressed_string(char *p, const char *addr)
+ {
+ 	int i;
+ 	int j;
+@@ -683,7 +683,12 @@ static char *ip6_compressed_string(char *p, const struct in6_addr *addr)
+ 	u8 hi;
+ 	u8 lo;
+ 	bool needcolon = false;
+-	bool useIPv4 = ipv6_addr_v4mapped(addr) || ipv6_addr_is_isatap(addr);
++	bool useIPv4;
++	struct in6_addr in6;
++
++	memcpy(&in6, addr, sizeof(struct in6_addr));
++
++	useIPv4 = ipv6_addr_v4mapped(&in6) || ipv6_addr_is_isatap(&in6);
+ 
+ 	memset(zerolength, 0, sizeof(zerolength));
+ 
+@@ -695,7 +700,7 @@ static char *ip6_compressed_string(char *p, const struct in6_addr *addr)
+ 	/* find position of longest 0 run */
+ 	for (i = 0; i < range; i++) {
+ 		for (j = i; j < range; j++) {
+-			if (addr->s6_addr16[j] != 0)
++			if (in6.s6_addr16[j] != 0)
+ 				break;
+ 			zerolength[i]++;
+ 		}
+@@ -722,7 +727,7 @@ static char *ip6_compressed_string(char *p, const struct in6_addr *addr)
+ 			needcolon = false;
+ 		}
+ 		/* hex u16 without leading 0s */
+-		word = ntohs(addr->s6_addr16[i]);
++		word = ntohs(in6.s6_addr16[i]);
+ 		hi = word >> 8;
+ 		lo = word & 0xff;
+ 		if (hi) {
+@@ -741,19 +746,19 @@ static char *ip6_compressed_string(char *p, const struct in6_addr *addr)
+ 	if (useIPv4) {
+ 		if (needcolon)
+ 			*p++ = ':';
+-		p = ip4_string(p, &addr->s6_addr[12], false);
++		p = ip4_string(p, &in6.s6_addr[12], false);
+ 	}
+ 
+ 	*p = '\0';
+ 	return p;
+ }
+ 
+-static char *ip6_string(char *p, const struct in6_addr *addr, const char *fmt)
++static char *ip6_string(char *p, const char *addr, const char *fmt)
+ {
+ 	int i;
+ 	for (i = 0; i < 8; i++) {
+-		p = pack_hex_byte(p, addr->s6_addr[2 * i]);
+-		p = pack_hex_byte(p, addr->s6_addr[2 * i + 1]);
++		p = pack_hex_byte(p, *addr++);
++		p = pack_hex_byte(p, *addr++);
+ 		if (fmt[0] == 'I' && i != 7)
+ 			*p++ = ':';
+ 	}
+@@ -768,9 +773,9 @@ static char *ip6_addr_string(char *buf, char *end, const u8 *addr,
+ 	char ip6_addr[sizeof("xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:255.255.255.255")];
+ 
+ 	if (fmt[0] == 'I' && fmt[2] == 'c')
+-		ip6_compressed_string(ip6_addr, (const struct in6_addr *)addr);
++		ip6_compressed_string(ip6_addr, addr);
+ 	else
+-		ip6_string(ip6_addr, (const struct in6_addr *)addr, fmt);
++		ip6_string(ip6_addr, addr, fmt);
+ 
+ 	return string(buf, end, ip6_addr, spec);
+ }
+
+
