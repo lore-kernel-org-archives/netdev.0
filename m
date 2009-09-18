@@ -1,68 +1,58 @@
-From: Armin Abfalterer <armina@ifi.uio.no>
-Subject: tcp_sock variable initialization
-Date: Fri, 18 Sep 2009 10:50:59 +0200
-Message-ID: <1253263859.4539.31.camel@localhost.localdomain>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: tun: Return -EINVAL if neither IFF_TUN nor IFF_TAP is set.
+Date: Fri, 18 Sep 2009 07:54:05 -0400
+Message-ID: <200909180754.05817.paul.moore@hp.com>
+References: <20090917073614.15217260031@msa105lp.auone-net.jp>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out2.uio.no ([129.240.10.58]:50656 "EHLO mail-out2.uio.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751038AbZIRIvM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Sep 2009 04:51:12 -0400
-Received: from mail-mx2.uio.no ([129.240.10.30])
-	by mail-out2.uio.no with esmtp (Exim 4.69)
-	(envelope-from <armina@ifi.uio.no>)
-	id 1MoZBS-0004oO-UP
-	for netdev@vger.kernel.org; Fri, 18 Sep 2009 10:51:14 +0200
-Received: from cm-84.215.22.41.getinternet.no ([84.215.22.41] helo=[192.168.0.3])
-	by mail-mx2.uio.no with esmtpsa (SSLv3:CAMELLIA256-SHA:256)
-	user armina (Exim 4.69)
-	(envelope-from <armina@ifi.uio.no>)
-	id 1MoZBS-0003UO-KF
-	for netdev@vger.kernel.org; Fri, 18 Sep 2009 10:51:14 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Kusanagi Kouichi <slash@ma.neweb.ne.jp>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756978AbZIRLyG@vger.kernel.org>
+In-Reply-To: <20090917073614.15217260031@msa105lp.auone-net.jp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi!
+On Thursday 17 September 2009 03:36:13 am Kusanagi Kouichi wrote:
+> After commit 2b980dbd77d229eb60588802162c9659726b11f4
+> ("lsm: Add hooks to the TUN driver") tun_set_iff doesn't
+> return -EINVAL though neither IFF_TUN nor IFF_TAP is set.
+> 
+> Signed-off-by: Kusanagi Kouichi <slash@ma.neweb.ne.jp>
 
-I need a control variable (ecnn_flags) in tcp_sock that should be set
-properly after the 3-way-handshake in tcp_create_openreq_child(). If I
-set the variable in its value is always 0 afterwards.
+Sorry about that, my mistake, thanks for finding and fixing this.
 
-struct sock *tcp_create_openreq_child( ... )
-{
-	struct sock *newsk = inet_csk_clone(sk, req, GFP_ATOMIC);
+Reviewed-by: Paul Moore <paul.moore@hp.com>
 
-	if (newsk != NULL) {
-		struct tcp_sock *newtp;
+> ---
+>  drivers/net/tun.c |    4 +---
+>  1 files changed, 1 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 3f5d288..e091756 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -946,8 +946,6 @@ static int tun_set_iff(struct net *net, struct file
+>  *file, struct ifreq *ifr) char *name;
+>  		unsigned long flags = 0;
+> 
+> -		err = -EINVAL;
+> -
+>  		if (!capable(CAP_NET_ADMIN))
+>  			return -EPERM;
+>  		err = security_tun_dev_create();
+> @@ -964,7 +962,7 @@ static int tun_set_iff(struct net *net, struct file
+>  *file, struct ifreq *ifr) flags |= TUN_TAP_DEV;
+>  			name = "tap%d";
+>  		} else
+> -			goto failed;
+> +			return -EINVAL;
+> 
+>  		if (*ifr->ifr_name)
+>  			name = ifr->ifr_name;
+> 
 
-		newtp = tcp_sk(newsk);
-		newtp->ecnn_flags |= TCP_ECN_NONCE_OK;
-	}
-}
-
-When I read the variable for the next outgoing segment the values is not
-set.
-
-static int tcp_transmit_skb( ... )
-{
-	struct tcp_sock *tp;
-
-	
-	if (tp->ecnn_flags & TCP_ECN_NONCE_OK) {
-		/*
-		* never entered!!!!
-		*/
-	}
-}
-
-I'm quite sure that it has to do with the creation of the big socket
-when the connection enters TCP_ESTABLISHED but searching for hours
-didn't help to find the right place where my variable is re-initialized.
-
-Any hint in the right direction would greatly appreciated!!! Thanks!
-
-Armin
-
+-- 
+paul moore
+linux @ hp
