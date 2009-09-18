@@ -1,77 +1,78 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 06/12] gigaset: fix device ERROR response handling (v2)
+Subject: [PATCH 01/12] gigaset: really fix chars_in_buffer
 Date: Sat, 19 Sep 2009 01:57:43 +0200 (CEST)
-Message-ID: <20090919-patch-gigaset-06.tilman@imap.cc>
+Message-ID: <20090919-patch-gigaset-01.tilman@imap.cc>
 References: <20090919-patch-gigaset-00.tilman@imap.cc>
 Cc: Hansjoerg Lipp <hjlipp@web.de>, davem@davemloft.net,
 	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+	Alan Cox <alan@linux.intel.com>, linux-kernel@vger.kernel.org
 To: Karsten Keil <isdn@linux-pingi.de>,
 	Karsten Keil <keil@b1-systems.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754584AbZIRX6v@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.pxnet.com ([195.227.45.7]:35053 "EHLO mail.pxnet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752866AbZIRX6X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Sep 2009 19:58:23 -0400
 In-Reply-To: <20090919-patch-gigaset-00.tilman@imap.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Clear out pending command that got rejected with 'ERROR' response.
-This fixes the bug where unloading the driver module would hang
-with the message: "gigaset: not searching scheduled commands: busy"
+The tty_operation chars_in_buffer() is not allowed to return a
+negative value to signal an error. Corrects the problem flagged
+by commit 23198fda7182969b619613a555f8645fdc3dc334,
+"tty: fix chars_in_buffers".
 
 Impact: error handling bugfix
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 ---
- drivers/isdn/gigaset/ev-layer.c |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/isdn/gigaset/interface.c |   19 +++++++------------
+ 1 files changed, 7 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/isdn/gigaset/ev-layer.c b/drivers/isdn/gigaset/ev-layer.c
-index ff2ec2c..926370a 100644
---- a/drivers/isdn/gigaset/ev-layer.c
-+++ b/drivers/isdn/gigaset/ev-layer.c
-@@ -207,7 +207,6 @@ struct reply_t gigaset_tab_nocid[] =
- 	/* leave dle mode */
- 	{RSP_INIT,      0,  0,SEQ_DLE0,           201, 5, {0},             "^SDLE=0\r"},
- 	{RSP_OK,      201,201, -1,                202,-1},
--	//{RSP_ZDLE,    202,202,  0,                202, 0, {ACT_ERROR}},//DELETE
- 	{RSP_ZDLE,    202,202,  0,                  0, 0, {ACT_DLE0}},
- 	{RSP_NODEV,   200,249, -1,                  0, 0, {ACT_FAKEDLE0}},
- 	{RSP_ERROR,   200,249, -1,                  0, 0, {ACT_FAILDLE0}},
-@@ -265,6 +264,7 @@ struct reply_t gigaset_tab_nocid[] =
- 	{EV_SHUTDOWN,  -1, -1, -1,                 -1,-1, {ACT_SHUTDOWN}}, //FIXME
+diff --git a/drivers/isdn/gigaset/interface.c b/drivers/isdn/gigaset/interface.c
+index 8ff7e35..f33ac27 100644
+--- a/drivers/isdn/gigaset/interface.c
++++ b/drivers/isdn/gigaset/interface.c
+@@ -408,33 +408,28 @@ static int if_write_room(struct tty_struct *tty)
+ 	return retval;
+ }
  
- 	/* misc. */
-+	{RSP_ERROR,    -1, -1, -1,                 -1, -1, {ACT_ERROR} },
- 	{RSP_EMPTY,    -1, -1, -1,                 -1,-1, {ACT_DEBUG}}, //FIXME
- 	{RSP_ZCFGT,    -1, -1, -1,                 -1,-1, {ACT_DEBUG}}, //FIXME
- 	{RSP_ZCFG,     -1, -1, -1,                 -1,-1, {ACT_DEBUG}}, //FIXME
-@@ -328,10 +328,9 @@ struct reply_t gigaset_tab_cid[] =
- 	{RSP_INIT,     -1, -1,SEQ_HUP,            401, 5, {0},             "+VLS=0\r"}, /* hang up */ //-1,-1?
- 	{RSP_OK,      401,401, -1,                402, 5},
- 	{RSP_ZVLS,    402,402,  0,                403, 5},
--	{RSP_ZSAU,    403,403,ZSAU_DISCONNECT_REQ, -1,-1, {ACT_DEBUG}}, /* if not remote hup */
--	//{RSP_ZSAU,    403,403,ZSAU_NULL,          401, 0, {ACT_ERROR}}, //DELETE//FIXME -> DLE0 // should we do this _before_ hanging up for base driver?
--	{RSP_ZSAU,    403,403,ZSAU_NULL,            0, 0, {ACT_DISCONNECT}}, //FIXME -> DLE0 // should we do this _before_ hanging up for base driver?
--	{RSP_NODEV,   401,403, -1,                  0, 0, {ACT_FAKEHUP}}, //FIXME -> DLE0 // should we do this _before_ hanging up for base driver?
-+	{RSP_ZSAU,    403, 403, ZSAU_DISCONNECT_REQ, -1, -1, {ACT_DEBUG} },
-+	{RSP_ZSAU,    403, 403, ZSAU_NULL,            0,  0, {ACT_DISCONNECT} },
-+	{RSP_NODEV,   401, 403, -1,                   0,  0, {ACT_FAKEHUP} },
- 	{RSP_ERROR,   401,401, -1,                  0, 0, {ACT_ABORTHUP}},
- 	{EV_TIMEOUT,  401,403, -1,                  0, 0, {ACT_ABORTHUP}},
+-/* FIXME: This function does not have error returns */
+-
+ static int if_chars_in_buffer(struct tty_struct *tty)
+ {
+ 	struct cardstate *cs;
+-	int retval = -ENODEV;
++	int retval = 0;
  
-@@ -1434,11 +1433,12 @@ static void do_action(int action, struct cardstate *cs,
- 		cs->gotfwver = -1;
- 		dev_err(cs->dev, "could not read firmware version.\n");
- 		break;
--#ifdef CONFIG_GIGASET_DEBUG
- 	case ACT_ERROR:
--		*p_genresp = 1;
--		*p_resp_code = RSP_ERROR;
-+		gig_dbg(DEBUG_ANY, "%s: ERROR response in ConState %d",
-+			__func__, at_state->ConState);
-+		cs->cur_at_seq = SEQ_NONE;
- 		break;
-+#ifdef CONFIG_GIGASET_DEBUG
- 	case ACT_TEST:
- 		{
- 			static int count = 3; //2; //1;
+ 	cs = (struct cardstate *) tty->driver_data;
+ 	if (!cs) {
+ 		pr_err("%s: no cardstate\n", __func__);
+-		return -ENODEV;
++		return 0;
+ 	}
+ 
+ 	gig_dbg(DEBUG_IF, "%u: %s()", cs->minor_index, __func__);
+ 
+-	if (mutex_lock_interruptible(&cs->mutex))
+-		return -ERESTARTSYS; // FIXME -EINTR?
++	mutex_lock(&cs->mutex);
+ 
+-	if (!cs->connected) {
++	if (!cs->connected)
+ 		gig_dbg(DEBUG_IF, "not connected");
+-		retval = -ENODEV;
+-	} else if (!cs->open_count)
++	else if (!cs->open_count)
+ 		dev_warn(cs->dev, "%s: device not opened\n", __func__);
+-	else if (cs->mstate != MS_LOCKED) {
++	else if (cs->mstate != MS_LOCKED)
+ 		dev_warn(cs->dev, "can't write to unlocked device\n");
+-		retval = -EBUSY;
+-	} else
++	else
+ 		retval = cs->ops->chars_in_buffer(cs);
+ 
+ 	mutex_unlock(&cs->mutex);
 -- 
 1.6.2.1.214.ge986c
+
