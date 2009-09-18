@@ -1,50 +1,74 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 03/12] gigaset: linearize skb
+Subject: [PATCH 08/12] gigaset: correct debugging output selection
 Date: Sat, 19 Sep 2009 01:57:43 +0200 (CEST)
-Message-ID: <20090919-patch-gigaset-03.tilman@imap.cc>
+Message-ID: <20090919-patch-gigaset-08.tilman@imap.cc>
 References: <20090919-patch-gigaset-00.tilman@imap.cc>
 Cc: Hansjoerg Lipp <hjlipp@web.de>, davem@davemloft.net,
 	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Karsten Keil <isdn@linux-pingi.de>,
 	Karsten Keil <keil@b1-systems.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.pxnet.com ([195.227.45.7]:35098 "EHLO mail.pxnet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754129AbZIRX6o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Sep 2009 19:58:44 -0400
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755618AbZIRX7D@vger.kernel.org>
 In-Reply-To: <20090919-patch-gigaset-00.tilman@imap.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The code of the Gigaset driver assumes that sk_buff-s coming
-from the ISDN4Linux subsystem are always linear. Explicitly
-calling skb_linearize() is cheap if they are, but much more
-robust in case they ever aren't.
+Dump payload data consistently only when DEBUG_STREAM_DUMP debug bit
+is set.
 
-Impact: robustness improvement
+Impact: debugging aid
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 ---
- drivers/isdn/gigaset/i4l.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ drivers/isdn/gigaset/isocdata.c |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/isdn/gigaset/i4l.c b/drivers/isdn/gigaset/i4l.c
-index 9b22f9c..322f16e 100644
---- a/drivers/isdn/gigaset/i4l.c
-+++ b/drivers/isdn/gigaset/i4l.c
-@@ -51,6 +51,12 @@ static int writebuf_from_LL(int driverID, int channel, int ack,
- 		return -ENODEV;
+diff --git a/drivers/isdn/gigaset/isocdata.c b/drivers/isdn/gigaset/isocdata.c
+index bed38fc..7fd32f0 100644
+--- a/drivers/isdn/gigaset/isocdata.c
++++ b/drivers/isdn/gigaset/isocdata.c
+@@ -429,7 +429,7 @@ static inline int hdlc_buildframe(struct isowbuf_t *iwb,
+ 		return -EAGAIN;
  	}
- 	bcs = &cs->bcs[channel];
-+
-+	/* can only handle linear sk_buffs */
-+	if (skb_linearize(skb) < 0) {
-+		dev_err(cs->dev, "%s: skb_linearize failed\n", __func__);
-+		return -ENOMEM;
-+	}
- 	len = skb->len;
  
- 	gig_dbg(DEBUG_LLDATA,
+-	dump_bytes(DEBUG_STREAM, "snd data", in, count);
++	dump_bytes(DEBUG_STREAM_DUMP, "snd data", in, count);
+ 
+ 	/* bitstuff and checksum input data */
+ 	fcs = PPP_INITFCS;
+@@ -448,7 +448,6 @@ static inline int hdlc_buildframe(struct isowbuf_t *iwb,
+ 	/* put closing flag and repeat byte for flag idle */
+ 	isowbuf_putflag(iwb);
+ 	end = isowbuf_donewrite(iwb);
+-	dump_bytes(DEBUG_STREAM_DUMP, "isowbuf", iwb->data, end + 1);
+ 	return end;
+ }
+ 
+@@ -482,6 +481,8 @@ static inline int trans_buildframe(struct isowbuf_t *iwb,
+ 	}
+ 
+ 	gig_dbg(DEBUG_STREAM, "put %d bytes", count);
++	dump_bytes(DEBUG_STREAM_DUMP, "snd data", in, count);
++
+ 	write = iwb->write;
+ 	do {
+ 		c = bitrev8(*in++);
+@@ -583,7 +584,7 @@ static inline void hdlc_done(struct bc_state *bcs)
+ 		procskb->tail -= 2;
+ 		gig_dbg(DEBUG_ISO, "%s: good frame (%d octets)",
+ 			__func__, procskb->len);
+-		dump_bytes(DEBUG_STREAM,
++		dump_bytes(DEBUG_STREAM_DUMP,
+ 			   "rcv data", procskb->data, procskb->len);
+ 		bcs->hw.bas->goodbytes += procskb->len;
+ 		gigaset_rcv_skb(procskb, bcs->cs, bcs);
+@@ -878,6 +879,8 @@ static inline void trans_receive(unsigned char *src, unsigned count,
+ 			dobytes--;
+ 		}
+ 		if (dobytes == 0) {
++			dump_bytes(DEBUG_STREAM_DUMP,
++				   "rcv data", skb->data, skb->len);
+ 			gigaset_rcv_skb(skb, bcs->cs, bcs);
+ 			bcs->skb = skb = dev_alloc_skb(SBUFSIZE + HW_HDR_LEN);
+ 			if (!skb) {
 -- 
 1.6.2.1.214.ge986c
-
