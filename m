@@ -1,33 +1,142 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ks8851_ml ethernet network driver
-Date: Thu, 17 Sep 2009 16:49:52 -0700 (PDT)
-Message-ID: <20090917.164952.33104590.davem@davemloft.net>
-References: <20090916.204801.190052862.davem@davemloft.net>
-	<C43529A246480145B0A6D0234BDB0F0DE8A1@MELANITE.micrel.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH] igb: resolve namespacecheck warning for
+	igb_hash_mc_addr
+Date: Thu, 17 Sep 2009 17:52:29 -0700
+Message-ID: <20090918005219.25329.94906.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: greg@kroah.com, netdev@vger.kernel.org, Charles.Li@Micrel.Com,
-	Choi@kroah.com, jgarzik@redhat.com, shemminger@vyatta.com
-To: David.Choi@Micrel.Com
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53720
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753662AbZIQXtf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 19:49:35 -0400
-In-Reply-To: <C43529A246480145B0A6D0234BDB0F0DE8A1@MELANITE.micrel.com>
+Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:49185
+	"EHLO QMTA04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752220AbZIRAwo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 20:52:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Choi, David" <David.Choi@Micrel.Com>
-Date: Thu, 17 Sep 2009 12:30:27 -0700
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-> --- linux-2.6.31-rc3/drivers/net/ks8851_mll.c.orig	2009-09-17
-> 10:18:56.000000000 -0700
-> +++ linux-2.6.31-rc3/drivers/net/ks8851_mll.c	2009-09-17
-> 10:09:37.000000000 -0700
-> @@ -21,8 +21,6 @@
->   * KS8851 16bit MLL chip from Micrel Inc.
+This patch resolves a warning seen when doing namespace checking via
+"make namespacecheck"
 
-I can't use this patch or even test it, as your email client
-has corrupted it by, for example, breaking up long lines.
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/igb/e1000_mac.c |   72 ++++++++++++++++++++++---------------------
+ drivers/net/igb/e1000_mac.h |    1 -
+ 2 files changed, 36 insertions(+), 37 deletions(-)
+
+diff --git a/drivers/net/igb/e1000_mac.c b/drivers/net/igb/e1000_mac.c
+index a0231cd..7d76bb0 100644
+--- a/drivers/net/igb/e1000_mac.c
++++ b/drivers/net/igb/e1000_mac.c
+@@ -286,41 +286,6 @@ void igb_mta_set(struct e1000_hw *hw, u32 hash_value)
+ }
+ 
+ /**
+- *  igb_update_mc_addr_list - Update Multicast addresses
+- *  @hw: pointer to the HW structure
+- *  @mc_addr_list: array of multicast addresses to program
+- *  @mc_addr_count: number of multicast addresses to program
+- *
+- *  Updates entire Multicast Table Array.
+- *  The caller must have a packed mc_addr_list of multicast addresses.
+- **/
+-void igb_update_mc_addr_list(struct e1000_hw *hw,
+-                             u8 *mc_addr_list, u32 mc_addr_count)
+-{
+-	u32 hash_value, hash_bit, hash_reg;
+-	int i;
+-
+-	/* clear mta_shadow */
+-	memset(&hw->mac.mta_shadow, 0, sizeof(hw->mac.mta_shadow));
+-
+-	/* update mta_shadow from mc_addr_list */
+-	for (i = 0; (u32) i < mc_addr_count; i++) {
+-		hash_value = igb_hash_mc_addr(hw, mc_addr_list);
+-
+-		hash_reg = (hash_value >> 5) & (hw->mac.mta_reg_count - 1);
+-		hash_bit = hash_value & 0x1F;
+-
+-		hw->mac.mta_shadow[hash_reg] |= (1 << hash_bit);
+-		mc_addr_list += (ETH_ALEN);
+-	}
+-
+-	/* replace the entire MTA table */
+-	for (i = hw->mac.mta_reg_count - 1; i >= 0; i--)
+-		array_wr32(E1000_MTA, i, hw->mac.mta_shadow[i]);
+-	wrfl();
+-}
+-
+-/**
+  *  igb_hash_mc_addr - Generate a multicast hash value
+  *  @hw: pointer to the HW structure
+  *  @mc_addr: pointer to a multicast address
+@@ -329,7 +294,7 @@ void igb_update_mc_addr_list(struct e1000_hw *hw,
+  *  the multicast filter table array address and new table value.  See
+  *  igb_mta_set()
+  **/
+-u32 igb_hash_mc_addr(struct e1000_hw *hw, u8 *mc_addr)
++static u32 igb_hash_mc_addr(struct e1000_hw *hw, u8 *mc_addr)
+ {
+ 	u32 hash_value, hash_mask;
+ 	u8 bit_shift = 0;
+@@ -392,6 +357,41 @@ u32 igb_hash_mc_addr(struct e1000_hw *hw, u8 *mc_addr)
+ }
+ 
+ /**
++ *  igb_update_mc_addr_list - Update Multicast addresses
++ *  @hw: pointer to the HW structure
++ *  @mc_addr_list: array of multicast addresses to program
++ *  @mc_addr_count: number of multicast addresses to program
++ *
++ *  Updates entire Multicast Table Array.
++ *  The caller must have a packed mc_addr_list of multicast addresses.
++ **/
++void igb_update_mc_addr_list(struct e1000_hw *hw,
++                             u8 *mc_addr_list, u32 mc_addr_count)
++{
++	u32 hash_value, hash_bit, hash_reg;
++	int i;
++
++	/* clear mta_shadow */
++	memset(&hw->mac.mta_shadow, 0, sizeof(hw->mac.mta_shadow));
++
++	/* update mta_shadow from mc_addr_list */
++	for (i = 0; (u32) i < mc_addr_count; i++) {
++		hash_value = igb_hash_mc_addr(hw, mc_addr_list);
++
++		hash_reg = (hash_value >> 5) & (hw->mac.mta_reg_count - 1);
++		hash_bit = hash_value & 0x1F;
++
++		hw->mac.mta_shadow[hash_reg] |= (1 << hash_bit);
++		mc_addr_list += (ETH_ALEN);
++	}
++
++	/* replace the entire MTA table */
++	for (i = hw->mac.mta_reg_count - 1; i >= 0; i--)
++		array_wr32(E1000_MTA, i, hw->mac.mta_shadow[i]);
++	wrfl();
++}
++
++/**
+  *  igb_clear_hw_cntrs_base - Clear base hardware counters
+  *  @hw: pointer to the HW structure
+  *
+diff --git a/drivers/net/igb/e1000_mac.h b/drivers/net/igb/e1000_mac.h
+index 7518af8..bca17d8 100644
+--- a/drivers/net/igb/e1000_mac.h
++++ b/drivers/net/igb/e1000_mac.h
+@@ -88,6 +88,5 @@ enum e1000_mng_mode {
+ #define E1000_MNG_DHCP_COOKIE_STATUS_VLAN    0x2
+ 
+ extern void e1000_init_function_pointers_82575(struct e1000_hw *hw);
+-extern u32 igb_hash_mc_addr(struct e1000_hw *hw, u8 *mc_addr);
+ 
+ #endif
+
