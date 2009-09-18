@@ -1,58 +1,38 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: tun: Return -EINVAL if neither IFF_TUN nor IFF_TAP is set.
-Date: Fri, 18 Sep 2009 07:54:05 -0400
-Message-ID: <200909180754.05817.paul.moore@hp.com>
-References: <20090917073614.15217260031@msa105lp.auone-net.jp>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH net-next-2.6] bonding: set primary param via sysfs
+Date: Fri, 18 Sep 2009 14:13:22 +0200
+Message-ID: <20090918121321.GB2801@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Kusanagi Kouichi <slash@ma.neweb.ne.jp>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756978AbZIRLyG@vger.kernel.org>
-In-Reply-To: <20090917073614.15217260031@msa105lp.auone-net.jp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45070 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752589AbZIRMNX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Sep 2009 08:13:23 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 17 September 2009 03:36:13 am Kusanagi Kouichi wrote:
-> After commit 2b980dbd77d229eb60588802162c9659726b11f4
-> ("lsm: Add hooks to the TUN driver") tun_set_iff doesn't
-> return -EINVAL though neither IFF_TUN nor IFF_TAP is set.
-> 
-> Signed-off-by: Kusanagi Kouichi <slash@ma.neweb.ne.jp>
+Primary module parameter passed to bonding is pernament. That means if you
+release the primary slave and enslave it again, it becomes the primary slave
+again. But if you set primary slave via sysfs, the primary slave is only set
+once and it's not remembered in bond->params structure. Therefore the setting is
+lost after releasing the primary slave. This simple one-liner fixes this.
 
-Sorry about that, my mistake, thanks for finding and fixing this.
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-Reviewed-by: Paul Moore <paul.moore@hp.com>
-
-> ---
->  drivers/net/tun.c |    4 +---
->  1 files changed, 1 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 3f5d288..e091756 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -946,8 +946,6 @@ static int tun_set_iff(struct net *net, struct file
->  *file, struct ifreq *ifr) char *name;
->  		unsigned long flags = 0;
-> 
-> -		err = -EINVAL;
-> -
->  		if (!capable(CAP_NET_ADMIN))
->  			return -EPERM;
->  		err = security_tun_dev_create();
-> @@ -964,7 +962,7 @@ static int tun_set_iff(struct net *net, struct file
->  *file, struct ifreq *ifr) flags |= TUN_TAP_DEV;
->  			name = "tap%d";
->  		} else
-> -			goto failed;
-> +			return -EINVAL;
-> 
->  		if (*ifr->ifr_name)
->  			name = ifr->ifr_name;
-> 
-
--- 
-paul moore
-linux @ hp
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 6044e12..ff449de 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -1182,6 +1182,7 @@ static ssize_t bonding_store_primary(struct device *d,
+ 				       ": %s: Setting %s as primary slave.\n",
+ 				       bond->dev->name, slave->dev->name);
+ 				bond->primary_slave = slave;
++				strcpy(bond->params.primary, slave->dev->name);
+ 				bond_select_active_slave(bond);
+ 				goto out;
+ 			}
