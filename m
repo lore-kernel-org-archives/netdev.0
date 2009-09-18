@@ -1,8 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 4/6] net: fix nlmsg len size for skb when error bit is
-	set.
-Date: Thu, 17 Sep 2009 17:58:11 -0700
-Message-ID: <20090918005811.25594.48046.stgit@localhost.localdomain>
+Subject: [net-2.6 PATCH 5/6] net: fix sock locking for sk_err field in netlink.
+Date: Thu, 17 Sep 2009 17:58:32 -0700
+Message-ID: <20090918005832.25594.45086.stgit@localhost.localdomain>
 References: <20090918005708.25594.52575.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,40 +11,56 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	John Fastabend <john.r.fastabend@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:47537 "EHLO
-	QMTA06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754863AbZIRA62 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2009 20:58:28 -0400
+Return-path: <linux-scsi-owner@vger.kernel.org>
 In-Reply-To: <20090918005708.25594.52575.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: John Fastabend <john.r.fastabend@intel.com>
 
-Currently, the nlmsg->len field is not set correctly in  netlink_ack()
-for ack messages that include the nlmsg of the error frame.  This
-corrects the length field passed to __nlmsg_put to use the correct
-payload size.
+This adds the sock lock around setting the sk_err field
+in sock struct. Without the lock multiple threads may
+write to this field.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- net/netlink/af_netlink.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/netlink/af_netlink.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
 diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 9934847..aa74011 100644
+index aa74011..1669dfc 100644
 --- a/net/netlink/af_netlink.c
 +++ b/net/netlink/af_netlink.c
-@@ -1788,7 +1788,7 @@ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err)
- 	}
+@@ -732,7 +732,9 @@ static void netlink_overrun(struct sock *sk)
  
- 	rep = __nlmsg_put(skb, NETLINK_CB(in_skb).pid, nlh->nlmsg_seq,
--			  NLMSG_ERROR, sizeof(struct nlmsgerr), 0);
-+			  NLMSG_ERROR, payload, 0);
- 	errmsg = nlmsg_data(rep);
- 	errmsg->error = err;
- 	memcpy(&errmsg->msg, nlh, err ? nlh->nlmsg_len : sizeof(*nlh));
+ 	if (!(nlk->flags & NETLINK_RECV_NO_ENOBUFS)) {
+ 		if (!test_and_set_bit(0, &nlk_sk(sk)->state)) {
++			lock_sock(sk);
+ 			sk->sk_err = ENOBUFS;
++			release_sock(sk);
+ 			sk->sk_error_report(sk);
+ 		}
+ 	}
+@@ -1101,7 +1103,9 @@ static inline int do_one_set_err(struct sock *sk,
+ 	    !test_bit(p->group - 1, nlk->groups))
+ 		goto out;
+ 
++	lock_sock(sk);
+ 	sk->sk_err = p->code;
++	release_sock(sk);
+ 	sk->sk_error_report(sk);
+ out:
+ 	return 0;
+@@ -1780,7 +1784,9 @@ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err)
+ 				    in_skb->sk->sk_protocol,
+ 				    NETLINK_CB(in_skb).pid);
+ 		if (sk) {
++			lock_sock(sk);
+ 			sk->sk_err = ENOBUFS;
++			release_sock(sk);
+ 			sk->sk_error_report(sk);
+ 			sock_put(sk);
+ 		}
 
