@@ -1,43 +1,78 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [iproute2 PATCH] Add 'ip tuntap' support.
-Date: Sat, 19 Sep 2009 12:55:29 -0700
-Message-ID: <1253390129.6317.31.camel@macbook.infradead.org>
-References: <1253378923.6317.11.camel@macbook.infradead.org>
-	 <20090919125222.5f4718f1@s6510>
+From: Kevin Cernekee <cernekee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH RESEND] kaweth: Fix memory leak in kaweth_control()
+Date: Sat, 19 Sep 2009 14:18:21 -0700
+Message-ID: <3317a2830541b564fef54730a60f85dc@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:55029 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751529AbZISTze (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Sep 2009 15:55:34 -0400
-In-Reply-To: <20090919125222.5f4718f1@s6510>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2009-09-19 at 12:52 -0700, Stephen Hemminger wrote:
-> 
-> I added it, but:
->   * cleaned up whitespace
+kaweth_control() never frees the buffer that it allocates for the USB
+control message.  Test case:
 
-Thanks.
+while :; do ifconfig eth2 down ; ifconfig eth2 up ; done
 
->   * use if_tun.h from sanitized 2.6.30
+This is a tiny buffer so it is a slow leak.  If you want to speed up the
+process, you can change the allocation size to e.g. 16384 bytes, and it
+will consume several megabytes within a few minutes.
 
-Hm, what's the difference, other than the lack of IFF_TUN_EXCL?
+Signed-off-by: Kevin Cernekee <cernekee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Acked-by: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+---
+ drivers/net/usb/kaweth.c |   18 +++++++++++-------
+ 1 files changed, 11 insertions(+), 7 deletions(-)
 
->   * ifdef IFF_TUN_EXCL flag, so can build with older code
->    (currently iproute is releasing for 2.6.30)
-
-IFF_TUN_EXCL is harmless (ignored) on older kernels -- when I looked at
-compatibility I decided to just set it anyway. Sorry, perhaps I should
-have mentioned that in the commit comment... but I'd completely
-forgotten about it.
-
+diff --git a/drivers/net/usb/kaweth.c b/drivers/net/usb/kaweth.c
+index e2a39b9..e391ef9 100644
+--- a/drivers/net/usb/kaweth.c
++++ b/drivers/net/usb/kaweth.c
+@@ -263,6 +263,7 @@ static int kaweth_control(struct kaweth_device *kaweth,
+ 			  int timeout)
+ {
+ 	struct usb_ctrlrequest *dr;
++	int retval;
+ 
+ 	dbg("kaweth_control()");
+ 
+@@ -278,18 +279,21 @@ static int kaweth_control(struct kaweth_device *kaweth,
+ 		return -ENOMEM;
+ 	}
+ 
+-	dr->bRequestType= requesttype;
++	dr->bRequestType = requesttype;
+ 	dr->bRequest = request;
+ 	dr->wValue = cpu_to_le16(value);
+ 	dr->wIndex = cpu_to_le16(index);
+ 	dr->wLength = cpu_to_le16(size);
+ 
+-	return kaweth_internal_control_msg(kaweth->dev,
+-					pipe,
+-					dr,
+-					data,
+-					size,
+-					timeout);
++	retval = kaweth_internal_control_msg(kaweth->dev,
++					     pipe,
++					     dr,
++					     data,
++					     size,
++					     timeout);
++
++	kfree(dr);
++	return retval;
+ }
+ 
+ /****************************************************************
 -- 
-David Woodhouse                            Open Source Technology Centre
-David.Woodhouse@intel.com                              Intel Corporation
+1.6.3.1
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
