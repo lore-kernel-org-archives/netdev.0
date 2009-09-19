@@ -1,44 +1,80 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] atm: dereference of he_dev->rbps_virt in
- he_init_group()
-Date: Sat, 19 Sep 2009 11:27:27 -0700
-Message-ID: <1253384847.2638.4.camel@Joe-Laptop.home>
-References: <20090902.232548.238393942.davem@davemloft.net>
-	 <4AA25B06.2090703@gmail.com>
-	 <20090911.123725.223971259.davem@davemloft.net>
-	 <20090911.125135.148893888.davem@davemloft.net>
-	 <4AB51FE7.7030509@gmail.com>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 2/5] drivers/net: remove duplicate structure field initialization
+Date: Sat, 19 Sep 2009 21:48:41 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0909192148180.27171@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, chas@cmf.nrl.navy.mil,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: Roel Kluin <roel.kluin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1045 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751855AbZISS1Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Sep 2009 14:27:25 -0400
-In-Reply-To: <4AB51FE7.7030509@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752381AbZISTsm@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2009-09-19 at 20:16 +0200, Roel Kluin wrote:
-> +	int i, ret;
-> +		ret = -ENOMEM;
-> +		ret = -ENOMEM;
-> +			ret = -ENOMEM;
-> +		ret = -ENOMEM;
-> +		ret = -ENOMEM;
-> +		ret = -ENOMEM;
-> +		ret = -ENOMEM;
-> +		ret = -ENOMEM;
-> +out_destroy_rbps_pool:
-> +	pci_pool_destroy(he_dev->rbps_pool);
-> +	return ret;
+From: Julia Lawall <julia@diku.dk>
 
-It looks as if it'd be clearer to not use variable ret and
-simply return -ENOMEM after the out_destroy_rbps_pool label.
+The definitions of vnet_ops and ehea_netdev_ops have initializations of a
+local function and eth_change_mtu for their respective ndo_change_mtu
+fields.  This change uses only the local function.
 
+The semantic match that finds this problem is as follows:
+(http://coccinelle.lip6.fr/)
 
+// <smpl>
+@r@
+identifier I, s, fld;
+position p0,p;
+expression E;
+@@
+
+struct I s =@p0 { ... .fld@p = E, ...};
+
+@s@
+identifier I, s, r.fld;
+position r.p0,p;
+expression E;
+@@
+
+struct I s =@p0 { ... .fld@p = E, ...};
+
+@script:python@
+p0 << r.p0;
+fld << r.fld;
+ps << s.p;
+pr << r.p;
+@@
+
+if int(ps[0].line)!=int(pr[0].line) or int(ps[0].column)!=int(pr[0].column):
+  cocci.print_main(fld,p0)
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+ drivers/net/ehea/ehea_main.c |    1 -
+ drivers/net/sunvnet.c        |    1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/drivers/net/sunvnet.c b/drivers/net/sunvnet.c
+index f1e5e45..bc74db0 100644
+--- a/drivers/net/sunvnet.c
++++ b/drivers/net/sunvnet.c
+@@ -1016,7 +1016,6 @@ static const struct net_device_ops vnet_ops = {
+ 	.ndo_open		= vnet_open,
+ 	.ndo_stop		= vnet_close,
+ 	.ndo_set_multicast_list	= vnet_set_rx_mode,
+-	.ndo_change_mtu		= eth_change_mtu,
+ 	.ndo_set_mac_address	= vnet_set_mac_addr,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_tx_timeout		= vnet_tx_timeout,
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
+index 977c3d3..41bd7ae 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -3083,7 +3083,6 @@ static const struct net_device_ops ehea_netdev_ops = {
+ 	.ndo_poll_controller	= ehea_netpoll,
+ #endif
+ 	.ndo_get_stats		= ehea_get_stats,
+-	.ndo_change_mtu		= eth_change_mtu,
+ 	.ndo_set_mac_address	= ehea_set_mac_addr,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_multicast_list	= ehea_set_multicast_list,
