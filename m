@@ -1,78 +1,43 @@
-From: Kevin Cernekee <cernekee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH RESEND] kaweth: Fix memory leak in kaweth_control()
-Date: Sat, 19 Sep 2009 14:18:21 -0700
-Message-ID: <3317a2830541b564fef54730a60f85dc@localhost>
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: SO_TIMESTAMPING fix and design decisions
+Date: Sat, 19 Sep 2009 15:09:21 -0700
+Message-ID: <1253398161.14869.2.camel@localhost.localdomain>
+References: <20090919192549.0735c93a@pundit>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Christopher Zimmermann <madroach@zakweb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:10631 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750954AbZISWKC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Sep 2009 18:10:02 -0400
+In-Reply-To: <20090919192549.0735c93a@pundit>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-kaweth_control() never frees the buffer that it allocates for the USB
-control message.  Test case:
+On Sat, 2009-09-19 at 10:25 -0700, Christopher Zimmermann wrote:
+> Hi, 
+> 
+> I'm currently working on the SO_TIMESTAMPING feature which is currently 
+> pretty much broken. The current status is the following:
+> 
+> -tx software timestamps don't work because of a race condition. See 
+> commit cd4d8fdad1f1320.
+> -rx software timestamps do work. But they are nothing new.
+> SO_TIMESTAMP[NS] has been available for years.
+> 
+> hardware timestamps only work for the Intel igb driver. I have access to 
+> two test machines with NICs supported by this driver.
+> 
 
-while :; do ifconfig eth2 down ; ifconfig eth2 up ; done
+Intel's 82599, supported by ixgbe, also has the same IEEE 1588
+timestamping support in hardware.  We haven't implemented the support
+yet in ixgbe, but the hardware is there and does work.  If you were
+curious of the interface, the datasheet for the hardware is available on
+our SourceForge site (e1000.sf.net).
 
-This is a tiny buffer so it is a slow leak.  If you want to speed up the
-process, you can change the allocation size to e.g. 16384 bytes, and it
-will consume several megabytes within a few minutes.
+Cheers,
+-PJ
 
-Signed-off-by: Kevin Cernekee <cernekee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Acked-by: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
----
- drivers/net/usb/kaweth.c |   18 +++++++++++-------
- 1 files changed, 11 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/usb/kaweth.c b/drivers/net/usb/kaweth.c
-index e2a39b9..e391ef9 100644
---- a/drivers/net/usb/kaweth.c
-+++ b/drivers/net/usb/kaweth.c
-@@ -263,6 +263,7 @@ static int kaweth_control(struct kaweth_device *kaweth,
- 			  int timeout)
- {
- 	struct usb_ctrlrequest *dr;
-+	int retval;
- 
- 	dbg("kaweth_control()");
- 
-@@ -278,18 +279,21 @@ static int kaweth_control(struct kaweth_device *kaweth,
- 		return -ENOMEM;
- 	}
- 
--	dr->bRequestType= requesttype;
-+	dr->bRequestType = requesttype;
- 	dr->bRequest = request;
- 	dr->wValue = cpu_to_le16(value);
- 	dr->wIndex = cpu_to_le16(index);
- 	dr->wLength = cpu_to_le16(size);
- 
--	return kaweth_internal_control_msg(kaweth->dev,
--					pipe,
--					dr,
--					data,
--					size,
--					timeout);
-+	retval = kaweth_internal_control_msg(kaweth->dev,
-+					     pipe,
-+					     dr,
-+					     data,
-+					     size,
-+					     timeout);
-+
-+	kfree(dr);
-+	return retval;
- }
- 
- /****************************************************************
--- 
-1.6.3.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
