@@ -1,132 +1,108 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [patch] ipvs: Use atomic operations atomicly
-Date: Sat, 19 Sep 2009 19:51:23 +1000
-Message-ID: <20090919095122.GA480@verge.net.au>
-References: <20090828023722.GA12136@verge.net.au>
- <4A9BC082.3090804@trash.net>
- <20090901015909.GA12252@verge.net.au>
- <4A9E6B62.8080208@trash.net>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH] cpmac: fix compilation errors against undeclared BUS_ID_SIZE
+Date: Sat, 19 Sep 2009 12:43:08 +0200
+Message-ID: <200909191243.09166.florian@openwrt.org>
+References: <200909160944.24265.florian@openwrt.org>
+Reply-To: Florian Fainelli <florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, ?? shin hong <hongshin@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>,
+	linux-mips@linux-mips.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f206.google.com ([209.85.219.206]:42910 "EHLO
+	mail-ew0-f206.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752413AbZISKnQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Sep 2009 06:43:16 -0400
+Received: by ewy2 with SMTP id 2so1943327ewy.17
+        for <netdev@vger.kernel.org>; Sat, 19 Sep 2009 03:43:19 -0700 (PDT)
+In-Reply-To: <200909160944.24265.florian@openwrt.org>
 Content-Disposition: inline
-In-Reply-To: <4A9E6B62.8080208@trash.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[ re-post with CC list ]
+David,
 
-On Wed, Sep 02, 2009 at 02:56:02PM +0200, Patrick McHardy wrote:
-> Simon Horman wrote:
-> > On Mon, Aug 31, 2009 at 02:22:26PM +0200, Patrick McHardy wrote:
-> >> It seems that proc_do_sync_threshold() should check whether this value
-> >> is zero. The current checks also look racy since incorrect values are
-> >> first updated, then overwritten again.
-> > 
-> > I'm wondering if an approach along the lines of the following is valid.
-> > The idea is that the value in the ctl_table is essentially a scratch
-> > value that is used by the parser and then copied into ip_vs_sync_threshold
-> > if it is valid.
-> 
-> Even simpler would be to use a temporary buffer on the stack for copying
-> the values from userspace and then copy them to the final buffer after
-> validation.
+Ping ? This fixes a build failure. Thank you very much !
 
-Do you mean something like what I have done using read_table in
-the new patch below?
+Le mercredi 16 septembre 2009 09:44:22, Florian Fainelli a =C3=A9crit :
+> Hi David,
+>
+> This is relevant for 2.6.32-rc0, thanks !
+> --
+> From: Florian Fainelli <florian@openwrt.org>
+> Subject: [PATCH] cpmac: fix compilation errors against undeclared
+> BUS_ID_SIZE
+>
+> With the removal of BUS_ID_SIZE, cpmac was not fully
+> converted to use MII_BUS_ID_SIZE as it ought to. This
+> patch fixes the following cpmac build failure:
+>  CC      drivers/net/cpmac.o
+> drivers/net/cpmac.c: In function 'cpmac_start_xmit':
+> drivers/net/cpmac.c:563: warning: comparison of distinct pointer type=
+s
+> lacks a cast drivers/net/cpmac.c: In function 'cpmac_probe':
+> drivers/net/cpmac.c:1112: error: 'BUS_ID_SIZE' undeclared (first use =
+in
+> this function) drivers/net/cpmac.c:1112: error: (Each undeclared iden=
+tifier
+> is reported only once drivers/net/cpmac.c:1112: error: for each funct=
+ion it
+> appears in.)
+>
+> Reported-by: Ralf Baechle <ralf@linux-mips.org>
+> Signed-off-by: Florian Fainelli <florian@openwrt.org>
+> ---
+> diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
+> index 3e3fab8..61f9da2 100644
+> --- a/drivers/net/cpmac.c
+> +++ b/drivers/net/cpmac.c
+> @@ -1109,7 +1109,7 @@ static int external_switch;
+>  static int __devinit cpmac_probe(struct platform_device *pdev)
+>  {
+>  	int rc, phy_id;
+> -	char mdio_bus_id[BUS_ID_SIZE];
+> +	char mdio_bus_id[MII_BUS_ID_SIZE];
+>  	struct resource *mem;
+>  	struct cpmac_priv *priv;
+>  	struct net_device *dev;
+> @@ -1118,7 +1118,7 @@ static int __devinit cpmac_probe(struct
+> platform_device *pdev) pdata =3D pdev->dev.platform_data;
+>
+>  	if (external_switch || dumb_switch) {
+> -		strncpy(mdio_bus_id, "0", BUS_ID_SIZE); /* fixed phys bus */
+> +		strncpy(mdio_bus_id, "0", MII_BUS_ID_SIZE); /* fixed phys bus */
+>  		phy_id =3D pdev->id;
+>  	} else {
+>  		for (phy_id =3D 0; phy_id < PHY_MAX_ADDR; phy_id++) {
+> @@ -1126,7 +1126,7 @@ static int __devinit cpmac_probe(struct
+> platform_device *pdev) continue;
+>  			if (!cpmac_mii->phy_map[phy_id])
+>  				continue;
+> -			strncpy(mdio_bus_id, cpmac_mii->id, BUS_ID_SIZE);
+> +			strncpy(mdio_bus_id, cpmac_mii->id, MII_BUS_ID_SIZE);
+>  			break;
+>  		}
+>  	}
+> @@ -1167,7 +1167,7 @@ static int __devinit cpmac_probe(struct
+> platform_device *pdev) priv->msg_enable =3D netif_msg_init(debug_leve=
+l,
+> 0xff);
+>  	memcpy(dev->dev_addr, pdata->dev_addr, sizeof(dev->dev_addr));
+>
+> -	snprintf(priv->phy_name, BUS_ID_SIZE, PHY_ID_FMT, mdio_bus_id, phy_=
+id);
+> +	snprintf(priv->phy_name, MII_BUS_ID_SIZE, PHY_ID_FMT, mdio_bus_id,
+> phy_id);
+>
+>  	priv->phy =3D phy_connect(dev, priv->phy_name, &cpmac_adjust_link, =
+0,
+>  						PHY_INTERFACE_MODE_MII);
 
-> > I'm concerned that there are atomicity issues
-> > surrounding writing ip_vs_sync_threshold while there might be readers.
-> 
-> That might be a problem if they are required to be "synchronized".
-
-I don't think that the sychronisation needs extend beyond their
-use in this snippet.
-
-> 
-> > --- a/net/netfilter/ipvs/ip_vs_core.c
-> > +++ b/net/netfilter/ipvs/ip_vs_core.c
-> > @@ -1362,8 +1362,7 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb,
-> >  	    (ip_vs_sync_state & IP_VS_STATE_MASTER) &&
-> >  	    (((cp->protocol != IPPROTO_TCP ||
-> >  	       cp->state == IP_VS_TCP_S_ESTABLISHED) &&
-> > -	      (pkts % sysctl_ip_vs_sync_threshold[1]
-> > -	       == sysctl_ip_vs_sync_threshold[0])) ||
-> > +	      (pkts % ip_vs_sync_threshold[1] == ip_vs_sync_threshold[0])) ||
-> >  	     ((cp->protocol == IPPROTO_TCP) && (cp->old_state != cp->state) &&
-> >  	      ((cp->state == IP_VS_TCP_S_FIN_WAIT) ||
-> >  	       (cp->state == IP_VS_TCP_S_CLOSE_WAIT) ||
-> > diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-> > index fba2892..8a9ff21 100644
-> > --- a/net/netfilter/ipvs/ip_vs_ctl.c
-> > +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-> > @@ -76,6 +76,11 @@ static atomic_t ip_vs_dropentry = ATOMIC_INIT(0);
-> >  /* number of virtual services */
-> >  static int ip_vs_num_services = 0;
-> >  
-> > +/* threshold handling */
-> > +static int ip_vs_sync_threshold_min = 0;
-> > +static int ip_vs_sync_threshold_max = INT_MAX;
-> > +int ip_vs_sync_threshold[2] = { 3, 50 };
-> > +
-> 
-> min should be 1 I guess or you still need to manually check
-> that ip_vs_sync_threshold[1] != 0 to avoid a division be zero.
-
-I think that the check that val[0] < val[1] ensures this.
-
-Something that I noticed while putting this new patch together,
-should the code be checking the value of rc and only assigning  values if
-its 0. If so, I probably needs to be changed in a few places.
-
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index fba2892..c33ef7d 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -76,6 +76,9 @@ static atomic_t ip_vs_dropentry = ATOMIC_INIT(0);
- /* number of virtual services */
- static int ip_vs_num_services = 0;
- 
-+static int ip_vs_sync_threshold_min = 0;
-+static int ip_vs_sync_threshold_max = INT_MAX;
-+
- /* sysctl variables */
- static int sysctl_ip_vs_drop_entry = 0;
- static int sysctl_ip_vs_drop_packet = 0;
-@@ -1520,18 +1523,17 @@ static int
- proc_do_sync_threshold(ctl_table *table, int write, struct file *filp,
- 		       void __user *buffer, size_t *lenp, loff_t *ppos)
- {
-+	struct ctl_table read_table;
- 	int *valp = table->data;
- 	int val[2];
- 	int rc;
- 
--	/* backup the value first */
--	memcpy(val, valp, sizeof(val));
-+	memcpy(&read_table, table, sizeof(read_table));
-+	read_table.data = &val;
- 
--	rc = proc_dointvec(table, write, filp, buffer, lenp, ppos);
--	if (write && (valp[0] < 0 || valp[1] < 0 || valp[0] >= valp[1])) {
--		/* Restore the correct value */
-+	rc = proc_dointvec_minmax(&read_table, write, filp, buffer, lenp, ppos);
-+	if (write && (val[0] >= val[1]))
- 		memcpy(valp, val, sizeof(val));
--	}
- 	return rc;
- }
- 
-@@ -1698,6 +1700,8 @@ static struct ctl_table vs_vars[] = {
- 		.maxlen		= sizeof(sysctl_ip_vs_sync_threshold),
- 		.mode		= 0644,
- 		.proc_handler	= proc_do_sync_threshold,
-+		.extra1		= &ip_vs_sync_threshold_min,
-+		.extra2		= &ip_vs_sync_threshold_max,
- 	},
- 	{
- 		.procname	= "nat_icmp_send",
+--=20
+Best regards, Florian Fainelli
+Email: florian@openwrt.org
+Web: http://openwrt.org
+IRC: [florian] on irc.freenode.net
+-------------------------------
