@@ -1,120 +1,159 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ax25: Fix SIOCAX25GETINFO ioctl
-Date: Sun, 20 Sep 2009 18:32:55 +0200
-Message-ID: <4AB65937.8010508@gmail.com>
-References: <alpine.LNX.2.00.0909201226001.29572@cedric.unob.cz>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: Re: [PATCH] atm: dereference of he_dev->rbps_virt in he_init_group()
+Date: Sun, 20 Sep 2009 19:11:28 +0200
+Message-ID: <4AB66240.6060703@gmail.com>
+References: <20090902.232548.238393942.davem@davemloft.net>	 <4AA25B06.2090703@gmail.com>	 <20090911.123725.223971259.davem@davemloft.net>	 <20090911.125135.148893888.davem@davemloft.net>	 <4AB51FE7.7030509@gmail.com> <1253384847.2638.4.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Jan Rafaj <jr+netfilter-devel@cedric.unob.cz>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, chas@cmf.nrl.navy.mil,
+	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:48151 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751079AbZITQdA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2009 12:33:00 -0400
-In-Reply-To: <alpine.LNX.2.00.0909201226001.29572@cedric.unob.cz>
+Received: from ey-out-2122.google.com ([74.125.78.27]:20594 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754796AbZITREH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2009 13:04:07 -0400
+Received: by ey-out-2122.google.com with SMTP id d26so273217eyd.19
+        for <netdev@vger.kernel.org>; Sun, 20 Sep 2009 10:04:10 -0700 (PDT)
+In-Reply-To: <1253384847.2638.4.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jan Rafaj a =E9crit :
->=20
-> Hello Eric,
->=20
-> Your commit 31e6d363abcd0d05766c82f1a9c905a4c974a199 introduces (amon=
-g
-> other things):
->=20
-> diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
-> index 61b35b9..da0f64f 100644
-> --- a/net/ax25/af_ax25.c
-> +++ b/net/ax25/af_ax25.c
-> @@ -1780,8 +1781,8 @@ static int ax25_ioctl(struct socket *sock,
-> unsigned int cmd, unsigned long arg)
->                 ax25_info.idletimer =3D
-> ax25_display_timer(&ax25->idletimer) / (60 * HZ);
->                 ax25_info.n2count   =3D ax25->n2count;
->                 ax25_info.state     =3D ax25->state;
-> -               ax25_info.rcv_q     =3D atomic_read(&sk->sk_rmem_allo=
-c);
-> -               ax25_info.snd_q     =3D atomic_read(&sk->sk_wmem_allo=
-c);
-> +               ax25_info.rcv_q     =3D sk_wmem_alloc_get(sk);
-> +               ax25_info.snd_q     =3D sk_rmem_alloc_get(sk);
->                 ax25_info.vs        =3D ax25->vs;
->                 ax25_info.vr        =3D ax25->vr;
->                 ax25_info.va        =3D ax25->va;
->=20
-> I believe there is a typo, correctly this should be:
->=20
->                 ax25_info.idletimer =3D ax25_display_timer(&ax25->idl=
-etimer)
-> / (60 * HZ);
->                 ax25_info.n2count   =3D ax25->n2count;
->                 ax25_info.state     =3D ax25->state;
-> -               ax25_info.rcv_q     =3D atomic_read(&sk->sk_rmem_allo=
-c);
-> -               ax25_info.snd_q     =3D atomic_read(&sk->sk_wmem_allo=
-c);
-> +               ax25_info.rcv_q     =3D sk_rmem_alloc_get(sk);
-> +               ax25_info.snd_q     =3D sk_wmem_alloc_get(sk);
->                 ax25_info.vs        =3D ax25->vs;
->                 ax25_info.vr        =3D ax25->vr;
->                 ax25_info.va        =3D ax25->va;
->=20
-> If this is not fixed in the master, then fix, please.
->=20
-> Being a total kernel newbie, I've checked it against Greg K-H's 2.6.3=
-1.y
-> git tree (but I'm quite unsure whether this is the real HEAD of
-> latest [most up to date] development master branch), so if you know w=
-here
-> I should be looking instead, I'll be grateful for any kicking into th=
-e
-> right direction... (I somehow feel this should probably be the main
-> Linus's syndication tree linux/kernel/git/torvalds/linux-2.6.git - fe=
-el
-> free to correct me on this one please).
->=20
-> Thanks,
->=20
-> Jan
->=20
-> ---
-> Jan Rafaj
-> University of Defence in Brno
->=20
+he_dev->rbps_virt or he_dev->rbpl_virt allocation may fail, s
+them. Make sure that he_init_group() cleans up after errors.
 
-Oops, Jan you are absolutely right, this part of the patch was wrong.
-
-Dont worry, David will push your patch to netdev tree, then to Linus.
-
-Thanks
-
-[PATCH] ax25: Fix SIOCAX25GETINFO ioctl
-
-rcv_q & snd_q initializations were reversed in commit
-31e6d363abcd0d05766c82f1a9c905a4c974a199
-(net: correct off-by-one write allocations reports)
-
-Signed-off-by: Jan Rafaj <jr+netfilter-devel@cedric.unob.cz>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 ---
-diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
-index da0f64f..d6b1b05 100644
---- a/net/ax25/af_ax25.c
-+++ b/net/ax25/af_ax25.c
-@@ -1781,8 +1781,8 @@ static int ax25_ioctl(struct socket *sock, unsign=
-ed int cmd, unsigned long arg)
- 		ax25_info.idletimer =3D ax25_display_timer(&ax25->idletimer) / (60 *=
- HZ);
- 		ax25_info.n2count   =3D ax25->n2count;
- 		ax25_info.state     =3D ax25->state;
--		ax25_info.rcv_q     =3D sk_wmem_alloc_get(sk);
--		ax25_info.snd_q     =3D sk_rmem_alloc_get(sk);
-+		ax25_info.rcv_q     =3D sk_rmem_alloc_get(sk);
-+		ax25_info.snd_q     =3D sk_wmem_alloc_get(sk);
- 		ax25_info.vs        =3D ax25->vs;
- 		ax25_info.vr        =3D ax25->vr;
- 		ax25_info.va        =3D ax25->va;
+
+> It looks as if it'd be clearer to not use variable ret and
+> simply return -ENOMEM after the out_destroy_rbps_pool label.
+
+Ok, thanks.
+
+Again build, sparse and checkpatch tested.
+
+diff --git a/drivers/atm/he.c b/drivers/atm/he.c
+index 2de6406..29e66d6 100644
+--- a/drivers/atm/he.c
++++ b/drivers/atm/he.c
+@@ -790,11 +790,15 @@ he_init_group(struct he_dev *he_dev, int group)
+ 	he_dev->rbps_base = pci_alloc_consistent(he_dev->pci_dev,
+ 		CONFIG_RBPS_SIZE * sizeof(struct he_rbp), &he_dev->rbps_phys);
+ 	if (he_dev->rbps_base == NULL) {
+-		hprintk("failed to alloc rbps\n");
+-		return -ENOMEM;
++		hprintk("failed to alloc rbps_base\n");
++		goto out_destroy_rbps_pool;
+ 	}
+ 	memset(he_dev->rbps_base, 0, CONFIG_RBPS_SIZE * sizeof(struct he_rbp));
+ 	he_dev->rbps_virt = kmalloc(CONFIG_RBPS_SIZE * sizeof(struct he_virt), GFP_KERNEL);
++	if (he_dev->rbps_virt == NULL) {
++		hprintk("failed to alloc rbps_virt\n");
++		goto out_free_rbps_base;
++	}
+ 
+ 	for (i = 0; i < CONFIG_RBPS_SIZE; ++i) {
+ 		dma_addr_t dma_handle;
+@@ -802,7 +806,7 @@ he_init_group(struct he_dev *he_dev, int group)
+ 
+ 		cpuaddr = pci_pool_alloc(he_dev->rbps_pool, GFP_KERNEL|GFP_DMA, &dma_handle);
+ 		if (cpuaddr == NULL)
+-			return -ENOMEM;
++			goto out_free_rbps_virt;
+ 
+ 		he_dev->rbps_virt[i].virt = cpuaddr;
+ 		he_dev->rbps_base[i].status = RBP_LOANED | RBP_SMALLBUF | (i << RBP_INDEX_OFF);
+@@ -827,17 +831,21 @@ he_init_group(struct he_dev *he_dev, int group)
+ 			CONFIG_RBPL_BUFSIZE, 8, 0);
+ 	if (he_dev->rbpl_pool == NULL) {
+ 		hprintk("unable to create rbpl pool\n");
+-		return -ENOMEM;
++		goto out_free_rbps_virt;
+ 	}
+ 
+ 	he_dev->rbpl_base = pci_alloc_consistent(he_dev->pci_dev,
+ 		CONFIG_RBPL_SIZE * sizeof(struct he_rbp), &he_dev->rbpl_phys);
+ 	if (he_dev->rbpl_base == NULL) {
+-		hprintk("failed to alloc rbpl\n");
+-		return -ENOMEM;
++		hprintk("failed to alloc rbpl_base\n");
++		goto out_destroy_rbpl_pool;
+ 	}
+ 	memset(he_dev->rbpl_base, 0, CONFIG_RBPL_SIZE * sizeof(struct he_rbp));
+ 	he_dev->rbpl_virt = kmalloc(CONFIG_RBPL_SIZE * sizeof(struct he_virt), GFP_KERNEL);
++	if (he_dev->rbpl_virt == NULL) {
++		hprintk("failed to alloc rbpl_virt\n");
++		goto out_free_rbpl_base;
++	}
+ 
+ 	for (i = 0; i < CONFIG_RBPL_SIZE; ++i) {
+ 		dma_addr_t dma_handle;
+@@ -845,7 +853,7 @@ he_init_group(struct he_dev *he_dev, int group)
+ 
+ 		cpuaddr = pci_pool_alloc(he_dev->rbpl_pool, GFP_KERNEL|GFP_DMA, &dma_handle);
+ 		if (cpuaddr == NULL)
+-			return -ENOMEM;
++			goto out_free_rbpl_virt;
+ 
+ 		he_dev->rbpl_virt[i].virt = cpuaddr;
+ 		he_dev->rbpl_base[i].status = RBP_LOANED | (i << RBP_INDEX_OFF);
+@@ -870,7 +878,7 @@ he_init_group(struct he_dev *he_dev, int group)
+ 		CONFIG_RBRQ_SIZE * sizeof(struct he_rbrq), &he_dev->rbrq_phys);
+ 	if (he_dev->rbrq_base == NULL) {
+ 		hprintk("failed to allocate rbrq\n");
+-		return -ENOMEM;
++		goto out_free_rbpl_virt;
+ 	}
+ 	memset(he_dev->rbrq_base, 0, CONFIG_RBRQ_SIZE * sizeof(struct he_rbrq));
+ 
+@@ -894,7 +902,7 @@ he_init_group(struct he_dev *he_dev, int group)
+ 		CONFIG_TBRQ_SIZE * sizeof(struct he_tbrq), &he_dev->tbrq_phys);
+ 	if (he_dev->tbrq_base == NULL) {
+ 		hprintk("failed to allocate tbrq\n");
+-		return -ENOMEM;
++		goto out_free_rbpq_base;
+ 	}
+ 	memset(he_dev->tbrq_base, 0, CONFIG_TBRQ_SIZE * sizeof(struct he_tbrq));
+ 
+@@ -906,6 +914,39 @@ he_init_group(struct he_dev *he_dev, int group)
+ 	he_writel(he_dev, CONFIG_TBRQ_THRESH, G0_TBRQ_THRESH + (group * 16));
+ 
+ 	return 0;
++
++out_free_rbpq_base:
++	pci_free_consistent(he_dev->pci_dev, CONFIG_RBRQ_SIZE *
++			sizeof(struct he_rbrq), he_dev->rbrq_base,
++			he_dev->rbrq_phys);
++	i = CONFIG_RBPL_SIZE;
++out_free_rbpl_virt:
++	while (--i)
++		pci_pool_free(he_dev->rbps_pool, he_dev->rbpl_virt[i].virt,
++				he_dev->rbps_base[i].phys);
++	kfree(he_dev->rbpl_virt);
++
++out_free_rbpl_base:
++	pci_free_consistent(he_dev->pci_dev, CONFIG_RBPL_SIZE *
++			sizeof(struct he_rbp), he_dev->rbpl_base,
++			he_dev->rbpl_phys);
++out_destroy_rbpl_pool:
++	pci_pool_destroy(he_dev->rbpl_pool);
++
++	i = CONFIG_RBPL_SIZE;
++out_free_rbps_virt:
++	while (--i)
++		pci_pool_free(he_dev->rbpl_pool, he_dev->rbps_virt[i].virt,
++				he_dev->rbpl_base[i].phys);
++	kfree(he_dev->rbps_virt);
++
++out_free_rbps_base:
++	pci_free_consistent(he_dev->pci_dev, CONFIG_RBPS_SIZE *
++			sizeof(struct he_rbp), he_dev->rbps_base,
++			he_dev->rbps_phys);
++out_destroy_rbps_pool:
++	pci_pool_destroy(he_dev->rbps_pool);
++	return -ENOMEM;
+ }
+ 
+ static int __devinit
