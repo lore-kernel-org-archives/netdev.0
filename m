@@ -1,58 +1,54 @@
-From: f8arr <f8arr@f8arr.org>
-Subject: Re: [AX25] kernel panic
-Date: Sun, 20 Sep 2009 11:09:31 +0200
-Message-ID: <4AB5F14B.4030807@f8arr.org>
-References: <4AA82BF0.7040203@upmc.fr> <20090910142436.GB10547@linux-mips.org> <4AA9288B.2070205@upmc.fr> <20090911120557.GA12175@linux-mips.org> <4AB5EAE5.6070605@upmc.fr>
+From: Xiaofei Wu <xiaofei_wu08@yahoo.com>
+Subject: Re: [iproute2] tc action mirred    question
+Date: Sun, 20 Sep 2009 02:58:23 -0700 (PDT)
+Message-ID: <908876.76571.qm@web111609.mail.gq1.yahoo.com>
+References: <404956.88336.qm@web111607.mail.gq1.yahoo.com>  <1252376168.5244.11.camel@dogo.mojatatu.com>  <313388.35529.qm@web111617.mail.gq1.yahoo.com>  <1252534266.4119.5.camel@dogo.mojatatu.com>  <204967.7557.qm@web111613.mail.gq1.yahoo.com>  <1252671940.25158.5.camel@dogo.mojatatu.com>  <510605.34044.qm@web111611.mail.gq1.yahoo.com>  <1252704524.25158.42.camel@dogo.mojatatu.com>  <833118.87017.qm@web111618.mail.gq1.yahoo.com> <1253104099.4584.9.camel@dogo.mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	Ralf Baechle DL5RB <ralf@linux-mips.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-hams <linux-hams@vger.kernel.org>
-To: Bernard Pidoux <bernard.pidoux@upmc.fr>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux netdev <netdev@vger.kernel.org>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srvradiohertz.montaigne.u-bordeaux.fr ([147.210.91.241]:33527
-	"EHLO f5kbw.org" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751254AbZITJJe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2009 05:09:34 -0400
-Received: from [192.168.0.2] ([82.236.133.114]:37094)
-	by f5kbw.org ([147.210.91.241]:25) with [XMail 1.21 ESMTP Server]
-	id <SA3C21> for <netdev@vger.kernel.org> from <f8arr@f8arr.org>;
-	Sun, 20 Sep 2009 11:57:38 +0200
-In-Reply-To: <4AB5EAE5.6070605@upmc.fr>
+Received: from n72.bullet.mail.sp1.yahoo.com ([98.136.44.34]:20610 "HELO
+	n72.bullet.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754121AbZITKDu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2009 06:03:50 -0400
+In-Reply-To: <1253104099.4584.9.camel@dogo.mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hi Bernard,
+Hi,
 
-My problem wasn't exactly the same has your.
-But !
+I come across another problem.
 
-Doing a boot with the kernel option "nosmp" wasn't suffisant... it=20
-seemed to load the smp and then, while reading the boot option,=20
-unsetting them... but it was too late. (I saw that looking the dmesg).
+network topology:
+ M
+  |
+ A
+/  \
+B  D
+\  /
+ C
 
-My solution has been to compile a kernel without smp to be sure that=20
-nothing goes up... and it worked !
+node M  < ---- > node C
+common path: M-A-B-C
+the other path: M-A-D-C
 
-Regards
-f8arr
+With your help I can mirror the outgoing packets(node A wlan0) to wlan1(node A), then transmit it to D. D will route them to C.
 
-Bernard Pidoux a =E9crit :
-> Hi,
->
-> Here are the first events noticed since I turned on=20
-> CONFIG_DEBUG_OBJECTS_TIMERS option.
->
-> First a kernel BUG, second a kernel panic.
->
-> Best regards,
->
-> Bernard Pidoux
->
->
->
->
->
+There will be another problem.
+
+When the link A-B is not available, there is no packect going out to mirror, node M could not get to node C. (if B is broken, A use ARP to ask the MAC of B's IP addr, but no reply)
+
+So I want to forward the incoming packets( node M -> A(eth0) ) to wlan0(node A) and wlan1(node A) at the same time, route them separately. In this case, if one path is unavailable, it will not influence the other path.
+
+Could iproute2 'tc' do this?
+
+
+regards,
+wu
+
+__________________________________________________
+Do You Yahoo!?
+Tired of spam?  Yahoo! Mail has the best spam protection around 
+http://mail.yahoo.com 
+
