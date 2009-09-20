@@ -1,50 +1,71 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: SO_TIMESTAMPING fix and design decisions
-Date: Sun, 20 Sep 2009 10:48:13 -0700
-Message-ID: <1253468893.2654.6.camel@localhost.localdomain>
-References: <20090919192549.0735c93a@pundit>
-	 <1253398161.14869.2.camel@localhost.localdomain>
-	 <20090920095242.5cd42f1a@pundit>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: sky2 rx length errors
+Date: Sun, 20 Sep 2009 11:05:27 -0700
+Message-ID: <20090920110527.39fd7af5@s6510>
+References: <c5bd819b0909180641n7c353b80tc15b9c9fe02d5c95@mail.gmail.com>
+	<20090919233536.f5fb700c.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Christopher Zimmermann <madroach@zakweb.de>
+Cc: Grozdan <neutrino8@gmail.com>, linux-kernel@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:2989 "EHLO mga01.intel.com"
+Received: from mail.vyatta.com ([76.74.103.46]:33608 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755079AbZITRsG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Sep 2009 13:48:06 -0400
-In-Reply-To: <20090920095242.5cd42f1a@pundit>
+	id S1754069AbZITSFa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Sep 2009 14:05:30 -0400
+In-Reply-To: <20090919233536.f5fb700c.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2009-09-20 at 00:52 -0700, Christopher Zimmermann wrote:
-> On Sat, 19 Sep 2009 15:09:21 -0700
-> Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com> wrote:
+On Sat, 19 Sep 2009 23:35:36 -0700
+Andrew Morton <akpm@linux-foundation.org> wrote:
+
+> (added cc's from the MAINTAINERS file)
 > 
-> > > hardware timestamps only work for the Intel igb driver. I have 
-> > > access to two test machines with NICs supported by this driver.
+> On Fri, 18 Sep 2009 15:41:45 +0200 Grozdan <neutrino8@gmail.com> wrote:
+> 
+> > Hi,
 > > 
-> > Intel's 82599, supported by ixgbe, also has the same IEEE 1588
-> > timestamping support in hardware.  We haven't implemented the support
-> > yet in ixgbe, but the hardware is there and does work.  If you were
-> > curious of the interface, the datasheet for the hardware is available on
-> > our SourceForge site (e1000.sf.net).
-> 
-> hi! thanks for the reply.
-> 
-> I already got the documentation for the 82576 cards I have access to. I 
-> won't be able to afford another pair.
-> 
-> What do you think about my idea to expose the relevant registers to 
-> userspace? I believe it would not be too difficult for userspace to 
-> configure the timestamps this way and would allow way more flexibility. 
-> Of course I would #DEFINE the constants used to set the registers.
+> > I have a Marvell onboard NIC (88E8053) and I've been noticing for a
+> > while now a bit weird behavior with the sky2 driver. This mostly
+> > occurs with newer kernels (2.6.30, 2.6.31) and my older distro kernel
+> > (2.6.27.21) does not seem to have the same problem. Basically, the
+> > sky2 driver will randomly and unpredictably spew rx length error
+> > messages and reboot itself. I also noticed in dmesg that this mostly
+> > occurs after "martian destination" messages. After this message, sky2
+> > starts spewing messages as shown below and then reboots itself. It is
+> > not really a big problem for me, but since I'm virtually always logged
+> > in in IRC, the client always loses connection, waits for a few minutes
+> > to get a response from the server and then relogs me again. I do not
+> > think it's a HW problem as the Marvell NIC otherwise works perfectly
+> > and I've checked my cable modem too which operates without a problem.
+> > Any ideas?
+> > 
+> > PS: please cc me as I'm not subscribed to the mailing list
+> > 
+> > sky2 driver version 1.23
+> > sky2 0000:05:00.0: PCI INT A -> GSI 36 (level, low) -> IRQ 36
+> > sky2 0000:05:00.0: setting latency timer to 64
+> > sky2 0000:05:00.0: PCI: Disallowing DAC for device
+> > sky2 0000:05:00.0: Yukon-2 EC chip revision 2
+> > sky2 0000:05:00.0: irq 53 for MSI/MSI-X
+> > sky2 0000:05:00.0: No interrupt generated using MSI, switching to INTx mode.
+> > sky2 eth0: addr 00:11:d8:a1:5b:0e
+> > sky2 eth0: enabling interface
+> > sky2 eth0: Link is up at 100 Mbps, full duplex, flow control rx
+> > .....
+> > .....
+> > martian destination 0.0.0.0 from 172.23.204.1, dev eth0
+> > sky2 eth0: rx length error: status 0x4420100 length 598
+> > sky2 eth0: rx length error: status 0x5ea0100 length 598
 
-The patch seems reasonable, but I haven't played with the igb
-timestamping very much.  However, what impact will this have on the
-existing ptpd userspace daemon?
+This error status occurs if the length reported by the PHY does not
+match the len reported by the DMA engine.  The error status is:
+   0x4420100 = length 1090 + broadcast packet...
 
--PJ
-
+No idea what is on your network, but perhaps there is some MTU confusion?
+Since martian destination seems related, knowing more about that packet
+might help.
