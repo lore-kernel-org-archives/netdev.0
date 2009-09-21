@@ -1,49 +1,73 @@
-From: "Prodyut Hazarika" <phazarika@amcc.com>
-Subject: RE: [PATCH 1/2] ibm_newemac: Add Support for MAL Interrupt Coalescing
-Date: Mon, 21 Sep 2009 16:49:26 -0700
-Message-ID: <0CA0A16855646F4FA96D25A158E299D606FFE7FF@SDCEXCHANGE01.ad.amcc.com>
-References: <1253573245-1867-1-git-send-email-phazarika@amcc.com>
-	<1253576514.7103.165.camel@pasglop>
+From: Jamie Lokier <jamie@shareable.org>
+Subject: Re: fanotify as syscalls
+Date: Tue, 22 Sep 2009 00:56:15 +0100
+Message-ID: <20090921235615.GK14700@shareable.org>
+References: <20090912094110.GB24709@ioremap.net> <200909212327.20978.agruen@suse.de> <20090921220002.GE14700@shareable.org> <200909220109.05995.agruen@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Victor Gallardo <vgallardo@amcc.com>, Feng Kan <fkan@amcc.com>,
-	netdev@vger.kernel.org, lada.podivin@gmail.com,
-	Loc Ho <lho@amcc.com>, bhutchings@solarflare.com,
-	linuxppc-dev@lists.ozlabs.org, davem@davemloft.net
-To: "Benjamin Herrenschmidt" <benh@kernel.crashing.org>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <1253576514.7103.165.camel@pasglop>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Paris <eparis@redhat.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
+	alan@linux.intel.com, hch@infradead.org
+To: Andreas Gruenbacher <agruen@suse.de>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <200909220109.05995.agruen@suse.de>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Ben,
-Thanks for your comments.
+Andreas Gruenbacher wrote:
+> If the antimalware vendors want to base their decisions on pathnames then 
+> that's their decision, and they can check /proc/self/fd/N.
 
+Race hazards and loopholes.  It doesn't work.
 
-> What happens if we build a kernel that is supposed to boot with two
-> different variants of 405 or 440 ?
+> Waiting for your code to demonstrate; an object based cache (e.g.,
+> st_dev + st_ino) rather than a pathname based cache would seem more
+> reasonable.
 
-We cannot build a kernel with H/W Interrupt coalescing other than in
-405EX/460EX/GT.
-This is controlled via KConfig (config IBM_NEW_EMAC_INTR_COALESCE
-depends on IBM_NEW_EMAC && (460EX || 460GT || 405EX))
-Is this approach acceptable (via Kconfig)?
+Nearly everything that people do with files involves paths.  The point
+is to cache what people (or their programs) do.  Apache does not
+consult inodes by number, and rsync does not write inodes by number :-)
+Yes, to the code...
 
+> > > but I see no need for access decisions on them.
+> >
+> > Please excuse me; I'm a bit confused.  Is fanotify intended just for
+> > use by access decision programs, or is the plan now for it to also be
+> > a replacement for inotify?  I'm getting conflicting signals about
+> > that.
+> 
+> Inotify doesn't support access decisions. So where's the problem with 
+> having "notify only" events for directory / mount / unmount events?
 
-> There are existing mechanisms via ethtool to configure coalescing. You
-> should hookup onto these.
+No problem here.
 
-I will start looking at the ethtool options
+You seemed to be saying you want to add directory events to fanotify.
+But if fanotify is only intended for access decisions?  Something I
+must have misunderstood in that.
 
-Thanks
-Prodyut
+> > If it's just for access decision programs, and if those aren't going
+> > to care about location, then there's no need to add directory events
+> > to fanotify at all.  But then I'll be demanding subtree support in
+> > inotify, please :-)
+> >
+> > > Even less so for mounts and unmounts.
+> >
+> >    (as root) mkdir foo; mount dodgy foo -oloop; mount --bind foo/cat
+> > /bin/cat
+> 
+> ... and then someone accesses /bin/cat, which triggers a fanotify access 
+> decision.
+
+That's fine as long as there was no location-awareness in the logic
+which checked foo/innocent.txt and set that inode's "read-ok,cache-me" bit.
+
+Mount only matters if you're sensitive to location.  If you think
+location-independent checks make good anti-malware
+I_have_a_bridge_to_sell^H^H^H^H^H^H^H^H^H^H^Hfine with me :-)
+
+-- Jamie
