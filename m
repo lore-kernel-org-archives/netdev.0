@@ -1,37 +1,45 @@
-From: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
-Subject: bugfix: wireless bug causing working setups to loose net connectivity
-Date: Mon, 21 Sep 2009 20:35:50 +0200
-Message-ID: <200909212035.50592.a.miskiewicz@gmail.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: bugfix: wireless bug causing working setups to loose net connectivity
+Date: Mon, 21 Sep 2009 20:44:22 +0200
+Message-ID: <4AB7C986.9040304@hartkopp.net>
+References: <200909212035.50592.a.miskiewicz@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org
+To: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f210.google.com ([209.85.218.210]:34607 "EHLO
-	mail-bw0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751404AbZIUSfv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2009 14:35:51 -0400
-Received: by bwz6 with SMTP id 6so2134183bwz.37
-        for <netdev@vger.kernel.org>; Mon, 21 Sep 2009 11:35:54 -0700 (PDT)
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:20998 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753017AbZIUSoU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2009 14:44:20 -0400
+In-Reply-To: <200909212035.50592.a.miskiewicz@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Arkadiusz Miskiewicz wrote:
+> Could 
+> http://marc.info/?l=linux-wireless&m=125323296617306&w=2
+> be merged without waiting for separate wireless pull request?
+> 
+> Currently previously working setups are no longer able to connect to AP (in my 
+> case WPA2PSK via wpasupplicant).
+> 
+> AFAIK there was some kind of policy where bugfixes that break basic 
+> functionality are supposed to be merged fast to allow to actually use and test 
+> git kernel.
 
-Could=20
-http://marc.info/?l=3Dlinux-wireless&m=3D125323296617306&w=3D2
-be merged without waiting for separate wireless pull request?
+For me it was
 
-Currently previously working setups are no longer able to connect to AP=
- (in my=20
-case WPA2PSK via wpasupplicant).
+http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commitdiff;h=bbac31f4c0339f6c51afbd0edfb4959df9b53fa9
 
-AFAIK there was some kind of policy where bugfixes that break basic=20
-functionality are supposed to be merged fast to allow to actually use a=
-nd test=20
-git kernel.
+as written here:
 
-Thanks,
---=20
-Arkadiusz Mi=C5=9Bkiewicz        PLD/Linux Team
-arekm / maven.pl            http://ftp.pld-linux.org/
+http://marc.info/?l=linux-netdev&m=125352781320953&w=2
+
+Maybe you can try to revert this patch in your setup too, to check whether it
+also solves your issue.
+
+Regards,
+Oliver
+
