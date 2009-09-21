@@ -1,95 +1,144 @@
-From: Jamie Lokier <jamie@shareable.org>
-Subject: Re: fanotify as syscalls
-Date: Tue, 22 Sep 2009 00:12:27 +0100
-Message-ID: <20090921231227.GJ14700@shareable.org>
-References: <20090912094110.GB24709@ioremap.net> <200909190000.43556.agruen@suse.de> <1253329471.2630.30.camel@dhcp231-106.rdu.redhat.com> <200909212204.51077.agruen@suse.de> <20090921202823.GB14700@shareable.org> <alpine.DEB.2.00.0909211456180.1116@makko.or.mcafeemobile.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 1/2] ibm_newemac: Add Support for MAL Interrupt
+ Coalescing
+Date: Tue, 22 Sep 2009 09:41:54 +1000
+Message-ID: <1253576514.7103.165.camel@pasglop>
+References: <1253573245-1867-1-git-send-email-phazarika@amcc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andreas Gruenbacher <agruen@suse.de>,
-	Eric Paris <eparis@redhat.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
-	viro@zeniv.linux.org.uk, alan@linux.intel.com, hch@infradead.org
-To: Davide Libenzi <davidel@xmailserver.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.0909211456180.1116@makko.or.mcafeemobile.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Feng Kan <fkan@amcc.com>,
+	Loc Ho <lho@amcc.com>, Victor Gallardo <vgallardo@amcc.com>,
+	bhutchings@solarflare.com, linuxppc-dev@lists.ozlabs.org,
+	davem@davemloft.net, jwboyer@linux.vnet.ibm.com,
+	lada.podivin@gmail.com
+To: Prodyut Hazarika <phazarika@amcc.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:44093 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754421AbZIUXmM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Sep 2009 19:42:12 -0400
+In-Reply-To: <1253573245-1867-1-git-send-email-phazarika@amcc.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Davide Libenzi wrote:
-> On Mon, 21 Sep 2009, Jamie Lokier wrote:
+On Mon, 2009-09-21 at 15:47 -0700, Prodyut Hazarika wrote:
+> Support for Hardware Interrupt coalescing in MAL.
+> Coalescing is supported on the newer revs of 460EX/GT and 405EX.
+> The MAL driver falls back to EOB IRQ if coalescing not supported
 > 
-> > I think so to, and that'd be a great all round solution.
-> 
-> If this is for anti-malware vendors
+> Signed-off-by: Prodyut Hazarika <phazarika@amcc.com>
+> Acked-by: Victor Gallardo <vgallardo@amcc.com>
+> Acked-by: Feng Kan <fkan@amcc.com>
 
-Personally I'm not interested in anti-malware, and am simply
-interested in leveraging fsnotify improvements to accelerate userspace
-caches of information which depends on files (indexes, templates,
-compiler caches, stat caches etc.).  Basically make inotify better,
-and sufficiently correct for that purpose.
+There's an awful lot of ifdef based on the CPU type in there. This is
+not right.
 
-My sticking my oar in lately is to ensure the fsnotify improvements
-are going in the (imho) right direction.  There's a lot of interesting
-apps waiting in the wings on this.  It doesn't have to be complicated,
-just... sensible.
+What happens if we build a kernel that is supposed to boot with two
+different variants of 405 or 440 ?
 
-> to intercept userspace accesses 
-> they're currently doing it by hacking the syscall table, why don't we 
-> offer a way to monitor syscalls (kernel side) in a non racy way?
-> Modules can [un]register themselves for syscall intercaption, and receive 
-> the syscall number and parameters. They'd be able to change paramters, 
-> return error codes, and so on.
-> The cost of the check in the syscall path could even be under an 
-> alternative-like patching, if really neeeded.
-> The Pros of this would be:
-> 
-> - The kernel code to implement this would be trivially small, with no 
->   I-need-this-feature-too growth potential
+All of this should be runtime features.
 
-(Fwiw, the {fa,fs,i}notify thing looks to me like it's getting simpler
-as we go.  Good design = decrease complexity + increase versatility.
-E.g. see epoll.)
+ie:
 
-> - There won't be any externally visible API to maintain (and its kernel 
->   counter part) and expand
-> 
-> - Any system call can be intercepted, allowing it to be flexible while 
->   leaving the burden of the interception handling, and communication with 
->   userspace policy enforcers, to the anti-malware (or whoever really) 
->   companies modules
-> 
-> The anti-malware are already doing this (intercepting syscall), they 
-> already have code for it, and they always did (writing kernel 
-> modules/drivers, that is) for Windows.
+> #ifdef CONFIG_IBM_NEW_EMAC_INTR_COALESCE
+> +static inline void mal_enable_coal(struct mal_instance *mal)
+> +{
+> +	unsigned int val;
+> +#if defined(CONFIG_405EX)
+> +	/* Clear the counters */
+> +	val = SDR0_ICC_FLUSH0 | SDR0_ICC_FLUSH1;
+> +	mtdcri(SDR0, DCRN_SDR0_ICCRTX, val);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCRRX, val);
+> +
+> +	/* Set Tx/Rx Timer values */
+> +	mtdcri(SDR0, DCRN_SDR0_ICCTRTX0, CONFIG_IBM_NEW_EMAC_TX_COAL_TIMER);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCTRTX1, CONFIG_IBM_NEW_EMAC_TX_COAL_TIMER);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCTRRX0, CONFIG_IBM_NEW_EMAC_RX_COAL_TIMER);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCTRRX1, CONFIG_IBM_NEW_EMAC_RX_COAL_TIMER);
+> +
+> +	/* Enable the Tx/Rx Coalescing interrupt */
+> +	val = ((CONFIG_IBM_NEW_EMAC_TX_COAL_COUNT & COAL_FRAME_MASK)
+> +			<< SDR0_ICC_FTHR0_SHIFT) |
+> +		((CONFIG_IBM_NEW_EMAC_TX_COAL_COUNT & COAL_FRAME_MASK)
+> +			<< SDR0_ICC_FTHR1_SHIFT);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCRTX, val);
+> +
+> +	val = ((CONFIG_IBM_NEW_EMAC_RX_COAL_COUNT & COAL_FRAME_MASK)
+> +			<< SDR0_ICC_FTHR0_SHIFT) |
+> +		((CONFIG_IBM_NEW_EMAC_RX_COAL_COUNT & COAL_FRAME_MASK)
+> +			<< SDR0_ICC_FTHR1_SHIFT);
+> +
+> +	mtdcri(SDR0, DCRN_SDR0_ICCRRX, val);
+> +#elif defined(CONFIG_460EX) || defined(CONFIG_460GT)
+> +	/* Clear the counters */
+> +	val = SDR0_ICC_FLUSH;
+> +	mtdcri(SDR0, DCRN_SDR0_ICCRTX0, val);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCRTX1, val);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCRRX0, val);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCRRX1, val);
+> +#if defined(CONFIG_460GT)
+> +	mtdcri(SDR0, DCRN_SDR0_ICCRTX2, val);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCRTX3, val);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCRRX2, val);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCRRX3, val);
+> +#endif
+> +
+> +	/* Set Tx/Rx Timer values */
+> +	mtdcri(SDR0, DCRN_SDR0_ICCTRTX0, CONFIG_IBM_NEW_EMAC_TX_COAL_TIMER);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCTRTX1, CONFIG_IBM_NEW_EMAC_TX_COAL_TIMER);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCTRRX0, CONFIG_IBM_NEW_EMAC_RX_COAL_TIMER);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCTRRX1, CONFIG_IBM_NEW_EMAC_RX_COAL_TIMER);
+> +#if defined(CONFIG_460GT)
+> +	mtdcri(SDR0, DCRN_SDR0_ICCTRTX2, CONFIG_IBM_NEW_EMAC_TX_COAL_TIMER);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCTRTX3, CONFIG_IBM_NEW_EMAC_TX_COAL_TIMER);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCTRRX2, CONFIG_IBM_NEW_EMAC_RX_COAL_TIMER);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCTRRX3, CONFIG_IBM_NEW_EMAC_RX_COAL_TIMER);
+> +#endif
+> +
+> +	/* Enable the Tx/Rx Coalescing interrupt */
+> +	val = (CONFIG_IBM_NEW_EMAC_TX_COAL_COUNT & COAL_FRAME_MASK)
+> +			<< SDR0_ICC_FTHR_SHIFT;
+> +	mtdcri(SDR0, DCRN_SDR0_ICCRTX0, val);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCRTX1, val);
+> +#if defined(CONFIG_460GT)
+> +	mtdcri(SDR0, DCRN_SDR0_ICCRTX2, val);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCRTX3, val);
+> +#endif
+> +
+> +	val = (CONFIG_IBM_NEW_EMAC_RX_COAL_COUNT & COAL_FRAME_MASK)
+> +			<< SDR0_ICC_FTHR_SHIFT;
+> +	mtdcri(SDR0, DCRN_SDR0_ICCRRX0, val);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCRRX1, val);
+> +#if defined(CONFIG_460GT)
+> +	mtdcri(SDR0, DCRN_SDR0_ICCRRX2, val);
+> +	mtdcri(SDR0, DCRN_SDR0_ICCRRX3, val);
+> +#endif
+> +#endif
+> +	printk(KERN_INFO "MAL: Enabled Intr Coal TxCnt: %d RxCnt: %d\n",
+> +		CONFIG_IBM_NEW_EMAC_TX_COAL_COUNT,
+> +		CONFIG_IBM_NEW_EMAC_RX_COAL_COUNT);
+> +}
+> +#endif
 
-I don't mind at all if fanotify is replaced by a general purpose "take
-over the system call table" solution for anti-malware, and I still get
-to keep the fsnotify improvements :-)
+This is all quite wrong. Either use MAL features or some other runtime
+check, possibly via the "compatible" property.
 
-But I can't help noticing that we _already_ have quite well placed
-hooks for intercepting system calls, called security_this and
-security_that (SELinux etc), albeit they can't redirect things so much.
+Same goes with the SDR register definitions. Prefix them with the SOC
+name but don't make them conditionally compiled. This is all back to the
+same mess we had in arch/ppc and I'm not going to accept it.
 
-However, being a little kinder, I suspect even the anti-malware
-vendors would rather not slow down everything with race-prone
-complicated tracking of everything every process does...  which is why
-fanotify allows it's "interest set" to be reduced from everything to a
-subset of files, and it's results to be cached, and let the races be
-handled in the normal way by VFS.
+Also, this coalescing option, while it makes sense to have a CONFIG
+option to compile in the support for it or not, the choice to use
+coalescing or not should be done at runtime. Same goes with the various
+thresholds which should be runtime configurable.
 
-Once you have an "interest set" and focus on files, it looks somewhat
-reasonable to use the fsnotify hooks.
+There are existing mechanisms via ethtool to configure coalescing. You
+should hookup onto these.
 
-...That is, if you believe monitoring files is the best approach to
-anti-malware.  I can't help noticing that on (ahem) Windows, running
-just a "virus checker" which generically scans every file independent
-of it's location looking for signatures and keeping up with patches is
-no longer considered good enough.
 
--- Jamie
+Cheers,
+Ben.
+
+
 
