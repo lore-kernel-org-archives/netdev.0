@@ -1,250 +1,49 @@
-From: Balazs Scheidler <bazsi@balabit.hu>
-Subject: [PATCH 12/13] TProxy: added IPv6 support to the socket match
-Date: Mon, 24 Aug 2009 14:52:07 +0200
-Message-ID: <1253548005.12519.12.camel@bzorp.balabit>
+From: Chris Wright <chrisw@sous-sol.org>
+Subject: Re: [RFC] Virtual Machine Device Queues(VMDq) support on KVM
+Date: Mon, 21 Sep 2009 09:27:18 -0700
+Message-ID: <20090921162718.GM26034@sequoia.sous-sol.org>
+References: <C85CEDA13AB1CF4D9D597824A86D2B9006AEB94861@PDSMSX501.ccr.corp.intel.com> <20090901090518.1193e412@nehalam> <200909211637.23299.rusty@rustcorp.com.au> <20090921092130.30984dbd@s6510>
 Mime-Version: 1.0
-Content-Transfer-Encoding: 7bit
-To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from support.balabit.hu ([195.70.41.86]:58462 "EHLO lists.balabit.hu"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751633AbZIUQZA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Sep 2009 12:25:00 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+        virtualization@lists.linux-foundation.org,
+        "Xin, Xiaohui" <xiaohui.xin@intel.com>,
+        "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+        "mst@redhat.com" <mst@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-mm@kvack.org" <linux-mm@kvack.org>,
+        "hpa@zytor.com" <hpa@zytor.com>, "mingo@elte.hu" <mingo@elte.hu>,
+        "akpm@linux-foundation.org" <akpm@linux-foundation.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20090921092130.30984dbd@s6510>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-The ICMP extraction bits were contributed by Harry Mason.
+* Stephen Hemminger (shemminger@vyatta.com) wrote:
+> On Mon, 21 Sep 2009 16:37:22 +0930
+> Rusty Russell <rusty@rustcorp.com.au> wrote:
+> 
+> > > > Actually this framework can apply to traditional network adapters which have
+> > > > just one tx/rx queue pair. And applications using the same user/kernel interface
+> > > > can utilize this framework to send/receive network traffic directly thru a tx/rx
+> > > > queue pair in a network adapter.
+> > > > 
+> 
+> More importantly, when virtualizations is used with multi-queue NIC's the virtio-net
+> NIC is a single CPU bottleneck. The virtio-net NIC should preserve the parallelism (lock
+> free) using multiple receive/transmit queues. The number of queues should equal the
+> number of CPUs.
 
-Signed-off-by: Balazs Scheidler <bazsi@balabit.hu>
----
- net/netfilter/xt_socket.c |  152 +++++++++++++++++++++++++++++++++++++++++++--
- 1 files changed, 146 insertions(+), 6 deletions(-)
+Yup, multiqueue virtio is on todo list ;-)
 
-diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
-index 12a7140..b375532 100644
---- a/net/netfilter/xt_socket.c
-+++ b/net/netfilter/xt_socket.c
-@@ -14,6 +14,7 @@
- #include <linux/skbuff.h>
- #include <linux/netfilter/x_tables.h>
- #include <linux/netfilter_ipv4/ip_tables.h>
-+#include <linux/netfilter_ipv6/ip6_tables.h>
- #include <net/tcp.h>
- #include <net/udp.h>
- #include <net/icmp.h>
-@@ -21,6 +22,7 @@
- #include <net/inet_sock.h>
- #include <net/netfilter/nf_tproxy_core.h>
- #include <net/netfilter/ipv4/nf_defrag_ipv4.h>
-+#include <net/netfilter/ipv6/nf_defrag_ipv6.h>
- 
- #include <linux/netfilter/xt_socket.h>
- 
-@@ -30,7 +32,7 @@
- #endif
- 
- static int
--extract_icmp_fields(const struct sk_buff *skb,
-+extract_icmp4_fields(const struct sk_buff *skb,
- 		    u8 *protocol,
- 		    __be32 *raddr,
- 		    __be32 *laddr,
-@@ -115,7 +117,7 @@ socket_match(const struct sk_buff *skb, const struct xt_match_param *par,
- 		dport = hp->dest;
- 
- 	} else if (iph->protocol == IPPROTO_ICMP) {
--		if (extract_icmp_fields(skb, &protocol, &saddr, &daddr,
-+		if (extract_icmp4_fields(skb, &protocol, &saddr, &daddr,
- 					&sport, &dport))
- 			return false;
- 	} else {
-@@ -175,23 +177,148 @@ socket_match(const struct sk_buff *skb, const struct xt_match_param *par,
- }
- 
- static bool
--socket_mt_v0(const struct sk_buff *skb, const struct xt_match_param *par)
-+socket_mt4_v0(const struct sk_buff *skb, const struct xt_match_param *par)
- {
- 	return socket_match(skb, par, NULL);
- }
- 
- static bool
--socket_mt_v1(const struct sk_buff *skb, const struct xt_match_param *par)
-+socket_mt4_v1(const struct sk_buff *skb, const struct xt_match_param *par)
- {
- 	return socket_match(skb, par, par->matchinfo);
- }
- 
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+
-+static int
-+extract_icmp6_fields(const struct sk_buff *skb,
-+		     unsigned int outside_hdrlen,
-+		     u8 *protocol,
-+		     struct in6_addr **raddr,
-+		     struct in6_addr **laddr,
-+		     __be16 *rport,
-+		     __be16 *lport)
-+{
-+	struct ipv6hdr *inside_iph, _inside_iph;
-+	struct icmp6hdr *icmph, _icmph;
-+	__be16 *ports, _ports[2];
-+	u8 inside_nexthdr;
-+	int inside_hdrlen;
-+
-+	icmph = skb_header_pointer(skb, outside_hdrlen,
-+				   sizeof(_icmph), &_icmph);
-+	if (icmph == NULL)
-+		return 1;
-+
-+	if (icmph->icmp6_type & ICMPV6_INFOMSG_MASK)
-+		return 1;
-+
-+	inside_iph = skb_header_pointer(skb, outside_hdrlen + sizeof(_icmph), sizeof(_inside_iph), &_inside_iph);
-+	if (inside_iph == NULL)
-+		return 1;
-+	inside_nexthdr = inside_iph->nexthdr;
-+
-+	inside_hdrlen = ipv6_skip_exthdr(skb, outside_hdrlen + sizeof(_icmph) + sizeof(_inside_iph), &inside_nexthdr);
-+	if (inside_hdrlen < 0)
-+		return 1; /* hjm: Packet has no/incomplete transport layer headers. */
-+
-+	if (inside_nexthdr != IPPROTO_TCP &&
-+	    inside_nexthdr != IPPROTO_UDP)
-+		return 1;
-+
-+	ports = skb_header_pointer(skb, inside_hdrlen,
-+				   sizeof(_ports), &_ports);
-+	if (ports == NULL)
-+		return 1;
-+
-+	/* the inside IP packet is the one quoted from our side, thus
-+	 * its saddr is the local address */
-+	*protocol = inside_nexthdr;
-+	*laddr = &inside_iph->saddr;
-+	*lport = ports[0];
-+	*raddr = &inside_iph->daddr;
-+	*rport = ports[1];
-+
-+	return 0;
-+}
-+
-+static bool
-+socket_mt6_v1(const struct sk_buff *skb, const struct xt_match_param *par)
-+{
-+	struct ipv6hdr *iph = ipv6_hdr(skb);
-+	struct udphdr _hdr, *hp = NULL;
-+	struct sock *sk;
-+	struct in6_addr *daddr, *saddr;
-+	__be16 dport, sport;
-+        int thoff;
-+	u8 tproto;
-+        const struct xt_socket_mtinfo1 *info = (struct xt_socket_mtinfo1 *) par->matchinfo;
-+        
-+        tproto = ipv6_find_hdr(skb, &thoff, -1, NULL);
-+        if (tproto < 0) {
-+		pr_debug("socket match: Unable to find transport header in IPv6 packet, dropping\n");
-+		return NF_DROP;
-+        }
-+
-+	if (tproto == IPPROTO_UDP || tproto == IPPROTO_TCP) {
-+		hp = skb_header_pointer(skb, thoff,
-+					sizeof(_hdr), &_hdr);
-+		if (hp == NULL)
-+			return false;
-+
-+		saddr = &iph->saddr;
-+		sport = hp->source;
-+		daddr = &iph->daddr;
-+		dport = hp->dest;
-+
-+	} else if (tproto == IPPROTO_ICMP) {
-+		if (extract_icmp6_fields(skb, thoff, &tproto, &saddr, &daddr,
-+					 &sport, &dport))
-+			return false;
-+	} else {
-+		return false;
-+	}
-+
-+	sk = nf_tproxy_get_sock_v6(dev_net(skb->dev), tproto,
-+				   saddr, daddr, sport, dport, par->in, NFT_LOOKUP_ANY);
-+	if (sk != NULL) {
-+		bool wildcard;
-+		bool transparent = true;
-+
-+		/* Ignore sockets listening on INADDR_ANY */
-+		wildcard = (sk->sk_state != TCP_TIME_WAIT &&
-+			    ipv6_addr_any(&inet6_sk(sk)->rcv_saddr));
-+
-+		/* Ignore non-transparent sockets,
-+		   if XT_SOCKET_TRANSPARENT is used */
-+		if (info && info->flags & XT_SOCKET_TRANSPARENT)
-+			transparent = ((sk->sk_state != TCP_TIME_WAIT &&
-+					inet_sk(sk)->transparent) ||
-+				       (sk->sk_state == TCP_TIME_WAIT &&
-+					inet_twsk(sk)->tw_transparent));
-+
-+		nf_tproxy_put_sock(sk);
-+
-+		if (wildcard || !transparent)
-+			sk = NULL;
-+	}
-+
-+	pr_debug("socket match: proto %u %pI6:%u -> %pI6:%u "
-+		 "(orig %pI6:%u) sock %p\n",
-+		 tproto, saddr, ntohs(sport),
-+		 daddr, ntohs(dport),
-+		 &iph->daddr, hp ? ntohs(hp->dest) : 0, sk);
-+
-+	return (sk != NULL);
-+}
-+#endif
-+
- static struct xt_match socket_mt_reg[] __read_mostly = {
- 	{
- 		.name		= "socket",
- 		.revision	= 0,
- 		.family		= NFPROTO_IPV4,
--		.match		= socket_mt_v0,
-+		.match		= socket_mt4_v0,
- 		.hooks		= 1 << NF_INET_PRE_ROUTING,
- 		.me		= THIS_MODULE,
- 	},
-@@ -199,16 +326,28 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
- 		.name		= "socket",
- 		.revision	= 1,
- 		.family		= NFPROTO_IPV4,
--		.match		= socket_mt_v1,
-+		.match		= socket_mt4_v1,
-+		.matchsize	= sizeof(struct xt_socket_mtinfo1),
-+		.hooks		= 1 << NF_INET_PRE_ROUTING,
-+		.me		= THIS_MODULE,
-+	},
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+	{
-+		.name		= "socket",
-+		.revision	= 1,
-+		.family		= NFPROTO_IPV6,
-+		.match		= socket_mt6_v1,
- 		.matchsize	= sizeof(struct xt_socket_mtinfo1),
- 		.hooks		= 1 << NF_INET_PRE_ROUTING,
- 		.me		= THIS_MODULE,
- 	},
-+#endif
- };
- 
- static int __init socket_mt_init(void)
- {
- 	nf_defrag_ipv4_enable();
-+	nf_defrag_ipv6_enable();
- 	return xt_register_matches(socket_mt_reg, ARRAY_SIZE(socket_mt_reg));
- }
- 
-@@ -224,3 +363,4 @@ MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Krisztian Kovacs, Balazs Scheidler");
- MODULE_DESCRIPTION("x_tables socket match module");
- MODULE_ALIAS("ipt_socket");
-+MODULE_ALIAS("ip6t_socket");
--- 
-1.6.0.4
+thanks,
+-chris
 
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
