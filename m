@@ -1,34 +1,37 @@
-From: Andrew Victor <avictor.za@gmail.com>
-Subject: Re: [PATCH 2/3] at91sam9263ek: activate at91 CAN controller
-Date: Mon, 21 Sep 2009 23:27:00 +0200
-Message-ID: <cd73a99e0909211427y7e36778bv1aa36d4542f16399@mail.gmail.com>
-References: <1253180254-11910-1-git-send-email-mkl@pengutronix.de>
-	 <1253180254-11910-2-git-send-email-mkl@pengutronix.de>
-	 <1253180254-11910-3-git-send-email-mkl@pengutronix.de>
+From: Andreas Gruenbacher <agruen@suse.de>
+Subject: Re: fanotify as syscalls
+Date: Mon, 21 Sep 2009 23:27:20 +0200
+Message-ID: <200909212327.20978.agruen@suse.de>
+References: <20090912094110.GB24709@ioremap.net> <200909212204.51077.agruen@suse.de> <20090921202823.GB14700@shareable.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Socketcan-core@lists.berlios.de,
-	Andrew Victor <linux@maxim.org.za>, wg@grandegger.com,
-	"Hans J. Koch" <hjk@linutronix.de>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.159]:27480 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753919AbZIUV06 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2009 17:26:58 -0400
-Received: by fg-out-1718.google.com with SMTP id 22so1256760fge.1
-        for <netdev@vger.kernel.org>; Mon, 21 Sep 2009 14:27:00 -0700 (PDT)
-In-Reply-To: <1253180254-11910-3-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Paris <eparis@redhat.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
+	alan@linux.intel.com, hch@infradead.org
+To: Jamie Lokier <jamie@shareable.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20090921202823.GB14700@shareable.org>
+Content-Disposition: inline
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-hi Marc,
+On Monday, 21 September 2009 22:28:23 Jamie Lokier wrote:
+> It would be logical if fanotify could block and ack those [mount & umount
+> events] in the same way as it can block and ack other accesses (with the
+> usual filtering rules on which inodes trigger events, and which don't or are
+> cached).
 
-> This patch activates the at91 CAN controller for the at91sam9263ek
-> development board.
->
-> Signed-off-by: Hans J. Koch <hjk@linutronix.de>
-> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Hmm. To me, fanotify is about file contents first of all: this is what 
+fanotify wants to be able to veto. Directory events seem reasonable to add 
+for inotify compatibility, but I see no need for access decisions on them. 
+Even less so for mounts and unmounts. (Besides, we can't hold any vfs locks 
+while asking fanotify so those operations wouldn't be atomic, anyway.)
 
-Acked-by: Andrew Victor <linux@maxim.org.za>
+Thanks,
+Andreas
