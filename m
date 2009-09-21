@@ -1,80 +1,95 @@
-From: Andreas Gruenbacher <agruen@suse.de>
+From: Jamie Lokier <jamie@shareable.org>
 Subject: Re: fanotify as syscalls
-Date: Tue, 22 Sep 2009 01:09:05 +0200
-Message-ID: <200909220109.05995.agruen@suse.de>
-References: <20090912094110.GB24709@ioremap.net> <200909212327.20978.agruen@suse.de> <20090921220002.GE14700@shareable.org>
+Date: Tue, 22 Sep 2009 00:12:27 +0100
+Message-ID: <20090921231227.GJ14700@shareable.org>
+References: <20090912094110.GB24709@ioremap.net> <200909190000.43556.agruen@suse.de> <1253329471.2630.30.camel@dhcp231-106.rdu.redhat.com> <200909212204.51077.agruen@suse.de> <20090921202823.GB14700@shareable.org> <alpine.DEB.2.00.0909211456180.1116@makko.or.mcafeemobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Paris <eparis@redhat.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Andreas Gruenbacher <agruen@suse.de>,
+	Eric Paris <eparis@redhat.com>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
 	Evgeniy Polyakov <zbr@ioremap.net>,
 	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
-	alan@linux.intel.com, hch@infradead.org
-To: Jamie Lokier <jamie@shareable.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754374AbZIUXJn@vger.kernel.org>
-In-Reply-To: <20090921220002.GE14700@shareable.org>
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
+	viro@zeniv.linux.org.uk, alan@linux.intel.com, hch@infradead.org
+To: Davide Libenzi <davidel@xmailserver.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <alpine.DEB.2.00.0909211456180.1116@makko.or.mcafeemobile.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday, 22 September 2009 0:00:02 Jamie Lokier wrote:
-> Andreas Gruenbacher wrote:
-> > On Monday, 21 September 2009 22:28:23 Jamie Lokier wrote:
-> > > It would be logical if fanotify could block and ack those [mount &
-> > > umount events] in the same way as it can block and ack other accesses
-> > > (with the usual filtering rules on which inodes trigger events, and
-> > > which don't or are cached).
-> >
-> > Hmm. To me, fanotify is about file contents first of all: this is what
-> > fanotify wants to be able to veto.
->
-> Surely you don't assume that what constitutes malicious content is
-> independent of it's location and/or name?
+Davide Libenzi wrote:
+> On Mon, 21 Sep 2009, Jamie Lokier wrote:
+> 
+> > I think so to, and that'd be a great all round solution.
+> 
+> If this is for anti-malware vendors
 
-If the antimalware vendors want to base their decisions on pathnames then 
-that's their decision, and they can check /proc/self/fd/N. We should be able 
-to treat directory events the same.
+Personally I'm not interested in anti-malware, and am simply
+interested in leveraging fsnotify improvements to accelerate userspace
+caches of information which depends on files (indexes, templates,
+compiler caches, stat caches etc.).  Basically make inotify better,
+and sufficiently correct for that purpose.
 
-> (See also "echo 'run_virus&' >>.bash_login).
->
-> Wait a minute.  You don't assume that, otherwise why the interest in
-> subtrees? :-)
->
-> > Directory events seem reasonable to add for inotify compatibility,
->
-> Did you see may point about userspace caches and how directory events
-> are fundamental to that - there's no way to build a cache without them?
+My sticking my oar in lately is to ensure the fsnotify improvements
+are going in the (imho) right direction.  There's a lot of interesting
+apps waiting in the wings on this.  It doesn't have to be complicated,
+just... sensible.
 
-Yes, there were some doubts about this appoach. Waiting for your code to 
-demonstrate; an object based cache (e.g., st_dev + st_ino) rather than a 
-pathname based cache would seem more reasonable.
+> to intercept userspace accesses 
+> they're currently doing it by hacking the syscall table, why don't we 
+> offer a way to monitor syscalls (kernel side) in a non racy way?
+> Modules can [un]register themselves for syscall intercaption, and receive 
+> the syscall number and parameters. They'd be able to change paramters, 
+> return error codes, and so on.
+> The cost of the check in the syscall path could even be under an 
+> alternative-like patching, if really neeeded.
+> The Pros of this would be:
+> 
+> - The kernel code to implement this would be trivially small, with no 
+>   I-need-this-feature-too growth potential
 
-> > but I see no need for access decisions on them.
->
-> Please excuse me; I'm a bit confused.  Is fanotify intended just for
-> use by access decision programs, or is the plan now for it to also be
-> a replacement for inotify?  I'm getting conflicting signals about
-> that.
+(Fwiw, the {fa,fs,i}notify thing looks to me like it's getting simpler
+as we go.  Good design = decrease complexity + increase versatility.
+E.g. see epoll.)
 
-Inotify doesn't support access decisions. So where's the problem with 
-having "notify only" events for directory / mount / unmount events?
+> - There won't be any externally visible API to maintain (and its kernel 
+>   counter part) and expand
+> 
+> - Any system call can be intercepted, allowing it to be flexible while 
+>   leaving the burden of the interception handling, and communication with 
+>   userspace policy enforcers, to the anti-malware (or whoever really) 
+>   companies modules
+> 
+> The anti-malware are already doing this (intercepting syscall), they 
+> already have code for it, and they always did (writing kernel 
+> modules/drivers, that is) for Windows.
 
-> If it's just for access decision programs, and if those aren't going
-> to care about location, then there's no need to add directory events
-> to fanotify at all.  But then I'll be demanding subtree support in
-> inotify, please :-)
->
-> > Even less so for mounts and unmounts.
->
->    (as root) mkdir foo; mount dodgy foo -oloop; mount --bind foo/cat
-> /bin/cat
+I don't mind at all if fanotify is replaced by a general purpose "take
+over the system call table" solution for anti-malware, and I still get
+to keep the fsnotify improvements :-)
 
-... and then someone accesses /bin/cat, which triggers a fanotify access 
-decision.
+But I can't help noticing that we _already_ have quite well placed
+hooks for intercepting system calls, called security_this and
+security_that (SELinux etc), albeit they can't redirect things so much.
 
-Thanks,
-Andreas
+However, being a little kinder, I suspect even the anti-malware
+vendors would rather not slow down everything with race-prone
+complicated tracking of everything every process does...  which is why
+fanotify allows it's "interest set" to be reduced from everything to a
+subset of files, and it's results to be cached, and let the races be
+handled in the normal way by VFS.
+
+Once you have an "interest set" and focus on files, it looks somewhat
+reasonable to use the fsnotify hooks.
+
+...That is, if you believe monitoring files is the best approach to
+anti-malware.  I can't help noticing that on (ahem) Windows, running
+just a "virus checker" which generically scans every file independent
+of it's location looking for signatures and keeping up with patches is
+no longer considered good enough.
+
+-- Jamie
+
