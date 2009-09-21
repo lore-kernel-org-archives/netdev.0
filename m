@@ -1,28 +1,33 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH 02/13] TProxy: add lookup type checks for UDP in
- nf_tproxy_get_sock_v4()
-Date: Mon, 21 Sep 2009 23:20:54 +0200 (CEST)
-Message-ID: <alpine.LSU.2.00.0909212320150.31023@obet.zrqbmnf.qr>
-References: <1253548005.12519.2.camel@bzorp.balabit>
+From: Andrew Victor <avictor.za@gmail.com>
+Subject: Re: [PATCH 1/3] at91sam9263: add at91_can device to generic device
+	definition
+Date: Mon, 21 Sep 2009 23:23:55 +0200
+Message-ID: <cd73a99e0909211423v11db220fy1a669d389646f249@mail.gmail.com>
+References: <1253094405-3216-1-git-send-email-mkl@pengutronix.de>
+	 <1253094405-3216-2-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Balazs Scheidler <bazsi@balabit.hu>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, Socketcan-core@lists.berlios.de,
+	"Hans J. Koch" <hjk@linutronix.de>,
+	linux-arm-kernel@lists.infradead.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from borg.medozas.de ([188.40.89.202]:58748 "EHLO borg.medozas.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753369AbZIUVUv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Sep 2009 17:20:51 -0400
-In-Reply-To: <1253548005.12519.2.camel@bzorp.balabit>
+Received: from fg-out-1718.google.com ([72.14.220.152]:3978 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754087AbZIUVXx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2009 17:23:53 -0400
+Received: by fg-out-1718.google.com with SMTP id 22so1012364fge.1
+        for <netdev@vger.kernel.org>; Mon, 21 Sep 2009 14:23:55 -0700 (PDT)
+In-Reply-To: <1253094405-3216-2-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+hi Marc,
 
-On Saturday 2009-08-15 14:01, Balazs Scheidler wrote:
+> This patch adds the device definition for the at91_can device to
+> the generic device definiton file for the at91sam9263.
+>
+> Signed-off-by: Hans J. Koch <hjk@linutronix.de>
+> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 
->+	case IPPROTO_UDP:
->+		sk = udp4_lib_lookup(net, saddr, sport, daddr, dport,
->+				     in->ifindex);
-
-You might want to add IPPROTO_UDPLITE in all places.
-
+Acked-by: Andrew Victor <linux@maxim.org.za>
