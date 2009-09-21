@@ -1,71 +1,53 @@
-From: Jamie Lokier <jamie@shareable.org>
+From: Davide Libenzi <davidel@xmailserver.org>
 Subject: Re: fanotify as syscalls
-Date: Mon, 21 Sep 2009 23:00:02 +0100
-Message-ID: <20090921220002.GE14700@shareable.org>
-References: <20090912094110.GB24709@ioremap.net> <200909212204.51077.agruen@suse.de> <20090921202823.GB14700@shareable.org> <200909212327.20978.agruen@suse.de>
+Date: Mon, 21 Sep 2009 15:18:43 -0700 (PDT)
+Message-ID: <alpine.DEB.2.00.0909211456180.1116@makko.or.mcafeemobile.com>
+References: <20090912094110.GB24709@ioremap.net> <200909190000.43556.agruen@suse.de> <1253329471.2630.30.camel@dhcp231-106.rdu.redhat.com> <200909212204.51077.agruen@suse.de> <20090921202823.GB14700@shareable.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Paris <eparis@redhat.com>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andreas Gruenbacher <agruen@suse.de>,
+	Eric Paris <eparis@redhat.com>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
 	Evgeniy Polyakov <zbr@ioremap.net>,
 	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
-	alan@linux.intel.com, hch@infradead.org
-To: Andreas Gruenbacher <agruen@suse.de>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <200909212327.20978.agruen@suse.de>
-Sender: linux-fsdevel-owner@vger.kernel.org
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
+	viro@zeniv.linux.org.uk, alan@linux.intel.com, hch@infradead.org
+To: Jamie Lokier <jamie@shareable.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754092AbZIUWSn@vger.kernel.org>
+In-Reply-To: <20090921202823.GB14700@shareable.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andreas Gruenbacher wrote:
-> On Monday, 21 September 2009 22:28:23 Jamie Lokier wrote:
-> > It would be logical if fanotify could block and ack those [mount & umount
-> > events] in the same way as it can block and ack other accesses (with the
-> > usual filtering rules on which inodes trigger events, and which don't or are
-> > cached).
-> 
-> Hmm. To me, fanotify is about file contents first of all: this is what 
-> fanotify wants to be able to veto.
+On Mon, 21 Sep 2009, Jamie Lokier wrote:
 
-Surely you don't assume that what constitutes malicious content is
-independent of it's location and/or name?
+> I think so to, and that'd be a great all round solution.
 
-(See also "echo 'run_virus&' >>.bash_login).
+If this is for anti-malware vendors to intercept userspace accesses 
+they're currently doing it by hacking the syscall table, why don't we 
+offer a way to monitor syscalls (kernel side) in a non racy way?
+Modules can [un]register themselves for syscall intercaption, and receive 
+the syscall number and parameters. They'd be able to change paramters, 
+return error codes, and so on.
+The cost of the check in the syscall path could even be under an 
+alternative-like patching, if really neeeded.
+The Pros of this would be:
 
-Wait a minute.  You don't assume that, otherwise why the interest in
-subtrees? :-)
+- The kernel code to implement this would be trivially small, with no 
+  I-need-this-feature-too growth potential
 
-> Directory events seem reasonable to add for inotify compatibility,
+- There won't be any externally visible API to maintain (and its kernel 
+  counter part) and expand
 
-Did you see may point about userspace caches and how directory events
-are fundamental to that - there's no way to build a cache without them?
+- Any system call can be intercepted, allowing it to be flexible while 
+  leaving the burden of the interception handling, and communication with 
+  userspace policy enforcers, to the anti-malware (or whoever really) 
+  companies modules
 
-> but I see no need for access decisions on them. 
+The anti-malware are already doing this (intercepting syscall), they 
+already have code for it, and they always did (writing kernel 
+modules/drivers, that is) for Windows.
 
-Please excuse me; I'm a bit confused.  Is fanotify intended just for
-use by access decision programs, or is the plan now for it to also be
-a replacement for inotify?  I'm getting conflicting signals about
-that.
 
-If it's just for access decision programs, and if those aren't going
-to care about location, then there's no need to add directory events
-to fanotify at all.  But then I'll be demanding subtree support in
-inotify, please :-)
 
-> Even less so for mounts and unmounts.
-
-   (as root) mkdir foo; mount dodgy foo -oloop; mount --bind foo/cat /bin/cat
-
-If fanotify doesn't react to that, which is just a fancy way of saying
-"zcat virus.gz >/bin/cat" in a way which doesn't cause any writes or
-opens, what's the point in it?  Is fanotify only for checking files
-written by non-root users?
-
-> (Besides, we can't hold any vfs locks 
-> while asking fanotify so those operations wouldn't be atomic, anyway.)
-
-Indeed, good point.
-
--- Jamie
+- Davide
