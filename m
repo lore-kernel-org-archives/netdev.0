@@ -1,48 +1,38 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-2.6 PATCH 2/6] net: remove kfree_skb on a NULL pointer in
- af_netlink.c
-Date: Mon, 21 Sep 2009 12:04:35 +0000
-Message-ID: <4AB76BD3.80802@intel.com>
-References: <20090918005708.25594.52575.stgit@localhost.localdomain>	<20090918005729.25594.14261.stgit@localhost.localdomain> <20090917.182445.240085155.davem@davemloft.net>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] bcm63xx_enet: timeout off by one in do_mdio_op()
+Date: Mon, 21 Sep 2009 22:08:48 +0200
+Message-ID: <4AB7DD50.6030409@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+To: mbizon@freebox.fr, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:62605 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753505AbZIUTe1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Sep 2009 15:34:27 -0400
-In-Reply-To: <20090917.182445.240085155.davem@davemloft.net>
+Received: from mail-ew0-f206.google.com ([209.85.219.206]:50741 "EHLO
+	mail-ew0-f206.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752128AbZIUUBW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2009 16:01:22 -0400
+Received: by ewy2 with SMTP id 2so1312123ewy.17
+        for <netdev@vger.kernel.org>; Mon, 21 Sep 2009 13:01:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Thu, 17 Sep 2009 17:57:29 -0700
->
->   
->> From: John Fastabend <john.r.fastabend@intel.com>
->>
->> This removes a kfree_skb that is being called on a NULL pointer when
->> do_one_broadcast() is sucessful.  And moves the kfree_skb into
->> do_one_broadcast() for the error case.
->>
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->>     
->
-> kfree_skb() on a NULL pointer is completely legal.
->   
-OK, but this depends on the unlikely() macro in kfree_skb() to catch a 
-case that is the expected non-error case. Would it be better to wrap the 
-kfree_skb() in an if statement to avoid hitting the unlikely() macro?  
-Or is the performance hit from the unlikely() macro so small this is not 
-an issue?  Thanks for looking at these.
+`while (limit-- >= 0)' reaches -2 after the loop upon timeout.
 
-john.
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+Small chance to occur, probably.
 
+diff --git a/drivers/net/bcm63xx_enet.c b/drivers/net/bcm63xx_enet.c
+index 09d2709..ba29dc3 100644
+--- a/drivers/net/bcm63xx_enet.c
++++ b/drivers/net/bcm63xx_enet.c
+@@ -90,7 +90,7 @@ static int do_mdio_op(struct bcm_enet_priv *priv, unsigned int data)
+ 		if (enet_readl(priv, ENET_IR_REG) & ENET_IR_MII)
+ 			break;
+ 		udelay(1);
+-	} while (limit-- >= 0);
++	} while (limit-- > 0);
+ 
+ 	return (limit < 0) ? 1 : 0;
+ }
