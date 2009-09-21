@@ -1,47 +1,71 @@
-From: Andrew Victor <avictor.za@gmail.com>
-Subject: Re: [PATCH 3/3] at91_can: add driver for Atmel's CAN controller on
-	AT91SAM9263
-Date: Mon, 21 Sep 2009 23:44:24 +0200
-Message-ID: <cd73a99e0909211444x70af0b73k3db99d1ab379913f@mail.gmail.com>
-References: <1253180254-11910-1-git-send-email-mkl@pengutronix.de>
-	 <1253180254-11910-2-git-send-email-mkl@pengutronix.de>
-	 <1253180254-11910-3-git-send-email-mkl@pengutronix.de>
-	 <1253180254-11910-4-git-send-email-mkl@pengutronix.de>
+From: Jamie Lokier <jamie@shareable.org>
+Subject: Re: fanotify as syscalls
+Date: Mon, 21 Sep 2009 23:00:02 +0100
+Message-ID: <20090921220002.GE14700@shareable.org>
+References: <20090912094110.GB24709@ioremap.net> <200909212204.51077.agruen@suse.de> <20090921202823.GB14700@shareable.org> <200909212327.20978.agruen@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Socketcan-core@lists.berlios.de,
-	Andrew Victor <linux@maxim.org.za>, wg@grandegger.com
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:38517 "EHLO
-	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751803AbZIUVoV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2009 17:44:21 -0400
-Received: by fxm18 with SMTP id 18so381217fxm.17
-        for <netdev@vger.kernel.org>; Mon, 21 Sep 2009 14:44:24 -0700 (PDT)
-In-Reply-To: <1253180254-11910-4-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Paris <eparis@redhat.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
+	alan@linux.intel.com, hch@infradead.org
+To: Andreas Gruenbacher <agruen@suse.de>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <200909212327.20978.agruen@suse.de>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-hi Marc,
+Andreas Gruenbacher wrote:
+> On Monday, 21 September 2009 22:28:23 Jamie Lokier wrote:
+> > It would be logical if fanotify could block and ack those [mount & umount
+> > events] in the same way as it can block and ack other accesses (with the
+> > usual filtering rules on which inodes trigger events, and which don't or are
+> > cached).
+> 
+> Hmm. To me, fanotify is about file contents first of all: this is what 
+> fanotify wants to be able to veto.
 
-> +static inline u32 at91_read(const struct at91_priv *priv, enum at91_=
-reg reg)
-> +{
-> + =A0 =A0 =A0 return readl(priv->reg_base + reg);
-> +}
-> +
-> +static inline void at91_write(const struct at91_priv *priv, enum at9=
-1_reg reg,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 u32 value)
-> +{
-> + =A0 =A0 =A0 writel(value, priv->reg_base + reg);
-> +}
+Surely you don't assume that what constitutes malicious content is
+independent of it's location and/or name?
 
-Rather use __raw_readl() and __raw_writel().
+(See also "echo 'run_virus&' >>.bash_login).
 
+Wait a minute.  You don't assume that, otherwise why the interest in
+subtrees? :-)
 
-Regards,
-  Andrew Victor
+> Directory events seem reasonable to add for inotify compatibility,
+
+Did you see may point about userspace caches and how directory events
+are fundamental to that - there's no way to build a cache without them?
+
+> but I see no need for access decisions on them. 
+
+Please excuse me; I'm a bit confused.  Is fanotify intended just for
+use by access decision programs, or is the plan now for it to also be
+a replacement for inotify?  I'm getting conflicting signals about
+that.
+
+If it's just for access decision programs, and if those aren't going
+to care about location, then there's no need to add directory events
+to fanotify at all.  But then I'll be demanding subtree support in
+inotify, please :-)
+
+> Even less so for mounts and unmounts.
+
+   (as root) mkdir foo; mount dodgy foo -oloop; mount --bind foo/cat /bin/cat
+
+If fanotify doesn't react to that, which is just a fancy way of saying
+"zcat virus.gz >/bin/cat" in a way which doesn't cause any writes or
+opens, what's the point in it?  Is fanotify only for checking files
+written by non-root users?
+
+> (Besides, we can't hold any vfs locks 
+> while asking fanotify so those operations wouldn't be atomic, anyway.)
+
+Indeed, good point.
+
+-- Jamie
