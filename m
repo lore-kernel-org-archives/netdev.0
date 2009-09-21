@@ -1,49 +1,29 @@
-From: Simon Holm =?ISO-8859-1?Q?Th=F8gersen?= <odie@cs.aau.dk>
-Subject: Re: [PANIC] pktgen panic on load
-Date: Mon, 21 Sep 2009 20:49:20 +0200
-Message-ID: <1253558960.5955.36.camel@odie>
-References: <1253486747.17792.9.camel@jbrandeb-mobl2>
-	 <20090920213507.73cdc786@nehalam> <1253547857.2810.6.camel@odie>
-	 <20090921095451.5ce95767@s6510>
+From: Jens Axboe <jens.axboe@oracle.com>
+Subject: "cfg80211: fix SME connect" breaks iwl3945
+Date: Mon, 21 Sep 2009 21:01:50 +0200
+Message-ID: <20090921190150.GC23126@kernel.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: johannes@sipsolutions.net, netdev@vger.kernel.org
+To: Linux Kernel <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.cs.aau.dk ([130.225.194.6]:49940 "EHLO smtp.cs.aau.dk"
+Received: from brick.kernel.dk ([93.163.65.50]:37353 "EHLO kernel.dk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752377AbZIUSto (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Sep 2009 14:49:44 -0400
-In-Reply-To: <20090921095451.5ce95767@s6510>
+	id S1751114AbZIUTBr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Sep 2009 15:01:47 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > > > just got this today after cloning Linus' tree, please let me kn=
-ow if you
-> > > > want .config or full dmesg
-> > >=20
-> > > config would help (hrt, nohz, preempt, ...), and was it just on m=
-odule load?
-> > > or had you started it sending?
-> >=20
-> > I have the similar trace below on a simple 'modprobe pktgen'. I've
-> > attached my config for v2.6.31-6456-g78f28b7.
+Hi Johannes,
 
->=20
-> Could you do a git bisect, although pktgen changed recently, the chan=
-ges were
-> not related to the thread initialization, so I suspect something outs=
-ide
-> the scope of networking (ie scheduler, vm, etc)
+Since the latest net pull that contains our above commit
+(bbac31f4c0339f6c51afbd0edfb4959df9b53fa9 in tree), my iwl3945 based x60
+laptop doesn't want to connect to my access point at all. Reverting this
+commit makes it work.
 
-Seems like this was fixed by commit 3f04e8c ("sched: Re-add lost
-cpu_allowed check to sched_fair.c::select_task_rq_fair()") according to
-Ingo [1]. Indeed, using Linus' current tree works for me.
+Let me know if you need more info.
 
-[1] http://marc.info/?l=3Dlinux-netdev&m=3D125355156524237&w=3D2
-
-
-Simon Holm Th=C3=B8gersen
+-- 
+Jens Axboe
 
