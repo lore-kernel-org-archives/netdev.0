@@ -1,37 +1,58 @@
-From: Andreas Gruenbacher <agruen@suse.de>
-Subject: Re: fanotify as syscalls
-Date: Mon, 21 Sep 2009 23:27:20 +0200
-Message-ID: <200909212327.20978.agruen@suse.de>
-References: <20090912094110.GB24709@ioremap.net> <200909212204.51077.agruen@suse.de> <20090921202823.GB14700@shareable.org>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH 1/3] at91sam9263: add at91_can device to generic device
+	definition
+Date: Mon, 21 Sep 2009 23:30:35 +0200
+Message-ID: <4AB7F07B.1050201@pengutronix.de>
+References: <1253094405-3216-1-git-send-email-mkl@pengutronix.de>	
+	<1253094405-3216-2-git-send-email-mkl@pengutronix.de>
+	<cd73a99e0909211423v11db220fy1a669d389646f249@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Paris <eparis@redhat.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
-	alan@linux.intel.com, hch@infradead.org
-To: Jamie Lokier <jamie@shareable.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20090921202823.GB14700@shareable.org>
-Content-Disposition: inline
-Sender: linux-fsdevel-owner@vger.kernel.org
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Andrew Victor <avictor.za-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <cd73a99e0909211423v11db220fy1a669d389646f249-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Monday, 21 September 2009 22:28:23 Jamie Lokier wrote:
-> It would be logical if fanotify could block and ack those [mount & umount
-> events] in the same way as it can block and ack other accesses (with the
-> usual filtering rules on which inodes trigger events, and which don't or are
-> cached).
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Hmm. To me, fanotify is about file contents first of all: this is what 
-fanotify wants to be able to veto. Directory events seem reasonable to add 
-for inotify compatibility, but I see no need for access decisions on them. 
-Even less so for mounts and unmounts. (Besides, we can't hold any vfs locks 
-while asking fanotify so those operations wouldn't be atomic, anyway.)
+Hey Andrew,
 
-Thanks,
-Andreas
+Andrew Victor wrote:
+>> This patch adds the device definition for the at91_can device to
+>> the generic device definiton file for the at91sam9263.
+>>
+>> Signed-off-by: Hans J. Koch <hjk-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+>> Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> Acked-by: Andrew Victor <linux-PelNFVqkFnVyf+4FbqDuWQ@public.gmane.org>
+
+Thanks for you Ack, how do the first two patches now get into mainline?
+The third one goes over David's net-next-2.6.
+
+cheers, Marc
+
+- --
+Pengutronix e.K.                         | Marc Kleine-Budde           |
+Linux Solutions for Science and Industry | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund                 | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686         | http://www.pengutronix.de   |
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iEYEARECAAYFAkq38HsACgkQjTAFq1RaXHMhNgCfRIe+YdnwKsO7C1HwT6azHSH4
+Oh4An3DBidtNAbRWsVyFco/mPcJHhA4z
+=hbZm
+-----END PGP SIGNATURE-----
