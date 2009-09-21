@@ -1,49 +1,82 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Subject: Re: [RFC] Virtual Machine Device Queues(VMDq) support on KVM
-Date: Mon, 21 Sep 2009 09:27:18 -0700
-Message-ID: <20090921162718.GM26034@sequoia.sous-sol.org>
-References: <C85CEDA13AB1CF4D9D597824A86D2B9006AEB94861@PDSMSX501.ccr.corp.intel.com> <20090901090518.1193e412@nehalam> <200909211637.23299.rusty@rustcorp.com.au> <20090921092130.30984dbd@s6510>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [crash] kernel BUG at net/core/pktgen.c:3503!
+Date: Mon, 21 Sep 2009 18:45:38 +0200
+Message-ID: <20090921164538.GA10011@elte.hu>
+References: <20090911.202543.52533792.davem@davemloft.net> <20090915183647.GA11628@elte.hu> <20090915185112.GA17587@lenovo> <20090917.102923.174779685.davem@davemloft.net> <20090917174448.GA9548@elte.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-        virtualization@lists.linux-foundation.org,
-        "Xin, Xiaohui" <xiaohui.xin@intel.com>,
-        "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-        "mst@redhat.com" <mst@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-mm@kvack.org" <linux-mm@kvack.org>,
-        "hpa@zytor.com" <hpa@zytor.com>, "mingo@elte.hu" <mingo@elte.hu>,
-        "akpm@linux-foundation.org" <akpm@linux-foundation.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: gorcunov@gmail.com, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:48616 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751529AbZIUQpq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Sep 2009 12:45:46 -0400
 Content-Disposition: inline
-In-Reply-To: <20090921092130.30984dbd@s6510>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20090917174448.GA9548@elte.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Stephen Hemminger (shemminger@vyatta.com) wrote:
-> On Mon, 21 Sep 2009 16:37:22 +0930
-> Rusty Russell <rusty@rustcorp.com.au> wrote:
+
+* Ingo Molnar <mingo@elte.hu> wrote:
+
 > 
-> > > > Actually this framework can apply to traditional network adapters which have
-> > > > just one tx/rx queue pair. And applications using the same user/kernel interface
-> > > > can utilize this framework to send/receive network traffic directly thru a tx/rx
-> > > > queue pair in a network adapter.
-> > > > 
+> * David Miller <davem@davemloft.net> wrote:
 > 
-> More importantly, when virtualizations is used with multi-queue NIC's the virtio-net
-> NIC is a single CPU bottleneck. The virtio-net NIC should preserve the parallelism (lock
-> free) using multiple receive/transmit queues. The number of queues should equal the
-> number of CPUs.
+> > From: Cyrill Gorcunov <gorcunov@gmail.com>
+> > Date: Tue, 15 Sep 2009 22:51:12 +0400
+> > 
+> > > [Ingo Molnar - Tue, Sep 15, 2009 at 08:36:47PM +0200]
+> > > | 
+> > > | not sure which merge caused this, but i got this boot crash with latest 
+> > > | -git:
+> > > | 
+> > > | calling  flow_cache_init+0x0/0x1b9 @ 1
+> > > | initcall flow_cache_init+0x0/0x1b9 returned 0 after 64 usecs
+> > > | calling  pg_init+0x0/0x37c @ 1
+> > > | pktgen 2.72: Packet Generator for packet performance testing.
+> > > | ------------[ cut here ]------------
+> > > | kernel BUG at net/core/pktgen.c:3503!
+> > > | invalid opcode: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
+> > > | last sysfs file: 
+> > > | 
+> > > 
+> > > Hi Ingo,
+> > > 
+> > > just curious, will the following patch fix the problem?
+> > > I've been fixing problem with familiar symthoms on
+> > > system with custome virtual cpu implementation so
+> > > it may not help in mainline but anyway :)
+> > 
+> > Ingo, does Cyrill's patch help?
+> 
+> For now i've turned pktgen off in my tests. Will check it again once 
+> things have calmed down somewhat.
+> 
+> Also, i just tried to reproduce the pktgen crash with latest -git and 
+> the config i sent - no luck, so i cannot test Cyrill's patch either.
+> 
+> Btw., we are seeing some other preempt count and task related 
+> weirdnesses as well in other code, maybe it's related. No good pattern 
+> yet to act upon.
+> 
+> Anyway - please disregard this bugreport until i've investigated it 
+> closer.
 
-Yup, multiqueue virtio is on todo list ;-)
+Update: i've further investigated it and this bug was caused by a 
+scheduler bug introduced in this merge window, which got fixed in:
 
-thanks,
--chris
+  3f04e8c: sched: Re-add lost cpu_allowed check to sched_fair.c::select_task_rq_fair()
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+This bug caused CPU affinities to not work in essence - breaking kthread 
+per-cpu assumptions in net/core/pktgen.c.
+
+I've confirmed this by re-enabling pktgen in my tests and the crash has 
+no reappeared.
+
+Thanks,
+
+	Ingo
