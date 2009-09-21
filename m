@@ -1,103 +1,55 @@
-From: Mel Gorman <mel@csn.ul.ie>
-Subject: Re: ipw2200: firmware DMA loading rework
-Date: Mon, 21 Sep 2009 14:37:04 +0100
-Message-ID: <20090921133704.GO12726@csn.ul.ie>
-References: <riPp5fx5ECC.A.2IG.qsGlKB@chimera> <200909211246.34774.bzolnier@gmail.com> <1253530608.5216.17.camel@penberg-laptop> <200909211512.14785.bzolnier@gmail.com>
+From: Mike McCormack <mikem@ring3k.org>
+Subject: [PATCH] sky2: Set SKY2_HW_RAM_BUFFER in sky2_init
+Date: Mon, 21 Sep 2009 23:08:52 +0900
+Message-ID: <4AB788F4.90503@ring3k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>, Tso Ted <tytso@mit.edu>,
-	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
-	Zhu Yi <yi.zhu@intel.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Johannes Weiner <hannes@cmpxchg.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Mel Gorman <mel@skynet.ie>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>,
-	James Ketrenos <jketreno@linux.intel.com>,
-	"Chatre, Reinette" <reinette.chatre@intel.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"ipw2100-devel@lists.sourceforge.net" <ipw2100-devel@lists.sourceforge.net>
-To: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <200909211512.14785.bzolnier@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-px0-f171.google.com ([209.85.216.171]:56354 "EHLO
+	mail-px0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756156AbZIUOP7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2009 10:15:59 -0400
+Received: by pxi1 with SMTP id 1so2445536pxi.1
+        for <netdev@vger.kernel.org>; Mon, 21 Sep 2009 07:16:03 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 21, 2009 at 03:12:14PM +0200, Bartlomiej Zolnierkiewicz wrote:
-> On Monday 21 September 2009 12:56:48 Pekka Enberg wrote:
-> > On Mon, 2009-09-21 at 12:46 +0200, Bartlomiej Zolnierkiewicz wrote:
-> > > > > I don't know why people don't see it but for me it has a memory management
-> > > > > regression and reliability issue written all over it.
-> > > > 
-> > > > Possibly but drivers that reload their firmware as a response to an
-> > > > error condition is relatively new and loading network drivers while the
-> > > > system is already up and running a long time does not strike me as
-> > > > typical system behaviour.
-> > > 
-> > > Loading drivers after boot is a typical desktop/laptop behavior, please
-> > > think about hotplug (the hardware in question is an USB dongle).
-> > 
-> > Yeah, I wonder what broke things. Did the wireless stack change in
-> > 2.6.31-rc1 too? IIRC Mel ruled out page allocator changes as a suspect.
-> 
-> The thing is that the mm behavior change has been narrowed down already
-> over a month ago to -mm merge in 2.6.31-rc1 (as has been noted in my initial
-> reports), I first though that that it was -next breakage but it turned out
-> that it came the other way around (because -mm is not even pulled into -next
-> currently -- great way to set an example for other kernel maintainers BTW).
-> 
+The SKY2_HW_RAM_BUFFER bit in hw->flags was checked in sky2_mac_init(),
+ before being set later in sky2_up().
 
-Is there a reliable reproduction case for this that narrowed it down to
-2.6.31-rc1? That is the window where a number of page-allocator optimisation
-patches made it in. None of them should have affected the allocator from a
-fragmentation perspective though.
+Setting SKY2_HW_RAM_BUFFER in sky2_init() where other hw->flags are set
+ should avoid this problem recurring.
 
-If you have a reliable reproduction case, testing between commits
-d239171e4f6efd58d7e423853056b1b6a74f1446..a1dd268cf6306565a31a48deff8bf4f6b4b105f7
-would be nice, particularly if it can be bisected within that small
-window rather than a full bisect of an rc1 which I know can be a major
-mess.
+Signed-off-by: Mike McCormack <mikem@ring3k.org>
+---
+ drivers/net/sky2.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-> I understand that behavior change may be justified and technically correct
-> in itself.  I also completely agree that high order allocations in certain
-> drivers need fixing anyway.
-> 
-> However there is something wrong with the big picture and the way changes
-> are happening.  I'm not saying that I'm surprised though, especially given
-> the recent decline in the quality assurance and the paradigm shift that
-> I'm seeing (some influential top level people talking that -rc1 is fine for
-> testing new code now or the "new kernel new hardware" thing).
-> 
-
-The quality assurance comment is a bit unfair with respect to the page
-allocator. There are a lot of things that can have changed that would hose
-order-6 atomic allocations. Furthermore, test cases used for mm patches
-would not have taken into account such allocations as being critical. Even
-if it was considered, it would have been dismissed as "it makes no sense
-for drivers to be doing order-6 GFP_ATOMIC" allocations.
-
-> Sorry but I have no more time currently to narrow down the issue some more
-> (guess what, there are other kernel bugs standing in the way to bisect it
-> and I would have to provide some reliable way to reproduce it first) so I
-> see no more point in wasting people's time on this.  I can certainly get by
-> with allocation failure here and there.  Not a big deal for me personally..
-> 
-
-That is somewhat unfortunate. Even testing within the window above if
-possible would be very helpful if you get the chance.
-
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index 4bb52e9..68d256b 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -1497,7 +1497,6 @@ static int sky2_up(struct net_device *dev)
+ 	if (ramsize > 0) {
+ 		u32 rxspace;
+ 
+-		hw->flags |= SKY2_HW_RAM_BUFFER;
+ 		pr_debug(PFX "%s: ram buffer %dK\n", dev->name, ramsize);
+ 		if (ramsize < 16)
+ 			rxspace = ramsize / 2;
+@@ -2926,6 +2925,9 @@ static int __devinit sky2_init(struct sky2_hw *hw)
+ 			++hw->ports;
+ 	}
+ 
++	if (sky2_read8(hw, B2_E_0))
++		hw->flags |= SKY2_HW_RAM_BUFFER;
++
+ 	return 0;
+ }
+ 
 -- 
-Mel Gorman
-Part-time Phd Student                          Linux Technology Center
-University of Limerick                         IBM Dublin Software Lab
+1.5.6.5
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
