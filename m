@@ -1,48 +1,37 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH 13/13] TProxy: use the interface primary IP address as
- a default value for --on-ip
-Date: Mon, 21 Sep 2009 14:00:39 -0400
-Message-ID: <4AB7BF47.2030404@hp.com>
-References: <1253548005.12519.13.camel@bzorp.balabit>
+From: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
+Subject: bugfix: wireless bug causing working setups to loose net connectivity
+Date: Mon, 21 Sep 2009 20:35:50 +0200
+Message-ID: <200909212035.50592.a.miskiewicz@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Balazs Scheidler <bazsi@balabit.hu>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:14820 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752248AbZIUSAh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2009 14:00:37 -0400
-In-Reply-To: <1253548005.12519.13.camel@bzorp.balabit>
+Received: from mail-bw0-f210.google.com ([209.85.218.210]:34607 "EHLO
+	mail-bw0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751404AbZIUSfv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2009 14:35:51 -0400
+Received: by bwz6 with SMTP id 6so2134183bwz.37
+        for <netdev@vger.kernel.org>; Mon, 21 Sep 2009 11:35:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Balazs Scheidler wrote: 
->  #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-> +
-> +static inline const struct in6_addr *
-> +tproxy_laddr6(struct sk_buff *skb, const struct in6_addr *user_laddr, const struct in6_addr *daddr)
-> +{
-> +	struct inet6_dev *indev;
-> +	struct inet6_ifaddr *ifa;
-> +	struct in6_addr *laddr;
-> +	
-> +        if (!ipv6_addr_any(user_laddr))
-> +                return user_laddr;
-> +	
-> +        laddr = NULL;
-> +        rcu_read_lock();
-> +        indev = __in6_dev_get(skb->dev);
-> +        if (indev && (ifa = indev->addr_list)) {
-> +		laddr = &ifa->addr;
-> +	}
-> +        rcu_read_unlock();
-> +        
-> +        return laddr ? laddr : daddr;
-> +}
 
-You should call ipv6_dev_get_saddr() to get a source address based on the target
-destination address.
+Could=20
+http://marc.info/?l=3Dlinux-wireless&m=3D125323296617306&w=3D2
+be merged without waiting for separate wireless pull request?
 
--Brian
+Currently previously working setups are no longer able to connect to AP=
+ (in my=20
+case WPA2PSK via wpasupplicant).
+
+AFAIK there was some kind of policy where bugfixes that break basic=20
+functionality are supposed to be merged fast to allow to actually use a=
+nd test=20
+git kernel.
+
+Thanks,
+--=20
+Arkadiusz Mi=C5=9Bkiewicz        PLD/Linux Team
+arekm / maven.pl            http://ftp.pld-linux.org/
