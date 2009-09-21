@@ -1,146 +1,97 @@
 From: Balazs Scheidler <bazsi@balabit.hu>
-Subject: [PATCH 13/13] TProxy: use the interface primary IP address as a
- default value for --on-ip
-Date: Mon, 21 Sep 2009 16:46:40 +0200
-Message-ID: <1253548005.12519.13.camel@bzorp.balabit>
+Subject: [PATCH 00/13] TProxy IPv6 support 2nd round
+Date: Mon, 21 Sep 2009 15:51:40 +0000
+Message-ID: <1253548300.12519.20.camel@bzorp.balabit>
 Mime-Version: 1.0
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from support.balabit.hu ([195.70.41.86]:58369 "EHLO lists.balabit.hu"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751208AbZIUQY7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Sep 2009 12:24:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The REDIRECT target and the older TProxy versions used the primary address
-of the incoming interface as the default value of the --on-ip parameter.
-This was unintentionally changed during the initial TProxy submission and
-caused confusion among users.
+Hi,
 
-This is implemented for both IPv4 and IPv6.
+This is the 2nd version of TProxy and by this time it is complete with UDP
+and ICMP support. For those credits go to Harry Mason from Smoothwall.
 
-Signed-off-by: Balazs Scheidler <bazsi@balabit.hu>
----
- net/netfilter/xt_TPROXY.c |   63 ++++++++++++++++++++++++++++++++++++++++-----
- 1 files changed, 56 insertions(+), 7 deletions(-)
+Now I consider this patch complete, testers, reviews comments are very
+welcome.  
 
-diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
-index 4a345cd..b99e2b5 100644
---- a/net/netfilter/xt_TPROXY.c
-+++ b/net/netfilter/xt_TPROXY.c
-@@ -16,15 +16,41 @@
- #include <net/checksum.h>
- #include <net/udp.h>
- #include <net/inet_sock.h>
--
-+#include <linux/inetdevice.h>
- #include <linux/netfilter/x_tables.h>
- #include <linux/netfilter_ipv4/ip_tables.h>
--#include <linux/netfilter_ipv6/ip6_tables.h>
--#include <linux/netfilter/xt_TPROXY.h>
- 
- #include <net/netfilter/ipv4/nf_defrag_ipv4.h>
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+#include <net/if_inet6.h>
-+#include <net/addrconf.h>
-+#include <linux/netfilter_ipv6/ip6_tables.h>
- #include <net/netfilter/ipv6/nf_defrag_ipv6.h>
-+#endif
-+
- #include <net/netfilter/nf_tproxy_core.h>
-+#include <linux/netfilter/xt_TPROXY.h>
-+
-+static inline __be32
-+tproxy_laddr4(struct sk_buff *skb, __be32 user_laddr, __be32 daddr)
-+{
-+	struct in_device *indev;
-+	__be32 laddr;
-+	
-+        if (user_laddr)
-+                return user_laddr;
-+	
-+        laddr = 0;
-+        rcu_read_lock();
-+        indev = __in_dev_get_rcu(skb->dev);
-+        for_primary_ifa(indev) {
-+		laddr = ifa->ifa_local;
-+                break;
-+        } endfor_ifa(indev);
-+        rcu_read_unlock();
-+        
-+        return laddr ? laddr : daddr;
-+}
- 
- static unsigned int
- tproxy_tg4(struct sk_buff *skb, __be32 laddr, __be16 lport, u_int32_t mark_mask, u_int32_t mark_value)
-@@ -63,7 +89,7 @@ tproxy_tg4(struct sk_buff *skb, __be32 laddr, __be16 lport, u_int32_t mark_mask,
- 			 * there's a listener on the redirected port
- 			 */
- 			sk2 = nf_tproxy_get_sock_v4(dev_net(skb->dev), iph->protocol,
--						    iph->saddr, laddr ? laddr : iph->daddr,
-+						    iph->saddr, tproxy_laddr4(skb, laddr, iph->daddr),
- 						    hp->source, lport ? lport : hp->dest,
- 						    skb->dev, NFT_LOOKUP_LISTENER);
- 			if (sk2) {
-@@ -80,7 +106,7 @@ tproxy_tg4(struct sk_buff *skb, __be32 laddr, __be16 lport, u_int32_t mark_mask,
- 		/* no there's no established connection, check if
- 		 * there's a listener on the redirected addr/port */
- 		sk = nf_tproxy_get_sock_v4(dev_net(skb->dev), iph->protocol,
--					   iph->saddr, laddr ? laddr : iph->daddr,
-+					   iph->saddr, tproxy_laddr4(skb, laddr, iph->daddr),
- 					   hp->source, lport ? lport : hp->dest,
- 					   skb->dev, NFT_LOOKUP_LISTENER);
- 	}
-@@ -119,6 +145,29 @@ tproxy_tg4_v1(struct sk_buff *skb, const struct xt_target_param *par)
- }
- 
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+
-+static inline const struct in6_addr *
-+tproxy_laddr6(struct sk_buff *skb, const struct in6_addr *user_laddr, const struct in6_addr *daddr)
-+{
-+	struct inet6_dev *indev;
-+	struct inet6_ifaddr *ifa;
-+	struct in6_addr *laddr;
-+	
-+        if (!ipv6_addr_any(user_laddr))
-+                return user_laddr;
-+	
-+        laddr = NULL;
-+        rcu_read_lock();
-+        indev = __in6_dev_get(skb->dev);
-+        if (indev && (ifa = indev->addr_list)) {
-+		laddr = &ifa->addr;
-+	}
-+        rcu_read_unlock();
-+        
-+        return laddr ? laddr : daddr;
-+}
-+
-+
- static unsigned int
- tproxy_tg6_v1(struct sk_buff *skb, const struct xt_target_param *par)
- {
-@@ -168,7 +217,7 @@ tproxy_tg6_v1(struct sk_buff *skb, const struct xt_target_param *par)
- 			 * there's a listener on the redirected port
- 			 */
- 			sk2 = nf_tproxy_get_sock_v6(dev_net(skb->dev), tproto,
--						    &iph->saddr, !ipv6_addr_any(&tgi->laddr.in6) ? &tgi->laddr.in6 : &iph->daddr,
-+						    &iph->saddr, tproxy_laddr6(skb, &tgi->laddr.in6, &iph->daddr),
- 						    hp->source, tgi->lport ? tgi->lport : hp->dest,
- 						    par->in, NFT_LOOKUP_LISTENER);
- 			if (sk2) {
-@@ -185,7 +234,7 @@ tproxy_tg6_v1(struct sk_buff *skb, const struct xt_target_param *par)
- 		/* no there's no established connection, check if
- 		 * there's a listener on the redirected addr/port */
- 		sk = nf_tproxy_get_sock_v6(dev_net(skb->dev), tproto,
--					   &iph->saddr, !ipv6_addr_any(&tgi->laddr.in6) ? &tgi->laddr.in6 : &iph->daddr,
-+					   &iph->saddr, tproxy_laddr6(skb, &tgi->laddr.in6, &iph->daddr),
- 					   hp->source, tgi->lport ? tgi->lport : hp->dest,
- 					   par->in, NFT_LOOKUP_LISTENER);
- 	}
--- 
-1.6.0.4
+If no blockers show up, please consider this a merge request.
+
+I only know of one issue and I hope it does not block merging at this time:
+the socket and TPROXY modules both depend on both IPv4 and IPv6 stacks, thus
+pulling in the other even if only one of the stacks are in use.  Of course
+if IPv6 is not configured into the kernel no such dependency is present.
+
+I've tested the functionality of this patch-set with an automatic test
+program that runs a large number of tests and covers most of the TProxy
+functionality.  You can find this program at:
+
+git://git.balabit.hu/bazsi/tproxy-test.git/
+
+I would appreciate if someone with more intimate IPv6 knowledge would review
+this code, especially:
+  * IPv6 ICMP packet parsing
+  * the way the default local IP address is found 
+    (especially returning a pointer pointing to &inet6_ifaddr->addr outside RCU section)
+
+This patchset is based on an older tree of Linus, I don't expect any
+problems with net-next, but please let me know if I have to rebase/retest. 
+
+The userspace portion of the tproxy functionality comes in a followup
+patch-set.
+
+In addition to IPv6 support there are 3 patches in this series:
+  1) a fix for properly handling TIME_WAIT connections
+  2) a fix for the default value of --on-ip
+  3) and an optional change in ipv6_pinfo structure
+
+While the last is completely independent of TProxy and is optional, the 
+first two are quite important fixes. Although they are independent of this 
+submission, they are the  first and last patches of the series, so they can 
+be reviewed independently :)
+
+And again, please apply.
+
+Balazs Scheidler (13):
+  TProxy: kick out TIME_WAIT sockets in case a new connection comes in
+    with the same tuple
+  TProxy: add lookup type checks for UDP in nf_tproxy_get_sock_v4()
+  TProxy: move dst_cookie to the first cacheline in ipv6_pinfo
+  TProxy: split off ipv6 defragmentation to a separate module
+  TProxy: added const specifiers to udp lookup functions
+  TProxy: added udp6_lib_lookup function
+  TProxy: implement IPv6 "local" routing type
+  TProxy: added tproxy sockopt interface in the IPV6 layer
+  TProxy: allow non-local binds of IPv6 sockets if IP_TRANSPARENT is
+    enabled
+  TProxy: added IPv6 socket lookup function to nf_tproxy_core
+  TProxy: added IPv6 support to the TPROXY target
+  TProxy: added IPv6 support to the socket match
+  TProxy: use the interface primary IP address as a default value for
+    --on-ip
+
+ include/linux/in6.h                            |    5 +
+ include/linux/ipv6.h                           |    7 +-
+ include/linux/netfilter/xt_TPROXY.h            |   15 +-
+ include/net/netfilter/ipv6/nf_defrag_ipv6.h    |    6 +
+ include/net/netfilter/nf_tproxy_core.h         |  192 +++++++++++++++-
+ include/net/udp.h                              |    3 +
+ net/ipv6/af_inet6.c                            |    2 +-
+ net/ipv6/datagram.c                            |   19 ++
+ net/ipv6/ipv6_sockglue.c                       |   22 ++
+ net/ipv6/netfilter/Makefile                    |    5 +-
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   58 +-----
+ net/ipv6/netfilter/nf_conntrack_reasm.c        |   12 +-
+ net/ipv6/netfilter/nf_defrag_ipv6_hooks.c      |  109 +++++++++
+ net/ipv6/route.c                               |    6 +-
+ net/ipv6/udp.c                                 |   16 +-
+ net/netfilter/nf_tproxy_core.c                 |   35 ---
+ net/netfilter/xt_TPROXY.c                      |  290 ++++++++++++++++++++++--
+ net/netfilter/xt_socket.c                      |  154 ++++++++++++-
+ 18 files changed, 815 insertions(+), 141 deletions(-)
+ create mode 100644 include/net/netfilter/ipv6/nf_defrag_ipv6.h
+ create mode 100644 net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
 
