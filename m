@@ -1,36 +1,61 @@
-From: Robert Hancock <hancockrwd@gmail.com>
-Subject: r8169 64-bit DMA support
-Date: Sun, 20 Sep 2009 17:38:20 -0600
-Message-ID: <4AB6BCEC.3070001@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: sky2 rx length errors
+Date: Sun, 20 Sep 2009 18:46:06 -0700
+Message-ID: <20090920184606.5a75aba6@nehalam>
+References: <c5bd819b0909180641n7c353b80tc15b9c9fe02d5c95@mail.gmail.com>
+	<20090919233536.f5fb700c.akpm@linux-foundation.org>
+	<20090920110527.39fd7af5@s6510>
+	<392fb48f0909201511h34c71e0au838b52c413d517e0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f199.google.com ([209.85.210.199]:37036 "EHLO
-	mail-yx0-f199.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751577AbZITXiU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Sep 2009 19:38:20 -0400
-Received: by yxe37 with SMTP id 37so2568582yxe.33
-        for <netdev@vger.kernel.org>; Sun, 20 Sep 2009 16:38:23 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Grozdan <neutrino8@gmail.com>, linux-kernel@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Mike McCormack <mikem@ring3k.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753838AbZIUBqK@vger.kernel.org>
+In-Reply-To: <392fb48f0909201511h34c71e0au838b52c413d517e0@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The r8169 driver currently disables 64-bit DMA support by default (needs 
-a module parameter to turn it on). This is a bit sub-optimal these days 
-with most new systems using more than 4GB of RAM. It was this patch back 
-in 2004 that disabled it:
+On Mon, 21 Sep 2009 07:11:21 +0900
+Mike McCormack <mikem@ring3k.org> wrote:
 
-http://git.kernel.org/?p=linux/kernel/git/torvalds/old-2.6-bkcvs.git;a=commitdiff;h=c525e7cf69bfe18a1bf362558be5398e0b925d07
+> 2009/9/21 Stephen Hemminger <shemminger@vyatta.com>
+> 
+> > On Sat, 19 Sep 2009 23:35:36 -0700
+> > Andrew Morton <akpm@linux-foundation.org> wrote:
+> >
+> > > (added cc's from the MAINTAINERS file)
+> > >
+> > > On Fri, 18 Sep 2009 15:41:45 +0200 Grozdan <neutrino8@gmail.com> wrote:
+> >
+> 
+> <snip>
+> 
+> > > martian destination 0.0.0.0 from 172.23.204.1, dev eth0
+> > > > sky2 eth0: rx length error: status 0x4420100 length 598
+> > > > sky2 eth0: rx length error: status 0x5ea0100 length 598
+> >
+> > This error status occurs if the length reported by the PHY does not
+> > match the len reported by the DMA engine.  The error status is:
+> >   0x4420100 = length 1090 + broadcast packet...
+> >
+> > No idea what is on your network, but perhaps there is some MTU confusion?
+> > Since martian destination seems related, knowing more about that packet
+> > might help.
+> >
+> >
+> This appears to be the same problem reported at:
+> 
+> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/292445
+> 
+> Mike
 
-It's not clear (from the mails I've read) exactly what was going on in 
-the case that caused this to be added. Normally these days the PCI 
-subsystem is supposed to detect that DAC isn't usable on a machine and 
-refuse setting 64-bit DMA masks, it's not the driver's responsibility to 
-handle this. I'm guessing that when this change was made that detection 
-didn't exist though.
+This really looks like multiple packets are getting smashed
+together into one DMA, i.e a hardware timing related issue.
+it might be possible to work around the problem
+by separating them.
 
-Thoughts on whether this default can be changed now? Or at least for the 
-PCI Express devices, which really should have nothing special about 
-64-bit addressing..
+-- 
