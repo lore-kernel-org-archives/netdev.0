@@ -1,42 +1,60 @@
-From: John Ronciak <john.ronciak@gmail.com>
-Subject: Re: SO_TIMESTAMPING fix and design decisions
-Date: Mon, 21 Sep 2009 10:59:34 -0700
-Message-ID: <56a8daef0909211059q49b96dd5pc2f3e81b8dad6c2@mail.gmail.com>
-References: <20090919192549.0735c93a@pundit>
-	 <1253398161.14869.2.camel@localhost.localdomain>
-	 <20090920095242.5cd42f1a@pundit>
-	 <1253468893.2654.6.camel@localhost.localdomain>
-	 <20090920205047.0f2df70c@pundit>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH 12/13] TProxy: added IPv6 support to the socket match
+Date: Mon, 21 Sep 2009 13:59:20 -0400
+Message-ID: <4AB7BEF8.5050800@hp.com>
+References: <1253548005.12519.12.camel@bzorp.balabit>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Christopher Zimmermann <madroach@zakweb.de>
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Balazs Scheidler <bazsi@balabit.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f171.google.com ([209.85.216.171]:50852 "EHLO
-	mail-px0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751127AbZIUR7a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2009 13:59:30 -0400
-Received: by pxi1 with SMTP id 1so2614921pxi.1
-        for <netdev@vger.kernel.org>; Mon, 21 Sep 2009 10:59:34 -0700 (PDT)
-In-Reply-To: <20090920205047.0f2df70c@pundit>
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:49142 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751175AbZIUR7r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2009 13:59:47 -0400
+In-Reply-To: <1253548005.12519.12.camel@bzorp.balabit>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 20, 2009 at 11:50 AM, Christopher Zimmermann
-<madroach@zakweb.de> wrote:
-> It will need to be modified. If you want to avoid this, one could keep
-> the HWTSTAMP_FILTER_PTP_.... defines and just redifine them to reflect
-> the new interface.
-> Where can I find this ptpd userspace daemon, which supports hardware
-> timestamps using the ioctl interface? ptpd.sourceforge.net doesn't.
-You can find a version of the modified ptpd on the e1000 Sourceforge
-site http://e1000.sf.net.  It has a version of the igb driver that
-also supports this interface though it's a bit behind the regular igb
-driver version.
+Balazs Scheidler wrote:
+> +static bool
+> +socket_mt6_v1(const struct sk_buff *skb, const struct xt_match_param *par)
+> +{
+> +	struct ipv6hdr *iph = ipv6_hdr(skb);
+> +	struct udphdr _hdr, *hp = NULL;
+> +	struct sock *sk;
+> +	struct in6_addr *daddr, *saddr;
+> +	__be16 dport, sport;
+> +        int thoff;
+> +	u8 tproto;
+> +        const struct xt_socket_mtinfo1 *info = (struct xt_socket_mtinfo1 *) par->matchinfo;
+> +        
+> +        tproto = ipv6_find_hdr(skb, &thoff, -1, NULL);
+> +        if (tproto < 0) {
+> +		pr_debug("socket match: Unable to find transport header in IPv6 packet, dropping\n");
+> +		return NF_DROP;
+> +        }
+> +
+> +	if (tproto == IPPROTO_UDP || tproto == IPPROTO_TCP) {
+> +		hp = skb_header_pointer(skb, thoff,
+> +					sizeof(_hdr), &_hdr);
+> +		if (hp == NULL)
+> +			return false;
+> +
+> +		saddr = &iph->saddr;
+> +		sport = hp->source;
+> +		daddr = &iph->daddr;
+> +		dport = hp->dest;
+> +
+> +	} else if (tproto == IPPROTO_ICMP) {
+> +		if (extract_icmp6_fields(skb, thoff, &tproto, &saddr, &daddr,
+> +					 &sport, &dport))
+> +			return false;
+> +	} else {
+> +		return false;
+> +	}
 
-I'm review your comments that start this thread and should have some
-comments soon.
+Shouldn't this be IPPROTO_ICMPV6?
 
--- 
-Cheers,
-John
+-Brian
