@@ -1,53 +1,119 @@
-From: Davide Libenzi <davidel@xmailserver.org>
-Subject: Re: fanotify as syscalls
-Date: Mon, 21 Sep 2009 15:18:43 -0700 (PDT)
-Message-ID: <alpine.DEB.2.00.0909211456180.1116@makko.or.mcafeemobile.com>
-References: <20090912094110.GB24709@ioremap.net> <200909190000.43556.agruen@suse.de> <1253329471.2630.30.camel@dhcp231-106.rdu.redhat.com> <200909212204.51077.agruen@suse.de> <20090921202823.GB14700@shareable.org>
+From: "Prodyut Hazarika" <phazarika@amcc.com>
+Subject: [PATCH 2/2] ibm_newemac: MAL Coalescing in
+	Canyonlands/Kilauea/Glacier dts
+Date: Mon, 21 Sep 2009 15:47:38 -0700
+Message-ID: <1253573258-1900-1-git-send-email-phazarika@amcc.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andreas Gruenbacher <agruen@suse.de>,
-	Eric Paris <eparis@redhat.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
-	viro@zeniv.linux.org.uk, alan@linux.intel.com, hch@infradead.org
-To: Jamie Lokier <jamie@shareable.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754092AbZIUWSn@vger.kernel.org>
-In-Reply-To: <20090921202823.GB14700@shareable.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Victor Gallardo <vgallardo@amcc.com>, Feng Kan <fkan@amcc.com>,
+	lada.podivin@gmail.com, Loc Ho <lho@amcc.com>,
+	Prodyut Hazarika <phazarika@amcc.com>, bhutchings@solarflare.com,
+	linuxppc-dev@lists.ozlabs.org, davem@davemloft.net
+To: <netdev@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Content-Class: urn:content-classes:message
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 21 Sep 2009, Jamie Lokier wrote:
+Support for MAL interrupt coalescing in Canyonlands, Kilauea & Glacier 
+dts.
+MAL driver falls back to EOB IRQ if Coalescing IRQ mapping missing in dts
 
-> I think so to, and that'd be a great all round solution.
+Signed-off-by: Prodyut Hazarika <phazarika@amcc.com>
+Acked-by: Victor Gallardo <vgallardo@amcc.com>
+Acked-by: Feng Kan <fkan@amcc.com>
 
-If this is for anti-malware vendors to intercept userspace accesses 
-they're currently doing it by hacking the syscall table, why don't we 
-offer a way to monitor syscalls (kernel side) in a non racy way?
-Modules can [un]register themselves for syscall intercaption, and receive 
-the syscall number and parameters. They'd be able to change paramters, 
-return error codes, and so on.
-The cost of the check in the syscall path could even be under an 
-alternative-like patching, if really neeeded.
-The Pros of this would be:
+---
+ arch/powerpc/boot/dts/canyonlands.dts |    6 +++++-
+ arch/powerpc/boot/dts/glacier.dts     |   10 +++++++++-
+ arch/powerpc/boot/dts/kilauea.dts     |    8 ++++++--
+ 3 files changed, 20 insertions(+), 4 deletions(-)
 
-- The kernel code to implement this would be trivially small, with no 
-  I-need-this-feature-too growth potential
+diff --git a/arch/powerpc/boot/dts/canyonlands.dts 
+b/arch/powerpc/boot/dts/canyonlands.dts
+index c920170..5803a5b 100644
+--- a/arch/powerpc/boot/dts/canyonlands.dts
++++ b/arch/powerpc/boot/dts/canyonlands.dts
+@@ -146,7 +146,11 @@
+ 					/*RXEOB*/ 0x7 0x4
+ 					/*SERR*/  0x3 0x4
+ 					/*TXDE*/  0x4 0x4
+-					/*RXDE*/  0x5 0x4>;
++					/*RXDE*/  0x5 0x4
++					/*TX0 COAL*/  0x8 0x2
++					/*TX1 COAL*/  0x9 0x2
++					/*RX0 COAL*/  0xc 0x2
++					/*RX1 COAL*/  0xd 0x2 >;
+ 		};
 
-- There won't be any externally visible API to maintain (and its kernel 
-  counter part) and expand
+ 		USB0: ehci@bffd0400 {
+diff --git a/arch/powerpc/boot/dts/glacier.dts 
+b/arch/powerpc/boot/dts/glacier.dts
+index f3787a2..9af473f 100644
+--- a/arch/powerpc/boot/dts/glacier.dts
++++ b/arch/powerpc/boot/dts/glacier.dts
+@@ -130,7 +130,15 @@
+ 					/*RXEOB*/ 0x7 0x4
+ 					/*SERR*/  0x3 0x4
+ 					/*TXDE*/  0x4 0x4
+-					/*RXDE*/  0x5 0x4>;
++					/*RXDE*/  0x5 0x4
++					/*TX0 COAL*/  0x8 0x2
++					/*TX1 COAL*/  0x9 0x2
++					/*TX2 COAL*/  0xa 0x2
++					/*TX3 COAL*/  0xb 0x2
++					/*RX0 COAL*/  0xc 0x2
++					/*RX1 COAL*/  0xd 0x2
++					/*RX2 COAL*/  0xe 0x2
++					/*RX3 COAL*/  0xf 0x2 >;
+ 			desc-base-addr-high = <0x8>;
+ 		};
 
-- Any system call can be intercepted, allowing it to be flexible while 
-  leaving the burden of the interception handling, and communication with 
-  userspace policy enforcers, to the anti-malware (or whoever really) 
-  companies modules
+diff --git a/arch/powerpc/boot/dts/kilauea.dts 
+b/arch/powerpc/boot/dts/kilauea.dts
+index c465614..14057a2 100644
+--- a/arch/powerpc/boot/dts/kilauea.dts
++++ b/arch/powerpc/boot/dts/kilauea.dts
+@@ -110,7 +110,7 @@
+ 			num-tx-chans = <2>;
+ 			num-rx-chans = <2>;
+ 			interrupt-parent = <&MAL0>;
+-			interrupts = <0x0 0x1 0x2 0x3 0x4>;
++			interrupts = <0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8>;
+ 			#interrupt-cells = <1>;
+ 			#address-cells = <0>;
+ 			#size-cells = <0>;
+@@ -118,7 +118,11 @@
+ 					/*RXEOB*/ 0x1 &UIC0 0xb 0x4
+ 					/*SERR*/  0x2 &UIC1 0x0 0x4
+ 					/*TXDE*/  0x3 &UIC1 0x1 0x4
+-					/*RXDE*/  0x4 &UIC1 0x2 0x4>;
++					/*RXDE*/  0x4 &UIC1 0x2 0x4
++					/*TX0 COAL*/  0x5 &UIC2 0x7 0x2
++					/*TX1 COAL*/  0x6 &UIC2 0x8 0x2
++					/*RX0 COAL*/  0x7 &UIC2 0x9 0x2
++					/*RX1 COAL*/  0x8 &UIC2 0xa 0x2 >;
+ 			interrupt-map-mask = <0xffffffff>;
+ 		};
 
-The anti-malware are already doing this (intercepting syscall), they 
-already have code for it, and they always did (writing kernel 
-modules/drivers, that is) for Windows.
+-- 
+1.5.6
+--------------------------------------------------------
 
-
-
-- Davide
+CONFIDENTIALITY NOTICE: This e-mail message, including any attachments, is 
+for the sole use of the intended recipient(s) and contains information 
+that is confidential and proprietary to AppliedMicro Corporation or its 
+subsidiaries. It is to be used solely for the purpose of furthering the 
+parties' business relationship. All unauthorized review, use, disclosure 
+or distribution is prohibited. If you are not the intended recipient, 
+please contact the sender by reply e-mail and destroy all copies of the 
+original message.
