@@ -1,45 +1,49 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: bugfix: wireless bug causing working setups to loose net connectivity
-Date: Mon, 21 Sep 2009 20:44:22 +0200
-Message-ID: <4AB7C986.9040304@hartkopp.net>
-References: <200909212035.50592.a.miskiewicz@gmail.com>
+From: Simon Holm =?ISO-8859-1?Q?Th=F8gersen?= <odie@cs.aau.dk>
+Subject: Re: [PANIC] pktgen panic on load
+Date: Mon, 21 Sep 2009 20:49:20 +0200
+Message-ID: <1253558960.5955.36.camel@odie>
+References: <1253486747.17792.9.camel@jbrandeb-mobl2>
+	 <20090920213507.73cdc786@nehalam> <1253547857.2810.6.camel@odie>
+	 <20090921095451.5ce95767@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org
-To: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:20998 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753017AbZIUSoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2009 14:44:20 -0400
-In-Reply-To: <200909212035.50592.a.miskiewicz@gmail.com>
+Received: from smtp.cs.aau.dk ([130.225.194.6]:49940 "EHLO smtp.cs.aau.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752377AbZIUSto (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Sep 2009 14:49:44 -0400
+In-Reply-To: <20090921095451.5ce95767@s6510>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Arkadiusz Miskiewicz wrote:
-> Could 
-> http://marc.info/?l=linux-wireless&m=125323296617306&w=2
-> be merged without waiting for separate wireless pull request?
-> 
-> Currently previously working setups are no longer able to connect to AP (in my 
-> case WPA2PSK via wpasupplicant).
-> 
-> AFAIK there was some kind of policy where bugfixes that break basic 
-> functionality are supposed to be merged fast to allow to actually use and test 
-> git kernel.
+> > > > just got this today after cloning Linus' tree, please let me kn=
+ow if you
+> > > > want .config or full dmesg
+> > >=20
+> > > config would help (hrt, nohz, preempt, ...), and was it just on m=
+odule load?
+> > > or had you started it sending?
+> >=20
+> > I have the similar trace below on a simple 'modprobe pktgen'. I've
+> > attached my config for v2.6.31-6456-g78f28b7.
 
-For me it was
+>=20
+> Could you do a git bisect, although pktgen changed recently, the chan=
+ges were
+> not related to the thread initialization, so I suspect something outs=
+ide
+> the scope of networking (ie scheduler, vm, etc)
 
-http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commitdiff;h=bbac31f4c0339f6c51afbd0edfb4959df9b53fa9
+Seems like this was fixed by commit 3f04e8c ("sched: Re-add lost
+cpu_allowed check to sched_fair.c::select_task_rq_fair()") according to
+Ingo [1]. Indeed, using Linus' current tree works for me.
 
-as written here:
+[1] http://marc.info/?l=3Dlinux-netdev&m=3D125355156524237&w=3D2
 
-http://marc.info/?l=linux-netdev&m=125352781320953&w=2
 
-Maybe you can try to revert this patch in your setup too, to check whether it
-also solves your issue.
-
-Regards,
-Oliver
+Simon Holm Th=C3=B8gersen
 
