@@ -1,32 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH 2/6] net: remove kfree_skb on a NULL pointer in
- af_netlink.c
-Date: Mon, 21 Sep 2009 13:54:46 -0700 (PDT)
-Message-ID: <20090921.135446.193691811.davem@davemloft.net>
-References: <20090918005729.25594.14261.stgit@localhost.localdomain>
-	<20090917.182445.240085155.davem@davemloft.net>
-	<4AB76BD3.80802@intel.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH 02/13] TProxy: add lookup type checks for UDP in
+ nf_tproxy_get_sock_v4()
+Date: Mon, 21 Sep 2009 23:20:54 +0200 (CEST)
+Message-ID: <alpine.LSU.2.00.0909212320150.31023@obet.zrqbmnf.qr>
+References: <1253548005.12519.2.camel@bzorp.balabit>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, linux-scsi@vger.kernel.org
-To: john.r.fastabend@intel.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <4AB76BD3.80802@intel.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Balazs Scheidler <bazsi@balabit.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from borg.medozas.de ([188.40.89.202]:58748 "EHLO borg.medozas.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753369AbZIUVUv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Sep 2009 17:20:51 -0400
+In-Reply-To: <1253548005.12519.2.camel@bzorp.balabit>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
-Date: Mon, 21 Sep 2009 12:04:35 +0000
 
->>   
-> OK, but this depends on the unlikely() macro in kfree_skb() to catch a
-> case that is the expected non-error case. Would it be better to wrap
-> the kfree_skb() in an if statement to avoid hitting the unlikely()
-> macro?  Or is the performance hit from the unlikely() macro so small
-> this is not an issue?  Thanks for looking at these.
-> 
+On Saturday 2009-08-15 14:01, Balazs Scheidler wrote:
 
-Expands too much code inline, that's why we don't do it that
-way.
+>+	case IPPROTO_UDP:
+>+		sk = udp4_lib_lookup(net, saddr, sport, daddr, dport,
+>+				     in->ifindex);
+
+You might want to add IPPROTO_UDPLITE in all places.
+
