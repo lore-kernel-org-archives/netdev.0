@@ -1,42 +1,55 @@
-From: Andreas Gruenbacher <agruen@suse.de>
-Subject: Re: fanotify as syscalls
-Date: Tue, 22 Sep 2009 17:31:34 +0200
-Message-ID: <200909221731.34717.agruen@suse.de>
-References: <20090912094110.GB24709@ioremap.net> <20090921231227.GJ14700@shareable.org> <alpine.DEB.2.00.0909211816020.1116@makko.or.mcafeemobile.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: igb VF allocation with quirk_i82576_sriov
+Date: Tue, 22 Sep 2009 08:41:54 -0700
+Message-ID: <4AB8F042.4030306@intel.com>
+References: <20090922051910.GC1035@sequoia.sous-sol.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jamie Lokier <jamie@shareable.org>, Eric Paris <eparis@redhat.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
-	viro@zeniv.linux.org.uk, alan@linux.intel.com, hch@infradead.org
-To: Davide Libenzi <davidel@xmailserver.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756851AbZIVPcp@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.0909211816020.1116@makko.or.mcafeemobile.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Ronciak,
+	John" <john.ronciak@intel.com>
+To: Chris Wright <chrisw@sous-sol.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20090922051910.GC1035@sequoia.sous-sol.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Tuesday, 22 September 2009 16:51:39 Davide Libenzi wrote:
-> On Tue, 22 Sep 2009, Jamie Lokier wrote:
-> > I don't mind at all if fanotify is replaced by a general purpose "take
-> > over the system call table" solution ...
->
-> That was not what I meant ;)
-> You'd register/unregister as syscall interceptor, receiving syscall number
-> and parameters, you'd be able to return status/error codes directly, and
-> you'd have the ability to eventually change the parameters. All this
-> should be pretty trivial code, and at the same time give full syscall
-> visibility to the modules.
+Chris Wright wrote:
+> Is this known to work?  During recent virt testing for upcoming Fedora 12,
+> a box w/out SR-IOV support in BIOS was using quirk to create VF BAR space,
+> VF allocation worked enough to assign a device to the guest, but igbvf
+> was not actually functioning properly in the guest.
+> 
+> Is it worth debugging this further, or is it already a known issue?
 
-The fatal flaw of syscall interception is race conditions: you look up a 
-pathname in your interception layer; then when you call into the proper 
-syscall, the kernel again looks up the same pathname. There is no way to 
-guarantee that you end up at the same object in both lookups. The security 
-and fsnotify hooks are placed in the appropriate spots to avoid exactly that.
+You could be experiencing one of a couple different issues.
 
-Andreas
+First when you say you started SR-IOV on a box w/out SR-IOV support I 
+assume you are using "pci=assign-busses" in order to reserve the bus 
+space for the VFs, is that correct?  Also while your system may not 
+support SR-IOV does it at least support VT-d?  Without VT-d support you 
+won't be able to assign a device to the guest.
+
+My recommendations for further testing would be to test a VF on the host 
+kernel to see if that works.  If it does then you could also try direct 
+assigning an entire port to see if that works.  If the entire port 
+doesn't work then you probably don't have VT-d enabled.
+
+Thanks,
+
+Alex
+
+------------------------------------------------------------------------------
+Come build with us! The BlackBerry&reg; Developer Conference in SF, CA
+is the only developer event you need to attend this year. Jumpstart your
+developing skills, take BlackBerry mobile applications to market and stay 
+ahead of the curve. Join us from November 9&#45;12, 2009. Register now&#33;
+http://p.sf.net/sfu/devconf
