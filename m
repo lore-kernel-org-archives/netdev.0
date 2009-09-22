@@ -1,30 +1,38 @@
 From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH 10/13] TProxy: added IPv6 socket lookup function to
- nf_tproxy_core
-Date: Tue, 22 Sep 2009 10:30:22 +0200 (CEST)
-Message-ID: <alpine.LSU.2.00.0909221029560.22568@obet.zrqbmnf.qr>
-References: <1253548005.12519.10.camel@bzorp.balabit>
+Subject: Re: [PATCH 12/13] TProxy: added IPv6 support to the socket match
+Date: Tue, 22 Sep 2009 10:33:46 +0200 (CEST)
+Message-ID: <alpine.LSU.2.00.0909221032290.22568@obet.zrqbmnf.qr>
+References: <1253548005.12519.12.camel@bzorp.balabit>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: Balazs Scheidler <bazsi@balabit.hu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from borg.medozas.de ([188.40.89.202]:47188 "EHLO borg.medozas.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753711AbZIVIaV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Sep 2009 04:30:21 -0400
-In-Reply-To: <1253548005.12519.10.camel@bzorp.balabit>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1253548005.12519.12.camel@bzorp.balabit>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Monday 2009-08-24 14:52, Balazs Scheidler wrote:
 
-On Monday 2009-08-24 14:51, Balazs Scheidler wrote:
->+		case NFT_LOOKUP_LISTENER:
->+			sk = inet6_lookup_listener(net, &tcp_hashinfo,
->+                                                   daddr, ntohs(dport),
->+                                                   in->ifindex);
+>+static bool
+>+socket_mt6_v1(const struct sk_buff *skb, const struct xt_match_param *par)
+>+{
+>+	struct ipv6hdr *iph = ipv6_hdr(skb);
+>+	struct udphdr _hdr, *hp = NULL;
+>+	struct sock *sk;
+>+	struct in6_addr *daddr, *saddr;
+>+	__be16 dport, sport;
+>+        int thoff;
+>+	u8 tproto;
+>+        const struct xt_socket_mtinfo1 *info = (struct xt_socket_mtinfo1 *) par->matchinfo;
+>+        
+>+        tproto = ipv6_find_hdr(skb, &thoff, -1, NULL);
+>+        if (tproto < 0) {
+>+		pr_debug("socket match: Unable to find transport header in IPv6 packet, dropping\n");
+>+		return NF_DROP;
+>+        }
 >+
->+                        /* NOTE: we return listeners even if bound to
->+                         * 0.0.0.0, those are filtered out in
+>+	if (tproto == IPPROTO_UDP || tproto == IPPROTO_TCP) {
 
-s/0.0.0.0/::/g  :-)
+The tabbing seems off (also noticed this in other patches,
+pcregrep for '^ {8}' )
