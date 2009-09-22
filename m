@@ -1,55 +1,93 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: igb VF allocation with quirk_i82576_sriov
-Date: Tue, 22 Sep 2009 08:41:54 -0700
-Message-ID: <4AB8F042.4030306@intel.com>
-References: <20090922051910.GC1035@sequoia.sous-sol.org>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
+Date: Tue, 22 Sep 2009 18:56:48 +0300
+Message-ID: <4AB8F3C0.7090203@redhat.com>
+References: <4AB0A070.1050400@redhat.com> <4AB0CFA5.6040104@gmail.com> <4AB0E2A2.3080409@redhat.com> <4AB0F1EF.5050102@gmail.com> <4AB10B67.2050108@redhat.com> <4AB13B09.5040308@gmail.com> <4AB151D7.10402@redhat.com> <4AB1A8FD.2010805@gmail.com> <20090921214312.GJ7182@ovro.caltech.edu> <4AB89C48.4020903@redhat.com> <20090922152520.GA9154@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Ronciak,
-	John" <john.ronciak@intel.com>
-To: Chris Wright <chrisw@sous-sol.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20090922051910.GC1035@sequoia.sous-sol.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: Gregory Haskins <gregory.haskins@gmail.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+        linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
+        akpm@linux-foundation.org, hpa@zytor.com,
+        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com,
+        alacrityvm-devel@lists.sourceforge.net
+To: "Ira W. Snyder" <iws@ovro.caltech.edu>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20090922152520.GA9154@ovro.caltech.edu>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Chris Wright wrote:
-> Is this known to work?  During recent virt testing for upcoming Fedora 12,
-> a box w/out SR-IOV support in BIOS was using quirk to create VF BAR space,
-> VF allocation worked enough to assign a device to the guest, but igbvf
-> was not actually functioning properly in the guest.
-> 
-> Is it worth debugging this further, or is it already a known issue?
+On 09/22/2009 06:25 PM, Ira W. Snyder wrote:
+>
+>> Yes.  vbus is more finely layered so there is less code duplication.
+>>
+>> The virtio layering was more or less dictated by Xen which doesn't have
+>> shared memory (it uses grant references instead).  As a matter of fact
+>> lguest, kvm/pci, and kvm/s390 all have shared memory, as you do, so that
+>> part is duplicated.  It's probably possible to add a virtio-shmem.ko
+>> library that people who do have shared memory can reuse.
+>>
+>>      
+> Seems like a nice benefit of vbus.
+>    
 
-You could be experiencing one of a couple different issues.
+Yes, it is.  With some work virtio can gain that too (virtio-shmem.ko).
 
-First when you say you started SR-IOV on a box w/out SR-IOV support I 
-assume you are using "pci=assign-busses" in order to reserve the bus 
-space for the VFs, is that correct?  Also while your system may not 
-support SR-IOV does it at least support VT-d?  Without VT-d support you 
-won't be able to assign a device to the guest.
+>>> I've given it some thought, and I think that running vhost-net (or
+>>> similar) on the ppc boards, with virtio-net on the x86 crate server will
+>>> work. The virtio-ring abstraction is almost good enough to work for this
+>>> situation, but I had to re-invent it to work with my boards.
+>>>
+>>> I've exposed a 16K region of memory as PCI BAR1 from my ppc board.
+>>> Remember that this is the "host" system. I used each 4K block as a
+>>> "device descriptor" which contains:
+>>>
+>>> 1) the type of device, config space, etc. for virtio
+>>> 2) the "desc" table (virtio memory descriptors, see virtio-ring)
+>>> 3) the "avail" table (available entries in the desc table)
+>>>
+>>>        
+>> Won't access from x86 be slow to this memory (on the other hand, if you
+>> change it to main memory access from ppc will be slow... really depends
+>> on how your system is tuned.
+>>
+>>      
+> Writes across the bus are fast, reads across the bus are slow. These are
+> just the descriptor tables for memory buffers, not the physical memory
+> buffers themselves.
+>
+> These only need to be written by the guest (x86), and read by the host
+> (ppc). The host never changes the tables, so we can cache a copy in the
+> guest, for a fast detach_buf() implementation (see virtio-ring, which
+> I'm copying the design from).
+>
+> The only accesses are writes across the PCI bus. There is never a need
+> to do a read (except for slow-path configuration).
+>    
 
-My recommendations for further testing would be to test a VF on the host 
-kernel to see if that works.  If it does then you could also try direct 
-assigning an entire port to see if that works.  If the entire port 
-doesn't work then you probably don't have VT-d enabled.
+Okay, sounds like what you're doing it optimal then.
 
-Thanks,
+> In the spirit of "post early and often", I'm making my code available,
+> that's all. I'm asking anyone interested for some review, before I have
+> to re-code this for about the fifth time now. I'm trying to avoid
+> Haskins' situation, where he's invented and debugged a lot of new code,
+> and then been told to do it completely differently.
+>
+> Yes, the code I posted is only compile-tested, because quite a lot of
+> code (kernel and userspace) must be working before anything works at
+> all. I hate to design the whole thing, then be told that something
+> fundamental about it is wrong, and have to completely re-write it.
+>    
 
-Alex
+Understood.  Best to get a review from Rusty then.
 
-------------------------------------------------------------------------------
-Come build with us! The BlackBerry&reg; Developer Conference in SF, CA
-is the only developer event you need to attend this year. Jumpstart your
-developing skills, take BlackBerry mobile applications to market and stay 
-ahead of the curve. Join us from November 9&#45;12, 2009. Register now&#33;
-http://p.sf.net/sfu/devconf
+-- 
+error compiling committee.c: too many arguments to function
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
