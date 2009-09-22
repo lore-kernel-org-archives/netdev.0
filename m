@@ -1,84 +1,96 @@
-From: Christian Samsel <Christian.Samsel@rwth-aachen.de>
-Subject: Resend: [PATCH] TCP Early Retransmit: reduce required dupacks for
- triggering fast retrans
-Date: Tue, 22 Sep 2009 08:59:30 +0000 (GMT)
-Message-ID: <fab65f44d75b.4ab891f2@rwth-aachen.de>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
+Date: Tue, 22 Sep 2009 12:43:36 +0300
+Message-ID: <4AB89C48.4020903@redhat.com>
+References: <4AAFACB5.9050808@redhat.com> <4AAFF437.7060100@gmail.com> <4AB0A070.1050400@redhat.com> <4AB0CFA5.6040104@gmail.com> <4AB0E2A2.3080409@redhat.com> <4AB0F1EF.5050102@gmail.com> <4AB10B67.2050108@redhat.com> <4AB13B09.5040308@gmail.com> <4AB151D7.10402@redhat.com> <4AB1A8FD.2010805@gmail.com> <20090921214312.GJ7182@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-2.ms.rz.RWTH-Aachen.DE ([134.130.7.73]:43548 "EHLO
-	mta-2.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753755AbZIVI71 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2009 04:59:27 -0400
-Content-disposition: inline
-Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
- by mta-2.ms.rz.RWTH-Aachen.de
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
- with ESMTP id <0KQD00AKT7N68T90@mta-2.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Tue, 22 Sep 2009 10:59:30 +0200 (CEST)
-Received: from mem-1.ms.rz.rwth-aachen.de
- (ms-frontend-134-130-7-83.nn.RWTH-Aachen.DE [134.130.7.83] (may be forged))
-	by smarthost.rwth-aachen.de (8.13.8+Sun/8.13.8/1) with ESMTP id n8M8xUb2026886
-	for <netdev@vger.kernel.org>; Tue, 22 Sep 2009 10:59:30 +0200 (CEST)
-Received: from msg-int.RWTH-Aachen.de (localhost [127.0.0.1])
-	by mem-1.ms.rz.rwth-aachen.de (8.13.8+Sun/8.13.8) with ESMTP id n8M8xUL8026883
-	for <netdev@vger.kernel.org>; Tue, 22 Sep 2009 10:59:30 +0200 (CEST)
-Content-language: de
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Gregory Haskins <gregory.haskins@gmail.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+        linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
+        akpm@linux-foundation.org, hpa@zytor.com,
+        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com,
+        alacrityvm-devel@lists.sourceforge.net
+To: "Ira W. Snyder" <iws@ovro.caltech.edu>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20090921214312.GJ7182@ovro.caltech.edu>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-This patch implements draft-ietf-tcpm-early-rexmt. The early retransmit 
-mechanism allows the transport to reduce the number of duplicate
-acknowledgments required to trigger a fast retransmission in case we
-don't expect enough dupacks, (e.g. because there are not enough
-packets inflight and nothing to send). This allows the transport to use
-fast retransmit to recover packet losses that would otherwise require
-a lengthy retransmission timeout.
+On 09/22/2009 12:43 AM, Ira W. Snyder wrote:
+>
+>> Sure, virtio-ira and he is on his own to make a bus-model under that, or
+>> virtio-vbus + vbus-ira-connector to use the vbus framework.  Either
+>> model can work, I agree.
+>>
+>>      
+> Yes, I'm having to create my own bus model, a-la lguest, virtio-pci, and
+> virtio-s390. It isn't especially easy. I can steal lots of code from the
+> lguest bus model, but sometimes it is good to generalize, especially
+> after the fourth implemention or so. I think this is what GHaskins tried
+> to do.
+>    
 
-See: http://tools.ietf.org/html/draft-ietf-tcpm-early-rexmt-01
+Yes.  vbus is more finely layered so there is less code duplication.
 
-Signed-off-by: Christian Samsel <christian.samsel@rwth-aachen.de>
+The virtio layering was more or less dictated by Xen which doesn't have 
+shared memory (it uses grant references instead).  As a matter of fact 
+lguest, kvm/pci, and kvm/s390 all have shared memory, as you do, so that 
+part is duplicated.  It's probably possible to add a virtio-shmem.ko 
+library that people who do have shared memory can reuse.
 
----
- net/ipv4/tcp_input.c |   16 ++++++++++++++++
- 1 files changed, 16 insertions(+), 0 deletions(-)
+> I've given it some thought, and I think that running vhost-net (or
+> similar) on the ppc boards, with virtio-net on the x86 crate server will
+> work. The virtio-ring abstraction is almost good enough to work for this
+> situation, but I had to re-invent it to work with my boards.
+>
+> I've exposed a 16K region of memory as PCI BAR1 from my ppc board.
+> Remember that this is the "host" system. I used each 4K block as a
+> "device descriptor" which contains:
+>
+> 1) the type of device, config space, etc. for virtio
+> 2) the "desc" table (virtio memory descriptors, see virtio-ring)
+> 3) the "avail" table (available entries in the desc table)
+>    
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index af6d6fa..c0cc4fd 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2913,6 +2913,7 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked, int flag)
-  int do_lost = is_dupack || ((flag & FLAG_DATA_SACKED) &&
-                                     (tcp_fackets_out(tp) > tp->reordering));
-  int fast_rexmit = 0, mib_idx;
-+ u32 in_flight;
- 
-  if (WARN_ON(!tp->packets_out && tp->sacked_out))
-          tp->sacked_out = 0;
-@@ -3062,6 +3063,21 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked, int flag)
-  if (do_lost || (tcp_is_fack(tp) && tcp_head_timedout(sk)))
-          tcp_update_scoreboard(sk, fast_rexmit);
-  tcp_cwnd_down(sk, flag);
-+       
-+
-+ /* draft-ietf-tcpm-early-rexmt: lowers dup ack threshold to prevent rto
-+         * in case we don't expect enough dup ack. if number of outstanding
-+         * packets is less than four and there is either no unsent data ready
-+         * for transmission or the advertised window does not permit new
-+         * segments.
-+         */
-+ in_flight = tcp_packets_in_flight(tp);
-+ if ( in_flight < 4 && (skb_queue_empty(&sk->sk_write_queue) ||
-+         tcp_may_send_now(sk) == 0) )
-+         tp->reordering = in_flight - 1;
-+ else if (tp->reordering != sysctl_tcp_reordering)
-+         tp->reordering = sysctl_tcp_reordering;
-+
-  tcp_xmit_retransmit_queue(sk);
- }
- 
+Won't access from x86 be slow to this memory (on the other hand, if you 
+change it to main memory access from ppc will be slow... really depends 
+on how your system is tuned.
+
+> Parts 2 and 3 are repeated three times, to allow for a maximum of three
+> virtqueues per device. This is good enough for all current drivers.
+>    
+
+The plan is to switch to multiqueue soon.  Will not affect you if your 
+boards are uniprocessor or small smp.
+
+> I've gotten plenty of email about this from lots of interested
+> developers. There are people who would like this kind of system to just
+> work, while having to write just some glue for their device, just like a
+> network driver. I hunch most people have created some proprietary mess
+> that basically works, and left it at that.
+>    
+
+So long as you keep the system-dependent features hookable or 
+configurable, it should work.
+
+> So, here is a desperate cry for help. I'd like to make this work, and
+> I'd really like to see it in mainline. I'm trying to give back to the
+> community from which I've taken plenty.
+>    
+
+Not sure who you're crying for help to.  Once you get this working, post 
+patches.  If the patches are reasonably clean and don't impact 
+performance for the main use case, and if you can show the need, I 
+expect they'll be merged.
+
 -- 
-1.6.4.1
+error compiling committee.c: too many arguments to function
 
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
