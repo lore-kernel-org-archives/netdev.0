@@ -1,37 +1,93 @@
-From: Alexandre Cassen <acassen@freebox.fr>
-Subject: Re: [PATCH][RESEND 2] IPv6: 6rd tunnel mode
-Date: Tue, 22 Sep 2009 22:55:37 +0200 (CEST)
-Message-ID: <alpine.DEB.2.00.0909222254120.22622@lnxos.staff.proxad.net>
-References: <20090922085105.GA20906@lnxos.staff.proxad.net> <20090922.134543.158902222.davem@davemloft.net>
+From: Eric Paris <eparis@redhat.com>
+Subject: Re: fanotify as syscalls
+Date: Tue, 22 Sep 2009 17:06:16 -0400
+Message-ID: <1253653576.2747.27.camel@dhcp231-106.rdu.redhat.com>
+References: <20090912094110.GB24709@ioremap.net>
+	 <200909190000.43556.agruen@suse.de>
+	 <1253329471.2630.30.camel@dhcp231-106.rdu.redhat.com>
+	 <200909212204.51077.agruen@suse.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2-g21.free.fr ([212.27.42.2]:36116 "EHLO smtp2-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752696AbZIVUzl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Sep 2009 16:55:41 -0400
-In-Reply-To: <20090922.134543.158902222.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jamie Lokier <jamie@shareable.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
+	alan@linux.intel.com, hch@infradead.org
+To: Andreas Gruenbacher <agruen@suse.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752633AbZIVVGn@vger.kernel.org>
+In-Reply-To: <200909212204.51077.agruen@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, 2009-09-21 at 22:04 +0200, Andreas Gruenbacher wrote:
+> On Saturday, 19 September 2009 5:04:31 Eric Paris wrote:
+> > Let me start by saying I am agreeing I should pursue subtree
+> > notification.  It's what I think everyone really wants.  It's a great
+> > idea, and I think you might have a simple way to get close.  Clearly
+> > these are avenues I'm willing and hoping to pursue.  Also I say it
+> > again, I believe the interface as proposed (except maybe some of my
+> > exclusion stuff) is flexible enough to implement any of these ideas.
+> > Does anyone disagree?
+> 
+> It does seem flexible enough. However, the current interface assumes "global" 
+> listeners (the mask argument of fanotify_init):
+> 
+>   int fanotify_init(int flags, int f_flags, __u64 mask,
+> 		    unsigned int priority);
+> 
+> Once subtree support is added, this parameter becomes obsolete. That's pretty 
+> broken for a syscall yet to be introduced.
 
+Absolutely not obsolete.  Subtree notification cannot do fscking all
+notification.  
 
-On Tue, 22 Sep 2009, David Miller wrote:
+> > BUT to solve one of the main problems fanotify is intending to solve it
+> > needs a way to be the 'fscking all notifier.'  It needs to be the whole
+> > damn system.
+> 
+> Think of a system after boot, with a single global namespace. Whatever you 
+> access by filename is reachable from the namespace root. At this point, 
+> nothing more global exists. A listener can watch the mount points of 
+> interest, and everything's fine.
 
-> From: Alexandre Cassen <acassen@freebox.fr>
-> Date: Tue, 22 Sep 2009 10:51:05 +0200
->
->> IPv6 rapid deployment (RFC5569) builds upon mechanisms of 6to4 (RFC3056)
->> to enable a service provider to rapidly deploy IPv6 unicast service
->> to IPv4 sites to which it provides customer premise equipment.  Like
->
-> I've read your explanation, but it is still presumptious to mention
-> an RFC number before it isn't really released yet.
->
-> Mention the drafts only, and when it achieves true RFC status
-> you can send another patch updating those references in the
-> code comments.
+this is true, if there is only one namespace subtree notification works
+the same as global notification.
 
-ack. will fix this and resend.
+> What's a bit more tricky is to ensure that this listener will continue to 
+> receive all events from whatever else is mounted anywhere, irrespective of 
+> namespaces. I think we can get there.
+
+Lets say I want the subtree under / to get every event on the system.  A
+process comes along and clones the namespace.  Then lets say that
+process mounts something inside his new namespace.  There is absolutely
+no path between my / and that new mount.  How can subtree checking
+possibly find and indicate it wants notification about this mount?  I
+don't see how subtree checking could do it.  There can be completely
+disjoint trees with no overlap.
+
+mount -t tmpfs none /to_umount
+clone namespace
+mount -t tmpfs none /to_umount/private
+pivot_root /tmp_umount/private
+Something else umounts /to_umount
+
+That process is in an completely detached namespace?  right?
+
+Heck, there could be operations on files that aren't in ANY namespace.
+
+a = open(/path/to/dir/);
+umount -l /path/to/
+openat(a, "filename");
+
+I don't see how subtree notification can possibly solve the global
+notification problem.
+
+I've been thinking that checking CAP_SYS_RAWIO as well as CAP_SYS_ADMIN
+might be reasonable when trying to use a global listener.  If you can
+CAP_SYS_RAWIO I sorta feel like you can break out of a namespace anyway,
+right?
+
+-Eric
