@@ -1,78 +1,73 @@
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Subject: [PATCH] smsc95xx: fix transmission where ZLP is expected
-Date: Tue, 22 Sep 2009 15:00:27 +0100
-Message-ID: <1253628027-2704-1-git-send-email-steve.glendinning@smsc.com>
-Cc: Ian Saturley <ian.saturley@smsc.com>,
-	David Miller <davem@davemloft.net>,
-	Vlad Lyalikov <vlad.lyalikov@smsc.com>,
-	Steve Glendinning <steve.glendinning@smsc.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from drevil.shawell.net ([86.54.240.115]:48626 "EHLO
-	drevil2.shawell.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753659AbZIVOKm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2009 10:10:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH 13/13] TProxy: use the interface primary IP address as
+ a default value for --on-ip
+Date: Tue, 22 Sep 2009 10:17:19 -0400
+Message-ID: <4AB8DC6F.90602@hp.com>
+References: <1253548005.12519.13.camel@bzorp.balabit>	 <4AB7BF47.2030404@hp.com> <1253601509.6883.5.camel@bzorp.balabit>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Balazs Scheidler <bazsi@balabit.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1253601509.6883.5.camel@bzorp.balabit>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Usbnet framework assumes USB hardware doesn't handle zero length
-packets, but SMSC LAN95xx requires these to be sent for correct
-operation.
+Balazs Scheidler wrote:
+> On Mon, 2009-09-21 at 14:00 -0400, Brian Haley wrote:
+>> Balazs Scheidler wrote: 
+>>>  #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+>>> +
+>>> +static inline const struct in6_addr *
+>>> +tproxy_laddr6(struct sk_buff *skb, const struct in6_addr *user_laddr, const struct in6_addr *daddr)
+>>> +{
+>>> +	struct inet6_dev *indev;
+>>> +	struct inet6_ifaddr *ifa;
+>>> +	struct in6_addr *laddr;
+>>> +	
+>>> +        if (!ipv6_addr_any(user_laddr))
+>>> +                return user_laddr;
+>>> +	
+>>> +        laddr = NULL;
+>>> +        rcu_read_lock();
+>>> +        indev = __in6_dev_get(skb->dev);
+>>> +        if (indev && (ifa = indev->addr_list)) {
+>>> +		laddr = &ifa->addr;
+>>> +	}
+>>> +        rcu_read_unlock();
+>>> +        
+>>> +        return laddr ? laddr : daddr;
+>>> +}
+>> You should call ipv6_dev_get_saddr() to get a source address based on the target
+>> destination address.
+> 
+> Thanks for this hint, however this is not selecting a source address for
+> a given destination, rather it selects the address where tproxy is
+> redirecting the connection in case the user specified no --on-ip
+> parameter.
+> 
+> e.g. 
+> 
+> ip6tables -A PREROUTING -p tcp --dport 80 -j TPROXY --on-port 50080
+> 
+> This should redirect the connection to the primary IP address of the
+> incoming interface. In fact I spent 2 hours to figure out how to find
+> the proper address, and at the end I used the first IP address
+> configured to the interface, seeing that those addresses are sorted in
+> 'scope' order, e.g. link-local and site-local addresses are at the end
+> of the list, thus the front should be ok.
 
-This patch fixes an easily reproducible tx lockup when sending a frame
-that results in exactly 512 bytes in a USB transmission (e.g. a UDP
-frame with 458 data bytes, due to IP headers and our USB headers).  It
-adds an extra flag to usbnet for the hardware driver to indicate that
-it can handle and requires the zero length packets.
+Yes, the addresses are sorted by scope, but just because they're in the
+list doesn't mean they can be used, for example that address might have
+failed DAD or be Deprecated.  ipv6_dev_get_saddr() will follow the rules
+from RFC 3484 in picking the best address to use, or none if there isn't
+anything appropriate.
 
-This patch should not affect other usbnet users, please also consider
-for -stable.
+> Since I'm not that much into IPv6, I'd appreciate some help, is
+> ipv6_dev_get_saddr(client_ip_address) indeed the best solution here?
 
-Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
----
- drivers/net/usb/smsc95xx.c |    2 +-
- drivers/net/usb/usbnet.c   |    2 +-
- include/linux/usb/usbnet.h |    1 +
- 3 files changed, 3 insertions(+), 2 deletions(-)
+Probably.  An alternative might be to use ip6_dst_lookup() (see tcp_v6_connect()),
+but a lot more code for you.
 
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index 938fb35..6e9410f 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -1227,7 +1227,7 @@ static const struct driver_info smsc95xx_info = {
- 	.rx_fixup	= smsc95xx_rx_fixup,
- 	.tx_fixup	= smsc95xx_tx_fixup,
- 	.status		= smsc95xx_status,
--	.flags		= FLAG_ETHER,
-+	.flags		= FLAG_ETHER | FLAG_SEND_ZLP,
- };
- 
- static const struct usb_device_id products[] = {
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 24b36f7..ca5ca5a 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1049,7 +1049,7 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
- 	 * NOTE:  strictly conforming cdc-ether devices should expect
- 	 * the ZLP here, but ignore the one-byte packet.
- 	 */
--	if ((length % dev->maxpacket) == 0) {
-+	if (!(info->flags & FLAG_SEND_ZLP) && (length % dev->maxpacket) == 0) {
- 		urb->transfer_buffer_length++;
- 		if (skb_tailroom(skb)) {
- 			skb->data[skb->len] = 0;
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index bb69e25..f814730 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -89,6 +89,7 @@ struct driver_info {
- #define FLAG_FRAMING_AX 0x0040		/* AX88772/178 packets */
- #define FLAG_WLAN	0x0080		/* use "wlan%d" names */
- #define FLAG_AVOID_UNLINK_URBS 0x0100	/* don't unlink urbs at usbnet_stop() */
-+#define FLAG_SEND_ZLP	0x0200		/* hw requires ZLPs are sent */
- 
- 
- 	/* init device ... can sleep, or cause probe() failure */
--- 
-1.6.2.5
-
+-Brian
