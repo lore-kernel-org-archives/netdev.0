@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/1] net: fix CONFIG_NET=n build on sparc64
-Date: Mon, 21 Sep 2009 22:38:03 -0700 (PDT)
-Message-ID: <20090921.223803.75755454.davem@davemloft.net>
-References: <200909181952.n8IJqEdD024614@imap1.linux-foundation.org>
+Subject: Re: [PATCH] cpmac: fix compilation errors against undeclared
+ BUS_ID_SIZE
+Date: Mon, 21 Sep 2009 22:38:30 -0700 (PDT)
+Message-ID: <20090921.223830.164776940.davem@davemloft.net>
+References: <200909160944.24265.florian@openwrt.org>
+	<200909191243.09166.florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: akpm@linux-foundation.org
+Cc: netdev@vger.kernel.org, ralf@linux-mips.org,
+	linux-mips@linux-mips.org
+To: florian@openwrt.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45747
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45750
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754832AbZIVFhp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2009 01:37:45 -0400
-In-Reply-To: <200909181952.n8IJqEdD024614@imap1.linux-foundation.org>
+	by vger.kernel.org with ESMTP id S1754903AbZIVFiM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2009 01:38:12 -0400
+In-Reply-To: <200909191243.09166.florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: akpm@linux-foundation.org
-Date: Fri, 18 Sep 2009 12:52:13 -0700
+From: Florian Fainelli <florian@openwrt.org>
+Date: Sat, 19 Sep 2009 12:43:08 +0200
 
-> From: Andrew Morton <akpm@linux-foundation.org>
+> David,
 > 
-> sparc64 allnoconfig:
-> 
-> arch/sparc/kernel/built-in.o(.text+0x134e0): In function `sys32_recvfrom':
-> : undefined reference to `compat_sys_recvfrom'
-> arch/sparc/kernel/built-in.o(.text+0x134e4): In function `sys32_recvfrom':
-> : undefined reference to `compat_sys_recvfrom'
-> 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> Ping ? This fixes a build failure. Thank you very much !
 
-Applied.
+Applied, thanks.
