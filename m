@@ -1,62 +1,70 @@
 From: Balazs Scheidler <bazsi@balabit.hu>
-Subject: Re: [PATCH 12/13] TProxy: added IPv6 support to the socket match
-Date: Tue, 22 Sep 2009 08:33:51 +0200
-Message-ID: <1253601231.6883.1.camel@bzorp.balabit>
-References: <1253548005.12519.12.camel@bzorp.balabit>
-	 <4AB7BEF8.5050800@hp.com>
+Subject: Re: [PATCH 13/13] TProxy: use the interface primary IP address as
+ a default value for --on-ip
+Date: Tue, 22 Sep 2009 08:38:29 +0200
+Message-ID: <1253601509.6883.5.camel@bzorp.balabit>
+References: <1253548005.12519.13.camel@bzorp.balabit>
+	 <4AB7BF47.2030404@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: Brian Haley <brian.haley@hp.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4AB7BEF8.5050800@hp.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from support.balabit.hu ([195.70.41.86]:42697 "EHLO lists.balabit.hu"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754106AbZIVGi1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Sep 2009 02:38:27 -0400
+In-Reply-To: <4AB7BF47.2030404@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-09-21 at 13:59 -0400, Brian Haley wrote:
-> Balazs Scheidler wrote:
-> > +static bool
-> > +socket_mt6_v1(const struct sk_buff *skb, const struct xt_match_param *par)
+On Mon, 2009-09-21 at 14:00 -0400, Brian Haley wrote:
+> Balazs Scheidler wrote: 
+> >  #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+> > +
+> > +static inline const struct in6_addr *
+> > +tproxy_laddr6(struct sk_buff *skb, const struct in6_addr *user_laddr, const struct in6_addr *daddr)
 > > +{
-> > +	struct ipv6hdr *iph = ipv6_hdr(skb);
-> > +	struct udphdr _hdr, *hp = NULL;
-> > +	struct sock *sk;
-> > +	struct in6_addr *daddr, *saddr;
-> > +	__be16 dport, sport;
-> > +        int thoff;
-> > +	u8 tproto;
-> > +        const struct xt_socket_mtinfo1 *info = (struct xt_socket_mtinfo1 *) par->matchinfo;
-> > +        
-> > +        tproto = ipv6_find_hdr(skb, &thoff, -1, NULL);
-> > +        if (tproto < 0) {
-> > +		pr_debug("socket match: Unable to find transport header in IPv6 packet, dropping\n");
-> > +		return NF_DROP;
-> > +        }
-> > +
-> > +	if (tproto == IPPROTO_UDP || tproto == IPPROTO_TCP) {
-> > +		hp = skb_header_pointer(skb, thoff,
-> > +					sizeof(_hdr), &_hdr);
-> > +		if (hp == NULL)
-> > +			return false;
-> > +
-> > +		saddr = &iph->saddr;
-> > +		sport = hp->source;
-> > +		daddr = &iph->daddr;
-> > +		dport = hp->dest;
-> > +
-> > +	} else if (tproto == IPPROTO_ICMP) {
-> > +		if (extract_icmp6_fields(skb, thoff, &tproto, &saddr, &daddr,
-> > +					 &sport, &dport))
-> > +			return false;
-> > +	} else {
-> > +		return false;
+> > +	struct inet6_dev *indev;
+> > +	struct inet6_ifaddr *ifa;
+> > +	struct in6_addr *laddr;
+> > +	
+> > +        if (!ipv6_addr_any(user_laddr))
+> > +                return user_laddr;
+> > +	
+> > +        laddr = NULL;
+> > +        rcu_read_lock();
+> > +        indev = __in6_dev_get(skb->dev);
+> > +        if (indev && (ifa = indev->addr_list)) {
+> > +		laddr = &ifa->addr;
 > > +	}
+> > +        rcu_read_unlock();
+> > +        
+> > +        return laddr ? laddr : daddr;
+> > +}
 > 
-> Shouldn't this be IPPROTO_ICMPV6?
+> You should call ipv6_dev_get_saddr() to get a source address based on the target
+> destination address.
 
-Yeah, thanks for spotting this. I'm going to have to add ICMP checks to
-my test program, or at least retest that functionality manually.
+Thanks for this hint, however this is not selecting a source address for
+a given destination, rather it selects the address where tproxy is
+redirecting the connection in case the user specified no --on-ip
+parameter.
+
+e.g. 
+
+ip6tables -A PREROUTING -p tcp --dport 80 -j TPROXY --on-port 50080
+
+This should redirect the connection to the primary IP address of the
+incoming interface. In fact I spent 2 hours to figure out how to find
+the proper address, and at the end I used the first IP address
+configured to the interface, seeing that those addresses are sorted in
+'scope' order, e.g. link-local and site-local addresses are at the end
+of the list, thus the front should be ok.
+
+Since I'm not that much into IPv6, I'd appreciate some help, is
+ipv6_dev_get_saddr(client_ip_address) indeed the best solution here?
 
 -- 
 Bazsi
