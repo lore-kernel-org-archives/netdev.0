@@ -1,49 +1,62 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH][RESEND] IPv6: 6rd tunnel mode
-Date: Mon, 21 Sep 2009 22:39:45 -0400
-Message-ID: <4AB838F1.1090704@hp.com>
-References: <20090922003956.GA19947@lnxos.staff.proxad.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] sky2: Set SKY2_HW_RAM_BUFFER in sky2_init
+Date: Mon, 21 Sep 2009 19:50:41 -0700
+Message-ID: <20090921195041.14a22788@nehalam>
+References: <4AB788F4.90503@ring3k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Alexandre Cassen <acassen@freebox.fr>
+To: Mike McCormack <mikem@ring3k.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:12097 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751576AbZIVCjn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2009 22:39:43 -0400
-In-Reply-To: <20090922003956.GA19947@lnxos.staff.proxad.net>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:54134 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751629AbZIVCvZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2009 22:51:25 -0400
+In-Reply-To: <4AB788F4.90503@ring3k.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Alexandre,
+On Mon, 21 Sep 2009 23:08:52 +0900
+Mike McCormack <mikem@ring3k.org> wrote:
 
-Alexandre Cassen wrote:
-> This patch add support to 6rd tunnel mode currently targetting
-> standard track at the IETF.
+> The SKY2_HW_RAM_BUFFER bit in hw->flags was checked in sky2_mac_init(),
+>  before being set later in sky2_up().
 > 
-> IPv6 rapid deployment (RFC5569) builds upon mechanisms of 6to4 (RFC3056)
-> to enable a service provider to rapidly deploy IPv6 unicast service
-> to IPv4 sites to which it provides customer premise equipment.  Like
-> 6to4, it utilizes stateless IPv6 in IPv4 encapsulation in order to
-> transit IPv4-only network infrastructure. Unlike 6to4, a 6rd service
-> provider uses an IPv6 prefix of its own in place of the fixed 6to4
-> prefix.
+> Setting SKY2_HW_RAM_BUFFER in sky2_init() where other hw->flags are set
+>  should avoid this problem recurring.
+> 
+> Signed-off-by: Mike McCormack <mikem@ring3k.org>
+> ---
+>  drivers/net/sky2.c |    4 +++-
+>  1 files changed, 3 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+> index 4bb52e9..68d256b 100644
+> --- a/drivers/net/sky2.c
+> +++ b/drivers/net/sky2.c
+> @@ -1497,7 +1497,6 @@ static int sky2_up(struct net_device *dev)
+>  	if (ramsize > 0) {
+>  		u32 rxspace;
+>  
+> -		hw->flags |= SKY2_HW_RAM_BUFFER;
+>  		pr_debug(PFX "%s: ram buffer %dK\n", dev->name, ramsize);
+>  		if (ramsize < 16)
+>  			rxspace = ramsize / 2;
+> @@ -2926,6 +2925,9 @@ static int __devinit sky2_init(struct sky2_hw *hw)
+>  			++hw->ports;
+>  	}
+>  
+> +	if (sky2_read8(hw, B2_E_0))
+> +		hw->flags |= SKY2_HW_RAM_BUFFER;
+> +
+>  	return 0;
+>  }
+>  
 
-I couldn't find RFC 5569 (delayed due to IPR rights?), although I did find
-the latest 6rd draft, -03.  It was showing as Informational, not Standards
-track, is that right?  Just curious.
+This should go to stable tree as well.
 
-> +		case SIOCADD6RD:
-> +		case SIOCCHG6RD:
-> +			if (ip6rd.prefixlen >= 95) {
-> +				err = -EINVAL;
-> +				goto done;
-> +			}
-> +			t->ip6rd_prefix.addr = ip6rd.addr;
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
-ipv6_addr_copy(&t->ip6rd_prefix.addr, &ip6rd.addr); is the preferred way to
-copy the address.
-
--Brian
+-- 
