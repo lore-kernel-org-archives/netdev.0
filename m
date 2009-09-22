@@ -1,48 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] ipv4: fix do_ip_setsockopt optlen check for
- IP_MULTICAST_IF
-Date: Tue, 22 Sep 2009 13:38:19 -0700 (PDT)
-Message-ID: <20090922.133819.173686372.davem@davemloft.net>
-References: <1253164784-15789-1-git-send-email-dfeng@redhat.com>
-	<4AB1FE2A.1060906@cn.fujitsu.com>
+Subject: Re: Resend: [PATCH] TCP Early Retransmit: reduce required dupacks
+ for triggering fast retrans
+Date: Tue, 22 Sep 2009 13:40:21 -0700 (PDT)
+Message-ID: <20090922.134021.82409230.davem@davemloft.net>
+References: <fab65f44d75b.4ab891f2@rwth-aachen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dfeng@redhat.com, kaber@trash.net, yoshfuji@linux-ipv6.org,
-	jmorris@namei.org, pekkas@netcore.fi, kuznet@ms2.inr.ac.ru,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: shanwei@cn.fujitsu.com
+Cc: netdev@vger.kernel.org
+To: Christian.Samsel@rwth-aachen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40264
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40273
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752262AbZIVUiA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2009 16:38:00 -0400
-In-Reply-To: <4AB1FE2A.1060906@cn.fujitsu.com>
+	by vger.kernel.org with ESMTP id S1752520AbZIVUkC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2009 16:40:02 -0400
+In-Reply-To: <fab65f44d75b.4ab891f2@rwth-aachen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Date: Thu, 17 Sep 2009 17:15:22 +0800
+From: Christian Samsel <Christian.Samsel@rwth-aachen.de>
+Date: Tue, 22 Sep 2009 08:59:30 +0000 (GMT)
 
-> Xiaotian Feng wrote, at 09/17/2009 01:19 PM:
->> Due to man page of setsockopt, if optlen is not valid, kernel should return
->> -EINVAL. But a simple testcase as following, errno is 0, which means setsockopt
->> is successful.
->> 
->>         addr.s_addr = inet_addr("192.1.2.3");
->>         setsockopt(s, IPPROTO_IP, IP_MULTICAST_IF, &addr, 1);
->> 	printf("errno is %d\n", errno);
->> 
->> This patch fixes the optlen check part, with the patch, we got errno EINVAL.
->> 
+> This patch implements draft-ietf-tcpm-early-rexmt. The early retransmit 
+> mechanism allows the transport to reduce the number of duplicate
+> acknowledgments required to trigger a fast retransmission in case we
+> don't expect enough dupacks, (e.g. because there are not enough
+> packets inflight and nothing to send). This allows the transport to use
+> fast retransmit to recover packet losses that would otherwise require
+> a lengthy retransmission timeout.
 > 
-> I also think it's a bug, the freebsd also does the optlen check. 
-> But the style should be coincident with other option: firstly check the
-> availability of optlen, then copy option value from user and deal with it.   
+> See: http://tools.ietf.org/html/draft-ietf-tcpm-early-rexmt-01
 > 
-> How about this one:
+> Signed-off-by: Christian Samsel <christian.samsel@rwth-aachen.de>
 
-This definitely is better and cleaner, but please don't post such
-things without proper signoffs and commit messages because now
-I have to ask you to do that instead of me just applying your
-patch :-/
+What changed from the previous version?
+
+Nothing?
+
+If you're resending just to get our attention, please don't do that.
+
+It only creates confusion and makes it take longer for your patch to
+get reviewed and applied.
