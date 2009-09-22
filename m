@@ -1,52 +1,63 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 1/2] pktgen: check for link down
-Date: Mon, 21 Sep 2009 22:55:43 -0700
-Message-ID: <20090921225543.44d2d5c4@nehalam>
-References: <20090919221844.114e2e23@nehalam>
+From: Balazs Scheidler <bazsi@balabit.hu>
+Subject: Re: [PATCH 12/13] TProxy: added IPv6 support to the socket match
+Date: Tue, 22 Sep 2009 08:33:51 +0200
+Message-ID: <1253601231.6883.1.camel@bzorp.balabit>
+References: <1253548005.12519.12.camel@bzorp.balabit>
+	 <4AB7BEF8.5050800@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Robert Olsson <robert@herjulf.net>,
-	Jesper Dangaard Brouer <jdb@comx.dk>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:35488 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755149AbZIVFzs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Sep 2009 01:55:48 -0400
-In-Reply-To: <20090919221844.114e2e23@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Brian Haley <brian.haley@hp.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4AB7BEF8.5050800@hp.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 19 Sep 2009 22:18:44 -0700
-Stephen Hemminger <shemminger@vyatta.com> wrote:
-
-> If cable is pulled, pktgen shouldn't continue slamming packets into the
-> device.
+On Mon, 2009-09-21 at 13:59 -0400, Brian Haley wrote:
+> Balazs Scheidler wrote:
+> > +static bool
+> > +socket_mt6_v1(const struct sk_buff *skb, const struct xt_match_param *par)
+> > +{
+> > +	struct ipv6hdr *iph = ipv6_hdr(skb);
+> > +	struct udphdr _hdr, *hp = NULL;
+> > +	struct sock *sk;
+> > +	struct in6_addr *daddr, *saddr;
+> > +	__be16 dport, sport;
+> > +        int thoff;
+> > +	u8 tproto;
+> > +        const struct xt_socket_mtinfo1 *info = (struct xt_socket_mtinfo1 *) par->matchinfo;
+> > +        
+> > +        tproto = ipv6_find_hdr(skb, &thoff, -1, NULL);
+> > +        if (tproto < 0) {
+> > +		pr_debug("socket match: Unable to find transport header in IPv6 packet, dropping\n");
+> > +		return NF_DROP;
+> > +        }
+> > +
+> > +	if (tproto == IPPROTO_UDP || tproto == IPPROTO_TCP) {
+> > +		hp = skb_header_pointer(skb, thoff,
+> > +					sizeof(_hdr), &_hdr);
+> > +		if (hp == NULL)
+> > +			return false;
+> > +
+> > +		saddr = &iph->saddr;
+> > +		sport = hp->source;
+> > +		daddr = &iph->daddr;
+> > +		dport = hp->dest;
+> > +
+> > +	} else if (tproto == IPPROTO_ICMP) {
+> > +		if (extract_icmp6_fields(skb, thoff, &tproto, &saddr, &daddr,
+> > +					 &sport, &dport))
+> > +			return false;
+> > +	} else {
+> > +		return false;
+> > +	}
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> --- a/net/core/pktgen.c	2009-09-19 11:20:55.546463176 -0700
-> +++ b/net/core/pktgen.c	2009-09-19 11:22:44.810509240 -0700
-> @@ -1959,7 +1959,7 @@ static int pktgen_setup_dev(struct pktge
->  	if (odev->type != ARPHRD_ETHER) {
->  		printk(KERN_ERR "pktgen: not an ethernet device: \"%s\"\n", ifname);
->  		err = -EINVAL;
-> -	} else if (!netif_running(odev)) {
-> +	} else if (!netif_running(odev) || !netif_carrier_ok(odev)) {
->  		printk(KERN_ERR "pktgen: device is down: \"%s\"\n", ifname);
->  		err = -ENETDOWN;
->  	} else {
-> @@ -3410,7 +3410,7 @@ static void pktgen_xmit(struct pktgen_de
->  	/* Did we saturate the queue already? */
->  	if (netif_tx_queue_stopped(txq) || netif_tx_queue_frozen(txq)) {
->  		/* If device is down, then all queues are permnantly frozen */
-> -		if (netif_running(odev))
-> +		if (netif_running(odev) && netif_carrier_ok(odev))
->  			idle(pkt_dev);
->  		else
->  			pktgen_stop_device(pkt_dev);
+> Shouldn't this be IPPROTO_ICMPV6?
 
-You can hold off on these two patches, I have better version
-which fixes some other issues. But testing time is limited this week.
+Yeah, thanks for spotting this. I'm going to have to add ICMP checks to
+my test program, or at least retest that functionality manually.
+
+-- 
+Bazsi
+
