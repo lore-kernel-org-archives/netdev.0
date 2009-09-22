@@ -1,37 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Resend: [PATCH] TCP Early Retransmit: reduce required dupacks
- for triggering fast retrans
-Date: Tue, 22 Sep 2009 13:42:39 -0700 (PDT)
-Message-ID: <20090922.134239.63725497.davem@davemloft.net>
-References: <fab65f44d75b.4ab891f2@rwth-aachen.de>
-	<20090922.134021.82409230.davem@davemloft.net>
+Subject: Re: [PATCH][RESEND 2] IPv6: 6rd tunnel mode
+Date: Tue, 22 Sep 2009 13:45:43 -0700 (PDT)
+Message-ID: <20090922.134543.158902222.davem@davemloft.net>
+References: <20090922085105.GA20906@lnxos.staff.proxad.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Christian.Samsel@rwth-aachen.de
+To: acassen@freebox.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45000
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45003
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752696AbZIVUmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2009 16:42:20 -0400
-In-Reply-To: <20090922.134021.82409230.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1753190AbZIVUpY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2009 16:45:24 -0400
+In-Reply-To: <20090922085105.GA20906@lnxos.staff.proxad.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 22 Sep 2009 13:40:21 -0700 (PDT)
+From: Alexandre Cassen <acassen@freebox.fr>
+Date: Tue, 22 Sep 2009 10:51:05 +0200
 
-> If you're resending just to get our attention, please don't do that.
-> 
-> It only creates confusion and makes it take longer for your patch to
-> get reviewed and applied.
+> IPv6 rapid deployment (RFC5569) builds upon mechanisms of 6to4 (RFC3056)
+> to enable a service provider to rapidly deploy IPv6 unicast service
+> to IPv4 sites to which it provides customer premise equipment.  Like
 
-Also I just checked and this patch is severely whitespace damaged
-and we wouldn't be able to use it anyways.  Your email client
-truncated tabs and changed them into spaces, amongst other things.
+I've read your explanation, but it is still presumptious to mention
+an RFC number before it isn't really released yet.
 
-You will need to fix this up before anyone can take your changes
-seriously.
-
-Thanks.
+Mention the drafts only, and when it achieves true RFC status
+you can send another patch updating those references in the
+code comments.
