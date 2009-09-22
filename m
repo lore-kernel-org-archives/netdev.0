@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH 3/3] ixgbe: move rx queue RSC configuration to
- a separate function
-Date: Mon, 21 Sep 2009 22:37:51 -0700 (PDT)
-Message-ID: <20090921.223751.51303407.davem@davemloft.net>
-References: <20090918194533.28898.49436.stgit@localhost.localdomain>
-	<20090918194627.28898.75773.stgit@localhost.localdomain>
+Subject: Re: [patch 1/1] net: fix CONFIG_NET=n build on sparc64
+Date: Mon, 21 Sep 2009 22:38:03 -0700 (PDT)
+Message-ID: <20090921.223803.75755454.davem@davemloft.net>
+References: <200909181952.n8IJqEdD024614@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, shannon.nelson@intel.com,
-	peter.p.waskiewicz.jr@intel.com, donald.c.skidmore@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45743
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45747
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754896AbZIVFhd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2009 01:37:33 -0400
-In-Reply-To: <20090918194627.28898.75773.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1754832AbZIVFhp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2009 01:37:45 -0400
+In-Reply-To: <200909181952.n8IJqEdD024614@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 18 Sep 2009 12:46:27 -0700
+From: akpm@linux-foundation.org
+Date: Fri, 18 Sep 2009 12:52:13 -0700
 
-> From: Nelson, Shannon <shannon.nelson@intel.com>
+> From: Andrew Morton <akpm@linux-foundation.org>
 > 
-> Shorten ixgbe_configure_rx() and lessen indent depth.
+> sparc64 allnoconfig:
 > 
-> Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> arch/sparc/kernel/built-in.o(.text+0x134e0): In function `sys32_recvfrom':
+> : undefined reference to `compat_sys_recvfrom'
+> arch/sparc/kernel/built-in.o(.text+0x134e4): In function `sys32_recvfrom':
+> : undefined reference to `compat_sys_recvfrom'
+> 
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
 Applied.
