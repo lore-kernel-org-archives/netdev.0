@@ -1,33 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT *] Solos PCI ADSL driver update
-Date: Tue, 22 Sep 2009 15:19:13 -0700 (PDT)
-Message-ID: <20090922.151913.45863779.davem@davemloft.net>
-References: <1253481424.6317.203.camel@macbook.infradead.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH][RESEND 3] IPv6: 6rd tunnel mode
+Date: Tue, 22 Sep 2009 16:06:48 -0700
+Message-ID: <1253660808.30020.131.camel@Joe-Laptop.home>
+References: <20090922220251.GA22874@lnxos.staff.proxad.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: dwmw2@infradead.org
+To: Alexandre Cassen <acassen@freebox.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45127
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753338AbZIVWSz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2009 18:18:55 -0400
-In-Reply-To: <1253481424.6317.203.camel@macbook.infradead.org>
+Received: from mail.perches.com ([173.55.12.10]:1132 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751014AbZIVXGp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Sep 2009 19:06:45 -0400
+In-Reply-To: <20090922220251.GA22874@lnxos.staff.proxad.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Sun, 20 Sep 2009 14:17:04 -0700
+On Wed, 2009-09-23 at 00:02 +0200, Alexandre Cassen wrote:
+> diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+> index 0ae4f64..3587149 100644
+> --- a/net/ipv6/sit.c
+> +++ b/net/ipv6/sit.c
+[]
+> +static inline __be32 try_6rd(struct in6_addr *addr, u8 prefix_len, struct in6_addr *v6dst)
+> +{
+> +	__be32 dst = 0;
+> +
+> +	/* isolate addr according to mask */
+> +	if (ipv6_prefix_equal(v6dst, addr, prefix_len)) {
+> +		unsigned int d32_off, bits;
+> +
+> +		d32_off = prefix_len >> 5;
+> +		bits = (prefix_len & 0x1f);
+> +
+> +		dst = (ntohl(v6dst->s6_addr32[d32_off]) << bits);
 
-> I'm sorry, I suck. I forgot I had anything outstanding to be pushed
-> upstream, and should have done this a while ago.
-> 
-> In later versions of the card's FPGA code, the RAM layout for
-> card<->host communication has changed -- and the new FPGA code is in the
-> devices which are being shipped now, so it would be really useful if we
-> could sneak this into 2.6.32. Sorry it's so late.
-> 
-> Please pull from git://git.infradead.org/users/dwmw2/solos-2.6.git
+unnecessary parens and a sparse warning?
+Perhaps use a temporary u32 and an htonl or cpu_to_be32 at the end?
 
-Pulled, thanks.
+> +		if (bits)
+> +			dst |= ntohl(v6dst->s6_addr32[d32_off + 1]) >> (32 - bits);
+> +		dst = htonl(dst);
+> +	}
+> +	return dst;
+> +}
+> +#endif
+
+
