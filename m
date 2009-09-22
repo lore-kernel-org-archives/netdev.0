@@ -1,41 +1,50 @@
-From: Fabio Estevam <fabioestevam@yahoo.com>
-Subject: [PATCH] fec: Add FEC support for MX25 processor
-Date: Mon, 21 Sep 2009 17:41:21 -0700 (PDT)
-Message-ID: <123584.91508.qm@web51002.mail.re2.yahoo.com>
+From: "Prodyut Hazarika" <phazarika@amcc.com>
+Subject: RE: [PATCH 1/2] ibm_newemac: Add Support for MAL Interrupt Coalescing
+Date: Mon, 21 Sep 2009 17:53:44 -0700
+Message-ID: <0CA0A16855646F4FA96D25A158E299D606FFE81A@SDCEXCHANGE01.ad.amcc.com>
+References: <1253573245-1867-1-git-send-email-phazarika@amcc.com> <1253576514.7103.165.camel@pasglop> <0CA0A16855646F4FA96D25A158E299D606FFE802@SDCEXCHANGE01.ad.amcc.com> <1253578361.7103.180.camel@pasglop> <49c0ff980909211728s2d39e356p6900d047c6918826@mail.gmail.com> <1253579943.7103.194.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: s.hauer@pengutronix.de
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, "Feng Kan" <fkan@amcc.com>,
+	"Loc Ho" <lho@amcc.com>, "Victor Gallardo" <vgallardo@amcc.com>,
+	<bhutchings@solarflare.com>, <linuxppc-dev@lists.ozlabs.org>,
+	<davem@davemloft.net>, <jwboyer@linux.vnet.ibm.com>,
+	<lada.podivin@gmail.com>
+To: "Benjamin Herrenschmidt" <benh@kernel.crashing.org>,
+	"prodyut hazarika" <prodyuth@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web51002.mail.re2.yahoo.com ([206.190.38.133]:45561 "HELO
-	web51002.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751194AbZIVAr7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2009 20:47:59 -0400
+Received: from sdcmail02.amcc.com ([198.137.200.90]:35597 "EHLO
+	sdcmail02.amcc.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751155AbZIVAxl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Sep 2009 20:53:41 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1253579943.7103.194.camel@pasglop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add FEC support for MX25 processor.
+Hi Ben,
 
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
----
- drivers/net/Kconfig |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> Well... the above is a HW limitation :-) IE. I was suggesting you fix
+> the HW, but in the case where you already did and the current MAL in
+> your SoC can indeed mask the interrupt per-channel, then that's great
+> and we should definitely look into having the driver go back to a more
+> standard NAPI model on MALs that have that capability.
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index ed5741b..2bea67c 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -1875,7 +1875,7 @@ config 68360_ENET
- 
- config FEC
- 	bool "FEC ethernet controller (of ColdFire and some i.MX CPUs)"
--	depends on M523x || M527x || M5272 || M528x || M520x || M532x || MACH_MX27 || ARCH_MX35
-+	depends on M523x || M527x || M5272 || M528x || M520x || M532x || MACH_MX27 || ARCH_MX35 || ARCH_MX25
- 	help
- 	  Say Y here if you want to use the built-in 10/100 Fast ethernet
- 	  controller on some Motorola ColdFire and Freescale i.MX processors.
--- 
-1.6.0.4
+In the newer revs of 460EX/GT and 405EX, we have Interrupt coalescing
+both on Tx and Rx per channel (physical not virtual), which can be
+enabled/disabled per channel via UIC. The Tx/Rx Coalesce mappings are
+defined in the dts file. But in the older revs, there is only a global
+EOP_Int_Enable in the MAL configuration register. There can be a
+possible way even for older SoCs if we use the MAL descriptor I bit and
+not the global EOP_Int_Enable. But to turn on/off the channel, we will
+have to go and set/clear the I bit in whole of MAL descriptor ring for
+that channel. That might be really inefficient.
+
+What would you suggest?
+
+Thanks
+Prodyut
 
 
-      
