@@ -1,27 +1,243 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fec: Add FEC support for MX25 processor
-Date: Tue, 22 Sep 2009 15:09:50 -0700 (PDT)
-Message-ID: <20090922.150950.144630486.davem@davemloft.net>
-References: <123584.91508.qm@web51002.mail.re2.yahoo.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH][RESEND 3] IPv6: 6rd tunnel mode
+Date: Wed, 23 Sep 2009 00:18:20 +0200
+Message-ID: <4AB94D2C.4000006@gmail.com>
+References: <20090922220251.GA22874@lnxos.staff.proxad.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, s.hauer@pengutronix.de
-To: fabioestevam@yahoo.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Alexandre Cassen <acassen@freebox.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44055
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751457AbZIVWJc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2009 18:09:32 -0400
-In-Reply-To: <123584.91508.qm@web51002.mail.re2.yahoo.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:34793 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751179AbZIVWSS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2009 18:18:18 -0400
+In-Reply-To: <20090922220251.GA22874@lnxos.staff.proxad.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <fabioestevam@yahoo.com>
-Date: Mon, 21 Sep 2009 17:41:21 -0700 (PDT)
+Alexandre Cassen a =E9crit :
+> This patch add support to 6rd tunnel mode as described into
+> draft-despres-6rd-03.
+>=20
+> Patch history :
+> * http://patchwork.ozlabs.org/patch/26870/
+> * http://patchwork.ozlabs.org/patch/34026/
+> * http://patchwork.ozlabs.org/patch/34045/
+>=20
+> IPv6 rapid deployment (draft-despres-6rd-03) builds upon mechanisms
+> of 6to4 (RFC3056) to enable a service provider to rapidly deploy IPv6
+> unicast service to IPv4 sites to which it provides customer premise
+> equipment. Like 6to4, it utilizes stateless IPv6 in IPv4 encapsulatio=
+n
+> in order to transit IPv4-only network infrastructure. Unlike 6to4, a
+> 6rd service provider uses an IPv6 prefix of its own in place of the
+> fixed 6to4 prefix.
+>=20
+> Signed-off-by: Alexandre Cassen <acassen@freebox.fr>
+> ---
+>  include/linux/if_tunnel.h |   10 +++++
+>  include/net/ipip.h        |    2 +
+>  net/ipv6/Kconfig          |   13 +++++++
+>  net/ipv6/sit.c            |   84 +++++++++++++++++++++++++++++++++++=
+++++++++++
+>  4 files changed, 109 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/include/linux/if_tunnel.h b/include/linux/if_tunnel.h
+> index 5eb9b0f..0d44376 100644
+> --- a/include/linux/if_tunnel.h
+> +++ b/include/linux/if_tunnel.h
+> @@ -15,6 +15,10 @@
+>  #define SIOCADDPRL      (SIOCDEVPRIVATE + 5)
+>  #define SIOCDELPRL      (SIOCDEVPRIVATE + 6)
+>  #define SIOCCHGPRL      (SIOCDEVPRIVATE + 7)
+> +#define SIOCGET6RD      (SIOCDEVPRIVATE + 8)
+> +#define SIOCADD6RD      (SIOCDEVPRIVATE + 9)
+> +#define SIOCDEL6RD      (SIOCDEVPRIVATE + 10)
+> +#define SIOCCHG6RD      (SIOCDEVPRIVATE + 11)
+> =20
+>  #define GRE_CSUM	__cpu_to_be16(0x8000)
+>  #define GRE_ROUTING	__cpu_to_be16(0x4000)
+> @@ -51,6 +55,12 @@ struct ip_tunnel_prl {
+>  /* PRL flags */
+>  #define	PRL_DEFAULT		0x0001
+> =20
+> +/* 6RD parms */
+> +struct ip_tunnel_6rd {
+> +	struct in6_addr		addr;
+> +	__u8			prefixlen;
+> +};
+> +
+>  enum
+>  {
+>  	IFLA_GRE_UNSPEC,
+> diff --git a/include/net/ipip.h b/include/net/ipip.h
+> index 5d3036f..fa92c41 100644
+> --- a/include/net/ipip.h
+> +++ b/include/net/ipip.h
+> @@ -26,6 +26,8 @@ struct ip_tunnel
+> =20
+>  	struct ip_tunnel_prl_entry	*prl;		/* potential router list */
+>  	unsigned int			prl_count;	/* # of entries in PRL */
+> +
+> +	struct ip_tunnel_6rd	ip6rd_prefix;	/* 6RD SP prefix */
+>  };
+> =20
+>  /* ISATAP: default interval between RS in secondy */
+> diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
+> index ead6c7a..8b779f7 100644
+> --- a/net/ipv6/Kconfig
+> +++ b/net/ipv6/Kconfig
+> @@ -170,6 +170,19 @@ config IPV6_SIT
+> =20
+>  	  Saying M here will produce a module called sit. If unsure, say Y.
+> =20
+> +config IPV6_SIT_6RD
+> +	bool "IPv6: 6rd tunnel mode (EXPERIMENTAL)"
+> +	depends on IPV6_SIT && EXPERIMENTAL
+> +	default n
+> +	---help---
+> +	IPv6 rapid deployment (draft-despres-6rd-03) builds upon mechanisms
+> +	of 6to4 (RFC3056) to enable a service provider to rapidly deploy IP=
+v6
+> +	unicast service to IPv4 sites to which it provides customer premise
+> +	equipment. Like 6to4, it utilizes stateless IPv6 in IPv4 encapsulat=
+ion
+> +	in order to transit IPv4-only network infrastructure. Unlike 6to4, =
+a
+> +	6rd service provider uses an IPv6 prefix of its own in place of the
+> +	fixed 6to4 prefix.
+> +
+>  config IPV6_NDISC_NODETYPE
+>  	bool
+> =20
+> diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+> index 0ae4f64..3587149 100644
+> --- a/net/ipv6/sit.c
+> +++ b/net/ipv6/sit.c
+> @@ -604,6 +604,30 @@ static inline __be32 try_6to4(struct in6_addr *v=
+6dst)
+>  	return dst;
+>  }
+> =20
+> +#ifdef CONFIG_IPV6_SIT_6RD
+> +/* Returns the embedded IPv4 address if the IPv6 address comes from
+> +   6rd rule */
+> +
+> +static inline __be32 try_6rd(struct in6_addr *addr, u8 prefix_len, s=
+truct in6_addr *v6dst)
+> +{
+> +	__be32 dst =3D 0;
+> +
+> +	/* isolate addr according to mask */
+> +	if (ipv6_prefix_equal(v6dst, addr, prefix_len)) {
+> +		unsigned int d32_off, bits;
+> +
+> +		d32_off =3D prefix_len >> 5;
+> +		bits =3D (prefix_len & 0x1f);
+> +
+> +		dst =3D (ntohl(v6dst->s6_addr32[d32_off]) << bits);
+> +		if (bits)
+> +			dst |=3D ntohl(v6dst->s6_addr32[d32_off + 1]) >> (32 - bits);
+> +		dst =3D htonl(dst);
+> +	}
+> +	return dst;
+> +}
+> +#endif
+> +
+>  /*
+>   *	This function assumes it is being called from dev_queue_xmit()
+>   *	and that skb is filled properly by that function.
+> @@ -657,6 +681,13 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_b=
+uff *skb,
+>  			goto tx_error;
+>  	}
+> =20
+> +#ifdef CONFIG_IPV6_SIT_6RD
+> +	if (!dst && tunnel->ip6rd_prefix.prefixlen)
+> +		dst =3D try_6rd(&tunnel->ip6rd_prefix.addr,
+> +			      tunnel->ip6rd_prefix.prefixlen,
+> +			      &iph6->daddr);
+> +	else
+> +#endif
+>  	if (!dst)
+>  		dst =3D try_6to4(&iph6->daddr);
+> =20
+> @@ -848,6 +879,9 @@ ipip6_tunnel_ioctl (struct net_device *dev, struc=
+t ifreq *ifr, int cmd)
+>  	int err =3D 0;
+>  	struct ip_tunnel_parm p;
+>  	struct ip_tunnel_prl prl;
+> +#ifdef CONFIG_IPV6_SIT_6RD
+> +	struct ip_tunnel_6rd ip6rd;
+> +#endif
+>  	struct ip_tunnel *t;
+>  	struct net *net =3D dev_net(dev);
+>  	struct sit_net *sitn =3D net_generic(net, sit_net_id);
+> @@ -987,6 +1021,56 @@ ipip6_tunnel_ioctl (struct net_device *dev, str=
+uct ifreq *ifr, int cmd)
+>  		netdev_state_change(dev);
+>  		break;
+> =20
+> +#ifdef CONFIG_IPV6_SIT_6RD
+> +	case SIOCGET6RD:
+> +		err =3D -EINVAL;
+> +		if (dev =3D=3D sitn->fb_tunnel_dev)
+> +			goto done;
+> +		err =3D -ENOENT;
+> +		if (!(t =3D netdev_priv(dev)))
+> +			goto done;
 
-> Add FEC support for MX25 processor.
-> 
-> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+> +		memcpy(&ip6rd, &t->ip6rd_prefix, sizeof(ip6rd));
 
-Applied.
+Just wondering why you need a temporary ip6rd here,
+why dont you copy_to_user(ifr->ifr_ifru.ifru_data, &t->ip6rd_prefix, si=
+zeof(ip6rd)); ?
+
+> +		if (copy_to_user(ifr->ifr_ifru.ifru_data, &ip6rd, sizeof(ip6rd)))
+> +			err =3D -EFAULT;
+> +		else
+> +			err =3D 0;
+> +		break;
+> +
+> +	case SIOCADD6RD:
+> +	case SIOCDEL6RD:
+> +	case SIOCCHG6RD:
+> +		err =3D -EPERM;
+> +		if (!capable(CAP_NET_ADMIN))
+> +			goto done;
+> +		err =3D -EINVAL;
+> +		if (dev =3D=3D sitn->fb_tunnel_dev)
+> +			goto done;
+> +		err =3D -EFAULT;
+> +		if (copy_from_user(&ip6rd, ifr->ifr_ifru.ifru_data, sizeof(ip6rd))=
+)
+> +			goto done;
+> +		err =3D -ENOENT;
+> +		if (!(t =3D netdev_priv(dev)))
+> +			goto done;
+> +
+> +		err =3D 0;
+> +		switch (cmd) {
+> +		case SIOCDEL6RD:
+> +			memset(&t->ip6rd_prefix, 0, sizeof(ip6rd));
+> +			break;
+> +		case SIOCADD6RD:
+> +		case SIOCCHG6RD:
+> +			if (ip6rd.prefixlen >=3D 95) {
+> +				err =3D -EINVAL;
+> +				goto done;
+> +			}
+> +			ipv6_addr_copy(&t->ip6rd_prefix.addr, &ip6rd.addr);
+> +			t->ip6rd_prefix.prefixlen =3D ip6rd.prefixlen;
+> +			break;
+> +		}
+> +		netdev_state_change(dev);
+> +		break;
+> +#endif
+> +
+>  	default:
+>  		err =3D -EINVAL;
+>  	}
+
