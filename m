@@ -1,53 +1,55 @@
-From: Tomas Winkler <tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 2/3] iwmc3200wifi: select IWMC3200TOP in Kconfig
-Date: Wed, 23 Sep 2009 02:38:43 +0300
-Message-ID: <1253662724-16497-3-git-send-email-tomas.winkler@intel.com>
-References: <1253662724-16497-1-git-send-email-tomas.winkler@intel.com>
- <1253662724-16497-2-git-send-email-tomas.winkler@intel.com>
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, inaky.perez-gonzalez-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	cindy.h.kao-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, guy.cohen-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	ron.rindjunsky-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Tomas Winkler <tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1253662724-16497-2-git-send-email-tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Davide Libenzi <davidel@xmailserver.org>
+Subject: Re: fanotify as syscalls
+Date: Tue, 22 Sep 2009 16:43:17 -0700 (PDT)
+Message-ID: <alpine.DEB.2.00.0909221139570.12001@makko.or.mcafeemobile.com>
+References: <20090912094110.GB24709@ioremap.net> <20090921231227.GJ14700@shareable.org> <alpine.DEB.2.00.0909211816020.1116@makko.or.mcafeemobile.com> <200909221731.34717.agruen@suse.de> <1253635918.2747.5.camel@dhcp231-106.rdu.redhat.com>
+ <20090922162707.GA11608@shareable.org>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Paris <eparis@redhat.com>,
+	Andreas Gruenbacher <agruen@suse.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
+	viro@zeniv.linux.org.uk, alan@linux.intel.com, hch@infradead.org
+To: Jamie Lokier <jamie@shareable.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20090922162707.GA11608@shareable.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-iwmc3200wifi requires iwmc3200top  for its operation
+On Tue, 22 Sep 2009, Jamie Lokier wrote:
 
-Signed-off-by: Tomas Winkler <tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
----
- drivers/net/wireless/iwmc3200wifi/Kconfig |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+> Eric Paris wrote:
+> > That's not the fatal flaw.  The fatal flaw is that I am not going to
+> > write 90% of a rootkit and make it easy to use.
+> 
+> I hate to point out the obvious, but fanotify's ability to intercept
+> every file access and rewrite the file before the access proceeds is
+> also 90% of a rootkit...
 
-diff --git a/drivers/net/wireless/iwmc3200wifi/Kconfig b/drivers/net/wireless/iwmc3200wifi/Kconfig
-index c62da43..69faaf1 100644
---- a/drivers/net/wireless/iwmc3200wifi/Kconfig
-+++ b/drivers/net/wireless/iwmc3200wifi/Kconfig
-@@ -3,6 +3,7 @@ config IWM
- 	depends on MMC && WLAN_80211 && EXPERIMENTAL
- 	depends on CFG80211
- 	select FW_LOADER
-+	select IWMC3200TOP
- 	help
- 	  The Intel Wireless Multicomm 3200 hardware is a combo
- 	  card with GPS, Bluetooth, WiMax and 802.11 radios. It
--- 
-1.6.0.6
+Obvious, but worth noticing.
+Indeed, the syscall table has been RO to make it harder for RKs to 
+exploit it, not to make it impossible. RO syscall table makes perfect 
+sense.
+But, once you are root, with very few lines of code, you can find, 
+prot-fix the page, and patch the table.
 
----------------------------------------------------------------------
-Intel Israel (74) Limited
 
-This e-mail and any attachments may contain confidential material for
-the sole use of the intended recipient(s). Any review or distribution
-by others is strictly prohibited. If you are not the intended
-recipient, please contact the sender and delete all copies.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> But fortunately both fanotify and syscall rewriting require root in
+> the first place.                          ^^^^^^^^^
+
+Again, maybe I wasn't clear about how this would work, but the syscall 
+table would continue to remain RO ;)
+And as I said before, if we want to bring the cost of the interception for 
+non-users pretty close to zero (a few NOPs to run onto), we could even 
+adopt an alternative-like patching triggered by a kernel boot option.
+
+
+
+- Davide
+
+
