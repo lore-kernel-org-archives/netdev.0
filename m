@@ -1,73 +1,72 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH 13/13] TProxy: use the interface primary IP address as
- a default value for --on-ip
-Date: Tue, 22 Sep 2009 10:17:19 -0400
-Message-ID: <4AB8DC6F.90602@hp.com>
-References: <1253548005.12519.13.camel@bzorp.balabit>	 <4AB7BF47.2030404@hp.com> <1253601509.6883.5.camel@bzorp.balabit>
+From: Davide Libenzi <davidel@xmailserver.org>
+Subject: Re: fanotify as syscalls
+Date: Tue, 22 Sep 2009 07:51:39 -0700 (PDT)
+Message-ID: <alpine.DEB.2.00.0909211816020.1116@makko.or.mcafeemobile.com>
+References: <20090912094110.GB24709@ioremap.net> <200909190000.43556.agruen@suse.de> <1253329471.2630.30.camel@dhcp231-106.rdu.redhat.com> <200909212204.51077.agruen@suse.de> <20090921202823.GB14700@shareable.org> <alpine.DEB.2.00.0909211456180.1116@makko.or.mcafeemobile.com>
+ <20090921231227.GJ14700@shareable.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Balazs Scheidler <bazsi@balabit.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1253601509.6883.5.camel@bzorp.balabit>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andreas Gruenbacher <agruen@suse.de>,
+	Eric Paris <eparis@redhat.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
+	viro@zeniv.linux.org.uk, alan@linux.intel.com, hch@infradead.org
+To: Jamie Lokier <jamie@shareable.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20090921231227.GJ14700@shareable.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Balazs Scheidler wrote:
-> On Mon, 2009-09-21 at 14:00 -0400, Brian Haley wrote:
->> Balazs Scheidler wrote: 
->>>  #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
->>> +
->>> +static inline const struct in6_addr *
->>> +tproxy_laddr6(struct sk_buff *skb, const struct in6_addr *user_laddr, const struct in6_addr *daddr)
->>> +{
->>> +	struct inet6_dev *indev;
->>> +	struct inet6_ifaddr *ifa;
->>> +	struct in6_addr *laddr;
->>> +	
->>> +        if (!ipv6_addr_any(user_laddr))
->>> +                return user_laddr;
->>> +	
->>> +        laddr = NULL;
->>> +        rcu_read_lock();
->>> +        indev = __in6_dev_get(skb->dev);
->>> +        if (indev && (ifa = indev->addr_list)) {
->>> +		laddr = &ifa->addr;
->>> +	}
->>> +        rcu_read_unlock();
->>> +        
->>> +        return laddr ? laddr : daddr;
->>> +}
->> You should call ipv6_dev_get_saddr() to get a source address based on the target
->> destination address.
-> 
-> Thanks for this hint, however this is not selecting a source address for
-> a given destination, rather it selects the address where tproxy is
-> redirecting the connection in case the user specified no --on-ip
-> parameter.
-> 
-> e.g. 
-> 
-> ip6tables -A PREROUTING -p tcp --dport 80 -j TPROXY --on-port 50080
-> 
-> This should redirect the connection to the primary IP address of the
-> incoming interface. In fact I spent 2 hours to figure out how to find
-> the proper address, and at the end I used the first IP address
-> configured to the interface, seeing that those addresses are sorted in
-> 'scope' order, e.g. link-local and site-local addresses are at the end
-> of the list, thus the front should be ok.
+On Tue, 22 Sep 2009, Jamie Lokier wrote:
 
-Yes, the addresses are sorted by scope, but just because they're in the
-list doesn't mean they can be used, for example that address might have
-failed DAD or be Deprecated.  ipv6_dev_get_saddr() will follow the rules
-from RFC 3484 in picking the best address to use, or none if there isn't
-anything appropriate.
+> I don't mind at all if fanotify is replaced by a general purpose "take
+> over the system call table" solution ...
 
-> Since I'm not that much into IPv6, I'd appreciate some help, is
-> ipv6_dev_get_saddr(client_ip_address) indeed the best solution here?
+That was not what I meant ;)
+You'd register/unregister as syscall interceptor, receiving syscall number 
+and parameters, you'd be able to return status/error codes directly, and 
+you'd have the ability to eventually change the parameters. All this 
+should be pretty trivial code, and at the same time give full syscall 
+visibility to the modules.
+The complexity would be left to the interceptors, as they already do it 
+today.
 
-Probably.  An alternative might be to use ip6_dst_lookup() (see tcp_v6_connect()),
-but a lot more code for you.
 
--Brian
+
+> But I can't help noticing that we _already_ have quite well placed
+> hooks for intercepting system calls, called security_this and
+> security_that (SELinux etc), ...
+
+That has "some" limits WRT non-GPL modules and relative static linkage.
+
+
+
+> However, being a little kinder, I suspect even the anti-malware
+> vendors would rather not slow down everything with race-prone
+> complicated tracking of everything every process does...  which is why
+> fanotify allows it's "interest set" to be reduced from everything to a
+> subset of files, and it's results to be cached, and let the races be
+> handled in the normal way by VFS.
+
+They are already doing it today, since they are forced to literally find 
+and hack the syscall table.
+They already have things like process whitelists, path whitelists, scan 
+caches, and all the whistles, in their code.
+Of course, some of them might be interested in pushing given complexity 
+inside the kernel, since they won't have to maintain it.
+Some other OTOH, might be interested in keeping a syscall-based access, 
+since they already have working code based on that abstraction.
+The good part of this would be that all the userspace communication API, 
+whitelists, caches, etc...  would be left to the module implementors, and 
+not pushed inside the kernel.
+That, and the flexibility of being able to intercept all the userspace 
+entrances into the kernel.
+
+
+
+- Davide
+
+
