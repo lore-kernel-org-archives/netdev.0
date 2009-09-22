@@ -1,52 +1,58 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] skge: request IRQ on activating the interface
-Date: Tue, 22 Sep 2009 09:28:26 -0700
-Message-ID: <20090922092826.5302225c@s6510>
-References: <20090922120127.14242.71353.stgit@localhost.localdomain>
+Subject: Re: [RFC] Virtual Machine Device Queues(VMDq) support on KVM
+Date: Tue, 22 Sep 2009 09:29:57 -0700
+Message-ID: <20090922092957.17e68cbc@s6510>
+References: <C85CEDA13AB1CF4D9D597824A86D2B9006AEB94861@PDSMSX501.ccr.corp.intel.com>
+	<20090921162718.GM26034@sequoia.sous-sol.org>
+	<20090922103807.GA2555@redhat.com>
+	<200909221350.54847.arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Michal Schmidt <mschmidt@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34313 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932345AbZIVQ2a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Sep 2009 12:28:30 -0400
-In-Reply-To: <20090922120127.14242.71353.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, Chris Wright
+ <chrisw@sous-sol.org>, Rusty Russell <rusty@rustcorp.com.au>,
+ virtualization@lists.linux-foundation.org, "Xin, Xiaohui"
+ <xiaohui.xin@intel.com>, "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "linux-mm@kvack.org" <linux-mm@kvack.org>, "hpa@zytor.com" <hpa@zytor.com>,
+ "mingo@elte.hu" <mingo@elte.hu>, "akpm@linux-foundation.org"
+ <akpm@linux-foundation.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <200909221350.54847.arnd@arndb.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Sep 2009 14:01:31 +0200
-Michal Schmidt <mschmidt@redhat.com> wrote:
+On Tue, 22 Sep 2009 13:50:54 +0200
+Arnd Bergmann <arnd@arndb.de> wrote:
 
-> skge requests IRQ in its probe function. This causes a problem in
-> the following real-life scenario with two different NICs in the machine:
+> On Tuesday 22 September 2009, Michael S. Tsirkin wrote:
+> > > > More importantly, when virtualizations is used with multi-queue
+> > > > NIC's the virtio-net NIC is a single CPU bottleneck. The virtio-net
+> > > > NIC should preserve the parallelism (lock free) using multiple
+> > > > receive/transmit queues. The number of queues should equal the
+> > > > number of CPUs.
+> > > 
+> > > Yup, multiqueue virtio is on todo list ;-)
+> > > 
+> > 
+> > Note we'll need multiqueue tap for that to help.
 > 
-> 1. modprobe skge
->    The card is detected as eth0 and requests IRQ 17. Directory
->    /proc/irq/17/eth0 is created.
-> 2. There is an udev rule which says this interface should be called
->    eth1, so udev renames eth0 -> eth1.
-> 3. modprobe 8139too
->    The Realtek card is detected as eth0. It will be using IRQ 17 too.
-> 4. ip link set eth0 up
->    Now 8139too requests IRQ 17.
+> My idea for that was to open multiple file descriptors to the same
+> macvtap device and let the kernel figure out the  right thing to
+> do with that. You can do the same with raw packed sockets in case
+> of vhost_net, but I wouldn't want to add more complexity to the
+> tun/tap driver for this.
 > 
-> The result is:
-> WARNING: at fs/proc/generic.c:590 proc_register ...
-> proc_dir_entry '17/eth0' already registered
-> ...
-> 
-> And "ls /proc/irq/17" shows two subdirectories, both called eth0.
-> 
-> Fix it by requesting the IRQ in skge when the interface is activated.
-> This works, because interfaces can be renamed only while they are down.
-> 
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+> 	Arnd <><
 
-No. because two port cards have a single IRQ for both ports.
-The choice of ethX in irq name was done because irqbalance looks for this.
-Probably better to change skge/sky2 and other devices with same issue
-to use skge-N ... for request_irq, and teach irqbalance how to do deal
-with it.
+
+Or get tap out of the way entirely. The packets should not have
+to go out to user space at all (see veth)
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
