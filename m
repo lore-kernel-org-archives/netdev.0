@@ -1,44 +1,48 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [RFC] Virtual Machine Device Queues(VMDq) support on KVM
-Date: Tue, 22 Sep 2009 20:34:28 +0200
-Message-ID: <200909222034.28865.arnd@arndb.de>
-References: <C85CEDA13AB1CF4D9D597824A86D2B9006AEB94861@PDSMSX501.ccr.corp.intel.com> <200909221350.54847.arnd@arndb.de> <20090922092957.17e68cbc@s6510>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] ipv4: fix do_ip_setsockopt optlen check for
+ IP_MULTICAST_IF
+Date: Tue, 22 Sep 2009 13:38:19 -0700 (PDT)
+Message-ID: <20090922.133819.173686372.davem@davemloft.net>
+References: <1253164784-15789-1-git-send-email-dfeng@redhat.com>
+	<4AB1FE2A.1060906@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Chris Wright <chrisw@sous-sol.org>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org,
-	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>,
-	"hpa@zytor.com" <hpa@zytor.com>, "mingo@elte.hu" <mingo@elte.hu>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20090922092957.17e68cbc@s6510>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dfeng@redhat.com, kaber@trash.net, yoshfuji@linux-ipv6.org,
+	jmorris@namei.org, pekkas@netcore.fi, kuznet@ms2.inr.ac.ru,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: shanwei@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40264
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752262AbZIVUiA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2009 16:38:00 -0400
+In-Reply-To: <4AB1FE2A.1060906@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 22 September 2009, Stephen Hemminger wrote:
-> > My idea for that was to open multiple file descriptors to the same
-> > macvtap device and let the kernel figure out the  right thing to
-> > do with that. You can do the same with raw packed sockets in case
-> > of vhost_net, but I wouldn't want to add more complexity to the
-> > tun/tap driver for this.
-> > 
-> Or get tap out of the way entirely. The packets should not have
-> to go out to user space at all (see veth)
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Date: Thu, 17 Sep 2009 17:15:22 +0800
 
-How does veth relate to that, do you mean vhost_net? With vhost_net,
-you could still open multiple sockets, only the access is in the kernel.
-Obviously, once it all is in the kernel, that could be done under the
-covers, but I think it would be cleaner to treat vhost_net purely as
-a way to bypass the syscalls for user space, with as little as possible
-visible impact otherwise.
+> Xiaotian Feng wrote, at 09/17/2009 01:19 PM:
+>> Due to man page of setsockopt, if optlen is not valid, kernel should return
+>> -EINVAL. But a simple testcase as following, errno is 0, which means setsockopt
+>> is successful.
+>> 
+>>         addr.s_addr = inet_addr("192.1.2.3");
+>>         setsockopt(s, IPPROTO_IP, IP_MULTICAST_IF, &addr, 1);
+>> 	printf("errno is %d\n", errno);
+>> 
+>> This patch fixes the optlen check part, with the patch, we got errno EINVAL.
+>> 
+> 
+> I also think it's a bug, the freebsd also does the optlen check. 
+> But the style should be coincident with other option: firstly check the
+> availability of optlen, then copy option value from user and deal with it.   
+> 
+> How about this one:
 
-	Arnd <><
+This definitely is better and cleaner, but please don't post such
+things without proper signoffs and commit messages because now
+I have to ask you to do that instead of me just applying your
+patch :-/
