@@ -1,25 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/6] isdn: hisax, fix lock imbalance
-Date: Tue, 22 Sep 2009 14:34:46 -0700 (PDT)
-Message-ID: <20090922.143446.233247853.davem@davemloft.net>
-References: <200909181953.n8IJr1Wl026154@imap1.linux-foundation.org>
+From: Andreas Gruenbacher <agruen@suse.de>
+Subject: Re: fanotify as syscalls
+Date: Tue, 22 Sep 2009 23:38:32 +0200
+Message-ID: <200909222338.32646.agruen@suse.de>
+References: <20090912094110.GB24709@ioremap.net> <200909212204.51077.agruen@suse.de> <1253653576.2747.27.camel@dhcp231-106.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, netdev@vger.kernel.org, jirislaby@gmail.com,
-	Karsten-Keil@t-online.de
-To: akpm@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39996
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751594AbZIVVe1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2009 17:34:27 -0400
-In-Reply-To: <200909181953.n8IJr1Wl026154@imap1.linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jamie Lokier <jamie@shareable.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, viro@zeniv.linux.org.uk,
+	alan@linux.intel.com, hch@infradead.org
+To: Eric Paris <eparis@redhat.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <1253653576.2747.27.camel@dhcp231-106.rdu.redhat.com>
+Content-Disposition: inline
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tuesday, 22 September 2009 23:06:16 Eric Paris wrote:
+> this is true, if there is only one namespace subtree notification works
+> the same as global notification.
+>
+> [...]
+>
+> I don't see how subtree notification can possibly solve the global
+> notification problem.
 
-I'm hoping Karsten will pick these up.
+I'm thinking of is something like this: A listener registers interest in "/", 
+recursively. The kernel sets a FSNOTIFY_WATCH_RECURSIVE flag on "/" and each 
+mount point below. Afterwards when something is mounted anywhere, same 
+namespace or not, the kernel sets the new mount's FSNOTIFY_WATCH_RECURSIVE 
+flag if the parent mount has this flag set.
 
-But I'm not optimistic as I've been waiting weeks for some
-other ISDN fixes to get looked at :-/
+(Of course we need per fsnotify_group flags and not global ones, but this 
+doesn't change the principle.)
+
+Andreas
