@@ -1,51 +1,42 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH] drivers/net/wireless: Use usb_endpoint_dir_out
-Date: Tue, 22 Sep 2009 13:45:16 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0909221344370.20456@pc-004.diku.dk>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 64-bit DMA support
+Date: Tue, 22 Sep 2009 13:53:56 +0200
+Message-ID: <20090922115356.GB13710@electric-eye.fr.zoreil.com>
+References: <4AB6BCEC.3070001@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: "John W. Linville" <linville@tuxdriver.com>,
-	Ulrich Kunitz <kune@deine-taler.de>,
-	Daniel Drake <dsd@gentoo.org>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@v
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756202AbZIVLpR@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: Robert Hancock <hancockrwd@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:37580 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756116AbZIVLs2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2009 07:48:28 -0400
+Content-Disposition: inline
+In-Reply-To: <4AB6BCEC.3070001@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+Robert Hancock <hancockrwd@gmail.com> :
+[...]
+> It's not clear (from the mails I've read) exactly what was going on in  
+> the case that caused this to be added.
 
-Use the usb_endpoint_dir_out API function.  Note that the use of
-USB_TYPE_MASK in the original code is incorrect; it results in a test that
-is always false.
+Some AMD + r8169 systems simply did not work.
 
-The semantic patch that makes this change is as follows:
-(http://coccinelle.lip6.fr/)
+> Normally these days the PCI subsystem is supposed to detect that DAC
+> isn't usable on a machine and refuse setting 64-bit DMA masks, it's
+> not the driver's responsibility to handle this.
+> I'm guessing that when this change was made that detection didn't exist
+> though.
 
-// <smpl>
-@@
-struct usb_endpoint_descriptor *endpoint;
-expression E;
-@@
+Not exactly. It was required for DAC to be explicitely enabled through
+the CPlusCmd register.
 
-- (endpoint->bEndpointAddress & E) == USB_DIR_OUT
-+ usb_endpoint_dir_out(endpoint)
-// </smpl>
+> Thoughts on whether this default can be changed now ?
 
-Signed-off-by: Julia Lawall <julia@diku.dk>
+The 8168 does not seem to need the CPlusCmd stuff. I'll check it but it
+should be possible to enable high DMA without condition for it.
 
----
- drivers/net/wireless/zd1211rw/zd_usb.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff -u -p a/drivers/net/wireless/zd1211rw/zd_usb.c b/drivers/net/wireless/zd1211rw/zd_usb.c
---- a/drivers/net/wireless/zd1211rw/zd_usb.c
-+++ b/drivers/net/wireless/zd1211rw/zd_usb.c
-@@ -1070,7 +1070,7 @@ static int eject_installer(struct usb_in
- 
- 	/* Find bulk out endpoint */
- 	endpoint = &iface_desc->endpoint[1].desc;
--	if ((endpoint->bEndpointAddress & USB_TYPE_MASK) == USB_DIR_OUT &&
-+	if (usb_endpoint_dir_out(endpoint) &&
- 	    usb_endpoint_xfer_bulk(endpoint)) {
- 		bulk_out_ep = endpoint->bEndpointAddress;
- 	} else {
+-- 
+Ueimor
