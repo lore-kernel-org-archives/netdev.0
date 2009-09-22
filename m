@@ -1,27 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] pktgen: check for link down
-Date: Tue, 22 Sep 2009 14:24:04 -0700 (PDT)
-Message-ID: <20090922.142404.161720431.davem@davemloft.net>
-References: <20090919221844.114e2e23@nehalam>
-	<20090921225543.44d2d5c4@nehalam>
+Subject: Re: [PATCH] ax25: Fix SIOCAX25GETINFO ioctl
+Date: Tue, 22 Sep 2009 14:25:04 -0700 (PDT)
+Message-ID: <20090922.142504.68195584.davem@davemloft.net>
+References: <alpine.LNX.2.00.0909201226001.29572@cedric.unob.cz>
+	<4AB65937.8010508@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: robert@herjulf.net, jdb@comx.dk, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: jr+netfilter-devel@cedric.unob.cz, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33908
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33913
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751041AbZIVVXq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2009 17:23:46 -0400
-In-Reply-To: <20090921225543.44d2d5c4@nehalam>
+	by vger.kernel.org with ESMTP id S1753332AbZIVVYp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Sep 2009 17:24:45 -0400
+In-Reply-To: <4AB65937.8010508@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Mon, 21 Sep 2009 22:55:43 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 20 Sep 2009 18:32:55 +0200
 
-> You can hold off on these two patches, I have better version
-> which fixes some other issues. But testing time is limited this week.
+> [PATCH] ax25: Fix SIOCAX25GETINFO ioctl
+> 
+> rcv_q & snd_q initializations were reversed in commit
+> 31e6d363abcd0d05766c82f1a9c905a4c974a199
+> (net: correct off-by-one write allocations reports)
+> 
+> Signed-off-by: Jan Rafaj <jr+netfilter-devel@cedric.unob.cz>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Ok
+Applied and I'll make sure to check if it needs -stable
+treatment too.
+
+Thanks.
