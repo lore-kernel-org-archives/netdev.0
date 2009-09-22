@@ -1,70 +1,51 @@
-From: Hannes Eder <heder@google.com>
-Subject: [PATCH] netfilter: nf_nat_helper: tidy up adjust_tcp_sequence
-Date: Tue, 22 Sep 2009 18:00:55 +0200
-Message-ID: <20090922155911.20008.96214.stgit@jazzy.zrh.corp.google.com>
+From: Eric Paris <eparis@redhat.com>
+Subject: Re: fanotify as syscalls
+Date: Tue, 22 Sep 2009 12:11:58 -0400
+Message-ID: <1253635918.2747.5.camel@dhcp231-106.rdu.redhat.com>
+References: <20090912094110.GB24709@ioremap.net>
+	 <20090921231227.GJ14700@shareable.org>
+	 <alpine.DEB.2.00.0909211816020.1116@makko.or.mcafeemobile.com>
+	 <200909221731.34717.agruen@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: Davide Libenzi <davidel@xmailserver.org>,
+	Jamie Lokier <jamie@shareable.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
+	viro@zeniv.linux.org.uk, alan@linux.intel.com, hch@infradead.org
+To: Andreas Gruenbacher <agruen@suse.de>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <200909221731.34717.agruen@suse.de>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The variable 'other_way' gets initialized but is not read afterwards,
-so remove it.  Pass the right arguments to a pr_debug call.
+On Tue, 2009-09-22 at 17:31 +0200, Andreas Gruenbacher wrote:
+> On Tuesday, 22 September 2009 16:51:39 Davide Libenzi wrote:
+> > On Tue, 22 Sep 2009, Jamie Lokier wrote:
+> > > I don't mind at all if fanotify is replaced by a general purpose "take
+> > > over the system call table" solution ...
+> >
+> > That was not what I meant ;)
+> > You'd register/unregister as syscall interceptor, receiving syscall number
+> > and parameters, you'd be able to return status/error codes directly, and
+> > you'd have the ability to eventually change the parameters. All this
+> > should be pretty trivial code, and at the same time give full syscall
+> > visibility to the modules.
+> 
+> The fatal flaw of syscall interception is race conditions: 
 
-While being at tidy up a bit and it fix this checkpatch warning:
-  WARNING: suspect code indent for conditional statements
+That's not the fatal flaw.  The fatal flaw is that I am not going to
+write 90% of a rootkit and make it easy to use.  Not going to happen.
+There's a reason we went to the trouble to mark the syscall call RO, we
+don't export it, and we don't want people playing with it.  It clearly
+would have been the quickest, easiest, and fastest way to make
+anti-virus companies happy, but it doesn't really solve a good problem
+and it leaves all of us in a worse position than we are today.  Easy !=
+Good.
 
-Signed-off-by: Hannes Eder <heder@google.com>
-
- net/ipv4/netfilter/nf_nat_helper.c |   21 ++++++++-------------
- 1 files changed, 8 insertions(+), 13 deletions(-)
-
-diff --git a/net/ipv4/netfilter/nf_nat_helper.c b/net/ipv4/netfilter/nf_nat_helper.c
-index 09172a6..56daa1b 100644
---- a/net/ipv4/netfilter/nf_nat_helper.c
-+++ b/net/ipv4/netfilter/nf_nat_helper.c
-@@ -41,18 +41,13 @@ adjust_tcp_sequence(u32 seq,
- 		    struct nf_conn *ct,
- 		    enum ip_conntrack_info ctinfo)
- {
--	int dir;
--	struct nf_nat_seq *this_way, *other_way;
-+	int dir = CTINFO2DIR(ctinfo);
- 	struct nf_conn_nat *nat = nfct_nat(ct);
-+	struct nf_nat_seq *this_way = &nat->seq[dir];
- 
--	pr_debug("adjust_tcp_sequence: seq = %u, sizediff = %d\n", seq, seq);
--
--	dir = CTINFO2DIR(ctinfo);
--
--	this_way = &nat->seq[dir];
--	other_way = &nat->seq[!dir];
-+	pr_debug("%s(): seq = %u, sizediff = %d\n", __func__, seq, sizediff);
- 
--	pr_debug("nf_nat_resize_packet: Seq_offset before: ");
-+	pr_debug("%s(): Seq_offset before: ", __func__);
- 	DUMP_OFFSET(this_way);
- 
- 	spin_lock_bh(&nf_nat_seqofs_lock);
-@@ -63,13 +58,13 @@ adjust_tcp_sequence(u32 seq,
- 	 * retransmit */
- 	if (this_way->offset_before == this_way->offset_after ||
- 	    before(this_way->correction_pos, seq)) {
--		   this_way->correction_pos = seq;
--		   this_way->offset_before = this_way->offset_after;
--		   this_way->offset_after += sizediff;
-+		this_way->correction_pos = seq;
-+		this_way->offset_before = this_way->offset_after;
-+		this_way->offset_after += sizediff;
- 	}
- 	spin_unlock_bh(&nf_nat_seqofs_lock);
- 
--	pr_debug("nf_nat_resize_packet: Seq_offset after: ");
-+	pr_debug("%s(): Seq_offset after: ", __func__);
- 	DUMP_OFFSET(this_way);
- }
- 
+-Eric 
 
