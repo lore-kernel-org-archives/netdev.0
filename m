@@ -1,114 +1,368 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] genetlink: fix netns vs. netlink table locking (2)
-Date: Wed, 23 Sep 2009 11:34:30 +0200
-Message-ID: <1253698470.4458.48.camel@johannes.local>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH][RESEND 3] IPv6: 6rd tunnel mode
+Date: Wed, 23 Sep 2009 18:43:14 +0900
+Message-ID: <20090923184314.a2a2701d.yoshfuji@linux-ipv6.org>
+References: <20090922220251.GA22874@lnxos.staff.proxad.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: Alexandre Cassen <acassen@freebox.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:59861 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751535AbZIWJea (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2009 05:34:30 -0400
-Received: by sipsolutions.net with esmtpsa (TLS1.0:DHE_RSA_AES_256_CBC_SHA1:32)
-	(Exim 4.69)
-	(envelope-from <johannes@sipsolutions.net>)
-	id 1MqOF6-0001tD-IA
-	for netdev@vger.kernel.org; Wed, 23 Sep 2009 11:34:33 +0200
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:41060 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751210AbZIWJnM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2009 05:43:12 -0400
+In-Reply-To: <20090922220251.GA22874@lnxos.staff.proxad.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Similar to commit d136f1bd366fdb7e747ca7e0218171e7a00a98a5,
-there's a bug when unregistering a generic netlink family,
-which is caught by the might_sleep() added in that commit:
+Hello.
 
-    BUG: sleeping function called from invalid context at net/netlink/af_netlink.c:183
-    in_atomic(): 1, irqs_disabled(): 0, pid: 1510, name: rmmod
-    2 locks held by rmmod/1510:
-     #0:  (genl_mutex){+.+.+.}, at: [<ffffffff8138283b>] genl_unregister_family+0x2b/0x130
-     #1:  (rcu_read_lock){.+.+..}, at: [<ffffffff8138270c>] __genl_unregister_mc_group+0x1c/0x120
-    Pid: 1510, comm: rmmod Not tainted 2.6.31-wl #444
-    Call Trace:
-     [<ffffffff81044ff9>] __might_sleep+0x119/0x150
-     [<ffffffff81380501>] netlink_table_grab+0x21/0x100
-     [<ffffffff813813a3>] netlink_clear_multicast_users+0x23/0x60
-     [<ffffffff81382761>] __genl_unregister_mc_group+0x71/0x120
-     [<ffffffff81382866>] genl_unregister_family+0x56/0x130
-     [<ffffffffa0007d85>] nl80211_exit+0x15/0x20 [cfg80211]
-     [<ffffffffa000005a>] cfg80211_exit+0x1a/0x40 [cfg80211]
+First of all, thank you for this work.
 
-Fix in the same way by grabbing the netlink table lock
-before doing rcu_read_lock().
+On Wed, 23 Sep 2009 00:02:51 +0200
+Alexandre Cassen <acassen@freebox.fr> wrote:
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+> This patch add support to 6rd tunnel mode as described into
+> draft-despres-6rd-03.
+> 
+> Patch history :
+> * http://patchwork.ozlabs.org/patch/26870/
+> * http://patchwork.ozlabs.org/patch/34026/
+> * http://patchwork.ozlabs.org/patch/34045/
+> 
+> IPv6 rapid deployment (draft-despres-6rd-03) builds upon mechanisms
+
+Well, I was confused.  I think draft-softwire-ipv6-6rd
+is the latest one, no?
+
+Another comment is that we should combine 6to4
+and 6rd.
+
+In fact, I've been taking care of it since I met
+with Mark Townsley last week.  Here's my tentative
+version for reference.
+
+Several points:
+ - based on latest version.
+ - share code path with 6to4.
+
+(If anyone can invent better bitops,
+it will great help...)
+
+Regards,
+
+--yoshfuji
+
+----
+>From 7c82f67d361155a2e8ee831c66c9663617ae45bc Mon Sep 17 00:00:00 2001
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Tue, 22 Sep 2009 16:29:54 +0900
+Subject: [PATCH] ipv6 sit: 6rd (IPv6 Rapid Deployment) Support.
+
+IPv6 Rapid Deployment (6rd; draft-ietf-softwire-ipv6-6rd) builds upon
+mechanisms of 6to4 (RFC3056) to enable a service provider to rapidly
+deploy IPv6 unicast service to IPv4 sites to which it provides
+customer premise equipment.  Like 6to4, it utilizes stateless IPv6 in
+IPv4 encapsulation in order to transit IPv4-only network
+infrastructure.  Unlike 6to4, a 6rd service provider uses an IPv6
+prefix of its own in place of the fixed 6to4 prefix.
+
+With this option enabled, the SIT driver offers 6rd functionality by
+providing additional ioctl API to configure the IPv6 Prefix for in
+stead of static 2002::/16 for 6to4.
+
+Original patch was done by Alexandre Cassen <acassen@freebox.fr>
+based on old Internet-Draft.
+
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- include/linux/netlink.h  |    1 +
- net/netlink/af_netlink.c |   19 +++++++++++--------
- net/netlink/genetlink.c  |    4 +++-
- 3 files changed, 15 insertions(+), 9 deletions(-)
+ include/linux/if_tunnel.h |   11 ++++
+ include/net/ipip.h        |   13 +++++
+ net/ipv6/Kconfig          |   19 +++++++
+ net/ipv6/sit.c            |  124 ++++++++++++++++++++++++++++++++++++++++++---
+ 4 files changed, 159 insertions(+), 8 deletions(-)
 
---- wireless-testing.orig/include/linux/netlink.h	2009-09-23 11:15:56.000000000 +0200
-+++ wireless-testing/include/linux/netlink.h	2009-09-23 11:16:14.000000000 +0200
-@@ -187,6 +187,7 @@ extern struct sock *netlink_kernel_creat
- extern void netlink_kernel_release(struct sock *sk);
- extern int __netlink_change_ngroups(struct sock *sk, unsigned int groups);
- extern int netlink_change_ngroups(struct sock *sk, unsigned int groups);
-+extern void __netlink_clear_multicast_users(struct sock *sk, unsigned int group);
- extern void netlink_clear_multicast_users(struct sock *sk, unsigned int group);
- extern void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err);
- extern int netlink_has_listeners(struct sock *sk, unsigned int group);
---- wireless-testing.orig/net/netlink/af_netlink.c	2009-09-23 11:09:44.000000000 +0200
-+++ wireless-testing/net/netlink/af_netlink.c	2009-09-23 11:14:52.000000000 +0200
-@@ -1610,6 +1610,16 @@ int netlink_change_ngroups(struct sock *
- }
- EXPORT_SYMBOL(netlink_change_ngroups);
+diff --git a/include/linux/if_tunnel.h b/include/linux/if_tunnel.h
+index 5eb9b0f..cab4938 100644
+--- a/include/linux/if_tunnel.h
++++ b/include/linux/if_tunnel.h
+@@ -15,6 +15,10 @@
+ #define SIOCADDPRL      (SIOCDEVPRIVATE + 5)
+ #define SIOCDELPRL      (SIOCDEVPRIVATE + 6)
+ #define SIOCCHGPRL      (SIOCDEVPRIVATE + 7)
++#define SIOCGET6RD      (SIOCDEVPRIVATE + 8)
++#define SIOCADD6RD      (SIOCDEVPRIVATE + 9)
++#define SIOCDEL6RD      (SIOCDEVPRIVATE + 10)
++#define SIOCCHG6RD      (SIOCDEVPRIVATE + 11)
  
-+void __netlink_clear_multicast_users(struct sock *ksk, unsigned int group)
-+{
-+	struct sock *sk;
-+	struct hlist_node *node;
-+	struct netlink_table *tbl = &nl_table[ksk->sk_protocol];
+ #define GRE_CSUM	__cpu_to_be16(0x8000)
+ #define GRE_ROUTING	__cpu_to_be16(0x4000)
+@@ -51,6 +55,13 @@ struct ip_tunnel_prl {
+ /* PRL flags */
+ #define	PRL_DEFAULT		0x0001
+ 
++struct ip_tunnel_6rd {
++	struct in6_addr		prefix;
++	__be32			relay_prefix;
++	__u16			prefixlen;
++	__u16			relay_prefixlen;
++};
 +
-+	sk_for_each_bound(sk, node, &tbl->mc_list)
-+		netlink_update_socket_mc(nlk_sk(sk), group, 0);
+ enum
+ {
+ 	IFLA_GRE_UNSPEC,
+diff --git a/include/net/ipip.h b/include/net/ipip.h
+index 5d3036f..157be1c 100644
+--- a/include/net/ipip.h
++++ b/include/net/ipip.h
+@@ -7,6 +7,15 @@
+ /* Keep error state on tunnel for 30 sec */
+ #define IPTUNNEL_ERR_TIMEO	(30*HZ)
+ 
++/* 6rd prefix/relay information */
++struct ip_tunnel_6rd_parm
++{
++	struct in6_addr		prefix;
++	__be32			relay_prefix;
++	u16			prefixlen;
++	u16			relay_prefixlen;
++};
++
+ struct ip_tunnel
+ {
+ 	struct ip_tunnel	*next;
+@@ -24,6 +33,10 @@ struct ip_tunnel
+ 
+ 	struct ip_tunnel_parm	parms;
+ 
++	/* for SIT */
++#ifdef CONFIG_IPV6_SIT_6RD
++	struct ip_tunnel_6rd_parm	ip6rd;
++#endif
+ 	struct ip_tunnel_prl_entry	*prl;		/* potential router list */
+ 	unsigned int			prl_count;	/* # of entries in PRL */
+ };
+diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
+index ead6c7a..f561998 100644
+--- a/net/ipv6/Kconfig
++++ b/net/ipv6/Kconfig
+@@ -170,6 +170,25 @@ config IPV6_SIT
+ 
+ 	  Saying M here will produce a module called sit. If unsure, say Y.
+ 
++config IPV6_SIT_6RD
++	bool "IPv6: IPv6 Rapid Development (6RD) (EXPERIMENTAL)"
++	depends on IPV6_SIT && EXPERIMENTAL
++	default n
++	---help---
++	  IPv6 Rapid Deployment (6rd; draft-ietf-softwire-ipv6-6rd) builds upon
++	  mechanisms of 6to4 (RFC3056) to enable a service provider to rapidly
++	  deploy IPv6 unicast service to IPv4 sites to which it provides
++	  customer premise equipment.  Like 6to4, it utilizes stateless IPv6 in
++	  IPv4 encapsulation in order to transit IPv4-only network
++	  infrastructure.  Unlike 6to4, a 6rd service provider uses an IPv6
++	  prefix of its own in place of the fixed 6to4 prefix.
++
++	  With this option enabled, the SIT driver offers 6rd functionality by
++	  providing additional ioctl API to configure the IPv6 Prefix for in
++	  stead of static 2002::/16 for 6to4.
++
++	  If unsure, say N.
++
+ config IPV6_NDISC_NODETYPE
+ 	bool
+ 
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 0ae4f64..14bd503 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -162,6 +162,21 @@ static void ipip6_tunnel_link(struct sit_net *sitn, struct ip_tunnel *t)
+ 	write_unlock_bh(&ipip6_lock);
+ }
+ 
++static void ipip6_tunnel_clone_6rd(struct ip_tunnel *t, struct sit_net *sitn)
++{
++#ifdef CONFIG_IPV6_SIT_6RD
++	if (t->dev == sitn->fb_tunnel_dev) {
++		ipv6_addr_set(&t->ip6rd.prefix, htonl(0x20020000), 0, 0, 0);
++		t->ip6rd.relay_prefix = 0;
++		t->ip6rd.prefixlen = 16;
++		t->ip6rd.relay_prefixlen = 0;
++	} else {
++		struct ip_tunnel *t0 = netdev_priv(sitn->fb_tunnel_dev);
++		memcpy(&t->ip6rd, &t0->ip6rd, sizeof(t->ip6rd));
++	}
++#endif
 +}
 +
- /**
-  * netlink_clear_multicast_users - kick off multicast listeners
-  *
-@@ -1620,15 +1630,8 @@ EXPORT_SYMBOL(netlink_change_ngroups);
-  */
- void netlink_clear_multicast_users(struct sock *ksk, unsigned int group)
+ static struct ip_tunnel * ipip6_tunnel_locate(struct net *net,
+ 		struct ip_tunnel_parm *parms, int create)
  {
--	struct sock *sk;
--	struct hlist_node *node;
--	struct netlink_table *tbl = &nl_table[ksk->sk_protocol];
--
- 	netlink_table_grab();
--
--	sk_for_each_bound(sk, node, &tbl->mc_list)
--		netlink_update_socket_mc(nlk_sk(sk), group, 0);
--
-+	__netlink_clear_multicast_users(ksk, group);
- 	netlink_table_ungrab();
+@@ -214,6 +229,8 @@ static struct ip_tunnel * ipip6_tunnel_locate(struct net *net,
+ 
+ 	dev_hold(dev);
+ 
++	ipip6_tunnel_clone_6rd(t, sitn);
++
+ 	ipip6_tunnel_link(sitn, nt);
+ 	return nt;
+ 
+@@ -590,17 +607,41 @@ out:
+ 	return 0;
  }
- EXPORT_SYMBOL(netlink_clear_multicast_users);
---- wireless-testing.orig/net/netlink/genetlink.c	2009-09-23 11:09:46.000000000 +0200
-+++ wireless-testing/net/netlink/genetlink.c	2009-09-23 11:16:50.000000000 +0200
-@@ -220,10 +220,12 @@ static void __genl_unregister_mc_group(s
- 	struct net *net;
- 	BUG_ON(grp->family != family);
  
-+	netlink_table_grab();
- 	rcu_read_lock();
- 	for_each_net_rcu(net)
--		netlink_clear_multicast_users(net->genl_sock, grp->id);
-+		__netlink_clear_multicast_users(net->genl_sock, grp->id);
- 	rcu_read_unlock();
-+	netlink_table_ungrab();
+-/* Returns the embedded IPv4 address if the IPv6 address
+-   comes from 6to4 (RFC 3056) addr space */
+-
+-static inline __be32 try_6to4(struct in6_addr *v6dst)
++/*
++ * Returns the embedded IPv4 address if the IPv6 address
++ * comes from 6rd / 6to4 (RFC 3056) addr space.
++ */
++static inline
++__be32 try_6rd(struct in6_addr *v6dst, struct ip_tunnel *tunnel)
+ {
+ 	__be32 dst = 0;
  
- 	clear_bit(grp->id, mc_groups);
- 	list_del(&grp->list);
++#ifdef CONFIG_IPV6_SIT_6RD
++	if (ipv6_prefix_equal(v6dst, &tunnel->ip6rd.prefix,
++			      tunnel->ip6rd.prefixlen)) {
++		unsigned pbw0, pbi0;
++		int pbi1;
++		u32 d;
++
++		pbw0 = tunnel->ip6rd.prefixlen >> 5;
++		pbi0 = tunnel->ip6rd.prefixlen & 0x1f;
++
++		d = (ntohl(tunnel->ip6rd.prefix.s6_addr32[pbw0]) << pbi0) >>
++		    tunnel->ip6rd.relay_prefixlen;
++
++		pbi1 = pbi0 - tunnel->ip6rd.relay_prefixlen;
++		if (pbi1 > 0)
++			d |= ntohl(tunnel->ip6rd.prefix.s6_addr32[pbw0 + 1]) >>
++			     (32 - pbi1);
++
++		dst = tunnel->ip6rd.relay_prefix | htonl(d);
++	}
++#else
+ 	if (v6dst->s6_addr16[0] == htons(0x2002)) {
+ 		/* 6to4 v6 addr has 16 bits prefix, 32 v4addr, 16 SLA, ... */
+ 		memcpy(&dst, &v6dst->s6_addr16[1], 4);
+ 	}
++#endif
+ 	return dst;
+ }
+ 
+@@ -658,7 +699,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
+ 	}
+ 
+ 	if (!dst)
+-		dst = try_6to4(&iph6->daddr);
++		dst = try_6rd(&iph6->daddr, tunnel);
+ 
+ 	if (!dst) {
+ 		struct neighbour *neigh = NULL;
+@@ -851,9 +892,15 @@ ipip6_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	struct ip_tunnel *t;
+ 	struct net *net = dev_net(dev);
+ 	struct sit_net *sitn = net_generic(net, sit_net_id);
++#ifdef CONFIG_IPV6_SIT_6RD
++	struct ip_tunnel_6rd ip6rd;
++#endif
+ 
+ 	switch (cmd) {
+ 	case SIOCGETTUNNEL:
++#ifdef CONFIG_IPV6_SIT_6RD
++	case SIOCGET6RD:
++#endif
+ 		t = NULL;
+ 		if (dev == sitn->fb_tunnel_dev) {
+ 			if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof(p))) {
+@@ -864,9 +911,25 @@ ipip6_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ 		}
+ 		if (t == NULL)
+ 			t = netdev_priv(dev);
+-		memcpy(&p, &t->parms, sizeof(p));
+-		if (copy_to_user(ifr->ifr_ifru.ifru_data, &p, sizeof(p)))
+-			err = -EFAULT;
++
++		err = -EFAULT;
++		if (cmd == SIOCGETTUNNEL) {
++			memcpy(&p, &t->parms, sizeof(p));
++			if (copy_to_user(ifr->ifr_ifru.ifru_data, &p,
++					 sizeof(p)))
++				goto done;
++#ifdef CONFIG_IPV6_SIT_6RD
++		} else {
++			ipv6_addr_copy(&ip6rd.prefix, &t->ip6rd.prefix);
++			ip6rd.relay_prefix = t->ip6rd.relay_prefix;
++			ip6rd.prefixlen = t->ip6rd.prefixlen;
++			ip6rd.relay_prefixlen = t->ip6rd.relay_prefixlen;
++			if (copy_to_user(ifr->ifr_ifru.ifru_data, &ip6rd,
++					 sizeof(ip6rd)))
++				goto done;
++#endif
++		}
++		err = 0;
+ 		break;
+ 
+ 	case SIOCADDTUNNEL:
+@@ -987,6 +1050,51 @@ ipip6_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ 		netdev_state_change(dev);
+ 		break;
+ 
++#ifdef CONFIG_IPV6_SIT_6RD
++	case SIOCADD6RD:
++	case SIOCCHG6RD:
++	case SIOCDEL6RD:
++		err = -EPERM;
++		if (!capable(CAP_NET_ADMIN))
++			goto done;
++
++		err = -EFAULT;
++		if (copy_from_user(&ip6rd, ifr->ifr_ifru.ifru_data,
++				   sizeof(ip6rd)))
++			goto done;
++
++		t = netdev_priv(dev);
++
++		if (cmd != SIOCDEL6RD) {
++			struct in6_addr prefix;
++			__be32 relay_prefix;
++
++			err = -EINVAL;
++			if (ip6rd.relay_prefixlen > 32 ||
++			    ip6rd.prefixlen + (32 - ip6rd.relay_prefixlen) > 64)
++				goto done;
++
++			ipv6_addr_prefix(&prefix, &ip6rd.prefix,
++					 ip6rd.prefixlen);
++			if (!ipv6_addr_equal(&prefix, &ip6rd.prefix))
++				goto done;
++			relay_prefix = ip6rd.relay_prefix &
++				       htonl(0xffffffffUL <<
++					     (32 - ip6rd.relay_prefixlen));
++			if (relay_prefix != ip6rd.relay_prefix)
++				goto done;
++
++			ipv6_addr_copy(&t->ip6rd.prefix, &prefix);
++			t->ip6rd.relay_prefix = relay_prefix;
++			t->ip6rd.prefixlen = ip6rd.prefixlen;
++			t->ip6rd.relay_prefixlen = ip6rd.relay_prefixlen;
++		} else
++			ipip6_tunnel_clone_6rd(t, sitn);
++
++		err = 0;
++		break;
++#endif
++
+ 	default:
+ 		err = -EINVAL;
+ 	}
+-- 
+1.5.6.5
 
 
+--yoshfuji
