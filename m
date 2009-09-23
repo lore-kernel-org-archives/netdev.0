@@ -1,35 +1,42 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: pktgen: tricks
-Date: Tue, 22 Sep 2009 22:49:02 -0700
-Message-ID: <20090922224902.17ed6cc4@nehalam>
+From: Alexandre Cassen <acassen@freebox.fr>
+Subject: Re: [PATCH][RESEND 3] IPv6: 6rd tunnel mode
+Date: Wed, 23 Sep 2009 08:07:33 +0200 (CEST)
+Message-ID: <alpine.DEB.2.00.0909230806040.23721@lnxos.staff.proxad.net>
+References: <20090922220251.GA22874@lnxos.staff.proxad.net> <4AB94D2C.4000006@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Cc: netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <jdb@comx.dk>,
-	Robert Olsson <robert@herjulf.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:43111 "EHLO mail.vyatta.com"
+Received: from smtp2-g21.free.fr ([212.27.42.2]:33572 "EHLO smtp2-g21.free.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751477AbZIWFtG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Sep 2009 01:49:06 -0400
+	id S1752636AbZIWGHk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Sep 2009 02:07:40 -0400
+In-Reply-To: <4AB94D2C.4000006@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I thought others want to know how to get maximum speed of pktgen.
 
-1. Run nothing else (even X11), just a command line
-2. Make sure ethernet flow control is disabled
-   ethtool -A eth0 autoneg off rx off tx off
-3. Make sure clocksource is TSC.  On my old SMP Opteron's
-   needed to get patch since in 2.6.30 or later, the clock guru's
-   decided to remove it on all non Intel machines.  Look for patch
-   than enables "tsc=reliable"
-4. Compile Ethernet drivers in, the overhead of the indirect
-   function call required for modules (or cache footprint),
-   slows things down.
-5. Increase transmit ring size to 1000
-   ethtool -G eth0 tx 1000
 
-Result: OK: 70408581(c70405979+d2602) nsec, 100000000 (60byte,0frags)
-  1420281pps 681Mb/sec (681734880bps) errors: 0
+On Wed, 23 Sep 2009, Eric Dumazet wrote:
+>> +#ifdef CONFIG_IPV6_SIT_6RD
+>> +	case SIOCGET6RD:
+>> +		err = -EINVAL;
+>> +		if (dev == sitn->fb_tunnel_dev)
+>> +			goto done;
+>> +		err = -ENOENT;
+>> +		if (!(t = netdev_priv(dev)))
+>> +			goto done;
+>
+>> +		memcpy(&ip6rd, &t->ip6rd_prefix, sizeof(ip6rd));
+>
+> Just wondering why you need a temporary ip6rd here,
+> why dont you copy_to_user(ifr->ifr_ifru.ifru_data, &t->ip6rd_prefix, sizeof(ip6rd)); ?
+>
+>> +		if (copy_to_user(ifr->ifr_ifru.ifru_data, &ip6rd, sizeof(ip6rd)))
+>> +			err = -EFAULT;
+>> +		else
+>> +			err = 0;
+>> +		break;
+
+agreed. will fix.
