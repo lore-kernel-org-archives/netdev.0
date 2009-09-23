@@ -1,42 +1,35 @@
-From: Alexandre Cassen <acassen@freebox.fr>
-Subject: Re: [PATCH][RESEND 3] IPv6: 6rd tunnel mode
-Date: Wed, 23 Sep 2009 08:07:33 +0200 (CEST)
-Message-ID: <alpine.DEB.2.00.0909230806040.23721@lnxos.staff.proxad.net>
-References: <20090922220251.GA22874@lnxos.staff.proxad.net> <4AB94D2C.4000006@gmail.com>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: r8169, enabling TX checksumming breaks things?
+Date: Wed, 23 Sep 2009 09:15:27 +0300
+Message-ID: <200909230915.27854.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: romieu@fr.zoreil.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2-g21.free.fr ([212.27.42.2]:33572 "EHLO smtp2-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752636AbZIWGHk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Sep 2009 02:07:40 -0400
-In-Reply-To: <4AB94D2C.4000006@gmail.com>
+Received: from hosting.visp.net.lb ([194.146.153.11]:57180 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752977AbZIWGMS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2009 02:12:18 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi
 
+Is it expected that:
+1)TX checksumming is off by default
+2)If i try to enable it over ethtool -K eth0 tx on , TCP sessions on proxy 
+getting stuck, even in tcpdump looks everything fine and packets reaching 
+destination, i don't understand what is a reason of failure.
+Maybe if this feature supposed to not work - user must not be able just to 
+turn it on?
 
-On Wed, 23 Sep 2009, Eric Dumazet wrote:
->> +#ifdef CONFIG_IPV6_SIT_6RD
->> +	case SIOCGET6RD:
->> +		err = -EINVAL;
->> +		if (dev == sitn->fb_tunnel_dev)
->> +			goto done;
->> +		err = -ENOENT;
->> +		if (!(t = netdev_priv(dev)))
->> +			goto done;
->
->> +		memcpy(&ip6rd, &t->ip6rd_prefix, sizeof(ip6rd));
->
-> Just wondering why you need a temporary ip6rd here,
-> why dont you copy_to_user(ifr->ifr_ifru.ifru_data, &t->ip6rd_prefix, sizeof(ip6rd)); ?
->
->> +		if (copy_to_user(ifr->ifr_ifru.ifru_data, &ip6rd, sizeof(ip6rd)))
->> +			err = -EFAULT;
->> +		else
->> +			err = 0;
->> +		break;
+Checksum OFF, connection established, no data received.
+www.nuclearcat.com/files/r8169_tx_off.txt
 
-agreed. will fix.
+Checksum ON, connection established, no data received.
+www.nuclearcat.com/files/r8169_tx_on.txt
+
+If required i can capture binary pcap files.
