@@ -1,41 +1,29 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 1/2] pktgen: T_TERMINATE flag is unused
-Date: Tue, 22 Sep 2009 22:41:42 -0700
-Message-ID: <20090923054201.440781719@vyatta.com>
-References: <20090923054141.932043798@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: Re: [RFC] skb align patch
+Date: Wed, 23 Sep 2009 01:47:48 -0400
+Message-ID: <20090923054748.GA24045@bombadil.infradead.org>
+References: <4AB71980.4020208@gmail.com> <20090921213011.704e0594@nehalam> <4AB84295.3050509@gmail.com> <20090921.222940.258576265.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, shemminger@vyatta.com,
+	jesse.brandeburg@gmail.com, hawk@diku.dk, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:56728 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752032AbZIWFno (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Sep 2009 01:43:44 -0400
-Content-Disposition: inline; filename=pktgen-terminate.patch
+Received: from bombadil.infradead.org ([18.85.46.34]:52567 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752032AbZIWFrs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2009 01:47:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20090921.222940.258576265.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Get rid of unused flag bit.
+On Mon, Sep 21, 2009 at 10:29:40PM -0700, David Miller wrote:
+> The alignment in this patch is a real big deal for 64 byte forwarding
+> tests, where the entire packet is a whole PCI-E cacheline.  But not
+> if it isn't aligned properly.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
---- a/net/core/pktgen.c	2009-09-21 20:35:50.106198752 -0700
-+++ b/net/core/pktgen.c	2009-09-21 20:36:03.349310985 -0700
-@@ -192,11 +192,10 @@
- #define F_QUEUE_MAP_CPU (1<<14)	/* queue map mirrors smp_processor_id() */
- 
- /* Thread control flag bits */
--#define T_TERMINATE   (1<<0)
--#define T_STOP        (1<<1)	/* Stop run */
--#define T_RUN         (1<<2)	/* Start run */
--#define T_REMDEVALL   (1<<3)	/* Remove all devs */
--#define T_REMDEV      (1<<4)	/* Remove one dev */
-+#define T_STOP        (1<<0)	/* Stop run */
-+#define T_RUN         (1<<1)	/* Start run */
-+#define T_REMDEVALL   (1<<2)	/* Remove all devs */
-+#define T_REMDEV      (1<<3)	/* Remove one dev */
- 
- /* If lock -- can be removed after some work */
- #define   if_lock(t)           spin_lock(&(t->if_lock));
-
--- 
-
+As I pointed out to Herbert already, this alignment change may actually
+make things worse or even break things as long as compare_ether_header()
+used in __napi_gro_receive() expects the IP header to be aligned to 4
+bytes. That can be fixed of course, just wanted to mention it.
