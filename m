@@ -1,134 +1,148 @@
-From: david choi <davidchoi.public@gmail.com>
-Subject: [PATCH]ks8851_mll ethernet network driver
-Date: Wed, 23 Sep 2009 17:05:41 -0700
-Message-ID: <836b80350909231705x3ff170d7udc28d6c6e92fe36a@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: greg@kroah.com, netdev@vger.kernel.org,
-	Charles Li <charles.li@micrel.com>, choi@kroah.com,
-	jgarzik@redhat.com, shemminger@vyatta.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f188.google.com ([209.85.222.188]:38260 "EHLO
-	mail-pz0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751508AbZIXANy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2009 20:13:54 -0400
-Received: by pzk26 with SMTP id 26so959741pzk.4
-        for <netdev@vger.kernel.org>; Wed, 23 Sep 2009 17:13:58 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oren Laadan <orenl@librato.com>
+Subject: [PATCH v18 68/80] Add common socket helpers to unify the security hooks
+Date: Wed, 23 Sep 2009 19:51:48 -0400
+Message-ID: <1253749920-18673-69-git-send-email-orenl@librato.com>
+References: <1253749920-18673-1-git-send-email-orenl@librato.com>
+Cc: Linus Torvalds <torvalds@osdl.org>, containers@lists.linux-foundation.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-api@vger.kernel.org, Serge Hallyn <serue@us.ibm.com>, Ingo Molnar <mingo@elte.hu>, Pavel Emelyanov <xemul@openvz.org>, Dan Smith <danms@us.ibm.com>, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1253749920-18673-1-git-send-email-orenl@librato.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Hello David Miller,
+From: Dan Smith <danms@us.ibm.com>
 
-Based on email_client.txt, I use add-on firefox extension of
-ViewSourceWith to send this patch.
-Hope to fix line-wrapping issue.
+This moves the meat out of the bind(), getsockname(), and getpeername() syscalls
+into helper functions that performs security_socket_bind() and then the
+sock->ops->call().  This allows a unification of this behavior between the
+syscalls and the pending socket restart logic.
 
-Subject         : [PATCH] ks8851_mll ethernet network driver
->From            : David J. Choi( david.choi@micrel.com )
-Body of the explanation :
-                Fix up issues as followings;
-                -Remove the lines of "#define DEBUG", "#define MALLOC"
-                -Remove the compile warnings.
-                -Add to return IRQ_NONE when there is no IRQ
-indication in hardware.
-                -Remove mutex_lock/unlock() in ks_net_open() because
-they are redundancy in the function.
-Signed-off-by   : David J. Choi
+Acked-by: Serge Hallyn <serue@us.ibm.com>
+Signed-off-by: Dan Smith <danms@us.ibm.com>
+Cc: netdev@vger.kernel.org
+---
+ include/net/sock.h |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ net/socket.c       |   29 ++++++-----------------------
+ 2 files changed, 54 insertions(+), 23 deletions(-)
 
-Regards,
-David J. Choi
-------------------------------------
---- linux-2.6.31-rc3/drivers/net/ks8851_mll.c.orig	2009-09-17
-10:18:56.000000000 -0700
-+++ linux-2.6.31-rc3/drivers/net/ks8851_mll.c	2009-09-17
-10:09:37.000000000 -0700
-@@ -21,8 +21,6 @@
-  * KS8851 16bit MLL chip from Micrel Inc.
-  */
-
--#define DEBUG
--
- #include <linux/module.h>
- #include <linux/kernel.h>
- #include <linux/netdevice.h>
-@@ -419,7 +417,6 @@ union ks_tx_hdr {
-  * or one of the work queues.
-  *
-  */
--#define MALLOC(x)		kmalloc(x, GFP_KERNEL)
-
- /* Receive multiplex framer header info */
- struct type_frame_head {
-@@ -552,11 +549,9 @@ static void ks_wrreg16(struct ks_net *ks
-  */
- static inline void ks_inblk(struct ks_net *ks, u16 *wptr, u32 len)
- {
--	u32 data_port = (u32)ks->hw_addr;
- 	len >>= 1;
--	do {
--		*wptr++ = (u16)ioread16(data_port);
--	} while (--len);
-+	while (len--)
-+		*wptr++ = (u16)ioread16(ks->hw_addr);
- }
-
- /**
-@@ -568,11 +563,9 @@ static inline void ks_inblk(struct ks_ne
-  */
- static inline void ks_outblk(struct ks_net *ks, u16 *wptr, u32 len)
- {
--	u32 data_port = (u32)ks->hw_addr;
- 	len >>= 1;
--	do {
--		iowrite16(*wptr++, data_port);
--	} while (--len);
-+	while (len--)
-+		iowrite16(*wptr++, ks->hw_addr);
- }
-
- /**
-@@ -818,6 +811,11 @@ static irqreturn_t ks_irq(int irq, void
- 	ks_save_cmd_reg(ks);
-
- 	status = ks_rdreg16(ks, KS_ISR);
-+	if (unlikely(!status)) {
-+		ks_restore_cmd_reg(ks);
-+		return IRQ_NONE;
-+	}
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 950409d..12530bf 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1578,6 +1578,54 @@ extern void sock_enable_timestamp(struct sock *sk, int flag);
+ extern int sock_get_timestamp(struct sock *, struct timeval __user *);
+ extern int sock_get_timestampns(struct sock *, struct timespec __user *);
+ 
++/* bind() helper shared between any callers needing to perform a bind on
++ * behalf of userspace (syscall and restart) with the security hooks.
++ */
++static inline int sock_bind(struct socket *sock,
++			    struct sockaddr *addr,
++			    int addr_len)
++{
++	int err;
 +
- 	ks_wrreg16(ks, KS_ISR, status);
-
- 	if (likely(status & IRQ_RXI))
-@@ -858,7 +856,6 @@ static int ks_net_open(struct net_device
- 	/* lock the card, even if we may not actually do anything
- 	 * else at the moment.
- 	 */
--	mutex_lock(&ks->lock);
-
- 	if (netif_msg_ifup(ks))
- 		ks_dbg(ks, "%s - entry\n", __func__);
-@@ -875,8 +872,6 @@ static int ks_net_open(struct net_device
- 	if (netif_msg_ifup(ks))
- 		ks_dbg(ks, "network device %s up\n", netdev->name);
-
--	mutex_unlock(&ks->lock);
++	err = security_socket_bind(sock, addr, addr_len);
++	if (err)
++		return err;
++	else
++		return sock->ops->bind(sock, addr, addr_len);
++}
++
++/* getname() helper shared between any callers needing to perform a getname on
++ * behalf of userspace (syscall and restart) with the security hooks.
++ */
++static inline int sock_getname(struct socket *sock,
++			       struct sockaddr *addr,
++			       int *addr_len)
++{
++	int err;
++
++	err = security_socket_getsockname(sock);
++	if (err)
++		return err;
++	else
++		return sock->ops->getname(sock, addr, addr_len, 0);
++}
++
++/* getpeer() helper shared between any callers needing to perform a getpeer on
++ * behalf of userspace (syscall and restart) with the security hooks.
++ */
++static inline int sock_getpeer(struct socket *sock,
++			       struct sockaddr *addr,
++			       int *addr_len)
++{
++	int err;
++
++	err = security_socket_getpeername(sock);
++	if (err)
++		return err;
++	else
++		return sock->ops->getname(sock, addr, addr_len, 1);
++}
++
+ /* 
+  *	Enable debug/info messages 
+  */
+diff --git a/net/socket.c b/net/socket.c
+index 6d47165..63c4498 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1414,15 +1414,10 @@ SYSCALL_DEFINE3(bind, int, fd, struct sockaddr __user *, umyaddr, int, addrlen)
+ 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+ 	if (sock) {
+ 		err = move_addr_to_kernel(umyaddr, addrlen, (struct sockaddr *)&address);
+-		if (err >= 0) {
+-			err = security_socket_bind(sock,
+-						   (struct sockaddr *)&address,
+-						   addrlen);
+-			if (!err)
+-				err = sock->ops->bind(sock,
+-						      (struct sockaddr *)
+-						      &address, addrlen);
+-		}
++		if (err >= 0)
++			err = sock_bind(sock,
++					(struct sockaddr *)&address,
++					addrlen);
+ 		fput_light(sock->file, fput_needed);
+ 	}
+ 	return err;
+@@ -1610,11 +1605,7 @@ SYSCALL_DEFINE3(getsockname, int, fd, struct sockaddr __user *, usockaddr,
+ 	if (!sock)
+ 		goto out;
+ 
+-	err = security_socket_getsockname(sock);
+-	if (err)
+-		goto out_put;
 -
- 	return 0;
- }
+-	err = sock->ops->getname(sock, (struct sockaddr *)&address, &len, 0);
++	err = sock_getname(sock, (struct sockaddr *)&address, &len);
+ 	if (err)
+ 		goto out_put;
+ 	err = move_addr_to_user((struct sockaddr *)&address, len, usockaddr, usockaddr_len);
+@@ -1639,15 +1630,7 @@ SYSCALL_DEFINE3(getpeername, int, fd, struct sockaddr __user *, usockaddr,
+ 
+ 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+ 	if (sock != NULL) {
+-		err = security_socket_getpeername(sock);
+-		if (err) {
+-			fput_light(sock->file, fput_needed);
+-			return err;
+-		}
+-
+-		err =
+-		    sock->ops->getname(sock, (struct sockaddr *)&address, &len,
+-				       1);
++		err = sock_getpeer(sock, (struct sockaddr *)&address, &len);
+ 		if (!err)
+ 			err = move_addr_to_user((struct sockaddr *)&address, len, usockaddr,
+ 						usockaddr_len);
+-- 
+1.6.0.4
 
-@@ -1515,12 +1510,13 @@ void ks_enable(struct ks_net *ks)
-
- static int ks_hw_init(struct ks_net *ks)
- {
-+#define	MHEADER_SIZE	(sizeof(struct type_frame_head) * MAX_RECV_FRAMES)
- 	ks->promiscuous = 0;
- 	ks->all_mcast = 0;
- 	ks->mcast_lst_size = 0;
-
- 	ks->frame_head_info = (struct type_frame_head *) \
--		MALLOC(sizeof(struct type_frame_head) * MAX_RECV_FRAMES);
-+		kmalloc(MHEADER_SIZE, GFP_KERNEL);
- 	if (!ks->frame_head_info) {
- 		printk(KERN_ERR "Error: Fail to allocate frame memory\n");
- 		return false;
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
