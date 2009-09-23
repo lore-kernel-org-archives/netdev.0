@@ -1,62 +1,41 @@
-From: Alexandre Cassen <acassen@freebox.fr>
-Subject: Re: [PATCH][RESEND 3] IPv6: 6rd tunnel mode
-Date: Wed, 23 Sep 2009 13:07:27 +0200
-Message-ID: <1253704047.17175.48.camel@lnxos-dev>
-References: <20090922220251.GA22874@lnxos.staff.proxad.net>
-	 <20090923184314.a2a2701d.yoshfuji@linux-ipv6.org>
-Reply-To: acassen@freebox.fr
+From: "hch@infradead.org" <hch@infradead.org>
+Subject: Re: fanotify as syscalls
+Date: Wed, 23 Sep 2009 07:20:19 -0400
+Message-ID: <20090923112018.GA2946@infradead.org>
+References: <20090912094110.GB24709@ioremap.net> <200909221731.34717.agruen@suse.de> <alpine.DEB.2.00.0909220836200.10460@makko.or.mcafeemobile.com> <200909230939.34003.tvrtko.ursulin@sophos.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2-g21.free.fr ([212.27.42.2]:39011 "EHLO smtp2-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751911AbZIWLIN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Sep 2009 07:08:13 -0400
-In-Reply-To: <20090923184314.a2a2701d.yoshfuji@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Davide Libenzi <davidel@xmailserver.org>,
+	Andreas Gruenbacher <agruen@suse.de>,
+	Jamie Lokier <jamie@shareable.org>,
+	Eric Paris <eparis@redhat.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
+	"alan@linux.intel.com" <alan@linux.intel.com>,
+	"hch@infradead.org" <hch@infradead.org>
+To: Tvrtko Ursulin <tvrtko.ursulin@sophos.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <200909230939.34003.tvrtko.ursulin@sophos.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2009-09-23 at 18:43 +0900, YOSHIFUJI Hideaki wrote:
-> Hello.
+On Wed, Sep 23, 2009 at 09:39:33AM +0100, Tvrtko Ursulin wrote:
+> Lived with it because there was no other option. We used LSM while it was 
+> available for modules but then it was taken away. 
 > 
-> First of all, thank you for this work.
-> 
-> On Wed, 23 Sep 2009 00:02:51 +0200
-> Alexandre Cassen <acassen@freebox.fr> wrote:
-> 
-> > This patch add support to 6rd tunnel mode as described into
-> > draft-despres-6rd-03.
-> > 
-> > Patch history :
-> > * http://patchwork.ozlabs.org/patch/26870/
-> > * http://patchwork.ozlabs.org/patch/34026/
-> > * http://patchwork.ozlabs.org/patch/34045/
-> > 
-> > IPv6 rapid deployment (draft-despres-6rd-03) builds upon mechanisms
-> 
-> Well, I was confused.  I think draft-softwire-ipv6-6rd
-> is the latest one, no?
+> And not all vendors even use syscall interception, not even across platforms, 
+> of which you sound so sure about. You can't even scan something which is not 
+> in your namespace if you are at the syscall level. And you can't catch things 
+> like kernel nfsd. No, syscall interception is not really appropriate at all.
 
-draft-despres-6rd-03    : targeting informational RFC
-                          (=> currently pending)
-draft-softwire-ipv6-6rd : targeting standard track
-
-after last IETF meeting previous draft-townsley-ipv6-6rd as been pushed
-to IETG softwires WG.
-
-So you right, ref should be set to draft-softwire-ipv6-6rd.
-
-> Another comment is that we should combine 6to4
-> and 6rd.
-
-Completly agree. 6to4 is a special case of 6rd.
-
-Okay, so I stop producing (fixing according to last comments) and
-resending new patch for 6rd.
-
-regs,
-Alexandre
+The "Anti-Malware" industry is just snake oil anyway.  I think the
+proper approach to support it is just to add various no-op exports claim
+to do something and all the people requiring anti-virus on Linux will be
+just as happy with it.
 
