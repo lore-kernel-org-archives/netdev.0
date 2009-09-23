@@ -1,49 +1,45 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: fanotify as syscalls
-Date: Wed, 23 Sep 2009 13:32:32 +0200
-Message-ID: <20090923133232.5577688d@infradead.org>
-References: <20090912094110.GB24709@ioremap.net>
-	<200909221731.34717.agruen@suse.de>
-	<alpine.DEB.2.00.0909220836200.10460@makko.or.mcafeemobile.com>
-	<200909230939.34003.tvrtko.ursulin@sophos.com>
+From: Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/3] iwmc3200top: Add Intel Wireless MultiCom 3200 top
+	driver.
+Date: Wed, 23 Sep 2009 15:29:59 +0300
+Message-ID: <1ba2fa240909230529t13f202f5k9c8742025ca63aa8@mail.gmail.com>
+References: <1253662724-16497-1-git-send-email-tomas.winkler@intel.com>
+	 <1253662724-16497-2-git-send-email-tomas.winkler@intel.com>
+	 <1253689036.4458.22.camel@johannes.local>
+	 <1ba2fa240909230023v17fe2b49v4981d464dba469ed@mail.gmail.com>
+	 <1253691283.4458.38.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Davide Libenzi <davidel@xmailserver.org>,
-	Andreas Gruenbacher <agruen@suse.de>,
-	Jamie Lokier <jamie@shareable.org>,
-	Eric Paris <eparis@redhat.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
-	"alan@linux.intel.com" <alan@linux.intel.com>,
-	"hch@infradead.org" <hch@infradead.org>
-To: Tvrtko Ursulin <tvrtko.ursulin@sophos.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <200909230939.34003.tvrtko.ursulin@sophos.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	inaky.perez-gonzalez-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, cindy.h.kao-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	guy.cohen-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ron.rindjunsky-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1253691283.4458.38.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Sep 2009 09:39:33 +0100
-Tvrtko Ursulin <tvrtko.ursulin@sophos.com> wrote:
+On Wed, Sep 23, 2009 at 10:34 AM, Johannes Berg
+<johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+> On Wed, 2009-09-23 at 10:23 +0300, Tomas Winkler wrote:
+>
+>> From HW perspective your assumption is not exactly correct. All the
+>> devices are visible on the SDIO bus but they are not operational
+>> (probe won't succeed) until TOP download the firmware and kicks the
+>> devices. From SW perspective to create another bus layer is an option.
+>> I'm not sure if it's not more complicated one.
+>
+> Ah, ok, so it is quite different. Not sure how sdio probing works, so I
+> guess I can't say much here.
 
-> Lived with it because there was no other option. We used LSM while it
-> was available for modules but then it was taken away. 
+This is not about SDIO probing this is rather unusual HW design.
+Anyhow all comments and ideas are welcome.
 
-... at which point you could have submitted your LSM module for
-inclusion... you'd be the first (and only?) Anti Virus vendor that
-would be in the mainline kernel.. speaking of competitive advantage,
-coming out of the box in all distributions.
-
-sadly this road hasn't been chosen....
-
-
-
--- 
-Arjan van de Ven 	Intel Open Source Technology Centre
-For development, discussion and tips for power savings, 
-visit http://www.lesswatts.org
+Thanks
+Tomas
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
