@@ -1,187 +1,370 @@
 From: sjur.brandeland@stericsson.com
-Subject: [PATCH 0/8] [RFC] CAIF Protocol Stack
-Date: Wed, 23 Sep 2009 19:30:23 +0200
-Message-ID: <1253727023-10203-1-git-send-email-sjur.brandeland@stericsson.com>
+Subject: [PATCH 1/8] [RFC] CAIF Protocol Stack
+Date: Wed, 23 Sep 2009 19:30:26 +0200
+Message-ID: <1253727026-10233-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kim.xx.Lilliestierna@ericsson.com
+Content-Transfer-Encoding: 7BIT
+Cc: Kim.xx.Lilliestierna@ericsson.com, sjur.brandeland@stericsson.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bgo1smout1.broadpark.no ([217.13.4.94]:55315 "EHLO
+Received: from bgo1smout1.broadpark.no ([217.13.4.94]:55448 "EHLO
 	bgo1smout1.broadpark.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751623AbZIWSaW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2009 14:30:22 -0400
+	with ESMTP id S1752809AbZIWSbU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2009 14:31:20 -0400
 Received: from bgo1sminn1.broadpark.no ([217.13.4.93])
  by bgo1smout1.broadpark.no
  (Sun Java(tm) System Messaging Server 6.3-3.01 (built Jul 12 2007; 32bit))
- with ESMTP id <0KQF003F8PYOF560@bgo1smout1.broadpark.no> for
- netdev@vger.kernel.org; Wed, 23 Sep 2009 19:30:24 +0200 (CEST)
+ with ESMTP id <0KQF003MTPZWF560@bgo1smout1.broadpark.no> for
+ netdev@vger.kernel.org; Wed, 23 Sep 2009 19:31:08 +0200 (CEST)
 Received: from localhost.localdomain ([84.49.68.131])
  by bgo1sminn1.broadpark.no
  (Sun Java(tm) System Messaging Server 6.3-3.01 (built Jul 12 2007; 32bit))
- with ESMTP id <0KQF004HGPYNH4G0@bgo1sminn1.broadpark.no> for
- netdev@vger.kernel.org; Wed, 23 Sep 2009 19:30:24 +0200 (CEST)
+ with ESMTP id <0KQF00K6UPZV6861@bgo1sminn1.broadpark.no> for
+ netdev@vger.kernel.org; Wed, 23 Sep 2009 19:31:08 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Kim Lilliestierna <Kim.xx.Lilliestierna@ericsson.com>
 
-=46irst of all, apologies for the size of this patch set,=20
-but we like to get comments and feedback from this list.
+Signed-off-by: sjur.brandeland@stericsson.com
 
-We are working on a patch set in order to introduce the CAIF protocol i=
-n Linux.
-CAIF (Communication CPU to Application CPU Interface) is the primary pr=
-otocol
-used to communicate between to ST-Ericsson modem and the external host =
-system.=20
-
-The host processes can use CAIF to open virtual AT channels, initiate G=
-PRS Data
-connections, Video channels and Utility Channels. The Utility Channels =
-are=20
-general-purpose pipes between modem and host.
-
-ST-Ericsson modems support a number of Link Layers between modem and ho=
-st,
-currently Uart and Shared Memory are available for Linux, SPI is soon t=
-o come.
-
-Architecture:
-------------
-The Implementation of CAIF is divided into:
-* CAIF Devices Drivers: Character Device, Net Device and Kernel API.
-* CAIF Protocol Implementation
-* CAIF Link Layer
-
-In order to configure the devices a set of IOCTLs is used.
-
-
-
-  IOCTL                                 =20
-   !                                    =20
-   !     +------+   +------+   +------+                =20
-   !    +------+!  +------+!  +------+!   =20
-   !    ! Chr  !!  !Kernel!!  ! Net  !!
-   !    ! Dev  !+  ! API  !+  ! Dev  !+   <- CAIF Devices Drivers
-   !    +------+   +------!   +------+          =20
-   !       !          !          !      =20
-   !       +----------!----------+
-   !               +------+               <- CAIF Protocol Implementati=
-on
-   +------->       ! CAIF !                  /dev/caifconfig
-                   +------+                 =20
-             +--------!--------+        =20
-             !                 !             =20
-          +------+          +-----+    =20
-          !ShMem !          ! TTY !       <- Link Layer         =20
-          +------+          +-----+          =20
-
-Any comments welcome.
-
-
-The patch set is compiled on arm and 386 for 2.6.31.
-We have split the patches up in the following way:
-
---- [1/8] User Space header files used in IOCTL
- include/linux/caif/caif_config.h |  203 ++++++++++++++++++++++++++++++=
-++++++++
+---
+ include/linux/caif/caif_config.h |  203 ++++++++++++++++++++++++++++++++++++++
  include/linux/caif/caif_ioctl.h  |  114 +++++++++++++++++++++
+ 2 files changed, 317 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/caif/caif_config.h
+ create mode 100644 include/linux/caif/caif_ioctl.h
 
---- [2/8] Generic CAIF Protocol Stack header files
- include/net/caif/generic/caif_layer.h |  378 +++++++++++++++++++++++++=
-++++++++
- include/net/caif/generic/cfcnfg.h     |  223 +++++++++++++++++++
- include/net/caif/generic/cfctrl.h     |  139 ++++++++++++
- include/net/caif/generic/cffrml.h     |   29 +++
- include/net/caif/generic/cfglue.h     |  206 ++++++++++++++++++
- include/net/caif/generic/cfloopcfg.h  |   28 +++
- include/net/caif/generic/cflst.h      |   27 +++
- include/net/caif/generic/cfmsll.h     |   22 ++
- include/net/caif/generic/cfmuxl.h     |   30 +++
- include/net/caif/generic/cfpkt.h      |  246 +++++++++++++++++++++
- include/net/caif/generic/cfserl.h     |   22 ++
- include/net/caif/generic/cfshml.h     |   21 ++
- include/net/caif/generic/cfspil.h     |   80 +++++++
- include/net/caif/generic/cfsrvl.h     |   48 ++++
- include/net/caif/generic/fcs.h        |   22 ++
+diff --git a/include/linux/caif/caif_config.h b/include/linux/caif/caif_config.h
+new file mode 100644
+index 0000000..6ea934b
+--- /dev/null
++++ b/include/linux/caif/caif_config.h
+@@ -0,0 +1,203 @@
++/*
++ *	Copyright (C) ST-Ericsson AB 2009
++ *
++ *	CAIF Channel Configuration definitions.
++ *
++ *	Author: Sjur Brendeland/ sjur.brandeland@stericsson.com
++ *
++ *	License terms: GNU General Public License (GPL), version 2.
++ *
++ */
++
++#ifndef CAIF_CONFIG_H_
++#define CAIF_CONFIG_H_
++
++/**
++ * enum caif_phy_preference -	Types of Physical HW Interfaces
++ *				towards modem defined in CAIF Stack,
++ * @CAIF_PHYPREF_UNSPECIFIED:	Default Physical Interface
++ * @CAIF_PHYPREF_LOW_LAT:	Default Physical Interface for Low Latency
++ *				Traffic
++ * @CAIF_PHYPREF_HIGH_BW:	Default Physical Interface for High Bandwidth
++ *				Traffic
++ * @_CAIF_PHYPREF_LOOP:		TEST Loop-back Interface Simulating Acc side
++ *				responses
++ * @_CAIF_PHYPREF_RAW_LOOP:	TEST ONLY Raw loopback interface
++ *
++ * For Client convenience to special types are defined:
++ * CAIF_PHYPREF_LOW_LAT is the preferred low latency physical link.
++ * Typically used for "control" purposes.
++ * CAIF_PHYPREF_HIGH_BW is the preferred high bandwidth physical link.
++ * Typically used for "payload" purposes.
++ *
++ */
++enum caif_phy_preference {
++	CAIF_PHYPREF_UNSPECIFIED	= 0x00,
++	CAIF_PHYPREF_LOW_LAT		= 0xd0,
++	CAIF_PHYPREF_HIGH_BW		= 0xe0,
++	_CAIF_PHYPREF_LOOP		= 0x70,
++	_CAIF_PHYPREF_RAW_LOOP		= 0x80
++};
++
++
++/*!
++ * define CAIF Channel Priority.
++ * Used when setting up a Channel to specify the
++ * priority level of the channel.
++ */
++
++#define CAIF_PRIO_UNSPCEIFIED  0x0
++#define CAIF_PRIO_MIN	       0x01	/*! Minimum Priority Level */
++#define CAIF_PRIO_LOW	       0x04	/*!< Suggested Priority Level for
++					 *   Low Priority Channel */
++#define CAIF_PRIO_NORMAL       0x0f	/*!< Suggested Normal/Default
++					 *   priority Level */
++#define CAIF_PRIO_HIGH	       0x14	/*!< Suggested High Priority Level */
++#define CAIF_PRIO_MAX	       0x1F	/*!< Max Priority for Channel
++					   (do not use)
++					 */
++
++/**
++ * enum caif_channel_type  Types of CAIF Channel type defined in CAIF Stack.
++ * @CAIF_CHTY_AT:		Classical AT
++ * @CAIF_CHTY_AT_CTRL:		AT Control only
++ * @CAIF_CHTY_AT_PAIRED:	Paired control and data
++ * @CAIF_CHTY_DATAGRAM:		Datagram, Requires: connection_id
++ * @CAIF_CHTY_DATAGRAM_LOOP:	Datagram Loopback (testing purposes only)
++ * @CAIF_CHTY_VIDEO:		Video Channel
++ * @CAIF_CHTY_DEBUG:		Debug Service (Debug Server and
++ *					       Interactive Debug)
++ * @CAIF_CHTY_DEBUG_TRACE:	Debug Server only
++ * @CAIF_CHTY_DEBUG_INTERACT:	Debug Interactive
++ * @CAIF_CHTY_RFM:		RFM Service. Params: connection_id, volume
++ * @CAIF_CHTY_UTILITY:		Utility (Psock) Service.
++ *				Params: fifo_kb,fifo_pkt, name, psock_param
++ * @CAIF_CHTY_RAW:		DO NOT USE. This is for testing only
++ *
++ * This is used for Channel Configuration specifying the type of channel.
++ */
++
++enum caif_channel_type {
++	CAIF_CHTY_AT,
++	CAIF_CHTY_AT_CTRL,
++	CAIF_CHTY_AT_PAIRED,
++	CAIF_CHTY_DATAGRAM,
++	CAIF_CHTY_DATAGRAM_LOOP,
++	CAIF_CHTY_VIDEO,
++	CAIF_CHTY_DEBUG,
++	CAIF_CHTY_DEBUG_TRACE,
++	CAIF_CHTY_DEBUG_INTERACT,
++	CAIF_CHTY_RFM,
++	CAIF_CHTY_UTILITY,
++	CAIF_CHTY_RAW
++};
++
++/**
++ *struct caif_channel_config This structures is used for configuring
++ *			     CAIF Channels.
++ * @name: Mandatory:	     Nickname for this device
++ * @type:		     Mandatory Define the type of caif service
++ * @priority:		     Mandatory Value between  CAIF_PRIO_MIN and
++ *			     CAIF_PRIO_MAX,
++ *			     CAIF_PRIO_LOW, CAIF_PRIO_NORMAL, CAIF_PRIO_HIGH
++ *			     are suggested values.
++ * @phy_pref:		     Either: Specify type of physical interface to use.
++ * @phy_name:		     Or: Specify identity of the physical interface.
++ *
++ * @u:			     Union of Channel Type Specific configuration
++ *			     parameters
++ *
++ * @u.dgm:		     CAIF_CHTYPE_DATAGRAM
++ * @u.dgm.connection_id:     Mandatory Connection ID must be specified.
++ *
++ * @u.video:		     CAIF_CHTYPE_VIDEO
++ * @u.video.connection_id:   Mandatory Connection ID must be specified.
++ *
++ * @u.rfm		     CAIF_CHTYPE_RFM
++ * @u.rfm.connection_id:     Mandatory Connection ID must be specified.
++ * @u.rfm.volume:	     Mandatory Volume to mount.
++ *
++ * @u.utility:		     CAIF_CHTYPE_UTILITY
++ * @u.utility.fifosize_kb:   Psock: FIFO size in KB
++ * @u.utility.fifosize_bufs: Psock: # signal buffers
++ * @u.utility.name:	     Psock: Name of service
++ * @u.utility.params:	     Psock: Channel Config Parameters
++ * @u.utility.paramlen:	     Psock: Length of Channel Config Parameters
++ *
++ *
++ * It holds configuration parameters for setting up all devined CAIF
++ * Channel types.
++ * The four first fields are mandatory, then Physical Device can be specified
++ * either by name
++ * or by prefered characteristics.
++ * The rest of the configuration fields are hold in a union for each
++ * channel type and are channel type specific.
++ * \b Documentation see STE Doc No: 155 19-CRH 109 913.
++ */
++
++struct caif_channel_config {
++       /* Mandatory: Nickname for this device */
++	char name[16];
++	/* Mandatory: Define the type of caif service */
++	enum caif_channel_type type;
++	/** Mandatory: Mandatory - Value between
++	  * CAIF_PRIO_MIN and CAIF_PRIO_MAX, CAIF_PRIO_LOW, CAIF_PRIO_NORMAL,
++	  *  CAIF_PRIO_HIGH are suggested values. */
++	unsigned priority;
++
++	/** Either: Specify type of physical interface to use. */
++	enum caif_phy_preference phy_pref;
++	/** Or: Specify identity of the physical interface. */
++	char phy_name[16];
++
++	/** Union of Channel Type Specific configuration parameters
++	* 'switched' by attribute type */
++	union {
++		/* CAIF_CHTYPE_DATAGRAM */
++		struct {
++		       /**  Mandatory Connection ID  must be specified. */
++			unsigned connection_id;
++		} dgm;
++		/* CAIF_CHTYPE_VIDEO */
++		struct {
++			/** Datagram:  Mandatory Connection ID Must be
++			 *  specified. */
++			unsigned connection_id;
++		} video;
++		/* CAIF_CHTYPE_RFM */
++		struct {
++			/** RFM: Mandatory Connection ID. */
++			unsigned connection_id;
++			/** RFM: Mandatory Volume to mount. */
++			char volume[20];
++		} rfm;
++		/* CAIF_CHTYPE_UTILITY */
++		struct {
++/** Psock: FIFO size in KB */
++			unsigned fifosize_kb;
++/** Psock: # signal buffers */
++			unsigned fifosize_bufs;
++/** Psock: Name of service */
++			char name[16];
++/** Psock: Channel Config Parameters> */
++			unsigned char params[256];
++/** Psock: Length of Channel Config Parameters */
++			int paramlen;
++		} utility;
++
++
++		/* Raw Data configuration: DO NOT USE,
++		 * applies for testing only */
++
++		struct raw {
++			unsigned channeltype;
++			unsigned char endpoint:2;
++			unsigned char subtype:2;
++			unsigned char serviceconfig[512];
++			unsigned int service_length;
++		} _raw;
++	} u;
++
++};
++
++#endif				/* CAIF_CONFIG_H_ */
+diff --git a/include/linux/caif/caif_ioctl.h b/include/linux/caif/caif_ioctl.h
+new file mode 100644
+index 0000000..4fdd648
+--- /dev/null
++++ b/include/linux/caif/caif_ioctl.h
+@@ -0,0 +1,114 @@
++/*
++*      Copyright (C) ST-Ericsson AB 2009
++*
++*      Author: Daniel Martensson / Daniel.Martensson@stericsson.com
++*
++*      License terms: GNU General Public License (GPL), version 2.
++*
++*/
++
++
++
++
++
++
++#ifndef CAIF_IOCTL_H_
++#define CAIF_IOCTL_H_
++#include "caif_config.h"
++
++
++
++/*!\page  caif_ioctl.h
++ * This file defines the management interface to CAIF.
++ * It defines how CAIF Channels are configured and become visible in Linux
++ * file system under "/dev/caifconfig".
++ *
++ *\b Example - creating a new AT character device:
++ * \code
++   fd = open("/dev/caifconfig",..);
++   struct caif_channel_create_action at_config = {
++	 .name = "cnhl2",
++	 .config = {
++	    .channel = CAIF_CHTY_AT,
++	    .phy_ref = CAIF_PHY_LOW_LAT,
++	    .priority = CAIF_PRIO_HIGH
++	 }};
++   ioctl(fd, CAIF_IOC_CONFIG_DEVICE,&at_config);
++   close(fd);
++ * \endcode
++ * This will cause a new AT channel to be available in at "/dev/chnl2".
++ * This CAIF channel can then be connected by using \ref open.
++ *
++*/
++
++/*! \addtogroup caif_ioctl
++ *  Additional documentation for group `caif_config.h'
++ *  @{
++ */
++
++
++
++/* Use 'g' as magic number. 'g' is the first free letter in
++ * Documentation/ioctl-number.txt*/
++#define CAIF_IOC_MAGIC 'g'
++#define DEVICE_NAME_LEN 16
++
++/* Specifies the type of device to create NET device or CHAR device*/
++enum caif_dev_type {
++	CAIF_DEV_CHR = 1,
++	CAIF_DEV_NET = 2
++};
++
++
++/** Used for identifying devices, PHY interfaces etc*/
++struct caif_device_name {
++	char name[DEVICE_NAME_LEN];	/*!< Device name */
++	enum caif_dev_type devtype;	/*!< Device type */
++};
++
++
++/**
++ * CAIF ACTION for \ref CAIF_ACT_CHANNEL_CONFIG.
++ * This structure is used to configure a new CAIF Channel and
++ * create the corresponding character device.
++ */
++struct caif_channel_create_action {
++	/** \b in  CAIF Configuration Request */
++	struct caif_channel_config config;
++	/** \b in/out Device name returned from ACTION */
++	struct caif_device_name name;
++	/** \b out Major device id */
++	int major;
++	/** \b out Minor device id */
++	int minor;
++};
++
++/**
++ * union caif_action
++ * This union is used to configure a new CAIF Channel and
++ */
++
++union caif_action {
++	struct caif_device_name delete_channel;
++	struct caif_channel_create_action create_channel;
++};
++
++
++/**
++ * CAIF IOCTL for \ref CAIF_IOC_CHANNEL_CONFIG.
++ * This structure is used to configure a new CAIF Channel and
++ * create the corresponding character device.
++ */
++
++/** Create and Configure a new CAIF device.
++ * Note that the device is not implicitly connected. */
++#define CAIF_IOC_CONFIG_DEVICE		_IOWR(CAIF_IOC_MAGIC, 1,\
++struct caif_channel_create_action)
++
++/** Remove a CAIF device. Requires the device to be previously disconnected. */
++#define CAIF_IOC_REMOVE_DEVICE		_IOWR(CAIF_IOC_MAGIC, 2,\
++		struct caif_device_name)
++#define CAIF__IOC_MAXNR				9
++/*! @} */
++
++#endif				/* CAIF_IOCTL_H_ */
+-- 
+1.6.0.4
 
---- [3/8] c
- include/net/caif/caif_actions.h     |   81 +++++++++
- include/net/caif/caif_chr.h         |   52 ++++++
- include/net/caif/caif_config_util.h |   27 +++
- include/net/caif/caif_kernel.h      |  324 +++++++++++++++++++++++++++=
-++++++++
- include/net/caif/caif_log.h         |   83 +++++++++
-
---- [4/8] Generic CAIF Protocol Stack code
- net/caif/generic/cfcnfg.c       |  546 +++++++++++++++++++++++++++++++=
-++
- net/caif/generic/cfctrl.c       |  641 +++++++++++++++++++++++++++++++=
-++++++++
- net/caif/generic/cfdgml.c       |  119 ++++++++
- net/caif/generic/cffrml.c       |  146 +++++++++
- net/caif/generic/cflist.c       |   99 ++++++
- net/caif/generic/cfloopcfg.c    |   93 ++++++
- net/caif/generic/cflooplayer.c  |  116 +++++++
- net/caif/generic/cfmsll.c       |   55 ++++
- net/caif/generic/cfmuxl.c       |  263 ++++++++++++++++
- net/caif/generic/cfpkt_skbuff.c |  590 +++++++++++++++++++++++++++++++=
-++++
- net/caif/generic/cfrfml.c       |  112 +++++++
- net/caif/generic/cfserl.c       |  297 ++++++++++++++++++
- net/caif/generic/cfshml.c       |   67 ++++
- net/caif/generic/cfspil.c       |  245 +++++++++++++++
- net/caif/generic/cfsrvl.c       |  177 +++++++++++
- net/caif/generic/cfutill.c      |  115 +++++++
- net/caif/generic/cfveil.c       |  118 +++++++
- net/caif/generic/cfvidl.c       |   68 ++++
- net/caif/generic/fcs.c          |   58 ++++
-
---- [5/8] Device Drivers code: CHR device, NET device, CAIF Kernel API
- net/caif/Kconfig            |   61 +++
- net/caif/Makefile           |   62 +++
- net/caif/caif_chnlif.c      |  219 ++++++++
- net/caif/caif_chr.c         |  378 ++++++++++++++
- net/caif/caif_config_util.c |  167 +++++++
- net/caif/chnl_chr.c         | 1161 +++++++++++++++++++++++++++++++++++=
-++++++++
- net/caif/chnl_net.c         |  464 +++++++++++++++++
-
---- [6/8] 8
- drivers/net/caif/Kconfig      |   64 +++
- drivers/net/caif/Makefile     |   29 ++
- drivers/net/caif/chnl_tty.c   |  220 +++++++++++
- drivers/net/caif/phyif_loop.c |  309 +++++++++++++++
- drivers/net/caif/phyif_ser.c  |  189 +++++++++
- drivers/net/caif/phyif_shm.c  |  870 +++++++++++++++++++++++++++++++++=
-++++++++
- drivers/net/caif/shm.h        |   95 +++++
- drivers/net/caif/shm_cfgifc.c |   60 +++
- drivers/net/caif/shm_mbxifc.c |   98 +++++
- drivers/net/caif/shm_smbx.c   |   81 ++++
-
---- [7/8] Documentation
- Documentation/CAIF/Linux-CAIF.txt                  |  319 ++++++++++++=
-+++++
- Documentation/CAIF/README                          |   60 ++++
- Documentation/CAIF/chardevconfig/Makefile          |   11 +
- Documentation/CAIF/chardevconfig/README            |   39 ++
- Documentation/CAIF/chardevconfig/caif_cmd_parse.c  |  365 ++++++++++++=
-++++++++
- Documentation/CAIF/chardevconfig/chardevconfig.c   |  111 ++++++
- .../CAIF/chardevconfig/create_devices.config       |   12 +
- .../CAIF/chardevconfig/delete_devices.config       |   12 +
- Documentation/CAIF/ldiscd/ldiscd.c                 |  123 +++++++
-
-
---- [8/8] Kconfig and Makefiles
- drivers/net/Makefile |    1 +
- net/Kconfig          |    1 +
- net/Makefile         |    1 +
-
-
-Regards
-Sjur Br=E6ndeland
-ST-Ericsson
