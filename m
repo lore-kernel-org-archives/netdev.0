@@ -1,72 +1,48 @@
-From: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
-Subject: [PATCH] ems_pci: fix size of CAN controllers BAR mapping for CPC-PCI
-	v2
-Date: Wed, 23 Sep 2009 17:37:47 +0200
-Message-ID: <20090923153747.30154.99860.stgit@localhost.localdomain>
+From: Tvrtko Ursulin <tvrtko.ursulin@sophos.com>
+Subject: Re: fanotify as syscalls
+Date: Wed, 23 Sep 2009 16:42:43 +0100
+Message-ID: <200909231642.43563.tvrtko.ursulin@sophos.com>
+References: <20090912094110.GB24709@ioremap.net> <200909230939.34003.tvrtko.ursulin@sophos.com> <20090923133232.5577688d@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: Davide Libenzi <davidel@xmailserver.org>,
+	Andreas Gruenbacher <agruen@suse.de>,
+	Jamie Lokier <jamie@shareable.org>,
+	Eric Paris <eparis@redhat.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
+	"alan@linux.intel.com" <alan@linux.intel.com>,
+	"hch@infradead.org" <hch@infradead.org>
+To: Arjan van de Ven <arjan@infradead.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20090923133232.5577688d@infradead.org>
+Content-Disposition: inline
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The driver mapped only 128 bytes of the CAN controller address space when a
-CPC-PCI v2 was detected (incl. CPC-104P). This patch will fix it by always
-mapping the whole address space (4096 bytes on all boards) of the
-corresponding PCI BAR.
+On Wednesday 23 September 2009 12:32:32 Arjan van de Ven wrote:
+> On Wed, 23 Sep 2009 09:39:33 +0100
+>
+> Tvrtko Ursulin <tvrtko.ursulin@sophos.com> wrote:
+> > Lived with it because there was no other option. We used LSM while it
+> > was available for modules but then it was taken away.
+>
+> ... at which point you could have submitted your LSM module for
+> inclusion... you'd be the first (and only?) Anti Virus vendor that
+> would be in the mainline kernel.. speaking of competitive advantage,
+> coming out of the box in all distributions.
+>
+> sadly this road hasn't been chosen....
 
-Signed-off-by: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
----
+It has, but since what we had wasn't acceptable the road was long and it 
+turned into fanotify. Which is not only about anti-malware (hello Christoph) 
+so I think this sub-thread is going off-topic.
 
- drivers/net/can/sja1000/ems_pci.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/can/sja1000/ems_pci.c b/drivers/net/can/sja1000/ems_pci.c
-index 7d84b8a..ba98063 100644
---- a/drivers/net/can/sja1000/ems_pci.c
-+++ b/drivers/net/can/sja1000/ems_pci.c
-@@ -94,12 +94,14 @@ struct ems_pci_card {
- #define EMS_PCI_CDR             (CDR_CBP | CDR_CLKOUT_MASK)
- 
- #define EMS_PCI_V1_BASE_BAR     1
--#define EMS_PCI_V1_MEM_SIZE     4096
-+#define EMS_PCI_V1_MEM_SIZE     4096 /* size of PITA control area */
- #define EMS_PCI_V2_BASE_BAR     2
--#define EMS_PCI_V2_MEM_SIZE     128
-+#define EMS_PCI_V2_MEM_SIZE     128 /* size of PLX control area */
- #define EMS_PCI_CAN_BASE_OFFSET 0x400 /* offset where the controllers starts */
- #define EMS_PCI_CAN_CTRL_SIZE   0x200 /* memory size for each controller */
- 
-+#define EMS_PCI_CONTR_MEM_SIZE  4096 /* size of controller area */
-+
- static struct pci_device_id ems_pci_tbl[] = {
- 	/* CPC-PCI v1 */
- 	{PCI_VENDOR_ID_SIEMENS, 0x2104, PCI_ANY_ID, PCI_ANY_ID,},
-@@ -266,7 +268,7 @@ static int __devinit ems_pci_add_card(struct pci_dev *pdev,
- 		goto failure_cleanup;
- 	}
- 
--	card->base_addr = pci_iomap(pdev, base_bar, mem_size);
-+	card->base_addr = pci_iomap(pdev, base_bar, EMS_PCI_CONTR_MEM_SIZE);
- 	if (card->base_addr == NULL) {
- 		err = -ENOMEM;
- 		goto failure_cleanup;
-
--- 
-EMS Dr. Thomas Wuensche e.K.
-Sonnenhang 3
-85304 Ilmmuenster
-HRA Neuburg a.d. Donau, HR-Nr. 70.106
-Phone: +49-8441-490260
-Fax  : +49-8441-81860
-http://www.ems-wuensche.com
+Tvrtko
