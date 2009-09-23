@@ -1,58 +1,41 @@
-From: Mike McCormack <mikem@ring3k.org>
-Subject: [PATCH] skge: Make sure both ports initialize correctly
-Date: Wed, 23 Sep 2009 22:50:36 +0900
-Message-ID: <4ABA27AC.7030207@ring3k.org>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: r8169, enabling TX checksumming breaks things?
+Date: Wed, 23 Sep 2009 10:02:24 -0400
+Message-ID: <1253714544.3925.6.camel@lap75545.ornl.gov>
+References: <200909230915.27854.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: Denys Fedoryschenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f194.google.com ([209.85.216.194]:49795 "EHLO
-	mail-px0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750911AbZIWNum (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2009 09:50:42 -0400
-Received: by pxi32 with SMTP id 32so600782pxi.4
-        for <netdev@vger.kernel.org>; Wed, 23 Sep 2009 06:50:46 -0700 (PDT)
+Received: from emroute1.ornl.gov ([160.91.4.119]:37545 "EHLO emroute1.ornl.gov"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753059AbZIWOCX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Sep 2009 10:02:23 -0400
+Received: from emroute1.ornl.gov ([127.0.0.1])
+ by emroute1.ornl.gov (PMDF V6.4 #31561)
+ with ESMTP id <0KQF00LOZGC2UF@emroute1.ornl.gov> for netdev@vger.kernel.org;
+ Wed, 23 Sep 2009 10:02:27 -0400 (EDT)
+In-reply-to: <200909230915.27854.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If allocation of the second ports fails, make sure that hw->ports
- is not 2 otherwise we'll crash trying to access the second port.
+On Wed, 2009-09-23 at 09:15 +0300, Denys Fedoryschenko wrote:
+> Hi
+> 
+> Is it expected that:
+> 1)TX checksumming is off by default
+> 2)If i try to enable it over ethtool -K eth0 tx on , TCP sessions on proxy 
+> getting stuck, even in tcpdump looks everything fine and packets reaching 
+> destination, i don't understand what is a reason of failure.
+> Maybe if this feature supposed to not work - user must not be able just to 
+> turn it on?
 
-This fix is copied from a similar fix in the sky2 driver (ca519274...),
-but is untested, as I don't have a skge card.
+It is broken for large swaths of the hardware -- I have patches that got
+it and TSO working on my hardware, and they provide a framework to see
+about getting it working on yours.
 
-Signed-off-by: Mike McCormack <mikem@ring3k.org>
----
- drivers/net/skge.c |    9 ++++++---
- 1 files changed, 6 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-index 62e852e..21b816f 100644
---- a/drivers/net/skge.c
-+++ b/drivers/net/skge.c
-@@ -3982,14 +3982,17 @@ static int __devinit skge_probe(struct pci_dev *pdev,
- 	}
- 	skge_show_addr(dev);
- 
--	if (hw->ports > 1 && (dev1 = skge_devinit(hw, 1, using_dac))) {
--		if (register_netdev(dev1) == 0)
-+	if (hw->ports > 1) {
-+		dev1 = skge_devinit(hw, 1, using_dac);
-+		if (dev1 && register_netdev(dev1) == 0)
- 			skge_show_addr(dev1);
- 		else {
- 			/* Failure to register second port need not be fatal */
- 			dev_warn(&pdev->dev, "register of second port failed\n");
- 			hw->dev[1] = NULL;
--			free_netdev(dev1);
-+			hw->ports = 1;
-+			if (dev1)
-+				free_netdev(dev1);
- 		}
- 	}
- 	pci_set_drvdata(pdev, hw);
--- 
-1.5.6.5
-
+Basically, the fields are in different places depending on the chip
+revision. I'll try to dig those out tonight and send them along so we
+can experiment.
