@@ -1,27 +1,27 @@
 From: sjur.brandeland@stericsson.com
-Subject: [PATCH 6/8] [RFC] CAIF Protocol Stack
-Date: Wed, 23 Sep 2009 19:31:31 +0200
-Message-ID: <1253727091-10383-1-git-send-email-sjur.brandeland@stericsson.com>
+Subject: [PATCH 5/8] [RFC] CAIF Protocol Stack
+Date: Wed, 23 Sep 2009 19:31:26 +0200
+Message-ID: <1253727086-10353-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN
 Content-Transfer-Encoding: 7BIT
 Cc: Kim.xx.Lilliestierna@ericsson.com, sjur.brandeland@stericsson.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bgo1smout1.broadpark.no ([217.13.4.94]:55556 "EHLO
+Received: from bgo1smout1.broadpark.no ([217.13.4.94]:55448 "EHLO
 	bgo1smout1.broadpark.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753243AbZIWSbl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2009 14:31:41 -0400
+	with ESMTP id S1753235AbZIWSb2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2009 14:31:28 -0400
 Received: from bgo1sminn1.broadpark.no ([217.13.4.93])
  by bgo1smout1.broadpark.no
  (Sun Java(tm) System Messaging Server 6.3-3.01 (built Jul 12 2007; 32bit))
- with ESMTP id <0KQF003RKQ0MF560@bgo1smout1.broadpark.no> for
- netdev@vger.kernel.org; Wed, 23 Sep 2009 19:31:34 +0200 (CEST)
+ with ESMTP id <0KQF003QMQ0HF560@bgo1smout1.broadpark.no> for
+ netdev@vger.kernel.org; Wed, 23 Sep 2009 19:31:29 +0200 (CEST)
 Received: from localhost.localdomain ([84.49.68.131])
  by bgo1sminn1.broadpark.no
  (Sun Java(tm) System Messaging Server 6.3-3.01 (built Jul 12 2007; 32bit))
- with ESMTP id <0KQF004H3Q0KNGG0@bgo1sminn1.broadpark.no> for
- netdev@vger.kernel.org; Wed, 23 Sep 2009 19:31:34 +0200 (CEST)
+ with ESMTP id <0KQF00JEJQ0FGQD1@bgo1sminn1.broadpark.no> for
+ netdev@vger.kernel.org; Wed, 23 Sep 2009 19:31:29 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -30,139 +30,388 @@ From: Kim Lilliestierna <Kim.xx.Lilliestierna@ericsson.com>
 Signed-off-by: sjur.brandeland@stericsson.com
 
 ---
- drivers/net/caif/Kconfig      |   64 +++
- drivers/net/caif/Makefile     |   29 ++
- drivers/net/caif/chnl_tty.c   |  220 +++++++++++
- drivers/net/caif/phyif_loop.c |  309 +++++++++++++++
- drivers/net/caif/phyif_ser.c  |  189 +++++++++
- drivers/net/caif/phyif_shm.c  |  870 +++++++++++++++++++++++++++++++++++++++++
- drivers/net/caif/shm.h        |   95 +++++
- drivers/net/caif/shm_cfgifc.c |   60 +++
- drivers/net/caif/shm_mbxifc.c |   98 +++++
- drivers/net/caif/shm_smbx.c   |   81 ++++
- 10 files changed, 2015 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/caif/Kconfig
- create mode 100644 drivers/net/caif/Makefile
- create mode 100644 drivers/net/caif/chnl_tty.c
- create mode 100644 drivers/net/caif/phyif_loop.c
- create mode 100644 drivers/net/caif/phyif_ser.c
- create mode 100644 drivers/net/caif/phyif_shm.c
- create mode 100644 drivers/net/caif/shm.h
- create mode 100644 drivers/net/caif/shm_cfgifc.c
- create mode 100644 drivers/net/caif/shm_mbxifc.c
- create mode 100644 drivers/net/caif/shm_smbx.c
+ net/caif/Kconfig            |   61 +++
+ net/caif/Makefile           |   62 +++
+ net/caif/caif_chnlif.c      |  219 ++++++++
+ net/caif/caif_chr.c         |  378 ++++++++++++++
+ net/caif/caif_config_util.c |  167 +++++++
+ net/caif/chnl_chr.c         | 1161 +++++++++++++++++++++++++++++++++++++++++++
+ net/caif/chnl_net.c         |  464 +++++++++++++++++
+ 7 files changed, 2512 insertions(+), 0 deletions(-)
+ create mode 100644 net/caif/Kconfig
+ create mode 100644 net/caif/Makefile
+ create mode 100644 net/caif/caif_chnlif.c
+ create mode 100644 net/caif/caif_chr.c
+ create mode 100644 net/caif/caif_config_util.c
+ create mode 100644 net/caif/chnl_chr.c
+ create mode 100644 net/caif/chnl_net.c
 
-diff --git a/drivers/net/caif/Kconfig b/drivers/net/caif/Kconfig
+diff --git a/net/caif/Kconfig b/net/caif/Kconfig
 new file mode 100644
-index 0000000..3cbe302
+index 0000000..24151c1
 --- /dev/null
-+++ b/drivers/net/caif/Kconfig
-@@ -0,0 +1,64 @@
++++ b/net/caif/Kconfig
+@@ -0,0 +1,61 @@
 +#
 +# CAIF net configurations
 +#
 +
++#menu "Caif Support"
++comment "CAIF Support"
++
++menuconfig CAIF
++	tristate "Enable Caif support"
++	default m
++	---help---
++	Say Y here if you need to a phone modem that uses CAIF as transport
++	You will also need to say yes to anny caif physical devices that your platform
++	supports.
++	This can be built as either built in or as a module, if you select to build it as module
++	the other CAIF parts also needs to built as modules
++	See Documentation/CAIF for a further explanation on how to use and configure.
++
 +if CAIF
++
++config CAIF_CHARDEV
++	tristate "CAIF character device"
++	default CAIF
++	---help---
++	Say Y if you will be using the CAIF character devices,
++	This is needed for AT type channels
++	If you select to build it as a built in then the main caif device must also be a builtin
++	If unsure say Y
++
++config CAIF_NETDEV
++	tristate "CAIF Network device"
++	default CAIF
++	---help---
++	If you select to build it as a built in then the main caif device must also be a builtin
++	Say Y if you will be using the CAIF based network device
++	If unsure say Y
++
++
++config  CAIF_USE_PLAIN
++	bool  "Use plain buffers instead of SKB in caif"
++	default n
++	---help---
++	Use plain buffer to transport data
++	Select what type of internal buffering CAIF should use,
++	skb or plain,
++	If unsure say y
++
++config  CAIF_DEBUG
++	bool "Enable Debug"
++	default n
++	--- help ---
++	Enable the inclusion of debug code in the caif stack
++	be aware that doing this will impact performance
++	If unsure say n here.
 +
 +# Include physical drivers
 +# should be broken out into its own config file
 +# source "drivers/net/caif/Kconfig"
-+
-+# Some options here should be mande platform dependent
-+
-+comment "CAIF physical drivers"
-+
-+config CAIF_TTY
-+	tristate "CAIF TTY transport driver "
-+	default CAIF
-+	---help---
-+	The CAIF TTY transport driver
-+	If sou say yes here you will also need to build a users space utility to set the line disicpline on the the
-+	tty, see Documentation/net/caif/examples/linedsc
-+
-+config CAIF_SHM
-+	tristate "CAIF shared memory transport driver"
-+	default n
-+	---help---
-+	The caif low level driver for the shared memory driver
-+	Be aware that if you enable this you need to also enable a low level shared memory driver
-+        the default is to include the loopback test driver.
-+
-+config CAIF_LOOPBACK
-+	tristate "CAIF loopback driver test driver"
-+	default CAIF
-+	---help---
-+	Loopback test driver
-+
-+if CAIF_SHM
-+
-+comment "CAIF shared memory low level physical drivers"
-+
-+config CAIF_SHM_LOOPBACK
-+	tristate "Caif shared memory loopback driver"
-+	default CAIF_USE_SHM
-+	---help---
-+	loop back driver that emulates a real shared memory transport
-+	mainly used for debugging.
-+
-+config CAIF_MBXIF
-+	tristate "Caif shared mailbox interface"
-+	default CAIF_SHM
-+	---help---
-+	Generic shared mailbox interface
-+
-+config CAIF_SMBX
-+	tristate "Use Simluated Mail box"
-+	default CAIF_MBXIF
-+	---help---
-+	Answer y if you whant to use a simulated mail box interface for caif shared memory transport
-+	Mainly used for debugging and as example driver
-+	This can also be built as a module
-+
-+endif #CAIF_USE_SHM
-+
-+endif # CAIF
-diff --git a/drivers/net/caif/Makefile b/drivers/net/caif/Makefile
++source "drivers/net/caif/Kconfig"
++endif
++#endmenu
+diff --git a/net/caif/Makefile b/net/caif/Makefile
 new file mode 100644
-index 0000000..f983289
+index 0000000..49696ab
 --- /dev/null
-+++ b/drivers/net/caif/Makefile
-@@ -0,0 +1,29 @@
++++ b/net/caif/Makefile
+@@ -0,0 +1,62 @@
++ifeq ($(CONFIG_CAIF_USE_PLAIN),1)
++CFPKT:=plain
++else
++CFPKT:=skbuff
++CAIF_FLAGS+=-DCAIF_USE_SKB
++endif
++
 +ifeq ($(CONFIG_CAIF_DEBUG),1)
 +CAIF_FLAGS+=-DCAIF_DEBUG_ON
 +endif
 +
 +
-+ccflags-y := -DCAIF_KERNEL -DKERN_VERSION_2_6_27 $(CAIF_FLAGS) -Iinclude/net/caif -Iinclude/linux/caif -Iinclude/net/caif/generic
++ccflags-y := -DCAIF_KERNEL $(CAIF_FLAGS) -Iinclude/net/caif/ -Iinclude/net/caif/generic/ -Iinclude/linux/caif/
++
++
++caif-objs :=  caif_chr.o caif_chnlif.o  caif_config_util.o \
++	generic/cfcnfg.o generic/cfmuxl.o generic/cfctrl.o \
++	generic/cffrml.o generic/cfveil.o generic/cflist.o  \
++	generic/fcs.o    generic/cfserl.o generic/cfdgml.o \
++	generic/cfspil.o generic/cfrfml.o generic/cfvidl.o \
++	generic/cfmsll.o generic/cfutill.o  generic/cfshml.o \
++	generic/cfloopcfg.o  generic/cflooplayer.o generic/cfsrvl.o \
++	generic/cfpkt_$(CFPKT).o
 +
 +
 +clean-dirs:= .tmp_versions
++
 +clean-files:= Module.symvers modules.order *.cmd *~ \
++	generic/loopback/Module.symvers \
++	generic/loopback/modules.order \
++	generic/loopback/*.cmd \
++	generic/loopback/*.o \
++	generic/loopback/*~ \
++	generic/Module.symvers \
++	generic/modules.order \
++	generic/*.cmd \
++	generic/*.o \
++	generic/*~
 +
 +
-+# --- Physical drivers --
-+# Serial interface
-+obj-$(CONFIG_CAIF_TTY) += phyif_ser.o
++# Main caif module
++obj-$(CONFIG_CAIF) += caif.o
 +
-+# Loop back
-+obj-$(CONFIG_CAIF_LOOPBACK) += phyif_loop.o
++# Character device
++obj-$(CAIF_CHRDEV) += chnl_chr.o
 +
-+# Shared memmory
-+obj-$(CONFIG_CAIF_SHM) += phyif_shm.o
++# Net device
++obj-$(CAIF_NETDEV) += chnl_net.o
 +
-+# Mail box geneirc
-+obj-$(CONFIG_CAIF_MBXIF) += shm_mbxifc.o
++export-objs := caif_chr.o
 +
-+# Simulated mail box
-+obj-$(CONFIG_CAIF_SMBX) += shm_smbx.o
++## Indent..  to remove all DOS cruft like CRLF and trailing spaces, and to standardize the indenting style
++indent:
++	${MAKE} -C generic indent
++	sh -c 'for F in *.[ch]; do cat $$F | tr -d "\r" |tr -c '\015'| sed "s/[ \t]*$$//;" > $$F.tmp; mv $$F.tmp $$F; done'
++	${INDENT} -kr -i8 *.[ch]
 +
-+export-objs := caif_chr.o caif_test_chdev.o caif_kapi_test.o
-diff --git a/drivers/net/caif/chnl_tty.c b/drivers/net/caif/chnl_tty.c
++clean:
++	${MAKE} -C generic clean
++	rm generic/modules.order  generic/Module.symvers generic/*.cmd generic/*~ \
++	generic/modules.order generic/Module.symvers \
++	generic/*.o generic/loopback/*.o
+diff --git a/net/caif/caif_chnlif.c b/net/caif/caif_chnlif.c
 new file mode 100644
-index 0000000..03fe0d3
+index 0000000..e53ca7a
 --- /dev/null
-+++ b/drivers/net/caif/chnl_tty.c
-@@ -0,0 +1,220 @@
++++ b/net/caif/caif_chnlif.c
+@@ -0,0 +1,219 @@
++/*
++*      Copyright (C) ST-Ericsson AB 2009
++*
++*      Author: Daniel Martensson / Daniel.Martensson@stericsson.com
++*
++*      License terms: GNU General Public License (GPL), version 2.
++*
++*/
++
++#include <linux/skbuff.h>
++#include "caif_kernel.h"
++#include "caif_layer.h"
++#include "caif_config_util.h"
++#include "caif_log.h"
++#include "cfpkt.h"
++#include "cfcnfg.h"
++#include "cfglue.h"
++
++
++
++struct caif_kernelif {
++	layer_t layer;
++	struct caif_device *dev;
++	cfctrl_link_param_t param;
++};
++static cfcnfg_t *cnfg;
++/**
++ * func chnlif_set_cnfg - Set the global config
++ * @cfg:	Config structure to set
++*/
++
++void chnlif_set_cnfg(cfcnfg_t *cfg)
++{
++	cnfg = cfg;
++}
++EXPORT_SYMBOL(chnlif_set_cnfg);
++
++/**
++ * func caif_create_skb - Creates a caif skb buffer
++ * @data:	data to add to buffer
++ * @data_length: lenht of data
++*/
++struct sk_buff *caif_create_skb(unsigned char *data, unsigned int data_length)
++{
++	/* NOTE: Make room for CAIF headers when using SKB inside CAIF. */
++	struct sk_buff *skb =
++	    alloc_skb(data_length + CAIF_SKB_HEAD_RESERVE +
++		      CAIF_SKB_TAIL_RESERVE, GFP_ATOMIC);
++	skb_reserve(skb, CAIF_SKB_HEAD_RESERVE);
++	if (skb == NULL)
++		return NULL;
++
++	memcpy(skb_put(skb, data_length), data, data_length);
++	return skb;
++}
++EXPORT_SYMBOL(caif_create_skb);
++
++int
++caif_extract_and_destroy_skb(struct sk_buff *skb, unsigned char *data,
++			     unsigned int max_length)
++{
++	unsigned int len;
++	len = skb->len;
++	skb_linearize(skb);
++	if (skb->len > max_length)
++		return CFGLU_EOVERFLOW;
++	memcpy(data, skb->data, skb->len);
++	kfree_skb(skb);
++	return len;
++}
++EXPORT_SYMBOL(caif_extract_and_destroy_skb);
++
++/* NOTE: transmit takes ownership of the SKB.
++ *       i.e. transmit only fails on severe errors.
++ *       flow_off is not checked on transmit this is clients responcibility.
++ */
++
++int caif_transmit(struct caif_device *dev, struct sk_buff *skb)
++{
++	struct caif_kernelif *chnlif =
++	    (struct caif_kernelif *) dev->_caif_handle;
++	cfpkt_t *pkt;
++#ifdef CAIF_USE_SKB
++	pkt = cfpkt_fromnative(CAIF_DIR_OUT, (void *) skb);
++#else
++	pkt = cfpkt_create(skb->len);
++	cfpkt_add_body(pkt, skb->data, skb->len);
++	kfree_skb(skb);
++#endif
++	CAIFLOG_TRACE2("Transmit (%p)", chnlif->layer.dn);
++	return chnlif->layer.dn->transmit(chnlif->layer.dn, NULL, pkt);
++}
++EXPORT_SYMBOL(caif_transmit);
++
++
++int caif_flow_control(struct caif_device *dev, enum caif_flowctrl flow)
++{
++	caif_modemcmd_t modemcmd;
++	struct caif_kernelif *chnlif =
++	    (struct caif_kernelif *) dev->_caif_handle;
++	switch (flow) {
++	case CAIF_FLOWCTRL_ON:
++		modemcmd = CAIF_MODEMCMD_FLOW_ON_REQ;
++		break;
++	case CAIF_FLOWCTRL_OFF:
++		modemcmd = CAIF_MODEMCMD_FLOW_OFF_REQ;
++		break;
++	default:
++		return -EINVAL;
++	}
++	return chnlif->layer.dn->modemcmd(chnlif->layer.dn, modemcmd);
++}
++EXPORT_SYMBOL(caif_flow_control);
++
++
++static int chnlif_receive(layer_t *layr, struct _cfpkt_t *cfpkt)
++{
++	/* FIXME: Use container of */
++	struct caif_kernelif *chnl = (struct caif_kernelif *) layr;
++
++	struct sk_buff *skb;
++#ifndef CAIF_USE_SKB
++	unsigned int pktlen = cfpkt_getlen(cfpkt);
++	unsigned int actual_len;
++	skb = alloc_skb(pktlen, GFP_ATOMIC);
++	if (skb == NULL)
++		return CFGLU_ENOMEM;
++
++	/* Extract data from the caif packet and copy it to the skb. */
++	cfpkt_extract(cfpkt, skb_put(skb, pktlen), pktlen, &actual_len);
++	cfglu_assert(pktlen == actual_len);
++	cfpkt_destroy(cfpkt);
++#else
++	skb = (struct sk_buff *) cfpkt_tonative(cfpkt);
++#endif
++	chnl->dev->receive_cb(chnl->dev, skb);
++	return CFGLU_EOK;
++}
++
++static void chnlif_flowctrl(layer_t *layr, caif_ctrlcmd_t ctrl, int phyid)
++{
++	struct caif_kernelif *chnl = (struct caif_kernelif *) layr;
++	enum caif_control ctl;
++
++	CAIFLOG_TRACE("Flow Control received %d\n", ctrl);
++
++	switch (ctrl) {
++	case CAIF_CTRLCMD_FLOW_OFF_IND:
++		ctl = CAIF_CONTROL_FLOW_OFF;
++		break;
++	case CAIF_CTRLCMD_FLOW_ON_IND:
++		ctl = CAIF_CONTROL_FLOW_ON;
++		break;
++	case CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND:
++		ctl = CAIF_CONTROL_REMOTE_SHUTDOWN;
++		break;
++	case CAIF_CTRLCMD_DEINIT_RSP:
++		ctl = CAIF_CONTROL_DEV_DEINIT;
++		chnl->dev->_caif_handle = NULL;
++		chnl->dev->control_cb(chnl->dev, ctl);
++		memset(chnl, 0, sizeof(chnl));
++		cfglu_free(chnl);
++		return;
++
++	case CAIF_CTRLCMD_INIT_RSP:
++		ctl = CAIF_CONTROL_DEV_INIT;
++		break;
++	case CAIF_CTRLCMD_INIT_FAIL_RSP:
++		ctl = CAIF_CONTROL_DEV_INIT_FAILED;
++		break;
++	default:
++		return;
++	}
++	chnl->dev->control_cb(chnl->dev, ctl);
++}
++
++
++int caif_add_device(struct caif_device *dev)
++{
++	int ret;
++	struct caif_kernelif *chnl = cfglu_alloc(sizeof(struct caif_kernelif));
++	chnl->dev = dev;
++	chnl->layer.ctrlcmd = chnlif_flowctrl;
++	chnl->layer.receive = chnlif_receive;
++	ret =
++	    channel_config_2_link_param(cnfg, &dev->caif_config, &chnl->param);
++
++
++	if (ret < 0) {
++		CAIFLOG_WARN("Bad Channel Configuration\n");
++		ret = CFGLU_EBADPARAM;
++		goto error;
++	}
++
++	if (!cfcnfg_add_adaptation_layer(cnfg, &chnl->param, &chnl->layer)) {
++		ret = CFGLU_ENOTCONN;
++		goto error;
++	}
++
++	dev->_caif_handle = chnl;
++
++	return CFGLU_EOK;
++error:
++	chnl->dev->_caif_handle = NULL;
++	memset(chnl, 0, sizeof(chnl));
++	cfglu_free(chnl);
++	return ret;
++}
++EXPORT_SYMBOL(caif_add_device);
++
++int caif_remove_device(struct caif_device *caif_dev)
++{
++
++	struct caif_kernelif *chnl =
++	    container_of(caif_dev->_caif_handle, struct caif_kernelif, layer);
++	bool ok = cfcnfg_del_adapt_layer(cnfg, &chnl->layer);
++	return ok ? CFGLU_EOK : CFGLU_EIO;
++}
++EXPORT_SYMBOL(caif_remove_device);
+diff --git a/net/caif/caif_chr.c b/net/caif/caif_chr.c
+new file mode 100644
+index 0000000..92c60cd
+--- /dev/null
++++ b/net/caif/caif_chr.c
+@@ -0,0 +1,378 @@
 +/*
 +*      Copyright (C) ST-Ericsson AB 2009
 +*
@@ -179,1954 +428,2178 @@ index 0000000..03fe0d3
 +#include <linux/fs.h>
 +#include <linux/init.h>
 +#include <linux/module.h>
-+#include <linux/tty.h>
-+#include <linux/tty_flip.h>
++#include <linux/device.h>
++#include <linux/miscdevice.h>
++#include <linux/ioctl.h>
++#include <linux/sched.h>
++#include <linux/spinlock.h>
++#include <linux/mutex.h>
++#include <linux/list.h>
++#include <linux/wait.h>
++#include <linux/uaccess.h>
 +
-+#include "caif_layer.h"
-+#include "cfcnfg.h"
-+#include "cfpkt.h"
-+
++#include "caif_actions.h"
 +#include "caif_chr.h"
++#include "cfloopcfg.h"
++#include "cfpkt.h"
++#include "cfcnfg.h"
++#include "caif_config_util.h"
++#include "caif_log.h"
 +#include "caif_ioctl.h"
 +
++#define caif_assert(assert) BUG_ON(!(assert))
++
 +MODULE_LICENSE("GPL");
++int (*chrdev_mgmt_func) (int action, union caif_action *param);
++int (*netdev_mgmt_func) (int action, union caif_action *param);
 +
-+#define TTY_CHNL_DEVICES 1
-+
-+static bool tty_registered;
-+
-+struct chnl_tty {
-+	layer_t chnl;
-+	struct tty_driver *tty_drv;
-+	struct tty_struct *tty;
++struct caif_chr {
++	cfcnfg_t *cfg;
++	cfloopcfg_t *loop;
++	struct miscdevice misc;
 +};
 +
-+static struct chnl_tty ttydev;
++int caif_dbg_level = CAIFLOG_LEVEL_WARNING;
++EXPORT_SYMBOL(caif_dbg_level);
 +
-+static int chnl_recv_cb(layer_t *layr, cfpkt_t *pkt)
++static struct caif_chr caifdev;
++
++struct class caif_class = {
++	.name = "caif",
++};
++
++static ssize_t dbg_lvl_show(struct class *class, char *buf)
 +{
-+	unsigned char *flip = NULL;
-+	caif_packet_funcs_t f;
-+	int len;
-+	size_t max;
-+	int count;
++	return sprintf(buf, "%d\n", caif_dbg_level);
++}
 +
-+	/* Get caif packet functions. */
-+	f = cfcnfg_get_packet_funcs();
++static ssize_t dbg_lvl_store(struct class *class, const char *buf,
++			     size_t count)
++{
++	int val;
 +
-+	len = cfpkt_getlen(pkt);
-+
-+	printk(KERN_INFO "AT received: %d bytes.\n", len);
-+
-+	/* Get a buffer from the TTY framework. */
-+	count = tty_prepare_flip_string(ttydev.tty, &flip, len);
-+
-+	if (len > count) {
-+		printk(KERN_INFO
-+		       "TTY buffer to small, dropping %d bytes.\n",
-+		       (len - count));
++	sscanf(buf, "%d", &val);
++	if ((val < CAIFLOG_MIN_LEVEL) || (val > CAIFLOG_MAX_LEVEL)) {
++		printk(KERN_WARNING "caif_dbg_level: Invalid value\n");
++		return -EINVAL;
 +	}
 +
-+	/* Check max length that can be copied. */
-+	max = len > count ? count : len;
-+
-+	/* Extract packet to the TTY buffer. */
-+	f.cfpkt_extract(pkt, flip, count, &max);
-+
-+	/* Liberate packet. */
-+	f.cfpkt_destroy(pkt);
-+
-+	/* Push data to the ldisc. */
-+	tty_schedule_flip(ttydev.tty);
-+
-+	return 0;
-+}
-+
-+static void chnl_flowctrl_cb(layer_t *layr, caif_flowctrl_t on)
-+{
-+	printk("AT flowctrl func called flow: %s.\n",
-+	       on == CAIF_FLOWCTRL_ON ? "ON" : "OFF or INIT");
-+
-+	if (on == CAIF_FLOWCTRL_INIT && tty_registered == false) {
-+		/* Register a tty device. */
-+		struct device *dev =
-+		    tty_register_device(ttydev.tty_drv, 0, NULL);
-+		if (IS_ERR(dev)) {
-+			int result = PTR_ERR(dev);
-+			printk(KERN_WARNING
-+			       "chnl: err: %d, can't register tty device.\n",
-+			       result);
-+			goto err_tty_device_register_failed;
-+		}
-+		tty_registered = true;
-+	}
-+
-+err_tty_device_register_failed:
-+	return;
-+}
-+
-+int chnl_tty_open(struct tty_struct *tty, struct file *filp)
-+{
-+	ttydev.tty = tty;
-+
-+	return 0;
-+}
-+
-+void chnl_tty_close(struct tty_struct *tty, struct file *filp)
-+{
-+	ttydev.tty = NULL;
-+}
-+
-+int chnl_tty_write(struct tty_struct *tty, const unsigned char *buf, int count)
-+{
-+	cfpkt_t *pkt = NULL;
-+	caif_packet_funcs_t f;
-+
-+	/* Get caif packet functions. */
-+	f = cfcnfg_get_packet_funcs();
-+
-+	/* Create a caif packet based on the tty buffer. */
-+	pkt = f.cfpkt_create_xmit_pkt(buf, count);
-+	if (!pkt) {
-+		printk(KERN_INFO "chnl_tty_write: cfpkt_create failed.\n");
-+		goto err_cfpkt_create;
-+	}
-+
-+	/* Send the packet down the stack. */
-+	ttydev.chnl.dn->transmit(ttydev.chnl.dn, NULL, pkt);
++	caif_dbg_level = val;
 +
 +	return count;
++}
 +
-+err_cfpkt_create:
++CLASS_ATTR(dbg_lvl, 0644, dbg_lvl_show, dbg_lvl_store);
++
++int caifdev_open(struct inode *inode, struct file *filp)
++{
++	printk(KERN_WARNING "caifdev_open: Entered\n");
 +	return 0;
 +}
 +
-+struct tty_operations chnl_tty_ops = {
-+	.open = chnl_tty_open,
-+	.close = chnl_tty_close,
-+	.write = chnl_tty_write,
-+};
-+
-+void chnl_tty_exit_module(void)
++int caifdev_release(struct inode *inode, struct file *filp)
 +{
-+	if (ttydev.tty) {
-+		tty_unregister_device(ttydev.tty_drv, 0);
-+		ttydev.tty = NULL;
-+	}
-+	tty_unregister_driver(ttydev.tty_drv);
-+	put_tty_driver(ttydev.tty_drv);
-+	ttydev.tty_drv = NULL;
++	printk(KERN_WARNING "caifdev_release: Entered\n");
++	return 0;
 +}
 +
-+int chnl_tty_init_module(void)
++static int caifdev_ioctl(struct inode *inode, struct file *filp,
++			 unsigned int cmd, unsigned long argp)
 +{
-+	struct caif_service_config config;
++	union caif_action param;
++	int ret;
++	int (*mgmt_func) (int action, union caif_action *param) = NULL;
++	int type;
++	int size;
++	int operation;
++	enum caif_dev_type devtype;
++
++	printk(KERN_WARNING "caifdev_ioctl: Entered\n");
++
++	if (argp == 0) {
++		printk(KERN_INFO "caifdev_ioctl: argument is null\n");
++		return -EINVAL;
++	}
++
++	type = _IOC_TYPE(cmd);
++	printk(KERN_INFO "caifdev_ioctl: type = %d\n", type);
++
++	if (type != CAIF_IOC_MAGIC) {
++		printk(KERN_INFO "caifdev_ioctl: unknown ioctl type\n");
++		return -EINVAL;
++	}
++
++	/* Check if command is valid before copying anything */
++	switch (cmd) {
++	case CAIF_IOC_CONFIG_DEVICE:
++	case CAIF_IOC_REMOVE_DEVICE:
++		break;
++	default:
++		printk(KERN_INFO "caifdev_ioctl: unknown ioctl command\n");
++		return -EINVAL;
++	}
++
++	size = _IOC_SIZE(cmd);
++	printk(KERN_INFO "caifdev_ioctl: size = %d\n", size);
++
++	if (copy_from_user(&param, (void *) argp, size)) {
++		printk(KERN_WARNING
++		       "caifdev_ioctl: copy_from_user returned non zero.\n");
++		return -EINVAL;
++	}
++
++	switch (cmd) {
++
++	case CAIF_IOC_CONFIG_DEVICE:
++
++		operation = CAIF_ACT_CREATE_DEVICE;
++		devtype = param.create_channel.name.devtype;
++		break;
++
++	case CAIF_IOC_REMOVE_DEVICE:
++
++		operation = CAIF_ACT_DELETE_DEVICE;
++		devtype = param.delete_channel.devtype;
++		break;
++
++	default:
++		printk(KERN_INFO
++		       "caifdev_ioctl: OTHER ACTIONS NOT YET IMPLEMENTED\n");
++		return -EINVAL;
++	}
++
++	if (devtype == CAIF_DEV_CHR) {
++		printk(KERN_INFO "caifdev_ioctl: device type CAIF_DEV_CHR\n");
++		mgmt_func = chrdev_mgmt_func;
++	} else if (devtype == CAIF_DEV_NET) {
++		printk(KERN_INFO "caifdev_ioctl: device type CAIF_DEV_NET\n");
++		mgmt_func = netdev_mgmt_func;
++	}
++
++	if (mgmt_func == NULL) {
++		printk(KERN_WARNING
++		       "caifdev_ioctl: DevType %s is not registered\n",
++		       devtype == CAIF_DEV_CHR ? "CHAR" :
++		       devtype == CAIF_DEV_NET ? "NET" : "UNKNOWN");
++		return -EINVAL;
++	}
++
++	ret = (*mgmt_func) (operation, &param);
++
++	if (ret < 0) {
++		printk(KERN_INFO
++		       "caifdev_ioctl: error performing device operation\n");
++		return ret;
++	}
++	if (copy_to_user((void *) argp, &param, size)) {
++		printk(KERN_WARNING
++		       "caifdev_ioctl: copy_to_user returned non zero.\n");
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++const struct file_operations caifdev_fops = {
++	.owner = THIS_MODULE,
++	.open = caifdev_open,
++	.ioctl = caifdev_ioctl,
++	.release = caifdev_release,
++};
++
++void caifdev_exit_module(void)
++{
++	class_remove_file(&caif_class, &class_attr_dbg_lvl);
++	class_unregister(&caif_class);
++	misc_deregister(&caifdev.misc);
++}
++
++int caifdev_init_module(void)
++{
 +	int result;
++	/* FIXME: Reverse the directon, rather make chnlif do a get! */
++	extern void chnlif_set_cnfg(cfcnfg_t *cfg);
 +
-+	ttydev.tty_drv = alloc_tty_driver(TTY_CHNL_DEVICES);
-+	if (ttydev.tty_drv == NULL) {
-+		printk(KERN_WARNING
-+		       "chnl_tty_init_module: err: "
-+		       "can't allocate tty driver.\n");
-+		result = -ENOMEM;
-+		goto err_alloc_tty_driver_failed;
++	caifdev.cfg = cfcnfg_create();
++	if (!caifdev.cfg) {
++		printk(KERN_WARNING "caifdev: err: can't create cfcnfg.\n");
++		goto err_cfcnfg_create_failed;
 +	}
 +
-+	ttydev.tty_drv->driver_name = "caif_tty";
-+	ttydev.tty_drv->name = "cftty";
-+	ttydev.tty_drv->type = TTY_DRIVER_TYPE_SERIAL;
-+	ttydev.tty_drv->subtype = SERIAL_TYPE_NORMAL;
-+	ttydev.tty_drv->init_termios = tty_std_termios;
-+	ttydev.tty_drv->flags = TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV;
++	chnlif_set_cnfg(caifdev.cfg);
 +
-+	/* Register the TTY driver. */
-+	tty_set_operations(ttydev.tty_drv, &chnl_tty_ops);
++	caifdev.misc.minor = MISC_DYNAMIC_MINOR;
++	/*FIXME: Rename device to "caifconfig" */
++	caifdev.misc.name = "caifconfig";
++	caifdev.misc.fops = &caifdev_fops;
 +
-+	result = tty_register_driver(ttydev.tty_drv);
++	result = misc_register(&caifdev.misc);
++
 +	if (result < 0) {
 +		printk(KERN_WARNING
-+		       "chnl_tty_init_module: err: "
-+		       "%d, can't register tty driver.\n",
-+		       result);
-+		goto err_tty_driver_register_failed;
++		       "caifdev: err: %d, can't register misc.\n", result);
++		goto err_misc_register_failed;
 +	}
 +
-+	/* Fill in channel information. */
-+	ttydev.chnl.receive = chnl_recv_cb;
-+	ttydev.chnl.flowctrl = chnl_flowctrl_cb;
-+
-+	memset(&config, 0, sizeof(config));
-+	config.service = CAIF_SRVC_AT;
-+	config.phy_type = CAIF_PHY_LOW_LAT;
-+	config.priority = CAIF_PRIO_NORMAL;
-+
-+	/* Register this channel. */
-+	result = caifdev_adapt_register(&config, &ttydev.chnl);
-+	if (result < 0) {
++	/* Register class for SYSFS. */
++	result = class_register(&caif_class);
++	if (unlikely(result)) {
 +		printk(KERN_WARNING
-+		       "chnl_tty_init_module: err:"
-+		       " %d, can't register channel.\n",
-+		       result);
-+		goto err_register_chnl;
++		       "caifdev: err: %d, can't create sysfs node.\n", result);
++		goto err_class_register_failed;
++	}
++
++	/* Create SYSFS nodes. */
++	result = class_create_file(&caif_class, &class_attr_dbg_lvl);
++	if (unlikely(result)) {
++		printk(KERN_WARNING
++		       "caifdev: err: %d, can't create sysfs node.\n", result);
++		goto err_sysfs_create_failed;
 +	}
 +
 +	return result;
 +
-+err_register_chnl:
-+	tty_unregister_driver(ttydev.tty_drv);
-+err_tty_driver_register_failed:
-+	put_tty_driver(ttydev.tty_drv);
-+	ttydev.tty_drv = NULL;
-+err_alloc_tty_driver_failed:
++err_sysfs_create_failed:
++	class_unregister(&caif_class);
++err_class_register_failed:
++	misc_deregister(&caifdev.misc);
++err_misc_register_failed:
++err_cfcnfg_create_failed:
 +	return -ENODEV;
 +}
 +
-+module_init(chnl_tty_init_module);
-+module_exit(chnl_tty_exit_module);
-diff --git a/drivers/net/caif/phyif_loop.c b/drivers/net/caif/phyif_loop.c
++int caifdev_phy_register(layer_t *phyif, cfcnfg_phy_type_t phy_type,
++			 cfcnfg_phy_preference_t phy_pref)
++{
++	uint16 phyid;
++
++	/* Hook up the physical interface.
++	 * Right now we are not using the returned id. */
++	cfcnfg_add_phy_layer(caifdev.cfg, phy_type, phyif, &phyid, phy_pref);
++	printk(KERN_WARNING "caifdev_phy_register: phy:%p id:%d\n",
++	       phyif, phyid);
++
++	printk(KERN_WARNING "caifdev_phy_register: %p ID %d == %d\n",
++	       (void *)phyif, phyid, phyif->id);
++	return 0;
++}
++EXPORT_SYMBOL(caifdev_phy_register);
++
++int caifdev_phy_unregister(layer_t *phyif)
++{
++	printk(KERN_WARNING "caifdev_phy_unregister: phy:%p id:%d\n",
++	       phyif, phyif->id);
++	cfcnfg_del_phy_layer(caifdev.cfg, phyif);
++	return 0;
++}
++EXPORT_SYMBOL(caifdev_phy_unregister);
++
++
++int caifdev_phy_loop_register(layer_t *phyif, cfcnfg_phy_type_t phy_type)
++{
++	/* Create the loop stack. */
++	caifdev.loop = cfloopcfg_create();
++
++	/* Hook up the loop layer. */
++	cfloopcfg_add_phy_layer(caifdev.loop, phy_type, phyif);
++
++	return 0;
++}
++EXPORT_SYMBOL(caifdev_phy_loop_register);
++
++int caifdev_phy_spi_xmitlen(cfspil_t *layr)
++{
++	return cfspil_xmitlen(layr);
++}
++EXPORT_SYMBOL(caifdev_phy_spi_xmitlen);
++
++cfpkt_t *caifdev_phy_spi_getxmitpkt(cfspil_t *layr)
++{
++	return cfspil_getxmitpkt(layr);
++}
++EXPORT_SYMBOL(caifdev_phy_spi_getxmitpkt);
++
++/* FIXME: Generally comment on the new
++ *	   and old fashion functions for phy registration.
++ */
++
++int caifdev_adapt_register(struct caif_channel_config *config,
++			   layer_t *adap_layer)
++{
++	cfctrl_link_param_t param;
++
++	if (channel_config_2_link_param(caifdev.cfg, config, &param) == 0)
++		/* Hook up the adaptation layer. */
++		if (cfcnfg_add_adaptation_layer(caifdev.cfg,
++						&param, adap_layer))
++			return 0;
++
++	return -EINVAL;
++}
++EXPORT_SYMBOL(caifdev_adapt_register);
++
++
++/* FIXME: Comment on this function being new and not yet in use */
++int caifdev_adapt_unregister(layer_t *adap_layer)
++{
++	if (cfcnfg_del_adapt_layer(caifdev.cfg, adap_layer))
++		return 0;
++	else
++		return -1;
++}
++EXPORT_SYMBOL(caifdev_adapt_unregister);
++
++int caif_register_chrdev(int (*chrdev_mgmt)
++			  (int action, union caif_action *param))
++{
++
++	chrdev_mgmt_func = chrdev_mgmt;
++	return 0;
++}
++EXPORT_SYMBOL(caif_register_chrdev);
++
++int caif_register_netdev(int (*netdev_mgmt)
++			  (int action, union caif_action *param))
++{
++	netdev_mgmt_func = netdev_mgmt;
++	return 0;
++}
++EXPORT_SYMBOL(caif_register_netdev);
++
++
++void caif_unregister_chrdev()
++{
++	chrdev_mgmt_func = NULL;
++}
++EXPORT_SYMBOL(caif_unregister_chrdev);
++
++void caif_unregister_netdev()
++{
++	netdev_mgmt_func = NULL;
++}
++EXPORT_SYMBOL(caif_unregister_netdev);
++
++/* Exported CAIF functions. */
++EXPORT_SYMBOL(cfcnfg_get_packet_funcs);
++
++
++extern int serial_use_stx;
++EXPORT_SYMBOL(serial_use_stx);
++
++extern cfglu_atomic_t cfpkt_packet_count;
++EXPORT_SYMBOL(cfpkt_packet_count);
++module_exit(caifdev_exit_module);
++module_init(caifdev_init_module);
+diff --git a/net/caif/caif_config_util.c b/net/caif/caif_config_util.c
 new file mode 100644
-index 0000000..2bfa42b
+index 0000000..093d1be
 --- /dev/null
-+++ b/drivers/net/caif/phyif_loop.c
-@@ -0,0 +1,309 @@
++++ b/net/caif/caif_config_util.c
+@@ -0,0 +1,167 @@
 +/*
-+ *	Copyright (C) ST-Ericsson AB 2009
++ *      Copyright (C) ST-Ericsson AB 2009
 + *
-+ *	Author: Daniel Martensson / Daniel.Martensson@stericsson.com
-+ *		Per Sigmond / Per.Sigmond@stericsson.com
++ *      Author: Daniel Martensson / Daniel.Martensson@stericsson.com
 + *
-+ *	License terms: GNU General Public License (GPL), version 2.
++ *      License terms: GNU General Public License (GPL), version 2.
 + *
 + */
 +
++#include "cfglue.h"
++#include "cfctrl.h"
++#include "cfcnfg.h"
++#include "caif_config_util.h"
++#include "caif_config.h"
++#include "caif_ioctl.h"
++#include "caif_actions.h"
++
++
++
++int
++channel_config_2_link_param(cfcnfg_t *cnfg, struct caif_channel_config *s,
++			    cfctrl_link_param_t *l)
++{
++
++	cfcnfg_phy_preference_t pref;
++
++	memset(l, 0, sizeof(*l));
++
++	l->priority = s->priority;
++
++	if (s->phy_name[0] != '\0') {
++		l->phyid = cfcnfg_get_named(cnfg, s->phy_name);
++		CFLOG_TRACE(("PHYNAME: '%s' -> id:%d\n", s->phy_name,
++			     l->phyid));
++
++	} else {
++		switch (s->phy_pref) {
++		case CAIF_PHYPREF_UNSPECIFIED:
++			pref = CFPHYPREF_UNSPECIFIED;
++			break;
++		case CAIF_PHYPREF_LOW_LAT:
++			pref = CFPHYPREF_LOW_LAT;
++			break;
++		case CAIF_PHYPREF_HIGH_BW:
++			pref = CFPHYPREF_HIGH_BW;
++			break;
++		case _CAIF_PHYPREF_LOOP:
++			pref = CFPHYPREF_LOOP;
++			break;
++		case _CAIF_PHYPREF_RAW_LOOP:
++			pref = CFPHYPREF_RAW_LOOP;
++			break;
++		default:
++			CFLOG_TRACE(("PHYPREF: "
++				     "No Preferered Device Specified '%d'\n",
++				     s->phy_pref));
++			return -CFGLU_ENODEV;
++		}
++		l->phyid = cfcnfg_get_phyid(cnfg, pref);
++		CFLOG_TRACE(("PHYPREF: '%d' -> id:%d\n", pref, l->phyid));
++	}
++
++	switch (s->type) {
++	case CAIF_CHTY_AT:
++		l->linktype = CFCTRL_SRV_VEI;
++		l->chtype = 0x02;
++		l->endpoint = 0x00;
++		CFLOG_TRACE(("CHTY: AT\n"));
++		break;
++
++	case CAIF_CHTY_AT_CTRL:
++		CFLOG_TRACE(("CHTY: AT_CTRL\n"));
++		l->linktype = CFCTRL_SRV_VEI;
++		l->chtype = 0x00;
++		l->endpoint = 0x00;
++		break;
++
++	case CAIF_CHTY_AT_PAIRED:
++		CFLOG_TRACE(("CHTY: AT_PAIRED\n"));
++		l->linktype = CFCTRL_SRV_VEI;
++		l->chtype = 0x03;
++		l->endpoint = 0x00;
++		break;
++
++	case CAIF_CHTY_VIDEO:
++		CFLOG_TRACE(("CHTY: VIDEO\n"));
++		l->linktype = CFCTRL_SRV_VIDEO;
++		l->chtype = 0x00;
++		l->endpoint = 0x00;
++		l->u.video.connid = s->u.dgm.connection_id;
++		break;
++
++	case CAIF_CHTY_DATAGRAM:
++		CFLOG_TRACE(("CHTY: DATAGRAM\n"));
++		l->linktype = CFCTRL_SRV_DATAGRAM;
++		l->chtype = 0x00;
++		l->u.datagram.connid = s->u.dgm.connection_id;
++		break;
++
++	case CAIF_CHTY_DATAGRAM_LOOP:
++		CFLOG_TRACE(("CHTY: DATAGRAM\n"));
++		l->linktype = CFCTRL_SRV_DATAGRAM;
++		l->chtype = 0x03;
++		l->endpoint = 0x00;
++		l->u.datagram.connid = s->u.dgm.connection_id;
++		break;
++
++	case CAIF_CHTY_DEBUG:
++		CFLOG_TRACE(("CHTY: DEBUG\n"));
++		l->linktype = CFCTRL_SRV_DBG;
++		l->endpoint = 0x01;	/* ACC SIDE */
++		l->chtype = 0x00;	/* Single channel with interactive
++					   debug and print-out mixed */
++		break;
++
++	case CAIF_CHTY_DEBUG_INTERACT:
++		CFLOG_TRACE(("CHTY: IDEBUG\n"));
++		l->linktype = CFCTRL_SRV_DBG;
++		l->endpoint = 0x01;	/* ACC SIDE */
++		l->chtype = 0x02;	/* Interactive debug only */
++		break;
++
++	case CAIF_CHTY_DEBUG_TRACE:
++		CFLOG_TRACE(("CHTY: TRACE\n"));
++		l->linktype = CFCTRL_SRV_DBG;
++		l->endpoint = 0x01;	/* ACC SIDE */
++		l->chtype = 0x01;	/* Debug print-out only */
++		break;
++
++	case CAIF_CHTY_RFM:
++
++		CFLOG_TRACE(("CHTY: RFN\n"));
++		l->linktype = CFCTRL_SRV_RFM;
++		l->u.datagram.connid = s->u.rfm.connection_id;
++		strncpy(l->u.rfm.volume, s->u.rfm.volume,
++			sizeof(l->u.rfm.volume));
++		break;
++
++	case CAIF_CHTY_UTILITY:
++		CFLOG_TRACE(("CHTY: UTILTY\n"));
++		l->linktype = CFCTRL_SRV_UTIL;
++		l->endpoint = 0x00;
++		l->chtype = 0x00;
++		l->u.utility.fifosize_bufs = s->u.utility.fifosize_bufs;
++		l->u.utility.fifosize_kb = s->u.utility.fifosize_kb;
++		strncpy(l->u.utility.name, s->u.utility.name,
++			sizeof(l->u.utility.name));
++		l->u.utility.paramlen = s->u.utility.paramlen;
++		if (l->u.utility.paramlen > sizeof(l->u.utility.params))
++			l->u.utility.paramlen = sizeof(l->u.utility.params);
++		memcpy(l->u.utility.params, s->u.utility.params,
++		       l->u.utility.paramlen);
++		break;
++
++	case CAIF_CHTY_RAW:
++		l->linktype = s->u._raw.channeltype;
++		l->endpoint = s->u._raw.endpoint;
++		l->chtype = s->u._raw.subtype;
++		break;
++
++	default:
++		CFLOG_TRACE(("CAIF_CHTY: Specified bad channel type '%d'\n",
++			     s->type));
++		return -CFGLU_EINVAL;
++	}
++	return 0;
++}
+diff --git a/net/caif/chnl_chr.c b/net/caif/chnl_chr.c
+new file mode 100644
+index 0000000..b45e93c
+--- /dev/null
++++ b/net/caif/chnl_chr.c
+@@ -0,0 +1,1161 @@
++/*
++*      Copyright (C) ST-Ericsson AB 2009
++*
++*      Author: Per Sigmond / Per.Sigmond@stericsson.com
++*
++*      License terms: GNU General Public License (GPL), version 2.
++*
++*/
++#include <linux/fs.h>
 +#include <linux/init.h>
 +#include <linux/module.h>
-+#include <linux/device.h>
-+#include <linux/workqueue.h>
-+#include <linux/spinlock.h>
-+
-+
-+#include <linux/semaphore.h>
-+#include <linux/list.h>
++#include <linux/miscdevice.h>
 +#include <linux/sched.h>
++#include <linux/spinlock.h>
++#include <linux/mutex.h>
++#include <linux/list.h>
++#include <linux/wait.h>
++#include <linux/poll.h>
++#include <linux/uaccess.h>
++#include <asm/atomic.h>
++
 +/* Caif header files. */
-+#include "caif_log.h"
 +#include "caif_layer.h"
 +#include "cfcnfg.h"
 +#include "cfpkt.h"
-+
++#include "cffrml.h"
 +#include "caif_chr.h"
-+
-+#include <linux/delay.h>
-+
-+
++#include "caif_config.h"
++#include "caif_config_util.h"
++#include "caif_actions.h"
++#include "caif_log.h"
 +MODULE_LICENSE("GPL");
 +
++#define COUNTER_DEBUG 0
++
++/* Seconds */
++#define CAIF_CONNECT_TIMEOUT 30
++
++#define CHNL_CHR_READ_QUEUE_HIGH 2000
++#define CHNL_CHR_READ_QUEUE_LOW 100
++
++static LIST_HEAD(caif_chrdev_list);
++static spinlock_t list_lock;
++
++#define STATE_IS_OPEN_BIT        1
++#define STATE_OPEN_PENDING_BIT   2
++#define STATE_IS_CLOSED_BIT      3
++#define STATE_CLOSE_PENDING_BIT  4
++#define STATE_TX_FLOW_ON         5
++#define STATE_RX_FLOW_OFF        6
 +
 +
-+static int reentrant;
-+static int direct;
-+static int serial;
-+module_param(reentrant, bool, S_IRUGO);
-+module_param(direct, bool, S_IRUGO);
-+module_param(serial, bool, S_IRUGO);
-+MODULE_PARM_DESC(reentrant,
-+		 "Reentrant or not (defualt is workqueue implementation)");
-+MODULE_PARM_DESC(direct,
-+		 "Direct mode, looping packets directly back up the stack");
 +
-+static layer_t cf_phy;
-+static layer_t loop_phy;
-+static spinlock_t ring_buffer_lock;
++#define CHR_READ_FLAG 0x01
++#define CHR_WRITE_FLAG 0x02
++
++#define chnl_assert(assert) BUG_ON(!(assert))
 +
 +
-+/* Start ring buffer */
-+#define RING_MAX_BUFFERS 16384
++struct caif_char_dev {
++	layer_t layer;
++	unsigned int status;
++	cfpktq_t *pktq;
++	char name[256];		/* Redundnt! Already in struct miscdevice */
++	struct miscdevice misc;
++	int file_mode;
++	caif_packet_funcs_t pktf;
++	struct caif_channel_config config;
++	/* Access to this struct and below layers */
++	struct mutex mutex;
++	int read_queue_len;
++	spinlock_t read_queue_len_lock;
++	wait_queue_head_t read_wq;
++	wait_queue_head_t mgmt_wq;
++	/* List of misc test devices */
++	struct list_head list_field;
++#if COUNTER_DEBUG
++	unsigned long counter;
++	int mismatch_reported;
++#endif
 +
-+struct ring_buffer_element {
-+	struct _cfpkt_t *cfpkt;
 +};
 +
-+static struct {
-+	struct ring_buffer_element ring_buffer[RING_MAX_BUFFERS];
-+	int head_index;
-+	int tail_index;
-+} my_ring_buffer;
++/** Packet Receive Callback function called from CAIF Stack */
 +
-+#define ring_buffer_index_plus_one(index) \
-+    ((index+1) < RING_MAX_BUFFERS ? (index + 1) : 0)
-+
-+#define ring_buffer_increment_tail(rb) \
-+    ((rb)->tail_index = ring_buffer_index_plus_one((rb)->tail_index))
-+
-+#define ring_buffer_increment_head(rb) \
-+    ((rb)->head_index = ring_buffer_index_plus_one((rb)->head_index))
-+
-+#define ring_buffer_empty(rb) ((rb)->head_index == (rb)->tail_index)
-+#define ring_buffer_full(rb) (ring_buffer_index_plus_one((rb)->head_index)\
-+			      == (rb)->tail_index)
-+#define ring_buffer_tail_element(rb) ((rb)->ring_buffer[(rb)->tail_index])
-+#define ring_buffer_head_element(rb) ((rb)->ring_buffer[(rb)->head_index])
-+#define ring_buffer_size(rb) (((rb)->head_index >= (rb)->tail_index)) ?\
-+  ((rb)->head_index - (rb)->tail_index) : \
-+    (RING_MAX_BUFFERS - ((rb)->tail_index - (rb)->head_index))
-+/* End ring buffer */
-+
-+
-+
-+static void work_func(struct work_struct *work);
-+static struct workqueue_struct *ploop_work_queue;
-+static DECLARE_WORK(loop_work, work_func);
-+static wait_queue_head_t buf_available;
-+
-+
-+#define phyif_assert(assert) BUG_ON(!(assert))
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+static void work_func(struct work_struct *work)
++static int caif_chrrecv_cb(layer_t *layr, cfpkt_t *pkt)
 +{
++	struct caif_char_dev *dev;
++#if COUNTER_DEBUG
++	unsigned long *data_p;
++#endif
++
++	CAIFLOG_ENTER("");
++	dev = container_of(layr, struct caif_char_dev, layer);
++
++	CAIFLOG_TRACE2("[%s] data received: %d bytes.\n",
++		       __func__, dev->pktf.cfpkt_getlen(pkt));
++
++	/** NOTE: This function may be called in Tasklet context! */
++
++
++
++#if COUNTER_DEBUG
++	dev->pktf.cfpkt_raw_extract(pkt, (void **) &data_p, 0);
++
++	if (data_p[0] == 1) {
++		dev->counter = data_p[0];
++		dev->mismatch_reported = 0;
++	}
++
++	if ((dev->counter != data_p[0]) && !dev->mismatch_reported) {
++		CAIFLOG_TRACE
++		    ("WARNING: caif_chrrecv_cb() - " "sequence: expected "
++		     "%ld, got %ld\n", dev->counter, data_p[0]);
++		dev->mismatch_reported = 1;
++	}
++
++	if (!(dev->counter % 100000))
++		CAIFLOG_TRACE("caif_chrrecv_cb(): %ld\n", dev->counter);
++
++
++	dev->counter++;
++#endif
++
++	/* The queue has its own lock */
++	dev->pktf.cfpkt_queue(dev->pktq, pkt, 0);
++	spin_lock(&dev->read_queue_len_lock);
++	dev->read_queue_len++;
++
++	if (!test_bit(STATE_RX_FLOW_OFF, (void *) &dev->status) &&
++	    (dev->read_queue_len > CHNL_CHR_READ_QUEUE_HIGH)) {
++		set_bit(STATE_RX_FLOW_OFF, (void *) &dev->status);
++
++		/* Todo: send flow off (NOTE: must not sleep) */
++		CAIFLOG_TRACE2
++		    ("caif_chrrecv_cb(): sending flow OFF (queue len = %d)\n",
++		     dev->read_queue_len);
++		chnl_assert(dev->layer.dn);
++		chnl_assert(dev->layer.dn->ctrlcmd);
++		(void) dev->layer.dn->modemcmd(dev->layer.dn,
++					       CAIF_MODEMCMD_FLOW_OFF_REQ);
++	}
++	spin_unlock(&dev->read_queue_len_lock);
++
++	/* Signal reader that data is available. */
++	wake_up_interruptible(&dev->read_wq);
++
++	return 0;
++}
++
++/** Packet Flow Control Callback function called from CAIF */
++static void caif_chrflowctrl_cb(layer_t *layr, caif_ctrlcmd_t flow, int phyid)
++{
++	struct caif_char_dev *dev;
 +
 +	CAIFLOG_ENTER("");
 +
-+	while (!ring_buffer_empty(&my_ring_buffer)) {
-+		struct _cfpkt_t *cfpkt;
++	/** NOTE: This function may be called in Tasklet context! */
++	CAIFLOG_TRACE("AT flowctrl func called flow: %s.\n",
++		      flow == CAIF_CTRLCMD_FLOW_ON_IND ? "ON" :
++		      flow == CAIF_CTRLCMD_FLOW_OFF_IND ? "OFF" :
++		      flow == CAIF_CTRLCMD_INIT_RSP ? "INIT_RSP" :
++		      flow == CAIF_CTRLCMD_DEINIT_RSP ? "DEINIT_RSP" :
++		      flow == CAIF_CTRLCMD_INIT_FAIL_RSP ? "INIT_FAIL_RSP" :
++		      flow ==
++		      CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND ? "REMOTE_SHUTDOWN" :
++		      "UKNOWN CTRL COMMAND");
 +
-+		/* Get packet */
-+		cfpkt = ring_buffer_tail_element(&my_ring_buffer).cfpkt;
-+		ring_buffer_tail_element(&my_ring_buffer).cfpkt = NULL;
++	dev = container_of(layr, struct caif_char_dev, layer);
 +
-+		ring_buffer_increment_tail(&my_ring_buffer);
-+
-+		/* Wake up writer */
-+		wake_up_interruptible(&buf_available);
-+
-+
-+		/* Push received packet up the caif stack. */
-+		cf_phy.up->receive(cf_phy.up, cfpkt);
-+
-+	}
-+
-+	/* Release access to loop queue. */
-+	CAIFLOG_EXIT("");
-+}
-+
-+static int cf_phy_modemcmd(layer_t *layr, caif_modemcmd_t ctrl)
-+{
-+	switch (ctrl) {
-+	case _CAIF_MODEMCMD_PHYIF_USEFULL:
-+		CAIFLOG_TRACE("phyif_loop:Usefull");
-+
-+		try_module_get(THIS_MODULE);
++	switch (flow) {
++	case CAIF_CTRLCMD_FLOW_ON_IND:
++		CAIFLOG_TRACE("[%s:%d] CAIF_CTRLCMD_FLOW_ON_IND\n",
++			      __func__, __LINE__);
++		/* Signal reader that data is available. */
++		set_bit(STATE_TX_FLOW_ON, (void *) &dev->status);
++		wake_up_interruptible(&dev->mgmt_wq);
 +		break;
-+	case _CAIF_MODEMCMD_PHYIF_USELESS:
-+		CAIFLOG_TRACE("phyif_loop:Useless");
-+		module_put(THIS_MODULE);
++
++	case CAIF_CTRLCMD_FLOW_OFF_IND:
++		CAIFLOG_TRACE("[%s:%d] CAIF_CTRLCMD_FLOW_OFF_IND\n",
++			      __func__, __LINE__);
++		clear_bit(STATE_TX_FLOW_ON, (void *) &dev->status);
 +		break;
++
++	case CAIF_CTRLCMD_INIT_RSP:
++		CAIFLOG_TRACE("[%s:%d] CAIF_CTRLCMD_INIT_RSP\n",
++			      __func__, __LINE__);
++		/* Signal reader that data is available. */
++		set_bit(STATE_TX_FLOW_ON, (void *) &dev->status);
++		set_bit(STATE_IS_OPEN_BIT, (void *) &dev->status);
++		clear_bit(STATE_OPEN_PENDING_BIT, (void *) &dev->status);
++		wake_up_interruptible(&dev->mgmt_wq);
++		break;
++
++	case CAIF_CTRLCMD_DEINIT_RSP:
++		CAIFLOG_TRACE("[%s:%d] CAIF_CTRLCMD_DEINIT_RSP\n",
++			      __func__, __LINE__);
++		clear_bit(STATE_TX_FLOW_ON, (void *) &dev->status);
++		set_bit(STATE_IS_CLOSED_BIT, (void *) &dev->status);
++		clear_bit(STATE_CLOSE_PENDING_BIT, (void *) &dev->status);
++		wake_up_interruptible(&dev->mgmt_wq);
++		break;
++
++	case CAIF_CTRLCMD_INIT_FAIL_RSP:
++		CAIFLOG_TRACE("[%s:%d] CAIF_CTRLCMD_INIT_FAIL_RSP\n",
++			      __func__, __LINE__);
++		clear_bit(STATE_TX_FLOW_ON, (void *) &dev->status);
++		set_bit(STATE_IS_CLOSED_BIT, (void *) &dev->status);
++		clear_bit(STATE_OPEN_PENDING_BIT, (void *) &dev->status);
++		wake_up_interruptible(&dev->mgmt_wq);
++		break;
++
++	case CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND:
++		CAIFLOG_TRACE("[%s:%d] CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND\n",
++			      __func__, __LINE__);
++		clear_bit(STATE_TX_FLOW_ON, (void *) &dev->status);
++		set_bit(STATE_IS_CLOSED_BIT, (void *) &dev->status);
++		clear_bit(STATE_CLOSE_PENDING_BIT, (void *) &dev->status);
++		clear_bit(STATE_OPEN_PENDING_BIT, (void *) &dev->status);
++		wake_up_interruptible(&dev->mgmt_wq);
++		break;
++
 +	default:
-+		break;
++		CAIFLOG_TRACE("[%s:%d] Unexpected flow command %d\n",
++			      __func__, __LINE__, flow);
++
 +	}
-+	return 0;
 +}
 +
-+static int cf_phy_tx(layer_t *layr, transmt_info *info, cfpkt_t *pkt)
++/** Device Read function called from Linux Kernel */
++ssize_t caif_chrread(struct file *filp, char __user *buf, size_t count,
++		     loff_t *f_pos)
 +{
-+	int ret;
-+	CAIFLOG_ENTER("");
-+
-+	/* Push received packet up the loop stack. */
-+	ret = loop_phy.up->receive(loop_phy.up, pkt);
-+
-+	CAIFLOG_EXIT("");
-+	return ret;
-+}
-+
-+
-+static int
-+loop_phy_tx_reent(layer_t *layr, transmt_info *info, struct _cfpkt_t *cfpkt)
-+{
-+	CAIFLOG_ENTER("");
-+
-+	/* Push received packet up the caif stack. */
-+	cf_phy.up->receive(cf_phy.up, cfpkt);
-+
-+	CAIFLOG_EXIT("");
-+	return 0;
-+}
-+
-+
-+static int
-+loop_phy_tx(layer_t *layr, transmt_info *info, struct _cfpkt_t *cfpkt)
-+{
++	cfpkt_t *pkt = NULL;
++	unsigned char *rxbuf = NULL;
++	size_t len;
++	int result;
++	struct caif_char_dev *dev = filp->private_data;
++	ssize_t ret = -EIO;
 +
 +	CAIFLOG_ENTER("");
 +
-+	/* Block writer as long as ring buffer is full */
++	if (dev == NULL) {
++		CAIFLOG_TRACE("[%s:%d] private_data not set!\n",
++			      __func__, __LINE__);
++		return -EBADFD;
++	}
 +
-+	spin_lock(&ring_buffer_lock);
-+	/*phyif_assert( !ring_buffer_full(&my_ring_buffer) );*/
 +
-+	while (ring_buffer_full(&my_ring_buffer)) {
-+		spin_unlock(&ring_buffer_lock);
++	/* I want to be alone on dev (except status and queue) */
++	if (mutex_lock_interruptible(&dev->mutex)) {
++		CAIFLOG_TRACE
++		    ("caif_chrread: mutex_lock_interruptible got signalled\n");
++		return -ERESTARTSYS;
++	}
 +
-+		if (wait_event_interruptible
-+		    (buf_available,
-+		     !ring_buffer_full(&my_ring_buffer)) == -ERESTARTSYS) {
-+			printk(KERN_WARNING
-+			       "loop_phy_tx: "
-+			       "wait_event_interruptible woken by a signal\n");
++	chnl_assert(dev->pktq);
++
++	if (!test_bit(STATE_IS_OPEN_BIT, (void *) &dev->status)) {
++		CAIFLOG_TRACE("[%s:%d] device not open\n", __func__, __LINE__);
++		ret = -EINVAL;
++		goto read_error;
++	}
++
++	if (test_bit(STATE_IS_CLOSED_BIT, (void *) &dev->status)) {
++		CAIFLOG_TRACE("[%s:%d] remote end shutdown!\n",
++			      __func__, __LINE__);
++		ret = -EPIPE;
++		goto read_error;
++	}
++
++	if (test_bit(STATE_CLOSE_PENDING_BIT, (void *) &dev->status)) {
++		CAIFLOG_TRACE("[%s:%d] device is closing...\n",
++			      __func__, __LINE__);
++		ret = -EPIPE;
++		goto read_error;
++	}
++
++
++	/* Block if we don't have any received buffers. */
++	/* The queue has its own lock */
++	while ((pkt = dev->pktf.cfpkt_qpeek(dev->pktq)) == NULL) {
++
++		if (filp->f_flags & O_NONBLOCK) {
++			CAIFLOG_TRACE("caif_chrread: O_NONBLOCK\n");
++			ret = -EAGAIN;
++			goto read_error;
++		}
++		CAIFLOG_TRACE2("[%s:%d] wait_event\n", __func__, __LINE__);
++
++		/* Let writers in */
++		mutex_unlock(&dev->mutex);
++
++		/* Block reader until data arrives. */
++		if (wait_event_interruptible(dev->read_wq,
++					     dev->pktf.cfpkt_qpeek(dev->pktq)
++					     || test_bit(STATE_IS_CLOSED_BIT,
++							 (void *)
++							 &dev->status)) ==
++		    -ERESTARTSYS) {
++			CAIFLOG_TRACE
++			    ("caif_chrread: wait_event_interruptible woken by "
++			     "a signal, signal_pending(current) = %d\n",
++			     signal_pending(current));
 +			return -ERESTARTSYS;
 +		}
 +
++		CAIFLOG_TRACE2("[%s:%d] awake\n", __func__, __LINE__);
 +
-+		spin_lock(&ring_buffer_lock);
++		/* I want to be alone on dev (except status and queue) */
++		if (mutex_lock_interruptible(&dev->mutex)) {
++			CAIFLOG_TRACE
++			    ("caif_chrread: "
++			     "mutex_lock_interruptible got signalled\n");
++			return -ERESTARTSYS;
++		}
++
++		if (test_bit(STATE_IS_CLOSED_BIT, (void *) &dev->status)) {
++			/* someone closed the link, report error */
++			CAIFLOG_TRACE("[%s:%d] remote end shutdown!\n",
++				      __func__, __LINE__);
++			ret = -EPIPE;
++			goto read_error;
++		}
++
++	}
++
++	/* The queue has its own lock */
++	len = dev->pktf.cfpkt_getlen(pkt);
++
++	/* Check max length that can be copied. */
++	if (len > count) {
++		CAIFLOG_TRACE("caif_chrread: user buffer too small\n");
++		ret = -EINVAL;
++		goto read_error;
++	}
++
++	/* Get packet from queue */
++	/* The queue has its own lock */
++	pkt = dev->pktf.cfpkt_dequeue(dev->pktq);
++
++	spin_lock(&dev->read_queue_len_lock);
++	dev->read_queue_len--;
++	if (test_bit(STATE_RX_FLOW_OFF, (void *) &dev->status) &&
++	    (dev->read_queue_len < CHNL_CHR_READ_QUEUE_LOW)) {
++
++		clear_bit(STATE_RX_FLOW_OFF, (void *) &dev->status);
++
++		/* Todo: send flow on */
++		CAIFLOG_TRACE2
++		    ("caif_chrread(): sending flow ON (queue len = %d)\n",
++		     dev->read_queue_len);
++		chnl_assert(dev->layer.dn);
++		chnl_assert(dev->layer.dn->ctrlcmd);
++		(void) dev->layer.dn->modemcmd(dev->layer.dn,
++					       CAIF_MODEMCMD_FLOW_ON_REQ);
++
++		chnl_assert(dev->read_queue_len >= 0);
++
++	}
++	spin_unlock(&dev->read_queue_len_lock);
++
++	result = dev->pktf.cfpkt_raw_extract(pkt, (void **) &rxbuf, len);
++
++	chnl_assert(result >= 0);
++
++	if (result < 0) {
++		CAIFLOG_TRACE("caif_chrread: cfpkt_raw_extract failed\n");
++		dev->pktf.cfpkt_destroy(pkt);
++		ret = -EINVAL;
++		goto read_error;
++	}
++
++	/* Copy data from the RX buffer to the user buffer. */
++	if (copy_to_user(buf, rxbuf, len)) {
++		CAIFLOG_TRACE("caif_chrread: copy_to_user returned non zero.");
++		dev->pktf.cfpkt_destroy(pkt);
++		ret = -EINVAL;
++		goto read_error;
 +	}
 +
 +
-+	ring_buffer_head_element(&my_ring_buffer).cfpkt = cfpkt;
-+	ring_buffer_increment_head(&my_ring_buffer);
-+	spin_unlock(&ring_buffer_lock);
++	/* Liberate packet. */
++	dev->pktf.cfpkt_destroy(pkt);
 +
-+	/* Add this  work to the queue as we don't want to
-+	 * loop in the same context.
-+	 */
-+	(void) queue_work(ploop_work_queue, &loop_work);
 +
++	/* Let the others in */
++	mutex_unlock(&dev->mutex);
 +	CAIFLOG_EXIT("");
-+	return 0;
++	return len;
++
++read_error:
++	mutex_unlock(&dev->mutex);
++	CAIFLOG_EXIT("");
++	return ret;
 +}
 +
-+static int cf_phy_tx_direct(layer_t *layr, transmt_info *info, cfpkt_t *pkt)
++/** Device write function called from Linux Kernel (misc device) */
++ssize_t caif_chrwrite(struct file *filp, const char __user *buf,
++		      size_t count, loff_t *f_pos)
 +{
-+	int ret;
-+
++	cfpkt_t *pkt = NULL;
++	struct caif_char_dev *dev = filp->private_data;
++	transmt_info info;
++	unsigned char *txbuf;
++	ssize_t ret = -EIO;
 +	CAIFLOG_ENTER("");
-+	CAIFLOG_TRACE("[%s] up:%p pkt:%p\n", __func__, cf_phy.up,
-+		    pkt);
-+	/* Push received packet back up the caif stack,
-+	 * via loop_phy_tx's work-queue */
-+	ret = loop_phy_tx(layr, info, pkt);
++
++	if (dev == NULL) {
++		CAIFLOG_TRACE("[%s:%d] private_data not set!\n",
++			      __func__, __LINE__);
++		ret = -EBADFD;
++		goto write_error_no_unlock;
++	}
++
++
++	if (count > CAIF_MAX_PAYLOAD_SIZE) {
++		CAIFLOG_TRACE("[%s:%d] buffer too long\n", __func__, __LINE__);
++		ret = -EINVAL;
++		goto write_error_no_unlock;
++	}
++
++	/* I want to be alone on dev (except status and queue) */
++	if (mutex_lock_interruptible(&dev->mutex)) {
++		CAIFLOG_TRACE
++		    ("caif_chrwrite: mutex_lock_interruptible got signalled");
++		ret = -ERESTARTSYS;
++		goto write_error_no_unlock;
++	}
++
++	chnl_assert(dev->pktq);
++
++	if (!test_bit(STATE_IS_OPEN_BIT, (void *) &dev->status)) {
++		CAIFLOG_TRACE("[%s:%d] device not open", __func__, __LINE__);
++		ret = -EINVAL;
++		goto write_error;
++	}
++
++	if (test_bit(STATE_IS_CLOSED_BIT, (void *) &dev->status)) {
++		CAIFLOG_TRACE("[%s:%d] remote end shutdown!",
++			      __func__, __LINE__);
++		ret = -EPIPE;
++		goto write_error;
++	}
++
++	if (test_bit(STATE_CLOSE_PENDING_BIT, (void *) &dev->status)) {
++		CAIFLOG_TRACE("[%s:%d] device is closing...",
++			      __func__, __LINE__);
++		ret = -EPIPE;
++		goto write_error;
++	}
++
++	if (!test_bit(STATE_TX_FLOW_ON, (void *) &dev->status) &&
++	    (filp->f_flags & O_NONBLOCK)) {
++		CAIFLOG_TRACE("caif_chrwrite: O_NONBLOCK");
++		ret = -EAGAIN;
++		goto write_error;
++	}
++
++	/* Let readers in */
++	mutex_unlock(&dev->mutex);
++
++	if (wait_event_interruptible(dev->mgmt_wq,
++				     test_bit(STATE_TX_FLOW_ON,
++					      (void *) &dev->status)
++				     || test_bit(STATE_IS_CLOSED_BIT,
++						 (void *) &dev->status)) ==
++	    -ERESTARTSYS) {
++		CAIFLOG_TRACE
++		    ("caif_chrwrite:"
++		     " wait_event_interruptible woken by a signal");
++		ret = -ERESTARTSYS;
++		goto write_error_no_unlock;
++	}
++
++	/* I want to be alone on dev (except status and queue) */
++	if (mutex_lock_interruptible(&dev->mutex)) {
++		CAIFLOG_TRACE
++		    ("caif_chrwrite: mutex_lock_interruptible got signalled\n");
++		ret = -ERESTARTSYS;
++		goto write_error_no_unlock;
++	}
++
++	if (test_bit(STATE_IS_CLOSED_BIT, (void *) &dev->status)) {
++		/* someone closed the link, report error */
++		CAIFLOG_TRACE("[%s:%d] remote end shutdown!\n",
++			      __func__, __LINE__);
++		ret = -EPIPE;
++		goto write_error;
++	}
++
++	/* Create packet, buf=NULL means no copying */
++	pkt = dev->pktf.cfpkt_create_xmit_pkt((const unsigned char *) NULL,
++					      count);
++
++	if (pkt == NULL) {
++		CAIFLOG_TRACE
++		    ("caif_chrwrite: cfpkt_create_pkt returned NULL\n");
++		ret = -EIO;
++		goto write_error;
++	}
++
++	if (!dev->pktf.cfpkt_raw_append(pkt, (void **) &txbuf, count)) {
++		CAIFLOG_TRACE("caif_chrwrite: cfpkt_raw_append failed\n");
++		dev->pktf.cfpkt_destroy(pkt);
++		ret = -EINVAL;
++		goto write_error;
++	}
++
++	/* Copy data into buffer. */
++
++	if (copy_from_user(txbuf, buf, count)) {
++		CAIFLOG_TRACE
++		    ("caif_chrwrite: copy_from_user returned non zero.\n");
++		dev->pktf.cfpkt_destroy(pkt);
++		ret = -EINVAL;
++		goto write_error;
++	}
++
++	memset(&info, 0, sizeof(info));
++
++	/* Send the packet down the stack. */
++	chnl_assert(dev->layer.dn);
++	chnl_assert(dev->layer.dn->transmit);
++
++	ret = dev->layer.dn->transmit(dev->layer.dn, &info, pkt);
++	if (ret < 0) {
++		dev->pktf.cfpkt_destroy(pkt);
++		CAIFLOG_TRACE("caif_chrwrite: transmit failed, error = %d\n",
++			      ret);
++		goto write_error;
++	}
++
++
++	mutex_unlock(&dev->mutex);
++	CAIFLOG_EXIT("");
++	return count;
++
++write_error:
++	mutex_unlock(&dev->mutex);
++write_error_no_unlock:
 +	CAIFLOG_EXIT("");
 +	return ret;
 +}
 +
 +
-+static int __init phyif_loop_init(void)
++static unsigned int caif_chrpoll(struct file *filp, poll_table *waittab)
 +{
-+	int result;
++	struct caif_char_dev *dev = filp->private_data;
++	unsigned int mask = 0;
 +
 +	CAIFLOG_ENTER("");
-+	printk("\nCompiled:%s:%s\nreentrant=%s direct=%s\n",
-+	       __DATE__, __TIME__,
-+	       (reentrant ? "yes" : "no"),
-+	       (direct ? "yes" : "no"));
-+	/* Fill in some information about our PHYs. */
-+	if (direct) {
-+		cf_phy.transmit = cf_phy_tx_direct;
-+		cf_phy.receive = NULL;
++
++	if (dev == NULL) {
++		CAIFLOG_TRACE("[%s:%d] private_data not set!\n",
++			      __func__, __LINE__);
++		return -EBADFD;
++	}
++
++
++	/* I want to be alone on dev (except status and queue) */
++	if (mutex_lock_interruptible(&dev->mutex)) {
++		CAIFLOG_TRACE
++		    ("caif_chrpoll: mutex_lock_interruptible got signalled\n");
++		goto poll_error;
++	}
++
++	chnl_assert(dev->pktq);
++
++	if (!test_bit(STATE_IS_OPEN_BIT, (void *) &dev->status)) {
++		CAIFLOG_TRACE("[%s:%d] device not open\n", __func__, __LINE__);
++		goto poll_error;
++	}
++
++	if (test_bit(STATE_IS_CLOSED_BIT, (void *) &dev->status)) {
++		CAIFLOG_TRACE("[%s:%d] remote end shutdown!\n",
++			      __func__, __LINE__);
++		goto poll_error;
++	}
++
++	if (test_bit(STATE_CLOSE_PENDING_BIT, (void *) &dev->status)) {
++		CAIFLOG_TRACE("[%s:%d] device is closing...\n",
++			      __func__, __LINE__);
++		goto poll_error;
++	}
++
++	poll_wait(filp, &dev->read_wq, waittab);
++
++	if (dev->pktf.cfpkt_qpeek(dev->pktq) != NULL)
++		mask |= (POLLIN | POLLRDNORM);
++
++
++	if (test_bit(STATE_TX_FLOW_ON, (void *) &dev->status))
++		mask |= (POLLOUT | POLLWRNORM);
++
++
++	mutex_unlock(&dev->mutex);
++	CAIFLOG_TRACE("[%s:%d] caif_chrpoll mask=0x%04x...\n",
++		      __func__, __LINE__, mask);
++
++	CAIFLOG_EXIT("");
++	return mask;
++
++poll_error:
++	mask |= POLLERR;
++	mutex_unlock(&dev->mutex);
++	CAIFLOG_EXIT("");
++	return mask;
++}
++
++/* Usage:
++   minor >= 0 : find from minor
++   minor < 0 and name == name : find from name
++   minor < 0 and name == NULL : get first
++*/
++
++static struct caif_char_dev *find_device(int minor, char *name,
++					 int remove_from_list)
++{
++	struct list_head *list_node;
++	struct list_head *n;
++	struct caif_char_dev *dev = NULL;
++	struct caif_char_dev *tmp;
++	CAIFLOG_ENTER("");
++	spin_lock(&list_lock);
++	CAIFLOG_TRACE("[%s:%d] start looping \n", __func__, __LINE__);
++	list_for_each_safe(list_node, n, &caif_chrdev_list) {
++		tmp = list_entry(list_node, struct caif_char_dev, list_field);
++		CAIFLOG_TRACE("[%s:%d] check %d,%d, %s, %s \n",
++			      __func__, __LINE__, tmp->misc.minor, minor,
++			      tmp->name, name);
++		if (minor >= 0) {	/* find from minor */
++			if (tmp->misc.minor == minor)
++				dev = tmp;
++
++		} else if (name) {	/* find from name */
++			if (!strncmp(tmp->name, name, sizeof(tmp->name)))
++				dev = tmp;
++		} else {	/* take first */
++			dev = tmp;
++		}
++
++		if (dev) {
++			CAIFLOG_TRACE("[%s:%d] match %d, %s \n",
++				      __func__, __LINE__, minor, name);
++			if (remove_from_list)
++				list_del(list_node);
++			break;
++		}
++	}
++	spin_unlock(&list_lock);
++	return dev;
++}
++
++#if CAIFLOG_ON
++static void print_device_list(void)
++{
++	int i = 0;
++	struct list_head *list_node;
++	struct caif_char_dev *tmp;
++	CAIFLOG_ENTER("");
++	spin_lock(&list_lock);
++	CAIFLOG_TRACE("List of devices:\n");
++	list_for_each(list_node, &caif_chrdev_list) {
++		tmp = list_entry(list_node, struct caif_char_dev, list_field);
++		CAIFLOG_TRACE("i = %d, minor= %d, name = %s, open = %d\n", i,
++			      tmp->misc.minor, tmp->name,
++			      test_bit(STATE_IS_OPEN_BIT,
++				       (void *) &tmp->status) ? 1 : 0);
++		i++;
++	}
++	if (i == 0)
++		CAIFLOG_TRACE("list is empty\n");
++
++	spin_unlock(&list_lock);
++}
++#endif
++
++
++static void drain_queue(struct caif_char_dev *dev)
++{
++	cfpkt_t *pkt;
++
++	/* Empty the queue */
++	do {
++		/* The queue has its own lock */
++		pkt = dev->pktf.cfpkt_dequeue(dev->pktq);
++
++		if (!pkt)
++			break;
++
++		CAIFLOG_TRACE
++		    ("[%s:%d] drain_queue(): freeing packet from read queue\n",
++		     __func__, __LINE__);
++		dev->pktf.cfpkt_destroy(pkt);
++
++	} while (1);
++}
++
++
++int caif_chropen(struct inode *inode, struct file *filp)
++{
++	struct caif_char_dev *dev = NULL;
++	int result = -1;
++	int minor = iminor(inode);
++	int mode = 0;
++	int ret = -EIO;
++
++	CAIFLOG_ENTER("");
++
++	IF_CAIF_TRACE(print_device_list());
++
++	dev = find_device(minor, NULL, 0);
++
++	if (dev == NULL) {
++		CAIFLOG_TRACE("[%s] COULD NOT FIND DEVICE\n", __func__);
++		return -EBADF;
++	}
++
++	CAIFLOG_TRACE("[%s:%d] dev=%p \n", __func__, __LINE__, dev);
++
++	/* I want to be alone on dev (except status and queue) */
++	if (mutex_lock_interruptible(&dev->mutex)) {
++		CAIFLOG_TRACE
++		    ("caif_chropen: mutex_lock_interruptible got signalled\n");
++		return -ERESTARTSYS;
++	}
++
++	filp->private_data = dev;
++
++	switch (filp->f_flags & O_ACCMODE) {
++	case O_RDONLY:
++		mode = CHR_READ_FLAG;
++		break;
++	case O_WRONLY:
++		mode = CHR_WRITE_FLAG;
++		break;
++	case O_RDWR:
++		mode = CHR_READ_FLAG | CHR_WRITE_FLAG;
++		break;
++	}
++
++	/* If close is pending we need to wait for its conclusion */
++	result = wait_event_interruptible_timeout(dev->mgmt_wq,
++						  !test_bit
++						  (STATE_CLOSE_PENDING_BIT,
++						   (void *) &dev->status),
++						  CAIF_CONNECT_TIMEOUT * HZ);
++	if (result == -ERESTARTSYS) {
++		CAIFLOG_TRACE
++		    ("caif_chropen:"
++		     " wait_event_interruptible woken by a signal (1)");
++		ret = -ERESTARTSYS;
++		goto open_error;
++	} else if (result == 0) {
++		/* Timed out */
++		/* Timeout */
++		CAIFLOG_TRACE("caif_chropen: close pending timed out\n");
++		ret = -ETIMEDOUT;
++		goto open_error;
++	}
++
++	if (!test_bit(STATE_IS_OPEN_BIT, (void *) &dev->status)) {
++
++		/* Test if we have already registered the channel,
++		 * we could have been interrupted by a signal last time...
++		 */
++		if (!test_bit(STATE_OPEN_PENDING_BIT, (void *) &dev->status)) {
++
++			/* First opening of file; connect lower layers: */
++
++			dev->layer.receive = caif_chrrecv_cb;
++
++			clear_bit(STATE_IS_CLOSED_BIT, (void *) &dev->status);
++			clear_bit(STATE_TX_FLOW_ON, (void *) &dev->status);
++			set_bit(STATE_OPEN_PENDING_BIT, (void *) &dev->status);
++
++			/* Register this channel. */
++			result =
++			    caifdev_adapt_register(&dev->config, &dev->layer);
++			if (result < 0) {
++				CAIFLOG_TRACE
++				    ("caif_chropen: can't register channel\n");
++				ret = -EIO;
++				goto open_error;
++			}
++		}
++
++		CAIFLOG_TRACE("[%s:%d] WAIT FOR CONNECT RESPONSE \n", __func__,
++			      __LINE__);
++
++		result = wait_event_interruptible_timeout(dev->mgmt_wq,
++							  test_bit
++							  (STATE_IS_OPEN_BIT,
++							   (void *)
++							   &dev->status)
++							  ||
++							  test_bit
++							  (STATE_IS_CLOSED_BIT,
++							   (void *)
++							   &dev->status),
++							  CAIF_CONNECT_TIMEOUT
++							  * HZ);
++		if (result == -ERESTARTSYS) {
++			CAIFLOG_TRACE
++			    ("caif_chropen: "
++			     "wait_event_interruptible woken by a signal (2)");
++			ret = -ERESTARTSYS;
++			goto open_error;
++		} else if (result == 0) {
++			/* Timed out */
++			/* Timeout */
++			CAIFLOG_TRACE("caif_open: connect timed out\n");
++			ret = -ETIMEDOUT;
++			goto open_error;
++		}
++
++		if (test_bit(STATE_IS_CLOSED_BIT, (void *) &dev->status)
++		    ) {
++			/* Lower layers said "no" */
++			CAIFLOG_TRACE
++			    ("[%s:%d] caif_chropen: CLOSED RECEIVED\n",
++			     __func__, __LINE__);
++			ret = -EPIPE;
++			goto open_error;
++		}
++
++		CAIFLOG_TRACE("[%s:%d] caif_chropen: CONNECT RECEIVED\n",
++			      __func__, __LINE__);
 +	} else {
-+		cf_phy.transmit = cf_phy_tx;
-+		cf_phy.receive = NULL;
++		/* Already open */
++		CAIFLOG_TRACE
++		    ("[%s:%d] Device is already opened (dev=%p) check access "
++		     "f_flags = 0x%x file_mode = 0x%x\n",
++		     __func__, __LINE__, dev, mode, dev->file_mode);
++
++		if (mode & dev->file_mode) {
++			CAIFLOG_TRACE
++			    ("[%s:%d] Access mode already in use 0x%x \n",
++			     __func__, __LINE__, mode);
++			ret = -EBUSY;
++			goto open_error;
++		}
 +	}
-+	if (reentrant)
-+		loop_phy.transmit = loop_phy_tx_reent;
-+	else
-+		loop_phy.transmit = loop_phy_tx;
 +
-+	loop_phy.receive = NULL;
-+	cf_phy.modemcmd = cf_phy_modemcmd;
++	/* Open is ok */
++	dev->file_mode |= mode;
 +
-+	/* Create work thread. */
-+	ploop_work_queue = create_singlethread_workqueue("phyif_loop");
++	CAIFLOG_TRACE("[%s:%d] Open - file mode = %x\n",
++		      __func__, __LINE__, dev->file_mode);
 +
-+	init_waitqueue_head(&buf_available);
++	CAIFLOG_TRACE("[%s:%d] CONNECTED \n", __func__, __LINE__);
 +
-+	/* Initialize ring buffer */
-+	memset(&my_ring_buffer, 0, sizeof(my_ring_buffer));
-+	spin_lock_init(&ring_buffer_lock);
-+	cf_phy.id = -1;
-+	if (serial)
-+		result =
-+		    caifdev_phy_register(&cf_phy, CFPHYTYPE_SERIAL,
-+					 CFPHYPREF_UNSPECIFIED);
-+	else
-+		result =
-+		    caifdev_phy_register(&cf_phy, CFPHYTYPE_MSL,
-+					 CFPHYPREF_UNSPECIFIED);
++	mutex_unlock(&dev->mutex);
++	CAIFLOG_EXIT("");
++	return 0;
 +
-+	printk(KERN_WARNING "phyif_loop: ID = %d\n", cf_phy.id);
++open_error:
++	mutex_unlock(&dev->mutex);
++	CAIFLOG_EXIT("");
++	return ret;
++}
++
++int caif_chrrelease(struct inode *inode, struct file *filp)
++{
++	struct caif_char_dev *dev = NULL;
++	int minor = iminor(inode);
++	int result;
++	int mode = 0;
++	CAIFLOG_ENTER("");
++
++	IF_CAIF_TRACE(print_device_list());
++	dev = find_device(minor, NULL, 0);
++	if (dev == NULL) {
++		CAIFLOG_TRACE("[%s] COULD NOT FIND DEVICE\n", __func__);
++		return -EBADF;
++	}
++
++	/* I want to be alone on dev (except status queue) */
++	if (mutex_lock_interruptible(&dev->mutex)) {
++		CAIFLOG_TRACE
++		    ("caif_chrrelease: "
++		     "mutex_lock_interruptible got signalled\n");
++		return -ERESTARTSYS;
++	}
++
++	/* Don't need to test for CLOSE _PENDING because if set IS_OPEN is
++	   always cleared
++	 */
++	if (!test_bit(STATE_IS_OPEN_BIT, (void *) &dev->status)) {
++		CAIFLOG_TRACE("[%s:%d] Device not open (dev=%p) \n",
++			      __func__, __LINE__, dev);
++		mutex_unlock(&dev->mutex);
++		return 0;
++	}
++
++	switch (filp->f_flags & O_ACCMODE) {
++	case O_RDONLY:
++		mode = CHR_READ_FLAG;
++		break;
++	case O_WRONLY:
++		mode = CHR_WRITE_FLAG;
++		break;
++	case O_RDWR:
++		mode = CHR_READ_FLAG | CHR_WRITE_FLAG;
++		break;
++	}
++
++
++	dev->file_mode &= ~mode;
++	if (dev->file_mode) {
++		CAIFLOG_TRACE
++		    ("[%s:%d] Don't yet close CAIF connection - file_mode "
++		     "= %x\n", __func__, __LINE__, dev->file_mode);
++		mutex_unlock(&dev->mutex);
++		return 0;
++	}
++
++	/* IS_CLOSED have double meaning:
++	 * 1) Spontanous Remote Shutdown Request.
++	 * 2) Ack on a channel teardown(disconnect)
++	 * Must clear bit in case we previously received
++	 * remote shudown request.
++	 */
++
++	clear_bit(STATE_IS_CLOSED_BIT, (void *) &dev->status);
++	set_bit(STATE_CLOSE_PENDING_BIT, (void *) &dev->status);
++
++	result = caifdev_adapt_unregister(&dev->layer);
 +
 +	if (result < 0) {
-+		printk(KERN_WARNING
-+		       "phyif_loop: err: %d, can't register phy.\n", result);
++		/* Timeout */
++		CAIFLOG_TRACE
++		    ("caif_chrrelease: caifdev_adapt_unregister() failed\n");
++		mutex_unlock(&dev->mutex);
++		return -EIO;
 +	}
 +
-+	if (serial)
-+		result =
-+		    caifdev_phy_loop_register(&loop_phy, CFPHYTYPE_SERIAL);
-+	else
-+		result = caifdev_phy_loop_register(&loop_phy, CFPHYTYPE_MSL);
++	/* wait for flow control callback with flow == shutdown */
++	result = wait_event_interruptible_timeout(dev->mgmt_wq,
++						  test_bit(STATE_IS_CLOSED_BIT,
++							   (void *)
++							   &dev->status),
++						  CAIF_CONNECT_TIMEOUT * HZ);
++	if (result == -ERESTARTSYS) {
++		CAIFLOG_TRACE
++		    ("caif_chrrelease: "
++		     "wait_event_interruptible woken by signal,"
++		     " signal_pending(current) = %d\n",
++		     signal_pending(current));
++	} else if (result == 0) {
++		/* Timeout */
++		CAIFLOG_TRACE("caif_chrrelease: disconnect timed out\n");
++		mutex_unlock(&dev->mutex);
++		return -ETIMEDOUT;
++	} else {
++		CAIFLOG_TRACE("[%s:%d] caif_chrrelease: DISCONNECT RECEIVED\n",
++			      __func__, __LINE__);
++	}
++
++	/* Empty the queue */
++	drain_queue(dev);
++	dev->file_mode = 0;
++	clear_bit(STATE_IS_OPEN_BIT, (void *) &dev->status);
++	clear_bit(STATE_TX_FLOW_ON, (void *) &dev->status);
++	IF_CAIF_TRACE(print_device_list());
++
++	mutex_unlock(&dev->mutex);
++	return 0;
++}
++
++const struct file_operations caif_chrfops = {
++	.owner = THIS_MODULE,
++	.read = caif_chrread,
++	.write = caif_chrwrite,
++	.open = caif_chropen,
++	.release = caif_chrrelease,
++	.poll = caif_chrpoll,
++};
++
++int chrdev_create(struct caif_channel_create_action *action)
++{
++
++	struct caif_char_dev *dev = NULL;
++	int result;
++	CAIFLOG_ENTER("");
++
++	IF_CAIF_TRACE(print_device_list());
++
++	/* Allocate device */
++	dev = kmalloc(sizeof(*dev), GFP_KERNEL);
++
++	if (!dev) {
++		CAIFLOG_TRACE(KERN_ERR "chnl_chr: kmalloc failed.\n");
++		return -ENOMEM;
++	}
++
++	CAIFLOG_TRACE("[%s:%d] dev=%p \n", __func__, __LINE__, dev);
++	memset(dev, 0, sizeof(*dev));
++
++	mutex_init(&dev->mutex);
++	init_waitqueue_head(&dev->read_wq);
++	init_waitqueue_head(&dev->mgmt_wq);
++	spin_lock_init(&dev->read_queue_len_lock);
++
++	/* Fill in some information concerning the misc device. */
++	dev->misc.minor = MISC_DYNAMIC_MINOR;
++	strncpy(dev->name, action->name.name, sizeof(dev->name));
++	dev->misc.name = dev->name;
++	dev->misc.fops = &caif_chrfops;
++
++	/* Register the device */
++	result = misc_register(&dev->misc);
++
++	/* Lock in order to try to stop someone from opening the device
++	   too early. The misc device has its own lock. We cannot take our
++	   lock until misc_register() is finished, because in open() the
++	   locks are taken in this order (misc first and then dev).
++	   So anyone managing to open the device between the misc_register
++	   and the mutex_lock will get a "device not found" error. Don't
++	   think it can be avoided.
++	 */
++	mutex_lock_interruptible(&dev->mutex);
 +
 +	if (result < 0) {
-+		printk(KERN_WARNING
-+		       "phyif_loop: err: %d, can't register loop phy.\n",
-+		       result);
++		CAIFLOG_ERROR("chnl_chr: error - %d, can't register misc.\n",
++			      result);
++		mutex_unlock(&dev->mutex);
++		goto err_failed;
 +	}
 +
-+	printk(KERN_WARNING "phyif_loop: ID = %d\n", cf_phy.id);
++
++	dev->pktf = cfcnfg_get_packet_funcs();
++
++	dev->pktq = dev->pktf.cfpktq_create();
++	if (!dev->pktq) {
++		CAIFLOG_ERROR("chnl_chr: queue create failed.\n");
++		result = -ENOMEM;
++		mutex_unlock(&dev->mutex);
++		misc_deregister(&dev->misc);
++		goto err_failed;
++	}
++
++	CAIFLOG_TRACE("[%s:%d] pktf=%p\n", __func__, __LINE__, &dev->pktf);
++	CAIFLOG_TRACE("[%s:%d] cfpkt_create_xmit=%p\n", __func__,
++		      __LINE__, dev->pktf.cfpkt_create_xmit_pkt);
++
++	strncpy(action->name.name, dev->misc.name, sizeof(action->name.name));
++	action->major = MISC_MAJOR;
++	action->minor = dev->misc.minor;
++
++	dev->config = action->config;
++	CAIFLOG_TRACE("dev: Registered dev with name=%s minor=%d, dev=%p\n",
++		      dev->misc.name, dev->misc.minor, dev->misc.this_device);
++
++	dev->layer.ctrlcmd = caif_chrflowctrl_cb;
++
++	/* Add the device */
++	spin_lock(&list_lock);
++	list_add(&dev->list_field, &caif_chrdev_list);
++	spin_unlock(&list_lock);
++
++	IF_CAIF_TRACE(print_device_list());
++
++	CAIFLOG_EXIT("");
++	mutex_unlock(&dev->mutex);
++	return 0;
++err_failed:
++	action->name.name[0] = '\0';
++	action->major = -1;
++	action->minor = -1;
++	kfree(dev);
 +	CAIFLOG_EXIT("");
 +	return result;
 +}
 +
-+static void phyif_loop_exit(void)
++
++int chrdev_remove(char *name)
 +{
-+	printk(KERN_WARNING "phyif_loop: ID = %d\n", cf_phy.id);
++	int ret = 0;
 +
-+	caifdev_phy_unregister(&cf_phy);
-+	cf_phy.id = -1;
-+}
++	struct caif_char_dev *dev = NULL;
++	CAIFLOG_ENTER("");
 +
-+module_init(phyif_loop_init);
-+module_exit(phyif_loop_exit);
-diff --git a/drivers/net/caif/phyif_ser.c b/drivers/net/caif/phyif_ser.c
-new file mode 100644
-index 0000000..5dc3da6
---- /dev/null
-+++ b/drivers/net/caif/phyif_ser.c
-@@ -0,0 +1,189 @@
-+/*
-+*      Copyright (C) ST-Ericsson AB 2009
-+*
-+*      Author: Daniel Martensson / Daniel.Martensson@stericsson.com
-+*
-+*      License terms: GNU General Public License (GPL), version 2.
-+*
-+*/
++	IF_CAIF_TRACE(print_device_list());
++
++	/* Find device from name */
++	dev = find_device(-1, name, 0);
++	if (!dev)
++		return -EBADF;
 +
 +
++	mutex_lock_interruptible(&dev->mutex);
 +
-+
-+
-+#include <linux/version.h>
-+#include <linux/init.h>
-+#include <linux/module.h>
-+#include <linux/device.h>
-+#include <linux/tty.h>
-+
-+#include "caif_layer.h"
-+#include "cfcnfg.h"
-+#include "cfpkt.h"
-+#include "caif_chr.h"
-+
-+
-+MODULE_LICENSE("GPL");
-+
-+module_param(serial_use_stx, bool, S_IRUGO);
-+MODULE_PARM_DESC(serial_use_stx, "STX enabled or not.");
-+
-+#define WRITE_BUF_SIZE	256
-+#define READ_BUF_SIZE	256
-+
-+unsigned char sbuf_wr[WRITE_BUF_SIZE];
-+
-+layer_t ser_phy;
-+
-+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
-+static struct tty_ldisc_ops phyif_ldisc;
-+#else
-+static struct tty_ldisc phyif_ldisc;
-+#endif				/* KERN_VERSION_2_6_27 */
-+
-+struct tty_struct *pser_tty;
-+
-+
-+static bool tx_started;
-+
-+static int ser_open(struct tty_struct *tty)
-+{
-+	int result;
-+
-+	pser_tty = tty;
-+
-+	/* Configure the attached TTY. */
-+
-+	/* Register physical interface. */
-+	result =
-+	    caifdev_phy_register(&ser_phy, CFPHYTYPE_SERIAL,
-+				 CFPHYPREF_LOW_LAT);
-+	if (result < 0) {
-+		printk(KERN_WARNING
-+		       "phyif_ser: err: %d, can't register phy.\n", result);
++	if (test_bit(STATE_IS_OPEN_BIT, (void *) &dev->status)) {
++		CAIFLOG_TRACE
++		    ("[%s:%d] Device is opened (dev=%p) file_mode = 0x%x\n",
++		     __func__, __LINE__, dev, dev->file_mode);
++		mutex_unlock(&dev->mutex);
++		return -EBUSY;
 +	}
 +
-+	return result;
++	/* Remove from list */
++	(void) find_device(-1, name, 1);
++
++	drain_queue(dev);
++	ret = misc_deregister(&dev->misc);
++
++	cfglu_free(dev->pktq);
++	mutex_unlock(&dev->mutex);
++	kfree(dev);
++
++	IF_CAIF_TRACE(print_device_list());
++
++	return ret;
 +}
 +
-+static void ser_receive(struct tty_struct *tty, const u8 *data,
-+			char *flags, int count)
++
++int chrdev_mgmt(int action, union caif_action *param)
 +{
-+	cfpkt_t *pkt = NULL;
-+	caif_packet_funcs_t f;
-+	/*int i; */
 +
-+	/* Get caif packet functions. */
-+	f = cfcnfg_get_packet_funcs();
-+
-+
-+	/* Workaround for garbage at start of transmission,
-+	 * only enable if STX handling is not enables */
-+	if (!serial_use_stx && !tx_started) {
-+		printk(KERN_WARNING
-+		       "Bytes received before first transmission."
-+		       " Bytes discarded. \n");
-+		return;
++	switch (action) {
++	case CAIF_ACT_CREATE_DEVICE:
++		return chrdev_create(&param->create_channel);
++	case CAIF_ACT_DELETE_DEVICE:
++		return chrdev_remove(param->delete_channel.name);
++	default:
++		return -EINVAL;
 +	}
-+
-+	/* Get a suitable caif packet and copy in data. */
-+	pkt = f.cfpkt_create_recv_pkt(data, count);
-+
-+	/* Push received packet up the stack. */
-+	ser_phy.up->receive(ser_phy.up, pkt);
 +}
 +
-+
-+int ser_phy_tx(layer_t *layr, transmt_info *info, struct _cfpkt_t *cfpkt)
++int caif_chrinit_module(void)
 +{
-+	size_t tty_wr, actual_len;
-+	bool cont;
-+	caif_packet_funcs_t f;
-+	/*int i; */
-+
-+	if (!pser_tty)
-+		return CFGLU_ENOTCONN;
-+
-+	/* Get caif packet functions. */
-+	f = cfcnfg_get_packet_funcs();
-+
-+	/* NOTE: This workaround is not really needed when STX is enabled.
-+	 *  Remove? */
-+	if (tx_started == false)
-+		tx_started = true;
-+
-+
-+	do {
-+		char *bufp;
-+		/* By default we assume that we will extract
-+		 * all data in one go. */
-+		cont = false;
-+
-+		/* Extract data from the packet. */
-+		f.cfpkt_extract(cfpkt, sbuf_wr, WRITE_BUF_SIZE, &actual_len);
-+
-+		/* Check if we need to extract more data. */
-+		if (actual_len == WRITE_BUF_SIZE)
-+			cont = true;
-+
-+		bufp = sbuf_wr;
-+		/* Write the data on the tty driver.
-+		 * NOTE: This loop will be spinning until UART is ready for
-+		 *	 sending data.
-+		 *	 It might be looping forever if we get UART problems.
-+		 *	 This part should be re-written!
-+		 */
-+		do {
-+			tty_wr =
-+			    pser_tty->ops->write(pser_tty, bufp, actual_len);
-+			/* When not whole buffer is written,
-+			 * forward buffer pointer and try again */
-+			actual_len -= tty_wr;
-+			bufp += tty_wr;
-+		} while (actual_len);
-+	} while (cont == true);
-+
-+	/* The packet is sent. As we have come to the end of the
-+	 * line we need to free the packet. */
-+	f.cfpkt_destroy(cfpkt);
-+
++	CAIFLOG_ENTER("");
++	CAIFLOG_TRACE("\nCompiled:%s:%s\n", __DATE__, __TIME__);
++	spin_lock_init(&list_lock);
++	caif_register_chrdev(chrdev_mgmt);
 +	return 0;
 +}
 +
-+static int __init phyif_ser_init(void)
++void caif_chrexit_module(void)
 +{
 +	int result;
 +
-+	/* Fill in some information about our PHY. */
-+	ser_phy.transmit = ser_phy_tx;
-+	ser_phy.receive = NULL;
-+	ser_phy.ctrlcmd = NULL;
-+	ser_phy.modemcmd = NULL;
++	CAIFLOG_ENTER("");
++	IF_CAIF_TRACE(print_device_list());
 +
-+	memset(&phyif_ldisc, 0, sizeof(phyif_ldisc));
-+	phyif_ldisc.magic = TTY_LDISC_MAGIC;
-+	phyif_ldisc.name = "n_phyif";
-+	phyif_ldisc.open = ser_open;
-+	phyif_ldisc.receive_buf = ser_receive;
-+	phyif_ldisc.owner = THIS_MODULE;
++	do {
++		/* Remove any device (the first in the list) */
++		result = chrdev_remove(NULL);
++	} while (result == 0);
 +
-+	result = tty_register_ldisc(N_MOUSE, &phyif_ldisc);
++	caif_unregister_chrdev();
 +
-+	if (result < 0) {
-+		printk(KERN_WARNING
-+		       "phyif_ser: err: %d, can't register ldisc.\n", result);
-+		return result;
-+	}
-+
-+	return result;
++	IF_CAIF_TRACE(print_device_list());
++	CAIFLOG_EXIT("");
 +}
 +
-+static void phyif_ser_exit(void)
-+{
-+	(void) tty_unregister_ldisc(N_MOUSE);
-+}
-+
-+module_init(phyif_ser_init);
-+module_exit(phyif_ser_exit);
-+
-+MODULE_ALIAS_LDISC(N_MOUSE);
-diff --git a/drivers/net/caif/phyif_shm.c b/drivers/net/caif/phyif_shm.c
++module_init(caif_chrinit_module);
++module_exit(caif_chrexit_module);
+diff --git a/net/caif/chnl_net.c b/net/caif/chnl_net.c
 new file mode 100644
-index 0000000..c192d11
+index 0000000..1d80f09
 --- /dev/null
-+++ b/drivers/net/caif/phyif_shm.c
-@@ -0,0 +1,870 @@
++++ b/net/caif/chnl_net.c
+@@ -0,0 +1,464 @@
 +/*
 +*      Copyright (C) ST-Ericsson AB 2009
 +*
 +*      Author: Daniel Martensson / Daniel.Martensson@stericsson.com
 +*
-+*      License terms: GNU General Public License (GPL), version 2.
++*      License terms: GNU General Public License (GPL), version 2 or later.
 +*
 +*/
 +
-+#include <linux/version.h>
++#include <linux/fs.h>
 +#include <linux/init.h>
 +#include <linux/module.h>
-+#include <linux/device.h>
-+#include <linux/spinlock.h>
-+#include <linux/sched.h>
++#include <linux/netdevice.h>
 +
-+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
-+#include <linux/semaphore.h>
-+#else
-+#include <linux/semaphore.h>
-+#endif				/* KERN_VERSION_2_6_27 */
-+#include <linux/list.h>
-+#include <linux/workqueue.h>
-+
-+#ifdef PHYIF_SHM_USE_DMA
-+#include <linux/dma-mapping.h>
-+#endif				/* PHYIF_SHM_USE_DMA */
-+#include <linux/io.h>
++#include <linux/if_ether.h>
++#include <linux/moduleparam.h>
++#include <linux/ip.h>
 +
 +/* Caif header files. */
 +#include "caif_layer.h"
 +#include "cfcnfg.h"
 +#include "cfpkt.h"
 +
-+/* Caif linux header files. */
 +#include "caif_chr.h"
-+#include "shm.h"
++#include "caif_log.h"
++
++
++#define SIZE_MTU 1500
++#define SIZE_MTU_MAX 4080 /*FIXME: check this number*/
++#define SIZE_MTU_MIN 68	 /*FIXME: check this number*/
++
++static LIST_HEAD(chnl_net_list);
++static spinlock_t list_lock;
 +
 +MODULE_LICENSE("GPL");
 +
-+#define SHM_INSTANCES		1
++static int loop;
++module_param(loop, bool, S_IRUGO);
++MODULE_PARM_DESC(loop,
++		"Loop enabled or not (looping will switch src "
++		 "and dest of transmitted packages)");
++/*Flow status to remember and control the transmission*/
++static bool flowenabled;
 +
-+static char *mbxifc_name = "cfmbx";
-+module_param(mbxifc_name, charp, S_IRUGO);
-+MODULE_PARM_DESC(mbxifc_name,
-+		 "Name of the shared memory mailbox interface.");
++struct chnl_net {
++	layer_t chnl;
++	struct net_device_stats stats;
++	spinlock_t lock;
++	struct caif_channel_config config;
++	struct list_head list_field;
++	struct net_device *netdev;
++	char name[256];
++	bool deviceOpen;
++};
 +
-+static char *mbxcfg_name = "cfcfg";
-+module_param(mbxcfg_name, charp, S_IRUGO);
-+MODULE_PARM_DESC(mbxcfg_name,
-+		 "Name of the shared memory configuration interface.");
++struct net_device *netdevptr;
 +
-+#define SHM_CMD_DUMMY		0x00
++static struct chnl_net *find_device(char *name, bool remove_from_list)
++{
++	struct list_head *list_node;
++	struct list_head *n;
++	struct chnl_net *dev = NULL;
++	struct chnl_net *tmp;
++	CAIFLOG_ENTER("");
++	spin_lock(&list_lock);
++	CAIFLOG_TRACE("[%s:%d] start looping \n", __func__,
++		__LINE__);
++	list_for_each_safe(list_node, n, &chnl_net_list) {
++		tmp =
++		list_entry(list_node, struct chnl_net,
++			list_field);
++		if (name) {	/* find from name */
++			if (!strncmp(tmp->name, name, sizeof(tmp->name)))
++				dev = tmp;
++			else
++				/* Get the first element if name
++				 * is not specified*/
++				dev = tmp;
 +
-+#define SHM_CMD_MASK		(0x3F << 10)
-+#define SHM_FULL_MASK		(0x0F << 0)
-+#define SHM_EMPTY_MASK		(0x0F << 4)
++			if (dev) {
++				CAIFLOG_TRACE("[%s:%d] match %s \n",
++					__func__, __LINE__,  name);
++				if (remove_from_list)
++					list_del(list_node);
 +
-+#define SHM_SET_CMD(x)		((x & 0x3F) << 10)
-+#define SHM_GET_CMD(x)		((x >>	10) & 0x3F)
++				break;
++			}
++		}
++	}
++	spin_unlock(&list_lock);
++	return dev;
++}
 +
-+#define SHM_SET_FULL(x)		(((x+1) & 0x0F) << 0)
-+#define SHM_GET_FULL(x)		(((x >> 0) & 0x0F) - 1)
 +
-+#define SHM_SET_EMPTY(x)	(((x+1) & 0x0F) << 4)
-+#define SHM_GET_EMPTY(x)	(((x >> 4) & 0x0F) - 1)
 +
-+typedef struct {
-+	/* Offset from start of shared memory area to start of
-+	 * shared memory CAIF frame. */
-+	uint32 frm_ofs;
-+	/* Length of CAIF frame. */
-+	uint32 frm_len;
-+} shm_pck_desc_t, *pshm_pck_desc_t;
++static int chnl_recv_cb(layer_t *layr, cfpkt_t *pkt)
++{
++	struct sk_buff *skb;
++	caif_packet_funcs_t f;
++	struct chnl_net *priv  = NULL;
++	int pktlen;
 +
-+typedef struct {
-+	/* Number of bytes of padding before the CAIF frame. */
-+	uint8 hdr_ofs;
-+} shm_caif_frm_t, *pshm_caif_frm_t;
++#ifdef CAIF_USE_SKB
++#else
++	int actual_len;
++#endif
++	int err = 0;
 +
-+/* Maximum number of CAIF buffers per shared memory buffer. */
-+#define SHM_MAX_CAIF_FRMS_PER_BUF	10
++	priv = container_of(layr, struct chnl_net, chnl);
 +
-+/* Size in bytes of the descriptor area
-+ * (With end of descriptor signalling). */
-+#define SHM_CAIF_DESC_SIZE	((SHM_MAX_CAIF_FRMS_PER_BUF + 1) * \
-+				  sizeof(shm_pck_desc_t))
++	if (!priv) {
++		printk(KERN_INFO "chnl_recv_cb: netdev container not found\n");
++		return -EINVAL;
++	}
 +
-+/* Offset to the first CAIF frame within a shared memory buffer.
-+ * Aligned on 32 bytes. */
-+#define SHM_CAIF_FRM_OFS	(SHM_CAIF_DESC_SIZE + (SHM_CAIF_DESC_SIZE % 32))
-+/* Number of bytes for CAIF shared memory header. */
-+#define SHM_HDR_LEN					1
-+/* Number of bytes for alignment of the CAIF service layer payload. */
-+#define SHM_PAYLOAD_ALIGN_LEN		4
-+/* Number of padding bytes for the complete CAIF frame. */
-+#define SHM_FRM_PAD_LEN				4
++	/* Get caif packet functions. */
++	f = cfcnfg_get_packet_funcs();
 +
-+typedef struct _shm_layer_t {
-+	layer_t shm_phy;
-+	shm_cfgifc_t *cfg_ifc;
-+	shm_mbxifc_t *mbx_ifc;
-+	char cfg_name[16];
-+	shm_mbxclient_t mbx_client;
-+	char mbx_name[16];
-+#ifdef PHYIF_SHM_USE_DMA
-+	struct dmaifc_t *dma_ifc;
-+#endif				/* PHYIF_SHM_USE_DMA */
-+	/* Lists for shared memory buffer synchronization and handling. */
-+	struct list_head tx_empty_list;
-+	struct list_head rx_empty_list;
-+	struct list_head tx_pend_list;
-+	struct list_head rx_pend_list;
-+	struct list_head tx_full_list;
-+	struct list_head rx_full_list;
-+	struct work_struct sig_work;
-+	struct work_struct rx_work;
-+	struct work_struct flow_work;
-+	struct workqueue_struct *sig_work_queue;
-+	struct workqueue_struct *rx_work_queue;
-+	struct workqueue_struct *flow_work_queue;
++	/* Get length of caif packet. */
++	pktlen = f.cfpkt_getlen(pkt);
 +
-+    /* wait queue for sender to check for space to write in mailbox */
-+    wait_queue_head_t mbx_space_wq;
-+	int tx_empty_available;
 +
-+} shm_layer_t;
++#ifdef CAIF_USE_SKB
++	/* TODO: Don't we make to much assumptions here ?
++	 * Cast received packet to a native sk_buff. */
++	skb = (struct sk_buff *) f.cfpkt_tonative(pkt);
++#else
++	skb = dev_alloc_skb(pktlen);
 +
-+static shm_layer_t shm_layer[SHM_INSTANCES];
++	if (!skb) {
++		printk(KERN_INFO "chnl_recv_cb: dev_alloc_skb failed.\n");
++		/* Update statistics. */
++		priv->netdev->stats.rx_dropped++;
++		err = -ENOMEM;
++		goto err_alloc_skb;
++	}
 +
-+/* Shared memory buffer structure. */
-+typedef struct {
-+	int index;
++	/* Extract data from the caif packet and copy it to the skb. */
++	f.cfpkt_extract(pkt, skb_put(skb, pktlen), pktlen, &actual_len);
++#endif
++	/* Pass some minimum information and send the
++	 * packet to the net stack. */
++	skb->dev = priv->netdev;
++	skb->protocol = htons(ETH_P_IP);
++	/*FIXME: This is wrong checksum is needed!!*/
++	skb->ip_summed = CHECKSUM_UNNECESSARY;
++	/*netif_rx(skb);*/
++	if (in_interrupt())
++		netif_rx(skb);
++	else
++		netif_rx_ni(skb);
++
++	/* Update statistics. */
++	priv->netdev->stats.rx_packets++;
++	priv->netdev->stats.rx_bytes += pktlen;
++
++#ifdef CAIF_USE_SKB
++#else
++
++err_alloc_skb:
++	f.cfpkt_destroy(pkt);
++#endif
++
++	return err;
++}
++
++static void chnl_flowctrl_cb(layer_t *layr, caif_ctrlcmd_t flow, int phyid)
++{
++	struct chnl_net *priv  = NULL;
++	CAIFLOG_TRACE("NET flowctrl func called flow: %s.\n",
++		flow == CAIF_CTRLCMD_FLOW_ON_IND ? "ON" :
++		flow == CAIF_CTRLCMD_INIT_RSP ? "INIT" :
++		flow == CAIF_CTRLCMD_FLOW_OFF_IND ? "OFF" :
++		flow == CAIF_CTRLCMD_DEINIT_RSP ? "CLOSE/DEINIT" :
++		flow == CAIF_CTRLCMD_INIT_FAIL_RSP ? "OPEN_FAIL" :
++		flow == CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND ?
++		"REMOTE_SHUTDOWN" : "UKNOWN CTRL COMMAND");
++
++	priv = container_of(layr, struct chnl_net, chnl);
++
++	switch (flow) {
++	case CAIF_CTRLCMD_FLOW_OFF_IND:
++	case CAIF_CTRLCMD_DEINIT_RSP:
++	case CAIF_CTRLCMD_INIT_FAIL_RSP:
++	case CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND:
++		flowenabled = false;
++		netif_tx_disable(priv->netdev);
++		break;
++	case CAIF_CTRLCMD_FLOW_ON_IND:
++	case CAIF_CTRLCMD_INIT_RSP:
++		flowenabled = true;
++		netif_wake_queue(priv->netdev);
++		break;
++
++	default:
++		break;
++	}
++
++
++}
++
++int chnl_net_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct chnl_net *priv;
++	cfpkt_t *pkt = NULL;
 +	int len;
-+	int frames;
-+	unsigned char *desc_ptr;
-+	int frm_ofs;
-+	int phy_addr;
-+#ifdef PHYIF_SHM_USE_DMA
-+	dma_addr_t *dma_ptr;
-+#endif				/* PHYIF_SHM_USE_DMA */
-+	struct list_head list;
-+} shm_buf_t;
-+
-+static DEFINE_SPINLOCK(lock);
-+
-+static void phyif_shm_sig_work_func(struct work_struct *work);
-+static void phyif_shm_rx_work_func(struct work_struct *work);
-+static void phyif_shm_flow_work_func(struct work_struct *work);
-+
-+static void phyif_shm_sig_work_func(struct work_struct *work)
-+{
-+	/* TODO: We assume that this call is not reentrant as
-+	 *	 that might change the order of the buffers which
-+	 * is not allowed. Option is to lock the whole function.    */
-+
-+	int ret;
-+	uint16 mbox_msg;
-+	shm_layer_t *pshm = container_of(work, shm_layer_t, sig_work);
-+
-+	do {
-+		shm_buf_t *pbuf;
-+		unsigned long flags;
-+
-+		/* Initialize mailbox message. */
-+		mbox_msg = 0x00;
-+
-+		spin_lock(&lock);
-+
-+		/* Check for pending transmit buffers. */
-+		if (!list_empty(&pshm->tx_pend_list)) {
-+			pbuf =
-+			    list_entry(pshm->tx_pend_list.next,
-+				       shm_buf_t, list);
-+			list_del_init(&pbuf->list);
-+
-+			/* Release mutex. */
-+			spin_unlock(&lock);
-+
-+			/* Grab spin lock. */
-+			spin_lock_irqsave(&lock, flags);
-+
-+			list_add_tail(&pbuf->list, &pshm->tx_full_list);
-+
-+			/* Release spin lock. */
-+			spin_unlock_irqrestore(&lock, flags);
-+
-+			/* Value index is never changed,
-+			 * read access should be safe. */
-+			mbox_msg |= SHM_SET_FULL(pbuf->index);
-+
-+			spin_lock(&lock);
-+		}
-+
-+		/* Check for pending receive buffers. */
-+		if (!list_empty(&pshm->rx_pend_list)) {
-+
-+			pbuf = list_entry(pshm->rx_pend_list.next,
-+				       shm_buf_t, list);
-+			list_del_init(&pbuf->list);
-+
-+			/* Release mutex. */
-+			spin_unlock(&lock);
-+
-+			/* Grab spin lock. */
-+			spin_lock_irqsave(&lock, flags);
-+
-+			list_add_tail(&pbuf->list, &pshm->rx_empty_list);
-+
-+			/* Release spin lock. */
-+			spin_unlock_irqrestore(&lock, flags);
-+
-+			/* Value index is never changed,
-+			 * read access should be safe. */
-+			mbox_msg |= SHM_SET_EMPTY(pbuf->index);
-+
-+			spin_lock(&lock);
-+		}
-+
-+		/* Release mutex. */
-+		spin_unlock(&lock);
-+
-+		if (mbox_msg) {
-+			do {
-+				long timeout = 3;
-+				ret = pshm->mbx_ifc->send_msg(mbox_msg,
-+					pshm->mbx_ifc->priv);
-+
-+				if (ret) {
-+					interruptible_sleep_on_timeout(
-+						&pshm->mbx_space_wq, timeout);
-+				}
-+
-+			} while (ret);
-+		}
-+
-+	} while (mbox_msg);
-+}
-+
-+static void phyif_shm_rx_work_func(struct work_struct *work)
-+{
-+	shm_buf_t *pbuf;
 +	caif_packet_funcs_t f;
-+	struct _cfpkt_t *pkt;
-+	unsigned long flags;
-+	shm_layer_t *pshm;
-+	/* TODO: We assume that this call is not reentrant as that might
-+	 *	 change the order of the buffers which is not possible.
-+	 *	 Option is to lock the whole function.	  */
-+
-+	pshm = container_of(work, shm_layer_t, rx_work);
-+
-+	/* Get caif packet functions. */
-+	f = cfcnfg_get_packet_funcs();
-+
-+	do {
-+		pshm_pck_desc_t pck_desc;
-+
-+		/* Grab spin lock. */
-+		spin_lock_irqsave(&lock, flags);
-+
-+		/* Check for received buffers. */
-+	if (list_empty(&pshm->rx_full_list)) {
-+			/* Release spin lock. */
-+			spin_unlock_irqrestore(&lock, flags);
-+			break;
-+		}
-+		pbuf =
-+		    list_entry(pshm->rx_full_list.next, shm_buf_t, list);
-+		list_del_init(&pbuf->list);
-+
-+		/* Release spin lock. */
-+		spin_unlock_irqrestore(&lock, flags);
-+
-+		/* Retrieve pointer to start of the packet descriptor area. */
-+		pck_desc = (pshm_pck_desc_t) pbuf->desc_ptr;
-+
-+		/* Check if descriptor contains a CAIF shared memory frame. */
-+		while (pck_desc->frm_ofs) {
-+			unsigned int frm_buf_ofs;
-+			unsigned int frm_pck_ofs;
-+			unsigned int frm_pck_len;
-+
-+			/* Check if offset is within buffer limits (lower). */
-+			if (pck_desc->frm_ofs <
-+			    (pbuf->phy_addr - shm_base_addr)) {
-+				printk(KERN_WARNING
-+				       "phyif_shm_rx_work_func:"
-+				       " Frame offset too small: %d\n",
-+				       pck_desc->frm_ofs);
-+				break;
-+			}
-+
-+			/* Check if offset is within buffer limits (higher). */
-+			if (pck_desc->frm_ofs >
-+			    ((pbuf->phy_addr - shm_base_addr) +
-+			     pbuf->len)) {
-+				printk(KERN_WARNING
-+				       "phyif_shm_rx_work_func:"
-+				       " Frame offset too big: %d\n",
-+				       pck_desc->frm_ofs);
-+				break;
-+			}
-+
-+			/* Calculate offset from start of buffer. */
-+			frm_buf_ofs =
-+			    pck_desc->frm_ofs - (pbuf->phy_addr -
-+						 shm_base_addr);
-+
-+			/* Calculate offset and length of CAIF packet while
-+			 * taking care of the shared memory header. */
-+			frm_pck_ofs =
-+			    frm_buf_ofs + SHM_HDR_LEN +
-+			    (*(pbuf->desc_ptr + frm_buf_ofs));
-+			frm_pck_len =
-+			    (pck_desc->frm_len - SHM_HDR_LEN -
-+			     (*(pbuf->desc_ptr + frm_buf_ofs)));
-+
-+			/* Check if CAIF packet is within buffer limits. */
-+			if ((frm_pck_ofs + pck_desc->frm_len) > pbuf->len) {
-+				printk(KERN_WARNING
-+				       "phyif_shm_rx_work_func: "
-+				       "caif packet too big: offset:"
-+				       "%d, len: %d\n",
-+				       frm_pck_ofs, pck_desc->frm_len);
-+				break;
-+			}
-+
-+			/* Get a suitable caif packet and copy in data. */
-+			pkt =
-+			    f.cfpkt_create_recv_pkt((pbuf->desc_ptr +
-+						     frm_pck_ofs),
-+						    frm_pck_len);
-+
-+			/* Push received packet up the stack. */
-+			pshm->shm_phy.up->receive(pshm->shm_phy.up, pkt);
-+
-+			/* Move to next packet descriptor. */
-+			pck_desc++;
-+		};
-+
-+		spin_lock(&lock);
-+		list_add_tail(&pbuf->list, &pshm->rx_pend_list);
-+		spin_unlock(&lock);
-+
-+	} while (1);
-+
-+	/* Schedule signaling work queue. */
-+	(void) queue_work(pshm->sig_work_queue, &pshm->sig_work);
-+}
-+
-+static void phyif_shm_flow_work_func(struct work_struct *work)
-+{
-+	shm_layer_t *pshm;
-+
-+	pshm = container_of(work, shm_layer_t, flow_work);
-+
-+	if (!pshm->shm_phy.up->ctrlcmd) {
-+		printk(KERN_WARNING "phyif_shm_flow_work_func: No flow up.\n");
-+		return;
-+	}
-+
-+	/* Re-enable the flow.*/
-+	pshm->shm_phy.up->ctrlcmd(pshm->shm_phy.up,
-+		_CAIF_CTRLCMD_PHYIF_FLOW_ON_IND, 0);
-+}
-+
-+static int phyif_shm_mbx_msg_cb(u16 mbx_msg, void *priv)
-+{
-+	shm_layer_t *pshm;
-+	shm_buf_t *pbuf;
-+	unsigned long flags;
-+
-+	pshm = (shm_layer_t *) priv;
-+	/* TODO: Do we need the spin locks since this is assumed to be
-+	 * called from an IRQ context. */
-+
-+	/*	 We are also assuming that this call is not be reentrant as
-+	 *	 that might change the order of the buffers which is not
-+	 *	 possible. Option is to lock the whole function. */
-+
-+	/* Check for received buffers. */
-+	if (mbx_msg & SHM_FULL_MASK) {
-+		int idx;
-+
-+		/* Grab spin lock. */
-+		spin_lock_irqsave(&lock, flags);
-+
-+		/* Check if we have any outstanding buffers. */
-+		if (list_empty(&pshm->rx_empty_list)) {
-+			/* Release spin lock. */
-+			spin_unlock_irqrestore(&lock, flags);
-+
-+			/* We print even in IRQ context... */
-+			printk(KERN_WARNING
-+			    "phyif_shm_mbx_msg_cb:"
-+			    " No empty Rx buffers to fill: msg:%x \n",
-+			    mbx_msg);
-+
-+			/* Bail out. */
-+			goto err_rx_sync;
-+		}
-+
-+		pbuf =
-+		    list_entry(pshm->rx_empty_list.next, shm_buf_t, list);
-+		idx = pbuf->index;
-+
-+		/* Check buffer synchronization. */
-+		if (idx != SHM_GET_FULL(mbx_msg)) {
-+			/* Release spin lock. */
-+			spin_unlock_irqrestore(&lock, flags);
-+
-+			/* We print even in IRQ context... */
-+			printk(KERN_WARNING
-+			       "phyif_shm_mbx_msg_cb: RX full out of sync:"
-+			       " idx:%d, msg:%x \n",
-+			       idx, mbx_msg);
-+
-+			/* Bail out. */
-+			goto err_rx_sync;
-+		}
-+
-+		list_del_init(&pbuf->list);
-+		list_add_tail(&pbuf->list, &pshm->rx_full_list);
-+
-+		/* Release spin lock. */
-+		spin_unlock_irqrestore(&lock, flags);
-+
-+		/* Schedule RX work queue. */
-+		(void) queue_work(pshm->rx_work_queue, &pshm->rx_work);
-+	}
-+
-+err_rx_sync:
-+
-+	/* Check for emptied buffers. */
-+	if (mbx_msg & SHM_EMPTY_MASK) {
-+		int idx;
-+
-+		/* Grab spin lock. */
-+		spin_lock_irqsave(&lock, flags);
-+
-+		/* Check if we have any outstanding buffers. */
-+	if (list_empty(&pshm->tx_full_list)) {
-+			/* Release spin lock. */
-+			spin_unlock_irqrestore(&lock, flags);
-+
-+			/* We print even in IRQ context... */
-+			printk(KERN_WARNING
-+				"phyif_shm_mbx_msg_cb:"
-+				" No TX to empty: msg:%x \n",
-+			       mbx_msg);
-+
-+			/* Bail out. */
-+			goto err_tx_sync;
-+		}
-+
-+		pbuf =
-+		    list_entry(pshm->tx_full_list.next, shm_buf_t, list);
-+		idx = pbuf->index;
-+
-+		/* Check buffer synchronization. */
-+		if (idx != SHM_GET_EMPTY(mbx_msg)) {
-+			/* Release spin lock. */
-+			spin_unlock_irqrestore(&lock, flags);
-+
-+			/* We print even in IRQ context... */
-+			printk(KERN_WARNING
-+			       "phyif_shm_mbx_msg_cb: TX empty out of sync:"
-+			       " idx:%d, msg:%x \n",
-+			       idx, mbx_msg);
-+
-+			/* Bail out. */
-+			goto err_tx_sync;
-+		}
-+
-+		list_del_init(&pbuf->list);
-+
-+		/* Reset buffer parameters. */
-+		pbuf->frames = 0;
-+		pbuf->frm_ofs = SHM_CAIF_FRM_OFS;
-+
-+		list_add_tail(&pbuf->list, &pshm->tx_empty_list);
-+
-+		/* Check if we have to wake up transmitter. */
-+		if (!pshm->tx_empty_available) {
-+			pshm->tx_empty_available = 1;
-+
-+			/* Release spin lock. */
-+			spin_unlock_irqrestore(&lock, flags);
-+
-+			/* Schedule flow re-enable work queue. */
-+			(void) queue_work(pshm->flow_work_queue,
-+					  &pshm->flow_work);
-+
-+		} else {
-+			/* Release spin lock. */
-+			spin_unlock_irqrestore(&lock, flags);
-+		}
-+	}
-+
-+err_tx_sync:
-+
-+	/* Check for command buffers.
-+	if (mbx_msg & SHM_CMD_MASK) {
-+	}
-+	*/
-+
-+    return ESUCCESS;
-+}
-+
-+void shm_phy_fctrl(layer_t *layr, caif_ctrlcmd_t on, int phyid)
-+{
-+	/* We have yet not added flow control. */
-+}
-+
-+static int shm_send_pkt(shm_layer_t *pshm, cfpkt_t *cfpkt, bool append)
-+{
-+	unsigned long flags;
-+	shm_buf_t *pbuf;
-+	unsigned int extlen;
-+	unsigned int frmlen = 0;
-+	pshm_pck_desc_t pck_desc;
-+	pshm_caif_frm_t frm;
-+	caif_packet_funcs_t f;
-+
-+	/* Get caif packet functions. */
-+	f = cfcnfg_get_packet_funcs();
-+
-+	/* Grab spin lock. */
-+	spin_lock_irqsave(&lock, flags);
-+
-+	if (append) {
-+		if (list_empty(&pshm->tx_pend_list)) {
-+			/* Release spin lock. */
-+			spin_unlock_irqrestore(&lock, flags);
-+			return CFGLU_ERETRY;
-+		}
-+
-+		/* Get the last pending buffer. */
-+		pbuf = list_entry(pshm->tx_pend_list.prev, shm_buf_t, list);
-+
-+		/* Check that we don't exceed the descriptor area. */
-+		if (pbuf->frames >= SHM_MAX_CAIF_FRMS_PER_BUF) {
-+			/* Release spin lock. */
-+			spin_unlock_irqrestore(&lock, flags);
-+			return CFGLU_ERETRY;
-+		}
-+	} else {
-+		if (list_empty(&pshm->tx_empty_list)) {
-+			/* Update blocking condition. */
-+			pshm->tx_empty_available = 0;
-+
-+			/* Release spin lock. */
-+			spin_unlock_irqrestore(&lock, flags);
-+
-+			if (!pshm->shm_phy.up->ctrlcmd) {
-+				printk(KERN_WARNING "shm_phy_tx: No flow up.\n");
-+				return CFGLU_ERETRY;
-+			}
-+
-+			pshm->shm_phy.up->ctrlcmd(pshm->shm_phy.up,
-+				_CAIF_CTRLCMD_PHYIF_FLOW_OFF_IND, 0);
-+
-+			return CFGLU_ERETRY;
-+		}
-+
-+		/* Get the first free buffer. */
-+		pbuf = list_entry(pshm->tx_empty_list.next, shm_buf_t, list);
-+	}
-+
-+	list_del_init(&pbuf->list);
-+
-+	/* Release spin lock. */
-+	spin_unlock_irqrestore(&lock, flags);
-+
-+	/* TODO: The CAIF stack will have to give a hint on what is
-+	 *	 payload in order to align it. */
-+	frm = (pshm_caif_frm_t) (pbuf->desc_ptr + pbuf->frm_ofs);
-+	frm->hdr_ofs = 0;
-+	frmlen += SHM_HDR_LEN + frm->hdr_ofs;
-+
-+	/* Add length of CAIF frame. */
-+	frmlen += f.cfpkt_getlen(cfpkt);
-+
-+	/* Add tail padding if needed. */
-+	if (frmlen % SHM_FRM_PAD_LEN)
-+		frmlen += SHM_FRM_PAD_LEN - (frmlen % SHM_FRM_PAD_LEN);
-+
-+
-+	/* Verify that packet, header and additional padding can fit
-+	 * within the buffer frame area. */
-+	if (frmlen >= (pbuf->len - pbuf->frm_ofs)) {
-+		if (append) {
-+			/* Put back packet as end of pending queue. */
-+			list_add_tail(&pbuf->list, &pshm->tx_pend_list);
-+			return CFGLU_ENOSPC;
-+		} else {
-+			/* Put back packet as start of empty queue. */
-+			list_add(&pbuf->list, &pshm->tx_empty_list);
-+			return CFGLU_ENOSPC;
-+		}
-+	}
-+
-+	/* Extract data from the packet to the shared memory CAIF frame
-+	 * taking into account the shared memory header byte and possible
-+	 * payload alignment bytes. */
-+
-+	f.cfpkt_extract(cfpkt,
-+			(pbuf->desc_ptr + pbuf->frm_ofs + SHM_HDR_LEN +
-+			 frm->hdr_ofs), pbuf->len, &extlen);
-+
-+	/* Fill in the shared memory packet descriptor area. */
-+	pck_desc = (pshm_pck_desc_t) (pbuf->desc_ptr);
-+	/* Forward to current frame. */
-+	pck_desc += pbuf->frames;
-+	pck_desc->frm_ofs =
-+	    (pbuf->phy_addr - shm_base_addr) + pbuf->frm_ofs;
-+	pck_desc->frm_len = frmlen;
-+
-+	/* Terminate packet descriptor area. */
-+	pck_desc++;
-+	pck_desc->frm_ofs = 0;
-+
-+	/* Update buffer parameters. */
-+	pbuf->frames++;
-+	pbuf->frm_ofs += frmlen + (frmlen % 32);
-+
-+	spin_lock(&lock);
-+	/* Assign buffer as pending. */
-+	list_add_tail(&pbuf->list, &pshm->tx_pend_list);
-+	spin_unlock(&lock);
-+
-+	/* Schedule signaling work queue. */
-+	(void) queue_work(pshm->sig_work_queue, &pshm->sig_work);
-+
-+	/* The packet is sent. As we have come to the end of the line we need
-+	 * to free the packet. */
-+	f.cfpkt_destroy(cfpkt);
-+
-+	return ESUCCESS;
-+}
-+
-+int shm_phy_tx(layer_t *layr, transmt_info *info, cfpkt_t *cfpkt)
-+{
-+	shm_layer_t *pshm;
-+	int result;
-+
-+	/* TODO: We need a mutex here if this function can be called from
-+	 * different contexts. */
-+
-+	pshm = container_of(layr, shm_layer_t, shm_phy);
-+
-+	/* First try to append the frame. */
-+	result = shm_send_pkt(pshm, cfpkt, true);
-+	if (!result)
-+		return result;
-+
-+	/* Try a new buffer. */
-+	result = shm_send_pkt(pshm, cfpkt, false);
-+
-+	return result;
-+}
-+
-+static int __init phyif_shm_init(void)
-+{
 +	int result = -1;
-+	int i, j;
 +
-+	/* Initialize the shared memory instances. */
-+	for (i = 0; i < SHM_INSTANCES; i++) {
-+		/* Initialize structures in a clean state. */
-+		memset(&shm_layer[i], 0, sizeof(shm_layer[i]));
-+
-+		/* Fill in some information about our PHY. */
-+		shm_layer[i].shm_phy.transmit = shm_phy_tx;
-+		shm_layer[i].shm_phy.receive = NULL;
-+		shm_layer[i].shm_phy.ctrlcmd = shm_phy_fctrl;
-+
-+		/* TODO: Instance number should be appended. */
-+		sprintf(shm_layer[i].cfg_name, "%s%d", mbxcfg_name, i);
-+		sprintf(shm_layer[i].mbx_name, "%s%d", mbxifc_name, i);
-+
-+		/* Initialize queues. */
-+		INIT_LIST_HEAD(&(shm_layer[i].tx_empty_list));
-+		INIT_LIST_HEAD(&(shm_layer[i].rx_empty_list));
-+		INIT_LIST_HEAD(&(shm_layer[i].tx_pend_list));
-+		INIT_LIST_HEAD(&(shm_layer[i].rx_pend_list));
-+		INIT_LIST_HEAD(&(shm_layer[i].tx_full_list));
-+		INIT_LIST_HEAD(&(shm_layer[i].rx_full_list));
-+
-+		INIT_WORK(&shm_layer[i].sig_work, phyif_shm_sig_work_func);
-+		INIT_WORK(&shm_layer[i].rx_work, phyif_shm_rx_work_func);
-+		INIT_WORK(&shm_layer[i].flow_work, phyif_shm_flow_work_func);
-+
-+		/* Create the RX work thread.
-+		 * TODO: Instance number should be appended. */
-+		shm_layer[i].rx_work_queue =
-+		    create_singlethread_workqueue("phyif_shm_rx");
-+
-+		/* Create the signaling work thread.
-+		 * TODO: Instance number should be appended. */
-+
-+		shm_layer[i].sig_work_queue =
-+		    create_singlethread_workqueue("phyif_shm_sig");
-+
-+		/* Create the flow re-enable work thread.
-+		 * TODO: Instance number should be appended. */
-+		shm_layer[i].flow_work_queue =
-+			create_singlethread_workqueue("phyif_shm_flow");
-+
-+		init_waitqueue_head(&(shm_layer[i].mbx_space_wq));
-+		shm_layer[i].tx_empty_available = 1;
-+
-+		/* Connect to the shared memory configuration module. */
-+		/*shm_layer[i].cfg_ifc = cfgifc_get(shm_layer[i].cfg_name);*/
-+
-+		/* Initialize the shared memory transmit buffer queues. */
-+		for (j = 0; j < shm_nr_tx_buf; j++) {
-+			shm_buf_t *tx_buf =
-+			    kmalloc(sizeof(shm_buf_t), GFP_KERNEL);
-+			tx_buf->index = j;
-+			tx_buf->len = shm_tx_buf_len;
-+			if ((i % 2) == 0) {
-+				tx_buf->phy_addr =
-+				    shm_tx_addr + (shm_tx_buf_len * j);
-+			} else {
-+				tx_buf->phy_addr =
-+				    shm_rx_addr + (shm_tx_buf_len * j);
-+			}
-+			tx_buf->desc_ptr =
-+			    ioremap(tx_buf->phy_addr, shm_tx_buf_len);
-+			tx_buf->frames = 0;
-+			tx_buf->frm_ofs = SHM_CAIF_FRM_OFS;
-+			list_add_tail(&tx_buf->list,
-+				      &shm_layer[i].tx_empty_list);
-+		}
-+
-+		/* Initialize the shared memory receive buffer queues. */
-+		for (j = 0; j < shm_nr_rx_buf; j++) {
-+			shm_buf_t *rx_buf =
-+			    kmalloc(sizeof(shm_buf_t), GFP_KERNEL);
-+			rx_buf->index = j;
-+			rx_buf->len = shm_rx_buf_len;
-+			if ((i % 2) == 0) {
-+				rx_buf->phy_addr =
-+				    shm_rx_addr + (shm_rx_buf_len * j);
-+			} else {
-+				rx_buf->phy_addr =
-+				    shm_tx_addr + (shm_rx_buf_len * j);
-+			}
-+			rx_buf->desc_ptr =
-+			    ioremap(rx_buf->phy_addr, shm_rx_buf_len);
-+			list_add_tail(&rx_buf->list,
-+				      &shm_layer[i].rx_empty_list);
-+		}
-+
-+		/* Connect to the shared memory mailbox module. */
-+		shm_layer[i].mbx_ifc = mbxifc_get(shm_layer[i].mbx_name);
-+		if (!shm_layer[i].mbx_ifc) {
-+			printk(KERN_WARNING
-+			       "phyif_shm_init: can't find mailbox: %s.\n",
-+			       shm_layer[i].mbx_name);
-+			/* CLEANUP !!! */
-+			return CFGLU_ENXIO;
-+		}
-+
-+		/* Fill in some info about ourselves. */
-+		shm_layer[i].mbx_client.cb = phyif_shm_mbx_msg_cb;
-+		shm_layer[i].mbx_client.priv = (void *) &shm_layer[i];
-+
-+		shm_layer[i].mbx_ifc->init(&shm_layer[i].mbx_client,
-+					   shm_layer[i].mbx_ifc->priv);
-+
-+		if ((i % 2) == 0) {
-+			/* Register physical interface. */
-+			result =
-+			    caifdev_phy_register(&shm_layer[i].shm_phy,
-+						 CFPHYTYPE_SHM,
-+						 CFPHYPREF_UNSPECIFIED);
-+		} else {
-+			/* Register loop interface. */
-+			result =
-+			    caifdev_phy_loop_register(&shm_layer
-+						      [i].shm_phy,
-+						      CFPHYTYPE_SHM);
-+		}
-+
-+		if (result < 0) {
-+			printk(KERN_WARNING
-+			       "phyif_shm_init: err: %d, "
-+			       "can't register phy layer.\n",
-+			       result);
-+			/* CLEANUP !!! */
-+		}
-+
++	if (!flowenabled) {
++		#ifndef CAIF_USE_SKB
++			dev_kfree_skb(skb);
++		#endif
++		CAIFLOG_TRACE("Dropping packets Flow OFF\n");
++		return NETDEV_TX_BUSY;
 +	}
 +
-+	return result;
-+}
-+
-+static void phyif_shm_exit(void)
-+{
-+	shm_buf_t *pbuf;
-+	uint8 i = 0;
-+	for (i = 0; i < SHM_INSTANCES; i++) {
-+
-+		/* unregister callbacks from mailbox interface */
-+		shm_layer[i].mbx_client.cb = NULL;
-+
-+		/* TODO: wait for completetion or timeout */
-+		while (!(list_empty(&shm_layer[i].tx_pend_list))) {
-+			pbuf =
-+			    list_entry(shm_layer[i].tx_pend_list.next,
-+			       shm_buf_t, list);
-+
-+			kfree(pbuf);
-+			list_del(&pbuf->list);
-+		}
-+
-+		/* TODO: wait for completetion or timeout */
-+		while (!(list_empty(&shm_layer[i].tx_full_list))) {
-+			pbuf =
-+			    list_entry(shm_layer[i].tx_full_list.next,
-+				       shm_buf_t, list);
-+			kfree(pbuf);
-+			list_del(&pbuf->list);
-+		}
-+
-+		while (!(list_empty(&shm_layer[i].tx_empty_list))) {
-+			pbuf =
-+			    list_entry(shm_layer[i].tx_empty_list.next,
-+			       shm_buf_t, list);
-+			kfree(pbuf);
-+			list_del(&pbuf->list);
-+		}
-+
-+		/* TODO: wait for completetion or timeout */
-+		while (!(list_empty(&shm_layer[i].rx_full_list))) {
-+			pbuf =
-+			    list_entry(shm_layer[i].tx_full_list.next,
-+			       shm_buf_t, list);
-+			kfree(pbuf);
-+			list_del(&pbuf->list);
-+		}
-+
-+		/* TODO: wait for completetion or timeout */
-+		while (!(list_empty(&shm_layer[i].rx_pend_list))) {
-+			pbuf =
-+			    list_entry(shm_layer[i].tx_pend_list.next,
-+				       shm_buf_t, list);
-+			kfree(pbuf);
-+			list_del(&pbuf->list);
-+		}
-+
-+		while (!(list_empty(&shm_layer[i].rx_empty_list))) {
-+			pbuf =
-+			    list_entry(shm_layer[i].rx_empty_list.next,
-+				       shm_buf_t, list);
-+			kfree(pbuf);
-+			list_del(&pbuf->list);
-+		}
++	if (loop) {
++		struct iphdr *hdr;
++		__be32 swap;
++		/* Retrieve IP header. */
++		hdr = ip_hdr(skb);
++		/* Change source and destination address. */
++		swap = hdr->saddr;
++		hdr->saddr = hdr->daddr;
++		hdr->daddr = swap;
 +	}
 +
-+	/* destroy work queues */
-+	destroy_workqueue(shm_layer[i].rx_work_queue);
-+	destroy_workqueue(shm_layer[i].sig_work_queue);
++	/* Store original skb length. */
++	len = skb->len;
++
++	/* Get caif packet functions. */
++	f = cfcnfg_get_packet_funcs();
++
++#ifdef CAIF_USE_SKB
++	/* TODO: Don't we make to much assumptions here ?
++	 * Cast sk_buff to cfpck. */
++	pkt = f.cfpkt_fromnative(CAIF_DIR_OUT, (void *) skb);
++#else
++	/* Create a caif packet based on the skbuf. */
++	pkt = f.cfpkt_create_xmit_pkt(skb->data, skb->len);
++
++	if (!pkt) {
++		printk(KERN_INFO "chnl_write: cfpkt_create failed.\n");
++		goto err_cfpkt_create;
++	}
++#endif
++
++	/* Get our private data. */
++	priv = (struct chnl_net *)netdev_priv(dev);
++
++	if (!priv) {
++		printk(KERN_INFO "chnl_write: priv not found\n");
++		#ifndef CAIF_USE_SKB
++			goto err_cfpkt_create;
++		#else
++			return -ENOSPC;
++		#endif
++	}
++
++	/* Send the packet down the stack. */
++	result = priv->chnl.dn->transmit(priv->chnl.dn, NULL, pkt);
++	if (result) {
++		if (result == CFGLU_ERETRY)
++			result = NETDEV_TX_BUSY;
++
++	#ifndef CAIF_USE_SKB
++		f.cfpkt_destroy(pkt);
++	#endif
++		return result;
++	}
++	/* Update statistics. */
++	dev->stats.tx_packets++;
++	dev->stats.tx_bytes += len;
++
++#ifndef CAIF_USE_SKB
++	dev_kfree_skb(skb);
++#endif
++	return NETDEV_TX_OK;
++
++#ifndef CAIF_USE_SKB
++err_cfpkt_create:
++	dev_kfree_skb(skb);/*FIXME: Freeing necessary here?*/
++	/*FIXME: Check if ENOMEM or ENOSPC should be used in CAIF?*/
++	return -ENOSPC;
++#endif
 +}
 +
-+module_init(phyif_shm_init);
-+module_exit(phyif_shm_exit);
-diff --git a/drivers/net/caif/shm.h b/drivers/net/caif/shm.h
-new file mode 100644
-index 0000000..d117b0a
---- /dev/null
-+++ b/drivers/net/caif/shm.h
-@@ -0,0 +1,95 @@
-+/*
-+*      Copyright (C) ST-Ericsson AB 2009
-+*
-+*      Author: Daniel Martensson / Daniel.Martensson@stericsson.com
-+*
-+*      License terms: GNU General Public License (GPL), version 2.
-+*
-+*/
-+
-+#ifndef SHM_H_
-+#define SHM_H_
-+
-+#include <linux/list.h>
-+/*#include <linux/init.h>
-+#include <linux/workqueue.h>*/
-+#include "caif_layer.h"
-+
-+#define ESUCCESS    0
-+
-+typedef int (*mbxifc_cb_t) (u16 mbx_msg, void *priv);
-+
-+/*FIXME:why is the client here??*/
-+/* Shared memory mailbox client structure. */
-+typedef struct _shm_mbxclient_t {
-+	mbxifc_cb_t cb;
-+	void *priv;
-+} shm_mbxclient_t;
-+
-+typedef int (*mbxifc_init_t) (shm_mbxclient_t *mbx_client, void *priv);
-+
-+typedef int (*mbxifc_send_t) (u16 mbx_msg, void *priv);
-+
-+/* Shared memory mailbox interface structure. */
-+typedef struct _shm_mbxifc_t {
-+	mbxifc_init_t init;
-+	mbxifc_send_t send_msg;
-+	char name[16];
-+	void *priv;
-+	shm_mbxclient_t *client;
-+	struct list_head list;
-+} shm_mbxifc_t;
-+
-+int mbxifc_register(shm_mbxifc_t *client);
-+
-+int mbxifc_send(u16 mbx_msg, void *priv);
-+shm_mbxifc_t *mbxifc_get(unsigned char *name);
-+void mbxifc_put(shm_mbxifc_t *mbx_ifc);
-+
-+/* emardan: Use B380 setup for the first CAIF channel.*/
-+/* TODO: This needs to go into a shared memory interface. */
-+static int shm_base_addr = 0x81F00000;
-+module_param(shm_base_addr, int, S_IRUGO);
-+MODULE_PARM_DESC(shm_base_addr,
-+		 "Physical base address of the shared memory area");
-+
-+static int shm_tx_addr = 0x81F00000;
-+module_param(shm_tx_addr, int, S_IRUGO);
-+MODULE_PARM_DESC(shm_tx_addr, "Physical start address for transmission area");
-+
-+static int shm_rx_addr = 0x81F0C000;
-+module_param(shm_rx_addr, int, S_IRUGO);
-+MODULE_PARM_DESC(shm_rx_addr, "Physical start address for reception area");
-+
-+static int shm_nr_tx_buf = 6;
-+module_param(shm_nr_tx_buf, int, S_IRUGO);
-+MODULE_PARM_DESC(shm_nr_tx_buf, "number of transmit buffers");
-+
-+static int shm_nr_rx_buf = 6;
-+module_param(shm_nr_rx_buf, int, S_IRUGO);
-+MODULE_PARM_DESC(shm_nr_rx_buf, "number of receive buffers");
-+
-+static int shm_tx_buf_len = 0x2000;
-+module_param(shm_tx_buf_len, int, S_IRUGO);
-+MODULE_PARM_DESC(shm_tx_buf_len, "size of transmit buffers");
-+
-+static int shm_rx_buf_len = 0x2000;
-+module_param(shm_rx_buf_len, int, S_IRUGO);
-+MODULE_PARM_DESC(shm_rx_buf_len, "size of receive buffers");
-+
-+/* Shared memory interface structure. */
-+typedef struct _shm_cfgifc_t {
-+	int base_addr;
-+	int tx_addr;
-+	int rx_addr;
-+	int nr_tx_buf;
-+	int nr_rx_buf;
-+	int tx_buf_len;
-+	int rx_buf_len;
-+	char name[16];
-+	struct list_head list;
-+} shm_cfgifc_t;
-+
-+shm_cfgifc_t *cfgifc_get(unsigned char *name);
-+
-+#endif				/* SHM_H_ */
-diff --git a/drivers/net/caif/shm_cfgifc.c b/drivers/net/caif/shm_cfgifc.c
-new file mode 100644
-index 0000000..bf00ce0
---- /dev/null
-+++ b/drivers/net/caif/shm_cfgifc.c
-@@ -0,0 +1,60 @@
-+/*
-+*      Copyright (C) ST-Ericsson AB 2009
-+*
-+*      Author: Daniel Martensson / Daniel.Martensson@stericsson.com
-+*
-+*      License terms: GNU General Public License (GPL), version 2.
-+*
-+*/
-+
-+/* Standard includes. */
-+#include <linux/fs.h>
-+#include <linux/init.h>
-+#include <linux/module.h>
-+#include <linux/list.h>
-+
-+#include "shm.h"
-+
-+MODULE_LICENSE("GPL");
-+
-+static struct list_head cfgifc_list;
-+
-+void cfgifc_exit_module(void)
++/*FIXME: MTU is not used, so why do we handle it in this function?
++ *  who calls it?*/
++int chnl_net_change_mtu(struct net_device *dev, int mtu)
 +{
++	unsigned long flags;
++	struct chnl_net *priv = netdev_priv(dev);
++	spinlock_t *lock = &priv->lock;
 +
-+}
-+
-+int cfgifc_init_module(void)
-+{
-+	return -ENODEV;
-+}
-+
-+int cfgifc_register(shm_cfgifc_t *mbx_ifc)
-+{
-+	return 0;
-+}
-+EXPORT_SYMBOL(cfgifc_register);
-+
-+shm_cfgifc_t *cfgifc_get(unsigned char *name)
-+{
-+	/* Hook up the adaptation layer. TODO: Make phy_type dynamic. */
-+	cfcnfg_add_adapt_layer(caifdev.cfg, linktype, connid,
-+			       CFPHYTYPE_SERIAL, adap_layer);
-+
-+	return NULL;
-+}
-+EXPORT_SYMBOL(cfgifc_get);
-+
-+void cfgifc_put(shm_cfgifc_t *mbx_ifc)
-+{
-+	/* Hook up the adaptation layer. TODO: Make phy_type dynamic. */
-+	cfcnfg_add_adapt_layer(caifdev.cfg, linktype, connid,
-+			       CFPHYTYPE_SERIAL, adap_layer);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(cfgifc_put);
-+
-+
-+module_init(cfgifc_init_module);
-+module_exit(cfgifc_exit_module);
-diff --git a/drivers/net/caif/shm_mbxifc.c b/drivers/net/caif/shm_mbxifc.c
-new file mode 100644
-index 0000000..f108799
---- /dev/null
-+++ b/drivers/net/caif/shm_mbxifc.c
-@@ -0,0 +1,98 @@
-+/*
-+*      Copyright (C) ST-Ericsson AB 2009
-+*
-+*      Author: Daniel Martensson / Daniel.Martensson@stericsson.com
-+*
-+*      License terms: GNU General Public License (GPL), version 2.
-+*
-+*/
-+
-+/* Standard includes. */
-+#include <linux/fs.h>
-+#include <linux/init.h>
-+#include <linux/module.h>
-+#include <linux/list.h>
-+
-+#include "shm.h"
-+
-+MODULE_LICENSE("GPL");
-+
-+static struct list_head mbxifc_list;
-+
-+void mbxifc_exit_module(void)
-+{
-+
-+}
-+
-+int mbxifc_init_module(void)
-+{
-+	INIT_LIST_HEAD(&mbxifc_list);
-+
-+	return ESUCCESS;
-+}
-+
-+int mbxifc_register(shm_mbxifc_t *mbxifc)
-+{
-+	if (!mbxifc)
++	/* check range.
++	 *  MTU can not exceed maximum CAIF frame size (4095 bytes) */
++	if ((mtu < SIZE_MTU_MIN) || (mtu > SIZE_MTU_MAX))
 +		return -EINVAL;
 +
-+	list_add_tail(&mbxifc->list, &mbxifc_list);
++	spin_lock_irqsave(lock, flags);
++	dev->mtu = mtu;
++	spin_unlock_irqrestore(lock, flags);
++	return 0;
++}
++
++
++int chnl_net_open(struct net_device *dev)
++{
++	struct chnl_net *priv = NULL;
++	int result;
++	CAIFLOG_ENTER("chnl_net_open:");
++	priv = (struct chnl_net *)netdev_priv(dev);
++	printk(KERN_INFO "chnl_net_open dev name: %s\n", priv->name);
++
++	if (!priv) {
++		printk(KERN_WARNING "chnl_net_open: no priv\n");
++		return -ENODEV;
++	}
++	result = caifdev_adapt_register(&priv->config, &priv->chnl);
++	if (result != 0) {
++		printk(KERN_WARNING
++		"chnl_net_open: err: Unable to open device, Err:%d\n", result);
++		return -ENODEV;
++	}
++	priv->deviceOpen = true;
++	CAIFLOG_EXIT("chnl_net_open:\n");
++	return 0;
++}
++
++int chnl_net_stop(struct net_device *dev)
++{
++	struct chnl_net *priv;
++	int result;
++	CAIFLOG_ENTER("chnl_net_stop:");
++	printk("chnl_net_stop: %s \n", dev->name);
++	priv = (struct chnl_net *)netdev_priv(dev);
++	result = caifdev_adapt_unregister(&priv->chnl);
++	if (result != 0) {
++		printk(KERN_WARNING
++		"chnl_net_stop: err: Unable to STOP device, Err:%d\n", result);
++		return -EBUSY;
++	}
++	priv->deviceOpen = false;
++	CAIFLOG_EXIT("chnl_net_stop:\n");
++	return 0;
++}
++
++
++void chnl_net_init(struct net_device *dev)
++{
++	CAIFLOG_ENTER("chnl_net_init:");
++	dev->open = chnl_net_open;
++	dev->stop = chnl_net_stop;
++	dev->hard_start_xmit = chnl_net_hard_start_xmit;
++	dev->flags |= IFF_NOARP; /*FIXME: Check additional flags*/
++	dev->mtu = SIZE_MTU;
++	CAIFLOG_EXIT("chnl_net_init:\n");
++}
++
++
++int netdev_create(struct caif_channel_create_action *action)
++{
++	struct chnl_net *priv;
++
++	int result = -1;
++
++	netdevptr = alloc_netdev(sizeof(struct chnl_net),
++				 action->name.name, chnl_net_init);
++	priv = (struct chnl_net *)netdev_priv(netdevptr);
++	memset(&priv->config, 0, sizeof(priv->config));
++	priv->chnl.receive = chnl_recv_cb;
++	priv->chnl.ctrlcmd = chnl_flowctrl_cb;
++	priv->config = action->config;
++	priv->netdev = netdevptr;
++	strcpy(priv->name, action->name.name);
++	priv->deviceOpen = false;
++
++	/* Make sure flow is disabled until INIT_RSP is received. */
++	netif_tx_disable(priv->netdev);
++
++	spin_lock_init(&priv->lock);
++	/* Add the device */
++	spin_lock(&list_lock);
++	list_add(&priv->list_field, &chnl_net_list);
++	spin_unlock(&list_lock);
++
++	printk(KERN_WARNING "netdev_create: Creating channel: %s\n",
++	       action->name.name);
++
++	if (!priv->netdev) {
++		printk(KERN_WARNING "chnl: can't allocate netdev.\n");
++		return	-ENODEV;
++	}
++	result = register_netdev(priv->netdev);
++	if (result < 0) {
++		printk(KERN_WARNING
++		"chnl: err: %d, can't register netdev.\n", result);
++		free_netdev(priv->netdev);
++		return	-ENODEV;
++	}
++	return 0;
++
++}
++
++int delete_device(struct chnl_net *dev)
++{
++	if (dev->netdev) {
++		unregister_netdev(dev->netdev);
++		free_netdev(dev->netdev);
++	}
 +	printk(KERN_WARNING
-+	       "mbxifc_register: mailbox: %s at 0x%p added.\n",
-+	       mbxifc->name, mbxifc);
-+
-+	return ESUCCESS;
++	"delete_device: Removing Device: %s\n", dev->name);
++	return 0;
 +}
-+EXPORT_SYMBOL(mbxifc_register);
 +
-+int mbxifc_unregister(shm_mbxifc_t *mbx_ifc)
++int netdev_remove(char *name)
 +{
-+	shm_mbxifc_t *mbxifcreg;
-+
-+	while (!(list_empty(&mbxifc_list))) {
-+		mbxifcreg = list_entry(mbxifc_list.next, shm_mbxifc_t, list);
-+		if (mbxifcreg == mbx_ifc) {
-+			list_del(&mbxifcreg->list);
-+			break;
-+		}
-+	}
-+
-+	return ESUCCESS;
-+}
-+EXPORT_SYMBOL(mbxifc_unregister);
-+
-+shm_mbxifc_t *mbxifc_get(unsigned char *name)
-+{
-+	shm_mbxifc_t *mbxifc;
-+	struct list_head *pos;
-+	list_for_each(pos, &mbxifc_list) {
-+		mbxifc = list_entry(pos, shm_mbxifc_t, list);
-+		if (strcmp(mbxifc->name, name) == 0) {
-+			list_del(&mbxifc->list);
-+			printk(KERN_WARNING
-+			       "mbxifc_get: mailbox: %s at 0x%p found.\n",
-+			       mbxifc->name, mbxifc);
-+			return mbxifc;
-+		}
-+	}
-+
-+	printk(KERN_WARNING "mbxifc_get: no mailbox: %s found.\n", name);
-+
-+	return NULL;
-+}
-+EXPORT_SYMBOL(mbxifc_get);
-+
-+void mbxifc_put(shm_mbxifc_t *mbx_ifc)
-+{
-+	if (!mbx_ifc)
-+		return;
-+
-+	list_add_tail(&mbx_ifc->list, &mbxifc_list);
-+
-+	return;
-+}
-+EXPORT_SYMBOL(mbxifc_put);
-+
-+
-+module_init(mbxifc_init_module);
-+module_exit(mbxifc_exit_module);
-diff --git a/drivers/net/caif/shm_smbx.c b/drivers/net/caif/shm_smbx.c
-new file mode 100644
-index 0000000..57770d4
---- /dev/null
-+++ b/drivers/net/caif/shm_smbx.c
-@@ -0,0 +1,81 @@
-+/*
-+*      Copyright (C) ST-Ericsson AB 2009
-+*
-+*      Author: Daniel Martensson / Daniel.Martensson@stericsson.com
-+*
-+*      License terms: GNU General Public License (GPL), version 2.
-+*
-+*/
-+
-+/* Very simple simulated mailbox interface supporting
-+ * multiple mailbox instances. */
-+
-+#include <linux/init.h>
-+#include <linux/module.h>
-+#include <linux/device.h>
-+
-+#include "shm.h"
-+
-+MODULE_LICENSE("GPL");
-+
-+#define MBX_NR_OF_INSTANCES	2
-+#define MBX_SMBX_NAME		"cfmbx"
-+
-+typedef struct _shm_smbx_t {
-+	shm_mbxifc_t local;
-+	shm_mbxifc_t *peer;
-+} shm_smbx_t;
-+
-+static shm_smbx_t shm_smbx[MBX_NR_OF_INSTANCES];
-+
-+static int smbx_ifc_init(shm_mbxclient_t *mbx_client, void *priv)
-+{
-+	shm_smbx_t *mbx = (shm_smbx_t *) priv;
-+
-+	mbx->local.client = mbx_client;
++	struct chnl_net *dev = NULL;
++	/* Find device from name */
++	dev = find_device(name, true);
++	if (!dev)
++		return -EBADF;
++	else
++		if (delete_device(dev) != 0)
++			return -EBUSY;
 +
 +	return 0;
 +}
 +
-+static int smbx_ifc_send_msg(u16 mbx_msg, void *priv)
++
++int netdev_mgmt(int action, union caif_action *param)
 +{
-+	shm_smbx_t *mbx = (shm_smbx_t *) priv;
 +
-+	mbx->peer->client->cb(mbx_msg, mbx->peer->client->priv);
-+
-+	return 0;
-+
-+}
-+
-+static int __init shm_smbx_init(void)
-+{
-+	int i;
-+
-+	for (i = 0; i < MBX_NR_OF_INSTANCES; i++) {
-+		/* Set up the mailbox interface. */
-+		shm_smbx[i].local.init = smbx_ifc_init;
-+		shm_smbx[i].local.send_msg = smbx_ifc_send_msg;
-+		sprintf(shm_smbx[i].local.name, "%s%d", MBX_SMBX_NAME, i);
-+		shm_smbx[i].local.priv = &shm_smbx[i];
-+
-+		/* Set up the correct peer.
-+		 * (0 is connected to one and so forth). */
-+		if (i % 2)
-+			shm_smbx[i].peer = &shm_smbx[i - 1].local;
-+		else
-+			shm_smbx[i].peer = &shm_smbx[i + 1].local;
-+
-+
-+		mbxifc_register(&(shm_smbx[i].local));
++	switch (action) {
++	case CAIF_ACT_CREATE_DEVICE:
++		return netdev_create(&param->create_channel);
++	case CAIF_ACT_DELETE_DEVICE:
++		return netdev_remove(param->delete_channel.name);
++	default:
++		return -EINVAL;
 +	}
-+
-+	return 0;
 +}
 +
-+static void shm_smbx_exit(void)
++int chnl_init_module(void)
 +{
-+	/* Nothing to do. */
++	caif_register_netdev(netdev_mgmt);
++	return 0; /*FIXME: Return error code for success*/
 +}
 +
-+module_init(shm_smbx_init);
-+module_exit(shm_smbx_exit);
++void chnl_exit_module(void)
++{
++	struct chnl_net *dev = NULL;
++
++	while ((dev = find_device(NULL, true)) != NULL) {
++		/* Remove any device (the first in the list) */
++		delete_device(dev);
++	};
++	caif_unregister_netdev();
++}
++
++module_init(chnl_init_module);
++module_exit(chnl_exit_module);
 -- 
 1.6.0.4
 
