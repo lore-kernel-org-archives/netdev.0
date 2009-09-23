@@ -1,29 +1,35 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: Re: [RFC] skb align patch
-Date: Wed, 23 Sep 2009 01:47:48 -0400
-Message-ID: <20090923054748.GA24045@bombadil.infradead.org>
-References: <4AB71980.4020208@gmail.com> <20090921213011.704e0594@nehalam> <4AB84295.3050509@gmail.com> <20090921.222940.258576265.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: pktgen: tricks
+Date: Tue, 22 Sep 2009 22:49:02 -0700
+Message-ID: <20090922224902.17ed6cc4@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, shemminger@vyatta.com,
-	jesse.brandeburg@gmail.com, hawk@diku.dk, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <jdb@comx.dk>,
+	Robert Olsson <robert@herjulf.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:52567 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752032AbZIWFrs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2009 01:47:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20090921.222940.258576265.davem@davemloft.net>
+Received: from mail.vyatta.com ([76.74.103.46]:43111 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751477AbZIWFtG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Sep 2009 01:49:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 21, 2009 at 10:29:40PM -0700, David Miller wrote:
-> The alignment in this patch is a real big deal for 64 byte forwarding
-> tests, where the entire packet is a whole PCI-E cacheline.  But not
-> if it isn't aligned properly.
+I thought others want to know how to get maximum speed of pktgen.
 
-As I pointed out to Herbert already, this alignment change may actually
-make things worse or even break things as long as compare_ether_header()
-used in __napi_gro_receive() expects the IP header to be aligned to 4
-bytes. That can be fixed of course, just wanted to mention it.
+1. Run nothing else (even X11), just a command line
+2. Make sure ethernet flow control is disabled
+   ethtool -A eth0 autoneg off rx off tx off
+3. Make sure clocksource is TSC.  On my old SMP Opteron's
+   needed to get patch since in 2.6.30 or later, the clock guru's
+   decided to remove it on all non Intel machines.  Look for patch
+   than enables "tsc=reliable"
+4. Compile Ethernet drivers in, the overhead of the indirect
+   function call required for modules (or cache footprint),
+   slows things down.
+5. Increase transmit ring size to 1000
+   ethtool -G eth0 tx 1000
+
+Result: OK: 70408581(c70405979+d2602) nsec, 100000000 (60byte,0frags)
+  1420281pps 681Mb/sec (681734880bps) errors: 0
