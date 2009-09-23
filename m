@@ -1,55 +1,56 @@
-From: Davide Libenzi <davidel@xmailserver.org>
-Subject: Re: fanotify as syscalls
-Date: Tue, 22 Sep 2009 16:43:17 -0700 (PDT)
-Message-ID: <alpine.DEB.2.00.0909221139570.12001@makko.or.mcafeemobile.com>
-References: <20090912094110.GB24709@ioremap.net> <20090921231227.GJ14700@shareable.org> <alpine.DEB.2.00.0909211816020.1116@makko.or.mcafeemobile.com> <200909221731.34717.agruen@suse.de> <1253635918.2747.5.camel@dhcp231-106.rdu.redhat.com>
- <20090922162707.GA11608@shareable.org>
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH 3/3] i2400m-sdio: select IWMC3200TOP in Kconfig
+Date: Tue, 22 Sep 2009 17:44:04 -0700
+Message-ID: <1253666644.2931.7.camel@localhost.localdomain>
+References: <1253662724-16497-1-git-send-email-tomas.winkler@intel.com>
+	 <1253662724-16497-2-git-send-email-tomas.winkler@intel.com>
+	 <1253662724-16497-3-git-send-email-tomas.winkler@intel.com>
+	 <1253662724-16497-4-git-send-email-tomas.winkler@intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Paris <eparis@redhat.com>,
-	Andreas Gruenbacher <agruen@suse.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
-	viro@zeniv.linux.org.uk, alan@linux.intel.com, hch@infradead.org
-To: Jamie Lokier <jamie@shareable.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20090922162707.GA11608@shareable.org>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	inaky.perez-gonzalez-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, cindy.h.kao-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	guy.cohen-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ron.rindjunsky-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: Tomas Winkler <tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1253662724-16497-4-git-send-email-tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Sep 2009, Jamie Lokier wrote:
+Hi Tomas,
 
-> Eric Paris wrote:
-> > That's not the fatal flaw.  The fatal flaw is that I am not going to
-> > write 90% of a rootkit and make it easy to use.
+> i2400m-sdio requires iwmc3200top for its operation
 > 
-> I hate to point out the obvious, but fanotify's ability to intercept
-> every file access and rewrite the file before the access proceeds is
-> also 90% of a rootkit...
+> Signed-off-by: Tomas Winkler <tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> ---
+>  drivers/net/wimax/i2400m/Kconfig |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/wimax/i2400m/Kconfig b/drivers/net/wimax/i2400m/Kconfig
+> index d623b3d..7368ad5 100644
+> --- a/drivers/net/wimax/i2400m/Kconfig
+> +++ b/drivers/net/wimax/i2400m/Kconfig
+> @@ -25,6 +25,7 @@ config WIMAX_I2400M_SDIO
+>  	tristate "Intel Wireless WiMAX Connection 2400 over SDIO"
+>  	depends on WIMAX && MMC
+>  	select WIMAX_I2400M
+> +	select IWMC3200TOP
+>  	help
+>  	  Select if you have a device based on the Intel WiMAX
+>  	  Connection 2400 over SDIO.
 
-Obvious, but worth noticing.
-Indeed, the syscall table has been RO to make it harder for RKs to 
-exploit it, not to make it impossible. RO syscall table makes perfect 
-sense.
-But, once you are root, with very few lines of code, you can find, 
-prot-fix the page, and patch the table.
+this is not true actually. Since the WiMAX hardware in my laptop doesn't
+require the top driver.
+
+Regards
+
+Marcel
 
 
-
-> But fortunately both fanotify and syscall rewriting require root in
-> the first place.                          ^^^^^^^^^
-
-Again, maybe I wasn't clear about how this would work, but the syscall 
-table would continue to remain RO ;)
-And as I said before, if we want to bring the cost of the interception for 
-non-users pretty close to zero (a few NOPs to run onto), we could even 
-adopt an alternative-like patching triggered by a kernel boot option.
-
-
-
-- Davide
-
-
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
