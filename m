@@ -1,44 +1,76 @@
-From: Davide Libenzi <davidel@xmailserver.org>
-Subject: Re: fanotify as syscalls
-Date: Wed, 23 Sep 2009 10:31:26 -0700 (PDT)
-Message-ID: <alpine.DEB.2.00.0909231025120.22657@makko.or.mcafeemobile.com>
-References: <20090912094110.GB24709@ioremap.net> <200909230939.34003.tvrtko.ursulin@sophos.com> <alpine.DEB.2.00.0909230755160.21515@makko.or.mcafeemobile.com> <200909231645.29559.tvrtko.ursulin@sophos.com>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: Re: [PATCH 1/3] iwmc3200top: Add Intel Wireless MultiCom 3200 top
+ driver.
+Date: Wed, 23 Sep 2009 10:48:14 -0700
+Message-ID: <1253728094.3033.240.camel@localhost.localdomain>
+References: <1253662724-16497-1-git-send-email-tomas.winkler@intel.com>
+	 <1253662724-16497-2-git-send-email-tomas.winkler@intel.com>
+	 <1253689036.4458.22.camel@johannes.local>
+	 <1ba2fa240909230023v17fe2b49v4981d464dba469ed@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andreas Gruenbacher <agruen@suse.de>,
-	Jamie Lokier <jamie@shareable.org>,
-	Eric Paris <eparis@redhat.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linville@tuxdriver.com" <linville@tuxdriver.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
-	"alan@linux.intel.com" <alan@linux.intel.com>,
-	"hch@infradead.org" <hch@infradead.org>
-To: Tvrtko Ursulin <tvrtko.ursulin@sophos.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <200909231645.29559.tvrtko.ursulin@sophos.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"linux-mmc@vger.kernel.org" <linux-mmc@vger.kernel.org>,
+	"Zhu, Yi" <yi.zhu@intel.com>,
+	"Kao, Cindy H" <cindy.h.kao@intel.com>,
+	"Cohen, Guy" <guy.cohen@intel.com>,
+	"Rindjunsky, Ron" <ron.rindjunsky@intel.com>
+To: Tomas Winkler <tomasw@gmail.com>
+Return-path: <linux-mmc-owner@vger.kernel.org>
+In-Reply-To: <1ba2fa240909230023v17fe2b49v4981d464dba469ed@mail.gmail.com>
+Sender: linux-mmc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Sep 2009, Tvrtko Ursulin wrote:
+On Wed, 2009-09-23 at 01:23 -0600, Tomas Winkler wrote:
+> On Wed, Sep 23, 2009 at 9:57 AM, Johannes Berg
+> <johannes@sipsolutions.net> wrote:
+> > On Wed, 2009-09-23 at 02:38 +0300, Tomas Winkler wrote:
+> >
+> >> +config IWMC3200TOP
+> >> +        tristate "Intel Wireless MultiCom Top Driver"
+> >> +        depends on MMC && EXPERIMENTAL
+> >> +        select FW_LOADER
+> >> +     ---help---
+> >> +       Intel Wireless MultiCom 3200 Top driver is responsible for
+> >> +       for firmware load and enabled coms enumeration
+> >
+> > This seems like the wrong approach to me.
+> >
+> > To me, it seems like you have a device that contains an internal bus and
+> > allows bus enumeration. Typically, we would surface that bus in the
+> > driver/device model and allow sub-drivers to bind to that by way of
+> > exposing the internal bus, like e.g. drivers/ssb/.
+> 
+> From HW perspective your assumption is not exactly correct. All the
+> devices are visible on the SDIO bus but they are not operational
+> (probe won't succeed) until TOP download the firmware and kicks the
+> devices. From SW perspective to create another bus layer is an option.
+> I'm not sure if it's not more complicated one.
 
-> Yeah, you could do something like kauth on OSX, which is I guess similar to 
-> LSM, which was turned off for out of tree. And now you want to push users of 
-> fanotify out of tree, so what should it be? In tree bad, out of tree bad? 
+It is definitely more complicated; we thought about it and it wasn't
+worth. The current solution works and it is simple enough.
 
-As I said before, the good of a syscall tracing approach, is that it is a 
-completely generic mechanism (extensible for other kind of hooks too), 
-with minimal kernel impact, while allowing its module-users to stuff all 
-the code they want in the part that it's their responsibility.
-So that a "we need this too" gets translated to "just do it in your code", 
-instead of a request to add more stuff into the kernel, and maybe altering 
-the userspace access interface (which is always painful).
+To extend Tomas' explanation:
 
+1 device powers up
+2 enabling any sdio function that is not the top one fails; drivers
+  return -ENODEV
+3 top function is enabled, firmware loaded, it initializes
+  the rest of the functions. Top driver kicks a SDIO bus rescan
+  on a workqueue
+4 other sdio functions can be enabled and probe succesfully (uploading
+  firmware, yadah yadah).
 
+A subbus would add a lot of complexity to all this, having to replicate
+most of the device probing, suspend/resume, pre/post reset (that's is 
+being added to SDIO).
 
-- Davide
+Thanks,
+
 
 
