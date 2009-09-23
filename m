@@ -1,269 +1,108 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH 5/8] [RFC] CAIF Protocol Stack
-Date: Wed, 23 Sep 2009 15:24:27 -0700
-Message-ID: <4ABAA01B.8030102@oracle.com>
-References: <1253727086-10353-1-git-send-email-sjur.brandeland@stericsson.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: ixgbe patch to provide NIC's tx/rx counters via ethtool
+Date: Wed, 23 Sep 2009 15:36:00 -0700
+Message-ID: <4ABAA2D0.4030608@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Kim.xx.Lilliestierna@ericsson.com
-To: sjur.brandeland@stericsson.com
+Content-Type: multipart/mixed;
+ boundary="------------050203020704040302000005"
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet12.oracle.com ([141.146.126.234]:37022 "EHLO
-	acsinet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751880AbZIWWXd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2009 18:23:33 -0400
-In-Reply-To: <1253727086-10353-1-git-send-email-sjur.brandeland@stericsson.com>
+Received: from mail.candelatech.com ([208.74.158.172]:59225 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751981AbZIWWf4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2009 18:35:56 -0400
+Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id n8NMa0pb000506
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 23 Sep 2009 15:36:00 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sjur.brandeland@stericsson.com wrote:
-> From: Kim Lilliestierna <Kim.xx.Lilliestierna@ericsson.com>
-> 
-> Signed-off-by: sjur.brandeland@stericsson.com
-> 
-> ---
->  net/caif/Kconfig            |   61 +++
->  net/caif/Makefile           |   62 +++
->  net/caif/caif_chnlif.c      |  219 ++++++++
->  net/caif/caif_chr.c         |  378 ++++++++++++++
->  net/caif/caif_config_util.c |  167 +++++++
->  net/caif/chnl_chr.c         | 1161 +++++++++++++++++++++++++++++++++++++++++++
->  net/caif/chnl_net.c         |  464 +++++++++++++++++
->  7 files changed, 2512 insertions(+), 0 deletions(-)
->  create mode 100644 net/caif/Kconfig
->  create mode 100644 net/caif/Makefile
->  create mode 100644 net/caif/caif_chnlif.c
->  create mode 100644 net/caif/caif_chr.c
->  create mode 100644 net/caif/caif_config_util.c
->  create mode 100644 net/caif/chnl_chr.c
->  create mode 100644 net/caif/chnl_net.c
-> 
-> diff --git a/net/caif/Kconfig b/net/caif/Kconfig
-> new file mode 100644
-> index 0000000..24151c1
-> --- /dev/null
-> +++ b/net/caif/Kconfig
-> @@ -0,0 +1,61 @@
-> +#
-> +# CAIF net configurations
-> +#
-> +
-> +#menu "Caif Support"
-> +comment "CAIF Support"
-> +
-> +menuconfig CAIF
-> +	tristate "Enable Caif support"
-> +	default m
+This is a multi-part message in MIME format.
+--------------050203020704040302000005
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Does having CONFIG_CAIF=m only control kconfig menus or does it
-cause some code to be built?  If the latter, then it should default
-to N.
+When LRO is enabled, the received packet and byte counters represent the
+LRO'd packets, not the packets/bytes on the wire.  The Intel 82599 NIC has
+registers that keep count of the physical packets.  Add these counters to
+the ethtool stats.  The byte counters are 36-bit, but the high 4 bits were
+being ignored in the 2.6.31 ixgbe driver:  Read those as well to allow
+longer time between polling the stats to detect wraps.
 
-> +	---help---
-> +	Say Y here if you need to a phone modem that uses CAIF as transport
+Signed-off-by: Ben Greear <greearb@candelatech.com>
 
-	                       to use (?)                      as transport.
 
-> +	You will also need to say yes to anny caif physical devices that your platform
+Please do not apply this until the ixgbe authors ACK it.  There may
+have been reasons for not reading the high 4 bits, or they may dislike
+this approach entirely.
 
-	                                 any
 
-> +	supports.
-> +	This can be built as either built in or as a module, if you select to build it as module
+Here is ethtool stats output with LRO enabled, with patch applied:
 
-	This can be either built-in or as a loadable module. If you ...
+#ethtool -S eth20
+NIC statistics:
+      rx_packets: 15944000
+      tx_packets: 12339293
+      rx_bytes: 272306022656
+      tx_bytes: 940244184
+      rx_pkts_nic: 187747191
+      tx_pkts_nic: 12340822
+      rx_bytes_nic: 284695533402
+      tx_bytes_nic: 989725050
+      lsc_int: 3
+...
 
-> +	the other CAIF parts also needs to built as modules
+Thanks,
+Ben
 
-	                     also need to be built as modules.
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
-> +	See Documentation/CAIF for a further explanation on how to use and configure.
-> +
-> +if CAIF
-> +
-> +config CAIF_CHARDEV
-> +	tristate "CAIF character device"
-> +	default CAIF
-> +	---help---
-> +	Say Y if you will be using the CAIF character devices,
 
-	                                              devices.
+--------------050203020704040302000005
+Content-Type: text/plain;
+ name="ixgbe_stats.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="ixgbe_stats.patch"
 
-> +	This is needed for AT type channels
-
-	                           channels.
-
-> +	If you select to build it as a built in then the main caif device must also be a builtin
-
-	<end above with period>
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+index dff8dfa..da3cba3 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -53,6 +53,10 @@ static struct ixgbe_stats ixgbe_gstrings_stats[] = {
+ 	{"tx_packets", IXGBE_STAT(net_stats.tx_packets)},
+ 	{"rx_bytes", IXGBE_STAT(net_stats.rx_bytes)},
+ 	{"tx_bytes", IXGBE_STAT(net_stats.tx_bytes)},
++	{"rx_pkts_nic", IXGBE_STAT(stats.gprc)},
++	{"tx_pkts_nic", IXGBE_STAT(stats.gptc)},
++	{"rx_bytes_nic", IXGBE_STAT(stats.gorc)},
++	{"tx_bytes_nic", IXGBE_STAT(stats.gotc)},
+ 	{"lsc_int", IXGBE_STAT(lsc_int)},
+ 	{"tx_busy", IXGBE_STAT(tx_busy)},
+ 	{"non_eop_descs", IXGBE_STAT(non_eop_descs)},
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 77b0381..929a847 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -4377,10 +4377,13 @@ void ixgbe_update_stats(struct ixgbe_adapter *adapter)
  
-> +	If unsure say Y
+ 	/* 82598 hardware only has a 32 bit counter in the high register */
+ 	if (hw->mac.type == ixgbe_mac_82599EB) {
++		u64 tmp;
+ 		adapter->stats.gorc += IXGBE_READ_REG(hw, IXGBE_GORCL);
+-		IXGBE_READ_REG(hw, IXGBE_GORCH); /* to clear */
++		tmp = IXGBE_READ_REG(hw, IXGBE_GORCH) & 0xF; /* 4 high bits of GORC */
++		adapter->stats.gorc += (tmp << 32);
+ 		adapter->stats.gotc += IXGBE_READ_REG(hw, IXGBE_GOTCL);
+-		IXGBE_READ_REG(hw, IXGBE_GOTCH); /* to clear */
++		tmp = IXGBE_READ_REG(hw, IXGBE_GOTCH) & 0xF; /* 4 high bits of GOTC */
++		adapter->stats.gotc += (tmp << 32);
+ 		adapter->stats.tor += IXGBE_READ_REG(hw, IXGBE_TORL);
+ 		IXGBE_READ_REG(hw, IXGBE_TORH); /* to clear */
+ 		adapter->stats.lxonrxc += IXGBE_READ_REG(hw, IXGBE_LXONRXCNT);
 
-	<end above with period>
-
-> +
-> +config CAIF_NETDEV
-> +	tristate "CAIF Network device"
-> +	default CAIF
-> +	---help---
-> +	If you select to build it as a built in then the main caif device must also be a builtin
-> +	Say Y if you will be using the CAIF based network device
-> +	If unsure say Y
-
-Please end all of those sentences with a period ('.').
-
-> +
-> +
-> +config  CAIF_USE_PLAIN
-> +	bool  "Use plain buffers instead of SKB in caif"
-> +	default n
-> +	---help---
-> +	Use plain buffer to transport data
-> +	Select what type of internal buffering CAIF should use,
-> +	skb or plain,
-> +	If unsure say y
-
-ditto.
-
-> +
-> +config  CAIF_DEBUG
-> +	bool "Enable Debug"
-> +	default n
-> +	--- help ---
-> +	Enable the inclusion of debug code in the caif stack
-> +	be aware that doing this will impact performance
-
-ditto.
-
-> +	If unsure say n here.
-> +
-> +# Include physical drivers
-> +# should be broken out into its own config file
-> +# source "drivers/net/caif/Kconfig"
-> +source "drivers/net/caif/Kconfig"
-> +endif
-> +#endmenu
-> diff --git a/net/caif/Makefile b/net/caif/Makefile
-> new file mode 100644
-> index 0000000..49696ab
-> --- /dev/null
-> +++ b/net/caif/Makefile
-> @@ -0,0 +1,62 @@
-> +ifeq ($(CONFIG_CAIF_USE_PLAIN),1)
-> +CFPKT:=plain
-> +else
-> +CFPKT:=skbuff
-> +CAIF_FLAGS+=-DCAIF_USE_SKB
-> +endif
-> +
-> +ifeq ($(CONFIG_CAIF_DEBUG),1)
-> +CAIF_FLAGS+=-DCAIF_DEBUG_ON
-> +endif
-> +
-> +
-> +ccflags-y := -DCAIF_KERNEL $(CAIF_FLAGS) -Iinclude/net/caif/ -Iinclude/net/caif/generic/ -Iinclude/linux/caif/
-> +
-> +
-> +caif-objs :=  caif_chr.o caif_chnlif.o  caif_config_util.o \
-> +	generic/cfcnfg.o generic/cfmuxl.o generic/cfctrl.o \
-> +	generic/cffrml.o generic/cfveil.o generic/cflist.o  \
-> +	generic/fcs.o    generic/cfserl.o generic/cfdgml.o \
-> +	generic/cfspil.o generic/cfrfml.o generic/cfvidl.o \
-> +	generic/cfmsll.o generic/cfutill.o  generic/cfshml.o \
-> +	generic/cfloopcfg.o  generic/cflooplayer.o generic/cfsrvl.o \
-> +	generic/cfpkt_$(CFPKT).o
-> +
-> +
-> +clean-dirs:= .tmp_versions
-> +
-> +clean-files:= Module.symvers modules.order *.cmd *~ \
-> +	generic/loopback/Module.symvers \
-> +	generic/loopback/modules.order \
-> +	generic/loopback/*.cmd \
-> +	generic/loopback/*.o \
-> +	generic/loopback/*~ \
-> +	generic/Module.symvers \
-> +	generic/modules.order \
-> +	generic/*.cmd \
-> +	generic/*.o \
-> +	generic/*~
-> +
-> +
-> +# Main caif module
-> +obj-$(CONFIG_CAIF) += caif.o
-> +
-> +# Character device
-> +obj-$(CAIF_CHRDEV) += chnl_chr.o
-> +
-> +# Net device
-> +obj-$(CAIF_NETDEV) += chnl_net.o
-> +
-> +export-objs := caif_chr.o
-> +
-> +## Indent..  to remove all DOS cruft like CRLF and trailing spaces, and to standardize the indenting style
-
-This should be done one time only, before it is merged into the kernel source tree.
-
-> +indent:
-> +	${MAKE} -C generic indent
-> +	sh -c 'for F in *.[ch]; do cat $$F | tr -d "\r" |tr -c '\015'| sed "s/[ \t]*$$//;" > $$F.tmp; mv $$F.tmp $$F; done'
-> +	${INDENT} -kr -i8 *.[ch]
-> +
-> +clean:
-> +	${MAKE} -C generic clean
-> +	rm generic/modules.order  generic/Module.symvers generic/*.cmd generic/*~ \
-> +	generic/modules.order generic/Module.symvers \
-> +	generic/*.o generic/loopback/*.o
-> diff --git a/net/caif/caif_chnlif.c b/net/caif/caif_chnlif.c
-> new file mode 100644
-> index 0000000..e53ca7a
-> --- /dev/null
-> +++ b/net/caif/caif_chnlif.c
-> @@ -0,0 +1,219 @@
-> +/*
-> +*      Copyright (C) ST-Ericsson AB 2009
-> +*
-> +*      Author: Daniel Martensson / Daniel.Martensson@stericsson.com
-> +*
-> +*      License terms: GNU General Public License (GPL), version 2.
-> +*
-> +*/
-> +
-> +#include <linux/skbuff.h>
-> +#include "caif_kernel.h"
-> +#include "caif_layer.h"
-> +#include "caif_config_util.h"
-> +#include "caif_log.h"
-> +#include "cfpkt.h"
-> +#include "cfcnfg.h"
-> +#include "cfglue.h"
-> +
-> +
-> +
-> +struct caif_kernelif {
-> +	layer_t layer;
-> +	struct caif_device *dev;
-> +	cfctrl_link_param_t param;
-> +};
-> +static cfcnfg_t *cnfg;
-> +/**
-> + * func chnlif_set_cnfg - Set the global config
-> + * @cfg:	Config structure to set
-> +*/
-> +
-> +void chnlif_set_cnfg(cfcnfg_t *cfg)
-> +{
-> +	cnfg = cfg;
-> +}
-> +EXPORT_SYMBOL(chnlif_set_cnfg);
-> +
-> +/**
-> + * func caif_create_skb - Creates a caif skb buffer
-> + * @data:	data to add to buffer
-> + * @data_length: lenht of data
-
-                    length
-
----
-~Randy
+--------------050203020704040302000005--
