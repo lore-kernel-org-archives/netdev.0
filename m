@@ -1,62 +1,72 @@
-From: Davide Libenzi <davidel@xmailserver.org>
-Subject: Re: fanotify as syscalls
-Date: Wed, 23 Sep 2009 08:35:18 -0700 (PDT)
-Message-ID: <alpine.DEB.2.00.0909230827100.21515@makko.or.mcafeemobile.com>
-References: <20090912094110.GB24709@ioremap.net> <200909221731.34717.agruen@suse.de> <alpine.DEB.2.00.0909220836200.10460@makko.or.mcafeemobile.com> <200909230939.34003.tvrtko.ursulin@sophos.com> <20090923112018.GA2946@infradead.org>
+From: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
+Subject: [PATCH] ems_pci: fix size of CAN controllers BAR mapping for CPC-PCI
+	v2
+Date: Wed, 23 Sep 2009 17:37:47 +0200
+Message-ID: <20090923153747.30154.99860.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Tvrtko Ursulin <tvrtko.ursulin@sophos.com>,
-	Andreas Gruenbacher <agruen@suse.de>,
-	Jamie Lokier <jamie@shareable.org>,
-	Eric Paris <eparis@redhat.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
-	"alan@linux.intel.com" <alan@linux.intel.com>
-To: "hch@infradead.org" <hch@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from x35.xmailserver.org ([64.71.152.41]:33238 "EHLO
-	x35.xmailserver.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751463AbZIWPfZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2009 11:35:25 -0400
-Received: from makko.or.mcafeemobile.com
-	by x35.xmailserver.org with [XMail 1.27 ESMTP Server]
-	id <S307922> for <netdev@vger.kernel.org> from <davidel@xmailserver.org>;
-	Wed, 23 Sep 2009 11:34:40 -0400
-In-Reply-To: <20090923112018.GA2946@infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Sep 2009, hch@infradead.org wrote:
+The driver mapped only 128 bytes of the CAN controller address space when a
+CPC-PCI v2 was detected (incl. CPC-104P). This patch will fix it by always
+mapping the whole address space (4096 bytes on all boards) of the
+corresponding PCI BAR.
 
-> On Wed, Sep 23, 2009 at 09:39:33AM +0100, Tvrtko Ursulin wrote:
-> > Lived with it because there was no other option. We used LSM while it was 
-> > available for modules but then it was taken away. 
-> > 
-> > And not all vendors even use syscall interception, not even across platforms, 
-> > of which you sound so sure about. You can't even scan something which is not 
-> > in your namespace if you are at the syscall level. And you can't catch things 
-> > like kernel nfsd. No, syscall interception is not really appropriate at all.
-> 
-> The "Anti-Malware" industry is just snake oil anyway.  I think the
-> proper approach to support it is just to add various no-op exports claim
-> to do something and all the people requiring anti-virus on Linux will be
-> just as happy with it.
+Signed-off-by: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
+---
 
-The fear is that this becomes a trojan horse (no pun intended) for more 
-and more hooks and "stuff", driven by we-really-need-this-too and 
-we-really-need-that-too. And once something it's in, it's harder to say no, 
-under the pressure of offering a "limited solution".
-This ws the reason I threw the syscall tracing thing in, so they have a 
-low level generic hook, and they cam knock themselves out in their module 
-(might need a few exports, but that's about it).
+ drivers/net/can/sja1000/ems_pci.c |    8 +++++---
+ 1 files changed, 5 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/net/can/sja1000/ems_pci.c b/drivers/net/can/sja1000/ems_pci.c
+index 7d84b8a..ba98063 100644
+--- a/drivers/net/can/sja1000/ems_pci.c
++++ b/drivers/net/can/sja1000/ems_pci.c
+@@ -94,12 +94,14 @@ struct ems_pci_card {
+ #define EMS_PCI_CDR             (CDR_CBP | CDR_CLKOUT_MASK)
+ 
+ #define EMS_PCI_V1_BASE_BAR     1
+-#define EMS_PCI_V1_MEM_SIZE     4096
++#define EMS_PCI_V1_MEM_SIZE     4096 /* size of PITA control area */
+ #define EMS_PCI_V2_BASE_BAR     2
+-#define EMS_PCI_V2_MEM_SIZE     128
++#define EMS_PCI_V2_MEM_SIZE     128 /* size of PLX control area */
+ #define EMS_PCI_CAN_BASE_OFFSET 0x400 /* offset where the controllers starts */
+ #define EMS_PCI_CAN_CTRL_SIZE   0x200 /* memory size for each controller */
+ 
++#define EMS_PCI_CONTR_MEM_SIZE  4096 /* size of controller area */
++
+ static struct pci_device_id ems_pci_tbl[] = {
+ 	/* CPC-PCI v1 */
+ 	{PCI_VENDOR_ID_SIEMENS, 0x2104, PCI_ANY_ID, PCI_ANY_ID,},
+@@ -266,7 +268,7 @@ static int __devinit ems_pci_add_card(struct pci_dev *pdev,
+ 		goto failure_cleanup;
+ 	}
+ 
+-	card->base_addr = pci_iomap(pdev, base_bar, mem_size);
++	card->base_addr = pci_iomap(pdev, base_bar, EMS_PCI_CONTR_MEM_SIZE);
+ 	if (card->base_addr == NULL) {
+ 		err = -ENOMEM;
+ 		goto failure_cleanup;
 
-
-- Davide
-
-
+-- 
+EMS Dr. Thomas Wuensche e.K.
+Sonnenhang 3
+85304 Ilmmuenster
+HRA Neuburg a.d. Donau, HR-Nr. 70.106
+Phone: +49-8441-490260
+Fax  : +49-8441-81860
+http://www.ems-wuensche.com
