@@ -1,10 +1,14 @@
-From: "hch@infradead.org" <hch@infradead.org>
+From: Arjan van de Ven <arjan@infradead.org>
 Subject: Re: fanotify as syscalls
-Date: Wed, 23 Sep 2009 07:20:19 -0400
-Message-ID: <20090923112018.GA2946@infradead.org>
-References: <20090912094110.GB24709@ioremap.net> <200909221731.34717.agruen@suse.de> <alpine.DEB.2.00.0909220836200.10460@makko.or.mcafeemobile.com> <200909230939.34003.tvrtko.ursulin@sophos.com>
+Date: Wed, 23 Sep 2009 13:32:32 +0200
+Message-ID: <20090923133232.5577688d@infradead.org>
+References: <20090912094110.GB24709@ioremap.net>
+	<200909221731.34717.agruen@suse.de>
+	<alpine.DEB.2.00.0909220836200.10460@makko.or.mcafeemobile.com>
+	<200909230939.34003.tvrtko.ursulin@sophos.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: Davide Libenzi <davidel@xmailserver.org>,
 	Andreas Gruenbacher <agruen@suse.de>,
 	Jamie Lokier <jamie@shareable.org>,
@@ -20,22 +24,26 @@ Cc: Davide Libenzi <davidel@xmailserver.org>,
 	"hch@infradead.org" <hch@infradead.org>
 To: Tvrtko Ursulin <tvrtko.ursulin@sophos.com>
 Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
 In-Reply-To: <200909230939.34003.tvrtko.ursulin@sophos.com>
 Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 23, 2009 at 09:39:33AM +0100, Tvrtko Ursulin wrote:
-> Lived with it because there was no other option. We used LSM while it was 
-> available for modules but then it was taken away. 
-> 
-> And not all vendors even use syscall interception, not even across platforms, 
-> of which you sound so sure about. You can't even scan something which is not 
-> in your namespace if you are at the syscall level. And you can't catch things 
-> like kernel nfsd. No, syscall interception is not really appropriate at all.
+On Wed, 23 Sep 2009 09:39:33 +0100
+Tvrtko Ursulin <tvrtko.ursulin@sophos.com> wrote:
 
-The "Anti-Malware" industry is just snake oil anyway.  I think the
-proper approach to support it is just to add various no-op exports claim
-to do something and all the people requiring anti-virus on Linux will be
-just as happy with it.
+> Lived with it because there was no other option. We used LSM while it
+> was available for modules but then it was taken away. 
 
+... at which point you could have submitted your LSM module for
+inclusion... you'd be the first (and only?) Anti Virus vendor that
+would be in the mainline kernel.. speaking of competitive advantage,
+coming out of the box in all distributions.
+
+sadly this road hasn't been chosen....
+
+
+
+-- 
+Arjan van de Ven 	Intel Open Source Technology Centre
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
