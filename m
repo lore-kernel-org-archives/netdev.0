@@ -1,91 +1,116 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] net: Fix sock_wfree() race
-Date: Thu, 24 Sep 2009 22:07:38 +0200
-Message-ID: <4ABBD18A.70208@gmail.com>
-References: <4AA64A11.7090804@gmail.com>	<4AA6DF7B.7060105@gmail.com>	<20090911.114337.150207703.davem@davemloft.net> <20090911.125242.244008840.davem@davemloft.net> <4ABA262F.9040407@gmail.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [PATCH] 3c59x: Get rid of "Trying to free
+	already-free IRQ"
+Date: Thu, 24 Sep 2009 22:30:33 +0200
+Message-ID: <200909242230.33881.rjw@sisk.pl>
+References: <20090924183152.GA30254@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, albcamus@gmail.com,
-	parag.lkml@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f210.google.com ([209.85.218.210]:43935 "EHLO
-	mail-bw0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751467AbZIXUIf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2009 16:08:35 -0400
-In-Reply-To: <4ABA262F.9040407@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-pm@lists.linux-foundation.org,
+        David Miller <davem@davemloft.net>
+To: Anton Vorontsov <avorontsov@ru.mvista.com>
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+In-Reply-To: <20090924183152.GA30254@oksana.dev.rtsoft.ru>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote, On 09/23/2009 03:44 PM:
+On Thursday 24 September 2009, Anton Vorontsov wrote:
+> Following trace pops up if we try to suspend with 3c59x ethernet NIC
+> brought down:
 
-...
-> Here is the patch for reference :
+Patch looks good, but IMO it'd be a little effort to convert the driver to
+dev_pm_ops while you're at it (please see r8169 for a working example).
+
+Thanks,
+Rafael
+
+
+>   root@b1:~# ifconfig eth16 down
+>   root@b1:~# echo mem > /sys/power/state
+>   ...
+>   3c59x 0000:00:10.0: suspend
+>   3c59x 0000:00:10.0: PME# disabled
+>   Trying to free already-free IRQ 48
+>   ------------[ cut here ]------------
+>   Badness at c00554e4 [verbose debug info unavailable]
+>   NIP: c00554e4 LR: c00554e4 CTR: c019a098
+>   REGS: c7975c60 TRAP: 0700   Not tainted  (2.6.31-rc4)
+>   MSR: 00021032 <ME,CE,IR,DR>  CR: 28242422  XER: 20000000
+>   TASK = c79cb0c0[1746] 'bash' THREAD: c7974000
+>   ...
+>   NIP [c00554e4] __free_irq+0x108/0x1b0
+>   LR [c00554e4] __free_irq+0x108/0x1b0
+>   Call Trace:
+>   [c7975d10] [c00554e4] __free_irq+0x108/0x1b0 (unreliable)
+>   [c7975d30] [c005559c] free_irq+0x10/0x24
+>   [c7975d40] [c01e21ec] vortex_suspend+0x70/0xc4
+>   [c7975d60] [c017e584] pci_legacy_suspend+0x58/0x100
 > 
-> [PATCH] net: Fix sock_wfree() race
+> This is because the driver manages interrupts without checking for
+> netif_running().
 > 
-> Commit 2b85a34e911bf483c27cfdd124aeb1605145dc80
-> (net: No more expensive sock_hold()/sock_put() on each tx)
-> opens a window in sock_wfree() where another cpu
-> might free the socket we are working on.
+> Though, there are few other issues with suspend/resume in this driver.
+> The intention of calling free_irq() in suspend() was to avoid any
+> possible spurious interrupts (see commit 5b039e681b8c5f30aac9cc04385
+> "3c59x PM fixes"). But,
 > 
-> A fix is to call sk->sk_write_space(sk) while still
-> holding a reference on sk.
+> - On resume, the driver was requesting IRQ just after pci_set_master(),
+>   but before vortex_up() (which actually resets 3c59x chips).
 > 
+> - Issuing free_irq() on a shared IRQ doesn't guarantee that a buggy
+>   HW won't trigger spurious interrupts in another driver that
+>   requested the same interrupt. So, if we want to protect from
+>   unexpected interrupts, then on suspend we should issue disable_irq(),
+>   not free_irq().
 > 
-> Reported-by: Jike Song <albcamus@gmail.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 > ---
->  net/core/sock.c |   19 ++++++++++++-------
->  1 files changed, 12 insertions(+), 7 deletions(-)
+>  drivers/net/3c59x.c |   12 +++---------
+>  1 files changed, 3 insertions(+), 9 deletions(-)
 > 
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index 30d5446..e1f034e 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -1228,17 +1228,22 @@ void __init sk_init(void)
->  void sock_wfree(struct sk_buff *skb)
->  {
->  	struct sock *sk = skb->sk;
-> -	int res;
-> +	unsigned int len = skb->truesize;
->  
-> -	/* In case it might be waiting for more memory. */
-> -	res = atomic_sub_return(skb->truesize, &sk->sk_wmem_alloc);
-> -	if (!sock_flag(sk, SOCK_USE_WRITE_QUEUE))
-> +	if (!sock_flag(sk, SOCK_USE_WRITE_QUEUE)) {
-> +		/*
-> +		 * Keep a reference on sk_wmem_alloc, this will be released
-> +		 * after sk_write_space() call
-> +		 */
-> +		atomic_sub(len - 1, &sk->sk_wmem_alloc);
->  		sk->sk_write_space(sk);
-> +		len = 1;
-> +	}
->  	/*
-> -	 * if sk_wmem_alloc reached 0, we are last user and should
-> -	 * free this sock, as sk_free() call could not do it.
-> +	 * if sk_wmem_alloc reaches 0, we must finish what sk_free()
-> +	 * could not do because of in-flight packets
->  	 */
-> -	if (res == 0)
-> +	if (atomic_sub_return(len, &sk->sk_wmem_alloc) == 0)
->  		__sk_free(sk);
-
-
-Probably atomic_sub_and_test() is more popular for this.
-
-Jarek P.
-
->  }
->  EXPORT_SYMBOL(sock_wfree);
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
-
+> diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+> index c34aee9..7cdd4b0 100644
+> --- a/drivers/net/3c59x.c
+> +++ b/drivers/net/3c59x.c
+> @@ -807,10 +807,10 @@ static int vortex_suspend(struct pci_dev *pdev, pm_message_t state)
+>  		if (netif_running(dev)) {
+>  			netif_device_detach(dev);
+>  			vortex_down(dev, 1);
+> +			disable_irq(dev->irq);
+>  		}
+>  		pci_save_state(pdev);
+>  		pci_enable_wake(pdev, pci_choose_state(pdev, state), 0);
+> -		free_irq(dev->irq, dev);
+>  		pci_disable_device(pdev);
+>  		pci_set_power_state(pdev, pci_choose_state(pdev, state));
+>  	}
+> @@ -833,18 +833,12 @@ static int vortex_resume(struct pci_dev *pdev)
+>  			return err;
+>  		}
+>  		pci_set_master(pdev);
+> -		if (request_irq(dev->irq, vp->full_bus_master_rx ?
+> -				&boomerang_interrupt : &vortex_interrupt, IRQF_SHARED, dev->name, dev)) {
+> -			pr_warning("%s: Could not reserve IRQ %d\n", dev->name, dev->irq);
+> -			pci_disable_device(pdev);
+> -			return -EBUSY;
+> -		}
+>  		if (netif_running(dev)) {
+>  			err = vortex_up(dev);
+>  			if (err)
+>  				return err;
+> -			else
+> -				netif_device_attach(dev);
+> +			enable_irq(dev->irq);
+> +			netif_device_attach(dev);
+>  		}
+>  	}
+>  	return 0;
