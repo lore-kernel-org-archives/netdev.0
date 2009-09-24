@@ -1,65 +1,104 @@
-From: Simon Farnsworth <simon.farnsworth@onelan.com>
-Subject: Re: r8169 chips on some Intel D945GSEJT boards fail to work after
- PXE boot
-Date: Thu, 24 Sep 2009 12:12:53 +0100
-Message-ID: <4ABB5435.6040609@onelan.com>
-References: <4ABA535E.2010801@onelan.com> <20090923205723.GA28058@electric-eye.fr.zoreil.com>
+From: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
+Subject: Re: [PATCH] ems_pci: fix size of CAN controllers BAR mapping for
+	CPC-PCI	v2
+Date: Thu, 24 Sep 2009 13:52:58 +0200
+Message-ID: <4ABB5D9A.90906@ems-wuensche.com>
+References: <20090923153747.30154.99860.stgit@localhost.localdomain>
+	<4ABB2FBF.8080906@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from claranet-outbound-smtp00.uk.clara.net ([195.8.89.33]:40614 "EHLO
-	claranet-outbound-smtp00.uk.clara.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751193AbZIXLMy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2009 07:12:54 -0400
-In-Reply-To: <20090923205723.GA28058@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4ABB2FBF.8080906-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Simon Farnsworth <simon.farnsworth@onelan.com> :
-> [...]
->> Some boards are good, and just work, whether I boot via PXE or boot from
->> the local disk; dmesg.working and lspci.working are from a good board.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+Hi Wolfgang,
+
+Wolfgang Grandegger schrieb:
+> Hi Sebastian,
+> 
+> Sebastian Haas wrote:
+>> The driver mapped only 128 bytes of the CAN controller address space when a
+>> CPC-PCI v2 was detected (incl. CPC-104P). This patch will fix it by always
+>> mapping the whole address space (4096 bytes on all boards) of the
+>> corresponding PCI BAR.
 >>
->> Some boards are bad; they work fine if I boot from local disk (including
->> network), but the kernel cannot detect link, or send or receive data if
->> I PXE boot. dmesg.broken and lspci.broken are from a bad board.
+>> Signed-off-by: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
+>> ---
+>>
+>>  drivers/net/can/sja1000/ems_pci.c |    8 +++++---
+>>  1 files changed, 5 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/net/can/sja1000/ems_pci.c b/drivers/net/can/sja1000/ems_pci.c
+>> index 7d84b8a..ba98063 100644
+>> --- a/drivers/net/can/sja1000/ems_pci.c
+>> +++ b/drivers/net/can/sja1000/ems_pci.c
+>> @@ -94,12 +94,14 @@ struct ems_pci_card {
+>>  #define EMS_PCI_CDR             (CDR_CBP | CDR_CLKOUT_MASK)
+>>  
+>>  #define EMS_PCI_V1_BASE_BAR     1
+>> -#define EMS_PCI_V1_MEM_SIZE     4096
+>> +#define EMS_PCI_V1_MEM_SIZE     4096 /* size of PITA control area */
+>>  #define EMS_PCI_V2_BASE_BAR     2
+>> -#define EMS_PCI_V2_MEM_SIZE     128
+>> +#define EMS_PCI_V2_MEM_SIZE     128 /* size of PLX control area */
+>>  #define EMS_PCI_CAN_BASE_OFFSET 0x400 /* offset where the controllers starts */
+>>  #define EMS_PCI_CAN_CTRL_SIZE   0x200 /* memory size for each controller */
+>>  
+>> +#define EMS_PCI_CONTR_MEM_SIZE  4096 /* size of controller area */
+>> +
+>>  static struct pci_device_id ems_pci_tbl[] = {
+>>  	/* CPC-PCI v1 */
+>>  	{PCI_VENDOR_ID_SIEMENS, 0x2104, PCI_ANY_ID, PCI_ANY_ID,},
+>> @@ -266,7 +268,7 @@ static int __devinit ems_pci_add_card(struct pci_dev *pdev,
+>>  		goto failure_cleanup;
+>>  	}
+>>  
+>> -	card->base_addr = pci_iomap(pdev, base_bar, mem_size);
+>> +	card->base_addr = pci_iomap(pdev, base_bar, EMS_PCI_CONTR_MEM_SIZE);
+>>  	if (card->base_addr == NULL) {
+>>  		err = -ENOMEM;
+>>  		goto failure_cleanup;
 > 
-> No cunning theroy in sight but does reducing the amount of memory on a
-> bad board from 1 Go to 512 Mo turn it into a good one ?
+> I see. To avoid confusion I suggest renaming some variables and defines:
 > 
-We've tried this, and we've tried 2GB and 1GB modules; the failure to
-boot sticks with the board, not with the memory module. On my most
-recent attempt, the failing board isn't showing a correctable error
-status, so I've not yet tried your patch, on the assumption that it just
-clears the error status.
-
-Is my assumption wrong? If not, is there anything else I can do that
-would help you diagnose this?
-
-> The failing board exhibits a correctable error status bit. Clearing it
-> is the least we can do.
+> s/EMS_PCI_V1_MEM_SIZE/EMS_PCI_V1_CONF_SIZE/
+> s/EMS_PCI_V2_MEM_SIZE/EMS_PCI_V2_CONF_SIZE/
+> s/mem_size/conf_size/
+> s/EMS_PCI_CONTR_MEM_SIZE/EMS_PCI_BASE_SIZE/
 > 
-> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-> index 50c6a3c..79bc4ab 100644
-> --- a/drivers/net/r8169.c
-> +++ b/drivers/net/r8169.c
-> @@ -2200,6 +2200,11 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->  	tp->pcie_cap = pci_find_capability(pdev, PCI_CAP_ID_EXP);
->  	if (!tp->pcie_cap && netif_msg_probe(tp))
->  		dev_info(&pdev->dev, "no PCI Express capability\n");
-> +	else {
-> +		pci_write_config_word(pdev, tp->pcie_cap + PCI_EXP_DEVSTA,
-> +				      PCI_EXP_DEVSTA_CED | PCI_EXP_DEVSTA_NFED |
-> +				      PCI_EXP_DEVSTA_FED | PCI_EXP_DEVSTA_URD);
-> +	}
->  
->  	RTL_W16(IntrMask, 0x0000);
->  
+> Would that not be more appropriate?
+Okay, I just wanted to minimize changes. Will change it and resubmit.
 
+Sebastian
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iEYEARECAAYFAkq7XZQACgkQpqRB8PJG7XwjeQCfZZJP1FDD7TLBf2hK3dV64GgX
+3oMAn2jIkdOx9Euc1UihiK/BXLSIUp06
+=W9tL
+-----END PGP SIGNATURE-----
 -- 
-Simon Farnsworth
-
+EMS Dr. Thomas Wuensche e.K.
+Sonnenhang 3
+85304 Ilmmuenster
+HRA Neuburg a.d. Donau, HR-Nr. 70.106
+Phone: +49-8441-490260
+Fax  : +49-8441-81860
+http://www.ems-wuensche.com
