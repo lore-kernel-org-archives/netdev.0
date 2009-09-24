@@ -1,38 +1,64 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [PATCH net-next-2.6] ixgbe: correct the parameter description
-Date: Thu, 24 Sep 2009 16:36:28 +0200
-Message-ID: <20090924143627.GD2919@psychotron.redhat.com>
+From: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] net: fix htmldocs sunrpc, clnt.c
+Date: Thu, 24 Sep 2009 09:19:35 -0700
+Message-ID: <4ABB9C17.3020307@oracle.com>
+References: <1253794781.5860.29.camel@ht.satnam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3800 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751837AbZIXOg1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Sep 2009 10:36:27 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Ricardo Labiaga <Ricardo.Labiaga-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	Benny Halevy <bhalevy-C4P08NqkoRlBDgjK7y7TUQ@public.gmane.org>,
+	Andy Adamson <andros-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jaswinder Singh Rajput <jaswinder-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1253794781.5860.29.camel-6Ww87KsxWewAvxtiuMwx3w@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-ccffad25b5136958d4769ed6de5e87992dd9c65c changed parameters for function
-ixgbe_update_uc_addr_list_generic but parameter description was not updated.
-This patch corrects it.
+Jaswinder Singh Rajput wrote:
+>   DOCPROC Documentation/DocBook/networking.xml
+>   Warning(net/sunrpc/clnt.c:647): No description found for parameter 'req'
+>   Warning(net/sunrpc/clnt.c:647): No description found for parameter 'tk_ops'
+>   Warning(net/sunrpc/clnt.c:647): Excess function parameter 'ops' description in 'rpc_run_bc_task'
+> 
+> Signed-off-by: Jaswinder Singh Rajput <jaswinderrajput-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+Ack.  Already sent, but possibly lost.
 
-diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ixgbe/ixgbe_common.c
-index 6621e17..2c7db17 100644
---- a/drivers/net/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ixgbe/ixgbe_common.c
-@@ -1355,9 +1355,7 @@ static void ixgbe_add_uc_addr(struct ixgbe_hw *hw, u8 *addr, u32 vmdq)
- /**
-  *  ixgbe_update_uc_addr_list_generic - Updates MAC list of secondary addresses
-  *  @hw: pointer to hardware structure
-- *  @addr_list: the list of new addresses
-- *  @addr_count: number of addresses
-- *  @next: iterator function to walk the address list
-+ *  @uc_list: the list of new addresses
-  *
-  *  The given list replaces any existing list.  Clears the secondary addrs from
-  *  receive address registers.  Uses unused receive address registers for the
+> Cc: Ricardo Labiaga <Ricardo.Labiaga-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+> Cc: Benny Halevy <bhalevy-C4P08NqkoRlBDgjK7y7TUQ@public.gmane.org>
+> Cc: Andy Adamson <andros-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+> Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+> Cc: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> ---
+>  net/sunrpc/clnt.c |    5 +++--
+>  1 files changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
+> index a417d5a..38829e2 100644
+> --- a/net/sunrpc/clnt.c
+> +++ b/net/sunrpc/clnt.c
+> @@ -640,10 +640,11 @@ EXPORT_SYMBOL_GPL(rpc_call_async);
+>  /**
+>   * rpc_run_bc_task - Allocate a new RPC task for backchannel use, then run
+>   * rpc_execute against it
+> - * @ops: RPC call ops
+> + * @req: RPC request
+> + * @tk_ops: RPC call ops
+>   */
+>  struct rpc_task *rpc_run_bc_task(struct rpc_rqst *req,
+> -					const struct rpc_call_ops *tk_ops)
+> +				const struct rpc_call_ops *tk_ops)
+>  {
+>  	struct rpc_task *task;
+>  	struct xdr_buf *xbufp = &req->rq_snd_buf;
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
