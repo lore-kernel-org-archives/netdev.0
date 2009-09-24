@@ -1,39 +1,33 @@
-From: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-Subject: Re: [PATCH 3/3 V2] i2400m-sdio: select IWMC3200TOP in Kconfig
-Date: Thu, 24 Sep 2009 10:25:20 -0700
-Message-ID: <1253813120.4219.0.camel@localhost.localdomain>
-References: <1253779256-17058-1-git-send-email-tomas.winkler@intel.com>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: question on raw sockets and source IP address validation
+Date: Thu, 24 Sep 2009 11:53:39 -0600
+Message-ID: <4ABBB223.8090700@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"linville@tuxdriver.com" <linville@tuxdriver.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"linux-mmc@vger.kernel.org" <linux-mmc@vger.kernel.org>,
-	"Zhu, Yi" <yi.zhu@intel.com>,
-	"Kao, Cindy H" <cindy.h.kao@intel.com>,
-	"Cohen, Guy" <guy.cohen@intel.com>,
-	"Rindjunsky, Ron" <ron.rindjunsky@intel.com>
-To: "Winkler, Tomas" <tomas.winkler@intel.com>
-Return-path: <linux-mmc-owner@vger.kernel.org>
-In-Reply-To: <1253779256-17058-1-git-send-email-tomas.winkler@intel.com>
-Sender: linux-mmc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Linux Network Development list <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zrtps0kp.nortel.com ([47.140.192.56]:37222 "EHLO
+	zrtps0kp.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752218AbZIXRzd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2009 13:55:33 -0400
+Received: from zcarhxs1.corp.nortel.com (casmtp.ca.nortel.com [47.129.230.89])
+	by zrtps0kp.nortel.com (Switch-2.2.6/Switch-2.2.0) with ESMTP id n8OHtYS01468
+	for <netdev@vger.kernel.org>; Thu, 24 Sep 2009 17:55:34 GMT
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-09-24 at 02:00 -0600, Winkler, Tomas wrote:
-> i2400m-sdio requires iwmc3200top for its operation
-> 
-> create separate config option to separate 3200 specifics
-> from eventual further wimax sdio HW.
-> 
-> Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
+Hi all,
 
-Acked-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Normally when sending a packet on a SOCK_RAW socket the source IP
+address is validated against the addresses configured on the host.  If
+the address isn't configured, the packet isn't sent.
 
-I'll merge this into the WiMAX tree.
+This can be avoided by setting IP_HDRINCL, but then the app needs to
+handle all the fragmentation itself.
 
--- 
--- Inaky
+Is there any way to bypass the source address validation without IP_HDRINCL?
 
+Thanks,
 
+Chris
