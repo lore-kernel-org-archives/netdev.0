@@ -1,80 +1,39 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH] ems_pci: fix size of CAN controllers BAR mapping for
-	CPC-PCI	v2
-Date: Thu, 24 Sep 2009 10:37:19 +0200
-Message-ID: <4ABB2FBF.8080906@grandegger.com>
-References: <20090923153747.30154.99860.stgit@localhost.localdomain>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: Re: pktgen: tricks
+Date: Thu, 24 Sep 2009 13:10:05 +0300
+Message-ID: <200909241310.05297.denys@visp.net.lb>
+References: <20090922224902.17ed6cc4@nehalam> <20090923174141.1d350103@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20090923153747.30154.99860.stgit-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Jesper Dangaard Brouer <jdb@comx.dk>,
+	Robert Olsson <robert@herjulf.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hosting.visp.net.lb ([194.146.153.11]:44367 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751145AbZIXKGm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2009 06:06:42 -0400
+In-Reply-To: <20090923174141.1d350103@s6510>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sebastian,
+On Thursday 24 September 2009 03:41:41 Stephen Hemminger wrote:
+> Other kernel config help:
+>   - turn off lock dependency checker, kmecheck, page alloc debug
+>     basically anything that slows stuff down
+>   - turn off content group scheduler
+Maybe, but i'm not sure (i can't test it):
+Disable randomize VA space? On embedded boards it was helping. 
+In some case disabling SMP helped, when various SMP locks involved, but maybe 
+not for pktgen.
 
-Sebastian Haas wrote:
-> The driver mapped only 128 bytes of the CAN controller address space when a
-> CPC-PCI v2 was detected (incl. CPC-104P). This patch will fix it by always
-> mapping the whole address space (4096 bytes on all boards) of the
-> corresponding PCI BAR.
-> 
-> Signed-off-by: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
-> ---
-> 
->  drivers/net/can/sja1000/ems_pci.c |    8 +++++---
->  1 files changed, 5 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/can/sja1000/ems_pci.c b/drivers/net/can/sja1000/ems_pci.c
-> index 7d84b8a..ba98063 100644
-> --- a/drivers/net/can/sja1000/ems_pci.c
-> +++ b/drivers/net/can/sja1000/ems_pci.c
-> @@ -94,12 +94,14 @@ struct ems_pci_card {
->  #define EMS_PCI_CDR             (CDR_CBP | CDR_CLKOUT_MASK)
->  
->  #define EMS_PCI_V1_BASE_BAR     1
-> -#define EMS_PCI_V1_MEM_SIZE     4096
-> +#define EMS_PCI_V1_MEM_SIZE     4096 /* size of PITA control area */
->  #define EMS_PCI_V2_BASE_BAR     2
-> -#define EMS_PCI_V2_MEM_SIZE     128
-> +#define EMS_PCI_V2_MEM_SIZE     128 /* size of PLX control area */
->  #define EMS_PCI_CAN_BASE_OFFSET 0x400 /* offset where the controllers starts */
->  #define EMS_PCI_CAN_CTRL_SIZE   0x200 /* memory size for each controller */
->  
-> +#define EMS_PCI_CONTR_MEM_SIZE  4096 /* size of controller area */
-> +
->  static struct pci_device_id ems_pci_tbl[] = {
->  	/* CPC-PCI v1 */
->  	{PCI_VENDOR_ID_SIEMENS, 0x2104, PCI_ANY_ID, PCI_ANY_ID,},
-> @@ -266,7 +268,7 @@ static int __devinit ems_pci_add_card(struct pci_dev *pdev,
->  		goto failure_cleanup;
->  	}
->  
-> -	card->base_addr = pci_iomap(pdev, base_bar, mem_size);
-> +	card->base_addr = pci_iomap(pdev, base_bar, EMS_PCI_CONTR_MEM_SIZE);
->  	if (card->base_addr == NULL) {
->  		err = -ENOMEM;
->  		goto failure_cleanup;
 
-I see. To avoid confusion I suggest renaming some variables and defines:
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-s/EMS_PCI_V1_MEM_SIZE/EMS_PCI_V1_CONF_SIZE/
-s/EMS_PCI_V2_MEM_SIZE/EMS_PCI_V2_CONF_SIZE/
-s/mem_size/conf_size/
-s/EMS_PCI_CONTR_MEM_SIZE/EMS_PCI_BASE_SIZE/
 
-Would that not be more appropriate?
-
-Wolfgang.
