@@ -1,36 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 3c59x: Get rid of "Trying to free already-free IRQ"
-Date: Thu, 24 Sep 2009 15:26:19 -0700 (PDT)
-Message-ID: <20090924.152619.260814858.davem@davemloft.net>
-References: <20090924183152.GA30254@oksana.dev.rtsoft.ru>
-	<200909242230.33881.rjw@sisk.pl>
-	<20090924213039.GA15904@oksana.dev.rtsoft.ru>
+Subject: Re: [PATCH 1/2] ipv4: fix do_ip_setsockopt optlen check for
+ IP_MULTICAST_IF
+Date: Thu, 24 Sep 2009 15:44:33 -0700 (PDT)
+Message-ID: <20090924.154433.202033577.davem@davemloft.net>
+References: <4AB1FE2A.1060906@cn.fujitsu.com>
+	<20090922.133819.173686372.davem@davemloft.net>
+	<4AB97CB6.4000004@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rjw@sisk.pl, linux-pm@lists.linux-foundation.org,
-	netdev@vger.kernel.org
-To: avorontsov@ru.mvista.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38527
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750992AbZIXW0B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2009 18:26:01 -0400
-In-Reply-To: <20090924213039.GA15904@oksana.dev.rtsoft.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dfeng@redhat.com, kaber@trash.net, yoshfuji@linux-ipv6.org,
+	jmorris@namei.org, pekkas@netcore.fi, kuznet@ms2.inr.ac.ru,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: shanwei@cn.fujitsu.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752716AbZIXWoQ@vger.kernel.org>
+In-Reply-To: <4AB97CB6.4000004@cn.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Date: Fri, 25 Sep 2009 01:30:39 +0400
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Date: Wed, 23 Sep 2009 09:41:10 +0800
 
-> On Thu, Sep 24, 2009 at 10:30:33PM +0200, Rafael J. Wysocki wrote:
->> On Thursday 24 September 2009, Anton Vorontsov wrote:
->> > Following trace pops up if we try to suspend with 3c59x ethernet NIC
->> > brought down:
->> 
->> Patch looks good, but IMO it'd be a little effort to convert the driver to
->> dev_pm_ops while you're at it (please see r8169 for a working example).
+> [PATCH BUGFIX] ipv4: check optlen for IP_MULTICAST_IF option
 > 
-> I'd like to avoid putting irrelevant stuff into bugfixes.
+> Due to man page of setsockopt, if optlen is not valid, kernel should return
+> -EINVAL. But a simple testcase as following, errno is 0, which means setsockopt
+> is successful.
+> 	addr.s_addr = inet_addr("192.1.2.3");
+> 	setsockopt(s, IPPROTO_IP, IP_MULTICAST_IF, &addr, 1);
+> 	printf("errno is %d\n", errno);
+> 
+> Xiaotian Feng(dfeng@redhat.com) caught the bug. We fix it firstly checking
+> the availability of optlen and then dealing with the logic like other options. 
+> 
+> Reported-by: Xiaotian Feng <dfeng@redhat.com> 
+> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+> Acked-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 
-Agreed.
+Applied.
