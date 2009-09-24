@@ -1,234 +1,228 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: r8169, enabling TX checksumming breaks things?
-Date: Wed, 23 Sep 2009 21:12:32 -0400
-Message-ID: <1253754752.13176.19.camel@obelisk.thedillows.org>
-References: <200909230915.27854.denys@visp.net.lb>
-	 <1253714544.3925.6.camel@lap75545.ornl.gov>
-	 <200909231724.23132.denys@visp.net.lb>
+From: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
+Subject: Re: [PATCH 2/5] Implement loss counting on TFRC-SP receiver
+Date: Wed, 23 Sep 2009 22:43:18 -0300
+Message-ID: <cb00fa210909231843q7f13b2c3i32672e883a017b7b@mail.gmail.com>
+References: <4AA6A25F.4060100@embedded.ufcg.edu.br> <20090913161224.GA5121@gerrit.erg.abdn.ac.uk>
+	<cb00fa210909141739y234302b3x9c6df23b057a9473@mail.gmail.com>
+	<5001.72.11.80.242.1253362279.squirrel@72.11.80.242> <425e6efa0909231501p499059a4y3530d1a9f55b5a2a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: Denys Fedoryschenko <denys@visp.net.lb>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dccp@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.knology.net ([24.214.63.101]:52355 "EHLO smtp.knology.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754223AbZIXBMj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Sep 2009 21:12:39 -0400
-In-Reply-To: <200909231724.23132.denys@visp.net.lb>
+Received: from mail-yw0-f174.google.com ([209.85.211.174]:51745 "EHLO
+	mail-yw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752115AbZIXBne convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Sep 2009 21:43:34 -0400
+In-Reply-To: <425e6efa0909231501p499059a4y3530d1a9f55b5a2a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-09-23 at 17:24 +0300, Denys Fedoryschenko wrote:
-> On Wednesday 23 September 2009 17:02:24 David Dillow wrote:
-> > On Wed, 2009-09-23 at 09:15 +0300, Denys Fedoryschenko wrote:
-> > > Hi
-> > >
-> > > Is it expected that:
-> > > 1)TX checksumming is off by default
-> > > 2)If i try to enable it over ethtool -K eth0 tx on , TCP sessions on
-> > > proxy getting stuck, even in tcpdump looks everything fine and packets
-> > > reaching destination, i don't understand what is a reason of failure.
-> > > Maybe if this feature supposed to not work - user must not be able just
-> > > to turn it on?
-> >
-> > It is broken for large swaths of the hardware -- I have patches that got
-> > it and TSO working on my hardware, and they provide a framework to see
-> > about getting it working on yours.
-> >
-> > Basically, the fields are in different places depending on the chip
-> > revision. I'll try to dig those out tonight and send them along so we
-> > can experiment.
-> Thanks, i have 8 hosts (4 hosts with RTL8168b/8111b. and 4 with 
-> RTL8168d/8111d) to test. Ready for patches to test them :-)
+On Sat, Sep 19, 2009 at 9:11 AM, =A0<gerrit@erg.abdn.ac.uk> wrote:
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0s64 len =3D dccp_delta_seqno(cur->li=
+_seqno,
+>>> cong_evt_seqno);
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if ((len <=3D 0) ||
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0(!tfrc_lh_closed_check(cur,
+>>> cong_evt->tfrchrx_ccval))) {
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 cur->li_losses +=3D r=
+h->num_losses;
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return false;
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+>>> This has a multiplicative effect, since rh->num_losses is added to
+> cur->li_losses
+>>> each time the condition is evaluated. E.g. if 3 times in a row
+> reordered
+>>> (earlier)
+>>> sequence numbers arrive, or if the CCvals do not differ (high-speed
+> networks),
+>>> we end up with 3 * rh->num_losses, which can't be correct.
+>>
+>>
+>> The following code would be correct then?
+>>
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if ((len <=3D 0) ||
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 (!tfrc_lh_closed_check(cur, cong=
+_evt->tfrchrx_ccval)))
+> {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 cur->li_losses +=3D rh=
+->num_losses;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 rh->num_losses =A0=3D =
+0;
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return false;
+>> With this change I suppose the could be fixed. With that, the
+>> rh->num_losses couldn't added twice. Am I correct?
+>>
+>>
+> The function tfrc_lh_interval_add() is called when
+> =A0* __two_after_loss() returns true (a new loss is detected) or
+> =A0* a data packet is ECN-CE marked.
+>
+> I am still not sure about the 'len <=3D 0' case; this would be true
+> if an ECN-marked packet arrives whose sequence number is 'before'
+> the start of the current loss interval, or if a loss is detected
+> which is older than the start of the current loss interval.
+>
+> The other case (tfrc_lh_closed_check) returns 1 if the current loss
+> interval is 'closed' according to RFC 4342, 10.2.
+>
+> Intuitively, in the first case it refers to the preceding loss
+> interval (i.e. not cur->...), in the second case it seems correct.
+>
+> Doing the first case is complicated due to going back in history.
+> The simplest solution I can think of at the moment is to ignore
+> the exception-case of reordered packets and do something like
+>
+> =A0 =A0if (len <=3D 0) {
+> =A0 =A0 =A0 /* FIXME: this belongs into the previous loss interval */
+> tfrc_pr_debug("Warning: ignoring loss due to reordering");
+> =A0 =A0 =A0 return false;
+> =A0 =A0}
+> =A0 =A0if (!tfrc_lh_closed_check(...)) {
+> =A0 =A0 =A0 =A0// your code from above
+> =A0 =A0}
 
-This is the patch I have against HEAD, which Works For Me (TM). If I
-recall correctly the list in rtl8169_set_tso_csum() is from combing the
-vendor drivers, but I'm not 100% on that. Too much time has passed.
+Okay, i'll add your sugestion. But i don't know how this would be fixed=
+ at all.
 
-I added the MAC version to the driver banner, which should make it
-easier to figure out which MAC you have, and to change that function if
-it does not work for you out of the box. It seems that some chips don't
-work with this at all, based on testing by Michael Riepe (XID 3c4000c0).
+>
+> However, there is a much deeper underlying question: currently the
+> implementation is not really what the specification says; if we
+> wanted to abide by the letter of the law, we would have to implement
+> the Loss Intervals Option first, and then sort out such details as
+> above. Discussion continues further below.
+>
 
-As should be obvious, this isn't ready to go anywhere near upstream yet
-I think.
+Yes, the loss intervals options is mandatory. I'll discuss this too bel=
+ow.
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 50c6a3c..c58062e 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -28,7 +28,7 @@
- #include <asm/io.h>
- #include <asm/irq.h>
- 
--#define RTL8169_VERSION "2.3LK-NAPI"
-+#define RTL8169_VERSION "2.3LK-NAPI-TSO"
- #define MODULENAME "r8169"
- #define PFX MODULENAME ": "
- 
-@@ -384,13 +384,19 @@ enum desc_status_bit {
- 	FirstFrag	= (1 << 29), /* First segment of a packet */
- 	LastFrag	= (1 << 28), /* Final segment of a packet */
- 
--	/* Tx private */
-+	/* Tx private -- TxDesc->opts1 */
- 	LargeSend	= (1 << 27), /* TCP Large Send Offload (TSO) */
- 	MSSShift	= 16,        /* MSS value position */
- 	MSSMask		= 0xfff,     /* MSS value + LargeSend bit: 12 bits */
- 	IPCS		= (1 << 18), /* Calculate IP checksum */
- 	UDPCS		= (1 << 17), /* Calculate UDP/IP checksum */
- 	TCPCS		= (1 << 16), /* Calculate TCP/IP checksum */
-+
-+	/* Tx private -- TxDesc->opts2 */
-+	UDPCS_2		= (1 << 31), /* Calculate UDP/IP checksum */
-+	TCPCS_2		= (1 << 30), /* Calculate TCP/IP checksum */
-+	IPCS_2		= (1 << 29), /* Calculate IP checksum */
-+	MSSShift_2	= 18,        /* MSS value position */
- 	TxVlanTag	= (1 << 17), /* Add VLAN tag */
- 
- 	/* Rx private */
-@@ -2310,11 +2316,12 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (netif_msg_probe(tp)) {
- 		u32 xid = RTL_R32(TxConfig) & 0x9cf0f8ff;
- 
--		printk(KERN_INFO "%s: %s at 0x%lx, "
-+		printk(KERN_INFO "%s: %s (%d) at 0x%lx, "
- 		       "%2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x, "
- 		       "XID %08x IRQ %d\n",
- 		       dev->name,
- 		       rtl_chip_info[tp->chipset].name,
-+		       rtl_chip_info[tp->chipset].mac_version,
- 		       dev->base_addr,
- 		       dev->dev_addr[0], dev->dev_addr[1],
- 		       dev->dev_addr[2], dev->dev_addr[3],
-@@ -3299,7 +3306,7 @@ static void rtl8169_tx_timeout(struct net_device *dev)
- }
- 
- static int rtl8169_xmit_frags(struct rtl8169_private *tp, struct sk_buff *skb,
--			      u32 opts1)
-+			      u32 opts1, u32 opts2)
- {
- 	struct skb_shared_info *info = skb_shinfo(skb);
- 	unsigned int cur_frag, entry;
-@@ -3323,6 +3330,7 @@ static int rtl8169_xmit_frags(struct rtl8169_private *tp, struct sk_buff *skb,
- 		status = opts1 | len | (RingEnd * !((entry + 1) % NUM_TX_DESC));
- 
- 		txd->opts1 = cpu_to_le32(status);
-+		txd->opts2 = cpu_to_le32(opts2);
- 		txd->addr = cpu_to_le64(mapping);
- 
- 		tp->tx_skb[entry].len = len;
-@@ -3336,24 +3344,64 @@ static int rtl8169_xmit_frags(struct rtl8169_private *tp, struct sk_buff *skb,
- 	return cur_frag;
- }
- 
--static inline u32 rtl8169_tso_csum(struct sk_buff *skb, struct net_device *dev)
-+static void rtl8169_set_tso_csum(struct sk_buff *skb, struct net_device *dev,
-+				u32 *opts1, u32 *opts2)
- {
--	if (dev->features & NETIF_F_TSO) {
--		u32 mss = skb_shinfo(skb)->gso_size;
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	const struct iphdr *ip = ip_hdr(skb);
-+	u32 mss = 0;
- 
--		if (mss)
--			return LargeSend | ((mss & MSSMask) << MSSShift);
--	}
--	if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		const struct iphdr *ip = ip_hdr(skb);
-+	if (dev->features & NETIF_F_TSO)
-+		mss = skb_shinfo(skb)->gso_size;
- 
--		if (ip->protocol == IPPROTO_TCP)
--			return IPCS | TCPCS;
--		else if (ip->protocol == IPPROTO_UDP)
--			return IPCS | UDPCS;
--		WARN_ON(1);	/* we need a WARN() */
-+	switch (tp->mac_version) {
-+	case RTL_GIGA_MAC_VER_01: case RTL_GIGA_MAC_VER_02:
-+	case RTL_GIGA_MAC_VER_03: case RTL_GIGA_MAC_VER_04:
-+	case RTL_GIGA_MAC_VER_05: case RTL_GIGA_MAC_VER_06:
-+	case RTL_GIGA_MAC_VER_10: case RTL_GIGA_MAC_VER_11:
-+	case RTL_GIGA_MAC_VER_12: case RTL_GIGA_MAC_VER_13:
-+	case RTL_GIGA_MAC_VER_16: case RTL_GIGA_MAC_VER_17:
-+		/* LargeSend implies checksums, as IPCS et al occupy the
-+		 * same bits as the MSS.
-+		 *
-+		 * FIXME: MSS may actually go in opts2 on all MAC versions,
-+		 * but I only have the one below so I'll keep this as it was.
-+		 */
-+		if (mss) {
-+			*opts1 |= LargeSend;
-+			*opts1 |= (mss & MSSMask) << MSSShift;
-+		} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+			if (ip->protocol == IPPROTO_TCP)
-+				*opts1 |= IPCS | TCPCS;
-+			else if (ip->protocol == IPPROTO_UDP)
-+				*opts1 |= IPCS | UDPCS;
-+			else
-+				WARN_ON_ONCE(1);
-+		}
-+		break;
-+	default:
-+		/* LargeSend implies checksums
-+		 */
-+		if (mss) {
-+			/* This used to put (mss & MSSMask) << MSSShift
-+			 * in opts1, but that causes my NIC to retransmit
-+			 * the last packet over and over and over again...
-+			 *
-+			 * I have XID 281000c0, so this may be different
-+			 * for other chips. Testers welcomed!
-+			 */
-+			*opts1 |= LargeSend;
-+			*opts2 |= (mss & MSSMask) << MSSShift_2;
-+		} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+			if (ip->protocol == IPPROTO_TCP)
-+				*opts2 |= IPCS_2 | TCPCS_2;
-+			else if (ip->protocol == IPPROTO_UDP)
-+				*opts2 |= IPCS_2 | UDPCS_2;
-+			else
-+				WARN_ON_ONCE(1);
-+		}
-+		break;
- 	}
--	return 0;
- }
- 
- static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
-@@ -3365,7 +3413,7 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
- 	void __iomem *ioaddr = tp->mmio_addr;
- 	dma_addr_t mapping;
- 	u32 status, len;
--	u32 opts1;
-+	u32 opts1, opts2;
- 
- 	if (unlikely(TX_BUFFS_AVAIL(tp) < skb_shinfo(skb)->nr_frags)) {
- 		if (netif_msg_drv(tp)) {
-@@ -3379,9 +3427,11 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
- 	if (unlikely(le32_to_cpu(txd->opts1) & DescOwn))
- 		goto err_stop;
- 
--	opts1 = DescOwn | rtl8169_tso_csum(skb, dev);
-+	opts1 = DescOwn;
-+	opts2 = rtl8169_tx_vlan_tag(tp, skb);
-+	rtl8169_set_tso_csum(skb, dev, &opts1, &opts2);
- 
--	frags = rtl8169_xmit_frags(tp, skb, opts1);
-+	frags = rtl8169_xmit_frags(tp, skb, opts1, opts2);
- 	if (frags) {
- 		len = skb_headlen(skb);
- 		opts1 |= FirstFrag;
-@@ -3395,7 +3445,7 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
- 
- 	tp->tx_skb[entry].len = len;
- 	txd->addr = cpu_to_le64(mapping);
--	txd->opts2 = cpu_to_le32(rtl8169_tx_vlan_tag(tp, skb));
-+	txd->opts2 = cpu_to_le32(opts2);
- 
- 	wmb();
- 
+>>> --- dccp_tree_work4.orig/net/dccp/ccids/lib/packet_history_sp.c +++
+> dccp_tree_work4/net/dccp/ccids/lib/packet_history_sp.c
+>>> @@ -244,6 +244,7 @@
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0h->loss_count =3D 3;
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tfrc_sp_rx_hist_entry_from_skb(tfrc_=
+rx_hist_entry(h, 3),
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 skb, n3);
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 h->num_losses =3D dccp_loss_count(s2,=
+ s3, n3);
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return 1;
+>>> =A0 =A0 =A0 =A0}
+>>> This only measures the gap between s2 and s3, but the "hole" starts=
+ at s0,
+>>> so it would need to be dccp_loss_count(s0, s3, n3). Algorithm is
+> documented at
+>>> http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/\
+>>> ccid3/ccid3_packet_reception/loss_detection/loss_detection_algorith=
+m_notes.txt
+>>
+>> <snip>
+>>
+>>> =A0}
+>>> Here it is also between s0 and s2, not between s0 and s3. It is cas=
+e
+> VI(c.3).
+>>> However, the above still is a crude approximation, since it only
+> measures between
+>>> the last sequence number received before the loss and the third
+> sequence
+>>> number
+>>> after the loss. It would be better to either
+>>> =A0* use the first sequence number after the loss (this can be s1, =
+s2, or
+> s3) or
+>>> =A0* check if there are more holes between the first/second and the
+> second/third
+>>> =A0 sequence numbers after the loss.
+>>> The second option would be the correct one, it should also take the=
+ NDP
+> counts
+>>> of each gap into account. And already we have a fairly complicated
+> algorithm.
+>>
+>>
+>>
+>> I'll study loss_detection_algorithm_notes.txt and correct the code. =
+But
+> I have one question, that i don't know if is already answered by the
+> documentation:
+>> Further holes, between the the first and third packet received after=
+ the
+> hole are accounted only in future calls to the function, right? Becau=
+se
+> the receiver needs to receive more packets to confirm loss, right?
+>> So, it's really necessary to look for other holes after the loss? Wi=
+ll
+> not this other holes be identified as losses in future?
+> I stand corrected, you are right: only the hole between
+> =A0* the highest sequence number before the loss (S0) and
+> =A0* the first sequence number after the loss
+> =A0 (S1 or S3 depending on reordering)
+> are relevant.
+
+Thanks, already corrected in next patch.
+
+>
+> Continuing the point from above, I would like to ask which way you wo=
+uld
+> like to go with your implementation:
+> =A0(a) receiver computes the Loss Event Rate, sender just uses this v=
+alue
+> =A0(b) receiver only gathers the data (loss intervals, lost packets),
+> =A0 =A0 sender does all the verification, book-keeping, and computati=
+on.
+>
+> From reading your patches, I think it is going in the direction of (a=
+).
+> But if this is the case, we don't need the Dropped Packets Option fro=
+m
+> RFC 5622, 8.7. By definition it only makes sense if Loss Intervals
+> Options are also present.
+>
+> So it is necessary to decide whether to go the full way, which means
+> =A0* support Loss Intervals and Dropped Packets alike
+> =A0* modify TFRC library (it will be a redesign)
+> =A0* modify receiver code
+> =A0* modify sender code,
+> or to use the present approach where
+> =A0* the receiver computes the Loss Rate and
+> =A0* a Mandatory Send Loss Event Rate feature is present during featu=
+re
+> =A0 negotiation, to avoid problems with incompatible senders
+> =A0 (there is a comment explaining this, in net/dccp/feat.c).
+>
+> Thoughts?
+>
+
+Initially I conceived that the receiver would compute the loss event
+rate and send it, along with loss intervals and dropped packets
+option. And this would enable the sender to just use the loss event
+rate reported, as is done currently (in current implementation of
+TFRC), or compute it itself, using loss intervals option (in case of
+CCID3) and dropped packets option too (CCID4's case).
+In my code, I compute the loss event rate using the options, then
+compare the two values. I don't know if would be better to keep all
+the loss event rate calc only at one side, sender or receiver.
+
+I believe that the first way is better (to "support Loss Intervals and
+Dropped Packets alike..."), because RFC requires loss intervals option
+to be sent. And so, proceed and implement dropped packets option for
+TFRC-SP. You are right, this would need a redesign and rewrite of
+sender and receiver code.
 
 
+
+
+--=20
+Ivo Augusto Andrade Rocha Calado
+MSc. Candidate
+Embedded Systems and Pervasive Computing Lab - http://embedded.ufcg.edu=
+=2Ebr
+Systems and Computing Department - http://www.dsc.ufcg.edu.br
+Electrical Engineering and Informatics Center - http://www.ceei.ufcg.ed=
+u.br
+=46ederal University of Campina Grande - http://www.ufcg.edu.br
+
+PGP: 0x03422935
+Quidquid latine dictum sit, altum viditur.
