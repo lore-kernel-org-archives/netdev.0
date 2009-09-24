@@ -1,46 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] icmp: No need to call sk_write_space()
-Date: Fri, 25 Sep 2009 00:16:51 +0200
-Message-ID: <4ABBEFD3.6060407@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] 3c59x: Get rid of "Trying to free already-free IRQ"
+Date: Thu, 24 Sep 2009 15:26:19 -0700 (PDT)
+Message-ID: <20090924.152619.260814858.davem@davemloft.net>
+References: <20090924183152.GA30254@oksana.dev.rtsoft.ru>
+	<200909242230.33881.rjw@sisk.pl>
+	<20090924213039.GA15904@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: rjw@sisk.pl, linux-pm@lists.linux-foundation.org,
+	netdev@vger.kernel.org
+To: avorontsov@ru.mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:39024 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751718AbZIXWQu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2009 18:16:50 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38527
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750992AbZIXW0B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2009 18:26:01 -0400
+In-Reply-To: <20090924213039.GA15904@oksana.dev.rtsoft.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We can make icmp messages tx completion callback a litle bit faster.
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Date: Fri, 25 Sep 2009 01:30:39 +0400
 
-Setting SOCK_USE_WRITE_QUEUE sk flag tells sock_wfree() to
-not call sk_write_space() on a socket we know no thread is posssibly
-waiting for write space. (on per cpu kernel internal icmp sockets only)
+> On Thu, Sep 24, 2009 at 10:30:33PM +0200, Rafael J. Wysocki wrote:
+>> On Thursday 24 September 2009, Anton Vorontsov wrote:
+>> > Following trace pops up if we try to suspend with 3c59x ethernet NIC
+>> > brought down:
+>> 
+>> Patch looks good, but IMO it'd be a little effort to convert the driver to
+>> dev_pm_ops while you're at it (please see r8169 for a working example).
+> 
+> I'd like to avoid putting irrelevant stuff into bugfixes.
 
-This avoids the sock_def_write_space() call and 
-read_lock(&sk->sk_callback_lock)/read_unlock(&sk->sk_callback_lock) calls
-as well.
-
-We avoid three atomic ops.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 5bc13fe..84adb57 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -1165,6 +1165,10 @@ static int __net_init icmp_sk_init(struct net *net)
- 		sk->sk_sndbuf =
- 			(2 * ((64 * 1024) + sizeof(struct sk_buff)));
- 
-+		/*
-+		 * Speedup sock_wfree()
-+		 */
-+		sock_set_flag(sk, SOCK_USE_WRITE_QUEUE);
- 		inet_sk(sk)->pmtudisc = IP_PMTUDISC_DONT;
- 	}
- 
+Agreed.
