@@ -1,54 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tunnel: eliminate recursion field
-Date: Thu, 24 Sep 2009 15:47:10 -0700 (PDT)
-Message-ID: <20090924.154710.248674101.davem@davemloft.net>
-References: <4ABA8254.9000701@gmail.com>
-	<4ABA84F1.5000802@gmail.com>
+Subject: Re: [PATCH] 3c59x: Get rid of "Trying to free already-free IRQ"
+Date: Thu, 24 Sep 2009 15:47:42 -0700 (PDT)
+Message-ID: <20090924.154742.171195189.davem@davemloft.net>
+References: <20090924183152.GA30254@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rjw@sisk.pl, linux-pm@lists.linux-foundation.org,
+	netdev@vger.kernel.org
+To: avorontsov@ru.mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48665
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48668
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751289AbZIXWqv convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Sep 2009 18:46:51 -0400
-In-Reply-To: <4ABA84F1.5000802@gmail.com>
+	by vger.kernel.org with ESMTP id S1751369AbZIXWrX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2009 18:47:23 -0400
+In-Reply-To: <20090924183152.GA30254@oksana.dev.rtsoft.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 23 Sep 2009 22:28:33 +0200
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Date: Thu, 24 Sep 2009 22:31:52 +0400
 
-> Eric Dumazet a =E9crit :
->> It seems recursion field from "struct ip_tunnel" is not anymore need=
-ed.
->> recursion prevention is done at the upper level (in dev_queue_xmit()=
-),
->> since we use HARD_TX_LOCK protection for tunnels.
->>=20
->> This avoids a cache line ping pong on "struct ip_tunnel" : This stru=
-cture
->> should be now mostly read on xmit and receive paths.
->=20
-> Oops I forgot ipv6 tunnels, silly me, here is an updated version.
->=20
-> Thanks
->=20
-> [PATCH] tunnel: eliminate recursion field
->=20
-> It seems recursion field from "struct ip_tunnel" is not anymore neede=
-d.
-> recursion prevention is done at the upper level (in dev_queue_xmit())=
-,
-> since we use HARD_TX_LOCK protection for tunnels.
->=20
-> This avoids a cache line ping pong on "struct ip_tunnel" : This struc=
-ture
-> should be now mostly read on xmit and receive paths.
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Following trace pops up if we try to suspend with 3c59x ethernet NIC
+> brought down:
+ ...
+> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 
 Applied.
+
