@@ -1,59 +1,46 @@
-From: Tomas Winkler <tomas.winkler@intel.com>
-Subject: [PATCH 3/3 V2] i2400m-sdio: select IWMC3200TOP in Kconfig
-Date: Thu, 24 Sep 2009 11:00:56 +0300
-Message-ID: <1253779256-17058-1-git-send-email-tomas.winkler@intel.com>
-Content-Type: text/plain; charset="us-ascii"
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
+Date: Thu, 24 Sep 2009 11:03:05 +0300
+Message-ID: <4ABB27B9.4050904@redhat.com>
+References: <4AAFACB5.9050808@redhat.com> <4AAFF437.7060100@gmail.com> <4AB0A070.1050400@redhat.com> <4AB0CFA5.6040104@gmail.com> <4AB0E2A2.3080409@redhat.com> <4AB0F1EF.5050102@gmail.com> <4AB10B67.2050108@redhat.com> <4AB13B09.5040308@gmail.com> <4AB151D7.10402@redhat.com> <4AB1A8FD.2010805@gmail.com> <20090921214312.GJ7182@ovro.caltech.edu> <4AB89C48.4020903@redhat.com> <4ABA3005.60905@gmail.com> <4ABA32AF.50602@redhat.com> <4ABA3A73.5090508@gmail.com> <4ABA61D1.80703@gmail.com> <4ABA78DC.7070604@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: yi.zhu@intel.com, inaky.perez-gonzalez@intel.com,
-	cindy.h.kao@intel.com, guy.cohen@intel.com,
-	ron.rindjunsky@intel.com, Tomas Winkler <tomas.winkler@intel.com>
-To: davem@davemloft.net, linville@tuxdriver.com,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-mmc@vger.kernel.org
-Return-path: <linux-mmc-owner@vger.kernel.org>
-Sender: linux-mmc-owner@vger.kernel.org
+Cc: "Ira W. Snyder" <iws@ovro.caltech.edu>,
+        "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+        linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
+        akpm@linux-foundation.org, hpa@zytor.com,
+        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com,
+        alacrityvm-devel@lists.sourceforge.net
+To: Gregory Haskins <gregory.haskins@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <4ABA78DC.7070604@redhat.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-i2400m-sdio requires iwmc3200top for its operation
+On 09/23/2009 10:37 PM, Avi Kivity wrote:
+>
+> Example: feature negotiation.  If it happens in userspace, it's easy 
+> to limit what features we expose to the guest.  If it happens in the 
+> kernel, we need to add an interface to let the kernel know which 
+> features it should expose to the guest.  We also need to add an 
+> interface to let userspace know which features were negotiated, if we 
+> want to implement live migration.  Something fairly trivial bloats 
+> rapidly.
 
-create separate config option to separate 3200 specifics
-from eventual further wimax sdio HW.
+btw, we have this issue with kvm reporting cpuid bits to the guest.  
+Instead of letting kvm talk directly to the hardware and the guest, kvm 
+gets the cpuid bits from the hardware, strips away features it doesn't 
+support, exposes that to userspace, and expects userspace to program the 
+cpuid bits it wants to expose to the guest (which may be different than 
+what kvm exposed to userspace, and different from guest to guest).
 
-Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
----
-V2: create separate config option as discussed with Inaky
-
- drivers/net/wimax/i2400m/Kconfig |    9 +++++++++
- 1 files changed, 9 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/wimax/i2400m/Kconfig b/drivers/net/wimax/i2400m/Kconfig
-index d623b3d..9723c5c 100644
---- a/drivers/net/wimax/i2400m/Kconfig
-+++ b/drivers/net/wimax/i2400m/Kconfig
-@@ -31,6 +31,15 @@ config WIMAX_I2400M_SDIO
- 
- 	  If unsure, it is safe to select M (module).
- 
-+config WIMAX_IWMC3200_SDIO
-+	bool "Intel Wireless Multicom WiMAX Connection 3200 over SDIO"
-+	depends on WIMAX_I2400M_SDIO
-+	select IWMC3200TOP
-+	help
-+	  Select if you have a device based on the Intel Multicom WiMAX
-+          Connection 3200 over SDIO.
-+ 
-+
- config WIMAX_I2400M_DEBUG_LEVEL
- 	int "WiMAX i2400m debug level"
- 	depends on WIMAX_I2400M
 -- 
-1.6.0.6
+Do not meddle in the internals of kernels, for they are subtle and quick to panic.
 
----------------------------------------------------------------------
-Intel Israel (74) Limited
-
-This e-mail and any attachments may contain confidential material for
-the sole use of the intended recipient(s). Any review or distribution
-by others is strictly prohibited. If you are not the intended
-recipient, please contact the sender and delete all copies.
-
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
