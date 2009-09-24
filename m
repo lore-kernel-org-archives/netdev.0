@@ -1,24 +1,46 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Gigaset & ISDN followup patches
-Date: Fri, 25 Sep 2009 00:03:59 +0200 (CEST)
-Message-ID: <20090924-patch-0.tilman@imap.cc>
-Cc: Hansjoerg Lipp <hjlipp@web.de>, davem@davemloft.net,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>,
-	Karsten Keil <keil@b1-systems.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752395AbZIXWEs@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] icmp: No need to call sk_write_space()
+Date: Fri, 25 Sep 2009 00:16:51 +0200
+Message-ID: <4ABBEFD3.6060407@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:39024 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751718AbZIXWQu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2009 18:16:50 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Karsten,
+We can make icmp messages tx completion callback a litle bit faster.
 
-I'm sending you one followup patch each to the ISDN and Gigaset patch
-series for kernel 2.6.32 I sent on 2009-09-19, fixing issues I found
-after that submission. I've tentatively tacked them on to the end of
-each series as "patch 5/4" and "13/12" but if you prefer I can respin
-patch 1 of the ISDN series and patch 12 of the Gigaset series to
-incorporate the changes.
+Setting SOCK_USE_WRITE_QUEUE sk flag tells sock_wfree() to
+not call sk_write_space() on a socket we know no thread is posssibly
+waiting for write space. (on per cpu kernel internal icmp sockets only)
 
-Looking forward to seeing these merged,
-Tilman
+This avoids the sock_def_write_space() call and 
+read_lock(&sk->sk_callback_lock)/read_unlock(&sk->sk_callback_lock) calls
+as well.
+
+We avoid three atomic ops.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 5bc13fe..84adb57 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -1165,6 +1165,10 @@ static int __net_init icmp_sk_init(struct net *net)
+ 		sk->sk_sndbuf =
+ 			(2 * ((64 * 1024) + sizeof(struct sk_buff)));
+ 
++		/*
++		 * Speedup sock_wfree()
++		 */
++		sock_set_flag(sk, SOCK_USE_WRITE_QUEUE);
+ 		inet_sk(sk)->pmtudisc = IP_PMTUDISC_DONT;
+ 	}
+ 
