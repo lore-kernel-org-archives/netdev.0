@@ -1,47 +1,38 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] ax25: Fix ax25_cb refcounting in ax25_ctl_ioctl
-Date: Fri, 25 Sep 2009 20:35:04 +0200
-Message-ID: <20090925183504.GA3307@del.dom.local>
-References: <20090921201157.GA5460@del.dom.local>
- <4ABA9058.3010605@free.fr>
- <20090925131038.GA14778@ff.dom.local>
- <20090925134052.GA1661@linux-mips.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] drivers/net: ks8851 ethernet network driver - RESUBMIT
+Date: Fri, 25 Sep 2009 12:09:47 -0700 (PDT)
+Message-ID: <20090925.120947.24952563.davem@davemloft.net>
+References: <C43529A246480145B0A6D0234BDB0F0D02127B@MELANITE.micrel.com>
+	<20090924.163941.156434226.davem@davemloft.net>
+	<C43529A246480145B0A6D0234BDB0F0D02127E@MELANITE.micrel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Bernard Pidoux F6BVP <f6bvp@free.fr>,
-	Bernard Pidoux <bernard.pidoux@upmc.fr>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-hams <linux-hams@vger.kernel.org>
-To: Ralf Baechle DL5RB <ralf@linux-mips.org>
-Return-path: <linux-hams-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090925134052.GA1661@linux-mips.org>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: greg@kroah.com, netdev@vger.kernel.org, Charles.Li@Micrel.Com,
+	Choi@kroah.com, jgarzik@redhat.com, shemminger@vyatta.com
+To: David.Choi@Micrel.Com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54041
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751676AbZIYTJ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2009 15:09:28 -0400
+In-Reply-To: <C43529A246480145B0A6D0234BDB0F0D02127E@MELANITE.micrel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 25, 2009 at 02:40:52PM +0100, Ralf Baechle DL5RB wrote:
-> On Fri, Sep 25, 2009 at 01:10:38PM +0000, Jarek Poplawski wrote:
-> 
-> > This bug isn't responsible for these oopses here, but looks quite
-> > obviously. (I'm not sure if it's easy to test/hit with the common
-> > tools.)
-> 
-> The issue your patch fixes is obvious enough.
 
-Yes, with new code there would be no doubt. But here, if you know it's
-worked for some time, you wonder if you're not blind. |-)
-> 
-> > Jarek P.
-> > ------------>
-> > [PATCH] ax25: Fix ax25_cb refcounting in ax25_ctl_ioctl
-> > 
-> > Use ax25_cb_put after ax25_find_cb in ax25_ctl_ioctl.
-> > 
-> > Reported-by: Bernard Pidoux F6BVP <f6bvp@free.fr>
-> > Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-> 
-> Reviewed-by: Ralf Baechle <ralf@linux-mips.org>
-> 
-Thanks for reviewing,
-Jarek P.
+This patch does not apply.
+
+There is already a CONFIG_KS8851 and a drivers/net/ks8851.c driver
+in Linus's tree right now.  So it completely conflicts with your's
+
+I'm getting burnt out going back and forth trying to apply this
+patch and it doesn't apply cleanly or there's already a driver
+with that name etc.
+
+This is a complete mess and a very poor driver submission.
+
+Please get things straight, look at how other developers write
+their commit messages and signoffs (your's was in bad style and
+the signoff was not in the format described in
+linux/Documentation/SubmittingPatches, for example).
