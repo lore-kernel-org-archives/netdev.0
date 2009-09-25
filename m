@@ -1,57 +1,59 @@
-From: "Karen Xie" <kxie@chelsio.com>
-Subject: RE: [PATCH v2 0/2] cxgb3/cxgb3i: added support of private MAC address and provisioning packet handler for iSCSI
-Date: Fri, 25 Sep 2009 15:34:22 -0700
-Message-ID: <8A71B368A89016469F72CD08050AD334066E7019@maui.asicdesigners.com>
-References: <200909252225.n8PMPaqI031748@localhost.localdomain> <20090925.152430.119503066.davem@davemloft.net>
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: Getting physical packet counts with LRO enabled with ixgbe?
+Date: Fri, 25 Sep 2009 15:40:32 -0700
+Message-ID: <1253918432.3809.32.camel@localhost.localdomain>
+References: <20090925214505.GA3472@gondor.apana.org.au>
+	 <4ABD3B34.8010903@candelatech.com>
+	 <20090925.145915.68839478.davem@davemloft.net>
+	 <20090925220115.GA3684@gondor.apana.org.au>
+	 <4ABD405D.2030106@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <michaelc@cs.wisc.edu>, <James.Bottomley@HansenPartnership.com>,
-	"Steve Wise" <swise@opengridcomputing.com>,
-	"Divy Le Ray" <divy@chelsio.com>,
-	"Rakesh Ranjan" <rakesh@chelsio.com>, <linux-scsi@vger.kernel.org>,
-	<open-iscsi@googlegroups.com>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:9821 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750992AbZIYWkY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Sep 2009 18:40:24 -0400
+In-Reply-To: <4ABD405D.2030106@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hmm, I am wondering how could this merge activity to be coordinated? If
-only the driver/scsi change is merged, then it won't compile either,
-since it requires the driver/net change.
-
-Is it possible to merge both patches to the scsi or net tree?
-
-Thanks,
-Karen
-
------Original Message-----
-From: David Miller [mailto:davem@davemloft.net] 
-Sent: Friday, September 25, 2009 3:25 PM
-To: Karen Xie
-Cc: michaelc@cs.wisc.edu; James.Bottomley@HansenPartnership.com; Steve
-Wise; Divy Le Ray; Rakesh Ranjan; linux-scsi@vger.kernel.org;
-open-iscsi@googlegroups.com; linux-kernel@vger.kernel.org;
-netdev@vger.kernel.org
-Subject: Re: [PATCH v2 0/2] cxgb3/cxgb3i: added support of private MAC
-address and provisioning packet handler for iSCSI
-
-From: kxie@chelsio.com
-Date: Fri, 25 Sep 2009 15:25:36 -0700
-
-> From: Karen Xie <kxie@chelsio.com>
+On Fri, 2009-09-25 at 15:12 -0700, Ben Greear wrote:
+> On 09/25/2009 03:01 PM, Herbert Xu wrote:
+> > On Fri, Sep 25, 2009 at 02:59:15PM -0700, David Miller wrote:
+> >> From: Ben Greear<greearb@candelatech.com>
+> >> Date: Fri, 25 Sep 2009 14:50:44 -0700
+> >>
+> >>> I get aggregate 18Gbps with LRO v/s 12Gbps without, so it's very
+> >>> much a useful feature for me.
+> >>
+> >> And it'll stay like that until you work with Herbert to fix
+> >> that performance difference.
+> >
+> > Actually I believe he's talking about hardware LRO which is a
+> > different beast.
+> >
+> > AFAICS the ixgbe driver doesn't use software LRO anymore.
+> >
+> > So if it is hardware LRO then what we need is for the hardware
+> > to switch over :)
 > 
-> The two patches added support of private MAC address, which is derived
-from
-> the network (i.e., public) MAC address, and provisioning packet
-handler for
-> iSCSI traffic only.
+> Either way, I will be happy to test & benchmark patches of this nature
+> if someone wants to post them.
+> 
 
-I think I'm going to ask you to resubmit the drivers/net patch
-after the necessary drivers/scsi changes get merged by the scsi
-folks.
+I can't post a patch that changes my hardware behavior.  :-)
 
-Thank you.
+So to be clear, ixgbe uses GRO, and does not use software LRO.  In 82599
+adapters, we have a HW LRO engine.  So we run HW LRO and GRO together.
+What Herbert is referring to is that we change our HW design of the HW
+LRO engine to do more of what GRO is doing today.  That would require a
+silicon spin, so that wouldn't happen soon unfortunately.
+
+-PJ
+
