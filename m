@@ -1,33 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/2] cxgb3/cxgb3i: added support of private MAC
- address and provisioning packet handler for iSCSI
-Date: Fri, 25 Sep 2009 15:24:30 -0700 (PDT)
-Message-ID: <20090925.152430.119503066.davem@davemloft.net>
-References: <200909252225.n8PMPaqI031748@localhost.localdomain>
+From: "Karen Xie" <kxie@chelsio.com>
+Subject: RE: [PATCH net-next-2.6] cxgb3: Added private MAC address and provisioning packet handler for iSCSI
+Date: Fri, 25 Sep 2009 15:30:00 -0700
+Message-ID: <8A71B368A89016469F72CD08050AD334066E7015@maui.asicdesigners.com>
+References: <200909250133.n8P1XAZb030062@localhost.localdomain><20090925.121242.184886085.davem@davemloft.net> <20090925.134239.193728924.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: michaelc@cs.wisc.edu, James.Bottomley@HansenPartnership.com,
-	swise@opengridcomputing.com, divy@chelsio.com, rakesh@chelsio.com,
-	linux-scsi@vger.kernel.org, open-iscsi@googlegroups.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: kxie@chelsio.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <200909252225.n8PMPaqI031748@localhost.localdomain>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Steve Wise" <swise@opengridcomputing.com>,
+	"Divy Le Ray" <divy@chelsio.com>,
+	"Rakesh Ranjan" <rakesh@chelsio.com>,
+	<James.Bottomley@HansenPartnership.com>, <michaelc@cs.wisc.edu>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752992AbZIYWYM@vger.kernel.org>
+Content-class: urn:content-classes:message
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: kxie@chelsio.com
-Date: Fri, 25 Sep 2009 15:25:36 -0700
-
-> From: Karen Xie <kxie@chelsio.com>
-> 
-> The two patches added support of private MAC address, which is derived from
-> the network (i.e., public) MAC address, and provisioning packet handler for
-> iSCSI traffic only.
-
-I think I'm going to ask you to resubmit the drivers/net patch
-after the necessary drivers/scsi changes get merged by the scsi
-folks.
-
-Thank you.
+SGksIERhdmUsDQoNCldlIGFyZSBleHRyZW1lbHkgc29ycnkuDQoNClRoZXJlIGlzIGEgMm5kIHBh
+dGNoIHRoYXQgaXMgZ29pbmcgdG8gdGhlIHNjc2kgZ2l0IHRyZWUsIHdoaWNoIGFkZHJlc3MgdGhl
+IGNvbXBpbGF0aW9uIGlzc3VlcyB5b3UgZW5jb3VudGVyZWQuDQoNCkkndmUgcmUtc3VibWl0dGVk
+IGJvdGggcGF0Y2hlcyBhcyBhIHNlcmllcywgc28gaXQgY291bGQgYmUgYXBwbGllZCB0b2dldGhl
+ci4NCg0KVGhhbmtzIGEgbG90LA0KS2FyZW4NCg0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0t
+LQ0KRnJvbTogRGF2aWQgTWlsbGVyIFttYWlsdG86ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldF0gDQpTZW50
+OiBGcmlkYXksIFNlcHRlbWJlciAyNSwgMjAwOSAxOjQzIFBNDQpUbzogS2FyZW4gWGllDQpDYzog
+U3RldmUgV2lzZTsgRGl2eSBMZSBSYXk7IFJha2VzaCBSYW5qYW47IEphbWVzLkJvdHRvbWxleUBI
+YW5zZW5QYXJ0bmVyc2hpcC5jb207IG1pY2hhZWxjQGNzLndpc2MuZWR1OyBsaW51eC1rZXJuZWxA
+dmdlci5rZXJuZWwub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQpTdWJqZWN0OiBSZTogW1BB
+VENIIG5ldC1uZXh0LTIuNl0gY3hnYjM6IEFkZGVkIHByaXZhdGUgTUFDIGFkZHJlc3MgYW5kIHBy
+b3Zpc2lvbmluZyBwYWNrZXQgaGFuZGxlciBmb3IgaVNDU0kNCg0KRnJvbTogRGF2aWQgTWlsbGVy
+IDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogRnJpLCAyNSBTZXAgMjAwOSAxMjoxMjo0MiAt
+MDcwMCAoUERUKQ0KDQo+IEZyb206IGt4aWVAY2hlbHNpby5jb20NCj4gRGF0ZTogVGh1LCAyNCBT
+ZXAgMjAwOSAxODozMzoxMCAtMDcwMA0KPiANCj4+IDAwYzQ4N2VkNjYxYzA5MDQ3NTdhMjFiN2M5
+NThlYmE1OWU2ODQ4MmENCj4+IFtQQVRDSCBuZXQtbmV4dC0yLjZdIGN4Z2IzOiBBZGRlZCBwcml2
+YXRlIE1BQyBhZGRyZXNzIGFuZCBwcm92aXNpb25pbmcgcGFja2V0IGhhbmRsZXIgZm9yIGlTQ1NJ
+DQo+PiANCj4+IFRoaXMgcGF0Y2ggYWRkZWQgc3VwcG9ydCBvZiBwcml2YXRlIE1BQyBhZGRyZXNz
+IHBlciBwb3J0IGFuZCBwcm92aXNpb25pbmcNCj4+IHBhY2tldCBoYW5kbGVyIGZvciBpU0NTSSB0
+cmFmZmljIG9ubHkuDQo+PiANCj4+IEFja2VkLWJ5OiBLYXJlbiBYaWUgPGt4aWVAY2hlbHNpby5j
+b20+DQo+PiBBY2tlZC1ieTogRGl2eSBMZSBSYXkgPGRpdnlAY2hlbHNpby5jb20+DQo+PiBTaWdu
+ZWQtb2ZmLWJ5OiBSYWtlc2ggUmFuamFuIDxycmFuamFuQGNoZWxzaW8uY29tPg0KPiANCj4gQXBw
+bGllZCwgdGhhbmtzLg0KDQpUaGlzIGRvZXNuJ3QgZXZlbiBidWlsZCwgcmV2ZXJ0aW5nOg0KDQpk
+cml2ZXJzL3Njc2kvY3hnYjNpL2N4Z2IzaV9pc2NzaS5jOiBJbiBmdW5jdGlvbiDigJhjeGdiM2lf
+aG9zdF9zZXRfcGFyYW3igJk6DQpkcml2ZXJzL3Njc2kvY3hnYjNpL2N4Z2IzaV9pc2NzaS5jOjcx
+ODogZXJyb3I6IOKAmHN0cnVjdCBwb3J0X2luZm/igJkgaGFzIG5vIG1lbWJlciBuYW1lZCDigJhp
+c2NzaV9pcHY0YWRkcuKAmQ0KZHJpdmVycy9zY3NpL2N4Z2IzaS9jeGdiM2lfaXNjc2kuYzogSW4g
+ZnVuY3Rpb24g4oCYY3hnYjNpX2hvc3RfZ2V0X3BhcmFt4oCZOg0KZHJpdmVycy9zY3NpL2N4Z2Iz
+aS9jeGdiM2lfaXNjc2kuYzo3NTU6IGVycm9yOiDigJhzdHJ1Y3QgcG9ydF9pbmZv4oCZIGhhcyBu
+byBtZW1iZXIgbmFtZWQg4oCYaXNjc2lfaXB2NGFkZHLigJkNCm1ha2VbM106ICoqKiBbZHJpdmVy
+cy9zY3NpL2N4Z2IzaS9jeGdiM2lfaXNjc2kub10gRXJyb3IgMQ0K
