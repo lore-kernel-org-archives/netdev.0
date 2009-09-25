@@ -1,68 +1,57 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [PATCHv5 3/3] vhost_net: a kernel-level virtio server
-Date: Fri, 25 Sep 2009 10:43:47 +0300
-Message-ID: <4ABC74B3.9070102@redhat.com>
-References: <4AB1A8FD.2010805@gmail.com> <20090921214312.GJ7182@ovro.caltech.edu> <4AB89C48.4020903@redhat.com> <4ABA3005.60905@gmail.com> <4ABA32AF.50602@redhat.com> <4ABA3A73.5090508@gmail.com> <4ABA61D1.80703@gmail.com> <4ABA78DC.7070604@redhat.com> <4ABA8FDC.5010008@gmail.com> <4ABB1D44.5000007@redhat.com> <20090924192754.GA14341@ovro.caltech.edu>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH net-next-2.6 v2] bonding: introduce primary_reselect
+ option
+Date: Fri, 25 Sep 2009 03:47:25 -0400
+Message-ID: <20090925034725.60bcd85b.billfink@mindspring.com>
+References: <20090918195358.GB32154@psychotron.redhat.com>
+	<21492.1253838848@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Gregory Haskins <gregory.haskins@gmail.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-        virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
-        linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
-        akpm@linux-foundation.org, hpa@zytor.com,
-        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com,
-        alacrityvm-devel@lists.sourceforge.net
-To: "Ira W. Snyder" <iws@ovro.caltech.edu>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20090924192754.GA14341@ovro.caltech.edu>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, bonding-devel@lists.sourceforge.net,
+	nicolas.2p.debian@free.fr
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:41657 "EHLO
+	elasmtp-scoter.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752716AbZIYHrY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2009 03:47:24 -0400
+In-Reply-To: <21492.1253838848@death.nxdomain.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/24/2009 10:27 PM, Ira W. Snyder wrote:
->>> Ira can make ira-bus, and ira-eventfd, etc, etc.
->>>
->>> Each iteration will invariably introduce duplicated parts of the stack.
->>>
->>>        
->> Invariably?  Use libraries (virtio-shmem.ko, libvhost.so).
->>
->>      
-> Referencing libraries that don't yet exist doesn't seem like a good
-> argument against vbus from my point of view. I'm not speficially
-> advocating for vbus; I'm just letting you know how it looks to another
-> developer in the trenches.
->    
+On Thu, 24 Sep 2009, Jay Vosburgh wrote:
 
-My argument is that we shouldn't write a new framework instead of fixing 
-or extending an existing one.
+> 
+> From: Jiri Pirko <jpirko@redhat.com>
+> 
+> In some cases there is not desirable to switch back to primary interface when
+> it's link recovers and rather stay with currently active one. We need to avoid
+> packetloss as much as we can in some cases. This is solved by introducing
+> primary_reselect option. Note that enslaved primary slave is set as current
+> active no matter what.
+> 
+> Patch modified by Jay Vosburgh as follows: fixed bug in action
+> after change of option setting via sysfs, revised the documentation
+> update, and bumped the bonding version number.
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> ---
+> 
+> 	Note that this patch depends on the "make ab_arp select active
+> slaves as other modes" patch recently approved, but not yet appearing in
+> net-next-2.6 as I write this.  http://patchwork.ozlabs.org/patch/32684/
+> 
+>  Documentation/networking/bonding.txt |   42 +++++++++++++++++++++-
+>  drivers/net/bonding/bond_main.c      |   66 +++++++++++++++++++++++++++++++---
+>  drivers/net/bonding/bond_main.c.rej  |   18 +++++++++
+>  drivers/net/bonding/bond_sysfs.c     |   53 +++++++++++++++++++++++++++
+>  drivers/net/bonding/bonding.h        |   11 +++++-
+>  5 files changed, 182 insertions(+), 8 deletions(-)
+>  create mode 100644 drivers/net/bonding/bond_main.c.rej
 
-> If you'd like to see the amount of duplication present, look at the code
-> I'm currently working on.
+I doubt you intended to include a patch reject file in your patch.
 
-Yes, virtio-phys-guest looks pretty much duplicated.  Looks like it 
-should be pretty easy to deduplicate.
-
->   It mostly works at this point, though I
-> haven't finished my userspace, nor figured out how to actually transfer
-> data.
->
-> The current question I have (just to let you know where I am in
-> development) is:
->
-> I have the physical address of the remote data, but how do I get it into
-> a userspace buffer, so I can pass it to tun?
->    
-
-vhost does guest physical address to host userspace address (it your 
-scenario, remote physical to local virtual) using a table of memory 
-slots; there's an ioctl that allows userspace to initialize that table.
-
--- 
-Do not meddle in the internals of kernels, for they are subtle and quick to panic.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+						-Bill
