@@ -1,42 +1,143 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] cxgb3: Added private MAC address and
- provisioning packet handler for iSCSI
-Date: Fri, 25 Sep 2009 13:42:39 -0700 (PDT)
-Message-ID: <20090925.134239.193728924.davem@davemloft.net>
-References: <200909250133.n8P1XAZb030062@localhost.localdomain>
-	<20090925.121242.184886085.davem@davemloft.net>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: [PATCH] 3c59x: Rework suspend and resume
+Date: Sat, 26 Sep 2009 00:52:06 +0400
+Message-ID: <20090925205206.GA9270@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: swise@opengridcomputing.com, divy@chelsio.com, rranjan@chelsio.com,
-	James.Bottomley@HansenPartnership.com, michaelc@cs.wisc.edu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: kxie@chelsio.com
+Content-Type: text/plain; charset=utf-8
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	linux-pm@lists.linux-foundation.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37677
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751892AbZIYUmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2009 16:42:20 -0400
-In-Reply-To: <20090925.121242.184886085.davem@davemloft.net>
+Received: from ru.mvista.com ([213.79.90.228]:60326 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751906AbZIYUwE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2009 16:52:04 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogRnJpLCAyNSBT
-ZXAgMjAwOSAxMjoxMjo0MiAtMDcwMCAoUERUKQ0KDQo+IEZyb206IGt4aWVAY2hlbHNpby5jb20N
-Cj4gRGF0ZTogVGh1LCAyNCBTZXAgMjAwOSAxODozMzoxMCAtMDcwMA0KPiANCj4+IDAwYzQ4N2Vk
-NjYxYzA5MDQ3NTdhMjFiN2M5NThlYmE1OWU2ODQ4MmENCj4+IFtQQVRDSCBuZXQtbmV4dC0yLjZd
-IGN4Z2IzOiBBZGRlZCBwcml2YXRlIE1BQyBhZGRyZXNzIGFuZCBwcm92aXNpb25pbmcgcGFja2V0
-IGhhbmRsZXIgZm9yIGlTQ1NJDQo+PiANCj4+IFRoaXMgcGF0Y2ggYWRkZWQgc3VwcG9ydCBvZiBw
-cml2YXRlIE1BQyBhZGRyZXNzIHBlciBwb3J0IGFuZCBwcm92aXNpb25pbmcNCj4+IHBhY2tldCBo
-YW5kbGVyIGZvciBpU0NTSSB0cmFmZmljIG9ubHkuDQo+PiANCj4+IEFja2VkLWJ5OiBLYXJlbiBY
-aWUgPGt4aWVAY2hlbHNpby5jb20+DQo+PiBBY2tlZC1ieTogRGl2eSBMZSBSYXkgPGRpdnlAY2hl
-bHNpby5jb20+DQo+PiBTaWduZWQtb2ZmLWJ5OiBSYWtlc2ggUmFuamFuIDxycmFuamFuQGNoZWxz
-aW8uY29tPg0KPiANCj4gQXBwbGllZCwgdGhhbmtzLg0KDQpUaGlzIGRvZXNuJ3QgZXZlbiBidWls
-ZCwgcmV2ZXJ0aW5nOg0KDQpkcml2ZXJzL3Njc2kvY3hnYjNpL2N4Z2IzaV9pc2NzaS5jOiBJbiBm
-dW5jdGlvbiDigJhjeGdiM2lfaG9zdF9zZXRfcGFyYW3igJk6DQpkcml2ZXJzL3Njc2kvY3hnYjNp
-L2N4Z2IzaV9pc2NzaS5jOjcxODogZXJyb3I6IOKAmHN0cnVjdCBwb3J0X2luZm/igJkgaGFzIG5v
-IG1lbWJlciBuYW1lZCDigJhpc2NzaV9pcHY0YWRkcuKAmQ0KZHJpdmVycy9zY3NpL2N4Z2IzaS9j
-eGdiM2lfaXNjc2kuYzogSW4gZnVuY3Rpb24g4oCYY3hnYjNpX2hvc3RfZ2V0X3BhcmFt4oCZOg0K
-ZHJpdmVycy9zY3NpL2N4Z2IzaS9jeGdiM2lfaXNjc2kuYzo3NTU6IGVycm9yOiDigJhzdHJ1Y3Qg
-cG9ydF9pbmZv4oCZIGhhcyBubyBtZW1iZXIgbmFtZWQg4oCYaXNjc2lfaXB2NGFkZHLigJkNCm1h
-a2VbM106ICoqKiBbZHJpdmVycy9zY3NpL2N4Z2IzaS9jeGdiM2lfaXNjc2kub10gRXJyb3IgMQ0K
+As noticed by Alan Stern, there is still one issue with the driver:
+we disable PCI IRQ on suspend, but other devices on the same IRQ
+line might still need the IRQ enabled to suspend properly.
+
+Nowadays, PCI core handles all power management work by itself, with
+one condition though: if we use dev_pm_ops. So, rework the driver to
+only quiesce 3c59x internal logic on suspend, while PCI core will
+manage PCI device power state with IRQs disabled.
+
+Suggested-by: Rafael J. Wysocki <rjw@sisk.pl>
+Suggested-by: Alan Stern <stern@rowland.harvard.edu>
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+---
+ drivers/net/3c59x.c |   77 +++++++++++++++++++++++++--------------------------
+ 1 files changed, 38 insertions(+), 39 deletions(-)
+
+diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+index 7cdd4b0..dee2320 100644
+--- a/drivers/net/3c59x.c
++++ b/drivers/net/3c59x.c
+@@ -799,52 +799,54 @@ static void poll_vortex(struct net_device *dev)
+ 
+ #ifdef CONFIG_PM
+ 
+-static int vortex_suspend(struct pci_dev *pdev, pm_message_t state)
++static int vortex_suspend(struct device *dev)
+ {
+-	struct net_device *dev = pci_get_drvdata(pdev);
++	struct pci_dev *pdev = to_pci_dev(dev);
++	struct net_device *ndev = pci_get_drvdata(pdev);
++
++	if (!ndev || !netif_running(ndev))
++		return 0;
++
++	netif_device_detach(ndev);
++	vortex_down(ndev, 1);
+ 
+-	if (dev && netdev_priv(dev)) {
+-		if (netif_running(dev)) {
+-			netif_device_detach(dev);
+-			vortex_down(dev, 1);
+-			disable_irq(dev->irq);
+-		}
+-		pci_save_state(pdev);
+-		pci_enable_wake(pdev, pci_choose_state(pdev, state), 0);
+-		pci_disable_device(pdev);
+-		pci_set_power_state(pdev, pci_choose_state(pdev, state));
+-	}
+ 	return 0;
+ }
+ 
+-static int vortex_resume(struct pci_dev *pdev)
++static int vortex_resume(struct device *dev)
+ {
+-	struct net_device *dev = pci_get_drvdata(pdev);
+-	struct vortex_private *vp = netdev_priv(dev);
++	struct pci_dev *pdev = to_pci_dev(dev);
++	struct net_device *ndev = pci_get_drvdata(pdev);
+ 	int err;
+ 
+-	if (dev && vp) {
+-		pci_set_power_state(pdev, PCI_D0);
+-		pci_restore_state(pdev);
+-		err = pci_enable_device(pdev);
+-		if (err) {
+-			pr_warning("%s: Could not enable device\n",
+-				dev->name);
+-			return err;
+-		}
+-		pci_set_master(pdev);
+-		if (netif_running(dev)) {
+-			err = vortex_up(dev);
+-			if (err)
+-				return err;
+-			enable_irq(dev->irq);
+-			netif_device_attach(dev);
+-		}
+-	}
++	if (!ndev || !netif_running(ndev))
++		return 0;
++
++	err = vortex_up(ndev);
++	if (err)
++		return err;
++
++	netif_device_attach(ndev);
++
+ 	return 0;
+ }
+ 
+-#endif /* CONFIG_PM */
++static struct dev_pm_ops vortex_pm_ops = {
++	.suspend = vortex_suspend,
++	.resume = vortex_resume,
++	.freeze = vortex_suspend,
++	.thaw = vortex_resume,
++	.poweroff = vortex_suspend,
++	.restore = vortex_resume,
++};
++
++#define VORTEX_PM_OPS (&vortex_pm_ops)
++
++#else /* !CONFIG_PM */
++
++#define VORTEX_PM_OPS NULL
++
++#endif /* !CONFIG_PM */
+ 
+ #ifdef CONFIG_EISA
+ static struct eisa_device_id vortex_eisa_ids[] = {
+@@ -3191,10 +3193,7 @@ static struct pci_driver vortex_driver = {
+ 	.probe		= vortex_init_one,
+ 	.remove		= __devexit_p(vortex_remove_one),
+ 	.id_table	= vortex_pci_tbl,
+-#ifdef CONFIG_PM
+-	.suspend	= vortex_suspend,
+-	.resume		= vortex_resume,
+-#endif
++	.driver.pm	= VORTEX_PM_OPS,
+ };
+ 
+ 
+-- 
+1.6.3.3
