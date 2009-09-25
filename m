@@ -1,74 +1,78 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [linux-pm] [PATCH] 3c59x: Get rid of "Trying to free already-free IRQ"
-Date: Fri, 25 Sep 2009 15:02:41 +0200
-Message-ID: <200909251502.42014.rjw@sisk.pl>
-References: <Pine.LNX.4.44L0.0909250038300.14463-100000@netrider.rowland.org> <200909251432.30738.rjw@sisk.pl> <20090925125616.GA20863@oksana.dev.rtsoft.ru>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: TCP stack bug related to F-RTO?
+Date: Fri, 25 Sep 2009 16:09:38 +0300 (EEST)
+Message-ID: <alpine.DEB.2.00.0909251556130.13543@wel-95.cs.helsinki.fi>
+References: <427999.33681.qm@web63406.mail.re1.yahoo.com> <2c0942db0909241639vafd348eia19436d18b182d60@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alan Stern <stern@rowland.harvard.edu>,
-	linux-pm@lists.linux-foundation.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: avorontsov@ru.mvista.com
+Content-Type: MULTIPART/MIXED; boundary="8323329-938466288-1253883977=:13543"
+Cc: Joe Cao <caoco2002@yahoo.com>, Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, jcaoco2002@yahoo.com
+To: Ray Lee <ray-lk@madrabbit.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:52370 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752669AbZIYNBn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Sep 2009 09:01:43 -0400
-In-Reply-To: <20090925125616.GA20863@oksana.dev.rtsoft.ru>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:60281 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752654AbZIYNJf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2009 09:09:35 -0400
+In-Reply-To: <2c0942db0909241639vafd348eia19436d18b182d60@mail.gmail.com>
+Content-ID: <alpine.DEB.2.00.0909251607420.13543@wel-95.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 25 September 2009, Anton Vorontsov wrote:
-> On Fri, Sep 25, 2009 at 02:32:30PM +0200, Rafael J. Wysocki wrote:
-> > On Friday 25 September 2009, Alan Stern wrote:
-> > > On Thu, 24 Sep 2009, Anton Vorontsov wrote:
-> > > 
-> > > > Though, there are few other issues with suspend/resume in this driver.
-> > > > The intention of calling free_irq() in suspend() was to avoid any
-> > > > possible spurious interrupts (see commit 5b039e681b8c5f30aac9cc04385
-> > > > "3c59x PM fixes"). But,
-> > > > 
-> > > > - On resume, the driver was requesting IRQ just after pci_set_master(),
-> > > >   but before vortex_up() (which actually resets 3c59x chips).
-> > > 
-> > > Shouldn't it be possible to reset the chip (or at least prevent it from 
-> > > generating spurious IRQs) during the early-resume phase?
-> > > 
-> > > > - Issuing free_irq() on a shared IRQ doesn't guarantee that a buggy
-> > > >   HW won't trigger spurious interrupts in another driver that
-> > > >   requested the same interrupt. So, if we want to protect from
-> > > >   unexpected interrupts, then on suspend we should issue disable_irq(),
-> > > >   not free_irq().
-> > > 
-> > > What if some other device shares the IRQ and still relies on receiving
-> > > interrupts when this code runs?  Won't disable_irq() mess up the other
-> > > device?
-> > 
-> > Ah, I overlooked the disable_irq()/enable_irq() part, which is not really
-> > necessary anyway.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+--8323329-938466288-1253883977=:13543
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
+Content-ID: <alpine.DEB.2.00.0909251607421.13543@wel-95.cs.helsinki.fi>
+
+On Thu, 24 Sep 2009, Ray Lee wrote:
+
+> [adding netdev cc:]
 > 
-> Well, it is necessary if 3c59x really throws spurious interrupts
-> upon suspend (i.e. after pci_disable_device(pdev)). My first though
-> was to just remove free/request_irq stuff, but then I could introduce
-> a regression if 3c59x really throws unexpected IRQs and 3c59x was
-> the only user of a PCI IRQ (in that case free_irq() would actually
-> help).
-> 
-> > Anton, have you tried without that?
-> 
-> Yes, and there wasn't any issues for 3x59x I have. Alan raised a very
-> good point, and converting to dev_pm_opsas as you've suggested would
-> solve it in a nice way, since if we use the dev_pm_ops, PCI core
-> will disable the device in _noirq suspend, after we quiesced the
-> chip itself.
+> On Thu, Sep 24, 2009 at 10:43 AM, Joe Cao <caoco2002@yahoo.com> wrote:
+> >
+> > Hello,
+> >
+> > I have found the following behavior with different versions of linux 
+> > kernel. The attached pcap trace is collected with server 
+> > (192.168.0.13) running 2.6.24 and shows the problem. Basically the 
+> > behavior is like this: 
+> >
+> > 1. The client opens up a big window,
+> > 2. the server sends 19 packets in a row (pkt #14- #32 in the trace), but all of them are dropped due to some congestion.
+> > 3. The server hits RTO and retransmits pkt #14 in #33
+> > 4. The client immediately acks #33 (=#14), and the server (seems like to enter F-RTO) expends the window and sends *NEW* pkt #35 & #36.=A0 Timeoute is doubled to 2*RTO; The client immediately sends two Dup-ack to #35 and #36.
+> > 5. after 2*RTO, pkt #15 is retransmitted in #39.
+> > 6. The client immediately acks #39 (=#15) in #40, and the server continues to expand the window and sends two *NEW* pkt #41 & #42. Now the timeoute is doubled to 4 *RTO.
+> > 8. After 4*RTO timeout, #16 is retransmitted.
+> > 9....
+> > 10. The above steps repeats for retransmitting pkt #16-#32 and each time the timeout is doubled.
+> > 11. It takes a long long time to retransmit all the lost packets and before that is done, the client sends a RST because of timeout.
+> >
+> > The above behavior looks like F-RTO is in effect.  And there seems to 
+> > be a bug in the TCP's congestion control and retransmission algorithm. 
+> > Why doesn't the TCP on server (running 2.6.24) enter the slow start? 
+> > Why should the server take that long to recover from a short period 
+> > of packet loss?
+> >
+> > Has anyone else noticed similar problem before?  If my analysis was 
+> > wrong, can anyone gives me some pointers to what's really wrong and 
+> > how to fix it?
 
-That's exactly why I suggested to do that. :-)
+Yes, 2.6.24 is an obsoleted version with known wrongs in FRTO 
+implementation. Fixes never when to 2.6.24 stable series as it was 
+_already_ obsoleted when the problems where reported and found. The 
+correct fixes may be found from 2.6.25.7 (.7 iirc) and are included from 
+2.6.26 onward too.
 
-> I'll send another patch that reworks PM stuff in the driver soon.
+Just in case you happen to run ubuntu based kernel from that era (of 
+course you should be reporting the bug here then...), a word of warning: 
+it seemed nearly impossible for them to get a simple thing like that 
+fixed, I haven't been looking if they'd eventually come to some sensible 
+conclusion in that matter or is it still unresolved (or e.g., closed 
+without real resolution).
 
-Thanks a lot for taking care of this!
-
-Best,
-Rafael
+-- 
+ i.
+--8323329-938466288-1253883977=:13543--
