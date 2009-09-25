@@ -1,7 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 1/3] net: fix vlan_get_size to include vlan_flags size
-Date: Fri, 25 Sep 2009 16:11:24 -0700
-Message-ID: <20090925231124.23450.94680.stgit@localhost.localdomain>
+Subject: [net-2.6 PATCH 2/3] net: fix nlmsg len size for skb when error bit is
+	set.
+Date: Fri, 25 Sep 2009 16:11:44 -0700
+Message-ID: <20090925231144.23450.79736.stgit@localhost.localdomain>
+References: <20090925231124.23450.94680.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -10,35 +12,39 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta02.westchester.pa.mail.comcast.net ([76.96.62.24]:60822
-	"EHLO QMTA02.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752693AbZIYXLj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2009 19:11:39 -0400
+Received: from qmta13.westchester.pa.mail.comcast.net ([76.96.59.243]:40097
+	"EHLO QMTA13.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752744AbZIYXL6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2009 19:11:58 -0400
+In-Reply-To: <20090925231124.23450.94680.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: John Fastabend <john.r.fastabend@intel.com>
 
-Fix vlan_get_size to include vlan->flags.  Currently, the
-size of the vlan flags is not included in the nlmsg size.
+Currently, the nlmsg->len field is not set correctly in  netlink_ack()
+for ack messages that include the nlmsg of the error frame.  This
+corrects the length field passed to __nlmsg_put to use the correct
+payload size.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- net/8021q/vlan_netlink.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ net/netlink/af_netlink.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
-index 343146e..a915048 100644
---- a/net/8021q/vlan_netlink.c
-+++ b/net/8021q/vlan_netlink.c
-@@ -169,6 +169,7 @@ static size_t vlan_get_size(const struct net_device *dev)
- 	struct vlan_dev_info *vlan = vlan_dev_info(dev);
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index a4bafbf..dd85320 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1788,7 +1788,7 @@ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err)
+ 	}
  
- 	return nla_total_size(2) +	/* IFLA_VLAN_ID */
-+	       sizeof(struct ifla_vlan_flags) + /* IFLA_VLAN_FLAGS */
- 	       vlan_qos_map_size(vlan->nr_ingress_mappings) +
- 	       vlan_qos_map_size(vlan->nr_egress_mappings);
- }
+ 	rep = __nlmsg_put(skb, NETLINK_CB(in_skb).pid, nlh->nlmsg_seq,
+-			  NLMSG_ERROR, sizeof(struct nlmsgerr), 0);
++			  NLMSG_ERROR, payload, 0);
+ 	errmsg = nlmsg_data(rep);
+ 	errmsg->error = err;
+ 	memcpy(&errmsg->msg, nlh, err ? nlh->nlmsg_len : sizeof(*nlh));
 
