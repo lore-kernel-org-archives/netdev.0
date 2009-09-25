@@ -1,45 +1,54 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [linux-pm] [PATCH] 3c59x: Get rid of "Trying to free already-free
- IRQ"
-Date: Fri, 25 Sep 2009 00:43:47 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.0909250038300.14463-100000@netrider.rowland.org>
-References: <20090924183152.GA30254@oksana.dev.rtsoft.ru>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: PATCH 0/1: rt2x00dev.c / rt2x00lib.h fixes build breakage
+Date: Fri, 25 Sep 2009 00:53:17 -0400
+Message-ID: <20090925045316.GB2722@tuxdriver.com>
+References: <5a44caba0909231358y23f21c0drb2a3451084028a6f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-pm@lists.linux-foundation.org>
-To: Anton Vorontsov <avorontsov@ru.mvista.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Ken Lewis <kennylewis@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netrider.rowland.org ([192.131.102.5]:57551 "HELO
-	netrider.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1750879AbZIYEnn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2009 00:43:43 -0400
-In-Reply-To: <20090924183152.GA30254@oksana.dev.rtsoft.ru>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:42938 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750936AbZIYFBM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2009 01:01:12 -0400
+Content-Disposition: inline
+In-Reply-To: <5a44caba0909231358y23f21c0drb2a3451084028a6f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 24 Sep 2009, Anton Vorontsov wrote:
-
-> Though, there are few other issues with suspend/resume in this driver.
-> The intention of calling free_irq() in suspend() was to avoid any
-> possible spurious interrupts (see commit 5b039e681b8c5f30aac9cc04385
-> "3c59x PM fixes"). But,
+On Wed, Sep 23, 2009 at 09:58:35PM +0100, Ken Lewis wrote:
+> The headers in drivers/net/wireless/rt2x00/rt2x00lib.h don't match the
+> use of the function in rt2x00dev.c  The build fails as a result.
 > 
-> - On resume, the driver was requesting IRQ just after pci_set_master(),
->   but before vortex_up() (which actually resets 3c59x chips).
+> This has been a problem in linux-next since early September.  I've
+> e-mailed a patch to linux-next and to linux-net, but the 2.6.32 merge
+> window has brought the problem to the mainline and so I'm re-sending
+> my patch.  I've opened a bug on bugzilla:
+> http://bugzilla.kernel.org/show_bug.cgi?id=14217
 
-Shouldn't it be possible to reset the chip (or at least prevent it from 
-generating spurious IRQs) during the early-resume phase?
+Always make sure to send wireless LAN patches to
+linux-wireless@vger.kernel.org.  Anyway, the following patch is in
+the pull request I sent to Dave yesterday (and which I believe he
+has already pulled):
 
-> - Issuing free_irq() on a shared IRQ doesn't guarantee that a buggy
->   HW won't trigger spurious interrupts in another driver that
->   requested the same interrupt. So, if we want to protect from
->   unexpected interrupts, then on suspend we should issue disable_irq(),
->   not free_irq().
+commit fe2475633676b0a976400dfc53f8d7006f56543e
+Author: Andrew Price <andy@andrewprice.me.uk>
+Date:   Thu Sep 17 21:15:48 2009 +0100
 
-What if some other device shares the IRQ and still relies on receiving
-interrupts when this code runs?  Won't disable_irq() mess up the other
-device?
+    rt2x00: fix the definition of rt2x00crypto_rx_insert_iv
+    
+    Remove the redundant l2pad parameter from the definition of
+    rt2x00crypto_rx_insert_iv which is used when only CONFIG_RT2500PCI but
+    none of the other rt2x00 family drivers is configured.
+    
+    Signed-off-by: Andrew Price <andy@andrewprice.me.uk>
+    Signed-off-by: John W. Linville <linville@tuxdriver.com>
 
-Alan Stern
+Hth!
 
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
