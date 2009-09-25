@@ -1,143 +1,59 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH] 3c59x: Rework suspend and resume
-Date: Sat, 26 Sep 2009 00:52:06 +0400
-Message-ID: <20090925205206.GA9270@oksana.dev.rtsoft.ru>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT]: Networking
+Date: Fri, 25 Sep 2009 14:31:10 -0700 (PDT)
+Message-ID: <20090925.143110.63978337.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	linux-pm@lists.linux-foundation.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ru.mvista.com ([213.79.90.228]:60326 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751906AbZIYUwE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2009 16:52:04 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752675AbZIYVbB@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-As noticed by Alan Stern, there is still one issue with the driver:
-we disable PCI IRQ on suspend, but other devices on the same IRQ
-line might still need the IRQ enabled to suspend properly.
 
-Nowadays, PCI core handles all power management work by itself, with
-one condition though: if we use dev_pm_ops. So, rework the driver to
-only quiesce 3c59x internal logic on suspend, while PCI core will
-manage PCI device power state with IRQs disabled.
+1) Forgotten GIT 'add' in CAN driver commit, my bad.
 
-Suggested-by: Rafael J. Wysocki <rjw@sisk.pl>
-Suggested-by: Alan Stern <stern@rowland.harvard.edu>
-Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
----
- drivers/net/3c59x.c |   77 +++++++++++++++++++++++++--------------------------
- 1 files changed, 38 insertions(+), 39 deletions(-)
+2) AX25 control block refcounting is hosed, fix from Jarek Poplawski.
 
-diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
-index 7cdd4b0..dee2320 100644
---- a/drivers/net/3c59x.c
-+++ b/drivers/net/3c59x.c
-@@ -799,52 +799,54 @@ static void poll_vortex(struct net_device *dev)
- 
- #ifdef CONFIG_PM
- 
--static int vortex_suspend(struct pci_dev *pdev, pm_message_t state)
-+static int vortex_suspend(struct device *dev)
- {
--	struct net_device *dev = pci_get_drvdata(pdev);
-+	struct pci_dev *pdev = to_pci_dev(dev);
-+	struct net_device *ndev = pci_get_drvdata(pdev);
-+
-+	if (!ndev || !netif_running(ndev))
-+		return 0;
-+
-+	netif_device_detach(ndev);
-+	vortex_down(ndev, 1);
- 
--	if (dev && netdev_priv(dev)) {
--		if (netif_running(dev)) {
--			netif_device_detach(dev);
--			vortex_down(dev, 1);
--			disable_irq(dev->irq);
--		}
--		pci_save_state(pdev);
--		pci_enable_wake(pdev, pci_choose_state(pdev, state), 0);
--		pci_disable_device(pdev);
--		pci_set_power_state(pdev, pci_choose_state(pdev, state));
--	}
- 	return 0;
- }
- 
--static int vortex_resume(struct pci_dev *pdev)
-+static int vortex_resume(struct device *dev)
- {
--	struct net_device *dev = pci_get_drvdata(pdev);
--	struct vortex_private *vp = netdev_priv(dev);
-+	struct pci_dev *pdev = to_pci_dev(dev);
-+	struct net_device *ndev = pci_get_drvdata(pdev);
- 	int err;
- 
--	if (dev && vp) {
--		pci_set_power_state(pdev, PCI_D0);
--		pci_restore_state(pdev);
--		err = pci_enable_device(pdev);
--		if (err) {
--			pr_warning("%s: Could not enable device\n",
--				dev->name);
--			return err;
--		}
--		pci_set_master(pdev);
--		if (netif_running(dev)) {
--			err = vortex_up(dev);
--			if (err)
--				return err;
--			enable_irq(dev->irq);
--			netif_device_attach(dev);
--		}
--	}
-+	if (!ndev || !netif_running(ndev))
-+		return 0;
-+
-+	err = vortex_up(ndev);
-+	if (err)
-+		return err;
-+
-+	netif_device_attach(ndev);
-+
- 	return 0;
- }
- 
--#endif /* CONFIG_PM */
-+static struct dev_pm_ops vortex_pm_ops = {
-+	.suspend = vortex_suspend,
-+	.resume = vortex_resume,
-+	.freeze = vortex_suspend,
-+	.thaw = vortex_resume,
-+	.poweroff = vortex_suspend,
-+	.restore = vortex_resume,
-+};
-+
-+#define VORTEX_PM_OPS (&vortex_pm_ops)
-+
-+#else /* !CONFIG_PM */
-+
-+#define VORTEX_PM_OPS NULL
-+
-+#endif /* !CONFIG_PM */
- 
- #ifdef CONFIG_EISA
- static struct eisa_device_id vortex_eisa_ids[] = {
-@@ -3191,10 +3193,7 @@ static struct pci_driver vortex_driver = {
- 	.probe		= vortex_init_one,
- 	.remove		= __devexit_p(vortex_remove_one),
- 	.id_table	= vortex_pci_tbl,
--#ifdef CONFIG_PM
--	.suspend	= vortex_suspend,
--	.resume		= vortex_resume,
--#endif
-+	.driver.pm	= VORTEX_PM_OPS,
- };
- 
- 
--- 
-1.6.3.3
+3) virtio_net driver updates from Rusty Russel
+
+4) TI Davinci checks interrupt pending status wrongly.  From Sriram @ TI.
+
+Please pull, thanks a lot!
+
+The following changes since commit 53cddfcc0e760d2b364878b6dadbd0c6d087cfae:
+  Linus Torvalds (1):
+        Merge git://git.kernel.org/.../lethal/sh-2.6
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Amit Shah (1):
+      virtio_net: Check for room in the vq before adding buffer
+
+David S. Miller (2):
+      Merge branch 'master' of ssh://master.kernel.org/.../rusty/linux-2.6-for-davem
+      at91_can: Forgotten git 'add' of at91_can.c
+
+Jarek Poplawski (1):
+      ax25: Fix ax25_cb refcounting in ax25_ctl_ioctl
+
+Rusty Russell (5):
+      virtio_net: skb_orphan() and nf_reset() in xmit path.
+      virtio_net: return NETDEV_TX_BUSY instead of queueing an extra skb.
+      virtio_net: don't free buffers in xmit ring
+      virtio_net: formalize skb_vnet_hdr
+      virtio_net: avoid (most) NETDEV_TX_BUSY by stopping queue early.
+
+Sriram (1):
+      TI Davinci EMAC: Fix in vector definition for EMAC_VERSION_2
+
+ drivers/net/can/at91_can.c | 1186 ++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/davinci_emac.c |    9 +-
+ drivers/net/virtio_net.c   |  229 ++++------
+ net/ax25/af_ax25.c         |   27 +-
+ 4 files changed, 1299 insertions(+), 152 deletions(-)
+ create mode 100644 drivers/net/can/at91_can.c
