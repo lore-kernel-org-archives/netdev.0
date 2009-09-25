@@ -1,39 +1,33 @@
-From: Ralf Baechle DL5RB <ralf@linux-mips.org>
-Subject: Re: [PATCH] ax25: Fix ax25_cb refcounting in ax25_ctl_ioctl
-Date: Fri, 25 Sep 2009 14:40:52 +0100
-Message-ID: <20090925134052.GA1661@linux-mips.org>
-References: <20090921201157.GA5460@del.dom.local> <4ABA9058.3010605@free.fr> <20090925131038.GA14778@ff.dom.local>
+From: Liu Jiusheng <liujiusheng@gmail.com>
+Subject: Re: Getting IP Address for netdev
+Date: Fri, 25 Sep 2009 21:43:52 +0800
+Message-ID: <20090925134352.GA13465@liujiusheng-laptop>
+References: <8ff29df80909241953j6c6ce8ebpaa5760504158062e@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Bernard Pidoux F6BVP <f6bvp@free.fr>,
-	Bernard Pidoux <bernard.pidoux@upmc.fr>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-hams <linux-hams@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <linux-hams-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Pawel Pastuszak <pawelpastuszak@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f218.google.com ([209.85.220.218]:55186 "EHLO
+	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751858AbZIYNoI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2009 09:44:08 -0400
+Received: by fxm18 with SMTP id 18so2203735fxm.17
+        for <netdev@vger.kernel.org>; Fri, 25 Sep 2009 06:44:11 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20090925131038.GA14778@ff.dom.local>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <8ff29df80909241953j6c6ce8ebpaa5760504158062e@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 25, 2009 at 01:10:38PM +0000, Jarek Poplawski wrote:
-
-> This bug isn't responsible for these oopses here, but looks quite
-> obviously. (I'm not sure if it's easy to test/hit with the common
-> tools.)
-
-The issue your patch fixes is obvious enough.
-
-> Jarek P.
-> ------------>
-> [PATCH] ax25: Fix ax25_cb refcounting in ax25_ctl_ioctl
+On Thu, Sep 24, 2009 at 10:53:41PM -0400, Pawel Pastuszak wrote:
+> Hello everyone,
 > 
-> Use ax25_cb_put after ax25_find_cb in ax25_ctl_ioctl.
+> I am looking for some help, I am writing an netdev driver and i want
+> to known how to i get the current ip  that is set to the device?
 > 
-> Reported-by: Bernard Pidoux F6BVP <f6bvp@free.fr>
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-Reviewed-by: Ralf Baechle <ralf@linux-mips.org>
+use in_dev_get to get in_device;
+use macro for_ifa to get the IPv4 address set on the device.
 
-  Ralf
+-- 
+Liu Jiusheng
