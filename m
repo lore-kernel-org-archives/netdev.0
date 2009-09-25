@@ -1,245 +1,79 @@
-From: kxie@chelsio.com
-Subject: [PATCH net-next-2.6] cxgb3: Added private MAC address and
- provisioning packet handler for iSCSI
-Date: Thu, 24 Sep 2009 18:33:10 -0700
-Message-ID: <200909250133.n8P1XAZb030062@localhost.localdomain>
+From: zhigang gong <zhigang.gong@gmail.com>
+Subject: Re: TCP stack bug related to F-RTO?
+Date: Fri, 25 Sep 2009 10:32:55 +0800
+Message-ID: <40c9f5b20909241932k5e1f1d74kf8065e2e06aa4d09@mail.gmail.com>
+References: <427999.33681.qm@web63406.mail.re1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: swise@opengridcomputing.com, divy@chelsio.com, rranjan@chelsio.com,
-	kxie@chelsio.com, James.Bottomley@HansenPartnership.com,
-	michaelc@cs.wisc.edu, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, jcaoco2002@yahoo.com,
 	netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753169AbZIYCJn@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Joe Cao <caoco2002@yahoo.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-px0-f194.google.com ([209.85.216.194]:59054 "EHLO
+	mail-px0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751894AbZIYCcv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Sep 2009 22:32:51 -0400
+In-Reply-To: <427999.33681.qm@web63406.mail.re1.yahoo.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-00c487ed661c0904757a21b7c958eba59e68482a
-[PATCH net-next-2.6] cxgb3: Added private MAC address and provisioning packet handler for iSCSI
+On Fri, Sep 25, 2009 at 1:43 AM, Joe Cao <caoco2002@yahoo.com> wrote:
+> Hello,
+>
+> I have found the following behavior with different versions of linux =
+kernel. The attached pcap trace is collected with server (192.168.0.13)=
+ running 2.6.24 and shows the problem. Basically the behavior is like t=
+his:
+>
+> 1. The client opens up a big window,
+> 2. the server sends 19 packets in a row (pkt #14- #32 in the trace), =
+but all of them are dropped due to some congestion.
+> 3. The server hits RTO and retransmits pkt #14 in #33
+> 4. The client immediately acks #33 (=3D#14), and the server (seems li=
+ke to enter F-RTO) expends the window and sends *NEW* pkt #35 & #36.=3D=
+A0 Timeoute is doubled to 2*RTO; The client immediately sends two Dup-a=
+ck to #35 and #36.
+> 5. after 2*RTO, pkt #15 is retransmitted in #39.
+> 6. The client immediately acks #39 (=3D#15) in #40, and the server co=
+ntinues to expand the window and sends two *NEW* pkt #41 & #42. Now the=
+ timeoute is doubled to 4 *RTO.
+> 8. After 4*RTO timeout, #16 is retransmitted.
+> 9....
+> 10. The above steps repeats for retransmitting pkt #16-#32 and each t=
+ime the timeout is doubled.
+> 11. It takes a long long time to retransmit all the lost packets and =
+before that is done, the client sends a RST because of timeout.
+>
+> The above behavior looks like F-RTO is in effect. =A0And there seems =
+to be a bug in the TCP's congestion control and
+> retransmission algorithm. Why doesn't the TCP on server (running 2.6.=
+24) enter the slow start?
+As I know, the early implementation hasn't enter slow start if the
+remote end is in the same network.  I'm not sure that of the version
+2.6.24. But after I have a look at your trace, I think this is not the
+point of your problem. The behaviour of your client 192.168.0.82 is
+very strange. The client always send a packet with error TCP checksum
+and the 4# to 13# packets sent by the client   totally don't conform
+to  the TCP protocol, not only with wrong TCP checksum but also with
+incorrect seq and ack number.
 
-This patch added support of private MAC address per port and provisioning
-packet handler for iSCSI traffic only.
+My suggestion is that before you start to investigate the server
+side's behaviour, you need to correct your client side's TCP/IP stack
+implementation first.
 
-Acked-by: Karen Xie <kxie@chelsio.com>
-Acked-by: Divy Le Ray <divy@chelsio.com>
-Signed-off-by: Rakesh Ranjan <rranjan@chelsio.com>
----
- drivers/net/cxgb3/adapter.h       |   18 +++++++++++++++++-
- drivers/net/cxgb3/cxgb3_main.c    |   22 ++++++++++++++++++----
- drivers/net/cxgb3/cxgb3_offload.c |    2 +-
- drivers/net/cxgb3/sge.c           |   30 ++++++++++++++++++++----------
- 4 files changed, 56 insertions(+), 16 deletions(-)
+>Why should the server take that long to recover from a short period of=
+ packet loss?
 
-diff --git a/drivers/net/cxgb3/adapter.h b/drivers/net/cxgb3/adapter.h
-index 2b1aea6..3f3083a 100644
---- a/drivers/net/cxgb3/adapter.h
-+++ b/drivers/net/cxgb3/adapter.h
-@@ -48,12 +48,28 @@
- struct vlan_group;
- struct adapter;
- struct sge_qset;
-+struct port_info;
- 
- enum {			/* rx_offload flags */
- 	T3_RX_CSUM	= 1 << 0,
- 	T3_LRO		= 1 << 1,
- };
- 
-+enum {
-+	LAN_MAC_IDX	= 0,
-+	SAN_MAC_IDX,
-+
-+	MAX_MAC_IDX
-+};
-+
-+struct iscsi_config {
-+	__be32	ipv4_addr;
-+	__u8	mac_addr[ETH_ALEN];
-+	__u32	flags;
-+	int (*send)(struct port_info *pi, struct sk_buff **skb);
-+	int (*recv)(struct port_info *pi, struct sk_buff *skb);
-+};
-+
- struct port_info {
- 	struct adapter *adapter;
- 	struct vlan_group *vlan_grp;
-@@ -67,7 +83,7 @@ struct port_info {
- 	struct link_config link_config;
- 	struct net_device_stats netstats;
- 	int activity;
--	__be32 iscsi_ipv4addr;
-+	struct iscsi_config iscsic;
- 
- 	int link_fault; /* link fault was detected */
- };
-diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
-index 34e776c..c9113d3 100644
---- a/drivers/net/cxgb3/cxgb3_main.c
-+++ b/drivers/net/cxgb3/cxgb3_main.c
-@@ -344,8 +344,10 @@ static void link_start(struct net_device *dev)
- 
- 	init_rx_mode(&rm, dev, dev->mc_list);
- 	t3_mac_reset(mac);
-+	t3_mac_set_num_ucast(mac, MAX_MAC_IDX);
- 	t3_mac_set_mtu(mac, dev->mtu);
--	t3_mac_set_address(mac, 0, dev->dev_addr);
-+	t3_mac_set_address(mac, LAN_MAC_IDX, dev->dev_addr);
-+	t3_mac_set_address(mac, SAN_MAC_IDX, pi->iscsic.mac_addr);
- 	t3_mac_set_rx_mode(mac, &rm);
- 	t3_link_start(&pi->phy, mac, &pi->link_config);
- 	t3_mac_enable(mac, MAC_DIRECTION_RX | MAC_DIRECTION_TX);
-@@ -903,6 +905,7 @@ static inline int offload_tx(struct t3cdev *tdev, struct sk_buff *skb)
- static int write_smt_entry(struct adapter *adapter, int idx)
- {
- 	struct cpl_smt_write_req *req;
-+	struct port_info *pi = netdev_priv(adapter->port[idx]);
- 	struct sk_buff *skb = alloc_skb(sizeof(*req), GFP_KERNEL);
- 
- 	if (!skb)
-@@ -913,8 +916,8 @@ static int write_smt_entry(struct adapter *adapter, int idx)
- 	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_SMT_WRITE_REQ, idx));
- 	req->mtu_idx = NMTUS - 1;	/* should be 0 but there's a T3 bug */
- 	req->iff = idx;
--	memset(req->src_mac1, 0, sizeof(req->src_mac1));
- 	memcpy(req->src_mac0, adapter->port[idx]->dev_addr, ETH_ALEN);
-+	memcpy(req->src_mac1, pi->iscsic.mac_addr, ETH_ALEN);
- 	skb->priority = 1;
- 	offload_tx(&adapter->tdev, skb);
- 	return 0;
-@@ -2516,7 +2519,7 @@ static int cxgb_set_mac_addr(struct net_device *dev, void *p)
- 		return -EINVAL;
- 
- 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
--	t3_mac_set_address(&pi->mac, 0, dev->dev_addr);
-+	t3_mac_set_address(&pi->mac, LAN_MAC_IDX, dev->dev_addr);
- 	if (offload_running(adapter))
- 		write_smt_entry(adapter, pi->port_id);
- 	return 0;
-@@ -2654,7 +2657,7 @@ static void check_t3b2_mac(struct adapter *adapter)
- 			struct cmac *mac = &p->mac;
- 
- 			t3_mac_set_mtu(mac, dev->mtu);
--			t3_mac_set_address(mac, 0, dev->dev_addr);
-+			t3_mac_set_address(mac, LAN_MAC_IDX, dev->dev_addr);
- 			cxgb_set_rxmode(dev);
- 			t3_link_start(&p->phy, mac, &p->link_config);
- 			t3_mac_enable(mac, MAC_DIRECTION_RX | MAC_DIRECTION_TX);
-@@ -3112,6 +3115,14 @@ static const struct net_device_ops cxgb_netdev_ops = {
- #endif
- };
- 
-+static void __devinit cxgb3_init_iscsi_mac(struct net_device *dev)
-+{
-+	struct port_info *pi = netdev_priv(dev);
-+
-+	memcpy(pi->iscsic.mac_addr, dev->dev_addr, ETH_ALEN);
-+	pi->iscsic.mac_addr[3] |= 0x80;
-+}
-+
- static int __devinit init_one(struct pci_dev *pdev,
- 			      const struct pci_device_id *ent)
- {
-@@ -3270,6 +3281,9 @@ static int __devinit init_one(struct pci_dev *pdev,
- 		goto out_free_dev;
- 	}
- 
-+	for_each_port(adapter, i)
-+		cxgb3_init_iscsi_mac(adapter->port[i]);
-+
- 	/* Driver's ready. Reflect it on LEDs */
- 	t3_led_ready(adapter);
- 
-diff --git a/drivers/net/cxgb3/cxgb3_offload.c b/drivers/net/cxgb3/cxgb3_offload.c
-index 75064ee..7f314c3 100644
---- a/drivers/net/cxgb3/cxgb3_offload.c
-+++ b/drivers/net/cxgb3/cxgb3_offload.c
-@@ -447,7 +447,7 @@ static int cxgb_offload_ctl(struct t3cdev *tdev, unsigned int req, void *data)
- 	case GET_ISCSI_IPV4ADDR: {
- 		struct iscsi_ipv4addr *p = data;
- 		struct port_info *pi = netdev_priv(p->dev);
--		p->ipv4addr = pi->iscsi_ipv4addr;
-+		p->ipv4addr = pi->iscsic.ipv4_addr;
- 		break;
- 	}
- 	case GET_EMBEDDED_INFO: {
-diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
-index f866128..a911363 100644
---- a/drivers/net/cxgb3/sge.c
-+++ b/drivers/net/cxgb3/sge.c
-@@ -1946,10 +1946,9 @@ static void restart_tx(struct sge_qset *qs)
-  *	Check if the ARP request is probing the private IP address
-  *	dedicated to iSCSI, generate an ARP reply if so.
-  */
--static void cxgb3_arp_process(struct adapter *adapter, struct sk_buff *skb)
-+static void cxgb3_arp_process(struct port_info *pi, struct sk_buff *skb)
- {
- 	struct net_device *dev = skb->dev;
--	struct port_info *pi;
- 	struct arphdr *arp;
- 	unsigned char *arp_ptr;
- 	unsigned char *sha;
-@@ -1972,12 +1971,11 @@ static void cxgb3_arp_process(struct adapter *adapter, struct sk_buff *skb)
- 	arp_ptr += dev->addr_len;
- 	memcpy(&tip, arp_ptr, sizeof(tip));
- 
--	pi = netdev_priv(dev);
--	if (tip != pi->iscsi_ipv4addr)
-+	if (tip != pi->iscsic.ipv4_addr)
- 		return;
- 
- 	arp_send(ARPOP_REPLY, ETH_P_ARP, sip, dev, tip, sha,
--		 dev->dev_addr, sha);
-+		 pi->iscsic.mac_addr, sha);
- 
- }
- 
-@@ -1986,6 +1984,19 @@ static inline int is_arp(struct sk_buff *skb)
- 	return skb->protocol == htons(ETH_P_ARP);
- }
- 
-+static void cxgb3_process_iscsi_prov_pack(struct port_info *pi,
-+					struct sk_buff *skb)
-+{
-+	if (is_arp(skb)) {
-+		cxgb3_arp_process(pi, skb);
-+		return;
-+	}
-+
-+	if (pi->iscsic.recv)
-+		pi->iscsic.recv(pi, skb);
-+
-+}
-+
- /**
-  *	rx_eth - process an ingress ethernet packet
-  *	@adap: the adapter
-@@ -2024,13 +2035,12 @@ static void rx_eth(struct adapter *adap, struct sge_rspq *rq,
- 				vlan_gro_receive(&qs->napi, grp,
- 						 ntohs(p->vlan), skb);
- 			else {
--				if (unlikely(pi->iscsi_ipv4addr &&
--				    is_arp(skb))) {
-+				if (unlikely(pi->iscsic.flags)) {
- 					unsigned short vtag = ntohs(p->vlan) &
- 								VLAN_VID_MASK;
- 					skb->dev = vlan_group_get_device(grp,
- 									 vtag);
--					cxgb3_arp_process(adap, skb);
-+					cxgb3_process_iscsi_prov_pack(pi, skb);
- 				}
- 				__vlan_hwaccel_rx(skb, grp, ntohs(p->vlan),
- 					  	  rq->polling);
-@@ -2041,8 +2051,8 @@ static void rx_eth(struct adapter *adap, struct sge_rspq *rq,
- 		if (lro)
- 			napi_gro_receive(&qs->napi, skb);
- 		else {
--			if (unlikely(pi->iscsi_ipv4addr && is_arp(skb)))
--				cxgb3_arp_process(adap, skb);
-+			if (unlikely(pi->iscsic.flags))
-+				cxgb3_process_iscsi_prov_pack(pi, skb);
- 			netif_receive_skb(skb);
- 		}
- 	} else
--- 
-1.6.0.6
+>
+> Has anyone else noticed similar problem before? =A0If my analysis was=
+ wrong, can anyone gives me some pointers to what's really wrong and ho=
+w to fix it?
+>
+> Thanks a lot,
+> Joe
+>
+> PS. Please cc me when this message is replied.
+>
+>
+>
