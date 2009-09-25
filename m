@@ -1,106 +1,52 @@
-From: zhigang gong <zhigang.gong@gmail.com>
-Subject: Re: TCP stack bug related to F-RTO?
-Date: Fri, 25 Sep 2009 16:55:36 +0800
-Message-ID: <40c9f5b20909250155l49ad5fd2if8efb4fd48ed6066@mail.gmail.com>
-References: <40c9f5b20909241932k5e1f1d74kf8065e2e06aa4d09@mail.gmail.com>
-	 <511432.48405.qm@web63401.mail.re1.yahoo.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [linux-pm] [PATCH] 3c59x: Get rid of "Trying to free already-free IRQ"
+Date: Fri, 25 Sep 2009 14:32:30 +0200
+Message-ID: <200909251432.30738.rjw@sisk.pl>
+References: <Pine.LNX.4.44L0.0909250038300.14463-100000@netrider.rowland.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, jcaoco2002@yahoo.com,
-	netdev@vger.kernel.org
-To: Joe Cao <caoco2002@yahoo.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-pm@lists.linux-foundation.org,
+	Anton Vorontsov <avorontsov@ru.mvista.com>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Alan Stern <stern@rowland.harvard.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f189.google.com ([209.85.216.189]:40387 "EHLO
-	mail-px0-f189.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753100AbZIYIzd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2009 04:55:33 -0400
-In-Reply-To: <511432.48405.qm@web63401.mail.re1.yahoo.com>
+Received: from ogre.sisk.pl ([217.79.144.158]:52083 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752540AbZIYMbb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Sep 2009 08:31:31 -0400
+In-Reply-To: <Pine.LNX.4.44L0.0909250038300.14463-100000@netrider.rowland.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oh, I see, so I spoke too quickly in last mail. You just ignore some pa=
-ckets
-in the trace. I have analysed the traffic flow  and have some findings =
-as below,
-hope it's helpful.
+On Friday 25 September 2009, Alan Stern wrote:
+> On Thu, 24 Sep 2009, Anton Vorontsov wrote:
+> 
+> > Though, there are few other issues with suspend/resume in this driver.
+> > The intention of calling free_irq() in suspend() was to avoid any
+> > possible spurious interrupts (see commit 5b039e681b8c5f30aac9cc04385
+> > "3c59x PM fixes"). But,
+> > 
+> > - On resume, the driver was requesting IRQ just after pci_set_master(),
+> >   but before vortex_up() (which actually resets 3c59x chips).
+> 
+> Shouldn't it be possible to reset the chip (or at least prevent it from 
+> generating spurious IRQs) during the early-resume phase?
+> 
+> > - Issuing free_irq() on a shared IRQ doesn't guarantee that a buggy
+> >   HW won't trigger spurious interrupts in another driver that
+> >   requested the same interrupt. So, if we want to protect from
+> >   unexpected interrupts, then on suspend we should issue disable_irq(),
+> >   not free_irq().
+> 
+> What if some other device shares the IRQ and still relies on receiving
+> interrupts when this code runs?  Won't disable_irq() mess up the other
+> device?
 
->> > 1. The client opens up a big window,
->> > 2. the server sends 19 packets in a row (pkt #14- #32
->> in the trace), but all of them are dropped due to some
->> congestion.
->> > 3. The server hits RTO and retransmits pkt #14 in #33
-This retransmission timer expiring indicate the server's tcp/ip
-stack to enter slow start mode, as a result we can see the
-server's sending window will be reduced to one.
+Ah, I overlooked the disable_irq()/enable_irq() part, which is not really
+necessary anyway.
 
->> > 4. The client immediately acks #33 (=3D#14), and the
->> server (seems like to enter F-RTO) expends the window and
->> sends *NEW* pkt #35 & #36.=3DA0 Timeoute is doubled to
->> 2*RTO; The client immediately sends two Dup-ack to #35 and
->> #36.
+Anton, have you tried without that?
 
-Server is still in slow start mode, and extend window to 2.
-
->> > 5. after 2*RTO, pkt #15 is retransmitted in #39.
-
-Here , the second retransmission timer expiring ocur. Server's sending
-window reduce to one again and continue in slow start mode.
-
->> > 6. The client immediately acks #39 (=3D#15) in #40, and
->> the server continues to expand the window and sends two
->> *NEW* pkt #41 & #42. Now the timeoute is doubled to 4
->> *RTO.
-Here you ignore two duplicate acks #37 and #38 sent by the client. As I=
- know
-the server must receive three or even more duplcate acks before it ente=
-r fast
-retransmit mode, otherwise it will still in slow start mode and  it
-will wait until next
-time retransmission timer expiring before retransmit the lost packets.
-And this is
-actually what you got.
-
-I'm not an kernel expert, I just analyse from the TCP protocol standard=
-=2E From my
-view, I think there is no problem in the server's network stack. But
-there maybe
-some problem in the client (or some intermediate network appliance) sid=
-e, as it
-always just sends two duplicate acks at the same time, and never send t=
-he third
-one no matter how long the interval is. In my opinion, if the client
-can send the third
-duplicate acks then the server will enter fast retransmit mode and
-then fast recovery
-then every thing will be ok.
-
->> > 8. After 4*RTO timeout, #16 is retransmitted.
->> > 9....
->> > 10. The above steps repeats for retransmitting pkt
->> #16-#32 and each time the timeout is doubled.
->> > 11. It takes a long long time to retransmit all the
->> lost packets and before that is done, the client sends a RST
->> because of timeout.
-
-On Fri, Sep 25, 2009 at 2:42 PM, Joe Cao <caoco2002@yahoo.com> wrote:
-> Hi,
->
-> On the wrong tcp checksum, that's because of hardware checksum offloa=
-d.
->
-> As for the seq/ack number, because the trace is long, I deliberately =
-removed those irrelevant packets between after the three-way handshake =
-and when the problem happens. =A0That can be seen from the timestamps.
->
-> Please also note that I intentionally replaced the IP addresses and m=
-ac addresses in the trace to hide proprietary information in the trace.
->
-> Anyway, the problem is not related to the checksum, or seq/ack number=
-, otherwise, you won't see the behavior shown in the trace.
->
-> Thanks,
-> Joe
->
-> --- On Thu, 9/24/09, zhigang gong <zhigang.gong@gmail.com> wrote:
->
+Rafael
