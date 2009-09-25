@@ -1,34 +1,42 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] tunnel: eliminate recursion field
-Date: Fri, 25 Sep 2009 14:51:08 -0700
-Message-ID: <20090925215108.GA3527@gondor.apana.org.au>
-References: <4ABA8254.9000701@gmail.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Getting physical packet counts with LRO enabled with ixgbe?
+Date: Fri, 25 Sep 2009 14:50:44 -0700
+Message-ID: <4ABD3B34.8010903@candelatech.com>
+References: <20090925214505.GA3472@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:54427 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752257AbZIYVvK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2009 17:51:10 -0400
-Content-Disposition: inline
-In-Reply-To: <4ABA8254.9000701@gmail.com>
+Received: from mail.candelatech.com ([208.74.158.172]:47033 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752592AbZIYVwu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2009 17:52:50 -0400
+In-Reply-To: <20090925214505.GA3472@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> It seems recursion field from "struct ip_tunnel" is not anymore needed.
-> recursion prevention is done at the upper level (in dev_queue_xmit()),
-> since we use HARD_TX_LOCK protection for tunnels.
+On 09/25/2009 02:45 PM, Herbert Xu wrote:
+> Peter P Waskiewicz Jr<peter.p.waskiewicz.jr@intel.com>  wrote:
+>>
+>>> That's a bummer.  I'm guessing you might get close to right on average with some
+>>> trivial math, but if someone is sending you pkts with size of 1000 and
+>>> your MTU is 1500, would there be any way to tell that the pkts were originally
+>>> 1000 bytes instead of 1500?
+>>
+>> Good point.
+>
+> Well if you did GRO instead of LRO then none of this would matter :)
 
-What if we get async processing in between, e.g., nf_queue?
-In that case we could end up with a packet that went round and
-around until it exceeded the MTU.
+I get aggregate 18Gbps with LRO v/s 12Gbps without, so it's very much a useful feature
+for me.
 
-Cheers,
+Thanks,
+Ben
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
