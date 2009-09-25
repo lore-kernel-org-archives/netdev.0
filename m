@@ -1,39 +1,74 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] skb align patch
-Date: Fri, 25 Sep 2009 15:18:35 -0700
-Message-ID: <20090925221835.GA3975@gondor.apana.org.au>
-References: <20090923054748.GA24045@bombadil.infradead.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH 12/13] e1000: fix namespacecheck warnings
+Date: Fri, 25 Sep 2009 15:20:33 -0700
+Message-ID: <20090925222033.26715.64977.stgit@localhost.localdomain>
+References: <20090925221613.26715.66796.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, shemminger@vyatta.com,
-	jesse.brandeburg@gmail.com, hawk@diku.dk, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@infradead.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:55070 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752837AbZIYWSt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2009 18:18:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20090923054748.GA24045@bombadil.infradead.org>
+Received: from qmta03.westchester.pa.mail.comcast.net ([76.96.62.32]:54327
+	"EHLO QMTA03.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753032AbZIYWUw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Sep 2009 18:20:52 -0400
+In-Reply-To: <20090925221613.26715.66796.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thomas Graf <tgraf@infradead.org> wrote:
->
-> As I pointed out to Herbert already, this alignment change may actually
-> make things worse or even break things as long as compare_ether_header()
-> used in __napi_gro_receive() expects the IP header to be aligned to 4
-> bytes. That can be fixed of course, just wanted to mention it.
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Well this particular patch doesn't because x86-64 is fine with
-unaligned access :)
+a couple of functions needed to be removed/declared static
 
-But yeah we need to fix up GRO to not do that for other arches.
-It's on my list.
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+ drivers/net/e1000/e1000_hw.c   |    2 +-
+ drivers/net/e1000/e1000_main.c |   14 --------------
+ 2 files changed, 1 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
+index 50114cd..8d7d87f 100644
+--- a/drivers/net/e1000/e1000_hw.c
++++ b/drivers/net/e1000/e1000_hw.c
+@@ -2190,7 +2190,7 @@ static s32 e1000_config_fc_after_link_up(struct e1000_hw *hw)
+  * Checks for link up on the hardware.  If link is not up and we have
+  * a signal, then we need to force link up.
+  */
+-s32 e1000_check_for_serdes_link_generic(struct e1000_hw *hw)
++static s32 e1000_check_for_serdes_link_generic(struct e1000_hw *hw)
+ {
+ 	u32 rxcw;
+ 	u32 ctrl;
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 8302e18..bcd192c 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -4349,20 +4349,6 @@ void e1000_pcix_set_mmrbc(struct e1000_hw *hw, int mmrbc)
+ 	pcix_set_mmrbc(adapter->pdev, mmrbc);
+ }
+ 
+-s32 e1000_read_pcie_cap_reg(struct e1000_hw *hw, u32 reg, u16 *value)
+-{
+-    struct e1000_adapter *adapter = hw->back;
+-    u16 cap_offset;
+-
+-    cap_offset = pci_find_capability(adapter->pdev, PCI_CAP_ID_EXP);
+-    if (!cap_offset)
+-        return -E1000_ERR_CONFIG;
+-
+-    pci_read_config_word(adapter->pdev, cap_offset + reg, value);
+-
+-    return E1000_SUCCESS;
+-}
+-
+ void e1000_io_write(struct e1000_hw *hw, unsigned long port, u32 value)
+ {
+ 	outl(value, port);
+
