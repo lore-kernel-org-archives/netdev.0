@@ -1,155 +1,89 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: TCP stack bug related to F-RTO?
-Date: Fri, 25 Sep 2009 21:03:32 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0909252049260.1854@melkinkari.cs.Helsinki.FI>
-References: <773030.8168.qm@web63404.mail.re1.yahoo.com>
+From: Balazs Scheidler <bazsi@balabit.hu>
+Subject: Re: [PATCH 13/13] TProxy: use the interface primary IP address as
+ a default value for --on-ip
+Date: Fri, 25 Sep 2009 20:07:48 +0200
+Message-ID: <1253902068.10105.1.camel@bzorp.balabit>
+References: <1253548005.12519.13.camel@bzorp.balabit>
+	 <4AB7BF47.2030404@hp.com> <1253601509.6883.5.camel@bzorp.balabit>
+	 <4AB8DC6F.90602@hp.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243445-2077347718-1253901812=:1854"
-Cc: Ray Lee <ray-lk@madrabbit.org>, Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Joe Cao <caoco2002@yahoo.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752120AbZIYSDc@vger.kernel.org>
-In-Reply-To: <773030.8168.qm@web63404.mail.re1.yahoo.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Brian Haley <brian.haley@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from support.balabit.hu ([195.70.41.86]:38953 "EHLO lists.balabit.hu"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751906AbZIYSHr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Sep 2009 14:07:47 -0400
+In-Reply-To: <4AB8DC6F.90602@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696243445-2077347718-1253901812=:1854
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-
-On Fri, 25 Sep 2009, Joe Cao wrote:
-
-> Thanks for the reply!  Do you happen to know which patch fixed the 
-> problem?
-
-You can find those patches from the stable queue git tree. I gave you hint 
-from what release to look from in the last mail. However, as 2.6.24 is 
-anyway obsolete my recommendation is that you should probably consider 
-upgrading to fix all the other bugs that have been found since 2.6.24 was 
-obsoleted.
-
-> Is there a bug tracking system for linux kernel?
-
-Nothing that knows everything about everything.
-
-> I studied the FRTO code in latest kernel 2.6.31.  It seems the problem 
-> is still there:  
->
-> 1. Every time a RTO fires, because tcp_is_sackfrto(tp) returns 1, 
-> tcp_use_frto() returns true.  And the server tcp enters FRTO.
-> 2. After the head of write queue is retransmitted, two new data packets 
-> are transmitted, the server receives two dup-ACKs.  That will make the 
-> TCP enter tcp_enter_frto_loss(), however, that only rests ssthresh and 
-> some other fields.
-
-Perhaps those other fields are far more important than you think... :-)
-...Some retransmission would happen here as step 3.
-
-> 3. After another longer RTO fires, because tcp_is_sackfrto(tp) returns 
-> 1, tcp_use_frto() again returns true.  The stack enters FRTO again.
-> 4. The above repeats and the stack couldn't retransmits the lost packets 
-> faster.
+On Tue, 2009-09-22 at 10:17 -0400, Brian Haley wrote:
+> Balazs Scheidler wrote:
+> > On Mon, 2009-09-21 at 14:00 -0400, Brian Haley wrote:
+> >> Balazs Scheidler wrote: 
+> >>>  #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+> >>> +
+> >>> +static inline const struct in6_addr *
+> >>> +tproxy_laddr6(struct sk_buff *skb, const struct in6_addr *user_laddr, const struct in6_addr *daddr)
+> >>> +{
+> >>> +	struct inet6_dev *indev;
+> >>> +	struct inet6_ifaddr *ifa;
+> >>> +	struct in6_addr *laddr;
+> >>> +	
+> >>> +        if (!ipv6_addr_any(user_laddr))
+> >>> +                return user_laddr;
+> >>> +	
+> >>> +        laddr = NULL;
+> >>> +        rcu_read_lock();
+> >>> +        indev = __in6_dev_get(skb->dev);
+> >>> +        if (indev && (ifa = indev->addr_list)) {
+> >>> +		laddr = &ifa->addr;
+> >>> +	}
+> >>> +        rcu_read_unlock();
+> >>> +        
+> >>> +        return laddr ? laddr : daddr;
+> >>> +}
+> >> You should call ipv6_dev_get_saddr() to get a source address based on the target
+> >> destination address.
+> > 
+> > Thanks for this hint, however this is not selecting a source address for
+> > a given destination, rather it selects the address where tproxy is
+> > redirecting the connection in case the user specified no --on-ip
+> > parameter.
+> > 
+> > e.g. 
+> > 
+> > ip6tables -A PREROUTING -p tcp --dport 80 -j TPROXY --on-port 50080
+> > 
+> > This should redirect the connection to the primary IP address of the
+> > incoming interface. In fact I spent 2 hours to figure out how to find
+> > the proper address, and at the end I used the first IP address
+> > configured to the interface, seeing that those addresses are sorted in
+> > 'scope' order, e.g. link-local and site-local addresses are at the end
+> > of the list, thus the front should be ok.
 > 
-> Is my understanding above correct?
+> Yes, the addresses are sorted by scope, but just because they're in the
+> list doesn't mean they can be used, for example that address might have
+> failed DAD or be Deprecated.  ipv6_dev_get_saddr() will follow the rules
+> from RFC 3484 in picking the best address to use, or none if there isn't
+> anything appropriate.
+> 
+> > Since I'm not that much into IPv6, I'd appreciate some help, is
+> > ipv6_dev_get_saddr(client_ip_address) indeed the best solution here?
+> 
+> Probably.  An alternative might be to use ip6_dst_lookup() (see tcp_v6_connect()),
+> but a lot more code for you.
 
-...No. All magic that happens in tcp_enter_frto_loss should be enough to 
-really do more than a single retransmission (that is, in any other than 
-2.6.24 series kernel). There was an unfortunate bug in this area in 2.6.24 
-which basically undoed the effect of correct actions tcp_enter_frto_loss 
-did which effectively prevented tcp_xmit_retransmit_queue from doing its 
-part.
+One question, how fast is ipv6_dev_get_saddr()? Since the TPROXY target
+can execute on a per-packet path (although the socket match should take
+care of packets that belong to already-established connections), this
+may be performance critical. Is ipv6_dev_get_saddr() something that I
+can call so often?
 
 -- 
- i.
-
---- On Fri, 9/25/09, Ilpo Järvinen <ilpo.jarvinen@helsinki.fi> wrote:
-
-> From: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-> Subject: Re: TCP stack bug related to F-RTO?
-> To: "Ray Lee" <ray-lk@madrabbit.org>
-> Cc: "Joe Cao" <caoco2002@yahoo.com>, "Netdev" <netdev@vger.kernel.org>, "LKML" <linux-kernel@vger.kernel.org>, jcaoco2002@yahoo.com
-> Date: Friday, September 25, 2009, 6:09 AM
-> On Thu, 24 Sep 2009, Ray Lee wrote:
-> 
-> > [adding netdev cc:]
-> > 
-> > On Thu, Sep 24, 2009 at 10:43 AM, Joe Cao <caoco2002@yahoo.com>
-> wrote:
-> > >
-> > > Hello,
-> > >
-> > > I have found the following behavior with
-> different versions of linux 
-> > > kernel. The attached pcap trace is collected with
-> server 
-> > > (192.168.0.13) running 2.6.24 and shows the
-> problem. Basically the 
-> > > behavior is like this: 
-> > >
-> > > 1. The client opens up a big window,
-> > > 2. the server sends 19 packets in a row (pkt #14-
-> #32 in the trace), but all of them are dropped due to some
-> congestion.
-> > > 3. The server hits RTO and retransmits pkt #14 in
-> #33
-> > > 4. The client immediately acks #33 (=#14), and
-> the server (seems like to enter F-RTO) expends the window
-> and sends *NEW* pkt #35 & #36.=A0 Timeoute is doubled to
-> 2*RTO; The client immediately sends two Dup-ack to #35 and
-> #36.
-> > > 5. after 2*RTO, pkt #15 is retransmitted in #39.
-> > > 6. The client immediately acks #39 (=#15) in #40,
-> and the server continues to expand the window and sends two
-> *NEW* pkt #41 & #42. Now the timeoute is doubled to 4
-> *RTO.
-> > > 8. After 4*RTO timeout, #16 is retransmitted.
-> > > 9....
-> > > 10. The above steps repeats for retransmitting
-> pkt #16-#32 and each time the timeout is doubled.
-> > > 11. It takes a long long time to retransmit all
-> the lost packets and before that is done, the client sends a
-> RST because of timeout.
-> > >
-> > > The above behavior looks like F-RTO is in effect.
->  And there seems to 
-> > > be a bug in the TCP's congestion control and
-> retransmission algorithm. 
-> > > Why doesn't the TCP on server (running 2.6.24)
-> enter the slow start? 
-> > > Why should the server take that long to recover
-> from a short period 
-> > > of packet loss?
-> > >
-> > > Has anyone else noticed similar problem before?
->  If my analysis was 
-> > > wrong, can anyone gives me some pointers to
-> what's really wrong and 
-> > > how to fix it?
-> 
-> Yes, 2.6.24 is an obsoleted version with known wrongs in
-> FRTO 
-> implementation. Fixes never when to 2.6.24 stable series as
-> it was 
-> _already_ obsoleted when the problems where reported and
-> found. The 
-> correct fixes may be found from 2.6.25.7 (.7 iirc) and are
-> included from 
-> 2.6.26 onward too.
-> 
-> Just in case you happen to run ubuntu based kernel from
-> that era (of 
-> course you should be reporting the bug here then...), a
-> word of warning: 
-> it seemed nearly impossible for them to get a simple thing
-> like that 
-> fixed, I haven't been looking if they'd eventually come to
-> some sensible 
-> conclusion in that matter or is it still unresolved (or
-> e.g., closed 
-> without real resolution).
+Bazsi
 
 
----696243445-2077347718-1253901812=:1854--
