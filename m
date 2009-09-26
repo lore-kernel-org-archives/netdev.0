@@ -1,193 +1,106 @@
-From: Sascha Hlusiak <contact@saschahlusiak.de>
-Subject: [PATCH] Revert "sit: stateless autoconf for isatap"
-Date: Sat, 26 Sep 2009 17:03:13 +0200
-Message-ID: <1253977393-7757-1-git-send-email-contact@saschahlusiak.de>
-Cc: fred.l.templin@boeing.org,
-	Sascha Hlusiak <contact@saschahlusiak.de>
-To: netdev@vger.kernel.org
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: UDP regression with packets rates < 10k per sec
+Date: Sat, 26 Sep 2009 12:13:48 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0909261151560.16276@gentwo.org>
+References: <alpine.DEB.1.10.0909081820030.7733@V090114053VZO-1> <4AA6E039.4000907@gmail.com> <alpine.DEB.1.10.0909091000200.28070@V090114053VZO-1> <4AA7C512.6040100@gmail.com> <alpine.DEB.1.10.0909091234360.15538@V090114053VZO-1> <4AA7E082.90807@gmail.com>
+ <alpine.DEB.1.10.0909091350590.32067@V090114053VZO-1> <4AA963A4.5080509@gmail.com> <4AA97183.3030008@gmail.com> <alpine.DEB.1.10.0909101741520.9964@V090114053VZO-1> <alpine.DEB.1.10.0909141708150.8051@V090114053VZO-1> <4AAF263E.9010405@gmail.com>
+ <alpine.DEB.1.10.0909151000230.20318@V090114053VZO-1> <4AAFCE3A.8060102@gmail.com> <alpine.DEB.1.10.0909151550200.3340@V090114053VZO-1> <4ABCD18E.2010501@gmail.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.9]:64098 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752345AbZIZPEG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Sep 2009 11:04:06 -0400
+Received: from smtp2.ultrahosting.com ([74.213.174.253]:41842 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751260AbZIZQRy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Sep 2009 12:17:54 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id D511782C74D
+	for <netdev@vger.kernel.org>; Sat, 26 Sep 2009 12:20:36 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.253])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 9Z0LQSccpFWz for <netdev@vger.kernel.org>;
+	Sat, 26 Sep 2009 12:20:32 -0400 (EDT)
+Received: from gentwo.org (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id B898982C4E8
+	for <netdev@vger.kernel.org>; Sat, 26 Sep 2009 12:20:29 -0400 (EDT)
+In-Reply-To: <4ABCD18E.2010501@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 645069299a1c7358cf7330afe293f07552f11a5d.
+On Fri, 25 Sep 2009, Eric Dumazet wrote:
 
-While the code does not actually break anything, it does not completely follow
-RFC5214 yet. After talking back with Fred L. Templin, I agree that completing the
-ISATAP specific RS/RA code, would pollute the kernel a lot with code that is better
-implemented in userspace.
+> With my current kernel on receiver (linux-2.6 32bit + some networking
+> patches + SLUB_STATS) mcast -n1 -b eth3 -r 2000 on the sender (2.6.29
+> unfortunatly, I cannot change it at this moment)
 
-The kernel should not send RS packages for ISATAP at all.
+My tests are all done using SLAB since I wanted to exclude differences as
+much as possible.
 
-Signed-off-by: Sascha Hlusiak <contact@saschahlusiak.de>
-Acked-by: Fred L. Templin <Fred.L.Templin@boeing.com>
----
- include/linux/if_tunnel.h |    2 +-
- include/net/ipip.h        |    7 -----
- net/ipv6/ndisc.c          |    1 -
- net/ipv6/sit.c            |   58 ---------------------------------------------
- 4 files changed, 1 insertions(+), 67 deletions(-)
+>           <idle>-0     [000] 13580.504040: __kmalloc_track_caller <-__alloc_skb
+>           <idle>-0     [000] 13580.504040: get_slab <-__kmalloc_track_caller
+>           <idle>-0     [000] 13580.504040: __slab_alloc <-__kmalloc_track_caller
+>
+> hmm... is it normal we call deactivate_slab() ?
 
-diff --git a/include/linux/if_tunnel.h b/include/linux/if_tunnel.h
-index 5eb9b0f..5a9aae4 100644
---- a/include/linux/if_tunnel.h
-+++ b/include/linux/if_tunnel.h
-@@ -44,7 +44,7 @@ struct ip_tunnel_prl {
- 	__u16			flags;
- 	__u16			__reserved;
- 	__u32			datalen;
--	__u32			rs_delay;
-+	__u32			__reserved2;
- 	/* data follows */
- };
- 
-diff --git a/include/net/ipip.h b/include/net/ipip.h
-index 76e3ea6..87acf8f 100644
---- a/include/net/ipip.h
-+++ b/include/net/ipip.h
-@@ -27,18 +27,11 @@ struct ip_tunnel
- 	unsigned int			prl_count;	/* # of entries in PRL */
- };
- 
--/* ISATAP: default interval between RS in secondy */
--#define IPTUNNEL_RS_DEFAULT_DELAY	(900)
--
- struct ip_tunnel_prl_entry
- {
- 	struct ip_tunnel_prl_entry	*next;
- 	__be32				addr;
- 	u16				flags;
--	unsigned long			rs_delay;
--	struct timer_list		rs_timer;
--	struct ip_tunnel		*tunnel;
--	spinlock_t			lock;
- };
- 
- #define IPTUNNEL_XMIT() do {						\
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 498b9b0..f74e4e2 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -658,7 +658,6 @@ void ndisc_send_rs(struct net_device *dev, const struct in6_addr *saddr,
- 		     &icmp6h, NULL,
- 		     send_sllao ? ND_OPT_SOURCE_LL_ADDR : 0);
- }
--EXPORT_SYMBOL(ndisc_send_rs);
- 
- 
- static void ndisc_error_report(struct neighbour *neigh, struct sk_buff *skb)
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index fcb5396..d65e0c4 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -15,7 +15,6 @@
-  * Roger Venning <r.venning@telstra.com>:	6to4 support
-  * Nate Thompson <nate@thebog.net>:		6to4 support
-  * Fred Templin <fred.l.templin@boeing.com>:	isatap support
-- * Sascha Hlusiak <mail@saschahlusiak.de>:	stateless autoconf for isatap
-  */
- 
- #include <linux/module.h>
-@@ -223,44 +222,6 @@ failed:
- 	return NULL;
- }
- 
--static void ipip6_tunnel_rs_timer(unsigned long data)
--{
--	struct ip_tunnel_prl_entry *p = (struct ip_tunnel_prl_entry *) data;
--	struct inet6_dev *ifp;
--	struct inet6_ifaddr *addr;
--
--	spin_lock(&p->lock);
--	ifp = __in6_dev_get(p->tunnel->dev);
--
--	read_lock_bh(&ifp->lock);
--	for (addr = ifp->addr_list; addr; addr = addr->if_next) {
--		struct in6_addr rtr;
--
--		if (!(ipv6_addr_type(&addr->addr) & IPV6_ADDR_LINKLOCAL))
--			continue;
--
--		/* Send RS to guessed linklocal address of router
--		 *
--		 * Better: send to ff02::2 encapsuled in unicast directly
--		 * to router-v4 instead of guessing the v6 address.
--		 *
--		 * Cisco/Windows seem to not set the u/l bit correctly,
--		 * so we won't guess right.
--		 */
--		ipv6_addr_set(&rtr,  htonl(0xFE800000), 0, 0, 0);
--		if (!__ipv6_isatap_ifid(rtr.s6_addr + 8,
--					p->addr)) {
--			ndisc_send_rs(p->tunnel->dev, &addr->addr, &rtr);
--		}
--	}
--	read_unlock_bh(&ifp->lock);
--
--	mod_timer(&p->rs_timer, jiffies + HZ * p->rs_delay);
--	spin_unlock(&p->lock);
--
--	return;
--}
--
- static struct ip_tunnel_prl_entry *
- __ipip6_tunnel_locate_prl(struct ip_tunnel *t, __be32 addr)
- {
-@@ -319,7 +280,6 @@ static int ipip6_tunnel_get_prl(struct ip_tunnel *t,
- 			continue;
- 		kp[c].addr = prl->addr;
- 		kp[c].flags = prl->flags;
--		kp[c].rs_delay = prl->rs_delay;
- 		c++;
- 		if (kprl.addr != htonl(INADDR_ANY))
- 			break;
-@@ -369,23 +329,11 @@ ipip6_tunnel_add_prl(struct ip_tunnel *t, struct ip_tunnel_prl *a, int chg)
- 	}
- 
- 	p->next = t->prl;
--	p->tunnel = t;
- 	t->prl = p;
- 	t->prl_count++;
--
--	spin_lock_init(&p->lock);
--	setup_timer(&p->rs_timer, ipip6_tunnel_rs_timer, (unsigned long) p);
- update:
- 	p->addr = a->addr;
- 	p->flags = a->flags;
--	p->rs_delay = a->rs_delay;
--	if (p->rs_delay == 0)
--		p->rs_delay = IPTUNNEL_RS_DEFAULT_DELAY;
--	spin_lock(&p->lock);
--	del_timer(&p->rs_timer);
--	if (p->flags & PRL_DEFAULT)
--		mod_timer(&p->rs_timer, jiffies + 1);
--	spin_unlock(&p->lock);
- out:
- 	write_unlock(&ipip6_lock);
- 	return err;
-@@ -404,9 +352,6 @@ ipip6_tunnel_del_prl(struct ip_tunnel *t, struct ip_tunnel_prl *a)
- 			if ((*p)->addr == a->addr) {
- 				x = *p;
- 				*p = x->next;
--				spin_lock(&x->lock);
--				del_timer(&x->rs_timer);
--				spin_unlock(&x->lock);
- 				kfree(x);
- 				t->prl_count--;
- 				goto out;
-@@ -417,9 +362,6 @@ ipip6_tunnel_del_prl(struct ip_tunnel *t, struct ip_tunnel_prl *a)
- 		while (t->prl) {
- 			x = t->prl;
- 			t->prl = t->prl->next;
--			spin_lock(&x->lock);
--			del_timer(&x->rs_timer);
--			spin_unlock(&x->lock);
- 			kfree(x);
- 			t->prl_count--;
- 		}
--- 
-1.6.5.rc1
+deactivate_slab() is called when the slab page we are allocating from runs
+out of objects or is not fit for allocation (we want objects from a
+different node etc).
+
+>            mcast-21429 [000] 13580.504066: sock_rfree <-skb_release_head_state
+>            mcast-21429 [000] 13580.504066: skb_release_data <-__kfree_skb
+>            mcast-21429 [000] 13580.504066: kfree <-skb_release_data
+>            mcast-21429 [000] 13580.504066: __slab_free <-kfree
+>
+>   is it normal we call add_partial() ?
+
+add_partial is called when we free objects in a slab page that had all
+objects allocated before. Then it can be used for allocations again and
+must be tracked. Fully allocated slab pages are not tracked.
+
+> Too many slowpaths for 4096 slabs ?
+>
+> $ cd /sys/kernel/slab/:t-0004096
+> $ grep . *
+> aliases:1
+> align:8
+> grep: alloc_calls: Function not implemented
+> alloc_fastpath:416584 C0=234119 C1=52938 C2=18413 C3=4739 C4=49140 C5=14679 C6=39266 C7=3290
+> alloc_from_partial:459402 C0=459391 C1=8 C2=1 C5=2
+> alloc_refill:459619 C0=459460 C1=54 C2=1 C3=4 C4=52 C5=31 C6=2 C7=15
+> alloc_slab:103 C0=45 C1=28 C3=1 C4=26 C5=1 C6=1 C7=1
+> alloc_slowpath:459628 C0=459462 C1=55 C2=2 C3=5 C4=53 C5=32 C6=3 C7=16
+
+Hmmm. That is a high percentage. All are refills. So there are remote
+frees from the other processor to the slab page the first processor
+allocates from. One processor allocates the object and then pushes it to
+the other for freeing? Bad for caching.
+
+> free_slowpath:657340 C0=656835 C1=119 C2=76 C3=36 C4=159 C5=69 C6=15 C7=31
+
+Also quite high. Consistent with remote freeing of objects allocated on
+the first processors. Objects are very short lived.
+
+> comments :
+> - lots of disable_bh()/enable_bh(), (enable_bh is slow), that could be avoided...
+> - many ktime_get() calls
+> - my HZ=1000 setup might be stupid on a CONFIG_NO_HZ=y kernel :(
+
+There are 8 objects per slab (order 3 allocation). You could maybe tune
+things a bit increasing the objects per slab which may cut down on the #
+of deactivate_slab() calls and will also reduce the need for
+add_partial(). But I dont see either call causing significant latencies.
+
+both calls should happen on every 8th or so call of kfree/kmalloc.0
+
+To increase the objects per slab to 32:
+
+boot with slub_max_order=5
+
+and then
+
+echo 5 >/sys/slab/kmalloc-4096/order
+
+Would require order 5 allocations. Dont expect it to make too much of a
+difference.
 
