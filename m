@@ -1,7 +1,7 @@
 From: Arjan van de Ven <arjan@infradead.org>
 Subject: Re: [PATCH 9/9] Add explicit bound checks in net/socket.c
-Date: Sat, 26 Sep 2009 21:05:32 +0200
-Message-ID: <20090926210532.4c664705@infradead.org>
+Date: Sat, 26 Sep 2009 21:23:02 +0200
+Message-ID: <20090926212302.0ce64a5c@infradead.org>
 References: <20090926204951.424e567e@infradead.org>
 	<20090926205432.24aa1023@infradead.org>
 	<20090926190103.GB4356@lenovo>
@@ -12,10 +12,10 @@ Cc: linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
 	mingo@elte.hu, netdev@vger.kernel.org
 To: Cyrill Gorcunov <gorcunov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:58925 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:41083 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752512AbZIZTFK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Sep 2009 15:05:10 -0400
+	with ESMTP id S1752224AbZIZTWl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Sep 2009 15:22:41 -0400
 In-Reply-To: <20090926190103.GB4356@lenovo>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -59,8 +59,9 @@ Cyrill Gorcunov <gorcunov@gmail.com> wrote:
 > 
 > Hi Arjan, wouldn't ARRAY_SIZE suffice beter there?
 > Or I miss something?
+> 
 
-yeah you missed that I screwed up ;(
+goof once goof twice, make it sizeof.. that's nicer.
 
 From: Arjan van de Ven <arjan@linux.intel.com>
 Subject: [PATCH 9/9] Add explicit bound checks in net/socket.c
@@ -93,7 +94,7 @@ index 49917a1..13a8d67 100644
  		return -EINVAL;
  
 +	len = nargs[call];
-+	if (len > 6 * sizeof(unsiged long))
++	if (len > sizeof(a))
 +		return -EINVAL;
 +
  	/* copy_from_user should be SMP safe. */
@@ -102,7 +103,6 @@ index 49917a1..13a8d67 100644
  		return -EFAULT;
  
  	audit_socketcall(nargs[call] / sizeof(unsigned long), a);
-
 
 
 -- 
