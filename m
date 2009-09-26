@@ -1,59 +1,54 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: [PATCH 0/4] ISDN patches for 2.6.32 (v2)
-Date: Sat, 26 Sep 2009 13:44:31 +0200
-Message-ID: <4ABDFE9F.2030404@imap.cc>
-References: <20090919-patch-capi-0.tilman@imap.cc>
+From: Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>
+Subject: Re: Fw: Cannot register at bugzilla (bugreport added) [ ath5k
+	bugreport ]
+Date: Sat, 26 Sep 2009 08:46:20 -0400
+Message-ID: <20090926124620.GA5188@hash.localnet>
+References: <20090925191524.7b2b228c@schatten>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig2E7DCB873CC45A615004EF4A"
-Cc: davem@davemloft.net, i4ldeveloper@listserv.isdn4linux.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>,
-	Karsten Keil <keil@b1-systems.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752463AbZIZLon@vger.kernel.org>
-In-Reply-To: <20090919-patch-capi-0.tilman@imap.cc>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
+	Nick Kossifidis <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: hans.ullrich-LYJP0WDo+eM@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20090925191524.7b2b228c@schatten>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig2E7DCB873CC45A615004EF4A
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: quoted-printable
+On Fri, Sep 25, 2009 at 07:15:24PM +0200, Florian Mickler wrote:
+> cc's added
+> 
+> could you also:
+>  - tell the version of the broken kernel, 
+>  - the last working kernel version, 
+>  - test if it works with current kernel-snapshot from
+>    http://www.kernel.org/ 
 
-Hello Karsten,
+Yes, please.
 
-is there any chance of getting these and the Gigaset patches forwarded
-for inclusion in 2.6.32 before the merge window closes?
-If not all of them, perhaps at least those which you had already acked
-before David Miller asked that they should formally go through you
-(#2-4 of the ISDN series), and those which are just fixes to the
-existing i4l version of the driver (#1-10 of the Gigaset series)?
-I would really appreciate not having to maintain all of them out of
-tree for another release cycle.
+> kernel-module "ath5k" gets no IP when using dhcp
+> 
+> Description: It is not possible, to get an IP-address by using dhcp
+> with the kernel-module ath5k. It is possible, to give a fixed IP to
+> that module.
 
-Thanks a lot,
-Tilman
+It works here - I would guess the packets are getting dropped.
+Do you have anything in 'dmesg' while trying to associate?
 
---=20
-Tilman Schmidt                    E-Mail: tilman@imap.cc
-Bonn, Germany
-Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
-Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
+> There are already other reports of this problem in discussion forums.
+> It seems, the old madwifi-driver works better with dhcp - so people say.
 
+Can you point to such a discussion?  It's best to discuss on ath5k-devel
+or linux-wireless ML so we will know about it.
 
---------------enig2E7DCB873CC45A615004EF4A
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+-- 
+Bob Copeland %% www.bobcopeland.com
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.4-svn0 (GNU/Linux)
-Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
-
-iD8DBQFKvf6nQ3+did9BuFsRAmMrAKCCjw+jlZ2aNyXfj/qlbso99ImTnQCdHm28
-ePGJ6d5gQa7pH2au0f0zcjU=
-=EpF9
------END PGP SIGNATURE-----
-
---------------enig2E7DCB873CC45A615004EF4A--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
