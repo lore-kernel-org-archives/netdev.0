@@ -1,39 +1,30 @@
-From: Daniel Walker <dwalker@fifo99.com>
-Subject: Re: [PATCH v3 net-next-2.6] cxgb3: Added private MAC address and
- provisioning packet handler for iSCSI
-Date: Sat, 26 Sep 2009 12:22:39 -0700
-Message-ID: <1253992959.20648.434.camel@desktop>
-References: <200909261903.n8QJ3D2b000882@localhost.localdomain>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [PATCH 9/9] Add explicit bound checks in net/socket.c
+Date: Sat, 26 Sep 2009 23:35:38 +0400
+Message-ID: <20090926193538.GC4356@lenovo>
+References: <20090926204951.424e567e@infradead.org> <20090926205432.24aa1023@infradead.org> <20090926190103.GB4356@lenovo> <20090926212302.0ce64a5c@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, swise@opengridcomputing.com, divy@chelsio.com,
-	rakesh@chelsio.com, michaelc@cs.wisc.edu,
-	James.Bottomley@HansenPartnership.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: kxie@chelsio.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752716AbZIZTXK@vger.kernel.org>
-In-Reply-To: <200909261903.n8QJ3D2b000882@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
+	mingo@elte.hu, netdev@vger.kernel.org
+To: Arjan van de Ven <arjan@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f211.google.com ([209.85.219.211]:51424 "EHLO
+	mail-ew0-f211.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750867AbZIZTfg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Sep 2009 15:35:36 -0400
+Content-Disposition: inline
+In-Reply-To: <20090926212302.0ce64a5c@infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2009-09-26 at 12:03 -0700, kxie@chelsio.com wrote:
->  enum {                 /* rx_offload flags */
->         T3_RX_CSUM      = 1 << 0,
->         T3_LRO          = 1 << 1,
->  };
->  
-> +enum {
-> +       LAN_MAC_IDX     = 0,
-> +       SAN_MAC_IDX,
-> +
-> +       MAX_MAC_IDX
-> +};
+[Arjan van de Ven - Sat, Sep 26, 2009 at 09:23:02PM +0200]
+...
+| 
+| goof once goof twice, make it sizeof.. that's nicer.
+| 
 
-Why not name the enum and use it in the function declarations? I see
-there are some other unnamed enums in there so you are following the
-style in the file already.. However, naming the enum and using it allows
-the input values to be known instead of just saying "int n", so I think
-that's a better method..
+yeah, I was about to propose the same :)
 
-Daniel
+...
+	- Cyrill
