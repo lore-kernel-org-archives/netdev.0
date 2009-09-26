@@ -1,336 +1,157 @@
-From: Joe Cao <caoco2002@yahoo.com>
-Subject: Re: TCP stack bug related to F-RTO?
-Date: Sat, 26 Sep 2009 13:48:28 -0700 (PDT)
-Message-ID: <222796.87049.qm@web63403.mail.re1.yahoo.com>
-References: <Pine.LNX.4.64.0909262034130.12882@melkinkari.cs.Helsinki.FI>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ray Lee <ray-lk@madrabbit.org>, Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: =?iso-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+From: Yakov Lerner <iler.ml@gmail.com>
+Subject: [PATCH] /proc/net/tcp, overhead removed
+Date: Sun, 27 Sep 2009 00:31:15 +0300
+Message-ID: <1254000675-8327-1-git-send-email-iler.ml@gmail.com>
+Cc: Yakov Lerner <iler.ml@gmail.com>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	torval
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from n1a.bullet.mail.ac4.yahoo.com ([76.13.13.64]:29745 "HELO
-	n1a.bullet.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752511AbZIZUsZ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Sep 2009 16:48:25 -0400
-In-Reply-To: <Pine.LNX.4.64.0909262034130.12882@melkinkari.cs.Helsinki.FI>
+Received: from mail-ew0-f211.google.com ([209.85.219.211]:47317 "EHLO
+	mail-ew0-f211.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752712AbZIZVbP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Sep 2009 17:31:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Ilpo,
+/proc/net/tcp does 20,000 sockets in 60-80 milliseconds, with this patch.
 
-Thanks for the replay.  We noticed the problem while we were debugging =
-a connection failure case reported by one of our customers (we are a ne=
-twork device vendor).  Actually we have suggested our customer to upgra=
-de their server software to fix the problem, and we are still waiting f=
-or the feedback from them.  Meanwhile, I asked all those questions just=
- because I want to understand the issue and the fixes.  We also has to =
-convince the customer to move to a right kernel and don't want them to =
-come back with the same problem again.
+The overhead was in tcp_seq_start(). See analysis (3) below.
+The patch is against Linus git tree (1). The patch is small.
 
-Again, thanks for the help!
+------------  -----------   ------------------------------------
+Before patch  After patch   20,000 sockets (10,000 tw + 10,000 estab)(2)
+------------  -----------   ------------------------------------
+6 sec          0.06 sec     dd bs=1k if=/proc/net/tcp >/dev/null 
+1.5 sec        0.06 sec     dd bs=4k if=/proc/net/tcp >/dev/null
 
-Joe
+1.9 sec        0.16 sec     netstat -4ant >/dev/null
+------------  -----------   ------------------------------------
 
---- On Sat, 9/26/09, Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi> wrote:
+This is ~ x25 improvement.
+The new time is not dependent on read blockize.
+Speed of netstat, naturally, improves, too; both -4 and -6.
+/proc/net/tcp6 does 20,000 sockets in 100 millisec.
 
-> From: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
-> Subject: Re: TCP stack bug related to F-RTO?
-> To: "Joe Cao" <caoco2002@yahoo.com>
-> Cc: "Ray Lee" <ray-lk@madrabbit.org>, "Netdev" <netdev@vger.kernel.or=
-g>, "LKML" <linux-kernel@vger.kernel.org>
-> Date: Saturday, September 26, 2009, 10:51 AM
-> On Sat, 26 Sep 2009, Joe Cao wrote:
->=20
-> > Can you elaborate on "Some retransmission would happen
-> here as step 3"?=A0=20
-> > When the second timeout happens, it will again go into
-> FRTO and then=20
-> > retransmit the write queue head.
->=20
-> Why do you think that the second RTO will happen with
-> anything else than=20
-> with 2.6.24. And it's perfectly ok to go into FRTO for the
-> second time.
->=20
-> > I looked at the patch (debian Bug#478062) that's
-> probably what you=20
-> > mentioned as the fix. All it does was to exclude the
-> SACK case when=20
-> > considering FRTO.=A0 But in my case, SACK was
-> enabled, as seen in the=20
-> > trace..
->=20
-> You should be looking from where I said rather than picking
-> up your own=20
-> sources and assuming that they'll tell you all the story
-> :-). In fact,=20
-> there are two fixes that were made in a row and one
-> workaround in the
-> same timeframe. ...And you managed to pick the wrong one of
-> the fixes, so=20
-> I kind of understand why you got confused :-).
->=20
-> > In other words, do we still have a problem with FRTO
-> when SACK is=20
-> > enabled in the latest kernel?
->=20
-> For sure we might have all kinds of problems no one has yet
->=20
-> noticed/reported :-). ....However, it seems that this
-> particular problem=20
-> your trace is showing is solved. Can you please test with a
-> fixed kernel=20
-> before coming back here with these claims.
->=20
->=20
-> --=20
->  i.
->=20
-> --- On Fri, 9/25/09, Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
-> wrote:
->=20
-> > From: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
-> > Subject: Re: TCP stack bug related to F-RTO?
-> > To: "Joe Cao" <caoco2002@yahoo.com>
-> > Cc: "Ray Lee" <ray-lk@madrabbit.org>,
-> "Netdev" <netdev@vger.kernel.org>,
-> "LKML" <linux-kernel@vger.kernel.org>
-> > Date: Friday, September 25, 2009, 11:03 AM
-> > On Fri, 25 Sep 2009, Joe Cao wrote:
-> >=20
-> > > Thanks for the reply!=A0 Do you happen to know
-> > which patch fixed the=20
-> > > problem?
-> >=20
-> > You can find those patches from the stable queue git
-> tree.
-> > I gave you hint=20
-> > from what release to look from in the last mail.
-> However,
-> > as 2.6.24 is=20
-> > anyway obsolete my recommendation is that you should
-> > probably consider=20
-> > upgrading to fix all the other bugs that have been
-> found
-> > since 2.6.24 was=20
-> > obsoleted.
-> >=20
-> > > Is there a bug tracking system for linux kernel?
-> >=20
-> > Nothing that knows everything about everything.
-> >=20
-> > > I studied the FRTO code in latest kernel
-> 2.6.31..=A0
-> > It seems the problem=20
-> > > is still there:=A0=20
-> > >
-> > > 1. Every time a RTO fires, because
-> tcp_is_sackfrto(tp)
-> > returns 1,=20
-> > > tcp_use_frto() returns true.=A0 And the server
-> tcp
-> > enters FRTO.
-> > > 2. After the head of write queue is
-> retransmitted, two
-> > new data packets=20
-> > > are transmitted, the server receives two
-> > dup-ACKs.=A0 That will make the=20
-> > > TCP enter tcp_enter_frto_loss(), however, that
-> only
-> > rests ssthresh and=20
-> > > some other fields.
-> >=20
-> > Perhaps those other fields are far more important than
-> you
-> > think... :-)
-> > ...Some retransmission would happen here as step 3.
-> >=20
-> > > 3. After another longer RTO fires, because
-> > tcp_is_sackfrto(tp) returns=20
-> > > 1, tcp_use_frto() again returns true.=A0 The
-> stack
-> > enters FRTO again.
-> > > 4. The above repeats and the stack couldn't
-> > retransmits the lost packets=20
-> > > faster.
-> > >=20
-> > > Is my understanding above correct?
-> >=20
-> > ...No. All magic that happens in tcp_enter_frto_loss
-> should
-> > be enough to=20
-> > really do more than a single retransmission (that is,
-> in
-> > any other than=20
-> > 2.6.24 series kernel). There was an unfortunate bug in
-> this
-> > area in 2.6.24=20
-> > which basically undoed the effect of correct actions
-> > tcp_enter_frto_loss=20
-> > did which effectively prevented
-> tcp_xmit_retransmit_queue
-> > from doing its=20
-> > part.
-> >=20
-> > --=20
-> >=A0 i.
-> >=20
-> > --- On Fri, 9/25/09, Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
-> > wrote:
-> >=20
-> > > From: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
-> > > Subject: Re: TCP stack bug related to F-RTO?
-> > > To: "Ray Lee" <ray-lk@madrabbit.org>
-> > > Cc: "Joe Cao" <caoco2002@yahoo.com>,
-> > "Netdev" <netdev@vger.kernel.org>,
-> > "LKML" <linux-kernel@vger.kernel.org>,
-> > jcaoco2002@yahoo.com
-> > > Date: Friday, September 25, 2009, 6:09 AM
-> > > On Thu, 24 Sep 2009, Ray Lee wrote:
-> > >=20
-> > > > [adding netdev cc:]
-> > > >=20
-> > > > On Thu, Sep 24, 2009 at 10:43 AM, Joe Cao
-> <caoco2002@yahoo.com>
-> > > wrote:
-> > > > >
-> > > > > Hello,
-> > > > >
-> > > > > I have found the following behavior
-> with
-> > > different versions of linux=20
-> > > > > kernel. The attached pcap trace is
-> collected
-> > with
-> > > server=20
-> > > > > (192.168.0.13) running 2.6.24 and shows
-> the
-> > > problem. Basically the=20
-> > > > > behavior is like this:=20
-> > > > >
-> > > > > 1. The client opens up a big window,
-> > > > > 2. the server sends 19 packets in a row
-> (pkt
-> > #14-
-> > > #32 in the trace), but all of them are dropped
-> due to
-> > some
-> > > congestion.
-> > > > > 3. The server hits RTO and retransmits
-> pkt
-> > #14 in
-> > > #33
-> > > > > 4. The client immediately acks #33
-> (=3D#14),
-> > and
-> > > the server (seems like to enter F-RTO) expends
-> the
-> > window
-> > > and sends *NEW* pkt #35 & #36.=3DA0 Timeoute
-> is
-> > doubled to
-> > > 2*RTO; The client immediately sends two Dup-ack
-> to #35
-> > and
-> > > #36.
-> > > > > 5. after 2*RTO, pkt #15 is
-> retransmitted in
-> > #39.
-> > > > > 6. The client immediately acks #39
-> (=3D#15) in
-> > #40,
-> > > and the server continues to expand the window
-> and
-> > sends two
-> > > *NEW* pkt #41 & #42. Now the timeoute is
-> doubled
-> > to 4
-> > > *RTO.
-> > > > > 8. After 4*RTO timeout, #16 is
-> > retransmitted.
-> > > > > 9....
-> > > > > 10. The above steps repeats for
-> > retransmitting
-> > > pkt #16-#32 and each time the timeout is
-> doubled.
-> > > > > 11. It takes a long long time to
-> retransmit
-> > all
-> > > the lost packets and before that is done, the
-> client
-> > sends a
-> > > RST because of timeout.
-> > > > >
-> > > > > The above behavior looks like F-RTO is
-> in
-> > effect.
-> > > =A0And there seems to=20
-> > > > > be a bug in the TCP's congestion
-> control
-> > and
-> > > retransmission algorithm.=20
-> > > > > Why doesn't the TCP on server (running
-> > 2.6.24)
-> > > enter the slow start?=20
-> > > > > Why should the server take that long
-> to
-> > recover
-> > > from a short period=20
-> > > > > of packet loss?
-> > > > >
-> > > > > Has anyone else noticed similar
-> problem
-> > before?
-> > > =A0If my analysis was=20
-> > > > > wrong, can anyone gives me some
-> pointers to
-> > > what's really wrong and=20
-> > > > > how to fix it?
-> > >=20
-> > > Yes, 2.6.24 is an obsoleted version with known
-> wrongs
-> > in
-> > > FRTO=20
-> > > implementation. Fixes never when to 2.6.24
-> stable
-> > series as
-> > > it was=20
-> > > _already_ obsoleted when the problems where
-> reported
-> > and
-> > > found. The=20
-> > > correct fixes may be found from 2.6.25.7 (.7
-> iirc) and
-> > are
-> > > included from=20
-> > > 2.6.26 onward too.
-> > >=20
-> > > Just in case you happen to run ubuntu based
-> kernel
-> > from
-> > > that era (of=20
-> > > course you should be reporting the bug here
-> then...),
-> > a
-> > > word of warning:=20
-> > > it seemed nearly impossible for them to get a
-> simple
-> > thing
-> > > like that=20
-> > > fixed, I haven't been looking if they'd
-> eventually
-> > come to
-> > > some sensible=20
-> > > conclusion in that matter or is it still
-> unresolved
-> > (or
-> > > e.g., closed=20
-> > > without real resolution).
->=20
+(1) against git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6.git
 
+(2) Used 'manysock' utility to stress system with large number of sockets:
+  "manysock 10000 10000"    - 10,000 tw + 10,000 estab ip4 sockets.
+  "manysock -6 10000 10000" - 10,000 tw + 10,000 estab ip6 sockets.
+Found at http://ilerner.3b1.org/manysock/manysock.c
 
-     =20
+(3) Algorithmic analysis. 
+    Old algorithm.
+
+During 'cat </proc/net/tcp', tcp_seq_start() is called O(numsockets) times (4).
+On average, every call to tcp_seq_start() scans half the whole hashtable. Ouch.
+This is O(numsockets * hashsize). 95-99% of 'cat </proc/net/tcp' is spent in
+tcp_seq_start()->tcp_get_idx. This overhead is eliminated by new algorithm,
+which is O(numsockets + hashsize).
+
+    New algorithm.
+
+New algorithms is O(numsockets + hashsize). We jump to the right
+hash bucket in tcp_seq_start(), without scanning half the hash.
+To jump right to the hash bucket corresponding to *pos in tcp_seq_start(),
+we reuse three pieces of state (st->num, st->bucket, st->sbucket)
+as follows:
+ - we check that requested pos >= last seen pos (st->num), the typical case. 
+ - if so, we jump to bucket st->bucket
+ - to arrive to the right item after beginning of st->bucket, we
+keep in st->sbucket the position corresponding to the beginning of
+bucket.
+
+(4) Explanation of O( numsockets * hashsize) of old algorithm.
+
+tcp_seq_start() is called once for every ~7 lines of netstat output 
+if readsize is 1kb, or once for every ~28 lines if readsize >= 4kb.
+Since record length of /proc/net/tcp records is 150 bytes, formula for
+number of calls to tcp_seq_start() is
+            (numsockets * 150 / min(4096,readsize)).
+Netstat uses 4kb readsize (newer versions), or 1kb (older versions).
+Note that speed of old algorithm does not improve above 4kb blocksize.
+
+Speed of the new algorithm does not depend on blocksize.
+
+Speed of the new algorithm does not perceptibly depend on hashsize (which
+depends on ramsize). Speed of old algorithm drops with bigger hashsize.
+
+(5) Reporting order.
+
+Reporting order is exactly same as before if hash does not change underfoot.
+When hash elements come and go during report, reporting order will be
+same as that of tcpdiag.
+
+Signed-off-by: Yakov Lerner <iler.ml@gmail.com>
+---
+ net/ipv4/tcp_ipv4.c |   26 ++++++++++++++++++++++++--
+ 1 files changed, 24 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 7cda24b..7d9421a 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1994,13 +1994,14 @@ static inline int empty_bucket(struct tcp_iter_state *st)
+ 		hlist_nulls_empty(&tcp_hashinfo.ehash[st->bucket].twchain);
+ }
+ 
+-static void *established_get_first(struct seq_file *seq)
++static void *established_get_first_after(struct seq_file *seq, int bucket)
+ {
+ 	struct tcp_iter_state *st = seq->private;
+ 	struct net *net = seq_file_net(seq);
+ 	void *rc = NULL;
+ 
+-	for (st->bucket = 0; st->bucket < tcp_hashinfo.ehash_size; ++st->bucket) {
++	for (st->bucket = bucket; st->bucket < tcp_hashinfo.ehash_size;
++	     ++st->bucket) {
+ 		struct sock *sk;
+ 		struct hlist_nulls_node *node;
+ 		struct inet_timewait_sock *tw;
+@@ -2036,6 +2037,11 @@ out:
+ 	return rc;
+ }
+ 
++static void *established_get_first(struct seq_file *seq)
++{
++	return established_get_first_after(seq, 0);
++}
++
+ static void *established_get_next(struct seq_file *seq, void *cur)
+ {
+ 	struct sock *sk = cur;
+@@ -2045,6 +2051,7 @@ static void *established_get_next(struct seq_file *seq, void *cur)
+ 	struct net *net = seq_file_net(seq);
+ 
+ 	++st->num;
++	st->sbucket = st->num;
+ 
+ 	if (st->state == TCP_SEQ_STATE_TIME_WAIT) {
+ 		tw = cur;
+@@ -2116,6 +2123,21 @@ static void *tcp_get_idx(struct seq_file *seq, loff_t pos)
+ static void *tcp_seq_start(struct seq_file *seq, loff_t *pos)
+ {
+ 	struct tcp_iter_state *st = seq->private;
++
++	if (*pos && *pos >= st->sbucket &&
++	    (st->state == TCP_SEQ_STATE_ESTABLISHED ||
++	     st->state == TCP_SEQ_STATE_TIME_WAIT)) {
++		int nskip;
++		void *cur;
++
++		st->num = st->sbucket;
++		st->state = TCP_SEQ_STATE_ESTABLISHED;
++		cur = established_get_first_after(seq, st->bucket);
++		for (nskip = *pos - st->sbucket; nskip > 0 && cur; --nskip)
++			cur = established_get_next(seq, cur);
++		return cur;
++	}
++
+ 	st->state = TCP_SEQ_STATE_LISTENING;
+ 	st->num = 0;
+ 	return *pos ? tcp_get_idx(seq, *pos - 1) : SEQ_START_TOKEN;
+-- 
+1.6.5.rc2
 
