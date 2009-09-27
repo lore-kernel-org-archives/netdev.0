@@ -1,38 +1,56 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [2.6.31-git17] WARNING: at kernel/hrtimer.c:648 hres_timers_resume+0x40/0x50()/WARNING: at drivers/base/sys.c:353 __sysdev_resume+0xc3/0xe0()
-Date: Sun, 27 Sep 2009 20:17:43 +0200
-Message-ID: <200909272017.43348.rjw@sisk.pl>
-References: <8db1092f0909270105x4b49daf8k268e453d2379020c@mail.gmail.com> <2674af740909270749u339671a1ia81d5736eeb750fa@mail.gmail.com> <8db1092f0909270916k79d0c369ub93b5e8ddf66c979@mail.gmail.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: [PATCH 1/2] net: introduce NETDEV_PRE_INIT notifier
+Date: Sun, 27 Sep 2009 20:26:39 +0200
+Message-ID: <1254075999.6583.4.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Yong Zhang <yong.zhang0@gmail.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	clemens@ladisch.de, venkatesh.pallipadi@intel.com, gregkh@suse.de,
-	zambrano@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
-To: Maciej Rutecki <maciej.rutecki@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752091AbZI0SQT@vger.kernel.org>
-In-Reply-To: <8db1092f0909270916k79d0c369ub93b5e8ddf66c979@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 27 September 2009, Maciej Rutecki wrote:
-> 2009/9/27 Yong Zhang <yong.zhang0@gmail.com>:
-> >
-> > It seem this is cause by b44 dirver. Can you give a try?
-> >
-> > From 05ee2f22a7ea065e05bf8b5294d222a3700d2cc8 Mon Sep 17 00:00:00 2001
-> > From: Yong Zhang <yong.zhang0@gmail.com>
-> > Date: Sun, 27 Sep 2009 22:42:41 +0800
-> > Subject: [PATCH] net/b44: keep irq state at suspend_resume
-> >
-> > suspend() and resume() assume irq is disabled. So keep the irq
-> > state when do this.
-> 
-> Remove previous patch, add it to clean 2.6.31-git17. It doesn't help.
+For various purposes including a wireless extensions
+bugfix, we need to hook into the netdev creation at
+a point before netdev_register_kobject(). It seems
+more generic, however, to have it even earlier. This
+will also ease doing the dev type assignment that
+Marcel was working on generically.
 
-It couldn't.  The problem is elswhere, but I haven't found it yet.
+Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+---
+ include/linux/notifier.h |    1 +
+ net/core/dev.c           |    5 +++++
+ 2 files changed, 6 insertions(+)
 
-Thanks,
-Rafael
+--- wireless-testing.orig/include/linux/notifier.h	2009-09-27 15:09:10.000000000 +0200
++++ wireless-testing/include/linux/notifier.h	2009-09-27 15:10:19.000000000 +0200
+@@ -199,6 +199,7 @@ static inline int notifier_to_errno(int 
+ #define NETDEV_FEAT_CHANGE	0x000B
+ #define NETDEV_BONDING_FAILOVER 0x000C
+ #define NETDEV_PRE_UP		0x000D
++#define NETDEV_PRE_INIT		0x000E
+ 
+ #define SYS_DOWN	0x0001	/* Notify of system down */
+ #define SYS_RESTART	SYS_DOWN
+--- wireless-testing.orig/net/core/dev.c	2009-09-27 15:09:56.000000000 +0200
++++ wireless-testing/net/core/dev.c	2009-09-27 15:11:40.000000000 +0200
+@@ -4734,6 +4734,11 @@ int register_netdevice(struct net_device
+ 
+ 	dev->iflink = -1;
+ 
++	ret = call_netdevice_notifiers(NETDEV_PRE_INIT, dev);
++	ret = notifier_to_errno(ret);
++	if (ret)
++		goto out;
++
+ 	/* Init, if this function is available */
+ 	if (dev->netdev_ops->ndo_init) {
+ 		ret = dev->netdev_ops->ndo_init(dev);
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
