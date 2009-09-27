@@ -1,37 +1,38 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] ax25: Fix ax25_cb refcounting in ax25_ctl_ioctl
-Date: Sun, 27 Sep 2009 21:02:08 +0200
-Message-ID: <20090927190208.GA3549@del.dom.local>
-References: <20090921201157.GA5460@del.dom.local>
- <4ABA9058.3010605@free.fr>
- <20090925131038.GA14778@ff.dom.local>
- <20090925134052.GA1661@linux-mips.org>
- <20090925183504.GA3307@del.dom.local>
- <20090927072319.GA28089@linux-mips.org>
- <20090927171029.GA3297@del.dom.local>
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH 1/2] net: introduce NETDEV_PRE_INIT notifier
+Date: Sun, 27 Sep 2009 13:11:34 -0700
+Message-ID: <1254082294.2659.9.camel@localhost.localdomain>
+References: <1254075999.6583.4.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Bernard Pidoux F6BVP <f6bvp@free.fr>,
-	Bernard Pidoux <bernard.pidoux@upmc.fr>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-hams <linux-hams@vger.kernel.org>
-To: Ralf Baechle DL5RB <ralf@linux-mips.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:4657 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752330AbZI0TDI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Sep 2009 15:03:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20090927171029.GA3297@del.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1254075999.6583.4.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 27, 2009 at 07:10:29PM +0200, Jarek Poplawski wrote:
-...
-> In this case valid calls (return 0) were affected too, so I guess the
-> whole thing is rarely used.
+Hi Johannes,
 
-And, after all, there would be only a little, invisible memory leak.
+> For various purposes including a wireless extensions
+> bugfix, we need to hook into the netdev creation at
+> a point before netdev_register_kobject(). It seems
+> more generic, however, to have it even earlier. This
+> will also ease doing the dev type assignment that
+> Marcel was working on generically.
 
-Jarek P.
+you are beating me to it. I can only second that this is a good idea for
+the dev type assignment. Once Dave acks this I can sent a rebased patch
+for the dev type stuff for WiFi.
+
+Regards
+
+Marcel
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
