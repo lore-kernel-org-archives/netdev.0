@@ -1,41 +1,53 @@
-From: Ingo Oeser <ioe-lkml@rameria.de>
-Subject: Re: [PATCH 1/3] lib/vsprintf.c: Add %pU - ptr to a UUID/GUID
-Date: Sun, 27 Sep 2009 12:45:33 +0200
-Message-ID: <200909271245.34000.ioe-lkml@rameria.de>
-References: <cover.1254030722.git.joe@perches.com> <1507728e0ea3deafa71c481d508a6e9765c92221.1254030722.git.joe@perches.com>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: [bisected] Wireless regression in 2.6.32-git
+Date: Sun, 27 Sep 2009 15:18:55 +0200
+Message-ID: <20090927151855.29efcc53@infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Greg KH <greg@kroah.com>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay04.ispgateway.de ([80.67.31.27]:38628 "EHLO
-	smtprelay04.ispgateway.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753790AbZI0Ky6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Sep 2009 06:54:58 -0400
-In-Reply-To: <1507728e0ea3deafa71c481d508a6e9765c92221.1254030722.git.joe@perches.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752477AbZI0NSd@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Joe,
+Hi,
 
-On Sunday 27 September 2009, Joe Perches wrote:
-> UUID/GUIDs are somewhat common in kernel source.
-> 
-> Standardize the printed style of UUID/GUIDs by using
-> another extension to %p.
-> 
-> %pU:    01020304:0506:0708:090a:0b0c0d0e0f10
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ here
-> %pUr:   04030201:0605:0807:0a09:0b0c0d0e0f10
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ and here
+With todays git my laptop fails to associate with my access point.
+Bisection points to the commit below, and reverting this one commit on
+the HEAD of tree also fixes the issue, so I'm pretty confident that this
+commit is to blame.
 
-Code does "01020304-0506-0708-090a-0b0c0d0e0f10".
-This is not, what commit promises. Please change the commit message!
+I have a 4965 wifi card in my laptop, and the network I'm trying to
+connect to has no encryption. I'm running Fedora 11 as OS.
 
-Best Regards
+I would like to kindly request for this commit to be reverted until a
+more permanent solution is found (I'm happy to test any patches)..
 
-Ingo Oeser
+
+
+
+94f85853324e02c3a32bc3101f090dc9a3f512b4 is first bad commit
+commit 94f85853324e02c3a32bc3101f090dc9a3f512b4
+Author: Johannes Berg <johannes@sipsolutions.net>
+Date:   Thu Sep 17 17:15:31 2009 -0700
+
+    cfg80211: don't overwrite privacy setting
+    
+    When cfg80211 is instructed to connect, it always
+    uses the default WEP key for the privacy setting,
+    which clearly is wrong when using wpa_supplicant.
+    Don't overwrite the setting, and rely on it being
+    false when wpa_supplicant is not running, instead
+    set it to true when we have keys.
+    
+    Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+    Signed-off-by: John W. Linville <linville@tuxdriver.com>
+
+:040000 040000 27fb46273e88eefee373699eb7e3f2923ac0886b
+9518ee3e52c8320613cc5eee5ac54aabf082432f M	net
+
+-- 
+Arjan van de Ven 	Intel Open Source Technology Centre
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
