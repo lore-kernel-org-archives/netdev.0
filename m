@@ -1,53 +1,44 @@
-From: Maciej Rutecki <maciej.rutecki@gmail.com>
-Subject: Re: [2.6.31-git17] WARNING: at kernel/hrtimer.c:648
-	hres_timers_resume+0x40/0x50()/WARNING: at drivers/base/sys.c:353
-	__sysdev_resume+0xc3/0xe0()
-Date: Sun, 27 Sep 2009 18:16:25 +0200
-Message-ID: <8db1092f0909270916k79d0c369ub93b5e8ddf66c979@mail.gmail.com>
-References: <8db1092f0909270105x4b49daf8k268e453d2379020c@mail.gmail.com>
-	 <2674af740909270127s464a3cb2xef5e7f4cd61b0eb7@mail.gmail.com>
-	 <2674af740909270130h359a5d23taa7e8b63e6a18a4d@mail.gmail.com>
-	 <8db1092f0909270325j67825cem82fc93cf19336d6f@mail.gmail.com>
-	 <2674af740909270701u6febabdbpc5c772fabc193b32@mail.gmail.com>
-	 <2674af740909270749u339671a1ia81d5736eeb750fa@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] ax25: Fix ax25_cb refcounting in ax25_ctl_ioctl
+Date: Sun, 27 Sep 2009 19:10:29 +0200
+Message-ID: <20090927171029.GA3297@del.dom.local>
+References: <20090921201157.GA5460@del.dom.local>
+ <4ABA9058.3010605@free.fr>
+ <20090925131038.GA14778@ff.dom.local>
+ <20090925134052.GA1661@linux-mips.org>
+ <20090925183504.GA3307@del.dom.local>
+ <20090927072319.GA28089@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, clemens@ladisch.de,
-	venkatesh.pallipadi@intel.com, gregkh@suse.de,
-	zambrano@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
-To: Yong Zhang <yong.zhang0@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753718AbZI0QQY@vger.kernel.org>
-In-Reply-To: <2674af740909270749u339671a1ia81d5736eeb750fa@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Bernard Pidoux F6BVP <f6bvp@free.fr>,
+	Bernard Pidoux <bernard.pidoux@upmc.fr>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	linux-hams <linux-hams@vger.kernel.org>
+To: Ralf Baechle DL5RB <ralf@linux-mips.org>
+Return-path: <linux-hams-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090927072319.GA28089@linux-mips.org>
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2009/9/27 Yong Zhang <yong.zhang0@gmail.com>:
->
-> It seem this is cause by b44 dirver. Can you give a try?
->
-> From 05ee2f22a7ea065e05bf8b5294d222a3700d2cc8 Mon Sep 17 00:00:00 2001
-> From: Yong Zhang <yong.zhang0@gmail.com>
-> Date: Sun, 27 Sep 2009 22:42:41 +0800
-> Subject: [PATCH] net/b44: keep irq state at suspend_resume
->
-> suspend() and resume() assume irq is disabled. So keep the irq
-> state when do this.
+On Sun, Sep 27, 2009 at 08:23:19AM +0100, Ralf Baechle DL5RB wrote:
+> On Fri, Sep 25, 2009 at 08:35:04PM +0200, Jarek Poplawski wrote:
+> 
+> > > > This bug isn't responsible for these oopses here, but looks quite
+> > > > obviously. (I'm not sure if it's easy to test/hit with the common
+> > > > tools.)
+> > > 
+> > > The issue your patch fixes is obvious enough.
+> > 
+> > Yes, with new code there would be no doubt. But here, if you know it's
+> > worked for some time, you wonder if you're not blind. |-)
+> 
+> Most of of the ioctls are used by AX.25 userland which does error
+> checking on user supplied values so userland will never attempt invalid
+> ioctl calls.  So no surprise this went unnoticed.
 
-Remove previous patch, add it to clean 2.6.31-git17. It doesn't help.
+In this case valid calls (return 0) were affected too, so I guess the
+whole thing is rarely used.
 
-> --
-> 1.6.0.4
->
->> So can you test the follow patch. And show the dmesg info(DEBUG
->> level) after WARNING is triggered?
->>
->> diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
->> index fb0f46f..4a00a1a 100644
-
-Still test it?
-
-Regards
--- 
-Maciej Rutecki
-http://www.maciek.unixy.pl
+Jarek P.
