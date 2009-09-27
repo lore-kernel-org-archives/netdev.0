@@ -1,44 +1,38 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] ax25: Fix ax25_cb refcounting in ax25_ctl_ioctl
-Date: Sun, 27 Sep 2009 19:10:29 +0200
-Message-ID: <20090927171029.GA3297@del.dom.local>
-References: <20090921201157.GA5460@del.dom.local>
- <4ABA9058.3010605@free.fr>
- <20090925131038.GA14778@ff.dom.local>
- <20090925134052.GA1661@linux-mips.org>
- <20090925183504.GA3307@del.dom.local>
- <20090927072319.GA28089@linux-mips.org>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [2.6.31-git17] WARNING: at kernel/hrtimer.c:648 hres_timers_resume+0x40/0x50()/WARNING: at drivers/base/sys.c:353 __sysdev_resume+0xc3/0xe0()
+Date: Sun, 27 Sep 2009 20:17:43 +0200
+Message-ID: <200909272017.43348.rjw@sisk.pl>
+References: <8db1092f0909270105x4b49daf8k268e453d2379020c@mail.gmail.com> <2674af740909270749u339671a1ia81d5736eeb750fa@mail.gmail.com> <8db1092f0909270916k79d0c369ub93b5e8ddf66c979@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Bernard Pidoux F6BVP <f6bvp@free.fr>,
-	Bernard Pidoux <bernard.pidoux@upmc.fr>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-hams <linux-hams@vger.kernel.org>
-To: Ralf Baechle DL5RB <ralf@linux-mips.org>
-Return-path: <linux-hams-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090927072319.GA28089@linux-mips.org>
-Sender: linux-hams-owner@vger.kernel.org
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Yong Zhang <yong.zhang0@gmail.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	clemens@ladisch.de, venkatesh.pallipadi@intel.com, gregkh@suse.de,
+	zambrano@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
+To: Maciej Rutecki <maciej.rutecki@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752091AbZI0SQT@vger.kernel.org>
+In-Reply-To: <8db1092f0909270916k79d0c369ub93b5e8ddf66c979@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 27, 2009 at 08:23:19AM +0100, Ralf Baechle DL5RB wrote:
-> On Fri, Sep 25, 2009 at 08:35:04PM +0200, Jarek Poplawski wrote:
+On Sunday 27 September 2009, Maciej Rutecki wrote:
+> 2009/9/27 Yong Zhang <yong.zhang0@gmail.com>:
+> >
+> > It seem this is cause by b44 dirver. Can you give a try?
+> >
+> > From 05ee2f22a7ea065e05bf8b5294d222a3700d2cc8 Mon Sep 17 00:00:00 2001
+> > From: Yong Zhang <yong.zhang0@gmail.com>
+> > Date: Sun, 27 Sep 2009 22:42:41 +0800
+> > Subject: [PATCH] net/b44: keep irq state at suspend_resume
+> >
+> > suspend() and resume() assume irq is disabled. So keep the irq
+> > state when do this.
 > 
-> > > > This bug isn't responsible for these oopses here, but looks quite
-> > > > obviously. (I'm not sure if it's easy to test/hit with the common
-> > > > tools.)
-> > > 
-> > > The issue your patch fixes is obvious enough.
-> > 
-> > Yes, with new code there would be no doubt. But here, if you know it's
-> > worked for some time, you wonder if you're not blind. |-)
-> 
-> Most of of the ioctls are used by AX.25 userland which does error
-> checking on user supplied values so userland will never attempt invalid
-> ioctl calls.  So no surprise this went unnoticed.
+> Remove previous patch, add it to clean 2.6.31-git17. It doesn't help.
 
-In this case valid calls (return 0) were affected too, so I guess the
-whole thing is rarely used.
+It couldn't.  The problem is elswhere, but I haven't found it yet.
 
-Jarek P.
+Thanks,
+Rafael
