@@ -1,81 +1,53 @@
-From: Hugh Dickins <hugh.dickins-IWqWACnzNjwqdlJmJB21zg@public.gmane.org>
-Subject: Re: [bisected] Wireless regression in 2.6.32-git
-Date: Sun, 27 Sep 2009 17:14:04 +0100 (BST)
-Message-ID: <Pine.LNX.4.64.0909271708210.8927@sister.anvils>
-References: <20090927151855.29efcc53@infradead.org>
+From: Maciej Rutecki <maciej.rutecki@gmail.com>
+Subject: Re: [2.6.31-git17] WARNING: at kernel/hrtimer.c:648
+	hres_timers_resume+0x40/0x50()/WARNING: at drivers/base/sys.c:353
+	__sysdev_resume+0xc3/0xe0()
+Date: Sun, 27 Sep 2009 18:16:25 +0200
+Message-ID: <8db1092f0909270916k79d0c369ub93b5e8ddf66c979@mail.gmail.com>
+References: <8db1092f0909270105x4b49daf8k268e453d2379020c@mail.gmail.com>
+	 <2674af740909270127s464a3cb2xef5e7f4cd61b0eb7@mail.gmail.com>
+	 <2674af740909270130h359a5d23taa7e8b63e6a18a4d@mail.gmail.com>
+	 <8db1092f0909270325j67825cem82fc93cf19336d6f@mail.gmail.com>
+	 <2674af740909270701u6febabdbpc5c772fabc193b32@mail.gmail.com>
+	 <2674af740909270749u339671a1ia81d5736eeb750fa@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Arjan van de Ven <arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090927151855.29efcc53-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, clemens@ladisch.de,
+	venkatesh.pallipadi@intel.com, gregkh@suse.de,
+	zambrano@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
+To: Yong Zhang <yong.zhang0@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753718AbZI0QQY@vger.kernel.org>
+In-Reply-To: <2674af740909270749u339671a1ia81d5736eeb750fa@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 27 Sep 2009, Arjan van de Ven wrote:
-> 
-> With todays git my laptop fails to associate with my access point.
-> Bisection points to the commit below, and reverting this one commit on
-> the HEAD of tree also fixes the issue, so I'm pretty confident that this
-> commit is to blame.
-> 
-> I have a 4965 wifi card in my laptop, and the network I'm trying to
-> connect to has no encryption. I'm running Fedora 11 as OS.
-> 
-> I would like to kindly request for this commit to be reverted until a
-> more permanent solution is found (I'm happy to test any patches)..
-> 
-> 94f85853324e02c3a32bc3101f090dc9a3f512b4 is first bad commit
-> commit 94f85853324e02c3a32bc3101f090dc9a3f512b4
-> Author: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-> Date:   Thu Sep 17 17:15:31 2009 -0700
-> 
->     cfg80211: don't overwrite privacy setting
->     
->     When cfg80211 is instructed to connect, it always
->     uses the default WEP key for the privacy setting,
->     which clearly is wrong when using wpa_supplicant.
->     Don't overwrite the setting, and rely on it being
->     false when wpa_supplicant is not running, instead
->     set it to true when we have keys.
->     
->     Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
->     Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> 
-> :040000 040000 27fb46273e88eefee373699eb7e3f2923ac0886b
-> 9518ee3e52c8320613cc5eee5ac54aabf082432f M	net
+2009/9/27 Yong Zhang <yong.zhang0@gmail.com>:
+>
+> It seem this is cause by b44 dirver. Can you give a try?
+>
+> From 05ee2f22a7ea065e05bf8b5294d222a3700d2cc8 Mon Sep 17 00:00:00 2001
+> From: Yong Zhang <yong.zhang0@gmail.com>
+> Date: Sun, 27 Sep 2009 22:42:41 +0800
+> Subject: [PATCH] net/b44: keep irq state at suspend_resume
+>
+> suspend() and resume() assume irq is disabled. So keep the irq
+> state when do this.
 
-I've a different problem with wireless that Johannes is investigating
-for me on linux-wireless; but here's a patch that he pointed me to
-along the way, didn't help my issue but I expect it will help yours...
+Remove previous patch, add it to clean 2.6.31-git17. It doesn't help.
 
+> --
+> 1.6.0.4
+>
+>> So can you test the follow patch. And show the dmesg info(DEBUG
+>> level) after WARNING is triggered?
+>>
+>> diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
+>> index fb0f46f..4a00a1a 100644
 
-Subject: cfg80211: don't set privacy w/o key
+Still test it?
 
-When wpa_supplicant is used to connect to open networks,
-it causes the wdev->wext.keys to point to key memory, but
-that key memory is all empty. Only use privacy when there
-is a default key to be used.
-
-Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
----
- net/wireless/wext-sme.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
---- wireless-testing.orig/net/wireless/wext-sme.c	2009-09-24 08:51:14.000000000 +0200
-+++ wireless-testing/net/wireless/wext-sme.c	2009-09-24 08:57:01.000000000 +0200
-@@ -30,7 +30,8 @@ int cfg80211_mgd_wext_connect(struct cfg
- 	if (wdev->wext.keys) {
- 		wdev->wext.keys->def = wdev->wext.default_key;
- 		wdev->wext.keys->defmgmt = wdev->wext.default_mgmt_key;
--		wdev->wext.connect.privacy = true;
-+		if (wdev->wext.default_key != -1)
-+			wdev->wext.connect.privacy = true;
- 	}
- 
- 	if (!wdev->wext.connect.ssid_len)
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards
+-- 
+Maciej Rutecki
+http://www.maciek.unixy.pl
