@@ -1,42 +1,37 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/3] lib/vsprintf.c: Add %pU - ptr to a UUID/GUID
-Date: Sun, 27 Sep 2009 12:00:46 -0700
-Message-ID: <1254078046.28232.183.camel@Joe-Laptop.home>
-References: <cover.1254030722.git.joe@perches.com>
-	 <1507728e0ea3deafa71c481d508a6e9765c92221.1254030722.git.joe@perches.com>
-	 <200909271245.34000.ioe-lkml@rameria.de>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] ax25: Fix ax25_cb refcounting in ax25_ctl_ioctl
+Date: Sun, 27 Sep 2009 21:02:08 +0200
+Message-ID: <20090927190208.GA3549@del.dom.local>
+References: <20090921201157.GA5460@del.dom.local>
+ <4ABA9058.3010605@free.fr>
+ <20090925131038.GA14778@ff.dom.local>
+ <20090925134052.GA1661@linux-mips.org>
+ <20090925183504.GA3307@del.dom.local>
+ <20090927072319.GA28089@linux-mips.org>
+ <20090927171029.GA3297@del.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Greg KH <greg@kroah.com>
-To: Ingo Oeser <ioe-lkml@rameria.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752802AbZI0TAp@vger.kernel.org>
-In-Reply-To: <200909271245.34000.ioe-lkml@rameria.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Bernard Pidoux F6BVP <f6bvp@free.fr>,
+	Bernard Pidoux <bernard.pidoux@upmc.fr>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	linux-hams <linux-hams@vger.kernel.org>
+To: Ralf Baechle DL5RB <ralf@linux-mips.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.155]:4657 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752330AbZI0TDI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Sep 2009 15:03:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20090927171029.GA3297@del.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2009-09-27 at 12:45 +0200, Ingo Oeser wrote:
-> Hi Joe,
+On Sun, Sep 27, 2009 at 07:10:29PM +0200, Jarek Poplawski wrote:
+...
+> In this case valid calls (return 0) were affected too, so I guess the
+> whole thing is rarely used.
 
-Hello Ingo.
+And, after all, there would be only a little, invisible memory leak.
 
-> On Sunday 27 September 2009, Joe Perches wrote:
-> > UUID/GUIDs are somewhat common in kernel source.
-> > Standardize the printed style of UUID/GUIDs by using
-> > another extension to %p.
-> > %pU:    01020304:0506:0708:090a:0b0c0d0e0f10
-> > %pUr:   04030201:0605:0807:0a09:0b0c0d0e0f10
-> Code does "01020304-0506-0708-090a-0b0c0d0e0f10".
-> This is not, what commit promises. Please change the commit message!
-
-True enough, that can change, no worries.
-
-Does anyone have comments like:
-
-1 what a stupid idea
-2 how unnecessary
-3 meh
-4 bloat alert! linux is supposed to be lean
-5 ok idea, bad implementation
-6 sure, why not
+Jarek P.
