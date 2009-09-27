@@ -1,32 +1,39 @@
-From: Joe Perches <joe@perches.com>
-Subject: [RFC PATCH 0/3] print UUID/GUIDs with %pU
-Date: Sat, 26 Sep 2009 22:57:18 -0700
-Message-ID: <cover.1254030722.git.joe@perches.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Greg KH <greg@kroah.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753143AbZI0F5Z@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ralf Baechle DL5RB <ralf@linux-mips.org>
+Subject: Re: [PATCH] ax25: Fix ax25_cb refcounting in ax25_ctl_ioctl
+Date: Sun, 27 Sep 2009 08:23:19 +0100
+Message-ID: <20090927072319.GA28089@linux-mips.org>
+References: <20090921201157.GA5460@del.dom.local> <4ABA9058.3010605@free.fr> <20090925131038.GA14778@ff.dom.local> <20090925134052.GA1661@linux-mips.org> <20090925183504.GA3307@del.dom.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Bernard Pidoux F6BVP <f6bvp@free.fr>,
+	Bernard Pidoux <bernard.pidoux@upmc.fr>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	linux-hams <linux-hams@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from h5.dl5rb.org.uk ([81.2.74.5]:49672 "EHLO h5.dl5rb.org.uk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753347AbZI0HWM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Sep 2009 03:22:12 -0400
+Content-Disposition: inline
+In-Reply-To: <20090925183504.GA3307@del.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Perhaps UUIDs are common enough to use a %p extension
+On Fri, Sep 25, 2009 at 08:35:04PM +0200, Jarek Poplawski wrote:
 
-Joe Perches (3):
-  lib/vsprintf.c: Add %pU - ptr to a UUID/GUID
-  treewide: use %pU to print UUID/GUIDs
-  drivers/staging/hv/: use %pU to print UUID/GUIDs
+> > > This bug isn't responsible for these oopses here, but looks quite
+> > > obviously. (I'm not sure if it's easy to test/hit with the common
+> > > tools.)
+> > 
+> > The issue your patch fixes is obvious enough.
+> 
+> Yes, with new code there would be no doubt. But here, if you know it's
+> worked for some time, you wonder if you're not blind. |-)
 
- drivers/char/random.c                |   10 +--
- drivers/firmware/dmi_scan.c          |    5 +-
- drivers/md/md.c                      |   16 +----
- drivers/media/video/uvc/uvc_ctrl.c   |   69 +++++++++-----------
- drivers/media/video/uvc/uvc_driver.c |    7 +-
- drivers/media/video/uvc/uvcvideo.h   |   10 ---
- drivers/staging/hv/ChannelMgmt.c     |   22 +------
- drivers/staging/hv/vmbus_drv.c       |  116 ++++------------------------------
- fs/gfs2/sys.c                        |   16 +----
- fs/ubifs/debug.c                     |    9 +--
- fs/ubifs/super.c                     |    7 +--
- fs/xfs/xfs_log_recover.c             |   14 +---
- include/linux/efi.h                  |    6 +--
- lib/vsprintf.c                       |   58 +++++++++++++++++-
- 14 files changed, 125 insertions(+), 240 deletions(-)
+Most of of the ioctls are used by AX.25 userland which does error
+checking on user supplied values so userland will never attempt invalid
+ioctl calls.  So no surprise this went unnoticed.
+
+  Ralf
