@@ -1,63 +1,46 @@
-From: Hugh Dickins <hugh.dickins-IWqWACnzNjwqdlJmJB21zg@public.gmane.org>
-Subject: Re: [PATCH 2/2] cfg80211: fix wireless handlers assignment
-Date: Sun, 27 Sep 2009 21:58:38 +0100 (BST)
-Message-ID: <Pine.LNX.4.64.0909272139280.4061@sister.anvils>
-References: <1254076075.6583.6.camel@johannes.local>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH 1/3] lib/vsprintf.c: Add %pU - ptr to a UUID/GUID
+Date: Sun, 27 Sep 2009 13:53:48 -0700
+Message-ID: <20090927205348.GA32464@kroah.com>
+References: <cover.1254030722.git.joe@perches.com>
+ <1507728e0ea3deafa71c481d508a6e9765c92221.1254030722.git.joe@perches.com>
+ <200909271245.34000.ioe-lkml@rameria.de>
+ <1254078046.28232.183.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1254076075.6583.6.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Oeser <ioe-lkml@rameria.de>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752711AbZI0U7S@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1254078046.28232.183.camel@Joe-Laptop.home>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 27 Sep 2009, Johannes Berg wrote:
-
-> The point we assign dev->wireless_handlers at is too
-> late, we need to do that before netdev_register_kobject()
-> gets called, so use the new NETDEV_PRE_INIT notifier.
-> The result of adding wireless_handlers too late is the
-> disappearance of /sys/class/net/wlan0/wireless which a
-> bunch of distro scripts still require.
+On Sun, Sep 27, 2009 at 12:00:46PM -0700, Joe Perches wrote:
+> On Sun, 2009-09-27 at 12:45 +0200, Ingo Oeser wrote:
+> > Hi Joe,
 > 
-> Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+> Hello Ingo.
+> 
+> > On Sunday 27 September 2009, Joe Perches wrote:
+> > > UUID/GUIDs are somewhat common in kernel source.
+> > > Standardize the printed style of UUID/GUIDs by using
+> > > another extension to %p.
+> > > %pU:    01020304:0506:0708:090a:0b0c0d0e0f10
+> > > %pUr:   04030201:0605:0807:0a09:0b0c0d0e0f10
+> > Code does "01020304-0506-0708-090a-0b0c0d0e0f10".
+> > This is not, what commit promises. Please change the commit message!
+> 
+> True enough, that can change, no worries.
+> 
+> Does anyone have comments like:
+> 
+> 1 what a stupid idea
+> 2 how unnecessary
+> 3 meh
+> 4 bloat alert! linux is supposed to be lean
+> 5 ok idea, bad implementation
+> 6 sure, why not
 
-This 2/2 patch does indeed work: many thanks.  But...
-
-> ---
-> This should fix the regression Hugh reported (of course requires the
-> other patch which unfortunately I forgot to CC you, Hugh, I'll send you
-> a copy in private).
-
-... the 1/2 patch has a couple of problems.
-
-The trivial problem is that include/linux/notifier.h in Linus's git has
-#define NETDEV_PRE_UP		0x000D
-#define NETDEV_BONDING_OLDTYPE  0x000E
-#define NETDEV_BONDING_NEWTYPE  0x000F
-
-So it rejects the patch you posted: I changed it to add
-#define NETDEV_PRE_INIT		0x0010
-just after the NETDEV_BONDING_NEWTYPE line.
-
-The more serious problem is that it stops both my machines from booting,
-too early for framebuffer to show any messages, but vga=normal shows a
-long stacktrace scrolling offscreen, with some notifier stuff in there.
-
-I've experimented by moving your NETDEV_PRE_INIT hunk later in the
-sequence, just before the netdev_initialize_kobject(dev) (so I also
-changed the "goto out" to "goto err_uninit"): both* machines then boot
-correctly, and this mail leaves me wirelessly.
-
-I'll now experiment to see how early I can move that hunk.
-
-Hugh
-
-* I wrote that hoping the Aspire One build would complete soon,
-but it's still going: assume it's fine unless I say otherwise.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Sure, why not :)
