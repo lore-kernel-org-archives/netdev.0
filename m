@@ -1,415 +1,213 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 2/3] treewide: use %pU to print UUID/GUIDs
-Date: Sat, 26 Sep 2009 22:57:20 -0700
-Message-ID: <ed3d30edbe451d63bf778a84ead8b7ca090d03b7.1254030722.git.joe@perches.com>
+Subject: [PATCH 3/3] drivers/staging/hv/: use %pU to print UUID/GUIDs
+Date: Sat, 26 Sep 2009 22:57:21 -0700
+Message-ID: <18389cc75bfc33f6703751a7902bae3cb90fbf46.1254030722.git.joe@perches.com>
 References: <cover.1254030722.git.joe@perches.com>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Greg KH <greg@kroah.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752916AbZI0F50@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1231 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752159AbZI0F5S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Sep 2009 01:57:18 -0400
 In-Reply-To: <cover.1254030722.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Converted individual GUID/UUID printing functions
 to use the new %pU[Xr] in lib/vsprintf.c
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/char/random.c                |   10 +---
- drivers/firmware/dmi_scan.c          |    5 +--
- drivers/md/md.c                      |   16 ++------
- drivers/media/video/uvc/uvc_ctrl.c   |   69 ++++++++++++++++------------------
- drivers/media/video/uvc/uvc_driver.c |    7 +--
- drivers/media/video/uvc/uvcvideo.h   |   10 -----
- fs/gfs2/sys.c                        |   16 +------
- fs/ubifs/debug.c                     |    9 +---
- fs/ubifs/super.c                     |    7 +---
- fs/xfs/xfs_log_recover.c             |   14 ++-----
- include/linux/efi.h                  |    6 +--
- 11 files changed, 54 insertions(+), 115 deletions(-)
+ drivers/staging/hv/ChannelMgmt.c |   22 +-------
+ drivers/staging/hv/vmbus_drv.c   |  116 ++++----------------------------------
+ 2 files changed, 14 insertions(+), 124 deletions(-)
 
-diff --git a/drivers/char/random.c b/drivers/char/random.c
-index 04b505e..7104df9 100644
---- a/drivers/char/random.c
-+++ b/drivers/char/random.c
-@@ -1245,12 +1245,8 @@ static int proc_do_uuid(ctl_table *table, int write,
- 	if (uuid[8] == 0)
- 		generate_random_uuid(uuid);
+diff --git a/drivers/staging/hv/ChannelMgmt.c b/drivers/staging/hv/ChannelMgmt.c
+index 3db62ca..8b0fb81 100644
+--- a/drivers/staging/hv/ChannelMgmt.c
++++ b/drivers/staging/hv/ChannelMgmt.c
+@@ -263,28 +263,10 @@ static void VmbusChannelOnOffer(struct vmbus_channel_message_header *hdr)
  
--	sprintf(buf, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-"
--		"%02x%02x%02x%02x%02x%02x",
--		uuid[0],  uuid[1],  uuid[2],  uuid[3],
--		uuid[4],  uuid[5],  uuid[6],  uuid[7],
--		uuid[8],  uuid[9],  uuid[10], uuid[11],
--		uuid[12], uuid[13], uuid[14], uuid[15]);
-+	sprintf(buf, "%pU", uuid);
-+
- 	fake_table.data = buf;
- 	fake_table.maxlen = sizeof(buf);
+ 	DPRINT_INFO(VMBUS, "Channel offer notification - "
+ 		    "child relid %d monitor id %d allocated %d, "
+-		    "type {%02x%02x%02x%02x-%02x%02x-%02x%02x-"
+-		    "%02x%02x%02x%02x%02x%02x%02x%02x} "
+-		    "instance {%02x%02x%02x%02x-%02x%02x-%02x%02x-"
+-		    "%02x%02x%02x%02x%02x%02x%02x%02x}",
++		    "type {%pUr} instance {%pUr}",
+ 		    offer->ChildRelId, offer->MonitorId,
+ 		    offer->MonitorAllocated,
+-		    guidType->data[3], guidType->data[2],
+-		    guidType->data[1], guidType->data[0],
+-		    guidType->data[5], guidType->data[4],
+-		    guidType->data[7], guidType->data[6],
+-		    guidType->data[8], guidType->data[9],
+-		    guidType->data[10], guidType->data[11],
+-		    guidType->data[12], guidType->data[13],
+-		    guidType->data[14], guidType->data[15],
+-		    guidInstance->data[3], guidInstance->data[2],
+-		    guidInstance->data[1], guidInstance->data[0],
+-		    guidInstance->data[5], guidInstance->data[4],
+-		    guidInstance->data[7], guidInstance->data[6],
+-		    guidInstance->data[8], guidInstance->data[9],
+-		    guidInstance->data[10], guidInstance->data[11],
+-		    guidInstance->data[12], guidInstance->data[13],
+-		    guidInstance->data[14], guidInstance->data[15]);
++		    guidType->data, guidInstance->data);
  
-@@ -1350,7 +1346,7 @@ ctl_table random_table[] = {
+ 	/* Allocate the channel object and save this offer. */
+ 	newChannel = AllocVmbusChannel();
+diff --git a/drivers/staging/hv/vmbus_drv.c b/drivers/staging/hv/vmbus_drv.c
+index 582318f..73119a9 100644
+--- a/drivers/staging/hv/vmbus_drv.c
++++ b/drivers/staging/hv/vmbus_drv.c
+@@ -143,43 +143,10 @@ static ssize_t vmbus_show_device_attr(struct device *dev,
+ 	vmbus_child_device_get_info(&device_ctx->device_obj, &device_info);
  
- /********************************************************************
-  *
-- * Random funtions for networking
-+ * Random functions for networking
-  *
-  ********************************************************************/
- 
-diff --git a/drivers/firmware/dmi_scan.c b/drivers/firmware/dmi_scan.c
-index 938100f..c0deabb 100644
---- a/drivers/firmware/dmi_scan.c
-+++ b/drivers/firmware/dmi_scan.c
-@@ -169,10 +169,7 @@ static void __init dmi_save_uuid(const struct dmi_header *dm, int slot, int inde
- 	if (!s)
- 		return;
- 
--	sprintf(s,
--		"%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
--		d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7],
--		d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15]);
-+	sprintf(s, "%pUX", d);
- 
-         dmi_ident[slot] = s;
- }
-diff --git a/drivers/md/md.c b/drivers/md/md.c
-index 26ba42a..68b52d7 100644
---- a/drivers/md/md.c
-+++ b/drivers/md/md.c
-@@ -1813,15 +1813,11 @@ static void print_sb_1(struct mdp_superblock_1 *sb)
- 
- 	uuid = sb->set_uuid;
- 	printk(KERN_INFO
--	       "md:  SB: (V:%u) (F:0x%08x) Array-ID:<%02x%02x%02x%02x"
--	       ":%02x%02x:%02x%02x:%02x%02x:%02x%02x%02x%02x%02x%02x>\n"
-+	       "md:  SB: (V:%u) (F:0x%08x) Array-ID:<%pU>\n"
- 	       "md:    Name: \"%s\" CT:%llu\n",
- 		le32_to_cpu(sb->major_version),
- 		le32_to_cpu(sb->feature_map),
--		uuid[0], uuid[1], uuid[2], uuid[3],
--		uuid[4], uuid[5], uuid[6], uuid[7],
--		uuid[8], uuid[9], uuid[10], uuid[11],
--		uuid[12], uuid[13], uuid[14], uuid[15],
-+		uuid,
- 		sb->set_name,
- 		(unsigned long long)le64_to_cpu(sb->ctime)
- 		       & MD_SUPERBLOCK_1_TIME_SEC_MASK);
-@@ -1830,8 +1826,7 @@ static void print_sb_1(struct mdp_superblock_1 *sb)
- 	printk(KERN_INFO
- 	       "md:       L%u SZ%llu RD:%u LO:%u CS:%u DO:%llu DS:%llu SO:%llu"
- 			" RO:%llu\n"
--	       "md:     Dev:%08x UUID: %02x%02x%02x%02x:%02x%02x:%02x%02x:%02x%02x"
--	                ":%02x%02x%02x%02x%02x%02x\n"
-+	       "md:     Dev:%08x UUID: %pU\n"
- 	       "md:       (F:0x%08x) UT:%llu Events:%llu ResyncOffset:%llu CSUM:0x%08x\n"
- 	       "md:         (MaxDev:%u) \n",
- 		le32_to_cpu(sb->level),
-@@ -1844,10 +1839,7 @@ static void print_sb_1(struct mdp_superblock_1 *sb)
- 		(unsigned long long)le64_to_cpu(sb->super_offset),
- 		(unsigned long long)le64_to_cpu(sb->recovery_offset),
- 		le32_to_cpu(sb->dev_number),
--		uuid[0], uuid[1], uuid[2], uuid[3],
--		uuid[4], uuid[5], uuid[6], uuid[7],
--		uuid[8], uuid[9], uuid[10], uuid[11],
--		uuid[12], uuid[13], uuid[14], uuid[15],
-+		uuid,
- 		sb->devflags,
- 		(unsigned long long)le64_to_cpu(sb->utime) & MD_SUPERBLOCK_1_TIME_SEC_MASK,
- 		(unsigned long long)le64_to_cpu(sb->events),
-diff --git a/drivers/media/video/uvc/uvc_ctrl.c b/drivers/media/video/uvc/uvc_ctrl.c
-index c3225a5..2959e46 100644
---- a/drivers/media/video/uvc/uvc_ctrl.c
-+++ b/drivers/media/video/uvc/uvc_ctrl.c
-@@ -1093,8 +1093,8 @@ int uvc_xu_ctrl_query(struct uvc_video_chain *chain,
- 
- 	if (!found) {
- 		uvc_trace(UVC_TRACE_CONTROL,
--			"Control " UVC_GUID_FORMAT "/%u not found.\n",
--			UVC_GUID_ARGS(entity->extension.guidExtensionCode),
-+			"Control %pUr/%u not found.\n",
-+			entity->extension.guidExtensionCode,
- 			xctrl->selector);
- 		return -EINVAL;
- 	}
-@@ -1171,9 +1171,9 @@ int uvc_ctrl_resume_device(struct uvc_device *dev)
- 			    (ctrl->info->flags & UVC_CONTROL_RESTORE) == 0)
- 				continue;
- 
--			printk(KERN_INFO "restoring control " UVC_GUID_FORMAT
--				"/%u/%u\n", UVC_GUID_ARGS(ctrl->info->entity),
--				ctrl->info->index, ctrl->info->selector);
-+			printk(KERN_INFO "restoring control %pUr/%u/%u\n",
-+			       ctrl->info->entity,
-+			       ctrl->info->index, ctrl->info->selector);
- 			ctrl->dirty = 1;
- 		}
- 
-@@ -1228,46 +1228,43 @@ static void uvc_ctrl_add_ctrl(struct uvc_device *dev,
- 			dev->intfnum, info->selector, (__u8 *)&size, 2);
- 		if (ret < 0) {
- 			uvc_trace(UVC_TRACE_CONTROL, "GET_LEN failed on "
--				"control " UVC_GUID_FORMAT "/%u (%d).\n",
--				UVC_GUID_ARGS(info->entity), info->selector,
--				ret);
-+				  "control %pUr/%u (%d).\n",
-+				  info->entity, info->selector, ret);
- 			return;
- 		}
- 
- 		if (info->size != le16_to_cpu(size)) {
--			uvc_trace(UVC_TRACE_CONTROL, "Control " UVC_GUID_FORMAT
--				"/%u size doesn't match user supplied "
--				"value.\n", UVC_GUID_ARGS(info->entity),
--				info->selector);
-+			uvc_trace(UVC_TRACE_CONTROL,
-+				  "Control %pUr/%u size doesn't match user supplied value.\n",
-+				  info->entity, info->selector);
- 			return;
- 		}
- 
- 		ret = uvc_query_ctrl(dev, UVC_GET_INFO, ctrl->entity->id,
- 			dev->intfnum, info->selector, &inf, 1);
- 		if (ret < 0) {
--			uvc_trace(UVC_TRACE_CONTROL, "GET_INFO failed on "
--				"control " UVC_GUID_FORMAT "/%u (%d).\n",
--				UVC_GUID_ARGS(info->entity), info->selector,
--				ret);
-+			uvc_trace(UVC_TRACE_CONTROL,
-+				  "GET_INFO failed on control %pUr/%u (%d).\n",
-+				  info->entity, info->selector, ret);
- 			return;
- 		}
- 
- 		flags = info->flags;
- 		if (((flags & UVC_CONTROL_GET_CUR) && !(inf & (1 << 0))) ||
- 		    ((flags & UVC_CONTROL_SET_CUR) && !(inf & (1 << 1)))) {
--			uvc_trace(UVC_TRACE_CONTROL, "Control "
--				UVC_GUID_FORMAT "/%u flags don't match "
--				"supported operations.\n",
--				UVC_GUID_ARGS(info->entity), info->selector);
-+			uvc_trace(UVC_TRACE_CONTROL,
-+				  "Control %pUr/%u flags don't match supported operations.\n",
-+				  info->entity, info->selector);
- 			return;
- 		}
+ 	if (!strcmp(dev_attr->attr.name, "class_id")) {
+-		return sprintf(buf, "{%02x%02x%02x%02x-%02x%02x-%02x%02x-"
+-			       "%02x%02x%02x%02x%02x%02x%02x%02x}\n",
+-			       device_info.ChannelType.data[3],
+-			       device_info.ChannelType.data[2],
+-			       device_info.ChannelType.data[1],
+-			       device_info.ChannelType.data[0],
+-			       device_info.ChannelType.data[5],
+-			       device_info.ChannelType.data[4],
+-			       device_info.ChannelType.data[7],
+-			       device_info.ChannelType.data[6],
+-			       device_info.ChannelType.data[8],
+-			       device_info.ChannelType.data[9],
+-			       device_info.ChannelType.data[10],
+-			       device_info.ChannelType.data[11],
+-			       device_info.ChannelType.data[12],
+-			       device_info.ChannelType.data[13],
+-			       device_info.ChannelType.data[14],
+-			       device_info.ChannelType.data[15]);
++		return sprintf(buf, "{%pUr}\n", device_info.ChannelType.data);
+ 	} else if (!strcmp(dev_attr->attr.name, "device_id")) {
+-		return sprintf(buf, "{%02x%02x%02x%02x-%02x%02x-%02x%02x-"
+-			       "%02x%02x%02x%02x%02x%02x%02x%02x}\n",
+-			       device_info.ChannelInstance.data[3],
+-			       device_info.ChannelInstance.data[2],
+-			       device_info.ChannelInstance.data[1],
+-			       device_info.ChannelInstance.data[0],
+-			       device_info.ChannelInstance.data[5],
+-			       device_info.ChannelInstance.data[4],
+-			       device_info.ChannelInstance.data[7],
+-			       device_info.ChannelInstance.data[6],
+-			       device_info.ChannelInstance.data[8],
+-			       device_info.ChannelInstance.data[9],
+-			       device_info.ChannelInstance.data[10],
+-			       device_info.ChannelInstance.data[11],
+-			       device_info.ChannelInstance.data[12],
+-			       device_info.ChannelInstance.data[13],
+-			       device_info.ChannelInstance.data[14],
+-			       device_info.ChannelInstance.data[15]);
++		return sprintf(buf, "{%pUr}\n",
++			       device_info.ChannelInstance.data);
+ 	} else if (!strcmp(dev_attr->attr.name, "state")) {
+ 		return sprintf(buf, "%d\n", device_info.ChannelState);
+ 	} else if (!strcmp(dev_attr->attr.name, "id")) {
+@@ -487,23 +454,9 @@ static struct hv_device *vmbus_child_device_create(struct hv_guid *type,
  	}
  
- 	ctrl->info = info;
- 	ctrl->data = kmalloc(ctrl->info->size * UVC_CTRL_NDATA, GFP_KERNEL);
--	uvc_trace(UVC_TRACE_CONTROL, "Added control " UVC_GUID_FORMAT "/%u "
--		"to device %s entity %u\n", UVC_GUID_ARGS(ctrl->info->entity),
--		ctrl->info->selector, dev->udev->devpath, entity->id);
-+	uvc_trace(UVC_TRACE_CONTROL,
-+		  "Added control %pUr/%u to device %s entity %u\n",
-+		  ctrl->info->entity, ctrl->info->selector,
-+		  dev->udev->devpath, entity->id);
- }
+ 	DPRINT_DBG(VMBUS_DRV, "child device (%p) allocated - "
+-		"type {%02x%02x%02x%02x-%02x%02x-%02x%02x-"
+-		"%02x%02x%02x%02x%02x%02x%02x%02x},"
+-		"id {%02x%02x%02x%02x-%02x%02x-%02x%02x-"
+-		"%02x%02x%02x%02x%02x%02x%02x%02x}",
++		"type {%pUr}, id {%pUr}",
+ 		&child_device_ctx->device,
+-		type->data[3], type->data[2], type->data[1], type->data[0],
+-		type->data[5], type->data[4], type->data[7], type->data[6],
+-		type->data[8], type->data[9], type->data[10], type->data[11],
+-		type->data[12], type->data[13], type->data[14], type->data[15],
+-		instance->data[3], instance->data[2],
+-		instance->data[1], instance->data[0],
+-		instance->data[5], instance->data[4],
+-		instance->data[7], instance->data[6],
+-		instance->data[8], instance->data[9],
+-		instance->data[10], instance->data[11],
+-		instance->data[12], instance->data[13],
+-		instance->data[14], instance->data[15]);
++		type->data, instance->data);
  
- /*
-@@ -1293,17 +1290,16 @@ int uvc_ctrl_add_info(struct uvc_control_info *info)
- 			continue;
+ 	child_device_obj = &child_device_ctx->device_obj;
+ 	child_device_obj->context = context;
+@@ -629,65 +582,20 @@ static int vmbus_uevent(struct device *device, struct kobj_uevent_env *env)
  
- 		if (ctrl->selector == info->selector) {
--			uvc_trace(UVC_TRACE_CONTROL, "Control "
--				UVC_GUID_FORMAT "/%u is already defined.\n",
--				UVC_GUID_ARGS(info->entity), info->selector);
-+			uvc_trace(UVC_TRACE_CONTROL,
-+				  "Control %pUr/%u is already defined.\n",
-+				  info->entity, info->selector);
- 			ret = -EEXIST;
- 			goto end;
- 		}
- 		if (ctrl->index == info->index) {
--			uvc_trace(UVC_TRACE_CONTROL, "Control "
--				UVC_GUID_FORMAT "/%u would overwrite index "
--				"%d.\n", UVC_GUID_ARGS(info->entity),
--				info->selector, info->index);
-+			uvc_trace(UVC_TRACE_CONTROL,
-+				  "Control %pUr/%u would overwrite index %d.\n",
-+				  info->entity, info->selector, info->index);
- 			ret = -EEXIST;
- 			goto end;
- 		}
-@@ -1344,10 +1340,9 @@ int uvc_ctrl_add_mapping(struct uvc_control_mapping *mapping)
- 			continue;
+ 	DPRINT_ENTER(VMBUS_DRV);
  
- 		if (info->size * 8 < mapping->size + mapping->offset) {
--			uvc_trace(UVC_TRACE_CONTROL, "Mapping '%s' would "
--				"overflow control " UVC_GUID_FORMAT "/%u\n",
--				mapping->name, UVC_GUID_ARGS(info->entity),
--				info->selector);
-+			uvc_trace(UVC_TRACE_CONTROL,
-+				  "Mapping '%s' would overflow control %pUr/%u\n",
-+				  mapping->name, info->entity, info->selector);
- 			ret = -EOVERFLOW;
- 			goto end;
- 		}
-@@ -1366,9 +1361,9 @@ int uvc_ctrl_add_mapping(struct uvc_control_mapping *mapping)
+-	DPRINT_INFO(VMBUS_DRV, "generating uevent - VMBUS_DEVICE_CLASS_GUID={"
+-		    "%02x%02x%02x%02x-%02x%02x-%02x%02x-"
+-		    "%02x%02x%02x%02x%02x%02x%02x%02x}",
+-		    device_ctx->class_id.data[3], device_ctx->class_id.data[2],
+-		    device_ctx->class_id.data[1], device_ctx->class_id.data[0],
+-		    device_ctx->class_id.data[5], device_ctx->class_id.data[4],
+-		    device_ctx->class_id.data[7], device_ctx->class_id.data[6],
+-		    device_ctx->class_id.data[8], device_ctx->class_id.data[9],
+-		    device_ctx->class_id.data[10],
+-		    device_ctx->class_id.data[11],
+-		    device_ctx->class_id.data[12],
+-		    device_ctx->class_id.data[13],
+-		    device_ctx->class_id.data[14],
+-		    device_ctx->class_id.data[15]);
++	DPRINT_INFO(VMBUS_DRV,
++		    "generating uevent - VMBUS_DEVICE_CLASS_GUID={%pUr}",
++		    device_ctx->class_id.data);
  
- 		mapping->ctrl = info;
- 		list_add_tail(&mapping->list, &info->mappings);
--		uvc_trace(UVC_TRACE_CONTROL, "Adding mapping %s to control "
--			UVC_GUID_FORMAT "/%u.\n", mapping->name,
--			UVC_GUID_ARGS(info->entity), info->selector);
-+		uvc_trace(UVC_TRACE_CONTROL,
-+			  "Adding mapping %s to control %pUr/%u.\n",
-+			  mapping->name, info->entity, info->selector);
+ 	env->envp_idx = i;
+ 	env->buflen = len;
+-	ret = add_uevent_var(env, "VMBUS_DEVICE_CLASS_GUID={"
+-			     "%02x%02x%02x%02x-%02x%02x-%02x%02x-"
+-			     "%02x%02x%02x%02x%02x%02x%02x%02x}",
+-			     device_ctx->class_id.data[3],
+-			     device_ctx->class_id.data[2],
+-			     device_ctx->class_id.data[1],
+-			     device_ctx->class_id.data[0],
+-			     device_ctx->class_id.data[5],
+-			     device_ctx->class_id.data[4],
+-			     device_ctx->class_id.data[7],
+-			     device_ctx->class_id.data[6],
+-			     device_ctx->class_id.data[8],
+-			     device_ctx->class_id.data[9],
+-			     device_ctx->class_id.data[10],
+-			     device_ctx->class_id.data[11],
+-			     device_ctx->class_id.data[12],
+-			     device_ctx->class_id.data[13],
+-			     device_ctx->class_id.data[14],
+-			     device_ctx->class_id.data[15]);
++	ret = add_uevent_var(env, "VMBUS_DEVICE_CLASS_GUID={%pUr}",
++			     device_ctx->class_id.data);
  
- 		ret = 0;
- 		break;
-diff --git a/drivers/media/video/uvc/uvc_driver.c b/drivers/media/video/uvc/uvc_driver.c
-index 8756be5..647d0a2 100644
---- a/drivers/media/video/uvc/uvc_driver.c
-+++ b/drivers/media/video/uvc/uvc_driver.c
-@@ -328,11 +328,10 @@ static int uvc_parse_format(struct uvc_device *dev,
- 				sizeof format->name);
- 			format->fcc = fmtdesc->fcc;
- 		} else {
--			uvc_printk(KERN_INFO, "Unknown video format "
--				UVC_GUID_FORMAT "\n",
--				UVC_GUID_ARGS(&buffer[5]));
-+			uvc_printk(KERN_INFO, "Unknown video format %pUr\n",
-+				   &buffer[5]);
- 			snprintf(format->name, sizeof format->name,
--				UVC_GUID_FORMAT, UVC_GUID_ARGS(&buffer[5]));
-+				 "%pUr", &Buffer[5]);
- 			format->fcc = 0;
- 		}
+ 	if (ret)
+ 		return ret;
  
-diff --git a/drivers/media/video/uvc/uvcvideo.h b/drivers/media/video/uvc/uvcvideo.h
-index e7958aa..9f4a437 100644
---- a/drivers/media/video/uvc/uvcvideo.h
-+++ b/drivers/media/video/uvc/uvcvideo.h
-@@ -555,16 +555,6 @@ extern unsigned int uvc_trace_param;
- #define uvc_printk(level, msg...) \
- 	printk(level "uvcvideo: " msg)
- 
--#define UVC_GUID_FORMAT "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-" \
--			"%02x%02x%02x%02x%02x%02x"
--#define UVC_GUID_ARGS(guid) \
--	(guid)[3],  (guid)[2],  (guid)[1],  (guid)[0], \
--	(guid)[5],  (guid)[4], \
--	(guid)[7],  (guid)[6], \
--	(guid)[8],  (guid)[9], \
--	(guid)[10], (guid)[11], (guid)[12], \
--	(guid)[13], (guid)[14], (guid)[15]
--
- /* --------------------------------------------------------------------------
-  * Internal functions.
-  */
-diff --git a/fs/gfs2/sys.c b/fs/gfs2/sys.c
-index 4463297..56901be 100644
---- a/fs/gfs2/sys.c
-+++ b/fs/gfs2/sys.c
-@@ -85,11 +85,7 @@ static ssize_t uuid_show(struct gfs2_sbd *sdp, char *buf)
- 	buf[0] = '\0';
- 	if (!gfs2_uuid_valid(uuid))
- 		return 0;
--	return snprintf(buf, PAGE_SIZE, "%02X%02X%02X%02X-%02X%02X-"
--			"%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X\n",
--			uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5],
--			uuid[6], uuid[7], uuid[8], uuid[9], uuid[10], uuid[11],
--			uuid[12], uuid[13], uuid[14], uuid[15]);
-+	return snprintf(buf, PAGE_SIZE, "%pUX\n", uuid);
- }
- 
- static ssize_t freeze_show(struct gfs2_sbd *sdp, char *buf)
-@@ -573,14 +569,8 @@ static int gfs2_uevent(struct kset *kset, struct kobject *kobj,
- 	add_uevent_var(env, "LOCKPROTO=%s", sdp->sd_proto_name);
- 	if (!sdp->sd_args.ar_spectator)
- 		add_uevent_var(env, "JOURNALID=%u", sdp->sd_lockstruct.ls_jid);
--	if (gfs2_uuid_valid(uuid)) {
--		add_uevent_var(env, "UUID=%02X%02X%02X%02X-%02X%02X-%02X%02X-"
--			       "%02X%02X-%02X%02X%02X%02X%02X%02X",
--			       uuid[0], uuid[1], uuid[2], uuid[3], uuid[4],
--			       uuid[5], uuid[6], uuid[7], uuid[8], uuid[9],
--			       uuid[10], uuid[11], uuid[12], uuid[13],
--			       uuid[14], uuid[15]);
--	}
-+	if (gfs2_uuid_valid(uuid))
-+		add_uevent_var(env, "UUID=%pUX", uuid);
- 	return 0;
- }
- 
-diff --git a/fs/ubifs/debug.c b/fs/ubifs/debug.c
-index dbc093a..b16779e 100644
---- a/fs/ubifs/debug.c
-+++ b/fs/ubifs/debug.c
-@@ -350,13 +350,8 @@ void dbg_dump_node(const struct ubifs_info *c, const void *node)
- 		       le32_to_cpu(sup->fmt_version));
- 		printk(KERN_DEBUG "\ttime_gran      %u\n",
- 		       le32_to_cpu(sup->time_gran));
--		printk(KERN_DEBUG "\tUUID           %02X%02X%02X%02X-%02X%02X"
--		       "-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X\n",
--		       sup->uuid[0], sup->uuid[1], sup->uuid[2], sup->uuid[3],
--		       sup->uuid[4], sup->uuid[5], sup->uuid[6], sup->uuid[7],
--		       sup->uuid[8], sup->uuid[9], sup->uuid[10], sup->uuid[11],
--		       sup->uuid[12], sup->uuid[13], sup->uuid[14],
--		       sup->uuid[15]);
-+		printk(KERN_DEBUG "\tUUID           %pUX\n",
-+		       sup->uuid);
- 		break;
- 	}
- 	case UBIFS_MST_NODE:
-diff --git a/fs/ubifs/super.c b/fs/ubifs/super.c
-index 333e181..7d59ab7 100644
---- a/fs/ubifs/super.c
-+++ b/fs/ubifs/super.c
-@@ -1393,12 +1393,7 @@ static int mount_ubifs(struct ubifs_info *c)
- 		c->leb_size, c->leb_size >> 10);
- 	dbg_msg("data journal heads:  %d",
- 		c->jhead_cnt - NONDATA_JHEADS_CNT);
--	dbg_msg("UUID:                %02X%02X%02X%02X-%02X%02X"
--	       "-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
--	       c->uuid[0], c->uuid[1], c->uuid[2], c->uuid[3],
--	       c->uuid[4], c->uuid[5], c->uuid[6], c->uuid[7],
--	       c->uuid[8], c->uuid[9], c->uuid[10], c->uuid[11],
--	       c->uuid[12], c->uuid[13], c->uuid[14], c->uuid[15]);
-+	dbg_msg("UUID:                %pUX", c->uuid);
- 	dbg_msg("big_lpt              %d", c->big_lpt);
- 	dbg_msg("log LEBs:            %d (%d - %d)",
- 		c->log_lebs, UBIFS_LOG_LNUM, c->log_last);
-diff --git a/fs/xfs/xfs_log_recover.c b/fs/xfs/xfs_log_recover.c
-index 1099395..3b8e3df 100644
---- a/fs/xfs/xfs_log_recover.c
-+++ b/fs/xfs/xfs_log_recover.c
-@@ -225,16 +225,10 @@ xlog_header_check_dump(
- 	xfs_mount_t		*mp,
- 	xlog_rec_header_t	*head)
- {
--	int			b;
--
--	cmn_err(CE_DEBUG, "%s:  SB : uuid = ", __func__);
--	for (b = 0; b < 16; b++)
--		cmn_err(CE_DEBUG, "%02x", ((__uint8_t *)&mp->m_sb.sb_uuid)[b]);
--	cmn_err(CE_DEBUG, ", fmt = %d\n", XLOG_FMT);
--	cmn_err(CE_DEBUG, "    log : uuid = ");
--	for (b = 0; b < 16; b++)
--		cmn_err(CE_DEBUG, "%02x", ((__uint8_t *)&head->h_fs_uuid)[b]);
--	cmn_err(CE_DEBUG, ", fmt = %d\n", be32_to_cpu(head->h_fmt));
-+	cmn_err(CE_DEBUG, "%s:  SB : uuid = %pU, fmt = %d\n",
-+		__func__, &mp->m_sb.sb_uuid, XLOG_FMT);
-+	cmn_err(CE_DEBUG, "    log : uuid = %pU, fmt = %d\n",
-+		&head->h_fs_uuid, be32_to_cpu(head->h_fmt));
- }
- #else
- #define xlog_header_check_dump(mp, head)
-diff --git a/include/linux/efi.h b/include/linux/efi.h
-index ce4581f..dd85b39 100644
---- a/include/linux/efi.h
-+++ b/include/linux/efi.h
-@@ -280,11 +280,7 @@ efi_guidcmp (efi_guid_t left, efi_guid_t right)
- static inline char *
- efi_guid_unparse(efi_guid_t *guid, char *out)
- {
--	sprintf(out, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
--		guid->b[3], guid->b[2], guid->b[1], guid->b[0],
--		guid->b[5], guid->b[4], guid->b[7], guid->b[6],
--		guid->b[8], guid->b[9], guid->b[10], guid->b[11],
--		guid->b[12], guid->b[13], guid->b[14], guid->b[15]);
-+	sprintf(out, "%pUr", guid->b);
-         return out;
- }
+-	ret = add_uevent_var(env, "VMBUS_DEVICE_DEVICE_GUID={"
+-			     "%02x%02x%02x%02x-%02x%02x-%02x%02x-"
+-			     "%02x%02x%02x%02x%02x%02x%02x%02x}",
+-			     device_ctx->device_id.data[3],
+-			     device_ctx->device_id.data[2],
+-			     device_ctx->device_id.data[1],
+-			     device_ctx->device_id.data[0],
+-			     device_ctx->device_id.data[5],
+-			     device_ctx->device_id.data[4],
+-			     device_ctx->device_id.data[7],
+-			     device_ctx->device_id.data[6],
+-			     device_ctx->device_id.data[8],
+-			     device_ctx->device_id.data[9],
+-			     device_ctx->device_id.data[10],
+-			     device_ctx->device_id.data[11],
+-			     device_ctx->device_id.data[12],
+-			     device_ctx->device_id.data[13],
+-			     device_ctx->device_id.data[14],
+-			     device_ctx->device_id.data[15]);
++	ret = add_uevent_var(env, "VMBUS_DEVICE_DEVICE_GUID={%pUr}",
++			     device_ctx->device_id.data);
+ 	if (ret)
+ 		return ret;
  
 -- 
 1.6.3.1.10.g659a0.dirty
+
