@@ -1,69 +1,68 @@
-From: Arjan van de Ven <arjan@infradead.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 Subject: Re: [bisected] Wireless regression in 2.6.32-git
-Date: Sun, 27 Sep 2009 20:45:48 +0200
-Message-ID: <20090927204548.3ee3768f@infradead.org>
+Date: Sun, 27 Sep 2009 20:46:39 +0200
+Message-ID: <1254077199.6583.8.camel@johannes.local>
 References: <20090927151855.29efcc53@infradead.org>
-	<Pine.LNX.4.64.0909271708210.8927@sister.anvils>
+	 <Pine.LNX.4.64.0909271708210.8927@sister.anvils>
+	 <20090927204548.3ee3768f@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org
-To: Hugh Dickins <hugh.dickins@tiscali.co.uk>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752592AbZI0Sp1@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0909271708210.8927@sister.anvils>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-ldW/tT5iPJg4gQjY0zWE"
+Cc: Hugh Dickins <hugh.dickins-IWqWACnzNjwqdlJmJB21zg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Arjan van de Ven <arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090927204548.3ee3768f-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 27 Sep 2009 17:14:04 +0100 (BST)
-Hugh Dickins <hugh.dickins@tiscali.co.uk> wrote:
 
-> On Sun, 27 Sep 2009, Arjan van de Ven wrote:
-> > 
-> > With todays git my laptop fails to associate with my access point.
-> > Bisection points to the commit below, and reverting this one commit
-> > on the HEAD of tree also fixes the issue, so I'm pretty confident
-> > that this commit is to blame.
-> > 
-> > I have a 4965 wifi card in my laptop, and the network I'm trying to
-> > connect to has no encryption. I'm running Fedora 11 as OS.
-> > 
-> > I would like to kindly request for this commit to be reverted until
-> > a more permanent solution is found (I'm happy to test any patches)..
-> > 
-> > 94f85853324e02c3a32bc3101f090dc9a3f512b4 is first bad commit
-> > commit 94f85853324e02c3a32bc3101f090dc9a3f512b4
-> > Author: Johannes Berg <johannes@sipsolutions.net>
-> > Date:   Thu Sep 17 17:15:31 2009 -0700
-> > 
-> >     cfg80211: don't overwrite privacy setting
-> >     
-> >     When cfg80211 is instructed to connect, it always
-> >     uses the default WEP key for the privacy setting,
-> >     which clearly is wrong when using wpa_supplicant.
-> >     Don't overwrite the setting, and rely on it being
-> >     false when wpa_supplicant is not running, instead
-> >     set it to true when we have keys.
-> >     
-> >     Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-> >     Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> > 
-> > :040000 040000 27fb46273e88eefee373699eb7e3f2923ac0886b
-> > 9518ee3e52c8320613cc5eee5ac54aabf082432f M	net
-> 
-> I've a different problem with wireless that Johannes is investigating
-> for me on linux-wireless; but here's a patch that he pointed me to
-> along the way, didn't help my issue but I expect it will help yours...
-> 
-> 
-> Subject: cfg80211: don't set privacy w/o key
-> 
-> When wpa_supplicant is used to connect to open networks,
-> it causes the wdev->wext.keys to point to key memory, but
-> that key memory is all empty. Only use privacy when there
-> is a default key to be used.
+--=-ldW/tT5iPJg4gQjY0zWE
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Sun, 2009-09-27 at 20:45 +0200, Arjan van de Ven wrote:
+
+> > Subject: cfg80211: don't set privacy w/o key
+> >=20
+> > When wpa_supplicant is used to connect to open networks,
+> > it causes the wdev->wext.keys to point to key memory, but
+> > that key memory is all empty. Only use privacy when there
+> > is a default key to be used.
+>=20
+>=20
+> indeed it does
+>=20
+> can we get this into mainline soon ?
+
+John's on his way home I suppose.
+
+johannes
 
 
-indeed it does
+--=-ldW/tT5iPJg4gQjY0zWE
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-can we get this into mainline soon ?
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAABAgAGBQJKv7MLAAoJEODzc/N7+QmahfEQAK2zHs7KsytW5OP0rI3htT7h
+BOKcw5vt31Yd0koH3mM1jPCCnwqPubQORSezFOiyz+Ff7kvwnh0sG7lrp3CQUOW7
+NzxEwOYDt8ytTbuLQZzwThxeN7EGgZb9qKRn8CUhcnXe3BnuQmGLH6th7Xqhx19q
+2lNJKxR7HhP8EGHNLnYr2Mgh4MXvRjyZd0BiXBShgaE+6ahPZ4JZV0wKgH5HVio8
+1w9wSI5VxYkLXajTJQTke2KAplvl435ghYxGpzUymhwoxW1/LRURccg3ykDvUzxA
+qxrxlQo0B50uLwh3+xKn+AodyBc4d/5B4dRi4Lunj0dcEWg/zpBIwjKrTBmZFMMj
+SfQlnnDW21+JjiSw84ArHkKZeY1cfDWQZhAoTcZskL430XCthYzchQO3v4DrqI0A
+jY7jomVtBVRK0k8YHTFhxYwTZUebVNL3VAF9V4+a/4a0H2KLu2EIYQCILg5fR4pe
+plfe1ypmmzqa89hcfrTqVztAFaxfRvPeulRy8T4TEV6ihkxy/3lh8juM0vgQ5jRv
+86f3/GmB4jr9nc+apXnh9MiejTYKdQkqAkUGzpcympAxTOo9JS1C45PZmVWXSkeT
+xTubNhGR/h17DeBrSrv6zDnDlOplZik4dFlCfMzdbm5YbRCA5pXiQx7kshxofH9+
+HvGCEiQjpYhD59TM1s/k
+=3Kuu
+-----END PGP SIGNATURE-----
+
+--=-ldW/tT5iPJg4gQjY0zWE--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
