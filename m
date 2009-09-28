@@ -1,66 +1,65 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: Re: [PATCH] atm: dereference of he_dev->rbps_virt in he_init_group()
-Date: Mon, 28 Sep 2009 10:58:43 +0200
-Message-ID: <4AC07AC3.1090707@gmail.com>
-References: <4AB66240.6060703@gmail.com>	<20090922.142532.24854998.davem@davemloft.net>	<4ABE152F.20507@gmail.com> <20090926.202636.105018102.davem@davemloft.net>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH 1/2] net: introduce NETDEV_POST_INIT notifier
+Date: Mon, 28 Sep 2009 11:29:23 +0200
+Message-ID: <1254130163.6583.20.camel@johannes.local>
+References: <1254126089.6583.18.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, chas@cmf.nrl.navy.mil,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f211.google.com ([209.85.219.211]:42476 "EHLO
-	mail-ew0-f211.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752537AbZI1Iuj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2009 04:50:39 -0400
-Received: by ewy7 with SMTP id 7so4217433ewy.17
-        for <netdev@vger.kernel.org>; Mon, 28 Sep 2009 01:50:42 -0700 (PDT)
-In-Reply-To: <20090926.202636.105018102.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-0uyeY+YOv0XPyBMT/sTl"
+Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Hugh Dickins <hugh.dickins-IWqWACnzNjwqdlJmJB21zg@public.gmane.org>,
+	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1254126089.6583.18.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Juha Leppanen <juha_motorsportcom@luukku.com>
-Date: Sat, Sep 26, 2009 at 12:34 AM
-Subject: atm: he: memleak/negative indexing of arrays in he_init_group()
 
-The prefix decrement causes a very long loop if pci_pool_alloc() failed
-in the first iteration. Also I swapped rbps and rbpl arguments.
+--=-0uyeY+YOv0XPyBMT/sTl
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Reported-by: Juha Leppanen <juha_motorsportcom@luukku.com>
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+On Mon, 2009-09-28 at 10:21 +0200, Johannes Berg wrote:
+> For various purposes including a wireless extensions
+> bugfix, we need to hook into the netdev creation before
+> before netdev_register_kobject(). This will also ease
+> doing the dev type assignment that Marcel was working
+> on for cfg80211 drivers w/o touching them all.
+>=20
+> Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+> ---
+> I decided that it doesn't make a lot of sense to be after ndo_init but
+> before the other name/... checks.
 
-diff --git a/drivers/atm/he.c b/drivers/atm/he.c
-index 29e66d6..7066703 100644
---- a/drivers/atm/he.c
-+++ b/drivers/atm/he.c
-@@ -921,9 +921,9 @@ out_free_rbpq_base:
- 			he_dev->rbrq_phys);
- 	i = CONFIG_RBPL_SIZE;
- out_free_rbpl_virt:
--	while (--i)
--		pci_pool_free(he_dev->rbps_pool, he_dev->rbpl_virt[i].virt,
--				he_dev->rbps_base[i].phys);
-+	while (i--)
-+		pci_pool_free(he_dev->rbpl_pool, he_dev->rbpl_virt[i].virt,
-+				he_dev->rbpl_base[i].phys);
- 	kfree(he_dev->rbpl_virt);
- 
- out_free_rbpl_base:
-@@ -933,11 +933,11 @@ out_free_rbpl_base:
- out_destroy_rbpl_pool:
- 	pci_pool_destroy(he_dev->rbpl_pool);
- 
--	i = CONFIG_RBPL_SIZE;
-+	i = CONFIG_RBPS_SIZE;
- out_free_rbps_virt:
--	while (--i)
--		pci_pool_free(he_dev->rbpl_pool, he_dev->rbps_virt[i].virt,
--				he_dev->rbpl_base[i].phys);
-+	while (i--)
-+		pci_pool_free(he_dev->rbps_pool, he_dev->rbps_virt[i].virt,
-+				he_dev->rbps_base[i].phys);
- 	kfree(he_dev->rbps_virt);
- 
- out_free_rbps_base:
+Ignore this patch please, I have something better. Marcel, feel free to
+pick this up once you continue working on your devtype thing.
+
+johannes
+
+--=-0uyeY+YOv0XPyBMT/sTl
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAABAgAGBQJKwIHwAAoJEODzc/N7+QmamzoP/R531Auz0xfIDvWzc/fnpZO7
+b4NbXTCFNpHnJAKWz96s0n/WEsvODnUKZsDq3T0Z63vOQgax3yeJFAkjzJIPDVOS
+RRLKZQxC3InC/VczSV2ethb0dbkcZcfcW64t9fu+zV1EQW0y8VvTfqvJMDnTCcRn
+nfqIc08DcQ3bJ/LPm7DErGtbF2CJ86a31gnCLrwFhhuKIqhP0+il0o1G2n7WzbCt
+HkX67a1owek/ZS+gq2lHc9xxvXwEPZz527lkfMrBLOzifYSgKupn3rL6ACr8e8er
+y++CPzFC7q3vnNYHFvTCwDaJRxtINP5mWBHYFAMBcG1EeecyUFwUPrdxeXGAISUN
+qxaITEykozakP0lo70FZFTORClfnw0yCY+jCUt9rKenDfCe60joDHbK/fHVfyzeQ
+CslRT4CsSW+Q3/B6zRXoYVekYgKwGKrtfPwhC1LKVr6ALz0ksUo6plgf/6HPk2aD
+Gk369WU+delYdkoVSjyLIdIsUmQ19aCUhoVkvU2czcz0qgFlpA5nQIzHRsw0l8oM
+aZjDGopRwOCPHNLgWqudI5rO7Wio21Bqc2EiZUDevrnvDoSvZEiTLhTqJQAxJyYI
+1NnqMVpln2iTZKqrjAmgKuOP7/uPiA6lfMTNkO3LACp/FJD93LjrbAwJ7lLV6ieb
+0/61UB2mP5vY7rEkekyb
+=escH
+-----END PGP SIGNATURE-----
+
+--=-0uyeY+YOv0XPyBMT/sTl--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
