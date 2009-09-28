@@ -1,129 +1,4390 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] /proc/net/tcp, overhead removed
-Date: Mon, 28 Sep 2009 16:24:17 -0700
-Message-ID: <20090928162417.59640672@nehalam>
-References: <1254000675-8327-1-git-send-email-iler.ml@gmail.com>
-	<4ABF360E.7080301@gmail.com>
-	<f36b08ee0909281510y282d621etb4264ecd92cbe8f0@mail.gmail.com>
-	<4AC13697.4090707@gmail.com>
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Subject: [PATCH 2.6.31-rc9] net: VMware virtual Ethernet NIC driver: vmxnet3
+Date: Mon, 28 Sep 2009 16:56:45 -0700
+Message-ID: <89E2752CFA8EC044846EB849981913410173CDFAF6@EXCH-MBX-4.vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yakov Lerner <iler.ml@gmail.com>, netdev@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49339 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753499AbZI1XYT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2009 19:24:19 -0400
-In-Reply-To: <4AC13697.4090707@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Anthony Liguori <anthony@codemonkey.ws>,
+	Chris Wright <chrisw@sous-sol.org>,
+	Greg Kroah-Hartman <greg@kroah.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	virtualization <virtualization@lists.linux-foundation.org>,
+	"pv-drivers@vmware.com" <pv-drivers@vmware.com>
+To: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	"David S. Miller
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753605AbZI1X5L@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 29 Sep 2009 00:20:07 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Ethernet NIC driver for VMware's vmxnet3
 
-> Yakov Lerner a =C3=A9crit :
-> > On Sun, Sep 27, 2009 at 12:53, Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
-> >> Yakov Lerner a =C3=A9crit :
-> >>> /proc/net/tcp does 20,000 sockets in 60-80 milliseconds, with thi=
-s patch.
-> >>>
-> >>> The overhead was in tcp_seq_start(). See analysis (3) below.
-> >>> The patch is against Linus git tree (1). The patch is small.
-> >>>
-> >>> ------------  -----------   ------------------------------------
-> >>> Before patch  After patch   20,000 sockets (10,000 tw + 10,000 es=
-tab)(2)
-> >>> ------------  -----------   ------------------------------------
-> >>> 6 sec          0.06 sec     dd bs=3D1k if=3D/proc/net/tcp >/dev/n=
-ull
-> >>> 1.5 sec        0.06 sec     dd bs=3D4k if=3D/proc/net/tcp >/dev/n=
-ull
-> >>>
-> >>> 1.9 sec        0.16 sec     netstat -4ant >/dev/null
-> >>> ------------  -----------   ------------------------------------
-> >>>
-> >>> This is ~ x25 improvement.
-> >>> The new time is not dependent on read blockize.
-> >>> Speed of netstat, naturally, improves, too; both -4 and -6.
-> >>> /proc/net/tcp6 does 20,000 sockets in 100 millisec.
-> >>>
-> >>> (1) against git://git.kernel.org/pub/scm/linux/kernel/git/torvald=
-s/linux-2.6.git
-> >>>
-> >>> (2) Used 'manysock' utility to stress system with large number of=
- sockets:
-> >>>   "manysock 10000 10000"    - 10,000 tw + 10,000 estab ip4 socket=
-s.
-> >>>   "manysock -6 10000 10000" - 10,000 tw + 10,000 estab ip6 socket=
-s.
-> >>> Found at http://ilerner.3b1.org/manysock/manysock.c
-> >>>
-> >>> (3) Algorithmic analysis.
-> >>>     Old algorithm.
-> >>>
-> >>> During 'cat </proc/net/tcp', tcp_seq_start() is called O(numsocke=
-ts) times (4).
-> >>> On average, every call to tcp_seq_start() scans half the whole ha=
-shtable. Ouch.
-> >>> This is O(numsockets * hashsize). 95-99% of 'cat </proc/net/tcp' =
-is spent in
-> >>> tcp_seq_start()->tcp_get_idx. This overhead is eliminated by new =
-algorithm,
-> >>> which is O(numsockets + hashsize).
-> >>>
-> >>>     New algorithm.
-> >>>
-> >>> New algorithms is O(numsockets + hashsize). We jump to the right
-> >>> hash bucket in tcp_seq_start(), without scanning half the hash.
-> >>> To jump right to the hash bucket corresponding to *pos in tcp_seq=
-_start(),
-> >>> we reuse three pieces of state (st->num, st->bucket, st->sbucket)
-> >>> as follows:
-> >>>  - we check that requested pos >=3D last seen pos (st->num), the =
-typical case.
-> >>>  - if so, we jump to bucket st->bucket
-> >>>  - to arrive to the right item after beginning of st->bucket, we
-> >>> keep in st->sbucket the position corresponding to the beginning o=
-f
-> >>> bucket.
-> >>>
-> >>> (4) Explanation of O( numsockets * hashsize) of old algorithm.
-> >>>
-> >>> tcp_seq_start() is called once for every ~7 lines of netstat outp=
-ut
-> >>> if readsize is 1kb, or once for every ~28 lines if readsize >=3D =
-4kb.
-> >>> Since record length of /proc/net/tcp records is 150 bytes, formul=
-a for
-> >>> number of calls to tcp_seq_start() is
-> >>>             (numsockets * 150 / min(4096,readsize)).
-> >>> Netstat uses 4kb readsize (newer versions), or 1kb (older version=
-s).
-> >>> Note that speed of old algorithm does not improve above 4kb block=
-size.
-> >>>
-> >>> Speed of the new algorithm does not depend on blocksize.
-> >>>
-> >>> Speed of the new algorithm does not perceptibly depend on hashsiz=
-e (which
-> >>> depends on ramsize). Speed of old algorithm drops with bigger has=
-hsize.
-> >>>
-> >>> (5) Reporting order.
-> >>>
-> >>> Reporting order is exactly same as before if hash does not change=
- underfoot.
-> >>> When hash elements come and go during report, reporting order wil=
-l be
-> >>> same as that of tcpdiag.
-> >>>
-> >>> Signed-off-by: Yakov Lerner <iler.ml@gmail.com>
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
 
-Does the netlink interface used by ss command have the problem?
+This patch adds driver support for VMware's virtual Ethernet NIC : vmxnet3
+Guests running on VMware hypervisors supporting vmxnet3 device will thus
+have access to improved network functionalities and performance.
 
---=20
+Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
+
+---
+
+Greetings.
+
+The patch pasted below adds to Linux, driver support for VMware virtual Ethernet NIC : vmxnet3
+
+About vmxnet3: VMware designed vmxnet3 a couple of years ago. It's being shipped with hypervisor in products since VMware Workstation 6.5 (9/2008) and ESX 4.0 (5/2009).
+
+Some of the features of vmxnet3 are :
+        PCIe 2.0 compliant PCI device: Vendor ID 0x15ad, Device ID 0x07b0
+        INTx, MSI, MSI-X (25 vectors) interrupts
+        16 Rx queues, 8 Tx queues
+        Offloads: TCP/UDP checksum, TSO over IPv4/IPv6,
+                    802.1q VLAN tag insertion, filtering, stripping
+                    Multicast filtering, Jumbo Frames
+        Wake-on-LAN, PCI Power Management D0-D3 states
+        PXE-ROM for boot support
+
+Please consider this for inclusion in the linux net tree. I will be glad to receive your review comments and answer queries in order to be accepted in mainline in 2.6.32 release cycle.
+
+The patch applies to 2.6.31-rc9.
+
+Thanking you.
+Shreyas
+
+---
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 8dca9d8..c57a270 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5490,6 +5490,12 @@ S:       Maintained
+ F:     drivers/vlynq/vlynq.c
+ F:     include/linux/vlynq.h
+
++VMWARE VMXNET3 ETHERNET DRIVER
++M:     Shreyas Bhatewara <pv-drivers@vmware.com>
++L:     netdev@vger.kernel.org
++S:     Maintained
++F:     drivers/net/vmxnet3/
++
+ VOLTAGE AND CURRENT REGULATOR FRAMEWORK
+ M:     Liam Girdwood <lrg@slimlogic.co.uk>
+ M:     Mark Brown <broonie@opensource.wolfsonmicro.com>
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 5ce7cba..703e0b6 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -3211,4 +3211,12 @@ config VIRTIO_NET
+          This is the virtual network driver for virtio.  It can be used with
+           lguest or QEMU based VMMs (like KVM or Xen).  Say Y or M.
+
++config VMXNET3
++       tristate "VMware VMXNET3 ethernet driver"
++       depends on PCI && X86
++       help
++         This driver supports VMware's vmxnet3 virtual ethernet NIC.
++         To compile this driver as a module, choose M here: the
++         module will be called vmxnet3.
++
+ endif # NETDEVICES
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index ead8cab..c146bc1 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -26,6 +26,7 @@ obj-$(CONFIG_TEHUTI) += tehuti.o
+ obj-$(CONFIG_ENIC) += enic/
+ obj-$(CONFIG_JME) += jme.o
+ obj-$(CONFIG_BE2NET) += benet/
++obj-$(CONFIG_VMXNET3) += vmxnet3/
+
+ gianfar_driver-objs := gianfar.o \
+                gianfar_ethtool.o \
+diff --git a/drivers/net/vmxnet3/Makefile b/drivers/net/vmxnet3/Makefile
+new file mode 100644
+index 0000000..880f509
+--- /dev/null
++++ b/drivers/net/vmxnet3/Makefile
+@@ -0,0 +1,35 @@
++################################################################################
++#
++# Linux driver for VMware's vmxnet3 ethernet NIC.
++#
++# Copyright (C) 2007-2009, VMware, Inc. All Rights Reserved.
++#
++# This program is free software; you can redistribute it and/or modify it
++# under the terms of the GNU General Public License as published by the
++# Free Software Foundation; version 2 of the License and no later version.
++#
++# This program is distributed in the hope that it will be useful, but
++# WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, GOOD TITLE or
++# NON INFRINGEMENT.  See the GNU General Public License for more
++# details.
++#
++# You should have received a copy of the GNU General Public License
++# along with this program; if not, write to the Free Software
++# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++#
++# The full GNU General Public License is included in this distribution in
++# the file called "COPYING".
++#
++# Maintained by: Shreyas Bhatewara <pv-drivers@vmware.com>
++#
++#
++################################################################################
++
++#
++# Makefile for the VMware vmxnet3 ethernet NIC driver
++#
++
++obj-$(CONFIG_VMXNET3) += vmxnet3.o
++
++vmxnet3-objs := vmxnet3_drv.o vmxnet3_ethtool.o
+diff --git a/drivers/net/vmxnet3/upt1_defs.h b/drivers/net/vmxnet3/upt1_defs.h
+new file mode 100644
+index 0000000..b50f91b
+--- /dev/null
++++ b/drivers/net/vmxnet3/upt1_defs.h
+@@ -0,0 +1,104 @@
++/*
++ * Linux driver for VMware's vmxnet3 ethernet NIC.
++ *
++ * Copyright (C) 2008-2009, VMware, Inc. All Rights Reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License as published by the
++ * Free Software Foundation; version 2 of the License and no later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, GOOD TITLE or
++ * NON INFRINGEMENT.  See the GNU General Public License for more
++ * details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Maintained by: Shreyas Bhatewara <pv-drivers@vmware.com>
++ *
++ */
++
++/* upt1_defs.h
++ *
++ *      Definitions for Uniform Pass Through.
++ */
++
++#ifndef _UPT1_DEFS_H
++#define _UPT1_DEFS_H
++
++#define UPT1_MAX_TX_QUEUES  64
++#define UPT1_MAX_RX_QUEUES  64
++#define UPT1_MAX_INTRS  (UPT1_MAX_TX_QUEUES + UPT1_MAX_RX_QUEUES)
++
++struct UPT1_TxStats {
++       uint64_t TSOPktsTxOK;  /* TSO pkts post-segmentation */
++       uint64_t TSOBytesTxOK;
++       uint64_t ucastPktsTxOK;
++       uint64_t ucastBytesTxOK;
++       uint64_t mcastPktsTxOK;
++       uint64_t mcastBytesTxOK;
++       uint64_t bcastPktsTxOK;
++       uint64_t bcastBytesTxOK;
++       uint64_t pktsTxError;
++       uint64_t pktsTxDiscard;
++};
++
++struct UPT1_RxStats {
++       uint64_t LROPktsRxOK;    /* LRO pkts */
++       uint64_t LROBytesRxOK;   /* bytes from LRO pkts */
++       /* the following counters are for pkts from the wire, i.e., pre-LRO */
++       uint64_t ucastPktsRxOK;
++       uint64_t ucastBytesRxOK;
++       uint64_t mcastPktsRxOK;
++       uint64_t mcastBytesRxOK;
++       uint64_t bcastPktsRxOK;
++       uint64_t bcastBytesRxOK;
++       uint64_t pktsRxOutOfBuf;
++       uint64_t pktsRxError;
++};
++
++/* interrupt moderation level */
++#define UPT1_IML_NONE     0 /* no interrupt moderation */
++#define UPT1_IML_HIGHEST  7 /* least intr generated */
++#define UPT1_IML_ADAPTIVE 8 /* adpative intr moderation */
++
++/* values for UPT1_RSSConf.hashFunc */
++enum {
++       UPT1_RSS_HASH_TYPE_NONE      = 0x0,
++       UPT1_RSS_HASH_TYPE_IPV4      = 0x01,
++       UPT1_RSS_HASH_TYPE_TCP_IPV4  = 0x02,
++       UPT1_RSS_HASH_TYPE_IPV6      = 0x04,
++       UPT1_RSS_HASH_TYPE_TCP_IPV6  = 0x08,
++};
++
++enum {
++       UPT1_RSS_HASH_FUNC_NONE      = 0x0,
++       UPT1_RSS_HASH_FUNC_TOEPLITZ  = 0x01,
++};
++
++#define UPT1_RSS_MAX_KEY_SIZE        40
++#define UPT1_RSS_MAX_IND_TABLE_SIZE  128
++
++struct UPT1_RSSConf {
++       uint16_t   hashType;
++       uint16_t   hashFunc;
++       uint16_t   hashKeySize;
++       uint16_t   indTableSize;
++       uint8_t    hashKey[UPT1_RSS_MAX_KEY_SIZE];
++       uint8_t    indTable[UPT1_RSS_MAX_IND_TABLE_SIZE];
++};
++
++/* features */
++enum {
++       UPT1_F_RXCSUM      = 0x0001,   /* rx csum verification */
++       UPT1_F_RSS         = 0x0002,
++       UPT1_F_RXVLAN      = 0x0004,   /* VLAN tag stripping */
++       UPT1_F_LRO         = 0x0008,
++};
++#endif
+diff --git a/drivers/net/vmxnet3/vmxnet3_defs.h b/drivers/net/vmxnet3/vmxnet3_defs.h
+new file mode 100644
+index 0000000..a33a90b
+--- /dev/null
++++ b/drivers/net/vmxnet3/vmxnet3_defs.h
+@@ -0,0 +1,534 @@
++/*
++ * Linux driver for VMware's vmxnet3 ethernet NIC.
++ *
++ * Copyright (C) 2008-2009, VMware, Inc. All Rights Reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License as published by the
++ * Free Software Foundation; version 2 of the License and no later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, GOOD TITLE or
++ * NON INFRINGEMENT.  See the GNU General Public License for more
++ * details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Maintained by: Shreyas Bhatewara <pv-drivers@vmware.com>
++ *
++ */
++
++/*
++ * vmxnet3_defs.h --
++ */
++
++#ifndef _VMXNET3_DEFS_H_
++#define _VMXNET3_DEFS_H_
++
++#include "upt1_defs.h"
++
++/* all registers are 32 bit wide */
++/* BAR 1 */
++enum {
++       VMXNET3_REG_VRRS  = 0x0,        /* Vmxnet3 Revision Report Selection */
++       VMXNET3_REG_UVRS  = 0x8,        /* UPT Version Report Selection */
++       VMXNET3_REG_DSAL  = 0x10,       /* Driver Shared Address Low */
++       VMXNET3_REG_DSAH  = 0x18,       /* Driver Shared Address High */
++       VMXNET3_REG_CMD   = 0x20,       /* Command */
++       VMXNET3_REG_MACL  = 0x28,       /* MAC Address Low */
++       VMXNET3_REG_MACH  = 0x30,       /* MAC Address High */
++       VMXNET3_REG_ICR   = 0x38,       /* Interrupt Cause Register */
++       VMXNET3_REG_ECR   = 0x40        /* Event Cause Register */
++};
++
++/* BAR 0 */
++enum {
++       VMXNET3_REG_IMR      = 0x0,     /* Interrupt Mask Register */
++       VMXNET3_REG_TXPROD   = 0x600,   /* Tx Producer Index */
++       VMXNET3_REG_RXPROD   = 0x800,   /* Rx Producer Index for ring 1 */
++       VMXNET3_REG_RXPROD2  = 0xA00    /* Rx Producer Index for ring 2 */
++};
++
++#define VMXNET3_PT_REG_SIZE     4096   /* BAR 0 */
++#define VMXNET3_VD_REG_SIZE     4096   /* BAR 1 */
++
++#define VMXNET3_REG_ALIGN       8      /* All registers are 8-byte aligned. */
++#define VMXNET3_REG_ALIGN_MASK  0x7
++
++/* I/O Mapped access to registers */
++#define VMXNET3_IO_TYPE_PT              0
++#define VMXNET3_IO_TYPE_VD              1
++#define VMXNET3_IO_ADDR(type, reg)      (((type) << 24) | ((reg) & 0xFFFFFF))
++#define VMXNET3_IO_TYPE(addr)           ((addr) >> 24)
++#define VMXNET3_IO_REG(addr)            ((addr) & 0xFFFFFF)
++
++enum {
++       VMXNET3_CMD_FIRST_SET = 0xCAFE0000,
++       VMXNET3_CMD_ACTIVATE_DEV = VMXNET3_CMD_FIRST_SET,
++       VMXNET3_CMD_QUIESCE_DEV,
++       VMXNET3_CMD_RESET_DEV,
++       VMXNET3_CMD_UPDATE_RX_MODE,
++       VMXNET3_CMD_UPDATE_MAC_FILTERS,
++       VMXNET3_CMD_UPDATE_VLAN_FILTERS,
++       VMXNET3_CMD_UPDATE_RSSIDT,
++       VMXNET3_CMD_UPDATE_IML,
++       VMXNET3_CMD_UPDATE_PMCFG,
++       VMXNET3_CMD_UPDATE_FEATURE,
++       VMXNET3_CMD_LOAD_PLUGIN,
++
++       VMXNET3_CMD_FIRST_GET = 0xF00D0000,
++       VMXNET3_CMD_GET_QUEUE_STATUS = VMXNET3_CMD_FIRST_GET,
++       VMXNET3_CMD_GET_STATS,
++       VMXNET3_CMD_GET_LINK,
++       VMXNET3_CMD_GET_PERM_MAC_LO,
++       VMXNET3_CMD_GET_PERM_MAC_HI,
++       VMXNET3_CMD_GET_DID_LO,
++       VMXNET3_CMD_GET_DID_HI,
++       VMXNET3_CMD_GET_DEV_EXTRA_INFO,
++       VMXNET3_CMD_GET_CONF_INTR
++};
++
++struct Vmxnet3_TxDesc {
++       uint64_t addr;
++
++       uint32_t len:14;
++       uint32_t gen:1;      /* generation bit */
++       uint32_t rsvd:1;
++       uint32_t dtype:1;    /* descriptor type */
++       uint32_t ext1:1;
++       uint32_t msscof:14;  /* MSS, checksum offset, flags */
++
++       uint32_t hlen:10;    /* header len */
++       uint32_t om:2;       /* offload mode */
++       uint32_t eop:1;      /* End Of Packet */
++       uint32_t cq:1;       /* completion request */
++       uint32_t ext2:1;
++       uint32_t ti:1;       /* VLAN Tag Insertion */
++       uint32_t tci:16;     /* Tag to Insert */
++};
++
++/* TxDesc.OM values */
++#define VMXNET3_OM_NONE  0
++#define VMXNET3_OM_CSUM  2
++#define VMXNET3_OM_TSO   3
++
++/* fields in TxDesc we access w/o using bit fields */
++#define VMXNET3_TXD_EOP_SHIFT 12
++#define VMXNET3_TXD_CQ_SHIFT  13
++#define VMXNET3_TXD_GEN_SHIFT 14
++
++#define VMXNET3_TXD_CQ  (1 << VMXNET3_TXD_CQ_SHIFT)
++#define VMXNET3_TXD_EOP (1 << VMXNET3_TXD_EOP_SHIFT)
++#define VMXNET3_TXD_GEN (1 << VMXNET3_TXD_GEN_SHIFT)
++
++#define VMXNET3_HDR_COPY_SIZE   128
++
++
++struct Vmxnet3_TxDataDesc {
++       uint8_t data[VMXNET3_HDR_COPY_SIZE];
++};
++
++
++struct Vmxnet3_TxCompDesc {
++       uint32_t txdIdx:12;    /* Index of the EOP TxDesc */
++       uint32_t ext1:20;
++
++       uint32_t ext2;
++       uint32_t ext3;
++
++       uint32_t rsvd:24;
++       uint32_t type:7;       /* completion type */
++       uint32_t gen:1;        /* generation bit */
++};
++
++
++struct Vmxnet3_RxDesc {
++       uint64_t addr;
++
++       uint32_t len:14;
++       uint32_t btype:1;      /* Buffer Type */
++       uint32_t dtype:1;      /* Descriptor type */
++       uint32_t rsvd:15;
++       uint32_t gen:1;        /* Generation bit */
++
++       uint32_t ext1;
++};
++
++/* values of RXD.BTYPE */
++#define VMXNET3_RXD_BTYPE_HEAD   0    /* head only */
++#define VMXNET3_RXD_BTYPE_BODY   1    /* body only */
++
++/* fields in RxDesc we access w/o using bit fields */
++#define VMXNET3_RXD_BTYPE_SHIFT  14
++#define VMXNET3_RXD_GEN_SHIFT    31
++
++
++struct Vmxnet3_RxCompDesc {
++       uint32_t rxdIdx:12;    /* Index of the RxDesc */
++       uint32_t ext1:2;
++       uint32_t eop:1;        /* End of Packet */
++       uint32_t sop:1;        /* Start of Packet */
++       uint32_t rqID:10;      /* rx queue/ring ID */
++       uint32_t rssType:4;    /* RSS hash type used */
++       uint32_t cnc:1;        /* Checksum Not Calculated */
++       uint32_t ext2:1;
++
++       uint32_t rssHash;      /* RSS hash value */
++
++       uint32_t len:14;       /* data length */
++       uint32_t err:1;        /* Error */
++       uint32_t ts:1;         /* Tag is stripped */
++       uint32_t tci:16;       /* Tag stripped */
++
++       uint32_t csum:16;
++       uint32_t tuc:1;        /* TCP/UDP Checksum Correct */
++       uint32_t udp:1;        /* UDP packet */
++       uint32_t tcp:1;        /* TCP packet */
++       uint32_t ipc:1;        /* IP Checksum Correct */
++       uint32_t v6:1;         /* IPv6 */
++       uint32_t v4:1;         /* IPv4 */
++       uint32_t frg:1;        /* IP Fragment */
++       uint32_t fcs:1;        /* Frame CRC correct */
++       uint32_t type:7;       /* completion type */
++       uint32_t gen:1;        /* generation bit */
++};
++
++/* fields in RxCompDesc we access via Vmxnet3_GenericDesc.dword[3] */
++#define VMXNET3_RCD_TUC_SHIFT  16
++#define VMXNET3_RCD_IPC_SHIFT  19
++
++/* fields in RxCompDesc we access via Vmxnet3_GenericDesc.qword[1] */
++#define VMXNET3_RCD_TYPE_SHIFT 56
++#define VMXNET3_RCD_GEN_SHIFT  63
++
++/* csum OK for TCP/UDP pkts over IP */
++#define VMXNET3_RCD_CSUM_OK (1 << VMXNET3_RCD_TUC_SHIFT | \
++                            1 << VMXNET3_RCD_IPC_SHIFT)
++
++/* value of RxCompDesc.rssType */
++enum {
++       VMXNET3_RCD_RSS_TYPE_NONE     = 0,
++       VMXNET3_RCD_RSS_TYPE_IPV4     = 1,
++       VMXNET3_RCD_RSS_TYPE_TCPIPV4  = 2,
++       VMXNET3_RCD_RSS_TYPE_IPV6     = 3,
++       VMXNET3_RCD_RSS_TYPE_TCPIPV6  = 4,
++};
++
++/* a union for accessing all cmd/completion descriptors */
++union Vmxnet3_GenericDesc {
++       uint64_t                        qword[2];
++       uint32_t                        dword[4];
++       uint16_t                        word[8];
++       struct Vmxnet3_TxDesc           txd;
++       struct Vmxnet3_RxDesc           rxd;
++       struct Vmxnet3_TxCompDesc       tcd;
++       struct Vmxnet3_RxCompDesc       rcd;
++};
++
++#define VMXNET3_INIT_GEN       1
++
++/* Max size of a single tx buffer */
++#define VMXNET3_MAX_TX_BUF_SIZE  (1 << 14)
++
++/* # of tx desc needed for a tx buffer size */
++#define VMXNET3_TXD_NEEDED(size) (((size) + VMXNET3_MAX_TX_BUF_SIZE - 1) / \
++                                 VMXNET3_MAX_TX_BUF_SIZE)
++
++/* max # of tx descs for a non-tso pkt */
++#define VMXNET3_MAX_TXD_PER_PKT 16
++
++/* Max size of a single rx buffer */
++#define VMXNET3_MAX_RX_BUF_SIZE  ((1 << 14) - 1)
++/* Minimum size of a type 0 buffer */
++#define VMXNET3_MIN_T0_BUF_SIZE  128
++#define VMXNET3_MAX_CSUM_OFFSET  1024
++
++/* Ring base address alignment */
++#define VMXNET3_RING_BA_ALIGN   512
++#define VMXNET3_RING_BA_MASK    (VMXNET3_RING_BA_ALIGN - 1)
++
++/* Ring size must be a multiple of 32 */
++#define VMXNET3_RING_SIZE_ALIGN 32
++#define VMXNET3_RING_SIZE_MASK  (VMXNET3_RING_SIZE_ALIGN - 1)
++
++/* Max ring size */
++#define VMXNET3_TX_RING_MAX_SIZE   4096
++#define VMXNET3_TC_RING_MAX_SIZE   4096
++#define VMXNET3_RX_RING_MAX_SIZE   4096
++#define VMXNET3_RC_RING_MAX_SIZE   8192
++
++/* a list of reasons for queue stop */
++
++enum {
++ VMXNET3_ERR_NOEOP        = 0x80000000,  /* cannot find the EOP desc of a pkt */
++ VMXNET3_ERR_TXD_REUSE    = 0x80000001,  /* reuse TxDesc before tx completion */
++ VMXNET3_ERR_BIG_PKT      = 0x80000002,  /* too many TxDesc for a pkt */
++ VMXNET3_ERR_DESC_NOT_SPT = 0x80000003,  /* descriptor type not supported */
++ VMXNET3_ERR_SMALL_BUF    = 0x80000004,  /* type 0 buffer too small */
++ VMXNET3_ERR_STRESS       = 0x80000005,  /* stress option firing in vmkernel */
++ VMXNET3_ERR_SWITCH       = 0x80000006,  /* mode switch failure */
++ VMXNET3_ERR_TXD_INVALID  = 0x80000007,  /* invalid TxDesc */
++};
++
++/* completion descriptor types */
++#define VMXNET3_CDTYPE_TXCOMP      0    /* Tx Completion Descriptor */
++#define VMXNET3_CDTYPE_RXCOMP      3    /* Rx Completion Descriptor */
++
++enum {
++       VMXNET3_GOS_BITS_UNK    = 0,   /* unknown */
++       VMXNET3_GOS_BITS_32     = 1,
++       VMXNET3_GOS_BITS_64     = 2,
++};
++
++#define VMXNET3_GOS_TYPE_LINUX 1
++
++/* All structures in DriverShared are padded to multiples of 8 bytes */
++
++
++struct Vmxnet3_GOSInfo {
++       uint32_t   gosBits:2;   /* 32-bit or 64-bit? */
++       uint32_t   gosType:4;   /* which guest */
++       uint32_t   gosVer:16;   /* gos version */
++       uint32_t   gosMisc:10;  /* other info about gos */
++};
++
++
++struct Vmxnet3_DriverInfo {
++       uint32_t          version;        /* driver version */
++       struct Vmxnet3_GOSInfo gos;
++       uint32_t          vmxnet3RevSpt;  /* vmxnet3 revision supported */
++       uint32_t          uptVerSpt;      /* upt version supported */
++};
++
++#define VMXNET3_REV1_MAGIC  0xbabefee1
++
++/*
++ * QueueDescPA must be 128 bytes aligned. It points to an array of
++ * Vmxnet3_TxQueueDesc followed by an array of Vmxnet3_RxQueueDesc.
++ * The number of Vmxnet3_TxQueueDesc/Vmxnet3_RxQueueDesc are specified by
++ * Vmxnet3_MiscConf.numTxQueues/numRxQueues, respectively.
++ */
++#define VMXNET3_QUEUE_DESC_ALIGN  128
++
++
++struct Vmxnet3_MiscConf {
++       struct Vmxnet3_DriverInfo driverInfo;
++       uint64_t             uptFeatures;
++       uint64_t             ddPA;         /* driver data PA */
++       uint64_t             queueDescPA;  /* queue descriptor table PA */
++       uint32_t             ddLen;        /* driver data len */
++       uint32_t             queueDescLen; /* queue desc. table len in bytes */
++       uint32_t             mtu;
++       uint16_t             maxNumRxSG;
++       uint8_t              numTxQueues;
++       uint8_t              numRxQueues;
++       uint32_t             reserved[4];
++};
++
++
++struct Vmxnet3_TxQueueConf {
++       uint64_t    txRingBasePA;
++       uint64_t    dataRingBasePA;
++       uint64_t    compRingBasePA;
++       uint64_t    ddPA;         /* driver data */
++       uint64_t    reserved;
++       uint32_t    txRingSize;   /* # of tx desc */
++       uint32_t    dataRingSize; /* # of data desc */
++       uint32_t    compRingSize; /* # of comp desc */
++       uint32_t    ddLen;        /* size of driver data */
++       uint8_t     intrIdx;
++       uint8_t     _pad[7];
++};
++
++
++struct Vmxnet3_RxQueueConf {
++       uint64_t    rxRingBasePA[2];
++       uint64_t    compRingBasePA;
++       uint64_t    ddPA;            /* driver data */
++       uint64_t    reserved;
++       uint32_t    rxRingSize[2];   /* # of rx desc */
++       uint32_t    compRingSize;    /* # of rx comp desc */
++       uint32_t    ddLen;           /* size of driver data */
++       uint8_t     intrIdx;
++       uint8_t     _pad[7];
++};
++
++enum vmxnet3_intr_mask_mode {
++       VMXNET3_IMM_AUTO   = 0,
++       VMXNET3_IMM_ACTIVE = 1,
++       VMXNET3_IMM_LAZY   = 2
++};
++
++enum vmxnet3_intr_type {
++       VMXNET3_IT_AUTO = 0,
++       VMXNET3_IT_INTX = 1,
++       VMXNET3_IT_MSI  = 2,
++       VMXNET3_IT_MSIX = 3
++};
++
++#define VMXNET3_MAX_TX_QUEUES  8
++#define VMXNET3_MAX_RX_QUEUES  16
++/* addition 1 for events */
++#define VMXNET3_MAX_INTRS      25
++
++
++struct Vmxnet3_IntrConf {
++       bool     autoMask;
++       uint8_t  numIntrs;      /* # of interrupts */
++       uint8_t  eventIntrIdx;
++       uint8_t  modLevels[VMXNET3_MAX_INTRS]; /* moderation level for
++                                               * each intr */
++       uint32_t reserved[3];
++};
++
++/* one bit per VLAN ID, the size is in the units of uint32_t */
++#define VMXNET3_VFT_SIZE  (4096 / (sizeof(u32) * 8))
++
++
++struct Vmxnet3_QueueStatus {
++       bool      stopped;
++       uint8_t   _pad[3];
++       uint32_t  error;
++};
++
++
++struct Vmxnet3_TxQueueCtrl {
++       uint32_t  txNumDeferred;
++       uint32_t  txThreshold;
++       uint64_t  reserved;
++};
++
++
++struct Vmxnet3_RxQueueCtrl {
++       bool      updateRxProd;
++       uint8_t   _pad[7];
++       uint64_t  reserved;
++};
++
++enum {
++       VMXNET3_RXM_UCAST     = 0x01,  /* unicast only */
++       VMXNET3_RXM_MCAST     = 0x02,  /* multicast passing the filters */
++       VMXNET3_RXM_BCAST     = 0x04,  /* broadcast only */
++       VMXNET3_RXM_ALL_MULTI = 0x08,  /* all multicast */
++       VMXNET3_RXM_PROMISC   = 0x10  /* promiscuous */
++};
++
++struct Vmxnet3_RxFilterConf {
++       uint32_t   rxMode;       /* VMXNET3_RXM_xxx */
++       uint16_t   mfTableLen;   /* size of the multicast filter table */
++       uint16_t   _pad1;
++       uint64_t   mfTablePA;    /* PA of the multicast filters table */
++       uint32_t   vfTable[VMXNET3_VFT_SIZE]; /* vlan filter */
++};
++
++#define VMXNET3_PM_MAX_FILTERS        6
++#define VMXNET3_PM_MAX_PATTERN_SIZE   128
++#define VMXNET3_PM_MAX_MASK_SIZE      (VMXNET3_PM_MAX_PATTERN_SIZE / 8)
++
++#define VMXNET3_PM_WAKEUP_MAGIC       0x01  /* wake up on magic pkts */
++#define VMXNET3_PM_WAKEUP_FILTER      0x02  /* wake up on pkts matching
++                                            * filters */
++
++
++struct Vmxnet3_PM_PktFilter {
++       uint8_t maskSize;
++       uint8_t patternSize;
++       uint8_t mask[VMXNET3_PM_MAX_MASK_SIZE];
++       uint8_t pattern[VMXNET3_PM_MAX_PATTERN_SIZE];
++       uint8_t pad[6];
++};
++
++
++struct Vmxnet3_PMConf {
++       uint16_t               wakeUpEvents;  /* VMXNET3_PM_WAKEUP_xxx */
++       uint8_t                numFilters;
++       uint8_t                pad[5];
++       struct Vmxnet3_PM_PktFilter filters[VMXNET3_PM_MAX_FILTERS];
++};
++
++
++struct Vmxnet3_VariableLenConfDesc {
++       uint32_t              confVer;
++       uint32_t              confLen;
++       uint64_t              confPA;
++};
++
++
++struct Vmxnet3_DSDevRead {
++       /* read-only region for device, read by dev in response to a SET cmd */
++       struct Vmxnet3_MiscConf     misc;
++       struct Vmxnet3_IntrConf     intrConf;
++       struct Vmxnet3_RxFilterConf rxFilterConf;
++       struct Vmxnet3_VariableLenConfDesc  rssConfDesc;
++       struct Vmxnet3_VariableLenConfDesc  pmConfDesc;
++       struct Vmxnet3_VariableLenConfDesc  pluginConfDesc;
++};
++
++
++struct Vmxnet3_TxQueueDesc {
++       struct Vmxnet3_TxQueueCtrl ctrl;
++       struct Vmxnet3_TxQueueConf conf;
++       /* Driver read after a GET command */
++       struct Vmxnet3_QueueStatus status;
++       struct UPT1_TxStats stats;
++       uint8_t               _pad[88]; /* 128 aligned */
++};
++
++
++struct Vmxnet3_RxQueueDesc {
++       struct Vmxnet3_RxQueueCtrl ctrl;
++       struct Vmxnet3_RxQueueConf conf;
++       /* Driver read after a GET command */
++       struct Vmxnet3_QueueStatus status;
++       struct UPT1_RxStats stats;
++       uint8_t             _pad[88]; /* 128 aligned */
++};
++
++
++struct Vmxnet3_DriverShared {
++       uint32_t               magic;
++       uint32_t               pad; /* make devRead start at 64bit boundaries */
++       struct Vmxnet3_DSDevRead    devRead;
++       uint32_t               ecr;
++       uint32_t               reserved[5];
++};
++
++#define VMXNET3_ECR_RQERR       (1 << 0)
++#define VMXNET3_ECR_TQERR       (1 << 1)
++#define VMXNET3_ECR_LINK        (1 << 2)
++#define VMXNET3_ECR_DIC         (1 << 3)
++#define VMXNET3_ECR_DEBUG       (1 << 4)
++
++/* flip the gen bit of a ring */
++#define VMXNET3_FLIP_RING_GEN(gen) ((gen) = (gen) ^ 0x1)
++
++/* only use this if moving the idx won't affect the gen bit */
++#define VMXNET3_INC_RING_IDX_ONLY(idx, ring_size) \
++       do {\
++               (idx)++;\
++               if (unlikely((idx) == (ring_size))) {\
++                       (idx) = 0;\
++               } \
++       } while (0)
++
++#define VMXNET3_SET_VFTABLE_ENTRY(vfTable, vid) \
++       vfTable[vid >> 5] |= (1 << (vid & 31))
++#define VMXNET3_CLEAR_VFTABLE_ENTRY(vfTable, vid) \
++       vfTable[vid >> 5] &= ~(1 << (vid & 31))
++
++#define VMXNET3_VFTABLE_ENTRY_IS_SET(vfTable, vid) \
++       ((vfTable[vid >> 5] & (1 << (vid & 31))) != 0)
++
++#define VMXNET3_MAX_MTU     9000
++#define VMXNET3_MIN_MTU     60
++
++#define VMXNET3_LINK_UP         (10000 << 16 | 1)    /* 10 Gbps, up */
++#define VMXNET3_LINK_DOWN       0
++
++#endif /* _VMXNET3_DEFS_H_ */
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+new file mode 100644
+index 0000000..d9fa4e3
+--- /dev/null
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -0,0 +1,2608 @@
++/*
++ * Linux driver for VMware's vmxnet3 ethernet NIC.
++ *
++ * Copyright (C) 2008-2009, VMware, Inc. All Rights Reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License as published by the
++ * Free Software Foundation; version 2 of the License and no later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, GOOD TITLE or
++ * NON INFRINGEMENT.  See the GNU General Public License for more
++ * details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Maintained by: Shreyas Bhatewara <pv-drivers@vmware.com>
++ *
++ */
++
++/*
++ * vmxnet3_drv.c --
++ *
++ *      Linux driver for VMware's vmxnet3 NIC
++ */
++
++
++#include "vmxnet3_int.h"
++
++char vmxnet3_driver_name[] = "vmxnet3";
++#define VMXNET3_DRIVER_DESC "VMware vmxnet3 virtual NIC driver"
++
++
++/*
++ * PCI Device ID Table
++ * Last entry must be all 0s
++ */
++static const struct pci_device_id vmxnet3_pciid_table[] = {
++       {PCI_VDEVICE(VMWARE, PCI_DEVICE_ID_VMWARE_VMXNET3)},
++       {0}
++};
++
++MODULE_DEVICE_TABLE(pci, vmxnet3_pciid_table);
++
++static int disable_lro;
++static atomic_t devices_found;
++
++
++/*
++ *    Enable/Disable the given intr
++ */
++static void
++vmxnet3_enable_intr(struct vmxnet3_adapter *adapter, unsigned intr_idx)
++{
++       VMXNET3_WRITE_BAR0_REG(adapter, VMXNET3_REG_IMR + intr_idx * 8, 0);
++}
++
++
++static void
++vmxnet3_disable_intr(struct vmxnet3_adapter *adapter, unsigned intr_idx)
++{
++       VMXNET3_WRITE_BAR0_REG(adapter, VMXNET3_REG_IMR + intr_idx * 8, 1);
++}
++
++
++/*
++ *    Enable/Disable all intrs used by the device
++ */
++static void
++vmxnet3_enable_all_intrs(struct vmxnet3_adapter *adapter)
++{
++       int i;
++
++       for (i = 0; i < adapter->intr.num_intrs; i++)
++               vmxnet3_enable_intr(adapter, i);
++}
++
++
++static void
++vmxnet3_disable_all_intrs(struct vmxnet3_adapter *adapter)
++{
++       int i;
++
++       for (i = 0; i < adapter->intr.num_intrs; i++)
++               vmxnet3_disable_intr(adapter, i);
++}
++
++
++static void
++vmxnet3_ack_events(struct vmxnet3_adapter *adapter, u32 events)
++{
++       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_ECR, events);
++}
++
++
++static bool
++vmxnet3_tq_stopped(struct vmxnet3_tx_queue *tq, struct vmxnet3_adapter *adapter)
++{
++       return netif_queue_stopped(adapter->netdev);
++}
++
++
++static void
++vmxnet3_tq_start(struct vmxnet3_tx_queue *tq, struct vmxnet3_adapter  *adapter)
++{
++       tq->stopped = false;
++       netif_start_queue(adapter->netdev);
++}
++
++
++static void
++vmxnet3_tq_wake(struct vmxnet3_tx_queue *tq, struct vmxnet3_adapter  *adapter)
++{
++       tq->stopped = false;
++       netif_wake_queue(adapter->netdev);
++}
++
++
++static void
++vmxnet3_tq_stop(struct vmxnet3_tx_queue *tq, struct vmxnet3_adapter  *adapter)
++{
++       tq->stopped = true;
++       tq->num_stop++;
++       netif_stop_queue(adapter->netdev);
++}
++
++
++/*
++ * Check the link state. This may start or stop the tx queue.
++ */
++static void
++vmxnet3_check_link(struct vmxnet3_adapter *adapter)
++{
++       u32 ret;
++
++       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD, VMXNET3_CMD_GET_LINK);
++       ret = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_CMD);
++       adapter->link_speed = ret >> 16;
++       if (ret & 1) { /* Link is up. */
++               printk(KERN_INFO "%s: NIC Link is Up %d Mbps\n",
++                      adapter->netdev->name, adapter->link_speed);
++               if (!netif_carrier_ok(adapter->netdev))
++                       netif_carrier_on(adapter->netdev);
++
++               vmxnet3_tq_start(&adapter->tx_queue, adapter);
++       } else {
++               printk(KERN_INFO "%s: NIC Link is Down\n",
++                      adapter->netdev->name);
++               if (netif_carrier_ok(adapter->netdev))
++                       netif_carrier_off(adapter->netdev);
++
++               vmxnet3_tq_stop(&adapter->tx_queue, adapter);
++       }
++}
++
++
++static void
++vmxnet3_process_events(struct vmxnet3_adapter *adapter)
++{
++       u32 events = adapter->shared->ecr;
++       if (!events)
++               return;
++
++       vmxnet3_ack_events(adapter, events);
++
++       /* Check if link state has changed */
++       if (events & VMXNET3_ECR_LINK)
++               vmxnet3_check_link(adapter);
++
++       /* Check if there is an error on xmit/recv queues */
++       if (events & (VMXNET3_ECR_TQERR | VMXNET3_ECR_RQERR)) {
++               VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
++                                      VMXNET3_CMD_GET_QUEUE_STATUS);
++
++               if (adapter->tqd_start->status.stopped) {
++                       printk(KERN_ERR "%s: tq error 0x%x\n",
++                              adapter->netdev->name,
++                              adapter->tqd_start->status.error);
++               }
++               if (adapter->rqd_start->status.stopped) {
++                       printk(KERN_ERR "%s: rq error 0x%x\n",
++                              adapter->netdev->name,
++                              adapter->rqd_start->status.error);
++               }
++
++               schedule_work(&adapter->work);
++       }
++}
++
++
++static void
++vmxnet3_unmap_tx_buf(struct vmxnet3_tx_buf_info *tbi,
++                    struct pci_dev *pdev)
++{
++       if (tbi->map_type == VMXNET3_MAP_SINGLE)
++               pci_unmap_single(pdev, tbi->dma_addr, tbi->len,
++                                PCI_DMA_TODEVICE);
++       else if (tbi->map_type == VMXNET3_MAP_PAGE)
++               pci_unmap_page(pdev, tbi->dma_addr, tbi->len,
++                              PCI_DMA_TODEVICE);
++       else
++               BUG_ON(tbi->map_type != VMXNET3_MAP_NONE);
++
++       tbi->map_type = VMXNET3_MAP_NONE; /* to help debugging */
++}
++
++
++static int
++vmxnet3_unmap_pkt(u32 eop_idx, struct vmxnet3_tx_queue *tq,
++                 struct pci_dev *pdev, struct vmxnet3_adapter *adapter)
++{
++       struct sk_buff *skb;
++       int entries = 0;
++
++       /* no out of order completion */
++       BUG_ON(tq->buf_info[eop_idx].sop_idx != tq->tx_ring.next2comp);
++       BUG_ON(tq->tx_ring.base[eop_idx].txd.eop != 1);
++
++       dprintk(KERN_ERR "tx complete [%u %u]\n", tq->tx_ring.next2comp,
++               eop_idx);
++
++       skb = tq->buf_info[eop_idx].skb;
++       BUG_ON(skb == NULL);
++       tq->buf_info[eop_idx].skb = NULL;
++
++       VMXNET3_INC_RING_IDX_ONLY(eop_idx, tq->tx_ring.size);
++
++       while (tq->tx_ring.next2comp != eop_idx) {
++               vmxnet3_unmap_tx_buf(tq->buf_info + tq->tx_ring.next2comp,
++                                    pdev);
++
++               /* update next2comp w/o tx_lock. Since we are marking more,
++                * instead of less, tx ring entries avail, the worst case is
++                * that the tx routine incorrectly re-queues a pkt due to
++                * insufficient tx ring entries.
++                */
++               vmxnet3_cmd_ring_adv_next2comp(&tq->tx_ring);
++               entries++;
++       }
++
++       dev_kfree_skb_any(skb);
++       return entries;
++}
++
++
++static int
++vmxnet3_tq_tx_complete(struct vmxnet3_tx_queue *tq,
++                       struct vmxnet3_adapter *adapter)
++{
++       int completed = 0;
++       union Vmxnet3_GenericDesc *gdesc;
++
++       gdesc = tq->comp_ring.base + tq->comp_ring.next2proc;
++       while (gdesc->tcd.gen == tq->comp_ring.gen) {
++               completed += vmxnet3_unmap_pkt(gdesc->tcd.txdIdx, tq,
++                                              adapter->pdev, adapter);
++
++               vmxnet3_comp_ring_adv_next2proc(&tq->comp_ring);
++               gdesc = tq->comp_ring.base + tq->comp_ring.next2proc;
++       }
++
++       if (completed) {
++               spin_lock(&tq->tx_lock);
++               if (unlikely(vmxnet3_tq_stopped(tq, adapter) &&
++                            vmxnet3_cmd_ring_desc_avail(&tq->tx_ring) >
++                            VMXNET3_WAKE_QUEUE_THRESHOLD(tq) &&
++                            netif_carrier_ok(adapter->netdev))) {
++                       vmxnet3_tq_wake(tq, adapter);
++               }
++               spin_unlock(&tq->tx_lock);
++       }
++       return completed;
++}
++
++
++static void
++vmxnet3_tq_cleanup(struct vmxnet3_tx_queue *tq,
++                  struct vmxnet3_adapter *adapter)
++{
++       int i;
++
++       while (tq->tx_ring.next2comp != tq->tx_ring.next2fill) {
++               struct vmxnet3_tx_buf_info *tbi;
++               union Vmxnet3_GenericDesc *gdesc;
++
++               tbi = tq->buf_info + tq->tx_ring.next2comp;
++               gdesc = tq->tx_ring.base + tq->tx_ring.next2comp;
++
++               vmxnet3_unmap_tx_buf(tbi, adapter->pdev);
++               if (tbi->skb) {
++                       dev_kfree_skb_any(tbi->skb);
++                       tbi->skb = NULL;
++               }
++               vmxnet3_cmd_ring_adv_next2comp(&tq->tx_ring);
++       }
++
++       /* sanity check, verify all buffers are indeed unmapped and freed */
++       for (i = 0; i < tq->tx_ring.size; i++) {
++               BUG_ON(tq->buf_info[i].skb != NULL ||
++                      tq->buf_info[i].map_type != VMXNET3_MAP_NONE);
++       }
++
++       tq->tx_ring.gen = VMXNET3_INIT_GEN;
++       tq->tx_ring.next2fill = tq->tx_ring.next2comp = 0;
++
++       tq->comp_ring.gen = VMXNET3_INIT_GEN;
++       tq->comp_ring.next2proc = 0;
++}
++
++
++void
++vmxnet3_tq_destroy(struct vmxnet3_tx_queue *tq,
++                  struct vmxnet3_adapter *adapter)
++{
++       if (tq->tx_ring.base) {
++               pci_free_consistent(adapter->pdev, tq->tx_ring.size *
++                                   sizeof(struct Vmxnet3_TxDesc),
++                                   tq->tx_ring.base, tq->tx_ring.basePA);
++               tq->tx_ring.base = NULL;
++       }
++       if (tq->data_ring.base) {
++               pci_free_consistent(adapter->pdev, tq->data_ring.size *
++                                   sizeof(struct Vmxnet3_TxDataDesc),
++                                   tq->data_ring.base, tq->data_ring.basePA);
++               tq->data_ring.base = NULL;
++       }
++       if (tq->comp_ring.base) {
++               pci_free_consistent(adapter->pdev, tq->comp_ring.size *
++                                   sizeof(struct Vmxnet3_TxCompDesc),
++                                   tq->comp_ring.base, tq->comp_ring.basePA);
++               tq->comp_ring.base = NULL;
++       }
++       kfree(tq->buf_info);
++       tq->buf_info = NULL;
++}
++
++
++static void
++vmxnet3_tq_init(struct vmxnet3_tx_queue *tq,
++               struct vmxnet3_adapter *adapter)
++{
++       int i;
++
++       /* reset the tx ring contents to 0 and reset the tx ring states */
++       memset(tq->tx_ring.base, 0, tq->tx_ring.size *
++              sizeof(struct Vmxnet3_TxDesc));
++       tq->tx_ring.next2fill = tq->tx_ring.next2comp = 0;
++       tq->tx_ring.gen = VMXNET3_INIT_GEN;
++
++       memset(tq->data_ring.base, 0, tq->data_ring.size *
++              sizeof(struct Vmxnet3_TxDataDesc));
++
++       /* reset the tx comp ring contents to 0 and reset comp ring states */
++       memset(tq->comp_ring.base, 0, tq->comp_ring.size *
++              sizeof(struct Vmxnet3_TxCompDesc));
++       tq->comp_ring.next2proc = 0;
++       tq->comp_ring.gen = VMXNET3_INIT_GEN;
++
++       /* reset the bookkeeping data */
++       memset(tq->buf_info, 0, sizeof(tq->buf_info[0]) * tq->tx_ring.size);
++       for (i = 0; i < tq->tx_ring.size; i++)
++               tq->buf_info[i].map_type = VMXNET3_MAP_NONE;
++
++       /* stats are not reset */
++}
++
++
++static int
++vmxnet3_tq_create(struct vmxnet3_tx_queue *tq,
++                 struct vmxnet3_adapter *adapter)
++{
++       BUG_ON(tq->tx_ring.size <= 0 || tq->data_ring.size != tq->tx_ring.size);
++       BUG_ON((tq->tx_ring.size & VMXNET3_RING_SIZE_MASK) != 0);
++       BUG_ON(tq->tx_ring.base || tq->data_ring.base ||
++              tq->comp_ring.base || tq->buf_info);
++
++       tq->tx_ring.base = pci_alloc_consistent(adapter->pdev, tq->tx_ring.size
++                          * sizeof(struct Vmxnet3_TxDesc),
++                          &tq->tx_ring.basePA);
++       if (!tq->tx_ring.base) {
++               printk(KERN_ERR "%s: failed to allocate tx ring\n",
++                      adapter->netdev->name);
++               goto err;
++       }
++
++       tq->data_ring.base = pci_alloc_consistent(adapter->pdev,
++                            tq->data_ring.size *
++                            sizeof(struct Vmxnet3_TxDataDesc),
++                            &tq->data_ring.basePA);
++       if (!tq->data_ring.base) {
++               printk(KERN_ERR "%s: failed to allocate data ring\n",
++                      adapter->netdev->name);
++               goto err;
++       }
++
++       tq->comp_ring.base = pci_alloc_consistent(adapter->pdev,
++                            tq->comp_ring.size *
++                            sizeof(struct Vmxnet3_TxCompDesc),
++                            &tq->comp_ring.basePA);
++       if (!tq->comp_ring.base) {
++               printk(KERN_ERR "%s: failed to allocate tx comp ring\n",
++                      adapter->netdev->name);
++               goto err;
++       }
++
++       tq->buf_info = kcalloc(sizeof(tq->buf_info[0]), tq->tx_ring.size,
++                              GFP_KERNEL);
++       if (!tq->buf_info) {
++               printk(KERN_ERR "%s: failed to allocate tx bufinfo\n",
++                      adapter->netdev->name);
++               goto err;
++       }
++
++       return 0;
++
++err:
++       vmxnet3_tq_destroy(tq, adapter);
++       return -ENOMEM;
++}
++
++
++/*
++ *    starting from ring->next2fill, allocate rx buffers for the given ring
++ *    of the rx queue and update the rx desc. stop after @num_to_alloc buffers
++ *    are allocated or allocation fails
++ */
++
++static int
++vmxnet3_rq_alloc_rx_buf(struct vmxnet3_rx_queue *rq, u32 ring_idx,
++                       int num_to_alloc, struct vmxnet3_adapter *adapter)
++{
++       int num_allocated = 0;
++       struct vmxnet3_rx_buf_info *rbi_base = rq->buf_info[ring_idx];
++       struct vmxnet3_cmd_ring *ring = &rq->rx_ring[ring_idx];
++       u32 val;
++
++       while (num_allocated < num_to_alloc) {
++               struct vmxnet3_rx_buf_info *rbi;
++               union Vmxnet3_GenericDesc *gd;
++
++               rbi = rbi_base + ring->next2fill;
++               gd = ring->base + ring->next2fill;
++
++               if (rbi->buf_type == VMXNET3_RX_BUF_SKB) {
++                       if (rbi->skb == NULL) {
++                               rbi->skb = dev_alloc_skb(rbi->len +
++                                                        NET_IP_ALIGN);
++                               if (unlikely(rbi->skb == NULL)) {
++                                       rq->stats.rx_buf_alloc_failure++;
++                                       break;
++                               }
++                               rbi->skb->dev = adapter->netdev;
++
++                               skb_reserve(rbi->skb, NET_IP_ALIGN);
++                               rbi->dma_addr = pci_map_single(adapter->pdev,
++                                               rbi->skb->data, rbi->len,
++                                               PCI_DMA_FROMDEVICE);
++                       } else {
++                               /* rx buffer skipped by the device */
++                       }
++                       val = VMXNET3_RXD_BTYPE_HEAD << VMXNET3_RXD_BTYPE_SHIFT;
++               } else {
++                       BUG_ON(rbi->buf_type != VMXNET3_RX_BUF_PAGE ||
++                              rbi->len  != PAGE_SIZE);
++
++                       if (rbi->page == NULL) {
++                               rbi->page = alloc_page(GFP_ATOMIC);
++                               if (unlikely(rbi->page == NULL)) {
++                                       rq->stats.rx_buf_alloc_failure++;
++                                       break;
++                               }
++                               rbi->dma_addr = pci_map_page(adapter->pdev,
++                                               rbi->page, 0, PAGE_SIZE,
++                                               PCI_DMA_FROMDEVICE);
++                       } else {
++                               /* rx buffers skipped by the device */
++                       }
++                       val = VMXNET3_RXD_BTYPE_BODY << VMXNET3_RXD_BTYPE_SHIFT;
++               }
++
++               BUG_ON(rbi->dma_addr == 0);
++               gd->rxd.addr = rbi->dma_addr;
++               wmb();
++               gd->dword[2] = (ring->gen << VMXNET3_RXD_GEN_SHIFT) | val |
++                               rbi->len;
++
++               num_allocated++;
++               vmxnet3_cmd_ring_adv_next2fill(ring);
++       }
++       rq->uncommitted[ring_idx] += num_allocated;
++
++       dprintk(KERN_ERR "alloc_rx_buf: %d allocated, next2fill %u, next2comp "
++               "%u, uncommited %u\n", num_allocated, ring->next2fill,
++               ring->next2comp, rq->uncommitted[ring_idx]);
++
++       /* so that the device can distinguish a full ring and an empty ring */
++       BUG_ON(num_allocated != 0 && ring->next2fill == ring->next2comp);
++
++       return num_allocated;
++}
++
++
++static void
++vmxnet3_append_frag(struct sk_buff *skb, struct Vmxnet3_RxCompDesc *rcd,
++                   struct vmxnet3_rx_buf_info *rbi)
++{
++       struct skb_frag_struct *frag = skb_shinfo(skb)->frags +
++               skb_shinfo(skb)->nr_frags;
++
++       BUG_ON(skb_shinfo(skb)->nr_frags >= MAX_SKB_FRAGS);
++
++       frag->page = rbi->page;
++       frag->page_offset = 0;
++       frag->size = rcd->len;
++       skb->data_len += frag->size;
++       skb_shinfo(skb)->nr_frags++;
++}
++
++
++static void
++vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
++               struct vmxnet3_tx_queue *tq, struct pci_dev *pdev,
++               struct vmxnet3_adapter *adapter)
++{
++       u32 dw2, len;
++       unsigned long buf_offset;
++       int i;
++       union Vmxnet3_GenericDesc *gdesc;
++       struct vmxnet3_tx_buf_info *tbi = NULL;
++
++       BUG_ON(ctx->copy_size > skb_headlen(skb));
++
++       /* use the previous gen bit for the SOP desc */
++       dw2 = (tq->tx_ring.gen ^ 0x1) << VMXNET3_TXD_GEN_SHIFT;
++
++       ctx->sop_txd = tq->tx_ring.base + tq->tx_ring.next2fill;
++       gdesc = ctx->sop_txd; /* both loops below can be skipped */
++
++       /* no need to map the buffer if headers are copied */
++       if (ctx->copy_size) {
++               BUG_ON(ctx->sop_txd->txd.gen == tq->tx_ring.gen);
++
++               ctx->sop_txd->txd.addr = tq->data_ring.basePA +
++                                       tq->tx_ring.next2fill *
++                                       sizeof(struct Vmxnet3_TxDataDesc);
++               ctx->sop_txd->dword[2] = dw2 | ctx->copy_size;
++               ctx->sop_txd->dword[3] = 0;
++
++               tbi = tq->buf_info + tq->tx_ring.next2fill;
++               tbi->map_type = VMXNET3_MAP_NONE;
++
++               dprintk(KERN_ERR "txd[%u]: 0x%Lx 0x%x 0x%x\n",
++                       tq->tx_ring.next2fill, ctx->sop_txd->txd.addr,
++                       ctx->sop_txd->dword[2], ctx->sop_txd->dword[3]);
++               vmxnet3_cmd_ring_adv_next2fill(&tq->tx_ring);
++
++               /* use the right gen for non-SOP desc */
++               dw2 = tq->tx_ring.gen << VMXNET3_TXD_GEN_SHIFT;
++       }
++
++       /* linear part can use multiple tx desc if it's big */
++       len = skb_headlen(skb) - ctx->copy_size;
++       buf_offset = ctx->copy_size;
++       while (len) {
++               u32 buf_size;
++
++               buf_size = len > VMXNET3_MAX_TX_BUF_SIZE ?
++                          VMXNET3_MAX_TX_BUF_SIZE : len;
++
++               tbi = tq->buf_info + tq->tx_ring.next2fill;
++               tbi->map_type = VMXNET3_MAP_SINGLE;
++               tbi->dma_addr = pci_map_single(adapter->pdev,
++                               skb->data + buf_offset, buf_size,
++                               PCI_DMA_TODEVICE);
++
++               tbi->len = buf_size; /* this automatically convert 2^14 to 0 */
++
++               gdesc = tq->tx_ring.base + tq->tx_ring.next2fill;
++               BUG_ON(gdesc->txd.gen == tq->tx_ring.gen);
++
++               gdesc->txd.addr = tbi->dma_addr;
++               gdesc->dword[2] = dw2 | buf_size;
++               gdesc->dword[3] = 0;
++
++               dprintk(KERN_ERR "txd[%u]: 0x%Lx 0x%x 0x%x\n",
++                       tq->tx_ring.next2fill, gdesc->txd.addr,
++                       gdesc->dword[2], gdesc->dword[3]);
++               vmxnet3_cmd_ring_adv_next2fill(&tq->tx_ring);
++               dw2 = tq->tx_ring.gen << VMXNET3_TXD_GEN_SHIFT;
++
++               len -= buf_size;
++               buf_offset += buf_size;
++       }
++
++       for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
++               struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[i];
++
++               tbi = tq->buf_info + tq->tx_ring.next2fill;
++               tbi->map_type = VMXNET3_MAP_PAGE;
++               tbi->dma_addr = pci_map_page(adapter->pdev, frag->page,
++                                            frag->page_offset, frag->size,
++                                            PCI_DMA_TODEVICE);
++
++               tbi->len = frag->size;
++
++               gdesc = tq->tx_ring.base + tq->tx_ring.next2fill;
++               BUG_ON(gdesc->txd.gen == tq->tx_ring.gen);
++
++               gdesc->txd.addr = tbi->dma_addr;
++               gdesc->dword[2] = dw2 | frag->size;
++               gdesc->dword[3] = 0;
++
++               dprintk(KERN_ERR "txd[%u]: 0x%llu %u %u\n",
++                       tq->tx_ring.next2fill, gdesc->txd.addr,
++                       gdesc->dword[2], gdesc->dword[3]);
++               vmxnet3_cmd_ring_adv_next2fill(&tq->tx_ring);
++               dw2 = tq->tx_ring.gen << VMXNET3_TXD_GEN_SHIFT;
++       }
++
++       ctx->eop_txd = gdesc;
++
++       /* set the last buf_info for the pkt */
++       tbi->skb = skb;
++       tbi->sop_idx = ctx->sop_txd - tq->tx_ring.base;
++}
++
++
++/*
++ *    parse and copy relevant protocol headers:
++ *      For a tso pkt, relevant headers are L2/3/4 including options
++ *      For a pkt requesting csum offloading, they are L2/3 and may include L4
++ *      if it's a TCP/UDP pkt
++ *
++ * Returns:
++ *    -1:  error happens during parsing
++ *     0:  protocol headers parsed, but too big to be copied
++ *     1:  protocol headers parsed and copied
++ *
++ * Other effects:
++ *    1. related *ctx fields are updated.
++ *    2. ctx->copy_size is # of bytes copied
++ *    3. the portion copied is guaranteed to be in the linear part
++ *
++ */
++static int
++vmxnet3_parse_and_copy_hdr(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
++                          struct vmxnet3_tx_ctx *ctx,
++                          struct vmxnet3_adapter *adapter)
++{
++       struct Vmxnet3_TxDataDesc *tdd;
++
++       if (ctx->mss) {
++               ctx->eth_ip_hdr_size = skb_transport_offset(skb);
++               ctx->l4_hdr_size = ((struct tcphdr *)
++                                  skb_transport_header(skb))->doff * 4;
++               ctx->copy_size = ctx->eth_ip_hdr_size + ctx->l4_hdr_size;
++       } else {
++               unsigned int pull_size;
++
++               if (skb->ip_summed == CHECKSUM_PARTIAL) {
++                       ctx->eth_ip_hdr_size = skb_transport_offset(skb);
++
++                       if (ctx->ipv4) {
++                               struct iphdr *iph = (struct iphdr *)
++                                                   skb_network_header(skb);
++                               if (iph->protocol == IPPROTO_TCP) {
++                                       pull_size = ctx->eth_ip_hdr_size +
++                                                   sizeof(struct tcphdr);
++
++                                       if (unlikely(!pskb_may_pull(skb,
++                                                               pull_size))) {
++                                               goto err;
++                                       }
++                                       ctx->l4_hdr_size = ((struct tcphdr *)
++                                          skb_transport_header(skb))->doff * 4;
++                               } else if (iph->protocol == IPPROTO_UDP) {
++                                       ctx->l4_hdr_size =
++                                                       sizeof(struct udphdr);
++                               } else {
++                                       ctx->l4_hdr_size = 0;
++                               }
++                       } else {
++                               /* for simplicity, don't copy L4 headers */
++                               ctx->l4_hdr_size = 0;
++                       }
++                       ctx->copy_size = ctx->eth_ip_hdr_size +
++                                        ctx->l4_hdr_size;
++               } else {
++                       ctx->eth_ip_hdr_size = 0;
++                       ctx->l4_hdr_size = 0;
++                       /* copy as much as allowed */
++                       ctx->copy_size = min((unsigned int)VMXNET3_HDR_COPY_SIZE
++                                            , skb_headlen(skb));
++               }
++
++               /* make sure headers are accessible directly */
++               if (unlikely(!pskb_may_pull(skb, ctx->copy_size)))
++                       goto err;
++       }
++
++       if (unlikely(ctx->copy_size > VMXNET3_HDR_COPY_SIZE)) {
++               tq->stats.oversized_hdr++;
++               ctx->copy_size = 0;
++               return 0;
++       }
++
++       tdd = tq->data_ring.base + tq->tx_ring.next2fill;
++       BUG_ON(ctx->copy_size > skb_headlen(skb));
++
++       memcpy(tdd->data, skb->data, ctx->copy_size);
++       dprintk(KERN_ERR "copy %u bytes to dataRing[%u]\n",
++               ctx->copy_size, tq->tx_ring.next2fill);
++       return 1;
++
++err:
++       return -1;
++}
++
++
++static void
++vmxnet3_prepare_tso(struct sk_buff *skb,
++                   struct vmxnet3_tx_ctx *ctx)
++{
++       struct tcphdr *tcph = (struct tcphdr *)skb_transport_header(skb);
++       if (ctx->ipv4) {
++               struct iphdr *iph = (struct iphdr *)skb_network_header(skb);
++               iph->check = 0;
++               tcph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr, 0,
++                                                IPPROTO_TCP, 0);
++       } else {
++               struct ipv6hdr *iph = (struct ipv6hdr *)skb_network_header(skb);
++               tcph->check = ~csum_ipv6_magic(&iph->saddr, &iph->daddr, 0,
++                                              IPPROTO_TCP, 0);
++       }
++}
++
++
++/*
++ * Transmits a pkt thru a given tq
++ * Returns:
++ *    NETDEV_TX_OK:      descriptors are setup successfully
++ *    NETDEV_TX_OK:      error occured, the pkt is dropped
++ *    NETDEV_TX_BUSY:    tx ring is full, queue is stopped
++ *
++ * Side-effects:
++ *    1. tx ring may be changed
++ *    2. tq stats may be updated accordingly
++ *    3. shared->txNumDeferred may be updated
++ */
++
++static int
++vmxnet3_tq_xmit(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
++               struct vmxnet3_adapter *adapter, struct net_device *netdev)
++{
++       int ret;
++       u32 count;
++       unsigned long flags;
++       struct vmxnet3_tx_ctx ctx;
++       union Vmxnet3_GenericDesc *gdesc;
++
++       /* conservatively estimate # of descriptors to use */
++       count = VMXNET3_TXD_NEEDED(skb_headlen(skb)) +
++               skb_shinfo(skb)->nr_frags + 1;
++
++       ctx.ipv4 = (skb->protocol == __constant_ntohs(ETH_P_IP));
++
++       ctx.mss = skb_shinfo(skb)->gso_size;
++       if (ctx.mss) {
++               if (skb_header_cloned(skb)) {
++                       if (unlikely(pskb_expand_head(skb, 0, 0,
++                                                     GFP_ATOMIC) != 0)) {
++                               tq->stats.drop_tso++;
++                               goto drop_pkt;
++                       }
++                       tq->stats.copy_skb_header++;
++               }
++               vmxnet3_prepare_tso(skb, &ctx);
++       } else {
++               if (unlikely(count > VMXNET3_MAX_TXD_PER_PKT)) {
++
++                       /* non-tso pkts must not use more than
++                        * VMXNET3_MAX_TXD_PER_PKT entries
++                        */
++                       if (skb_linearize(skb) != 0) {
++                               tq->stats.drop_too_many_frags++;
++                               goto drop_pkt;
++                       }
++                       tq->stats.linearized++;
++
++                       /* recalculate the # of descriptors to use */
++                       count = VMXNET3_TXD_NEEDED(skb_headlen(skb)) + 1;
++               }
++       }
++
++       ret = vmxnet3_parse_and_copy_hdr(skb, tq, &ctx, adapter);
++       if (ret >= 0) {
++               BUG_ON(ret <= 0 && ctx.copy_size != 0);
++               /* hdrs parsed, check against other limits */
++               if (ctx.mss) {
++                       if (unlikely(ctx.eth_ip_hdr_size + ctx.l4_hdr_size >
++                                    VMXNET3_MAX_TX_BUF_SIZE)) {
++                               goto hdr_too_big;
++                       }
++               } else {
++                       if (skb->ip_summed == CHECKSUM_PARTIAL) {
++                               if (unlikely(ctx.eth_ip_hdr_size +
++                                            skb->csum_offset >
++                                            VMXNET3_MAX_CSUM_OFFSET)) {
++                                       goto hdr_too_big;
++                               }
++                       }
++               }
++       } else {
++               tq->stats.drop_hdr_inspect_err++;
++               goto drop_pkt;
++       }
++
++       spin_lock_irqsave(&tq->tx_lock, flags);
++
++       if (count > vmxnet3_cmd_ring_desc_avail(&tq->tx_ring)) {
++               tq->stats.tx_ring_full++;
++               dprintk(KERN_ERR "tx queue stopped on %s, next2comp %u"
++                       " next2fill %u\n", adapter->netdev->name,
++                       tq->tx_ring.next2comp, tq->tx_ring.next2fill);
++
++               vmxnet3_tq_stop(tq, adapter);
++               spin_unlock_irqrestore(&tq->tx_lock, flags);
++               return NETDEV_TX_BUSY;
++       }
++
++       /* fill tx descs related to addr & len */
++       vmxnet3_map_pkt(skb, &ctx, tq, adapter->pdev, adapter);
++
++       /* setup the EOP desc */
++       ctx.eop_txd->dword[3] = VMXNET3_TXD_CQ | VMXNET3_TXD_EOP;
++
++       /* setup the SOP desc */
++       gdesc = ctx.sop_txd;
++       if (ctx.mss) {
++               gdesc->txd.hlen = ctx.eth_ip_hdr_size + ctx.l4_hdr_size;
++               gdesc->txd.om = VMXNET3_OM_TSO;
++               gdesc->txd.msscof = ctx.mss;
++               tq->shared->txNumDeferred += (skb->len - gdesc->txd.hlen +
++                                            ctx.mss - 1) / ctx.mss;
++       } else {
++               if (skb->ip_summed == CHECKSUM_PARTIAL) {
++                       gdesc->txd.hlen = ctx.eth_ip_hdr_size;
++                       gdesc->txd.om = VMXNET3_OM_CSUM;
++                       gdesc->txd.msscof = ctx.eth_ip_hdr_size +
++                                           skb->csum_offset;
++               } else {
++                       gdesc->txd.om = 0;
++                       gdesc->txd.msscof = 0;
++               }
++               tq->shared->txNumDeferred++;
++       }
++
++       if (vlan_tx_tag_present(skb)) {
++               gdesc->txd.ti = 1;
++               gdesc->txd.tci = vlan_tx_tag_get(skb);
++       }
++
++       wmb();
++
++       /* finally flips the GEN bit of the SOP desc */
++       gdesc->dword[2] ^= VMXNET3_TXD_GEN;
++       dprintk(KERN_ERR "txd[%u]: SOP 0x%Lx 0x%x 0x%x\n",
++               (u32)((union Vmxnet3_GenericDesc *)ctx.sop_txd -
++               tq->tx_ring.base), gdesc->txd.addr, gdesc->dword[2],
++               gdesc->dword[3]);
++
++       spin_unlock_irqrestore(&tq->tx_lock, flags);
++
++       if (tq->shared->txNumDeferred >= tq->shared->txThreshold) {
++               tq->shared->txNumDeferred = 0;
++               VMXNET3_WRITE_BAR0_REG(adapter, VMXNET3_REG_TXPROD,
++                                      tq->tx_ring.next2fill);
++       }
++       netdev->trans_start = jiffies;
++
++       return NETDEV_TX_OK;
++
++hdr_too_big:
++       tq->stats.drop_oversized_hdr++;
++drop_pkt:
++       tq->stats.drop_total++;
++       dev_kfree_skb(skb);
++       return NETDEV_TX_OK;
++}
++
++
++static int
++vmxnet3_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
++{
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++       struct vmxnet3_tx_queue *tq = &adapter->tx_queue;
++
++       return vmxnet3_tq_xmit(skb, tq, adapter, netdev);
++}
++
++
++static void
++vmxnet3_rx_csum(struct vmxnet3_adapter *adapter,
++               struct sk_buff *skb,
++               union Vmxnet3_GenericDesc *gdesc)
++{
++       if (!gdesc->rcd.cnc && adapter->rxcsum) {
++               /* typical case: TCP/UDP over IP and both csums are correct */
++               if ((gdesc->dword[3] & VMXNET3_RCD_CSUM_OK) ==
++                                                       VMXNET3_RCD_CSUM_OK) {
++                       skb->ip_summed = CHECKSUM_UNNECESSARY;
++                       BUG_ON(!(gdesc->rcd.tcp || gdesc->rcd.udp));
++                       BUG_ON(!(gdesc->rcd.v4  || gdesc->rcd.v6));
++                       BUG_ON(gdesc->rcd.frg);
++               } else {
++                       if (gdesc->rcd.csum) {
++                               skb->csum = htons(gdesc->rcd.csum);
++                               skb->ip_summed = CHECKSUM_PARTIAL;
++                       } else {
++                               skb->ip_summed = CHECKSUM_NONE;
++                       }
++               }
++       } else {
++               skb->ip_summed = CHECKSUM_NONE;
++       }
++}
++
++
++static void
++vmxnet3_rx_error(struct vmxnet3_rx_queue *rq, struct Vmxnet3_RxCompDesc *rcd,
++                struct vmxnet3_rx_ctx *ctx,  struct vmxnet3_adapter *adapter)
++{
++       rq->stats.drop_err++;
++       if (!rcd->fcs)
++               rq->stats.drop_fcs++;
++
++       rq->stats.drop_total++;
++
++       /*
++        * We do not unmap and chain the rx buffer to the skb.
++        * We basically pretend this buffer is not used and will be recycled
++        * by vmxnet3_rq_alloc_rx_buf()
++        */
++
++       /*
++        * ctx->skb may be NULL if this is the first and the only one
++        * desc for the pkt
++        */
++       if (ctx->skb)
++               dev_kfree_skb_irq(ctx->skb);
++
++       ctx->skb = NULL;
++}
++
++
++static int
++vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
++                      struct vmxnet3_adapter *adapter, int quota)
++{
++static u32 rxprod_reg[2] = {VMXNET3_REG_RXPROD, VMXNET3_REG_RXPROD2};
++       u32 num_rxd = 0;
++       struct Vmxnet3_RxCompDesc *rcd;
++       struct vmxnet3_rx_ctx *ctx = &rq->rx_ctx;
++
++       rcd = &rq->comp_ring.base[rq->comp_ring.next2proc].rcd;
++       while (rcd->gen == rq->comp_ring.gen) {
++               struct vmxnet3_rx_buf_info *rbi;
++               struct sk_buff *skb;
++               int num_to_alloc;
++               struct Vmxnet3_RxDesc *rxd;
++               u32 idx, ring_idx;
++
++               if (num_rxd >= quota) {
++                       /* we may stop even before we see the EOP desc of
++                        * the current pkt
++                        */
++                       break;
++               }
++               num_rxd++;
++
++               idx = rcd->rxdIdx;
++               ring_idx = rcd->rqID == rq->qid ? 0 : 1;
++
++               rxd = &rq->rx_ring[ring_idx].base[idx].rxd;
++               rbi = rq->buf_info[ring_idx] + idx;
++
++               BUG_ON(rcd->len > rxd->len);
++               BUG_ON(rxd->addr != rbi->dma_addr || rxd->len != rbi->len);
++
++               if (unlikely(rcd->eop && rcd->err)) {
++                       vmxnet3_rx_error(rq, rcd, ctx, adapter);
++                       goto rcd_done;
++               }
++
++               if (rcd->sop) { /* first buf of the pkt */
++                       BUG_ON(rxd->btype != VMXNET3_RXD_BTYPE_HEAD ||
++                              rcd->rqID != rq->qid);
++
++                       BUG_ON(rbi->buf_type != VMXNET3_RX_BUF_SKB);
++                       BUG_ON(ctx->skb != NULL || rbi->skb == NULL);
++
++                       if (unlikely(rcd->len == 0)) {
++                               /* Pretend the rx buffer is skipped. */
++                               BUG_ON(!(rcd->sop && rcd->eop));
++                               dprintk(KERN_ERR "rxRing[%u][%u] 0 length\n",
++                                       ring_idx, idx);
++                               goto rcd_done;
++                       }
++
++                       ctx->skb = rbi->skb;
++                       rbi->skb = NULL;
++
++                       pci_unmap_single(adapter->pdev, rbi->dma_addr, rbi->len,
++                                        PCI_DMA_FROMDEVICE);
++
++                       skb_put(ctx->skb, rcd->len);
++               } else {
++                       BUG_ON(ctx->skb == NULL);
++                       /* non SOP buffer must be type 1 in most cases */
++                       if (rbi->buf_type == VMXNET3_RX_BUF_PAGE) {
++                               BUG_ON(rxd->btype != VMXNET3_RXD_BTYPE_BODY);
++
++                               if (rcd->len) {
++                                       pci_unmap_page(adapter->pdev,
++                                                      rbi->dma_addr, rbi->len,
++                                                      PCI_DMA_FROMDEVICE);
++
++                                       vmxnet3_append_frag(ctx->skb, rcd, rbi);
++                                       rbi->page = NULL;
++                               }
++                       } else {
++                               /*
++                                * The only time a non-SOP buffer is type 0 is
++                                * when it's EOP and error flag is raised, which
++                                * has already been handled.
++                                */
++                               BUG_ON(true);
++                       }
++               }
++
++               skb = ctx->skb;
++               if (rcd->eop) {
++                       skb->len += skb->data_len;
++                       skb->truesize += skb->data_len;
++
++                       vmxnet3_rx_csum(adapter, skb,
++                                       (union Vmxnet3_GenericDesc *)rcd);
++                       skb->protocol = eth_type_trans(skb, adapter->netdev);
++
++                       if (unlikely(adapter->vlan_grp && rcd->ts)) {
++                               vlan_hwaccel_receive_skb(skb,
++                                               adapter->vlan_grp, rcd->tci);
++                       } else {
++                               netif_receive_skb(skb);
++                       }
++
++                       adapter->netdev->last_rx = jiffies;
++                       ctx->skb = NULL;
++               }
++
++rcd_done:
++               /* device may skip some rx descs */
++               rq->rx_ring[ring_idx].next2comp = idx;
++               VMXNET3_INC_RING_IDX_ONLY(rq->rx_ring[ring_idx].next2comp,
++                                         rq->rx_ring[ring_idx].size);
++
++               /* refill rx buffers frequently to avoid starving the h/w */
++               num_to_alloc = vmxnet3_cmd_ring_desc_avail(rq->rx_ring +
++                                                          ring_idx);
++               if (unlikely(num_to_alloc > VMXNET3_RX_ALLOC_THRESHOLD(rq,
++                                                       ring_idx, adapter))) {
++                       vmxnet3_rq_alloc_rx_buf(rq, ring_idx, num_to_alloc,
++                                               adapter);
++
++                       /* if needed, update the register */
++                       if (unlikely(rq->shared->updateRxProd)) {
++                               VMXNET3_WRITE_BAR0_REG(adapter,
++                                       rxprod_reg[ring_idx] + rq->qid * 8,
++                                       rq->rx_ring[ring_idx].next2fill);
++                               rq->uncommitted[ring_idx] = 0;
++                       }
++               }
++
++               vmxnet3_comp_ring_adv_next2proc(&rq->comp_ring);
++               rcd = &rq->comp_ring.base[rq->comp_ring.next2proc].rcd;
++       }
++
++       return num_rxd;
++}
++
++
++static void
++vmxnet3_rq_cleanup(struct vmxnet3_rx_queue *rq,
++                  struct vmxnet3_adapter *adapter)
++{
++       u32 i, ring_idx;
++       struct Vmxnet3_RxDesc *rxd;
++
++       for (ring_idx = 0; ring_idx < 2; ring_idx++) {
++               for (i = 0; i < rq->rx_ring[ring_idx].size; i++) {
++                       rxd = &rq->rx_ring[ring_idx].base[i].rxd;
++
++                       if (rxd->btype == VMXNET3_RXD_BTYPE_HEAD &&
++                                       rq->buf_info[ring_idx][i].skb) {
++                               pci_unmap_single(adapter->pdev, rxd->addr,
++                                                rxd->len, PCI_DMA_FROMDEVICE);
++                               dev_kfree_skb(rq->buf_info[ring_idx][i].skb);
++                               rq->buf_info[ring_idx][i].skb = NULL;
++                       } else if (rxd->btype == VMXNET3_RXD_BTYPE_BODY &&
++                                       rq->buf_info[ring_idx][i].page) {
++                               pci_unmap_page(adapter->pdev, rxd->addr,
++                                              rxd->len, PCI_DMA_FROMDEVICE);
++                               put_page(rq->buf_info[ring_idx][i].page);
++                               rq->buf_info[ring_idx][i].page = NULL;
++                       }
++               }
++
++               rq->rx_ring[ring_idx].gen = VMXNET3_INIT_GEN;
++               rq->rx_ring[ring_idx].next2fill =
++                                       rq->rx_ring[ring_idx].next2comp = 0;
++               rq->uncommitted[ring_idx] = 0;
++       }
++
++       rq->comp_ring.gen = VMXNET3_INIT_GEN;
++       rq->comp_ring.next2proc = 0;
++}
++
++
++void vmxnet3_rq_destroy(struct vmxnet3_rx_queue *rq,
++                       struct vmxnet3_adapter *adapter)
++{
++       int i;
++       int j;
++
++       /* all rx buffers must have already been freed */
++       for (i = 0; i < 2; i++) {
++               if (rq->buf_info[i]) {
++                       for (j = 0; j < rq->rx_ring[i].size; j++)
++                               BUG_ON(rq->buf_info[i][j].page != NULL);
++               }
++       }
++
++
++       kfree(rq->buf_info[0]);
++
++       for (i = 0; i < 2; i++) {
++               if (rq->rx_ring[i].base) {
++                       pci_free_consistent(adapter->pdev, rq->rx_ring[i].size
++                                           * sizeof(struct Vmxnet3_RxDesc),
++                                           rq->rx_ring[i].base,
++                                           rq->rx_ring[i].basePA);
++                       rq->rx_ring[i].base = NULL;
++               }
++               rq->buf_info[i] = NULL;
++       }
++
++       if (rq->comp_ring.base) {
++               pci_free_consistent(adapter->pdev, rq->comp_ring.size *
++                                   sizeof(struct Vmxnet3_RxCompDesc),
++                                   rq->comp_ring.base, rq->comp_ring.basePA);
++               rq->comp_ring.base = NULL;
++       }
++}
++
++
++static int
++vmxnet3_rq_init(struct vmxnet3_rx_queue *rq,
++               struct vmxnet3_adapter  *adapter)
++{
++       int i;
++
++       BUG_ON(adapter->rx_buf_per_pkt <= 0 ||
++                       rq->rx_ring[0].size % adapter->rx_buf_per_pkt != 0);
++
++       /* initialize buf_info */
++       for (i = 0; i < rq->rx_ring[0].size; i++) {
++               BUG_ON(rq->buf_info[0][i].skb != NULL);
++
++               /* 1st buf for a pkt is skbuff */
++               if (i % adapter->rx_buf_per_pkt == 0) {
++                       rq->buf_info[0][i].buf_type = VMXNET3_RX_BUF_SKB;
++                       rq->buf_info[0][i].len = adapter->skb_buf_size;
++               } else { /* subsequent bufs for a pkt is frag */
++                       rq->buf_info[0][i].buf_type = VMXNET3_RX_BUF_PAGE;
++                       rq->buf_info[0][i].len = PAGE_SIZE;
++               }
++       }
++       for (i = 0; i < rq->rx_ring[1].size; i++) {
++               BUG_ON(rq->buf_info[1][i].page != NULL);
++               rq->buf_info[1][i].buf_type = VMXNET3_RX_BUF_PAGE;
++               rq->buf_info[1][i].len = PAGE_SIZE;
++       }
++
++       /* reset internal state and allocate buffers for both rings */
++       for (i = 0; i < 2; i++) {
++               rq->rx_ring[i].next2fill = rq->rx_ring[i].next2comp = 0;
++               rq->uncommitted[i] = 0;
++
++               memset(rq->rx_ring[i].base, 0, rq->rx_ring[i].size *
++                      sizeof(struct Vmxnet3_RxDesc));
++               rq->rx_ring[i].gen = VMXNET3_INIT_GEN;
++       }
++       if (vmxnet3_rq_alloc_rx_buf(rq, 0, rq->rx_ring[0].size - 1,
++                                   adapter) == 0) {
++               /* at least has 1 rx buffer for the 1st ring */
++               return -ENOMEM;
++       }
++       vmxnet3_rq_alloc_rx_buf(rq, 1, rq->rx_ring[1].size - 1, adapter);
++
++       /* reset the comp ring */
++       rq->comp_ring.next2proc = 0;
++       memset(rq->comp_ring.base, 0, rq->comp_ring.size *
++              sizeof(struct Vmxnet3_RxCompDesc));
++       rq->comp_ring.gen = VMXNET3_INIT_GEN;
++
++       /* reset rxctx */
++       rq->rx_ctx.skb = NULL;
++
++       /* stats are not reset */
++       return 0;
++}
++
++
++static int
++vmxnet3_rq_create(struct vmxnet3_rx_queue *rq, struct vmxnet3_adapter *adapter)
++{
++       int i;
++       size_t sz;
++       struct vmxnet3_rx_buf_info *bi;
++
++       BUG_ON(rq->rx_ring[0].size % adapter->rx_buf_per_pkt != 0);
++
++       for (i = 0; i < 2; i++) {
++               BUG_ON((rq->rx_ring[i].size & VMXNET3_RING_SIZE_MASK) != 0);
++               BUG_ON(rq->rx_ring[i].base != NULL);
++
++               sz = rq->rx_ring[i].size * sizeof(struct Vmxnet3_RxDesc);
++               rq->rx_ring[i].base = pci_alloc_consistent(adapter->pdev, sz,
++                                                       &rq->rx_ring[i].basePA);
++               if (!rq->rx_ring[i].base) {
++                       printk(KERN_ERR "%s: failed to allocate rx ring %d\n",
++                              adapter->netdev->name, i);
++                       goto err;
++               }
++       }
++
++       sz = rq->comp_ring.size * sizeof(struct Vmxnet3_RxCompDesc);
++       BUG_ON(rq->comp_ring.base != NULL);
++       rq->comp_ring.base = pci_alloc_consistent(adapter->pdev, sz,
++                                                 &rq->comp_ring.basePA);
++       if (!rq->comp_ring.base) {
++               printk(KERN_ERR "%s: failed to allocate rx comp ring\n",
++                      adapter->netdev->name);
++               goto err;
++       }
++
++       BUG_ON(rq->buf_info[0] || rq->buf_info[1]);
++       sz = sizeof(struct vmxnet3_rx_buf_info) * (rq->rx_ring[0].size +
++                                                  rq->rx_ring[1].size);
++       bi = kmalloc(sz, GFP_KERNEL);
++       if (!bi) {
++               printk(KERN_ERR "%s: failed to allocate rx bufinfo\n",
++                      adapter->netdev->name);
++               goto err;
++       }
++       memset(bi, 0, sz);
++       rq->buf_info[0] = bi;
++       rq->buf_info[1] = bi + rq->rx_ring[0].size;
++
++       return 0;
++
++err:
++       vmxnet3_rq_destroy(rq, adapter);
++       return -ENOMEM;
++}
++
++
++static void
++vmxnet3_do_poll(struct vmxnet3_adapter *adapter, int budget, int *txd_done,
++               int *rxd_done)
++{
++       if (unlikely(adapter->shared->ecr))
++               vmxnet3_process_events(adapter);
++
++       *txd_done = vmxnet3_tq_tx_complete(&adapter->tx_queue, adapter);
++       *rxd_done = vmxnet3_rq_rx_complete(&adapter->rx_queue, adapter, budget);
++}
++
++
++static int
++vmxnet3_poll(struct napi_struct *napi, int budget)
++{
++       struct vmxnet3_adapter *adapter = container_of(napi,
++                                         struct vmxnet3_adapter, napi);
++       int rxd_done, txd_done;
++
++       vmxnet3_do_poll(adapter, budget, &txd_done, &rxd_done);
++
++       if (rxd_done < budget) {
++               napi_complete(napi);
++               vmxnet3_enable_intr(adapter, 0);
++       }
++       return rxd_done;
++}
++
++
++/* Interrupt handler for vmxnet3  */
++static irqreturn_t
++vmxnet3_intr(int irq, void *dev_id)
++{
++       struct net_device *dev = dev_id;
++       struct vmxnet3_adapter *adapter = netdev_priv(dev);
++
++       if (unlikely(adapter->intr.type == VMXNET3_IT_INTX)) {
++               u32 icr = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_ICR);
++               if (unlikely(icr == 0))
++                       /* not ours */
++                       return IRQ_NONE;
++       }
++
++
++       /* disable intr if needed */
++       if (adapter->intr.mask_mode == VMXNET3_IMM_ACTIVE)
++               vmxnet3_disable_intr(adapter, 0);
++
++       napi_schedule(&adapter->napi);
++
++       return IRQ_HANDLED;
++}
++
++#ifdef CONFIG_NET_POLL_CONTROLLER
++
++
++/* netpoll callback. */
++static void
++vmxnet3_netpoll(struct net_device *netdev)
++{
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++       int irq;
++
++       if (adapter->intr.type == VMXNET3_IT_MSIX)
++               irq = adapter->intr.msix_entries[0].vector;
++       else
++               irq = adapter->pdev->irq;
++
++       disable_irq(irq);
++       vmxnet3_intr(irq, netdev);
++       enable_irq(irq);
++}
++#endif
++
++static int
++vmxnet3_request_irqs(struct vmxnet3_adapter *adapter)
++{
++       int err;
++
++       if (adapter->intr.type == VMXNET3_IT_MSIX) {
++               /* we only use 1 MSI-X vector */
++               err = request_irq(adapter->intr.msix_entries[0].vector,
++                                 vmxnet3_intr, 0, adapter->netdev->name,
++                                 adapter->netdev);
++       } else if (adapter->intr.type == VMXNET3_IT_MSI) {
++               err = request_irq(adapter->pdev->irq, vmxnet3_intr, 0,
++                                 adapter->netdev->name, adapter->netdev);
++       } else {
++               BUG_ON(adapter->intr.type != VMXNET3_IT_INTX);
++
++               err = request_irq(adapter->pdev->irq, vmxnet3_intr,
++                                 IRQF_SHARED, adapter->netdev->name,
++                                 adapter->netdev);
++       }
++
++       if (err)
++               printk(KERN_ERR "Failed to request irq %s (intr type:%d), error"
++                      ":%d\n", adapter->netdev->name, adapter->intr.type, err);
++
++
++       if (!err) {
++               int i;
++               /* init our intr settings */
++               for (i = 0; i < adapter->intr.num_intrs; i++)
++                       adapter->intr.mod_levels[i] = UPT1_IML_ADAPTIVE;
++
++               /* next setup intr index for all intr sources */
++               adapter->tx_queue.comp_ring.intr_idx = 0;
++               adapter->rx_queue.comp_ring.intr_idx = 0;
++               adapter->intr.event_intr_idx = 0;
++
++               printk(KERN_INFO "%s: intr type %u, mode %u, %u vectors "
++                      "allocated\n", adapter->netdev->name, adapter->intr.type,
++                      adapter->intr.mask_mode, adapter->intr.num_intrs);
++       }
++
++       return err;
++}
++
++
++static void
++vmxnet3_free_irqs(struct vmxnet3_adapter *adapter)
++{
++       BUG_ON(adapter->intr.type == VMXNET3_IT_AUTO ||
++              adapter->intr.num_intrs <= 0);
++
++       switch (adapter->intr.type) {
++       case VMXNET3_IT_MSIX:
++       {
++               int i;
++
++               for (i = 0; i < adapter->intr.num_intrs; i++)
++                       free_irq(adapter->intr.msix_entries[i].vector,
++                                adapter->netdev);
++               break;
++       }
++       case VMXNET3_IT_MSI:
++               free_irq(adapter->pdev->irq, adapter->netdev);
++               break;
++       case VMXNET3_IT_INTX:
++               free_irq(adapter->pdev->irq, adapter->netdev);
++               break;
++       default:
++               BUG_ON(true);
++       }
++}
++
++
++static void
++vmxnet3_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
++{
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++       struct Vmxnet3_DriverShared *shared = adapter->shared;
++       u32 *vfTable = adapter->shared->devRead.rxFilterConf.vfTable;
++
++       if (grp) {
++               /* add vlan rx stripping. */
++               if (adapter->netdev->features & NETIF_F_HW_VLAN_RX) {
++                       int i;
++                       struct Vmxnet3_DSDevRead *devRead = &shared->devRead;
++                       adapter->vlan_grp = grp;
++
++                       /* update FEATURES to device */
++                       devRead->misc.uptFeatures |= UPT1_F_RXVLAN;
++                       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
++                                              VMXNET3_CMD_UPDATE_FEATURE);
++                       /*
++                        *  Clear entire vfTable; then enable untagged pkts.
++                        *  Note: setting one entry in vfTable to non-zero turns
++                        *  on VLAN rx filtering.
++                        */
++                       for (i = 0; i < VMXNET3_VFT_SIZE; i++)
++                               vfTable[i] = 0;
++
++                       VMXNET3_SET_VFTABLE_ENTRY(vfTable, 0);
++                       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
++                                              VMXNET3_CMD_UPDATE_VLAN_FILTERS);
++               } else {
++                       printk(KERN_ERR "%s: vlan_rx_register when device has "
++                              "no NETIF_F_HW_VLAN_RX\n", netdev->name);
++               }
++       } else {
++               /* remove vlan rx stripping. */
++               struct Vmxnet3_DSDevRead *devRead = &shared->devRead;
++               adapter->vlan_grp = NULL;
++
++               if (devRead->misc.uptFeatures & UPT1_F_RXVLAN) {
++                       int i;
++
++                       for (i = 0; i < VMXNET3_VFT_SIZE; i++) {
++                               /* clear entire vfTable; this also disables
++                                * VLAN rx filtering
++                                */
++                               vfTable[i] = 0;
++                       }
++                       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
++                                              VMXNET3_CMD_UPDATE_VLAN_FILTERS);
++
++                       /* update FEATURES to device */
++                       devRead->misc.uptFeatures &= ~UPT1_F_RXVLAN;
++                       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
++                                              VMXNET3_CMD_UPDATE_FEATURE);
++               }
++       }
++}
++
++
++static void
++vmxnet3_restore_vlan(struct vmxnet3_adapter *adapter)
++{
++       if (adapter->vlan_grp) {
++               u16 vid;
++               u32 *vfTable = adapter->shared->devRead.rxFilterConf.vfTable;
++               bool activeVlan = false;
++
++               for (vid = 0; vid < VLAN_GROUP_ARRAY_LEN; vid++) {
++                       if (vlan_group_get_device(adapter->vlan_grp, vid)) {
++                               VMXNET3_SET_VFTABLE_ENTRY(vfTable, vid);
++                               activeVlan = true;
++                       }
++               }
++               if (activeVlan) {
++                       /* continue to allow untagged pkts */
++                       VMXNET3_SET_VFTABLE_ENTRY(vfTable, 0);
++               }
++       }
++}
++
++
++static void
++vmxnet3_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
++{
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++       u32 *vfTable = adapter->shared->devRead.rxFilterConf.vfTable;
++
++       VMXNET3_SET_VFTABLE_ENTRY(vfTable, vid);
++       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
++                              VMXNET3_CMD_UPDATE_VLAN_FILTERS);
++}
++
++
++static void
++vmxnet3_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
++{
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++       u32 *vfTable = adapter->shared->devRead.rxFilterConf.vfTable;
++
++       VMXNET3_CLEAR_VFTABLE_ENTRY(vfTable, vid);
++       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
++                              VMXNET3_CMD_UPDATE_VLAN_FILTERS);
++}
++
++
++static u8 *
++vmxnet3_copy_mc(struct net_device *netdev)
++{
++       u8 *buf = NULL;
++       u32 sz = netdev->mc_count * ETH_ALEN;
++
++       /* struct Vmxnet3_RxFilterConf.mfTableLen is u16. */
++       if (sz <= 0xffff) {
++               /* We may be called with BH disabled */
++               buf = kmalloc(sz, GFP_ATOMIC);
++               if (buf) {
++                       int i;
++                       struct dev_mc_list *mc = netdev->mc_list;
++
++                       for (i = 0; i < netdev->mc_count; i++) {
++                               BUG_ON(!mc);
++                               memcpy(buf + i * ETH_ALEN, mc->dmi_addr,
++                                      ETH_ALEN);
++                               mc = mc->next;
++                       }
++               }
++       }
++       return buf;
++}
++
++
++static void
++vmxnet3_set_mc(struct net_device *netdev)
++{
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++       struct Vmxnet3_RxFilterConf *rxConf =
++                                       &adapter->shared->devRead.rxFilterConf;
++       u8 *new_table = NULL;
++       u32 new_mode = VMXNET3_RXM_UCAST;
++
++       if (netdev->flags & IFF_PROMISC)
++               new_mode |= VMXNET3_RXM_PROMISC;
++
++       if (netdev->flags & IFF_BROADCAST)
++               new_mode |= VMXNET3_RXM_BCAST;
++
++       if (netdev->flags & IFF_ALLMULTI)
++               new_mode |= VMXNET3_RXM_ALL_MULTI;
++       else
++               if (netdev->mc_count > 0) {
++                       new_table = vmxnet3_copy_mc(netdev);
++                       if (new_table) {
++                               new_mode |= VMXNET3_RXM_MCAST;
++                               rxConf->mfTableLen = netdev->mc_count *
++                                                    ETH_ALEN;
++                               rxConf->mfTablePA = virt_to_phys(new_table);
++                       } else {
++                               printk(KERN_INFO "%s: failed to copy mcast list"
++                                      ", setting ALL_MULTI\n", netdev->name);
++                               new_mode |= VMXNET3_RXM_ALL_MULTI;
++                       }
++               }
++
++
++       if (!(new_mode & VMXNET3_RXM_MCAST)) {
++               rxConf->mfTableLen = 0;
++               rxConf->mfTablePA = 0;
++       }
++
++       if (new_mode != rxConf->rxMode) {
++               rxConf->rxMode = new_mode;
++               VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
++                                      VMXNET3_CMD_UPDATE_RX_MODE);
++       }
++
++       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
++                              VMXNET3_CMD_UPDATE_MAC_FILTERS);
++
++       kfree(new_table);
++}
++
++
++/*
++ *   Set up driver_shared based on settings in adapter.
++ */
++
++static void
++vmxnet3_setup_driver_shared(struct vmxnet3_adapter *adapter)
++{
++       struct Vmxnet3_DriverShared *shared = adapter->shared;
++       struct Vmxnet3_DSDevRead *devRead = &shared->devRead;
++       struct Vmxnet3_TxQueueConf *tqc;
++       struct Vmxnet3_RxQueueConf *rqc;
++       int i;
++
++       memset(shared, 0, sizeof(*shared));
++
++       /* driver settings */
++       shared->magic = VMXNET3_REV1_MAGIC;
++       devRead->misc.driverInfo.version = VMXNET3_DRIVER_VERSION_NUM;
++       devRead->misc.driverInfo.gos.gosBits = (sizeof(void *) == 4 ?
++                               VMXNET3_GOS_BITS_32 : VMXNET3_GOS_BITS_64);
++       devRead->misc.driverInfo.gos.gosType = VMXNET3_GOS_TYPE_LINUX;
++       devRead->misc.driverInfo.vmxnet3RevSpt = 1;
++       devRead->misc.driverInfo.uptVerSpt = 1;
++
++       devRead->misc.ddPA = virt_to_phys(adapter);
++       devRead->misc.ddLen = sizeof(struct vmxnet3_adapter);
++
++       /* set up feature flags */
++       if (adapter->rxcsum)
++               devRead->misc.uptFeatures |= UPT1_F_RXCSUM;
++
++       if (adapter->lro) {
++               devRead->misc.uptFeatures |= UPT1_F_LRO;
++               devRead->misc.maxNumRxSG = 1 + MAX_SKB_FRAGS;
++       }
++       if ((adapter->netdev->features & NETIF_F_HW_VLAN_RX)
++                       && adapter->vlan_grp) {
++               devRead->misc.uptFeatures |= UPT1_F_RXVLAN;
++       }
++
++       devRead->misc.mtu = adapter->netdev->mtu;
++       devRead->misc.queueDescPA = adapter->queue_desc_pa;
++       devRead->misc.queueDescLen = sizeof(struct Vmxnet3_TxQueueDesc) +
++                                    sizeof(struct Vmxnet3_RxQueueDesc);
++
++       /* tx queue settings */
++       BUG_ON(adapter->tx_queue.tx_ring.base == NULL);
++
++       devRead->misc.numTxQueues = 1;
++       tqc = &adapter->tqd_start->conf;
++       tqc->txRingBasePA   = adapter->tx_queue.tx_ring.basePA;
++       tqc->dataRingBasePA = adapter->tx_queue.data_ring.basePA;
++       tqc->compRingBasePA = adapter->tx_queue.comp_ring.basePA;
++       tqc->ddPA           = virt_to_phys(adapter->tx_queue.buf_info);
++       tqc->txRingSize     = adapter->tx_queue.tx_ring.size;
++       tqc->dataRingSize   = adapter->tx_queue.data_ring.size;
++       tqc->compRingSize   = adapter->tx_queue.comp_ring.size;
++       tqc->ddLen          = sizeof(struct vmxnet3_tx_buf_info) *
++                             tqc->txRingSize;
++       tqc->intrIdx        = adapter->tx_queue.comp_ring.intr_idx;
++
++       /* rx queue settings */
++       devRead->misc.numRxQueues = 1;
++       rqc = &adapter->rqd_start->conf;
++       rqc->rxRingBasePA[0] = adapter->rx_queue.rx_ring[0].basePA;
++       rqc->rxRingBasePA[1] = adapter->rx_queue.rx_ring[1].basePA;
++       rqc->compRingBasePA  = adapter->rx_queue.comp_ring.basePA;
++       rqc->ddPA            = virt_to_phys(adapter->rx_queue.buf_info);
++       rqc->rxRingSize[0]   = adapter->rx_queue.rx_ring[0].size;
++       rqc->rxRingSize[1]   = adapter->rx_queue.rx_ring[1].size;
++       rqc->compRingSize    = adapter->rx_queue.comp_ring.size;
++       rqc->ddLen           = sizeof(struct vmxnet3_rx_buf_info) *
++                              (rqc->rxRingSize[0] + rqc->rxRingSize[1]);
++       rqc->intrIdx         = adapter->rx_queue.comp_ring.intr_idx;
++
++       /* intr settings */
++       devRead->intrConf.autoMask = adapter->intr.mask_mode ==
++                                    VMXNET3_IMM_AUTO;
++       devRead->intrConf.numIntrs = adapter->intr.num_intrs;
++       for (i = 0; i < adapter->intr.num_intrs; i++)
++               devRead->intrConf.modLevels[i] = adapter->intr.mod_levels[i];
++
++       devRead->intrConf.eventIntrIdx = adapter->intr.event_intr_idx;
++
++       /* rx filter settings */
++       devRead->rxFilterConf.rxMode   = 0;
++       vmxnet3_restore_vlan(adapter);
++       /* the rest are already zeroed */
++}
++
++
++int
++vmxnet3_activate_dev(struct vmxnet3_adapter *adapter)
++{
++       int err;
++       u32 ret;
++
++       dprintk(KERN_ERR "%s: skb_buf_size %d, rx_buf_per_pkt %d, ring sizes"
++               " %u %u %u\n", adapter->netdev->name, adapter->skb_buf_size,
++               adapter->rx_buf_per_pkt, adapter->tx_queue.tx_ring.size,
++               adapter->rx_queue.rx_ring[0].size,
++               adapter->rx_queue.rx_ring[1].size);
++
++       vmxnet3_tq_init(&adapter->tx_queue, adapter);
++       err = vmxnet3_rq_init(&adapter->rx_queue, adapter);
++       if (err) {
++               printk(KERN_ERR "Failed to init rx queue for %s: error %d\n",
++                      adapter->netdev->name, err);
++               goto rq_err;
++       }
++
++       err = vmxnet3_request_irqs(adapter);
++       if (err) {
++               printk(KERN_ERR "Failed to setup irq for %s: error %d\n",
++                      adapter->netdev->name, err);
++               goto irq_err;
++       }
++
++       vmxnet3_setup_driver_shared(adapter);
++
++       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_DSAL,
++                              VMXNET3_GET_ADDR_LO(adapter->shared_pa));
++       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_DSAH,
++                              VMXNET3_GET_ADDR_HI(adapter->shared_pa));
++
++       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
++                              VMXNET3_CMD_ACTIVATE_DEV);
++       ret = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_CMD);
++
++       if (ret != 0) {
++               printk(KERN_ERR "Failed to activate dev %s: error %u\n",
++                      adapter->netdev->name, ret);
++               err = -EINVAL;
++               goto activate_err;
++       }
++       VMXNET3_WRITE_BAR0_REG(adapter, VMXNET3_REG_RXPROD,
++                              adapter->rx_queue.rx_ring[0].next2fill);
++       VMXNET3_WRITE_BAR0_REG(adapter, VMXNET3_REG_RXPROD2,
++                              adapter->rx_queue.rx_ring[1].next2fill);
++
++       /* Apply the rx filter settins last. */
++       vmxnet3_set_mc(adapter->netdev);
++
++       /*
++        * Check link state when first activating device. It will start the
++        * tx queue if the link is up.
++        */
++       vmxnet3_check_link(adapter);
++
++       napi_enable(&adapter->napi);
++       vmxnet3_enable_all_intrs(adapter);
++       clear_bit(VMXNET3_STATE_BIT_QUIESCED, &adapter->state);
++       return 0;
++
++activate_err:
++       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_DSAL, 0);
++       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_DSAH, 0);
++       vmxnet3_free_irqs(adapter);
++irq_err:
++rq_err:
++       /* free up buffers we allocated */
++       vmxnet3_rq_cleanup(&adapter->rx_queue, adapter);
++       return err;
++}
++
++
++void
++vmxnet3_reset_dev(struct vmxnet3_adapter *adapter)
++{
++       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD, VMXNET3_CMD_RESET_DEV);
++}
++
++
++int
++vmxnet3_quiesce_dev(struct vmxnet3_adapter *adapter)
++{
++       if (test_and_set_bit(VMXNET3_STATE_BIT_QUIESCED, &adapter->state)) {
++               printk(KERN_INFO "%s: already quiesced\n",
++                      adapter->netdev->name);
++               return 0;
++       }
++
++       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
++                              VMXNET3_CMD_QUIESCE_DEV);
++       vmxnet3_disable_all_intrs(adapter);
++
++       napi_disable(&adapter->napi);
++       netif_tx_disable(adapter->netdev);
++       adapter->link_speed = 0;
++       netif_carrier_off(adapter->netdev);
++
++       vmxnet3_tq_cleanup(&adapter->tx_queue, adapter);
++       vmxnet3_rq_cleanup(&adapter->rx_queue, adapter);
++       vmxnet3_free_irqs(adapter);
++       return 0;
++}
++
++
++static void
++vmxnet3_write_mac_addr(struct vmxnet3_adapter *adapter, u8 *mac)
++{
++       u32 tmp;
++
++       tmp = *(u32 *)mac;
++       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_MACL, tmp);
++
++       tmp = (mac[5] << 8) | mac[4];
++       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_MACH, tmp);
++}
++
++
++static int
++vmxnet3_set_mac_addr(struct net_device *netdev, void *p)
++{
++       struct sockaddr *addr = p;
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++
++       memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
++       vmxnet3_write_mac_addr(adapter, addr->sa_data);
++
++       return 0;
++}
++
++
++/* ==================== initialization and cleanup routines ============ */
++
++static int
++vmxnet3_alloc_pci_resources(struct vmxnet3_adapter *adapter, bool *dma64)
++{
++       int err;
++       unsigned long mmio_start, mmio_len;
++       struct pci_dev *pdev = adapter->pdev;
++
++       err = pci_enable_device(pdev);
++       if (err) {
++               printk(KERN_ERR "Failed to enable adapter %s: error %d\n",
++                      pci_name(pdev), err);
++               return err;
++       }
++
++       if (pci_set_dma_mask(pdev, DMA_BIT_MASK(64)) == 0) {
++               if (pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64)) != 0) {
++                       printk(KERN_ERR "pci_set_consistent_dma_mask failed "
++                              "for adapter %s\n", pci_name(pdev));
++                       err = -EIO;
++                       goto err_set_mask;
++               }
++               *dma64 = true;
++       } else {
++               if (pci_set_dma_mask(pdev, DMA_BIT_MASK(32)) != 0) {
++                       printk(KERN_ERR "pci_set_dma_mask failed for adapter "
++                              "%s\n",  pci_name(pdev));
++                       err = -EIO;
++                       goto err_set_mask;
++               }
++               *dma64 = false;
++       }
++
++       err = pci_request_regions(pdev, vmxnet3_driver_name);
++       if (err) {
++               printk(KERN_ERR "Failed to request region for adapter %s: "
++                      "error %d\n", pci_name(pdev), err);
++               goto err_set_mask;
++       }
++
++       pci_set_master(pdev);
++
++       mmio_start = pci_resource_start(pdev, 0);
++       mmio_len = pci_resource_len(pdev, 0);
++       adapter->hw_addr0 = ioremap(mmio_start, mmio_len);
++       if (!adapter->hw_addr0) {
++               printk(KERN_ERR "Failed to map bar0 for adapter %s\n",
++                      pci_name(pdev));
++               err = -EIO;
++               goto err_ioremap;
++       }
++
++       mmio_start = pci_resource_start(pdev, 1);
++       mmio_len = pci_resource_len(pdev, 1);
++       adapter->hw_addr1 = ioremap(mmio_start, mmio_len);
++       if (!adapter->hw_addr1) {
++               printk(KERN_ERR "Failed to map bar1 for adapter %s\n",
++                      pci_name(pdev));
++               err = -EIO;
++               goto err_bar1;
++       }
++       return 0;
++
++err_bar1:
++       iounmap(adapter->hw_addr0);
++err_ioremap:
++       pci_release_regions(pdev);
++err_set_mask:
++       pci_disable_device(pdev);
++       return err;
++}
++
++
++static void
++vmxnet3_free_pci_resources(struct vmxnet3_adapter *adapter)
++{
++       BUG_ON(!adapter->pdev);
++
++       iounmap(adapter->hw_addr0);
++       iounmap(adapter->hw_addr1);
++       pci_release_regions(adapter->pdev);
++       pci_disable_device(adapter->pdev);
++}
++
++
++static void
++vmxnet3_adjust_rx_ring_size(struct vmxnet3_adapter *adapter)
++{
++       size_t sz;
++
++       if (adapter->netdev->mtu <= VMXNET3_MAX_SKB_BUF_SIZE -
++                                   VMXNET3_MAX_ETH_HDR_SIZE) {
++               adapter->skb_buf_size = adapter->netdev->mtu +
++                                       VMXNET3_MAX_ETH_HDR_SIZE;
++               if (adapter->skb_buf_size < VMXNET3_MIN_T0_BUF_SIZE)
++                       adapter->skb_buf_size = VMXNET3_MIN_T0_BUF_SIZE;
++
++               adapter->rx_buf_per_pkt = 1;
++       } else {
++               adapter->skb_buf_size = VMXNET3_MAX_SKB_BUF_SIZE;
++               sz = adapter->netdev->mtu - VMXNET3_MAX_SKB_BUF_SIZE +
++                                           VMXNET3_MAX_ETH_HDR_SIZE;
++               adapter->rx_buf_per_pkt = 1 + (sz + PAGE_SIZE - 1) / PAGE_SIZE;
++       }
++
++       /*
++        * for simplicity, force the ring0 size to be a multiple of
++        * rx_buf_per_pkt * VMXNET3_RING_SIZE_ALIGN
++        */
++       sz = adapter->rx_buf_per_pkt * VMXNET3_RING_SIZE_ALIGN;
++       adapter->rx_queue.rx_ring[0].size = (adapter->rx_queue.rx_ring[0].size +
++                                            sz - 1) / sz * sz;
++       adapter->rx_queue.rx_ring[0].size = min_t(u32,
++                                       adapter->rx_queue.rx_ring[0].size,
++                                       VMXNET3_RX_RING_MAX_SIZE / sz * sz);
++}
++
++
++int
++vmxnet3_create_queues(struct vmxnet3_adapter *adapter,
++               u32 tx_ring_size,
++               u32 rx_ring_size,
++               u32 rx_ring2_size)
++{
++       int err;
++
++       adapter->tx_queue.tx_ring.size   = tx_ring_size;
++       adapter->tx_queue.data_ring.size = tx_ring_size;
++       adapter->tx_queue.comp_ring.size = tx_ring_size;
++       adapter->tx_queue.shared = &adapter->tqd_start->ctrl;
++       adapter->tx_queue.stopped = true;
++       err = vmxnet3_tq_create(&adapter->tx_queue, adapter);
++       if (err)
++               return err;
++
++       adapter->rx_queue.rx_ring[0].size = rx_ring_size;
++       adapter->rx_queue.rx_ring[1].size = rx_ring2_size;
++       vmxnet3_adjust_rx_ring_size(adapter);
++       adapter->rx_queue.comp_ring.size  = adapter->rx_queue.rx_ring[0].size +
++                                           adapter->rx_queue.rx_ring[1].size;
++       adapter->rx_queue.qid  = 0;
++       adapter->rx_queue.qid2 = 1;
++       adapter->rx_queue.shared = &adapter->rqd_start->ctrl;
++       err = vmxnet3_rq_create(&adapter->rx_queue, adapter);
++       if (err)
++               vmxnet3_tq_destroy(&adapter->tx_queue, adapter);
++
++       return err;
++}
++
++static int
++vmxnet3_open(struct net_device *netdev)
++{
++       struct vmxnet3_adapter *adapter;
++       int err;
++
++       adapter = netdev_priv(netdev);
++
++       spin_lock_init(&adapter->tx_queue.tx_lock);
++
++       err = vmxnet3_create_queues(adapter, VMXNET3_DEF_TX_RING_SIZE,
++                                   VMXNET3_DEF_RX_RING_SIZE,
++                                   VMXNET3_DEF_RX_RING_SIZE);
++       if (err)
++               goto queue_err;
++
++       err = vmxnet3_activate_dev(adapter);
++       if (err)
++               goto activate_err;
++
++       return 0;
++
++activate_err:
++       vmxnet3_rq_destroy(&adapter->rx_queue, adapter);
++       vmxnet3_tq_destroy(&adapter->tx_queue, adapter);
++queue_err:
++       return err;
++}
++
++
++static int
++vmxnet3_close(struct net_device *netdev)
++{
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++
++       /*
++        * Reset_work may be in the middle of resetting the device, wait for its
++        * completion.
++        */
++       while (test_and_set_bit(VMXNET3_STATE_BIT_RESETTING, &adapter->state))
++               msleep(1);
++
++       vmxnet3_quiesce_dev(adapter);
++
++       vmxnet3_rq_destroy(&adapter->rx_queue, adapter);
++       vmxnet3_tq_destroy(&adapter->tx_queue, adapter);
++
++       clear_bit(VMXNET3_STATE_BIT_RESETTING, &adapter->state);
++
++
++       return 0;
++}
++
++
++void
++vmxnet3_force_close(struct vmxnet3_adapter *adapter)
++{
++       /*
++        * we must clear VMXNET3_STATE_BIT_RESETTING, otherwise
++        * vmxnet3_close() will deadlock.
++        */
++       BUG_ON(test_bit(VMXNET3_STATE_BIT_RESETTING, &adapter->state));
++
++       /* we need to enable NAPI, otherwise dev_close will deadlock */
++       napi_enable(&adapter->napi);
++       dev_close(adapter->netdev);
++}
++
++
++static int
++vmxnet3_change_mtu(struct net_device *netdev, int new_mtu)
++{
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++       int err = 0;
++
++       if (new_mtu < VMXNET3_MIN_MTU || new_mtu > VMXNET3_MAX_MTU)
++               return -EINVAL;
++
++       if (new_mtu > 1500 && !adapter->jumbo_frame)
++               return -EINVAL;
++
++       netdev->mtu = new_mtu;
++
++       /*
++        * Reset_work may be in the middle of resetting the device, wait for its
++        * completion.
++        */
++       while (test_and_set_bit(VMXNET3_STATE_BIT_RESETTING, &adapter->state))
++               msleep(1);
++
++       if (netif_running(netdev)) {
++               vmxnet3_quiesce_dev(adapter);
++               vmxnet3_reset_dev(adapter);
++
++               /* we need to re-create the rx queue based on the new mtu */
++               vmxnet3_rq_destroy(&adapter->rx_queue, adapter);
++               vmxnet3_adjust_rx_ring_size(adapter);
++               adapter->rx_queue.comp_ring.size  =
++                                       adapter->rx_queue.rx_ring[0].size +
++                                       adapter->rx_queue.rx_ring[1].size;
++               err = vmxnet3_rq_create(&adapter->rx_queue, adapter);
++               if (err) {
++                       printk(KERN_ERR "%s: failed to re-create rx queue,"
++                               " error %d. Closing it.\n", netdev->name, err);
++                       goto out;
++               }
++
++               err = vmxnet3_activate_dev(adapter);
++               if (err) {
++                       printk(KERN_ERR "%s: failed to re-activate, error %d. "
++                               "Closing it\n", netdev->name, err);
++                       goto out;
++               }
++       }
++
++out:
++       clear_bit(VMXNET3_STATE_BIT_RESETTING, &adapter->state);
++       if (err)
++               vmxnet3_force_close(adapter);
++
++       return err;
++}
++
++
++static void
++vmxnet3_declare_features(struct vmxnet3_adapter *adapter, bool dma64)
++{
++       struct net_device *netdev = adapter->netdev;
++
++       netdev->features = NETIF_F_SG |
++               NETIF_F_HW_CSUM |
++               NETIF_F_HW_VLAN_TX |
++               NETIF_F_HW_VLAN_RX |
++               NETIF_F_HW_VLAN_FILTER |
++               NETIF_F_TSO |
++               NETIF_F_TSO6;
++
++       printk(KERN_INFO "features: sg csum vlan jf tso tsoIPv6");
++
++       adapter->rxcsum = true;
++       adapter->jumbo_frame = true;
++
++       if (!disable_lro) {
++               adapter->lro = true;
++               printk(" lro");
++       }
++
++       if (dma64) {
++               netdev->features |= NETIF_F_HIGHDMA;
++               printk(" highDMA");
++       }
++
++       netdev->vlan_features = netdev->features;
++       printk("\n");
++}
++
++
++static void
++vmxnet3_read_mac_addr(struct vmxnet3_adapter *adapter, u8 *mac)
++{
++       u32 tmp;
++
++       tmp = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_MACL);
++       *(u32 *)mac = tmp;
++
++       tmp = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_MACH);
++       mac[4] = tmp & 0xff;
++       mac[5] = (tmp >> 8) & 0xff;
++}
++
++
++static void
++vmxnet3_alloc_intr_resources(struct vmxnet3_adapter *adapter)
++{
++       u32 cfg;
++
++       /* intr settings */
++       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
++                              VMXNET3_CMD_GET_CONF_INTR);
++       cfg = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_CMD);
++       adapter->intr.type = cfg & 0x3;
++       adapter->intr.mask_mode = (cfg >> 2) & 0x3;
++
++       if (adapter->intr.type == VMXNET3_IT_AUTO) {
++               int err;
++
++               adapter->intr.msix_entries[0].entry = 0;
++               err = pci_enable_msix(adapter->pdev, adapter->intr.msix_entries,
++                                     VMXNET3_LINUX_MAX_MSIX_VECT);
++               if (!err) {
++                       adapter->intr.num_intrs = 1;
++                       adapter->intr.type = VMXNET3_IT_MSIX;
++                       return;
++               }
++
++               printk(KERN_INFO "Failed to enable MSI-X for %s, error %d, "
++                       "try MSI\n", adapter->netdev->name, err);
++
++               err = pci_enable_msi(adapter->pdev);
++               if (!err) {
++                       adapter->intr.num_intrs = 1;
++                       adapter->intr.type = VMXNET3_IT_MSI;
++                       return;
++               }
++
++               printk(KERN_INFO "Failed to enable MSI for %s, error %d, use "
++                       "INTx\n", adapter->netdev->name, err);
++       }
++
++       adapter->intr.type = VMXNET3_IT_INTX;
++
++       /* INT-X related setting */
++       adapter->intr.num_intrs = 1;
++}
++
++
++static void
++vmxnet3_free_intr_resources(struct vmxnet3_adapter *adapter)
++{
++       if (adapter->intr.type == VMXNET3_IT_MSIX)
++               pci_disable_msix(adapter->pdev);
++       else if (adapter->intr.type == VMXNET3_IT_MSI)
++               pci_disable_msi(adapter->pdev);
++       else
++               BUG_ON(adapter->intr.type != VMXNET3_IT_INTX);
++}
++
++
++static void
++vmxnet3_tx_timeout(struct net_device *netdev)
++{
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++       adapter->tx_timeout_count++;
++
++       printk(KERN_ERR "%s: tx hang\n", adapter->netdev->name);
++       schedule_work(&adapter->work);
++}
++
++
++static void
++vmxnet3_reset_work(struct work_struct *data)
++{
++       struct vmxnet3_adapter *adapter;
++
++       adapter = container_of(data, struct vmxnet3_adapter, work);
++
++       /* if another thread is resetting the device, no need to proceed */
++       if (test_and_set_bit(VMXNET3_STATE_BIT_RESETTING, &adapter->state)) {
++               printk(KERN_INFO "%s: resetting already in progress\n",
++                      adapter->netdev->name);
++               return;
++       }
++
++       /* if the device is closed, we must leave it alone */
++       if (netif_running(adapter->netdev)) {
++               printk(KERN_INFO "%s: resetting\n", adapter->netdev->name);
++               vmxnet3_quiesce_dev(adapter);
++               vmxnet3_reset_dev(adapter);
++               vmxnet3_activate_dev(adapter);
++       } else {
++               printk(KERN_INFO "%s: already closed\n", adapter->netdev->name);
++       }
++
++       clear_bit(VMXNET3_STATE_BIT_RESETTING, &adapter->state);
++}
++
++
++static int __devinit
++vmxnet3_probe_device(struct pci_dev *pdev,
++                    const struct pci_device_id *id)
++{
++       static const struct net_device_ops vmxnet3_netdev_ops = {
++               .ndo_open  = vmxnet3_open,
++               .ndo_stop  = vmxnet3_close,
++               .ndo_start_xmit = vmxnet3_xmit_frame,
++               .ndo_set_mac_address = vmxnet3_set_mac_addr,
++               .ndo_change_mtu = vmxnet3_change_mtu,
++               .ndo_get_stats = vmxnet3_get_stats,
++               .ndo_tx_timeout = vmxnet3_tx_timeout,
++               .ndo_set_multicast_list = vmxnet3_set_mc,
++               .ndo_vlan_rx_register = vmxnet3_vlan_rx_register,
++               .ndo_vlan_rx_add_vid = vmxnet3_vlan_rx_add_vid,
++               .ndo_vlan_rx_kill_vid = vmxnet3_vlan_rx_kill_vid,
++#   ifdef CONFIG_NET_POLL_CONTROLLER
++               .ndo_poll_controller = vmxnet3_netpoll,
++#   endif
++       };
++       int err;
++       bool dma64 = false; /* stupid gcc */
++       u32 ver;
++       struct net_device *netdev;
++       struct vmxnet3_adapter *adapter;
++       u8  mac[ETH_ALEN];
++
++       netdev = alloc_etherdev(sizeof(struct vmxnet3_adapter));
++       if (!netdev) {
++               printk(KERN_ERR "Failed to alloc ethernet device for adapter "
++                       "%s\n", pci_name(pdev));
++               return -ENOMEM;
++       }
++
++       pci_set_drvdata(pdev, netdev);
++       adapter = netdev_priv(netdev);
++       adapter->netdev = netdev;
++       adapter->pdev = pdev;
++
++       adapter->shared = pci_alloc_consistent(adapter->pdev,
++                         sizeof(struct Vmxnet3_DriverShared),
++                         &adapter->shared_pa);
++       if (!adapter->shared) {
++               printk(KERN_ERR "Failed to allocate memory for %s\n",
++                       pci_name(pdev));
++               err = -ENOMEM;
++               goto err_alloc_shared;
++       }
++
++       adapter->tqd_start  = pci_alloc_consistent(adapter->pdev,
++                             sizeof(struct Vmxnet3_TxQueueDesc) +
++                             sizeof(struct Vmxnet3_RxQueueDesc),
++                             &adapter->queue_desc_pa);
++
++       if (!adapter->tqd_start) {
++               printk(KERN_ERR "Failed to allocate memory for %s\n",
++                       pci_name(pdev));
++               err = -ENOMEM;
++               goto err_alloc_queue_desc;
++       }
++       adapter->rqd_start = (struct Vmxnet3_RxQueueDesc *)(adapter->tqd_start
++                                                           + 1);
++
++       adapter->pm_conf = kmalloc(sizeof(struct Vmxnet3_PMConf), GFP_KERNEL);
++       if (adapter->pm_conf == NULL) {
++               printk(KERN_ERR "Failed to allocate memory for %s\n",
++                       pci_name(pdev));
++               err = -ENOMEM;
++               goto err_alloc_pm;
++       }
++
++       err = vmxnet3_alloc_pci_resources(adapter, &dma64);
++       if (err < 0)
++               goto err_alloc_pci;
++
++       ver = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_VRRS);
++       if (ver & 1) {
++               VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_VRRS, 1);
++       } else {
++               printk(KERN_ERR "Incompatible h/w version (0x%x) for adapter"
++                      " %s\n", ver, pci_name(pdev));
++               err = -EBUSY;
++               goto err_ver;
++       }
++
++       ver = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_UVRS);
++       if (ver & 1) {
++               VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_UVRS, 1);
++       } else {
++               printk(KERN_ERR "Incompatible upt version (0x%x) for "
++                      "adapter %s\n", ver, pci_name(pdev));
++               err = -EBUSY;
++               goto err_ver;
++       }
++
++       vmxnet3_declare_features(adapter, dma64);
++
++       adapter->dev_number = atomic_read(&devices_found);
++       vmxnet3_alloc_intr_resources(adapter);
++
++       vmxnet3_read_mac_addr(adapter, mac);
++       memcpy(netdev->dev_addr,  mac, netdev->addr_len);
++
++       netdev->netdev_ops = &vmxnet3_netdev_ops;
++       netdev->watchdog_timeo = 5 * HZ;
++       vmxnet3_set_ethtool_ops(netdev);
++
++       INIT_WORK(&adapter->work, vmxnet3_reset_work);
++
++       netif_napi_add(netdev, &adapter->napi, vmxnet3_poll, 64);
++       SET_NETDEV_DEV(netdev, &pdev->dev);
++       err = register_netdev(netdev);
++
++       if (err) {
++               printk(KERN_ERR "Failed to register adapter %s\n",
++                       pci_name(pdev));
++               goto err_register;
++       }
++
++       set_bit(VMXNET3_STATE_BIT_QUIESCED, &adapter->state);
++       atomic_inc(&devices_found);
++       return 0;
++
++err_register:
++       vmxnet3_free_intr_resources(adapter);
++err_ver:
++       vmxnet3_free_pci_resources(adapter);
++err_alloc_pci:
++       kfree(adapter->pm_conf);
++err_alloc_pm:
++       pci_free_consistent(adapter->pdev, sizeof(struct Vmxnet3_TxQueueDesc) +
++                           sizeof(struct Vmxnet3_RxQueueDesc),
++                           adapter->tqd_start, adapter->queue_desc_pa);
++err_alloc_queue_desc:
++       pci_free_consistent(adapter->pdev, sizeof(struct Vmxnet3_DriverShared),
++                           adapter->shared, adapter->shared_pa);
++err_alloc_shared:
++       pci_set_drvdata(pdev, NULL);
++       free_netdev(netdev);
++       return err;
++}
++
++
++static void __devexit
++vmxnet3_remove_device(struct pci_dev *pdev)
++{
++       struct net_device *netdev = pci_get_drvdata(pdev);
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++
++       flush_scheduled_work();
++
++       unregister_netdev(netdev);
++
++       vmxnet3_free_intr_resources(adapter);
++       vmxnet3_free_pci_resources(adapter);
++       kfree(adapter->pm_conf);
++       pci_free_consistent(adapter->pdev, sizeof(struct Vmxnet3_TxQueueDesc) +
++                           sizeof(struct Vmxnet3_RxQueueDesc),
++                           adapter->tqd_start, adapter->queue_desc_pa);
++       pci_free_consistent(adapter->pdev, sizeof(struct Vmxnet3_DriverShared),
++                           adapter->shared, adapter->shared_pa);
++       free_netdev(netdev);
++}
++
++
++#ifdef CONFIG_PM
++
++static int
++vmxnet3_suspend(struct device *device)
++{
++       struct pci_dev *pdev = to_pci_dev(device);
++       struct net_device *netdev = pci_get_drvdata(pdev);
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++       struct Vmxnet3_PMConf *pmConf;
++       struct ethhdr *ehdr;
++       struct arphdr *ahdr;
++       u8 *arpreq;
++       struct in_device *in_dev;
++       struct in_ifaddr *ifa;
++       int i = 0;
++
++       if (!netif_running(netdev))
++               return 0;
++
++       vmxnet3_disable_all_intrs(adapter);
++       netif_device_detach(netdev);
++       netif_stop_queue(netdev);
++
++       /* Create wake-up filters. */
++       pmConf = adapter->pm_conf;
++       memset(pmConf, 0, sizeof(*pmConf));
++
++       if (adapter->wol & WAKE_UCAST) {
++               pmConf->filters[i].patternSize = ETH_ALEN;
++               pmConf->filters[i].maskSize = 1;
++               memcpy(pmConf->filters[i].pattern, netdev->dev_addr, ETH_ALEN);
++               pmConf->filters[i].mask[0] = 0x3F; /* LSB ETH_ALEN bits */
++
++               pmConf->wakeUpEvents |= VMXNET3_PM_WAKEUP_FILTER;
++               i++;
++       }
++
++       if (adapter->wol & WAKE_ARP) {
++               in_dev = in_dev_get(netdev);
++               if (!in_dev) {
++                       dprintk(KERN_ERR "Cannot program WoL ARP filter for %s:"
++                               " IPv4 not enabled.\n", netdev->name);
++                       goto skip_arp;
++               }
++               ifa = (struct in_ifaddr *)in_dev->ifa_list;
++               if (!ifa) {
++                       dprintk(KERN_ERR "Cannot program WoL ARP filter for %s:"
++                               " no IPv4 address.\n",  netdev->name);
++                       in_dev_put(in_dev);
++                       goto skip_arp;
++               }
++               pmConf->filters[i].patternSize = ETH_HLEN + /* Ethernet header*/
++                       sizeof(struct arphdr) +         /* ARP header */
++                       2 * ETH_ALEN +          /* 2 Ethernet addresses*/
++                       2 * sizeof(u32);        /*2 IPv4 addresses */
++               pmConf->filters[i].maskSize =
++                       (pmConf->filters[i].patternSize - 1) / 8 + 1;
++
++               /* ETH_P_ARP in Ethernet header. */
++               ehdr = (struct ethhdr *)pmConf->filters[i].pattern;
++               ehdr->h_proto = htons(ETH_P_ARP);
++
++               /* ARPOP_REQUEST in ARP header. */
++               ahdr = (struct arphdr *)&pmConf->filters[i].pattern[ETH_HLEN];
++               ahdr->ar_op = htons(ARPOP_REQUEST);
++               arpreq = (u8 *)(ahdr + 1);
++
++               /* The Unicast IPv4 address in 'tip' field. */
++               arpreq += 2 * ETH_ALEN + sizeof(u32);
++               *(u32 *)arpreq = ifa->ifa_address;
++
++               /* The mask for the relevant bits. */
++               pmConf->filters[i].mask[0] = 0x00;
++               pmConf->filters[i].mask[1] = 0x30; /* ETH_P_ARP */
++               pmConf->filters[i].mask[2] = 0x30; /* ARPOP_REQUEST */
++               pmConf->filters[i].mask[3] = 0x00;
++               pmConf->filters[i].mask[4] = 0xC0; /* IPv4 TIP */
++               pmConf->filters[i].mask[5] = 0x03; /* IPv4 TIP */
++               in_dev_put(in_dev);
++
++               pmConf->wakeUpEvents |= VMXNET3_PM_WAKEUP_FILTER;
++               i++;
++       }
++
++skip_arp:
++       if (adapter->wol & WAKE_MAGIC)
++               pmConf->wakeUpEvents |= VMXNET3_PM_WAKEUP_MAGIC;
++
++       pmConf->numFilters = i;
++
++       adapter->shared->devRead.pmConfDesc.confVer = 1;
++       adapter->shared->devRead.pmConfDesc.confLen = sizeof(*pmConf);
++       adapter->shared->devRead.pmConfDesc.confPA = virt_to_phys(pmConf);
++
++       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
++                              VMXNET3_CMD_UPDATE_PMCFG);
++
++       pci_save_state(pdev);
++       pci_enable_wake(pdev, pci_choose_state(pdev, PMSG_SUSPEND),
++                       adapter->wol);
++       pci_disable_device(pdev);
++       pci_set_power_state(pdev, pci_choose_state(pdev, PMSG_SUSPEND));
++
++       return 0;
++}
++
++
++static int
++vmxnet3_resume(struct device *device)
++{
++       int err;
++       struct pci_dev *pdev = to_pci_dev(device);
++       struct net_device *netdev = pci_get_drvdata(pdev);
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++       struct Vmxnet3_PMConf *pmConf;
++
++       if (!netif_running(netdev))
++               return 0;
++
++       /* Destroy wake-up filters. */
++       pmConf = adapter->pm_conf;
++       memset(pmConf, 0, sizeof(*pmConf));
++
++       adapter->shared->devRead.pmConfDesc.confVer = 1;
++       adapter->shared->devRead.pmConfDesc.confLen = sizeof(*pmConf);
++       adapter->shared->devRead.pmConfDesc.confPA = virt_to_phys(pmConf);
++
++       netif_device_attach(netdev);
++       pci_set_power_state(pdev, PCI_D0);
++       pci_restore_state(pdev);
++       err = pci_enable_device(pdev);
++       if (err != 0)
++               return err;
++
++       pci_enable_wake(pdev, PCI_D0, 0);
++
++       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
++                              VMXNET3_CMD_UPDATE_PMCFG);
++       vmxnet3_enable_all_intrs(adapter);
++
++       return 0;
++}
++
++static struct dev_pm_ops vmxnet3_pm_ops = {
++       .suspend = vmxnet3_suspend,
++       .resume = vmxnet3_resume,
++};
++#endif
++
++static struct pci_driver vmxnet3_driver = {
++       .name           = vmxnet3_driver_name,
++       .id_table       = vmxnet3_pciid_table,
++       .probe          = vmxnet3_probe_device,
++       .remove         = __devexit_p(vmxnet3_remove_device),
++#ifdef CONFIG_PM
++       .driver.pm      = &vmxnet3_pm_ops,
++#endif
++};
++
++
++static int __init
++vmxnet3_init_module(void)
++{
++       printk(KERN_INFO "%s - version %s\n", VMXNET3_DRIVER_DESC,
++               VMXNET3_DRIVER_VERSION_REPORT);
++       return pci_register_driver(&vmxnet3_driver);
++}
++
++module_init(vmxnet3_init_module);
++
++
++static void
++vmxnet3_exit_module(void)
++{
++       pci_unregister_driver(&vmxnet3_driver);
++}
++
++module_exit(vmxnet3_exit_module);
++
++MODULE_AUTHOR("VMware, Inc.");
++MODULE_DESCRIPTION(VMXNET3_DRIVER_DESC);
++MODULE_LICENSE("GPL v2");
++MODULE_VERSION(VMXNET3_DRIVER_VERSION_STRING);
++
++/* This paramenter is used to control Large Receive Offload feature
++ * of the NIC. When set to non-zeora LRO is enabled.
++ */
++module_param(disable_lro, int, 0);
+diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+new file mode 100644
+index 0000000..490577f
+--- /dev/null
++++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+@@ -0,0 +1,578 @@
++/*
++ * Linux driver for VMware's vmxnet3 ethernet NIC.
++ *
++ * Copyright (C) 2008-2009, VMware, Inc. All Rights Reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License as published by the
++ * Free Software Foundation; version 2 of the License and no later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, GOOD TITLE or
++ * NON INFRINGEMENT.  See the GNU General Public License for more
++ * details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Maintained by: Shreyas Bhatewara <pv-drivers@vmware.com>
++ *
++ */
++
++/*
++ * vmxnet3_ethtool.c --
++ *
++ *      API to support ethtool for for VMXNET3 NIC
++ */
++
++
++#include "vmxnet3_int.h"
++
++struct vmxnet3_stat_desc {
++       char desc[ETH_GSTRING_LEN];
++       int  offset;
++};
++
++
++static u32
++vmxnet3_get_rx_csum(struct net_device *netdev)
++{
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++       return adapter->rxcsum;
++}
++
++
++static int
++vmxnet3_set_rx_csum(struct net_device *netdev, u32 val)
++{
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++
++       if (adapter->rxcsum != val) {
++               adapter->rxcsum = val;
++               if (netif_running(netdev)) {
++                       if (val)
++                               adapter->shared->devRead.misc.uptFeatures |=
++                                                               UPT1_F_RXCSUM;
++                       else
++                               adapter->shared->devRead.misc.uptFeatures &=
++                                                               ~UPT1_F_RXCSUM;
++
++                       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
++                                              VMXNET3_CMD_UPDATE_FEATURE);
++               }
++       }
++       return 0;
++}
++
++
++static u32
++vmxnet3_get_tx_csum(struct net_device *netdev)
++{
++       return (netdev->features & NETIF_F_HW_CSUM) != 0;
++}
++
++
++static int
++vmxnet3_set_tx_csum(struct net_device *netdev, u32 val)
++{
++       if (val)
++               netdev->features |= NETIF_F_HW_CSUM;
++       else
++               netdev->features &= ~NETIF_F_HW_CSUM;
++
++       return 0;
++}
++
++
++static int
++vmxnet3_set_sg(struct net_device *netdev, u32 val)
++{
++       ethtool_op_set_sg(netdev, val);
++       return 0;
++}
++
++
++static int
++vmxnet3_set_tso(struct net_device *netdev, u32 val)
++{
++       ethtool_op_set_tso(netdev, val);
++       return 0;
++}
++
++
++/* per tq stats maintained by the device */
++static const struct vmxnet3_stat_desc
++vmxnet3_tq_dev_stats[] = {
++       /* description,         offset */
++       { "TSO pkts tx",        offsetof(struct UPT1_TxStats, TSOPktsTxOK) },
++       { "TSO bytes tx",       offsetof(struct UPT1_TxStats, TSOBytesTxOK) },
++       { "ucast pkts tx",      offsetof(struct UPT1_TxStats, ucastPktsTxOK) },
++       { "ucast bytes tx",     offsetof(struct UPT1_TxStats, ucastBytesTxOK) },
++       { "mcast pkts tx",      offsetof(struct UPT1_TxStats, mcastPktsTxOK) },
++       { "mcast bytes tx",     offsetof(struct UPT1_TxStats, mcastBytesTxOK) },
++       { "bcast pkts tx",      offsetof(struct UPT1_TxStats, bcastPktsTxOK) },
++       { "bcast bytes tx",     offsetof(struct UPT1_TxStats, bcastBytesTxOK) },
++       { "pkts tx err",        offsetof(struct UPT1_TxStats, pktsTxError) },
++       { "pkts tx discard",    offsetof(struct UPT1_TxStats, pktsTxDiscard) },
++};
++
++/* per tq stats maintained by the driver */
++static const struct vmxnet3_stat_desc
++vmxnet3_tq_driver_stats[] = {
++       /* description,         offset */
++       {"drv dropped tx total", offsetof(struct vmxnet3_tq_driver_stats,
++                                       drop_total) },
++       { "   too many frags",  offsetof(struct vmxnet3_tq_driver_stats,
++                                       drop_too_many_frags) },
++       { "   giant hdr",       offsetof(struct vmxnet3_tq_driver_stats,
++                                       drop_oversized_hdr) },
++       { "   hdr err",         offsetof(struct vmxnet3_tq_driver_stats,
++                                       drop_hdr_inspect_err) },
++       { "   tso",             offsetof(struct vmxnet3_tq_driver_stats,
++                                       drop_tso) },
++       { "ring full",          offsetof(struct vmxnet3_tq_driver_stats,
++                                       tx_ring_full) },
++       { "pkts linearized",    offsetof(struct vmxnet3_tq_driver_stats,
++                                       linearized) },
++       { "hdr cloned",         offsetof(struct vmxnet3_tq_driver_stats,
++                                       copy_skb_header) },
++       { "giant hdr",          offsetof(struct vmxnet3_tq_driver_stats,
++                                       oversized_hdr) },
++};
++
++/* per rq stats maintained by the device */
++static const struct vmxnet3_stat_desc
++vmxnet3_rq_dev_stats[] = {
++       { "LRO pkts rx",        offsetof(struct UPT1_RxStats, LROPktsRxOK) },
++       { "LRO byte rx",        offsetof(struct UPT1_RxStats, LROBytesRxOK) },
++       { "ucast pkts rx",      offsetof(struct UPT1_RxStats, ucastPktsRxOK) },
++       { "ucast bytes rx",     offsetof(struct UPT1_RxStats, ucastBytesRxOK) },
++       { "mcast pkts rx",      offsetof(struct UPT1_RxStats, mcastPktsRxOK) },
++       { "mcast bytes rx",     offsetof(struct UPT1_RxStats, mcastBytesRxOK) },
++       { "bcast pkts rx",      offsetof(struct UPT1_RxStats, bcastPktsRxOK) },
++       { "bcast bytes rx",     offsetof(struct UPT1_RxStats, bcastBytesRxOK) },
++       { "pkts rx out of buf", offsetof(struct UPT1_RxStats, pktsRxOutOfBuf) },
++       { "pkts rx err",        offsetof(struct UPT1_RxStats, pktsRxError) },
++};
++
++/* per rq stats maintained by the driver */
++static const struct vmxnet3_stat_desc
++vmxnet3_rq_driver_stats[] = {
++       /* description,         offset */
++       { "drv dropped rx total", offsetof(struct vmxnet3_rq_driver_stats,
++                                          drop_total) },
++       { "   err",            offsetof(struct vmxnet3_rq_driver_stats,
++                                       drop_err) },
++       { "   fcs",            offsetof(struct vmxnet3_rq_driver_stats,
++                                       drop_fcs) },
++       { "rx buf alloc fail", offsetof(struct vmxnet3_rq_driver_stats,
++                                       rx_buf_alloc_failure) },
++};
++
++/* gloabl stats maintained by the driver */
++static const struct vmxnet3_stat_desc
++vmxnet3_global_stats[] = {
++       /* description,         offset */
++       { "tx timeout count",   offsetof(struct vmxnet3_adapter,
++                                        tx_timeout_count) }
++};
++
++
++struct net_device_stats*
++vmxnet3_get_stats(struct net_device *netdev)
++{
++       struct vmxnet3_adapter *adapter;
++       struct vmxnet3_tq_driver_stats *drvTxStats;
++       struct vmxnet3_rq_driver_stats *drvRxStats;
++       struct UPT1_TxStats *devTxStats;
++       struct UPT1_RxStats *devRxStats;
++
++       adapter = netdev_priv(netdev);
++
++       /* Collect the dev stats into the shared area */
++       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD, VMXNET3_CMD_GET_STATS);
++
++       /* Assuming that we have a single queue device */
++       devTxStats = &adapter->tqd_start->stats;
++       devRxStats = &adapter->rqd_start->stats;
++
++       /* Get access to the driver stats per queue */
++       drvTxStats = &adapter->tx_queue.stats;
++       drvRxStats = &adapter->rx_queue.stats;
++
++       memset(&adapter->net_stats, 0, sizeof(adapter->net_stats));
++
++       adapter->net_stats.rx_packets = devRxStats->ucastPktsRxOK +
++                                       devRxStats->mcastPktsRxOK +
++                                       devRxStats->bcastPktsRxOK;
++
++       adapter->net_stats.tx_packets = devTxStats->ucastPktsTxOK +
++                                       devTxStats->mcastPktsTxOK +
++                                       devTxStats->bcastPktsTxOK;
++
++       adapter->net_stats.rx_bytes = devRxStats->ucastBytesRxOK +
++                                       devRxStats->mcastBytesRxOK +
++                                       devRxStats->bcastBytesRxOK;
++
++       adapter->net_stats.tx_bytes = devTxStats->ucastBytesTxOK +
++                                       devTxStats->mcastBytesTxOK +
++                                       devTxStats->bcastBytesTxOK;
++
++       adapter->net_stats.rx_errors = devRxStats->pktsRxError;
++       adapter->net_stats.tx_errors = devTxStats->pktsTxError;
++       adapter->net_stats.rx_dropped = drvRxStats->drop_total;
++       adapter->net_stats.tx_dropped = drvTxStats->drop_total;
++       adapter->net_stats.multicast =  devRxStats->mcastPktsRxOK;
++
++       return &adapter->net_stats;
++}
++
++static int
++vmxnet3_get_stats_count(struct net_device *netdev)
++{
++       return ARRAY_SIZE(vmxnet3_tq_dev_stats) +
++               ARRAY_SIZE(vmxnet3_tq_driver_stats) +
++               ARRAY_SIZE(vmxnet3_rq_dev_stats) +
++               ARRAY_SIZE(vmxnet3_rq_driver_stats) +
++               ARRAY_SIZE(vmxnet3_global_stats);
++}
++
++
++static int
++vmxnet3_get_regs_len(struct net_device *netdev)
++{
++       return 20 * sizeof(u32);
++}
++
++
++static void
++vmxnet3_get_drvinfo(struct net_device *netdev, struct ethtool_drvinfo *drvinfo)
++{
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++
++       strncpy(drvinfo->driver, vmxnet3_driver_name, sizeof(drvinfo->driver));
++       drvinfo->driver[sizeof(drvinfo->driver) - 1] = '\0';
++
++       strncpy(drvinfo->version, VMXNET3_DRIVER_VERSION_REPORT,
++               sizeof(drvinfo->version));
++       drvinfo->driver[sizeof(drvinfo->version) - 1] = '\0';
++
++       strncpy(drvinfo->fw_version, "N/A", sizeof(drvinfo->fw_version));
++       drvinfo->fw_version[sizeof(drvinfo->fw_version) - 1] = '\0';
++
++       strncpy(drvinfo->bus_info,   pci_name(adapter->pdev),
++               ETHTOOL_BUSINFO_LEN);
++       drvinfo->n_stats = vmxnet3_get_stats_count(netdev);
++       drvinfo->testinfo_len = 0;
++       drvinfo->eedump_len   = 0;
++       drvinfo->regdump_len  = vmxnet3_get_regs_len(netdev);
++}
++
++
++static void
++vmxnet3_get_strings(struct net_device *netdev, u32 stringset, u8 *buf)
++{
++       if (stringset == ETH_SS_STATS) {
++               int i;
++
++               for (i = 0; i < ARRAY_SIZE(vmxnet3_tq_dev_stats); i++) {
++                       memcpy(buf, vmxnet3_tq_dev_stats[i].desc,
++                              ETH_GSTRING_LEN);
++                       buf += ETH_GSTRING_LEN;
++               }
++               for (i = 0; i < ARRAY_SIZE(vmxnet3_tq_driver_stats); i++) {
++                       memcpy(buf, vmxnet3_tq_driver_stats[i].desc,
++                              ETH_GSTRING_LEN);
++                       buf += ETH_GSTRING_LEN;
++               }
++               for (i = 0; i < ARRAY_SIZE(vmxnet3_rq_dev_stats); i++) {
++                       memcpy(buf, vmxnet3_rq_dev_stats[i].desc,
++                              ETH_GSTRING_LEN);
++                       buf += ETH_GSTRING_LEN;
++               }
++               for (i = 0; i < ARRAY_SIZE(vmxnet3_rq_driver_stats); i++) {
++                       memcpy(buf, vmxnet3_rq_driver_stats[i].desc,
++                              ETH_GSTRING_LEN);
++                       buf += ETH_GSTRING_LEN;
++               }
++               for (i = 0; i < ARRAY_SIZE(vmxnet3_global_stats); i++) {
++                       memcpy(buf, vmxnet3_global_stats[i].desc,
++                               ETH_GSTRING_LEN);
++                       buf += ETH_GSTRING_LEN;
++               }
++       }
++}
++
++
++static void
++vmxnet3_get_ethtool_stats(struct net_device *netdev,
++               struct ethtool_stats *stats,
++               u64  *buf)
++{
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++       u8 *base;
++       int i;
++
++       VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD, VMXNET3_CMD_GET_STATS);
++
++       /* this does assume each counter is 64-bit wide */
++
++       base = (u8 *)&adapter->tqd_start->stats;
++       for (i = 0; i < ARRAY_SIZE(vmxnet3_tq_dev_stats); i++)
++               *buf++ = *(u64 *)(base + vmxnet3_tq_dev_stats[i].offset);
++
++       base = (u8 *)&adapter->tx_queue.stats;
++       for (i = 0; i < ARRAY_SIZE(vmxnet3_tq_driver_stats); i++)
++               *buf++ = *(u64 *)(base + vmxnet3_tq_driver_stats[i].offset);
++
++       base = (u8 *)&adapter->rqd_start->stats;
++       for (i = 0; i < ARRAY_SIZE(vmxnet3_rq_dev_stats); i++)
++               *buf++ = *(u64 *)(base + vmxnet3_rq_dev_stats[i].offset);
++
++       base = (u8 *)&adapter->rx_queue.stats;
++       for (i = 0; i < ARRAY_SIZE(vmxnet3_rq_driver_stats); i++)
++               *buf++ = *(u64 *)(base + vmxnet3_rq_driver_stats[i].offset);
++
++       base = (u8 *)adapter;
++       for (i = 0; i < ARRAY_SIZE(vmxnet3_global_stats); i++)
++               *buf++ = *(u64 *)(base + vmxnet3_global_stats[i].offset);
++}
++
++
++static void
++vmxnet3_get_regs(struct net_device *netdev, struct ethtool_regs *regs, void *p)
++{
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++       u32 *buf = p;
++
++       memset(p, 0, vmxnet3_get_regs_len(netdev));
++
++       regs->version = 1;
++
++       /* Update vmxnet3_get_regs_len if we want to dump more registers */
++
++       /* make each ring use multiple of 16 bytes */
++       buf[0] = adapter->tx_queue.tx_ring.next2fill;
++       buf[1] = adapter->tx_queue.tx_ring.next2comp;
++       buf[2] = adapter->tx_queue.tx_ring.gen;
++       buf[3] = 0;
++
++       buf[4] = adapter->tx_queue.comp_ring.next2proc;
++       buf[5] = adapter->tx_queue.comp_ring.gen;
++       buf[6] = adapter->tx_queue.stopped;
++       buf[7] = 0;
++
++       buf[8] = adapter->rx_queue.rx_ring[0].next2fill;
++       buf[9] = adapter->rx_queue.rx_ring[0].next2comp;
++       buf[10] = adapter->rx_queue.rx_ring[0].gen;
++       buf[11] = 0;
++
++       buf[12] = adapter->rx_queue.rx_ring[1].next2fill;
++       buf[13] = adapter->rx_queue.rx_ring[1].next2comp;
++       buf[14] = adapter->rx_queue.rx_ring[1].gen;
++       buf[15] = 0;
++
++       buf[16] = adapter->rx_queue.comp_ring.next2proc;
++       buf[17] = adapter->rx_queue.comp_ring.gen;
++       buf[18] = 0;
++       buf[19] = 0;
++}
++
++
++static void
++vmxnet3_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
++{
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++
++       wol->supported = WAKE_UCAST | WAKE_ARP | WAKE_MAGIC;
++       wol->wolopts = adapter->wol;
++}
++
++
++static int
++vmxnet3_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
++{
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++
++       if (wol->wolopts & (WAKE_PHY | WAKE_MCAST | WAKE_BCAST |
++                           WAKE_MAGICSECURE)) {
++               return -EOPNOTSUPP;
++       }
++
++       adapter->wol = wol->wolopts;
++
++       device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
++
++       return 0;
++}
++
++
++static int
++vmxnet3_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
++{
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++
++       ecmd->supported = SUPPORTED_10000baseT_Full | SUPPORTED_1000baseT_Full |
++                         SUPPORTED_TP;
++       ecmd->advertising = ADVERTISED_TP;
++       ecmd->port = PORT_TP;
++       ecmd->transceiver = XCVR_INTERNAL;
++
++       if (adapter->link_speed) {
++               ecmd->speed = adapter->link_speed;
++               ecmd->duplex = DUPLEX_FULL;
++       } else {
++               ecmd->speed = -1;
++               ecmd->duplex = -1;
++       }
++       return 0;
++}
++
++
++static void
++vmxnet3_get_ringparam(struct net_device *netdev,
++               struct ethtool_ringparam *param)
++{
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++
++       param->rx_max_pending = VMXNET3_RX_RING_MAX_SIZE;
++       param->tx_max_pending = VMXNET3_TX_RING_MAX_SIZE;
++       param->rx_mini_max_pending = 0;
++       param->rx_jumbo_max_pending = 0;
++
++       param->rx_pending = adapter->rx_queue.rx_ring[0].size;
++       param->tx_pending = adapter->tx_queue.tx_ring.size;
++       param->rx_mini_pending = 0;
++       param->rx_jumbo_pending = 0;
++}
++
++
++static int
++vmxnet3_set_ringparam(struct net_device *netdev,
++               struct ethtool_ringparam *param)
++{
++       struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++       u32 new_tx_ring_size, new_rx_ring_size;
++       u32 sz;
++       int err = 0;
++
++       if (param->tx_pending == 0 || param->tx_pending >
++                                               VMXNET3_TX_RING_MAX_SIZE) {
++               printk(KERN_ERR "%s: invalid tx ring size %u\n", netdev->name,
++                       param->tx_pending);
++               return -EINVAL;
++       }
++       if (param->rx_pending == 0 || param->rx_pending >
++                                       VMXNET3_RX_RING_MAX_SIZE) {
++               printk(KERN_ERR "%s: invalid rx ring size %u\n", netdev->name,
++                       param->rx_pending);
++               return -EINVAL;
++       }
++
++       /* round it up to a multiple of VMXNET3_RING_SIZE_ALIGN */
++       new_tx_ring_size = (param->tx_pending + VMXNET3_RING_SIZE_MASK) &
++                                                       ~VMXNET3_RING_SIZE_MASK;
++       new_tx_ring_size = min_t(u32, new_tx_ring_size,
++                                VMXNET3_TX_RING_MAX_SIZE);
++       BUG_ON(new_tx_ring_size > VMXNET3_TX_RING_MAX_SIZE);
++       BUG_ON(new_tx_ring_size % VMXNET3_RING_SIZE_ALIGN != 0);
++
++       /* ring0 has to be a multiple of
++        * rx_buf_per_pkt * VMXNET3_RING_SIZE_ALIGN
++        */
++       sz = adapter->rx_buf_per_pkt * VMXNET3_RING_SIZE_ALIGN;
++       new_rx_ring_size = (param->rx_pending + sz - 1) / sz * sz;
++       new_rx_ring_size = min_t(u32, new_rx_ring_size,
++                                VMXNET3_RX_RING_MAX_SIZE / sz * sz);
++       BUG_ON(new_rx_ring_size > VMXNET3_RX_RING_MAX_SIZE);
++       BUG_ON(new_rx_ring_size % sz != 0);
++
++       if (new_tx_ring_size == adapter->tx_queue.tx_ring.size &&
++                       new_rx_ring_size == adapter->rx_queue.rx_ring[0].size) {
++               return 0;
++       }
++
++       /*
++        * Reset_work may be in the middle of resetting the device, wait for its
++        * completion.
++        */
++       while (test_and_set_bit(VMXNET3_STATE_BIT_RESETTING, &adapter->state))
++               msleep(1);
++
++       if (netif_running(netdev)) {
++               vmxnet3_quiesce_dev(adapter);
++               vmxnet3_reset_dev(adapter);
++
++               /* recreate the rx queue and the tx queue based on the
++                * new sizes */
++               vmxnet3_tq_destroy(&adapter->tx_queue, adapter);
++               vmxnet3_rq_destroy(&adapter->rx_queue, adapter);
++
++               err = vmxnet3_create_queues(adapter, new_tx_ring_size,
++                       new_rx_ring_size, VMXNET3_DEF_RX_RING_SIZE);
++               if (err) {
++                       /* failed, most likely because of OOM, try default
++                        * size */
++                       printk(KERN_ERR "%s: failed to apply new sizes, try the"
++                               " default ones\n", netdev->name);
++                       err = vmxnet3_create_queues(adapter,
++                                                   VMXNET3_DEF_TX_RING_SIZE,
++                                                   VMXNET3_DEF_RX_RING_SIZE,
++                                                   VMXNET3_DEF_RX_RING_SIZE);
++                       if (err) {
++                               printk(KERN_ERR "%s: failed to create queues "
++                                       "with default sizes. Closing it\n",
++                                       netdev->name);
++                               goto out;
++                       }
++               }
++
++               err = vmxnet3_activate_dev(adapter);
++               if (err) {
++                       printk(KERN_ERR "%s: failed to re-activate, error %d."
++                               " Closing it\n", netdev->name, err);
++                       goto out;
++               }
++       }
++
++out:
++       clear_bit(VMXNET3_STATE_BIT_RESETTING, &adapter->state);
++       if (err)
++               vmxnet3_force_close(adapter);
++
++       return err;
++}
++
++
++static struct ethtool_ops vmxnet3_ethtool_ops = {
++       .get_settings      = vmxnet3_get_settings,
++       .get_drvinfo       = vmxnet3_get_drvinfo,
++       .get_regs_len      = vmxnet3_get_regs_len,
++       .get_regs          = vmxnet3_get_regs,
++       .get_wol           = vmxnet3_get_wol,
++       .set_wol           = vmxnet3_set_wol,
++       .get_link          = ethtool_op_get_link,
++       .get_rx_csum       = vmxnet3_get_rx_csum,
++       .set_rx_csum       = vmxnet3_set_rx_csum,
++       .get_tx_csum       = vmxnet3_get_tx_csum,
++       .set_tx_csum       = vmxnet3_set_tx_csum,
++       .get_sg            = ethtool_op_get_sg,
++       .set_sg            = vmxnet3_set_sg,
++       .get_tso           = ethtool_op_get_tso,
++       .set_tso           = vmxnet3_set_tso,
++       .get_strings       = vmxnet3_get_strings,
++       .get_stats_count   = vmxnet3_get_stats_count,
++       .get_ethtool_stats = vmxnet3_get_ethtool_stats,
++       .get_ringparam     = vmxnet3_get_ringparam,
++       .set_ringparam     = vmxnet3_set_ringparam,
++};
++
++void vmxnet3_set_ethtool_ops(struct net_device *netdev)
++{
++       SET_ETHTOOL_OPS(netdev, &vmxnet3_ethtool_ops);
++}
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+new file mode 100644
+index 0000000..c33d3d1
+--- /dev/null
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -0,0 +1,390 @@
++/*
++ * Linux driver for VMware's vmxnet3 ethernet NIC.
++ *
++ * Copyright (C) 2008-2009, VMware, Inc. All Rights Reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License as published by the
++ * Free Software Foundation; version 2 of the License and no later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, GOOD TITLE or
++ * NON INFRINGEMENT.  See the GNU General Public License for more
++ * details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Maintained by: Shreyas Bhatewara <pv-drivers@vmware.com>
++ *
++ */
++
++#ifndef _VMXNET3_INT_H
++#define _VMXNET3_INT_H
++
++#include <linux/types.h>
++#include <linux/ethtool.h>
++#include <linux/delay.h>
++#include <linux/netdevice.h>
++#include <linux/pci.h>
++#include <linux/ethtool.h>
++#include <linux/compiler.h>
++#include <linux/module.h>
++#include <linux/moduleparam.h>
++#include <linux/slab.h>
++#include <linux/spinlock.h>
++#include <linux/ioport.h>
++#include <linux/highmem.h>
++#include <linux/init.h>
++#include <linux/timer.h>
++#include <linux/skbuff.h>
++#include <linux/interrupt.h>
++#include <linux/workqueue.h>
++#include <linux/uaccess.h>
++#include <asm/dma.h>
++#include <asm/page.h>
++
++#include <linux/tcp.h>
++#include <linux/udp.h>
++#include <linux/ip.h>
++#include <linux/ipv6.h>
++#include <linux/in.h>
++#include <linux/etherdevice.h>
++#include <asm/checksum.h>
++#include <linux/if_vlan.h>
++#include <linux/if_arp.h>
++#include <linux/inetdevice.h>
++#include <linux/dst.h>
++
++#include "vmxnet3_defs.h"
++
++#ifdef DEBUG
++# define VMXNET3_DRIVER_VERSION_REPORT VMXNET3_DRIVER_VERSION_STRING"-NAPI(debug)"
++#else
++# define VMXNET3_DRIVER_VERSION_REPORT VMXNET3_DRIVER_VERSION_STRING"-NAPI"
++#endif
++
++
++/*
++ * Version numbers
++ */
++#define VMXNET3_DRIVER_VERSION_STRING   "1.0.4.0-k"
++
++/* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
++#define VMXNET3_DRIVER_VERSION_NUM      0x01000400
++
++
++/*
++ * Capabilities
++ */
++
++enum {
++       VMNET_CAP_SG            = 0x0001, /* Can do scatter-gather transmits. */
++       VMNET_CAP_IP4_CSUM      = 0x0002, /* Can checksum only TCP/UDP over
++                                          * IPv4 */
++       VMNET_CAP_HW_CSUM       = 0x0004, /* Can checksum all packets. */
++       VMNET_CAP_HIGH_DMA      = 0x0008, /* Can DMA to high memory. */
++       VMNET_CAP_TOE           = 0x0010, /* Supports TCP/IP offload. */
++       VMNET_CAP_TSO           = 0x0020, /* Supports TCP Segmentation
++                                          * offload */
++       VMNET_CAP_SW_TSO        = 0x0040, /* Supports SW TCP Segmentation */
++       VMNET_CAP_VMXNET_APROM  = 0x0080, /* Vmxnet APROM support */
++       VMNET_CAP_HW_TX_VLAN    = 0x0100, /* Can we do VLAN tagging in HW */
++       VMNET_CAP_HW_RX_VLAN    = 0x0200, /* Can we do VLAN untagging in HW */
++       VMNET_CAP_SW_VLAN       = 0x0400, /* VLAN tagging/untagging in SW */
++       VMNET_CAP_WAKE_PCKT_RCV = 0x0800, /* Can wake on network packet recv? */
++       VMNET_CAP_ENABLE_INT_INLINE = 0x1000,  /* Enable Interrupt Inline */
++       VMNET_CAP_ENABLE_HEADER_COPY = 0x2000,  /* copy header for vmkernel */
++       VMNET_CAP_TX_CHAIN      = 0x4000, /* Guest can use multiple tx entries
++                                         * for a pkt */
++       VMNET_CAP_RX_CHAIN      = 0x8000, /* pkt can span multiple rx entries */
++       VMNET_CAP_LPD           = 0x10000, /* large pkt delivery */
++       VMNET_CAP_BPF           = 0x20000, /* BPF Support in VMXNET Virtual HW*/
++       VMNET_CAP_SG_SPAN_PAGES = 0x40000, /* Scatter-gather can span multiple*/
++                                          /* pages transmits */
++       VMNET_CAP_IP6_CSUM      = 0x80000, /* Can do IPv6 csum offload. */
++       VMNET_CAP_TSO6         = 0x100000, /* TSO seg. offload for IPv6 pkts. */
++       VMNET_CAP_TSO256k      = 0x200000, /* Can do TSO seg offload for */
++                                          /* pkts up to 256kB. */
++       VMNET_CAP_UPT          = 0x400000  /* Support UPT */
++};
++
++/*
++ * PCI vendor and device IDs.
++ */
++#define PCI_VENDOR_ID_VMWARE            0x15AD
++#define PCI_DEVICE_ID_VMWARE_VMXNET3    0x07B0
++#define MAX_ETHERNET_CARDS             10
++#define MAX_PCI_PASSTHRU_DEVICE                6
++
++struct vmxnet3_cmd_ring {
++       union Vmxnet3_GenericDesc *base;
++       u32             size;
++       u32             next2fill;
++       u32             next2comp;
++       u8              gen;
++       dma_addr_t      basePA;
++};
++
++static inline void
++vmxnet3_cmd_ring_adv_next2fill(struct vmxnet3_cmd_ring *ring)
++{
++       ring->next2fill++;
++       if (unlikely(ring->next2fill == ring->size)) {
++               ring->next2fill = 0;
++               VMXNET3_FLIP_RING_GEN(ring->gen);
++       }
++}
++
++static inline void
++vmxnet3_cmd_ring_adv_next2comp(struct vmxnet3_cmd_ring *ring)
++{
++       VMXNET3_INC_RING_IDX_ONLY(ring->next2comp, ring->size);
++}
++
++static inline int
++vmxnet3_cmd_ring_desc_avail(struct vmxnet3_cmd_ring *ring)
++{
++       return (ring->next2comp > ring->next2fill ? 0 : ring->size) +
++               ring->next2comp - ring->next2fill - 1;
++}
++
++struct vmxnet3_comp_ring {
++       union Vmxnet3_GenericDesc *base;
++       u32               size;
++       u32               next2proc;
++       u8                gen;
++       u8                intr_idx;
++       dma_addr_t           basePA;
++};
++
++static inline void
++vmxnet3_comp_ring_adv_next2proc(struct vmxnet3_comp_ring *ring)
++{
++       ring->next2proc++;
++       if (unlikely(ring->next2proc == ring->size)) {
++               ring->next2proc = 0;
++               VMXNET3_FLIP_RING_GEN(ring->gen);
++       }
++}
++
++struct vmxnet3_tx_data_ring {
++       struct Vmxnet3_TxDataDesc *base;
++       u32              size;
++       dma_addr_t          basePA;
++};
++
++enum vmxnet3_buf_map_type {
++       VMXNET3_MAP_INVALID = 0,
++       VMXNET3_MAP_NONE,
++       VMXNET3_MAP_SINGLE,
++       VMXNET3_MAP_PAGE,
++};
++
++struct vmxnet3_tx_buf_info {
++       u32      map_type;
++       u16      len;
++       u16      sop_idx;
++       dma_addr_t  dma_addr;
++       struct sk_buff *skb;
++};
++
++struct vmxnet3_tq_driver_stats {
++       u64 drop_total;     /* # of pkts dropped by the driver, the
++                               * counters below track droppings due to
++                               * different reasons
++                               */
++       u64 drop_too_many_frags;
++       u64 drop_oversized_hdr;
++       u64 drop_hdr_inspect_err;
++       u64 drop_tso;
++
++       u64 tx_ring_full;
++       u64 linearized;         /* # of pkts linearized */
++       u64 copy_skb_header;    /* # of times we have to copy skb header */
++       u64 oversized_hdr;
++};
++
++struct vmxnet3_tx_ctx {
++       bool   ipv4;
++       u16 mss;
++       u32 eth_ip_hdr_size; /* only valid for pkts requesting tso or csum
++                                * offloading
++                                */
++       u32 l4_hdr_size;     /* only valid if mss != 0 */
++       u32 copy_size;       /* # of bytes copied into the data ring */
++       union Vmxnet3_GenericDesc *sop_txd;
++       union Vmxnet3_GenericDesc *eop_txd;
++};
++
++struct vmxnet3_tx_queue {
++       spinlock_t                      tx_lock;
++       struct vmxnet3_cmd_ring         tx_ring;
++       struct vmxnet3_tx_buf_info     *buf_info;
++       struct vmxnet3_tx_data_ring     data_ring;
++       struct vmxnet3_comp_ring        comp_ring;
++       struct Vmxnet3_TxQueueCtrl            *shared;
++       struct vmxnet3_tq_driver_stats  stats;
++       bool                            stopped;
++       int                             num_stop;  /* # of times the queue is
++                                                   * stopped */
++} __attribute__((__aligned__(SMP_CACHE_BYTES)));
++
++enum vmxnet3_rx_buf_type {
++       VMXNET3_RX_BUF_NONE = 0,
++       VMXNET3_RX_BUF_SKB = 1,
++       VMXNET3_RX_BUF_PAGE = 2
++};
++
++struct vmxnet3_rx_buf_info {
++       enum vmxnet3_rx_buf_type buf_type;
++       u16     len;
++       union {
++               struct sk_buff *skb;
++               struct page    *page;
++       };
++       dma_addr_t dma_addr;
++};
++
++struct vmxnet3_rx_ctx {
++       struct sk_buff *skb;
++       u32 sop_idx;
++};
++
++struct vmxnet3_rq_driver_stats {
++       u64 drop_total;
++       u64 drop_err;
++       u64 drop_fcs;
++       u64 rx_buf_alloc_failure;
++};
++
++struct vmxnet3_rx_queue {
++       struct vmxnet3_cmd_ring   rx_ring[2];
++       struct vmxnet3_comp_ring  comp_ring;
++       struct vmxnet3_rx_ctx     rx_ctx;
++       u32 qid;            /* rqID in RCD for buffer from 1st ring */
++       u32 qid2;           /* rqID in RCD for buffer from 2nd ring */
++       u32 uncommitted[2]; /* # of buffers allocated since last RXPROD
++                               * update */
++       struct vmxnet3_rx_buf_info     *buf_info[2];
++       struct Vmxnet3_RxQueueCtrl            *shared;
++       struct vmxnet3_rq_driver_stats  stats;
++} __attribute__((__aligned__(SMP_CACHE_BYTES)));
++
++#define VMXNET3_LINUX_MAX_MSIX_VECT     1
++
++struct vmxnet3_intr {
++       enum vmxnet3_intr_mask_mode  mask_mode;
++       enum vmxnet3_intr_type       type;      /* MSI-X, MSI, or INTx? */
++       u8  num_intrs;                  /* # of intr vectors */
++       u8  event_intr_idx;             /* idx of the intr vector for event */
++       u8  mod_levels[VMXNET3_LINUX_MAX_MSIX_VECT]; /* moderation level */
++#ifdef CONFIG_PCI_MSI
++       struct msix_entry msix_entries[VMXNET3_LINUX_MAX_MSIX_VECT];
++#endif
++};
++
++#define VMXNET3_STATE_BIT_RESETTING   0
++#define VMXNET3_STATE_BIT_QUIESCED    1
++struct vmxnet3_adapter {
++       struct vmxnet3_tx_queue         tx_queue;
++       struct vmxnet3_rx_queue         rx_queue;
++       struct napi_struct              napi;
++       struct vlan_group              *vlan_grp;
++
++       struct vmxnet3_intr             intr;
++
++       struct Vmxnet3_DriverShared    *shared;
++       struct Vmxnet3_PMConf          *pm_conf;
++       struct Vmxnet3_TxQueueDesc     *tqd_start;     /* first tx queue desc */
++       struct Vmxnet3_RxQueueDesc     *rqd_start;     /* first rx queue desc */
++       struct net_device              *netdev;
++       struct net_device_stats         net_stats;
++       struct pci_dev                 *pdev;
++
++       u8                              *hw_addr0; /* for BAR 0 */
++       u8                              *hw_addr1; /* for BAR 1 */
++
++       /* feature control */
++       bool                            rxcsum;
++       bool                            lro;
++       bool                            jumbo_frame;
++
++       /* rx buffer related */
++       unsigned                        skb_buf_size;
++       int             rx_buf_per_pkt;  /* only apply to the 1st ring */
++       dma_addr_t                      shared_pa;
++       dma_addr_t queue_desc_pa;
++
++       /* Wake-on-LAN */
++       u32     wol;
++
++       /* Link speed */
++       u32     link_speed; /* in mbps */
++
++       u64     tx_timeout_count;
++       struct work_struct work;
++
++       unsigned long  state;    /* VMXNET3_STATE_BIT_xxx */
++
++       int dev_number;
++};
++
++#define VMXNET3_WRITE_BAR0_REG(adapter, reg, val)  \
++       writel((val), (adapter)->hw_addr0 + (reg))
++#define VMXNET3_READ_BAR0_REG(adapter, reg)        \
++       readl((adapter)->hw_addr0 + (reg))
++
++#define VMXNET3_WRITE_BAR1_REG(adapter, reg, val)  \
++       writel((val), (adapter)->hw_addr1 + (reg))
++#define VMXNET3_READ_BAR1_REG(adapter, reg)        \
++       readl((adapter)->hw_addr1 + (reg))
++
++#define VMXNET3_WAKE_QUEUE_THRESHOLD(tq)  (5)
++#define VMXNET3_RX_ALLOC_THRESHOLD(rq, ring_idx, adapter) \
++       ((rq)->rx_ring[ring_idx].size >> 3)
++
++#define VMXNET3_GET_ADDR_LO(dma)   ((u32)(dma))
++#define VMXNET3_GET_ADDR_HI(dma)   ((u32)(((u64)(dma)) >> 32))
++
++/* must be a multiple of VMXNET3_RING_SIZE_ALIGN */
++#define VMXNET3_DEF_TX_RING_SIZE    512
++#define VMXNET3_DEF_RX_RING_SIZE    256
++
++#define VMXNET3_MAX_ETH_HDR_SIZE    22
++#define VMXNET3_MAX_SKB_BUF_SIZE    (3*1024)
++
++int
++vmxnet3_quiesce_dev(struct vmxnet3_adapter *adapter);
++
++int
++vmxnet3_activate_dev(struct vmxnet3_adapter *adapter);
++
++void
++vmxnet3_force_close(struct vmxnet3_adapter *adapter);
++
++void
++vmxnet3_reset_dev(struct vmxnet3_adapter *adapter);
++
++void
++vmxnet3_tq_destroy(struct vmxnet3_tx_queue *tq,
++                  struct vmxnet3_adapter *adapter);
++
++void
++vmxnet3_rq_destroy(struct vmxnet3_rx_queue *rq,
++                  struct vmxnet3_adapter *adapter);
++
++int
++vmxnet3_create_queues(struct vmxnet3_adapter *adapter,
++                     u32 tx_ring_size, u32 rx_ring_size, u32 rx_ring2_size);
++
++extern void vmxnet3_set_ethtool_ops(struct net_device *netdev);
++extern struct net_device_stats *vmxnet3_get_stats(struct net_device *netdev);
++
++extern char vmxnet3_driver_name[];
++#endif
