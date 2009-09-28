@@ -1,66 +1,72 @@
-From: Bernard Pidoux F6BVP <f6bvp@free.fr>
-Subject: Re: [PATCH] ax25: Add missing dev_put in ax25_setsockopt
-Date: Mon, 28 Sep 2009 12:48:25 +0200
-Message-ID: <4AC09479.6040402@free.fr>
-References: <20090921201157.GA5460@del.dom.local> <4ABA9058.3010605@free.fr> <20090928071211.GA8658@ff.dom.local>
+From: Manuel Prinz <manuel@debian.org>
+Subject: [Fwd: Re: Bug#538372: header failure including netlink.h (or
+	uio.h)]
+Date: Mon, 28 Sep 2009 13:24:44 +0200
+Message-ID: <1254137084.4756.11.camel@ce170155.zmb.uni-duisburg-essen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Bernard Pidoux <bernard.pidoux@upmc.fr>,
-	Ralf Baechle DL5RB <ralf@linux-mips.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-hams <linux-hams@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g21.free.fr ([212.27.42.5]:34428 "EHLO smtp5-g21.free.fr"
+Received: from ts-cs.de ([78.46.91.78]:38091 "EHLO lsrv5.ts-cs.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751755AbZI1Ksd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2009 06:48:33 -0400
-In-Reply-To: <20090928071211.GA8658@ff.dom.local>
+	id S1752463AbZI1LbX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Sep 2009 07:31:23 -0400
+Received: from localhost (lsrv5.ts-cs.de [127.0.0.1])
+	by lsrv5.ts-cs.de (Postfix) with ESMTP id 4DD5030801C
+	for <netdev@vger.kernel.org>; Mon, 28 Sep 2009 13:24:45 +0200 (CEST)
+Received: from lsrv5.ts-cs.de ([127.0.0.1])
+ by localhost (lsrv5.ts-cs.de [127.0.0.1]) (amavisd-maia, port 10024)
+ with ESMTP id 15545-09 for <netdev@vger.kernel.org>;
+ Mon, 28 Sep 2009 13:24:45 +0200 (CEST)
+Received: from [132.252.170.155] (unknown [132.252.170.155])
+	by lsrv5.ts-cs.de (Postfix) with ESMTPSA id 2C418308011
+	for <netdev@vger.kernel.org>; Mon, 28 Sep 2009 11:24:45 +0000 (UTC)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I had noticed dev_put(dev) was missing but never found where to insert =
-it !
-Patch applied.
-Thank you.
+Hi everyone,
 
-Bernard
+I'm forwarding this bug in Debian (http://bugs.debian.org/538372) as
+requested by the Debian kernel team. A patch is available. Applying just
+the first hunk fixes the issue for me. I've not enough kernel knowledge
+to judge if this fix is a proper solution, though.
+
+It would be really great if someone could have a look at it. Thanks in
+advance! (And please CC me in replies. Thanks!)
+
+Best regards,
+
+Manuel
 
 
-Jarek Poplawski a =E9crit :
-> There is no dev_put ending positive SO_BINDTODEVICE call in
-> ax25_setsockopt and no matching dev_put later. This ref isn't used by
-> ax25_cb's because it's handled with up and down device events.
->=20
-> BTW of reported-by: Bernard Pidoux F6BVP <f6bvp@free.fr>
->=20
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-> ---
->=20
->  net/ax25/af_ax25.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
->=20
-> diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
-> index fbcac76..3eee8eb 100644
-> --- a/net/ax25/af_ax25.c
-> +++ b/net/ax25/af_ax25.c
-> @@ -663,6 +663,7 @@ static int ax25_setsockopt(struct socket *sock, i=
-nt level, int optname,
-> =20
->  		ax25->ax25_dev =3D ax25_dev_ax25dev(dev);
->  		ax25_fillin_cb(ax25, ax25->ax25_dev);
-> +		dev_put(dev);
->  		break;
-> =20
->  	default:
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-hams"=
- in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
->=20
+-------- Weitergeleitete Nachricht --------
+> Von: Moritz Muehlenhoff <jmm@inutil.org>
+> An: Manuel Prinz <manuel@debian.org>
+> Kopie: Moritz Muehlenhoff <jmm@inutil.org>, 538372@bugs.debian.org
+> Betreff: Re: Bug#538372: header failure including netlink.h (or uio.h)
+> Datum: Sun, 27 Sep 2009 13:30:10 +0200
+> 
+> On Fri, Sep 18, 2009 at 10:59:19PM +0200, Manuel Prinz wrote:
+> > Am Dienstag, den 01.09.2009, 18:53 +0200 schrieb Moritz Muehlenhoff:
+> > > On Sat, Jul 25, 2009 at 01:55:04PM +0200, Bastian Blank wrote:
+> > > > Patches attached:
+> > > > * Fix uio.h
+> > > > * Remove socket.h backward compatibility code.
+> > > 
+> > > uio.h has been marked __KERNEL__-only upstream in commit
+> > > 812ed032cdc8138b7546eecc996879756b92d801.
+> > > 
+> > > Did you submit your socket.h patch upstream?
+> > 
+> > I am bitten by that bug as well. The change in uio.h did not fix it. I
+> > updated the patch for socket.h (attached) but I'm not sure if all
+> > changes are needed, though. Applying only the first hunk (#ifdef line)
+> > fixed all build issue for me.
+> 
+> Can you please forward this upstream? I suppose netdev@vger.kernel.org would
+> be the best list to contact.
+> 
+> Cheers,
+>         Moritz
 
