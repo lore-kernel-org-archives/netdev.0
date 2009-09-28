@@ -1,71 +1,91 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH] isdn: fix netjet/isdnhdlc build errors
-Date: Mon, 28 Sep 2009 09:25:20 -0700
-Message-ID: <20090928092520.b6f921de.randy.dunlap@oracle.com>
-References: <alpine.LFD.2.01.0909271511190.3349@localhost.localdomain>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Fw: [Bug 14241] New: Promiscuous mode on network slows the network
+ down
+Date: Mon, 28 Sep 2009 09:52:03 -0700
+Message-ID: <20090928095203.66b85207@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Karsten Keil <keil@b1-systems.de>,
-	netdev <netdev@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>, davem@davemloft.net
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet12.oracle.com ([148.87.113.124]:37913 "EHLO
-	rgminet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752681AbZI1Q0M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2009 12:26:12 -0400
-In-Reply-To: <alpine.LFD.2.01.0909271511190.3349@localhost.localdomain>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:48109 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751992AbZI1QwM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2009 12:52:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Commit cb3824bade2549d7ad059d5802da43312540fdee didn't fix this problem.
 
-Fix build errors in netjet, using isdnhdlc module:
+Begin forwarded message:
 
-drivers/built-in.o: In function `mode_tiger':
-netjet.c:(.text+0x1ca0c7): undefined reference to `isdnhdlc_rcv_init'
-netjet.c:(.text+0x1ca0d4): undefined reference to `isdnhdlc_out_init'
-drivers/built-in.o: In function `fill_dma':
-netjet.c:(.text+0x1ca2bd): undefined reference to `isdnhdlc_encode'
-drivers/built-in.o: In function `read_dma':
-netjet.c:(.text+0x1ca614): undefined reference to `isdnhdlc_decode'
-drivers/built-in.o: In function `nj_irq':
-netjet.c:(.text+0x1cb07a): undefined reference to `isdnhdlc_encode'
+Date: Sat, 26 Sep 2009 23:34:40 GMT
+From: bugzilla-daemon@bugzilla.kernel.org
+To: shemminger@linux-foundation.org
+Subject: [Bug 14241] New: Promiscuous mode on network slows the network down
 
-drivers/built-in.o: In function `isdnhdlc_decode':
-(.text+0x1c2088): undefined reference to `crc_ccitt_table'
-drivers/built-in.o: In function `isdnhdlc_encode':
-(.text+0x1c2339): undefined reference to `crc_ccitt_table'
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-Cc: Karsten Keil <keil@b1-systems.de>
----
- drivers/isdn/hardware/mISDN/Kconfig |    1 +
- drivers/isdn/i4l/Kconfig            |    3 +--
- 2 files changed, 2 insertions(+), 2 deletions(-)
+http://bugzilla.kernel.org/show_bug.cgi?id=14241
 
---- lnx-2632-rc1.orig/drivers/isdn/hardware/mISDN/Kconfig
-+++ lnx-2632-rc1/drivers/isdn/hardware/mISDN/Kconfig
-@@ -78,6 +78,7 @@ config MISDN_NETJET
- 	depends on PCI
- 	select MISDN_IPAC
- 	select ISDN_HDLC
-+	select ISDN_I4L
- 	help
- 	  Enable support for Traverse Technologies NETJet PCI cards.
- 
---- lnx-2632-rc1.orig/drivers/isdn/i4l/Kconfig
-+++ lnx-2632-rc1/drivers/isdn/i4l/Kconfig
-@@ -141,8 +141,7 @@ endmenu
- endif
- 
- config ISDN_HDLC
--	tristate 
--	depends on HISAX_ST5481
-+	tristate
- 	select CRC_CCITT
- 	select BITREVERSE
- 
+           Summary: Promiscuous mode on network slows the network down
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 2.6.31
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: high
+          Priority: P1
+         Component: IPV4
+        AssignedTo: shemminger@linux-foundation.org
+        ReportedBy: mwahal@gmail.com
+        Regression: No
+
+
+Hi,
+
+I have been running 2.6.22.14 kernel for about 2+ years on a pentium D 925, 1GB
+DDR2 system. I have a realtek 8169 gigabit onboard network controller on a
+ubuntu distribution. I wanted to try kvm but it didn't run because the
+kvm-intel module of 2.6.22 kernel is way too old. So, I upgraded to 2.6.28 (and
+later to 2.6.31 to eliminate 2.6.28 issues) to try that kernel. The kvm did
+work with 2.6.28. I had to put the ethernet in bridge mode so that the kvm
+guest OS gets the same IP address from my subnet. As a side effect when putting
+in bridge mode, the ethernet interface also enters promiscuous mode. I made
+changes in /etc/network/interface file as per ubuntu kvm wiki page to add a
+bridge interface and add the eth0 to the bridge port.
+
+Anyway, I noticed that certain network related tasks were taking too long. I
+stream video my server using UPnP to my UPnP client. The UPnP client had
+trouble streaming over a gigabit network inside my home. I was watching a x264
+720p movie yesterday and it was freezing on almost each frame. This is all with
+2.6.28 (and later upgraded to 2.6.31 latest kernel). If I downgrade back to
+2.6.22 kernel, I dont have any issues streaming even a 20Mbps movie.
+
+I've a 6Mbps DSL line at home. I run some scripts during the day to get stocks
+quotes from yahoo. That involves about issues 100 or so wget requests. On a
+2.6.22 kernel, that takes about 2-3 mins to complete. On a 2.6.31 kernel it
+takes about 45-50 mins.
+
+Since I didnt change the /etc/network/interfaces file , so when 2.6.22 loads,
+the ethernet still enters into promiscuous mode. I can run iftop and see that
+its watching other traffic on my network.
+
+So, my conclusion is that there is something drastically change in the ethernet
+driver when it runs in promiscuous mode between 2.6.22 and 2.6.28 (or 31) which
+is making it run excruciatingly slow. I'm open to all suggestions for making
+any changes to my system. I'm willing to offer whatever information is needed
+from my system if someone is willing to take a look at it. I do need kvm but
+not the expense of a sloooow network.
+
+Thanks for reading so far.
+
+-- 
+Configure bugmail: http://bugzilla.kernel.org/userprefs.cgi?tab=email
+------- You are receiving this mail because: -------
+You are the assignee for the bug.
+
+
+-- 
