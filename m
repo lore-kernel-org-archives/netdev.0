@@ -1,33 +1,71 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH 13/13] TProxy: use the interface primary IP address as
- a default value for --on-ip
-Date: Mon, 28 Sep 2009 12:16:10 -0400
-Message-ID: <4AC0E14A.10108@hp.com>
-References: <1253548005.12519.13.camel@bzorp.balabit>	 <4AB7BF47.2030404@hp.com> <1253601509.6883.5.camel@bzorp.balabit>	 <4AB8DC6F.90602@hp.com> <1253902068.10105.1.camel@bzorp.balabit>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH] isdn: fix netjet/isdnhdlc build errors
+Date: Mon, 28 Sep 2009 09:25:20 -0700
+Message-ID: <20090928092520.b6f921de.randy.dunlap@oracle.com>
+References: <alpine.LFD.2.01.0909271511190.3349@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Balazs Scheidler <bazsi@balabit.hu>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Karsten Keil <keil@b1-systems.de>,
+	netdev <netdev@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:23856 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751797AbZI1QQL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2009 12:16:11 -0400
-In-Reply-To: <1253902068.10105.1.camel@bzorp.balabit>
+Received: from rcsinet12.oracle.com ([148.87.113.124]:37913 "EHLO
+	rgminet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752681AbZI1Q0M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2009 12:26:12 -0400
+In-Reply-To: <alpine.LFD.2.01.0909271511190.3349@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Balazs Scheidler wrote:
-> One question, how fast is ipv6_dev_get_saddr()? Since the TPROXY target
-> can execute on a per-packet path (although the socket match should take
-> care of packets that belong to already-established connections), this
-> may be performance critical. Is ipv6_dev_get_saddr() something that I
-> can call so often?
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-It probably isn't the best thing to be calling on a per-packet basis, it's
-mainly called now on a per-connection basis.  I guess if it's really bad
-for you we could do something like ipv6_get_lladdr() does for finding
-a link-local address, it might be good enough in this case.
+Commit cb3824bade2549d7ad059d5802da43312540fdee didn't fix this problem.
 
--Brian
+Fix build errors in netjet, using isdnhdlc module:
+
+drivers/built-in.o: In function `mode_tiger':
+netjet.c:(.text+0x1ca0c7): undefined reference to `isdnhdlc_rcv_init'
+netjet.c:(.text+0x1ca0d4): undefined reference to `isdnhdlc_out_init'
+drivers/built-in.o: In function `fill_dma':
+netjet.c:(.text+0x1ca2bd): undefined reference to `isdnhdlc_encode'
+drivers/built-in.o: In function `read_dma':
+netjet.c:(.text+0x1ca614): undefined reference to `isdnhdlc_decode'
+drivers/built-in.o: In function `nj_irq':
+netjet.c:(.text+0x1cb07a): undefined reference to `isdnhdlc_encode'
+
+drivers/built-in.o: In function `isdnhdlc_decode':
+(.text+0x1c2088): undefined reference to `crc_ccitt_table'
+drivers/built-in.o: In function `isdnhdlc_encode':
+(.text+0x1c2339): undefined reference to `crc_ccitt_table'
+
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+Cc: Karsten Keil <keil@b1-systems.de>
+---
+ drivers/isdn/hardware/mISDN/Kconfig |    1 +
+ drivers/isdn/i4l/Kconfig            |    3 +--
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+--- lnx-2632-rc1.orig/drivers/isdn/hardware/mISDN/Kconfig
++++ lnx-2632-rc1/drivers/isdn/hardware/mISDN/Kconfig
+@@ -78,6 +78,7 @@ config MISDN_NETJET
+ 	depends on PCI
+ 	select MISDN_IPAC
+ 	select ISDN_HDLC
++	select ISDN_I4L
+ 	help
+ 	  Enable support for Traverse Technologies NETJet PCI cards.
+ 
+--- lnx-2632-rc1.orig/drivers/isdn/i4l/Kconfig
++++ lnx-2632-rc1/drivers/isdn/i4l/Kconfig
+@@ -141,8 +141,7 @@ endmenu
+ endif
+ 
+ config ISDN_HDLC
+-	tristate 
+-	depends on HISAX_ST5481
++	tristate
+ 	select CRC_CCITT
+ 	select BITREVERSE
+ 
