@@ -1,59 +1,56 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 1/2] net: introduce NETDEV_POST_INIT notifier
-Date: Mon, 28 Sep 2009 10:21:29 +0200
-Message-ID: <1254126089.6583.18.camel@johannes.local>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: [PATCH 2/2] cfg80211: fix wireless handlers assignment
+Date: Mon, 28 Sep 2009 10:21:57 +0200
+Message-ID: <1254126117.6583.19.camel@johannes.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-	Hugh Dickins <hugh.dickins@tiscali.co.uk>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:40160 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752570AbZI1IV3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2009 04:21:29 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Hugh Dickins <hugh.dickins-IWqWACnzNjwqdlJmJB21zg@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-For various purposes including a wireless extensions
-bugfix, we need to hook into the netdev creation before
-before netdev_register_kobject(). This will also ease
-doing the dev type assignment that Marcel was working
-on for cfg80211 drivers w/o touching them all.
+The point we assign dev->wireless_handlers at is too
+late, we need to do that before netdev_register_kobject()
+gets called, so use the new NETDEV_PRE_INIT notifier.
+The result of adding wireless_handlers too late is the
+disappearance of /sys/class/net/wlan0/wireless which a
+bunch of distro scripts still require.
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 ---
-I decided that it doesn't make a lot of sense to be after ndo_init but
-before the other name/... checks.
+ net/wireless/core.c |    8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
- include/linux/notifier.h |    1 +
- net/core/dev.c           |    5 +++++
- 2 files changed, 6 insertions(+)
-
---- wireless-testing.orig/include/linux/notifier.h	2009-09-28 10:14:54.000000000 +0200
-+++ wireless-testing/include/linux/notifier.h	2009-09-28 10:16:07.000000000 +0200
-@@ -201,6 +201,7 @@ static inline int notifier_to_errno(int 
- #define NETDEV_PRE_UP		0x000D
- #define NETDEV_BONDING_OLDTYPE  0x000E
- #define NETDEV_BONDING_NEWTYPE  0x000F
-+#define NETDEV_POST_INIT	0x0010
+--- wireless-testing.orig/net/wireless/core.c	2009-09-28 09:54:52.000000000 +0200
++++ wireless-testing/net/wireless/core.c	2009-09-28 10:18:47.000000000 +0200
+@@ -641,6 +641,12 @@ static int cfg80211_netdev_notifier_call
+ 	WARN_ON(wdev->iftype == NL80211_IFTYPE_UNSPECIFIED);
  
- #define SYS_DOWN	0x0001	/* Notify of system down */
- #define SYS_RESTART	SYS_DOWN
---- wireless-testing.orig/net/core/dev.c	2009-09-28 10:14:54.000000000 +0200
-+++ wireless-testing/net/core/dev.c	2009-09-28 10:20:46.000000000 +0200
-@@ -4785,6 +4785,11 @@ int register_netdevice(struct net_device
- 	if (dev->features & NETIF_F_SG)
- 		dev->features |= NETIF_F_GSO;
- 
-+	ret = call_netdevice_notifiers(NETDEV_POST_INIT, dev);
-+	ret = notifier_to_errno(ret);
-+	if (ret)
-+		goto err_uninit;
-+
- 	netdev_initialize_kobject(dev);
- 	ret = netdev_register_kobject(dev);
- 	if (ret)
+ 	switch (state) {
++	case NETDEV_POST_INIT:
++#ifdef CONFIG_WIRELESS_EXT
++		if (!dev->wireless_handlers)
++			dev->wireless_handlers = &cfg80211_wext_handler;
++#endif
++		break;
+ 	case NETDEV_REGISTER:
+ 		/*
+ 		 * NB: cannot take rdev->mtx here because this may be
+@@ -666,8 +672,6 @@ static int cfg80211_netdev_notifier_call
+ 		wdev->sme_state = CFG80211_SME_IDLE;
+ 		mutex_unlock(&rdev->devlist_mtx);
+ #ifdef CONFIG_WIRELESS_EXT
+-		if (!dev->wireless_handlers)
+-			dev->wireless_handlers = &cfg80211_wext_handler;
+ 		wdev->wext.default_key = -1;
+ 		wdev->wext.default_mgmt_key = -1;
+ 		wdev->wext.connect.auth_type = NL80211_AUTHTYPE_AUTOMATIC;
 
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
