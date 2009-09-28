@@ -1,73 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] get rid of read/write lock in gen_estimator
-Date: Mon, 28 Sep 2009 20:50:28 +0200
-Message-ID: <4AC10574.6070406@gmail.com>
-References: <20090928113855.52eab44b@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ax25: Add missing dev_put in ax25_setsockopt
+Date: Mon, 28 Sep 2009 12:26:38 -0700 (PDT)
+Message-ID: <20090928.122638.52076650.davem@davemloft.net>
+References: <4ABA9058.3010605@free.fr>
+	<20090928071211.GA8658@ff.dom.local>
+	<20090928125313.GA14250@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jarkao2@gmail.com, f6bvp@free.fr, bernard.pidoux@upmc.fr,
+	netdev@vger.kernel.org, linux-hams@vger.kernel.org
+To: ralf@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:40597 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751881AbZI1Su2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2009 14:50:28 -0400
-In-Reply-To: <20090928113855.52eab44b@nehalam>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37552
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751688AbZI1T0T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2009 15:26:19 -0400
+In-Reply-To: <20090928125313.GA14250@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger a =E9crit :
-> Don't need a read/write lock here sinc there already is a spin lock t=
-hat
-> is being acquired.
->=20
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->=20
-> --- a/net/core/gen_estimator.c	2009-09-24 16:27:01.239755070 -0700
-> +++ b/net/core/gen_estimator.c	2009-09-24 16:41:09.290751273 -0700
-> @@ -101,9 +101,6 @@ struct gen_estimator_head
-> =20
->  static struct gen_estimator_head elist[EST_MAX_INTERVAL+1];
-> =20
-> -/* Protects against NULL dereference */
-> -static DEFINE_RWLOCK(est_lock);
-> -
->  /* Protects against soft lockup during large deletion */
->  static struct rb_root est_root =3D RB_ROOT;
-> =20
-> @@ -118,9 +115,8 @@ static void est_timer(unsigned long arg)
->  		u64 brate;
->  		u32 npackets;
->  		u32 rate;
-> -
-> +
->  		spin_lock(e->stats_lock);
-> -		read_lock(&est_lock);
->  		if (e->bstats =3D=3D NULL)
->  			goto skip;
-> =20
-> @@ -136,7 +132,6 @@ static void est_timer(unsigned long arg)
->  		e->avpps +=3D (rate >> e->ewma_log) - (e->avpps >> e->ewma_log);
->  		e->rate_est->pps =3D (e->avpps+0x1FF)>>10;
->  skip:
-> -		read_unlock(&est_lock);
->  		spin_unlock(e->stats_lock);
->  	}
-> =20
-> @@ -270,9 +265,9 @@ void gen_kill_estimator(struct gnet_stat
->  	while ((e =3D gen_find_node(bstats, rate_est))) {
->  		rb_erase(&e->node, &est_root);
-> =20
-> -		write_lock_bh(&est_lock);
-> +		spin_lock(e->stats_lock);
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Mon, 28 Sep 2009 13:53:13 +0100
 
-Are you sure _bh() variant is not needed here ?
+> ax25_setsockopt SO_BINDTODEVICE is missing a dev_put call in case of
+> success.  Re-order code to fix this bug.  While at it also reformat two
+> lines of code to comply with the Linux coding style.
+> 
+> Initial patch by Jarek Poplawski <jarkao2@gmail.com>.
+> 
+> Reported-by: Bernard Pidoux F6BVP <f6bvp@free.fr>
+> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> 
+> ---
+> Counter-proposal.  Reordering all the code avoids the need for a 2nd dev_put
+> and is more readable.
 
->  		e->bstats =3D NULL;
-> -		write_unlock_bh(&est_lock);
-> +		spin_unlock(e->stats_lock);
-> =20
->  		list_del_rcu(&e->list);
->  		call_rcu(&e->e_rcu, __gen_kill_estimator);
-
+Looks good to me, applied.
