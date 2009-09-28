@@ -1,126 +1,61 @@
-From: Yakov Lerner <iler.ml@gmail.com>
-Subject: [PATCH] /proc/net/tcp, overhead removed
-Date: Tue, 29 Sep 2009 01:01:46 +0200
-Message-ID: <1254178906-5293-1-git-send-email-iler.ml@gmail.com>
-Cc: Yakov Lerner <iler.ml@gmail.com>
-To: netdev@vger.kernel.org, eric.dumazet@gmail.com, davem@davemloft.net
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [Bonding-devel] [PATCH 4/4] bonding: add sysfs files to display
+ tlb and alb hash	table contents
+Date: Mon, 28 Sep 2009 16:22:37 -0700
+Message-ID: <20090928162237.6db0c9f5@nehalam>
+References: <20090911211317.GT8515@gospo.rdu.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f211.google.com ([209.85.219.211]:45927 "EHLO
-	mail-ew0-f211.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753230AbZI1XCG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2009 19:02:06 -0400
-Received: by ewy7 with SMTP id 7so4915632ewy.17
-        for <netdev@vger.kernel.org>; Mon, 28 Sep 2009 16:02:08 -0700 (PDT)
+Received: from mail.vyatta.com ([76.74.103.46]:49266 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753488AbZI1XWj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Sep 2009 19:22:39 -0400
+In-Reply-To: <20090911211317.GT8515@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Take 2. 
+On Fri, 11 Sep 2009 17:13:17 -0400
+Andy Gospodarek <andy@greyhouse.net> wrote:
 
-"Sharp improvement in performance of /proc/net/tcp when number of 
-sockets is large and hashsize is large. 
-O(numsock * hashsize) time becomes O(numsock + hashsize). On slow
-processors, speed difference can be x100 and more."
+> 
+> bonding: add sysfs files to display tlb and alb hash table contents
+> 
+> While debugging some problems with alb (mode 6) bonding I realized that
+> being able to output the contents of both hash tables would be helpful.
+> This is what the output looks like for the two files:
+> 
+> device  load
+> eth1    491
+> eth2    491
+> hash device   last device   tx bytes       load        next previous
+> 2    eth1     eth1          2254           491         0    0
+> 3    eth2     eth2          2744           491         0    0
+> 6             eth2          0              488         0    0
+> 8             eth2          0              461698      0    0
+> 1b            eth2          0              249         0    0
+> eb            eth2          0              21          0    0
+> ff            eth2          0              22          0    0
+> 
+> hash ip_src          ip_dst          mac_dst           slave assign ntt
+> 2    10.0.3.2        10.0.3.11       00:e0:81:71:ee:a9 eth1  1      0
+> 3    10.0.3.2        10.0.3.10       00:e0:81:71:ee:a9 eth2  1      0
+> 8    10.0.3.2        10.0.3.1        00:e0:81:71:ee:a9 eth2  1      0
+> 
+> These were a great help debugging the fixes I have just posted and they
+> might be helpful for others, so I decided to include them in my
+> patchset.
+> 
+> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 
-I must say that I'm not fully satisfied with my choice of "st->sbucket" 
-for the new preserved index. The better name would be "st->snum". 
-Re-using "st->sbucket" saves 4 bytes, and keeps the patch to one sourcefile.
-But "st->sbucket" has different meaning in OPENREQ and LISTEN states;
-this can be confusing. 
-Maybe better add "snum" member to struct tcp_iter_state ?
+No.
 
-Shall I change subject when sending "take N+1", or keep the old subject ?
+Please don't put formatted output in sysfs, it is not meant to be
+used like proc, there is supposed to be only one value per file.
 
-Signed-off-by: Yakov Lerner <iler.ml@gmail.com>
----
- net/ipv4/tcp_ipv4.c |   35 +++++++++++++++++++++++++++++++++--
- 1 files changed, 33 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 7cda24b..e4c4f19 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1994,13 +1994,14 @@ static inline int empty_bucket(struct tcp_iter_state *st)
- 		hlist_nulls_empty(&tcp_hashinfo.ehash[st->bucket].twchain);
- }
- 
--static void *established_get_first(struct seq_file *seq)
-+static void *established_get_first_after(struct seq_file *seq, int bucket)
- {
- 	struct tcp_iter_state *st = seq->private;
- 	struct net *net = seq_file_net(seq);
- 	void *rc = NULL;
- 
--	for (st->bucket = 0; st->bucket < tcp_hashinfo.ehash_size; ++st->bucket) {
-+	for (st->bucket = bucket; st->bucket < tcp_hashinfo.ehash_size;
-+	     ++st->bucket) {
- 		struct sock *sk;
- 		struct hlist_nulls_node *node;
- 		struct inet_timewait_sock *tw;
-@@ -2010,6 +2011,8 @@ static void *established_get_first(struct seq_file *seq)
- 		if (empty_bucket(st))
- 			continue;
- 
-+		st->sbucket = st->num;
-+
- 		spin_lock_bh(lock);
- 		sk_nulls_for_each(sk, node, &tcp_hashinfo.ehash[st->bucket].chain) {
- 			if (sk->sk_family != st->family ||
-@@ -2036,6 +2039,11 @@ out:
- 	return rc;
- }
- 
-+static void *established_get_first(struct seq_file *seq)
-+{
-+	return established_get_first_after(seq, 0);
-+}
-+
- static void *established_get_next(struct seq_file *seq, void *cur)
- {
- 	struct sock *sk = cur;
-@@ -2064,6 +2072,9 @@ get_tw:
- 		while (++st->bucket < tcp_hashinfo.ehash_size &&
- 				empty_bucket(st))
- 			;
-+
-+		st->sbucket = st->num;
-+
- 		if (st->bucket >= tcp_hashinfo.ehash_size)
- 			return NULL;
- 
-@@ -2107,6 +2118,7 @@ static void *tcp_get_idx(struct seq_file *seq, loff_t pos)
- 
- 	if (!rc) {
- 		st->state = TCP_SEQ_STATE_ESTABLISHED;
-+		st->sbucket = 0;
- 		rc	  = established_get_idx(seq, pos);
- 	}
- 
-@@ -2116,6 +2128,25 @@ static void *tcp_get_idx(struct seq_file *seq, loff_t pos)
- static void *tcp_seq_start(struct seq_file *seq, loff_t *pos)
- {
- 	struct tcp_iter_state *st = seq->private;
-+
-+	if (*pos && *pos >= st->sbucket &&
-+	    (st->state == TCP_SEQ_STATE_ESTABLISHED ||
-+	     st->state == TCP_SEQ_STATE_TIME_WAIT)) {
-+		void *cur;
-+		int nskip;
-+
-+		/* for states estab and tw, st->sbucket is index (*pos) */
-+		/* corresponding to the beginning of bucket st->bucket */
-+
-+		st->num = st->sbucket;
-+		/* jump to st->bucket, then skip (*pos - st->sbucket) items */
-+		st->state = TCP_SEQ_STATE_ESTABLISHED;
-+		cur = established_get_first_after(seq, st->bucket);
-+		for (nskip = *pos - st->num; cur && nskip > 0; --nskip)
-+			cur = established_get_next(seq, cur);
-+		return cur;
-+	}
-+
- 	st->state = TCP_SEQ_STATE_LISTENING;
- 	st->num = 0;
- 	return *pos ? tcp_get_idx(seq, *pos - 1) : SEQ_START_TOKEN;
--- 
-1.6.5.rc2
-
+Maybe put it on the end of the /proc/net/bonding/bond0 output or
+use debugfs
