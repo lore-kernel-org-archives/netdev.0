@@ -1,35 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 9/9] Add explicit bound checks in net/socket.c
-Date: Mon, 28 Sep 2009 12:57:57 -0700 (PDT)
-Message-ID: <20090928.125757.151682793.davem@davemloft.net>
-References: <20090926205432.24aa1023@infradead.org>
-	<20090926190103.GB4356@lenovo>
-	<20090926212302.0ce64a5c@infradead.org>
+From: Maciej Rutecki <maciej.rutecki@gmail.com>
+Subject: Re: [2.6.31-git17] WARNING: at kernel/hrtimer.c:648
+	hres_timers_resume+0x40/0x50()/WARNING: at drivers/base/sys.c:353
+	__sysdev_resume+0xc3/0xe0()
+Date: Mon, 28 Sep 2009 22:08:51 +0200
+Message-ID: <8db1092f0909281308s36c35c80s65c18dcbcf9fff2b@mail.gmail.com>
+References: <8db1092f0909270105x4b49daf8k268e453d2379020c@mail.gmail.com>
+	 <2674af740909270127s464a3cb2xef5e7f4cd61b0eb7@mail.gmail.com>
+	 <2674af740909270130h359a5d23taa7e8b63e6a18a4d@mail.gmail.com>
+	 <8db1092f0909270325j67825cem82fc93cf19336d6f@mail.gmail.com>
+	 <2674af740909270701u6febabdbpc5c772fabc193b32@mail.gmail.com>
+	 <2674af740909270749u339671a1ia81d5736eeb750fa@mail.gmail.com>
+	 <8db1092f0909270916k79d0c369ub93b5e8ddf66c979@mail.gmail.com>
+	 <2674af740909271854v191d9768mc3d96f30998f8c01@mail.gmail.com>
+	 <8db1092f0909281138t18a379d1qdf999b0610ed6414@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: gorcunov@gmail.com, linux-kernel@vger.kernel.org,
-	torvalds@linux-foundation.org, mingo@elte.hu,
-	netdev@vger.kernel.org
-To: arjan@infradead.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752993AbZI1T5j@vger.kernel.org>
-In-Reply-To: <20090926212302.0ce64a5c@infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, clemens@ladisch.de,
+	venkatesh.pallipadi@intel.com, gregkh@suse.de,
+	zambrano@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
+To: Yong Zhang <yong.zhang0@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f211.google.com ([209.85.219.211]:62568 "EHLO
+	mail-ew0-f211.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753078AbZI1UIt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2009 16:08:49 -0400
+In-Reply-To: <8db1092f0909281138t18a379d1qdf999b0610ed6414@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arjan van de Ven <arjan@infradead.org>
-Date: Sat, 26 Sep 2009 21:23:02 +0200
+2009/9/28 Maciej Rutecki <maciej.rutecki@gmail.com>:
+>
+> Add patch and remove previous:
+> http://unixy.pl/maciek/download/kernel/2.6.31-git17/gumis/dmesg-debug.txt
+>
+> s2disk&resume twice.
+>
+> no "timekeeping_resume() called with IRQs enabled!".
+>
+> I found some interesting thing, warnings appear only once, during
+> first s2disk, on second don't appear.
 
-> The sys_socketcall() function has a very clever system for the copy
-> size of its arguments. Unfortunately, gcc cannot deal with this in
-> terms of proving that the copy_from_user() is then always in bounds.
-> This is the last (well 9th of this series, but last in the kernel) such
-> case around.
-> 
-> With this patch, we can turn on code to make having the boundary provably
-> right for the whole kernel, and detect introduction of new security
-> accidents of this type early on.
-> 
-> Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+Already I test 2.6-32-rc1 few times; warnings has gone. Any patches
+has been add since 2.6.31-git17?
 
-Applied, thanks.
+Regards
+-- 
+Maciej Rutecki
+http://www.maciek.unixy.pl
