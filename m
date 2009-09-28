@@ -1,46 +1,64 @@
-From: Maciej Rutecki <maciej.rutecki@gmail.com>
-Subject: Re: [2.6.31-git17] WARNING: at kernel/hrtimer.c:648
-	hres_timers_resume+0x40/0x50()/WARNING: at drivers/base/sys.c:353
-	__sysdev_resume+0xc3/0xe0()
-Date: Mon, 28 Sep 2009 20:38:33 +0200
-Message-ID: <8db1092f0909281138t18a379d1qdf999b0610ed6414@mail.gmail.com>
-References: <8db1092f0909270105x4b49daf8k268e453d2379020c@mail.gmail.com>
-	 <2674af740909270127s464a3cb2xef5e7f4cd61b0eb7@mail.gmail.com>
-	 <2674af740909270130h359a5d23taa7e8b63e6a18a4d@mail.gmail.com>
-	 <8db1092f0909270325j67825cem82fc93cf19336d6f@mail.gmail.com>
-	 <2674af740909270701u6febabdbpc5c772fabc193b32@mail.gmail.com>
-	 <2674af740909270749u339671a1ia81d5736eeb750fa@mail.gmail.com>
-	 <8db1092f0909270916k79d0c369ub93b5e8ddf66c979@mail.gmail.com>
-	 <2674af740909271854v191d9768mc3d96f30998f8c01@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] get rid of read/write lock in gen_estimator
+Date: Mon, 28 Sep 2009 11:38:55 -0700
+Message-ID: <20090928113855.52eab44b@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, clemens@ladisch.de,
-	venkatesh.pallipadi@intel.com, gregkh@suse.de,
-	zambrano@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
-To: Yong Zhang <yong.zhang0@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752606AbZI1Sic@vger.kernel.org>
-In-Reply-To: <2674af740909271854v191d9768mc3d96f30998f8c01@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:35928 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751837AbZI1Si5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Sep 2009 14:38:57 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2009/9/28 Yong Zhang <yong.zhang0@gmail.com>:
+Don't need a read/write lock here sinc there already is a spin lock that
+is being acquired.
 
->>
->
-> If you could, then please do it. It can give us some helpful information.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Add patch and remove previous:
-http://unixy.pl/maciek/download/kernel/2.6.31-git17/gumis/dmesg-debug.txt
-
-s2disk&resume twice.
-
-no "timekeeping_resume() called with IRQs enabled!".
-
-I found some interesting thing, warnings appear only once, during
-first s2disk, on second don't appear.
-
-Regards
--- 
-Maciej Rutecki
-http://www.maciek.unixy.pl
+--- a/net/core/gen_estimator.c	2009-09-24 16:27:01.239755070 -0700
++++ b/net/core/gen_estimator.c	2009-09-24 16:41:09.290751273 -0700
+@@ -101,9 +101,6 @@ struct gen_estimator_head
+ 
+ static struct gen_estimator_head elist[EST_MAX_INTERVAL+1];
+ 
+-/* Protects against NULL dereference */
+-static DEFINE_RWLOCK(est_lock);
+-
+ /* Protects against soft lockup during large deletion */
+ static struct rb_root est_root = RB_ROOT;
+ 
+@@ -118,9 +115,8 @@ static void est_timer(unsigned long arg)
+ 		u64 brate;
+ 		u32 npackets;
+ 		u32 rate;
+-
++
+ 		spin_lock(e->stats_lock);
+-		read_lock(&est_lock);
+ 		if (e->bstats == NULL)
+ 			goto skip;
+ 
+@@ -136,7 +132,6 @@ static void est_timer(unsigned long arg)
+ 		e->avpps += (rate >> e->ewma_log) - (e->avpps >> e->ewma_log);
+ 		e->rate_est->pps = (e->avpps+0x1FF)>>10;
+ skip:
+-		read_unlock(&est_lock);
+ 		spin_unlock(e->stats_lock);
+ 	}
+ 
+@@ -270,9 +265,9 @@ void gen_kill_estimator(struct gnet_stat
+ 	while ((e = gen_find_node(bstats, rate_est))) {
+ 		rb_erase(&e->node, &est_root);
+ 
+-		write_lock_bh(&est_lock);
++		spin_lock(e->stats_lock);
+ 		e->bstats = NULL;
+-		write_unlock_bh(&est_lock);
++		spin_unlock(e->stats_lock);
+ 
+ 		list_del_rcu(&e->list);
+ 		call_rcu(&e->e_rcu, __gen_kill_estimator);
