@@ -1,38 +1,78 @@
-From: Holger Schurig <hs4233-x6+DxXLjN1AJvtFkdXX2Hg4jNU5vUVPG@public.gmane.org>
-Subject: Re: [ath5k-devel] Fw: Cannot register at bugzilla (bugreport added) [ ath5k bugreport ]
-Date: Mon, 28 Sep 2009 09:42:55 +0200
-Message-ID: <200909280942.55317.hs4233@mail.mn-solutions.de>
-References: <20090925191524.7b2b228c@schatten>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 2/2] cfg80211: fix wireless handlers assignment
+Date: Mon, 28 Sep 2009 09:54:28 +0200
+Message-ID: <1254124468.6583.13.camel@johannes.local>
+References: <1254076075.6583.6.camel@johannes.local>
+	 <Pine.LNX.4.64.0909272139280.4061@sister.anvils>
+	 <Pine.LNX.4.64.0909272237190.4098@sister.anvils>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>,
-	"Hans-J. Ullrich" <hans.ullrich-LYJP0WDo+eM@public.gmane.org>,
-	Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090925191524.7b2b228c@schatten>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-wTAMF1UfCbYJ2NlChyP1"
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>
+To: Hugh Dickins <hugh.dickins@tiscali.co.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xc.sipsolutions.net ([83.246.72.84]:51745 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751299AbZI1Hy1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2009 03:54:27 -0400
+In-Reply-To: <Pine.LNX.4.64.0909272237190.4098@sister.anvils>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> There are already other reports of this problem in discussion 
-forums.
-> It seems, the old madwifi-driver works better with dhcp - so 
-people say.
 
-I cannot second that. For me, ath5k works perfectly with DHCP,
-with WEXT ("iwconfig") and NL80211 ("iw") and with
-wpa_supplicant.
+--=-wTAMF1UfCbYJ2NlChyP1
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-DHCP was NEVER an issue.
+On Sun, 2009-09-27 at 22:50 +0100, Hugh Dickins wrote:
+> On Sun, 27 Sep 2009, Hugh Dickins wrote:
+> >=20
+> > I've experimented by moving your NETDEV_PRE_INIT hunk later in the
+> > sequence, just before the netdev_initialize_kobject(dev) (so I also
+> > changed the "goto out" to "goto err_uninit"): both* machines then boot
+> > correctly, and this mail leaves me wirelessly.
+> >=20
+> > I'll now experiment to see how early I can move that hunk.
+>=20
+> Both machines boot (and do wireless) correctly with your NETDEV_PRE_INIT
+> hunk placed just after the ndo_init block, instead of just before where
+> you placed it.  That's i386 kernels on both.
+>=20
+> But curiouser and curiouser... the laptop can do 64-bit, so I built
+> my 64-bit kernel, and went through the motions to reproduce the
+> early boot crash with the patch as you had it: but the x86_64 kernel
+> boots (and does wireless) correctly with the NETDEV_PRE_INIT hunk
+> just where you placed it, before the ndo_init block.
+>=20
+> Perhaps there's a difference in the 32- and 64-bit startup sequence
+> with respect to notifiers; or perhaps your change tickles another bug.
+> I don't know, I'm turning off now.
 
--- 
-http://www.holgerschurig.de
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Interesting, thanks for taking the time to test. I'll post an updated
+patchset that calls it POST_INIT and moves it to there.
+
+johannes
+
+--=-wTAMF1UfCbYJ2NlChyP1
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIbBAABAgAGBQJKwGusAAoJEODzc/N7+Qmazl8P9ia9NKscvmR89VcCvK3hfZzx
+kWzp9WCJvS4YqwuWCMW01peiRF4zGxz04HAM38/m1y6cjbwRX+NWRy/qd/vvavVl
+DN12SIdxJ4eivQVLbHN0sVI9fLCptCp6Zz222NBHNBuKP1n1jK3PkWY0ovlIZ/VM
+MHqjA6eExr4dn7/0WqlPaSOs7W79PNqhRVqX5mJAAdslX5XNCFbZLbhmU4G02AnA
+/IYKjIZxkDds8BXvqbS8Zb5EepwsciT2C4KuGRf5q9jMFGKx7Xi3lPGQYQTn7fPz
+yVz84v9B+VFpPK7s7hbBL5rO3Zz/EIjH4pmGvjiaHXG5rzf6jFClweJZjfo1xf69
+l/SHV77jwsTjpr5ZfGeiFW36WA1m4jAMSq7YizUluWYkA7hygrFl0sYa6cbw6Dqs
+CXYGamfZp7Vx0ZqhVqve9tlBDWYLvu/ZpQ6QDRZaSuHsS3RC3vpVMJVDv8GhQQin
+AFpILBhRsA9A4WhtJY6ngeFqhE+TDPSwApcHDid6XP05oz60JjhcBRzCWgfMG7cZ
+cuAR7EHRGHQ/VjKEr0RCB0HsX+LhHmGBsyrDP2MOC+JJWrBX4LA53+j7LuA9aPez
+YBhvXBMMILulDvYPPGBvp6KPEyPG0zWJEE5Ir8F2AvEKJehMscxsNSss720NqaMl
+mMA+yp+XVF2GIyzZ9UM=
+=yxvI
+-----END PGP SIGNATURE-----
+
+--=-wTAMF1UfCbYJ2NlChyP1--
+
