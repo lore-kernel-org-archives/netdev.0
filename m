@@ -1,56 +1,66 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: [PATCH 2/2] cfg80211: fix wireless handlers assignment
-Date: Mon, 28 Sep 2009 10:21:57 +0200
-Message-ID: <1254126117.6583.19.camel@johannes.local>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: Re: [PATCH] atm: dereference of he_dev->rbps_virt in he_init_group()
+Date: Mon, 28 Sep 2009 10:58:43 +0200
+Message-ID: <4AC07AC3.1090707@gmail.com>
+References: <4AB66240.6060703@gmail.com>	<20090922.142532.24854998.davem@davemloft.net>	<4ABE152F.20507@gmail.com> <20090926.202636.105018102.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Hugh Dickins <hugh.dickins-IWqWACnzNjwqdlJmJB21zg@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: joe@perches.com, chas@cmf.nrl.navy.mil,
+	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f211.google.com ([209.85.219.211]:42476 "EHLO
+	mail-ew0-f211.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752537AbZI1Iuj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2009 04:50:39 -0400
+Received: by ewy7 with SMTP id 7so4217433ewy.17
+        for <netdev@vger.kernel.org>; Mon, 28 Sep 2009 01:50:42 -0700 (PDT)
+In-Reply-To: <20090926.202636.105018102.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The point we assign dev->wireless_handlers at is too
-late, we need to do that before netdev_register_kobject()
-gets called, so use the new NETDEV_PRE_INIT notifier.
-The result of adding wireless_handlers too late is the
-disappearance of /sys/class/net/wlan0/wireless which a
-bunch of distro scripts still require.
+From: Juha Leppanen <juha_motorsportcom@luukku.com>
+Date: Sat, Sep 26, 2009 at 12:34 AM
+Subject: atm: he: memleak/negative indexing of arrays in he_init_group()
 
-Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
----
- net/wireless/core.c |    8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+The prefix decrement causes a very long loop if pci_pool_alloc() failed
+in the first iteration. Also I swapped rbps and rbpl arguments.
 
---- wireless-testing.orig/net/wireless/core.c	2009-09-28 09:54:52.000000000 +0200
-+++ wireless-testing/net/wireless/core.c	2009-09-28 10:18:47.000000000 +0200
-@@ -641,6 +641,12 @@ static int cfg80211_netdev_notifier_call
- 	WARN_ON(wdev->iftype == NL80211_IFTYPE_UNSPECIFIED);
+Reported-by: Juha Leppanen <juha_motorsportcom@luukku.com>
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+
+diff --git a/drivers/atm/he.c b/drivers/atm/he.c
+index 29e66d6..7066703 100644
+--- a/drivers/atm/he.c
++++ b/drivers/atm/he.c
+@@ -921,9 +921,9 @@ out_free_rbpq_base:
+ 			he_dev->rbrq_phys);
+ 	i = CONFIG_RBPL_SIZE;
+ out_free_rbpl_virt:
+-	while (--i)
+-		pci_pool_free(he_dev->rbps_pool, he_dev->rbpl_virt[i].virt,
+-				he_dev->rbps_base[i].phys);
++	while (i--)
++		pci_pool_free(he_dev->rbpl_pool, he_dev->rbpl_virt[i].virt,
++				he_dev->rbpl_base[i].phys);
+ 	kfree(he_dev->rbpl_virt);
  
- 	switch (state) {
-+	case NETDEV_POST_INIT:
-+#ifdef CONFIG_WIRELESS_EXT
-+		if (!dev->wireless_handlers)
-+			dev->wireless_handlers = &cfg80211_wext_handler;
-+#endif
-+		break;
- 	case NETDEV_REGISTER:
- 		/*
- 		 * NB: cannot take rdev->mtx here because this may be
-@@ -666,8 +672,6 @@ static int cfg80211_netdev_notifier_call
- 		wdev->sme_state = CFG80211_SME_IDLE;
- 		mutex_unlock(&rdev->devlist_mtx);
- #ifdef CONFIG_WIRELESS_EXT
--		if (!dev->wireless_handlers)
--			dev->wireless_handlers = &cfg80211_wext_handler;
- 		wdev->wext.default_key = -1;
- 		wdev->wext.default_mgmt_key = -1;
- 		wdev->wext.connect.auth_type = NL80211_AUTHTYPE_AUTOMATIC;
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ out_free_rbpl_base:
+@@ -933,11 +933,11 @@ out_free_rbpl_base:
+ out_destroy_rbpl_pool:
+ 	pci_pool_destroy(he_dev->rbpl_pool);
+ 
+-	i = CONFIG_RBPL_SIZE;
++	i = CONFIG_RBPS_SIZE;
+ out_free_rbps_virt:
+-	while (--i)
+-		pci_pool_free(he_dev->rbpl_pool, he_dev->rbps_virt[i].virt,
+-				he_dev->rbpl_base[i].phys);
++	while (i--)
++		pci_pool_free(he_dev->rbps_pool, he_dev->rbps_virt[i].virt,
++				he_dev->rbps_base[i].phys);
+ 	kfree(he_dev->rbps_virt);
+ 
+ out_free_rbps_base:
