@@ -1,64 +1,42 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] get rid of read/write lock in gen_estimator
-Date: Mon, 28 Sep 2009 11:38:55 -0700
-Message-ID: <20090928113855.52eab44b@nehalam>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: b43 is broken in latest net-2.6 and linux-2.6
+Date: Mon, 28 Sep 2009 14:42:11 -0400
+Message-ID: <20090928184211.GC4737@tuxdriver.com>
+References: <4AB4BF1F.7070501@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Buesch <mb@bu3sch.de>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:35928 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751837AbZI1Si5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Sep 2009 14:38:57 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:43370 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752845AbZI1SqH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2009 14:46:07 -0400
+Content-Disposition: inline
+In-Reply-To: <4AB4BF1F.7070501@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Don't need a read/write lock here sinc there already is a spin lock that
-is being acquired.
+On Sat, Sep 19, 2009 at 01:23:11PM +0200, Oliver Hartkopp wrote:
+> Hello Michael,
+> 
+> my b43 wireless card (Dell 830) is not working with the latest net-2.6 (and
+> also linux-2.6 2.6.31-05767-gdf58bee).
+> 
+> net-2.6 2.6.31-03263-gc29854e is working
+> net-2.6 2.6.31-03301-ga97e178 is broken
+> 
+> I removed the patch with the work_queue stuff which did not help - so it's
+> probably the other patch you added to b43 recently.
+> 
+> Don't know ... the wlan0 link does not become ready anymore.
+> 
+> If you need some more information - please let me know.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Is this working better now, with 2.6.31-rc1?
 
---- a/net/core/gen_estimator.c	2009-09-24 16:27:01.239755070 -0700
-+++ b/net/core/gen_estimator.c	2009-09-24 16:41:09.290751273 -0700
-@@ -101,9 +101,6 @@ struct gen_estimator_head
- 
- static struct gen_estimator_head elist[EST_MAX_INTERVAL+1];
- 
--/* Protects against NULL dereference */
--static DEFINE_RWLOCK(est_lock);
--
- /* Protects against soft lockup during large deletion */
- static struct rb_root est_root = RB_ROOT;
- 
-@@ -118,9 +115,8 @@ static void est_timer(unsigned long arg)
- 		u64 brate;
- 		u32 npackets;
- 		u32 rate;
--
-+
- 		spin_lock(e->stats_lock);
--		read_lock(&est_lock);
- 		if (e->bstats == NULL)
- 			goto skip;
- 
-@@ -136,7 +132,6 @@ static void est_timer(unsigned long arg)
- 		e->avpps += (rate >> e->ewma_log) - (e->avpps >> e->ewma_log);
- 		e->rate_est->pps = (e->avpps+0x1FF)>>10;
- skip:
--		read_unlock(&est_lock);
- 		spin_unlock(e->stats_lock);
- 	}
- 
-@@ -270,9 +265,9 @@ void gen_kill_estimator(struct gnet_stat
- 	while ((e = gen_find_node(bstats, rate_est))) {
- 		rb_erase(&e->node, &est_root);
- 
--		write_lock_bh(&est_lock);
-+		spin_lock(e->stats_lock);
- 		e->bstats = NULL;
--		write_unlock_bh(&est_lock);
-+		spin_unlock(e->stats_lock);
- 
- 		list_del_rcu(&e->list);
- 		call_rcu(&e->e_rcu, __gen_kill_estimator);
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
