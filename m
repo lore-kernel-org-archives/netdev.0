@@ -1,50 +1,52 @@
-From: Maciej Rutecki <maciej.rutecki@gmail.com>
-Subject: Re: [2.6.31-git17] WARNING: at kernel/hrtimer.c:648
-	hres_timers_resume+0x40/0x50()/WARNING: at drivers/base/sys.c:353
-	__sysdev_resume+0xc3/0xe0()
-Date: Mon, 28 Sep 2009 22:08:51 +0200
-Message-ID: <8db1092f0909281308s36c35c80s65c18dcbcf9fff2b@mail.gmail.com>
-References: <8db1092f0909270105x4b49daf8k268e453d2379020c@mail.gmail.com>
-	 <2674af740909270127s464a3cb2xef5e7f4cd61b0eb7@mail.gmail.com>
-	 <2674af740909270130h359a5d23taa7e8b63e6a18a4d@mail.gmail.com>
-	 <8db1092f0909270325j67825cem82fc93cf19336d6f@mail.gmail.com>
-	 <2674af740909270701u6febabdbpc5c772fabc193b32@mail.gmail.com>
-	 <2674af740909270749u339671a1ia81d5736eeb750fa@mail.gmail.com>
-	 <8db1092f0909270916k79d0c369ub93b5e8ddf66c979@mail.gmail.com>
-	 <2674af740909271854v191d9768mc3d96f30998f8c01@mail.gmail.com>
-	 <8db1092f0909281138t18a379d1qdf999b0610ed6414@mail.gmail.com>
+From: Nix <nix@esperi.org.uk>
+Subject: Re: 2.6.31 regression: e1000e jumbo frames no longer
+	work: 'Unsupported MTU setting'
+Date: Mon, 28 Sep 2009 21:51:18 +0100
+Message-ID: <87ab0elrnd.fsf@spindle.srvr.nix>
+References: <871vluc5wi.fsf@spindle.srvr.nix>
+	<5f2db9d90909261914l3a927f4cya1dc5e4548688bce@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, clemens@ladisch.de,
-	venkatesh.pallipadi@intel.com, gregkh@suse.de,
-	zambrano@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
-To: Yong Zhang <yong.zhang0@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f211.google.com ([209.85.219.211]:62568 "EHLO
-	mail-ew0-f211.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753078AbZI1UIt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2009 16:08:49 -0400
-In-Reply-To: <8db1092f0909281138t18a379d1qdf999b0610ed6414@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev <netdev@vger.kernel.org>,
+	bruce.w.allan@intel.com, linux-kernel@vger.kernel.org
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <5f2db9d90909261914l3a927f4cya1dc5e4548688bce@mail.gmail.com>
+	(Alexander Duyck's message of "Sat, 26 Sep 2009 19:14:55 -0700")
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-2009/9/28 Maciej Rutecki <maciej.rutecki@gmail.com>:
->
-> Add patch and remove previous:
-> http://unixy.pl/maciek/download/kernel/2.6.31-git17/gumis/dmesg-debug.txt
->
-> s2disk&resume twice.
->
-> no "timekeeping_resume() called with IRQs enabled!".
->
-> I found some interesting thing, warnings appear only once, during
-> first s2disk, on second don't appear.
+On 27 Sep 2009, Alexander Duyck said:
+> It looks like the problem is that the 82574 and 82583 seem to have
+> their max_hw_frame_size values swapped.  You might try applying the
+> patch below.  I am not sure if it will apply since I hand generated it
 
-Already I test 2.6-32-rc1 few times; warnings has gone. Any patches
-has been add since 2.6.31-git17?
+Applies fine: works fine. Thank you!
 
-Regards
--- 
-Maciej Rutecki
-http://www.maciek.unixy.pl
+> using the git patch that seems to have introduced the problem, and I
+> am sending the patch through an untested account that may mangle the
+> patch.
+
+Unmangled.
+
+>        I will see about submitting an official patch for this
+> sometime next few days.
+
+I wonder if this belongs in -stable? People with an 82574 who are using
+jumbo frames may well find their networks not coming up, if like me
+they set a bunch of properties in one /sbin/ip call.
+
+------------------------------------------------------------------------------
+Come build with us! The BlackBerry&reg; Developer Conference in SF, CA
+is the only developer event you need to attend this year. Jumpstart your
+developing skills, take BlackBerry mobile applications to market and stay 
+ahead of the curve. Join us from November 9&#45;12, 2009. Register now&#33;
+http://p.sf.net/sfu/devconf
