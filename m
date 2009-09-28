@@ -1,42 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] get rid of read/write lock in gen_estimator
-Date: Mon, 28 Sep 2009 12:42:26 -0700 (PDT)
-Message-ID: <20090928.124226.27020404.davem@davemloft.net>
-References: <20090928113855.52eab44b@nehalam>
-	<4AC10574.6070406@gmail.com>
+Subject: Re: [PATCH] atm: dereference of he_dev->rbps_virt in
+ he_init_group()
+Date: Mon, 28 Sep 2009 12:46:04 -0700 (PDT)
+Message-ID: <20090928.124604.147370158.davem@davemloft.net>
+References: <4ABE152F.20507@gmail.com>
+	<20090926.202636.105018102.davem@davemloft.net>
+	<4AC07AC3.1090707@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: joe@perches.com, chas@cmf.nrl.navy.mil,
+	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: roel.kluin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37939
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39632
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752747AbZI1TmH convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Sep 2009 15:42:07 -0400
-In-Reply-To: <4AC10574.6070406@gmail.com>
+	by vger.kernel.org with ESMTP id S1752398AbZI1Tpp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2009 15:45:45 -0400
+In-Reply-To: <4AC07AC3.1090707@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 28 Sep 2009 20:50:28 +0200
+From: Roel Kluin <roel.kluin@gmail.com>
+Date: Mon, 28 Sep 2009 10:58:43 +0200
 
-> Stephen Hemminger a =E9crit :
->> Don't need a read/write lock here sinc there already is a spin lock =
-that
->> is being acquired.
->>=20
->> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
- ...
->> @@ -270,9 +265,9 @@ void gen_kill_estimator(struct gnet_stat
->>  	while ((e =3D gen_find_node(bstats, rate_est))) {
->>  		rb_erase(&e->node, &est_root);
->> =20
->> -		write_lock_bh(&est_lock);
->> +		spin_lock(e->stats_lock);
->=20
-> Are you sure _bh() variant is not needed here ?
+> From: Juha Leppanen <juha_motorsportcom@luukku.com>
+> Date: Sat, Sep 26, 2009 at 12:34 AM
+> Subject: atm: he: memleak/negative indexing of arrays in he_init_group()
+> 
+> The prefix decrement causes a very long loop if pci_pool_alloc() failed
+> in the first iteration. Also I swapped rbps and rbpl arguments.
+> 
+> Reported-by: Juha Leppanen <juha_motorsportcom@luukku.com>
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 
-Right, that need to be fixed to be spin_lock_bh() and spin_unlock_bh()
-in the next hunk.
+Applied, thanks.
+
+Note that, by putting that From: line with Juha's info in it,
+I assume that you want this person to be listed as the author
+of the patch instead of you.
