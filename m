@@ -1,65 +1,59 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH 1/2] net: introduce NETDEV_POST_INIT notifier
-Date: Mon, 28 Sep 2009 11:29:23 +0200
-Message-ID: <1254130163.6583.20.camel@johannes.local>
-References: <1254126089.6583.18.camel@johannes.local>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 2/2] cfg80211: fix wireless handlers assignment
+Date: Mon, 28 Sep 2009 11:29:39 +0200
+Message-ID: <1254130179.6583.21.camel@johannes.local>
+References: <1254126117.6583.19.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-0uyeY+YOv0XPyBMT/sTl"
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Hugh Dickins <hugh.dickins-IWqWACnzNjwqdlJmJB21zg@public.gmane.org>,
-	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1254126089.6583.18.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-9X0nEpfe4IJA6fRaYfpU"
+Cc: Hugh Dickins <hugh.dickins@tiscali.co.uk>,
+	linux-wireless <linux-wireless@vger.kernel.org>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xc.sipsolutions.net ([83.246.72.84]:43359 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752451AbZI1J3x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2009 05:29:53 -0400
+In-Reply-To: <1254126117.6583.19.camel@johannes.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---=-0uyeY+YOv0XPyBMT/sTl
+--=-9X0nEpfe4IJA6fRaYfpU
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 On Mon, 2009-09-28 at 10:21 +0200, Johannes Berg wrote:
-> For various purposes including a wireless extensions
-> bugfix, we need to hook into the netdev creation before
-> before netdev_register_kobject(). This will also ease
-> doing the dev type assignment that Marcel was working
-> on for cfg80211 drivers w/o touching them all.
->=20
-> Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-> ---
-> I decided that it doesn't make a lot of sense to be after ndo_init but
-> before the other name/... checks.
+> The point we assign dev->wireless_handlers at is too
+> late, we need to do that before netdev_register_kobject()
+> gets called, so use the new NETDEV_PRE_INIT notifier.
+> The result of adding wireless_handlers too late is the
+> disappearance of /sys/class/net/wlan0/wireless which a
+> bunch of distro scripts still require.
 
-Ignore this patch please, I have something better. Marcel, feel free to
-pick this up once you continue working on your devtype thing.
+Ignore please, I have a better, self-contained fix.
 
 johannes
 
---=-0uyeY+YOv0XPyBMT/sTl
+--=-9X0nEpfe4IJA6fRaYfpU
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIcBAABAgAGBQJKwIHwAAoJEODzc/N7+QmamzoP/R531Auz0xfIDvWzc/fnpZO7
-b4NbXTCFNpHnJAKWz96s0n/WEsvODnUKZsDq3T0Z63vOQgax3yeJFAkjzJIPDVOS
-RRLKZQxC3InC/VczSV2ethb0dbkcZcfcW64t9fu+zV1EQW0y8VvTfqvJMDnTCcRn
-nfqIc08DcQ3bJ/LPm7DErGtbF2CJ86a31gnCLrwFhhuKIqhP0+il0o1G2n7WzbCt
-HkX67a1owek/ZS+gq2lHc9xxvXwEPZz527lkfMrBLOzifYSgKupn3rL6ACr8e8er
-y++CPzFC7q3vnNYHFvTCwDaJRxtINP5mWBHYFAMBcG1EeecyUFwUPrdxeXGAISUN
-qxaITEykozakP0lo70FZFTORClfnw0yCY+jCUt9rKenDfCe60joDHbK/fHVfyzeQ
-CslRT4CsSW+Q3/B6zRXoYVekYgKwGKrtfPwhC1LKVr6ALz0ksUo6plgf/6HPk2aD
-Gk369WU+delYdkoVSjyLIdIsUmQ19aCUhoVkvU2czcz0qgFlpA5nQIzHRsw0l8oM
-aZjDGopRwOCPHNLgWqudI5rO7Wio21Bqc2EiZUDevrnvDoSvZEiTLhTqJQAxJyYI
-1NnqMVpln2iTZKqrjAmgKuOP7/uPiA6lfMTNkO3LACp/FJD93LjrbAwJ7lLV6ieb
-0/61UB2mP5vY7rEkekyb
-=escH
+iQIcBAABAgAGBQJKwIIAAAoJEODzc/N7+QmaGhcP/iA023BLXtzstg1qNJgRdiQu
+vJmJag3jMJZrZ99EvfbaNewsBs5SV95m5vhVNQiUrEKrAHwcOwFJvftKUd2TW7Fo
+QfM5haFNfmTTkMuFZRQrhYJmZ3SXwoZk4HUsQJQ0TiaPwLjsCjJq7/FCruT2h54q
+emo3rc3qURx9tWYLiOG3i67kR6EviyoWDAr9ESFvQtxRisIb4JD9xozWCcn/D2vN
+vcUQrEOoSt6DsNjbGpspGD/pQmxM92jq9ttDqGLzdqlcPcaS/L1RXkXzR8UBCBzY
+4iWZHGKyHFSngPuDXL85Ce0/rcTg0+oXi+qx+q2CPekfsTPbfrqcDGN1ab6uik7B
+X6Sq5mZe5AsyqC1gYms0fITm7EJTmCGaEkG4XHGXOzw5NMZbUT9Z3si4TtoChuVQ
+I0rfgiTEVRQmr7w1pO+nFbcHNBWjLfjO69ijzzhVLIyCifjDYP6kOXZzmYjmcULJ
+d7y9fCtQOh1ig/xNXkI5sf/7ByvfYTzhU1i5HvvRIkeSYnfI7otW76NEY8KklCJy
+MQXCp8BwsOotTgjU4mRQ5ToBOO/ZllKweVxUochr0CMZ36papIprdCjuToSd6K1f
+FAxIEgNAQvb2IFUvlW+8S5rluO5xbLTWCEtY+hpAR6bxxagDTcRdZguf9XlP/r80
+plbNre9tXoR8xLT7Sp+R
+=5ffI
 -----END PGP SIGNATURE-----
 
---=-0uyeY+YOv0XPyBMT/sTl--
+--=-9X0nEpfe4IJA6fRaYfpU--
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
