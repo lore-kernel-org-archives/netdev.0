@@ -1,39 +1,39 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [2.6.31-git17] WARNING: at kernel/hrtimer.c:648 hres_timers_resume+0x40/0x50()/WARNING: at drivers/base/sys.c:353 __sysdev_resume+0xc3/0xe0()
-Date: Mon, 28 Sep 2009 23:13:15 +0200
-Message-ID: <200909282313.15246.rjw@sisk.pl>
-References: <8db1092f0909270105x4b49daf8k268e453d2379020c@mail.gmail.com> <8db1092f0909281138t18a379d1qdf999b0610ed6414@mail.gmail.com> <8db1092f0909281308s36c35c80s65c18dcbcf9fff2b@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: tg3 and Broadcom PHY driver
+Date: Mon, 28 Sep 2009 14:15:27 -0700 (PDT)
+Message-ID: <20090928.141527.193009676.davem@davemloft.net>
+References: <4ABE8862.3060308@embedded-sol.com>
+	<20090928205226.GB12652@xw6200.broadcom.net>
+	<4AC1223B.8070903@embedded-sol.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Yong Zhang <yong.zhang0@gmail.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	clemens@ladisch.de, venkatesh.pallipadi@intel.com, gregkh@suse.de,
-	zambrano@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
-To: Maciej Rutecki <maciej.rutecki@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753334AbZI1VMJ@vger.kernel.org>
-In-Reply-To: <8db1092f0909281308s36c35c80s65c18dcbcf9fff2b@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mcarlson@broadcom.com, netdev@vger.kernel.org
+To: felix@embedded-sol.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40072
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753056AbZI1VPI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2009 17:15:08 -0400
+In-Reply-To: <4AC1223B.8070903@embedded-sol.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 28 September 2009, Maciej Rutecki wrote:
-> 2009/9/28 Maciej Rutecki <maciej.rutecki@gmail.com>:
-> >
-> > Add patch and remove previous:
-> > http://unixy.pl/maciek/download/kernel/2.6.31-git17/gumis/dmesg-debug.txt
-> >
-> > s2disk&resume twice.
-> >
-> > no "timekeeping_resume() called with IRQs enabled!".
-> >
-> > I found some interesting thing, warnings appear only once, during
-> > first s2disk, on second don't appear.
+From: Felix Radensky <felix@embedded-sol.com>
+Date: Mon, 28 Sep 2009 22:53:15 +0200
+
+> Hi, Matt
 > 
-> Already I test 2.6-32-rc1 few times; warnings has gone. Any patches
-> has been add since 2.6.31-git17?
+> Matt Carlson wrote:
+>> On Sat, Sep 26, 2009 at 02:32:18PM -0700, Felix Radensky wrote:
+>>   
+>> Is the broadcom module also compiled into the kernel?
+>>
+>>   
+> Yes.
 
-Quite some of them, actually.
+I bet this is all because the tg3 driver is linked into the kernel
+before the PHY layer and drivers subdirectory or something like that.
 
-Thanks,
-Rafael
+Link order determines the order in which built-in initializations
+occur (within the same init type).
