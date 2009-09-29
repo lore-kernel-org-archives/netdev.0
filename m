@@ -1,83 +1,92 @@
-From: Hannes Eder <heder@google.com>
-Subject: Re: [PATCH v2 0/4] IPVS full NAT support + netfilter 'ipvs' match
-	support
-Date: Tue, 29 Sep 2009 17:07:24 +0200
-Message-ID: <b5ddba180909290807j4d1d1d2dl48af9453542612ff__23872.4586590708$1254237244$gmane$org@mail.gmail.com>
-References: <20090929123501.13798.84004.stgit@jazzy.zrh.corp.google.com>
-	 <20090929145156.GB19797@verge.net.au>
+From: Christian Borntraeger <borntraeger@de.ibm.com>
+Subject: Re: [PATCH] connector: Fix sid connector (was: Badness at kernel/softirq.c:143...)
+Date: Tue, 29 Sep 2009 17:12:33 +0200
+Message-ID: <200909291712.33099.borntraeger@de.ibm.com>
+References: <200909251123.03482.borntraeger@de.ibm.com> <20090929142538.GA10180@redhat.com> <20090929144554.GA10937@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Hannes Eder <heder@google.com>, lvs-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julius Volz <julius.volz@gmail.com>,
-	lvs-users@linuxvirtualserver.org,
-	Laurent Grawet
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Evgeniy Polyakov <zbr@ioremap.net>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Matt Helsley <matthltc@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Oleg Nesterov <oleg@redhat.com>,
+	Scott James Remnant <scott@ubuntu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.13]:49696 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751689AbZI2PH3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2009 11:07:29 -0400
-In-Reply-To: <20090929145156.GB19797@verge.net.au>
+Received: from mtagate3.uk.ibm.com ([195.212.29.136]:47527 "EHLO
+	mtagate3.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750908AbZI2PM5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2009 11:12:57 -0400
+In-Reply-To: <20090929144554.GA10937@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 29, 2009 at 16:51, Simon Horman <horms@verge.net.au> wrote:
-> On Tue, Sep 29, 2009 at 02:35:15PM +0200, Hannes Eder wrote:
->> The following series implements full NAT support for IPVS. =A0The
->> approach is via a minimal change to IPVS (make friends with
->> nf_conntrack) and adding a netfilter matcher, kernel- and user-space
->> part, i.e. xt_ipvs and libxt_ipvs.
->
-> Its a bit late in the day for me to review the code, but I have a few
-> quick comments.
->
->>
->> Example usage:
->>
->> % ipvsadm -A -t 192.168.100.30:80 -s rr
->> % ipvsadm -a -t 192.168.100.30:80 -r 192.168.10.20:80 -m
->> # ...
->>
->> # Source NAT for VIP 192.168.100.30:80
->> % iptables -t nat -A POSTROUTING -m ipvs --vaddr 192.168.100.30/32 \
->> > --vport 80 -j SNAT --to-source 192.168.10.10
->>
->> or SNAT-ing only a specific real server:
->>
->> % iptables -t nat -A POSTROUTING --dst 192.168.11.20 \
->> > -m ipvs --vaddr 192.168.100.30/32 -j SNAT --to-source 192.168.10.1=
-0
->
-> If the iptables rule is not in place does LVS just use
-> its old NAT behaviour?
+Am Dienstag 29 September 2009 16:45:54 schrieb Oleg Nesterov:
+> I think Christian's patch only needs the small fixup.
 
-Yes, without iptables rules LVS NAT does DNAT.
+Oleg, Evgeniy,
 
->> First of all, thanks for all the feedback. =A0This is the changelog =
-for v2:
->>
->> - Make ip_vs_ftp work again. =A0Setup nf_conntrack expectations for
->> =A0 related data connections (based on Julian's patch see
->> =A0 http://www.ssi.bg/~ja/nfct/) and let nf_conntrack/nf_nat do the
->> =A0 packet mangling and the TCP sequence adjusting.
->>
->> =A0 This change rises the question how to deal with ip_vs_sync? =A0D=
-oes it
->> =A0 work together with conntrackd? =A0Wild idea: what about getting =
-rid of
->> =A0 ip_vs_sync and piggy packing all on nf_conntrack and use conntra=
-ckd?
->>
->> =A0 Any comments on this?
->
-> =A0 =A0That sounds like a reasonable suggestion.
->
-> =A0 =A0I think that ip_vs_sync came along before conntrackd
-> =A0 =A0and no one has given much thought to merging the functionality=
-=2E
+just in case the discussion concludes that my patch is fine,
+here is a fixed version.
 
-Okay, I'll dig further in this direction.
+[PATCH] connector: Fix sid connector
 
-Cheers,
--Hannes
+The sid connector gives the following warning:
+Badness at kernel/softirq.c:143
+[...]
+Call Trace:
+([<000000013fe04100>] 0x13fe04100)
+ [<000000000048a946>] sk_filter+0x9a/0xd0
+ [<000000000049d938>] netlink_broadcast+0x2c0/0x53c
+ [<00000000003ba9ae>] cn_netlink_send+0x272/0x2b0
+ [<00000000003baef0>] proc_sid_connector+0xc4/0xd4
+ [<0000000000142604>] __set_special_pids+0x58/0x90
+ [<0000000000159938>] sys_setsid+0xb4/0xd8
+ [<00000000001187fe>] sysc_noemu+0x10/0x16
+ [<00000041616cb266>] 0x41616cb266
+
+The warning is
+--->    WARN_ON_ONCE(in_irq() || irqs_disabled());
+
+The network code must not be called with disabled interrupts but
+sys_setsid holds the tasklist_lock with spinlock_irq while calling
+the connector. We can safely move proc_sid_connector from
+__set_special_pids to sys_setsid.
+
+Signed-off-by: Christian Borntraeger <borntraeger@de.ibm.com>
+
+---
+ kernel/exit.c |    4 +---
+ kernel/sys.c  |    2 ++
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+Index: linux-2.6/kernel/exit.c
+===================================================================
+--- linux-2.6.orig/kernel/exit.c
++++ linux-2.6/kernel/exit.c
+@@ -359,10 +359,8 @@ void __set_special_pids(struct pid *pid)
+ {
+ 	struct task_struct *curr = current->group_leader;
+ 
+-	if (task_session(curr) != pid) {
++	if (task_session(curr) != pid)
+ 		change_pid(curr, PIDTYPE_SID, pid);
+-		proc_sid_connector(curr);
+-	}
+ 
+ 	if (task_pgrp(curr) != pid)
+ 		change_pid(curr, PIDTYPE_PGID, pid);
+Index: linux-2.6/kernel/sys.c
+===================================================================
+--- linux-2.6.orig/kernel/sys.c
++++ linux-2.6/kernel/sys.c
+@@ -1110,6 +1110,8 @@ SYSCALL_DEFINE0(setsid)
+ 	err = session;
+ out:
+ 	write_unlock_irq(&tasklist_lock);
++	if (err > 0)
++		proc_sid_connector(sid);
+ 	return err;
+ }
+ 
