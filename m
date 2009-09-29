@@ -1,56 +1,47 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [net-2.6 PATCH 4/5] qlge: Protect reset recovery with rtnl_lock().
-Date: Tue, 29 Sep 2009 11:39:24 -0700
-Message-ID: <1254249565-16381-5-git-send-email-ron.mercer@qlogic.com>
-References: <1254249565-16381-1-git-send-email-ron.mercer@qlogic.com>
-Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
-To: davem@davemloft.net
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [Fwd: Re: Bug#538372: header failure including netlink.h (or
+   uio.h)]
+Date: Tue, 29 Sep 2009 21:21:05 +0200
+Message-ID: <4AC25E21.7050407@gmail.com>
+References: <1254137084.4756.11.camel@ce170155.zmb.uni-duisburg-essen.de> <20090929092727.GA7025@ff.dom.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Manuel Prinz <manuel@debian.org>, netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:8737 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753762AbZI2SpP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2009 14:45:15 -0400
-In-Reply-To: <1254249565-16381-1-git-send-email-ron.mercer@qlogic.com>
+Received: from fg-out-1718.google.com ([72.14.220.156]:9609 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752855AbZI2TWE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2009 15:22:04 -0400
+Received: by fg-out-1718.google.com with SMTP id 22so1171753fge.1
+        for <netdev@vger.kernel.org>; Tue, 29 Sep 2009 12:22:08 -0700 (PDT)
+In-Reply-To: <20090929092727.GA7025@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the call to rtnl_lock() to before the internal call to
-ql_adapter_down()/ql_adapter_up().  This prevents collisions that can
-happen when recovering from an asic error.
+Jarek Poplawski wrote, On 09/29/2009 11:27 AM:
 
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
----
- drivers/net/qlge/qlge_main.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+> On 28-09-2009 13:24, Manuel Prinz wrote:
+>> Hi everyone,
+>>
+>> I'm forwarding this bug in Debian (http://bugs.debian.org/538372) as
+>> requested by the Debian kernel team. A patch is available. Applying just
+>> the first hunk fixes the issue for me. I've not enough kernel knowledge
+>> to judge if this fix is a proper solution, though.
+>>
+>> It would be really great if someone could have a look at it. Thanks in
+>> advance! (And please CC me in replies. Thanks!)
+> 
+> I've tried it with current include/linux and it works OK. Replacing
+> uio.h on Debian really was not enough, but it looks like missing
+> compiler.h entries could be the reason. Otherwise, please send your
+> compile error log.
+ 
 
-diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-index b05300d..fbef305 100644
---- a/drivers/net/qlge/qlge_main.c
-+++ b/drivers/net/qlge/qlge_main.c
-@@ -3703,7 +3703,7 @@ static void ql_asic_reset_work(struct work_struct *work)
- 	struct ql_adapter *qdev =
- 	    container_of(work, struct ql_adapter, asic_reset_work.work);
- 	int status;
--
-+	rtnl_lock();
- 	status = ql_adapter_down(qdev);
- 	if (status)
- 		goto error;
-@@ -3711,12 +3711,12 @@ static void ql_asic_reset_work(struct work_struct *work)
- 	status = ql_adapter_up(qdev);
- 	if (status)
- 		goto error;
--
-+	rtnl_unlock();
- 	return;
- error:
- 	QPRINTK(qdev, IFUP, ALERT,
- 		"Driver up/down cycle failed, closing device\n");
--	rtnl_lock();
-+
- 	set_bit(QL_ADAPTER_UP, &qdev->flags);
- 	dev_close(qdev->ndev);
- 	rtnl_unlock();
--- 
-1.6.0.2
+Hmm... Probably you noticed it yourself, so a little update for the
+record. My method wasn't the proper way, but repeating it with
+sanitized headers from the current kernel works even better: replacing
+Debian's uio.h only seems to be enough yet.
 
+Jarek P.
