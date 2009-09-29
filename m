@@ -1,92 +1,131 @@
-From: Christian Borntraeger <borntraeger@de.ibm.com>
-Subject: Re: [PATCH] connector: Fix sid connector (was: Badness at kernel/softirq.c:143...)
-Date: Tue, 29 Sep 2009 17:12:33 +0200
-Message-ID: <200909291712.33099.borntraeger@de.ibm.com>
-References: <200909251123.03482.borntraeger@de.ibm.com> <20090929142538.GA10180@redhat.com> <20090929144554.GA10937@redhat.com>
+From: Gilad Ben-Yossef <gilad@codefidence.com>
+Subject: [PATCH] [RFC] IPv4 TCP fails to send window scale option when window
+ scale is zero
+Date: Tue, 29 Sep 2009 17:05:52 +0200
+Message-ID: <4AC22250.7060301@codefidence.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <zbr@ioremap.net>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Matt Helsley <matthltc@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Oleg Nesterov <oleg@redhat.com>,
-	Scott James Remnant <scott@ubuntu.com>
+Cc: Ori Finkalman <ori@comsleep.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.uk.ibm.com ([195.212.29.136]:47527 "EHLO
-	mtagate3.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750908AbZI2PM5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2009 11:12:57 -0400
-In-Reply-To: <20090929144554.GA10937@redhat.com>
+Received: from xenbox.codefidence.com ([92.48.73.16]:46420 "EHLO
+	xenbox.codefidence.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751901AbZI2Pbj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2009 11:31:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Dienstag 29 September 2009 16:45:54 schrieb Oleg Nesterov:
-> I think Christian's patch only needs the small fixup.
+From: Ori Finkalman <ori@comsleep.com>
 
-Oleg, Evgeniy,
 
-just in case the discussion concludes that my patch is fine,
-here is a fixed version.
+Acknowledge TCP window scale support by inserting the proper option in 
+SYN/ACK header
+even if our window scale is zero.
 
-[PATCH] connector: Fix sid connector
 
-The sid connector gives the following warning:
-Badness at kernel/softirq.c:143
-[...]
-Call Trace:
-([<000000013fe04100>] 0x13fe04100)
- [<000000000048a946>] sk_filter+0x9a/0xd0
- [<000000000049d938>] netlink_broadcast+0x2c0/0x53c
- [<00000000003ba9ae>] cn_netlink_send+0x272/0x2b0
- [<00000000003baef0>] proc_sid_connector+0xc4/0xd4
- [<0000000000142604>] __set_special_pids+0x58/0x90
- [<0000000000159938>] sys_setsid+0xb4/0xd8
- [<00000000001187fe>] sysc_noemu+0x10/0x16
- [<00000041616cb266>] 0x41616cb266
+This fixes the following observed behavior:
 
-The warning is
---->    WARN_ON_ONCE(in_irq() || irqs_disabled());
 
-The network code must not be called with disabled interrupts but
-sys_setsid holds the tasklist_lock with spinlock_irq while calling
-the connector. We can safely move proc_sid_connector from
-__set_special_pids to sys_setsid.
+1. Client sends a SYN with TCP window scaling option and non zero window 
+scale value to a Linux box.
 
-Signed-off-by: Christian Borntraeger <borntraeger@de.ibm.com>
+2. Linux box notes large receive window from client.
+
+3. Linux decides on a zero value of window scale for its part.
+
+4. Due to compare against requested window scale size option, Linux does 
+not to send windows scale
+
+TCP option header on SYN/ACK at all.
+
+
+Result:
+
+
+Client box thinks TCP window scaling is not supported, since SYN/ACK had 
+no TCP window scale option,
+while Linux thinks that TCP window scaling is supported (and scale might 
+be non zero), since SYN had
+
+TCP window scale option and we have a mismatched idea between the client 
+and server regarding window sizes.
+
+
+Please comment and/or apply.
+
 
 ---
- kernel/exit.c |    4 +---
- kernel/sys.c  |    2 ++
- 2 files changed, 3 insertions(+), 3 deletions(-)
 
-Index: linux-2.6/kernel/exit.c
+
+Bug reported and patch written by Ori Finkalman from Comsleep Ltd. I'm 
+just helping mainline it.
+
+
+The behavior was observed with a Windows box as the client and latest 
+Debian kernel but for the best
+of my understanding this can happen with latest kernel versions and 
+other client OS (probably also Linux)
+
+as well.
+
+
+
+Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
+Signed-off-by: Ori Finkelman <ori@comsleep.com>
+
+
+Index: net/ipv4/tcp_output.c
 ===================================================================
---- linux-2.6.orig/kernel/exit.c
-+++ linux-2.6/kernel/exit.c
-@@ -359,10 +359,8 @@ void __set_special_pids(struct pid *pid)
- {
- 	struct task_struct *curr = current->group_leader;
+--- net/ipv4/tcp_output.c    (revision 46)
++++ net/ipv4/tcp_output.c    (revision 210)
+@@ -353,6 +353,7 @@ static void tcp_init_nondata_skb(struct
+ #define OPTION_SACK_ADVERTISE    (1 << 0)
+ #define OPTION_TS        (1 << 1)
+ #define OPTION_MD5        (1 << 2)
++#define OPTION_WSCALE        (1 << 3)
  
--	if (task_session(curr) != pid) {
-+	if (task_session(curr) != pid)
- 		change_pid(curr, PIDTYPE_SID, pid);
--		proc_sid_connector(curr);
--	}
+ struct tcp_out_options {
+     u8 options;        /* bit field of OPTION_* */
+@@ -417,7 +418,7 @@ static void tcp_options_write(__be32 *pt
+                    TCPOLEN_SACK_PERM);
+     }
  
- 	if (task_pgrp(curr) != pid)
- 		change_pid(curr, PIDTYPE_PGID, pid);
-Index: linux-2.6/kernel/sys.c
-===================================================================
---- linux-2.6.orig/kernel/sys.c
-+++ linux-2.6/kernel/sys.c
-@@ -1110,6 +1110,8 @@ SYSCALL_DEFINE0(setsid)
- 	err = session;
- out:
- 	write_unlock_irq(&tasklist_lock);
-+	if (err > 0)
-+		proc_sid_connector(sid);
- 	return err;
- }
+-    if (unlikely(opts->ws)) {
++    if (unlikely(OPTION_WSCALE & opts->options)) {
+         *ptr++ = htonl((TCPOPT_NOP << 24) |
+                    (TCPOPT_WINDOW << 16) |
+                    (TCPOLEN_WINDOW << 8) |
+@@ -530,8 +531,8 @@ static unsigned tcp_synack_options(struc
  
+     if (likely(ireq->wscale_ok)) {
+         opts->ws = ireq->rcv_wscale;
+-        if(likely(opts->ws))
+-            size += TCPOLEN_WSCALE_ALIGNED;
++        opts->options |= OPTION_WSCALE;
++        size += TCPOLEN_WSCALE_ALIGNED;
+     }
+     if (likely(doing_ts)) {
+         opts->options |= OPTION_TS;
+
+
+
+-- 
+Gilad Ben-Yossef
+Chief Coffee Drinker & CTO
+Codefidence Ltd.
+
+Web:   http://codefidence.com
+Cell:  +972-52-8260388
+Skype: gilad_codefidence
+Tel:   +972-8-9316883 ext. 201
+Fax:   +972-8-9316884
+Email: gilad@codefidence.com
+
+Check out our Open Source technology and training blog - http://tuxology.net
+
+	"Now the world has gone to bed
+	 Darkness won't engulf my head
+	 I can see by infra-red
+	 How I hate the night."
+
