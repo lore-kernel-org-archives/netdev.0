@@ -1,51 +1,43 @@
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Subject: RE: [PATCH 2.6.31-rc9] net: VMware virtual Ethernet NIC driver:
- vmxnet3
-Date: Tue, 29 Sep 2009 09:37:59 -0700
-Message-ID: <89E2752CFA8EC044846EB849981913410173CDFD23@EXCH-MBX-4.vmware.com>
-References: <89E2752CFA8EC044846EB849981913410173CDFAF6@EXCH-MBX-4.vmware.com>
- <20090928.170821.124026517.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shemminger@linux-foundation.org" <shemminger@linux-foundation.org>,
-	"jgarzik@pobox.com" <jgarzik@pobox.com>,
-	"anthony@codemonkey.ws" <anthony@codemonkey.ws>,
-	"chrisw@sous-sol.org" <chrisw@sous-sol.org>,
-	"greg@kroah.com" <greg@kroah.com>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	"pv-drivers@vmware.com" <pv-drivers@vmware.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752647AbZI2Qh7@vger.kernel.org>
-In-Reply-To: <20090928.170821.124026517.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: swalter@lexmark.com
+Subject: [PATCH] dev_alloc_skb: avoid using GFP_ATOMIC
+Date: Tue, 29 Sep 2009 12:43:13 -0400
+Message-ID: <1254242593-2279-1-git-send-email-swalter@lexmark.com>
+Cc: swalter <swalter@swalter-d630 (none) >,
+	Steven Walter <swalter@lexmark.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod8og107.obsmtp.com ([64.18.3.94]:60994 "HELO
+	exprod8og107.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752884AbZI2Qtp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2009 12:49:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Monday, September 28, 2009 5:08 PM
-> To: Shreyas Bhatewara
-> Cc: linux-kernel@vger.kernel.org; netdev@vger.kernel.org;
-> shemminger@linux-foundation.org; jgarzik@pobox.com;
-> anthony@codemonkey.ws; chrisw@sous-sol.org; greg@kroah.com; akpm@linux-
-> foundation.org; virtualization@lists.linux-foundation.org; pv-
-> drivers@vmware.com
-> Subject: Re: [PATCH 2.6.31-rc9] net: VMware virtual Ethernet NIC
-> driver: vmxnet3
-> 
-> From: Shreyas Bhatewara <sbhatewara@vmware.com>
-> Date: Mon, 28 Sep 2009 16:56:45 -0700
-> 
-> > +       uint32_t rxdIdx:12;    /* Index of the RxDesc */
-> 
-> Don't use uint32_t et al. sized types, use "u32" and friends
-> throughout.
+From: swalter <swalter@swalter-d630.(none)>
 
-Sure, I will fix that.
 
-->Shreyas
+Signed-off-by: Steven Walter <swalter@lpdev.prtdev.lexmark.com>
+---
+ net/core/skbuff.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 9e0597d..58ec625 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -306,7 +306,11 @@ struct sk_buff *dev_alloc_skb(unsigned int length)
+ 	 * There is more code here than it seems:
+ 	 * __dev_alloc_skb is an inline
+ 	 */
+-	return __dev_alloc_skb(length, GFP_ATOMIC);
++	if (in_interrupt()  ||  in_atomic()  ||  irqs_disabled()) {
++		return __dev_alloc_skb(length, GFP_ATOMIC);
++	} else {
++		return __dev_alloc_skb(length, GFP_KERNEL);
++	}
+ }
+ EXPORT_SYMBOL(dev_alloc_skb);
+ 
+-- 
+1.6.2.3.g5bbe6
+
