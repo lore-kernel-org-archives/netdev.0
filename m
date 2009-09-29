@@ -1,135 +1,70 @@
 From: Bhavesh Davda <bhavesh@vmware.com>
 Subject: RE: [Pv-drivers] [PATCH 2.6.31-rc9] net: VMware virtual Ethernet
-	NIC driver:	vmxnet3
-Date: Tue, 29 Sep 2009 12:45:01 -0700
-Message-ID: <8B1F619C9F5F454E81D90D3C161698D7017DB76576@EXCH-MBX-3.vmware.com>
+	NIC driver: vmxnet3
+Date: Tue, 29 Sep 2009 12:52:05 -0700
+Message-ID: <8B1F619C9F5F454E81D90D3C161698D7017DB76582@EXCH-MBX-3.vmware.com>
 References: <89E2752CFA8EC044846EB849981913410173CDFAF6@EXCH-MBX-4.vmware.com>
- <20090929085333.GC3958@sequoia.sous-sol.org>
+	<20090929085333.GC3958@sequoia.sous-sol.org>
+ <200909291505.50961.arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="Windows-1252"
 Content-Transfer-Encoding: 8BIT
 Cc: "pv-drivers@vmware.com" <pv-drivers@vmware.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	virtualization <virtualization@lists.linux-foundation.org>,
-	Anthony Liguori <anthony@codemonkey.ws>,
 	Greg Kroah-Hartman <greg@kroah.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
+	Anthony Liguori <anthony@codemonkey.ws>,
 	Jeff Garzik <jgarzik@pobox.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
 	"David S. Miller" <davem@davemloft.net>
-To: Chris Wright <chrisw@sous-sol.org>,
-	Shreyas Bhatewara <sbhatewara@vmware.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753993AbZI2TpD@vger.kernel.org>
-In-Reply-To: <20090929085333.GC3958@sequoia.sous-sol.org>
+To: Arnd Bergmann <arnd@arndb.de>, Chris Wright <chrisw@sous-sol.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753973AbZI2TwG@vger.kernel.org>
+In-Reply-To: <200909291505.50961.arnd@arndb.de>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Chris,
+Hi Arnd,
 
-Thanks a bunch for your really thorough review! I'll answer some of your questions here. Shreyas can respond to your comments about some of the coding style/comments/etc. in a separate mail.
-
-> >         INTx, MSI, MSI-X (25 vectors) interrupts
-> >         16 Rx queues, 8 Tx queues
-> 
-> Driver doesn't appear to actually support more than a single MSI-X
-> interrupt.
-> What is your plan for doing real multiqueue?
-
-When we first wrote the driver a couple of years ago, Linux lacked proper multiqueue support, hence we chose to use only a single queue though the emulated device does support 16 Rx and 8 Tx queues, and 25 MSI-X vectors: 16 for Rx, 8 for Tx and 1 for other asynchronous event notifications, by design. Actually a driver can repurpose any of the 25 vectors for any notifications; just explaining the rationale for desiging the device with 25 MSI-X vectors.
-
-We do have an internal prototype of a Linux vmxnet3 driver with 4 Tx queues and 4 Rx queues, using 9 MSI-X vectors, but it needs some work before calling it production ready.
-
-> How about GRO conversion?
-
-Looks attractive, and we'll work on that in a subsequent patch. Again, when we first wrote the driver, the NETIF_F_GRO stuff didn't exist in Linux.
-
-> Also, heavy use of BUG_ON() (counted 51 of them), are you sure that
-> none
-> of them can be triggered by guest or remote (esp. the ones that happen
-> in interrupt context)?  Some initial thoughts below.
-
-We'll definitely audit all the BUG_ONs again to make sure they can't be exploited.
-
-> > --- /dev/null
-> > +++ b/drivers/net/vmxnet3/upt1_defs.h
-> > +#define UPT1_MAX_TX_QUEUES  64
-> > +#define UPT1_MAX_RX_QUEUES  64
-> 
-> This is different than the 16/8 described above (and seemingly all moot
-> since it becomes a single queue device).
-
-Nice catch! Those are not even used and are from the earliest days of our driver development. We'll nuke those.
-
-> > +/* interrupt moderation level */
-> > +#define UPT1_IML_NONE     0 /* no interrupt moderation */
-> > +#define UPT1_IML_HIGHEST  7 /* least intr generated */
-> > +#define UPT1_IML_ADAPTIVE 8 /* adpative intr moderation */
-> 
-> enum?  also only appears to support adaptive mode?
-
-Yes, the Linux driver currently only asks for adaptive mode, but the device supports 8 interrupt moderation levels.
-
-> > --- /dev/null
-> > +++ b/drivers/net/vmxnet3/vmxnet3_defs.h
-> > +struct Vmxnet3_MiscConf {
-> > +       struct Vmxnet3_DriverInfo driverInfo;
-> > +       uint64_t             uptFeatures;
-> > +       uint64_t             ddPA;         /* driver data PA */
-> > +       uint64_t             queueDescPA;  /* queue descriptor table
-> PA */
-> > +       uint32_t             ddLen;        /* driver data len */
-> > +       uint32_t             queueDescLen; /* queue desc. table len
+> On Tuesday 29 September 2009, Chris Wright wrote:
+> > > +struct Vmxnet3_MiscConf {
+> > > +       struct Vmxnet3_DriverInfo driverInfo;
+> > > +       uint64_t             uptFeatures;
+> > > +       uint64_t             ddPA;         /* driver data PA */
+> > > +       uint64_t             queueDescPA;  /* queue descriptor
+> table PA */
+> > > +       uint32_t             ddLen;        /* driver data len */
+> > > +       uint32_t             queueDescLen; /* queue desc. table len
 > in bytes */
-> > +       uint32_t             mtu;
-> > +       uint16_t             maxNumRxSG;
-> > +       uint8_t              numTxQueues;
-> > +       uint8_t              numRxQueues;
-> > +       uint32_t             reserved[4];
-> > +};
+> > > +       uint32_t             mtu;
+> > > +       uint16_t             maxNumRxSG;
+> > > +       uint8_t              numTxQueues;
+> > > +       uint8_t              numRxQueues;
+> > > +       uint32_t             reserved[4];
+> > > +};
+> >
+> > should this be packed (or others that are shared w/ device)?  i
+> assume
+> > you've already done 32 vs 64 here
 > 
-> should this be packed (or others that are shared w/ device)?  i assume
-> you've already done 32 vs 64 here
-> 
+> I would not mark it packed, because it already is well-defined on all
+> systems. You should add __packed only to the fields where you screwed
+> up, but not to structures that already work fine.
 
-No need for packing since the fields are naturally 64-bit aligned. True for all structures shared between the driver and device.
+You're exactly right; I reiterated as much in my response to Chris.
 
-> > +#define VMXNET3_MAX_TX_QUEUES  8
-> > +#define VMXNET3_MAX_RX_QUEUES  16
-> 
-> different to UPT, I must've missed some layering here
+> One thing that should possibly be fixed is the naming of identifiers,
+> e.g.
+> 's/Vmxnet3_MiscConf/vmxnet3_misc_conf/g', unless these header files are
+> shared with the host implementation.
 
-These are the authoritiative #defines. Ignore the UPT ones.
+These header files are indeed shared with the host implementation, as you've guessed. If it's not a big deal, we would like to keep the names the same, just for our own sanity's sake?
 
-> > --- /dev/null
-> > +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-> > +       VMXNET3_WRITE_BAR0_REG(adapter, VMXNET3_REG_IMR + intr_idx *
-> 8, 0);
-> 
-> 	writel(0, adapter->hw_addr0 + VMXNET3_REG_IMR + intr_idx * 8)
-> seems just as clear to me.
-
-Fair enough. We were just trying to clearly show which register accesses go to BAR 0 versus BAR 1.
-
-> only ever num_intrs=1, so there's some plan to bump this up and make
-> these wrappers useful?
-
-Yes.
-
-> > +static void
-> > +vmxnet3_process_events(struct vmxnet3_adapter *adapter)
-> 
-> Should be trivial to break out to it's own MSI-X vector, basically set
-> up to do that already.
-
-Yes, and the device is configurable to use any vector for any "events", but didn't see any compelling reason to do so. "ECR" events are extremely rare and we've got a shadow copy of the ECR register that avoids an expensive round trip to the device, stored in adapter->shared->ecr. So we can cheaply handle events on the hot Tx/Rx path with minimal overhead. But if you really see a compelling reason to allocate a separate MSI-X vector for events, we can certainly do that.
-
-> 
-> Plan to switch to GRO?
-
-Already answered.
-
-Thanks
+Thanks!
 
 - Bhavesh
+
+> 
+> 	Arnd <><
