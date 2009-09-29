@@ -1,98 +1,104 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Subject: Re: [Pv-drivers] [PATCH 2.6.31-rc9] net: VMware virtual Ethernet
-	NIC driver: vmxnet3
-Date: Tue, 29 Sep 2009 14:54:23 -0700
-Message-ID: <20090929215423.GI3958@sequoia.sous-sol.org>
-References: <89E2752CFA8EC044846EB849981913410173CDFAF6@EXCH-MBX-4.vmware.com> <20090929085333.GC3958@sequoia.sous-sol.org> <8B1F619C9F5F454E81D90D3C161698D7017DB76576@EXCH-MBX-3.vmware.com> <20090929203018.GG3958@sequoia.sous-sol.org> <8B1F619C9F5F454E81D90D3C161698D7017DB765E8@EXCH-MBX-3.vmware.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v2 0/4] IPVS full NAT support + netfilter 'ipvs' match
+ support
+Date: Wed, 30 Sep 2009 09:18:48 +1000
+Message-ID: <20090929231845.GA7255@verge.net.au>
+References: <20090929123501.13798.84004.stgit@jazzy.zrh.corp.google.com>
+ <20090929145156.GB19797@verge.net.au>
+ <b5ddba180909290807j4d1d1d2dl48af9453542612ff@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chris Wright <chrisw@sous-sol.org>,
-	Shreyas Bhatewara <sbhatewara@vmware.com>,
-	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	virtualization <virtualization@lists.linux-foundation.org>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Greg Kroah-Hartman <greg@kroah.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Bhavesh Davda <bhavesh@vmware.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sous-sol.org ([216.99.217.87]:46935 "EHLO sequoia.sous-sol.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750873AbZI2VzZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Sep 2009 17:55:25 -0400
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
+	Julius Volz <julius.volz@gmail.com>,
+	lvs-users@linuxvirtualserver.org,
+	Laurent Grawet <laurent.grawet@uclouvain.be>,
+	Jean-Luc Fortemaison <jl.fortemaison@uclouvain.be>,
+	linux-kernel@vger.kernel.org, Jan Engelhardt <jengelh@medozas.de>,
+	Julian Anastasov <ja@ssi.bg>, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Fabien =?utf-8?Q?Duch=C3=AAne?= <mad_fab@skynet.be>,
+	Joseph Mack NA3T <jmack@wm7d.net>,
+	Patrick McHardy <kaber@trash.net>
+To: Hannes Eder <heder@google.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <8B1F619C9F5F454E81D90D3C161698D7017DB765E8@EXCH-MBX-3.vmware.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <b5ddba180909290807j4d1d1d2dl48af9453542612ff@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-* Bhavesh Davda (bhavesh@vmware.com) wrote:
-> > > Thanks a bunch for your really thorough review! I'll answer some of
-> > your questions here. Shreyas can respond to your comments about some of
-> > the coding style/comments/etc. in a separate mail.
-> > 
-> > The style is less important at this stage, but certainly eases review
-> > to make it more consistent w/ Linux code.  The StudlyCaps, extra macros
-> > (screaming caps) and inconistent space/tabs are visual distractions,
-> > that's all.
-> 
-> Agreed, but we'll definitely address all the style issues in our subsequent patch posts. Actually Shreyas showed me his raw patch and it had tabs and not spaces, so we're trying to figure out if either Outlook (corporate blessed) or our Exchange server is converting those tabs to spaces or something.
+On Tue, Sep 29, 2009 at 05:07:24PM +0200, Hannes Eder wrote:
+> On Tue, Sep 29, 2009 at 16:51, Simon Horman <horms@verge.net.au> wrot=
+e:
+> > On Tue, Sep 29, 2009 at 02:35:15PM +0200, Hannes Eder wrote:
+> >> The following series implements full NAT support for IPVS. =C2=A0T=
+he
+> >> approach is via a minimal change to IPVS (make friends with
+> >> nf_conntrack) and adding a netfilter matcher, kernel- and user-spa=
+ce
+> >> part, i.e. xt_ipvs and libxt_ipvs.
+> >
+> > Its a bit late in the day for me to review the code, but I have a f=
+ew
+> > quick comments.
+> >
+> >>
+> >> Example usage:
+> >>
+> >> % ipvsadm -A -t 192.168.100.30:80 -s rr
+> >> % ipvsadm -a -t 192.168.100.30:80 -r 192.168.10.20:80 -m
+> >> # ...
+> >>
+> >> # Source NAT for VIP 192.168.100.30:80
+> >> % iptables -t nat -A POSTROUTING -m ipvs --vaddr 192.168.100.30/32=
+ \
+> >> > --vport 80 -j SNAT --to-source 192.168.10.10
+> >>
+> >> or SNAT-ing only a specific real server:
+> >>
+> >> % iptables -t nat -A POSTROUTING --dst 192.168.11.20 \
+> >> > -m ipvs --vaddr 192.168.100.30/32 -j SNAT --to-source 192.168.10=
+=2E10
+> >
+> > If the iptables rule is not in place does LVS just use
+> > its old NAT behaviour?
+>=20
+> Yes, without iptables rules LVS NAT does DNAT.
 
-Ah, that's always fun.  You can check by mailing to yourself and looking
-at the outcome.
+Great.
 
-> > > We do have an internal prototype of a Linux vmxnet3 driver with 4 Tx
-> > queues and 4 Rx queues, using 9 MSI-X vectors, but it needs some work
-> > before calling it production ready.
-> > 
-> > I'd expect once you switch to alloc_etherdev_mq(), make napi work per
-> > rx queue, and fix MSI-X allocation (all needed for 4/4), you should
-> > have enough to support the max of 16/8 (IOW, 4/4 still sounds like an
-> > aritificial limitation).
-> 
-> Absolutely: 4/4 was simply a prototype to see if it helps with performance any with certain benchmarks. So far it looks like there's a small performance gain with microbenchmarks like netperf, but we're hoping having multiple queues with multiple vectors might have some promise with macro benchmarks like SPECjbb. If it pans out, we'll most likely make it a module_param with some reasonable defaults, possibly just 1/1 by default.
+> >> First of all, thanks for all the feedback. =C2=A0This is the chang=
+elog for v2:
+> >>
+> >> - Make ip_vs_ftp work again. =C2=A0Setup nf_conntrack expectations=
+ for
+> >> =C2=A0 related data connections (based on Julian's patch see
+> >> =C2=A0 http://www.ssi.bg/~ja/nfct/) and let nf_conntrack/nf_nat do=
+ the
+> >> =C2=A0 packet mangling and the TCP sequence adjusting.
+> >>
+> >> =C2=A0 This change rises the question how to deal with ip_vs_sync?=
+ =C2=A0Does it
+> >> =C2=A0 work together with conntrackd? =C2=A0Wild idea: what about =
+getting rid of
+> >> =C2=A0 ip_vs_sync and piggy packing all on nf_conntrack and use co=
+nntrackd?
+> >>
+> >> =C2=A0 Any comments on this?
+> >
+> > =C2=A0 =C2=A0That sounds like a reasonable suggestion.
+> >
+> > =C2=A0 =C2=A0I think that ip_vs_sync came along before conntrackd
+> > =C2=A0 =C2=A0and no one has given much thought to merging the funct=
+ionality.
+>=20
+> Okay, I'll dig further in this direction.
 
-Most physical devices that do MSI-X will do queue per cpu (or some
-grouping if large number of cpus compared to queues).  Probably
-reasonable default here too.
-
-> > > > How about GRO conversion?
-> > >
-> > > Looks attractive, and we'll work on that in a subsequent patch.
-> > Again, when we first wrote the driver, the NETIF_F_GRO stuff didn't
-> > exist in Linux.
-> > 
-> > OK, shouldn't be too much work.
-> > 
-> > Another thing I forgot to mention is that net_device now has
-> > net_device_stats in it.  So you shouldn't need net_device_stats in
-> > vmxnet3_adapter.
-> 
-> Cool. Will do.
-> 
-> > > > > +#define UPT1_MAX_TX_QUEUES  64
-> > > > > +#define UPT1_MAX_RX_QUEUES  64
-> > > >
-> > > > This is different than the 16/8 described above (and seemingly all
-> > moot
-> > > > since it becomes a single queue device).
-> > >
-> > > Nice catch! Those are not even used and are from the earliest days of
-> > our driver development. We'll nuke those.
-> > 
-> > Could you describe the UPT layer a bit?  There were a number of
-> > constants that didn't appear to be used.
-> 
-> UPT stands for Uniform Pass Thru, a spec/framework VMware developed with its IHV partners to implement the fast path (Tx/Rx) features of vmxnet3 in silicon. Some of these #defines that appear not to be used are based on this initial spec that VMware shared with its IHV partners.
-> 
-> We divided the emulated vmxnet3 PCIe device's registers into two sets on two separate BARs: BAR 0 for the UPT registers we asked IHV partners to implement that we emulate in our hypervisor if no physical device compliant with the UPT spec is available to pass thru from a virtual machine, and BAR 1 for registers we always emulate for slow path/control operations like setting the MAC address, or activating/quiescing/resetting the device, etc.
-
-Interesting.  Sounds like part of NetQueue and also something that virtio
-has looked into to support, e.g. VMDq.  Do you have a more complete
-spec?
-
-thanks,
--chris
+Assuming the technical side is clean, I suspect the major problem will =
+be
+how to migrate users away from ip_vs_sync.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
