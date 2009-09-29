@@ -1,38 +1,39 @@
 From: Philipp Reisner <philipp.reisner@linbit.com>
-Subject: [PATCH] connector: Allow permission checking in the receiver callbacks
-Date: Tue, 29 Sep 2009 16:48:07 +0200
-Message-ID: <1254235692-1631-1-git-send-email-philipp.reisner@linbit.com>
+Subject: [PATCH] connector/dm: Fixed a compilation warning
+Date: Tue, 29 Sep 2009 16:48:10 +0200
+Message-ID: <1254235692-1631-4-git-send-email-philipp.reisner@linbit.com>
+References: <1254235692-1631-1-git-send-email-philipp.reisner@linbit.com>
+ <1254235692-1631-2-git-send-email-philipp.reisner@linbit.com>
+ <1254235692-1631-3-git-send-email-philipp.reisner@linbit.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Lars Ellenberg <lars.ellenberg@linbit.com>,
 	Philipp Reisner <philipp.reisner@linbit.com>
 To: Evgeniy Polyakov <zbr@ioremap.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752765AbZI2OsR@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752960AbZI2OsR@vger.kernel.org>
+In-Reply-To: <1254235692-1631-3-git-send-email-philipp.reisner@linbit.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Various users of the connector should actually check if the
-sender's capabilities of a netlink/connector packet are
-actually sufficient for the operation they trigger. Up to
-now the connector framework did not allow the kernel side
-receiver to do so.
-
-This patch set does the groundwork.
-
-Philipp Reisner (4):
-  connector: Keep the skb in cn_callback_data
-  connector: Provide the sender's credentials to the callback
-  connector/dm: Fixed a compilation warning
-  connector: Removed the destruct_data callback since it is always
-    kfree_skb()
-
- Documentation/connector/cn_test.c      |    2 +-
- Documentation/connector/connector.txt  |    8 ++++----
- drivers/connector/cn_queue.c           |   12 +++++++-----
- drivers/connector/connector.c          |   22 ++++++++--------------
+Signed-off-by: Philipp Reisner <philipp.reisner@linbit.com>
+Acked-by: Lars Ellenberg <lars.ellenberg@linbit.com>
+---
  drivers/md/dm-log-userspace-transfer.c |    3 +--
- drivers/staging/dst/dcore.c            |    2 +-
- drivers/staging/pohmelfs/config.c      |    2 +-
- drivers/video/uvesafb.c                |    2 +-
- drivers/w1/w1_netlink.c                |    2 +-
- include/linux/connector.h              |   11 ++++-------
- 10 files changed, 29 insertions(+), 37 deletions(-)
+ 1 files changed, 1 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/md/dm-log-userspace-transfer.c b/drivers/md/dm-log-userspace-transfer.c
+index 556131f..1327e1a 100644
+--- a/drivers/md/dm-log-userspace-transfer.c
++++ b/drivers/md/dm-log-userspace-transfer.c
+@@ -129,9 +129,8 @@ static int fill_pkg(struct cn_msg *msg, struct dm_ulog_request *tfr)
+  * This is the connector callback that delivers data
+  * that was sent from userspace.
+  */
+-static void cn_ulog_callback(void *data, struct netlink_skb_parms *nsp)
++static void cn_ulog_callback(struct cn_msg *msg, struct netlink_skb_parms *nsp)
+ {
+-	struct cn_msg *msg = (struct cn_msg *)data;
+ 	struct dm_ulog_request *tfr = (struct dm_ulog_request *)(msg + 1);
+ 
+ 	spin_lock(&receiving_list_lock);
+-- 
+1.6.0.4
