@@ -1,146 +1,207 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] [RFC] IPv4 TCP fails to send window scale option when
- window scale is zero
-Date: Tue, 29 Sep 2009 19:19:54 +0200
-Message-ID: <4AC241BA.8040608@gmail.com>
-References: <4AC22250.7060301@codefidence.com>
+From: Yakov Lerner <iler.ml@gmail.com>
+Subject: Re: [PATCH] /proc/net/tcp, overhead removed
+Date: Tue, 29 Sep 2009 20:34:51 +0300
+Message-ID: <f36b08ee0909291034n592664b4r9eab63630173493b@mail.gmail.com>
+References: <1254178906-5293-1-git-send-email-iler.ml@gmail.com>
+	 <4AC1BDAD.1010400@gmail.com>
+	 <f36b08ee0909290155u177b1983y2eafa8b353a143e0@mail.gmail.com>
+	 <20090929084534.41274f66@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Ori Finkalman <ori@comsleep.com>
-To: Gilad Ben-Yossef <gilad@codefidence.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:36961 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753029AbZI2RTz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2009 13:19:55 -0400
-In-Reply-To: <4AC22250.7060301@codefidence.com>
+Received: from mail-fx0-f218.google.com ([209.85.220.218]:45969 "EHLO
+	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751673AbZI2Res convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2009 13:34:48 -0400
+Received: by fxm18 with SMTP id 18so4671019fxm.17
+        for <netdev@vger.kernel.org>; Tue, 29 Sep 2009 10:34:51 -0700 (PDT)
+In-Reply-To: <20090929084534.41274f66@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Gilad Ben-Yossef a =E9crit :
-> From: Ori Finkalman <ori@comsleep.com>
->=20
->=20
-> Acknowledge TCP window scale support by inserting the proper option i=
-n
-> SYN/ACK header
-> even if our window scale is zero.
->=20
->=20
-> This fixes the following observed behavior:
->=20
->=20
-> 1. Client sends a SYN with TCP window scaling option and non zero win=
-dow
-> scale value to a Linux box.
->=20
-> 2. Linux box notes large receive window from client.
->=20
-> 3. Linux decides on a zero value of window scale for its part.
->=20
-> 4. Due to compare against requested window scale size option, Linux d=
-oes
-> not to send windows scale
->=20
-> TCP option header on SYN/ACK at all.
->=20
->=20
-> Result:
->=20
->=20
-> Client box thinks TCP window scaling is not supported, since SYN/ACK =
-had
-> no TCP window scale option,
-> while Linux thinks that TCP window scaling is supported (and scale mi=
-ght
-> be non zero), since SYN had
->=20
-> TCP window scale option and we have a mismatched idea between the cli=
-ent
-> and server regarding window sizes.
->=20
->=20
-> Please comment and/or apply.
->=20
->=20
-> ---
->=20
->=20
-> Bug reported and patch written by Ori Finkalman from Comsleep Ltd. I'=
-m
-> just helping mainline it.
->=20
->=20
-> The behavior was observed with a Windows box as the client and latest
-> Debian kernel but for the best
-> of my understanding this can happen with latest kernel versions and
-> other client OS (probably also Linux)
->=20
-> as well.
->=20
->=20
->=20
-> Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
-> Signed-off-by: Ori Finkelman <ori@comsleep.com>
->=20
->=20
-> Index: net/ipv4/tcp_output.c
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> --- net/ipv4/tcp_output.c    (revision 46)
-> +++ net/ipv4/tcp_output.c    (revision 210)
-> @@ -353,6 +353,7 @@ static void tcp_init_nondata_skb(struct
-> #define OPTION_SACK_ADVERTISE    (1 << 0)
-> #define OPTION_TS        (1 << 1)
-> #define OPTION_MD5        (1 << 2)
-> +#define OPTION_WSCALE        (1 << 3)
->=20
-> struct tcp_out_options {
->     u8 options;        /* bit field of OPTION_* */
-> @@ -417,7 +418,7 @@ static void tcp_options_write(__be32 *pt
->                    TCPOLEN_SACK_PERM);
->     }
->=20
-> -    if (unlikely(opts->ws)) {
-> +    if (unlikely(OPTION_WSCALE & opts->options)) {
->         *ptr++ =3D htonl((TCPOPT_NOP << 24) |
->                    (TCPOPT_WINDOW << 16) |
->                    (TCPOLEN_WINDOW << 8) |
-> @@ -530,8 +531,8 @@ static unsigned tcp_synack_options(struc
->=20
->     if (likely(ireq->wscale_ok)) {
->         opts->ws =3D ireq->rcv_wscale;
-> -        if(likely(opts->ws))
-> -            size +=3D TCPOLEN_WSCALE_ALIGNED;
-> +        opts->options |=3D OPTION_WSCALE;
-> +        size +=3D TCPOLEN_WSCALE_ALIGNED;
->     }
->     if (likely(doing_ts)) {
->         opts->options |=3D OPTION_TS;
->=20
->=20
->=20
+On Tue, Sep 29, 2009 at 18:45, Stephen Hemminger <shemminger@vyatta.com=
+> wrote:
+> On Tue, 29 Sep 2009 11:55:18 +0300
+> Yakov Lerner <iler.ml@gmail.com> wrote:
+>
+>> On Tue, Sep 29, 2009 at 10:56, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+>> >
+>> > Yakov Lerner a =E9crit :
+>> > > Take 2.
+>> > >
+>> > > "Sharp improvement in performance of /proc/net/tcp when number o=
+f
+>> > > sockets is large and hashsize is large.
+>> > > O(numsock * hashsize) time becomes O(numsock + hashsize). On slo=
+w
+>> > > processors, speed difference can be x100 and more."
+>> > >
+>> > > I must say that I'm not fully satisfied with my choice of "st->s=
+bucket"
+>> > > for the new preserved index. The better name would be "st->snum"=
+=2E
+>> > > Re-using "st->sbucket" saves 4 bytes, and keeps the patch to one=
+ sourcefile.
+>> > > But "st->sbucket" has different meaning in OPENREQ and LISTEN st=
+ates;
+>> > > this can be confusing.
+>> > > Maybe better add "snum" member to struct tcp_iter_state ?
+>> > >
+>> > > Shall I change subject when sending "take N+1", or keep the old =
+subject ?
+>> > >
+>> > > Signed-off-by: Yakov Lerner <iler.ml@gmail.com>
+>> > > ---
+>> > > =A0net/ipv4/tcp_ipv4.c | =A0 35 ++++++++++++++++++++++++++++++++=
++--
+>> > > =A01 files changed, 33 insertions(+), 2 deletions(-)
+>> > >
+>> > > diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+>> > > index 7cda24b..e4c4f19 100644
+>> > > --- a/net/ipv4/tcp_ipv4.c
+>> > > +++ b/net/ipv4/tcp_ipv4.c
+>> > > @@ -1994,13 +1994,14 @@ static inline int empty_bucket(struct tc=
+p_iter_state *st)
+>> > > =A0 =A0 =A0 =A0 =A0 =A0 =A0 hlist_nulls_empty(&tcp_hashinfo.ehas=
+h[st->bucket].twchain);
+>> > > =A0}
+>> > >
+>> > > -static void *established_get_first(struct seq_file *seq)
+>> > > +static void *established_get_first_after(struct seq_file *seq, =
+int bucket)
+>> > > =A0{
+>> > > =A0 =A0 =A0 struct tcp_iter_state *st =3D seq->private;
+>> > > =A0 =A0 =A0 struct net *net =3D seq_file_net(seq);
+>> > > =A0 =A0 =A0 void *rc =3D NULL;
+>> > >
+>> > > - =A0 =A0 for (st->bucket =3D 0; st->bucket < tcp_hashinfo.ehash=
+_size; ++st->bucket) {
+>> > > + =A0 =A0 for (st->bucket =3D bucket; st->bucket < tcp_hashinfo.=
+ehash_size;
+>> > > + =A0 =A0 =A0 =A0 =A0++st->bucket) {
+>> > > =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct sock *sk;
+>> > > =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct hlist_nulls_node *node;
+>> > > =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct inet_timewait_sock *tw;
+>> > > @@ -2010,6 +2011,8 @@ static void *established_get_first(struct =
+seq_file *seq)
+>> > > =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (empty_bucket(st))
+>> > > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 continue;
+>> > >
+>> > > + =A0 =A0 =A0 =A0 =A0 =A0 st->sbucket =3D st->num;
+>> > > +
+>> > > =A0 =A0 =A0 =A0 =A0 =A0 =A0 spin_lock_bh(lock);
+>> > > =A0 =A0 =A0 =A0 =A0 =A0 =A0 sk_nulls_for_each(sk, node, &tcp_has=
+hinfo.ehash[st->bucket].chain) {
+>> > > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (sk->sk_family !=3D=
+ st->family ||
+>> > > @@ -2036,6 +2039,11 @@ out:
+>> > > =A0 =A0 =A0 return rc;
+>> > > =A0}
+>> > >
+>> > > +static void *established_get_first(struct seq_file *seq)
+>> > > +{
+>> > > + =A0 =A0 return established_get_first_after(seq, 0);
+>> > > +}
+>> > > +
+>> > > =A0static void *established_get_next(struct seq_file *seq, void =
+*cur)
+>> > > =A0{
+>> > > =A0 =A0 =A0 struct sock *sk =3D cur;
+>> > > @@ -2064,6 +2072,9 @@ get_tw:
+>> > > =A0 =A0 =A0 =A0 =A0 =A0 =A0 while (++st->bucket < tcp_hashinfo.e=
+hash_size &&
+>> > > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 empt=
+y_bucket(st))
+>> > > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ;
+>> > > +
+>> > > + =A0 =A0 =A0 =A0 =A0 =A0 st->sbucket =3D st->num;
+>> > > +
+>> > > =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (st->bucket >=3D tcp_hashinfo.eha=
+sh_size)
+>> > > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return NULL;
+>> > >
+>> > > @@ -2107,6 +2118,7 @@ static void *tcp_get_idx(struct seq_file *=
+seq, loff_t pos)
+>> > >
+>> > > =A0 =A0 =A0 if (!rc) {
+>> > > =A0 =A0 =A0 =A0 =A0 =A0 =A0 st->state =3D TCP_SEQ_STATE_ESTABLIS=
+HED;
+>> > > + =A0 =A0 =A0 =A0 =A0 =A0 st->sbucket =3D 0;
+>> > > =A0 =A0 =A0 =A0 =A0 =A0 =A0 rc =A0 =A0 =A0 =A0=3D established_ge=
+t_idx(seq, pos);
+>> > > =A0 =A0 =A0 }
+>> > >
+>> > > @@ -2116,6 +2128,25 @@ static void *tcp_get_idx(struct seq_file =
+*seq, loff_t pos)
+>> > > =A0static void *tcp_seq_start(struct seq_file *seq, loff_t *pos)
+>> > > =A0{
+>> > > =A0 =A0 =A0 struct tcp_iter_state *st =3D seq->private;
+>> > > +
+>> > > + =A0 =A0 if (*pos && *pos >=3D st->sbucket &&
+>> > > + =A0 =A0 =A0 =A0 (st->state =3D=3D TCP_SEQ_STATE_ESTABLISHED ||
+>> > > + =A0 =A0 =A0 =A0 =A0st->state =3D=3D TCP_SEQ_STATE_TIME_WAIT)) =
+{
+>> > > + =A0 =A0 =A0 =A0 =A0 =A0 void *cur;
+>> > > + =A0 =A0 =A0 =A0 =A0 =A0 int nskip;
+>> > > +
+>> > > + =A0 =A0 =A0 =A0 =A0 =A0 /* for states estab and tw, st->sbucke=
+t is index (*pos) */
+>> > > + =A0 =A0 =A0 =A0 =A0 =A0 /* corresponding to the beginning of b=
+ucket st->bucket */
+>> > > +
+>> > > + =A0 =A0 =A0 =A0 =A0 =A0 st->num =3D st->sbucket;
+>> > > + =A0 =A0 =A0 =A0 =A0 =A0 /* jump to st->bucket, then skip (*pos=
+ - st->sbucket) items */
+>> > > + =A0 =A0 =A0 =A0 =A0 =A0 st->state =3D TCP_SEQ_STATE_ESTABLISHE=
+D;
+>> > > + =A0 =A0 =A0 =A0 =A0 =A0 cur =3D established_get_first_after(se=
+q, st->bucket);
+>> > > + =A0 =A0 =A0 =A0 =A0 =A0 for (nskip =3D *pos - st->num; cur && =
+nskip > 0; --nskip)
+>> > > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 cur =3D established_ge=
+t_next(seq, cur);
+>> > > + =A0 =A0 =A0 =A0 =A0 =A0 return cur;
+>> > > + =A0 =A0 }
+>> > > +
+>> > > =A0 =A0 =A0 st->state =3D TCP_SEQ_STATE_LISTENING;
+>> > > =A0 =A0 =A0 st->num =3D 0;
+>> > > =A0 =A0 =A0 return *pos ? tcp_get_idx(seq, *pos - 1) : SEQ_START=
+_TOKEN;
+>> >
+>> > Just in case you are working on "take 3" of the patch, there is a =
+fondamental problem.
+>> >
+>> > All the scalability problems come from the fact that tcp_seq_start=
+()
+>> > *has* to rescan all the tables from the begining, because of lseek=
+() capability
+>> > on /proc/net/tcp file
+>> >
+>> > We probably could disable llseek() (on other positions than start =
+of the file),
+>> > and rely only on internal state (listening/established hashtable, =
+hash bucket, position in chain)
+>> >
+>> > I cannot imagine how an application could rely on lseek() on >0 po=
+sition in this file.
+>>
+>>
+>> I thought =A0/proc/net/tcp =A0can =A0both =A0be fast and allow lseek=
+;
+>> (1) when no lseek was issued since last read
+>> (we can detect this), /proc/net/tcp can jump to the
+>> last known bucket (common case), vs
+>> (2) switch to slow mode (scan from the beginning of hash)
+>> when lseek was used , no ?
+>
+> If you look at fib_hash and fib_trie, they already do the same thing.
+> =A0* fib_hash records last hash chain to avoid overhead of rescan.
+> =A0* fib_trie records last route and does fast lookup to restart from=
+ there.
 
-Seems not the more logical places to put this logic...
-
-How about this instead ?
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 5200aab..b78c084 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -216,6 +216,11 @@ void tcp_select_initial_window(int __space, __u32 =
-mss,
- 			space >>=3D 1;
- 			(*rcv_wscale)++;
- 		}
-+		/*
-+		 * Set a minimum wscale of 1
-+		 */
-+		if (*rcv_wscale =3D=3D 0)
-+			*rcv_wscale =3D 1;
-        }
-
-        /* Set initial window to value enough for senders,
+Thanks for the pointer.
