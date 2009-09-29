@@ -1,66 +1,46 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [Bonding-devel] [PATCH 4/4] bonding: add sysfs files to
-	display tlb and alb hash table contents
-Date: Mon, 28 Sep 2009 20:12:03 -0400
-Message-ID: <20090929001203.GE4436@gospo.rdu.redhat.com>
-References: <20090911211317.GT8515@gospo.rdu.redhat.com> <20090928162237.6db0c9f5@nehalam>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH 2.6.31-rc9] net: VMware virtual Ethernet NIC driver:
+ vmxnet3
+Date: Mon, 28 Sep 2009 17:22:07 -0700
+Message-ID: <20090929002207.GB31372@kroah.com>
+References: <89E2752CFA8EC044846EB849981913410173CDFAF6@EXCH-MBX-4.vmware.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	fubar@us.ibm.com, bonding-devel@lists.sourceforge.net
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Anthony Liguori <anthony@codemonkey.ws>,
+	Chris Wright <chrisw@sous-sol.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	virtualization <virtualization@lists.linux-foundation.org>,
+	"pv-drivers@vmware.com" <pv-drivers@vmware.com>
+To: Shreyas Bhatewara <sbhatewara@vmware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44783 "EHLO mx1.redhat.com"
+Received: from kroah.org ([198.145.64.141]:42015 "EHLO coco.kroah.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753673AbZI2ARV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Sep 2009 20:17:21 -0400
+	id S1753558AbZI2AWj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Sep 2009 20:22:39 -0400
 Content-Disposition: inline
-In-Reply-To: <20090928162237.6db0c9f5@nehalam>
+In-Reply-To: <89E2752CFA8EC044846EB849981913410173CDFAF6@EXCH-MBX-4.vmware.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 28, 2009 at 04:22:37PM -0700, Stephen Hemminger wrote:
-> On Fri, 11 Sep 2009 17:13:17 -0400
-> Andy Gospodarek <andy@greyhouse.net> wrote:
+On Mon, Sep 28, 2009 at 04:56:45PM -0700, Shreyas Bhatewara wrote:
 > 
-> > 
-> > bonding: add sysfs files to display tlb and alb hash table contents
-> > 
-> > While debugging some problems with alb (mode 6) bonding I realized that
-> > being able to output the contents of both hash tables would be helpful.
-> > This is what the output looks like for the two files:
-> > 
-> > device  load
-> > eth1    491
-> > eth2    491
-> > hash device   last device   tx bytes       load        next previous
-> > 2    eth1     eth1          2254           491         0    0
-> > 3    eth2     eth2          2744           491         0    0
-> > 6             eth2          0              488         0    0
-> > 8             eth2          0              461698      0    0
-> > 1b            eth2          0              249         0    0
-> > eb            eth2          0              21          0    0
-> > ff            eth2          0              22          0    0
-> > 
-> > hash ip_src          ip_dst          mac_dst           slave assign ntt
-> > 2    10.0.3.2        10.0.3.11       00:e0:81:71:ee:a9 eth1  1      0
-> > 3    10.0.3.2        10.0.3.10       00:e0:81:71:ee:a9 eth2  1      0
-> > 8    10.0.3.2        10.0.3.1        00:e0:81:71:ee:a9 eth2  1      0
-> > 
-> > These were a great help debugging the fixes I have just posted and they
-> > might be helpful for others, so I decided to include them in my
-> > patchset.
-> > 
-> > Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> 
-> No.
-> 
-> Please don't put formatted output in sysfs, it is not meant to be
-> used like proc, there is supposed to be only one value per file.
+> Please consider this for inclusion in the linux net tree. I will be
+> glad to receive your review comments and answer queries in order to be
+> accepted in mainline in 2.6.32 release cycle.
 
-Then based on the over 300 files in /sys/ that are more than 1 line on
-my currently running kernel, it seems there is significant work to do.
+It's usually a bit late given that the big merge window for 2.6.32 is
+now closed.
 
-Seemingly arbitrary requests like this are extremely annoying when the
-current kernel violates them all over the place.
+> The patch applies to 2.6.31-rc9.
 
+2.6.32-rc1 is out, you should rebase to it as a few tens of thousands of
+changes have already happened since 2.6.31-rc9 :)
+
+thanks,
+
+greg k-h
