@@ -1,100 +1,45 @@
-From: Christian Borntraeger <borntraeger@de.ibm.com>
-Subject: [PATCH] connector: Fix sid connector (was: Badness at kernel/softirq.c:143...)
-Date: Tue, 29 Sep 2009 15:47:21 +0200
-Message-ID: <200909291547.21528.borntraeger@de.ibm.com>
-References: <200909251123.03482.borntraeger@de.ibm.com> <fbbbe0a028fa.4ac1f1c0@2ka.mipt.ru> <20090929132415.GB4538@redhat.com>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH] connector: Fix sid connector (was: Badness at
+	kernel/softirq.c:143...)
+Date: Tue, 29 Sep 2009 15:59:59 +0200
+Message-ID: <20090929135959.GA6806@redhat.com>
+References: <200909251123.03482.borntraeger@de.ibm.com> <fbbbe0a028fa.4ac1f1c0@2ka.mipt.ru> <20090929132415.GB4538@redhat.com> <200909291547.21528.borntraeger@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Evgeny Polyakov <johnpol@2ka.mipt.ru>,
 	Scott James Remnant <scott@ubuntu.com>,
 	Linux Kernel <linux-kernel@vger.kernel.org>,
 	Matt Helsley <matthltc@us.ibm.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Evgeniy Polyakov <zbr@ioremap.net>, netdev@vger.kernel.org
-To: Oleg Nesterov <oleg@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.uk.ibm.com ([194.196.100.161]:41701 "EHLO
-	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751932AbZI2NrU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2009 09:47:20 -0400
-In-Reply-To: <20090929132415.GB4538@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Christian Borntraeger <borntraeger@de.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752601AbZI2OEX@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <200909291547.21528.borntraeger@de.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Am Dienstag 29 September 2009 15:24:15 schrieb Oleg Nesterov:
-> On 09/29, Evgeny Polyakov wrote:
-> > I'm yet do download the latest git to check this particular patch, but
-> > I suppose it is possible to copy data under the lock into temporary
-> > buffer and then send it using existing infrastructure instead of
-> > calling it under the tasklist lock.
-> 
-> Afaics, we can just shift proc_sid_connector() from __set_special_pids()
-> to sys_setsid().
+On 09/29, Christian Borntraeger wrote:
+>
+> --- linux-2.6.orig/kernel/sys.c
+> +++ linux-2.6/kernel/sys.c
+> @@ -1110,6 +1110,8 @@ SYSCALL_DEFINE0(setsid)
+>  	err = session;
+>  out:
+>  	write_unlock_irq(&tasklist_lock);
+> +	if (!err)
+> +		proc_sid_connector(sid);
 
-Ok,  can confirm that this patch fixes my problem, but I am not sure if the
-intended behaviour is still working as expected.
+sys_setsid() returns the session nr on success, not zero.
 
-[PATCH] connector: Fix sid connector
+	if (err > 0)
+		proc_sid_connector(sid);
 
-The sid connector gives the following warning:
-Badness at kernel/softirq.c:143
-[...]
-Call Trace:
-([<000000013fe04100>] 0x13fe04100)
- [<000000000048a946>] sk_filter+0x9a/0xd0
- [<000000000049d938>] netlink_broadcast+0x2c0/0x53c
- [<00000000003ba9ae>] cn_netlink_send+0x272/0x2b0
- [<00000000003baef0>] proc_sid_connector+0xc4/0xd4
- [<0000000000142604>] __set_special_pids+0x58/0x90
- [<0000000000159938>] sys_setsid+0xb4/0xd8
- [<00000000001187fe>] sysc_noemu+0x10/0x16
- [<00000041616cb266>] 0x41616cb266
+Otherwize I think the patch is fine. Not only it should fix the problem,
+imho it makes the code cleaner.
 
-The warning is
---->    WARN_ON_ONCE(in_irq() || irqs_disabled());
+If Scott still thinks daemonize() should report too, we can change it.
 
-The network code must not be called with disabled interrupts but
-sys_setsid holds the tasklist_lock with spinlock_irq while calling
-the connector. We can safely move proc_sid_connector from
-__set_special_pids to sys_setsid.
+(I'd suggest you to CC Andrew if you are going to re-send)
 
-Signed-off-by: Christian Borntraeger <borntraeger@de.ibm.com>
-
----
- kernel/exit.c |    4 +---
- kernel/sys.c  |    2 ++
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-Index: linux-2.6/kernel/exit.c
-===================================================================
---- linux-2.6.orig/kernel/exit.c
-+++ linux-2.6/kernel/exit.c
-@@ -359,10 +359,8 @@ void __set_special_pids(struct pid *pid)
- {
- 	struct task_struct *curr = current->group_leader;
- 
--	if (task_session(curr) != pid) {
-+	if (task_session(curr) != pid)
- 		change_pid(curr, PIDTYPE_SID, pid);
--		proc_sid_connector(curr);
--	}
- 
- 	if (task_pgrp(curr) != pid)
- 		change_pid(curr, PIDTYPE_PGID, pid);
-Index: linux-2.6/kernel/sys.c
-===================================================================
---- linux-2.6.orig/kernel/sys.c
-+++ linux-2.6/kernel/sys.c
-@@ -1110,6 +1110,8 @@ SYSCALL_DEFINE0(setsid)
- 	err = session;
- out:
- 	write_unlock_irq(&tasklist_lock);
-+	if (!err)
-+		proc_sid_connector(sid);
- 	return err;
- }
- 
-
-
+Oleg.
