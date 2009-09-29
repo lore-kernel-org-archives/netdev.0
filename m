@@ -1,56 +1,49 @@
-From: Alok Kataria <akataria@vmware.com>
-Subject: Re: [Pv-drivers] [PATCH 2.6.31-rc9] net: VMware virtual Ethernet
-	NIC driver: vmxnet3
-Date: Mon, 28 Sep 2009 17:51:39 -0700
-Message-ID: <1254185499.13456.40.camel@ank32.eng.vmware.com>
-References: <89E2752CFA8EC044846EB849981913410173CDFAF6@EXCH-MBX-4.vmware.com>
-	 <20090929002207.GB31372@kroah.com>
-Reply-To: akataria@vmware.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: tg3 and Broadcom PHY driver
+Date: Tue, 29 Sep 2009 01:53:59 +0100
+Message-ID: <1254185639.27790.3.camel@localhost>
+References: <4AC1223B.8070903@embedded-sol.com>
+	 <20090928.141527.193009676.davem@davemloft.net>
+	 <4AC13036.8030506@embedded-sol.com>
+	 <20090928.145522.151077608.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Shreyas Bhatewara <sbhatewara@vmware.com>,
-	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	virtualization <virtualization@lists.linux-foundation.org>,
-	Chris Wright <chrisw@sous-sol.org>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753863AbZI2Avj@vger.kernel.org>
-In-Reply-To: <20090929002207.GB31372@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: felix@embedded-sol.com, mcarlson@broadcom.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:26475 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753689AbZI2AyE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Sep 2009 20:54:04 -0400
+In-Reply-To: <20090928.145522.151077608.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On Mon, 2009-09-28 at 17:22 -0700, Greg KH wrote:
-> On Mon, Sep 28, 2009 at 04:56:45PM -0700, Shreyas Bhatewara wrote:
-
-> > The patch applies to 2.6.31-rc9.
+On Mon, 2009-09-28 at 14:55 -0700, David Miller wrote:
+> From: Felix Radensky <felix@embedded-sol.com>
+> Date: Mon, 28 Sep 2009 23:52:54 +0200
 > 
-> 2.6.32-rc1 is out, you should rebase to it as a few tens of thousands of
-> changes have already happened since 2.6.31-rc9 :)
+> > Yes, moving CONFIG_TIGON3 right after CONFIG_PHYLIB in
+> > drivers/net/Makefile fixes the problem for me.
 > 
-
-Yep, we should rebase this, we will do that while incorporating the
-comments that we got from David, and any others that you think we should
-be making. 
-
-As a side note, were there any changes in the networking API's, that we
-should look out for in the merge cycle ?
-If not I think the rebase should be pretty trivial.
-
-Thanks,
-Alok
-
-> thanks,
+> Thanks for testing.
 > 
-> greg k-h
-> _______________________________________________
-> Pv-drivers mailing list
-> Pv-drivers@vmware.com
-> http://mailman2.vmware.com/mailman/listinfo/pv-drivers
+> We really need to fix this generically.
+> 
+> Does anyone think that moving the MDIO/MII/PHY layer objects
+> to the top of drivers/net/Makefile will break anything?
+> 
+> If not, that's what we should do I think.
+
+Only the phylib drivers actually need to be moved to fix the
+initialisation order, but moving the others shouldn't hurt.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
