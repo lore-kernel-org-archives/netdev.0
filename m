@@ -1,8 +1,8 @@
 From: Greg KH <greg@kroah.com>
 Subject: Re: [PATCH 2.6.31-rc9] net: VMware virtual Ethernet NIC driver:
  vmxnet3
-Date: Mon, 28 Sep 2009 17:22:07 -0700
-Message-ID: <20090929002207.GB31372@kroah.com>
+Date: Mon, 28 Sep 2009 17:20:56 -0700
+Message-ID: <20090929002056.GA31372@kroah.com>
 References: <89E2752CFA8EC044846EB849981913410173CDFAF6@EXCH-MBX-4.vmware.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -17,29 +17,25 @@ Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	virtualization <virtualization@lists.linux-foundation.org>,
 	"pv-drivers@vmware.com" <pv-drivers@vmware.com>
 To: Shreyas Bhatewara <sbhatewara@vmware.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:42015 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753558AbZI2AWj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Sep 2009 20:22:39 -0400
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753844AbZI2AWm@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <89E2752CFA8EC044846EB849981913410173CDFAF6@EXCH-MBX-4.vmware.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 On Mon, Sep 28, 2009 at 04:56:45PM -0700, Shreyas Bhatewara wrote:
+> Ethernet NIC driver for VMware's vmxnet3
 > 
-> Please consider this for inclusion in the linux net tree. I will be
-> glad to receive your review comments and answer queries in order to be
-> accepted in mainline in 2.6.32 release cycle.
+> From: Shreyas Bhatewara <sbhatewara@vmware.com>
+> 
+> This patch adds driver support for VMware's virtual Ethernet NIC : vmxnet3
+> Guests running on VMware hypervisors supporting vmxnet3 device will thus
+> have access to improved network functionalities and performance.
+> 
+> Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
 
-It's usually a bit late given that the big merge window for 2.6.32 is
-now closed.
-
-> The patch applies to 2.6.31-rc9.
-
-2.6.32-rc1 is out, you should rebase to it as a few tens of thousands of
-changes have already happened since 2.6.31-rc9 :)
+I thought this was going to be submitted for the drivers/staging/ tree.
+What happened?
 
 thanks,
 
