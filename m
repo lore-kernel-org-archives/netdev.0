@@ -1,61 +1,40 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: mac80211: NOHZ: local_softirq_pending 08
-Date: Wed, 30 Sep 2009 13:56:12 +0200
-Message-ID: <4AC3475C.7000403@hartkopp.net>
-References: <200909111648.50902.mb@bu3sch.de> <200909111707.23971.mb@bu3sch.de> <4AAA75CB.6040803@hartkopp.net> <200909111813.35810.mb@bu3sch.de> <4AABCF28.6090505@hartkopp.net> <20090929192928.GF2678@tuxdriver.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [Pv-drivers] [PATCH 2.6.31-rc9] net: VMware virtual Ethernet NIC driver: vmxnet3
+Date: Tue, 29 Sep 2009 23:23:20 +0200
+Message-ID: <200909292323.20713.arnd@arndb.de>
+References: <20090929085333.GC3958@sequoia.sous-sol.org> <8B1F619C9F5F454E81D90D3C161698D7017DB76582@EXCH-MBX-3.vmware.com> <20090929.125530.31894576.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090929192928.GF2678-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: bhavesh@vmware.com, chrisw@sous-sol.org, pv-drivers@vmware.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, greg@kroah.com,
+	anthony@codemonkey.ws, jgarzik@pobox.com,
+	akpm@linux-foundation.org, shemminger@linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.186]:61853 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752856AbZI3MtP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 08:49:15 -0400
+In-Reply-To: <20090929.125530.31894576.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-John W. Linville wrote:
-> On Sat, Sep 12, 2009 at 06:41:12PM +0200, Oliver Hartkopp wrote:
+On Tuesday 29 September 2009, David Miller wrote:
+> > 
+> > These header files are indeed shared with the host implementation,
+> > as you've guessed. If it's not a big deal, we would like to keep
+> > the names the same, just for our own sanity's sake?
 > 
->> i cooked a patch that introduces netif_rx_ti() and fixes up the problems in
->> mac80211 and the CAN subsystem.
-> 
-> Oliver,
-> 
-> Are you going to send this patch to Dave?  If you want me to carry
-> it instead, please resend it with a proper changelog including a
-> Signed-off-by line.  For that matter, Dave will most certainly want
-> that as well...
+> No.  This isn't your source tree, it's everyone's.  So you should
+> adhere to basic naming conventions and coding standards of the
+> tree regardless of what you happen to use or need to use internally.
 
-Hello John,
+Well, there is nothing wrong with making the identifiers the same
+everywhere, as long as they all follow the Linux coding style ;-).
 
-as i wrote here
+I heard that a number of cross-OS device drivers do that nowadays.
 
-http://marc.info/?l=linux-netdev&m=125277885910179&w=2
-
-there are currently only three occurrences of checks that use netif_rx() and
-netif_rx_ni() depending on in_interrupt().
-
-And regarding the suggested fix from Michael, that checked every(!) netif_rx()
-whether it is in interrupt or not, i was unsure if a netif_tx_ti() would make
-sense for only three cases?!?
-
-If you think it makes sense, i can post a patch for that ... but:
-
-Indeed it costs some additional investigation to prove whether netif_rx() or
-netif_rx_ni() should be used in each case. But IMHO this has to be done before
-providing a pump-gun function that solves the problem without thinking if we
-are in irq-context or not. I want to avoid that people are using netif_rx_ti()
-as some kind of default ...
-
-I don't know how expensive in_interrupt() is, but it IMO should be avoided
-when the context for a code section can be determined in another way.
-
-Regards,
-Oliver
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	Arnd <><
