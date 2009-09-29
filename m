@@ -1,56 +1,40 @@
-From: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 2/3] iwmc3200wifi: select IWMC3200TOP in Kconfig
-Date: Tue, 29 Sep 2009 17:22:43 +0800
-Message-ID: <1254216163.3731.36.camel@debian>
-References: <1253662724-16497-1-git-send-email-tomas.winkler@intel.com>
-	 <1253662724-16497-2-git-send-email-tomas.winkler@intel.com>
-	 <1253662724-16497-3-git-send-email-tomas.winkler@intel.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [Fwd: Re: Bug#538372: header failure including netlink.h (or
+	uio.h)]
+Date: Tue, 29 Sep 2009 09:27:27 +0000
+Message-ID: <20090929092727.GA7025@ff.dom.local>
+References: <1254137084.4756.11.camel@ce170155.zmb.uni-duisburg-essen.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Perez-Gonzalez, Inaky" <inaky.perez-gonzalez-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Kao, Cindy H" <cindy.h.kao-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Cohen, Guy" <guy.cohen-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Rindjunsky, Ron" <ron.rindjunsky-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: "Winkler, Tomas" <tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1253662724-16497-3-git-send-email-tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Manuel Prinz <manuel@debian.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f218.google.com ([209.85.220.218]:64493 "EHLO
+	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753079AbZI2J13 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2009 05:27:29 -0400
+Received: by fxm18 with SMTP id 18so4302959fxm.17
+        for <netdev@vger.kernel.org>; Tue, 29 Sep 2009 02:27:33 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1254137084.4756.11.camel@ce170155.zmb.uni-duisburg-essen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-09-23 at 07:38 +0800, Winkler, Tomas wrote:
-> iwmc3200wifi requires iwmc3200top  for its operation
+On 28-09-2009 13:24, Manuel Prinz wrote:
+> Hi everyone,
 > 
-> Signed-off-by: Tomas Winkler <tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-
-Acked-by: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-
-Thanks,
--yi
-
-> ---
->  drivers/net/wireless/iwmc3200wifi/Kconfig |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
+> I'm forwarding this bug in Debian (http://bugs.debian.org/538372) as
+> requested by the Debian kernel team. A patch is available. Applying just
+> the first hunk fixes the issue for me. I've not enough kernel knowledge
+> to judge if this fix is a proper solution, though.
 > 
-> diff --git a/drivers/net/wireless/iwmc3200wifi/Kconfig b/drivers/net/wireless/iwmc3200wifi/Kconfig
-> index c62da43..69faaf1 100644
-> --- a/drivers/net/wireless/iwmc3200wifi/Kconfig
-> +++ b/drivers/net/wireless/iwmc3200wifi/Kconfig
-> @@ -3,6 +3,7 @@ config IWM
->  	depends on MMC && WLAN_80211 && EXPERIMENTAL
->  	depends on CFG80211
->  	select FW_LOADER
-> +	select IWMC3200TOP
->  	help
->  	  The Intel Wireless Multicomm 3200 hardware is a combo
->  	  card with GPS, Bluetooth, WiMax and 802.11 radios. It
+> It would be really great if someone could have a look at it. Thanks in
+> advance! (And please CC me in replies. Thanks!)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I've tried it with current include/linux and it works OK. Replacing
+uio.h on Debian really was not enough, but it looks like missing
+compiler.h entries could be the reason. Otherwise, please send your
+compile error log.
+
+Best regards,
+Jarek P.
