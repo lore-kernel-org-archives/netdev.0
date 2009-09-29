@@ -1,55 +1,43 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: b43 is broken in latest net-2.6 and linux-2.6
-Date: Tue, 29 Sep 2009 09:13:39 +0200
-Message-ID: <4AC1B3A3.4050205@hartkopp.net>
-References: <4AB4BF1F.7070501@hartkopp.net> <20090928184211.GC4737@tuxdriver.com>
+From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?= <remi@remlab.net>
+Subject: [PATCH] Phonet: fix mutex imbalance
+Date: Tue, 29 Sep 2009 10:16:39 +0300
+Message-ID: <1254208599-1274-1-git-send-email-remi@remlab.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:32789 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753280AbZI2HNn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2009 03:13:43 -0400
-In-Reply-To: <20090928184211.GC4737@tuxdriver.com>
+Received: from yop.chewa.net ([91.121.105.214]:59345 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753362AbZI2HQg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Sep 2009 03:16:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-John W. Linville wrote:
-> On Sat, Sep 19, 2009 at 01:23:11PM +0200, Oliver Hartkopp wrote:
->> Hello Michael,
->>
->> my b43 wireless card (Dell 830) is not working with the latest net-2.6 (and
->> also linux-2.6 2.6.31-05767-gdf58bee).
->>
->> net-2.6 2.6.31-03263-gc29854e is working
->> net-2.6 2.6.31-03301-ga97e178 is broken
->>
->> I removed the patch with the work_queue stuff which did not help - so it's
->> probably the other patch you added to b43 recently.
->>
->> Don't know ... the wlan0 link does not become ready anymore.
->>
->> If you need some more information - please let me know.
-> 
-> Is this working better now, with 2.6.31-rc1?
+=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-Thanks for coming back on this.
+port_mutex was unlocked twice.
 
-Yes it is fixed now.
+Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+---
+ net/phonet/socket.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-   'cfg80211: fix SME connect'
+diff --git a/net/phonet/socket.c b/net/phonet/socket.c
+index 07aa9f0..aa5b5a9 100644
+--- a/net/phonet/socket.c
++++ b/net/phonet/socket.c
+@@ -407,7 +407,6 @@ int pn_sock_get_port(struct sock *sk, unsigned shor=
+t sport)
+ 	return -EADDRINUSE;
+=20
+ found:
+-	mutex_unlock(&port_mutex);
+ 	pn->sobject =3D pn_object(pn_addr(pn->sobject), sport);
+ 	return 0;
+ }
+--=20
+1.6.0.4
 
-broke it and
-
-   'cfg80211: don't overwrite privacy setting'
-
-fixed it afterwards (at least in my setup).
-
-So it's pretty well working now.
-
-Best regards,
-Oliver
