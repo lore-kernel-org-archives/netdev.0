@@ -1,278 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] /proc/net/tcp, overhead removed
-Date: Tue, 29 Sep 2009 06:39:17 +0200
-Message-ID: <4AC18F75.3090402@gmail.com>
-References: <1254178906-5293-1-git-send-email-iler.ml@gmail.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH][RESEND] IPv6: 6rd tunnel mode
+Date: Tue, 29 Sep 2009 14:11:23 +0900
+Message-ID: <4AC196FB.4060408@linux-ipv6.org>
+References: <20090922003956.GA19947@lnxos.staff.proxad.net>	 <4AB838F1.1090704@hp.com> <1253602772.17175.13.camel@lnxos-dev>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Yakov Lerner <iler.ml@gmail.com>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: Brian Haley <brian.haley@hp.com>, netdev@vger.kernel.org,
+	townsley@cisco.com
+To: acassen@freebox.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:40682 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750860AbZI2EjT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2009 00:39:19 -0400
-In-Reply-To: <1254178906-5293-1-git-send-email-iler.ml@gmail.com>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:38776 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751481AbZI2FLc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Sep 2009 01:11:32 -0400
+In-Reply-To: <1253602772.17175.13.camel@lnxos-dev>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yakov Lerner a =E9crit :
-> Take 2.=20
->=20
-> "Sharp improvement in performance of /proc/net/tcp when number of=20
-> sockets is large and hashsize is large.=20
-> O(numsock * hashsize) time becomes O(numsock + hashsize). On slow
-> processors, speed difference can be x100 and more."
->=20
-> I must say that I'm not fully satisfied with my choice of "st->sbucke=
-t"=20
-> for the new preserved index. The better name would be "st->snum".=20
-> Re-using "st->sbucket" saves 4 bytes, and keeps the patch to one sour=
-cefile.
-> But "st->sbucket" has different meaning in OPENREQ and LISTEN states;
-> this can be confusing.=20
-> Maybe better add "snum" member to struct tcp_iter_state ?
+Hello.
 
-You can add more fields to tcp_iter_state if it makes code more easy to=
- read
-and faster.
+Alexandre Cassen wrote:
 
-This structure is allocated once at open("/proc/net/tcp") time and coul=
-d
-be any reasonable size. You can add 10 longs in it, it is not a big dea=
-l.
+>> I couldn't find RFC 5569 (delayed due to IPR rights?), although I did find
+>> the latest 6rd draft, -03.  It was showing as Informational, not Standards
+>> track, is that right?  Just curious.
+> 
+> In fact there is currently two draft :
+> 
+> 1) https://datatracker.ietf.org/idtracker/draft-despres-6rd/
+> 
+>    This draft is targeting informational RFC as an independent
+> submission. It is currently queued and has been delayed since may for
+> IPR.
 
->=20
-> Shall I change subject when sending "take N+1", or keep the old subje=
-ct ?
+Do you have any pointer about this (IPR)?
+I probably missed something but I could not find any
+information in IETF IPR page...
 
-Not a big deal, but keeping old subject is probably the common way.
-
-[PATCH v2] tcp: Remove /proc/net/tcp O(N*H) overhead
-
->=20
-> Signed-off-by: Yakov Lerner <iler.ml@gmail.com>
-> ---
->  net/ipv4/tcp_ipv4.c |   35 +++++++++++++++++++++++++++++++++--
->  1 files changed, 33 insertions(+), 2 deletions(-)
->=20
-> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-> index 7cda24b..e4c4f19 100644
-> --- a/net/ipv4/tcp_ipv4.c
-> +++ b/net/ipv4/tcp_ipv4.c
-> @@ -1994,13 +1994,14 @@ static inline int empty_bucket(struct tcp_ite=
-r_state *st)
->  		hlist_nulls_empty(&tcp_hashinfo.ehash[st->bucket].twchain);
->  }
-> =20
-> -static void *established_get_first(struct seq_file *seq)
-> +static void *established_get_first_after(struct seq_file *seq, int b=
-ucket)
->  {
->  	struct tcp_iter_state *st =3D seq->private;
->  	struct net *net =3D seq_file_net(seq);
->  	void *rc =3D NULL;
-> =20
-> -	for (st->bucket =3D 0; st->bucket < tcp_hashinfo.ehash_size; ++st->=
-bucket) {
-> +	for (st->bucket =3D bucket; st->bucket < tcp_hashinfo.ehash_size;
-> +	     ++st->bucket) {
->  		struct sock *sk;
->  		struct hlist_nulls_node *node;
->  		struct inet_timewait_sock *tw;
-> @@ -2010,6 +2011,8 @@ static void *established_get_first(struct seq_f=
-ile *seq)
->  		if (empty_bucket(st))
->  			continue;
-> =20
-
-> +		st->sbucket =3D st->num;
-> +
-
-oh this is ugly...
-
-Check tcp_seq_stop() to see why st->sbucket should not change after get=
-ting
-lock. Any reader of this will have a heart attack :)
-
->  		spin_lock_bh(lock);
->  		sk_nulls_for_each(sk, node, &tcp_hashinfo.ehash[st->bucket].chain)=
- {
->  			if (sk->sk_family !=3D st->family ||
-> @@ -2036,6 +2039,11 @@ out:
->  	return rc;
->  }
-> =20
-> +static void *established_get_first(struct seq_file *seq)
-> +{
-> +	return established_get_first_after(seq, 0);
-> +}
-> +
->  static void *established_get_next(struct seq_file *seq, void *cur)
->  {
->  	struct sock *sk =3D cur;
-> @@ -2064,6 +2072,9 @@ get_tw:
->  		while (++st->bucket < tcp_hashinfo.ehash_size &&
->  				empty_bucket(st))
->  			;
-> +
-> +		st->sbucket =3D st->num;
-
-same here, this is ugly, even if it happens to work.
-
-> +
->  		if (st->bucket >=3D tcp_hashinfo.ehash_size)
->  			return NULL;
-> =20
-> @@ -2107,6 +2118,7 @@ static void *tcp_get_idx(struct seq_file *seq, =
-loff_t pos)
-> =20
->  	if (!rc) {
->  		st->state =3D TCP_SEQ_STATE_ESTABLISHED;
-> +		st->sbucket =3D 0;
->  		rc	  =3D established_get_idx(seq, pos);
->  	}
-> =20
-> @@ -2116,6 +2128,25 @@ static void *tcp_get_idx(struct seq_file *seq,=
- loff_t pos)
->  static void *tcp_seq_start(struct seq_file *seq, loff_t *pos)
->  {
->  	struct tcp_iter_state *st =3D seq->private;
-> +
-> +	if (*pos && *pos >=3D st->sbucket &&
-> +	    (st->state =3D=3D TCP_SEQ_STATE_ESTABLISHED ||
-> +	     st->state =3D=3D TCP_SEQ_STATE_TIME_WAIT)) {
-> +		void *cur;
-> +		int nskip;
-> +
-> +		/* for states estab and tw, st->sbucket is index (*pos) */
-> +		/* corresponding to the beginning of bucket st->bucket */
-> +
-> +		st->num =3D st->sbucket;
-ugly...
-> +		/* jump to st->bucket, then skip (*pos - st->sbucket) items */
-> +		st->state =3D TCP_SEQ_STATE_ESTABLISHED;
-> +		cur =3D established_get_first_after(seq, st->bucket);
-> +		for (nskip =3D *pos - st->num; cur && nskip > 0; --nskip)
-> +			cur =3D established_get_next(seq, cur);
-> +		return cur;
-> +	}
-> +
-
-I dont think you need this chunk in tcp_get_start(), and its also proba=
-bly buggy,
-even if its hard to prove this claim, we'll need some prog to get TIME_=
-WAIT sockets
-in a reproducable form.
-
-Jumping to the right hash slot is more than enough to avoid the O(N*H) =
-problem.
-
-You should try to optimize both established/listening algos, so that
-code is readable and maintenable. On pathological cases, we can also ha=
-ve 10000
-sockets in LISTENING/OPENREQ state.
-
-Maybe we need a first patch to cleanup code, since its a really complex=
- one,
-then a patch to optimize it ?
-
-IMHO the /proc/net/tcp file suffers from bugs, before a performance pro=
-blem.
-
-Currently, we can miss to output some live sockets in the dump, if :
-
-Thread A gets a block from /proc/net/tcp and stops in hash slot N, sock=
-et X.
-Thread B deletes sockets X, before socket Y in hash chain, or any socke=
-t
-in previous hash slots.
-Thread A gets 'next block', missing socket Y and possibly Y+1, Y+2....
-
--> Thread A doesnt see socket Y as an established/timewait socket.
-
-So I believe being able to store the hash slot could really help both p=
-erformance and
-avoid skiping lot of sockets in case a thread B destroys sockets 'befor=
-e our cursor'
-
-The remaining window would be small, as only deleting sockets in our ha=
-sh slot could
-make us skip live sockets. (And closing this hole is really tricky, ine=
-t_diag has
-same problem I believe)
-
-=46ollowing program to establish 10000 sockets in listening state, and =
-2*10000 in
-established state. Non random ports so that we can compare before/after=
- patches.
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <string.h>
-#include <unistd.h>
-#include <stdio.h>
-
-int fdlisten[10000];
-#define PORT 2222
-int main(int argc, char *argv[])
-{
-        int i;
-        struct sockaddr_in sockaddr, locaddr;
-
-        for (i =3D 0; i < 10000; i++) {
-                fdlisten[i] =3D socket(AF_INET, SOCK_STREAM, 0);
-                memset(&sockaddr, 0, sizeof(sockaddr));
-                sockaddr.sin_family =3D AF_INET;
-                sockaddr.sin_port =3D htons(PORT);
-                sockaddr.sin_addr.s_addr =3D htonl(0x7f000001 + i);
-                if (bind(fdlisten[i], (struct sockaddr *)&sockaddr, siz=
-eof(sockaddr))=3D=3D -1) {
-                        perror("bind");
-                        return 1;
-                }
-                if (listen(fdlisten[i], 1)=3D=3D -1) {
-                        perror("listen");
-                        return 1;
-                }
-        }
-        if (fork() =3D=3D 0) {
-                i =3D 0;
-                while (1) {
-                        socklen_t len =3D sizeof(sockaddr);
-                        int newfd =3D accept(fdlisten[i++], (struct soc=
-kaddr *)&sockaddr, &len);
-
-                        if (newfd =3D=3D -1)
-                                perror("accept");
-                        if (i =3D=3D 10000)
-                                i =3D 0;
-                }
-        }
-        for (i =3D 0 ; i < 10000; i++) {
-                int fd;
-
-                close(fdlisten[i]);
-                fd =3D socket(AF_INET, SOCK_STREAM, 0);
-                if (fd =3D=3D -1) {
-                        perror("socket");
-                        break;
-                        }
-                memset(&locaddr, 0, sizeof(locaddr));
-                locaddr.sin_family =3D AF_INET;
-                locaddr.sin_port =3D htons(i + 20000);
-                locaddr.sin_addr.s_addr =3D htonl(0x7f000001 + i);
-                bind(fd, (struct sockaddr *)&locaddr, sizeof(locaddr));
-
-                memset(&sockaddr, 0, sizeof(sockaddr));
-                sockaddr.sin_family =3D AF_INET;
-                sockaddr.sin_port =3D htons(PORT);
-                sockaddr.sin_addr.s_addr =3D htonl(0x7f000001 + i);
-                connect(fd, (struct sockaddr *)&sockaddr, sizeof(sockad=
-dr));
-        }
-        pause();
-        return 0;
-}
+--yoshfuji
