@@ -1,110 +1,71 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [PATCH] ipvs: Add boundary check on ioctl arguments
-Date: Wed, 30 Sep 2009 17:18:33 +0200
-Message-ID: <20090930171833.5ce0011d@infradead.org>
-References: <20090930131109.2b3f71b8@infradead.org>
-	<4AC35F44.60707@google.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: mac80211: NOHZ: local_softirq_pending 08
+Date: Wed, 30 Sep 2009 17:21:17 +0200
+Message-ID: <1254324077.3959.7.camel@johannes.local>
+References: <200909111648.50902.mb@bu3sch.de>
+	 <87ocosqykb.fsf@purkki.valot.fi> <1254322466.3959.5.camel@johannes.local>
+	 <200909301710.31082.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Simon Horman <horms@verge.net.au>
-To: Hannes Eder <heder@google.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754659AbZI3PSN@vger.kernel.org>
-In-Reply-To: <4AC35F44.60707@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Wed, 30 Sep 2009 15:38:12 +0200
-Hannes Eder <heder@google.com> wrote:
->  > @@ -2353,17 +2357,25 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd,
->  > void __user 
-> *user, int *len)
->  >  {
->  >  	unsigned char arg[128];
-> 
-> can MAX_ARG_LEN be used here?
-
-I am not convinced... it is a different numerical value,
-so it could be an ABI change. Rather not do that in this
-type of patch...
-
->  > +	copylen = get_arglen[GET_CMDID(cmd)];
->  > +	if (copylen > 128)
-> 
-> I think it's better to use 'copylen > sizeof(arg)' here.
-
-fair enough; updated patch below
-
->From 28ae217858e683c0c94c02219d46a9a9c87f61c6 Mon Sep 17 00:00:00 2001
-From: Arjan van de Ven <arjan@linux.intel.com>
-Date: Wed, 30 Sep 2009 13:05:51 +0200
-Subject: [PATCH] ipvs: Add boundary check on ioctl arguments
-
-The ipvs code has a nifty system for doing the size of ioctl command copies;
-it defines an array with values into which it indexes the cmd to find the
-right length.
-
-Unfortunately, the ipvs code forgot to check if the cmd was in the range
-that the array provides, allowing for an index outside of the array,
-which then gives a "garbage" result into the length, which then gets
-used for copying into a stack buffer.
-
-Fix this by adding sanity checks on these as well as the copy size.
-
-Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
----
- net/netfilter/ipvs/ip_vs_ctl.c |   14 +++++++++++++-
- 1 files changed, 13 insertions(+), 1 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index ac624e5..7adc876 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -2077,6 +2077,10 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
- 	if (!capable(CAP_NET_ADMIN))
- 		return -EPERM;
- 
-+	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_SET_MAX + 1)
-+		return -EINVAL;
-+	if (len < 0 || len >  sizeof(arg))
-+		return -EINVAL;
- 	if (len != set_arglen[SET_CMDID(cmd)]) {
- 		pr_err("set_ctl: len %u != %u\n",
- 		       len, set_arglen[SET_CMDID(cmd)]);
-@@ -2353,17 +2357,25 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
- {
- 	unsigned char arg[128];
- 	int ret = 0;
-+	unsigned int copylen;
- 
- 	if (!capable(CAP_NET_ADMIN))
- 		return -EPERM;
- 
-+	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_GET_MAX + 1)
-+		return -EINVAL;
-+
- 	if (*len < get_arglen[GET_CMDID(cmd)]) {
- 		pr_err("get_ctl: len %u < %u\n",
- 		       *len, get_arglen[GET_CMDID(cmd)]);
- 		return -EINVAL;
- 	}
- 
--	if (copy_from_user(arg, user, get_arglen[GET_CMDID(cmd)]) != 0)
-+	copylen = get_arglen[GET_CMDID(cmd)];
-+	if (copylen > sizeof(arg))
-+		return -EINVAL;
-+
-+	if (copy_from_user(arg, user, copylen) != 0)
- 		return -EFAULT;
- 
- 	if (mutex_lock_interruptible(&__ip_vs_mutex))
--- 
-1.6.2.5
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-yurZqWm/P6lWkQy5ETrt"
+Cc: Kalle Valo <kalle.valo@iki.fi>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Michael Buesch <mb@bu3sch.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xc.sipsolutions.net ([83.246.72.84]:58889 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752896AbZI3PVd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 11:21:33 -0400
+In-Reply-To: <200909301710.31082.mb@bu3sch.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+--=-yurZqWm/P6lWkQy5ETrt
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
--- 
-Arjan van de Ven 	Intel Open Source Technology Centre
-For development, discussion and tips for power savings, 
-visit http://www.lesswatts.org
+On Wed, 2009-09-30 at 17:10 +0200, Michael Buesch wrote:
+> On Wednesday 30 September 2009 16:54:26 Johannes Berg wrote:
+> > On Wed, 2009-09-30 at 17:47 +0300, Kalle Valo wrote:
+> >=20
+> > > I agree with Michael. The bug is real and I have verified that
+> > > Michael's patch fixes the issue. Better to apply the patch now, it's
+> > > trivial to change the implementation if/when the network stack has
+> > > support for this.
+> >=20
+> > FWIW, I think in mac80211 the in_interrupt() check can never return tru=
+e
+> > since we postpone all RX to the tasklet. But the tasklet seems to be ok
+> > -- so should it really be in_interrupt()?
+>=20
+> I think a tasklet is also in_interrupt(), because it's a softirq.
+
+Ah, yes, indeed, in_interrupt() vs. in_irq().
+
+johannes
+
+--=-yurZqWm/P6lWkQy5ETrt
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAABAgAGBQJKw3dqAAoJEODzc/N7+QmaD/8QAMl79xODqhLGqkDnHqDveUFc
+cBHynUlxouy4Pp2ssl5RoaDnkeV5X4+gW+zWn8EH1HHcMwux2QOJn99ozecgYPwD
+CWwVbvdhThnCdtBC353oDwcms0dY8WM2WNesbgaWkJjN2EfaduSHFV1xT1h/i/rP
+z4FTGJx8XK2rrZ5GOmGOZXjF2Cilteny1X9n018Hi6nNnNlgjjIVCrdyVrPr7rvj
+4VGuD97Jy0XQJWNudRGBUTrtvsjq0+0Juiy2re+M+hA+ZrldXE6lyD2fidpBrsv5
+aiWxHjFwD3NzNEGKPaMOdVw1eIhZ+1yJS1JKPD9Cm9xnoChbjwm/QQDOJW0XzMtD
+5Zt2Th2rqs6aqOpBXgGbJdGOvoXgDxlmS3pZBrQvvN8bXlapb1U/94N1CwQb9Fnp
+CmaqawBNRbOatv05sANokV4Sqiqa4RfLZ/7MnTCWyv1x7rfAge7hg4964tURNk9q
+1DZS9054nXetz97hibrF6OOgMh/O7HBjrkU+5diiT6lSNZsdk6LmfOkt84xFKTAn
+dIoow2mjiKOhDTePR8WLJBLDhh7CmGEcCDJm29s+WzW2Y1y99S6u8AmCeFZuBttz
+moc61Ty3XI0Affrfr7iPttmTCNTOx6ToCW/2Bly8NS2H/jZJBc+M3TjprlSW/oGX
+ntHHfPU6Mh1Qzhvq2o46
+=a2hw
+-----END PGP SIGNATURE-----
+
+--=-yurZqWm/P6lWkQy5ETrt--
+
