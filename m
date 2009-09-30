@@ -1,151 +1,189 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Splice on blocking TCP sockets again..
-Date: Wed, 30 Sep 2009 08:19:37 +0200
-Message-ID: <4AC2F879.4080807@gmail.com>
-References: <20090930004820.GC19540@obsidianresearch.com> <4AC2E481.5060509@gmail.com> <20090930054031.GY22310@obsidianresearch.com> <4AC2F1D9.1010801@gmail.com> <4AC2F3E4.5000904@gmail.com>
+From: Gilad Ben-Yossef <gilad@codefidence.com>
+Subject: Re: [PATCH] [RFC] IPv4 TCP fails to send window scale option when
+ window scale is zero
+Date: Wed, 30 Sep 2009 08:28:12 +0200
+Message-ID: <4AC2FA7C.6030901@codefidence.com>
+References: <4AC22250.7060301@codefidence.com> <4AC241BA.8040608@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Volker Lendecke <vl@samba.org>,
-	Octavian Purdila <opurdila@ixiacom.com>
-To: unlisted-recipients:; (no To-header on input)
+Cc: netdev@vger.kernel.org, Ori Finkalman <ori@comsleep.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:42153 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751582AbZI3GTq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 02:19:46 -0400
-In-Reply-To: <4AC2F3E4.5000904@gmail.com>
+Received: from xenbox.codefidence.com ([92.48.73.16]:38071 "EHLO
+	xenbox.codefidence.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751405AbZI3G2L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 02:28:11 -0400
+In-Reply-To: <4AC241BA.8040608@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet a =E9crit :
-> Eric Dumazet a =E9crit :
->> Jason Gunthorpe a =E9crit :
->>>> One way to handle this is to switch tcp_read() to use the underlyi=
-ng file O_NONBLOCK
->>>> flag, as other socket operations do. And let SPLICE_F_NONBLOCK con=
-trol the pipe output only.
->> arg, this was tcp_splice_read() of course
+Hi,
+
+
+[ Resending reply due to Android Gmail client sorry state. My apologies=
+=20
+if you got it twice. ]
+
+
+Eric Dumazet wrote:
+
+> Gilad Ben-Yossef a =E9crit :
+>  =20
+>> From: Ori Finkalman <ori@comsleep.com>
 >>
->>> Thanks Eric, this seems reasonable from my userspace perspective.
->>>
->>> I admit I don't understand why SPLICE_F_NONBLOCK exists, it seems v=
-ery
->>> un-unixy to have a syscall completely ignore the NONBLOCK flag of t=
-he
->>> fd it is called on. Ie setting NONBLOCK on the pipe itself does
->>> nothing when using splice..
->>>
->> Hmm, good question, I dont have the answer but I'll digg one.
 >>
->=20
-> commit	29e350944fdc2dfca102500790d8ad6d6ff4f69d
-> splice: add SPLICE_F_NONBLOCK flag
->=20
-> It doesn't make the splice itself necessarily nonblocking (because th=
-e
-> actual file descriptors that are spliced from/to may block unless the=
-y
-> have the O_NONBLOCK flag set), but it makes the splice pipe operation=
-s
-> nonblocking.
->=20
-> Signed-off-by: Linus Torvalds <torvalds@osdl.org>
->=20
->=20
-> See Linus intention was pretty clear : O_NONBLOCK should be taken int=
-o account
-> by 'actual file that are spliced from/to', regardless of SPLICE_F_NON=
-BLOCK flag
->=20
+>> Acknowledge TCP window scale support by inserting the proper option =
+in
+>> SYN/ACK header
+>> even if our window scale is zero.
+>>
+>>
+>> This fixes the following observed behavior:
+>>
+>>
+>> 1. Client sends a SYN with TCP window scaling option and non zero wi=
+ndow
+>> scale value to a Linux box.
+>>
+>> 2. Linux box notes large receive window from client.
+>>
+>> 3. Linux decides on a zero value of window scale for its part.
+>>
+>> 4. Due to compare against requested window scale size option, Linux =
+does
+>> not to send windows scale
+>>
+>> TCP option header on SYN/ACK at all.
+>>
+>>
+>> Result:
+>>
+>>
+>> Client box thinks TCP window scaling is not supported, since SYN/ACK=
+ had
+>> no TCP window scale option,
+>> while Linux thinks that TCP window scaling is supported (and scale m=
+ight
+>> be non zero), since SYN had
+>>
+>> TCP window scale option and we have a mismatched idea between the cl=
+ient
+>> and server regarding window sizes.
+>>
+>>
+>> Please comment and/or apply.
+>> ...
+>>
+>>
+>> Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
+>> Signed-off-by: Ori Finkelman <ori@comsleep.com>
+>>
+>>
+>> Index: net/ipv4/tcp_output.c
+>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>> --- net/ipv4/tcp_output.c    (revision 46)
+>> +++ net/ipv4/tcp_output.c    (revision 210)
+>> @@ -353,6 +353,7 @@ static void tcp_init_nondata_skb(struct
+>> #define OPTION_SACK_ADVERTISE    (1 << 0)
+>> #define OPTION_TS        (1 << 1)
+>> #define OPTION_MD5        (1 << 2)
+>> +#define OPTION_WSCALE        (1 << 3)
+>>
+>> struct tcp_out_options {
+>>     u8 options;        /* bit field of OPTION_* */
+>> @@ -417,7 +418,7 @@ static void tcp_options_write(__be32 *pt
+>>                    TCPOLEN_SACK_PERM);
+>>     }
+>>
+>> -    if (unlikely(opts->ws)) {
+>> +    if (unlikely(OPTION_WSCALE & opts->options)) {
+>>         *ptr++ =3D htonl((TCPOPT_NOP << 24) |
+>>                    (TCPOPT_WINDOW << 16) |
+>>                    (TCPOLEN_WINDOW << 8) |
+>> @@ -530,8 +531,8 @@ static unsigned tcp_synack_options(struc
+>>
+>>     if (likely(ireq->wscale_ok)) {
+>>         opts->ws =3D ireq->rcv_wscale;
+>> -        if(likely(opts->ws))
+>> -            size +=3D TCPOLEN_WSCALE_ALIGNED;
+>> +        opts->options |=3D OPTION_WSCALE;
+>> +        size +=3D TCPOLEN_WSCALE_ALIGNED;
+>>     }
+>>     if (likely(doing_ts)) {
+>>         opts->options |=3D OPTION_TS;
+>>
+>>
+>>
+>>    =20
+>
+> Seems not the more logical places to put this logic...
+>
+> How about this instead ?
+>
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 5200aab..b78c084 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -216,6 +216,11 @@ void tcp_select_initial_window(int __space, __u3=
+2 mss,
+>  			space >>=3D 1;
+>  			(*rcv_wscale)++;
+>  		}
+> +		/*
+> +		 * Set a minimum wscale of 1
+> +		 */
+> +		if (*rcv_wscale =3D=3D 0)
+> +			*rcv_wscale =3D 1;
+>         }
+>
+>         /* Set initial window to value enough for senders,
+>
+>  =20
 
-I also found first submission of the patch from Octavian Purdila,
-so credit should be given to Octavian as well.
+Thank you for the patch review. The suggested replacement patch=20
+certainly is shorter, code wise, which is an advantage.
 
-http://lkml.indiana.edu/hypermail/linux/kernel/0807.2/0687.html
-
-We could add Linus into the discussion if it can help to make progress =
-on this point.
-
-I personally stopped to use splice(tcp -> pipe) in my projects because =
-it was not usable=20
-in a reliable way.
-
-Thanks
-
-
-[PATCH] net: splice() from tcp to pipe should take into account O_NONBL=
-OCK
-
-tcp_splice_read() doesnt take into account socket's O_NONBLOCK flag
-
-Before this patch :
-
-splice(socket,0,pipe,0,128*1024,SPLICE_F_MOVE);=20
-causes a random endless block (if pipe is full) and
-splice(socket,0,pipe,0,128*1024,SPLICE_F_MOVE | SPLICE_F_NONBLOCK);
-will return 0 immediately if the TCP buffer is empty.
-
-User application has no way to instruct splice() that socket should be =
-in blocking mode
-but pipe in nonblock more.
-
-Many projects cannot use splice(tcp -> pipe) because of this flaw.
+I cant help but feel though, that it is less readable - a window scale=20
+of zero is a perfectly legit value. Adding special logic to rule it out=
 =20
-http://git.samba.org/?p=3Dsamba.git;a=3Dhistory;f=3Dsource3/lib/recvfil=
-e.c;h=3Dea0159642137390a0f7e57a123684e6e63e47581;hb=3DHEAD
-http://lkml.indiana.edu/hypermail/linux/kernel/0807.2/0687.html
+just because we chose to overload this setting for something else=20
+(whether window scaling is supported or not) seems like an invitation=20
+for someone to get it wrong again down the line, in my opinion.
 
-Linus introduced  SPLICE_F_NONBLOCK in commit 29e350944fdc2dfca10250079=
-0d8ad6d6ff4f69d
-(splice: add SPLICE_F_NONBLOCK flag )
+Also note that the suggested fix is in line with how other TCP options=20
+are handled, e.g. TCP timestamp.
 
-  It doesn't make the splice itself necessarily nonblocking (because th=
-e
-  actual file descriptors that are spliced from/to may block unless the=
-y
-  have the O_NONBLOCK flag set), but it makes the splice pipe operation=
-s
-  nonblocking.
+Anyone else wants to chime in on that?
 
+PS. I also managed to to get the patch author name spelling wrong. It i=
+s=20
+Ori Finkelman and not as written.
 
-Linus intention was clear : let SPLICE_F_NONBLOCK control the splice pi=
-pe mode only
+Thanks!
+Gilad
 
 
-This patch instruct tcp_splice_read() to use the underlying file O_NONB=
-LOCK
-flag, as other socket operations do.
+--=20
+Gilad Ben-Yossef
+Chief Coffee Drinker & CTO
+Codefidence Ltd.
 
+Web:   http://codefidence.com
+Cell:  +972-52-8260388
+Skype: gilad_codefidence
+Tel:   +972-8-9316883 ext. 201
+=46ax:   +972-8-9316884
+Email: gilad@codefidence.com
 
-Users will then call :
+Check out our Open Source technology and training blog - http://tuxolog=
+y.net
 
-splice(socket,0,pipe,0,128*1024,SPLICE_F_MOVE | SPLICE_F_NONBLOCK );=20
+	"Now the world has gone to bed
+	 Darkness won't engulf my head
+	 I can see by infra-red
+	 How I hate the night."
 
-to block on data coming from socket (if file is in blocking mode),
-and not block on pipe output (to avoid deadlock)
-
-=46irst version of this patch was submitted by Octavian Purdila
-
-Reported-by: Volker Lendecke <vl@samba.org>
-Reported-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
----
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 21387eb..8cdfab6 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -580,7 +580,7 @@ ssize_t tcp_splice_read(struct socket *sock, loff_t=
- *ppos,
-=20
- 	lock_sock(sk);
-=20
--	timeo =3D sock_rcvtimeo(sk, flags & SPLICE_F_NONBLOCK);
-+	timeo =3D sock_rcvtimeo(sk, sock->file->f_flags & O_NONBLOCK);
- 	while (tss.len) {
- 		ret =3D __tcp_splice_read(sk, &tss);
- 		if (ret < 0)
