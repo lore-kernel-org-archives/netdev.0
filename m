@@ -1,43 +1,110 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: mac80211: NOHZ: local_softirq_pending 08
-Date: Wed, 30 Sep 2009 17:10:28 +0200
-Message-ID: <200909301710.31082.mb@bu3sch.de>
-References: <200909111648.50902.mb@bu3sch.de> <87ocosqykb.fsf@purkki.valot.fi> <1254322466.3959.5.camel@johannes.local>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: [PATCH] ipvs: Add boundary check on ioctl arguments
+Date: Wed, 30 Sep 2009 17:18:33 +0200
+Message-ID: <20090930171833.5ce0011d@infradead.org>
+References: <20090930131109.2b3f71b8@infradead.org>
+	<4AC35F44.60707@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>,
-	Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1254322466.3959.5.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Simon Horman <horms@verge.net.au>
+To: Hannes Eder <heder@google.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754659AbZI3PSN@vger.kernel.org>
+In-Reply-To: <4AC35F44.60707@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 30 September 2009 16:54:26 Johannes Berg wrote:
-> On Wed, 2009-09-30 at 17:47 +0300, Kalle Valo wrote:
+On Wed, 30 Sep 2009 15:38:12 +0200
+Hannes Eder <heder@google.com> wrote:
+>  > @@ -2353,17 +2357,25 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd,
+>  > void __user 
+> *user, int *len)
+>  >  {
+>  >  	unsigned char arg[128];
 > 
-> > I agree with Michael. The bug is real and I have verified that
-> > Michael's patch fixes the issue. Better to apply the patch now, it's
-> > trivial to change the implementation if/when the network stack has
-> > support for this.
-> 
-> FWIW, I think in mac80211 the in_interrupt() check can never return true
-> since we postpone all RX to the tasklet. But the tasklet seems to be ok
-> -- so should it really be in_interrupt()?
+> can MAX_ARG_LEN be used here?
 
-I think a tasklet is also in_interrupt(), because it's a softirq.
-in_interrupt() returns false in process context. The problem appeared when
-the b43 driver started passing RX frames while being in process context (threaded IRQ).
-It previously was in tasklet (= softirq) context.
+I am not convinced... it is a different numerical value,
+so it could be an ABI change. Rather not do that in this
+type of patch...
+
+>  > +	copylen = get_arglen[GET_CMDID(cmd)];
+>  > +	if (copylen > 128)
+> 
+> I think it's better to use 'copylen > sizeof(arg)' here.
+
+fair enough; updated patch below
+
+>From 28ae217858e683c0c94c02219d46a9a9c87f61c6 Mon Sep 17 00:00:00 2001
+From: Arjan van de Ven <arjan@linux.intel.com>
+Date: Wed, 30 Sep 2009 13:05:51 +0200
+Subject: [PATCH] ipvs: Add boundary check on ioctl arguments
+
+The ipvs code has a nifty system for doing the size of ioctl command copies;
+it defines an array with values into which it indexes the cmd to find the
+right length.
+
+Unfortunately, the ipvs code forgot to check if the cmd was in the range
+that the array provides, allowing for an index outside of the array,
+which then gives a "garbage" result into the length, which then gets
+used for copying into a stack buffer.
+
+Fix this by adding sanity checks on these as well as the copy size.
+
+Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+---
+ net/netfilter/ipvs/ip_vs_ctl.c |   14 +++++++++++++-
+ 1 files changed, 13 insertions(+), 1 deletions(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index ac624e5..7adc876 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -2077,6 +2077,10 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
++	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_SET_MAX + 1)
++		return -EINVAL;
++	if (len < 0 || len >  sizeof(arg))
++		return -EINVAL;
+ 	if (len != set_arglen[SET_CMDID(cmd)]) {
+ 		pr_err("set_ctl: len %u != %u\n",
+ 		       len, set_arglen[SET_CMDID(cmd)]);
+@@ -2353,17 +2357,25 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+ {
+ 	unsigned char arg[128];
+ 	int ret = 0;
++	unsigned int copylen;
+ 
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
++	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_GET_MAX + 1)
++		return -EINVAL;
++
+ 	if (*len < get_arglen[GET_CMDID(cmd)]) {
+ 		pr_err("get_ctl: len %u < %u\n",
+ 		       *len, get_arglen[GET_CMDID(cmd)]);
+ 		return -EINVAL;
+ 	}
+ 
+-	if (copy_from_user(arg, user, get_arglen[GET_CMDID(cmd)]) != 0)
++	copylen = get_arglen[GET_CMDID(cmd)];
++	if (copylen > sizeof(arg))
++		return -EINVAL;
++
++	if (copy_from_user(arg, user, copylen) != 0)
+ 		return -EFAULT;
+ 
+ 	if (mutex_lock_interruptible(&__ip_vs_mutex))
+-- 
+1.6.2.5
+
+
 
 -- 
-Greetings, Michael.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Arjan van de Ven 	Intel Open Source Technology Centre
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
