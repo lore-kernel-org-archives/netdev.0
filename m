@@ -1,48 +1,51 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH] connector: Allow permission checking in the receiver callbacks
-Date: Wed, 30 Sep 2009 23:29:28 +0400
-Message-ID: <20090930192928.GA1315@ioremap.net>
-References: <1254235692-1631-1-git-send-email-philipp.reisner@linbit.com> <20090930112057.GA15150@ioremap.net> <20090930132034.GE8032@barkeeper1-xen.linbit>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] ipvs: Add boundary check on ioctl arguments
+Date: Wed, 30 Sep 2009 22:41:05 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0909302231360.2853@u.domain.uli>
+References: <20090930131109.2b3f71b8@infradead.org> <4AC35F44.60707@google.com>
+ <20090930171833.5ce0011d@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Philipp Reisner <philipp.reisner@linbit.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.com>
-To: Lars Ellenberg <lars.ellenberg@linbit.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755157AbZI3T31@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090930132034.GE8032@barkeeper1-xen.linbit>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Hannes Eder <heder@google.com>,
+	Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Simon Horman <horms@verge.net.au>
+To: Arjan van de Ven <arjan@infradead.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755225AbZI3Tkw@vger.kernel.org>
+In-Reply-To: <20090930171833.5ce0011d@infradead.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 30, 2009 at 03:20:35PM +0200, Lars Ellenberg (lars.ellenberg@linbit.com) wrote:
-> Actually it is the basis for follow-up security fixes.
+
+	Hello,
+
+On Wed, 30 Sep 2009, Arjan van de Ven wrote:
+
+> fair enough; updated patch below
 > 
-> Without this, unprivileged user space is able to send arbitrary
-> connector requests to kernel subsystems, which have no way to verify the
-> privileges of the sender anymore, because that information, even though
-> available at the netlink layer, has been dropped by the connector.
-
-It is not. One can add some checks at receiving time which happens in
-process context to get its credentials, but nothing in netlink itself
-carry this info. Getting that connector schedules workqueue this ability
-is lost.
-
-> Once this is applied, the various in-kernel receiving connector
-> callbacks can (and need to) add cap_raised(nsb->eff_cap, cap) where
-> appropriate. For example, you don't want some guest user to be able to
-> trigger a dst_del_node callback by sending a crafted netlink message,
-> right?
+> >From 28ae217858e683c0c94c02219d46a9a9c87f61c6 Mon Sep 17 00:00:00 2001
+> From: Arjan van de Ven <arjan@linux.intel.com>
+> Date: Wed, 30 Sep 2009 13:05:51 +0200
+> Subject: [PATCH] ipvs: Add boundary check on ioctl arguments
 > 
-> So it _is_ a (design-) bug fix.
-> Or am I missing something?
+> The ipvs code has a nifty system for doing the size of ioctl command copies;
+> it defines an array with values into which it indexes the cmd to find the
+> right length.
+> 
+> Unfortunately, the ipvs code forgot to check if the cmd was in the range
+> that the array provides, allowing for an index outside of the array,
+> which then gives a "garbage" result into the length, which then gets
+> used for copying into a stack buffer.
 
-This patchset is not a bugfix, just a cleanup, since none in patchset
-uses netlink_skb_parms and currently I see no users which are affected
-by this behaviour in the mainline branch (not counting staging tree).
+	do_ip_vs_get_ctl and do_ip_vs_set_ctl are nf_sockopt_ops
+handlers, so the range is checked by nf_sockopt_find() in Netfilter
+code. get_arglen[] and set_arglen[] are minimum values for
+the length and they can be 0. Later len can be checked
+additionally and surely can exceed 128 (include/linux/ip_vs.h has
+all user structures). Can you show the exact cmd and len
+used, may be there is error in some command or may be the
+provided user structure is wrong?
 
-But if proposed configuration changes for DM are on the way, then I
-agree and they should force this patchset into the tree as a bugfix.
+Regards
 
--- 
-	Evgeniy Polyakov
+--
+Julian Anastasov <ja@ssi.bg>
