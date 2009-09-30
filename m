@@ -1,60 +1,38 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: Re: [PATCH] bcm63xx_enet: timeout off by one in do_mdio_op()
-Date: Wed, 30 Sep 2009 16:01:28 +0200
-Message-ID: <1254319288.1627.758.camel@sakura.staff.proxad.net>
-References: <4AB7DD50.6030409@gmail.com>
-Reply-To: mbizon@freebox.fr
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] tg3: Remove prev_vlan_tag from struct tx_ring_info
+Date: Wed, 30 Sep 2009 16:07:52 +0200
+Message-ID: <4AC36638.8070304@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
-To: Roel Kluin <roel.kluin@gmail.com>
+Cc: Matt Carlson <mcarlson@broadcom.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:43274 "EHLO smtp6-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752299AbZI3OBd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Sep 2009 10:01:33 -0400
-In-Reply-To: <4AB7DD50.6030409@gmail.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:52636 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752299AbZI3OHx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 10:07:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+prev_vlan_tag field is not used.
 
-On Mon, 2009-09-21 at 22:08 +0200, Roel Kluin wrote:
+Patch saves 512*8 bytes per tx queue ring on 64bit arches.
 
-Hi Roel,
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
 
-> `while (limit-- >= 0)' reaches -2 after the loop upon timeout.
-
-The 1000us limit was chosen arbitrarily, since mdio access are much
-shorter, and was just to prevent CPU lockup in case of hardware bug.
-
-But it looks like a bug, and since you're the second one reporting this,
-this should be fixed :)
-
-
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-
-Acked-by: Maxime Bizon <mbizon@freebox.fr>
-
-> ---
-> Small chance to occur, probably.
-> 
-> diff --git a/drivers/net/bcm63xx_enet.c b/drivers/net/bcm63xx_enet.c
-> index 09d2709..ba29dc3 100644
-> --- a/drivers/net/bcm63xx_enet.c
-> +++ b/drivers/net/bcm63xx_enet.c
-> @@ -90,7 +90,7 @@ static int do_mdio_op(struct bcm_enet_priv *priv, unsigned int data)
->  		if (enet_readl(priv, ENET_IR_REG) & ENET_IR_MII)
->  			break;
->  		udelay(1);
-> -	} while (limit-- >= 0);
-> +	} while (limit-- > 0);
->  
->  	return (limit < 0) ? 1 : 0;
->  }
-
-
--- 
-Maxime
-
-
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index 82b45d8..524691c 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -2412,7 +2412,6 @@ struct ring_info {
+ 
+ struct tx_ring_info {
+ 	struct sk_buff                  *skb;
+-	u32                             prev_vlan_tag;
+ };
+ 
+ struct tg3_config_info {
