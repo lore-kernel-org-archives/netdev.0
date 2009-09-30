@@ -1,37 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH,TRIVIAL] Fix csum_ipv6_magic asm memory clobber
-Date: Wed, 30 Sep 2009 16:22:33 -0700 (PDT)
-Message-ID: <20090930.162233.208543104.davem@davemloft.net>
-References: <4AC3DF7B.5060407@zytor.com>
-	<20090930230138.GZ6451@const.famille.thibault.fr>
-	<20090930161939.8c6d140a.akpm@linux-foundation.org>
+Subject: Re: [PATCH] net: Fix sock_wfree() race
+Date: Wed, 30 Sep 2009 16:23:16 -0700 (PDT)
+Message-ID: <20090930.162316.123663794.davem@davemloft.net>
+References: <4ABA262F.9040407@gmail.com>
+	<4ABBD18A.70208@gmail.com>
+	<4ABBDB54.4000609@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: samuel.thibault@ens-lyon.org, hpa@zytor.com,
-	linux-kernel@vger.kernel.org, mingo@elte.hu, tglx@linutronix.de,
-	andi@firstfloor.org, netdev@vger.kernel.org
-To: akpm@linux-foundation.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754818AbZI3XWP@vger.kernel.org>
-In-Reply-To: <20090930161939.8c6d140a.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jarkao2@gmail.com, albcamus@gmail.com, parag.lkml@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55934
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754761AbZI3XW5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 19:22:57 -0400
+In-Reply-To: <4ABBDB54.4000609@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Wed, 30 Sep 2009 16:19:39 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 24 Sep 2009 22:49:24 +0200
 
-> From: Samuel Thibault <samuel.thibault@ens-lyon.org>
+> [PATCH] net: Fix sock_wfree() race
 > 
-> Just like ip_fast_csum, the assembly snippet in csum_ipv6_magic needs a
-> memory clobber, as it is only passed the address of the buffer, not a
-> memory reference to the buffer itself.
+> Commit 2b85a34e911bf483c27cfdd124aeb1605145dc80
+> (net: No more expensive sock_hold()/sock_put() on each tx)
+> opens a window in sock_wfree() where another cpu
+> might free the socket we are working on.
 > 
-> This caused failures in Hurd's pfinetv4 when we tried to compile it with
-> gcc-4.3 (bogus checksums).
+> A fix is to call sk->sk_write_space(sk) while still
+> holding a reference on sk.
 > 
-> Signed-off-by: Samuel Thibault <samuel.thibault@ens-lyon.org>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> 
+> Reported-by: Jike Song <albcamus@gmail.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-I'm happy to see this go in via the x86 tree, and thus:
+Applied to net-2.6 and I'll queue this up for -stable.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Thanks!
