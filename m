@@ -1,146 +1,130 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Splice on blocking TCP sockets again..
-Date: Wed, 30 Sep 2009 06:54:25 +0200
-Message-ID: <4AC2E481.5060509@gmail.com>
-References: <20090930004820.GC19540@obsidianresearch.com>
+Subject: Re: [PATCH 3/3] bonding: send ARP requests on interfaces other than
+ the primary for tlb/alb
+Date: Wed, 30 Sep 2009 07:20:23 +0200
+Message-ID: <4AC2EA97.5010809@gmail.com>
+References: <1254269731-7341-1-git-send-email-fubar@us.ibm.com> <1254269731-7341-2-git-send-email-fubar@us.ibm.com> <1254269731-7341-3-git-send-email-fubar@us.ibm.com> <1254269731-7341-4-git-send-email-fubar@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Volker Lendecke <vl@samba.org>
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:57450 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:35383 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750887AbZI3EzA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 00:55:00 -0400
-In-Reply-To: <20090930004820.GC19540@obsidianresearch.com>
+	with ESMTP id S1751916AbZI3FUj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 01:20:39 -0400
+In-Reply-To: <1254269731-7341-4-git-send-email-fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jason Gunthorpe a =E9crit :
-> Eric,
+Jay Vosburgh a =E9crit :
+> From: Andy Gospodarek <andy@greyhouse.net>
 >=20
-> I saw your patch from January regarding splicing on blocking sockets,
-> and I wondered what ever happened to it?
+> This patch sends ARP request on the correct destination output interf=
+ace
+> rather than always sending them on the primary interface.  I've also
+> added some bits to make sure that the source and destination address =
+in
+> the ARP header are correct since simply changing the source MAC and
+> output interface will not be that helpful.
 >=20
-> http://lkml.org/lkml/2009/1/13/507
+> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 >=20
-> It doesn't look like it has been applied.. I see the patch thread die=
-d
-> at davem's comments?
+> ---
+>  drivers/net/bonding/bond_alb.c |   45 ++++++++++++++++++------------=
+---------
+>  1 files changed, 21 insertions(+), 24 deletions(-)
 >=20
-> I have run into exactly the same problem as Samba, where I'd like the
-> TCP socket to be blocking, and the pipe to be non blocking ...
->=20
-> As it stands,=20
->   splice(socket,0,pipe,0,128*1024,SPLICE_F_MOVE);=20
-> causes a random endless block and
->   splice(socket,0,pipe,0,128*1024,SPLICE_F_MOVE | SPLICE_F_NONBLOCK);
-> will return 0 immediately if the TCP buffer is empty.
->=20
-> FWIW, it looks like samba has a splice code now, but doesn't enable i=
-t
-> due to this issue?
->=20
-> http://git.samba.org/?p=3Dsamba.git;a=3Dhistory;f=3Dsource3/lib/recvf=
-ile.c;h=3Dea0159642137390a0f7e57a123684e6e63e47581;hb=3DHEAD
->=20
-> Thanks,
-> Jason
+> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bon=
+d_alb.c
+> index 5cd0400..9148c75 100644
+> --- a/drivers/net/bonding/bond_alb.c
+> +++ b/drivers/net/bonding/bond_alb.c
+> @@ -726,35 +726,32 @@ static struct slave *rlb_arp_xmit(struct sk_buf=
+f *skb, struct bonding *bond)
+>  	struct arp_pkt *arp =3D arp_pkt(skb);
+>  	struct slave *tx_slave =3D NULL;
+> =20
+> -	if (arp->op_code =3D=3D htons(ARPOP_REPLY)) {
+> -		/* the arp must be sent on the selected
+> -		* rx channel
+> -		*/
+> -		tx_slave =3D rlb_choose_channel(skb, bond);
+> -		if (tx_slave) {
+> -			memcpy(arp->mac_src,tx_slave->dev->dev_addr, ETH_ALEN);
+> -		}
+> -		pr_debug("Server sent ARP Reply packet\n");
+> -	} else if (arp->op_code =3D=3D htons(ARPOP_REQUEST)) {
+> -		/* Create an entry in the rx_hashtbl for this client as a
+> -		 * place holder.
+> -		 * When the arp reply is received the entry will be updated
+> -		 * with the correct unicast address of the client.
+> -		 */
+> -		rlb_choose_channel(skb, bond);
+> +	/* Choose an output channel for the ARP frame */
+> +	tx_slave =3D rlb_choose_channel(skb, bond);
+> =20
+> -		/* The ARP relpy packets must be delayed so that
+> -		 * they can cancel out the influence of the ARP request.
+> -		 */
 
-Hi Jason, thanks for this reminding
+COmments should have the following form :
+/*
+ * This is a fine comment
+ */
 
-Hmm, most probably I did not replied correctly do David objection which=
- was :
+> +	/* If a valid interface is returned, make sure the sender and targe=
+t MAC
+> +	 * addresses are correct based on the interface that will be transm=
+itting
+> +	 * the frame. */
+> +	if (tx_slave) {
+> +		/* If sender mac is the bond's address, rewrite */
+> +		if (!compare_ether_addr_64bits(arp->mac_src,bond->dev->dev_addr))
+> +			memcpy(arp->mac_src,tx_slave->dev->dev_addr,bond->dev->addr_len);
 
-Date	Wed, 14 Jan 2009 20:58:39 -0800 (PST)
-Subject	Re: maximum buffer size for splice(2) tcp->pipe?
-=46rom	David Miller <>
+Hmm, you use compare_ether_addr_64bits(), implying a fix ETH_ALEN (6 by=
+tes) address, then
+you memcpy( ..., ..., bond->dev->addr_len);
+Why not use ETH_ALEN to help compiler ?
+Also add a space after a comma
 
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Wed, 14 Jan 2009 00:38:32 +0100
-> [PATCH] net: splice() from tcp to socket should take into account O_N=
-ONBLOCK
->=20
-> Instead of using SPLICE_F_NONBLOCK to select a non blocking mode both=
- on
-> source tcp socket and pipe destination, we use the underlying file fl=
-ag (O_NONBLOCK)
-> for selecting a non blocking socket.
->=20
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> +
+> +		/* If target mac is the bond's address, rewrite */
+> +		if (!compare_ether_addr_64bits(arp->mac_dst,bond->dev->dev_addr))
+> +			memcpy(arp->mac_dst,tx_slave->dev->dev_addr,bond->dev->addr_len);
+> +
+> +	} else if (arp->op_code =3D=3D htons(ARPOP_REQUEST)) {
+> +		/* if tx_slave is NULL, the periodic ARP replies must
+> +		 * be delayed so they can cancel out the influence of
+> +		 * the ARP request. */
+>  		bond->alb_info.rlb_update_delay_counter =3D RLB_UPDATE_DELAY;
+> =20
+> -		/* arp requests are broadcast and are sent on the primary
+> -		 * the arp request will collapse all clients on the subnet to
+> +		/* ARP requests are broadcast and are sent on the primary
+> +		 * the ARP request will collapse all clients on the subnet to
+>  		 * the primary slave. We must register these clients to be
 
-This needs at least some more thought.
+Could you reformulate this comment, it is not readable as is :
 
-It seems, for one thing, that this change will interfere with the
-intentions of the code in splice_dirt_to_actor which goes:
-
-	/*
-	 * Don't block on output, we have to drain the direct pipe.
-	 */
-	sd->flags &=3D ~SPLICE_F_NONBLOCK;
-
------------------------------------------------------------------------=
--------
-
-But splice_dist_to_actor() handles a REG/BLK file as input and a pipe a=
-s output,
-so I believe my patch wont change splice_dist_to_actor() behavior.
-
-My patch title was wrong :
-
-net: splice() from tcp to socket should take into account O_NONBLOCK
-
-
-So maybe David was mistaken by the title :)
+ /*
+  * ARP requests are broadcast and are sent on the primary.
+  * The ARP request will collapse all clients on the subnet to
+  * the primary slave. We must register these clients to be
+  * updated with their assigned MAC.
+  */
 
 
-[PATCH] net: splice() from tcp to pipe should take into account O_NONBL=
-OCK
+> -		 * updated with their assigned mac.
+> -		 */
+> +		 * updated with their assigned MAC. */
+>  		rlb_req_update_subnet_clients(bond, arp->ip_src);
+> -		pr_debug("Server sent ARP Request packet\n");
+>  	}
+> =20
+>  	return tx_slave;
 
-Before this patch :
-
-splice(socket,0,pipe,0,128*1024,SPLICE_F_MOVE);=20
-causes a random endless block (if pipe is full) and
-splice(socket,0,pipe,0,128*1024,SPLICE_F_MOVE | SPLICE_F_NONBLOCK);
-will return 0 immediately if the TCP buffer is empty.
-
-User application has no way to instruct splice() that socket should be =
-in blocking mode
-but pipe in nonblock more.
-=20
-http://git.samba.org/?p=3Dsamba.git;a=3Dhistory;f=3Dsource3/lib/recvfil=
-e.c;h=3Dea0159642137390a0f7e57a123684e6e63e47581;hb=3DHEAD
-
-One way to handle this is to switch tcp_read() to use the underlying fi=
-le O_NONBLOCK
-flag, as other socket operations do. And let SPLICE_F_NONBLOCK control =
-the pipe output only.
-
-Users will then call :
-
-splice(socket,0,pipe,0,128*1024,SPLICE_F_MOVE | SPLICE_F_NONBLOCK );=20
-
-to block on data coming from socket (if file is in blocking mode),
-and not block on pipe output (to avoid deadlock)
-
-Reported-by: Volker Lendecke <vl@samba.org>
-Reported-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 21387eb..8cdfab6 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -580,7 +580,7 @@ ssize_t tcp_splice_read(struct socket *sock, loff_t=
- *ppos,
-=20
- 	lock_sock(sk);
-=20
--	timeo =3D sock_rcvtimeo(sk, flags & SPLICE_F_NONBLOCK);
-+	timeo =3D sock_rcvtimeo(sk, sock->file->f_flags & O_NONBLOCK);
- 	while (tss.len) {
- 		ret =3D __tcp_splice_read(sk, &tss);
- 		if (ret < 0)
