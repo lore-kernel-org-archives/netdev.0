@@ -1,189 +1,104 @@
-From: Gilad Ben-Yossef <gilad@codefidence.com>
-Subject: Re: [PATCH] [RFC] IPv4 TCP fails to send window scale option when
- window scale is zero
-Date: Wed, 30 Sep 2009 08:28:12 +0200
-Message-ID: <4AC2FA7C.6030901@codefidence.com>
-References: <4AC22250.7060301@codefidence.com> <4AC241BA.8040608@gmail.com>
+From: Christian Borntraeger <borntraeger@de.ibm.com>
+Subject: [PATCH] connector: Fix regression introduced by sid connector
+Date: Wed, 30 Sep 2009 08:43:11 +0200
+Message-ID: <200909300843.11208.borntraeger@de.ibm.com>
+References: <200909251123.03482.borntraeger@de.ibm.com> <200909291712.33099.borntraeger@de.ibm.com> <20090929162855.GA15319@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Ori Finkalman <ori@comsleep.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Oleg Nesterov <oleg@redhat.com>,
+	Scott James Remnant <scott@ubuntu.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Matt Helsley <matthltc@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenbox.codefidence.com ([92.48.73.16]:38071 "EHLO
-	xenbox.codefidence.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751405AbZI3G2L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 02:28:11 -0400
-In-Reply-To: <4AC241BA.8040608@gmail.com>
+Received: from mtagate8.uk.ibm.com ([195.212.29.141]:55237 "EHLO
+	mtagate8.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750873AbZI3Gng (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 02:43:36 -0400
+In-Reply-To: <20090929162855.GA15319@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi Andrew,
 
+since commit 02b51df1b07b4e9ca823c89284e704cadb323cd1 (proc connector: add event 
+for process becoming session leader) we have the following warning:
+Badness at kernel/softirq.c:143
+[...]
+Krnl PSW : 0404c00180000000 00000000001481d4 (local_bh_enable+0xb0/0xe0)
+[...]
+Call Trace:
+([<000000013fe04100>] 0x13fe04100)
+ [<000000000048a946>] sk_filter+0x9a/0xd0
+ [<000000000049d938>] netlink_broadcast+0x2c0/0x53c
+ [<00000000003ba9ae>] cn_netlink_send+0x272/0x2b0
+ [<00000000003baef0>] proc_sid_connector+0xc4/0xd4
+ [<0000000000142604>] __set_special_pids+0x58/0x90
+ [<0000000000159938>] sys_setsid+0xb4/0xd8
+ [<00000000001187fe>] sysc_noemu+0x10/0x16
+ [<00000041616cb266>] 0x41616cb266
 
-[ Resending reply due to Android Gmail client sorry state. My apologies=
-=20
-if you got it twice. ]
+The warning is
+--->    WARN_ON_ONCE(in_irq() || irqs_disabled());
 
+The network code must not be called with disabled interrupts but
+sys_setsid holds the tasklist_lock with spinlock_irq while calling
+the connector. 
+After a discussion we agreed that we can move proc_sid_connector
+from __set_special_pids to sys_setsid.
+We also agreed that it is sufficient to change the check from
+task_session(curr) != pid into err > 0, since if we don't change the
+session, this means we were already the leader and return -EPERM.
 
-Eric Dumazet wrote:
+One last thing:
+There is also daemonize(), and some people might want to get a
+notification in that case. Since daemonize() is only needed if a user
+space does kernel_thread this does not look important (and there seems
+to be no consensus if this connector should be called in daemonize). If
+we really want this, we can add proc_sid_connector to daemonize() in an
+additional patch (Scott?)
 
-> Gilad Ben-Yossef a =E9crit :
->  =20
->> From: Ori Finkalman <ori@comsleep.com>
->>
->>
->> Acknowledge TCP window scale support by inserting the proper option =
-in
->> SYN/ACK header
->> even if our window scale is zero.
->>
->>
->> This fixes the following observed behavior:
->>
->>
->> 1. Client sends a SYN with TCP window scaling option and non zero wi=
-ndow
->> scale value to a Linux box.
->>
->> 2. Linux box notes large receive window from client.
->>
->> 3. Linux decides on a zero value of window scale for its part.
->>
->> 4. Due to compare against requested window scale size option, Linux =
-does
->> not to send windows scale
->>
->> TCP option header on SYN/ACK at all.
->>
->>
->> Result:
->>
->>
->> Client box thinks TCP window scaling is not supported, since SYN/ACK=
- had
->> no TCP window scale option,
->> while Linux thinks that TCP window scaling is supported (and scale m=
-ight
->> be non zero), since SYN had
->>
->> TCP window scale option and we have a mismatched idea between the cl=
-ient
->> and server regarding window sizes.
->>
->>
->> Please comment and/or apply.
->> ...
->>
->>
->> Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
->> Signed-off-by: Ori Finkelman <ori@comsleep.com>
->>
->>
->> Index: net/ipv4/tcp_output.c
->> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
->> --- net/ipv4/tcp_output.c    (revision 46)
->> +++ net/ipv4/tcp_output.c    (revision 210)
->> @@ -353,6 +353,7 @@ static void tcp_init_nondata_skb(struct
->> #define OPTION_SACK_ADVERTISE    (1 << 0)
->> #define OPTION_TS        (1 << 1)
->> #define OPTION_MD5        (1 << 2)
->> +#define OPTION_WSCALE        (1 << 3)
->>
->> struct tcp_out_options {
->>     u8 options;        /* bit field of OPTION_* */
->> @@ -417,7 +418,7 @@ static void tcp_options_write(__be32 *pt
->>                    TCPOLEN_SACK_PERM);
->>     }
->>
->> -    if (unlikely(opts->ws)) {
->> +    if (unlikely(OPTION_WSCALE & opts->options)) {
->>         *ptr++ =3D htonl((TCPOPT_NOP << 24) |
->>                    (TCPOPT_WINDOW << 16) |
->>                    (TCPOLEN_WINDOW << 8) |
->> @@ -530,8 +531,8 @@ static unsigned tcp_synack_options(struc
->>
->>     if (likely(ireq->wscale_ok)) {
->>         opts->ws =3D ireq->rcv_wscale;
->> -        if(likely(opts->ws))
->> -            size +=3D TCPOLEN_WSCALE_ALIGNED;
->> +        opts->options |=3D OPTION_WSCALE;
->> +        size +=3D TCPOLEN_WSCALE_ALIGNED;
->>     }
->>     if (likely(doing_ts)) {
->>         opts->options |=3D OPTION_TS;
->>
->>
->>
->>    =20
->
-> Seems not the more logical places to put this logic...
->
-> How about this instead ?
->
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 5200aab..b78c084 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -216,6 +216,11 @@ void tcp_select_initial_window(int __space, __u3=
-2 mss,
->  			space >>=3D 1;
->  			(*rcv_wscale)++;
->  		}
-> +		/*
-> +		 * Set a minimum wscale of 1
-> +		 */
-> +		if (*rcv_wscale =3D=3D 0)
-> +			*rcv_wscale =3D 1;
->         }
->
->         /* Set initial window to value enough for senders,
->
->  =20
+Signed-off-by: Christian Borntraeger <borntraeger@de.ibm.com>
+CCed: Scott James Remnant <scott@ubuntu.com>
+CCed: Matt Helsley <matthltc@us.ibm.com>
+CCed: David S. Miller <davem@davemloft.net>
+Acked-by: Oleg Nesterov <oleg@redhat.com>
+Acked-by: Evgeniy Polyakov <zbr@ioremap.net>
+---
+ kernel/exit.c |    4 +---
+ kernel/sys.c  |    2 ++
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-Thank you for the patch review. The suggested replacement patch=20
-certainly is shorter, code wise, which is an advantage.
-
-I cant help but feel though, that it is less readable - a window scale=20
-of zero is a perfectly legit value. Adding special logic to rule it out=
-=20
-just because we chose to overload this setting for something else=20
-(whether window scaling is supported or not) seems like an invitation=20
-for someone to get it wrong again down the line, in my opinion.
-
-Also note that the suggested fix is in line with how other TCP options=20
-are handled, e.g. TCP timestamp.
-
-Anyone else wants to chime in on that?
-
-PS. I also managed to to get the patch author name spelling wrong. It i=
-s=20
-Ori Finkelman and not as written.
-
-Thanks!
-Gilad
-
-
---=20
-Gilad Ben-Yossef
-Chief Coffee Drinker & CTO
-Codefidence Ltd.
-
-Web:   http://codefidence.com
-Cell:  +972-52-8260388
-Skype: gilad_codefidence
-Tel:   +972-8-9316883 ext. 201
-=46ax:   +972-8-9316884
-Email: gilad@codefidence.com
-
-Check out our Open Source technology and training blog - http://tuxolog=
-y.net
-
-	"Now the world has gone to bed
-	 Darkness won't engulf my head
-	 I can see by infra-red
-	 How I hate the night."
-
+Index: linux-2.6/kernel/exit.c
+===================================================================
+--- linux-2.6.orig/kernel/exit.c
++++ linux-2.6/kernel/exit.c
+@@ -359,10 +359,8 @@ void __set_special_pids(struct pid *pid)
+ {
+ 	struct task_struct *curr = current->group_leader;
+ 
+-	if (task_session(curr) != pid) {
++	if (task_session(curr) != pid)
+ 		change_pid(curr, PIDTYPE_SID, pid);
+-		proc_sid_connector(curr);
+-	}
+ 
+ 	if (task_pgrp(curr) != pid)
+ 		change_pid(curr, PIDTYPE_PGID, pid);
+Index: linux-2.6/kernel/sys.c
+===================================================================
+--- linux-2.6.orig/kernel/sys.c
++++ linux-2.6/kernel/sys.c
+@@ -1110,6 +1110,8 @@ SYSCALL_DEFINE0(setsid)
+ 	err = session;
+ out:
+ 	write_unlock_irq(&tasklist_lock);
++	if (err > 0)
++		proc_sid_connector(sid);
+ 	return err;
+ }
+ 
