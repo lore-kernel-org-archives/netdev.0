@@ -1,47 +1,51 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: N_PPP_SYNC ldisc BUG: sleeping function called from invalid
- context
-Date: Wed, 30 Sep 2009 17:47:04 +0100
-Message-ID: <20090930174704.796b24b9@lxorguk.ukuu.org.uk>
-References: <4AC37032.4030901@imap.cc>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [PATCH] tg3: Remove prev_vlan_tag from struct tx_ring_info
+Date: Wed, 30 Sep 2009 10:26:43 -0700
+Message-ID: <20090930172643.GA14439@xw6200.broadcom.net>
+References: <4AC36638.8070304@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Alan Cox <alan@linux.intel.com>
-To: Tilman Schmidt <tilman@imap.cc>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Matthew Carlson" <mcarlson@broadcom.com>,
+	"Linux Netdev List" <netdev@vger.kernel.org>,
+	"Michael Chan" <mchan@broadcom.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:35205 "EHLO
-	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754344AbZI3Qpq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 12:45:46 -0400
-In-Reply-To: <4AC37032.4030901@imap.cc>
+Received: from mms1.broadcom.com ([216.31.210.17]:1281 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751970AbZI3R0v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Sep 2009 13:26:51 -0400
+In-Reply-To: <4AC36638.8070304@gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->  [<c026d39b>] tty_unthrottle+0x10/0x38
->  [<f8dcc31f>] ppp_sync_receive+0x168/0x170 [ppp_synctty]
->  [<f8fbb9ce>] handle_minor_recv+0x187/0x1cd [capi]
->  [<f8fbc19b>] capi_recv_message+0x1d9/0x24e [capi]
-
-Really need to see the rest of the call trace to be sure
-
-> Turns out the ppp_sync_receive() function (drivers/net/ppp_synctty.c
-> line 385ff.) has a comment in front stating:
+On Wed, Sep 30, 2009 at 07:07:52AM -0700, Eric Dumazet wrote:
+> prev_vlan_tag field is not used.
 > 
-> /*
->  * This can now be called from hard interrupt level as well
->  * as soft interrupt level or mainline.
->  */
+> Patch saves 512*8 bytes per tx queue ring on 64bit arches.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Which is wrong. The flip_buffer_push -> rx processing path should never
-be called from IRQ context and that was fixed for various drivers that
-mis-set tty->low_latency, as well as in the PPP rework. The PPP case is
-actually unrelated in many was.
+Looks good to me.
 
-> Opinions?
+Acked-by: Matthew Carlson <mcarlson@broadcom.com>
 
-See how we got into that code direct from an IRQ path. The expectation of
-the tty logic is that it gets processed from work queues either
-specifically in driver or via tty_flip_buffer_push when tty->low_latency
-= 0
+> ---
+> 
+> diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+> index 82b45d8..524691c 100644
+> --- a/drivers/net/tg3.h
+> +++ b/drivers/net/tg3.h
+> @@ -2412,7 +2412,6 @@ struct ring_info {
+>  
+>  struct tx_ring_info {
+>  	struct sk_buff                  *skb;
+> -	u32                             prev_vlan_tag;
+>  };
+>  
+>  struct tg3_config_info {
+> 
+
