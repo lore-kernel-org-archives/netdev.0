@@ -1,57 +1,141 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 3/3] bonding: send ARP requests on interfaces other than
- the primary for tlb/alb
-Date: Wed, 30 Sep 2009 09:49:37 +0200
-Message-ID: <4AC30D91.9070507@gmail.com>
-References: <1254269731-7341-3-git-send-email-fubar@us.ibm.com>	<1254269731-7341-4-git-send-email-fubar@us.ibm.com>	<4AC2EA97.5010809@gmail.com> <20090930.002721.160750704.davem@davemloft.net>
+From: Ajit Khaparde <ajitk@serverengines.com>
+Subject: [PATCH net-next-2.6] be2net: Workaround to fix a bug in Rx
+	Completion processing.
+Date: Wed, 30 Sep 2009 14:37:06 +0530
+Message-ID: <20090930090656.GA5215@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: fubar@us.ibm.com, netdev@vger.kernel.org, andy@greyhouse.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:58861 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750873AbZI3Hty (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 03:49:54 -0400
-In-Reply-To: <20090930.002721.160750704.davem@davemloft.net>
+Received: from segment-124-30.sify.net ([124.30.166.146]:27528 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752764AbZI3JG6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 05:06:58 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller a =E9crit :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 30 Sep 2009 07:20:23 +0200
->=20
->> Jay Vosburgh a =E9crit :
->>> -		/* The ARP relpy packets must be delayed so that
->>> -		 * they can cancel out the influence of the ARP request.
->>> -		 */
->> COmments should have the following form :
->> /*
->>  * This is a fine comment
->>  */
->=20
-> I definitely prefer what is used in the patch, whereas your suggestio=
-n
-> wastes a precious line on the screen and doesn't look markedly better
-> at all.
->=20
-> Look at any TCP protocol source file and you'll see the consistent
-> application of:
->=20
-> 	/* This form of
-> 	 * comment.
-> 	 */
->=20
-> there.
+vtp bit in RX completion descriptor could be wrongly set in
+some skews of BladEngine.  Ignore this  bit if vtm is not set.
+This patch is against the net-next-2.6 tree.
 
-No problem David, I dont want to waste time to discuss this kind of stu=
-ff,
-but you know my own opinion, and I know yours as well !
+Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+---
+ drivers/net/benet/be.h      |    1 +
+ drivers/net/benet/be_cmds.c |    3 ++-
+ drivers/net/benet/be_cmds.h |    3 ++-
+ drivers/net/benet/be_main.c |   23 +++++++++++++++++++----
+ 4 files changed, 24 insertions(+), 6 deletions(-)
 
-As a non native, some things that are painful details for you definitly=
- help
-my brain to decode English sentences. Uppercase on first letter, final =
-point,
-spelling, ...
+diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+index 13b72ce..7503b92 100644
+--- a/drivers/net/benet/be.h
++++ b/drivers/net/benet/be.h
+@@ -258,6 +258,7 @@ struct be_adapter {
+ 	bool link_up;
+ 	u32 port_num;
+ 	bool promiscuous;
++	u32 cap;
+ };
+ 
+ extern const struct ethtool_ops be_ethtool_ops;
+diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+index 1db0924..513e47b 100644
+--- a/drivers/net/benet/be_cmds.c
++++ b/drivers/net/benet/be_cmds.c
+@@ -995,7 +995,7 @@ int be_cmd_get_flow_control(struct be_adapter *adapter, u32 *tx_fc, u32 *rx_fc)
+ 	return status;
+ }
+ 
+-int be_cmd_query_fw_cfg(struct be_adapter *adapter, u32 *port_num)
++int be_cmd_query_fw_cfg(struct be_adapter *adapter, u32 *port_num, u32 *cap)
+ {
+ 	struct be_mcc_wrb *wrb = wrb_from_mbox(&adapter->mbox_mem);
+ 	struct be_cmd_req_query_fw_cfg *req = embedded_payload(wrb);
+@@ -1014,6 +1014,7 @@ int be_cmd_query_fw_cfg(struct be_adapter *adapter, u32 *port_num)
+ 	if (!status) {
+ 		struct be_cmd_resp_query_fw_cfg *resp = embedded_payload(wrb);
+ 		*port_num = le32_to_cpu(resp->phys_port);
++		*cap = le32_to_cpu(resp->function_cap);
+ 	}
+ 
+ 	spin_unlock(&adapter->mbox_lock);
+diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/benet/be_cmds.h
+index fd7028e..f4fd74e 100644
+--- a/drivers/net/benet/be_cmds.h
++++ b/drivers/net/benet/be_cmds.h
+@@ -759,7 +759,8 @@ extern int be_cmd_set_flow_control(struct be_adapter *adapter,
+ 			u32 tx_fc, u32 rx_fc);
+ extern int be_cmd_get_flow_control(struct be_adapter *adapter,
+ 			u32 *tx_fc, u32 *rx_fc);
+-extern int be_cmd_query_fw_cfg(struct be_adapter *adapter, u32 *port_num);
++extern int be_cmd_query_fw_cfg(struct be_adapter *adapter,
++			u32 *port_num, u32 *cap);
+ extern int be_cmd_reset_function(struct be_adapter *adapter);
+ extern void be_process_mcc(struct be_adapter *adapter);
+ extern int be_cmd_write_flashrom(struct be_adapter *adapter,
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index ce11bba..44d2e6a 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -747,9 +747,16 @@ static void be_rx_compl_process(struct be_adapter *adapter,
+ 			struct be_eth_rx_compl *rxcp)
+ {
+ 	struct sk_buff *skb;
+-	u32 vtp, vid;
++	u32 vlanf, vid;
++	u8 vtm;
+ 
+-	vtp = AMAP_GET_BITS(struct amap_eth_rx_compl, vtp, rxcp);
++	vlanf = AMAP_GET_BITS(struct amap_eth_rx_compl, vtp, rxcp);
++	vtm = AMAP_GET_BITS(struct amap_eth_rx_compl, vtm, rxcp);
++
++	/* vlanf could be wrongly set in some cards.
++	 * ignore if vtm is not set */
++	if ((adapter->cap == 0x400) && !vtm)
++		vlanf = 0;
+ 
+ 	skb = netdev_alloc_skb(adapter->netdev, BE_HDR_LEN + NET_IP_ALIGN);
+ 	if (!skb) {
+@@ -772,7 +779,7 @@ static void be_rx_compl_process(struct be_adapter *adapter,
+ 	skb->protocol = eth_type_trans(skb, adapter->netdev);
+ 	skb->dev = adapter->netdev;
+ 
+-	if (vtp) {
++	if (vlanf) {
+ 		if (!adapter->vlan_grp || adapter->num_vlans == 0) {
+ 			kfree_skb(skb);
+ 			return;
+@@ -797,11 +804,18 @@ static void be_rx_compl_process_gro(struct be_adapter *adapter,
+ 	struct be_eq_obj *eq_obj =  &adapter->rx_eq;
+ 	u32 num_rcvd, pkt_size, remaining, vlanf, curr_frag_len;
+ 	u16 i, rxq_idx = 0, vid, j;
++	u8 vtm;
+ 
+ 	num_rcvd = AMAP_GET_BITS(struct amap_eth_rx_compl, numfrags, rxcp);
+ 	pkt_size = AMAP_GET_BITS(struct amap_eth_rx_compl, pktsize, rxcp);
+ 	vlanf = AMAP_GET_BITS(struct amap_eth_rx_compl, vtp, rxcp);
+ 	rxq_idx = AMAP_GET_BITS(struct amap_eth_rx_compl, fragndx, rxcp);
++	vtm = AMAP_GET_BITS(struct amap_eth_rx_compl, vtm, rxcp);
++
++	/* vlanf could be wrongly set in some cards.
++	 * ignore if vtm is not set */
++	if ((adapter->cap == 0x400) && !vtm)
++		vlanf = 0;
+ 
+ 	skb = napi_get_frags(&eq_obj->napi);
+ 	if (!skb) {
+@@ -2045,7 +2059,8 @@ static int be_hw_up(struct be_adapter *adapter)
+ 	if (status)
+ 		return status;
+ 
+-	status = be_cmd_query_fw_cfg(adapter, &adapter->port_num);
++	status = be_cmd_query_fw_cfg(adapter,
++				&adapter->port_num, &adapter->cap);
+ 	return status;
+ }
+ 
+-- 
+1.6.0.4
 
