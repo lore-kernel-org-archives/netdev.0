@@ -1,104 +1,124 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2 0/4] IPVS full NAT support + netfilter 'ipvs' match
- support
-Date: Wed, 30 Sep 2009 09:18:48 +1000
-Message-ID: <20090929231845.GA7255@verge.net.au>
-References: <20090929123501.13798.84004.stgit@jazzy.zrh.corp.google.com>
- <20090929145156.GB19797@verge.net.au>
- <b5ddba180909290807j4d1d1d2dl48af9453542612ff@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
-	Julius Volz <julius.volz@gmail.com>,
-	lvs-users@linuxvirtualserver.org,
-	Laurent Grawet <laurent.grawet@uclouvain.be>,
-	Jean-Luc Fortemaison <jl.fortemaison@uclouvain.be>,
-	linux-kernel@vger.kernel.org, Jan Engelhardt <jengelh@medozas.de>,
-	Julian Anastasov <ja@ssi.bg>, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Fabien =?utf-8?Q?Duch=C3=AAne?= <mad_fab@skynet.be>,
-	Joseph Mack NA3T <jmack@wm7d.net>,
-	Patrick McHardy <kaber@trash.net>
-To: Hannes Eder <heder@google.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <b5ddba180909290807j4d1d1d2dl48af9453542612ff@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [PATCH 1/3] bonding: allow previous slave to be used when re-balancing traffic on tlb/alb interfaces
+Date: Tue, 29 Sep 2009 17:15:29 -0700
+Message-ID: <1254269731-7341-2-git-send-email-fubar@us.ibm.com>
+References: <1254269731-7341-1-git-send-email-fubar@us.ibm.com>
+Cc: David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e8.ny.us.ibm.com ([32.97.182.138]:44155 "EHLO e8.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753564AbZI3APe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Sep 2009 20:15:34 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e8.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id n8U0DFiV017010
+	for <netdev@vger.kernel.org>; Tue, 29 Sep 2009 20:13:15 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n8U0FcN3248582
+	for <netdev@vger.kernel.org>; Tue, 29 Sep 2009 20:15:38 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n8U0FbIB023087
+	for <netdev@vger.kernel.org>; Tue, 29 Sep 2009 20:15:38 -0400
+In-Reply-To: <1254269731-7341-1-git-send-email-fubar@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 29, 2009 at 05:07:24PM +0200, Hannes Eder wrote:
-> On Tue, Sep 29, 2009 at 16:51, Simon Horman <horms@verge.net.au> wrot=
-e:
-> > On Tue, Sep 29, 2009 at 02:35:15PM +0200, Hannes Eder wrote:
-> >> The following series implements full NAT support for IPVS. =C2=A0T=
-he
-> >> approach is via a minimal change to IPVS (make friends with
-> >> nf_conntrack) and adding a netfilter matcher, kernel- and user-spa=
-ce
-> >> part, i.e. xt_ipvs and libxt_ipvs.
-> >
-> > Its a bit late in the day for me to review the code, but I have a f=
-ew
-> > quick comments.
-> >
-> >>
-> >> Example usage:
-> >>
-> >> % ipvsadm -A -t 192.168.100.30:80 -s rr
-> >> % ipvsadm -a -t 192.168.100.30:80 -r 192.168.10.20:80 -m
-> >> # ...
-> >>
-> >> # Source NAT for VIP 192.168.100.30:80
-> >> % iptables -t nat -A POSTROUTING -m ipvs --vaddr 192.168.100.30/32=
- \
-> >> > --vport 80 -j SNAT --to-source 192.168.10.10
-> >>
-> >> or SNAT-ing only a specific real server:
-> >>
-> >> % iptables -t nat -A POSTROUTING --dst 192.168.11.20 \
-> >> > -m ipvs --vaddr 192.168.100.30/32 -j SNAT --to-source 192.168.10=
-=2E10
-> >
-> > If the iptables rule is not in place does LVS just use
-> > its old NAT behaviour?
->=20
-> Yes, without iptables rules LVS NAT does DNAT.
+From: Andy Gospodarek <andy@greyhouse.net>
 
-Great.
+When using tlb (mode 5) or alb (mode 6) bonding, a task runs every 10s
+and re-balances the output devices based on load.  I was trying to
+diagnose some connectivity issues and realized that a high-traffic host
+would often switch output interfaces every 10s.  I discovered this
+happened because the 'least loaded interface' was chosen as the next
+output interface for any given stream and quite often some lower load
+traffic would slip in an take the interface previously used by our
+stream.  This meant the 'least loaded interface' was no longer the one
+we used during the last interval.
 
-> >> First of all, thanks for all the feedback. =C2=A0This is the chang=
-elog for v2:
-> >>
-> >> - Make ip_vs_ftp work again. =C2=A0Setup nf_conntrack expectations=
- for
-> >> =C2=A0 related data connections (based on Julian's patch see
-> >> =C2=A0 http://www.ssi.bg/~ja/nfct/) and let nf_conntrack/nf_nat do=
- the
-> >> =C2=A0 packet mangling and the TCP sequence adjusting.
-> >>
-> >> =C2=A0 This change rises the question how to deal with ip_vs_sync?=
- =C2=A0Does it
-> >> =C2=A0 work together with conntrackd? =C2=A0Wild idea: what about =
-getting rid of
-> >> =C2=A0 ip_vs_sync and piggy packing all on nf_conntrack and use co=
-nntrackd?
-> >>
-> >> =C2=A0 Any comments on this?
-> >
-> > =C2=A0 =C2=A0That sounds like a reasonable suggestion.
-> >
-> > =C2=A0 =C2=A0I think that ip_vs_sync came along before conntrackd
-> > =C2=A0 =C2=A0and no one has given much thought to merging the funct=
-ionality.
->=20
-> Okay, I'll dig further in this direction.
+The switching of streams to another interface was not extremely helpful
+as it would force the destination host or router to update its ARP
+tables and produce some additional ARP traffic as the destination host
+verified that is was using the MAC address it expected.  Having the
+destination MAC for a given IP change every 10s seems undesirable.
 
-Assuming the technical side is clean, I suspect the major problem will =
-be
-how to migrate users away from ip_vs_sync.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The decision was made to use the same slave during this interval if the
+current load on that interface was < 10.  A load of < 10 indicates that
+during the last 10s sample, roughly 100bytes were sent by all streams
+currently assigned to that interface.  This essentially means the
+interface is unloaded, but allows for a few frames that will probably
+have minimal impact to slip into the same interface we were using in the
+past.
+
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+
+---
+ drivers/net/bonding/bond_alb.c |   21 ++++++++++++++++++++-
+ drivers/net/bonding/bond_alb.h |    4 ++++
+ 2 files changed, 24 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 9b5936f..cf2842e 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -150,6 +150,7 @@ static inline void tlb_init_table_entry(struct tlb_client_info *entry, int save_
+ 		entry->load_history = 1 + entry->tx_bytes /
+ 				      BOND_TLB_REBALANCE_INTERVAL;
+ 		entry->tx_bytes = 0;
++		entry->last_slave = entry->tx_slave;
+ 	}
+ 
+ 	entry->tx_slave = NULL;
+@@ -270,6 +271,24 @@ static struct slave *tlb_get_least_loaded_slave(struct bonding *bond)
+ 	return least_loaded;
+ }
+ 
++/* Caller must hold bond lock for read and hashtbl lock */
++static struct slave *tlb_get_best_slave(struct bonding *bond, u32 hash_index)
++{
++	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
++	struct tlb_client_info *tx_hash_table = bond_info->tx_hashtbl;
++	struct slave *last_slave = tx_hash_table[hash_index].last_slave;
++	struct slave *next_slave = NULL;
++
++	if (last_slave && SLAVE_IS_OK(last_slave)) {
++		/* Use the last slave listed in the tx hashtbl if:
++		   the last slave currently is essentially unloaded. */
++		if (SLAVE_TLB_INFO(last_slave).load < 10)
++			next_slave = last_slave;
++	}
++
++	return next_slave ? next_slave : tlb_get_least_loaded_slave(bond);
++}
++
+ /* Caller must hold bond lock for read */
+ static struct slave *tlb_choose_channel(struct bonding *bond, u32 hash_index, u32 skb_len)
+ {
+@@ -282,7 +301,7 @@ static struct slave *tlb_choose_channel(struct bonding *bond, u32 hash_index, u3
+ 	hash_table = bond_info->tx_hashtbl;
+ 	assigned_slave = hash_table[hash_index].tx_slave;
+ 	if (!assigned_slave) {
+-		assigned_slave = tlb_get_least_loaded_slave(bond);
++		assigned_slave = tlb_get_best_slave(bond, hash_index);
+ 
+ 		if (assigned_slave) {
+ 			struct tlb_slave_info *slave_info =
+diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
+index 50968f8..b65fd29 100644
+--- a/drivers/net/bonding/bond_alb.h
++++ b/drivers/net/bonding/bond_alb.h
+@@ -36,6 +36,10 @@ struct tlb_client_info {
+ 				 * packets to a Client that the Hash function
+ 				 * gave this entry index.
+ 				 */
++	struct slave *last_slave; /* Pointer to last slave used for transmiting
++				 * packets to a Client that the Hash function
++				 * gave this entry index.
++				 */
+ 	u32 tx_bytes;		/* Each Client acumulates the BytesTx that
+ 				 * were tranmitted to it, and after each
+ 				 * CallBack the LoadHistory is devided
+-- 
+1.6.0.2
+
