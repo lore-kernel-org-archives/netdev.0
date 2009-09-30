@@ -1,42 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix sock_wfree() race
-Date: Wed, 30 Sep 2009 16:23:16 -0700 (PDT)
-Message-ID: <20090930.162316.123663794.davem@davemloft.net>
-References: <4ABA262F.9040407@gmail.com>
-	<4ABBD18A.70208@gmail.com>
-	<4ABBDB54.4000609@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] net: fix NOHZ: local_softirq_pending 08
+Date: Wed, 30 Sep 2009 16:33:33 -0700 (PDT)
+Message-ID: <20090930.163333.234658158.davem@davemloft.net>
+References: <1254324077.3959.7.camel@johannes.local>
+	<4AC39A90.6060602@hartkopp.net>
+	<4AC3A0F1.3060306@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, albcamus@gmail.com, parag.lkml@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55934
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754761AbZI3XW5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 19:22:57 -0400
-In-Reply-To: <4ABBDB54.4000609@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org, kalle.valo-X3B1VOXEql0@public.gmane.org,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4AC3A0F1.3060306-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 24 Sep 2009 22:49:24 +0200
+From: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Date: Wed, 30 Sep 2009 20:18:25 +0200
 
-> [PATCH] net: Fix sock_wfree() race
+> Socket buffers that are generated and received inside softirqs or from process
+> context must not use netif_rx() that's intended to be used from irq context only.
 > 
-> Commit 2b85a34e911bf483c27cfdd124aeb1605145dc80
-> (net: No more expensive sock_hold()/sock_put() on each tx)
-> opens a window in sock_wfree() where another cpu
-> might free the socket we are working on.
+> This patch introduces a new helper function netif_rx_ti(skb) that tests for
+> in_interrupt() before invoking netif_rx() or netif_rx_ni().
 > 
-> A fix is to call sk->sk_write_space(sk) while still
-> holding a reference on sk.
+> It fixes the ratelimited kernel warning
 > 
+>         NOHZ: local_softirq_pending 08
 > 
-> Reported-by: Jike Song <albcamus@gmail.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> in the mac80211 and can subsystems.
+> 
+> Signed-off-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
 
-Applied to net-2.6 and I'll queue this up for -stable.
+I bet all of these code paths can use netif_receive_skb() or
+don't need this conditional blob at all.
 
-Thanks!
+Looking at some specific cases in this patch:
+
+1) VCAN:  This RX routine is only invoked from the drivers
+   ->ndo_start_xmit() handler, and therefore like the loopback
+   driver we know that BH's are already disabled and therefore
+   it can always use netif_rx() safely.
+
+   Why did you convert this case?
+
+   And if this needs to be converted, why doesn't loopback need
+   to be?
+
+2) af_can.c:  In what situation will netif_rx_ni() not be appropriate
+   here?  It should always execute in softirq or user context, now
+   hardirq context.
+
+And the list goes on and on, I don't really like this new conditional
+testing of interrupt state.  As always, that's usually a red flag and
+as far as I can see these spots where you're changing things are only
+trying to receive packets in one of the two possible cases not both.
+
+I'm not applying this until all of these details are sorted out and
+you add some verbosity to the commit message explaining each and every
+case you are changing, what contexts those cases can be called
+from, and from where.
+
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
