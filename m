@@ -1,47 +1,47 @@
-From: Hannes Eder <heder@google.com>
-Subject: Re: [PATCH] ipvs: Add boundary check on ioctl arguments
-Date: Wed, 30 Sep 2009 17:33:01 +0200
-Message-ID: <b5ddba180909300833g2b1fd22ak3e094e10fe10e8a@mail.gmail.com>
-References: <20090930131109.2b3f71b8@infradead.org> <4AC35F44.60707@google.com>
-	 <20090930171833.5ce0011d@infradead.org>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: N_PPP_SYNC ldisc BUG: sleeping function called from invalid
+ context
+Date: Wed, 30 Sep 2009 17:47:04 +0100
+Message-ID: <20090930174704.796b24b9@lxorguk.ukuu.org.uk>
+References: <4AC37032.4030901@imap.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Simon Horman <horms@verge.net.au>
-To: Arjan van de Ven <arjan@infradead.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754777AbZI3PdK@vger.kernel.org>
-In-Reply-To: <20090930171833.5ce0011d@infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Alan Cox <alan@linux.intel.com>
+To: Tilman Schmidt <tilman@imap.cc>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:35205 "EHLO
+	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754344AbZI3Qpq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 12:45:46 -0400
+In-Reply-To: <4AC37032.4030901@imap.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 30, 2009 at 17:18, Arjan van de Ven <arjan@infradead.org> w=
-rote:
-> On Wed, 30 Sep 2009 15:38:12 +0200
-> Hannes Eder <heder@google.com> wrote:
->> =A0> @@ -2353,17 +2357,25 @@ do_ip_vs_get_ctl(struct sock *sk, int c=
-md,
->> =A0> void __user
->> *user, int *len)
->> =A0> =A0{
->> =A0> =A0 =A0unsigned char arg[128];
->>
->> can MAX_ARG_LEN be used here?
->
-> I am not convinced... it is a different numerical value,
-> so it could be an ABI change. Rather not do that in this
-> type of patch...
+>  [<c026d39b>] tty_unthrottle+0x10/0x38
+>  [<f8dcc31f>] ppp_sync_receive+0x168/0x170 [ppp_synctty]
+>  [<f8fbb9ce>] handle_minor_recv+0x187/0x1cd [capi]
+>  [<f8fbc19b>] capi_recv_message+0x1d9/0x24e [capi]
 
-=46or do_ip_vs_set_ctl MAX_ARG_LEN is used:
+Really need to see the rest of the call trace to be sure
 
-static int
-do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned =
-int len)
-{
-	int ret;
-	unsigned char arg[MAX_ARG_LEN];
-=2E..
+> Turns out the ppp_sync_receive() function (drivers/net/ppp_synctty.c
+> line 385ff.) has a comment in front stating:
+> 
+> /*
+>  * This can now be called from hard interrupt level as well
+>  * as soft interrupt level or mainline.
+>  */
 
-I assume that will be fine for do_ip_vs_get_ctl as well.
+Which is wrong. The flip_buffer_push -> rx processing path should never
+be called from IRQ context and that was fixed for various drivers that
+mis-set tty->low_latency, as well as in the PPP rework. The PPP case is
+actually unrelated in many was.
 
--Hannes
+> Opinions?
+
+See how we got into that code direct from an IRQ path. The expectation of
+the tty logic is that it gets processed from work queues either
+specifically in driver or via tty_flip_buffer_push when tty->low_latency
+= 0
