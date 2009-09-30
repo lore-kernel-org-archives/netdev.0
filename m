@@ -1,141 +1,89 @@
-From: Ajit Khaparde <ajitk@serverengines.com>
-Subject: [PATCH net-next-2.6] be2net: Workaround to fix a bug in Rx
-	Completion processing.
-Date: Wed, 30 Sep 2009 14:37:06 +0530
-Message-ID: <20090930090656.GA5215@serverengines.com>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: [PATCH] ipvs: Add boundary check on ioctl arguments
+Date: Wed, 30 Sep 2009 13:11:09 +0200
+Message-ID: <20090930131109.2b3f71b8@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Wensong Zhang <wensong@linux-vs.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:27528 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752764AbZI3JG6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 05:06:58 -0400
-Content-Disposition: inline
+Received: from casper.infradead.org ([85.118.1.10]:48772 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751136AbZI3LKl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 07:10:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-vtp bit in RX completion descriptor could be wrongly set in
-some skews of BladEngine.  Ignore this  bit if vtm is not set.
-This patch is against the net-next-2.6 tree.
 
-Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+>From 761a182f96b3707e1fee44e1079ba227e48745d1 Mon Sep 17 00:00:00 2001
+From: Arjan van de Ven <arjan@linux.intel.com>
+Date: Wed, 30 Sep 2009 13:05:51 +0200
+Subject: [PATCH] ipvs: Add boundary check on ioctl arguments
+
+The ipvs code has a nifty system for doing the size of ioctl command copies;
+it defines an array with values into which it indexes the cmd to find the
+right length.
+
+Unfortunately, the ipvs code forgot to check if the cmd was in the range
+that the array provides, allowing for an index outside of the array,
+which then gives a "garbage" result into the length, which then gets
+used for copying into a stack buffer.
+
+Fix this by adding sanity checks on these as well as the copy size.
+
+Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
 ---
- drivers/net/benet/be.h      |    1 +
- drivers/net/benet/be_cmds.c |    3 ++-
- drivers/net/benet/be_cmds.h |    3 ++-
- drivers/net/benet/be_main.c |   23 +++++++++++++++++++----
- 4 files changed, 24 insertions(+), 6 deletions(-)
+ net/netfilter/ipvs/ip_vs_ctl.c |   14 +++++++++++++-
+ 1 files changed, 13 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
-index 13b72ce..7503b92 100644
---- a/drivers/net/benet/be.h
-+++ b/drivers/net/benet/be.h
-@@ -258,6 +258,7 @@ struct be_adapter {
- 	bool link_up;
- 	u32 port_num;
- 	bool promiscuous;
-+	u32 cap;
- };
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index ac624e5..3c52796 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -2077,6 +2077,10 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
  
- extern const struct ethtool_ops be_ethtool_ops;
-diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-index 1db0924..513e47b 100644
---- a/drivers/net/benet/be_cmds.c
-+++ b/drivers/net/benet/be_cmds.c
-@@ -995,7 +995,7 @@ int be_cmd_get_flow_control(struct be_adapter *adapter, u32 *tx_fc, u32 *rx_fc)
- 	return status;
- }
- 
--int be_cmd_query_fw_cfg(struct be_adapter *adapter, u32 *port_num)
-+int be_cmd_query_fw_cfg(struct be_adapter *adapter, u32 *port_num, u32 *cap)
++	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_SET_MAX + 1)
++		return -EINVAL;
++	if (len < 0 || len >  MAX_ARG_LEN)
++		return -EINVAL;
+ 	if (len != set_arglen[SET_CMDID(cmd)]) {
+ 		pr_err("set_ctl: len %u != %u\n",
+ 		       len, set_arglen[SET_CMDID(cmd)]);
+@@ -2353,17 +2357,25 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
  {
- 	struct be_mcc_wrb *wrb = wrb_from_mbox(&adapter->mbox_mem);
- 	struct be_cmd_req_query_fw_cfg *req = embedded_payload(wrb);
-@@ -1014,6 +1014,7 @@ int be_cmd_query_fw_cfg(struct be_adapter *adapter, u32 *port_num)
- 	if (!status) {
- 		struct be_cmd_resp_query_fw_cfg *resp = embedded_payload(wrb);
- 		*port_num = le32_to_cpu(resp->phys_port);
-+		*cap = le32_to_cpu(resp->function_cap);
+ 	unsigned char arg[128];
+ 	int ret = 0;
++	unsigned int copylen;
+ 
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
++	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_GET_MAX + 1)
++		return -EINVAL;
++
+ 	if (*len < get_arglen[GET_CMDID(cmd)]) {
+ 		pr_err("get_ctl: len %u < %u\n",
+ 		       *len, get_arglen[GET_CMDID(cmd)]);
+ 		return -EINVAL;
  	}
  
- 	spin_unlock(&adapter->mbox_lock);
-diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/benet/be_cmds.h
-index fd7028e..f4fd74e 100644
---- a/drivers/net/benet/be_cmds.h
-+++ b/drivers/net/benet/be_cmds.h
-@@ -759,7 +759,8 @@ extern int be_cmd_set_flow_control(struct be_adapter *adapter,
- 			u32 tx_fc, u32 rx_fc);
- extern int be_cmd_get_flow_control(struct be_adapter *adapter,
- 			u32 *tx_fc, u32 *rx_fc);
--extern int be_cmd_query_fw_cfg(struct be_adapter *adapter, u32 *port_num);
-+extern int be_cmd_query_fw_cfg(struct be_adapter *adapter,
-+			u32 *port_num, u32 *cap);
- extern int be_cmd_reset_function(struct be_adapter *adapter);
- extern void be_process_mcc(struct be_adapter *adapter);
- extern int be_cmd_write_flashrom(struct be_adapter *adapter,
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index ce11bba..44d2e6a 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -747,9 +747,16 @@ static void be_rx_compl_process(struct be_adapter *adapter,
- 			struct be_eth_rx_compl *rxcp)
- {
- 	struct sk_buff *skb;
--	u32 vtp, vid;
-+	u32 vlanf, vid;
-+	u8 vtm;
- 
--	vtp = AMAP_GET_BITS(struct amap_eth_rx_compl, vtp, rxcp);
-+	vlanf = AMAP_GET_BITS(struct amap_eth_rx_compl, vtp, rxcp);
-+	vtm = AMAP_GET_BITS(struct amap_eth_rx_compl, vtm, rxcp);
+-	if (copy_from_user(arg, user, get_arglen[GET_CMDID(cmd)]) != 0)
++	copylen = get_arglen[GET_CMDID(cmd)];
++	if (copylen > 128)
++		return -EINVAL;
 +
-+	/* vlanf could be wrongly set in some cards.
-+	 * ignore if vtm is not set */
-+	if ((adapter->cap == 0x400) && !vtm)
-+		vlanf = 0;
++	if (copy_from_user(arg, user, copylen) != 0)
+ 		return -EFAULT;
  
- 	skb = netdev_alloc_skb(adapter->netdev, BE_HDR_LEN + NET_IP_ALIGN);
- 	if (!skb) {
-@@ -772,7 +779,7 @@ static void be_rx_compl_process(struct be_adapter *adapter,
- 	skb->protocol = eth_type_trans(skb, adapter->netdev);
- 	skb->dev = adapter->netdev;
- 
--	if (vtp) {
-+	if (vlanf) {
- 		if (!adapter->vlan_grp || adapter->num_vlans == 0) {
- 			kfree_skb(skb);
- 			return;
-@@ -797,11 +804,18 @@ static void be_rx_compl_process_gro(struct be_adapter *adapter,
- 	struct be_eq_obj *eq_obj =  &adapter->rx_eq;
- 	u32 num_rcvd, pkt_size, remaining, vlanf, curr_frag_len;
- 	u16 i, rxq_idx = 0, vid, j;
-+	u8 vtm;
- 
- 	num_rcvd = AMAP_GET_BITS(struct amap_eth_rx_compl, numfrags, rxcp);
- 	pkt_size = AMAP_GET_BITS(struct amap_eth_rx_compl, pktsize, rxcp);
- 	vlanf = AMAP_GET_BITS(struct amap_eth_rx_compl, vtp, rxcp);
- 	rxq_idx = AMAP_GET_BITS(struct amap_eth_rx_compl, fragndx, rxcp);
-+	vtm = AMAP_GET_BITS(struct amap_eth_rx_compl, vtm, rxcp);
-+
-+	/* vlanf could be wrongly set in some cards.
-+	 * ignore if vtm is not set */
-+	if ((adapter->cap == 0x400) && !vtm)
-+		vlanf = 0;
- 
- 	skb = napi_get_frags(&eq_obj->napi);
- 	if (!skb) {
-@@ -2045,7 +2059,8 @@ static int be_hw_up(struct be_adapter *adapter)
- 	if (status)
- 		return status;
- 
--	status = be_cmd_query_fw_cfg(adapter, &adapter->port_num);
-+	status = be_cmd_query_fw_cfg(adapter,
-+				&adapter->port_num, &adapter->cap);
- 	return status;
- }
- 
+ 	if (mutex_lock_interruptible(&__ip_vs_mutex))
 -- 
-1.6.0.4
+1.6.2.5
 
+
+-- 
+Arjan van de Ven 	Intel Open Source Technology Centre
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
