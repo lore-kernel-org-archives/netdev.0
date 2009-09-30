@@ -1,37 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] be2net: Workaround to fix a bug in Rx
- Completion processing.
-Date: Wed, 30 Sep 2009 16:37:27 -0700 (PDT)
-Message-ID: <20090930.163727.180617737.davem@davemloft.net>
-References: <20090930090656.GA5215@serverengines.com>
+Subject: Re: [PATCH] sit: fix off-by-one in ipip6_tunnel_get_prl
+Date: Wed, 30 Sep 2009 16:40:07 -0700 (PDT)
+Message-ID: <20090930.164007.256559861.davem@davemloft.net>
+References: <1254259625-29320-1-git-send-email-contact@saschahlusiak.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ajitk@serverengines.com
+Cc: netdev@vger.kernel.org, fred.l.templin@boeing.com
+To: contact@saschahlusiak.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50386
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60862
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754771AbZI3XhI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 19:37:08 -0400
-In-Reply-To: <20090930090656.GA5215@serverengines.com>
+	by vger.kernel.org with ESMTP id S1754777AbZI3Xjs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 19:39:48 -0400
+In-Reply-To: <1254259625-29320-1-git-send-email-contact@saschahlusiak.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ajit Khaparde <ajitk@serverengines.com>
-Date: Wed, 30 Sep 2009 14:37:06 +0530
+From: Sascha Hlusiak <contact@saschahlusiak.de>
+Date: Tue, 29 Sep 2009 23:27:05 +0200
 
-> vtp bit in RX completion descriptor could be wrongly set in
-> some skews of BladEngine.  Ignore this  bit if vtm is not set.
-> This patch is against the net-next-2.6 tree.
+> When requesting all prl entries (kprl.addr == INADDR_ANY) and there are
+> more prl entries than there is space passed from userspace, the existing
+> code would always copy cmax+1 entries, which is more than can be handled.
 > 
-> Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+> This patch makes the kernel copy only exactly cmax entries.
+> 
+> Signed-off-by: Sascha Hlusiak <contact@saschahlusiak.de>
+> Acked-By: Fred L. Templin <Fred.L.Templin@boeing.com>
 
-This doesn't apply.
-
-Until I start taking new feature patches, net-next-2.6 is just
-going to be a stale GIT tree based upon Linus's tree at some
-point in time long ago.
-
-net-2.6 is far in front of that, and actually since this is a bug
-fix you really should be sending me this patch against that.
+Applied and queued up for -stable, thanks.
