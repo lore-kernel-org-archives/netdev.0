@@ -1,44 +1,59 @@
-From: Kalle Valo <kalle.valo@iki.fi>
-Subject: Re: [PATCH 3/3] at76c50x-usb: set firmware and hardware version in wiphy
-Date: Thu, 01 Oct 2009 17:27:17 +0300
-Message-ID: <877hvfqjei.fsf@purkki.valot.fi>
-References: <20091001011340.GA3123@tuxdriver.com>
-	<1254359942-3483-1-git-send-email-linville@tuxdriver.com>
-	<1254359942-3483-2-git-send-email-linville@tuxdriver.com>
-	<1254359942-3483-3-git-send-email-linville@tuxdriver.com>
-	<1254360747.23350.2.camel@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f211.google.com ([209.85.219.211]:43128 "EHLO
-	mail-ew0-f211.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932474AbZJAO1R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 10:27:17 -0400
-In-Reply-To: <1254360747.23350.2.camel@localhost> (Ben Hutchings's message of "Thu\, 01 Oct 2009 02\:32\:27 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: [PATCH] net/ppp: fix comments - ppp_{sync,asynctty}_receive() may sleep
+Date: Thu,  1 Oct 2009 16:28:44 +0200 (CEST)
+Message-ID: <20091001142844.C50E511186D@xenon.ts.pxnet.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	linux-kernel@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Alan Cox <alan@linux.intel.com>,
+	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932697AbZJAO3Y@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ben Hutchings <bhutchings@solarflare.com> writes:
+The receive_buf methods of the N_PPP and N_SYNC_PPP line disciplines,
+ppp_asynctty_receive() and ppp_sync_receive(), call tty_unthrottle()
+which may sleep. Fix the comments claiming otherwise.
 
-> On Wed, 2009-09-30 at 21:19 -0400, John W. Linville wrote:
-> [...]
->> +	len = sizeof(wiphy->fw_version);
->> +	snprintf(wiphy->fw_version, len, "%d.%d.%d-%d",
->> +		 priv->fw_version.major, priv->fw_version.minor,
->> +		 priv->fw_version.patch, priv->fw_version.build);
->> +	/* null terminate the strings in case they were truncated */
->> +	wiphy->fw_version[len - 1] = '\0';
-> [...]
->
-> This last statement is unnecessary; snprintf() always null-terminates
-> (unless the length is zero).
+Impact: documentation
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+---
+ drivers/net/ppp_async.c   |    5 +----
+ drivers/net/ppp_synctty.c |    5 +----
+ 2 files changed, 2 insertions(+), 8 deletions(-)
 
-Yes, the extra null termination is unnecessary. This was my mistake in
-the first patchset I sent.
-
+diff --git a/drivers/net/ppp_async.c b/drivers/net/ppp_async.c
+index 6de8399..30b1b33 100644
+--- a/drivers/net/ppp_async.c
++++ b/drivers/net/ppp_async.c
+@@ -337,10 +337,7 @@ ppp_asynctty_poll(struct tty_struct *tty, struct file *file, poll_table *wait)
+ 	return 0;
+ }
+ 
+-/*
+- * This can now be called from hard interrupt level as well
+- * as soft interrupt level or mainline.
+- */
++/* May sleep, don't call from interrupt level or with interrupts disabled */
+ static void
+ ppp_asynctty_receive(struct tty_struct *tty, const unsigned char *buf,
+ 		  char *cflags, int count)
+diff --git a/drivers/net/ppp_synctty.c b/drivers/net/ppp_synctty.c
+index d2fa2db..c908b08 100644
+--- a/drivers/net/ppp_synctty.c
++++ b/drivers/net/ppp_synctty.c
+@@ -378,10 +378,7 @@ ppp_sync_poll(struct tty_struct *tty, struct file *file, poll_table *wait)
+ 	return 0;
+ }
+ 
+-/*
+- * This can now be called from hard interrupt level as well
+- * as soft interrupt level or mainline.
+- */
++/* May sleep, don't call from interrupt level or with interrupts disabled */
+ static void
+ ppp_sync_receive(struct tty_struct *tty, const unsigned char *buf,
+ 		  char *cflags, int count)
 -- 
-Kalle Valo
+1.6.2.1.214.ge986c
