@@ -1,57 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] pktgen: Fix delay handling
-Date: Thu, 01 Oct 2009 11:47:34 +0200
-Message-ID: <4AC47AB6.9000501@gmail.com>
-References: <20090922224902.17ed6cc4@nehalam>	<20090923174141.1d350103@s6510>	<4AC3E3C5.1090108@gmail.com> <20090930172532.2c2d1d42@s6510>
+From: Nir Tzachar <nir.tzachar@gmail.com>
+Subject: Re: [RFCv4 PATCH 2/2] net: Allow protocols to provide an
+	unlocked_recvmsg socket method
+Date: Thu, 1 Oct 2009 11:49:39 +0200
+Message-ID: <9b2db90b0910010249h182bf5d4sc7fdaea9e1345720@mail.gmail.com>
+References: <20090916170745.GD7699@ghostprotocols.net>
+	 <9b2db90b0909170709n400859c6q13514b315970dde9@mail.gmail.com>
+	 <20090917212113.GC3691@ghostprotocols.net>
+	 <20090917215344.GE3691@ghostprotocols.net>
+	 <20090923000925.GA6011@ghostprotocols.net>
+	 <9b2db90b0909222123x7e547210p5755adf9f8ae875f@mail.gmail.com>
+	 <20090923043813.GA6464@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <jdb@comx.dk>,
-	Robert Olsson <robert@herjulf.net>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Ziv Ayalon <ziv@final.co.il>
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	Linux Networking Development Mailing List
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:48757 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755005AbZJAJre (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 05:47:34 -0400
-In-Reply-To: <20090930172532.2c2d1d42@s6510>
+Received: from mail-fx0-f218.google.com ([209.85.220.218]:52929 "EHLO
+	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756050AbZJAJtg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 05:49:36 -0400
+Received: by fxm18 with SMTP id 18so6035209fxm.17
+        for <netdev@vger.kernel.org>; Thu, 01 Oct 2009 02:49:40 -0700 (PDT)
+In-Reply-To: <20090923043813.GA6464@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After last pktgen changes, delay handling is wrong.
+Hi Arnaldo
 
-pktgen actually sends packets at full line speed.
+I have repeated the tests using net-next on top of linus' git tree (I
+hope I got it right..) and the patches you sent me. Things did not get
+better, and in most cases were even worse; the recvmmsg parts
+distinctly showed better throughput, but the latency has more than
+doubled.
 
-Fix is to update pkt_dev->next_tx even if spin() returns early,
-so that next spin() calls have a chance to see a positive delay.
+The simplest test of using a batch size of 1 results with recvmmsg's
+latency over 1000 micro, while regular recvmsg is around 450 micro.
+(note that to use 1 packet there is a small bug in the reg_recv which
+needs to be fixed. Namely, change ret = -1 to ret = 0). On the
+previous system config -- part 0001 of the patch, on top of 2.6.31 --
+the latency of a single packet batch is 370 micro.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/core/pktgen.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+So, there seems to be a regression with the kernel tree I am using, or
+with part 0002 of the path. I'll try running the net-next with only
+part 1 of the patch and report.
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 0bcecbf..1a0682e 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2106,15 +2106,17 @@ static void pktgen_setup_inject(struct pktgen_dev *pkt_dev)
- static void spin(struct pktgen_dev *pkt_dev, ktime_t spin_until)
- {
- 	ktime_t start;
--	s32 remaining;
-+	s64 remaining;
- 	struct hrtimer_sleeper t;
- 
- 	hrtimer_init_on_stack(&t.timer, CLOCK_MONOTONIC, HRTIMER_MODE_ABS);
- 	hrtimer_set_expires(&t.timer, spin_until);
- 
- 	remaining = ktime_to_us(hrtimer_expires_remaining(&t.timer));
--	if (remaining <= 0)
-+	if (remaining <= 0) {
-+		pkt_dev->next_tx = ktime_add_ns(spin_until, pkt_dev->delay);
- 		return;
-+	}
- 
- 	start = ktime_now();
- 	if (remaining < 100)
+Cheers.
