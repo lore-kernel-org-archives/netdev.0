@@ -1,138 +1,167 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Wed, 30 Sep 2009 17:01:01 -0700 (PDT)
-Message-ID: <20090930.170101.26180575.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] pktgen: Avoid dirtying skb->users when txq is full
+Date: Wed, 30 Sep 2009 17:25:32 -0700
+Message-ID: <20090930172532.2c2d1d42@s6510>
+References: <20090922224902.17ed6cc4@nehalam>
+	<20090923174141.1d350103@s6510>
+	<4AC3E3C5.1090108@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Cc: Jesper Dangaard Brouer <jdb@comx.dk>,
+	Robert Olsson <robert@herjulf.net>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37336
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754927AbZJAAAl convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Sep 2009 20:00:41 -0400
+Received: from mail.vyatta.com ([76.74.103.46]:40167 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755190AbZJAAZb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 20:25:31 -0400
+In-Reply-To: <4AC3E3C5.1090108@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 01 Oct 2009 01:03:33 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-1) Make optlen in setsockopt unsigned, providing type level
-   protection against several "< 0" issues that tend to
-   be (wrongly) addressed at the implementation level.
+> Stephen Hemminger a =C3=A9crit :
+> > On Tue, 22 Sep 2009 22:49:02 -0700
+> > Stephen Hemminger <shemminger@vyatta.com> wrote:
+> >=20
+> >> I thought others want to know how to get maximum speed of pktgen.
+> >>
+> >> 1. Run nothing else (even X11), just a command line
+> >> 2. Make sure ethernet flow control is disabled
+> >>    ethtool -A eth0 autoneg off rx off tx off
+> >> 3. Make sure clocksource is TSC.  On my old SMP Opteron's
+> >>    needed to get patch since in 2.6.30 or later, the clock guru's
+> >>    decided to remove it on all non Intel machines.  Look for patch
+> >>    than enables "tsc=3Dreliable"
+> >> 4. Compile Ethernet drivers in, the overhead of the indirect
+> >>    function call required for modules (or cache footprint),
+> >>    slows things down.
+> >> 5. Increase transmit ring size to 1000
+> >>    ethtool -G eth0 tx 1000
+> >>
+>=20
+> Thanks a lot Stephen.
+>=20
+> I did some pktgen session tonight and found one contention on skb->us=
+ers field
+> that following patch avoids.
+>=20
+>=20
+> Before patch :
+> ---------------------------------------------------------------------=
+---------
+>    PerfTop:    5187 irqs/sec  kernel:100.0% [100000 cycles],  (all, c=
+pu: 0)
+> ---------------------------------------------------------------------=
+---------
+>=20
+>              samples    pcnt   kernel function
+>              _______   _____   _______________
+>=20
+>             16688.00 - 50.9% : consume_skb
+>              6541.00 - 20.0% : skb_dma_unmap
+>              3277.00 - 10.0% : tg3_poll
+>              1968.00 -  6.0% : mwait_idle
+>               651.00 -  2.0% : irq_entries_start
+>               466.00 -  1.4% : _spin_lock
+>               442.00 -  1.3% : mix_pool_bytes_extract
+>               373.00 -  1.1% : tg3_msi
+>               353.00 -  1.1% : read_tsc
+>               177.00 -  0.5% : sched_clock_local
+>               176.00 -  0.5% : sched_clock
+>               137.00 -  0.4% : tick_nohz_stop_sched_tick
+>=20
+> After patch:
+> ---------------------------------------------------------------------=
+---------
+>    PerfTop:    3530 irqs/sec  kernel:99.9% [100000 cycles],  (all, cp=
+u: 0)
+> ---------------------------------------------------------------------=
+---------
+>=20
+>              samples    pcnt   kernel function
+>              _______   _____   _______________
+>=20
+>             17127.00 - 34.0% : tg3_poll
+>             12691.00 - 25.2% : consume_skb
+>              5299.00 - 10.5% : skb_dma_unmap
+>              4179.00 -  8.3% : mwait_idle
+>              1583.00 -  3.1% : irq_entries_start
+>              1288.00 -  2.6% : mix_pool_bytes_extract
+>              1239.00 -  2.5% : tg3_msi
+>              1062.00 -  2.1% : read_tsc
+>               583.00 -  1.2% : _spin_lock
+>               432.00 -  0.9% : sched_clock
+>               416.00 -  0.8% : sched_clock_local
+>               360.00 -  0.7% : tick_nohz_stop_sched_tick
+>               329.00 -  0.7% : ktime_get
+>               263.00 -  0.5% : _spin_lock_irqsave
+>=20
+> I believe we could go further, batching the atomic_inc(&skb->users) w=
+e do all the
+> time, competing with the atomic_dec() done by tx completion handler (=
+possibly run
+> on other cpu): Reserve XXXXXXX units to the skb->users, and decrement=
+ a pktgen
+> local variable and refill the reserve if necessary, once in a while..=
+=2E
 
-2) sock_wfree() can race with a cpu freeing up a socket,
-   fix from Eric Dumazet.  Lots of people are hitting this
-   lately.
+When buffer is allocated we know the number of times it will be cloned.=
+ So why
+not set it there, would need to cleanup on interrupt but that should be=
+ possible.
 
-3) Off-by-one in ipv6 SIT tunnel driver, fix from Sascha Hlusiak
+Alternatively, just change skb->destructor on last packet and use a pro=
+per
+completion mechanism.
 
-4) phonet does double mutex unlock, fix from R=E9mi Denis-Courmont.
+> [PATCH] pktgen: Avoid dirtying skb->users when txq is full
+>=20
+> We can avoid two atomic ops on skb->users if packet is not going to b=
+e
+> sent to the device (because hardware txqueue is full)
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>=20
+> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+> index 4d11c28..6a9ab28 100644
+> --- a/net/core/pktgen.c
+> +++ b/net/core/pktgen.c
+> @@ -3439,12 +3439,14 @@ static void pktgen_xmit(struct pktgen_dev *pk=
+t_dev)
+>  	txq =3D netdev_get_tx_queue(odev, queue_map);
+> =20
+>  	__netif_tx_lock_bh(txq);
+> -	atomic_inc(&(pkt_dev->skb->users));
+> =20
+> -	if (unlikely(netif_tx_queue_stopped(txq) || netif_tx_queue_frozen(t=
+xq)))
+> +	if (unlikely(netif_tx_queue_stopped(txq) || netif_tx_queue_frozen(t=
+xq))) {
+>  		ret =3D NETDEV_TX_BUSY;
+> -	else
+> -		ret =3D (*xmit)(pkt_dev->skb, odev);
+> +		pkt_dev->last_ok =3D 0;
+> +		goto unlock;
+> +	}
+> +	atomic_inc(&(pkt_dev->skb->users));
+> +	ret =3D (*xmit)(pkt_dev->skb, odev);
+> =20
+>  	switch (ret) {
+>  	case NETDEV_TX_OK:
+> @@ -3466,6 +3468,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_=
+dev)
+>  		atomic_dec(&(pkt_dev->skb->users));
+>  		pkt_dev->last_ok =3D 0;
+>  	}
+> +unlock:
+>  	__netif_tx_unlock_bh(txq);
+> =20
+>  	/* If pkt_dev->count is zero, then run forever */
 
-5) ax25 sets up destructor callback pointer before state is ready,
-   fix from Jarek Poplawski
-
-6) TX timestamping stopped working on hw accelerated VLANs a few
-   releases ago, oops, fix from Eric Dumazet.
-
-Please pull, thanks a lot!
-
-The following changes since commit 9c1fe834c1bd7725b411055c66886b64c928=
-083d:
-  Linus Torvalds (1):
-        Merge branch 'pm-fixes' of git://git.kernel.org/.../rafael/susp=
-end-2.6
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-David S. Miller (1):
-      net: Make setsockopt() optlen be unsigned.
-
-Eric Dumazet (2):
-      net: Fix sock_wfree() race
-      net: restore tx timestamping for accelerated vlans
-
-Jarek Poplawski (1):
-      ax25: Fix possible oops in ax25_make_new
-
-R=E9mi Denis-Courmont (1):
-      Phonet: fix mutex imbalance
-
-Sascha Hlusiak (1):
-      sit: fix off-by-one in ipip6_tunnel_get_prl
-
- drivers/atm/ambassador.c           |    8 -----
- drivers/atm/eni.c                  |    2 +-
- drivers/atm/firestream.c           |    2 +-
- drivers/atm/fore200e.c             |    2 +-
- drivers/atm/horizon.c              |    2 +-
- drivers/atm/iphase.c               |    2 +-
- drivers/atm/zatm.c                 |    2 +-
- drivers/isdn/mISDN/socket.c        |    2 +-
- drivers/net/pppol2tp.c             |    2 +-
- include/linux/atmdev.h             |    2 +-
- include/linux/mroute.h             |    4 +-
- include/linux/mroute6.h            |    4 +-
- include/linux/net.h                |    8 ++--
- include/linux/netfilter.h          |    4 +-
- include/net/compat.h               |    4 +-
- include/net/inet_connection_sock.h |    6 ++--
- include/net/ip.h                   |    4 +-
- include/net/ipv6.h                 |    4 +-
- include/net/sctp/structs.h         |    4 +-
- include/net/sock.h                 |   12 +++---
- include/net/tcp.h                  |    4 +-
- include/net/udp.h                  |    2 +-
- net/atm/common.c                   |    2 +-
- net/atm/common.h                   |    2 +-
- net/atm/pvc.c                      |    2 +-
- net/atm/svc.c                      |    2 +-
- net/ax25/af_ax25.c                 |    4 +-
- net/bluetooth/hci_sock.c           |    2 +-
- net/bluetooth/l2cap.c              |    4 +-
- net/bluetooth/rfcomm/sock.c        |    4 +-
- net/bluetooth/sco.c                |    2 +-
- net/can/raw.c                      |    2 +-
- net/compat.c                       |   12 +++---
- net/core/dev.c                     |    6 ++--
- net/core/sock.c                    |   27 +++++++++------
- net/dccp/dccp.h                    |    4 +-
- net/dccp/proto.c                   |   10 +++---
- net/decnet/af_decnet.c             |    6 ++--
- net/ieee802154/dgram.c             |    2 +-
- net/ieee802154/raw.c               |    2 +-
- net/ipv4/inet_connection_sock.c    |    2 +-
- net/ipv4/ip_sockglue.c             |    6 ++--
- net/ipv4/ipmr.c                    |    2 +-
- net/ipv4/raw.c                     |    6 ++--
- net/ipv4/tcp.c                     |    6 ++--
- net/ipv4/udp.c                     |    6 ++--
- net/ipv4/udp_impl.h                |    4 +-
- net/ipv6/ip6mr.c                   |    2 +-
- net/ipv6/ipv6_sockglue.c           |    6 ++--
- net/ipv6/raw.c                     |    6 ++--
- net/ipv6/sit.c                     |    2 +-
- net/ipv6/udp.c                     |    4 +-
- net/ipv6/udp_impl.h                |    4 +-
- net/ipx/af_ipx.c                   |    2 +-
- net/irda/af_irda.c                 |    2 +-
- net/iucv/af_iucv.c                 |    2 +-
- net/llc/af_llc.c                   |    2 +-
- net/netfilter/nf_sockopt.c         |    4 +-
- net/netlink/af_netlink.c           |    2 +-
- net/netrom/af_netrom.c             |    2 +-
- net/packet/af_packet.c             |    2 +-
- net/phonet/pep.c                   |    2 +-
- net/phonet/socket.c                |    1 -
- net/rds/af_rds.c                   |    2 +-
- net/rose/af_rose.c                 |    2 +-
- net/rxrpc/af_rxrpc.c               |    2 +-
- net/sctp/socket.c                  |   62 +++++++++++++++++++---------=
---------
- net/socket.c                       |    2 +-
- net/tipc/socket.c                  |    2 +-
- net/x25/af_x25.c                   |    2 +-
- 70 files changed, 166 insertions(+), 166 deletions(-)
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
