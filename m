@@ -1,49 +1,39 @@
-From: "Ira W. Snyder" <iws@ovro.caltech.edu>
-Subject: Performance questions using bridge and macvlan
-Date: Thu, 1 Oct 2009 14:21:33 -0700
-Message-ID: <20091001212133.GD28963@ovro.caltech.edu>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [linux-pm] WOL with flex filters, reflecting it in /sys
+Date: Thu, 1 Oct 2009 23:23:15 +0200
+Message-ID: <200910012323.15166.rjw@sisk.pl>
+References: <76FA3B279DD9DA48896E2B404944957203C09587@USA7061MS02.na.xerox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Leisner, Martin" <Martin.Leisner@xerox.com>,
+	netdev@vger.kernel.org, martyleisner@yahoo.com
+To: linux-pm@lists.linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ovro.ovro.caltech.edu ([192.100.16.2]:39711 "EHLO
-	ovro.ovro.caltech.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752672AbZJAVVa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 17:21:30 -0400
-Content-Disposition: inline
+Received: from ogre.sisk.pl ([217.79.144.158]:56796 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752097AbZJAVWD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Oct 2009 17:22:03 -0400
+In-Reply-To: <76FA3B279DD9DA48896E2B404944957203C09587@USA7061MS02.na.xerox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello all,
+On Thursday 01 October 2009, Leisner, Martin wrote:
+> I'm looking to extend the work of Mitch Williams to support flexible
+> filters.
+> (http://www.mail-archive.com/netdev@vger.kernel.org/msg60332.html}
+> 
+> Looking at the problem, would it be a good idea to reflect WOL
+> characteristics in the /sys filesystem (instead of requiring ethtool to
+> set them)?
+> 
+> Seems straightforward and easy enough.
 
-I've got an "interesting" network setup (using bridge), and I wonder if
-macvlan might help me get some more performance. Unfortunately, there
-isn't much documentation for macvlan, so I'm asking here.
+I'm not sure about that.
 
-I have a computer acting as an ethernet bridge. NIC A is on a network
-with a 1500 byte mtu. NIC B is a point-to-point ethernet device with a
-64K mtu.
-
-Adding both devices to a bridge using brctl works as expected. The
-computer attached to NIC B can send/recv normal ethernet traffic onto
-the outside network through NIC A.
-
-Unfortunately, the bridge code does not fragment packets, and so the 64K
-mtu is reduced to a 1500 byte mtu. This kills performance by a factor of
-about 5x on the point-to-point device. All of my tests were using
-netperf/netserver running on the machine doing the bridging.
-
-Without bridge, using full 64K mtu packets, netperf gives ~600mbit/sec.
-With brigde, using 1500 byte mtu packets, netperf gives ~120mbit/sec.
-
-My question is this: is it possible to setup routing or macvlans such
-that any traffic from the bridge machine itself travels across the
-point-to-point link (at full 64K mtu), but any other traffic goes
-through the bridge (using 1500 byte mtu).
-
-I'm aware that either running NAT or routing will fragment packets and
-solve my problem, but this introduces some complexity in my network
-setup that I would like to avoid.
+The supported WoL settings seem to depend on the driver and whether WoL is
+going to work also depends on the device's power/wakeup setting.
 
 Thanks,
-Ira
+Rafael
