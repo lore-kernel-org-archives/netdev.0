@@ -1,39 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3] IPv4 TCP fails to send window scale option when
- window scale is zero
-Date: Thu, 01 Oct 2009 15:17:08 -0700 (PDT)
-Message-ID: <20091001.151708.199560959.davem@davemloft.net>
-References: <1254413613.665110.11357.nullmailer@tron.codefidence.com>
-	<4AC4E4E1.5010300@gmail.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: Splice on blocking TCP sockets again..
+Date: Thu, 1 Oct 2009 16:17:06 -0600
+Message-ID: <20091001221706.GA5191@obsidianresearch.com>
+References: <20090930004820.GC19540@obsidianresearch.com> <4AC2E481.5060509@gmail.com> <20090930054031.GY22310@obsidianresearch.com> <4AC2F1D9.1010801@gmail.com> <4AC2F3E4.5000904@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: gilad@codefidence.com, netdev@vger.kernel.org, ori@comsleep.com,
-	ilpo.jarvinen@helsinki.fi
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Volker Lendecke <vl@samba.org>, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43091
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752235AbZJAWQt convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Oct 2009 18:16:49 -0400
-In-Reply-To: <4AC4E4E1.5010300@gmail.com>
+Received: from 139-142-54-143.atc.vaillant.ca ([139.142.54.143]:56236 "EHLO
+	quartz.edm.orcorp.ca" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752283AbZJAWRE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 18:17:04 -0400
+Content-Disposition: inline
+In-Reply-To: <4AC2F3E4.5000904@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 01 Oct 2009 19:20:33 +0200
+On Wed, Sep 30, 2009 at 08:00:04AM +0200, Eric Dumazet wrote:
 
-> Gilad Ben-Yossef a =E9crit :
->> From: Ori Finkelman <ori@comsleep.com>
->>=20
->> Acknowledge TCP window scale support by inserting the proper option =
-in SYN/ACK=20
->> and SYN headers even if our window scale is zero.
- ...
->> Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
->> Signed-off-by: Ori Finkelman <ori@comsleep.com>
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> >> I admit I don't understand why SPLICE_F_NONBLOCK exists, it seems very
+> >> un-unixy to have a syscall completely ignore the NONBLOCK flag of the
+> >> fd it is called on. Ie setting NONBLOCK on the pipe itself does
+> >> nothing when using splice..
+> > 
+> > Hmm, good question, I dont have the answer but I'll digg one.
+> > 
+> 
+> commit	29e350944fdc2dfca102500790d8ad6d6ff4f69d
+> splice: add SPLICE_F_NONBLOCK flag
+> 
+> It doesn't make the splice itself necessarily nonblocking (because the
+> actual file descriptors that are spliced from/to may block unless they
+> have the O_NONBLOCK flag set), but it makes the splice pipe operations
+> nonblocking.
+> 
+> Signed-off-by: Linus Torvalds <torvalds@osdl.org>
+> 
+> See Linus intention was pretty clear : O_NONBLOCK should be taken
+> into account by 'actual file that are spliced from/to', regardless
+> of SPLICE_F_NONBLOCK flag
 
-Applied, thanks everyone.
+Yes, that seems reasonable.
+
+What confuses me is that if O_NONBLOCK is set on the _pipe_ and
+SPICE_F_NONBLOCK is not set on the splice call the splice still blocks
+- that is unlike other unix apis, eg MSG_DONTWAIT
+
+It seems to me that SPICE_F_NONBLOCK should be or'd with O_NONBLOCK on
+the pipe?
+
+Thanks,
+Jason
