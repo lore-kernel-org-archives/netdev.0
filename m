@@ -1,50 +1,46 @@
-From: Doug Maxey <dwm@enoyolf.org>
-Subject: Re: kernel doc / docbook pdfdocs question
-Date: Thu, 01 Oct 2009 00:42:27 -0500
-Message-ID: <27289.1254375747@jerryjeff.riw.enoyolf.org>
-References: <8223.1254340776@jerryjeff.riw.enoyolf.org> <20090930173002.36da7ffd@s6510>
+From: Ajit Khaparde <ajitk@serverengines.com>
+Subject: Re: [PATCH] ethtool: Add a new ethtool option to flash a firmware
+	image from the specified file to a device.
+Date: Thu, 1 Oct 2009 11:43:59 +0530
+Message-ID: <20091001061357.GA4236@serverengines.com>
+References: <20090903030258.GA19401@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Randy Dunlap <randy.dunlap@oracle.com>,
-	netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iggy.enoyolf.org ([24.173.215.189]:39952 "EHLO
-	jerryjeff.riw.enoyolf.org" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751690AbZJAFm1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 01:42:27 -0400
-In-reply-to: <20090930173002.36da7ffd@s6510>
+Received: from segment-124-30.sify.net ([124.30.166.146]:30739 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752271AbZJAGNu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 02:13:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20090903030258.GA19401@serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 03/09/09 08:33 +0530, Ajit Khaparde wrote:
+> This patch adds a new "-f" option to the ethtool utility
+> to flash a firmware image specified by a file, to a network device.
+> The filename is passed to the network driver which will flash the image
+> on the chip using the request_firmware path.
+> 
+> The region "on the chip" to be flashed can be specified by an option.
+> It is upto the device driver to enumerate the region number passed by ethtool,
+> to the region to be flashed.
+> 
+> The default behavior is to flash all the regions on the chip.
+> 
+> Usage:
+> ethtool -f <interface name> <filename of firmware image>
+> 
+> ethtool -f <interface name> <filename of firmware image> [ REGION-NUMBER-TO-FLASH ]
+> 
+> Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
 
-On Wed, 30 Sep 2009 17:30:02 PDT, Stephen Hemminger wrote:
->On Wed, 30 Sep 2009 14:59:36 -0500
->Doug Maxey <dwm@enoyolf.org> wrote:
->
->> 
->> Randy,
->> 
->> This may be slightly off topic for this list, but it does involve an
->> (as yet un-released) network driver. :)
->> 
->> Do you have any insight that could guide me toward a fix for an issue
->> seen with some header file constructs when trying to generate a pdf
->> docbook?
->> 
->
->Why clutter docbook output (which is supposed to be about general kernel
->API's) with output for data structures in one driver.
+When will this change make it to the ethtool source?
+Anything that I need to do from my side?
+I hope this is the right place to submit such changes.
 
-It would be a general mechanism, and it would be to document an API.
-There are other subsystems that use DECLARE_BITMAP() (e.g., scsi).
-Just none at the moment that attempt to describe such a member,
-possibly because there isn't a way to document it.  Dunno.  Build it
-and they will come.  There is one party that is interested anyway.
-
-Finally did find where this was getting warned about / tossed, in
-kernel-doc itself. =)
-
-++doug
-
-
+Thanks
+-Ajit
