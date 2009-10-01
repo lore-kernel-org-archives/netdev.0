@@ -1,59 +1,46 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH] net/ppp: fix comments - ppp_{sync,asynctty}_receive() may sleep
-Date: Thu,  1 Oct 2009 16:28:44 +0200 (CEST)
-Message-ID: <20091001142844.C50E511186D@xenon.ts.pxnet.com>
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	linux-kernel@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Alan Cox <alan@linux.intel.com>,
-	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932697AbZJAO3Y@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCHv2] IPv4 TCP fails to send window scale option when window
+ scale is zero
+Date: Thu, 01 Oct 2009 16:30:54 +0200
+Message-ID: <4AC4BD1E.6060706@gmail.com>
+References: <4AC478E9.5050605@codefidence.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>, Ori Finkalman <ori@comsleep.com>,
+	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+To: Gilad Ben-Yossef <gilad@codefidence.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:46692 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932232AbZJAOa7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 10:30:59 -0400
+In-Reply-To: <4AC478E9.5050605@codefidence.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The receive_buf methods of the N_PPP and N_SYNC_PPP line disciplines,
-ppp_asynctty_receive() and ppp_sync_receive(), call tty_unthrottle()
-which may sleep. Fix the comments claiming otherwise.
+Gilad Ben-Yossef a =E9crit :
+> From: Ori Finkelman <ori@comsleep.com>
+>=20
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 5200aab..fcd278a 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -361,6 +361,7 @@ static inline int tcp_urg_mode(const struct tcp_s=
+ock
+> *tp)
+> #define OPTION_SACK_ADVERTISE  (1 << 0)
+> #define OPTION_TS              (1 << 1)
+> #define OPTION_MD5             (1 << 2)
+> +#define OPTION_WSCALE          (1 << 3)
 
-Impact: documentation
-Signed-off-by: Tilman Schmidt <tilman@imap.cc>
----
- drivers/net/ppp_async.c   |    5 +----
- drivers/net/ppp_synctty.c |    5 +----
- 2 files changed, 2 insertions(+), 8 deletions(-)
+I manually applied your patch and tested it.
 
-diff --git a/drivers/net/ppp_async.c b/drivers/net/ppp_async.c
-index 6de8399..30b1b33 100644
---- a/drivers/net/ppp_async.c
-+++ b/drivers/net/ppp_async.c
-@@ -337,10 +337,7 @@ ppp_asynctty_poll(struct tty_struct *tty, struct file *file, poll_table *wait)
- 	return 0;
- }
- 
--/*
-- * This can now be called from hard interrupt level as well
-- * as soft interrupt level or mainline.
-- */
-+/* May sleep, don't call from interrupt level or with interrupts disabled */
- static void
- ppp_asynctty_receive(struct tty_struct *tty, const unsigned char *buf,
- 		  char *cflags, int count)
-diff --git a/drivers/net/ppp_synctty.c b/drivers/net/ppp_synctty.c
-index d2fa2db..c908b08 100644
---- a/drivers/net/ppp_synctty.c
-+++ b/drivers/net/ppp_synctty.c
-@@ -378,10 +378,7 @@ ppp_sync_poll(struct tty_struct *tty, struct file *file, poll_table *wait)
- 	return 0;
- }
- 
--/*
-- * This can now be called from hard interrupt level as well
-- * as soft interrupt level or mainline.
-- */
-+/* May sleep, don't call from interrupt level or with interrupts disabled */
- static void
- ppp_sync_receive(struct tty_struct *tty, const unsigned char *buf,
- 		  char *cflags, int count)
--- 
-1.6.2.1.214.ge986c
+So far so good, it works well.
+
+But you'll need to find correct way to submit a patch so that your mail=
+er doesnt
+mangle the content.
+
+=46ile Documentation/email-clients.txt contains useful tips.
+
