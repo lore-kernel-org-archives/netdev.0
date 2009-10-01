@@ -1,60 +1,32 @@
-From: Suresh Jayaraman <sjayaraman@suse.de>
-Subject: [PATCH 04/31] mm: tag reseve pages
-Date: Thu,  1 Oct 2009 19:35:17 +0530
-Message-ID: <1254405917-15796-1-git-send-email-sjayaraman@suse.de>
-Cc: netdev@vger.kernel.org, Neil Brown <neilb@suse.de>,
-	Miklos Szeredi <mszeredi@suse.cz>, Wouter Verhelst <w@uter.be>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	trond.myklebust@fys.uio.no, Suresh Jayaraman <sjayaraman@suse.de>
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932318AbZJAOEI@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] net: fix NOHZ: local_softirq_pending 08
+Date: Thu, 1 Oct 2009 16:04:40 +0200
+Message-ID: <200910011604.42916.mb@bu3sch.de>
+References: <1254324077.3959.7.camel@johannes.local> <4AC3A0F1.3060306@hartkopp.net> <20090930.163333.234658158.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: oliver@hartkopp.net, johannes@sipsolutions.net, kalle.valo@iki.fi,
+	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bu3sch.de ([62.75.166.246]:46892 "EHLO vs166246.vserver.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932232AbZJAOEo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Oct 2009 10:04:44 -0400
+In-Reply-To: <20090930.163333.234658158.davem@davemloft.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Peter Zijlstra <a.p.zijlstra@chello.nl> 
+On Thursday 01 October 2009 01:33:33 David Miller wrote:
 
-Tag pages allocated from the reserves with a non-zero page->reserve.
-This allows us to distinguish and account reserve pages.
+> I'm not applying this until all of these details are sorted out 
 
-Since low-memory situations are transient, and unrelated the the actual
-page (any page can be on the freelist when we run low), don't mark the
-page in any permanent way - just pass along the information to the
-allocatee.
+John, please apply my fix to wireless-testing to get rid of the regression.
+You can revert it later, if there's a better fix available.
 
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Signed-off-by: Suresh Jayaraman <sjayaraman@suse.de>
----
- include/linux/mm_types.h |    1 +
- mm/page_alloc.c          |    4 +++-
- 2 files changed, 4 insertions(+), 1 deletion(-)
-
-Index: mmotm/include/linux/mm_types.h
-===================================================================
---- mmotm.orig/include/linux/mm_types.h
-+++ mmotm/include/linux/mm_types.h
-@@ -77,6 +77,7 @@ struct page {
- 	union {
- 		pgoff_t index;		/* Our offset within mapping. */
- 		void *freelist;		/* SLUB: freelist req. slab lock */
-+		int reserve;		/* page_alloc: page is a reserve page */
- 	};
- 	struct list_head lru;		/* Pageout list, eg. active_list
- 					 * protected by zone->lru_lock !
-Index: mmotm/mm/page_alloc.c
-===================================================================
---- mmotm.orig/mm/page_alloc.c
-+++ mmotm/mm/page_alloc.c
-@@ -1501,8 +1501,10 @@ zonelist_scan:
- try_this_zone:
- 		page = buffered_rmqueue(preferred_zone, zone, order,
- 						gfp_mask, migratetype);
--		if (page)
-+		if (page) {
-+			page->reserve = !!(alloc_flags & ALLOC_NO_WATERMARKS);
- 			break;
-+		}
- this_zone_full:
- 		if (NUMA_BUILD)
- 			zlc_mark_zone_full(zonelist, z);
+-- 
+Greetings, Michael.
