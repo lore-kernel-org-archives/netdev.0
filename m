@@ -1,58 +1,51 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH 1/2] net/netfilter/ipvs: Move #define KMSG_COMPONENT to
- Makefile
-Date: Thu, 1 Oct 2009 10:27:48 +0200 (CEST)
-Message-ID: <alpine.LSU.2.00.0910011016480.24025@obet.zrqbmnf.qr>
-References: <cover.1254349374.git.joe@perches.com>  <0026bcf5aad9ae5036e68fc2dcda9c778d30dc47.1254349375.git.joe@perches.com>  <alpine.LSU.2.00.0910010042540.782@obet.zrqbmnf.qr>  <1254352160.2960.119.camel@Joe-Laptop.home>  <alpine.LSU.2.00.0910010219100.7559@obet.zrqbmnf.qr>
- <1254358235.2960.145.camel@Joe-Laptop.home>
+From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: [PATCH 22/34] don't use __devexit_p to wrap sgiseeq_remove
+Date: Thu,  1 Oct 2009 10:28:26 +0200
+Message-ID: <1254385718-14254-22-git-send-email-u.kleine-koenig@pengutronix.de>
+References: <20091001082607.GA2181@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Patrick McHardy <kaber@trash.net>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sam Ravnborg <sam@ravnborg.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	lvs-devel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932150AbZJAI1s@vger.kernel.org>
-In-Reply-To: <1254358235.2960.145.camel@Joe-Laptop.home>
+	Wang Chen <wangchen@cn.fujitsu.com>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932287AbZJAI3j@vger.kernel.org>
+In-Reply-To: <20091001082607.GA2181@pengutronix.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+The function sgiseeq_remove is defined using __exit, so don't use
+__devexit_p but __exit_p to wrap it.
 
-On Thursday 2009-10-01 02:50, Joe Perches wrote:
->On Thu, 2009-10-01 at 02:31 +0200, Jan Engelhardt wrote:
->> Well I personally prefer the #include instead of hiding such in 
->> Makefiles. You know, when newcomers could start doing `grep 
->> KMSG_COMPONENT *.[ch]`. Perhaps GCC's -include flag in a Makefile
->> to avoid #includes in .c files?
->
->I imagine an eventual goal of standardizing the default
->pr_fmt define in kernel.h to
->
->	#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
->
->so that all pr_<level> calls get this unless otherwise
->specified.
+Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Wang Chen <wangchen@cn.fujitsu.com>
+Cc: Ralf Baechle <ralf@linux-mips.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+---
+ drivers/net/sgiseeq.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-I like that approach. Saves me adding that line to .c
-files repeatedly.
-
->Or perhaps better, to get rid of pr_fmt(fmt) altogether and
->have printk emit the filename/modulename, function and/or
->code offset by using something like %pS after the level.
-
-I object to that. You would be spamming the dmesg ring buffer
-with all that info, plus
-
-filename: you would have to keep filename strings in the kernel.
-Surely I do not find that thrilling when there are ~18000
-non-arch .[ch] files whose pathnames amount to 542K.
-Same goes similar for functions.
-
-modulename: obj-y files would only get "<built-in>" or something
-for KBUILD_MODNAME. Printing that to dmesg is not too useful.
-
-I would rather keep plain printk as-is.
+diff --git a/drivers/net/sgiseeq.c b/drivers/net/sgiseeq.c
+index ecf3279..f4dfd1f 100644
+--- a/drivers/net/sgiseeq.c
++++ b/drivers/net/sgiseeq.c
+@@ -826,7 +826,7 @@ static int __exit sgiseeq_remove(struct platform_de=
+vice *pdev)
+=20
+ static struct platform_driver sgiseeq_driver =3D {
+ 	.probe	=3D sgiseeq_probe,
+-	.remove	=3D __devexit_p(sgiseeq_remove),
++	.remove	=3D __exit_p(sgiseeq_remove),
+ 	.driver =3D {
+ 		.name	=3D "sgiseeq",
+ 		.owner	=3D THIS_MODULE,
+--=20
+1.6.4.3
