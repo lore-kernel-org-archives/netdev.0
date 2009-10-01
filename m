@@ -1,90 +1,87 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] skge: use unique IRQ name
-Date: Thu, 1 Oct 2009 09:06:13 -0700
-Message-ID: <20091001090613.745ae24b@s6510>
-References: <20090922120127.14242.71353.stgit@localhost.localdomain>
-	<20090922092826.5302225c@s6510>
-	<20091001122720.3822bdd3@leela>
+From: Gilad Ben-Yossef <gilad@codefidence.com>
+Subject: Re: [PATCHv2] IPv4 TCP fails to send window scale option when window
+ scale is zero
+Date: Thu, 01 Oct 2009 18:12:28 +0200
+Message-ID: <4AC4D4EC.1010803@codefidence.com>
+References: <4AC478E9.5050605@codefidence.com> <4AC4BD1E.6060706@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Michal Schmidt <mschmidt@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>, Ori Finkalman <ori@comsleep.com>,
+	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:51348 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754214AbZJAQGK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Oct 2009 12:06:10 -0400
-In-Reply-To: <20091001122720.3822bdd3@leela>
+Received: from xenbox.codefidence.com ([92.48.73.16]:50914 "EHLO
+	xenbox.codefidence.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752254AbZJAQMc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 12:12:32 -0400
+In-Reply-To: <4AC4BD1E.6060706@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 1 Oct 2009 12:27:20 +0200
-Michal Schmidt <mschmidt@redhat.com> wrote:
+Eric Dumazet wrote:
 
-> Most network drivers request their IRQ when the interface is activated.
-> skge does it in ->probe() instead, because it can work with two-port
-> cards where the two net_devices use the same IRQ. This works fine most
-> of the time, except in some situations when the interface gets renamed.
-> Consider this example:
-> 
-> 1. modprobe skge
->    The card is detected as eth0 and requests IRQ 17. Directory
->    /proc/irq/17/eth0 is created.
-> 2. There is an udev rule which says this interface should be called
->    eth1, so udev renames eth0 -> eth1.
-> 3. modprobe 8139too
->    The Realtek card is detected as eth0. It will be using IRQ 17 too.
-> 4. ip link set eth0 up
->    Now 8139too requests IRQ 17.
-> 
-> The result is:
-> WARNING: at fs/proc/generic.c:590 proc_register ...
-> proc_dir_entry '17/eth0' already registered
-> ...
-> And "ls /proc/irq/17" shows two subdirectories, both called eth0.
-> 
-> Fix it by using a unique name for skge's IRQ, based on the PCI address.
-> The naming from the example then looks like this:
-> $ grep skge /proc/interrupts
->  17:        169   IO-APIC-fasteoi   skge@0000:00:0a.0, eth0
-> 
-> irqbalance daemon will have to be taught to recognize "skge@" as an
-> Ethernet interrupt. This will be a one-liner addition in classify.c. I
-> will send a patch to irqbalance if this change is accepted.
-> 
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
-> 
-> Index: kernel/drivers/net/skge.c
-> ===================================================================
-> --- kernel.orig/drivers/net/skge.c
-> +++ kernel/drivers/net/skge.c
-> @@ -3895,6 +3895,7 @@ static int __devinit skge_probe(struct p
->  	struct net_device *dev, *dev1;
->  	struct skge_hw *hw;
->  	int err, using_dac = 0;
-> +	size_t irq_name_len;
->  
->  	err = pci_enable_device(pdev);
->  	if (err) {
-> @@ -3935,11 +3936,13 @@ static int __devinit skge_probe(struct p
->  #endif
->  
->  	err = -ENOMEM;
-> -	hw = kzalloc(sizeof(*hw), GFP_KERNEL);
-> +	irq_name_len = strlen(DRV_NAME) + strlen(dev_name(&pdev->dev)) + 2;
-> +	hw = kzalloc(sizeof(*hw) + irq_name_len, GFP_KERNEL);
->  	if (!hw) {
->  		dev_err(&pdev->dev, "cannot allocate hardware struct\n");
->  		goto err_out_free_regions;
->  	}
-> +	sprintf(hw->irq_name, DRV_NAME "@%s", dev_name(&pdev->dev));
+> Gilad Ben-Yossef a =E9crit :
+>  =20
+>> From: Ori Finkelman <ori@comsleep.com>
+>>
+>> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+>> index 5200aab..fcd278a 100644
+>> --- a/net/ipv4/tcp_output.c
+>> +++ b/net/ipv4/tcp_output.c
+>> @@ -361,6 +361,7 @@ static inline int tcp_urg_mode(const struct tcp_=
+sock
+>> *tp)
+>> #define OPTION_SACK_ADVERTISE  (1 << 0)
+>> #define OPTION_TS              (1 << 1)
+>> #define OPTION_MD5             (1 << 2)
+>> +#define OPTION_WSCALE          (1 << 3)
+>>    =20
+>
+> I manually applied your patch and tested it.
+>
+> So far so good, it works well.
+>  =20
 
-I like this with one small change. Please use:
-         skge@pci:0000:00:02.0
-This makes the driver follow same format as existing DRM graphics drivers.
-Michal could you follow up with additional patches for:
-   1. sky2 driver has same issue
-   2. irqbalance has a list of special drivers that needs to be updated
+Glad to hear. Thank you both Eric and Ilpo for the review.
+> But you'll need to find correct way to submit a patch so that your ma=
+iler doesnt
+> mangle the content.
+>
+> File Documentation/email-clients.txt contains useful tips.
+>
+>
+>  =20
+Arrggghh... I thought I have subdued Thunderbird but it tricked me. My=20
+prefs.js got re-written somehow. My sincere apologies. This is not my=20
+week with MUA.
 
+I also noticed I put the signed-off-by in the wrong place...
+
+Next email is version 3 - same content, hopefully correct formatting.
+
+Thanks again.
+Gilad
+
+
+--=20
+Gilad Ben-Yossef
+Chief Coffee Drinker & CTO
+Codefidence Ltd.
+
+Web:   http://codefidence.com
+Cell:  +972-52-8260388
+Skype: gilad_codefidence
+Tel:   +972-8-9316883 ext. 201
+=46ax:   +972-8-9316884
+Email: gilad@codefidence.com
+
+Check out our Open Source technology and training blog - http://tuxolog=
+y.net
+
+	"Now the world has gone to bed
+	 Darkness won't engulf my head
+	 I can see by infra-red
+	 How I hate the night."
 
