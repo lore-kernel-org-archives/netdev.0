@@ -1,105 +1,106 @@
-From: Gilad Ben-Yossef <gilad@codefidence.com>
-Subject: [PATCHv3] IPv4 TCP fails to send window scale option when window scale is zero
-Date: Thu, 01 Oct 2009 18:41:59 +0200
-Message-ID: <1254415319.879140.11824.nullmailer@tron.codefidence.com>
-Cc: ori@comsleep.com
-To: netdev@vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] skge: use unique IRQ name
+Date: Thu, 1 Oct 2009 09:50:32 -0700
+Message-ID: <20091001095032.17271dcc@s6510>
+References: <20090922120127.14242.71353.stgit@localhost.localdomain>
+	<20090922092826.5302225c@s6510>
+	<20091001122720.3822bdd3@leela>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Michal Schmidt <mschmidt@redhat.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sa4.bezeqint.net ([192.115.104.18]:40333 "EHLO sa4.bezeqint.net"
+Received: from mail.vyatta.com ([76.74.103.46]:53548 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751956AbZJAQrK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Oct 2009 12:47:10 -0400
-Cc: ilpo.jarvinen@helsinki.fi
-Cc: eric.dumazet@gmail.com
+	id S1755356AbZJAQu3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Oct 2009 12:50:29 -0400
+In-Reply-To: <20091001122720.3822bdd3@leela>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ori Finkelman <ori@comsleep.com>
+(revised to use pci:)
 
-Acknowledge TCP window scale support by inserting the proper option in SYN/ACK 
-and SYN headers even if our window scale is zero.
+From: Michal Schmidt <mschmidt@redhat.com>
 
-This fixes the following observed behavior:
+Most network drivers request their IRQ when the interface is activated.
+skge does it in ->probe() instead, because it can work with two-port
+cards where the two net_devices use the same IRQ. This works fine most
+of the time, except in some situations when the interface gets renamed.
+Consider this example:
 
-1. Client sends a SYN with TCP window scaling option and non zero window scale 
-value to a Linux box.
-2. Linux box notes large receive window from client.
-3. Linux decides on a zero value of window scale for its part.
-4. Due to compare against requested window scale size option, Linux does not to
- send windows scale TCP option header on SYN/ACK at all.
+1. modprobe skge
+   The card is detected as eth0 and requests IRQ 17. Directory
+   /proc/irq/17/eth0 is created.
+2. There is an udev rule which says this interface should be called
+   eth1, so udev renames eth0 -> eth1.
+3. modprobe 8139too
+   The Realtek card is detected as eth0. It will be using IRQ 17 too.
+4. ip link set eth0 up
+   Now 8139too requests IRQ 17.
 
-With the following result:
+The result is:
+WARNING: at fs/proc/generic.c:590 proc_register ...
+proc_dir_entry '17/eth0' already registered
+...
+And "ls /proc/irq/17" shows two subdirectories, both called eth0.
 
-Client box thinks TCP window scaling is not supported, since SYN/ACK had no 
-TCP window scale option, while Linux thinks that TCP window scaling is 
-supported (and scale might be non zero), since SYN had  TCP window scale 
-option and we have a mismatched idea between the client and server 
-regarding window sizes.
+Fix it by using a unique name for skge's IRQ, based on the PCI address.
+The naming from the example then looks like this:
+$ grep skge /proc/interrupts
+ 17:        169   IO-APIC-fasteoi   skge@pci:0000:00:0a.0, eth0
 
-Probably it also fixes up the following bug (not observed in practice):
+irqbalance daemon will have to be taught to recognize "skge" as an
+Ethernet interrupt. This will be a one-liner addition in classify.c. I
+will send a patch to irqbalance if this change is accepted.
 
-1. Linux box opens TCP connection to some server.
-2. Linux decides on zero value of window scale.
-3. Due to compare against computed window scale size option, Linux does 
-not to set windows scale TCP  option header on SYN. 
+Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
-With the expected result that the server OS does not use window scale option 
-due to not receiving such an option in the SYN headers, leading to suboptimal 
-performance.
-
-Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
-Signed-off-by: Ori Finkelman <ori@comsleep.com>
-
----
-
-Original bug reported and patch written by Ori Finkelman from Comsleep Ltd. 
-I've fixed  the SYN header case based on feedback from Eric Dumazet and Ilpo 
-Jarvinen, as part of trying to get the patch mainlined.
-
-The SYN/ACK behavior was observed with a Windows box as the client and latest 
-Debian kernel but for the best of my understanding this can happen with latest 
-kernel versions and other client OS (probably also Linux) as well.
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 5200aab..fcd278a 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -361,6 +361,7 @@ static inline int tcp_urg_mode(const struct tcp_sock *tp)
- #define OPTION_SACK_ADVERTISE	(1 << 0)
- #define OPTION_TS		(1 << 1)
- #define OPTION_MD5		(1 << 2)
-+#define OPTION_WSCALE		(1 << 3)
+--- a/drivers/net/skge.c	2009-10-01 09:36:21.893095582 -0700
++++ b/drivers/net/skge.c	2009-10-01 09:46:22.064555679 -0700
+@@ -3895,6 +3895,7 @@ static int __devinit skge_probe(struct p
+ 	struct net_device *dev, *dev1;
+ 	struct skge_hw *hw;
+ 	int err, using_dac = 0;
++	size_t irq_name_len;
  
- struct tcp_out_options {
- 	u8 options;		/* bit field of OPTION_* */
-@@ -427,7 +428,7 @@ static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
- 			       TCPOLEN_SACK_PERM);
+ 	err = pci_enable_device(pdev);
+ 	if (err) {
+@@ -3935,11 +3936,14 @@ static int __devinit skge_probe(struct p
+ #endif
+ 
+ 	err = -ENOMEM;
+-	hw = kzalloc(sizeof(*hw), GFP_KERNEL);
++	/* space for skge@pci:0000:04:00.0 */
++	irq_name_len = strlen(DRV_NAME) + strlen(dev_name(&pdev->dev)) + 6;
++	hw = kzalloc(sizeof(*hw) + irq_name_len, GFP_KERNEL);
+ 	if (!hw) {
+ 		dev_err(&pdev->dev, "cannot allocate hardware struct\n");
+ 		goto err_out_free_regions;
+ 	}
++	sprintf(hw->irq_name, DRV_NAME "@pci:%s", pci_name(pdev));
+ 
+ 	hw->pdev = pdev;
+ 	spin_lock_init(&hw->hw_lock);
+@@ -3974,7 +3978,7 @@ static int __devinit skge_probe(struct p
+ 		goto err_out_free_netdev;
  	}
  
--	if (unlikely(opts->ws)) {
-+	if (unlikely(OPTION_WSCALE & opts->options)) {
- 		*ptr++ = htonl((TCPOPT_NOP << 24) |
- 			       (TCPOPT_WINDOW << 16) |
- 			       (TCPOLEN_WINDOW << 8) |
-@@ -494,8 +495,8 @@ static unsigned tcp_syn_options(struct sock *sk, struct sk_buff *skb,
- 	}
- 	if (likely(sysctl_tcp_window_scaling)) {
- 		opts->ws = tp->rx_opt.rcv_wscale;
--		if (likely(opts->ws))
--			size += TCPOLEN_WSCALE_ALIGNED;
-+		opts->options |= OPTION_WSCALE;
-+		size += TCPOLEN_WSCALE_ALIGNED;
- 	}
- 	if (likely(sysctl_tcp_sack)) {
- 		opts->options |= OPTION_SACK_ADVERTISE;
-@@ -537,8 +538,8 @@ static unsigned tcp_synack_options(struct sock *sk,
+-	err = request_irq(pdev->irq, skge_intr, IRQF_SHARED, dev->name, hw);
++	err = request_irq(pdev->irq, skge_intr, IRQF_SHARED, hw->irq_name, hw);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "%s: cannot assign irq %d\n",
+ 		       dev->name, pdev->irq);
+--- a/drivers/net/skge.h	2009-10-01 09:34:51.036505545 -0700
++++ b/drivers/net/skge.h	2009-10-01 09:47:38.096558002 -0700
+@@ -2423,6 +2423,8 @@ struct skge_hw {
+ 	u16		     phy_addr;
+ 	spinlock_t	     phy_lock;
+ 	struct tasklet_struct phy_task;
++
++	char		     irq_name[0]; /* skge@pci:000:04:00.0 */
+ };
  
- 	if (likely(ireq->wscale_ok)) {
- 		opts->ws = ireq->rcv_wscale;
--		if (likely(opts->ws))
--			size += TCPOLEN_WSCALE_ALIGNED;
-+		opts->options |= OPTION_WSCALE;
-+		size += TCPOLEN_WSCALE_ALIGNED;
- 	}
- 	if (likely(doing_ts)) {
- 		opts->options |= OPTION_TS;
+ enum pause_control {
