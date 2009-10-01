@@ -1,36 +1,28 @@
-From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 0/2] cfg80211: firmware and hardware version
-Date: Thu, 1 Oct 2009 19:56:40 +0000
-Message-ID: <43e72e890910011256v18b30e7ck420ce80b5d35fdcb@mail.gmail.com>
-References: <20090924180048.14503.9579.stgit@tikku> <43e72e890909241320j592e347die8a14f8bdd962ffb@mail.gmail.com>
-	<20090925044258.GA2722@tuxdriver.com> <da94abde0909250947k5084db85vccafe0d3e74e2ecf@mail.gmail.com>
-	<43e72e890909250953r1714c79bsa679b96ca6f5797@mail.gmail.com>
-	<20091001011340.GA3123@tuxdriver.com> <87fxa3qjt2.fsf@purkki.valot.fi>
-	<20091001151820.GA2895@tuxdriver.com> <873a63qe6e.fsf@purkki.valot.fi>
-	<20091001170722.GC2895@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: setsockopt option struct with an address?
+Date: Thu, 01 Oct 2009 13:30:11 -0700 (PDT)
+Message-ID: <20091001.133011.43582402.davem@davemloft.net>
+References: <c0a09e5c0910011317n76fba7e8q6de7dd35268654b9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"Perez-Gonzalez, Inaky" <inaky.perez-gonzalez-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20091001170722.GC2895-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: andy.grover@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58593
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751287AbZJAU3v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 16:29:51 -0400
+In-Reply-To: <c0a09e5c0910011317n76fba7e8q6de7dd35268654b9@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 1, 2009 at 5:07 PM, John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
+From: Andrew Grover <andy.grover@gmail.com>
+Date: Thu, 1 Oct 2009 13:17:03 -0700
 
-> I don't predict a huge problem if there are
-> valid extensions required for use by wireless drivers in the future.
-> But for now, I'd like to see us make use of some of the debugging
-> facilities available in the ethtool API -- hopefully the iwlwifi guys
-> are listening... ;-)
+> Or should the added member be a struct sockaddr, or a sockaddr_in, or
+> a sockaddr_storage, or what? And should it be a pointer to that
+> struct, or embedded?
 
-Does the same apply to wimax then? Ethtool for 802.11 and wimax? Eh.
-
-  Luis
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+You probably should use sockaddr_storage, I mean you will want to
+support ipv6 at some point right? :-)
