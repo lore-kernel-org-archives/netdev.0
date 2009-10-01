@@ -1,81 +1,114 @@
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Subject: RE: [PATCH 2.6.32-rc1] net: VMware virtual Ethernet NIC driver:
- vmxnet3
-Date: Wed, 30 Sep 2009 18:18:49 -0700
-Message-ID: <89E2752CFA8EC044846EB849981913410173DCE285@EXCH-MBX-4.vmware.com>
-References: <alpine.LRH.2.00.0909301432410.8073@localhost.localdomain>
- <20090930173923.4520716a@s6510>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Chris Wright <chrisw@sous-sol.org>,
-	Greg Kroah-Hartman <greg@kroah.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	virtualization <virtualization@lists.linux-foundation.org>,
-	pv-drivers <pv-drivers@vmware.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755373AbZJABSz@vger.kernel.org>
-In-Reply-To: <20090930173923.4520716a@s6510>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [PATCH 2/3] cfg80211: add firmware and hardware version to wiphy
+Date: Wed, 30 Sep 2009 21:19:01 -0400
+Message-ID: <1254359942-3483-2-git-send-email-linville@tuxdriver.com>
+References: <20091001011340.GA3123@tuxdriver.com>
+ <1254359942-3483-1-git-send-email-linville@tuxdriver.com>
+Cc: netdev@vger.kernel.org, Kalle Valo <kalle.valo@nokia.com>,
+	Kalle Valo <kalle.valo@iki.fi>,
+	"Luis R. Rodriguez" <mcgrof@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: linux-wireless@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:52860 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755344AbZJABUT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 21:20:19 -0400
+In-Reply-To: <1254359942-3483-1-git-send-email-linville@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stephen,
+From: Kalle Valo <kalle.valo@nokia.com>
 
-Thanks for taking a look.
+It's useful to provide firmware and hardware version to user space and have a
+generic interface to retrieve them. Users can provide the version information
+in bug reports etc.
 
+Add fields for firmware and hardware version to struct wiphy.
 
+(Dropped nl80211 bits for now and modified remaining bits in favor of
+ethtool. -- JWL)
 
-> -----Original Message-----
-> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-> Sent: Wednesday, September 30, 2009 5:39 PM
-> To: Shreyas Bhatewara
-> Cc: linux-kernel; netdev; Stephen Hemminger; David S. Miller; Jeff
-> Garzik; Anthony Liguori; Chris Wright; Greg Kroah-Hartman; Andrew
-> Morton; virtualization; pv-drivers
-> Subject: Re: [PATCH 2.6.32-rc1] net: VMware virtual Ethernet NIC
-> driver: vmxnet3
-> 
-> On Wed, 30 Sep 2009 14:34:57 -0700 (PDT)
-> Shreyas Bhatewara <sbhatewara@vmware.com> wrote:
-> 
-> Note: your patch was linewrapped again
-> 
+Cc: Kalle Valo <kalle.valo@nokia.com>
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+ include/net/cfg80211.h |    3 +++
+ net/wireless/ethtool.c |   23 ++++++++++++++++++++++-
+ net/wireless/ethtool.h |    3 +++
+ 3 files changed, 28 insertions(+), 1 deletions(-)
 
-Fixed the alpine option. Should not happen again.
+diff --git a/include/net/cfg80211.h b/include/net/cfg80211.h
+index 241ea14..6f4862b 100644
+--- a/include/net/cfg80211.h
++++ b/include/net/cfg80211.h
+@@ -1142,6 +1142,9 @@ struct wiphy {
+ 	u32 frag_threshold;
+ 	u32 rts_threshold;
+ 
++	char fw_version[ETHTOOL_BUSINFO_LEN];
++	u32 hw_version;
++
+ 	/* If multiple wiphys are registered and you're handed e.g.
+ 	 * a regular netdev with assigned ieee80211_ptr, you won't
+ 	 * know whether it points to a wiphy your driver has registered
+diff --git a/net/wireless/ethtool.c b/net/wireless/ethtool.c
+index 94ca377..3c59549 100644
+--- a/net/wireless/ethtool.c
++++ b/net/wireless/ethtool.c
+@@ -4,6 +4,8 @@
+ 
+ const struct ethtool_ops cfg80211_ethtool_ops = {
+ 	.get_drvinfo = cfg80211_get_drvinfo,
++	.get_regs_len = cfg80211_get_regs_len,
++	.get_regs = cfg80211_get_regs,
+ 	.get_link = ethtool_op_get_link,
+ };
+ 
+@@ -18,10 +20,29 @@ void cfg80211_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+ 	strncpy(info->version, UTS_RELEASE, sizeof(info->version));
+ 	info->version[sizeof(info->version) - 1] = '\0';
+ 
+-	strncpy(info->fw_version, "N/A", sizeof(info->fw_version));
++	if (wdev->wiphy->fw_version[0])
++		strncpy(info->fw_version, wdev->wiphy->fw_version,
++			sizeof(info->fw_version));
++	else
++		strncpy(info->fw_version, "N/A", sizeof(info->fw_version));
+ 	info->fw_version[sizeof(info->fw_version) - 1] = '\0';
+ 
+ 	strncpy(info->bus_info, dev_name(wiphy_dev(wdev->wiphy)),
+ 		sizeof(info->bus_info));
+ 	info->bus_info[sizeof(info->bus_info) - 1] = '\0';
+ }
++
++int cfg80211_get_regs_len(struct net_device *dev)
++{
++	/* For now, return 0... */
++	return 0;
++}
++
++void cfg80211_get_regs(struct net_device *dev, struct ethtool_regs *regs,
++			void *data)
++{
++	struct wireless_dev *wdev = dev->ieee80211_ptr;
++
++	regs->version = wdev->wiphy->hw_version;
++	regs->len = 0;
++}
+diff --git a/net/wireless/ethtool.h b/net/wireless/ethtool.h
+index a51b470..2d4602a 100644
+--- a/net/wireless/ethtool.h
++++ b/net/wireless/ethtool.h
+@@ -4,6 +4,9 @@
+ #include <linux/ethtool.h>
+ 
+ extern void cfg80211_get_drvinfo(struct net_device *, struct ethtool_drvinfo *);
++extern int cfg80211_get_regs_len(struct net_device *);
++extern void cfg80211_get_regs(struct net_device *, struct ethtool_regs *,
++				void *);
+ 
+ extern const struct ethtool_ops cfg80211_ethtool_ops;
+ 
+-- 
+1.6.2.5
 
-> > +
-> > +
-> > +static void
-> > +vmxnet3_declare_features(struct vmxnet3_adapter *adapter, bool
-> dma64)
-> > +{
-> > +	struct net_device *netdev = adapter->netdev;
-> > +
-> > +	netdev->features = NETIF_F_SG |
-> > +		NETIF_F_HW_CSUM |
-> > +		NETIF_F_HW_VLAN_TX |
-> > +		NETIF_F_HW_VLAN_RX |
-> > +		NETIF_F_HW_VLAN_FILTER |
-> > +		NETIF_F_TSO |
-> > +		NETIF_F_TSO6;
-> > +
-> > +	printk(KERN_INFO "features: sg csum vlan jf tso tsoIPv6");
-> > +
-> > +	adapter->rxcsum = true;
-> > +	adapter->jumbo_frame = true;
-> > +
-> > +	if (!disable_lro) {
-> > +		adapter->lro = true;
-> > +		printk(" lro");
-> > +	}
-> 
-> Why not use NETIF_F_LRO and ethtool to control LRO support?
-
-Yes, that would be a better way to do it. I will make that change.
