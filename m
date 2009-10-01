@@ -1,64 +1,43 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] net: fix NOHZ: local_softirq_pending 08
-Date: Thu, 01 Oct 2009 21:26:35 +0200
-Message-ID: <1254425195.3959.28.camel@johannes.local>
-References: <1254324077.3959.7.camel@johannes.local>
-	 <200910011604.42916.mb@bu3sch.de> <1254422548.3959.24.camel@johannes.local>
-	 <200910012110.34216.mb@bu3sch.de>
+Date: Thu, 01 Oct 2009 12:32:52 -0700 (PDT)
+Message-ID: <20091001.123252.114903468.davem@davemloft.net>
+References: <200910011604.42916.mb@bu3sch.de>
+	<1254422548.3959.24.camel@johannes.local>
+	<200910012110.34216.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-iKg+nWQyOXEyTcUPbcyW"
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org,
-	kalle.valo-X3B1VOXEql0@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200910012110.34216.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johannes@sipsolutions.net, oliver@hartkopp.net, kalle.valo@iki.fi,
+	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: mb@bu3sch.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60202
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752952AbZJATcc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 15:32:32 -0400
+In-Reply-To: <200910012110.34216.mb@bu3sch.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Michael Buesch <mb@bu3sch.de>
+Date: Thu, 1 Oct 2009 21:10:32 +0200
 
---=-iKg+nWQyOXEyTcUPbcyW
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> For the benefit of a much bigger critical section? I don't get it
+> why this would be any better.
 
-On Thu, 2009-10-01 at 21:10 +0200, Michael Buesch wrote:
+Think about what you are saying when you introduce things
+like this into your code:
 
-> > I agree with davem, don't. Just fix the driver to local_bh_disable()
-> > around the rx function if necessary.
->=20
-> For the benefit of a much bigger critical section? I don't get it why thi=
-s would be any better.
+	if (in_interrupt())
+		foo();
+	else
+		bar();
 
-And how do you know mac80211 is actually safe with this change? It uses
-tasklets too. At the very least you'd have to require drivers to never
-mix & match the regular/irqsafe functions at all.
+That thing there means you don't know anything about how you'll need
+to do locking properly, because you have no idea about even the
+context in which your code is executed.
 
-johannes
-
---=-iKg+nWQyOXEyTcUPbcyW
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABAgAGBQJKxQJoAAoJEODzc/N7+Qma4WwP/jj480RaWglWnvRWcKolKm5o
-NWOacpurzJgZRe2RzSDfoF4E/8EXnMI/Y9UEd5tXHqLKPo+PNcF1NEQf6KJzuxAc
-gYWtsgl5cexIx5vGapJlHDprB8y0ZWjUEHPfVUds8udPZAz9b5oxFwa021OZdXdi
-vDnjbimcQz2MBPL9S5bOCtDD+9MJa/dw0mVFcwSGwOZwCnRbFKZQn4iR4Q5cC761
-CqMYjMEyKnMBvKpG9qDcsrOv0kgVdu99gx4mrHwQj47/DUryr1mg7q2yjsHgQCxB
-8yy9Tme+ARkyrg/cD53UMZmuEROxcq3r3ElmVlndJa+/KIQfRtS+Hklbj+dQus9a
-Zz1SDdgQBgvdjfsKSi1/3dm1BZKJlS4hP9hcXYwUiTylOAohZIqu1Wq8Sbs6MzPk
-md+HftuFIC6Ft3dNjmvca6U0Tv9yvVVSbj8FcIyFVTNyLDASjaa/ZGO7Tn5ZOBCH
-IZvsdX0MfX7Mn7k1QZyC7lrcDgXuRA+yhpylvxzYuY8/GYEFcZLYjrYEKBPgnsYZ
-EfaIQ0omv61eNFfiDouBvRbidLtn2tjRAMITao07Kn7Voxk7E7AThPtXMHNyzO4d
-nNdMmPs0nLqK6kmdAnfJsKArzptywF2hWvJY9lVaUJahhIBfSFKKqWlMl1XfCvvY
-jsAteEw/Cc+WcBpf0R8R
-=VfVt
------END PGP SIGNATURE-----
-
---=-iKg+nWQyOXEyTcUPbcyW--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Sure, you can lock for the most stringent case, but that's silly and
+wasteful.
