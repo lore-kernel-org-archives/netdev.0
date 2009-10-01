@@ -1,13 +1,13 @@
 From: Gilad Ben-Yossef <gilad@codefidence.com>
 Subject: [PATCHv3] IPv4 TCP fails to send window scale option when window scale is zero
-Date: Thu, 01 Oct 2009 18:24:29 +0200
-Message-ID: <1254414269.008098.11642.nullmailer@tron.codefidence.com>
+Date: Thu, 01 Oct 2009 18:13:33 +0200
+Message-ID: <1254413613.665110.11357.nullmailer@tron.codefidence.com>
 Cc: ori@comsleep.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sa5.bezeqint.net ([192.115.104.19]:60548 "EHLO sa5.bezeqint.net"
+Received: from sa5.bezeqint.net ([192.115.104.19]:60566 "EHLO sa5.bezeqint.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752382AbZJARYq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753792AbZJARYq (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 1 Oct 2009 13:24:46 -0400
 Cc: ilpo.jarvinen@helsinki.fi
 Cc: eric.dumazet@gmail.com
