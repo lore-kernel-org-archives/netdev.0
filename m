@@ -1,57 +1,53 @@
-From: "Choi, David" <David.Choi@Micrel.Com>
-Subject: RE: [PATCH 2.6.31-rc9] drivers/net: ks8851_mll ethernet network driver
-Date: Thu, 1 Oct 2009 07:51:14 -0700
-Message-ID: <C43529A246480145B0A6D0234BDB0F0DE8B7@MELANITE.micrel.com>
-References: <20090930.200535.217323985.davem@davemloft.net>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [RFCv4 PATCH 2/2] net: Allow protocols to provide an
+	unlocked_recvmsg socket method
+Date: Thu, 1 Oct 2009 12:03:43 -0300
+Message-ID: <20091001150343.GU3361@ghostprotocols.net>
+References: <20090916170745.GD7699@ghostprotocols.net> <9b2db90b0909170709n400859c6q13514b315970dde9@mail.gmail.com> <20090917212113.GC3691@ghostprotocols.net> <20090917215344.GE3691@ghostprotocols.net> <20090923000925.GA6011@ghostprotocols.net> <9b2db90b0909222123x7e547210p5755adf9f8ae875f@mail.gmail.com> <20090923043813.GA6464@ghostprotocols.net> <9b2db90b0910010249h182bf5d4sc7fdaea9e1345720@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <greg@kroah.com>, <netdev@vger.kernel.org>,
-	"Li, Charles" <Charles.Li@Micrel.Com>, <Choi@kroah.com>,
-	<jgarzik@redhat.com>, <shemminger@vyatta.com>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Networking Development Mailing List
+	<netdev@vger.kernel.org>, Ziv Ayalon <ziv@final.co.il>
+To: Nir Tzachar <nir.tzachar@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p01c12o142.mxlogic.net ([208.65.145.65]:43603 "EHLO
-	p01c12o142.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750714AbZJAOw6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 10:52:58 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20090930.200535.217323985.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:21151 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754036AbZJAPDs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Oct 2009 11:03:48 -0400
+Content-Disposition: inline
+In-Reply-To: <9b2db90b0910010249h182bf5d4sc7fdaea9e1345720@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello all,
-
-I really appreciate all of you, especially for your guidance, patience
-and professionalism.
-
-
-Regards,
-David J. Choi
-
-
------Original Message-----
-From: David Miller [mailto:davem@davemloft.net] 
-Sent: Wednesday, September 30, 2009 8:06 PM
-To: Choi, David
-Cc: greg@kroah.com; netdev@vger.kernel.org; Li, Charles; Choi@kroah.com;
-jgarzik@redhat.com; shemminger@vyatta.com
-Subject: Re: [PATCH 2.6.31-rc9] drivers/net: ks8851_mll ethernet network
-driver 
-
-From: "Choi, David" <David.Choi@Micrel.Com>
-Date: Fri, 25 Sep 2009 17:42:12 -0700
-
-> Hello David Miller,
+Em Thu, Oct 01, 2009 at 11:49:39AM +0200, Nir Tzachar escreveu:
+> Hi Arnaldo
 > 
-> First of all, thank you for your feedback.  Here is my new patch.
-> 
->>From : David J. Choi <david.choi@micrel.com>
-> 
-> This is the first registration of ks8851 network driver with 
-> MLL(address/data multiplexed) interface.
-> 
-> Signed-off-by : David J. Choi <david.choi@micrel.com>
+> I have repeated the tests using net-next on top of linus' git tree (I
+> hope I got it right..) and the patches you sent me. Things did not get
+> better, and in most cases were even worse; the recvmmsg parts
+> distinctly showed better throughput, but the latency has more than
+> doubled.
 
-Applied, thanks.
+Interesting... Now the socket lock is held in recvmmsg over all of
+udp_recvmmsg for the batch size while when not using unlocked_recvmmsg,
+so I think one needs to carefully set the timeout parameter. Perhaps
+we'll need to do something like tcp_rcvmmsg does, that is, to call
+release_sock + lock_sock to process the backlog in the middle of a
+recvmmsg call.
+ 
+> The simplest test of using a batch size of 1 results with recvmmsg's
+> latency over 1000 micro, while regular recvmsg is around 450 micro.
+> (note that to use 1 packet there is a small bug in the reg_recv which
+> needs to be fixed. Namely, change ret = -1 to ret = 0). On the
+> previous system config -- part 0001 of the patch, on top of 2.6.31 --
+> the latency of a single packet batch is 370 micro.
+> 
+> So, there seems to be a regression with the kernel tree I am using, or
+> with part 0002 of the path. I'll try running the net-next with only
+> part 1 of the patch and report.
+
+Yeah, trying with only part 0001 should get you back to the previous
+results, but try using it in nonblocking mode and tweaking the timeout
+parameter in recvmmsg.
+
+- Arnaldo
