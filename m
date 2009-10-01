@@ -1,42 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Network hangs with 2.6.30.5
-Date: Thu, 01 Oct 2009 15:49:13 -0700 (PDT)
-Message-ID: <20091001.154913.88345178.davem@davemloft.net>
-References: <pan.2009.09.03.19.55.37.672875@googlemail.com>
-	<20090907072143.GA5966@ff.dom.local>
+From: James Bottomley <James.Bottomley-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: 2.6.32-rc1-git2: Reported regressions from 2.6.31
+Date: Thu, 01 Oct 2009 17:48:56 -0500
+Message-ID: <1254437336.3885.68.camel@mulgrave.site>
+References: <9UCePxij8cB.A.VCG.-3SxKB@chimera>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: holger.hoffstaette@googlemail.com, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com, ilpo.jarvinen@helsinki.fi
-To: jarkao2@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39715
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751646AbZJAWsy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 18:48:54 -0400
-In-Reply-To: <20090907072143.GA5966@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <9UCePxij8cB.A.VCG.-3SxKB@chimera>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Mon, 7 Sep 2009 07:21:43 +0000
+On Thu, 2009-10-01 at 21:26 +0200, Rafael J. Wysocki wrote:
+> Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=14214
+> Subject         : BUG at drivers/scsi/scsi_lib.c:1108!
+> Submitter       : Plamen Petrov <pvp-lsts-Xdw7EbNJKi3354cJYj5R/Q@public.gmane.org>
+> Date            : 2009-09-23 11:13 (9 days old)
 
-> While Eric is analyzing your data, I guess you could try reverting
-> some stuff around this tcp_tw_recycle, and my tcp ignorance would
-> point these commits for the beginning:
-> 
-> http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.30.y.git;a=commitdiff;h=fc1ad92dfc4e363a055053746552cdb445ba5c57
-> http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.30.y.git;a=commitdiff;h=c887e6d2d9aee56ee7c9f2af4cec3a5efdcc4c72
+This one is fixed (as confirmed by the bug report).
 
-Ilpo's cleanup (the second commit listed) looks most likely to
-be a possibility.
-
-But I surely cannot find any bugs in it, even after studying it
-a few times.
-
-Ilpo could you audit it one more time for us just in case?
-
-I also looked through all the TCP commits in 2.6.29 to 2.6.30
-and I could not find anything else that might cause stalls with
-time-wait recycled connections.
+James
