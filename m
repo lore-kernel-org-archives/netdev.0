@@ -1,34 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][PATCH] ethtool: Add reset operation
-Date: Thu, 01 Oct 2009 13:14:24 -0700 (PDT)
-Message-ID: <20091001.131424.157091984.davem@davemloft.net>
-References: <1254426195.2735.16.camel@achroite>
+From: Andrew Grover <andy.grover@gmail.com>
+Subject: setsockopt option struct with an address?
+Date: Thu, 1 Oct 2009 13:17:03 -0700
+Message-ID: <c0a09e5c0910011317n76fba7e8q6de7dd35268654b9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47583
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756543AbZJAUOE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 16:14:04 -0400
-In-Reply-To: <1254426195.2735.16.camel@achroite>
+Received: from mail-qy0-f173.google.com ([209.85.221.173]:50369 "EHLO
+	mail-qy0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756512AbZJAUQ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 16:16:59 -0400
+Received: by qyk3 with SMTP id 3so404081qyk.4
+        for <netdev@vger.kernel.org>; Thu, 01 Oct 2009 13:17:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Thu, 01 Oct 2009 20:43:15 +0100
+Hi all, I'm looking for some advice on defining a new interface.
 
-> After updating firmware stored in flash, users may wish to reset the
-> relevant hardware and start the new firmware immediately.  This should
-> not be completely automatic as it may be disruptive.
-> 
-> A selective reset may also be useful for debugging or diagnostics.
-> 
-> This adds a separate reset operation which takes flags indicating the
-> components to be reset.  Drivers are allowed to reset only a subset of
-> those requested, and must report the actual subset.  This allows the
-> use of generic component masks and some future expansion.
+RDS has an existing interface to prepare a memory region for use in an
+RDMA operation, called GET_MR. (see include/linux/rds.h). It basically
+takes an address and length, and returns a handle that later commands
+use to reference the region.
 
-This looks fine to me.
+We need to add an additional sockopt that also passes in the remote
+host's address, because the current method for defining memory regions
+binds their use to a particular remote host only.
+
+Here's the original sockopt's args:
+
+struct rds_get_mr_args {
+        struct rds_iovec vec;
+        u_int64_t       cookie_addr;
+        uint64_t        flags;
+};
+
+Here is a swag at the new sockopt's args:
+
+struct rds_get_mr_for_dest_args {
+        u_int32_t       dest_addr;   /*   added this */
+        struct rds_iovec vec;
+        u_int64_t       cookie_addr;
+        uint64_t        flags;
+};
+
+Or should the added member be a struct sockaddr, or a sockaddr_in, or
+a sockaddr_storage, or what? And should it be a pointer to that
+struct, or embedded?
+
+Much thanks -- Regards -- Andy
