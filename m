@@ -1,49 +1,101 @@
-From: Nir Tzachar <nir.tzachar@gmail.com>
-Subject: Re: [RFCv4 PATCH 2/2] net: Allow protocols to provide an
-	unlocked_recvmsg socket method
-Date: Thu, 1 Oct 2009 11:49:39 +0200
-Message-ID: <9b2db90b0910010249h182bf5d4sc7fdaea9e1345720@mail.gmail.com>
-References: <20090916170745.GD7699@ghostprotocols.net>
-	 <9b2db90b0909170709n400859c6q13514b315970dde9@mail.gmail.com>
-	 <20090917212113.GC3691@ghostprotocols.net>
-	 <20090917215344.GE3691@ghostprotocols.net>
-	 <20090923000925.GA6011@ghostprotocols.net>
-	 <9b2db90b0909222123x7e547210p5755adf9f8ae875f@mail.gmail.com>
-	 <20090923043813.GA6464@ghostprotocols.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Ziv Ayalon <ziv@final.co.il>
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	Linux Networking Development Mailing List
-	<netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:52929 "EHLO
-	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756050AbZJAJtg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 05:49:36 -0400
-Received: by fxm18 with SMTP id 18so6035209fxm.17
-        for <netdev@vger.kernel.org>; Thu, 01 Oct 2009 02:49:40 -0700 (PDT)
-In-Reply-To: <20090923043813.GA6464@ghostprotocols.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: [PATCH] gigaset/CAPI: accept any number type/plan
+Date: Thu,  1 Oct 2009 11:53:13 +0200 (CEST)
+Message-ID: <20090930-patch-gigaset-14.tilman@imap.cc>
+Cc: Hansjoerg Lipp <hjlipp@web.de>, davem@davemloft.net,
+	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>,
+	Karsten Keil <keil@b1-systems.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756094AbZJAJx0@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Arnaldo
+Be more liberal in accepting CAPI CONNECT_REQ message parameters
+Called Party Number and Calling Party Number:
+* Accept Numbering plan "ISDN/Telephony" as supported.
+* Ignore unsupported values for Type of number, Numbering plan,
+  Presentation indicator and Screening indicator with a warning
+  instead of rejecting the entire request.
 
-I have repeated the tests using net-next on top of linus' git tree (I
-hope I got it right..) and the patches you sent me. Things did not get
-better, and in most cases were even worse; the recvmmsg parts
-distinctly showed better throughput, but the latency has more than
-doubled.
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+---
+A second small fix to the new Gigaset CAPI interface resulting from
+testing with more applications. Please tell me if you'd prefer me
+to reissue "[PATCH 12/12] gigaset: add Kernel CAPI interface" with
+both fixes folded in.
 
-The simplest test of using a batch size of 1 results with recvmmsg's
-latency over 1000 micro, while regular recvmsg is around 450 micro.
-(note that to use 1 packet there is a small bug in the reg_recv which
-needs to be fixed. Namely, change ret = -1 to ret = 0). On the
-previous system config -- part 0001 of the patch, on top of 2.6.31 --
-the latency of a single packet batch is 370 micro.
+ drivers/isdn/gigaset/capi.c |   29 ++++++++++++++++-------------
+ 1 files changed, 16 insertions(+), 13 deletions(-)
 
-So, there seems to be a regression with the kernel tree I am using, or
-with part 0002 of the path. I'll try running the net-next with only
-part 1 of the patch and report.
-
-Cheers.
+diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.c
+index 8afff37..c276a92 100644
+--- a/drivers/isdn/gigaset/capi.c
++++ b/drivers/isdn/gigaset/capi.c
+@@ -1236,12 +1236,14 @@ static void do_connect_req(struct gigaset_capi_ctr *iif,
+ 		goto error;
+ 	}
+ 	l = *pp++;
+-	/* check number type/numbering plan byte */
+-	if (*pp != 0x80) {
++	/* check type of number/numbering plan byte */
++	switch (*pp) {
++	case 0x80:	/* unknown type / unknown numbering plan */
++	case 0x81:	/* unknown type / ISDN/Telephony numbering plan */
++		break;
++	default:	/* others: warn about potential misinterpretation */
+ 		dev_notice(cs->dev, "%s: %s type/plan 0x%02x unsupported\n",
+ 			   "CONNECT_REQ", "Called party number", *pp);
+-		info = CapiIllMessageParmCoding;
+-		goto error;
+ 	}
+ 	pp++;
+ 	l--;
+@@ -1266,26 +1268,28 @@ static void do_connect_req(struct gigaset_capi_ctr *iif,
+ 	if (pp != NULL && *pp > 0) {
+ 		l = *pp++;
+ 
+-		/* check number type/numbering plan byte */
+-		if (*pp) {
+-			/* ToDo: allow for Ext=1? */
++		/* check type of number/numbering plan byte */
++		/* ToDo: handle Ext=1? */
++		switch (*pp) {
++		case 0x00:	/* unknown type / unknown numbering plan */
++		case 0x01:	/* unknown type / ISDN/Telephony num. plan */
++			break;
++		default:
+ 			dev_notice(cs->dev,
+ 				   "%s: %s type/plan 0x%02x unsupported\n",
+ 				   "CONNECT_REQ", "Calling party number", *pp);
+-			info = CapiIllMessageParmCoding;
+-			goto error;
+ 		}
+ 		pp++;
+ 		l--;
+ 
+-		/* check presentation/screening indicator */
++		/* check presentation indicator */
+ 		if (!l) {
+ 			dev_notice(cs->dev, "%s: %s IE truncated\n",
+ 				   "CONNECT_REQ", "Calling party number");
+ 			info = CapiIllMessageParmCoding;
+ 			goto error;
+ 		}
+-		switch (*pp) {
++		switch (*pp & 0xfc) { /* ignore Screening indicator */
+ 		case 0x80:	/* Presentation allowed */
+ 			s = "^SCLIP=1\r";
+ 			break;
+@@ -1297,8 +1301,7 @@ static void do_connect_req(struct gigaset_capi_ctr *iif,
+ 				   "CONNECT_REQ",
+ 				   "Presentation/Screening indicator",
+ 				   *pp);
+-			info = CapiIllMessageParmCoding;
+-			goto error;
++			s = "^SCLIP=1\r";
+ 		}
+ 		commands[AT_CLIP] = kstrdup(s, GFP_KERNEL);
+ 		if (!commands[AT_CLIP])
+-- 
+1.6.2.1.214.ge986c
