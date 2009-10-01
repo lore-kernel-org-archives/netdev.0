@@ -1,50 +1,36 @@
-From: Andrew Grover <andy.grover@gmail.com>
-Subject: setsockopt option struct with an address?
-Date: Thu, 1 Oct 2009 13:17:03 -0700
-Message-ID: <c0a09e5c0910011317n76fba7e8q6de7dd35268654b9@mail.gmail.com>
+From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 0/2] cfg80211: firmware and hardware version
+Date: Thu, 1 Oct 2009 19:56:40 +0000
+Message-ID: <43e72e890910011256v18b30e7ck420ce80b5d35fdcb@mail.gmail.com>
+References: <20090924180048.14503.9579.stgit@tikku> <43e72e890909241320j592e347die8a14f8bdd962ffb@mail.gmail.com>
+	<20090925044258.GA2722@tuxdriver.com> <da94abde0909250947k5084db85vccafe0d3e74e2ecf@mail.gmail.com>
+	<43e72e890909250953r1714c79bsa679b96ca6f5797@mail.gmail.com>
+	<20091001011340.GA3123@tuxdriver.com> <87fxa3qjt2.fsf@purkki.valot.fi>
+	<20091001151820.GA2895@tuxdriver.com> <873a63qe6e.fsf@purkki.valot.fi>
+	<20091001170722.GC2895@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f173.google.com ([209.85.221.173]:50369 "EHLO
-	mail-qy0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756512AbZJAUQ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 16:16:59 -0400
-Received: by qyk3 with SMTP id 3so404081qyk.4
-        for <netdev@vger.kernel.org>; Thu, 01 Oct 2009 13:17:03 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"Perez-Gonzalez, Inaky" <inaky.perez-gonzalez-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20091001170722.GC2895-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi all, I'm looking for some advice on defining a new interface.
+On Thu, Oct 1, 2009 at 5:07 PM, John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
 
-RDS has an existing interface to prepare a memory region for use in an
-RDMA operation, called GET_MR. (see include/linux/rds.h). It basically
-takes an address and length, and returns a handle that later commands
-use to reference the region.
+> I don't predict a huge problem if there are
+> valid extensions required for use by wireless drivers in the future.
+> But for now, I'd like to see us make use of some of the debugging
+> facilities available in the ethtool API -- hopefully the iwlwifi guys
+> are listening... ;-)
 
-We need to add an additional sockopt that also passes in the remote
-host's address, because the current method for defining memory regions
-binds their use to a particular remote host only.
+Does the same apply to wimax then? Ethtool for 802.11 and wimax? Eh.
 
-Here's the original sockopt's args:
-
-struct rds_get_mr_args {
-        struct rds_iovec vec;
-        u_int64_t       cookie_addr;
-        uint64_t        flags;
-};
-
-Here is a swag at the new sockopt's args:
-
-struct rds_get_mr_for_dest_args {
-        u_int32_t       dest_addr;   /*   added this */
-        struct rds_iovec vec;
-        u_int64_t       cookie_addr;
-        uint64_t        flags;
-};
-
-Or should the added member be a struct sockaddr, or a sockaddr_in, or
-a sockaddr_storage, or what? And should it be a pointer to that
-struct, or embedded?
-
-Much thanks -- Regards -- Andy
+  Luis
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
