@@ -1,63 +1,105 @@
-From: Cosmin Ratiu <cratiu@ixiacom.com>
-Subject: Re: [PATCH] make TLLAO option for NA packets configurable
-Date: Thu, 1 Oct 2009 19:43:44 +0300
-Message-ID: <200910011943.44625.cratiu@ixiacom.com>
-References: <200910011916.40908.cratiu@ixiacom.com> <20091001092100.14ea024b@s6510>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Octavian Purdila <opurdila@ixiacom.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Gilad Ben-Yossef <gilad@codefidence.com>
+Subject: [PATCHv3] IPv4 TCP fails to send window scale option when window scale is zero
+Date: Thu, 01 Oct 2009 18:41:59 +0200
+Message-ID: <1254415319.879140.11824.nullmailer@tron.codefidence.com>
+Cc: ori@comsleep.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:4908 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754271AbZJAQnl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 12:43:41 -0400
-In-Reply-To: <20091001092100.14ea024b@s6510>
-Content-Disposition: inline
+Received: from sa4.bezeqint.net ([192.115.104.18]:40333 "EHLO sa4.bezeqint.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751956AbZJAQrK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Oct 2009 12:47:10 -0400
+Cc: ilpo.jarvinen@helsinki.fi
+Cc: eric.dumazet@gmail.com
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 01 October 2009 19:21:00 Stephen Hemminger wrote:
-> On Thu, 1 Oct 2009 19:16:40 +0300
->
-> Cosmin Ratiu <cratiu@ixiacom.com> wrote:
-> > Hello,
-> >
-> > This is a patch that adds a sysctl to control the sending of the Target
-> > Link Layer Address Option (TLLAO) with Neighbor Advertisements responding
-> > to unicast NS. The patch was made for kernel 2.6.7 (yes it is ancient),
-> > but the code is similar with the current kernel and I can rework it if
-> > you want it in.
-> >
-> > RFC 2461, page 24 suggests that this option should be included with NAs
-> > to avoid a race with the sender clearing its cache after sending an
-> > unicast NS, but before receiving a NA.
-> >
-> > It seems there are some Juniper routers (MX series) that expect this
-> > option to be included with all NAs.
-> >
-> > Another solution is to always send this option, as it has little
-> > overhead.
-> >
-> > Please let me know what you think,
-> > Cosmin.
-> >
-> > Signed-off-by: Cosmin Ratiu <cratiu@ixiacom.com>
-> > --- //packages/linux_2.6.7/main/src/include/linux/sysctl.h
-> > +++ /home/z/w1/packages/linux_2.6.7/main/src/include/linux/sysctl.h
-> > @@ -444,6 +444,7 @@
-> >         NET_IPV6_IP6FRAG_TIME=23,
-> >         NET_IPV6_IP6FRAG_SECRET_INTERVAL=24,
-> >         NET_IPV6_MLD_MAX_MSF=25,
-> > +       NET_IPV6_NDISC_FORCE_TLLAO=26,
->
-> Since numbered sysctl values are deprecated, can you use CTL_UNNUMBERED
-> to avoid having to add yet another value?
+From: Ori Finkelman <ori@comsleep.com>
 
-Of course, but that is a detail.
-If you decide on the sysctl solution, I'll do it.
-If you decide on making this the default behavior, it's even better.
+Acknowledge TCP window scale support by inserting the proper option in SYN/ACK 
+and SYN headers even if our window scale is zero.
 
-Cosmin.
+This fixes the following observed behavior:
+
+1. Client sends a SYN with TCP window scaling option and non zero window scale 
+value to a Linux box.
+2. Linux box notes large receive window from client.
+3. Linux decides on a zero value of window scale for its part.
+4. Due to compare against requested window scale size option, Linux does not to
+ send windows scale TCP option header on SYN/ACK at all.
+
+With the following result:
+
+Client box thinks TCP window scaling is not supported, since SYN/ACK had no 
+TCP window scale option, while Linux thinks that TCP window scaling is 
+supported (and scale might be non zero), since SYN had  TCP window scale 
+option and we have a mismatched idea between the client and server 
+regarding window sizes.
+
+Probably it also fixes up the following bug (not observed in practice):
+
+1. Linux box opens TCP connection to some server.
+2. Linux decides on zero value of window scale.
+3. Due to compare against computed window scale size option, Linux does 
+not to set windows scale TCP  option header on SYN. 
+
+With the expected result that the server OS does not use window scale option 
+due to not receiving such an option in the SYN headers, leading to suboptimal 
+performance.
+
+Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
+Signed-off-by: Ori Finkelman <ori@comsleep.com>
+
+---
+
+Original bug reported and patch written by Ori Finkelman from Comsleep Ltd. 
+I've fixed  the SYN header case based on feedback from Eric Dumazet and Ilpo 
+Jarvinen, as part of trying to get the patch mainlined.
+
+The SYN/ACK behavior was observed with a Windows box as the client and latest 
+Debian kernel but for the best of my understanding this can happen with latest 
+kernel versions and other client OS (probably also Linux) as well.
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 5200aab..fcd278a 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -361,6 +361,7 @@ static inline int tcp_urg_mode(const struct tcp_sock *tp)
+ #define OPTION_SACK_ADVERTISE	(1 << 0)
+ #define OPTION_TS		(1 << 1)
+ #define OPTION_MD5		(1 << 2)
++#define OPTION_WSCALE		(1 << 3)
+ 
+ struct tcp_out_options {
+ 	u8 options;		/* bit field of OPTION_* */
+@@ -427,7 +428,7 @@ static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
+ 			       TCPOLEN_SACK_PERM);
+ 	}
+ 
+-	if (unlikely(opts->ws)) {
++	if (unlikely(OPTION_WSCALE & opts->options)) {
+ 		*ptr++ = htonl((TCPOPT_NOP << 24) |
+ 			       (TCPOPT_WINDOW << 16) |
+ 			       (TCPOLEN_WINDOW << 8) |
+@@ -494,8 +495,8 @@ static unsigned tcp_syn_options(struct sock *sk, struct sk_buff *skb,
+ 	}
+ 	if (likely(sysctl_tcp_window_scaling)) {
+ 		opts->ws = tp->rx_opt.rcv_wscale;
+-		if (likely(opts->ws))
+-			size += TCPOLEN_WSCALE_ALIGNED;
++		opts->options |= OPTION_WSCALE;
++		size += TCPOLEN_WSCALE_ALIGNED;
+ 	}
+ 	if (likely(sysctl_tcp_sack)) {
+ 		opts->options |= OPTION_SACK_ADVERTISE;
+@@ -537,8 +538,8 @@ static unsigned tcp_synack_options(struct sock *sk,
+ 
+ 	if (likely(ireq->wscale_ok)) {
+ 		opts->ws = ireq->rcv_wscale;
+-		if (likely(opts->ws))
+-			size += TCPOLEN_WSCALE_ALIGNED;
++		opts->options |= OPTION_WSCALE;
++		size += TCPOLEN_WSCALE_ALIGNED;
+ 	}
+ 	if (likely(doing_ts)) {
+ 		opts->options |= OPTION_TS;
