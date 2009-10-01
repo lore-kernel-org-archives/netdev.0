@@ -1,31 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] be2net: Workaround to fix a bug in Rx Completion
- processing.
-Date: Wed, 30 Sep 2009 21:58:30 -0700 (PDT)
-Message-ID: <20090930.215830.261415227.davem@davemloft.net>
-References: <20091001040247.GA28228@serverengines.com>
+From: Doug Maxey <dwm@enoyolf.org>
+Subject: Re: kernel doc / docbook pdfdocs question
+Date: Thu, 01 Oct 2009 00:42:27 -0500
+Message-ID: <27289.1254375747@jerryjeff.riw.enoyolf.org>
+References: <8223.1254340776@jerryjeff.riw.enoyolf.org> <20090930173002.36da7ffd@s6510>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ajitk@serverengines.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+	netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47136
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750940AbZJAE6K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 00:58:10 -0400
-In-Reply-To: <20091001040247.GA28228@serverengines.com>
+Received: from iggy.enoyolf.org ([24.173.215.189]:39952 "EHLO
+	jerryjeff.riw.enoyolf.org" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751690AbZJAFm1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 01:42:27 -0400
+In-reply-to: <20090930173002.36da7ffd@s6510>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ajit Khaparde <ajitk@serverengines.com>
-Date: Thu, 1 Oct 2009 09:33:22 +0530
 
-> vtp bit in RX completion descriptor could be wrongly set in
-> some skews of BladEngine.  Ignore this  bit if vtm is not set.
-> Resending because the previous patch was against net-next tree.
-> This patch is against the net-2.6 tree.
-> 
-> Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+On Wed, 30 Sep 2009 17:30:02 PDT, Stephen Hemminger wrote:
+>On Wed, 30 Sep 2009 14:59:36 -0500
+>Doug Maxey <dwm@enoyolf.org> wrote:
+>
+>> 
+>> Randy,
+>> 
+>> This may be slightly off topic for this list, but it does involve an
+>> (as yet un-released) network driver. :)
+>> 
+>> Do you have any insight that could guide me toward a fix for an issue
+>> seen with some header file constructs when trying to generate a pdf
+>> docbook?
+>> 
+>
+>Why clutter docbook output (which is supposed to be about general kernel
+>API's) with output for data structures in one driver.
 
-Applied, thanks.
+It would be a general mechanism, and it would be to document an API.
+There are other subsystems that use DECLARE_BITMAP() (e.g., scsi).
+Just none at the moment that attempt to describe such a member,
+possibly because there isn't a way to document it.  Dunno.  Build it
+and they will come.  There is one party that is interested anyway.
+
+Finally did find where this was getting warned about / tossed, in
+kernel-doc itself. =)
+
+++doug
+
+
