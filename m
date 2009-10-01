@@ -1,8 +1,8 @@
 From: Suresh Jayaraman <sjayaraman@suse.de>
-Subject: [PATCH 13/31] net: packet split receive api
-Date: Thu,  1 Oct 2009 19:37:10 +0530
-Message-ID: <1254406030-16120-1-git-send-email-sjayaraman@suse.de>
-Cc: netdev@vger.kernel.org, Neil Brown <neilb@suse.de>, Miklos Szeredi <mszeredi@suse.cz>, Wouter Verhelst <w@uter.be>, Peter Zijlstra <a.p.zijlstra@chello.nl>, trond.myklebust@fys.uio.no, Jiri Bohac <jbohac@suse.cz>, Suresh Jayaraman <sjayaraman@suse.de>
+Subject: [PATCH 16/31] netvm: INET reserves.
+Date: Thu,  1 Oct 2009 19:37:46 +0530
+Message-ID: <1254406066-16228-1-git-send-email-sjayaraman@suse.de>
+Cc: netdev@vger.kernel.org, Neil Brown <neilb@suse.de>, Miklos Szeredi <mszeredi@suse.cz>, Wouter Verhelst <w@uter.be>, Peter Zijlstra <a.p.zijlstra@chello.nl>, trond.myklebust@fys.uio.no, Suresh Jayaraman <sjayaraman@suse.de>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org,
@@ -13,237 +13,609 @@ List-Id: netdev.vger.kernel.org
 
 From: Peter Zijlstra <a.p.zijlstra@chello.nl> 
 
-Add some packet-split receive hooks.
+Add reserves for INET.
 
-For one this allows to do NUMA node affine page allocs. Later on these hooks
-will be extended to do emergency reserve allocations for fragments.
+The two big users seem to be the route cache and ip-fragment cache.
 
-Thanks to Jiri Bohac for fixing a bug in bnx2.
+Reserve the route cache under generic RX reserve, its usage is bounded by
+the high reclaim watermark, and thus does not need further accounting.
+
+Reserve the ip-fragement caches under SKB data reserve, these add to the
+SKB RX limit. By ensuring we can at least receive as much data as fits in
+the reassmbly line we avoid fragment attack deadlocks.
+
+Adds to the reserve tree:
+
+  total network reserve
+    network TX reserve
+      protocol TX pages
+    network RX reserve
++     IPv6 route cache
++     IPv4 route cache
+      SKB data reserve
++       IPv6 fragment cache
++       IPv4 fragment cache
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Signed-off-by: Jiri Bohac <jbohac@suse.cz>
 Signed-off-by: Suresh Jayaraman <sjayaraman@suse.de>
 ---
- drivers/net/bnx2.c             |    9 +++------
- drivers/net/e1000e/netdev.c    |    7 ++-----
- drivers/net/igb/igb_main.c     |    9 ++-------
- drivers/net/ixgbe/ixgbe_main.c |   14 ++++++--------
- drivers/net/sky2.c             |   16 ++++++----------
- include/linux/skbuff.h         |    3 +++
- 6 files changed, 22 insertions(+), 36 deletions(-)
+ include/net/inet_frag.h  |    7 +++
+ include/net/netns/ipv6.h |    4 ++
+ net/ipv4/inet_fragment.c |    3 +
+ net/ipv4/ip_fragment.c   |   86 +++++++++++++++++++++++++++++++++++++++++++++--
+ net/ipv4/route.c         |   70 +++++++++++++++++++++++++++++++++++++-
+ net/ipv6/reassembly.c    |   85 +++++++++++++++++++++++++++++++++++++++++++++-
+ net/ipv6/route.c         |   77 ++++++++++++++++++++++++++++++++++++++++--
+ 7 files changed, 325 insertions(+), 7 deletions(-)
 
-Index: mmotm/drivers/net/bnx2.c
+Index: mmotm/net/ipv4/ip_fragment.c
 ===================================================================
---- mmotm.orig/drivers/net/bnx2.c
-+++ mmotm/drivers/net/bnx2.c
-@@ -2648,7 +2648,7 @@ bnx2_alloc_rx_page(struct bnx2 *bp, stru
- 	struct sw_pg *rx_pg = &rxr->rx_pg_ring[index];
- 	struct rx_bd *rxbd =
- 		&rxr->rx_pg_desc_ring[RX_RING(index)][RX_IDX(index)];
--	struct page *page = alloc_page(GFP_ATOMIC);
-+	struct page *page = netdev_alloc_page(bp->dev);
+--- mmotm.orig/net/ipv4/ip_fragment.c
++++ mmotm/net/ipv4/ip_fragment.c
+@@ -42,6 +42,8 @@
+ #include <linux/udp.h>
+ #include <linux/inet.h>
+ #include <linux/netfilter_ipv4.h>
++#include <linux/reserve.h>
++#include <linux/nsproxy.h>
  
- 	if (!page)
- 		return -ENOMEM;
-@@ -2678,7 +2678,7 @@ bnx2_free_rx_page(struct bnx2 *bp, struc
- 	pci_unmap_page(bp->pdev, pci_unmap_addr(rx_pg, mapping), PAGE_SIZE,
- 		       PCI_DMA_FROMDEVICE);
- 
--	__free_page(page);
-+	netdev_free_page(bp->dev, page);
- 	rx_pg->page = NULL;
+ /* NOTE. Logic of IP defragmentation is parallel to corresponding IPv6
+  * code now. If you change something here, _PLEASE_ update ipv6/reassembly.c
+@@ -599,6 +601,63 @@ int ip_defrag(struct sk_buff *skb, u32 u
  }
  
-@@ -3003,7 +3003,7 @@ bnx2_rx_skb(struct bnx2 *bp, struct bnx2
- 			if (i == pages - 1)
- 				frag_len -= 4;
- 
--			skb_fill_page_desc(skb, i, rx_pg->page, 0, frag_len);
-+			skb_add_rx_frag(skb, i, rx_pg->page, 0, frag_len);
- 			rx_pg->page = NULL;
- 
- 			err = bnx2_alloc_rx_page(bp, rxr,
-@@ -3020,9 +3020,6 @@ bnx2_rx_skb(struct bnx2 *bp, struct bnx2
- 				       PAGE_SIZE, PCI_DMA_FROMDEVICE);
- 
- 			frag_size -= frag_len;
--			skb->data_len += frag_len;
--			skb->truesize += frag_len;
--			skb->len += frag_len;
- 
- 			pg_prod = NEXT_RX_BD(pg_prod);
- 			pg_cons = RX_PG_RING_IDX(NEXT_RX_BD(pg_cons));
-Index: mmotm/drivers/net/e1000e/netdev.c
-===================================================================
---- mmotm.orig/drivers/net/e1000e/netdev.c
-+++ mmotm/drivers/net/e1000e/netdev.c
-@@ -259,7 +259,7 @@ static void e1000_alloc_rx_buffers_ps(st
- 				continue;
- 			}
- 			if (!ps_page->page) {
--				ps_page->page = alloc_page(GFP_ATOMIC);
-+				ps_page->page = netdev_alloc_page(netdev);
- 				if (!ps_page->page) {
- 					adapter->alloc_rx_buff_failed++;
- 					goto no_buffers;
-@@ -820,11 +820,8 @@ static bool e1000_clean_rx_irq_ps(struct
- 			pci_unmap_page(pdev, ps_page->dma, PAGE_SIZE,
- 				       PCI_DMA_FROMDEVICE);
- 			ps_page->dma = 0;
--			skb_fill_page_desc(skb, j, ps_page->page, 0, length);
-+			skb_add_rx_frag(skb, j, ps_page->page, 0, length);
- 			ps_page->page = NULL;
--			skb->len += length;
--			skb->data_len += length;
--			skb->truesize += length;
- 		}
- 
- 		/* strip the ethernet crc, problem is we're using pages now so
-Index: mmotm/drivers/net/igb/igb_main.c
-===================================================================
---- mmotm.orig/drivers/net/igb/igb_main.c
-+++ mmotm/drivers/net/igb/igb_main.c
-@@ -4616,7 +4616,7 @@ static bool igb_clean_rx_irq_adv(struct
- 				       PAGE_SIZE / 2, PCI_DMA_FROMDEVICE);
- 			buffer_info->page_dma = 0;
- 
--			skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags++,
-+			skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags++,
- 						buffer_info->page,
- 						buffer_info->page_offset,
- 						length);
-@@ -4626,11 +4626,6 @@ static bool igb_clean_rx_irq_adv(struct
- 				buffer_info->page = NULL;
- 			else
- 				get_page(buffer_info->page);
--
--			skb->len += length;
--			skb->data_len += length;
--
--			skb->truesize += length;
- 		}
- 
- 		if (!(staterr & E1000_RXD_STAT_EOP)) {
-@@ -4755,7 +4750,7 @@ static void igb_alloc_rx_buffers_adv(str
- 
- 		if (adapter->rx_ps_hdr_size && !buffer_info->page_dma) {
- 			if (!buffer_info->page) {
--				buffer_info->page = alloc_page(GFP_ATOMIC);
-+				buffer_info->page = netdev_alloc_page(netdev);
- 				if (!buffer_info->page) {
- 					adapter->alloc_rx_buff_failed++;
- 					goto no_buffers;
-Index: mmotm/drivers/net/ixgbe/ixgbe_main.c
-===================================================================
---- mmotm.orig/drivers/net/ixgbe/ixgbe_main.c
-+++ mmotm/drivers/net/ixgbe/ixgbe_main.c
-@@ -574,6 +574,7 @@ static void ixgbe_alloc_rx_buffers(struc
-                                    int cleaned_count)
- {
- 	struct pci_dev *pdev = adapter->pdev;
-+	struct net_device *netdev = adapter->netdev;
- 	union ixgbe_adv_rx_desc *rx_desc;
- 	struct ixgbe_rx_buffer *bi;
- 	unsigned int i;
-@@ -587,7 +588,7 @@ static void ixgbe_alloc_rx_buffers(struc
- 		if (!bi->page_dma &&
- 		    (rx_ring->flags & IXGBE_RING_RX_PS_ENABLED)) {
- 			if (!bi->page) {
--				bi->page = alloc_page(GFP_ATOMIC);
-+				bi->page = netdev_alloc_page(netdev);
- 				if (!bi->page) {
- 					adapter->alloc_rx_page_failed++;
- 					goto no_buffers;
-@@ -756,10 +757,10 @@ static bool ixgbe_clean_rx_irq(struct ix
- 			pci_unmap_page(pdev, rx_buffer_info->page_dma,
- 			               PAGE_SIZE / 2, PCI_DMA_FROMDEVICE);
- 			rx_buffer_info->page_dma = 0;
--			skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags,
--			                   rx_buffer_info->page,
--			                   rx_buffer_info->page_offset,
--			                   upper_len);
-+			skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
-+					rx_buffer_info->page,
-+					rx_buffer_info->page_offset,
-+					upper_len);
- 
- 			if ((rx_ring->rx_buf_len > (PAGE_SIZE / 2)) ||
- 			    (page_count(rx_buffer_info->page) != 1))
-@@ -767,9 +768,6 @@ static bool ixgbe_clean_rx_irq(struct ix
- 			else
- 				get_page(rx_buffer_info->page);
- 
--			skb->len += upper_len;
--			skb->data_len += upper_len;
--			skb->truesize += upper_len;
- 		}
- 
- 		i++;
-Index: mmotm/drivers/net/sky2.c
-===================================================================
---- mmotm.orig/drivers/net/sky2.c
-+++ mmotm/drivers/net/sky2.c
-@@ -1282,7 +1282,7 @@ static struct sk_buff *sky2_rx_alloc(str
- 		skb_reserve(skb, NET_IP_ALIGN);
- 
- 	for (i = 0; i < sky2->rx_nfrags; i++) {
--		struct page *page = alloc_page(GFP_ATOMIC);
-+		struct page *page = netdev_alloc_page(sky2->netdev);
- 
- 		if (!page)
- 			goto free_partial;
-@@ -2218,8 +2218,8 @@ static struct sk_buff *receive_copy(stru
- }
- 
- /* Adjust length of skb with fragments to match received data */
--static void skb_put_frags(struct sk_buff *skb, unsigned int hdr_space,
--			  unsigned int length)
-+static void skb_put_frags(struct sky2_port *sky2, struct sk_buff *skb,
-+			  unsigned int hdr_space, unsigned int length)
- {
- 	int i, num_frags;
- 	unsigned int size;
-@@ -2236,15 +2236,11 @@ static void skb_put_frags(struct sk_buff
- 
- 		if (length == 0) {
- 			/* don't need this page */
--			__free_page(frag->page);
-+			netdev_free_page(sky2->netdev, frag->page);
- 			--skb_shinfo(skb)->nr_frags;
- 		} else {
- 			size = min(length, (unsigned) PAGE_SIZE);
--
--			frag->size = size;
--			skb->data_len += size;
--			skb->truesize += size;
--			skb->len += size;
-+			skb_add_rx_frag(skb, i, frag->page, 0, size);
- 			length -= size;
- 		}
- 	}
-@@ -2275,7 +2271,7 @@ static struct sk_buff *receive_new(struc
- 	}
- 
- 	if (skb_shinfo(skb)->nr_frags)
--		skb_put_frags(skb, hdr_space, length);
-+		skb_put_frags(sky2, skb, hdr_space, length);
- 	else
- 		skb_put(skb, length);
- 	return skb;
-Index: mmotm/include/linux/skbuff.h
-===================================================================
---- mmotm.orig/include/linux/skbuff.h
-+++ mmotm/include/linux/skbuff.h
-@@ -1079,6 +1079,9 @@ static inline void skb_fill_page_desc(st
- extern void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page,
- 			    int off, int size);
- 
-+extern void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page,
-+			    int off, int size);
+ #ifdef CONFIG_SYSCTL
++static int
++proc_dointvec_fragment(struct ctl_table *table, int write, struct file *filp,
++		void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	struct net *net = container_of(table->data, struct net,
++				       ipv4.frags.high_thresh);
++	ctl_table tmp = *table;
++	int new_bytes, ret;
 +
- #define SKB_PAGE_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->nr_frags)
- #define SKB_FRAG_ASSERT(skb) 	BUG_ON(skb_has_frags(skb))
- #define SKB_LINEAR_ASSERT(skb)  BUG_ON(skb_is_nonlinear(skb))
++	mutex_lock(&net->ipv4.frags.lock);
++	if (write) {
++		tmp.data = &new_bytes;
++		table = &tmp;
++	}
++
++	ret = proc_dointvec(table, write, filp, buffer, lenp, ppos);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmalloc_set(&net->ipv4.frags.reserve,
++				new_bytes);
++		if (!ret)
++			net->ipv4.frags.high_thresh = new_bytes;
++	}
++	mutex_unlock(&net->ipv4.frags.lock);
++
++	return ret;
++}
++
++static int sysctl_intvec_fragment(struct ctl_table *table,
++		void __user *oldval, size_t __user *oldlenp,
++		void __user *newval, size_t newlen)
++{
++	struct net *net = container_of(table->data, struct net,
++				       ipv4.frags.high_thresh);
++	int write = (newval && newlen);
++	ctl_table tmp = *table;
++	int new_bytes, ret;
++
++	mutex_lock(&net->ipv4.frags.lock);
++	if (write) {
++		tmp.data = &new_bytes;
++		table = &tmp;
++	}
++
++	ret = sysctl_intvec(table, oldval, oldlenp, newval, newlen);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmalloc_set(&net->ipv4.frags.reserve,
++				new_bytes);
++		if (!ret)
++			net->ipv4.frags.high_thresh = new_bytes;
++	}
++	mutex_unlock(&net->ipv4.frags.lock);
++
++	return ret;
++}
++
+ static int zero;
+ 
+ static struct ctl_table ip4_frags_ns_ctl_table[] = {
+@@ -608,7 +667,8 @@ static struct ctl_table ip4_frags_ns_ctl
+ 		.data		= &init_net.ipv4.frags.high_thresh,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec
++		.proc_handler	= &proc_dointvec_fragment,
++		.strategy	= &sysctl_intvec_fragment,
+ 	},
+ 	{
+ 		.ctl_name	= NET_IPV4_IPFRAG_LOW_THRESH,
+@@ -711,6 +771,8 @@ static inline void ip4_frags_ctl_registe
+ 
+ static int ipv4_frags_init_net(struct net *net)
+ {
++	int ret;
++
+ 	/*
+ 	 * Fragment cache limits. We will commit 256K at one time. Should we
+ 	 * cross that limit we will prune down to 192K. This should cope with
+@@ -728,11 +790,31 @@ static int ipv4_frags_init_net(struct ne
+ 
+ 	inet_frags_init_net(&net->ipv4.frags);
+ 
+-	return ip4_frags_ns_ctl_register(net);
++	ret = ip4_frags_ns_ctl_register(net);
++	if (ret)
++		goto out_reg;
++
++	mem_reserve_init(&net->ipv4.frags.reserve, "IPv4 fragment cache",
++			&net_skb_reserve);
++	ret = mem_reserve_kmalloc_set(&net->ipv4.frags.reserve,
++			net->ipv4.frags.high_thresh);
++	if (ret)
++		goto out_reserve;
++
++	return 0;
++
++out_reserve:
++	mem_reserve_disconnect(&net->ipv4.frags.reserve);
++	ip4_frags_ns_ctl_unregister(net);
++out_reg:
++	inet_frags_exit_net(&net->ipv4.frags, &ip4_frags);
++
++	return ret;
+ }
+ 
+ static void ipv4_frags_exit_net(struct net *net)
+ {
++	mem_reserve_disconnect(&net->ipv4.frags.reserve);
+ 	ip4_frags_ns_ctl_unregister(net);
+ 	inet_frags_exit_net(&net->ipv4.frags, &ip4_frags);
+ }
+Index: mmotm/net/ipv6/reassembly.c
+===================================================================
+--- mmotm.orig/net/ipv6/reassembly.c
++++ mmotm/net/ipv6/reassembly.c
+@@ -41,6 +41,7 @@
+ #include <linux/random.h>
+ #include <linux/jhash.h>
+ #include <linux/skbuff.h>
++#include <linux/reserve.h>
+ 
+ #include <net/sock.h>
+ #include <net/snmp.h>
+@@ -634,6 +635,63 @@ static struct inet6_protocol frag_protoc
+ };
+ 
+ #ifdef CONFIG_SYSCTL
++static int
++proc_dointvec_fragment(struct ctl_table *table, int write, struct file *filp,
++		void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	struct net *net = container_of(table->data, struct net,
++				       ipv6.frags.high_thresh);
++	ctl_table tmp = *table;
++	int new_bytes, ret;
++
++	mutex_lock(&net->ipv6.frags.lock);
++	if (write) {
++		tmp.data = &new_bytes;
++		table = &tmp;
++	}
++
++	ret = proc_dointvec(table, write, filp, buffer, lenp, ppos);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmalloc_set(&net->ipv6.frags.reserve,
++					      new_bytes);
++		if (!ret)
++			net->ipv6.frags.high_thresh = new_bytes;
++	}
++	mutex_unlock(&net->ipv6.frags.lock);
++
++	return ret;
++}
++
++static int sysctl_intvec_fragment(struct ctl_table *table,
++		void __user *oldval, size_t __user *oldlenp,
++		void __user *newval, size_t newlen)
++{
++	struct net *net = container_of(table->data, struct net,
++				       ipv6.frags.high_thresh);
++	int write = (newval && newlen);
++	ctl_table tmp = *table;
++	int new_bytes, ret;
++
++	mutex_lock(&net->ipv6.frags.lock);
++	if (write) {
++		tmp.data = &new_bytes;
++		table = &tmp;
++	}
++
++	ret = sysctl_intvec(table, oldval, oldlenp, newval, newlen);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmalloc_set(&net->ipv6.frags.reserve,
++					      new_bytes);
++		if (!ret)
++			net->ipv6.frags.high_thresh = new_bytes;
++	}
++	mutex_unlock(&net->ipv6.frags.lock);
++
++	return ret;
++}
++
+ static struct ctl_table ip6_frags_ns_ctl_table[] = {
+ 	{
+ 		.ctl_name	= NET_IPV6_IP6FRAG_HIGH_THRESH,
+@@ -641,7 +699,8 @@ static struct ctl_table ip6_frags_ns_ctl
+ 		.data		= &init_net.ipv6.frags.high_thresh,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec
++		.proc_handler	= &proc_dointvec_fragment,
++		.strategy	= &sysctl_intvec_fragment,
+ 	},
+ 	{
+ 		.ctl_name	= NET_IPV6_IP6FRAG_LOW_THRESH,
+@@ -750,17 +809,39 @@ static inline void ip6_frags_sysctl_unre
+ 
+ static int ipv6_frags_init_net(struct net *net)
+ {
++	int ret;
++
+ 	net->ipv6.frags.high_thresh = 256 * 1024;
+ 	net->ipv6.frags.low_thresh = 192 * 1024;
+ 	net->ipv6.frags.timeout = IPV6_FRAG_TIMEOUT;
+ 
+ 	inet_frags_init_net(&net->ipv6.frags);
+ 
+-	return ip6_frags_ns_sysctl_register(net);
++	ret = ip6_frags_ns_sysctl_register(net);
++	if (ret)
++		goto out_reg;
++
++	mem_reserve_init(&net->ipv6.frags.reserve, "IPv6 fragment cache",
++			 &net_skb_reserve);
++	ret = mem_reserve_kmalloc_set(&net->ipv6.frags.reserve,
++				      net->ipv6.frags.high_thresh);
++	if (ret)
++		goto out_reserve;
++
++	return 0;
++
++out_reserve:
++	mem_reserve_disconnect(&net->ipv6.frags.reserve);
++	ip6_frags_ns_sysctl_unregister(net);
++out_reg:
++	inet_frags_exit_net(&net->ipv6.frags, &ip6_frags);
++
++	return ret;
+ }
+ 
+ static void ipv6_frags_exit_net(struct net *net)
+ {
++	mem_reserve_disconnect(&net->ipv6.frags.reserve);
+ 	ip6_frags_ns_sysctl_unregister(net);
+ 	inet_frags_exit_net(&net->ipv6.frags, &ip6_frags);
+ }
+Index: mmotm/net/ipv4/route.c
+===================================================================
+--- mmotm.orig/net/ipv4/route.c
++++ mmotm/net/ipv4/route.c
+@@ -107,6 +107,7 @@
+ #ifdef CONFIG_SYSCTL
+ #include <linux/sysctl.h>
+ #endif
++#include <linux/reserve.h>
+ 
+ #define RT_FL_TOS(oldflp) \
+     ((u32)(oldflp->fl4_tos & (IPTOS_RT_MASK | RTO_ONLINK)))
+@@ -271,6 +272,8 @@ static inline int rt_genid(struct net *n
+ 	return atomic_read(&net->ipv4.rt_genid);
+ }
+ 
++static struct mem_reserve ipv4_route_reserve;
++
+ #ifdef CONFIG_PROC_FS
+ struct rt_cache_iter_state {
+ 	struct seq_net_private p;
+@@ -400,6 +403,61 @@ static int rt_cache_seq_show(struct seq_
+ 	return 0;
+ }
+ 
++static struct mutex ipv4_route_lock;
++
++static int
++proc_dointvec_route(struct ctl_table *table, int write, struct file *filp,
++		void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	ctl_table tmp = *table;
++	int new_size, ret;
++
++	mutex_lock(&ipv4_route_lock);
++	if (write) {
++		tmp.data = &new_size;
++		table = &tmp;
++	}
++
++	ret = proc_dointvec(table, write, filp, buffer, lenp, ppos);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmem_cache_set(&ipv4_route_reserve,
++				ipv4_dst_ops.kmem_cachep, new_size);
++		if (!ret)
++			ip_rt_max_size = new_size;
++	}
++	mutex_unlock(&ipv4_route_lock);
++
++	return ret;
++}
++
++static int sysctl_intvec_route(struct ctl_table *table,
++		void __user *oldval, size_t __user *oldlenp,
++		void __user *newval, size_t newlen)
++{
++	int write = (newval && newlen);
++	ctl_table tmp = *table;
++	int new_size, ret;
++
++	mutex_lock(&ipv4_route_lock);
++	if (write) {
++		tmp.data = &new_size;
++		table = &tmp;
++	}
++
++	ret = sysctl_intvec(table, oldval, oldlenp, newval, newlen);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmem_cache_set(&ipv4_route_reserve,
++				ipv4_dst_ops.kmem_cachep, new_size);
++		if (!ret)
++			ip_rt_max_size = new_size;
++	}
++	mutex_unlock(&ipv4_route_lock);
++
++	return ret;
++}
++
+ static const struct seq_operations rt_cache_seq_ops = {
+ 	.start  = rt_cache_seq_start,
+ 	.next   = rt_cache_seq_next,
+@@ -3145,7 +3203,8 @@ static ctl_table ipv4_route_table[] = {
+ 		.data		= &ip_rt_max_size,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= &proc_dointvec_route,
++		.strategy	= &sysctl_intvec_route,
+ 	},
+ 	{
+ 		/*  Deprecated. Use gc_min_interval_ms */
+@@ -3424,6 +3483,15 @@ int __init ip_rt_init(void)
+ 	ipv4_dst_ops.gc_thresh = (rt_hash_mask + 1);
+ 	ip_rt_max_size = (rt_hash_mask + 1) * 16;
+ 
++#ifdef CONFIG_PROCFS
++	mutex_init(&ipv4_route_lock);
++#endif
++
++	mem_reserve_init(&ipv4_route_reserve, "IPv4 route cache",
++			&net_rx_reserve);
++	mem_reserve_kmem_cache_set(&ipv4_route_reserve,
++			ipv4_dst_ops.kmem_cachep, ip_rt_max_size);
++
+ 	devinet_init();
+ 	ip_fib_init();
+ 
+Index: mmotm/net/ipv6/route.c
+===================================================================
+--- mmotm.orig/net/ipv6/route.c
++++ mmotm/net/ipv6/route.c
+@@ -37,6 +37,7 @@
+ #include <linux/mroute6.h>
+ #include <linux/init.h>
+ #include <linux/if_arp.h>
++#include <linux/reserve.h>
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+ #include <linux/nsproxy.h>
+@@ -2537,6 +2538,63 @@ int ipv6_sysctl_rtcache_flush(ctl_table
+ 		return -EINVAL;
+ }
+ 
++static int
++proc_dointvec_route(struct ctl_table *table, int write, struct file *filp,
++		void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	struct net *net = container_of(table->data, struct net,
++				       ipv6.sysctl.ip6_rt_max_size);
++	ctl_table tmp = *table;
++	int new_size, ret;
++
++	mutex_lock(&net->ipv6.sysctl.ip6_rt_lock);
++	if (write) {
++		tmp.data = &new_size;
++		table = &tmp;
++	}
++
++	ret = proc_dointvec(table, write, filp, buffer, lenp, ppos);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmem_cache_set(&net->ipv6.ip6_rt_reserve,
++				net->ipv6.ip6_dst_ops->kmem_cachep, new_size);
++		if (!ret)
++			net->ipv6.sysctl.ip6_rt_max_size = new_size;
++	}
++	mutex_unlock(&net->ipv6.sysctl.ip6_rt_lock);
++
++	return ret;
++}
++
++static int sysctl_intvec_route(struct ctl_table *table,
++		void __user *oldval, size_t __user *oldlenp,
++		void __user *newval, size_t newlen)
++{
++	struct net *net = container_of(table->data, struct net,
++				       ipv6.sysctl.ip6_rt_max_size);
++	int write = (newval && newlen);
++	ctl_table tmp = *table;
++	int new_size, ret;
++
++	mutex_lock(&net->ipv6.sysctl.ip6_rt_lock);
++	if (write) {
++		tmp.data = &new_size;
++		table = &tmp;
++	}
++
++	ret = sysctl_intvec(table, oldval, oldlenp, newval, newlen);
++
++	if (!ret && write) {
++		ret = mem_reserve_kmem_cache_set(&net->ipv6.ip6_rt_reserve,
++				net->ipv6.ip6_dst_ops->kmem_cachep, new_size);
++		if (!ret)
++			net->ipv6.sysctl.ip6_rt_max_size = new_size;
++	}
++	mutex_unlock(&net->ipv6.sysctl.ip6_rt_lock);
++
++	return ret;
++}
++
+ ctl_table ipv6_route_table_template[] = {
+ 	{
+ 		.procname	=	"flush",
+@@ -2559,7 +2617,8 @@ ctl_table ipv6_route_table_template[] =
+ 		.data		=	&init_net.ipv6.sysctl.ip6_rt_max_size,
+ 		.maxlen		=	sizeof(int),
+ 		.mode		=	0644,
+-		.proc_handler	=	proc_dointvec,
++		.proc_handler	=	&proc_dointvec_route,
++		.strategy	= 	&sysctl_intvec_route,
+ 	},
+ 	{
+ 		.ctl_name	=	NET_IPV6_ROUTE_GC_MIN_INTERVAL,
+@@ -2647,6 +2706,8 @@ struct ctl_table *ipv6_route_sysctl_init
+ 		table[8].data = &net->ipv6.sysctl.ip6_rt_min_advmss;
+ 	}
+ 
++	mutex_init(&net->ipv6.sysctl.ip6_rt_lock);
++
+ 	return table;
+ }
+ #endif
+@@ -2700,6 +2761,14 @@ static int ip6_route_net_init(struct net
+ 	net->ipv6.sysctl.ip6_rt_mtu_expires = 10*60*HZ;
+ 	net->ipv6.sysctl.ip6_rt_min_advmss = IPV6_MIN_MTU - 20 - 40;
+ 
++	mem_reserve_init(&net->ipv6.ip6_rt_reserve, "IPv6 route cache",
++			 &net_rx_reserve);
++	ret = mem_reserve_kmem_cache_set(&net->ipv6.ip6_rt_reserve,
++			net->ipv6.ip6_dst_ops->kmem_cachep,
++			net->ipv6.sysctl.ip6_rt_max_size);
++	if (ret)
++		goto out_reserve_fail;
++
+ #ifdef CONFIG_PROC_FS
+ 	proc_net_fops_create(net, "ipv6_route", 0, &ipv6_route_proc_fops);
+ 	proc_net_fops_create(net, "rt6_stats", S_IRUGO, &rt6_stats_seq_fops);
+@@ -2710,12 +2779,15 @@ static int ip6_route_net_init(struct net
+ out:
+ 	return ret;
+ 
++out_reserve_fail:
++	mem_reserve_disconnect(&net->ipv6.ip6_rt_reserve);
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
++	kfree(net->ipv6.ip6_blk_hole_entry);
+ out_ip6_prohibit_entry:
+ 	kfree(net->ipv6.ip6_prohibit_entry);
+ out_ip6_null_entry:
+-	kfree(net->ipv6.ip6_null_entry);
+ #endif
++	kfree(net->ipv6.ip6_null_entry);
+ out_ip6_dst_ops:
+ 	release_net(net->ipv6.ip6_dst_ops->dst_net);
+ 	kfree(net->ipv6.ip6_dst_ops);
+@@ -2728,6 +2800,7 @@ static void ip6_route_net_exit(struct ne
+ 	proc_net_remove(net, "ipv6_route");
+ 	proc_net_remove(net, "rt6_stats");
+ #endif
++	mem_reserve_disconnect(&net->ipv6.ip6_rt_reserve);
+ 	kfree(net->ipv6.ip6_null_entry);
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+ 	kfree(net->ipv6.ip6_prohibit_entry);
+Index: mmotm/include/net/inet_frag.h
+===================================================================
+--- mmotm.orig/include/net/inet_frag.h
++++ mmotm/include/net/inet_frag.h
+@@ -1,6 +1,9 @@
+ #ifndef __NET_FRAG_H__
+ #define __NET_FRAG_H__
+ 
++#include <linux/reserve.h>
++#include <linux/mutex.h>
++
+ struct netns_frags {
+ 	int			nqueues;
+ 	atomic_t		mem;
+@@ -10,6 +13,10 @@ struct netns_frags {
+ 	int			timeout;
+ 	int			high_thresh;
+ 	int			low_thresh;
++
++	/* reserves */
++	struct mutex		lock;
++	struct mem_reserve	reserve;
+ };
+ 
+ struct inet_frag_queue {
+Index: mmotm/net/ipv4/inet_fragment.c
+===================================================================
+--- mmotm.orig/net/ipv4/inet_fragment.c
++++ mmotm/net/ipv4/inet_fragment.c
+@@ -19,6 +19,7 @@
+ #include <linux/random.h>
+ #include <linux/skbuff.h>
+ #include <linux/rtnetlink.h>
++#include <linux/reserve.h>
+ 
+ #include <net/inet_frag.h>
+ 
+@@ -74,6 +75,8 @@ void inet_frags_init_net(struct netns_fr
+ 	nf->nqueues = 0;
+ 	atomic_set(&nf->mem, 0);
+ 	INIT_LIST_HEAD(&nf->lru_list);
++	mutex_init(&nf->lock);
++	mem_reserve_init(&nf->reserve, "IP fragement cache", NULL);
+ }
+ EXPORT_SYMBOL(inet_frags_init_net);
+ 
+Index: mmotm/include/net/netns/ipv6.h
+===================================================================
+--- mmotm.orig/include/net/netns/ipv6.h
++++ mmotm/include/net/netns/ipv6.h
+@@ -24,6 +24,8 @@ struct netns_sysctl_ipv6 {
+ 	int ip6_rt_mtu_expires;
+ 	int ip6_rt_min_advmss;
+ 	int icmpv6_time;
++
++	struct mutex ip6_rt_lock;
+ };
+ 
+ struct netns_ipv6 {
+@@ -55,6 +57,8 @@ struct netns_ipv6 {
+ 	struct sock             *ndisc_sk;
+ 	struct sock             *tcp_sk;
+ 	struct sock             *igmp_sk;
++
++	struct mem_reserve	ip6_rt_reserve;
+ #ifdef CONFIG_IPV6_MROUTE
+ 	struct sock		*mroute6_sk;
+ 	struct mfc6_cache	**mfc6_cache_array;
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
