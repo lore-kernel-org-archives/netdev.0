@@ -1,90 +1,93 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: [PATCH] net: fix NOHZ: local_softirq_pending 08
-Date: Thu, 01 Oct 2009 09:08:06 +0200
-Message-ID: <4AC45556.9080303@hartkopp.net>
-References: <1254324077.3959.7.camel@johannes.local>	<4AC39A90.6060602@hartkopp.net>	<4AC3A0F1.3060306@hartkopp.net> <20090930.163333.234658158.davem@davemloft.net>
+From: Lars Ellenberg <lars.ellenberg@linbit.com>
+Subject: Re: [PATCH] connector: Allow permission checking in the receiver
+	callbacks
+Date: Thu, 1 Oct 2009 10:01:52 +0200
+Message-ID: <20091001080152.GA8018@barkeeper1-xen.linbit>
+References: <1254235692-1631-1-git-send-email-philipp.reisner@linbit.com> <20090930112057.GA15150@ioremap.net> <20090930132034.GE8032@barkeeper1-xen.linbit> <20090930192928.GA1315@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, mb@bu3sch.de, kalle.valo@iki.fi,
-	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:11177 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755566AbZJAHIG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 03:08:06 -0400
-In-Reply-To: <20090930.163333.234658158.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Philipp Reisner <philipp.reisner@linbit.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.com>
+To: Evgeniy Polyakov <zbr@ioremap.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755821AbZJAIBv@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090930192928.GA1315@ioremap.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Oliver Hartkopp <oliver@hartkopp.net>
-> Date: Wed, 30 Sep 2009 20:18:25 +0200
-> 
->> Socket buffers that are generated and received inside softirqs or from process
->> context must not use netif_rx() that's intended to be used from irq context only.
->>
->> This patch introduces a new helper function netif_rx_ti(skb) that tests for
->> in_interrupt() before invoking netif_rx() or netif_rx_ni().
->>
->> It fixes the ratelimited kernel warning
->>
->>         NOHZ: local_softirq_pending 08
->>
->> in the mac80211 and can subsystems.
->>
->> Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
-> 
-> I bet all of these code paths can use netif_receive_skb() or
-> don't need this conditional blob at all.
-> 
-> Looking at some specific cases in this patch:
-> 
-> 1) VCAN:  This RX routine is only invoked from the drivers
->    ->ndo_start_xmit() handler, and therefore like the loopback
->    driver we know that BH's are already disabled and therefore
->    it can always use netif_rx() safely.
-> 
->    Why did you convert this case?
-> 
->    And if this needs to be converted, why doesn't loopback need
->    to be?
-> 
-> 2) af_can.c:  In what situation will netif_rx_ni() not be appropriate
->    here?  It should always execute in softirq or user context, now
->    hardirq context.
-> 
-> And the list goes on and on, I don't really like this new conditional
-> testing of interrupt state.
+On Wed, Sep 30, 2009 at 11:29:28PM +0400, Evgeniy Polyakov wrote:
+> On Wed, Sep 30, 2009 at 03:20:35PM +0200, Lars Ellenberg (lars.ellenb=
+erg@linbit.com) wrote:
+> > Actually it is the basis for follow-up security fixes.
+> >=20
+> > Without this, unprivileged user space is able to send arbitrary
+> > connector requests to kernel subsystems, which have no way to verif=
+y the
+> > privileges of the sender anymore, because that information, even th=
+ough
+> > available at the netlink layer, has been dropped by the connector.
+>=20
+> It is not. One can add some checks at receiving time which happens in
+> process context to get its credentials, but nothing in netlink itself
+> carry this info. Getting that connector schedules workqueue this abil=
+ity
+> is lost.
 
-Hello Dave,
+Please correct me if I'm wrong.
 
-i'm confused about in_interrupt(), in_softirq() and in_irq() as pointed out by
-Johannes here:
+My understanding is, that in netlink_sendmsg, the credentials and
+capabilities are copied into skb->cb.
+During kernel side receive, these can be checked.
 
-http://marc.info/?l=linux-wireless&m=125432410405562&w=2
+If we pass the skb, instead of just the msg, then even an asynchronousl=
+y
+scheduled receive callback, running in any workqueue or other context,
+can check for these credentials.
 
-Indeed in the two cases for the CAN stuff (in vcan.c and af_can.c) the skb's
-are received in process-context and softirq-context only.
+Passing skb instead of just the msg for use in cn_queue_wrapper
+is what the fist patch does.
 
-Therefore i used netif_rx_ni() in my last change of this code.
+Second patch changes the semantics of the actual callback
+to be passed in the msg _and_ the netlink_skb_parms, both
+"reconstructed" from the skb.
 
-Now i was reading from Johannes that in_interrupt() is used for
-hardirq-context /and/ softirq-context, so i was just *unsure* and used the
-newly introduced netif_rx_ti() for that, which tests for in_interrupt().
+Now, in the end-user callback, there is the actual msg,
+but also the netlink_skb_parms.
+So this enables the end-user callback, running in arbitrary context,
+to check capabilities and other credentials of the sending process.
 
-Indeed i'm not really happy with that, as it is always better to check each
-receive case in which context it can be used and used exactly the right
-function for that.
 
-So when netif_rx_ni() or netif_receive_skb() is the best i can use when in
-process-context or in softirq-context, i'll do it with pleasure.
+> > Once this is applied, the various in-kernel receiving connector
+> > callbacks can (and need to) add cap_raised(nsb->eff_cap, cap) where
+> > appropriate. For example, you don't want some guest user to be able=
+ to
+> > trigger a dst_del_node callback by sending a crafted netlink messag=
+e,
+> > right?
+> >=20
+> > So it _is_ a (design-) bug fix.
+> > Or am I missing something?
+>=20
+> This patchset is not a bugfix, just a cleanup, since none in patchset
+> uses netlink_skb_parms
 
-And if it is like this the problematic netif_rx() calls in mac80211 need to be
-sorted out in detail also ...
+3. and 4. patch are in fact merely cleanups.
 
-Regards,
-Oliver
+> and currently I see no users which are affected
+> by this behaviour in the mainline branch (not counting staging tree).
+>=20
+> But if proposed configuration changes for DM are on the way, then I
+> agree and they should force this patchset into the tree as a bugfix.
+>=20
+> --=20
+> 	Evgeniy Polyakov
+>=20
 
+--=20
+: Lars Ellenberg
+: LINBIT | Your Way to High Availability
+: DRBD/HA support and consulting http://www.linbit.com
+
+DRBD=AE and LINBIT=AE are registered trademarks of LINBIT, Austria.
