@@ -1,8 +1,8 @@
 From: Suresh Jayaraman <sjayaraman@suse.de>
-Subject: [PATCH 15/31] netvm: network reserve infrastructure
-Date: Thu,  1 Oct 2009 19:37:34 +0530
-Message-ID: <1254406054-16192-1-git-send-email-sjayaraman@suse.de>
-Cc: netdev@vger.kernel.org, Neil Brown <neilb@suse.de>, Miklos Szeredi <mszeredi@suse.cz>, Wouter Verhelst <w@uter.be>, Peter Zijlstra <a.p.zijlstra@chello.nl>, trond.myklebust@fys.uio.no, Suresh Jayaraman <sjayaraman@suse.de>
+Subject: [PATCH 13/31] net: packet split receive api
+Date: Thu,  1 Oct 2009 19:37:10 +0530
+Message-ID: <1254406030-16120-1-git-send-email-sjayaraman@suse.de>
+Cc: netdev@vger.kernel.org, Neil Brown <neilb@suse.de>, Miklos Szeredi <mszeredi@suse.cz>, Wouter Verhelst <w@uter.be>, Peter Zijlstra <a.p.zijlstra@chello.nl>, trond.myklebust@fys.uio.no, Jiri Bohac <jbohac@suse.cz>, Suresh Jayaraman <sjayaraman@suse.de>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org,
@@ -13,262 +13,237 @@ List-Id: netdev.vger.kernel.org
 
 From: Peter Zijlstra <a.p.zijlstra@chello.nl> 
 
-Provide the basic infrastructure to reserve and charge/account network memory.
+Add some packet-split receive hooks.
 
-We provide the following reserve tree:
+For one this allows to do NUMA node affine page allocs. Later on these hooks
+will be extended to do emergency reserve allocations for fragments.
 
-1)  total network reserve
-2)    network TX reserve
-3)      protocol TX pages
-4)    network RX reserve
-5)      SKB data reserve
-
-[1] is used to make all the network reserves a single subtree, for easy
-manipulation.
-
-[2] and [4] are merely for eastetic reasons.
-
-The TX pages reserve [3] is assumed bounded by it being the upper bound of
-memory that can be used for sending pages (not quite true, but good enough)
-
-The SKB reserve [5] is an aggregate reserve, which is used to charge SKB data
-against in the fallback path.
-
-The consumers for these reserves are sockets marked with:
-  SOCK_MEMALLOC
-
-Such sockets are to be used to service the VM (iow. to swap over). They
-must be handled kernel side, exposing such a socket to user-space is a BUG.
+Thanks to Jiri Bohac for fixing a bug in bnx2.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Signed-off-by: Jiri Bohac <jbohac@suse.cz>
 Signed-off-by: Suresh Jayaraman <sjayaraman@suse.de>
 ---
- include/net/sock.h |   43 ++++++++++++++++++++-
- net/Kconfig        |    3 +
- net/core/sock.c    |  107 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 152 insertions(+), 1 deletion(-)
+ drivers/net/bnx2.c             |    9 +++------
+ drivers/net/e1000e/netdev.c    |    7 ++-----
+ drivers/net/igb/igb_main.c     |    9 ++-------
+ drivers/net/ixgbe/ixgbe_main.c |   14 ++++++--------
+ drivers/net/sky2.c             |   16 ++++++----------
+ include/linux/skbuff.h         |    3 +++
+ 6 files changed, 22 insertions(+), 36 deletions(-)
 
-Index: mmotm/include/net/sock.h
+Index: mmotm/drivers/net/bnx2.c
 ===================================================================
---- mmotm.orig/include/net/sock.h
-+++ mmotm/include/net/sock.h
-@@ -51,6 +51,7 @@
- #include <linux/skbuff.h>	/* struct sk_buff */
- #include <linux/mm.h>
- #include <linux/security.h>
-+#include <linux/reserve.h>
+--- mmotm.orig/drivers/net/bnx2.c
++++ mmotm/drivers/net/bnx2.c
+@@ -2648,7 +2648,7 @@ bnx2_alloc_rx_page(struct bnx2 *bp, stru
+ 	struct sw_pg *rx_pg = &rxr->rx_pg_ring[index];
+ 	struct rx_bd *rxbd =
+ 		&rxr->rx_pg_desc_ring[RX_RING(index)][RX_IDX(index)];
+-	struct page *page = alloc_page(GFP_ATOMIC);
++	struct page *page = netdev_alloc_page(bp->dev);
  
- #include <linux/filter.h>
- #include <linux/rculist_nulls.h>
-@@ -497,6 +498,7 @@ enum sock_flags {
- 	SOCK_RCVTSTAMPNS, /* %SO_TIMESTAMPNS setting */
- 	SOCK_LOCALROUTE, /* route locally only, %SO_DONTROUTE setting */
- 	SOCK_QUEUE_SHRUNK, /* write queue has been shrunk recently */
-+	SOCK_MEMALLOC, /* the VM depends on us - make sure we're serviced */
- 	SOCK_TIMESTAMPING_TX_HARDWARE,  /* %SOF_TIMESTAMPING_TX_HARDWARE */
- 	SOCK_TIMESTAMPING_TX_SOFTWARE,  /* %SOF_TIMESTAMPING_TX_SOFTWARE */
- 	SOCK_TIMESTAMPING_RX_HARDWARE,  /* %SOF_TIMESTAMPING_RX_HARDWARE */
-@@ -526,9 +528,48 @@ static inline int sock_flag(struct sock
- 	return test_bit(flag, &sk->sk_flags);
+ 	if (!page)
+ 		return -ENOMEM;
+@@ -2678,7 +2678,7 @@ bnx2_free_rx_page(struct bnx2 *bp, struc
+ 	pci_unmap_page(bp->pdev, pci_unmap_addr(rx_pg, mapping), PAGE_SIZE,
+ 		       PCI_DMA_FROMDEVICE);
+ 
+-	__free_page(page);
++	netdev_free_page(bp->dev, page);
+ 	rx_pg->page = NULL;
  }
  
-+static inline int sk_has_memalloc(struct sock *sk)
-+{
-+	return sock_flag(sk, SOCK_MEMALLOC);
-+}
-+
-+extern struct mem_reserve net_rx_reserve;
-+extern struct mem_reserve net_skb_reserve;
-+
-+#ifdef CONFIG_NETVM
-+/*
-+ * Guestimate the per request queue TX upper bound.
-+ *
-+ * Max packet size is 64k, and we need to reserve that much since the data
-+ * might need to bounce it. Double it to be on the safe side.
-+ */
-+#define TX_RESERVE_PAGES DIV_ROUND_UP(2*65536, PAGE_SIZE)
-+
-+extern int memalloc_socks;
-+
-+static inline int sk_memalloc_socks(void)
-+{
-+	return memalloc_socks;
-+}
-+
-+extern int sk_adjust_memalloc(int socks, long tx_reserve_pages);
-+extern int sk_set_memalloc(struct sock *sk);
-+extern int sk_clear_memalloc(struct sock *sk);
-+#else
-+static inline int sk_memalloc_socks(void)
-+{
-+	return 0;
-+}
-+
-+static inline int sk_clear_memalloc(struct sock *sk)
-+{
-+	return 0;
-+}
-+#endif
-+
- static inline gfp_t sk_allocation(struct sock *sk, gfp_t gfp_mask)
+@@ -3003,7 +3003,7 @@ bnx2_rx_skb(struct bnx2 *bp, struct bnx2
+ 			if (i == pages - 1)
+ 				frag_len -= 4;
+ 
+-			skb_fill_page_desc(skb, i, rx_pg->page, 0, frag_len);
++			skb_add_rx_frag(skb, i, rx_pg->page, 0, frag_len);
+ 			rx_pg->page = NULL;
+ 
+ 			err = bnx2_alloc_rx_page(bp, rxr,
+@@ -3020,9 +3020,6 @@ bnx2_rx_skb(struct bnx2 *bp, struct bnx2
+ 				       PAGE_SIZE, PCI_DMA_FROMDEVICE);
+ 
+ 			frag_size -= frag_len;
+-			skb->data_len += frag_len;
+-			skb->truesize += frag_len;
+-			skb->len += frag_len;
+ 
+ 			pg_prod = NEXT_RX_BD(pg_prod);
+ 			pg_cons = RX_PG_RING_IDX(NEXT_RX_BD(pg_cons));
+Index: mmotm/drivers/net/e1000e/netdev.c
+===================================================================
+--- mmotm.orig/drivers/net/e1000e/netdev.c
++++ mmotm/drivers/net/e1000e/netdev.c
+@@ -259,7 +259,7 @@ static void e1000_alloc_rx_buffers_ps(st
+ 				continue;
+ 			}
+ 			if (!ps_page->page) {
+-				ps_page->page = alloc_page(GFP_ATOMIC);
++				ps_page->page = netdev_alloc_page(netdev);
+ 				if (!ps_page->page) {
+ 					adapter->alloc_rx_buff_failed++;
+ 					goto no_buffers;
+@@ -820,11 +820,8 @@ static bool e1000_clean_rx_irq_ps(struct
+ 			pci_unmap_page(pdev, ps_page->dma, PAGE_SIZE,
+ 				       PCI_DMA_FROMDEVICE);
+ 			ps_page->dma = 0;
+-			skb_fill_page_desc(skb, j, ps_page->page, 0, length);
++			skb_add_rx_frag(skb, j, ps_page->page, 0, length);
+ 			ps_page->page = NULL;
+-			skb->len += length;
+-			skb->data_len += length;
+-			skb->truesize += length;
+ 		}
+ 
+ 		/* strip the ethernet crc, problem is we're using pages now so
+Index: mmotm/drivers/net/igb/igb_main.c
+===================================================================
+--- mmotm.orig/drivers/net/igb/igb_main.c
++++ mmotm/drivers/net/igb/igb_main.c
+@@ -4616,7 +4616,7 @@ static bool igb_clean_rx_irq_adv(struct
+ 				       PAGE_SIZE / 2, PCI_DMA_FROMDEVICE);
+ 			buffer_info->page_dma = 0;
+ 
+-			skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags++,
++			skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags++,
+ 						buffer_info->page,
+ 						buffer_info->page_offset,
+ 						length);
+@@ -4626,11 +4626,6 @@ static bool igb_clean_rx_irq_adv(struct
+ 				buffer_info->page = NULL;
+ 			else
+ 				get_page(buffer_info->page);
+-
+-			skb->len += length;
+-			skb->data_len += length;
+-
+-			skb->truesize += length;
+ 		}
+ 
+ 		if (!(staterr & E1000_RXD_STAT_EOP)) {
+@@ -4755,7 +4750,7 @@ static void igb_alloc_rx_buffers_adv(str
+ 
+ 		if (adapter->rx_ps_hdr_size && !buffer_info->page_dma) {
+ 			if (!buffer_info->page) {
+-				buffer_info->page = alloc_page(GFP_ATOMIC);
++				buffer_info->page = netdev_alloc_page(netdev);
+ 				if (!buffer_info->page) {
+ 					adapter->alloc_rx_buff_failed++;
+ 					goto no_buffers;
+Index: mmotm/drivers/net/ixgbe/ixgbe_main.c
+===================================================================
+--- mmotm.orig/drivers/net/ixgbe/ixgbe_main.c
++++ mmotm/drivers/net/ixgbe/ixgbe_main.c
+@@ -574,6 +574,7 @@ static void ixgbe_alloc_rx_buffers(struc
+                                    int cleaned_count)
  {
--	return gfp_mask;
-+	return gfp_mask | (sk->sk_allocation & __GFP_MEMALLOC);
+ 	struct pci_dev *pdev = adapter->pdev;
++	struct net_device *netdev = adapter->netdev;
+ 	union ixgbe_adv_rx_desc *rx_desc;
+ 	struct ixgbe_rx_buffer *bi;
+ 	unsigned int i;
+@@ -587,7 +588,7 @@ static void ixgbe_alloc_rx_buffers(struc
+ 		if (!bi->page_dma &&
+ 		    (rx_ring->flags & IXGBE_RING_RX_PS_ENABLED)) {
+ 			if (!bi->page) {
+-				bi->page = alloc_page(GFP_ATOMIC);
++				bi->page = netdev_alloc_page(netdev);
+ 				if (!bi->page) {
+ 					adapter->alloc_rx_page_failed++;
+ 					goto no_buffers;
+@@ -756,10 +757,10 @@ static bool ixgbe_clean_rx_irq(struct ix
+ 			pci_unmap_page(pdev, rx_buffer_info->page_dma,
+ 			               PAGE_SIZE / 2, PCI_DMA_FROMDEVICE);
+ 			rx_buffer_info->page_dma = 0;
+-			skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags,
+-			                   rx_buffer_info->page,
+-			                   rx_buffer_info->page_offset,
+-			                   upper_len);
++			skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
++					rx_buffer_info->page,
++					rx_buffer_info->page_offset,
++					upper_len);
+ 
+ 			if ((rx_ring->rx_buf_len > (PAGE_SIZE / 2)) ||
+ 			    (page_count(rx_buffer_info->page) != 1))
+@@ -767,9 +768,6 @@ static bool ixgbe_clean_rx_irq(struct ix
+ 			else
+ 				get_page(rx_buffer_info->page);
+ 
+-			skb->len += upper_len;
+-			skb->data_len += upper_len;
+-			skb->truesize += upper_len;
+ 		}
+ 
+ 		i++;
+Index: mmotm/drivers/net/sky2.c
+===================================================================
+--- mmotm.orig/drivers/net/sky2.c
++++ mmotm/drivers/net/sky2.c
+@@ -1282,7 +1282,7 @@ static struct sk_buff *sky2_rx_alloc(str
+ 		skb_reserve(skb, NET_IP_ALIGN);
+ 
+ 	for (i = 0; i < sky2->rx_nfrags; i++) {
+-		struct page *page = alloc_page(GFP_ATOMIC);
++		struct page *page = netdev_alloc_page(sky2->netdev);
+ 
+ 		if (!page)
+ 			goto free_partial;
+@@ -2218,8 +2218,8 @@ static struct sk_buff *receive_copy(stru
  }
  
- static inline void sk_acceptq_removed(struct sock *sk)
-Index: mmotm/net/core/sock.c
-===================================================================
---- mmotm.orig/net/core/sock.c
-+++ mmotm/net/core/sock.c
-@@ -110,6 +110,7 @@
- #include <linux/tcp.h>
- #include <linux/init.h>
- #include <linux/highmem.h>
-+#include <linux/reserve.h>
- 
- #include <asm/uaccess.h>
- #include <asm/system.h>
-@@ -217,6 +218,105 @@ __u32 sysctl_rmem_default __read_mostly
- int sysctl_optmem_max __read_mostly = sizeof(unsigned long)*(2*UIO_MAXIOV+512);
- EXPORT_SYMBOL(sysctl_optmem_max);
- 
-+static struct mem_reserve net_reserve;
-+struct mem_reserve net_rx_reserve;
-+EXPORT_SYMBOL_GPL(net_rx_reserve); /* modular ipv6 only */
-+struct mem_reserve net_skb_reserve;
-+EXPORT_SYMBOL_GPL(net_skb_reserve); /* modular ipv6 only */
-+static struct mem_reserve net_tx_reserve;
-+static struct mem_reserve net_tx_pages;
-+
-+#ifdef CONFIG_NETVM
-+static DEFINE_MUTEX(memalloc_socks_lock);
-+int memalloc_socks;
-+
-+/**
-+ *	sk_adjust_memalloc - adjust the global memalloc reserve for critical RX
-+ *	@socks: number of new %SOCK_MEMALLOC sockets
-+ *	@tx_resserve_pages: number of pages to (un)reserve for TX
-+ *
-+ *	This function adjusts the memalloc reserve based on system demand.
-+ *	The RX reserve is a limit, and only added once, not for each socket.
-+ *
-+ *	NOTE:
-+ *	   @tx_reserve_pages is an upper-bound of memory used for TX hence
-+ *	   we need not account the pages like we do for RX pages.
-+ */
-+int sk_adjust_memalloc(int socks, long tx_reserve_pages)
-+{
-+	int err;
-+
-+	mutex_lock(&memalloc_socks_lock);
-+	err = mem_reserve_pages_add(&net_tx_pages, tx_reserve_pages);
-+	if (err)
-+		goto unlock;
-+
-+	/*
-+	 * either socks is positive and we need to check for 0 -> !0
-+	 * transition and connect the reserve tree when we observe it.
-+	 */
-+	if (!memalloc_socks && socks > 0) {
-+		err = mem_reserve_connect(&net_reserve, &mem_reserve_root);
-+		if (err) {
-+			/*
-+			 * if we failed to connect the tree, undo the tx
-+			 * reserve so that failure has no side effects.
-+			 */
-+			mem_reserve_pages_add(&net_tx_pages, -tx_reserve_pages);
-+			goto unlock;
-+		}
-+	}
-+	memalloc_socks += socks;
-+	/*
-+	 * or socks is negative and we must observe the !0 -> 0 transition
-+	 * and disconnect the reserve tree.
-+	 */
-+	if (!memalloc_socks && socks)
-+		mem_reserve_disconnect(&net_reserve);
-+
-+unlock:
-+	mutex_unlock(&memalloc_socks_lock);
-+
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(sk_adjust_memalloc);
-+
-+/**
-+ *	sk_set_memalloc - sets %SOCK_MEMALLOC
-+ *	@sk: socket to set it on
-+ *
-+ *	Set %SOCK_MEMALLOC on a socket and increase the memalloc reserve
-+ *	accordingly.
-+ */
-+int sk_set_memalloc(struct sock *sk)
-+{
-+	int set = sock_flag(sk, SOCK_MEMALLOC);
-+
-+	if (!set) {
-+		int err = sk_adjust_memalloc(1, 0);
-+		if (err)
-+			return err;
-+
-+		sock_set_flag(sk, SOCK_MEMALLOC);
-+		sk->sk_allocation |= __GFP_MEMALLOC;
-+	}
-+	return !set;
-+}
-+EXPORT_SYMBOL_GPL(sk_set_memalloc);
-+
-+int sk_clear_memalloc(struct sock *sk)
-+{
-+	int set = sock_flag(sk, SOCK_MEMALLOC);
-+	if (set) {
-+		sk_adjust_memalloc(-1, 0);
-+		sock_reset_flag(sk, SOCK_MEMALLOC);
-+		sk->sk_allocation &= ~__GFP_MEMALLOC;
-+	}
-+	return set;
-+}
-+EXPORT_SYMBOL_GPL(sk_clear_memalloc);
-+#endif
-+
- static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
+ /* Adjust length of skb with fragments to match received data */
+-static void skb_put_frags(struct sk_buff *skb, unsigned int hdr_space,
+-			  unsigned int length)
++static void skb_put_frags(struct sky2_port *sky2, struct sk_buff *skb,
++			  unsigned int hdr_space, unsigned int length)
  {
- 	struct timeval tv;
-@@ -1036,6 +1136,7 @@ static void __sk_free(struct sock *sk)
- {
- 	struct sk_filter *filter;
+ 	int i, num_frags;
+ 	unsigned int size;
+@@ -2236,15 +2236,11 @@ static void skb_put_frags(struct sk_buff
  
-+	sk_clear_memalloc(sk);
- 	if (sk->sk_destruct)
- 		sk->sk_destruct(sk);
- 
-@@ -1205,6 +1306,12 @@ void __init sk_init(void)
- 		sysctl_wmem_max = 131071;
- 		sysctl_rmem_max = 131071;
+ 		if (length == 0) {
+ 			/* don't need this page */
+-			__free_page(frag->page);
++			netdev_free_page(sky2->netdev, frag->page);
+ 			--skb_shinfo(skb)->nr_frags;
+ 		} else {
+ 			size = min(length, (unsigned) PAGE_SIZE);
+-
+-			frag->size = size;
+-			skb->data_len += size;
+-			skb->truesize += size;
+-			skb->len += size;
++			skb_add_rx_frag(skb, i, frag->page, 0, size);
+ 			length -= size;
+ 		}
  	}
-+
-+	mem_reserve_init(&net_reserve, "total network reserve", NULL);
-+	mem_reserve_init(&net_rx_reserve, "network RX reserve", &net_reserve);
-+	mem_reserve_init(&net_skb_reserve, "SKB data reserve", &net_rx_reserve);
-+	mem_reserve_init(&net_tx_reserve, "network TX reserve", &net_reserve);
-+	mem_reserve_init(&net_tx_pages, "protocol TX pages", &net_tx_reserve);
- }
+@@ -2275,7 +2271,7 @@ static struct sk_buff *receive_new(struc
+ 	}
  
- /*
-Index: mmotm/net/Kconfig
+ 	if (skb_shinfo(skb)->nr_frags)
+-		skb_put_frags(skb, hdr_space, length);
++		skb_put_frags(sky2, skb, hdr_space, length);
+ 	else
+ 		skb_put(skb, length);
+ 	return skb;
+Index: mmotm/include/linux/skbuff.h
 ===================================================================
---- mmotm.orig/net/Kconfig
-+++ mmotm/net/Kconfig
-@@ -256,4 +256,7 @@ source "net/wimax/Kconfig"
- source "net/rfkill/Kconfig"
- source "net/9p/Kconfig"
+--- mmotm.orig/include/linux/skbuff.h
++++ mmotm/include/linux/skbuff.h
+@@ -1079,6 +1079,9 @@ static inline void skb_fill_page_desc(st
+ extern void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page,
+ 			    int off, int size);
  
-+config NETVM
-+	def_bool n
++extern void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page,
++			    int off, int size);
 +
- endif   # if NET
+ #define SKB_PAGE_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->nr_frags)
+ #define SKB_FRAG_ASSERT(skb) 	BUG_ON(skb_has_frags(skb))
+ #define SKB_LINEAR_ASSERT(skb)  BUG_ON(skb_is_nonlinear(skb))
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
