@@ -1,46 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCHv2] IPv4 TCP fails to send window scale option when window
- scale is zero
-Date: Thu, 01 Oct 2009 16:30:54 +0200
-Message-ID: <4AC4BD1E.6060706@gmail.com>
-References: <4AC478E9.5050605@codefidence.com>
+From: "Choi, David" <David.Choi@Micrel.Com>
+Subject: RE: [PATCH 2.6.31-rc9] drivers/net: ks8851_mll ethernet network driver
+Date: Thu, 1 Oct 2009 07:51:14 -0700
+Message-ID: <C43529A246480145B0A6D0234BDB0F0DE8B7@MELANITE.micrel.com>
+References: <20090930.200535.217323985.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>, Ori Finkalman <ori@comsleep.com>,
-	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-To: Gilad Ben-Yossef <gilad@codefidence.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <greg@kroah.com>, <netdev@vger.kernel.org>,
+	"Li, Charles" <Charles.Li@Micrel.Com>, <Choi@kroah.com>,
+	<jgarzik@redhat.com>, <shemminger@vyatta.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:46692 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932232AbZJAOa7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 10:30:59 -0400
-In-Reply-To: <4AC478E9.5050605@codefidence.com>
+Received: from p01c12o142.mxlogic.net ([208.65.145.65]:43603 "EHLO
+	p01c12o142.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750714AbZJAOw6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 10:52:58 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20090930.200535.217323985.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Gilad Ben-Yossef a =E9crit :
-> From: Ori Finkelman <ori@comsleep.com>
->=20
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 5200aab..fcd278a 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -361,6 +361,7 @@ static inline int tcp_urg_mode(const struct tcp_s=
-ock
-> *tp)
-> #define OPTION_SACK_ADVERTISE  (1 << 0)
-> #define OPTION_TS              (1 << 1)
-> #define OPTION_MD5             (1 << 2)
-> +#define OPTION_WSCALE          (1 << 3)
+Hello all,
 
-I manually applied your patch and tested it.
+I really appreciate all of you, especially for your guidance, patience
+and professionalism.
 
-So far so good, it works well.
 
-But you'll need to find correct way to submit a patch so that your mail=
-er doesnt
-mangle the content.
+Regards,
+David J. Choi
 
-=46ile Documentation/email-clients.txt contains useful tips.
 
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Wednesday, September 30, 2009 8:06 PM
+To: Choi, David
+Cc: greg@kroah.com; netdev@vger.kernel.org; Li, Charles; Choi@kroah.com;
+jgarzik@redhat.com; shemminger@vyatta.com
+Subject: Re: [PATCH 2.6.31-rc9] drivers/net: ks8851_mll ethernet network
+driver 
+
+From: "Choi, David" <David.Choi@Micrel.Com>
+Date: Fri, 25 Sep 2009 17:42:12 -0700
+
+> Hello David Miller,
+> 
+> First of all, thank you for your feedback.  Here is my new patch.
+> 
+>>From : David J. Choi <david.choi@micrel.com>
+> 
+> This is the first registration of ks8851 network driver with 
+> MLL(address/data multiplexed) interface.
+> 
+> Signed-off-by : David J. Choi <david.choi@micrel.com>
+
+Applied, thanks.
