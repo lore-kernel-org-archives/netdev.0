@@ -1,48 +1,36 @@
-From: David Rientjes <rientjes@google.com>
-Subject: Re: [PATCH 04/31] mm: tag reseve pages
-Date: Thu, 1 Oct 2009 14:09:54 -0700 (PDT)
-Message-ID: <alpine.DEB.1.00.0910011407390.32006@chino.kir.corp.google.com>
-References: <1254405917-15796-1-git-send-email-sjayaraman@suse.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] pkt_sched: gen_estimator: Dont report fake rate
+ estimators
+Date: Thu, 01 Oct 2009 14:14:06 -0700 (PDT)
+Message-ID: <20091001.141406.62574384.davem@davemloft.net>
+References: <4AC4FE07.5070204@gmail.com>
+	<20091001.123725.02194664.davem@davemloft.net>
+	<4AC519B1.1090701@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-        netdev@vger.kernel.org, Neil Brown <neilb@suse.de>,
-        Miklos Szeredi <mszeredi@suse.cz>, Wouter Verhelst <w@uter.be>,
-        Peter Zijlstra <a.p.zijlstra@chello.nl>, trond.myklebust@fys.uio.no
-To: Suresh Jayaraman <sjayaraman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1254405917-15796-1-git-send-email-sjayaraman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, kaber@trash.net, netdev@vger.kernel.org
+To: jarkao2@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39871
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752106AbZJAVNr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 17:13:47 -0400
+In-Reply-To: <4AC519B1.1090701@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 1 Oct 2009, Suresh Jayaraman wrote:
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Thu, 01 Oct 2009 23:05:53 +0200
 
-> Index: mmotm/mm/page_alloc.c
-> ===================================================================
-> --- mmotm.orig/mm/page_alloc.c
-> +++ mmotm/mm/page_alloc.c
-> @@ -1501,8 +1501,10 @@ zonelist_scan:
->  try_this_zone:
->  		page = buffered_rmqueue(preferred_zone, zone, order,
->  						gfp_mask, migratetype);
-> -		if (page)
-> +		if (page) {
-> +			page->reserve = !!(alloc_flags & ALLOC_NO_WATERMARKS);
->  			break;
-> +		}
->  this_zone_full:
->  		if (NUMA_BUILD)
->  			zlc_mark_zone_full(zonelist, z);
+> Since you ask... I wonder about this whole int plus quite a bit of
+> struct unreadability for one flag only. Maybe it could be queried
+> on qdisc level (with a flag if necessary), and additional parameter
+> of gnet_stats_copy_rate_est()? (Qdiscs should have no problem with
+> setting this param for their classes too.)
 
-page->reserve won't necessary indicate that access to reserves was 
-_necessary_ for the allocation to succeed, though.  This will mark any 
-page being allocated under PF_MEMALLOC as reserve when all zones may be 
-well above their min watermarks.
+Certainly, that's another approach to this problem.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+But logically, just like we wouldn't emit a block of RED scheduler
+data to 'tc' unless RED is actually configured, it seems consistent to
+not emit estimator data when no estimator is even there.
