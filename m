@@ -1,60 +1,43 @@
-From: "Leisner, Martin" <Martin.Leisner@xerox.com>
-Subject: WOL with flex filters, reflecting it in /sys
-Date: Thu, 1 Oct 2009 13:55:03 -0700
-Message-ID: <76FA3B279DD9DA48896E2B404944957203C09587@USA7061MS02.na.xerox.net>
+From: David Rientjes <rientjes@google.com>
+Subject: Re: [PATCH 03/31] mm: expose gfp_to_alloc_flags()
+Date: Thu, 1 Oct 2009 14:03:16 -0700 (PDT)
+Message-ID: <alpine.DEB.1.00.0910011355230.32006@chino.kir.corp.google.com>
+References: <1254405903-15760-1-git-send-email-sjayaraman@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: martyleisner@yahoo.com
-To: <linux-pm@lists.linux-foundation.org>, <netdev@vger.kernel.org>
-Return-path: <linux-pm-bounces@lists.linux-foundation.org>
-Content-class: urn:content-classes:message
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
-List-Post: <mailto:linux-pm@lists.linux-foundation.org>
-List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.linux-foundation.org
-Errors-To: linux-pm-bounces@lists.linux-foundation.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+        netdev@vger.kernel.org, Neil Brown <neilb@suse.de>,
+        Miklos Szeredi <mszeredi@suse.cz>, Wouter Verhelst <w@uter.be>,
+        Peter Zijlstra <a.p.zijlstra@chello.nl>, trond.myklebust@fys.uio.no
+To: Suresh Jayaraman <sjayaraman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1254405903-15760-1-git-send-email-sjayaraman@suse.de>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-I'm looking to extend the work of Mitch Williams to support flexible
-filters.
-(http://www.mail-archive.com/netdev@vger.kernel.org/msg60332.html}
+On Thu, 1 Oct 2009, Suresh Jayaraman wrote:
 
-Looking at the problem, would it be a good idea to reflect WOL
-characteristics in the /sys filesystem (instead of requiring ethtool to
-set them)?
+> From: Peter Zijlstra <a.p.zijlstra@chello.nl> 
+> 
+> Expose the gfp to alloc_flags mapping, so we can use it in other parts
+> of the vm.
+> 
+> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+> Signed-off-by: Suresh Jayaraman <sjayaraman@suse.de>
 
-Seems straightforward and easy enough.
+Nack, these flags are internal to the page allocator and exporting them to 
+generic VM code is unnecessary.
 
-I know the VIA Rhinefet and Intel e1000 support filters -- and some
-freescale
-seems to have some front end that support filters...and we've also
-implemented filters in software...
+The only bit you actually use in your patchset is ALLOC_NO_WATERMARKS to 
+determine whether a particular allocation can use memory reserves.  I'd 
+suggest adding a bool function that returns whether the current context is 
+given access to reserves including your new __GFP_MEMALLOC flag and 
+exporting that instead.
 
-What I'm thinking of is a hierarchy in /sys/classes/net/<device>/wol/
-
-wol/
-   /flex-filters
-      /0
-           data -- hex data to match
-           mask -- string of 1 and 0 -- if 1, the data is valid in the
-bit 
-                   position
-      ...
-      /n
-	   data
-         mask
-  /wake_up_packet
-  /traditional --r/w (0/1)
-     /magic_packet
-     /arp
-     /unicast
-     /multicast
-     /broadcast
-     /phy
-    
-marty
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
