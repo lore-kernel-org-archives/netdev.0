@@ -1,42 +1,100 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: r8169c: Support for Realtek 8168DP chip?
-Date: Thu, 01 Oct 2009 11:49:30 -0400
-Message-ID: <1254412170.12500.8.camel@lap75545.ornl.gov>
-References: <4AC494EC.8050405@ts.fujitsu.com>
- <1254404310.24972.4.camel@obelisk.thedillows.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/2] net/netfilter/ipvs: Move #define KMSG_COMPONENT to
+ Makefile
+Date: Thu, 01 Oct 2009 08:55:57 -0700
+Message-ID: <1254412557.1799.68.camel@Joe-Laptop.home>
+References: <cover.1254349374.git.joe@perches.com>
+	 <0026bcf5aad9ae5036e68fc2dcda9c778d30dc47.1254349375.git.joe@perches.com>
+	 <alpine.LSU.2.00.0910010042540.782@obet.zrqbmnf.qr>
+	 <1254352160.2960.119.camel@Joe-Laptop.home>
+	 <alpine.LSU.2.00.0910010219100.7559@obet.zrqbmnf.qr>
+	 <1254358235.2960.145.camel@Joe-Laptop.home>
+	 <alpine.LSU.2.00.0910011016480.24025@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Rainer Koenig <Rainer.Koenig@ts.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from emroute1.ornl.gov ([160.91.4.119]:42441 "EHLO emroute1.ornl.gov"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751287AbZJAPt3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Oct 2009 11:49:29 -0400
-Received: from emroute1.ornl.gov ([127.0.0.1])
- by emroute1.ornl.gov (PMDF V6.4 #31561)
- with ESMTP id <0KQU002GVEMKLJ@emroute1.ornl.gov> for netdev@vger.kernel.org;
- Thu, 01 Oct 2009 11:49:32 -0400 (EDT)
-In-reply-to: <1254404310.24972.4.camel@obelisk.thedillows.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	lvs-devel@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.00.0910011016480.24025@obet.zrqbmnf.qr>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2009-10-01 at 09:38 -0400, David Dillow wrote:
-> On Thu, 2009-10-01 at 13:39 +0200, Rainer Koenig wrote:
-> > The reason why is easy to decode when looking at the source: The
-> > TxConfig register returns 2b800000 and there is no MAC_VERSION in the
-> > list of valid versions. That means not PHY initialization code is
-> > executed and stop, no working device. :-(
+On Thu, 2009-10-01 at 10:27 +0200, Jan Engelhardt wrote:
+> On Thursday 2009-10-01 02:50, Joe Perches wrote:
+> >I imagine an eventual goal of standardizing the default
+> >pr_fmt define in kernel.h to
+> >	#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> >so that all pr_<level> calls get this unless otherwise
+> >specified.
 > 
-> Francois Romieu posted a patch yesterday (today, his time) to the thread
-> "r8169 chips on some Intel D945GSEJT boards fail to work after PXE boot"
-> 
-> It looks to add MAC support for your card; you should be able to find it
-> at any of your favorite mail archives, Google, or better yet,
-> http://patchwork.ozlabs.org/project/netdev/list/
-> 
-> Hmm, patchwork doesn't seem to have picked it up, yet.
+> I like that approach. Saves me adding that line to .c
+> files repeatedly.
 
-Actually, it is there, you just need to change the filters to show
-patches in state "RFC".
+There aren't too many existing pr_<level> calls so
+that this couldn't be considered.
+
+Files with pr_<level> without pr_fmt:
+
+$ grep -rPl --include=*.[ch] \
+	"\bpr_(info|warning|err|alert|notice|crit)\b" * |
+  xargs grep -Lw "pr_fmt" | wc -l
+569
+
+Uses of pr_<level> without pr_fmt:
+
+$ grep -rPl --include=*.[ch] \
+	"\bpr_(info|warning|err|alert|notice|crit)\b" * |
+  xargs grep -Lw "pr_fmt" |
+  xargs grep -P "\bpr_(info|warning|err|alert|notice|crit)\b" |
+  wc -l
+2885
+
+If you look at the pr_<levels>, it's nearly
+a mechanical thing to strip the ones with
+some sort of prefix and add a #define pr_fmt
+to replace them.  Most all of them without
+prefixes might benefit by using a standardized
+#define pr_fmt(etc...) in kernel.h, so the
+actual count of changes isn't that high.
+
+> >Or perhaps better, to get rid of pr_fmt(fmt) altogether and
+> >have printk emit the filename/modulename, function and/or
+> >code offset by using something like %pS after the level.
+> I object to that. You would be spamming the dmesg ring buffer
+> with all that info
+
+Of course printks could not change, there are way too
+many of those to consider doing that globally.
+
+But the printks emitted by pr_<level> might change.
+Maybe by setting a bit in the string "<level>" or by
+some other mechanism.
+
+> filename: you would have to keep filename strings in the kernel.
+> Surely I do not find that thrilling when there are ~18000
+> non-arch .[ch] files whose pathnames amount to 542K.
+> Same goes similar for functions.
+> 
+> modulename: obj-y files would only get "<built-in>" or something
+> for KBUILD_MODNAME. Printing that to dmesg is not too useful.
+
+The removal of KBUILD_MODNAME could only be done
+for builds with CONFIG_KALLSYMS or
+CONFIG_DYNAMIC_DEBUG.
+
+It might also be possible to use something like
+CONFIG_DYNAMIC_DEBUG to control which modules get
+MODNAME, __func__, __LINE__ or offset emitted
+by the pr_<level> via some boot/module/sysconf
+or FTRACE like parameters.
+
+cheers, Joe
+
