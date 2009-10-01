@@ -1,42 +1,50 @@
-From: Valentine Barshak <vbarshak@ru.mvista.com>
-Subject: [PATCH] pasemi_mac: ethtool get settings fix
-Date: Fri, 2 Oct 2009 02:27:48 +0400
-Message-ID: <20091001222748.GA21276@ru.mvista.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: linuxppc-dev@ozlabs.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+From: Greg KH <gregkh@suse.de>
+Subject: [patch 22/30] netfilter: ebt_ulog: fix checkentry return value
+Date: Thu, 01 Oct 2009 16:31:38 -0700
+Message-ID: <20091001233322.057476155@mini.kroah.org>
+References: <20091001233116.947658905@mini.kroah.org>
+Cc: stable-review@kernel.org, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>, davem@davemloft.net
+To: linux-kernel@vger.kernel.org, stable@kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline; filename=netfilter-ebt_ulog-fix-checkentry-return-value.patch
+In-Reply-To: <20091001233504.GA17709@kroah.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Not all pasemi mac interfaces can have a phy attached.
-For example, XAUI has no phy and phydev is NULL for it.
-In this case ethtool get settings causes kernel crash.
-Fix it by returning -EOPNOTSUPP if there's no PHY attached.
 
-Signed-off-by: Valentine Barshak <vbarshak@ru.mvista.com>
+2.6.30-stable review patch.  If anyone has any objections, please let us know.
+
+------------------
+From: Patrick McHardy <kaber@trash.net>
+
+netfilter: ebt_ulog: fix checkentry return value
+
+Upstream commit 8a56df0a:
+
+Commit 19eda87 (netfilter: change return types of check functions for
+Ebtables extensions) broke the ebtables ulog module by missing a return
+value conversion.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+
 ---
- drivers/net/pasemi_mac_ethtool.c |    2 ++
- 1 file changed, 2 insertions(+)
+ net/bridge/netfilter/ebt_ulog.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
---- linux-2.6.21.orig/drivers/net/pasemi_mac_ethtool.c	2008-11-06 18:10:38.000000000 +0300
-+++ linux-2.6.21/drivers/net/pasemi_mac_ethtool.c	2008-11-19 19:24:28.000000000 +0300
-@@ -71,6 +71,8 @@ pasemi_mac_ethtool_get_settings(struct n
- 	struct pasemi_mac *mac = netdev_priv(netdev);
- 	struct phy_device *phydev = mac->phydev;
+--- a/net/bridge/netfilter/ebt_ulog.c
++++ b/net/bridge/netfilter/ebt_ulog.c
+@@ -266,7 +266,7 @@ static bool ebt_ulog_tg_check(const stru
+ 	if (uloginfo->qthreshold > EBT_ULOG_MAX_QLEN)
+ 		uloginfo->qthreshold = EBT_ULOG_MAX_QLEN;
  
-+	if (!phydev)
-+		return -EOPNOTSUPP;
- 	return phy_ethtool_gset(phydev, cmd);
+-	return 0;
++	return true;
  }
+ 
+ static struct xt_target ebt_ulog_tg_reg __read_mostly = {
+
+
