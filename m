@@ -1,47 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Use sk_mark for routing lookup in more places
-Date: Thu, 01 Oct 2009 15:18:23 -0700 (PDT)
-Message-ID: <20091001.151823.263194343.davem@davemloft.net>
-References: <200910011814.47689.atis@mikrotik.com>
-	<4AC4D90E.3040008@gmail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: SPLICE_F_NONBLOCK semantics...
+Date: Thu, 1 Oct 2009 15:21:44 -0700 (PDT)
+Message-ID: <alpine.LFD.2.01.0910011516390.6996@localhost.localdomain>
+References: <20091001.151102.09812927.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: atis@mikrotik.com, panther@balabit.hu, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52004
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753087AbZJAWSE convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Oct 2009 18:18:04 -0400
-In-Reply-To: <4AC4D90E.3040008@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: eric.dumazet@gmail.com, jgunthorpe@obsidianresearch.com,
+	vl@samba.org, opurdila@ixiacom.com, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Jens Axboe <jens.axboe@oracle.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753459AbZJAWW1@vger.kernel.org>
+In-Reply-To: <20091001.151102.09812927.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 01 Oct 2009 18:30:06 +0200
 
-> Atis Elsts a =E9crit :
->> This patch against v2.6.31 adds support for route lookup using sk_ma=
-rk in some=20
->> more places. The benefits from this patch are the following.
->> First, SO_MARK option now has effect on UDP sockets too.
->> Second, ip_queue_xmit() and inet_sk_rebuild_header() could fail to d=
-o routing=20
->> lookup correctly if TCP sockets with SO_MARK were used.
->>=20
->> Signed-off-by: Atis Elsts <atis@mikrotik.com>
->=20
-> Good catch, thanks !
->=20
-> I used SO_MARK on connected UDP sockets so did not notice the lack
-> of functionality. (ip_route_connect() does use sk->sk_mark)
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, thanks.
+On Thu, 1 Oct 2009, David Miller wrote:
+> 
+> It depends upon our interpretation of how you intended the
+> SPLICE_F_NONBLOCK flag to work when you added it way back
+> when.
+> 
+> Linus introduced  SPLICE_F_NONBLOCK in commit 29e350944fdc2dfca102500790d8ad6d6ff4f69d
+> (splice: add SPLICE_F_NONBLOCK flag )
+> 
+>   It doesn't make the splice itself necessarily nonblocking (because the
+>   actual file descriptors that are spliced from/to may block unless they
+>   have the O_NONBLOCK flag set), but it makes the splice pipe operations
+>   nonblocking.
+> 
+> Linus intention was clear : let SPLICE_F_NONBLOCK control the splice pipe mode only
 
-But Atis, your patch was whitespace corrupted by your email
-client so I had to apply your patch by hand.  Please correct
-this problem before submitting future patches, thank you.
+Ack. The original intent was for the flag to affect the buffering, not the 
+end points.
+
+> splice(socket,0,pipe,0,128*1024,SPLICE_F_MOVE | SPLICE_F_NONBLOCK ); 
+> 
+> to block on data coming from socket (if file is in blocking mode),
+> and not block on pipe output (to avoid deadlock)
+
+Yes. Sounds correct. Although the more I think about it, the more I 
+suspect that the whole NONBLOCK thing should probably have been two bits, 
+and simply been about "nonblocking input" vs "nonblocking output" (so that 
+you could control both sides on a call-by-call basis).
+
+But I think that your patch is fundamentally correct with the semantics 
+as-is.
+
+		Linus
