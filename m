@@ -1,34 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH] ixgbe: correct the parameter description
-Date: Thu, 01 Oct 2009 01:10:39 -0700 (PDT)
-Message-ID: <20091001.011039.128244619.davem@davemloft.net>
-References: <20091001065140.13279.42634.stgit@localhost.localdomain>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH 1/2] net/netfilter/ipvs: Move #define KMSG_COMPONENT to
+ Makefile
+Date: Thu, 1 Oct 2009 10:27:48 +0200 (CEST)
+Message-ID: <alpine.LSU.2.00.0910011016480.24025@obet.zrqbmnf.qr>
+References: <cover.1254349374.git.joe@perches.com>  <0026bcf5aad9ae5036e68fc2dcda9c778d30dc47.1254349375.git.joe@perches.com>  <alpine.LSU.2.00.0910010042540.782@obet.zrqbmnf.qr>  <1254352160.2960.119.camel@Joe-Laptop.home>  <alpine.LSU.2.00.0910010219100.7559@obet.zrqbmnf.qr>
+ <1254358235.2960.145.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, jpirko@redhat.com,
-	peter.p.waskiewicz.jr@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38405
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755853AbZJAIKT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 04:10:19 -0400
-In-Reply-To: <20091001065140.13279.42634.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	lvs-devel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932150AbZJAI1s@vger.kernel.org>
+In-Reply-To: <1254358235.2960.145.camel@Joe-Laptop.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 30 Sep 2009 23:51:41 -0700
 
-> From: Jiri Pirko <jpirko@redhat.com>
-> 
-> ccffad25b5136958d4769ed6de5e87992dd9c65c changed parameters for function
-> ixgbe_update_uc_addr_list_generic but parameter description was not updated.
-> This patch corrects it.
-> 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+On Thursday 2009-10-01 02:50, Joe Perches wrote:
+>On Thu, 2009-10-01 at 02:31 +0200, Jan Engelhardt wrote:
+>> Well I personally prefer the #include instead of hiding such in 
+>> Makefiles. You know, when newcomers could start doing `grep 
+>> KMSG_COMPONENT *.[ch]`. Perhaps GCC's -include flag in a Makefile
+>> to avoid #includes in .c files?
+>
+>I imagine an eventual goal of standardizing the default
+>pr_fmt define in kernel.h to
+>
+>	#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+>
+>so that all pr_<level> calls get this unless otherwise
+>specified.
 
-Applied, thanks.
+I like that approach. Saves me adding that line to .c
+files repeatedly.
+
+>Or perhaps better, to get rid of pr_fmt(fmt) altogether and
+>have printk emit the filename/modulename, function and/or
+>code offset by using something like %pS after the level.
+
+I object to that. You would be spamming the dmesg ring buffer
+with all that info, plus
+
+filename: you would have to keep filename strings in the kernel.
+Surely I do not find that thrilling when there are ~18000
+non-arch .[ch] files whose pathnames amount to 542K.
+Same goes similar for functions.
+
+modulename: obj-y files would only get "<built-in>" or something
+for KBUILD_MODNAME. Printing that to dmesg is not too useful.
+
+I would rather keep plain printk as-is.
