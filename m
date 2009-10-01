@@ -1,78 +1,60 @@
-From: David Rientjes <rientjes@google.com>
-Subject: Re: [PATCH 30/31] Fix use of uninitialized variable in
- cache_grow()
-Date: Thu, 1 Oct 2009 13:49:00 -0700 (PDT)
-Message-ID: <alpine.DEB.1.00.0910011341280.27559@chino.kir.corp.google.com>
-References: <1254406257-16735-1-git-send-email-sjayaraman@suse.de>
+From: "Leisner, Martin" <Martin.Leisner@xerox.com>
+Subject: WOL with flex filters, reflecting it in /sys
+Date: Thu, 1 Oct 2009 13:55:03 -0700
+Message-ID: <76FA3B279DD9DA48896E2B404944957203C09587@USA7061MS02.na.xerox.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, Neil Brown <neilb@suse.de>,
-	Miklos Szeredi <mszeredi@suse.cz>, Wouter Verhelst <w@uter.be>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	trond.myklebust@fys.uio.no
-To: Suresh Jayaraman <sjayaraman@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:38483 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751038AbZJAUtF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 16:49:05 -0400
-In-Reply-To: <1254406257-16735-1-git-send-email-sjayaraman@suse.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: martyleisner@yahoo.com
+To: <linux-pm@lists.linux-foundation.org>, <netdev@vger.kernel.org>
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+Content-class: urn:content-classes:message
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 1 Oct 2009, Suresh Jayaraman wrote:
+I'm looking to extend the work of Mitch Williams to support flexible
+filters.
+(http://www.mail-archive.com/netdev@vger.kernel.org/msg60332.html}
 
-> From: Miklos Szeredi <mszeredi@suse.cz>
-> 
-> This fixes a bug in reserve-slub.patch.
-> 
-> If cache_grow() was called with objp != NULL then the 'reserve' local
-> variable wasn't initialized. This resulted in ac->reserve being set to
-> a rubbish value.  Due to this in some circumstances huge amounts of
-> slab pages were allocated (due to slab_force_alloc() returning true),
-> which caused atomic page allocation failures and slowdown of the
-> system.
-> 
-> Signed-off-by: Miklos Szeredi <mszeredi@suse.cz>
-> Signed-off-by: Suresh Jayaraman <sjayaraman@suse.de>
-> ---
->  mm/slab.c |    5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
-> 
-> Index: mmotm/mm/slab.c
-> ===================================================================
-> --- mmotm.orig/mm/slab.c
-> +++ mmotm/mm/slab.c
-> @@ -2760,7 +2760,7 @@ static int cache_grow(struct kmem_cache
->  	size_t offset;
->  	gfp_t local_flags;
->  	struct kmem_list3 *l3;
-> -	int reserve;
-> +	int reserve = -1;
->  
->  	/*
->  	 * Be lazy and only check for valid flags here,  keeping it out of the
-> @@ -2816,7 +2816,8 @@ static int cache_grow(struct kmem_cache
->  	if (local_flags & __GFP_WAIT)
->  		local_irq_disable();
->  	check_irq_off();
-> -	slab_set_reserve(cachep, reserve);
-> +	if (reserve != -1)
-> +		slab_set_reserve(cachep, reserve);
->  	spin_lock(&l3->list_lock);
->  
->  	/* Make slab active. */
+Looking at the problem, would it be a good idea to reflect WOL
+characteristics in the /sys filesystem (instead of requiring ethtool to
+set them)?
 
-Given the patch description, shouldn't this be a test for objp != NULL 
-instead, then?
+Seems straightforward and easy enough.
 
-If so, it doesn't make sense because reserve will only be initialized when 
-objp == NULL in the call to kmem_getpages() from cache_grow().
+I know the VIA Rhinefet and Intel e1000 support filters -- and some
+freescale
+seems to have some front end that support filters...and we've also
+implemented filters in software...
 
+What I'm thinking of is a hierarchy in /sys/classes/net/<device>/wol/
 
-The title of the patch suggests this is just dealing with an uninitialized 
-auto variable so the anticipated change would be from "int reserve" to 
-"int uninitialized_var(result)".
+wol/
+   /flex-filters
+      /0
+           data -- hex data to match
+           mask -- string of 1 and 0 -- if 1, the data is valid in the
+bit 
+                   position
+      ...
+      /n
+	   data
+         mask
+  /wake_up_packet
+  /traditional --r/w (0/1)
+     /magic_packet
+     /arp
+     /unicast
+     /multicast
+     /broadcast
+     /phy
+    
+marty
