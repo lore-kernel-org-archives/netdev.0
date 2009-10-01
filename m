@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] skge: use unique IRQ name
-Date: Thu, 01 Oct 2009 13:31:55 -0700 (PDT)
-Message-ID: <20091001.133155.53607208.davem@davemloft.net>
-References: <20091001095032.17271dcc@s6510>
-	<20091001200208.2907b8ff@leela>
-	<20091001111323.260d49bf@s6510>
+Subject: Re: [PATCH 2/7] mlx4: Query for loopback support
+Date: Thu, 01 Oct 2009 13:34:44 -0700 (PDT)
+Message-ID: <20091001.133444.116815514.davem@davemloft.net>
+References: <4AC4BDB7.2040306@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mschmidt@redhat.com, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org
+To: yevgenyp@mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58596
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34946
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754424AbZJAUbf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 16:31:35 -0400
-In-Reply-To: <20091001111323.260d49bf@s6510>
+	by vger.kernel.org with ESMTP id S1756568AbZJAUeZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 16:34:25 -0400
+In-Reply-To: <4AC4BDB7.2040306@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Thu, 1 Oct 2009 11:13:23 -0700
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Thu, 01 Oct 2009 16:33:27 +0200
 
-> $ grep skge /proc/interrupts
->  17:        169   IO-APIC-fasteoi   skge@0000:00:0a.0, eth0
+> +	int			loopback_support;
 
-Please fix this example output to match the code :-)
+You don't need a full 32-bit integer to store what
+amounts to a single bit of boolean state.
 
-> +	sprintf(hw->irq_name, DRV_NAME "@pci:%s", pci_name(pdev));
-
-Thanks!
+Please store this in a flags word somewhere, or
+if nothing appropriate exists, use a 'bool'.
