@@ -1,78 +1,105 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCHv3] IPv4 TCP fails to send window scale option when window
- scale is zero
-Date: Thu, 01 Oct 2009 19:20:33 +0200
-Message-ID: <4AC4E4E1.5010300@gmail.com>
-References: <1254413613.665110.11357.nullmailer@tron.codefidence.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, ori@comsleep.com, ilpo.jarvinen@helsinki.fi
-To: Gilad Ben-Yossef <gilad@codefidence.com>
+From: Gilad Ben-Yossef <gilad@codefidence.com>
+Subject: [PATCHv3] IPv4 TCP fails to send window scale option when window scale is zero
+Date: Thu, 01 Oct 2009 18:24:29 +0200
+Message-ID: <1254414269.008098.11642.nullmailer@tron.codefidence.com>
+Cc: ori@comsleep.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:41481 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754171AbZJARUj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 13:20:39 -0400
-In-Reply-To: <1254413613.665110.11357.nullmailer@tron.codefidence.com>
+Received: from sa5.bezeqint.net ([192.115.104.19]:60548 "EHLO sa5.bezeqint.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752382AbZJARYq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Oct 2009 13:24:46 -0400
+Cc: ilpo.jarvinen@helsinki.fi
+Cc: eric.dumazet@gmail.com
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Gilad Ben-Yossef a =E9crit :
-> From: Ori Finkelman <ori@comsleep.com>
->=20
-> Acknowledge TCP window scale support by inserting the proper option i=
-n SYN/ACK=20
-> and SYN headers even if our window scale is zero.
->=20
-> This fixes the following observed behavior:
->=20
-> 1. Client sends a SYN with TCP window scaling option and non zero win=
-dow scale=20
-> value to a Linux box.
-> 2. Linux box notes large receive window from client.
-> 3. Linux decides on a zero value of window scale for its part.
-> 4. Due to compare against requested window scale size option, Linux d=
-oes not to
->  send windows scale TCP option header on SYN/ACK at all.
->=20
-> With the following result:
->=20
-> Client box thinks TCP window scaling is not supported, since SYN/ACK =
-had no=20
-> TCP window scale option, while Linux thinks that TCP window scaling i=
-s=20
-> supported (and scale might be non zero), since SYN had  TCP window sc=
-ale=20
-> option and we have a mismatched idea between the client and server=20
-> regarding window sizes.
->=20
-> Probably it also fixes up the following bug (not observed in practice=
-):
->=20
-> 1. Linux box opens TCP connection to some server.
-> 2. Linux decides on zero value of window scale.
-> 3. Due to compare against computed window scale size option, Linux do=
-es=20
-> not to set windows scale TCP  option header on SYN.=20
->=20
-> With the expected result that the server OS does not use window scale=
- option=20
-> due to not receiving such an option in the SYN headers, leading to su=
-boptimal=20
-> performance.
->=20
-> Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
-> Signed-off-by: Ori Finkelman <ori@comsleep.com>
+From: Ori Finkelman <ori@comsleep.com>
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Acknowledge TCP window scale support by inserting the proper option in SYN/ACK 
+and SYN headers even if our window scale is zero.
 
-Note, to reproduce the wscale set to 0 on active connections,
-you have to play with /proc/sys/net settings :
+This fixes the following observed behavior:
 
-echo 65535 >/proc/sys/net/core/rmem_max
-echo "4096 16384 32768" >/proc/sys/net/ipv4/tcp_rmem
+1. Client sends a SYN with TCP window scaling option and non zero window scale 
+value to a Linux box.
+2. Linux box notes large receive window from client.
+3. Linux decides on a zero value of window scale for its part.
+4. Due to compare against requested window scale size option, Linux does not to
+ send windows scale TCP option header on SYN/ACK at all.
 
--> wscale 0 -> SYN packet without WSCALE option (on non patched kernels=
-)
+With the following result:
 
+Client box thinks TCP window scaling is not supported, since SYN/ACK had no 
+TCP window scale option, while Linux thinks that TCP window scaling is 
+supported (and scale might be non zero), since SYN had  TCP window scale 
+option and we have a mismatched idea between the client and server 
+regarding window sizes.
+
+Probably it also fixes up the following bug (not observed in practice):
+
+1. Linux box opens TCP connection to some server.
+2. Linux decides on zero value of window scale.
+3. Due to compare against computed window scale size option, Linux does 
+not to set windows scale TCP  option header on SYN. 
+
+With the expected result that the server OS does not use window scale option 
+due to not receiving such an option in the SYN headers, leading to suboptimal 
+performance.
+
+Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
+Signed-off-by: Ori Finkelman <ori@comsleep.com>
+
+---
+
+Original bug reported and patch written by Ori Finkelman from Comsleep Ltd. 
+I've fixed  the SYN header case based on feedback from Eric Dumazet and Ilpo 
+Jarvinen, as part of trying to get the patch mainlined.
+
+The SYN/ACK behavior was observed with a Windows box as the client and latest 
+Debian kernel but for the best of my understanding this can happen with latest 
+kernel versions and other client OS (probably also Linux) as well.
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 5200aab..fcd278a 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -361,6 +361,7 @@ static inline int tcp_urg_mode(const struct tcp_sock *tp)
+ #define OPTION_SACK_ADVERTISE	(1 << 0)
+ #define OPTION_TS		(1 << 1)
+ #define OPTION_MD5		(1 << 2)
++#define OPTION_WSCALE		(1 << 3)
+ 
+ struct tcp_out_options {
+ 	u8 options;		/* bit field of OPTION_* */
+@@ -427,7 +428,7 @@ static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
+ 			       TCPOLEN_SACK_PERM);
+ 	}
+ 
+-	if (unlikely(opts->ws)) {
++	if (unlikely(OPTION_WSCALE & opts->options)) {
+ 		*ptr++ = htonl((TCPOPT_NOP << 24) |
+ 			       (TCPOPT_WINDOW << 16) |
+ 			       (TCPOLEN_WINDOW << 8) |
+@@ -494,8 +495,8 @@ static unsigned tcp_syn_options(struct sock *sk, struct sk_buff *skb,
+ 	}
+ 	if (likely(sysctl_tcp_window_scaling)) {
+ 		opts->ws = tp->rx_opt.rcv_wscale;
+-		if (likely(opts->ws))
+-			size += TCPOLEN_WSCALE_ALIGNED;
++		opts->options |= OPTION_WSCALE;
++		size += TCPOLEN_WSCALE_ALIGNED;
+ 	}
+ 	if (likely(sysctl_tcp_sack)) {
+ 		opts->options |= OPTION_SACK_ADVERTISE;
+@@ -537,8 +538,8 @@ static unsigned tcp_synack_options(struct sock *sk,
+ 
+ 	if (likely(ireq->wscale_ok)) {
+ 		opts->ws = ireq->rcv_wscale;
+-		if (likely(opts->ws))
+-			size += TCPOLEN_WSCALE_ALIGNED;
++		opts->options |= OPTION_WSCALE;
++		size += TCPOLEN_WSCALE_ALIGNED;
+ 	}
+ 	if (likely(doing_ts)) {
+ 		opts->options |= OPTION_TS;
