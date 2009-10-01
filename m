@@ -1,100 +1,67 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/2] net/netfilter/ipvs: Move #define KMSG_COMPONENT to
- Makefile
-Date: Thu, 01 Oct 2009 08:55:57 -0700
-Message-ID: <1254412557.1799.68.camel@Joe-Laptop.home>
-References: <cover.1254349374.git.joe@perches.com>
-	 <0026bcf5aad9ae5036e68fc2dcda9c778d30dc47.1254349375.git.joe@perches.com>
-	 <alpine.LSU.2.00.0910010042540.782@obet.zrqbmnf.qr>
-	 <1254352160.2960.119.camel@Joe-Laptop.home>
-	 <alpine.LSU.2.00.0910010219100.7559@obet.zrqbmnf.qr>
-	 <1254358235.2960.145.camel@Joe-Laptop.home>
-	 <alpine.LSU.2.00.0910011016480.24025@obet.zrqbmnf.qr>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: kernel doc / docbook pdfdocs question
+Date: Thu, 1 Oct 2009 08:57:07 -0700
+Message-ID: <20091001085707.d74e3e79.randy.dunlap@oracle.com>
+References: <8223.1254340776@jerryjeff.riw.enoyolf.org>
+	<20090930173002.36da7ffd@s6510>
+	<27289.1254375747@jerryjeff.riw.enoyolf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	lvs-devel@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.00.0910011016480.24025@obet.zrqbmnf.qr>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	netdev <netdev@vger.kernel.org>
+To: Doug Maxey <dwm@enoyolf.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcsinet12.oracle.com ([148.87.113.124]:49930 "EHLO
+	rgminet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750971AbZJAP5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 11:57:44 -0400
+In-Reply-To: <27289.1254375747@jerryjeff.riw.enoyolf.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-10-01 at 10:27 +0200, Jan Engelhardt wrote:
-> On Thursday 2009-10-01 02:50, Joe Perches wrote:
-> >I imagine an eventual goal of standardizing the default
-> >pr_fmt define in kernel.h to
-> >	#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-> >so that all pr_<level> calls get this unless otherwise
-> >specified.
+On Thu, 01 Oct 2009 00:42:27 -0500 Doug Maxey wrote:
+
 > 
-> I like that approach. Saves me adding that line to .c
-> files repeatedly.
-
-There aren't too many existing pr_<level> calls so
-that this couldn't be considered.
-
-Files with pr_<level> without pr_fmt:
-
-$ grep -rPl --include=*.[ch] \
-	"\bpr_(info|warning|err|alert|notice|crit)\b" * |
-  xargs grep -Lw "pr_fmt" | wc -l
-569
-
-Uses of pr_<level> without pr_fmt:
-
-$ grep -rPl --include=*.[ch] \
-	"\bpr_(info|warning|err|alert|notice|crit)\b" * |
-  xargs grep -Lw "pr_fmt" |
-  xargs grep -P "\bpr_(info|warning|err|alert|notice|crit)\b" |
-  wc -l
-2885
-
-If you look at the pr_<levels>, it's nearly
-a mechanical thing to strip the ones with
-some sort of prefix and add a #define pr_fmt
-to replace them.  Most all of them without
-prefixes might benefit by using a standardized
-#define pr_fmt(etc...) in kernel.h, so the
-actual count of changes isn't that high.
-
-> >Or perhaps better, to get rid of pr_fmt(fmt) altogether and
-> >have printk emit the filename/modulename, function and/or
-> >code offset by using something like %pS after the level.
-> I object to that. You would be spamming the dmesg ring buffer
-> with all that info
-
-Of course printks could not change, there are way too
-many of those to consider doing that globally.
-
-But the printks emitted by pr_<level> might change.
-Maybe by setting a bit in the string "<level>" or by
-some other mechanism.
-
-> filename: you would have to keep filename strings in the kernel.
-> Surely I do not find that thrilling when there are ~18000
-> non-arch .[ch] files whose pathnames amount to 542K.
-> Same goes similar for functions.
+> On Wed, 30 Sep 2009 17:30:02 PDT, Stephen Hemminger wrote:
+> >On Wed, 30 Sep 2009 14:59:36 -0500
+> >Doug Maxey <dwm@enoyolf.org> wrote:
+> >
+> >> 
+> >> Randy,
+> >> 
+> >> This may be slightly off topic for this list, but it does involve an
+> >> (as yet un-released) network driver. :)
+> >> 
+> >> Do you have any insight that could guide me toward a fix for an issue
+> >> seen with some header file constructs when trying to generate a pdf
+> >> docbook?
+> >> 
+> >
+> >Why clutter docbook output (which is supposed to be about general kernel
+> >API's) with output for data structures in one driver.
 > 
-> modulename: obj-y files would only get "<built-in>" or something
-> for KBUILD_MODNAME. Printing that to dmesg is not too useful.
+> It would be a general mechanism, and it would be to document an API.
+> There are other subsystems that use DECLARE_BITMAP() (e.g., scsi).
+> Just none at the moment that attempt to describe such a member,
+> possibly because there isn't a way to document it.  Dunno.  Build it
+> and they will come.  There is one party that is interested anyway.
+> 
+> Finally did find where this was getting warned about / tossed, in
+> kernel-doc itself. =)
 
-The removal of KBUILD_MODNAME could only be done
-for builds with CONFIG_KALLSYMS or
-CONFIG_DYNAMIC_DEBUG.
+Hi,
 
-It might also be possible to use something like
-CONFIG_DYNAMIC_DEBUG to control which modules get
-MODNAME, __func__, __LINE__ or offset emitted
-by the pr_<level> via some boot/module/sysconf
-or FTRACE like parameters.
+Sorry for the delayed reply.  I was away yesterday.
 
-cheers, Joe
+What did you find in kernel-doc?  Something like the
+"cannot understand prototype" message or something else?
 
+Features/support in kernel-doc is mostly added on an as-needed basis.
+Now that you have provided a sample, I can try to add support for it,
+but it's not exactly a high priority for me... or you can add support
+for it to kernel-doc and send a patch for it.  :)
+
+
+---
+~Randy
