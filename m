@@ -1,52 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: SPLICE_F_NONBLOCK semantics...
-Date: Thu, 01 Oct 2009 15:27:17 -0700 (PDT)
-Message-ID: <20091001.152717.187318570.davem@davemloft.net>
-References: <20091001.151102.09812927.davem@davemloft.net>
-	<alpine.LFD.2.01.0910011516390.6996@localhost.localdomain>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH] connector: Fix regression introduced by sid connector
+Date: Fri, 2 Oct 2009 00:29:42 +0200
+Message-ID: <20091001222941.GA15096@redhat.com>
+References: <200909251123.03482.borntraeger@de.ibm.com> <200909291712.33099.borntraeger@de.ibm.com> <20090929162855.GA15319@redhat.com> <200909300843.11208.borntraeger@de.ibm.com> <20091001141426.2c1a0139.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, jgunthorpe@obsidianresearch.com,
-	vl@samba.org, opurdila@ixiacom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jens.axboe@oracle.com
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753625AbZJAW1A@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.01.0910011516390.6996@localhost.localdomain>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christian Borntraeger <borntraeger@de.ibm.com>, scott@ubuntu.com,
+	zbr@ioremap.net, linux-kernel@vger.kernel.org, matthltc@us.ibm.com,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753694AbZJAWfK@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20091001141426.2c1a0139.akpm@linux-foundation.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Thu, 1 Oct 2009 15:21:44 -0700 (PDT)
+On 10/01, Andrew Morton wrote:
+>
+> On Wed, 30 Sep 2009 08:43:11 +0200
+> Christian Borntraeger <borntraeger@de.ibm.com> wrote:
+>
+> > --- linux-2.6.orig/kernel/sys.c
+> > +++ linux-2.6/kernel/sys.c
+> > @@ -1110,6 +1110,8 @@ SYSCALL_DEFINE0(setsid)
+> >  	err = session;
+> >  out:
+> >  	write_unlock_irq(&tasklist_lock);
+> > +	if (err > 0)
+> > +		proc_sid_connector(sid);
+> >  	return err;
+> >  }
+>
+> kernel/sys.c: In function 'sys_setsid':
+> kernel/sys.c:1114: warning: passing argument 1 of 'proc_sid_connector' from incompatible pointer type
+>
+> Pass a `struct pid*' into a function expecting a `struct task_struct*'.
+> Surely it will crash??
 
-> On Thu, 1 Oct 2009, David Miller wrote:
->> 
->> It depends upon our interpretation of how you intended the
->> SPLICE_F_NONBLOCK flag to work when you added it way back
->> when.
->> 
->> Linus introduced  SPLICE_F_NONBLOCK in commit 29e350944fdc2dfca102500790d8ad6d6ff4f69d
->> (splice: add SPLICE_F_NONBLOCK flag )
->> 
->>   It doesn't make the splice itself necessarily nonblocking (because the
->>   actual file descriptors that are spliced from/to may block unless they
->>   have the O_NONBLOCK flag set), but it makes the splice pipe operations
->>   nonblocking.
->> 
->> Linus intention was clear : let SPLICE_F_NONBLOCK control the splice pipe mode only
-> 
-> Ack. The original intent was for the flag to affect the buffering, not the 
-> end points.
+Oh, indeed, it should be
 
-Great, thanks for reviewing.
+	proc_sid_connector(group_leader);
 
-> Although the more I think about it, the more I suspect that the
-> whole NONBLOCK thing should probably have been two bits, and simply
-> been about "nonblocking input" vs "nonblocking output" (so that you
-> could control both sides on a call-by-call basis).
-
-I think we could still extend things in this way if we wanted to.
-So if you specify the explicit input and/or output nonblock flag,
-it takes precedence over the SPLICE_F_NONBLOCK thing.
-
-Anyways, just an idea.
+Oleg.
