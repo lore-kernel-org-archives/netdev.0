@@ -1,55 +1,37 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: Splice on blocking TCP sockets again..
-Date: Thu, 1 Oct 2009 16:17:06 -0600
-Message-ID: <20091001221706.GA5191@obsidianresearch.com>
-References: <20090930004820.GC19540@obsidianresearch.com> <4AC2E481.5060509@gmail.com> <20090930054031.GY22310@obsidianresearch.com> <4AC2F1D9.1010801@gmail.com> <4AC2F3E4.5000904@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] skge: use unique IRQ name
+Date: Thu, 01 Oct 2009 15:17:46 -0700 (PDT)
+Message-ID: <20091001.151746.119636739.davem@davemloft.net>
+References: <20091001200208.2907b8ff@leela>
+	<20091001111323.260d49bf@s6510>
+	<20091001.133155.53607208.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Volker Lendecke <vl@samba.org>, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mschmidt@redhat.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 139-142-54-143.atc.vaillant.ca ([139.142.54.143]:56236 "EHLO
-	quartz.edm.orcorp.ca" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752283AbZJAWRE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 18:17:04 -0400
-Content-Disposition: inline
-In-Reply-To: <4AC2F3E4.5000904@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43101
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752212AbZJAWR1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 18:17:27 -0400
+In-Reply-To: <20091001.133155.53607208.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 30, 2009 at 08:00:04AM +0200, Eric Dumazet wrote:
+From: David Miller <davem@davemloft.net>
+Date: Thu, 01 Oct 2009 13:31:55 -0700 (PDT)
 
-> >> I admit I don't understand why SPLICE_F_NONBLOCK exists, it seems very
-> >> un-unixy to have a syscall completely ignore the NONBLOCK flag of the
-> >> fd it is called on. Ie setting NONBLOCK on the pipe itself does
-> >> nothing when using splice..
-> > 
-> > Hmm, good question, I dont have the answer but I'll digg one.
-> > 
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Thu, 1 Oct 2009 11:13:23 -0700
 > 
-> commit	29e350944fdc2dfca102500790d8ad6d6ff4f69d
-> splice: add SPLICE_F_NONBLOCK flag
+>> $ grep skge /proc/interrupts
+>>  17:        169   IO-APIC-fasteoi   skge@0000:00:0a.0, eth0
 > 
-> It doesn't make the splice itself necessarily nonblocking (because the
-> actual file descriptors that are spliced from/to may block unless they
-> have the O_NONBLOCK flag set), but it makes the splice pipe operations
-> nonblocking.
+> Please fix this example output to match the code :-)
 > 
-> Signed-off-by: Linus Torvalds <torvalds@osdl.org>
+>> +	sprintf(hw->irq_name, DRV_NAME "@pci:%s", pci_name(pdev));
 > 
-> See Linus intention was pretty clear : O_NONBLOCK should be taken
-> into account by 'actual file that are spliced from/to', regardless
-> of SPLICE_F_NONBLOCK flag
+> Thanks!
 
-Yes, that seems reasonable.
-
-What confuses me is that if O_NONBLOCK is set on the _pipe_ and
-SPICE_F_NONBLOCK is not set on the splice call the splice still blocks
-- that is unlike other unix apis, eg MSG_DONTWAIT
-
-It seems to me that SPICE_F_NONBLOCK should be or'd with O_NONBLOCK on
-the pipe?
-
-Thanks,
-Jason
+Nevermind, I took care of this when applying your patch.
