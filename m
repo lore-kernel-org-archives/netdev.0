@@ -1,72 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.32-rc1] net: VMware virtual Ethernet NIC driver:
- vmxnet3
-Date: Thu, 01 Oct 2009 15:23:55 -0700 (PDT)
-Message-ID: <20091001.152355.209105273.davem@davemloft.net>
-References: <alpine.LRH.2.00.0909301432410.8073@localhost.localdomain>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: SPLICE_F_NONBLOCK semantics...
+Date: Thu, 1 Oct 2009 15:24:30 -0700 (PDT)
+Message-ID: <alpine.LFD.2.01.0910011521550.6996@localhost.localdomain>
+References: <20091001.151102.09812927.davem@davemloft.net> <alpine.LFD.2.01.0910011516390.6996@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org, jgarzik@pobox.com,
-	anthony@codemonkey.ws, chrisw@sous-sol.org, greg@kroah.com,
-	akpm@linux-foundation.org,
-	virtualization@lists.linux-foundation.org, pv-drivers@vmware.com
-To: sbhatewara@vmware.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753487AbZJAWXh@vger.kernel.org>
-In-Reply-To: <alpine.LRH.2.00.0909301432410.8073@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: eric.dumazet@gmail.com, jgunthorpe@obsidianresearch.com,
+	vl@samba.org, opurdila@ixiacom.com, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Jens Axboe <jens.axboe@oracle.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:43265 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753357AbZJAWYi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 18:24:38 -0400
+In-Reply-To: <alpine.LFD.2.01.0910011516390.6996@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Date: Wed, 30 Sep 2009 14:34:57 -0700 (PDT)
 
-> +{
-> +	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
-> +	u8 *base;
-> +	int i;
-> +
-> + VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
-> VMXNET3_CMD_GET_STATS);
-> +
-> +	/* this does assume each counter is 64-bit wide */
-> +
-> +	base = (u8 *)&adapter->tqd_start->stats;
-> +	for (i = 0; i < ARRAY_SIZE(vmxnet3_tq_dev_stats); i++)
-> + *buf++ = *(u64 *)(base + vmxnet3_tq_dev_stats[i].offset);
-> +
-> +	base = (u8 *)&adapter->tx_queue.stats;
-> +	for (i = 0; i < ARRAY_SIZE(vmxnet3_tq_driver_stats); i++)
-> + *buf++ = *(u64 *)(base + vmxnet3_tq_driver_stats[i].offset);
-> +
-> +	base = (u8 *)&adapter->rqd_start->stats;
 
-There's a lot of code like this that isn't indented properly.  Either
-that or your email client has corrupted the patch by breaking up long
-lines or similar.
+On Thu, 1 Oct 2009, Linus Torvalds wrote:
+> 
+> Ack. The original intent was for the flag to affect the buffering, not the 
+> end points.
 
-Another example:
+Side note, in case it wasn't clear: I added Jens to the cc, because in the 
+end my "original intent" probably doesn't matter all that much. I may have 
+set up the basic ideas and so on, but I never wrote any apps that use it, 
+and Jens has done most of the actual fixes since.
 
-> +static int
-> +vmxnet3_set_rx_csum(struct net_device *netdev, u32 val)
-> +{
-> +	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
-> +
-> +	if (adapter->rxcsum != val) {
-> +		adapter->rxcsum = val;
-> +		if (netif_running(netdev)) {
-> +			if (val)
-> + adapter->shared->devRead.misc.uptFeatures |=
-> + UPT1_F_RXCSUM;
-> +			else
-> + adapter->shared->devRead.misc.uptFeatures &=
-> + ~UPT1_F_RXCSUM;
-> +
-> + VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
-> + VMXNET3_CMD_UPDATE_FEATURE);
-> +		}
-> +	}
-> +	return 0;
-> +}
+So give "my original intent" the weight (or rather, lack there-of) that it 
+deserves. 
 
-Yikes! :-)
+		Linus
