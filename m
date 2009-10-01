@@ -1,57 +1,42 @@
-From: Greg KH <gregkh@suse.de>
-Subject: [patch 8/9] netfilter: bridge: refcount fix
-Date: Thu, 01 Oct 2009 16:16:41 -0700
-Message-ID: <20091001231805.637821425@mini.kroah.org>
-References: <20091001231633.719696398@mini.kroah.org>
-Cc: stable-review@kernel.org, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>, davem@davemloft.net,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: linux-kernel@vger.kernel.org, stable@kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline; filename=netfilter-bridge-refcount-fix.patch
-In-Reply-To: <20091001231938.GA29593@kroah.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Valentine Barshak <vbarshak@ru.mvista.com>
+Subject: [PATCH] pasemi_mac: ethtool get settings fix
+Date: Fri, 2 Oct 2009 02:27:48 +0400
+Message-ID: <20091001222748.GA21276@ru.mvista.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: linuxppc-dev@ozlabs.org
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
+Not all pasemi mac interfaces can have a phy attached.
+For example, XAUI has no phy and phydev is NULL for it.
+In this case ethtool get settings causes kernel crash.
+Fix it by returning -EOPNOTSUPP if there's no PHY attached.
 
-2.6.27-stable review patch.  If anyone has any objections, please let us know.
-
-------------------
-
-From: Patrick McHardy <kaber@trash.net>
-
-netfilter: bridge: refcount fix
-
-Upstream commit f3abc9b9:
-
-commit f216f082b2b37c4943f1e7c393e2786648d48f6f
-([NETFILTER]: bridge netfilter: deal with martians correctly)
-added a refcount leak on in_dev.
-
-Instead of using in_dev_get(), we can use __in_dev_get_rcu(),
-as netfilter hooks are running under rcu_read_lock(), as pointed
-by Patrick.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
+Signed-off-by: Valentine Barshak <vbarshak@ru.mvista.com>
 ---
- net/bridge/br_netfilter.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/pasemi_mac_ethtool.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -358,7 +358,7 @@ static int br_nf_pre_routing_finish(stru
- 				},
- 				.proto = 0,
- 			};
--			struct in_device *in_dev = in_dev_get(dev);
-+			struct in_device *in_dev = __in_dev_get_rcu(dev);
+--- linux-2.6.21.orig/drivers/net/pasemi_mac_ethtool.c	2008-11-06 18:10:38.000000000 +0300
++++ linux-2.6.21/drivers/net/pasemi_mac_ethtool.c	2008-11-19 19:24:28.000000000 +0300
+@@ -71,6 +71,8 @@ pasemi_mac_ethtool_get_settings(struct n
+ 	struct pasemi_mac *mac = netdev_priv(netdev);
+ 	struct phy_device *phydev = mac->phydev;
  
- 			/* If err equals -EHOSTUNREACH the error is due to a
- 			 * martian destination or due to the fact that
-
-
++	if (!phydev)
++		return -EOPNOTSUPP;
+ 	return phy_ethtool_gset(phydev, cmd);
+ }
