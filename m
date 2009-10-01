@@ -1,67 +1,90 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: kernel doc / docbook pdfdocs question
-Date: Thu, 1 Oct 2009 08:57:07 -0700
-Message-ID: <20091001085707.d74e3e79.randy.dunlap@oracle.com>
-References: <8223.1254340776@jerryjeff.riw.enoyolf.org>
-	<20090930173002.36da7ffd@s6510>
-	<27289.1254375747@jerryjeff.riw.enoyolf.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] skge: use unique IRQ name
+Date: Thu, 1 Oct 2009 09:06:13 -0700
+Message-ID: <20091001090613.745ae24b@s6510>
+References: <20090922120127.14242.71353.stgit@localhost.localdomain>
+	<20090922092826.5302225c@s6510>
+	<20091001122720.3822bdd3@leela>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	netdev <netdev@vger.kernel.org>
-To: Doug Maxey <dwm@enoyolf.org>
+Cc: netdev@vger.kernel.org
+To: Michal Schmidt <mschmidt@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet12.oracle.com ([148.87.113.124]:49930 "EHLO
-	rgminet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750971AbZJAP5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 11:57:44 -0400
-In-Reply-To: <27289.1254375747@jerryjeff.riw.enoyolf.org>
+Received: from mail.vyatta.com ([76.74.103.46]:51348 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754214AbZJAQGK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Oct 2009 12:06:10 -0400
+In-Reply-To: <20091001122720.3822bdd3@leela>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 01 Oct 2009 00:42:27 -0500 Doug Maxey wrote:
+On Thu, 1 Oct 2009 12:27:20 +0200
+Michal Schmidt <mschmidt@redhat.com> wrote:
 
+> Most network drivers request their IRQ when the interface is activated.
+> skge does it in ->probe() instead, because it can work with two-port
+> cards where the two net_devices use the same IRQ. This works fine most
+> of the time, except in some situations when the interface gets renamed.
+> Consider this example:
 > 
-> On Wed, 30 Sep 2009 17:30:02 PDT, Stephen Hemminger wrote:
-> >On Wed, 30 Sep 2009 14:59:36 -0500
-> >Doug Maxey <dwm@enoyolf.org> wrote:
-> >
-> >> 
-> >> Randy,
-> >> 
-> >> This may be slightly off topic for this list, but it does involve an
-> >> (as yet un-released) network driver. :)
-> >> 
-> >> Do you have any insight that could guide me toward a fix for an issue
-> >> seen with some header file constructs when trying to generate a pdf
-> >> docbook?
-> >> 
-> >
-> >Why clutter docbook output (which is supposed to be about general kernel
-> >API's) with output for data structures in one driver.
+> 1. modprobe skge
+>    The card is detected as eth0 and requests IRQ 17. Directory
+>    /proc/irq/17/eth0 is created.
+> 2. There is an udev rule which says this interface should be called
+>    eth1, so udev renames eth0 -> eth1.
+> 3. modprobe 8139too
+>    The Realtek card is detected as eth0. It will be using IRQ 17 too.
+> 4. ip link set eth0 up
+>    Now 8139too requests IRQ 17.
 > 
-> It would be a general mechanism, and it would be to document an API.
-> There are other subsystems that use DECLARE_BITMAP() (e.g., scsi).
-> Just none at the moment that attempt to describe such a member,
-> possibly because there isn't a way to document it.  Dunno.  Build it
-> and they will come.  There is one party that is interested anyway.
+> The result is:
+> WARNING: at fs/proc/generic.c:590 proc_register ...
+> proc_dir_entry '17/eth0' already registered
+> ...
+> And "ls /proc/irq/17" shows two subdirectories, both called eth0.
 > 
-> Finally did find where this was getting warned about / tossed, in
-> kernel-doc itself. =)
+> Fix it by using a unique name for skge's IRQ, based on the PCI address.
+> The naming from the example then looks like this:
+> $ grep skge /proc/interrupts
+>  17:        169   IO-APIC-fasteoi   skge@0000:00:0a.0, eth0
+> 
+> irqbalance daemon will have to be taught to recognize "skge@" as an
+> Ethernet interrupt. This will be a one-liner addition in classify.c. I
+> will send a patch to irqbalance if this change is accepted.
+> 
+> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+> 
+> Index: kernel/drivers/net/skge.c
+> ===================================================================
+> --- kernel.orig/drivers/net/skge.c
+> +++ kernel/drivers/net/skge.c
+> @@ -3895,6 +3895,7 @@ static int __devinit skge_probe(struct p
+>  	struct net_device *dev, *dev1;
+>  	struct skge_hw *hw;
+>  	int err, using_dac = 0;
+> +	size_t irq_name_len;
+>  
+>  	err = pci_enable_device(pdev);
+>  	if (err) {
+> @@ -3935,11 +3936,13 @@ static int __devinit skge_probe(struct p
+>  #endif
+>  
+>  	err = -ENOMEM;
+> -	hw = kzalloc(sizeof(*hw), GFP_KERNEL);
+> +	irq_name_len = strlen(DRV_NAME) + strlen(dev_name(&pdev->dev)) + 2;
+> +	hw = kzalloc(sizeof(*hw) + irq_name_len, GFP_KERNEL);
+>  	if (!hw) {
+>  		dev_err(&pdev->dev, "cannot allocate hardware struct\n");
+>  		goto err_out_free_regions;
+>  	}
+> +	sprintf(hw->irq_name, DRV_NAME "@%s", dev_name(&pdev->dev));
 
-Hi,
-
-Sorry for the delayed reply.  I was away yesterday.
-
-What did you find in kernel-doc?  Something like the
-"cannot understand prototype" message or something else?
-
-Features/support in kernel-doc is mostly added on an as-needed basis.
-Now that you have provided a sample, I can try to add support for it,
-but it's not exactly a high priority for me... or you can add support
-for it to kernel-doc and send a patch for it.  :)
+I like this with one small change. Please use:
+         skge@pci:0000:00:02.0
+This makes the driver follow same format as existing DRM graphics drivers.
+Michal could you follow up with additional patches for:
+   1. sky2 driver has same issue
+   2. irqbalance has a list of special drivers that needs to be updated
 
 
----
-~Randy
