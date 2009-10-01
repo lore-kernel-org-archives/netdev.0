@@ -1,102 +1,97 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH] skge: use unique IRQ name
-Date: Thu, 1 Oct 2009 12:27:20 +0200
-Message-ID: <20091001122720.3822bdd3@leela>
-References: <20090922120127.14242.71353.stgit@localhost.localdomain>
-	<20090922092826.5302225c@s6510>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Chaithrika U S <chaithrika@ti.com>
+Subject: [PATCH] TI DaVinci EMAC: Minor macro related updates
+Date: Thu,  1 Oct 2009 16:25:19 -0400
+Message-ID: <1254428719-13960-1-git-send-email-chaithrika@ti.com>
+Cc: davem@davemloft.net,
+	davinci-linux-open-source@linux.davincidsp.com,
+	Chaithrika U S <chaithrika@ti.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50319 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756071AbZJAKWO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Oct 2009 06:22:14 -0400
-In-Reply-To: <20090922092826.5302225c@s6510>
+Received: from devils.ext.ti.com ([198.47.26.153]:54743 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756306AbZJALJs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 07:09:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Most network drivers request their IRQ when the interface is activated.
-skge does it in ->probe() instead, because it can work with two-port
-cards where the two net_devices use the same IRQ. This works fine most
-of the time, except in some situations when the interface gets renamed.
-Consider this example:
+Use BIT for macro definitions wherever possible, remove
+unused and redundant macros.
 
-1. modprobe skge
-   The card is detected as eth0 and requests IRQ 17. Directory
-   /proc/irq/17/eth0 is created.
-2. There is an udev rule which says this interface should be called
-   eth1, so udev renames eth0 -> eth1.
-3. modprobe 8139too
-   The Realtek card is detected as eth0. It will be using IRQ 17 too.
-4. ip link set eth0 up
-   Now 8139too requests IRQ 17.
+Signed-off-by: Chaithrika U S <chaithrika@ti.com>
+---
+Applies to Linus' kernel tree
 
-The result is:
-WARNING: at fs/proc/generic.c:590 proc_register ...
-proc_dir_entry '17/eth0' already registered
-...
-And "ls /proc/irq/17" shows two subdirectories, both called eth0.
+ drivers/net/davinci_emac.c |   26 +++++++++++---------------
+ 1 files changed, 11 insertions(+), 15 deletions(-)
 
-Fix it by using a unique name for skge's IRQ, based on the PCI address.
-The naming from the example then looks like this:
-$ grep skge /proc/interrupts
- 17:        169   IO-APIC-fasteoi   skge@0000:00:0a.0, eth0
-
-irqbalance daemon will have to be taught to recognize "skge@" as an
-Ethernet interrupt. This will be a one-liner addition in classify.c. I
-will send a patch to irqbalance if this change is accepted.
-
-Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
-
-Index: kernel/drivers/net/skge.c
-===================================================================
---- kernel.orig/drivers/net/skge.c
-+++ kernel/drivers/net/skge.c
-@@ -3895,6 +3895,7 @@ static int __devinit skge_probe(struct p
- 	struct net_device *dev, *dev1;
- 	struct skge_hw *hw;
- 	int err, using_dac = 0;
-+	size_t irq_name_len;
+diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+index 65a2d0b..a421ec0 100644
+--- a/drivers/net/davinci_emac.c
++++ b/drivers/net/davinci_emac.c
+@@ -164,16 +164,14 @@ static const char emac_version_string[] = "TI DaVinci EMAC Linux v6.1";
+ # define EMAC_MBP_MCASTCHAN(ch)		((ch) & 0x7)
  
- 	err = pci_enable_device(pdev);
- 	if (err) {
-@@ -3935,11 +3936,13 @@ static int __devinit skge_probe(struct p
- #endif
+ /* EMAC mac_control register */
+-#define EMAC_MACCONTROL_TXPTYPE		(0x200)
+-#define EMAC_MACCONTROL_TXPACEEN	(0x40)
+-#define EMAC_MACCONTROL_MIIEN		(0x20)
+-#define EMAC_MACCONTROL_GIGABITEN	(0x80)
+-#define EMAC_MACCONTROL_GIGABITEN_SHIFT (7)
+-#define EMAC_MACCONTROL_FULLDUPLEXEN	(0x1)
++#define EMAC_MACCONTROL_TXPTYPE		BIT(9)
++#define EMAC_MACCONTROL_TXPACEEN	BIT(6)
++#define EMAC_MACCONTROL_GMIIEN		BIT(5)
++#define EMAC_MACCONTROL_GIGABITEN	BIT(7)
++#define EMAC_MACCONTROL_FULLDUPLEXEN	BIT(0)
+ #define EMAC_MACCONTROL_RMIISPEED_MASK	BIT(15)
  
- 	err = -ENOMEM;
--	hw = kzalloc(sizeof(*hw), GFP_KERNEL);
-+	irq_name_len = strlen(DRV_NAME) + strlen(dev_name(&pdev->dev)) + 2;
-+	hw = kzalloc(sizeof(*hw) + irq_name_len, GFP_KERNEL);
- 	if (!hw) {
- 		dev_err(&pdev->dev, "cannot allocate hardware struct\n");
- 		goto err_out_free_regions;
- 	}
-+	sprintf(hw->irq_name, DRV_NAME "@%s", dev_name(&pdev->dev));
+ /* GIGABIT MODE related bits */
+-#define EMAC_DM646X_MACCONTORL_GMIIEN	BIT(5)
+ #define EMAC_DM646X_MACCONTORL_GIG	BIT(7)
+ #define EMAC_DM646X_MACCONTORL_GIGFORCE	BIT(17)
  
- 	hw->pdev = pdev;
- 	spin_lock_init(&hw->hw_lock);
-@@ -3974,7 +3977,7 @@ static int __devinit skge_probe(struct p
- 		goto err_out_free_netdev;
- 	}
+@@ -192,10 +190,10 @@ static const char emac_version_string[] = "TI DaVinci EMAC Linux v6.1";
+ #define EMAC_RX_BUFFER_OFFSET_MASK	(0xFFFF)
  
--	err = request_irq(pdev->irq, skge_intr, IRQF_SHARED, dev->name, hw);
-+	err = request_irq(pdev->irq, skge_intr, IRQF_SHARED, hw->irq_name, hw);
- 	if (err) {
- 		dev_err(&pdev->dev, "%s: cannot assign irq %d\n",
- 		       dev->name, pdev->irq);
-Index: kernel/drivers/net/skge.h
-===================================================================
---- kernel.orig/drivers/net/skge.h
-+++ kernel/drivers/net/skge.h
-@@ -2423,6 +2423,8 @@ struct skge_hw {
- 	u16		     phy_addr;
- 	spinlock_t	     phy_lock;
- 	struct tasklet_struct phy_task;
-+
-+	char		     irq_name[0]; /* name for /proc/interrupts */
- };
+ /* MAC_IN_VECTOR (0x180) register bit fields */
+-#define EMAC_DM644X_MAC_IN_VECTOR_HOST_INT	      (0x20000)
+-#define EMAC_DM644X_MAC_IN_VECTOR_STATPEND_INT	      (0x10000)
+-#define EMAC_DM644X_MAC_IN_VECTOR_RX_INT_VEC	      (0x0100)
+-#define EMAC_DM644X_MAC_IN_VECTOR_TX_INT_VEC	      (0x01)
++#define EMAC_DM644X_MAC_IN_VECTOR_HOST_INT	BIT(17)
++#define EMAC_DM644X_MAC_IN_VECTOR_STATPEND_INT	BIT(16)
++#define EMAC_DM644X_MAC_IN_VECTOR_RX_INT_VEC	BIT(8)
++#define EMAC_DM644X_MAC_IN_VECTOR_TX_INT_VEC	BIT(0)
  
- enum pause_control {
+ /** NOTE:: For DM646x the IN_VECTOR has changed */
+ #define EMAC_DM646X_MAC_IN_VECTOR_RX_INT_VEC	BIT(EMAC_DEF_RX_CH)
+@@ -203,7 +201,6 @@ static const char emac_version_string[] = "TI DaVinci EMAC Linux v6.1";
+ #define EMAC_DM646X_MAC_IN_VECTOR_HOST_INT	BIT(26)
+ #define EMAC_DM646X_MAC_IN_VECTOR_STATPEND_INT	BIT(27)
+ 
+-
+ /* CPPI bit positions */
+ #define EMAC_CPPI_SOP_BIT		BIT(31)
+ #define EMAC_CPPI_EOP_BIT		BIT(30)
+@@ -747,8 +744,7 @@ static void emac_update_phystatus(struct emac_priv *priv)
+ 
+ 	if (priv->speed == SPEED_1000 && (priv->version == EMAC_VERSION_2)) {
+ 		mac_control = emac_read(EMAC_MACCONTROL);
+-		mac_control |= (EMAC_DM646X_MACCONTORL_GMIIEN |
+-				EMAC_DM646X_MACCONTORL_GIG |
++		mac_control |= (EMAC_DM646X_MACCONTORL_GIG |
+ 				EMAC_DM646X_MACCONTORL_GIGFORCE);
+ 	} else {
+ 		/* Clear the GIG bit and GIGFORCE bit */
+@@ -2105,7 +2101,7 @@ static int emac_hw_enable(struct emac_priv *priv)
+ 
+ 	/* Enable MII */
+ 	val = emac_read(EMAC_MACCONTROL);
+-	val |= (EMAC_MACCONTROL_MIIEN);
++	val |= (EMAC_MACCONTROL_GMIIEN);
+ 	emac_write(EMAC_MACCONTROL, val);
+ 
+ 	/* Enable NAPI and interrupts */
+-- 
+1.5.6
+
