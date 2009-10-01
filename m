@@ -1,43 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix NOHZ: local_softirq_pending 08
-Date: Thu, 01 Oct 2009 12:32:52 -0700 (PDT)
-Message-ID: <20091001.123252.114903468.davem@davemloft.net>
-References: <200910011604.42916.mb@bu3sch.de>
-	<1254422548.3959.24.camel@johannes.local>
-	<200910012110.34216.mb@bu3sch.de>
+Subject: Re: [RFC] pkt_sched: gen_estimator: Dont report fake rate
+ estimators
+Date: Thu, 01 Oct 2009 12:37:25 -0700 (PDT)
+Message-ID: <20091001.123725.02194664.davem@davemloft.net>
+References: <4AC4FE07.5070204@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, oliver@hartkopp.net, kalle.valo@iki.fi,
-	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: mb@bu3sch.de
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60202
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38503
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752952AbZJATcc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 15:32:32 -0400
-In-Reply-To: <200910012110.34216.mb@bu3sch.de>
+	by vger.kernel.org with ESMTP id S1755546AbZJAThH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 15:37:07 -0400
+In-Reply-To: <4AC4FE07.5070204@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Buesch <mb@bu3sch.de>
-Date: Thu, 1 Oct 2009 21:10:32 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 01 Oct 2009 21:07:51 +0200
 
-> For the benefit of a much bigger critical section? I don't get it
-> why this would be any better.
+> We currently send TCA_STATS_RATE_EST elements to netlink users, even if no estimator
+> is running.
+> 
+> # tc -s -d qdisc
+> qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+>  Sent 112833764978 bytes 1495081739 pkt (dropped 0, overlimits 0 requeues 0)
+>  rate 0bit 0pps backlog 0b 0p requeues 0
+> 
+> User has no way to tell if the "rate 0bit 0pps" is a real estimation, or a fake
+> one (because no estimator is active)
+> 
+> After this patch, tc command output is :
+> $ tc -s -d qdisc
+> qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+>  Sent 561075 bytes 1196 pkt (dropped 0, overlimits 0 requeues 0)
+>  backlog 0b 0p requeues 0
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Think about what you are saying when you introduce things
-like this into your code:
+I'm generally fine with this idea.
 
-	if (in_interrupt())
-		foo();
-	else
-		bar();
+The new behavior is certainly more intuitive even to me :-)
 
-That thing there means you don't know anything about how you'll need
-to do locking properly, because you have no idea about even the
-context in which your code is executed.
-
-Sure, you can lock for the most stringent case, but that's silly and
-wasteful.
+Unless there are other objections I'm ok with this and I'll apply
+your final version when I start taking changes for net-next-2.6
+(which is probably right after -rc3 is released).
