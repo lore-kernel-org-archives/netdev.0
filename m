@@ -1,38 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.31-rc9] drivers/net: ks8851_mll ethernet network
- driver
-Date: Wed, 30 Sep 2009 20:05:35 -0700 (PDT)
-Message-ID: <20090930.200535.217323985.davem@davemloft.net>
-References: <C43529A246480145B0A6D0234BDB0F0D02127E@MELANITE.micrel.com>
-	<20090925.120947.24952563.davem@davemloft.net>
-	<C43529A246480145B0A6D0234BDB0F0D021280@MELANITE.micrel.com>
+Subject: Re: [PATCH] bcm63xx_enet: timeout off by one in do_mdio_op()
+Date: Wed, 30 Sep 2009 20:05:51 -0700 (PDT)
+Message-ID: <20090930.200551.139237447.davem@davemloft.net>
+References: <4AB7DD50.6030409@gmail.com>
+	<1254319288.1627.758.camel@sakura.staff.proxad.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: greg@kroah.com, netdev@vger.kernel.org, Charles.Li@Micrel.Com,
-	Choi@kroah.com, jgarzik@redhat.com, shemminger@vyatta.com
-To: David.Choi@Micrel.Com
+Cc: roel.kluin@gmail.com, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: mbizon@freebox.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35317
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35323
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755479AbZJADFQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 23:05:16 -0400
-In-Reply-To: <C43529A246480145B0A6D0234BDB0F0D021280@MELANITE.micrel.com>
+	by vger.kernel.org with ESMTP id S1755522AbZJADFb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 23:05:31 -0400
+In-Reply-To: <1254319288.1627.758.camel@sakura.staff.proxad.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Choi, David" <David.Choi@Micrel.Com>
-Date: Fri, 25 Sep 2009 17:42:12 -0700
+From: Maxime Bizon <mbizon@freebox.fr>
+Date: Wed, 30 Sep 2009 16:01:28 +0200
 
-> Hello David Miller,
 > 
-> First of all, thank you for your feedback.  Here is my new patch.
+> On Mon, 2009-09-21 at 22:08 +0200, Roel Kluin wrote:
 > 
->>From : David J. Choi <david.choi@micrel.com>
+> Hi Roel,
 > 
-> This is the first registration of ks8851 network driver with 
-> MLL(address/data multiplexed) interface.
+>> `while (limit-- >= 0)' reaches -2 after the loop upon timeout.
 > 
-> Signed-off-by : David J. Choi <david.choi@micrel.com>
+> The 1000us limit was chosen arbitrarily, since mdio access are much
+> shorter, and was just to prevent CPU lockup in case of hardware bug.
+> 
+> But it looks like a bug, and since you're the second one reporting this,
+> this should be fixed :)
+> 
+> 
+>> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> 
+> Acked-by: Maxime Bizon <mbizon@freebox.fr>
 
 Applied, thanks.
