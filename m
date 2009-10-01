@@ -1,46 +1,35 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 3/3] at76c50x-usb: set firmware and hardware version in
- wiphy
-Date: Thu, 01 Oct 2009 02:32:27 +0100
-Message-ID: <1254360747.23350.2.camel@localhost>
-References: <20091001011340.GA3123@tuxdriver.com>
-	 <1254359942-3483-1-git-send-email-linville@tuxdriver.com>
-	 <1254359942-3483-2-git-send-email-linville@tuxdriver.com>
-	 <1254359942-3483-3-git-send-email-linville@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.32-rc1] net: VMware virtual Ethernet NIC driver:
+ vmxnet3
+Date: Wed, 30 Sep 2009 19:51:23 -0700 (PDT)
+Message-ID: <20090930.195123.33813752.davem@davemloft.net>
+References: <alpine.LRH.2.00.0909301432410.8073@localhost.localdomain>
+	<20090930173923.4520716a@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Kalle Valo <kalle.valo@nokia.com>,
-	Kalle Valo <kalle.valo@iki.fi>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:20972 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755345AbZJABdp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Sep 2009 21:33:45 -0400
-In-Reply-To: <1254359942-3483-3-git-send-email-linville@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sbhatewara@vmware.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	jgarzik@pobox.com, anthony@codemonkey.ws, chrisw@sous-sol.org,
+	greg@kroah.com, akpm@linux-foundation.org,
+	virtualization@lists.linux-foundation.org, pv-drivers@vmware.com
+To: shemminger@vyatta.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755506AbZJACvG@vger.kernel.org>
+In-Reply-To: <20090930173923.4520716a@s6510>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2009-09-30 at 21:19 -0400, John W. Linville wrote:
-[...]
-> +	len = sizeof(wiphy->fw_version);
-> +	snprintf(wiphy->fw_version, len, "%d.%d.%d-%d",
-> +		 priv->fw_version.major, priv->fw_version.minor,
-> +		 priv->fw_version.patch, priv->fw_version.build);
-> +	/* null terminate the strings in case they were truncated */
-> +	wiphy->fw_version[len - 1] = '\0';
-[...]
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 30 Sep 2009 17:39:23 -0700
 
-This last statement is unnecessary; snprintf() always null-terminates
-(unless the length is zero).
+> Why not use NETIF_F_LRO and ethtool to control LRO support?
 
-Ben.
+In fact, you must, in order to handle bridging and routing
+correctly.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Bridging and routing is illegal with LRO enabled, so the kernel
+automatically issues the necessary ethtool commands to disable
+LRO in the relevant devices.
 
+Therefore you must support the ethtool LRO operation in order to
+support LRO at all.
