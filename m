@@ -1,97 +1,92 @@
-From: Chaithrika U S <chaithrika@ti.com>
-Subject: [PATCH] TI DaVinci EMAC: Minor macro related updates
-Date: Thu,  1 Oct 2009 16:25:19 -0400
-Message-ID: <1254428719-13960-1-git-send-email-chaithrika@ti.com>
-Cc: davem@davemloft.net,
-	davinci-linux-open-source@linux.davincidsp.com,
-	Chaithrika U S <chaithrika@ti.com>
-To: netdev@vger.kernel.org
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH 1/7] mlx4: Added interrupts test support
+Date: Thu, 01 Oct 2009 16:32:58 +0200
+Message-ID: <4AC4BD9A.2050101@mellanox.co.il>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:54743 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756306AbZJALJs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 07:09:48 -0400
+Received: from mail.mellanox.co.il ([194.90.237.43]:60171 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756358AbZJALe6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Oct 2009 07:34:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use BIT for macro definitions wherever possible, remove
-unused and redundant macros.
+A test that verifies that we can accept interrupts on all
+the irq vectors of the device.
+Interrupts are checked using the NOP command.
 
-Signed-off-by: Chaithrika U S <chaithrika@ti.com>
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
-Applies to Linus' kernel tree
+ drivers/net/mlx4/eq.c       |   44 +++++++++++++++++++++++++++++++++++++++++++
+ include/linux/mlx4/device.h |    1 +
+ 2 files changed, 45 insertions(+), 0 deletions(-)
 
- drivers/net/davinci_emac.c |   26 +++++++++++---------------
- 1 files changed, 11 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
-index 65a2d0b..a421ec0 100644
---- a/drivers/net/davinci_emac.c
-+++ b/drivers/net/davinci_emac.c
-@@ -164,16 +164,14 @@ static const char emac_version_string[] = "TI DaVinci EMAC Linux v6.1";
- # define EMAC_MBP_MCASTCHAN(ch)		((ch) & 0x7)
+diff --git a/drivers/net/mlx4/eq.c b/drivers/net/mlx4/eq.c
+index bffb799..81619a1 100644
+--- a/drivers/net/mlx4/eq.c
++++ b/drivers/net/mlx4/eq.c
+@@ -698,3 +698,47 @@ void mlx4_cleanup_eq_table(struct mlx4_dev *dev)
  
- /* EMAC mac_control register */
--#define EMAC_MACCONTROL_TXPTYPE		(0x200)
--#define EMAC_MACCONTROL_TXPACEEN	(0x40)
--#define EMAC_MACCONTROL_MIIEN		(0x20)
--#define EMAC_MACCONTROL_GIGABITEN	(0x80)
--#define EMAC_MACCONTROL_GIGABITEN_SHIFT (7)
--#define EMAC_MACCONTROL_FULLDUPLEXEN	(0x1)
-+#define EMAC_MACCONTROL_TXPTYPE		BIT(9)
-+#define EMAC_MACCONTROL_TXPACEEN	BIT(6)
-+#define EMAC_MACCONTROL_GMIIEN		BIT(5)
-+#define EMAC_MACCONTROL_GIGABITEN	BIT(7)
-+#define EMAC_MACCONTROL_FULLDUPLEXEN	BIT(0)
- #define EMAC_MACCONTROL_RMIISPEED_MASK	BIT(15)
+ 	kfree(priv->eq_table.uar_map);
+ }
++
++/* A test that verifies that we can accept interrupts on all
++ * the irq vectors of the device.
++ * Interrupts are checked using the NOP command.
++ */
++int mlx4_test_interrupts(struct mlx4_dev *dev)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	int i;
++	int err;
++
++	err = mlx4_NOP(dev);
++	/* When not in MSI_X, there is only one irq to check */
++	if (!(dev->flags & MLX4_FLAG_MSI_X))
++		return err;
++
++	/* A loop over all completion vectors, for each vector we will check
++	 * whether it works by mapping command completions to that vector
++	 * and performing a NOP command
++	 */
++	for (i = 0; !err && (i < dev->caps.num_comp_vectors); ++i) {
++		/* Temporary use polling for command completions */
++		mlx4_cmd_use_polling(dev);
++
++		/* Map the new eq to handle all asyncronous events */
++		err = mlx4_MAP_EQ(dev, MLX4_ASYNC_EVENT_MASK, 0,
++				  priv->eq_table.eq[i].eqn);
++		if (err) {
++			mlx4_warn(dev, "Failed mapping eq for interrupt test\n");
++			mlx4_cmd_use_events(dev);
++			break;
++		}
++
++		/* Go back to using events */
++		mlx4_cmd_use_events(dev);
++		err = mlx4_NOP(dev);
++	}
++
++	/* Return to default */
++	mlx4_MAP_EQ(dev, MLX4_ASYNC_EVENT_MASK, 0,
++		    priv->eq_table.eq[dev->caps.num_comp_vectors].eqn);
++	return err;
++}
++EXPORT_SYMBOL(mlx4_test_interrupts);
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index ce7cc6c..e27a68d 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -480,4 +480,5 @@ void mlx4_fmr_unmap(struct mlx4_dev *dev, struct mlx4_fmr *fmr,
+ int mlx4_fmr_free(struct mlx4_dev *dev, struct mlx4_fmr *fmr);
+ int mlx4_SYNC_TPT(struct mlx4_dev *dev);
  
- /* GIGABIT MODE related bits */
--#define EMAC_DM646X_MACCONTORL_GMIIEN	BIT(5)
- #define EMAC_DM646X_MACCONTORL_GIG	BIT(7)
- #define EMAC_DM646X_MACCONTORL_GIGFORCE	BIT(17)
- 
-@@ -192,10 +190,10 @@ static const char emac_version_string[] = "TI DaVinci EMAC Linux v6.1";
- #define EMAC_RX_BUFFER_OFFSET_MASK	(0xFFFF)
- 
- /* MAC_IN_VECTOR (0x180) register bit fields */
--#define EMAC_DM644X_MAC_IN_VECTOR_HOST_INT	      (0x20000)
--#define EMAC_DM644X_MAC_IN_VECTOR_STATPEND_INT	      (0x10000)
--#define EMAC_DM644X_MAC_IN_VECTOR_RX_INT_VEC	      (0x0100)
--#define EMAC_DM644X_MAC_IN_VECTOR_TX_INT_VEC	      (0x01)
-+#define EMAC_DM644X_MAC_IN_VECTOR_HOST_INT	BIT(17)
-+#define EMAC_DM644X_MAC_IN_VECTOR_STATPEND_INT	BIT(16)
-+#define EMAC_DM644X_MAC_IN_VECTOR_RX_INT_VEC	BIT(8)
-+#define EMAC_DM644X_MAC_IN_VECTOR_TX_INT_VEC	BIT(0)
- 
- /** NOTE:: For DM646x the IN_VECTOR has changed */
- #define EMAC_DM646X_MAC_IN_VECTOR_RX_INT_VEC	BIT(EMAC_DEF_RX_CH)
-@@ -203,7 +201,6 @@ static const char emac_version_string[] = "TI DaVinci EMAC Linux v6.1";
- #define EMAC_DM646X_MAC_IN_VECTOR_HOST_INT	BIT(26)
- #define EMAC_DM646X_MAC_IN_VECTOR_STATPEND_INT	BIT(27)
- 
--
- /* CPPI bit positions */
- #define EMAC_CPPI_SOP_BIT		BIT(31)
- #define EMAC_CPPI_EOP_BIT		BIT(30)
-@@ -747,8 +744,7 @@ static void emac_update_phystatus(struct emac_priv *priv)
- 
- 	if (priv->speed == SPEED_1000 && (priv->version == EMAC_VERSION_2)) {
- 		mac_control = emac_read(EMAC_MACCONTROL);
--		mac_control |= (EMAC_DM646X_MACCONTORL_GMIIEN |
--				EMAC_DM646X_MACCONTORL_GIG |
-+		mac_control |= (EMAC_DM646X_MACCONTORL_GIG |
- 				EMAC_DM646X_MACCONTORL_GIGFORCE);
- 	} else {
- 		/* Clear the GIG bit and GIGFORCE bit */
-@@ -2105,7 +2101,7 @@ static int emac_hw_enable(struct emac_priv *priv)
- 
- 	/* Enable MII */
- 	val = emac_read(EMAC_MACCONTROL);
--	val |= (EMAC_MACCONTROL_MIIEN);
-+	val |= (EMAC_MACCONTROL_GMIIEN);
- 	emac_write(EMAC_MACCONTROL, val);
- 
- 	/* Enable NAPI and interrupts */
++int mlx4_test_interrupts(struct mlx4_dev *dev);
+ #endif /* MLX4_DEVICE_H */
 -- 
-1.5.6
+1.6.1.3
 
