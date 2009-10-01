@@ -1,27 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Kconfig: STRIP: Remove stale bits of STRIP help text
-Date: Thu, 01 Oct 2009 14:49:21 -0700 (PDT)
-Message-ID: <20091001.144921.209954866.davem@davemloft.net>
-References: <20091001214809.GA15234@linux-mips.org>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: [PATCH] ipvs: Add boundary check on ioctl arguments
+Date: Thu, 1 Oct 2009 09:22:20 +0200
+Message-ID: <20091001092220.2ea81cb2@infradead.org>
+References: <20090930131109.2b3f71b8@infradead.org>
+	<4AC35F44.60707@google.com>
+	<20090930171833.5ce0011d@infradead.org>
+	<Pine.LNX.4.58.0909302231360.2853@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ralf@linux-mips.org
+Cc: Hannes Eder <heder@google.com>,
+	Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Simon Horman <horms@verge.net.au>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36902
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753193AbZJAVtB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 17:49:01 -0400
-In-Reply-To: <20091001214809.GA15234@linux-mips.org>
+Received: from casper.infradead.org ([85.118.1.10]:53265 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751557AbZJAVvI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 17:51:08 -0400
+In-Reply-To: <Pine.LNX.4.58.0909302231360.2853@u.domain.uli>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ralf Baechle <ralf@linux-mips.org>
-Date: Thu, 1 Oct 2009 23:48:09 +0200
+On Wed, 30 Sep 2009 22:41:05 +0300 (EEST)
+Julian Anastasov <ja@ssi.bg> wrote:
 
-> Remove references to dead web site mosquitonet.Stanford.EDU.
 > 
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> 	Hello,
+> 
+> On Wed, 30 Sep 2009, Arjan van de Ven wrote:
+> 
+> > fair enough; updated patch below
 
-Applied, thank you.
+
+
+> Later len can be checked
+> additionally and surely can exceed 128 (include/linux/ip_vs.h has
+> all user structures). 
+
+the on-stack structure currently is 128 bytes though...
+
+> Can you show the exact cmd and len
+> used, may be there is error in some command or may be the
+> provided user structure is wrong?
+
+this comes from code inspection using gcc features; this
+is one of the (few) cases in the kernel where gcc cannot prove
+that the copy_from_user() length for the copy-to-stack is sufficiently
+bounds checked. I'm trying to make sure all these cases have
+complete enough checks, both for the obvious security reasons but
+also to be able to then make gcc emit a warning to prevent future
+issues from popping up.
+
+
+
+-- 
+Arjan van de Ven 	Intel Open Source Technology Centre
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
