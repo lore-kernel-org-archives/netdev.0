@@ -1,55 +1,40 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 00/31] Swap over NFS -v20
-Date: Thu, 1 Oct 2009 13:42:01 -0400
-Message-ID: <20091001174201.GA30068@infradead.org>
-References: <1254405858-15651-1-git-send-email-sjayaraman@suse.de>
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: Re: [PATCH] skge: use unique IRQ name
+Date: Thu, 1 Oct 2009 20:02:08 +0200
+Message-ID: <20091001200208.2907b8ff@leela>
+References: <20090922120127.14242.71353.stgit@localhost.localdomain>
+	<20090922092826.5302225c@s6510>
+	<20091001122720.3822bdd3@leela>
+	<20091001095032.17271dcc@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, Neil Brown <neilb@suse.de>,
-	Miklos Szeredi <mszeredi@suse.cz>, Wouter Verhelst <w@uter.be>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>, trond.myklebust@fys.uio.no
-To: Suresh Jayaraman <sjayaraman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1254405858-15651-1-git-send-email-sjayaraman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:61513 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754758AbZJAR5C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Oct 2009 13:57:02 -0400
+In-Reply-To: <20091001095032.17271dcc@s6510>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 01, 2009 at 07:34:18PM +0530, Suresh Jayaraman wrote:
-> Hi,
-> 
-> Here's the latest version of swap over NFS series since -v19 last October by
-> Peter Zijlstra. Peter does not have time to pursue this further (though he has
-> not lost interest) and that led me to take over this patchset and try merging
-> upstream.
-> 
-> The patches are against the current mmotm. It does not support SLQB, yet.
-> These patches can also be found online here:
-> 	http://www.suse.de/~sjayaraman/patches/swap-over-nfs/
+Dne Thu, 1 Oct 2009 09:50:32 -0700 Stephen Hemminger napsal:
+>  	err = -ENOMEM;
+> -	hw = kzalloc(sizeof(*hw), GFP_KERNEL);
+> +	/* space for skge@pci:0000:04:00.0 */
+> +	irq_name_len = strlen(DRV_NAME) +
+> strlen(dev_name(&pdev->dev)) + 6;
 
-My advise again that I already gave to Peter long ago.  It's almost
-impossible to get a patchset that large and touching many subsystems in.
+You replaced "dev_name(&pdev->dev)" with "pci_name(pdev)" below.
+That's nice, so we should replace it here too for consistency.
 
-Split it into smaller series that make sense of their own.  One of them
-would be the whole VM/net work to just make swap over nbd/iscsi safe.
+> +	hw = kzalloc(sizeof(*hw) + irq_name_len, GFP_KERNEL);
+>  	if (!hw) {
+>  		dev_err(&pdev->dev, "cannot allocate hardware
+> struct\n"); goto err_out_free_regions;
+>  	}
+> +	sprintf(hw->irq_name, DRV_NAME "@pci:%s", pci_name(pdev));
 
-The other really big one is adding a proper method for safe, page-backed
-kernelspace I/O on files.  That is not something like the grotty
-swap-tied address_space operations in this patch, but more something in
-the direction of the kernel direct I/O patches from Jenx Axboe he did
-for using in the loop driver.  But even those aren't complete as they
-don't touch the locking issue yet.
-
-Especially the latter is an absolutely essential step to make any
-progress here, and an excellent patch series of it's own as there are
-multiple users for this, like making swap safe on btrfs files, making
-the MD bitmap code actually safe or improving the loop driver.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Michal
