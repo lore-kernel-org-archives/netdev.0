@@ -1,29 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/7] mlx4: Query for loopback support
-Date: Thu, 01 Oct 2009 13:34:44 -0700 (PDT)
-Message-ID: <20091001.133444.116815514.davem@davemloft.net>
-References: <4AC4BDB7.2040306@mellanox.co.il>
+From: David Rientjes <rientjes@google.com>
+Subject: Re: [PATCH 01/31] mm: serialize access to min_free_kbytes
+Date: Thu, 1 Oct 2009 13:35:44 -0700 (PDT)
+Message-ID: <alpine.DEB.1.00.0910011330430.27559@chino.kir.corp.google.com>
+References: <1254405871-15687-1-git-send-email-sjayaraman@suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yevgenyp@mellanox.co.il
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34946
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756568AbZJAUeZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 16:34:25 -0400
-In-Reply-To: <4AC4BDB7.2040306@mellanox.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+        netdev@vger.kernel.org, Neil Brown <neilb@suse.de>,
+        Miklos Szeredi <mszeredi@suse.cz>, Wouter Verhelst <w@uter.be>,
+        Peter Zijlstra <a.p.zijlstra@chello.nl>, trond.myklebust@fys.uio.no
+To: Suresh Jayaraman <sjayaraman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1254405871-15687-1-git-send-email-sjayaraman@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Thu, 01 Oct 2009 16:33:27 +0200
+On Thu, 1 Oct 2009, Suresh Jayaraman wrote:
 
-> +	int			loopback_support;
+> From: Peter Zijlstra <a.p.zijlstra@chello.nl> 
+> 
+> There is a small race between the procfs caller and the memory hotplug caller
+> of setup_per_zone_wmarks(). Not a big deal, but the next patch will add yet
+> another caller. Time to close the gap.
+> 
 
-You don't need a full 32-bit integer to store what
-amounts to a single bit of boolean state.
+By "next patch," you mean "mm: emegency pool" (patch 08/31)?
 
-Please store this in a flags word somewhere, or
-if nothing appropriate exists, use a 'bool'.
+If so, can't you eliminate var_free_mutex entirely from that patch and 
+take min_free_lock in adjust_memalloc_reserve() instead?
+
+ [ __adjust_memalloc_reserve() would call __setup_per_zone_wmarks()
+   under lock instead, now. ]
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
