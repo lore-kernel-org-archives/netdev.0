@@ -1,46 +1,56 @@
-From: Philipp Reisner <philipp.reisner@linbit.com>
-Subject: [PATCH 5/8] dm/connector: Only process connector packages from privileged processes
-Date: Fri,  2 Oct 2009 14:40:08 +0200
-Message-ID: <1254487211-11810-6-git-send-email-philipp.reisner@linbit.com>
-References: <1254487211-11810-1-git-send-email-philipp.reisner@linbit.com>
- <1254487211-11810-2-git-send-email-philipp.reisner@linbit.com>
- <1254487211-11810-3-git-send-email-philipp.reisner@linbit.com>
- <1254487211-11810-4-git-send-email-philipp.reisner@linbit.com>
- <1254487211-11810-5-git-send-email-philipp.reisner@linbit.com>
-Cc: dm-devel@redhat.com, Evgeniy Polyakov <zbr@ioremap.net>,
-	linux-fbdev-devel@lists.sourceforge.net,
-	Philipp Reisner <philipp.reisner@linbit.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>, Greg KH <greg@kroah.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail09.linbit.com ([212.69.161.110]:53811 "EHLO
-	mail09.linbit.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756768AbZJBMkL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 08:40:11 -0400
-In-Reply-To: <1254487211-11810-5-git-send-email-philipp.reisner@linbit.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stefan Richter <stefanr-MtYdepGKPcBMYopoZt5u/LNAH6kLmebB@public.gmane.org>
+Subject: Re: 2.6.32-rc1-git2: Reported regressions from 2.6.31
+Date: Fri, 02 Oct 2009 15:00:37 +0200
+Message-ID: <4AC5F975.6060505@s5r6.in-berlin.de>
+References: <9UCePxij8cB.A.VCG.-3SxKB@chimera> <1254469139.3531.19.camel@ht.satnam>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Jaswinder Singh Rajput <jaswinder-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1254469139.3531.19.camel-6Ww87KsxWewAvxtiuMwx3w@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Philipp Reisner <philipp.reisner@linbit.com>
----
- drivers/md/dm-log-userspace-transfer.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+Jaswinder Singh Rajput wrote:
+> If you add one more entry say "Suspected commit :" then it will be great
+> and will solve regressions much faster.
 
-diff --git a/drivers/md/dm-log-userspace-transfer.c b/drivers/md/dm-log-userspace-transfer.c
-index 1327e1a..54abf9e 100644
---- a/drivers/md/dm-log-userspace-transfer.c
-+++ b/drivers/md/dm-log-userspace-transfer.c
-@@ -133,6 +133,9 @@ static void cn_ulog_callback(struct cn_msg *msg, struct netlink_skb_parms *nsp)
- {
- 	struct dm_ulog_request *tfr = (struct dm_ulog_request *)(msg + 1);
- 
-+	if (!cap_raised(nsp->eff_cap, CAP_SYS_ADMIN))
-+		return;
-+
- 	spin_lock(&receiving_list_lock);
- 	if (msg->len == 0)
- 		fill_pkg(msg, NULL);
+Will?  Might.
+
+> You can request submitter to
+> submit 'suspected commit' by git bisect and also specify git bisect
+> links like : (for more information about git bisect check
+> http://kerneltrap.org/node/11753)
+
+I disagree.  A reporter should only be asked to bisect (using git or
+other tools) /if/ a developer determined that bisection may speed up the
+debugging process or is the only remaining option to make progress with
+a bug.
+
+It would be wrong to steal a reporter's valuable time by asking for
+bisection before anybody familiar with the matter even had a first look
+at the report.
+
+Remember:
+  - Not all bugs can be economically narrowed down by bisection.
+  - Bisection requires skills, rigor, and time.
+  - Alas there are considerable sections in our kernel history which
+    are not bisectable.
 -- 
-1.6.0.4
-
+Stefan Richter
+-=====-==--= =-=- ---=-
+http://arcgraph.de/sr/
