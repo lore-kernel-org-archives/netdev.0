@@ -1,76 +1,177 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 2/2] ixgbe: add support for 82599 based X520 10G Dual
-	KX4 Mezz card
-Date: Fri, 02 Oct 2009 11:58:25 -0700
-Message-ID: <20091002185825.8771.50867.stgit@localhost.localdomain>
-References: <20091002185803.8771.46655.stgit@localhost.localdomain>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH v2] net: export device speed and duplex via sysfs
+Date: Fri, 2 Oct 2009 15:26:12 -0400
+Message-ID: <20091002192612.GA1639@gospo.rdu.redhat.com>
+References: <20091002180742.GH4436@gospo.rdu.redhat.com> <4AC6432C.1020202@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta01.westchester.pa.mail.comcast.net ([76.96.62.16]:49923
-	"EHLO QMTA01.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755434AbZJBS7j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 14:59:39 -0400
-In-Reply-To: <20091002185803.8771.46655.stgit@localhost.localdomain>
+Received: from mx1.redhat.com ([209.132.183.28]:2371 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751728AbZJBT0K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Oct 2009 15:26:10 -0400
+Content-Disposition: inline
+In-Reply-To: <4AC6432C.1020202@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+On Fri, Oct 02, 2009 at 08:15:08PM +0200, Eric Dumazet wrote:
+> Andy Gospodarek a =E9crit :
+> > +static ssize_t show_speed(struct device *dev,
+> > +			  struct device_attribute *attr, char *buf)
+> > +{
+> > +	struct net_device *netdev =3D to_net_dev(dev);
+> > +	int ret =3D -EINVAL;
+> > +
+> > +	if (!rtnl_trylock())
+> > +		return restart_syscall();
+> > +
+> > +	if (netif_running(netdev) && netdev->ethtool_ops->get_settings) {
+> > +		struct ethtool_cmd cmd =3D { ETHTOOL_GSET };
+> > +
+> > +		if (netdev->ethtool_ops->get_settings(netdev, &cmd) < 0)
+>=20
+> 		rtnl lock leak ?
+>=20
+>=20
+> > +			return -EINVAL;
+> > +		ret =3D sprintf(buf, fmt_dec, cmd.speed);
+> > +	}
+> > +	rtnl_unlock();
+> > +	return ret;
+> > +}
+> > +
+> > +static ssize_t show_duplex(struct device *dev,
+> > +			   struct device_attribute *attr, char *buf)
+> > +{
+> > +	struct net_device *netdev =3D to_net_dev(dev);
+> > +	int ret =3D -EINVAL;
+> > +
+> > +	if (!rtnl_trylock())
+> > +		return restart_syscall();
+> > +
+> > +	if (netif_running(netdev) && netdev->ethtool_ops->get_settings) {
+> > +		struct ethtool_cmd cmd =3D { ETHTOOL_GSET };
+> > +
+> > +		if (netdev->ethtool_ops->get_settings(netdev, &cmd) < 0)
+>=20
+> 		rtnl lock leak ?
+>=20
+> > +			return -EINVAL;
+> > +		ret =3D sprintf(buf, "%s\n", cmd.duplex ? "full" : "half");
+> > +	}
+> > +	rtnl_unlock();
+> > +	return ret;
+> > +}
+> > +
+>=20
 
-This patch adds device support for the 82599 based X520 10GbE
-Dual Port KX4 Mezzanine card.
+Thanks for spotting that, Eric.  Here's an updated (and tested patch).
+I also switched to using ethtool_cmd_speed to get link speed to get the
+'entire' speed.
 
-Signed-off-by: Don Skidmore<donald.c.skidmore@intel.com>
-Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+[PATCH] net: export device speed and duplex via sysfs
+
+This patch exports the link-speed (in Mbps) and duplex of an interface
+via sysfs.  This eliminates the need to use ethtool just to check the
+link-speed.  Not requiring 'ethtool' and not relying on the SIOCETHTOOL
+ioctl should be helpful in an embedded environment where space is at a
+premium as well.
+
+NOTE: This patch also intentionally allows non-root users to check the =
+link
+speed and duplex -- something not possible with ethtool.
+
+Here's some sample output:
+
+# cat /sys/class/net/eth0/speed=20
+100
+# cat /sys/class/net/eth0/duplex
+half
+# ethtool eth0
+Settings for eth0:
+        Supported ports: [ TP ]
+        Supported link modes:   10baseT/Half 10baseT/Full=20
+                                100baseT/Half 100baseT/Full=20
+                                1000baseT/Half 1000baseT/Full=20
+        Supports auto-negotiation: Yes
+        Advertised link modes:  Not reported
+        Advertised auto-negotiation: No
+        Speed: 100Mb/s
+        Duplex: Half
+        Port: Twisted Pair
+        PHYAD: 1
+        Transceiver: internal
+        Auto-negotiation: off
+        Supports Wake-on: g
+        Wake-on: g
+        Current message level: 0x000000ff (255)
+        Link detected: yes
+
+
 ---
+ net/core/net-sysfs.c |   40 ++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 40 insertions(+), 0 deletions(-)
 
- drivers/net/ixgbe/ixgbe_82599.c |    1 +
- drivers/net/ixgbe/ixgbe_main.c  |    2 ++
- drivers/net/ixgbe/ixgbe_type.h  |    1 +
- 3 files changed, 4 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
-index bb87c43..34b0492 100644
---- a/drivers/net/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ixgbe/ixgbe_82599.c
-@@ -330,6 +330,7 @@ static enum ixgbe_media_type ixgbe_get_media_type_82599(struct ixgbe_hw *hw)
- 
- 	switch (hw->device_id) {
- 	case IXGBE_DEV_ID_82599_KX4:
-+	case IXGBE_DEV_ID_82599_KX4_MEZZ:
- 	case IXGBE_DEV_ID_82599_COMBO_BACKPLANE:
- 	case IXGBE_DEV_ID_82599_XAUI_LOM:
- 		/* Default device ID is mezzanine card KX/KX4 */
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index dc4afa5..1a2eb79 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -97,6 +97,8 @@ static struct pci_device_id ixgbe_pci_tbl[] = {
- 	 board_82599 },
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_SFP),
- 	 board_82599 },
-+	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_KX4_MEZZ),
-+	 board_82599 },
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_CX4),
- 	 board_82599 },
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_COMBO_BACKPLANE),
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index a71f712..ef4bdd5 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -49,6 +49,7 @@
- #define IXGBE_DEV_ID_82598_SR_DUAL_PORT_EM      0x10E1
- #define IXGBE_DEV_ID_82598EB_XF_LR       0x10F4
- #define IXGBE_DEV_ID_82599_KX4           0x10F7
-+#define IXGBE_DEV_ID_82599_KX4_MEZZ      0x1514
- #define IXGBE_DEV_ID_82599_CX4           0x10F9
- #define IXGBE_DEV_ID_82599_SFP           0x10FB
- #define IXGBE_DEV_ID_82599_XAUI_LOM      0x10FC
-
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 3994680..133dbc4 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -130,6 +130,44 @@ static ssize_t show_carrier(struct device *dev,
+ 	return -EINVAL;
+ }
+=20
++static ssize_t show_speed(struct device *dev,
++			  struct device_attribute *attr, char *buf)
++{
++	struct net_device *netdev =3D to_net_dev(dev);
++	int ret =3D -EINVAL;
++
++	if (!rtnl_trylock())
++		return restart_syscall();
++
++	if (netif_running(netdev) && netdev->ethtool_ops->get_settings) {
++		struct ethtool_cmd cmd =3D { ETHTOOL_GSET };
++
++		if (!netdev->ethtool_ops->get_settings(netdev, &cmd))
++			ret =3D sprintf(buf, fmt_dec, ethtool_cmd_speed(&cmd));
++	}
++	rtnl_unlock();
++	return ret;
++}
++
++static ssize_t show_duplex(struct device *dev,
++			   struct device_attribute *attr, char *buf)
++{
++	struct net_device *netdev =3D to_net_dev(dev);
++	int ret =3D -EINVAL;
++
++	if (!rtnl_trylock())
++		return restart_syscall();
++
++	if (netif_running(netdev) && netdev->ethtool_ops->get_settings) {
++		struct ethtool_cmd cmd =3D { ETHTOOL_GSET };
++
++		if (!netdev->ethtool_ops->get_settings(netdev, &cmd))
++			ret =3D sprintf(buf, "%s\n", cmd.duplex ? "full" : "half");
++	}
++	rtnl_unlock();
++	return ret;
++}
++
+ static ssize_t show_dormant(struct device *dev,
+ 			    struct device_attribute *attr, char *buf)
+ {
+@@ -259,6 +297,8 @@ static struct device_attribute net_class_attributes=
+[] =3D {
+ 	__ATTR(address, S_IRUGO, show_address, NULL),
+ 	__ATTR(broadcast, S_IRUGO, show_broadcast, NULL),
+ 	__ATTR(carrier, S_IRUGO, show_carrier, NULL),
++	__ATTR(speed, S_IRUGO, show_speed, NULL),
++	__ATTR(duplex, S_IRUGO, show_duplex, NULL),
+ 	__ATTR(dormant, S_IRUGO, show_dormant, NULL),
+ 	__ATTR(operstate, S_IRUGO, show_operstate, NULL),
+ 	__ATTR(mtu, S_IRUGO | S_IWUSR, show_mtu, store_mtu),
