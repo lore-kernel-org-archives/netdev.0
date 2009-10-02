@@ -1,56 +1,32 @@
-From: Neil Brown <neilb@suse.de>
-Subject: Re: [PATCH 01/31] mm: serialize access to min_free_kbytes
-Date: Fri, 2 Oct 2009 15:20:34 +1000
-Message-ID: <19141.36258.926599.862333@notabene.brown>
-References: <1254405871-15687-1-git-send-email-sjayaraman@suse.de>
-	<alpine.DEB.1.00.0910011330430.27559@chino.kir.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/7] mlx4: Added interrupts test support
+Date: Thu, 01 Oct 2009 22:27:15 -0700 (PDT)
+Message-ID: <20091001.222715.166183229.davem@davemloft.net>
+References: <4AC4BD9A.2050101@mellanox.co.il>
+	<adaeipmqxmv.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Suresh Jayaraman <sjayaraman@suse.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, Miklos Szeredi <mszeredi@suse.cz>,
-	Wouter Verhelst <w@uter.be>, Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	trond.myklebust@fys.uio.no
-To: David Rientjes <rientjes@google.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: message from David Rientjes on Thursday October 1
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: yevgenyp@mellanox.co.il, netdev@vger.kernel.org
+To: rdreier@cisco.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51906
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755117AbZJBF04 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 01:26:56 -0400
+In-Reply-To: <adaeipmqxmv.fsf@cisco.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday October 1, rientjes@google.com wrote:
-> On Thu, 1 Oct 2009, Suresh Jayaraman wrote:
-> 
-> > From: Peter Zijlstra <a.p.zijlstra@chello.nl> 
-> > 
-> > There is a small race between the procfs caller and the memory hotplug caller
-> > of setup_per_zone_wmarks(). Not a big deal, but the next patch will add yet
-> > another caller. Time to close the gap.
-> > 
-> 
-> By "next patch," you mean "mm: emegency pool" (patch 08/31)?
+From: Roland Dreier <rdreier@cisco.com>
+Date: Thu, 01 Oct 2009 20:32:08 -0700
 
-:-)  It is always safer to say "a subsequent patch", isn't it....
+> This feels like a pretty risky thing to do while the device might be
+> handling all sorts of other traffic at the same time.  Are you sure
+> there are no races you expose here?  Have you actually seen cases where
+> the interrupt test during initialization works but then this test
+> catches a problem?  (My experience has been that if any MSI-X interrupts
+> work from a device, then they'll all work)
 
-> 
-> If so, can't you eliminate var_free_mutex entirely from that patch and 
-> take min_free_lock in adjust_memalloc_reserve() instead?
-
-adjust_memalloc_reserve does a test alloc/free cycle under a lock.
-That cannot be done under a spin-lock, it must be a mutex.
-So I don't think you can eliminate var_free_mutex.
-
-Thanks,
-NeilBrown
-
-> 
->  [ __adjust_memalloc_reserve() would call __setup_per_zone_wmarks()
->    under lock instead, now. ]
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I would suggest only allowing the test while the interface is down.
+That way the test has exclusive control of the IRQ.
