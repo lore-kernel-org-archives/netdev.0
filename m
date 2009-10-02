@@ -1,58 +1,43 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH] e1000e: swap max hw supported frame size between
-	82574 and 82583
-Date: Fri, 02 Oct 2009 15:30:42 -0700
-Message-ID: <20091002223042.4191.43767.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] TCPCT-1: adding a sysctl
+Date: Fri, 02 Oct 2009 15:48:08 -0700 (PDT)
+Message-ID: <20091002.154808.137771153.davem@davemloft.net>
+References: <4AC61505.8030701@gmail.com>
+	<877hvdbj55.fsf@basil.nowhere.org>
+	<4AC674A4.2040900@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, rjw@sisk.pl,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org
+To: william.allen.simpson@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta08.emeryville.ca.mail.comcast.net ([76.96.30.80]:40406 "EHLO
-	QMTA08.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753047AbZJBWal (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 18:30:41 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43627
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756391AbZJBWrt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 18:47:49 -0400
+In-Reply-To: <4AC674A4.2040900@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Date: Fri, 02 Oct 2009 17:46:12 -0400
 
-There appears to have been a mixup in the max supported jumbo frame size
-between 82574 and 82583 which ended up disabling jumbo frames on the 82574
-as a result.  This patch swaps the two so that this issue is resolved.
+> Andi Kleen wrote:
+>> William Allen Simpson <william.allen.simpson@gmail.com> writes:
+>>> Any suggestions for improvement?  Or general approval?
+>> The patch seems incomplete, can't find callers for most of the new
+>> functions.
+>> 
+> Ummm, I was following the suggested practice of breaking it into
+> smaller
+> pieces for review.  This is just the control functions and headers.
+> I've
+> actually completed most of the port, and am champing at the bit.
 
-This patch fixes http://bugzilla.kernel.org/show_bug.cgi?id=14261
+We can't review the helper functions and infrastructure properly until
+we can see how they are actually used.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+Seeing how they are used shows us how well they are designed.
 
- drivers/net/e1000e/82571.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index b53b40b..d1e0563 100644
---- a/drivers/net/e1000e/82571.c
-+++ b/drivers/net/e1000e/82571.c
-@@ -1803,7 +1803,7 @@ struct e1000_info e1000_82574_info = {
- 				  | FLAG_HAS_AMT
- 				  | FLAG_HAS_CTRLEXT_ON_LOAD,
- 	.pba			= 20,
--	.max_hw_frame_size	= ETH_FRAME_LEN + ETH_FCS_LEN,
-+	.max_hw_frame_size	= DEFAULT_JUMBO,
- 	.get_variants		= e1000_get_variants_82571,
- 	.mac_ops		= &e82571_mac_ops,
- 	.phy_ops		= &e82_phy_ops_bm,
-@@ -1820,7 +1820,7 @@ struct e1000_info e1000_82583_info = {
- 				  | FLAG_HAS_AMT
- 				  | FLAG_HAS_CTRLEXT_ON_LOAD,
- 	.pba			= 20,
--	.max_hw_frame_size	= DEFAULT_JUMBO,
-+	.max_hw_frame_size	= ETH_FRAME_LEN + ETH_FCS_LEN,
- 	.get_variants		= e1000_get_variants_82571,
- 	.mac_ops		= &e82571_mac_ops,
- 	.phy_ops		= &e82_phy_ops_bm,
-
+Otherwise asking for a is absolutely pointless as we have no context
+in which to judge the code you're showing us.
