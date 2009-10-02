@@ -1,65 +1,67 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH] cnic: Fix NETDEV_UP event processing.
-Date: Thu, 1 Oct 2009 23:17:34 -0700
-Message-ID: <1254464254-32005-1-git-send-email-mchan@broadcom.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [Question]: reqsk table size limited to 16?
+Date: Fri, 2 Oct 2009 08:11:34 +0200
+Message-ID: <20091002061134.GC5646@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, michaelc@cs.wisc.edu,
-	"Michael Chan" <mchan@broadcom.com>,
-	"Benjamin Li" <benli@broadcom.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2254 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756731AbZJBGJU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Oct 2009 02:09:20 -0400
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:56876 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756723AbZJBGLg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Oct 2009 02:11:36 -0400
+Received: from laptev.erg.abdn.ac.uk (Debian-exim@ra-gerrit.erg.abdn.ac.uk [139.133.204.38])
+	by erg.abdn.ac.uk (8.13.4/8.13.4) with ESMTP id n926BZQS012866
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 2 Oct 2009 07:11:35 +0100 (BST)
+Received: from gerrit by laptev.erg.abdn.ac.uk with local (Exim 4.69)
+	(envelope-from <gerrit@laptev.erg.abdn.ac.uk>)
+	id 1MtbMc-0001Z7-Qg
+	for netdev@vger.kernel.org; Fri, 02 Oct 2009 08:11:34 +0200
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes the problem of not handling the NETDEV_UP event properly
-during hot-plug or modprobe of bnx2 after cnic.  The handling was
-skipped by mistakenly using "else if" to check for the event.
+Can someone please have a look, it may be that I am missing something?
 
-Also update version to 2.0.1.
+It seems that in the following the maximum number of table entries is set
+to always 16, despite sysctl_max_syn_backlog (tcp_max_syn_backlog), 
+overriding the 'backlog' parameter to listen(2).
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Signed-off-by: Benjamin Li <benli@broadcom.com>
----
- drivers/net/cnic.c    |    3 ++-
- drivers/net/cnic_if.h |    4 ++--
- 2 files changed, 4 insertions(+), 3 deletions(-)
+net/core/request_sock.c
+-----------------------
 
-diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-index 211c8e9..46c87ec 100644
---- a/drivers/net/cnic.c
-+++ b/drivers/net/cnic.c
-@@ -2733,7 +2733,8 @@ static int cnic_netdev_event(struct notifier_block *this, unsigned long event,
- 			cnic_ulp_init(dev);
- 		else if (event == NETDEV_UNREGISTER)
- 			cnic_ulp_exit(dev);
--		else if (event == NETDEV_UP) {
-+
-+		if (event == NETDEV_UP) {
- 			if (cnic_register_netdev(dev) != 0) {
- 				cnic_put(dev);
- 				goto done;
-diff --git a/drivers/net/cnic_if.h b/drivers/net/cnic_if.h
-index a492357..d8b09ef 100644
---- a/drivers/net/cnic_if.h
-+++ b/drivers/net/cnic_if.h
-@@ -12,8 +12,8 @@
- #ifndef CNIC_IF_H
- #define CNIC_IF_H
- 
--#define CNIC_MODULE_VERSION	"2.0.0"
--#define CNIC_MODULE_RELDATE	"May 21, 2009"
-+#define CNIC_MODULE_VERSION	"2.0.1"
-+#define CNIC_MODULE_RELDATE	"Oct 01, 2009"
- 
- #define CNIC_ULP_RDMA		0
- #define CNIC_ULP_ISCSI		1
--- 
-1.6.4.GIT
+int reqsk_queue_alloc(struct request_sock_queue *queue,
+                      unsigned int nr_table_entries)
+{
+        size_t lopt_size = sizeof(struct listen_sock);
+        struct listen_sock *lopt;
 
+	nr_table_entries = min_t(u32, nr_table_entries, sysctl_max_syn_backlog);
+        nr_table_entries = max_t(u32, nr_table_entries, 8);
+        nr_table_entries = roundup_pow_of_two(nr_table_entries + 1);
 
+	//...
+	for (lopt->max_qlen_log = 3;
+             (1 << lopt->max_qlen_log) < nr_table_entries;
+             lopt->max_qlen_log++);
+
+ 	//...
+	lopt->nr_table_entries = nr_table_entries;
+	
+	//...
+	return 0
+}
+
+The function is called with an argument 'nr_table_entries', which is then clamped as
+
+   sysctl_max_syn_backlog <= nr_table_entries <= 8
+
+If nr_table_entries = 8, then round_pow_of_two(8 + 1) = 16.
+
+The sysctl value is set to a much higher value (default 128 or 1024, net/ipv4/tcp.c).
+
+The reqsk_queue_alloc() gets 'nr_table_entries' passed directly from inet_csk_listen_start(),
+which in turn gets its 'nr_table_entries' as the 'backlog' argument to listen(2) via
+ * net/dccp/proto.c   (dccp_listen_start) or
+ * net/ipv4/af_inet.c (inet_listen).
