@@ -1,67 +1,167 @@
-From: David Rientjes <rientjes@google.com>
-Subject: Re: [PATCH 30/31] Fix use of uninitialized variable in
- cache_grow()
-Date: Fri, 2 Oct 2009 03:05:07 -0700 (PDT)
-Message-ID: <alpine.DEB.1.00.0910020258190.25369@chino.kir.corp.google.com>
-References: <1254406257-16735-1-git-send-email-sjayaraman@suse.de> <alpine.DEB.1.00.0910011341280.27559@chino.kir.corp.google.com> <19141.34685.863491.329836@notabene.brown>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC take2] pkt_sched: gen_estimator: Dont report fake rate estimators
+Date: Fri, 02 Oct 2009 12:35:57 +0200
+Message-ID: <4AC5D78D.3030400@gmail.com>
+References: <20091002070819.GA9694@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Suresh Jayaraman <sjayaraman@suse.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, Miklos Szeredi <mszeredi@suse.cz>,
-	Wouter Verhelst <w@uter.be>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	trond.myklebust@fys.uio.no
-To: Neil Brown <neilb@suse.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757539AbZJBKFR@vger.kernel.org>
-In-Reply-To: <19141.34685.863491.329836@notabene.brown>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:38628 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757532AbZJBKf5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 06:35:57 -0400
+In-Reply-To: <20091002070819.GA9694@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2 Oct 2009, Neil Brown wrote:
+Here is second attempt to make this change, thanks Jarek !
 
-> > > Index: mmotm/mm/slab.c
-> > > ===================================================================
-> > > --- mmotm.orig/mm/slab.c
-> > > +++ mmotm/mm/slab.c
-> > > @@ -2760,7 +2760,7 @@ static int cache_grow(struct kmem_cache
-> > >  	size_t offset;
-> > >  	gfp_t local_flags;
-> > >  	struct kmem_list3 *l3;
-> > > -	int reserve;
-> > > +	int reserve = -1;
-> > >  
-> > >  	/*
-> > >  	 * Be lazy and only check for valid flags here,  keeping it out of the
-> > > @@ -2816,7 +2816,8 @@ static int cache_grow(struct kmem_cache
-> > >  	if (local_flags & __GFP_WAIT)
-> > >  		local_irq_disable();
-> > >  	check_irq_off();
-> > > -	slab_set_reserve(cachep, reserve);
-> > > +	if (reserve != -1)
-> > > +		slab_set_reserve(cachep, reserve);
-> > >  	spin_lock(&l3->list_lock);
-> > >  
-> > >  	/* Make slab active. */
-> > 
-> > Given the patch description, shouldn't this be a test for objp != NULL 
-> > instead, then?
-> 
-> In between those to patch hunks, cache_grow contains the code:
-> 	if (!objp)
-> 		objp = kmem_getpages(cachep, local_flags, nodeid, &reserve);
-> 	if (!objp)
-> 		goto failed;
-> 
-> We can no longer test if objp was NULL on entry to the function.
-> We could take a copy of objp on entry to the function, and test it
-> here.  But initialising 'reserve' to an invalid value is easier.
-> 
+This is indeed less intrusive !
 
-Seems like you could do all this in kmem_getpages(), then, by calling 
-slab_set_reserve(cachep, page->reserve) before returning the new page?
+[RFC] pkt_sched: gen_estimator: Dont report fake rate estimators
 
- [ I'd also drop the branch in slab_set_reserve(), it's faster to just 
-   assign it unconditionally. ]
+We currently send TCA_STATS_RATE_EST elements to netlink users, even if no estimator
+is running.
+
+# tc -s -d qdisc
+qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+ Sent 112833764978 bytes 1495081739 pkt (dropped 0, overlimits 0 requeues 0)
+ rate 0bit 0pps backlog 0b 0p requeues 0
+
+User has no way to tell if the "rate 0bit 0pps" is a real estimation, or a fake
+one (because no estimator is active)
+
+After this patch, tc command output is :
+$ tc -s -d qdisc
+qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+ Sent 561075 bytes 1196 pkt (dropped 0, overlimits 0 requeues 0)
+ backlog 0b 0p requeues 0
+
+We add a parameter to gnet_stats_copy_rate_est() function so that
+it can use gen_estimator_active(bstats, r), as suggested by Jarek.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/net/gen_stats.h |    1 +
+ net/core/gen_stats.c    |    7 ++++++-
+ net/sched/act_api.c     |    2 +-
+ net/sched/sch_api.c     |    2 +-
+ net/sched/sch_cbq.c     |    2 +-
+ net/sched/sch_drr.c     |    2 +-
+ net/sched/sch_hfsc.c    |    2 +-
+ net/sched/sch_htb.c     |    2 +-
+ 8 files changed, 13 insertions(+), 7 deletions(-)
+
+diff --git a/include/net/gen_stats.h b/include/net/gen_stats.h
+index c148855..a0800e6 100644
+--- a/include/net/gen_stats.h
++++ b/include/net/gen_stats.h
+@@ -30,6 +30,7 @@ extern int gnet_stats_start_copy_compat(struct sk_buff *skb, int type,
+ extern int gnet_stats_copy_basic(struct gnet_dump *d,
+ 				 struct gnet_stats_basic_packed *b);
+ extern int gnet_stats_copy_rate_est(struct gnet_dump *d,
++				    const struct gnet_stats_basic_packed *bstats,
+ 				    struct gnet_stats_rate_est *r);
+ extern int gnet_stats_copy_queue(struct gnet_dump *d,
+ 				 struct gnet_stats_queue *q);
+diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
+index 8569310..6f9513e 100644
+--- a/net/core/gen_stats.c
++++ b/net/core/gen_stats.c
+@@ -136,8 +136,13 @@ gnet_stats_copy_basic(struct gnet_dump *d, struct gnet_stats_basic_packed *b)
+  * if the room in the socket buffer was not sufficient.
+  */
+ int
+-gnet_stats_copy_rate_est(struct gnet_dump *d, struct gnet_stats_rate_est *r)
++gnet_stats_copy_rate_est(struct gnet_dump *d,
++			 const struct gnet_stats_basic_packed *bstats,
++			 struct gnet_stats_rate_est *r)
+ {
++	if (!gen_estimator_active(bstats, r))
++		return 0;
++
+ 	if (d->compat_tc_stats) {
+ 		d->tc_stats.bps = r->bps;
+ 		d->tc_stats.pps = r->pps;
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 2dfb3e7..2b0d5ee 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -618,7 +618,7 @@ int tcf_action_copy_stats(struct sk_buff *skb, struct tc_action *a,
+ 			goto errout;
+ 
+ 	if (gnet_stats_copy_basic(&d, &h->tcf_bstats) < 0 ||
+-	    gnet_stats_copy_rate_est(&d, &h->tcf_rate_est) < 0 ||
++	    gnet_stats_copy_rate_est(&d, &h->tcf_bstats, &h->tcf_rate_est) < 0 ||
+ 	    gnet_stats_copy_queue(&d, &h->tcf_qstats) < 0)
+ 		goto errout;
+ 
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 903e418..1acfd29 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -1179,7 +1179,7 @@ static int tc_fill_qdisc(struct sk_buff *skb, struct Qdisc *q, u32 clid,
+ 		goto nla_put_failure;
+ 
+ 	if (gnet_stats_copy_basic(&d, &q->bstats) < 0 ||
+-	    gnet_stats_copy_rate_est(&d, &q->rate_est) < 0 ||
++	    gnet_stats_copy_rate_est(&d, &q->bstats, &q->rate_est) < 0 ||
+ 	    gnet_stats_copy_queue(&d, &q->qstats) < 0)
+ 		goto nla_put_failure;
+ 
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index 5b132c4..3846d65 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -1609,7 +1609,7 @@ cbq_dump_class_stats(struct Qdisc *sch, unsigned long arg,
+ 		cl->xstats.undertime = cl->undertime - q->now;
+ 
+ 	if (gnet_stats_copy_basic(d, &cl->bstats) < 0 ||
+-	    gnet_stats_copy_rate_est(d, &cl->rate_est) < 0 ||
++	    gnet_stats_copy_rate_est(d, &cl->bstats, &cl->rate_est) < 0 ||
+ 	    gnet_stats_copy_queue(d, &cl->qstats) < 0)
+ 		return -1;
+ 
+diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
+index 5a888af..a65604f 100644
+--- a/net/sched/sch_drr.c
++++ b/net/sched/sch_drr.c
+@@ -280,7 +280,7 @@ static int drr_dump_class_stats(struct Qdisc *sch, unsigned long arg,
+ 	}
+ 
+ 	if (gnet_stats_copy_basic(d, &cl->bstats) < 0 ||
+-	    gnet_stats_copy_rate_est(d, &cl->rate_est) < 0 ||
++	    gnet_stats_copy_rate_est(d, &cl->bstats, &cl->rate_est) < 0 ||
+ 	    gnet_stats_copy_queue(d, &cl->qdisc->qstats) < 0)
+ 		return -1;
+ 
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index 2c5c76b..b38b39c 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -1375,7 +1375,7 @@ hfsc_dump_class_stats(struct Qdisc *sch, unsigned long arg,
+ 	xstats.rtwork  = cl->cl_cumul;
+ 
+ 	if (gnet_stats_copy_basic(d, &cl->bstats) < 0 ||
+-	    gnet_stats_copy_rate_est(d, &cl->rate_est) < 0 ||
++	    gnet_stats_copy_rate_est(d, &cl->bstats, &cl->rate_est) < 0 ||
+ 	    gnet_stats_copy_queue(d, &cl->qstats) < 0)
+ 		return -1;
+ 
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 85acab9..8352fa3 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1105,7 +1105,7 @@ htb_dump_class_stats(struct Qdisc *sch, unsigned long arg, struct gnet_dump *d)
+ 	cl->xstats.ctokens = cl->ctokens;
+ 
+ 	if (gnet_stats_copy_basic(d, &cl->bstats) < 0 ||
+-	    gnet_stats_copy_rate_est(d, &cl->rate_est) < 0 ||
++	    gnet_stats_copy_rate_est(d, &cl->bstats, &cl->rate_est) < 0 ||
+ 	    gnet_stats_copy_queue(d, &cl->qstats) < 0)
+ 		return -1;
+ 
