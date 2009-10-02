@@ -1,68 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: Re: [PATCH] net: export device speed and duplex via sysfs
-Date: Fri, 02 Oct 2009 20:15:08 +0200
-Message-ID: <4AC6432C.1020202@gmail.com>
+Date: Fri, 02 Oct 2009 19:19:14 +0100
+Message-ID: <1254507554.8795.12.camel@achroite>
 References: <20091002180742.GH4436@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:60784 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758027AbZJBSPR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 14:15:17 -0400
+Received: from exchange.solarflare.com ([216.237.3.220]:41715 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758032AbZJBSTM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 14:19:12 -0400
 In-Reply-To: <20091002180742.GH4436@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Gospodarek a =E9crit :
-> +static ssize_t show_speed(struct device *dev,
-> +			  struct device_attribute *attr, char *buf)
-> +{
-> +	struct net_device *netdev =3D to_net_dev(dev);
-> +	int ret =3D -EINVAL;
-> +
-> +	if (!rtnl_trylock())
-> +		return restart_syscall();
-> +
-> +	if (netif_running(netdev) && netdev->ethtool_ops->get_settings) {
-> +		struct ethtool_cmd cmd =3D { ETHTOOL_GSET };
-> +
-> +		if (netdev->ethtool_ops->get_settings(netdev, &cmd) < 0)
+On Fri, 2009-10-02 at 14:07 -0400, Andy Gospodarek wrote:
+> This exports the link-speed (in Mbps) and duplex of an interface via
+> sysfs.  This eliminates the need to use ethtool just to check the
+> link-speed.  Not requiring 'ethtool' and not relying on the SIOCETHTOOL
+> ioctl should be helpful in an embedded environment where space is at a
+> premium as well.
 
-		rtnl lock leak ?
+It's trivial to write an ethtool-lite that does this.  That might be
+worth adding to busybox.
 
+> NOTE: This patch also intentionally allows non-root users to check the link
+> speed and duplex -- something not possible with ethtool.
+[...]
 
-> +			return -EINVAL;
-> +		ret =3D sprintf(buf, fmt_dec, cmd.speed);
-> +	}
-> +	rtnl_unlock();
-> +	return ret;
-> +}
-> +
-> +static ssize_t show_duplex(struct device *dev,
-> +			   struct device_attribute *attr, char *buf)
-> +{
-> +	struct net_device *netdev =3D to_net_dev(dev);
-> +	int ret =3D -EINVAL;
-> +
-> +	if (!rtnl_trylock())
-> +		return restart_syscall();
-> +
-> +	if (netif_running(netdev) && netdev->ethtool_ops->get_settings) {
-> +		struct ethtool_cmd cmd =3D { ETHTOOL_GSET };
-> +
-> +		if (netdev->ethtool_ops->get_settings(netdev, &cmd) < 0)
+Assuming this is desirable (I'm not sure), wouldn't it would make more
+sense to move the permissions check for SIOCETHTOOL so that get_settings
+is non-privileged?
 
-		rtnl lock leak ?
+Ben.
 
-> +			return -EINVAL;
-> +		ret =3D sprintf(buf, "%s\n", cmd.duplex ? "full" : "half");
-> +	}
-> +	rtnl_unlock();
-> +	return ret;
-> +}
-> +
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
