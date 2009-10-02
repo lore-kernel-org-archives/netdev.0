@@ -1,59 +1,44 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] make TLLAO option for NA packets configurable
-Date: Fri, 2 Oct 2009 10:53:51 -0700
-Message-ID: <20091002105351.0fbde9c2@nehalam>
-References: <20091001111450.221969cc@s6510>
-	<20091001115611.0baa77b8@s6510>
-	<20091001.123740.103898742.davem@davemloft.net>
-	<200910020119.47320.opurdila@ixiacom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/8] SECURITY ISSUE with connector
+Date: Fri, 02 Oct 2009 10:56:59 -0700 (PDT)
+Message-ID: <20091002.105659.102583702.davem@davemloft.net>
+References: <1254487211-11810-1-git-send-email-philipp.reisner@linbit.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, cratiu@ixiacom.com,
-	netdev@vger.kernel.org
-To: Octavian Purdila <opurdila@ixiacom.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, greg@kroah.com, dm-devel@redhat.com,
+	zbr@ioremap.net, linux-fbdev-devel@lists.sourceforge.net
+To: philipp.reisner@linbit.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34996 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756561AbZJBRxx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Oct 2009 13:53:53 -0400
-In-Reply-To: <200910020119.47320.opurdila@ixiacom.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47204
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754419AbZJBR4j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 13:56:39 -0400
+In-Reply-To: <1254487211-11810-1-git-send-email-philipp.reisner@linbit.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2 Oct 2009 01:19:47 +0300
-Octavian Purdila <opurdila@ixiacom.com> wrote:
+From: Philipp Reisner <philipp.reisner@linbit.com>
+Date: Fri,  2 Oct 2009 14:40:03 +0200
 
-> On Thursday 01 October 2009 22:37:40 you wrote:
-> > From: Stephen Hemminger <shemminger@vyatta.com>
-> > Date: Thu, 1 Oct 2009 11:56:11 -0700
-> > 
-> > > On Thu, 1 Oct 2009 21:39:32 +0300
-> > >
-> > > Octavian Purdila <opurdila@ixiacom.com> wrote:
-> > >> On Thursday 01 October 2009 21:14:50 you wrote:
-> > >> > Probably this should be a per interface property rather than per
-> > >> > namespace.
-> > >>
-> > >> In our case, where we have lots of interfaces active, it would be nice
-> > >> to have the per namespace property as well.
-> > >
-> > > The ipv6 control infrastructure already has that option. If you changed
-> > > your patch to use a per-interface control then there would be:
-> > >
-> > >   /proc/sys/net/ipv6/conf/all/force_tllao
-> > 
-> > Right, this would work a lot better.
-> > 
+> Affected: All code that uses connector, in kernel and out of mainline
 > 
-> Here is v3 which also updates Documentation/networking/ip-sysctl.txt.
+> The connector, as it is today, does not allow the in kernel receiving
+> parts to do any checks on privileges of a message's sender.
 > 
-> Thanks,
-> tavi
+> I know, there are not many out there that like connector, but as
+> long as it is in the kernel, we have to fix the security issues it has!
 > 
+> Please either drop connector, or someone who feels a bit responsible
+> and has our beloved dictator's blessing, PLEASE PLEASE PLEASE take 
+> this into your tree, and send the pull request to Linus.
 > 
+> Patches 1 to 4 are already Acked-by Evgeny, the connector's maintainer.
+> Patches 5 to 7 are the obvious fixes to the connector user's code.
+> 
+> For convenience these patches are also available as git tree:
+> git://git.drbd.org/linux-2.6-drbd.git connector-fix
 
-This is good although I would have shortened the name.
-
-
--- 
+All applied to net-2.6, I'll push this out to Linus later
+today.
