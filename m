@@ -1,63 +1,67 @@
-From: Markus Feldmann <feldmann_markus@gmx.de>
-Subject: Messages are printed on screen
-Date: Fri, 02 Oct 2009 11:52:12 +0200
-Message-ID: <ha4igd$ghh$1@ger.gmane.org>
+From: David Rientjes <rientjes@google.com>
+Subject: Re: [PATCH 30/31] Fix use of uninitialized variable in
+ cache_grow()
+Date: Fri, 2 Oct 2009 03:05:07 -0700 (PDT)
+Message-ID: <alpine.DEB.1.00.0910020258190.25369@chino.kir.corp.google.com>
+References: <1254406257-16735-1-git-send-email-sjayaraman@suse.de> <alpine.DEB.1.00.0910011341280.27559@chino.kir.corp.google.com> <19141.34685.863491.329836@notabene.brown>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:38637 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757468AbZJBJwb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Oct 2009 05:52:31 -0400
-Received: from list by lo.gmane.org with local (Exim 4.50)
-	id 1MteoV-0004un-9f
-	for netdev@vger.kernel.org; Fri, 02 Oct 2009 11:52:35 +0200
-Received: from 188.96.74.134 ([188.96.74.134])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 02 Oct 2009 11:52:35 +0200
-Received: from feldmann_markus by 188.96.74.134 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 02 Oct 2009 11:52:35 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Suresh Jayaraman <sjayaraman@suse.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, Miklos Szeredi <mszeredi@suse.cz>,
+	Wouter Verhelst <w@uter.be>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	trond.myklebust@fys.uio.no
+To: Neil Brown <neilb@suse.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757539AbZJBKFR@vger.kernel.org>
+In-Reply-To: <19141.34685.863491.329836@notabene.brown>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi All,
+On Fri, 2 Oct 2009, Neil Brown wrote:
 
-i am setting up my Server, with Linux Debian lenny. Therefore i am using 
-  Kernel 2.6.31.1. I configured this Kernel with <make defconfig> and 
-<make menuconfig>. My motherboard has 5 PCI slots and 1 AGP slot. All 
-slots are in use. All devices are mapped to the following IRQ-Line:
+> > > Index: mmotm/mm/slab.c
+> > > ===================================================================
+> > > --- mmotm.orig/mm/slab.c
+> > > +++ mmotm/mm/slab.c
+> > > @@ -2760,7 +2760,7 @@ static int cache_grow(struct kmem_cache
+> > >  	size_t offset;
+> > >  	gfp_t local_flags;
+> > >  	struct kmem_list3 *l3;
+> > > -	int reserve;
+> > > +	int reserve = -1;
+> > >  
+> > >  	/*
+> > >  	 * Be lazy and only check for valid flags here,  keeping it out of the
+> > > @@ -2816,7 +2816,8 @@ static int cache_grow(struct kmem_cache
+> > >  	if (local_flags & __GFP_WAIT)
+> > >  		local_irq_disable();
+> > >  	check_irq_off();
+> > > -	slab_set_reserve(cachep, reserve);
+> > > +	if (reserve != -1)
+> > > +		slab_set_reserve(cachep, reserve);
+> > >  	spin_lock(&l3->list_lock);
+> > >  
+> > >  	/* Make slab active. */
+> > 
+> > Given the patch description, shouldn't this be a test for objp != NULL 
+> > instead, then?
+> 
+> In between those to patch hunks, cache_grow contains the code:
+> 	if (!objp)
+> 		objp = kmem_getpages(cachep, local_flags, nodeid, &reserve);
+> 	if (!objp)
+> 		goto failed;
+> 
+> We can no longer test if objp was NULL on entry to the function.
+> We could take a copy of objp on entry to the function, and test it
+> here.  But initialising 'reserve' to an invalid value is easier.
+> 
 
-Mass Storage Device (PCI Slot1)	IRQ-Line 11
-Ethernet (PCI Slot 2) 		IRQ-Line 4
-Ethernet (PCI Slot 3) 		IRQ-Line 5
-Ethernet (PCI Slot 4) 		IRQ-Line 7
-Ethernet (PCI Slot 5) 		IRQ-Line 11
-Onboard USB-Controller		IRQ-Line 5
-Onboard USB-Controller		IRQ-Line 4
-Onboard USB-Controller		IRQ-Line 11
-Onboard IDE			IRQ-Line 14
-AGP VGA				IRQ-Line 11
+Seems like you could do all this in kmem_getpages(), then, by calling 
+slab_set_reserve(cachep, page->reserve) before returning the new page?
 
-As you see some of my IRQ-Lines are multiply in use, so my Server is 
-working hard at his limit. The result is sometimes freezing of my 
-Server, especially if there is much processing on these devices. I 
-remember that with Kernel 2.6.18 my system didn't does freezing.
-
-So i am trying to reduce the amount of this processing. I still get 
-messages about dropped network packets on my Terminal, although i set up 
-my <rsyslog> to save this only to </var/log>. Here is my 
-</etc/rsyslog.conf>
-
-How can i disable the output of messages (about dropped packets from my 
-firewall) to my terminal ?
-
-How can i stabilize my IRQ-System with the kernel 2.6.31.1 ?
-
-What debug features should i disable ?
-
-regards Markus
-
+ [ I'd also drop the branch in slab_set_reserve(), it's faster to just 
+   assign it unconditionally. ]
