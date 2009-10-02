@@ -1,37 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tg3: Remove prev_vlan_tag from struct tx_ring_info
-Date: Fri, 02 Oct 2009 06:16:48 +0200
-Message-ID: <4AC57EB0.3050602@gmail.com>
-References: <4AC36638.8070304@gmail.com>	<20090930172643.GA14439@xw6200.broadcom.net> <20091001.143859.53379358.davem@davemloft.net>
+From: Neil Brown <neilb@suse.de>
+Subject: Re: [PATCH 04/31] mm: tag reseve pages
+Date: Fri, 2 Oct 2009 14:43:34 +1000
+Message-ID: <19141.34038.274185.392663@notabene.brown>
+References: <1254405917-15796-1-git-send-email-sjayaraman@suse.de>
+	<alpine.DEB.1.00.0910011407390.32006@chino.kir.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mcarlson@broadcom.com, netdev@vger.kernel.org, mchan@broadcom.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:46952 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751557AbZJBEQu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 00:16:50 -0400
-In-Reply-To: <20091001.143859.53379358.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Suresh Jayaraman <sjayaraman@suse.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, Miklos Szeredi <mszeredi@suse.cz>,
+	Wouter Verhelst <w@uter.be>, Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	trond.myklebust@fys.uio.no
+To: David Rientjes <rientjes@google.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: message from David Rientjes on Thursday October 1
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-David Miller a =E9crit :
->=20
-> Applied, thanks.
->=20
-> Eric, I had to apply this by hand because:
->=20
->>> @@ -2412,7 +2412,6 @@ struct ring_info {
->>> =20
->>>  struct tx_ring_info {
->>>  	struct sk_buff                  *skb;
->>> -	u32                             prev_vlan_tag;
->>>  };
->=20
-> Your email client changed tabs into spaces.
+On Thursday October 1, rientjes@google.com wrote:
+> On Thu, 1 Oct 2009, Suresh Jayaraman wrote:
+> 
+> > Index: mmotm/mm/page_alloc.c
+> > ===================================================================
+> > --- mmotm.orig/mm/page_alloc.c
+> > +++ mmotm/mm/page_alloc.c
+> > @@ -1501,8 +1501,10 @@ zonelist_scan:
+> >  try_this_zone:
+> >  		page = buffered_rmqueue(preferred_zone, zone, order,
+> >  						gfp_mask, migratetype);
+> > -		if (page)
+> > +		if (page) {
+> > +			page->reserve = !!(alloc_flags & ALLOC_NO_WATERMARKS);
+> >  			break;
+> > +		}
+> >  this_zone_full:
+> >  		if (NUMA_BUILD)
+> >  			zlc_mark_zone_full(zonelist, z);
+> 
+> page->reserve won't necessary indicate that access to reserves was 
+> _necessary_ for the allocation to succeed, though.  This will mark any 
+> page being allocated under PF_MEMALLOC as reserve when all zones may be 
+> well above their min watermarks.
 
-Oops, I'm sorry Dave, I did a copy/paste and forgot about tabs.
+Normally if zones are above their watermarks, page->reserve will not
+be set.
+This is because __alloc_page_nodemask (which seems to be the main
+non-inline entrypoint) first calls get_page_from_freelist with
+alloc_flags set to ALLOC_WMARK_LOW|ALLOC_CPUSET.
+Only if this fails does __alloc_page_nodemask call
+__alloc_pages_slowpath which potentially sets ALLOC_NO_WATERMARKS in
+alloc_flags.
 
-Thanks
+So page->reserved being set actually tells us:
+  PF_MEMALLOC or GFP_MEMALLOC were used, and
+  a WMARK_LOW allocation attempt failed very recently
+
+which is close enough to "the emergency reserves were used" I think.
+
+Thanks,
+NeilBrown
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
