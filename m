@@ -1,54 +1,56 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: [PATCH] Use sk_mark for routing lookup in more places
-Date: Fri, 2 Oct 2009 10:25:13 -0700
-Message-ID: <55a4f86e0910021025u7523029av1e4ee917d1fb1ee5@mail.gmail.com>
-References: <200910011814.47689.atis@mikrotik.com> <4AC4D90E.3040008@gmail.com>
-	 <20091001.151823.263194343.davem@davemloft.net>
-	 <4AC58C46.8080408@gmail.com> <4AC598D7.9080900@gmail.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: 2.6.32-rc1-git2: Reported regressions from 2.6.31
+Date: Fri, 2 Oct 2009 19:32:27 +0200
+Message-ID: <200910021932.27789.rjw@sisk.pl>
+References: <9UCePxij8cB.A.VCG.-3SxKB@chimera> <1254469139.3531.19.camel@ht.satnam> <4AC5F975.6060505@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, atis@mikrotik.com,
-	panther@balabit.hu, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f210.google.com ([209.85.218.210]:36505 "EHLO
-	mail-bw0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757739AbZJBRZN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 13:25:13 -0400
-Received: by bwz6 with SMTP id 6so1204688bwz.37
-        for <netdev@vger.kernel.org>; Fri, 02 Oct 2009 10:25:15 -0700 (PDT)
-In-Reply-To: <4AC598D7.9080900@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jaswinder Singh Rajput <jaswinder@kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.sourceforge.net>
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <4AC5F975.6060505@s5r6.in-berlin.de>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cool!
+On Friday 02 October 2009, Stefan Richter wrote:
+> Jaswinder Singh Rajput wrote:
+> > If you add one more entry say "Suspected commit :" then it will be great
+> > and will solve regressions much faster.
+> 
+> Will?  Might.
 
-As I've already pointed out in a post 2 or so weeks ago, we need the
-exact same treatment in a ton of places throughout the code (tcp,
-ipv6, decnet, etc...).
+In fact I add the "First-Bad-Commit" annotation where there is a bisection
+result or it's possible to fix things by reverting a specific commit.
 
-Maybe it would make more sense to create some constructor-like
-functions for the flowi struct?
+> > You can request submitter to
+> > submit 'suspected commit' by git bisect and also specify git bisect
+> > links like : (for more information about git bisect check
+> > http://kerneltrap.org/node/11753)
+> 
+> I disagree.  A reporter should only be asked to bisect (using git or
+> other tools) /if/ a developer determined that bisection may speed up the
+> debugging process or is the only remaining option to make progress with
+> a bug.
+> 
+> It would be wrong to steal a reporter's valuable time by asking for
+> bisection before anybody familiar with the matter even had a first look
+> at the report.
 
-On Thu, Oct 1, 2009 at 23:08, Eric Dumazet <eric.dumazet@gmail.com> wro=
-te:
-> Eric Dumazet a =C3=A9crit :
->> Here is a followup on this area, thanks.
->>
->> [RFC] af_packet: fill skb->mark at xmit
->>
->> skb->mark may be used by classifiers, so fill it in case user
->> set a SO_MARK option on socket.
->>
->
-> Maybe a more generic way to handle this for various protocols
-> would be to fill skb->mark in sock_alloc_send_pskb()
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =C2=A0http://vger.kernel.org/majordomo-info.ht=
-ml
->
+Agreed.
+
+Thanks,
+Rafael
