@@ -1,50 +1,85 @@
-From: Greg KH <gregkh@suse.de>
-Subject: [084/136] netfilter: ebt_ulog: fix checkentry return value
-Date: Thu, 01 Oct 2009 18:17:12 -0700
-Message-ID: <20091002012419.823769050@mini.kroah.org>
-References: <20091002011548.335611824@mini.kroah.org>
-Cc: stable-review@kernel.org, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>, davem@davemloft.net
-To: linux-kernel@vger.kernel.org, stable@kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline; filename=netfilter-ebt_ulog-fix-checkentry-return-value.patch
-In-Reply-To: <20091002012911.GA18542@kroah.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 1/7] mlx4: Added interrupts test support
+Date: Thu, 01 Oct 2009 20:32:08 -0700
+Message-ID: <adaeipmqxmv.fsf@cisco.com>
+References: <4AC4BD9A.2050101@mellanox.co.il>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-5.cisco.com ([171.68.10.87]:32872 "EHLO
+	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752254AbZJBDcG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Oct 2009 23:32:06 -0400
+In-Reply-To: <4AC4BD9A.2050101@mellanox.co.il> (Yevgeny Petrilin's message of
+	"Thu, 01 Oct 2009 16:32:58 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This feels like a pretty risky thing to do while the device might be
+handling all sorts of other traffic at the same time.  Are you sure
+there are no races you expose here?  Have you actually seen cases where
+the interrupt test during initialization works but then this test
+catches a problem?  (My experience has been that if any MSI-X interrupts
+work from a device, then they'll all work)
 
-2.6.31-stable review patch.  If anyone has any objections, please let us know.
+ > +/* A test that verifies that we can accept interrupts on all
+ > + * the irq vectors of the device.
+ > + * Interrupts are checked using the NOP command.
+ > + */
+ > +int mlx4_test_interrupts(struct mlx4_dev *dev)
+ > +{
+ > +	struct mlx4_priv *priv = mlx4_priv(dev);
+ > +	int i;
+ > +	int err;
+ > +
+ > +	err = mlx4_NOP(dev);
+ > +	/* When not in MSI_X, there is only one irq to check */
+ > +	if (!(dev->flags & MLX4_FLAG_MSI_X))
+ > +		return err;
+ > +
+ > +	/* A loop over all completion vectors, for each vector we will check
+ > +	 * whether it works by mapping command completions to that vector
+ > +	 * and performing a NOP command
+ > +	 */
+ > +	for (i = 0; !err && (i < dev->caps.num_comp_vectors); ++i) {
+ > +		/* Temporary use polling for command completions */
 
-------------------
-From: Patrick McHardy <kaber@trash.net>
+you want the adverb form here: "Temporarily"
 
-netfilter: ebt_ulog: fix checkentry return value
+ > +		mlx4_cmd_use_polling(dev);
+ > +
+ > +		/* Map the new eq to handle all asyncronous events */
 
-Upstream commit 8a56df0a:
+"asynchronous"
 
-Commit 19eda87 (netfilter: change return types of check functions for
-Ebtables extensions) broke the ebtables ulog module by missing a return
-value conversion.
+ > +		err = mlx4_MAP_EQ(dev, MLX4_ASYNC_EVENT_MASK, 0,
+ > +				  priv->eq_table.eq[i].eqn);
+ > +		if (err) {
+ > +			mlx4_warn(dev, "Failed mapping eq for interrupt test\n");
+ > +			mlx4_cmd_use_events(dev);
+ > +			break;
+ > +		}
+ > +
+ > +		/* Go back to using events */
+ > +		mlx4_cmd_use_events(dev);
+ > +		err = mlx4_NOP(dev);
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+You could simplify the code a bit by moving the mlx4_cmd_use_events() to
+before where you test err, ie:
 
----
- net/bridge/netfilter/ebt_ulog.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+		err = mlx4_MAP_EQ(...);
+		mlx4_cmd_user_events(dev);
+		if (err)
+			mlx4_warn(dev, ...)
+		else
+			err = mlx4_NOP(dev);
 
---- a/net/bridge/netfilter/ebt_ulog.c
-+++ b/net/bridge/netfilter/ebt_ulog.c
-@@ -266,7 +266,7 @@ static bool ebt_ulog_tg_check(const stru
- 	if (uloginfo->qthreshold > EBT_ULOG_MAX_QLEN)
- 		uloginfo->qthreshold = EBT_ULOG_MAX_QLEN;
- 
--	return 0;
-+	return true;
- }
- 
- static struct xt_target ebt_ulog_tg_reg __read_mostly = {
-
-
+ > +	}
+ > +
+ > +	/* Return to default */
+ > +	mlx4_MAP_EQ(dev, MLX4_ASYNC_EVENT_MASK, 0,
+ > +		    priv->eq_table.eq[dev->caps.num_comp_vectors].eqn);
+ > +	return err;
+ > +}
