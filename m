@@ -1,71 +1,48 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [PATCH] net: Fix wrong sizeof
-Date: Fri, 2 Oct 2009 08:14:11 -0700
-Message-ID: <20091002081411.56b263d1.rdunlap@xenotime.net>
-References: <20091002113038.1dc3d284@hyperion.delvare>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, stable@kernel.org
-To: Jean Delvare <khali@linux-fr.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20091002113038.1dc3d284@hyperion.delvare>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: [PATCH 0/4] More device type integration
+Date: Fri,  2 Oct 2009 17:15:24 +0200
+Message-ID: <cover.1254495724.git.marcel@holtmann.org>
+Cc: David Miller <davem@davemloft.net>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Greg KH <greg@kroah.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from senator.holtmann.net ([87.106.208.187]:33417 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754175AbZJBPPy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 11:15:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2 Oct 2009 11:30:38 +0200 Jean Delvare wrote:
+Hi Dave,
 
-> Which is why I have always preferred sizeof(struct foo) over
-> sizeof(var).
-> 
-> Signed-off-by: Jean Delvare <khali@linux-fr.org>
-> Cc: Randy Dunlap <rdunlap@xenotime.net>
+I followed the work from Johannes and made sure we can register the
+device type for wireless devices via the netdev notifier callback for
+all cfg80211 based devices. This way we don't have to touch any of
+the drivers.
 
-Acked-by: Randy Dunlap <rdunlap@xenotime.net>
+For the mobile broadband cards from Ericsson, the device type is now
+set to "wwan" and it also uses "wwan%d" for the default interface name.
 
-I also prefer to use sizeof(struct xyz) in my non-kernel code
-instead of sizeof(var).
+Regards
 
-> ---
-> Stable team, the non-documentation part of this fix applies to 2.6.31,
-> 2.6.30 and 2.6.27.
-> 
->  Documentation/networking/timestamping/timestamping.c |    2 +-
->  drivers/net/iseries_veth.c                           |    2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> --- linux-2.6.32-rc1.orig/Documentation/networking/timestamping/timestamping.c	2009-06-10 05:05:27.000000000 +0200
-> +++ linux-2.6.32-rc1/Documentation/networking/timestamping/timestamping.c	2009-10-02 11:07:19.000000000 +0200
-> @@ -381,7 +381,7 @@ int main(int argc, char **argv)
->  	memset(&hwtstamp, 0, sizeof(hwtstamp));
->  	strncpy(hwtstamp.ifr_name, interface, sizeof(hwtstamp.ifr_name));
->  	hwtstamp.ifr_data = (void *)&hwconfig;
-> -	memset(&hwconfig, 0, sizeof(&hwconfig));
-> +	memset(&hwconfig, 0, sizeof(hwconfig));
->  	hwconfig.tx_type =
->  		(so_timestamping_flags & SOF_TIMESTAMPING_TX_HARDWARE) ?
->  		HWTSTAMP_TX_ON : HWTSTAMP_TX_OFF;
-> --- linux-2.6.32-rc1.orig/drivers/net/iseries_veth.c	2009-09-28 10:28:42.000000000 +0200
-> +++ linux-2.6.32-rc1/drivers/net/iseries_veth.c	2009-10-02 11:07:15.000000000 +0200
-> @@ -495,7 +495,7 @@ static void veth_take_cap_ack(struct vet
->  			   cnx->remote_lp);
->  	} else {
->  		memcpy(&cnx->cap_ack_event, event,
-> -		       sizeof(&cnx->cap_ack_event));
-> +		       sizeof(cnx->cap_ack_event));
->  		cnx->state |= VETH_STATE_GOTCAPACK;
->  		veth_kick_statemachine(cnx);
->  	}
-> 
-> 
-> -- 
-> Jean Delvare
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Marcel
 
 
----
-~Randy
+Johannes Berg (1):
+  net: introduce NETDEV_POST_INIT notifier
+
+Marcel Holtmann (3):
+  usbnet: Use wwan%d interface name for mobile broadband devices
+  usbnet: Set device type for wlan and wwan devices
+  cfg80211: assign device type in netdev notifier callback
+
+ drivers/net/usb/cdc_ether.c |   20 ++++++++++++++------
+ drivers/net/usb/usbnet.c    |   17 +++++++++++++++++
+ include/linux/notifier.h    |    1 +
+ include/linux/usb/usbnet.h  |    1 +
+ net/core/dev.c              |    6 ++++++
+ net/mac80211/iface.c        |    5 -----
+ net/wireless/core.c         |    7 +++++++
+ 7 files changed, 46 insertions(+), 11 deletions(-)
+
