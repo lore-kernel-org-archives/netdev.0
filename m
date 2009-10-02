@@ -1,10 +1,9 @@
 From: Neil Brown <neilb@suse.de>
-Subject: Re: [PATCH 30/31] Fix use of uninitialized variable in
- cache_grow()
-Date: Fri, 2 Oct 2009 14:54:21 +1000
-Message-ID: <19141.34685.863491.329836@notabene.brown>
-References: <1254406257-16735-1-git-send-email-sjayaraman@suse.de>
-	<alpine.DEB.1.00.0910011341280.27559@chino.kir.corp.google.com>
+Subject: Re: [PATCH 03/31] mm: expose gfp_to_alloc_flags()
+Date: Fri, 2 Oct 2009 15:04:10 +1000
+Message-ID: <19141.35274.513790.845711@notabene.brown>
+References: <1254405903-15760-1-git-send-email-sjayaraman@suse.de>
+	<alpine.DEB.1.00.0910011355230.32006@chino.kir.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -24,79 +23,67 @@ List-Id: netdev.vger.kernel.org
 On Thursday October 1, rientjes@google.com wrote:
 > On Thu, 1 Oct 2009, Suresh Jayaraman wrote:
 > 
-> > From: Miklos Szeredi <mszeredi@suse.cz>
+> > From: Peter Zijlstra <a.p.zijlstra@chello.nl> 
 > > 
-> > This fixes a bug in reserve-slub.patch.
+> > Expose the gfp to alloc_flags mapping, so we can use it in other parts
+> > of the vm.
 > > 
-> > If cache_grow() was called with objp != NULL then the 'reserve' local
-> > variable wasn't initialized. This resulted in ac->reserve being set to
-> > a rubbish value.  Due to this in some circumstances huge amounts of
-> > slab pages were allocated (due to slab_force_alloc() returning true),
-> > which caused atomic page allocation failures and slowdown of the
-> > system.
-> > 
-> > Signed-off-by: Miklos Szeredi <mszeredi@suse.cz>
+> > Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 > > Signed-off-by: Suresh Jayaraman <sjayaraman@suse.de>
-> > ---
-> >  mm/slab.c |    5 +++--
-> >  1 file changed, 3 insertions(+), 2 deletions(-)
-> > 
-> > Index: mmotm/mm/slab.c
-> > ===================================================================
-> > --- mmotm.orig/mm/slab.c
-> > +++ mmotm/mm/slab.c
-> > @@ -2760,7 +2760,7 @@ static int cache_grow(struct kmem_cache
-> >  	size_t offset;
-> >  	gfp_t local_flags;
-> >  	struct kmem_list3 *l3;
-> > -	int reserve;
-> > +	int reserve = -1;
-> >  
-> >  	/*
-> >  	 * Be lazy and only check for valid flags here,  keeping it out of the
-> > @@ -2816,7 +2816,8 @@ static int cache_grow(struct kmem_cache
-> >  	if (local_flags & __GFP_WAIT)
-> >  		local_irq_disable();
-> >  	check_irq_off();
-> > -	slab_set_reserve(cachep, reserve);
-> > +	if (reserve != -1)
-> > +		slab_set_reserve(cachep, reserve);
-> >  	spin_lock(&l3->list_lock);
-> >  
-> >  	/* Make slab active. */
 > 
-> Given the patch description, shouldn't this be a test for objp != NULL 
-> instead, then?
-
-In between those to patch hunks, cache_grow contains the code:
-	if (!objp)
-		objp = kmem_getpages(cachep, local_flags, nodeid, &reserve);
-	if (!objp)
-		goto failed;
-
-We can no longer test if objp was NULL on entry to the function.
-We could take a copy of objp on entry to the function, and test it
-here.  But initialising 'reserve' to an invalid value is easier.
-
-
-
+> Nack, these flags are internal to the page allocator and exporting them to 
+> generic VM code is unnecessary.
 > 
-> If so, it doesn't make sense because reserve will only be initialized when 
-> objp == NULL in the call to kmem_getpages() from cache_grow().
-> 
-> 
-> The title of the patch suggests this is just dealing with an uninitialized 
-> auto variable so the anticipated change would be from "int reserve" to 
-> "int uninitialized_var(result)".
+> The only bit you actually use in your patchset is ALLOC_NO_WATERMARKS to 
+> determine whether a particular allocation can use memory reserves.  I'd 
+> suggest adding a bool function that returns whether the current context is 
+> given access to reserves including your new __GFP_MEMALLOC flag and 
+> exporting that instead.
 
-That change is only appropriate when the compiler is issuing a
-warning that the variable is used before it is initialised, but we
-know that not to be the case.
-In this situation, we know it *is* being used before it is
-initialised, and so we need to initialise it to something.
+That sounds like a very appropriate suggestion, thanks.
+
+So something like this?
+Then change every occurrence of
++		if (!(gfp_to_alloc_flags(gfpflags) & ALLOC_NO_WATERMARKS))
+to
++		if (!(gfp_has_no_watermarks(gfpflags)))
+
+??
 
 Thanks,
 NeilBrown
+
+
+
+diff --git a/mm/internal.h b/mm/internal.h
+index 22ec8d2..7ff78d6 100644
+--- a/mm/internal.h
++++ b/mm/internal.h
+@@ -195,6 +195,8 @@ static inline struct page *mem_map_next(struct page *iter,
+ #define __paginginit __init
+ #endif
+ 
++int gfp_has_no_watermarks(gfp_t gfp_mask);
++
+ /* Memory initialisation debug and verification */
+ enum mminit_level {
+ 	MMINIT_WARNING,
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index bf72055..4b4292a 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -1782,6 +1782,11 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
+ 	return alloc_flags;
+ }
+ 
++int gfp_has_no_watermarks(gfp_t gfp_mask)
++{
++	return (gfp_to_alloc_flags(gfp_mask) & ALLOC_NO_WATERMARKS);
++}
++
+ static inline struct page *
+ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
+ 	struct zonelist *zonelist, enum zone_type high_zoneidx,
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
