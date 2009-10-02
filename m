@@ -1,67 +1,102 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [Question]: reqsk table size limited to 16?
-Date: Fri, 2 Oct 2009 08:11:34 +0200
-Message-ID: <20091002061134.GC5646@gerrit.erg.abdn.ac.uk>
+From: Christian Borntraeger <borntraeger@de.ibm.com>
+Subject: Re: [PATCH] connector: Fix regression introduced by sid connector
+Date: Fri, 2 Oct 2009 08:16:41 +0200
+Message-ID: <200910020816.41323.borntraeger@de.ibm.com>
+References: <200909251123.03482.borntraeger@de.ibm.com> <200909300843.11208.borntraeger@de.ibm.com> <20091001141426.2c1a0139.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:56876 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756723AbZJBGLg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Oct 2009 02:11:36 -0400
-Received: from laptev.erg.abdn.ac.uk (Debian-exim@ra-gerrit.erg.abdn.ac.uk [139.133.204.38])
-	by erg.abdn.ac.uk (8.13.4/8.13.4) with ESMTP id n926BZQS012866
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 2 Oct 2009 07:11:35 +0100 (BST)
-Received: from gerrit by laptev.erg.abdn.ac.uk with local (Exim 4.69)
-	(envelope-from <gerrit@laptev.erg.abdn.ac.uk>)
-	id 1MtbMc-0001Z7-Qg
-	for netdev@vger.kernel.org; Fri, 02 Oct 2009 08:11:34 +0200
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: oleg@redhat.com, scott@ubuntu.com, zbr@ioremap.net,
+	linux-kernel@vger.kernel.org, matthltc@us.ibm.com,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756811AbZJBGQl@vger.kernel.org>
+In-Reply-To: <20091001141426.2c1a0139.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Can someone please have a look, it may be that I am missing something?
+Sorry about that. Dont know how this escaped.  It was probably hiding between
+all the sparse warnings I get in kernel/* and a lack of knowledge in this
+area.
+Here is a new version:
 
-It seems that in the following the maximum number of table entries is set
-to always 16, despite sysctl_max_syn_backlog (tcp_max_syn_backlog), 
-overriding the 'backlog' parameter to listen(2).
 
-net/core/request_sock.c
------------------------
 
-int reqsk_queue_alloc(struct request_sock_queue *queue,
-                      unsigned int nr_table_entries)
-{
-        size_t lopt_size = sizeof(struct listen_sock);
-        struct listen_sock *lopt;
+since commit 02b51df1b07b4e9ca823c89284e704cadb323cd1 (proc connector: add event 
+for process becoming session leader) we have the following warning:
+Badness at kernel/softirq.c:143
+[...]
+Krnl PSW : 0404c00180000000 00000000001481d4 (local_bh_enable+0xb0/0xe0)
+[...]
+Call Trace:
+([<000000013fe04100>] 0x13fe04100)
+ [<000000000048a946>] sk_filter+0x9a/0xd0
+ [<000000000049d938>] netlink_broadcast+0x2c0/0x53c
+ [<00000000003ba9ae>] cn_netlink_send+0x272/0x2b0
+ [<00000000003baef0>] proc_sid_connector+0xc4/0xd4
+ [<0000000000142604>] __set_special_pids+0x58/0x90
+ [<0000000000159938>] sys_setsid+0xb4/0xd8
+ [<00000000001187fe>] sysc_noemu+0x10/0x16
+ [<00000041616cb266>] 0x41616cb266
 
-	nr_table_entries = min_t(u32, nr_table_entries, sysctl_max_syn_backlog);
-        nr_table_entries = max_t(u32, nr_table_entries, 8);
-        nr_table_entries = roundup_pow_of_two(nr_table_entries + 1);
+The warning is
+--->    WARN_ON_ONCE(in_irq() || irqs_disabled());
 
-	//...
-	for (lopt->max_qlen_log = 3;
-             (1 << lopt->max_qlen_log) < nr_table_entries;
-             lopt->max_qlen_log++);
+The network code must not be called with disabled interrupts but
+sys_setsid holds the tasklist_lock with spinlock_irq while calling
+the connector. 
+After a discussion we agreed that we can move proc_sid_connector
+from __set_special_pids to sys_setsid.
+We also agreed that it is sufficient to change the check from
+task_session(curr) != pid into err > 0, since if we don't change the
+session, this means we were already the leader and return -EPERM.
 
- 	//...
-	lopt->nr_table_entries = nr_table_entries;
-	
-	//...
-	return 0
-}
+One last thing:
+There is also daemonize(), and some people might want to get a
+notification in that case. Since daemonize() is only needed if a user
+space does kernel_thread this does not look important (and there seems
+to be no consensus if this connector should be called in daemonize). If
+we really want this, we can add proc_sid_connector to daemonize() in an
+additional patch (Scott?)
 
-The function is called with an argument 'nr_table_entries', which is then clamped as
+Signed-off-by: Christian Borntraeger <borntraeger@de.ibm.com>
+CCed: Scott James Remnant <scott@ubuntu.com>
+CCed: Matt Helsley <matthltc@us.ibm.com>
+CCed: David S. Miller <davem@davemloft.net>
+Acked-by: Oleg Nesterov <oleg@redhat.com>
+Acked-by: Evgeniy Polyakov <zbr@ioremap.net>
+---
+ kernel/exit.c |    4 +---
+ kernel/sys.c  |    2 ++
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-   sysctl_max_syn_backlog <= nr_table_entries <= 8
-
-If nr_table_entries = 8, then round_pow_of_two(8 + 1) = 16.
-
-The sysctl value is set to a much higher value (default 128 or 1024, net/ipv4/tcp.c).
-
-The reqsk_queue_alloc() gets 'nr_table_entries' passed directly from inet_csk_listen_start(),
-which in turn gets its 'nr_table_entries' as the 'backlog' argument to listen(2) via
- * net/dccp/proto.c   (dccp_listen_start) or
- * net/ipv4/af_inet.c (inet_listen).
+Index: linux-2.6/kernel/exit.c
+===================================================================
+--- linux-2.6.orig/kernel/exit.c
++++ linux-2.6/kernel/exit.c
+@@ -359,10 +359,8 @@ void __set_special_pids(struct pid *pid)
+ {
+ 	struct task_struct *curr = current->group_leader;
+ 
+-	if (task_session(curr) != pid) {
++	if (task_session(curr) != pid)
+ 		change_pid(curr, PIDTYPE_SID, pid);
+-		proc_sid_connector(curr);
+-	}
+ 
+ 	if (task_pgrp(curr) != pid)
+ 		change_pid(curr, PIDTYPE_PGID, pid);
+Index: linux-2.6/kernel/sys.c
+===================================================================
+--- linux-2.6.orig/kernel/sys.c
++++ linux-2.6/kernel/sys.c
+@@ -1110,6 +1110,8 @@ SYSCALL_DEFINE0(setsid)
+ 	err = session;
+ out:
+ 	write_unlock_irq(&tasklist_lock);
++	if (err > 0)
++		proc_sid_connector(group_leader);
+ 	return err;
+ }
+ 
