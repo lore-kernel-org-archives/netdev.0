@@ -1,61 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [Bug #14261] e1000e jumbo frames no longer work:
-	'Unsupported MTU setting'
-Date: Fri, 2 Oct 2009 15:13:07 -0700
-Message-ID: <9929d2390910021513t51827031k16a5bfc538640cbf@mail.gmail.com>
-References: <3onW63eFtRF.A.xXH.oMTxKB@chimera> <COE24pZSBH.A.jd.5MTxKB@chimera>
-	<877hvd8rj5.fsf@spindle.srvr.nix> <200910022331.35916.rjw@sisk.pl>
+Subject: [net-2.6 PATCH] e1000e: swap max hw supported frame size between
+	82574 and 82583
+Date: Fri, 02 Oct 2009 15:30:42 -0700
+Message-ID: <20091002223042.4191.43767.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: e1000-devel@lists.sourceforge.net,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>, Nix <nix@esperi.org.uk>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <200910022331.35916.rjw@sisk.pl>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, rjw@sisk.pl,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta08.emeryville.ca.mail.comcast.net ([76.96.30.80]:40406 "EHLO
+	QMTA08.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753047AbZJBWal (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 18:30:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCBPY3QgMiwgMjAwOSBhdCAxNDozMSwgUmFmYWVsIEouIFd5c29ja2kgPHJqd0BzaXNr
-LnBsPiB3cm90ZToKPiBPbiBGcmlkYXkgMDIgT2N0b2JlciAyMDA5LCBOaXggd3JvdGU6Cj4+IE9u
-IDEgT2N0IDIwMDksIFJhZmFlbCBKLiBXeXNvY2tpIHN0YXRlZDoKPj4KPj4gPiBUaGUgZm9sbG93
-aW5nIGJ1ZyBlbnRyeSBpcyBvbiB0aGUgY3VycmVudCBsaXN0IG9mIGtub3duIHJlZ3Jlc3Npb25z
-Cj4+ID4gaW50cm9kdWNlZCBiZXR3ZWVuIDIuNi4zMCBhbmQgMi42LjMxLiDCoFBsZWFzZSB2ZXJp
-ZnkgaWYgaXQgc3RpbGwgc2hvdWxkCj4+ID4gYmUgbGlzdGVkIGFuZCBsZXQgbWUga25vdyAoZWl0
-aGVyIHdheSkuCj4+Cj4+IFRoZSBwYXRjaCBmaXhlcyBpdC4KPj4KPj4gPiBCdWctRW50cnkgwqAg
-OiBodHRwOi8vYnVnemlsbGEua2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9MTQyNjEKPj4gPiBT
-dWJqZWN0IMKgIMKgIMKgIMKgIMKgIMKgIDogZTEwMDBlIGp1bWJvIGZyYW1lcyBubyBsb25nZXIg
-d29yazogJ1Vuc3VwcG9ydGVkIE1UVSBzZXR0aW5nJwo+PiA+IFN1Ym1pdHRlciDCoCA6IE5peCA8
-bml4QGVzcGVyaS5vcmcudWs+Cj4+ID4gRGF0ZSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoDogMjAw
-OS0wOS0yNiAxMToxNiAoNiBkYXlzIG9sZCkKPj4gPiBSZWZlcmVuY2VzIMKgOiBodHRwOi8vbWFy
-Yy5pbmZvLz9sPWxpbnV4LWtlcm5lbCZtPTEyNTM5NjQzMzMyMTM0MiZ3PTQKPj4gPiBIYW5kbGVk
-LUJ5IMKgOiBBbGV4YW5kZXIgRHV5Y2sgPGFsZXhhbmRlci5kdXlja0BnbWFpbC5jb20+Cj4+ID4g
-UGF0Y2ggwqAgwqAgwqAgwqAgwqAgwqAgwqAgOiBodHRwOi8vcGF0Y2h3b3JrLmtlcm5lbC5vcmcv
-cGF0Y2gvNTAyNzcvCj4+Cj4+IChQb3NzaWJseSBhIHN0YWJsZSBjYW5kaWRhdGU/IEl0J3Mgbm90
-IGluIDIuNi4zMS4yLXRvLWJlLCBwZXJoYXBzIHRoZQo+PiBvbmx5IHBhdGNoIHRoYXQgaXNuJ3Qu
-IDspICkKPgo+IE1vc3QgbGlrZWx5IGJlY2F1c2UgaXQncyBub3QgaW4gdGhlIExpbnVzJyB0cmVl
-IHlldC4KPgo+IFtlMTAwMGUgbWFpbnRhaW5lcnMsIHdlIGhhdmUgYSByZWdyZXNzaW9uIGZpeCB0
-byBtZXJnZSwgcGxlYXNlLl0KPgo+IFRoYW5rcywKPiBSYWZhZWwKClNvcnJ5LCBJIGZvcmdvdCB0
-byBzZW5kIHRoaXMgcGF0Y2ggb3V0IGxhc3QgbmlnaHQuICBJIHdpbGwgc2VuZCBpdCBub3cuCgot
-LSAKQ2hlZXJzLApKZWZmCgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KQ29tZSBidWlsZCB3aXRoIHVz
-ISBUaGUgQmxhY2tCZXJyeSZyZWc7IERldmVsb3BlciBDb25mZXJlbmNlIGluIFNGLCBDQQppcyB0
-aGUgb25seSBkZXZlbG9wZXIgZXZlbnQgeW91IG5lZWQgdG8gYXR0ZW5kIHRoaXMgeWVhci4gSnVt
-cHN0YXJ0IHlvdXIKZGV2ZWxvcGluZyBza2lsbHMsIHRha2UgQmxhY2tCZXJyeSBtb2JpbGUgYXBw
-bGljYXRpb25zIHRvIG1hcmtldCBhbmQgc3RheSAKYWhlYWQgb2YgdGhlIGN1cnZlLiBKb2luIHVz
-IGZyb20gTm92ZW1iZXIgOSYjNDU7MTIsIDIwMDkuIFJlZ2lzdGVyIG5vdyYjMzM7Cmh0dHA6Ly9w
-LnNmLm5ldC9zZnUvZGV2Y29uZgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fXwpFMTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlzdHMuc291
-cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3RpbmZv
-L2UxMDAwLWRldmVsCg==
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+
+There appears to have been a mixup in the max supported jumbo frame size
+between 82574 and 82583 which ended up disabling jumbo frames on the 82574
+as a result.  This patch swaps the two so that this issue is resolved.
+
+This patch fixes http://bugzilla.kernel.org/show_bug.cgi?id=14261
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/e1000e/82571.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
+index b53b40b..d1e0563 100644
+--- a/drivers/net/e1000e/82571.c
++++ b/drivers/net/e1000e/82571.c
+@@ -1803,7 +1803,7 @@ struct e1000_info e1000_82574_info = {
+ 				  | FLAG_HAS_AMT
+ 				  | FLAG_HAS_CTRLEXT_ON_LOAD,
+ 	.pba			= 20,
+-	.max_hw_frame_size	= ETH_FRAME_LEN + ETH_FCS_LEN,
++	.max_hw_frame_size	= DEFAULT_JUMBO,
+ 	.get_variants		= e1000_get_variants_82571,
+ 	.mac_ops		= &e82571_mac_ops,
+ 	.phy_ops		= &e82_phy_ops_bm,
+@@ -1820,7 +1820,7 @@ struct e1000_info e1000_82583_info = {
+ 				  | FLAG_HAS_AMT
+ 				  | FLAG_HAS_CTRLEXT_ON_LOAD,
+ 	.pba			= 20,
+-	.max_hw_frame_size	= DEFAULT_JUMBO,
++	.max_hw_frame_size	= ETH_FRAME_LEN + ETH_FCS_LEN,
+ 	.get_variants		= e1000_get_variants_82571,
+ 	.mac_ops		= &e82571_mac_ops,
+ 	.phy_ops		= &e82_phy_ops_bm,
+
