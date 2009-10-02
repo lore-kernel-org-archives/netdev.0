@@ -1,58 +1,40 @@
 From: William Allen Simpson <william.allen.simpson@gmail.com>
 Subject: Re: [PATCH] TCPCT-1: adding a sysctl
-Date: Fri, 02 Oct 2009 17:46:12 -0400
-Message-ID: <4AC674A4.2040900@gmail.com>
-References: <4AC57AC5.3080703@gmail.com> <20091001225705.788d38ba@nehalam>	<4AC61505.8030701@gmail.com> <877hvdbj55.fsf@basil.nowhere.org>
+Date: Fri, 02 Oct 2009 18:00:07 -0400
+Message-ID: <4AC677E7.8030606@gmail.com>
+References: <4AC57AC5.3080703@gmail.com> <20091001225705.788d38ba@nehalam> <4AC61505.8030701@gmail.com> <4AC63DD1.3030705@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f227.google.com ([209.85.220.227]:40731 "EHLO
-	mail-fx0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753996AbZJBVqP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 17:46:15 -0400
-Received: by fxm27 with SMTP id 27so1451068fxm.17
-        for <netdev@vger.kernel.org>; Fri, 02 Oct 2009 14:46:19 -0700 (PDT)
-In-Reply-To: <877hvdbj55.fsf@basil.nowhere.org>
+Received: from mail-bw0-f210.google.com ([209.85.218.210]:47805 "EHLO
+	mail-bw0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753712AbZJBWAK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 18:00:10 -0400
+Received: by bwz6 with SMTP id 6so1381540bwz.37
+        for <netdev@vger.kernel.org>; Fri, 02 Oct 2009 15:00:13 -0700 (PDT)
+In-Reply-To: <4AC63DD1.3030705@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andi Kleen wrote:
-> William Allen Simpson <william.allen.simpson@gmail.com> writes:
->> Any suggestions for improvement?  Or general approval?
+William Allen Simpson wrote:
+> William Allen Simpson wrote:
+>> This is a straightforward re-implementation of an earlier patch, that no
+>> longer applies cleanly, that was reviewed:
+>>
+>>   http://thread.gmane.org/gmane.linux.network/102586
+>>
+> In that thread, David Miller wrote:
 > 
-> The patch seems incomplete, can't find callers for most of the new functions.
+>   "This looks mostly fine to me.  I would even advocate not using a config
+>   option for this."
 > 
-Ummm, I was following the suggested practice of breaking it into smaller
-pieces for review.  This is just the control functions and headers.  I've
-actually completed most of the port, and am champing at the bit.
-
-I was hoping for concrete suggestions from the experienced Linux coders,
-before submitting the rest of the code.
-
-
-> In general cookies fell a bit out of favour because they don't support window
-> scaling etc.  But you don't seem to fix that by putting that data into
-> the new option.
+> It would make the code look cleaner, and with the sysctl instead, it
+> would probably be fine.  But SYN cookies has both.
 > 
-You mean DJB's "optionless" SYN cookies?  They saved everybody's bacon
-back in the day, but that was when there were fewer options.  In 1996,
-we all thought it was a quick hack on the way to a better solution.  But
-the hack solved enough of the problem that nobody finished the work.
-
-This option fixes (obviates and eventually obsoletes) SYN cookies, and
-passes other options just fine.  That's one reason for doing it!
-
-There should be a paper explaining in December's Usenix Login.  This is
-the running code to go with the paper.
-
-
-> My immediate gut reaction is that it will be likely challenging to 
-> traverse many packet filters (which often have a tendency to drop
-> anything they don't know) with this option on. That is also what killed
-> ECN.
+> Before I go much further, I'd like guidance.
 > 
-Too true.  Not much we can do about it, but the various research surveys
-suggest that an unknown option passes better....
-
+Based on Andi's expressed desire for more complete code before reviewing, and
+the general utility of using a sysctl instead, I'll remove the config #ifdefs.
+Sorry, I was overly cautious....
