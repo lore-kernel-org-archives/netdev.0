@@ -1,66 +1,44 @@
-From: Neil Brown <neilb@suse.de>
-Subject: Re: [PATCH 00/31] Swap over NFS -v20
-Date: Fri, 2 Oct 2009 15:52:16 +1000
-Message-ID: <19141.38160.888705.175222@notabene.brown>
-References: <1254405858-15651-1-git-send-email-sjayaraman@suse.de>
-	<20091001174201.GA30068@infradead.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: query: adding a sysctl
+Date: Thu, 1 Oct 2009 22:57:05 -0700
+Message-ID: <20091001225705.788d38ba@nehalam>
+References: <4AC57AC5.3080703@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Suresh Jayaraman <sjayaraman@suse.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, Miklos Szeredi <mszeredi@suse.cz>,
-	Wouter Verhelst <w@uter.be>, Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	trond.myklebust@fys.uio.no
-To: Christoph Hellwig <hch@infradead.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: message from Christoph Hellwig on Thursday October 1
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: William Allen Simpson <william.allen.simpson@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:60919 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756692AbZJBF5H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Oct 2009 01:57:07 -0400
+In-Reply-To: <4AC57AC5.3080703@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday October 1, hch@infradead.org wrote:
+On Fri, 02 Oct 2009 00:00:05 -0400
+William Allen Simpson <william.allen.simpson@gmail.com> wrote:
+
+> [My first post here, hopefully not a FAQ, as I've googled it, but cannot find
+> the definitive answer.]
 > 
-> The other really big one is adding a proper method for safe, page-backed
-> kernelspace I/O on files.  That is not something like the grotty
-> swap-tied address_space operations in this patch, but more something in
-> the direction of the kernel direct I/O patches from Jenx Axboe he did
-> for using in the loop driver.  But even those aren't complete as they
-> don't touch the locking issue yet.
-
-Do you have a problem with the proposed address_space operations apart
-from their names including the word "swap"?  Would something like:
-  direct_on, direct_off, direct_read, direct_write
-be better.
-Semantics being that the read and write:
-  - bypass the page cache (invalidation is up to caller)
-  - must not make a blocking non-emergency memory allocation
-direct_on does any pre-allocation and pre-reading to ensure those
-semantics and be provided.
-
-I have wondered if an extra flag along the lines of "I don't care
-about this data after a crash" would be useful.
-It would be set for swap, but not set for other users.  Thus
-e.g. RAID1 could easily avoid resyncing an area that was used only for
-swap.
-
-The only thing of Jens' that I could find used bmap - is there
-something more recent I should look for?
-
+> I've been trying to add a sysctl, and I've noticed this message:
 > 
-> Especially the latter is an absolutely essential step to make any
-> progress here, and an excellent patch series of it's own as there are
-> multiple users for this, like making swap safe on btrfs files, making
-> the MD bitmap code actually safe or improving the loop driver.
+> sysctl table check failed: /net/ipv4/tcp_cookie_size .3.5.126 Unknown sysctl binary path
+> 
+> I modeled the code on sysctl_tcp_syncookies, and apparently I'm missing some
+> additional magic?  Or does something need to be done other than C?
 
-100% agree.
+The sysctl table check code is kernel/sysctl.c, it maps numerical
+sysctl values to /proc paths so that the permissions checks on the numeric
+sysctl match those of the /proc file involved.
 
-Thanks,
-NeilBrown
+Hint: the easiest way to find things out is to use git grep
+to see how any related sysctl is implemented.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+BUT numbered sysctl values are deprecated and should no longer be added.
+The current way is to use CTL_UNNUMBERED instead, if you use CTL_UNNUMBERED
+then the table does not need to be changed.
+
+-- 
