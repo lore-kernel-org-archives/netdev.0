@@ -1,44 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/8] SECURITY ISSUE with connector
-Date: Fri, 02 Oct 2009 10:56:59 -0700 (PDT)
-Message-ID: <20091002.105659.102583702.davem@davemloft.net>
-References: <1254487211-11810-1-git-send-email-philipp.reisner@linbit.com>
+Subject: Re: [PATCH] Use sk_mark for routing lookup in more places
+Date: Fri, 02 Oct 2009 11:00:49 -0700 (PDT)
+Message-ID: <20091002.110049.252043637.davem@davemloft.net>
+References: <4AC58C46.8080408@gmail.com>
+	<4AC598D7.9080900@gmail.com>
+	<55a4f86e0910021025u7523029av1e4ee917d1fb1ee5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, greg@kroah.com, dm-devel@redhat.com,
-	zbr@ioremap.net, linux-fbdev-devel@lists.sourceforge.net
-To: philipp.reisner@linbit.com
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: eric.dumazet@gmail.com, atis@mikrotik.com, panther@balabit.hu,
+	netdev@vger.kernel.org
+To: zenczykowski@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47204
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47590
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754419AbZJBR4j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 13:56:39 -0400
-In-Reply-To: <1254487211-11810-1-git-send-email-philipp.reisner@linbit.com>
+	by vger.kernel.org with ESMTP id S1753087AbZJBSA3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 14:00:29 -0400
+In-Reply-To: <55a4f86e0910021025u7523029av1e4ee917d1fb1ee5@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Philipp Reisner <philipp.reisner@linbit.com>
-Date: Fri,  2 Oct 2009 14:40:03 +0200
-
-> Affected: All code that uses connector, in kernel and out of mainline
-> 
-> The connector, as it is today, does not allow the in kernel receiving
-> parts to do any checks on privileges of a message's sender.
-> 
-> I know, there are not many out there that like connector, but as
-> long as it is in the kernel, we have to fix the security issues it has!
-> 
-> Please either drop connector, or someone who feels a bit responsible
-> and has our beloved dictator's blessing, PLEASE PLEASE PLEASE take 
-> this into your tree, and send the pull request to Linus.
-> 
-> Patches 1 to 4 are already Acked-by Evgeny, the connector's maintainer.
-> Patches 5 to 7 are the obvious fixes to the connector user's code.
-> 
-> For convenience these patches are also available as git tree:
-> git://git.drbd.org/linux-2.6-drbd.git connector-fix
-
-All applied to net-2.6, I'll push this out to Linus later
-today.
+RnJvbTogTWFjaWVqIMW7ZW5jenlrb3dza2kgPHplbmN6eWtvd3NraUBnbWFpbC5jb20+DQpEYXRl
+OiBGcmksIDIgT2N0IDIwMDkgMTA6MjU6MTMgLTA3MDANCg0KPiBNYXliZSBpdCB3b3VsZCBtYWtl
+IG1vcmUgc2Vuc2UgdG8gY3JlYXRlIHNvbWUgY29uc3RydWN0b3ItbGlrZQ0KPiBmdW5jdGlvbnMg
+Zm9yIHRoZSBmbG93aSBzdHJ1Y3Q/DQoNCk1heWJlIGp1c3QgYW4gaW5pdGlhbGl6ZXIgbGlrZSAi
+RkxPV0lfU09DSyhzaykiIG9yIHNpbWlsYXIuDQpTbyB5b3UgY2FuIHNheToNCg0KCXN0cnVjdCBm
+bG93aSBmbCA9IEZMT1dJX1NPQ0soc2spOw0KDQpCdXQgdGhlIHRoaW5nIGlzIHdlIHVzdWFsbHkg
+d2FudCB0byBpbml0aWFsaXplIGFsbCBvZiB0aGUNCmRldGFpbHMgaW4gb25lIGdvLCBzbyB3ZSdk
+IG5lZWQgYSB2ZXJ5IG1lc3N5IG1hY3JvIGZvciB0aGlzDQp0aGF0IHdvdWxkIHRha2UgbWFueSBh
+cmd1bWVudHMuDQoNCkl0J3MgaW1wb3J0YW50IHRvIHVzZSBhbiBpbml0aWFsaXplciByYXRoZXIg
+dGhhbiBhc3NpZ25tZW50cyBpbiBzb21lDQppbmxpbmUgZnVuY3Rpb24gc28gdGhhdCBHQ0MgY2Fu
+IGJldHRlciBjb2FsZXNjZSBtYW55IHNtYWxsIG1lbWJlcnMNCmludG8gc2luY2UgbGFyZ2Ugc3Rv
+cmVzIHRvIHRoZSBzdGFjay4gIEl0IGRvZXNuJ3QgZG8gdGhpcyBhcyB3ZWxsIHdpdGgNCnJlYWwg
+YXNzaWdubWVudCBzdGF0ZW1lbnRzLg0K
