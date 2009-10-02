@@ -1,77 +1,65 @@
-From: Jaswinder Singh Rajput <jaswinder@kernel.org>
-Subject: Re: 2.6.32-rc1-git2: Reported regressions from 2.6.31
-Date: Fri, 02 Oct 2009 13:08:59 +0530
-Message-ID: <1254469139.3531.19.camel@ht.satnam>
-References: <9UCePxij8cB.A.VCG.-3SxKB@chimera>
+From: Jens Axboe <jens.axboe@oracle.com>
+Subject: Re: SPLICE_F_NONBLOCK semantics...
+Date: Fri, 2 Oct 2009 09:47:54 +0200
+Message-ID: <20091002074754.GE14918@kernel.dk>
+References: <20091001.151102.09812927.davem@davemloft.net> <alpine.LFD.2.01.0910011516390.6996@localhost.localdomain> <20091001.152717.187318570.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.sourceforge.net>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756544AbZJBHkn@vger.kernel.org>
-In-Reply-To: <9UCePxij8cB.A.VCG.-3SxKB@chimera>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: torvalds@linux-foundation.org, eric.dumazet@gmail.com,
+	jgunthorpe@obsidianresearch.com, vl@samba.org,
+	opurdila@ixiacom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from brick.kernel.dk ([93.163.65.50]:39824 "EHLO kernel.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756288AbZJBHrv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Oct 2009 03:47:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20091001.152717.187318570.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Rafael,
+On Thu, Oct 01 2009, David Miller wrote:
+> From: Linus Torvalds <torvalds@linux-foundation.org>
+> Date: Thu, 1 Oct 2009 15:21:44 -0700 (PDT)
+> 
+> > On Thu, 1 Oct 2009, David Miller wrote:
+> >> 
+> >> It depends upon our interpretation of how you intended the
+> >> SPLICE_F_NONBLOCK flag to work when you added it way back
+> >> when.
+> >> 
+> >> Linus introduced  SPLICE_F_NONBLOCK in commit 29e350944fdc2dfca102500790d8ad6d6ff4f69d
+> >> (splice: add SPLICE_F_NONBLOCK flag )
+> >> 
+> >>   It doesn't make the splice itself necessarily nonblocking (because the
+> >>   actual file descriptors that are spliced from/to may block unless they
+> >>   have the O_NONBLOCK flag set), but it makes the splice pipe operations
+> >>   nonblocking.
+> >> 
+> >> Linus intention was clear : let SPLICE_F_NONBLOCK control the splice pipe mode only
+> > 
+> > Ack. The original intent was for the flag to affect the buffering, not the 
+> > end points.
+> 
+> Great, thanks for reviewing.
+> 
+> > Although the more I think about it, the more I suspect that the
+> > whole NONBLOCK thing should probably have been two bits, and simply
+> > been about "nonblocking input" vs "nonblocking output" (so that you
+> > could control both sides on a call-by-call basis).
+> 
+> I think we could still extend things in this way if we wanted to.
+> So if you specify the explicit input and/or output nonblock flag,
+> it takes precedence over the SPLICE_F_NONBLOCK thing.
 
-On Thu, 2009-10-01 at 21:26 +0200, Rafael J. Wysocki wrote:
-> [Notes:
-> 
->  * Here's the first summary report of known regressions from 2.6.31.  There's
->    not too many of them at the moment, which is nice.
-> 
->  * We're still getting quite a number of reports of regressions from 2.6.30 and
->    it's been that way since 2.6.31 was released.  For details please see the
->    summary report of regressions 2.6.30 -> 2.6.31 that will follow shortly.]
-> 
-> This message contains a list of some regressions from 2.6.31, for which there
-> are no fixes in the mainline I know of.  If any of them have been fixed already,
-> please let me know.
-> 
-> If you know of any other unresolved regressions from 2.6.31, please let me know
-> either and I'll add them to the list.  Also, please let me know if any of the
-> entries below are invalid.
-> 
-> Each entry from the list will be sent additionally in an automatic reply to
-> this message with CCs to the people involved in reporting and handling the
-> issue.
-> 
-> 
-> Listed regressions statistics:
-> 
->   Date          Total  Pending  Unresolved
->   ----------------------------------------
->   2009-10-02       22       15           9
-> 
-> 
-> Unresolved regressions
-> ----------------------
-> 
-> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=14299
-> Subject		: oops in wireless, iwl3945 related?
-> Submitter	: Pavel Machek <pavel@ucw.cz>
-> Date		: 2009-09-29 17:12 (3 days old)
-> References	: http://marc.info/?l=linux-kernel&m=125424439725743&w=4
-> 
+Yes I agree, thank god for having a 'flags' parameter for the syscalls
+:-). I'll make a note to add and test bidirectional nonblock hints.
 
-If you add one more entry say "Suspected commit :" then it will be great
-and will solve regressions much faster. You can request submitter to
-submit 'suspected commit' by git bisect and also specify git bisect
-links like : (for more information about git bisect check
-http://kerneltrap.org/node/11753)
+The net patch looks fine and correct to me, feel free to add my acked-by
+if you want.
 
-Thanks,
---
-JSR
+-- 
+Jens Axboe
+
