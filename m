@@ -1,44 +1,33 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: query: adding a sysctl
-Date: Thu, 1 Oct 2009 22:57:05 -0700
-Message-ID: <20091001225705.788d38ba@nehalam>
-References: <4AC57AC5.3080703@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] Use sk_mark for routing lookup in more places
+Date: Fri, 02 Oct 2009 08:08:23 +0200
+Message-ID: <4AC598D7.9080900@gmail.com>
+References: <200910011814.47689.atis@mikrotik.com>	<4AC4D90E.3040008@gmail.com> <20091001.151823.263194343.davem@davemloft.net> <4AC58C46.8080408@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: William Allen Simpson <william.allen.simpson@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, atis@mikrotik.com,
+	panther@balabit.hu, netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60919 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756692AbZJBF5H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Oct 2009 01:57:07 -0400
-In-Reply-To: <4AC57AC5.3080703@gmail.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:51878 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756720AbZJBGIe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 02:08:34 -0400
+In-Reply-To: <4AC58C46.8080408@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 02 Oct 2009 00:00:05 -0400
-William Allen Simpson <william.allen.simpson@gmail.com> wrote:
+Eric Dumazet a =E9crit :
+> Here is a followup on this area, thanks.
+>=20
+> [RFC] af_packet: fill skb->mark at xmit
+>=20
+> skb->mark may be used by classifiers, so fill it in case user=20
+> set a SO_MARK option on socket.
+>=20
 
-> [My first post here, hopefully not a FAQ, as I've googled it, but cannot find
-> the definitive answer.]
-> 
-> I've been trying to add a sysctl, and I've noticed this message:
-> 
-> sysctl table check failed: /net/ipv4/tcp_cookie_size .3.5.126 Unknown sysctl binary path
-> 
-> I modeled the code on sysctl_tcp_syncookies, and apparently I'm missing some
-> additional magic?  Or does something need to be done other than C?
+Maybe a more generic way to handle this for various protocols
+would be to fill skb->mark in sock_alloc_send_pskb()
 
-The sysctl table check code is kernel/sysctl.c, it maps numerical
-sysctl values to /proc paths so that the permissions checks on the numeric
-sysctl match those of the /proc file involved.
 
-Hint: the easiest way to find things out is to use git grep
-to see how any related sysctl is implemented.
-
-BUT numbered sysctl values are deprecated and should no longer be added.
-The current way is to use CTL_UNNUMBERED instead, if you use CTL_UNNUMBERED
-then the table does not need to be changed.
-
--- 
