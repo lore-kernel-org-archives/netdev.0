@@ -1,108 +1,53 @@
-From: David Rientjes <rientjes@google.com>
-Subject: Re: [PATCH 03/31] mm: expose gfp_to_alloc_flags()
-Date: Fri, 2 Oct 2009 02:30:19 -0700 (PDT)
-Message-ID: <alpine.DEB.1.00.0910020217400.21163@chino.kir.corp.google.com>
-References: <1254405903-15760-1-git-send-email-sjayaraman@suse.de> <alpine.DEB.1.00.0910011355230.32006@chino.kir.corp.google.com> <19141.35274.513790.845711@notabene.brown>
+From: Jean Delvare <khali@linux-fr.org>
+Subject: [PATCH] net: Fix wrong sizeof
+Date: Fri, 2 Oct 2009 11:30:38 +0200
+Message-ID: <20091002113038.1dc3d284@hyperion.delvare>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Suresh Jayaraman <sjayaraman@suse.de>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-        netdev@vger.kernel.org, Miklos Szeredi <mszeredi@suse.cz>,
-        Wouter Verhelst <w@uter.be>, Peter Zijlstra <a.p.zijlstra@chello.nl>,
-        trond.myklebust@fys.uio.no
-To: Neil Brown <neilb@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <19141.35274.513790.845711@notabene.brown>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-doc@vger.kernel.org, Randy Dunlap <rdunlap@xenotime.net>,
+	stable@kernel.org
+To: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2 Oct 2009, Neil Brown wrote:
+Which is why I have always preferred sizeof(struct foo) over
+sizeof(var).
 
-> So something like this?
-> Then change every occurrence of
-> +		if (!(gfp_to_alloc_flags(gfpflags) & ALLOC_NO_WATERMARKS))
-> to
-> +		if (!(gfp_has_no_watermarks(gfpflags)))
-> 
-> ??
-> 
-
-No, it's not even necessary to call gfp_to_alloc_flags() at all, just 
-create a globally exported function such as can_alloc_use_reserves() and 
-use it in gfp_to_alloc_flags().
-
- [ Using 'p' in gfp_to_alloc_flags() is actually wrong since
-   test_thread_flag() only works on current anyway, so it would be
-   inconsistent if p were set to anything other than current; we can
-   get rid of that auto variable. ]
-
-Something like the following, which you can fold into this patch proposal 
-and modify later for GFP_MEMALLOC.
-
-Signed-off-by: David Rientjes <rientjes@google.com>
+Signed-off-by: Jean Delvare <khali@linux-fr.org>
+Cc: Randy Dunlap <rdunlap@xenotime.net>
 ---
-diff --git a/include/linux/gfp.h b/include/linux/gfp.h
-index 557bdad..7dd62a0 100644
---- a/include/linux/gfp.h
-+++ b/include/linux/gfp.h
-@@ -265,6 +265,8 @@ static inline void arch_free_page(struct page *page, int order) { }
- static inline void arch_alloc_page(struct page *page, int order) { }
- #endif
- 
-+int can_alloc_use_reserves(void);
-+
- struct page *
- __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order,
- 		       struct zonelist *zonelist, nodemask_t *nodemask);
-diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index bf72055..cf1d765 100644
---- a/mm/page_alloc.c
-+++ b/mm/page_alloc.c
-@@ -1744,10 +1744,19 @@ void wake_all_kswapd(unsigned int order, struct zonelist *zonelist,
- 		wakeup_kswapd(zone, order);
- }
- 
-+/*
-+ * Does the current context allow the allocation to utilize memory reserves
-+ * by ignoring watermarks for all zones?
-+ */
-+int can_alloc_use_reserves(void)
-+{
-+	return !in_interrupt() && ((current->flags & PF_MEMALLOC) ||
-+				   unlikely(test_thread_flag(TIF_MEMDIE)));
-+}
-+
- static inline int
- gfp_to_alloc_flags(gfp_t gfp_mask)
- {
--	struct task_struct *p = current;
- 	int alloc_flags = ALLOC_WMARK_MIN | ALLOC_CPUSET;
- 	const gfp_t wait = gfp_mask & __GFP_WAIT;
- 
-@@ -1769,15 +1778,12 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
- 		 * See also cpuset_zone_allowed() comment in kernel/cpuset.c.
- 		 */
- 		alloc_flags &= ~ALLOC_CPUSET;
--	} else if (unlikely(rt_task(p)))
-+	} else if (unlikely(rt_task(current)))
- 		alloc_flags |= ALLOC_HARDER;
- 
--	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
--		if (!in_interrupt() &&
--		    ((p->flags & PF_MEMALLOC) ||
--		     unlikely(test_thread_flag(TIF_MEMDIE))))
-+	if (likely(!(gfp_mask & __GFP_NOMEMALLOC)))
-+		if (can_alloc_use_reserves())
- 			alloc_flags |= ALLOC_NO_WATERMARKS;
--	}
- 
- 	return alloc_flags;
- }
+Stable team, the non-documentation part of this fix applies to 2.6.31,
+2.6.30 and 2.6.27.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+ Documentation/networking/timestamping/timestamping.c |    2 +-
+ drivers/net/iseries_veth.c                           |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+--- linux-2.6.32-rc1.orig/Documentation/networking/timestamping/timestamping.c	2009-06-10 05:05:27.000000000 +0200
++++ linux-2.6.32-rc1/Documentation/networking/timestamping/timestamping.c	2009-10-02 11:07:19.000000000 +0200
+@@ -381,7 +381,7 @@ int main(int argc, char **argv)
+ 	memset(&hwtstamp, 0, sizeof(hwtstamp));
+ 	strncpy(hwtstamp.ifr_name, interface, sizeof(hwtstamp.ifr_name));
+ 	hwtstamp.ifr_data = (void *)&hwconfig;
+-	memset(&hwconfig, 0, sizeof(&hwconfig));
++	memset(&hwconfig, 0, sizeof(hwconfig));
+ 	hwconfig.tx_type =
+ 		(so_timestamping_flags & SOF_TIMESTAMPING_TX_HARDWARE) ?
+ 		HWTSTAMP_TX_ON : HWTSTAMP_TX_OFF;
+--- linux-2.6.32-rc1.orig/drivers/net/iseries_veth.c	2009-09-28 10:28:42.000000000 +0200
++++ linux-2.6.32-rc1/drivers/net/iseries_veth.c	2009-10-02 11:07:15.000000000 +0200
+@@ -495,7 +495,7 @@ static void veth_take_cap_ack(struct vet
+ 			   cnx->remote_lp);
+ 	} else {
+ 		memcpy(&cnx->cap_ack_event, event,
+-		       sizeof(&cnx->cap_ack_event));
++		       sizeof(cnx->cap_ack_event));
+ 		cnx->state |= VETH_STATE_GOTCAPACK;
+ 		veth_kick_statemachine(cnx);
+ 	}
+
+
+-- 
+Jean Delvare
