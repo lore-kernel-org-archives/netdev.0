@@ -1,118 +1,84 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 1/4] usbnet: Use wwan%d interface name for mobile broadband devices
-Date: Fri,  2 Oct 2009 17:15:25 +0200
-Message-ID: <ff8a6da2784c27455e9666469ec95d84a1e00fd4.1254495724.git.marcel@holtmann.org>
+Subject: [PATCH 4/4] cfg80211: assign device type in netdev notifier callback
+Date: Fri,  2 Oct 2009 17:15:28 +0200
+Message-ID: <6c6ca62dee146042d3d5dd168baf70d93e21dc56.1254495724.git.marcel@holtmann.org>
 References: <cover.1254495724.git.marcel@holtmann.org>
+ <ff8a6da2784c27455e9666469ec95d84a1e00fd4.1254495724.git.marcel@holtmann.org>
+ <45ca9f6130993f8f935f98a99b83ebc7ae7c116d.1254495724.git.marcel@holtmann.org>
+ <21e0ecd67498ddd64add62973a497b8eeb658254.1254495724.git.marcel@holtmann.org>
 Cc: David Miller <davem@davemloft.net>,
 	Johannes Berg <johannes@sipsolutions.net>,
 	Greg KH <greg@kroah.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:33419 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:33432 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754359AbZJBPPz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 11:15:55 -0400
-In-Reply-To: <cover.1254495724.git.marcel@holtmann.org>
+	with ESMTP id S1754398AbZJBPP6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 11:15:58 -0400
+In-Reply-To: <21e0ecd67498ddd64add62973a497b8eeb658254.1254495724.git.marcel@holtmann.org>
 In-Reply-To: <cover.1254495724.git.marcel@holtmann.org>
 References: <cover.1254495724.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for usbnet based devices like CDC-Ether to indicate that they
-are actually mobile broadband devices. In that case use wwan%d as default
-interface name.
+Instead of having to modify every non-mac80211 for device type assignment,
+do this inside the netdev notifier callback of cfg80211. So all drivers
+that integrate with cfg80211 will export a proper device type.
 
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- drivers/net/usb/cdc_ether.c |   20 ++++++++++++++------
- drivers/net/usb/usbnet.c    |    3 +++
- include/linux/usb/usbnet.h  |    1 +
- 3 files changed, 18 insertions(+), 6 deletions(-)
+ net/mac80211/iface.c |    5 -----
+ net/wireless/core.c  |    7 +++++++
+ 2 files changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index 4a6aff5..71e65fc 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -420,6 +420,14 @@ static const struct driver_info	cdc_info = {
- 	.status =	cdc_status,
- };
+diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
+index b8295cb..f6005ad 100644
+--- a/net/mac80211/iface.c
++++ b/net/mac80211/iface.c
+@@ -754,10 +754,6 @@ int ieee80211_if_change_type(struct ieee80211_sub_if_data *sdata,
+ 	return 0;
+ }
  
-+static const struct driver_info mbm_info = {
-+	.description =	"Mobile Broadband Network Device",
-+	.flags =	FLAG_WWAN,
-+	.bind = 	cdc_bind,
-+	.unbind =	usbnet_cdc_unbind,
-+	.status =	cdc_status,
+-static struct device_type wiphy_type = {
+-	.name	= "wlan",
+-};
+-
+ int ieee80211_if_add(struct ieee80211_local *local, const char *name,
+ 		     struct net_device **new_dev, enum nl80211_iftype type,
+ 		     struct vif_params *params)
+@@ -789,7 +785,6 @@ int ieee80211_if_add(struct ieee80211_local *local, const char *name,
+ 
+ 	memcpy(ndev->dev_addr, local->hw.wiphy->perm_addr, ETH_ALEN);
+ 	SET_NETDEV_DEV(ndev, wiphy_dev(local->hw.wiphy));
+-	SET_NETDEV_DEVTYPE(ndev, &wiphy_type);
+ 
+ 	/* don't use IEEE80211_DEV_TO_SUB_IF because it checks too much */
+ 	sdata = netdev_priv(ndev);
+diff --git a/net/wireless/core.c b/net/wireless/core.c
+index 45b2be3..e6f02e9 100644
+--- a/net/wireless/core.c
++++ b/net/wireless/core.c
+@@ -625,6 +625,10 @@ static void wdev_cleanup_work(struct work_struct *work)
+ 	dev_put(wdev->netdev);
+ }
+ 
++static struct device_type wiphy_type = {
++	.name	= "wlan",
 +};
 +
- /*-------------------------------------------------------------------------*/
+ static int cfg80211_netdev_notifier_call(struct notifier_block * nb,
+ 					 unsigned long state,
+ 					 void *ndev)
+@@ -641,6 +645,9 @@ static int cfg80211_netdev_notifier_call(struct notifier_block * nb,
+ 	WARN_ON(wdev->iftype == NL80211_IFTYPE_UNSPECIFIED);
  
- 
-@@ -532,32 +540,32 @@ static const struct usb_device_id	products [] = {
- 	/* Ericsson F3507g */
- 	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x1900, USB_CLASS_COMM,
- 			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info = (unsigned long) &cdc_info,
-+	.driver_info = (unsigned long) &mbm_info,
- }, {
- 	/* Ericsson F3507g ver. 2 */
- 	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x1902, USB_CLASS_COMM,
- 			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info = (unsigned long) &cdc_info,
-+	.driver_info = (unsigned long) &mbm_info,
- }, {
- 	/* Ericsson F3607gw */
- 	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x1904, USB_CLASS_COMM,
- 			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info = (unsigned long) &cdc_info,
-+	.driver_info = (unsigned long) &mbm_info,
- }, {
- 	/* Ericsson F3307 */
- 	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x1906, USB_CLASS_COMM,
- 			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info = (unsigned long) &cdc_info,
-+	.driver_info = (unsigned long) &mbm_info,
- }, {
- 	/* Toshiba F3507g */
- 	USB_DEVICE_AND_INTERFACE_INFO(0x0930, 0x130b, USB_CLASS_COMM,
- 			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info = (unsigned long) &cdc_info,
-+	.driver_info = (unsigned long) &mbm_info,
- }, {
- 	/* Dell F3507g */
- 	USB_DEVICE_AND_INTERFACE_INFO(0x413c, 0x8147, USB_CLASS_COMM,
- 			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info = (unsigned long) &cdc_info,
-+	.driver_info = (unsigned long) &mbm_info,
- },
- 	{ },		// END
- };
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index ca5ca5a..8124cf1 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1295,6 +1295,9 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
- 		/* WLAN devices should always be named "wlan%d" */
- 		if ((dev->driver_info->flags & FLAG_WLAN) != 0)
- 			strcpy(net->name, "wlan%d");
-+		/* WWAN devices should always be named "wwan%d" */
-+		if ((dev->driver_info->flags & FLAG_WWAN) != 0)
-+			strcpy(net->name, "wwan%d");
- 
- 		/* maybe the remote can't receive an Ethernet MTU */
- 		if (net->mtu > (dev->hard_mtu - net->hard_header_len))
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index f814730..86c31b7 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -90,6 +90,7 @@ struct driver_info {
- #define FLAG_WLAN	0x0080		/* use "wlan%d" names */
- #define FLAG_AVOID_UNLINK_URBS 0x0100	/* don't unlink urbs at usbnet_stop() */
- #define FLAG_SEND_ZLP	0x0200		/* hw requires ZLPs are sent */
-+#define FLAG_WWAN	0x0400		/* use "wwan%d" names */
- 
- 
- 	/* init device ... can sleep, or cause probe() failure */
+ 	switch (state) {
++	case NETDEV_POST_INIT:
++		SET_NETDEV_DEVTYPE(dev, &wiphy_type);
++		break;
+ 	case NETDEV_REGISTER:
+ 		/*
+ 		 * NB: cannot take rdev->mtx here because this may be
 -- 
 1.6.2.5
 
