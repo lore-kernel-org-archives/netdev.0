@@ -1,211 +1,96 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC take2] pkt_sched: gen_estimator: Dont report fake rate estimators
-Date: Fri, 02 Oct 2009 22:32:18 +0200
-Message-ID: <4AC66352.8050500@gmail.com>
-References: <20091002070819.GA9694@ff.dom.local> <4AC5D78D.3030400@gmail.com> <20091002112514.GA14100@ff.dom.local> <4AC5F46B.6030308@gmail.com> <4AC65E6F.8050403@gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: Messages are printed on screen
+Date: Fri, 02 Oct 2009 21:49:39 +0100
+Message-ID: <1254516579.23350.89.camel@localhost>
+References: <ha4igd$ghh$1@ger.gmane.org>
+	 <1254480996.23350.73.camel@localhost>  <ha4q26$7mt$1@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-JOBE4T/lT7vubLfjGF/z"
+Cc: netdev@vger.kernel.org
+To: Markus Feldmann <feldmann_markus@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:59821 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757900AbZJBUcT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 16:32:19 -0400
-In-Reply-To: <4AC65E6F.8050403@gmail.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:40267 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758158AbZJBUtj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 16:49:39 -0400
+In-Reply-To: <ha4q26$7mt$1@ger.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski a =E9crit :
+
+--=-JOBE4T/lT7vubLfjGF/z
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, 2009-10-02 at 14:01 +0200, Markus Feldmann wrote:
+> Ben Hutchings schrieb:
+> > On Fri, 2009-10-02 at 11:52 +0200, Markus Feldmann wrote:
+> >
+> >>
+> >> As you see some of my IRQ-Lines are multiply in use, so my Server is=20
+> >> working hard at his limit.
+> >=20
+> > IRQ sharing is normal on PCs without MSI support, but to see where
+> > that's happening you need to look at /proc/interrupts and not the BIOS
+> > setup program or wherever you got the above information from.
+> Ok i did <cat /proc/interrupts> and got:
+>             CPU0
+>    0:     259603    XT-PIC-XT        timer
+>    1:       1421    XT-PIC-XT        i8042
+>    2:          0    XT-PIC-XT        cascade
+>    4:     200000    XT-PIC-XT        ohci_hcd:usb3, pppp0
+
+This number is a clue because after every 100,000 interrupts for a
+particular IRQ the kernel checks how many of them were handled.  If this
+is less than 100 then it disables the IRQ.  So I suspect one of these
+devices is misbehaving, or its driver is not handling interrupts
+correctly.  Is 'pppp0' actually an Ethernet device that you're using for
+PPPoE?  If so, what model of network card is it?
+
+>    5:          0    XT-PIC-XT        ehci_hcd:usb1, lan0
+>    7:       6959    XT-PIC-XT        lan1
+>    8:          2    XT-PIC-XT        rtc0
+>    9:          0    XT-PIC-XT        acpi
+>   11:      37697    XT-PIC-XT        ide2, ide3, ohci_hcd:usb2, lan2
+>   14:          0    XT-PIC-XT        ide0
+> NMI:          0   Non-maskable interrupts
+> TRM:          0   Thermal event interrupts
+> MCE:          0   Machine check exceptions
+> MCP:         13   Machine check polls
+> ERR:          2
 >=20
->=20
-> Hmm... So you made me to do some "real" work here, and guess what?:
-> there is one serious checkpatch warning! ;-) Plus, this new parameter
-> should be added to the function description. Otherwise:
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
->=20
-> Thanks,
-> Jarek P.
->=20
-> PS: I guess full "Don't" would show we really mean it...
+> How can i assigned IRQs during Boot?
+[...]
 
-Okay :) Here is the last round, before the night !
+They are assigned by the BIOS.  You may be able to configure this in
+BIOS setup.
 
-Thanks again
+Ben.
 
+--=20
+Ben Hutchings
+Who are all these weirdos? - David Bowie, about L-Space IRC channel #afp
 
-[RFC] pkt_sched: gen_estimator: Don't report fake rate estimators
+--=-JOBE4T/lT7vubLfjGF/z
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-We currently send TCA_STATS_RATE_EST elements to netlink users, even if=
- no estimator
-is running.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
-# tc -s -d qdisc
-qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 =
-1 1 1 1 1 1
- Sent 112833764978 bytes 1495081739 pkt (dropped 0, overlimits 0 requeu=
-es 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
+iQIVAwUASsZnXue/yOyVhhEJAQJpzA/8CTYyAIJi2UfqE17Ude+aGlSlbrHi00d+
+nd2JUWZRWeen12nuy/RR9yagJqbCHxdfOn28M/Ed34RrX7TcsUyAifRUr2Mo1eGZ
+dIzKLkFygV0tD3BGY8T/BbOqyQxMju/YovJZ2dgr6Em/0mW2Y70A0UKj7hD6/0yM
+/kxRSPNUDUggSjinXIHM1vcfcn/FQX1WuZrNrM2MH4TxYED5mih8XsBvpxLbGwmY
+2hZzh9WmgIbGI6ShwByL9ZFlVf2EFn1VKrOLcJaLMkBP8xTlPvd72jRkCjuqSA+p
+9g7w8vn1PennnW1mfB80FC0J78X1TUuz3A1N2QudzSsHfyJ0fl2qG8/nT42Q8llJ
+RZScWvqfRDHPTTbU+AI4o1ZvMAYj5sI0k7SLxlFfQ2uZlEZlSYeKX/niARaXpI1M
+1zabdqSpiNCr7RfdOPjvDG5RVqFX5C41R+2ee0DDdM/H6t7s+0B3q/cVt26ZOLyW
+7CmnxAmvl5nlfQ1oVU5/qhlo5aayNaHDrTDmHFfJvgPHnmaTVtE1qwgxTY3lEPhr
+IX9D2aqJeBOr3RCOWXf+lQQYHLkwpWGVT7AwbemW7LQxr4AXdA52LfwAz+EvV6vZ
+wi/4frrikV+tRHHBgF5zPAgat5LOtv7lYlJTUlgGMkJtZBE99EH9jUbstxeaDJ+l
+Pw8y++WkBc0=
+=Le9U
+-----END PGP SIGNATURE-----
 
-User has no way to tell if the "rate 0bit 0pps" is a real estimation, o=
-r a fake
-one (because no estimator is active)
-
-After this patch, tc command output is :
-$ tc -s -d qdisc
-qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 =
-1 1 1 1 1 1
- Sent 561075 bytes 1196 pkt (dropped 0, overlimits 0 requeues 0)
- backlog 0b 0p requeues 0
-
-We add a parameter to gnet_stats_copy_rate_est() function so that
-it can use gen_estimator_active(bstats, r), as suggested by Jarek.
-
-This parameter can be NULL if check is not necessary, (htb for
-example has a mandatory rate estimator)
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
----
- include/net/gen_stats.h |    1 +
- net/core/gen_stats.c    |    8 +++++++-
- net/sched/act_api.c     |    3 ++-
- net/sched/sch_api.c     |    2 +-
- net/sched/sch_cbq.c     |    2 +-
- net/sched/sch_drr.c     |    2 +-
- net/sched/sch_hfsc.c    |    2 +-
- net/sched/sch_htb.c     |    2 +-
- 8 files changed, 15 insertions(+), 7 deletions(-)
-
-diff --git a/include/net/gen_stats.h b/include/net/gen_stats.h
-index c148855..eb87a14 100644
---- a/include/net/gen_stats.h
-+++ b/include/net/gen_stats.h
-@@ -30,6 +30,7 @@ extern int gnet_stats_start_copy_compat(struct sk_buf=
-f *skb, int type,
- extern int gnet_stats_copy_basic(struct gnet_dump *d,
- 				 struct gnet_stats_basic_packed *b);
- extern int gnet_stats_copy_rate_est(struct gnet_dump *d,
-+				    const struct gnet_stats_basic_packed *b,
- 				    struct gnet_stats_rate_est *r);
- extern int gnet_stats_copy_queue(struct gnet_dump *d,
- 				 struct gnet_stats_queue *q);
-diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
-index 8569310..393b1d8 100644
---- a/net/core/gen_stats.c
-+++ b/net/core/gen_stats.c
-@@ -127,6 +127,7 @@ gnet_stats_copy_basic(struct gnet_dump *d, struct g=
-net_stats_basic_packed *b)
- /**
-  * gnet_stats_copy_rate_est - copy rate estimator statistics into stat=
-istics TLV
-  * @d: dumping handle
-+ * @b: basic statistics
-  * @r: rate estimator statistics
-  *
-  * Appends the rate estimator statistics to the top level TLV created =
-by
-@@ -136,8 +137,13 @@ gnet_stats_copy_basic(struct gnet_dump *d, struct =
-gnet_stats_basic_packed *b)
-  * if the room in the socket buffer was not sufficient.
-  */
- int
--gnet_stats_copy_rate_est(struct gnet_dump *d, struct gnet_stats_rate_e=
-st *r)
-+gnet_stats_copy_rate_est(struct gnet_dump *d,
-+			 const struct gnet_stats_basic_packed *b,
-+			 struct gnet_stats_rate_est *r)
- {
-+	if (b && !gen_estimator_active(b, r))
-+		return 0;
-+
- 	if (d->compat_tc_stats) {
- 		d->tc_stats.bps =3D r->bps;
- 		d->tc_stats.pps =3D r->pps;
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 2dfb3e7..ca2e1fd 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -618,7 +618,8 @@ int tcf_action_copy_stats(struct sk_buff *skb, stru=
-ct tc_action *a,
- 			goto errout;
-=20
- 	if (gnet_stats_copy_basic(&d, &h->tcf_bstats) < 0 ||
--	    gnet_stats_copy_rate_est(&d, &h->tcf_rate_est) < 0 ||
-+	    gnet_stats_copy_rate_est(&d, &h->tcf_bstats,
-+				     &h->tcf_rate_est) < 0 ||
- 	    gnet_stats_copy_queue(&d, &h->tcf_qstats) < 0)
- 		goto errout;
-=20
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 903e418..1acfd29 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -1179,7 +1179,7 @@ static int tc_fill_qdisc(struct sk_buff *skb, str=
-uct Qdisc *q, u32 clid,
- 		goto nla_put_failure;
-=20
- 	if (gnet_stats_copy_basic(&d, &q->bstats) < 0 ||
--	    gnet_stats_copy_rate_est(&d, &q->rate_est) < 0 ||
-+	    gnet_stats_copy_rate_est(&d, &q->bstats, &q->rate_est) < 0 ||
- 	    gnet_stats_copy_queue(&d, &q->qstats) < 0)
- 		goto nla_put_failure;
-=20
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index 5b132c4..3846d65 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -1609,7 +1609,7 @@ cbq_dump_class_stats(struct Qdisc *sch, unsigned =
-long arg,
- 		cl->xstats.undertime =3D cl->undertime - q->now;
-=20
- 	if (gnet_stats_copy_basic(d, &cl->bstats) < 0 ||
--	    gnet_stats_copy_rate_est(d, &cl->rate_est) < 0 ||
-+	    gnet_stats_copy_rate_est(d, &cl->bstats, &cl->rate_est) < 0 ||
- 	    gnet_stats_copy_queue(d, &cl->qstats) < 0)
- 		return -1;
-=20
-diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
-index 5a888af..a65604f 100644
---- a/net/sched/sch_drr.c
-+++ b/net/sched/sch_drr.c
-@@ -280,7 +280,7 @@ static int drr_dump_class_stats(struct Qdisc *sch, =
-unsigned long arg,
- 	}
-=20
- 	if (gnet_stats_copy_basic(d, &cl->bstats) < 0 ||
--	    gnet_stats_copy_rate_est(d, &cl->rate_est) < 0 ||
-+	    gnet_stats_copy_rate_est(d, &cl->bstats, &cl->rate_est) < 0 ||
- 	    gnet_stats_copy_queue(d, &cl->qdisc->qstats) < 0)
- 		return -1;
-=20
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index 2c5c76b..b38b39c 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -1375,7 +1375,7 @@ hfsc_dump_class_stats(struct Qdisc *sch, unsigned=
- long arg,
- 	xstats.rtwork  =3D cl->cl_cumul;
-=20
- 	if (gnet_stats_copy_basic(d, &cl->bstats) < 0 ||
--	    gnet_stats_copy_rate_est(d, &cl->rate_est) < 0 ||
-+	    gnet_stats_copy_rate_est(d, &cl->bstats, &cl->rate_est) < 0 ||
- 	    gnet_stats_copy_queue(d, &cl->qstats) < 0)
- 		return -1;
-=20
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 85acab9..2e38d1a 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -1105,7 +1105,7 @@ htb_dump_class_stats(struct Qdisc *sch, unsigned =
-long arg, struct gnet_dump *d)
- 	cl->xstats.ctokens =3D cl->ctokens;
-=20
- 	if (gnet_stats_copy_basic(d, &cl->bstats) < 0 ||
--	    gnet_stats_copy_rate_est(d, &cl->rate_est) < 0 ||
-+	    gnet_stats_copy_rate_est(d, NULL, &cl->rate_est) < 0 ||
- 	    gnet_stats_copy_queue(d, &cl->qstats) < 0)
- 		return -1;
-=20
+--=-JOBE4T/lT7vubLfjGF/z--
