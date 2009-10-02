@@ -1,63 +1,54 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: Splice on blocking TCP sockets again..
-Date: Fri, 2 Oct 2009 11:10:29 -0600
-Message-ID: <20091002171029.GG5191@obsidianresearch.com>
-References: <20090930004820.GC19540@obsidianresearch.com> <E1Mssmb-004RJz-Hf@intern.SerNet.DE>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: [PATCH] Use sk_mark for routing lookup in more places
+Date: Fri, 2 Oct 2009 10:25:13 -0700
+Message-ID: <55a4f86e0910021025u7523029av1e4ee917d1fb1ee5@mail.gmail.com>
+References: <200910011814.47689.atis@mikrotik.com> <4AC4D90E.3040008@gmail.com>
+	 <20091001.151823.263194343.davem@davemloft.net>
+	 <4AC58C46.8080408@gmail.com> <4AC598D7.9080900@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	Volker Lendecke <vl@samba.org>
-To: Volker Lendecke <Volker.Lendecke@SerNet.DE>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, atis@mikrotik.com,
+	panther@balabit.hu, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 139-142-54-143.atc.vaillant.ca ([139.142.54.143]:40798 "EHLO
-	quartz.edm.orcorp.ca" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752889AbZJBRKa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 13:10:30 -0400
-Content-Disposition: inline
-In-Reply-To: <E1Mssmb-004RJz-Hf@intern.SerNet.DE>
+Received: from mail-bw0-f210.google.com ([209.85.218.210]:36505 "EHLO
+	mail-bw0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757739AbZJBRZN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 13:25:13 -0400
+Received: by bwz6 with SMTP id 6so1204688bwz.37
+        for <netdev@vger.kernel.org>; Fri, 02 Oct 2009 10:25:15 -0700 (PDT)
+In-Reply-To: <4AC598D7.9080900@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 30, 2009 at 08:37:13AM +0200, Volker Lendecke wrote:
-> On Tue, Sep 29, 2009 at 06:48:20PM -0600, Jason Gunthorpe wrote:
-> > FWIW, it looks like samba has a splice code now, but doesn't enable it
-> > due to this issue?
-> 
-> Right. What I've learned from the comments is that splice is
-> only usable in multi-threaded programs. One thread is
-> reading, one is writing from the other end. I deferred using
-> splice until we have the proper architecture to do sync
-> syscalls in helper threads to make them virtually async.  We
-> have some code for that now, but it's not a high priority
-> for me at this moment.
+Cool!
 
-So, it looks like thanks to Eric and davem that splice will be changed
-so it can be blocking on the TCP and non-blocking on the PIPE.
+As I've already pointed out in a post 2 or so weeks ago, we need the
+exact same treatment in a ton of places throughout the code (tcp,
+ipv6, decnet, etc...).
 
-I'd suggest a construct like the following as a compatability
-solution:
+Maybe it would make more sense to create some constructor-like
+functions for the flowi struct?
 
-struct pollfd pfd = {.fd = tcpfd, events = POLLIN | POLLRDHUP};
-while (..) {
-   rc = splice(tcpfd,0,pfd[1],0,count,SPLICE_F_MOVE | SPLICE_F_NONBLOCK);
-   if (rc == -1)
-     //...
-   if (rc == 0) {
-       if (pfd.revents & POLLRDHUP)
-          // oops, EOF on TCP
-
-       /* Might be an old kernel that nonblocks on TCP, have to check
-          if this is EOF or do blocking. */
-       rc = poll(&pfd,1,-1);
-       if (rc == -1)
-          //...
-   }
-
-   rc = splice(pfd[0],0,ofd,0,..., SPLICE_F_MOVE)
-}
-
-Which should add no overhead in the new splice blocks case, and falls
-back gracefully on older kernels..
-
-Thanks,
-Jason
+On Thu, Oct 1, 2009 at 23:08, Eric Dumazet <eric.dumazet@gmail.com> wro=
+te:
+> Eric Dumazet a =C3=A9crit :
+>> Here is a followup on this area, thanks.
+>>
+>> [RFC] af_packet: fill skb->mark at xmit
+>>
+>> skb->mark may be used by classifiers, so fill it in case user
+>> set a SO_MARK option on socket.
+>>
+>
+> Maybe a more generic way to handle this for various protocols
+> would be to fill skb->mark in sock_alloc_send_pskb()
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =C2=A0http://vger.kernel.org/majordomo-info.ht=
+ml
+>
