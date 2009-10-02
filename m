@@ -1,60 +1,110 @@
 From: Philipp Reisner <philipp.reisner@linbit.com>
-Subject: [PATCH 0/8] SECURITY ISSUE with connector
-Date: Fri,  2 Oct 2009 14:40:03 +0200
-Message-ID: <1254487211-11810-1-git-send-email-philipp.reisner@linbit.com>
+Subject: [PATCH 1/8] connector: Keep the skb in cn_callback_data
+Date: Fri,  2 Oct 2009 14:40:04 +0200
+Message-ID: <1254487211-11810-2-git-send-email-philipp.reisner@linbit.com>
+References: <1254487211-11810-1-git-send-email-philipp.reisner@linbit.com>
 Cc: dm-devel@redhat.com, Evgeniy Polyakov <zbr@ioremap.net>,
 	linux-fbdev-devel@lists.sourceforge.net,
 	Philipp Reisner <philipp.reisner@linbit.com>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Andrew Morton <akpm@linux-foundation.org>,
 	"David S. Miller" <davem@davemloft.net>, Greg KH <greg@kroah.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail09.linbit.com ([212.69.161.110]:53766 "EHLO
-	mail09.linbit.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756768AbZJBMkJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 08:40:09 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757686AbZJBMlY@vger.kernel.org>
+In-Reply-To: <1254487211-11810-1-git-send-email-philipp.reisner@linbit.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Affected: All code that uses connector, in kernel and out of mainline
+Signed-off-by: Philipp Reisner <philipp.reisner@linbit.com>
+Acked-by: Lars Ellenberg <lars.ellenberg@linbit.com>
+Acked-by: Evgeniy Polyakov <zbr@ioremap.net>
+---
+ drivers/connector/cn_queue.c  |    3 ++-
+ drivers/connector/connector.c |   11 +++++------
+ include/linux/connector.h     |    4 ++--
+ 3 files changed, 9 insertions(+), 9 deletions(-)
 
-The connector, as it is today, does not allow the in kernel receiving
-parts to do any checks on privileges of a message's sender.
-
-I know, there are not many out there that like connector, but as
-long as it is in the kernel, we have to fix the security issues it has!
-
-Please either drop connector, or someone who feels a bit responsible
-and has our beloved dictator's blessing, PLEASE PLEASE PLEASE take 
-this into your tree, and send the pull request to Linus.
-
-Patches 1 to 4 are already Acked-by Evgeny, the connector's maintainer.
-Patches 5 to 7 are the obvious fixes to the connector user's code.
-
-For convenience these patches are also available as git tree:
-git://git.drbd.org/linux-2.6-drbd.git connector-fix
-
--Phil
-
-Philipp Reisner (8):
-  connector: Keep the skb in cn_callback_data
-  connector: Provide the sender's credentials to the callback
-  connector/dm: Fixed a compilation warning
-  connector: Removed the destruct_data callback since it is always kfree_skb()
-  dm/connector: Only process connector packages from privileged processes
-  dst/connector: Disallow unpliviged users to configure dst
-  pohmelfs/connector: Disallow unpliviged users to configure pohmelfs
-  uvesafb/connector: Disallow unpliviged users to send netlink packets
-
- Documentation/connector/cn_test.c      |    2 +-
- Documentation/connector/connector.txt  |    8 ++++----
- drivers/connector/cn_queue.c           |   12 +++++++-----
- drivers/connector/connector.c          |   22 ++++++++--------------
- drivers/md/dm-log-userspace-transfer.c |    6 ++++--
- drivers/staging/dst/dcore.c            |    7 ++++++-
- drivers/staging/pohmelfs/config.c      |    5 ++++-
- drivers/video/uvesafb.c                |    5 ++++-
- drivers/w1/w1_netlink.c                |    2 +-
- include/linux/connector.h              |   11 ++++-------
- 10 files changed, 43 insertions(+), 37 deletions(-)
-
+diff --git a/drivers/connector/cn_queue.c b/drivers/connector/cn_queue.c
+index 4a1dfe1..b4cfac9 100644
+--- a/drivers/connector/cn_queue.c
++++ b/drivers/connector/cn_queue.c
+@@ -78,8 +78,9 @@ void cn_queue_wrapper(struct work_struct *work)
+ 	struct cn_callback_entry *cbq =
+ 		container_of(work, struct cn_callback_entry, work);
+ 	struct cn_callback_data *d = &cbq->data;
++	struct cn_msg *msg = NLMSG_DATA(nlmsg_hdr(d->skb));
+ 
+-	d->callback(d->callback_priv);
++	d->callback(msg);
+ 
+ 	d->destruct_data(d->ddata);
+ 	d->ddata = NULL;
+diff --git a/drivers/connector/connector.c b/drivers/connector/connector.c
+index 74f52af..fc9887f 100644
+--- a/drivers/connector/connector.c
++++ b/drivers/connector/connector.c
+@@ -129,10 +129,11 @@ EXPORT_SYMBOL_GPL(cn_netlink_send);
+ /*
+  * Callback helper - queues work and setup destructor for given data.
+  */
+-static int cn_call_callback(struct cn_msg *msg, void (*destruct_data)(void *), void *data)
++static int cn_call_callback(struct sk_buff *skb, void (*destruct_data)(void *), void *data)
+ {
+ 	struct cn_callback_entry *__cbq, *__new_cbq;
+ 	struct cn_dev *dev = &cdev;
++	struct cn_msg *msg = NLMSG_DATA(nlmsg_hdr(skb));
+ 	int err = -ENODEV;
+ 
+ 	spin_lock_bh(&dev->cbdev->queue_lock);
+@@ -140,7 +141,7 @@ static int cn_call_callback(struct cn_msg *msg, void (*destruct_data)(void *), v
+ 		if (cn_cb_equal(&__cbq->id.id, &msg->id)) {
+ 			if (likely(!work_pending(&__cbq->work) &&
+ 					__cbq->data.ddata == NULL)) {
+-				__cbq->data.callback_priv = msg;
++				__cbq->data.skb = skb;
+ 
+ 				__cbq->data.ddata = data;
+ 				__cbq->data.destruct_data = destruct_data;
+@@ -156,7 +157,7 @@ static int cn_call_callback(struct cn_msg *msg, void (*destruct_data)(void *), v
+ 				__new_cbq = kzalloc(sizeof(struct cn_callback_entry), GFP_ATOMIC);
+ 				if (__new_cbq) {
+ 					d = &__new_cbq->data;
+-					d->callback_priv = msg;
++					d->skb = skb;
+ 					d->callback = __cbq->data.callback;
+ 					d->ddata = data;
+ 					d->destruct_data = destruct_data;
+@@ -191,7 +192,6 @@ static int cn_call_callback(struct cn_msg *msg, void (*destruct_data)(void *), v
+  */
+ static void cn_rx_skb(struct sk_buff *__skb)
+ {
+-	struct cn_msg *msg;
+ 	struct nlmsghdr *nlh;
+ 	int err;
+ 	struct sk_buff *skb;
+@@ -208,8 +208,7 @@ static void cn_rx_skb(struct sk_buff *__skb)
+ 			return;
+ 		}
+ 
+-		msg = NLMSG_DATA(nlh);
+-		err = cn_call_callback(msg, (void (*)(void *))kfree_skb, skb);
++		err = cn_call_callback(skb, (void (*)(void *))kfree_skb, skb);
+ 		if (err < 0)
+ 			kfree_skb(skb);
+ 	}
+diff --git a/include/linux/connector.h b/include/linux/connector.h
+index 47ebf41..05a7a14 100644
+--- a/include/linux/connector.h
++++ b/include/linux/connector.h
+@@ -134,8 +134,8 @@ struct cn_callback_id {
+ struct cn_callback_data {
+ 	void (*destruct_data) (void *);
+ 	void *ddata;
+-	
+-	void *callback_priv;
++
++	struct sk_buff *skb;
+ 	void (*callback) (struct cn_msg *);
+ 
+ 	void *free;
+-- 
+1.6.0.4
