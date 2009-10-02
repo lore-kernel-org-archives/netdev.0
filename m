@@ -1,60 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Use sk_mark for routing lookup in more places
-Date: Fri, 02 Oct 2009 07:14:46 +0200
-Message-ID: <4AC58C46.8080408@gmail.com>
-References: <200910011814.47689.atis@mikrotik.com>	<4AC4D90E.3040008@gmail.com> <20091001.151823.263194343.davem@davemloft.net>
+From: Neil Brown <neilb@suse.de>
+Subject: Re: [PATCH 01/31] mm: serialize access to min_free_kbytes
+Date: Fri, 2 Oct 2009 15:20:34 +1000
+Message-ID: <19141.36258.926599.862333@notabene.brown>
+References: <1254405871-15687-1-git-send-email-sjayaraman@suse.de>
+	<alpine.DEB.1.00.0910011330430.27559@chino.kir.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: atis@mikrotik.com, panther@balabit.hu, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:38179 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755322AbZJBFO7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 01:14:59 -0400
-In-Reply-To: <20091001.151823.263194343.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Suresh Jayaraman <sjayaraman@suse.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, Miklos Szeredi <mszeredi@suse.cz>,
+	Wouter Verhelst <w@uter.be>, Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	trond.myklebust@fys.uio.no
+To: David Rientjes <rientjes@google.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: message from David Rientjes on Thursday October 1
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Here is a followup on this area, thanks.
+On Thursday October 1, rientjes@google.com wrote:
+> On Thu, 1 Oct 2009, Suresh Jayaraman wrote:
+> 
+> > From: Peter Zijlstra <a.p.zijlstra@chello.nl> 
+> > 
+> > There is a small race between the procfs caller and the memory hotplug caller
+> > of setup_per_zone_wmarks(). Not a big deal, but the next patch will add yet
+> > another caller. Time to close the gap.
+> > 
+> 
+> By "next patch," you mean "mm: emegency pool" (patch 08/31)?
 
-[RFC] af_packet: fill skb->mark at xmit
+:-)  It is always safer to say "a subsequent patch", isn't it....
 
-skb->mark may be used by classifiers, so fill it in case user 
-set a SO_MARK option on socket.
+> 
+> If so, can't you eliminate var_free_mutex entirely from that patch and 
+> take min_free_lock in adjust_memalloc_reserve() instead?
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/packet/af_packet.c |    3 +++
- 1 file changed, 3 insertions(+)
+adjust_memalloc_reserve does a test alloc/free cycle under a lock.
+That cannot be done under a spin-lock, it must be a mutex.
+So I don't think you can eliminate var_free_mutex.
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index d7ecca0..610f150 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -490,6 +490,7 @@ static int packet_sendmsg_spkt(struct kiocb *iocb, struct socket *sock,
- 	skb->protocol = proto;
- 	skb->dev = dev;
- 	skb->priority = sk->sk_priority;
-+	skb->mark = sk->sk_mark;
- 	if (err)
- 		goto out_free;
- 
-@@ -856,6 +857,7 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 	skb->protocol = proto;
- 	skb->dev = dev;
- 	skb->priority = po->sk.sk_priority;
-+	skb->mark = po->sk.sk_mark;
- 	skb_shinfo(skb)->destructor_arg = ph.raw;
- 
- 	switch (po->tp_version) {
-@@ -1125,6 +1127,7 @@ static int packet_snd(struct socket *sock,
- 	skb->protocol = proto;
- 	skb->dev = dev;
- 	skb->priority = sk->sk_priority;
-+	skb->mark = sk->sk_mark;
- 
- 	/*
- 	 *	Now send it
+Thanks,
+NeilBrown
 
+> 
+>  [ __adjust_memalloc_reserve() would call __setup_per_zone_wmarks()
+>    under lock instead, now. ]
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
