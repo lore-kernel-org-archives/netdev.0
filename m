@@ -1,68 +1,90 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [RFC take2] pkt_sched: gen_estimator: Dont report fake rate
-	estimators
-Date: Fri, 2 Oct 2009 11:25:14 +0000
-Message-ID: <20091002112514.GA14100@ff.dom.local>
-References: <20091002070819.GA9694@ff.dom.local> <4AC5D78D.3030400@gmail.com>
+From: Markus Feldmann <feldmann_markus@gmx.de>
+Subject: Re: Messages are printed on screen
+Date: Fri, 02 Oct 2009 14:01:09 +0200
+Message-ID: <ha4q26$7mt$1@ger.gmane.org>
+References: <ha4igd$ghh$1@ger.gmane.org> <1254480996.23350.73.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.158]:9460 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752148AbZJBLZR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Oct 2009 07:25:17 -0400
-Received: by fg-out-1718.google.com with SMTP id 22so2075342fge.1
-        for <netdev@vger.kernel.org>; Fri, 02 Oct 2009 04:25:20 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4AC5D78D.3030400@gmail.com>
+Received: from lo.gmane.org ([80.91.229.12]:44403 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753625AbZJBMBc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Oct 2009 08:01:32 -0400
+Received: from list by lo.gmane.org with local (Exim 4.50)
+	id 1MtgpL-0004re-Is
+	for netdev@vger.kernel.org; Fri, 02 Oct 2009 14:01:35 +0200
+Received: from dslb-092-076-255-225.pools.arcor-ip.net ([92.76.255.225])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 02 Oct 2009 14:01:35 +0200
+Received: from feldmann_markus by dslb-092-076-255-225.pools.arcor-ip.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 02 Oct 2009 14:01:35 +0200
+In-Reply-To: <1254480996.23350.73.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 02, 2009 at 12:35:57PM +0200, Eric Dumazet wrote:
-> Here is second attempt to make this change, thanks Jarek !
+Ben Hutchings schrieb:
+> On Fri, 2009-10-02 at 11:52 +0200, Markus Feldmann wrote:
+>
+>>
+>> As you see some of my IRQ-Lines are multiply in use, so my Server is 
+>> working hard at his limit.
 > 
-> This is indeed less intrusive !
-> 
-> [RFC] pkt_sched: gen_estimator: Dont report fake rate estimators
-> 
-> We currently send TCA_STATS_RATE_EST elements to netlink users, even if no estimator
-> is running.
-> 
-> # tc -s -d qdisc
-> qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
->  Sent 112833764978 bytes 1495081739 pkt (dropped 0, overlimits 0 requeues 0)
->  rate 0bit 0pps backlog 0b 0p requeues 0
-> 
-> User has no way to tell if the "rate 0bit 0pps" is a real estimation, or a fake
-> one (because no estimator is active)
-> 
-> After this patch, tc command output is :
-> $ tc -s -d qdisc
-> qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
->  Sent 561075 bytes 1196 pkt (dropped 0, overlimits 0 requeues 0)
->  backlog 0b 0p requeues 0
-> 
-> We add a parameter to gnet_stats_copy_rate_est() function so that
-> it can use gen_estimator_active(bstats, r), as suggested by Jarek.
+> IRQ sharing is normal on PCs without MSI support, but to see where
+> that's happening you need to look at /proc/interrupts and not the BIOS
+> setup program or wherever you got the above information from.
+Ok i did <cat /proc/interrupts> and got:
+            CPU0
+   0:     259603    XT-PIC-XT        timer
+   1:       1421    XT-PIC-XT        i8042
+   2:          0    XT-PIC-XT        cascade
+   4:     200000    XT-PIC-XT        ohci_hcd:usb3, pppp0
+   5:          0    XT-PIC-XT        ehci_hcd:usb1, lan0
+   7:       6959    XT-PIC-XT        lan1
+   8:          2    XT-PIC-XT        rtc0
+   9:          0    XT-PIC-XT        acpi
+  11:      37697    XT-PIC-XT        ide2, ide3, ohci_hcd:usb2, lan2
+  14:          0    XT-PIC-XT        ide0
+NMI:          0   Non-maskable interrupts
+TRM:          0   Thermal event interrupts
+MCE:          0   Machine check exceptions
+MCP:         13   Machine check polls
+ERR:          2
 
-So you prefer the additional parameter version, but since these
-_active tests are not needed e.g. for HTB classes, which got it
-active by default, so maybe bstats == NULL would let skip such a test?
+How can i assigned IRQs during Boot?
 
-...
-> --- a/include/net/gen_stats.h
-> +++ b/include/net/gen_stats.h
-> @@ -30,6 +30,7 @@ extern int gnet_stats_start_copy_compat(struct sk_buff *skb, int type,
->  extern int gnet_stats_copy_basic(struct gnet_dump *d,
->  				 struct gnet_stats_basic_packed *b);
->  extern int gnet_stats_copy_rate_est(struct gnet_dump *d,
-> +				    const struct gnet_stats_basic_packed *bstats,
+How can i watch which IRQ Line has most traffic or problems ?
 
-It seems these *b/*bstats defs could look more consistent. Otherwise
-it looks OK to me.
+>> The result is sometimes freezing of my 
+>> Server, especially if there is much processing on these devices. I 
+>> remember that with Kernel 2.6.18 my system didn't does freezing.
+> 
+> This is simply a bug, not a result of IRQ sharing or 'working hard'.
+But something had initiated this freezing. Although i do not know the 
+Bug, i should be able to avoide this Problem by do some prevention ?!
 
-Thanks,
-Jarek P.
+> 
+>> How can i disable the output of messages (about dropped packets from my 
+>> firewall) to my terminal ?
+> 
+> Edit the value of kernel.printk in /etc/sysctl.conf.
+Ok i did add:
+kernel.printk= 4 4 1 7
+to </etc/sysctl.conf>
+> 
+>> How can i stabilize my IRQ-System with the kernel 2.6.31.1 ?
+> 
+> I would expect the standard kernel version for 'lenny' or the 2.6.30
+> kernel from 'sid' to be more stable.
+Ok i will try the kernel from Debian Sid. :-)
+> 
+>> What debug features should i disable ?
+> 
+> No idea, you didn't even specify what you enabled...
+I will add some enabled features next week.
+
+regards Markus
+
