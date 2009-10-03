@@ -1,83 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] pktgen: Fix multiqueue handling
-Date: Sat, 03 Oct 2009 08:24:59 +0200
-Message-ID: <4AC6EE3B.6050407@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] TCPCT-1: adding a sysctl
+Date: Fri, 02 Oct 2009 23:26:53 -0700 (PDT)
+Message-ID: <20091002.232653.140263722.davem@davemloft.net>
+References: <4AC674A4.2040900@gmail.com>
+	<20091002.154808.137771153.davem@davemloft.net>
+	<4AC69B89.5010604@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <robert.olsson@its.uu.se>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: william.allen.simpson@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:54298 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752332AbZJCGZA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2009 02:25:00 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49989
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751525AbZJCG0e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2009 02:26:34 -0400
+In-Reply-To: <4AC69B89.5010604@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Note : I could not really test this patch, I dont have multi queue hardware yet.
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Date: Fri, 02 Oct 2009 20:32:09 -0400
 
-I found this by code inspection, please double check, thanks
+> David Miller wrote:
+>> From: William Allen Simpson <william.allen.simpson@gmail.com>
+>>> Ummm, I was following the suggested practice of breaking it into
+>>> smaller
+>>> pieces for review.  This is just the control functions and headers.
+>>> I've
+>>> actually completed most of the port, and am champing at the bit.
+>> We can't review the helper functions and infrastructure properly until
+>> we can see how they are actually used.
+>> Seeing how they are used shows us how well they are designed.
+>> Otherwise asking for a is absolutely pointless as we have no context
+>> in which to judge the code you're showing us.
+>> 
+> Thanks.  I'd hand-split my code into much smaller patches for review.
+> Now, I know there are patches that are *too* small....
 
-[PATCH] pktgen: Fix multiqueue handling
+It's not that the patches are too small, you totally misunderstand me.
 
-It is not currently possible to instruct pktgen to use one selected tx queue.
+The problem is that you have to post all of the patches as a set which
+can be reviewed as a unit.  The ones the use the new functions as well
+as the ones that add them.
 
-When Robert added multiqueue support in commit 45b270f8, he added
-an interval (queue_map_min, queue_map_max), and his code doesnt take
-into account the case of min = max, to select one tx queue exactly.
-
-I suspect a high performance setup on a eight txqueue device wants 
-to use exactly eight cpus, and assign one tx queue to each sender.
-
-This patchs makes pktgen select the right tx queue, not the first one.
-
-Also updates Documentation to reflect Robert changes.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- Documentation/networking/pktgen.txt |    8 ++++++++
- net/core/pktgen.c                   |    2 +-
- 2 files changed, 9 insertions(+), 1 deletion(-)
-
-diff --git a/Documentation/networking/pktgen.txt b/Documentation/networking/pktgen.txt
-index c6cf4a3..61bb645 100644
---- a/Documentation/networking/pktgen.txt
-+++ b/Documentation/networking/pktgen.txt
-@@ -90,6 +90,11 @@ Examples:
-  pgset "dstmac 00:00:00:00:00:00"    sets MAC destination address
-  pgset "srcmac 00:00:00:00:00:00"    sets MAC source address
- 
-+ pgset "queue_map_min 0" Sets the min value of tx queue interval
-+ pgset "queue_map_max 7" Sets the max value of tx queue interval, for multiqueue devices
-+                         To select queue 1 of a given device,
-+                         use queue_map_min=1 and queue_map_max=1
-+
-  pgset "src_mac_count 1" Sets the number of MACs we'll range through.  
-                          The 'minimum' MAC is what you set with srcmac.
- 
-@@ -101,6 +106,9 @@ Examples:
-                               IPDST_RND, UDPSRC_RND,
-                               UDPDST_RND, MACSRC_RND, MACDST_RND 
-                               MPLS_RND, VID_RND, SVID_RND
-+                              QUEUE_MAP_RND # queue map random
-+                              QUEUE_MAP_CPU # queue map mirrors smp_processor_id()
-+
- 
-  pgset "udp_src_min 9"   set UDP source port min, If < udp_src_max, then
-                          cycle through the port range.
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index b694552..421857c 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2212,7 +2212,7 @@ static void set_cur_queue_map(struct pktgen_dev *pkt_dev)
- 	if (pkt_dev->flags & F_QUEUE_MAP_CPU)
- 		pkt_dev->cur_queue_map = smp_processor_id();
- 
--	else if (pkt_dev->queue_map_min < pkt_dev->queue_map_max) {
-+	else if (pkt_dev->queue_map_min <= pkt_dev->queue_map_max) {
- 		__u16 t;
- 		if (pkt_dev->flags & F_QUEUE_MAP_RND) {
- 			t = random32() %
+It also helps if you mention in the commit message things like
+"These helper functions will be used in a subsequent change which
+does ..."
