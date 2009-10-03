@@ -1,189 +1,171 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [Bug #14301] WARNING: at net/ipv4/af_inet.c:154
-Date: Sat, 03 Oct 2009 10:52:47 +0200
-Message-ID: <4AC710DF.5070705@gmail.com>
-References: <3onW63eFtRF.A.xXH.oMTxKB@chimera> <COE24pZSBH.A.mdH.sMTxKB@chimera> <4AC70D20.4060009@gmail.com>
+From: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [BUG net-2.6] bluetooth/rfcomm : sleeping function called from
+ invalid context at mm/slub.c:1719
+Date: Sat, 03 Oct 2009 11:43:06 +0200
+Message-ID: <4AC71CAA.9090704@hartkopp.net>
+References: <4AC59D8A.6000102@hartkopp.net> <a8e1da0910020401m2fb8493ax95ff55a3b66131a5@mail.gmail.com> <4AC6247E.7050308@hartkopp.net> <20091003070622.GA4110@darkstar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
 	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Wei Yongjun <yjwei-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Ralf Hildebrandt <Ralf.Hildebrandt-jq1tPX9l7E6ELgA04lAiVw@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4AC70D20.4060009-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20091003070622.GA4110@darkstar>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet a =C3=A9crit :
-> Rafael J. Wysocki a =C3=A9crit :
->> This message has been generated automatically as a part of a report
->> of regressions introduced between 2.6.30 and 2.6.31.
+Dave Young wrote:
+> On Fri, Oct 02, 2009 at 06:04:14PM +0200, Oliver Hartkopp wrote:
+>> Dave Young wrote:
+>>> On Fri, Oct 2, 2009 at 2:28 PM, Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org> wrote:
+>>>> Hello Marcel,
+>>>>
+>>>> with current net-2.6 tree ...
+>>>>
+>>>> While starting my PPP Bluetooth dialup networking, i got this:
+>>> Hi, oliver
+>>>
+>>> please try following patch:
+>>> http://patchwork.kernel.org/patch/51326/
+>> Hi Dave,
 >>
->> The following bug entry is on the current list of known regressions
->> introduced between 2.6.30 and 2.6.31.  Please verify if it still sho=
-uld
->> be listed and let me know (either way).
+>> that fixed it at ppp startup!
+>>
+>> Tested-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+>>
+>> Btw. when shutting down the ppp connection i still get this:
+>>
+>> [  361.996887] INFO: trying to register non-static key.
+>> [  361.996897] the code is fine but needs lockdep annotation.
+>> [  361.996902] turning off the locking correctness validator.
+>> [  361.996912] Pid: 0, comm: swapper Not tainted 2.6.31-08939-gdb8abec-dirty #22
+>> [  361.996919] Call Trace:
+>> [  361.996933]  [<c12e4fb2>] ? printk+0xf/0x11
+>> [  361.996947]  [<c1042214>] register_lock_class+0x5a/0x295
+>> [  361.996957]  [<c1043af2>] __lock_acquire+0x9b/0xc03
+>> [  361.996967]  [<c104464b>] ? __lock_acquire+0xbf4/0xc03
+>> [  361.996985]  [<fa59a168>] ? l2cap_get_chan_by_scid+0x35/0x43 [l2cap]
+>> [  361.996995]  [<c104491f>] ? lock_release_non_nested+0x17b/0x1db
+>> [  361.997008]  [<fa59a168>] ? l2cap_get_chan_by_scid+0x35/0x43 [l2cap]
+>> [  361.997018]  [<c10426fd>] ? trace_hardirqs_off+0xb/0xd
+>> [  361.997028]  [<c10446b6>] lock_acquire+0x5c/0x73
+>> [  361.997039]  [<c124cd14>] ? skb_dequeue+0x12/0x4c
+>> [  361.997049]  [<c12e6e23>] _spin_lock_irqsave+0x24/0x34
+>> [  361.997058]  [<c124cd14>] ? skb_dequeue+0x12/0x4c
+>> [  361.997066]  [<c124cd14>] skb_dequeue+0x12/0x4c
+>> [  361.997075]  [<c124d579>] skb_queue_purge+0x14/0x1b
+>> [  361.997088]  [<fa59ce3f>] l2cap_recv_frame+0xe9e/0x129a [l2cap]
+>> [  361.997099]  [<c10421d1>] ? register_lock_class+0x17/0x295
+>> [  361.997110]  [<c104464b>] ? __lock_acquire+0xbf4/0xc03
+>> [  361.997128]  [<c104464b>] ? __lock_acquire+0xbf4/0xc03
+>> [  361.997139]  [<c120de74>] ? uhci_giveback_urb+0xf2/0x162
+>> [  361.997163]  [<f8bb4c45>] ? hci_rx_task+0xfe/0x1f8 [bluetooth]
+>> [  361.997177]  [<fa59d2e4>] l2cap_recv_acldata+0xa9/0x1be [l2cap]
+>> [  361.997190]  [<fa59d23b>] ? l2cap_recv_acldata+0x0/0x1be [l2cap]
+>> [  361.997208]  [<f8bb4c77>] hci_rx_task+0x130/0x1f8 [bluetooth]
+>> [  361.997219]  [<c102a098>] tasklet_action+0x6b/0xb2
+>> [  361.997228]  [<c102a46b>] __do_softirq+0x82/0x101
+>> [  361.997237]  [<c102a515>] do_softirq+0x2b/0x43
+>> [  361.997246]  [<c102a619>] irq_exit+0x35/0x68
+>> [  361.997256]  [<c1004513>] do_IRQ+0x80/0x96
+>> [  361.997265]  [<c10030ae>] common_interrupt+0x2e/0x34
+>> [  361.997275]  [<c104007b>] ? tick_device_uses_broadcast+0x71/0x7c
+>> [  361.997286]  [<c11747a8>] ? acpi_idle_enter_simple+0x103/0x12e
+>> [  361.997296]  [<c1174515>] acpi_idle_enter_bm+0xc3/0x253
+>> [  361.997306]  [<c1238b6f>] cpuidle_idle_call+0x60/0x91
+>> [  361.997315]  [<c1001d44>] cpu_idle+0x49/0x65
+>> [  361.997324]  [<c12e2f0e>] start_secondary+0x190/0x195
 >>
 >>
->> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14301
->> Subject		: WARNING: at net/ipv4/af_inet.c:154
->> Submitter	: Ralf Hildebrandt <Ralf.Hildebrandt-jq1tPX9l7E6ELgA04lAiVw@public.gmane.org>
->> Date		: 2009-09-30 12:24 (2 days old)
->> References	: http://marc.info/?l=3Dlinux-kernel&m=3D125431350218137&=
-w=3D4
+>> Thanks,
+>> Oliver
 >>
->>
->=20
-> If commit d99927f4d93f36553699573b279e0ff98ad7dea6
-> (net: Fix sock_wfree() race) doesnt fix this problem, then
-> maybe we should take a look at an old patch.
->=20
-> < data mining... running... output results to lkml/netdev >
->=20
-> Random guesses
->=20
->  1) : commit d55d87fdff8252d0e2f7c28c2d443aee17e9d70f
-> (net: Move rx skb_orphan call to where needed)
->=20
-> A similar problem on SCTP was fixed by commit=20
-> 1bc4ee4088c9a502db0e9c87f675e61e57fa1734
-> (sctp: fix warning at inet_sock_destruct() while release sctp socket)
->=20
-> 2) CORK and UDP sockets
->   It seems we can leave an UDP socket with a frame in sk_write_queue
->   Purge of this queue is done by udp_flush_pending_frames()
->    This calls ip_flush_pending_frames()
->    But this function only calls kfree_skb(), not sk_wmem_free_skb()..=
-=2E
->=20
->=20
-> Could you try following patch ?
->=20
+> 
+> Oliver, does following patch fix the non-static lock problem?
+> --
+> 
+> now l2cap conn locks will be initialized after setup l2cap conn timer,
+> it will introduce following problem:
+> 
+> [  361.996887] INFO: trying to register non-static key.
+> [  361.996897] the code is fine but needs lockdep annotation.
+> [  361.996902] turning off the locking correctness validator.
+> [  361.996912] Pid: 0, comm: swapper Not tainted 2.6.31-08939-gdb8abec-dirty #22
+> [  361.996919] Call Trace:
+> [  361.996933]  [<c12e4fb2>] ? printk+0xf/0x11
+> [  361.996947]  [<c1042214>] register_lock_class+0x5a/0x295
+> [  361.996957]  [<c1043af2>] __lock_acquire+0x9b/0xc03
+> [  361.996967]  [<c104464b>] ? __lock_acquire+0xbf4/0xc03
+> [  361.996985]  [<fa59a168>] ? l2cap_get_chan_by_scid+0x35/0x43 [l2cap]
+> [  361.996995]  [<c104491f>] ? lock_release_non_nested+0x17b/0x1db
+> [  361.997008]  [<fa59a168>] ? l2cap_get_chan_by_scid+0x35/0x43 [l2cap]
+> [  361.997018]  [<c10426fd>] ? trace_hardirqs_off+0xb/0xd
+> [  361.997028]  [<c10446b6>] lock_acquire+0x5c/0x73
+> [  361.997039]  [<c124cd14>] ? skb_dequeue+0x12/0x4c
+> [  361.997049]  [<c12e6e23>] _spin_lock_irqsave+0x24/0x34
+> [  361.997058]  [<c124cd14>] ? skb_dequeue+0x12/0x4c
+> [  361.997066]  [<c124cd14>] skb_dequeue+0x12/0x4c
+> [  361.997075]  [<c124d579>] skb_queue_purge+0x14/0x1b
+> [  361.997088]  [<fa59ce3f>] l2cap_recv_frame+0xe9e/0x129a [l2cap]
+> [  361.997099]  [<c10421d1>] ? register_lock_class+0x17/0x295
+> [  361.997110]  [<c104464b>] ? __lock_acquire+0xbf4/0xc03
+> [  361.997128]  [<c104464b>] ? __lock_acquire+0xbf4/0xc03
+> [  361.997139]  [<c120de74>] ? uhci_giveback_urb+0xf2/0x162
+> [  361.997163]  [<f8bb4c45>] ? hci_rx_task+0xfe/0x1f8 [bluetooth]
+> [  361.997177]  [<fa59d2e4>] l2cap_recv_acldata+0xa9/0x1be [l2cap]
+> [  361.997190]  [<fa59d23b>] ? l2cap_recv_acldata+0x0/0x1be [l2cap]
+> [  361.997208]  [<f8bb4c77>] hci_rx_task+0x130/0x1f8 [bluetooth]
+> [  361.997219]  [<c102a098>] tasklet_action+0x6b/0xb2
+> [  361.997228]  [<c102a46b>] __do_softirq+0x82/0x101
+> [  361.997237]  [<c102a515>] do_softirq+0x2b/0x43
+> [  361.997246]  [<c102a619>] irq_exit+0x35/0x68
+> [  361.997256]  [<c1004513>] do_IRQ+0x80/0x96
+> [  361.997265]  [<c10030ae>] common_interrupt+0x2e/0x34
+> [  361.997275]  [<c104007b>] ? tick_device_uses_broadcast+0x71/0x7c
+> [  361.997286]  [<c11747a8>] ? acpi_idle_enter_simple+0x103/0x12e
+> [  361.997296]  [<c1174515>] acpi_idle_enter_bm+0xc3/0x253
+> [  361.997306]  [<c1238b6f>] cpuidle_idle_call+0x60/0x91
+> [  361.997315]  [<c1001d44>] cpu_idle+0x49/0x65
+> [  361.997324]  [<c12e2f0e>] start_secondary+0x190/0x195
+> 
+> Here move lock init things before setup_timer to avoid misuse
+> uninitialized locks.
+> 
+> Reported-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+> Signed-off-by: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+> net/bluetooth/l2cap.c |    6 +++---
+> 1 file changed, 3 insertions(+), 3 deletions(-)
+> 
+> --- linux-2.6.31.orig/net/bluetooth/l2cap.c	2009-09-30 16:36:10.000000000 +0800
+> +++ linux-2.6.31/net/bluetooth/l2cap.c	2009-10-03 14:44:51.000000000 +0800
+> @@ -555,12 +555,12 @@ static struct l2cap_conn *l2cap_conn_add
+>  
+>  	conn->feat_mask = 0;
+>  
+> -	setup_timer(&conn->info_timer, l2cap_info_timeout,
+> -						(unsigned long) conn);
+> -
+>  	spin_lock_init(&conn->lock);
+>  	rwlock_init(&conn->chan_list.lock);
+>  
+> +	setup_timer(&conn->info_timer, l2cap_info_timeout,
+> +						(unsigned long) conn);
+> +
+>  	conn->disc_reason = 0x13;
+>  
+>  	return conn;
 
-Hmm, I missed the ip_cork_release(), here is an updated version.
+No, it does not have any effect.
 
+As the lockdep annotation only appears when shutting down the ppp connection,
+i wonder whether it should help to change things in a _conn_add() function.
+:-)
 
-[PATCH] net: UDP should not use ip_flush_pending_frames()
+Or didn't i made it clear before, that this annotation one only happens at ppp
+shutdown?
 
-Now xmit UDP messages are charged, we must take care of calling right
-skb freeing function.
-
-In case a close() is performed on a socket where CORKED frame
-is still queued in sk_write_queue, calling ip_flush_pending_frames()
-leads to sk_forward_alloc leak.
-
-=46ix this by calling sk_write_queue_purge() and ip_cork_release()
-instead.
-
-Reported-by: Ralf Hildebrandt <Ralf.Hildebrandt-jq1tPX9l7E6ELgA04lAiVw@public.gmane.org>
-Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- include/net/ip.h    |    1 +
- include/net/sock.h  |   10 ++++++++++
- include/net/tcp.h   |   10 ----------
- net/ipv4/tcp.c      |    2 +-
- net/ipv4/tcp_ipv4.c |    2 +-
- net/ipv4/udp.c      |    3 ++-
- 6 files changed, 15 insertions(+), 13 deletions(-)
-
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 2f47e54..c8d8828 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -117,6 +117,7 @@ extern int		ip_generic_getfrag(void *from, char *to=
-, int offset, int len, int od
- extern ssize_t		ip_append_page(struct sock *sk, struct page *page,
- 				int offset, size_t size, int flags);
- extern int		ip_push_pending_frames(struct sock *sk);
-+extern void     ip_cork_release(struct inet_sock *);
- extern void		ip_flush_pending_frames(struct sock *sk);
-=20
- /* datagram.c */
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 1621935..7c80fec 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -882,6 +882,16 @@ static inline void sk_wmem_free_skb(struct sock *s=
-k, struct sk_buff *skb)
- 	__kfree_skb(skb);
- }
-=20
-+/* write queue abstraction */
-+static inline void sk_write_queue_purge(struct sock *sk)
-+{
-+	struct sk_buff *skb;
-+
-+	while ((skb =3D __skb_dequeue(&sk->sk_write_queue)) !=3D NULL)
-+		sk_wmem_free_skb(sk, skb);
-+	sk_mem_reclaim(sk);
-+}
-+
- /* Used by processes to "lock" a socket state, so that
-  * interrupts and bottom half handlers won't change it
-  * from under us. It essentially blocks any incoming
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 03a49c7..4c7036a 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1220,16 +1220,6 @@ static inline void		tcp_put_md5sig_pool(void)
- 	put_cpu();
- }
-=20
--/* write queue abstraction */
--static inline void tcp_write_queue_purge(struct sock *sk)
--{
--	struct sk_buff *skb;
--
--	while ((skb =3D __skb_dequeue(&sk->sk_write_queue)) !=3D NULL)
--		sk_wmem_free_skb(sk, skb);
--	sk_mem_reclaim(sk);
--}
--
- static inline struct sk_buff *tcp_write_queue_head(struct sock *sk)
- {
- 	return skb_peek(&sk->sk_write_queue);
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 64d0af6..0124f5b 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1992,7 +1992,7 @@ int tcp_disconnect(struct sock *sk, int flags)
-=20
- 	tcp_clear_xmit_timers(sk);
- 	__skb_queue_purge(&sk->sk_receive_queue);
--	tcp_write_queue_purge(sk);
-+	sk_write_queue_purge(sk);
- 	__skb_queue_purge(&tp->out_of_order_queue);
- #ifdef CONFIG_NET_DMA
- 	__skb_queue_purge(&sk->sk_async_wait_queue);
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 7cda24b..76e59df 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1845,7 +1845,7 @@ void tcp_v4_destroy_sock(struct sock *sk)
- 	tcp_cleanup_congestion_control(sk);
-=20
- 	/* Cleanup up the write buffer. */
--	tcp_write_queue_purge(sk);
-+	sk_write_queue_purge(sk);
-=20
- 	/* Cleans up our, hopefully empty, out_of_order_queue. */
- 	__skb_queue_purge(&tp->out_of_order_queue);
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 6ec6a8a..b6370d0 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -464,7 +464,8 @@ void udp_flush_pending_frames(struct sock *sk)
- 	if (up->pending) {
- 		up->len =3D 0;
- 		up->pending =3D 0;
--		ip_flush_pending_frames(sk);
-+		sk_write_queue_purge(sk);
-+		ip_cork_release(inet_sk(sk));
- 	}
- }
- EXPORT_SYMBOL(udp_flush_pending_frames);
+Best regards,
+Oliver
