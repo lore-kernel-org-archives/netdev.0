@@ -1,39 +1,51 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 00/31] Swap over NFS -v20
-Date: Sun, 04 Oct 2009 23:41:22 +0200
-Message-ID: <1254692482.21044.15.camel@laptop>
-References: <1254405858-15651-1-git-send-email-sjayaraman@suse.de>
-	 <20091001174201.GA30068@infradead.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] connector: Keep the skb in cn_callback_data
+Date: Sun, 4 Oct 2009 14:50:57 -0700
+Message-ID: <20091004145057.3de230a9.akpm@linux-foundation.org>
+References: <1254235692-1631-1-git-send-email-philipp.reisner@linbit.com>
+	<1254235692-1631-2-git-send-email-philipp.reisner@linbit.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Suresh Jayaraman <sjayaraman@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>,  linux-kernel@vger.kernel.org, linux-mm@kvack.org, netdev@vger.kernel.org, Neil Brown <neilb@suse.de>, Miklos Szeredi <mszeredi@suse.cz>, Wouter Verhelst <w@uter.be>,  trond.myklebust@fys.uio.no
-To: Christoph Hellwig <hch@infradead.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20091001174201.GA30068@infradead.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: Evgeniy Polyakov <zbr@ioremap.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Lars Ellenberg <lars.ellenberg@linbit.com>
+To: Philipp Reisner <philipp.reisner@linbit.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:54276 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758044AbZJDVvq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2009 17:51:46 -0400
+In-Reply-To: <1254235692-1631-2-git-send-email-philipp.reisner@linbit.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-10-01 at 13:42 -0400, Christoph Hellwig wrote:
-> One of them
-> would be the whole VM/net work to just make swap over nbd/iscsi safe.
+On Tue, 29 Sep 2009 16:48:08 +0200 Philipp Reisner <philipp.reisner@linbit.com> wrote:
 
-Getting those two 'fixed' is going to be tons of interesting work
-because they involve interaction with userspace daemons.
+> Signed-off-by: Philipp Reisner <philipp.reisner@linbit.com>
+> Acked-by: Lars Ellenberg <lars.ellenberg@linbit.com>
 
-NBD has fairly simple userspace, but iSCSI has a rather large userspace
-footprint and a rather complicated user/kernel interaction which will be
-mighty interesting to get allocation safe.
+Please don't send unchangelogged patches.
 
-Ideally the swap-over-$foo bits have no userspace component.
+> diff --git a/include/linux/connector.h b/include/linux/connector.h
+> index 47ebf41..05a7a14 100644
+> --- a/include/linux/connector.h
+> +++ b/include/linux/connector.h
+> @@ -134,8 +134,8 @@ struct cn_callback_id {
+>  struct cn_callback_data {
+>  	void (*destruct_data) (void *);
+>  	void *ddata;
+> -	
+> -	void *callback_priv;
+> +
+> +	struct sk_buff *skb;
+>  	void (*callback) (struct cn_msg *);
+>  
+>  	void *free;
 
-That said, Wouter is the NBD userspace maintainer and has expressed
-interest into looking at making that work, but its sure going to be
-non-trivial, esp. since exposing PF_MEMALLOC to userspace is a, not over
-my dead-bodym like thing.
+This one replaces the void* private pointer with the skb but you didn't
+explain to us why this was done.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Also, the patch does two things.  It _adds_ the skb pointer and it also
+_removes_ the opaque void* private-data pointer for the callbacks. 
+What are the implications of removing callback_priv?  Why was this done?
+
