@@ -1,59 +1,39 @@
-From: "Gustavo F. Padovan" <gustavo@padovan.org>
-Subject: Re: [BUG net-2.6] bluetooth/rfcomm : sleeping function called from
- invalid context at mm/slub.c:1719
-Date: Sun, 4 Oct 2009 18:06:35 +0000
-Message-ID: <20091004180635.GA11272@vigoh>
-References: <4AC59D8A.6000102@hartkopp.net>
- <a8e1da0910020401m2fb8493ax95ff55a3b66131a5@mail.gmail.com>
- <4AC6247E.7050308@hartkopp.net>
- <20091003070622.GA4110@darkstar>
- <4AC71CAA.9090704@hartkopp.net>
- <a8e1da0910032026m66200c08jf9201bbfe34b2f30@mail.gmail.com>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [PATCH 00/31] Swap over NFS -v20
+Date: Sun, 04 Oct 2009 23:41:22 +0200
+Message-ID: <1254692482.21044.15.camel@laptop>
+References: <1254405858-15651-1-git-send-email-sjayaraman@suse.de>
+	 <20091001174201.GA30068@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oliver Hartkopp <oliver@hartkopp.net>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-bluetooth@vger.kernel.org,
-	"Gustavo F. Padovan" <gustavo@las.ic.unicamp.br>
-To: Dave Young <hidave.darkstar@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f212.google.com ([209.85.217.212]:43456 "EHLO
-	mail-gx0-f212.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757603AbZJDSHP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Oct 2009 14:07:15 -0400
-Content-Disposition: inline
-In-Reply-To: <a8e1da0910032026m66200c08jf9201bbfe34b2f30@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Suresh Jayaraman <sjayaraman@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>,  linux-kernel@vger.kernel.org, linux-mm@kvack.org, netdev@vger.kernel.org, Neil Brown <neilb@suse.de>, Miklos Szeredi <mszeredi@suse.cz>, Wouter Verhelst <w@uter.be>,  trond.myklebust@fys.uio.no
+To: Christoph Hellwig <hch@infradead.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20091001174201.GA30068@infradead.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, 2009-10-01 at 13:42 -0400, Christoph Hellwig wrote:
+> One of them
+> would be the whole VM/net work to just make swap over nbd/iscsi safe.
 
-Hi all,
+Getting those two 'fixed' is going to be tons of interesting work
+because they involve interaction with userspace daemons.
 
-* Dave Young <hidave.darkstar@gmail.com> [2009-10-04 11:26:17 +0800]:
+NBD has fairly simple userspace, but iSCSI has a rather large userspace
+footprint and a rather complicated user/kernel interaction which will be
+mighty interesting to get allocation safe.
 
-> 
-> I can reproduce the bug.
-> 
-> It's probably caused by the l2cap changes by  Gustavo F. Padovan
-> <gustavo@las.ic.unicamp.br>, I didn't see such problem after reverting
-> Gustavo's patch series.
+Ideally the swap-over-$foo bits have no userspace component.
 
-I can't reproduce the bug. I'm trying to reproduce it to figure out what of
-my changes cause it.
-
-I' running
-
-$ dund -snu -i 00:11:67:CD:0F:CB # to pretend to be dialup/telephone
-
-and on the other side 
-
-$ rfcomm bind 0 00:11:67:CD:0F:CB 1
-$ wvdial  # wvdial to /dev/rfcomm0
-
-Both sides are on the same machine. Do you see any real difference
-between my try and the call that get the bug?
-
+That said, Wouter is the NBD userspace maintainer and has expressed
+interest into looking at making that work, but its sure going to be
+non-trivial, esp. since exposing PF_MEMALLOC to userspace is a, not over
+my dead-bodym like thing.
 
 --
-Gustavo F. Padovan
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
