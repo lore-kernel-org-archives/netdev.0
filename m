@@ -1,212 +1,241 @@
-From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-Subject: [PATCH  kernel 2.6.32-rc1] pcnet_cs: add cis of National
- Semicondoctor's multifunction pcmcia card
-Date: Sun, 4 Oct 2009 07:32:57 +0900
-Message-ID: <20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
-References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
-	<20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
-	<20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
-	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
+From: Dave Young <hidave.darkstar@gmail.com>
+Subject: Re: [BUG net-2.6] bluetooth/rfcomm : sleeping function called from
+	invalid context at mm/slub.c:1719
+Date: Sun, 4 Oct 2009 11:26:17 +0800
+Message-ID: <a8e1da0910032026m66200c08jf9201bbfe34b2f30@mail.gmail.com>
+References: <4AC59D8A.6000102@hartkopp.net>
+	 <a8e1da0910020401m2fb8493ax95ff55a3b66131a5@mail.gmail.com>
+	 <4AC6247E.7050308@hartkopp.net> <20091003070622.GA4110@darkstar>
+	 <4AC71CAA.9090704@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ken_kawasaki@spring.nifty.jp
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	linux-bluetooth@vger.kernel.org,
+	"Gustavo F. Padovan" <gustavo@las.ic.unicamp.br>
+To: Oliver Hartkopp <oliver@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userg502.nifty.com ([202.248.238.82]:23749 "EHLO
-	userg502.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751533AbZJCWdx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2009 18:33:53 -0400
-In-Reply-To: <20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
+Received: from mail-ew0-f211.google.com ([209.85.219.211]:63058 "EHLO
+	mail-ew0-f211.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751213AbZJDD0z convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Oct 2009 23:26:55 -0400
+In-Reply-To: <4AC71CAA.9090704@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, Oct 3, 2009 at 5:43 PM, Oliver Hartkopp <oliver@hartkopp.net> w=
+rote:
+> Dave Young wrote:
+>> On Fri, Oct 02, 2009 at 06:04:14PM +0200, Oliver Hartkopp wrote:
+>>> Dave Young wrote:
+>>>> On Fri, Oct 2, 2009 at 2:28 PM, Oliver Hartkopp <oliver@hartkopp.n=
+et> wrote:
+>>>>> Hello Marcel,
+>>>>>
+>>>>> with current net-2.6 tree ...
+>>>>>
+>>>>> While starting my PPP Bluetooth dialup networking, i got this:
+>>>> Hi, oliver
+>>>>
+>>>> please try following patch:
+>>>> http://patchwork.kernel.org/patch/51326/
+>>> Hi Dave,
+>>>
+>>> that fixed it at ppp startup!
+>>>
+>>> Tested-by: Oliver Hartkopp <oliver@hartkopp.net>
+>>>
+>>> Btw. when shutting down the ppp connection i still get this:
+>>>
+>>> [ =C2=A0361.996887] INFO: trying to register non-static key.
+>>> [ =C2=A0361.996897] the code is fine but needs lockdep annotation.
+>>> [ =C2=A0361.996902] turning off the locking correctness validator.
+>>> [ =C2=A0361.996912] Pid: 0, comm: swapper Not tainted 2.6.31-08939-=
+gdb8abec-dirty #22
+>>> [ =C2=A0361.996919] Call Trace:
+>>> [ =C2=A0361.996933] =C2=A0[<c12e4fb2>] ? printk+0xf/0x11
+>>> [ =C2=A0361.996947] =C2=A0[<c1042214>] register_lock_class+0x5a/0x2=
+95
+>>> [ =C2=A0361.996957] =C2=A0[<c1043af2>] __lock_acquire+0x9b/0xc03
+>>> [ =C2=A0361.996967] =C2=A0[<c104464b>] ? __lock_acquire+0xbf4/0xc03
+>>> [ =C2=A0361.996985] =C2=A0[<fa59a168>] ? l2cap_get_chan_by_scid+0x3=
+5/0x43 [l2cap]
+>>> [ =C2=A0361.996995] =C2=A0[<c104491f>] ? lock_release_non_nested+0x=
+17b/0x1db
+>>> [ =C2=A0361.997008] =C2=A0[<fa59a168>] ? l2cap_get_chan_by_scid+0x3=
+5/0x43 [l2cap]
+>>> [ =C2=A0361.997018] =C2=A0[<c10426fd>] ? trace_hardirqs_off+0xb/0xd
+>>> [ =C2=A0361.997028] =C2=A0[<c10446b6>] lock_acquire+0x5c/0x73
+>>> [ =C2=A0361.997039] =C2=A0[<c124cd14>] ? skb_dequeue+0x12/0x4c
+>>> [ =C2=A0361.997049] =C2=A0[<c12e6e23>] _spin_lock_irqsave+0x24/0x34
+>>> [ =C2=A0361.997058] =C2=A0[<c124cd14>] ? skb_dequeue+0x12/0x4c
+>>> [ =C2=A0361.997066] =C2=A0[<c124cd14>] skb_dequeue+0x12/0x4c
+>>> [ =C2=A0361.997075] =C2=A0[<c124d579>] skb_queue_purge+0x14/0x1b
+>>> [ =C2=A0361.997088] =C2=A0[<fa59ce3f>] l2cap_recv_frame+0xe9e/0x129=
+a [l2cap]
+>>> [ =C2=A0361.997099] =C2=A0[<c10421d1>] ? register_lock_class+0x17/0=
+x295
+>>> [ =C2=A0361.997110] =C2=A0[<c104464b>] ? __lock_acquire+0xbf4/0xc03
+>>> [ =C2=A0361.997128] =C2=A0[<c104464b>] ? __lock_acquire+0xbf4/0xc03
+>>> [ =C2=A0361.997139] =C2=A0[<c120de74>] ? uhci_giveback_urb+0xf2/0x1=
+62
+>>> [ =C2=A0361.997163] =C2=A0[<f8bb4c45>] ? hci_rx_task+0xfe/0x1f8 [bl=
+uetooth]
+>>> [ =C2=A0361.997177] =C2=A0[<fa59d2e4>] l2cap_recv_acldata+0xa9/0x1b=
+e [l2cap]
+>>> [ =C2=A0361.997190] =C2=A0[<fa59d23b>] ? l2cap_recv_acldata+0x0/0x1=
+be [l2cap]
+>>> [ =C2=A0361.997208] =C2=A0[<f8bb4c77>] hci_rx_task+0x130/0x1f8 [blu=
+etooth]
+>>> [ =C2=A0361.997219] =C2=A0[<c102a098>] tasklet_action+0x6b/0xb2
+>>> [ =C2=A0361.997228] =C2=A0[<c102a46b>] __do_softirq+0x82/0x101
+>>> [ =C2=A0361.997237] =C2=A0[<c102a515>] do_softirq+0x2b/0x43
+>>> [ =C2=A0361.997246] =C2=A0[<c102a619>] irq_exit+0x35/0x68
+>>> [ =C2=A0361.997256] =C2=A0[<c1004513>] do_IRQ+0x80/0x96
+>>> [ =C2=A0361.997265] =C2=A0[<c10030ae>] common_interrupt+0x2e/0x34
+>>> [ =C2=A0361.997275] =C2=A0[<c104007b>] ? tick_device_uses_broadcast=
++0x71/0x7c
+>>> [ =C2=A0361.997286] =C2=A0[<c11747a8>] ? acpi_idle_enter_simple+0x1=
+03/0x12e
+>>> [ =C2=A0361.997296] =C2=A0[<c1174515>] acpi_idle_enter_bm+0xc3/0x25=
+3
+>>> [ =C2=A0361.997306] =C2=A0[<c1238b6f>] cpuidle_idle_call+0x60/0x91
+>>> [ =C2=A0361.997315] =C2=A0[<c1001d44>] cpu_idle+0x49/0x65
+>>> [ =C2=A0361.997324] =C2=A0[<c12e2f0e>] start_secondary+0x190/0x195
+>>>
+>>>
+>>> Thanks,
+>>> Oliver
+>>>
+>>
+>> Oliver, does following patch fix the non-static lock problem?
+>> --
+>>
+>> now l2cap conn locks will be initialized after setup l2cap conn time=
+r,
+>> it will introduce following problem:
+>>
+>> [ =C2=A0361.996887] INFO: trying to register non-static key.
+>> [ =C2=A0361.996897] the code is fine but needs lockdep annotation.
+>> [ =C2=A0361.996902] turning off the locking correctness validator.
+>> [ =C2=A0361.996912] Pid: 0, comm: swapper Not tainted 2.6.31-08939-g=
+db8abec-dirty #22
+>> [ =C2=A0361.996919] Call Trace:
+>> [ =C2=A0361.996933] =C2=A0[<c12e4fb2>] ? printk+0xf/0x11
+>> [ =C2=A0361.996947] =C2=A0[<c1042214>] register_lock_class+0x5a/0x29=
+5
+>> [ =C2=A0361.996957] =C2=A0[<c1043af2>] __lock_acquire+0x9b/0xc03
+>> [ =C2=A0361.996967] =C2=A0[<c104464b>] ? __lock_acquire+0xbf4/0xc03
+>> [ =C2=A0361.996985] =C2=A0[<fa59a168>] ? l2cap_get_chan_by_scid+0x35=
+/0x43 [l2cap]
+>> [ =C2=A0361.996995] =C2=A0[<c104491f>] ? lock_release_non_nested+0x1=
+7b/0x1db
+>> [ =C2=A0361.997008] =C2=A0[<fa59a168>] ? l2cap_get_chan_by_scid+0x35=
+/0x43 [l2cap]
+>> [ =C2=A0361.997018] =C2=A0[<c10426fd>] ? trace_hardirqs_off+0xb/0xd
+>> [ =C2=A0361.997028] =C2=A0[<c10446b6>] lock_acquire+0x5c/0x73
+>> [ =C2=A0361.997039] =C2=A0[<c124cd14>] ? skb_dequeue+0x12/0x4c
+>> [ =C2=A0361.997049] =C2=A0[<c12e6e23>] _spin_lock_irqsave+0x24/0x34
+>> [ =C2=A0361.997058] =C2=A0[<c124cd14>] ? skb_dequeue+0x12/0x4c
+>> [ =C2=A0361.997066] =C2=A0[<c124cd14>] skb_dequeue+0x12/0x4c
+>> [ =C2=A0361.997075] =C2=A0[<c124d579>] skb_queue_purge+0x14/0x1b
+>> [ =C2=A0361.997088] =C2=A0[<fa59ce3f>] l2cap_recv_frame+0xe9e/0x129a=
+ [l2cap]
+>> [ =C2=A0361.997099] =C2=A0[<c10421d1>] ? register_lock_class+0x17/0x=
+295
+>> [ =C2=A0361.997110] =C2=A0[<c104464b>] ? __lock_acquire+0xbf4/0xc03
+>> [ =C2=A0361.997128] =C2=A0[<c104464b>] ? __lock_acquire+0xbf4/0xc03
+>> [ =C2=A0361.997139] =C2=A0[<c120de74>] ? uhci_giveback_urb+0xf2/0x16=
+2
+>> [ =C2=A0361.997163] =C2=A0[<f8bb4c45>] ? hci_rx_task+0xfe/0x1f8 [blu=
+etooth]
+>> [ =C2=A0361.997177] =C2=A0[<fa59d2e4>] l2cap_recv_acldata+0xa9/0x1be=
+ [l2cap]
+>> [ =C2=A0361.997190] =C2=A0[<fa59d23b>] ? l2cap_recv_acldata+0x0/0x1b=
+e [l2cap]
+>> [ =C2=A0361.997208] =C2=A0[<f8bb4c77>] hci_rx_task+0x130/0x1f8 [blue=
+tooth]
+>> [ =C2=A0361.997219] =C2=A0[<c102a098>] tasklet_action+0x6b/0xb2
+>> [ =C2=A0361.997228] =C2=A0[<c102a46b>] __do_softirq+0x82/0x101
+>> [ =C2=A0361.997237] =C2=A0[<c102a515>] do_softirq+0x2b/0x43
+>> [ =C2=A0361.997246] =C2=A0[<c102a619>] irq_exit+0x35/0x68
+>> [ =C2=A0361.997256] =C2=A0[<c1004513>] do_IRQ+0x80/0x96
+>> [ =C2=A0361.997265] =C2=A0[<c10030ae>] common_interrupt+0x2e/0x34
+>> [ =C2=A0361.997275] =C2=A0[<c104007b>] ? tick_device_uses_broadcast+=
+0x71/0x7c
+>> [ =C2=A0361.997286] =C2=A0[<c11747a8>] ? acpi_idle_enter_simple+0x10=
+3/0x12e
+>> [ =C2=A0361.997296] =C2=A0[<c1174515>] acpi_idle_enter_bm+0xc3/0x253
+>> [ =C2=A0361.997306] =C2=A0[<c1238b6f>] cpuidle_idle_call+0x60/0x91
+>> [ =C2=A0361.997315] =C2=A0[<c1001d44>] cpu_idle+0x49/0x65
+>> [ =C2=A0361.997324] =C2=A0[<c12e2f0e>] start_secondary+0x190/0x195
+>>
+>> Here move lock init things before setup_timer to avoid misuse
+>> uninitialized locks.
+>>
+>> Reported-by: Oliver Hartkopp <oliver@hartkopp.net>
+>> Signed-off-by: Dave Young <hidave.darkstar@gmail.com>
+>> ---
+>> net/bluetooth/l2cap.c | =C2=A0 =C2=A06 +++---
+>> 1 file changed, 3 insertions(+), 3 deletions(-)
+>>
+>> --- linux-2.6.31.orig/net/bluetooth/l2cap.c =C2=A0 2009-09-30 16:36:=
+10.000000000 +0800
+>> +++ linux-2.6.31/net/bluetooth/l2cap.c =C2=A0 =C2=A0 =C2=A0 =C2=A020=
+09-10-03 14:44:51.000000000 +0800
+>> @@ -555,12 +555,12 @@ static struct l2cap_conn *l2cap_conn_add
+>>
+>> =C2=A0 =C2=A0 =C2=A0 conn->feat_mask =3D 0;
+>>
+>> - =C2=A0 =C2=A0 setup_timer(&conn->info_timer, l2cap_info_timeout,
+>> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 (unsigned long) conn);
+>> -
+>> =C2=A0 =C2=A0 =C2=A0 spin_lock_init(&conn->lock);
+>> =C2=A0 =C2=A0 =C2=A0 rwlock_init(&conn->chan_list.lock);
+>>
+>> + =C2=A0 =C2=A0 setup_timer(&conn->info_timer, l2cap_info_timeout,
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 (unsigned long) conn);
+>> +
+>> =C2=A0 =C2=A0 =C2=A0 conn->disc_reason =3D 0x13;
+>>
+>> =C2=A0 =C2=A0 =C2=A0 return conn;
+>
+> No, it does not have any effect.
+>
 
-pcnet_cs,serial_cs:
-  
-add cis of National Semicondoctor's lan&modem mulitifunction pcmcia card,
-NE2K, tamarack ethernet card,
-and some serial card(COMpad2, COMpad4).
+I can reproduce the bug.
 
-   
-Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+It's probably caused by the l2cap changes by  Gustavo F. Padovan
+<gustavo@las.ic.unicamp.br>, I didn't see such problem after reverting
+Gustavo's patch series.
 
----
+Add gustavo to cc-list.
 
- drivers/net/pcmcia/pcnet_cs.c  |   10 +++++-----
- drivers/serial/serial_cs.c     |   12 ++++++------
- firmware/Makefile              |    7 +++++--
- firmware/WHENCE                |    5 +++++
- firmware/cis/COMpad2.cis.ihex  |   11 +++++++++++
- firmware/cis/COMpad4.cis.ihex  |    9 +++++++++
- firmware/cis/DP83903.cis.ihex  |   14 ++++++++++++++
- firmware/cis/NE2K.cis.ihex     |    8 ++++++++
- firmware/cis/tamarack.cis.ihex |   10 ++++++++++
- 9 files changed, 73 insertions(+), 13 deletions(-)
+BTW, my above patch fix similar things. I need rewrite the patch descri=
+ption.
 
-diff -uprN linux-2.6.32-rc1.orig/drivers/net/pcmcia/pcnet_cs.c linux-2.6.32-rc1/drivers/net/pcmcia/pcnet_cs.c
---- linux-2.6.32-rc1.orig/drivers/net/pcmcia/pcnet_cs.c	2009-10-03 10:52:41.000000000 +0900
-+++ linux-2.6.32-rc1/drivers/net/pcmcia/pcnet_cs.c	2009-10-03 11:13:10.000000000 +0900
-@@ -1754,14 +1754,14 @@ static struct pcmcia_device_id pcnet_ids
- 	PCMCIA_PFC_DEVICE_CIS_PROD_ID12(0, "Psion Dacom", "Gold Card V34 Ethernet", 0xf5f025c2, 0x338e8155, "cis/PCMLM28.cis"),
- 	PCMCIA_PFC_DEVICE_CIS_PROD_ID12(0, "Psion Dacom", "Gold Card V34 Ethernet GSM", 0xf5f025c2, 0x4ae85d35, "cis/PCMLM28.cis"),
- 	PCMCIA_PFC_DEVICE_CIS_PROD_ID12(0, "LINKSYS", "PCMLM28", 0xf7cb0b07, 0x66881874, "cis/PCMLM28.cis"),
--	PCMCIA_MFC_DEVICE_CIS_PROD_ID12(0, "DAYNA COMMUNICATIONS", "LAN AND MODEM MULTIFUNCTION", 0x8fdf8f89, 0xdd5ed9e8, "DP83903.cis"),
--	PCMCIA_MFC_DEVICE_CIS_PROD_ID4(0, "NSC MF LAN/Modem", 0x58fc6056, "DP83903.cis"),
--	PCMCIA_MFC_DEVICE_CIS_MANF_CARD(0, 0x0175, 0x0000, "DP83903.cis"),
-+	PCMCIA_MFC_DEVICE_CIS_PROD_ID12(0, "DAYNA COMMUNICATIONS", "LAN AND MODEM MULTIFUNCTION", 0x8fdf8f89, 0xdd5ed9e8, "cis/DP83903.cis"),
-+	PCMCIA_MFC_DEVICE_CIS_PROD_ID4(0, "NSC MF LAN/Modem", 0x58fc6056, "cis/DP83903.cis"),
-+	PCMCIA_MFC_DEVICE_CIS_MANF_CARD(0, 0x0175, 0x0000, "cis/DP83903.cis"),
- 	PCMCIA_DEVICE_CIS_MANF_CARD(0xc00f, 0x0002, "cis/LA-PCM.cis"),
- 	PCMCIA_DEVICE_CIS_PROD_ID12("KTI", "PE520 PLUS", 0xad180345, 0x9d58d392, "PE520.cis"),
--	PCMCIA_DEVICE_CIS_PROD_ID12("NDC", "Ethernet", 0x01c43ae1, 0x00b2e941, "NE2K.cis"),
-+	PCMCIA_DEVICE_CIS_PROD_ID12("NDC", "Ethernet", 0x01c43ae1, 0x00b2e941, "cis/NE2K.cis"),
- 	PCMCIA_DEVICE_CIS_PROD_ID12("PMX   ", "PE-200", 0x34f3f1c8, 0x10b59f8c, "PE-200.cis"),
--	PCMCIA_DEVICE_CIS_PROD_ID12("TAMARACK", "Ethernet", 0xcf434fba, 0x00b2e941, "tamarack.cis"),
-+	PCMCIA_DEVICE_CIS_PROD_ID12("TAMARACK", "Ethernet", 0xcf434fba, 0x00b2e941, "cis/tamarack.cis"),
- 	PCMCIA_DEVICE_PROD_ID12("Ethernet", "CF Size PC Card", 0x00b2e941, 0x43ac239b),
- 	PCMCIA_DEVICE_PROD_ID123("Fast Ethernet", "CF Size PC Card", "1.0",
- 		0xb4be14e3, 0x43ac239b, 0x0877b627),
-diff -uprN linux-2.6.32-rc1.orig/drivers/serial/serial_cs.c linux-2.6.32-rc1/drivers/serial/serial_cs.c
---- linux-2.6.32-rc1.orig/drivers/serial/serial_cs.c	2009-10-03 10:52:42.000000000 +0900
-+++ linux-2.6.32-rc1/drivers/serial/serial_cs.c	2009-10-03 11:12:46.000000000 +0900
-@@ -873,10 +873,10 @@ static struct pcmcia_device_id serial_id
- 	PCMCIA_PFC_DEVICE_CIS_PROD_ID12(1, "Psion Dacom", "Gold Card V34 Ethernet", 0xf5f025c2, 0x338e8155, "cis/PCMLM28.cis"),
- 	PCMCIA_PFC_DEVICE_CIS_PROD_ID12(1, "Psion Dacom", "Gold Card V34 Ethernet GSM", 0xf5f025c2, 0x4ae85d35, "cis/PCMLM28.cis"),
- 	PCMCIA_PFC_DEVICE_CIS_PROD_ID12(1, "LINKSYS", "PCMLM28", 0xf7cb0b07, 0x66881874, "cis/PCMLM28.cis"),
--	PCMCIA_MFC_DEVICE_CIS_PROD_ID12(1, "DAYNA COMMUNICATIONS", "LAN AND MODEM MULTIFUNCTION", 0x8fdf8f89, 0xdd5ed9e8, "DP83903.cis"),
--	PCMCIA_MFC_DEVICE_CIS_PROD_ID4(1, "NSC MF LAN/Modem", 0x58fc6056, "DP83903.cis"),
-+	PCMCIA_MFC_DEVICE_CIS_PROD_ID12(1, "DAYNA COMMUNICATIONS", "LAN AND MODEM MULTIFUNCTION", 0x8fdf8f89, 0xdd5ed9e8, "cis/DP83903.cis"),
-+	PCMCIA_MFC_DEVICE_CIS_PROD_ID4(1, "NSC MF LAN/Modem", 0x58fc6056, "cis/DP83903.cis"),
- 	PCMCIA_MFC_DEVICE_CIS_MANF_CARD(1, 0x0101, 0x0556, "cis/3CCFEM556.cis"),
--	PCMCIA_MFC_DEVICE_CIS_MANF_CARD(1, 0x0175, 0x0000, "DP83903.cis"),
-+	PCMCIA_MFC_DEVICE_CIS_MANF_CARD(1, 0x0175, 0x0000, "cis/DP83903.cis"),
- 	PCMCIA_MFC_DEVICE_CIS_MANF_CARD(1, 0x0101, 0x0035, "cis/3CXEM556.cis"),
- 	PCMCIA_MFC_DEVICE_CIS_MANF_CARD(1, 0x0101, 0x003d, "cis/3CXEM556.cis"),
- 	PCMCIA_DEVICE_CIS_PROD_ID12("Sierra Wireless", "AC850", 0xd85f6206, 0x42a2c018, "SW_8xx_SER.cis"),  /* Sierra Wireless AC850 3G Network Adapter R1 */
-@@ -884,9 +884,9 @@ static struct pcmcia_device_id serial_id
- 	PCMCIA_DEVICE_CIS_MANF_CARD(0x0192, 0xa555, "SW_555_SER.cis"),  /* Sierra Aircard 555 CDMA 1xrtt Modem -- pre update */
- 	PCMCIA_DEVICE_CIS_MANF_CARD(0x013f, 0xa555, "SW_555_SER.cis"),  /* Sierra Aircard 555 CDMA 1xrtt Modem -- post update */
- 	PCMCIA_DEVICE_CIS_PROD_ID12("MultiTech", "PCMCIA 56K DataFax", 0x842047ee, 0xc2efcf03, "cis/MT5634ZLX.cis"),
--	PCMCIA_DEVICE_CIS_PROD_ID12("ADVANTECH", "COMpad-32/85B-2", 0x96913a85, 0x27ab5437, "COMpad2.cis"),
--	PCMCIA_DEVICE_CIS_PROD_ID12("ADVANTECH", "COMpad-32/85B-4", 0x96913a85, 0xcec8f102, "COMpad4.cis"),
--	PCMCIA_DEVICE_CIS_PROD_ID123("ADVANTECH", "COMpad-32/85", "1.0", 0x96913a85, 0x8fbe92ae, 0x0877b627, "COMpad2.cis"),
-+	PCMCIA_DEVICE_CIS_PROD_ID12("ADVANTECH", "COMpad-32/85B-2", 0x96913a85, 0x27ab5437, "cis/COMpad2.cis"),
-+	PCMCIA_DEVICE_CIS_PROD_ID12("ADVANTECH", "COMpad-32/85B-4", 0x96913a85, 0xcec8f102, "cis/COMpad4.cis"),
-+	PCMCIA_DEVICE_CIS_PROD_ID123("ADVANTECH", "COMpad-32/85", "1.0", 0x96913a85, 0x8fbe92ae, 0x0877b627, "cis/COMpad2.cis"),
- 	PCMCIA_DEVICE_CIS_PROD_ID2("RS-COM 2P", 0xad20b156, "cis/RS-COM-2P.cis"),
- 	PCMCIA_DEVICE_CIS_MANF_CARD(0x0013, 0x0000, "GLOBETROTTER.cis"),
- 	PCMCIA_DEVICE_PROD_ID12("ELAN DIGITAL SYSTEMS LTD, c1997.","SERIAL CARD: SL100  1.00.",0x19ca78af,0xf964f42b),
-diff -uprN linux-2.6.32-rc1.orig/firmware/Makefile linux-2.6.32-rc1/firmware/Makefile
---- linux-2.6.32-rc1.orig/firmware/Makefile	2009-10-03 10:52:43.000000000 +0900
-+++ linux-2.6.32-rc1/firmware/Makefile	2009-10-03 11:03:01.000000000 +0900
-@@ -67,10 +67,13 @@ fw-shipped-$(CONFIG_DVB_TTUSB_BUDGET) +=
- fw-shipped-$(CONFIG_E100) += e100/d101m_ucode.bin e100/d101s_ucode.bin \
- 			     e100/d102e_ucode.bin
- fw-shipped-$(CONFIG_MYRI_SBUS) += myricom/lanai.bin
--fw-shipped-$(CONFIG_PCMCIA_PCNET) += cis/LA-PCM.cis cis/PCMLM28.cis
-+fw-shipped-$(CONFIG_PCMCIA_PCNET) += cis/LA-PCM.cis cis/PCMLM28.cis \
-+				     cis/DP83903.cis cis/NE2K.cis \
-+				     cis/tamarack.cis
- fw-shipped-$(CONFIG_PCMCIA_3C589) += cis/3CXEM556.cis
- fw-shipped-$(CONFIG_PCMCIA_3C574) += cis/3CCFEM556.cis
--fw-shipped-$(CONFIG_SERIAL_8250_CS) += cis/MT5634ZLX.cis cis/RS-COM-2P.cis
-+fw-shipped-$(CONFIG_SERIAL_8250_CS) += cis/MT5634ZLX.cis cis/RS-COM-2P.cis \
-+				       cis/COMpad2.cis cis/COMpad4.cis
- fw-shipped-$(CONFIG_PCMCIA_SMC91C92) += ositech/Xilinx7OD.bin
- fw-shipped-$(CONFIG_SCSI_ADVANSYS) += advansys/mcode.bin advansys/38C1600.bin \
- 				      advansys/3550.bin advansys/38C0800.bin
-diff -uprN linux-2.6.32-rc1.orig/firmware/WHENCE linux-2.6.32-rc1/firmware/WHENCE
---- linux-2.6.32-rc1.orig/firmware/WHENCE	2009-10-03 10:52:43.000000000 +0900
-+++ linux-2.6.32-rc1/firmware/WHENCE	2009-10-03 11:06:04.000000000 +0900
-@@ -597,6 +597,9 @@ Driver: PCMCIA_PCNET - NE2000 compatible
- 
- File: cis/LA-PCM.cis
-       cis/PCMLM28.cis
-+      cis/DP83903.cis
-+      cis/NE2K.cis
-+      cis/tamarack.cis
- 
- Licence: GPL
- 
-@@ -628,6 +631,8 @@ Driver: SERIAL_8250_CS - Serial PCMCIA a
- 
- File: cis/MT5634ZLX.cis
-       cis/RS-COM-2P.cis
-+      cis/COMpad2.cis
-+      cis/COMpad4.cis
- 
- Licence: GPL
- 
-diff -uprN linux-2.6.32-rc1.orig/firmware/cis/COMpad2.cis.ihex linux-2.6.32-rc1/firmware/cis/COMpad2.cis.ihex
---- linux-2.6.32-rc1.orig/firmware/cis/COMpad2.cis.ihex	1970-01-01 09:00:00.000000000 +0900
-+++ linux-2.6.32-rc1/firmware/cis/COMpad2.cis.ihex	2009-10-03 10:56:23.000000000 +0900
-@@ -0,0 +1,11 @@
-+:1000000001030000FF151F0401414456414E5445B1
-+:10001000434800434F4D7061642D33322F38350013
-+:10002000312E300000FF210202011A0501050001F6
-+:10003000031B0EC18118AA61E80207E8030730B864
-+:100040009E1B08820108AA6030030F1B0883010869
-+:10005000AA6040030F1B08840108AA6050030F1B0D
-+:0D00600008850108AA6060030F1400FF006E
-+:00000001FF
-+#
-+# Replacement CIS for Advantech COMpad-32/85
-+#
-diff -uprN linux-2.6.32-rc1.orig/firmware/cis/COMpad4.cis.ihex linux-2.6.32-rc1/firmware/cis/COMpad4.cis.ihex
---- linux-2.6.32-rc1.orig/firmware/cis/COMpad4.cis.ihex	1970-01-01 09:00:00.000000000 +0900
-+++ linux-2.6.32-rc1/firmware/cis/COMpad4.cis.ihex	2009-10-03 10:56:33.000000000 +0900
-@@ -0,0 +1,9 @@
-+:1000000001030000FF151F0401414456414E5445B1
-+:10001000434800434F4D7061642D33322F383542D1
-+:100020002D34000000FF210202011A050102000127
-+:10003000011B0BC18118AA6040021F30B89E1B082B
-+:0C004000820108AA6040031F1400FF00AA
-+:00000001FF
-+#
-+# Replacement CIS for Advantech COMpad-32/85B-4
-+#
-diff -uprN linux-2.6.32-rc1.orig/firmware/cis/DP83903.cis.ihex linux-2.6.32-rc1/firmware/cis/DP83903.cis.ihex
---- linux-2.6.32-rc1.orig/firmware/cis/DP83903.cis.ihex	1970-01-01 09:00:00.000000000 +0900
-+++ linux-2.6.32-rc1/firmware/cis/DP83903.cis.ihex	2009-10-03 10:56:11.000000000 +0900
-@@ -0,0 +1,14 @@
-+:1000000001030000FF152904014D756C74696675C4
-+:100010006E6374696F6E20436172640000004E531A
-+:1000200043204D46204C414E2F4D6F64656D00FFBF
-+:1000300020047501000021020000060B02004900A7
-+:100040000000006A000000FF00130343495321022F
-+:1000500006001A060517201077021B0C970179017C
-+:10006000556530FFFF284000FF001303434953212B
-+:100070000202001A060507401077021B09870119C2
-+:0800800001552330FFFFFF00D2
-+:00000001FF
-+#
-+# This CIS is for cards based on the National Semiconductor
-+# DP83903 Multiple Function Interface Chip
-+#
-diff -uprN linux-2.6.32-rc1.orig/firmware/cis/NE2K.cis.ihex linux-2.6.32-rc1/firmware/cis/NE2K.cis.ihex
---- linux-2.6.32-rc1.orig/firmware/cis/NE2K.cis.ihex	1970-01-01 09:00:00.000000000 +0900
-+++ linux-2.6.32-rc1/firmware/cis/NE2K.cis.ihex	2009-10-03 10:57:26.000000000 +0900
-@@ -0,0 +1,8 @@
-+:1000000001030000FF1515040150434D4349410011
-+:1000100045746865726E6574000000FF2102060079
-+:100020001A050120F803031B09E001190155653089
-+:06003000FFFF1400FF00B9
-+:00000001FF
-+#
-+# Replacement CIS for various busted NE2000-compatible cards
-+#
-diff -uprN linux-2.6.32-rc1.orig/firmware/cis/tamarack.cis.ihex linux-2.6.32-rc1/firmware/cis/tamarack.cis.ihex
---- linux-2.6.32-rc1.orig/firmware/cis/tamarack.cis.ihex	1970-01-01 09:00:00.000000000 +0900
-+++ linux-2.6.32-rc1/firmware/cis/tamarack.cis.ihex	2009-10-03 10:57:33.000000000 +0900
-@@ -0,0 +1,10 @@
-+:100000000103D400FF17034100FF152404015441EC
-+:100010004D415241434B0045746865726E657400F2
-+:10002000410030303437343331313830303100FF33
-+:10003000210206001A050120F803031B14E08119B0
-+:100040003F554D5D06864626E551000F100F30FFE7
-+:05005000FF1400FF0099
-+:00000001FF
-+#
-+# Replacement CIS for Surecom, Tamarack NE2000 cards
-+#
+> As the lockdep annotation only appears when shutting down the ppp con=
+nection,
+> i wonder whether it should help to change things in a _conn_add() fun=
+ction.
+> :-)
+>
+> Or didn't i made it clear before, that this annotation one only happe=
+ns at ppp
+> shutdown?
+>
+> Best regards,
+> Oliver
+>
+>
+
+
+
+--=20
+Regards
+dave
