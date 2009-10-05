@@ -1,43 +1,41 @@
-From: Ajit Khaparde <ajitk@serverengines.com>
-Subject: [PATCH 1/3] be2net: Bug Fix while accounting of multicast frames
-	during netdev stats update
-Date: Mon, 5 Oct 2009 17:51:51 +0530
-Message-ID: <20091005122140.GA22946@serverengines.com>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH 0/4][RFC]: coding convention for CCID-struct prefixes
+Date: Mon, 5 Oct 2009 09:38:23 -0300
+Message-ID: <20091005123823.GE30535@ghostprotocols.net>
+References: <1254739993-5051-1-git-send-email-gerrit@erg.abdn.ac.uk> <20091005.035815.238234647.davem@davemloft.net> <20091005112359.GB5156@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: davem@davemloft.net, netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:62172 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751287AbZJEMWi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 08:22:38 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:15989 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753989AbZJEMjE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Oct 2009 08:39:04 -0400
 Content-Disposition: inline
+In-Reply-To: <20091005112359.GB5156@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While updating the statistics to be passed via the get_stats,
-tx multicast frames were being accounted instead of rx multicast frames.
-This patch fixes the bug. This patch is against the net-2.6 tree.
+Em Mon, Oct 05, 2009 at 01:23:59PM +0200, Gerrit Renker escreveu:
+> | After Arnaldo takes a look, I can add this as-is to net-next-2.6
+> This should work, they have been compile/sparse-tested and apply cleanly on net-2.6.
+> 
+> I am waiting for the feedback also in order to rebuild the test tree; and have
+> informed CCID-4 developers (CCID-4 subtree) about this.
 
-Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
----
- drivers/net/benet/be_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+On a first look I saw one inconsistency, while in ccid3 you do:
 
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 2f9b501..e86b2f3 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -197,7 +197,7 @@ void netdev_stats_update(struct be_adapter *adapter)
- 	/* no space available in linux */
- 	dev_stats->tx_dropped = 0;
- 
--	dev_stats->multicast = port_stats->tx_multicastframes;
-+	dev_stats->multicast = port_stats->rx_multicast_frames;
- 	dev_stats->collisions = 0;
- 
- 	/* detailed tx_errors */
--- 
-1.6.0.4
+-	return scaled_div(w_init << 6, hctx->tx_rtt);
++	return scaled_div(w_init << 6, hc->tx_rtt);
 
+in ccid2 you do:
+
+-	struct ccid2_seq *seqp = hctx->ccid2hctx_seqh;
++	struct ccid2_seq *seqp = hctx->tx_seqh;
+
+Since this change is about reducing the names by removing redundancy, I
+think the ccid3 variant is better, i.e.: hc->tx_foo.
+
+- Arnaldo
