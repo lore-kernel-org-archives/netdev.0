@@ -1,48 +1,51 @@
-From: Valentine <vbarshak@ru.mvista.com>
-Subject: Re: [PATCH] pasemi_mac: ethtool get settings fix
-Date: Mon, 05 Oct 2009 16:59:07 +0400
-Message-ID: <4AC9ED9B.5040400@ru.mvista.com>
-References: <20091001222748.GA21276@ru.mvista.com>
+From: Stefano Babic <stefano.babic@babic.homelinux.org>
+Subject: Re: [1/8,RFC] CAIF Protocol Stack
+Date: Mon, 05 Oct 2009 14:55:48 +0200
+Message-ID: <4AC9ECD4.70602@babic.homelinux.org>
+References: <1253727026-10233-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: linuxppc-dev@ozlabs.org
+Cc: netdev@vger.kernel.org, Kim.xx.Lilliestierna@ericsson.com
+To: sjur.brandeland@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ru.mvista.com ([213.79.90.228]:27764 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753582AbZJEM7k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 08:59:40 -0400
-In-Reply-To: <20091001222748.GA21276@ru.mvista.com>
+Received: from smtpout24.attiva.biz ([85.37.16.25]:11429 "EHLO
+	smtpout24.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932535AbZJENB6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 09:01:58 -0400
+In-Reply-To: <1253727026-10233-1-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Resending pasemi_mac ethtool patches...
+sjur.brandeland@stericsson.com wrote:
 
-Valentine Barshak wrote:
-> Not all pasemi mac interfaces can have a phy attached.
-> For example, XAUI has no phy and phydev is NULL for it.
-> In this case ethtool get settings causes kernel crash.
-> Fix it by returning -EOPNOTSUPP if there's no PHY attached.
-> 
-> Signed-off-by: Valentine Barshak <vbarshak@ru.mvista.com>
-> ---
->  drivers/net/pasemi_mac_ethtool.c |    2 ++
->  1 file changed, 2 insertions(+)
-> 
-> --- linux-2.6.21.orig/drivers/net/pasemi_mac_ethtool.c	2008-11-06 18:10:38.000000000 +0300
-> +++ linux-2.6.21/drivers/net/pasemi_mac_ethtool.c	2008-11-19 19:24:28.000000000 +0300
-> @@ -71,6 +71,8 @@ pasemi_mac_ethtool_get_settings(struct n
->  	struct pasemi_mac *mac = netdev_priv(netdev);
->  	struct phy_device *phydev = mac->phydev;
->  
-> +	if (!phydev)
-> +		return -EOPNOTSUPP;
->  	return phy_ethtool_gset(phydev, cmd);
->  }
->  
-> _______________________________________________
-> Linuxppc-dev mailing list
-> Linuxppc-dev@lists.ozlabs.org
-> https://lists.ozlabs.org/listinfo/linuxppc-dev
+> diff --git a/include/linux/caif/caif_ioctl.h b/include/linux/caif/caif_ioctl.h
+> new file mode 100644
+> index 0000000..4fdd648
+> --- /dev/null
+> +++ b/include/linux/caif/caif_ioctl.h
 
+[snip]
+
+> +/**
+> + * union caif_action
+> + * This union is used to configure a new CAIF Channel and
+> + */
+> +
+> +union caif_action {
+> +	struct caif_device_name delete_channel;
+> +	struct caif_channel_create_action create_channel;
+> +};
+
+It seems this structure is defined twice (here and in caif_actions.h)
+and some modules (at least phyif_ser, I could check) are not compiled
+clean, because both header files are included. Maybe should be protected
+with ifndef __KERNEL__ ?
+
+Regards,
+Stefano
+
+-- 
+stefano <stefano.babic@babic.homelinux.org>
+GPG Key: 0x55814DDE
+Fingerprint 4E85 2A66 4CBA 497A 2A7B D3BF 5973 F216 5581 4DDE
