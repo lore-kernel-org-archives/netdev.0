@@ -1,63 +1,41 @@
-From: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
-Subject: Re: [PATCH RFC] isdn/capi: fix up CAPI subsystem workaround locking
-	a bit
-Date: Mon, 05 Oct 2009 13:42:29 +0200
-Message-ID: <4AC9DBA5.1090701@imap.cc>
-References: <20091003120657.2228911186C@xenon.ts.pxnet.com>
-	<200910032026.24451.mb@bu3sch.de> <200910032035.21884.mb@bu3sch.de>
+From: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
+Subject: [net-next-2.6 PATCH 2/9] vxge: Update driver_config->vpath_per_dev
+ for each function in probe.
+Date: Mon, 5 Oct 2009 07:52:54 -0400 (EDT)
+Message-ID: <Pine.GSO.4.10.10910050751410.9377-100000@guinness>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Karsten Keil <isdn-iHCpqvpFUx0uJkBD2foKsQ@public.gmane.org>, Carsten Paeth <calle-xPGHEYvgodo@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        i4ldeveloper-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org, isdn4linux-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org,
-        Karsten Keil <keil-shG/GajIFYqbacvFa/9K2g@public.gmane.org>, Armin Schindler <armin-l2TVJu5ShECELgA04lAiVw@public.gmane.org>
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Return-path: <i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org>
-In-Reply-To: <200910032035.21884.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-List-Unsubscribe: <https://www.isdn4linux.de/mailman/listinfo/i4ldeveloper>,
-	<mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://www.isdn4linux.de/pipermail/i4ldeveloper>
-List-Post: <mailto:i4ldeveloper-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org>
-List-Help: <mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=help>
-List-Subscribe: <https://www.isdn4linux.de/mailman/listinfo/i4ldeveloper>,
-	<mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=subscribe>
-Sender: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
-Errors-To: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, support@neterion.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from barracuda.s2io.com ([72.1.205.138]:42022 "EHLO
+	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758458AbZJEL7R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 07:59:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-LS0tLS1CRUdJTiBQR1AgU0lHTkVEIE1FU1NBR0UtLS0tLQpIYXNoOiBTSEExCgpPbiBTYXQsIDIw
-MDktMTAtMDMgMjA6MzU6MTkgKzAyMDAsIE1pY2hhZWwgQnVlc2NoIHdyb3RlOgoKPj4gSSByZW1l
-bWJlciB0aGF0IGhhbmRsZV9taW5vcl9zZW5kKCkgYW5kL29yIGhhbmRsZV9taW5vcl9yZWN2KCkg
-c2hvd2VkIHVwCj4+IGluIHRoZSBjcmFzaCBiYWNrdHJhY2VzLiBTbyBpZiB5b3UgbW92ZSB0aGVt
-IG91dCBvZiB0aGUgY3JpdGljYWwKPj4gc2VjdGlvbiwgeW91IGNhbiBhcyB3ZWxsIHJlbW92ZSB0
-aGUgbG9jayBjb21wbGV0ZWx5Lgo+IAo+IGhlcmUncyBteSBvcmlnaW5hbCBtYWlsOgo+IGh0dHA6
-Ly9sa21sLmluZGlhbmEuZWR1L2h5cGVybWFpbC9saW51eC9rZXJuZWwvMDYwNS4wLzA0NTUuaHRt
-bAo+IAo+IE5vdGUgdGhlIHBhdGNoIGluIHRoYXQgbWFpbCBkb2VzIF9ub3RfIGZpeCB0aGUgaXNz
-dWUsIGFzIGl0IHR1cm5lZCBvdXQgbGF0ZXIuCj4gVGhlbiBJIGRpZCB0aGUgd29ya2Fyb3VuZC1s
-b2NrIHBhdGNoLCB3aGljaCBfZGlkXyBmaXggaXQuCgpUaGFua3MgZm9yIHRoZSBpbmZvLiBTbyBk
-byBJIHVuZGVyc3RhbmQgY29ycmVjdGx5IHRoYXQgYWZ0ZXI6Cgpjb21taXQgNmFhNjU0NzJkMTg3
-MDMwNjQ4OThlZWZiNWViNThmN2VjZDBkODkxMgpBdXRob3I6IE1pY2hhZWwgQnVlc2NoIDxtYkBi
-dTNzY2guZGU+CkRhdGU6ICAgTW9uIEp1biAyNiAwMDoyNTozMCAyMDA2IC0wNzAwCgogICAgW1BB
-VENIXSBDQVBJIGNyYXNoIC8gcmFjZSBjb25kaXRpb24KCnlvdSB3ZXJlIGFjdHVhbGx5IHN0aWxs
-IHNlZWluZyBMSVNUX1BPSVNPTjIgT29wc2VzIGluCmNhcGltaW5vcl9kZWxfYWNrKCksIGJ1dCBh
-ZnRlcjoKCmNvbW1pdCAwNTNiNDdmZjI0OWI5ZTBhNjM0ZGFlODA3ZjgxNDY1MjA1ZTdjMjI4CkF1
-dGhvcjogTWljaGFlbCBCdWVzY2ggPG1iQGJ1M3NjaC5kZT4KRGF0ZTogICBNb24gRmViIDEyIDAw
-OjUzOjI2IDIwMDcgLTA4MDAKCiAgICBbUEFUQ0hdIFdvcmthcm91bmQgQ0FQSSBzdWJzeXN0ZW0g
-bG9ja2luZyBpc3N1ZQoKdGhleSB3ZXJlIGdvbmU/IFRoYXQncyBpbnRlcmVzdGluZy4gSSdsbCB0
-cnkgdG8gd3JhcCBteSBtaW5kIGFyb3VuZAp0aGlzLiBjYXBpbWlub3JfZGVsX2FjaygpIGlzbid0
-IHRoYXQgYmlnLCBhZnRlciBhbGwuCgpJdCdzIHVuZm9ydHVuYXRlIHRoYXQgdGhlc2UgY3Jhc2hl
-cyBvbmx5IHNlZW0gdG8gb2NjdXIgd2l0aCBvbmUgc3BlY2lmaWMKZGV2aWNlIChGcml0ekNhcmQg
-RFNMKSB3aGljaCBJIGRvbid0IGhhdmUuIENhbiBhbnlvbmUgc2hlZCBzb21lIGxpZ2h0IG9uCndo
-YXQgdGhhdCBkZXZpY2UgaXMgZG9pbmcgZGlmZmVyZW50bHkgZnJvbSBvdGhlciBJU0ROIGNhcmRz
-PwoKVGhhbmtzLApUaWxtYW4KCi0gLS0KVGlsbWFuIFNjaG1pZHQgICAgICAgICAgICAgICAgICAg
-IEUtTWFpbDogdGlsbWFuQGltYXAuY2MKQm9ubiwgR2VybWFueQpEaWVzZSBOYWNocmljaHQgYmVz
-dGVodCB6dSAxMDAlIGF1cyB3aWVkZXJ2ZXJ3ZXJ0ZXRlbiBCaXRzLgpVbmdlw7ZmZm5ldCBtaW5k
-ZXN0ZW5zIGhhbHRiYXIgYmlzOiAoc2llaGUgUsO8Y2tzZWl0ZSkKLS0tLS1CRUdJTiBQR1AgU0lH
-TkFUVVJFLS0tLS0KVmVyc2lvbjogR251UEcgdjEuNC40IChNaW5nVzMyKQpDb21tZW50OiBVc2lu
-ZyBHbnVQRyB3aXRoIE1vemlsbGEgLSBodHRwOi8vZW5pZ21haWwubW96ZGV2Lm9yZwoKaUQ4REJR
-Rkt5ZHVsUTMrZGlkOUJ1RnNSQXNZVkFKOWU1YXpPUG1OeWNNSFpNNm9uZnNESVkyMWE1d0NmZk5o
-NQoxNFdZMnRZamxhN3dtbVZnQ0hlK3FEbz0KPUJnbVkKLS0tLS1FTkQgUEdQIFNJR05BVFVSRS0t
-LS0tCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmk0bGRl
-dmVsb3BlciBtYWlsaW5nIGxpc3QKaTRsZGV2ZWxvcGVyQGxpc3RzZXJ2LmlzZG40bGludXguZGUK
-aHR0cHM6Ly93d3cuaXNkbjRsaW51eC5kZS9tYWlsbWFuL2xpc3RpbmZvL2k0bGRldmVsb3Blcg==
+- Update driver_config->vpath_per_dev for each function in probe.
+
+- vpath_per_device specifies number of vpaths supported for each function/device. The
+  current code was updating vpath_per_device only for physical device, however this has
+  to be updated for each function also in case of a MF(Multi function) device.
+
+Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
+---
+diff -urpN patch1/drivers/net/vxge/vxge-main.c patch2/drivers/net/vxge/vxge-main.c
+--- patch1/drivers/net/vxge/vxge-main.c	2009-09-03 22:40:14.000000000 -0700
++++ patch2/drivers/net/vxge/vxge-main.c	2009-09-04 01:18:13.000000000 -0700
+@@ -4088,9 +4088,10 @@ vxge_probe(struct pci_dev *pdev, const s
+ 		driver_config->config_dev_cnt = 0;
+ 		driver_config->total_dev_cnt = 0;
+ 		driver_config->g_no_cpus = 0;
+-		driver_config->vpath_per_dev = max_config_vpath;
+ 	}
+ 
++	driver_config->vpath_per_dev = max_config_vpath;
++
+ 	driver_config->total_dev_cnt++;
+ 	if (++driver_config->config_dev_cnt > max_config_dev) {
+ 		ret = 0;
+
