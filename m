@@ -1,36 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH kernel 2.6.32-rc1] pcnet_cs: add cis of National
- Semicondoctor's multifunction pcmcia card
-Date: Mon, 05 Oct 2009 00:40:11 -0700 (PDT)
-Message-ID: <20091005.004011.93726408.davem@davemloft.net>
-References: <20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
-	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
-	<20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] inet_peer: Optimize inet_getid()
+Date: Mon, 05 Oct 2009 09:38:56 +0200
+Message-ID: <4AC9A290.3080204@gmail.com>
+References: <4ABBC2D8.2040901@gmail.com>	<20090924123020.59a2ee6e@s6510>	<4ABBDA45.2040109@gmail.com> <20091005.000818.95127796.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ken_kawasaki@spring.nifty.jp
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55385
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757821AbZJEHkQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 03:40:16 -0400
-In-Reply-To: <20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:46067 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752580AbZJEHjg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 03:39:36 -0400
+In-Reply-To: <20091005.000818.95127796.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-Date: Sun, 4 Oct 2009 07:32:57 +0900
+David Miller a =E9crit :
+>=20
+> I can't apply this, it's going to break the build on some
+> architectures.
+>=20
+> For example, sparc64 only supports cmpxchg on u32 and u64
+> objects, but you're trying to use it on a u16 here.
 
-> 
-> pcnet_cs,serial_cs:
->   
-> add cis of National Semicondoctor's lan&modem mulitifunction pcmcia card,
-> NE2K, tamarack ethernet card,
-> and some serial card(COMpad2, COMpad4).
-> 
->    
-> Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-
-Applied, thanks.
+Oops, thanks for the info David !
