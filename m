@@ -1,31 +1,33 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [PATCH] TCPCT+1: initial SYN exchange with SYNACK data
-Date: Mon, 05 Oct 2009 03:45:51 -0400
-Message-ID: <4AC9A42F.7010302@gmail.com>
-References: <4AC79905.1030904@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] More device type integration
+Date: Mon, 05 Oct 2009 00:44:43 -0700 (PDT)
+Message-ID: <20091005.004443.242266867.davem@davemloft.net>
+References: <cover.1254495724.git.marcel@holtmann.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, johannes@sipsolutions.net, greg@kroah.com
+To: marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f173.google.com ([209.85.211.173]:42589 "EHLO
-	mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758258AbZJEHqa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 03:46:30 -0400
-Received: by ywh3 with SMTP id 3so2710961ywh.22
-        for <netdev@vger.kernel.org>; Mon, 05 Oct 2009 00:45:53 -0700 (PDT)
-In-Reply-To: <4AC79905.1030904@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40154
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758604AbZJEHos (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 03:44:48 -0400
+In-Reply-To: <cover.1254495724.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As I'm new to Linux kernel development, this was based entirely on code
-previously reviewed (by Miller), as that seemed a good path for me to learn
-proper coding and style.
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Fri,  2 Oct 2009 17:15:24 +0200
 
-Now that I'm trying to grok Linux locking functions for the next patch, I've
-noticed that setsockopt code uses lock_sock(), but getsockopt doesn't.  In a
-preemptive kernel, or with SMP, isn't there a possibility that these socket
-values could be modified or destroyed at the same time?
+> I followed the work from Johannes and made sure we can register the
+> device type for wireless devices via the netdev notifier callback for
+> all cfg80211 based devices. This way we don't have to touch any of
+> the drivers.
+> 
+> For the mobile broadband cards from Ericsson, the device type is now
+> set to "wwan" and it also uses "wwan%d" for the default interface name.
 
-I'm especially concerned here, as there are kref blocks, and they could be
-left pointing into the weeds?
+Looks good, all applied to net-next-2.6
+
+Thanks!
