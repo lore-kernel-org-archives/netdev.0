@@ -1,41 +1,32 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 0/4][RFC]: coding convention for CCID-struct prefixes
-Date: Mon, 5 Oct 2009 09:38:23 -0300
-Message-ID: <20091005123823.GE30535@ghostprotocols.net>
-References: <1254739993-5051-1-git-send-email-gerrit@erg.abdn.ac.uk> <20091005.035815.238234647.davem@davemloft.net> <20091005112359.GB5156@gerrit.erg.abdn.ac.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH 8/9] vxge: Acquire correct lock based on
+ interrupt context.
+Date: Mon, 05 Oct 2009 05:37:59 -0700 (PDT)
+Message-ID: <20091005.053759.74765905.davem@davemloft.net>
+References: <Pine.GSO.4.10.10910050757300.9377-100000@guinness>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, support@neterion.com
+To: Sreenivasa.Honnur@neterion.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:15989 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753989AbZJEMjE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Oct 2009 08:39:04 -0400
-Content-Disposition: inline
-In-Reply-To: <20091005112359.GB5156@gerrit.erg.abdn.ac.uk>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47807
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753598AbZJEMiF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 08:38:05 -0400
+In-Reply-To: <Pine.GSO.4.10.10910050757300.9377-100000@guinness>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Mon, Oct 05, 2009 at 01:23:59PM +0200, Gerrit Renker escreveu:
-> | After Arnaldo takes a look, I can add this as-is to net-next-2.6
-> This should work, they have been compile/sparse-tested and apply cleanly on net-2.6.
+From: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
+Date: Mon, 5 Oct 2009 07:58:42 -0400 (EDT)
+
+> - Added macros that check if the thread is in interrupt context or not to
+>   acquire or release locks
 > 
-> I am waiting for the feedback also in order to rebuild the test tree; and have
-> informed CCID-4 developers (CCID-4 subtree) about this.
+> Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
 
-On a first look I saw one inconsistency, while in ccid3 you do:
+There is nothing at all wrong with using irqsave/irqrestore spin lock
+calls when you're already in an interrupt.
 
--	return scaled_div(w_init << 6, hctx->tx_rtt);
-+	return scaled_div(w_init << 6, hc->tx_rtt);
-
-in ccid2 you do:
-
--	struct ccid2_seq *seqp = hctx->ccid2hctx_seqh;
-+	struct ccid2_seq *seqp = hctx->tx_seqh;
-
-Since this change is about reducing the names by removing redundancy, I
-think the ccid3 variant is better, i.e.: hc->tx_foo.
-
-- Arnaldo
+I don't see any reason for this change.
