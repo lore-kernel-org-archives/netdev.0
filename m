@@ -1,31 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: vxge: Update driver_config->vpath_per_dev for each function in
- probe.
-Date: Mon, 05 Oct 2009 02:38:33 -0700 (PDT)
-Message-ID: <20091005.023833.36525859.davem@davemloft.net>
-References: <Pine.GSO.4.10.10910050506150.2346-100000@guinness>
-	<20091005.023219.45309053.davem@davemloft.net>
-	<78C9135A3D2ECE4B8162EBDCE82CAD7705C1618E@nekter>
+From: "Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>
+Subject: RE: [net-next-2.6 PATCH 1/9] vxge: Modify __vxge_hw_device_is_privilaged() to not assume function-0 as privilaged function.
+Date: Mon, 5 Oct 2009 05:40:18 -0400
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7705C1618F@nekter>
+References: <Pine.GSO.4.10.10910050503530.2346-100000@guinness> <20091005.022017.252887922.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, support@neterion.com
-To: Sreenivasa.Honnur@neterion.com
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, "support" <support@neterion.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51744
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758490AbZJEJii (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 05:38:38 -0400
-In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD7705C1618E@nekter>
+Received: from mx.neterion.com ([72.1.205.142]:8974 "EHLO owa.neterion.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758722AbZJEJlF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 05:41:05 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20091005.022017.252887922.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>
-Date: Mon, 5 Oct 2009 05:36:19 -0400
+I could apply these patches with "patch -p1 patch_file" command.
 
-> Please ignore this patch.
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Monday, October 05, 2009 2:50 PM
+To: Sreenivasa Honnur
+Cc: netdev@vger.kernel.org; support
+Subject: Re: [net-next-2.6 PATCH 1/9] vxge: Modify
+__vxge_hw_device_is_privilaged() to not assume function-0 as privilaged
+function.
+
+From: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
+Date: Mon, 5 Oct 2009 05:06:06 -0400 (EDT)
+
+> - vxge driver was assuming function-0 is always the privilaged
+function. Now that
+>   restriction has been removed any function can act as a privilaged
+function.
 > 
-> I submitted this patch without patch number. I again resubmitted it with
-> patch number.
+> - This patch modifies the __vxge_hw_device_is_privilaged routine to
+not assume
+>   function-0 as the privileged function.
+> 
+> Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
+> ---
+> diff -urpN orig//drivers/net/vxge/vxge-config.c
+patch1//drivers/net/vxge/vxge-config.c
+> --- orig//drivers/net/vxge/vxge-config.c	2009-09-03
+22:39:48.000000000 -0700
+> +++ patch1//drivers/net/vxge/vxge-config.c	2009-09-03
+23:11:24.000000000 -0700
 
-Ok.
+You can't have the double slash there in your paths, this gets
+interpreted as "/drivers/net/vxge/vxge-config.c" by all the patch
+applying tools.
+
+Please "-p1" root your patches properly as described in
+linux/Documentation/SubmittingPatches
+
+You'll need to resubmit your entire patch set with this fixed up.
+
+Thanks.
+
