@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 20/21] drivers/net/tlan: use pr_<level> and add
- pr_fmt(fmt)
-Date: Mon, 05 Oct 2009 00:12:33 -0700 (PDT)
-Message-ID: <20091005.001233.174570234.davem@davemloft.net>
-References: <cover.1254701151.git.joe@perches.com>
-	<cover.1254701151.git.joe@perches.com>
-	<d4468c1b062875f4b88ba94f4631232ecff9c27b.1254701151.git.joe@perches.com>
+Subject: Re: [PATCH 1/4] qeth: Convert ethtool get_stats_count() ops to
+ get_sset_count()
+Date: Mon, 05 Oct 2009 00:13:23 -0700 (PDT)
+Message-ID: <20091005.001323.102260628.davem@davemloft.net>
+References: <1254432272.2735.20.camel@achroite>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, chessman@tux.org,
-	netdev@vger.kernel.org
-To: joe@perches.com
+Cc: ursula.braun@de.ibm.com, frank.blaschka@de.ibm.com,
+	linux-s390@vger.kernel.org, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54627
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41240
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758006AbZJEHMi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 03:12:38 -0400
-In-Reply-To: <d4468c1b062875f4b88ba94f4631232ecff9c27b.1254701151.git.joe@perches.com>
+	by vger.kernel.org with ESMTP id S1757429AbZJEHN3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 03:13:29 -0400
+In-Reply-To: <1254432272.2735.20.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Sun,  4 Oct 2009 17:53:47 -0700
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Thu, 01 Oct 2009 22:24:32 +0100
 
-> Added #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-> Converted printk(KERN_<level> to pr_<level>(
-> Removed "TLAN: " prefixes
+> This string query operation was supposed to be replaced by the
+> generic get_sset_count() starting in 2007.  Convert qeth's
+> implementation.
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
 Applied to net-next-2.6
