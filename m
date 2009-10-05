@@ -1,32 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: export device speed and duplex via sysfs
-Date: Mon, 05 Oct 2009 00:44:21 -0700 (PDT)
-Message-ID: <20091005.004421.23261516.davem@davemloft.net>
-References: <20091002180742.GH4436@gospo.rdu.redhat.com>
-	<1254507554.8795.12.camel@achroite>
-	<20091002200141.GB1639@gospo.rdu.redhat.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [PATCH] TCPCT+1: initial SYN exchange with SYNACK data
+Date: Mon, 05 Oct 2009 03:45:51 -0400
+Message-ID: <4AC9A42F.7010302@gmail.com>
+References: <4AC79905.1030904@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
-To: andy@greyhouse.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40151
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758497AbZJEHo0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 03:44:26 -0400
-In-Reply-To: <20091002200141.GB1639@gospo.rdu.redhat.com>
+Received: from mail-yw0-f173.google.com ([209.85.211.173]:42589 "EHLO
+	mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758258AbZJEHqa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 03:46:30 -0400
+Received: by ywh3 with SMTP id 3so2710961ywh.22
+        for <netdev@vger.kernel.org>; Mon, 05 Oct 2009 00:45:53 -0700 (PDT)
+In-Reply-To: <4AC79905.1030904@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Gospodarek <andy@greyhouse.net>
-Date: Fri, 2 Oct 2009 16:01:41 -0400
+As I'm new to Linux kernel development, this was based entirely on code
+previously reviewed (by Miller), as that seemed a good path for me to learn
+proper coding and style.
 
-> I took a look at /sys/class/net/ethX/ and felt like the information was
-> pretty complete with the exception of the link speed and duplex, so I
-> thought it would be a good place to add it.  I personally wouldn't mind
-> having most of the information presented in ethtool available via sysfs,
-> but I figured I would walk before running.
+Now that I'm trying to grok Linux locking functions for the next patch, I've
+noticed that setsockopt code uses lock_sock(), but getsockopt doesn't.  In a
+preemptive kernel, or with SMP, isn't there a possibility that these socket
+values could be modified or destroyed at the same time?
 
-I have no objections to this, I applied v2 of your patch to
-net-next-2.6, thanks!
+I'm especially concerned here, as there are kref blocks, and they could be
+left pointing into the weeds?
