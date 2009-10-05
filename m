@@ -1,24 +1,63 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 0/4][RFC]: coding convention for CCID-struct prefixes
-Date: Mon, 5 Oct 2009 13:23:59 +0200
-Message-ID: <20091005112359.GB5156@gerrit.erg.abdn.ac.uk>
-References: <1254739993-5051-1-git-send-email-gerrit@erg.abdn.ac.uk> <20091005.035815.238234647.davem@davemloft.net>
+From: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
+Subject: Re: [PATCH RFC] isdn/capi: fix up CAPI subsystem workaround locking
+	a bit
+Date: Mon, 05 Oct 2009 13:42:29 +0200
+Message-ID: <4AC9DBA5.1090701@imap.cc>
+References: <20091003120657.2228911186C@xenon.ts.pxnet.com>
+	<200910032026.24451.mb@bu3sch.de> <200910032035.21884.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:47573 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758706AbZJELY5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Oct 2009 07:24:57 -0400
-Content-Disposition: inline
-In-Reply-To: <20091005.035815.238234647.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Karsten Keil <isdn-iHCpqvpFUx0uJkBD2foKsQ@public.gmane.org>, Carsten Paeth <calle-xPGHEYvgodo@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        i4ldeveloper-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org, isdn4linux-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org,
+        Karsten Keil <keil-shG/GajIFYqbacvFa/9K2g@public.gmane.org>, Armin Schindler <armin-l2TVJu5ShECELgA04lAiVw@public.gmane.org>
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org>
+In-Reply-To: <200910032035.21884.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+List-Unsubscribe: <https://www.isdn4linux.de/mailman/listinfo/i4ldeveloper>,
+	<mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://www.isdn4linux.de/pipermail/i4ldeveloper>
+List-Post: <mailto:i4ldeveloper-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org>
+List-Help: <mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=help>
+List-Subscribe: <https://www.isdn4linux.de/mailman/listinfo/i4ldeveloper>,
+	<mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=subscribe>
+Sender: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
+Errors-To: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-| After Arnaldo takes a look, I can add this as-is to net-next-2.6
-This should work, they have been compile/sparse-tested and apply cleanly on net-2.6.
-
-I am waiting for the feedback also in order to rebuild the test tree; and have
-informed CCID-4 developers (CCID-4 subtree) about this.
+LS0tLS1CRUdJTiBQR1AgU0lHTkVEIE1FU1NBR0UtLS0tLQpIYXNoOiBTSEExCgpPbiBTYXQsIDIw
+MDktMTAtMDMgMjA6MzU6MTkgKzAyMDAsIE1pY2hhZWwgQnVlc2NoIHdyb3RlOgoKPj4gSSByZW1l
+bWJlciB0aGF0IGhhbmRsZV9taW5vcl9zZW5kKCkgYW5kL29yIGhhbmRsZV9taW5vcl9yZWN2KCkg
+c2hvd2VkIHVwCj4+IGluIHRoZSBjcmFzaCBiYWNrdHJhY2VzLiBTbyBpZiB5b3UgbW92ZSB0aGVt
+IG91dCBvZiB0aGUgY3JpdGljYWwKPj4gc2VjdGlvbiwgeW91IGNhbiBhcyB3ZWxsIHJlbW92ZSB0
+aGUgbG9jayBjb21wbGV0ZWx5Lgo+IAo+IGhlcmUncyBteSBvcmlnaW5hbCBtYWlsOgo+IGh0dHA6
+Ly9sa21sLmluZGlhbmEuZWR1L2h5cGVybWFpbC9saW51eC9rZXJuZWwvMDYwNS4wLzA0NTUuaHRt
+bAo+IAo+IE5vdGUgdGhlIHBhdGNoIGluIHRoYXQgbWFpbCBkb2VzIF9ub3RfIGZpeCB0aGUgaXNz
+dWUsIGFzIGl0IHR1cm5lZCBvdXQgbGF0ZXIuCj4gVGhlbiBJIGRpZCB0aGUgd29ya2Fyb3VuZC1s
+b2NrIHBhdGNoLCB3aGljaCBfZGlkXyBmaXggaXQuCgpUaGFua3MgZm9yIHRoZSBpbmZvLiBTbyBk
+byBJIHVuZGVyc3RhbmQgY29ycmVjdGx5IHRoYXQgYWZ0ZXI6Cgpjb21taXQgNmFhNjU0NzJkMTg3
+MDMwNjQ4OThlZWZiNWViNThmN2VjZDBkODkxMgpBdXRob3I6IE1pY2hhZWwgQnVlc2NoIDxtYkBi
+dTNzY2guZGU+CkRhdGU6ICAgTW9uIEp1biAyNiAwMDoyNTozMCAyMDA2IC0wNzAwCgogICAgW1BB
+VENIXSBDQVBJIGNyYXNoIC8gcmFjZSBjb25kaXRpb24KCnlvdSB3ZXJlIGFjdHVhbGx5IHN0aWxs
+IHNlZWluZyBMSVNUX1BPSVNPTjIgT29wc2VzIGluCmNhcGltaW5vcl9kZWxfYWNrKCksIGJ1dCBh
+ZnRlcjoKCmNvbW1pdCAwNTNiNDdmZjI0OWI5ZTBhNjM0ZGFlODA3ZjgxNDY1MjA1ZTdjMjI4CkF1
+dGhvcjogTWljaGFlbCBCdWVzY2ggPG1iQGJ1M3NjaC5kZT4KRGF0ZTogICBNb24gRmViIDEyIDAw
+OjUzOjI2IDIwMDcgLTA4MDAKCiAgICBbUEFUQ0hdIFdvcmthcm91bmQgQ0FQSSBzdWJzeXN0ZW0g
+bG9ja2luZyBpc3N1ZQoKdGhleSB3ZXJlIGdvbmU/IFRoYXQncyBpbnRlcmVzdGluZy4gSSdsbCB0
+cnkgdG8gd3JhcCBteSBtaW5kIGFyb3VuZAp0aGlzLiBjYXBpbWlub3JfZGVsX2FjaygpIGlzbid0
+IHRoYXQgYmlnLCBhZnRlciBhbGwuCgpJdCdzIHVuZm9ydHVuYXRlIHRoYXQgdGhlc2UgY3Jhc2hl
+cyBvbmx5IHNlZW0gdG8gb2NjdXIgd2l0aCBvbmUgc3BlY2lmaWMKZGV2aWNlIChGcml0ekNhcmQg
+RFNMKSB3aGljaCBJIGRvbid0IGhhdmUuIENhbiBhbnlvbmUgc2hlZCBzb21lIGxpZ2h0IG9uCndo
+YXQgdGhhdCBkZXZpY2UgaXMgZG9pbmcgZGlmZmVyZW50bHkgZnJvbSBvdGhlciBJU0ROIGNhcmRz
+PwoKVGhhbmtzLApUaWxtYW4KCi0gLS0KVGlsbWFuIFNjaG1pZHQgICAgICAgICAgICAgICAgICAg
+IEUtTWFpbDogdGlsbWFuQGltYXAuY2MKQm9ubiwgR2VybWFueQpEaWVzZSBOYWNocmljaHQgYmVz
+dGVodCB6dSAxMDAlIGF1cyB3aWVkZXJ2ZXJ3ZXJ0ZXRlbiBCaXRzLgpVbmdlw7ZmZm5ldCBtaW5k
+ZXN0ZW5zIGhhbHRiYXIgYmlzOiAoc2llaGUgUsO8Y2tzZWl0ZSkKLS0tLS1CRUdJTiBQR1AgU0lH
+TkFUVVJFLS0tLS0KVmVyc2lvbjogR251UEcgdjEuNC40IChNaW5nVzMyKQpDb21tZW50OiBVc2lu
+ZyBHbnVQRyB3aXRoIE1vemlsbGEgLSBodHRwOi8vZW5pZ21haWwubW96ZGV2Lm9yZwoKaUQ4REJR
+Rkt5ZHVsUTMrZGlkOUJ1RnNSQXNZVkFKOWU1YXpPUG1OeWNNSFpNNm9uZnNESVkyMWE1d0NmZk5o
+NQoxNFdZMnRZamxhN3dtbVZnQ0hlK3FEbz0KPUJnbVkKLS0tLS1FTkQgUEdQIFNJR05BVFVSRS0t
+LS0tCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmk0bGRl
+dmVsb3BlciBtYWlsaW5nIGxpc3QKaTRsZGV2ZWxvcGVyQGxpc3RzZXJ2LmlzZG40bGludXguZGUK
+aHR0cHM6Ly93d3cuaXNkbjRsaW51eC5kZS9tYWlsbWFuL2xpc3RpbmZvL2k0bGRldmVsb3Blcg==
