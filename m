@@ -1,37 +1,34 @@
 From: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
-Subject: [net-next-2.6 PATCH 4/9] vxge: Fixed crash in PAE system due to
- wrong typecasting.
-Date: Mon, 5 Oct 2009 07:54:42 -0400 (EDT)
-Message-ID: <Pine.GSO.4.10.10910050753400.9377-100000@guinness>
+Subject: [net-next-2.6 PATCH 9/9] vxge: Version update.
+Date: Mon, 5 Oct 2009 07:59:41 -0400 (EDT)
+Message-ID: <Pine.GSO.4.10.10910050758430.9377-100000@guinness>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org, support@neterion.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:42035 "EHLO
+Received: from barracuda.s2io.com ([72.1.205.138]:42234 "EHLO
 	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758778AbZJEL7l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 07:59:41 -0400
+	with ESMTP id S1758629AbZJEMJW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 08:09:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- Fix a crash in PAE system due to wrong typecasting.
-
-- On PAE system size_t is unsigned int which is 32bit. Avoid casting
-  64 bit address to 32 bit
+- Version Update.
 
 Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
 ---
-diff -urpN patch3/drivers/net/vxge/vxge-traffic.c patch4/drivers/net/vxge/vxge-traffic.c
---- patch3/drivers/net/vxge/vxge-traffic.c	2009-09-04 01:19:23.000000000 -0700
-+++ patch4/drivers/net/vxge/vxge-traffic.c	2009-09-04 01:22:35.000000000 -0700
-@@ -1232,7 +1232,7 @@ void vxge_hw_fifo_txdl_post(struct __vxg
- 	vxge_hw_channel_dtr_post(&fifo->channel, txdlh);
+diff -urpN orig/drivers/net/vxge/vxge-version.h patch-9/drivers/net/vxge/vxge-version.h
+--- orig/drivers/net/vxge/vxge-version.h	2009-10-04 22:43:59.000000000 -0700
++++ patch-9/drivers/net/vxge/vxge-version.h	2009-10-04 22:43:08.000000000 -0700
+@@ -17,7 +17,7 @@
  
- 	__vxge_hw_non_offload_db_post(fifo,
--		(u64)(size_t)txdl_priv->dma_addr,
-+		(u64)txdl_priv->dma_addr,
- 		txdl_priv->frags - 1,
- 		fifo->no_snoop_bits);
- 
+ #define VXGE_VERSION_MAJOR	"2"
+ #define VXGE_VERSION_MINOR	"0"
+-#define VXGE_VERSION_FIX	"5"
+-#define VXGE_VERSION_BUILD	"18053"
++#define VXGE_VERSION_FIX	"6"
++#define VXGE_VERSION_BUILD	"18707"
+ #define VXGE_VERSION_FOR	"k"
+ #endif
 
