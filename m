@@ -1,56 +1,31 @@
-From: "Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>
-Subject: RE: vxge: Update driver_config->vpath_per_dev for each function in probe.
-Date: Mon, 5 Oct 2009 05:36:19 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7705C1618E@nekter>
-References: <Pine.GSO.4.10.10910050506150.2346-100000@guinness> <20091005.023219.45309053.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: vxge: Update driver_config->vpath_per_dev for each function in
+ probe.
+Date: Mon, 05 Oct 2009 02:38:33 -0700 (PDT)
+Message-ID: <20091005.023833.36525859.davem@davemloft.net>
+References: <Pine.GSO.4.10.10910050506150.2346-100000@guinness>
+	<20091005.023219.45309053.davem@davemloft.net>
+	<78C9135A3D2ECE4B8162EBDCE82CAD7705C1618E@nekter>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, "support" <support@neterion.com>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, support@neterion.com
+To: Sreenivasa.Honnur@neterion.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:8839 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758759AbZJEJhS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 05:37:18 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20091005.023219.45309053.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51744
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758490AbZJEJii (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 05:38:38 -0400
+In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD7705C1618E@nekter>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please ignore this patch.
+From: "Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>
+Date: Mon, 5 Oct 2009 05:36:19 -0400
 
-I submitted this patch without patch number. I again resubmitted it with
-patch number.
-
-
------Original Message-----
-From: David Miller [mailto:davem@davemloft.net] 
-Sent: Monday, October 05, 2009 3:02 PM
-To: Sreenivasa Honnur
-Cc: netdev@vger.kernel.org; support
-Subject: Re: vxge: Update driver_config->vpath_per_dev for each function
-in probe.
-
-From: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
-Date: Mon, 5 Oct 2009 05:06:56 -0400 (EDT)
-
-> - Update driver_config->vpath_per_dev for each function in probe.
+> Please ignore this patch.
 > 
-> - vpath_per_device specifies number of vpaths supported for each
-function/device. The
->   current code was updating vpath_per_device only for physical device,
-however this has
->   to be updated for each function also in case of a MF(Multi function)
-device.
-> 
-> Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
+> I submitted this patch without patch number. I again resubmitted it with
+> patch number.
 
-You keep posting this patch twice.
-
-Once without the proper "[PATCH 2/9]" indication in the subject heading,
-and once with it there.
-
-Please sort out your patch set, there is something wrong with what
-you're submitting for this.
+Ok.
