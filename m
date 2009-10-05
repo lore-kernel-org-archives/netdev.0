@@ -1,41 +1,53 @@
 From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [net-2.6 PATCH 1/3] qlge: Fix some bit definitions for reset register.
-Date: Mon,  5 Oct 2009 14:46:47 -0700
-Message-ID: <1254779209-15174-2-git-send-email-ron.mercer@qlogic.com>
+Subject: [net-2.6 PATCH 2/3] qlge: Fix queueing of firmware handler in ISR.
+Date: Mon,  5 Oct 2009 14:46:48 -0700
+Message-ID: <1254779209-15174-3-git-send-email-ron.mercer@qlogic.com>
 References: <1254779209-15174-1-git-send-email-ron.mercer@qlogic.com>
 Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from avexch1.qlogic.com ([198.70.193.115]:7750 "EHLO
 	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754570AbZJEVxf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 17:53:35 -0400
+	with ESMTP id S1754826AbZJEVxv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 17:53:51 -0400
 In-Reply-To: <1254779209-15174-1-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Check that we are not already polling firmware events before we queue the
+firmware event worker, then disable firmware interrupts.
+Otherwise we can queue the same event multiple times.
+
 Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 ---
- drivers/net/qlge/qlge.h |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/qlge/qlge_main.c |    8 +++++---
+ 1 files changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
-index 30d5585..f470fb9 100644
---- a/drivers/net/qlge/qlge.h
-+++ b/drivers/net/qlge/qlge.h
-@@ -135,9 +135,9 @@ enum {
- 	RST_FO_TFO = (1 << 0),
- 	RST_FO_RR_MASK = 0x00060000,
- 	RST_FO_RR_CQ_CAM = 0x00000000,
--	RST_FO_RR_DROP = 0x00000001,
--	RST_FO_RR_DQ = 0x00000002,
--	RST_FO_RR_RCV_FUNC_CQ = 0x00000003,
-+	RST_FO_RR_DROP = 0x00000002,
-+	RST_FO_RR_DQ = 0x00000004,
-+	RST_FO_RR_RCV_FUNC_CQ = 0x00000006,
- 	RST_FO_FRB = (1 << 12),
- 	RST_FO_MOP = (1 << 13),
- 	RST_FO_REG = (1 << 14),
+diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
+index 3d0efea..c21eda0 100644
+--- a/drivers/net/qlge/qlge_main.c
++++ b/drivers/net/qlge/qlge_main.c
+@@ -2001,15 +2001,17 @@ static irqreturn_t qlge_isr(int irq, void *dev_id)
+ 	/*
+ 	 * Check MPI processor activity.
+ 	 */
+-	if (var & STS_PI) {
++	if ((var & STS_PI) &&
++		(ql_read32(qdev, INTR_MASK) & INTR_MASK_PI)) {
+ 		/*
+ 		 * We've got an async event or mailbox completion.
+ 		 * Handle it and clear the source of the interrupt.
+ 		 */
+ 		QPRINTK(qdev, INTR, ERR, "Got MPI processor interrupt.\n");
+ 		ql_disable_completion_interrupt(qdev, intr_context->intr);
+-		queue_delayed_work_on(smp_processor_id(), qdev->workqueue,
+-				      &qdev->mpi_work, 0);
++		ql_write32(qdev, INTR_MASK, (INTR_MASK_PI << 16));
++		queue_delayed_work_on(smp_processor_id(),
++				qdev->workqueue, &qdev->mpi_work, 0);
+ 		work_done++;
+ 	}
+ 
 -- 
 1.6.0.2
 
