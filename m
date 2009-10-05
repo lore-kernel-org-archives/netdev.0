@@ -1,51 +1,55 @@
-From: Stefano Babic <stefano.babic@babic.homelinux.org>
-Subject: Re: [1/8,RFC] CAIF Protocol Stack
-Date: Mon, 05 Oct 2009 14:55:48 +0200
-Message-ID: <4AC9ECD4.70602@babic.homelinux.org>
-References: <1253727026-10233-1-git-send-email-sjur.brandeland@stericsson.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next-2.6 PATCH 6/9] vxge: Check if FCS stripping is disabled
+ by the firmware.
+Date: Mon, 05 Oct 2009 15:04:32 +0200
+Message-ID: <4AC9EEE0.5000601@gmail.com>
+References: <Pine.GSO.4.10.10910050755480.9377-100000@guinness>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Kim.xx.Lilliestierna@ericsson.com
-To: sjur.brandeland@stericsson.com
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org, support@neterion.com
+To: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpout24.attiva.biz ([85.37.16.25]:11429 "EHLO
-	smtpout24.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932535AbZJENB6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 09:01:58 -0400
-In-Reply-To: <1253727026-10233-1-git-send-email-sjur.brandeland@stericsson.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:45011 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753953AbZJENFS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 09:05:18 -0400
+In-Reply-To: <Pine.GSO.4.10.10910050755480.9377-100000@guinness>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sjur.brandeland@stericsson.com wrote:
+Sreenivasa Honnur a =E9crit :
+> - Added a function to check if FCS stripping is disabled by the firmw=
+are, if
+>   it is not disabled fail driver load.
+>=20
+> - By default FCS stripping is disabled by the firmware. With this ass=
+umption
+>   driver decrements the indicated packet length by 4 bytes(FCS length=
+).
+>=20
+> - This patch ensures that FCS stripping is disabled during driver loa=
+d time.
+>=20
+> Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
 
-> diff --git a/include/linux/caif/caif_ioctl.h b/include/linux/caif/caif_ioctl.h
-> new file mode 100644
-> index 0000000..4fdd648
-> --- /dev/null
-> +++ b/include/linux/caif/caif_ioctl.h
+What the big deal about FCS not being stripped ?
 
-[snip]
+Denying driver load for this litle detail seems very hard.
+You could issue a warning if there is a performance hit, but allow the =
+driver
+to function.
 
-> +/**
-> + * union caif_action
-> + * This union is used to configure a new CAIF Channel and
-> + */
-> +
-> +union caif_action {
-> +	struct caif_device_name delete_channel;
-> +	struct caif_channel_create_action create_channel;
-> +};
+If this adapter has the ability to disable/enable it at firmware level,
+you might replace
 
-It seems this structure is defined twice (here and in caif_actions.h)
-and some modules (at least phyif_ser, I could check) are not compiled
-clean, because both header files are included. Maybe should be protected
-with ifndef __KERNEL__ ?
+pkt_length -=3D ETH_FCS_LEN;
 
-Regards,
-Stefano
+by :
 
--- 
-stefano <stefano.babic@babic.homelinux.org>
-GPG Key: 0x55814DDE
-Fingerprint 4E85 2A66 4CBA 497A 2A7B D3BF 5973 F216 5581 4DDE
+pkt_length -=3D adapter->fcs_length; =20
+
+Granted you initialized adapter->fcs_length to 0 or 4 depending on firm=
+ware setup.
+
+
