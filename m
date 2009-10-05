@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: fib table algorithm performance improvement
-Date: Mon, 05 Oct 2009 00:11:45 -0700 (PDT)
-Message-ID: <20091005.001145.57977420.davem@davemloft.net>
-References: <20090920133536.1511a2ad@s6510>
+Subject: Re: [PATCH] icmp: No need to call sk_write_space()
+Date: Mon, 05 Oct 2009 00:12:10 -0700 (PDT)
+Message-ID: <20091005.001210.118975662.davem@davemloft.net>
+References: <4ABBEFD3.6060407@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54613
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54619
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752009AbZJEHLu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 03:11:50 -0400
-In-Reply-To: <20090920133536.1511a2ad@s6510>
+	by vger.kernel.org with ESMTP id S1753617AbZJEHMP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 03:12:15 -0400
+In-Reply-To: <4ABBEFD3.6060407@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Sun, 20 Sep 2009 13:35:36 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 25 Sep 2009 00:16:51 +0200
 
-> The FIB algorithim for IPV4 is set at compile time, but kernel goes through
-> the overhead of function call indirection at runtime. Save some
-> cycles by turning the indirect calls to direct calls to either
-> hash or trie code.
+> We can make icmp messages tx completion callback a litle bit faster.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Setting SOCK_USE_WRITE_QUEUE sk flag tells sock_wfree() to
+> not call sk_write_space() on a socket we know no thread is posssibly
+> waiting for write space. (on per cpu kernel internal icmp sockets only)
+> 
+> This avoids the sock_def_write_space() call and 
+> read_lock(&sk->sk_callback_lock)/read_unlock(&sk->sk_callback_lock) calls
+> as well.
+> 
+> We avoid three atomic ops.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
 Applied to net-next-2.6
