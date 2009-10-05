@@ -1,57 +1,34 @@
-From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] Wireless / ath5k: Simplify suspend and
-	resume callbacks
-Date: Mon, 5 Oct 2009 16:21:02 +0000
-Message-ID: <43e72e890910050921q7f516c67ofe17603d6d873c4@mail.gmail.com>
-References: <200910050052.09085.rjw@sisk.pl>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 1/7] mlx4: Added interrupts test support
+Date: Mon, 05 Oct 2009 09:18:23 -0700
+Message-ID: <adar5tholv4.fsf@cisco.com>
+References: <4AC4BD9A.2050101@mellanox.co.il> <adaeipmqxmv.fsf@cisco.com>
+	<4AC9D59F.1090409@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	pm list <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
-In-Reply-To: <200910050052.09085.rjw-KKrjLPT3xs0@public.gmane.org>
-List-Unsubscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
-	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ath5k.org/pipermail/ath5k-devel>
-List-Post: <mailto:ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
-List-Help: <mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
-	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=subscribe>
-Sender: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
-Errors-To: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:40279 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751810AbZJEQTH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 12:19:07 -0400
+In-Reply-To: <4AC9D59F.1090409@mellanox.co.il> (Yevgeny Petrilin's message of
+	"Mon, 05 Oct 2009 13:16:47 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gU3VuLCBPY3QgNCwgMjAwOSBhdCAxMDo1MiBQTSwgUmFmYWVsIEouIFd5c29ja2kgPHJqd0Bz
-aXNrLnBsPiB3cm90ZToKPiBGcm9tOiBSYWZhZWwgSi4gV3lzb2NraSA8cmp3QHNpc2sucGw+Cj4K
-PiBTaW1wbGlmeSB0aGUgc3VzcGVuZCBhbmQgcmVzdW1lIGNhbGxiYWNrcyBvZiBhdGg1ayBieSBj
-b252ZXJ0aW5nIHRoZQo+IGRyaXZlciB0byBzdHJ1Y3QgZGV2X3BtX29wcyBhbmQgYWxsb3dpbmcg
-dGhlIFBDSSBQTSBjb3JlIHRvIGRvIHRoZQo+IFBDSS1zcGVjaWZpYyBzdXNwZW5kL3Jlc3VtZSBo
-YW5kbGluZy4KPgo+IFNpZ25lZC1vZmYtYnk6IFJhZmFlbCBKLiBXeXNvY2tpIDxyandAc2lzay5w
-bD4KCkRvIHlvdSBoYXBwZW4gdG8ga25vdyBpZiB0aGUgbmV3IGRldl9wbV9vcHMgdGhpbmcgaGFu
-ZGxlIFdPTCAvIFdvVyBbMV0/CgpbMV0gaHR0cDovL3dpcmVsZXNzLmtlcm5lbC5vcmcvZW4vdXNl
-cnMvRG9jdW1lbnRhdGlvbi9Xb1cKCj4gwqAjaWZkZWYgQ09ORklHX1BNCj4gLXN0YXRpYyBpbnQK
-PiAtYXRoNWtfcGNpX3N1c3BlbmQoc3RydWN0IHBjaV9kZXYgKnBkZXYsIHBtX21lc3NhZ2VfdCBz
-dGF0ZSkKPiArc3RhdGljIGludCBhdGg1a19wY2lfc3VzcGVuZChzdHJ1Y3QgZGV2aWNlICpkZXYp
-Cj4gwqB7Cj4gLSDCoCDCoCDCoCBzdHJ1Y3QgaWVlZTgwMjExX2h3ICpodyA9IHBjaV9nZXRfZHJ2
-ZGF0YShwZGV2KTsKPiArIMKgIMKgIMKgIHN0cnVjdCBpZWVlODAyMTFfaHcgKmh3ID0gcGNpX2dl
-dF9kcnZkYXRhKHRvX3BjaV9kZXYoZGV2KSk7Cj4gwqAgwqAgwqAgwqBzdHJ1Y3QgYXRoNWtfc29m
-dGMgKnNjID0gaHctPnByaXY7Cj4KPiDCoCDCoCDCoCDCoGF0aDVrX2xlZF9vZmYoc2MpOwo+IC0K
-PiAtIMKgIMKgIMKgIHBjaV9zYXZlX3N0YXRlKHBkZXYpOwo+IC0gwqAgwqAgwqAgcGNpX2Rpc2Fi
-bGVfZGV2aWNlKHBkZXYpOwoKRm9yIFdvVyByaWdodCBoZXJlIHdlJ2QgZG8KCnBjaV9wcmVwYXJl
-X3RvX3NsZWVwKHBkZXYpIGFuZCBiYWlsIG91dC4KCj4gLSDCoCDCoCDCoCBwY2lfc2V0X3Bvd2Vy
-X3N0YXRlKHBkZXYsIFBDSV9EM2hvdCk7CgpBbmQgaGVyZSB3ZSdkIGNhbGwgc29tZXRoaW5nIGxp
-a2UgdGhpczoKCnBjaV93YWtlX2Zyb21fZDMocGRldiwgISFzYy0+d293X3RyaWdnZXJzX2VuYWJs
-ZWQpOwoKPiAtCj4gwqAgwqAgwqAgwqByZXR1cm4gMDsKPiDCoH0KCkFyZSBhbGwgZHJpdmVycyBi
-ZWluZyBjb252ZXJ0ZWQ/CgpJdCdsbCBiZSBhIHdoaWxlIGJlZm9yZSB3ZSBnZXQgV29XIGVuYWJs
-ZWQgb24gYXRoNWsgYnV0IGl0IGlzCnRlY2huaWNhbGx5IHBvc3NpYmxlLCB0aGUgd29yayB3YXMg
-dGVzdGVkIGZvciBhdGg5ayBiYWNrIGluIEp1bHkgWzJdCmJ1dCBJIG5ldmVyIHN1Ym1pdHRlZCB0
-aGlzIHRvIGJlIG1lcmdlZCBkdWUgdG8gc29tZSBpbmNvbnNpc3RlbnQKaXNzdWVzIEkgd2FzIG5v
-dGljaW5nIHdpdGggdGhlIGhhcmR3YXJlLgoKWzJdIGh0dHA6Ly9rZXJuZWwub3JnL3B1Yi9saW51
-eC9rZXJuZWwvcGVvcGxlL21jZ3JvZi9wYXRjaGVzL3dvdy0wNy0yMS5wYXRjaAoKICBMdWlzCl9f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmF0aDVrLWRldmVs
-IG1haWxpbmcgbGlzdAphdGg1ay1kZXZlbEBsaXN0cy5hdGg1ay5vcmcKaHR0cHM6Ly9saXN0cy5h
-dGg1ay5vcmcvbWFpbG1hbi9saXN0aW5mby9hdGg1ay1kZXZlbAo=
+
+ > > Have you actually seen cases where
+ > > the interrupt test during initialization works but then this test
+ > > catches a problem?  (My experience has been that if any MSI-X interrupts
+ > > work from a device, then they'll all work)
+
+ > It also checks that all the EQs work properly. During initialization
+ > we only check the asynchronous EQ
+
+Yes, I understand what the code does.  My question was whether you have
+ever actually observed a case where the async EQ works but another EQ
+doesn't?  In other words is this test useful in practice?
+
+ - R.
