@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 04/15] igb: add locking to reads of the i2c
-	interface
-Date: Mon, 05 Oct 2009 09:32:27 -0700
-Message-ID: <20091005163226.32487.91764.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 09/15] igb: fix a few items where weren't
+	correctly setup for mbx timeout
+Date: Mon, 05 Oct 2009 09:34:05 -0700
+Message-ID: <20091005163404.32487.88572.stgit@localhost.localdomain>
 References: <20091005163058.32487.10125.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,268 +12,82 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:37364 "EHLO
-	QMTA09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753964AbZJEQek (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 12:34:40 -0400
+Received: from qmta07.westchester.pa.mail.comcast.net ([76.96.62.64]:60603
+	"EHLO QMTA07.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753957AbZJEQgQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 12:36:16 -0400
 In-Reply-To: <20091005163058.32487.10125.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The current implementation of sgmii support isn't correctly locking the
-interfaces for reads/writes.  This change pulls the read/write
-functionality out of 82575.c and moves it to phy.c.  In addition it
-replaces the implementation in 82575.c with one that uses locking around
-the relocated i2c interface calls.
+The mailbox timeout routines need to be updated as they were not correctly
+handling the case of a mailbox timeout and could cause issues with long
+delays when used.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/e1000_82575.c |   85 ++++++++----------------------------
- drivers/net/igb/e1000_phy.c   |   97 +++++++++++++++++++++++++++++++++++++++++
- drivers/net/igb/e1000_phy.h   |    2 +
- 3 files changed, 119 insertions(+), 65 deletions(-)
+ drivers/net/igb/e1000_mbx.c |   19 ++++++++++++++-----
+ 1 files changed, 14 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
-index 65b9000..7897181 100644
---- a/drivers/net/igb/e1000_82575.c
-+++ b/drivers/net/igb/e1000_82575.c
-@@ -277,45 +277,23 @@ static void igb_release_phy_82575(struct e1000_hw *hw)
- static s32 igb_read_phy_reg_sgmii_82575(struct e1000_hw *hw, u32 offset,
- 					  u16 *data)
- {
--	struct e1000_phy_info *phy = &hw->phy;
--	u32 i, i2ccmd = 0;
-+	s32 ret_val = -E1000_ERR_PARAM;
+diff --git a/drivers/net/igb/e1000_mbx.c b/drivers/net/igb/e1000_mbx.c
+index ef645f6..c474cdb 100644
+--- a/drivers/net/igb/e1000_mbx.c
++++ b/drivers/net/igb/e1000_mbx.c
+@@ -143,12 +143,16 @@ static s32 igb_poll_for_msg(struct e1000_hw *hw, u16 mbx_id)
+ 	if (!countdown || !mbx->ops.check_for_msg)
+ 		goto out;
  
- 	if (offset > E1000_MAX_SGMII_PHY_REG_ADDR) {
- 		hw_dbg("PHY Address %u is out of range\n", offset);
--		return -E1000_ERR_PARAM;
-+		goto out;
+-	while (mbx->ops.check_for_msg(hw, mbx_id)) {
++	while (countdown && mbx->ops.check_for_msg(hw, mbx_id)) {
+ 		countdown--;
+ 		if (!countdown)
+ 			break;
+ 		udelay(mbx->usec_delay);
  	}
- 
--	/*
--	 * Set up Op-code, Phy Address, and register address in the I2CCMD
--	 * register.  The MAC will take care of interfacing with the
--	 * PHY to retrieve the desired data.
--	 */
--	i2ccmd = ((offset << E1000_I2CCMD_REG_ADDR_SHIFT) |
--		  (phy->addr << E1000_I2CCMD_PHY_ADDR_SHIFT) |
--		  (E1000_I2CCMD_OPCODE_READ));
-+	ret_val = hw->phy.ops.acquire(hw);
-+	if (ret_val)
-+		goto out;
- 
--	wr32(E1000_I2CCMD, i2ccmd);
-+	ret_val = igb_read_phy_reg_i2c(hw, offset, data);
- 
--	/* Poll the ready bit to see if the I2C read completed */
--	for (i = 0; i < E1000_I2CCMD_PHY_TIMEOUT; i++) {
--		udelay(50);
--		i2ccmd = rd32(E1000_I2CCMD);
--		if (i2ccmd & E1000_I2CCMD_READY)
--			break;
--	}
--	if (!(i2ccmd & E1000_I2CCMD_READY)) {
--		hw_dbg("I2CCMD Read did not complete\n");
--		return -E1000_ERR_PHY;
--	}
--	if (i2ccmd & E1000_I2CCMD_ERROR) {
--		hw_dbg("I2CCMD Error bit set\n");
--		return -E1000_ERR_PHY;
--	}
--
--	/* Need to byte-swap the 16-bit value. */
--	*data = ((i2ccmd >> 8) & 0x00FF) | ((i2ccmd << 8) & 0xFF00);
-+	hw->phy.ops.release(hw);
- 
--	return 0;
-+out:
-+	return ret_val;
- }
- 
- /**
-@@ -330,47 +308,24 @@ static s32 igb_read_phy_reg_sgmii_82575(struct e1000_hw *hw, u32 offset,
- static s32 igb_write_phy_reg_sgmii_82575(struct e1000_hw *hw, u32 offset,
- 					   u16 data)
- {
--	struct e1000_phy_info *phy = &hw->phy;
--	u32 i, i2ccmd = 0;
--	u16 phy_data_swapped;
-+	s32 ret_val = -E1000_ERR_PARAM;
 +
++	/* if we failed, all future posted messages fail until reset */
++	if (!countdown)
++		mbx->timeout = 0;
+ out:
+ 	return countdown ? 0 : -E1000_ERR_MBX;
+ }
+@@ -168,12 +172,16 @@ static s32 igb_poll_for_ack(struct e1000_hw *hw, u16 mbx_id)
+ 	if (!countdown || !mbx->ops.check_for_ack)
+ 		goto out;
  
- 	if (offset > E1000_MAX_SGMII_PHY_REG_ADDR) {
- 		hw_dbg("PHY Address %d is out of range\n", offset);
--		return -E1000_ERR_PARAM;
-+		goto out;
+-	while (mbx->ops.check_for_ack(hw, mbx_id)) {
++	while (countdown && mbx->ops.check_for_ack(hw, mbx_id)) {
+ 		countdown--;
+ 		if (!countdown)
+ 			break;
+ 		udelay(mbx->usec_delay);
  	}
- 
--	/* Swap the data bytes for the I2C interface */
--	phy_data_swapped = ((data >> 8) & 0x00FF) | ((data << 8) & 0xFF00);
-+	ret_val = hw->phy.ops.acquire(hw);
-+	if (ret_val)
-+		goto out;
- 
--	/*
--	 * Set up Op-code, Phy Address, and register address in the I2CCMD
--	 * register.  The MAC will take care of interfacing with the
--	 * PHY to retrieve the desired data.
--	 */
--	i2ccmd = ((offset << E1000_I2CCMD_REG_ADDR_SHIFT) |
--		  (phy->addr << E1000_I2CCMD_PHY_ADDR_SHIFT) |
--		  E1000_I2CCMD_OPCODE_WRITE |
--		  phy_data_swapped);
--
--	wr32(E1000_I2CCMD, i2ccmd);
--
--	/* Poll the ready bit to see if the I2C read completed */
--	for (i = 0; i < E1000_I2CCMD_PHY_TIMEOUT; i++) {
--		udelay(50);
--		i2ccmd = rd32(E1000_I2CCMD);
--		if (i2ccmd & E1000_I2CCMD_READY)
--			break;
--	}
--	if (!(i2ccmd & E1000_I2CCMD_READY)) {
--		hw_dbg("I2CCMD Write did not complete\n");
--		return -E1000_ERR_PHY;
--	}
--	if (i2ccmd & E1000_I2CCMD_ERROR) {
--		hw_dbg("I2CCMD Error bit set\n");
--		return -E1000_ERR_PHY;
--	}
-+	ret_val = igb_write_phy_reg_i2c(hw, offset, data);
- 
--	return 0;
-+	hw->phy.ops.release(hw);
 +
-+out:
-+	return ret_val;
++	/* if we failed, all future posted messages fail until reset */
++	if (!countdown)
++		mbx->timeout = 0;
+ out:
+ 	return countdown ? 0 : -E1000_ERR_MBX;
  }
+@@ -217,12 +225,13 @@ out:
+ static s32 igb_write_posted_mbx(struct e1000_hw *hw, u32 *msg, u16 size, u16 mbx_id)
+ {
+ 	struct e1000_mbx_info *mbx = &hw->mbx;
+-	s32 ret_val = 0;
++	s32 ret_val = -E1000_ERR_MBX;
  
- /**
-diff --git a/drivers/net/igb/e1000_phy.c b/drivers/net/igb/e1000_phy.c
-index ee46060..d4c928c 100644
---- a/drivers/net/igb/e1000_phy.c
-+++ b/drivers/net/igb/e1000_phy.c
-@@ -239,6 +239,103 @@ out:
- }
+-	if (!mbx->ops.write)
++	/* exit if either we can't write or there isn't a defined timeout */
++	if (!mbx->ops.write || !mbx->timeout)
+ 		goto out;
  
- /**
-+ *  igb_read_phy_reg_i2c - Read PHY register using i2c
-+ *  @hw: pointer to the HW structure
-+ *  @offset: register offset to be read
-+ *  @data: pointer to the read data
-+ *
-+ *  Reads the PHY register at offset using the i2c interface and stores the
-+ *  retrieved information in data.
-+ **/
-+s32 igb_read_phy_reg_i2c(struct e1000_hw *hw, u32 offset, u16 *data)
-+{
-+	struct e1000_phy_info *phy = &hw->phy;
-+	u32 i, i2ccmd = 0;
-+
-+
-+	/*
-+	 * Set up Op-code, Phy Address, and register address in the I2CCMD
-+	 * register.  The MAC will take care of interfacing with the
-+	 * PHY to retrieve the desired data.
-+	 */
-+	i2ccmd = ((offset << E1000_I2CCMD_REG_ADDR_SHIFT) |
-+	          (phy->addr << E1000_I2CCMD_PHY_ADDR_SHIFT) |
-+	          (E1000_I2CCMD_OPCODE_READ));
-+
-+	wr32(E1000_I2CCMD, i2ccmd);
-+
-+	/* Poll the ready bit to see if the I2C read completed */
-+	for (i = 0; i < E1000_I2CCMD_PHY_TIMEOUT; i++) {
-+		udelay(50);
-+		i2ccmd = rd32(E1000_I2CCMD);
-+		if (i2ccmd & E1000_I2CCMD_READY)
-+			break;
-+	}
-+	if (!(i2ccmd & E1000_I2CCMD_READY)) {
-+		hw_dbg("I2CCMD Read did not complete\n");
-+		return -E1000_ERR_PHY;
-+	}
-+	if (i2ccmd & E1000_I2CCMD_ERROR) {
-+		hw_dbg("I2CCMD Error bit set\n");
-+		return -E1000_ERR_PHY;
-+	}
-+
-+	/* Need to byte-swap the 16-bit value. */
-+	*data = ((i2ccmd >> 8) & 0x00FF) | ((i2ccmd << 8) & 0xFF00);
-+
-+	return 0;
-+}
-+
-+/**
-+ *  igb_write_phy_reg_i2c - Write PHY register using i2c
-+ *  @hw: pointer to the HW structure
-+ *  @offset: register offset to write to
-+ *  @data: data to write at register offset
-+ *
-+ *  Writes the data to PHY register at the offset using the i2c interface.
-+ **/
-+s32 igb_write_phy_reg_i2c(struct e1000_hw *hw, u32 offset, u16 data)
-+{
-+	struct e1000_phy_info *phy = &hw->phy;
-+	u32 i, i2ccmd = 0;
-+	u16 phy_data_swapped;
-+
-+
-+	/* Swap the data bytes for the I2C interface */
-+	phy_data_swapped = ((data >> 8) & 0x00FF) | ((data << 8) & 0xFF00);
-+
-+	/*
-+	 * Set up Op-code, Phy Address, and register address in the I2CCMD
-+	 * register.  The MAC will take care of interfacing with the
-+	 * PHY to retrieve the desired data.
-+	 */
-+	i2ccmd = ((offset << E1000_I2CCMD_REG_ADDR_SHIFT) |
-+	          (phy->addr << E1000_I2CCMD_PHY_ADDR_SHIFT) |
-+	          E1000_I2CCMD_OPCODE_WRITE |
-+	          phy_data_swapped);
-+
-+	wr32(E1000_I2CCMD, i2ccmd);
-+
-+	/* Poll the ready bit to see if the I2C read completed */
-+	for (i = 0; i < E1000_I2CCMD_PHY_TIMEOUT; i++) {
-+		udelay(50);
-+		i2ccmd = rd32(E1000_I2CCMD);
-+		if (i2ccmd & E1000_I2CCMD_READY)
-+			break;
-+	}
-+	if (!(i2ccmd & E1000_I2CCMD_READY)) {
-+		hw_dbg("I2CCMD Write did not complete\n");
-+		return -E1000_ERR_PHY;
-+	}
-+	if (i2ccmd & E1000_I2CCMD_ERROR) {
-+		hw_dbg("I2CCMD Error bit set\n");
-+		return -E1000_ERR_PHY;
-+	}
-+
-+	return 0;
-+}
-+
-+/**
-  *  igb_read_phy_reg_igp - Read igp PHY register
-  *  @hw: pointer to the HW structure
-  *  @offset: register offset to be read
-diff --git a/drivers/net/igb/e1000_phy.h b/drivers/net/igb/e1000_phy.h
-index ebe4b61..4c49803 100644
---- a/drivers/net/igb/e1000_phy.h
-+++ b/drivers/net/igb/e1000_phy.h
-@@ -61,6 +61,8 @@ s32  igb_write_phy_reg_igp(struct e1000_hw *hw, u32 offset, u16 data);
- s32  igb_phy_has_link(struct e1000_hw *hw, u32 iterations,
- 				u32 usec_interval, bool *success);
- s32  igb_phy_init_script_igp3(struct e1000_hw *hw);
-+s32  igb_read_phy_reg_i2c(struct e1000_hw *hw, u32 offset, u16 *data);
-+s32  igb_write_phy_reg_i2c(struct e1000_hw *hw, u32 offset, u16 data);
+-	/* send msg*/
++	/* send msg */
+ 	ret_val = mbx->ops.write(hw, msg, size, mbx_id);
  
- /* IGP01E1000 Specific Registers */
- #define IGP01E1000_PHY_PORT_CONFIG        0x10 /* Port Config */
+ 	/* if msg sent wait until we receive an ack */
 
