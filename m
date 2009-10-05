@@ -1,45 +1,91 @@
-From: Ajit Khaparde <ajitkhaparde@gmail.com>
-Subject: [PATCH] be2net: Fix a bug in preparation of mcc wrb which was
-	causing flash operation to fail
-Date: Mon, 5 Oct 2009 14:36:07 +0530
-Message-ID: <20091005090555.GA12287@serverengines.com>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
+Subject: [net-next-2.6 PATCH 6/9] vxge: Check if FCS stripping is disabled
+ by the firmware.
+Date: Mon, 5 Oct 2009 05:11:40 -0400 (EDT)
+Message-ID: <Pine.GSO.4.10.10910050510440.2346-100000@guinness>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, support@neterion.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f173.google.com ([209.85.211.173]:40850 "EHLO
-	mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757429AbZJEJHL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 05:07:11 -0400
-Received: by ywh3 with SMTP id 3so2755658ywh.22
-        for <netdev@vger.kernel.org>; Mon, 05 Oct 2009 02:06:34 -0700 (PDT)
-Content-Disposition: inline
+Received: from barracuda.s2io.com ([72.1.205.138]:39135 "EHLO
+	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932292AbZJEJMT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 05:12:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a bug that got introduced in commit 76998bc7.
-During preparation of mcc wrb, req was being wrongly overwritten
-and the flash operation was failing.
-This patch is against the net-2.6 tree.
+- Added a function to check if FCS stripping is disabled by the firmware, if
+  it is not disabled fail driver load.
 
-Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+- By default FCS stripping is disabled by the firmware. With this assumption
+  driver decrements the indicated packet length by 4 bytes(FCS length).
+
+- This patch ensures that FCS stripping is disabled during driver load time.
+
+Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
 ---
- drivers/net/benet/be_cmds.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-index 79d35d1..89876ad 100644
---- a/drivers/net/benet/be_cmds.c
-+++ b/drivers/net/benet/be_cmds.c
-@@ -1129,7 +1129,6 @@ int be_cmd_write_flashrom(struct be_adapter *adapter, struct be_dma_mem *cmd,
- 	spin_lock_bh(&adapter->mcc_lock);
+diff -urpN patch5/drivers/net/vxge/vxge-config.c patch6/drivers/net/vxge/vxge-config.c
+--- patch5/drivers/net/vxge/vxge-config.c	2009-09-04 01:24:25.000000000 -0700
++++ patch6/drivers/net/vxge/vxge-config.c	2009-09-04 01:33:43.000000000 -0700
+@@ -2157,6 +2157,28 @@ exit:
+ }
  
- 	wrb = wrb_from_mccq(adapter);
--	req = embedded_payload(wrb);
- 	sge = nonembedded_sgl(wrb);
+ /*
++ * vxge_hw_vpath_strip_fcs_check - Check for FCS strip.
++ */
++enum vxge_hw_status
++vxge_hw_vpath_strip_fcs_check(struct __vxge_hw_device *hldev, u64 vpath_mask)
++{
++	struct vxge_hw_vpmgmt_reg       __iomem *vpmgmt_reg;
++	enum vxge_hw_status status = VXGE_HW_OK;
++	int i = 0, j = 0;
++
++	for (i = 0; i < VXGE_HW_MAX_VIRTUAL_PATHS; i++) {
++		if (!((vpath_mask) & vxge_mBIT(i)))
++			continue;
++		vpmgmt_reg = hldev->vpmgmt_reg[i];
++		for (j = 0; j < VXGE_HW_MAC_MAX_MAC_PORT_ID; j++) {
++			if (readq(&vpmgmt_reg->rxmac_cfg0_port_vpmgmt_clone[j])
++			& VXGE_HW_RXMAC_CFG0_PORT_VPMGMT_CLONE_STRIP_FCS)
++				return VXGE_HW_FAIL;
++		}
++	}
++	return status;
++}
++/*
+  * vxge_hw_mgmt_reg_Write - Write Titan register.
+  */
+ enum vxge_hw_status
+diff -urpN patch5/drivers/net/vxge/vxge-config.h patch6/drivers/net/vxge/vxge-config.h
+--- patch5/drivers/net/vxge/vxge-config.h	2009-09-04 01:23:26.000000000 -0700
++++ patch6/drivers/net/vxge/vxge-config.h	2009-09-04 01:29:17.000000000 -0700
+@@ -2201,6 +2201,8 @@ __vxge_hw_vpath_func_id_get(
+ enum vxge_hw_status
+ __vxge_hw_vpath_reset_check(struct __vxge_hw_virtualpath *vpath);
  
- 	be_wrb_hdr_prepare(wrb, cmd->size, false, 1);
--- 
-1.6.0.4
++enum vxge_hw_status
++vxge_hw_vpath_strip_fcs_check(struct __vxge_hw_device *hldev, u64 vpath_mask);
+ /**
+  * vxge_debug
+  * @level: level of debug verbosity.
+diff -urpN patch5/drivers/net/vxge/vxge-main.c patch6/drivers/net/vxge/vxge-main.c
+--- patch5/drivers/net/vxge/vxge-main.c	2009-09-04 01:23:26.000000000 -0700
++++ patch6/drivers/net/vxge/vxge-main.c	2009-09-04 01:31:12.000000000 -0700
+@@ -4244,6 +4244,15 @@ vxge_probe(struct pci_dev *pdev, const s
+ 			goto _exit3;
+ 	}
+ 
++	/* if FCS stripping is not disabled in MAC fail driver load */
++	if (vxge_hw_vpath_strip_fcs_check(hldev, vpath_mask) != VXGE_HW_OK) {
++		vxge_debug_init(VXGE_ERR,
++			"%s: FCS stripping is not disabled in MAC"
++			" failing driver load", VXGE_DRIVER_NAME);
++		ret = -EINVAL;
++		goto _exit4;
++	}
++
+ 	vxge_hw_device_debug_set(hldev, VXGE_ERR, VXGE_COMPONENT_LL);
+ 
+ 	/* set private device info */
 
