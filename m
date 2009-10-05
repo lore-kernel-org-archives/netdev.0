@@ -1,1123 +1,1125 @@
-From: Simon Farnsworth <simon.farnsworth@onelan.com>
-Subject: Re: r8169 chips on some Intel D945GSEJT boards fail to work after
- PXE boot
-Date: Mon, 05 Oct 2009 10:47:52 +0100
-Message-ID: <4AC9C0C8.1050105@onelan.com>
-References: <4ABA535E.2010801@onelan.com> <20090923205723.GA28058@electric-eye.fr.zoreil.com> <4ABB5435.6040609@onelan.com> <20090930220702.GA15415@electric-eye.fr.zoreil.com>
+From: Anant Gole <anantgole-l0cyMroinI0@public.gmane.org>
+Subject: [PATCH] net-next:can: add TI CAN (HECC) driver
+Date: Mon,  5 Oct 2009 15:32:54 +0530
+Message-ID: <1254736974-6685-1-git-send-email-anantgole@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from claranet-outbound-smtp04.uk.clara.net ([195.8.89.37]:60037 "EHLO
-	claranet-outbound-smtp04.uk.clara.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932309AbZJEJsm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 05:48:42 -0400
-In-Reply-To: <20090930220702.GA15415@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, linux-arm-kernel-xIg/pKzrS19vn6HldHNs0ANdhmdF6hFW@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Simon Farnsworth <simon.farnsworth@onelan.com> :
-[...]
->> Is my assumption wrong? If not, is there anything else I can do that
->> would help you diagnose this?
-> 
-> Try this against 2.6.31 or latest -rc.
+TI HECC (High End CAN Controller) module is found on many TI devices. It
+has 32 hardware mailboxes with full implementation of CAN protocol 2.0B
+with bus speeds up to 1Mbps. Specifications of the module are available
+on TI web <http://www.ti.com>
 
-This worked for my boards.
+Signed-off-by: Anant Gole <anantgole-l0cyMroinI0@public.gmane.org>
+---
+ drivers/net/can/Kconfig              |    7 +
+ drivers/net/can/Makefile             |    1 +
+ drivers/net/can/ti_hecc.c            | 1006 ++++++++++++++++++++++++++++++++++
+ include/linux/can/platform/ti_hecc.h |   40 ++
+ 4 files changed, 1054 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/can/ti_hecc.c
+ create mode 100644 include/linux/can/platform/ti_hecc.h
 
-Thanks for your help,
-
-Tested-By: Simon Farnsworth <simon.farnsworth@onelan.com>
-
-> 
-> 
-> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-> index 50c6a3c..74488a6 100644
-> --- a/drivers/net/r8169.c
-> +++ b/drivers/net/r8169.c
-> @@ -115,7 +115,9 @@ enum mac_version {
->  	RTL_GIGA_MAC_VER_22 = 0x16, // 8168C
->  	RTL_GIGA_MAC_VER_23 = 0x17, // 8168CP
->  	RTL_GIGA_MAC_VER_24 = 0x18, // 8168CP
-> -	RTL_GIGA_MAC_VER_25 = 0x19  // 8168D
-> +	RTL_GIGA_MAC_VER_25 = 0x19, // 8168D
-> +	RTL_GIGA_MAC_VER_26 = 0x1a, // 8168D
-> +	RTL_GIGA_MAC_VER_27 = 0x1b  // 8168DP
->  };
->  
->  #define _R(NAME,MAC,MASK) \
-> @@ -150,7 +152,9 @@ static const struct {
->  	_R("RTL8168c/8111c",	RTL_GIGA_MAC_VER_22, 0xff7e1880), // PCI-E
->  	_R("RTL8168cp/8111cp",	RTL_GIGA_MAC_VER_23, 0xff7e1880), // PCI-E
->  	_R("RTL8168cp/8111cp",	RTL_GIGA_MAC_VER_24, 0xff7e1880), // PCI-E
-> -	_R("RTL8168d/8111d",	RTL_GIGA_MAC_VER_25, 0xff7e1880)  // PCI-E
-> +	_R("RTL8168d/8111d",	RTL_GIGA_MAC_VER_25, 0xff7e1880), // PCI-E
-> +	_R("RTL8168d/8111d",	RTL_GIGA_MAC_VER_26, 0xff7e1880), // PCI-E
-> +	_R("RTL8168dp/8111dp",	RTL_GIGA_MAC_VER_27, 0xff7e1880)  // PCI-E
->  };
->  #undef _R
->  
-> @@ -253,6 +257,13 @@ enum rtl8168_8101_registers {
->  	DBG_REG			= 0xd1,
->  #define	FIX_NAK_1			(1 << 4)
->  #define	FIX_NAK_2			(1 << 3)
-> +	EFUSEAR			= 0xdc,
-> +#define	EFUSEAR_FLAG			0x80000000
-> +#define	EFUSEAR_WRITE_CMD		0x80000000
-> +#define	EFUSEAR_READ_CMD		0x00000000
-> +#define	EFUSEAR_REG_MASK		0x03ff
-> +#define	EFUSEAR_REG_SHIFT		8
-> +#define	EFUSEAR_DATA_MASK		0xff
->  };
->  
->  enum rtl_register_content {
-> @@ -568,6 +579,14 @@ static void mdio_patch(void __iomem *ioaddr, int reg_addr, int value)
->  	mdio_write(ioaddr, reg_addr, mdio_read(ioaddr, reg_addr) | value);
->  }
->  
-> +static void mdio_plus_minus(void __iomem *ioaddr, int reg_addr, int p, int m)
-> +{
-> +	int val;
-> +
-> +	val = mdio_read(ioaddr, reg_addr);
-> +	mdio_write(ioaddr, reg_addr, (val | p) & ~m);
-> +}
-> +
->  static void rtl_mdio_write(struct net_device *dev, int phy_id, int location,
->  			   int val)
->  {
-> @@ -651,6 +670,24 @@ static u32 rtl_csi_read(void __iomem *ioaddr, int addr)
->  	return value;
->  }
->  
-> +static u8 rtl8168d_efuse_read(void __iomem *ioaddr, int reg_addr)
-> +{
-> +	u8 value = 0xff;
-> +	unsigned int i;
-> +
-> +	RTL_W32(EFUSEAR, (reg_addr & EFUSEAR_REG_MASK) << EFUSEAR_REG_SHIFT);
-> +
-> +	for (i = 0; i < 300; i++) {
-> +		if (RTL_R32(EFUSEAR) & EFUSEAR_FLAG) {
-> +			value = RTL_R32(EFUSEAR) & EFUSEAR_DATA_MASK;
-> +			break;
-> +		}
-> +		udelay(100);
-> +	}
-> +
-> +	return value;
-> +}
-> +
->  static void rtl8169_irq_mask_and_ack(void __iomem *ioaddr)
->  {
->  	RTL_W16(IntrMask, 0x0000);
-> @@ -1243,7 +1280,10 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
->  		int mac_version;
->  	} mac_info[] = {
->  		/* 8168D family. */
-> -		{ 0x7c800000, 0x28000000,	RTL_GIGA_MAC_VER_25 },
-> +		{ 0x7cf00000, 0x28300000,	RTL_GIGA_MAC_VER_26 },
-> +		{ 0x7cf00000, 0x28100000,	RTL_GIGA_MAC_VER_25 },
-> +		{ 0x7c800000, 0x28800000,	RTL_GIGA_MAC_VER_27 },
-> +		{ 0x7c800000, 0x28000000,	RTL_GIGA_MAC_VER_26 },
->  
->  		/* 8168C family. */
->  		{ 0x7cf00000, 0x3ca00000,	RTL_GIGA_MAC_VER_24 },
-> @@ -1648,74 +1688,903 @@ static void rtl8168c_4_hw_phy_config(void __iomem *ioaddr)
->  	rtl8168c_3_hw_phy_config(ioaddr);
->  }
->  
-> -static void rtl8168d_hw_phy_config(void __iomem *ioaddr)
-> +static void rtl8168d_1_hw_phy_config(void __iomem *ioaddr)
->  {
->  	struct phy_reg phy_reg_init_0[] = {
->  		{ 0x1f, 0x0001 },
-> -		{ 0x09, 0x2770 },
-> -		{ 0x08, 0x04d0 },
-> -		{ 0x0b, 0xad15 },
-> -		{ 0x0c, 0x5bf0 },
-> -		{ 0x1c, 0xf101 },
-> +		{ 0x06, 0x4064 },
-> +		{ 0x07, 0x2863 },
-> +		{ 0x08, 0x059c },
-> +		{ 0x09, 0x26b4 },
-> +		{ 0x0a, 0x6a19 },
-> +		{ 0x0b, 0xdcc8 },
-> +		{ 0x10, 0xf06d },
-> +		{ 0x14, 0x7f68 },
-> +		{ 0x18, 0x7fd9 },
-> +		{ 0x1c, 0xf0ff },
-> +		{ 0x1d, 0x3d9c },
->  		{ 0x1f, 0x0003 },
-> -		{ 0x14, 0x94d7 },
-> -		{ 0x12, 0xf4d6 },
-> -		{ 0x09, 0xca0f },
-> -		{ 0x1f, 0x0002 },
-> -		{ 0x0b, 0x0b10 },
-> -		{ 0x0c, 0xd1f7 },
-> -		{ 0x1f, 0x0002 },
-> -		{ 0x06, 0x5461 },
-> +		{ 0x12, 0xf49f },
-> +		{ 0x13, 0x070b },
-> +		{ 0x1a, 0x05ad },
-> +		{ 0x14, 0x94c0 }
-> +	};
-> +	struct phy_reg phy_reg_init_1[] = {
->  		{ 0x1f, 0x0002 },
-> -		{ 0x05, 0x6662 },
-> +		{ 0x06, 0x5561 },
-> +		{ 0x1f, 0x0005 },
-> +		{ 0x05, 0x8332 },
-> +		{ 0x06, 0x5561 }
-> +	};
-> +	struct phy_reg phy_reg_init_2[] = {
-> +		{ 0x1f, 0x0005 },
-> +		{ 0x05, 0xffc2 },
-> +		{ 0x1f, 0x0005 },
-> +		{ 0x05, 0x8000 },
-> +		{ 0x06, 0xf8f9 },
-> +		{ 0x06, 0xfaef },
-> +		{ 0x06, 0x59ee },
-> +		{ 0x06, 0xf8ea },
-> +		{ 0x06, 0x00ee },
-> +		{ 0x06, 0xf8eb },
-> +		{ 0x06, 0x00e0 },
-> +		{ 0x06, 0xf87c },
-> +		{ 0x06, 0xe1f8 },
-> +		{ 0x06, 0x7d59 },
-> +		{ 0x06, 0x0fef },
-> +		{ 0x06, 0x0139 },
-> +		{ 0x06, 0x029e },
-> +		{ 0x06, 0x06ef },
-> +		{ 0x06, 0x1039 },
-> +		{ 0x06, 0x089f },
-> +		{ 0x06, 0x2aee },
-> +		{ 0x06, 0xf8ea },
-> +		{ 0x06, 0x00ee },
-> +		{ 0x06, 0xf8eb },
-> +		{ 0x06, 0x01e0 },
-> +		{ 0x06, 0xf87c },
-> +		{ 0x06, 0xe1f8 },
-> +		{ 0x06, 0x7d58 },
-> +		{ 0x06, 0x409e },
-> +		{ 0x06, 0x0f39 },
-> +		{ 0x06, 0x46aa },
-> +		{ 0x06, 0x0bbf },
-> +		{ 0x06, 0x8290 },
-> +		{ 0x06, 0xd682 },
-> +		{ 0x06, 0x9802 },
-> +		{ 0x06, 0x014f },
-> +		{ 0x06, 0xae09 },
-> +		{ 0x06, 0xbf82 },
-> +		{ 0x06, 0x98d6 },
-> +		{ 0x06, 0x82a0 },
-> +		{ 0x06, 0x0201 },
-> +		{ 0x06, 0x4fef },
-> +		{ 0x06, 0x95fe },
-> +		{ 0x06, 0xfdfc },
-> +		{ 0x06, 0x05f8 },
-> +		{ 0x06, 0xf9fa },
-> +		{ 0x06, 0xeef8 },
-> +		{ 0x06, 0xea00 },
-> +		{ 0x06, 0xeef8 },
-> +		{ 0x06, 0xeb00 },
-> +		{ 0x06, 0xe2f8 },
-> +		{ 0x06, 0x7ce3 },
-> +		{ 0x06, 0xf87d },
-> +		{ 0x06, 0xa511 },
-> +		{ 0x06, 0x1112 },
-> +		{ 0x06, 0xd240 },
-> +		{ 0x06, 0xd644 },
-> +		{ 0x06, 0x4402 },
-> +		{ 0x06, 0x8217 },
-> +		{ 0x06, 0xd2a0 },
-> +		{ 0x06, 0xd6aa },
-> +		{ 0x06, 0xaa02 },
-> +		{ 0x06, 0x8217 },
-> +		{ 0x06, 0xae0f },
-> +		{ 0x06, 0xa544 },
-> +		{ 0x06, 0x4402 },
-> +		{ 0x06, 0xae4d },
-> +		{ 0x06, 0xa5aa },
-> +		{ 0x06, 0xaa02 },
-> +		{ 0x06, 0xae47 },
-> +		{ 0x06, 0xaf82 },
-> +		{ 0x06, 0x13ee },
-> +		{ 0x06, 0x834e },
-> +		{ 0x06, 0x00ee },
-> +		{ 0x06, 0x834d },
-> +		{ 0x06, 0x0fee },
-> +		{ 0x06, 0x834c },
-> +		{ 0x06, 0x0fee },
-> +		{ 0x06, 0x834f },
-> +		{ 0x06, 0x00ee },
-> +		{ 0x06, 0x8351 },
-> +		{ 0x06, 0x00ee },
-> +		{ 0x06, 0x834a },
-> +		{ 0x06, 0xffee },
-> +		{ 0x06, 0x834b },
-> +		{ 0x06, 0xffe0 },
-> +		{ 0x06, 0x8330 },
-> +		{ 0x06, 0xe183 },
-> +		{ 0x06, 0x3158 },
-> +		{ 0x06, 0xfee4 },
-> +		{ 0x06, 0xf88a },
-> +		{ 0x06, 0xe5f8 },
-> +		{ 0x06, 0x8be0 },
-> +		{ 0x06, 0x8332 },
-> +		{ 0x06, 0xe183 },
-> +		{ 0x06, 0x3359 },
-> +		{ 0x06, 0x0fe2 },
-> +		{ 0x06, 0x834d },
-> +		{ 0x06, 0x0c24 },
-> +		{ 0x06, 0x5af0 },
-> +		{ 0x06, 0x1e12 },
-> +		{ 0x06, 0xe4f8 },
-> +		{ 0x06, 0x8ce5 },
-> +		{ 0x06, 0xf88d },
-> +		{ 0x06, 0xaf82 },
-> +		{ 0x06, 0x13e0 },
-> +		{ 0x06, 0x834f },
-> +		{ 0x06, 0x10e4 },
-> +		{ 0x06, 0x834f },
-> +		{ 0x06, 0xe083 },
-> +		{ 0x06, 0x4e78 },
-> +		{ 0x06, 0x009f },
-> +		{ 0x06, 0x0ae0 },
-> +		{ 0x06, 0x834f },
-> +		{ 0x06, 0xa010 },
-> +		{ 0x06, 0xa5ee },
-> +		{ 0x06, 0x834e },
-> +		{ 0x06, 0x01e0 },
-> +		{ 0x06, 0x834e },
-> +		{ 0x06, 0x7805 },
-> +		{ 0x06, 0x9e9a },
-> +		{ 0x06, 0xe083 },
-> +		{ 0x06, 0x4e78 },
-> +		{ 0x06, 0x049e },
-> +		{ 0x06, 0x10e0 },
-> +		{ 0x06, 0x834e },
-> +		{ 0x06, 0x7803 },
-> +		{ 0x06, 0x9e0f },
-> +		{ 0x06, 0xe083 },
-> +		{ 0x06, 0x4e78 },
-> +		{ 0x06, 0x019e },
-> +		{ 0x06, 0x05ae },
-> +		{ 0x06, 0x0caf },
-> +		{ 0x06, 0x81f8 },
-> +		{ 0x06, 0xaf81 },
-> +		{ 0x06, 0xa3af },
-> +		{ 0x06, 0x81dc },
-> +		{ 0x06, 0xaf82 },
-> +		{ 0x06, 0x13ee },
-> +		{ 0x06, 0x8348 },
-> +		{ 0x06, 0x00ee },
-> +		{ 0x06, 0x8349 },
-> +		{ 0x06, 0x00e0 },
-> +		{ 0x06, 0x8351 },
-> +		{ 0x06, 0x10e4 },
-> +		{ 0x06, 0x8351 },
-> +		{ 0x06, 0x5801 },
-> +		{ 0x06, 0x9fea },
-> +		{ 0x06, 0xd000 },
-> +		{ 0x06, 0xd180 },
-> +		{ 0x06, 0x1f66 },
-> +		{ 0x06, 0xe2f8 },
-> +		{ 0x06, 0xeae3 },
-> +		{ 0x06, 0xf8eb },
-> +		{ 0x06, 0x5af8 },
-> +		{ 0x06, 0x1e20 },
-> +		{ 0x06, 0xe6f8 },
-> +		{ 0x06, 0xeae5 },
-> +		{ 0x06, 0xf8eb },
-> +		{ 0x06, 0xd302 },
-> +		{ 0x06, 0xb3fe },
-> +		{ 0x06, 0xe2f8 },
-> +		{ 0x06, 0x7cef },
-> +		{ 0x06, 0x325b },
-> +		{ 0x06, 0x80e3 },
-> +		{ 0x06, 0xf87d },
-> +		{ 0x06, 0x9e03 },
-> +		{ 0x06, 0x7dff },
-> +		{ 0x06, 0xff0d },
-> +		{ 0x06, 0x581c },
-> +		{ 0x06, 0x551a },
-> +		{ 0x06, 0x6511 },
-> +		{ 0x06, 0xa190 },
-> +		{ 0x06, 0xd3e2 },
-> +		{ 0x06, 0x8348 },
-> +		{ 0x06, 0xe383 },
-> +		{ 0x06, 0x491b },
-> +		{ 0x06, 0x56ab },
-> +		{ 0x06, 0x08ef },
-> +		{ 0x06, 0x56e6 },
-> +		{ 0x06, 0x8348 },
-> +		{ 0x06, 0xe783 },
-> +		{ 0x06, 0x4910 },
-> +		{ 0x06, 0xd180 },
-> +		{ 0x06, 0x1f66 },
-> +		{ 0x06, 0xa004 },
-> +		{ 0x06, 0xb9e2 },
-> +		{ 0x06, 0x8348 },
-> +		{ 0x06, 0xe383 },
-> +		{ 0x06, 0x49ef },
-> +		{ 0x06, 0x65e2 },
-> +		{ 0x06, 0x834a },
-> +		{ 0x06, 0xe383 },
-> +		{ 0x06, 0x4b1b },
-> +		{ 0x06, 0x56aa },
-> +		{ 0x06, 0x0eef },
-> +		{ 0x06, 0x56e6 },
-> +		{ 0x06, 0x834a },
-> +		{ 0x06, 0xe783 },
-> +		{ 0x06, 0x4be2 },
-> +		{ 0x06, 0x834d },
-> +		{ 0x06, 0xe683 },
-> +		{ 0x06, 0x4ce0 },
-> +		{ 0x06, 0x834d },
-> +		{ 0x06, 0xa000 },
-> +		{ 0x06, 0x0caf },
-> +		{ 0x06, 0x81dc },
-> +		{ 0x06, 0xe083 },
-> +		{ 0x06, 0x4d10 },
-> +		{ 0x06, 0xe483 },
-> +		{ 0x06, 0x4dae },
-> +		{ 0x06, 0x0480 },
-> +		{ 0x06, 0xe483 },
-> +		{ 0x06, 0x4de0 },
-> +		{ 0x06, 0x834e },
-> +		{ 0x06, 0x7803 },
-> +		{ 0x06, 0x9e0b },
-> +		{ 0x06, 0xe083 },
-> +		{ 0x06, 0x4e78 },
-> +		{ 0x06, 0x049e },
-> +		{ 0x06, 0x04ee },
-> +		{ 0x06, 0x834e },
-> +		{ 0x06, 0x02e0 },
-> +		{ 0x06, 0x8332 },
-> +		{ 0x06, 0xe183 },
-> +		{ 0x06, 0x3359 },
-> +		{ 0x06, 0x0fe2 },
-> +		{ 0x06, 0x834d },
-> +		{ 0x06, 0x0c24 },
-> +		{ 0x06, 0x5af0 },
-> +		{ 0x06, 0x1e12 },
-> +		{ 0x06, 0xe4f8 },
-> +		{ 0x06, 0x8ce5 },
-> +		{ 0x06, 0xf88d },
-> +		{ 0x06, 0xe083 },
-> +		{ 0x06, 0x30e1 },
-> +		{ 0x06, 0x8331 },
-> +		{ 0x06, 0x6801 },
-> +		{ 0x06, 0xe4f8 },
-> +		{ 0x06, 0x8ae5 },
-> +		{ 0x06, 0xf88b },
-> +		{ 0x06, 0xae37 },
-> +		{ 0x06, 0xee83 },
-> +		{ 0x06, 0x4e03 },
-> +		{ 0x06, 0xe083 },
-> +		{ 0x06, 0x4ce1 },
-> +		{ 0x06, 0x834d },
-> +		{ 0x06, 0x1b01 },
-> +		{ 0x06, 0x9e04 },
-> +		{ 0x06, 0xaaa1 },
-> +		{ 0x06, 0xaea8 },
-> +		{ 0x06, 0xee83 },
-> +		{ 0x06, 0x4e04 },
-> +		{ 0x06, 0xee83 },
-> +		{ 0x06, 0x4f00 },
-> +		{ 0x06, 0xaeab },
-> +		{ 0x06, 0xe083 },
-> +		{ 0x06, 0x4f78 },
-> +		{ 0x06, 0x039f },
-> +		{ 0x06, 0x14ee },
-> +		{ 0x06, 0x834e },
-> +		{ 0x06, 0x05d2 },
-> +		{ 0x06, 0x40d6 },
-> +		{ 0x06, 0x5554 },
-> +		{ 0x06, 0x0282 },
-> +		{ 0x06, 0x17d2 },
-> +		{ 0x06, 0xa0d6 },
-> +		{ 0x06, 0xba00 },
-> +		{ 0x06, 0x0282 },
-> +		{ 0x06, 0x17fe },
-> +		{ 0x06, 0xfdfc },
-> +		{ 0x06, 0x05f8 },
-> +		{ 0x06, 0xe0f8 },
-> +		{ 0x06, 0x60e1 },
-> +		{ 0x06, 0xf861 },
-> +		{ 0x06, 0x6802 },
-> +		{ 0x06, 0xe4f8 },
-> +		{ 0x06, 0x60e5 },
-> +		{ 0x06, 0xf861 },
-> +		{ 0x06, 0xe0f8 },
-> +		{ 0x06, 0x48e1 },
-> +		{ 0x06, 0xf849 },
-> +		{ 0x06, 0x580f },
-> +		{ 0x06, 0x1e02 },
-> +		{ 0x06, 0xe4f8 },
-> +		{ 0x06, 0x48e5 },
-> +		{ 0x06, 0xf849 },
-> +		{ 0x06, 0xd000 },
-> +		{ 0x06, 0x0282 },
-> +		{ 0x06, 0x5bbf },
-> +		{ 0x06, 0x8350 },
-> +		{ 0x06, 0xef46 },
-> +		{ 0x06, 0xdc19 },
-> +		{ 0x06, 0xddd0 },
-> +		{ 0x06, 0x0102 },
-> +		{ 0x06, 0x825b },
-> +		{ 0x06, 0x0282 },
-> +		{ 0x06, 0x77e0 },
-> +		{ 0x06, 0xf860 },
-> +		{ 0x06, 0xe1f8 },
-> +		{ 0x06, 0x6158 },
-> +		{ 0x06, 0xfde4 },
-> +		{ 0x06, 0xf860 },
-> +		{ 0x06, 0xe5f8 },
-> +		{ 0x06, 0x61fc },
-> +		{ 0x06, 0x04f9 },
-> +		{ 0x06, 0xfafb },
-> +		{ 0x06, 0xc6bf },
-> +		{ 0x06, 0xf840 },
-> +		{ 0x06, 0xbe83 },
-> +		{ 0x06, 0x50a0 },
-> +		{ 0x06, 0x0101 },
-> +		{ 0x06, 0x071b },
-> +		{ 0x06, 0x89cf },
-> +		{ 0x06, 0xd208 },
-> +		{ 0x06, 0xebdb },
-> +		{ 0x06, 0x19b2 },
-> +		{ 0x06, 0xfbff },
-> +		{ 0x06, 0xfefd },
-> +		{ 0x06, 0x04f8 },
-> +		{ 0x06, 0xe0f8 },
-> +		{ 0x06, 0x48e1 },
-> +		{ 0x06, 0xf849 },
-> +		{ 0x06, 0x6808 },
-> +		{ 0x06, 0xe4f8 },
-> +		{ 0x06, 0x48e5 },
-> +		{ 0x06, 0xf849 },
-> +		{ 0x06, 0x58f7 },
-> +		{ 0x06, 0xe4f8 },
-> +		{ 0x06, 0x48e5 },
-> +		{ 0x06, 0xf849 },
-> +		{ 0x06, 0xfc04 },
-> +		{ 0x06, 0x4d20 },
-> +		{ 0x06, 0x0002 },
-> +		{ 0x06, 0x4e22 },
-> +		{ 0x06, 0x0002 },
-> +		{ 0x06, 0x4ddf },
-> +		{ 0x06, 0xff01 },
-> +		{ 0x06, 0x4edd },
-> +		{ 0x06, 0xff01 },
-> +		{ 0x05, 0x83d4 },
-> +		{ 0x06, 0x8000 },
-> +		{ 0x05, 0x83d8 },
-> +		{ 0x06, 0x8051 },
-> +		{ 0x02, 0x6010 },
-> +		{ 0x03, 0xdc00 },
-> +		{ 0x05, 0xfff6 },
-> +		{ 0x06, 0x00fc },
->  		{ 0x1f, 0x0000 },
-> -		{ 0x14, 0x0060 },
-> +
->  		{ 0x1f, 0x0000 },
-> -		{ 0x0d, 0xf8a0 },
-> +		{ 0x0d, 0xf880 },
-> +		{ 0x1f, 0x0000 }
-> +	};
-> +
-> +	rtl_phy_write(ioaddr, phy_reg_init_0, ARRAY_SIZE(phy_reg_init_0));
-> +
-> +	mdio_write(ioaddr, 0x1f, 0x0002);
-> +	mdio_plus_minus(ioaddr, 0x0b, 0x0010, 0x00ef);
-> +	mdio_plus_minus(ioaddr, 0x0c, 0xa200, 0x5d00);
-> +
-> +	rtl_phy_write(ioaddr, phy_reg_init_1, ARRAY_SIZE(phy_reg_init_1));
-> +
-> +	if (rtl8168d_efuse_read(ioaddr, 0x01) == 0xb1) {
-> +		struct phy_reg phy_reg_init[] = {
-> +			{ 0x1f, 0x0002 },
-> +			{ 0x05, 0x669a },
-> +			{ 0x1f, 0x0005 },
-> +			{ 0x05, 0x8330 },
-> +			{ 0x06, 0x669a },
-> +			{ 0x1f, 0x0002 }
-> +		};
-> +		int val;
-> +
-> +		rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
-> +
-> +		val = mdio_read(ioaddr, 0x0d);
-> +
-> +		if ((val & 0x00ff) != 0x006c) {
-> +			u32 set[] = {
-> +				0x0065, 0x0066, 0x0067, 0x0068,
-> +				0x0069, 0x006a, 0x006b, 0x006c
-> +			};
-> +			int i;
-> +
-> +			mdio_write(ioaddr, 0x1f, 0x0002);
-> +
-> +			val &= 0xff00;
-> +			for (i = 0; i < ARRAY_SIZE(set); i++)
-> +				mdio_write(ioaddr, 0x0d, val | set[i]);
-> +		}
-> +	} else {
-> +		struct phy_reg phy_reg_init[] = {
-> +			{ 0x1f, 0x0002 },
-> +			{ 0x05, 0x6662 },
-> +			{ 0x1f, 0x0005 },
-> +			{ 0x05, 0x8330 },
-> +			{ 0x06, 0x6662 }
-> +		};
-> +
-> +		rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
-> +	}
-> +
-> +	mdio_write(ioaddr, 0x1f, 0x0002);
-> +	mdio_patch(ioaddr, 0x0d, 0x0300);
-> +	mdio_patch(ioaddr, 0x0f, 0x0010);
-> +
-> +	mdio_write(ioaddr, 0x1f, 0x0002);
-> +	mdio_plus_minus(ioaddr, 0x02, 0x0100, 0x0600);
-> +	mdio_plus_minus(ioaddr, 0x03, 0x0000, 0xe000);
-> +
-> +	rtl_phy_write(ioaddr, phy_reg_init_2, ARRAY_SIZE(phy_reg_init_2));
-> +}
-> +
-> +static void rtl8168d_2_hw_phy_config(void __iomem *ioaddr)
-> +{
-> +	struct phy_reg phy_reg_init_0[] = {
-> +		{ 0x1f, 0x0001 },
-> +		{ 0x06, 0x4064 },
-> +		{ 0x07, 0x2863 },
-> +		{ 0x08, 0x059c },
-> +		{ 0x09, 0x26b4 },
-> +		{ 0x0a, 0x6a19 },
-> +		{ 0x0b, 0xdcc8 },
-> +		{ 0x10, 0xf06d },
-> +		{ 0x14, 0x7f68 },
-> +		{ 0x18, 0x7fd9 },
-> +		{ 0x1c, 0xf0ff },
-> +		{ 0x1d, 0x3d9c },
-> +		{ 0x1f, 0x0003 },
-> +		{ 0x12, 0xf49f },
-> +		{ 0x13, 0x070b },
-> +		{ 0x1a, 0x05ad },
-> +		{ 0x14, 0x94c0 },
-> +
-> +		{ 0x1f, 0x0002 },
-> +		{ 0x06, 0x5561 },
->  		{ 0x1f, 0x0005 },
-> -		{ 0x05, 0xffc2 }
-> +		{ 0x05, 0x8332 },
-> +		{ 0x06, 0x5561 }
-> +	};
-> +	struct phy_reg phy_reg_init_1[] = {
-> +		{ 0x1f, 0x0005 },
-> +		{ 0x05, 0xffc2 },
-> +		{ 0x1f, 0x0005 },
-> +		{ 0x05, 0x8000 },
-> +		{ 0x06, 0xf8f9 },
-> +		{ 0x06, 0xfaee },
-> +		{ 0x06, 0xf8ea },
-> +		{ 0x06, 0x00ee },
-> +		{ 0x06, 0xf8eb },
-> +		{ 0x06, 0x00e2 },
-> +		{ 0x06, 0xf87c },
-> +		{ 0x06, 0xe3f8 },
-> +		{ 0x06, 0x7da5 },
-> +		{ 0x06, 0x1111 },
-> +		{ 0x06, 0x12d2 },
-> +		{ 0x06, 0x40d6 },
-> +		{ 0x06, 0x4444 },
-> +		{ 0x06, 0x0281 },
-> +		{ 0x06, 0xc6d2 },
-> +		{ 0x06, 0xa0d6 },
-> +		{ 0x06, 0xaaaa },
-> +		{ 0x06, 0x0281 },
-> +		{ 0x06, 0xc6ae },
-> +		{ 0x06, 0x0fa5 },
-> +		{ 0x06, 0x4444 },
-> +		{ 0x06, 0x02ae },
-> +		{ 0x06, 0x4da5 },
-> +		{ 0x06, 0xaaaa },
-> +		{ 0x06, 0x02ae },
-> +		{ 0x06, 0x47af },
-> +		{ 0x06, 0x81c2 },
-> +		{ 0x06, 0xee83 },
-> +		{ 0x06, 0x4e00 },
-> +		{ 0x06, 0xee83 },
-> +		{ 0x06, 0x4d0f },
-> +		{ 0x06, 0xee83 },
-> +		{ 0x06, 0x4c0f },
-> +		{ 0x06, 0xee83 },
-> +		{ 0x06, 0x4f00 },
-> +		{ 0x06, 0xee83 },
-> +		{ 0x06, 0x5100 },
-> +		{ 0x06, 0xee83 },
-> +		{ 0x06, 0x4aff },
-> +		{ 0x06, 0xee83 },
-> +		{ 0x06, 0x4bff },
-> +		{ 0x06, 0xe083 },
-> +		{ 0x06, 0x30e1 },
-> +		{ 0x06, 0x8331 },
-> +		{ 0x06, 0x58fe },
-> +		{ 0x06, 0xe4f8 },
-> +		{ 0x06, 0x8ae5 },
-> +		{ 0x06, 0xf88b },
-> +		{ 0x06, 0xe083 },
-> +		{ 0x06, 0x32e1 },
-> +		{ 0x06, 0x8333 },
-> +		{ 0x06, 0x590f },
-> +		{ 0x06, 0xe283 },
-> +		{ 0x06, 0x4d0c },
-> +		{ 0x06, 0x245a },
-> +		{ 0x06, 0xf01e },
-> +		{ 0x06, 0x12e4 },
-> +		{ 0x06, 0xf88c },
-> +		{ 0x06, 0xe5f8 },
-> +		{ 0x06, 0x8daf },
-> +		{ 0x06, 0x81c2 },
-> +		{ 0x06, 0xe083 },
-> +		{ 0x06, 0x4f10 },
-> +		{ 0x06, 0xe483 },
-> +		{ 0x06, 0x4fe0 },
-> +		{ 0x06, 0x834e },
-> +		{ 0x06, 0x7800 },
-> +		{ 0x06, 0x9f0a },
-> +		{ 0x06, 0xe083 },
-> +		{ 0x06, 0x4fa0 },
-> +		{ 0x06, 0x10a5 },
-> +		{ 0x06, 0xee83 },
-> +		{ 0x06, 0x4e01 },
-> +		{ 0x06, 0xe083 },
-> +		{ 0x06, 0x4e78 },
-> +		{ 0x06, 0x059e },
-> +		{ 0x06, 0x9ae0 },
-> +		{ 0x06, 0x834e },
-> +		{ 0x06, 0x7804 },
-> +		{ 0x06, 0x9e10 },
-> +		{ 0x06, 0xe083 },
-> +		{ 0x06, 0x4e78 },
-> +		{ 0x06, 0x039e },
-> +		{ 0x06, 0x0fe0 },
-> +		{ 0x06, 0x834e },
-> +		{ 0x06, 0x7801 },
-> +		{ 0x06, 0x9e05 },
-> +		{ 0x06, 0xae0c },
-> +		{ 0x06, 0xaf81 },
-> +		{ 0x06, 0xa7af },
-> +		{ 0x06, 0x8152 },
-> +		{ 0x06, 0xaf81 },
-> +		{ 0x06, 0x8baf },
-> +		{ 0x06, 0x81c2 },
-> +		{ 0x06, 0xee83 },
-> +		{ 0x06, 0x4800 },
-> +		{ 0x06, 0xee83 },
-> +		{ 0x06, 0x4900 },
-> +		{ 0x06, 0xe083 },
-> +		{ 0x06, 0x5110 },
-> +		{ 0x06, 0xe483 },
-> +		{ 0x06, 0x5158 },
-> +		{ 0x06, 0x019f },
-> +		{ 0x06, 0xead0 },
-> +		{ 0x06, 0x00d1 },
-> +		{ 0x06, 0x801f },
-> +		{ 0x06, 0x66e2 },
-> +		{ 0x06, 0xf8ea },
-> +		{ 0x06, 0xe3f8 },
-> +		{ 0x06, 0xeb5a },
-> +		{ 0x06, 0xf81e },
-> +		{ 0x06, 0x20e6 },
-> +		{ 0x06, 0xf8ea },
-> +		{ 0x06, 0xe5f8 },
-> +		{ 0x06, 0xebd3 },
-> +		{ 0x06, 0x02b3 },
-> +		{ 0x06, 0xfee2 },
-> +		{ 0x06, 0xf87c },
-> +		{ 0x06, 0xef32 },
-> +		{ 0x06, 0x5b80 },
-> +		{ 0x06, 0xe3f8 },
-> +		{ 0x06, 0x7d9e },
-> +		{ 0x06, 0x037d },
-> +		{ 0x06, 0xffff },
-> +		{ 0x06, 0x0d58 },
-> +		{ 0x06, 0x1c55 },
-> +		{ 0x06, 0x1a65 },
-> +		{ 0x06, 0x11a1 },
-> +		{ 0x06, 0x90d3 },
-> +		{ 0x06, 0xe283 },
-> +		{ 0x06, 0x48e3 },
-> +		{ 0x06, 0x8349 },
-> +		{ 0x06, 0x1b56 },
-> +		{ 0x06, 0xab08 },
-> +		{ 0x06, 0xef56 },
-> +		{ 0x06, 0xe683 },
-> +		{ 0x06, 0x48e7 },
-> +		{ 0x06, 0x8349 },
-> +		{ 0x06, 0x10d1 },
-> +		{ 0x06, 0x801f },
-> +		{ 0x06, 0x66a0 },
-> +		{ 0x06, 0x04b9 },
-> +		{ 0x06, 0xe283 },
-> +		{ 0x06, 0x48e3 },
-> +		{ 0x06, 0x8349 },
-> +		{ 0x06, 0xef65 },
-> +		{ 0x06, 0xe283 },
-> +		{ 0x06, 0x4ae3 },
-> +		{ 0x06, 0x834b },
-> +		{ 0x06, 0x1b56 },
-> +		{ 0x06, 0xaa0e },
-> +		{ 0x06, 0xef56 },
-> +		{ 0x06, 0xe683 },
-> +		{ 0x06, 0x4ae7 },
-> +		{ 0x06, 0x834b },
-> +		{ 0x06, 0xe283 },
-> +		{ 0x06, 0x4de6 },
-> +		{ 0x06, 0x834c },
-> +		{ 0x06, 0xe083 },
-> +		{ 0x06, 0x4da0 },
-> +		{ 0x06, 0x000c },
-> +		{ 0x06, 0xaf81 },
-> +		{ 0x06, 0x8be0 },
-> +		{ 0x06, 0x834d },
-> +		{ 0x06, 0x10e4 },
-> +		{ 0x06, 0x834d },
-> +		{ 0x06, 0xae04 },
-> +		{ 0x06, 0x80e4 },
-> +		{ 0x06, 0x834d },
-> +		{ 0x06, 0xe083 },
-> +		{ 0x06, 0x4e78 },
-> +		{ 0x06, 0x039e },
-> +		{ 0x06, 0x0be0 },
-> +		{ 0x06, 0x834e },
-> +		{ 0x06, 0x7804 },
-> +		{ 0x06, 0x9e04 },
-> +		{ 0x06, 0xee83 },
-> +		{ 0x06, 0x4e02 },
-> +		{ 0x06, 0xe083 },
-> +		{ 0x06, 0x32e1 },
-> +		{ 0x06, 0x8333 },
-> +		{ 0x06, 0x590f },
-> +		{ 0x06, 0xe283 },
-> +		{ 0x06, 0x4d0c },
-> +		{ 0x06, 0x245a },
-> +		{ 0x06, 0xf01e },
-> +		{ 0x06, 0x12e4 },
-> +		{ 0x06, 0xf88c },
-> +		{ 0x06, 0xe5f8 },
-> +		{ 0x06, 0x8de0 },
-> +		{ 0x06, 0x8330 },
-> +		{ 0x06, 0xe183 },
-> +		{ 0x06, 0x3168 },
-> +		{ 0x06, 0x01e4 },
-> +		{ 0x06, 0xf88a },
-> +		{ 0x06, 0xe5f8 },
-> +		{ 0x06, 0x8bae },
-> +		{ 0x06, 0x37ee },
-> +		{ 0x06, 0x834e },
-> +		{ 0x06, 0x03e0 },
-> +		{ 0x06, 0x834c },
-> +		{ 0x06, 0xe183 },
-> +		{ 0x06, 0x4d1b },
-> +		{ 0x06, 0x019e },
-> +		{ 0x06, 0x04aa },
-> +		{ 0x06, 0xa1ae },
-> +		{ 0x06, 0xa8ee },
-> +		{ 0x06, 0x834e },
-> +		{ 0x06, 0x04ee },
-> +		{ 0x06, 0x834f },
-> +		{ 0x06, 0x00ae },
-> +		{ 0x06, 0xabe0 },
-> +		{ 0x06, 0x834f },
-> +		{ 0x06, 0x7803 },
-> +		{ 0x06, 0x9f14 },
-> +		{ 0x06, 0xee83 },
-> +		{ 0x06, 0x4e05 },
-> +		{ 0x06, 0xd240 },
-> +		{ 0x06, 0xd655 },
-> +		{ 0x06, 0x5402 },
-> +		{ 0x06, 0x81c6 },
-> +		{ 0x06, 0xd2a0 },
-> +		{ 0x06, 0xd6ba },
-> +		{ 0x06, 0x0002 },
-> +		{ 0x06, 0x81c6 },
-> +		{ 0x06, 0xfefd },
-> +		{ 0x06, 0xfc05 },
-> +		{ 0x06, 0xf8e0 },
-> +		{ 0x06, 0xf860 },
-> +		{ 0x06, 0xe1f8 },
-> +		{ 0x06, 0x6168 },
-> +		{ 0x06, 0x02e4 },
-> +		{ 0x06, 0xf860 },
-> +		{ 0x06, 0xe5f8 },
-> +		{ 0x06, 0x61e0 },
-> +		{ 0x06, 0xf848 },
-> +		{ 0x06, 0xe1f8 },
-> +		{ 0x06, 0x4958 },
-> +		{ 0x06, 0x0f1e },
-> +		{ 0x06, 0x02e4 },
-> +		{ 0x06, 0xf848 },
-> +		{ 0x06, 0xe5f8 },
-> +		{ 0x06, 0x49d0 },
-> +		{ 0x06, 0x0002 },
-> +		{ 0x06, 0x820a },
-> +		{ 0x06, 0xbf83 },
-> +		{ 0x06, 0x50ef },
-> +		{ 0x06, 0x46dc },
-> +		{ 0x06, 0x19dd },
-> +		{ 0x06, 0xd001 },
-> +		{ 0x06, 0x0282 },
-> +		{ 0x06, 0x0a02 },
-> +		{ 0x06, 0x8226 },
-> +		{ 0x06, 0xe0f8 },
-> +		{ 0x06, 0x60e1 },
-> +		{ 0x06, 0xf861 },
-> +		{ 0x06, 0x58fd },
-> +		{ 0x06, 0xe4f8 },
-> +		{ 0x06, 0x60e5 },
-> +		{ 0x06, 0xf861 },
-> +		{ 0x06, 0xfc04 },
-> +		{ 0x06, 0xf9fa },
-> +		{ 0x06, 0xfbc6 },
-> +		{ 0x06, 0xbff8 },
-> +		{ 0x06, 0x40be },
-> +		{ 0x06, 0x8350 },
-> +		{ 0x06, 0xa001 },
-> +		{ 0x06, 0x0107 },
-> +		{ 0x06, 0x1b89 },
-> +		{ 0x06, 0xcfd2 },
-> +		{ 0x06, 0x08eb },
-> +		{ 0x06, 0xdb19 },
-> +		{ 0x06, 0xb2fb },
-> +		{ 0x06, 0xfffe },
-> +		{ 0x06, 0xfd04 },
-> +		{ 0x06, 0xf8e0 },
-> +		{ 0x06, 0xf848 },
-> +		{ 0x06, 0xe1f8 },
-> +		{ 0x06, 0x4968 },
-> +		{ 0x06, 0x08e4 },
-> +		{ 0x06, 0xf848 },
-> +		{ 0x06, 0xe5f8 },
-> +		{ 0x06, 0x4958 },
-> +		{ 0x06, 0xf7e4 },
-> +		{ 0x06, 0xf848 },
-> +		{ 0x06, 0xe5f8 },
-> +		{ 0x06, 0x49fc },
-> +		{ 0x06, 0x044d },
-> +		{ 0x06, 0x2000 },
-> +		{ 0x06, 0x024e },
-> +		{ 0x06, 0x2200 },
-> +		{ 0x06, 0x024d },
-> +		{ 0x06, 0xdfff },
-> +		{ 0x06, 0x014e },
-> +		{ 0x06, 0xddff },
-> +		{ 0x06, 0x0100 },
-> +		{ 0x05, 0x83d8 },
-> +		{ 0x06, 0x8000 },
-> +		{ 0x03, 0xdc00 },
-> +		{ 0x05, 0xfff6 },
-> +		{ 0x06, 0x00fc },
-> +		{ 0x1f, 0x0000 },
-> +
-> +		{ 0x1f, 0x0000 },
-> +		{ 0x0d, 0xf880 },
-> +		{ 0x1f, 0x0000 }
->  	};
->  
->  	rtl_phy_write(ioaddr, phy_reg_init_0, ARRAY_SIZE(phy_reg_init_0));
->  
-> -	if (mdio_read(ioaddr, 0x06) == 0xc400) {
-> -		struct phy_reg phy_reg_init_1[] = {
-> +	if (rtl8168d_efuse_read(ioaddr, 0x01) == 0xb1) {
-> +		struct phy_reg phy_reg_init[] = {
-> +			{ 0x1f, 0x0002 },
-> +			{ 0x05, 0x669a },
->  			{ 0x1f, 0x0005 },
-> -			{ 0x01, 0x0300 },
-> -			{ 0x1f, 0x0000 },
-> -			{ 0x11, 0x401c },
-> -			{ 0x16, 0x4100 },
-> +			{ 0x05, 0x8330 },
-> +			{ 0x06, 0x669a },
-> +
-> +			{ 0x1f, 0x0002 }
-> +		};
-> +		int val;
-> +
-> +		rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
-> +
-> +		val = mdio_read(ioaddr, 0x0d);
-> +		if ((val & 0x00ff) != 0x006c) {
-> +			u32 set[] = {
-> +				0x0065, 0x0066, 0x0067, 0x0068,
-> +				0x0069, 0x006a, 0x006b, 0x006c
-> +			};
-> +			int i;
-> +
-> +			mdio_write(ioaddr, 0x1f, 0x0002);
-> +
-> +			val &= 0xff00;
-> +			for (i = 0; i < ARRAY_SIZE(set); i++)
-> +				mdio_write(ioaddr, 0x0d, val | set[i]);
-> +		}
-> +	} else {
-> +		struct phy_reg phy_reg_init[] = {
-> +			{ 0x1f, 0x0002 },
-> +			{ 0x05, 0x2642 },
->  			{ 0x1f, 0x0005 },
-> -			{ 0x07, 0x0010 },
-> -			{ 0x05, 0x83dc },
-> -			{ 0x06, 0x087d },
-> -			{ 0x05, 0x8300 },
-> -			{ 0x06, 0x0101 },
-> -			{ 0x06, 0x05f8 },
-> -			{ 0x06, 0xf9fa },
-> -			{ 0x06, 0xfbef },
-> -			{ 0x06, 0x79e2 },
-> -			{ 0x06, 0x835f },
-> -			{ 0x06, 0xe0f8 },
-> -			{ 0x06, 0x9ae1 },
-> -			{ 0x06, 0xf89b },
-> -			{ 0x06, 0xef31 },
-> -			{ 0x06, 0x3b65 },
-> -			{ 0x06, 0xaa07 },
-> -			{ 0x06, 0x81e4 },
-> -			{ 0x06, 0xf89a },
-> -			{ 0x06, 0xe5f8 },
-> -			{ 0x06, 0x9baf },
-> -			{ 0x06, 0x06ae },
-> -			{ 0x05, 0x83dc },
-> -			{ 0x06, 0x8300 },
-> +			{ 0x05, 0x8330 },
-> +			{ 0x06, 0x2642 }
->  		};
->  
-> -		rtl_phy_write(ioaddr, phy_reg_init_1,
-> -			      ARRAY_SIZE(phy_reg_init_1));
-> +		rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
->  	}
->  
-> -	mdio_write(ioaddr, 0x1f, 0x0000);
-> +	mdio_write(ioaddr, 0x1f, 0x0002);
-> +	mdio_plus_minus(ioaddr, 0x02, 0x0100, 0x0600);
-> +	mdio_plus_minus(ioaddr, 0x03, 0x0000, 0xe000);
-> +
-> +	mdio_write(ioaddr, 0x1f, 0x0001);
-> +	mdio_write(ioaddr, 0x17, 0x0cc0);
-> +
-> +	mdio_write(ioaddr, 0x1f, 0x0002);
-> +	mdio_patch(ioaddr, 0x0f, 0x0017);
-> +
-> +	rtl_phy_write(ioaddr, phy_reg_init_1, ARRAY_SIZE(phy_reg_init_1));
-> +}
-> +
-> +static void rtl8168d_3_hw_phy_config(void __iomem *ioaddr)
-> +{
-> +	struct phy_reg phy_reg_init[] = {
-> +		{ 0x1f, 0x0002 },
-> +		{ 0x10, 0x0008 },
-> +		{ 0x0d, 0x006c },
-> +
-> +		{ 0x1f, 0x0000 },
-> +		{ 0x0d, 0xf880 },
-> +
-> +		{ 0x1f, 0x0001 },
-> +		{ 0x17, 0x0cc0 },
-> +
-> +		{ 0x1f, 0x0001 },
-> +		{ 0x0b, 0xa4d8 },
-> +		{ 0x09, 0x281c },
-> +		{ 0x07, 0x2883 },
-> +		{ 0x0a, 0x6b35 },
-> +		{ 0x1d, 0x3da4 },
-> +		{ 0x1c, 0xeffd },
-> +		{ 0x14, 0x7f52 },
-> +		{ 0x18, 0x7fc6 },
-> +		{ 0x08, 0x0601 },
-> +		{ 0x06, 0x4063 },
-> +		{ 0x10, 0xf074 },
-> +		{ 0x1f, 0x0003 },
-> +		{ 0x13, 0x0789 },
-> +		{ 0x12, 0xf4bd },
-> +		{ 0x1a, 0x04fd },
-> +		{ 0x14, 0x84b0 },
-> +		{ 0x1f, 0x0000 },
-> +		{ 0x00, 0x9200 },
-> +
-> +		{ 0x1f, 0x0005 },
-> +		{ 0x01, 0x0340 },
-> +		{ 0x1f, 0x0001 },
-> +		{ 0x04, 0x4000 },
-> +		{ 0x03, 0x1d21 },
-> +		{ 0x02, 0x0c32 },
-> +		{ 0x01, 0x0200 },
-> +		{ 0x00, 0x5554 },
-> +		{ 0x04, 0x4800 },
-> +		{ 0x04, 0x4000 },
-> +		{ 0x04, 0xf000 },
-> +		{ 0x03, 0xdf01 },
-> +		{ 0x02, 0xdf20 },
-> +		{ 0x01, 0x101a },
-> +		{ 0x00, 0xa0ff },
-> +		{ 0x04, 0xf800 },
-> +		{ 0x04, 0xf000 },
-> +		{ 0x1f, 0x0000 },
-> +
-> +		{ 0x1f, 0x0007 },
-> +		{ 0x1e, 0x0023 },
-> +		{ 0x16, 0x0000 },
-> +		{ 0x1f, 0x0000 }
-> +	};
-> +
-> +	rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
->  }
->  
->  static void rtl8102e_hw_phy_config(void __iomem *ioaddr)
-> @@ -1792,7 +2661,13 @@ static void rtl_hw_phy_config(struct net_device *dev)
->  		rtl8168cp_2_hw_phy_config(ioaddr);
->  		break;
->  	case RTL_GIGA_MAC_VER_25:
-> -		rtl8168d_hw_phy_config(ioaddr);
-> +		rtl8168d_1_hw_phy_config(ioaddr);
-> +		break;
-> +	case RTL_GIGA_MAC_VER_26:
-> +		rtl8168d_2_hw_phy_config(ioaddr);
-> +		break;
-> +	case RTL_GIGA_MAC_VER_27:
-> +		rtl8168d_3_hw_phy_config(ioaddr);
->  		break;
->  
->  	default:
-> @@ -2200,6 +3075,11 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->  	tp->pcie_cap = pci_find_capability(pdev, PCI_CAP_ID_EXP);
->  	if (!tp->pcie_cap && netif_msg_probe(tp))
->  		dev_info(&pdev->dev, "no PCI Express capability\n");
-> +	else {
-> +		pci_write_config_word(pdev, tp->pcie_cap + PCI_EXP_DEVSTA,
-> +				      PCI_EXP_DEVSTA_CED | PCI_EXP_DEVSTA_NFED |
-> +				      PCI_EXP_DEVSTA_FED | PCI_EXP_DEVSTA_URD);
-> +	}
->  
->  	RTL_W16(IntrMask, 0x0000);
->  
-> @@ -2863,6 +3743,8 @@ static void rtl_hw_start_8168(struct net_device *dev)
->  	break;
->  
->  	case RTL_GIGA_MAC_VER_25:
-> +	case RTL_GIGA_MAC_VER_26:
-> +	case RTL_GIGA_MAC_VER_27:
->  		rtl_hw_start_8168d(ioaddr, pdev);
->  	break;
->  
-
-
+diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
+index df32c10..57a8733 100644
+--- a/drivers/net/can/Kconfig
++++ b/drivers/net/can/Kconfig
+@@ -95,6 +95,13 @@ config CAN_AT91
+ 	---help---
+ 	  This is a driver for the SoC CAN controller in Atmel's AT91SAM9263.
+ 
++config CAN_TI_HECC
++	depends on CAN_DEV
++	tristate "TI High End CAN Controller"
++	---help---
++	  Driver for TI HECC (High End CAN Controller) module found on many
++	  TI devices. The device specifications are available from www.ti.com
++
+ config CAN_DEBUG_DEVICES
+ 	bool "CAN devices debugging messages"
+ 	depends on CAN
+diff --git a/drivers/net/can/Makefile b/drivers/net/can/Makefile
+index 0dea627..31f4ab5 100644
+--- a/drivers/net/can/Makefile
++++ b/drivers/net/can/Makefile
+@@ -11,5 +11,6 @@ obj-y				+= usb/
+ 
+ obj-$(CONFIG_CAN_SJA1000)	+= sja1000/
+ obj-$(CONFIG_CAN_AT91)		+= at91_can.o
++obj-$(CONFIG_CAN_TI_HECC)	+= ti_hecc.o
+ 
+ ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
+diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
+new file mode 100644
+index 0000000..9090103
+--- /dev/null
++++ b/drivers/net/can/ti_hecc.c
+@@ -0,0 +1,1006 @@
++/*
++ * TI HECC (CAN) device driver
++ *
++ * This driver supports TI's HECC (High End CAN Controller module) and the
++ * specs for the same is available at <http://www.ti.com>
++ *
++ * Copyright (C) 2009 Texas Instruments Incorporated - http://www.ti.com/
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation version 2.
++ *
++ * This program is distributed as is WITHOUT ANY WARRANTY of any
++ * kind, whether express or implied; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ */
++
++/*
++ * Your platform definitions should specify module ram offsets and interrupt
++ * number to use as follows:
++ *
++ * static struct ti_hecc_platform_data am3517_evm_hecc_pdata = {
++ *         .scc_hecc_offset        = 0,
++ *         .scc_ram_offset         = 0x3000,
++ *         .hecc_ram_offset        = 0x3000,
++ *         .mbx_offset             = 0x2000,
++ *         .int_line               = 0,
++ *         .revision               = 1,
++ * };
++ *
++ * Please see include/can/platform/ti_hecc.h for description of above fields
++ *
++ */
++
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/interrupt.h>
++#include <linux/errno.h>
++#include <linux/netdevice.h>
++#include <linux/skbuff.h>
++#include <linux/platform_device.h>
++#include <linux/clk.h>
++
++#include <linux/can.h>
++#include <linux/can/dev.h>
++#include <linux/can/error.h>
++#include <linux/can/platform/ti_hecc.h>
++
++#define DRV_NAME "ti_hecc"
++#define HECC_MODULE_VERSION     "0.6"
++MODULE_VERSION(HECC_MODULE_VERSION);
++#define DRV_DESC "TI High End CAN Controller Driver " HECC_MODULE_VERSION
++
++/* TX / RX Mailbox Configuration */
++#define HECC_MAX_MAILBOXES	32	/* hardware mailboxes - do not change */
++#define MAX_TX_PRIO		0x3F	/* hardware value - do not change */
++
++/*
++ * Important Note: TX mailbox configuration
++ * TX mailboxes should be restricted to the number of SKB buffers to avoid
++ * maintaining SKB buffers separately. TX mailboxes should be a power of 2
++ * for the mailbox logic to work.  Top mailbox numbers are reserved for RX
++ * and lower mailboxes for TX.
++ *
++ * HECC_MAX_TX_MBOX	HECC_MB_TX_SHIFT
++ * 4 (default)		2
++ * 8			3
++ * 16			4
++ */
++#define HECC_MB_TX_SHIFT	2 /* as per table above */
++#define HECC_MAX_TX_MBOX	BIT(HECC_MB_TX_SHIFT)
++
++#if (HECC_MAX_TX_MBOX > CAN_ECHO_SKB_MAX)
++#error "HECC: MAX TX mailboxes should be equal or less than CAN_ECHO_SKB_MAX"
++#endif
++
++#define HECC_TX_PRIO_SHIFT	(HECC_MB_TX_SHIFT)
++#define HECC_TX_PRIO_MASK	(MAX_TX_PRIO << HECC_MB_TX_SHIFT)
++#define HECC_TX_MB_MASK		(HECC_MAX_TX_MBOX - 1)
++#define HECC_TX_MASK		((HECC_MAX_TX_MBOX - 1) | HECC_TX_PRIO_MASK)
++#define HECC_TX_MBOX_MASK	(~(BIT(HECC_MAX_TX_MBOX) - 1))
++#define HECC_DEF_NAPI_WEIGHT	HECC_MAX_RX_MBOX
++
++/*
++ * Important Note: RX mailbox configuration
++ * RX mailboxes are further logically split into two - main and buffer
++ * mailboxes. The goal is to get all packets into main mailboxes as
++ * driven by mailbox number and receive priority (higher to lower) and
++ * buffer mailboxes are used to receive pkts while main mailboxes are being
++ * processed. This ensures in-order packet reception.
++ *
++ * Here are the recommended values for buffer mailbox. Note that RX mailboxes
++ * start after TX mailboxes:
++ *
++ * HECC_MAX_RX_MBOX		HECC_RX_BUFFER_MBOX	No of buffer mailboxes
++ * 28				12			8
++ * 16				20			4
++ */
++
++#define HECC_MAX_RX_MBOX	(HECC_MAX_MAILBOXES - HECC_MAX_TX_MBOX)
++#define HECC_RX_BUFFER_MBOX	12 /* as per table above */
++#define HECC_RX_FIRST_MBOX	(HECC_MAX_MAILBOXES - 1)
++#define HECC_RX_HIGH_MBOX_MASK	(~(BIT(HECC_RX_BUFFER_MBOX) - 1))
++
++/* TI HECC module registers */
++#define HECC_CANME		0x0	/* Mailbox enable */
++#define HECC_CANMD		0x4	/* Mailbox direction */
++#define HECC_CANTRS		0x8	/* Transmit request set */
++#define HECC_CANTRR		0xC	/* Transmit request */
++#define HECC_CANTA		0x10	/* Transmission acknowledge */
++#define HECC_CANAA		0x14	/* Abort acknowledge */
++#define HECC_CANRMP		0x18	/* Receive message pending */
++#define HECC_CANRML		0x1C	/* Remote message lost */
++#define HECC_CANRFP		0x20	/* Remote frame pending */
++#define HECC_CANGAM		0x24	/* SECC only:Global acceptance mask */
++#define HECC_CANMC		0x28	/* Master control */
++#define HECC_CANBTC		0x2C	/* Bit timing configuration */
++#define HECC_CANES		0x30	/* Error and status */
++#define HECC_CANTEC		0x34	/* Transmit error counter */
++#define HECC_CANREC		0x38	/* Receive error counter */
++#define HECC_CANGIF0		0x3C	/* Global interrupt flag 0 */
++#define HECC_CANGIM		0x40	/* Global interrupt mask */
++#define HECC_CANGIF1		0x44	/* Global interrupt flag 1 */
++#define HECC_CANMIM		0x48	/* Mailbox interrupt mask */
++#define HECC_CANMIL		0x4C	/* Mailbox interrupt level */
++#define HECC_CANOPC		0x50	/* Overwrite protection control */
++#define HECC_CANTIOC		0x54	/* Transmit I/O control */
++#define HECC_CANRIOC		0x58	/* Receive I/O control */
++#define HECC_CANLNT		0x5C	/* HECC only: Local network time */
++#define HECC_CANTOC		0x60	/* HECC only: Time-out control */
++#define HECC_CANTOS		0x64	/* HECC only: Time-out status */
++#define HECC_CANTIOCE		0x68	/* SCC only:Enhanced TX I/O control */
++#define HECC_CANRIOCE		0x6C	/* SCC only:Enhanced RX I/O control */
++
++/* Mailbox registers */
++#define HECC_CANMID		0x0
++#define HECC_CANMCF		0x4
++#define HECC_CANMDL		0x8
++#define HECC_CANMDH		0xC
++
++#define HECC_SET_REG		0xFFFFFFFF
++#define HECC_CANID_MASK		0x3FF	/* 18 bits mask for extended id's */
++#define HECC_CCE_WAIT_COUNT     100	/* Wait for ~1 sec for CCE bit */
++
++#define HECC_CANMC_SCM		BIT(13)	/* SCC compat mode */
++#define HECC_CANMC_CCR		BIT(12)	/* Change config request */
++#define HECC_CANMC_PDR		BIT(11)	/* Local Power down - for sleep mode */
++#define HECC_CANMC_ABO		BIT(7)	/* Auto Bus On */
++#define HECC_CANMC_STM		BIT(6)	/* Self test mode - loopback */
++#define HECC_CANMC_SRES		BIT(5)	/* Software reset */
++
++#define HECC_CANTIOC_EN		BIT(3)	/* Enable CAN TX I/O pin */
++#define HECC_CANRIOC_EN		BIT(3)	/* Enable CAN RX I/O pin */
++
++#define HECC_CANMID_IDE		BIT(31)	/* Extended frame format */
++#define HECC_CANMID_AME		BIT(30)	/* Acceptance mask enable */
++#define HECC_CANMID_AAM		BIT(29)	/* Auto answer mode */
++
++#define HECC_CANES_FE		BIT(24)	/* form error */
++#define HECC_CANES_BE		BIT(23)	/* bit error */
++#define HECC_CANES_SA1		BIT(22)	/* stuck at dominant error */
++#define HECC_CANES_CRCE		BIT(21)	/* CRC error */
++#define HECC_CANES_SE		BIT(20)	/* stuff bit error */
++#define HECC_CANES_ACKE		BIT(19)	/* ack error */
++#define HECC_CANES_BO		BIT(18)	/* Bus off status */
++#define HECC_CANES_EP		BIT(17)	/* Error passive status */
++#define HECC_CANES_EW		BIT(16)	/* Error warning status */
++#define HECC_CANES_SMA		BIT(5)	/* suspend mode ack */
++#define HECC_CANES_CCE		BIT(4)	/* Change config enabled */
++#define HECC_CANES_PDA		BIT(3)	/* Power down mode ack */
++
++#define HECC_CANBTC_SAM		BIT(7)	/* sample points */
++
++#define HECC_BUS_ERROR		(HECC_CANES_FE | HECC_CANES_BE |\
++				HECC_CANES_CRCE | HECC_CANES_SE |\
++				HECC_CANES_ACKE)
++
++#define HECC_CANMCF_RTR		BIT(4)	/* Remote transmit request */
++
++#define HECC_CANGIF_MAIF	BIT(17)	/* Message alarm interrupt */
++#define HECC_CANGIF_TCOIF	BIT(16) /* Timer counter overflow int */
++#define HECC_CANGIF_GMIF	BIT(15)	/* Global mailbox interrupt */
++#define HECC_CANGIF_AAIF	BIT(14)	/* Abort ack interrupt */
++#define HECC_CANGIF_WDIF	BIT(13)	/* Write denied interrupt */
++#define HECC_CANGIF_WUIF	BIT(12)	/* Wake up interrupt */
++#define HECC_CANGIF_RMLIF	BIT(11)	/* Receive message lost interrupt */
++#define HECC_CANGIF_BOIF	BIT(10)	/* Bus off interrupt */
++#define HECC_CANGIF_EPIF	BIT(9)	/* Error passive interrupt */
++#define HECC_CANGIF_WLIF	BIT(8)	/* Warning level interrupt */
++#define HECC_CANGIF_MBOX_MASK	0x1F	/* Mailbox number mask */
++#define HECC_CANGIM_I1EN	BIT(1)	/* Int line 1 enable */
++#define HECC_CANGIM_I0EN	BIT(0)	/* Int line 0 enable */
++#define HECC_CANGIM_DEF_MASK	0x700	/* only busoff/warning/passive */
++#define HECC_CANGIM_SIL		BIT(2)	/* system interrupts to int line 1 */
++
++/* CAN Bittiming constants as per HECC specs */
++static struct can_bittiming_const ti_hecc_bittiming_const = {
++	.name = DRV_NAME,
++	.tseg1_min = 1,
++	.tseg1_max = 16,
++	.tseg2_min = 1,
++	.tseg2_max = 8,
++	.sjw_max = 4,
++	.brp_min = 1,
++	.brp_max = 256,
++	.brp_inc = 1,
++};
++
++struct ti_hecc_priv {
++	struct can_priv can;	/* MUST be first member/field */
++	struct napi_struct napi;
++	struct net_device *ndev;
++	struct clk *clk;
++	void __iomem *base;
++	u32 scc_ram_offset;
++	u32 hecc_ram_offset;
++	u32 mbx_offset;
++	u32 int_line;
++	spinlock_t mbx_lock; /* CANME register needs protection */
++	u32 tx_head;
++	u32 tx_tail;
++	u32 rx_next;
++};
++
++static inline int get_tx_head_mb(struct ti_hecc_priv *priv)
++{
++	return priv->tx_head & HECC_TX_MB_MASK;
++}
++
++static inline int get_tx_tail_mb(struct ti_hecc_priv *priv)
++{
++	return priv->tx_tail & HECC_TX_MB_MASK;
++}
++
++static inline int get_tx_head_prio(struct ti_hecc_priv *priv)
++{
++	return (priv->tx_head >> HECC_TX_PRIO_SHIFT) & MAX_TX_PRIO;
++}
++
++static inline void hecc_write_lam(struct ti_hecc_priv *priv, u32 mbxno, u32 val)
++{
++	__raw_writel(val, priv->base + priv->hecc_ram_offset + mbxno * 4);
++}
++
++static inline void hecc_write_mbx(struct ti_hecc_priv *priv, u32 mbxno,
++	u32 reg, u32 val)
++{
++	__raw_writel(val, priv->base + priv->mbx_offset + mbxno * 0x10 +
++			reg);
++}
++
++static inline u32 hecc_read_mbx(struct ti_hecc_priv *priv, u32 mbxno, u32 reg)
++{
++	return __raw_readl(priv->base + priv->mbx_offset + mbxno * 0x10 +
++			reg);
++}
++
++static inline void hecc_write(struct ti_hecc_priv *priv, u32 reg, u32 val)
++{
++	__raw_writel(val, priv->base + reg);
++}
++
++static inline u32 hecc_read(struct ti_hecc_priv *priv, int reg)
++{
++	return __raw_readl(priv->base + reg);
++}
++
++static inline void hecc_set_bit(struct ti_hecc_priv *priv, int reg,
++	u32 bit_mask)
++{
++	hecc_write(priv, reg, hecc_read(priv, reg) | bit_mask);
++}
++
++static inline void hecc_clear_bit(struct ti_hecc_priv *priv, int reg,
++	u32 bit_mask)
++{
++	hecc_write(priv, reg, hecc_read(priv, reg) & ~bit_mask);
++}
++
++static inline u32 hecc_get_bit(struct ti_hecc_priv *priv, int reg, u32 bit_mask)
++{
++	return (hecc_read(priv, reg) & bit_mask) ? 1 : 0;
++}
++
++static int ti_hecc_get_state(const struct net_device *ndev,
++	enum can_state *state)
++{
++	struct ti_hecc_priv *priv = netdev_priv(ndev);
++	*state = priv->can.state;
++	return 0;
++}
++
++static int ti_hecc_set_btc(struct ti_hecc_priv *priv)
++{
++	struct can_bittiming *bit_timing = &priv->can.bittiming;
++	u32 can_btc;
++
++	can_btc = (bit_timing->phase_seg2 - 1) & 0x7;
++	can_btc |= ((bit_timing->phase_seg1 + bit_timing->prop_seg - 1)
++			& 0xF) << 3;
++	if (bit_timing->brp > 4 && priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES)
++			can_btc |= HECC_CANBTC_SAM;
++	else
++		dev_info(priv->ndev->dev.parent,
++			"WARN: Triple sampling not set due to h/w limitations"
++			" at %d bitrate", bit_timing->bitrate);
++
++	can_btc |= ((bit_timing->sjw - 1) & 0x3) << 8;
++	can_btc |= ((bit_timing->brp - 1) & 0xFF) << 16;
++
++	/* ERM being set to 0 by default meaning resync at falling edge */
++
++	hecc_write(priv, HECC_CANBTC, can_btc);
++	dev_info(priv->ndev->dev.parent, "setting CANBTC=%#x\n", can_btc);
++
++	return 0;
++}
++
++static void ti_hecc_reset(struct net_device *ndev)
++{
++	u32 cnt;
++	struct ti_hecc_priv *priv = netdev_priv(ndev);
++
++	dev_dbg(ndev->dev.parent, "resetting hecc ...\n");
++	hecc_set_bit(priv, HECC_CANMC, HECC_CANMC_SRES);
++
++	/* Set change control request and wait till enabled */
++	hecc_set_bit(priv, HECC_CANMC, HECC_CANMC_CCR);
++
++	/*
++	 * INFO: It has been observed that at times CCE bit may not be
++	 * set and hw seems to be ok even if this bit is not set so
++	 * timing out with a timing of 1ms to respect the specs
++	 */
++	cnt = HECC_CCE_WAIT_COUNT;
++	while (!hecc_get_bit(priv, HECC_CANES, HECC_CANES_CCE) && cnt != 0) {
++		--cnt;
++		udelay(10);
++	}
++
++	/*
++	 * Note: On HECC, BTC can be programmed only in initialization mode, so
++	 * it is expected that the can bittiming parameters are set via ip
++	 * utility before the device is opened
++	 */
++	ti_hecc_set_btc(priv);
++
++	/* Clear CCR (and CANMC register) and wait for CCE = 0 enable */
++	hecc_write(priv, HECC_CANMC, 0);
++
++	/*
++	 * INFO: CAN net stack handles bus off and hence disabling auto-bus-on
++	 * hecc_set_bit(priv, HECC_CANMC, HECC_CANMC_ABO);
++	 */
++
++	/*
++	 * INFO: It has been observed that at times CCE bit may not be
++	 * set and hw seems to be ok even if this bit is not set so
++	 */
++	cnt = HECC_CCE_WAIT_COUNT;
++	while (hecc_get_bit(priv, HECC_CANES, HECC_CANES_CCE) && cnt != 0) {
++		--cnt;
++		udelay(10);
++	}
++
++	/* Enable TX and RX I/O Control pins */
++	hecc_write(priv, HECC_CANTIOC, HECC_CANTIOC_EN);
++	hecc_write(priv, HECC_CANRIOC, HECC_CANRIOC_EN);
++
++	/* Clear registers for clean operation */
++	hecc_write(priv, HECC_CANTA, HECC_SET_REG);
++	hecc_write(priv, HECC_CANRMP, HECC_SET_REG);
++	hecc_write(priv, HECC_CANGIF0, HECC_SET_REG);
++	hecc_write(priv, HECC_CANGIF1, HECC_SET_REG);
++	hecc_write(priv, HECC_CANME, 0);
++	hecc_write(priv, HECC_CANMD, 0);
++
++	/* SCC compat mode NOT supported (and not needed too) */
++	hecc_set_bit(priv, HECC_CANMC, HECC_CANMC_SCM);
++}
++
++static void ti_hecc_start(struct net_device *ndev)
++{
++	struct ti_hecc_priv *priv = netdev_priv(ndev);
++	u32 cnt, mbxno, mbx_mask;
++
++	/* put HECC in initialization mode and set btc */
++	ti_hecc_reset(ndev);
++
++	priv->tx_head = priv->tx_tail = HECC_TX_MASK;
++	priv->rx_next = HECC_RX_FIRST_MBOX;
++
++	/* Enable local and global acceptance mask registers */
++	hecc_write(priv, HECC_CANGAM, HECC_SET_REG);
++
++	/* Prepare configured mailboxes to receive messages */
++	for (cnt = 0; cnt < HECC_MAX_RX_MBOX; cnt++) {
++		mbxno = HECC_MAX_MAILBOXES - 1 - cnt;
++		mbx_mask = BIT(mbxno);
++		hecc_clear_bit(priv, HECC_CANME, mbx_mask);
++		hecc_write_mbx(priv, mbxno, HECC_CANMID, HECC_CANMID_AME);
++		hecc_write_lam(priv, mbxno, HECC_SET_REG);
++		hecc_set_bit(priv, HECC_CANMD, mbx_mask);
++		hecc_set_bit(priv, HECC_CANME, mbx_mask);
++		hecc_set_bit(priv, HECC_CANMIM, mbx_mask);
++	}
++
++	/* Prevent message over-write & Enable interrupts */
++	hecc_write(priv, HECC_CANOPC, HECC_SET_REG);
++	if (priv->int_line) {
++		hecc_write(priv, HECC_CANMIL, HECC_SET_REG);
++		hecc_write(priv, HECC_CANGIM, HECC_CANGIM_DEF_MASK |
++			HECC_CANGIM_I1EN | HECC_CANGIM_SIL);
++	} else {
++		hecc_write(priv, HECC_CANMIL, 0);
++		hecc_write(priv, HECC_CANGIM,
++			HECC_CANGIM_DEF_MASK | HECC_CANGIM_I0EN);
++	}
++	priv->can.state = CAN_STATE_ERROR_ACTIVE;
++}
++
++static void ti_hecc_stop(struct net_device *ndev)
++{
++	struct ti_hecc_priv *priv = netdev_priv(ndev);
++
++	/* Disable interrupts and disable mailboxes */
++	hecc_write(priv, HECC_CANGIM, 0);
++	hecc_write(priv, HECC_CANMIM, 0);
++	hecc_write(priv, HECC_CANME, 0);
++	priv->can.state = CAN_STATE_STOPPED;
++}
++
++static int ti_hecc_do_set_mode(struct net_device *ndev, enum can_mode mode)
++{
++	int ret = 0;
++
++	switch (mode) {
++	case CAN_MODE_START:
++		ti_hecc_start(ndev);
++		netif_wake_queue(ndev);
++		break;
++	default:
++		ret = -EOPNOTSUPP;
++		break;
++	}
++
++	return ret;
++}
++
++/*
++ * ti_hecc_xmit: HECC Transmit
++ *
++ * The transmit mailboxes start from 0 to HECC_MAX_TX_MBOX. In HECC the
++ * priority of the mailbox for tranmission is dependent upon priority setting
++ * field in mailbox registers. The mailbox with highest value in priority field
++ * is transmitted first. Only when two mailboxes have the same value in
++ * priority field the highest numbered mailbox is transmitted first.
++ *
++ * To utilize the HECC priority feature as described above we start with the
++ * highest numbered mailbox with highest priority level and move on to the next
++ * mailbox with the same priority level and so on. Once we loop through all the
++ * transmit mailboxes we choose the next priority level (lower) and so on
++ * until we reach the lowest priority level on the lowest numbered mailbox
++ * when we stop transmission until all mailboxes are transmitted and then
++ * restart at highest numbered mailbox with highest priority.
++ *
++ * Two counters (head and tail) are used to track the next mailbox to transmit
++ * and to track the echo buffer for already transmitted mailbox. The queue
++ * is stopped when all the mailboxes are busy or when there is a priority
++ * value roll-over happens.
++ */
++static netdev_tx_t ti_hecc_xmit(struct sk_buff *skb, struct net_device *ndev)
++{
++	struct ti_hecc_priv *priv = netdev_priv(ndev);
++	struct can_frame *cf = (struct can_frame *)skb->data;
++	u32 mbxno, mbx_mask, data;
++	unsigned long flags;
++
++	mbxno = get_tx_head_mb(priv);
++	mbx_mask = BIT(mbxno);
++	spin_lock_irqsave(&priv->mbx_lock, flags);
++	if (unlikely(hecc_read(priv, HECC_CANME) & mbx_mask)) {
++		spin_unlock_irqrestore(&priv->mbx_lock, flags);
++		netif_stop_queue(ndev);
++		dev_err(priv->ndev->dev.parent,
++			"BUG: TX mbx not ready tx_head=%08X, tx_tail=%08X\n",
++			priv->tx_head, priv->tx_tail);
++		return NETDEV_TX_BUSY;
++	}
++	spin_unlock_irqrestore(&priv->mbx_lock, flags);
++
++	/* Prepare mailbox for transmission */
++	data = min_t(u8, cf->can_dlc, 8);
++	if (cf->can_id & CAN_RTR_FLAG) /* Remote transmission request */
++		data |= HECC_CANMCF_RTR;
++	data |= get_tx_head_prio(priv) << 8;
++	hecc_write_mbx(priv, mbxno, HECC_CANMCF, data);
++
++	if (cf->can_id & CAN_EFF_FLAG) /* Extended frame format */
++		data = (cf->can_id & CAN_EFF_MASK) | HECC_CANMID_IDE;
++	else /* Standard frame format */
++		data = (cf->can_id & CAN_SFF_MASK) << 18;
++	hecc_write_mbx(priv, mbxno, HECC_CANMID, data);
++	hecc_write_mbx(priv, mbxno, HECC_CANMDL,
++		be32_to_cpu(*(u32 *)(cf->data)));
++	if (cf->can_dlc > 4) {
++		hecc_write_mbx(priv, mbxno, HECC_CANMDH,
++			be32_to_cpu(*(u32 *)(cf->data + 4)));
++	} else {
++		*(u32 *)(cf->data + 4) = 0;
++	}
++	can_put_echo_skb(skb, ndev, mbxno);
++
++	spin_lock_irqsave(&priv->mbx_lock, flags);
++	--priv->tx_head;
++	if ((hecc_read(priv, HECC_CANME) & BIT(get_tx_head_mb(priv))) ||
++		(priv->tx_head & HECC_TX_MASK) == HECC_TX_MASK) {
++		netif_stop_queue(ndev);
++	}
++	hecc_set_bit(priv, HECC_CANME, mbx_mask);
++	spin_unlock_irqrestore(&priv->mbx_lock, flags);
++
++	hecc_clear_bit(priv, HECC_CANMD, mbx_mask);
++	hecc_set_bit(priv, HECC_CANMIM, mbx_mask);
++	hecc_write(priv, HECC_CANTRS, mbx_mask);
++
++	return NETDEV_TX_OK;
++}
++
++static int ti_hecc_rx_pkt(struct ti_hecc_priv *priv, int mbxno)
++{
++	struct net_device_stats *stats = &priv->ndev->stats;
++	struct can_frame *cf;
++	struct sk_buff *skb;
++	u32 data, mbx_mask;
++	unsigned long flags;
++
++	skb = netdev_alloc_skb(priv->ndev, sizeof(struct can_frame));
++	if (!skb) {
++		if (printk_ratelimit())
++			dev_err(priv->ndev->dev.parent,
++				"ti_hecc_rx_pkt: netdev_alloc_skb() failed\n");
++		return -ENOMEM;
++	}
++	skb->protocol = htons(ETH_P_CAN);
++	skb->ip_summed = CHECKSUM_UNNECESSARY;
++
++	mbx_mask = BIT(mbxno);
++	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
++	data = hecc_read_mbx(priv, mbxno, HECC_CANMID);
++	if (data & HECC_CANMID_IDE)
++		cf->can_id = (data & CAN_EFF_MASK) | CAN_EFF_FLAG;
++	else
++		cf->can_id = (data >> 18) & CAN_SFF_MASK;
++	data = hecc_read_mbx(priv, mbxno, HECC_CANMCF);
++	if (data & HECC_CANMCF_RTR)
++		cf->can_id |= CAN_RTR_FLAG;
++	cf->can_dlc = data & 0xF;
++	data = hecc_read_mbx(priv, mbxno, HECC_CANMDL);
++	*(u32 *)(cf->data) = cpu_to_be32(data);
++	if (cf->can_dlc > 4) {
++		data = hecc_read_mbx(priv, mbxno, HECC_CANMDH);
++		*(u32 *)(cf->data + 4) = cpu_to_be32(data);
++	} else {
++		*(u32 *)(cf->data + 4) = 0;
++	}
++	spin_lock_irqsave(&priv->mbx_lock, flags);
++	hecc_clear_bit(priv, HECC_CANME, mbx_mask);
++	hecc_write(priv, HECC_CANRMP, mbx_mask);
++	/* enable mailbox only if it is part of rx buffer mailboxes */
++	if (priv->rx_next < HECC_RX_BUFFER_MBOX)
++		hecc_set_bit(priv, HECC_CANME, mbx_mask);
++	spin_unlock_irqrestore(&priv->mbx_lock, flags);
++
++	stats->rx_bytes += cf->can_dlc;
++	netif_receive_skb(skb);
++	stats->rx_packets++;
++
++	return 0;
++}
++
++/*
++ * ti_hecc_rx_poll - HECC receive pkts
++ *
++ * The receive mailboxes start from highest numbered mailbox till last xmit
++ * mailbox. On CAN frame reception the hardware places the data into highest
++ * numbered mailbox that matches the CAN ID filter. Since all receive mailboxes
++ * have same filtering (ALL CAN frames) packets will arrive in the highest
++ * available RX mailbox and we need to ensure in-order packet reception.
++ *
++ * To ensure the packets are received in the right order we logically divide
++ * the RX mailboxes into main and buffer mailboxes. Packets are received as per
++ * mailbox priotity (higher to lower) in the main bank and once it is full we
++ * disable further reception into main mailboxes. While the main mailboxes are
++ * processed in NAPI, further packets are received in buffer mailboxes.
++ *
++ * We maintain a RX next mailbox counter to process packets and once all main
++ * mailboxe packets are passed to the upper stack we enable all of them but
++ * continue to process packets received in buffer mailboxes. With each packet
++ * received from buffer mailbox we enable it immediately so as to handle the
++ * overflow from higher mailboxes.
++ */
++static int ti_hecc_rx_poll(struct napi_struct *napi, int quota)
++{
++	struct net_device *ndev = napi->dev;
++	struct ti_hecc_priv *priv = netdev_priv(ndev);
++	u32 num_pkts = 0;
++	u32 mbx_mask;
++	unsigned long pending_pkts, flags;
++
++	if (!netif_running(ndev))
++		return 0;
++
++	while ((pending_pkts = hecc_read(priv, HECC_CANRMP)) &&
++		num_pkts < quota) {
++		mbx_mask = BIT(priv->rx_next); /* next rx mailbox to process */
++		if (mbx_mask & pending_pkts) {
++			if (ti_hecc_rx_pkt(priv, priv->rx_next) < 0)
++				return num_pkts;
++			++num_pkts;
++		} else if (priv->rx_next > HECC_RX_BUFFER_MBOX) {
++			break; /* pkt not received yet */
++		}
++		--priv->rx_next;
++		if (priv->rx_next == HECC_RX_BUFFER_MBOX) {
++			/* enable high bank mailboxes */
++			spin_lock_irqsave(&priv->mbx_lock, flags);
++			mbx_mask = hecc_read(priv, HECC_CANME);
++			mbx_mask |= HECC_RX_HIGH_MBOX_MASK;
++			hecc_write(priv, HECC_CANME, mbx_mask);
++			spin_unlock_irqrestore(&priv->mbx_lock, flags);
++		} else if (priv->rx_next == HECC_MAX_TX_MBOX - 1) {
++				priv->rx_next = HECC_RX_FIRST_MBOX;
++				break;
++		}
++	}
++
++	/* Enable packet interrupt if all pkts are handled */
++	if (hecc_read(priv, HECC_CANRMP) == 0) {
++		napi_complete(napi);
++		/* Re-enable RX mailbox interrupts */
++		mbx_mask = hecc_read(priv, HECC_CANMIM);
++		mbx_mask |= HECC_TX_MBOX_MASK;
++		hecc_write(priv, HECC_CANMIM, mbx_mask);
++	}
++
++	return num_pkts;
++}
++
++static int ti_hecc_error(struct net_device *ndev, int int_status,
++	int err_status)
++{
++	struct ti_hecc_priv *priv = netdev_priv(ndev);
++	struct net_device_stats *stats = &ndev->stats;
++	struct can_frame *cf;
++	struct sk_buff *skb;
++
++	/* propogate the error condition to the can stack */
++	skb = netdev_alloc_skb(ndev, sizeof(struct can_frame));
++	if (!skb) {
++		if (printk_ratelimit())
++			dev_err(priv->ndev->dev.parent,
++				"ti_hecc_error: netdev_alloc_skb() failed\n");
++		return -ENOMEM;
++	}
++	skb->protocol = htons(ETH_P_CAN);
++	skb->ip_summed = CHECKSUM_UNNECESSARY;
++	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
++	memset(cf, 0, sizeof(struct can_frame));
++	cf->can_id = CAN_ERR_FLAG;
++	cf->can_dlc = CAN_ERR_DLC;
++
++	if (int_status & HECC_CANGIF_WLIF) { /* warning level int */
++		if ((int_status & HECC_CANGIF_BOIF) == 0) {
++			priv->can.state = CAN_STATE_ERROR_WARNING;
++			++priv->can.can_stats.error_warning;
++			cf->can_id |= CAN_ERR_CRTL;
++			if (hecc_read(priv, HECC_CANTEC) > 96)
++				cf->data[1] |= CAN_ERR_CRTL_TX_WARNING;
++			if (hecc_read(priv, HECC_CANREC) > 96)
++				cf->data[1] |= CAN_ERR_CRTL_RX_WARNING;
++		}
++		hecc_set_bit(priv, HECC_CANES, HECC_CANES_EW);
++		dev_dbg(priv->ndev->dev.parent, "Error Warning interrupt\n");
++		hecc_clear_bit(priv, HECC_CANMC, HECC_CANMC_CCR);
++	}
++
++	if (int_status & HECC_CANGIF_EPIF) { /* error passive int */
++		if ((int_status & HECC_CANGIF_BOIF) == 0) {
++			priv->can.state = CAN_STATE_ERROR_PASSIVE;
++			++priv->can.can_stats.error_passive;
++			cf->can_id |= CAN_ERR_CRTL;
++			if (hecc_read(priv, HECC_CANTEC) > 127)
++				cf->data[1] |= CAN_ERR_CRTL_TX_PASSIVE;
++			if (hecc_read(priv, HECC_CANREC) > 127)
++				cf->data[1] |= CAN_ERR_CRTL_RX_PASSIVE;
++		}
++		hecc_set_bit(priv, HECC_CANES, HECC_CANES_EP);
++		dev_dbg(priv->ndev->dev.parent, "Error passive interrupt\n");
++		hecc_clear_bit(priv, HECC_CANMC, HECC_CANMC_CCR);
++	}
++
++	/*
++	 * Need to check busoff condition in error status register too to
++	 * ensure warning interrupts don't hog the system
++	 */
++	if ((int_status & HECC_CANGIF_BOIF) || (err_status & HECC_CANES_BO)) {
++		priv->can.state = CAN_STATE_BUS_OFF;
++		cf->can_id |= CAN_ERR_BUSOFF;
++		hecc_set_bit(priv, HECC_CANES, HECC_CANES_BO);
++		hecc_clear_bit(priv, HECC_CANMC, HECC_CANMC_CCR);
++		/* Disable all interrupts in bus-off to avoid int hog */
++		hecc_write(priv, HECC_CANGIM, 0);
++		can_bus_off(ndev);
++	}
++
++	if (err_status & HECC_BUS_ERROR) {
++		++priv->can.can_stats.bus_error;
++		cf->can_id |= CAN_ERR_BUSERROR | CAN_ERR_PROT;
++		cf->data[2] |= CAN_ERR_PROT_UNSPEC;
++		if (err_status & HECC_CANES_FE) {
++			hecc_set_bit(priv, HECC_CANES, HECC_CANES_FE);
++			cf->data[2] |= CAN_ERR_PROT_FORM;
++		}
++		if (err_status & HECC_CANES_BE) {
++			hecc_set_bit(priv, HECC_CANES, HECC_CANES_BE);
++			cf->data[2] |= CAN_ERR_PROT_BIT;
++		}
++		if (err_status & HECC_CANES_SE) {
++			hecc_set_bit(priv, HECC_CANES, HECC_CANES_SE);
++			cf->data[2] |= CAN_ERR_PROT_STUFF;
++		}
++		if (err_status & HECC_CANES_CRCE) {
++			hecc_set_bit(priv, HECC_CANES, HECC_CANES_CRCE);
++			cf->data[2] |= CAN_ERR_PROT_LOC_CRC_SEQ |
++					CAN_ERR_PROT_LOC_CRC_DEL;
++		}
++		if (err_status & HECC_CANES_ACKE) {
++			hecc_set_bit(priv, HECC_CANES, HECC_CANES_ACKE);
++			cf->data[2] |= CAN_ERR_PROT_LOC_ACK |
++					CAN_ERR_PROT_LOC_ACK_DEL;
++		}
++	}
++
++	netif_receive_skb(skb);
++	stats->rx_packets++;
++	stats->rx_bytes += cf->can_dlc;
++	return 0;
++}
++
++static irqreturn_t ti_hecc_interrupt(int irq, void *dev_id)
++{
++	struct net_device *ndev = (struct net_device *)dev_id;
++	struct ti_hecc_priv *priv = netdev_priv(ndev);
++	struct net_device_stats *stats = &ndev->stats;
++	u32 mbxno, mbx_mask, int_status, err_status;
++	unsigned long ack, flags;
++
++	int_status = hecc_read(priv,
++		(priv->int_line) ? HECC_CANGIF1 : HECC_CANGIF0);
++
++	if (!int_status)
++		return IRQ_NONE;
++
++	err_status = hecc_read(priv, HECC_CANES);
++	if (err_status & (HECC_BUS_ERROR | HECC_CANES_BO |
++		HECC_CANES_EP | HECC_CANES_EW))
++			ti_hecc_error(ndev, int_status, err_status);
++
++	if (int_status & HECC_CANGIF_GMIF) {
++		while (priv->tx_tail - priv->tx_head > 0) {
++			mbxno = get_tx_tail_mb(priv);
++			mbx_mask = BIT(mbxno);
++			if (!(mbx_mask & hecc_read(priv, HECC_CANTA)))
++				break;
++			hecc_clear_bit(priv, HECC_CANMIM, mbx_mask);
++			hecc_write(priv, HECC_CANTA, mbx_mask);
++			spin_lock_irqsave(&priv->mbx_lock, flags);
++			hecc_clear_bit(priv, HECC_CANME, mbx_mask);
++			spin_unlock_irqrestore(&priv->mbx_lock, flags);
++			stats->tx_bytes += hecc_read_mbx(priv, mbxno,
++						HECC_CANMCF) & 0xF;
++			stats->tx_packets++;
++			can_get_echo_skb(ndev, mbxno);
++			--priv->tx_tail;
++		}
++
++		/* restart queue if wrap-up or if queue stalled on last pkt */
++		if (((priv->tx_head == priv->tx_tail) &&
++		((priv->tx_head & HECC_TX_MASK) != HECC_TX_MASK)) ||
++		(((priv->tx_tail & HECC_TX_MASK) == HECC_TX_MASK) &&
++		((priv->tx_head & HECC_TX_MASK) == HECC_TX_MASK)))
++			netif_wake_queue(ndev);
++
++		/* Disable RX mailbox interrupts and let NAPI reenable them */
++		if (hecc_read(priv, HECC_CANRMP)) {
++			ack = hecc_read(priv, HECC_CANMIM);
++			ack &= BIT(HECC_MAX_TX_MBOX) - 1;
++			hecc_write(priv, HECC_CANMIM, ack);
++			napi_schedule(&priv->napi);
++		}
++	}
++
++	/* clear all interrupt conditions - read back to avoid spurious ints */
++	if (priv->int_line) {
++		hecc_write(priv, HECC_CANGIF1, HECC_SET_REG);
++		int_status = hecc_read(priv, HECC_CANGIF1);
++	} else {
++		hecc_write(priv, HECC_CANGIF0, HECC_SET_REG);
++		int_status = hecc_read(priv, HECC_CANGIF0);
++	}
++
++	return IRQ_HANDLED;
++}
++
++static int ti_hecc_open(struct net_device *ndev)
++{
++	struct ti_hecc_priv *priv = netdev_priv(ndev);
++	int err;
++
++	err = request_irq(ndev->irq, ti_hecc_interrupt, IRQF_SHARED,
++			ndev->name, ndev);
++	if (err) {
++		dev_err(ndev->dev.parent, "error requesting interrupt\n");
++		return err;
++	}
++
++	/* Open common can device */
++	err = open_candev(ndev);
++	if (err) {
++		dev_err(ndev->dev.parent, "open_candev() failed %d\n", err);
++		free_irq(ndev->irq, ndev);
++		return err;
++	}
++
++	clk_enable(priv->clk);
++	ti_hecc_start(ndev);
++	napi_enable(&priv->napi);
++	netif_start_queue(ndev);
++
++	return 0;
++}
++
++static int ti_hecc_close(struct net_device *ndev)
++{
++	struct ti_hecc_priv *priv = netdev_priv(ndev);
++
++	netif_stop_queue(ndev);
++	napi_disable(&priv->napi);
++	ti_hecc_stop(ndev);
++	free_irq(ndev->irq, ndev);
++	clk_disable(priv->clk);
++	close_candev(ndev);
++
++	return 0;
++}
++
++static const struct net_device_ops ti_hecc_netdev_ops = {
++	.ndo_open		= ti_hecc_open,
++	.ndo_stop		= ti_hecc_close,
++	.ndo_start_xmit		= ti_hecc_xmit,
++};
++
++static int ti_hecc_probe(struct platform_device *pdev)
++{
++	struct net_device *ndev = (struct net_device *)0;
++	struct ti_hecc_priv *priv;
++	struct ti_hecc_platform_data *pdata;
++	struct resource *mem, *irq;
++	void __iomem *addr;
++	int err = -ENODEV;
++
++	pdata = pdev->dev.platform_data;
++	if (!pdata) {
++		dev_err(&pdev->dev, "No platform data\n");
++		goto probe_exit;
++	}
++
++	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (!mem) {
++		dev_err(&pdev->dev, "No mem resources\n");
++		goto probe_exit;
++	}
++	irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
++	if (!irq) {
++		dev_err(&pdev->dev, "No irq resource\n");
++		goto probe_exit;
++	}
++	if (!request_mem_region(mem->start, resource_size(mem), pdev->name)) {
++		dev_err(&pdev->dev, "HECC region already claimed\n");
++		err = -EBUSY;
++		goto probe_exit;
++	}
++	addr = ioremap(mem->start, resource_size(mem));
++	if (!addr) {
++		dev_err(&pdev->dev, "ioremap failed\n");
++		err = -ENOMEM;
++		goto probe_exit_free_region;
++	}
++
++	ndev = alloc_candev(sizeof(struct ti_hecc_priv));
++	if (!ndev) {
++		dev_err(&pdev->dev, "alloc_candev failed\n");
++		err = -ENOMEM;
++		goto probe_exit_iounmap;
++	}
++
++	priv = netdev_priv(ndev);
++	priv->ndev = ndev;
++	priv->base = addr;
++	priv->scc_ram_offset = pdata->scc_ram_offset;
++	priv->hecc_ram_offset = pdata->hecc_ram_offset;
++	priv->mbx_offset = pdata->mbx_offset;
++	priv->int_line = pdata->int_line;
++
++	priv->can.bittiming_const = &ti_hecc_bittiming_const;
++	priv->can.do_set_mode = ti_hecc_do_set_mode;
++	priv->can.do_get_state = ti_hecc_get_state;
++
++	ndev->irq = irq->start;
++	ndev->flags |= IFF_ECHO;
++	platform_set_drvdata(pdev, ndev);
++	SET_NETDEV_DEV(ndev, &pdev->dev);
++	ndev->netdev_ops = &ti_hecc_netdev_ops;
++
++	priv->clk = clk_get(&pdev->dev, "hecc_ck");
++	if (IS_ERR(priv->clk)) {
++		dev_err(&pdev->dev, "No clock available\n");
++		err = PTR_ERR(priv->clk);
++		priv->clk = NULL;
++		goto probe_exit_candev;
++	}
++	priv->can.clock.freq = clk_get_rate(priv->clk);
++	netif_napi_add(ndev, &priv->napi, ti_hecc_rx_poll,
++		HECC_DEF_NAPI_WEIGHT);
++
++	err = register_candev(ndev);
++	if (err) {
++		dev_err(&pdev->dev, "register_candev() failed\n");
++		goto probe_exit_clk;
++	}
++	dev_info(&pdev->dev, "device registered (reg_base=%p, irq=%u)\n",
++		priv->base, (u32) ndev->irq);
++
++	return 0;
++
++probe_exit_clk:
++	clk_put(priv->clk);
++probe_exit_candev:
++	free_candev(ndev);
++probe_exit_iounmap:
++	iounmap(addr);
++probe_exit_free_region:
++	release_mem_region(mem->start, resource_size(mem));
++probe_exit:
++	return err;
++}
++
++static int __devexit ti_hecc_remove(struct platform_device *pdev)
++{
++	struct resource *res;
++	struct net_device *ndev = platform_get_drvdata(pdev);
++	struct ti_hecc_priv *priv = netdev_priv(ndev);
++
++	clk_put(priv->clk);
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	iounmap(priv->base);
++	release_mem_region(res->start, resource_size(res));
++	unregister_candev(ndev);
++	free_candev(ndev);
++	platform_set_drvdata(pdev, NULL);
++
++	return 0;
++}
++
++/* TI HECC netdevice driver: platform driver structure */
++static struct platform_driver ti_hecc_driver = {
++	.driver = {
++		.name    = DRV_NAME,
++		.owner   = THIS_MODULE,
++	},
++	.probe = ti_hecc_probe,
++	.remove = __devexit_p(ti_hecc_remove),
++};
++
++static int __init ti_hecc_init_driver(void)
++{
++	printk(KERN_INFO DRV_DESC "\n");
++	return platform_driver_register(&ti_hecc_driver);
++}
++module_init(ti_hecc_init_driver);
++
++static void __exit ti_hecc_exit_driver(void)
++{
++	printk(KERN_INFO DRV_DESC " unloaded\n");
++	platform_driver_unregister(&ti_hecc_driver);
++}
++module_exit(ti_hecc_exit_driver);
++
++MODULE_AUTHOR("Anant Gole <anantgole-l0cyMroinI0@public.gmane.org>");
++MODULE_LICENSE("GPL v2");
++MODULE_DESCRIPTION(DRV_DESC);
+diff --git a/include/linux/can/platform/ti_hecc.h b/include/linux/can/platform/ti_hecc.h
+new file mode 100644
+index 0000000..4688c7b
+--- /dev/null
++++ b/include/linux/can/platform/ti_hecc.h
+@@ -0,0 +1,40 @@
++/*
++ * TI HECC (High End CAN Controller) driver platform header
++ *
++ * Copyright (C) 2009 Texas Instruments Incorporated - http://www.ti.com/
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation version 2.
++ *
++ * This program is distributed as is WITHOUT ANY WARRANTY of any
++ * kind, whether express or implied; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ */
++
++/**
++ * struct hecc_platform_data - HECC Platform Data
++ *
++ * @scc_hecc_offset:	mostly 0 - should really never change
++ * @scc_ram_offset:	SCC RAM offset
++ * @hecc_ram_offset:	HECC RAM offset
++ * @mbx_offset:		Mailbox RAM offset
++ * @int_line:		Interrupt line to use - 0 or 1
++ * @version:		version for future use
++ *
++ * Platform data structure to get all platform specific settings.
++ * this structure also accounts the fact that the IP may have different
++ * RAM and mailbox offsets for different SOC's
++ */
++struct ti_hecc_platform_data {
++	u32 scc_hecc_offset;
++	u32 scc_ram_offset;
++	u32 hecc_ram_offset;
++	u32 mbx_offset;
++	u32 int_line;
++	u32 version;
++};
++
++
 -- 
-Simon Farnsworth
-
+1.6.2.4
