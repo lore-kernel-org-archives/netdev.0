@@ -1,95 +1,82 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: Re: [PATCH] Wireless / ath5k: Simplify suspend and
-	resume callbacks
-Date: Mon, 5 Oct 2009 21:40:47 +0200
-Message-ID: <200910052140.47372.rjw@sisk.pl>
-References: <200910050052.09085.rjw@sisk.pl>
-	<43e72e890910050921q7f516c67ofe17603d6d873c4@mail.gmail.com>
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [PATCH] dcb: data center bridging ops should be
+	r/o
+Date: Mon, 05 Oct 2009 13:08:18 -0700
+Message-ID: <1254773298.2667.27.camel@localhost.localdomain>
+References: <20091005090103.0340ef29@s6510>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org, "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	pm list <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-To: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
-In-Reply-To: <43e72e890910050921q7f516c67ofe17603d6d873c4-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
-	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ath5k.org/pipermail/ath5k-devel>
-List-Post: <mailto:ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
-List-Help: <mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
-	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=subscribe>
-Sender: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
-Errors-To: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
+	David Miller <davem@davemloft.net>, "Kirsher,
+	Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@gmail.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20091005090103.0340ef29@s6510>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Monday 05 October 2009, Luis R. Rodriguez wrote:
-> On Sun, Oct 4, 2009 at 10:52 PM, Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org> wrote:
-> > From: Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>
-> >
-> > Simplify the suspend and resume callbacks of ath5k by converting the
-> > driver to struct dev_pm_ops and allowing the PCI PM core to do the
-> > PCI-specific suspend/resume handling.
-> >
-> > Signed-off-by: Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>
+On Mon, 2009-10-05 at 09:01 -0700, Stephen Hemminger wrote:
+> The data center bridging ops structure can be const
 > 
-> Do you happen to know if the new dev_pm_ops thing handle WOL / WoW [1]?
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 > 
-> [1] http://wireless.kernel.org/en/users/Documentation/WoW
 
-It does enable wake-up at the PCI level if so configured, so in principle it
-should handle it.  However, for WoL to work there are some things that the
-drivers is reponsible for, so I guess it will be analogous for WoW.
+Thanks Stephen, that was an oversight.
 
-Anyway, the PCI-specific mechanics is there.
+Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 
-> >  #ifdef CONFIG_PM
-> > -static int
-> > -ath5k_pci_suspend(struct pci_dev *pdev, pm_message_t state)
-> > +static int ath5k_pci_suspend(struct device *dev)
-> >  {
-> > -       struct ieee80211_hw *hw = pci_get_drvdata(pdev);
-> > +       struct ieee80211_hw *hw = pci_get_drvdata(to_pci_dev(dev));
-> >        struct ath5k_softc *sc = hw->priv;
-> >
-> >        ath5k_led_off(sc);
-> > -
-> > -       pci_save_state(pdev);
-> > -       pci_disable_device(pdev);
-> 
-> For WoW right here we'd do
-> 
-> pci_prepare_to_sleep(pdev) and bail out.
-> 
-> > -       pci_set_power_state(pdev, PCI_D3hot);
-> 
-> And here we'd call something like this:
-> 
-> pci_wake_from_d3(pdev, !!sc->wow_triggers_enabled);
+> --- a/drivers/net/ixgbe/ixgbe.h	2009-10-03 21:40:25.712809970 -0700
+> +++ b/drivers/net/ixgbe/ixgbe.h	2009-10-03 21:40:33.490342038 -0700
+> @@ -397,7 +397,7 @@ enum ixgbe_boards {
+>  extern struct ixgbe_info ixgbe_82598_info;
+>  extern struct ixgbe_info ixgbe_82599_info;
+>  #ifdef CONFIG_IXGBE_DCB
+> -extern struct dcbnl_rtnl_ops dcbnl_ops;
+> +extern const struct dcbnl_rtnl_ops dcbnl_ops;
+>  extern int ixgbe_copy_dcb_cfg(struct ixgbe_dcb_config *src_dcb_cfg,
+>                                struct ixgbe_dcb_config *dst_dcb_cfg,
+>                                int tc_max);
+> --- a/drivers/net/ixgbe/ixgbe_dcb_nl.c	2009-10-03 21:39:54.710299317 -0700
+> +++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c	2009-10-03 21:40:05.990317034 -0700
+> @@ -563,7 +563,7 @@ static u8 ixgbe_dcbnl_setapp(struct net_
+>  	return rval;
+>  }
+>  
+> -struct dcbnl_rtnl_ops dcbnl_ops = {
+> +const struct dcbnl_rtnl_ops dcbnl_ops = {
+>  	.getstate	= ixgbe_dcbnl_get_state,
+>  	.setstate	= ixgbe_dcbnl_set_state,
+>  	.getpermhwaddr	= ixgbe_dcbnl_get_perm_hw_addr,
+> --- a/include/linux/netdevice.h	2009-10-03 21:40:52.730300256 -0700
+> +++ b/include/linux/netdevice.h	2009-10-03 21:41:10.362812001 -0700
+> @@ -909,7 +909,7 @@ struct net_device
+>  
+>  #ifdef CONFIG_DCB
+>  	/* Data Center Bridging netlink ops */
+> -	struct dcbnl_rtnl_ops *dcbnl_ops;
+> +	const struct dcbnl_rtnl_ops *dcbnl_ops;
+>  #endif
+>  
+>  #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-All of this is unnecessary, the PCI PM core should take care of this just
-fine.  In case it doesn't, it has to be fixed.
 
-> > -
-> >        return 0;
-> >  }
-> 
-> Are all drivers being converted?
-
-Generally, yes, but that's not a priority work for me.  I've just happened to
-have the patch ready, so here it goes.
-
-They should be converted, though, to be able to support PCI run-time PM.
-
-> It'll be a while before we get WoW enabled on ath5k but it is
-> technically possible, the work was tested for ath9k back in July [2]
-> but I never submitted this to be merged due to some inconsistent
-> issues I was noticing with the hardware.
-> 
-> [2] http://kernel.org/pub/linux/kernel/people/mcgrof/patches/wow-07-21.patch
-
-Thanks,
-Rafael
+------------------------------------------------------------------------------
+Come build with us! The BlackBerry&reg; Developer Conference in SF, CA
+is the only developer event you need to attend this year. Jumpstart your
+developing skills, take BlackBerry mobile applications to market and stay 
+ahead of the curve. Join us from November 9&#45;12, 2009. Register now&#33;
+http://p.sf.net/sfu/devconf
