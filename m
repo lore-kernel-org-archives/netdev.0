@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 02/15] igb: update comments for serdes config and
-	update to handle duplex
-Date: Mon, 05 Oct 2009 09:31:47 -0700
-Message-ID: <20091005163146.32487.7079.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 03/15] igb: update the approach taken to
+	acquiring and releasing the phy lock
+Date: Mon, 05 Oct 2009 09:32:07 -0700
+Message-ID: <20091005163206.32487.22702.stgit@localhost.localdomain>
 References: <20091005163058.32487.10125.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,153 +12,56 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:48572 "EHLO
-	QMTA06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753956AbZJEQd6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 12:33:58 -0400
+Received: from qmta08.emeryville.ca.mail.comcast.net ([76.96.30.80]:38008 "EHLO
+	QMTA08.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753907AbZJEQeR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 12:34:17 -0400
 In-Reply-To: <20091005163058.32487.10125.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This update corrects the driver so that it handles duplex for serdes links
-correctly instead of just forcing full duplex always.
+The current approach is just using a ?: type mechanism to set the phy
+locking bit.  This if fine for now but limits us to only 2.  Switch to a
+nested if statement for future compatiblity with more than 2 phys.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/e1000_82575.c |   55 ++++++++++++++++++++++++++++-------------
- drivers/net/igb/e1000_82575.h |    1 +
- drivers/net/igb/e1000_hw.h    |    1 +
- 3 files changed, 40 insertions(+), 17 deletions(-)
+ drivers/net/igb/e1000_82575.c |   11 +++++++----
+ 1 files changed, 7 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
-index b60daf4..5604b3e 100644
+index 5604b3e..65b9000 100644
 --- a/drivers/net/igb/e1000_82575.c
 +++ b/drivers/net/igb/e1000_82575.c
-@@ -706,9 +706,7 @@ static s32 igb_check_for_link_82575(struct e1000_hw *hw)
- 	s32 ret_val;
- 	u16 speed, duplex;
- 
--	/* SGMII link check is done through the PCS register. */
--	if ((hw->phy.media_type != e1000_media_type_copper) ||
--	    (igb_sgmii_active_82575(hw))) {
-+	if (hw->phy.media_type != e1000_media_type_copper) {
- 		ret_val = igb_get_pcs_speed_and_duplex_82575(hw, &speed,
- 		                                             &duplex);
- 		/*
-@@ -723,6 +721,7 @@ static s32 igb_check_for_link_82575(struct e1000_hw *hw)
- 
- 	return ret_val;
- }
-+
- /**
-  *  igb_get_pcs_speed_and_duplex_82575 - Retrieve current speed/duplex
-  *  @hw: pointer to the HW structure
-@@ -788,13 +787,23 @@ static s32 igb_get_pcs_speed_and_duplex_82575(struct e1000_hw *hw, u16 *speed,
- void igb_shutdown_serdes_link_82575(struct e1000_hw *hw)
- {
- 	u32 reg;
-+	u16 eeprom_data = 0;
- 
- 	if (hw->phy.media_type != e1000_media_type_internal_serdes ||
- 	    igb_sgmii_active_82575(hw))
- 		return;
- 
--	/* if the management interface is not enabled, then power down */
--	if (!igb_enable_mng_pass_thru(hw)) {
-+	if (hw->bus.func == E1000_FUNC_0)
-+		hw->nvm.ops.read(hw, NVM_INIT_CONTROL3_PORT_A, 1, &eeprom_data);
-+	else if (hw->bus.func == E1000_FUNC_1)
-+		hw->nvm.ops.read(hw, NVM_INIT_CONTROL3_PORT_B, 1, &eeprom_data);
-+
-+	/*
-+	 * If APM is not enabled in the EEPROM and management interface is
-+	 * not enabled, then power down.
-+	 */
-+	if (!(eeprom_data & E1000_NVM_APME_82575) &&
-+	    !igb_enable_mng_pass_thru(hw)) {
- 		/* Disable PCS to turn off link */
- 		reg = rd32(E1000_PCS_CFG0);
- 		reg &= ~E1000_PCS_CFG_PCS_EN;
-@@ -1010,10 +1019,13 @@ out:
- }
- 
- /**
-- *  igb_setup_serdes_link_82575 - Setup link for fiber/serdes
-+ *  igb_setup_serdes_link_82575 - Setup link for serdes
-  *  @hw: pointer to the HW structure
-  *
-- *  Configures speed and duplex for fiber and serdes links.
-+ *  Configure the physical coding sub-layer (PCS) link.  The PCS link is
-+ *  used on copper connections where the serialized gigabit media independent
-+ *  interface (sgmii), or serdes fiber is being used.  Configures the link
-+ *  for auto-negotiation or forces speed/duplex.
+@@ -240,9 +240,10 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
   **/
- static s32 igb_setup_serdes_link_82575(struct e1000_hw *hw)
+ static s32 igb_acquire_phy_82575(struct e1000_hw *hw)
  {
-@@ -1086,18 +1098,27 @@ static s32 igb_setup_serdes_link_82575(struct e1000_hw *hw)
- 	 */
- 	if (hw->mac.autoneg || igb_sgmii_active_82575(hw)) {
- 		/* Set PCS register for autoneg */
--		reg |= E1000_PCS_LCTL_FSV_1000 |      /* Force 1000    */
--		       E1000_PCS_LCTL_FDV_FULL |      /* SerDes Full duplex */
--		       E1000_PCS_LCTL_AN_ENABLE |     /* Enable Autoneg */
--		       E1000_PCS_LCTL_AN_RESTART;     /* Restart autoneg */
-+		reg |= E1000_PCS_LCTL_FSV_1000 |  /* Force 1000 */
-+		       E1000_PCS_LCTL_FDV_FULL |  /* SerDes Full dplx */
-+		       E1000_PCS_LCTL_AN_ENABLE | /* Enable Autoneg */
-+		       E1000_PCS_LCTL_AN_RESTART; /* Restart autoneg */
- 		hw_dbg("Configuring Autoneg; PCS_LCTL = 0x%08X\n", reg);
- 	} else {
--		/* Set PCS register for forced speed */
--		reg |= E1000_PCS_LCTL_FLV_LINK_UP |   /* Force link up */
--		       E1000_PCS_LCTL_FSV_1000 |      /* Force 1000    */
--		       E1000_PCS_LCTL_FDV_FULL |      /* SerDes Full duplex */
--		       E1000_PCS_LCTL_FSD |           /* Force Speed */
--		       E1000_PCS_LCTL_FORCE_LINK;     /* Force Link */
-+		/* Check for duplex first */
-+		if (hw->mac.forced_speed_duplex & E1000_ALL_FULL_DUPLEX)
-+			reg |= E1000_PCS_LCTL_FDV_FULL;
+-	u16 mask;
++	u16 mask = E1000_SWFW_PHY0_SM;
+ 
+-	mask = hw->bus.func ? E1000_SWFW_PHY1_SM : E1000_SWFW_PHY0_SM;
++	if (hw->bus.func == E1000_FUNC_1)
++		mask = E1000_SWFW_PHY1_SM;
+ 
+ 	return igb_acquire_swfw_sync_82575(hw, mask);
+ }
+@@ -256,9 +257,11 @@ static s32 igb_acquire_phy_82575(struct e1000_hw *hw)
+  **/
+ static void igb_release_phy_82575(struct e1000_hw *hw)
+ {
+-	u16 mask;
++	u16 mask = E1000_SWFW_PHY0_SM;
 +
-+		/* No need to check for 1000/full since the spec states that
-+		 * it requires autoneg to be enabled */
-+		/* Now set speed */
-+		if (hw->mac.forced_speed_duplex & E1000_ALL_100_SPEED)
-+			reg |= E1000_PCS_LCTL_FSV_100;
-+
-+		/* Force speed and force link */
-+		reg |= E1000_PCS_LCTL_FSD |
-+		       E1000_PCS_LCTL_FORCE_LINK |
-+		       E1000_PCS_LCTL_FLV_LINK_UP;
-+
- 		hw_dbg("Configuring Forced Link; PCS_LCTL = 0x%08X\n", reg);
- 	}
++	if (hw->bus.func == E1000_FUNC_1)
++		mask = E1000_SWFW_PHY1_SM;
  
-diff --git a/drivers/net/igb/e1000_82575.h b/drivers/net/igb/e1000_82575.h
-index ebd146f..7be3a0b 100644
---- a/drivers/net/igb/e1000_82575.h
-+++ b/drivers/net/igb/e1000_82575.h
-@@ -167,6 +167,7 @@ struct e1000_adv_tx_context_desc {
- #define E1000_DCA_TXCTRL_CPUID_SHIFT 24 /* Tx CPUID now in the last byte */
- #define E1000_DCA_RXCTRL_CPUID_SHIFT 24 /* Rx CPUID now in the last byte */
+-	mask = hw->bus.func ? E1000_SWFW_PHY1_SM : E1000_SWFW_PHY0_SM;
+ 	igb_release_swfw_sync_82575(hw, mask);
+ }
  
-+#define E1000_NVM_APME_82575          0x0400
- #define MAX_NUM_VFS                   8
- 
- #define E1000_DTXSWC_VMDQ_LOOPBACK_EN (1 << 31)  /* global VF LB enable */
-diff --git a/drivers/net/igb/e1000_hw.h b/drivers/net/igb/e1000_hw.h
-index 119869b..b1e0c06 100644
---- a/drivers/net/igb/e1000_hw.h
-+++ b/drivers/net/igb/e1000_hw.h
-@@ -50,6 +50,7 @@ struct e1000_hw;
- #define E1000_REVISION_2 2
- #define E1000_REVISION_4 4
- 
-+#define E1000_FUNC_0     0
- #define E1000_FUNC_1     1
- 
- enum e1000_mac_type {
 
