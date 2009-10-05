@@ -1,8 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 05/15] igb: add combined function for setting rar
-	and pool bits
-Date: Mon, 05 Oct 2009 09:32:49 -0700
-Message-ID: <20091005163248.32487.51010.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 08/15] igb: add function to handle mailbox lock
+Date: Mon, 05 Oct 2009 09:33:46 -0700
+Message-ID: <20091005163345.32487.58098.stgit@localhost.localdomain>
 References: <20091005163058.32487.10125.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,164 +11,128 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta02.emeryville.ca.mail.comcast.net ([76.96.30.24]:52447 "EHLO
-	QMTA02.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753716AbZJEQe7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 12:34:59 -0400
+Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:45723
+	"EHLO QMTA08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753894AbZJEQf5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 12:35:57 -0400
 In-Reply-To: <20091005163058.32487.10125.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch adds igb_rar_qsel which sets the mac address and pool bits for a
-given mac address in the receive address register table.
+Both the read and write mailbox functions need to acquire the mailbox lock.
+Since that is the case we might as well combine both of the procedures into
+one function so it is easier to maintain.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb_main.c |   63 ++++++++++++++++++++++++++++----------------
- 1 files changed, 40 insertions(+), 23 deletions(-)
+ drivers/net/igb/e1000_mbx.c |   63 +++++++++++++++++++++++--------------------
+ 1 files changed, 34 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 714c3a4..bb0aacd 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -127,10 +127,10 @@ static void igb_vlan_rx_register(struct net_device *, struct vlan_group *);
- static void igb_vlan_rx_add_vid(struct net_device *, u16);
- static void igb_vlan_rx_kill_vid(struct net_device *, u16);
- static void igb_restore_vlan(struct igb_adapter *);
-+static void igb_rar_set_qsel(struct igb_adapter *, u8 *, u32 , u8);
- static void igb_ping_all_vfs(struct igb_adapter *);
- static void igb_msg_task(struct igb_adapter *);
- static int igb_rcv_msg_from_vf(struct igb_adapter *, u32);
--static inline void igb_set_rah_pool(struct e1000_hw *, int , int);
- static void igb_vmm_control(struct igb_adapter *);
- static int igb_set_vf_mac(struct igb_adapter *adapter, int, unsigned char *);
- static void igb_restore_vf_multicasts(struct igb_adapter *adapter);
-@@ -168,16 +168,6 @@ static inline int igb_set_vf_rlpml(struct igb_adapter *adapter, int size,
- 	return 0;
+diff --git a/drivers/net/igb/e1000_mbx.c b/drivers/net/igb/e1000_mbx.c
+index ed9058e..ef645f6 100644
+--- a/drivers/net/igb/e1000_mbx.c
++++ b/drivers/net/igb/e1000_mbx.c
+@@ -305,6 +305,30 @@ static s32 igb_check_for_rst_pf(struct e1000_hw *hw, u16 vf_number)
  }
  
--static inline void igb_set_rah_pool(struct e1000_hw *hw, int pool, int entry)
--{
--	u32 reg_data;
--
--	reg_data = rd32(E1000_RAH(entry));
--	reg_data &= ~E1000_RAH_POOL_MASK;
--	reg_data |= E1000_RAH_POOL_1 << pool;;
--	wr32(E1000_RAH(entry), reg_data);
--}
--
- #ifdef CONFIG_PM
- static int igb_suspend(struct pci_dev *, pm_message_t);
- static int igb_resume(struct pci_dev *);
-@@ -982,7 +972,6 @@ int igb_up(struct igb_adapter *adapter)
- 		igb_configure_msix(adapter);
- 
- 	igb_vmm_control(adapter);
--	igb_set_rah_pool(hw, adapter->vfs_allocated_count, 0);
- 	igb_set_vmolr(hw, adapter->vfs_allocated_count);
- 
- 	/* Clear any pending interrupts. */
-@@ -1769,7 +1758,6 @@ static int igb_open(struct net_device *netdev)
- 	igb_configure(adapter);
- 
- 	igb_vmm_control(adapter);
--	igb_set_rah_pool(hw, adapter->vfs_allocated_count, 0);
- 	igb_set_vmolr(hw, adapter->vfs_allocated_count);
- 
- 	err = igb_request_irq(adapter);
-@@ -2298,6 +2286,10 @@ static void igb_configure_rx(struct igb_adapter *adapter)
- 	/* Set the default pool for the PF's first queue */
- 	igb_configure_vt_default_pool(adapter);
- 
-+	/* set the correct pool for the PF default MAC address in entry 0 */
-+	igb_rar_set_qsel(adapter, adapter->hw.mac.addr, 0,
-+	                 adapter->vfs_allocated_count);
-+
- 	igb_rlpml_set(adapter);
- 
- 	/* Enable Receives */
-@@ -2521,8 +2513,9 @@ static int igb_set_mac(struct net_device *netdev, void *p)
- 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
- 	memcpy(hw->mac.addr, addr->sa_data, netdev->addr_len);
- 
--	igb_rar_set(hw, hw->mac.addr, 0);
--	igb_set_rah_pool(hw, adapter->vfs_allocated_count, 0);
-+	/* set the correct pool for the new PF MAC address in entry 0 */
-+	igb_rar_set_qsel(adapter, hw->mac.addr, 0,
-+	                 adapter->vfs_allocated_count);
- 
- 	return 0;
- }
-@@ -2572,10 +2565,9 @@ static void igb_set_rx_mode(struct net_device *netdev)
- 		list_for_each_entry(ha, &netdev->uc.list, list) {
- 			if (!rar_entries)
- 				break;
--			igb_rar_set(hw, ha->addr, rar_entries);
--			igb_set_rah_pool(hw, adapter->vfs_allocated_count,
--			                 rar_entries);
--			rar_entries--;
-+			igb_rar_set_qsel(adapter, ha->addr,
-+			                 rar_entries--,
-+			                 adapter->vfs_allocated_count);
- 		}
- 	}
- 	/* write the addresses in reverse order to avoid write combining */
-@@ -4142,8 +4134,7 @@ static inline void igb_vf_reset_msg(struct igb_adapter *adapter, u32 vf)
- 	igb_vf_reset_event(adapter, vf);
- 
- 	/* set vf mac address */
--	igb_rar_set(hw, vf_mac, rar_entry);
--	igb_set_rah_pool(hw, vf, rar_entry);
-+	igb_rar_set_qsel(adapter, vf_mac, rar_entry, vf);
- 
- 	/* enable transmit and receive for vf */
- 	reg = rd32(E1000_VFTE);
-@@ -5532,6 +5523,33 @@ static void igb_io_resume(struct pci_dev *pdev)
- 	igb_get_hw_control(adapter);
- }
- 
-+static void igb_rar_set_qsel(struct igb_adapter *adapter, u8 *addr, u32 index,
-+                             u8 qsel)
+ /**
++ *  igb_obtain_mbx_lock_pf - obtain mailbox lock
++ *  @hw: pointer to the HW structure
++ *  @vf_number: the VF index
++ *
++ *  return SUCCESS if we obtained the mailbox lock
++ **/
++static s32 igb_obtain_mbx_lock_pf(struct e1000_hw *hw, u16 vf_number)
 +{
-+	u32 rar_low, rar_high;
-+	struct e1000_hw *hw = &adapter->hw;
++	s32 ret_val = -E1000_ERR_MBX;
++	u32 p2v_mailbox;
 +
-+	/* HW expects these in little endian so we reverse the byte order
-+	 * from network order (big endian) to little endian
-+	 */
-+	rar_low = ((u32) addr[0] | ((u32) addr[1] << 8) |
-+	          ((u32) addr[2] << 16) | ((u32) addr[3] << 24));
-+	rar_high = ((u32) addr[4] | ((u32) addr[5] << 8));
 +
-+	/* Indicate to hardware the Address is Valid. */
-+	rar_high |= E1000_RAH_AV;
++	/* Take ownership of the buffer */
++	wr32(E1000_P2VMAILBOX(vf_number), E1000_P2VMAILBOX_PFU);
 +
-+	if (hw->mac.type == e1000_82575)
-+		rar_high |= E1000_RAH_POOL_1 * qsel;
-+	else
-+		rar_high |= E1000_RAH_POOL_1 << qsel;
++	/* reserve mailbox for vf use */
++	p2v_mailbox = rd32(E1000_P2VMAILBOX(vf_number));
++	if (p2v_mailbox & E1000_P2VMAILBOX_PFU)
++		ret_val = 0;
 +
-+	wr32(E1000_RAL(index), rar_low);
-+	wrfl();
-+	wr32(E1000_RAH(index), rar_high);
-+	wrfl();
++	return ret_val;
 +}
 +
- static int igb_set_vf_mac(struct igb_adapter *adapter,
-                           int vf, unsigned char *mac_addr)
++/**
+  *  igb_write_mbx_pf - Places a message in the mailbox
+  *  @hw: pointer to the HW structure
+  *  @msg: The message buffer
+@@ -316,27 +340,17 @@ static s32 igb_check_for_rst_pf(struct e1000_hw *hw, u16 vf_number)
+ static s32 igb_write_mbx_pf(struct e1000_hw *hw, u32 *msg, u16 size,
+                               u16 vf_number)
  {
-@@ -5542,8 +5560,7 @@ static int igb_set_vf_mac(struct igb_adapter *adapter,
+-	u32 p2v_mailbox;
+-	s32 ret_val = 0;
++	s32 ret_val;
+ 	u16 i;
  
- 	memcpy(adapter->vf_data[vf].vf_mac_addresses, mac_addr, ETH_ALEN);
+-	/* Take ownership of the buffer */
+-	wr32(E1000_P2VMAILBOX(vf_number), E1000_P2VMAILBOX_PFU);
+-
+-	/* Make sure we have ownership now... */
+-	p2v_mailbox = rd32(E1000_P2VMAILBOX(vf_number));
+-	if (!(p2v_mailbox & E1000_P2VMAILBOX_PFU)) {
+-		/* failed to grab ownership */
+-		ret_val = -E1000_ERR_MBX;
++	/* lock the mailbox to prevent pf/vf race condition */
++	ret_val = igb_obtain_mbx_lock_pf(hw, vf_number);
++	if (ret_val)
+ 		goto out_no_write;
+-	}
  
--	igb_rar_set(hw, mac_addr, rar_entry);
--	igb_set_rah_pool(hw, vf, rar_entry);
-+	igb_rar_set_qsel(adapter, mac_addr, rar_entry, vf);
+-	/*
+-	 * flush any ack or msg which may already be in the queue
+-	 * as they are likely the result of an error
+-	 */
+-	igb_check_for_ack_pf(hw, vf_number);
++	/* flush msg and acks as we are overwriting the message buffer */
+ 	igb_check_for_msg_pf(hw, vf_number);
++	igb_check_for_ack_pf(hw, vf_number);
  
- 	return 0;
+ 	/* copy the caller specified message to the mailbox memory buffer */
+ 	for (i = 0; i < size; i++)
+@@ -367,20 +381,13 @@ out_no_write:
+ static s32 igb_read_mbx_pf(struct e1000_hw *hw, u32 *msg, u16 size,
+                              u16 vf_number)
+ {
+-	u32 p2v_mailbox;
+-	s32 ret_val = 0;
++	s32 ret_val;
+ 	u16 i;
+ 
+-	/* Take ownership of the buffer */
+-	wr32(E1000_P2VMAILBOX(vf_number), E1000_P2VMAILBOX_PFU);
+-
+-	/* Make sure we have ownership now... */
+-	p2v_mailbox = rd32(E1000_P2VMAILBOX(vf_number));
+-	if (!(p2v_mailbox & E1000_P2VMAILBOX_PFU)) {
+-		/* failed to grab ownership */
+-		ret_val = -E1000_ERR_MBX;
++	/* lock the mailbox to prevent pf/vf race condition */
++	ret_val = igb_obtain_mbx_lock_pf(hw, vf_number);
++	if (ret_val)
+ 		goto out_no_read;
+-	}
+ 
+ 	/* copy the message to the mailbox memory buffer */
+ 	for (i = 0; i < size; i++)
+@@ -392,8 +399,6 @@ static s32 igb_read_mbx_pf(struct e1000_hw *hw, u32 *msg, u16 size,
+ 	/* update stats */
+ 	hw->mbx.stats.msgs_rx++;
+ 
+-	ret_val = 0;
+-
+ out_no_read:
+ 	return ret_val;
  }
 
