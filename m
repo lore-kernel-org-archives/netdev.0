@@ -1,33 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] bonding: allow previous slave to be used when
- re-balancing traffic on tlb/alb interfaces
-Date: Mon, 05 Oct 2009 03:43:33 -0700 (PDT)
-Message-ID: <20091005.034333.04801045.davem@davemloft.net>
-References: <1254269731-7341-1-git-send-email-fubar@us.ibm.com>
-	<1254269731-7341-2-git-send-email-fubar@us.ibm.com>
-	<8075.1254532437@death.nxdomain.ibm.com>
+From: Peter Daum <gator_ml@yahoo.de>
+Subject: What is the "ll header" of a PPP Interface?
+Date: Mon, 05 Oct 2009 11:30:20 +0200
+Message-ID: <haceb8$c39$1@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: andy@greyhouse.net, netdev@vger.kernel.org
-To: fubar@us.ibm.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43567
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932518AbZJEKni (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 06:43:38 -0400
-In-Reply-To: <8075.1254532437@death.nxdomain.ibm.com>
+Received: from lo.gmane.org ([80.91.229.12]:55139 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932554AbZJEKum (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Oct 2009 06:50:42 -0400
+Received: from list by lo.gmane.org with local (Exim 4.50)
+	id 1Mul8m-00010z-DV
+	for netdev@vger.kernel.org; Mon, 05 Oct 2009 12:50:04 +0200
+Received: from p57a0cff9.dip.t-dialin.net ([87.160.207.249])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 05 Oct 2009 12:50:04 +0200
+Received: from gator_ml by p57a0cff9.dip.t-dialin.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 05 Oct 2009 12:50:04 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jay Vosburgh <fubar@us.ibm.com>
-Date: Fri, 02 Oct 2009 18:13:57 -0700
+Hi,
 
-> 	Andy, I've been doing some further testing with this patch, and
-> I'm seeing some panics that I believe are related to this patch.  It
-> appears that the last_slave isn't cleared (or isn't cleared soon enough)
-> when a slave is released, and concurrent transmit activity is getting
-> into alb_get_best_slave() and finding a last_slave pointer that is stale
-> (points to no slave currently on the slave list).
+I occasionally get syslog messages about "martians" coming in on a PPP interface.
+Normally, the reported ll header is the 2 involved MAC addresses and the ethernet
+frame type. For the PPP interface however, the reported ll header is 22 bytes long
+and I can't find any information about the significance of it.
 
-I'm holding off on these 3 bonding patches until this is resolved.
+Can somebody here maybe enlighten me?
+
+Regards,
+                         Peter
+
