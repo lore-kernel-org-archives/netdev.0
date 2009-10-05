@@ -1,19 +1,19 @@
 From: Stefano Babic <stefano.babic@babic.homelinux.org>
-Subject: Re: [5/8,RFC] CAIF Protocol Stack
-Date: Mon, 05 Oct 2009 17:16:07 +0200
-Message-ID: <4ACA0DB7.5000802@babic.homelinux.org>
-References: <1253727086-10353-1-git-send-email-sjur.brandeland@stericsson.com>
+Subject: Re: [6/8,RFC] CAIF Protocol Stack
+Date: Mon, 05 Oct 2009 17:17:57 +0200
+Message-ID: <4ACA0E25.5010207@babic.homelinux.org>
+References: <1253727091-10383-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, Kim.xx.Lilliestierna@ericsson.com
 To: sjur.brandeland@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpout27.attiva.biz ([85.37.16.28]:64941 "EHLO
-	smtpout27.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753055AbZJEPQu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 11:16:50 -0400
-In-Reply-To: <1253727086-10353-1-git-send-email-sjur.brandeland@stericsson.com>
+Received: from smtpout09.attiva.biz ([85.37.16.7]:11102 "EHLO
+	smtpout09.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751122AbZJEPSg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 11:18:36 -0400
+In-Reply-To: <1253727091-10383-1-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -24,16 +24,13 @@ sjur.brandeland@stericsson.com wrote:
 
 Hi Sjur,
 
-> +obj-$(CAIF_CHRDEV) += chnl_chr.o
+>  drivers/net/caif/chnl_tty.c   |  220 +++++++++++
 
-Probably this should be obj-$(CONFIG_CAIF_CHARDEV) += chnl_chr.o
+There is no rule in drivers/net/caif/Makefile regarding this file and it
+is not mentioned in the documentation. Is there anything missing ? I
+supposed the serial physical layer is implemented in phyif_ser.c.
 
-> +
-> +# Net device
-> +obj-$(CAIF_NETDEV) += chnl_net.o
-
-Should be maybe CONFIG_CAIF_NETDEV ?
-
+Regards,
 Stefano
 
 -- 
