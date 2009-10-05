@@ -1,33 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] More device type integration
-Date: Mon, 05 Oct 2009 00:44:43 -0700 (PDT)
-Message-ID: <20091005.004443.242266867.davem@davemloft.net>
-References: <cover.1254495724.git.marcel@holtmann.org>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [PATCH] TCPCT+1: initial SYN exchange with SYNACK data
+Date: Mon, 05 Oct 2009 03:58:12 -0400
+Message-ID: <4AC9A714.7060903@gmail.com>
+References: <4AC79905.1030904@gmail.com> <20091005.002719.146534039.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, johannes@sipsolutions.net, greg@kroah.com
-To: marcel@holtmann.org
+Cc: netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40154
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758604AbZJEHos (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 03:44:48 -0400
-In-Reply-To: <cover.1254495724.git.marcel@holtmann.org>
+Received: from mail-yw0-f173.google.com ([209.85.211.173]:47327 "EHLO
+	mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758426AbZJEH6x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 03:58:53 -0400
+Received: by ywh3 with SMTP id 3so2717342ywh.22
+        for <netdev@vger.kernel.org>; Mon, 05 Oct 2009 00:58:16 -0700 (PDT)
+In-Reply-To: <20091005.002719.146534039.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Fri,  2 Oct 2009 17:15:24 +0200
-
-> I followed the work from Johannes and made sure we can register the
-> device type for wireless devices via the netdev notifier callback for
-> all cfg80211 based devices. This way we don't have to touch any of
-> the drivers.
+David Miller wrote:
+> From: William Allen Simpson <william.allen.simpson@gmail.com>
+> Date: Sat, 03 Oct 2009 14:33:41 -0400
 > 
-> For the mobile broadband cards from Ericsson, the device type is now
-> set to "wwan" and it also uses "wwan%d" for the default interface name.
+>> @@ -406,6 +454,32 @@ struct tcp_sock {
+>  ...
+>> +	struct tcp_s_data_payload	*s_data_payload;
+>  ...
+>> +	struct tcp_cookie_pair	  	*cookie_pair;
+>  ...
+>> +	u16				s_data_desired;	/* bytes */
+>  ...
+>> +	u8				cookie_desired;	/* bytes */
+>> +	u8				s_data_in:1,
+>> +					s_data_out:1,
+>> +					cookie_in_always:1,
+>> +					cookie_out_never:1;
+> 
+> struct tcp_sock is already WAY TOO BIG on 64-bit systems, adding 20
+> more bytes to it for some odd-ball feature is not something I'm
+> willing to do, sorry.
+> 
+I see we're cross-posting at the same time....  Since in your previous
+review (last year) this issue was not mentioned, is there some other
+data organization that you would suggest?
 
-Looks good, all applied to net-next-2.6
+http://article.gmane.org/gmane.linux.network/102779
 
-Thanks!
+   "This looks mostly fine to me.  I would even advocate not using a config
+    option for this."
+
+Perhaps you would prefer this as a config option after all?
+
+As for "odd-ball feature", of course this is the initial pass on a much
+larger project....
+
