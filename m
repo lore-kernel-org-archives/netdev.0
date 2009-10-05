@@ -1,133 +1,164 @@
-From: Stefano Babic <stefano.babic@babic.homelinux.org>
-Subject: Re: [7/8,RFC] CAIF Protocol Stack
-Date: Mon, 05 Oct 2009 18:22:09 +0200
-Message-ID: <4ACA1D31.6000008@babic.homelinux.org>
-References: <1253727096-10413-1-git-send-email-sjur.brandeland@stericsson.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH 02/15] igb: update comments for serdes config and
+	update to handle duplex
+Date: Mon, 05 Oct 2009 09:31:47 -0700
+Message-ID: <20091005163146.32487.7079.stgit@localhost.localdomain>
+References: <20091005163058.32487.10125.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Kim.xx.Lilliestierna@ericsson.com
-To: sjur.brandeland@stericsson.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpout26.attiva.biz ([85.37.16.27]:46823 "EHLO
-	smtpout26.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753912AbZJEQWv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 12:22:51 -0400
-In-Reply-To: <1253727096-10413-1-git-send-email-sjur.brandeland@stericsson.com>
+Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:48572 "EHLO
+	QMTA06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753956AbZJEQd6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 12:33:58 -0400
+In-Reply-To: <20091005163058.32487.10125.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sjur.brandeland@stericsson.com wrote:
-> From: Kim Lilliestierna <Kim.xx.Lilliestierna@ericsson.com>
-> 
-> Signed-off-by: sjur.brandeland@stericsson.com
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Hi Sjur,
+This update corrects the driver so that it handles duplex for serdes links
+correctly instead of just forcing full duplex always.
 
-> +A configuration tool chardevconfig exist in order to simplify
-> +creation of CAIF Channels (typically used from init scripts).
-> +E.g:
-> +
-> +   $chardevconfig /dev/caifconfig -
-> +   CREATE TYPE=AT NAME=chnlat1 DEVTYPE=CHAR ^D
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-It seems that this command requires additional parameters as PRIO and
-PHYPREF, else a "parse error" is reported by the tool.
+ drivers/net/igb/e1000_82575.c |   55 ++++++++++++++++++++++++++++-------------
+ drivers/net/igb/e1000_82575.h |    1 +
+ drivers/net/igb/e1000_hw.h    |    1 +
+ 3 files changed, 40 insertions(+), 17 deletions(-)
 
-> +GenCaif is a generic CAIF protocol implementation. It implements the CAIF
-> +protocol as specified in "CAIF Protocol Specification" (155 19-CRH 109 913).
+diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
+index b60daf4..5604b3e 100644
+--- a/drivers/net/igb/e1000_82575.c
++++ b/drivers/net/igb/e1000_82575.c
+@@ -706,9 +706,7 @@ static s32 igb_check_for_link_82575(struct e1000_hw *hw)
+ 	s32 ret_val;
+ 	u16 speed, duplex;
+ 
+-	/* SGMII link check is done through the PCS register. */
+-	if ((hw->phy.media_type != e1000_media_type_copper) ||
+-	    (igb_sgmii_active_82575(hw))) {
++	if (hw->phy.media_type != e1000_media_type_copper) {
+ 		ret_val = igb_get_pcs_speed_and_duplex_82575(hw, &speed,
+ 		                                             &duplex);
+ 		/*
+@@ -723,6 +721,7 @@ static s32 igb_check_for_link_82575(struct e1000_hw *hw)
+ 
+ 	return ret_val;
+ }
++
+ /**
+  *  igb_get_pcs_speed_and_duplex_82575 - Retrieve current speed/duplex
+  *  @hw: pointer to the HW structure
+@@ -788,13 +787,23 @@ static s32 igb_get_pcs_speed_and_duplex_82575(struct e1000_hw *hw, u16 *speed,
+ void igb_shutdown_serdes_link_82575(struct e1000_hw *hw)
+ {
+ 	u32 reg;
++	u16 eeprom_data = 0;
+ 
+ 	if (hw->phy.media_type != e1000_media_type_internal_serdes ||
+ 	    igb_sgmii_active_82575(hw))
+ 		return;
+ 
+-	/* if the management interface is not enabled, then power down */
+-	if (!igb_enable_mng_pass_thru(hw)) {
++	if (hw->bus.func == E1000_FUNC_0)
++		hw->nvm.ops.read(hw, NVM_INIT_CONTROL3_PORT_A, 1, &eeprom_data);
++	else if (hw->bus.func == E1000_FUNC_1)
++		hw->nvm.ops.read(hw, NVM_INIT_CONTROL3_PORT_B, 1, &eeprom_data);
++
++	/*
++	 * If APM is not enabled in the EEPROM and management interface is
++	 * not enabled, then power down.
++	 */
++	if (!(eeprom_data & E1000_NVM_APME_82575) &&
++	    !igb_enable_mng_pass_thru(hw)) {
+ 		/* Disable PCS to turn off link */
+ 		reg = rd32(E1000_PCS_CFG0);
+ 		reg &= ~E1000_PCS_CFG_PCS_EN;
+@@ -1010,10 +1019,13 @@ out:
+ }
+ 
+ /**
+- *  igb_setup_serdes_link_82575 - Setup link for fiber/serdes
++ *  igb_setup_serdes_link_82575 - Setup link for serdes
+  *  @hw: pointer to the HW structure
+  *
+- *  Configures speed and duplex for fiber and serdes links.
++ *  Configure the physical coding sub-layer (PCS) link.  The PCS link is
++ *  used on copper connections where the serialized gigabit media independent
++ *  interface (sgmii), or serdes fiber is being used.  Configures the link
++ *  for auto-negotiation or forces speed/duplex.
+  **/
+ static s32 igb_setup_serdes_link_82575(struct e1000_hw *hw)
+ {
+@@ -1086,18 +1098,27 @@ static s32 igb_setup_serdes_link_82575(struct e1000_hw *hw)
+ 	 */
+ 	if (hw->mac.autoneg || igb_sgmii_active_82575(hw)) {
+ 		/* Set PCS register for autoneg */
+-		reg |= E1000_PCS_LCTL_FSV_1000 |      /* Force 1000    */
+-		       E1000_PCS_LCTL_FDV_FULL |      /* SerDes Full duplex */
+-		       E1000_PCS_LCTL_AN_ENABLE |     /* Enable Autoneg */
+-		       E1000_PCS_LCTL_AN_RESTART;     /* Restart autoneg */
++		reg |= E1000_PCS_LCTL_FSV_1000 |  /* Force 1000 */
++		       E1000_PCS_LCTL_FDV_FULL |  /* SerDes Full dplx */
++		       E1000_PCS_LCTL_AN_ENABLE | /* Enable Autoneg */
++		       E1000_PCS_LCTL_AN_RESTART; /* Restart autoneg */
+ 		hw_dbg("Configuring Autoneg; PCS_LCTL = 0x%08X\n", reg);
+ 	} else {
+-		/* Set PCS register for forced speed */
+-		reg |= E1000_PCS_LCTL_FLV_LINK_UP |   /* Force link up */
+-		       E1000_PCS_LCTL_FSV_1000 |      /* Force 1000    */
+-		       E1000_PCS_LCTL_FDV_FULL |      /* SerDes Full duplex */
+-		       E1000_PCS_LCTL_FSD |           /* Force Speed */
+-		       E1000_PCS_LCTL_FORCE_LINK;     /* Force Link */
++		/* Check for duplex first */
++		if (hw->mac.forced_speed_duplex & E1000_ALL_FULL_DUPLEX)
++			reg |= E1000_PCS_LCTL_FDV_FULL;
++
++		/* No need to check for 1000/full since the spec states that
++		 * it requires autoneg to be enabled */
++		/* Now set speed */
++		if (hw->mac.forced_speed_duplex & E1000_ALL_100_SPEED)
++			reg |= E1000_PCS_LCTL_FSV_100;
++
++		/* Force speed and force link */
++		reg |= E1000_PCS_LCTL_FSD |
++		       E1000_PCS_LCTL_FORCE_LINK |
++		       E1000_PCS_LCTL_FLV_LINK_UP;
++
+ 		hw_dbg("Configuring Forced Link; PCS_LCTL = 0x%08X\n", reg);
+ 	}
+ 
+diff --git a/drivers/net/igb/e1000_82575.h b/drivers/net/igb/e1000_82575.h
+index ebd146f..7be3a0b 100644
+--- a/drivers/net/igb/e1000_82575.h
++++ b/drivers/net/igb/e1000_82575.h
+@@ -167,6 +167,7 @@ struct e1000_adv_tx_context_desc {
+ #define E1000_DCA_TXCTRL_CPUID_SHIFT 24 /* Tx CPUID now in the last byte */
+ #define E1000_DCA_RXCTRL_CPUID_SHIFT 24 /* Rx CPUID now in the last byte */
+ 
++#define E1000_NVM_APME_82575          0x0400
+ #define MAX_NUM_VFS                   8
+ 
+ #define E1000_DTXSWC_VMDQ_LOOPBACK_EN (1 << 31)  /* global VF LB enable */
+diff --git a/drivers/net/igb/e1000_hw.h b/drivers/net/igb/e1000_hw.h
+index 119869b..b1e0c06 100644
+--- a/drivers/net/igb/e1000_hw.h
++++ b/drivers/net/igb/e1000_hw.h
+@@ -50,6 +50,7 @@ struct e1000_hw;
+ #define E1000_REVISION_2 2
+ #define E1000_REVISION_4 4
+ 
++#define E1000_FUNC_0     0
+ #define E1000_FUNC_1     1
+ 
+ enum e1000_mac_type {
 
-Is this one an internal document or was it published and is available
-for reading ?
-
-> diff --git a/Documentation/CAIF/README b/Documentation/CAIF/README
-> new file mode 100644
-> index 0000000..aa04150
-> --- /dev/null
-> +++ b/Documentation/CAIF/README
-> @@ -0,0 +1,60 @@
-> +copyright (C) ST-Ericsson AB 2009
-> +Author: Sjur Brendeland/ sjur.brandeland@stericsson.com
-> +        Kim Lilliestierna Kim.xx.Lilliestierna@ericsson.com
-> +License terms: GNU General Public License (GPL), version 2.
-> +
-> +=== Start ===
-> +Copy the .ko files onto the board, and do insmod:
-> +
-> +insmod caif.ko
-> +insmod phyif_msl.ko
-
-Is phyif_msl.ko obsolete ? There is no track of the corresponding source
-file.
-
-> +=== Preparing the setup.===
-> +
-> +Make sure that the kernel is built with module support.
-> +
-> +There are some things that need to be
-> +tweaked to get the host TTY correctly setup to talk to the modem.
-> +Since the CAIF stack is running in the kernel and we want to use the existing
-> +TTY we are installing our physical serial driver as a line discipline above
-> +the TTY device.
-
-I wanted to test your patches and I tried to follow your description,
-but I have some problems to connect the tty-layer with the physical uart
-linux driver.
-I use a different architecture - ARM (ARM9) based and I applied your
-patches on a 2.6.29 kernel. I agree, I should apply them on the top of
-2.6.31 as you tested, but it seems I have a configuration problem not
-related to the kernel version.
-I can see that CAIF wants to try to enumerate the devices
-(cfctrl_enum_req is called) and then the phyif_ser module is called
-(ser_phy_tx, as supposed). But then the systems hangs in the write loop
-and the uart transmit function of the linux serial driver is never called.
-
-To setup the system, if I really understood well, I followed the steps:
-
-$ modprobe caif
-$ modprobe phyif_ser
-$ echo 6 > /sys/class/caif/dbg_lvl
-$ ./ldiscd
-caifdev_phy_register: phy:bf00fb68 id:1
-caifdev_phy_register: bf00fb68 ID 1 == 1
-$ modprobe chnl_chr
-<caif_chrinit_module:1142, TRACE>
-Compiled:Oct  5 2009:14:08:17
--bash-3.2# ./chardevconfig /dev/caifconfig -
-CREATE TYPE=AT NAME=chnlat10 DEVTYPE=CHAR PHYPREF=LAT PRIO=HI
-caifdev_open: Entered
-caifdev_ioctl: Entered
-<print_device_list:664, TRACE> List of devices:
-<print_device_list:674, TRACE> list is empty
-<chrdev_create:1005, TRACE> [chrdev_create:1005] dev=c3ab4800
-<chrdev_create:1051, TRACE> [chrdev_create:1051] pktf=c3ab495c
-<chrdev_create:1053, TRACE> [chrdev_create:1053] cfpkt_create_xmit=bf005bf4
-<chrdev_create:1061, TRACE> dev: Registered dev with name=chnlat10
-minor=52, dev=c3a65180
-<print_device_list:664, TRACE> List of devices:
-<print_device_list:670, TRACE> i = 0, minor= 52, name = chnlat10, open = 0
-caifdev_release: Entered
-Create device: name = chnlat10, major = 10, minor = 52
-
-So it seems the device is correctly created.
-
-Then I tried:
- echo -e "AT\r\n" > /dev/chnlat10
-<print_device_list:664, TRACE> List of devices:
-<print_device_list:670, TRACE> i = 0, minor= 52, name = chnlat10, open = 0
-<find_device:627, TRACE> [find_device:627] start looping
-<find_device:632, TRACE> [find_device:632] check 52,52, chnlat10, <NULL>
-<find_device:646, TRACE> [find_device:646] match 52, <NULL>
-<caif_chropen:721, TRACE> [caif_chropen:721] dev=c3ab4800
-
-and the system hangs. I could find after some instrumentation that the
-system hangs in the ser_phy_tx function. This is not a surprise, because
-the Uart TX function is never called. Have I missed something ?
-
-Best regards,
-Stefano Babic
-
--- 
-stefano <stefano.babic@babic.homelinux.org>
-GPG Key: 0x55814DDE
-Fingerprint 4E85 2A66 4CBA 497A 2A7B D3BF 5973 F216 5581 4DDE
