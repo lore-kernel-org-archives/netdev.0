@@ -1,37 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] icmp: No need to call sk_write_space()
-Date: Mon, 05 Oct 2009 00:12:10 -0700 (PDT)
-Message-ID: <20091005.001210.118975662.davem@davemloft.net>
-References: <4ABBEFD3.6060407@gmail.com>
+Subject: Re: [PATCH 20/21] drivers/net/tlan: use pr_<level> and add
+ pr_fmt(fmt)
+Date: Mon, 05 Oct 2009 00:12:33 -0700 (PDT)
+Message-ID: <20091005.001233.174570234.davem@davemloft.net>
+References: <cover.1254701151.git.joe@perches.com>
+	<cover.1254701151.git.joe@perches.com>
+	<d4468c1b062875f4b88ba94f4631232ecff9c27b.1254701151.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: linux-kernel@vger.kernel.org, chessman@tux.org,
+	netdev@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54619
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54627
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753617AbZJEHMP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 03:12:15 -0400
-In-Reply-To: <4ABBEFD3.6060407@gmail.com>
+	by vger.kernel.org with ESMTP id S1758006AbZJEHMi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 03:12:38 -0400
+In-Reply-To: <d4468c1b062875f4b88ba94f4631232ecff9c27b.1254701151.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 25 Sep 2009 00:16:51 +0200
+From: Joe Perches <joe@perches.com>
+Date: Sun,  4 Oct 2009 17:53:47 -0700
 
-> We can make icmp messages tx completion callback a litle bit faster.
+> Added #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> Converted printk(KERN_<level> to pr_<level>(
+> Removed "TLAN: " prefixes
 > 
-> Setting SOCK_USE_WRITE_QUEUE sk flag tells sock_wfree() to
-> not call sk_write_space() on a socket we know no thread is posssibly
-> waiting for write space. (on per cpu kernel internal icmp sockets only)
-> 
-> This avoids the sock_def_write_space() call and 
-> read_lock(&sk->sk_callback_lock)/read_unlock(&sk->sk_callback_lock) calls
-> as well.
-> 
-> We avoid three atomic ops.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
 Applied to net-next-2.6
