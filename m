@@ -1,91 +1,245 @@
 From: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
-Subject: [net-next-2.6 PATCH 6/9] vxge: Check if FCS stripping is disabled
- by the firmware.
-Date: Mon, 5 Oct 2009 07:56:35 -0400 (EDT)
-Message-ID: <Pine.GSO.4.10.10910050755480.9377-100000@guinness>
+Subject: [net-next-2.6 PATCH 5/9] vxge: Removed unused functions.
+Date: Mon, 5 Oct 2009 07:55:47 -0400 (EDT)
+Message-ID: <Pine.GSO.4.10.10910050754430.9377-100000@guinness>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org, support@neterion.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:42055 "EHLO
+Received: from barracuda.s2io.com ([72.1.205.138]:42048 "EHLO
 	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758591AbZJEMAA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 08:00:00 -0400
+	with ESMTP id S1758591AbZJEL77 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 07:59:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- Added a function to check if FCS stripping is disabled by the firmware, if
-  it is not disabled fail driver load.
+- Removed the wrr_rebalance function
 
-- By default FCS stripping is disabled by the firmware. With this assumption
-  driver decrements the indicated packet length by 4 bytes(FCS length).
-
-- This patch ensures that FCS stripping is disabled during driver load time.
+- This feature is not supported by the ASIC, hence removing the related code.
 
 Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
 ---
-diff -urpN patch5/drivers/net/vxge/vxge-config.c patch6/drivers/net/vxge/vxge-config.c
---- patch5/drivers/net/vxge/vxge-config.c	2009-09-04 01:24:25.000000000 -0700
-+++ patch6/drivers/net/vxge/vxge-config.c	2009-09-04 01:33:43.000000000 -0700
-@@ -2157,6 +2157,28 @@ exit:
+diff -urpN patch4/drivers/net/vxge/vxge-config.c patch5/drivers/net/vxge/vxge-config.c
+--- patch4/drivers/net/vxge/vxge-config.c	2009-09-04 01:21:52.000000000 -0700
++++ patch5/drivers/net/vxge/vxge-config.c	2009-09-04 01:24:25.000000000 -0700
+@@ -461,209 +461,6 @@ __vxge_hw_verify_pci_e_info(struct __vxg
  }
  
  /*
-+ * vxge_hw_vpath_strip_fcs_check - Check for FCS strip.
-+ */
-+enum vxge_hw_status
-+vxge_hw_vpath_strip_fcs_check(struct __vxge_hw_device *hldev, u64 vpath_mask)
-+{
-+	struct vxge_hw_vpmgmt_reg       __iomem *vpmgmt_reg;
-+	enum vxge_hw_status status = VXGE_HW_OK;
-+	int i = 0, j = 0;
-+
-+	for (i = 0; i < VXGE_HW_MAX_VIRTUAL_PATHS; i++) {
-+		if (!((vpath_mask) & vxge_mBIT(i)))
-+			continue;
-+		vpmgmt_reg = hldev->vpmgmt_reg[i];
-+		for (j = 0; j < VXGE_HW_MAC_MAX_MAC_PORT_ID; j++) {
-+			if (readq(&vpmgmt_reg->rxmac_cfg0_port_vpmgmt_clone[j])
-+			& VXGE_HW_RXMAC_CFG0_PORT_VPMGMT_CLONE_STRIP_FCS)
-+				return VXGE_HW_FAIL;
-+		}
-+	}
-+	return status;
-+}
-+/*
-  * vxge_hw_mgmt_reg_Write - Write Titan register.
+- * vxge_hw_wrr_rebalance - Rebalance the RX_WRR and KDFC_WRR calandars.
+- * Rebalance the RX_WRR and KDFC_WRR calandars.
+- */
+-static enum
+-vxge_hw_status vxge_hw_wrr_rebalance(struct __vxge_hw_device *hldev)
+-{
+-	u64 val64;
+-	u32 wrr_states[VXGE_HW_WEIGHTED_RR_SERVICE_STATES];
+-	u32 i, j, how_often = 1;
+-	enum vxge_hw_status status = VXGE_HW_OK;
+-
+-	status = __vxge_hw_device_is_privilaged(hldev->host_type,
+-			hldev->func_id);
+-	if (status != VXGE_HW_OK)
+-		goto exit;
+-
+-	/* Reset the priorities assigned to the WRR arbitration
+-	phases for the receive traffic */
+-	for (i = 0; i < VXGE_HW_WRR_RING_COUNT; i++)
+-		writeq(0, ((&hldev->mrpcim_reg->rx_w_round_robin_0) + i));
+-
+-	/* Reset the transmit FIFO servicing calendar for FIFOs */
+-	for (i = 0; i < VXGE_HW_WRR_FIFO_COUNT; i++) {
+-		writeq(0, ((&hldev->mrpcim_reg->kdfc_w_round_robin_0) + i));
+-		writeq(0, ((&hldev->mrpcim_reg->kdfc_w_round_robin_20) + i));
+-	}
+-
+-	/* Assign WRR priority  0 for all FIFOs */
+-	for (i = 1; i < VXGE_HW_MAX_VIRTUAL_PATHS; i++) {
+-		writeq(VXGE_HW_KDFC_FIFO_0_CTRL_WRR_NUMBER(0),
+-				((&hldev->mrpcim_reg->kdfc_fifo_0_ctrl)  + i));
+-
+-		writeq(VXGE_HW_KDFC_FIFO_17_CTRL_WRR_NUMBER(0),
+-			((&hldev->mrpcim_reg->kdfc_fifo_17_ctrl) + i));
+-	}
+-
+-	/* Reset to service non-offload doorbells */
+-	writeq(0, &hldev->mrpcim_reg->kdfc_entry_type_sel_0);
+-	writeq(0, &hldev->mrpcim_reg->kdfc_entry_type_sel_1);
+-
+-	/* Set priority 0 to all receive queues */
+-	writeq(0, &hldev->mrpcim_reg->rx_queue_priority_0);
+-	writeq(0, &hldev->mrpcim_reg->rx_queue_priority_1);
+-	writeq(0, &hldev->mrpcim_reg->rx_queue_priority_2);
+-
+-	/* Initialize all the slots as unused */
+-	for (i = 0; i < VXGE_HW_WEIGHTED_RR_SERVICE_STATES; i++)
+-		wrr_states[i] = -1;
+-
+-	/* Prepare the Fifo service states */
+-	for (i = 0; i < VXGE_HW_MAX_VIRTUAL_PATHS; i++) {
+-
+-		if (!hldev->config.vp_config[i].min_bandwidth)
+-			continue;
+-
+-		how_often = VXGE_HW_VPATH_BANDWIDTH_MAX /
+-				hldev->config.vp_config[i].min_bandwidth;
+-		if (how_often) {
+-
+-			for (j = 0; j < VXGE_HW_WRR_FIFO_SERVICE_STATES;) {
+-				if (wrr_states[j] == -1) {
+-					wrr_states[j] = i;
+-					/* Make sure each fifo is serviced
+-					 * atleast once */
+-					if (i == j)
+-						j += VXGE_HW_MAX_VIRTUAL_PATHS;
+-					else
+-						j += how_often;
+-				} else
+-					j++;
+-			}
+-		}
+-	}
+-
+-	/* Fill the unused slots with 0 */
+-	for (j = 0; j < VXGE_HW_WEIGHTED_RR_SERVICE_STATES; j++) {
+-		if (wrr_states[j] == -1)
+-			wrr_states[j] = 0;
+-	}
+-
+-	/* Assign WRR priority number for FIFOs */
+-	for (i = 0; i < VXGE_HW_MAX_VIRTUAL_PATHS; i++) {
+-		writeq(VXGE_HW_KDFC_FIFO_0_CTRL_WRR_NUMBER(i),
+-				((&hldev->mrpcim_reg->kdfc_fifo_0_ctrl) + i));
+-
+-		writeq(VXGE_HW_KDFC_FIFO_17_CTRL_WRR_NUMBER(i),
+-			((&hldev->mrpcim_reg->kdfc_fifo_17_ctrl) + i));
+-	}
+-
+-	/* Modify the servicing algorithm applied to the 3 types of doorbells.
+-	i.e, none-offload, message and offload */
+-	writeq(VXGE_HW_KDFC_ENTRY_TYPE_SEL_0_NUMBER_0(0) |
+-				VXGE_HW_KDFC_ENTRY_TYPE_SEL_0_NUMBER_1(0) |
+-				VXGE_HW_KDFC_ENTRY_TYPE_SEL_0_NUMBER_2(0) |
+-				VXGE_HW_KDFC_ENTRY_TYPE_SEL_0_NUMBER_3(0) |
+-				VXGE_HW_KDFC_ENTRY_TYPE_SEL_0_NUMBER_4(1) |
+-				VXGE_HW_KDFC_ENTRY_TYPE_SEL_0_NUMBER_5(0) |
+-				VXGE_HW_KDFC_ENTRY_TYPE_SEL_0_NUMBER_6(0) |
+-				VXGE_HW_KDFC_ENTRY_TYPE_SEL_0_NUMBER_7(0),
+-				&hldev->mrpcim_reg->kdfc_entry_type_sel_0);
+-
+-	writeq(VXGE_HW_KDFC_ENTRY_TYPE_SEL_1_NUMBER_8(1),
+-				&hldev->mrpcim_reg->kdfc_entry_type_sel_1);
+-
+-	for (i = 0, j = 0; i < VXGE_HW_WRR_FIFO_COUNT; i++) {
+-
+-		val64 = VXGE_HW_KDFC_W_ROUND_ROBIN_0_NUMBER_0(wrr_states[j++]);
+-		val64 |= VXGE_HW_KDFC_W_ROUND_ROBIN_0_NUMBER_1(wrr_states[j++]);
+-		val64 |= VXGE_HW_KDFC_W_ROUND_ROBIN_0_NUMBER_2(wrr_states[j++]);
+-		val64 |= VXGE_HW_KDFC_W_ROUND_ROBIN_0_NUMBER_3(wrr_states[j++]);
+-		val64 |= VXGE_HW_KDFC_W_ROUND_ROBIN_0_NUMBER_4(wrr_states[j++]);
+-		val64 |= VXGE_HW_KDFC_W_ROUND_ROBIN_0_NUMBER_5(wrr_states[j++]);
+-		val64 |= VXGE_HW_KDFC_W_ROUND_ROBIN_0_NUMBER_6(wrr_states[j++]);
+-		val64 |= VXGE_HW_KDFC_W_ROUND_ROBIN_0_NUMBER_7(wrr_states[j++]);
+-
+-		writeq(val64, (&hldev->mrpcim_reg->kdfc_w_round_robin_0 + i));
+-		writeq(val64, (&hldev->mrpcim_reg->kdfc_w_round_robin_20 + i));
+-	}
+-
+-	/* Set up the priorities assigned to receive queues */
+-	writeq(VXGE_HW_RX_QUEUE_PRIORITY_0_RX_Q_NUMBER_0(0) |
+-			VXGE_HW_RX_QUEUE_PRIORITY_0_RX_Q_NUMBER_1(1) |
+-			VXGE_HW_RX_QUEUE_PRIORITY_0_RX_Q_NUMBER_2(2) |
+-			VXGE_HW_RX_QUEUE_PRIORITY_0_RX_Q_NUMBER_3(3) |
+-			VXGE_HW_RX_QUEUE_PRIORITY_0_RX_Q_NUMBER_4(4) |
+-			VXGE_HW_RX_QUEUE_PRIORITY_0_RX_Q_NUMBER_5(5) |
+-			VXGE_HW_RX_QUEUE_PRIORITY_0_RX_Q_NUMBER_6(6) |
+-			VXGE_HW_RX_QUEUE_PRIORITY_0_RX_Q_NUMBER_7(7),
+-			&hldev->mrpcim_reg->rx_queue_priority_0);
+-
+-	writeq(VXGE_HW_RX_QUEUE_PRIORITY_1_RX_Q_NUMBER_8(8) |
+-			VXGE_HW_RX_QUEUE_PRIORITY_1_RX_Q_NUMBER_9(9) |
+-			VXGE_HW_RX_QUEUE_PRIORITY_1_RX_Q_NUMBER_10(10) |
+-			VXGE_HW_RX_QUEUE_PRIORITY_1_RX_Q_NUMBER_11(11) |
+-			VXGE_HW_RX_QUEUE_PRIORITY_1_RX_Q_NUMBER_12(12) |
+-			VXGE_HW_RX_QUEUE_PRIORITY_1_RX_Q_NUMBER_13(13) |
+-			VXGE_HW_RX_QUEUE_PRIORITY_1_RX_Q_NUMBER_14(14) |
+-			VXGE_HW_RX_QUEUE_PRIORITY_1_RX_Q_NUMBER_15(15),
+-			&hldev->mrpcim_reg->rx_queue_priority_1);
+-
+-	writeq(VXGE_HW_RX_QUEUE_PRIORITY_2_RX_Q_NUMBER_16(16),
+-				&hldev->mrpcim_reg->rx_queue_priority_2);
+-
+-	/* Initialize all the slots as unused */
+-	for (i = 0; i < VXGE_HW_WEIGHTED_RR_SERVICE_STATES; i++)
+-		wrr_states[i] = -1;
+-
+-	/* Prepare the Ring service states */
+-	for (i = 0; i < VXGE_HW_MAX_VIRTUAL_PATHS; i++) {
+-
+-		if (!hldev->config.vp_config[i].min_bandwidth)
+-			continue;
+-
+-		how_often = VXGE_HW_VPATH_BANDWIDTH_MAX /
+-				hldev->config.vp_config[i].min_bandwidth;
+-
+-		if (how_often) {
+-			for (j = 0; j < VXGE_HW_WRR_RING_SERVICE_STATES;) {
+-				if (wrr_states[j] == -1) {
+-					wrr_states[j] = i;
+-					/* Make sure each ring is
+-					 * serviced atleast once */
+-					if (i == j)
+-						j += VXGE_HW_MAX_VIRTUAL_PATHS;
+-					else
+-						j += how_often;
+-				} else
+-					j++;
+-			}
+-		}
+-	}
+-
+-	/* Fill the unused slots with 0 */
+-	for (j = 0; j < VXGE_HW_WEIGHTED_RR_SERVICE_STATES; j++) {
+-		if (wrr_states[j] == -1)
+-			wrr_states[j] = 0;
+-	}
+-
+-	for (i = 0, j = 0; i < VXGE_HW_WRR_RING_COUNT; i++) {
+-		val64 =  VXGE_HW_RX_W_ROUND_ROBIN_0_RX_W_PRIORITY_SS_0(
+-				wrr_states[j++]);
+-		val64 |=  VXGE_HW_RX_W_ROUND_ROBIN_0_RX_W_PRIORITY_SS_1(
+-				wrr_states[j++]);
+-		val64 |=  VXGE_HW_RX_W_ROUND_ROBIN_0_RX_W_PRIORITY_SS_2(
+-				wrr_states[j++]);
+-		val64 |=  VXGE_HW_RX_W_ROUND_ROBIN_0_RX_W_PRIORITY_SS_3(
+-				wrr_states[j++]);
+-		val64 |=  VXGE_HW_RX_W_ROUND_ROBIN_0_RX_W_PRIORITY_SS_4(
+-				wrr_states[j++]);
+-		val64 |=  VXGE_HW_RX_W_ROUND_ROBIN_0_RX_W_PRIORITY_SS_5(
+-				wrr_states[j++]);
+-		val64 |=  VXGE_HW_RX_W_ROUND_ROBIN_0_RX_W_PRIORITY_SS_6(
+-				wrr_states[j++]);
+-		val64 |=  VXGE_HW_RX_W_ROUND_ROBIN_0_RX_W_PRIORITY_SS_7(
+-				wrr_states[j++]);
+-
+-		writeq(val64, ((&hldev->mrpcim_reg->rx_w_round_robin_0) + i));
+-	}
+-exit:
+-	return status;
+-}
+-
+-/*
+  * __vxge_hw_device_initialize
+  * Initialize Titan-V hardware.
   */
- enum vxge_hw_status
-diff -urpN patch5/drivers/net/vxge/vxge-config.h patch6/drivers/net/vxge/vxge-config.h
---- patch5/drivers/net/vxge/vxge-config.h	2009-09-04 01:23:26.000000000 -0700
-+++ patch6/drivers/net/vxge/vxge-config.h	2009-09-04 01:29:17.000000000 -0700
-@@ -2201,6 +2201,8 @@ __vxge_hw_vpath_func_id_get(
- enum vxge_hw_status
- __vxge_hw_vpath_reset_check(struct __vxge_hw_virtualpath *vpath);
- 
-+enum vxge_hw_status
-+vxge_hw_vpath_strip_fcs_check(struct __vxge_hw_device *hldev, u64 vpath_mask);
- /**
-  * vxge_debug
-  * @level: level of debug verbosity.
-diff -urpN patch5/drivers/net/vxge/vxge-main.c patch6/drivers/net/vxge/vxge-main.c
---- patch5/drivers/net/vxge/vxge-main.c	2009-09-04 01:23:26.000000000 -0700
-+++ patch6/drivers/net/vxge/vxge-main.c	2009-09-04 01:31:12.000000000 -0700
-@@ -4244,6 +4244,15 @@ vxge_probe(struct pci_dev *pdev, const s
- 			goto _exit3;
+@@ -679,7 +476,6 @@ enum vxge_hw_status __vxge_hw_device_ini
+ 			goto exit;
  	}
  
-+	/* if FCS stripping is not disabled in MAC fail driver load */
-+	if (vxge_hw_vpath_strip_fcs_check(hldev, vpath_mask) != VXGE_HW_OK) {
-+		vxge_debug_init(VXGE_ERR,
-+			"%s: FCS stripping is not disabled in MAC"
-+			" failing driver load", VXGE_DRIVER_NAME);
-+		ret = -EINVAL;
-+		goto _exit4;
-+	}
-+
- 	vxge_hw_device_debug_set(hldev, VXGE_ERR, VXGE_COMPONENT_LL);
- 
- 	/* set private device info */
+-	vxge_hw_wrr_rebalance(hldev);
+ exit:
+ 	return status;
+ }
+
 
