@@ -1,31 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] be2net: Fix a bug in preparation of mcc wrb which was
- causing flash operation to fail
-Date: Mon, 05 Oct 2009 02:09:48 -0700 (PDT)
-Message-ID: <20091005.020948.261557950.davem@davemloft.net>
-References: <20091005090555.GA12287@serverengines.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] wext: let get_wireless_stats() sleep
+Date: Mon, 05 Oct 2009 02:22:39 -0700 (PDT)
+Message-ID: <20091005.022239.95915308.davem@davemloft.net>
+References: <1254734159.22426.6.camel@johannes.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ajitk@serverengines.com, ajitkhaparde@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43695
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751180AbZJEJJx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 05:09:53 -0400
-In-Reply-To: <20091005090555.GA12287@serverengines.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, miles.lane-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1254734159.22426.6.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ajit Khaparde <ajitkhaparde@gmail.com>
-Date: Mon, 5 Oct 2009 14:36:07 +0530
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Mon, 05 Oct 2009 11:15:59 +0200
 
-> This patch fixes a bug that got introduced in commit 76998bc7.
-> During preparation of mcc wrb, req was being wrongly overwritten
-> and the flash operation was failing.
-> This patch is against the net-2.6 tree.
+> A number of drivers (recently including cfg80211-based ones)
+> assume that all wireless handlers, including statistics, can
+> sleep and they often also implicitly assume that the rtnl is
+> held around their invocation. This is almost always true now
+> except when reading from sysfs:
+ ...
+> Fix this by using the rtnl instead of dev_base_lock.
 > 
-> Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+> Reported-by: Miles Lane <miles.lane-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 
-Applied, thanks.
+Fair enough, applied, thanks!
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
