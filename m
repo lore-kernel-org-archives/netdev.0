@@ -1,55 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next-2.6 PATCH 6/9] vxge: Check if FCS stripping is disabled
- by the firmware.
-Date: Mon, 05 Oct 2009 15:04:32 +0200
-Message-ID: <4AC9EEE0.5000601@gmail.com>
-References: <Pine.GSO.4.10.10910050755480.9377-100000@guinness>
+From: Valentine Barshak <vbarshak@ru.mvista.com>
+Subject: [PATCH] pasemi_mac: ethtool get settings fix
+Date: Mon, 5 Oct 2009 17:27:56 +0400
+Message-ID: <20091005132756.GA11704@ru.mvista.com>
+References: <4AC9ED9B.5040400@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org, support@neterion.com
-To: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:45011 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753953AbZJENFS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 09:05:18 -0400
-In-Reply-To: <Pine.GSO.4.10.10910050755480.9377-100000@guinness>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, jgarzik@pobox.com, netdev@vger.kernel.org
+To: Olof Johansson <olof@lixom.net>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <4AC9ED9B.5040400@ru.mvista.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Sreenivasa Honnur a =E9crit :
-> - Added a function to check if FCS stripping is disabled by the firmw=
-are, if
->   it is not disabled fail driver load.
->=20
-> - By default FCS stripping is disabled by the firmware. With this ass=
-umption
->   driver decrements the indicated packet length by 4 bytes(FCS length=
-).
->=20
-> - This patch ensures that FCS stripping is disabled during driver loa=
-d time.
->=20
-> Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
+Not all pasemi mac interfaces can have a phy attached.
+For example, XAUI has no phy and phydev is NULL for it.
+In this case ethtool get settings causes kernel crash.
+Fix it by returning -EOPNOTSUPP if there's no PHY attached.
 
-What the big deal about FCS not being stripped ?
+Signed-off-by: Valentine Barshak <vbarshak@ru.mvista.com>
+---
+ drivers/net/pasemi_mac_ethtool.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-Denying driver load for this litle detail seems very hard.
-You could issue a warning if there is a performance hit, but allow the =
-driver
-to function.
-
-If this adapter has the ability to disable/enable it at firmware level,
-you might replace
-
-pkt_length -=3D ETH_FCS_LEN;
-
-by :
-
-pkt_length -=3D adapter->fcs_length; =20
-
-Granted you initialized adapter->fcs_length to 0 or 4 depending on firm=
-ware setup.
-
-
+diff -pruN linux-2.6.orig/drivers/net/pasemi_mac_ethtool.c linux-2.6/drivers/net/pasemi_mac_ethtool.c
+--- linux-2.6.orig/drivers/net/pasemi_mac_ethtool.c	2009-02-14 03:23:08.000000000 +0300
++++ linux-2.6/drivers/net/pasemi_mac_ethtool.c	2009-10-05 16:21:52.000000000 +0400
+@@ -71,6 +71,9 @@ pasemi_mac_ethtool_get_settings(struct n
+ 	struct pasemi_mac *mac = netdev_priv(netdev);
+ 	struct phy_device *phydev = mac->phydev;
+ 
++	if (!phydev)
++		return -EOPNOTSUPP;
++
+ 	return phy_ethtool_gset(phydev, cmd);
+ }
