@@ -1,62 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ipv4: arp_notify address list bug
-Date: Tue, 06 Oct 2009 07:20:19 +0200
-Message-ID: <4ACAD393.5080909@gmail.com>
-References: <20091005191505.75c929a6@nehalam>	<4ACAB5BC.1020307@gmail.com> <20091005.213103.237708475.davem@davemloft.net>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 0/4][RFC]: coding convention for CCID-struct prefixes
+Date: Tue, 6 Oct 2009 07:36:22 +0200
+Message-ID: <20091006053622.GA3585@gerrit.erg.abdn.ac.uk>
+References: <1254739993-5051-1-git-send-email-gerrit@erg.abdn.ac.uk> <20091005.035815.238234647.davem@davemloft.net> <20091005112359.GB5156@gerrit.erg.abdn.ac.uk> <20091005123823.GE30535@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	shemminger@vyatta.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Arnaldo Carvalho de Melo <acme@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:32920 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753083AbZJFFVF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 01:21:05 -0400
-In-Reply-To: <20091005.213103.237708475.davem@davemloft.net>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43804 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753125AbZJFFhY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Oct 2009 01:37:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20091005123823.GE30535@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
+| > I am waiting for the feedback also in order to rebuild the test tree; and have
+| > informed CCID-4 developers (CCID-4 subtree) about this.
+| 
+| On a first look I saw one inconsistency, while in ccid3 you do:
+| 
+| -	return scaled_div(w_init << 6, hctx->tx_rtt);
+| +	return scaled_div(w_init << 6, hc->tx_rtt);
+| 
+| in ccid2 you do:
+| 
+| -	struct ccid2_seq *seqp = hctx->ccid2hctx_seqh;
+| +	struct ccid2_seq *seqp = hctx->tx_seqh;
+| 
+| Since this change is about reducing the names by removing redundancy, I
+| think the ccid3 variant is better, i.e.: hc->tx_foo.
+| 
+I fully agree with your comment, but could I ask you to take a second look please?
 
-This fixes a bug with arp_notify.
+(My fine-grained separation of patches may not have been as good an idea
+ as I had initially thought.)
 
-If arp_notify is enabled, kernel will crash if address is changed
-and no IP address is assigned.
-  http://bugzilla.kernel.org/show_bug.cgi?id=14330
+The first change (scaled_div/ccid3) is from patch 1/4, whereas the second (seqp/ccid2)
+is from patch 4/4. In the end the changes complement one another, and both ccids have
+the same naming scheme:
+ * patch 1/4 replaces hc{tx,rx}->ccid2hc{tx,rx}_ with hc{tx,rx}->{tx,rx}_ (ccid2.{c,h})
+ * patch 2/4 replaces hc{tx,rx}->ccid3hc{tx,rx}_ with hc{tx,rx}->{tx_rx}_ (ccid3.{c,h})
+ * patch 3/4 replaces hc{tx,rx}->{tx,rx}_ with hc->{tx,rx}_ (ccid2.{c,h})
+ * patch 4/4 replaces hc{tx,rx}->{tx,rx}_ with hc->{tx,rx}_ (ccid3.{c,h})
 
-Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/devinet.c |   16 ++++++++++------
- 1 files changed, 10 insertions(+), 6 deletions(-)
+I checked again and re-applied the submitted patches and did the following:
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index e92f1fd..5df2f6a 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1077,12 +1077,16 @@ static int inetdev_event(struct notifier_block *this, unsigned long event,
- 		ip_mc_up(in_dev);
- 		/* fall through */
- 	case NETDEV_CHANGEADDR:
--		if (IN_DEV_ARP_NOTIFY(in_dev))
--			arp_send(ARPOP_REQUEST, ETH_P_ARP,
--				 in_dev->ifa_list->ifa_address,
--				 dev,
--				 in_dev->ifa_list->ifa_address,
--				 NULL, dev->dev_addr, NULL);
-+		/* Send gratuitous ARP to notify of link change */
-+		if (IN_DEV_ARP_NOTIFY(in_dev)) {
-+			struct in_ifaddr *ifa = in_dev->ifa_list;
-+
-+			if (ifa)
-+				arp_send(ARPOP_REQUEST, ETH_P_ARP,
-+					 ifa->ifa_address, dev,
-+					 ifa->ifa_address, NULL,
-+					 dev->dev_addr, NULL);
-+		}
- 		break;
- 	case NETDEV_DOWN:
- 		ip_mc_down(in_dev);
+gerrit@virtual_carrot > grep -REhC2 'hc(tx|rx)' net/dccp/
+static inline struct ccid3_hc_tx_sock *ccid3_hc_tx_sk(const struct sock *sk)
+{
+        struct ccid3_hc_tx_sock *hctx = ccid_priv(dccp_sk(sk)->dccps_hc_tx_ccid);
+        BUG_ON(hctx == NULL);
+        return hctx;
+}
+
+--
+static inline struct ccid3_hc_rx_sock *ccid3_hc_rx_sk(const struct sock *sk)
+{
+        struct ccid3_hc_rx_sock *hcrx = ccid_priv(dccp_sk(sk)->dccps_hc_rx_ccid);
+        BUG_ON(hcrx == NULL);
+        return hcrx;
+}
+
+These are the only two exceptions, I left the hc{tx,rx} in since they don't appear
+in a prefix. 
+
+Can you please have a look and say whether you are ok with the naming scheme?
+
+As per earlier email, I'd be ok to repackage or combine the patches into a single one,
+or combine patch 1/4 with 3/4 and 2/4 with 4/4.
