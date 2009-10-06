@@ -1,48 +1,77 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] au1000_eth: Duplicate test of RX_OVERLEN bit in update_rx_stats()
-Date: Tue, 06 Oct 2009 21:54:18 +0200
-Message-ID: <4ACBA06A.6050208@gmail.com>
+From: =?iso-8859-1?Q?Sjur_Br=E6ndeland?= <sjur.brandeland@stericsson.com>
+Subject: RE: [7/8,RFC] CAIF Protocol Stack
+Date: Tue, 6 Oct 2009 21:41:28 +0200
+Message-ID: <61D8D34BB13CFE408D154529C120E07902ED671E@eseldmw101.eemea.ericsson.se>
+References: <1253727096-10413-1-git-send-email-sjur.brandeland@stericsson.com> <4ACA1D31.6000008@babic.homelinux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	manuel.lauss@gmail.com, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>,
+	"Kim Lilliestierna XX" <kim.xx.lilliestierna@stericsson.com>
+To: "Stefano Babic" <stefano.babic@babic.homelinux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.27]:26364 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932457AbZJFTqk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 15:46:40 -0400
-Received: by ey-out-2122.google.com with SMTP id 4so874875eyf.19
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2009 12:45:32 -0700 (PDT)
+Received: from mailgw4.ericsson.se ([193.180.251.62]:59809 "EHLO
+	mailgw4.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932330AbZJFTmV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 15:42:21 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <4ACA1D31.6000008@babic.homelinux.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-in update_rx_stats() the RX_OVERLEN bit is set twice, replace it by RX_RUNT.
-in au1000_rx() the RX_MISSED_FRAME bit was tested a few lines earlier already
+Stefano Babic wrote:
+> It seems that this command requires additional parameters as PRIO and
+> PHYPREF, else a "parse error" is reported by the tool.=20
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-please review, I merely guessed it should be RX_RUNT.
+Yes, I'll fix this documentation in a new PATCH delivery (hopefully) th=
+is week.
 
-diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
-index fdf5937..04f63c7 100644
---- a/drivers/net/au1000_eth.c
-+++ b/drivers/net/au1000_eth.c
-@@ -721,7 +721,7 @@ static inline void update_rx_stats(struct net_device *dev, u32 status)
- 		ps->rx_errors++;
- 		if (status & RX_MISSED_FRAME)
- 			ps->rx_missed_errors++;
--		if (status & (RX_OVERLEN | RX_OVERLEN | RX_LEN_ERROR))
-+		if (status & (RX_OVERLEN | RX_RUNT | RX_LEN_ERROR))
- 			ps->rx_length_errors++;
- 		if (status & RX_CRC_ERROR)
- 			ps->rx_crc_errors++;
-@@ -794,8 +794,6 @@ static int au1000_rx(struct net_device *dev)
- 					printk("rx len error\n");
- 				if (status & RX_U_CNTRL_FRAME)
- 					printk("rx u control frame\n");
--				if (status & RX_MISSED_FRAME)
--					printk("rx miss\n");
- 			}
- 		}
- 		prxd->buff_stat = (u32)(pDB->dma_addr | RX_DMA_ENABLE);
+=20
+>>"CAIF Protocol Specification" (155 19-CRH 109 913).=20
+> Is this one an internal document or was it published and is available
+> for reading ?=20
+
+No, not yet unfortunately.
+
+
+> Is phyif_msl.ko obsolete ? There is no track of the corresponding
+> source file.=20
+
+Yes, it is an obsolete physical interface no longer supported.
+I have removed reference to it from documentation.
+
+> $ modprobe caif
+> $ modprobe phyif_ser
+> $ echo 6 > /sys/class/caif/dbg_lvl
+> $ ./ldiscd
+> $./chardevconfig /dev/caifconfig - CREATE TYPE=3DAT NAME=3Dchnlat10 D=
+EVTYPE=3DCHAR PHYPREF=3DLAT PRIO=3DHI  =20
+
+This looks ok.
+
+> and the system hangs. I could find after some instrumentation that
+> the system hangs in the ser_phy_tx function. This is not a surprise,
+> because the Uart TX function is never called. Have I missed something
+> ?  =20
+
+Hmm, the hanging might be due to a tight loop in the phyif_ser.c:ser_ph=
+y_tx function.
+[snip]
+		do {
+			tty_wr =3D
+			    pser_tty->ops->write(pser_tty, bufp, actual_len);
+			/* When not whole buffer is written,
+			 * forward buffer pointer and try again */
+			actual_len -=3D tty_wr;
+			bufp +=3D tty_wr;
+		} while (actual_len);
+
+If pser_tty->ops->write() returns zero it will loop infinetly.
+I guess the proper solution would be not to loop, but to implement a wr=
+ite_wakeup function for the tty...?
+
+
+BR/Sjur Br=E6ndeland
+
+
+
