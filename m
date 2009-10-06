@@ -1,113 +1,77 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] net: add support for STMicroelectronics Ethernet controllers.
-Date: Tue, 06 Oct 2009 14:38:26 +0200
-Message-ID: <4ACB3A42.9070600@st.com>
-References: <1254815493-17576-1-git-send-email-peppe.cavallaro@st.com> <4ACB1B95.4090701@gmail.com>
+From: Gilad Ben-Yossef <gilad@codefidence.com>
+Subject: Re: [PATCH] iproute2 add hoplimit and reordering route options usage
+ and parsing
+Date: Tue, 06 Oct 2009 14:37:06 +0200
+Message-ID: <4ACB39F2.6080002@codefidence.com>
+References: <1254732861.015524.19779.nullmailer@watson.codefidence.com> <20091006114142.GA11012@amd64.fatal.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ori@comsleep.com
+To: Andreas Henriksson <andreas@fatal.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:42475 "EHLO
-	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932275AbZJFMjP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 08:39:15 -0400
-In-Reply-To: <4ACB1B95.4090701@gmail.com>
+Received: from xenbox.codefidence.com ([92.48.73.16]:32923 "EHLO
+	xenbox.codefidence.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932431AbZJFMhl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 08:37:41 -0400
+In-Reply-To: <20091006114142.GA11012@amd64.fatal.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+Andreas Henriksson wrote:
 
-Hi Eric,
-many thanks for your prompt feedback.
+> Hello!
+>
+> On Mon, Oct 05, 2009 at 10:54:21AM +0200, Gilad Ben-Yossef wrote:
+>   
+>> iproute2 git HEAD (spotted originally on 2.6.26, so it's probably not new) 
+>> does  not parse the hoplimit route option when proccessing parameters, nor 
+>> does it  print hoplimit and reordering options in the usage lines.  
+>>     
+>
+> I'm happy you brought this up and know the author. The Debian package
+> has been carrying this code, which is now in the form of a patch available
+> here:
+> http://git.debian.org/?p=collab-maint/pkg-iproute.git;a=blob;f=debian/patches/hoplimit.dpatch
+>
+> I didn't know who the original author was which is why I haven't submitted it,
+> but it seems you know the history....
+>   
+Not exactly. I know the history of the patch *I sent* (and btw, it seems 
+I got the author name wrong). I don't think it is related to the one 
+Debian is carrying.
+> The above patch also includes some minor documentation updates which you seem
+> to be missing and might want to integrate in your version of the patch.
+>   
+All right. I will add those documentation changes as well and resend as 
+version 2.
+> Looking forward to be able to drop the patch in the debian package!
+>
+>
+>
+>   
+I take it you ACK the patch as the Debian package maintainer?
 
-Eric Dumazet wrote:
-> Giuseppe CAVALLARO a =E9crit :
->=20
->> +static int stmmac_sw_tso(struct stmmac_priv *priv, struct sk_buff *=
-skb)
-[snip]
->=20
-> So stmmac_sw_tso() calls stmmac_xmit() for each seg skb.
->=20
-> But stmmac_sw_tso() was called from stmmac_xmit(),
-> with priv->tx_lock locked, so I suspect something is wrong.
+Thanks!
+Gilad
 
-Yes, you are right on this.
-I'm going to remove it. Indeed, I observed no gain during my performanc=
-e
-tests. I had added it just to become familiar with this.
-Note also that our chips do not have the segmentation offloading in Hw.
-Thanks for this observation.
 
-> Also please change various
->=20
-> +	mac =3D kmalloc(sizeof(const struct mac_device_info), GFP_KERNEL);
-> +	memset(mac, 0, sizeof(struct mac_device_info));
-> +
->=20
-> +	mac =3D kmalloc(sizeof(const struct mac_device_info), GFP_KERNEL);
-> +	memset(mac, 0, sizeof(struct mac_device_info));
-> +
->=20
-> to use kzalloc(), and of course, you should check kmalloc()/kzalloc()=
- dont return NULL !
->=20
+-- 
+Gilad Ben-Yossef
+Chief Coffee Drinker & CTO
+Codefidence Ltd.
 
-Yes I'll do that too.
+Web:   http://codefidence.com
+Cell:  +972-52-8260388
+Skype: gilad_codefidence
+Tel:   +972-8-9316883 ext. 201
+Fax:   +972-8-9316884
+Email: gilad@codefidence.com
 
-> Also :
->=20
-> +static int stmmac_clean_tx(struct net_device *dev)
-[snip]
-> +		if (skb !=3D NULL) {
-> +			/*
-> +			 * If there's room in the queue (limit it to size)
-> +			 * we add this skb back into the pool,
-> +			 * if it's the right size.
-> +			 */
-> +			if ((skb_queue_len(&priv->rx_recycle) <
-> +				priv->dma_rx_size) &&
-> +				skb_recycle_check(skb, priv->dma_buf_sz))
-> +				__skb_queue_head(&priv->rx_recycle, skb);
-> +			else
-> +				dev_kfree_skb_any(skb);
->=20
-> Why call dev_kfree_skb_any() here ? From NAPI context it is overkill.
+Check out our Open Source technology and training blog - http://tuxology.net
 
-The logic behind this piece of code should be the same one adopted in
-other drivers like gianfar, ucc_geth and mv643xx_eth. What am I missing=
-?
+	"Now the world has gone to bed
+	 Darkness won't engulf my head
+	 I can see by infra-red
+	 How I hate the night."
 
-> static int stmmac_poll(struct napi_struct *napi, int budget)
-> +{
-[snip]
-> +
-> +	tx_cleaned =3D stmmac_clean_tx(dev);
-> +
-> +	work_done =3D stmmac_rx(dev, budget);
-> +
->=20
->=20
-> +	if (tx_cleaned)
-> +		return budget;
->=20
-> Why tx_cleaned is used here to exit early ?
-
-I've found interesting the approach used in gianfar (see commit
-42199884594bc336c9185441cbed99a9324dab34).
-
-Thanks again for the feedback.
-
-Regards,
-Peppe
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iEYEARECAAYFAkrLOjkACgkQ2Xo3j31MSSIM5ACgrTLJgwO84ooKkcoEaNMZ5bcy
-iBUAoK+q677OnyeCdeNndFq92AmwNPoa
-=3Dr7WK
------END PGP SIGNATURE-----
