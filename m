@@ -1,38 +1,73 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] sb1250-mac: duplicate setting of bit V_MAC_RX_PL_THRSH(4)
- in sbmac_channel_start()
-Date: Tue, 06 Oct 2009 22:07:15 +0200
-Message-ID: <4ACBA373.7040506@gmail.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH RFC] isdn/capi: fix up CAPI subsystem workaround locking a bit
+Date: Tue, 6 Oct 2009 23:01:22 +0200
+Message-ID: <200910062301.24572.mb@bu3sch.de>
+References: <20091003120657.2228911186C@xenon.ts.pxnet.com> <200910052324.09992.mb@bu3sch.de> <4ACB83F7.9040500@imap.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, davem@davemloft.net,
-	Andrew Morton <akpm@linux-foundation.org>
+Cc: i4ldeveloper@listserv.isdn4linux.de,
+	Carsten Paeth <calle@calle.de>,
+	Karsten Keil <isdn@linux-pingi.de>,
+	Karsten Keil <keil@b1-systems.de>,
+	Armin Schindler <armin@melware.de>,
+	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Tilman Schmidt <tilman@imap.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f217.google.com ([209.85.219.217]:41031 "EHLO
-	mail-ew0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757507AbZJFT7H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 15:59:07 -0400
-Received: by ewy17 with SMTP id 17so4310590ewy.39
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2009 12:58:29 -0700 (PDT)
+Received: from bu3sch.de ([62.75.166.246]:33282 "EHLO vs166246.vserver.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933206AbZJFVCN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Oct 2009 17:02:13 -0400
+In-Reply-To: <4ACB83F7.9040500@imap.cc>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bit V_MAC_RX_PL_THRSH(4) was already set a few lines higher.
+On Tuesday 06 October 2009 19:52:55 Tilman Schmidt wrote:
+> > Yeah, this sledgehammer lock did fix the crash while leaving the old non-list-head
+> > queue in place (it should still be there today).
+> 
+> That is not the case. In mainline, your second patch was applied on
+> top of the first one, so there is now struct list_head ackqueue and
+> spinlock_t ackqlock as well as static DEFINE_SPINLOCK(workaround_lock).
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-Please review. Maybe it should be replaced by something else?
+Ok, that's fine, too.
+It's just that the ackqlock wasn't enough to fix it, as I said. It just shrinks the window.
 
-diff --git a/drivers/net/sb1250-mac.c b/drivers/net/sb1250-mac.c
-index 508551f..7269a87 100644
---- a/drivers/net/sb1250-mac.c
-+++ b/drivers/net/sb1250-mac.c
-@@ -1476,7 +1476,6 @@ static void sbmac_channel_start(struct sbmac_softc *s)
- 		V_MAC_TX_RL_THRSH(4) |
- 		V_MAC_RX_PL_THRSH(4) |
- 		V_MAC_RX_RD_THRSH(4) |	/* Must be '4' */
--		V_MAC_RX_PL_THRSH(4) |
- 		V_MAC_RX_RL_THRSH(8) |
- 		0;
- 
+> > I still have the device somewhere. If you want to have it, I can blow off the
+> > dust and send it to you. If you don't want it, I'll throw it away soon.
+> > I'd really like to send it to you to get rid of it. ;)
+> 
+> Feel free to do so. I'll send you my snailmail address by PM. I'm
+> making no promises about when I might get around to actually testing
+> it, though.
+
+Thanks, I'll get it to the post office by the end of the week.
+
+> >> Can anyone shed some light on 
+> >> what that device is doing differently from other ISDN cards?
+> > 
+> > Well, it's a combined ISDN/DSL card, but I never used the ISDN part. So the crash
+> > happened while transferring data over the DSL link.
+> 
+> DSL over CAPI? Strange.
+
+Yeah, dunno. They did it that way... Pretty weird.
+
+> > The vendor driver is closed source with an open wrapper (like nvidia). It's a pretty
+> > crappy unmaintained piece of software, but it ran stable with some patches applied
+> > to the driver and the workaround-lock patch to the capi stack.
+> 
+> O dear. I wonder what I'll find.
+
+ftp://ftp.avm.de/cardware/fritzcrd.dsl/linux/suse.93/fcdsl-suse93-3.11-07.tar.gz
+
+This is the driver that I used. It needs some modification to compile on a recent kernel.
+Unfortunately I don't have the patch anymore. But it was rather trivial. It renamed some functions,
+because they clashed with others and did some other things I don't remember.
+Remember to get a bucket before looking at the code, because you will need it. ;)
+
+-- 
+Greetings, Michael.
