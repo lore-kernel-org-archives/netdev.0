@@ -1,39 +1,63 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH 1/3] bonding: allow previous slave to be used when
-	re-balancing traffic on tlb/alb interfaces
-Date: Tue, 6 Oct 2009 12:27:31 -0400
-Message-ID: <20091006162731.GC1639@gospo.rdu.redhat.com>
-References: <1254269731-7341-1-git-send-email-fubar@us.ibm.com> <1254269731-7341-2-git-send-email-fubar@us.ibm.com> <8075.1254532437@death.nxdomain.ibm.com> <20091005.034333.04801045.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] iproute2 add hoplimit parsing and update usage and documentation
+Date: Tue, 06 Oct 2009 19:14:28 +0200
+Message-ID: <4ACB7AF4.4070207@gmail.com>
+References: <1254836434.544524.27946.nullmailer@watson.codefidence.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fubar@us.ibm.com, andy@greyhouse.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Ori Finkelman <ori@comsleep.com>,
+	Andreas Henriksson <andreas@fatal.se>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Gilad Ben-Yossef <gilad@codefidence.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42405 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750870AbZJFQ2V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Oct 2009 12:28:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20091005.034333.04801045.davem@davemloft.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:47717 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753891AbZJFRPM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 13:15:12 -0400
+In-Reply-To: <1254836434.544524.27946.nullmailer@watson.codefidence.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 05, 2009 at 03:43:33AM -0700, David Miller wrote:
-> From: Jay Vosburgh <fubar@us.ibm.com>
-> Date: Fri, 02 Oct 2009 18:13:57 -0700
-> 
-> > 	Andy, I've been doing some further testing with this patch, and
-> > I'm seeing some panics that I believe are related to this patch.  It
-> > appears that the last_slave isn't cleared (or isn't cleared soon enough)
-> > when a slave is released, and concurrent transmit activity is getting
-> > into alb_get_best_slave() and finding a last_slave pointer that is stale
-> > (points to no slave currently on the slave list).
-> 
-> I'm holding off on these 3 bonding patches until this is resolved.
-> --
+Gilad Ben-Yossef a =E9crit :
+> From: Gilad Ben-Yossef <gilad@codefidence.com>
+>=20
+> - Parse and handle the hoplimit ip route option and add it to the usa=
+ge=20
+>   line and documentation.
+>=20
+> - Add the missing reordering ip route option to the usage line.
+>=20
+> - Add documentation for initcwnd ip route option.
+>=20
+> Tested by setting hoplimit and retreiving it via "show".=20
+>=20
+> Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
+> [ported to HEAD, fixed a bug with hoplimit lock handling, added docum=
+entation]
+> Signed-off-by: Ori Finkelman <ori@comsleep.com>
+> Signed-off-by: Yony Amit <yony@comsleep.com>
+>=20
 
-Sounds good, Dave.
+> --- a/ip/iproute.c
+> +++ b/ip/iproute.c
+> @@ -13,6 +13,8 @@
+>   *
+>   * Rani Assaf <rani@magic.metawire.com> 980929:	resolve addresses
+>   * Kunihiro Ishiguro <kunihiro@zebra.org> 001102: rtnh_ifindex was n=
+ot initialized
+> + * Gilad Ben-Yossef <gilad@codefidence.com> 091006: Add hoplimit opt=
+ion parsing=20
+> + * and correct usage
 
-I was hoping to get this resolved yesterday, but got distracted.  I will
-have some time today.
+Well, git/web history is much better than this, you dont need to add th=
+is comment.
 
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+patch should be sent to iproute2 maintainer, Stephen Hemminger <shemmin=
+ger@vyatta.com>
+
+He might be too busy to catch netdev mails these days, I dont know :)
+
+Thanks
