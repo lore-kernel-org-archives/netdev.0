@@ -1,38 +1,102 @@
 From: "J. K. Cliburn" <jcliburn@gmail.com>
-Subject: Re: [Bugme-new] [Bug 14336] New: [Pardus] Soft Lockup Problem with  Attansic Ethernet Card
-Date: Tue, 6 Oct 2009 18:33:45 -0500
-Message-ID: <869D6DF1-7AA5-46B9-81E4-DBA5D21603B4@gmail.com>
-References: <bug-14336-10286@http.bugzilla.kernel.org/> <20091006155502.f3fc86d9.akpm@linux-foundation.org> <3d54862b0910061601iba25b87hfba151f71d6ce4ef@mail.gmail.com>
+Subject: Re: [Bugme-new] [Bug 14336] New: [Pardus] Soft Lockup Problem with Attansic Ethernet Card
+Date: Tue, 6 Oct 2009 18:39:10 -0500
+Message-ID: <D0FA920C-ACED-478C-BBDD-597610160962@gmail.com>
+References: <bug-14336-10286@http.bugzilla.kernel.org/> <20091006155502.f3fc86d9.akpm@linux-foundation.org>
 Mime-Version: 1.0 (Apple Message framework v753.1)
 Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	bugzilla-daemon@bugzilla.kernel.org,
+Cc: badibere@gmail.com, bugzilla-daemon@bugzilla.kernel.org,
 	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
 	linux-acpi@vger.kernel.org,
 	Jesse Barnes <jbarnes@virtuousgeek.org>,
 	Chris Snook <chris.snook@gmail.com>,
 	Jie Yang <jie.yang@atheros.com>
-To: Erdem ARTAN <badibere@gmail.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f217.google.com ([209.85.219.217]:45347 "EHLO
+Received: from mail-ew0-f217.google.com ([209.85.219.217]:63272 "EHLO
 	mail-ew0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933472AbZJFXeb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 19:34:31 -0400
-In-Reply-To: <3d54862b0910061601iba25b87hfba151f71d6ce4ef@mail.gmail.com>
+	with ESMTP id S933504AbZJFXj4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 19:39:56 -0400
+In-Reply-To: <20091006155502.f3fc86d9.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Oct 6, 2009, at 6:01 PM, Erdem ARTAN wrote:
 
-> Yesterday, there wasn't any problem but 3 days ago there was same  
-> problem.
+On Oct 6, 2009, at 5:55 PM, Andrew Morton wrote:
+
 >
-> While there wasn't any problem, if I'm not wrong, both atl1c and  
-> atl1e modules were loaded on boot. But, If I try to load atl1e now,  
-> nothing changes.
+> (switched to email.  Please respond via emailed reply-to-all, not  
+> via the
+> bugzilla web interface).
+>
+> On Tue, 6 Oct 2009 22:37:13 GMT
+> bugzilla-daemon@bugzilla.kernel.org wrote:
+>
+>> http://bugzilla.kernel.org/show_bug.cgi?id=14336
+>>
+>>            Summary: [Pardus] Soft Lockup Problem with Attansic  
+>> Ethernet
+>>                     Card
+>>            Product: Networking
+>>            Version: 2.5
+>>     Kernel Version: 2.6.30.8
+>>           Platform: All
+>>         OS/Version: Linux
+>>               Tree: Mainline
+>>             Status: NEW
+>>           Severity: high
+>>           Priority: P1
+>>          Component: IPV4
+>>         AssignedTo: shemminger@linux-foundation.org
+>>         ReportedBy: badibere@gmail.com
+>>         Regression: No
+>>
+>>
+>> I have soft lockup problem with attansic ethernet card while  
+>> activating eth0
+>> interface.
+>>
+>> My ethernet card is 09:00.0 Ethernet controller: Attansic  
+>> Technology Corp.
+>> Device 1063 (rev c0)
+>>
+>> If I try to activate eth0 interface while network cable is pluged  
+>> in, then
+>> everything freezes.
+>>
+>> If I try to activate eth0 interface while network cable isn't  
+>> pluged in, then
+>> no problem. But, if i plug in, again freezes.
+>>
+>> My /var/log/syslog is in attachment.
+>>
+>
+> From the dmesg output it appears that this card is driven by the atl1c
+> driver:
+>
+> Oct  7 00:55:57 baDibere kernel: [  169.943463] atl1c 0000:09:00.0:  
+> Unable to allocate MSI interrupt Error: -22
+> Oct  7 00:55:57 baDibere kernel: [  169.943576] atl1c 0000:09:00.0:  
+> atl1c: eth0 NIC Link is Up<100 Mbps Full Duplex>
+> Oct  7 00:56:22 baDibere kernel: [  194.849361] NVRM: Xid  
+> (0001:00): 16, Head 00000000 Count 00003651
+> Oct  7 00:56:31 baDibere kernel: [  203.849307] NVRM: Xid  
+> (0001:00): 16, Head 00000000 Count 00003653
+> Oct  7 00:56:36 baDibere kernel: [  208.849339] NVRM: Xid  
+> (0001:00): 8, Channel 00000003
+> Oct  7 00:56:41 baDibere kernel: [  213.852320] NVRM: Xid  
+> (0001:00): 16, Head 00000000 Count 00003655
+>
+>
+> The "Unable to allocate MSI interrupt" might be the immediate problem.
+>
+> Who belongs to MSI interrupt allocation?  PCI?  ACPI?
+>
+> However the driver does attempt to handle and recover from the MSI
+> interrupt allocation error so perhaps that's no the cause at all.
+>
 
-The pci_id says your chip is an L1c.  Jie Yang is the maintainer of  
-the atl1c driver and is cc'd.
+I'd be curious to know if the lockup occurs when booted with pci=nomsi.
 
 Jay
