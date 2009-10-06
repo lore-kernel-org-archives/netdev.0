@@ -1,55 +1,37 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] ipv4: arp_notify address list bug
-Date: Mon, 5 Oct 2009 19:15:05 -0700
-Message-ID: <20091005191505.75c929a6@nehalam>
+From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
+Subject: RE: [net-next-2.6 PATCH 8/9] vxge: Acquire correct lock based on interrupt context.
+Date: Mon, 5 Oct 2009 22:36:22 -0400
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7705C16322@nekter>
+References: <Pine.GSO.4.10.10910050757300.9377-100000@guinness> <20091005.053759.74765905.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>,
+	"Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:55157 "EHLO mail.vyatta.com"
+Received: from mx.neterion.com ([72.1.205.142]:38843 "EHLO owa.neterion.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753283AbZJFCPs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Oct 2009 22:15:48 -0400
+	id S1756004AbZJFChA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Oct 2009 22:37:00 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20091005.053759.74765905.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes a bug with arp_notify and also adds a small enhancement.
+> > - Added macros that check if the thread is in interrupt context or
+not
+> to
+> >   acquire or release locks
+> >
+> > Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
+> 
+> There is nothing at all wrong with using irqsave/irqrestore spin lock
+> calls when you're already in an interrupt.
+> 
+> I don't see any reason for this change.
+[Ram] Right, but why have the additional step of saving and restoring
+the flags while in the interrupt context?
 
-If arp_notify is enabled, kernel will crash if address is changed
-and no IP address is assigned.
-  http://bugzilla.kernel.org/show_bug.cgi?id=14330
-
-The fix is to walk the (possibly empty) list when sending
-the gratuitous ARP's.
-
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
----
-This should go to stable kernel fixes as well.
-
---- a/net/ipv4/devinet.c	2009-10-05 17:31:35.759514625 -0700
-+++ b/net/ipv4/devinet.c	2009-10-05 17:44:04.204494945 -0700
-@@ -1077,12 +1077,15 @@ static int inetdev_event(struct notifier
- 		ip_mc_up(in_dev);
- 		/* fall through */
- 	case NETDEV_CHANGEADDR:
--		if (IN_DEV_ARP_NOTIFY(in_dev))
--			arp_send(ARPOP_REQUEST, ETH_P_ARP,
--				 in_dev->ifa_list->ifa_address,
--				 dev,
--				 in_dev->ifa_list->ifa_address,
--				 NULL, dev->dev_addr, NULL);
-+		/* Send gratitious ARP to notify of link change */
-+		if (IN_DEV_ARP_NOTIFY(in_dev)) {
-+			struct in_ifaddr *ifa;
-+			for (ifa = in_dev->ifa_list; ifa; ifa = ifa->ifa_next)
-+				arp_send(ARPOP_REQUEST, ETH_P_ARP,
-+					 ifa->ifa_address, dev,
-+					 ifa->ifa_address, NULL,
-+					 dev->dev_addr, NULL);
-+		}
- 		break;
- 	case NETDEV_DOWN:
- 		ip_mc_down(in_dev);
+Ram
