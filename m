@@ -1,61 +1,97 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: alt1c: ethernet driver bug
-Date: Tue, 6 Oct 2009 16:10:48 -0700
-Message-ID: <20091006161048.6b52b6be@nehalam>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC net-next-2.6] net: speedup sk_wake_async()
+Date: Wed, 07 Oct 2009 01:08:08 +0200
+Message-ID: <4ACBCDD8.5000306@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jie Yang <jie.yang@atheros.com>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56797 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933292AbZJFXLb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Oct 2009 19:11:31 -0400
+Received: from gw1.cosmosbay.com ([212.99.114.194]:45503 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753848AbZJFXIs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 19:08:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=14336
-> 
->            Summary: [Pardus] Soft Lockup Problem with Attansic Ethernet
->                     Card
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 2.6.30.8
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: high
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: badibere@gmail.com
->         Regression: No
-> 
-> 
-> I have soft lockup problem with attansic ethernet card while activating eth0
-> interface.
-> 
-> My ethernet card is 09:00.0 Ethernet controller: Attansic Technology Corp.
-> Device 1063 (rev c0)
-> 
-> If I try to activate eth0 interface while network cable is pluged in, then
-> everything freezes.
-> 
-> If I try to activate eth0 interface while network cable isn't pluged in, then
-> no problem. But, if i plug in, again freezes.
-> 
-> My /var/log/syslog is in attachment.
-> 
+Latency works, part 1
 
-this is what was in the bug attachment
 
-Oct  7 00:53:33 baDibere kernel: [   16.162099] atl1c 0000:09:00.0: enabling device (0000 -> 0002)
-Oct  7 00:53:33 baDibere kernel: [   16.162117] atl1c 0000:09:00.0: PCI INT A -> GSI 17 (level, low) -> IRQ 17
-Oct  7 00:53:33 baDibere kernel: [   16.162141] atl1c 0000:09:00.0: setting latency timer to 64
-Oct  7 00:53:33 baDibere kernel: [   16.162247] atl1c 0000:09:00.0: PME# disabled
-Oct  7 00:53:33 baDibere kernel: [   16.162266] atl1c 0000:09:00.0: PME# disabled
-Oct  7 00:53:33 baDibere kernel: [   16.230835] atl1c 0000:09:00.0: version 1.0.0.1-NAPI
-Oct  7 00:55:57 baDibere kernel: [  169.943463] atl1c 0000:09:00.0: Unable to allocate MSI interrupt Error: -22
-Oct  7 00:55:57 baDibere kernel: [  169.943576] atl1c 0000:09:00.0: atl1c: eth0 NIC Link is Up<100 Mbps Full Duplex>
+An incoming datagram must bring into cpu cache *lot* of cache lines,
+in particular : (other parts omitted (hash chains, ip route cache...))
+
+On 32bit arches :
+
+offsetof(struct sock, sk_rcvbuf)       =0x30    (read)
+offsetof(struct sock, sk_lock)         =0x34   (rw)
+
+offsetof(struct sock, sk_sleep)        =0x50 (read)
+offsetof(struct sock, sk_rmem_alloc)   =0x64   (rw)
+offsetof(struct sock, sk_receive_queue)=0x74   (rw)
+
+offsetof(struct sock, sk_forward_alloc)=0x98   (rw)
+
+offsetof(struct sock, sk_callback_lock)=0xcc    (rw)
+offsetof(struct sock, sk_drops)        =0xd8 (read if we add dropcount support, rw if frame dropped)
+offsetof(struct sock, sk_filter)       =0xf8    (read)
+
+offsetof(struct sock, sk_socket)       =0x138 (read)
+
+offsetof(struct sock, sk_data_ready)   =0x15c   (read)
+
+
+We can avoid sk->sk_socket and socket->fasync_list referencing on sockets
+with no fasync() structures. (socket->fasync_list ptr is probably already in cache
+because it shares a cache line with socket->wait, ie location pointed by sk->sk_sleep)
+
+This avoids one cache line load per incoming packet for common cases (no fasync())
+
+We can leave (or even move in a future patch) sk->sk_socket in a cold location
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/net/sock.h |    3 ++-
+ net/socket.c       |    3 +++
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 1621935..98398bd 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -504,6 +504,7 @@ enum sock_flags {
+ 	SOCK_TIMESTAMPING_SOFTWARE,     /* %SOF_TIMESTAMPING_SOFTWARE */
+ 	SOCK_TIMESTAMPING_RAW_HARDWARE, /* %SOF_TIMESTAMPING_RAW_HARDWARE */
+ 	SOCK_TIMESTAMPING_SYS_HARDWARE, /* %SOF_TIMESTAMPING_SYS_HARDWARE */
++	SOCK_FASYNC, /* fasync() active */
+ };
+ 
+ static inline void sock_copy_flags(struct sock *nsk, struct sock *osk)
+@@ -1396,7 +1397,7 @@ static inline unsigned long sock_wspace(struct sock *sk)
+ 
+ static inline void sk_wake_async(struct sock *sk, int how, int band)
+ {
+-	if (sk->sk_socket && sk->sk_socket->fasync_list)
++	if (sock_flag(sk, SOCK_FASYNC))
+ 		sock_wake_async(sk->sk_socket, how, band);
+ }
+ 
+diff --git a/net/socket.c b/net/socket.c
+index 7565536..d53ad11 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1100,11 +1100,14 @@ static int sock_fasync(int fd, struct file *filp, int on)
+ 		fna->fa_next = sock->fasync_list;
+ 		write_lock_bh(&sk->sk_callback_lock);
+ 		sock->fasync_list = fna;
++		sock_set_flag(sk, SOCK_FASYNC);
+ 		write_unlock_bh(&sk->sk_callback_lock);
+ 	} else {
+ 		if (fa != NULL) {
+ 			write_lock_bh(&sk->sk_callback_lock);
+ 			*prev = fa->fa_next;
++			if (!sock->fasync_list)
++				sock_reset_flag(sk, SOCK_FASYNC);
+ 			write_unlock_bh(&sk->sk_callback_lock);
+ 			kfree(fa);
+ 		}
