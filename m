@@ -1,31 +1,19 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 14336] New: [Pardus] Soft Lockup Problem with
- Attansic Ethernet Card
-Date: Tue, 6 Oct 2009 15:55:02 -0700
-Message-ID: <20091006155502.f3fc86d9.akpm@linux-foundation.org>
-References: <bug-14336-10286@http.bugzilla.kernel.org/>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: alt1c: ethernet driver bug
+Date: Tue, 6 Oct 2009 16:10:48 -0700
+Message-ID: <20091006161048.6b52b6be@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	linux-acpi@vger.kernel.org,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>,
-	Jie Yang <jie.yang@atheros.com>
-To: badibere@gmail.com
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <bug-14336-10286@http.bugzilla.kernel.org/>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
-
-On Tue, 6 Oct 2009 22:37:13 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+Cc: netdev@vger.kernel.org
+To: Jie Yang <jie.yang@atheros.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:56797 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933292AbZJFXLb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Oct 2009 19:11:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 > http://bugzilla.kernel.org/show_bug.cgi?id=14336
 > 
@@ -61,21 +49,13 @@ bugzilla-daemon@bugzilla.kernel.org wrote:
 > My /var/log/syslog is in attachment.
 > 
 
->From the dmesg output it appears that this card is driven by the atl1c
-driver:
+this is what was in the bug attachment
 
+Oct  7 00:53:33 baDibere kernel: [   16.162099] atl1c 0000:09:00.0: enabling device (0000 -> 0002)
+Oct  7 00:53:33 baDibere kernel: [   16.162117] atl1c 0000:09:00.0: PCI INT A -> GSI 17 (level, low) -> IRQ 17
+Oct  7 00:53:33 baDibere kernel: [   16.162141] atl1c 0000:09:00.0: setting latency timer to 64
+Oct  7 00:53:33 baDibere kernel: [   16.162247] atl1c 0000:09:00.0: PME# disabled
+Oct  7 00:53:33 baDibere kernel: [   16.162266] atl1c 0000:09:00.0: PME# disabled
+Oct  7 00:53:33 baDibere kernel: [   16.230835] atl1c 0000:09:00.0: version 1.0.0.1-NAPI
 Oct  7 00:55:57 baDibere kernel: [  169.943463] atl1c 0000:09:00.0: Unable to allocate MSI interrupt Error: -22
 Oct  7 00:55:57 baDibere kernel: [  169.943576] atl1c 0000:09:00.0: atl1c: eth0 NIC Link is Up<100 Mbps Full Duplex>
-Oct  7 00:56:22 baDibere kernel: [  194.849361] NVRM: Xid (0001:00): 16, Head 00000000 Count 00003651
-Oct  7 00:56:31 baDibere kernel: [  203.849307] NVRM: Xid (0001:00): 16, Head 00000000 Count 00003653
-Oct  7 00:56:36 baDibere kernel: [  208.849339] NVRM: Xid (0001:00): 8, Channel 00000003
-Oct  7 00:56:41 baDibere kernel: [  213.852320] NVRM: Xid (0001:00): 16, Head 00000000 Count 00003655
-
-
-The "Unable to allocate MSI interrupt" might be the immediate problem.
-
-Who belongs to MSI interrupt allocation?  PCI?  ACPI?
-
-However the driver does attempt to handle and recover from the MSI
-interrupt allocation error so perhaps that's no the cause at all.
-
