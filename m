@@ -1,38 +1,37 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] netxen: Fix Unlikely(x) > y
-Date: Tue, 06 Oct 2009 15:23:38 +0200
-Message-ID: <4ACB44DA.1010300@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Dhananjay Phadke <dhananjay@netxen.com>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f217.google.com ([209.85.219.217]:36899 "EHLO
-	mail-ew0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932433AbZJFNPe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 09:15:34 -0400
-Received: by ewy17 with SMTP id 17so3875684ewy.39
-        for <netdev@vger.kernel.org>; Tue, 06 Oct 2009 06:14:57 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Chou <thomas@wytron.com.tw>
+Subject: [PATCH] ethoc: limit the number of buffers to 128
+Date: Tue,  6 Oct 2009 21:25:25 +0800
+Message-ID: <1254835525-2529-1-git-send-email-thomas@wytron.com.tw>
+Cc: thierry.reding@avionic-design.de,
+	Nios2 development list <nios2-dev@sopc.et.ntust.edu.tw>,
+	linux-kernel@vger.kernel.org, Thomas Chou <thomas@wytron.com.tw>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757311AbZJFNYY@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The closing parenthesis was not on the right location.
+Only 128 buffer descriptors are supported in the core. Limit the
+number in case we have more memory.
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+Signed-off-by: Thomas Chou <thomas@wytron.com.tw>
 ---
-This was intended, I think?
+ drivers/net/ethoc.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index b5aa974..9b9eab1 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -1714,7 +1714,7 @@ netxen_nic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 	/* 4 fragments per cmd des */
- 	no_of_desc = (frag_count + 3) >> 2;
+diff --git a/drivers/net/ethoc.c b/drivers/net/ethoc.c
+index 6d82dc6..34d0c69 100644
+--- a/drivers/net/ethoc.c
++++ b/drivers/net/ethoc.c
+@@ -662,8 +662,8 @@ static int ethoc_open(struct net_device *dev)
+ 	if (ret)
+ 		return ret;
  
--	if (unlikely(no_of_desc + 2) > netxen_tx_avail(tx_ring)) {
-+	if (unlikely(no_of_desc + 2 > netxen_tx_avail(tx_ring))) {
- 		netif_stop_queue(netdev);
- 		return NETDEV_TX_BUSY;
- 	}
+-	/* calculate the number of TX/RX buffers */
+-	num_bd = (dev->mem_end - dev->mem_start + 1) / ETHOC_BUFSIZ;
++	/* calculate the number of TX/RX buffers, maximum 128 supported */
++	num_bd = min(128, (dev->mem_end - dev->mem_start + 1) / ETHOC_BUFSIZ);
+ 	priv->num_tx = max(min_tx, num_bd / 4);
+ 	priv->num_rx = num_bd - priv->num_tx;
+ 	ethoc_write(priv, TX_BD_NUM, priv->num_tx);
+-- 
+1.6.2.5
