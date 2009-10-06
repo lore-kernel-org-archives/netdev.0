@@ -1,122 +1,124 @@
-From: Gilad Ben-Yossef <gilad@codefidence.com>
-Subject: [PATCH] iproute2 add hoplimit parsing and update usage and documentation
-Date: Tue, 06 Oct 2009 15:40:34 +0200
-Message-ID: <1254836434.544524.27946.nullmailer@watson.codefidence.com>
-References: <4ACB39F2.6080002@codefidence.com>
-Cc: Ori Finkelman <ori@comsleep.com>
-To: netdev@vger.kernel.org
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] net: add support for STMicroelectronics Ethernet controllers.
+Date: Tue, 06 Oct 2009 15:42:12 +0200
+Message-ID: <4ACB4934.8090407@st.com>
+References: <1254815493-17576-1-git-send-email-peppe.cavallaro@st.com> <4ACB1B95.4090701@gmail.com> <4ACB3A42.9070600@st.com> <4ACB47B5.5050700@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenbox.codefidence.com ([92.48.73.16]:46841 "EHLO
-	xenbox.codefidence.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757264AbZJFNlI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 09:41:08 -0400
-Cc: Andreas Henriksson <andreas@fatal.se>
-In-Reply-To: <4ACB39F2.6080002@codefidence.com>
+Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:35482 "EHLO
+	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757391AbZJFNm6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 09:42:58 -0400
+In-Reply-To: <4ACB47B5.5050700@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gilad Ben-Yossef <gilad@codefidence.com>
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-- Parse and handle the hoplimit ip route option and add it to the usage 
-  line and documentation.
+Hi Eric.
 
-- Add the missing reordering ip route option to the usage line.
+Eric Dumazet wrote:
+> Giuseppe CAVALLARO a =E9crit :
+>=20
+>>> Why call dev_kfree_skb_any() here ? From NAPI context it is overkil=
+l.
+>> The logic behind this piece of code should be the same one adopted i=
+n
+>> other drivers like gianfar, ucc_geth and mv643xx_eth. What am I miss=
+ing?
+>=20
+> Dont trust driver code too much, many of them are not upd2date.
+>=20
+> gianfar disables irqs, so it calls dev_kfree_skb_any()
+>=20
+> if (spin_trylock_irqsave(&priv->txlock, flags)) {
+> 	tx_cleaned =3D gfar_clean_tx_ring(dev);
+> 	spin_unlock_irqrestore(&priv->txlock, flags);
+> }
+>=20
+> but in your case,
+>=20
+> stmmac_clean_tx() runs in sofirq mode, you can call dev_kfree_skb()/c=
+onsume_skb()
+>=20
+> Please check drivers/net/tg3.c, function tg3_tx() for a _good_ exampl=
+e.
 
-- Add documentation for initcwnd ip route option.
+Thanks, I'll fix it taking as example the tg3 d.d.
 
-Tested by setting hoplimit and retreiving it via "show". 
+>>> static int stmmac_poll(struct napi_struct *napi, int budget)
+>>> +{
+>> [snip]
+>>> +
+>>> +	tx_cleaned =3D stmmac_clean_tx(dev);
+>>> +
+>>> +	work_done =3D stmmac_rx(dev, budget);
+>>> +
+>>>
+>>>
+>>> +	if (tx_cleaned)
+>>> +		return budget;
+>>>
+>>> Why tx_cleaned is used here to exit early ?
+>> I've found interesting the approach used in gianfar (see commit
+>> 42199884594bc336c9185441cbed99a9324dab34).
+>>
+>=20
+> This looks buggy and not a clone of e1000 code, despite its Changelog=
+ claim.
+>=20
+> e1000 code is OK, not gianfar.
+>=20
+> static int e1000_clean(struct napi_struct *napi, int budget)
+> {
+> 	tx_clean_complete =3D e1000_clean_tx_irq(adapter, &adapter->tx_ring[=
+0]);
+>=20
+> 	adapter->clean_rx(adapter, &adapter->rx_ring[0], &work_done, budget)=
+;
+>=20
+> 	if (!tx_clean_complete)
+> 		work_done =3D budget; // we say budget is fully consumed to force a=
+nother poll round
+>=20
+> 	if (work_done < budget) {
+> 		...
+> 		napi_complete(napi);
+> 		...
+> 	}
+> }
+>=20
+> You can see e1000_clean_tx_irq() doesnt return "number of completed s=
+kbs", but a=20
+> boolean saying if more skb are still in tx queue "(count < tx_ring->c=
+ount)"
+>=20
+> This is because we want to check again tx queue before napi_complete(=
+this_adapter)
+>=20
+>=20
+> Your code forces a poll() round if at least *one* skb was completed, =
+this is very strange.
+>=20
 
-Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
-[ported to HEAD, fixed a bug with hoplimit lock handling, added documentation]
-Signed-off-by: Ori Finkelman <ori@comsleep.com>
-Signed-off-by: Yony Amit <yony@comsleep.com>
+I'll fix this too.
 
----
+I'm going to post a new patch for the stmmac as soon as I fix all these
+points.
 
-Debian is carrying a patch with identical functionality for some 
-time now it seems.
+Many thanks.
+Regards,
+Peppe
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
 
-Parts of this patch carved out from original patch by Yony Amit 
-and Ori Finkelman from Comsleep Ltd. with minor bug
-fixing and HEAD port by me.
-
-Additional documentation bits inspired by Debian patch with unknown
-author provided by Andreas Henriksson <andreas@fatal.se>
-
-diff --git a/doc/ip-cref.tex b/doc/ip-cref.tex
-index bb4eb78..f81adc5 100644
---- a/doc/ip-cref.tex
-+++ b/doc/ip-cref.tex
-@@ -1324,7 +1324,17 @@ peers are allowed to send to us.
-     If it is not given, Linux uses the value selected with \verb|sysctl|
-     variable \verb|net/ipv4/tcp_reordering|.
- 
-+\item \verb|hoplimit NUMBER|
- 
-+--- [2.5.74+ only] Maximum number of hops on the path to this destination. 
-+    The default is the value selected with the \verb|sysctl| variable
-+    \verb|net/ipv4/ip_default_ttl|.
-+
-+\item \verb|initcwnd NUMBER|
-+--- [2.5.70+ only] Initial congestion window size for connections to 
-+    this destination. Actual window size is this value multiplied by the
-+    MSS (``Maximal Segment Size'') for same connection. The default is
-+    zero, meaning to use the values specified in~\cite{RFC2414}.
- 
- \item \verb|nexthop NEXTHOP|
- 
-@@ -2653,6 +2663,9 @@ http://www.cisco.com/univercd/cc/td/doc/product/software/ios120.
- \bibitem{RFC-DHCP} R.~Droms.
- ``Dynamic Host Configuration Protocol.'', RFC-2131
- 
-+\bibitem{RFC2414}  M.~Allman, S.~Floyd, C.~Partridge.
-+``Increasing TCP's Initial Window'', RFC-2414.
-+
- \end{thebibliography}
- 
- 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index bf0f31b..aeea93d 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -13,6 +13,8 @@
-  *
-  * Rani Assaf <rani@magic.metawire.com> 980929:	resolve addresses
-  * Kunihiro Ishiguro <kunihiro@zebra.org> 001102: rtnh_ifindex was not initialized
-+ * Gilad Ben-Yossef <gilad@codefidence.com> 091006: Add hoplimit option parsing 
-+ * and correct usage
-  */
- 
- #include <stdio.h>
-@@ -70,10 +72,10 @@ static void usage(void)
- 	fprintf(stderr, "INFO_SPEC := NH OPTIONS FLAGS [ nexthop NH ]...\n");
- 	fprintf(stderr, "NH := [ via ADDRESS ] [ dev STRING ] [ weight NUMBER ] NHFLAGS\n");
- 	fprintf(stderr, "OPTIONS := FLAGS [ mtu NUMBER ] [ advmss NUMBER ]\n");
--	fprintf(stderr, "           [ rtt TIME ] [ rttvar TIME ]\n");
-+	fprintf(stderr, "           [ rtt TIME ] [ rttvar TIME ] [reordering NUMBER ]\n");
- 	fprintf(stderr, "           [ window NUMBER] [ cwnd NUMBER ] [ initcwnd NUMBER ]\n");
- 	fprintf(stderr, "           [ ssthresh NUMBER ] [ realms REALM ] [ src ADDRESS ]\n");
--	fprintf(stderr, "           [ rto_min TIME ]\n");
-+	fprintf(stderr, "           [ rto_min TIME ] [ hoplimit NUMBER ] \n");
- 	fprintf(stderr, "TYPE := [ unicast | local | broadcast | multicast | throw |\n");
- 	fprintf(stderr, "          unreachable | prohibit | blackhole | nat ]\n");
- 	fprintf(stderr, "TABLE_ID := [ local | main | default | all | NUMBER ]\n");
-@@ -768,6 +770,18 @@ int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
- 			if (get_unsigned(&mtu, *argv, 0))
- 				invarg("\"mtu\" value is invalid\n", *argv);
- 			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_MTU, mtu);
-+#ifdef RTAX_HOPLIMIT
-+		} else if (strcmp(*argv, "hoplimit") == 0) {
-+			unsigned hoplimit;
-+			NEXT_ARG();
-+			if (strcmp(*argv, "lock") == 0) {
-+				mxlock |= (1<<RTAX_HOPLIMIT);
-+				NEXT_ARG();
-+			}
-+			if (get_unsigned(&hoplimit, *argv, 0))
-+				invarg("\"hoplimit\" value is invalid\n", *argv);
-+			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_HOPLIMIT, hoplimit);
-+#endif
- #ifdef RTAX_ADVMSS
- 		} else if (strcmp(*argv, "advmss") == 0) {
- 			unsigned mss;
+iEYEARECAAYFAkrLSTQACgkQ2Xo3j31MSSIKgQCeL733CI46GAUhDk/safdFH2Wj
+q98An09JpuvsNGb0bihuy5dEaAIDUIIV
+=3DR6wJ
+-----END PGP SIGNATURE-----
