@@ -1,51 +1,29 @@
-From: Stephen Boyd <bebarino@gmail.com>
-Subject: [PATCH] connector: Fix incompatible pointer type warning
-Date: Tue,  6 Oct 2009 01:23:37 -0700
-Message-ID: <1254817417-16157-1-git-send-email-bebarino@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] connector: Fix incompatible pointer type warning
+Date: Tue, 06 Oct 2009 01:40:01 -0700 (PDT)
+Message-ID: <20091006.014001.227720618.davem@davemloft.net>
+References: <1254817417-16157-1-git-send-email-bebarino@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, Evgeniy Polyakov <zbr@ioremap.net>,
-	Philipp Reisner <philipp.reisner@linbit.com>
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	zbr@ioremap.net, philipp.reisner@linbit.com
+To: bebarino@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.25]:18214 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755317AbZJFIWj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 04:22:39 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57804
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750716AbZJFIkH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 04:40:07 -0400
+In-Reply-To: <1254817417-16157-1-git-send-email-bebarino@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 7069331 (connector: Provide the sender's credentials to the
-callback, 2009-10-02) changed callbacks to take two arguments but misse=
-d
-this one.
-
-drivers/connector/cn_proc.c: In function =E2=80=98cn_proc_init=E2=80=99=
-:
-drivers/connector/cn_proc.c:263: warning: passing argument 3 of
-=E2=80=98cn_add_callback=E2=80=99 from incompatible pointer type
-
-Signed-off-by: Stephen Boyd <bebarino@gmail.com>
----
- drivers/connector/cn_proc.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/connector/cn_proc.c b/drivers/connector/cn_proc.c
-index abf4a25..6069790 100644
---- a/drivers/connector/cn_proc.c
-+++ b/drivers/connector/cn_proc.c
-@@ -227,7 +227,8 @@ static void cn_proc_ack(int err, int rcvd_seq, int =
-rcvd_ack)
-  * cn_proc_mcast_ctl
-  * @data: message sent from userspace via the connector
-  */
--static void cn_proc_mcast_ctl(struct cn_msg *msg)
-+static void cn_proc_mcast_ctl(struct cn_msg *msg,
-+			      struct netlink_skb_parms *nsp)
- {
- 	enum proc_cn_mcast_op *mc_op =3D NULL;
- 	int err =3D 0;
---=20
-1.6.5.rc1.44.ga1675
-
+RnJvbTogU3RlcGhlbiBCb3lkIDxiZWJhcmlub0BnbWFpbC5jb20+DQpEYXRlOiBUdWUsICA2IE9j
+dCAyMDA5IDAxOjIzOjM3IC0wNzAwDQoNCj4gQ29tbWl0IDcwNjkzMzEgKGNvbm5lY3RvcjogUHJv
+dmlkZSB0aGUgc2VuZGVyJ3MgY3JlZGVudGlhbHMgdG8gdGhlDQo+IGNhbGxiYWNrLCAyMDA5LTEw
+LTAyKSBjaGFuZ2VkIGNhbGxiYWNrcyB0byB0YWtlIHR3byBhcmd1bWVudHMgYnV0IG1pc3NlZA0K
+PiB0aGlzIG9uZS4NCj4gDQo+IGRyaXZlcnMvY29ubmVjdG9yL2NuX3Byb2MuYzogSW4gZnVuY3Rp
+b24g4oCYY25fcHJvY19pbml04oCZOg0KPiBkcml2ZXJzL2Nvbm5lY3Rvci9jbl9wcm9jLmM6MjYz
+OiB3YXJuaW5nOiBwYXNzaW5nIGFyZ3VtZW50IDMgb2YNCj4g4oCYY25fYWRkX2NhbGxiYWNr4oCZ
+IGZyb20gaW5jb21wYXRpYmxlIHBvaW50ZXIgdHlwZQ0KPiANCj4gU2lnbmVkLW9mZi1ieTogU3Rl
+cGhlbiBCb3lkIDxiZWJhcmlub0BnbWFpbC5jb20+DQoNCkFwcGxpZWQsIHRoYW5rcy4NCg==
