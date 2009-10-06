@@ -1,54 +1,43 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Just "[PATCH]..." -- Re: [PATCH 1/5] rndis_host: support
-	ETHTOOL_GPERMADDR
-Date: Tue, 6 Oct 2009 17:39:25 -0400
-Message-ID: <20091006213924.GE2911@tuxdriver.com>
-References: <1254863142-14698-1-git-send-email-linville@tuxdriver.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 chips on some Intel D945GSEJT boards fail to work after
+	PXE boot
+Date: Tue, 6 Oct 2009 23:56:01 +0200
+Message-ID: <20091006215601.GA10692@electric-eye.fr.zoreil.com>
+References: <4ABA535E.2010801@onelan.com> <20090923205723.GA28058@electric-eye.fr.zoreil.com> <4ABB5435.6040609@onelan.com> <20090930220702.GA15415@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Simon Farnsworth <simon.farnsworth@onelan.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:50702 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933088AbZJFVqk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 17:46:40 -0400
-Received: from uucp by smtp.tuxdriver.com with local-rmail (Exim 4.63)
-	(envelope-from <linville@tuxdriver.com>)
-	id 1MvHrA-0002Vk-E5
-	for netdev@vger.kernel.org; Tue, 06 Oct 2009 17:46:04 -0400
-Received: from linville-t400.local (linville-t400.local [127.0.0.1])
-	by linville-t400.local (8.14.3/8.14.3) with ESMTP id n96LdP7Z017167
-	for <netdev@vger.kernel.org>; Tue, 6 Oct 2009 17:39:25 -0400
-Received: (from linville@localhost)
-	by linville-t400.local (8.14.3/8.14.3/Submit) id n96LdP8m017166
-	for netdev@vger.kernel.org; Tue, 6 Oct 2009 17:39:25 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:49306 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932816AbZJFVum (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 17:50:42 -0400
 Content-Disposition: inline
-In-Reply-To: <1254863142-14698-1-git-send-email-linville@tuxdriver.com>
+In-Reply-To: <20090930220702.GA15415@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 06, 2009 at 05:05:42PM -0400, John W. Linville wrote:
-> Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> ---
->  drivers/net/usb/rndis_host.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
-> index d032bba..0caa800 100644
-> --- a/drivers/net/usb/rndis_host.c
-> +++ b/drivers/net/usb/rndis_host.c
-> @@ -418,6 +418,7 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
->  		goto halt_fail_and_release;
->  	}
->  	memcpy(net->dev_addr, bp, ETH_ALEN);
-> +	memcpy(net->perm_addr, bp, ETH_ALEN);
+Francois Romieu <romieu@fr.zoreil.com> :
+[...]
+> @@ -2200,6 +3075,11 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  	tp->pcie_cap = pci_find_capability(pdev, PCI_CAP_ID_EXP);
+>  	if (!tp->pcie_cap && netif_msg_probe(tp))
+>  		dev_info(&pdev->dev, "no PCI Express capability\n");
+> +	else {
+> +		pci_write_config_word(pdev, tp->pcie_cap + PCI_EXP_DEVSTA,
+> +				      PCI_EXP_DEVSTA_CED | PCI_EXP_DEVSTA_NFED |
+> +				      PCI_EXP_DEVSTA_FED | PCI_EXP_DEVSTA_URD);
+> +	}
 >  
->  	/* set a nonzero filter to enable data transfers */
->  	memset(u.set, 0, sizeof *u.set);
+>  	RTL_W16(IntrMask, 0x0000);
+>  
 
-Ooops...ignore the "1/5" part -- this is the only one...
+Can you check if this part of the patch is required to fix
+your issue ?
 
-John
+I'd rather avoid including it under the 8168d support banner
+if it is not needed.
+
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Ueimor
