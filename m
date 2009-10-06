@@ -1,164 +1,54 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-2.6 V2] tg3: Fix phylib locking strategy
-Date: Mon, 5 Oct 2009 20:55:29 -0700
-Message-ID: <1254801692.18507@xw6200>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH 8/9] vxge: Acquire correct lock based on
+ interrupt context.
+Date: Mon, 05 Oct 2009 21:18:52 -0700 (PDT)
+Message-ID: <20091005.211852.12665189.davem@davemloft.net>
+References: <Pine.GSO.4.10.10910050757300.9377-100000@guinness>
+	<20091005.053759.74765905.davem@davemloft.net>
+	<78C9135A3D2ECE4B8162EBDCE82CAD7705C16322@nekter>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
-	andy@greyhouse.net
-To: "Felix Radensky" <felix@embedded-sol.com>
+Cc: Sreenivasa.Honnur@neterion.com, netdev@vger.kernel.org
+To: Ramkrishna.Vepa@neterion.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3005 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750734AbZJFECU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Oct 2009 00:02:20 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49992
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750805AbZJFETI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 00:19:08 -0400
+In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD7705C16322@nekter>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-O.K.  Here is the latest version.  Felix, can you verify your problem
-is solved with this patch?
+From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
+Date: Mon, 5 Oct 2009 22:36:22 -0400
 
----
+>> > - Added macros that check if the thread is in interrupt context or
+> not
+>> to
+>> >   acquire or release locks
+>> >
+>> > Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
+>> 
+>> There is nothing at all wrong with using irqsave/irqrestore spin lock
+>> calls when you're already in an interrupt.
+>> 
+>> I don't see any reason for this change.
+> [Ram] Right, but why have the additional step of saving and restoring
+> the flags while in the interrupt context?
 
-Felix Radensky noted that chip resets were generating stack trace dumps.
-This is because the driver is attempting to acquire the mdio bus mutex
-while holding the tp->lock spinlock.  The fix is to change the code such
-that every phy access takes the tp->lock spinlock instead.
+Do you know that in the interrupt handler, cpu interrupts are
+actually enabled?
 
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
----
- drivers/net/tg3.c |   41 ++++++++++++++---------------------------
- drivers/net/tg3.h |    1 -
- 2 files changed, 14 insertions(+), 28 deletions(-)
+And the cost is (relatively speaking) next to nothing.  You're
+in the process of taking cache misses and toucing PIO registers
+(on the order of thousands of cycles).
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index f09bc5d..ba5d3fe 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -902,11 +902,12 @@ static int tg3_mdio_read(struct mii_bus *bp, int mii_id, int reg)
- 	struct tg3 *tp = bp->priv;
- 	u32 val;
- 
--	if (tp->tg3_flags3 & TG3_FLG3_MDIOBUS_PAUSED)
--		return -EAGAIN;
-+	spin_lock_bh(&tp->lock);
- 
- 	if (tg3_readphy(tp, reg, &val))
--		return -EIO;
-+		val = -EIO;
-+
-+	spin_unlock_bh(&tp->lock);
- 
- 	return val;
- }
-@@ -914,14 +915,16 @@ static int tg3_mdio_read(struct mii_bus *bp, int mii_id, int reg)
- static int tg3_mdio_write(struct mii_bus *bp, int mii_id, int reg, u16 val)
- {
- 	struct tg3 *tp = bp->priv;
-+	u32 ret = 0;
- 
--	if (tp->tg3_flags3 & TG3_FLG3_MDIOBUS_PAUSED)
--		return -EAGAIN;
-+	spin_lock_bh(&tp->lock);
- 
- 	if (tg3_writephy(tp, reg, val))
--		return -EIO;
-+		ret = -EIO;
- 
--	return 0;
-+	spin_unlock_bh(&tp->lock);
-+
-+	return ret;
- }
- 
- static int tg3_mdio_reset(struct mii_bus *bp)
-@@ -1011,12 +1014,6 @@ static void tg3_mdio_config_5785(struct tg3 *tp)
- 
- static void tg3_mdio_start(struct tg3 *tp)
- {
--	if (tp->tg3_flags3 & TG3_FLG3_MDIOBUS_INITED) {
--		mutex_lock(&tp->mdio_bus->mdio_lock);
--		tp->tg3_flags3 &= ~TG3_FLG3_MDIOBUS_PAUSED;
--		mutex_unlock(&tp->mdio_bus->mdio_lock);
--	}
--
- 	tp->mi_mode &= ~MAC_MI_MODE_AUTO_POLL;
- 	tw32_f(MAC_MI_MODE, tp->mi_mode);
- 	udelay(80);
-@@ -1041,15 +1038,6 @@ static void tg3_mdio_start(struct tg3 *tp)
- 		tg3_mdio_config_5785(tp);
- }
- 
--static void tg3_mdio_stop(struct tg3 *tp)
--{
--	if (tp->tg3_flags3 & TG3_FLG3_MDIOBUS_INITED) {
--		mutex_lock(&tp->mdio_bus->mdio_lock);
--		tp->tg3_flags3 |= TG3_FLG3_MDIOBUS_PAUSED;
--		mutex_unlock(&tp->mdio_bus->mdio_lock);
--	}
--}
--
- static int tg3_mdio_init(struct tg3 *tp)
- {
- 	int i;
-@@ -1141,7 +1129,6 @@ static void tg3_mdio_fini(struct tg3 *tp)
- 		tp->tg3_flags3 &= ~TG3_FLG3_MDIOBUS_INITED;
- 		mdiobus_unregister(tp->mdio_bus);
- 		mdiobus_free(tp->mdio_bus);
--		tp->tg3_flags3 &= ~TG3_FLG3_MDIOBUS_PAUSED;
- 	}
- }
- 
-@@ -1363,7 +1350,7 @@ static void tg3_adjust_link(struct net_device *dev)
- 	struct tg3 *tp = netdev_priv(dev);
- 	struct phy_device *phydev = tp->mdio_bus->phy_map[PHY_ADDR];
- 
--	spin_lock(&tp->lock);
-+	spin_lock_bh(&tp->lock);
- 
- 	mac_mode = tp->mac_mode & ~(MAC_MODE_PORT_MODE_MASK |
- 				    MAC_MODE_HALF_DUPLEX);
-@@ -1431,7 +1418,7 @@ static void tg3_adjust_link(struct net_device *dev)
- 	tp->link_config.active_speed = phydev->speed;
- 	tp->link_config.active_duplex = phydev->duplex;
- 
--	spin_unlock(&tp->lock);
-+	spin_unlock_bh(&tp->lock);
- 
- 	if (linkmesg)
- 		tg3_link_report(tp);
-@@ -6392,8 +6379,6 @@ static int tg3_chip_reset(struct tg3 *tp)
- 
- 	tg3_nvram_lock(tp);
- 
--	tg3_mdio_stop(tp);
--
- 	tg3_ape_lock(tp, TG3_APE_LOCK_GRC);
- 
- 	/* No matching tg3_nvram_unlock() after this because
-@@ -8698,6 +8683,8 @@ static int tg3_close(struct net_device *dev)
- 
- 	del_timer_sync(&tp->timer);
- 
-+	tg3_phy_stop(tp);
-+
- 	tg3_full_lock(tp, 1);
- #if 0
- 	tg3_dump_state(tp);
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 524691c..bab7940 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -2748,7 +2748,6 @@ struct tg3 {
- #define TG3_FLG3_5701_DMA_BUG		0x00000008
- #define TG3_FLG3_USE_PHYLIB		0x00000010
- #define TG3_FLG3_MDIOBUS_INITED		0x00000020
--#define TG3_FLG3_MDIOBUS_PAUSED		0x00000040
- #define TG3_FLG3_PHY_CONNECTED		0x00000080
- #define TG3_FLG3_RGMII_STD_IBND_DISABLE	0x00000100
- #define TG3_FLG3_RGMII_EXT_IBND_RX_EN	0x00000200
--- 
-1.6.4.4
+Not doing a IRQ save/restore is going to save you a hand full
+of cycles.
 
+The new branch mispredict you might get there is probably more
+expensive or of equal expense to the IRQ save/restore itself.
 
+This change makes really no sense, NO OTHER DRIVER does crap
+like this.  Because there is no reason to.
