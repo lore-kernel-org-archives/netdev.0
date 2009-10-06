@@ -1,124 +1,75 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] net: add support for STMicroelectronics Ethernet controllers.
-Date: Tue, 06 Oct 2009 15:42:12 +0200
-Message-ID: <4ACB4934.8090407@st.com>
-References: <1254815493-17576-1-git-send-email-peppe.cavallaro@st.com> <4ACB1B95.4090701@gmail.com> <4ACB3A42.9070600@st.com> <4ACB47B5.5050700@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] ipv4: arp_notify address list bug
+Date: Tue, 6 Oct 2009 08:29:13 -0700
+Message-ID: <20091006082913.54883824@nehalam>
+References: <20091005191505.75c929a6@nehalam>
+	<4ACAB5BC.1020307@gmail.com>
+	<20091005.213103.237708475.davem@davemloft.net>
+	<4ACAD393.5080909@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:35482 "EHLO
-	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757391AbZJFNm6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 09:42:58 -0400
-In-Reply-To: <4ACB47B5.5050700@gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:60280 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757303AbZJFP35 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Oct 2009 11:29:57 -0400
+In-Reply-To: <4ACAD393.5080909@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Tue, 06 Oct 2009 07:20:19 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Hi Eric.
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> This fixes a bug with arp_notify.
+> 
+> If arp_notify is enabled, kernel will crash if address is changed
+> and no IP address is assigned.
+>   http://bugzilla.kernel.org/show_bug.cgi?id=14330
+> 
+> Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>  net/ipv4/devinet.c |   16 ++++++++++------
+>  1 files changed, 10 insertions(+), 6 deletions(-)
+> 
+> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+> index e92f1fd..5df2f6a 100644
+> --- a/net/ipv4/devinet.c
+> +++ b/net/ipv4/devinet.c
+> @@ -1077,12 +1077,16 @@ static int inetdev_event(struct notifier_block *this, unsigned long event,
+>  		ip_mc_up(in_dev);
+>  		/* fall through */
+>  	case NETDEV_CHANGEADDR:
+> -		if (IN_DEV_ARP_NOTIFY(in_dev))
+> -			arp_send(ARPOP_REQUEST, ETH_P_ARP,
+> -				 in_dev->ifa_list->ifa_address,
+> -				 dev,
+> -				 in_dev->ifa_list->ifa_address,
+> -				 NULL, dev->dev_addr, NULL);
+> +		/* Send gratuitous ARP to notify of link change */
+> +		if (IN_DEV_ARP_NOTIFY(in_dev)) {
+> +			struct in_ifaddr *ifa = in_dev->ifa_list;
+> +
+> +			if (ifa)
+> +				arp_send(ARPOP_REQUEST, ETH_P_ARP,
+> +					 ifa->ifa_address, dev,
+> +					 ifa->ifa_address, NULL,
+> +					 dev->dev_addr, NULL);
+> +		}
+>  		break;
+>  	case NETDEV_DOWN:
+>  		ip_mc_down(in_dev);
 
-Eric Dumazet wrote:
-> Giuseppe CAVALLARO a =E9crit :
->=20
->>> Why call dev_kfree_skb_any() here ? From NAPI context it is overkil=
-l.
->> The logic behind this piece of code should be the same one adopted i=
-n
->> other drivers like gianfar, ucc_geth and mv643xx_eth. What am I miss=
-ing?
->=20
-> Dont trust driver code too much, many of them are not upd2date.
->=20
-> gianfar disables irqs, so it calls dev_kfree_skb_any()
->=20
-> if (spin_trylock_irqsave(&priv->txlock, flags)) {
-> 	tx_cleaned =3D gfar_clean_tx_ring(dev);
-> 	spin_unlock_irqrestore(&priv->txlock, flags);
-> }
->=20
-> but in your case,
->=20
-> stmmac_clean_tx() runs in sofirq mode, you can call dev_kfree_skb()/c=
-onsume_skb()
->=20
-> Please check drivers/net/tg3.c, function tg3_tx() for a _good_ exampl=
-e.
+Okay, but I can't see that sending out one per address is going to be a big
+storm. Can't imagine user with 100's of addresses on same interface, but I guess
+it is possible.
 
-Thanks, I'll fix it taking as example the tg3 d.d.
-
->>> static int stmmac_poll(struct napi_struct *napi, int budget)
->>> +{
->> [snip]
->>> +
->>> +	tx_cleaned =3D stmmac_clean_tx(dev);
->>> +
->>> +	work_done =3D stmmac_rx(dev, budget);
->>> +
->>>
->>>
->>> +	if (tx_cleaned)
->>> +		return budget;
->>>
->>> Why tx_cleaned is used here to exit early ?
->> I've found interesting the approach used in gianfar (see commit
->> 42199884594bc336c9185441cbed99a9324dab34).
->>
->=20
-> This looks buggy and not a clone of e1000 code, despite its Changelog=
- claim.
->=20
-> e1000 code is OK, not gianfar.
->=20
-> static int e1000_clean(struct napi_struct *napi, int budget)
-> {
-> 	tx_clean_complete =3D e1000_clean_tx_irq(adapter, &adapter->tx_ring[=
-0]);
->=20
-> 	adapter->clean_rx(adapter, &adapter->rx_ring[0], &work_done, budget)=
-;
->=20
-> 	if (!tx_clean_complete)
-> 		work_done =3D budget; // we say budget is fully consumed to force a=
-nother poll round
->=20
-> 	if (work_done < budget) {
-> 		...
-> 		napi_complete(napi);
-> 		...
-> 	}
-> }
->=20
-> You can see e1000_clean_tx_irq() doesnt return "number of completed s=
-kbs", but a=20
-> boolean saying if more skb are still in tx queue "(count < tx_ring->c=
-ount)"
->=20
-> This is because we want to check again tx queue before napi_complete(=
-this_adapter)
->=20
->=20
-> Your code forces a poll() round if at least *one* skb was completed, =
-this is very strange.
->=20
-
-I'll fix this too.
-
-I'm going to post a new patch for the stmmac as soon as I fix all these
-points.
-
-Many thanks.
-Regards,
-Peppe
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iEYEARECAAYFAkrLSTQACgkQ2Xo3j31MSSIKgQCeL733CI46GAUhDk/safdFH2Wj
-q98An09JpuvsNGb0bihuy5dEaAIDUIIV
-=3DR6wJ
------END PGP SIGNATURE-----
+-- 
