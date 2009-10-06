@@ -1,75 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: query: TCPCT setsockopt kmalloc's
-Date: Tue, 06 Oct 2009 18:31:16 +0200
-Message-ID: <4ACB70D4.7010108@gmail.com>
-References: <4ACB67EB.6080000@gmail.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH 1/3] bonding: allow previous slave to be used when
+	re-balancing traffic on tlb/alb interfaces
+Date: Tue, 6 Oct 2009 12:27:31 -0400
+Message-ID: <20091006162731.GC1639@gospo.rdu.redhat.com>
+References: <1254269731-7341-1-git-send-email-fubar@us.ibm.com> <1254269731-7341-2-git-send-email-fubar@us.ibm.com> <8075.1254532437@death.nxdomain.ibm.com> <20091005.034333.04801045.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: William Allen Simpson <william.allen.simpson@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: fubar@us.ibm.com, andy@greyhouse.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:59216 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932208AbZJFQby (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 12:31:54 -0400
-In-Reply-To: <4ACB67EB.6080000@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:42405 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750870AbZJFQ2V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Oct 2009 12:28:21 -0400
+Content-Disposition: inline
+In-Reply-To: <20091005.034333.04801045.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-William Allen Simpson a =E9crit :
-> On both the client and server side, the setsockopt does a kmalloc(). =
- Only
-> once per connect on the client side, once per listen on the server si=
-de.
+On Mon, Oct 05, 2009 at 03:43:33AM -0700, David Miller wrote:
+> From: Jay Vosburgh <fubar@us.ibm.com>
+> Date: Fri, 02 Oct 2009 18:13:57 -0700
+> 
+> > 	Andy, I've been doing some further testing with this patch, and
+> > I'm seeing some panics that I believe are related to this patch.  It
+> > appears that the last_slave isn't cleared (or isn't cleared soon enough)
+> > when a slave is released, and concurrent transmit activity is getting
+> > into alb_get_best_slave() and finding a last_slave pointer that is stale
+> > (points to no slave currently on the slave list).
+> 
+> I'm holding off on these 3 bonding patches until this is resolved.
+> --
 
-But if server has to generate a random data for a connection, you'll ha=
-ve to clone
-the data to be able to give it at application request ?
+Sounds good, Dave.
 
->=20
-> However, after Miller's expressed concern, it seems possible to reorg=
-anize
-> the code to do the kmalloc() before the lock_sock().  Does that mean
-> that it
-> should be GFP_KERNEL?  Or should it still be GFP_ATOMIC?
-
-GFP_KERNEL is better in this context, it allows the requestor to sleep =
-a bit if necessary.
-
->=20
-> [Not that anybody cares, but based on recent discussion on the list a=
-bout
-> internal kernel coding standards, I've changed Adam's old sizeof(stru=
-ct)
-> to sizeof(*tcvp).  Previously, I was trying to make as few changes as
-> possible, thinking everything was already correct.]
-
-
-
->=20
-> =3D=3D=3D
-> new:
->=20
-> +        /* Allocate ancillary memory before locking.
-> +         */
-> +        if ((0 < tcd.tcpcd_used
-
-Ah, could you please reverse all your conditions ?
-
-Their form are unusual in linux kernel.
-
-if (tcd.tcpcd_used > 0)
-
-
-> ...
-> +         && NULL =3D=3D (tcvp =3D kmalloc(sizeof(*tcvp) + tcd.tcpcd_=
-used,
-> +                        GFP_KERNEL))) {
-> +            return -ENOMEM;
-> +        }
->
-=20
-tcvp =3D kmalloc(sizeof(*tcvp) + tcd.tcpcd_used, GFP_KERNEL));
-if (tcvp =3D=3D NULL) ...
+I was hoping to get this resolved yesterday, but got distracted.  I will
+have some time today.
 
