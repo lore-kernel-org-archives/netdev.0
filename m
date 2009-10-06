@@ -1,138 +1,113 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: Adding to linux-next?
-Date: Tue, 6 Oct 2009 22:57:51 +1100
-Message-ID: <20091006225751.7d5f3eec.sfr@canb.auug.org.au>
-References: <4AC6339B.7000905@gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] net: add support for STMicroelectronics Ethernet controllers.
+Date: Tue, 06 Oct 2009 14:38:26 +0200
+Message-ID: <4ACB3A42.9070600@st.com>
+References: <1254815493-17576-1-git-send-email-peppe.cavallaro@st.com> <4ACB1B95.4090701@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Tue__6_Oct_2009_22_57_51_+1100_DgyK78EqzKux/Yqu"
-Cc: linux-next@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	"alacrityvm-devel@lists.sourceforge.net"
-	<alacrityvm-devel@lists.sourceforge.net>
-To: Gregory Haskins <gregory.haskins@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932252AbZJFL6j@vger.kernel.org>
-In-Reply-To: <4AC6339B.7000905@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:42475 "EHLO
+	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932275AbZJFMjP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 08:39:15 -0400
+In-Reply-To: <4ACB1B95.4090701@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Tue__6_Oct_2009_22_57_51_+1100_DgyK78EqzKux/Yqu
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Hi Greg,
+Hi Eric,
+many thanks for your prompt feedback.
 
-Sorry for the slow response.
-
-On Fri, 02 Oct 2009 13:08:43 -0400 Gregory Haskins <gregory.haskins@gmail.c=
-om> wrote:
->
-> I am looking for some guidance on policy/procedure governing inclusion
-> of a tree to linux-next.  For instance: Do I have to be arbitrarily
-> invited (e.g. by some committee on LKML), or do I explicitly request
-> consideration?  I tried to Google around for answers, and also found the
-> linux-next wiki, but I was not getting any clear answers.
-
-You just send me the location of your tree and ask for inclusion. You
-should also mention who should be contacted if I have any problems with
-this tree (I will assume yourself).
-
-> I have these guest drivers to support IO on top of the AlacrityVM
-> hypervisor:
+Eric Dumazet wrote:
+> Giuseppe CAVALLARO a =E9crit :
 >=20
-> http://lkml.org/lkml/2009/8/3/278
+>> +static int stmmac_sw_tso(struct stmmac_priv *priv, struct sk_buff *=
+skb)
+[snip]
 >=20
-> The comments have since died down.  I realize this can mean anything
-> from "no objection" to "no interest" ;), but I assume the former unless
-> someone pipes up.
+> So stmmac_sw_tso() calls stmmac_xmit() for each seg skb.
 >=20
-> I believe I addressed the review comments and received an Ack from the
-> one maintainer of the tree that overlaps with the work (netdev/davem), he=
-re:
+> But stmmac_sw_tso() was called from stmmac_xmit(),
+> with priv->tx_lock locked, so I suspect something is wrong.
+
+Yes, you are right on this.
+I'm going to remove it. Indeed, I observed no gain during my performanc=
+e
+tests. I had added it just to become familiar with this.
+Note also that our chips do not have the segmentation offloading in Hw.
+Thanks for this observation.
+
+> Also please change various
 >=20
-> http://lkml.org/lkml/2009/8/3/505
+> +	mac =3D kmalloc(sizeof(const struct mac_device_info), GFP_KERNEL);
+> +	memset(mac, 0, sizeof(struct mac_device_info));
+> +
 >=20
-> Since the rest of the work doesn't really fall into any existing
-> subsystem, and David conceded that the netdev overlap portion should
-> carry elsewhere, I offer to fill this role myself from within the
-> AlacrityVM tree itself.
+> +	mac =3D kmalloc(sizeof(const struct mac_device_info), GFP_KERNEL);
+> +	memset(mac, 0, sizeof(struct mac_device_info));
+> +
 >=20
-> As such, I have taken the driver series and created a new branch here:
+> to use kzalloc(), and of course, you should check kmalloc()/kzalloc()=
+ dont return NULL !
 >=20
-> git://git.kernel.org/pub/scm/linux/kernel/git/ghaskins/alacrityvm/linux-2=
-.6.git
-> linux-next
 
-I will add this tree from tomorrow unless someone screams.
+Yes I'll do that too.
 
-> Unlike the original posting, I have excluded the final ethernet patch
-> since I posted a v3 today (http://lkml.org/lkml/2009/10/2/239) that I
-> would like to have David re-Ack before including.
+> Also :
 >=20
-> Once the driver has been suitably approved by David, and if he still
-> feels its ok to carry in a tree other than netdev, I will re-add it to
-> the linux-next branch.
-
-That sounds fine.
-
-> Because I am not really sure of the policies for linux-next, let me
-> state my intentions of this branch, since I am an unknown in the
-> maintainership role:
+> +static int stmmac_clean_tx(struct net_device *dev)
+[snip]
+> +		if (skb !=3D NULL) {
+> +			/*
+> +			 * If there's room in the queue (limit it to size)
+> +			 * we add this skb back into the pool,
+> +			 * if it's the right size.
+> +			 */
+> +			if ((skb_queue_len(&priv->rx_recycle) <
+> +				priv->dma_rx_size) &&
+> +				skb_recycle_check(skb, priv->dma_buf_sz))
+> +				__skb_queue_head(&priv->rx_recycle, skb);
+> +			else
+> +				dev_kfree_skb_any(skb);
 >=20
-> I will only post patches to this branch that:
+> Why call dev_kfree_skb_any() here ? From NAPI context it is overkill.
+
+The logic behind this piece of code should be the same one adopted in
+other drivers like gianfar, ucc_geth and mv643xx_eth. What am I missing=
+?
+
+> static int stmmac_poll(struct napi_struct *napi, int budget)
+> +{
+[snip]
+> +
+> +	tx_cleaned =3D stmmac_clean_tx(dev);
+> +
+> +	work_done =3D stmmac_rx(dev, budget);
+> +
 >=20
-> *) do not fall into an existing maintained subsystem category, unless
-> the appropriate maintainer has relinquished the patch to carry in my tree.
-> *) have previously been posted to LKML for suitable review.
+>=20
+> +	if (tx_cleaned)
+> +		return budget;
+>=20
+> Why tx_cleaned is used here to exit early ?
 
-Here is my boilerplate:
+I've found interesting the approach used in gianfar (see commit
+42199884594bc336c9185441cbed99a9324dab34).
 
-Thanks for adding your subsystem tree as a participant of linux-next.  As
-you may know, this is not a judgment of your code.  The purpose of
-linux-next is for integration testing and to lower the impact of
-conflicts between subsystems in the next merge window.=20
+Thanks again for the feedback.
 
-You will need to ensure that the patches/commits in your tree/series have
-been:
-     * submitted under GPL v2 (or later) and include the Contributor's
-	Signed-off-by,
-     * posted to the relevant mailing list,
-     * reviewed by you (or another maintainer of your subsystem tree),
-     * successfully unit tested, and=20
-     * destined for the current or next Linux merge window.
-
-Basically, this should be just what you would send to Linus (or ask him
-to fetch).  It is allowed to be rebased if you deem it necessary.
-
---=20
-Cheers,
-Stephen Rothwell=20
-sfr@canb.auug.org.au
-
-Legal Stuff:
-By participating in linux-next, your subsystem tree contributions are
-public and will be included in the linux-next trees.  You may be sent
-e-mail messages indicating errors or other issues when the
-patches/commits from your subsystem tree are merged and tested in
-linux-next.  These messages may also be cross-posted to the linux-next
-mailing list, the linux-kernel mailing list, etc.  The linux-next tree
-project and IBM (my employer) make no warranties regarding the linux-next
-project, the testing procedures, the results, the e-mails, etc.  If you
-don't agree to these ground rules, let me know and I'll remove your tree
-from participation in linux-next.
-
---Signature=_Tue__6_Oct_2009_22_57_51_+1100_DgyK78EqzKux/Yqu
-Content-Type: application/pgp-signature
-
+Regards,
+Peppe
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
 
-iEYEARECAAYFAkrLML8ACgkQjjKRsyhoI8zt+ACeM+k6rqfDWmLJotjLpM0/WL0N
-/4wAnjMwhjNvRkn1OueOkkFtRo+hb0FP
-=tgtM
+iEYEARECAAYFAkrLOjkACgkQ2Xo3j31MSSIM5ACgrTLJgwO84ooKkcoEaNMZ5bcy
+iBUAoK+q677OnyeCdeNndFq92AmwNPoa
+=3Dr7WK
 -----END PGP SIGNATURE-----
-
---Signature=_Tue__6_Oct_2009_22_57_51_+1100_DgyK78EqzKux/Yqu--
