@@ -1,19 +1,19 @@
 From: Ajit Khaparde <ajitkhaparde@gmail.com>
-Subject: [PATCH net-next-2.6] ixgb: Use the instance of net_device_stats
+Subject: [PATCH net-next-2.6] qlge: Use the instance of net_device_stats
 	from net_device.
-Date: Wed, 7 Oct 2009 18:16:59 +0530
-Message-ID: <20091007124648.GA30172@serverengines.com>
+Date: Wed, 7 Oct 2009 18:16:09 +0530
+Message-ID: <20091007124600.GA30144@serverengines.com>
 Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f227.google.com ([209.85.220.227]:55356 "EHLO
+Received: from mail-fx0-f227.google.com ([209.85.220.227]:39322 "EHLO
 	mail-fx0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932914AbZJGMrq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 08:47:46 -0400
-Received: by fxm27 with SMTP id 27so4554277fxm.17
-        for <netdev@vger.kernel.org>; Wed, 07 Oct 2009 05:47:09 -0700 (PDT)
+	with ESMTP id S932888AbZJGMq3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 08:46:29 -0400
+Received: by mail-fx0-f227.google.com with SMTP id 27so4552575fxm.17
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2009 05:46:18 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -23,156 +23,66 @@ we can remove the instance of this from the private adapter structure.
 
 Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
 ---
- drivers/net/ixgb/ixgb.h         |    1 -
- drivers/net/ixgb/ixgb_ethtool.c |   44 ++++++++++++++++++++------------------
- drivers/net/ixgb/ixgb_main.c    |   44 ++++++++++++++++++--------------------
- 3 files changed, 44 insertions(+), 45 deletions(-)
+ drivers/net/qlge/qlge.h      |    1 -
+ drivers/net/qlge/qlge_main.c |   12 ++++++------
+ 2 files changed, 6 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ixgb/ixgb.h b/drivers/net/ixgb/ixgb.h
-index d85717e..e95d9b6 100644
---- a/drivers/net/ixgb/ixgb.h
-+++ b/drivers/net/ixgb/ixgb.h
-@@ -183,7 +183,6 @@ struct ixgb_adapter {
- 	struct napi_struct napi;
- 	struct net_device *netdev;
- 	struct pci_dev *pdev;
--	struct net_device_stats net_stats;
+diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
+index 3ec6e85..9e53ca9 100644
+--- a/drivers/net/qlge/qlge.h
++++ b/drivers/net/qlge/qlge.h
+@@ -1516,7 +1516,6 @@ struct ql_adapter {
  
- 	/* structs defined in ixgb_hw.h */
- 	struct ixgb_hw hw;
-diff --git a/drivers/net/ixgb/ixgb_ethtool.c b/drivers/net/ixgb/ixgb_ethtool.c
-index 288ee1d..deeb25d 100644
---- a/drivers/net/ixgb/ixgb_ethtool.c
-+++ b/drivers/net/ixgb/ixgb_ethtool.c
-@@ -42,30 +42,32 @@ struct ixgb_stats {
+ 	union flash_params flash;
  
- #define IXGB_STAT(m) FIELD_SIZEOF(struct ixgb_adapter, m), \
- 		      offsetof(struct ixgb_adapter, m)
-+#define IXGB_NETDEV_STAT(m) FIELD_SIZEOF(struct net_device, m), \
-+		      offsetof(struct net_device, m)
- static struct ixgb_stats ixgb_gstrings_stats[] = {
--	{"rx_packets", IXGB_STAT(net_stats.rx_packets)},
--	{"tx_packets", IXGB_STAT(net_stats.tx_packets)},
--	{"rx_bytes", IXGB_STAT(net_stats.rx_bytes)},
--	{"tx_bytes", IXGB_STAT(net_stats.tx_bytes)},
--	{"rx_errors", IXGB_STAT(net_stats.rx_errors)},
--	{"tx_errors", IXGB_STAT(net_stats.tx_errors)},
--	{"rx_dropped", IXGB_STAT(net_stats.rx_dropped)},
--	{"tx_dropped", IXGB_STAT(net_stats.tx_dropped)},
--	{"multicast", IXGB_STAT(net_stats.multicast)},
--	{"collisions", IXGB_STAT(net_stats.collisions)},
--
--/*	{ "rx_length_errors", IXGB_STAT(net_stats.rx_length_errors) },	*/
--	{"rx_over_errors", IXGB_STAT(net_stats.rx_over_errors)},
--	{"rx_crc_errors", IXGB_STAT(net_stats.rx_crc_errors)},
--	{"rx_frame_errors", IXGB_STAT(net_stats.rx_frame_errors)},
-+	{"rx_packets", IXGB_NETDEV_STAT(stats.rx_packets)},
-+	{"tx_packets", IXGB_NETDEV_STAT(stats.tx_packets)},
-+	{"rx_bytes", IXGB_NETDEV_STAT(stats.rx_bytes)},
-+	{"tx_bytes", IXGB_NETDEV_STAT(stats.tx_bytes)},
-+	{"rx_errors", IXGB_NETDEV_STAT(stats.rx_errors)},
-+	{"tx_errors", IXGB_NETDEV_STAT(stats.tx_errors)},
-+	{"rx_dropped", IXGB_NETDEV_STAT(stats.rx_dropped)},
-+	{"tx_dropped", IXGB_NETDEV_STAT(stats.tx_dropped)},
-+	{"multicast", IXGB_NETDEV_STAT(stats.multicast)},
-+	{"collisions", IXGB_NETDEV_STAT(stats.collisions)},
-+
-+/*	{ "rx_length_errors", IXGB_NETDEV_STAT(stats.rx_length_errors) },	*/
-+	{"rx_over_errors", IXGB_NETDEV_STAT(stats.rx_over_errors)},
-+	{"rx_crc_errors", IXGB_NETDEV_STAT(stats.rx_crc_errors)},
-+	{"rx_frame_errors", IXGB_NETDEV_STAT(stats.rx_frame_errors)},
- 	{"rx_no_buffer_count", IXGB_STAT(stats.rnbc)},
--	{"rx_fifo_errors", IXGB_STAT(net_stats.rx_fifo_errors)},
--	{"rx_missed_errors", IXGB_STAT(net_stats.rx_missed_errors)},
--	{"tx_aborted_errors", IXGB_STAT(net_stats.tx_aborted_errors)},
--	{"tx_carrier_errors", IXGB_STAT(net_stats.tx_carrier_errors)},
--	{"tx_fifo_errors", IXGB_STAT(net_stats.tx_fifo_errors)},
--	{"tx_heartbeat_errors", IXGB_STAT(net_stats.tx_heartbeat_errors)},
--	{"tx_window_errors", IXGB_STAT(net_stats.tx_window_errors)},
-+	{"rx_fifo_errors", IXGB_NETDEV_STAT(stats.rx_fifo_errors)},
-+	{"rx_missed_errors", IXGB_NETDEV_STAT(stats.rx_missed_errors)},
-+	{"tx_aborted_errors", IXGB_NETDEV_STAT(stats.tx_aborted_errors)},
-+	{"tx_carrier_errors", IXGB_NETDEV_STAT(stats.tx_carrier_errors)},
-+	{"tx_fifo_errors", IXGB_NETDEV_STAT(stats.tx_fifo_errors)},
-+	{"tx_heartbeat_errors", IXGB_NETDEV_STAT(stats.tx_heartbeat_errors)},
-+	{"tx_window_errors", IXGB_NETDEV_STAT(stats.tx_window_errors)},
- 	{"tx_deferred_ok", IXGB_STAT(stats.dc)},
- 	{"tx_timeout_count", IXGB_STAT(tx_timeout_count) },
- 	{"tx_restart_queue", IXGB_STAT(restart_queue) },
-diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
-index 8aa44dc..f9f633c 100644
---- a/drivers/net/ixgb/ixgb_main.c
-+++ b/drivers/net/ixgb/ixgb_main.c
-@@ -1537,9 +1537,7 @@ ixgb_tx_timeout_task(struct work_struct *work)
- static struct net_device_stats *
- ixgb_get_stats(struct net_device *netdev)
+-	struct net_device_stats stats;
+ 	struct workqueue_struct *workqueue;
+ 	struct delayed_work asic_reset_work;
+ 	struct delayed_work mpi_reset_work;
+diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
+index 6168071..fde5af0 100644
+--- a/drivers/net/qlge/qlge_main.c
++++ b/drivers/net/qlge/qlge_main.c
+@@ -1644,8 +1644,8 @@ static void ql_process_mac_rx_intr(struct ql_adapter *qdev,
+ 		}
+ 	}
+ 
+-	qdev->stats.rx_packets++;
+-	qdev->stats.rx_bytes += skb->len;
++	ndev->stats.rx_packets++;
++	ndev->stats.rx_bytes += skb->len;
+ 	skb_record_rx_queue(skb, rx_ring->cq_id);
+ 	if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
+ 		if (qdev->vlgrp &&
+@@ -1669,6 +1669,7 @@ static void ql_process_mac_rx_intr(struct ql_adapter *qdev,
+ static void ql_process_mac_tx_intr(struct ql_adapter *qdev,
+ 				   struct ob_mac_iocb_rsp *mac_rsp)
  {
--	struct ixgb_adapter *adapter = netdev_priv(netdev);
--
--	return &adapter->net_stats;
-+	return &netdev->stats;
++	struct net_device *ndev = qdev->ndev;
+ 	struct tx_ring *tx_ring;
+ 	struct tx_ring_desc *tx_ring_desc;
+ 
+@@ -1676,8 +1677,8 @@ static void ql_process_mac_tx_intr(struct ql_adapter *qdev,
+ 	tx_ring = &qdev->tx_ring[mac_rsp->txq_idx];
+ 	tx_ring_desc = &tx_ring->q[mac_rsp->tid];
+ 	ql_unmap_send(qdev, tx_ring_desc, tx_ring_desc->map_cnt);
+-	qdev->stats.tx_bytes += (tx_ring_desc->skb)->len;
+-	qdev->stats.tx_packets++;
++	ndev->stats.tx_bytes += (tx_ring_desc->skb)->len;
++	ndev->stats.tx_packets++;
+ 	dev_kfree_skb(tx_ring_desc->skb);
+ 	tx_ring_desc->skb = NULL;
+ 
+@@ -3569,8 +3570,7 @@ static int qlge_change_mtu(struct net_device *ndev, int new_mtu)
+ static struct net_device_stats *qlge_get_stats(struct net_device
+ 					       *ndev)
+ {
+-	struct ql_adapter *qdev = netdev_priv(ndev);
+-	return &qdev->stats;
++	return &ndev->stats;
  }
  
- /**
-@@ -1676,16 +1674,16 @@ ixgb_update_stats(struct ixgb_adapter *adapter)
- 
- 	/* Fill out the OS statistics structure */
- 
--	adapter->net_stats.rx_packets = adapter->stats.gprcl;
--	adapter->net_stats.tx_packets = adapter->stats.gptcl;
--	adapter->net_stats.rx_bytes = adapter->stats.gorcl;
--	adapter->net_stats.tx_bytes = adapter->stats.gotcl;
--	adapter->net_stats.multicast = adapter->stats.mprcl;
--	adapter->net_stats.collisions = 0;
-+	netdev->stats.rx_packets = adapter->stats.gprcl;
-+	netdev->stats.tx_packets = adapter->stats.gptcl;
-+	netdev->stats.rx_bytes = adapter->stats.gorcl;
-+	netdev->stats.tx_bytes = adapter->stats.gotcl;
-+	netdev->stats.multicast = adapter->stats.mprcl;
-+	netdev->stats.collisions = 0;
- 
- 	/* ignore RLEC as it reports errors for padded (<64bytes) frames
- 	 * with a length in the type/len field */
--	adapter->net_stats.rx_errors =
-+	netdev->stats.rx_errors =
- 	    /* adapter->stats.rnbc + */ adapter->stats.crcerrs +
- 	    adapter->stats.ruc +
- 	    adapter->stats.roc /*+ adapter->stats.rlec */  +
-@@ -1693,21 +1691,21 @@ ixgb_update_stats(struct ixgb_adapter *adapter)
- 	    adapter->stats.ecbc + adapter->stats.mpc;
- 
- 	/* see above
--	 * adapter->net_stats.rx_length_errors = adapter->stats.rlec;
-+	 * netdev->stats.rx_length_errors = adapter->stats.rlec;
- 	 */
- 
--	adapter->net_stats.rx_crc_errors = adapter->stats.crcerrs;
--	adapter->net_stats.rx_fifo_errors = adapter->stats.mpc;
--	adapter->net_stats.rx_missed_errors = adapter->stats.mpc;
--	adapter->net_stats.rx_over_errors = adapter->stats.mpc;
--
--	adapter->net_stats.tx_errors = 0;
--	adapter->net_stats.rx_frame_errors = 0;
--	adapter->net_stats.tx_aborted_errors = 0;
--	adapter->net_stats.tx_carrier_errors = 0;
--	adapter->net_stats.tx_fifo_errors = 0;
--	adapter->net_stats.tx_heartbeat_errors = 0;
--	adapter->net_stats.tx_window_errors = 0;
-+	netdev->stats.rx_crc_errors = adapter->stats.crcerrs;
-+	netdev->stats.rx_fifo_errors = adapter->stats.mpc;
-+	netdev->stats.rx_missed_errors = adapter->stats.mpc;
-+	netdev->stats.rx_over_errors = adapter->stats.mpc;
-+
-+	netdev->stats.tx_errors = 0;
-+	netdev->stats.rx_frame_errors = 0;
-+	netdev->stats.tx_aborted_errors = 0;
-+	netdev->stats.tx_carrier_errors = 0;
-+	netdev->stats.tx_fifo_errors = 0;
-+	netdev->stats.tx_heartbeat_errors = 0;
-+	netdev->stats.tx_window_errors = 0;
- }
- 
- #define IXGB_MAX_INTR 10
+ static void qlge_set_multicast_list(struct net_device *ndev)
 -- 
 1.6.0.4
 
