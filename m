@@ -1,37 +1,44 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] x25: bit and/or confusion in x25_ioctl()?
-Date: Wed, 07 Oct 2009 12:59:42 +0200
-Message-ID: <4ACC749E.4060806@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] udp: dynamically size hash tables at boot
+ time
+Date: Wed, 07 Oct 2009 03:47:34 -0700 (PDT)
+Message-ID: <20091007.034734.42113251.davem@davemloft.net>
+References: <4ACC1C73.1010506@gmail.com>
+	<20091006.222935.231081303.davem@davemloft.net>
+	<4ACC6F87.1050306@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: linux-x25@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-x25-owner@vger.kernel.org>
-Sender: linux-x25-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: rick.jones2@hp.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41602
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758778AbZJGKrj convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Oct 2009 06:47:39 -0400
+In-Reply-To: <4ACC6F87.1050306@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Looking at commit ebc3f64b864f it appears that this was intended
-and not the original, equivalent to `if (facilities.reverse & ~0x81)'.
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 07 Oct 2009 12:37:59 +0200
 
-In x25_parse_facilities() that patch changed how facilities->reverse
-was set. No other bits were set than 0x80 and/or 0x01.
+> David Miller a =E9crit :
+>>=20
+>> That's incredible that it's been that low for so long :-)
+>>=20
+>> Bug please, dynamically size this thing, maybe with a cap of say 64K
+>> to start with.  If you don't have time for it I'll take care of this=
+=2E
+>=20
+> Here we are.
+ ...
+> [PATCH] udp: dynamically size hash tables at boot time
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-This is correct isn't it?
+Looks good to me.
 
-diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index 7fa9c7a..ca4dc28 100644
---- a/net/x25/af_x25.c
-+++ b/net/x25/af_x25.c
-@@ -1363,7 +1363,7 @@ static int x25_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
- 			    facilities.throughput > 0xDD)
- 				break;
- 			if (facilities.reverse &&
--				(facilities.reverse | 0x81)!= 0x81)
-+				(facilities.reverse & 0x81) != 0x81)
- 				break;
- 			x25->facilities = facilities;
- 			rc = 0;
+I'll let this sit for at least a day to get some review from
+others.
+
+Thanks!
