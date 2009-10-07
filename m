@@ -1,44 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ethtool: Add reset operation
-Date: Wed, 07 Oct 2009 01:29:02 -0700 (PDT)
-Message-ID: <20091007.012902.165265462.davem@davemloft.net>
-References: <1254776398.2789.7.camel@achroite>
+Subject: Re: [RFC take2] pkt_sched: gen_estimator: Dont report fake rate
+ estimators
+Date: Wed, 07 Oct 2009 01:27:51 -0700 (PDT)
+Message-ID: <20091007.012751.134629837.davem@davemloft.net>
+References: <4AC5F46B.6030308@gmail.com>
+	<4AC65E6F.8050403@gmail.com>
+	<4AC66352.8050500@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jarkao2@gmail.com, kaber@trash.net, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46088
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36052
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932360AbZJGI3H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 04:29:07 -0400
-In-Reply-To: <1254776398.2789.7.camel@achroite>
+	by vger.kernel.org with ESMTP id S1757719AbZJGI14 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Oct 2009 04:27:56 -0400
+In-Reply-To: <4AC66352.8050500@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Mon, 05 Oct 2009 21:59:58 +0100
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 02 Oct 2009 22:32:18 +0200
 
-> After updating firmware stored in flash, users may wish to reset the
-> relevant hardware and start the new firmware immediately.  This should
-> not be completely automatic as it may be disruptive.
-> 
-> A selective reset may also be useful for debugging or diagnostics.
-> 
-> This adds a separate reset operation which takes flags indicating the
-> components to be reset.  Drivers are allowed to reset only a subset of
-> those requested, and must indicate the actual subset.  This allows the
-> use of generic component masks and some future expansion.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
-> This differs from the previous (RFC) version only in the semantics of
-> the output value of the reset flags: they should indicate the components
-> which were *not* reset.  This should be slightly less error-prone as it
-> means implementations do not need to maintain the input and output flags
-> separately.
+> Jarek Poplawski a =E9crit :
+>>=20
+>>=20
+>> Hmm... So you made me to do some "real" work here, and guess what?:
+>> there is one serious checkpatch warning! ;-) Plus, this new paramete=
+r
+>> should be added to the function description. Otherwise:
+>> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+>>=20
+>> Thanks,
+>> Jarek P.
+>>=20
+>> PS: I guess full "Don't" would show we really mean it...
+>=20
+> Okay :) Here is the last round, before the night !
+>=20
+> Thanks again
+>=20
+>=20
+> [RFC] pkt_sched: gen_estimator: Don't report fake rate estimators
 
-Just so my previous reply doesn't confuse, I did apply this version
-of the patch.
-
+Applied, thanks!
