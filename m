@@ -1,37 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH netnext-2.6] bonding: remove useless assignment
-Date: Wed, 07 Oct 2009 14:11:15 -0700 (PDT)
-Message-ID: <20091007.141115.101755919.davem@davemloft.net>
-References: <1254949168-12404-1-git-send-email-nicolas.2p.debian@free.fr>
-	<1254949168-12404-2-git-send-email-nicolas.2p.debian@free.fr>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: fubar@us.ibm.com, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net
-To: nicolas.2p.debian@free.fr
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: [PATCH 1/3] Fix redeclaration of symbol len
+Date: Wed,  7 Oct 2009 23:34:40 +0200
+Message-ID: <1254951282-5056-2-git-send-email-hagen@jauu.net>
+References: <1254951282-5056-1-git-send-email-hagen@jauu.net>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59181
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751906AbZJGVLT convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Oct 2009 17:11:19 -0400
-In-Reply-To: <1254949168-12404-2-git-send-email-nicolas.2p.debian@free.fr>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:35218 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754101AbZJGVoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 17:44:34 -0400
+In-Reply-To: <1254951282-5056-1-git-send-email-hagen@jauu.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
-Date: Wed,  7 Oct 2009 22:59:28 +0200
+Function argument len was redeclarated within the
+function. This patch fix the redeclaration of symbol 'len'.
 
-> The variable old_active is first set to bond->curr_active_slave.
-> Then, it is unconditionally set to new_active, without being used in =
-between.
->=20
-> The first assignment, having no side effect, is useless.
->=20
-> Signed-off-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
-> Reviewed-by: Jiri Pirko <jpirko@redhat.com>
+Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+---
+ net/econet/af_econet.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-Also applied.
+diff --git a/net/econet/af_econet.c b/net/econet/af_econet.c
+index 6529be3..5e9426a 100644
+--- a/net/econet/af_econet.c
++++ b/net/econet/af_econet.c
+@@ -457,15 +457,15 @@ static int econet_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 	iov[0].iov_len = size;
+ 	for (i = 0; i < msg->msg_iovlen; i++) {
+ 		void __user *base = msg->msg_iov[i].iov_base;
+-		size_t len = msg->msg_iov[i].iov_len;
++		size_t iov_len = msg->msg_iov[i].iov_len;
+ 		/* Check it now since we switch to KERNEL_DS later. */
+-		if (!access_ok(VERIFY_READ, base, len)) {
++		if (!access_ok(VERIFY_READ, base, iov_len)) {
+ 			mutex_unlock(&econet_mutex);
+ 			return -EFAULT;
+ 		}
+ 		iov[i+1].iov_base = base;
+-		iov[i+1].iov_len = len;
+-		size += len;
++		iov[i+1].iov_len = iov_len;
++		size += iov_len;
+ 	}
+ 
+ 	/* Get a skbuff (no data, just holds our cb information) */
+-- 
+1.6.3.GIT
 
-Conclusion, avoid Thunderbird like the plague....
