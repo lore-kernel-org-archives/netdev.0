@@ -1,25 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ethoc: limit the number of buffers to 128
-Date: Wed, 07 Oct 2009 03:42:22 -0700 (PDT)
-Message-ID: <20091007.034222.157492766.davem@davemloft.net>
-References: <1254835525-2529-1-git-send-email-thomas@wytron.com.tw>
+Subject: Re: [PATCH] add maintainer for network drop monitor kernel service
+Date: Wed, 07 Oct 2009 03:42:51 -0700 (PDT)
+Message-ID: <20091007.034251.00598916.davem@davemloft.net>
+References: <20091005135653.GB2898@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, thierry.reding@avionic-design.de,
-	nios2-dev@sopc.et.ntust.edu.tw, linux-kernel@vger.kernel.org
-To: thomas@wytron.com.tw
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758859AbZJGKm2@vger.kernel.org>
-In-Reply-To: <1254835525-2529-1-git-send-email-thomas@wytron.com.tw>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: nhorman@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45437
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758890AbZJGKm4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 06:42:56 -0400
+In-Reply-To: <20091005135653.GB2898@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Chou <thomas@wytron.com.tw>
-Date: Tue,  6 Oct 2009 21:25:25 +0800
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Mon, 5 Oct 2009 09:56:55 -0400
 
-> Only 128 buffer descriptors are supported in the core. Limit the
-> number in case we have more memory.
+> I was getting ribbed about this earlier, so I figured I'd make it official.  Add
+> myself as the maintainer of the drop monitor bits, so people don't just gripe at
+> Dave when it breaks (I'm sure it will never break, but just in case :) ).
 > 
-> Signed-off-by: Thomas Chou <thomas@wytron.com.tw>
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
 Applied.
