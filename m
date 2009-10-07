@@ -1,33 +1,51 @@
-From: Andrew Grover <andy.grover@gmail.com>
-Subject: using huge numbers of queues
-Date: Wed, 7 Oct 2009 14:59:49 -0700
-Message-ID: <c0a09e5c0910071459r2768f420lae87f7404dfbc054@mail.gmail.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH] net: Make UFO on master device independent of attached
+ devices
+Date: Wed, 07 Oct 2009 15:24:25 -0700
+Message-ID: <1254954265.31575.191.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.26]:51121 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754856AbZJGWA4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 18:00:56 -0400
-Received: by qw-out-2122.google.com with SMTP id 3so2015600qwe.37
-        for <netdev@vger.kernel.org>; Wed, 07 Oct 2009 14:59:49 -0700 (PDT)
+Received: from e33.co.us.ibm.com ([32.97.110.151]:35625 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752944AbZJGWZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 18:25:07 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e33.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id n97MM7Yu022338
+	for <netdev@vger.kernel.org>; Wed, 7 Oct 2009 16:22:07 -0600
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n97MORsK265090
+	for <netdev@vger.kernel.org>; Wed, 7 Oct 2009 16:24:27 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n97MOQLo012795
+	for <netdev@vger.kernel.org>; Wed, 7 Oct 2009 16:24:26 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Herbert,
+Now that software UFO is supported, UFO can be enabled on master
+devices like bridge, bond even though the attached device doesn't
+support this feature in hardware.
 
-At NetConf, you made a passing remark about wanting lots of queues,
-even 1-per-socket. Have you thought further about how we would use so
-many?
+This allows UFO to be used between KVM host and guest even when a
+physical interface attached to the bridge doesn't support UFO.
 
-Thinking about this reminded me of VJ's 2006 netchannel concept, which
-although not adopted, was pretty interesting. Would having 1 queue per
-socket (or at least 1 per process) and hw that is able to filter
-individual flows (I think the Intel 82599 can do this now for up to
-128) perhaps make netchannels workable? At least this would get all
-processing out of int/bh and into process context, if not userspace,
-no?
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5483,7 +5483,7 @@ unsigned long netdev_increment_features(unsigned long all, unsigned long one,
+ 	one |= NETIF_F_ALL_CSUM;
+ 
+ 	one |= all & NETIF_F_ONE_FOR_ALL;
+-	all &= one | NETIF_F_LLTX | NETIF_F_GSO;
++	all &= one | NETIF_F_LLTX | NETIF_F_GSO | NETIF_F_UFO;
+ 	all |= one & mask & NETIF_F_ONE_FOR_ALL;
+ 
+ 	return all;
 
-Regards -- Andy
+
