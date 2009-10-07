@@ -1,48 +1,46 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 0/4][RFC]: coding convention for CCID-struct prefixes
-Date: Wed, 7 Oct 2009 10:31:59 -0300
-Message-ID: <20091007133159.GI16562@ghostprotocols.net>
-References: <ccid_coding_convention> <1254739993-5051-1-git-send-email-gerrit@erg.abdn.ac.uk>
+From: thomas yang <lampsu@gmail.com>
+Subject: IP header identification field is zero, why?
+Date: Wed, 7 Oct 2009 22:04:34 +0800
+Message-ID: <f4f837ab0910070704k7a193be9i285573b423b96ba2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62730 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752394AbZJGNci (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Oct 2009 09:32:38 -0400
-Content-Disposition: inline
-In-Reply-To: <1254739993-5051-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from mail-iw0-f178.google.com ([209.85.223.178]:35583 "EHLO
+	mail-iw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759058AbZJGOFL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 10:05:11 -0400
+Received: by iwn8 with SMTP id 8so2835872iwn.33
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2009 07:04:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Mon, Oct 05, 2009 at 12:53:09PM +0200, Gerrit Renker escreveu:
-> Arnaldo, Dave,
-> 
-> this codifies new naming scheme discussed at netconf. Can you please have a
-> look and indicate whether you are ok with the set?
-> 
-> They are divided into 4 for readability, but can be combined into
-> one large patch if agreed.
-> 
-> It is all just regexp substitutions:
-> 
-> Patch #1: Introduces the naming scheme on CCID-2:
-> 	    s#hc\(tx\|rx\)->ccid2hc\1_#hc\1->\1_#g;
->             s#ccid2hc\(tx\|rx\)_#\1_#g;
-> 
-> Patch #2: Extends the changes of patch#1 to CCID-3.
-> 
-> Patch #3: Removes the second, repetitive redundancy in this scheme:
-> 	    s#hc\(tx\|rx\)->\1_#hc->\1_#g;
-> 
-> Patch #4: Extends patch#3 from CCID-2 to CCID-3.
+This is captured on my PC (Fedora 11, Linux=A3=A9
 
-For the 4 patches:
+[root@localhost ~]# tcpdump -i eth1 icmp -n -x
+tcpdump: verbose output suppressed, use -v or -vv for full protocol dec=
+ode
+listening on eth1, link-type EN10MB (Ethernet), capture size 96 bytes
+17:02:39.025882 IP 192.168.1.64 > 192.168.1.1: ICMP echo request, id
+25096, seq 1, length 64
+	0x0000:  4500 0054 0000 4000 4001 b717 c0a8 0140
+=2E.....
+17:02:39.027866 IP 192.168.1.64 > 192.168.1.1: ICMP echo request, id
+25096, seq 2, length 64
+	0x0000:  4500 0054 0000 4000
 
-Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+The  IP header 'identification' field is zero, why?
 
-Best Regards,
+I wrote a simple UDP server and UDP client programs, and captured some
+packets, the IP identification is also zero.
 
-- Arnaldo
+Should the host increase this field for each packet it sends?
+
+
+I captured some TCP packets, all of the IP identification are
+different, not zero.
+
+
+--
+thomas
