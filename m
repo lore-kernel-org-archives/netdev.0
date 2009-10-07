@@ -1,51 +1,43 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [Bug #14261] e1000e jumbo frames no longer work: 'Unsupported MTU
-	setting'
-Date: Wed, 7 Oct 2009 12:12:45 -0700
-Message-ID: <9929d2390910071212o632196b8o92899565bb131cea__35517.1214243912$1254943152$gmane$org@mail.gmail.com>
-References: <3onW63eFtRF.A.xXH.oMTxKB@chimera> <COE24pZSBH.A.jd.5MTxKB@chimera>
-	 <877hvd8rj5.fsf@spindle.srvr.nix> <200910022331.35916.rjw@sisk.pl>
-	 <9929d2390910021513t51827031k16a5bfc538640cbf@mail.gmail.com>
-	 <20091007183453.GD12971@mit.edu>
+From: Xose Vazquez Perez <xose.vazquez@gmail.com>
+Subject: Re: [r8169.c] support for 8168D/DP was Re: r8169 chips on some	Intel
+ D945GSEJT boards fail to work after
+Date: Wed, 07 Oct 2009 21:49:54 +0200
+Message-ID: <4ACCF0E2.9010802@gmail.com>
+References: <4AC8C5C2.7040502@gmail.com> <20091006060555.GA22811@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Theodore Tso <tytso@mit.edu>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Nix <nix@esperi.org.uk>,
-	Linux Kernel Mailing List <linux-kernel@vger.kern
+Cc: netdev@vger.kernel.org, Rainer.Koenig@ts.fujitsu.com,
+	Simon Farnsworth <simon.farnsworth@onelan.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f179.google.com ([209.85.216.179]:40345 "EHLO
-	mail-px0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754206AbZJGTNW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 15:13:22 -0400
-In-Reply-To: <20091007183453.GD12971@mit.edu>
+Received: from ey-out-2122.google.com ([74.125.78.25]:33322 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756862AbZJGT7M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 15:59:12 -0400
+Received: by ey-out-2122.google.com with SMTP id 4so1105677eyf.19
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2009 12:58:04 -0700 (PDT)
+In-Reply-To: <20091006060555.GA22811@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 7, 2009 at 11:34, Theodore Tso <tytso@mit.edu> wrote:
-> On Fri, Oct 02, 2009 at 03:13:07PM -0700, Jeff Kirsher wrote:
->> >> > Patch =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 : http:/=
-/patchwork.kernel.org/patch/50277/
->> >>
->> > Most likely because it's not in the Linus' tree yet.
->> >
->> > [e1000e maintainers, we have a regression fix to merge, please.]
->>
->> Sorry, I forgot to send this patch out last night. =C2=A0I will send=
- it now.
->
-> Do we have a status on this progress of this patch to mainline? =C2=A0=
- Thanks,
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0-=
- Ted
+On 10/06/2009 08:05 AM, Francois Romieu wrote:
+> Xose Vazquez Perez <xose.vazquez@gmail.com> :
+> [...]
+>> Francois, is it ready for 2.6.32-rc2 ?
+>=20
+> s/rc2/rc3/ otherwise yes.
+>=20
 
-The patch has been submitted and accepted into David Miller's net-2.6
-tree.  I will submit the patch for 2.6.31 stable tree once it makes it
-into Linus's tree later this week.
+and, how about to send also to stable tree(2.6.31.x) ?
 
+-thanks-
+
+regards,
 --=20
-Cheers,
-Jeff
+=ABAll=E1 muevan feroz guerra, ciegos reyes por un palmo m=E1s de tierr=
+a;
+que yo aqu=ED tengo por m=EDo cuanto abarca el mar brav=EDo, a quien na=
+die
+impuso leyes. Y no hay playa, sea cualquiera, ni bandera de esplendor,
+que no sienta mi derecho y d=E9 pecho a mi valor.=BB
