@@ -1,45 +1,31 @@
-From: Alexandre Cassen <acassen@freebox.fr>
-Subject: [PATCH] IPv6: Fix 6RD typo
-Date: Wed, 7 Oct 2009 23:45:34 +0200
-Message-ID: <20091007214534.GA1800@lnxos.staff.proxad.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/3] Define cipso_v4_delopt static
+Date: Wed, 07 Oct 2009 14:46:02 -0700 (PDT)
+Message-ID: <20091007.144602.95345959.davem@davemloft.net>
+References: <1254951282-5056-1-git-send-email-hagen@jauu.net>
+	<1254951282-5056-4-git-send-email-hagen@jauu.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: hagen@jauu.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2-g21.free.fr ([212.27.42.2]:60206 "EHLO smtp2-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754370AbZJGVqU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Oct 2009 17:46:20 -0400
-Received: from smtp2-g21.free.fr (localhost [127.0.0.1])
-	by smtp2-g21.free.fr (Postfix) with ESMTP id ABF7A4B010D
-	for <netdev@vger.kernel.org>; Wed,  7 Oct 2009 23:45:37 +0200 (CEST)
-Received: from mail.lnxos.net (lnxos.staff.proxad.net [213.228.1.83])
-	by smtp2-g21.free.fr (Postfix) with ESMTP id D46AA4B011A
-	for <netdev@vger.kernel.org>; Wed,  7 Oct 2009 23:45:34 +0200 (CEST)
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54921
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754268AbZJGVqI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 17:46:08 -0400
+In-Reply-To: <1254951282-5056-4-git-send-email-hagen@jauu.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Following fix a small typo.
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Date: Wed,  7 Oct 2009 23:34:42 +0200
 
-Signed-off-by: Alexandre Cassen <acassen@freebox.fr>
----
- net/ipv6/Kconfig |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> There is no reason that cipso_v4_delopt() is not
+> defined as a static function.
+> 
+> Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
 
-diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
-index f561998..a578096 100644
---- a/net/ipv6/Kconfig
-+++ b/net/ipv6/Kconfig
-@@ -171,7 +171,7 @@ config IPV6_SIT
- 	  Saying M here will produce a module called sit. If unsure, say Y.
- 
- config IPV6_SIT_6RD
--	bool "IPv6: IPv6 Rapid Development (6RD) (EXPERIMENTAL)"
-+	bool "IPv6: IPv6 Rapid Deployment (6RD) (EXPERIMENTAL)"
- 	depends on IPV6_SIT && EXPERIMENTAL
- 	default n
- 	---help---
--- 
-1.6.0.4
+Also applied, thanks.
 
+Same subject line problem, I added "ipv4: " to this one.
