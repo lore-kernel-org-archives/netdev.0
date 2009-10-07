@@ -1,1482 +1,725 @@
 From: David Daney <ddaney@caviumnetworks.com>
-Subject: [PATCH 4/6] MIPS: Octeon: Add register definitions for MGMT Ethernet driver.
-Date: Wed,  7 Oct 2009 16:10:13 -0700
-Message-ID: <1254957015-7633-4-git-send-email-ddaney@caviumnetworks.com>
+Subject: [PATCH 6/6] Staging: octeon-ethernet: Convert to use PHY Abstraction Layer.
+Date: Wed,  7 Oct 2009 16:10:15 -0700
+Message-ID: <1254957015-7633-6-git-send-email-ddaney@caviumnetworks.com>
 References: <4ACD1F4E.8090603@caviumnetworks.com>
 Cc: David Daney <ddaney@caviumnetworks.com>
 To: ralf@linux-mips.org, linux-mips@linux-mips.org,
 	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.caviumnetworks.com ([12.108.191.235]:16107 "EHLO
-	mail3.caviumnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755386AbZJGXK4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 19:10:56 -0400
+Return-path: <linux-mips-bounce@linux-mips.org>
 In-Reply-To: <4ACD1F4E.8090603@caviumnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-Id: netdev.vger.kernel.org
+
+The octeon-ethernet driver shares an mdio bus with the octeon-mgmt
+driver.  Here we convert the octeon-ethernet driver to use the PHY
+Abstraction Layer.  The allocation of MAC addresses is also fixed so
+that there is not duplication with the MAC addresses used by
+octeon-mgmt, and it is consistent with the bootloader.
 
 Signed-off-by: David Daney <ddaney@caviumnetworks.com>
 ---
- arch/mips/include/asm/octeon/cvmx-agl-defs.h  | 1194 +++++++++++++++++++++++++
- arch/mips/include/asm/octeon/cvmx-mixx-defs.h |  248 +++++
- 2 files changed, 1442 insertions(+), 0 deletions(-)
- create mode 100644 arch/mips/include/asm/octeon/cvmx-agl-defs.h
- create mode 100644 arch/mips/include/asm/octeon/cvmx-mixx-defs.h
+ drivers/staging/octeon/Kconfig           |    3 +-
+ drivers/staging/octeon/ethernet-mdio.c   |  198 +++++++++++-------------------
+ drivers/staging/octeon/ethernet-mdio.h   |    2 +-
+ drivers/staging/octeon/ethernet-proc.c   |  112 -----------------
+ drivers/staging/octeon/ethernet-rgmii.c  |   52 ++++----
+ drivers/staging/octeon/ethernet-sgmii.c  |    2 +-
+ drivers/staging/octeon/ethernet-xaui.c   |    2 +-
+ drivers/staging/octeon/ethernet.c        |   68 +++++++----
+ drivers/staging/octeon/octeon-ethernet.h |   15 ++-
+ 9 files changed, 161 insertions(+), 293 deletions(-)
 
-diff --git a/arch/mips/include/asm/octeon/cvmx-agl-defs.h b/arch/mips/include/asm/octeon/cvmx-agl-defs.h
-new file mode 100644
-index 0000000..ec94b9a
---- /dev/null
-+++ b/arch/mips/include/asm/octeon/cvmx-agl-defs.h
-@@ -0,0 +1,1194 @@
-+/***********************license start***************
-+ * Author: Cavium Networks
-+ *
-+ * Contact: support@caviumnetworks.com
-+ * This file is part of the OCTEON SDK
-+ *
-+ * Copyright (c) 2003-2008 Cavium Networks
-+ *
-+ * This file is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License, Version 2, as
-+ * published by the Free Software Foundation.
-+ *
-+ * This file is distributed in the hope that it will be useful, but
-+ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
-+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
-+ * NONINFRINGEMENT.  See the GNU General Public License for more
-+ * details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this file; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
-+ * or visit http://www.gnu.org/licenses/.
-+ *
-+ * This file may also be available under a different license from Cavium.
-+ * Contact Cavium Networks for more information
-+ ***********************license end**************************************/
-+
-+#ifndef __CVMX_AGL_DEFS_H__
-+#define __CVMX_AGL_DEFS_H__
-+
-+#define CVMX_AGL_GMX_BAD_REG \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000518ull)
-+#define CVMX_AGL_GMX_BIST \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000400ull)
-+#define CVMX_AGL_GMX_DRV_CTL \
-+	 CVMX_ADD_IO_SEG(0x00011800E00007F0ull)
-+#define CVMX_AGL_GMX_INF_MODE \
-+	 CVMX_ADD_IO_SEG(0x00011800E00007F8ull)
-+#define CVMX_AGL_GMX_PRTX_CFG(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000010ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_ADR_CAM0(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000180ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_ADR_CAM1(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000188ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_ADR_CAM2(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000190ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_ADR_CAM3(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000198ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_ADR_CAM4(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E00001A0ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_ADR_CAM5(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E00001A8ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_ADR_CAM_EN(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000108ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_ADR_CTL(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000100ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_DECISION(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000040ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_FRM_CHK(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000020ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_FRM_CTL(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000018ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_FRM_MAX(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000030ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_FRM_MIN(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000028ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_IFG(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000058ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_INT_EN(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000008ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_INT_REG(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000000ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_JABBER(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000038ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_PAUSE_DROP_TIME(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000068ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_STATS_CTL(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000050ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_STATS_OCTS(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000088ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_STATS_OCTS_CTL(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000098ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_STATS_OCTS_DMAC(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E00000A8ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_STATS_OCTS_DRP(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E00000B8ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_STATS_PKTS(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000080ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_STATS_PKTS_BAD(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E00000C0ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_STATS_PKTS_CTL(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000090ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_STATS_PKTS_DMAC(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E00000A0ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_STATS_PKTS_DRP(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E00000B0ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RXX_UDD_SKP(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000048ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_RX_BP_DROPX(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000420ull + (((offset) & 1) * 8))
-+#define CVMX_AGL_GMX_RX_BP_OFFX(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000460ull + (((offset) & 1) * 8))
-+#define CVMX_AGL_GMX_RX_BP_ONX(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000440ull + (((offset) & 1) * 8))
-+#define CVMX_AGL_GMX_RX_PRT_INFO \
-+	 CVMX_ADD_IO_SEG(0x00011800E00004E8ull)
-+#define CVMX_AGL_GMX_RX_TX_STATUS \
-+	 CVMX_ADD_IO_SEG(0x00011800E00007E8ull)
-+#define CVMX_AGL_GMX_SMACX(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000230ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_STAT_BP \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000520ull)
-+#define CVMX_AGL_GMX_TXX_APPEND(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000218ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_TXX_CTL(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000270ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_TXX_MIN_PKT(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000240ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_TXX_PAUSE_PKT_INTERVAL(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000248ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_TXX_PAUSE_PKT_TIME(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000238ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_TXX_PAUSE_TOGO(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000258ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_TXX_PAUSE_ZERO(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000260ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_TXX_SOFT_PAUSE(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000250ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_TXX_STAT0(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000280ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_TXX_STAT1(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000288ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_TXX_STAT2(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000290ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_TXX_STAT3(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000298ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_TXX_STAT4(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E00002A0ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_TXX_STAT5(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E00002A8ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_TXX_STAT6(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E00002B0ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_TXX_STAT7(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E00002B8ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_TXX_STAT8(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E00002C0ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_TXX_STAT9(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E00002C8ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_TXX_STATS_CTL(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000268ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_TXX_THRESH(offset) \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000210ull + (((offset) & 1) * 2048))
-+#define CVMX_AGL_GMX_TX_BP \
-+	 CVMX_ADD_IO_SEG(0x00011800E00004D0ull)
-+#define CVMX_AGL_GMX_TX_COL_ATTEMPT \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000498ull)
-+#define CVMX_AGL_GMX_TX_IFG \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000488ull)
-+#define CVMX_AGL_GMX_TX_INT_EN \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000508ull)
-+#define CVMX_AGL_GMX_TX_INT_REG \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000500ull)
-+#define CVMX_AGL_GMX_TX_JAM \
-+	 CVMX_ADD_IO_SEG(0x00011800E0000490ull)
-+#define CVMX_AGL_GMX_TX_LFSR \
-+	 CVMX_ADD_IO_SEG(0x00011800E00004F8ull)
-+#define CVMX_AGL_GMX_TX_OVR_BP \
-+	 CVMX_ADD_IO_SEG(0x00011800E00004C8ull)
-+#define CVMX_AGL_GMX_TX_PAUSE_PKT_DMAC \
-+	 CVMX_ADD_IO_SEG(0x00011800E00004A0ull)
-+#define CVMX_AGL_GMX_TX_PAUSE_PKT_TYPE \
-+	 CVMX_ADD_IO_SEG(0x00011800E00004A8ull)
-+
-+union cvmx_agl_gmx_bad_reg {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_bad_reg_s {
-+		uint64_t reserved_38_63:26;
-+		uint64_t txpsh1:1;
-+		uint64_t txpop1:1;
-+		uint64_t ovrflw1:1;
-+		uint64_t txpsh:1;
-+		uint64_t txpop:1;
-+		uint64_t ovrflw:1;
-+		uint64_t reserved_27_31:5;
-+		uint64_t statovr:1;
-+		uint64_t reserved_23_25:3;
-+		uint64_t loststat:1;
-+		uint64_t reserved_4_21:18;
-+		uint64_t out_ovr:2;
-+		uint64_t reserved_0_1:2;
-+	} s;
-+	struct cvmx_agl_gmx_bad_reg_s cn52xx;
-+	struct cvmx_agl_gmx_bad_reg_s cn52xxp1;
-+	struct cvmx_agl_gmx_bad_reg_cn56xx {
-+		uint64_t reserved_35_63:29;
-+		uint64_t txpsh:1;
-+		uint64_t txpop:1;
-+		uint64_t ovrflw:1;
-+		uint64_t reserved_27_31:5;
-+		uint64_t statovr:1;
-+		uint64_t reserved_23_25:3;
-+		uint64_t loststat:1;
-+		uint64_t reserved_3_21:19;
-+		uint64_t out_ovr:1;
-+		uint64_t reserved_0_1:2;
-+	} cn56xx;
-+	struct cvmx_agl_gmx_bad_reg_cn56xx cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_bist {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_bist_s {
-+		uint64_t reserved_10_63:54;
-+		uint64_t status:10;
-+	} s;
-+	struct cvmx_agl_gmx_bist_s cn52xx;
-+	struct cvmx_agl_gmx_bist_s cn52xxp1;
-+	struct cvmx_agl_gmx_bist_s cn56xx;
-+	struct cvmx_agl_gmx_bist_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_drv_ctl {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_drv_ctl_s {
-+		uint64_t reserved_49_63:15;
-+		uint64_t byp_en1:1;
-+		uint64_t reserved_45_47:3;
-+		uint64_t pctl1:5;
-+		uint64_t reserved_37_39:3;
-+		uint64_t nctl1:5;
-+		uint64_t reserved_17_31:15;
-+		uint64_t byp_en:1;
-+		uint64_t reserved_13_15:3;
-+		uint64_t pctl:5;
-+		uint64_t reserved_5_7:3;
-+		uint64_t nctl:5;
-+	} s;
-+	struct cvmx_agl_gmx_drv_ctl_s cn52xx;
-+	struct cvmx_agl_gmx_drv_ctl_s cn52xxp1;
-+	struct cvmx_agl_gmx_drv_ctl_cn56xx {
-+		uint64_t reserved_17_63:47;
-+		uint64_t byp_en:1;
-+		uint64_t reserved_13_15:3;
-+		uint64_t pctl:5;
-+		uint64_t reserved_5_7:3;
-+		uint64_t nctl:5;
-+	} cn56xx;
-+	struct cvmx_agl_gmx_drv_ctl_cn56xx cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_inf_mode {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_inf_mode_s {
-+		uint64_t reserved_2_63:62;
-+		uint64_t en:1;
-+		uint64_t reserved_0_0:1;
-+	} s;
-+	struct cvmx_agl_gmx_inf_mode_s cn52xx;
-+	struct cvmx_agl_gmx_inf_mode_s cn52xxp1;
-+	struct cvmx_agl_gmx_inf_mode_s cn56xx;
-+	struct cvmx_agl_gmx_inf_mode_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_prtx_cfg {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_prtx_cfg_s {
-+		uint64_t reserved_6_63:58;
-+		uint64_t tx_en:1;
-+		uint64_t rx_en:1;
-+		uint64_t slottime:1;
-+		uint64_t duplex:1;
-+		uint64_t speed:1;
-+		uint64_t en:1;
-+	} s;
-+	struct cvmx_agl_gmx_prtx_cfg_s cn52xx;
-+	struct cvmx_agl_gmx_prtx_cfg_s cn52xxp1;
-+	struct cvmx_agl_gmx_prtx_cfg_s cn56xx;
-+	struct cvmx_agl_gmx_prtx_cfg_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_adr_cam0 {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_adr_cam0_s {
-+		uint64_t adr:64;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_adr_cam0_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_adr_cam0_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_adr_cam0_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_adr_cam0_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_adr_cam1 {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_adr_cam1_s {
-+		uint64_t adr:64;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_adr_cam1_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_adr_cam1_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_adr_cam1_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_adr_cam1_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_adr_cam2 {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_adr_cam2_s {
-+		uint64_t adr:64;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_adr_cam2_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_adr_cam2_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_adr_cam2_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_adr_cam2_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_adr_cam3 {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_adr_cam3_s {
-+		uint64_t adr:64;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_adr_cam3_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_adr_cam3_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_adr_cam3_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_adr_cam3_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_adr_cam4 {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_adr_cam4_s {
-+		uint64_t adr:64;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_adr_cam4_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_adr_cam4_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_adr_cam4_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_adr_cam4_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_adr_cam5 {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_adr_cam5_s {
-+		uint64_t adr:64;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_adr_cam5_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_adr_cam5_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_adr_cam5_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_adr_cam5_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_adr_cam_en {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_adr_cam_en_s {
-+		uint64_t reserved_8_63:56;
-+		uint64_t en:8;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_adr_cam_en_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_adr_cam_en_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_adr_cam_en_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_adr_cam_en_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_adr_ctl {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_adr_ctl_s {
-+		uint64_t reserved_4_63:60;
-+		uint64_t cam_mode:1;
-+		uint64_t mcst:2;
-+		uint64_t bcst:1;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_adr_ctl_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_adr_ctl_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_adr_ctl_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_adr_ctl_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_decision {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_decision_s {
-+		uint64_t reserved_5_63:59;
-+		uint64_t cnt:5;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_decision_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_decision_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_decision_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_decision_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_frm_chk {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_frm_chk_s {
-+		uint64_t reserved_9_63:55;
-+		uint64_t skperr:1;
-+		uint64_t rcverr:1;
-+		uint64_t lenerr:1;
-+		uint64_t alnerr:1;
-+		uint64_t fcserr:1;
-+		uint64_t jabber:1;
-+		uint64_t maxerr:1;
-+		uint64_t reserved_1_1:1;
-+		uint64_t minerr:1;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_frm_chk_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_frm_chk_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_frm_chk_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_frm_chk_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_frm_ctl {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_frm_ctl_s {
-+		uint64_t reserved_10_63:54;
-+		uint64_t pre_align:1;
-+		uint64_t pad_len:1;
-+		uint64_t vlan_len:1;
-+		uint64_t pre_free:1;
-+		uint64_t ctl_smac:1;
-+		uint64_t ctl_mcst:1;
-+		uint64_t ctl_bck:1;
-+		uint64_t ctl_drp:1;
-+		uint64_t pre_strp:1;
-+		uint64_t pre_chk:1;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_frm_ctl_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_frm_ctl_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_frm_ctl_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_frm_ctl_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_frm_max {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_frm_max_s {
-+		uint64_t reserved_16_63:48;
-+		uint64_t len:16;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_frm_max_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_frm_max_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_frm_max_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_frm_max_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_frm_min {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_frm_min_s {
-+		uint64_t reserved_16_63:48;
-+		uint64_t len:16;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_frm_min_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_frm_min_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_frm_min_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_frm_min_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_ifg {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_ifg_s {
-+		uint64_t reserved_4_63:60;
-+		uint64_t ifg:4;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_ifg_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_ifg_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_ifg_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_ifg_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_int_en {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_int_en_s {
-+		uint64_t reserved_20_63:44;
-+		uint64_t pause_drp:1;
-+		uint64_t reserved_16_18:3;
-+		uint64_t ifgerr:1;
-+		uint64_t coldet:1;
-+		uint64_t falerr:1;
-+		uint64_t rsverr:1;
-+		uint64_t pcterr:1;
-+		uint64_t ovrerr:1;
-+		uint64_t reserved_9_9:1;
-+		uint64_t skperr:1;
-+		uint64_t rcverr:1;
-+		uint64_t lenerr:1;
-+		uint64_t alnerr:1;
-+		uint64_t fcserr:1;
-+		uint64_t jabber:1;
-+		uint64_t maxerr:1;
-+		uint64_t reserved_1_1:1;
-+		uint64_t minerr:1;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_int_en_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_int_en_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_int_en_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_int_en_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_int_reg {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_int_reg_s {
-+		uint64_t reserved_20_63:44;
-+		uint64_t pause_drp:1;
-+		uint64_t reserved_16_18:3;
-+		uint64_t ifgerr:1;
-+		uint64_t coldet:1;
-+		uint64_t falerr:1;
-+		uint64_t rsverr:1;
-+		uint64_t pcterr:1;
-+		uint64_t ovrerr:1;
-+		uint64_t reserved_9_9:1;
-+		uint64_t skperr:1;
-+		uint64_t rcverr:1;
-+		uint64_t lenerr:1;
-+		uint64_t alnerr:1;
-+		uint64_t fcserr:1;
-+		uint64_t jabber:1;
-+		uint64_t maxerr:1;
-+		uint64_t reserved_1_1:1;
-+		uint64_t minerr:1;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_int_reg_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_int_reg_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_int_reg_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_int_reg_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_jabber {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_jabber_s {
-+		uint64_t reserved_16_63:48;
-+		uint64_t cnt:16;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_jabber_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_jabber_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_jabber_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_jabber_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_pause_drop_time {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_pause_drop_time_s {
-+		uint64_t reserved_16_63:48;
-+		uint64_t status:16;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_pause_drop_time_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_pause_drop_time_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_pause_drop_time_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_pause_drop_time_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_stats_ctl {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_stats_ctl_s {
-+		uint64_t reserved_1_63:63;
-+		uint64_t rd_clr:1;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_stats_ctl_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_stats_ctl_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_stats_ctl_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_stats_ctl_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_stats_octs {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_stats_octs_s {
-+		uint64_t reserved_48_63:16;
-+		uint64_t cnt:48;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_stats_octs_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_stats_octs_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_stats_octs_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_stats_octs_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_stats_octs_ctl {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_stats_octs_ctl_s {
-+		uint64_t reserved_48_63:16;
-+		uint64_t cnt:48;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_stats_octs_ctl_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_stats_octs_ctl_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_stats_octs_ctl_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_stats_octs_ctl_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_stats_octs_dmac {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_stats_octs_dmac_s {
-+		uint64_t reserved_48_63:16;
-+		uint64_t cnt:48;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_stats_octs_dmac_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_stats_octs_dmac_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_stats_octs_dmac_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_stats_octs_dmac_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_stats_octs_drp {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_stats_octs_drp_s {
-+		uint64_t reserved_48_63:16;
-+		uint64_t cnt:48;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_stats_octs_drp_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_stats_octs_drp_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_stats_octs_drp_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_stats_octs_drp_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_stats_pkts {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_s {
-+		uint64_t reserved_32_63:32;
-+		uint64_t cnt:32;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_stats_pkts_bad {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_bad_s {
-+		uint64_t reserved_32_63:32;
-+		uint64_t cnt:32;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_bad_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_bad_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_bad_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_bad_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_stats_pkts_ctl {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_ctl_s {
-+		uint64_t reserved_32_63:32;
-+		uint64_t cnt:32;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_ctl_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_ctl_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_ctl_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_ctl_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_stats_pkts_dmac {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_dmac_s {
-+		uint64_t reserved_32_63:32;
-+		uint64_t cnt:32;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_dmac_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_dmac_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_dmac_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_dmac_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_stats_pkts_drp {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_drp_s {
-+		uint64_t reserved_32_63:32;
-+		uint64_t cnt:32;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_drp_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_drp_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_drp_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_stats_pkts_drp_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rxx_udd_skp {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rxx_udd_skp_s {
-+		uint64_t reserved_9_63:55;
-+		uint64_t fcssel:1;
-+		uint64_t reserved_7_7:1;
-+		uint64_t len:7;
-+	} s;
-+	struct cvmx_agl_gmx_rxx_udd_skp_s cn52xx;
-+	struct cvmx_agl_gmx_rxx_udd_skp_s cn52xxp1;
-+	struct cvmx_agl_gmx_rxx_udd_skp_s cn56xx;
-+	struct cvmx_agl_gmx_rxx_udd_skp_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rx_bp_dropx {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rx_bp_dropx_s {
-+		uint64_t reserved_6_63:58;
-+		uint64_t mark:6;
-+	} s;
-+	struct cvmx_agl_gmx_rx_bp_dropx_s cn52xx;
-+	struct cvmx_agl_gmx_rx_bp_dropx_s cn52xxp1;
-+	struct cvmx_agl_gmx_rx_bp_dropx_s cn56xx;
-+	struct cvmx_agl_gmx_rx_bp_dropx_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rx_bp_offx {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rx_bp_offx_s {
-+		uint64_t reserved_6_63:58;
-+		uint64_t mark:6;
-+	} s;
-+	struct cvmx_agl_gmx_rx_bp_offx_s cn52xx;
-+	struct cvmx_agl_gmx_rx_bp_offx_s cn52xxp1;
-+	struct cvmx_agl_gmx_rx_bp_offx_s cn56xx;
-+	struct cvmx_agl_gmx_rx_bp_offx_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rx_bp_onx {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rx_bp_onx_s {
-+		uint64_t reserved_9_63:55;
-+		uint64_t mark:9;
-+	} s;
-+	struct cvmx_agl_gmx_rx_bp_onx_s cn52xx;
-+	struct cvmx_agl_gmx_rx_bp_onx_s cn52xxp1;
-+	struct cvmx_agl_gmx_rx_bp_onx_s cn56xx;
-+	struct cvmx_agl_gmx_rx_bp_onx_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rx_prt_info {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rx_prt_info_s {
-+		uint64_t reserved_18_63:46;
-+		uint64_t drop:2;
-+		uint64_t reserved_2_15:14;
-+		uint64_t commit:2;
-+	} s;
-+	struct cvmx_agl_gmx_rx_prt_info_s cn52xx;
-+	struct cvmx_agl_gmx_rx_prt_info_s cn52xxp1;
-+	struct cvmx_agl_gmx_rx_prt_info_cn56xx {
-+		uint64_t reserved_17_63:47;
-+		uint64_t drop:1;
-+		uint64_t reserved_1_15:15;
-+		uint64_t commit:1;
-+	} cn56xx;
-+	struct cvmx_agl_gmx_rx_prt_info_cn56xx cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_rx_tx_status {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_rx_tx_status_s {
-+		uint64_t reserved_6_63:58;
-+		uint64_t tx:2;
-+		uint64_t reserved_2_3:2;
-+		uint64_t rx:2;
-+	} s;
-+	struct cvmx_agl_gmx_rx_tx_status_s cn52xx;
-+	struct cvmx_agl_gmx_rx_tx_status_s cn52xxp1;
-+	struct cvmx_agl_gmx_rx_tx_status_cn56xx {
-+		uint64_t reserved_5_63:59;
-+		uint64_t tx:1;
-+		uint64_t reserved_1_3:3;
-+		uint64_t rx:1;
-+	} cn56xx;
-+	struct cvmx_agl_gmx_rx_tx_status_cn56xx cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_smacx {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_smacx_s {
-+		uint64_t reserved_48_63:16;
-+		uint64_t smac:48;
-+	} s;
-+	struct cvmx_agl_gmx_smacx_s cn52xx;
-+	struct cvmx_agl_gmx_smacx_s cn52xxp1;
-+	struct cvmx_agl_gmx_smacx_s cn56xx;
-+	struct cvmx_agl_gmx_smacx_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_stat_bp {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_stat_bp_s {
-+		uint64_t reserved_17_63:47;
-+		uint64_t bp:1;
-+		uint64_t cnt:16;
-+	} s;
-+	struct cvmx_agl_gmx_stat_bp_s cn52xx;
-+	struct cvmx_agl_gmx_stat_bp_s cn52xxp1;
-+	struct cvmx_agl_gmx_stat_bp_s cn56xx;
-+	struct cvmx_agl_gmx_stat_bp_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_txx_append {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_txx_append_s {
-+		uint64_t reserved_4_63:60;
-+		uint64_t force_fcs:1;
-+		uint64_t fcs:1;
-+		uint64_t pad:1;
-+		uint64_t preamble:1;
-+	} s;
-+	struct cvmx_agl_gmx_txx_append_s cn52xx;
-+	struct cvmx_agl_gmx_txx_append_s cn52xxp1;
-+	struct cvmx_agl_gmx_txx_append_s cn56xx;
-+	struct cvmx_agl_gmx_txx_append_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_txx_ctl {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_txx_ctl_s {
-+		uint64_t reserved_2_63:62;
-+		uint64_t xsdef_en:1;
-+		uint64_t xscol_en:1;
-+	} s;
-+	struct cvmx_agl_gmx_txx_ctl_s cn52xx;
-+	struct cvmx_agl_gmx_txx_ctl_s cn52xxp1;
-+	struct cvmx_agl_gmx_txx_ctl_s cn56xx;
-+	struct cvmx_agl_gmx_txx_ctl_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_txx_min_pkt {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_txx_min_pkt_s {
-+		uint64_t reserved_8_63:56;
-+		uint64_t min_size:8;
-+	} s;
-+	struct cvmx_agl_gmx_txx_min_pkt_s cn52xx;
-+	struct cvmx_agl_gmx_txx_min_pkt_s cn52xxp1;
-+	struct cvmx_agl_gmx_txx_min_pkt_s cn56xx;
-+	struct cvmx_agl_gmx_txx_min_pkt_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_txx_pause_pkt_interval {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_txx_pause_pkt_interval_s {
-+		uint64_t reserved_16_63:48;
-+		uint64_t interval:16;
-+	} s;
-+	struct cvmx_agl_gmx_txx_pause_pkt_interval_s cn52xx;
-+	struct cvmx_agl_gmx_txx_pause_pkt_interval_s cn52xxp1;
-+	struct cvmx_agl_gmx_txx_pause_pkt_interval_s cn56xx;
-+	struct cvmx_agl_gmx_txx_pause_pkt_interval_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_txx_pause_pkt_time {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_txx_pause_pkt_time_s {
-+		uint64_t reserved_16_63:48;
-+		uint64_t time:16;
-+	} s;
-+	struct cvmx_agl_gmx_txx_pause_pkt_time_s cn52xx;
-+	struct cvmx_agl_gmx_txx_pause_pkt_time_s cn52xxp1;
-+	struct cvmx_agl_gmx_txx_pause_pkt_time_s cn56xx;
-+	struct cvmx_agl_gmx_txx_pause_pkt_time_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_txx_pause_togo {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_txx_pause_togo_s {
-+		uint64_t reserved_16_63:48;
-+		uint64_t time:16;
-+	} s;
-+	struct cvmx_agl_gmx_txx_pause_togo_s cn52xx;
-+	struct cvmx_agl_gmx_txx_pause_togo_s cn52xxp1;
-+	struct cvmx_agl_gmx_txx_pause_togo_s cn56xx;
-+	struct cvmx_agl_gmx_txx_pause_togo_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_txx_pause_zero {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_txx_pause_zero_s {
-+		uint64_t reserved_1_63:63;
-+		uint64_t send:1;
-+	} s;
-+	struct cvmx_agl_gmx_txx_pause_zero_s cn52xx;
-+	struct cvmx_agl_gmx_txx_pause_zero_s cn52xxp1;
-+	struct cvmx_agl_gmx_txx_pause_zero_s cn56xx;
-+	struct cvmx_agl_gmx_txx_pause_zero_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_txx_soft_pause {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_txx_soft_pause_s {
-+		uint64_t reserved_16_63:48;
-+		uint64_t time:16;
-+	} s;
-+	struct cvmx_agl_gmx_txx_soft_pause_s cn52xx;
-+	struct cvmx_agl_gmx_txx_soft_pause_s cn52xxp1;
-+	struct cvmx_agl_gmx_txx_soft_pause_s cn56xx;
-+	struct cvmx_agl_gmx_txx_soft_pause_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_txx_stat0 {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_txx_stat0_s {
-+		uint64_t xsdef:32;
-+		uint64_t xscol:32;
-+	} s;
-+	struct cvmx_agl_gmx_txx_stat0_s cn52xx;
-+	struct cvmx_agl_gmx_txx_stat0_s cn52xxp1;
-+	struct cvmx_agl_gmx_txx_stat0_s cn56xx;
-+	struct cvmx_agl_gmx_txx_stat0_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_txx_stat1 {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_txx_stat1_s {
-+		uint64_t scol:32;
-+		uint64_t mcol:32;
-+	} s;
-+	struct cvmx_agl_gmx_txx_stat1_s cn52xx;
-+	struct cvmx_agl_gmx_txx_stat1_s cn52xxp1;
-+	struct cvmx_agl_gmx_txx_stat1_s cn56xx;
-+	struct cvmx_agl_gmx_txx_stat1_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_txx_stat2 {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_txx_stat2_s {
-+		uint64_t reserved_48_63:16;
-+		uint64_t octs:48;
-+	} s;
-+	struct cvmx_agl_gmx_txx_stat2_s cn52xx;
-+	struct cvmx_agl_gmx_txx_stat2_s cn52xxp1;
-+	struct cvmx_agl_gmx_txx_stat2_s cn56xx;
-+	struct cvmx_agl_gmx_txx_stat2_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_txx_stat3 {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_txx_stat3_s {
-+		uint64_t reserved_32_63:32;
-+		uint64_t pkts:32;
-+	} s;
-+	struct cvmx_agl_gmx_txx_stat3_s cn52xx;
-+	struct cvmx_agl_gmx_txx_stat3_s cn52xxp1;
-+	struct cvmx_agl_gmx_txx_stat3_s cn56xx;
-+	struct cvmx_agl_gmx_txx_stat3_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_txx_stat4 {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_txx_stat4_s {
-+		uint64_t hist1:32;
-+		uint64_t hist0:32;
-+	} s;
-+	struct cvmx_agl_gmx_txx_stat4_s cn52xx;
-+	struct cvmx_agl_gmx_txx_stat4_s cn52xxp1;
-+	struct cvmx_agl_gmx_txx_stat4_s cn56xx;
-+	struct cvmx_agl_gmx_txx_stat4_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_txx_stat5 {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_txx_stat5_s {
-+		uint64_t hist3:32;
-+		uint64_t hist2:32;
-+	} s;
-+	struct cvmx_agl_gmx_txx_stat5_s cn52xx;
-+	struct cvmx_agl_gmx_txx_stat5_s cn52xxp1;
-+	struct cvmx_agl_gmx_txx_stat5_s cn56xx;
-+	struct cvmx_agl_gmx_txx_stat5_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_txx_stat6 {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_txx_stat6_s {
-+		uint64_t hist5:32;
-+		uint64_t hist4:32;
-+	} s;
-+	struct cvmx_agl_gmx_txx_stat6_s cn52xx;
-+	struct cvmx_agl_gmx_txx_stat6_s cn52xxp1;
-+	struct cvmx_agl_gmx_txx_stat6_s cn56xx;
-+	struct cvmx_agl_gmx_txx_stat6_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_txx_stat7 {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_txx_stat7_s {
-+		uint64_t hist7:32;
-+		uint64_t hist6:32;
-+	} s;
-+	struct cvmx_agl_gmx_txx_stat7_s cn52xx;
-+	struct cvmx_agl_gmx_txx_stat7_s cn52xxp1;
-+	struct cvmx_agl_gmx_txx_stat7_s cn56xx;
-+	struct cvmx_agl_gmx_txx_stat7_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_txx_stat8 {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_txx_stat8_s {
-+		uint64_t mcst:32;
-+		uint64_t bcst:32;
-+	} s;
-+	struct cvmx_agl_gmx_txx_stat8_s cn52xx;
-+	struct cvmx_agl_gmx_txx_stat8_s cn52xxp1;
-+	struct cvmx_agl_gmx_txx_stat8_s cn56xx;
-+	struct cvmx_agl_gmx_txx_stat8_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_txx_stat9 {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_txx_stat9_s {
-+		uint64_t undflw:32;
-+		uint64_t ctl:32;
-+	} s;
-+	struct cvmx_agl_gmx_txx_stat9_s cn52xx;
-+	struct cvmx_agl_gmx_txx_stat9_s cn52xxp1;
-+	struct cvmx_agl_gmx_txx_stat9_s cn56xx;
-+	struct cvmx_agl_gmx_txx_stat9_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_txx_stats_ctl {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_txx_stats_ctl_s {
-+		uint64_t reserved_1_63:63;
-+		uint64_t rd_clr:1;
-+	} s;
-+	struct cvmx_agl_gmx_txx_stats_ctl_s cn52xx;
-+	struct cvmx_agl_gmx_txx_stats_ctl_s cn52xxp1;
-+	struct cvmx_agl_gmx_txx_stats_ctl_s cn56xx;
-+	struct cvmx_agl_gmx_txx_stats_ctl_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_txx_thresh {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_txx_thresh_s {
-+		uint64_t reserved_6_63:58;
-+		uint64_t cnt:6;
-+	} s;
-+	struct cvmx_agl_gmx_txx_thresh_s cn52xx;
-+	struct cvmx_agl_gmx_txx_thresh_s cn52xxp1;
-+	struct cvmx_agl_gmx_txx_thresh_s cn56xx;
-+	struct cvmx_agl_gmx_txx_thresh_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_tx_bp {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_tx_bp_s {
-+		uint64_t reserved_2_63:62;
-+		uint64_t bp:2;
-+	} s;
-+	struct cvmx_agl_gmx_tx_bp_s cn52xx;
-+	struct cvmx_agl_gmx_tx_bp_s cn52xxp1;
-+	struct cvmx_agl_gmx_tx_bp_cn56xx {
-+		uint64_t reserved_1_63:63;
-+		uint64_t bp:1;
-+	} cn56xx;
-+	struct cvmx_agl_gmx_tx_bp_cn56xx cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_tx_col_attempt {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_tx_col_attempt_s {
-+		uint64_t reserved_5_63:59;
-+		uint64_t limit:5;
-+	} s;
-+	struct cvmx_agl_gmx_tx_col_attempt_s cn52xx;
-+	struct cvmx_agl_gmx_tx_col_attempt_s cn52xxp1;
-+	struct cvmx_agl_gmx_tx_col_attempt_s cn56xx;
-+	struct cvmx_agl_gmx_tx_col_attempt_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_tx_ifg {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_tx_ifg_s {
-+		uint64_t reserved_8_63:56;
-+		uint64_t ifg2:4;
-+		uint64_t ifg1:4;
-+	} s;
-+	struct cvmx_agl_gmx_tx_ifg_s cn52xx;
-+	struct cvmx_agl_gmx_tx_ifg_s cn52xxp1;
-+	struct cvmx_agl_gmx_tx_ifg_s cn56xx;
-+	struct cvmx_agl_gmx_tx_ifg_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_tx_int_en {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_tx_int_en_s {
-+		uint64_t reserved_18_63:46;
-+		uint64_t late_col:2;
-+		uint64_t reserved_14_15:2;
-+		uint64_t xsdef:2;
-+		uint64_t reserved_10_11:2;
-+		uint64_t xscol:2;
-+		uint64_t reserved_4_7:4;
-+		uint64_t undflw:2;
-+		uint64_t reserved_1_1:1;
-+		uint64_t pko_nxa:1;
-+	} s;
-+	struct cvmx_agl_gmx_tx_int_en_s cn52xx;
-+	struct cvmx_agl_gmx_tx_int_en_s cn52xxp1;
-+	struct cvmx_agl_gmx_tx_int_en_cn56xx {
-+		uint64_t reserved_17_63:47;
-+		uint64_t late_col:1;
-+		uint64_t reserved_13_15:3;
-+		uint64_t xsdef:1;
-+		uint64_t reserved_9_11:3;
-+		uint64_t xscol:1;
-+		uint64_t reserved_3_7:5;
-+		uint64_t undflw:1;
-+		uint64_t reserved_1_1:1;
-+		uint64_t pko_nxa:1;
-+	} cn56xx;
-+	struct cvmx_agl_gmx_tx_int_en_cn56xx cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_tx_int_reg {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_tx_int_reg_s {
-+		uint64_t reserved_18_63:46;
-+		uint64_t late_col:2;
-+		uint64_t reserved_14_15:2;
-+		uint64_t xsdef:2;
-+		uint64_t reserved_10_11:2;
-+		uint64_t xscol:2;
-+		uint64_t reserved_4_7:4;
-+		uint64_t undflw:2;
-+		uint64_t reserved_1_1:1;
-+		uint64_t pko_nxa:1;
-+	} s;
-+	struct cvmx_agl_gmx_tx_int_reg_s cn52xx;
-+	struct cvmx_agl_gmx_tx_int_reg_s cn52xxp1;
-+	struct cvmx_agl_gmx_tx_int_reg_cn56xx {
-+		uint64_t reserved_17_63:47;
-+		uint64_t late_col:1;
-+		uint64_t reserved_13_15:3;
-+		uint64_t xsdef:1;
-+		uint64_t reserved_9_11:3;
-+		uint64_t xscol:1;
-+		uint64_t reserved_3_7:5;
-+		uint64_t undflw:1;
-+		uint64_t reserved_1_1:1;
-+		uint64_t pko_nxa:1;
-+	} cn56xx;
-+	struct cvmx_agl_gmx_tx_int_reg_cn56xx cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_tx_jam {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_tx_jam_s {
-+		uint64_t reserved_8_63:56;
-+		uint64_t jam:8;
-+	} s;
-+	struct cvmx_agl_gmx_tx_jam_s cn52xx;
-+	struct cvmx_agl_gmx_tx_jam_s cn52xxp1;
-+	struct cvmx_agl_gmx_tx_jam_s cn56xx;
-+	struct cvmx_agl_gmx_tx_jam_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_tx_lfsr {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_tx_lfsr_s {
-+		uint64_t reserved_16_63:48;
-+		uint64_t lfsr:16;
-+	} s;
-+	struct cvmx_agl_gmx_tx_lfsr_s cn52xx;
-+	struct cvmx_agl_gmx_tx_lfsr_s cn52xxp1;
-+	struct cvmx_agl_gmx_tx_lfsr_s cn56xx;
-+	struct cvmx_agl_gmx_tx_lfsr_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_tx_ovr_bp {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_tx_ovr_bp_s {
-+		uint64_t reserved_10_63:54;
-+		uint64_t en:2;
-+		uint64_t reserved_6_7:2;
-+		uint64_t bp:2;
-+		uint64_t reserved_2_3:2;
-+		uint64_t ign_full:2;
-+	} s;
-+	struct cvmx_agl_gmx_tx_ovr_bp_s cn52xx;
-+	struct cvmx_agl_gmx_tx_ovr_bp_s cn52xxp1;
-+	struct cvmx_agl_gmx_tx_ovr_bp_cn56xx {
-+		uint64_t reserved_9_63:55;
-+		uint64_t en:1;
-+		uint64_t reserved_5_7:3;
-+		uint64_t bp:1;
-+		uint64_t reserved_1_3:3;
-+		uint64_t ign_full:1;
-+	} cn56xx;
-+	struct cvmx_agl_gmx_tx_ovr_bp_cn56xx cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_tx_pause_pkt_dmac {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_tx_pause_pkt_dmac_s {
-+		uint64_t reserved_48_63:16;
-+		uint64_t dmac:48;
-+	} s;
-+	struct cvmx_agl_gmx_tx_pause_pkt_dmac_s cn52xx;
-+	struct cvmx_agl_gmx_tx_pause_pkt_dmac_s cn52xxp1;
-+	struct cvmx_agl_gmx_tx_pause_pkt_dmac_s cn56xx;
-+	struct cvmx_agl_gmx_tx_pause_pkt_dmac_s cn56xxp1;
-+};
-+
-+union cvmx_agl_gmx_tx_pause_pkt_type {
-+	uint64_t u64;
-+	struct cvmx_agl_gmx_tx_pause_pkt_type_s {
-+		uint64_t reserved_16_63:48;
-+		uint64_t type:16;
-+	} s;
-+	struct cvmx_agl_gmx_tx_pause_pkt_type_s cn52xx;
-+	struct cvmx_agl_gmx_tx_pause_pkt_type_s cn52xxp1;
-+	struct cvmx_agl_gmx_tx_pause_pkt_type_s cn56xx;
-+	struct cvmx_agl_gmx_tx_pause_pkt_type_s cn56xxp1;
-+};
-+
-+#endif
-diff --git a/arch/mips/include/asm/octeon/cvmx-mixx-defs.h b/arch/mips/include/asm/octeon/cvmx-mixx-defs.h
-new file mode 100644
-index 0000000..dab6dca
---- /dev/null
-+++ b/arch/mips/include/asm/octeon/cvmx-mixx-defs.h
-@@ -0,0 +1,248 @@
-+/***********************license start***************
-+ * Author: Cavium Networks
-+ *
-+ * Contact: support@caviumnetworks.com
-+ * This file is part of the OCTEON SDK
-+ *
-+ * Copyright (c) 2003-2008 Cavium Networks
-+ *
-+ * This file is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License, Version 2, as
-+ * published by the Free Software Foundation.
-+ *
-+ * This file is distributed in the hope that it will be useful, but
-+ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
-+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
-+ * NONINFRINGEMENT.  See the GNU General Public License for more
-+ * details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this file; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
-+ * or visit http://www.gnu.org/licenses/.
-+ *
-+ * This file may also be available under a different license from Cavium.
-+ * Contact Cavium Networks for more information
-+ ***********************license end**************************************/
-+
-+#ifndef __CVMX_MIXX_DEFS_H__
-+#define __CVMX_MIXX_DEFS_H__
-+
-+#define CVMX_MIXX_BIST(offset) \
-+	 CVMX_ADD_IO_SEG(0x0001070000100078ull + (((offset) & 1) * 2048))
-+#define CVMX_MIXX_CTL(offset) \
-+	 CVMX_ADD_IO_SEG(0x0001070000100020ull + (((offset) & 1) * 2048))
-+#define CVMX_MIXX_INTENA(offset) \
-+	 CVMX_ADD_IO_SEG(0x0001070000100050ull + (((offset) & 1) * 2048))
-+#define CVMX_MIXX_IRCNT(offset) \
-+	 CVMX_ADD_IO_SEG(0x0001070000100030ull + (((offset) & 1) * 2048))
-+#define CVMX_MIXX_IRHWM(offset) \
-+	 CVMX_ADD_IO_SEG(0x0001070000100028ull + (((offset) & 1) * 2048))
-+#define CVMX_MIXX_IRING1(offset) \
-+	 CVMX_ADD_IO_SEG(0x0001070000100010ull + (((offset) & 1) * 2048))
-+#define CVMX_MIXX_IRING2(offset) \
-+	 CVMX_ADD_IO_SEG(0x0001070000100018ull + (((offset) & 1) * 2048))
-+#define CVMX_MIXX_ISR(offset) \
-+	 CVMX_ADD_IO_SEG(0x0001070000100048ull + (((offset) & 1) * 2048))
-+#define CVMX_MIXX_ORCNT(offset) \
-+	 CVMX_ADD_IO_SEG(0x0001070000100040ull + (((offset) & 1) * 2048))
-+#define CVMX_MIXX_ORHWM(offset) \
-+	 CVMX_ADD_IO_SEG(0x0001070000100038ull + (((offset) & 1) * 2048))
-+#define CVMX_MIXX_ORING1(offset) \
-+	 CVMX_ADD_IO_SEG(0x0001070000100000ull + (((offset) & 1) * 2048))
-+#define CVMX_MIXX_ORING2(offset) \
-+	 CVMX_ADD_IO_SEG(0x0001070000100008ull + (((offset) & 1) * 2048))
-+#define CVMX_MIXX_REMCNT(offset) \
-+	 CVMX_ADD_IO_SEG(0x0001070000100058ull + (((offset) & 1) * 2048))
-+
-+union cvmx_mixx_bist {
-+	uint64_t u64;
-+	struct cvmx_mixx_bist_s {
-+		uint64_t reserved_4_63:60;
-+		uint64_t mrqdat:1;
-+		uint64_t ipfdat:1;
-+		uint64_t irfdat:1;
-+		uint64_t orfdat:1;
-+	} s;
-+	struct cvmx_mixx_bist_s cn52xx;
-+	struct cvmx_mixx_bist_s cn52xxp1;
-+	struct cvmx_mixx_bist_s cn56xx;
-+	struct cvmx_mixx_bist_s cn56xxp1;
-+};
-+
-+union cvmx_mixx_ctl {
-+	uint64_t u64;
-+	struct cvmx_mixx_ctl_s {
-+		uint64_t reserved_8_63:56;
-+		uint64_t crc_strip:1;
-+		uint64_t busy:1;
-+		uint64_t en:1;
-+		uint64_t reset:1;
-+		uint64_t lendian:1;
-+		uint64_t nbtarb:1;
-+		uint64_t mrq_hwm:2;
-+	} s;
-+	struct cvmx_mixx_ctl_s cn52xx;
-+	struct cvmx_mixx_ctl_s cn52xxp1;
-+	struct cvmx_mixx_ctl_s cn56xx;
-+	struct cvmx_mixx_ctl_s cn56xxp1;
-+};
-+
-+union cvmx_mixx_intena {
-+	uint64_t u64;
-+	struct cvmx_mixx_intena_s {
-+		uint64_t reserved_7_63:57;
-+		uint64_t orunena:1;
-+		uint64_t irunena:1;
-+		uint64_t data_drpena:1;
-+		uint64_t ithena:1;
-+		uint64_t othena:1;
-+		uint64_t ivfena:1;
-+		uint64_t ovfena:1;
-+	} s;
-+	struct cvmx_mixx_intena_s cn52xx;
-+	struct cvmx_mixx_intena_s cn52xxp1;
-+	struct cvmx_mixx_intena_s cn56xx;
-+	struct cvmx_mixx_intena_s cn56xxp1;
-+};
-+
-+union cvmx_mixx_ircnt {
-+	uint64_t u64;
-+	struct cvmx_mixx_ircnt_s {
-+		uint64_t reserved_20_63:44;
-+		uint64_t ircnt:20;
-+	} s;
-+	struct cvmx_mixx_ircnt_s cn52xx;
-+	struct cvmx_mixx_ircnt_s cn52xxp1;
-+	struct cvmx_mixx_ircnt_s cn56xx;
-+	struct cvmx_mixx_ircnt_s cn56xxp1;
-+};
-+
-+union cvmx_mixx_irhwm {
-+	uint64_t u64;
-+	struct cvmx_mixx_irhwm_s {
-+		uint64_t reserved_40_63:24;
-+		uint64_t ibplwm:20;
-+		uint64_t irhwm:20;
-+	} s;
-+	struct cvmx_mixx_irhwm_s cn52xx;
-+	struct cvmx_mixx_irhwm_s cn52xxp1;
-+	struct cvmx_mixx_irhwm_s cn56xx;
-+	struct cvmx_mixx_irhwm_s cn56xxp1;
-+};
-+
-+union cvmx_mixx_iring1 {
-+	uint64_t u64;
-+	struct cvmx_mixx_iring1_s {
-+		uint64_t reserved_60_63:4;
-+		uint64_t isize:20;
-+		uint64_t reserved_36_39:4;
-+		uint64_t ibase:33;
-+		uint64_t reserved_0_2:3;
-+	} s;
-+	struct cvmx_mixx_iring1_s cn52xx;
-+	struct cvmx_mixx_iring1_s cn52xxp1;
-+	struct cvmx_mixx_iring1_s cn56xx;
-+	struct cvmx_mixx_iring1_s cn56xxp1;
-+};
-+
-+union cvmx_mixx_iring2 {
-+	uint64_t u64;
-+	struct cvmx_mixx_iring2_s {
-+		uint64_t reserved_52_63:12;
-+		uint64_t itlptr:20;
-+		uint64_t reserved_20_31:12;
-+		uint64_t idbell:20;
-+	} s;
-+	struct cvmx_mixx_iring2_s cn52xx;
-+	struct cvmx_mixx_iring2_s cn52xxp1;
-+	struct cvmx_mixx_iring2_s cn56xx;
-+	struct cvmx_mixx_iring2_s cn56xxp1;
-+};
-+
-+union cvmx_mixx_isr {
-+	uint64_t u64;
-+	struct cvmx_mixx_isr_s {
-+		uint64_t reserved_7_63:57;
-+		uint64_t orun:1;
-+		uint64_t irun:1;
-+		uint64_t data_drp:1;
-+		uint64_t irthresh:1;
-+		uint64_t orthresh:1;
-+		uint64_t idblovf:1;
-+		uint64_t odblovf:1;
-+	} s;
-+	struct cvmx_mixx_isr_s cn52xx;
-+	struct cvmx_mixx_isr_s cn52xxp1;
-+	struct cvmx_mixx_isr_s cn56xx;
-+	struct cvmx_mixx_isr_s cn56xxp1;
-+};
-+
-+union cvmx_mixx_orcnt {
-+	uint64_t u64;
-+	struct cvmx_mixx_orcnt_s {
-+		uint64_t reserved_20_63:44;
-+		uint64_t orcnt:20;
-+	} s;
-+	struct cvmx_mixx_orcnt_s cn52xx;
-+	struct cvmx_mixx_orcnt_s cn52xxp1;
-+	struct cvmx_mixx_orcnt_s cn56xx;
-+	struct cvmx_mixx_orcnt_s cn56xxp1;
-+};
-+
-+union cvmx_mixx_orhwm {
-+	uint64_t u64;
-+	struct cvmx_mixx_orhwm_s {
-+		uint64_t reserved_20_63:44;
-+		uint64_t orhwm:20;
-+	} s;
-+	struct cvmx_mixx_orhwm_s cn52xx;
-+	struct cvmx_mixx_orhwm_s cn52xxp1;
-+	struct cvmx_mixx_orhwm_s cn56xx;
-+	struct cvmx_mixx_orhwm_s cn56xxp1;
-+};
-+
-+union cvmx_mixx_oring1 {
-+	uint64_t u64;
-+	struct cvmx_mixx_oring1_s {
-+		uint64_t reserved_60_63:4;
-+		uint64_t osize:20;
-+		uint64_t reserved_36_39:4;
-+		uint64_t obase:33;
-+		uint64_t reserved_0_2:3;
-+	} s;
-+	struct cvmx_mixx_oring1_s cn52xx;
-+	struct cvmx_mixx_oring1_s cn52xxp1;
-+	struct cvmx_mixx_oring1_s cn56xx;
-+	struct cvmx_mixx_oring1_s cn56xxp1;
-+};
-+
-+union cvmx_mixx_oring2 {
-+	uint64_t u64;
-+	struct cvmx_mixx_oring2_s {
-+		uint64_t reserved_52_63:12;
-+		uint64_t otlptr:20;
-+		uint64_t reserved_20_31:12;
-+		uint64_t odbell:20;
-+	} s;
-+	struct cvmx_mixx_oring2_s cn52xx;
-+	struct cvmx_mixx_oring2_s cn52xxp1;
-+	struct cvmx_mixx_oring2_s cn56xx;
-+	struct cvmx_mixx_oring2_s cn56xxp1;
-+};
-+
-+union cvmx_mixx_remcnt {
-+	uint64_t u64;
-+	struct cvmx_mixx_remcnt_s {
-+		uint64_t reserved_52_63:12;
-+		uint64_t iremcnt:20;
-+		uint64_t reserved_20_31:12;
-+		uint64_t oremcnt:20;
-+	} s;
-+	struct cvmx_mixx_remcnt_s cn52xx;
-+	struct cvmx_mixx_remcnt_s cn52xxp1;
-+	struct cvmx_mixx_remcnt_s cn56xx;
-+	struct cvmx_mixx_remcnt_s cn56xxp1;
-+};
-+
-+#endif
+diff --git a/drivers/staging/octeon/Kconfig b/drivers/staging/octeon/Kconfig
+index 536e238..638ad6b 100644
+--- a/drivers/staging/octeon/Kconfig
++++ b/drivers/staging/octeon/Kconfig
+@@ -1,7 +1,8 @@
+ config OCTEON_ETHERNET
+ 	tristate "Cavium Networks Octeon Ethernet support"
+ 	depends on CPU_CAVIUM_OCTEON
+-	select MII
++	select PHYLIB
++	select MDIO_OCTEON
+ 	help
+ 	  This driver supports the builtin ethernet ports on Cavium
+ 	  Networks' products in the Octeon family. This driver supports the
+diff --git a/drivers/staging/octeon/ethernet-mdio.c b/drivers/staging/octeon/ethernet-mdio.c
+index 31a58e5..507ca32 100644
+--- a/drivers/staging/octeon/ethernet-mdio.c
++++ b/drivers/staging/octeon/ethernet-mdio.c
+@@ -26,7 +26,8 @@
+ **********************************************************************/
+ #include <linux/kernel.h>
+ #include <linux/ethtool.h>
+-#include <linux/mii.h>
++#include <linux/phy.h>
++
+ #include <net/dst.h>
+ 
+ #include <asm/octeon/octeon.h>
+@@ -34,86 +35,12 @@
+ #include "ethernet-defines.h"
+ #include "octeon-ethernet.h"
+ #include "ethernet-mdio.h"
++#include "ethernet-util.h"
+ 
+ #include "cvmx-helper-board.h"
+ 
+ #include "cvmx-smix-defs.h"
+ 
+-DECLARE_MUTEX(mdio_sem);
+-
+-/**
+- * Perform an MII read. Called by the generic MII routines
+- *
+- * @dev:      Device to perform read for
+- * @phy_id:   The MII phy id
+- * @location: Register location to read
+- * Returns Result from the read or zero on failure
+- */
+-static int cvm_oct_mdio_read(struct net_device *dev, int phy_id, int location)
+-{
+-	union cvmx_smix_cmd smi_cmd;
+-	union cvmx_smix_rd_dat smi_rd;
+-
+-	smi_cmd.u64 = 0;
+-	smi_cmd.s.phy_op = 1;
+-	smi_cmd.s.phy_adr = phy_id;
+-	smi_cmd.s.reg_adr = location;
+-	cvmx_write_csr(CVMX_SMIX_CMD(0), smi_cmd.u64);
+-
+-	do {
+-		if (!in_interrupt())
+-			yield();
+-		smi_rd.u64 = cvmx_read_csr(CVMX_SMIX_RD_DAT(0));
+-	} while (smi_rd.s.pending);
+-
+-	if (smi_rd.s.val)
+-		return smi_rd.s.dat;
+-	else
+-		return 0;
+-}
+-
+-static int cvm_oct_mdio_dummy_read(struct net_device *dev, int phy_id,
+-				   int location)
+-{
+-	return 0xffff;
+-}
+-
+-/**
+- * Perform an MII write. Called by the generic MII routines
+- *
+- * @dev:      Device to perform write for
+- * @phy_id:   The MII phy id
+- * @location: Register location to write
+- * @val:      Value to write
+- */
+-static void cvm_oct_mdio_write(struct net_device *dev, int phy_id, int location,
+-			       int val)
+-{
+-	union cvmx_smix_cmd smi_cmd;
+-	union cvmx_smix_wr_dat smi_wr;
+-
+-	smi_wr.u64 = 0;
+-	smi_wr.s.dat = val;
+-	cvmx_write_csr(CVMX_SMIX_WR_DAT(0), smi_wr.u64);
+-
+-	smi_cmd.u64 = 0;
+-	smi_cmd.s.phy_op = 0;
+-	smi_cmd.s.phy_adr = phy_id;
+-	smi_cmd.s.reg_adr = location;
+-	cvmx_write_csr(CVMX_SMIX_CMD(0), smi_cmd.u64);
+-
+-	do {
+-		if (!in_interrupt())
+-			yield();
+-		smi_wr.u64 = cvmx_read_csr(CVMX_SMIX_WR_DAT(0));
+-	} while (smi_wr.s.pending);
+-}
+-
+-static void cvm_oct_mdio_dummy_write(struct net_device *dev, int phy_id,
+-				     int location, int val)
+-{
+-}
+-
+ static void cvm_oct_get_drvinfo(struct net_device *dev,
+ 				struct ethtool_drvinfo *info)
+ {
+@@ -125,49 +52,37 @@ static void cvm_oct_get_drvinfo(struct net_device *dev,
+ static int cvm_oct_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+ 	struct octeon_ethernet *priv = netdev_priv(dev);
+-	int ret;
+ 
+-	down(&mdio_sem);
+-	ret = mii_ethtool_gset(&priv->mii_info, cmd);
+-	up(&mdio_sem);
++	if (priv->phydev)
++		return phy_ethtool_gset(priv->phydev, cmd);
+ 
+-	return ret;
++	return -EINVAL;
+ }
+ 
+ static int cvm_oct_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+ 	struct octeon_ethernet *priv = netdev_priv(dev);
+-	int ret;
+ 
+-	down(&mdio_sem);
+-	ret = mii_ethtool_sset(&priv->mii_info, cmd);
+-	up(&mdio_sem);
++	if (!capable(CAP_NET_ADMIN))
++		return -EPERM;
++
++	if (priv->phydev)
++		return phy_ethtool_sset(priv->phydev, cmd);
+ 
+-	return ret;
++	return -EINVAL;
+ }
+ 
+ static int cvm_oct_nway_reset(struct net_device *dev)
+ {
+ 	struct octeon_ethernet *priv = netdev_priv(dev);
+-	int ret;
+-
+-	down(&mdio_sem);
+-	ret = mii_nway_restart(&priv->mii_info);
+-	up(&mdio_sem);
+-
+-	return ret;
+-}
+ 
+-static u32 cvm_oct_get_link(struct net_device *dev)
+-{
+-	struct octeon_ethernet *priv = netdev_priv(dev);
+-	u32 ret;
++	if (!capable(CAP_NET_ADMIN))
++		return -EPERM;
+ 
+-	down(&mdio_sem);
+-	ret = mii_link_ok(&priv->mii_info);
+-	up(&mdio_sem);
++	if (priv->phydev)
++		return phy_start_aneg(priv->phydev);
+ 
+-	return ret;
++	return -EINVAL;
+ }
+ 
+ const struct ethtool_ops cvm_oct_ethtool_ops = {
+@@ -175,7 +90,7 @@ const struct ethtool_ops cvm_oct_ethtool_ops = {
+ 	.get_settings = cvm_oct_get_settings,
+ 	.set_settings = cvm_oct_set_settings,
+ 	.nway_reset = cvm_oct_nway_reset,
+-	.get_link = cvm_oct_get_link,
++	.get_link = ethtool_op_get_link,
+ 	.get_sg = ethtool_op_get_sg,
+ 	.get_tx_csum = ethtool_op_get_tx_csum,
+ };
+@@ -191,41 +106,72 @@ const struct ethtool_ops cvm_oct_ethtool_ops = {
+ int cvm_oct_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+ 	struct octeon_ethernet *priv = netdev_priv(dev);
+-	struct mii_ioctl_data *data = if_mii(rq);
+-	unsigned int duplex_chg;
+-	int ret;
+ 
+-	down(&mdio_sem);
+-	ret = generic_mii_ioctl(&priv->mii_info, data, cmd, &duplex_chg);
+-	up(&mdio_sem);
++	if (!netif_running(dev))
++		return -EINVAL;
++
++	if (!priv->phydev)
++		return -EINVAL;
+ 
+-	return ret;
++	return phy_mii_ioctl(priv->phydev, if_mii(rq), cmd);
+ }
+ 
++static void cvm_oct_adjust_link(struct net_device *dev)
++{
++	struct octeon_ethernet *priv = netdev_priv(dev);
++
++	if (priv->last_link != priv->phydev->link) {
++		priv->last_link = priv->phydev->link;
++		if (priv->last_link) {
++			netif_carrier_on(dev);
++			if (priv->queue != -1)
++				DEBUGPRINT("%s: %u Mbps %s duplex, "
++					   "port %2d, queue %2d\n",
++					   dev->name, priv->phydev->speed,
++					   priv->phydev->duplex ?
++						"Full" : "Half",
++					   priv->port, priv->queue);
++			else
++				DEBUGPRINT("%s: %u Mbps %s duplex, "
++					   "port %2d, POW\n",
++					   dev->name, priv->phydev->speed,
++					   priv->phydev->duplex ?
++						"Full" : "Half",
++					   priv->port);
++		} else {
++			netif_carrier_off(dev);
++			DEBUGPRINT("%s: Link down\n", dev->name);
++		}
++	}
++}
++
++
+ /**
+- * Setup the MDIO device structures
++ * Setup the PHY
+  *
+  * @dev:    Device to setup
+  *
+  * Returns Zero on success, negative on failure
+  */
+-int cvm_oct_mdio_setup_device(struct net_device *dev)
++int cvm_oct_phy_setup_device(struct net_device *dev)
+ {
+ 	struct octeon_ethernet *priv = netdev_priv(dev);
+-	int phy_id = cvmx_helper_board_get_mii_address(priv->port);
+-	if (phy_id != -1) {
+-		priv->mii_info.dev = dev;
+-		priv->mii_info.phy_id = phy_id;
+-		priv->mii_info.phy_id_mask = 0xff;
+-		priv->mii_info.supports_gmii = 1;
+-		priv->mii_info.reg_num_mask = 0x1f;
+-		priv->mii_info.mdio_read = cvm_oct_mdio_read;
+-		priv->mii_info.mdio_write = cvm_oct_mdio_write;
+-	} else {
+-		/* Supply dummy MDIO routines so the kernel won't crash
+-		   if the user tries to read them */
+-		priv->mii_info.mdio_read = cvm_oct_mdio_dummy_read;
+-		priv->mii_info.mdio_write = cvm_oct_mdio_dummy_write;
++
++	int phy_addr = cvmx_helper_board_get_mii_address(priv->port);
++	if (phy_addr != -1) {
++		char phy_id[20];
++
++		snprintf(phy_id, sizeof(phy_id), PHY_ID_FMT, "0", phy_addr);
++
++		priv->phydev = phy_connect(dev, phy_id, cvm_oct_adjust_link, 0,
++					PHY_INTERFACE_MODE_GMII);
++
++		if (IS_ERR(priv->phydev)) {
++			priv->phydev = NULL;
++			return -1;
++		}
++		priv->last_link = 0;
++		phy_start_aneg(priv->phydev);
+ 	}
+ 	return 0;
+ }
+diff --git a/drivers/staging/octeon/ethernet-mdio.h b/drivers/staging/octeon/ethernet-mdio.h
+index b3328ae..55d0614 100644
+--- a/drivers/staging/octeon/ethernet-mdio.h
++++ b/drivers/staging/octeon/ethernet-mdio.h
+@@ -43,4 +43,4 @@
+ 
+ extern const struct ethtool_ops cvm_oct_ethtool_ops;
+ int cvm_oct_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+-int cvm_oct_mdio_setup_device(struct net_device *dev);
++int cvm_oct_phy_setup_device(struct net_device *dev);
+diff --git a/drivers/staging/octeon/ethernet-proc.c b/drivers/staging/octeon/ethernet-proc.c
+index 8fa88fc..16308d4 100644
+--- a/drivers/staging/octeon/ethernet-proc.c
++++ b/drivers/staging/octeon/ethernet-proc.c
+@@ -25,7 +25,6 @@
+  * Contact Cavium Networks for more information
+ **********************************************************************/
+ #include <linux/kernel.h>
+-#include <linux/mii.h>
+ #include <linux/seq_file.h>
+ #include <linux/proc_fs.h>
+ #include <net/dst.h>
+@@ -38,112 +37,6 @@
+ #include "cvmx-helper.h"
+ #include "cvmx-pip.h"
+ 
+-static unsigned long long cvm_oct_stats_read_switch(struct net_device *dev,
+-						    int phy_id, int offset)
+-{
+-	struct octeon_ethernet *priv = netdev_priv(dev);
+-
+-	priv->mii_info.mdio_write(dev, phy_id, 0x1d, 0xcc00 | offset);
+-	return ((uint64_t) priv->mii_info.
+-		mdio_read(dev, phy_id,
+-			  0x1e) << 16) | (uint64_t) priv->mii_info.
+-	    mdio_read(dev, phy_id, 0x1f);
+-}
+-
+-static int cvm_oct_stats_switch_show(struct seq_file *m, void *v)
+-{
+-	static const int ports[] = { 0, 1, 2, 3, 9, -1 };
+-	struct net_device *dev = cvm_oct_device[0];
+-	int index = 0;
+-
+-	while (ports[index] != -1) {
+-
+-		/* Latch port */
+-		struct octeon_ethernet *priv = netdev_priv(dev);
+-
+-		priv->mii_info.mdio_write(dev, 0x1b, 0x1d,
+-					  0xdc00 | ports[index]);
+-		seq_printf(m, "\nSwitch Port %d\n", ports[index]);
+-		seq_printf(m, "InGoodOctets:   %12llu\t"
+-			   "OutOctets:      %12llu\t"
+-			   "64 Octets:      %12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b,
+-						     0x00) |
+-			   (cvm_oct_stats_read_switch(dev, 0x1b, 0x01) << 32),
+-			   cvm_oct_stats_read_switch(dev, 0x1b,
+-						     0x0E) |
+-			   (cvm_oct_stats_read_switch(dev, 0x1b, 0x0F) << 32),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x08));
+-
+-		seq_printf(m, "InBadOctets:    %12llu\t"
+-			   "OutUnicast:     %12llu\t"
+-			   "65-127 Octets:  %12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x02),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x10),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x09));
+-
+-		seq_printf(m, "InUnicast:      %12llu\t"
+-			   "OutBroadcasts:  %12llu\t"
+-			   "128-255 Octets: %12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x04),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x13),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x0A));
+-
+-		seq_printf(m, "InBroadcasts:   %12llu\t"
+-			   "OutMulticasts:  %12llu\t"
+-			   "256-511 Octets: %12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x06),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x12),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x0B));
+-
+-		seq_printf(m, "InMulticasts:   %12llu\t"
+-			   "OutPause:       %12llu\t"
+-			   "512-1023 Octets:%12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x07),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x15),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x0C));
+-
+-		seq_printf(m, "InPause:        %12llu\t"
+-			   "Excessive:      %12llu\t"
+-			   "1024-Max Octets:%12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x16),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x11),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x0D));
+-
+-		seq_printf(m, "InUndersize:    %12llu\t"
+-			   "Collisions:     %12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x18),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x1E));
+-
+-		seq_printf(m, "InFragments:    %12llu\t"
+-			   "Deferred:       %12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x19),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x05));
+-
+-		seq_printf(m, "InOversize:     %12llu\t"
+-			   "Single:         %12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x1A),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x14));
+-
+-		seq_printf(m, "InJabber:       %12llu\t"
+-			   "Multiple:       %12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x1B),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x17));
+-
+-		seq_printf(m, "In RxErr:       %12llu\t"
+-			   "OutFCSErr:      %12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x1C),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x03));
+-
+-		seq_printf(m, "InFCSErr:       %12llu\t"
+-			   "Late:           %12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x1D),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x1F));
+-		index++;
+-	}
+-	return 0;
+-}
+-
+ /**
+  * User is reading /proc/octeon_ethernet_stats
+  *
+@@ -215,11 +108,6 @@ static int cvm_oct_stats_show(struct seq_file *m, void *v)
+ 		}
+ 	}
+ 
+-	if (cvm_oct_device[0]) {
+-		priv = netdev_priv(cvm_oct_device[0]);
+-		if (priv->imode == CVMX_HELPER_INTERFACE_MODE_GMII)
+-			cvm_oct_stats_switch_show(m, v);
+-	}
+ 	return 0;
+ }
+ 
+diff --git a/drivers/staging/octeon/ethernet-rgmii.c b/drivers/staging/octeon/ethernet-rgmii.c
+index 8704133..d238611 100644
+--- a/drivers/staging/octeon/ethernet-rgmii.c
++++ b/drivers/staging/octeon/ethernet-rgmii.c
+@@ -147,32 +147,36 @@ static void cvm_oct_rgmii_poll(struct net_device *dev)
+ 		cvmx_write_csr(CVMX_GMXX_RXX_INT_REG(index, interface),
+ 			       gmxx_rxx_int_reg.u64);
+ 	}
+-
+-	link_info = cvmx_helper_link_autoconf(priv->port);
+-	priv->link_info = link_info.u64;
++	if (priv->phydev == NULL) {
++		link_info = cvmx_helper_link_autoconf(priv->port);
++		priv->link_info = link_info.u64;
++	}
+ 	spin_unlock_irqrestore(&global_register_lock, flags);
+ 
+-	/* Tell Linux */
+-	if (link_info.s.link_up) {
+-
+-		if (!netif_carrier_ok(dev))
+-			netif_carrier_on(dev);
+-		if (priv->queue != -1)
+-			DEBUGPRINT
+-			    ("%s: %u Mbps %s duplex, port %2d, queue %2d\n",
+-			     dev->name, link_info.s.speed,
+-			     (link_info.s.full_duplex) ? "Full" : "Half",
+-			     priv->port, priv->queue);
+-		else
+-			DEBUGPRINT("%s: %u Mbps %s duplex, port %2d, POW\n",
+-				   dev->name, link_info.s.speed,
+-				   (link_info.s.full_duplex) ? "Full" : "Half",
+-				   priv->port);
+-	} else {
+-
+-		if (netif_carrier_ok(dev))
+-			netif_carrier_off(dev);
+-		DEBUGPRINT("%s: Link down\n", dev->name);
++	if (priv->phydev == NULL) {
++		/* Tell core. */
++		if (link_info.s.link_up) {
++			if (!netif_carrier_ok(dev))
++				netif_carrier_on(dev);
++			if (priv->queue != -1)
++				DEBUGPRINT("%s: %u Mbps %s duplex, "
++					   "port %2d, queue %2d\n",
++					   dev->name, link_info.s.speed,
++					   (link_info.s.full_duplex) ?
++						"Full" : "Half",
++					   priv->port, priv->queue);
++			else
++				DEBUGPRINT("%s: %u Mbps %s duplex, "
++					   "port %2d, POW\n",
++					   dev->name, link_info.s.speed,
++					   (link_info.s.full_duplex) ?
++						"Full" : "Half",
++					   priv->port);
++		} else {
++			if (netif_carrier_ok(dev))
++				netif_carrier_off(dev);
++			DEBUGPRINT("%s: Link down\n", dev->name);
++		}
+ 	}
+ }
+ 
+diff --git a/drivers/staging/octeon/ethernet-sgmii.c b/drivers/staging/octeon/ethernet-sgmii.c
+index 2b54996..6061d01 100644
+--- a/drivers/staging/octeon/ethernet-sgmii.c
++++ b/drivers/staging/octeon/ethernet-sgmii.c
+@@ -113,7 +113,7 @@ int cvm_oct_sgmii_init(struct net_device *dev)
+ 	struct octeon_ethernet *priv = netdev_priv(dev);
+ 	cvm_oct_common_init(dev);
+ 	dev->netdev_ops->ndo_stop(dev);
+-	if (!octeon_is_simulation())
++	if (!octeon_is_simulation() && priv->phydev == NULL)
+ 		priv->poll = cvm_oct_sgmii_poll;
+ 
+ 	/* FIXME: Need autoneg logic */
+diff --git a/drivers/staging/octeon/ethernet-xaui.c b/drivers/staging/octeon/ethernet-xaui.c
+index 0c2e7cc..ee3dc41 100644
+--- a/drivers/staging/octeon/ethernet-xaui.c
++++ b/drivers/staging/octeon/ethernet-xaui.c
+@@ -112,7 +112,7 @@ int cvm_oct_xaui_init(struct net_device *dev)
+ 	struct octeon_ethernet *priv = netdev_priv(dev);
+ 	cvm_oct_common_init(dev);
+ 	dev->netdev_ops->ndo_stop(dev);
+-	if (!octeon_is_simulation())
++	if (!octeon_is_simulation() && priv->phydev == NULL)
+ 		priv->poll = cvm_oct_xaui_poll;
+ 
+ 	return 0;
+diff --git a/drivers/staging/octeon/ethernet.c b/drivers/staging/octeon/ethernet.c
+index b847951..d3dff8f 100644
+--- a/drivers/staging/octeon/ethernet.c
++++ b/drivers/staging/octeon/ethernet.c
+@@ -30,7 +30,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/delay.h>
+-#include <linux/mii.h>
++#include <linux/phy.h>
+ 
+ #include <net/dst.h>
+ 
+@@ -122,8 +122,6 @@ static struct timer_list cvm_oct_poll_timer;
+  */
+ struct net_device *cvm_oct_device[TOTAL_NUMBER_OF_PORTS];
+ 
+-extern struct semaphore mdio_sem;
+-
+ /**
+  * Periodic timer tick for slow management operations
+  *
+@@ -150,13 +148,8 @@ static void cvm_do_timer(unsigned long arg)
+ 		goto out;
+ 
+ 	priv = netdev_priv(cvm_oct_device[port]);
+-	if (priv->poll) {
+-		/* skip polling if we don't get the lock */
+-		if (!down_trylock(&mdio_sem)) {
+-			priv->poll(cvm_oct_device[port]);
+-			up(&mdio_sem);
+-		}
+-	}
++	if (priv->poll)
++		priv->poll(cvm_oct_device[port]);
+ 
+ 	queues_per_port = cvmx_pko_get_num_queues(port);
+ 	/* Drain any pending packets in the free list */
+@@ -474,16 +467,30 @@ static int cvm_oct_common_set_mac_address(struct net_device *dev, void *addr)
+  */
+ int cvm_oct_common_init(struct net_device *dev)
+ {
+-	static int count;
+-	char mac[8] = { 0x00, 0x00,
+-		octeon_bootinfo->mac_addr_base[0],
+-		octeon_bootinfo->mac_addr_base[1],
+-		octeon_bootinfo->mac_addr_base[2],
+-		octeon_bootinfo->mac_addr_base[3],
+-		octeon_bootinfo->mac_addr_base[4],
+-		octeon_bootinfo->mac_addr_base[5] + count
+-	};
+ 	struct octeon_ethernet *priv = netdev_priv(dev);
++	struct sockaddr sa;
++	u64 mac = ((u64)(octeon_bootinfo->mac_addr_base[0] & 0xff) << 40) |
++		((u64)(octeon_bootinfo->mac_addr_base[1] & 0xff) << 32) |
++		((u64)(octeon_bootinfo->mac_addr_base[2] & 0xff) << 24) |
++		((u64)(octeon_bootinfo->mac_addr_base[3] & 0xff) << 16) |
++		((u64)(octeon_bootinfo->mac_addr_base[4] & 0xff) << 8) |
++		(u64)(octeon_bootinfo->mac_addr_base[5] & 0xff);
++
++	mac += cvm_oct_mac_addr_offset;
++	sa.sa_data[0] = (mac >> 40) & 0xff;
++	sa.sa_data[1] = (mac >> 32) & 0xff;
++	sa.sa_data[2] = (mac >> 24) & 0xff;
++	sa.sa_data[3] = (mac >> 16) & 0xff;
++	sa.sa_data[4] = (mac >> 8) & 0xff;
++	sa.sa_data[5] = mac & 0xff;
++
++	if (cvm_oct_mac_addr_offset >= octeon_bootinfo->mac_addr_count)
++		printk(KERN_DEBUG "%s: Using MAC outside of the assigned range:"
++			" %02x:%02x:%02x:%02x:%02x:%02x\n", dev->name,
++			sa.sa_data[0] & 0xff, sa.sa_data[1] & 0xff,
++			sa.sa_data[2] & 0xff, sa.sa_data[3] & 0xff,
++			sa.sa_data[4] & 0xff, sa.sa_data[5] & 0xff);
++	cvm_oct_mac_addr_offset++;
+ 
+ 	/*
+ 	 * Force the interface to use the POW send if always_use_pow
+@@ -496,14 +503,12 @@ int cvm_oct_common_init(struct net_device *dev)
+ 	if (priv->queue != -1 && USE_HW_TCPUDP_CHECKSUM)
+ 		dev->features |= NETIF_F_IP_CSUM;
+ 
+-	count++;
+-
+ 	/* We do our own locking, Linux doesn't need to */
+ 	dev->features |= NETIF_F_LLTX;
+ 	SET_ETHTOOL_OPS(dev, &cvm_oct_ethtool_ops);
+ 
+-	cvm_oct_mdio_setup_device(dev);
+-	dev->netdev_ops->ndo_set_mac_address(dev, mac);
++	cvm_oct_phy_setup_device(dev);
++	dev->netdev_ops->ndo_set_mac_address(dev, &sa);
+ 	dev->netdev_ops->ndo_change_mtu(dev, dev->mtu);
+ 
+ 	/*
+@@ -518,7 +523,10 @@ int cvm_oct_common_init(struct net_device *dev)
+ 
+ void cvm_oct_common_uninit(struct net_device *dev)
+ {
+-	/* Currently nothing to do */
++	struct octeon_ethernet *priv = netdev_priv(dev);
++
++	if (priv->phydev)
++		phy_disconnect(priv->phydev);
+ }
+ 
+ static const struct net_device_ops cvm_oct_npi_netdev_ops = {
+@@ -605,6 +613,10 @@ static const struct net_device_ops cvm_oct_pow_netdev_ops = {
+ #endif
+ };
+ 
++unsigned int cvm_oct_mac_addr_offset;
++
++extern void octeon_mdiobus_force_mod_depencency(void);
++
+ /**
+  * Module/ driver initialization. Creates the linux network
+  * devices.
+@@ -618,8 +630,16 @@ static int __init cvm_oct_init_module(void)
+ 	int fau = FAU_NUM_PACKET_BUFFERS_TO_FREE;
+ 	int qos;
+ 
++	octeon_mdiobus_force_mod_depencency();
+ 	pr_notice("cavium-ethernet %s\n", OCTEON_ETHERNET_VERSION);
+ 
++	if (OCTEON_IS_MODEL(OCTEON_CN52XX))
++		cvm_oct_mac_addr_offset = 2; /* First two are the mgmt ports. */
++	else if (OCTEON_IS_MODEL(OCTEON_CN56XX))
++		cvm_oct_mac_addr_offset = 1; /* First one is the mgmt port. */
++	else
++		cvm_oct_mac_addr_offset = 0;
++
+ 	cvm_oct_proc_initialize();
+ 	cvm_oct_rx_initialize();
+ 	cvm_oct_configure_common_hw();
+diff --git a/drivers/staging/octeon/octeon-ethernet.h b/drivers/staging/octeon/octeon-ethernet.h
+index 3aef987..9b0faeb 100644
+--- a/drivers/staging/octeon/octeon-ethernet.h
++++ b/drivers/staging/octeon/octeon-ethernet.h
+@@ -50,15 +50,24 @@ struct octeon_ethernet {
+ 	/* List of outstanding tx buffers per queue */
+ 	struct sk_buff_head tx_free_list[16];
+ 	/* Device statistics */
+-	struct net_device_stats stats
+-;	/* Generic MII info structure */
+-	struct mii_if_info mii_info;
++	struct net_device_stats stats;
++	struct phy_device *phydev;
++	unsigned int last_link;
+ 	/* Last negotiated link state */
+ 	uint64_t link_info;
+ 	/* Called periodically to check link status */
+ 	void (*poll) (struct net_device *dev);
+ };
+ 
++/*
++ * The offset from mac_addr_base that should be used for the next port
++ * that is configured.  By convention, if any mgmt ports exist on the
++ * chip, they get the first mac addresses, The ports controlled by
++ * this driver are numbered sequencially following any mgmt addresses
++ * that may exist.
++ */
++extern unsigned int cvm_oct_mac_addr_offset;
++
+ /**
+  * Free a work queue entry received in a intercept callback.
+  *
 -- 
 1.6.0.6
-
