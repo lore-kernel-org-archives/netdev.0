@@ -1,94 +1,53 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: Nested function in drivers/of/of_mdio.c
-Date: Wed, 7 Oct 2009 10:11:14 -0600
-Message-ID: <fa686aa40910070911x769d7d41u908fbcf6b0980962@mail.gmail.com>
-References: <200910071715.57249.jezz@sysmic.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 3/4] ethoc: align received packet to make IP header at
+ word boundary
+Date: Wed, 7 Oct 2009 09:13:37 -0700
+Message-ID: <20091007091337.532d9ed1@nehalam>
+References: <1254735200-2718-1-git-send-email-thomas@wytron.com.tw>
+	<1254735200-2718-2-git-send-email-thomas@wytron.com.tw>
+	<1254735200-2718-3-git-send-email-thomas@wytron.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev <netdev@vger.kernel.org>, linuxppc <linuxppc-dev@lists.ozlabs.org>,
-	Andy Fleming <afleming@freescale.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: =?ISO-8859-1?Q?J=E9r=F4me_Pouiller?= <jezz@sysmic.org>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <200910071715.57249.jezz@sysmic.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Thomas Chou <thomas@wytron.com.tw>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:43285 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752982AbZJGQOT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Oct 2009 12:14:19 -0400
+In-Reply-To: <1254735200-2718-3-git-send-email-thomas@wytron.com.tw>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 7, 2009 at 9:15 AM, J=E9r=F4me Pouiller <jezz@sysmic.org> wrote:
-> Dear,
->
-> I have a problem with commit 8bc487d150b939e69830c39322df4ee486efe381
-> in file drivers/of/of_mdio.c in function of_phy_find_device.
->
-> As you see, this function define match() as a nested function. My
-> compiler (powerpc-e500-linux-gnu-gcc-3.4.1) raise an error during link
-> due to this nested definition:
-> =A0drivers/built-in.o(.text+0x5e2a4): In function `of_phy_find_device': /=
-home/jezz/linux-next/drivers/of/of_mdio.c:107:
-> undefined reference to `__trampoline_setup'
->
-> I am sure I could solve problem by rebuilding my toolchain.
-> Nevertheless, I think nested function definition is not perfectly
-> supported by all compilers. Also, I suggest to place function match()
-> outside of scope of of_phy_find_device as in following patch.
+On Mon,  5 Oct 2009 17:33:19 +0800
+Thomas Chou <thomas@wytron.com.tw> wrote:
 
-I'm okay with that, but if you're moving code out of the file scope,
-then please rename the function to of_phy_match() to avoid global
-namespace conflicts.
+> The packet buffer is allocated at 4 bytes boundary, but the IP header
+> length and version bits is located at byte 14. These bit fields access
+> as 32 bits word and caused exception on processors that do not support
+> unaligned access.
+> 
+> The patch adds 2 bytes offset to make the bit fields word aligned.
+> 
+> Signed-off-by: Thomas Chou <thomas@wytron.com.tw>
+> ---
+>  drivers/net/ethoc.c |    4 ++++
+>  1 files changed, 4 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/ethoc.c b/drivers/net/ethoc.c
+> index f92747f..0c6c7f4 100644
+> --- a/drivers/net/ethoc.c
+> +++ b/drivers/net/ethoc.c
+> @@ -399,6 +399,10 @@ static int ethoc_rx(struct net_device *dev, int limit)
+>  		if (ethoc_update_rx_stats(priv, &bd) == 0) {
+>  			int size = bd.stat >> 16;
+>  			struct sk_buff *skb = netdev_alloc_skb(dev, size);
+> +
+> +			size -= 4; /* strip the CRC */
+> +			skb_reserve(skb, 2); /* align TCP/IP header */
 
-g.
+Please use NET_IP_ALIGN rather than hard coding 2 so that the value
+can be changed on a per-cpu architecture basis if desired.
 
->
-> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-> index bacaa53..c7b2e26 100644
-> --- a/drivers/of/of_mdio.c
-> +++ b/drivers/of/of_mdio.c
-> @@ -97,6 +97,10 @@ int of_mdiobus_register(struct mii_bus *mdio, struct d=
-evice_node *np)
-> =A0}
-> =A0EXPORT_SYMBOL(of_mdiobus_register);
->
-> +static int match(struct device *dev, void *phy_np)
-> +{
-> + =A0 =A0 =A0 return dev_archdata_get_node(&dev->archdata) =3D=3D phy_np;
-> +}
-> =A0/**
-> =A0* of_phy_find_device - Give a PHY node, find the phy_device
-> =A0* @phy_np: Pointer to the phy's device tree node
-> @@ -106,11 +110,6 @@ EXPORT_SYMBOL(of_mdiobus_register);
-> =A0struct phy_device *of_phy_find_device(struct device_node *phy_np)
-> =A0{
-> =A0 =A0 =A0 =A0struct device *d;
-> - =A0 =A0 =A0 int match(struct device *dev, void *phy_np)
-> - =A0 =A0 =A0 {
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 return dev_archdata_get_node(&dev->archdata=
-) =3D=3D phy_np;
-> - =A0 =A0 =A0 }
-> -
-> =A0 =A0 =A0 =A0if (!phy_np)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return NULL;
->
->
-> What do you think about it?
->
-> Best regards,
->
-> --
-> J=E9r=F4me Pouiller (jezz AT sysmic DOT org)
->
-
-
-
--- =
-
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+-- 
