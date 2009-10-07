@@ -1,19 +1,19 @@
 From: Ajit Khaparde <ajitkhaparde@gmail.com>
-Subject: [PATCH net-next-2.6] e1000e: Use the instance of net_device_stats
+Subject: [PATCH net-next-2.6] ixgbe: Use the instance of net_device_stats
 	from net_device.
-Date: Wed, 7 Oct 2009 18:14:26 +0530
-Message-ID: <20091007124416.GA30096@serverengines.com>
+Date: Wed, 7 Oct 2009 18:13:49 +0530
+Message-ID: <20091007124339.GA30083@serverengines.com>
 Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f210.google.com ([209.85.218.210]:53265 "EHLO
-	mail-bw0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758978AbZJGMpN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 08:45:13 -0400
-Received: by bwz6 with SMTP id 6so27950bwz.37
-        for <netdev@vger.kernel.org>; Wed, 07 Oct 2009 05:44:35 -0700 (PDT)
+Received: from mail-fx0-f227.google.com ([209.85.220.227]:65345 "EHLO
+	mail-fx0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759092AbZJGMoL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 08:44:11 -0400
+Received: by mail-fx0-f227.google.com with SMTP id 27so4550688fxm.17
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2009 05:43:59 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -23,170 +23,156 @@ we can remove the instance of this from the private adapter structure.
 
 Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
 ---
- drivers/net/e1000e/e1000.h   |    1 -
- drivers/net/e1000e/ethtool.c |   18 +++++++++-------
- drivers/net/e1000e/netdev.c  |   43 ++++++++++++++++++++---------------------
- 3 files changed, 31 insertions(+), 31 deletions(-)
+ drivers/net/ixgbe/ixgbe.h         |    1 -
+ drivers/net/ixgbe/ixgbe_ethtool.c |   40 +++++++++++++++++++-----------------
+ drivers/net/ixgbe/ixgbe_main.c    |   26 ++++++++++++------------
+ 3 files changed, 34 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index 981936c..1211df9 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -315,7 +315,6 @@ struct e1000_adapter {
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index 28f32da..2b85416 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -340,7 +340,6 @@ struct ixgbe_adapter {
  	/* OS defined structs */
  	struct net_device *netdev;
  	struct pci_dev *pdev;
 -	struct net_device_stats net_stats;
  
- 	/* structs defined in e1000_hw.h */
- 	struct e1000_hw hw;
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index 1bf4d2a..8a78a14 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -43,6 +43,8 @@ struct e1000_stats {
+ 	u32 test_icr;
+ 	struct ixgbe_ring test_tx_ring;
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+index fa314cb..987b41c 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -48,11 +48,13 @@ struct ixgbe_stats {
  
- #define E1000_STAT(m) sizeof(((struct e1000_adapter *)0)->m), \
- 		      offsetof(struct e1000_adapter, m)
-+#define E1000_NETDEV_STAT(m) sizeof(((struct net_device *)0)->m), \
-+		      offsetof(struct net_device, m)
- static const struct e1000_stats e1000_gstrings_stats[] = {
- 	{ "rx_packets", E1000_STAT(stats.gprc) },
- 	{ "tx_packets", E1000_STAT(stats.gptc) },
-@@ -52,21 +54,21 @@ static const struct e1000_stats e1000_gstrings_stats[] = {
- 	{ "tx_broadcast", E1000_STAT(stats.bptc) },
- 	{ "rx_multicast", E1000_STAT(stats.mprc) },
- 	{ "tx_multicast", E1000_STAT(stats.mptc) },
--	{ "rx_errors", E1000_STAT(net_stats.rx_errors) },
--	{ "tx_errors", E1000_STAT(net_stats.tx_errors) },
--	{ "tx_dropped", E1000_STAT(net_stats.tx_dropped) },
-+	{ "rx_errors", E1000_NETDEV_STAT(stats.rx_errors) },
-+	{ "tx_errors", E1000_NETDEV_STAT(stats.tx_errors) },
-+	{ "tx_dropped", E1000_NETDEV_STAT(stats.tx_dropped) },
- 	{ "multicast", E1000_STAT(stats.mprc) },
- 	{ "collisions", E1000_STAT(stats.colc) },
--	{ "rx_length_errors", E1000_STAT(net_stats.rx_length_errors) },
--	{ "rx_over_errors", E1000_STAT(net_stats.rx_over_errors) },
-+	{ "rx_length_errors", E1000_NETDEV_STAT(stats.rx_length_errors) },
-+	{ "rx_over_errors", E1000_NETDEV_STAT(stats.rx_over_errors) },
- 	{ "rx_crc_errors", E1000_STAT(stats.crcerrs) },
--	{ "rx_frame_errors", E1000_STAT(net_stats.rx_frame_errors) },
-+	{ "rx_frame_errors", E1000_NETDEV_STAT(stats.rx_frame_errors) },
- 	{ "rx_no_buffer_count", E1000_STAT(stats.rnbc) },
- 	{ "rx_missed_errors", E1000_STAT(stats.mpc) },
- 	{ "tx_aborted_errors", E1000_STAT(stats.ecol) },
- 	{ "tx_carrier_errors", E1000_STAT(stats.tncrs) },
--	{ "tx_fifo_errors", E1000_STAT(net_stats.tx_fifo_errors) },
--	{ "tx_heartbeat_errors", E1000_STAT(net_stats.tx_heartbeat_errors) },
-+	{ "tx_fifo_errors", E1000_NETDEV_STAT(stats.tx_fifo_errors) },
-+	{ "tx_heartbeat_errors", E1000_NETDEV_STAT(stats.tx_heartbeat_errors) },
- 	{ "tx_window_errors", E1000_STAT(stats.latecol) },
- 	{ "tx_abort_late_coll", E1000_STAT(stats.latecol) },
- 	{ "tx_deferred_ok", E1000_STAT(stats.dc) },
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 0687c6a..21af398 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -560,8 +560,8 @@ next_desc:
+ #define IXGBE_STAT(m) sizeof(((struct ixgbe_adapter *)0)->m), \
+                              offsetof(struct ixgbe_adapter, m)
++#define IXGBE_NETDEV_STAT(m) sizeof(((struct net_device *)0)->m), \
++                             offsetof(struct net_device, m)
+ static struct ixgbe_stats ixgbe_gstrings_stats[] = {
+-	{"rx_packets", IXGBE_STAT(net_stats.rx_packets)},
+-	{"tx_packets", IXGBE_STAT(net_stats.tx_packets)},
+-	{"rx_bytes", IXGBE_STAT(net_stats.rx_bytes)},
+-	{"tx_bytes", IXGBE_STAT(net_stats.tx_bytes)},
++	{"rx_packets", IXGBE_NETDEV_STAT(stats.rx_packets)},
++	{"tx_packets", IXGBE_NETDEV_STAT(stats.tx_packets)},
++	{"rx_bytes", IXGBE_NETDEV_STAT(stats.rx_bytes)},
++	{"tx_bytes", IXGBE_NETDEV_STAT(stats.tx_bytes)},
+ 	{"rx_pkts_nic", IXGBE_STAT(stats.gprc)},
+ 	{"tx_pkts_nic", IXGBE_STAT(stats.gptc)},
+ 	{"rx_bytes_nic", IXGBE_STAT(stats.gorc)},
+@@ -60,26 +62,26 @@ static struct ixgbe_stats ixgbe_gstrings_stats[] = {
+ 	{"lsc_int", IXGBE_STAT(lsc_int)},
+ 	{"tx_busy", IXGBE_STAT(tx_busy)},
+ 	{"non_eop_descs", IXGBE_STAT(non_eop_descs)},
+-	{"rx_errors", IXGBE_STAT(net_stats.rx_errors)},
+-	{"tx_errors", IXGBE_STAT(net_stats.tx_errors)},
+-	{"rx_dropped", IXGBE_STAT(net_stats.rx_dropped)},
+-	{"tx_dropped", IXGBE_STAT(net_stats.tx_dropped)},
+-	{"multicast", IXGBE_STAT(net_stats.multicast)},
++	{"rx_errors", IXGBE_NETDEV_STAT(stats.rx_errors)},
++	{"tx_errors", IXGBE_NETDEV_STAT(stats.tx_errors)},
++	{"rx_dropped", IXGBE_NETDEV_STAT(stats.rx_dropped)},
++	{"tx_dropped", IXGBE_NETDEV_STAT(stats.tx_dropped)},
++	{"multicast", IXGBE_NETDEV_STAT(stats.multicast)},
+ 	{"broadcast", IXGBE_STAT(stats.bprc)},
+ 	{"rx_no_buffer_count", IXGBE_STAT(stats.rnbc[0]) },
+-	{"collisions", IXGBE_STAT(net_stats.collisions)},
+-	{"rx_over_errors", IXGBE_STAT(net_stats.rx_over_errors)},
+-	{"rx_crc_errors", IXGBE_STAT(net_stats.rx_crc_errors)},
+-	{"rx_frame_errors", IXGBE_STAT(net_stats.rx_frame_errors)},
++	{"collisions", IXGBE_NETDEV_STAT(stats.collisions)},
++	{"rx_over_errors", IXGBE_NETDEV_STAT(stats.rx_over_errors)},
++	{"rx_crc_errors", IXGBE_NETDEV_STAT(stats.rx_crc_errors)},
++	{"rx_frame_errors", IXGBE_NETDEV_STAT(stats.rx_frame_errors)},
+ 	{"hw_rsc_count", IXGBE_STAT(rsc_count)},
+ 	{"fdir_match", IXGBE_STAT(stats.fdirmatch)},
+ 	{"fdir_miss", IXGBE_STAT(stats.fdirmiss)},
+-	{"rx_fifo_errors", IXGBE_STAT(net_stats.rx_fifo_errors)},
+-	{"rx_missed_errors", IXGBE_STAT(net_stats.rx_missed_errors)},
+-	{"tx_aborted_errors", IXGBE_STAT(net_stats.tx_aborted_errors)},
+-	{"tx_carrier_errors", IXGBE_STAT(net_stats.tx_carrier_errors)},
+-	{"tx_fifo_errors", IXGBE_STAT(net_stats.tx_fifo_errors)},
+-	{"tx_heartbeat_errors", IXGBE_STAT(net_stats.tx_heartbeat_errors)},
++	{"rx_fifo_errors", IXGBE_NETDEV_STAT(stats.rx_fifo_errors)},
++	{"rx_missed_errors", IXGBE_NETDEV_STAT(stats.rx_missed_errors)},
++	{"tx_aborted_errors", IXGBE_NETDEV_STAT(stats.tx_aborted_errors)},
++	{"tx_carrier_errors", IXGBE_NETDEV_STAT(stats.tx_carrier_errors)},
++	{"tx_fifo_errors", IXGBE_NETDEV_STAT(stats.tx_fifo_errors)},
++	{"tx_heartbeat_errors", IXGBE_NETDEV_STAT(stats.tx_heartbeat_errors)},
+ 	{"tx_timeout_count", IXGBE_STAT(tx_timeout_count)},
+ 	{"tx_restart_queue", IXGBE_STAT(restart_queue)},
+ 	{"rx_long_length_errors", IXGBE_STAT(stats.roc)},
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index cbb143c..c91d50e 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -372,8 +372,8 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
+ 	tx_ring->total_packets += total_packets;
+ 	tx_ring->stats.packets += total_packets;
+ 	tx_ring->stats.bytes += total_bytes;
+-	adapter->net_stats.tx_bytes += total_bytes;
+-	adapter->net_stats.tx_packets += total_packets;
++	netdev->stats.tx_bytes += total_bytes;
++	netdev->stats.tx_packets += total_packets;
+ 	return (count < tx_ring->work_limit);
+ }
  
- 	adapter->total_rx_bytes += total_rx_bytes;
- 	adapter->total_rx_packets += total_rx_packets;
+@@ -709,6 +709,7 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+                                int *work_done, int work_to_do)
+ {
+ 	struct ixgbe_adapter *adapter = q_vector->adapter;
++	struct net_device *netdev = adapter->netdev;
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	union ixgbe_adv_rx_desc *rx_desc, *next_rxd;
+ 	struct ixgbe_rx_buffer *rx_buffer_info, *next_buffer;
+@@ -880,8 +881,8 @@ next_desc:
+ 
+ 	rx_ring->total_packets += total_rx_packets;
+ 	rx_ring->total_bytes += total_rx_bytes;
 -	adapter->net_stats.rx_bytes += total_rx_bytes;
 -	adapter->net_stats.rx_packets += total_rx_packets;
 +	netdev->stats.rx_bytes += total_rx_bytes;
 +	netdev->stats.rx_packets += total_rx_packets;
+ 
  	return cleaned;
  }
- 
-@@ -690,8 +690,8 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter)
- 	}
- 	adapter->total_tx_bytes += total_tx_bytes;
- 	adapter->total_tx_packets += total_tx_packets;
--	adapter->net_stats.tx_bytes += total_tx_bytes;
--	adapter->net_stats.tx_packets += total_tx_packets;
-+	netdev->stats.tx_bytes += total_tx_bytes;
-+	netdev->stats.tx_packets += total_tx_packets;
- 	return (count < tx_ring->count);
- }
- 
-@@ -871,8 +871,8 @@ next_desc:
- 
- 	adapter->total_rx_bytes += total_rx_bytes;
- 	adapter->total_rx_packets += total_rx_packets;
--	adapter->net_stats.rx_bytes += total_rx_bytes;
--	adapter->net_stats.rx_packets += total_rx_packets;
-+	netdev->stats.rx_bytes += total_rx_bytes;
-+	netdev->stats.rx_packets += total_rx_packets;
- 	return cleaned;
- }
- 
-@@ -1051,8 +1051,8 @@ next_desc:
- 
- 	adapter->total_rx_bytes += total_rx_bytes;
- 	adapter->total_rx_packets += total_rx_packets;
--	adapter->net_stats.rx_bytes += total_rx_bytes;
--	adapter->net_stats.rx_packets += total_rx_packets;
-+	netdev->stats.rx_bytes += total_rx_bytes;
-+	netdev->stats.rx_packets += total_rx_packets;
- 	return cleaned;
- }
- 
-@@ -3287,6 +3287,7 @@ static void e1000_update_phy_info(unsigned long data)
+@@ -4403,6 +4404,7 @@ static void ixgbe_shutdown(struct pci_dev *pdev)
   **/
- void e1000e_update_stats(struct e1000_adapter *adapter)
+ void ixgbe_update_stats(struct ixgbe_adapter *adapter)
  {
 +	struct net_device *netdev = adapter->netdev;
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct pci_dev *pdev = adapter->pdev;
- 	u16 phy_data;
-@@ -3381,8 +3382,8 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
- 	adapter->stats.tsctfc += er32(TSCTFC);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	u64 total_mpc = 0;
+ 	u32 i, missed_rx = 0, mpc, bprc, lxon, lxoff, xon_off_tot;
+@@ -4522,15 +4524,15 @@ void ixgbe_update_stats(struct ixgbe_adapter *adapter)
+ 	adapter->stats.bptc += IXGBE_READ_REG(hw, IXGBE_BPTC);
  
  	/* Fill out the OS statistics structure */
 -	adapter->net_stats.multicast = adapter->stats.mprc;
--	adapter->net_stats.collisions = adapter->stats.colc;
 +	netdev->stats.multicast = adapter->stats.mprc;
-+	netdev->stats.collisions = adapter->stats.colc;
  
  	/* Rx Errors */
- 
-@@ -3390,22 +3391,22 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
- 	 * RLEC on some newer hardware can be incorrect so build
- 	 * our own version based on RUC and ROC
- 	 */
--	adapter->net_stats.rx_errors = adapter->stats.rxerrc +
-+	netdev->stats.rx_errors = adapter->stats.rxerrc +
- 		adapter->stats.crcerrs + adapter->stats.algnerrc +
- 		adapter->stats.ruc + adapter->stats.roc +
- 		adapter->stats.cexterr;
--	adapter->net_stats.rx_length_errors = adapter->stats.ruc +
-+	netdev->stats.rx_length_errors = adapter->stats.ruc +
- 					      adapter->stats.roc;
+-	adapter->net_stats.rx_errors = adapter->stats.crcerrs +
++	netdev->stats.rx_errors = adapter->stats.crcerrs +
+ 	                               adapter->stats.rlec;
+-	adapter->net_stats.rx_dropped = 0;
+-	adapter->net_stats.rx_length_errors = adapter->stats.rlec;
 -	adapter->net_stats.rx_crc_errors = adapter->stats.crcerrs;
--	adapter->net_stats.rx_frame_errors = adapter->stats.algnerrc;
--	adapter->net_stats.rx_missed_errors = adapter->stats.mpc;
+-	adapter->net_stats.rx_missed_errors = total_mpc;
++	netdev->stats.rx_dropped = 0;
++	netdev->stats.rx_length_errors = adapter->stats.rlec;
 +	netdev->stats.rx_crc_errors = adapter->stats.crcerrs;
-+	netdev->stats.rx_frame_errors = adapter->stats.algnerrc;
-+	netdev->stats.rx_missed_errors = adapter->stats.mpc;
++	netdev->stats.rx_missed_errors = total_mpc;
+ }
  
- 	/* Tx Errors */
--	adapter->net_stats.tx_errors = adapter->stats.ecol +
-+	netdev->stats.tx_errors = adapter->stats.ecol +
- 				       adapter->stats.latecol;
--	adapter->net_stats.tx_aborted_errors = adapter->stats.ecol;
--	adapter->net_stats.tx_window_errors = adapter->stats.latecol;
--	adapter->net_stats.tx_carrier_errors = adapter->stats.tncrs;
-+	netdev->stats.tx_aborted_errors = adapter->stats.ecol;
-+	netdev->stats.tx_window_errors = adapter->stats.latecol;
-+	netdev->stats.tx_carrier_errors = adapter->stats.tncrs;
- 
- 	/* Tx Dropped needs to be maintained elsewhere */
- 
-@@ -4254,10 +4255,8 @@ static void e1000_reset_task(struct work_struct *work)
+ /**
+@@ -5300,10 +5302,8 @@ static netdev_tx_t ixgbe_xmit_frame(struct sk_buff *skb,
   **/
- static struct net_device_stats *e1000_get_stats(struct net_device *netdev)
+ static struct net_device_stats *ixgbe_get_stats(struct net_device *netdev)
  {
--	struct e1000_adapter *adapter = netdev_priv(netdev);
+-	struct ixgbe_adapter *adapter = netdev_priv(netdev);
 -
  	/* only return the current stats */
 -	return &adapter->net_stats;
