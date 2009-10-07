@@ -1,47 +1,42 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: using huge numbers of queues
-Date: Thu, 08 Oct 2009 00:22:28 +0100
-Message-ID: <1254957748.2519.14.camel@localhost>
-References: <c0a09e5c0910071459r2768f420lae87f7404dfbc054@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next-2.6] e1000: Use the instance of net_device_stats
+	from net_device.
+Date: Wed, 7 Oct 2009 16:31:54 -0700
+Message-ID: <9929d2390910071631y3c247ce5j284f7beb1526b80d@mail.gmail.com>
+References: <20091007124213.GA30056@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
-To: Andrew Grover <andy.grover@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Ajit Khaparde <ajitk@serverengines.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:28514 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756301AbZJGXXM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 19:23:12 -0400
-In-Reply-To: <c0a09e5c0910071459r2768f420lae87f7404dfbc054@mail.gmail.com>
+Received: from mail-pz0-f177.google.com ([209.85.222.177]:41054 "EHLO
+	mail-pz0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755010AbZJGXca convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 19:32:30 -0400
+Received: by pzk7 with SMTP id 7so501388pzk.33
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2009 16:31:54 -0700 (PDT)
+In-Reply-To: <20091007124213.GA30056@serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-10-07 at 14:59 -0700, Andrew Grover wrote:
-> Hi Herbert,
-> 
-> At NetConf, you made a passing remark about wanting lots of queues,
-> even 1-per-socket. Have you thought further about how we would use so
-> many?
-> 
-> Thinking about this reminded me of VJ's 2006 netchannel concept, which
-> although not adopted, was pretty interesting. Would having 1 queue per
-> socket (or at least 1 per process) and hw that is able to filter
-> individual flows (I think the Intel 82599 can do this now for up to
-> 128) perhaps make netchannels workable? At least this would get all
-> processing out of int/bh and into process context, if not userspace,
-> no?
+On Wed, Oct 7, 2009 at 05:42, Ajit Khaparde <ajitkhaparde@gmail.com> wr=
+ote:
+> Since net_device has an instance of net_device_stats,
+> we can remove the instance of this from the adapter structure.
+>
+> Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+> ---
+> =C2=A0drivers/net/e1000/e1000.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0 =
+=C2=A01 -
+> =C2=A0drivers/net/e1000/e1000_ethtool.c | =C2=A0 12 ++++++----
+> =C2=A0drivers/net/e1000/e1000_main.c =C2=A0 =C2=A0| =C2=A0 41 +++++++=
++++++++++++-------------------
+> =C2=A03 files changed, 27 insertions(+), 27 deletions(-)
+>
 
-Solarflare controllers already support 1000+ queues.  The OpenOnload
-software <http://www.openonload.org> assigns one queue per process
-(though this isn't quite 1:1 as sockets may be shared between processes)
-and almost all protocol processing is done in user-space.  I'm not sure
-quite how close this is to the netchannels concept.
+I have added this patch to my tree for testing purposes, thanks.
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+--=20
+Cheers,
+Jeff
