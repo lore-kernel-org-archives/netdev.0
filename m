@@ -1,46 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Add sk_mark route lookup support for IPv4 listening
- sockets, and for IPv4 multicast forwarding
-Date: Wed, 07 Oct 2009 03:19:57 -0700 (PDT)
-Message-ID: <20091007.031957.197632672.davem@davemloft.net>
-References: <200910051646.34770.atis@mikrotik.com>
+Subject: Re: [PATCH] ipv4: arp_notify address list bug
+Date: Wed, 07 Oct 2009 03:18:25 -0700 (PDT)
+Message-ID: <20091007.031825.236018689.davem@davemloft.net>
+References: <4ACAB5BC.1020307@gmail.com>
+	<20091005.213103.237708475.davem@davemloft.net>
+	<4ACAD393.5080909@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, panther@balabit.hu, eric.dumazet@gmail.com,
-	brian.haley@hp.com, zenczykowski@gmail.com
-To: atis@mikrotik.com
+Cc: hannes@stressinduktion.org, shemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40798
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53533
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757916AbZJGKUC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 06:20:02 -0400
-In-Reply-To: <200910051646.34770.atis@mikrotik.com>
+	by vger.kernel.org with ESMTP id S1758110AbZJGKSa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 06:18:30 -0400
+In-Reply-To: <4ACAD393.5080909@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Atis Elsts <atis@mikrotik.com>
-Date: Mon, 5 Oct 2009 16:46:34 +0300
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 06 Oct 2009 07:20:19 +0200
 
-> @@ -1238,6 +1238,7 @@ static void ipmr_queue_xmit(struct sk_buff *skb, struct mfc_cache *c, int vifi)
->  
->  	if (vif->flags&VIFF_TUNNEL) {
->  		struct flowi fl = { .oif = vif->link,
-> +				    .mark = skb->mark,
->  				    .nl_u = { .ip4_u =
->  					      { .daddr = vif->remote,
->  						.saddr = vif->local,
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> This fixes a bug with arp_notify.
+> 
+> If arp_notify is enabled, kernel will crash if address is changed
+> and no IP address is assigned.
+>   http://bugzilla.kernel.org/show_bug.cgi?id=14330
+> 
+> Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-I'm not so sure if this is right.
-
-I understand what you're trying to do, inherit the socket's
-mark when it goes over a multicast tunnel.
-
-But I'm not so sure that's what we want to do, semantically.
-
-Could you split out these skb->mark cases into a seperate
-patch?  The parts that only use sk->mark are fine and I
-would like to apply a patch from you which just does that
-while we discuss the skb->mark case.
-
-Thanks.
+Applied, thanks everyone.
