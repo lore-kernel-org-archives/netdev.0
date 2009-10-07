@@ -1,51 +1,35 @@
-From: Brice Goglin <bgoglin@free.fr>
-Subject: Re: [PATCH net-next] myri10ge: add adaptive coalescing
-Date: Wed, 07 Oct 2009 07:17:46 +0200
-Message-ID: <4ACC247A.9020504@free.fr>
-References: <4ACB75DB.4060003@myri.com> <20091006.172537.148962576.davem@davemloft.net> <4ACBEEB2.7010703@hp.com>
-Reply-To: Brice.Goglin@ens-lyon.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] udp: extend hash tables to 256 slots
+Date: Tue, 06 Oct 2009 22:29:35 -0700 (PDT)
+Message-ID: <20091006.222935.231081303.davem@davemloft.net>
+References: <4ACBE3E7.60404@hp.com>
+	<4ACC0CDE.1020907@gmail.com>
+	<4ACC1C73.1010506@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, brice@myri.com,
-	netdev@vger.kernel.org, gallatin@myri.com
-To: Rick Jones <rick.jones2@hp.com>
+Cc: rick.jones2@hp.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4-relais-sop.national.inria.fr ([192.134.164.105]:31913
-	"EHLO mail4-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750703AbZJGF3J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 01:29:09 -0400
-In-Reply-To: <4ACBEEB2.7010703@hp.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34159
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754862AbZJGF3k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 01:29:40 -0400
+In-Reply-To: <4ACC1C73.1010506@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rick Jones wrote:
-> David Miller wrote:
->> From: Brice Goglin <brice@myri.com>
->> Date: Tue, 06 Oct 2009 18:52:43 +0200
->>
->>
->>> This patch adds support for adaptive interrupt coalescing to the
->>> myri10ge driver. It is based on the host periodically look at
->>> statistics and update the NIC coalescing accordingly.
->>>
->>> The NIC only provides packet throughput and we feel that it is a
->>> better heuristics than the packet rate heuristics currently used
->>> in ethtool. Also, assuming that the packet packet rate heuristics
->>> uses what is actually sent on the wire when using TSO, it would be
->>> much more expensive to implement correctly, as the driver would
->>> need to calculate how many packets were sent.
->>>
->>> Signed-off-by: Andrew Gallatin <gallatin@myri.com>
->>> Signed-off-by: Brice Goglin <brice@myri.com>
->>
->>
->> Drivers tried to do this as far back as 6 years ago (tg3) and we don't
->> recommend doing this with NAPI drivers.
->
-> Doesn't e1000(e) still try to do adaptive coalescing?
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 07 Oct 2009 06:43:31 +0200
 
-mlx_en, benet, sfc, ... do as well.
+> David, I believe UDP_HTABLE_SIZE never changed from its initial value of 128,
+> defined 15 years ago. Could we bump it to 256 ?
+> 
+> (back in 1995, SOCK_ARRAY_SIZE was 256)
+> 
+> (I'll probably use 1024 value for my tests)
 
-Brice
+That's incredible that it's been that low for so long :-)
 
+Bug please, dynamically size this thing, maybe with a cap of say 64K
+to start with.  If you don't have time for it I'll take care of this.
