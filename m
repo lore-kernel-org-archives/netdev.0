@@ -1,50 +1,34 @@
-From: =?utf-8?q?Nicolas=20de=20Peslo=C3=BCan?=
-	<nicolas.2p.debian@free.fr>
-Subject: [PATCH netnext-2.6] bonding: remove useless assignment
-Date: Wed,  7 Oct 2009 22:59:28 +0200
-Message-ID: <1254949168-12404-2-git-send-email-nicolas.2p.debian@free.fr>
-References: <1254949168-12404-1-git-send-email-nicolas.2p.debian@free.fr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] IPv6: Fix 6RD build error
+Date: Wed, 07 Oct 2009 13:57:23 -0700 (PDT)
+Message-ID: <20091007.135723.66252278.davem@davemloft.net>
+References: <4ACCAD46.2020800@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
-To: fubar@us.ibm.com, davem@davemloft.net
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: brian.haley@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:34669 "EHLO smtp6-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934366AbZJGVAU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Oct 2009 17:00:20 -0400
-In-Reply-To: <1254949168-12404-1-git-send-email-nicolas.2p.debian@free.fr>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57314
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758154AbZJGU52 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 16:57:28 -0400
+In-Reply-To: <4ACCAD46.2020800@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The variable old_active is first set to bond->curr_active_slave.
-Then, it is unconditionally set to new_active, without being used in be=
-tween.
-
-The first assignment, having no side effect, is useless.
-
-Signed-off-by: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
-Reviewed-by: Jiri Pirko <jpirko@redhat.com>
----
- drivers/net/bonding/bond_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
-_main.c
-index 20dc5a2..34bdea5 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1084,7 +1084,7 @@ static struct slave *bond_find_best_slave(struct =
-bonding *bond)
- 	int mintime =3D bond->params.updelay;
- 	int i;
-=20
--	new_active =3D old_active =3D bond->curr_active_slave;
-+	new_active =3D bond->curr_active_slave;
-=20
- 	if (!new_active) { /* there were no active slaves left */
- 		if (bond->slave_cnt > 0)   /* found one slave */
---=20
-1.6.3.3
-
+RnJvbTogQnJpYW4gSGFsZXkgPGJyaWFuLmhhbGV5QGhwLmNvbT4NCkRhdGU6IFdlZCwgMDcgT2N0
+IDIwMDkgMTE6MDE6MjYgLTA0MDANCg0KPiBGaXggYnVpbGQgZXJyb3IgaW50cm9kdWNlZCBpbiBj
+b21taXQgZmE4NTdhZmNmIC0gaXB2NiBzaXQ6IDZyZA0KPiAoSVB2NiBSYXBpZCBEZXBsb3ltZW50
+KSBTdXBwb3J0LiAgU3RydWN0IGluNl9hZGRyIGlzIHRoZSBpc3N1ZS4NCj4gSSdtIG9ubHkgc2Vl
+aW5nIHRoaXMgb24geDg2XzY0IHN5c3RlbXMsIG5vdCBvbiAzMi1iaXQgd2l0aCBzYW1lDQo+IElQ
+djYgY29uZmlnIG9wdGlvbnMsIHNvIGl0IGNvdWxkIGJlIHRoZXJlJ3MgYSBtaXNzaW5nIGZvcndh
+cmQNCj4gZGVjbGFyYXRpb24gc29tZXdoZXJlLCBidXQgaW5jbHVkaW5nIHRoZSBjb3JyZWN0IGhl
+YWRlciBmaWxlDQo+IGZpeGVzIHRoZSBwcm9ibGVtIHRvby4NCj4gDQo+ICAgQ0MgW01dICBuZXQv
+aXB2Ni9pcDZfdHVubmVsLm8NCj4gSW4gZmlsZSBpbmNsdWRlZCBmcm9tIG5ldC9pcHY2L2lwNl90
+dW5uZWwuYzozMToNCj4gaW5jbHVkZS9saW51eC9pZl90dW5uZWwuaDo1OTogZXJyb3I6IGZpZWxk
+IOKAmHByZWZpeOKAmSBoYXMgaW5jb21wbGV0ZSB0eXBlDQo+IG1ha2VbMl06ICoqKiBbbmV0L2lw
+djYvaXA2X3R1bm5lbC5vXSBFcnJvciAxDQo+IG1ha2VbMV06ICoqKiBbbmV0L2lwdjZdIEVycm9y
+IDINCj4gDQo+IFNpZ25lZC1vZmYtYnk6IEJyaWFuIEhhbGV5IDxicmlhbi5oYWxleUBocC5jb20+
+DQoNCkZ1bm55LCBJIGRpZG4ndCBzZWUgdGhpcyBvbiBzcGFyYzY0Lg0KDQpBcHBsaWVkLCB0aGFu
+a3MgQnJpYW4hDQo=
