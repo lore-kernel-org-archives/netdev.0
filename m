@@ -1,165 +1,94 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: [PATCH] IPv6: use ipv6_addr_set_v4mapped()
-Date: Wed, 07 Oct 2009 11:47:34 -0400
-Message-ID: <4ACCB816.2000902@hp.com>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: Nested function in drivers/of/of_mdio.c
+Date: Wed, 7 Oct 2009 10:11:14 -0600
+Message-ID: <fa686aa40910070911x769d7d41u908fbcf6b0980962@mail.gmail.com>
+References: <200910071715.57249.jezz@sysmic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: david Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0185.atlanta.hp.com ([15.193.32.62]:35701 "EHLO
-	g6t0185.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759318AbZJGPsM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 11:48:12 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev <netdev@vger.kernel.org>, linuxppc <linuxppc-dev@lists.ozlabs.org>,
+	Andy Fleming <afleming@freescale.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: =?ISO-8859-1?Q?J=E9r=F4me_Pouiller?= <jezz@sysmic.org>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <200910071715.57249.jezz@sysmic.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Might as well use the ipv6_addr_set_v4mapped() inline we created last
-year.
+On Wed, Oct 7, 2009 at 9:15 AM, J=E9r=F4me Pouiller <jezz@sysmic.org> wrote:
+> Dear,
+>
+> I have a problem with commit 8bc487d150b939e69830c39322df4ee486efe381
+> in file drivers/of/of_mdio.c in function of_phy_find_device.
+>
+> As you see, this function define match() as a nested function. My
+> compiler (powerpc-e500-linux-gnu-gcc-3.4.1) raise an error during link
+> due to this nested definition:
+> =A0drivers/built-in.o(.text+0x5e2a4): In function `of_phy_find_device': /=
+home/jezz/linux-next/drivers/of/of_mdio.c:107:
+> undefined reference to `__trampoline_setup'
+>
+> I am sure I could solve problem by rebuilding my toolchain.
+> Nevertheless, I think nested function definition is not perfectly
+> supported by all compilers. Also, I suggest to place function match()
+> outside of scope of of_phy_find_device as in following patch.
 
-Signed-off-by: Brian Haley <brian.haley@hp.com>
----
+I'm okay with that, but if you're moving code out of the file scope,
+then please rename the function to of_phy_match() to avoid global
+namespace conflicts.
 
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index e48ca5d..a2afb55 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -510,11 +510,9 @@ static struct sock *dccp_v6_request_recv_sock(struct sock *sk,
- 
- 		memcpy(newnp, np, sizeof(struct ipv6_pinfo));
- 
--		ipv6_addr_set(&newnp->daddr, 0, 0, htonl(0x0000FFFF),
--			      newinet->daddr);
-+		ipv6_addr_set_v4mapped(newinet->daddr, &newnp->daddr);
- 
--		ipv6_addr_set(&newnp->saddr, 0, 0, htonl(0x0000FFFF),
--			      newinet->saddr);
-+		ipv6_addr_set_v4mapped(newinet->saddr, &newnp->saddr);
- 
- 		ipv6_addr_copy(&newnp->rcv_saddr, &newnp->saddr);
- 
-@@ -971,10 +969,8 @@ static int dccp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 			sk->sk_backlog_rcv = dccp_v6_do_rcv;
- 			goto failure;
- 		} else {
--			ipv6_addr_set(&np->saddr, 0, 0, htonl(0x0000FFFF),
--				      inet->saddr);
--			ipv6_addr_set(&np->rcv_saddr, 0, 0, htonl(0x0000FFFF),
--				      inet->rcv_saddr);
-+			ipv6_addr_set_v4mapped(inet->saddr, &np->saddr);
-+			ipv6_addr_set_v4mapped(inet->rcv_saddr, &np->rcv_saddr);
- 		}
- 
- 		return err;
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index e2bdc6d..6ebf0ff 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -98,17 +98,14 @@ ipv4_connected:
- 		if (err)
- 			goto out;
- 
--		ipv6_addr_set(&np->daddr, 0, 0, htonl(0x0000ffff), inet->daddr);
-+		ipv6_addr_set_v4mapped(inet->daddr, &np->daddr);
- 
--		if (ipv6_addr_any(&np->saddr)) {
--			ipv6_addr_set(&np->saddr, 0, 0, htonl(0x0000ffff),
--				      inet->saddr);
--		}
-+		if (ipv6_addr_any(&np->saddr))
-+			ipv6_addr_set_v4mapped(inet->saddr, &np->saddr);
-+
-+		if (ipv6_addr_any(&np->rcv_saddr))
-+			ipv6_addr_set_v4mapped(inet->rcv_saddr, &np->rcv_saddr);
- 
--		if (ipv6_addr_any(&np->rcv_saddr)) {
--			ipv6_addr_set(&np->rcv_saddr, 0, 0, htonl(0x0000ffff),
--				      inet->rcv_saddr);
--		}
- 		goto out;
- 	}
- 
-@@ -329,9 +326,8 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len)
- 			if (ipv6_addr_type(&sin->sin6_addr) & IPV6_ADDR_LINKLOCAL)
- 				sin->sin6_scope_id = IP6CB(skb)->iif;
- 		} else {
--			ipv6_addr_set(&sin->sin6_addr, 0, 0,
--				      htonl(0xffff),
--				      *(__be32 *)(nh + serr->addr_offset));
-+			ipv6_addr_set_v4mapped(*(__be32 *)(nh + serr->addr_offset),
-+					       &sin->sin6_addr);
- 		}
- 	}
- 
-@@ -351,8 +347,8 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len)
- 		} else {
- 			struct inet_sock *inet = inet_sk(sk);
- 
--			ipv6_addr_set(&sin->sin6_addr, 0, 0,
--				      htonl(0xffff), ip_hdr(skb)->saddr);
-+			ipv6_addr_set_v4mapped(ip_hdr(skb)->saddr,
-+					       &sin->sin6_addr);
- 			if (inet->cmsg_flags)
- 				ip_cmsg_recv(msg, skb);
- 		}
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 21d100b..93dad9a 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -226,10 +226,8 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- #endif
- 			goto failure;
- 		} else {
--			ipv6_addr_set(&np->saddr, 0, 0, htonl(0x0000FFFF),
--				      inet->saddr);
--			ipv6_addr_set(&np->rcv_saddr, 0, 0, htonl(0x0000FFFF),
--				      inet->rcv_saddr);
-+			ipv6_addr_set_v4mapped(inet->saddr, &np->saddr);
-+			ipv6_addr_set_v4mapped(inet->rcv_saddr, &np->rcv_saddr);
- 		}
- 
- 		return err;
-@@ -1290,11 +1288,9 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 
- 		memcpy(newnp, np, sizeof(struct ipv6_pinfo));
- 
--		ipv6_addr_set(&newnp->daddr, 0, 0, htonl(0x0000FFFF),
--			      newinet->daddr);
-+		ipv6_addr_set_v4mapped(newinet->daddr, &newnp->daddr);
- 
--		ipv6_addr_set(&newnp->saddr, 0, 0, htonl(0x0000FFFF),
--			      newinet->saddr);
-+		ipv6_addr_set_v4mapped(newinet->saddr, &newnp->saddr);
- 
- 		ipv6_addr_copy(&newnp->rcv_saddr, &newnp->saddr);
- 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 3a60f12..0dae3f7 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -265,8 +265,8 @@ try_again:
- 		sin6->sin6_scope_id = 0;
- 
- 		if (is_udp4)
--			ipv6_addr_set(&sin6->sin6_addr, 0, 0,
--				      htonl(0xffff), ip_hdr(skb)->saddr);
-+			ipv6_addr_set_v4mapped(ip_hdr(skb)->saddr,
-+					       &sin6->sin6_addr);
- 		else {
- 			ipv6_addr_copy(&sin6->sin6_addr,
- 				       &ipv6_hdr(skb)->saddr);
-diff --git a/net/sunrpc/svcauth_unix.c b/net/sunrpc/svcauth_unix.c
-index 117f68a..f4c7ff3 100644
---- a/net/sunrpc/svcauth_unix.c
-+++ b/net/sunrpc/svcauth_unix.c
-@@ -686,8 +686,7 @@ svcauth_unix_set_client(struct svc_rqst *rqstp)
- 	case AF_INET:
- 		sin = svc_addr_in(rqstp);
- 		sin6 = &sin6_storage;
--		ipv6_addr_set(&sin6->sin6_addr, 0, 0,
--				htonl(0x0000FFFF), sin->sin_addr.s_addr);
-+		ipv6_addr_set_v4mapped(sin->sin_addr.s_addr, &sin6->sin6_addr);
- 		break;
- 	case AF_INET6:
- 		sin6 = svc_addr_in6(rqstp);
+g.
+
+>
+> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+> index bacaa53..c7b2e26 100644
+> --- a/drivers/of/of_mdio.c
+> +++ b/drivers/of/of_mdio.c
+> @@ -97,6 +97,10 @@ int of_mdiobus_register(struct mii_bus *mdio, struct d=
+evice_node *np)
+> =A0}
+> =A0EXPORT_SYMBOL(of_mdiobus_register);
+>
+> +static int match(struct device *dev, void *phy_np)
+> +{
+> + =A0 =A0 =A0 return dev_archdata_get_node(&dev->archdata) =3D=3D phy_np;
+> +}
+> =A0/**
+> =A0* of_phy_find_device - Give a PHY node, find the phy_device
+> =A0* @phy_np: Pointer to the phy's device tree node
+> @@ -106,11 +110,6 @@ EXPORT_SYMBOL(of_mdiobus_register);
+> =A0struct phy_device *of_phy_find_device(struct device_node *phy_np)
+> =A0{
+> =A0 =A0 =A0 =A0struct device *d;
+> - =A0 =A0 =A0 int match(struct device *dev, void *phy_np)
+> - =A0 =A0 =A0 {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 return dev_archdata_get_node(&dev->archdata=
+) =3D=3D phy_np;
+> - =A0 =A0 =A0 }
+> -
+> =A0 =A0 =A0 =A0if (!phy_np)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return NULL;
+>
+>
+> What do you think about it?
+>
+> Best regards,
+>
+> --
+> J=E9r=F4me Pouiller (jezz AT sysmic DOT org)
+>
+
+
+
+-- =
+
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
