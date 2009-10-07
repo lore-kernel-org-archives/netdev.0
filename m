@@ -1,56 +1,36 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: skb_shinfo(skb)->nr_frags > 0 while skb_is_gso(skb) == 0?
-Date: Tue, 6 Oct 2009 18:37:11 -0700
-Message-ID: <1254879431.9111.13.camel@HP1>
-References: <20091007010315.GA26498@neptune.jswright>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC net-next-2.6] net: speedup sk_wake_async()
+Date: Wed, 07 Oct 2009 05:37:02 +0200
+Message-ID: <4ACC0CDE.1020907@gmail.com>
+References: <4ACBCDD8.5000306@gmail.com> <4ACBE3E7.60404@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Bob Montgomery" <bob.montgomery@hp.com>
-To: "John Wright" <john.wright@hp.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4896 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933870AbZJGBqt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Oct 2009 21:46:49 -0400
-In-Reply-To: <20091007010315.GA26498@neptune.jswright>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:53108 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752664AbZJGDho (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 23:37:44 -0400
+In-Reply-To: <4ACBE3E7.60404@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Rick Jones a =E9crit :
+>=20
+> How about 64-bit?
 
-On Tue, 2009-10-06 at 18:03 -0700, John Wright wrote:
-> So, first, a question for someone who knows more about sk_buff's than
-> I:
-> is it reasonable/legal for an skb for which skb_is_gso(skb) == 0 to
-> also
-> have skb_shinfo(skb)->nr_frags > 0?
-> 
+No data yet, but larger footprint unfortunatly :-(
 
-As Stephen pointed out, yes.
+>=20
+> Got any netperf service demand changes?
 
-> If yes, then for Michael, or someone familiar with bnx2 hardware: are
-> "partial BD completions" (where the hw_tx_cons value is on a ring
-> index
-> that, on the tx_buf_ring, would have a NULL skb value, and on the
-> tx_desc_ring, the tx_bd would not have the TX_BD_FLAGS_START flag set)
-> possible only for gso skb's, or is it possible any time nr_frags > 0?
-> 
+I was going to setup a bench lab, with a typical RTP mediaserver, with =
+say
+4000 UDP sockets, 2000 sockets exchanging 50 G.711 Alaw/ulaw
+messages per second tx and rx. (Total : 100.000 packets per second each=
+ way)
 
-Partial BD completions are only possible on TSO/GSO packets, unless
-there is a hardware bug that we haven't found during all these years.
-
-Several years ago, the same crash in bnx2 was found to be caused by HTB
-corrupting nr_frags while the skb was queued by the driver.  That issue
-has been fixed.  I wonder if skb->gso_size can change on us while the
-skb is queued or we still have another case of changing nr_frags.
-
-I think it will be good if you can run the same test on 2.6.31 where
-is_gso and nr_frags are cached.  If the chip really does partial BD
-completions on TX, you should still see the same issue whether we cache
-these values or not.  If it doesn't crash on 2.6.31, then it may be
-something else.
-
-Thanks for the detailed debugging information.
-
-
+Is netperf able to simulate this workload ?
