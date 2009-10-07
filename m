@@ -1,34 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 00/11] Gigaset driver patches for 2.6.32 (v3)
-Date: Wed, 07 Oct 2009 01:30:47 -0700 (PDT)
-Message-ID: <20091007.013047.82636828.davem@davemloft.net>
-References: <20091006-patch-gigaset-00.tilman@imap.cc>
-	<20091006.233901.192206610.davem@davemloft.net>
-	<1254904188.9411@nb-hp>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] dcb: data center bridging ops should be r/o
+Date: Wed, 07 Oct 2009 01:30:07 -0700 (PDT)
+Message-ID: <20091007.013007.127234139.davem@davemloft.net>
+References: <20091005090103.0340ef29@s6510>
+	<1254773298.2667.27.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn-iHCpqvpFUx0uJkBD2foKsQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        tilman-ZTO5kqT2PaM@public.gmane.org, hjlipp-S0/GAf8tV78@public.gmane.org, isdn4linux-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org,
-        keil-shG/GajIFYqbacvFa/9K2g@public.gmane.org, i4ldeveloper-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
-To: kkeil-iHCpqvpFUx0uJkBD2foKsQ@public.gmane.org
-Return-path: <isdn4linux-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org>
-In-Reply-To: <1254904188.9411@nb-hp>
-List-Unsubscribe: <https://www.isdn4linux.de/mailman/listinfo/isdn4linux>,
-	<mailto:isdn4linux-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://www.isdn4linux.de/pipermail/isdn4linux>
-List-Post: <mailto:isdn4linux-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org>
-List-Help: <mailto:isdn4linux-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=help>
-List-Subscribe: <https://www.isdn4linux.de/mailman/listinfo/isdn4linux>,
-	<mailto:isdn4linux-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=subscribe>
-Sender: isdn4linux-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
-Errors-To: isdn4linux-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@vyatta.com, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@gmail.com, netdev@vger.kernel.org,
+	e1000-devel@lists.sf.net
+To: peter.p.waskiewicz.jr@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46105
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933990AbZJGIaN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 04:30:13 -0400
+In-Reply-To: <1254773298.2667.27.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Karsten Keil <kkeil-iHCpqvpFUx0uJkBD2foKsQ@public.gmane.org>
-Date: Wed, 7 Oct 2009 10:29:48 +0200
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Date: Mon, 05 Oct 2009 13:08:18 -0700
 
-> Since the project hard deadlines are end of this month, I hope I
-> have more time for ISDN work then again.
+> On Mon, 2009-10-05 at 09:01 -0700, Stephen Hemminger wrote:
+>> The data center bridging ops structure can be const
+>> 
+>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>> 
+> 
+> Thanks Stephen, that was an oversight.
+> 
+> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 
-Ok, thanks for the update.
+Applied.
