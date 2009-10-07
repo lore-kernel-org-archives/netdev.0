@@ -1,107 +1,165 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC net-next-2.6] net: speedup sk_wake_async()
-Date: Wed, 07 Oct 2009 08:53:37 -0700
-Message-ID: <4ACCB981.9030002@hp.com>
-References: <4ACBCDD8.5000306@gmail.com> <4ACBE3E7.60404@hp.com> <4ACC0CDE.1020907@gmail.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: [PATCH] IPv6: use ipv6_addr_set_v4mapped()
+Date: Wed, 07 Oct 2009 11:47:34 -0400
+Message-ID: <4ACCB816.2000902@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: david Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:11328 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752841AbZJGPyP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 11:54:15 -0400
-In-Reply-To: <4ACC0CDE.1020907@gmail.com>
+Received: from g6t0185.atlanta.hp.com ([15.193.32.62]:35701 "EHLO
+	g6t0185.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759318AbZJGPsM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 11:48:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Rick Jones a =E9crit :
->=20
->>How about 64-bit?
->=20
->=20
-> No data yet, but larger footprint unfortunatly :-(
+Might as well use the ipv6_addr_set_v4mapped() inline we created last
+year.
 
-True - nothing comes for free.  I'm not "in touch" with the embedded si=
-de, where=20
-I presume 32 bit will be if not already is now the primary bitness, but=
- over in=20
-the server side of the world, at least the part I see, 64 bit is de rig=
-eur,=20
-hence my curiousity.
+Signed-off-by: Brian Haley <brian.haley@hp.com>
+---
 
->>Got any netperf service demand changes?
->=20
->=20
-> I was going to setup a bench lab, with a typical RTP mediaserver, wit=
-h say
-> 4000 UDP sockets, 2000 sockets exchanging 50 G.711 Alaw/ulaw
-> messages per second tx and rx. (Total : 100.000 packets per second ea=
-ch way)
->=20
-> Is netperf able to simulate this workload ?
-
-Touche :)
-
-It would be, well, cumbersome with netperf2, but possible.  One would=20
-=2E/configure --enable-intervals and then run some variation of:
-
-netperf -t UDP_STREAM -l <time> -H <remote> -b <burst size> -w <burst i=
-nterval>=20
--- -m <message size>
-
-a large number of times.  Given the lack of test synchronization in net=
-perf2 I=20
-probably would not try to aggregate the results of N thousand simultane=
-ous=20
-netperf2 instances and would rely instead on external (relative to netp=
-erf)=20
-packet rate reports.
-
-Still, if the cache miss removed is a non-trivial fraction of the overh=
-ead I=20
-would think that something like:
-
-netperf -t UDP_RR -l <time> -I 99,0.5 -i 30,3 -c -C -H remote -- -r 4
-
-run with and without the change would show a difference in the service =
-demand,=20
-and if you hit the confidence intervals you would be able, per the abov=
-e be=20
-confident in the "reality" of a CPU utilization difference of +/- 0.25%=
- .=20
-Getting that test to that level of confidence probably means pinning th=
-e NIC=20
-interrupts to a specific CPU and then binding netperf/netserver on eith=
-er side=20
-using the global -T option.
-
-Barring getting sutiable confidence intervals, somewhere in the middle =
-of all=20
-that would be ./configure --enable-burst and then, still with pinning a=
-nd=20
-binding for "stability" something like:
-
-netperf -t UDP_RR -l <time> -I 99,0.5 -i 30,3 -H <remote> -- -r 4 -b <b=
-urst>
-
-to put multiple transactions in flight across that flow - choosing <bur=
-st> to=20
-take the CPU on which either netperf, netserver, or the interrupts are =
-running=20
-to 100% saturation.  Here I left-off the CPU utilization since that is =
-often the=20
-thing that cannot hit the confidence intervals, and leave the aggregate=
-=20
-throughput as the proxy for efficiency change - which is why <burst> ne=
-eds to=20
-take something to saturation in each case.
-
-happy benchmarking,
-
-rick jones
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index e48ca5d..a2afb55 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -510,11 +510,9 @@ static struct sock *dccp_v6_request_recv_sock(struct sock *sk,
+ 
+ 		memcpy(newnp, np, sizeof(struct ipv6_pinfo));
+ 
+-		ipv6_addr_set(&newnp->daddr, 0, 0, htonl(0x0000FFFF),
+-			      newinet->daddr);
++		ipv6_addr_set_v4mapped(newinet->daddr, &newnp->daddr);
+ 
+-		ipv6_addr_set(&newnp->saddr, 0, 0, htonl(0x0000FFFF),
+-			      newinet->saddr);
++		ipv6_addr_set_v4mapped(newinet->saddr, &newnp->saddr);
+ 
+ 		ipv6_addr_copy(&newnp->rcv_saddr, &newnp->saddr);
+ 
+@@ -971,10 +969,8 @@ static int dccp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
+ 			sk->sk_backlog_rcv = dccp_v6_do_rcv;
+ 			goto failure;
+ 		} else {
+-			ipv6_addr_set(&np->saddr, 0, 0, htonl(0x0000FFFF),
+-				      inet->saddr);
+-			ipv6_addr_set(&np->rcv_saddr, 0, 0, htonl(0x0000FFFF),
+-				      inet->rcv_saddr);
++			ipv6_addr_set_v4mapped(inet->saddr, &np->saddr);
++			ipv6_addr_set_v4mapped(inet->rcv_saddr, &np->rcv_saddr);
+ 		}
+ 
+ 		return err;
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index e2bdc6d..6ebf0ff 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -98,17 +98,14 @@ ipv4_connected:
+ 		if (err)
+ 			goto out;
+ 
+-		ipv6_addr_set(&np->daddr, 0, 0, htonl(0x0000ffff), inet->daddr);
++		ipv6_addr_set_v4mapped(inet->daddr, &np->daddr);
+ 
+-		if (ipv6_addr_any(&np->saddr)) {
+-			ipv6_addr_set(&np->saddr, 0, 0, htonl(0x0000ffff),
+-				      inet->saddr);
+-		}
++		if (ipv6_addr_any(&np->saddr))
++			ipv6_addr_set_v4mapped(inet->saddr, &np->saddr);
++
++		if (ipv6_addr_any(&np->rcv_saddr))
++			ipv6_addr_set_v4mapped(inet->rcv_saddr, &np->rcv_saddr);
+ 
+-		if (ipv6_addr_any(&np->rcv_saddr)) {
+-			ipv6_addr_set(&np->rcv_saddr, 0, 0, htonl(0x0000ffff),
+-				      inet->rcv_saddr);
+-		}
+ 		goto out;
+ 	}
+ 
+@@ -329,9 +326,8 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len)
+ 			if (ipv6_addr_type(&sin->sin6_addr) & IPV6_ADDR_LINKLOCAL)
+ 				sin->sin6_scope_id = IP6CB(skb)->iif;
+ 		} else {
+-			ipv6_addr_set(&sin->sin6_addr, 0, 0,
+-				      htonl(0xffff),
+-				      *(__be32 *)(nh + serr->addr_offset));
++			ipv6_addr_set_v4mapped(*(__be32 *)(nh + serr->addr_offset),
++					       &sin->sin6_addr);
+ 		}
+ 	}
+ 
+@@ -351,8 +347,8 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len)
+ 		} else {
+ 			struct inet_sock *inet = inet_sk(sk);
+ 
+-			ipv6_addr_set(&sin->sin6_addr, 0, 0,
+-				      htonl(0xffff), ip_hdr(skb)->saddr);
++			ipv6_addr_set_v4mapped(ip_hdr(skb)->saddr,
++					       &sin->sin6_addr);
+ 			if (inet->cmsg_flags)
+ 				ip_cmsg_recv(msg, skb);
+ 		}
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 21d100b..93dad9a 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -226,10 +226,8 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
+ #endif
+ 			goto failure;
+ 		} else {
+-			ipv6_addr_set(&np->saddr, 0, 0, htonl(0x0000FFFF),
+-				      inet->saddr);
+-			ipv6_addr_set(&np->rcv_saddr, 0, 0, htonl(0x0000FFFF),
+-				      inet->rcv_saddr);
++			ipv6_addr_set_v4mapped(inet->saddr, &np->saddr);
++			ipv6_addr_set_v4mapped(inet->rcv_saddr, &np->rcv_saddr);
+ 		}
+ 
+ 		return err;
+@@ -1290,11 +1288,9 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 
+ 		memcpy(newnp, np, sizeof(struct ipv6_pinfo));
+ 
+-		ipv6_addr_set(&newnp->daddr, 0, 0, htonl(0x0000FFFF),
+-			      newinet->daddr);
++		ipv6_addr_set_v4mapped(newinet->daddr, &newnp->daddr);
+ 
+-		ipv6_addr_set(&newnp->saddr, 0, 0, htonl(0x0000FFFF),
+-			      newinet->saddr);
++		ipv6_addr_set_v4mapped(newinet->saddr, &newnp->saddr);
+ 
+ 		ipv6_addr_copy(&newnp->rcv_saddr, &newnp->saddr);
+ 
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 3a60f12..0dae3f7 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -265,8 +265,8 @@ try_again:
+ 		sin6->sin6_scope_id = 0;
+ 
+ 		if (is_udp4)
+-			ipv6_addr_set(&sin6->sin6_addr, 0, 0,
+-				      htonl(0xffff), ip_hdr(skb)->saddr);
++			ipv6_addr_set_v4mapped(ip_hdr(skb)->saddr,
++					       &sin6->sin6_addr);
+ 		else {
+ 			ipv6_addr_copy(&sin6->sin6_addr,
+ 				       &ipv6_hdr(skb)->saddr);
+diff --git a/net/sunrpc/svcauth_unix.c b/net/sunrpc/svcauth_unix.c
+index 117f68a..f4c7ff3 100644
+--- a/net/sunrpc/svcauth_unix.c
++++ b/net/sunrpc/svcauth_unix.c
+@@ -686,8 +686,7 @@ svcauth_unix_set_client(struct svc_rqst *rqstp)
+ 	case AF_INET:
+ 		sin = svc_addr_in(rqstp);
+ 		sin6 = &sin6_storage;
+-		ipv6_addr_set(&sin6->sin6_addr, 0, 0,
+-				htonl(0x0000FFFF), sin->sin_addr.s_addr);
++		ipv6_addr_set_v4mapped(sin->sin_addr.s_addr, &sin6->sin6_addr);
+ 		break;
+ 	case AF_INET6:
+ 		sin6 = svc_addr_in6(rqstp);
