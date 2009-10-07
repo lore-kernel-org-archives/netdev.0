@@ -1,48 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC take2] pkt_sched: gen_estimator: Dont report fake rate
- estimators
-Date: Wed, 07 Oct 2009 01:27:51 -0700 (PDT)
-Message-ID: <20091007.012751.134629837.davem@davemloft.net>
-References: <4AC5F46B.6030308@gmail.com>
-	<4AC65E6F.8050403@gmail.com>
-	<4AC66352.8050500@gmail.com>
+Subject: Re: [PATCH] add vif using local interface index instead of IP
+Date: Wed, 07 Oct 2009 01:23:41 -0700 (PDT)
+Message-ID: <20091007.012341.70851712.davem@davemloft.net>
+References: <1b9338490909160853u4d90093fg56453ffff5a67ced@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jarkao2@gmail.com, kaber@trash.net, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: opurdila@ixiacom.com, netdev@vger.kernel.org
+To: mail4ilia@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36052
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36033
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757719AbZJGI14 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Oct 2009 04:27:56 -0400
-In-Reply-To: <4AC66352.8050500@gmail.com>
+	by vger.kernel.org with ESMTP id S1756775AbZJGIXq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 04:23:46 -0400
+In-Reply-To: <1b9338490909160853u4d90093fg56453ffff5a67ced@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 02 Oct 2009 22:32:18 +0200
+From: "Ilia K." <mail4ilia@gmail.com>
+Date: Wed, 16 Sep 2009 18:53:07 +0300
 
-> Jarek Poplawski a =E9crit :
->>=20
->>=20
->> Hmm... So you made me to do some "real" work here, and guess what?:
->> there is one serious checkpatch warning! ;-) Plus, this new paramete=
-r
->> should be added to the function description. Otherwise:
->> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
->>=20
->> Thanks,
->> Jarek P.
->>=20
->> PS: I guess full "Don't" would show we really mean it...
->=20
-> Okay :) Here is the last round, before the night !
->=20
-> Thanks again
->=20
->=20
-> [RFC] pkt_sched: gen_estimator: Don't report fake rate estimators
+> When routing daemon wants to enable forwarding of multicast traffic it
+> performs something like:
+ ...
+> This leads (in the kernel) to calling  vif_add() function call which
+> search the (physical) device using assigned IP address:
+>        dev = ip_dev_find(net, vifc->vifc_lcl_addr.s_addr);
+> 
+> The current API (struct vifctl) does not allow to specify an
+> interface other way than using it's IP, and if there are more than a
+> single interface with specified IP only the first one will be found.
+> 
+> The attached patch (against 2.6.30.4) allows to specify an interface
+> by its index, instead of IP address:
+...
+> Signed-off-by: Ilia K. <mail4ilia@gmail.com>
 
-Applied, thanks!
+Applied, thank you.
