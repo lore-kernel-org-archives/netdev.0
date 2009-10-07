@@ -1,62 +1,47 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: [PATCH 1/6] MIPS: Octeon: Add platform device for MDIO buses.
-Date: Wed,  7 Oct 2009 16:10:10 -0700
-Message-ID: <1254957015-7633-1-git-send-email-ddaney@caviumnetworks.com>
-References: <4ACD1F4E.8090603@caviumnetworks.com>
-Cc: David Daney <ddaney@caviumnetworks.com>
-To: ralf@linux-mips.org, linux-mips@linux-mips.org,
-	netdev@vger.kernel.org
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <4ACD1F4E.8090603@caviumnetworks.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: using huge numbers of queues
+Date: Thu, 08 Oct 2009 00:22:28 +0100
+Message-ID: <1254957748.2519.14.camel@localhost>
+References: <c0a09e5c0910071459r2768f420lae87f7404dfbc054@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
+To: Andrew Grover <andy.grover@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:28514 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756301AbZJGXXM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 19:23:12 -0400
+In-Reply-To: <c0a09e5c0910071459r2768f420lae87f7404dfbc054@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: David Daney <ddaney@caviumnetworks.com>
----
- arch/mips/cavium-octeon/octeon-platform.c |   30 +++++++++++++++++++++++++++++
- 1 files changed, 30 insertions(+), 0 deletions(-)
+On Wed, 2009-10-07 at 14:59 -0700, Andrew Grover wrote:
+> Hi Herbert,
+> 
+> At NetConf, you made a passing remark about wanting lots of queues,
+> even 1-per-socket. Have you thought further about how we would use so
+> many?
+> 
+> Thinking about this reminded me of VJ's 2006 netchannel concept, which
+> although not adopted, was pretty interesting. Would having 1 queue per
+> socket (or at least 1 per process) and hw that is able to filter
+> individual flows (I think the Intel 82599 can do this now for up to
+> 128) perhaps make netchannels workable? At least this would get all
+> processing out of int/bh and into process context, if not userspace,
+> no?
 
-diff --git a/arch/mips/cavium-octeon/octeon-platform.c b/arch/mips/cavium-octeon/octeon-platform.c
-index be711dd..febfdd7 100644
---- a/arch/mips/cavium-octeon/octeon-platform.c
-+++ b/arch/mips/cavium-octeon/octeon-platform.c
-@@ -159,6 +159,36 @@ out:
- }
- device_initcall(octeon_rng_device_init);
- 
-+/* Octeon SMI/MDIO interface.  */
-+static int __init octeon_mdiobus_device_init(void)
-+{
-+	struct platform_device *pd;
-+	int ret = 0;
-+
-+	if (octeon_is_simulation())
-+		return 0; /* No mdio in the simulator. */
-+
-+	/* The bus number is the platform_device id.  */
-+	pd = platform_device_alloc("mdio-octeon", 0);
-+	if (!pd) {
-+		ret = -ENOMEM;
-+		goto out;
-+	}
-+
-+	ret = platform_device_add(pd);
-+	if (ret)
-+		goto fail;
-+
-+	return ret;
-+fail:
-+	platform_device_put(pd);
-+
-+out:
-+	return ret;
-+
-+}
-+device_initcall(octeon_mdiobus_device_init);
-+
- MODULE_AUTHOR("David Daney <ddaney@caviumnetworks.com>");
- MODULE_LICENSE("GPL");
- MODULE_DESCRIPTION("Platform driver for Octeon SOC");
+Solarflare controllers already support 1000+ queues.  The OpenOnload
+software <http://www.openonload.org> assigns one queue per process
+(though this isn't quite 1:1 as sockets may be shared between processes)
+and almost all protocol processing is done in user-space.  I'm not sure
+quite how close this is to the netchannels concept.
+
+Ben.
+
 -- 
-1.6.0.6
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
