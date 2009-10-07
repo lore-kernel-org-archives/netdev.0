@@ -1,56 +1,48 @@
-From: Wolfram Sang <w.sang@pengutronix.de>
-Subject: Re: [PATCH] include/netdevice.h: fix nanodoc mismatch
-Date: Wed, 7 Oct 2009 11:18:03 +0200
-Message-ID: <20091007091803.GD3177@pengutronix.de>
-References: <1249902289-25798-1-git-send-email-w.sang@pengutronix.de> <20090812.221625.138548183.davem@davemloft.net>
+From: John Wright <john.wright@hp.com>
+Subject: Re: skb_shinfo(skb)->nr_frags > 0 while skb_is_gso(skb) == 0?
+Date: Wed, 7 Oct 2009 03:04:20 -0600
+Message-ID: <20091007090420.GA1977@supernova.localdomain>
+References: <20091007010315.GA26498@neptune.jswright> <20091006182131.484d6e5a@nehalam>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="X+8siUETKMkW99st"
-Cc: netdev@vger.kernel.org, trivial@kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
+	Bob Montgomery <bob.montgomery@hp.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:40847 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751903AbZJGJSk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 05:18:40 -0400
+Received: from mail.aitunes.com ([208.78.103.221]:55917 "EHLO mail.aitunes.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751367AbZJGJMC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Oct 2009 05:12:02 -0400
 Content-Disposition: inline
-In-Reply-To: <20090812.221625.138548183.davem@davemloft.net>
+In-Reply-To: <20091006182131.484d6e5a@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Stephen,
 
---X+8siUETKMkW99st
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Tue, Oct 06, 2009 at 06:21:31PM -0700, Stephen Hemminger wrote:
+> On Tue, 6 Oct 2009 19:03:15 -0600
+> John Wright <john.wright@hp.com> wrote:
+> > Bob Montgomery and I are debugging an OOPS in the bnx2 driver.  The
+> > driver OOPSes in bnx2_tx_int(), getting a NULL pointer dereference when
+> > checking if the skb is GSO.  (This is on 2.6.29, before is_gso was
+> > cached in the tx_buf (commit d62fda08), but bear with me - while kernels
+> > with that commit might not crash in the same place, I think we have
+> > discovered a bug that would manifest itself another way.)
+> > 
+> > So, first, a question for someone who knows more about sk_buff's than I:
+> > is it reasonable/legal for an skb for which skb_is_gso(skb) == 0 to also
+> > have skb_shinfo(skb)->nr_frags > 0?
+> 
+> Yes, if driver support Scatter/Gather and Checksum offload,
+> TCP (especially splice) will hand fragmented frames to device.
 
-On Wed, Aug 12, 2009 at 10:16:25PM -0700, David Miller wrote:
-> From: Wolfram Sang <w.sang@pengutronix.de>
-> Date: Mon, 10 Aug 2009 13:04:49 +0200
->=20
-> > nanodoc was missing an ndo_-prefix.
-> >=20
-> > Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
->=20
-> I'll apply this, thanks.
+Is there a good way to generate lots of these types of packets?  Is
+disabling tso and gso with ethtool and sendmsg()ing big chunks of data
+enough?
 
-I can't find it in your trees. Slipped through?
-
---=20
-Pengutronix e.K.                           | Wolfram Sang                |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-
---X+8siUETKMkW99st
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAkrMXMsACgkQD27XaX1/VRvYDwCfUG6ke2V8Yl7RPQk4ewR/6KiS
-q1EAn3I48m3xvSX5vlJwdP0wkGuGjSRF
-=Waqc
------END PGP SIGNATURE-----
-
---X+8siUETKMkW99st--
+-- 
++----------------------------------------------------------+
+| John Wright <john.wright@hp.com>                         |
+| HP Mission Critical OS Enablement & Solution Test (MOST) |
++----------------------------------------------------------+
