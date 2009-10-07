@@ -1,41 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Add sk_mark route lookup support for IPv4 listening
- sockets, and for IPv4 multicast forwarding
-Date: Wed, 07 Oct 2009 13:56:27 -0700 (PDT)
-Message-ID: <20091007.135627.96995518.davem@davemloft.net>
-References: <200910051646.34770.atis@mikrotik.com>
-	<20091007.031957.197632672.davem@davemloft.net>
-	<200910071559.56526.atis@mikrotik.com>
+From: =?utf-8?q?Nicolas=20de=20Peslo=C3=BCan?=
+	<nicolas.2p.debian@free.fr>
+Subject: [PATCH netnext-2.6] bonding: fix a parameter name in error message
+Date: Wed,  7 Oct 2009 22:59:27 +0200
+Message-ID: <1254949168-12404-1-git-send-email-nicolas.2p.debian@free.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, panther@balabit.hu, eric.dumazet@gmail.com,
-	brian.haley@hp.com, zenczykowski@gmail.com
-To: atis@mikrotik.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
+To: fubar@us.ibm.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57310
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933651AbZJGU4b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 16:56:31 -0400
-In-Reply-To: <200910071559.56526.atis@mikrotik.com>
+Received: from smtp6-g21.free.fr ([212.27.42.6]:34659 "EHLO smtp6-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934361AbZJGVAT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Oct 2009 17:00:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Atis Elsts <atis@mikrotik.com>
-Date: Wed, 7 Oct 2009 15:59:56 +0300
+When parsing module parameters, bond_check_params() erroneously use 'xo=
+r_mode'
+as the name of a module parameter in an error message.
 
-> Here is the sk_mark part.
+The right name for this parameter is 'xmit_hash_policy'.
 
-Applied, thanks.
+Signed-off-by: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
+---
+ drivers/net/bonding/bond_main.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-> As for the ipmr.c code, I agree with your comment. Using mark from
-> skb probably is wrong in case of tunnel interface (i.e. in the "if
-> (vif->flags&VIFF_TUNNEL)" part of the patch), my mistake. I still
-> think that the "else" part is correct, though, because using mark
-> from skb there mirrors behaviour for unicast forwarding routing
-> lookup in ip_route_input_slow(). The same applies to IPv6 code in
-> ip6mr_forward2().
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
+_main.c
+index 69c5b15..20dc5a2 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4665,7 +4665,8 @@ static int bond_check_params(struct bond_params *=
+params)
+ 		if ((bond_mode !=3D BOND_MODE_XOR) &&
+ 		    (bond_mode !=3D BOND_MODE_8023AD)) {
+ 			pr_info(DRV_NAME
+-			       ": xor_mode param is irrelevant in mode %s\n",
++				": xmit_hash_policy param is irrelevant in"
++				" mode %s\n",
+ 			       bond_mode_name(bond_mode));
+ 		} else {
+ 			xmit_hashtype =3D bond_parse_parm(xmit_hash_policy,
+--=20
+1.6.3.3
 
-Ok submit just the else part and we'll have a look at it.
-
-Thanks.
