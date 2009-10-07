@@ -1,39 +1,69 @@
-From: Alexander Strakh <strakh@ispras.ru>
-Subject: [BUG] znet.c sleeping function called from invalid context
-Date: Wed, 7 Oct 2009 18:47:37 +0000
-Message-ID: <200910071847.38163.strakh@ispras.ru>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH][RESEND 3] IPv6: 6rd tunnel mode
+Date: Wed, 7 Oct 2009 16:18:32 +0200
+Message-ID: <20091007141832.GE15653@secunet.com>
+References: <20090922220251.GA22874@lnxos.staff.proxad.net> <20090923184314.a2a2701d.yoshfuji@linux-ipv6.org> <20091007.012436.74941374.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Linux Kernlel Mailing List <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: yoshfuji@linux-ipv6.org, acassen@freebox.fr, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ispras.ru ([83.149.198.201]:43320 "EHLO smtp.ispras.ru"
+Received: from a.mx.secunet.com ([213.68.205.161]:41489 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751774AbZJGOpj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Oct 2009 10:45:39 -0400
+	id S1753394AbZJGOxH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Oct 2009 10:53:07 -0400
 Content-Disposition: inline
+In-Reply-To: <20091007.012436.74941374.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	KERNEL_VERSION: 2.6.31
-	DESCRIBE:
-Driver drivers/net/znet.c might sleep in atomic context, because it calls 
-free_dma under claim_dma_lock:
+On Wed, Oct 07, 2009 at 01:24:36AM -0700, David Miller wrote:
+> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Date: Wed, 23 Sep 2009 18:43:14 +0900
+> 
+> > Subject: [PATCH] ipv6 sit: 6rd (IPv6 Rapid Deployment) Support.
+> > 
 
-.drivers/net/znet.c:
- 168 static int znet_request_resources (struct net_device *dev)
-...
- 189        flags = claim_dma_lock();
- 190        free_dma (znet->tx_dma);
- 191        release_dma_lock (flags);
-...
+I'm getting the following compile error after applying this patch:
 
-Path to might_sleep macro from znet_request_resources:
-1. znet_request_resources calls free_dma at 
-arch/blackfin/kernel/bfin_dma_5xx.c:181
-2. free_dma calls arch/blackfin/kernel/bfin_dma_5xx.c:195
+  CC      net/ipv6/ip6_tunnel.o
+ In file included from
+/home/klassert/git/linux-sinafe-2.6/net/ipv6/ip6_tunnel.c:30:
+ /home/klassert/git/linux-sinafe-2.6/include/linux/if_tunnel.h:59:
+error: field 'prefix' has incomplete type
+ make[3]: *** [net/ipv6/ip6_tunnel.o] Error 1
 
-Found by: Linux Driver Verification
+We probaply missing include/linux/in6.h in include/linux/if_tunnel.h
+The patch below adds the missing include.
+
+---  
+
+Subject: [PATCH] if_tunnel.h: Add missing include
+
+This patch fixes the following compile error:
+
+  CC      net/ipv6/ip6_tunnel.o
+ In file included from /home/klassert/git/linux-sinafe-2.6/net/ipv6/ip6_tunnel.c:30:
+ /home/klassert/git/linux-sinafe-2.6/include/linux/if_tunnel.h:59: error: field 'prefix' has incomplete type
+ make[3]: *** [net/ipv6/ip6_tunnel.o] Error 1
+
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ include/linux/if_tunnel.h |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/if_tunnel.h b/include/linux/if_tunnel.h
+index c53c8e0..8d76cb4 100644
+--- a/include/linux/if_tunnel.h
++++ b/include/linux/if_tunnel.h
+@@ -5,6 +5,7 @@
+ 
+ #ifdef __KERNEL__
+ #include <linux/ip.h>
++#include <linux/in6.h>
+ #endif
+ 
+ #define SIOCGETTUNNEL   (SIOCDEVPRIVATE + 0)
+-- 
+1.5.4.2
 
