@@ -1,118 +1,199 @@
-From: Sriramakrishnan <srk-l0cyMroinI0@public.gmane.org>
-Subject: [PATCH] TI DaVinci EMAC: Clear statistics register properly.
-Date: Wed,  7 Oct 2009 18:14:30 +0530
-Message-ID: <1254919470-20595-1-git-send-email-srk@ti.com>
-Cc: srk-l0cyMroinI0@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Unsubscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://linux.omap.com/pipermail/davinci-linux-open-source>
-List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
-List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
-Sender: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Ajit Khaparde <ajitkhaparde@gmail.com>
+Subject: [PATCH net-next-2.6] e1000e: Use the instance of net_device_stats
+	from net_device.
+Date: Wed, 7 Oct 2009 18:14:26 +0530
+Message-ID: <20091007124416.GA30096@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f210.google.com ([209.85.218.210]:53265 "EHLO
+	mail-bw0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758978AbZJGMpN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 08:45:13 -0400
+Received: by bwz6 with SMTP id 6so27950bwz.37
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2009 05:44:35 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The mechanism to clear the statistics register is dependent
-on the status of GMIIEN bit in MAC control register. If the
-GMIIEN bit is set, the stats registers are write to decrement.
-If the GMIIEN bit is cleared, the stats registers are plain
-read/write registers. The stats register clearing operation
-must take into account the current state of GMIIEN as it
-can be cleared when the interface is brought down.
+Since net_device has an instance of net_device_stats,
+we can remove the instance of this from the private adapter structure.
 
-With existing implementation logic, querying for interface stats
-when the interface is down, can corrupt the statistics counters.
-This patch examines the GMIIEN bit status in MAC_CONTROL
-register before choosing an appropriate mask for clearing stats
-registers.
-
-Signed-off-by: Sriramakrishnan <srk-l0cyMroinI0@public.gmane.org>
-Acked-by: Chaithrika U S <chaithrika-l0cyMroinI0@public.gmane.org>
+Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
 ---
-This patch is generated against the tip of net-next-2.6.
+ drivers/net/e1000e/e1000.h   |    1 -
+ drivers/net/e1000e/ethtool.c |   18 +++++++++-------
+ drivers/net/e1000e/netdev.c  |   43 ++++++++++++++++++++---------------------
+ 3 files changed, 31 insertions(+), 31 deletions(-)
 
- drivers/net/davinci_emac.c |   36 ++++++++++++++++++++++++------------
- 1 files changed, 24 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
-index a421ec0..a876dce 100644
---- a/drivers/net/davinci_emac.c
-+++ b/drivers/net/davinci_emac.c
-@@ -330,6 +330,9 @@ static const char emac_version_string[] = "TI DaVinci EMAC Linux v6.1";
- #define EMAC_DM646X_MAC_EOI_C0_RXEN	(0x01)
- #define EMAC_DM646X_MAC_EOI_C0_TXEN	(0x02)
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index 981936c..1211df9 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -315,7 +315,6 @@ struct e1000_adapter {
+ 	/* OS defined structs */
+ 	struct net_device *netdev;
+ 	struct pci_dev *pdev;
+-	struct net_device_stats net_stats;
  
-+/* EMAC Stats Clear Mask */
-+#define EMAC_STATS_CLR_MASK    (0xFFFFFFFF)
-+
- /** net_buf_obj: EMAC network bufferdata structure
-  *
-  * EMAC network buffer data structure
-@@ -2544,40 +2547,49 @@ static int emac_dev_stop(struct net_device *ndev)
- static struct net_device_stats *emac_dev_getnetstats(struct net_device *ndev)
- {
- 	struct emac_priv *priv = netdev_priv(ndev);
-+	u32 mac_control;
-+	u32 stats_clear_mask;
+ 	/* structs defined in e1000_hw.h */
+ 	struct e1000_hw hw;
+diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
+index 1bf4d2a..8a78a14 100644
+--- a/drivers/net/e1000e/ethtool.c
++++ b/drivers/net/e1000e/ethtool.c
+@@ -43,6 +43,8 @@ struct e1000_stats {
  
- 	/* update emac hardware stats and reset the registers*/
+ #define E1000_STAT(m) sizeof(((struct e1000_adapter *)0)->m), \
+ 		      offsetof(struct e1000_adapter, m)
++#define E1000_NETDEV_STAT(m) sizeof(((struct net_device *)0)->m), \
++		      offsetof(struct net_device, m)
+ static const struct e1000_stats e1000_gstrings_stats[] = {
+ 	{ "rx_packets", E1000_STAT(stats.gprc) },
+ 	{ "tx_packets", E1000_STAT(stats.gptc) },
+@@ -52,21 +54,21 @@ static const struct e1000_stats e1000_gstrings_stats[] = {
+ 	{ "tx_broadcast", E1000_STAT(stats.bptc) },
+ 	{ "rx_multicast", E1000_STAT(stats.mprc) },
+ 	{ "tx_multicast", E1000_STAT(stats.mptc) },
+-	{ "rx_errors", E1000_STAT(net_stats.rx_errors) },
+-	{ "tx_errors", E1000_STAT(net_stats.tx_errors) },
+-	{ "tx_dropped", E1000_STAT(net_stats.tx_dropped) },
++	{ "rx_errors", E1000_NETDEV_STAT(stats.rx_errors) },
++	{ "tx_errors", E1000_NETDEV_STAT(stats.tx_errors) },
++	{ "tx_dropped", E1000_NETDEV_STAT(stats.tx_dropped) },
+ 	{ "multicast", E1000_STAT(stats.mprc) },
+ 	{ "collisions", E1000_STAT(stats.colc) },
+-	{ "rx_length_errors", E1000_STAT(net_stats.rx_length_errors) },
+-	{ "rx_over_errors", E1000_STAT(net_stats.rx_over_errors) },
++	{ "rx_length_errors", E1000_NETDEV_STAT(stats.rx_length_errors) },
++	{ "rx_over_errors", E1000_NETDEV_STAT(stats.rx_over_errors) },
+ 	{ "rx_crc_errors", E1000_STAT(stats.crcerrs) },
+-	{ "rx_frame_errors", E1000_STAT(net_stats.rx_frame_errors) },
++	{ "rx_frame_errors", E1000_NETDEV_STAT(stats.rx_frame_errors) },
+ 	{ "rx_no_buffer_count", E1000_STAT(stats.rnbc) },
+ 	{ "rx_missed_errors", E1000_STAT(stats.mpc) },
+ 	{ "tx_aborted_errors", E1000_STAT(stats.ecol) },
+ 	{ "tx_carrier_errors", E1000_STAT(stats.tncrs) },
+-	{ "tx_fifo_errors", E1000_STAT(net_stats.tx_fifo_errors) },
+-	{ "tx_heartbeat_errors", E1000_STAT(net_stats.tx_heartbeat_errors) },
++	{ "tx_fifo_errors", E1000_NETDEV_STAT(stats.tx_fifo_errors) },
++	{ "tx_heartbeat_errors", E1000_NETDEV_STAT(stats.tx_heartbeat_errors) },
+ 	{ "tx_window_errors", E1000_STAT(stats.latecol) },
+ 	{ "tx_abort_late_coll", E1000_STAT(stats.latecol) },
+ 	{ "tx_deferred_ok", E1000_STAT(stats.dc) },
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 0687c6a..21af398 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -560,8 +560,8 @@ next_desc:
  
-+	mac_control = emac_read(EMAC_MACCONTROL);
-+
-+	if (mac_control & EMAC_MACCONTROL_GMIIEN)
-+		stats_clear_mask = EMAC_STATS_CLR_MASK;
-+	else
-+		stats_clear_mask = 0;
-+
- 	priv->net_dev_stats.multicast += emac_read(EMAC_RXMCASTFRAMES);
--	emac_write(EMAC_RXMCASTFRAMES, EMAC_ALL_MULTI_REG_VALUE);
-+	emac_write(EMAC_RXMCASTFRAMES, stats_clear_mask);
- 
- 	priv->net_dev_stats.collisions += (emac_read(EMAC_TXCOLLISION) +
- 					   emac_read(EMAC_TXSINGLECOLL) +
- 					   emac_read(EMAC_TXMULTICOLL));
--	emac_write(EMAC_TXCOLLISION, EMAC_ALL_MULTI_REG_VALUE);
--	emac_write(EMAC_TXSINGLECOLL, EMAC_ALL_MULTI_REG_VALUE);
--	emac_write(EMAC_TXMULTICOLL, EMAC_ALL_MULTI_REG_VALUE);
-+	emac_write(EMAC_TXCOLLISION, stats_clear_mask);
-+	emac_write(EMAC_TXSINGLECOLL, stats_clear_mask);
-+	emac_write(EMAC_TXMULTICOLL, stats_clear_mask);
- 
- 	priv->net_dev_stats.rx_length_errors += (emac_read(EMAC_RXOVERSIZED) +
- 						emac_read(EMAC_RXJABBER) +
- 						emac_read(EMAC_RXUNDERSIZED));
--	emac_write(EMAC_RXOVERSIZED, EMAC_ALL_MULTI_REG_VALUE);
--	emac_write(EMAC_RXJABBER, EMAC_ALL_MULTI_REG_VALUE);
--	emac_write(EMAC_RXUNDERSIZED, EMAC_ALL_MULTI_REG_VALUE);
-+	emac_write(EMAC_RXOVERSIZED, stats_clear_mask);
-+	emac_write(EMAC_RXJABBER, stats_clear_mask);
-+	emac_write(EMAC_RXUNDERSIZED, stats_clear_mask);
- 
- 	priv->net_dev_stats.rx_over_errors += (emac_read(EMAC_RXSOFOVERRUNS) +
- 					       emac_read(EMAC_RXMOFOVERRUNS));
--	emac_write(EMAC_RXSOFOVERRUNS, EMAC_ALL_MULTI_REG_VALUE);
--	emac_write(EMAC_RXMOFOVERRUNS, EMAC_ALL_MULTI_REG_VALUE);
-+	emac_write(EMAC_RXSOFOVERRUNS, stats_clear_mask);
-+	emac_write(EMAC_RXMOFOVERRUNS, stats_clear_mask);
- 
- 	priv->net_dev_stats.rx_fifo_errors += emac_read(EMAC_RXDMAOVERRUNS);
--	emac_write(EMAC_RXDMAOVERRUNS, EMAC_ALL_MULTI_REG_VALUE);
-+	emac_write(EMAC_RXDMAOVERRUNS, stats_clear_mask);
- 
- 	priv->net_dev_stats.tx_carrier_errors +=
- 		emac_read(EMAC_TXCARRIERSENSE);
--	emac_write(EMAC_TXCARRIERSENSE, EMAC_ALL_MULTI_REG_VALUE);
-+	emac_write(EMAC_TXCARRIERSENSE, stats_clear_mask);
- 
- 	priv->net_dev_stats.tx_fifo_errors = emac_read(EMAC_TXUNDERRUN);
--	emac_write(EMAC_TXUNDERRUN, EMAC_ALL_MULTI_REG_VALUE);
-+	emac_write(EMAC_TXUNDERRUN, stats_clear_mask);
- 
- 	return &priv->net_dev_stats;
+ 	adapter->total_rx_bytes += total_rx_bytes;
+ 	adapter->total_rx_packets += total_rx_packets;
+-	adapter->net_stats.rx_bytes += total_rx_bytes;
+-	adapter->net_stats.rx_packets += total_rx_packets;
++	netdev->stats.rx_bytes += total_rx_bytes;
++	netdev->stats.rx_packets += total_rx_packets;
+ 	return cleaned;
  }
+ 
+@@ -690,8 +690,8 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter)
+ 	}
+ 	adapter->total_tx_bytes += total_tx_bytes;
+ 	adapter->total_tx_packets += total_tx_packets;
+-	adapter->net_stats.tx_bytes += total_tx_bytes;
+-	adapter->net_stats.tx_packets += total_tx_packets;
++	netdev->stats.tx_bytes += total_tx_bytes;
++	netdev->stats.tx_packets += total_tx_packets;
+ 	return (count < tx_ring->count);
+ }
+ 
+@@ -871,8 +871,8 @@ next_desc:
+ 
+ 	adapter->total_rx_bytes += total_rx_bytes;
+ 	adapter->total_rx_packets += total_rx_packets;
+-	adapter->net_stats.rx_bytes += total_rx_bytes;
+-	adapter->net_stats.rx_packets += total_rx_packets;
++	netdev->stats.rx_bytes += total_rx_bytes;
++	netdev->stats.rx_packets += total_rx_packets;
+ 	return cleaned;
+ }
+ 
+@@ -1051,8 +1051,8 @@ next_desc:
+ 
+ 	adapter->total_rx_bytes += total_rx_bytes;
+ 	adapter->total_rx_packets += total_rx_packets;
+-	adapter->net_stats.rx_bytes += total_rx_bytes;
+-	adapter->net_stats.rx_packets += total_rx_packets;
++	netdev->stats.rx_bytes += total_rx_bytes;
++	netdev->stats.rx_packets += total_rx_packets;
+ 	return cleaned;
+ }
+ 
+@@ -3287,6 +3287,7 @@ static void e1000_update_phy_info(unsigned long data)
+  **/
+ void e1000e_update_stats(struct e1000_adapter *adapter)
+ {
++	struct net_device *netdev = adapter->netdev;
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	u16 phy_data;
+@@ -3381,8 +3382,8 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
+ 	adapter->stats.tsctfc += er32(TSCTFC);
+ 
+ 	/* Fill out the OS statistics structure */
+-	adapter->net_stats.multicast = adapter->stats.mprc;
+-	adapter->net_stats.collisions = adapter->stats.colc;
++	netdev->stats.multicast = adapter->stats.mprc;
++	netdev->stats.collisions = adapter->stats.colc;
+ 
+ 	/* Rx Errors */
+ 
+@@ -3390,22 +3391,22 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
+ 	 * RLEC on some newer hardware can be incorrect so build
+ 	 * our own version based on RUC and ROC
+ 	 */
+-	adapter->net_stats.rx_errors = adapter->stats.rxerrc +
++	netdev->stats.rx_errors = adapter->stats.rxerrc +
+ 		adapter->stats.crcerrs + adapter->stats.algnerrc +
+ 		adapter->stats.ruc + adapter->stats.roc +
+ 		adapter->stats.cexterr;
+-	adapter->net_stats.rx_length_errors = adapter->stats.ruc +
++	netdev->stats.rx_length_errors = adapter->stats.ruc +
+ 					      adapter->stats.roc;
+-	adapter->net_stats.rx_crc_errors = adapter->stats.crcerrs;
+-	adapter->net_stats.rx_frame_errors = adapter->stats.algnerrc;
+-	adapter->net_stats.rx_missed_errors = adapter->stats.mpc;
++	netdev->stats.rx_crc_errors = adapter->stats.crcerrs;
++	netdev->stats.rx_frame_errors = adapter->stats.algnerrc;
++	netdev->stats.rx_missed_errors = adapter->stats.mpc;
+ 
+ 	/* Tx Errors */
+-	adapter->net_stats.tx_errors = adapter->stats.ecol +
++	netdev->stats.tx_errors = adapter->stats.ecol +
+ 				       adapter->stats.latecol;
+-	adapter->net_stats.tx_aborted_errors = adapter->stats.ecol;
+-	adapter->net_stats.tx_window_errors = adapter->stats.latecol;
+-	adapter->net_stats.tx_carrier_errors = adapter->stats.tncrs;
++	netdev->stats.tx_aborted_errors = adapter->stats.ecol;
++	netdev->stats.tx_window_errors = adapter->stats.latecol;
++	netdev->stats.tx_carrier_errors = adapter->stats.tncrs;
+ 
+ 	/* Tx Dropped needs to be maintained elsewhere */
+ 
+@@ -4254,10 +4255,8 @@ static void e1000_reset_task(struct work_struct *work)
+  **/
+ static struct net_device_stats *e1000_get_stats(struct net_device *netdev)
+ {
+-	struct e1000_adapter *adapter = netdev_priv(netdev);
+-
+ 	/* only return the current stats */
+-	return &adapter->net_stats;
++	return &netdev->stats;
+ }
+ 
+ /**
 -- 
-1.6.2.4
+1.6.0.4
+
