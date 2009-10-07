@@ -1,37 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] bonding: remove useless assignment
-Date: Wed, 07 Oct 2009 13:54:36 -0700 (PDT)
-Message-ID: <20091007.135436.192028979.davem@davemloft.net>
-References: <4ACCF4D5.9050502@free.fr>
+Subject: Re: [PATCH RESEND] include/netdevice.h: fix nanodoc mismatch
+Date: Wed, 07 Oct 2009 13:53:20 -0700 (PDT)
+Message-ID: <20091007.135320.77368726.davem@davemloft.net>
+References: <20091007.031047.252761731.davem@davemloft.net>
+	<1254920758-31875-1-git-send-email-w.sang@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net
-To: nicolas.2p.debian@free.fr
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: w.sang@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57304
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35488
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933847AbZJGUyl convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Oct 2009 16:54:41 -0400
-In-Reply-To: <4ACCF4D5.9050502@free.fr>
+	by vger.kernel.org with ESMTP id S1760030AbZJGUxZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 16:53:25 -0400
+In-Reply-To: <1254920758-31875-1-git-send-email-w.sang@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
-Date: Wed, 07 Oct 2009 22:06:45 +0200
+From: Wolfram Sang <w.sang@pengutronix.de>
+Date: Wed,  7 Oct 2009 15:05:58 +0200
 
-> Resent after fixing tab to space corruption.
+> nanodoc was missing an ndo_-prefix.
+> 
+> Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
 
-It's still breaking up long lines, two examples:
-
-> diff --git a/drivers/net/bonding/bond_main.c
-> b/drivers/net/bonding/bond_main.c
-=2E..
-
-> @@ -1084,7 +1084,7 @@ static struct slave *bond_find_best_slave(struc=
-t
-> bonding *bond)
-
-Please fix this and resubmit.
+Applied, FOR REAL this time! :-)
