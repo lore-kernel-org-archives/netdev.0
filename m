@@ -1,34 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IPv6: Fix 6RD build error
-Date: Wed, 07 Oct 2009 13:57:23 -0700 (PDT)
-Message-ID: <20091007.135723.66252278.davem@davemloft.net>
-References: <4ACCAD46.2020800@hp.com>
+Subject: Re: [PATCH] Add sk_mark route lookup support for IPv4 listening
+ sockets, and for IPv4 multicast forwarding
+Date: Wed, 07 Oct 2009 13:56:27 -0700 (PDT)
+Message-ID: <20091007.135627.96995518.davem@davemloft.net>
+References: <200910051646.34770.atis@mikrotik.com>
+	<20091007.031957.197632672.davem@davemloft.net>
+	<200910071559.56526.atis@mikrotik.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: brian.haley@hp.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, panther@balabit.hu, eric.dumazet@gmail.com,
+	brian.haley@hp.com, zenczykowski@gmail.com
+To: atis@mikrotik.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57314
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57310
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758154AbZJGU52 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 16:57:28 -0400
-In-Reply-To: <4ACCAD46.2020800@hp.com>
+	by vger.kernel.org with ESMTP id S933651AbZJGU4b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 16:56:31 -0400
+In-Reply-To: <200910071559.56526.atis@mikrotik.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQnJpYW4gSGFsZXkgPGJyaWFuLmhhbGV5QGhwLmNvbT4NCkRhdGU6IFdlZCwgMDcgT2N0
-IDIwMDkgMTE6MDE6MjYgLTA0MDANCg0KPiBGaXggYnVpbGQgZXJyb3IgaW50cm9kdWNlZCBpbiBj
-b21taXQgZmE4NTdhZmNmIC0gaXB2NiBzaXQ6IDZyZA0KPiAoSVB2NiBSYXBpZCBEZXBsb3ltZW50
-KSBTdXBwb3J0LiAgU3RydWN0IGluNl9hZGRyIGlzIHRoZSBpc3N1ZS4NCj4gSSdtIG9ubHkgc2Vl
-aW5nIHRoaXMgb24geDg2XzY0IHN5c3RlbXMsIG5vdCBvbiAzMi1iaXQgd2l0aCBzYW1lDQo+IElQ
-djYgY29uZmlnIG9wdGlvbnMsIHNvIGl0IGNvdWxkIGJlIHRoZXJlJ3MgYSBtaXNzaW5nIGZvcndh
-cmQNCj4gZGVjbGFyYXRpb24gc29tZXdoZXJlLCBidXQgaW5jbHVkaW5nIHRoZSBjb3JyZWN0IGhl
-YWRlciBmaWxlDQo+IGZpeGVzIHRoZSBwcm9ibGVtIHRvby4NCj4gDQo+ICAgQ0MgW01dICBuZXQv
-aXB2Ni9pcDZfdHVubmVsLm8NCj4gSW4gZmlsZSBpbmNsdWRlZCBmcm9tIG5ldC9pcHY2L2lwNl90
-dW5uZWwuYzozMToNCj4gaW5jbHVkZS9saW51eC9pZl90dW5uZWwuaDo1OTogZXJyb3I6IGZpZWxk
-IOKAmHByZWZpeOKAmSBoYXMgaW5jb21wbGV0ZSB0eXBlDQo+IG1ha2VbMl06ICoqKiBbbmV0L2lw
-djYvaXA2X3R1bm5lbC5vXSBFcnJvciAxDQo+IG1ha2VbMV06ICoqKiBbbmV0L2lwdjZdIEVycm9y
-IDINCj4gDQo+IFNpZ25lZC1vZmYtYnk6IEJyaWFuIEhhbGV5IDxicmlhbi5oYWxleUBocC5jb20+
-DQoNCkZ1bm55LCBJIGRpZG4ndCBzZWUgdGhpcyBvbiBzcGFyYzY0Lg0KDQpBcHBsaWVkLCB0aGFu
-a3MgQnJpYW4hDQo=
+From: Atis Elsts <atis@mikrotik.com>
+Date: Wed, 7 Oct 2009 15:59:56 +0300
+
+> Here is the sk_mark part.
+
+Applied, thanks.
+
+> As for the ipmr.c code, I agree with your comment. Using mark from
+> skb probably is wrong in case of tunnel interface (i.e. in the "if
+> (vif->flags&VIFF_TUNNEL)" part of the patch), my mistake. I still
+> think that the "else" part is correct, though, because using mark
+> from skb there mirrors behaviour for unicast forwarding routing
+> lookup in ip_route_input_slow(). The same applies to IPv6 code in
+> ip6mr_forward2().
+
+Ok submit just the else part and we'll have a look at it.
+
+Thanks.
