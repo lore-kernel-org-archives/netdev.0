@@ -1,82 +1,56 @@
-From: Ajit Khaparde <ajitkhaparde@gmail.com>
-Subject: [PATCH net-next-2.6] be2net: Get rid of net_device_stats from
-	adapter.
-Date: Wed, 7 Oct 2009 14:39:16 +0530
-Message-ID: <20091007090903.GA18843@serverengines.com>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: Wolfram Sang <w.sang@pengutronix.de>
+Subject: Re: [PATCH] include/netdevice.h: fix nanodoc mismatch
+Date: Wed, 7 Oct 2009 11:18:03 +0200
+Message-ID: <20091007091803.GD3177@pengutronix.de>
+References: <1249902289-25798-1-git-send-email-w.sang@pengutronix.de> <20090812.221625.138548183.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="X+8siUETKMkW99st"
+Cc: netdev@vger.kernel.org, trivial@kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f179.google.com ([209.85.216.179]:37813 "EHLO
-	mail-px0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934072AbZJGJKA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 05:10:00 -0400
-Received: by pxi9 with SMTP id 9so4627173pxi.4
-        for <netdev@vger.kernel.org>; Wed, 07 Oct 2009 02:09:24 -0700 (PDT)
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:40847 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751903AbZJGJSk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 05:18:40 -0400
 Content-Disposition: inline
+In-Reply-To: <20090812.221625.138548183.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-adapter doesnot need to maintain a copy of net_device_stats.
-Use the one already available in net_device. This patch takes care of the same.
 
-Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
----
- drivers/net/benet/be.h         |    1 -
- drivers/net/benet/be_ethtool.c |    2 +-
- drivers/net/benet/be_main.c    |    6 ++----
- 3 files changed, 3 insertions(+), 6 deletions(-)
+--X+8siUETKMkW99st
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
-index a80da0e..4b61a91 100644
---- a/drivers/net/benet/be.h
-+++ b/drivers/net/benet/be.h
-@@ -181,7 +181,6 @@ struct be_drvr_stats {
- 
- struct be_stats_obj {
- 	struct be_drvr_stats drvr_stats;
--	struct net_device_stats net_stats;
- 	struct be_dma_mem cmd;
- };
- 
-diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
-index 77c66da..333729b 100644
---- a/drivers/net/benet/be_ethtool.c
-+++ b/drivers/net/benet/be_ethtool.c
-@@ -234,7 +234,7 @@ be_get_ethtool_stats(struct net_device *netdev,
- 	struct be_rxf_stats *rxf_stats = &hw_stats->rxf;
- 	struct be_port_rxf_stats *port_stats =
- 			&rxf_stats->port[adapter->port_num];
--	struct net_device_stats *net_stats = &adapter->stats.net_stats;
-+	struct net_device_stats *net_stats = &netdev->stats;
- 	struct be_erx_stats *erx_stats = &hw_stats->erx;
- 	void *p = NULL;
- 	int i;
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 6d5e81f..0e92a1f 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -141,7 +141,7 @@ void netdev_stats_update(struct be_adapter *adapter)
- 	struct be_rxf_stats *rxf_stats = &hw_stats->rxf;
- 	struct be_port_rxf_stats *port_stats =
- 			&rxf_stats->port[adapter->port_num];
--	struct net_device_stats *dev_stats = &adapter->stats.net_stats;
-+	struct net_device_stats *dev_stats = &adapter->netdev->stats;
- 	struct be_erx_stats *erx_stats = &hw_stats->erx;
- 
- 	dev_stats->rx_packets = port_stats->rx_total_frames;
-@@ -269,9 +269,7 @@ static void be_rx_eqd_update(struct be_adapter *adapter)
- 
- static struct net_device_stats *be_get_stats(struct net_device *dev)
- {
--	struct be_adapter *adapter = netdev_priv(dev);
--
--	return &adapter->stats.net_stats;
-+	return &dev->stats;
- }
- 
- static u32 be_calc_rate(u64 bytes, unsigned long ticks)
--- 
-1.6.0.4
+On Wed, Aug 12, 2009 at 10:16:25PM -0700, David Miller wrote:
+> From: Wolfram Sang <w.sang@pengutronix.de>
+> Date: Mon, 10 Aug 2009 13:04:49 +0200
+>=20
+> > nanodoc was missing an ndo_-prefix.
+> >=20
+> > Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
+>=20
+> I'll apply this, thanks.
 
+I can't find it in your trees. Slipped through?
+
+--=20
+Pengutronix e.K.                           | Wolfram Sang                |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+
+--X+8siUETKMkW99st
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkrMXMsACgkQD27XaX1/VRvYDwCfUG6ke2V8Yl7RPQk4ewR/6KiS
+q1EAn3I48m3xvSX5vlJwdP0wkGuGjSRF
+=Waqc
+-----END PGP SIGNATURE-----
+
+--X+8siUETKMkW99st--
