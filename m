@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Use sk_mark for routing lookup in more places
-Date: Wed, 07 Oct 2009 01:27:18 -0700 (PDT)
-Message-ID: <20091007.012718.194229685.davem@davemloft.net>
-References: <4AC4D90E.3040008@gmail.com>
-	<20091001.151823.263194343.davem@davemloft.net>
-	<4AC58C46.8080408@gmail.com>
+Subject: Re: [PATCH] Use sk_mark for IPv6 routing lookups
+Date: Wed, 07 Oct 2009 01:29:25 -0700 (PDT)
+Message-ID: <20091007.012925.54428080.davem@davemloft.net>
+References: <4AC598D7.9080900@gmail.com>
+	<55a4f86e0910021025u7523029av1e4ee917d1fb1ee5@mail.gmail.com>
+	<4AC64419.6020202@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: atis@mikrotik.com, panther@balabit.hu, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: zenczykowski@gmail.com, eric.dumazet@gmail.com, atis@mikrotik.com,
+	panther@balabit.hu, netdev@vger.kernel.org
+To: brian.haley@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36047
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46092
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758799AbZJGI1X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 04:27:23 -0400
-In-Reply-To: <4AC58C46.8080408@gmail.com>
+	by vger.kernel.org with ESMTP id S933909AbZJGI3a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 04:29:30 -0400
+In-Reply-To: <4AC64419.6020202@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 02 Oct 2009 07:14:46 +0200
+From: Brian Haley <brian.haley@hp.com>
+Date: Fri, 02 Oct 2009 14:19:05 -0400
 
-> Here is a followup on this area, thanks.
+> Add support for IPv6 route lookups using sk_mark.
 > 
-> [RFC] af_packet: fill skb->mark at xmit
-> 
-> skb->mark may be used by classifiers, so fill it in case user 
-> set a SO_MARK option on socket.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Brian Haley <brian.haley@hp.com>
 
-Looks fine, applied, thanks!
+Applied, thanks!
