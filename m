@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ppp: fix comments - ppp_{sync,asynctty}_receive()
- may sleep
-Date: Wed, 07 Oct 2009 01:28:21 -0700 (PDT)
-Message-ID: <20091007.012821.184426837.davem@davemloft.net>
-References: <20091001142844.C50E511186D@xenon.ts.pxnet.com>
+Subject: Re: [PATCH v2] net: mark net_proto_ops as const
+Date: Wed, 07 Oct 2009 01:30:00 -0700 (PDT)
+Message-ID: <20091007.013000.260052327.davem@davemloft.net>
+References: <20091003104004.GA15919@elte.hu>
+	<20091004.211107.184509170.davem@davemloft.net>
+	<20091005085839.2b3f82df@s6510>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alan@lxorguk.ukuu.org.uk, alan@linux.intel.com, paulus@samba.org,
-	linux-ppp@vger.kernel.org, netdev@vger.kernel.org,
-	jarkao2@gmail.com, linux-kernel@vger.kernel.org
-To: tilman@imap.cc
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36057
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46102
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932321AbZJGI20 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 04:28:26 -0400
-In-Reply-To: <20091001142844.C50E511186D@xenon.ts.pxnet.com>
+	by vger.kernel.org with ESMTP id S933975AbZJGIaF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 04:30:05 -0400
+In-Reply-To: <20091005085839.2b3f82df@s6510>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tilman Schmidt <tilman@imap.cc>
-Date: Thu,  1 Oct 2009 16:28:44 +0200 (CEST)
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Mon, 5 Oct 2009 08:58:39 -0700
 
-> The receive_buf methods of the N_PPP and N_SYNC_PPP line disciplines,
-> ppp_asynctty_receive() and ppp_sync_receive(), call tty_unthrottle()
-> which may sleep. Fix the comments claiming otherwise.
+> All usages of structure net_proto_ops should be declared const.
 > 
-> Impact: documentation
-> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Applied, thanks.
+Applied.
