@@ -1,41 +1,45 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: skb_shinfo(skb)->nr_frags > 0 while skb_is_gso(skb) == 0?
-Date: Tue, 6 Oct 2009 18:21:31 -0700
-Message-ID: <20091006182131.484d6e5a@nehalam>
-References: <20091007010315.GA26498@neptune.jswright>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH net-next] myri10ge: add adaptive coalescing
+Date: Tue, 06 Oct 2009 18:28:18 -0700
+Message-ID: <4ACBEEB2.7010703@hp.com>
+References: <4ACB75DB.4060003@myri.com> <20091006.172537.148962576.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
-	Bob Montgomery <bob.montgomery@hp.com>
-To: John Wright <john.wright@hp.com>
+Cc: brice@myri.com, netdev@vger.kernel.org, gallatin@myri.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34278 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758538AbZJGBXO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Oct 2009 21:23:14 -0400
-In-Reply-To: <20091007010315.GA26498@neptune.jswright>
+Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:45105 "EHLO
+	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751904AbZJGB25 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Oct 2009 21:28:57 -0400
+In-Reply-To: <20091006.172537.148962576.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 6 Oct 2009 19:03:15 -0600
-John Wright <john.wright@hp.com> wrote:
-
-> Hello,
+David Miller wrote:
+> From: Brice Goglin <brice@myri.com>
+> Date: Tue, 06 Oct 2009 18:52:43 +0200
 > 
-> Bob Montgomery and I are debugging an OOPS in the bnx2 driver.  The
-> driver OOPSes in bnx2_tx_int(), getting a NULL pointer dereference when
-> checking if the skb is GSO.  (This is on 2.6.29, before is_gso was
-> cached in the tx_buf (commit d62fda08), but bear with me - while kernels
-> with that commit might not crash in the same place, I think we have
-> discovered a bug that would manifest itself another way.)
 > 
-> So, first, a question for someone who knows more about sk_buff's than I:
-> is it reasonable/legal for an skb for which skb_is_gso(skb) == 0 to also
-> have skb_shinfo(skb)->nr_frags > 0?
+>>This patch adds support for adaptive interrupt coalescing to the
+>>myri10ge driver. It is based on the host periodically look at
+>>statistics and update the NIC coalescing accordingly.
+>>
+>>The NIC only provides packet throughput and we feel that it is a
+>>better heuristics than the packet rate heuristics currently used
+>>in ethtool. Also, assuming that the packet packet rate heuristics
+>>uses what is actually sent on the wire when using TSO, it would be
+>>much more expensive to implement correctly, as the driver would
+>>need to calculate how many packets were sent.
+>>
+>>Signed-off-by: Andrew Gallatin <gallatin@myri.com>
+>>Signed-off-by: Brice Goglin <brice@myri.com>
+> 
+> 
+> Drivers tried to do this as far back as 6 years ago (tg3) and we don't
+> recommend doing this with NAPI drivers.
 
-Yes, if driver support Scatter/Gather and Checksum offload,
-TCP (especially splice) will hand fragmented frames to device.
+Doesn't e1000(e) still try to do adaptive coalescing?
 
-Don't know what assumptions driver is making that could cause your
-issue.
+rick jones
