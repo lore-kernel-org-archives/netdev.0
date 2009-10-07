@@ -1,46 +1,39 @@
-From: thomas yang <lampsu@gmail.com>
-Subject: IP header identification field is zero, why?
-Date: Wed, 7 Oct 2009 22:04:34 +0800
-Message-ID: <f4f837ab0910070704k7a193be9i285573b423b96ba2@mail.gmail.com>
+From: Alexander Strakh <strakh@ispras.ru>
+Subject: [BUG] znet.c sleeping function called from invalid context
+Date: Wed, 7 Oct 2009 18:47:37 +0000
+Message-ID: <200910071847.38163.strakh@ispras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Linux Kernlel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f178.google.com ([209.85.223.178]:35583 "EHLO
-	mail-iw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759058AbZJGOFL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 10:05:11 -0400
-Received: by iwn8 with SMTP id 8so2835872iwn.33
-        for <netdev@vger.kernel.org>; Wed, 07 Oct 2009 07:04:34 -0700 (PDT)
+Received: from smtp.ispras.ru ([83.149.198.201]:43320 "EHLO smtp.ispras.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751774AbZJGOpj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Oct 2009 10:45:39 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is captured on my PC (Fedora 11, Linux=A3=A9
+	KERNEL_VERSION: 2.6.31
+	DESCRIBE:
+Driver drivers/net/znet.c might sleep in atomic context, because it calls 
+free_dma under claim_dma_lock:
 
-[root@localhost ~]# tcpdump -i eth1 icmp -n -x
-tcpdump: verbose output suppressed, use -v or -vv for full protocol dec=
-ode
-listening on eth1, link-type EN10MB (Ethernet), capture size 96 bytes
-17:02:39.025882 IP 192.168.1.64 > 192.168.1.1: ICMP echo request, id
-25096, seq 1, length 64
-	0x0000:  4500 0054 0000 4000 4001 b717 c0a8 0140
-=2E.....
-17:02:39.027866 IP 192.168.1.64 > 192.168.1.1: ICMP echo request, id
-25096, seq 2, length 64
-	0x0000:  4500 0054 0000 4000
+.drivers/net/znet.c:
+ 168 static int znet_request_resources (struct net_device *dev)
+...
+ 189        flags = claim_dma_lock();
+ 190        free_dma (znet->tx_dma);
+ 191        release_dma_lock (flags);
+...
 
-The  IP header 'identification' field is zero, why?
+Path to might_sleep macro from znet_request_resources:
+1. znet_request_resources calls free_dma at 
+arch/blackfin/kernel/bfin_dma_5xx.c:181
+2. free_dma calls arch/blackfin/kernel/bfin_dma_5xx.c:195
 
-I wrote a simple UDP server and UDP client programs, and captured some
-packets, the IP identification is also zero.
+Found by: Linux Driver Verification
 
-Should the host increase this field for each packet it sends?
-
-
-I captured some TCP packets, all of the IP identification are
-different, not zero.
-
-
---
-thomas
