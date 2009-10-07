@@ -1,37 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6 V2] tg3: Fix phylib locking strategy
-Date: Wed, 07 Oct 2009 03:41:41 -0700 (PDT)
-Message-ID: <20091007.034141.80564057.davem@davemloft.net>
-References: <1254801692.18507@xw6200>
+Subject: Re: [PATCH 3/4] ethoc: align received packet to make IP header at
+ word boundary
+Date: Wed, 07 Oct 2009 03:42:04 -0700 (PDT)
+Message-ID: <20091007.034204.124834722.davem@davemloft.net>
+References: <1254735200-2718-1-git-send-email-thomas@wytron.com.tw>
+	<1254735200-2718-2-git-send-email-thomas@wytron.com.tw>
+	<1254735200-2718-3-git-send-email-thomas@wytron.com.tw>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: felix@embedded-sol.com, netdev@vger.kernel.org, mchan@broadcom.com,
-	andy@greyhouse.net
-To: mcarlson@broadcom.com
+Cc: netdev@vger.kernel.org
+To: thomas@wytron.com.tw
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45410
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45418
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757509AbZJGKlq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 06:41:46 -0400
-In-Reply-To: <1254801692.18507@xw6200>
+	by vger.kernel.org with ESMTP id S1758827AbZJGKmJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 06:42:09 -0400
+In-Reply-To: <1254735200-2718-3-git-send-email-thomas@wytron.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Mon, 5 Oct 2009 20:55:29 -0700
+From: Thomas Chou <thomas@wytron.com.tw>
+Date: Mon,  5 Oct 2009 17:33:19 +0800
 
-> O.K.  Here is the latest version.  Felix, can you verify your problem
-> is solved with this patch?
+> The packet buffer is allocated at 4 bytes boundary, but the IP header
+> length and version bits is located at byte 14. These bit fields access
+> as 32 bits word and caused exception on processors that do not support
+> unaligned access.
 > 
-> ---
+> The patch adds 2 bytes offset to make the bit fields word aligned.
 > 
-> Felix Radensky noted that chip resets were generating stack trace dumps.
-> This is because the driver is attempting to acquire the mdio bus mutex
-> while holding the tp->lock spinlock.  The fix is to change the code such
-> that every phy access takes the tp->lock spinlock instead.
-> 
-> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> Signed-off-by: Thomas Chou <thomas@wytron.com.tw>
 
-I'm going to apply this now to net-2.6, let me know if there are
-any updates after testing.
+Applied.
