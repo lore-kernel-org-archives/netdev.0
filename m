@@ -1,44 +1,76 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [PATCH] bridge: Allow enable/disable UFO on bridge device via
- ethtool
-Date: Wed, 07 Oct 2009 15:41:17 -0700
-Message-ID: <1254955277.31575.208.camel@w-sridhar.beaverton.ibm.com>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: [PATCH 0/6] netdev: Octeon MGMT new driver + octeon_ethernet updates.
+Date: Wed, 07 Oct 2009 16:07:58 -0700
+Message-ID: <4ACD1F4E.8090603@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:60714 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755648AbZJGWmA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 18:42:00 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e37.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id n97MeJMY032699
-	for <netdev@vger.kernel.org>; Wed, 7 Oct 2009 16:40:19 -0600
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n97MfIoY181486
-	for <netdev@vger.kernel.org>; Wed, 7 Oct 2009 16:41:18 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n97MfITQ019434
-	for <netdev@vger.kernel.org>; Wed, 7 Oct 2009 16:41:18 -0600
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Ralf Baechle <ralf@linux-mips.org>,
+	linux-mips <linux-mips@linux-mips.org>, netdev@vger.kernel.org
+Return-path: <linux-mips-bounce@linux-mips.org>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-Id: netdev.vger.kernel.org
 
-Allow enable/disable UFO on bridge device via ethtool
+The main thrust of this patch set is to add a driver for the Cavium
+Networks Octeon processor's MII (Management port) Ethernet devices.
+Since it shares an mdio bus with the existing octeon-ethernet driver,
+there is also some rearrangement of that code.
 
-Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+The Octeon SOC has an mdio bus that is shared by the PHYs of all the
+Ethernet ports on the chip.  Patches 1/6 and 2/6 add a stand-alone
+driver for the shared mdio bus
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 07a0777..1a99c4e 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -157,6 +157,7 @@ static const struct ethtool_ops br_ethtool_ops = {
- 	.get_tso	= ethtool_op_get_tso,
- 	.set_tso	= br_set_tso,
- 	.get_ufo	= ethtool_op_get_ufo,
-+	.set_ufo	= ethtool_op_set_ufo,
- 	.get_flags	= ethtool_op_get_flags,
- };
- 
+3/6 adds platform devices for the octeon_mgmt devices.
+
+4/6 has the register definitions needed by the driver.
+
+5/6 the octeon_mgmt driver proper
+
+6/6 converts octeon_ethernet to use the PHYs on the shared mdio bus.
 
 
+Since the Octeon is a mips based device, we may want to merge some or
+all of these patches via Ralf's tree.
+
+I will reply with the 6 patches.
+
+David Daney (6):
+   MIPS: Octeon: Add platform device for MDIO buses.
+   net: Add driver for Octeon MDIO buses.
+   MIPS: Octeon: Add platform devices MGMT Ethernet ports.
+   MIPS: Octeon: Add register definitions for MGMT Ethernet driver.
+   netdev: Add Ethernet driver for Octeon MGMT devices.
+   Staging: octeon-ethernet: Convert to use PHY Abstraction Layer.
+
+  arch/mips/cavium-octeon/octeon-platform.c     |   88 ++
+  arch/mips/include/asm/octeon/cvmx-agl-defs.h  | 1194 
++++++++++++++++++++++++++
+  arch/mips/include/asm/octeon/cvmx-mixx-defs.h |  248 +++++
+  arch/mips/include/asm/octeon/cvmx-smix-defs.h |  178 ++++
+  drivers/net/Kconfig                           |    2 +
+  drivers/net/Makefile                          |    2 +
+  drivers/net/octeon/Kconfig                    |   10 +
+  drivers/net/octeon/Makefile                   |    2 +
+  drivers/net/octeon/octeon_mgmt.c              | 1175 
+++++++++++++++++++++++++
+  drivers/net/phy/Kconfig                       |   11 +
+  drivers/net/phy/Makefile                      |    1 +
+  drivers/net/phy/mdio-octeon.c                 |  180 ++++
+  drivers/staging/octeon/Kconfig                |    3 +-
+  drivers/staging/octeon/ethernet-mdio.c        |  202 ++---
+  drivers/staging/octeon/ethernet-mdio.h        |    2 +-
+  drivers/staging/octeon/ethernet-proc.c        |  112 ---
+  drivers/staging/octeon/ethernet-rgmii.c       |   54 +-
+  drivers/staging/octeon/ethernet-sgmii.c       |    2 +-
+  drivers/staging/octeon/ethernet-xaui.c        |    2 +-
+  drivers/staging/octeon/ethernet.c             |   68 +-
+  drivers/staging/octeon/octeon-ethernet.h      |   15 +-
+  21 files changed, 3255 insertions(+), 296 deletions(-)
+  create mode 100644 arch/mips/include/asm/octeon/cvmx-agl-defs.h
+  create mode 100644 arch/mips/include/asm/octeon/cvmx-mixx-defs.h
+  create mode 100644 arch/mips/include/asm/octeon/cvmx-smix-defs.h
+  create mode 100644 drivers/net/octeon/Kconfig
+  create mode 100644 drivers/net/octeon/Makefile
+  create mode 100644 drivers/net/octeon/octeon_mgmt.c
+  create mode 100644 drivers/net/phy/mdio-octeon.c
