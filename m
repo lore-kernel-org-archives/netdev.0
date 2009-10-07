@@ -1,45 +1,51 @@
-From: Mike Frysinger <vapier.adi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [BUG] znet.c sleeping function called from
-	invalid context
-Date: Wed, 7 Oct 2009 14:44:45 -0400
-Message-ID: <8bd0f97a0910071144k1d0bf30bv60656181edae8af7@mail.gmail.com>
-References: <200910071847.38163.strakh@ispras.ru>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [Bug #14261] e1000e jumbo frames no longer work: 'Unsupported MTU
+	setting'
+Date: Wed, 7 Oct 2009 12:12:45 -0700
+Message-ID: <9929d2390910071212o632196b8o92899565bb131cea__35517.1214243912$1254943152$gmane$org@mail.gmail.com>
+References: <3onW63eFtRF.A.xXH.oMTxKB@chimera> <COE24pZSBH.A.jd.5MTxKB@chimera>
+	 <877hvd8rj5.fsf@spindle.srvr.nix> <200910022331.35916.rjw@sisk.pl>
+	 <9929d2390910021513t51827031k16a5bfc538640cbf@mail.gmail.com>
+	 <20091007183453.GD12971@mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alexander Strakh <strakh-ufN2psIa012HXe+LvDLADg@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        uclinux-dist-devel <uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>,
-        Linux Kernlel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Michael Hennerich <michael.hennerich-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
-Return-path: <uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
-In-Reply-To: <200910071847.38163.strakh-ufN2psIa012HXe+LvDLADg@public.gmane.org>
-List-Unsubscribe: <https://blackfin.uclinux.org/mailman/options/uclinux-dist-devel>,
-	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://blackfin.uclinux.org/pipermail/uclinux-dist-devel>
-List-Post: <mailto:uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
-List-Help: <mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=help>
-List-Subscribe: <https://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
-	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=subscribe>
-Sender: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-Errors-To: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Theodore Tso <tytso@mit.edu>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Nix <nix@esperi.org.uk>,
+	Linux Kernel Mailing List <linux-kernel@vger.kern
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-px0-f179.google.com ([209.85.216.179]:40345 "EHLO
+	mail-px0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754206AbZJGTNW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 15:13:22 -0400
+In-Reply-To: <20091007183453.GD12971@mit.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBPY3QgNywgMjAwOSBhdCAxNDo0NywgQWxleGFuZGVyIFN0cmFraCB3cm90ZToKPiDC
-oCDCoCDCoCDCoEtFUk5FTF9WRVJTSU9OOiAyLjYuMzEKPiDCoCDCoCDCoCDCoERFU0NSSUJFOgo+
-IERyaXZlciBkcml2ZXJzL25ldC96bmV0LmMgbWlnaHQgc2xlZXAgaW4gYXRvbWljIGNvbnRleHQs
-IGJlY2F1c2UgaXQgY2FsbHMKPiBmcmVlX2RtYSB1bmRlciBjbGFpbV9kbWFfbG9jazoKPgo+IC5k
-cml2ZXJzL25ldC96bmV0LmM6Cj4gwqAxNjggc3RhdGljIGludCB6bmV0X3JlcXVlc3RfcmVzb3Vy
-Y2VzIChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQo+IC4uLgo+IMKgMTg5IMKgIMKgIMKgIMKgZmxh
-Z3MgPSBjbGFpbV9kbWFfbG9jaygpOwo+IMKgMTkwIMKgIMKgIMKgIMKgZnJlZV9kbWEgKHpuZXQt
-PnR4X2RtYSk7Cj4gwqAxOTEgwqAgwqAgwqAgwqByZWxlYXNlX2RtYV9sb2NrIChmbGFncyk7Cj4g
-Li4uCj4KPiBQYXRoIHRvIG1pZ2h0X3NsZWVwIG1hY3JvIGZyb20gem5ldF9yZXF1ZXN0X3Jlc291
-cmNlczoKPiAxLiB6bmV0X3JlcXVlc3RfcmVzb3VyY2VzIGNhbGxzIGZyZWVfZG1hIGF0Cj4gYXJj
-aC9ibGFja2Zpbi9rZXJuZWwvYmZpbl9kbWFfNXh4LmM6MTgxCj4gMi4gZnJlZV9kbWEgY2FsbHMg
-YXJjaC9ibGFja2Zpbi9rZXJuZWwvYmZpbl9kbWFfNXh4LmM6MTk1CgppIGRvbnQgdGhpbmsgd2Ug
-bmVlZCB0aGUgZG1hbG9jayBtdXRleC4gIGl0J3Mgb25seSB1c2VkIHRvIHByb3RlY3QKcmVhZC93
-cml0ZXMgdG8gLmNoYW5fc3RhdHVzLCBhbmQgdGhhdCBzaG91bGQgYmUgYXRvbWljIGFscmVhZHku
-Ci1taWtlCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClVj
-bGludXgtZGlzdC1kZXZlbCBtYWlsaW5nIGxpc3QKVWNsaW51eC1kaXN0LWRldmVsQGJsYWNrZmlu
-LnVjbGludXgub3JnCmh0dHBzOi8vYmxhY2tmaW4udWNsaW51eC5vcmcvbWFpbG1hbi9saXN0aW5m
-by91Y2xpbnV4LWRpc3QtZGV2ZWw=
+On Wed, Oct 7, 2009 at 11:34, Theodore Tso <tytso@mit.edu> wrote:
+> On Fri, Oct 02, 2009 at 03:13:07PM -0700, Jeff Kirsher wrote:
+>> >> > Patch =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 : http:/=
+/patchwork.kernel.org/patch/50277/
+>> >>
+>> > Most likely because it's not in the Linus' tree yet.
+>> >
+>> > [e1000e maintainers, we have a regression fix to merge, please.]
+>>
+>> Sorry, I forgot to send this patch out last night. =C2=A0I will send=
+ it now.
+>
+> Do we have a status on this progress of this patch to mainline? =C2=A0=
+ Thanks,
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0-=
+ Ted
+
+The patch has been submitted and accepted into David Miller's net-2.6
+tree.  I will submit the patch for 2.6.31 stable tree once it makes it
+into Linus's tree later this week.
+
+--=20
+Cheers,
+Jeff
