@@ -1,36 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Add sk_mark route lookup support for IPv4 listening
- sockets, and for IPv4 multicast forwarding
-Date: Wed, 07 Oct 2009 22:39:28 -0700 (PDT)
-Message-ID: <20091007.223928.34412707.davem@davemloft.net>
-References: <200910071559.56526.atis@mikrotik.com>
-	<20091007.135627.96995518.davem@davemloft.net>
-	<55a4f86e0910071703i4735f1aan1ddba81eec7eef19@mail.gmail.com>
+Subject: Re: [PATCH] net: Add netdev_alloc_skb_ip_align() helper
+Date: Wed, 07 Oct 2009 22:40:36 -0700 (PDT)
+Message-ID: <20091007.224036.247820677.davem@davemloft.net>
+References: <1254969161-3609-1-git-send-email-thomas@wytron.com.tw>
+	<4ACD585B.5080106@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: atis@mikrotik.com, netdev@vger.kernel.org, panther@balabit.hu,
-	eric.dumazet@gmail.com, brian.haley@hp.com
-To: zenczykowski@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: thomas@wytron.com.tw, netdev@vger.kernel.org,
+	thierry.reding@avionic-design.de, nios2-dev@sopc.et.ntust.edu.tw,
+	linux-kernel@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44502
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44507
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752968AbZJHFjd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 01:39:33 -0400
-In-Reply-To: <55a4f86e0910071703i4735f1aan1ddba81eec7eef19@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1753449AbZJHFkk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 01:40:40 -0400
+In-Reply-To: <4ACD585B.5080106@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTWFjaWVqIMW7ZW5jenlrb3dza2kgPHplbmN6eWtvd3NraUBnbWFpbC5jb20+DQpEYXRl
-OiBXZWQsIDcgT2N0IDIwMDkgMTc6MDM6MzAgLTA3MDANCg0KPiBTaG91bGQgd3JhcHBpbmcgYSBw
-YWNrZXQgaW50byBhIHR1bm5lbCBjbGVhciB0aGUgbWFyaz8NCj4gU2hvdWxkIHBlcmhhcHMgdGhl
-IG1hcmsgYmUgYSBwYXJhbWV0ZXIgb2YgdGhlIHR1bm5lbCAobGlrZSB0dGwgb3IgcW9zLA0KPiBj
-YW4gYmUgc2V0IG9yIGNhbiBiZSBpbmhlcml0ZWQpPw0KDQpUaGF0J3MgdGhlIGJpZyBxdWVzdGlv
-bi4NCg0KSXQgbWF5IGJlIHRoYXQgdGhlIG9ubHkgbG9naWNhbCB0aGluZyB3ZSBjYW4gZG8gaXMg
-b25seSBhcHBseQ0KdGhlIHNvY2tldCBtYXJrIHRvIHRoZSB0b3AtbGV2ZWwgcGF0aCBhbmQgdGhh
-dCdzIHdoYXQgaGFwcGVucw0Kbm93Lg0KDQpCZWNhdXNlIHdlIHJlYWxseSBkb24ndCBoYXZlIGFu
-eSByZWFzb25hYmxlIHdheSB0byBsZXQgdGhlIHVzZXINCmNvbnRyb2wgd2hlcmUgaXQgYXBwbGll
-cy4gIFdlIGhhdmUgbm8gd2F5IGZvciBpdCB0byBzYXkgImRvbid0DQphcHBseSB0aGUgbWFyayB0
-byB0aGUgdG9wLWxldmVsIHBhdGgsIGJ1dCBkbyBhcHBseSBpdCB0byB0aGUNCm11bHRpY2FzdCB0
-dW5uZWwnIG9yIHNvbWV0aGluZyBsaWtlIHRoYXQuDQoNClNvLCB0byBiZSBob25lc3QsIEknZCBz
-YXkgd2Ugc2hvdWxkIHNraXAgdGhlc2Ugc2tiLT5tYXJrIGNhc2VzDQpmb3Igbm93Lg0K
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 08 Oct 2009 05:11:23 +0200
+
+> David, maybe we should add following helper :
+> 
+> [PATCH] net: Add netdev_alloc_skb_ip_align() helper
+> 
+> Instead of hardcoding NET_IP_ALIGN stuff in various network drivers, we can
+> add a helper around netdev_alloc_skb()
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+Looks ok, but I want to look at how often this exact sequence
+would match.  If it applies to a lot of cases, I'll add this
+but I know of many exceptions in my head already :-)
