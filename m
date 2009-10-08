@@ -1,64 +1,47 @@
-From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
-Subject: Re: using huge numbers of queues
-Date: Fri, 9 Oct 2009 06:26:38 +1030
-Message-ID: <20091009062638.1cd54c64@opy.nosense.org>
-References: <c0a09e5c0910071459r2768f420lae87f7404dfbc054@mail.gmail.com>
-	<20091007.153811.139592035.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: andy.grover@gmail.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: [net-2.6 PATCH 2/7] qlge: Fix frame routing issue related to bonding.
+Date: Thu,  8 Oct 2009 12:54:38 -0700
+Message-ID: <1255031683-3912-3-git-send-email-ron.mercer@qlogic.com>
+References: <1255031683-3912-1-git-send-email-ron.mercer@qlogic.com>
+Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.adam.net.au ([202.136.110.253]:47356 "EHLO
-	smtp1.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757313AbZJHT50 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 15:57:26 -0400
-In-Reply-To: <20091007.153811.139592035.davem@davemloft.net>
+Received: from avexch1.qlogic.com ([198.70.193.115]:40572 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933125AbZJHUBq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 16:01:46 -0400
+In-Reply-To: <1255031683-3912-1-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 07 Oct 2009 15:38:11 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+Currently frames are routed based on their type and MAC address. This
+patch adds the port number on which the frame arrived to the routing.
+This prevents problems in the case where both interfaces have the same MAC address in
+a routing configuration.
 
-> From: Andrew Grover <andy.grover@gmail.com>
-> Date: Wed, 7 Oct 2009 14:59:49 -0700
-> 
-> > At NetConf, you made a passing remark about wanting lots of queues,
-> > even 1-per-socket. Have you thought further about how we would use so
-> > many?
-> 
-> Classification.
-> 
-> Lots and lots of virtual queues, which map to a smaller number
-> of physical queues for delivery.
-> 
-> The virtual queue matched serves as a index and a classification
-> hint to things like GRO receive, etc.
+Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+---
+ drivers/net/qlge/qlge_main.c |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
 
-Is that similar to what is described in 
+diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
+index 04fc711..d66ad8d 100644
+--- a/drivers/net/qlge/qlge_main.c
++++ b/drivers/net/qlge/qlge_main.c
+@@ -3241,6 +3241,13 @@ static int ql_adapter_initialize(struct ql_adapter *qdev)
+ 	ql_write32(qdev, SPLT_HDR, SPLT_HDR_EP |
+ 		min(SMALL_BUFFER_SIZE, MAX_SPLIT_SIZE));
+ 
++	/* Set RX packet routing to use port/pci function on which the
++	 * packet arrived on in addition to usual frame routing.
++	 * This is helpful on bonding where both interfaces can have
++	 * the same MAC address.
++	 */
++	ql_write32(qdev, RST_FO, RST_FO_RR_MASK | RST_FO_RR_RCV_FUNC_CQ);
++
+ 	/* Start up the rx queues. */
+ 	for (i = 0; i < qdev->rx_ring_count; i++) {
+ 		status = ql_start_rx_ring(qdev, &qdev->rx_ring[i]);
+-- 
+1.6.0.2
 
-Trading Packet Headers for Packet Processing
-http://www.sigcomm.org/sigcomm95/papers/chandranmenon.ps
-
-?
-
-My understanding of that paper is that when a packet enters the host it
-is classified using various attributes e.g. Ip src/dest/etc, and then
-assigned an unique identifier. Subsequent processing of the packet is
-indexed by this identifier, rather than each processing stage
-performing it's own packet classification and selection.
-
-For packets that are forwarded, the packet is then tagged/labled with
-an ID, so that subsequent hosts don't have to perform classification
-either.
-
-(This paper is pretty much the origins of MPLS, which is where my
-original interest came from)
-
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
