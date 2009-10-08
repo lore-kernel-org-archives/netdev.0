@@ -1,64 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Generalize socket rx gap / receive queue overflow cmsg
-Date: Thu, 08 Oct 2009 16:45:48 +0200
-Message-ID: <4ACDFB1C.4090107@gmail.com>
-References: <20091007180835.GB20524@hmsreliant.think-freely.org> <4ACD3AC8.608@gmail.com> <20091008135435.GA23928@hmsreliant.think-freely.org>
+From: John Dykstra <john.dykstra1@gmail.com>
+Subject: Re: [PATCH 2/2] [RFC] Add c/r support for connected INET sockets
+Date: Thu, 08 Oct 2009 14:47:13 +0000
+Message-ID: <1255013233.8033.14.camel@Maple>
+References: <1254932945-12578-1-git-send-email-danms@us.ibm.com>
+	 <1254932945-12578-3-git-send-email-danms@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, socketcan@hartkopp.net
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: containers@lists.osdl.org, netdev@vger.kernel.org
+To: Dan Smith <danms@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:54454 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757655AbZJHOqe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 10:46:34 -0400
-In-Reply-To: <20091008135435.GA23928@hmsreliant.think-freely.org>
+Received: from mail-bw0-f210.google.com ([209.85.218.210]:57977 "EHLO
+	mail-bw0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756453AbZJHOrb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 10:47:31 -0400
+Received: by mail-bw0-f210.google.com with SMTP id 6so839225bwz.37
+        for <netdev@vger.kernel.org>; Thu, 08 Oct 2009 07:47:20 -0700 (PDT)
+In-Reply-To: <1254932945-12578-3-git-send-email-danms@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Neil Horman a =E9crit :
->>> +	if (check_drops) {
->>> +		skb =3D skb_recv_datagram(sk, flags|MSG_PEEK,
->>> +				flags & MSG_DONTWAIT, &err);
->> 	Ouch, this is too expensive, please find another way :)
->>
->>> +		if (skb) {
->>> +			gap =3D skb->dropcount;
->>> +			consume_skb(skb);
->>> +		}
->>> +	}
->>> +
-> I'm not sure that I see the expense here, and what expense there is, =
-I don't see
-> how it avoidable.  In order to do this reporting at the socket level,=
- we need to
-> look at the skb at the head of the receive queue.  But we need to do =
-so in a way
-> thats consistent with the flags being passed in (i.e. if this is a bl=
-ocking
-> socket, we need to block here until something is available to read). =
- Then its
-> just an atomic_inc on skb->users, followed by a dec in the consume_sk=
-b.  I could
-> implement the logic for DONTWAIT myself, and skip the atomic_inc/dec,=
- but I'm
-> not sure thats much of a savings.  If you have another thought, I'm c=
-ertainly
-> open to it.
+On Wed, 2009-10-07 at 09:29 -0700, Dan Smith wrote:
+> This patch adds basic support for C/R of open INET sockets.  I think
+> that
+> all the important bits of the TCP and ICSK socket structures is saved,
+> but I think there is still some additional IPv6 stuff that needs to be
+> handled.
 
-The expense is a lot of atomic ops. You forgot the lock, so thats four =
-atomic ops.
+I think this patch breaks code that was already in do_sock_restore():
 
-You can do all this with no extra atomics.
+        struct sock *do_sock_restore(struct ckpt_ctx *ctx)
+        {
+        	struct ckpt_hdr_socket *h;
+        	struct socket *sock;
+        	int ret;
+        
+        	h = ckpt_read_obj_type(ctx, sizeof(*h), CKPT_HDR_SOCKET);
+        	if (IS_ERR(h))
+        		return ERR_PTR(PTR_ERR(h));
+        
+        	/* silently clear flags, e.g. SOCK_NONBLOCK or SOCK_CLOEXEC */
+        	h->sock.type &= SOCK_TYPE_MASK;
+        
+        	ret = sock_create(h->sock_common.family, h->sock.type, 0, &sock);
+        	if (ret < 0)
+        		goto err;
+        
 
-All you need is some function with (struct msghdr *msg, struct sock *sk=
-, struct sk_buff *skb)
-triplet.
+You're passing 0 as the protocol value to sock_create().  This
+ultimately gets passed to the address family's create() function.  
 
-hint : sock_recv_timestamp(struct msghdr *msg, struct sock *sk, struct =
-sk_buff *skb)
+inet_create() (and its IPv6 companion) use that protocol value as the
+key when they search for the proper inet_protosw, which in turn gets
+mapped to the struct proto and passed to sk_prot_alloc().
 
-Could be renamed to something else if you want...
+In address families INET and AF_INET6, the struct sock is different
+sizes for different protocols.  This is implemented by the struct proto
+specifying which cache the struct sock comes from.
 
-sock_recv_ts_or_drops() or whatever
+So by passing in 0 all the time to sock_create(), you're getting a
+struct sock that may not be the right size.  Memory corruption and
+madness follow.
+
+  --  John
+
