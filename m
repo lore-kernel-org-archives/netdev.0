@@ -1,34 +1,96 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix struct sock bitfield annotation
-Date: Thu, 08 Oct 2009 15:08:33 -0700 (PDT)
-Message-ID: <20091008.150833.03012683.davem@davemloft.net>
-References: <4ACE023D.9030208@gmail.com>
-	<19f34abd0910081454v51455ee0p30ad6715b5ee31c0@mail.gmail.com>
+From: Anirban Sinha <asinha@zeugmasystems.com>
+Subject: Kernel oops when clearing bgp neighbor info with TCP MD5SUM enabled
+Date: Thu, 8 Oct 2009 15:19:48 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0910081514050.18315@sleet.zeugmasystems.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, mingo@elte.hu
-To: vegard.nossum@gmail.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@davemloft.net, asinha@zeugmasystems.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35215
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932125AbZJHWIj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 18:08:39 -0400
-In-Reply-To: <19f34abd0910081454v51455ee0p30ad6715b5ee31c0@mail.gmail.com>
+Received: from smtp.zeugmasystems.com ([70.79.96.174]:23203 "EHLO
+	zeugmasystems.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754444AbZJHWZw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 18:25:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vegard Nossum <vegard.nossum@gmail.com>
-Date: Thu, 8 Oct 2009 23:54:02 +0200
+Hi All;
 
-> Hm, no, this looks wrong to me, because sk_protocol and sk_type
-> _aren't_ in fact part of the bitfield.
-> 
-> We don't want to affect the kernel _at all_ when CONFIG_KMEMCHECK=n,
-> so I guess we should make the kmemcheck_bitfield_{begin|end}() macros
-> empty instead for that case? (And for kmemcheck kernels, we don't
-> really care about the lost 8 bytes anyway.)
+We are noticing a kernel OOPS on 2.6.26 kernel when we issue the command
+"clear ip bgp <bgp-peer-ip>" on Quagga BGP routing software. Also we are
+noticing a very similar
+crash when we set and reset the local TCP MD5 password. I am attaching the
+backtrace. I wonder if this has been seen by any other person and whether it
+is a known issue? We are running our kernel on the mips hardware.
 
-Hmmm, indeed.
+Thanks,
 
-Eric I'm holding this patch off for now.
+Ani
+
+
+# [23:10:35.108808] Kernel bug detected[#1]:
+[23:10:35.112527] Cpu 0
+[23:10:35.114676] $ 0   : 0000000000000000 0000000014001fe0
+0000000000000066 0000000000000004
+[23:10:35.122845] $ 4   : ffffffff80516c10 0000000014001fe0
+ffffffff8050c010 0000000000000004
+[23:10:35.131015] $ 8   : 0000000000000000 0000000000000041
+ffffffff805142e8 0000000000000001
+[23:10:35.139184] $12   : ffffffff80600000 ffffffff805f0000
+0000000000000064 0000000000000190
+[23:10:35.147354] $16   : 0000000000000102 ffffffff803afdf0
+ffffffff80539040 ffffffff80600780
+[23:10:35.155526] $20   : ffffffff80540000 0000000000200200
+ffffffff804c0000 000000000000000a
+[23:10:35.163695] $24   : a3d70a3d70a3d70b 8000000000000003
+[23:10:35.171865] $28   : ffffffff8050c000 ffffffff8050fd90
+9000000010030000 ffffffff801487a8
+[23:10:35.180035] Hi    : 0000000000000000
+[23:10:35.183819] Lo    : 0000000000000000
+[23:10:35.187603] epc   : ffffffff801487a8 run_timer_softirq+0x198/0x258
+Tainted: P
+[23:10:35.196032] ra    : ffffffff801487a8 run_timer_softirq+0x198/0x258
+[23:10:35.202395] Status: 14001fe3    KX SX UX KERNEL EXL IE
+[23:10:35.207814] Cause : 00808024
+[23:10:35.210911] PrId  : 01041100 (SiByte SB1A)
+[23:10:35.215209] Modules linked in: xt_state ipt_REJECT iptable_filter
+nf_conntrack_ftp ipt_MASQUERADE iptable_nat nf_nat nf_conntrack_ipv4
+ip_tables ebtable_filter ebtables bridge llc zeug_ipmcdrv(P) irqdisp(P)
+zvirt(P) zeugmod(P) softdog
+[23:10:35.236024] Process swapper (pid: 0, threadinfo=ffffffff8050c000,
+task=ffffffff805142e8, tls=0000000000000000)
+[23:10:35.246169] Stack : ffffffff8050fd90 ffffffff8050fd90
+0000000014001fe0 ffffffff805ff3e0
+[23:10:35.254166]         ffffffff806003c4 0000000000000001
+ffffffff8053f650 ffffffff805706d0
+[23:10:35.262337]         ffffffff80572020 ffffffff80142280
+ffffffff806003c0 0000000000000000
+[23:10:35.270507]         0000000014001fe0 000000000000c5b0
+ffffffff8fefc520 ffffffff8feea52c
+[23:10:35.278676]         0000000000000015 0000000000004460
+0000000000000940 ffffffff8fe1bf00
+[23:10:35.286846]         ffffffff8fffdab0 ffffffff80142410
+0000000000000000 ffffffff80142778
+[23:10:35.295017]         ffffffff80103d20 ffffffff80103d20
+0000000000000000 0000000014001fe1
+[23:10:35.303187]         0000000000040000 ffffffff8050c010
+0000000000000000 a80000017f87c138
+[23:10:35.311357]         0000000014001fe0 ffffffffffff00fe
+0000000000000004 a80000017e7e0680
+[23:10:35.319528]         0000000000000000 000000000000001d
+ffffffff8050ffe0 0000000000001f00
+[23:10:35.327696]         ...
+[23:10:35.330536] Call Trace:
+[23:10:35.333201] [<ffffffff801487a8>] run_timer_softirq+0x198/0x258
+[23:10:35.339224] [<ffffffff80142280>] __do_softirq+0x198/0x288
+[23:10:35.344812] [<ffffffff80142410>] do_softirq+0xa0/0xa8
+[23:10:35.350057] [<ffffffff80142778>] irq_exit+0x70/0x88
+[23:10:35.355131] [<ffffffff80103d20>] ret_from_irq+0x0/0x4
+[23:10:35.360377] [<ffffffff801063f4>] cpu_idle+0x1c/0x88
+[23:10:35.365455]
+[23:10:35.367171]
+[23:10:35.367174] Code: 0040382d  0c04ef4c  00000000 <0200000d> 0c10ee9c
+0260202d  dfa60000  17a6ffe5  00000000
+[23:10:35.378822] Kernel panic - not syncing: Fatal exception in
+interrupt
+
