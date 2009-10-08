@@ -1,78 +1,64 @@
-From: "Torgny Johansson" <torgny.johansson@ericsson.com>
-Subject: [PATCH -next][resubmit] cdc_ether: additional Ericsson MBM PID's to the whitelist
-Date: Thu, 8 Oct 2009 16:20:48 +0200
-Message-ID: <E86B0C24322D8648AC7F41E7CDA658E903DDD5FD@esealmw114.eemea.ericsson.se>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] Generalize socket rx gap / receive queue overflow cmsg
+Date: Thu, 08 Oct 2009 16:45:48 +0200
+Message-ID: <4ACDFB1C.4090107@gmail.com>
+References: <20091007180835.GB20524@hmsreliant.think-freely.org> <4ACD3AC8.608@gmail.com> <20091008135435.GA23928@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, socketcan@hartkopp.net
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw5.ericsson.se ([193.180.251.36]:45559 "EHLO
-	mailgw5.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757158AbZJHOV2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 10:21:28 -0400
-Content-class: urn:content-classes:message
+Received: from gw1.cosmosbay.com ([212.99.114.194]:54454 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757655AbZJHOqe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 10:46:34 -0400
+In-Reply-To: <20091008135435.GA23928@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkhDQoNClRoaXMgaXMgYSBuZXcgYXR0ZW1wdCB0byBzdWJtaXQgYSBwYXRjaCB0aGF0IGFkZHMg
-c2V2ZW4gbW9yZSBQSUQncyB0byB0aGUgd2hpdGVsaXN0IHNldCBvZiBkZXZpY2UuIEJlZW4gaGF2
-aW5nIHNvbWUgcHJvYmxlbXMgc3VibWl0dGluZyBwYXRjaGVzIHdpdGggT3V0bG9vayAoeWVzIEkg
-a25vdyB0aGF0IGlzIGEgYmFhYWQgaWRlYSA6KSkgYnV0IGhvcGVmdWxseSB0aGlzIHdpbGwgZ2V0
-IHNlbnQgcmlnaHQuDQoNCkRldmljZXMgYWRkZWQgdG8gdGhlIHdoaXRlbGlzdDoNCiAtIEVyaWNz
-c29uIE1vYmlsZSBCcm9hZGJhbmQgdmFyaWFudHMgKEYzNjA3Z3cgYW5kIEYzMzA3KQ0KIC0gRGVs
-bCBGMzYwN2d3IHZhcmlhbnRzDQogLSBUb3NoaWJhIEYzNjA3Z3cgdmFyaWFudHMNCg0KUmVnYXJk
-cyANClRvcmdueSBKb2hhbnNzb24NCg0KU2lnbmVkLW9mZi1ieTogVG9yZ255IEpvaGFuc3NvbiA8
-dG9yZ255LmpvaGFuc3NvbkBlcmljc3Nvbi5jb20+DQoNCi0tDQoNCmRpZmYgLS1naXQgYS9kcml2
-ZXJzL25ldC91c2IvS2NvbmZpZyBiL2RyaXZlcnMvbmV0L3VzYi9LY29uZmlnDQppbmRleCBjNDcy
-MzdjLi4zMmQ5MzU2IDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvdXNiL0tjb25maWcNCisrKyBi
-L2RyaXZlcnMvbmV0L3VzYi9LY29uZmlnDQpAQCAtMTc0LDcgKzE3NCw3IEBAIGNvbmZpZyBVU0Jf
-TkVUX0NEQ0VUSEVSDQogCSAgICAqIEVyaWNzc29uIE1vYmlsZSBCcm9hZGJhbmQgTW9kdWxlIChh
-bGwgdmFyaWFudHMpDQogIAkgICAgKiBNb3Rvcm9sYSAoRE0xMDAgYW5kIFNCNDEwMCkNCiAgCSAg
-ICAqIEJyb2FkY29tIENhYmxlIE1vZGVtIChyZWZlcmVuY2UgZGVzaWduKQ0KLQkgICAgKiBUb3No
-aWJhIChQQ1gxMTAwVSBhbmQgRjM1MDdnKQ0KKwkgICAgKiBUb3NoaWJhIChQQ1gxMTAwVSBhbmQg
-RjM1MDdnL0YzNjA3Z3cpDQogCSAgICAqIC4uLg0KIA0KIAkgIFRoaXMgZHJpdmVyIGNyZWF0ZXMg
-YW4gaW50ZXJmYWNlIG5hbWVkICJldGhYIiwgd2hlcmUgWCBkZXBlbmRzIG9uDQpkaWZmIC0tZ2l0
-IGEvZHJpdmVycy9uZXQvdXNiL2NkY19ldGhlci5jIGIvZHJpdmVycy9uZXQvdXNiL2NkY19ldGhl
-ci5jDQppbmRleCA0YTZhZmY1Li41ZDk5MTA2IDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvdXNi
-L2NkY19ldGhlci5jDQorKysgYi9kcml2ZXJzL25ldC91c2IvY2RjX2V0aGVyLmMNCkBAIC01NDQs
-MjAgKzU0NCw1NSBAQCBzdGF0aWMgY29uc3Qgc3RydWN0IHVzYl9kZXZpY2VfaWQJcHJvZHVjdHMg
-W10gPSB7DQogCQkJVVNCX0NEQ19TVUJDTEFTU19NRExNLCBVU0JfQ0RDX1BST1RPX05PTkUpLA0K
-IAkuZHJpdmVyX2luZm8gPSAodW5zaWduZWQgbG9uZykgJmNkY19pbmZvLA0KIH0sIHsNCi0JLyog
-RXJpY3Nzb24gRjMzMDcgKi8NCisJLyogRXJpY3Nzb24gRjM2MDdndyB2ZXIgMiAqLw0KKwlVU0Jf
-REVWSUNFX0FORF9JTlRFUkZBQ0VfSU5GTygweDBiZGIsIDB4MTkwNSwgVVNCX0NMQVNTX0NPTU0s
-DQorCQkJVVNCX0NEQ19TVUJDTEFTU19NRExNLCBVU0JfQ0RDX1BST1RPX05PTkUpLA0KKwkuZHJp
-dmVyX2luZm8gPSAodW5zaWduZWQgbG9uZykgJmNkY19pbmZvLA0KK30sIHsNCisJLyogRXJpY3Nz
-b24gRjM2MDdndyB2ZXIgMyAqLw0KIAlVU0JfREVWSUNFX0FORF9JTlRFUkZBQ0VfSU5GTygweDBi
-ZGIsIDB4MTkwNiwgVVNCX0NMQVNTX0NPTU0sDQogCQkJVVNCX0NEQ19TVUJDTEFTU19NRExNLCBV
-U0JfQ0RDX1BST1RPX05PTkUpLA0KIAkuZHJpdmVyX2luZm8gPSAodW5zaWduZWQgbG9uZykgJmNk
-Y19pbmZvLA0KIH0sIHsNCisJLyogRXJpY3Nzb24gRjMzMDcgKi8NCisJVVNCX0RFVklDRV9BTkRf
-SU5URVJGQUNFX0lORk8oMHgwYmRiLCAweDE5MGEsIFVTQl9DTEFTU19DT01NLA0KKwkJCVVTQl9D
-RENfU1VCQ0xBU1NfTURMTSwgVVNCX0NEQ19QUk9UT19OT05FKSwNCisJLmRyaXZlcl9pbmZvID0g
-KHVuc2lnbmVkIGxvbmcpICZjZGNfaW5mbywNCit9LCB7DQorCS8qIEVyaWNzc29uIEYzMzA3IHZl
-ciAyICovDQorCVVTQl9ERVZJQ0VfQU5EX0lOVEVSRkFDRV9JTkZPKDB4MGJkYiwgMHgxOTA5LCBV
-U0JfQ0xBU1NfQ09NTSwNCisJCQlVU0JfQ0RDX1NVQkNMQVNTX01ETE0sIFVTQl9DRENfUFJPVE9f
-Tk9ORSksDQorCS5kcml2ZXJfaW5mbyA9ICh1bnNpZ25lZCBsb25nKSAmY2RjX2luZm8sDQorfSwg
-ew0KIAkvKiBUb3NoaWJhIEYzNTA3ZyAqLw0KIAlVU0JfREVWSUNFX0FORF9JTlRFUkZBQ0VfSU5G
-TygweDA5MzAsIDB4MTMwYiwgVVNCX0NMQVNTX0NPTU0sDQogCQkJVVNCX0NEQ19TVUJDTEFTU19N
-RExNLCBVU0JfQ0RDX1BST1RPX05PTkUpLA0KIAkuZHJpdmVyX2luZm8gPSAodW5zaWduZWQgbG9u
-ZykgJmNkY19pbmZvLA0KIH0sIHsNCisJLyogVG9zaGliYSBGMzYwN2d3ICovDQorCVVTQl9ERVZJ
-Q0VfQU5EX0lOVEVSRkFDRV9JTkZPKDB4MDkzMCwgMHgxMzBjLCBVU0JfQ0xBU1NfQ09NTSwNCisJ
-CQlVU0JfQ0RDX1NVQkNMQVNTX01ETE0sIFVTQl9DRENfUFJPVE9fTk9ORSksDQorCS5kcml2ZXJf
-aW5mbyA9ICh1bnNpZ25lZCBsb25nKSAmY2RjX2luZm8sDQorfSwgew0KKwkvKiBUb3NoaWJhIEYz
-NjA3Z3cgdmVyIDIgKi8NCisJVVNCX0RFVklDRV9BTkRfSU5URVJGQUNFX0lORk8oMHgwOTMwLCAw
-eDEzMTEsIFVTQl9DTEFTU19DT01NLA0KKwkJCVVTQl9DRENfU1VCQ0xBU1NfTURMTSwgVVNCX0NE
-Q19QUk9UT19OT05FKSwNCisJLmRyaXZlcl9pbmZvID0gKHVuc2lnbmVkIGxvbmcpICZjZGNfaW5m
-bywNCit9LCB7DQogCS8qIERlbGwgRjM1MDdnICovDQogCVVTQl9ERVZJQ0VfQU5EX0lOVEVSRkFD
-RV9JTkZPKDB4NDEzYywgMHg4MTQ3LCBVU0JfQ0xBU1NfQ09NTSwNCiAJCQlVU0JfQ0RDX1NVQkNM
-QVNTX01ETE0sIFVTQl9DRENfUFJPVE9fTk9ORSksDQogCS5kcml2ZXJfaW5mbyA9ICh1bnNpZ25l
-ZCBsb25nKSAmY2RjX2luZm8sDQorfSwgew0KKwkvKiBEZWxsIEYzNjA3Z3cgKi8NCisJVVNCX0RF
-VklDRV9BTkRfSU5URVJGQUNFX0lORk8oMHg0MTNjLCAweDgxODMsIFVTQl9DTEFTU19DT01NLA0K
-KwkJCVVTQl9DRENfU1VCQ0xBU1NfTURMTSwgVVNCX0NEQ19QUk9UT19OT05FKSwNCisJLmRyaXZl
-cl9pbmZvID0gKHVuc2lnbmVkIGxvbmcpICZjZGNfaW5mbywNCit9LCB7DQorCS8qIERlbGwgRjM2
-MDdndyB2ZXIgMiAqLw0KKwlVU0JfREVWSUNFX0FORF9JTlRFUkZBQ0VfSU5GTygweDQxM2MsIDB4
-ODE4NCwgVVNCX0NMQVNTX0NPTU0sDQorCQkJVVNCX0NEQ19TVUJDTEFTU19NRExNLCBVU0JfQ0RD
-X1BST1RPX05PTkUpLA0KKwkuZHJpdmVyX2luZm8gPSAodW5zaWduZWQgbG9uZykgJmNkY19pbmZv
-LA0KIH0sDQogCXsgfSwJCS8vIEVORA0KIH07DQoNCi0tDQo=
+Neil Horman a =E9crit :
+>>> +	if (check_drops) {
+>>> +		skb =3D skb_recv_datagram(sk, flags|MSG_PEEK,
+>>> +				flags & MSG_DONTWAIT, &err);
+>> 	Ouch, this is too expensive, please find another way :)
+>>
+>>> +		if (skb) {
+>>> +			gap =3D skb->dropcount;
+>>> +			consume_skb(skb);
+>>> +		}
+>>> +	}
+>>> +
+> I'm not sure that I see the expense here, and what expense there is, =
+I don't see
+> how it avoidable.  In order to do this reporting at the socket level,=
+ we need to
+> look at the skb at the head of the receive queue.  But we need to do =
+so in a way
+> thats consistent with the flags being passed in (i.e. if this is a bl=
+ocking
+> socket, we need to block here until something is available to read). =
+ Then its
+> just an atomic_inc on skb->users, followed by a dec in the consume_sk=
+b.  I could
+> implement the logic for DONTWAIT myself, and skip the atomic_inc/dec,=
+ but I'm
+> not sure thats much of a savings.  If you have another thought, I'm c=
+ertainly
+> open to it.
+
+The expense is a lot of atomic ops. You forgot the lock, so thats four =
+atomic ops.
+
+You can do all this with no extra atomics.
+
+All you need is some function with (struct msghdr *msg, struct sock *sk=
+, struct sk_buff *skb)
+triplet.
+
+hint : sock_recv_timestamp(struct msghdr *msg, struct sock *sk, struct =
+sk_buff *skb)
+
+Could be renamed to something else if you want...
+
+sock_recv_ts_or_drops() or whatever
