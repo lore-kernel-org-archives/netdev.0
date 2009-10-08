@@ -1,159 +1,127 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Generalize socket rx gap / receive queue overflow cmsg
-Date: Thu, 08 Oct 2009 03:05:12 +0200
-Message-ID: <4ACD3AC8.608@gmail.com>
-References: <20091007180835.GB20524@hmsreliant.think-freely.org>
+From: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [BUG net-2.6] bluetooth/rfcomm : sleeping function called from
+	invalid context at mm/slub.c:1719
+Date: Thu, 8 Oct 2009 09:25:07 +0800
+Message-ID: <a8e1da0910071825m7b7f4f1fw400dba4e97ff1427@mail.gmail.com>
+References: <4AC59D8A.6000102@hartkopp.net>
+	 <a8e1da0910020401m2fb8493ax95ff55a3b66131a5@mail.gmail.com>
+	 <4AC6247E.7050308@hartkopp.net> <4ACCCCF5.9060203@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, socketcan@hartkopp.net
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:59156 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756650AbZJHBGA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 21:06:00 -0400
-In-Reply-To: <20091007180835.GB20524@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4ACCCCF5.9060203-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Neil Horman a =E9crit :
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index 7626b6a..8bd366f 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -306,6 +306,7 @@ int sock_queue_rcv_skb(struct sock *sk, struct sk=
-_buff *skb)
->  	skb_len =3D skb->len;
-> =20
+On Thu, Oct 8, 2009 at 1:16 AM, Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org> w=
+rote:
+> Oliver Hartkopp wrote:
+>> Dave Young wrote:
+>>> On Fri, Oct 2, 2009 at 2:28 PM, Oliver Hartkopp <oliver-fJ+pQTUTwRSDGRHsOpWV0g@public.gmane.org=
+t> wrote:
+>>>> Hello Marcel,
+>>>>
+>>>> with current net-2.6 tree ...
+>>>>
+>>>> While starting my PPP Bluetooth dialup networking, i got this:
+>>> Hi, oliver
+>>>
+>>> please try following patch:
+>>> http://patchwork.kernel.org/patch/51326/
+>>
+>> Hi Dave,
+>>
+>> that fixed it at ppp startup!
+>>
+>> Tested-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+>
+> Hi Dave,
+>
+> what's the state of this patch?
+>
+> Has it gone upstream?
 
+Not yet.
 
->  	skb_queue_tail(&sk->sk_receive_queue, skb);
-> +	skb->dropcount =3D atomic_read(&sk->sk_drops);
+Marcel, could you pick it?  If there's potential problem please tell.
 
-No, skb was given to skb_queue_tail(), you are not allowed to touch it =
-now,
-another cpu might already consume it.
-
-You better do :
-
-struct sk_buff_head *list =3D &sk->sk_receive_queue;
-
-spin_lock_irqsave(&list->lock, flags);
-skb->dropcount =3D atomic_read(&sk->sk_drops); // should be done under =
-lock protection
-__skb_queue_tail(list, newsk);
-spin_unlock_irqrestore(&list->lock, flags);
-
-
-
-> =20
->  	if (!sock_flag(sk, SOCK_DEAD))
->  		sk->sk_data_ready(sk, skb_len);
-> @@ -702,6 +703,12 @@ set_rcvbuf:
-> =20
->  		/* We implement the SO_SNDLOWAT etc to
->  		   not be settable (1003.1g 5.3) */
-> +	case SO_RXQ_OVFL:
-> +		if (valbool)
-> +			set_bit(SOCK_RXQ_OVFL, &sock->flags);
-> +		else
-> +			clear_bit(SOCK_RXQ_OVFL, &sock->flags);
-> +		break;
->  	default:
->  		ret =3D -ENOPROTOOPT;
->  		break;
-> @@ -901,6 +908,10 @@ int sock_getsockopt(struct socket *sock, int lev=
-el, int optname,
->  		v.val =3D sk->sk_mark;
->  		break;
-> =20
-> +	case SO_RXQ_OVFL:
-> +		v.val =3D test_bit(SOCK_RXQ_OVFL, &sock->flags);
-> +		break;
-> +
->  	default:
->  		return -ENOPROTOOPT;
->  	}
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index d7ecca0..920ae1e 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -617,6 +617,7 @@ static int packet_rcv(struct sk_buff *skb, struct=
- net_device *dev,
->  	if (pskb_trim(skb, snaplen))
->  		goto drop_n_acct;
-> =20
-
-> +	skb->dropcount =3D atomic_read(&sk->sk_drops);
-This should be done a litle bit after, right before "__skb_queue_tail(&=
-sk->sk_receive_queue, skb); "
-
->  	skb_set_owner_r(skb, sk);
->  	skb->dev =3D NULL;
->  	skb_dst_drop(skb);
-> @@ -634,6 +635,7 @@ static int packet_rcv(struct sk_buff *skb, struct=
- net_device *dev,
->  drop_n_acct:
-
-
->  	spin_lock(&sk->sk_receive_queue.lock);
->  	po->stats.tp_drops++;
-> +	atomic_inc(&sk->sk_drops);
->  	spin_unlock(&sk->sk_receive_queue.lock);
-
-You could replace this block of four lines by : po->stat.tp_drop =3D at=
-omic_inc_return(&sk->sk_drops);
-
-> =20
->  drop_n_restore:
-> diff --git a/net/socket.c b/net/socket.c
-> index 7565536..ad157a3 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -673,6 +673,12 @@ static inline int __sock_recvmsg(struct kiocb *i=
-ocb, struct socket *sock,
->  {
->  	int err;
->  	struct sock_iocb *si =3D kiocb_to_siocb(iocb);
-> +	struct sk_buff *skb;
-> +	int rc;
-> +	struct sock *sk =3D sock->sk;
-> +	unsigned long cpu_flags;
-> +	__u32 gap =3D 0;
-
-> +	int check_drops =3D test_bit(SOCK_RXQ_OVFL, &sock->flags);
-> =20
->  	si->sock =3D sock;
->  	si->scm =3D NULL;
-> @@ -684,7 +690,21 @@ static inline int __sock_recvmsg(struct kiocb *i=
-ocb, struct socket *sock,
->  	if (err)
->  		return err;
-> =20
-> -	return sock->ops->recvmsg(iocb, sock, msg, size, flags);
+>
+> Regards,
+> Oliver
+>
+>>
+>> Btw. when shutting down the ppp connection i still get this:
+>>
+>> [ =C2=A0361.996887] INFO: trying to register non-static key.
+>> [ =C2=A0361.996897] the code is fine but needs lockdep annotation.
+>> [ =C2=A0361.996902] turning off the locking correctness validator.
+>> [ =C2=A0361.996912] Pid: 0, comm: swapper Not tainted 2.6.31-08939-g=
+db8abec-dirty #22
+>> [ =C2=A0361.996919] Call Trace:
+>> [ =C2=A0361.996933] =C2=A0[<c12e4fb2>] ? printk+0xf/0x11
+>> [ =C2=A0361.996947] =C2=A0[<c1042214>] register_lock_class+0x5a/0x29=
+5
+>> [ =C2=A0361.996957] =C2=A0[<c1043af2>] __lock_acquire+0x9b/0xc03
+>> [ =C2=A0361.996967] =C2=A0[<c104464b>] ? __lock_acquire+0xbf4/0xc03
+>> [ =C2=A0361.996985] =C2=A0[<fa59a168>] ? l2cap_get_chan_by_scid+0x35=
+/0x43 [l2cap]
+>> [ =C2=A0361.996995] =C2=A0[<c104491f>] ? lock_release_non_nested+0x1=
+7b/0x1db
+>> [ =C2=A0361.997008] =C2=A0[<fa59a168>] ? l2cap_get_chan_by_scid+0x35=
+/0x43 [l2cap]
+>> [ =C2=A0361.997018] =C2=A0[<c10426fd>] ? trace_hardirqs_off+0xb/0xd
+>> [ =C2=A0361.997028] =C2=A0[<c10446b6>] lock_acquire+0x5c/0x73
+>> [ =C2=A0361.997039] =C2=A0[<c124cd14>] ? skb_dequeue+0x12/0x4c
+>> [ =C2=A0361.997049] =C2=A0[<c12e6e23>] _spin_lock_irqsave+0x24/0x34
+>> [ =C2=A0361.997058] =C2=A0[<c124cd14>] ? skb_dequeue+0x12/0x4c
+>> [ =C2=A0361.997066] =C2=A0[<c124cd14>] skb_dequeue+0x12/0x4c
+>> [ =C2=A0361.997075] =C2=A0[<c124d579>] skb_queue_purge+0x14/0x1b
+>> [ =C2=A0361.997088] =C2=A0[<fa59ce3f>] l2cap_recv_frame+0xe9e/0x129a=
+ [l2cap]
+>> [ =C2=A0361.997099] =C2=A0[<c10421d1>] ? register_lock_class+0x17/0x=
+295
+>> [ =C2=A0361.997110] =C2=A0[<c104464b>] ? __lock_acquire+0xbf4/0xc03
+>> [ =C2=A0361.997128] =C2=A0[<c104464b>] ? __lock_acquire+0xbf4/0xc03
+>> [ =C2=A0361.997139] =C2=A0[<c120de74>] ? uhci_giveback_urb+0xf2/0x16=
+2
+>> [ =C2=A0361.997163] =C2=A0[<f8bb4c45>] ? hci_rx_task+0xfe/0x1f8 [blu=
+etooth]
+>> [ =C2=A0361.997177] =C2=A0[<fa59d2e4>] l2cap_recv_acldata+0xa9/0x1be=
+ [l2cap]
+>> [ =C2=A0361.997190] =C2=A0[<fa59d23b>] ? l2cap_recv_acldata+0x0/0x1b=
+e [l2cap]
+>> [ =C2=A0361.997208] =C2=A0[<f8bb4c77>] hci_rx_task+0x130/0x1f8 [blue=
+tooth]
+>> [ =C2=A0361.997219] =C2=A0[<c102a098>] tasklet_action+0x6b/0xb2
+>> [ =C2=A0361.997228] =C2=A0[<c102a46b>] __do_softirq+0x82/0x101
+>> [ =C2=A0361.997237] =C2=A0[<c102a515>] do_softirq+0x2b/0x43
+>> [ =C2=A0361.997246] =C2=A0[<c102a619>] irq_exit+0x35/0x68
+>> [ =C2=A0361.997256] =C2=A0[<c1004513>] do_IRQ+0x80/0x96
+>> [ =C2=A0361.997265] =C2=A0[<c10030ae>] common_interrupt+0x2e/0x34
+>> [ =C2=A0361.997275] =C2=A0[<c104007b>] ? tick_device_uses_broadcast+=
+0x71/0x7c
+>> [ =C2=A0361.997286] =C2=A0[<c11747a8>] ? acpi_idle_enter_simple+0x10=
+3/0x12e
+>> [ =C2=A0361.997296] =C2=A0[<c1174515>] acpi_idle_enter_bm+0xc3/0x253
+>> [ =C2=A0361.997306] =C2=A0[<c1238b6f>] cpuidle_idle_call+0x60/0x91
+>> [ =C2=A0361.997315] =C2=A0[<c1001d44>] cpu_idle+0x49/0x65
+>> [ =C2=A0361.997324] =C2=A0[<c12e2f0e>] start_secondary+0x190/0x195
+>>
+>>
+>> Thanks,
+>> Oliver
+>>
+>>
+>
+>
 
 
 
-
-> +	if (check_drops) {
-> +		skb =3D skb_recv_datagram(sk, flags|MSG_PEEK,
-> +				flags & MSG_DONTWAIT, &err);
-
-	Ouch, this is too expensive, please find another way :)
-
-> +		if (skb) {
-> +			gap =3D skb->dropcount;
-> +			consume_skb(skb);
-> +		}
-> +	}
-> +
-> +	rc =3D sock->ops->recvmsg(iocb, sock, msg, size, flags);
-> +
-> +	if (check_drops && (rc > 0))
-
-		&& gap !=3D 0
-
-> +		put_cmsg(msg, SOL_SOCKET, SO_RXQ_OVFL, sizeof(__u32), &gap);
-> +
-
+--=20
+Regards
+dave
