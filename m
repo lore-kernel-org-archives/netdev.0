@@ -1,63 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: Fix struct sock bitfield annotation
-Date: Thu, 08 Oct 2009 17:16:13 +0200
-Message-ID: <4ACE023D.9030208@gmail.com>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: net-2.6 build error on powerpc
+Date: Thu, 8 Oct 2009 08:20:44 -0700
+Message-ID: <20091008152044.GA15390@linux-ox1b.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Vegard Nossum <vegard.nossum@gmail.com>,
-	Ingo Molnar <mingo@elte.hu>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ron.mercer@qlogic.com, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:54593 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932695AbZJHPRD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 11:17:03 -0400
+Received: from avexch1.qlogic.com ([198.70.193.115]:24153 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758489AbZJHP1Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 11:27:16 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit a98b65a3 (net: annotate struct sock bitfield), we lost 8 bytes
-in struct sock on 64bits arches because of kmemcheck_bitfield_end(flags) misplacement.
+I recently grabbed the latest net-2.6 kernel for a powerpc test box and
+got this compile error.
+
+  CC      arch/powerpc/kernel/cputable.o
+  CC      arch/powerpc/kernel/ptrace.o
+  CC      arch/powerpc/kernel/syscalls.o
+  CC      arch/powerpc/kernel/irq.o
+  CC      arch/powerpc/kernel/align.o
+  CC      arch/powerpc/kernel/signal_32.o
+  CC      arch/powerpc/kernel/pmc.o
+  CC      arch/powerpc/kernel/vdso.o
+  cc1: warnings being treated as errors
+  arch/powerpc/kernel/vdso.c:78: warning: alignment of
+  =E2so_data_store=E2s greater than maximum object file
+  alignment.  Using 32768
+  make[1]: *** [arch/powerpc/kernel/vdso.o] Error 1
+  make: *** [arch/powerpc/kernel] Error 2
+  [root@localhost linux-2.6-net.git]#
 
 
-struct good {
-	int		begin_flags[0];
-	unsigned char	a : 8;
-	unsigned char	b;
-	unsigned short	c;
-	int		end_flags[0];
-	int		sk_rcvbuf;
-	void           *ptr;
-};
-struct bad {
-	int		begin_flags[0];
-	unsigned char	a : 8;
-	int		end_flags[0];
-	unsigned char	b;
-	unsigned short	c;
-	int		sk_rcvbuf;
-	void           *ptr;
-};
-sizeof(struct good) = 16, sizeof(struct bad) = 24
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/net/sock.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+  Any suggestions would be appreciated.
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 1621935..ecfb831 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -229,9 +229,9 @@ struct sock {
- 	unsigned char		sk_shutdown : 2,
- 				sk_no_check : 2,
- 				sk_userlocks : 4;
--	kmemcheck_bitfield_end(flags);
- 	unsigned char		sk_protocol;
- 	unsigned short		sk_type;
-+	kmemcheck_bitfield_end(flags);
- 	int			sk_rcvbuf;
- 	socket_lock_t		sk_lock;
- 	/*
