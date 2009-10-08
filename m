@@ -1,94 +1,85 @@
 From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [net-2.6 PATCH 4/7] qlge: Fix RX multicast filter settings.
-Date: Thu,  8 Oct 2009 12:54:40 -0700
-Message-ID: <1255031683-3912-5-git-send-email-ron.mercer@qlogic.com>
+Subject: [net-2.6 PATCH 1/7] qlge: Fix RSS hashing values.
+Date: Thu,  8 Oct 2009 12:54:37 -0700
+Message-ID: <1255031683-3912-2-git-send-email-ron.mercer@qlogic.com>
 References: <1255031683-3912-1-git-send-email-ron.mercer@qlogic.com>
 Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from avexch1.qlogic.com ([198.70.193.115]:40572 "EHLO
 	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933176AbZJHUCC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 16:02:02 -0400
+	with ESMTP id S932988AbZJHUBa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 16:01:30 -0400
 In-Reply-To: <1255031683-3912-1-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The addresses were being added to the filter properly, but were not
-being enabled.  This adds enable bit to filter write.
+Fix RX queue table size and change from random to default hash values.
 
 Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 ---
- drivers/net/qlge/qlge_main.c |   49 +++++++++++++++++++++++++++++++++--------
- 1 files changed, 39 insertions(+), 10 deletions(-)
+ drivers/net/qlge/qlge.h      |    2 +-
+ drivers/net/qlge/qlge_main.c |   22 ++++++++++++----------
+ 2 files changed, 13 insertions(+), 11 deletions(-)
 
+diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
+index 3ec6e85..567b5d6 100644
+--- a/drivers/net/qlge/qlge.h
++++ b/drivers/net/qlge/qlge.h
+@@ -1168,7 +1168,7 @@ struct ricb {
+ #define RSS_RI6 0x40
+ #define RSS_RT6 0x80
+ 	__le16 mask;
+-	__le32 hash_cq_id[256];
++	u8 hash_cq_id[1024];
+ 	__le32 ipv6_hash_key[10];
+ 	__le32 ipv4_hash_key[4];
+ } __attribute((packed));
 diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-index 20c074c..e1203bf 100644
+index 6168071..04fc711 100644
 --- a/drivers/net/qlge/qlge_main.c
 +++ b/drivers/net/qlge/qlge_main.c
-@@ -320,6 +320,37 @@ static int ql_set_mac_addr_reg(struct ql_adapter *qdev, u8 *addr, u32 type,
+@@ -3077,6 +3077,12 @@ err_irq:
  
- 	switch (type) {
- 	case MAC_ADDR_TYPE_MULTI_MAC:
-+		{
-+			u32 upper = (addr[0] << 8) | addr[1];
-+			u32 lower = (addr[2] << 24) | (addr[3] << 16) |
-+					(addr[4] << 8) | (addr[5]);
-+
-+			status =
-+				ql_wait_reg_rdy(qdev,
-+				MAC_ADDR_IDX, MAC_ADDR_MW, 0);
-+			if (status)
-+				goto exit;
-+			ql_write32(qdev, MAC_ADDR_IDX, (offset++) |
-+				(index << MAC_ADDR_IDX_SHIFT) |
-+				type | MAC_ADDR_E);
-+			ql_write32(qdev, MAC_ADDR_DATA, lower);
-+			status =
-+				ql_wait_reg_rdy(qdev,
-+				MAC_ADDR_IDX, MAC_ADDR_MW, 0);
-+			if (status)
-+				goto exit;
-+			ql_write32(qdev, MAC_ADDR_IDX, (offset++) |
-+				(index << MAC_ADDR_IDX_SHIFT) |
-+				type | MAC_ADDR_E);
-+
-+			ql_write32(qdev, MAC_ADDR_DATA, upper);
-+			status =
-+				ql_wait_reg_rdy(qdev,
-+				MAC_ADDR_IDX, MAC_ADDR_MW, 0);
-+			if (status)
-+				goto exit;
-+			break;
-+		}
- 	case MAC_ADDR_TYPE_CAM_MAC:
- 		{
- 			u32 cam_output;
-@@ -365,16 +396,14 @@ static int ql_set_mac_addr_reg(struct ql_adapter *qdev, u8 *addr, u32 type,
- 			   and possibly the function id.  Right now we hardcode
- 			   the route field to NIC core.
- 			 */
--			if (type == MAC_ADDR_TYPE_CAM_MAC) {
--				cam_output = (CAM_OUT_ROUTE_NIC |
--					      (qdev->
--					       func << CAM_OUT_FUNC_SHIFT) |
--						(0 << CAM_OUT_CQ_ID_SHIFT));
--				if (qdev->vlgrp)
--					cam_output |= CAM_OUT_RV;
--				/* route to NIC core */
--				ql_write32(qdev, MAC_ADDR_DATA, cam_output);
--			}
-+			cam_output = (CAM_OUT_ROUTE_NIC |
-+				      (qdev->
-+				       func << CAM_OUT_FUNC_SHIFT) |
-+					(0 << CAM_OUT_CQ_ID_SHIFT));
-+			if (qdev->vlgrp)
-+				cam_output |= CAM_OUT_RV;
-+			/* route to NIC core */
-+			ql_write32(qdev, MAC_ADDR_DATA, cam_output);
- 			break;
- 		}
- 	case MAC_ADDR_TYPE_VLAN:
+ static int ql_start_rss(struct ql_adapter *qdev)
+ {
++	u8 init_hash_seed[] = {0x6d, 0x5a, 0x56, 0xda, 0x25, 0x5b, 0x0e, 0xc2,
++				0x41, 0x67, 0x25, 0x3d, 0x43, 0xa3, 0x8f,
++				0xb0, 0xd0, 0xca, 0x2b, 0xcb, 0xae, 0x7b,
++				0x30, 0xb4, 0x77, 0xcb, 0x2d, 0xa3, 0x80,
++				0x30, 0xf2, 0x0c, 0x6a, 0x42, 0xb7, 0x3b,
++				0xbe, 0xac, 0x01, 0xfa};
+ 	struct ricb *ricb = &qdev->ricb;
+ 	int status = 0;
+ 	int i;
+@@ -3086,21 +3092,17 @@ static int ql_start_rss(struct ql_adapter *qdev)
+ 
+ 	ricb->base_cq = RSS_L4K;
+ 	ricb->flags =
+-	    (RSS_L6K | RSS_LI | RSS_LB | RSS_LM | RSS_RI4 | RSS_RI6 | RSS_RT4 |
+-	     RSS_RT6);
+-	ricb->mask = cpu_to_le16(qdev->rss_ring_count - 1);
++		(RSS_L6K | RSS_LI | RSS_LB | RSS_LM | RSS_RT4 | RSS_RT6);
++	ricb->mask = cpu_to_le16((u16)(0x3ff));
+ 
+ 	/*
+ 	 * Fill out the Indirection Table.
+ 	 */
+-	for (i = 0; i < 256; i++)
+-		hash_id[i] = i & (qdev->rss_ring_count - 1);
++	for (i = 0; i < 1024; i++)
++		hash_id[i] = (i & (qdev->rss_ring_count - 1));
+ 
+-	/*
+-	 * Random values for the IPv6 and IPv4 Hash Keys.
+-	 */
+-	get_random_bytes((void *)&ricb->ipv6_hash_key[0], 40);
+-	get_random_bytes((void *)&ricb->ipv4_hash_key[0], 16);
++	memcpy((void *)&ricb->ipv6_hash_key[0], init_hash_seed, 40);
++	memcpy((void *)&ricb->ipv4_hash_key[0], init_hash_seed, 16);
+ 
+ 	QPRINTK(qdev, IFUP, DEBUG, "Initializing RSS.\n");
+ 
 -- 
 1.6.0.2
 
