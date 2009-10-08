@@ -1,49 +1,92 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: [PATCH] Add sk_mark route lookup support for IPv4 listening
-	sockets, and for IPv4 multicast forwarding
-Date: Wed, 7 Oct 2009 17:03:30 -0700
-Message-ID: <55a4f86e0910071703i4735f1aan1ddba81eec7eef19@mail.gmail.com>
-References: <200910051646.34770.atis@mikrotik.com>
-	 <20091007.031957.197632672.davem@davemloft.net>
-	 <200910071559.56526.atis@mikrotik.com>
-	 <20091007.135627.96995518.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: atis@mikrotik.com, netdev@vger.kernel.org, panther@balabit.hu,
-	eric.dumazet@gmail.com, brian.haley@hp.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f210.google.com ([209.85.218.210]:46230 "EHLO
-	mail-bw0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754309AbZJHAEI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 20:04:08 -0400
-Received: by bwz6 with SMTP id 6so403976bwz.37
-        for <netdev@vger.kernel.org>; Wed, 07 Oct 2009 17:03:30 -0700 (PDT)
-In-Reply-To: <20091007.135627.96995518.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Chou <thomas@wytron.com.tw>
+Subject: [PATCH 1/2] ethoc: inline regs access
+Date: Thu,  8 Oct 2009 08:16:42 +0800
+Message-ID: <1254961003-2453-1-git-send-email-thomas@wytron.com.tw>
+Cc: thierry.reding@avionic-design.de,
+	Nios2 development list <nios2-dev@sopc.et.ntust.edu.tw>,
+	linux-kernel@vger.kernel.org, Thomas Chou <thomas@wytron.com.tw>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756591AbZJHAQ0@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Should wrapping a packet into a tunnel clear the mark?
-Should perhaps the mark be a parameter of the tunnel (like ttl or qos,
-can be set or can be inherited)?
+Signed-off-by: Thomas Chou <thomas@wytron.com.tw>
+---
+ drivers/net/ethoc.c |   19 ++++++++++---------
+ 1 files changed, 10 insertions(+), 9 deletions(-)
 
-On Wed, Oct 7, 2009 at 13:56, David Miller <davem@davemloft.net> wrote:
-> From: Atis Elsts <atis@mikrotik.com>
-> Date: Wed, 7 Oct 2009 15:59:56 +0300
->
->> Here is the sk_mark part.
->
-> Applied, thanks.
->
->> As for the ipmr.c code, I agree with your comment. Using mark from
->> skb probably is wrong in case of tunnel interface (i.e. in the "if
->> (vif->flags&VIFF_TUNNEL)" part of the patch), my mistake. I still
->> think that the "else" part is correct, though, because using mark
->> from skb there mirrors behaviour for unicast forwarding routing
->> lookup in ip_route_input_slow(). The same applies to IPv6 code in
->> ip6mr_forward2().
->
-> Ok submit just the else part and we'll have a look at it.
->
-> Thanks.
->
+diff --git a/drivers/net/ethoc.c b/drivers/net/ethoc.c
+index 22df0a6..6b39723 100644
+--- a/drivers/net/ethoc.c
++++ b/drivers/net/ethoc.c
+@@ -222,24 +222,25 @@ struct ethoc_bd {
+ 	u32 addr;
+ };
+ 
+-static u32 ethoc_read(struct ethoc *dev, loff_t offset)
++static inline u32 ethoc_read(struct ethoc *dev, loff_t offset)
+ {
+ 	return ioread32(dev->iobase + offset);
+ }
+ 
+-static void ethoc_write(struct ethoc *dev, loff_t offset, u32 data)
++static inline void ethoc_write(struct ethoc *dev, loff_t offset, u32 data)
+ {
+ 	iowrite32(data, dev->iobase + offset);
+ }
+ 
+-static void ethoc_read_bd(struct ethoc *dev, int index, struct ethoc_bd *bd)
++static inline void ethoc_read_bd(struct ethoc *dev, int index,
++		struct ethoc_bd *bd)
+ {
+ 	loff_t offset = ETHOC_BD_BASE + (index * sizeof(struct ethoc_bd));
+ 	bd->stat = ethoc_read(dev, offset + 0);
+ 	bd->addr = ethoc_read(dev, offset + 4);
+ }
+ 
+-static void ethoc_write_bd(struct ethoc *dev, int index,
++static inline void ethoc_write_bd(struct ethoc *dev, int index,
+ 		const struct ethoc_bd *bd)
+ {
+ 	loff_t offset = ETHOC_BD_BASE + (index * sizeof(struct ethoc_bd));
+@@ -247,33 +248,33 @@ static void ethoc_write_bd(struct ethoc *dev, int index,
+ 	ethoc_write(dev, offset + 4, bd->addr);
+ }
+ 
+-static void ethoc_enable_irq(struct ethoc *dev, u32 mask)
++static inline void ethoc_enable_irq(struct ethoc *dev, u32 mask)
+ {
+ 	u32 imask = ethoc_read(dev, INT_MASK);
+ 	imask |= mask;
+ 	ethoc_write(dev, INT_MASK, imask);
+ }
+ 
+-static void ethoc_disable_irq(struct ethoc *dev, u32 mask)
++static inline void ethoc_disable_irq(struct ethoc *dev, u32 mask)
+ {
+ 	u32 imask = ethoc_read(dev, INT_MASK);
+ 	imask &= ~mask;
+ 	ethoc_write(dev, INT_MASK, imask);
+ }
+ 
+-static void ethoc_ack_irq(struct ethoc *dev, u32 mask)
++static inline void ethoc_ack_irq(struct ethoc *dev, u32 mask)
+ {
+ 	ethoc_write(dev, INT_SOURCE, mask);
+ }
+ 
+-static void ethoc_enable_rx_and_tx(struct ethoc *dev)
++static inline void ethoc_enable_rx_and_tx(struct ethoc *dev)
+ {
+ 	u32 mode = ethoc_read(dev, MODER);
+ 	mode |= MODER_RXEN | MODER_TXEN;
+ 	ethoc_write(dev, MODER, mode);
+ }
+ 
+-static void ethoc_disable_rx_and_tx(struct ethoc *dev)
++static inline void ethoc_disable_rx_and_tx(struct ethoc *dev)
+ {
+ 	u32 mode = ethoc_read(dev, MODER);
+ 	mode &= ~(MODER_RXEN | MODER_TXEN);
+-- 
+1.6.2.5
