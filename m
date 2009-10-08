@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 5/5] xfrm: remove skb_icv_walk
-Date: Thu, 8 Oct 2009 10:50:40 +0200
-Message-ID: <20091008085040.GO15653@secunet.com>
+Subject: [PATCH 4/5] ah: Remove obsolete code
+Date: Thu, 8 Oct 2009 10:49:57 +0200
+Message-ID: <20091008084957.GN15653@secunet.com>
 References: <20091008084631.GJ15653@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,127 +9,75 @@ Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([213.68.205.161]:43245 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([213.68.205.161]:43238 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755435AbZJHIvS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Oct 2009 04:51:18 -0400
+	id S1752327AbZJHIuf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Oct 2009 04:50:35 -0400
 Content-Disposition: inline
 In-Reply-To: <20091008084631.GJ15653@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The last users of skb_icv_walk are converted to ahash now,
-so skb_icv_walk is unused and can be removed.
+ah4 and ah6 are converted to ahash now, so we can remove the
+code for the obsolete hash algorithm.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/xfrm.h   |    3 --
- net/xfrm/xfrm_algo.c |   78 --------------------------------------------------
- 2 files changed, 0 insertions(+), 81 deletions(-)
+ include/net/ah.h |   29 +++--------------------------
+ 1 files changed, 3 insertions(+), 26 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 223e90a..d9c6dbb 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1500,9 +1500,6 @@ struct scatterlist;
- typedef int (icv_update_fn_t)(struct hash_desc *, struct scatterlist *,
- 			      unsigned int);
+diff --git a/include/net/ah.h b/include/net/ah.h
+index 7ac5221..7573a71 100644
+--- a/include/net/ah.h
++++ b/include/net/ah.h
+@@ -1,44 +1,21 @@
+ #ifndef _NET_AH_H
+ #define _NET_AH_H
  
--extern int skb_icv_walk(const struct sk_buff *skb, struct hash_desc *tfm,
--			int offset, int len, icv_update_fn_t icv_update);
--
- static inline int xfrm_addr_cmp(xfrm_address_t *a, xfrm_address_t *b,
- 				int family)
+-#include <linux/crypto.h>
+-#include <net/xfrm.h>
++#include <linux/skbuff.h>
+ 
+ /* This is the maximum truncated ICV length that we know of. */
+ #define MAX_AH_AUTH_LEN	12
+ 
++struct crypto_ahash;
++
+ struct ah_data
  {
-diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
-index faf54c6..b393410 100644
---- a/net/xfrm/xfrm_algo.c
-+++ b/net/xfrm/xfrm_algo.c
-@@ -689,84 +689,6 @@ int xfrm_count_enc_supported(void)
- }
- EXPORT_SYMBOL_GPL(xfrm_count_enc_supported);
+-	u8			*work_icv;
+ 	int			icv_full_len;
+ 	int			icv_trunc_len;
  
--/* Move to common area: it is shared with AH. */
--
--int skb_icv_walk(const struct sk_buff *skb, struct hash_desc *desc,
--		 int offset, int len, icv_update_fn_t icv_update)
+-	struct crypto_hash	*tfm;
+ 	struct crypto_ahash	*ahash;
+ };
+ 
+-static inline int ah_mac_digest(struct ah_data *ahp, struct sk_buff *skb,
+-				u8 *auth_data)
 -{
--	int start = skb_headlen(skb);
--	int i, copy = start - offset;
--	struct sk_buff *frag_iter;
--	struct scatterlist sg;
+-	struct hash_desc desc;
 -	int err;
 -
--	/* Checksum header. */
--	if (copy > 0) {
--		if (copy > len)
--			copy = len;
+-	desc.tfm = ahp->tfm;
+-	desc.flags = 0;
 -
--		sg_init_one(&sg, skb->data + offset, copy);
+-	memset(auth_data, 0, ahp->icv_trunc_len);
+-	err = crypto_hash_init(&desc);
+-	if (unlikely(err))
+-		goto out;
+-	err = skb_icv_walk(skb, &desc, 0, skb->len, crypto_hash_update);
+-	if (unlikely(err))
+-		goto out;
+-	err = crypto_hash_final(&desc, ahp->work_icv);
 -
--		err = icv_update(desc, &sg, copy);
--		if (unlikely(err))
--			return err;
--
--		if ((len -= copy) == 0)
--			return 0;
--		offset += copy;
--	}
--
--	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
--		int end;
--
--		WARN_ON(start > offset + len);
--
--		end = start + skb_shinfo(skb)->frags[i].size;
--		if ((copy = end - offset) > 0) {
--			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
--
--			if (copy > len)
--				copy = len;
--
--			sg_init_table(&sg, 1);
--			sg_set_page(&sg, frag->page, copy,
--				    frag->page_offset + offset-start);
--
--			err = icv_update(desc, &sg, copy);
--			if (unlikely(err))
--				return err;
--
--			if (!(len -= copy))
--				return 0;
--			offset += copy;
--		}
--		start = end;
--	}
--
--	skb_walk_frags(skb, frag_iter) {
--		int end;
--
--		WARN_ON(start > offset + len);
--
--		end = start + frag_iter->len;
--		if ((copy = end - offset) > 0) {
--			if (copy > len)
--				copy = len;
--			err = skb_icv_walk(frag_iter, desc, offset-start,
--					   copy, icv_update);
--			if (unlikely(err))
--				return err;
--			if ((len -= copy) == 0)
--				return 0;
--			offset += copy;
--		}
--		start = end;
--	}
--	BUG_ON(len);
--	return 0;
+-out:
+-	return err;
 -}
--EXPORT_SYMBOL_GPL(skb_icv_walk);
 -
- #if defined(CONFIG_INET_ESP) || defined(CONFIG_INET_ESP_MODULE) || defined(CONFIG_INET6_ESP) || defined(CONFIG_INET6_ESP_MODULE)
+ struct ip_auth_hdr;
  
- void *pskb_put(struct sk_buff *skb, struct sk_buff *tail, int len)
+ static inline struct ip_auth_hdr *ip_auth_hdr(const struct sk_buff *skb)
 -- 
 1.5.4.2
 
