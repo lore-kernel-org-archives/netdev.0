@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH V3] can: add TI CAN (HECC) driver
-Date: Wed, 07 Oct 2009 22:03:06 -0700 (PDT)
-Message-ID: <20091007.220306.01875045.davem@davemloft.net>
-References: <1254920387-20939-1-git-send-email-anantgole@ti.com>
+Subject: Re: [PATCH] bridge: Allow enable/disable UFO on bridge device via
+ ethtool
+Date: Wed, 07 Oct 2009 22:01:45 -0700 (PDT)
+Message-ID: <20091007.220145.252520000.davem@davemloft.net>
+References: <1254955277.31575.208.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, socketcan-core@lists.berlios.de,
-	linux-arm-kernel@lists.arm.linux.org.uk
-To: anantgole@ti.com
+Cc: netdev@vger.kernel.org
+To: sri@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33902
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33899
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751759AbZJHFDL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 01:03:11 -0400
-In-Reply-To: <1254920387-20939-1-git-send-email-anantgole@ti.com>
+	by vger.kernel.org with ESMTP id S1751656AbZJHFBu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 01:01:50 -0400
+In-Reply-To: <1254955277.31575.208.camel@w-sridhar.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anant Gole <anantgole@ti.com>
-Date: Wed,  7 Oct 2009 18:29:47 +0530
+From: Sridhar Samudrala <sri@us.ibm.com>
+Date: Wed, 07 Oct 2009 15:41:17 -0700
 
-> TI HECC (High End CAN Controller) module is found on many TI devices. It
-> has 32 hardware mailboxes with full implementation of CAN protocol 2.0B
-> with bus speeds up to 1Mbps. Specifications of the module are available
-> on TI web <http://www.ti.com>
+> Allow enable/disable UFO on bridge device via ethtool
 > 
-> Signed-off-by: Anant Gole <anantgole@ti.com>
+> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
-Applied, thanks.
+Applied.
