@@ -1,114 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [BUG] znet.c sleeping function called from
-	invalid context
-Date: Wed, 07 Oct 2009 22:15:55 -0700 (PDT)
-Message-ID: <20091007.221555.71697986.davem@davemloft.net>
-References: <200910071847.38163.strakh@ispras.ru>
-	<8bd0f97a0910071144k1d0bf30bv60656181edae8af7@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Add sk_mark route lookup support for IPv4 listening
+ sockets, and for IPv4 multicast forwarding
+Date: Wed, 07 Oct 2009 22:39:28 -0700 (PDT)
+Message-ID: <20091007.223928.34412707.davem@davemloft.net>
+References: <200910071559.56526.atis@mikrotik.com>
+	<20091007.135627.96995518.davem@davemloft.net>
+	<55a4f86e0910071703i4735f1aan1ddba81eec7eef19@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, strakh-ufN2psIa012HXe+LvDLADg@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        michael.hennerich-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org, uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-To: vapier.adi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
-In-Reply-To: <8bd0f97a0910071144k1d0bf30bv60656181edae8af7-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://blackfin.uclinux.org/mailman/options/uclinux-dist-devel>,
-	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://blackfin.uclinux.org/pipermail/uclinux-dist-devel>
-List-Post: <mailto:uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
-List-Help: <mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=help>
-List-Subscribe: <https://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
-	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=subscribe>
-Sender: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-Errors-To: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: atis@mikrotik.com, netdev@vger.kernel.org, panther@balabit.hu,
+	eric.dumazet@gmail.com, brian.haley@hp.com
+To: zenczykowski@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44502
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752968AbZJHFjd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 01:39:33 -0400
+In-Reply-To: <55a4f86e0910071703i4735f1aan1ddba81eec7eef19@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mike Frysinger <vapier.adi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Wed, 7 Oct 2009 14:44:45 -0400
-
-> On Wed, Oct 7, 2009 at 14:47, Alexander Strakh wrote:
->> =A0 =A0 =A0 =A0KERNEL_VERSION: 2.6.31
->> =A0 =A0 =A0 =A0DESCRIBE:
->> Driver drivers/net/znet.c might sleep in atomic context, because it calls
->> free_dma under claim_dma_lock:
->>
->> .drivers/net/znet.c:
->> =A0168 static int znet_request_resources (struct net_device *dev)
->> ...
->> =A0189 =A0 =A0 =A0 =A0flags =3D claim_dma_lock();
->> =A0190 =A0 =A0 =A0 =A0free_dma (znet->tx_dma);
->> =A0191 =A0 =A0 =A0 =A0release_dma_lock (flags);
->> ...
->>
->> Path to might_sleep macro from znet_request_resources:
->> 1. znet_request_resources calls free_dma at
->> arch/blackfin/kernel/bfin_dma_5xx.c:181
->> 2. free_dma calls arch/blackfin/kernel/bfin_dma_5xx.c:195
-> =
-
-> i dont think we need the dmalock mutex.  it's only used to protect
-> read/writes to .chan_status, and that should be atomic already.
-> -mike
-
-I'm checking in the obvious fix to net-2.6, thanks for the report:
-
-znet: Don't claim DMA lock around free_dma() calls.
-
-It's not necessary and it's illegal too.
-
-Reported-by: Alexander Strakh <strakh-ufN2psIa012HXe+LvDLADg@public.gmane.org>
-Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
----
- drivers/net/znet.c |    8 --------
- 1 files changed, 0 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/znet.c b/drivers/net/znet.c
-index a0384b6..b423473 100644
---- a/drivers/net/znet.c
-+++ b/drivers/net/znet.c
-@@ -169,7 +169,6 @@ static void znet_tx_timeout (struct net_device *dev);
- static int znet_request_resources (struct net_device *dev)
- {
- 	struct znet_private *znet =3D netdev_priv(dev);
--	unsigned long flags;
- =
-
- 	if (request_irq (dev->irq, &znet_interrupt, 0, "ZNet", dev))
- 		goto failed;
-@@ -187,13 +186,9 @@ static int znet_request_resources (struct net_device *=
-dev)
-  free_sia:
- 	release_region (znet->sia_base, znet->sia_size);
-  free_tx_dma:
--	flags =3D claim_dma_lock();
- 	free_dma (znet->tx_dma);
--	release_dma_lock (flags);
-  free_rx_dma:
--	flags =3D claim_dma_lock();
- 	free_dma (znet->rx_dma);
--	release_dma_lock (flags);
-  free_irq:
- 	free_irq (dev->irq, dev);
-  failed:
-@@ -203,14 +198,11 @@ static int znet_request_resources (struct net_device =
-*dev)
- static void znet_release_resources (struct net_device *dev)
- {
- 	struct znet_private *znet =3D netdev_priv(dev);
--	unsigned long flags;
- =
-
- 	release_region (znet->sia_base, znet->sia_size);
- 	release_region (dev->base_addr, znet->io_size);
--	flags =3D claim_dma_lock();
- 	free_dma (znet->tx_dma);
- 	free_dma (znet->rx_dma);
--	release_dma_lock (flags);
- 	free_irq (dev->irq, dev);
- }
- =
-
--- =
-
-1.6.4.4
+RnJvbTogTWFjaWVqIMW7ZW5jenlrb3dza2kgPHplbmN6eWtvd3NraUBnbWFpbC5jb20+DQpEYXRl
+OiBXZWQsIDcgT2N0IDIwMDkgMTc6MDM6MzAgLTA3MDANCg0KPiBTaG91bGQgd3JhcHBpbmcgYSBw
+YWNrZXQgaW50byBhIHR1bm5lbCBjbGVhciB0aGUgbWFyaz8NCj4gU2hvdWxkIHBlcmhhcHMgdGhl
+IG1hcmsgYmUgYSBwYXJhbWV0ZXIgb2YgdGhlIHR1bm5lbCAobGlrZSB0dGwgb3IgcW9zLA0KPiBj
+YW4gYmUgc2V0IG9yIGNhbiBiZSBpbmhlcml0ZWQpPw0KDQpUaGF0J3MgdGhlIGJpZyBxdWVzdGlv
+bi4NCg0KSXQgbWF5IGJlIHRoYXQgdGhlIG9ubHkgbG9naWNhbCB0aGluZyB3ZSBjYW4gZG8gaXMg
+b25seSBhcHBseQ0KdGhlIHNvY2tldCBtYXJrIHRvIHRoZSB0b3AtbGV2ZWwgcGF0aCBhbmQgdGhh
+dCdzIHdoYXQgaGFwcGVucw0Kbm93Lg0KDQpCZWNhdXNlIHdlIHJlYWxseSBkb24ndCBoYXZlIGFu
+eSByZWFzb25hYmxlIHdheSB0byBsZXQgdGhlIHVzZXINCmNvbnRyb2wgd2hlcmUgaXQgYXBwbGll
+cy4gIFdlIGhhdmUgbm8gd2F5IGZvciBpdCB0byBzYXkgImRvbid0DQphcHBseSB0aGUgbWFyayB0
+byB0aGUgdG9wLWxldmVsIHBhdGgsIGJ1dCBkbyBhcHBseSBpdCB0byB0aGUNCm11bHRpY2FzdCB0
+dW5uZWwnIG9yIHNvbWV0aGluZyBsaWtlIHRoYXQuDQoNClNvLCB0byBiZSBob25lc3QsIEknZCBz
+YXkgd2Ugc2hvdWxkIHNraXAgdGhlc2Ugc2tiLT5tYXJrIGNhc2VzDQpmb3Igbm93Lg0K
