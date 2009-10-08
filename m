@@ -1,43 +1,43 @@
-From: Thomas Chou <thomas@wytron.com.tw>
-Subject: [PATCH 2/2] ethoc: clear only pending irqs
-Date: Thu,  8 Oct 2009 08:16:43 +0800
-Message-ID: <1254961003-2453-2-git-send-email-thomas@wytron.com.tw>
-References: <1254961003-2453-1-git-send-email-thomas@wytron.com.tw>
-Cc: thierry.reding@avionic-design.de,
-	Nios2 development list <nios2-dev@sopc.et.ntust.edu.tw>,
-	linux-kernel@vger.kernel.org, Thomas Chou <thomas@wytron.com.tw>
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next-2.6] ixgbe: Use the instance of net_device_stats
+	from net_device.
+Date: Wed, 7 Oct 2009 17:45:59 -0700
+Message-ID: <9929d2390910071745h5db007dbwad462e0469fa1a7a@mail.gmail.com>
+References: <20091007124339.GA30083@serverengines.com>
+	 <9929d2390910071634o42210a96s87e5703080d825b3@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Ajit Khaparde <ajitk@serverengines.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from msr19.hinet.net ([168.95.4.119]:65156 "EHLO msr19.hinet.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755271AbZJHAQY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Oct 2009 20:16:24 -0400
-In-Reply-To: <1254961003-2453-1-git-send-email-thomas@wytron.com.tw>
+Received: from mail-pz0-f177.google.com ([209.85.222.177]:48690 "EHLO
+	mail-pz0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753501AbZJHAqg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 20:46:36 -0400
+Received: by pzk7 with SMTP id 7so545592pzk.33
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2009 17:45:59 -0700 (PDT)
+In-Reply-To: <9929d2390910071634o42210a96s87e5703080d825b3@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixed the problem of dropped packets due to lost of
-interrupt requests. We should only clear what was pending at the
-moment we read the irq source reg.
+On Wed, Oct 7, 2009 at 16:34, Jeff Kirsher <jeffrey.t.kirsher@intel.com=
+> wrote:
+> On Wed, Oct 7, 2009 at 05:43, Ajit Khaparde <ajitkhaparde@gmail.com> =
+wrote:
+>> Since net_device has an instance of net_device_stats,
+>> we can remove the instance of this from the private adapter structur=
+e.
+>>
+>> Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+>> ---
+>> =C2=A0drivers/net/ixgbe/ixgbe.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0=
+ =C2=A01 -
+>> =C2=A0drivers/net/ixgbe/ixgbe_ethtool.c | =C2=A0 40 ++++++++++++++++=
++++-----------------
+>> =C2=A0drivers/net/ixgbe/ixgbe_main.c =C2=A0 =C2=A0| =C2=A0 26 ++++++=
+++++++------------
+>> =C2=A03 files changed, 34 insertions(+), 33 deletions(-)
+>>
 
-Signed-off-by: Thomas Chou <thomas@wytron.com.tw>
----
- drivers/net/ethoc.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethoc.c b/drivers/net/ethoc.c
-index 6b39723..ecc53d9 100644
---- a/drivers/net/ethoc.c
-+++ b/drivers/net/ethoc.c
-@@ -509,7 +509,7 @@ static irqreturn_t ethoc_interrupt(int irq, void *dev_id)
- 		return IRQ_NONE;
- 	}
- 
--	ethoc_ack_irq(priv, INT_MASK_ALL);
-+	ethoc_ack_irq(priv, pending);
- 
- 	if (pending & INT_MASK_BUSY) {
- 		dev_err(&dev->dev, "packet dropped\n");
--- 
-1.6.2.5
-
+Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
