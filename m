@@ -1,87 +1,78 @@
-From: Stefano Babic <stefano.babic@babic.homelinux.org>
-Subject: Re: [7/8,RFC] CAIF Protocol Stack
-Date: Thu, 08 Oct 2009 16:03:22 +0200
-Message-ID: <4ACDF12A.6030906@babic.homelinux.org>
-References: <1253727096-10413-1-git-send-email-sjur.brandeland@stericsson.com> <4ACA1D31.6000008@babic.homelinux.org> <61D8D34BB13CFE408D154529C120E07902ED671E@eseldmw101.eemea.ericsson.se>
+From: "Torgny Johansson" <torgny.johansson@ericsson.com>
+Subject: [PATCH -next][resubmit] cdc_ether: additional Ericsson MBM PID's to the whitelist
+Date: Thu, 8 Oct 2009 16:20:48 +0200
+Message-ID: <E86B0C24322D8648AC7F41E7CDA658E903DDD5FD@esealmw114.eemea.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Kim Lilliestierna XX <kim.xx.lilliestierna@stericsson.com>
-To: =?ISO-8859-1?Q?Sjur_Br=E6ndeland?= <sjur.brandeland@stericsson.com>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpout084B.attiva.biz ([85.33.31.84]:32048 "EHLO
-	smtpout084B.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756412AbZJHOJh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 10:09:37 -0400
-In-Reply-To: <61D8D34BB13CFE408D154529C120E07902ED671E@eseldmw101.eemea.ericsson.se>
+Received: from mailgw5.ericsson.se ([193.180.251.36]:45559 "EHLO
+	mailgw5.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757158AbZJHOV2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 10:21:28 -0400
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sjur Br=E6ndeland wrote:
-
-> If pser_tty->ops->write() returns zero it will loop infinetly.
-> I guess the proper solution would be not to loop, but to implement a =
-write_wakeup function for the tty...?
-
-I discovered there is a production bug in the Makefile and the setup of
-the extract function in cfcnfg_get_packet_funcs() is inconsistent.
-Indeed, I traced the address of the extract function and I can find tha=
-t
-the address does not point to cfpkt_extract(), as I assumed.
-
-The problem is due to the usage of the define CAIF_USE_SKB. This is use=
-d
-in caif_layer.h, but some files (net/caif/*) are compiled with the macr=
-o
-defined, while the drivers (drivers/net/caif/*) not.
-Rather I did not get an "oops", because a valid pointer was set....but
-to the wrong function !
-
-I have also seen that CAIF_USE_SKB is not used in
-cfpkt_get_packet_funcs, and this generates a problem if CAIF_USE_SKB is
-not set, because the "fromnative" and "tonative" functions are always
-set, even if they do not belong to the structure.
-
-IMHO should be possible to get rid of the usage of CAIF_USE_SKB in the
-structure definition (in caif_layer.h) and to provide always the same
-structure definition in both case. I would prefer to set the values of
-cfpkt_fromnative and cfpkt_tonative to NULL, instead of reducing the
-size of the structure.
-
-I mean, something like this:
-
-void cfpkt_get_packet_funcs(caif_packet_funcs_t *f)
-{
-#ifdef CAIF_USE_SKB
-        f->cfpkt_fromnative =3D cfpkt_fromnative;
-        f->cfpkt_tonative =3D cfpkt_tonative;
-#else
-	f->cfpkt_fromnative =3D NULL;
-        f->cfpkt_tonative =3D NULL;
-#endif
-
-I am not sure I understood the meaning of using this structure, because
-at the moment the setup is fixed and I cannot find any point in code
-where the structure is assigned to another set of functions. Probably
-you arrange to have multiple choices in future, I can suppose.
-
-What about to pass directly the pointer to the structure instead of
-copying returning its value ? It seems not necessary to me, I changed
-cfpkt_get_packet_funcs in this direction.
-
-Meanwhile, it seems some bytes are sent now to the physical interface.
-
-<caif_chropen:797, TRACE> [caif_chropen:797] WAIT FOR CONNECT RESPONSE
-<caif_chropen:820, TRACE> caif_open: connect timed out
-
-However, I get no connection, but probably this is another problem....
-
-Best Regards,
-Stefano Babic
-
---=20
-stefano <stefano.babic@babic.homelinux.org>
-GPG Key: 0x55814DDE
-=46ingerprint 4E85 2A66 4CBA 497A 2A7B D3BF 5973 F216 5581 4DDE
-
+SGkhDQoNClRoaXMgaXMgYSBuZXcgYXR0ZW1wdCB0byBzdWJtaXQgYSBwYXRjaCB0aGF0IGFkZHMg
+c2V2ZW4gbW9yZSBQSUQncyB0byB0aGUgd2hpdGVsaXN0IHNldCBvZiBkZXZpY2UuIEJlZW4gaGF2
+aW5nIHNvbWUgcHJvYmxlbXMgc3VibWl0dGluZyBwYXRjaGVzIHdpdGggT3V0bG9vayAoeWVzIEkg
+a25vdyB0aGF0IGlzIGEgYmFhYWQgaWRlYSA6KSkgYnV0IGhvcGVmdWxseSB0aGlzIHdpbGwgZ2V0
+IHNlbnQgcmlnaHQuDQoNCkRldmljZXMgYWRkZWQgdG8gdGhlIHdoaXRlbGlzdDoNCiAtIEVyaWNz
+c29uIE1vYmlsZSBCcm9hZGJhbmQgdmFyaWFudHMgKEYzNjA3Z3cgYW5kIEYzMzA3KQ0KIC0gRGVs
+bCBGMzYwN2d3IHZhcmlhbnRzDQogLSBUb3NoaWJhIEYzNjA3Z3cgdmFyaWFudHMNCg0KUmVnYXJk
+cyANClRvcmdueSBKb2hhbnNzb24NCg0KU2lnbmVkLW9mZi1ieTogVG9yZ255IEpvaGFuc3NvbiA8
+dG9yZ255LmpvaGFuc3NvbkBlcmljc3Nvbi5jb20+DQoNCi0tDQoNCmRpZmYgLS1naXQgYS9kcml2
+ZXJzL25ldC91c2IvS2NvbmZpZyBiL2RyaXZlcnMvbmV0L3VzYi9LY29uZmlnDQppbmRleCBjNDcy
+MzdjLi4zMmQ5MzU2IDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvdXNiL0tjb25maWcNCisrKyBi
+L2RyaXZlcnMvbmV0L3VzYi9LY29uZmlnDQpAQCAtMTc0LDcgKzE3NCw3IEBAIGNvbmZpZyBVU0Jf
+TkVUX0NEQ0VUSEVSDQogCSAgICAqIEVyaWNzc29uIE1vYmlsZSBCcm9hZGJhbmQgTW9kdWxlIChh
+bGwgdmFyaWFudHMpDQogIAkgICAgKiBNb3Rvcm9sYSAoRE0xMDAgYW5kIFNCNDEwMCkNCiAgCSAg
+ICAqIEJyb2FkY29tIENhYmxlIE1vZGVtIChyZWZlcmVuY2UgZGVzaWduKQ0KLQkgICAgKiBUb3No
+aWJhIChQQ1gxMTAwVSBhbmQgRjM1MDdnKQ0KKwkgICAgKiBUb3NoaWJhIChQQ1gxMTAwVSBhbmQg
+RjM1MDdnL0YzNjA3Z3cpDQogCSAgICAqIC4uLg0KIA0KIAkgIFRoaXMgZHJpdmVyIGNyZWF0ZXMg
+YW4gaW50ZXJmYWNlIG5hbWVkICJldGhYIiwgd2hlcmUgWCBkZXBlbmRzIG9uDQpkaWZmIC0tZ2l0
+IGEvZHJpdmVycy9uZXQvdXNiL2NkY19ldGhlci5jIGIvZHJpdmVycy9uZXQvdXNiL2NkY19ldGhl
+ci5jDQppbmRleCA0YTZhZmY1Li41ZDk5MTA2IDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvdXNi
+L2NkY19ldGhlci5jDQorKysgYi9kcml2ZXJzL25ldC91c2IvY2RjX2V0aGVyLmMNCkBAIC01NDQs
+MjAgKzU0NCw1NSBAQCBzdGF0aWMgY29uc3Qgc3RydWN0IHVzYl9kZXZpY2VfaWQJcHJvZHVjdHMg
+W10gPSB7DQogCQkJVVNCX0NEQ19TVUJDTEFTU19NRExNLCBVU0JfQ0RDX1BST1RPX05PTkUpLA0K
+IAkuZHJpdmVyX2luZm8gPSAodW5zaWduZWQgbG9uZykgJmNkY19pbmZvLA0KIH0sIHsNCi0JLyog
+RXJpY3Nzb24gRjMzMDcgKi8NCisJLyogRXJpY3Nzb24gRjM2MDdndyB2ZXIgMiAqLw0KKwlVU0Jf
+REVWSUNFX0FORF9JTlRFUkZBQ0VfSU5GTygweDBiZGIsIDB4MTkwNSwgVVNCX0NMQVNTX0NPTU0s
+DQorCQkJVVNCX0NEQ19TVUJDTEFTU19NRExNLCBVU0JfQ0RDX1BST1RPX05PTkUpLA0KKwkuZHJp
+dmVyX2luZm8gPSAodW5zaWduZWQgbG9uZykgJmNkY19pbmZvLA0KK30sIHsNCisJLyogRXJpY3Nz
+b24gRjM2MDdndyB2ZXIgMyAqLw0KIAlVU0JfREVWSUNFX0FORF9JTlRFUkZBQ0VfSU5GTygweDBi
+ZGIsIDB4MTkwNiwgVVNCX0NMQVNTX0NPTU0sDQogCQkJVVNCX0NEQ19TVUJDTEFTU19NRExNLCBV
+U0JfQ0RDX1BST1RPX05PTkUpLA0KIAkuZHJpdmVyX2luZm8gPSAodW5zaWduZWQgbG9uZykgJmNk
+Y19pbmZvLA0KIH0sIHsNCisJLyogRXJpY3Nzb24gRjMzMDcgKi8NCisJVVNCX0RFVklDRV9BTkRf
+SU5URVJGQUNFX0lORk8oMHgwYmRiLCAweDE5MGEsIFVTQl9DTEFTU19DT01NLA0KKwkJCVVTQl9D
+RENfU1VCQ0xBU1NfTURMTSwgVVNCX0NEQ19QUk9UT19OT05FKSwNCisJLmRyaXZlcl9pbmZvID0g
+KHVuc2lnbmVkIGxvbmcpICZjZGNfaW5mbywNCit9LCB7DQorCS8qIEVyaWNzc29uIEYzMzA3IHZl
+ciAyICovDQorCVVTQl9ERVZJQ0VfQU5EX0lOVEVSRkFDRV9JTkZPKDB4MGJkYiwgMHgxOTA5LCBV
+U0JfQ0xBU1NfQ09NTSwNCisJCQlVU0JfQ0RDX1NVQkNMQVNTX01ETE0sIFVTQl9DRENfUFJPVE9f
+Tk9ORSksDQorCS5kcml2ZXJfaW5mbyA9ICh1bnNpZ25lZCBsb25nKSAmY2RjX2luZm8sDQorfSwg
+ew0KIAkvKiBUb3NoaWJhIEYzNTA3ZyAqLw0KIAlVU0JfREVWSUNFX0FORF9JTlRFUkZBQ0VfSU5G
+TygweDA5MzAsIDB4MTMwYiwgVVNCX0NMQVNTX0NPTU0sDQogCQkJVVNCX0NEQ19TVUJDTEFTU19N
+RExNLCBVU0JfQ0RDX1BST1RPX05PTkUpLA0KIAkuZHJpdmVyX2luZm8gPSAodW5zaWduZWQgbG9u
+ZykgJmNkY19pbmZvLA0KIH0sIHsNCisJLyogVG9zaGliYSBGMzYwN2d3ICovDQorCVVTQl9ERVZJ
+Q0VfQU5EX0lOVEVSRkFDRV9JTkZPKDB4MDkzMCwgMHgxMzBjLCBVU0JfQ0xBU1NfQ09NTSwNCisJ
+CQlVU0JfQ0RDX1NVQkNMQVNTX01ETE0sIFVTQl9DRENfUFJPVE9fTk9ORSksDQorCS5kcml2ZXJf
+aW5mbyA9ICh1bnNpZ25lZCBsb25nKSAmY2RjX2luZm8sDQorfSwgew0KKwkvKiBUb3NoaWJhIEYz
+NjA3Z3cgdmVyIDIgKi8NCisJVVNCX0RFVklDRV9BTkRfSU5URVJGQUNFX0lORk8oMHgwOTMwLCAw
+eDEzMTEsIFVTQl9DTEFTU19DT01NLA0KKwkJCVVTQl9DRENfU1VCQ0xBU1NfTURMTSwgVVNCX0NE
+Q19QUk9UT19OT05FKSwNCisJLmRyaXZlcl9pbmZvID0gKHVuc2lnbmVkIGxvbmcpICZjZGNfaW5m
+bywNCit9LCB7DQogCS8qIERlbGwgRjM1MDdnICovDQogCVVTQl9ERVZJQ0VfQU5EX0lOVEVSRkFD
+RV9JTkZPKDB4NDEzYywgMHg4MTQ3LCBVU0JfQ0xBU1NfQ09NTSwNCiAJCQlVU0JfQ0RDX1NVQkNM
+QVNTX01ETE0sIFVTQl9DRENfUFJPVE9fTk9ORSksDQogCS5kcml2ZXJfaW5mbyA9ICh1bnNpZ25l
+ZCBsb25nKSAmY2RjX2luZm8sDQorfSwgew0KKwkvKiBEZWxsIEYzNjA3Z3cgKi8NCisJVVNCX0RF
+VklDRV9BTkRfSU5URVJGQUNFX0lORk8oMHg0MTNjLCAweDgxODMsIFVTQl9DTEFTU19DT01NLA0K
+KwkJCVVTQl9DRENfU1VCQ0xBU1NfTURMTSwgVVNCX0NEQ19QUk9UT19OT05FKSwNCisJLmRyaXZl
+cl9pbmZvID0gKHVuc2lnbmVkIGxvbmcpICZjZGNfaW5mbywNCit9LCB7DQorCS8qIERlbGwgRjM2
+MDdndyB2ZXIgMiAqLw0KKwlVU0JfREVWSUNFX0FORF9JTlRFUkZBQ0VfSU5GTygweDQxM2MsIDB4
+ODE4NCwgVVNCX0NMQVNTX0NPTU0sDQorCQkJVVNCX0NEQ19TVUJDTEFTU19NRExNLCBVU0JfQ0RD
+X1BST1RPX05PTkUpLA0KKwkuZHJpdmVyX2luZm8gPSAodW5zaWduZWQgbG9uZykgJmNkY19pbmZv
+LA0KIH0sDQogCXsgfSwJCS8vIEVORA0KIH07DQoNCi0tDQo=
