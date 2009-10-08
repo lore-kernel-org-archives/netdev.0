@@ -1,82 +1,48 @@
-From: Stefano Babic <stefano.babic@babic.homelinux.org>
-Subject: Re: [7/8,RFC] CAIF Protocol Stack
-Date: Thu, 08 Oct 2009 11:48:27 +0200
-Message-ID: <4ACDB56B.1060002@babic.homelinux.org>
-References: <1253727096-10413-1-git-send-email-sjur.brandeland@stericsson.com> <4ACA1D31.6000008@babic.homelinux.org> <61D8D34BB13CFE408D154529C120E07902ED671E@eseldmw101.eemea.ericsson.se>
+From: Gabriel Paubert <paubert@iram.es>
+Subject: Re: Nested function in drivers/of/of_mdio.c
+Date: Thu, 8 Oct 2009 13:14:27 +0200
+Message-ID: <20091008111427.GA16941@iram.es>
+References: <200910071715.57249.jezz@sysmic.org>
+	<fa686aa40910070911x769d7d41u908fbcf6b0980962@mail.gmail.com>
+	<f608b67d0910070923h54c30c2doae08550b0791ed1b@mail.gmail.com>
+	<200910081045.12590.j.pouiller@sysmic.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Kim Lilliestierna XX <kim.xx.lilliestierna@stericsson.com>
-To: =?ISO-8859-1?Q?Sjur_Br=E6ndeland?= <sjur.brandeland@stericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpout26.attiva.biz ([85.37.16.27]:4230 "EHLO
-	smtpout26.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756890AbZJHJtN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 05:49:13 -0400
-In-Reply-To: <61D8D34BB13CFE408D154529C120E07902ED671E@eseldmw101.eemea.ericsson.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev <netdev@vger.kernel.org>, linuxppc-dev@lists.ozlabs.org,
+	Andy Fleming <afleming@freescale.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: =?iso-8859-1?B?Suly9G1l?= Pouiller <j.pouiller@sysmic.fr>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <200910081045.12590.j.pouiller@sysmic.fr>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Sjur Br=E6ndeland wrote:
-> Yes, I'll fix this documentation in a new PATCH delivery (hopefully) =
-this week.
+On Thu, Oct 08, 2009 at 10:45:12AM +0200, J=E9r=F4me Pouiller wrote:
+> I did some grep on codebase. I have not found any other instances of =
 
-Ok, I will test it again when you will send to the ML.
+> nested functions, but my regexps are not enough to be 100% sure.
 
-> Hmm, the hanging might be due to a tight loop in the phyif_ser.c:ser_=
-phy_tx function.
+>From Documentation/CodingStyle, written by the Head Penguin himself:
 
-Agree. I can trace what happens and I can check that the tty write
-function returns always 0. However, I can check that the ops field of
-pser_tty is correctly set to the uart_* functions in serial_core.c and
-that pser_tty->index points to the serial I chose. At least the
-connection to the physical interface seems right.
+"Heretic people all over the world have claimed that this inconsistency
+is ...  well ...  inconsistent, but all right-thinking people know that
+(a) K&R are _right_ and (b) K&R are right.  Besides, functions are
+special anyway (you can't nest them in C)."
+                ^^^^^^^^^^^^^^^^^^^^^^^^
 
-> [snip]
-> 		do {
-> 			tty_wr =3D
-> 			    pser_tty->ops->write(pser_tty, bufp, actual_len);
+I interpret it as a clear prohibition of using nested functions
+in the kernel.  =
 
-Yes, tty_wr is always 0.
 
-> If pser_tty->ops->write() returns zero it will loop infinetly.
-> I guess the proper solution would be not to loop, but to implement a =
-write_wakeup function for the tty...?
-
-Agree, but this is not the problem now, because pser_tty->ops->write
-returns always 0.
-I have supposed that "clocal" was not set on the serial, but I have
-found something different.
-
-In phyif_ser.c, I traced the result of the extract function:
-
-[snip]
-do {
-                char *bufp;
-                /* By default we assume that we will extract
-                 * all data in one go. */
-                cont =3D false;
-
-                /* Extract data from the packet. */
-                f.cfpkt_extract(cfpkt, sbuf_wr, WRITE_BUF_SIZE,
-&actual_len);
-
-I can state that actual_len is always wrong (at least, the first time
-=2Eser_phy_txis called). I get a completely wrong value for it, as if t=
-his
-variable is not initialized:
-
-actual_len -1090496676
-
-Then the uart_write function cannot work with negative numbers and
-explains why it returns 0. So it seems to me at the moment there is a
-bug in the extract function. What do you think about ?
-
-Best regards,
-Stefano Babic
-
---=20
-stefano <stefano.babic@babic.homelinux.org>
-GPG Key: 0x55814DDE
-=46ingerprint 4E85 2A66 4CBA 497A 2A7B D3BF 5973 F216 5581 4DDE
+	Regards,
+	Gabriel
