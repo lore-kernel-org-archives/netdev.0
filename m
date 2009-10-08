@@ -1,82 +1,78 @@
-From: Dave Mitchell <dmitchell@appliedmicro.com>
-Subject: [PATCH][v2] ibm_newemac: Added 16K Tx FIFO size support for EMAC4
-Date: Thu,  8 Oct 2009 11:32:21 -0500
-Message-ID: <1255019541-1974-1-git-send-email-dmitchell@appliedmicro.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] Generalize socket rx gap / receive queue overflow cmsg
+Date: Thu, 8 Oct 2009 13:20:29 -0400
+Message-ID: <20091008172029.GB23928@hmsreliant.think-freely.org>
+References: <20091007180835.GB20524@hmsreliant.think-freely.org> <4ACD3AC8.608@gmail.com> <20091008135435.GA23928@hmsreliant.think-freely.org> <4ACDFB1C.4090107@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@lists.ozlabs.org, Dave Mitchell <dmitchell@appliedmicro.com>
-To: netdev@vger.kernel.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, socketcan@hartkopp.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:56437 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758907AbZJHRVK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 13:21:10 -0400
+Content-Disposition: inline
+In-Reply-To: <4ACDFB1C.4090107@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some of the EMAC V4 implementations support 16K Tx FIFOs. This
-patch adds support for this functionality and fixes typos in the
-Tx FIFO size error messages.
+On Thu, Oct 08, 2009 at 04:45:48PM +0200, Eric Dumazet wrote:
+> Neil Horman a =E9crit :
+> >>> +	if (check_drops) {
+> >>> +		skb =3D skb_recv_datagram(sk, flags|MSG_PEEK,
+> >>> +				flags & MSG_DONTWAIT, &err);
+> >> 	Ouch, this is too expensive, please find another way :)
+> >>
+> >>> +		if (skb) {
+> >>> +			gap =3D skb->dropcount;
+> >>> +			consume_skb(skb);
+> >>> +		}
+> >>> +	}
+> >>> +
+> > I'm not sure that I see the expense here, and what expense there is=
+, I don't see
+> > how it avoidable.  In order to do this reporting at the socket leve=
+l, we need to
+> > look at the skb at the head of the receive queue.  But we need to d=
+o so in a way
+> > thats consistent with the flags being passed in (i.e. if this is a =
+blocking
+> > socket, we need to block here until something is available to read)=
+=2E  Then its
+> > just an atomic_inc on skb->users, followed by a dec in the consume_=
+skb.  I could
+> > implement the logic for DONTWAIT myself, and skip the atomic_inc/de=
+c, but I'm
+> > not sure thats much of a savings.  If you have another thought, I'm=
+ certainly
+> > open to it.
+>=20
+> The expense is a lot of atomic ops. You forgot the lock, so thats fou=
+r atomic ops.
+>=20
+> You can do all this with no extra atomics.
+>=20
+> All you need is some function with (struct msghdr *msg, struct sock *=
+sk, struct sk_buff *skb)
+> triplet.
+>=20
+> hint : sock_recv_timestamp(struct msghdr *msg, struct sock *sk, struc=
+t sk_buff *skb)
+>=20
+> Could be renamed to something else if you want...
+>=20
+> sock_recv_ts_or_drops() or whatever
+Ok, but that will require moving the flag that we're triggering this on=
+ down
+into the sock structure, and not doing the check up in __sock_recvmsg, =
+but I
+suppose thats fine.  Ok, I'll repost soon.  Thanks!
+Neil
 
-Signed-off-by: Dave Mitchell <dmitchell@appliedmicro.com>
-Acked-by: Prodyut Hazarika <phazarika@appliedmicro.com>
-Acked-by: Victor Gallardo <vgallardo@appliedmicro.com>
-Acked-by: Loc Ho <lho@appliedmicro.com>
----
- v1->v2: local date/time was out-of-sync and thus mail was as well
- 
- drivers/net/ibm_newemac/core.c |    7 +++++--
- drivers/net/ibm_newemac/emac.h |    1 +
- 2 files changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/core.c
-index 89c82c5..c6591cb 100644
---- a/drivers/net/ibm_newemac/core.c
-+++ b/drivers/net/ibm_newemac/core.c
-@@ -443,7 +443,7 @@ static u32 __emac_calc_base_mr1(struct emac_instance *dev, int tx_size, int rx_s
- 		ret |= EMAC_MR1_TFS_2K;
- 		break;
- 	default:
--		printk(KERN_WARNING "%s: Unknown Rx FIFO size %d\n",
-+		printk(KERN_WARNING "%s: Unknown Tx FIFO size %d\n",
- 		       dev->ndev->name, tx_size);
- 	}
- 
-@@ -470,6 +470,9 @@ static u32 __emac4_calc_base_mr1(struct emac_instance *dev, int tx_size, int rx_
- 	DBG2(dev, "__emac4_calc_base_mr1" NL);
- 
- 	switch(tx_size) {
-+	case 16384:
-+		ret |= EMAC4_MR1_TFS_16K;
-+		break;
- 	case 4096:
- 		ret |= EMAC4_MR1_TFS_4K;
- 		break;
-@@ -477,7 +480,7 @@ static u32 __emac4_calc_base_mr1(struct emac_instance *dev, int tx_size, int rx_
- 		ret |= EMAC4_MR1_TFS_2K;
- 		break;
- 	default:
--		printk(KERN_WARNING "%s: Unknown Rx FIFO size %d\n",
-+		printk(KERN_WARNING "%s: Unknown Tx FIFO size %d\n",
- 		       dev->ndev->name, tx_size);
- 	}
- 
-diff --git a/drivers/net/ibm_newemac/emac.h b/drivers/net/ibm_newemac/emac.h
-index 0afc2cf..d34adf9 100644
---- a/drivers/net/ibm_newemac/emac.h
-+++ b/drivers/net/ibm_newemac/emac.h
-@@ -153,6 +153,7 @@ struct emac_regs {
- #define EMAC4_MR1_RFS_16K		0x00280000
- #define EMAC4_MR1_TFS_2K       		0x00020000
- #define EMAC4_MR1_TFS_4K		0x00030000
-+#define EMAC4_MR1_TFS_16K		0x00050000
- #define EMAC4_MR1_TR			0x00008000
- #define EMAC4_MR1_MWSW_001		0x00001000
- #define EMAC4_MR1_JPSM			0x00000800
--- 
-1.6.3.2
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
