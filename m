@@ -1,41 +1,37 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: net-2.6 build error on powerpc
-Date: Thu, 8 Oct 2009 08:20:44 -0700
-Message-ID: <20091008152044.GA15390@linux-ox1b.qlogic.org>
+From: Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 2/2] [RFC] Add c/r support for connected INET sockets
+Date: Thu, 08 Oct 2009 08:41:12 -0700
+Message-ID: <87ab01gag7.fsf@caffeine.danplanet.com>
+References: <1254932945-12578-1-git-send-email-danms@us.ibm.com>
+	<1254932945-12578-3-git-send-email-danms@us.ibm.com>
+	<1255013233.8033.14.camel@Maple>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ron.mercer@qlogic.com, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:24153 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758489AbZJHP1Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 11:27:16 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: John Dykstra <john.dykstra1-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1255013233.8033.14.camel@Maple> (John Dykstra's message of "Thu\,
+	08 Oct 2009 14\:47\:13 +0000")
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-I recently grabbed the latest net-2.6 kernel for a powerpc test box and
-got this compile error.
+JD> You're passing 0 as the protocol value to sock_create().  This
+JD> ultimately gets passed to the address family's create() function.
 
-  CC      arch/powerpc/kernel/cputable.o
-  CC      arch/powerpc/kernel/ptrace.o
-  CC      arch/powerpc/kernel/syscalls.o
-  CC      arch/powerpc/kernel/irq.o
-  CC      arch/powerpc/kernel/align.o
-  CC      arch/powerpc/kernel/signal_32.o
-  CC      arch/powerpc/kernel/pmc.o
-  CC      arch/powerpc/kernel/vdso.o
-  cc1: warnings being treated as errors
-  arch/powerpc/kernel/vdso.c:78: warning: alignment of
-  =E2so_data_store=E2s greater than maximum object file
-  alignment.  Using 32768
-  make[1]: *** [arch/powerpc/kernel/vdso.o] Error 1
-  make: *** [arch/powerpc/kernel] Error 2
-  [root@localhost linux-2.6-net.git]#
+The fix is to pass in the previous version of sk_protocol instead of
+zero, right?  It looks like inet_create() has enough intelligence to
+weed out invalid values for us too...
 
-
-
-  Any suggestions would be appreciated.
-
+-- 
+Dan Smith
+IBM Linux Technology Center
+email: danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org
