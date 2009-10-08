@@ -1,37 +1,95 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Add netdev_alloc_skb_ip_align() helper
-Date: Wed, 07 Oct 2009 22:40:36 -0700 (PDT)
-Message-ID: <20091007.224036.247820677.davem@davemloft.net>
-References: <1254969161-3609-1-git-send-email-thomas@wytron.com.tw>
-	<4ACD585B.5080106@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC] multiqueue changes
+Date: Thu, 08 Oct 2009 09:18:45 +0200
+Message-ID: <4ACD9255.4020008@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: thomas@wytron.com.tw, netdev@vger.kernel.org,
-	thierry.reding@avionic-design.de, nios2-dev@sopc.et.ntust.edu.tw,
-	linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44507
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753449AbZJHFkk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 01:40:40 -0400
-In-Reply-To: <4ACD585B.5080106@gmail.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:43645 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753552AbZJHHT0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 03:19:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 08 Oct 2009 05:11:23 +0200
+Say I have such non multiqueue device :
 
-> David, maybe we should add following helper :
-> 
-> [PATCH] net: Add netdev_alloc_skb_ip_align() helper
-> 
-> Instead of hardcoding NET_IP_ALIGN stuff in various network drivers, we can
-> add a helper around netdev_alloc_skb()
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+03:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708S Gigabit Ethernet (rev 12)
 
-Looks ok, but I want to look at how often this exact sequence
-would match.  If it applies to a lot of cases, I'll add this
-but I know of many exceptions in my head already :-)
+Driver bnx2
+
+This drivers does an alloc_etherdev_mq(sizeof(*bp), TX_MAX_RINGS),
+regardless of real capabilities of the NIC.
+
+Then, a bit later it does :
+
+bp->dev->real_num_tx_queues = bp->num_tx_rings;  
+
+(one in my non multiqueue case)
+
+Now I have :
+
+# tc -s -d qdisc show dev eth0
+qdisc mq 0: root
+ Sent 117693091 bytes 1542188 pkt (dropped 0, overlimits 0 requeues 0)
+ backlog 0b 0p requeues 0
+# tc -s -d class show dev eth0
+class mq :1 root
+ Sent 113935509 bytes 1492598 pkt (dropped 0, overlimits 0 requeues 0)
+ backlog 0b 0p requeues 0
+class mq :2 root
+ Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+ backlog 0b 0p requeues 0
+class mq :3 root
+ Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+ backlog 0b 0p requeues 0
+class mq :4 root
+ Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+ backlog 0b 0p requeues 0
+class mq :5 root
+ Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+ backlog 0b 0p requeues 0
+class mq :6 root
+ Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+ backlog 0b 0p requeues 0
+class mq :7 root
+ Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+ backlog 0b 0p requeues 0
+class mq :8 root
+ Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+ backlog 0b 0p requeues 0
+
+While in previous kernels I had :
+
+# tc -s -d qdisc show dev eth0
+qdisc pfifo_fast 0: root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+ Sent 26292963818 bytes 347139141 pkts (dropped 0, overlimits 0 requeues 0)
+# tc -s -d class show dev eth0
+
+
+So I lost the default pfifo_fast classification.
+
+Just wondering if it could hurt some people.
+
+Anyway, should we change bnx2/tg3 drivers so that single queue devices
+have same default qdisc/class than before ?
+
+eg :
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 08cddb6..7cac205 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -6152,6 +6152,7 @@ bnx2_setup_int_mode(struct bnx2 *bp, int dis_msi)
+ 
+ 	bp->num_tx_rings = rounddown_pow_of_two(bp->irq_nvecs);
+ 	bp->dev->real_num_tx_queues = bp->num_tx_rings;
++	bp->dev->num_tx_queues = bp->dev->real_num_tx_queues;
+ 
+ 	bp->num_rx_rings = bp->irq_nvecs;
+ }
