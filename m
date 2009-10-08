@@ -1,45 +1,82 @@
-From: Alex Bennee <kernel-hacker@bennee.com>
-Subject: Re: r8169 ethernet hangs after a pm-suspend (and resume)
-Date: Thu, 8 Oct 2009 10:27:10 +0100
-Message-ID: <b2cdc9f30910080227s17effd97vf13d7e91b153ad17@mail.gmail.com>
-References: <b2cdc9f30909090013q1741da26la73da66f1eef975f@mail.gmail.com>
-	 <20090909092822.GA18355@electric-eye.fr.zoreil.com>
+From: Stefano Babic <stefano.babic@babic.homelinux.org>
+Subject: Re: [7/8,RFC] CAIF Protocol Stack
+Date: Thu, 08 Oct 2009 11:48:27 +0200
+Message-ID: <4ACDB56B.1060002@babic.homelinux.org>
+References: <1253727096-10413-1-git-send-email-sjur.brandeland@stericsson.com> <4ACA1D31.6000008@babic.homelinux.org> <61D8D34BB13CFE408D154529C120E07902ED671E@eseldmw101.eemea.ericsson.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Kim Lilliestierna XX <kim.xx.lilliestierna@stericsson.com>
+To: =?ISO-8859-1?Q?Sjur_Br=E6ndeland?= <sjur.brandeland@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f208.google.com ([209.85.219.208]:33494 "EHLO
-	mail-ew0-f208.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756062AbZJHJ2X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 05:28:23 -0400
-In-Reply-To: <20090909092822.GA18355@electric-eye.fr.zoreil.com>
+Received: from smtpout26.attiva.biz ([85.37.16.27]:4230 "EHLO
+	smtpout26.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756890AbZJHJtN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 05:49:13 -0400
+In-Reply-To: <61D8D34BB13CFE408D154529C120E07902ED671E@eseldmw101.eemea.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2009/9/9 Francois Romieu <romieu@fr.zoreil.com>:
-> Alex Bennee <kernel-hacker@bennee.com> :
-> [...]
->> I've just recently gotten suspend working on my system. Unfortunately
->> after the resume event I loose access to the network.
->> As far as the system is concerned the network is configured properly
->> but every attempt to ping local nodes fails with "Host not reachable".
->
-> Can the problem be described as "gigabit link setting does not survive
-> suspend/resume" ?
+Sjur Br=E6ndeland wrote:
+> Yes, I'll fix this documentation in a new PATCH delivery (hopefully) =
+this week.
 
-Even further experimentation shows that ethernet functionality can
-survive the resume for a few minutes before reseting. Once it gets
-into this state even rmmod/modprobing the r8169 driver won't unwedge
-the driver.
+Ok, I will test it again when you will send to the ML.
 
-The symptoms are either the driver detecting an unknown MAC or setting
-the physical address to 0xfffffffff which is obviously broken. I
-suspect the hardware has gotten itself wedged somehow.
+> Hmm, the hanging might be due to a tight loop in the phyif_ser.c:ser_=
+phy_tx function.
 
-Is there any way to hard reset the chipset (without power cycling the
-system)?
+Agree. I can trace what happens and I can check that the tty write
+function returns always 0. However, I can check that the ops field of
+pser_tty is correctly set to the uart_* functions in serial_core.c and
+that pser_tty->index points to the serial I chose. At least the
+connection to the physical interface seems right.
 
--- 
-Alex, homepage: http://www.bennee.com/~alex/
-http://www.half-llama.co.uk
+> [snip]
+> 		do {
+> 			tty_wr =3D
+> 			    pser_tty->ops->write(pser_tty, bufp, actual_len);
+
+Yes, tty_wr is always 0.
+
+> If pser_tty->ops->write() returns zero it will loop infinetly.
+> I guess the proper solution would be not to loop, but to implement a =
+write_wakeup function for the tty...?
+
+Agree, but this is not the problem now, because pser_tty->ops->write
+returns always 0.
+I have supposed that "clocal" was not set on the serial, but I have
+found something different.
+
+In phyif_ser.c, I traced the result of the extract function:
+
+[snip]
+do {
+                char *bufp;
+                /* By default we assume that we will extract
+                 * all data in one go. */
+                cont =3D false;
+
+                /* Extract data from the packet. */
+                f.cfpkt_extract(cfpkt, sbuf_wr, WRITE_BUF_SIZE,
+&actual_len);
+
+I can state that actual_len is always wrong (at least, the first time
+=2Eser_phy_txis called). I get a completely wrong value for it, as if t=
+his
+variable is not initialized:
+
+actual_len -1090496676
+
+Then the uart_write function cannot work with negative numbers and
+explains why it returns 0. So it seems to me at the moment there is a
+bug in the extract function. What do you think about ?
+
+Best regards,
+Stefano Babic
+
+--=20
+stefano <stefano.babic@babic.homelinux.org>
+GPG Key: 0x55814DDE
+=46ingerprint 4E85 2A66 4CBA 497A 2A7B D3BF 5973 F216 5581 4DDE
