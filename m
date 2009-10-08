@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 2/5] ah4: convert to ahash
-Date: Thu, 8 Oct 2009 10:48:17 +0200
-Message-ID: <20091008084817.GL15653@secunet.com>
+Subject: [PATCH 3/5] ah6: convert to ahash
+Date: Thu, 8 Oct 2009 10:49:01 +0200
+Message-ID: <20091008084900.GM15653@secunet.com>
 References: <20091008084631.GJ15653@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,40 +9,54 @@ Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([213.68.205.161]:43212 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([213.68.205.161]:43222 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754117AbZJHIs4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Oct 2009 04:48:56 -0400
+	id S1751173AbZJHItn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Oct 2009 04:49:43 -0400
 Content-Disposition: inline
 In-Reply-To: <20091008084631.GJ15653@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch converts ah4 to the new ahash interface.
+This patch converts ah6 to the new ahash interface.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv4/ah4.c |  295 ++++++++++++++++++++++++++++++++++++++++++++-----------
- 1 files changed, 236 insertions(+), 59 deletions(-)
+ net/ipv6/ah6.c |  352 +++++++++++++++++++++++++++++++++++++++++++-------------
+ 1 files changed, 272 insertions(+), 80 deletions(-)
 
-diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
-index 5c66270..d07b0c1 100644
---- a/net/ipv4/ah4.c
-+++ b/net/ipv4/ah4.c
-@@ -1,3 +1,4 @@
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index c1589e2..0f526f8 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -24,18 +24,92 @@
+  * 	This file is derived from net/ipv4/ah.c.
+  */
+ 
 +#include <crypto/hash.h>
- #include <linux/err.h>
  #include <linux/module.h>
  #include <net/ip.h>
-@@ -5,10 +6,67 @@
  #include <net/ah.h>
  #include <linux/crypto.h>
  #include <linux/pfkeyv2.h>
 -#include <linux/spinlock.h>
+ #include <linux/string.h>
 +#include <linux/scatterlist.h>
  #include <net/icmp.h>
+ #include <net/ipv6.h>
  #include <net/protocol.h>
+ #include <net/xfrm.h>
  
++#define IPV6HDR_BASELEN 8
++
++struct tmp_ext {
++#if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
++		struct in6_addr saddr;
++#endif
++		struct in6_addr daddr;
++		char hdrs[0];
++};
++
 +struct ah_skb_cb {
 +	struct xfrm_skb_cb xfrm;
 +	void *tmp;
@@ -69,7 +83,12 @@ index 5c66270..d07b0c1 100644
 +	return kmalloc(len, GFP_ATOMIC);
 +}
 +
-+static inline u8 *ah_tmp_auth(void *tmp, unsigned int offset)
++static inline struct tmp_ext *ah_tmp_ext(void *base)
++{
++	return base + IPV6HDR_BASELEN;
++}
++
++static inline u8 *ah_tmp_auth(u8 *tmp, unsigned int offset)
 +{
 +	return tmp + offset;
 +}
@@ -100,34 +119,43 @@ index 5c66270..d07b0c1 100644
 +			     crypto_ahash_reqsize(ahash),
 +			     __alignof__(struct scatterlist));
 +}
- 
- /* Clear mutable options and find final destination to substitute
-  * into IP header for icv calculation. Options are already checked
-@@ -54,20 +112,72 @@ static int ip_clear_mutable_options(struct iphdr *iph, __be32 *daddr)
++
+ static int zero_out_mutable_opts(struct ipv6_opt_hdr *opthdr)
+ {
+ 	u8 *opt = (u8 *)opthdr;
+@@ -218,24 +292,85 @@ static int ipv6_clear_mutable_options(struct ipv6hdr *iph, int len, int dir)
  	return 0;
  }
  
-+static void ah_output_done(struct crypto_async_request *base, int err)
++static void ah6_output_done(struct crypto_async_request *base, int err)
 +{
++	int extlen;
++	u8 *iph_base;
 +	u8 *icv;
-+	struct iphdr *iph;
 +	struct sk_buff *skb = base->data;
 +	struct xfrm_state *x = skb_dst(skb)->xfrm;
 +	struct ah_data *ahp = x->data;
-+	struct iphdr *top_iph = ip_hdr(skb);
++	struct ipv6hdr *top_iph = ipv6_hdr(skb);
 +	struct ip_auth_hdr *ah = ip_auth_hdr(skb);
-+	int ihl = ip_hdrlen(skb);
++	struct tmp_ext *iph_ext;
 +
-+	iph = AH_SKB_CB(skb)->tmp;
-+	icv = ah_tmp_icv(ahp->ahash, iph, ihl);
++	extlen = skb_network_header_len(skb) - sizeof(struct ipv6hdr);
++	if (extlen)
++		extlen += sizeof(*iph_ext);
++
++	iph_base = AH_SKB_CB(skb)->tmp;
++	iph_ext = ah_tmp_ext(iph_base);
++	icv = ah_tmp_icv(ahp->ahash, iph_ext, extlen);
++
 +	memcpy(ah->auth_data, icv, ahp->icv_trunc_len);
++	memcpy(top_iph, iph_base, IPV6HDR_BASELEN);
 +
-+	top_iph->tos = iph->tos;
-+	top_iph->ttl = iph->ttl;
-+	top_iph->frag_off = iph->frag_off;
-+	if (top_iph->ihl != 5) {
-+		top_iph->daddr = iph->daddr;
-+		memcpy(top_iph+1, iph+1, top_iph->ihl*4 - sizeof(struct iphdr));
++	if (extlen) {
++#if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
++		memcpy(&top_iph->saddr, iph_ext, extlen);
++#else
++		memcpy(&top_iph->daddr, iph_ext, extlen);
++#endif
 +	}
 +
 +	err = ah->nexthdr;
@@ -136,23 +164,31 @@ index 5c66270..d07b0c1 100644
 +	xfrm_output_resume(skb, err);
 +}
 +
- static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
+ static int ah6_output(struct xfrm_state *x, struct sk_buff *skb)
  {
  	int err;
 +	int nfrags;
-+	int ihl;
+ 	int extlen;
++	u8 *iph_base;
 +	u8 *icv;
++	u8 nexthdr;
 +	struct sk_buff *trailer;
 +	struct crypto_ahash *ahash;
 +	struct ahash_request *req;
 +	struct scatterlist *sg;
- 	struct iphdr *iph, *top_iph;
+ 	struct ipv6hdr *top_iph;
  	struct ip_auth_hdr *ah;
  	struct ah_data *ahp;
--	union {
--		struct iphdr	iph;
--		char 		buf[60];
--	} tmp_iph;
+-	u8 nexthdr;
+-	char tmp_base[8];
+-	struct {
+-#if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
+-		struct in6_addr saddr;
+-#endif
+-		struct in6_addr daddr;
+-		char hdrs[0];
+-	} *tmp_ext;
++	struct tmp_ext *iph_ext;
 +
 +	ahp = x->data;
 +	ahash = ahp->ahash;
@@ -162,40 +198,66 @@ index 5c66270..d07b0c1 100644
 +	nfrags = err;
  
  	skb_push(skb, -skb_network_offset(skb));
-+	ah = ip_auth_hdr(skb);
-+	ihl = ip_hdrlen(skb);
++	extlen = skb_network_header_len(skb) - sizeof(struct ipv6hdr);
++	if (extlen)
++		extlen += sizeof(*iph_ext);
 +
 +	err = -ENOMEM;
-+	iph = ah_alloc_tmp(ahash, nfrags, ihl);
-+	if (!iph)
++	iph_base = ah_alloc_tmp(ahash, nfrags, IPV6HDR_BASELEN + extlen);
++	if (!iph_base)
 +		goto out;
 +
-+	icv = ah_tmp_icv(ahash, iph, ihl);
++	iph_ext = ah_tmp_ext(iph_base);
++	icv = ah_tmp_icv(ahash, iph_ext, extlen);
 +	req = ah_tmp_req(ahash, icv);
 +	sg = ah_req_sg(ahash, req);
 +
++	ah = ip_auth_hdr(skb);
 +	memset(ah->auth_data, 0, ahp->icv_trunc_len);
 +
- 	top_iph = ip_hdr(skb);
--	iph = &tmp_iph.iph;
+ 	top_iph = ipv6_hdr(skb);
+ 	top_iph->payload_len = htons(skb->len - sizeof(*top_iph));
  
- 	iph->tos = top_iph->tos;
- 	iph->ttl = top_iph->ttl;
-@@ -78,10 +188,9 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
- 		memcpy(iph+1, top_iph+1, top_iph->ihl*4 - sizeof(struct iphdr));
- 		err = ip_clear_mutable_options(top_iph, &top_iph->daddr);
- 		if (err)
+@@ -245,31 +380,22 @@ static int ah6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	/* When there are no extension headers, we only need to save the first
+ 	 * 8 bytes of the base IP header.
+ 	 */
+-	memcpy(tmp_base, top_iph, sizeof(tmp_base));
++	memcpy(iph_base, top_iph, IPV6HDR_BASELEN);
+ 
+-	tmp_ext = NULL;
+-	extlen = skb_transport_offset(skb) - sizeof(struct ipv6hdr);
+ 	if (extlen) {
+-		extlen += sizeof(*tmp_ext);
+-		tmp_ext = kmalloc(extlen, GFP_ATOMIC);
+-		if (!tmp_ext) {
+-			err = -ENOMEM;
 -			goto error;
+-		}
+ #if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
+-		memcpy(tmp_ext, &top_iph->saddr, extlen);
++		memcpy(iph_ext, &top_iph->saddr, extlen);
+ #else
+-		memcpy(tmp_ext, &top_iph->daddr, extlen);
++		memcpy(iph_ext, &top_iph->daddr, extlen);
+ #endif
+ 		err = ipv6_clear_mutable_options(top_iph,
+-						 extlen - sizeof(*tmp_ext) +
++						 extlen - sizeof(*iph_ext) +
+ 						 sizeof(*top_iph),
+ 						 XFRM_POLICY_OUT);
+ 		if (err)
+-			goto error_free_iph;
 +			goto out_free;
  	}
  
 -	ah = ip_auth_hdr(skb);
- 	ah->nexthdr = *skb_mac_header(skb);
- 	*skb_mac_header(skb) = IPPROTO_AH;
+ 	ah->nexthdr = nexthdr;
  
-@@ -91,20 +200,31 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
- 	top_iph->ttl = 0;
- 	top_iph->check = 0;
+ 	top_iph->priority    = 0;
+@@ -278,36 +404,80 @@ static int ah6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	top_iph->flow_lbl[2] = 0;
+ 	top_iph->hop_limit   = 0;
  
 -	ahp = x->data;
  	ah->hdrlen  = (XFRM_ALIGN8(sizeof(*ah) + ahp->icv_trunc_len) >> 2) - 2;
@@ -212,12 +274,14 @@ index 5c66270..d07b0c1 100644
 +	skb_to_sgvec(skb, sg, 0, skb->len);
  
 -	if (err)
--		goto error;
+-		goto error_free_iph;
 +	ahash_request_set_crypt(req, sg, icv, skb->len);
-+	ahash_request_set_callback(req, 0, ah_output_done, skb);
++	ahash_request_set_callback(req, 0, ah6_output_done, skb);
 +
-+	AH_SKB_CB(skb)->tmp = iph;
-+
++	AH_SKB_CB(skb)->tmp = iph_base;
+ 
+-	memcpy(top_iph, tmp_base, sizeof(tmp_base));
+-	if (tmp_ext) {
 +	err = crypto_ahash_digest(req);
 +	if (err) {
 +		if (err == -EINPROGRESS)
@@ -229,36 +293,41 @@ index 5c66270..d07b0c1 100644
 +	}
 +
 +	memcpy(ah->auth_data, icv, ahp->icv_trunc_len);
- 
- 	top_iph->tos = iph->tos;
- 	top_iph->ttl = iph->ttl;
-@@ -114,28 +234,67 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
- 		memcpy(top_iph+1, iph+1, top_iph->ihl*4 - sizeof(struct iphdr));
++	memcpy(top_iph, iph_base, IPV6HDR_BASELEN);
++
++	if (extlen) {
+ #if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
+-		memcpy(&top_iph->saddr, tmp_ext, extlen);
++		memcpy(&top_iph->saddr, iph_ext, extlen);
+ #else
+-		memcpy(&top_iph->daddr, tmp_ext, extlen);
++		memcpy(&top_iph->daddr, iph_ext, extlen);
+ #endif
+-error_free_iph:
+-		kfree(tmp_ext);
  	}
  
--	err = 0;
--
 -error:
 +out_free:
-+	kfree(iph);
++	kfree(iph_base);
 +out:
  	return err;
  }
  
-+static void ah_input_done(struct crypto_async_request *base, int err)
++static void ah6_input_done(struct crypto_async_request *base, int err)
 +{
 +	u8 *auth_data;
 +	u8 *icv;
-+	struct iphdr *work_iph;
++	u8 *work_iph;
 +	struct sk_buff *skb = base->data;
 +	struct xfrm_state *x = xfrm_input_state(skb);
 +	struct ah_data *ahp = x->data;
 +	struct ip_auth_hdr *ah = ip_auth_hdr(skb);
-+	int ihl = ip_hdrlen(skb);
++	int hdr_len = skb_network_header_len(skb);
 +	int ah_hlen = (ah->hdrlen + 2) << 2;
 +
 +	work_iph = AH_SKB_CB(skb)->tmp;
-+	auth_data = ah_tmp_auth(work_iph, ihl);
++	auth_data = ah_tmp_auth(work_iph, hdr_len);
 +	icv = ah_tmp_icv(ahp->ahash, auth_data, ahp->icv_trunc_len);
 +
 +	err = memcmp(icv, auth_data, ahp->icv_trunc_len) ? -EBADMSG: 0;
@@ -266,9 +335,9 @@ index 5c66270..d07b0c1 100644
 +		goto out;
 +
 +	skb->network_header += ah_hlen;
-+	memcpy(skb_network_header(skb), work_iph, ihl);
-+	__skb_pull(skb, ah_hlen + ihl);
-+	skb_set_transport_header(skb, -ihl);
++	memcpy(skb_network_header(skb), work_iph, hdr_len);
++	__skb_pull(skb, ah_hlen + hdr_len);
++	skb_set_transport_header(skb, -hdr_len);
 +
 +	err = ah->nexthdr;
 +out:
@@ -276,29 +345,41 @@ index 5c66270..d07b0c1 100644
 +	xfrm_input_resume(skb, err);
 +}
 +
- static int ah_input(struct xfrm_state *x, struct sk_buff *skb)
++
++
+ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
  {
- 	int ah_hlen;
- 	int ihl;
- 	int nexthdr;
--	int err = -EINVAL;
--	struct iphdr *iph;
-+	int nfrags;
+ 	/*
+@@ -325,14 +495,21 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	 * There is offset of AH before IPv6 header after the process.
+ 	 */
+ 
 +	u8 *auth_data;
 +	u8 *icv;
++	u8 *work_iph;
 +	struct sk_buff *trailer;
 +	struct crypto_ahash *ahash;
 +	struct ahash_request *req;
 +	struct scatterlist *sg;
-+	struct iphdr *iph, *work_iph;
  	struct ip_auth_hdr *ah;
+ 	struct ipv6hdr *ip6h;
  	struct ah_data *ahp;
--	char work_buf[60];
+-	unsigned char *tmp_hdr = NULL;
+ 	u16 hdr_len;
+ 	u16 ah_hlen;
+ 	int nexthdr;
+-	int err = -EINVAL;
++	int nfrags;
 +	int err = -ENOMEM;
  
- 	if (!pskb_may_pull(skb, sizeof(*ah)))
+ 	if (!pskb_may_pull(skb, sizeof(struct ip_auth_hdr)))
  		goto out;
+@@ -345,9 +522,11 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
  
+ 	skb->ip_summed = CHECKSUM_NONE;
+ 
+-	hdr_len = skb->data - skb_network_header(skb);
++	hdr_len = skb_network_header_len(skb);
  	ah = (struct ip_auth_hdr *)skb->data;
  	ahp = x->data;
 +	ahash = ahp->ahash;
@@ -306,61 +387,60 @@ index 5c66270..d07b0c1 100644
  	nexthdr = ah->nexthdr;
  	ah_hlen = (ah->hdrlen + 2) << 2;
  
-@@ -156,9 +315,24 @@ static int ah_input(struct xfrm_state *x, struct sk_buff *skb)
+@@ -358,48 +537,67 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	if (!pskb_may_pull(skb, ah_hlen))
+ 		goto out;
  
- 	ah = (struct ip_auth_hdr *)skb->data;
- 	iph = ip_hdr(skb);
-+	ihl = ip_hdrlen(skb);
+-	tmp_hdr = kmemdup(skb_network_header(skb), hdr_len, GFP_ATOMIC);
+-	if (!tmp_hdr)
+-		goto out;
+ 	ip6h = ipv6_hdr(skb);
++
++	skb_push(skb, hdr_len);
 +
 +	if ((err = skb_cow_data(skb, 0, &trailer)) < 0)
 +		goto out;
 +	nfrags = err;
 +
-+	work_iph = ah_alloc_tmp(ahash, nfrags, ihl + ahp->icv_trunc_len);
++	work_iph = ah_alloc_tmp(ahash, nfrags, hdr_len + ahp->icv_trunc_len);
 +	if (!work_iph)
 +		goto out;
 +
-+	auth_data = ah_tmp_auth(work_iph, ihl);
++	auth_data = ah_tmp_auth(work_iph, hdr_len);
 +	icv = ah_tmp_icv(ahash, auth_data, ahp->icv_trunc_len);
 +	req = ah_tmp_req(ahash, icv);
 +	sg = ah_req_sg(ahash, req);
- 
--	ihl = skb->data - skb_network_header(skb);
--	memcpy(work_buf, iph, ihl);
-+	memcpy(work_iph, iph, ihl);
++
++	memcpy(work_iph, ip6h, hdr_len);
 +	memcpy(auth_data, ah->auth_data, ahp->icv_trunc_len);
 +	memset(ah->auth_data, 0, ahp->icv_trunc_len);
- 
- 	iph->ttl = 0;
- 	iph->tos = 0;
-@@ -166,35 +340,44 @@ static int ah_input(struct xfrm_state *x, struct sk_buff *skb)
- 	iph->check = 0;
- 	if (ihl > sizeof(*iph)) {
- 		__be32 dummy;
--		if (ip_clear_mutable_options(iph, &dummy))
--			goto out;
-+		err = ip_clear_mutable_options(iph, &dummy);
-+		if (err)
-+			goto out_free;
- 	}
++
+ 	if (ipv6_clear_mutable_options(ip6h, hdr_len, XFRM_POLICY_IN))
+-		goto free_out;
++		goto out_free;
++
+ 	ip6h->priority    = 0;
+ 	ip6h->flow_lbl[0] = 0;
+ 	ip6h->flow_lbl[1] = 0;
+ 	ip6h->flow_lbl[2] = 0;
+ 	ip6h->hop_limit   = 0;
  
 -	spin_lock(&x->lock);
 -	{
 -		u8 auth_data[MAX_AH_AUTH_LEN];
-+	skb_push(skb, ihl);
++	sg_init_table(sg, nfrags);
++	skb_to_sgvec(skb, sg, 0, skb->len);
  
 -		memcpy(auth_data, ah->auth_data, ahp->icv_trunc_len);
--		skb_push(skb, ihl);
+-		memset(ah->auth_data, 0, ahp->icv_trunc_len);
+-		skb_push(skb, hdr_len);
 -		err = ah_mac_digest(ahp, skb, ah->auth_data);
 -		if (err)
 -			goto unlock;
 -		if (memcmp(ahp->work_icv, auth_data, ahp->icv_trunc_len))
 -			err = -EBADMSG;
-+	sg_init_table(sg, nfrags);
-+	skb_to_sgvec(skb, sg, 0, skb->len);
-+
 +	ahash_request_set_crypt(req, sg, icv, skb->len);
-+	ahash_request_set_callback(req, 0, ah_input_done, skb);
++	ahash_request_set_callback(req, 0, ah6_input_done, skb);
 +
 +	AH_SKB_CB(skb)->tmp = work_iph;
 +
@@ -378,25 +458,28 @@ index 5c66270..d07b0c1 100644
  
 +	err = memcmp(icv, auth_data, ahp->icv_trunc_len) ? -EBADMSG: 0;
  	if (err)
--		goto out;
+-		goto free_out;
 +		goto out_free;
  
  	skb->network_header += ah_hlen;
--	memcpy(skb_network_header(skb), work_buf, ihl);
--	skb->transport_header = skb->network_header;
-+	memcpy(skb_network_header(skb), work_iph, ihl);
- 	__skb_pull(skb, ah_hlen + ihl);
-+	skb_set_transport_header(skb, -ihl);
+-	memcpy(skb_network_header(skb), tmp_hdr, hdr_len);
++	memcpy(skb_network_header(skb), work_iph, hdr_len);
+ 	skb->transport_header = skb->network_header;
+ 	__skb_pull(skb, ah_hlen + hdr_len);
  
--	return nexthdr;
+-	kfree(tmp_hdr);
 +	err = nexthdr;
  
+-	return nexthdr;
+-
+-free_out:
+-	kfree(tmp_hdr);
 +out_free:
-+	kfree (work_iph);
++	kfree(work_iph);
  out:
  	return err;
  }
-@@ -222,7 +405,7 @@ static int ah_init_state(struct xfrm_state *x)
+@@ -430,7 +628,7 @@ static int ah6_init_state(struct xfrm_state *x)
  {
  	struct ah_data *ahp = NULL;
  	struct xfrm_algo_desc *aalg_desc;
@@ -405,12 +488,8 @@ index 5c66270..d07b0c1 100644
  
  	if (!x->aalg)
  		goto error;
-@@ -231,31 +414,31 @@ static int ah_init_state(struct xfrm_state *x)
- 		goto error;
- 
- 	ahp = kzalloc(sizeof(*ahp), GFP_KERNEL);
--	if (ahp == NULL)
-+	if (!ahp)
+@@ -442,12 +640,12 @@ static int ah6_init_state(struct xfrm_state *x)
+ 	if (ahp == NULL)
  		return -ENOMEM;
  
 -	tfm = crypto_alloc_hash(x->aalg->alg_name, 0, CRYPTO_ALG_ASYNC);
@@ -421,20 +500,12 @@ index 5c66270..d07b0c1 100644
  
 -	ahp->tfm = tfm;
 -	if (crypto_hash_setkey(tfm, x->aalg->alg_key,
--			       (x->aalg->alg_key_len + 7) / 8))
 +	ahp->ahash = ahash;
 +	if (crypto_ahash_setkey(ahash, x->aalg->alg_key,
-+				(x->aalg->alg_key_len + 7) / 8))
+ 			       (x->aalg->alg_key_len + 7) / 8))
  		goto error;
  
- 	/*
- 	 * Lookup the algorithm description maintained by xfrm_algo,
- 	 * verify crypto transform properties, and store information
- 	 * we need for AH processing.  This lookup cannot fail here
--	 * after a successful crypto_alloc_hash().
-+	 * after a successful crypto_alloc_ahash().
- 	 */
- 	aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name, 0);
+@@ -461,9 +659,9 @@ static int ah6_init_state(struct xfrm_state *x)
  	BUG_ON(!aalg_desc);
  
  	if (aalg_desc->uinfo.auth.icv_fullbits/8 !=
@@ -446,7 +517,7 @@ index 5c66270..d07b0c1 100644
  		       aalg_desc->uinfo.auth.icv_fullbits/8);
  		goto error;
  	}
-@@ -265,10 +448,6 @@ static int ah_init_state(struct xfrm_state *x)
+@@ -473,10 +671,6 @@ static int ah6_init_state(struct xfrm_state *x)
  
  	BUG_ON(ahp->icv_trunc_len > MAX_AH_AUTH_LEN);
  
@@ -456,8 +527,8 @@ index 5c66270..d07b0c1 100644
 -
  	x->props.header_len = XFRM_ALIGN8(sizeof(struct ip_auth_hdr) +
  					  ahp->icv_trunc_len);
- 	if (x->props.mode == XFRM_MODE_TUNNEL)
-@@ -279,8 +458,7 @@ static int ah_init_state(struct xfrm_state *x)
+ 	switch (x->props.mode) {
+@@ -495,8 +689,7 @@ static int ah6_init_state(struct xfrm_state *x)
  
  error:
  	if (ahp) {
@@ -467,7 +538,7 @@ index 5c66270..d07b0c1 100644
  		kfree(ahp);
  	}
  	return -EINVAL;
-@@ -293,8 +471,7 @@ static void ah_destroy(struct xfrm_state *x)
+@@ -509,8 +702,7 @@ static void ah6_destroy(struct xfrm_state *x)
  	if (!ahp)
  		return;
  
