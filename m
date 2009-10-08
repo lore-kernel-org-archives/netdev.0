@@ -1,36 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] net: Make UFO on master device independent of attached
-	devices
-Date: Thu, 8 Oct 2009 07:41:53 +0800
-Message-ID: <20091007234152.GB21965@gondor.apana.org.au>
-References: <1254954265.31575.191.camel@w-sridhar.beaverton.ibm.com>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: [PATCH] Add sk_mark route lookup support for IPv4 listening
+	sockets, and for IPv4 multicast forwarding
+Date: Wed, 7 Oct 2009 17:03:30 -0700
+Message-ID: <55a4f86e0910071703i4735f1aan1ddba81eec7eef19@mail.gmail.com>
+References: <200910051646.34770.atis@mikrotik.com>
+	 <20091007.031957.197632672.davem@davemloft.net>
+	 <200910071559.56526.atis@mikrotik.com>
+	 <20091007.135627.96995518.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Sridhar Samudrala <sri@us.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: atis@mikrotik.com, netdev@vger.kernel.org, panther@balabit.hu,
+	eric.dumazet@gmail.com, brian.haley@hp.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:38607 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755692AbZJGXme (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 19:42:34 -0400
-Content-Disposition: inline
-In-Reply-To: <1254954265.31575.191.camel@w-sridhar.beaverton.ibm.com>
+Received: from mail-bw0-f210.google.com ([209.85.218.210]:46230 "EHLO
+	mail-bw0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754309AbZJHAEI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Oct 2009 20:04:08 -0400
+Received: by bwz6 with SMTP id 6so403976bwz.37
+        for <netdev@vger.kernel.org>; Wed, 07 Oct 2009 17:03:30 -0700 (PDT)
+In-Reply-To: <20091007.135627.96995518.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 07, 2009 at 03:24:25PM -0700, Sridhar Samudrala wrote:
-> Now that software UFO is supported, UFO can be enabled on master
-> devices like bridge, bond even though the attached device doesn't
-> support this feature in hardware.
-> 
-> This allows UFO to be used between KVM host and guest even when a
-> physical interface attached to the bridge doesn't support UFO.
-> 
-> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+Should wrapping a packet into a tunnel clear the mark?
+Should perhaps the mark be a parameter of the tunnel (like ttl or qos,
+can be set or can be inherited)?
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+On Wed, Oct 7, 2009 at 13:56, David Miller <davem@davemloft.net> wrote:
+> From: Atis Elsts <atis@mikrotik.com>
+> Date: Wed, 7 Oct 2009 15:59:56 +0300
+>
+>> Here is the sk_mark part.
+>
+> Applied, thanks.
+>
+>> As for the ipmr.c code, I agree with your comment. Using mark from
+>> skb probably is wrong in case of tunnel interface (i.e. in the "if
+>> (vif->flags&VIFF_TUNNEL)" part of the patch), my mistake. I still
+>> think that the "else" part is correct, though, because using mark
+>> from skb there mirrors behaviour for unicast forwarding routing
+>> lookup in ip_route_input_slow(). The same applies to IPv6 code in
+>> ip6mr_forward2().
+>
+> Ok submit just the else part and we'll have a look at it.
+>
+> Thanks.
+>
