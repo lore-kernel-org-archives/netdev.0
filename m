@@ -1,35 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] netlink: fix typo in initialization
-Date: Thu, 08 Oct 2009 01:20:43 -0700 (PDT)
-Message-ID: <20091008.012043.113325384.davem@davemloft.net>
-References: <20091008072323.GA3255@psychotron.lab.eng.brq.redhat.com>
-	<20091008.005743.231834593.davem@davemloft.net>
-	<20091008080858.GC3255@psychotron.lab.eng.brq.redhat.com>
+From: =?utf-8?q?J=C3=A9r=C3=B4me=20Pouiller?= <jezz@sysmic.org>
+Subject: [PATCH] Remove nested function
+Date: Thu,  8 Oct 2009 10:34:23 +0200
+Message-ID: <1254990863-15271-1-git-send-email-jezz@sysmic.org>
+References: <fa686aa40910070911x769d7d41u908fbcf6b0980962@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: jpirko@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37605
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755675AbZJHIUr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 04:20:47 -0400
-In-Reply-To: <20091008080858.GC3255@psychotron.lab.eng.brq.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>, linuxppc <linuxppc-dev@lists.ozlabs.org>,
+	Andy Fleming <afleming@freescale.com>,
+	=?utf-8?q?J=C3=A9r=C3=B4me=20Pouiller?= <jezz@sysmic.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Grant Likely <grant.likely@secretlab.ca>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <fa686aa40910070911x769d7d41u908fbcf6b0980962@mail.gmail.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Thu, 8 Oct 2009 10:08:59 +0200
-
-> Thu, Oct 08, 2009 at 09:57:43AM CEST, davem@davemloft.net wrote:
->>From: Jiri Pirko <jpirko@redhat.com>
->>Date: Thu, 8 Oct 2009 09:23:23 +0200
->>
->>Therefore, this fix probably belongs in net-2.6 and -stable instead
->>of net-next-2.6, right?
-> 
-> Okay. The patch is applicable on net-2.6 (I presume on -stable too). Feel free
-> to apply.
-
-Great, I'll take care of this, thanks.
+U29tZSB0b29sY2hhaW5zIGRpc2xpa2UgbmVzdGVkIGZ1bmN0aW9uIGRlZmluaXRpb24sIHNvIHdl
+IGRlZmluZSBmdW5jdGlvbiBtYXRjaApvdXRzaWRlIG9mIG9mX3BoeV9maW5kX2RldmljZS4KClNp
+Z25lZC1vZmYtYnk6IErDqXLDtG1lIFBvdWlsbGVyIDxqZXp6QHN5c21pYy5vcmc+Ci0tLQogZHJp
+dmVycy9vZi9vZl9tZGlvLmMgfCAgIDEzICsrKysrKystLS0tLS0KIDEgZmlsZXMgY2hhbmdlZCwg
+NyBpbnNlcnRpb25zKCspLCA2IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvb2Yv
+b2ZfbWRpby5jIGIvZHJpdmVycy9vZi9vZl9tZGlvLmMKaW5kZXggYmFjYWE1My4uNGIyMmJhNSAx
+MDA2NDQKLS0tIGEvZHJpdmVycy9vZi9vZl9tZGlvLmMKKysrIGIvZHJpdmVycy9vZi9vZl9tZGlv
+LmMKQEAgLTk3LDYgKzk3LDEyIEBAIGludCBvZl9tZGlvYnVzX3JlZ2lzdGVyKHN0cnVjdCBtaWlf
+YnVzICptZGlvLCBzdHJ1Y3QgZGV2aWNlX25vZGUgKm5wKQogfQogRVhQT1JUX1NZTUJPTChvZl9t
+ZGlvYnVzX3JlZ2lzdGVyKTsKIAorLyogSGVscGVyIGZ1bmN0aW9uIGZvciBvZl9waHlfZmluZF9k
+ZXZpY2UgKi8KK3N0YXRpYyBpbnQgb2ZfcGh5X21hdGNoKHN0cnVjdCBkZXZpY2UgKmRldiwgdm9p
+ZCAqcGh5X25wKQoreworCXJldHVybiBkZXZfYXJjaGRhdGFfZ2V0X25vZGUoJmRldi0+YXJjaGRh
+dGEpID09IHBoeV9ucDsKK30KKwogLyoqCiAgKiBvZl9waHlfZmluZF9kZXZpY2UgLSBHaXZlIGEg
+UEhZIG5vZGUsIGZpbmQgdGhlIHBoeV9kZXZpY2UKICAqIEBwaHlfbnA6IFBvaW50ZXIgdG8gdGhl
+IHBoeSdzIGRldmljZSB0cmVlIG5vZGUKQEAgLTEwNiwxNSArMTEyLDEwIEBAIEVYUE9SVF9TWU1C
+T0wob2ZfbWRpb2J1c19yZWdpc3Rlcik7CiBzdHJ1Y3QgcGh5X2RldmljZSAqb2ZfcGh5X2ZpbmRf
+ZGV2aWNlKHN0cnVjdCBkZXZpY2Vfbm9kZSAqcGh5X25wKQogewogCXN0cnVjdCBkZXZpY2UgKmQ7
+Ci0JaW50IG1hdGNoKHN0cnVjdCBkZXZpY2UgKmRldiwgdm9pZCAqcGh5X25wKQotCXsKLQkJcmV0
+dXJuIGRldl9hcmNoZGF0YV9nZXRfbm9kZSgmZGV2LT5hcmNoZGF0YSkgPT0gcGh5X25wOwotCX0K
+LQogCWlmICghcGh5X25wKQogCQlyZXR1cm4gTlVMTDsKIAotCWQgPSBidXNfZmluZF9kZXZpY2Uo
+Jm1kaW9fYnVzX3R5cGUsIE5VTEwsIHBoeV9ucCwgbWF0Y2gpOworCWQgPSBidXNfZmluZF9kZXZp
+Y2UoJm1kaW9fYnVzX3R5cGUsIE5VTEwsIHBoeV9ucCwgb2ZfcGh5X21hdGNoKTsKIAlyZXR1cm4g
+ZCA/IHRvX3BoeV9kZXZpY2UoZCkgOiBOVUxMOwogfQogRVhQT1JUX1NZTUJPTChvZl9waHlfZmlu
+ZF9kZXZpY2UpOwotLSAKMS42LjAuNAoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlz
+dHMub3psYWJzLm9yZwpodHRwczovL2xpc3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMt
+ZGV2
