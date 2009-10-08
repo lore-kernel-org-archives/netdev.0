@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Make UFO on master device independent of attached
- devices
-Date: Wed, 07 Oct 2009 22:01:39 -0700 (PDT)
-Message-ID: <20091007.220139.134319305.davem@davemloft.net>
-References: <1254954265.31575.191.camel@w-sridhar.beaverton.ibm.com>
+Subject: Re: [net-next-2.6 PATCH V3] can: add TI CAN (HECC) driver
+Date: Wed, 07 Oct 2009 22:03:06 -0700 (PDT)
+Message-ID: <20091007.220306.01875045.davem@davemloft.net>
+References: <1254920387-20939-1-git-send-email-anantgole@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: sri@us.ibm.com
+Cc: netdev@vger.kernel.org, socketcan-core@lists.berlios.de,
+	linux-arm-kernel@lists.arm.linux.org.uk
+To: anantgole@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33894
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33902
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752253AbZJHFBo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 01:01:44 -0400
-In-Reply-To: <1254954265.31575.191.camel@w-sridhar.beaverton.ibm.com>
+	by vger.kernel.org with ESMTP id S1751759AbZJHFDL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 01:03:11 -0400
+In-Reply-To: <1254920387-20939-1-git-send-email-anantgole@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sridhar Samudrala <sri@us.ibm.com>
-Date: Wed, 07 Oct 2009 15:24:25 -0700
+From: Anant Gole <anantgole@ti.com>
+Date: Wed,  7 Oct 2009 18:29:47 +0530
 
-> Now that software UFO is supported, UFO can be enabled on master
-> devices like bridge, bond even though the attached device doesn't
-> support this feature in hardware.
+> TI HECC (High End CAN Controller) module is found on many TI devices. It
+> has 32 hardware mailboxes with full implementation of CAN protocol 2.0B
+> with bus speeds up to 1Mbps. Specifications of the module are available
+> on TI web <http://www.ti.com>
 > 
-> This allows UFO to be used between KVM host and guest even when a
-> physical interface attached to the bridge doesn't support UFO.
-> 
-> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+> Signed-off-by: Anant Gole <anantgole@ti.com>
 
-Applied.
+Applied, thanks.
