@@ -1,32 +1,60 @@
-From: David Miller <davem@davemloft.net>
+From: Vegard Nossum <vegard.nossum@gmail.com>
 Subject: Re: [PATCH] net: Fix struct sock bitfield annotation
-Date: Thu, 08 Oct 2009 14:31:07 -0700 (PDT)
-Message-ID: <20091008.143107.119291995.davem@davemloft.net>
+Date: Thu, 8 Oct 2009 23:54:02 +0200
+Message-ID: <19f34abd0910081454v51455ee0p30ad6715b5ee31c0@mail.gmail.com>
 References: <4ACE023D.9030208@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vegard.nossum@gmail.com, mingo@elte.hu
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Ingo Molnar <mingo@elte.hu>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46683
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756386AbZJHVbM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 17:31:12 -0400
+Received: from mail-ew0-f208.google.com ([209.85.219.208]:37864 "EHLO
+	mail-ew0-f208.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759750AbZJHVyk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 17:54:40 -0400
+Received: by ewy4 with SMTP id 4so95754ewy.37
+        for <netdev@vger.kernel.org>; Thu, 08 Oct 2009 14:54:03 -0700 (PDT)
 In-Reply-To: <4ACE023D.9030208@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 08 Oct 2009 17:16:13 +0200
-
-> Since commit a98b65a3 (net: annotate struct sock bitfield), we lost 8 bytes
-> in struct sock on 64bits arches because of kmemcheck_bitfield_end(flags) misplacement.
- ...
-> sizeof(struct good) = 16, sizeof(struct bad) = 24
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-
-Good catch, thanks Eric.
-
-Applied to net-2.6
+MjAwOS8xMC84IEVyaWMgRHVtYXpldCA8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT46Cj4gU2luY2Ug
+Y29tbWl0IGE5OGI2NWEzIChuZXQ6IGFubm90YXRlIHN0cnVjdCBzb2NrIGJpdGZpZWxkKSwgd2Ug
+bG9zdCA4IGJ5dGVzCj4gaW4gc3RydWN0IHNvY2sgb24gNjRiaXRzIGFyY2hlcyBiZWNhdXNlIG9m
+IGttZW1jaGVja19iaXRmaWVsZF9lbmQoZmxhZ3MpIG1pc3BsYWNlbWVudC4KPgo+Cj4gc3RydWN0
+IGdvb2Qgewo+IMKgIMKgIMKgIMKgaW50IMKgIMKgIMKgIMKgIMKgIMKgIGJlZ2luX2ZsYWdzWzBd
+Owo+IMKgIMKgIMKgIMKgdW5zaWduZWQgY2hhciDCoCBhIDogODsKPiDCoCDCoCDCoCDCoHVuc2ln
+bmVkIGNoYXIgwqAgYjsKPiDCoCDCoCDCoCDCoHVuc2lnbmVkIHNob3J0IMKgYzsKPiDCoCDCoCDC
+oCDCoGludCDCoCDCoCDCoCDCoCDCoCDCoCBlbmRfZmxhZ3NbMF07Cj4gwqAgwqAgwqAgwqBpbnQg
+wqAgwqAgwqAgwqAgwqAgwqAgc2tfcmN2YnVmOwo+IMKgIMKgIMKgIMKgdm9pZCDCoCDCoCDCoCDC
+oCDCoCAqcHRyOwo+IH07Cj4gc3RydWN0IGJhZCB7Cj4gwqAgwqAgwqAgwqBpbnQgwqAgwqAgwqAg
+wqAgwqAgwqAgYmVnaW5fZmxhZ3NbMF07Cj4gwqAgwqAgwqAgwqB1bnNpZ25lZCBjaGFyIMKgIGEg
+OiA4Owo+IMKgIMKgIMKgIMKgaW50IMKgIMKgIMKgIMKgIMKgIMKgIGVuZF9mbGFnc1swXTsKPiDC
+oCDCoCDCoCDCoHVuc2lnbmVkIGNoYXIgwqAgYjsKPiDCoCDCoCDCoCDCoHVuc2lnbmVkIHNob3J0
+IMKgYzsKPiDCoCDCoCDCoCDCoGludCDCoCDCoCDCoCDCoCDCoCDCoCBza19yY3ZidWY7Cj4gwqAg
+wqAgwqAgwqB2b2lkIMKgIMKgIMKgIMKgIMKgICpwdHI7Cj4gfTsKPiBzaXplb2Yoc3RydWN0IGdv
+b2QpID0gMTYsIHNpemVvZihzdHJ1Y3QgYmFkKSA9IDI0Cj4KPiBTaWduZWQtb2ZmLWJ5OiBFcmlj
+IER1bWF6ZXQgPGVyaWMuZHVtYXpldEBnbWFpbC5jb20+Cj4gLS0tCj4gwqBpbmNsdWRlL25ldC9z
+b2NrLmggfCDCoCDCoDIgKy0KPiDCoDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKSwgMSBk
+ZWxldGlvbigtKQo+Cj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L3NvY2suaCBiL2luY2x1ZGUv
+bmV0L3NvY2suaAo+IGluZGV4IDE2MjE5MzUuLmVjZmI4MzEgMTAwNjQ0Cj4gLS0tIGEvaW5jbHVk
+ZS9uZXQvc29jay5oCj4gKysrIGIvaW5jbHVkZS9uZXQvc29jay5oCj4gQEAgLTIyOSw5ICsyMjks
+OSBAQCBzdHJ1Y3Qgc29jayB7Cj4gwqAgwqAgwqAgwqB1bnNpZ25lZCBjaGFyIMKgIMKgIMKgIMKg
+IMKgIHNrX3NodXRkb3duIDogMiwKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoHNrX25vX2NoZWNrIDogMiwKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoHNrX3VzZXJsb2NrcyA6IDQ7Cj4gLSDCoCDCoCDCoCBrbWVt
+Y2hlY2tfYml0ZmllbGRfZW5kKGZsYWdzKTsKPiDCoCDCoCDCoCDCoHVuc2lnbmVkIGNoYXIgwqAg
+wqAgwqAgwqAgwqAgc2tfcHJvdG9jb2w7Cj4gwqAgwqAgwqAgwqB1bnNpZ25lZCBzaG9ydCDCoCDC
+oCDCoCDCoCDCoHNrX3R5cGU7Cj4gKyDCoCDCoCDCoCBrbWVtY2hlY2tfYml0ZmllbGRfZW5kKGZs
+YWdzKTsKPiDCoCDCoCDCoCDCoGludCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBza19y
+Y3ZidWY7Cj4gwqAgwqAgwqAgwqBzb2NrZXRfbG9ja190IMKgIMKgIMKgIMKgIMKgIHNrX2xvY2s7
+Cj4gwqAgwqAgwqAgwqAvKgo+CgpIbSwgbm8sIHRoaXMgbG9va3Mgd3JvbmcgdG8gbWUsIGJlY2F1
+c2Ugc2tfcHJvdG9jb2wgYW5kIHNrX3R5cGUKX2FyZW4ndF8gaW4gZmFjdCBwYXJ0IG9mIHRoZSBi
+aXRmaWVsZC4KCldlIGRvbid0IHdhbnQgdG8gYWZmZWN0IHRoZSBrZXJuZWwgX2F0IGFsbF8gd2hl
+biBDT05GSUdfS01FTUNIRUNLPW4sCnNvIEkgZ3Vlc3Mgd2Ugc2hvdWxkIG1ha2UgdGhlIGttZW1j
+aGVja19iaXRmaWVsZF97YmVnaW58ZW5kfSgpIG1hY3JvcwplbXB0eSBpbnN0ZWFkIGZvciB0aGF0
+IGNhc2U/IChBbmQgZm9yIGttZW1jaGVjayBrZXJuZWxzLCB3ZSBkb24ndApyZWFsbHkgY2FyZSBh
+Ym91dCB0aGUgbG9zdCA4IGJ5dGVzIGFueXdheS4pCgoKVmVnYXJkCg==
