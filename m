@@ -1,59 +1,54 @@
-From: Atis Elsts <atis@mikrotik.com>
-Subject: [PATCH] net: Use routing mark from skb in multicast forwarding routing lookups
-Date: Thu, 8 Oct 2009 16:19:44 +0300
-Message-ID: <200910081619.44880.atis@mikrotik.com>
-References: <200910051646.34770.atis@mikrotik.com> <200910071559.56526.atis@mikrotik.com> <20091007.135627.96995518.davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] Generalize socket rx gap / receive queue overflow cmsg
+Date: Thu, 8 Oct 2009 09:54:35 -0400
+Message-ID: <20091008135435.GA23928@hmsreliant.think-freely.org>
+References: <20091007180835.GB20524@hmsreliant.think-freely.org> <4ACD3AC8.608@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, panther@balabit.hu, eric.dumazet@gmail.com,
-	brian.haley@hp.com, zenczykowski@gmail.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, socketcan@hartkopp.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bute.mt.lv ([159.148.172.196]:57869 "EHLO bute.mt.lv"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758137AbZJHNUG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Oct 2009 09:20:06 -0400
-In-Reply-To: <20091007.135627.96995518.davem@davemloft.net>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:45617 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932226AbZJHNzS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 09:55:18 -0400
 Content-Disposition: inline
+In-Reply-To: <4ACD3AC8.608@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 07 October 2009 23:56:27 David Miller wrote:
 > 
-> Ok submit just the else part and we'll have a look at it.
+> > +	if (check_drops) {
+> > +		skb = skb_recv_datagram(sk, flags|MSG_PEEK,
+> > +				flags & MSG_DONTWAIT, &err);
 > 
-Here is a try.
+> 	Ouch, this is too expensive, please find another way :)
+> 
+> > +		if (skb) {
+> > +			gap = skb->dropcount;
+> > +			consume_skb(skb);
+> > +		}
+> > +	}
+> > +
+I'm not sure that I see the expense here, and what expense there is, I don't see
+how it avoidable.  In order to do this reporting at the socket level, we need to
+look at the skb at the head of the receive queue.  But we need to do so in a way
+thats consistent with the flags being passed in (i.e. if this is a blocking
+socket, we need to block here until something is available to read).  Then its
+just an atomic_inc on skb->users, followed by a dec in the consume_skb.  I could
+implement the logic for DONTWAIT myself, and skip the atomic_inc/dec, but I'm
+not sure thats much of a savings.  If you have another thought, I'm certainly
+open to it.
 
-Use routing mark from skb in routing lookup in IPv4 and IPv6 multicast forwarding code.
-Signed-off-by: Atis Elsts <atis@mikrotik.com>
----
- net/ipv4/ipmr.c  |    1 +
- net/ipv6/ip6mr.c |    1 +
- 2 files changed, 2 insertions(+)
+Neil
 
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 630a56d..5522cf8 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -1248,6 +1248,7 @@ static void ipmr_queue_xmit(struct sk_buff *skb, struct mfc_cache *c, int vifi)
- 		encap = sizeof(struct iphdr);
- 	} else {
- 		struct flowi fl = { .oif = vif->link,
-+				    .mark = skb->mark,
- 				    .nl_u = { .ip4_u =
- 					      { .daddr = iph->daddr,
- 						.tos = RT_TOS(iph->tos) } },
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index 7161539..d98df54 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -1523,6 +1523,7 @@ static int ip6mr_forward2(struct sk_buff *skb, struct mfc6_cache *c, int vifi)
- 
- 	fl = (struct flowi) {
- 		.oif = vif->link,
-+		.mark = skb->mark,
- 		.nl_u = { .ip6_u =
- 				{ .daddr = ipv6h->daddr, }
- 		}
+> > +	rc = sock->ops->recvmsg(iocb, sock, msg, size, flags);
+> > +
+> > +	if (check_drops && (rc > 0))
+> 
+> 		&& gap != 0
+> 
+> > +		put_cmsg(msg, SOL_SOCKET, SO_RXQ_OVFL, sizeof(__u32), &gap);
+> > +
+> 
+> 
