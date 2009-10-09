@@ -1,52 +1,48 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 0/8] SECURITY ISSUE with connector
-Date: Fri, 9 Oct 2009 15:25:05 -0700
-Message-ID: <20091009222505.GA28979@kroah.com>
-References: <1254487211-11810-1-git-send-email-philipp.reisner@linbit.com>
-Reply-To: device-mapper development <dm-devel@redhat.com>
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: netconf notes and materials
+Date: Fri, 09 Oct 2009 16:01:29 -0700
+Message-ID: <1255129289.8937.39.camel@localhost.localdomain>
+References: <20091007.044718.233642056.davem@davemloft.net>
+	 <20091009174949.467ddc50.billfink@mindspring.com>
+	 <20091009.145151.130967664.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-fbdev-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, dm-devel@redhat.com,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Philipp Reisner <philipp.reisner@linbit.com>
-Return-path: <dm-devel-bounces@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <1254487211-11810-1-git-send-email-philipp.reisner@linbit.com>
-List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/dm-devel>,
-	<mailto:dm-devel-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/dm-devel>
-List-Post: <mailto:dm-devel@redhat.com>
-List-Help: <mailto:dm-devel-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/dm-devel>,
-	<mailto:dm-devel-request@redhat.com?subject=subscribe>
-Sender: dm-devel-bounces@redhat.com
-Errors-To: dm-devel-bounces@redhat.com
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "billfink@mindspring.com" <billfink@mindspring.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:9775 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755176AbZJIXCE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Oct 2009 19:02:04 -0400
+In-Reply-To: <20091009.145151.130967664.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 02, 2009 at 02:40:03PM +0200, Philipp Reisner wrote:
-> Affected: All code that uses connector, in kernel and out of mainline
+On Fri, 2009-10-09 at 14:51 -0700, David Miller wrote:
+> From: Bill Fink <billfink@mindspring.com>
+> Date: Fri, 9 Oct 2009 17:49:49 -0400
 > 
-> The connector, as it is today, does not allow the in kernel receiving
-> parts to do any checks on privileges of a message's sender.
+> > How did you do the NUMA memory performance monitoring that was
+> > presented on one of your slides?
 > 
-> I know, there are not many out there that like connector, but as
-> long as it is in the kernel, we have to fix the security issues it has!
+> Using proprietary internal tools Intel is unlikely to release.
 > 
-> Please either drop connector, or someone who feels a bit responsible
-> and has our beloved dictator's blessing, PLEASE PLEASE PLEASE take 
-> this into your tree, and send the pull request to Linus.
-> 
-> Patches 1 to 4 are already Acked-by Evgeny, the connector's maintainer.
-> Patches 5 to 7 are the obvious fixes to the connector user's code.
+> On the bright side, some of those metrics will make their way into the
+> 'perf' facilities in the kernel so they can be monitored, but not all
+> of them.
 
-These don't apply to the 2.6.31-stable tree at all.
+Yes, they are tools written by our CPU and chipset teams to assist in
+debug.  To reinforce what David just said, I know Jesse Barnes is
+working hard with the Intel powers-that-be to get the "approved" public
+PMU counters into the perf utility.  I'd imagine the PMU counters for
+IOH memory throughput will be deemed ok, since it's not uncovering any
+IP.
 
-Could you provide them backported to that tree if you want to see them
-go into a .31-stable release?
+If I hear anything about any of the performance counters, I'll be sure
+to forward that on.
 
-thanks,
+Cheers,
+-PJ
 
-greg k-h
