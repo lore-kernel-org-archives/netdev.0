@@ -1,112 +1,119 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] Generalize socket rx gap / receive queue overflow cmsg
-	(v2)
-Date: Fri, 9 Oct 2009 19:21:40 -0400
-Message-ID: <20091009232140.GA31403@hmsreliant.think-freely.org>
-References: <20091007180835.GB20524@hmsreliant.think-freely.org> <20091009193515.GA28196@hmsreliant.think-freely.org> <4ACFABAE.5050003@gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 2/8] bitmap: Introduce bitmap_set, bitmap_clear,
+	bitmap_find_next_zero_area
+Date: Fri, 9 Oct 2009 16:41:00 -0700
+Message-ID: <20091009164100.85a36188.akpm@linux-foundation.org>
+References: <1255076961-21325-1-git-send-email-akinobu.mita@gmail.com>
+	<1255076961-21325-2-git-send-email-akinobu.mita@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, socketcan@hartkopp.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:60679 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761567AbZJIXWZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 19:22:25 -0400
-Content-Disposition: inline
-In-Reply-To: <4ACFABAE.5050003@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Fenghua Yu <fenghua.yu@intel.com>, Greg Kroah-Hartman <gregkh@suse.de>,
+	linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>,
+	x86@kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-altix@sgi.com,
+	Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
+	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
+	linuxppc-dev@ozlabs.org, Ingo Molnar <mingo@redhat.com>,
+	Paul Mackerras <paulus@samba.org>,
+	"H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org,
+	Thomas Gleixner <tglx@linutronix.de>, linux-usb@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Lothar Wassmann <LW@KARO-electronics.de>
+To: Akinobu Mita <akinobu.mita@gmail.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1255076961-21325-2-git-send-email-akinobu.mita@gmail.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 09, 2009 at 11:31:26PM +0200, Eric Dumazet wrote:
-> Neil Horman a =E9crit :
->=20
-> > =20
-> > +extern void __sock_recv_ts_and_drops(struct msghdr *msg, struct so=
-ck *sk,
-> > +	struct sk_buff *skb);
->=20
-> Surely you meant __sock_recv_drops() ? It only deals with drops.
->=20
-No, I certainly meant both.  The defintion clearly handles both the tim=
-estamp
-cmsg and the drops cmsg.  That way we don't need to make two calls in t=
-he
-receive path for these
+On Fri,  9 Oct 2009 17:29:15 +0900
+Akinobu Mita <akinobu.mita@gmail.com> wrote:
 
->=20
-> > +	case SO_RXQ_OVFL:
-> > +		v.val =3D sock_flag(sk, SOCK_RXQ_OVFL);
-> > +		break;
-> > +
->=20
-> Hmm, I advise to use v.val =3D !!sock_flag(sk, SOCK_RXQ_OVFL);
-> So that application gets 0 or 1, not 0 or some big value.
-> Its better because it allows us to change internal SOCK_RXQ_OVFL if n=
-ecessary in the future.
->=20
-I don't really see any difference, sock_flag is simply a wrapper around
-test_bit.  I can change it if you really need, but it just looks like a=
-dditional
-operations to me
+> This introduces new bitmap functions:
+> 
+> bitmap_set: Set specified bit area
+> bitmap_clear: Clear specified bit area
+> bitmap_find_next_zero_area: Find free bit area
+> 
+> These are stolen from iommu helper.
+> 
+> I changed the return value of bitmap_find_next_zero_area if there is
+> no zero area.
+> 
+> find_next_zero_area in iommu helper: returns -1
+> bitmap_find_next_zero_area: return >= bitmap size
 
-> >  drop_n_acct:
-> > -	spin_lock(&sk->sk_receive_queue.lock);
-> > -	po->stats.tp_drops++;
-> > -	spin_unlock(&sk->sk_receive_queue.lock);
-> > +	po->stats.tp_drops =3D atomic_inc_return(&sk->sk_drops);
->=20
-> Yes :)
->=20
-> >  EXPORT_SYMBOL_GPL(__sock_recv_timestamp);
-> > =20
-> > +void __sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk,
-> > +	struct sk_buff *skb)
-> > +{
-> > +	put_cmsg(msg, SOL_SOCKET, SO_RXQ_OVFL, sizeof(__u32), &skb->dropc=
-ount);
-> > +}
-> > +EXPORT_SYMBOL_GPL(__sock_recv_ts_and_drops);
-> > +
->=20
-> Just change the name.
->=20
-No.  I'm differentiating from sock_recv_timestamp here, as I'm concerne=
-d about
-the case in which we enqueue to sk_error_queue.  For those cases, in wh=
-ich
-recvmsg is called with MSG_ERRQUEUE, I don't think its right to apply a=
- cmsg
-based on skb->dropcount, since the frame may have been from a tx path, =
-or may
-not have had dropcount set in the first place.  timestamp is still reco=
-rded
-there, but I don't think we should mark the dropcount.
+I'll plan to merge this patch into 2.6.32 so we can trickle all the
+other patches into subsystems in an orderly fashion.
 
-> And is it really too large to be inlined ?
->=20
-No, I was just following the style of sock_recv_timestamp. =20
+> +void bitmap_set(unsigned long *map, int i, int len)
+> +{
+> +	int end = i + len;
+> +
+> +	while (i < end) {
+> +		__set_bit(i, map);
+> +		i++;
+> +	}
+> +}
 
-> In the contrary, sock_recv_timestamp() is so large that I suspect
-> your sock_recv_ts_and_drops should *not* be inlined, and include inli=
-ned versions only :
->=20
-> I suggest something more orthogonal like :
->=20
-> void inline sock_recv_drops(struct msghdr *msg, struct sock *sk, stru=
-ct sk_buff *skb)
-> {
-> 	if (sock_flag(sk, SOCK_RXQ_OVFL) && skb && skb->dropcount)
-> 		put_cmsg(msg, SOL_SOCKET, SO_RXQ_OVFL,
-> 			 sizeof(__u32), &skb->dropcount);
-> }
->=20
-> void sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk, stru=
-ct sk_buff *skb)
-> {
-> 	sock_recv_timestamp(msg, sk, skb); // inlined
-> 	sock_recv_drops(msg, sk, skb); // inlined
-> }
-> EXPORT_SYMBOL_GPL(sock_recv_ts_and_drops)
-=46ine.
+This is really inefficient, isn't it?  It's a pretty trivial matter to
+romp through memory 32 or 64 bits at a time.
+
+> +EXPORT_SYMBOL(bitmap_set);
+> +
+> +void bitmap_clear(unsigned long *map, int start, int nr)
+> +{
+> +	int end = start + nr;
+> +
+> +	while (start < end) {
+> +		__clear_bit(start, map);
+> +		start++;
+> +	}
+> +}
+> +EXPORT_SYMBOL(bitmap_clear);
+
+Ditto.
+
+> +unsigned long bitmap_find_next_zero_area(unsigned long *map,
+> +					 unsigned long size,
+> +					 unsigned long start,
+> +					 unsigned int nr,
+> +					 unsigned long align_mask)
+> +{
+> +	unsigned long index, end, i;
+> +again:
+> +	index = find_next_zero_bit(map, size, start);
+> +
+> +	/* Align allocation */
+> +	index = (index + align_mask) & ~align_mask;
+> +
+> +	end = index + nr;
+> +	if (end >= size)
+> +		return end;
+> +	i = find_next_bit(map, end, index);
+> +	if (i < end) {
+> +		start = i + 1;
+> +		goto again;
+> +	}
+> +	return index;
+> +}
+> +EXPORT_SYMBOL(bitmap_find_next_zero_area);
+
+This needs documentation, please.  It appears that `size' is the size
+of the bitmap and `nr' is the number of zeroed bits we're looking for,
+but an inattentive programmer could get those reversed.
+
+Also the semantics of `align_mask' could benefit from spelling out.  Is
+the alignment with respect to memory boundaries or with respect to
+`map' or with respect to map+start or what?
+
+And why does align_mask exist at all?  I was a bit surprised to see it
+there.  In which scenarios will it be non-zero?
