@@ -1,62 +1,166 @@
-From: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
-Subject: Re: can: make the number of echo skb's configurable
-Date: Fri, 09 Oct 2009 10:28:04 +0200
-Message-ID: <4ACEF414.6050000@ems-wuensche.com>
-References: <4ACEEFA6.1000904@grandegger.com>
+From: Akinobu Mita <akinobu.mita@gmail.com>
+Subject: [PATCH 2/8] bitmap: Introduce bitmap_set, bitmap_clear,
+	bitmap_find_next_zero_area
+Date: Fri,  9 Oct 2009 17:29:15 +0900
+Message-ID: <1255076961-21325-2-git-send-email-akinobu.mita@gmail.com>
+References: <>
+ <1255076961-21325-1-git-send-email-akinobu.mita@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4ACEEFA6.1000904-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: Fenghua Yu <fenghua.yu@intel.com>, Greg Kroah-Hartman <gregkh@suse.de>,
+	linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>,
+	x86@kernel.org, netdev@vger.kernel.org,
+	Akinobu Mita <akinobu.mita@gmail.com>, linux-altix@sgi.com,
+	Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
+	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
+	linuxppc-dev@ozlabs.org, Ingo Molnar <mingo@redhat.com>,
+	Paul Mackerras <paulus@samba.org>,
+	"H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org,
+	Thomas Gleixner <tglx@linutronix.de>, linux-usb@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Lothar Wassmann <LW@KARO-electronics.de>
+To: linux-kernel@vger.kernel.org,
+	 akpm@linux-foundation.org
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1255076961-21325-1-git-send-email-akinobu.mita@gmail.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+This introduces new bitmap functions:
 
-Wolfgang Grandegger schrieb:
-> This patch allows the CAN controller driver to define the number of echo
-> skb's used for the local loopback (echo), as suggested by Kurt Van
-> Dijck, with the function:
-> 
->   struct net_device *alloc_candev(int sizeof_priv,
->                                   unsigned int echo_skb_max);
-> 
-> The CAN drivers have been adapted accordingly. For the ems_usb driver,
-> as suggested by Sebastian Haas, the number of echo skb's has been
-> increased to 10, which improves the transmission performance a lot.
-> 
-> Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-> Signed-off-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Acked-by: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
+bitmap_set: Set specified bit area
+bitmap_clear: Clear specified bit area
+bitmap_find_next_zero_area: Find free bit area
 
-I added my "Acked-by" for the change on ems_usb.c MAX_TX_URBS.
+These are stolen from iommu helper.
 
-Sebastan
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+I changed the return value of bitmap_find_next_zero_area if there is
+no zero area.
 
-iEYEARECAAYFAkrO9A8ACgkQpqRB8PJG7XxrdACfaM8q9Yb+EI3v/yCP74NU0Taz
-VowAn1lgWPsWramFos+WlFZ4UFMcEMi7
-=gwCy
------END PGP SIGNATURE-----
+find_next_zero_area in iommu helper: returns -1
+bitmap_find_next_zero_area: return >= bitmap size
+
+Cc: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: sparclinux@vger.kernel.org
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: linuxppc-dev@ozlabs.org
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: x86@kernel.org
+Cc: Greg Kroah-Hartman <gregkh@suse.de>
+Cc: Lothar Wassmann <LW@KARO-electronics.de>
+Cc: linux-usb@vger.kernel.org
+Cc: Roland Dreier <rolandd@cisco.com>
+Cc: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Cc: netdev@vger.kernel.org
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-altix@sgi.com
+Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+---
+ include/linux/bitmap.h |   11 +++++++++++
+ lib/bitmap.c           |   47 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 58 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/bitmap.h b/include/linux/bitmap.h
+index 756d78b..daf8c48 100644
+--- a/include/linux/bitmap.h
++++ b/include/linux/bitmap.h
+@@ -42,6 +42,9 @@
+  * bitmap_empty(src, nbits)			Are all bits zero in *src?
+  * bitmap_full(src, nbits)			Are all bits set in *src?
+  * bitmap_weight(src, nbits)			Hamming Weight: number set bits
++ * bitmap_set(dst, pos, nbits)			Set specified bit area
++ * bitmap_clear(dst, pos, nbits)		Clear specified bit area
++ * bitmap_find_next_zero_area(buf, len, pos, n, mask)	Find bit free area
+  * bitmap_shift_right(dst, src, n, nbits)	*dst = *src >> n
+  * bitmap_shift_left(dst, src, n, nbits)	*dst = *src << n
+  * bitmap_remap(dst, src, old, new, nbits)	*dst = map(old, new)(src)
+@@ -108,6 +111,14 @@ extern int __bitmap_subset(const unsigned long *bitmap1,
+ 			const unsigned long *bitmap2, int bits);
+ extern int __bitmap_weight(const unsigned long *bitmap, int bits);
+ 
++extern void bitmap_set(unsigned long *map, int i, int len);
++extern void bitmap_clear(unsigned long *map, int start, int nr);
++extern unsigned long bitmap_find_next_zero_area(unsigned long *map,
++					 unsigned long size,
++					 unsigned long start,
++					 unsigned int nr,
++					 unsigned long align_mask);
++
+ extern int bitmap_scnprintf(char *buf, unsigned int len,
+ 			const unsigned long *src, int nbits);
+ extern int __bitmap_parse(const char *buf, unsigned int buflen, int is_user,
+diff --git a/lib/bitmap.c b/lib/bitmap.c
+index 7025658..95070fa 100644
+--- a/lib/bitmap.c
++++ b/lib/bitmap.c
+@@ -271,6 +271,53 @@ int __bitmap_weight(const unsigned long *bitmap, int bits)
+ }
+ EXPORT_SYMBOL(__bitmap_weight);
+ 
++void bitmap_set(unsigned long *map, int i, int len)
++{
++	int end = i + len;
++
++	while (i < end) {
++		__set_bit(i, map);
++		i++;
++	}
++}
++EXPORT_SYMBOL(bitmap_set);
++
++void bitmap_clear(unsigned long *map, int start, int nr)
++{
++	int end = start + nr;
++
++	while (start < end) {
++		__clear_bit(start, map);
++		start++;
++	}
++}
++EXPORT_SYMBOL(bitmap_clear);
++
++unsigned long bitmap_find_next_zero_area(unsigned long *map,
++					 unsigned long size,
++					 unsigned long start,
++					 unsigned int nr,
++					 unsigned long align_mask)
++{
++	unsigned long index, end, i;
++again:
++	index = find_next_zero_bit(map, size, start);
++
++	/* Align allocation */
++	index = (index + align_mask) & ~align_mask;
++
++	end = index + nr;
++	if (end >= size)
++		return end;
++	i = find_next_bit(map, end, index);
++	if (i < end) {
++		start = i + 1;
++		goto again;
++	}
++	return index;
++}
++EXPORT_SYMBOL(bitmap_find_next_zero_area);
++
+ /*
+  * Bitmap printing & parsing functions: first version by Bill Irwin,
+  * second version by Paul Jackson, third by Joe Korty.
 -- 
-EMS Dr. Thomas Wuensche e.K.
-Sonnenhang 3
-85304 Ilmmuenster
-HRA Neuburg a.d. Donau, HR-Nr. 70.106
-Phone: +49-8441-490260
-Fax  : +49-8441-81860
-http://www.ems-wuensche.com
+1.5.4.3
