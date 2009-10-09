@@ -1,50 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix struct sock bitfield annotation
-Date: Fri, 09 Oct 2009 00:54:08 -0700 (PDT)
-Message-ID: <20091009.005408.151610125.davem@davemloft.net>
-References: <4ACE023D.9030208@gmail.com>
-	<19f34abd0910081454v51455ee0p30ad6715b5ee31c0@mail.gmail.com>
-	<4ACE8CEC.3020905@gmail.com>
+Subject: Re: [RFC] multiqueue changes
+Date: Fri, 09 Oct 2009 00:58:36 -0700 (PDT)
+Message-ID: <20091009.005836.201112959.davem@davemloft.net>
+References: <20091008090344.GA7409@ff.dom.local>
+	<20091008120039.GA8691@ff.dom.local>
+	<4ACDD762.9080101@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vegard.nossum@gmail.com, netdev@vger.kernel.org, mingo@elte.hu
+Cc: jarkao2@gmail.com, kaber@trash.net, netdev@vger.kernel.org
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37240
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41515
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753402AbZJIHyM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 03:54:12 -0400
-In-Reply-To: <4ACE8CEC.3020905@gmail.com>
+	by vger.kernel.org with ESMTP id S1751684AbZJIH6l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 03:58:41 -0400
+In-Reply-To: <4ACDD762.9080101@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 09 Oct 2009 03:07:56 +0200
+Date: Thu, 08 Oct 2009 14:13:22 +0200
 
-> Point is we should not lose 8 bytes with kmemcheck on or off.
-> I believe kmemcheck macros are fine as they are.
-> 
-> When we have a structure with
-> 
->         unsigned char           sk_shutdown : 2,
->                                 sk_no_check : 2,
->                                 sk_userlocks : 4;
->         unsigned char           sk_protocol;
->         unsigned short          sk_type;
-> 
-> Its pretty clear its *logically* a bitfield aggregation, or if you prefer :
+> I am not sure David intent was being able to dynamically adjust
+> real_num_tx_queue between 1 and num_tx_queue.
 
-I think from a practical standpoint, you are right.
+The idea was to allow semi-dynamic adjustment.
 
-But Vegard is right too, as we should be able to put the annotation
-right next to the ":" statements.
+Meaning that you could change the number of TX queues, but only in
+some quiescent state, such as when the device is down or frozen while
+up in some way.
 
-So if you really want why don't you put the sk_protocol and
-sk_type into the ":" block as you mentioned.
-
-And then you can use Arnaldo's 'pahole' instead of the kludgy
-offsetof() which doesn't work with bitfields :-)
-
-I want the 8 bytes back just like you, but seperating the annotation
-from the real C bitfields looks definitely wrong to me.
+dev->num_tx_queues tracks how many total were allocated.  This is
+necessary so that even if the real_num_tx_queues is modified while the
+device is up, we can still see the correct statistics by gathering
+from queues that are now disabled but were enabled beforehand.
