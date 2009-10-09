@@ -1,40 +1,25 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next][resubmit] cdc_ether: additional Ericsson MBM
- PID's to the whitelist
-Date: Thu, 08 Oct 2009 23:00:41 -0700 (PDT)
-Message-ID: <20091008.230041.128312409.davem@davemloft.net>
-References: <E86B0C24322D8648AC7F41E7CDA658E903DDD5FD@esealmw114.eemea.ericsson.se>
+From: Satish Chowdhury <satish.chowdhury@oneconvergence.com>
+Subject: SRIOV driver for 82599
+Date: Fri, 9 Oct 2009 12:33:34 +0530
+Message-ID: <be5d34890910090003s4c518c44q3ae395d0efbeb225@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: torgny.johansson@ericsson.com
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55604
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751904AbZJIGAq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 02:00:46 -0400
-In-Reply-To: <E86B0C24322D8648AC7F41E7CDA658E903DDD5FD@esealmw114.eemea.ericsson.se>
+Received: from mail-iw0-f180.google.com ([209.85.223.180]:37918 "EHLO
+	mail-iw0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933022AbZJIHFG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 03:05:06 -0400
+Received: by iwn10 with SMTP id 10so1053794iwn.4
+        for <netdev@vger.kernel.org>; Fri, 09 Oct 2009 00:03:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Torgny Johansson" <torgny.johansson@ericsson.com>
-Date: Thu, 8 Oct 2009 16:20:48 +0200
+Hi,
 
-> This is a new attempt to submit a patch that adds seven more PID's to the whitelist set of device. Been having some problems submitting patches with Outlook (yes I know that is a baaad idea :)) but hopefully this will get sent right.
-> 
-> Devices added to the whitelist:
->  - Ericsson Mobile Broadband variants (F3607gw and F3307)
->  - Dell F3607gw variants
->  - Toshiba F3607gw variants
-> 
-> Regards 
-> Torgny Johansson
-> 
-> Signed-off-by: Torgny Johansson <torgny.johansson@ericsson.com>
+I want to test the SRIOV functionality of Intel 82599 based NIC card.
+Is there a version of ixgbe driver with SRIOV functionality support
+and is there a ixgbe VF driver?
 
-Your patch does not apply cleanly to Linus's current tree, it
-produces rejects even with 'patch'.
-
-Please respin your patch against current sources and resubmit,
-thank you.
+Thanks
+-Satish
