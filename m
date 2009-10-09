@@ -1,53 +1,137 @@
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Subject: Re: Real networking namespace
-Date: Fri, 09 Oct 2009 12:44:52 -0400
-Message-ID: <1255106692.2182.224.camel@moss-pluto.epoch.ncsc.mil>
-References: <20091009083807.16e55b08@nehalam>
-	 <1255106246.2182.219.camel@moss-pluto.epoch.ncsc.mil>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH] [CAIF-RFC 5/8-v2] CAIF Protocol Stack
+Date: Fri, 9 Oct 2009 09:43:06 -0700
+Message-ID: <20091009094306.4671ef33.randy.dunlap@oracle.com>
+References: <1255095571-6501-1-git-send-email-sjur.brandeland@stericsson.com>
+	<1255095571-6501-2-git-send-email-sjur.brandeland@stericsson.com>
+	<1255095571-6501-3-git-send-email-sjur.brandeland@stericsson.com>
+	<1255095571-6501-4-git-send-email-sjur.brandeland@stericsson.com>
+	<1255095571-6501-5-git-send-email-sjur.brandeland@stericsson.com>
+	<1255095571-6501-6-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-security-module@vger.kernel.org,
-	Al Viro <viro@ZenIV.linux.org.uk>, netdev@vger.kernel.org,
-	Paul Moore <paul.moore@hp.com>,
-	James Morris <jmorris@namei.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1255106246.2182.219.camel@moss-pluto.epoch.ncsc.mil>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, stefano.babic@babic.homelinux.org,
+	randy.dunlap@oracle.com, kim.xx.lilliestierna@stericsson.com,
+	christian.bejram@stericsson.com, daniel.martensson@stericsson.com
+To: sjur.brandeland@stericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcsinet11.oracle.com ([148.87.113.123]:16706 "EHLO
+	rgminet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753861AbZJIQpk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 12:45:40 -0400
+In-Reply-To: <1255095571-6501-6-git-send-email-sjur.brandeland@stericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-10-09 at 12:37 -0400, Stephen Smalley wrote:
-> On Fri, 2009-10-09 at 08:38 -0700, Stephen Hemminger wrote:
-> > The existing networking namespace model is unattractive for what I want,
-> > has anyone investigated better alternatives?
-> > 
-> > I would like to be able to allow access to a network interface and associated objects
-> > (routing tables etc), to be controlled by Mandatory Access Control API's.
-> > I.e grant access to eth0 and to only certain processes.  Some the issues
-> > with the existing models are:
-> >   * eth0 and associated objects don't really exist in filesystem so
-> >     not subject to LSM style control (SeLinux/SMACK/TOMOYO)
-> >   * network namespaces do not allow object to exist in multiple namespaces.
-> >     The current model is more restrictive than chroot jails. At least with
-> >     chroot, put filesystem objects in multiple jails.
-> > 
-> > Since one of the first rules of security is "don't reinvent", surely
-> > others have dealt with this issue. Any good ideas?
+On Fri, 09 Oct 2009 15:39:28 +0200 sjur.brandeland@stericsson.com wrote:
+
+> From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 > 
-> Is there something that prevents you from using the existing SELinux
-> network access controls?  netif is a security class governed by SELinux
-> policy, and routing table operations would be covered by the SELinux
-> checks on netlink_route_socket.  SELinux uses a combination of LSM hooks
-> and netfilter hooks to mediate network operations.
+> Change-Id: I205c5b3baf1542e1593637ce896d8684870415be
+> Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
+> ---
+>  net/caif/Kconfig            |   61 ++
+>  net/caif/Makefile           |   56 ++
+>  net/caif/caif_chnlif.c      |  219 +++++++
+>  net/caif/caif_chr.c         |  374 ++++++++++++
+>  net/caif/caif_config_util.c |  167 ++++++
+>  net/caif/chnl_chr.c         | 1393 +++++++++++++++++++++++++++++++++++++++++++
+>  net/caif/chnl_net.c         |  492 +++++++++++++++
+>  7 files changed, 2762 insertions(+), 0 deletions(-)
+>  create mode 100644 net/caif/Kconfig
+>  create mode 100644 net/caif/Makefile
+>  create mode 100644 net/caif/caif_chnlif.c
+>  create mode 100644 net/caif/caif_chr.c
+>  create mode 100644 net/caif/caif_config_util.c
+>  create mode 100644 net/caif/chnl_chr.c
+>  create mode 100644 net/caif/chnl_net.c
+> 
+> diff --git a/net/caif/Kconfig b/net/caif/Kconfig
+> new file mode 100644
+> index 0000000..7fb9e9c
+> --- /dev/null
+> +++ b/net/caif/Kconfig
+> @@ -0,0 +1,61 @@
+> +#
+> +# CAIF net configurations
+> +#
+> +
+> +#menu "Caif Support"
+> +comment "CAIF Support"
+> +
+> +menuconfig CAIF
+> +	tristate "Enable Caif support"
+> +	default n
+> +	---help---
+> +	Say Y here if you need to use a phone modem that uses CAIF as transport
 
-Also, depending on what you want to do, SECMARK may be useful to you.
-That allows you to mark packets with security contexts via iptables, and
-then use SELinux policy to control their flow.
-http://paulmoore.livejournal.com/4281.html
-http://james-morris.livejournal.com/11010.html
+	end above with period ('.').
 
--- 
-Stephen Smalley
-National Security Agency
+> +	You will also need to say yes to any caif physical devices that your platform
+> +	supports.
+> +	This can be either built-in or as a loadable module, if you select to build it as module
 
+s/,/;/
+
+> +	the other CAIF also needs to built as modules
+
+	the other CAIF {options or drivers or some other word here} also need  ... modules.
+	(end with period)
+
+
+> +	See Documentation/CAIF for a further explanation on how to use and configure.
+> +
+> +if CAIF
+> +
+> +config CAIF_CHARDEV
+> +	tristate "CAIF character device"
+> +	default CAIF
+> +	---help---
+> +	Say Y if you will be using the CAIF AT type character devices.
+> +	This can be either built-in or as a loadable module,
+> +	If you select to build it as a built in then the main caif device must also be a builtin.
+> +	If unsure say Y.
+> +
+> +config CAIF_NETDEV
+> +	tristate "CAIF Network device"
+> +	default CAIF
+> +	---help---
+> +	Say Y if you will be using the CAIF based network device.
+> +	This can be either built-in or as a loadable module,
+> +	If you select to build it as a built in then the main caif device must also be a builtin.
+> +	If unsure say Y.
+> +
+> +
+> +config  CAIF_USE_PLAIN
+> +	bool  "Use plain buffers instead of SKB in caif"
+> +	default n
+> +	---help---
+> +	Use plain buffer to transport data,
+
+	s/,/./
+
+> +	Select what type of internal buffering CAIF should use,
+> +	skb or plain.
+> +	If unsure say N hre.
+> +
+> +config  CAIF_DEBUG
+> +	bool "Enable Debug"
+> +	default n
+> +	--- help ---
+> +	Enable the inclusion of debug code in the caif stack,
+> +	be aware that doing this will impact performance.
+> +	If unsure say N here.
+> +
+> +# Include physical drivers
+> +# source "drivers/net/caif/Kconfig"
+
+Drop the above line.
+
+> +source "drivers/net/caif/Kconfig"
+> +endif
+> +#endmenu
+
+
+---
+~Randy
