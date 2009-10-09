@@ -1,42 +1,39 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2009-10-08
-Date: Thu, 08 Oct 2009 18:01:19 -0700 (PDT)
-Message-ID: <20091008.180119.242402327.davem@davemloft.net>
-References: <20091008223454.GB2798@tuxdriver.com>
-	<200910090108.08838.mb@bu3sch.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: using huge numbers of queues
+Date: Fri, 9 Oct 2009 10:02:22 +0900
+Message-ID: <20091009010222.GA31998@gondor.apana.org.au>
+References: <c0a09e5c0910071459r2768f420lae87f7404dfbc054@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200910090108.08838.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Andrew Grover <andy.grover@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:51923 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758155AbZJIBDC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 21:03:02 -0400
+Content-Disposition: inline
+In-Reply-To: <c0a09e5c0910071459r2768f420lae87f7404dfbc054@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Date: Fri, 9 Oct 2009 01:08:06 +0200
+On Wed, Oct 07, 2009 at 02:59:49PM -0700, Andrew Grover wrote:
+> 
+> Thinking about this reminded me of VJ's 2006 netchannel concept, which
+> although not adopted, was pretty interesting. Would having 1 queue per
+> socket (or at least 1 per process) and hw that is able to filter
+> individual flows (I think the Intel 82599 can do this now for up to
+> 128) perhaps make netchannels workable? At least this would get all
+> processing out of int/bh and into process context, if not userspace,
+> no?
 
-> I was planning to do a better solution, but I didn't have the time, yet.
+This is exactly right.  Having one socket per queue would allow
+the netchannel concept to become reality without compromising
+features such as netfilter.
 
-The change is harmless while we're twiddling our thumbs waiting
-for you to implement the fix "properly."
-
-Not having the fix in is a developer burdon because people turn
-on the DMA API debugger and are going to keep reporting it's
-complaints here and elsewhere.
-
-Get over your Napoleon complex, and let reasonable working fixes
-get into the tree even if you don't find them optimal.  You can
-always improve them later, "when you get around to it."
-
-People put fixes in without my ACK in my areas of expertiece all
-the time.  I got over it a long time ago, it's OK, and not worth
-stressing out over.
-
-Thanks.
+Cheers,
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
