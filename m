@@ -1,39 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2009-10-08
-Date: Thu, 08 Oct 2009 17:55:53 -0700 (PDT)
-Message-ID: <20091008.175553.139810708.davem@davemloft.net>
-References: <20091008223454.GB2798@tuxdriver.com>
-	<200910090108.08838.mb@bu3sch.de>
-	<200910090116.46513.mb@bu3sch.de>
+Subject: Re: Kernel oops when clearing bgp neighbor info with TCP MD5SUM
+ enabled
+Date: Thu, 08 Oct 2009 17:57:03 -0700 (PDT)
+Message-ID: <20091008.175703.83006470.davem@davemloft.net>
+References: <Pine.LNX.4.64.0910081514050.18315@sleet.zeugmasystems.local>
+	<20091008.155429.02850661.davem@davemloft.net>
+	<Pine.LNX.4.64.0910081622400.18315@sleet.zeugmasystems.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mb@bu3sch.de
+Cc: netdev@vger.kernel.org
+To: asinha@zeugmasystems.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58013
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58017
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753846AbZJIAz6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 20:55:58 -0400
-In-Reply-To: <200910090116.46513.mb@bu3sch.de>
+	by vger.kernel.org with ESMTP id S1751705AbZJIA5I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 20:57:08 -0400
+In-Reply-To: <Pine.LNX.4.64.0910081622400.18315@sleet.zeugmasystems.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Buesch <mb@bu3sch.de>
-Date: Fri, 9 Oct 2009 01:16:44 +0200
+From: Anirban Sinha <asinha@zeugmasystems.com>
+Date: Thu, 8 Oct 2009 16:33:47 -0700 (PDT)
 
-> And there's no reason to rush this fix into mainline.
+> Hi:
+> 
+> Thanks for responding.
+> 
+>> > We are noticing a kernel OOPS on 2.6.26 kernel when we issue the command
+>> > "clear ip bgp <bgp-peer-ip>" on Quagga BGP routing software.
+>>
+>> You will need to update your kernel, there have been many TCP
+>> MD5 bug fixes since 2.6.26
+>>
+> 
+> Sigh ... wish that were that easy!
 
-I think it's worthwhile because people turn the DMA API debugger on
-and it's going to spit out warnings that "don't matter" until you guys
-fix this.
+Contact your vendor for support :-)
 
-I looked at the patch you guys are so up in arms about, and frankly it
-looks perfectly fine to me.
-
-If you want to implement the fix "perfectly", and "to your standards",
-then fine.  But do it in net-next-2.6 as a follow-on patch to this
-one.
-
-I'm not undoing John's pull request just for this. :-)
