@@ -1,137 +1,208 @@
-From: Rob Townley <rob.townley-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Ping Is Broken
-Date: Fri, 9 Oct 2009 05:16:36 -0500
-Message-ID: <7e84ed60910090316ne9224fat81d9c79c58fc713b@mail.gmail.com>
-Reply-To: CentOS mailing list <centos-IFYaIzF+flcdnm+yROfE0A@public.gmane.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-nex-2.6] tcp: replace ehash_size by ehash_mask
+Date: Fri, 09 Oct 2009 12:16:19 +0200
+Message-ID: <4ACF0D73.9070809@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=00c09f971fee01b6d904757de006
-Cc: CentOS mailing list <centos-IFYaIzF+flcdnm+yROfE0A@public.gmane.org>,
-	Omaha Linux User Group <olug-u8lKhlSLHjY@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <centos-bounces-IFYaIzF+flcdnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <http://lists.centos.org/mailman/listinfo/centos>,
-	<mailto:centos-request-IFYaIzF+flcdnm+yROfE0A@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.centos.org/pipermail/centos>
-List-Post: <mailto:centos-IFYaIzF+flcdnm+yROfE0A@public.gmane.org>
-List-Help: <mailto:centos-request-IFYaIzF+flcdnm+yROfE0A@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.centos.org/mailman/listinfo/centos>,
-	<mailto:centos-request-IFYaIzF+flcdnm+yROfE0A@public.gmane.org?subject=subscribe>
-Sender: centos-bounces-IFYaIzF+flcdnm+yROfE0A@public.gmane.org
-Errors-To: centos-bounces-IFYaIzF+flcdnm+yROfE0A@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
---00c09f971fee01b6d904757de006
-Content-Type: multipart/alternative; boundary=00c09f971fee01b6c304757de004
-
---00c09f971fee01b6c304757de004
 Content-Type: text/plain; charset=ISO-8859-1
-
-i am hoping this attachment gets through.  It deals with bug in ping that
-made it very difficult to set up a system with two gateways.
-
---00c09f971fee01b6c304757de004
-Content-Type: text/html; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-i am hoping this attachment gets through.=A0 It deals with bug in ping that=
- made it very difficult to set up a system with two gateways.=A0 <br><br>
-
---00c09f971fee01b6c304757de004--
-
---00c09f971fee01b6d904757de006
-Content-Type: text/html; charset=US-ASCII; name="ping-bug-demo.sh.post.html"
-Content-Disposition: attachment; filename="ping-bug-demo.sh.post.html"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_g0ks9xwj0
-
-Li8uL3BpbmctYnVnLWRlbW8uc2guaHRtbAo8SFRNTD48SEVBRD48VElUTEU+cGluZyAtSSBpcyBi
-cm9rZW48L1RJVExFPjwvSEVBRD4gPGJyPgo8Qk9EWT4gPGJyPgo8aDE+cGluZyAtSSBpcyBicm9r
-ZW48L2gxPiA8YnI+Cjxicj4KRGVtb25zdHJhdGlvbiB0aGF0IDxiPnBpbmcgLUkgaXMgYnJva2Vu
-PC9iPi4gIFdoZW4gc3BlY2lmeWluZyB0aGUgc291cmNlIDxicj4KaW50ZXJmYWNlIHVzaW5nIC1J
-IHdpdGggYW4gPGI+ZXRoWDwvYj4gYWxpYXMgYW5kIHRoYXQgaW50ZXJmYWNlIGlzIG5vdCB0aGUg
-ZGVmYXVsdCBnYXRld2F5IDxicj4KaW50ZXJmYWNlLCB0aGVuIHBpbmcgZmFpbHMuICBXaGVuIHNw
-ZWNpZnlpbmcgdGhlIGludGVyZmFjZSBhcyBhbiBpcCBhZGRyZXNzLCA8YnI+CnBpbmcgd29ya3Mu
-ICBTZWFyY2ggZm9yICJEZXN0aW5hdGlvbiBIb3N0IFVucmVhY2hhYmxlIiB0byBmaW5kIHRoZSBi
-dWcuIDxicj4KPGJyPgo8YnI+CmV0aDx1PjA8L3U+ID0gNC4zLjIuOCBhbmQgdGhlIGRlZmF1bHQg
-Z2F0ZXdheSBpcyBhY2Nlc3NlZCB0aHJvdWdoIGEgZGlmZmVyZW50IGludGVyZmFjZSBldGg8dT4x
-PC91Pi4gPGJyPgpldGg8dT4xPC91PiA9IDE5Mi4xNjguMTY4LjE1NSBpcyB1c2VkIGFzIHRoZSBk
-ZXZpY2UgdG8gZ2V0IHRvIHRoZSBkZWZhdWx0IGdhdGV3YXkuIDxicj4KPGI+RkFJTFMmbmJzcDs8
-L2I+OiBwaW5nIDxiPi1JIGV0aDA8L2I+IDIwOC42Ny4yMjIuMjIyIDxicj4KPGI+V09SS1M8L2I+
-OiBwaW5nIDxiPi1JIDQuMy4yLjg8L2I+IDIwOC42Ny4yMjIuMjIyIDxicj4KPGI+V09SS1M8L2I+
-OiBwaW5nIDxiPi1JIGV0aDE8L2I+IDIwOC42Ny4yMjIuMjIyIDxicj4KPGI+V09SS1M8L2I+OiBw
-aW5nIDxiPi1JIDE5Mi4xNjguMTY4LjE1NTwvYj4gMjA4LjY3LjIyMi4yMjIgPGJyPgo8YnI+ClRo
-ZSBmb2xsb3dpbmcgYXJlIGFjdHVhbCByZXN1bHRzIHdoaWNoIGNhbiBiZSByZXByb2R1Y2VkIGZy
-b20gYW4gdXAtdG8tZGF0ZSA8YnI+CkZlZG9yYSAxMSBvciBDZW50T1MgNS4zIGJveC4gIENhdXNl
-ZCBhIHZlcnkgdmVyeSBsb25nIGVwaXNvZGUgb2YgZnJ1c3RyYXRpb24gPGJyPgp3aGVuIHNldHRp
-bmcgdXAgbXVsdGkgZ2F0ZXdheWVkIHN5c3RlbXMuIDxicj48YnI+Cjxicj4gPGI+IHBpbmcgdXNp
-bmcgIGV0aDAgPC9iPjoKPFBSRT5waW5nIC1jIDIgLUIgLUkgIGV0aDAgMjA4LjY3LjIyMi4yMjIK
-UElORyAyMDguNjcuMjIyLjIyMiAoMjA4LjY3LjIyMi4yMjIpIGZyb20gNC4zLjIuOCBldGgwOiA1
-Nig4NCkgYnl0ZXMgb2YgZGF0YS4KRnJvbSA0LjMuMi44IGljbXBfc2VxPTEgRGVzdGluYXRpb24g
-SG9zdCBVbnJlYWNoYWJsZQpGcm9tIDQuMy4yLjggaWNtcF9zZXE9MiBEZXN0aW5hdGlvbiBIb3N0
-IFVucmVhY2hhYmxlCgotLS0gMjA4LjY3LjIyMi4yMjIgcGluZyBzdGF0aXN0aWNzIC0tLQoyIHBh
-Y2tldHMgdHJhbnNtaXR0ZWQsIDAgcmVjZWl2ZWQsICsyIGVycm9ycywgMTAwJSBwYWNrZXQgbG9z
-cywgdGltZSA5OTltcwosIHBpcGUgMgo8L1BSRT4KPGJyPiA8Yj4gcGluZyB1c2luZyAgNC4zLjIu
-OCA8L2I+Ogo8UFJFPnBpbmcgLWMgMiAtQiAtSSAgNC4zLjIuOCAyMDguNjcuMjIyLjIyMgpQSU5H
-IDIwOC42Ny4yMjIuMjIyICgyMDguNjcuMjIyLjIyMikgZnJvbSA0LjMuMi44IDogNTYoODQpIGJ5
-dGVzIG9mIGRhdGEuCjY0IGJ5dGVzIGZyb20gMjA4LjY3LjIyMi4yMjI6IGljbXBfc2VxPTEgdHRs
-PTU1IHRpbWU9NTYyIG1zCjY0IGJ5dGVzIGZyb20gMjA4LjY3LjIyMi4yMjI6IGljbXBfc2VxPTIg
-dHRsPTU1IHRpbWU9NjQyIG1zCgotLS0gMjA4LjY3LjIyMi4yMjIgcGluZyBzdGF0aXN0aWNzIC0t
-LQoyIHBhY2tldHMgdHJhbnNtaXR0ZWQsIDIgcmVjZWl2ZWQsIDAlIHBhY2tldCBsb3NzLCB0aW1l
-IDk5OW1zCnJ0dCBtaW4vYXZnL21heC9tZGV2ID0gNTYyLjU0Ni82MDIuNDAwLzY0Mi4yNTUvMzku
-ODYyIG1zCjwvUFJFPgo8YnI+IDxiPiBwaW5nIHVzaW5nICBldGgxIDwvYj46CjxQUkU+cGluZyAt
-YyAyIC1CIC1JICBldGgxIDIwOC42Ny4yMjIuMjIyClBJTkcgMjA4LjY3LjIyMi4yMjIgKDIwOC42
-Ny4yMjIuMjIyKSBmcm9tIDE5Mi4xNjguMTY4LjE1NSBldGgxOiA1Nig4NCkgYnl0ZXMgb2YgZGF0
-YS4KNjQgYnl0ZXMgZnJvbSAyMDguNjcuMjIyLjIyMjogaWNtcF9zZXE9MSB0dGw9NTQgdGltZT0y
-NzAgbXMKNjQgYnl0ZXMgZnJvbSAyMDguNjcuMjIyLjIyMjogaWNtcF9zZXE9MiB0dGw9NTQgdGlt
-ZT02MjkgbXMKCi0tLSAyMDguNjcuMjIyLjIyMiBwaW5nIHN0YXRpc3RpY3MgLS0tCjIgcGFja2V0
-cyB0cmFuc21pdHRlZCwgMiByZWNlaXZlZCwgMCUgcGFja2V0IGxvc3MsIHRpbWUgMTAwMG1zCnJ0
-dCBtaW4vYXZnL21heC9tZGV2ID0gMjcwLjEyOC80NDkuNzY2LzYyOS40MDUvMTc5LjYzOSBtcwo8
-L1BSRT4KPGJyPiA8Yj4gcGluZyB1c2luZyAgMTkyLjE2OC4xNjguMTU1IDwvYj46CjxQUkU+cGlu
-ZyAtYyAyIC1CIC1JICAxOTIuMTY4LjE2OC4xNTUgMjA4LjY3LjIyMi4yMjIKUElORyAyMDguNjcu
-MjIyLjIyMiAoMjA4LjY3LjIyMi4yMjIpIGZyb20gMTkyLjE2OC4xNjguMTU1IDogNTYoODQpIGJ5
-dGVzIG9mIGRhdGEuCjY0IGJ5dGVzIGZyb20gMjA4LjY3LjIyMi4yMjI6IGljbXBfc2VxPTEgdHRs
-PTU0IHRpbWU9NTg1IG1zCjY0IGJ5dGVzIGZyb20gMjA4LjY3LjIyMi4yMjI6IGljbXBfc2VxPTIg
-dHRsPTU0IHRpbWU9NTU0IG1zCgotLS0gMjA4LjY3LjIyMi4yMjIgcGluZyBzdGF0aXN0aWNzIC0t
-LQoyIHBhY2tldHMgdHJhbnNtaXR0ZWQsIDIgcmVjZWl2ZWQsIDAlIHBhY2tldCBsb3NzLCB0aW1l
-IDk5OW1zCnJ0dCBtaW4vYXZnL21heC9tZGV2ID0gNTU0LjA5OC81NjkuNjU1LzU4NS4yMTIvMTUu
-NTU3IG1zCjwvUFJFPgo8aDM+TXkgc291cmNlIHJvdXRlIHBvbGljeSBydWxlczo8L2gzPgo8UFJF
-Pgovc2Jpbi9pcCBydWxlIHNob3cKMDoJZnJvbSBhbGwgbG9va3VwIDI1NSAKMzI3NjI6CWZyb20g
-NC4zLjIuOCBsb29rdXAgbmljMCAKMzI3NjM6CWZyb20gMTkyLjE2OC4xNjguMTU1IGxvb2t1cCBu
-aWMxIAozMjc2NDoJZnJvbSAxOTIuMTY4LjE2OC4xNTUgbG9va3VwIG5pYzEgCjMyNzY1Oglmcm9t
-IDQuMy4yLjggbG9va3VwIG5pYzAgCjMyNzY2Oglmcm9tIGFsbCBsb29rdXAgbWFpbiAKMzI3Njc6
-CWZyb20gYWxsIGxvb2t1cCBkZWZhdWx0IAo8L1BSRT4KPFBSRT4gPGJyPgpQcmludCBvdXQgcm91
-dGluZyB0YWJsZXMgdXNpbmcgL3NiaW4vaXAgcm91dGUgc2hvdyB0YWJsZSBUQUJMRU5BTUU6CnJv
-dXRpbmcgdGFibGUgIG5pYzAgOgovc2Jpbi9pcCByb3V0ZSBzaG93IHRhYmxlIG5pYzAKZGVmYXVs
-dCB2aWEgNC4zLjIuMSBkZXYgZXRoMCAKCnJvdXRpbmcgdGFibGUgIG5pYzEgOgovc2Jpbi9pcCBy
-b3V0ZSBzaG93IHRhYmxlIG5pYzEKZGVmYXVsdCB2aWEgMTkyLjE2OC4xNjguMSBkZXYgZXRoMSAK
-CnJvdXRpbmcgdGFibGUgIG1haW4gOgovc2Jpbi9pcCByb3V0ZSBzaG93IHRhYmxlIG1haW4KNC4z
-LjIuMS8yNyBkZXYgZXRoMCAgcHJvdG8ga2VybmVsICBzY29wZSBsaW5rICBzcmMgNC4zLjIuOCAK
-MTkyLjE2OC4xNjguMC8yNCBkZXYgZXRoMSAgcHJvdG8ga2VybmVsICBzY29wZSBsaW5rICBzcmMg
-MTkyLjE2OC4xNjguMTU1IAoxNjkuMjU0LjAuMC8xNiBkZXYgZXRoMSAgc2NvcGUgbGluayAKZGVm
-YXVsdCB2aWEgMTkyLjE2OC4xNjguMSBkZXYgZXRoMSAKCnJvdXRpbmcgdGFibGUgIGRlZmF1bHQg
-Ogovc2Jpbi9pcCByb3V0ZSBzaG93IHRhYmxlIGRlZmF1bHQKCjwvUFJFPiA8YnI+Cjxicj4KPGJy
-PgpOT1RFUzoKY2F0IC9ldGMvaXByb3V0ZTIvcnRfdGFibGVzIHRvIGdldCB5b3VyIG93biB0YWJs
-ZSBuYW1lcy4gPGJyPgo8YnI+CnBpbmcgTWFpbnRhaW5lciBZT1NISUZVSkkgSGlkZWFraSAvIFVT
-QUdJL1dJREUgUHJvamVjdCA8YnI+CjxhIGhyZWY9Imh0dHA6Ly93d3cuc2tidWZmLm5ldC9pcHV0
-aWxzLyI+IGh0dHA6Ly93d3cuc2tidWZmLm5ldC9pcHV0aWxzLyA8L2E+IDxicj4KTWFpbGluZyBM
-aXN0IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcgPGJyPgo8UFJFPgptYW4gcGluZzoKICAgLUkgaW50
-ZXJmYWNlIGFkZHJlc3MKICAgICAgICBTZXQgc291cmNlIGFkZHJlc3MgdG8gc3BlY2lmaWVkIGlu
-dGVyZmFjZSBhZGRyZXNzLiAKICAgICAgICBBcmd1bWVudCBtYXkgYmUgPGI+bnVtZXJpYyBJUCBh
-ZGRyZXNzIG9yIG5hbWUgb2YgZGV2aWNlPC9iPi4KICAgICAgICBXaGVuICBwaW5naW5nICBJUHY2
-ICBsaW5rLWxvY2FsICBhZGRyZXNzICB0aGlzIG9wdGlvbiBpcyByZXF1aXJlZC4gCjwvUFJFPgpw
-aW5nIC1WIHJldHVybnMgdGhlIGxhdGVzdCBhdmFpbGFibGUgb24gQ2VudE9TIGFuZCBGZWRvcmEg
-YW5kIHRoZSBtYWludGFpbmVycyB3ZWJzaXRlOiA8YnI+CjxDT0RFPiA8YnI+CnBpbmcgdXRpbGl0
-eSwgaXB1dGlscy1zczAyMDkyNwo8L0NPREU+IDxicj4KPGJyPgo8YnI+CjwvQk9EWT48L0hUTUw+
-Cg==
---00c09f971fee01b6d904757de006
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:53294 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760586AbZJIKQ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 06:16:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-CentOS mailing list
-CentOS-IFYaIzF+flcdnm+yROfE0A@public.gmane.org
-http://lists.centos.org/mailman/listinfo/centos
+Storing the mask (size - 1) instead of the size allows fast path to be a bit faster.
 
---00c09f971fee01b6d904757de006--
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/net/inet_hashtables.h |    4 ++--
+ net/dccp/proto.c              |   13 +++++++------
+ net/ipv4/inet_diag.c          |    2 +-
+ net/ipv4/inet_hashtables.c    |    2 +-
+ net/ipv4/inet_timewait_sock.c |    2 +-
+ net/ipv4/tcp.c                |   11 +++++------
+ net/ipv4/tcp_ipv4.c           |    6 +++---
+ net/ipv6/inet6_hashtables.c   |    2 +-
+ 8 files changed, 21 insertions(+), 21 deletions(-)
+
+diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
+index d522dcf..5f11c4a 100644
+--- a/include/net/inet_hashtables.h
++++ b/include/net/inet_hashtables.h
+@@ -125,7 +125,7 @@ struct inet_hashinfo {
+ 	 */
+ 	struct inet_ehash_bucket	*ehash;
+ 	spinlock_t			*ehash_locks;
+-	unsigned int			ehash_size;
++	unsigned int			ehash_mask;
+ 	unsigned int			ehash_locks_mask;
+ 
+ 	/* Ok, let's try this, I give up, we do need a local binding
+@@ -158,7 +158,7 @@ static inline struct inet_ehash_bucket *inet_ehash_bucket(
+ 	struct inet_hashinfo *hashinfo,
+ 	unsigned int hash)
+ {
+-	return &hashinfo->ehash[hash & (hashinfo->ehash_size - 1)];
++	return &hashinfo->ehash[hash & hashinfo->ehash_mask];
+ }
+ 
+ static inline spinlock_t *inet_ehash_lockp(
+diff --git a/net/dccp/proto.c b/net/dccp/proto.c
+index a156319..ecb203f 100644
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -1060,11 +1060,12 @@ static int __init dccp_init(void)
+ 	for (ehash_order = 0; (1UL << ehash_order) < goal; ehash_order++)
+ 		;
+ 	do {
+-		dccp_hashinfo.ehash_size = (1UL << ehash_order) * PAGE_SIZE /
++		unsigned long hash_size = (1UL << ehash_order) * PAGE_SIZE /
+ 					sizeof(struct inet_ehash_bucket);
+-		while (dccp_hashinfo.ehash_size &
+-		       (dccp_hashinfo.ehash_size - 1))
+-			dccp_hashinfo.ehash_size--;
++
++		while (hash_size & (hash_size - 1))
++			hash_size--;
++		dccp_hashinfo.ehash_mask = hash_size - 1;
+ 		dccp_hashinfo.ehash = (struct inet_ehash_bucket *)
+ 			__get_free_pages(GFP_ATOMIC|__GFP_NOWARN, ehash_order);
+ 	} while (!dccp_hashinfo.ehash && --ehash_order > 0);
+@@ -1074,7 +1075,7 @@ static int __init dccp_init(void)
+ 		goto out_free_bind_bucket_cachep;
+ 	}
+ 
+-	for (i = 0; i < dccp_hashinfo.ehash_size; i++) {
++	for (i = 0; i <= dccp_hashinfo.ehash_mask; i++) {
+ 		INIT_HLIST_NULLS_HEAD(&dccp_hashinfo.ehash[i].chain, i);
+ 		INIT_HLIST_NULLS_HEAD(&dccp_hashinfo.ehash[i].twchain, i);
+ 	}
+@@ -1153,7 +1154,7 @@ static void __exit dccp_fini(void)
+ 		   get_order(dccp_hashinfo.bhash_size *
+ 			     sizeof(struct inet_bind_hashbucket)));
+ 	free_pages((unsigned long)dccp_hashinfo.ehash,
+-		   get_order(dccp_hashinfo.ehash_size *
++		   get_order((dccp_hashinfo.ehash_mask + 1) *
+ 			     sizeof(struct inet_ehash_bucket)));
+ 	inet_ehash_locks_free(&dccp_hashinfo);
+ 	kmem_cache_destroy(dccp_hashinfo.bind_bucket_cachep);
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index a706a47..cb73fde 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -774,7 +774,7 @@ skip_listen_ht:
+ 	if (!(r->idiag_states & ~(TCPF_LISTEN | TCPF_SYN_RECV)))
+ 		goto unlock;
+ 
+-	for (i = s_i; i < hashinfo->ehash_size; i++) {
++	for (i = s_i; i <= hashinfo->ehash_mask; i++) {
+ 		struct inet_ehash_bucket *head = &hashinfo->ehash[i];
+ 		spinlock_t *lock = inet_ehash_lockp(hashinfo, i);
+ 		struct sock *sk;
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index 625cc5f..a45aaf3 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -209,7 +209,7 @@ struct sock * __inet_lookup_established(struct net *net,
+ 	 * have wildcards anyways.
+ 	 */
+ 	unsigned int hash = inet_ehashfn(net, daddr, hnum, saddr, sport);
+-	unsigned int slot = hash & (hashinfo->ehash_size - 1);
++	unsigned int slot = hash & hashinfo->ehash_mask;
+ 	struct inet_ehash_bucket *head = &hashinfo->ehash[slot];
+ 
+ 	rcu_read_lock();
+diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
+index 13f0781..2fe5711 100644
+--- a/net/ipv4/inet_timewait_sock.c
++++ b/net/ipv4/inet_timewait_sock.c
+@@ -430,7 +430,7 @@ void inet_twsk_purge(struct net *net, struct inet_hashinfo *hashinfo,
+ 	int h;
+ 
+ 	local_bh_disable();
+-	for (h = 0; h < (hashinfo->ehash_size); h++) {
++	for (h = 0; h <= hashinfo->ehash_mask; h++) {
+ 		struct inet_ehash_bucket *head =
+ 			inet_ehash_bucket(hashinfo, h);
+ 		spinlock_t *lock = inet_ehash_lockp(hashinfo, h);
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 64d0af6..cf13726 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2865,11 +2865,10 @@ void __init tcp_init(void)
+ 					(totalram_pages >= 128 * 1024) ?
+ 					13 : 15,
+ 					0,
+-					&tcp_hashinfo.ehash_size,
+ 					NULL,
++					&tcp_hashinfo.ehash_mask,
+ 					thash_entries ? 0 : 512 * 1024);
+-	tcp_hashinfo.ehash_size = 1 << tcp_hashinfo.ehash_size;
+-	for (i = 0; i < tcp_hashinfo.ehash_size; i++) {
++	for (i = 0; i <= tcp_hashinfo.ehash_mask; i++) {
+ 		INIT_HLIST_NULLS_HEAD(&tcp_hashinfo.ehash[i].chain, i);
+ 		INIT_HLIST_NULLS_HEAD(&tcp_hashinfo.ehash[i].twchain, i);
+ 	}
+@@ -2878,7 +2877,7 @@ void __init tcp_init(void)
+ 	tcp_hashinfo.bhash =
+ 		alloc_large_system_hash("TCP bind",
+ 					sizeof(struct inet_bind_hashbucket),
+-					tcp_hashinfo.ehash_size,
++					tcp_hashinfo.ehash_mask + 1,
+ 					(totalram_pages >= 128 * 1024) ?
+ 					13 : 15,
+ 					0,
+@@ -2933,8 +2932,8 @@ void __init tcp_init(void)
+ 	sysctl_tcp_rmem[2] = max(87380, max_share);
+ 
+ 	printk(KERN_INFO "TCP: Hash tables configured "
+-	       "(established %d bind %d)\n",
+-	       tcp_hashinfo.ehash_size, tcp_hashinfo.bhash_size);
++	       "(established %u bind %u)\n",
++	       tcp_hashinfo.ehash_mask + 1, tcp_hashinfo.bhash_size);
+ 
+ 	tcp_register_congestion_control(&tcp_reno);
+ }
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 7cda24b..9971870 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2000,7 +2000,7 @@ static void *established_get_first(struct seq_file *seq)
+ 	struct net *net = seq_file_net(seq);
+ 	void *rc = NULL;
+ 
+-	for (st->bucket = 0; st->bucket < tcp_hashinfo.ehash_size; ++st->bucket) {
++	for (st->bucket = 0; st->bucket <= tcp_hashinfo.ehash_mask; ++st->bucket) {
+ 		struct sock *sk;
+ 		struct hlist_nulls_node *node;
+ 		struct inet_timewait_sock *tw;
+@@ -2061,10 +2061,10 @@ get_tw:
+ 		st->state = TCP_SEQ_STATE_ESTABLISHED;
+ 
+ 		/* Look for next non empty bucket */
+-		while (++st->bucket < tcp_hashinfo.ehash_size &&
++		while (++st->bucket <= tcp_hashinfo.ehash_mask &&
+ 				empty_bucket(st))
+ 			;
+-		if (st->bucket >= tcp_hashinfo.ehash_size)
++		if (st->bucket > tcp_hashinfo.ehash_mask)
+ 			return NULL;
+ 
+ 		spin_lock_bh(inet_ehash_lockp(&tcp_hashinfo, st->bucket));
+diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
+index 1bcc343..874aed8 100644
+--- a/net/ipv6/inet6_hashtables.c
++++ b/net/ipv6/inet6_hashtables.c
+@@ -73,7 +73,7 @@ struct sock *__inet6_lookup_established(struct net *net,
+ 	 * have wildcards anyways.
+ 	 */
+ 	unsigned int hash = inet6_ehashfn(net, daddr, hnum, saddr, sport);
+-	unsigned int slot = hash & (hashinfo->ehash_size - 1);
++	unsigned int slot = hash & hashinfo->ehash_mask;
+ 	struct inet_ehash_bucket *head = &hashinfo->ehash[slot];
+ 
+ 
