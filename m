@@ -1,86 +1,86 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH][v2] ibm_newemac: Added 16K Tx FIFO size support for EMAC4
-Date: Fri, 09 Oct 2009 13:15:02 +1100
-Message-ID: <1255054502.2355.27.camel@pasglop>
-References: <1255019541-1974-1-git-send-email-dmitchell@appliedmicro.com>
+From: Jie Yang <Jie.Yang@Atheros.com>
+Subject: RE: alt1c: ethernet driver bug
+Date: Fri, 9 Oct 2009 11:37:11 +0800
+Message-ID: <72981EBCFD196144B7C6999B9FC34A9A49493F5B61@SHEXMB-01.global.atheros.com>
+References: <20091006161048.6b52b6be@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-To: Dave Mitchell <dmitchell@appliedmicro.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1255019541-1974-1-git-send-email-dmitchell@appliedmicro.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 175.210.DSNET ([203.110.175.210]:60997 "EHLO mail.atheros.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1758895AbZJIDhv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 23:37:51 -0400
+In-Reply-To: <20091006161048.6b52b6be@nehalam>
+Content-Language: zh-CN
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-10-08 at 11:32 -0500, Dave Mitchell wrote:
-> Some of the EMAC V4 implementations support 16K Tx FIFOs. This
-> patch adds support for this functionality and fixes typos in the
-> Tx FIFO size error messages.
+ Stephen Hemminger <shemminger@vyatta.com> wrote:
+> Sent: Wednesday, October 07, 2009 7:11 AM
+> To: Jie Yang
+> Cc: netdev@vger.kernel.org
+> Subject: alt1c: ethernet driver bug
+>
+> > http://bugzilla.kernel.org/show_bug.cgi?id=14336
+> >
+> >            Summary: [Pardus] Soft Lockup Problem with
+> Attansic Ethernet
+> >                     Card
+> >            Product: Networking
+> >            Version: 2.5
+> >     Kernel Version: 2.6.30.8
+> >           Platform: All
+> >         OS/Version: Linux
+> >               Tree: Mainline
+> >             Status: NEW
+> >           Severity: high
+> >           Priority: P1
+> >          Component: IPV4
+> >         AssignedTo: shemminger@linux-foundation.org
+> >         ReportedBy: badibere@gmail.com
+> >         Regression: No
+> >
+> >
+> > I have soft lockup problem with attansic ethernet card while
+> > activating eth0 interface.
+> >
+> > My ethernet card is 09:00.0 Ethernet controller: Attansic
+> Technology Corp.
+> > Device 1063 (rev c0)
+> >
+> > If I try to activate eth0 interface while network cable is
+> pluged in,
+> > then everything freezes.
+> >
+> > If I try to activate eth0 interface while network cable
+> isn't pluged
+> > in, then no problem. But, if i plug in, again freezes.
+> >
+> > My /var/log/syslog is in attachment.
+> >
+>
+> this is what was in the bug attachment
+>
+> Oct  7 00:53:33 baDibere kernel: [   16.162099] atl1c
+> 0000:09:00.0: enabling device (0000 -> 0002)
+> Oct  7 00:53:33 baDibere kernel: [   16.162117] atl1c
+> 0000:09:00.0: PCI INT A -> GSI 17 (level, low) -> IRQ 17
+> Oct  7 00:53:33 baDibere kernel: [   16.162141] atl1c
+> 0000:09:00.0: setting latency timer to 64
+> Oct  7 00:53:33 baDibere kernel: [   16.162247] atl1c
+> 0000:09:00.0: PME# disabled
+> Oct  7 00:53:33 baDibere kernel: [   16.162266] atl1c
+> 0000:09:00.0: PME# disabled
+> Oct  7 00:53:33 baDibere kernel: [   16.230835] atl1c
+> 0000:09:00.0: version 1.0.0.1-NAPI
+> Oct  7 00:55:57 baDibere kernel: [  169.943463] atl1c
+> 0000:09:00.0: Unable to allocate MSI interrupt Error: -22 Oct
+>  7 00:55:57 baDibere kernel: [  169.943576] atl1c
+> 0000:09:00.0: atl1c: eth0 NIC Link is Up<100 Mbps Full Duplex>
+>
+when "pci_enable_msi" failed, I will also request_irq, so it should not be a problem.
+the message "NIC Link is Up<100 Mbps Full Duplex>" demonstrate the atl1c interrupt has worked.
 
-Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
----
-
-> Signed-off-by: Dave Mitchell <dmitchell@appliedmicro.com>
-> Acked-by: Prodyut Hazarika <phazarika@appliedmicro.com>
-> Acked-by: Victor Gallardo <vgallardo@appliedmicro.com>
-> Acked-by: Loc Ho <lho@appliedmicro.com>
-> ---
->  v1->v2: local date/time was out-of-sync and thus mail was as well
->  
->  drivers/net/ibm_newemac/core.c |    7 +++++--
->  drivers/net/ibm_newemac/emac.h |    1 +
->  2 files changed, 6 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/core.c
-> index 89c82c5..c6591cb 100644
-> --- a/drivers/net/ibm_newemac/core.c
-> +++ b/drivers/net/ibm_newemac/core.c
-> @@ -443,7 +443,7 @@ static u32 __emac_calc_base_mr1(struct emac_instance *dev, int tx_size, int rx_s
->  		ret |= EMAC_MR1_TFS_2K;
->  		break;
->  	default:
-> -		printk(KERN_WARNING "%s: Unknown Rx FIFO size %d\n",
-> +		printk(KERN_WARNING "%s: Unknown Tx FIFO size %d\n",
->  		       dev->ndev->name, tx_size);
->  	}
->  
-> @@ -470,6 +470,9 @@ static u32 __emac4_calc_base_mr1(struct emac_instance *dev, int tx_size, int rx_
->  	DBG2(dev, "__emac4_calc_base_mr1" NL);
->  
->  	switch(tx_size) {
-> +	case 16384:
-> +		ret |= EMAC4_MR1_TFS_16K;
-> +		break;
->  	case 4096:
->  		ret |= EMAC4_MR1_TFS_4K;
->  		break;
-> @@ -477,7 +480,7 @@ static u32 __emac4_calc_base_mr1(struct emac_instance *dev, int tx_size, int rx_
->  		ret |= EMAC4_MR1_TFS_2K;
->  		break;
->  	default:
-> -		printk(KERN_WARNING "%s: Unknown Rx FIFO size %d\n",
-> +		printk(KERN_WARNING "%s: Unknown Tx FIFO size %d\n",
->  		       dev->ndev->name, tx_size);
->  	}
->  
-> diff --git a/drivers/net/ibm_newemac/emac.h b/drivers/net/ibm_newemac/emac.h
-> index 0afc2cf..d34adf9 100644
-> --- a/drivers/net/ibm_newemac/emac.h
-> +++ b/drivers/net/ibm_newemac/emac.h
-> @@ -153,6 +153,7 @@ struct emac_regs {
->  #define EMAC4_MR1_RFS_16K		0x00280000
->  #define EMAC4_MR1_TFS_2K       		0x00020000
->  #define EMAC4_MR1_TFS_4K		0x00030000
-> +#define EMAC4_MR1_TFS_16K		0x00050000
->  #define EMAC4_MR1_TR			0x00008000
->  #define EMAC4_MR1_MWSW_001		0x00001000
->  #define EMAC4_MR1_JPSM			0x00000800
