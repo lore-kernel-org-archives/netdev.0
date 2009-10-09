@@ -1,85 +1,107 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Generalize socket rx gap / receive queue overflow cmsg
- (v2)
-Date: Fri, 09 Oct 2009 23:31:26 +0200
-Message-ID: <4ACFABAE.5050003@gmail.com>
-References: <20091007180835.GB20524@hmsreliant.think-freely.org> <20091009193515.GA28196@hmsreliant.think-freely.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 2.6.32-rc3] net: VMware virtual Ethernet NIC driver:
+	vmxnet3
+Date: Fri, 9 Oct 2009 14:35:38 -0700
+Message-ID: <20091009143538.644844aa@nehalam>
+References: <alpine.LRH.2.00.0910061202510.24669@localhost.localdomain>
+	<alpine.LRH.2.00.0910081053460.19107@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, socketcan@hartkopp.net
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:52192 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934202AbZJIVcN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 17:32:13 -0400
-In-Reply-To: <20091009193515.GA28196@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff@smtp1.linux-foundation.org, pv-drivers <pv-drivers@vmware.com>,
+        netdev <netdev@vger.kernel.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        Andrew@smtp1.linux-foundation.org, Wright <chrisw@sous-sol.org>,
+        Anthony Liguori <anthony@codemonkey.ws>,
+        Greg Kroah-Hartman <greg@kroah.com>, Chris@smtp1.linux-foundation.org,
+        Morton <akpm@linux-foundation.org>,
+        virtualization <virtualization@lists.linux-foundation.org>,
+        Garzik <jgarzik@pobox.com>, "David S. Miller" <davem@davemloft.net>
+To: Shreyas Bhatewara <sbhatewara@vmware.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <alpine.LRH.2.00.0910081053460.19107@localhost.localdomain>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Neil Horman a =E9crit :
+On Thu, 8 Oct 2009 10:59:26 -0700 (PDT)
+Shreyas Bhatewara <sbhatewara@vmware.com> wrote:
 
-> =20
-> +extern void __sock_recv_ts_and_drops(struct msghdr *msg, struct sock=
- *sk,
-> +	struct sk_buff *skb);
+> Hello all,
+> 
+> I do not mean to be bothersome but this thread has been unusually silent.
+> Could you please review the patch for me and reply with your comments / 
+> acks ?
+> 
+> Thanks.
+> ->Shreyas  
 
-Surely you meant __sock_recv_drops() ? It only deals with drops.
 
+Looks fine, but just a minor style nit (can be changed after insertion in mainline).
 
-> +	case SO_RXQ_OVFL:
-> +		v.val =3D sock_flag(sk, SOCK_RXQ_OVFL);
-> +		break;
-> +
+The code:
 
-Hmm, I advise to use v.val =3D !!sock_flag(sk, SOCK_RXQ_OVFL);
-So that application gets 0 or 1, not 0 or some big value.
-Its better because it allows us to change internal SOCK_RXQ_OVFL if nec=
-essary in the future.
-
->  drop_n_acct:
-> -	spin_lock(&sk->sk_receive_queue.lock);
-> -	po->stats.tp_drops++;
-> -	spin_unlock(&sk->sk_receive_queue.lock);
-> +	po->stats.tp_drops =3D atomic_inc_return(&sk->sk_drops);
-
-Yes :)
-
->  EXPORT_SYMBOL_GPL(__sock_recv_timestamp);
-> =20
-> +void __sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk,
-> +	struct sk_buff *skb)
-> +{
-> +	put_cmsg(msg, SOL_SOCKET, SO_RXQ_OVFL, sizeof(__u32), &skb->dropcou=
-nt);
-> +}
-> +EXPORT_SYMBOL_GPL(__sock_recv_ts_and_drops);
-> +
-
-Just change the name.
-
-And is it really too large to be inlined ?
-
-In the contrary, sock_recv_timestamp() is so large that I suspect
-your sock_recv_ts_and_drops should *not* be inlined, and include inline=
-d versions only :
-
-I suggest something more orthogonal like :
-
-void inline sock_recv_drops(struct msghdr *msg, struct sock *sk, struct=
- sk_buff *skb)
+static void
+vmxnet3_do_poll(struct vmxnet3_adapter *adapter, int budget, int *txd_done,
+		int *rxd_done)
 {
-	if (sock_flag(sk, SOCK_RXQ_OVFL) && skb && skb->dropcount)
-		put_cmsg(msg, SOL_SOCKET, SO_RXQ_OVFL,
-			 sizeof(__u32), &skb->dropcount);
+	if (unlikely(adapter->shared->ecr))
+		vmxnet3_process_events(adapter);
+
+	*txd_done = vmxnet3_tq_tx_complete(&adapter->tx_queue, adapter);
+	*rxd_done = vmxnet3_rq_rx_complete(&adapter->rx_queue, adapter, budget);
 }
 
-void sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk, struct=
- sk_buff *skb)
-{
-	sock_recv_timestamp(msg, sk, skb); // inlined
-	sock_recv_drops(msg, sk, skb); // inlined
-}
-EXPORT_SYMBOL_GPL(sock_recv_ts_and_drops)
 
+static int
+vmxnet3_poll(struct napi_struct *napi, int budget)
+{
+	struct vmxnet3_adapter *adapter = container_of(napi,
+					  struct vmxnet3_adapter, napi);
+	int rxd_done, txd_done;
+
+	vmxnet3_do_poll(adapter, budget, &txd_done, &rxd_done);
+
+	if (rxd_done < budget) {
+		napi_complete(napi);
+		vmxnet3_enable_intr(adapter, 0);
+	}
+	return rxd_done;
+}
+
+
+Is simpler if you just have do_poll return rx done value. Probably Gcc
+inline's it all anyway.
+
+static int
+vmxnet3_do_poll(struct vmxnet3_adapter *adapter, int budget)
+{
+	if (unlikely(adapter->shared->ecr))
+		vmxnet3_process_events(adapter);
+
+	vmxnet3_tq_tx_complete(&adapter->tx_queue, adapter);
+	return vmxnet3_rq_rx_complete(&adapter->rx_queue, adapter, budget);
+}
+
+
+static int
+vmxnet3_poll(struct napi_struct *napi, int budget)
+{
+	struct vmxnet3_adapter *adapter = container_of(napi,
+					  struct vmxnet3_adapter, napi);
+	int rxd_done;
+
+	rxd_done = vmxnet3_do_poll(adapter, budget);
+	if (rxd_done < budget) {
+		napi_complete(napi);
+		vmxnet3_enable_intr(adapter, 0);
+	}
+	return rxd_done;
+}
