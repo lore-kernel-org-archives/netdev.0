@@ -1,7 +1,7 @@
 From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: can: make the number of echo skb's configurable
-Date: Fri, 09 Oct 2009 10:09:10 +0200
-Message-ID: <4ACEEFA6.1000904@grandegger.com>
+Subject: [PATCH] can: make the number of echo skb's configurable
+Date: Fri, 09 Oct 2009 10:17:11 +0200
+Message-ID: <4ACEF187.207@grandegger.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -33,6 +33,11 @@ increased to 10, which improves the transmission performance a lot.
 Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 Signed-off-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
 ---
+
+Resent with the proper prefix [PATCH]. Sorry for the noise.
+
+Wolfgang.
+
  drivers/net/can/at91_can.c        |    2 +-
  drivers/net/can/dev.c             |   32 ++++++++++++++++++++++++++------
  drivers/net/can/sja1000/sja1000.c |    3 ++-
