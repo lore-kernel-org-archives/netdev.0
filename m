@@ -1,80 +1,52 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: Re: behaviour question for igb on nehalem box
-Date: Fri, 09 Oct 2009 16:31:59 -0600
-Message-ID: <4ACFB9DF.9080909@nortel.com>
-References: <4ACF8466.5030309@nortel.com>
-	<alpine.WNT.2.00.0910091250440.5328@jbrandeb-desk1.amr.corp.intel.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH 0/8] SECURITY ISSUE with connector
+Date: Fri, 9 Oct 2009 15:25:05 -0700
+Message-ID: <20091009222505.GA28979@kroah.com>
+References: <1254487211-11810-1-git-send-email-philipp.reisner@linbit.com>
+Reply-To: device-mapper development <dm-devel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-list <e1000-devel@lists.sourceforge.net>,
-	Linux Network Development list <netdev@vger.kernel.org>, "Allan,
-	Bruce W" <bruce.w.allan@intel.com>, "Ronciak,
-	John" <john.ronciak@intel.com>, "Kirsher,
-	Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <alpine.WNT.2.00.0910091250440.5328@jbrandeb-desk1.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-fbdev-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dm-devel@redhat.com,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Philipp Reisner <philipp.reisner@linbit.com>
+Return-path: <dm-devel-bounces@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <1254487211-11810-1-git-send-email-philipp.reisner@linbit.com>
+List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/dm-devel>,
+	<mailto:dm-devel-request@redhat.com?subject=unsubscribe>
+List-Archive: <https://www.redhat.com/archives/dm-devel>
+List-Post: <mailto:dm-devel@redhat.com>
+List-Help: <mailto:dm-devel-request@redhat.com?subject=help>
+List-Subscribe: <https://www.redhat.com/mailman/listinfo/dm-devel>,
+	<mailto:dm-devel-request@redhat.com?subject=subscribe>
+Sender: dm-devel-bounces@redhat.com
+Errors-To: dm-devel-bounces@redhat.com
 List-Id: netdev.vger.kernel.org
 
-On 10/09/2009 02:22 PM, Brandeburg, Jesse wrote:
-> On Fri, 9 Oct 2009, Chris Friesen wrote:
->> I've got some general questions around the expected behaviour of the
->> 82576 igb net device.  (On a dual quad-core Nehalem box, if it matters.)
-
-> the hardware you have only supports 8 
-> queues (rx and tx) and the driver is configured to only set up 4 max.
-
-The datasheet for the 82576 says 16 tx queues and 16 rx queues.  Is that
-a typo or do we have the economy version?
-
->> My second question is around how the rx queues are mapped to interrupts.
->>  According to /proc/interrupts there appears to be a 1:1 mapping between
->> queues and interrupts.  However, I've set up at test with a given amount
->> of traffic coming in to the device (from 4 different IP addresses and 4
->> ports).  Under this scenario, "ethtool -S" shows the number of packets
->> increasing for only rx queue 0, but I see the interrupt count going up
->> for two interrupts.
+On Fri, Oct 02, 2009 at 02:40:03PM +0200, Philipp Reisner wrote:
+> Affected: All code that uses connector, in kernel and out of mainline
 > 
-> one transmit interrupt and one receive interrupt?
+> The connector, as it is today, does not allow the in kernel receiving
+> parts to do any checks on privileges of a message's sender.
+> 
+> I know, there are not many out there that like connector, but as
+> long as it is in the kernel, we have to fix the security issues it has!
+> 
+> Please either drop connector, or someone who feels a bit responsible
+> and has our beloved dictator's blessing, PLEASE PLEASE PLEASE take 
+> this into your tree, and send the pull request to Linus.
+> 
+> Patches 1 to 4 are already Acked-by Evgeny, the connector's maintainer.
+> Patches 5 to 7 are the obvious fixes to the connector user's code.
 
-No, two rx interrupts.  (Can't remember if the tx interrupt was going up
-as well or no...was only looking at rx.)
+These don't apply to the 2.6.31-stable tree at all.
 
-> RSS will spread the 
-> receive work out in a flow based way, based on ip/xDP header.  Your test 
-> as described should be using more than one flow (and therefore more than 
-> one rx queue) unless you got caught out by the default arp_filter 
-> behavior (check arp -an).
+Could you provide them backported to that tree if you want to see them
+go into a .31-stable release?
 
-I was surprised as well since it didn't match what I expected.  What's
-the story around the arp_filter?  I just logged onto the test box and
-"arp -an" gives:
+thanks,
 
-? (47.135.251.129) at 00:00:5E:00:01:08 [ether] on eth0
-
-but I'm not sure that's worth anything since someone is running a test
-and it's currently using all four rx queues and all four rx interrupt
-counts are increasing.  I'll have to see if they changed anything.
-
-
-> Hope this helps,
-
-That's great, thanks.
-
-Chris
-
-------------------------------------------------------------------------------
-Come build with us! The BlackBerry(R) Developer Conference in SF, CA
-is the only developer event you need to attend this year. Jumpstart your
-developing skills, take BlackBerry mobile applications to market and stay 
-ahead of the curve. Join us from November 9 - 12, 2009. Register now!
-http://p.sf.net/sfu/devconference
+greg k-h
