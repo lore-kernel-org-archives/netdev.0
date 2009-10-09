@@ -1,80 +1,69 @@
-From: "Gole, Anant" <anantgole-l0cyMroinI0@public.gmane.org>
-Subject: RE: [PATCH] can: make the number of echo skb's configurable
-Date: Fri, 9 Oct 2009 14:31:09 +0530
-Message-ID: <2A3DCF3DA181AD40BDE86A3150B27B6B02F67E1776@dbde02.ent.ti.com>
-References: <4ACEF187.207@grandegger.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: pull request: wireless-2.6 2009-10-08
+Date: Fri, 9 Oct 2009 10:57:19 +0200
+Message-ID: <200910091057.21269.mb@bu3sch.de>
+References: <20091008223454.GB2798@tuxdriver.com> <200910090108.08838.mb@bu3sch.de> <20091008.180119.242402327.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Sebastian-XecQL68PM4x789tOGE2Ojw@public.gmane.org
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, Linux Netdev List
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4ACEF187.207-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bu3sch.de ([62.75.166.246]:49932 "EHLO vs166246.vserver.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753938AbZJII6D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Oct 2009 04:58:03 -0400
+In-Reply-To: <20091008.180119.242402327.davem@davemloft.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Wolfgang Grandegger [mailto:wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org]
->Sent: Friday, October 09, 2009 1:47 PM
->To: Linux Netdev List
->Cc: SocketCAN Core Mailing List; Gole, Anant; Sebastian Haas
->Subject: [PATCH] can: make the number of echo skb's configurable
->
->This patch allows the CAN controller driver to define the number of echo
->skb's used for the local loopback (echo), as suggested by Kurt Van
->Dijck, with the function:
->
->  struct net_device *alloc_candev(int sizeof_priv,
->                                  unsigned int echo_skb_max);
->
->The CAN drivers have been adapted accordingly. For the ems_usb driver,
->as suggested by Sebastian Haas, the number of echo skb's has been
->increased to 10, which improves the transmission performance a lot.
->
->Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
->Signed-off-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
->---
+On Friday 09 October 2009 03:01:19 David Miller wrote:
+> From: Michael Buesch <mb@bu3sch.de>
+> Date: Fri, 9 Oct 2009 01:08:06 +0200
+> 
+> > I was planning to do a better solution, but I didn't have the time, yet.
+> 
+> The change is harmless while we're twiddling our thumbs waiting
+> for you to implement the fix "properly."
+> 
+> Not having the fix in is a developer burdon because people turn
+> on the DMA API debugger and are going to keep reporting it's
+> complaints here and elsewhere.
+> 
+> Get over your Napoleon complex, and let reasonable working fixes
+> get into the tree even if you don't find them optimal.  You can
+> always improve them later, "when you get around to it."
+> 
+> People put fixes in without my ACK in my areas of expertiece all
+> the time.  I got over it a long time ago, it's OK, and not worth
+> stressing out over.
 
-[snip]
+Ok, that's enough. If you do not need a maintainer, then work without one.
+What's a maintainer good for, if it's not for maintaining the code quality?
 
->Index: net-next-2.6/drivers/net/can/ti_hecc.c
->===================================================================
->--- net-next-2.6.orig/drivers/net/can/ti_hecc.c
->+++ net-next-2.6/drivers/net/can/ti_hecc.c
->@@ -74,10 +74,6 @@ MODULE_VERSION(HECC_MODULE_VERSION);
-> #define HECC_MB_TX_SHIFT	2 /* as per table above */
-> #define HECC_MAX_TX_MBOX	BIT(HECC_MB_TX_SHIFT)
->
->-#if (HECC_MAX_TX_MBOX > CAN_ECHO_SKB_MAX)
->-#error "HECC: MAX TX mailboxes should be equal or less than
->CAN_ECHO_SKB_MAX"
->-#endif
->-
-> #define HECC_TX_PRIO_SHIFT	(HECC_MB_TX_SHIFT)
-> #define HECC_TX_PRIO_MASK	(MAX_TX_PRIO << HECC_MB_TX_SHIFT)
-> #define HECC_TX_MB_MASK		(HECC_MAX_TX_MBOX - 1)
->@@ -902,7 +898,7 @@ static int ti_hecc_probe(struct platform
-> 		goto probe_exit_free_region;
-> 	}
->
->-	ndev = alloc_candev(sizeof(struct ti_hecc_priv));
->+	ndev = alloc_candev(sizeof(struct ti_hecc_priv), HECC_MAX_TX_MBOX);
-> 	if (!ndev) {
-> 		dev_err(&pdev->dev, "alloc_candev failed\n");
-> 		err = -ENOMEM;
+The patch needlessly moves huge chunks of crap, adds stupid comments, wastes memory.
+If that's what you want just to remove a debugging message on devices that virtually
+nobody owns, so be it.
 
-Ack for ti_hecc driver change. Thanks for the patch.
 
-Regards,
-Anant
+---
+ MAINTAINERS |    1 -
+ 1 file changed, 1 deletion(-)
+
+--- wireless-testing.orig/MAINTAINERS
++++ wireless-testing/MAINTAINERS
+@@ -1066,7 +1066,6 @@ F:	include/net/ax25.h
+ F:	net/ax25/
+ 
+ B43 WIRELESS DRIVER
+-M:	Michael Buesch <mb@bu3sch.de>
+ M:	Stefano Brivio <stefano.brivio@polimi.it>
+ L:	linux-wireless@vger.kernel.org
+ W:	http://linuxwireless.org/en/users/Drivers/b43
+
+
+-- 
+Greetings, Michael.
