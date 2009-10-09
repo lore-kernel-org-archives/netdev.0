@@ -1,119 +1,89 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 2/8] bitmap: Introduce bitmap_set, bitmap_clear,
-	bitmap_find_next_zero_area
-Date: Fri, 9 Oct 2009 16:41:00 -0700
-Message-ID: <20091009164100.85a36188.akpm@linux-foundation.org>
-References: <1255076961-21325-1-git-send-email-akinobu.mita@gmail.com>
-	<1255076961-21325-2-git-send-email-akinobu.mita@gmail.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: behaviour question for igb on nehalem box
+Date: Fri, 09 Oct 2009 16:48:56 -0700
+Message-ID: <4ACFCBE8.7060108@intel.com>
+References: <4ACF8466.5030309@nortel.com>	<alpine.WNT.2.00.0910091250440.5328@jbrandeb-desk1.amr.corp.intel.com>	<4ACFB9DF.9080909@nortel.com>
+	<4ACFC52F.4050509@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Fenghua Yu <fenghua.yu@intel.com>, Greg Kroah-Hartman <gregkh@suse.de>,
-	linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>,
-	x86@kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-altix@sgi.com,
-	Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
-	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
-	linuxppc-dev@ozlabs.org, Ingo Molnar <mingo@redhat.com>,
-	Paul Mackerras <paulus@samba.org>,
-	"H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org,
-	Thomas Gleixner <tglx@linutronix.de>, linux-usb@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Lothar Wassmann <LW@KARO-electronics.de>
-To: Akinobu Mita <akinobu.mita@gmail.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1255076961-21325-2-git-send-email-akinobu.mita@gmail.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Cc: e1000-list <e1000-devel@lists.sourceforge.net>,
+	Linux Network Development list <netdev@vger.kernel.org>, "Allan,
+	Bruce W" <bruce.w.allan@intel.com>, "Brandeburg,
+	Jesse" <jesse.brandeburg@intel.com>, "Ronciak,
+	John" <john.ronciak@intel.com>, "Kirsher,
+	Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: Chris Friesen <cfriesen@nortel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <4ACFC52F.4050509@intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Fri,  9 Oct 2009 17:29:15 +0900
-Akinobu Mita <akinobu.mita@gmail.com> wrote:
-
-> This introduces new bitmap functions:
+Alexander Duyck wrote:
+> Chris Friesen wrote:
+>> On 10/09/2009 02:22 PM, Brandeburg, Jesse wrote:
+>>> On Fri, 9 Oct 2009, Chris Friesen wrote:
+>>>> I've got some general questions around the expected behaviour of the
+>>>> 82576 igb net device.  (On a dual quad-core Nehalem box, if it matters.)
+>>> the hardware you have only supports 8 
+>>> queues (rx and tx) and the driver is configured to only set up 4 max.
+>> The datasheet for the 82576 says 16 tx queues and 16 rx queues.  Is that
+>> a typo or do we have the economy version?
 > 
-> bitmap_set: Set specified bit area
-> bitmap_clear: Clear specified bit area
-> bitmap_find_next_zero_area: Find free bit area
+> Actually the limitation is due to the fact that there are only 10 
+> interrupts available.  On kernels that support TX multi-queue the number 
+> of queues would be 4 TX and 4 RX, which would consume 8 interrupts 
+> leaving 1 for the link status change and one unused.
 > 
-> These are stolen from iommu helper.
+> However on the kernel you are using I don't believe multi-queue NAPI is 
+> enabled so you shouldn't have multiple RX queues either.  On a 2.6.18 
+> kernel you should have only 1 RX and 1 TX queue unless you are using the 
+> driver provided on e1000.sourceforge.net which uses fake netdevs to 
+> support multi-queue NAPI.  I believe this may be a bug that was 
+> introduced when SR-IOV support was back-ported from the 2.6.30 kernel.
+
+Actually after looking closer at the Redhat source it looks like they 
+have done the fake netdev workaround in their own code so I guess igb 
+driver in the RHEL kernel does support multiple RX queues.
+
+>>>> My second question is around how the rx queues are mapped to interrupts.
+>>>>  According to /proc/interrupts there appears to be a 1:1 mapping between
+>>>> queues and interrupts.  However, I've set up at test with a given amount
+>>>> of traffic coming in to the device (from 4 different IP addresses and 4
+>>>> ports).  Under this scenario, "ethtool -S" shows the number of packets
+>>>> increasing for only rx queue 0, but I see the interrupt count going up
+>>>> for two interrupts.
+>>> one transmit interrupt and one receive interrupt?
+>> No, two rx interrupts.  (Can't remember if the tx interrupt was going up
+>> as well or no...was only looking at rx.)
 > 
-> I changed the return value of bitmap_find_next_zero_area if there is
-> no zero area.
-> 
-> find_next_zero_area in iommu helper: returns -1
-> bitmap_find_next_zero_area: return >= bitmap size
+> This may be due to the bug I mentioned above.  Multiple RX queues 
+> shouldn't be present on the 2.6.18 kernel as I do not believe 
+> multi-queue NAPI has been back-ported and it could have negative effects.
 
-I'll plan to merge this patch into 2.6.32 so we can trickle all the
-other patches into subsystems in an orderly fashion.
+The odds of any 2 flows overlapping when you are only using 4 flows is 
+pretty high, especially if the addresses/ports are close in range.  You 
+typically need something on the order of about 16 flows over a wide 
+range of port numbers in order to get a good distribution.
 
-> +void bitmap_set(unsigned long *map, int i, int len)
-> +{
-> +	int end = i + len;
-> +
-> +	while (i < end) {
-> +		__set_bit(i, map);
-> +		i++;
-> +	}
-> +}
+Thanks,
 
-This is really inefficient, isn't it?  It's a pretty trivial matter to
-romp through memory 32 or 64 bits at a time.
+Alex
 
-> +EXPORT_SYMBOL(bitmap_set);
-> +
-> +void bitmap_clear(unsigned long *map, int start, int nr)
-> +{
-> +	int end = start + nr;
-> +
-> +	while (start < end) {
-> +		__clear_bit(start, map);
-> +		start++;
-> +	}
-> +}
-> +EXPORT_SYMBOL(bitmap_clear);
 
-Ditto.
 
-> +unsigned long bitmap_find_next_zero_area(unsigned long *map,
-> +					 unsigned long size,
-> +					 unsigned long start,
-> +					 unsigned int nr,
-> +					 unsigned long align_mask)
-> +{
-> +	unsigned long index, end, i;
-> +again:
-> +	index = find_next_zero_bit(map, size, start);
-> +
-> +	/* Align allocation */
-> +	index = (index + align_mask) & ~align_mask;
-> +
-> +	end = index + nr;
-> +	if (end >= size)
-> +		return end;
-> +	i = find_next_bit(map, end, index);
-> +	if (i < end) {
-> +		start = i + 1;
-> +		goto again;
-> +	}
-> +	return index;
-> +}
-> +EXPORT_SYMBOL(bitmap_find_next_zero_area);
 
-This needs documentation, please.  It appears that `size' is the size
-of the bitmap and `nr' is the number of zeroed bits we're looking for,
-but an inattentive programmer could get those reversed.
-
-Also the semantics of `align_mask' could benefit from spelling out.  Is
-the alignment with respect to memory boundaries or with respect to
-`map' or with respect to map+start or what?
-
-And why does align_mask exist at all?  I was a bit surprised to see it
-there.  In which scenarios will it be non-zero?
+------------------------------------------------------------------------------
+Come build with us! The BlackBerry(R) Developer Conference in SF, CA
+is the only developer event you need to attend this year. Jumpstart your
+developing skills, take BlackBerry mobile applications to market and stay 
+ahead of the curve. Join us from November 9 - 12, 2009. Register now!
+http://p.sf.net/sfu/devconference
