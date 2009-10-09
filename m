@@ -1,86 +1,112 @@
-From: Jie Yang <Jie.Yang@Atheros.com>
-Subject: RE: alt1c: ethernet driver bug
-Date: Fri, 9 Oct 2009 11:37:11 +0800
-Message-ID: <72981EBCFD196144B7C6999B9FC34A9A49493F5B61@SHEXMB-01.global.atheros.com>
-References: <20091006161048.6b52b6be@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch-next] Fix the size overflow of addrconf_sysctl array
+Date: Thu, 08 Oct 2009 22:44:15 -0700 (PDT)
+Message-ID: <20091008.224415.205034676.davem@davemloft.net>
+References: <4ACEA207.7010208@np.css.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, cratiu@ixiacom.com,
+	opurdila@ixiacom.com, kaneshige.kenji@jp.fujitsu.com,
+	seto.hidetoshi@jp.fujitsu.com, netdev@vger.kernel.org
+To: jin.dongming@np.css.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 175.210.DSNET ([203.110.175.210]:60997 "EHLO mail.atheros.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758895AbZJIDhv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 23:37:51 -0400
-In-Reply-To: <20091006161048.6b52b6be@nehalam>
-Content-Language: zh-CN
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42241
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751607AbZJIFoT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 01:44:19 -0400
+In-Reply-To: <4ACEA207.7010208@np.css.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- Stephen Hemminger <shemminger@vyatta.com> wrote:
-> Sent: Wednesday, October 07, 2009 7:11 AM
-> To: Jie Yang
-> Cc: netdev@vger.kernel.org
-> Subject: alt1c: ethernet driver bug
->
-> > http://bugzilla.kernel.org/show_bug.cgi?id=14336
-> >
-> >            Summary: [Pardus] Soft Lockup Problem with
-> Attansic Ethernet
-> >                     Card
-> >            Product: Networking
-> >            Version: 2.5
-> >     Kernel Version: 2.6.30.8
-> >           Platform: All
-> >         OS/Version: Linux
-> >               Tree: Mainline
-> >             Status: NEW
-> >           Severity: high
-> >           Priority: P1
-> >          Component: IPV4
-> >         AssignedTo: shemminger@linux-foundation.org
-> >         ReportedBy: badibere@gmail.com
-> >         Regression: No
-> >
-> >
-> > I have soft lockup problem with attansic ethernet card while
-> > activating eth0 interface.
-> >
-> > My ethernet card is 09:00.0 Ethernet controller: Attansic
-> Technology Corp.
-> > Device 1063 (rev c0)
-> >
-> > If I try to activate eth0 interface while network cable is
-> pluged in,
-> > then everything freezes.
-> >
-> > If I try to activate eth0 interface while network cable
-> isn't pluged
-> > in, then no problem. But, if i plug in, again freezes.
-> >
-> > My /var/log/syslog is in attachment.
-> >
->
-> this is what was in the bug attachment
->
-> Oct  7 00:53:33 baDibere kernel: [   16.162099] atl1c
-> 0000:09:00.0: enabling device (0000 -> 0002)
-> Oct  7 00:53:33 baDibere kernel: [   16.162117] atl1c
-> 0000:09:00.0: PCI INT A -> GSI 17 (level, low) -> IRQ 17
-> Oct  7 00:53:33 baDibere kernel: [   16.162141] atl1c
-> 0000:09:00.0: setting latency timer to 64
-> Oct  7 00:53:33 baDibere kernel: [   16.162247] atl1c
-> 0000:09:00.0: PME# disabled
-> Oct  7 00:53:33 baDibere kernel: [   16.162266] atl1c
-> 0000:09:00.0: PME# disabled
-> Oct  7 00:53:33 baDibere kernel: [   16.230835] atl1c
-> 0000:09:00.0: version 1.0.0.1-NAPI
-> Oct  7 00:55:57 baDibere kernel: [  169.943463] atl1c
-> 0000:09:00.0: Unable to allocate MSI interrupt Error: -22 Oct
->  7 00:55:57 baDibere kernel: [  169.943576] atl1c
-> 0000:09:00.0: atl1c: eth0 NIC Link is Up<100 Mbps Full Duplex>
->
-when "pci_enable_msi" failed, I will also request_irq, so it should not be a problem.
-the message "NIC Link is Up<100 Mbps Full Duplex>" demonstrate the atl1c interrupt has worked.
+From: Jin Dongming <jin.dongming@np.css.fujitsu.com>
+Date: Fri, 09 Oct 2009 11:37:59 +0900
 
+Please post networking patches always CC:'d to netdev@vger.kernel.org
+so that it gets added to our networking patch tracking system at:
+
+	http://patchwork.ozlabs.org/project/netdev/list/
+
+Thank you.
+
+I've applied your fix, thanks!
+
+> (This patch fixes bug of commit f7734fdf61ec6bb848e0bafc1fb8bad2c124bb50
+>  title "make TLLAO option for NA packets configurable")
+> 
+> When the IPV6 conf is used, the function sysctl_set_parent is called and the
+> array addrconf_sysctl is used as a parameter of the function.
+> 
+> The above patch added new conf "force_tllao" into the array addrconf_sysctl,
+> but the size of the array was not modified, the static allocated size is
+> DEVCONF_MAX + 1 but the real size is DEVCONF_MAX + 2, so the problem is
+> that the function sysctl_set_parent accessed wrong address.
+> 
+> I got the following information.
+> Call Trace:
+>     [<ffffffff8106085d>] sysctl_set_parent+0x29/0x3e
+>     [<ffffffff8106085d>] sysctl_set_parent+0x29/0x3e
+>     [<ffffffff8106085d>] sysctl_set_parent+0x29/0x3e
+>     [<ffffffff8106085d>] sysctl_set_parent+0x29/0x3e
+>     [<ffffffff8106085d>] sysctl_set_parent+0x29/0x3e
+>     [<ffffffff810622d5>] __register_sysctl_paths+0xde/0x272
+>     [<ffffffff8110892d>] ? __kmalloc_track_caller+0x16e/0x180
+>     [<ffffffffa00cfac3>] ? __addrconf_sysctl_register+0xc5/0x144 [ipv6]
+>     [<ffffffff8141f2c9>] register_net_sysctl_table+0x48/0x4b
+>     [<ffffffffa00cfaf5>] __addrconf_sysctl_register+0xf7/0x144 [ipv6]
+>     [<ffffffffa00cfc16>] addrconf_init_net+0xd4/0x104 [ipv6]
+>     [<ffffffff8139195f>] setup_net+0x35/0x82
+>     [<ffffffff81391f6c>] copy_net_ns+0x76/0xe0
+>     [<ffffffff8107ad60>] create_new_namespaces+0xf0/0x16e
+>     [<ffffffff8107afee>] copy_namespaces+0x65/0x9f
+>     [<ffffffff81056dff>] copy_process+0xb2c/0x12c3
+>     [<ffffffff810576e1>] do_fork+0x14b/0x2d2
+>     [<ffffffff8107ac4e>] ? up_read+0xe/0x10
+>     [<ffffffff81438e73>] ? do_page_fault+0x27a/0x2aa
+>     [<ffffffff8101044b>] sys_clone+0x28/0x2a
+>     [<ffffffff81011fb3>] stub_clone+0x13/0x20
+>     [<ffffffff81011c72>] ? system_call_fastpath+0x16/0x1b
+> 
+> And the information of IPV6 in .config is as following.
+> IPV6 in .config:
+>     CONFIG_IPV6=m
+>     CONFIG_IPV6_PRIVACY=y
+>     CONFIG_IPV6_ROUTER_PREF=y
+>     CONFIG_IPV6_ROUTE_INFO=y
+>     CONFIG_IPV6_OPTIMISTIC_DAD=y
+>     CONFIG_IPV6_MIP6=m
+>     CONFIG_IPV6_SIT=m
+>     # CONFIG_IPV6_SIT_6RD is not set
+>     CONFIG_IPV6_NDISC_NODETYPE=y
+>     CONFIG_IPV6_TUNNEL=m
+>     CONFIG_IPV6_MULTIPLE_TABLES=y
+>     CONFIG_IPV6_SUBTREES=y
+>     CONFIG_IPV6_MROUTE=y
+>     CONFIG_IPV6_PIMSM_V2=y
+>     # CONFIG_IP_VS_IPV6 is not set
+>     CONFIG_NF_CONNTRACK_IPV6=m
+>     CONFIG_IP6_NF_MATCH_IPV6HEADER=m
+> 
+> I confirmed this patch fixes this problem.
+> 
+> Signed-off-by: Jin Dongming <jin.dongming@np.css.fujitsu.com>
+> ---
+>  include/linux/ipv6.h |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+> index ae74ede..5640425 100644
+> --- a/include/linux/ipv6.h
+> +++ b/include/linux/ipv6.h
+> @@ -208,6 +208,7 @@ enum {
+>  	DEVCONF_MC_FORWARDING,
+>  	DEVCONF_DISABLE_IPV6,
+>  	DEVCONF_ACCEPT_DAD,
+> +	DEVCONF_FORCE_TLLAO,
+>  	DEVCONF_MAX
+>  };
+>  
+> -- 
+> 1.6.2.2
+> 
+> 
