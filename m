@@ -1,133 +1,131 @@
-From: Anirban Sinha <asinha@zeugmasystems.com>
-Subject: Re: Kernel oops when clearing bgp neighbor info with TCP MD5SUM
- enabled
-Date: Thu, 8 Oct 2009 16:33:47 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0910081622400.18315@sleet.zeugmasystems.local>
-References: <Pine.LNX.4.64.0910081514050.18315@sleet.zeugmasystems.local>
- <20091008.155429.02850661.davem@davemloft.net>
+From: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [BUG net-2.6] bluetooth/rfcomm : sleeping function called from
+	invalid context at mm/slub.c:1719
+Date: Fri, 9 Oct 2009 08:44:53 +0800
+Message-ID: <20091009004452.GA2395@darkstar>
+References: <4AC59D8A.6000102@hartkopp.net> <a8e1da0910020401m2fb8493ax95ff55a3b66131a5@mail.gmail.com> <4AC6247E.7050308@hartkopp.net> <20091003070622.GA4110@darkstar> <4AC71CAA.9090704@hartkopp.net> <a8e1da0910032026m66200c08jf9201bbfe34b2f30@mail.gmail.com> <20091004180635.GA11272@vigoh>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.zeugmasystems.com ([70.79.96.174]:20733 "EHLO
-	zeugmasystems.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757866AbZJHXe3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 19:34:29 -0400
-In-Reply-To: <20091008.155429.02850661.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>,
+	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"Gustavo F. Padovan" <gustavo-r7biftawOlEmmTcpzmvVSFAUjnlXr6A1@public.gmane.org>
+To: "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20091004180635.GA11272@vigoh>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi:
+On Sun, Oct 04, 2009 at 06:06:35PM +0000, Gustavo F. Padovan wrote:
+> 
+> Hi all,
+> 
+> * Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> [2009-10-04 11:26:17 +0800]:
+> 
+> > 
+> > I can reproduce the bug.
+> > 
+> > It's probably caused by the l2cap changes by  Gustavo F. Padovan
+> > <gustavo-r7biftawOlEmmTcpzmvVSFAUjnlXr6A1@public.gmane.org>, I didn't see such problem after reverting
+> > Gustavo's patch series.
+> 
+> I can't reproduce the bug. I'm trying to reproduce it to figure out what of
+> my changes cause it.
+> 
+> I' running
+> 
+> $ dund -snu -i 00:11:67:CD:0F:CB # to pretend to be dialup/telephone
+> 
+> and on the other side 
+> 
+> $ rfcomm bind 0 00:11:67:CD:0F:CB 1
+> $ wvdial  # wvdial to /dev/rfcomm0
+> 
+> Both sides are on the same machine. Do you see any real difference
+> between my try and the call that get the bug?
+> 
 
-Thanks for responding.
+Hi oliver
 
-> > We are noticing a kernel OOPS on 2.6.26 kernel when we issue the command
-> > "clear ip bgp <bgp-peer-ip>" on Quagga BGP routing software.
->
-> You will need to update your kernel, there have been many TCP
-> MD5 bug fixes since 2.6.26
->
+Could try following patch?
+---
 
-Sigh ... wish that were that easy! Anyway, as far as I could, I have tried to
-apply the upstream patches that seemed relevant to TCP MD5SUM. Am I missing
-some other patches? It will be great if someone can point me to any patch that
-I might be missing related to the TCP MD5SUM support.
+When shutdown ppp connection, lockdep waring about non-static key
+will happen, it is caused by the lock is not initialized properly
+at that time.
 
-I applied the following patches:
+Fix with tuning the lock/skb_queue_head init order
 
-(a)
+[   94.339261] INFO: trying to register non-static key.
+[   94.342509] the code is fine but needs lockdep annotation.
+[   94.342509] turning off the locking correctness validator.
+[   94.342509] Pid: 0, comm: swapper Not tainted 2.6.31-mm1 #2
+[   94.342509] Call Trace:
+[   94.342509]  [<c0248fbe>] register_lock_class+0x58/0x241
+[   94.342509]  [<c024b5df>] ? __lock_acquire+0xb57/0xb73
+[   94.342509]  [<c024ab34>] __lock_acquire+0xac/0xb73
+[   94.342509]  [<c024b7fa>] ? lock_release_non_nested+0x17b/0x1de
+[   94.342509]  [<c024b662>] lock_acquire+0x67/0x84
+[   94.342509]  [<c04cd1eb>] ? skb_dequeue+0x15/0x41
+[   94.342509]  [<c054a857>] _spin_lock_irqsave+0x2f/0x3f
+[   94.342509]  [<c04cd1eb>] ? skb_dequeue+0x15/0x41
+[   94.342509]  [<c04cd1eb>] skb_dequeue+0x15/0x41
+[   94.342509]  [<c054a648>] ? _read_unlock+0x1d/0x20
+[   94.342509]  [<c04cd641>] skb_queue_purge+0x14/0x1b
+[   94.342509]  [<fab94fdc>] l2cap_recv_frame+0xea1/0x115a [l2cap]
+[   94.342509]  [<c024b5df>] ? __lock_acquire+0xb57/0xb73
+[   94.342509]  [<c0249c04>] ? mark_lock+0x1e/0x1c7
+[   94.342509]  [<f8364963>] ? hci_rx_task+0xd2/0x1bc [bluetooth]
+[   94.342509]  [<fab95346>] l2cap_recv_acldata+0xb1/0x1c6 [l2cap]
+[   94.342509]  [<f8364997>] hci_rx_task+0x106/0x1bc [bluetooth]
+[   94.342509]  [<fab95295>] ? l2cap_recv_acldata+0x0/0x1c6 [l2cap]
+[   94.342509]  [<c02302c4>] tasklet_action+0x69/0xc1
+[   94.342509]  [<c022fbef>] __do_softirq+0x94/0x11e
+[   94.342509]  [<c022fcaf>] do_softirq+0x36/0x5a
+[   94.342509]  [<c022fe14>] irq_exit+0x35/0x68
+[   94.342509]  [<c0204ced>] do_IRQ+0x72/0x89
+[   94.342509]  [<c02038ee>] common_interrupt+0x2e/0x34
+[   94.342509]  [<c024007b>] ? pm_qos_add_requirement+0x63/0x9d
+[   94.342509]  [<c038e8a5>] ? acpi_idle_enter_bm+0x209/0x238
+[   94.342509]  [<c049d238>] cpuidle_idle_call+0x5c/0x94
+[   94.342509]  [<c02023f8>] cpu_idle+0x4e/0x6f
+[   94.342509]  [<c0534153>] rest_init+0x53/0x55
+[   94.342509]  [<c0781894>] start_kernel+0x2f0/0x2f5
+[   94.342509]  [<c0781091>] i386_start_kernel+0x91/0x96
 
-author	Adam Langley <agl@imperialviolet.org>
-	Sat, 19 Jul 2008 07:01:42 +0000 (00:01 -0700)
-committer	David S. Miller <davem@davemloft.net>
-	Sat, 19 Jul 2008 07:01:42 +0000 (00:01 -0700)
-commit	49a72dfb8814c2d65bd9f8c9c6daf6395a1ec58d
-tree	38804d609f21503573bbdd8bb9af38df99275ff5	tree | snapshot
-parent	845525a642c1c9e1335c33a274d4273906ee58eb	commit | diff
-tcp: Fix MD5 signatures for non-linear skbs
+Reported-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Signed-off-by: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+net/bluetooth/l2cap.c |    9 ++++++---
+1 file changed, 6 insertions(+), 3 deletions(-)
 
-Currently, the MD5 code assumes that the SKBs are linear and, in the case
-that they aren't, happily goes off and hashes off the end of the SKB and
-into random memory.
-
-Reported by Stephen Hemminger in [1]. Advice thanks to Stephen and Evgeniy
-Polyakov. Also includes a couple of missed route_caps from Stephen's patch
-in [2].
-
-[1] http://marc.info/?l=linux-netdev&m=121445989106145&w=2
-[2] http://marc.info/?l=linux-netdev&m=121459157816964&w=2
-
-Signed-off-by: Adam Langley <agl@imperialviolet.org>
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
-(b)
-
-author	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-	 Fri, 18 Apr 2008 03:45:16 +0000 (12:45 +0900)
-committer	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-	 Wed, 11 Jun 2008 18:46:30 +0000 (03:46 +0900)
-commit	9501f9722922f2e80e1f9dc6682311d65c2b5690
-tree	ca8195e04ea63e8273801030ce26527fe5a8a7c7	tree | snapshot
-parent	8d26d76dd4a4c87ef037a44a42a0608ffc730199	commit | diff
-
-tcp md5sig: Let the caller pass appropriate key for
-tcp_v{4,6}_do_calc_md5_hash().
-
-As we do for other socket/timewait-socket specific parameters,
-let the callers pass appropriate arguments to
-tcp_v{4,6}_do_calc_md5_hash().
-
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
-(c)
-
-author	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-	 Thu, 17 Apr 2008 04:19:16 +0000 (13:19 +0900)
-committer	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-	 Wed, 11 Jun 2008 17:38:20 +0000 (02:38 +0900)
-commit	8d26d76dd4a4c87ef037a44a42a0608ffc730199
-tree	884ff53a83e460aa3f1837cc336a5a34f364156e	tree | snapshot
-parent	076fb7223357769c39f3ddf900bba6752369c76a	commit | diff
-
-tcp md5sig: Share most of hash calcucaltion bits between IPv4 and IPv6.
-We can share most part of the hash calculation code because
-the only difference between IPv4 and IPv6 is their pseudo headers.
-
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
-(d)
-
-author	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-	 Thu, 17 Apr 2008 03:48:12 +0000 (12:48 +0900)
-committer	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-	 Wed, 11 Jun 2008 17:38:19 +0000 (02:38 +0900)
-
-commit	076fb7223357769c39f3ddf900bba6752369c76a
-tree	db75c2af3bf71cda4d0cccd6ebcfa8d1a62c3620	tree | snapshot
-parent	7d5d5525bd88313e6fd90c0659665aee5114bc2d	commit | diff
-
-tcp md5sig: Remove redundant protocol argument.
-Protocol is always TCP, so remove useless protocol argument.
-
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
-(e)
-
-author	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-	 Thu, 17 Apr 2008 03:29:53 +0000 (12:29 +0900)
-committer	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-	 Wed, 11 Jun 2008 17:38:18 +0000 (02:38 +0900)
-commit	7d5d5525bd88313e6fd90c0659665aee5114bc2d
-tree	41517e753220261c8cc46d975977cfd711892f6c	tree | snapshot
-parent	81b302a321a0d99ff172b8cb2a8de17bff2f9499	commit | diff
-
-tcp md5sig: Share MD5 Signature option parser between IPv4 and IPv6.
-
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
-
-Cheers,
-
-Ani
+--- linux-2.6.31.orig/net/bluetooth/l2cap.c	2009-10-09 08:32:46.000000000 +0800
++++ linux-2.6.31/net/bluetooth/l2cap.c	2009-10-09 08:33:57.000000000 +0800
+@@ -555,12 +555,12 @@ static struct l2cap_conn *l2cap_conn_add
+ 
+ 	conn->feat_mask = 0;
+ 
+-	setup_timer(&conn->info_timer, l2cap_info_timeout,
+-						(unsigned long) conn);
+-
+ 	spin_lock_init(&conn->lock);
+ 	rwlock_init(&conn->chan_list.lock);
+ 
++	setup_timer(&conn->info_timer, l2cap_info_timeout,
++						(unsigned long) conn);
++
+ 	conn->disc_reason = 0x13;
+ 
+ 	return conn;
+@@ -783,6 +783,9 @@ static void l2cap_sock_init(struct sock 
+ 	/* Default config options */
+ 	pi->conf_len = 0;
+ 	pi->flush_to = L2CAP_DEFAULT_FLUSH_TO;
++	skb_queue_head_init(TX_QUEUE(sk));
++	skb_queue_head_init(SREJ_QUEUE(sk));
++	INIT_LIST_HEAD(SREJ_LIST(sk));
+ }
+ 
+ static struct proto l2cap_proto = {
