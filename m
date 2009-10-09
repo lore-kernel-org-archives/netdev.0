@@ -1,56 +1,80 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [RFC] multiqueue changes
-Date: Fri, 9 Oct 2009 08:51:07 +0000
-Message-ID: <20091009085107.GA7711@ff.dom.local>
-References: <4ACD9255.4020008@gmail.com> <20091008090344.GA7409@ff.dom.local>
+From: "Gole, Anant" <anantgole-l0cyMroinI0@public.gmane.org>
+Subject: RE: [PATCH] can: make the number of echo skb's configurable
+Date: Fri, 9 Oct 2009 14:31:09 +0530
+Message-ID: <2A3DCF3DA181AD40BDE86A3150B27B6B02F67E1776@dbde02.ent.ti.com>
+References: <4ACEF187.207@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f227.google.com ([209.85.220.227]:59743 "EHLO
-	mail-fx0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755161AbZJIIvu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 04:51:50 -0400
-Received: by fxm27 with SMTP id 27so6208711fxm.17
-        for <netdev@vger.kernel.org>; Fri, 09 Oct 2009 01:51:13 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20091008090344.GA7409@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Sebastian-XecQL68PM4x789tOGE2Ojw@public.gmane.org
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, Linux Netdev List
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4ACEF187.207-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 08, 2009 at 09:03:44AM +0000, Jarek Poplawski wrote:
-> On Thu, Oct 08, 2009 at 09:18:45AM +0200, Eric Dumazet wrote:
-...
-> > Just wondering if it could hurt some people.
-> > 
-> > Anyway, should we change bnx2/tg3 drivers so that single queue devices
-> > have same default qdisc/class than before ?
-> > 
-> > eg :
-> > 
-> > diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-> > index 08cddb6..7cac205 100644
-> > --- a/drivers/net/bnx2.c
-> > +++ b/drivers/net/bnx2.c
-> > @@ -6152,6 +6152,7 @@ bnx2_setup_int_mode(struct bnx2 *bp, int dis_msi)
-> >  
-> >  	bp->num_tx_rings = rounddown_pow_of_two(bp->irq_nvecs);
-> >  	bp->dev->real_num_tx_queues = bp->num_tx_rings;
-> > +	bp->dev->num_tx_queues = bp->dev->real_num_tx_queues;
-> >  
-> >  	bp->num_rx_rings = bp->irq_nvecs;
-> >  }
-> 
-> It doesn't look consistent to me wrt. the comment in netdevice.h on
-> num_tx_queues. But it seems we should rather use more often
-> real_num_tx_queue in schedulers code like dumps and maybe more
-> (like e.g. sch_multiq does).
+>-----Original Message-----
+>From: Wolfgang Grandegger [mailto:wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org]
+>Sent: Friday, October 09, 2009 1:47 PM
+>To: Linux Netdev List
+>Cc: SocketCAN Core Mailing List; Gole, Anant; Sebastian Haas
+>Subject: [PATCH] can: make the number of echo skb's configurable
+>
+>This patch allows the CAN controller driver to define the number of echo
+>skb's used for the local loopback (echo), as suggested by Kurt Van
+>Dijck, with the function:
+>
+>  struct net_device *alloc_candev(int sizeof_priv,
+>                                  unsigned int echo_skb_max);
+>
+>The CAN drivers have been adapted accordingly. For the ems_usb driver,
+>as suggested by Sebastian Haas, the number of echo skb's has been
+>increased to 10, which improves the transmission performance a lot.
+>
+>Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+>Signed-off-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+>---
 
-So, according to my current understanding, we should probably let
-drivers to reset the tx_queues allocation with a new num_tx_queues
-in a place like this (ndo_open).
+[snip]
 
-Jarek P.
+>Index: net-next-2.6/drivers/net/can/ti_hecc.c
+>===================================================================
+>--- net-next-2.6.orig/drivers/net/can/ti_hecc.c
+>+++ net-next-2.6/drivers/net/can/ti_hecc.c
+>@@ -74,10 +74,6 @@ MODULE_VERSION(HECC_MODULE_VERSION);
+> #define HECC_MB_TX_SHIFT	2 /* as per table above */
+> #define HECC_MAX_TX_MBOX	BIT(HECC_MB_TX_SHIFT)
+>
+>-#if (HECC_MAX_TX_MBOX > CAN_ECHO_SKB_MAX)
+>-#error "HECC: MAX TX mailboxes should be equal or less than
+>CAN_ECHO_SKB_MAX"
+>-#endif
+>-
+> #define HECC_TX_PRIO_SHIFT	(HECC_MB_TX_SHIFT)
+> #define HECC_TX_PRIO_MASK	(MAX_TX_PRIO << HECC_MB_TX_SHIFT)
+> #define HECC_TX_MB_MASK		(HECC_MAX_TX_MBOX - 1)
+>@@ -902,7 +898,7 @@ static int ti_hecc_probe(struct platform
+> 		goto probe_exit_free_region;
+> 	}
+>
+>-	ndev = alloc_candev(sizeof(struct ti_hecc_priv));
+>+	ndev = alloc_candev(sizeof(struct ti_hecc_priv), HECC_MAX_TX_MBOX);
+> 	if (!ndev) {
+> 		dev_err(&pdev->dev, "alloc_candev failed\n");
+> 		err = -ENOMEM;
+
+Ack for ti_hecc driver change. Thanks for the patch.
+
+Regards,
+Anant
