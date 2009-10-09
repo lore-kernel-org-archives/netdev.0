@@ -1,69 +1,55 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: pull request: wireless-2.6 2009-10-08
-Date: Fri, 9 Oct 2009 10:57:19 +0200
-Message-ID: <200910091057.21269.mb@bu3sch.de>
-References: <20091008223454.GB2798@tuxdriver.com> <200910090108.08838.mb@bu3sch.de> <20091008.180119.242402327.davem@davemloft.net>
+From: Gabor Gombas <gombasg@sztaki.hu>
+Subject: PACKET_TX_RING: packet size is too long
+Date: Fri, 9 Oct 2009 11:07:11 +0200
+Message-ID: <20091009090711.GG23133@boogie.lpds.sztaki.hu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: johann.baudy@gnu-log.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bu3sch.de ([62.75.166.246]:49932 "EHLO vs166246.vserver.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753938AbZJII6D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Oct 2009 04:58:03 -0400
-In-Reply-To: <20091008.180119.242402327.davem@davemloft.net>
+Received: from boogie.lpds.sztaki.hu ([193.224.70.237]:46772 "EHLO
+	boogie.lpds.sztaki.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753310AbZJIJP7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 05:15:59 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 09 October 2009 03:01:19 David Miller wrote:
-> From: Michael Buesch <mb@bu3sch.de>
-> Date: Fri, 9 Oct 2009 01:08:06 +0200
-> 
-> > I was planning to do a better solution, but I didn't have the time, yet.
-> 
-> The change is harmless while we're twiddling our thumbs waiting
-> for you to implement the fix "properly."
-> 
-> Not having the fix in is a developer burdon because people turn
-> on the DMA API debugger and are going to keep reporting it's
-> complaints here and elsewhere.
-> 
-> Get over your Napoleon complex, and let reasonable working fixes
-> get into the tree even if you don't find them optimal.  You can
-> always improve them later, "when you get around to it."
-> 
-> People put fixes in without my ACK in my areas of expertiece all
-> the time.  I got over it a long time ago, it's OK, and not worth
-> stressing out over.
+Hi,
 
-Ok, that's enough. If you do not need a maintainer, then work without one.
-What's a maintainer good for, if it's not for maintaining the code quality?
+I have added PACKET_TX_RING support to ggaoed
+(http://code.google.com/p/ggaoed) and it have worked nice when I have
+tested it with a virtual ethernet pair (veth). However when testing it
+on real hardware, I get:
 
-The patch needlessly moves huge chunks of crap, adds stupid comments, wastes memory.
-If that's what you want just to remove a debugging message on devices that virtually
-nobody owns, so be it.
+Oct  8 17:30:52 storage2 kernel: [ 1083.714204] packet size is too long (8740 > 8472)
 
+Kernel is 2.6.31 from Debian experimental. The socket is SOCK_RAW, the
+MTU is 9000, I'm using TPACKET_V2 format, and the ring have been created
+with the following parameters:
 
----
- MAINTAINERS |    1 -
- 1 file changed, 1 deletion(-)
+block_nr = 256, block_size = 65536, frame_nr = 1792, frame_size = 9056
 
---- wireless-testing.orig/MAINTAINERS
-+++ wireless-testing/MAINTAINERS
-@@ -1066,7 +1066,6 @@ F:	include/net/ax25.h
- F:	net/ax25/
- 
- B43 WIRELESS DRIVER
--M:	Michael Buesch <mb@bu3sch.de>
- M:	Stefano Brivio <stefano.brivio@polimi.it>
- L:	linux-wireless@vger.kernel.org
- W:	http://linuxwireless.org/en/users/Drivers/b43
+Documentation/networking/packet_mmap.txt says that a frame for
+PACKET_TX_RING consists of a struct tpacket[2]_hdr followed by the data
+to send, so IMHO a frame size of 9056 should be enough to send 8740
+bytes of data. However, net/packet/af_packet.c has in tpacket_snd():
 
+	size_max = po->tx_ring.frame_size
+		- sizeof(struct skb_shared_info)
+		- po->tp_hdrlen
+		- LL_ALLOCATED_SPACE(dev)
+		- sizeof(struct sockaddr_ll);
+
+which is much more than just the struct tpacket[2]_hdr. So which is
+right? The code or the documentation? What is the official formula
+to compute the required frame length for a SOCK_RAW socket, given the
+MTU?
+
+Gabor
 
 -- 
-Greetings, Michael.
+     ---------------------------------------------------------
+     MTA SZTAKI Computer and Automation Research Institute
+                Hungarian Academy of Sciences
+     ---------------------------------------------------------
