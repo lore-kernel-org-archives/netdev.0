@@ -1,30 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Add netdev_alloc_skb_ip_align() helper
-Date: Fri, 09 Oct 2009 18:31:30 +0200
-Message-ID: <4ACF6562.9040109@gmail.com>
-References: <1254969161-3609-1-git-send-email-thomas@wytron.com.tw>	<4ACD585B.5080106@gmail.com> <20091007.224036.247820677.davem@davemloft.net>
+From: Stephen Smalley <sds@tycho.nsa.gov>
+Subject: Re: Real networking namespace
+Date: Fri, 09 Oct 2009 12:37:26 -0400
+Message-ID: <1255106246.2182.219.camel@moss-pluto.epoch.ncsc.mil>
+References: <20091009083807.16e55b08@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: thomas@wytron.com.tw, netdev@vger.kernel.org,
-	thierry.reding@avionic-design.de, nios2-dev@sopc.et.ntust.edu.tw,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:43274 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933933AbZJIQcP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 12:32:15 -0400
-In-Reply-To: <20091007.224036.247820677.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-security-module@vger.kernel.org,
+	Al Viro <viro@ZenIV.linux.org.uk>, netdev@vger.kernel.org,
+	Paul Moore <paul.moore@hp.com>,
+	James Morris <jmorris@namei.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20091009083807.16e55b08@nehalam>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller a =E9crit :
+On Fri, 2009-10-09 at 08:38 -0700, Stephen Hemminger wrote:
+> The existing networking namespace model is unattractive for what I want,
+> has anyone investigated better alternatives?
+> 
+> I would like to be able to allow access to a network interface and associated objects
+> (routing tables etc), to be controlled by Mandatory Access Control API's.
+> I.e grant access to eth0 and to only certain processes.  Some the issues
+> with the existing models are:
+>   * eth0 and associated objects don't really exist in filesystem so
+>     not subject to LSM style control (SeLinux/SMACK/TOMOYO)
+>   * network namespaces do not allow object to exist in multiple namespaces.
+>     The current model is more restrictive than chroot jails. At least with
+>     chroot, put filesystem objects in multiple jails.
+> 
+> Since one of the first rules of security is "don't reinvent", surely
+> others have dealt with this issue. Any good ideas?
 
-> Looks ok, but I want to look at how often this exact sequence
-> would match.  If it applies to a lot of cases, I'll add this
-> but I know of many exceptions in my head already :-)
+Is there something that prevents you from using the existing SELinux
+network access controls?  netif is a security class governed by SELinux
+policy, and routing table operations would be covered by the SELinux
+checks on netlink_route_socket.  SELinux uses a combination of LSM hooks
+and netfilter hooks to mediate network operations.
 
-Well, it was more as a reference. I believe about 20-30 call sites
-could use it. Do you want me to provide a combo patch ?
+-- 
+Stephen Smalley
+National Security Agency
 
