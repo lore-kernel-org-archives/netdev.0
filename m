@@ -1,103 +1,89 @@
-From: Dmitry Artamonow <mad_soft@inbox.ru>
-Subject: Re: [PATCH] irda/sa1100_ir: check return value of startup hook
-Date: Sat, 10 Oct 2009 00:12:24 +0400
-Message-ID: <20091009201224.GA6208@rainbow>
-References: <1255073153-24962-1-git-send-email-mad_soft@inbox.ru>
-	<4ACF293C.7070803@ru.mvista.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: behaviour question for igb on nehalem box
+Date: Fri, 9 Oct 2009 13:22:30 -0700 (Pacific Daylight Time)
+Message-ID: <alpine.WNT.2.00.0910091250440.5328@jbrandeb-desk1.amr.corp.intel.com>
+References: <4ACF8466.5030309@nortel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="opJtzjQTFsWo+cga"
-Cc: netdev@vger.kernel.org, Samuel Ortiz <samuel@sortiz.org>,
-	Russell King <linux@arm.linux.org.uk>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <4ACF293C.7070803@ru.mvista.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-list <e1000-devel@lists.sourceforge.net>,
+	Linux Network Development list <netdev@vger.kernel.org>, "Allan,
+	Bruce W" <bruce.w.allan@intel.com>, "Ronciak,
+	John" <john.ronciak@intel.com>, "Kirsher,
+	Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Chris Friesen <cfriesen@nortel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <4ACF8466.5030309@nortel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-
---opJtzjQTFsWo+cga
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On 16:14 Fri 09 Oct     , Sergei Shtylyov wrote:
-
-[...]
-> > -	if (si->pdata->startup)
-> > -		si->pdata->startup(si->dev);
-> > +	if (si->pdata->startup)	{
-> > +		ret = si->pdata->startup(si->dev);
-> > +		if (ret)
-> > +			return ret;
-> > +		}
+On Fri, 9 Oct 2009, Chris Friesen wrote:
+> I've got some general questions around the expected behaviour of the
+> 82576 igb net device.  (On a dual quad-core Nehalem box, if it matters.)
 > 
->     Overindented brace.
+> As a caveat, the box is running Centos 5.3 with their 2.6.18 kernel.
+> It's using the 1.3.16-k2 igb driver though, which looks to be the one
+> from mainline linux.
 > 
+> The igb driver is being loaded with no parameters specified.  At driver
+> init time, it's selecting 1 tx queue and 4 rx queues per device.
+> 
+> My first question is whether the number of queues makes sense.  I
 
-Nice catch, thanks!
+It does for this kernel, because 2.6.18 doesn't support multiple tx 
+queues.  The hardware supports RSS over receive queues, and the driver 
+doesn't mention the multiple receive queues from the OS.
 
-Updated patch in attachment.
+> couldn't figure out how this would happen since the rules for selecting
+> the number of queues seems to be the same for rx and tx.  Also, it's not
+> clear to me why it's limiting itself to 4 rx queues when I have 8
+> physical cores (and 16 virtual ones with hyperthreading enabled).
 
--- 
-Best regards,
-Dmitry "MAD" Artamonow
+for gigabit more queues is not necessarily better, and MQ arguably isn't 
+necessary at all for gigabit.  However, it can help for some workloads 
+when spreading out RX traffic.  the hardware you have only supports 8 
+queues (rx and tx) and the driver is configured to only set up 4 max.
 
+> My second question is around how the rx queues are mapped to interrupts.
+>  According to /proc/interrupts there appears to be a 1:1 mapping between
+> queues and interrupts.  However, I've set up at test with a given amount
+> of traffic coming in to the device (from 4 different IP addresses and 4
+> ports).  Under this scenario, "ethtool -S" shows the number of packets
+> increasing for only rx queue 0, but I see the interrupt count going up
+> for two interrupts.
 
---opJtzjQTFsWo+cga
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="0001-irda-sa1100_ir-check-return-value-of-startup-hook.patch"
-
->From ba1fe701950634aae46aa59431633e99f8bd18cc Mon Sep 17 00:00:00 2001
-From: Dmitry Artamonow <mad_soft@inbox.ru>
-Date: Fri, 9 Oct 2009 21:56:21 +0400
-Subject: [PATCH v2] irda/sa1100_ir: check return value of startup hook
-
-Signed-off-by: Dmitry Artamonow <mad_soft@inbox.ru>
----
- drivers/net/irda/sa1100_ir.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/irda/sa1100_ir.c b/drivers/net/irda/sa1100_ir.c
-index 38bf7cf..c412e80 100644
---- a/drivers/net/irda/sa1100_ir.c
-+++ b/drivers/net/irda/sa1100_ir.c
-@@ -232,8 +232,11 @@ static int sa1100_irda_startup(struct sa1100_irda *si)
- 	/*
- 	 * Ensure that the ports for this device are setup correctly.
- 	 */
--	if (si->pdata->startup)
--		si->pdata->startup(si->dev);
-+	if (si->pdata->startup)	{
-+		ret = si->pdata->startup(si->dev);
-+		if (ret)
-+			return ret;
-+	}
+one transmit interrupt and one receive interrupt?  RSS will spread the 
+receive work out in a flow based way, based on ip/xDP header.  Your test 
+as described should be using more than one flow (and therefore more than 
+one rx queue) unless you got caught out by the default arp_filter 
+behavior (check arp -an).
  
- 	/*
- 	 * Configure PPC for IRDA - we want to drive TXD2 low.
--- 
-1.6.3.4
+> My final question is around smp affinity for the rx and tx queue
+> interrupts.  Do I need to affine the interrupt for each rx queue to a
+> single core to guarantee proper packet ordering, or can they be handled
+> on arbitrary cores?  Should the tx queue be affined to a particular core
+> or left to be handled by all cores?
 
+on RHEL5.3 you can use irqbalance, you shouldn't need to hand affine 
+anything.  Packets won't be received out of order unless you have the rx 
+interrupts going to more that one cpu per queue. (smp_affinity mask has 
+more than one bit set)  RSS is doing flow steering.
 
---opJtzjQTFsWo+cga
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+going to a 2.6.27 or newer kernel will get you full tx multiqueue support.
 
-_______________________________________________
-linux-arm-kernel mailing list
-linux-arm-kernel@lists.infradead.org
-http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+Hope this helps,
+  Jesse
 
---opJtzjQTFsWo+cga--
+------------------------------------------------------------------------------
+Come build with us! The BlackBerry(R) Developer Conference in SF, CA
+is the only developer event you need to attend this year. Jumpstart your
+developing skills, take BlackBerry mobile applications to market and stay 
+ahead of the curve. Join us from November 9 - 12, 2009. Register now!
+http://p.sf.net/sfu/devconference
