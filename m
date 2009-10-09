@@ -1,50 +1,63 @@
-From: md@Linux.IT (Marco d'Itri)
+From: Matt Domsch <Matt_Domsch@dell.com>
 Subject: Re: PATCH: Network Device Naming mechanism and policy
-Date: Fri, 9 Oct 2009 18:56:36 +0200
-Message-ID: <20091009165636.GA5238@bongo.bofh.it>
-References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com> <20091009140000.GA18765@mock.linuxdev.us.dell.com> <20091009145137.GD19218@mock.linuxdev.us.dell.com> <4ACF6367.8040401@kadzban.is-a-geek.net>
+Date: Fri, 9 Oct 2009 12:17:24 -0500
+Message-ID: <20091009171724.GA11004@auslistsprd01.us.dell.com>
+References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com> <20091009140000.GA18765@mock.linuxdev.us.dell.com> <20091009163613.GA3414@kroah.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="tKW2IUtsqtDRztdT"
-Cc: Matt Domsch <Matt_Domsch@dell.com>,
-	Narendra K <narendra_k@dell.com>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Narendra K <narendra_k@dell.com>, netdev@vger.kernel.org,
 	linux-hotplug@vger.kernel.org, jordan_hargrave@dell.com
-To: Bryan Kadzban <bryan@kadzban.is-a-geek.net>
+To: Greg KH <greg@kroah.com>
 Return-path: <linux-hotplug-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4ACF6367.8040401@kadzban.is-a-geek.net>
+In-Reply-To: <20091009163613.GA3414@kroah.com>
 Sender: linux-hotplug-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Oct 09, 2009 at 09:36:13AM -0700, Greg KH wrote:
+> On Fri, Oct 09, 2009 at 09:00:01AM -0500, Narendra K wrote:
+> > On Fri, Oct 09, 2009 at 07:12:07PM +0530, K, Narendra wrote:
+> > > > example udev config:
+> > > > SUBSYSTEM=="net",
+> > > SYMLINK+="net/by-mac/$sysfs{ifindex}.$sysfs{address}"
+> > > 
+> > > work as well.  But coupling the ifindex to the MAC address like this
+> > > doesn't work.  (In general, coupling any two unrelated attributes when
+> > > trying to do persistent names doesn't work.)
+> > > 
+> > Attaching the latest patch incorporating review comments.
+> > 
+> > By creating character devices for every network device, we can use
+> > udev to maintain alternate naming policies for devices, including
+> > additional names for the same device, without interfering with the
+> > name that the kernel assigns a device.
+> > 
+> > This is conditionalized on CONFIG_NET_CDEV.  If enabled (the default),
+> > device nodes will automatically be created in /dev/netdev/ for each
+> > network device.  (/dev/net/ is already populated by the tun device.)
+> > 
+> > These device nodes are not functional at the moment - open() returns
+> > -ENOSYS.  Their only purpose is to provide userspace with a kernel
+> > name to ifindex mapping, in a form that udev can easily manage.
+> 
+> How does this patch work with the network namespace functionality?
 
---tKW2IUtsqtDRztdT
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+There is a monitonically increasing static ifindex kept in
+net/core/dev.c:dev_new_index(), which is shared across all namespaces.
+struct net_device ifindex field is assigned from this.  So two devices
+in two different namespaces can't share an ifindex value.  However,
+the device can be present (or not) in the per-namespace dev_name_hash
+and dev_index_hashes.  This patch doesn't change this at all.
 
-On Oct 09, Bryan Kadzban <bryan@kadzban.is-a-geek.net> wrote:
+uevents aren't namespaced.  Presumably that means /dev can't be
+polyinstantiated.  Therefore, all devnodes in /dev/netdev/* will be
+visible to all processes, where 'ifconfig' and friends would only show
+device names in the processes namespace.  This doesn't mean the app
+can _do_ anything (it's the same as if it tried to act on a device
+using an ifindex for a device not in its namespace), but yes, the fact
+that such a device exists will be exposed.
 
-> > As has been noted here, MAC addresses are not necessarily unique to
-> > an interface.
-> Only in the case of e.g. qemu (virtual hardware), I think.  (Or some
-> kinds of broken hardware.
-Some Sun products have multiple interfaces sharing the same MAC address.
-
---=20
-ciao,
-Marco
-
---tKW2IUtsqtDRztdT
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAkrPa0QACgkQFGfw2OHuP7HBdgCgj2eTZN/hmhqGlMSmZThhlO/t
-XZAAnjsGa3tS5pmOU9AGTFqemrGMDxjC
-=jjx0
------END PGP SIGNATURE-----
-
---tKW2IUtsqtDRztdT--
+-- 
+Matt Domsch
+Technology Strategist, Dell Office of the CTO
+linux.dell.com & www.dell.com/linux
