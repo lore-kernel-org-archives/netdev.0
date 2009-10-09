@@ -1,76 +1,80 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: Real networking namespace
-Date: Fri, 9 Oct 2009 18:12:15 -0400
-Message-ID: <200910091812.16046.paul.moore@hp.com>
-References: <20091009083807.16e55b08@nehalam> <1255106246.2182.219.camel@moss-pluto.epoch.ncsc.mil> <1255106692.2182.224.camel@moss-pluto.epoch.ncsc.mil>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: behaviour question for igb on nehalem box
+Date: Fri, 09 Oct 2009 16:31:59 -0600
+Message-ID: <4ACFB9DF.9080909@nortel.com>
+References: <4ACF8466.5030309@nortel.com>
+	<alpine.WNT.2.00.0910091250440.5328@jbrandeb-desk1.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	linux-security-module@vger.kernel.org,
-	Al Viro <viro@zeniv.linux.org.uk>, netdev@vger.kernel.org,
-	James Morris <jmorris@namei.org>
-To: Stephen Smalley <sds@tycho.nsa.gov>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1255106692.2182.224.camel@moss-pluto.epoch.ncsc.mil>
-Sender: linux-security-module-owner@vger.kernel.org
+Cc: e1000-list <e1000-devel@lists.sourceforge.net>,
+	Linux Network Development list <netdev@vger.kernel.org>, "Allan,
+	Bruce W" <bruce.w.allan@intel.com>, "Ronciak,
+	John" <john.ronciak@intel.com>, "Kirsher,
+	Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <alpine.WNT.2.00.0910091250440.5328@jbrandeb-desk1.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Friday 09 October 2009 12:44:52 pm Stephen Smalley wrote:
-> On Fri, 2009-10-09 at 12:37 -0400, Stephen Smalley wrote:
-> > On Fri, 2009-10-09 at 08:38 -0700, Stephen Hemminger wrote:
-> > > The existing networking namespace model is unattractive for what I
-> > > want, has anyone investigated better alternatives?
-> > >
-> > > I would like to be able to allow access to a network interface and
-> > > associated objects (routing tables etc), to be controlled by Mandatory
-> > > Access Control API's. I.e grant access to eth0 and to only certain
-> > > processes.  Some the issues with the existing models are:
-> > >   * eth0 and associated objects don't really exist in filesystem so
-> > >     not subject to LSM style control (SeLinux/SMACK/TOMOYO)
+On 10/09/2009 02:22 PM, Brandeburg, Jesse wrote:
+> On Fri, 9 Oct 2009, Chris Friesen wrote:
+>> I've got some general questions around the expected behaviour of the
+>> 82576 igb net device.  (On a dual quad-core Nehalem box, if it matters.)
 
-As Stephen points out, SELinux does have the ability to assign security labels 
-to network interfaces, check out the 'semanage' command.  A while back I wrote 
-up something about the SELinux network "ingress/egress" access controls:
+> the hardware you have only supports 8 
+> queues (rx and tx) and the driver is configured to only set up 4 max.
 
- * http://paulmoore.livejournal.com/2128.html
+The datasheet for the 82576 says 16 tx queues and 16 rx queues.  Is that
+a typo or do we have the economy version?
 
-Smack doesn't support controlling network access at the interface level, but 
-that is due to a Smack design decision and not an inherent functionality gap 
-in the LSM.  TOMOYO is currently working on improved network access controls 
-(see patches posted earlier this week), I haven't had a chance to review them 
-yet so I don't know the state of TOMOYO's network access controls.
-
-> > >   * network namespaces do not allow object to exist in multiple
-> > > namespaces. The current model is more restrictive than chroot jails. At
-> > > least with chroot, put filesystem objects in multiple jails.
-
-Perhaps I don't fully understand what you are getting at here, but I don't 
-think this should be an issue with a flexible LSM.
-
-> > Is there something that prevents you from using the existing SELinux
-> > network access controls?  netif is a security class governed by SELinux
-> > policy, and routing table operations would be covered by the SELinux
-> > checks on netlink_route_socket.  SELinux uses a combination of LSM hooks
-> > and netfilter hooks to mediate network operations.
+>> My second question is around how the rx queues are mapped to interrupts.
+>>  According to /proc/interrupts there appears to be a 1:1 mapping between
+>> queues and interrupts.  However, I've set up at test with a given amount
+>> of traffic coming in to the device (from 4 different IP addresses and 4
+>> ports).  Under this scenario, "ethtool -S" shows the number of packets
+>> increasing for only rx queue 0, but I see the interrupt count going up
+>> for two interrupts.
 > 
-> Also, depending on what you want to do, SECMARK may be useful to you.
-> That allows you to mark packets with security contexts via iptables, and
-> then use SELinux policy to control their flow.
-> http://paulmoore.livejournal.com/4281.html
-> http://james-morris.livejournal.com/11010.html
+> one transmit interrupt and one receive interrupt?
 
-While we're at it, a few more links ... here is a presentation from last year 
-on Linux's labeled networking capabilities (which hits at a lot of your 
-questions):
+No, two rx interrupts.  (Can't remember if the tx interrupt was going up
+as well or no...was only looking at rx.)
 
- * http://paulmoore.livejournal.com/964.html
+> RSS will spread the 
+> receive work out in a flow based way, based on ip/xDP header.  Your test 
+> as described should be using more than one flow (and therefore more than 
+> one rx queue) unless you got caught out by the default arp_filter 
+> behavior (check arp -an).
 
-... and there is a video too:
+I was surprised as well since it didn't match what I expected.  What's
+the story around the arp_filter?  I just logged onto the test box and
+"arp -an" gives:
 
- * http://paulmoore.livejournal.com/1329.html
+? (47.135.251.129) at 00:00:5E:00:01:08 [ether] on eth0
 
--- 
-paul moore
-linux @ hp
+but I'm not sure that's worth anything since someone is running a test
+and it's currently using all four rx queues and all four rx interrupt
+counts are increasing.  I'll have to see if they changed anything.
+
+
+> Hope this helps,
+
+That's great, thanks.
+
+Chris
+
+------------------------------------------------------------------------------
+Come build with us! The BlackBerry(R) Developer Conference in SF, CA
+is the only developer event you need to attend this year. Jumpstart your
+developing skills, take BlackBerry mobile applications to market and stay 
+ahead of the curve. Join us from November 9 - 12, 2009. Register now!
+http://p.sf.net/sfu/devconference
