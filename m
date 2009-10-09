@@ -1,42 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][v2] ibm_newemac: Added 16K Tx FIFO size support for EMAC4
-Date: Thu, 08 Oct 2009 22:55:38 -0700 (PDT)
-Message-ID: <20091008.225538.130921151.davem@davemloft.net>
-References: <1255019541-1974-1-git-send-email-dmitchell@appliedmicro.com>
-	<1255054502.2355.27.camel@pasglop>
+Subject: Re: [net-2.6 PATCH 0/7] qlge: Fixes for bonding, RSS and reset.
+Date: Thu, 08 Oct 2009 22:55:22 -0700 (PDT)
+Message-ID: <20091008.225522.27462544.davem@davemloft.net>
+References: <1255031683-3912-1-git-send-email-ron.mercer@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	dmitchell@appliedmicro.com
-To: benh@kernel.crashing.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1255054502.2355.27.camel@pasglop>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ron.mercer@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54746
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752910AbZJIFz0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 01:55:26 -0400
+In-Reply-To: <1255031683-3912-1-git-send-email-ron.mercer@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Fri, 09 Oct 2009 13:15:02 +1100
+From: Ron Mercer <ron.mercer@qlogic.com>
+Date: Thu,  8 Oct 2009 12:54:36 -0700
 
-> On Thu, 2009-10-08 at 11:32 -0500, Dave Mitchell wrote:
->> Some of the EMAC V4 implementations support 16K Tx FIFOs. This
->> patch adds support for this functionality and fixes typos in the
->> Tx FIFO size error messages.
-> 
-> Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> ---
-> 
->> Signed-off-by: Dave Mitchell <dmitchell@appliedmicro.com>
->> Acked-by: Prodyut Hazarika <phazarika@appliedmicro.com>
->> Acked-by: Victor Gallardo <vgallardo@appliedmicro.com>
->> Acked-by: Loc Ho <lho@appliedmicro.com>
+> More QLGE fixes for bonding, RSS and reset.
 
-Applied to net-2.6, thanks!
+All applied to net-2.6, thank you.
