@@ -1,84 +1,211 @@
-From: =?iso-8859-1?Q?Sjur_Br=E6ndeland?= <sjur.brandeland@stericsson.com>
-Subject: RE: [7/8,RFC] CAIF Protocol Stack
-Date: Fri, 9 Oct 2009 14:37:43 +0200
-Message-ID: <61D8D34BB13CFE408D154529C120E07902ED7054@eseldmw101.eemea.ericsson.se>
-References: <1253727096-10413-1-git-send-email-sjur.brandeland@stericsson.com> <4ACA1D31.6000008@babic.homelinux.org> <61D8D34BB13CFE408D154529C120E07902ED671E@eseldmw101.eemea.ericsson.se> <4ACDF12A.6030906@babic.homelinux.org>
+From: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+Subject: [net-next-2.6 PATCH] be2net:patch to implement ethtool get_phys_id
+	function.
+Date: Fri, 9 Oct 2009 18:43:16 +0530
+Message-ID: <20091009131306.GA32311@serverengines.com>
+Reply-To: Sarveshwar Bandi <sarveshwarb@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>,
-	"Kim Lilliestierna XX" <kim.xx.lilliestierna@stericsson.com>
-To: "Stefano Babic" <stefano.babic@babic.homelinux.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw5.ericsson.se ([193.180.251.36]:55670 "EHLO
-	mailgw5.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755407AbZJIMiX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 08:38:23 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <4ACDF12A.6030906@babic.homelinux.org>
+Received: from segment-124-30.sify.net ([124.30.166.146]:46924 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754561AbZJINOQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 09:14:16 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stefano.
-Thank you very much for looking into this!
-I find this as very valuable feedback.
+please accept patch, implements port beacon functionality for be2net driver.
 
-Stefano Babic wrote:
-> I discovered there is a production bug in the Makefile and the setup
-> of the extract function in cfcnfg_get_packet_funcs() is inconsistent.=
-=20
-> Indeed, I traced the address of the extract function and I can find
-> that the address does not point to cfpkt_extract(), as I assumed.=20
->=20
-> The problem is due to the usage of the define CAIF_USE_SKB. This is
-> used in caif_layer.h, but some files (net/caif/*) are compiled with
-> the macro defined, while the drivers (drivers/net/caif/*) not. =20
-> Rather I did not get an "oops", because a valid pointer was
-> set....but to the wrong function !=20
-> I have also seen that CAIF_USE_SKB is not used in
-> cfpkt_get_packet_funcs, and this generates a problem if CAIF_USE_SKB
-> is not set, because the "fromnative" and "tonative" functions are
-> always set, even if they do not belong to the structure.  =20
+Signed-off-by: sarveshwarb <sarveshwarb@serverengines.com>
+---
+ drivers/net/benet/be_cmds.c    |   59 ++++++++++++++++++++++++++++++++++++++++
+ drivers/net/benet/be_cmds.h    |   37 +++++++++++++++++++++++++
+ drivers/net/benet/be_ethtool.c |   30 ++++++++++++++++++++
+ 3 files changed, 126 insertions(+), 0 deletions(-)
 
-Well done finding this! I have corrected this as suggested in the new p=
-atch-set.
+diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+index 89876ad..25b6602 100644
+--- a/drivers/net/benet/be_cmds.c
++++ b/drivers/net/benet/be_cmds.c
+@@ -1118,6 +1118,65 @@ int be_cmd_reset_function(struct be_adap
+ 	return status;
+ }
+ 
++/* Uses sync mcc */
++int be_cmd_set_beacon_state(struct be_adapter *adapter, u8 port_num,
++			u8 bcn, u8 sts, u8 state)
++{
++	struct be_mcc_wrb *wrb;
++	struct be_cmd_req_enable_disable_beacon *req;
++	int status;
++
++	spin_lock_bh(&adapter->mcc_lock);
++
++	wrb = wrb_from_mccq(adapter);
++	req = embedded_payload(wrb);
++
++	be_wrb_hdr_prepare(wrb, sizeof(*req), true, 0);
++
++	be_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
++		OPCODE_COMMON_ENABLE_DISABLE_BEACON, sizeof(*req));
++
++	req->port_num = port_num;
++	req->beacon_state = state;
++	req->beacon_duration = bcn;
++	req->status_duration = sts;
++
++	status = be_mcc_notify_wait(adapter);
++
++	spin_unlock_bh(&adapter->mcc_lock);
++	return status;
++}
++
++/* Uses sync mcc */
++int be_cmd_get_beacon_state(struct be_adapter *adapter, u8 port_num, u32 *state)
++{
++	struct be_mcc_wrb *wrb;
++	struct be_cmd_req_get_beacon_state *req;
++	int status;
++
++	spin_lock_bh(&adapter->mcc_lock);
++
++	wrb = wrb_from_mccq(adapter);
++	req = embedded_payload(wrb);
++
++	be_wrb_hdr_prepare(wrb, sizeof(*req), true, 0);
++
++	be_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
++		OPCODE_COMMON_GET_BEACON_STATE, sizeof(*req));
++
++	req->port_num = port_num;
++
++	status = be_mcc_notify_wait(adapter);
++	if (!status) {
++		struct be_cmd_resp_get_beacon_state *resp =
++						embedded_payload(wrb);
++		*state = resp->beacon_state;
++	}
++
++	spin_unlock_bh(&adapter->mcc_lock);
++	return status;
++}
++
+ int be_cmd_write_flashrom(struct be_adapter *adapter, struct be_dma_mem *cmd,
+ 			u32 flash_type, u32 flash_opcode, u32 buf_size)
+ {
+diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/benet/be_cmds.h
+index a86f917..a1e78cc 100644
+--- a/drivers/net/benet/be_cmds.h
++++ b/drivers/net/benet/be_cmds.h
+@@ -138,6 +138,8 @@ #define OPCODE_COMMON_QUERY_FIRMWARE_CON
+ #define OPCODE_COMMON_NTWK_PMAC_ADD			59
+ #define OPCODE_COMMON_NTWK_PMAC_DEL			60
+ #define OPCODE_COMMON_FUNCTION_RESET			61
++#define OPCODE_COMMON_ENABLE_DISABLE_BEACON		69
++#define OPCODE_COMMON_GET_BEACON_STATE			70
+ 
+ #define OPCODE_ETH_ACPI_CONFIG				2
+ #define OPCODE_ETH_PROMISCUOUS				3
+@@ -699,6 +701,37 @@ struct be_cmd_resp_query_fw_cfg {
+ 	u32 rsvd[26];
+ };
+ 
++/******************** Port Beacon ***************************/
++
++#define BEACON_STATE_ENABLED		0x1
++#define BEACON_STATE_DISABLED		0x0
++
++struct be_cmd_req_enable_disable_beacon {
++	struct be_cmd_req_hdr hdr;
++	u8  port_num;
++	u8  beacon_state;
++	u8  beacon_duration;
++	u8  status_duration;
++} __packed;
++
++struct be_cmd_resp_enable_disable_beacon {
++	struct be_cmd_resp_hdr resp_hdr;
++	u32 rsvd0;
++} __packed;
++
++struct be_cmd_req_get_beacon_state {
++	struct be_cmd_req_hdr hdr;
++	u8  port_num;
++	u8  rsvd0;
++	u16 rsvd1;
++} __packed;
++
++struct be_cmd_resp_get_beacon_state {
++	struct be_cmd_resp_hdr resp_hdr;
++	u8 beacon_state;
++	u8 rsvd0[3];
++} __packed;
++
+ /****************** Firmware Flash ******************/
+ struct flashrom_params {
+ 	u32 op_code;
+@@ -764,6 +797,10 @@ extern int be_cmd_query_fw_cfg(struct be
+ 			u32 *port_num, u32 *cap);
+ extern int be_cmd_reset_function(struct be_adapter *adapter);
+ extern int be_process_mcc(struct be_adapter *adapter);
++extern int be_cmd_set_beacon_state(struct be_adapter *adapter,
++			u8 port_num, u8 beacon, u8 status, u8 state);
++extern int be_cmd_get_beacon_state(struct be_adapter *adapter,
++			u8 port_num, u32 *state);
+ extern int be_cmd_write_flashrom(struct be_adapter *adapter,
+ 			struct be_dma_mem *cmd, u32 flash_oper,
+ 			u32 flash_opcode, u32 buf_size);
+diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
+index 333729b..280471e 100644
+--- a/drivers/net/benet/be_ethtool.c
++++ b/drivers/net/benet/be_ethtool.c
+@@ -338,6 +338,35 @@ be_set_pauseparam(struct net_device *net
+ }
+ 
+ static int
++be_phys_id(struct net_device *netdev, u32 data)
++{
++	struct be_adapter *adapter = netdev_priv(netdev);
++	int status;
++	u32 cur;
++
++	if (!netif_running(netdev))
++		return 0;
++
++	be_cmd_get_beacon_state(adapter, adapter->port_num, &cur);
++
++	if (cur == BEACON_STATE_ENABLED)
++		return 0;
++
++	if (data < 2)
++		data = 2;
++
++	status = be_cmd_set_beacon_state(adapter, adapter->port_num, 0, 0,
++			BEACON_STATE_ENABLED);
++	set_current_state(TASK_INTERRUPTIBLE);
++	schedule_timeout(data*HZ);
++
++	status = be_cmd_set_beacon_state(adapter, adapter->port_num, 0, 0,
++			BEACON_STATE_DISABLED);
++
++	return status;
++}
++
++static int
+ be_do_flash(struct net_device *netdev, struct ethtool_flash *efl)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+@@ -369,6 +398,7 @@ const struct ethtool_ops be_ethtool_ops 
+ 	.get_tso = ethtool_op_get_tso,
+ 	.set_tso = ethtool_op_set_tso,
+ 	.get_strings = be_get_stat_strings,
++	.phys_id = be_phys_id,
+ 	.get_sset_count = be_get_sset_count,
+ 	.get_ethtool_stats = be_get_ethtool_stats,
+ 	.flash_device = be_do_flash,
+-- 
+1.4.0
 
->=20
-> IMHO should be possible to get rid of the usage of CAIF_USE_SKB in
-> the structure definition (in caif_layer.h) and to provide always the
-> same structure definition in both case. I would prefer to set the
-> values of cfpkt_fromnative and cfpkt_tonative to NULL, instead of
-> reducing the size of the structure.   =20
-
-Agree, and done.
->=20
-> I am not sure I understood the meaning of using this structure,
-> because at the moment the setup is fixed and I cannot find any point
-> in code where the structure is assigned to another set of functions.
-> Probably you arrange to have multiple choices in future, I can
-> suppose.   =20
->=20
-
-The choices are decided compile time from Kconfig.
-
-> What about to pass directly the pointer to the structure instead of
-> copying returning its value ? It seems not necessary to me, I changed
-> cfpkt_get_packet_funcs in this direction. =20
-
-I haven't done this yet, but it seems reasonable.
-
->=20
-> Meanwhile, it seems some bytes are sent now to the physical interface=
-=2E
->=20
-> <caif_chropen:797, TRACE> [caif_chropen:797] WAIT FOR CONNECT
-> RESPONSE <caif_chropen:820, TRACE> caif_open: connect timed out=20
->=20
-> However, I get no connection, but probably this is another problem...=
-=2E
->=20
-
-Do you have a (ST-)Ericsson modem talking CAIF connected?
-The correct behavior is to wait for the CONNECT_RESPONSE, and time out.
-
-BR/Sjur Br=E6ndeland
