@@ -1,31 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next-2.6 2009-10-09
-Date: Fri, 09 Oct 2009 14:40:17 -0700 (PDT)
-Message-ID: <20091009.144017.117108526.davem@davemloft.net>
-References: <20091009210555.GC22861@tuxdriver.com>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: netconf notes and materials
+Date: Fri, 9 Oct 2009 17:49:49 -0400
+Message-ID: <20091009174949.467ddc50.billfink@mindspring.com>
+References: <20091007.044718.233642056.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: netdev@vger.kernel.org, peter.p.waskiewicz.jr@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39122
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757322AbZJIVkV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 17:40:21 -0400
-In-Reply-To: <20091009210555.GC22861@tuxdriver.com>
+Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:46585 "EHLO
+	elasmtp-scoter.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932533AbZJIVu1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 17:50:27 -0400
+In-Reply-To: <20091007.044718.233642056.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 9 Oct 2009 17:05:55 -0400
+On Wed, 07 Oct 2009, David Miller wrote:
 
-> Here is the usual big first post-window pull request for -next...
-> Mostly it is the usual suspects, lots of iwlwifi and ath* along
-> with a smattering of other bits.  There are even a few from me! :-)
-> Most of these have spent several days banging-around in -next (which
-> helped to find some Kconfig problems).
 > 
-> Please let me know if there are problems!
+> Just a note that all of the available notes and slide etc.
+> materials are available for netconf2009 at:
+> 
+> 	http://vger.kernel.org/netconf2009.html
+> 
+> Enjoy.
 
-Pulled, thanks a lot John!
+Thanks very much for the URL!
+
+A question for Peter P Waskiewicz Jr, who presented on "NUMA scaling
+issues in 10GbE":
+
+How did you do the NUMA memory performance monitoring that was
+presented on one of your slides?  This could be useful to me in
+further pursuing an issue I recently raised with the subject
+"Receive side performance issue with multi-10-GigE and NUMA"
+(see http://article.gmane.org/gmane.linux.network/134658).
+
+					-Thanks again
+
+					-Bill
