@@ -1,233 +1,116 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 2/2] ixgbe: Fix KR to KX fail over for Mezzanine
-	cards
-Date: Thu, 08 Oct 2009 18:36:22 -0700
-Message-ID: <20091009013621.13495.66152.stgit@localhost.localdomain>
-References: <20091009013530.13495.97717.stgit@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Fix struct sock bitfield annotation
+Date: Fri, 09 Oct 2009 03:46:09 +0200
+Message-ID: <4ACE95E1.30301@gmail.com>
+References: <4ACE023D.9030208@gmail.com> <19f34abd0910081454v51455ee0p30ad6715b5ee31c0@mail.gmail.com> <4ACE8CEC.3020905@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Don Skidmore <don.c.skidmore@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Vegard Nossum <vegard.nossum@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Ingo Molnar <mingo@elte.hu>,
+	Christoph Lameter <cl@linux-foundation.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:34156 "EHLO
-	QMTA06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757603AbZJIBiw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 21:38:52 -0400
-In-Reply-To: <20091009013530.13495.97717.stgit@localhost.localdomain>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:53471 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755970AbZJIBrG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 21:47:06 -0400
+In-Reply-To: <4ACE8CEC.3020905@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+Eric Dumazet a =C3=A9crit :
+>=20
+> I am currently writing a tool to re-organize 'struct sock' fields,
+> for net-next-2.6 using offsetof() macro, this is how I spot the probl=
+em.
+>=20
 
-This patch allows the recently added backplane device IDs that support KR
-to fail over to KX during link setup.  This is accomplished by the new MAC
-link setup function ixgbe_setup_mac_link_smartspeed().  Comments were also
-updated to better document the reason for the delays chosen for KX, KX4, BX,
-BX4 and KR connections.
+=46or networking guys, here is the actual mess with "struct sock" on x8=
+6_64,
+related to UDP handling (critical latencies for some people). We basica=
+lly touch
+all cache lines, in every paths, bad effects on SMP...
 
-Signed-off-by: Don Skidmore <don.c.skidmore@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+- rx softirq reception
+- rx recvmsg() time
+- tx sendto() time
+- tx completion time
 
- drivers/net/ixgbe/ixgbe_82599.c |  127 ++++++++++++++++++++++++++++++++++++++-
- drivers/net/ixgbe/ixgbe_type.h  |   10 +++
- 2 files changed, 134 insertions(+), 3 deletions(-)
+sizeof(struct sk_buff)  =3D232 (0x e8)
+sizeof(struct sock)     =3D528 (0x210)
+sizeof(struct inet_sock)=3D680 (0x2a8)
 
-diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
-index ecb753b..ae27c41 100644
---- a/drivers/net/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ixgbe/ixgbe_82599.c
-@@ -42,6 +42,10 @@ s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
-                                           ixgbe_link_speed speed,
-                                           bool autoneg,
-                                           bool autoneg_wait_to_complete);
-+static s32 ixgbe_setup_mac_link_smartspeed(struct ixgbe_hw *hw,
-+                                           ixgbe_link_speed speed,
-+                                           bool autoneg,
-+                                           bool autoneg_wait_to_complete);
- s32 ixgbe_start_mac_link_82599(struct ixgbe_hw *hw,
-                                bool autoneg_wait_to_complete);
- s32 ixgbe_setup_mac_link_82599(struct ixgbe_hw *hw,
-@@ -64,7 +68,13 @@ static void ixgbe_init_mac_link_ops_82599(struct ixgbe_hw *hw)
- 		/* Set up dual speed SFP+ support */
- 		mac->ops.setup_link = &ixgbe_setup_mac_link_multispeed_fiber;
- 	} else {
--		mac->ops.setup_link = &ixgbe_setup_mac_link_82599;
-+		if ((mac->ops.get_media_type(hw) ==
-+		     ixgbe_media_type_backplane) &&
-+		    (hw->phy.smart_speed == ixgbe_smart_speed_auto ||
-+		     hw->phy.smart_speed == ixgbe_smart_speed_on))
-+			mac->ops.setup_link = &ixgbe_setup_mac_link_smartspeed;
-+		else
-+			mac->ops.setup_link = &ixgbe_setup_mac_link_82599;
- 	}
- }
- 
-@@ -480,7 +490,12 @@ s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
- 			hw->mac.autotry_restart = false;
- 		}
- 
--		/* The controller may take up to 500ms at 10g to acquire link */
-+		/*
-+		 * Wait for the controller to acquire link.  Per IEEE 802.3ap,
-+		 * Section 73.10.2, we may have to wait up to 500ms if KR is
-+		 * attempted.  82599 uses the same timing for 10g SFI.
-+		 */
-+
- 		for (i = 0; i < 5; i++) {
- 			/* Wait for the link partner to also set speed */
- 			msleep(100);
-@@ -568,6 +583,111 @@ out:
- }
- 
- /**
-+ *  ixgbe_setup_mac_link_smartspeed - Set MAC link speed using SmartSpeed
-+ *  @hw: pointer to hardware structure
-+ *  @speed: new link speed
-+ *  @autoneg: true if autonegotiation enabled
-+ *  @autoneg_wait_to_complete: true when waiting for completion is needed
-+ *
-+ *  Implements the Intel SmartSpeed algorithm.
-+ **/
-+static s32 ixgbe_setup_mac_link_smartspeed(struct ixgbe_hw *hw,
-+				     ixgbe_link_speed speed, bool autoneg,
-+				     bool autoneg_wait_to_complete)
-+{
-+	s32 status = 0;
-+	ixgbe_link_speed link_speed;
-+	s32 i, j;
-+	bool link_up = false;
-+	u32 autoc_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC);
-+
-+	hw_dbg(hw, "ixgbe_setup_mac_link_smartspeed.\n");
-+
-+	 /* Set autoneg_advertised value based on input link speed */
-+	hw->phy.autoneg_advertised = 0;
-+
-+	if (speed & IXGBE_LINK_SPEED_10GB_FULL)
-+		hw->phy.autoneg_advertised |= IXGBE_LINK_SPEED_10GB_FULL;
-+
-+	if (speed & IXGBE_LINK_SPEED_1GB_FULL)
-+		hw->phy.autoneg_advertised |= IXGBE_LINK_SPEED_1GB_FULL;
-+
-+	if (speed & IXGBE_LINK_SPEED_100_FULL)
-+		hw->phy.autoneg_advertised |= IXGBE_LINK_SPEED_100_FULL;
-+
-+	/*
-+	 * Implement Intel SmartSpeed algorithm.  SmartSpeed will reduce the
-+	 * autoneg advertisement if link is unable to be established at the
-+	 * highest negotiated rate.  This can sometimes happen due to integrity
-+	 * issues with the physical media connection.
-+	 */
-+
-+	/* First, try to get link with full advertisement */
-+	hw->phy.smart_speed_active = false;
-+	for (j = 0; j < IXGBE_SMARTSPEED_MAX_RETRIES; j++) {
-+		status = ixgbe_setup_mac_link_82599(hw, speed, autoneg,
-+						    autoneg_wait_to_complete);
-+		if (status)
-+			goto out;
-+
-+		/*
-+		 * Wait for the controller to acquire link.  Per IEEE 802.3ap,
-+		 * Section 73.10.2, we may have to wait up to 500ms if KR is
-+		 * attempted, or 200ms if KX/KX4/BX/BX4 is attempted, per
-+		 * Table 9 in the AN MAS.
-+		 */
-+		for (i = 0; i < 5; i++) {
-+			mdelay(100);
-+
-+			/* If we have link, just jump out */
-+			hw->mac.ops.check_link(hw, &link_speed,
-+			                       &link_up, false);
-+			if (link_up)
-+				goto out;
-+		}
-+	}
-+
-+	/*
-+	 * We didn't get link.  If we advertised KR plus one of KX4/KX
-+	 * (or BX4/BX), then disable KR and try again.
-+	 */
-+	if (((autoc_reg & IXGBE_AUTOC_KR_SUPP) == 0) ||
-+	    ((autoc_reg & IXGBE_AUTOC_KX4_KX_SUPP_MASK) == 0))
-+		goto out;
-+
-+	/* Turn SmartSpeed on to disable KR support */
-+	hw->phy.smart_speed_active = true;
-+	status = ixgbe_setup_mac_link_82599(hw, speed, autoneg,
-+					    autoneg_wait_to_complete);
-+	if (status)
-+		goto out;
-+
-+	/*
-+	 * Wait for the controller to acquire link.  600ms will allow for
-+	 * the AN link_fail_inhibit_timer as well for multiple cycles of
-+	 * parallel detect, both 10g and 1g. This allows for the maximum
-+	 * connect attempts as defined in the AN MAS table 73-7.
-+	 */
-+	for (i = 0; i < 6; i++) {
-+		mdelay(100);
-+
-+		/* If we have link, just jump out */
-+		hw->mac.ops.check_link(hw, &link_speed,
-+		                       &link_up, false);
-+		if (link_up)
-+			goto out;
-+	}
-+
-+	/* We didn't get link.  Turn SmartSpeed back off. */
-+	hw->phy.smart_speed_active = false;
-+	status = ixgbe_setup_mac_link_82599(hw, speed, autoneg,
-+					    autoneg_wait_to_complete);
-+
-+out:
-+	return status;
-+}
-+
-+/**
-  *  ixgbe_check_mac_link_82599 - Determine link and speed status
-  *  @hw: pointer to hardware structure
-  *  @speed: pointer to link speed
-@@ -670,7 +790,8 @@ s32 ixgbe_setup_mac_link_82599(struct ixgbe_hw *hw,
- 		if (speed & IXGBE_LINK_SPEED_10GB_FULL)
- 			if (orig_autoc & IXGBE_AUTOC_KX4_SUPP)
- 				autoc |= IXGBE_AUTOC_KX4_SUPP;
--			if (orig_autoc & IXGBE_AUTOC_KR_SUPP)
-+			if ((orig_autoc & IXGBE_AUTOC_KR_SUPP) &&
-+			    (hw->phy.smart_speed_active == false))
- 				autoc |= IXGBE_AUTOC_KR_SUPP;
- 		if (speed & IXGBE_LINK_SPEED_1GB_FULL)
- 			autoc |= IXGBE_AUTOC_KX_SUPP;
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index 42232b1..1cab53e 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -2172,6 +2172,14 @@ enum ixgbe_fc_mode {
- 	ixgbe_fc_default
- };
- 
-+/* Smart Speed Settings */
-+#define IXGBE_SMARTSPEED_MAX_RETRIES	3
-+enum ixgbe_smart_speed {
-+	ixgbe_smart_speed_auto = 0,
-+	ixgbe_smart_speed_on,
-+	ixgbe_smart_speed_off
-+};
-+
- /* PCI bus types */
- enum ixgbe_bus_type {
- 	ixgbe_bus_type_unknown = 0,
-@@ -2432,6 +2440,8 @@ struct ixgbe_phy_info {
- 	enum ixgbe_media_type           media_type;
- 	bool                            reset_disable;
- 	ixgbe_autoneg_advertised        autoneg_advertised;
-+	enum ixgbe_smart_speed          smart_speed;
-+	bool                            smart_speed_active;
- 	bool                            multispeed_fiber;
- };
- 
+=46ollowing offsets in hexadecimal
 
+offsetof(struct sock, sk_refcnt)       =3D 10   (rw by reception of udp=
+ frame, __udp4_lib_lookup())
+ (unavoidable hot spot unfortunatly, but not anymore touched by sock_wf=
+ree())
+
+offsetof(struct sock, sk_hash)         =3D 14   (read  rx softirq )
+offsetof(struct sock, sk_family)       =3D 18   (read   "     "   =20
+offsetof(struct inet_sock, daddr)      =3D210   (read   "     "  =20
+offsetof(struct inet_sock, rcv_saddr)  =3D214   (read   "     " =20
+offsetof(struct inet_sock, dport)      =3D218   (read   "     "=20
+offsetof(struct inet_sock, mc_list)    =3D240   (read   "       multica=
+st reception
+offsetof(struct sock, sk_bound_dev_if) =3D 1c   (read  rx softirq)
+
+(First patch I'll submit is move daddr/rcv_saddr/dport to struct sock_c=
+ommon,
+ so that lookup() use one cache line instead of two per socket in hash =
+chain)
+
+
+offsetof(struct sock, sk_prot)         =3D 30   (read by sk_has_account=
+())
+offsetof(struct sock, sk_rcvbuf)       =3D 3c   (read)
+offsetof(struct sock, sk_protocol)     =3D 39
+offsetof(struct sock, sk_allocation)   =3D e0   (read at send() time)
+offsetof(struct sock, sk_flags)        =3D f8   (read)
+offsetof(struct sock, sk_lock)         =3D 40   (rw by udp_sendmsg())
+offsetof(struct sock, sk_dst_lock)     =3D 90   (rw by udp_sendmsg() on=
+ connected socks)
+offsetof(struct sock, sk_dst_cache)    =3D 78   (read by udp_sendmsg() =
+on connected socks)
+offsetof(struct sock, sk_mark)         =3D1d8   (read at sendto() time)
+offsetof(struct sock, sk_write_queue)  =3D c0   (rw by sendto())
+offsetof(struct inet_sock, id)         =3D232   (rw by sendto() on conn=
+ected socks)
+offsetof(struct sock, sk_wmem_alloc)   =3D 98   (RW, both at sendto() a=
+nd tx completion handler time)
+offsetof(struct sock, sk_sndbuf)       =3D a0   (read at tx completion =
+time and sendto())
+offsetof(struct sock, sk_sndmsg_page)  =3D1b8   (rw by send())
+offsetof(struct sock, sk_send_head)    =3D1c0   (rw by send(), tcp)
+
+offsetof(struct sock, sk_rmem_alloc)   =3D 94   (RW, both when frame is=
+ received by softirq and dequeued at recvmsg() time)
+offsetof(struct sock, sk_receive_queue)=3D a8   (RW, both when frame is=
+ received by softirq and dequeued at recvmsg() time)
+offsetof(struct sock, sk_forward_alloc)=3D dc   (rw rx softirq and recv=
+msg() time)
+offsetof(struct sock, sk_drops)        =3D134   (read when udp frame is=
+ received in softirq handler)
+offsetof(struct sock, sk_stamp)        =3D1a0   (write at recvmsg() tim=
+e)
+offsetof(struct sock, sk_sleep)        =3D 70   (read by softirq handle=
+rs (rx/tx))
+offsetof(struct sock, sk_filter)       =3D160   (read when udp frame is=
+ received in softirq handler)
+offsetof(struct sock, sk_socket)       =3D1a8   (read)
+offsetof(struct sock, sk_callback_lock)=3D128   (rw at softirq time
+offsetof(struct sock, sk_data_ready)   =3D1e8   (read)
+offsetof(struct sock, sk_write_space)  =3D1f0   (read at TX completion =
+time)
+
+used by TCP
+offsetof(struct sock, sk_timer)        =3D170
+offsetof(struct sock, sk_ack_backlog)  =3D138   (listen socks)
+
+Almost never used
+offsetof(struct sock, sk_lingertime)   =3D100
+offsetof(struct sock, sk_write_pending)=3D1cc
+offsetof(struct sock, sk_prot_creator )=3D120
