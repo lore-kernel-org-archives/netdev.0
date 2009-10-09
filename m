@@ -1,78 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Fix struct sock bitfield annotation
-Date: Fri, 09 Oct 2009 10:50:25 +0200
-Message-ID: <4ACEF951.7030104@gmail.com>
-References: <4ACE023D.9030208@gmail.com>	<19f34abd0910081454v51455ee0p30ad6715b5ee31c0@mail.gmail.com>	<4ACE8CEC.3020905@gmail.com> <20091009.005408.151610125.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [RFC] multiqueue changes
+Date: Fri, 9 Oct 2009 08:51:07 +0000
+Message-ID: <20091009085107.GA7711@ff.dom.local>
+References: <4ACD9255.4020008@gmail.com> <20091008090344.GA7409@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: vegard.nossum@gmail.com, netdev@vger.kernel.org, mingo@elte.hu
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:52273 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750770AbZJIIvM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 04:51:12 -0400
-In-Reply-To: <20091009.005408.151610125.davem@davemloft.net>
+Received: from mail-fx0-f227.google.com ([209.85.220.227]:59743 "EHLO
+	mail-fx0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755161AbZJIIvu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 04:51:50 -0400
+Received: by fxm27 with SMTP id 27so6208711fxm.17
+        for <netdev@vger.kernel.org>; Fri, 09 Oct 2009 01:51:13 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20091008090344.GA7409@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller a =E9crit :
+On Thu, Oct 08, 2009 at 09:03:44AM +0000, Jarek Poplawski wrote:
+> On Thu, Oct 08, 2009 at 09:18:45AM +0200, Eric Dumazet wrote:
+...
+> > Just wondering if it could hurt some people.
+> > 
+> > Anyway, should we change bnx2/tg3 drivers so that single queue devices
+> > have same default qdisc/class than before ?
+> > 
+> > eg :
+> > 
+> > diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+> > index 08cddb6..7cac205 100644
+> > --- a/drivers/net/bnx2.c
+> > +++ b/drivers/net/bnx2.c
+> > @@ -6152,6 +6152,7 @@ bnx2_setup_int_mode(struct bnx2 *bp, int dis_msi)
+> >  
+> >  	bp->num_tx_rings = rounddown_pow_of_two(bp->irq_nvecs);
+> >  	bp->dev->real_num_tx_queues = bp->num_tx_rings;
+> > +	bp->dev->num_tx_queues = bp->dev->real_num_tx_queues;
+> >  
+> >  	bp->num_rx_rings = bp->irq_nvecs;
+> >  }
+> 
+> It doesn't look consistent to me wrt. the comment in netdevice.h on
+> num_tx_queues. But it seems we should rather use more often
+> real_num_tx_queue in schedulers code like dumps and maybe more
+> (like e.g. sch_multiq does).
 
->=20
-> I think from a practical standpoint, you are right.
->=20
-> But Vegard is right too, as we should be able to put the annotation
-> right next to the ":" statements.
->=20
-> So if you really want why don't you put the sk_protocol and
-> sk_type into the ":" block as you mentioned.
->=20
-> And then you can use Arnaldo's 'pahole' instead of the kludgy
-> offsetof() which doesn't work with bitfields :-)
->=20
-> I want the 8 bytes back just like you, but seperating the annotation
-> from the real C bitfields looks definitely wrong to me.
+So, according to my current understanding, we should probably let
+drivers to reset the tx_queues allocation with a new num_tx_queues
+in a place like this (ndo_open).
 
-
-Let's hope nobody wants to use &sk->sk_protocol, &sk->sk_type,
-(or offsetof(..., sk_somefield) if that matters)
-
-Only compile tested on 'allyesconfig' build on x86_64
-
-[PATCH] net: Fix struct sock bitfield annotation
-
-Since commit a98b65a3 (net: annotate struct sock bitfield), we lost
-8 bytes in struct sock on 64bit arches because of=20
-kmemcheck_bitfield_end(flags) misplacement.
-
-=46ix this by putting together sk_shutdown, sk_no_check, sk_userlocks,
-sk_protocol and sk_type in the 'flags' 32bits bitfield
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/net/sock.h |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 1621935..9f96394 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -226,12 +226,12 @@ struct sock {
- #define sk_prot			__sk_common.skc_prot
- #define sk_net			__sk_common.skc_net
- 	kmemcheck_bitfield_begin(flags);
--	unsigned char		sk_shutdown : 2,
--				sk_no_check : 2,
--				sk_userlocks : 4;
-+	unsigned int		sk_shutdown  : 2,
-+				sk_no_check  : 2,
-+				sk_userlocks : 4,
-+				sk_protocol  : 8,
-+				sk_type      : 16;
- 	kmemcheck_bitfield_end(flags);
--	unsigned char		sk_protocol;
--	unsigned short		sk_type;
- 	int			sk_rcvbuf;
- 	socket_lock_t		sk_lock;
- 	/*
+Jarek P.
