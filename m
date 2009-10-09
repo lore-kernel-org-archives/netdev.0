@@ -1,74 +1,233 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 1/2] ixgbe: add support for 82599 based Express
-	Module X520-P2
-Date: Thu, 08 Oct 2009 18:35:58 -0700
-Message-ID: <20091009013530.13495.97717.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 2/2] ixgbe: Fix KR to KX fail over for Mezzanine
+	cards
+Date: Thu, 08 Oct 2009 18:36:22 -0700
+Message-ID: <20091009013621.13495.66152.stgit@localhost.localdomain>
+References: <20091009013530.13495.97717.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Don Skidmore <don.c.skidmore@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta13.emeryville.ca.mail.comcast.net ([76.96.27.243]:36824
-	"EHLO QMTA13.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757433AbZJIBid (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 21:38:33 -0400
+Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:34156 "EHLO
+	QMTA06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757603AbZJIBiw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Oct 2009 21:38:52 -0400
+In-Reply-To: <20091009013530.13495.97717.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Don Skidmore <donald.c.skidmore@intel.com>
 
-This patch will add the device ID for the 82599-based Ethernet
-Express Module X520-P2 SFI card.
+This patch allows the recently added backplane device IDs that support KR
+to fail over to KX during link setup.  This is accomplished by the new MAC
+link setup function ixgbe_setup_mac_link_smartspeed().  Comments were also
+updated to better document the reason for the delays chosen for KX, KX4, BX,
+BX4 and KR connections.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Don Skidmore <don.c.skidmore@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_82599.c |    1 +
- drivers/net/ixgbe/ixgbe_main.c  |    2 ++
- drivers/net/ixgbe/ixgbe_type.h  |    1 +
- 3 files changed, 4 insertions(+), 0 deletions(-)
+ drivers/net/ixgbe/ixgbe_82599.c |  127 ++++++++++++++++++++++++++++++++++++++-
+ drivers/net/ixgbe/ixgbe_type.h  |   10 +++
+ 2 files changed, 134 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
-index 34b0492..ecb753b 100644
+index ecb753b..ae27c41 100644
 --- a/drivers/net/ixgbe/ixgbe_82599.c
 +++ b/drivers/net/ixgbe/ixgbe_82599.c
-@@ -337,6 +337,7 @@ static enum ixgbe_media_type ixgbe_get_media_type_82599(struct ixgbe_hw *hw)
- 		media_type = ixgbe_media_type_backplane;
- 		break;
- 	case IXGBE_DEV_ID_82599_SFP:
-+	case IXGBE_DEV_ID_82599_SFP_EM:
- 		media_type = ixgbe_media_type_fiber;
- 		break;
- 	case IXGBE_DEV_ID_82599_CX4:
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index cbb143c..56da100 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -97,6 +97,8 @@ static struct pci_device_id ixgbe_pci_tbl[] = {
- 	 board_82599 },
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_SFP),
- 	 board_82599 },
-+	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_SFP_EM),
-+	 board_82599 },
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_KX4_MEZZ),
- 	 board_82599 },
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_CX4),
+@@ -42,6 +42,10 @@ s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
+                                           ixgbe_link_speed speed,
+                                           bool autoneg,
+                                           bool autoneg_wait_to_complete);
++static s32 ixgbe_setup_mac_link_smartspeed(struct ixgbe_hw *hw,
++                                           ixgbe_link_speed speed,
++                                           bool autoneg,
++                                           bool autoneg_wait_to_complete);
+ s32 ixgbe_start_mac_link_82599(struct ixgbe_hw *hw,
+                                bool autoneg_wait_to_complete);
+ s32 ixgbe_setup_mac_link_82599(struct ixgbe_hw *hw,
+@@ -64,7 +68,13 @@ static void ixgbe_init_mac_link_ops_82599(struct ixgbe_hw *hw)
+ 		/* Set up dual speed SFP+ support */
+ 		mac->ops.setup_link = &ixgbe_setup_mac_link_multispeed_fiber;
+ 	} else {
+-		mac->ops.setup_link = &ixgbe_setup_mac_link_82599;
++		if ((mac->ops.get_media_type(hw) ==
++		     ixgbe_media_type_backplane) &&
++		    (hw->phy.smart_speed == ixgbe_smart_speed_auto ||
++		     hw->phy.smart_speed == ixgbe_smart_speed_on))
++			mac->ops.setup_link = &ixgbe_setup_mac_link_smartspeed;
++		else
++			mac->ops.setup_link = &ixgbe_setup_mac_link_82599;
+ 	}
+ }
+ 
+@@ -480,7 +490,12 @@ s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
+ 			hw->mac.autotry_restart = false;
+ 		}
+ 
+-		/* The controller may take up to 500ms at 10g to acquire link */
++		/*
++		 * Wait for the controller to acquire link.  Per IEEE 802.3ap,
++		 * Section 73.10.2, we may have to wait up to 500ms if KR is
++		 * attempted.  82599 uses the same timing for 10g SFI.
++		 */
++
+ 		for (i = 0; i < 5; i++) {
+ 			/* Wait for the link partner to also set speed */
+ 			msleep(100);
+@@ -568,6 +583,111 @@ out:
+ }
+ 
+ /**
++ *  ixgbe_setup_mac_link_smartspeed - Set MAC link speed using SmartSpeed
++ *  @hw: pointer to hardware structure
++ *  @speed: new link speed
++ *  @autoneg: true if autonegotiation enabled
++ *  @autoneg_wait_to_complete: true when waiting for completion is needed
++ *
++ *  Implements the Intel SmartSpeed algorithm.
++ **/
++static s32 ixgbe_setup_mac_link_smartspeed(struct ixgbe_hw *hw,
++				     ixgbe_link_speed speed, bool autoneg,
++				     bool autoneg_wait_to_complete)
++{
++	s32 status = 0;
++	ixgbe_link_speed link_speed;
++	s32 i, j;
++	bool link_up = false;
++	u32 autoc_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC);
++
++	hw_dbg(hw, "ixgbe_setup_mac_link_smartspeed.\n");
++
++	 /* Set autoneg_advertised value based on input link speed */
++	hw->phy.autoneg_advertised = 0;
++
++	if (speed & IXGBE_LINK_SPEED_10GB_FULL)
++		hw->phy.autoneg_advertised |= IXGBE_LINK_SPEED_10GB_FULL;
++
++	if (speed & IXGBE_LINK_SPEED_1GB_FULL)
++		hw->phy.autoneg_advertised |= IXGBE_LINK_SPEED_1GB_FULL;
++
++	if (speed & IXGBE_LINK_SPEED_100_FULL)
++		hw->phy.autoneg_advertised |= IXGBE_LINK_SPEED_100_FULL;
++
++	/*
++	 * Implement Intel SmartSpeed algorithm.  SmartSpeed will reduce the
++	 * autoneg advertisement if link is unable to be established at the
++	 * highest negotiated rate.  This can sometimes happen due to integrity
++	 * issues with the physical media connection.
++	 */
++
++	/* First, try to get link with full advertisement */
++	hw->phy.smart_speed_active = false;
++	for (j = 0; j < IXGBE_SMARTSPEED_MAX_RETRIES; j++) {
++		status = ixgbe_setup_mac_link_82599(hw, speed, autoneg,
++						    autoneg_wait_to_complete);
++		if (status)
++			goto out;
++
++		/*
++		 * Wait for the controller to acquire link.  Per IEEE 802.3ap,
++		 * Section 73.10.2, we may have to wait up to 500ms if KR is
++		 * attempted, or 200ms if KX/KX4/BX/BX4 is attempted, per
++		 * Table 9 in the AN MAS.
++		 */
++		for (i = 0; i < 5; i++) {
++			mdelay(100);
++
++			/* If we have link, just jump out */
++			hw->mac.ops.check_link(hw, &link_speed,
++			                       &link_up, false);
++			if (link_up)
++				goto out;
++		}
++	}
++
++	/*
++	 * We didn't get link.  If we advertised KR plus one of KX4/KX
++	 * (or BX4/BX), then disable KR and try again.
++	 */
++	if (((autoc_reg & IXGBE_AUTOC_KR_SUPP) == 0) ||
++	    ((autoc_reg & IXGBE_AUTOC_KX4_KX_SUPP_MASK) == 0))
++		goto out;
++
++	/* Turn SmartSpeed on to disable KR support */
++	hw->phy.smart_speed_active = true;
++	status = ixgbe_setup_mac_link_82599(hw, speed, autoneg,
++					    autoneg_wait_to_complete);
++	if (status)
++		goto out;
++
++	/*
++	 * Wait for the controller to acquire link.  600ms will allow for
++	 * the AN link_fail_inhibit_timer as well for multiple cycles of
++	 * parallel detect, both 10g and 1g. This allows for the maximum
++	 * connect attempts as defined in the AN MAS table 73-7.
++	 */
++	for (i = 0; i < 6; i++) {
++		mdelay(100);
++
++		/* If we have link, just jump out */
++		hw->mac.ops.check_link(hw, &link_speed,
++		                       &link_up, false);
++		if (link_up)
++			goto out;
++	}
++
++	/* We didn't get link.  Turn SmartSpeed back off. */
++	hw->phy.smart_speed_active = false;
++	status = ixgbe_setup_mac_link_82599(hw, speed, autoneg,
++					    autoneg_wait_to_complete);
++
++out:
++	return status;
++}
++
++/**
+  *  ixgbe_check_mac_link_82599 - Determine link and speed status
+  *  @hw: pointer to hardware structure
+  *  @speed: pointer to link speed
+@@ -670,7 +790,8 @@ s32 ixgbe_setup_mac_link_82599(struct ixgbe_hw *hw,
+ 		if (speed & IXGBE_LINK_SPEED_10GB_FULL)
+ 			if (orig_autoc & IXGBE_AUTOC_KX4_SUPP)
+ 				autoc |= IXGBE_AUTOC_KX4_SUPP;
+-			if (orig_autoc & IXGBE_AUTOC_KR_SUPP)
++			if ((orig_autoc & IXGBE_AUTOC_KR_SUPP) &&
++			    (hw->phy.smart_speed_active == false))
+ 				autoc |= IXGBE_AUTOC_KR_SUPP;
+ 		if (speed & IXGBE_LINK_SPEED_1GB_FULL)
+ 			autoc |= IXGBE_AUTOC_KX_SUPP;
 diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index ef4bdd5..42232b1 100644
+index 42232b1..1cab53e 100644
 --- a/drivers/net/ixgbe/ixgbe_type.h
 +++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -52,6 +52,7 @@
- #define IXGBE_DEV_ID_82599_KX4_MEZZ      0x1514
- #define IXGBE_DEV_ID_82599_CX4           0x10F9
- #define IXGBE_DEV_ID_82599_SFP           0x10FB
-+#define IXGBE_DEV_ID_82599_SFP_EM        0x1507
- #define IXGBE_DEV_ID_82599_XAUI_LOM      0x10FC
- #define IXGBE_DEV_ID_82599_COMBO_BACKPLANE 0x10F8
+@@ -2172,6 +2172,14 @@ enum ixgbe_fc_mode {
+ 	ixgbe_fc_default
+ };
+ 
++/* Smart Speed Settings */
++#define IXGBE_SMARTSPEED_MAX_RETRIES	3
++enum ixgbe_smart_speed {
++	ixgbe_smart_speed_auto = 0,
++	ixgbe_smart_speed_on,
++	ixgbe_smart_speed_off
++};
++
+ /* PCI bus types */
+ enum ixgbe_bus_type {
+ 	ixgbe_bus_type_unknown = 0,
+@@ -2432,6 +2440,8 @@ struct ixgbe_phy_info {
+ 	enum ixgbe_media_type           media_type;
+ 	bool                            reset_disable;
+ 	ixgbe_autoneg_advertised        autoneg_advertised;
++	enum ixgbe_smart_speed          smart_speed;
++	bool                            smart_speed_active;
+ 	bool                            multispeed_fiber;
+ };
  
 
