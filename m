@@ -1,252 +1,289 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Fix struct sock bitfield annotation
-Date: Fri, 09 Oct 2009 22:41:54 +0200
-Message-ID: <4ACFA012.6010409@gmail.com>
-References: <4ACE023D.9030208@gmail.com> <19f34abd0910081454v51455ee0p30ad6715b5ee31c0@mail.gmail.com> <4ACE8CEC.3020905@gmail.com> <4ACE95E1.30301@gmail.com> <alpine.DEB.1.10.0910091539170.32209@gentwo.org>
+From: Matt Domsch <Matt_Domsch@dell.com>
+Subject: Re: PATCH: Network Device Naming mechanism and policy
+Date: Fri, 9 Oct 2009 16:09:09 -0500
+Message-ID: <20091009210909.GA9836@auslistsprd01.us.dell.com>
+References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com> <20091009140000.GA18765@mock.linuxdev.us.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Vegard Nossum <vegard.nossum@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Ingo Molnar <mingo@elte.hu>
-To: Christoph Lameter <cl@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:38165 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753894AbZJIUmv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 16:42:51 -0400
-In-Reply-To: <alpine.DEB.1.10.0910091539170.32209@gentwo.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Narendra_K@dell.com, jordan_hargrave@dell.com
+To: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20091009140000.GA18765@mock.linuxdev.us.dell.com>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Christoph Lameter a =E9crit :
-> On Fri, 9 Oct 2009, Eric Dumazet wrote:
->=20
->> For networking guys, here is the actual mess with "struct sock" on x=
-86_64,
->> related to UDP handling (critical latencies for some people). We bas=
-ically touch
->> all cache lines, in every paths, bad effects on SMP...
->=20
-> Please keep me posted on this. I am very interested in this work.
->=20
-> Some simple shuffling around may do some good here.
->=20
+On Fri, Oct 09, 2009 at 09:00:01AM -0500, Narendra K wrote:
+> On Fri, Oct 09, 2009 at 07:12:07PM +0530, K, Narendra wrote:
+> > > example udev config:
+> > > SUBSYSTEM=="net",
+> > SYMLINK+="net/by-mac/$sysfs{ifindex}.$sysfs{address}"
+> > 
+> > work as well.  But coupling the ifindex to the MAC address like this
+> > doesn't work.  (In general, coupling any two unrelated attributes when
+> > trying to do persistent names doesn't work.)
+> > 
+> Attaching the latest patch incorporating review comments.
 
-Sure, will do, but first I want to suppress the lock_sock()/release_soc=
-k() in
-rx path, that was added for sk_forward_alloc thing. This really hurts,
-because of the backlog handling.
+Same patch, rebased to linux-next.
 
-I have preliminary patch that restore UDP latencies we had in the past =
-;)
+By creating character devices for every network device, we can use
+udev to maintain alternate naming policies for devices, including
+additional names for the same device, without interfering with the
+name that the kernel assigns a device.
 
-Trick is for UDP, sk_forward_alloc is not updated by tx/rx, only rx.
-So we can use the sk_receive_queue.lock to forbid concurrent updates.
+This is conditionalized on CONFIG_NET_CDEV.  If enabled (the default),
+device nodes will automatically be created in /dev/netdev/ for each
+network device.  (/dev/net/ is already populated by the tun device.)
 
-As this lock is already hot and only used by rx, we wont have to
-dirty the sk_lock, that will only be used by tx path.
+These device nodes are not functional at the moment - open() returns
+-ENOSYS.  Their only purpose is to provide userspace with a kernel
+name to ifindex mapping, in a form that udev can easily manage.
 
-Then we can carefuly reorder struct sock to lower number of cache lines
-needed for each path.
+Signed-off-by: Jordan Hargrave <Jordan_Hargrave@dell.com>
+Signed-off-by: Narendra K <Narendra_K@dell.com>
+Signed-off-by: Matt Domsch <Matt_Domsch@dell.com>
 
+---
+ include/linux/netdevice.h |    4 ++++
+ net/Kconfig               |   10 ++++++++++
+ net/core/Makefile         |    1 +
+ net/core/cdev.c           |   42 ++++++++++++++++++++++++++++++++++++++++++
+ net/core/cdev.h           |   13 +++++++++++++
+ net/core/dev.c            |   10 ++++++++++
+ net/core/net-sysfs.c      |   13 +++++++++++++
+ 7 files changed, 93 insertions(+), 0 deletions(-)
+ create mode 100644 net/core/cdev.c
+ create mode 100644 net/core/cdev.h
 
-Patch against linux-2.6 git tree
-
- net/core/sock.c |    9 ++++
- net/ipv4/udp.c  |   89 ++++++++++++++++++++++------------------------
- 2 files changed, 51 insertions(+), 47 deletions(-)
-
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 7626b6a..45212d4 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -276,6 +276,7 @@ int sock_queue_rcv_skb(struct sock *sk, struct sk_b=
-uff *skb)
- {
- 	int err =3D 0;
- 	int skb_len;
-+	unsigned long flags;
-=20
- 	/* Cast sk->rcvbuf to unsigned... It's pointless, but reduces
- 	   number of warnings when compiling with -W --ANK
-@@ -290,8 +291,12 @@ int sock_queue_rcv_skb(struct sock *sk, struct sk_=
-buff *skb)
- 	if (err)
- 		goto out;
-=20
-+	skb_orphan(skb);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index b332eef..a2f23b4 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -44,6 +44,7 @@
+ #include <linux/workqueue.h>
+ 
+ #include <linux/ethtool.h>
++#include <linux/cdev.h>
+ #include <net/net_namespace.h>
+ #include <net/dsa.h>
+ #ifdef CONFIG_DCB
+@@ -916,6 +917,9 @@ struct net_device
+ 	/* max exchange id for FCoE LRO by ddp */
+ 	unsigned int		fcoe_ddp_xid;
+ #endif
++#ifdef CONFIG_NET_CDEV
++	struct cdev cdev;
++#endif
+ };
+ #define to_net_dev(d) container_of(d, struct net_device, dev)
+ 
+diff --git a/net/Kconfig b/net/Kconfig
+index 041c35e..bdc5bd7 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -43,6 +43,16 @@ config COMPAT_NETLINK_MESSAGES
+ 	  Newly written code should NEVER need this option but do
+ 	  compat-independent messages instead!
+ 
++config NET_CDEV
++       bool "/dev files for network devices"
++       default y
++       help
++         This option causes /dev entries to be created for each
++         network device.  This allows the use of udev to create
++         alternate device naming policies.
 +
-+	spin_lock_irqsave(&sk->sk_receive_queue.lock, flags);
- 	if (!sk_rmem_schedule(sk, skb->truesize)) {
- 		err =3D -ENOBUFS;
-+		spin_unlock_irqrestore(&sk->sk_receive_queue.lock, flags);
- 		goto out;
- 	}
-=20
-@@ -305,7 +310,9 @@ int sock_queue_rcv_skb(struct sock *sk, struct sk_b=
-uff *skb)
- 	 */
- 	skb_len =3D skb->len;
-=20
--	skb_queue_tail(&sk->sk_receive_queue, skb);
-+	__skb_queue_tail(&sk->sk_receive_queue, skb);
++	 If unsure, say Y.
 +
-+	spin_unlock_irqrestore(&sk->sk_receive_queue.lock, flags);
-=20
- 	if (!sock_flag(sk, SOCK_DEAD))
- 		sk->sk_data_ready(sk, skb_len);
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 6ec6a8a..e8a1be4 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -841,6 +841,36 @@ out:
- 	return ret;
- }
-=20
+ menu "Networking options"
+ 
+ source "net/packet/Kconfig"
+diff --git a/net/core/Makefile b/net/core/Makefile
+index 796f46e..0b40d2c 100644
+--- a/net/core/Makefile
++++ b/net/core/Makefile
+@@ -19,4 +19,5 @@ obj-$(CONFIG_NET_DMA) += user_dma.o
+ obj-$(CONFIG_FIB_RULES) += fib_rules.o
+ obj-$(CONFIG_TRACEPOINTS) += net-traces.o
+ obj-$(CONFIG_NET_DROP_MONITOR) += drop_monitor.o
++obj-$(CONFIG_NET_CDEV) += cdev.o
+ 
+diff --git a/net/core/cdev.c b/net/core/cdev.c
+new file mode 100644
+index 0000000..1f36076
+--- /dev/null
++++ b/net/core/cdev.c
+@@ -0,0 +1,42 @@
++#include <linux/fs.h>
++#include <linux/cdev.h>
++#include <linux/netdevice.h>
++#include <linux/device.h>
 +
-+/**
-+ *	first_packet_length	- return length of first packet in receive queu=
-e
-+ *	@sk: socket
-+ *
-+ *	Drops all bad checksum frames, until a valid one is found.
-+ *	Returns the length of found skb, or 0 if none is found.
-+ */
-+static unsigned int first_packet_length(struct sock *sk)
++/* Used for network dynamic major number */
++static dev_t netdev_devt;
++
++static int netdev_cdev_open(struct inode *inode, struct file *filep)
 +{
-+	struct sk_buff_head *rcvq =3D &sk->sk_receive_queue;
-+	struct sk_buff *skb;
-+	unsigned int res;
-+
-+	spin_lock_bh(&rcvq->lock);
-+
-+	while ((skb =3D skb_peek(rcvq)) !=3D NULL &&
-+		udp_lib_checksum_complete(skb)) {
-+		UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS,
-+				 IS_UDPLITE(sk));
-+		__skb_unlink(skb, rcvq);
-+		skb_kill_datagram(sk, skb, 0);
-+	}
-+	res =3D skb ? skb->len : 0;
-+
-+	spin_unlock_bh(&rcvq->lock);
-+
-+	return res;
++	/* no operations on this device are implemented */
++	return -ENOSYS;
 +}
 +
- /*
-  *	IOCTL requests applicable to the UDP protocol
-  */
-@@ -857,21 +887,16 @@ int udp_ioctl(struct sock *sk, int cmd, unsigned =
-long arg)
-=20
- 	case SIOCINQ:
- 	{
--		struct sk_buff *skb;
--		unsigned long amount;
-+		unsigned int amount =3D first_packet_length(sk);
-=20
--		amount =3D 0;
--		spin_lock_bh(&sk->sk_receive_queue.lock);
--		skb =3D skb_peek(&sk->sk_receive_queue);
--		if (skb !=3D NULL) {
-+		if (amount)
- 			/*
- 			 * We will only return the amount
- 			 * of this packet since that is all
- 			 * that will be read.
- 			 */
--			amount =3D skb->len - sizeof(struct udphdr);
--		}
--		spin_unlock_bh(&sk->sk_receive_queue.lock);
-+			amount -=3D sizeof(struct udphdr);
++static const struct file_operations netdev_cdev_fops = {
++	.owner = THIS_MODULE,
++	.open = netdev_cdev_open,
++};
 +
- 		return put_user(amount, (int __user *)arg);
++void netdev_cdev_alloc(void)
++{
++	alloc_chrdev_region(&netdev_devt, 0, 1<<20, "net");
++}
++
++void netdev_cdev_init(struct net_device *dev)
++{
++	cdev_init(&dev->cdev, &netdev_cdev_fops);
++	cdev_add(&dev->cdev, MKDEV(MAJOR(netdev_devt), dev->ifindex), 1);
++
++}
++
++void netdev_cdev_del(struct net_device *dev)
++{
++	if (dev->cdev.dev)
++		cdev_del(&dev->cdev);
++}
++
++void netdev_cdev_kobj_init(struct device *dev, struct net_device *net)
++{
++	if (net->cdev.dev)
++		dev->devt = net->cdev.dev;
++}
+diff --git a/net/core/cdev.h b/net/core/cdev.h
+new file mode 100644
+index 0000000..9cf5a90
+--- /dev/null
++++ b/net/core/cdev.h
+@@ -0,0 +1,13 @@
++#include <linux/netdevice.h>
++
++#ifdef CONFIG_NET_CDEV
++void netdev_cdev_alloc(void);
++void netdev_cdev_init(struct net_device *dev);
++void netdev_cdev_del(struct net_device *dev);
++void netdev_cdev_kobj_init(struct device *dev, struct net_device *net);
++#else
++static inline void netdev_cdev_alloc(void) {}
++static inline void netdev_cdev_init(struct net_device *dev) {}
++static inline void netdev_cdev_del(struct net_device *dev) {}
++static inline void netdev_cdev_kobj_init(struct device *dev, struct net_device *net) {}
++#endif
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a74c8fd..d771438 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -129,6 +129,7 @@
+ #include <trace/events/napi.h>
+ 
+ #include "net-sysfs.h"
++#include "cdev.h"
+ 
+ /* Instead of increasing this, you should create a hash table. */
+ #define MAX_GRO_SKBS 8
+@@ -4684,6 +4685,7 @@ static void rollback_registered(struct net_device *dev)
+ 
+ 	/* Remove entries from kobject tree */
+ 	netdev_unregister_kobject(dev);
++	netdev_cdev_del(dev);
+ 
+ 	synchronize_net();
+ 
+@@ -4835,6 +4837,8 @@ int register_netdevice(struct net_device *dev)
+ 	if (dev->features & NETIF_F_SG)
+ 		dev->features |= NETIF_F_GSO;
+ 
++	netdev_cdev_init(dev);
++
+ 	netdev_initialize_kobject(dev);
+ 
+ 	ret = call_netdevice_notifiers(NETDEV_POST_INIT, dev);
+@@ -4870,6 +4874,7 @@ out:
+ 	return ret;
+ 
+ err_uninit:
++	netdev_cdev_del(dev);
+ 	if (dev->netdev_ops->ndo_uninit)
+ 		dev->netdev_ops->ndo_uninit(dev);
+ 	goto out;
+@@ -5377,6 +5382,7 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+ 	dev_addr_discard(dev);
+ 
+ 	netdev_unregister_kobject(dev);
++	netdev_cdev_del(dev);
+ 
+ 	/* Actually switch the network namespace */
+ 	dev_net_set(dev, net);
+@@ -5393,6 +5399,8 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+ 			dev->iflink = dev->ifindex;
  	}
-=20
-@@ -968,17 +993,17 @@ try_again:
- 		err =3D ulen;
-=20
- out_free:
--	lock_sock(sk);
-+	spin_lock_bh(&sk->sk_receive_queue.lock);
- 	skb_free_datagram(sk, skb);
--	release_sock(sk);
-+	spin_unlock_bh(&sk->sk_receive_queue.lock);
- out:
- 	return err;
-=20
- csum_copy_err:
--	lock_sock(sk);
-+	spin_lock_bh(&sk->sk_receive_queue.lock);
- 	if (!skb_kill_datagram(sk, skb, flags))
--		UDP_INC_STATS_USER(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
--	release_sock(sk);
-+		UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
-+	spin_unlock_bh(&sk->sk_receive_queue.lock);
-=20
- 	if (noblock)
- 		return -EAGAIN;
-@@ -1060,7 +1085,6 @@ drop:
- int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- {
- 	struct udp_sock *up =3D udp_sk(sk);
--	int rc;
- 	int is_udplite =3D IS_UDPLITE(sk);
-=20
- 	/*
-@@ -1140,16 +1164,7 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk=
-_buff *skb)
- 			goto drop;
- 	}
-=20
--	rc =3D 0;
--
--	bh_lock_sock(sk);
--	if (!sock_owned_by_user(sk))
--		rc =3D __udp_queue_rcv_skb(sk, skb);
--	else
--		sk_add_backlog(sk, skb);
--	bh_unlock_sock(sk);
--
--	return rc;
-+	return __udp_queue_rcv_skb(sk, skb);
-=20
- drop:
- 	UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
-@@ -1540,29 +1555,11 @@ unsigned int udp_poll(struct file *file, struct=
- socket *sock, poll_table *wait)
- {
- 	unsigned int mask =3D datagram_poll(file, sock, wait);
- 	struct sock *sk =3D sock->sk;
--	int 	is_lite =3D IS_UDPLITE(sk);
-=20
- 	/* Check for false positives due to checksum errors */
--	if ((mask & POLLRDNORM) &&
--	    !(file->f_flags & O_NONBLOCK) &&
--	    !(sk->sk_shutdown & RCV_SHUTDOWN)) {
--		struct sk_buff_head *rcvq =3D &sk->sk_receive_queue;
--		struct sk_buff *skb;
--
--		spin_lock_bh(&rcvq->lock);
--		while ((skb =3D skb_peek(rcvq)) !=3D NULL &&
--		       udp_lib_checksum_complete(skb)) {
--			UDP_INC_STATS_BH(sock_net(sk),
--					UDP_MIB_INERRORS, is_lite);
--			__skb_unlink(skb, rcvq);
--			kfree_skb(skb);
--		}
--		spin_unlock_bh(&rcvq->lock);
--
--		/* nothing to see, move along */
--		if (skb =3D=3D NULL)
--			mask &=3D ~(POLLIN | POLLRDNORM);
--	}
-+	if ((mask & POLLRDNORM) && !(file->f_flags & O_NONBLOCK) &&
-+	    !(sk->sk_shutdown & RCV_SHUTDOWN) && !first_packet_length(sk))
-+		mask &=3D ~(POLLIN | POLLRDNORM);
-=20
- 	return mask;
-=20
+ 
++	netdev_cdev_init(dev);
++
+ 	/* Fixup kobjects */
+ 	err = netdev_register_kobject(dev);
+ 	WARN_ON(err);
+@@ -5626,6 +5634,8 @@ static int __init net_dev_init(void)
+ 
+ 	BUG_ON(!dev_boot_phase);
+ 
++	netdev_cdev_alloc();
++
+ 	if (dev_proc_init())
+ 		goto out;
+ 
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 753c420..f4ee557 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -19,6 +19,7 @@
+ #include <net/wext.h>
+ 
+ #include "net-sysfs.h"
++#include "cdev.h"
+ 
+ #ifdef CONFIG_SYSFS
+ static const char fmt_hex[] = "%#x\n";
+@@ -501,6 +502,14 @@ static void netdev_release(struct device *d)
+ 	kfree((char *)dev - dev->padded);
+ }
+ 
++#ifdef CONFIG_NET_CDEV
++static char *netdev_devnode(struct device *d, mode_t *mode)
++{
++	struct net_device *dev = to_net_dev(d);
++	return kasprintf(GFP_KERNEL, "netdev/%s", dev->name);
++}
++#endif
++
+ static struct class net_class = {
+ 	.name = "net",
+ 	.dev_release = netdev_release,
+@@ -510,6 +519,9 @@ static struct class net_class = {
+ #ifdef CONFIG_HOTPLUG
+ 	.dev_uevent = netdev_uevent,
+ #endif
++#ifdef CONFIG_NET_CDEV
++	.devnode = netdev_devnode,
++#endif
+ };
+ 
+ /* Delete sysfs entries but hold kobject reference until after all
+@@ -536,6 +548,7 @@ int netdev_register_kobject(struct net_device *net)
+ 	dev->class = &net_class;
+ 	dev->platform_data = net;
+ 	dev->groups = groups;
++	netdev_cdev_kobj_init(dev, net);
+ 
+ 	dev_set_name(dev, "%s", net->name);
+ 
+-- 
+1.6.0.6
+
