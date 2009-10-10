@@ -1,66 +1,124 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: PATCH: Network Device Naming mechanism and policy
-Date: Sat, 10 Oct 2009 14:11:24 -0400
-Message-ID: <20091010141124.82d226b8.billfink@mindspring.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com>
-	<20091009140000.GA18765@mock.linuxdev.us.dell.com>
-	<20091009210909.GA9836@auslistsprd01.us.dell.com>
-	<20091009194401.036da080@nehalam>
-	<20091010044056.GA5350@mock.linuxdev.us.dell.com>
-	<20091010052308.GA12458@kroah.com>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: Re: Real networking namespace
+Date: Sat, 10 Oct 2009 11:14:52 -0700
+Message-ID: <4AD0CF1C.2030709@schaufler-ca.com>
+References: <20091009083807.16e55b08@nehalam> <1255106246.2182.219.camel@moss-pluto.epoch.ncsc.mil> <1255106692.2182.224.camel@moss-pluto.epoch.ncsc.mil> <200910091812.16046.paul.moore@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Matt Domsch <Matt_Domsch@dell.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
-	Narendra_K@dell.com, jordan_hargrave@dell.com
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-In-Reply-To: <20091010052308.GA12458@kroah.com>
-Sender: linux-hotplug-owner@vger.kernel.org
+Cc: Stephen Smalley <sds@tycho.nsa.gov>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	linux-security-module@vger.kernel.org,
+	Al Viro <viro@zeniv.linux.org.uk>, netdev@vger.kernel.org,
+	James Morris <jmorris@namei.org>,
+	Casey Schaufler <casey@schaufler-ca.com>
+To: Paul Moore <paul.moore@hp.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <200910091812.16046.paul.moore@hp.com>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 9 Oct 2009, Greg KH wrote:
+Paul Moore wrote:
+> On Friday 09 October 2009 12:44:52 pm Stephen Smalley wrote:
+>   
+>> On Fri, 2009-10-09 at 12:37 -0400, Stephen Smalley wrote:
+>>     
+>>> On Fri, 2009-10-09 at 08:38 -0700, Stephen Hemminger wrote:
+>>>       
+>>>> The existing networking namespace model is unattractive for what I
+>>>> want, has anyone investigated better alternatives?
+>>>>
+>>>> I would like to be able to allow access to a network interface and
+>>>> associated objects (routing tables etc), to be controlled by Mandatory
+>>>> Access Control API's.
 
-> On Fri, Oct 09, 2009 at 11:40:57PM -0500, Matt Domsch wrote:
-> > The fundamental roadblock to this is that enumeration != naming,
-> > except that it is for network devices, and we keep changing the
-> > enumeration order.
-> 
-> No, the hardware changes the enumeration order, it places _no_
-> guarantees on what order stuff will be found in.  So this is not the
-> kernel changing, just to be clear.
-> 
-> Again, I have a machine here that likes to reorder PCI devices every 4th
-> or so boot times, and that's fine according to the PCI spec.  Yeah, it's
-> a crappy BIOS, but the manufacturer rightly pointed out that it is not
-> in violation of anything.
-> 
-> > Today, port naming is completely nondeterministic.  If you have but
-> > one NIC, there are few chances to get the name wrong (it'll be eth0).
-> > If you have >1 NIC, chances increase to get it wrong.
-> 
-> That is why all distros name network devices based on the only
-> deterministic thing they have today, the MAC address.  I still fail to
-> see why you do not like this solution, it is honestly the only way to
-> properly name network devices in a sane manner.
-> 
-> All distros also provide a way to easily rename the network devices, to
-> place a specific name on a specific MAC address, so again, this should
-> all be solved already.
-> 
-> No matter how badly your BIOS teams mess up the PCI enumeration order :)
+As I'll mention later, getting agreement on what qualifies as an
+object in the networking stack ain't going to happen anytime soon.
+Sure, routing tables are important components of the system's
+state, but they don't qualify as objects under any definition of
+objects with which I'm familiar. Similarly, a network device is
+more like a disk controller than a directory, and no one I know
+of wants to start doing access checks based on the disk controller
+(file system, yes, controller, no) that a file resides on.
 
-No comment on the specific implementation decision, but I am in the
-process of setting up a large number of test systems with identical
-hardware configurations, and using a master disk image to clone all the
-test systems.  The biggest pain in this process is identiying the MAC
-addresses for each of the six or more network interfaces in each test
-system (we want eth0...ethN to always reference the same physical port
-on the test systems), and then having to modify the 70-persistent-net.rules
-udev file and the HWADDR entry for all the ifcfg-ethX files to reflect
-the correct MAC addresses.  It would be fantastic if there were some
-mechanism for making this part of the process unnecessary.
+The ad hoc security mechanisms for networking include firewalls,
+netfilter, and routing schemes. These are very interesting and
+useful things, but they don't have anything to do with the
+"subject accesses object" mindset. Trying to shoehorn them in
+always results in tears.
 
-						-Bill
+
+>>>>  I.e grant access to eth0 and to only certain
+>>>> processes.  Some the issues with the existing models are:
+>>>>   * eth0 and associated objects don't really exist in filesystem so
+>>>>     not subject to LSM style control (SeLinux/SMACK/TOMOYO)
+>>>>         
+>
+> As Stephen points out, SELinux does have the ability to assign security labels 
+> to network interfaces, check out the 'semanage' command.  A while back I wrote 
+> up something about the SELinux network "ingress/egress" access controls:
+>
+>  * http://paulmoore.livejournal.com/2128.html
+>
+> Smack doesn't support controlling network access at the interface level, but 
+> that is due to a Smack design decision and not an inherent functionality gap 
+> in the LSM.
+
+Paul is correct. A security model that includes network interface
+devices as policy components has all the tools it needs at its
+disposal. The Smack model does not consider network interface devices
+as policy components. Certainly there are data import/export issues
+that get raised with the Smack model, but they center around the
+question of whether sending a packet on the network is in fact an
+export and whether receiving a packet is an import. You can argue
+it either way, and the implications are kind of painful whichever
+way you choose. You really only want network interface devices as
+policy components if you consider network traffic as import/export,
+in which case you have serious work to do explaining why it is
+acceptable to do multi-label import/export over that media.
+
+Smack treats incoming packets as IPC messages from subjects that
+may be elsewhere. The label on the packet, which may be based on
+the host the packet came from, is the only information that Smack
+cares about.
+
+
+>   TOMOYO is currently working on improved network access controls 
+> (see patches posted earlier this week), I haven't had a chance to review them 
+> yet so I don't know the state of TOMOYO's network access controls.
+>
+>   
+>>>>   * network namespaces do not allow object to exist in multiple
+>>>> namespaces. The current model is more restrictive than chroot jails. At
+>>>> least with chroot, put filesystem objects in multiple jails.
+>>>>         
+>
+> Perhaps I don't fully understand what you are getting at here, but I don't 
+> think this should be an issue with a flexible LSM.
+>
+>   
+>>> Is there something that prevents you from using the existing SELinux
+>>> network access controls?  netif is a security class governed by SELinux
+>>> policy, and routing table operations would be covered by the SELinux
+>>> checks on netlink_route_socket.  SELinux uses a combination of LSM hooks
+>>> and netfilter hooks to mediate network operations.
+>>>       
+>> Also, depending on what you want to do, SECMARK may be useful to you.
+>> That allows you to mark packets with security contexts via iptables, and
+>> then use SELinux policy to control their flow.
+>> http://paulmoore.livejournal.com/4281.html
+>> http://james-morris.livejournal.com/11010.html
+>>     
+>
+> While we're at it, a few more links ... here is a presentation from last year 
+> on Linux's labeled networking capabilities (which hits at a lot of your 
+> questions):
+>
+>  * http://paulmoore.livejournal.com/964.html
+>
+> ... and there is a video too:
+>
+>  * http://paulmoore.livejournal.com/1329.html
+>
+>   
+
