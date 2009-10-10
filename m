@@ -1,78 +1,126 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: Very strange issues with ethernet wake on lan
-Date: Sat, 10 Oct 2009 23:45:26 +0200
-Message-ID: <200910102345.26961.rjw@sisk.pl>
-References: <1250394174.32268.13.camel@localhost.localdomain>
-	<200909292228.18200.rjw@sisk.pl>
-	<1255210639.4199.0.camel@maxim-laptop>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 1/7] bnx2x: Refactor bnx2x_sp_post().
+Date: Sat, 10 Oct 2009 16:46:53 -0700
+Message-ID: <1255218419-17320-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-pm@lists.linux-foundation.org" <linux-pm@lists.linux-foundation.org>
-To: Maxim Levitsky <maximlevitsky@gmail.com>
-Return-path: <linux-pm-bounces@lists.linux-foundation.org>
-In-Reply-To: <1255210639.4199.0.camel@maxim-laptop>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
-List-Post: <mailto:linux-pm@lists.linux-foundation.org>
-List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.linux-foundation.org
-Errors-To: linux-pm-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, michaelc@cs.wisc.edu,
+	shmulikr@broadcom.com, eilong@broadcom.com,
+	"Michael Chan" <mchan@broadcom.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:1960 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755479AbZJJXjH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Oct 2009 19:39:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday 10 October 2009, Maxim Levitsky wrote:
-> On Tue, 2009-09-29 at 22:28 +0200, Rafael J. Wysocki wrote: 
-> > On Sunday 16 August 2009, Maxim Levitsky wrote:
-> > > Hi,
-> > > 
-> > > I have recently put back the davicom dm9009 ethernet card into my
-> > > computer.
-> > > 
-> > > Some long time ago, I have written its suspend/resume routines.
-> > > Now I see that few things have changed, like I need to enable wake in
-> > > sysfs or better patch the code to do so, some nice helpers like
-> > > pci_prepare_to_sleep have arrived, etc.
-> > > 
-> > > 
-> > > I narrowed the strange issue down to following situation:
-> > > 
-> > > I reload dmfe.ko (and networkmanager is disabled)
-> > > I don't ifup the device, thus pretty much no hardware initialization
-> > > takes place (but this appears not to matter anyway)
-> > > 
-> > > I then suspend the system, and WOL doesn't work (I have patched the
-> > > driver to enable WOL automaticly)
-> > > 
-> > > I then, suspend again. WOL works, and continues to work as long as I
-> > > don't reload the driver. If I do, same situation repeats.
-> > > 
-> > > Also, after a boot, WOL works, so a reload cycle triggers that issue.
-> > > 
-> > > And most importantly, if I don't do a
-> > > 
-> > > pci_set_power_state(pci_dev, pci_choose_state (pci_dev, state));
-> > > 
-> > > in .suspend, then WOL always works.
-> > > 
-> > > and I have even tried to set state manually to PCI_D3hot or PCI_D3cold, 
-> > > 
-> > > I also tried to use pci_save_state
-> > > 
-> > > 
-> > > I also have 2 copies of this card, and both have this issue.
-> > > I also tried 2 pci slots.
-> > > 
-> > > Kernel is vanilla 2.6.31-rc5
-> > 
-> > Please check if this still happens with 2.6.32-rc1.
-> 
-> It doesn't! (-git as of today tested)
+Some of the SPQ (slow-path queue) operations will be used
+by the cnic code in later patches.
 
-Great, thanks for verifying.
+Signed-off-by: Shmulik Ravid - Rabinovitz <shmulikr@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+Acked-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/bnx2x_main.c |   62 ++++++++++++++++++++++++++++-----------------
+ 1 files changed, 38 insertions(+), 24 deletions(-)
 
-Best,
-Rafael
+diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
+index c0abfc4..713d669 100644
+--- a/drivers/net/bnx2x_main.c
++++ b/drivers/net/bnx2x_main.c
+@@ -2638,11 +2638,40 @@ static void bnx2x_dcc_event(struct bnx2x *bp, u32 dcc_event)
+ 		bnx2x_fw_command(bp, DRV_MSG_CODE_DCC_OK);
+ }
+ 
++/* must be called under the spq lock */
++static inline struct eth_spe *bnx2x_sp_get_next(struct bnx2x *bp)
++{
++	struct eth_spe *next_spe = bp->spq_prod_bd;
++
++	if (bp->spq_prod_bd == bp->spq_last_bd) {
++		bp->spq_prod_bd = bp->spq;
++		bp->spq_prod_idx = 0;
++		DP(NETIF_MSG_TIMER, "end of spq\n");
++	} else {
++		bp->spq_prod_bd++;
++		bp->spq_prod_idx++;
++	}
++	return next_spe;
++}
++
++/* must be called under the spq lock */
++static inline void bnx2x_sp_prod_update(struct bnx2x *bp)
++{
++	int func = BP_FUNC(bp);
++
++	/* Make sure that BD data is updated before writing the producer */
++	wmb();
++
++	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_SPQ_PROD_OFFSET(func),
++	       bp->spq_prod_idx);
++	mmiowb();
++}
++
+ /* the slow path queue is odd since completions arrive on the fastpath ring */
+ static int bnx2x_sp_post(struct bnx2x *bp, int command, int cid,
+ 			 u32 data_hi, u32 data_lo, int common)
+ {
+-	int func = BP_FUNC(bp);
++	struct eth_spe *spe;
+ 
+ 	DP(BNX2X_MSG_SP/*NETIF_MSG_TIMER*/,
+ 	   "SPQE (%x:%x)  command %d  hw_cid %x  data (%x:%x)  left %x\n",
+@@ -2664,38 +2693,23 @@ static int bnx2x_sp_post(struct bnx2x *bp, int command, int cid,
+ 		return -EBUSY;
+ 	}
+ 
++	spe = bnx2x_sp_get_next(bp);
++
+ 	/* CID needs port number to be encoded int it */
+-	bp->spq_prod_bd->hdr.conn_and_cmd_data =
++	spe->hdr.conn_and_cmd_data =
+ 			cpu_to_le32(((command << SPE_HDR_CMD_ID_SHIFT) |
+ 				     HW_CID(bp, cid)));
+-	bp->spq_prod_bd->hdr.type = cpu_to_le16(ETH_CONNECTION_TYPE);
++	spe->hdr.type = cpu_to_le16(ETH_CONNECTION_TYPE);
+ 	if (common)
+-		bp->spq_prod_bd->hdr.type |=
++		spe->hdr.type |=
+ 			cpu_to_le16((1 << SPE_HDR_COMMON_RAMROD_SHIFT));
+ 
+-	bp->spq_prod_bd->data.mac_config_addr.hi = cpu_to_le32(data_hi);
+-	bp->spq_prod_bd->data.mac_config_addr.lo = cpu_to_le32(data_lo);
++	spe->data.mac_config_addr.hi = cpu_to_le32(data_hi);
++	spe->data.mac_config_addr.lo = cpu_to_le32(data_lo);
+ 
+ 	bp->spq_left--;
+ 
+-	if (bp->spq_prod_bd == bp->spq_last_bd) {
+-		bp->spq_prod_bd = bp->spq;
+-		bp->spq_prod_idx = 0;
+-		DP(NETIF_MSG_TIMER, "end of spq\n");
+-
+-	} else {
+-		bp->spq_prod_bd++;
+-		bp->spq_prod_idx++;
+-	}
+-
+-	/* Make sure that BD data is updated before writing the producer */
+-	wmb();
+-
+-	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_SPQ_PROD_OFFSET(func),
+-	       bp->spq_prod_idx);
+-
+-	mmiowb();
+-
++	bnx2x_sp_prod_update(bp);
+ 	spin_unlock_bh(&bp->spq_lock);
+ 	return 0;
+ }
+-- 
+1.6.4.GIT
+
+
