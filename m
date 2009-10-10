@@ -1,38 +1,148 @@
-From: Tomas Winkler <tomasw@gmail.com>
-Subject: Re: [PATCH 1/3] iwmc3200top: Add Intel Wireless MultiCom 3200 top
-	driver.
-Date: Sat, 10 Oct 2009 11:38:50 +0200
-Message-ID: <1ba2fa240910100238s709c31d3s6cb612f502b1086f@mail.gmail.com>
-References: <1253662724-16497-1-git-send-email-tomas.winkler@intel.com>
-	 <1253662724-16497-2-git-send-email-tomas.winkler@intel.com>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: [BUG net-2.6] bluetooth/rfcomm : sleeping function called from
+ invalid context at mm/slub.c:1719
+Date: Sat, 10 Oct 2009 11:54:40 +0200
+Message-ID: <4AD059E0.8090502@hartkopp.net>
+References: <4AC59D8A.6000102@hartkopp.net> <a8e1da0910020401m2fb8493ax95ff55a3b66131a5@mail.gmail.com> <4AC6247E.7050308@hartkopp.net> <20091003070622.GA4110@darkstar> <4AC71CAA.9090704@hartkopp.net> <a8e1da0910032026m66200c08jf9201bbfe34b2f30@mail.gmail.com> <20091004180635.GA11272@vigoh> <20091009004452.GA2395@darkstar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: yi.zhu@intel.com, inaky.perez-gonzalez@intel.com,
-	cindy.h.kao@intel.com, guy.cohen@intel.com,
-	ron.rindjunsky@intel.com, Tomas Winkler <tomas.winkler@intel.com>
-To: davem@davemloft.net, linville@tuxdriver.com,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-mmc@vger.kernel.org
-Return-path: <linux-mmc-owner@vger.kernel.org>
-In-Reply-To: <1253662724-16497-2-git-send-email-tomas.winkler@intel.com>
-Sender: linux-mmc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	linux-bluetooth@vger.kernel.org,
+	"Gustavo F. Padovan" <gustavo@las.ic.unicamp.br>
+To: Dave Young <hidave.darkstar@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:25824 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756009AbZJJJ4F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2009 05:56:05 -0400
+In-Reply-To: <20091009004452.GA2395@darkstar>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 23, 2009 at 1:38 AM, Tomas Winkler <tomas.winkler@intel.com> wrote:
-> This patch adds Intel Wireless MultiCom 3200 top driver.
-> IWMC3200 is 4Wireless Com CHIP (GPS/BT/WiFi/WiMAX).
-> Top driver is responsible for device initialization and firmware download.
-> Firmware handled by top is responsible for top itself and
-> as well as bluetooth and GPS coms. (Wifi and WiMax provide their own
-> firmware)
-> In addition top driver is used to retrieve firmware logs
-> and supports other debugging features
+Dave Young wrote:
+> On Sun, Oct 04, 2009 at 06:06:35PM +0000, Gustavo F. Padovan wrote:
+>> Hi all,
+>>
+>> * Dave Young <hidave.darkstar@gmail.com> [2009-10-04 11:26:17 +0800]:
+>>
+>>> I can reproduce the bug.
+>>>
+>>> It's probably caused by the l2cap changes by  Gustavo F. Padovan
+>>> <gustavo@las.ic.unicamp.br>, I didn't see such problem after reverting
+>>> Gustavo's patch series.
+>> I can't reproduce the bug. I'm trying to reproduce it to figure out what of
+>> my changes cause it.
+>>
+>> I' running
+>>
+>> $ dund -snu -i 00:11:67:CD:0F:CB # to pretend to be dialup/telephone
+>>
+>> and on the other side 
+>>
+>> $ rfcomm bind 0 00:11:67:CD:0F:CB 1
+>> $ wvdial  # wvdial to /dev/rfcomm0
+>>
+>> Both sides are on the same machine. Do you see any real difference
+>> between my try and the call that get the bug?
+>>
+> 
+> Hi oliver
+> 
+> Could try following patch?
+
+I did. It fixed it on the base of the latest net-2.6 tree :-)
+
+Tested-by: Oliver Hartkopp <oliver@hartkopp.net>
+
+Together with the previous patch from http://patchwork.kernel.org/patch/51326/
+the reported bluetooth/rfcomm regressions should be fixed IMO.
+
+Thanks for your continuous work on this, Dave!
+
+Regards,
+Oliver
+
 >
-> Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
+> ---
+> 
+> When shutdown ppp connection, lockdep waring about non-static key
+> will happen, it is caused by the lock is not initialized properly
+> at that time.
+> 
+> Fix with tuning the lock/skb_queue_head init order
+> 
+> [   94.339261] INFO: trying to register non-static key.
+> [   94.342509] the code is fine but needs lockdep annotation.
+> [   94.342509] turning off the locking correctness validator.
+> [   94.342509] Pid: 0, comm: swapper Not tainted 2.6.31-mm1 #2
+> [   94.342509] Call Trace:
+> [   94.342509]  [<c0248fbe>] register_lock_class+0x58/0x241
+> [   94.342509]  [<c024b5df>] ? __lock_acquire+0xb57/0xb73
+> [   94.342509]  [<c024ab34>] __lock_acquire+0xac/0xb73
+> [   94.342509]  [<c024b7fa>] ? lock_release_non_nested+0x17b/0x1de
+> [   94.342509]  [<c024b662>] lock_acquire+0x67/0x84
+> [   94.342509]  [<c04cd1eb>] ? skb_dequeue+0x15/0x41
+> [   94.342509]  [<c054a857>] _spin_lock_irqsave+0x2f/0x3f
+> [   94.342509]  [<c04cd1eb>] ? skb_dequeue+0x15/0x41
+> [   94.342509]  [<c04cd1eb>] skb_dequeue+0x15/0x41
+> [   94.342509]  [<c054a648>] ? _read_unlock+0x1d/0x20
+> [   94.342509]  [<c04cd641>] skb_queue_purge+0x14/0x1b
+> [   94.342509]  [<fab94fdc>] l2cap_recv_frame+0xea1/0x115a [l2cap]
+> [   94.342509]  [<c024b5df>] ? __lock_acquire+0xb57/0xb73
+> [   94.342509]  [<c0249c04>] ? mark_lock+0x1e/0x1c7
+> [   94.342509]  [<f8364963>] ? hci_rx_task+0xd2/0x1bc [bluetooth]
+> [   94.342509]  [<fab95346>] l2cap_recv_acldata+0xb1/0x1c6 [l2cap]
+> [   94.342509]  [<f8364997>] hci_rx_task+0x106/0x1bc [bluetooth]
+> [   94.342509]  [<fab95295>] ? l2cap_recv_acldata+0x0/0x1c6 [l2cap]
+> [   94.342509]  [<c02302c4>] tasklet_action+0x69/0xc1
+> [   94.342509]  [<c022fbef>] __do_softirq+0x94/0x11e
+> [   94.342509]  [<c022fcaf>] do_softirq+0x36/0x5a
+> [   94.342509]  [<c022fe14>] irq_exit+0x35/0x68
+> [   94.342509]  [<c0204ced>] do_IRQ+0x72/0x89
+> [   94.342509]  [<c02038ee>] common_interrupt+0x2e/0x34
+> [   94.342509]  [<c024007b>] ? pm_qos_add_requirement+0x63/0x9d
+> [   94.342509]  [<c038e8a5>] ? acpi_idle_enter_bm+0x209/0x238
+> [   94.342509]  [<c049d238>] cpuidle_idle_call+0x5c/0x94
+> [   94.342509]  [<c02023f8>] cpu_idle+0x4e/0x6f
+> [   94.342509]  [<c0534153>] rest_init+0x53/0x55
+> [   94.342509]  [<c0781894>] start_kernel+0x2f0/0x2f5
+> [   94.342509]  [<c0781091>] i386_start_kernel+0x91/0x96
+> 
+> Reported-by: Oliver Hartkopp <oliver@hartkopp.net>
+> Signed-off-by: Dave Young <hidave.darkstar@gmail.com>
+> ---
+> net/bluetooth/l2cap.c |    9 ++++++---
+> 1 file changed, 6 insertions(+), 3 deletions(-)
+> 
+> --- linux-2.6.31.orig/net/bluetooth/l2cap.c	2009-10-09 08:32:46.000000000 +0800
+> +++ linux-2.6.31/net/bluetooth/l2cap.c	2009-10-09 08:33:57.000000000 +0800
+> @@ -555,12 +555,12 @@ static struct l2cap_conn *l2cap_conn_add
+>  
+>  	conn->feat_mask = 0;
+>  
+> -	setup_timer(&conn->info_timer, l2cap_info_timeout,
+> -						(unsigned long) conn);
+> -
+>  	spin_lock_init(&conn->lock);
+>  	rwlock_init(&conn->chan_list.lock);
+>  
+> +	setup_timer(&conn->info_timer, l2cap_info_timeout,
+> +						(unsigned long) conn);
+> +
+>  	conn->disc_reason = 0x13;
+>  
+>  	return conn;
+> @@ -783,6 +783,9 @@ static void l2cap_sock_init(struct sock 
+>  	/* Default config options */
+>  	pi->conf_len = 0;
+>  	pi->flush_to = L2CAP_DEFAULT_FLUSH_TO;
+> +	skb_queue_head_init(TX_QUEUE(sk));
+> +	skb_queue_head_init(SREJ_QUEUE(sk));
+> +	INIT_LIST_HEAD(SREJ_LIST(sk));
+>  }
+>  
+>  static struct proto l2cap_proto = {
 
-Dave,
-are you going to merge this one?
-iwmc3200wifi and i200m-sdio which are already merged are usless without it
-
-Thanks
-Tomas
