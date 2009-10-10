@@ -1,69 +1,59 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH 00/31] Swap over NFS -v20
-Date: Sat, 10 Oct 2009 23:10:24 +0200
-Message-ID: <20091010211024.GB14051@elf.ucw.cz>
-References: <1254405858-15651-1-git-send-email-sjayaraman@suse.de>
- <20091001174201.GA30068@infradead.org>
- <1254692482.21044.15.camel@laptop>
- <20091010120614.GC1811@ucw.cz>
- <1255177421.11081.0.camel@twins>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] ax25: unsigned cannot be less than 0 in ax25_ctl_ioctl()
+Date: Sat, 10 Oct 2009 23:22:19 +0200
+Message-ID: <4AD0FB0B.8050609@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Suresh Jayaraman <sjayaraman@suse.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Joerg Reuter <jreuter@yaina.de>, linux-hams@vger.kernel.org,
 	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, Neil Brown <neilb@suse.de>,
-	Miklos Szeredi <mszeredi@suse.cz>, Wouter Verhelst <w@uter.be>,
-	trond.myklebust@fys.uio.no
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1255177421.11081.0.camel@twins>
-Sender: owner-linux-mm@kvack.org
+	netdev <netdev@vger.kernel.org>
+Return-path: <linux-hams-owner@vger.kernel.org>
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat 2009-10-10 14:23:41, Peter Zijlstra wrote:
-> On Sat, 2009-10-10 at 14:06 +0200, Pavel Machek wrote:
-> > Hi!
-> > 
-> > > > One of them
-> > > > would be the whole VM/net work to just make swap over nbd/iscsi safe.
-> > > 
-> > > Getting those two 'fixed' is going to be tons of interesting work
-> > > because they involve interaction with userspace daemons.
-> > > 
-> > > NBD has fairly simple userspace, but iSCSI has a rather large userspace
-> > > footprint and a rather complicated user/kernel interaction which will be
-> > > mighty interesting to get allocation safe.
-> > > 
-> > > Ideally the swap-over-$foo bits have no userspace component.
-> > > 
-> > > That said, Wouter is the NBD userspace maintainer and has expressed
-> > > interest into looking at making that work, but its sure going to be
-> > > non-trivial, esp. since exposing PF_MEMALLOC to userspace is a, not over
-> > > my dead-bodym like thing.
-> > 
-> > Well, as long as nbd-server is on separate machine (with real swap),
-> > safe swapping over network should be ok, without PF_MEMALLOC for
-> > userspace or similar nightmares, right?
-> 
-> Nope, as soon as the nbd-client looses its connection you're up shit
-> creek.
+struct ax25_ctl_struct member `arg' is unsigned and cannot be less
+than 0.
 
-Oops, right. Putting reconnect logic into the kernel would make sense.
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+If the ax25_ctl.arg limit is known to be lower, please suggest
+other values.
 
-I misunderstood your proposal. I thought you'd want to put
-nbd-_server_ into the kernel too. I guess we violently agree that
-that's unneccessary.
-									Pavel
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
+index f454607..0d99704 100644
+--- a/net/ax25/af_ax25.c
++++ b/net/ax25/af_ax25.c
+@@ -398,14 +398,14 @@ static int ax25_ctl_ioctl(const unsigned int cmd, void __user *arg)
+ 		break;
+ 
+ 	case AX25_T1:
+-		if (ax25_ctl.arg < 1)
++		if (ax25_ctl.arg < 1 || ax25_ctl.arg * HZ > ULONG_MAX)
+ 			goto einval_put;
+ 		ax25->rtt = (ax25_ctl.arg * HZ) / 2;
+ 		ax25->t1  = ax25_ctl.arg * HZ;
+ 		break;
+ 
+ 	case AX25_T2:
+-		if (ax25_ctl.arg < 1)
++		if (ax25_ctl.arg < 1 || ax25_ctl.arg * HZ > ULONG_MAX)
+ 			goto einval_put;
+ 		ax25->t2 = ax25_ctl.arg * HZ;
+ 		break;
+@@ -418,13 +418,13 @@ static int ax25_ctl_ioctl(const unsigned int cmd, void __user *arg)
+ 		break;
+ 
+ 	case AX25_T3:
+-		if (ax25_ctl.arg < 0)
++		if (ax25_ctl.arg * HZ > ULONG_MAX)
+ 			goto einval_put;
+ 		ax25->t3 = ax25_ctl.arg * HZ;
+ 		break;
+ 
+ 	case AX25_IDLE:
+-		if (ax25_ctl.arg < 0)
++		if (ax25_ctl.arg * 60 * HZ > ULONG_MAX)
+ 			goto einval_put;
+ 		ax25->idle = ax25_ctl.arg * 60 * HZ;
+ 		break;
