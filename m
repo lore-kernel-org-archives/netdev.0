@@ -1,115 +1,147 @@
-From: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [BUG net-2.6] bluetooth/rfcomm : sleeping function called from
-	invalid context at mm/slub.c:1719
-Date: Sat, 10 Oct 2009 21:45:17 +0800
-Message-ID: <20091010134517.GA2855@darkstar.tsinghua.edu.cn>
-References: <4AC59D8A.6000102@hartkopp.net> <a8e1da0910020401m2fb8493ax95ff55a3b66131a5@mail.gmail.com> <4AC6247E.7050308@hartkopp.net> <20091003070622.GA4110@darkstar> <4AC71CAA.9090704@hartkopp.net> <a8e1da0910032026m66200c08jf9201bbfe34b2f30@mail.gmail.com> <20091004180635.GA11272@vigoh> <20091009004452.GA2395@darkstar> <1255171112.19127.1.camel@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Gustavo F. Padovan" <gustavo-r7biftawOlEmmTcpzmvVSFAUjnlXr6A1@public.gmane.org>
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1255171112.19127.1.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Manfred Spraul <manfred@colorfullife.com>
+Subject: [PATCH 1/3] drivers/net/forcedeth.c: Update erratas for Marvell PHYs
+Date: Sat, 10 Oct 2009 17:58:12 +0200
+Message-ID: <1255190294-4121-2-git-send-email-manfred@colorfullife.com>
+References: <1255190294-4121-1-git-send-email-manfred@colorfullife.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Manfred Spraul <manfred@colorfullife.com>
+To: aabdulla@nvidia.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f210.google.com ([209.85.218.210]:64723 "EHLO
+	mail-bw0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761890AbZJJP6d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2009 11:58:33 -0400
+Received: by bwz6 with SMTP id 6so2235076bwz.37
+        for <netdev@vger.kernel.org>; Sat, 10 Oct 2009 08:57:55 -0700 (PDT)
+In-Reply-To: <1255190294-4121-1-git-send-email-manfred@colorfullife.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 10, 2009 at 12:38:32PM +0200, Marcel Holtmann wrote:
-> Hi Dave,
-> 
-> > > * Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> [2009-10-04 11:26:17 +0800]:
-> > > 
-> > > > 
-> > > > I can reproduce the bug.
-> > > > 
-> > > > It's probably caused by the l2cap changes by  Gustavo F. Padovan
-> > > > <gustavo-r7biftawOlEmmTcpzmvVSFAUjnlXr6A1@public.gmane.org>, I didn't see such problem after reverting
-> > > > Gustavo's patch series.
-> > > 
-> > > I can't reproduce the bug. I'm trying to reproduce it to figure out what of
-> > > my changes cause it.
-> > > 
-> > > I' running
-> > > 
-> > > $ dund -snu -i 00:11:67:CD:0F:CB # to pretend to be dialup/telephone
-> > > 
-> > > and on the other side 
-> > > 
-> > > $ rfcomm bind 0 00:11:67:CD:0F:CB 1
-> > > $ wvdial  # wvdial to /dev/rfcomm0
-> > > 
-> > > Both sides are on the same machine. Do you see any real difference
-> > > between my try and the call that get the bug?
-> > > 
-> > 
-> > Hi oliver
-> > 
-> > Could try following patch?
-> > ---
-> > 
-> > When shutdown ppp connection, lockdep waring about non-static key
-> > will happen, it is caused by the lock is not initialized properly
-> > at that time.
-> > 
-> > Fix with tuning the lock/skb_queue_head init order
-> > 
-> > [   94.339261] INFO: trying to register non-static key.
-> > [   94.342509] the code is fine but needs lockdep annotation.
-> > [   94.342509] turning off the locking correctness validator.
-> > [   94.342509] Pid: 0, comm: swapper Not tainted 2.6.31-mm1 #2
-> > [   94.342509] Call Trace:
-> > [   94.342509]  [<c0248fbe>] register_lock_class+0x58/0x241
-> > [   94.342509]  [<c024b5df>] ? __lock_acquire+0xb57/0xb73
-> > [   94.342509]  [<c024ab34>] __lock_acquire+0xac/0xb73
-> > [   94.342509]  [<c024b7fa>] ? lock_release_non_nested+0x17b/0x1de
-> > [   94.342509]  [<c024b662>] lock_acquire+0x67/0x84
-> > [   94.342509]  [<c04cd1eb>] ? skb_dequeue+0x15/0x41
-> > [   94.342509]  [<c054a857>] _spin_lock_irqsave+0x2f/0x3f
-> > [   94.342509]  [<c04cd1eb>] ? skb_dequeue+0x15/0x41
-> > [   94.342509]  [<c04cd1eb>] skb_dequeue+0x15/0x41
-> > [   94.342509]  [<c054a648>] ? _read_unlock+0x1d/0x20
-> > [   94.342509]  [<c04cd641>] skb_queue_purge+0x14/0x1b
-> > [   94.342509]  [<fab94fdc>] l2cap_recv_frame+0xea1/0x115a [l2cap]
-> > [   94.342509]  [<c024b5df>] ? __lock_acquire+0xb57/0xb73
-> > [   94.342509]  [<c0249c04>] ? mark_lock+0x1e/0x1c7
-> > [   94.342509]  [<f8364963>] ? hci_rx_task+0xd2/0x1bc [bluetooth]
-> > [   94.342509]  [<fab95346>] l2cap_recv_acldata+0xb1/0x1c6 [l2cap]
-> > [   94.342509]  [<f8364997>] hci_rx_task+0x106/0x1bc [bluetooth]
-> > [   94.342509]  [<fab95295>] ? l2cap_recv_acldata+0x0/0x1c6 [l2cap]
-> > [   94.342509]  [<c02302c4>] tasklet_action+0x69/0xc1
-> > [   94.342509]  [<c022fbef>] __do_softirq+0x94/0x11e
-> > [   94.342509]  [<c022fcaf>] do_softirq+0x36/0x5a
-> > [   94.342509]  [<c022fe14>] irq_exit+0x35/0x68
-> > [   94.342509]  [<c0204ced>] do_IRQ+0x72/0x89
-> > [   94.342509]  [<c02038ee>] common_interrupt+0x2e/0x34
-> > [   94.342509]  [<c024007b>] ? pm_qos_add_requirement+0x63/0x9d
-> > [   94.342509]  [<c038e8a5>] ? acpi_idle_enter_bm+0x209/0x238
-> > [   94.342509]  [<c049d238>] cpuidle_idle_call+0x5c/0x94
-> > [   94.342509]  [<c02023f8>] cpu_idle+0x4e/0x6f
-> > [   94.342509]  [<c0534153>] rest_init+0x53/0x55
-> > [   94.342509]  [<c0781894>] start_kernel+0x2f0/0x2f5
-> > [   94.342509]  [<c0781091>] i386_start_kernel+0x91/0x96
-> > 
-> > Reported-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-> > Signed-off-by: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> 
-> actually Gustavo send a patch titled "Initialize variables and timers
-> for both channel's sides" that should fix this, too. Can we test that
-> patch before I include this one.
-> 
+This patch updates/adds erratas for the Marvell 88E3016, 88E1111 and 88E1116
+PHYs.
+The changes were originally written by Ayaz Abdulla, I merely added
+meaningful names for the registers, based on the documentation
+for Marvell 88E3016 (publicly available on datasheetdir) and existing linux
+drivers.
 
-Hi, marcel, of course.
+Signed-off-by: Manfred Spraul <manfred@colorfullife.com>
+---
+ drivers/net/forcedeth.c |   74 +++++++++++++++++++++++++++++++++++++++++++----
+ 1 files changed, 68 insertions(+), 6 deletions(-)
 
-> Regards
-> 
-> Marcel
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-bluetooth" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+index 0a1c2bb..0e48e25 100644
+--- a/drivers/net/forcedeth.c
++++ b/drivers/net/forcedeth.c
+@@ -506,6 +506,7 @@ union ring_type {
+ #define PHY_OUI_VITESSE		0x01c1
+ #define PHY_OUI_REALTEK		0x0732
+ #define PHY_OUI_REALTEK2	0x0020
++#define PHY_OUI_BROADCOM	0x50ef
+ #define PHYID1_OUI_MASK	0x03ff
+ #define PHYID1_OUI_SHFT	6
+ #define PHYID2_OUI_MASK	0xfc00
+@@ -517,7 +518,12 @@ union ring_type {
+ #define PHY_REV_REALTEK_8211C		0x0001
+ #define PHY_MODEL_REALTEK_8201		0x0200
+ #define PHY_MODEL_MARVELL_E3016		0x0220
+-#define PHY_MARVELL_E3016_INITMASK	0x0300
++#define PHY_MODEL_MARVELL_E1116		0x0210
++#define PHY_MODEL_MARVELL_E1111		0x00c0
++#define PHY_MODEL_MARVELL_E1011		0x00b0
++#define PHY_MODEL_BROADCOM_9507		0x00a0
++#define PHY_MODEL_BROADCOM_AC131	0x0070
++#define PHY_MODEL_BROADCOM_50610	0x0160
+ #define PHY_CICADA_INIT1	0x0f000
+ #define PHY_CICADA_INIT2	0x0e00
+ #define PHY_CICADA_INIT3	0x01000
+@@ -560,6 +566,26 @@ union ring_type {
+ #define PHY_REALTEK_INIT11	0x0200
+ #define PHY_REALTEK_INIT_MSK1	0x0003
+ 
++
++/* Marvell 88E3016. Based on the datasheet MV-S103164-00. */
++#define PHY_MV_E3016_REG_PHY_CTRL	0x0010
++#define PHY_MV_E3016_REG_PHY_CTRL2	0x001c
++
++/* Disable Normal Linkpulse Check. Necessary to fix an errata. */
++#define PHY_MV_E3016_REG_PHY_CTRL_DIS_NLP	0x4000
++/* These bits are reserved and must be zero. */
++#define PHY_MV_E3016_REG_PHY_CTRL2_CLEAR	0x0300
++
++/* Marvell 88E1111. Based on mv88e1xxx.h (sklin driver) */
++#define PHY_MV_E1XXX_REG_PHY_CTRL	0x0010
++#define PHY_MV_E1XXX_REG_RES		0x0016
++
++/* Clear low byte of RES register */
++#define PHY_MV_E1XXX_REG_RES_MASK	0x00ff
++
++/* set 2 bits (function unknown) */
++#define PHY_MV_E1XXX_REG_PHY_CTRL_SET	0x0300
++
+ #define PHY_GIGABIT	0x0100
+ 
+ #define PHY_TIMEOUT	0x1
+@@ -1198,11 +1224,11 @@ static int phy_init(struct net_device *dev)
+ 	u8 __iomem *base = get_hwbase(dev);
+ 	u32 phyinterface, phy_reserved, mii_status, mii_control, mii_control_1000,reg;
+ 
+-	/* phy errata for E3016 phy */
+-	if (np->phy_model == PHY_MODEL_MARVELL_E3016) {
+-		reg = mii_rw(dev, np->phyaddr, MII_NCONFIG, MII_READ);
+-		reg &= ~PHY_MARVELL_E3016_INITMASK;
+-		if (mii_rw(dev, np->phyaddr, MII_NCONFIG, reg)) {
++	if (np->phy_oui == PHY_OUI_MARVELL && np->phy_model == PHY_MODEL_MARVELL_E3016) {
++		/* phy errata for E3016 phy */
++		reg = mii_rw(dev, np->phyaddr, PHY_MV_E3016_REG_PHY_CTRL2, MII_READ);
++		reg &= ~PHY_MV_E3016_REG_PHY_CTRL2_CLEAR;
++		if (mii_rw(dev, np->phyaddr, PHY_MV_E3016_REG_PHY_CTRL2, reg)) {
+ 			printk(KERN_INFO "%s: phy write to errata reg failed.\n", pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+@@ -1340,6 +1366,42 @@ static int phy_init(struct net_device *dev)
+ 	}
+ 
+ 	/* phy vendor specific configuration */
++	if (np->phy_oui == PHY_OUI_MARVELL) {
++		if (np->driver_data & DEV_NEED_PHY_INIT_FIX) {
++			if (np->phy_model == PHY_MODEL_MARVELL_E1116) {
++				phy_reserved = mii_rw(dev, np->phyaddr, PHY_MV_E1XXX_REG_RES, MII_READ);
++				phy_reserved &= ~PHY_MV_E1XXX_REG_RES_MASK;
++				if (mii_rw(dev, np->phyaddr, PHY_MV_E1XXX_REG_RES,phy_reserved)) {
++					printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++					return PHY_ERROR;
++				}
++
++				phy_reserved = mii_rw(dev, np->phyaddr, PHY_MV_E1XXX_REG_PHY_CTRL, MII_READ);
++				phy_reserved |= PHY_MV_E1XXX_REG_PHY_CTRL_SET;
++				if (mii_rw(dev, np->phyaddr, PHY_MV_E1XXX_REG_PHY_CTRL,phy_reserved)) {
++					printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++					return PHY_ERROR;
++				}
++			}
++			if (np->phy_model == PHY_MODEL_MARVELL_E1111) {
++				phy_reserved = mii_rw(dev, np->phyaddr, PHY_MV_E1XXX_REG_PHY_CTRL, MII_READ);
++				phy_reserved |= PHY_MV_E1XXX_REG_PHY_CTRL_SET;
++				if (mii_rw(dev, np->phyaddr, PHY_MV_E1XXX_REG_PHY_CTRL,phy_reserved)) {
++					printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++					return PHY_ERROR;
++				}
++			}
++			if (np->phy_model == PHY_MODEL_MARVELL_E3016) {
++				phy_reserved = mii_rw(dev, np->phyaddr, PHY_MV_E3016_REG_PHY_CTRL, MII_READ);
++				phy_reserved |= PHY_MV_E3016_REG_PHY_CTRL_DIS_NLP;
++				if (mii_rw(dev, np->phyaddr, PHY_MV_E3016_REG_PHY_CTRL,phy_reserved)) {
++					printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++					return PHY_ERROR;
++				}
++			}
++		}
++	}
++
+ 	if ((np->phy_oui == PHY_OUI_CICADA) && (phyinterface & PHY_RGMII) ) {
+ 		phy_reserved = mii_rw(dev, np->phyaddr, MII_RESV1, MII_READ);
+ 		phy_reserved &= ~(PHY_CICADA_INIT1 | PHY_CICADA_INIT2);
+-- 
+1.6.2.5
+
