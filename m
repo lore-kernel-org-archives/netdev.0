@@ -1,103 +1,50 @@
-From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-Subject: Re: bisect results of MSI-X related panic (help!)
-Date: Fri, 9 Oct 2009 17:24:01 -0700
-Message-ID: <4807377b0910091724k2a332e90i9941971f6032663c@mail.gmail.com>
-References: <1252699744.3877.15.camel@jbrandeb-hc.jf.intel.com>
-	 <200909120623.49764.elendil@planet.nl> <4AAE0F7B.5050203@kernel.org>
-	 <4AAE105E.1080005@kernel.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: Real networking namespace
+Date: Fri, 9 Oct 2009 19:08:20 -0700
+Message-ID: <20091009190820.0a0f09c2@nehalam>
+References: <20091009083807.16e55b08@nehalam>
+	<1255106246.2182.219.camel@moss-pluto.epoch.ncsc.mil>
+	<1255106692.2182.224.camel@moss-pluto.epoch.ncsc.mil>
+	<200910091812.16046.paul.moore@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Frans Pop <elendil@planet.nl>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>, hpa@zytor.com
-To: Tejun Heo <tj@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f176.google.com ([209.85.211.176]:49863 "EHLO
-	mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755561AbZJJAYi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 20:24:38 -0400
-In-Reply-To: <4AAE105E.1080005@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Smalley <sds@tycho.nsa.gov>,
+	linux-security-module@vger.kernel.org,
+	Al Viro <viro@zeniv.linux.org.uk>, netdev@vger.kernel.org,
+	James Morris <jmorris@namei.org>
+To: Paul Moore <paul.moore@hp.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <200910091812.16046.paul.moore@hp.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 14, 2009 at 2:43 AM, Tejun Heo <tj@kernel.org> wrote:
-> Tejun Heo wrote:
->> Frans Pop wrote:
->>> Jesse Brandeburg wrote:
->>>> I've bisected, here is my bisect log, problem is that the commit
->>>> identified is a merge commit, and *I don't know what to revert to =
-test*.
->>>> It appears the parent of the merge:
->>>> 6e15cf04860074ad032e88c306bea656bbdd0f22 is marked good, but looks=
- to be
->>>> in a possibly related area to the panic.
->>> That merge does contain quite a few merge fixups, so it's quite pos=
-sible
->>> one of them is the cause of the failure.
->>> Maybe the simplest way to verify that is to compile both parents of=
- the
->>> merge to doublecheck that they work OK. Then, if a compile of the m=
-erge
->>> itself is bad, the problem really is in the merge commit itself.
->>>
->>> That commit is the "percpu" merge, so I've added Tejun (author of m=
-ost of
->>> that branch) and Ingo (merger) in CC.
->>
->> Sorry, the oops doesn't ring a bell, well, not yet at least. =A0It w=
-ould
->> be great if the bisection can be narrowed down more.
->
-> Also, building w/ debug option on, capturing more oops traces and
-> pasting gdb output of l *<oops address> might shed some more light.
+On Fri, 9 Oct 2009 18:12:15 -0400
+Paul Moore <paul.moore@hp.com> wrote:
 
-Okay, it has been a while and I have an update on this issue.  The
-actual panic seems to have disappeared in 2.6.32-rc1(2), however, with
-CONFIG_CC_STACKPROTECTOR=3Dy, I am still panicking, the stack protector
-fault shows only this message, no backtrace is listed:
+> On Friday 09 October 2009 12:44:52 pm Stephen Smalley wrote:
+> > On Fri, 2009-10-09 at 12:37 -0400, Stephen Smalley wrote:
+> > > On Fri, 2009-10-09 at 08:38 -0700, Stephen Hemminger wrote:
+> > > > The existing networking namespace model is unattractive for what I
+> > > > want, has anyone investigated better alternatives?
+> > > >
+> > > > I would like to be able to allow access to a network interface and
+> > > > associated objects (routing tables etc), to be controlled by Mandatory
+> > > > Access Control API's. I.e grant access to eth0 and to only certain
+> > > > processes.  Some the issues with the existing models are:
+> > > >   * eth0 and associated objects don't really exist in filesystem so
+> > > >     not subject to LSM style control (SeLinux/SMACK/TOMOYO)
+> 
+> As Stephen points out, SELinux does have the ability to assign security labels 
+> to network interfaces, check out the 'semanage' command.  A while back I wrote 
+> up something about the SELinux network "ingress/egress" access controls:
+> 
+>  * http://paulmoore.livejournal.com/2128.html
 
-Kernel stack is corrupted in: ffffffff810b5b31
+I was hoping to be able to not have inaccessible interfaces visible,
+is it possible to not have interfaces show up in commands like:
+  ip link show
+or sysfs?
 
-I've built with a full debug kernel before this crash, so I did:
 
-(gdb) l *0xffffffff810b5b31
-0xffffffff810b5b31 is in move_native_irq (kernel/irq/migration.c:67).
-62			return;
-63=09
-64		desc->chip->mask(irq);
-65		move_masked_irq(irq);
-66		desc->chip->unmask(irq);
->>> 67	}
-68=09
-(gdb) l move_native_irq
-54	void move_native_irq(int irq)
-55	{
-56		struct irq_desc *desc =3D irq_to_desc(irq);
-57=09
-58		if (likely(!(desc->status & IRQ_MOVE_PENDING)))
-59			return;
-60=09
-61		if (unlikely(desc->status & IRQ_DISABLED))
-62			return;
-63=09
-64		desc->chip->mask(irq);
-65		move_masked_irq(irq);
-66		desc->chip->unmask(irq);
-67	}
-
-So, this seems very related to my panic, as it is likely that
-irqbalance or something else might try to move my interrupt from one
-core to another and this seems likely related, and the original issue
-as well as this one reproduce with LOTS of MSI-X vectors active.
-
-- I tried connecting after the panic with kgdboc, no connection
-- I tried kdump, but the same kernel I am using panics/hangs during
-boot right after udev during the kexec() kernel boot (should I try
-harder to get this working given it got so far?)
-- I have ftrace function tracer running but no way to get at the log
-post panic (wouldn't it be great if the kernel just dumped the ftrace
-log on __stack_chk_fail?)
-
-any other debugging tricks/ideas?
+-- 
