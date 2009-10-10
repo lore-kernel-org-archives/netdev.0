@@ -1,152 +1,83 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [net-next PATCH 8/8] qlge: Add CBFC pause frame counters to ethtool stats.
-Date: Sat, 10 Oct 2009 12:35:10 -0700
-Message-ID: <1255203310-18114-9-git-send-email-ron.mercer@qlogic.com>
-References: <1255203310-18114-1-git-send-email-ron.mercer@qlogic.com>
-Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
-To: davem@davemloft.net
+From: =?utf-8?q?Nicolas=20de=20Peslo=C3=BCan?=
+	<nicolas.2p.debian@free.fr>
+Subject: [PATCH netnext-2.6] bonding: change bond_create_proc_entry() to return void
+Date: Sat, 10 Oct 2009 22:41:47 +0200
+Message-ID: <1255207307-5976-1-git-send-email-nicolas.2p.debian@free.fr>
+References: <b9df5fa10910091910u1b6bf14bg2781cb12c58b21f9@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?utf-8?q?Nicolas=20de=20Peslo=C3=BCan?=
+	<nicolas.2p.debian@free.fr>
+To: fubar@us.ibm.com, davem@davemloft.net, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net, rakib.mullick@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:55225 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934793AbZJJTnq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2009 15:43:46 -0400
-In-Reply-To: <1255203310-18114-1-git-send-email-ron.mercer@qlogic.com>
+Received: from smtp6-g21.free.fr ([212.27.42.6]:58791 "EHLO smtp6-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934798AbZJJUmo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Oct 2009 16:42:44 -0400
+In-Reply-To: <b9df5fa10910091910u1b6bf14bg2781cb12c58b21f9@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The function bond_create_proc_entry is currently of type int.
 
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+Two versions of this function exist:
+
+The one in the ifdef CONFIG_PROC_FS branch always return 0.
+The one in the else branch (which is empty) return nothing.
+
+When CONFIG_PROC_FS is undef, this cause the following warning:
+
+drivers/net/bonding/bond_main.c: In function `bond_create_proc_entry':
+drivers/net/bonding/bond_main.c:3393: warning: control reaches end of
+non-void function
+
+No caller of this function use the returned value.
+
+So change the returned type from int to void and remove the
+useless return 0; .
+
+Signed-off-by: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
+Reported-by: Rakib Mullick <rakib.mullick@gmail.com>
 ---
- drivers/net/qlge/qlge.h         |   21 ++++++++++++
- drivers/net/qlge/qlge_ethtool.c |   69 +++++++++++++++++++++++++++++++++++++++
- 2 files changed, 90 insertions(+), 0 deletions(-)
+ drivers/net/bonding/bond_main.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
-index 633fcd1..fd47691 100644
---- a/drivers/net/qlge/qlge.h
-+++ b/drivers/net/qlge/qlge.h
-@@ -1363,6 +1363,27 @@ struct nic_stats {
- 	u64 rx_1024_to_1518_pkts;
- 	u64 rx_1519_to_max_pkts;
- 	u64 rx_len_err_pkts;
-+	/*
-+	 * These stats come from offset 500h to 5C8h
-+	 * in the XGMAC register.
-+	 */
-+	u64 tx_cbfc_pause_frames0;
-+	u64 tx_cbfc_pause_frames1;
-+	u64 tx_cbfc_pause_frames2;
-+	u64 tx_cbfc_pause_frames3;
-+	u64 tx_cbfc_pause_frames4;
-+	u64 tx_cbfc_pause_frames5;
-+	u64 tx_cbfc_pause_frames6;
-+	u64 tx_cbfc_pause_frames7;
-+	u64 rx_cbfc_pause_frames0;
-+	u64 rx_cbfc_pause_frames1;
-+	u64 rx_cbfc_pause_frames2;
-+	u64 rx_cbfc_pause_frames3;
-+	u64 rx_cbfc_pause_frames4;
-+	u64 rx_cbfc_pause_frames5;
-+	u64 rx_cbfc_pause_frames6;
-+	u64 rx_cbfc_pause_frames7;
-+	u64 rx_nic_fifo_drop;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
+_main.c
+index ef6af1c..feb03ad 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3375,7 +3375,7 @@ static const struct file_operations bond_info_fop=
+s =3D {
+ 	.release =3D seq_release,
  };
- 
- /*
-diff --git a/drivers/net/qlge/qlge_ethtool.c b/drivers/net/qlge/qlge_ethtool.c
-index 5207394..aac6c6f 100644
---- a/drivers/net/qlge/qlge_ethtool.c
-+++ b/drivers/net/qlge/qlge_ethtool.c
-@@ -132,6 +132,41 @@ static void ql_update_stats(struct ql_adapter *qdev)
- 		iter++;
+=20
+-static int bond_create_proc_entry(struct bonding *bond)
++static void bond_create_proc_entry(struct bonding *bond)
+ {
+ 	struct net_device *bond_dev =3D bond->dev;
+=20
+@@ -3390,8 +3390,6 @@ static int bond_create_proc_entry(struct bonding =
+*bond)
+ 		else
+ 			memcpy(bond->proc_file_name, bond_dev->name, IFNAMSIZ);
  	}
- 
-+	/*
-+	 * Get Per-priority TX pause frame counter statistics.
-+	 */
-+	for (i = 0x500; i < 0x540; i += 8) {
-+		if (ql_read_xgmac_reg64(qdev, i, &data)) {
-+			QPRINTK(qdev, DRV, ERR,
-+				"Error reading status register 0x%.04x.\n", i);
-+			goto end;
-+		} else
-+			*iter = data;
-+		iter++;
-+	}
-+
-+	/*
-+	 * Get Per-priority RX pause frame counter statistics.
-+	 */
-+	for (i = 0x568; i < 0x5a8; i += 8) {
-+		if (ql_read_xgmac_reg64(qdev, i, &data)) {
-+			QPRINTK(qdev, DRV, ERR,
-+				"Error reading status register 0x%.04x.\n", i);
-+			goto end;
-+		} else
-+			*iter = data;
-+		iter++;
-+	}
-+
-+	/*
-+	 * Get RX NIC FIFO DROP statistics.
-+	 */
-+	if (ql_read_xgmac_reg64(qdev, 0x5b8, &data)) {
-+		QPRINTK(qdev, DRV, ERR,
-+			"Error reading status register 0x%.04x.\n", i);
-+		goto end;
-+	} else
-+		*iter = data;
- end:
- 	ql_sem_unlock(qdev, qdev->xg_sem_mask);
- quit:
-@@ -185,6 +220,23 @@ static char ql_stats_str_arr[][ETH_GSTRING_LEN] = {
- 	{"rx_1024_to_1518_pkts"},
- 	{"rx_1519_to_max_pkts"},
- 	{"rx_len_err_pkts"},
-+	{"tx_cbfc_pause_frames0"},
-+	{"tx_cbfc_pause_frames1"},
-+	{"tx_cbfc_pause_frames2"},
-+	{"tx_cbfc_pause_frames3"},
-+	{"tx_cbfc_pause_frames4"},
-+	{"tx_cbfc_pause_frames5"},
-+	{"tx_cbfc_pause_frames6"},
-+	{"tx_cbfc_pause_frames7"},
-+	{"rx_cbfc_pause_frames0"},
-+	{"rx_cbfc_pause_frames1"},
-+	{"rx_cbfc_pause_frames2"},
-+	{"rx_cbfc_pause_frames3"},
-+	{"rx_cbfc_pause_frames4"},
-+	{"rx_cbfc_pause_frames5"},
-+	{"rx_cbfc_pause_frames6"},
-+	{"rx_cbfc_pause_frames7"},
-+	{"rx_nic_fifo_drop"},
- };
- 
- static void ql_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
-@@ -257,6 +309,23 @@ ql_get_ethtool_stats(struct net_device *ndev,
- 	*data++ = s->rx_1024_to_1518_pkts;
- 	*data++ = s->rx_1519_to_max_pkts;
- 	*data++ = s->rx_len_err_pkts;
-+	*data++ = s->tx_cbfc_pause_frames0;
-+	*data++ = s->tx_cbfc_pause_frames1;
-+	*data++ = s->tx_cbfc_pause_frames2;
-+	*data++ = s->tx_cbfc_pause_frames3;
-+	*data++ = s->tx_cbfc_pause_frames4;
-+	*data++ = s->tx_cbfc_pause_frames5;
-+	*data++ = s->tx_cbfc_pause_frames6;
-+	*data++ = s->tx_cbfc_pause_frames7;
-+	*data++ = s->rx_cbfc_pause_frames0;
-+	*data++ = s->rx_cbfc_pause_frames1;
-+	*data++ = s->rx_cbfc_pause_frames2;
-+	*data++ = s->rx_cbfc_pause_frames3;
-+	*data++ = s->rx_cbfc_pause_frames4;
-+	*data++ = s->rx_cbfc_pause_frames5;
-+	*data++ = s->rx_cbfc_pause_frames6;
-+	*data++ = s->rx_cbfc_pause_frames7;
-+	*data++ = s->rx_nic_fifo_drop;
+-
+-	return 0;
  }
- 
- static int ql_get_settings(struct net_device *ndev,
--- 
-1.6.0.2
+=20
+ static void bond_remove_proc_entry(struct bonding *bond)
+@@ -3430,7 +3428,7 @@ static void bond_destroy_proc_dir(void)
+=20
+ #else /* !CONFIG_PROC_FS */
+=20
+-static int bond_create_proc_entry(struct bonding *bond)
++static void bond_create_proc_entry(struct bonding *bond)
+ {
+ }
+=20
+--=20
+1.6.3.3
 
