@@ -1,50 +1,38 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: Real networking namespace
-Date: Fri, 9 Oct 2009 19:08:20 -0700
-Message-ID: <20091009190820.0a0f09c2@nehalam>
-References: <20091009083807.16e55b08@nehalam>
-	<1255106246.2182.219.camel@moss-pluto.epoch.ncsc.mil>
-	<1255106692.2182.224.camel@moss-pluto.epoch.ncsc.mil>
-	<200910091812.16046.paul.moore@hp.com>
+From: Rakib Mullick <rakib.mullick@gmail.com>
+Subject: [PATCH] net,bonding: Add return statement in bond_create_proc_entry.
+Date: Sat, 10 Oct 2009 08:10:58 +0600
+Message-ID: <b9df5fa10910091910u1b6bf14bg2781cb12c58b21f9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Smalley <sds@tycho.nsa.gov>,
-	linux-security-module@vger.kernel.org,
-	Al Viro <viro@zeniv.linux.org.uk>, netdev@vger.kernel.org,
-	James Morris <jmorris@namei.org>
-To: Paul Moore <paul.moore@hp.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <200910091812.16046.paul.moore@hp.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: bonding-devel@lists.sourceforge.net
+To: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f177.google.com ([209.85.222.177]:40573 "EHLO
+	mail-pz0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934587AbZJJCLe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 22:11:34 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 9 Oct 2009 18:12:15 -0400
-Paul Moore <paul.moore@hp.com> wrote:
+The function bond_create_proc_entry supposed to return int instead of void.
+And fixes the following compilation warning.
 
-> On Friday 09 October 2009 12:44:52 pm Stephen Smalley wrote:
-> > On Fri, 2009-10-09 at 12:37 -0400, Stephen Smalley wrote:
-> > > On Fri, 2009-10-09 at 08:38 -0700, Stephen Hemminger wrote:
-> > > > The existing networking namespace model is unattractive for what I
-> > > > want, has anyone investigated better alternatives?
-> > > >
-> > > > I would like to be able to allow access to a network interface and
-> > > > associated objects (routing tables etc), to be controlled by Mandatory
-> > > > Access Control API's. I.e grant access to eth0 and to only certain
-> > > > processes.  Some the issues with the existing models are:
-> > > >   * eth0 and associated objects don't really exist in filesystem so
-> > > >     not subject to LSM style control (SeLinux/SMACK/TOMOYO)
-> 
-> As Stephen points out, SELinux does have the ability to assign security labels 
-> to network interfaces, check out the 'semanage' command.  A while back I wrote 
-> up something about the SELinux network "ingress/egress" access controls:
-> 
->  * http://paulmoore.livejournal.com/2128.html
+drivers/net/bonding/bond_main.c: In function `bond_create_proc_entry':
+drivers/net/bonding/bond_main.c:3393: warning: control reaches end of
+non-void function
 
-I was hoping to be able to not have inaccessible interfaces visible,
-is it possible to not have interfaces show up in commands like:
-  ip link show
-or sysfs?
+---
+Signed-off-by: Rakib Mullick <rakib.mullick@gmail.com>
 
+--- linus/drivers/net/bonding/bond_main.c	2009-10-09 17:38:35.000000000 +0600
++++ rakib/drivers/net/bonding/bond_main.c	2009-10-09 17:47:46.000000000 +0600
+@@ -3391,6 +3391,7 @@ static void bond_destroy_proc_dir(void)
 
--- 
+ static int bond_create_proc_entry(struct bonding *bond)
+ {
++	return 0;
+ }
+
+ static void bond_remove_proc_entry(struct bonding *bond)
