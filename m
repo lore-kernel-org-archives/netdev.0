@@ -1,110 +1,93 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [BUG net-2.6] bluetooth/rfcomm : sleeping function called from
- invalid context at mm/slub.c:1719
-Date: Sat, 10 Oct 2009 12:38:32 +0200
-Message-ID: <1255171112.19127.1.camel@localhost.localdomain>
-References: <4AC59D8A.6000102@hartkopp.net>
-	 <a8e1da0910020401m2fb8493ax95ff55a3b66131a5@mail.gmail.com>
-	 <4AC6247E.7050308@hartkopp.net> <20091003070622.GA4110@darkstar>
-	 <4AC71CAA.9090704@hartkopp.net>
-	 <a8e1da0910032026m66200c08jf9201bbfe34b2f30@mail.gmail.com>
-	 <20091004180635.GA11272@vigoh>  <20091009004452.GA2395@darkstar>
+From: Nick Kossifidis <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Ath5k data aborts
+Date: Sat, 10 Oct 2009 13:56:36 +0300
+Message-ID: <40f31dec0910100356i470a93d0x3244867e1160e9df@mail.gmail.com>
+References: <m3tyy8fkda.fsf@intrepid.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Gustavo F. Padovan" <gustavo-r7biftawOlEmmTcpzmvVSFAUjnlXr6A1@public.gmane.org>
-To: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20091009004452.GA2395@darkstar>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
+Return-path: <ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
+In-Reply-To: <m3tyy8fkda.fsf-gTjgKJgtlHj77SC2UrCW1FMQynFLKtET@public.gmane.org>
+List-Unsubscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
+	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ath5k.org/pipermail/ath5k-devel>
+List-Post: <mailto:ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
+List-Help: <mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
+	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=subscribe>
+Sender: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
+Errors-To: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
-
-> > * Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> [2009-10-04 11:26:17 +0800]:
-> > 
-> > > 
-> > > I can reproduce the bug.
-> > > 
-> > > It's probably caused by the l2cap changes by  Gustavo F. Padovan
-> > > <gustavo-r7biftawOlEmmTcpzmvVSFAUjnlXr6A1@public.gmane.org>, I didn't see such problem after reverting
-> > > Gustavo's patch series.
-> > 
-> > I can't reproduce the bug. I'm trying to reproduce it to figure out what of
-> > my changes cause it.
-> > 
-> > I' running
-> > 
-> > $ dund -snu -i 00:11:67:CD:0F:CB # to pretend to be dialup/telephone
-> > 
-> > and on the other side 
-> > 
-> > $ rfcomm bind 0 00:11:67:CD:0F:CB 1
-> > $ wvdial  # wvdial to /dev/rfcomm0
-> > 
-> > Both sides are on the same machine. Do you see any real difference
-> > between my try and the call that get the bug?
-> > 
-> 
-> Hi oliver
-> 
-> Could try following patch?
-> ---
-> 
-> When shutdown ppp connection, lockdep waring about non-static key
-> will happen, it is caused by the lock is not initialized properly
-> at that time.
-> 
-> Fix with tuning the lock/skb_queue_head init order
-> 
-> [   94.339261] INFO: trying to register non-static key.
-> [   94.342509] the code is fine but needs lockdep annotation.
-> [   94.342509] turning off the locking correctness validator.
-> [   94.342509] Pid: 0, comm: swapper Not tainted 2.6.31-mm1 #2
-> [   94.342509] Call Trace:
-> [   94.342509]  [<c0248fbe>] register_lock_class+0x58/0x241
-> [   94.342509]  [<c024b5df>] ? __lock_acquire+0xb57/0xb73
-> [   94.342509]  [<c024ab34>] __lock_acquire+0xac/0xb73
-> [   94.342509]  [<c024b7fa>] ? lock_release_non_nested+0x17b/0x1de
-> [   94.342509]  [<c024b662>] lock_acquire+0x67/0x84
-> [   94.342509]  [<c04cd1eb>] ? skb_dequeue+0x15/0x41
-> [   94.342509]  [<c054a857>] _spin_lock_irqsave+0x2f/0x3f
-> [   94.342509]  [<c04cd1eb>] ? skb_dequeue+0x15/0x41
-> [   94.342509]  [<c04cd1eb>] skb_dequeue+0x15/0x41
-> [   94.342509]  [<c054a648>] ? _read_unlock+0x1d/0x20
-> [   94.342509]  [<c04cd641>] skb_queue_purge+0x14/0x1b
-> [   94.342509]  [<fab94fdc>] l2cap_recv_frame+0xea1/0x115a [l2cap]
-> [   94.342509]  [<c024b5df>] ? __lock_acquire+0xb57/0xb73
-> [   94.342509]  [<c0249c04>] ? mark_lock+0x1e/0x1c7
-> [   94.342509]  [<f8364963>] ? hci_rx_task+0xd2/0x1bc [bluetooth]
-> [   94.342509]  [<fab95346>] l2cap_recv_acldata+0xb1/0x1c6 [l2cap]
-> [   94.342509]  [<f8364997>] hci_rx_task+0x106/0x1bc [bluetooth]
-> [   94.342509]  [<fab95295>] ? l2cap_recv_acldata+0x0/0x1c6 [l2cap]
-> [   94.342509]  [<c02302c4>] tasklet_action+0x69/0xc1
-> [   94.342509]  [<c022fbef>] __do_softirq+0x94/0x11e
-> [   94.342509]  [<c022fcaf>] do_softirq+0x36/0x5a
-> [   94.342509]  [<c022fe14>] irq_exit+0x35/0x68
-> [   94.342509]  [<c0204ced>] do_IRQ+0x72/0x89
-> [   94.342509]  [<c02038ee>] common_interrupt+0x2e/0x34
-> [   94.342509]  [<c024007b>] ? pm_qos_add_requirement+0x63/0x9d
-> [   94.342509]  [<c038e8a5>] ? acpi_idle_enter_bm+0x209/0x238
-> [   94.342509]  [<c049d238>] cpuidle_idle_call+0x5c/0x94
-> [   94.342509]  [<c02023f8>] cpu_idle+0x4e/0x6f
-> [   94.342509]  [<c0534153>] rest_init+0x53/0x55
-> [   94.342509]  [<c0781894>] start_kernel+0x2f0/0x2f5
-> [   94.342509]  [<c0781091>] i386_start_kernel+0x91/0x96
-> 
-> Reported-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-> Signed-off-by: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-
-actually Gustavo send a patch titled "Initialize variables and timers
-for both channel's sides" that should fix this, too. Can we test that
-patch before I include this one.
-
-Regards
-
-Marcel
+MjAwOS8xMC85IEtyenlzenRvZiBIYWxhc2EgPGtoY0BwbS53YXcucGw+Ogo+IEhpLAo+Cj4gSSBo
+YXZlIGRvbmUgYSBzbWFsbCBpbnZlc3RpZ2F0aW9uLiBJWFA0MjUgKEFSTSkgaW4gYmlnLWVuZGlh
+biBtb2RlLAo+IEVBQkksIG1pbmktUENJIGF0azVrIHdpZmkgY2FyZCwgaG9zdGFwZC4KPgo+IEF0
+aGVyb3MgQ29tbXVuaWNhdGlvbnMgSW5jLiBBdGhlcm9zIEFSNTAwMVgrIFdpcmVsZXNzIE5ldHdv
+cmsgQWRhcHRlciAocmV2IDAxKQo+IFN1YnN5c3RlbTogV2lzdHJvbiBOZVdlYiBDb3JwLiBDTTkg
+V2lyZWxlc3MgYS9iL2cgTWluaVBDSSBBZGFwdGVyCj4gMTY4YzowMDEzIHN1YnN5c3RlbSAxODVm
+OjEwMTIKPgo+Cj4gUmVzdWx0czoKPiBCYWQgbW9kZSBpbiBkYXRhIGFib3J0IGhhbmRsZXIgZGV0
+ZWN0ZWQKPiBJbnRlcm5hbCBlcnJvcjogT29wcyAtIGJhZCBtb2RlOiAwIFsjMV0KPiBMUiBpcyBh
+dCBhdGg1a19iZWFjb25fY29uZmlnKzB4MTUwLzB4MWQ0IFthdGg1a10KPgo+IFRoaXMgbWVhbnMg
+dGhlIFBDSSBkZXZpY2UgZGlkbid0IHJlc3BvbmQgb24gdGhlIGJ1cyBvciBzb21ldGhpbmcKPiBs
+aWtlIHRoYXQuIE9idmlvdXNseSB0aGUgY2FyZCBpcyB0aGVuIHVudXNhYmxlIGFuZCB0aGUgc3lz
+dGVtIG5lZWRzIHRvCj4gYmUgcmVzdGFydGVkLgo+Cj4gQmlzZWN0aW5nIChJIGhhZCB0byBtb2Rp
+ZnkgdGhlIHByb2NlZHVyZSBhIGJpdCBzaW5jZSBpdCBvbmx5IHN0YXJ0ZWQgdG8KPiBzaG93IHVw
+IGFmdGVyIG90aGVyIHVucmVsYXRlZCBjb2RlIHdhcyBtZXJnZWQpIHNob3dzIHRoZSBndWlsdHkg
+Y29tbWl0Ogo+IGU4ZjA1NWYwYzNiYTIyNmNhNTk5YzE0YzJlNWZlODI5ZjZmNTdjYmIgKGF0aDVr
+OiBVcGRhdGUgcmVzZXQgY29kZSkuCj4KPiBUaGUgcHJvYmxlbSBleGlzdHMgd2l0aCAyLjYuMzAs
+IDIuNi4zMSBhbmQgY3VycmVudCBMaW51cycgdHJlZS4KPgo+IFNpZ25lZC1vZmYtYnk6IEtyenlz
+enRvZiBIYcWCYXNhIDxraGNAcG0ud2F3LnBsPgo+Cj4gLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLQo+IDIuNi4zMCBhcHBlYXJzIHRvIGJlIGZpeGVkIGJ5Ogo+
+Cj4gLS0tIGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoNWsvcmVzZXQuYwo+ICsrKyBiL2RyaXZl
+cnMvbmV0L3dpcmVsZXNzL2F0aDVrL3Jlc2V0LmMKPiBAQCAtNDc2LDcgKzQ3Niw3IEBAIHN0YXRp
+YyB2b2lkIGF0aDVrX2h3X3NldF9zbGVlcF9jbG9jayhzdHJ1Y3QgYXRoNWtfaHcgKmFoLCBib29s
+IGVuYWJsZSkKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoChhaC0+YWhfbWFjX3ZlcnNpb24gPT0g
+KEFSNUtfU1JFVl9BUjI0MTcgPj4gNCkpKSB7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqBhdGg1a19od19yZWdfd3JpdGUoYWgsIDB4MjYsIEFSNUtfUEhZX1NMTVQpOwo+IMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgYXRoNWtfaHdfcmVnX3dyaXRlKGFoLCAw
+eDBkLCBBUjVLX1BIWV9TQ0FMKTsKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IGF0aDVrX2h3X3JlZ193cml0ZShhaCwgMHgwNywgQVI1S19QSFlfU0NMT0NLKTsKPiArIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGF0aDVrX2h3X3JlZ193cml0ZShhaCwgMHgwQywg
+QVI1S19QSFlfU0NMT0NLKTsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGF0
+aDVrX2h3X3JlZ193cml0ZShhaCwgMHgzZiwgQVI1S19QSFlfU0RFTEFZKTsKPiDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoEFSNUtfUkVHX1dSSVRFX0JJVFMoYWgsIEFSNUtfUENJ
+Q0ZHLAo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgQVI1
+S19QQ0lDRkdfU0xFRVBfQ0xPQ0tfUkFURSwgMHgwMik7Cj4gQEAgLTQ5MCw4ICs0OTAsMTAgQEAg
+c3RhdGljIHZvaWQgYXRoNWtfaHdfc2V0X3NsZWVwX2Nsb2NrKHN0cnVjdCBhdGg1a19odyAqYWgs
+IGJvb2wgZW5hYmxlKQo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgfQo+Cj4gwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAvKiBFbmFibGUgc2xlZXAgY2xvY2sgb3BlcmF0aW9uICovCj4gKyNpZiAwCj4g
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBBUjVLX1JFR19FTkFCTEVfQklUUyhhaCwgQVI1S19QQ0lD
+RkcsCj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBBUjVL
+X1BDSUNGR19TTEVFUF9DTE9DS19FTik7Cj4gKyNlbmRpZgo+Cj4gwqAgwqAgwqAgwqB9IGVsc2Ug
+ewo+Cj4KPgo+IFRoZSBBUjVLX1BIWV9TQ0xPQ0sgYnJpbmdzIHRoZSBvbGQgdmFsdWUgKGJlZm9y
+ZSB0aGUgY29tbWl0IGluIHF1ZXN0aW9uKQo+IGJhY2ssIEkgaGF2ZSBubyBpZGVhIHdoYXQgaXMg
+aXQuIExlYXZpbmcgdGhlIG5ldyB2YWx1ZSBjYXVzZXMgdGhlIHNlY29uZAo+IHJ1biBvZiBob3N0
+YXBkIHRvIG1ha2UgdGhlIGRyaXZlciBmYWlsLCB0aGUgY2hpcCBzZWVtcyB0byBub3QgcmVzcG9u
+ZC4KPiBJdCBzZWVtcyB0aGUgdmFsdWUgaXRzZWxmIG1heSBiZSBjb3JyZWN0IChhcyBpdCB3b3Jr
+cyB3aXRoIDIuNi4zMSspIGJ1dAo+IHRoZXJlIGlzIHNvbWUgYWRkaXRpb25hbCBidWcgZml4ZWQg
+YWZ0ZXIgMi42LjMwLCBnaXRrIHNob3cgc2V2ZXJhbAo+IGNhbmRpZGF0ZSBwYXRjaGVzIGZvciB0
+aGlzLgo+Cj4KPiBPbmx5IGRpc2FibGluZyBBUjVLX1BDSUNGRyB3cml0ZSBtYWtlcyB0aGUgZGF0
+YSBhYm9ydCBnbyBhd2F5Lgo+Cj4gLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLQo+IDIuNi4zMSBhbmQgTGludXMtY3VycmVudCBvbmx5IG5lZWQgdGhlIEFSNUtf
+UENJQ0ZHIGNoYW5nZToKPgo+IC0tLSBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGg1ay9y
+ZXNldC5jCj4gKysrIGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDVrL3Jlc2V0LmMKPiBA
+QCAtNDg5LDkgKzQ4OSwxMCBAQCBzdGF0aWMgdm9pZCBhdGg1a19od19zZXRfc2xlZXBfY2xvY2so
+c3RydWN0IGF0aDVrX2h3ICphaCwgYm9vbCBlbmFibGUpCj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqB9Cj4KPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoC8qIEVuYWJsZSBzbGVlcCBjbG9jayBvcGVy
+YXRpb24gKi8KPiArI2lmIDAKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoEFSNUtfUkVHX0VOQUJM
+RV9CSVRTKGFoLCBBUjVLX1BDSUNGRywKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoEFSNUtfUENJQ0ZHX1NMRUVQX0NMT0NLX0VOKTsKPiAtCj4gKyNlbmRp
+Zgo+IMKgIMKgIMKgIMKgfSBlbHNlIHsKPgo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgLyogRGlz
+YWJsZSBzbGVlcCBjbG9jayBvcGVyYXRpb24gYW5kCj4KPgo+IFRoZSBxdWVzdGlvbiBpcywgb2J2
+aW91c2x5LCBob3cgdG8gZml4IHRoYXQgZm9yIGdvb2QuIEkgY2FuIHRlc3QgdGhlCj4gcmVzdWx0
+LgoKSW50ZXJlc3RpbmcsIGNhbiB5b3UgcHJvdmlkZSB1cyB3aXRoIGFuIGVlcHJvbSBpbmZvIGR1
+bXAgZnJvbSB5b3VyCmNhcmQgKHVzaW5nIGF0aF9pbmZvIHRvb2wgZnJvbSBtYWR3aWZpIHN2bikg
+PwpJdCBzZWVtcyB3ZSBuZWVkIHRvIHNraXAgc2xlZXAgY2xvY2sgb3BlcmF0aW9uIGluIHlvdXIg
+Y2FzZS4KCgotLSAKR1BHIElEOiAweEQyMURCMkRCCkFzIHlvdSByZWFkIHRoaXMgcG9zdCBnbG9i
+YWwgZW50cm9weSByaXNlcy4gSGF2ZSBGdW4gOy0pCk5pY2sKX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX18KYXRoNWstZGV2ZWwgbWFpbGluZyBsaXN0CmF0aDVr
+LWRldmVsQGxpc3RzLmF0aDVrLm9yZwpodHRwczovL2xpc3RzLmF0aDVrLm9yZy9tYWlsbWFuL2xp
+c3RpbmZvL2F0aDVrLWRldmVsCg==
