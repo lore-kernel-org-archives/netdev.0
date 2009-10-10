@@ -1,38 +1,64 @@
-From: Rakib Mullick <rakib.mullick@gmail.com>
-Subject: [PATCH] net,bonding: Add return statement in bond_create_proc_entry.
-Date: Sat, 10 Oct 2009 08:10:58 +0600
-Message-ID: <b9df5fa10910091910u1b6bf14bg2781cb12c58b21f9@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: PATCH: Network Device Naming mechanism and policy
+Date: Fri, 9 Oct 2009 19:44:01 -0700
+Message-ID: <20091009194401.036da080@nehalam>
+References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com>
+	<20091009140000.GA18765@mock.linuxdev.us.dell.com>
+	<20091009210909.GA9836@auslistsprd01.us.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: bonding-devel@lists.sourceforge.net
-To: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
+	Narendra_K@dell.com, jordan_hargrave@dell.com
+To: Matt Domsch <Matt_Domsch@dell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f177.google.com ([209.85.222.177]:40573 "EHLO
-	mail-pz0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934587AbZJJCLe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Oct 2009 22:11:34 -0400
+Received: from mail.vyatta.com ([76.74.103.46]:35123 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756009AbZJJCoo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Oct 2009 22:44:44 -0400
+In-Reply-To: <20091009210909.GA9836@auslistsprd01.us.dell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The function bond_create_proc_entry supposed to return int instead of void.
-And fixes the following compilation warning.
+On Fri, 9 Oct 2009 16:09:09 -0500
+Matt Domsch <Matt_Domsch@dell.com> wrote:
 
-drivers/net/bonding/bond_main.c: In function `bond_create_proc_entry':
-drivers/net/bonding/bond_main.c:3393: warning: control reaches end of
-non-void function
+> On Fri, Oct 09, 2009 at 09:00:01AM -0500, Narendra K wrote:
+> > On Fri, Oct 09, 2009 at 07:12:07PM +0530, K, Narendra wrote:
+> > > > example udev config:
+> > > > SUBSYSTEM=="net",
+> > > SYMLINK+="net/by-mac/$sysfs{ifindex}.$sysfs{address}"
+> > > 
+> > > work as well.  But coupling the ifindex to the MAC address like this
+> > > doesn't work.  (In general, coupling any two unrelated attributes when
+> > > trying to do persistent names doesn't work.)
+> > > 
+> > Attaching the latest patch incorporating review comments.
+> 
+> Same patch, rebased to linux-next.
+> 
+> By creating character devices for every network device, we can use
+> udev to maintain alternate naming policies for devices, including
+> additional names for the same device, without interfering with the
+> name that the kernel assigns a device.
+> 
+> This is conditionalized on CONFIG_NET_CDEV.  If enabled (the default),
+> device nodes will automatically be created in /dev/netdev/ for each
+> network device.  (/dev/net/ is already populated by the tun device.)
+> 
+> These device nodes are not functional at the moment - open() returns
+> -ENOSYS.  Their only purpose is to provide userspace with a kernel
+> name to ifindex mapping, in a form that udev can easily manage.
+> 
+> Signed-off-by: Jordan Hargrave <Jordan_Hargrave@dell.com>
+> Signed-off-by: Narendra K <Narendra_K@dell.com>
+> Signed-off-by: Matt Domsch <Matt_Domsch@dell.com>
 
----
-Signed-off-by: Rakib Mullick <rakib.mullick@gmail.com>
+Maybe I'm dense but can't see why having a useless /dev/net/ symlinks
+is a good interface choice. Perhaps you should explain the race between
+PCI scan and udev in more detail, and why solving it in either of those
+places won't work. As it stands you are proposing yet another wart to
+the already complex set of network interface API's which has implications
+for security as well as increasing the number of possible bugs.
 
---- linus/drivers/net/bonding/bond_main.c	2009-10-09 17:38:35.000000000 +0600
-+++ rakib/drivers/net/bonding/bond_main.c	2009-10-09 17:47:46.000000000 +0600
-@@ -3391,6 +3391,7 @@ static void bond_destroy_proc_dir(void)
-
- static int bond_create_proc_entry(struct bonding *bond)
- {
-+	return 0;
- }
-
- static void bond_remove_proc_entry(struct bonding *bond)
+-- 
