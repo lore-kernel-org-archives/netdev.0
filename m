@@ -1,71 +1,58 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
 Subject: Re: [BUG net-2.6] bluetooth/rfcomm : sleeping function called from
  invalid context at mm/slub.c:1719
-Date: Sat, 10 Oct 2009 11:54:40 +0200
-Message-ID: <4AD059E0.8090502@hartkopp.net>
-References: <4AC59D8A.6000102@hartkopp.net> <a8e1da0910020401m2fb8493ax95ff55a3b66131a5@mail.gmail.com> <4AC6247E.7050308@hartkopp.net> <20091003070622.GA4110@darkstar> <4AC71CAA.9090704@hartkopp.net> <a8e1da0910032026m66200c08jf9201bbfe34b2f30@mail.gmail.com> <20091004180635.GA11272@vigoh> <20091009004452.GA2395@darkstar>
+Date: Sat, 10 Oct 2009 12:38:32 +0200
+Message-ID: <1255171112.19127.1.camel@localhost.localdomain>
+References: <4AC59D8A.6000102@hartkopp.net>
+	 <a8e1da0910020401m2fb8493ax95ff55a3b66131a5@mail.gmail.com>
+	 <4AC6247E.7050308@hartkopp.net> <20091003070622.GA4110@darkstar>
+	 <4AC71CAA.9090704@hartkopp.net>
+	 <a8e1da0910032026m66200c08jf9201bbfe34b2f30@mail.gmail.com>
+	 <20091004180635.GA11272@vigoh>  <20091009004452.GA2395@darkstar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-bluetooth@vger.kernel.org,
-	"Gustavo F. Padovan" <gustavo@las.ic.unicamp.br>
-To: Dave Young <hidave.darkstar@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:25824 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756009AbZJJJ4F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2009 05:56:05 -0400
+Cc: "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+	Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"Gustavo F. Padovan" <gustavo-r7biftawOlEmmTcpzmvVSFAUjnlXr6A1@public.gmane.org>
+To: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 In-Reply-To: <20091009004452.GA2395@darkstar>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Dave Young wrote:
-> On Sun, Oct 04, 2009 at 06:06:35PM +0000, Gustavo F. Padovan wrote:
->> Hi all,
->>
->> * Dave Young <hidave.darkstar@gmail.com> [2009-10-04 11:26:17 +0800]:
->>
->>> I can reproduce the bug.
->>>
->>> It's probably caused by the l2cap changes by  Gustavo F. Padovan
->>> <gustavo@las.ic.unicamp.br>, I didn't see such problem after reverting
->>> Gustavo's patch series.
->> I can't reproduce the bug. I'm trying to reproduce it to figure out what of
->> my changes cause it.
->>
->> I' running
->>
->> $ dund -snu -i 00:11:67:CD:0F:CB # to pretend to be dialup/telephone
->>
->> and on the other side 
->>
->> $ rfcomm bind 0 00:11:67:CD:0F:CB 1
->> $ wvdial  # wvdial to /dev/rfcomm0
->>
->> Both sides are on the same machine. Do you see any real difference
->> between my try and the call that get the bug?
->>
+Hi Dave,
+
+> > * Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> [2009-10-04 11:26:17 +0800]:
+> > 
+> > > 
+> > > I can reproduce the bug.
+> > > 
+> > > It's probably caused by the l2cap changes by  Gustavo F. Padovan
+> > > <gustavo-r7biftawOlEmmTcpzmvVSFAUjnlXr6A1@public.gmane.org>, I didn't see such problem after reverting
+> > > Gustavo's patch series.
+> > 
+> > I can't reproduce the bug. I'm trying to reproduce it to figure out what of
+> > my changes cause it.
+> > 
+> > I' running
+> > 
+> > $ dund -snu -i 00:11:67:CD:0F:CB # to pretend to be dialup/telephone
+> > 
+> > and on the other side 
+> > 
+> > $ rfcomm bind 0 00:11:67:CD:0F:CB 1
+> > $ wvdial  # wvdial to /dev/rfcomm0
+> > 
+> > Both sides are on the same machine. Do you see any real difference
+> > between my try and the call that get the bug?
+> > 
 > 
 > Hi oliver
 > 
 > Could try following patch?
-
-I did. It fixed it on the base of the latest net-2.6 tree :-)
-
-Tested-by: Oliver Hartkopp <oliver@hartkopp.net>
-
-Together with the previous patch from http://patchwork.kernel.org/patch/51326/
-the reported bluetooth/rfcomm regressions should be fixed IMO.
-
-Thanks for your continuous work on this, Dave!
-
-Regards,
-Oliver
-
->
 > ---
 > 
 > When shutdown ppp connection, lockdep waring about non-static key
@@ -111,38 +98,13 @@ Oliver
 > [   94.342509]  [<c0781894>] start_kernel+0x2f0/0x2f5
 > [   94.342509]  [<c0781091>] i386_start_kernel+0x91/0x96
 > 
-> Reported-by: Oliver Hartkopp <oliver@hartkopp.net>
-> Signed-off-by: Dave Young <hidave.darkstar@gmail.com>
-> ---
-> net/bluetooth/l2cap.c |    9 ++++++---
-> 1 file changed, 6 insertions(+), 3 deletions(-)
-> 
-> --- linux-2.6.31.orig/net/bluetooth/l2cap.c	2009-10-09 08:32:46.000000000 +0800
-> +++ linux-2.6.31/net/bluetooth/l2cap.c	2009-10-09 08:33:57.000000000 +0800
-> @@ -555,12 +555,12 @@ static struct l2cap_conn *l2cap_conn_add
->  
->  	conn->feat_mask = 0;
->  
-> -	setup_timer(&conn->info_timer, l2cap_info_timeout,
-> -						(unsigned long) conn);
-> -
->  	spin_lock_init(&conn->lock);
->  	rwlock_init(&conn->chan_list.lock);
->  
-> +	setup_timer(&conn->info_timer, l2cap_info_timeout,
-> +						(unsigned long) conn);
-> +
->  	conn->disc_reason = 0x13;
->  
->  	return conn;
-> @@ -783,6 +783,9 @@ static void l2cap_sock_init(struct sock 
->  	/* Default config options */
->  	pi->conf_len = 0;
->  	pi->flush_to = L2CAP_DEFAULT_FLUSH_TO;
-> +	skb_queue_head_init(TX_QUEUE(sk));
-> +	skb_queue_head_init(SREJ_QUEUE(sk));
-> +	INIT_LIST_HEAD(SREJ_LIST(sk));
->  }
->  
->  static struct proto l2cap_proto = {
+> Reported-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+> Signed-off-by: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
+actually Gustavo send a patch titled "Initialize variables and timers
+for both channel's sides" that should fix this, too. Can we test that
+patch before I include this one.
+
+Regards
+
+Marcel
