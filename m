@@ -1,79 +1,73 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Subject: [PATCH 3/3] drivers/net/forcedeth.c: add support for Broadcom AC131
-Date: Sat, 10 Oct 2009 17:58:14 +0200
-Message-ID: <1255190294-4121-4-git-send-email-manfred@colorfullife.com>
-References: <1255190294-4121-1-git-send-email-manfred@colorfullife.com>
- <1255190294-4121-2-git-send-email-manfred@colorfullife.com>
- <1255190294-4121-3-git-send-email-manfred@colorfullife.com>
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Manfred Spraul <manfred@colorfullife.com>
-To: aabdulla@nvidia.com
+From: Stefano Babic <stefano.babic@babic.homelinux.org>
+Subject: Re: [7/8,RFC] CAIF Protocol Stack
+Date: Sat, 10 Oct 2009 18:09:55 +0200
+Message-ID: <4AD0B1D3.2060208@babic.homelinux.org>
+References: <1253727096-10413-1-git-send-email-sjur.brandeland@stericsson.com> <4ACA1D31.6000008@babic.homelinux.org> <61D8D34BB13CFE408D154529C120E07902ED671E@eseldmw101.eemea.ericsson.se> <4ACDF12A.6030906@babic.homelinux.org> <61D8D34BB13CFE408D154529C120E07902ED7054@eseldmw101.eemea.ericsson.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Kim Lilliestierna XX <kim.xx.lilliestierna@stericsson.com>
+To: =?ISO-8859-1?Q?Sjur_Br=E6ndeland?= <sjur.brandeland@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f227.google.com ([209.85.220.227]:44125 "EHLO
-	mail-fx0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761897AbZJJP6f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2009 11:58:35 -0400
-Received: by fxm27 with SMTP id 27so7279425fxm.17
-        for <netdev@vger.kernel.org>; Sat, 10 Oct 2009 08:57:58 -0700 (PDT)
-In-Reply-To: <1255190294-4121-3-git-send-email-manfred@colorfullife.com>
+Received: from smtpout31.attiva.biz ([88.44.63.37]:23770 "EHLO
+	smtpout31.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753555AbZJJQQF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2009 12:16:05 -0400
+In-Reply-To: <61D8D34BB13CFE408D154529C120E07902ED7054@eseldmw101.eemea.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds an errata/update for the Broadcom AC131 PHY to forcedeth.c
-The changes where written by Ayaz, I added meaningful names from
-drivers/net/phy/broadcom.c.
-Ayaz: The change is similar to brcm_fet_config_init(), except that you only
-enable auto power down.
-Is that sufficient? Please double check that.
+Sjur Br=E6ndeland wrote:
+> Hi Stefano.
 
---
-	Manfred
+Hi Sjur,
 
----
- drivers/net/forcedeth.c |   23 +++++++++++++++++++++++
- 1 files changed, 23 insertions(+), 0 deletions(-)
+>> Meanwhile, it seems some bytes are sent now to the physical interfac=
+e.
+>>
+>> <caif_chropen:797, TRACE> [caif_chropen:797] WAIT FOR CONNECT
+>> RESPONSE <caif_chropen:820, TRACE> caif_open: connect timed out=20
+>>
+>> However, I get no connection, but probably this is another problem..=
+=2E.
+>>
+>=20
+> Do you have a (ST-)Ericsson modem talking CAIF connected?
+> The correct behavior is to wait for the CONNECT_RESPONSE, and time ou=
+t.
 
-diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-index ccb9543..1595b2c 100644
---- a/drivers/net/forcedeth.c
-+++ b/drivers/net/forcedeth.c
-@@ -598,6 +598,12 @@ union ring_type {
- #define PHY_BCM54XX_SHD_WRITE   0x8000
- #define PHY_BCM54XX_SHD_REG3	0x0c00  /* shadow reg 3 - unknown */
- 
-+/* AC131: */
-+#define PHY_BCM_AC131_BRCMTEST		0x1f	/* Brcm test register */
-+#define PHY_BCM_AC131_BRCMTEST_SRE	0x0080	/* Shadow register enable */
-+#define PHY_BCM_AC131_SHDW_AUXSTAT2		0x1b	/* Auxiliary status 2 */
-+#define PHY_BCM_AC131_SHDW_AUXSTAT2_APDE	0x0020	/* Auto power down enable */
-+
- #define PHY_GIGABIT	0x0100
- 
- #define PHY_TIMEOUT	0x1
-@@ -1415,6 +1421,23 @@ static int phy_init(struct net_device *dev)
- 	}
- 
- 	if (np->phy_oui == PHY_OUI_BROADCOM) {
-+		if (np->driver_data & DEV_NEED_PHY_INIT_FIX) {
-+			if (np->phy_model == PHY_MODEL_BROADCOM_AC131) {
-+				phy_reserved = mii_rw(dev, np->phyaddr, PHY_BCM_AC131_BRCMTEST, MII_READ);
-+				phy_reserved |= PHY_BCM_AC131_BRCMTEST_SRE;
-+				if (mii_rw(dev, np->phyaddr, PHY_BCM_AC131_BRCMTEST,phy_reserved)) {
-+					printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
-+					return PHY_ERROR;
-+				}
-+
-+				phy_reserved = mii_rw(dev, np->phyaddr, PHY_BCM_AC131_SHDW_AUXSTAT2, MII_READ);
-+				phy_reserved |= PHY_BCM_AC131_SHDW_AUXSTAT2_APDE;
-+				if (mii_rw(dev, np->phyaddr, PHY_BCM_AC131_SHDW_AUXSTAT2,phy_reserved)) {
-+					printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
-+					return PHY_ERROR;
-+				}
-+			}
-+		}
- 		if (np->phy_model == PHY_MODEL_BROADCOM_50610) {
- 			if (mii_rw(dev, np->phyaddr, PHY_BCM54XX_SHD, PHY_BCM54XX_SHD_WRITE||
- 						PHY_BCM54XX_SHD_REG3|0)) {
--- 
-1.6.2.5
+Surely I have the best way to test a CAIF connection, even if I am not
+aware of it ;).
+I connected my target with an Ericsson Test Device "B26", that seems
+suitable for this kind of test. I know very little about it, I can only
+turn it on.
+It has a debug port and I can see the debug output of the CAIF
+connection in unformatted ASCII text (however, minicom formats this
+output when I log the traces).
 
+These strings should identify this device:
+
+(00:01.894746) BuildInfo: Label: <CRH109940_R2F015> Variant:
+<BRIDGE_CCPU_ACC_B26>
+(00:01.894746) BuildInfo: Generated: 2007-08-07 15:00 by EMWJBON
+(00:01.901973) Product  : <Ericsson Mobile Platform> Version: 0000
+(00:01.908459) HW Setup : NOT SPECIFIED (Id:0xc8) IRDA: 0033 BT: 0035
+RS232: 004A
+(00:01.914875) Vendor   : <Ericsson> PNP: ERI USB: 0BDB BT: 0000
+
+However, I am now able to start successfully a CAIF connection and I ca=
+n
+see the AT commands I send on the debug output of the B26.
+On my target, I can get:
+
+<caif_chropen:853, TRACE> [caif_chropen:853] CONNECTED
+
+I see you sent a newer patchset and I will repeat my test with it.
+
+Stefano
+
+--=20
+stefano <stefano.babic@babic.homelinux.org>
+GPG Key: 0x55814DDE
+=46ingerprint 4E85 2A66 4CBA 497A 2A7B D3BF 5973 F216 5581 4DDE
