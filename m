@@ -1,141 +1,82 @@
 From: Manfred Spraul <manfred@colorfullife.com>
-Subject: [PATCH 1/3] drivers/net/forcedeth.c: Update erratas for Marvell PHYs
-Date: Sat, 10 Oct 2009 17:58:12 +0200
-Message-ID: <1255190294-4121-2-git-send-email-manfred@colorfullife.com>
+Subject: [PATCH 2/3] drivers/net/forcedeth.c: Add workaround for BCM50610
+Date: Sat, 10 Oct 2009 17:58:13 +0200
+Message-ID: <1255190294-4121-3-git-send-email-manfred@colorfullife.com>
 References: <1255190294-4121-1-git-send-email-manfred@colorfullife.com>
+ <1255190294-4121-2-git-send-email-manfred@colorfullife.com>
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	Manfred Spraul <manfred@colorfullife.com>
 To: aabdulla@nvidia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f210.google.com ([209.85.218.210]:64723 "EHLO
-	mail-bw0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761890AbZJJP6d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2009 11:58:33 -0400
-Received: by bwz6 with SMTP id 6so2235076bwz.37
-        for <netdev@vger.kernel.org>; Sat, 10 Oct 2009 08:57:55 -0700 (PDT)
-In-Reply-To: <1255190294-4121-1-git-send-email-manfred@colorfullife.com>
+Received: from mail-fx0-f227.google.com ([209.85.220.227]:44101 "EHLO
+	mail-fx0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761902AbZJJP6e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Oct 2009 11:58:34 -0400
+Received: by fxm27 with SMTP id 27so7279393fxm.17
+        for <netdev@vger.kernel.org>; Sat, 10 Oct 2009 08:57:57 -0700 (PDT)
+In-Reply-To: <1255190294-4121-2-git-send-email-manfred@colorfullife.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch updates/adds erratas for the Marvell 88E3016, 88E1111 and 88E1116
-PHYs.
-The changes were originally written by Ayaz Abdulla, I merely added
-meaningful names for the registers, based on the documentation
-for Marvell 88E3016 (publicly available on datasheetdir) and existing linux
-drivers.
+The patch adds an errata/workaround for the BCM50610 PHY. It was written
+by Ayaz Abdulla, I added meaningful names from drivers/net/phy/broadcom.c
 
-Signed-off-by: Manfred Spraul <manfred@colorfullife.com>
+Ayaz: The change appears to be identical to bcm50610_a0_workaround(),
+except that the workaround is shorter, that fewer registers are modified.
+Could you double check that?
+
+--
+	Manfred
 ---
- drivers/net/forcedeth.c |   74 +++++++++++++++++++++++++++++++++++++++++++----
- 1 files changed, 68 insertions(+), 6 deletions(-)
+ drivers/net/forcedeth.c |   34 ++++++++++++++++++++++++++++++++++
+ 1 files changed, 34 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-index 0a1c2bb..0e48e25 100644
+index 0e48e25..ccb9543 100644
 --- a/drivers/net/forcedeth.c
 +++ b/drivers/net/forcedeth.c
-@@ -506,6 +506,7 @@ union ring_type {
- #define PHY_OUI_VITESSE		0x01c1
- #define PHY_OUI_REALTEK		0x0732
- #define PHY_OUI_REALTEK2	0x0020
-+#define PHY_OUI_BROADCOM	0x50ef
- #define PHYID1_OUI_MASK	0x03ff
- #define PHYID1_OUI_SHFT	6
- #define PHYID2_OUI_MASK	0xfc00
-@@ -517,7 +518,12 @@ union ring_type {
- #define PHY_REV_REALTEK_8211C		0x0001
- #define PHY_MODEL_REALTEK_8201		0x0200
- #define PHY_MODEL_MARVELL_E3016		0x0220
--#define PHY_MARVELL_E3016_INITMASK	0x0300
-+#define PHY_MODEL_MARVELL_E1116		0x0210
-+#define PHY_MODEL_MARVELL_E1111		0x00c0
-+#define PHY_MODEL_MARVELL_E1011		0x00b0
-+#define PHY_MODEL_BROADCOM_9507		0x00a0
-+#define PHY_MODEL_BROADCOM_AC131	0x0070
-+#define PHY_MODEL_BROADCOM_50610	0x0160
- #define PHY_CICADA_INIT1	0x0f000
- #define PHY_CICADA_INIT2	0x0e00
- #define PHY_CICADA_INIT3	0x01000
-@@ -560,6 +566,26 @@ union ring_type {
- #define PHY_REALTEK_INIT11	0x0200
- #define PHY_REALTEK_INIT_MSK1	0x0003
+@@ -586,6 +586,18 @@ union ring_type {
+ /* set 2 bits (function unknown) */
+ #define PHY_MV_E1XXX_REG_PHY_CTRL_SET	0x0300
  
++/* Broadcom: from drivers/net/phy/broadcom.c */
++#define PHY_BCM54XX_EXP_SEL_REG     0x17    /* Expansion register select */
++#define PHY_BCM54XX_EXP_DATA_REG    0x15    /* Expansion register data */
 +
-+/* Marvell 88E3016. Based on the datasheet MV-S103164-00. */
-+#define PHY_MV_E3016_REG_PHY_CTRL	0x0010
-+#define PHY_MV_E3016_REG_PHY_CTRL2	0x001c
++#define PHY_BCM54XX_EXP_EXP08		0xf08	/* a Shadow register */
++#define PHY_BCM54XX_EXP_DEFAULT		0xf00	/* default register */
++#define PHY_BCM54XX_EXP_EXP08_RJCT_2MHZ        0x0001
 +
-+/* Disable Normal Linkpulse Check. Necessary to fix an errata. */
-+#define PHY_MV_E3016_REG_PHY_CTRL_DIS_NLP	0x4000
-+/* These bits are reserved and must be zero. */
-+#define PHY_MV_E3016_REG_PHY_CTRL2_CLEAR	0x0300
-+
-+/* Marvell 88E1111. Based on mv88e1xxx.h (sklin driver) */
-+#define PHY_MV_E1XXX_REG_PHY_CTRL	0x0010
-+#define PHY_MV_E1XXX_REG_RES		0x0016
-+
-+/* Clear low byte of RES register */
-+#define PHY_MV_E1XXX_REG_RES_MASK	0x00ff
-+
-+/* set 2 bits (function unknown) */
-+#define PHY_MV_E1XXX_REG_PHY_CTRL_SET	0x0300
++#define PHY_BCM54XX_SHD         0x1c    /* 0x1c shadow registers */
++#define PHY_BCM54XX_SHD_WRITE   0x8000
++#define PHY_BCM54XX_SHD_REG3	0x0c00  /* shadow reg 3 - unknown */
 +
  #define PHY_GIGABIT	0x0100
  
  #define PHY_TIMEOUT	0x1
-@@ -1198,11 +1224,11 @@ static int phy_init(struct net_device *dev)
- 	u8 __iomem *base = get_hwbase(dev);
- 	u32 phyinterface, phy_reserved, mii_status, mii_control, mii_control_1000,reg;
- 
--	/* phy errata for E3016 phy */
--	if (np->phy_model == PHY_MODEL_MARVELL_E3016) {
--		reg = mii_rw(dev, np->phyaddr, MII_NCONFIG, MII_READ);
--		reg &= ~PHY_MARVELL_E3016_INITMASK;
--		if (mii_rw(dev, np->phyaddr, MII_NCONFIG, reg)) {
-+	if (np->phy_oui == PHY_OUI_MARVELL && np->phy_model == PHY_MODEL_MARVELL_E3016) {
-+		/* phy errata for E3016 phy */
-+		reg = mii_rw(dev, np->phyaddr, PHY_MV_E3016_REG_PHY_CTRL2, MII_READ);
-+		reg &= ~PHY_MV_E3016_REG_PHY_CTRL2_CLEAR;
-+		if (mii_rw(dev, np->phyaddr, PHY_MV_E3016_REG_PHY_CTRL2, reg)) {
- 			printk(KERN_INFO "%s: phy write to errata reg failed.\n", pci_name(np->pci_dev));
- 			return PHY_ERROR;
+@@ -1402,6 +1414,28 @@ static int phy_init(struct net_device *dev)
  		}
-@@ -1340,6 +1366,42 @@ static int phy_init(struct net_device *dev)
  	}
  
- 	/* phy vendor specific configuration */
-+	if (np->phy_oui == PHY_OUI_MARVELL) {
-+		if (np->driver_data & DEV_NEED_PHY_INIT_FIX) {
-+			if (np->phy_model == PHY_MODEL_MARVELL_E1116) {
-+				phy_reserved = mii_rw(dev, np->phyaddr, PHY_MV_E1XXX_REG_RES, MII_READ);
-+				phy_reserved &= ~PHY_MV_E1XXX_REG_RES_MASK;
-+				if (mii_rw(dev, np->phyaddr, PHY_MV_E1XXX_REG_RES,phy_reserved)) {
-+					printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
-+					return PHY_ERROR;
-+				}
-+
-+				phy_reserved = mii_rw(dev, np->phyaddr, PHY_MV_E1XXX_REG_PHY_CTRL, MII_READ);
-+				phy_reserved |= PHY_MV_E1XXX_REG_PHY_CTRL_SET;
-+				if (mii_rw(dev, np->phyaddr, PHY_MV_E1XXX_REG_PHY_CTRL,phy_reserved)) {
-+					printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
-+					return PHY_ERROR;
-+				}
-+			}
-+			if (np->phy_model == PHY_MODEL_MARVELL_E1111) {
-+				phy_reserved = mii_rw(dev, np->phyaddr, PHY_MV_E1XXX_REG_PHY_CTRL, MII_READ);
-+				phy_reserved |= PHY_MV_E1XXX_REG_PHY_CTRL_SET;
-+				if (mii_rw(dev, np->phyaddr, PHY_MV_E1XXX_REG_PHY_CTRL,phy_reserved)) {
-+					printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
-+					return PHY_ERROR;
-+				}
-+			}
-+			if (np->phy_model == PHY_MODEL_MARVELL_E3016) {
-+				phy_reserved = mii_rw(dev, np->phyaddr, PHY_MV_E3016_REG_PHY_CTRL, MII_READ);
-+				phy_reserved |= PHY_MV_E3016_REG_PHY_CTRL_DIS_NLP;
-+				if (mii_rw(dev, np->phyaddr, PHY_MV_E3016_REG_PHY_CTRL,phy_reserved)) {
-+					printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
-+					return PHY_ERROR;
-+				}
-+			}
++	if (np->phy_oui == PHY_OUI_BROADCOM) {
++		if (np->phy_model == PHY_MODEL_BROADCOM_50610) {
++			if (mii_rw(dev, np->phyaddr, PHY_BCM54XX_SHD, PHY_BCM54XX_SHD_WRITE||
++						PHY_BCM54XX_SHD_REG3|0)) {
++ 				printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++ 				return PHY_ERROR;
++ 			}
++			if (mii_rw(dev, np->phyaddr, PHY_BCM54XX_EXP_SEL_REG, PHY_BCM54XX_EXP_EXP08)) {
++ 				printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++ 				return PHY_ERROR;
++   			}
++			if (mii_rw(dev, np->phyaddr, PHY_BCM54XX_EXP_DATA_REG, PHY_BCM54XX_EXP_EXP08_RJCT_2MHZ)) {
++ 				printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++ 				return PHY_ERROR;
++ 			}
++			if (mii_rw(dev, np->phyaddr, PHY_BCM54XX_EXP_SEL_REG, PHY_BCM54XX_EXP_DEFAULT)) {
++ 				printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++ 				return PHY_ERROR;
++ 			}
 +		}
 +	}
 +
