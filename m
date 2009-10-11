@@ -1,81 +1,62 @@
-From: Chris Rankin <rankincj-/E1597aS9LQAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] Teach pegasus driver to ignore bluetoother adapters with clashing Vendor:Product IDs
-Date: Sun, 11 Oct 2009 06:57:50 -0700 (PDT)
-Message-ID: <910710.29413.qm@web52911.mail.re2.yahoo.com>
+From: jamal <hadi@cyberus.ca>
+Subject: [PATCH] pkt_sched: pedit use proper struct
+Date: Sun, 11 Oct 2009 10:21:38 -0400
+Message-ID: <1255270898.5406.6.camel@dogo.mojatatu.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="0-1304168887-1255269470=:29413"
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary="=-hiG8lhkXDWP/3DdHZlqB"
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qw-out-2122.google.com ([74.125.92.27]:24365 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754201AbZJKOZo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2009 10:25:44 -0400
+Received: by qw-out-2122.google.com with SMTP id 9so362193qwb.37
+        for <netdev@vger.kernel.org>; Sun, 11 Oct 2009 07:24:37 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---0-1304168887-1255269470=:29413
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
 
-Hi,=0A=0AI submitted this patch months ago and then forgot about it, but I'=
-ve noticed that it hasn't been picked up so I've regenerated it against 2.6=
-.31.=0A=0AShort description:=0A=0AThe Belkin F8T012xx1 bluetooth adaptor ha=
-s the same vendor and product=0AIDs as the Belkin F5D5050, so we need to te=
-ach the pegasus driver to=0Aignore adaptors belonging to the "Wireless" cla=
-ss 0xE0. For this one=0Acase anyway, seeing as pegasus is a driver for "Wir=
-ed" adaptors.=0A=0ACheers,=0AChris=0A=0A=0A      
---0-1304168887-1255269470=:29413
-Content-Type: text/x-patch; name="PEGASUS-2.6.31.diff"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="PEGASUS-2.6.31.diff"
+--=-hiG8lhkXDWP/3DdHZlqB
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-LS0tIGxpbnV4LTIuNi4zMS9kcml2ZXJzL25ldC91c2IvcGVnYXN1cy5oLm9y
-aWcJMjAwOS0xMC0wNSAyMDo0OTozNC4wMDAwMDAwMDAgKzAxMDAKKysrIGxp
-bnV4LTIuNi4zMS9kcml2ZXJzL25ldC91c2IvcGVnYXN1cy5oCTIwMDktMTAt
-MDUgMjI6MTA6MjIuMDAwMDAwMDAwICswMTAwCkBAIC0yMDIsNyArMjAyLDEx
-IEBACiAJCURFRkFVTFRfR1BJT19SRVNFVCB8IFBFR0FTVVNfSUkgKQogUEVH
-QVNVU19ERVYoICJBbGxpZWQgVGVsZXN5biBJbnQuIEFULVVTQjEwMCIsIFZF
-TkRPUl9BTExJRURURUwsIDB4YjEwMCwKIAkJREVGQVVMVF9HUElPX1JFU0VU
-IHwgUEVHQVNVU19JSSApCi1QRUdBU1VTX0RFViggIkJlbGtpbiBGNUQ1MDUw
-IFVTQiBFdGhlcm5ldCIsIFZFTkRPUl9CRUxLSU4sIDB4MDEyMSwKKy8qCisg
-KiBEaXN0aW5ndWlzaCBiZXR3ZWVuIHRoaXMgQmVsa2luIGFkYXB0b3IgYW5k
-IHRoZSBCZWxraW4gYmx1ZXRvb3RoIGFkYXB0b3JzCisgKiB3aXRoIHRoZSBz
-YW1lIHByb2R1Y3QgSURzIGJ5IGNoZWNraW5nIHRoZSBkZXZpY2UgY2xhc3Mg
-dG9vLgorICovCitQRUdBU1VTX0RFVl9DTEFTUyggIkJlbGtpbiBGNUQ1MDUw
-IFVTQiBFdGhlcm5ldCIsIFZFTkRPUl9CRUxLSU4sIDB4MDEyMSwgMHgwMCwK
-IAkJREVGQVVMVF9HUElPX1JFU0VUIHwgUEVHQVNVU19JSSApCiBQRUdBU1VT
-X0RFViggIkJpbGxpb250b24gVVNCLTEwMCIsIFZFTkRPUl9CSUxMSU9OVE9O
-LCAweDA5ODYsCiAJCURFRkFVTFRfR1BJT19SRVNFVCApCi0tLSBsaW51eC0y
-LjYuMzEvZHJpdmVycy9uZXQvdXNiL3BlZ2FzdXMuYy5vcmlnCTIwMDktMTAt
-MDUgMjA6NDk6MzQuMDAwMDAwMDAwICswMTAwCisrKyBsaW51eC0yLjYuMzEv
-ZHJpdmVycy9uZXQvdXNiL3BlZ2FzdXMuYwkyMDA5LTEwLTA1IDIyOjE0OjU5
-LjAwMDAwMDAwMCArMDEwMApAQCAtNjIsOCArNjIsMTEgQEAKIHN0YXRpYyBz
-dHJ1Y3QgdXNiX2V0aF9kZXYgdXNiX2Rldl9pZFtdID0gewogI2RlZmluZQlQ
-RUdBU1VTX0RFVihwbiwgdmlkLCBwaWQsIGZsYWdzKQlcCiAJey5uYW1lID0g
-cG4sIC52ZW5kb3IgPSB2aWQsIC5kZXZpY2UgPSBwaWQsIC5wcml2YXRlID0g
-ZmxhZ3N9LAorI2RlZmluZSBQRUdBU1VTX0RFVl9DTEFTUyhwbiwgdmlkLCBw
-aWQsIGRjbGFzcywgZmxhZ3MpIFwKKwlQRUdBU1VTX0RFVihwbiwgdmlkLCBw
-aWQsIGZsYWdzKQogI2luY2x1ZGUgInBlZ2FzdXMuaCIKICN1bmRlZglQRUdB
-U1VTX0RFVgorI3VuZGVmCVBFR0FTVVNfREVWX0NMQVNTCiAJe05VTEwsIDAs
-IDAsIDB9LAogCXtOVUxMLCAwLCAwLCAwfQogfTsKQEAgLTcxLDggKzc0LDE4
-IEBACiBzdGF0aWMgc3RydWN0IHVzYl9kZXZpY2VfaWQgcGVnYXN1c19pZHNb
-XSA9IHsKICNkZWZpbmUJUEVHQVNVU19ERVYocG4sIHZpZCwgcGlkLCBmbGFn
-cykgXAogCXsubWF0Y2hfZmxhZ3MgPSBVU0JfREVWSUNFX0lEX01BVENIX0RF
-VklDRSwgLmlkVmVuZG9yID0gdmlkLCAuaWRQcm9kdWN0ID0gcGlkfSwKKy8q
-CisgKiBUaGUgQmVsa2luIEY4VDAxMnh4MSBibHVldG9vdGggYWRhcHRvciBo
-YXMgdGhlIHNhbWUgdmVuZG9yIGFuZCBwcm9kdWN0CisgKiBJRHMgYXMgdGhl
-IEJlbGtpbiBGNUQ1MDUwLCBzbyB3ZSBuZWVkIHRvIHRlYWNoIHRoZSBwZWdh
-c3VzIGRyaXZlciB0bworICogaWdub3JlIGFkYXB0b3JzIGJlbG9uZ2luZyB0
-byB0aGUgIldpcmVsZXNzIiBjbGFzcyAweEUwLiBGb3IgdGhpcyBvbmUKKyAq
-IGNhc2UgYW55d2F5LCBzZWVpbmcgYXMgdGhlIHBlZ2FzdXMgaXMgZm9yICJX
-aXJlZCIgYWRhcHRvcnMuCisgKi8KKyNkZWZpbmUgUEVHQVNVU19ERVZfQ0xB
-U1MocG4sIHZpZCwgcGlkLCBkY2xhc3MsIGZsYWdzKSBcCisJey5tYXRjaF9m
-bGFncyA9IChVU0JfREVWSUNFX0lEX01BVENIX0RFVklDRSB8IFVTQl9ERVZJ
-Q0VfSURfTUFUQ0hfREVWX0NMQVNTKSwgXAorCS5pZFZlbmRvciA9IHZpZCwg
-LmlkUHJvZHVjdCA9IHBpZCwgLmJEZXZpY2VDbGFzcyA9IGRjbGFzc30sCiAj
-aW5jbHVkZSAicGVnYXN1cy5oIgogI3VuZGVmCVBFR0FTVVNfREVWCisjdW5k
-ZWYJUEVHQVNVU19ERVZfQ0xBU1MKIAl7fSwKIAl7fQogfTsKClNpZ25lZC1v
-ZmYtYnk6IENocmlzIFJhbmtpbiA8cmFua2luY2pAeWFob28uY29tPgoK
+This probably deserves to go into -stable. 
 
---0-1304168887-1255269470=:29413--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+cheers,
+jamal
+
+--=-hiG8lhkXDWP/3DdHZlqB
+Content-Disposition: attachment; filename=patch-pedit
+Content-Type: text/plain; name=patch-pedit; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+commit 6debfdb8e600da8216399d182d6e52f1629c6b22
+Author: Jamal Hadi Salim <hadi@cyberus.ca>
+Date:   Sun Oct 11 10:07:03 2009 -0400
+
+    [PATCH] pkt_sched: pedit use proper struct
+    
+    Pedit will reject a policy that is large because it
+    uses the wrong structure in the policy validation.
+    This fixes it.
+    
+    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
+index 96c0ed1..6b0359a 100644
+--- a/net/sched/act_pedit.c
++++ b/net/sched/act_pedit.c
+@@ -34,7 +34,7 @@ static struct tcf_hashinfo pedit_hash_info = {
+ };
+ 
+ static const struct nla_policy pedit_policy[TCA_PEDIT_MAX + 1] = {
+-	[TCA_PEDIT_PARMS]	= { .len = sizeof(struct tcf_pedit) },
++	[TCA_PEDIT_PARMS]	= { .len = sizeof(struct tc_pedit) },
+ };
+ 
+ static int tcf_pedit_init(struct nlattr *nla, struct nlattr *est,
+
+--=-hiG8lhkXDWP/3DdHZlqB--
+
