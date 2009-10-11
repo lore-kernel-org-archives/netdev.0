@@ -1,46 +1,81 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [RESED PATCH net-next-2.6 2/3] ipv6 sit: Fix 6rd relay address.
-Date: Sun, 11 Oct 2009 22:44:45 +0900
-Message-ID: <4AD1E14D.6030903@linux-ipv6.org>
+From: Chris Rankin <rankincj-/E1597aS9LQAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] Teach pegasus driver to ignore bluetoother adapters with clashing Vendor:Product IDs
+Date: Sun, 11 Oct 2009 06:57:50 -0700 (PDT)
+Message-ID: <910710.29413.qm@web52911.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:53537 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753202AbZJKNp1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2009 09:45:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="0-1304168887-1255269470=:29413"
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-ipv6 sit: Fix 6rd relay address.
+--0-1304168887-1255269470=:29413
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Relay's address should be extracted from real IPv6 address
-instead of configured prefix.
+Hi,=0A=0AI submitted this patch months ago and then forgot about it, but I'=
+ve noticed that it hasn't been picked up so I've regenerated it against 2.6=
+.31.=0A=0AShort description:=0A=0AThe Belkin F8T012xx1 bluetooth adaptor ha=
+s the same vendor and product=0AIDs as the Belkin F5D5050, so we need to te=
+ach the pegasus driver to=0Aignore adaptors belonging to the "Wireless" cla=
+ss 0xE0. For this one=0Acase anyway, seeing as pegasus is a driver for "Wir=
+ed" adaptors.=0A=0ACheers,=0AChris=0A=0A=0A      
+--0-1304168887-1255269470=:29413
+Content-Type: text/x-patch; name="PEGASUS-2.6.31.diff"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="PEGASUS-2.6.31.diff"
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- net/ipv6/sit.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+LS0tIGxpbnV4LTIuNi4zMS9kcml2ZXJzL25ldC91c2IvcGVnYXN1cy5oLm9y
+aWcJMjAwOS0xMC0wNSAyMDo0OTozNC4wMDAwMDAwMDAgKzAxMDAKKysrIGxp
+bnV4LTIuNi4zMS9kcml2ZXJzL25ldC91c2IvcGVnYXN1cy5oCTIwMDktMTAt
+MDUgMjI6MTA6MjIuMDAwMDAwMDAwICswMTAwCkBAIC0yMDIsNyArMjAyLDEx
+IEBACiAJCURFRkFVTFRfR1BJT19SRVNFVCB8IFBFR0FTVVNfSUkgKQogUEVH
+QVNVU19ERVYoICJBbGxpZWQgVGVsZXN5biBJbnQuIEFULVVTQjEwMCIsIFZF
+TkRPUl9BTExJRURURUwsIDB4YjEwMCwKIAkJREVGQVVMVF9HUElPX1JFU0VU
+IHwgUEVHQVNVU19JSSApCi1QRUdBU1VTX0RFViggIkJlbGtpbiBGNUQ1MDUw
+IFVTQiBFdGhlcm5ldCIsIFZFTkRPUl9CRUxLSU4sIDB4MDEyMSwKKy8qCisg
+KiBEaXN0aW5ndWlzaCBiZXR3ZWVuIHRoaXMgQmVsa2luIGFkYXB0b3IgYW5k
+IHRoZSBCZWxraW4gYmx1ZXRvb3RoIGFkYXB0b3JzCisgKiB3aXRoIHRoZSBz
+YW1lIHByb2R1Y3QgSURzIGJ5IGNoZWNraW5nIHRoZSBkZXZpY2UgY2xhc3Mg
+dG9vLgorICovCitQRUdBU1VTX0RFVl9DTEFTUyggIkJlbGtpbiBGNUQ1MDUw
+IFVTQiBFdGhlcm5ldCIsIFZFTkRPUl9CRUxLSU4sIDB4MDEyMSwgMHgwMCwK
+IAkJREVGQVVMVF9HUElPX1JFU0VUIHwgUEVHQVNVU19JSSApCiBQRUdBU1VT
+X0RFViggIkJpbGxpb250b24gVVNCLTEwMCIsIFZFTkRPUl9CSUxMSU9OVE9O
+LCAweDA5ODYsCiAJCURFRkFVTFRfR1BJT19SRVNFVCApCi0tLSBsaW51eC0y
+LjYuMzEvZHJpdmVycy9uZXQvdXNiL3BlZ2FzdXMuYy5vcmlnCTIwMDktMTAt
+MDUgMjA6NDk6MzQuMDAwMDAwMDAwICswMTAwCisrKyBsaW51eC0yLjYuMzEv
+ZHJpdmVycy9uZXQvdXNiL3BlZ2FzdXMuYwkyMDA5LTEwLTA1IDIyOjE0OjU5
+LjAwMDAwMDAwMCArMDEwMApAQCAtNjIsOCArNjIsMTEgQEAKIHN0YXRpYyBz
+dHJ1Y3QgdXNiX2V0aF9kZXYgdXNiX2Rldl9pZFtdID0gewogI2RlZmluZQlQ
+RUdBU1VTX0RFVihwbiwgdmlkLCBwaWQsIGZsYWdzKQlcCiAJey5uYW1lID0g
+cG4sIC52ZW5kb3IgPSB2aWQsIC5kZXZpY2UgPSBwaWQsIC5wcml2YXRlID0g
+ZmxhZ3N9LAorI2RlZmluZSBQRUdBU1VTX0RFVl9DTEFTUyhwbiwgdmlkLCBw
+aWQsIGRjbGFzcywgZmxhZ3MpIFwKKwlQRUdBU1VTX0RFVihwbiwgdmlkLCBw
+aWQsIGZsYWdzKQogI2luY2x1ZGUgInBlZ2FzdXMuaCIKICN1bmRlZglQRUdB
+U1VTX0RFVgorI3VuZGVmCVBFR0FTVVNfREVWX0NMQVNTCiAJe05VTEwsIDAs
+IDAsIDB9LAogCXtOVUxMLCAwLCAwLCAwfQogfTsKQEAgLTcxLDggKzc0LDE4
+IEBACiBzdGF0aWMgc3RydWN0IHVzYl9kZXZpY2VfaWQgcGVnYXN1c19pZHNb
+XSA9IHsKICNkZWZpbmUJUEVHQVNVU19ERVYocG4sIHZpZCwgcGlkLCBmbGFn
+cykgXAogCXsubWF0Y2hfZmxhZ3MgPSBVU0JfREVWSUNFX0lEX01BVENIX0RF
+VklDRSwgLmlkVmVuZG9yID0gdmlkLCAuaWRQcm9kdWN0ID0gcGlkfSwKKy8q
+CisgKiBUaGUgQmVsa2luIEY4VDAxMnh4MSBibHVldG9vdGggYWRhcHRvciBo
+YXMgdGhlIHNhbWUgdmVuZG9yIGFuZCBwcm9kdWN0CisgKiBJRHMgYXMgdGhl
+IEJlbGtpbiBGNUQ1MDUwLCBzbyB3ZSBuZWVkIHRvIHRlYWNoIHRoZSBwZWdh
+c3VzIGRyaXZlciB0bworICogaWdub3JlIGFkYXB0b3JzIGJlbG9uZ2luZyB0
+byB0aGUgIldpcmVsZXNzIiBjbGFzcyAweEUwLiBGb3IgdGhpcyBvbmUKKyAq
+IGNhc2UgYW55d2F5LCBzZWVpbmcgYXMgdGhlIHBlZ2FzdXMgaXMgZm9yICJX
+aXJlZCIgYWRhcHRvcnMuCisgKi8KKyNkZWZpbmUgUEVHQVNVU19ERVZfQ0xB
+U1MocG4sIHZpZCwgcGlkLCBkY2xhc3MsIGZsYWdzKSBcCisJey5tYXRjaF9m
+bGFncyA9IChVU0JfREVWSUNFX0lEX01BVENIX0RFVklDRSB8IFVTQl9ERVZJ
+Q0VfSURfTUFUQ0hfREVWX0NMQVNTKSwgXAorCS5pZFZlbmRvciA9IHZpZCwg
+LmlkUHJvZHVjdCA9IHBpZCwgLmJEZXZpY2VDbGFzcyA9IGRjbGFzc30sCiAj
+aW5jbHVkZSAicGVnYXN1cy5oIgogI3VuZGVmCVBFR0FTVVNfREVWCisjdW5k
+ZWYJUEVHQVNVU19ERVZfQ0xBU1MKIAl7fSwKIAl7fQogfTsKClNpZ25lZC1v
+ZmYtYnk6IENocmlzIFJhbmtpbiA8cmFua2luY2pAeWFob28uY29tPgoK
 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 8594451..193d0c6 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -569,12 +569,12 @@ __be32 try_6rd(struct in6_addr *v6dst, struct ip_tunnel *tunnel)
- 		pbw0 = tunnel->ip6rd.prefixlen >> 5;
- 		pbi0 = tunnel->ip6rd.prefixlen & 0x1f;
- 
--		d = (ntohl(tunnel->ip6rd.prefix.s6_addr32[pbw0]) << pbi0) >>
-+		d = (ntohl(v6dst->s6_addr32[pbw0]) << pbi0) >>
- 		    tunnel->ip6rd.relay_prefixlen;
- 
- 		pbi1 = pbi0 - tunnel->ip6rd.relay_prefixlen;
- 		if (pbi1 > 0)
--			d |= ntohl(tunnel->ip6rd.prefix.s6_addr32[pbw0 + 1]) >>
-+			d |= ntohl(v6dst->s6_addr32[pbw0 + 1]) >>
- 			     (32 - pbi1);
- 
- 		dst = tunnel->ip6rd.relay_prefix | htonl(d);
+--0-1304168887-1255269470=:29413--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
