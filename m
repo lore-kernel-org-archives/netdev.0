@@ -1,42 +1,143 @@
-From: Matt Domsch <Matt_Domsch@dell.com>
-Subject: Re: PATCH: Network Device Naming mechanism and policy
-Date: Sun, 11 Oct 2009 18:04:02 -0500
-Message-ID: <20091011230402.GA18776@mock.linuxdev.us.dell.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com> <20091009140000.GA18765@mock.linuxdev.us.dell.com> <20091009210909.GA9836@auslistsprd01.us.dell.com> <20091009194401.036da080@nehalam> <20091010044056.GA5350@mock.linuxdev.us.dell.com> <20091010052308.GA12458@kroah.com> <7e84ed60910111410g52ffd52bjec62576570d4b460@mail.gmail.com>
-Reply-To: Matt Domsch <Matt_Domsch@dell.com>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: kerneloops.org report for the week of October 11th 2009
+Date: Sun, 11 Oct 2009 16:21:11 -0700
+Message-ID: <20091011162111.2d784f01@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <greg@kroah.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
-	Narendra_K@dell.com, jordan_hargrave@dell.com
-To: Rob Townley <rob.townley@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60pc101.us.dell.com ([143.166.85.206]:47819 "EHLO
-	ausc60pc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753671AbZJKXEk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2009 19:04:40 -0400
-Content-Disposition: inline
-In-Reply-To: <7e84ed60910111410g52ffd52bjec62576570d4b460@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: tytso@mit.edu, netdev@vger.kernel.org, jbarnes@virtuousgeek.org,
+	linux-acpi@vger.kernel.org, dri-devel@lists.sourceforge.net,
+	torvalds@linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <dri-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/dri-devel>,
+	<mailto:dri-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=dri-devel>
+List-Post: <mailto:dri-devel@lists.sourceforge.net>
+List-Help: <mailto:dri-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/dri-devel>,
+	<mailto:dri-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 11, 2009 at 04:10:03PM -0500, Rob Townley wrote:
-> So when an add-in PCI NIC has a lower MAC than the motherboard NICs,
-> the add-in cards will come before the motherboard NICs.   i don't like it.
+A very clear distribution this time: the number one is almost 4 times
+more frequently reported than the number 2. It's also an old time favorite,
+with over *56 thousand* total reports..... time for the graphics team to fix the issue!
+Other old timers are the ct_vm_map() function (over 11 thousand reports) as well as
+various "your bios is broken" warnings.
 
-Actually, MAC address has nothing to do with device naming/ordering at
-all.  Often systems will have onboard NICs in ascending MAC address
-order, but that's not a requirement, and I've seen systems not do
-that.  And once you get to add-in vs onboard, BIOS wouldn't be able to
-enforce such an ordering anyhow (in general).
+There's also some recurring networking issues, with tcp_recvmsg and inet_sock_destruct
+as main functions there.
 
-But yes, you raise the point that, without using MAC-assigned names or
-another naming mechanism designed to cope with this, adding or
-removing a card can cause a difference in device enumeration, and thus
-name.
+New this time is a warning in the cpufreq code, which somehow now gets called
+with interrupts off just when it wants to do a smp_call_function() during suspend resume;
+also new is an interaction between ext4 and the quota code. Also new is an ioremap leak check
+that might be a Fedora-only issue.
+
+
+This week, a total of 16542 oopses and warnings have been reported,
+compared to 14309 reports in the previous week.
+
+
+Per file statistics
+3779	drivers/gpu/drm/i915/i915_gem_tiling.c
+844	drivers/pci/dmar.c
+665	arch/x86/kernel/cpu/cpufreq/acpi-cpufreq.c
+576	pci/ctxfi/ctvmem.c
+426	arch/x86/kernel/cpu/mtrr/generic.c
+347	net/ipv4/af_inet.c
+263	net/ipv4/tcp.c
+262	kernel/time.c
+259	arch/x86/mm/ioremap.c
+244	drivers/net/sis900.c
+215	drivers/net/wireless/iwlwifi/iwl-sta.c
+208	drivers/parport/procfs.c
+
+
+Rank 1: i915_gem_set_tiling (warning)
+	Reported 3779 times (56835 total reports)
+	[gem] Failure in the tiling code
+	This warning was last seen in version 2.6.31, and first seen in 2.6.29-rc2.
+	More info: http://www.kerneloops.org/searchweek.php?search=i915_gem_set_tiling
+
+Rank 2: suspend_test_finish(resume devices) (oops)
+	Reported 1022 times (7869 total reports)
+	This oops was last seen in version 2.6.31.1, and first seen in 2.6.28-rc6.
+	More info: http://www.kerneloops.org/searchweek.php?search=suspend_test_finish(resume devices)
+
+Rank 3: dmar_table_init (warning)
+	Reported 845 times (8224 total reports)
+	BIOS bug exposed via a WARN_ON
+	This warning was last seen in version 2.6.31, and first seen in 2.6.29.
+	More info: http://www.kerneloops.org/searchweek.php?search=dmar_table_init
+
+Rank 4: get_cur_val (warning)
+	Reported 665 times (2585 total reports)
+	cpufreq gets called during suspend/resume and ends up calling smp_call_function with irqs off
+	This warning was last seen in version 2.6.31, and first seen in 2.6.29-rc1.
+	More info: http://www.kerneloops.org/searchweek.php?search=get_cur_val
+
+Rank 5: ct_vm_map (warning)
+	Reported 576 times (11868 total reports)
+	Bug in the creative XFI driver (backported to Fedora)
+	This warning was last seen in version 2.6.30.8, and first seen in 2.6.29-rc4-git1.
+	More info: http://www.kerneloops.org/searchweek.php?search=ct_vm_map
+
+Rank 6: dquot_claim_space (oops)
+	Reported 437 times (3257 total reports)
+	Interaction between EXT4 and the quota code
+	This oops was last seen in version 2.6.31, and first seen in 2.6.30.
+	More info: http://www.kerneloops.org/searchweek.php?search=dquot_claim_space
+
+Rank 7: generic_get_mtrr (warning)
+	Reported 426 times (9303 total reports)
+	BIOS bug where the MTRRs are not set up correctly
+	This warning was last seen in version 2.6.31, and first seen in 2.6.25.3.
+	More info: http://www.kerneloops.org/searchweek.php?search=generic_get_mtrr
+
+Rank 8: inet_sock_destruct (warning)
+	Reported 347 times (5453 total reports)
+	This warning was last seen in version 2.6.31, and first seen in 2.6.27-rc2.
+	More info: http://www.kerneloops.org/searchweek.php?search=inet_sock_destruct
+
+Rank 9: tcp_recvmsg (oops)
+	Reported 263 times (6206 total reports)
+	fixed in 2.6.30 (commit 775273131810caa41dfc7f9e552ea5d8508caf40)
+	This oops was last seen in version 2.6.31.3, and first seen in 2.6.25.
+	More info: http://www.kerneloops.org/searchweek.php?search=tcp_recvmsg
+
+Rank 10: getnstimeofday (warning)
+	Reported 262 times (18624 total reports)
+	[suspend resume] getnstimeofday() is called before timekeeping is resumed
+	This warning was last seen in version 2.6.31, and first seen in 2.6.24.
+	More info: http://www.kerneloops.org/searchweek.php?search=getnstimeofday
+
+Rank 11: check_early_ioremap_leak (warning)
+	Reported 256 times (1101 total reports)
+	This warning was last seen in version 2.6.31, and first seen in 2.6.24-rc8.
+	More info: http://www.kerneloops.org/searchweek.php?search=check_early_ioremap_leak
+
+Rank 12: dev_watchdog(sis900) (oops)
+	Reported 244 times (11843 total reports)
+	This oops was last seen in version 2.6.30.8, and first seen in 2.6.26-rc4-git2.
+	More info: http://www.kerneloops.org/searchweek.php?search=dev_watchdog(sis900)
+
+Rank 13: iwl_set_dynamic_key (warning)
+	Reported 215 times (21737 total reports)
+	no space for new kew"
+	This warning was last seen in version 2.6.30, and first seen in 2.6.27.35.
+	More info: http://www.kerneloops.org/searchweek.php?search=iwl_set_dynamic_key
+
 
 -- 
-Matt Domsch
-Technology Strategist, Dell Office of the CTO
-linux.dell.com & www.dell.com/linux
+Arjan van de Ven 	Intel Open Source Technology Centre
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
+
+------------------------------------------------------------------------------
+Come build with us! The BlackBerry(R) Developer Conference in SF, CA
+is the only developer event you need to attend this year. Jumpstart your
+developing skills, take BlackBerry mobile applications to market and stay 
+ahead of the curve. Join us from November 9 - 12, 2009. Register now!
+http://p.sf.net/sfu/devconference
+--
