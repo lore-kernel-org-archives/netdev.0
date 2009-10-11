@@ -1,55 +1,44 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: Re: Enable syn cookies by default
-Date: Sun, 11 Oct 2009 12:26:43 +0200
-Message-ID: <200910111226.44828.elendil@planet.nl>
-References: <b2cc26e40910100601q7aed04acjcc9973ef06e6458f@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] iwmc3200top: Add Intel Wireless MultiCom 3200 top
+ driver.
+Date: Sun, 11 Oct 2009 03:36:47 -0700 (PDT)
+Message-ID: <20091011.033647.66923614.davem@davemloft.net>
+References: <1ba2fa240910100238s709c31d3s6cb612f502b1086f@mail.gmail.com>
+	<20091010.185852.133969433.davem@davemloft.net>
+	<1ba2fa240910110105x33fb251ar3437dd5fee552735@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Olaf van der Spek <olafvdspek@gmail.com>, netdev@vger.kernel.org
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linux-mmc@vger.kernel.org,
+	yi.zhu@intel.com, inaky.perez-gonzalez@intel.com,
+	cindy.h.kao@intel.com, guy.cohen@intel.com,
+	ron.rindjunsky@intel.com
+To: tomasw@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Cpsmtpm-eml107.kpnxchange.com ([195.121.3.11]:56497 "EHLO
-	CPSMTPM-EML107.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756656AbZJKK1W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2009 06:27:22 -0400
-In-reply-To: <b2cc26e40910100601q7aed04acjcc9973ef06e6458f@mail.gmail.com>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52257
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753571AbZJKKgw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2009 06:36:52 -0400
+In-Reply-To: <1ba2fa240910110105x33fb251ar3437dd5fee552735@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This question is better asked on the kernel network development list.
-Original mail from Olaf below.
+From: Tomas Winkler <tomasw@gmail.com>
+Date: Sun, 11 Oct 2009 10:05:20 +0200
 
-Cheers,
-FJP
+> Just close my eyes and there is new game to play. :)
+> It's not in the patchwork, so is there any reason you are not planning
+> to add it.   The patch intention was for net-next, it looks like
+> I didn't mark it as such, my fault.
 
-=================
-Hi,
+Because there still seems to be some confusion between which of these
+bits go through John Linville as a wireless driver and which bits
+go directly through me.
 
-I'm forwarding Debian feature request #520668.
+By default I assume John picks up "wireless" drivers and send them
+to me in his wireless merges to me.
 
-Could syn cookies be enabled by default?
+If that's not the case, explicitly do a fresh submission of this patch
+and explicitly ask me to merge it.
 
-AFAIK syn cookies only get send when the half-open TCP connection
-queue is full. So stuff like window scaling should work fine in normal
-situations.
-
-Speaking of which:
-When the half-open TCP connection queue is full and syn cookies are
-enabled, you get a message like "kernel: possible SYN flooding on port
-2710. Sending cookies."
-However when syn cookies are disabled, you don't get any message (in
-kern.log), although connections to your server are timing out.
-Could such a message be added?
-Maybe with a suggestion to increase the size of that queue or to
-enable syn cookies.
-
-Greetings,
-
-Olaf
-
-http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=520668
-http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=520667
-https://bugs.launchpad.net/ubuntu/+bug/57091
