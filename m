@@ -1,73 +1,55 @@
-From: md@Linux.IT (Marco d'Itri)
-Subject: Re: PATCH: Network Device Naming mechanism and policy
-Date: Sun, 11 Oct 2009 02:37:48 +0200
-Message-ID: <20091011003748.GA28600@bongo.bofh.it>
-References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com> <20091009140000.GA18765@mock.linuxdev.us.dell.com> <20091009210909.GA9836@auslistsprd01.us.dell.com> <20091009194401.036da080@nehalam> <20091010044056.GA5350@mock.linuxdev.us.dell.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/3] iwmc3200top: Add Intel Wireless MultiCom 3200 top
+ driver.
+Date: Sat, 10 Oct 2009 18:58:52 -0700 (PDT)
+Message-ID: <20091010.185852.133969433.davem@davemloft.net>
+References: <1253662724-16497-1-git-send-email-tomas.winkler@intel.com>
+	<1253662724-16497-2-git-send-email-tomas.winkler@intel.com>
+	<1ba2fa240910100238s709c31d3s6cb612f502b1086f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="huq684BweRXVnRxX"
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	linux-hotplug@vger.kernel.org, Narendra_K@dell.com,
-	jordan_hargrave@dell.com
-To: Matt Domsch <Matt_Domsch@dell.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091010044056.GA5350@mock.linuxdev.us.dell.com>
-Sender: linux-hotplug-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, inaky.perez-gonzalez-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	cindy.h.kao-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, guy.cohen-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	ron.rindjunsky-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1ba2fa240910100238s709c31d3s6cb612f502b1086f-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+From: Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Sat, 10 Oct 2009 11:38:50 +0200
 
---huq684BweRXVnRxX
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> On Wed, Sep 23, 2009 at 1:38 AM, Tomas Winkler <tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
+>> This patch adds Intel Wireless MultiCom 3200 top driver.
+>> IWMC3200 is 4Wireless Com CHIP (GPS/BT/WiFi/WiMAX).
+>> Top driver is responsible for device initialization and firmware download.
+>> Firmware handled by top is responsible for top itself and
+>> as well as bluetooth and GPS coms. (Wifi and WiMax provide their own
+>> firmware)
+>> In addition top driver is used to retrieve firmware logs
+>> and supports other debugging features
+>>
+>> Signed-off-by: Tomas Winkler <tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> 
+> Dave,
+> are you going to merge this one?
+> iwmc3200wifi and i200m-sdio which are already merged are usless without it
 
-On Oct 10, Matt Domsch <Matt_Domsch@dell.com> wrote:
+If it's not in netdev patchwork, I don't plan to add it.
 
-> It does require a change in behavior for a system administrator.
-> Instead of hard-coding 'eth0' into her scripts, she uses
-> '/dev/net/by-function/boot' or somesuch.  But then that name is
-> guaranteed to always refer to the "right" NIC.  Every admin I've
-> spoken to is willing to make this kind of change, as long as they get
-> the consistent, deterministic naming they expect but don't have
-> today.  And it does require patching userspace apps to take both a
-> kernel device name, or a path, and to resolve the path to device name
-> or ifindex.  We wrote libnetdevname (really, one function), and have
-> patches for several userspace apps to use it, to prove it can be done.
-For the records, before being a distribution developer I am a system
-administrator (who designed and manages many firewalls with multiple
-network interfaces) and I am still unconvinced that what you are
-proposing is a practical solution and that its downsides justify the
-significant changes both in software and in system administration
-practices that it requires.
-The first issue which greatly concerns me is the need to modify *every*
-userspace application and kernel tool (what about iptables? What about
-the kernel logs?): from an users experience point of view it would be
-very annoying if different applications used different names to refer to
-the same network device.
-I am also concerned with the practical implications of trying to use
-such long (and unusual) names: IFNAMSIZ is 16, so user interfaces tend
-to assume both short names and that they match something like
-/^[a-z0-9]+$/. What about e.g. distribution scripts which use the
-interface name as a file system path component? Do you already have a
-(standard) scheme to losslessly convert the names to a form without
-slashes?
+If it is in patchwork, then it's in my backlog and I'll get to it.
 
---=20
-ciao,
-Marco
+People should never really have to ask me these questions, that's one
+of the main points of:
 
---huq684BweRXVnRxX
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+	http://patchwork.ozlabs.org/project/netdev/list/
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAkrRKNwACgkQFGfw2OHuP7GWqQCgkZZ5c+Cju8OozrMLWXSadP6l
-SSQAn36cad+szuQLjv952ECJ+NIhDO/h
-=KaFM
------END PGP SIGNATURE-----
-
---huq684BweRXVnRxX--
+You can always see there what's "pending".
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
