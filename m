@@ -1,56 +1,75 @@
-From: Tomas Winkler <tomasw@gmail.com>
-Subject: Re: [PATCH 1/3] iwmc3200top: Add Intel Wireless MultiCom 3200 top
-	driver.
-Date: Sun, 11 Oct 2009 15:07:03 +0200
-Message-ID: <1ba2fa240910110607p3a6809f8k1e35ca08c425f1b9@mail.gmail.com>
-References: <1ba2fa240910100238s709c31d3s6cb612f502b1086f@mail.gmail.com>
-	 <20091010.185852.133969433.davem@davemloft.net>
-	 <1ba2fa240910110105x33fb251ar3437dd5fee552735@mail.gmail.com>
-	 <20091011.033647.66923614.davem@davemloft.net>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [PATCH net-next-2.6 1/3] ipv6 sit: Ensure to initialize 6rd parameters.
+Date: Sun, 11 Oct 2009 22:31:34 +0900
+Message-ID: <4AD1DE36.8070500@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linux-mmc@vger.kernel.org,
-	yi.zhu@intel.com, inaky.perez-gonzalez@intel.com,
-	cindy.h.kao@intel.com, guy.cohen@intel.com,
-	ron.rindjunsky@intel.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f210.google.com ([209.85.218.210]:64537 "EHLO
-	mail-bw0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754598AbZJKNHl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2009 09:07:41 -0400
-In-Reply-To: <20091011.033647.66923614.davem@davemloft.net>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:42676 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757165AbZJKNcN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2009 09:32:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 11, 2009 at 12:36 PM, David Miller <davem@davemloft.net> wr=
-ote:
-> From: Tomas Winkler <tomasw@gmail.com>
-> Date: Sun, 11 Oct 2009 10:05:20 +0200
->
->> Just close my eyes and there is new game to play. :)
->> It's not in the patchwork, so is there any reason you are not planni=
-ng
->> to add it. =C2=A0 The patch intention was for net-next, it looks lik=
-e
->> I didn't mark it as such, my fault.
->
-> Because there still seems to be some confusion between which of these
-> bits go through John Linville as a wireless driver and which bits
-> go directly through me.
->
-> By default I assume John picks up "wireless" drivers and send them
-> to me in his wireless merges to me.
->
-> If that's not the case, explicitly do a fresh submission of this patc=
-h
-> and explicitly ask me to merge it.
+ipv6 sit: Ensure to initialize 6rd parameters.
 
-Thanks, got it know.
-Since this goes for wimax and wifi I'd like to submit it directly to ne=
-tdev.
-I will resolve Marcel's comments and  submit again.
-Thanks
-Tomas
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ net/ipv6/sit.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 6955654..8594451 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -161,9 +161,11 @@ static void ipip6_tunnel_link(struct sit_net *sitn, struct ip_tunnel *t)
+ 	write_unlock_bh(&ipip6_lock);
+ }
+ 
+-static void ipip6_tunnel_clone_6rd(struct ip_tunnel *t, struct sit_net *sitn)
++static void ipip6_tunnel_clone_6rd(struct net_device *dev, struct sit_net *sitn)
+ {
+ #ifdef CONFIG_IPV6_SIT_6RD
++	struct ip_tunnel *t = netdev_priv(dev);
++
+ 	if (t->dev == sitn->fb_tunnel_dev) {
+ 		ipv6_addr_set(&t->ip6rd.prefix, htonl(0x20020000), 0, 0, 0);
+ 		t->ip6rd.relay_prefix = 0;
+@@ -219,6 +221,7 @@ static struct ip_tunnel * ipip6_tunnel_locate(struct net *net,
+ 
+ 	nt->parms = *parms;
+ 	ipip6_tunnel_init(dev);
++	ipip6_tunnel_clone_6rd(dev, sitn);
+ 
+ 	if (parms->i_flags & SIT_ISATAP)
+ 		dev->priv_flags |= IFF_ISATAP;
+@@ -228,8 +231,6 @@ static struct ip_tunnel * ipip6_tunnel_locate(struct net *net,
+ 
+ 	dev_hold(dev);
+ 
+-	ipip6_tunnel_clone_6rd(t, sitn);
+-
+ 	ipip6_tunnel_link(sitn, nt);
+ 	return nt;
+ 
+@@ -1024,7 +1025,7 @@ ipip6_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ 			t->ip6rd.prefixlen = ip6rd.prefixlen;
+ 			t->ip6rd.relay_prefixlen = ip6rd.relay_prefixlen;
+ 		} else
+-			ipip6_tunnel_clone_6rd(t, sitn);
++			ipip6_tunnel_clone_6rd(dev, sitn);
+ 
+ 		err = 0;
+ 		break;
+@@ -1148,6 +1149,7 @@ static int sit_init_net(struct net *net)
+ 	dev_net_set(sitn->fb_tunnel_dev, net);
+ 
+ 	ipip6_fb_tunnel_init(sitn->fb_tunnel_dev);
++	ipip6_tunnel_clone_6rd(sitn->fb_tunnel_dev, sitn);
+ 
+ 	if ((err = register_netdev(sitn->fb_tunnel_dev)))
+ 		goto err_reg_dev;
