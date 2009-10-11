@@ -1,60 +1,76 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Tomas Winkler <tomasw@gmail.com>
 Subject: Re: [PATCH 1/3] iwmc3200top: Add Intel Wireless MultiCom 3200 top
- driver.
-Date: Sun, 11 Oct 2009 09:40:54 +0200
-Message-ID: <4AD18C06.8040002@gmail.com>
-References: <1253662724-16497-1-git-send-email-tomas.winkler@intel.com>	<1253662724-16497-2-git-send-email-tomas.winkler@intel.com>	<1ba2fa240910100238s709c31d3s6cb612f502b1086f@mail.gmail.com> <20091010.185852.133969433.davem@davemloft.net>
+	driver.
+Date: Sun, 11 Oct 2009 10:05:20 +0200
+Message-ID: <1ba2fa240910110105x33fb251ar3437dd5fee552735@mail.gmail.com>
+References: <1253662724-16497-1-git-send-email-tomas.winkler@intel.com>
+	 <1253662724-16497-2-git-send-email-tomas.winkler@intel.com>
+	 <1ba2fa240910100238s709c31d3s6cb612f502b1086f@mail.gmail.com>
+	 <20091010.185852.133969433.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, inaky.perez-gonzalez-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	cindy.h.kao-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, guy.cohen-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	ron.rindjunsky-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20091010.185852.133969433.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linux-mmc@vger.kernel.org,
+	yi.zhu@intel.com, inaky.perez-gonzalez@intel.com,
+	cindy.h.kao@intel.com, guy.cohen@intel.com,
+	ron.rindjunsky@intel.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-mmc-owner@vger.kernel.org>
+In-Reply-To: <20091010.185852.133969433.davem@davemloft.net>
+Sender: linux-mmc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller a =E9crit :
->=20
+On Sun, Oct 11, 2009 at 3:58 AM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Tomas Winkler <tomasw@gmail.com>
+> Date: Sat, 10 Oct 2009 11:38:50 +0200
+>
+>> On Wed, Sep 23, 2009 at 1:38 AM, Tomas Winkler <tomas.winkler@intel.=
+com> wrote:
+>>> This patch adds Intel Wireless MultiCom 3200 top driver.
+>>> IWMC3200 is 4Wireless Com CHIP (GPS/BT/WiFi/WiMAX).
+>>> Top driver is responsible for device initialization and firmware do=
+wnload.
+>>> Firmware handled by top is responsible for top itself and
+>>> as well as bluetooth and GPS coms. (Wifi and WiMax provide their ow=
+n
+>>> firmware)
+>>> In addition top driver is used to retrieve firmware logs
+>>> and supports other debugging features
+>>>
+>>> Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
+>>
+>> Dave,
+>> are you going to merge this one?
+>> iwmc3200wifi and i200m-sdio which are already merged are usless with=
+out it
+>
 > If it's not in netdev patchwork, I don't plan to add it.
->=20
+>
 > If it is in patchwork, then it's in my backlog and I'll get to it.
->=20
+>
 > People should never really have to ask me these questions, that's one
 > of the main points of:
->=20
-> 	http://patchwork.ozlabs.org/project/netdev/list/
->=20
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0http://patchwork.ozlabs.org/project/netdev=
+/list/
+>
 > You can always see there what's "pending".
 
+Just close my eyes and there is new game to play. :)
+It's not in the patchwork, so is there any reason you are not planning
+to add it.   The patch intention was for net-next, it looks like
+I didn't mark it as such, my fault.
 
-Me wondering if this information could be put in MAINTAINERS or Documen=
-tation/ something...
+My primary concern is that the driver lies under misc directory so
+it's not clear it should be in netdev.
+This chip has 4 coms, with drivers under wireless, wimax, serial,
+bluetooth. and misc.  Eech of them
+handled by different mailing list and sub tree. The major  problem is
+the top driver as other 4 comps depends
+on it so I'm looking for place to refer to. Please if you have no
+intention to handle it or have more concern please  let me know.
 
-I know it only because I caught one of your answer a while ago :)
-
-Either a per project info, or a global ref to http://patchwork.ozlabs.o=
-rg/
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index e1da925..18244ad 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -3654,6 +3654,7 @@ NETWORKING [GENERAL]
- M:	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
- L:	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
- W:	http://www.linuxfoundation.org/en/Net
-+W:	http://patchwork.ozlabs.org/project/netdev/list/
- T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
- S:	Maintained
- F:	net/
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks
+Tomas
