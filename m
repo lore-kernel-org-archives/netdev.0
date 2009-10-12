@@ -1,46 +1,37 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 2/3] mdio: Expose pause frame advertising flags to ethtool
-Date: Mon, 12 Oct 2009 20:26:37 +0100
-Message-ID: <1255375597.2931.13.camel@achroite>
+From: "Karl O. Pinc" <kop@meme.com>
+Subject: Re: PATCH: Network Device Naming mechanism and policy
+Date: Mon, 12 Oct 2009 14:41:50 -0500
+Message-ID: <1255376510.3956.1@mofo>
+References: <EDA0A4495861324DA2618B4C45DCB3EE589541@blrx3m08.blr.amer.dell.com>
+	<20091012184711.GA4836@mock.linuxdev.us.dell.com>
+	<20091012190900.GA514@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:43796 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757971AbZJLT1M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 15:27:12 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Narendra K <Narendra_K@dell.com>, notting@redhat.com,
+	matt_domsch@dell.com, netdev@vger.kernel.org,
+	shemminger@vyatta.com, linux-hotplug@vger.kernel.org,
+	jordan_hargrave@dell.com, charles_rose@dell.com
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+In-Reply-To: <20091012190900.GA514@kroah.com> (from greg@kroah.com on Mon
+	Oct 12 14:09:00 2009)
+Content-Disposition: inline
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In mdio45_ethtool_gset_npage() and mdio45_ethtool_gset(), check MDIO
-pause frame advertising flags and set the corresponding ethtool flags.
+On 10/12/2009 02:09:00 PM, Greg KH wrote:
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/mdio.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+> "LOM"?
 
-diff --git a/drivers/net/mdio.c b/drivers/net/mdio.c
-index c0db9d7..e85bf04 100644
---- a/drivers/net/mdio.c
-+++ b/drivers/net/mdio.c
-@@ -162,6 +162,10 @@ static u32 mdio45_get_an(const struct mdio_if_info *mdio, u16 addr)
- 		result |= ADVERTISED_100baseT_Half;
- 	if (reg & ADVERTISE_100FULL)
- 		result |= ADVERTISED_100baseT_Full;
-+	if (reg & ADVERTISE_PAUSE_CAP)
-+		result |= ADVERTISED_Pause;
-+	if (reg & ADVERTISE_PAUSE_ASYM)
-+		result |= ADVERTISED_Asym_Pause;
- 	return result;
- }
- 
+"LAN On Motherboard" of all things.  
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+(I had to look this
+one up.  The expansion better suited
+to today's economy is "Low On Manna".)
+
+
+Karl <kop@meme.com>
+Free Software:  "You don't pay back, you pay forward."
+                 -- Robert A. Heinlein
 
