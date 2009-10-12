@@ -1,8 +1,8 @@
-From: Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>
+From: Greg KH <gregkh@suse.de>
 Subject: Re: Moving drivers into staging (was Re: [GIT PULL] SCSI fixes for
  2.6.32-rc3)
-Date: Mon, 12 Oct 2009 16:24:29 -0700
-Message-ID: <20091012232429.GA24254@suse.de>
+Date: Mon, 12 Oct 2009 16:26:07 -0700
+Message-ID: <20091012232607.GB24254@suse.de>
 References: <alpine.LFD.2.01.0910081255510.3432@localhost.localdomain>
  <20091008210737.GD29181@mit.edu>
  <alpine.LFD.2.01.0910081410400.3432@localhost.localdomain>
@@ -12,64 +12,52 @@ References: <alpine.LFD.2.01.0910081255510.3432@localhost.localdomain>
  <1255357148.2850.91.camel@localhost.localdomain>
  <20091012145453.GD4565@elte.hu>
  <20091012150911.GB1656@suse.de>
- <20091012154244.GA13323@elte.hu>
+ <1255362186.2850.348.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: James Bottomley <James.Bottomley-l3A5Bk7waGM@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Theodore Tso <tytso-3s7WtUTddSA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	linux-scsi <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jing Huang <huangj-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Theodore Tso <tytso@mit.edu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-scsi <linux-scsi@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Jing Huang <huangj@brocade.com>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: James Bottomley <James.Bottomley@suse.de>
+Return-path: <linux-scsi-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20091012154244.GA13323-X9Un+BFzKDI@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1255362186.2850.348.camel@localhost.localdomain>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 12, 2009 at 05:42:44PM +0200, Ingo Molnar wrote:
-> Hm, i think i even gave drivers/staging/ its name?
+On Mon, Oct 12, 2009 at 10:43:06AM -0500, James Bottomley wrote:
+> If you want to make this a mandatory path for old drivers, then, I think
+> it's far too rigid, yes.   There's a huge amount of danger to changing
+> working drivers simply on grounds of code cleanup and that danger
+> increases exponentially as they get older and the hardware gets rarer.
+> Look at what happened to the initio driver in 2008 for instance.  That
+> was cleaned up by Alan Cox, no mean expert in the field, with the
+> assistance of a tester with the actual card, so basically a textbook
+> operation.  However, a bug crept in during this process that wasn't
+> spotted by the tester.  When it was spotted (bug report ~6 months later)
+> the original tester wasn't available and code inspection across the
+> cleanup was very hard.  Fortunately, the reporter was motivated to track
+> down and patch the driver, so it worked out all right in the end, but a
+> lot of bug reporters aren't so capable (or so motivated).  Plus most
+> clean up patches for old hardware tend only to be compile tested, so the
+> potential for bugs is far greater.
 
-Yes you did, and I appreciate it :)
+I understand the potential for bugs, and am not saying to do this for
+all drivers, so it is not mandatory at all.
 
-> > [...] It seems that I'm the only one that has the ability to drop 
-> > drivers out of the kernel tree, which is a funny situation :)
-> 
-> You are the only one who has the ability to send a warning shot towards 
-> drivers _without hurting users_, and by moving it into the focus of a 
-> team of cleanup oriented developers.
-> 
-> I think that's an important distinction ;-)
-
-Good point.
-
-> > In thinking about this a lot more, I don't really mind it.  If people 
-> > want to push stuff out of "real" places in the kernel, into 
-> > drivers/staging/ and give the original authors and maintainers notice 
-> > about what is going on, _and_ provide a TODO file for what needs to 
-> > happen to get the code back into the main portion of the kernel tree, 
-> > then I'll be happy to help out with this and manage it.
-> > 
-> > I think a 6-9 month window (basically 3 kernel releases) should be 
-> > sufficient time to have a driver that has been in drivers/staging/ be 
-> > cleaned up enough to move back into the main kernel tree.  If not, it 
-> > could be easily dropped.
-> > 
-> > Any objections to this?
-> 
-> Sounds excellent to me!
-
-Great, I'll await the patches to move stuff to drivers/staging/ now.
-
-Wireless developers, warm up your editors :)
+I have just received a bunch of people asking me if we can use
+drivers/staging/ to get stuff that is known broken, or has other
+problems (style issues[1]), out into an area where people know it needs
+to be fixed up otherwise it will be dropped.
 
 thanks,
 
 greg k-h
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+[1] No, floppy.c doesn't count, no matter how much people might want it
+    to :)
