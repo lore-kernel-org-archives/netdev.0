@@ -1,39 +1,70 @@
-From: Narendra K <Narendra_K@dell.com>
-Subject: Re: PATCH: Network Device Naming mechanism and policy
-Date: Mon, 12 Oct 2009 13:07:58 -0500
-Message-ID: <20091012180756.GA4602@mock.linuxdev.us.dell.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE58953F@blrx3m08.blr.amer.dell.com>
+From: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
+Subject: Re: netinet/ip.h and DSCP
+Date: Mon, 12 Oct 2009 11:20:34 -0700
+Message-ID: <4AD37372.8090401@redfish-solutions.com>
+References: <4AC68714.5080909@redfish-solutions.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: matt_domsch@dell.com, netdev@vger.kernel.org,
-	linux-hotplug@vger.kernel.org, jordan_hargrave@dell.com,
-	charles_rose@dell.com
-To: notting@redhat.com, scott@ubuntu.com
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <EDA0A4495861324DA2618B4C45DCB3EE58953F@blrx3m08.blr.amer.dell.com>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.redfish-solutions.com ([66.232.79.143]:50377 "EHLO
+	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757511AbZJLSVP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 14:21:15 -0400
+Received: from [192.168.10.7] (builder.redfish-solutions.com [192.168.10.7])
+	(authenticated bits=0)
+	by mail.redfish-solutions.com (8.14.3/8.14.3) with ESMTP id n9CIKYb7010092
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-CAMELLIA256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 12 Oct 2009 12:20:38 -0600
+In-Reply-To: <4AC68714.5080909@redfish-solutions.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > This makes them pretty comparable to LABELs on disks, and we have a 
-> > /dev/disk/by-label
-> > 
-> > Remember that udev already supports symlink stacking, and priorities 
-> > and such.
-> > 
-> > I don't think there's any danger of supporting a /dev/netdev/by-mac by
-> 
-> > default, it'll be a benefit to most and those who don't have unique 
-> > MACs will just ignore it.
-> 
-> At the moment, we do not appear to get the proper change uevents from
-> things like 'ip link set dev <foo> address <bar>', so we can't currently
-> maintain these symlinks.
-> 
+Since linux-net doesn't seem to be the right forum...
 
-I have observed that the kernel does generate a "move" event when
-interfaces are renamed. Looks like udev at present doesn't handle this event, but i
-suppose it could be extended to hanlde this event.
 
-With regards,
-Narendra K
+On 10/02/2009 04:04 PM, Philip A. Prindeville wrote:
+> Is there a reason that /usr/include/netinet/ip.h only contains
+> definitions for ToS (precedence-based) markings?
+>
+> RFCs 2597/2598 have been out a *long* time... why is Linux so far behind
+> the learning curve?
+>
+> We're discussing (at least here in the US) net neutrality...  but if
+> we're not marking our traffic the way we want it carried *anyway*, don't
+> we deserve what we get if the carriers reshape our traffic by their own
+> rules?
+>
+> Should there be definitions in netinet/ip.h like:
+>
+> #define IPTOS_DSCP_MASK		0xd0
+> #define IPTOS_DSCP(x)		((x) & IPTOS_DSCP_MASK)
+> #define IPTOS_DSCP_AF11		0x28
+> #define IPTOS_DSCP_AF12		0x30
+> #define IPTOS_DSCP_AF13		0x38
+> #define IPTOS_DSCP_AF21		0x48
+> #define IPTOS_DSCP_AF22		0x50
+> #define IPTOS_DSCP_AF23		0x58
+> #define IPTOS_DSCP_AF31		0x68
+> #define IPTOS_DSCP_AF32		0x70
+> #define IPTOS_DSCP_AF33		0x78
+> #define IPTOS_DSCP_AF41		0x88
+> #define IPTOS_DSCP_AF42		0x90
+> #define IPTOS_DSCP_AF43		0x98
+> #define IPTOS_DSCP_EF		0xb8
+>
+>
+> Should be simple enough, right?
+>
+> Thanks,
+>
+> -Philip
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-net" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   
+
