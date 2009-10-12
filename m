@@ -1,151 +1,78 @@
-From: Ajit Khaparde <ajitkhaparde@gmail.com>
-Subject: Re: [PATCH net-next-2.6] ixgbe: Use the instance of
-	net_device_stats from net_device.
-Date: Mon, 12 Oct 2009 17:40:57 +0530
-Message-ID: <20091012121055.GA10799@serverengines.com>
-References: <20091007124339.GA30083@serverengines.com> <EA929A9653AAE14F841771FB1DE5A1365F98A89A0B@rrsmsx501.amr.corp.intel.com>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: Stefano Babic <stefano.babic@babic.homelinux.org>
+Subject: Re: [PATCH] [CAIF-RFC 4/8-v2] CAIF Protocol Stack
+Date: Mon, 12 Oct 2009 14:20:01 +0200
+Message-ID: <4AD31EF1.2010102@babic.homelinux.org>
+References: <1255095571-6501-1-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-2-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-3-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-4-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-5-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kim.xx.lilliestierna@stericsson.com,
+	christian.bejram@stericsson.com, daniel.martensson@stericsson.com
+To: sjur.brandeland@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f188.google.com ([209.85.222.188]:64391 "EHLO
-	mail-pz0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755732AbZJLMLm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 08:11:42 -0400
-Received: by pzk26 with SMTP id 26so8027953pzk.4
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2009 05:11:05 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365F98A89A0B@rrsmsx501.amr.corp.intel.com>
+Received: from smtpout13.attiva.biz ([85.37.16.15]:44699 "EHLO
+	smtpout13.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754552AbZJLMUl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 08:20:41 -0400
+In-Reply-To: <1255095571-6501-5-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/10/09 15:55 -0600, Tantilov, Emil S wrote:
-> Ajit Khaparde wrote:
-> > Since net_device has an instance of net_device_stats,
-> > we can remove the instance of this from the private adapter structure.
-> > 
-> > Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
-> 
-> I am seeing an issues with these patches where some counters are messed up:
-> 
-Thanks for testing the changes.
-There was an error in the way I was trying to offset for the netdev stats.
-I have a fix for it now.  I would like to know if you would prefer an
-incremental patch or a patch with the previous changes too. 
-I will mail the patches accordingly.  Sorry for the delay in sending this out.
+sjur.brandeland@stericsson.com wrote:
+> From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
--Ajit
-> --- ixgbe ---
+Hi Sjur,
+
 > 
-> NIC statistics:
->      rx_packets: 18446612147046614784
->      tx_packets: 18446612147046614784
->      rx_bytes: 18446744072099799523
->      tx_bytes: 18446744072099857640
->      rx_pkts_nic: 12
->      tx_pkts_nic: 19
->      rx_bytes_nic: 1148
->      tx_bytes_nic: 1762
->      lsc_int: 4
->      tx_busy: 0
->      non_eop_descs: 0
->      rx_errors: 0
->      tx_errors: 18446744072099850983
->      rx_dropped: 18446612140591825160
->      tx_dropped: 18446612140591825424
->      multicast: 18446612140591825952
->      broadcast: 0
->      rx_no_buffer_count: 0
->      collisions: 18446612140591825688
->      rx_over_errors: 18446612140591827008
->      rx_crc_errors: 18446612140591827272
->      rx_frame_errors: 18446612140591827536
->      hw_rsc_count: 0
->      fdir_match: 0
->      fdir_miss: 10
->      rx_fifo_errors: 18446612140591827800
->      rx_missed_errors: 18446612140591828064
->      tx_aborted_errors: 18446612140591828328
->      tx_carrier_errors: 18446612140591828592
->      tx_fifo_errors: 18446612140591828856
->      tx_heartbeat_errors: 18446612140591829120
-> 	...
-> 
-> --- igb ---
-> NIC statistics:
->      rx_packets: 0
->      tx_packets: 0
->      rx_bytes: 0
->      tx_bytes: 0
->      rx_broadcast: 0
->      tx_broadcast: 0
->      rx_multicast: 0
->      tx_multicast: 0
->      rx_errors: 0
->      tx_errors: 0
->      tx_dropped: 18446744072099036908
->      multicast: 0
->      collisions: 0
->      rx_length_errors: 0
->      rx_over_errors: 65535
->      rx_crc_errors: 0
->      rx_frame_errors: 0
->      rx_no_buffer_count: 0
->      rx_queue_drop_packet_count: 0
->      rx_missed_errors: 0
->      tx_aborted_errors: 0
->      tx_carrier_errors: 0
->      tx_fifo_errors: 0
->      tx_heartbeat_errors: 18446612146842011544
-> 	...
-> 
-> --- e1000 ---
-> NIC statistics:
->      rx_packets: 0
->      tx_packets: 0
->      rx_bytes: 0
->      tx_bytes: 0
->      rx_broadcast: 0
->      tx_broadcast: 0
->      rx_multicast: 0
->      tx_multicast: 0
->      rx_errors: 0
->      tx_errors: 0
->      tx_dropped: 18446744072099165544
->      multicast: 0
->      collisions: 0
->      rx_length_errors: 0
->      rx_over_errors: 0
->      rx_crc_errors: 0
->      rx_frame_errors: 18446744072099094496
->      rx_no_buffer_count: 0
->      rx_missed_errors: 0
->      tx_aborted_errors: 0
->      tx_carrier_errors: 0
->      tx_fifo_errors: 0
->      tx_heartbeat_errors: 4294967295
-> 	...
-> 
->  --- e1000e ---
-> NIC statistics:
->      rx_packets: 0
->      tx_packets: 7
->      rx_bytes: 0
->      tx_bytes: 614
->      rx_broadcast: 0
->      tx_broadcast: 0
->      rx_multicast: 0
->      tx_multicast: 7
->      rx_errors: 0
->      tx_errors: 0
->      tx_dropped: 18446744072099315636
-> 
-> Thanks,
-> Emil--
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> diff --git a/net/caif/generic/cfcnfg.c b/net/caif/generic/cfcnfg.c
+> new file mode 100644
+> index 0000000..3aad201
+
+> + * NOTE: What happends destroy failure:
+
+s/happends/happens/, there are other occurencies.
+
+> +
+> +bool cfcnfg_del_adapt_layer(struct _cfcnfg_t *cnfg, layer_t *adap_layer)
+> +{
+> +	uint8 channel_id = 0;
+> +	struct cfcnfg_phyinfo *phyinfo = NULL;
+> +	uint8 phyid = 0;
+> +	CFLOG_TRACE(("cfcnfg: enter del_adaptation_layer\n"));
+> +
+> +	cfglu_assert(adap_layer != NULL);
+> +	channel_id = adap_layer->id;
+> +	cfglu_assert(channel_id != 0);
+
+My two cents about using assert in the code, but I prefer to get some
+info from system when something goes wrong as to call in some way panic
+(the assert calls BUG_ON) and blocks forever.
+This line is not different as checking the adapt_layer->dn pointer some
+lines after and I think an error is better recognized in that case. So
+IMHO should be better something like:
+
+	if (channel_id == 0) {
+		CFLOG_ERROR(("cfcnfg:adap_layer->dn is NULL\n"));
+		return CFGLU_EINVAL;
+	}
+
+
+> diff --git a/net/caif/generic/cfpkt_plain.c b/net/caif/generic/cfpkt_plain.c
+> +#define CHECK_MEM 1
+
+Probably you plan to use always the magic number in your buffer
+management. Then should be better to remove all the #if CHECK_MEM stuff.
+
+
+> +#if CHECK_MEM
+> +
+> +#endif
+
+This three lines seem not needed.... ;)
+
+Stefano
+
+-- 
+stefano <stefano.babic@babic.homelinux.org>
+GPG Key: 0x55814DDE
+Fingerprint 4E85 2A66 4CBA 497A 2A7B D3BF 5973 F216 5581 4DDE
