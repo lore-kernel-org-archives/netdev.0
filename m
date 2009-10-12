@@ -1,7 +1,8 @@
 From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH 2/8] gianfar: Simplify skb resources freeing code
-Date: Mon, 12 Oct 2009 20:00:30 +0400
-Message-ID: <20091012160030.GB2463@oksana.dev.rtsoft.ru>
+Subject: [PATCH 3/8] gianfar: Don't needlessly set the wrap bit for the
+	last RX BD
+Date: Mon, 12 Oct 2009 20:00:33 +0400
+Message-ID: <20091012160033.GC2463@oksana.dev.rtsoft.ru>
 References: <20091012160000.GA32406@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,121 +24,34 @@ Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
 Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Remove dma_free_coherent() from stop_gfar() and gfar_start() calls,
-place it into free_skb_resources(). That makes SKB resources management
-more understandable, plus free_skb_resources() will be used as a cleanup
-routine for gfar_alloc_skb_resources() that will be implemented soon.
+startup_gfar() sets the wrap bit for the last rxbd just after
+gfar_new_rxbdp() call, which is issued for all rxbds. And
+gfar_new_rxbdp() has the following check already:
+
+	if (bdp == priv->rx_bd_base + priv->rx_ring_size - 1)
+		lstatus |= BD_LFLAG(RXBD_WRAP);
+
+So we don't need to set the bit again.
 
 Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 ---
- drivers/net/gianfar.c |   53 +++++++++++++++++++++++-------------------------
- 1 files changed, 25 insertions(+), 28 deletions(-)
+ drivers/net/gianfar.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 8c7322f..b7881e6 100644
+index b7881e6..ee23431 100644
 --- a/drivers/net/gianfar.c
 +++ b/drivers/net/gianfar.c
-@@ -806,7 +806,6 @@ void gfar_halt(struct net_device *dev)
- void stop_gfar(struct net_device *dev)
- {
- 	struct gfar_private *priv = netdev_priv(dev);
--	struct gfar __iomem *regs = priv->regs;
- 	unsigned long flags;
- 
- 	phy_stop(priv->phydev);
-@@ -830,18 +829,13 @@ void stop_gfar(struct net_device *dev)
+@@ -1028,10 +1028,6 @@ int startup_gfar(struct net_device *ndev)
+ 		rxbdp++;
  	}
  
- 	free_skb_resources(priv);
+-	/* Set the last descriptor in the ring to wrap */
+-	rxbdp--;
+-	rxbdp->status |= RXBD_WRAP;
 -
--	dma_free_coherent(&priv->ofdev->dev,
--			sizeof(struct txbd8)*priv->tx_ring_size
--			+ sizeof(struct rxbd8)*priv->rx_ring_size,
--			priv->tx_bd_base,
--			gfar_read(&regs->tbase0));
- }
- 
- /* If there are any tx skbs or rx skbs still around, free them.
-  * Then free tx_skbuff and rx_skbuff */
- static void free_skb_resources(struct gfar_private *priv)
- {
-+	struct device *dev = &priv->ofdev->dev;
- 	struct rxbd8 *rxbdp;
- 	struct txbd8 *txbdp;
- 	int i, j;
-@@ -849,6 +843,9 @@ static void free_skb_resources(struct gfar_private *priv)
- 	/* Go through all the buffer descriptors and free their data buffers */
- 	txbdp = priv->tx_bd_base;
- 
-+	if (!priv->tx_skbuff)
-+		goto skip_tx_skbuff;
-+
- 	for (i = 0; i < priv->tx_ring_size; i++) {
- 		if (!priv->tx_skbuff[i])
- 			continue;
-@@ -867,30 +864,33 @@ static void free_skb_resources(struct gfar_private *priv)
- 	}
- 
- 	kfree(priv->tx_skbuff);
-+skip_tx_skbuff:
- 
- 	rxbdp = priv->rx_bd_base;
- 
--	/* rx_skbuff is not guaranteed to be allocated, so only
--	 * free it and its contents if it is allocated */
--	if(priv->rx_skbuff != NULL) {
--		for (i = 0; i < priv->rx_ring_size; i++) {
--			if (priv->rx_skbuff[i]) {
--				dma_unmap_single(&priv->ofdev->dev, rxbdp->bufPtr,
--						priv->rx_buffer_size,
--						DMA_FROM_DEVICE);
--
--				dev_kfree_skb_any(priv->rx_skbuff[i]);
--				priv->rx_skbuff[i] = NULL;
--			}
--
--			rxbdp->lstatus = 0;
--			rxbdp->bufPtr = 0;
-+	if (!priv->rx_skbuff)
-+		goto skip_rx_skbuff;
- 
--			rxbdp++;
-+	for (i = 0; i < priv->rx_ring_size; i++) {
-+		if (priv->rx_skbuff[i]) {
-+			dma_unmap_single(&priv->ofdev->dev, rxbdp->bufPtr,
-+					 priv->rx_buffer_size,
-+					DMA_FROM_DEVICE);
-+			dev_kfree_skb_any(priv->rx_skbuff[i]);
-+			priv->rx_skbuff[i] = NULL;
- 		}
- 
--		kfree(priv->rx_skbuff);
-+		rxbdp->lstatus = 0;
-+		rxbdp->bufPtr = 0;
-+		rxbdp++;
- 	}
-+
-+	kfree(priv->rx_skbuff);
-+skip_rx_skbuff:
-+
-+	dma_free_coherent(dev, sizeof(*txbdp) * priv->tx_ring_size +
-+			       sizeof(*rxbdp) * priv->rx_ring_size,
-+			  priv->tx_bd_base, gfar_read(&priv->regs->tbase0));
- }
- 
- void gfar_start(struct net_device *dev)
-@@ -1148,11 +1148,8 @@ tx_irq_fail:
- err_irq_fail:
- err_rxalloc_fail:
- rx_skb_fail:
--	free_skb_resources(priv);
- tx_skb_fail:
--	dma_free_coherent(dev, sizeof(*txbdp) * priv->tx_ring_size +
--			       sizeof(*rxbdp) * priv->rx_ring_size,
--			  priv->tx_bd_base, gfar_read(&regs->tbase0));
-+	free_skb_resources(priv);
- 	return err;
- }
- 
+ 	/* If the device has multiple interrupts, register for
+ 	 * them.  Otherwise, only register for the one */
+ 	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_MULTI_INTR) {
 -- 
 1.6.3.3
