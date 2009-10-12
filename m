@@ -1,8 +1,8 @@
 From: Stefano Babic <stefano.babic@babic.homelinux.org>
-Subject: Re: [PATCH] [CAIF-RFC 5/8-v2] CAIF Protocol Stack
-Date: Mon, 12 Oct 2009 14:51:08 +0200
-Message-ID: <4AD3263C.9010605@babic.homelinux.org>
-References: <1255095571-6501-1-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-2-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-3-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-4-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-5-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-6-git-send-email-sjur.brandeland@stericsson.com>
+Subject: Re: [PATCH] [CAIF-RFC 6/8-v2] CAIF Protocol Stack
+Date: Mon, 12 Oct 2009 15:06:07 +0200
+Message-ID: <4AD329BF.9070107@babic.homelinux.org>
+References: <1255095571-6501-1-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-2-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-3-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-4-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-5-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-6-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-7-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -10,11 +10,11 @@ Cc: netdev@vger.kernel.org, kim.xx.lilliestierna@stericsson.com,
 	christian.bejram@stericsson.com, daniel.martensson@stericsson.com
 To: sjur.brandeland@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpout084B.attiva.biz ([85.33.31.84]:4270 "EHLO
-	smtpout084B.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755771AbZJLMwH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 08:52:07 -0400
-In-Reply-To: <1255095571-6501-6-git-send-email-sjur.brandeland@stericsson.com>
+Received: from smtpout31.attiva.biz ([88.44.63.37]:3356 "EHLO
+	smtpout31.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755021AbZJLNMs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 09:12:48 -0400
+In-Reply-To: <1255095571-6501-7-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -23,42 +23,71 @@ sjur.brandeland@stericsson.com wrote:
 
 Hi Sjur,
 
-> diff --git a/net/caif/caif_chr.c b/net/caif/caif_chr.c
+> +config CAIF_TTY
+> +	tristate "CAIF TTY transport driver"
+> +	default n
+> +	---help---
+> +	The CAIF TTY transport driver.
+> +	If you say yes here you will also need to build a userspace utility to set the line disicpline on the
 
-> +#define caif_assert(assert) BUG_ON(!(assert))
+s/disicpline/discipline/
 
-Do we need special assert for each module (cfglu_assert,
-caif_assert,...) ? They are all defined in the same way.
-At this point I have already set a comment about using BUG_ON in a
-previous patch.
+> diff --git a/drivers/net/caif/phyif_loop.c b/drivers/net/caif/phyif_loop.c
 
-I see a mixed policy in this patch, using sometimes _assert and
-sometimes directly BUG_ON, too.
+> +/* Start ring buffer */
+> +#define RING_MAX_BUFFERS 16384
+> +
+> +struct ring_buffer_element {
+> +	struct _cfpkt_t *cfpkt;
+> +};
+> +
+> +static struct {
+> +	struct ring_buffer_element ring_buffer[RING_MAX_BUFFERS];
+> +	int head_index;
+> +	int tail_index;
+> +} my_ring_buffer;
+> +
+> +#define ring_buffer_index_plus_one(index) \
+> +    ((index+1) < RING_MAX_BUFFERS ? (index + 1) : 0)
+> +
+> +#define ring_buffer_increment_tail(rb) \
+> +    ((rb)->tail_index = ring_buffer_index_plus_one((rb)->tail_index))
+> +
+> +#define ring_buffer_increment_head(rb) \
+> +    ((rb)->head_index = ring_buffer_index_plus_one((rb)->head_index))
+> +
+> +#define ring_buffer_empty(rb) ((rb)->head_index == (rb)->tail_index)
+> +#define ring_buffer_full(rb) (ring_buffer_index_plus_one((rb)->head_index)\
+> +			      == (rb)->tail_index)
+> +#define ring_buffer_tail_element(rb) ((rb)->ring_buffer[(rb)->tail_index])
+> +#define ring_buffer_head_element(rb) ((rb)->ring_buffer[(rb)->head_index])
+> +#define ring_buffer_size(rb) (((rb)->head_index >= (rb)->tail_index)) ?\
+> +  ((rb)->head_index - (rb)->tail_index) : \
+> +    (RING_MAX_BUFFERS - ((rb)->tail_index - (rb)->head_index))
+> +/* End ring buffer */
 
-> diff --git a/net/caif/chnl_chr.c b/net/caif/chnl_chr.c
+Is there a reason why do you prefer to implement your own ring buffer
+management else to use the circ_buf already implemented in kernel ?
 
-> +	/* Lock in order to try to stop someone from opening the device
-> +	   too early. The misc device has its own lock. We cannot take our
-> +	   lock until misc_register() is finished, because in open() the
-> +	   locks are taken in this order (misc first and then dev).
-> +	   So anyone managing to open the device between the misc_register
-> +	   and the mutex_lock will get a "device not found" error. Don't
-> +	   think it can be avoided.
-> +	 */
-> +	mutex_lock_interruptible(&dev->mutex);
-
-The return value is not checked and it must be, as in all other cases.
-
-> +	/* Find device from name */
-> +	dev = find_device(-1, name, 0);
-> +	if (!dev)
-> +		return -EBADF;
 > +
 > +
+> +
+> +static void work_func(struct work_struct *work);
+> +static struct workqueue_struct *ploop_work_queue;
+> +static DECLARE_WORK(loop_work, work_func);
+> +static wait_queue_head_t buf_available;
+> +
+> +
+> +#define phyif_assert(assert) BUG_ON(!(assert))
 
-> +	mutex_lock_interruptible(&dev->mutex);
+Specialized assert function for this module, really needed ?
 
-The return value of mutex_lock_interruptible() must be checked.
+> +
+> +	result = tty_register_ldisc(N_MOUSE, &phyif_ldisc);
+
+I think it is time to set up your own discipline include/linux/tty.h,
+inserting a N_CAIF line discipline. Reusing other discipline conflicts
+with other drivers.
 
 Stefano
 
