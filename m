@@ -1,109 +1,110 @@
-From: Matt Domsch <matt_domsch@dell.com>
-Subject: Re: PATCH: Network Device Naming mechanism and policy
-Date: Mon, 12 Oct 2009 14:48:36 -0500
-Message-ID: <20091012194835.GA8474@mock.linuxdev.us.dell.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE589541@blrx3m08.blr.amer.dell.com> <20091012184711.GA4836@mock.linuxdev.us.dell.com> <20091012190900.GA514@kroah.com>
-Reply-To: Matt Domsch <Matt_Domsch@dell.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Narendra K <Narendra_K@dell.com>, notting@redhat.com,
-	netdev@vger.kernel.org, shemminger@vyatta.com,
-	linux-hotplug@vger.kernel.org, jordan_hargrave@dell.com,
-	charles_rose@dell.com
-To: Greg KH <greg@kroah.com>
+From: Vincent Sanders <vince@simtec.co.uk>
+Subject: [PATCH] Fix IXP 2000 network driver building.
+Date: Mon, 12 Oct 2009 20:46:15 +0100
+Message-ID: <1255376775-21390-1-git-send-email-vince@simtec.co.uk>
+Cc: Vincent Sanders <vince@simtec.co.uk>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausxipps301.us.dell.com ([143.166.148.223]:18161 "EHLO
-	ausxipps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758025AbZJLTtO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 15:49:14 -0400
-Content-Disposition: inline
-In-Reply-To: <20091012190900.GA514@kroah.com>
+Received: from flounder.pepperfish.net ([87.237.62.181]:43758 "EHLO
+	flounder.pepperfish.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757789AbZJLTqw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 15:46:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 12, 2009 at 12:09:00PM -0700, Greg KH wrote:
-> "LOM"?
+The IXP 2000 network driver was failing to build as it has its own
+statistics gathering which was not compatible with the recent network
+device operations changes. This patch fixes the driver in the obvious
+way and has been compile tested. I have been unable to get the ixp2000
+maintainer to comment or test this fix.
 
-LAN on Motherboard (e.g. an embedded NIC, as opposed to being in some
-slot).
+Signed-off-by: Vincent Sanders <vince@simtec.co.uk>
+---
+ drivers/net/ixp2000/enp2611.c |   18 +-----------------
+ drivers/net/ixp2000/ixpdev.c  |   11 +++++++++++
+ 2 files changed, 12 insertions(+), 17 deletions(-)
 
-> Isn't what you want is a PCI slot detection, combined with the order on
-> board in which the port is enumerated?
-
-Most folks do, yes.
-
-
-> I still fail to see how this dummy char device would solve this problem,
-> as everything you can do today in userspace would be the same with this
-> device node as you can't do anything with the symlink name on its own,
-> right?
-
-You are correct, the char device by itself doesn't help with this.
-You noted earlier, the char device is really only needed if we want to
-be able have multiple names for the same device, only exposed in
-userspace.
-
-If all we want to do is change the namespace for devices the kernel
-uses, from "ethN" to something else, we can do that with a single
-simple rename.  And biosdevname has several --policy=[] options to
-provide that.
-
---policy=smbios_names => "Embedded NIC 1", "PCI2"
---policy=kernelnames  => "eth0"  (kind of pointless, but included for completeness)
---policy=all_ethN     => "eth0..ethN" in ascending slot order, embedded
-                         before slots, within a single slot in PCI
-                         breadth-first order, and thereafter in MAC
-                         address order if really needed.
---policy=all_names    => "eth_s0_0" for the first embedded NIC in PCI
-                         breadth-first order, "eth_s1_1" for the
-                         second NIC port in PCI slot 1, again in
-                         breadth-first order.
---policy=embedded_ethN_slots_names   a combo of the above, but making
-                        the embeddeds still retain the "eth0" format
-                        and the slots get "eth_s1_1" format.
-
-We could add a dozen more.  all_ethN, and to a lesser extent,
-embedded_ethN, are bad choices if biosdevname is invoked by udev on
-every run (e.g. not using persistent rules), because when it's run,
-userspace doesn't know if there are more drivers to be loaded yet, and
-so biosdevname can't know if there are more NICs to
-include in the enumeration, to get the naming right.  (yet another
-example of enumeration != naming).
-
-Now, for --policy=smbios_names, we get lucky in that the string length
-returned from SMBIOS is 14 characters, it fits in IFNAMSZ.  We may not
-always get so lucky, SMBIOS strings are arbitrary lengths.  This works
-somewhat better as a symlink source, as that can be longer than
-IFNAMSZ long.
-
---policy=all_names is pretty good.  It fits, it lines up to a fairly
-obvious hardware mapping.  It breaks any code that assumes a regular
-expression eth[[:digit:]]+ for the name.
-
-By having a single name in the kernel for a particular device, it
-forces a sysadmin to choose one naming policy.  We can't have multiple
-names for the same device (like we do for disks).  And conceptually,
-I'd like to be able to have a physical-based naming scheme (all_names)
-for use at installtime and mechanical configuration, and a
-logical-based naming scheme for firewall rules and other policy-based
-configuration.  I can't do that with a single name.
-
-I can't please everyone.  I can't keep the kernel's eth* namespace
-intact, as it is meaningless and non-deterministic.  I can switch
-names to another namespace, at the risk of breaking all the
-applications that have bad assumptions.  And I can't have multiple
-names for the same device.  But if I have multiple names for the same
-device, then I can keep the eth* namespace intact (meaningless as it
-is), and provide more meaningful names that work too.
-
-I'm not hung up on the char device.  If I could have multiple names
-for the same device, done entirely inside the kernel, I'd go for that
-too.  That suggestion has met similar resistance.  Or any other
-mechanism, I'm open to also.  But _not_ solving it is no longer an
-option for me and my customers.
-
-
+diff --git a/drivers/net/ixp2000/enp2611.c b/drivers/net/ixp2000/enp2611.c
+index b02a981..34a6cfd 100644
+--- a/drivers/net/ixp2000/enp2611.c
++++ b/drivers/net/ixp2000/enp2611.c
+@@ -119,24 +119,9 @@ static struct ixp2400_msf_parameters enp2611_msf_parameters =
+ 	}
+ };
+ 
+-struct enp2611_ixpdev_priv
+-{
+-	struct ixpdev_priv		ixpdev_priv;
+-	struct net_device_stats		stats;
+-};
+-
+ static struct net_device *nds[3];
+ static struct timer_list link_check_timer;
+ 
+-static struct net_device_stats *enp2611_get_stats(struct net_device *dev)
+-{
+-	struct enp2611_ixpdev_priv *ip = netdev_priv(dev);
+-
+-	pm3386_get_stats(ip->ixpdev_priv.channel, &(ip->stats));
+-
+-	return &(ip->stats);
+-}
+-
+ /* @@@ Poll the SFP moddef0 line too.  */
+ /* @@@ Try to use the pm3386 DOOL interrupt as well.  */
+ static void enp2611_check_link_status(unsigned long __dummy)
+@@ -203,14 +188,13 @@ static int __init enp2611_init_module(void)
+ 
+ 	ports = pm3386_port_count();
+ 	for (i = 0; i < ports; i++) {
+-		nds[i] = ixpdev_alloc(i, sizeof(struct enp2611_ixpdev_priv));
++		nds[i] = ixpdev_alloc(i, sizeof(struct ixpdev_priv));
+ 		if (nds[i] == NULL) {
+ 			while (--i >= 0)
+ 				free_netdev(nds[i]);
+ 			return -ENOMEM;
+ 		}
+ 
+-		nds[i]->get_stats = enp2611_get_stats;
+ 		pm3386_init_port(i);
+ 		pm3386_get_mac(i, nds[i]->dev_addr);
+ 	}
+diff --git a/drivers/net/ixp2000/ixpdev.c b/drivers/net/ixp2000/ixpdev.c
+index 1272434..9aee0cc 100644
+--- a/drivers/net/ixp2000/ixpdev.c
++++ b/drivers/net/ixp2000/ixpdev.c
+@@ -21,6 +21,7 @@
+ #include "ixp2400_tx.ucode"
+ #include "ixpdev_priv.h"
+ #include "ixpdev.h"
++#include "pm3386.h"
+ 
+ #define DRV_MODULE_VERSION	"0.2"
+ 
+@@ -271,6 +272,15 @@ static int ixpdev_close(struct net_device *dev)
+ 	return 0;
+ }
+ 
++static struct net_device_stats *ixpdev_get_stats(struct net_device *dev)
++{
++	struct ixpdev_priv *ip = netdev_priv(dev);
++
++	pm3386_get_stats(ip->channel, &(dev->stats));
++
++	return &(dev->stats);
++}
++
+ static const struct net_device_ops ixpdev_netdev_ops = {
+ 	.ndo_open		= ixpdev_open,
+ 	.ndo_stop		= ixpdev_close,
+@@ -278,6 +288,7 @@ static const struct net_device_ops ixpdev_netdev_ops = {
+ 	.ndo_change_mtu		= eth_change_mtu,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_mac_address	= eth_mac_addr,
++	.ndo_get_stats		= ixpdev_get_stats,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= ixpdev_poll_controller,
+ #endif
 -- 
-Matt Domsch
-Technology Strategist, Dell Office of the CTO
-linux.dell.com & www.dell.com/linux
+1.6.0.4
+
