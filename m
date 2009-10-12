@@ -1,41 +1,48 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH] netxen: fix pci bar mapping
-Date: Sun, 11 Oct 2009 19:43:22 -0700
-Message-ID: <1255315402-1578-1-git-send-email-dhananjay@netxen.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Rakib Mullick <rakib.mullick@gmail.com>
+Subject: [PATCH -mm] connector: Passing required parameter for function
+	cn_add_callback.
+Date: Mon, 12 Oct 2009 08:44:33 +0600
+Message-ID: <b9df5fa10910111944s274207aica39c0e646c10f7a@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Andrew Morton <akpm@linux-foundation.org>, zbr@ioremap.net,
+	LKML <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:40978 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1750831AbZJLCn7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 Oct 2009 22:43:59 -0400
+Received: from mail-px0-f179.google.com ([209.85.216.179]:48136 "EHLO
+	mail-px0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752809AbZJLCpJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Oct 2009 22:45:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use phys_addr_t data type for pci resource address
-instead of unsigned long. This fixes mapping of
-pci resources where resource addresses can be larger
-than word size (e.g. PAE).
+ We need to pass struct netlink_skb_parms as parameter for
+cn_proc_mcast_ctl, which
+is a callback function supposed to take two parameter. Fixes the
+following warning and
+a kernel-doc notation of the function.
 
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
----
- drivers/net/netxen/netxen_nic_main.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+  CC      drivers/connector/cn_proc.o
+drivers/connector/cn_proc.c: In function `cn_proc_init':
+drivers/connector/cn_proc.c:263: warning: passing arg 3 of
+`cn_add_callback' from incompatible pointer type
 
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 9b9eab1..194b3e3 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -595,7 +595,8 @@ netxen_setup_pci_map(struct netxen_adapter *adapter)
- 	void __iomem *mem_ptr2 = NULL;
- 	void __iomem *db_ptr = NULL;
- 
--	unsigned long mem_base, mem_len, db_base, db_len = 0, pci_len0 = 0;
-+	phys_addr_t mem_base, db_base;
-+	unsigned long mem_len, db_len = 0, pci_len0 = 0;
- 
- 	struct pci_dev *pdev = adapter->pdev;
- 	int pci_func = adapter->ahw.pci_func;
--- 
-1.6.0.2
+----
+Signed-off-by: Rakib Mullick <rakib.mullick@gmail.com>
 
+--- linus/drivers/connector/cn_proc.c	2009-10-09 17:38:22.000000000 +0600
++++ rakib/drivers/connector/cn_proc.c	2009-10-12 09:45:33.000000000 +0600
+@@ -225,9 +225,10 @@ static void cn_proc_ack(int err, int rcv
+
+ /**
+  * cn_proc_mcast_ctl
+- * @data: message sent from userspace via the connector
++ * @msg: message sent from userspace via the connector
++ * @nsp: remains unused but we need it to keep it
+  */
+-static void cn_proc_mcast_ctl(struct cn_msg *msg)
++static void cn_proc_mcast_ctl(struct cn_msg *msg, struct
+netlink_skb_parms *nsp)
+ {
+ 	enum proc_cn_mcast_op *mc_op = NULL;
+ 	int err = 0;
