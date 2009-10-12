@@ -1,40 +1,33 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCHv3] netxen: fix pci bar mapping
-Date: Sun, 11 Oct 2009 23:39:33 -0700
-Message-ID: <1255329573-17701-1-git-send-email-dhananjay@netxen.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Kurt Van Dijck <kurt.van.dijck@eia.be>
+Subject: Re: PATCH: Network Device Naming mechanism and policy
+Date: Mon, 12 Oct 2009 09:30:00 +0200
+Message-ID: <20091012073000.GB315@e-circ.dyndns.org>
+References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com> <20091009140000.GA18765@mock.linuxdev.us.dell.com> <20091009210909.GA9836@auslistsprd01.us.dell.com> <20091009194401.036da080@nehalam> <20091010044056.GA5350@mock.linuxdev.us.dell.com> <20091010113219.3136fb8b@s6510>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: Matt Domsch <Matt_Domsch@dell.com>, netdev@vger.kernel.org,
+	linux-hotplug@vger.kernel.org, Narendra_K@dell.com,
+	jordan_hargrave@dell.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:51734 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1753596AbZJLGkZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Oct 2009 02:40:25 -0400
+Received: from gate.eia.be ([194.78.71.18]:49770 "EHLO mail.eia.be"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753797AbZJLHak (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Oct 2009 03:30:40 -0400
+Content-Disposition: inline
+In-Reply-To: <20091010113219.3136fb8b@s6510>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use resource_size_t for PCI resource remapping instead
-of unsigned long. Physical addresses can exceed range of
-long data type (e.g with PAE).
+On Sat, Oct 10, 2009 at 11:32:19AM -0700, Stephen Hemminger wrote:
+> > On Fri, Oct 09, 2009 at 07:44:01PM -0700, Stephen Hemminger wrote:
+[...]
+> 
+> Why isn't the available through sysfs enough, if not why not
+> add the necessary attributes there.
+True. If sysfs is not sufficient, what exact naming scheme could be
+applied that the chardev based naming could use?
+> 
+[...]
 
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
----
- drivers/net/netxen/netxen_nic_main.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 9b9eab1..7fc15e9 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -595,7 +595,8 @@ netxen_setup_pci_map(struct netxen_adapter *adapter)
- 	void __iomem *mem_ptr2 = NULL;
- 	void __iomem *db_ptr = NULL;
- 
--	unsigned long mem_base, mem_len, db_base, db_len = 0, pci_len0 = 0;
-+	resource_size_t mem_base, db_base;
-+	unsigned long mem_len, db_len = 0, pci_len0 = 0;
- 
- 	struct pci_dev *pdev = adapter->pdev;
- 	int pci_func = adapter->ahw.pci_func;
--- 
-1.6.0.2
-
+Kurt
