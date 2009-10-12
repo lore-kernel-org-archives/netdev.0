@@ -1,78 +1,47 @@
-From: Stefano Babic <stefano.babic@babic.homelinux.org>
-Subject: Re: [PATCH] [CAIF-RFC 4/8-v2] CAIF Protocol Stack
-Date: Mon, 12 Oct 2009 14:20:01 +0200
-Message-ID: <4AD31EF1.2010102@babic.homelinux.org>
-References: <1255095571-6501-1-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-2-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-3-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-4-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-5-git-send-email-sjur.brandeland@stericsson.com>
+From: Frederik Deweerdt <frederik.deweerdt-kjvbsxwSFqI@public.gmane.org>
+Subject: Re: 2.6.32-rc4: Reported regressions 2.6.30 -> 2.6.31
+Date: Mon, 12 Oct 2009 12:22:01 +0000
+Message-ID: <20091012122201.GA31282@gambetta>
+References: <56acieJJ2fF.A.nEB.Hzl0KB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kim.xx.lilliestierna@stericsson.com,
-	christian.bejram@stericsson.com, daniel.martensson@stericsson.com
-To: sjur.brandeland@stericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpout13.attiva.biz ([85.37.16.15]:44699 "EHLO
-	smtpout13.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754552AbZJLMUl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 08:20:41 -0400
-In-Reply-To: <1255095571-6501-5-git-send-email-sjur.brandeland@stericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <56acieJJ2fF.A.nEB.Hzl0KB@chimera>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-sjur.brandeland@stericsson.com wrote:
-> From: Sjur Braendeland <sjur.brandeland@stericsson.com>
+Hi Rafael,
 
-Hi Sjur,
-
+On Mon, Oct 12, 2009 at 12:41:30AM +0200, Rafael J. Wysocki wrote:
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=14185
+> Subject		: Oops in driversbasefirmware_class
+> Submitter	:  <lars_ericsson-zq6IREYz3ykAvxtiuMwx3w@public.gmane.org>
+> Date		: 2009-09-17 05:09 (25 days old)
+> First-Bad-Commit: http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=6e03a201bbe8137487f340d26aa662110e324b20
 > 
-> diff --git a/net/caif/generic/cfcnfg.c b/net/caif/generic/cfcnfg.c
-> new file mode 100644
-> index 0000000..3aad201
+> 
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=14253
+> Subject		: Oops in driversbasefirmware_class
+> Submitter	: Lars Ericsson <Lars_Ericsson-zq6IREYz3ykAvxtiuMwx3w@public.gmane.org>
+> Date		: 2009-09-16 20:44 (26 days old)
+> References	: http://lkml.org/lkml/2009/9/16/461
+> Handled-By	: Frederik Deweerdt <frederik.deweerdt-kjvbsxwSFqI@public.gmane.org>
+> Patch		: http://patchwork.kernel.org/patch/49914/
+> 
+Those two are refering to the same bug.
 
-> + * NOTE: What happends destroy failure:
-
-s/happends/happens/, there are other occurencies.
-
-> +
-> +bool cfcnfg_del_adapt_layer(struct _cfcnfg_t *cnfg, layer_t *adap_layer)
-> +{
-> +	uint8 channel_id = 0;
-> +	struct cfcnfg_phyinfo *phyinfo = NULL;
-> +	uint8 phyid = 0;
-> +	CFLOG_TRACE(("cfcnfg: enter del_adaptation_layer\n"));
-> +
-> +	cfglu_assert(adap_layer != NULL);
-> +	channel_id = adap_layer->id;
-> +	cfglu_assert(channel_id != 0);
-
-My two cents about using assert in the code, but I prefer to get some
-info from system when something goes wrong as to call in some way panic
-(the assert calls BUG_ON) and blocks forever.
-This line is not different as checking the adapt_layer->dn pointer some
-lines after and I think an error is better recognized in that case. So
-IMHO should be better something like:
-
-	if (channel_id == 0) {
-		CFLOG_ERROR(("cfcnfg:adap_layer->dn is NULL\n"));
-		return CFGLU_EINVAL;
-	}
-
-
-> diff --git a/net/caif/generic/cfpkt_plain.c b/net/caif/generic/cfpkt_plain.c
-> +#define CHECK_MEM 1
-
-Probably you plan to use always the magic number in your buffer
-management. Then should be better to remove all the #if CHECK_MEM stuff.
-
-
-> +#if CHECK_MEM
-> +
-> +#endif
-
-This three lines seem not needed.... ;)
-
-Stefano
-
--- 
-stefano <stefano.babic@babic.homelinux.org>
-GPG Key: 0x55814DDE
-Fingerprint 4E85 2A66 4CBA 497A 2A7B D3BF 5973 F216 5581 4DDE
+Regards,
+Frederik
