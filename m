@@ -1,42 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Generalize socket rx gap / receive queue overflow cmsg
- (v4)
-Date: Mon, 12 Oct 2009 03:01:29 -0700 (PDT)
-Message-ID: <20091012.030129.51619515.davem@davemloft.net>
-References: <20091007180835.GB20524@hmsreliant.think-freely.org>
-	<20091010123522.GA24193@localhost.localdomain>
-	<4AD2B2BF.8040706@gmail.com>
+Subject: Re: NOHZ: local_softirq_pending 08
+Date: Mon, 12 Oct 2009 03:32:46 -0700 (PDT)
+Message-ID: <20091012.033246.56701176.davem@davemloft.net>
+References: <4AD1BF06.3050103@phoenixsoftware.de>
+	<1255261251.4095.143.camel@johannes.local>
+	<4AD2E8C8.4060205@imap.cc>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org,
-	socketcan@hartkopp.net
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56144
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755209AbZJLKBd convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Oct 2009 06:01:33 -0400
-In-Reply-To: <4AD2B2BF.8040706@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johannes@sipsolutions.net, hidave.darkstar@gmail.com,
+	linux-kernel@vger.kernel.org, tglx@linutronix.de,
+	linux-wireless@vger.kernel.org, linux-ppp@vger.kernel.org,
+	netdev@vger.kernel.org, paulus@samba.org
+To: tilman@imap.cc
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756047AbZJLKcw@vger.kernel.org>
+In-Reply-To: <4AD2E8C8.4060205@imap.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 12 Oct 2009 06:38:23 +0200
+From: Tilman Schmidt <tilman@imap.cc>
+Date: Mon, 12 Oct 2009 10:28:56 +0200
 
-> Neil Horman a =E9crit :
->> 3) This applies cleanly to net-next assuming that commit
->> 977750076d98c7ff6cbda51858bb5a5894a9d9ab (my af packet cmsg patch) i=
-s reverted
->>=20
->> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
->=20
-> Thanks Neil
->=20
-> I found no obvious error in this v4, except two long lines.
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
+> 
+> [CCing PPP people]
+> 
+> Am 11.10.2009 13:40 schrieb Johannes Berg:
+>> On Sun, 2009-10-11 at 13:18 +0200, Tilman Schmidt wrote:
+>> 
+>>> Can you explain a bit more what that message is about?
+>>> I am encountering it in a completely different context
+>>> (PPP over ISDN) [...]
+>> 
+>> Basically, calling netif_rx() with softirqs enabled.
+> 
+> AFAICS that would have to be the netif_rx() call in
+> ppp_receive_nonmp_frame() [drivers/net/ppp_generic.c#L1791],
+> called (via others) from the tasklet work function
+> ppp_sync_process() [drivers/net/ppp_synctty.c#L545].
+> Should that be changed to the
+> "if (in_interrupt()) netif_rx(skb) else netif_rx_ni(skb)"
+> stanza from the linux.kernel.wireless.general thread then?
 
-I reverted the AF_PACKET commit and applied this patch,
-thanks!
+The PPP receive paths in ppp_generic.c do a local_bh_disable()/
+local_bh_enable() around packet receiving (via ppp_recv_lock()/
+ppp_recv_unlock() in ppp_do_recv).
+
+So at least that part is perfectly fine.
+
+ppp_input(), as called from ppp_sync_process(), also disables BH's
+around ppp_do_recv() calls (via read_lock_bh()/read_unlock_bh()).
+
+So that's fine too.
+
+Do you have a bug report or are you just scanning around looking
+for trouble? :-)
