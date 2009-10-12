@@ -1,74 +1,48 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: PATCH: Network Device Naming mechanism and policy
-Date: Mon, 12 Oct 2009 10:55:08 -0700
-Message-ID: <20091012175508.GA10946@kroah.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com>
- <20091009140000.GA18765@mock.linuxdev.us.dell.com>
- <20091009210909.GA9836@auslistsprd01.us.dell.com>
- <20091009194401.036da080@nehalam>
- <20091010044056.GA5350@mock.linuxdev.us.dell.com>
- <20091010052308.GA12458@kroah.com>
- <20091012174528.GB22736@nostromo.devel.redhat.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Link bouncing with multiple drivers.
+Date: Mon, 12 Oct 2009 10:55:58 -0700
+Message-ID: <4AD36DAE.8070908@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matt Domsch <Matt_Domsch@dell.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
-	Narendra_K@dell.com, jordan_hargrave@dell.com
-To: Bill Nottingham <notting@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:35734 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933021AbZJLR6u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Oct 2009 13:58:50 -0400
-Content-Disposition: inline
-In-Reply-To: <20091012174528.GB22736@nostromo.devel.redhat.com>
+Received: from mail.candelatech.com ([208.74.158.172]:56631 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932849AbZJLR4f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 13:56:35 -0400
+Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id n9CHtwxM031822
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 12 Oct 2009 10:55:59 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 12, 2009 at 01:45:28PM -0400, Bill Nottingham wrote:
-> Greg KH (greg@kroah.com) said: 
-> > > Today, port naming is completely nondeterministic.  If you have but
-> > > one NIC, there are few chances to get the name wrong (it'll be eth0).
-> > > If you have >1 NIC, chances increase to get it wrong.
-> > 
-> > That is why all distros name network devices based on the only
-> > deterministic thing they have today, the MAC address.  I still fail to
-> > see why you do not like this solution, it is honestly the only way to
-> > properly name network devices in a sane manner.
-> > 
-> > All distros also provide a way to easily rename the network devices, to
-> > place a specific name on a specific MAC address, so again, this should
-> > all be solved already.
-> 
-> No, it's not solved. Even if you have persistent names once you install,
-> if you ever re-image, you're likely to get *different* persistent names;
-> the first load will always be non-detmerministic.
-> 
-> The only way around this would be to have some sort of screen like:
-> 
->   Would you like your network devices to be enumerated by
-> 
->   [ ] MAC address
->   [ ] PCI device order
->   [ ] Driver name
->   [ ] Other
+I have a strange issue:
 
-[ ] PCI slot name
+In several different scenarios, when we run pktgen at line speed
+on 1G through our proprietary bridge-ish module, we see link go
+up and down every minute or so.  This happens with e1000, e1000e,
+and have also seen it on ixgbe (though not line speed here...but
+we were driving it as hard as the systems could handle).
 
-That's one that modern systems are now reporting, and should solve
-Matt's problem as well, right?
+We cannot reproduce this when a normal bridge is substituted for
+our proprietary module, so it must either be a bug in our code somewhere,
+or something to do with the fact that our module causes more work to
+be done than a bridge (backed up driver queues on rx/tx, time-stamps, etc).
 
-> which is just all sorts of fail in and of itself. Especially since
-> once you get to the point where you can coherently ask this in a
-> native installer, the drivers have already loaded.
+Since it happens across multiple drivers and hardware (and operating systems:  F5, F8, F11,
+but all with kernels based on 2.6.31), it must be some general issue.
 
-No, the driver load order doesn't determine this, you need the drivers
-loaded first before you can rename anything :)
+If anyone has any ideas where I should start poking, I would
+be grateful.  For now, I'm off to dig in the e1000e code...
 
-And I don't see how Matt's proposed patch helps resolve this type of
-issue any better than what we currently have today, do you?
+Thanks,
+Ben
 
-thanks,
 
-greg k-h
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
