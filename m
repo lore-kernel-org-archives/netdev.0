@@ -1,92 +1,69 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: bisect results of MSI-X related panic (help!)
-Date: Mon, 12 Oct 2009 11:00:33 -0700
-Message-ID: <alpine.WNT.2.00.0910120907170.11804@jbrandeb-mobl2.amr.corp.intel.com>
-References: <1252699744.3877.15.camel@jbrandeb-hc.jf.intel.com>
-  <200909120623.49764.elendil@planet.nl> <4AAE0F7B.5050203@kernel.org>
-  <4AAE105E.1080005@kernel.org>
- <4807377b0910091724k2a332e90i9941971f6032663c@mail.gmail.com>
- <4AD2E05A.6060700@kernel.org>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: Re: [PATCH] ax25: unsigned cannot be less than 0 in ax25_ctl_ioctl()
+Date: Mon, 12 Oct 2009 21:02:28 +0200
+Message-ID: <4AD37D44.9050207@gmail.com>
+References: <4AD0FB0B.8050609@gmail.com> <4AD34D3C.1060206@bfs.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Frans Pop <elendil@planet.nl>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ingo Molnar <mingo@elte.hu>, "hpa@zytor.com" <hpa@zytor.com>
-To: Tejun Heo <tj@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:48894 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757653AbZJLSmP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 14:42:15 -0400
-In-Reply-To: <4AD2E05A.6060700@kernel.org>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-hams@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Joerg Reuter <jreuter@yaina.de>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: wharms@bfs.de
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <4AD34D3C.1060206@bfs.de>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 12 Oct 2009, Tejun Heo wrote:
-> > any other debugging tricks/ideas?
+struct ax25_ctl_struct member `arg' is unsigned and cannot be less
+than 0.
+
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+>> If the ax25_ctl.arg limit is known to be lower, please suggest
+>> other values.
+
+> what is about something like:
 > 
-> Hmm... stackprotector adds considerable amount of stack usage and it
-> could be you're seeing stack overflow which would also explain the
-> random crashes you've been seeing.  Do you have DEBUG_STACKOVERFLOW
-> turned on?  This is on x86_64, right?
+>  tmp_arg=ax25_ctl.arg * HZ;
+> 
+>   if (arg == 0 || arg >  ULONG_MAX )
+> 		goto einval_put;
+> 
+> re,
+>  wh
 
-Hi, thanks for your response, 
+I'm not sure, I think this would only work if we made `arg' an
+unsigned long long.
 
-[root@jbrandeb-hc linux-2.6.32-rc1]# grep STACKO .config
-CONFIG_DEBUG_STACKOVERFLOW=y
+How about this?
 
-[root@jbrandeb-hc linux-2.6.32-rc1]# grep X86_64 .config
-CONFIG_X86_64=y
-CONFIG_X86_64_SMP=y
-CONFIG_X86_64_ACPI_NUMA=y
-
-stack size is 8K
-
-I tried Jarek's suggestion of CPUMASK_OFFSTACK and still panic.
-[66027.266057] Kernel panic - not syncing: stack-protector: Kernel stack 
-is corrupted in: ffffffff810b4eb0
-[66027.266059]
-[66027.266070] Kernel panic - not syncing: stack-protector: Kernel stack 
-is corrupted in: ffffffff81472856
-[66027.266071]
-[66027.266081] Pid: 0, comm: swapper Tainted: G        W  
-2.6.32-rc2-git-debug #6
-[66027.266086] Call Trace:
-
-that was all I got.  Interesting double fault, that hadn't happened 
-before.
-
-the symbols might be off slightly since I rebuilt the kernel, but this was 
-initial poke at offsets above in gdb
-(gdb) l *0xffffffff810b4eb0
-0xffffffff810b4eb0 is in dynamic_irq_cleanup (kernel/irq/chip.c:86).
-81              desc->handle_irq = handle_bad_irq;
-82              desc->chip = &no_irq_chip;
-83              desc->name = NULL;
-84              clear_kstat_irqs(desc);
-85              spin_unlock_irqrestore(&desc->lock, flags);
-86      }
-87
-88
-89      /**
-90       *      set_irq_chip - set the irq chip for an irq
-(gdb) l *0xffffffff8147285
-No source file for address 0xffffffff8147285.
-(gdb) l *0xffffffff81472856
-0xffffffff81472856 is in show_kprobe_addr (kernel/kprobes.c:1306).
-1301            struct hlist_head *head;
-1302            struct hlist_node *node;
-1303            struct kprobe *p, *kp;
-1304            const char *sym = NULL;
-1305            unsigned int i = *(loff_t *) v;
-1306            unsigned long offset = 0;
-1307            char *modname, namebuf[128];
-1308
-1309            head = &kprobe_table[i];
-1310            preempt_disable();
-
-
+diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
+index f454607..20ff0f3 100644
+--- a/net/ax25/af_ax25.c
++++ b/net/ax25/af_ax25.c
+@@ -369,6 +369,9 @@ static int ax25_ctl_ioctl(const unsigned int cmd, void __user *arg)
+ 	if (ax25_ctl.digi_count > AX25_MAX_DIGIS)
+ 		return -EINVAL;
+ 
++	if (ax25_ctl.arg * HZ > ULONG_MAX && ax25_ctl.cmd != AX25_KILL)
++		return -EINVAL;
++
+ 	digi.ndigi = ax25_ctl.digi_count;
+ 	for (k = 0; k < digi.ndigi; k++)
+ 		digi.calls[k] = ax25_ctl.digi_addr[k];
+@@ -418,14 +421,10 @@ static int ax25_ctl_ioctl(const unsigned int cmd, void __user *arg)
+ 		break;
+ 
+ 	case AX25_T3:
+-		if (ax25_ctl.arg < 0)
+-			goto einval_put;
+ 		ax25->t3 = ax25_ctl.arg * HZ;
+ 		break;
+ 
+ 	case AX25_IDLE:
+-		if (ax25_ctl.arg < 0)
+-			goto einval_put;
+ 		ax25->idle = ax25_ctl.arg * 60 * HZ;
+ 		break;
+ 
