@@ -1,84 +1,75 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: kernel mode pppoe ppp if + ifb + mirred redirect, ethernet packets in ifb?!
-Date: Tue, 13 Oct 2009 01:44:04 +0300
-Message-ID: <200910130144.04910.denys@visp.net.lb>
-References: <200910121143.39924.denys@visp.net.lb> <200910130054.23237.denys@visp.net.lb> <1255385250.5406.43.camel@dogo.mojatatu.com>
+From: Joyce Yu <Joyce.Yu@Sun.COM>
+Subject: [PATCH] [NIU] VLAN does not work with niu driver
+Date: Mon, 12 Oct 2009 16:26:52 -0700
+Message-ID: <4AD3BB3C.2010805@Sun.COM>
+Reply-To: Joyce.Yu@Sun.COM
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain; CHARSET=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:35087 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756959AbZJLWqI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 18:46:08 -0400
-In-Reply-To: <1255385250.5406.43.camel@dogo.mojatatu.com>
-Content-Disposition: inline
+Received: from brmea-mail-4.Sun.COM ([192.18.98.36]:48823 "EHLO
+	brmea-mail-4.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757824AbZJLX1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 19:27:36 -0400
+Received: from fe-amer-10.sun.com ([192.18.109.80])
+	by brmea-mail-4.sun.com (8.13.6+Sun/8.12.9) with ESMTP id n9CNQsqG003551
+	for <netdev@vger.kernel.org>; Mon, 12 Oct 2009 23:26:54 GMT
+Received: from conversion-daemon.mail-amer.sun.com by mail-amer.sun.com
+ (Sun Java(tm) System Messaging Server 7u2-7.04 64bit (built Jul  2 2009))
+ id <0KRF00300CSVIS00@mail-amer.sun.com> for netdev@vger.kernel.org; Mon,
+ 12 Oct 2009 17:26:54 -0600 (MDT)
+Received: from [129.145.154.82] ([unknown] [129.145.154.82])
+ by mail-amer.sun.com
+ (Sun Java(tm) System Messaging Server 7u2-7.04 64bit (built Jul  2 2009))
+ with ESMTPSA id <0KRF00MV7D4ST9D0@mail-amer.sun.com> for
+ netdev@vger.kernel.org; Mon, 12 Oct 2009 17:26:53 -0600 (MDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 13 October 2009 01:07:30 jamal wrote:
-> On Tue, 2009-10-13 at 00:54 +0300, Denys Fedoryschenko wrote:
-> > I don't have problem with existing behaviour, since i am using other way
-> > of shaping, for my case using pktedit to assign priority to SKB and
-> > shaping by it.
->
-> I am dissapointed Denys, you dont like ipt?;->
-It kills me :-) Each new version it doesn't work and i notice, i'm almost one  
-who use it :-) Probably i should wait till netfilter API and iptables 
-conversion will stabilize somehow.
+From: Joyce Yu <joyce.yu@sun.com>
+Date: Mon, 12 Oct 2009 11:03:54 -0700
+Subject: [PATCH] VLAN does not work with niu driver
+Signed-off-by: Joyce Yu <joyce.yu@sun.com>
 
-Plus skbedit in some cases will be faster, if i eliminate iptables, unloading 
-modules even, basic filtering can be done by iproute2 too, i won't have 
-netfilter locks that make things slow on SMP (at least what i heard here and 
-what oprofile shows, that MARK was small CPU hog to compare with skbedit).
+---
+ drivers/net/niu.c |   11 ++++++++++-
+ 1 files changed, 10 insertions(+), 1 deletions(-)
 
-I am happily running 2k pppoe users on Quad Core CPU/on supercheap r8169
-(better nic not available here) with skbedit and flow classifier. It can do 
-more even, i think.
-After switching to skbedit things improve a lot (before 1k users was near max)
+diff --git a/drivers/net/niu.c b/drivers/net/niu.c
+index f9364d0..9559e42 100644
+--- a/drivers/net/niu.c
++++ b/drivers/net/niu.c
+@@ -3480,6 +3480,7 @@ static int niu_process_rx_pkt(struct napi_struct 
+*napi, struct niu *np,
+        unsigned int index = rp->rcr_index;
+        struct sk_buff *skb;
+        int len, num_rcr;
++       struct vlan_ethhdr *veth;
 
->
-> > But generally problem is was told by one of russian developers who is
-> > working on firmware for few models of broadband routers, he asked to help
-> > on ISP forum, and if possible to explain this to someone who can give
-> > advice, and maybe tell that probably there is a bug.
->
-> [..]
->
-> > If it is not, then just simple question, it will work reliably if i just
-> > use u32 filter with offset on ifb?
->
-> Yes, of course you can if you add offset sizeof pppoe header.
-> But:
-> It looks like there is a genuine need for this feature.
->
-> The challenge is: I am trying to be generic across devices of many
-> different types (ethernet, atm, virtual etc) at many entry points,
-> ingress, egress local, forwarding etc.
-> This feature that this person would need will only work if you _know_
-> what you are doing; i.e in this case, I can very easily turn it off with
-> a simple command - but the user must know that they do this on ingress
-> side. I can cook a very quick patch for kernel and user space - you
-> think this user can test it?
-I can test even, even if he won't.
+        skb = netdev_alloc_skb(np->dev, RX_SKB_ALLOC_SIZE);
+        if (unlikely(!skb))
+@@ -3545,7 +3546,15 @@ static int niu_process_rx_pkt(struct napi_struct 
+*napi, struct niu *np,
+        rp->rcr_index = index;
 
-As i understand, for pppoe case, he can just skip offset for ethernet and 
-pppoe header, and he can filter by ip, or not?
-Current way is maybe better, cause someone who want to count everything with 
-ethernet and pppoe headers - can, and who want without - also can (by setting 
-offset , just a bit more difficult.
+        skb_reserve(skb, NET_IP_ALIGN);
+-       __pskb_pull_tail(skb, min(len, NIU_RXPULL_MAX));
++       __pskb_pull_tail(skb, min(len, VLAN_ETH_HLEN));
++
++       veth = (struct vlan_ethhdr *)skb->data;
++       if (veth->h_vlan_proto != __constant_htons(ETH_P_8021Q)) {
++               skb->tail -= 4;
++               skb->data_len += 4;
++               skb_shinfo(skb)->frags[0].page_offset -= 4;
++               skb_shinfo(skb)->frags[0].size += 4;
++       }
 
-Like 
-/sbin/tc filter add dev eth1 protocol 0x8864  parent 2:0 prio 1 u32 \
-match u32 0x$IPREMOTE_HEX 0xffffffff at 24 flowid 2:$ID
-(found in LARTC)
+        rp->rx_packets++;
+        rp->rx_bytes += skb->len;
+--
+1.6.4
 
-
->
-> cheers,
-> jamal
+-- 
 
 
