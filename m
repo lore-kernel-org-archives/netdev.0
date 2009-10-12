@@ -1,47 +1,51 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: 2.6.32-rc4: Reported regressions 2.6.30 -> 2.6.31
-Date: Sun, 11 Oct 2009 18:24:22 -0500
-Message-ID: <4AD26926.9030306@lwfinger.net>
-References: <56acieJJ2fF.A.nEB.Hzl0KB@chimera>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH] acenic: Pass up error code from ace_load_firmware()
+Date: Mon, 12 Oct 2009 02:34:46 +0100
+Message-ID: <1255311286.2488.11.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: DRI <dri-devel@lists.sourceforge.net>,
-        Linux SCSI List <linux-scsi@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        Linux Wireless List <linux-wireless@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Natalie Protasevich <protasnb@gmail.com>,
-        Linux ACPI <linux-acpi@vger.kernel.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Kernel Testers List <kernel-testers@vger.kernel.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Linux PM List <linux-pm@lists.linux-foundation.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-pm-bounces@lists.linux-foundation.org>
-In-Reply-To: <56acieJJ2fF.A.nEB.Hzl0KB@chimera>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
-List-Post: <mailto:linux-pm@lists.linux-foundation.org>
-List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.linux-foundation.org
-Errors-To: linux-pm-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: Jes Sorensen <jes@trained-monkey.org>, linux-acenic@sunsite.dk,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:46753 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752247AbZJLBf2 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 11 Oct 2009 21:35:28 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/11/2009 05:41 PM, Rafael J. Wysocki wrote:
-> [Note:
->   10 new reports in the last 10 days, but fortunately we're fixing them faster
->   than they're being reported.]
+If ace_load_firmware() fails, ace_init() cleans up but still returns
+0, leading to an oops as seen in <http://bugs.debian.org/521383>.
+It should pass the error code up.
 
-> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=14181
-> Subject		: b43 causes panic at ifconfig down / shutdown
-> Submitter	: Jeremy Huddleston <jeremyhu@freedesktop.org>
-> Date		: 2009-09-15 18:34 (27 days old)
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+Cc: stable@kernel.org
+---
+Compile-tested only.
 
-A patch to fix this one is in the hands of the OP. It should be tested
-within the next couple of days.
+Ben.
 
-Larry
+ drivers/net/acenic.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/acenic.c b/drivers/net/acenic.c
+index 08419ee..12bfc44 100644
+--- a/drivers/net/acenic.c
++++ b/drivers/net/acenic.c
+@@ -1209,7 +1209,8 @@ static int __devinit ace_init(struct net_device *dev)
+ 	memset(ap->info, 0, sizeof(struct ace_info));
+ 	memset(ap->skb, 0, sizeof(struct ace_skb));
+ 
+-	if (ace_load_firmware(dev))
++	ecode = ace_load_firmware(dev);
++	if (ecode)
+ 		goto init_error;
+ 
+ 	ap->fw_running = 0;
+-- 
+1.6.4.3
+
+
