@@ -1,58 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: NOHZ: local_softirq_pending 08
-Date: Mon, 12 Oct 2009 03:32:46 -0700 (PDT)
-Message-ID: <20091012.033246.56701176.davem@davemloft.net>
-References: <4AD1BF06.3050103@phoenixsoftware.de>
-	<1255261251.4095.143.camel@johannes.local>
-	<4AD2E8C8.4060205@imap.cc>
+From: Scott James Remnant <scott@ubuntu.com>
+Subject: Re: PATCH: Network Device Naming mechanism and policy
+Date: Mon, 12 Oct 2009 11:41:15 +0100
+Message-ID: <1255344075.2143.1.camel@warcraft>
+References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com>
+	 <20091009140000.GA18765@mock.linuxdev.us.dell.com>
+	 <20091009145137.GD19218@mock.linuxdev.us.dell.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, hidave.darkstar@gmail.com,
-	linux-kernel@vger.kernel.org, tglx@linutronix.de,
-	linux-wireless@vger.kernel.org, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, paulus@samba.org
-To: tilman@imap.cc
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756047AbZJLKcw@vger.kernel.org>
-In-Reply-To: <4AD2E8C8.4060205@imap.cc>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-8WHhO4NRJuwOwVJ3UFlz"
+Cc: Narendra K <narendra_k@dell.com>, netdev@vger.kernel.org,
+	linux-hotplug@vger.kernel.org, jordan_hargrave@dell.com
+To: Matt Domsch <Matt_Domsch@dell.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+In-Reply-To: <20091009145137.GD19218@mock.linuxdev.us.dell.com>
+Sender: linux-hotplug-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tilman Schmidt <tilman@imap.cc>
-Date: Mon, 12 Oct 2009 10:28:56 +0200
 
-> -----BEGIN PGP SIGNED MESSAGE-----
-> Hash: SHA1
-> 
-> [CCing PPP people]
-> 
-> Am 11.10.2009 13:40 schrieb Johannes Berg:
->> On Sun, 2009-10-11 at 13:18 +0200, Tilman Schmidt wrote:
->> 
->>> Can you explain a bit more what that message is about?
->>> I am encountering it in a completely different context
->>> (PPP over ISDN) [...]
->> 
->> Basically, calling netif_rx() with softirqs enabled.
-> 
-> AFAICS that would have to be the netif_rx() call in
-> ppp_receive_nonmp_frame() [drivers/net/ppp_generic.c#L1791],
-> called (via others) from the tasklet work function
-> ppp_sync_process() [drivers/net/ppp_synctty.c#L545].
-> Should that be changed to the
-> "if (in_interrupt()) netif_rx(skb) else netif_rx_ni(skb)"
-> stanza from the linux.kernel.wireless.general thread then?
+--=-8WHhO4NRJuwOwVJ3UFlz
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-The PPP receive paths in ppp_generic.c do a local_bh_disable()/
-local_bh_enable() around packet receiving (via ppp_recv_lock()/
-ppp_recv_unlock() in ppp_do_recv).
+On Fri, 2009-10-09 at 09:51 -0500, Matt Domsch wrote:
 
-So at least that part is perfectly fine.
+> As has been noted here, MAC addresses are not necessarily unique to an
+> interface.  As such, we are not proposing a net/by-mac/* symlink to
+> /dev/netdev/*.
+>=20
+On the other hand, they *tend* to be unique for a wide range of systems.
+This makes them pretty comparable to LABELs on disks, and we have
+a /dev/disk/by-label
 
-ppp_input(), as called from ppp_sync_process(), also disables BH's
-around ppp_do_recv() calls (via read_lock_bh()/read_unlock_bh()).
+Remember that udev already supports symlink stacking, and priorities and
+such.
 
-So that's fine too.
+I don't think there's any danger of supporting a /dev/netdev/by-mac by
+default, it'll be a benefit to most and those who don't have unique MACs
+will just ignore it.
 
-Do you have a bug report or are you just scanning around looking
-for trouble? :-)
+Scott
+--=20
+Scott James Remnant
+scott@ubuntu.com
+
+--=-8WHhO4NRJuwOwVJ3UFlz
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEABECAAYFAkrTB8gACgkQSnQiFMl4yK6nrgCeMoZOfJZOQNxZZnwxKhyCXAzq
+UpgAoJ21fQJxIqzGggKdHMW9i6b3w5bD
+=xRW8
+-----END PGP SIGNATURE-----
+
+--=-8WHhO4NRJuwOwVJ3UFlz--
+
