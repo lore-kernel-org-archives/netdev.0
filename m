@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] acenic: Pass up error code from ace_load_firmware()
-Date: Mon, 12 Oct 2009 04:19:09 -0700 (PDT)
-Message-ID: <20091012.041909.195263696.davem@davemloft.net>
-References: <1255311286.2488.11.camel@localhost>
+Subject: Re: [PATCH] pasemi_mac: ethtool set settings support
+Date: Mon, 12 Oct 2009 04:25:13 -0700 (PDT)
+Message-ID: <20091012.042513.62567400.davem@davemloft.net>
+References: <4AC9ED9B.5040400@ru.mvista.com>
+	<20091005133124.GA11717@ru.mvista.com>
+	<20091006161123.GC29195@lixom.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jes@trained-monkey.org, linux-acenic@sunsite.dk,
-	netdev@vger.kernel.org
-To: ben@decadent.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51808
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755182AbZJLLTN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 07:19:13 -0400
-In-Reply-To: <1255311286.2488.11.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linuxppc-dev@ozlabs.org, jgarzik@pobox.com, netdev@vger.kernel.org
+To: olof@lixom.net
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20091006161123.GC29195@lixom.net>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Mon, 12 Oct 2009 02:34:46 +0100
+From: Olof Johansson <olof@lixom.net>
+Date: Tue, 6 Oct 2009 11:11:23 -0500
 
-> If ace_load_firmware() fails, ace_init() cleans up but still returns
-> 0, leading to an oops as seen in <http://bugs.debian.org/521383>.
-> It should pass the error code up.
+> On Mon, Oct 05, 2009 at 05:31:24PM +0400, Valentine Barshak wrote:
+>> Add ethtool set settings to pasemi_mac_ethtool.
+>> 
+>> Signed-off-by: Valentine Barshak <vbarshak@ru.mvista.com>
 > 
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+> Acked-by: Olof Johansson <olof@lixom.net>
 
-Applied, and I'll queue this up for -stable, thanks!
+Applied to net-next-2.6, thanks.
