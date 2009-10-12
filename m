@@ -1,30 +1,26 @@
-From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
-Subject: Re: [PATCHv2] netxen: fix pci bar mapping
-Date: Sun, 11 Oct 2009 23:29:40 -0700
-Message-ID: <4AD2CCD4.4040703@qlogic.com>
-References: <1255328031-17189-1-git-send-email-dhananjay@netxen.com> <20091011.232203.41690616.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 0/8] qlge: Cleanup and additions for qlge.
+Date: Sun, 11 Oct 2009 23:26:29 -0700 (PDT)
+Message-ID: <20091011.232629.261399454.davem@davemloft.net>
+References: <1255203310-18114-1-git-send-email-ron.mercer@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: ron.mercer@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:19940 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751441AbZJLGbG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 02:31:06 -0400
-In-Reply-To: <20091011.232203.41690616.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41683
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752436AbZJLG0e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 02:26:34 -0400
+In-Reply-To: <1255203310-18114-1-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Huh, okay I was impatient. I will make one more attempt to pass the test.
+From: Ron Mercer <ron.mercer@qlogic.com>
+Date: Sat, 10 Oct 2009 12:35:02 -0700
 
-Thanks.
+> 
+> Cleanup and a couple of small performance tweeks for qlge.
 
-David Miller wrote:
-> I think I'll just ignore your patches for a while until
-> you start to be a little bit less careless.
->
-> Thanks.
->   
-
+All applied to net-next-2.6, thanks.
