@@ -1,39 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] iwmc3200top: Add Intel Wireless MultiCom 3200 top
- driver.
-Date: Sun, 11 Oct 2009 23:07:57 -0700 (PDT)
-Message-ID: <20091011.230757.62848864.davem@davemloft.net>
-References: <1ba2fa240910100238s709c31d3s6cb612f502b1086f@mail.gmail.com>
-	<20091010.185852.133969433.davem@davemloft.net>
-	<4AD18C06.8040002@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tomasw@gmail.com, linville@tuxdriver.com, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linux-mmc@vger.kernel.org,
-	yi.zhu@intel.com, inaky.perez-gonzalez@intel.com,
-	cindy.h.kao@intel.com, guy.cohen@intel.com,
-	ron.rindjunsky@intel.com, tomas.winkler@intel.com, joe@perches.com
-To: eric.dumazet@gmail.com
-Return-path: <linux-mmc-owner@vger.kernel.org>
-In-Reply-To: <4AD18C06.8040002@gmail.com>
-Sender: linux-mmc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [PATCHv2] netxen: fix pci bar mapping
+Date: Sun, 11 Oct 2009 23:13:51 -0700
+Message-ID: <1255328031-17189-1-git-send-email-dhananjay@netxen.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:50636 "HELO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1753768AbZJLGO1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Oct 2009 02:14:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 11 Oct 2009 09:40:54 +0200
+Use phys_addr_t data type for pci resource address
+instead of unsigned long. This fixes mapping of
+pci resources where resource addresses can be larger
+than word size (e.g. PAE).
 
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index e1da925..18244ad 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -3654,6 +3654,7 @@ NETWORKING [GENERAL]
->  M:	"David S. Miller" <davem@davemloft.net>
->  L:	netdev@vger.kernel.org
->  W:	http://www.linuxfoundation.org/en/Net
-> +W:	http://patchwork.ozlabs.org/project/netdev/list/
->  T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
->  S:	Maintained
->  F:	net/
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+---
+ drivers/net/netxen/netxen_nic_main.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-I've applied this, thanks Eric.
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 9b9eab1..7fc15e9 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -595,7 +595,8 @@ netxen_setup_pci_map(struct netxen_adapter *adapter)
+ 	void __iomem *mem_ptr2 = NULL;
+ 	void __iomem *db_ptr = NULL;
+ 
+-	unsigned long mem_base, mem_len, db_base, db_len = 0, pci_len0 = 0;
++	resource_size_t mem_base, db_base;
++	unsigned long mem_len, db_len = 0, pci_len0 = 0;
+ 
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	int pci_func = adapter->ahw.pci_func;
+-- 
+1.6.0.2
+
