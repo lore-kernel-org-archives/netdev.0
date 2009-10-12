@@ -1,74 +1,72 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: bisect results of MSI-X related panic (help!)
-Date: Mon, 12 Oct 2009 16:52:58 +0900
-Message-ID: <4AD2E05A.6060700@kernel.org>
-References: <1252699744.3877.15.camel@jbrandeb-hc.jf.intel.com>	 <200909120623.49764.elendil@planet.nl> <4AAE0F7B.5050203@kernel.org>	 <4AAE105E.1080005@kernel.org> <4807377b0910091724k2a332e90i9941971f6032663c@mail.gmail.com>
+From: Stefano Babic <stefano.babic@babic.homelinux.org>
+Subject: Re: [PATCH] [CAIF-RFC 1/8-v2] CAIF Protocol Stack
+Date: Mon, 12 Oct 2009 10:08:36 +0200
+Message-ID: <4AD2E404.80704@babic.homelinux.org>
+References: <1255095571-6501-1-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-2-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Frans Pop <elendil@planet.nl>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>, hpa@zytor.com
-To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Cc: netdev@vger.kernel.org, kim.xx.lilliestierna@stericsson.com,
+	christian.bejram@stericsson.com, daniel.martensson@stericsson.com
+To: sjur.brandeland@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:52235 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751179AbZJLHx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Oct 2009 03:53:56 -0400
-In-Reply-To: <4807377b0910091724k2a332e90i9941971f6032663c@mail.gmail.com>
+Received: from smtpout13.attiva.biz ([85.37.16.15]:18539 "EHLO
+	smtpout13.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754606AbZJLIJd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 04:09:33 -0400
+In-Reply-To: <1255095571-6501-2-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesse Brandeburg wrote:
-> Kernel stack is corrupted in: ffffffff810b5b31
+sjur.brandeland@stericsson.com wrote:
+> From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 > 
-> I've built with a full debug kernel before this crash, so I did:
+> Change-Id: I305056f116a11c31265f65ac0fe285e2b655dd54
+> Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
+> ---
+>  include/linux/caif/caif_config.h |  203 ++++++++++++++++++++++++++++++++++++++
+>  include/linux/caif/caif_ioctl.h  |  113 +++++++++++++++++++++
+>  2 files changed, 316 insertions(+), 0 deletions(-)
+>  create mode 100644 include/linux/caif/caif_config.h
+>  create mode 100644 include/linux/caif/caif_ioctl.h
 > 
-> (gdb) l *0xffffffff810b5b31
-> 0xffffffff810b5b31 is in move_native_irq (kernel/irq/migration.c:67).
-> 62			return;
-> 63	
-> 64		desc->chip->mask(irq);
-> 65		move_masked_irq(irq);
-> 66		desc->chip->unmask(irq);
->>>> 67	}
-> 68	
-> (gdb) l move_native_irq
-> 54	void move_native_irq(int irq)
-> 55	{
-> 56		struct irq_desc *desc = irq_to_desc(irq);
-> 57	
-> 58		if (likely(!(desc->status & IRQ_MOVE_PENDING)))
-> 59			return;
-> 60	
-> 61		if (unlikely(desc->status & IRQ_DISABLED))
-> 62			return;
-> 63	
-> 64		desc->chip->mask(irq);
-> 65		move_masked_irq(irq);
-> 66		desc->chip->unmask(irq);
-> 67	}
-> 
-> So, this seems very related to my panic, as it is likely that
-> irqbalance or something else might try to move my interrupt from one
-> core to another and this seems likely related, and the original issue
-> as well as this one reproduce with LOTS of MSI-X vectors active.
-> 
-> - I tried connecting after the panic with kgdboc, no connection
-> - I tried kdump, but the same kernel I am using panics/hangs during
-> boot right after udev during the kexec() kernel boot (should I try
-> harder to get this working given it got so far?)
-> - I have ftrace function tracer running but no way to get at the log
-> post panic (wouldn't it be great if the kernel just dumped the ftrace
-> log on __stack_chk_fail?)
-> 
-> any other debugging tricks/ideas?
+> diff --git a/include/linux/caif/caif_config.h b/include/linux/caif/caif_config.h
+> new file mode 100644
+> index 0000000..6ea934b
+> --- /dev/null
+> +++ b/include/linux/caif/caif_config.h
+> @@ -0,0 +1,203 @@
+> +/*
+> + *	Copyright (C) ST-Ericsson AB 2009
+> + *
+> + *	CAIF Channel Configuration definitions.
+> + *
+> + *	Author: Sjur Brendeland/ sjur.brandeland@stericsson.com
+> + *
+> + *	License terms: GNU General Public License (GPL), version 2.
 
-Hmm... stackprotector adds considerable amount of stack usage and it
-could be you're seeing stack overflow which would also explain the
-random crashes you've been seeing.  Do you have DEBUG_STACKOVERFLOW
-turned on?  This is on x86_64, right?
+In the majority of linux drivers we find the following statements to set
+up the license terms :
+
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+
+> + * \b Documentation see STE Doc No: 155 19-CRH 109 913.
+
+Probably you should remove this line as you already did in other places.
+
+> diff --git a/include/linux/caif/caif_ioctl.h b/include/linux/caif/caif_ioctl.h
+
+> +/* Use 'g' as magic number. 'g' is the first free letter in
+> + * Documentation/ioctl-number.txt*/
+
+The file is Documentation/ioctl/ioctl-number.txt
+
+Stefano
 
 -- 
-tejun
+stefano <stefano.babic@babic.homelinux.org>
+GPG Key: 0x55814DDE
+Fingerprint 4E85 2A66 4CBA 497A 2A7B D3BF 5973 F216 5581 4DDE
