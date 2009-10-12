@@ -1,50 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [CAIF-RFC 1/8-v2] CAIF Protocol Stack
-Date: Mon, 12 Oct 2009 01:20:36 -0700 (PDT)
-Message-ID: <20091012.012036.266859347.davem@davemloft.net>
-References: <1255095571-6501-1-git-send-email-sjur.brandeland@stericsson.com>
-	<1255095571-6501-2-git-send-email-sjur.brandeland@stericsson.com>
-	<4AD2E404.80704@babic.homelinux.org>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: NOHZ: local_softirq_pending 08
+Date: Mon, 12 Oct 2009 10:28:56 +0200
+Message-ID: <4AD2E8C8.4060205@imap.cc>
+References: <20091011095217.GA2200@darkstar>	 <1255255735.4095.53.camel@johannes.local>	 <4AD1BF06.3050103@phoenixsoftware.de> <1255261251.4095.143.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sjur.brandeland@stericsson.com, netdev@vger.kernel.org,
-	kim.xx.lilliestierna@stericsson.com,
-	christian.bejram@stericsson.com, daniel.martensson@stericsson.com
-To: stefano.babic@babic.homelinux.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59288
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754664AbZJLIUk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 04:20:40 -0400
-In-Reply-To: <4AD2E404.80704@babic.homelinux.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dave Young <hidave.darkstar@gmail.com>,
+	linux-kernel@vger.kernel.org, tglx@linutronix.de,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, linux-ppp@vger.kernel.org,
+	netdev@vger.kernel.org, Paul Mackerras <paulus@samba.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754793AbZJLI3j@vger.kernel.org>
+In-Reply-To: <1255261251.4095.143.camel@johannes.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stefano Babic <stefano.babic@babic.homelinux.org>
-Date: Mon, 12 Oct 2009 10:08:36 +0200
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-> sjur.brandeland@stericsson.com wrote:
->> From: Sjur Braendeland <sjur.brandeland@stericsson.com>
->> @@ -0,0 +1,203 @@
->> +/*
->> + *	Copyright (C) ST-Ericsson AB 2009
->> + *
->> + *	CAIF Channel Configuration definitions.
->> + *
->> + *	Author: Sjur Brendeland/ sjur.brandeland@stericsson.com
->> + *
->> + *	License terms: GNU General Public License (GPL), version 2.
-> 
-> In the majority of linux drivers we find the following statements to set
-> up the license terms :
-> 
->  * This program is free software; you can redistribute it and/or modify
->  * it under the terms of the GNU General Public License as published by
->  * the Free Software Foundation; either version 2 of the License, or
->  * (at your option) any later version.
+[CCing PPP people]
 
-But Linus has stated explicitly that Linux itself falls under
-GPL v2 and only v2.
+Am 11.10.2009 13:40 schrieb Johannes Berg:
+> On Sun, 2009-10-11 at 13:18 +0200, Tilman Schmidt wrote:
+>=20
+>> Can you explain a bit more what that message is about?
+>> I am encountering it in a completely different context
+>> (PPP over ISDN) [...]
+>=20
+> Basically, calling netif_rx() with softirqs enabled.
 
-See COPYING at the top level of the kernel sources.
+AFAICS that would have to be the netif_rx() call in
+ppp_receive_nonmp_frame() [drivers/net/ppp_generic.c#L1791],
+called (via others) from the tasklet work function
+ppp_sync_process() [drivers/net/ppp_synctty.c#L545].
+Should that be changed to the
+"if (in_interrupt()) netif_rx(skb) else netif_rx_ni(skb)"
+stanza from the linux.kernel.wireless.general thread then?
+
+Thanks,
+Tilman
+
+- --
+Tilman Schmidt                    E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=C3=B6ffnet mindestens haltbar bis: (siehe R=C3=BCckseite)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.4 (MingW32)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iD8DBQFK0ujIQ3+did9BuFsRAtGBAJ9rj2pyQZ75ZKTipLhpICqA3ZvTdQCdHQs/
+RmdeOT3TuPZykXJxcHLJCzU=3D
+=3D87DI
+-----END PGP SIGNATURE-----
