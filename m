@@ -1,67 +1,68 @@
-From: Vincent Sanders <vince@simtec.co.uk>
-Subject: Re: [PATCH] Fix IXP 2000 network driver building.
-Date: Mon, 12 Oct 2009 13:45:34 +0100
-Message-ID: <20091012124534.GH28536@kyllikki.org>
-References: <1255276546-31903-1-git-send-email-vince@simtec.co.uk> <1255349459.2931.7.camel@achroite>
+From: Stefano Babic <stefano.babic@babic.homelinux.org>
+Subject: Re: [PATCH] [CAIF-RFC 5/8-v2] CAIF Protocol Stack
+Date: Mon, 12 Oct 2009 14:51:08 +0200
+Message-ID: <4AD3263C.9010605@babic.homelinux.org>
+References: <1255095571-6501-1-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-2-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-3-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-4-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-5-git-send-email-sjur.brandeland@stericsson.com> <1255095571-6501-6-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="9dgjiU4MmWPVapMU"
-Cc: netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kim.xx.lilliestierna@stericsson.com,
+	christian.bejram@stericsson.com, daniel.martensson@stericsson.com
+To: sjur.brandeland@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from flounder.pepperfish.net ([87.237.62.181]:46292 "EHLO
-	flounder.pepperfish.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755912AbZJLMqL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 08:46:11 -0400
-Content-Disposition: inline
-In-Reply-To: <1255349459.2931.7.camel@achroite>
+Received: from smtpout084B.attiva.biz ([85.33.31.84]:4270 "EHLO
+	smtpout084B.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755771AbZJLMwH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 08:52:07 -0400
+In-Reply-To: <1255095571-6501-6-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+sjur.brandeland@stericsson.com wrote:
+> From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
---9dgjiU4MmWPVapMU
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Hi Sjur,
 
-On Mon, Oct 12, 2009 at 01:10:59PM +0100, Ben Hutchings wrote:
-> On Sun, 2009-10-11 at 16:55 +0100, Vincent Sanders wrote:
-> > The IXP 2000 network driver was failing to build as it has its own
-> > statistics gathering which was not compatible with the recent network
-> > device operations changes. This patch fixes the driver in the obvious
-> > way and has been compile tested. I have been unable to get the ixp2000
-> > maintainer to comment or test this fix.
+> diff --git a/net/caif/caif_chr.c b/net/caif/caif_chr.c
 
-<snip>
+> +#define caif_assert(assert) BUG_ON(!(assert))
 
->=20
-> Is there any reason you can't use dev->stats instead of this private
-> field?
+Do we need special assert for each module (cfglu_assert,
+caif_assert,...) ? They are all defined in the same way.
+At this point I have already set a comment about using BUG_ON in a
+previous patch.
 
-I have absolutely no idea ;-) my interest in this is fixing the build
-faliure and making the target useful again, unfortunately the
-maintainer is MIA, I performed the minimal obvious change.=20
+I see a mixed policy in this patch, using sometimes _assert and
+sometimes directly BUG_ON, too.
 
-I could tidy this futher, but my version of this hardware will not run
-the kernel at all (hardware is old broken dev. board) so I am worried
-I may break something with a larger blind change.
+> diff --git a/net/caif/chnl_chr.c b/net/caif/chnl_chr.c
 
+> +	/* Lock in order to try to stop someone from opening the device
+> +	   too early. The misc device has its own lock. We cannot take our
+> +	   lock until misc_register() is finished, because in open() the
+> +	   locks are taken in this order (misc first and then dev).
+> +	   So anyone managing to open the device between the misc_register
+> +	   and the mutex_lock will get a "device not found" error. Don't
+> +	   think it can be avoided.
+> +	 */
+> +	mutex_lock_interruptible(&dev->mutex);
 
---=20
-Vincent Sanders
-Simtec Electronics
+The return value is not checked and it must be, as in all other cases.
 
---9dgjiU4MmWPVapMU
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+> +	/* Find device from name */
+> +	dev = find_device(-1, name, 0);
+> +	if (!dev)
+> +		return -EBADF;
+> +
+> +
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
+> +	mutex_lock_interruptible(&dev->mutex);
 
-iD8DBQFK0yTtiUwwPOvjHvURAv3wAKC8n7Z3XD7pNLnQ7toUIPB2itTdYACfTlrl
-9MeaueIaJvXq/kfk4652L1I=
-=Zq1J
------END PGP SIGNATURE-----
+The return value of mutex_lock_interruptible() must be checked.
 
---9dgjiU4MmWPVapMU--
+Stefano
+
+-- 
+stefano <stefano.babic@babic.homelinux.org>
+GPG Key: 0x55814DDE
+Fingerprint 4E85 2A66 4CBA 497A 2A7B D3BF 5973 F216 5581 4DDE
