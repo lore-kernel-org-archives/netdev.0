@@ -1,8 +1,8 @@
 From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH 5/8] gianfar: Move tbase/rbase initialization to
-	gfar_init_mac()
-Date: Mon, 12 Oct 2009 20:00:36 +0400
-Message-ID: <20091012160036.GE2463@oksana.dev.rtsoft.ru>
+Subject: [PATCH 6/8] gianfar: Factor out RX BDs initialization from
+	gfar_new_rxbdp()
+Date: Mon, 12 Oct 2009 20:00:37 +0400
+Message-ID: <20091012160037.GF2463@oksana.dev.rtsoft.ru>
 References: <20091012160000.GA32406@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,87 +24,66 @@ Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
 Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-For hibernation we want to call gfar_init_mac() without need to
-free/allocate_skb_resources sequence, so save the DMA address into a
-private struct, and move tbase/rbase initialization to gfar_init_mac().
+We want to just reinitialize RX BDs after hibernation, no need to
+map the skb->data again. So let's factor gfar_init_rxbdp() out of
+gfar_new_rxbdp().
 
 Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 ---
- drivers/net/gianfar.c |   17 ++++++++---------
- drivers/net/gianfar.h |    1 +
- 2 files changed, 9 insertions(+), 9 deletions(-)
+ drivers/net/gianfar.c |   33 +++++++++++++++++++++------------
+ 1 files changed, 21 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 4dcaaa7..46b0b37 100644
+index 46b0b37..1b32274 100644
 --- a/drivers/net/gianfar.c
 +++ b/drivers/net/gianfar.c
-@@ -151,17 +151,15 @@ static int gfar_alloc_skb_resources(struct net_device *ndev)
+@@ -147,6 +147,23 @@ MODULE_AUTHOR("Freescale Semiconductor, Inc");
+ MODULE_DESCRIPTION("Gianfar Ethernet Driver");
+ MODULE_LICENSE("GPL");
+ 
++static void gfar_init_rxbdp(struct net_device *dev, struct rxbd8 *bdp,
++			    dma_addr_t buf)
++{
++	struct gfar_private *priv = netdev_priv(dev);
++	u32 lstatus;
++
++	bdp->bufPtr = buf;
++
++	lstatus = BD_LFLAG(RXBD_EMPTY | RXBD_INTERRUPT);
++	if (bdp == priv->rx_bd_base + priv->rx_ring_size - 1)
++		lstatus |= BD_LFLAG(RXBD_WRAP);
++
++	eieio();
++
++	bdp->lstatus = lstatus;
++}
++
+ static int gfar_alloc_skb_resources(struct net_device *ndev)
  {
  	struct txbd8 *txbdp;
- 	struct rxbd8 *rxbdp;
--	dma_addr_t addr = 0;
- 	void *vaddr;
- 	int i;
- 	struct gfar_private *priv = netdev_priv(ndev);
- 	struct device *dev = &priv->ofdev->dev;
--	struct gfar __iomem *regs = priv->regs;
- 
- 	/* Allocate memory for the buffer descriptors */
- 	vaddr = dma_alloc_coherent(dev, sizeof(*txbdp) * priv->tx_ring_size +
- 					sizeof(*rxbdp) * priv->rx_ring_size,
--				   &addr, GFP_KERNEL);
-+				   &priv->tx_bd_dma_base, GFP_KERNEL);
- 	if (!vaddr) {
- 		if (netif_msg_ifup(priv))
- 			pr_err("%s: Could not allocate buffer descriptors!\n",
-@@ -171,14 +169,9 @@ static int gfar_alloc_skb_resources(struct net_device *ndev)
- 
- 	priv->tx_bd_base = vaddr;
- 
--	/* enet DMA only understands physical addresses */
--	gfar_write(&regs->tbase0, addr);
+@@ -1676,19 +1693,11 @@ static void gfar_new_rxbdp(struct net_device *dev, struct rxbd8 *bdp,
+ 		struct sk_buff *skb)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+-	u32 lstatus;
 -
- 	/* Start the rx descriptor ring where the tx ring leaves off */
--	addr = addr + sizeof(*txbdp) * priv->tx_ring_size;
- 	vaddr = vaddr + sizeof(*txbdp) * priv->tx_ring_size;
- 	priv->rx_bd_base = vaddr;
--	gfar_write(&regs->rbase0, addr);
+-	bdp->bufPtr = dma_map_single(&priv->ofdev->dev, skb->data,
+-			priv->rx_buffer_size, DMA_FROM_DEVICE);
+-
+-	lstatus = BD_LFLAG(RXBD_EMPTY | RXBD_INTERRUPT);
++	dma_addr_t buf;
  
- 	/* Setup the skbuff rings */
- 	priv->tx_skbuff = kmalloc(sizeof(*priv->tx_skbuff) *
-@@ -256,6 +249,12 @@ static void gfar_init_mac(struct net_device *ndev)
- 	u32 tctrl = 0;
- 	u32 attrs = 0;
- 
-+	/* enet DMA only understands physical addresses */
-+	gfar_write(&regs->tbase0, priv->tx_bd_dma_base);
-+	gfar_write(&regs->rbase0, priv->tx_bd_dma_base +
-+				  sizeof(*priv->tx_bd_base) *
-+				  priv->tx_ring_size);
-+
- 	/* Configure the coalescing support */
- 	gfar_write(&regs->txic, 0);
- 	if (priv->txcoalescing)
-@@ -1060,7 +1059,7 @@ skip_rx_skbuff:
- 
- 	dma_free_coherent(dev, sizeof(*txbdp) * priv->tx_ring_size +
- 			       sizeof(*rxbdp) * priv->rx_ring_size,
--			  priv->tx_bd_base, gfar_read(&priv->regs->tbase0));
-+			  priv->tx_bd_base, priv->tx_bd_dma_base);
+-	if (bdp == priv->rx_bd_base + priv->rx_ring_size - 1)
+-		lstatus |= BD_LFLAG(RXBD_WRAP);
+-
+-	eieio();
+-
+-	bdp->lstatus = lstatus;
++	buf = dma_map_single(&priv->ofdev->dev, skb->data,
++			     priv->rx_buffer_size, DMA_FROM_DEVICE);
++	gfar_init_rxbdp(dev, bdp, buf);
  }
  
- void gfar_start(struct net_device *dev)
-diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
-index 2cd9433..05732fa 100644
---- a/drivers/net/gianfar.h
-+++ b/drivers/net/gianfar.h
-@@ -726,6 +726,7 @@ struct gfar_private {
- 	unsigned long txic;
  
- 	/* Buffer descriptor pointers */
-+	dma_addr_t tx_bd_dma_base;
- 	struct txbd8 *tx_bd_base;	/* First tx buffer descriptor */
- 	struct txbd8 *cur_tx;	        /* Next free ring entry */
- 	struct txbd8 *dirty_tx;		/* First buffer in line
 -- 
 1.6.3.3
