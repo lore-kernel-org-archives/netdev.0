@@ -1,41 +1,42 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCHv2] netxen: fix pci bar mapping
-Date: Sun, 11 Oct 2009 23:13:51 -0700
-Message-ID: <1255328031-17189-1-git-send-email-dhananjay@netxen.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+Subject: Re: [PATCH] netxen: fix pci bar mapping
+Date: Sun, 11 Oct 2009 23:12:33 -0700
+Message-ID: <4AD2C8D1.3020704@qlogic.com>
+References: <1255315402-1578-1-git-send-email-dhananjay@netxen.com> <20091011.230656.245420067.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:50636 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1753768AbZJLGO1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Oct 2009 02:14:27 -0400
+Received: from avexch1.qlogic.com ([198.70.193.115]:19230 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752653AbZJLGN7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 02:13:59 -0400
+In-Reply-To: <20091011.230656.245420067.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use phys_addr_t data type for pci resource address
-instead of unsigned long. This fixes mapping of
-pci resources where resource addresses can be larger
-than word size (e.g. PAE).
+Ok, I am resending the patch.
 
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
----
- drivers/net/netxen/netxen_nic_main.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+Thanks,
+Dhananjay
 
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 9b9eab1..7fc15e9 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -595,7 +595,8 @@ netxen_setup_pci_map(struct netxen_adapter *adapter)
- 	void __iomem *mem_ptr2 = NULL;
- 	void __iomem *db_ptr = NULL;
- 
--	unsigned long mem_base, mem_len, db_base, db_len = 0, pci_len0 = 0;
-+	resource_size_t mem_base, db_base;
-+	unsigned long mem_len, db_len = 0, pci_len0 = 0;
- 
- 	struct pci_dev *pdev = adapter->pdev;
- 	int pci_func = adapter->ahw.pci_func;
--- 
-1.6.0.2
+David Miller wrote:
+> From: Dhananjay Phadke <dhananjay@netxen.com>
+> Date: Sun, 11 Oct 2009 19:43:22 -0700
+>
+>> Use phys_addr_t data type for pci resource address
+>> instead of unsigned long. This fixes mapping of
+>> pci resources where resource addresses can be larger
+>> than word size (e.g. PAE).
+>>
+>> Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+>
+> The correct type to use is 'resource_size_t' not 'phys_addr_t'.
+>
+> Look at the "struct resource" member types in linux/ioport.h, that's
+> what these pci_resource_start() et al. routines return.
+>
+> Please fix this up and resubmit.
 
