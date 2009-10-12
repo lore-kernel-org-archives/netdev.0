@@ -1,47 +1,67 @@
-From: Frederik Deweerdt <frederik.deweerdt-kjvbsxwSFqI@public.gmane.org>
-Subject: Re: 2.6.32-rc4: Reported regressions 2.6.30 -> 2.6.31
-Date: Mon, 12 Oct 2009 12:22:01 +0000
-Message-ID: <20091012122201.GA31282@gambetta>
-References: <56acieJJ2fF.A.nEB.Hzl0KB@chimera>
+From: Vincent Sanders <vince@simtec.co.uk>
+Subject: Re: [PATCH] Fix IXP 2000 network driver building.
+Date: Mon, 12 Oct 2009 13:45:34 +0100
+Message-ID: <20091012124534.GH28536@kyllikki.org>
+References: <1255276546-31903-1-git-send-email-vince@simtec.co.uk> <1255349459.2931.7.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="9dgjiU4MmWPVapMU"
+Cc: netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from flounder.pepperfish.net ([87.237.62.181]:46292 "EHLO
+	flounder.pepperfish.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755912AbZJLMqL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 08:46:11 -0400
 Content-Disposition: inline
-In-Reply-To: <56acieJJ2fF.A.nEB.Hzl0KB@chimera>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1255349459.2931.7.camel@achroite>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Rafael,
 
-On Mon, Oct 12, 2009 at 12:41:30AM +0200, Rafael J. Wysocki wrote:
-> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=14185
-> Subject		: Oops in driversbasefirmware_class
-> Submitter	:  <lars_ericsson-zq6IREYz3ykAvxtiuMwx3w@public.gmane.org>
-> Date		: 2009-09-17 05:09 (25 days old)
-> First-Bad-Commit: http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=6e03a201bbe8137487f340d26aa662110e324b20
-> 
-> 
-> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=14253
-> Subject		: Oops in driversbasefirmware_class
-> Submitter	: Lars Ericsson <Lars_Ericsson-zq6IREYz3ykAvxtiuMwx3w@public.gmane.org>
-> Date		: 2009-09-16 20:44 (26 days old)
-> References	: http://lkml.org/lkml/2009/9/16/461
-> Handled-By	: Frederik Deweerdt <frederik.deweerdt-kjvbsxwSFqI@public.gmane.org>
-> Patch		: http://patchwork.kernel.org/patch/49914/
-> 
-Those two are refering to the same bug.
+--9dgjiU4MmWPVapMU
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Regards,
-Frederik
+On Mon, Oct 12, 2009 at 01:10:59PM +0100, Ben Hutchings wrote:
+> On Sun, 2009-10-11 at 16:55 +0100, Vincent Sanders wrote:
+> > The IXP 2000 network driver was failing to build as it has its own
+> > statistics gathering which was not compatible with the recent network
+> > device operations changes. This patch fixes the driver in the obvious
+> > way and has been compile tested. I have been unable to get the ixp2000
+> > maintainer to comment or test this fix.
+
+<snip>
+
+>=20
+> Is there any reason you can't use dev->stats instead of this private
+> field?
+
+I have absolutely no idea ;-) my interest in this is fixing the build
+faliure and making the target useful again, unfortunately the
+maintainer is MIA, I performed the minimal obvious change.=20
+
+I could tidy this futher, but my version of this hardware will not run
+the kernel at all (hardware is old broken dev. board) so I am worried
+I may break something with a larger blind change.
+
+
+--=20
+Vincent Sanders
+Simtec Electronics
+
+--9dgjiU4MmWPVapMU
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iD8DBQFK0yTtiUwwPOvjHvURAv3wAKC8n7Z3XD7pNLnQ7toUIPB2itTdYACfTlrl
+9MeaueIaJvXq/kfk4652L1I=
+=Zq1J
+-----END PGP SIGNATURE-----
+
+--9dgjiU4MmWPVapMU--
