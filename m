@@ -1,745 +1,1343 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH NEXT 1/5] netxen: remove sub 64-bit mem accesses
-Date: Tue, 13 Oct 2009 08:31:41 -0700
-Message-ID: <1255447905-29805-2-git-send-email-dhananjay@netxen.com>
-References: <1255447905-29805-1-git-send-email-dhananjay@netxen.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	Amit Kumar Salecha <amit@netxen.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Add netdev_alloc_skb_ip_align() helper
+Date: Tue, 13 Oct 2009 17:34:20 +0200
+Message-ID: <4AD49DFC.9020406@gmail.com>
+References: <1254969161-3609-1-git-send-email-thomas@wytron.com.tw>	<4ACD585B.5080106@gmail.com> <20091013.034532.36362276.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:45725 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1760002AbZJMPcX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Oct 2009 11:32:23 -0400
-In-Reply-To: <1255447905-29805-1-git-send-email-dhananjay@netxen.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:39475 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759259AbZJMPfB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 11:35:01 -0400
+In-Reply-To: <20091013.034532.36362276.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit@netxen.com>
+David Miller a =E9crit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 08 Oct 2009 05:11:23 +0200
+>=20
+>> [PATCH] net: Add netdev_alloc_skb_ip_align() helper
+>>
+>> Instead of hardcoding NET_IP_ALIGN stuff in various network drivers,=
+ we can
+>> add a helper around netdev_alloc_skb()
+>>
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> Applied to net-next-2.6
 
-Sub 64-bit / unaligned access to oncard memory was only used
-by old diagnostic tools, causes some intermittent issues when
-memory controller agent is used.  The new access method was
-added by commit ea6828b8aa3a8ebae8d7740f32f212ba1d2f0742
-("netxen: improve pci memory access").  Firmware init anyway
-uses 8-byte strides.
+Thanks, here is the followup cleanup patch to use this new helper
 
-This also fixes address/offset calculation for NX2031 context
-memory (SIU). For NX3031, SIU uses same register offsets
-as packet memory (MIU).
+[PATCH net-next-2.6] net: Use netdev_alloc_skb_ip_align()
 
-Signed-off-by: Amit Kumar Salecha <amit@netxen.com>
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- drivers/net/netxen/netxen_nic.h      |    4 +-
- drivers/net/netxen/netxen_nic_hdr.h  |   69 +++---
- drivers/net/netxen/netxen_nic_hw.c   |  430 ++++++++++++----------------------
- drivers/net/netxen/netxen_nic_init.c |   13 +-
- 4 files changed, 196 insertions(+), 320 deletions(-)
+ drivers/net/3c59x.c            |    3 --
+ drivers/net/8139cp.c           |    8 +-----
+ drivers/net/8139too.c          |    3 --
+ drivers/net/atl1e/atl1e_main.c |    4 ---
+ drivers/net/atlx/atl1.c        |   11 +--------
+ drivers/net/atlx/atl2.c        |    3 --
+ drivers/net/bcm63xx_enet.c     |    5 ----
+ drivers/net/benet/be_main.c    |    4 ---
+ drivers/net/cpmac.c            |    6 +----
+ drivers/net/dl2k.c             |   18 +++++----------
+ drivers/net/e100.c             |    5 +---
+ drivers/net/e1000/e1000_main.c |   29 +++++-------------------
+ drivers/net/e1000e/netdev.c    |   37 +++++--------------------------
+ drivers/net/ehea/ehea_main.c   |    9 ++++---
+ drivers/net/enic/enic_main.c   |   15 ------------
+ drivers/net/ethoc.c            |    4 +--
+ drivers/net/hamachi.c          |   12 +++++-----
+ drivers/net/igb/igb_main.c     |    8 ------
+ drivers/net/igbvf/netdev.c     |    8 ------
+ drivers/net/ipg.c              |    7 -----
+ drivers/net/ixgb/ixgb_main.c   |   12 +---------
+ drivers/net/ixgbe/ixgbe_main.c |   12 +---------
+ drivers/net/ixp2000/ixpdev.c   |    3 --
+ drivers/net/korina.c           |    5 ----
+ drivers/net/ks8842.c           |    5 ----
+ drivers/net/lib82596.c         |   11 ++++-----
+ drivers/net/r8169.c            |    3 --
+ drivers/net/sc92031.c          |    4 ---
+ drivers/net/sgiseeq.c          |    7 ++---
+ drivers/net/sis190.c           |    3 --
+ drivers/net/skge.c             |    7 ++---
+ drivers/net/sky2.c             |    3 --
+ drivers/net/tlan.c             |    7 ++---
+ drivers/net/tsi108_eth.c       |   10 ++------
+ drivers/net/via-rhine.c        |    8 +++---
+ drivers/net/via-velocity.c     |    3 --
+ drivers/net/virtio_net.c       |    7 +----
+ net/core/dev.c                 |   13 ++--------
+ 38 files changed, 90 insertions(+), 232 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index 5c766b5..db5c8d2 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -1180,8 +1180,8 @@ struct netxen_adapter {
- 	u32 (*crb_read)(struct netxen_adapter *, ulong);
- 	int (*crb_write)(struct netxen_adapter *, ulong, u32);
- 
--	int (*pci_mem_read)(struct netxen_adapter *, u64, void *, int);
--	int (*pci_mem_write)(struct netxen_adapter *, u64, void *, int);
-+	int (*pci_mem_read)(struct netxen_adapter *, u64, u64 *);
-+	int (*pci_mem_write)(struct netxen_adapter *, u64, u64);
- 
- 	unsigned long (*pci_set_window)(struct netxen_adapter *,
- 			unsigned long long);
-diff --git a/drivers/net/netxen/netxen_nic_hdr.h b/drivers/net/netxen/netxen_nic_hdr.h
-index 7a71774..3461350 100644
---- a/drivers/net/netxen/netxen_nic_hdr.h
-+++ b/drivers/net/netxen/netxen_nic_hdr.h
-@@ -661,40 +661,47 @@ enum {
- #define NETXEN_NIU_AP_STATION_ADDR_0(I)    (NETXEN_CRB_NIU+0xa0040+(I)*0x10000)
- #define NETXEN_NIU_AP_STATION_ADDR_1(I)    (NETXEN_CRB_NIU+0xa0044+(I)*0x10000)
- 
-+
-+#define TEST_AGT_CTRL	(0x00)
-+
-+#define TA_CTL_START	1
-+#define TA_CTL_ENABLE	2
-+#define TA_CTL_WRITE	4
-+#define TA_CTL_BUSY	8
-+
- /*
-  *   Register offsets for MN
-  */
--#define	MIU_CONTROL	       (0x000)
--#define MIU_TEST_AGT_CTRL      (0x090)
--#define MIU_TEST_AGT_ADDR_LO   (0x094)
--#define MIU_TEST_AGT_ADDR_HI   (0x098)
--#define MIU_TEST_AGT_WRDATA_LO (0x0a0)
--#define MIU_TEST_AGT_WRDATA_HI (0x0a4)
--#define MIU_TEST_AGT_WRDATA(i) (0x0a0+(4*(i)))
--#define MIU_TEST_AGT_RDDATA_LO (0x0a8)
--#define MIU_TEST_AGT_RDDATA_HI (0x0ac)
--#define MIU_TEST_AGT_RDDATA(i) (0x0a8+(4*(i)))
--#define MIU_TEST_AGT_ADDR_MASK 0xfffffff8
--#define MIU_TEST_AGT_UPPER_ADDR(off) (0)
--
--/* MIU_TEST_AGT_CTRL flags. work for SIU as well */
--#define MIU_TA_CTL_START        1
--#define MIU_TA_CTL_ENABLE       2
--#define MIU_TA_CTL_WRITE        4
--#define MIU_TA_CTL_BUSY         8
--
--#define SIU_TEST_AGT_CTRL      (0x060)
--#define SIU_TEST_AGT_ADDR_LO   (0x064)
--#define SIU_TEST_AGT_ADDR_HI   (0x078)
--#define SIU_TEST_AGT_WRDATA_LO (0x068)
--#define SIU_TEST_AGT_WRDATA_HI (0x06c)
--#define SIU_TEST_AGT_WRDATA(i) (0x068+(4*(i)))
--#define SIU_TEST_AGT_RDDATA_LO (0x070)
--#define SIU_TEST_AGT_RDDATA_HI (0x074)
--#define SIU_TEST_AGT_RDDATA(i) (0x070+(4*(i)))
--
--#define SIU_TEST_AGT_ADDR_MASK 0x3ffff8
--#define SIU_TEST_AGT_UPPER_ADDR(off) ((off)>>22)
-+#define MIU_TEST_AGT_BASE		(0x90)
-+
-+#define MIU_TEST_AGT_ADDR_LO		(0x04)
-+#define MIU_TEST_AGT_ADDR_HI		(0x08)
-+#define MIU_TEST_AGT_WRDATA_LO		(0x10)
-+#define MIU_TEST_AGT_WRDATA_HI		(0x14)
-+#define MIU_TEST_AGT_WRDATA(i)		(0x10+(4*(i)))
-+#define MIU_TEST_AGT_RDDATA_LO		(0x18)
-+#define MIU_TEST_AGT_RDDATA_HI		(0x1c)
-+#define MIU_TEST_AGT_RDDATA(i)		(0x18+(4*(i)))
-+
-+#define MIU_TEST_AGT_ADDR_MASK		0xfffffff8
-+#define MIU_TEST_AGT_UPPER_ADDR(off)	(0)
-+
-+/*
-+ *   Register offsets for MS
-+ */
-+#define SIU_TEST_AGT_BASE		(0x60)
-+
-+#define SIU_TEST_AGT_ADDR_LO		(0x04)
-+#define SIU_TEST_AGT_ADDR_HI		(0x18)
-+#define SIU_TEST_AGT_WRDATA_LO		(0x08)
-+#define SIU_TEST_AGT_WRDATA_HI		(0x0c)
-+#define SIU_TEST_AGT_WRDATA(i)		(0x08+(4*(i)))
-+#define SIU_TEST_AGT_RDDATA_LO		(0x10)
-+#define SIU_TEST_AGT_RDDATA_HI		(0x14)
-+#define SIU_TEST_AGT_RDDATA(i)		(0x10+(4*(i)))
-+
-+#define SIU_TEST_AGT_ADDR_MASK		0x3ffff8
-+#define SIU_TEST_AGT_UPPER_ADDR(off)	((off)>>22)
- 
- /* XG Link status */
- #define XG_LINK_UP	0x10
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index 3231400..5f4bdda 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -1458,101 +1458,69 @@ netxen_nic_pci_set_window_2M(struct netxen_adapter *adapter,
- 
- static int
- netxen_nic_pci_mem_write_128M(struct netxen_adapter *adapter,
--		u64 off, void *data, int size)
-+		u64 off, u64 data)
- {
- 	unsigned long   flags;
--	int	     i, j, ret = 0, loop, sz[2], off0;
--	uint32_t      temp;
--	uint64_t      off8, tmpw, word[2] = {0, 0};
-+	int j, ret;
-+	u32 temp, off_lo, off_hi, addr_hi, data_hi, data_lo;
- 	void __iomem *mem_crb;
- 
--	if (size != 8)
-+	/* Only 64-bit aligned access */
-+	if (off & 7)
- 		return -EIO;
- 
-+	/* P2 has different SIU and MIU test agent base addr */
- 	if (ADDR_IN_RANGE(off, NETXEN_ADDR_QDR_NET,
- 				NETXEN_ADDR_QDR_NET_MAX_P2)) {
--		mem_crb = pci_base_offset(adapter, NETXEN_CRB_QDR_NET);
-+		mem_crb = pci_base_offset(adapter,
-+				NETXEN_CRB_QDR_NET+SIU_TEST_AGT_BASE);
-+		addr_hi = SIU_TEST_AGT_ADDR_HI;
-+		data_lo = SIU_TEST_AGT_WRDATA_LO;
-+		data_hi = SIU_TEST_AGT_WRDATA_HI;
-+		off_lo = off & SIU_TEST_AGT_ADDR_MASK;
-+		off_hi = SIU_TEST_AGT_UPPER_ADDR(off);
- 		goto correct;
- 	}
- 
- 	if (ADDR_IN_RANGE(off, NETXEN_ADDR_DDR_NET, NETXEN_ADDR_DDR_NET_MAX)) {
--		mem_crb = pci_base_offset(adapter, NETXEN_CRB_DDR_NET);
-+		mem_crb = pci_base_offset(adapter,
-+				NETXEN_CRB_DDR_NET+MIU_TEST_AGT_BASE);
-+		addr_hi = MIU_TEST_AGT_ADDR_HI;
-+		data_lo = MIU_TEST_AGT_WRDATA_LO;
-+		data_hi = MIU_TEST_AGT_WRDATA_HI;
-+		off_lo = off & MIU_TEST_AGT_ADDR_MASK;
-+		off_hi = 0;
- 		goto correct;
- 	}
- 
- 	return -EIO;
- 
- correct:
--	off8 = off & 0xfffffff8;
--	off0 = off & 0x7;
--	sz[0] = (size < (8 - off0)) ? size : (8 - off0);
--	sz[1] = size - sz[0];
--	loop = ((off0 + size - 1) >> 3) + 1;
--
--	if ((size != 8) || (off0 != 0))  {
--		for (i = 0; i < loop; i++) {
--			if (adapter->pci_mem_read(adapter,
--				off8 + (i << 3), &word[i], 8))
--				return -1;
--		}
--	}
--
--	switch (size) {
--	case 1:
--		tmpw = *((uint8_t *)data);
--		break;
--	case 2:
--		tmpw = *((uint16_t *)data);
--		break;
--	case 4:
--		tmpw = *((uint32_t *)data);
--		break;
--	case 8:
--	default:
--		tmpw = *((uint64_t *)data);
--		break;
--	}
--	word[0] &= ~((~(~0ULL << (sz[0] * 8))) << (off0 * 8));
--	word[0] |= tmpw << (off0 * 8);
--
--	if (loop == 2) {
--		word[1] &= ~(~0ULL << (sz[1] * 8));
--		word[1] |= tmpw >> (sz[0] * 8);
--	}
--
- 	write_lock_irqsave(&adapter->adapter_lock, flags);
- 	netxen_nic_pci_change_crbwindow_128M(adapter, 0);
- 
--	for (i = 0; i < loop; i++) {
--		writel((uint32_t)(off8 + (i << 3)),
--			(mem_crb+MIU_TEST_AGT_ADDR_LO));
--		writel(0,
--			(mem_crb+MIU_TEST_AGT_ADDR_HI));
--		writel(word[i] & 0xffffffff,
--			(mem_crb+MIU_TEST_AGT_WRDATA_LO));
--		writel((word[i] >> 32) & 0xffffffff,
--			(mem_crb+MIU_TEST_AGT_WRDATA_HI));
--		writel(MIU_TA_CTL_ENABLE|MIU_TA_CTL_WRITE,
--			(mem_crb+MIU_TEST_AGT_CTRL));
--		writel(MIU_TA_CTL_START|MIU_TA_CTL_ENABLE|MIU_TA_CTL_WRITE,
--			(mem_crb+MIU_TEST_AGT_CTRL));
--
--		for (j = 0; j < MAX_CTL_CHECK; j++) {
--			temp = readl(
--			     (mem_crb+MIU_TEST_AGT_CTRL));
--			if ((temp & MIU_TA_CTL_BUSY) == 0)
--				break;
--		}
--
--		if (j >= MAX_CTL_CHECK) {
--			if (printk_ratelimit())
--				dev_err(&adapter->pdev->dev,
--					"failed to write through agent\n");
--			ret = -1;
-+	writel(off_lo, (mem_crb + MIU_TEST_AGT_ADDR_LO));
-+	writel(off_hi, (mem_crb + addr_hi));
-+	writel(data & 0xffffffff, (mem_crb + data_lo));
-+	writel((data >> 32) & 0xffffffff, (mem_crb + data_hi));
-+	writel((TA_CTL_ENABLE | TA_CTL_WRITE), (mem_crb + TEST_AGT_CTRL));
-+	writel((TA_CTL_START | TA_CTL_ENABLE | TA_CTL_WRITE),
-+			(mem_crb + TEST_AGT_CTRL));
-+
-+	for (j = 0; j < MAX_CTL_CHECK; j++) {
-+		temp = readl((mem_crb + TEST_AGT_CTRL));
-+		if ((temp & TA_CTL_BUSY) == 0)
- 			break;
--		}
- 	}
- 
-+	if (j >= MAX_CTL_CHECK) {
-+		if (printk_ratelimit())
-+			dev_err(&adapter->pdev->dev,
-+					"failed to write through agent\n");
-+		ret = -EIO;
-+	} else
-+		ret = 0;
-+
- 	netxen_nic_pci_change_crbwindow_128M(adapter, 1);
- 	write_unlock_irqrestore(&adapter->adapter_lock, flags);
- 	return ret;
-@@ -1560,304 +1528,202 @@ correct:
- 
- static int
- netxen_nic_pci_mem_read_128M(struct netxen_adapter *adapter,
--		u64 off, void *data, int size)
-+		u64 off, u64 *data)
- {
- 	unsigned long   flags;
--	int	     i, j = 0, k, start, end, loop, sz[2], off0[2];
--	uint32_t      temp;
--	uint64_t      off8, val, word[2] = {0, 0};
-+	int j, ret;
-+	u32 temp, off_lo, off_hi, addr_hi, data_hi, data_lo;
-+	u64 val;
- 	void __iomem *mem_crb;
- 
--	if (size != 8)
-+	/* Only 64-bit aligned access */
-+	if (off & 7)
- 		return -EIO;
- 
-+	/* P2 has different SIU and MIU test agent base addr */
- 	if (ADDR_IN_RANGE(off, NETXEN_ADDR_QDR_NET,
- 				NETXEN_ADDR_QDR_NET_MAX_P2)) {
--		mem_crb = pci_base_offset(adapter, NETXEN_CRB_QDR_NET);
-+		mem_crb = pci_base_offset(adapter,
-+				NETXEN_CRB_QDR_NET+SIU_TEST_AGT_BASE);
-+		addr_hi = SIU_TEST_AGT_ADDR_HI;
-+		data_lo = SIU_TEST_AGT_RDDATA_LO;
-+		data_hi = SIU_TEST_AGT_RDDATA_HI;
-+		off_lo = off & SIU_TEST_AGT_ADDR_MASK;
-+		off_hi = SIU_TEST_AGT_UPPER_ADDR(off);
- 		goto correct;
- 	}
- 
- 	if (ADDR_IN_RANGE(off, NETXEN_ADDR_DDR_NET, NETXEN_ADDR_DDR_NET_MAX)) {
--		mem_crb = pci_base_offset(adapter, NETXEN_CRB_DDR_NET);
-+		mem_crb = pci_base_offset(adapter,
-+				NETXEN_CRB_DDR_NET+MIU_TEST_AGT_BASE);
-+		addr_hi = MIU_TEST_AGT_ADDR_HI;
-+		data_lo = MIU_TEST_AGT_RDDATA_LO;
-+		data_hi = MIU_TEST_AGT_RDDATA_HI;
-+		off_lo = off & MIU_TEST_AGT_ADDR_MASK;
-+		off_hi = 0;
- 		goto correct;
- 	}
- 
- 	return -EIO;
- 
- correct:
--	off8 = off & 0xfffffff8;
--	off0[0] = off & 0x7;
--	off0[1] = 0;
--	sz[0] = (size < (8 - off0[0])) ? size : (8 - off0[0]);
--	sz[1] = size - sz[0];
--	loop = ((off0[0] + size - 1) >> 3) + 1;
--
- 	write_lock_irqsave(&adapter->adapter_lock, flags);
- 	netxen_nic_pci_change_crbwindow_128M(adapter, 0);
- 
--	for (i = 0; i < loop; i++) {
--		writel((uint32_t)(off8 + (i << 3)),
--			(mem_crb+MIU_TEST_AGT_ADDR_LO));
--		writel(0,
--			(mem_crb+MIU_TEST_AGT_ADDR_HI));
--		writel(MIU_TA_CTL_ENABLE,
--			(mem_crb+MIU_TEST_AGT_CTRL));
--		writel(MIU_TA_CTL_START|MIU_TA_CTL_ENABLE,
--			(mem_crb+MIU_TEST_AGT_CTRL));
--
--		for (j = 0; j < MAX_CTL_CHECK; j++) {
--			temp = readl(
--			      (mem_crb+MIU_TEST_AGT_CTRL));
--			if ((temp & MIU_TA_CTL_BUSY) == 0)
--				break;
--		}
-+	writel(off_lo, (mem_crb + MIU_TEST_AGT_ADDR_LO));
-+	writel(off_hi, (mem_crb + addr_hi));
-+	writel(TA_CTL_ENABLE, (mem_crb + TEST_AGT_CTRL));
-+	writel((TA_CTL_START|TA_CTL_ENABLE), (mem_crb + TEST_AGT_CTRL));
- 
--		if (j >= MAX_CTL_CHECK) {
--			if (printk_ratelimit())
--				dev_err(&adapter->pdev->dev,
--					"failed to read through agent\n");
-+	for (j = 0; j < MAX_CTL_CHECK; j++) {
-+		temp = readl(mem_crb + TEST_AGT_CTRL);
-+		if ((temp & TA_CTL_BUSY) == 0)
- 			break;
--		}
-+	}
- 
--		start = off0[i] >> 2;
--		end   = (off0[i] + sz[i] - 1) >> 2;
--		for (k = start; k <= end; k++) {
--			word[i] |= ((uint64_t) readl(
--				    (mem_crb +
--				    MIU_TEST_AGT_RDDATA(k))) << (32*k));
--		}
-+	if (j >= MAX_CTL_CHECK) {
-+		if (printk_ratelimit())
-+			dev_err(&adapter->pdev->dev,
-+					"failed to read through agent\n");
-+		ret = -EIO;
-+	} else {
-+
-+		temp = readl(mem_crb + data_hi);
-+		val = ((u64)temp << 32);
-+		val |= readl(mem_crb + data_lo);
-+		*data = val;
-+		ret = 0;
- 	}
- 
- 	netxen_nic_pci_change_crbwindow_128M(adapter, 1);
- 	write_unlock_irqrestore(&adapter->adapter_lock, flags);
- 
--	if (j >= MAX_CTL_CHECK)
--		return -1;
--
--	if (sz[0] == 8) {
--		val = word[0];
--	} else {
--		val = ((word[0] >> (off0[0] * 8)) & (~(~0ULL << (sz[0] * 8)))) |
--			((word[1] & (~(~0ULL << (sz[1] * 8)))) << (sz[0] * 8));
--	}
--
--	switch (size) {
--	case 1:
--		*(uint8_t  *)data = val;
--		break;
--	case 2:
--		*(uint16_t *)data = val;
--		break;
--	case 4:
--		*(uint32_t *)data = val;
--		break;
--	case 8:
--		*(uint64_t *)data = val;
--		break;
--	}
--	return 0;
-+	return ret;
- }
- 
- static int
- netxen_nic_pci_mem_write_2M(struct netxen_adapter *adapter,
--		u64 off, void *data, int size)
-+		u64 off, u64 data)
- {
--	int i, j, ret = 0, loop, sz[2], off0;
--	uint32_t temp;
--	uint64_t off8, tmpw, word[2] = {0, 0};
-+	unsigned long   flags;
-+	int j, ret;
-+	u32 temp, off8;
- 	void __iomem *mem_crb;
- 
--	if (size != 8)
-+	/* Only 64-bit aligned access */
-+	if (off & 7)
- 		return -EIO;
- 
-+	/* P3 onward, test agent base for MIU and SIU is same */
- 	if (ADDR_IN_RANGE(off, NETXEN_ADDR_QDR_NET,
- 				NETXEN_ADDR_QDR_NET_MAX_P3)) {
--		mem_crb = netxen_get_ioaddr(adapter, NETXEN_CRB_QDR_NET);
-+		mem_crb = netxen_get_ioaddr(adapter,
-+				NETXEN_CRB_QDR_NET+MIU_TEST_AGT_BASE);
- 		goto correct;
- 	}
- 
- 	if (ADDR_IN_RANGE(off, NETXEN_ADDR_DDR_NET, NETXEN_ADDR_DDR_NET_MAX)) {
--		mem_crb = netxen_get_ioaddr(adapter, NETXEN_CRB_DDR_NET);
-+		mem_crb = netxen_get_ioaddr(adapter,
-+				NETXEN_CRB_DDR_NET+MIU_TEST_AGT_BASE);
- 		goto correct;
- 	}
- 
- 	return -EIO;
- 
- correct:
--	off8 = off & 0xfffffff8;
--	off0 = off & 0x7;
--	sz[0] = (size < (8 - off0)) ? size : (8 - off0);
--	sz[1] = size - sz[0];
--	loop = ((off0 + size - 1) >> 3) + 1;
--
--	if ((size != 8) || (off0 != 0)) {
--		for (i = 0; i < loop; i++) {
--			if (adapter->pci_mem_read(adapter,
--					off8 + (i << 3), &word[i], 8))
--				return -1;
--		}
--	}
--
--	switch (size) {
--	case 1:
--		tmpw = *((uint8_t *)data);
--		break;
--	case 2:
--		tmpw = *((uint16_t *)data);
--		break;
--	case 4:
--		tmpw = *((uint32_t *)data);
--		break;
--	case 8:
--	default:
--		tmpw = *((uint64_t *)data);
--	break;
--	}
-+	off8 = off & MIU_TEST_AGT_ADDR_MASK;
- 
--	word[0] &= ~((~(~0ULL << (sz[0] * 8))) << (off0 * 8));
--	word[0] |= tmpw << (off0 * 8);
-+	write_lock_irqsave(&adapter->adapter_lock, flags);
- 
--	if (loop == 2) {
--		word[1] &= ~(~0ULL << (sz[1] * 8));
--		word[1] |= tmpw >> (sz[0] * 8);
-+	writel(off8, (mem_crb + MIU_TEST_AGT_ADDR_LO));
-+	writel(0, (mem_crb + MIU_TEST_AGT_ADDR_HI));
-+	writel(data & 0xffffffff, mem_crb + MIU_TEST_AGT_WRDATA_LO);
-+	writel((data >> 32) & 0xffffffff, mem_crb + MIU_TEST_AGT_WRDATA_HI);
-+	writel((TA_CTL_ENABLE | TA_CTL_WRITE), (mem_crb + TEST_AGT_CTRL));
-+	writel((TA_CTL_START | TA_CTL_ENABLE | TA_CTL_WRITE),
-+			(mem_crb + TEST_AGT_CTRL));
-+
-+	for (j = 0; j < MAX_CTL_CHECK; j++) {
-+		temp = readl(mem_crb + TEST_AGT_CTRL);
-+		if ((temp & TA_CTL_BUSY) == 0)
-+			break;
- 	}
- 
--	/*
--	 * don't lock here - write_wx gets the lock if each time
--	 * write_lock_irqsave(&adapter->adapter_lock, flags);
--	 * netxen_nic_pci_change_crbwindow_128M(adapter, 0);
--	 */
--
--	for (i = 0; i < loop; i++) {
--		writel(off8 + (i << 3), mem_crb+MIU_TEST_AGT_ADDR_LO);
--		writel(0, mem_crb+MIU_TEST_AGT_ADDR_HI);
--		writel(word[i] & 0xffffffff, mem_crb+MIU_TEST_AGT_WRDATA_LO);
--		writel((word[i] >> 32) & 0xffffffff,
--				mem_crb+MIU_TEST_AGT_WRDATA_HI);
--		writel((MIU_TA_CTL_ENABLE | MIU_TA_CTL_WRITE),
--				mem_crb+MIU_TEST_AGT_CTRL);
--		writel(MIU_TA_CTL_START | MIU_TA_CTL_ENABLE | MIU_TA_CTL_WRITE,
--				mem_crb+MIU_TEST_AGT_CTRL);
--
--		for (j = 0; j < MAX_CTL_CHECK; j++) {
--			temp = readl(mem_crb + MIU_TEST_AGT_CTRL);
--			if ((temp & MIU_TA_CTL_BUSY) == 0)
--				break;
--		}
--
--		if (j >= MAX_CTL_CHECK) {
--			if (printk_ratelimit())
--				dev_err(&adapter->pdev->dev,
-+	if (j >= MAX_CTL_CHECK) {
-+		if (printk_ratelimit())
-+			dev_err(&adapter->pdev->dev,
- 					"failed to write through agent\n");
--			ret = -1;
--			break;
--		}
--	}
-+		ret = -EIO;
-+	} else
-+		ret = 0;
-+
-+	write_unlock_irqrestore(&adapter->adapter_lock, flags);
- 
--	/*
--	 * netxen_nic_pci_change_crbwindow_128M(adapter, 1);
--	 * write_unlock_irqrestore(&adapter->adapter_lock, flags);
--	 */
- 	return ret;
- }
- 
- static int
- netxen_nic_pci_mem_read_2M(struct netxen_adapter *adapter,
--		u64 off, void *data, int size)
-+		u64 off, u64 *data)
- {
--	int i, j = 0, k, start, end, loop, sz[2], off0[2];
--	uint32_t      temp;
--	uint64_t      off8, val, word[2] = {0, 0};
-+	unsigned long   flags;
-+	int j, ret;
-+	u32 temp, off8;
-+	u64 val;
- 	void __iomem *mem_crb;
- 
--	if (size != 8)
-+	/* Only 64-bit aligned access */
-+	if (off & 7)
- 		return -EIO;
- 
-+	/* P3 onward, test agent base for MIU and SIU is same */
- 	if (ADDR_IN_RANGE(off, NETXEN_ADDR_QDR_NET,
- 				NETXEN_ADDR_QDR_NET_MAX_P3)) {
--		mem_crb = netxen_get_ioaddr(adapter, NETXEN_CRB_QDR_NET);
-+		mem_crb = netxen_get_ioaddr(adapter,
-+				NETXEN_CRB_QDR_NET+MIU_TEST_AGT_BASE);
- 		goto correct;
- 	}
- 
- 	if (ADDR_IN_RANGE(off, NETXEN_ADDR_DDR_NET, NETXEN_ADDR_DDR_NET_MAX)) {
--		mem_crb = netxen_get_ioaddr(adapter, NETXEN_CRB_DDR_NET);
-+		mem_crb = netxen_get_ioaddr(adapter,
-+				NETXEN_CRB_DDR_NET+MIU_TEST_AGT_BASE);
- 		goto correct;
- 	}
- 
- 	return -EIO;
- 
- correct:
--	off8 = off & 0xfffffff8;
--	off0[0] = off & 0x7;
--	off0[1] = 0;
--	sz[0] = (size < (8 - off0[0])) ? size : (8 - off0[0]);
--	sz[1] = size - sz[0];
--	loop = ((off0[0] + size - 1) >> 3) + 1;
-+	off8 = off & MIU_TEST_AGT_ADDR_MASK;
- 
--	/*
--	 * don't lock here - write_wx gets the lock if each time
--	 * write_lock_irqsave(&adapter->adapter_lock, flags);
--	 * netxen_nic_pci_change_crbwindow_128M(adapter, 0);
--	 */
-+	write_lock_irqsave(&adapter->adapter_lock, flags);
- 
--	for (i = 0; i < loop; i++) {
--		writel(off8 + (i << 3), mem_crb + MIU_TEST_AGT_ADDR_LO);
--		writel(0, mem_crb + MIU_TEST_AGT_ADDR_HI);
--		writel(MIU_TA_CTL_ENABLE, mem_crb + MIU_TEST_AGT_CTRL);
--		writel(MIU_TA_CTL_START | MIU_TA_CTL_ENABLE,
--				mem_crb + MIU_TEST_AGT_CTRL);
--
--		for (j = 0; j < MAX_CTL_CHECK; j++) {
--			temp = readl(mem_crb + MIU_TEST_AGT_CTRL);
--			if ((temp & MIU_TA_CTL_BUSY) == 0)
--				break;
--		}
-+	writel(off8, (mem_crb + MIU_TEST_AGT_ADDR_LO));
-+	writel(0, (mem_crb + MIU_TEST_AGT_ADDR_HI));
-+	writel(TA_CTL_ENABLE, (mem_crb + TEST_AGT_CTRL));
-+	writel((TA_CTL_START | TA_CTL_ENABLE), (mem_crb + TEST_AGT_CTRL));
- 
--		if (j >= MAX_CTL_CHECK) {
--			if (printk_ratelimit())
--				dev_err(&adapter->pdev->dev,
--					"failed to read through agent\n");
-+	for (j = 0; j < MAX_CTL_CHECK; j++) {
-+		temp = readl(mem_crb + TEST_AGT_CTRL);
-+		if ((temp & TA_CTL_BUSY) == 0)
- 			break;
--		}
--
--		start = off0[i] >> 2;
--		end   = (off0[i] + sz[i] - 1) >> 2;
--		for (k = start; k <= end; k++) {
--			temp = readl(mem_crb + MIU_TEST_AGT_RDDATA(k));
--			word[i] |= ((uint64_t)temp << (32 * k));
--		}
- 	}
- 
--	/*
--	 * netxen_nic_pci_change_crbwindow_128M(adapter, 1);
--	 * write_unlock_irqrestore(&adapter->adapter_lock, flags);
--	 */
--
--	if (j >= MAX_CTL_CHECK)
--		return -1;
--
--	if (sz[0] == 8) {
--		val = word[0];
-+	if (j >= MAX_CTL_CHECK) {
-+		if (printk_ratelimit())
-+			dev_err(&adapter->pdev->dev,
-+					"failed to read through agent\n");
-+		ret = -EIO;
- 	} else {
--		val = ((word[0] >> (off0[0] * 8)) & (~(~0ULL << (sz[0] * 8)))) |
--		((word[1] & (~(~0ULL << (sz[1] * 8)))) << (sz[0] * 8));
-+		temp = readl(mem_crb + MIU_TEST_AGT_RDDATA_HI);
-+		val = (u64)temp << 32;
-+		val |= readl(mem_crb + MIU_TEST_AGT_RDDATA_LO);
-+		*data = val;
-+		ret = 0;
- 	}
- 
--	switch (size) {
--	case 1:
--		*(uint8_t  *)data = val;
--		break;
--	case 2:
--		*(uint16_t *)data = val;
--		break;
--	case 4:
--		*(uint32_t *)data = val;
--		break;
--	case 8:
--		*(uint64_t *)data = val;
--		break;
--	}
--	return 0;
-+	write_unlock_irqrestore(&adapter->adapter_lock, flags);
-+
-+	return ret;
- }
- 
- void
-diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
-index 91c2bc6..424b456 100644
---- a/drivers/net/netxen/netxen_nic_init.c
-+++ b/drivers/net/netxen/netxen_nic_init.c
-@@ -702,7 +702,10 @@ netxen_load_firmware(struct netxen_adapter *adapter)
- 
- 		for (i = 0; i < size; i++) {
- 			data = cpu_to_le64(ptr64[i]);
--			adapter->pci_mem_write(adapter, flashaddr, &data, 8);
-+			if (adapter->pci_mem_write(adapter,
-+						flashaddr, data))
-+				return -EIO;
-+
- 			flashaddr += 8;
+diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+index 975e25b..32031ea 100644
+--- a/drivers/net/3c59x.c
++++ b/drivers/net/3c59x.c
+@@ -2560,7 +2560,7 @@ boomerang_rx(struct net_device *dev)
+ 		struct sk_buff *skb;
+ 		entry =3D vp->dirty_rx % RX_RING_SIZE;
+ 		if (vp->rx_skbuff[entry] =3D=3D NULL) {
+-			skb =3D netdev_alloc_skb(dev, PKT_BUF_SZ + NET_IP_ALIGN);
++			skb =3D netdev_alloc_skb_ip_align(dev, PKT_BUF_SZ);
+ 			if (skb =3D=3D NULL) {
+ 				static unsigned long last_jif;
+ 				if (time_after(jiffies, last_jif + 10 * HZ)) {
+@@ -2572,7 +2572,6 @@ boomerang_rx(struct net_device *dev)
+ 				break;			/* Bad news!  */
+ 			}
+=20
+-			skb_reserve(skb, NET_IP_ALIGN);
+ 			vp->rx_ring[entry].addr =3D cpu_to_le32(pci_map_single(VORTEX_PCI(v=
+p), skb->data, PKT_BUF_SZ, PCI_DMA_FROMDEVICE));
+ 			vp->rx_skbuff[entry] =3D skb;
  		}
- 
-@@ -716,7 +719,7 @@ netxen_load_firmware(struct netxen_adapter *adapter)
- 			data = cpu_to_le64(ptr64[i]);
- 
- 			if (adapter->pci_mem_write(adapter,
--						flashaddr, &data, 8))
-+						flashaddr, data))
- 				return -EIO;
- 
- 			flashaddr += 8;
-@@ -730,17 +733,17 @@ netxen_load_firmware(struct netxen_adapter *adapter)
- 
- 		for (i = 0; i < size; i++) {
- 			if (netxen_rom_fast_read(adapter,
--					flashaddr, &lo) != 0)
-+					flashaddr, (int *)&lo) != 0)
- 				return -EIO;
- 			if (netxen_rom_fast_read(adapter,
--					flashaddr + 4, &hi) != 0)
-+					flashaddr + 4, (int *)&hi) != 0)
- 				return -EIO;
- 
- 			/* hi, lo are already in host endian byteorder */
- 			data = (((u64)hi << 32) | lo);
- 
- 			if (adapter->pci_mem_write(adapter,
--						flashaddr, &data, 8))
-+						flashaddr, data))
- 				return -EIO;
- 
- 			flashaddr += 8;
--- 
-1.6.0.2
-
+diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
+index 83a1922..ab451bb 100644
+--- a/drivers/net/8139cp.c
++++ b/drivers/net/8139cp.c
+@@ -549,14 +549,12 @@ rx_status_loop:
+ 			pr_debug("%s: rx slot %d status 0x%x len %d\n",
+ 			       dev->name, rx_tail, status, len);
+=20
+-		new_skb =3D netdev_alloc_skb(dev, buflen + NET_IP_ALIGN);
++		new_skb =3D netdev_alloc_skb_ip_align(dev, buflen);
+ 		if (!new_skb) {
+ 			dev->stats.rx_dropped++;
+ 			goto rx_next;
+ 		}
+=20
+-		skb_reserve(new_skb, NET_IP_ALIGN);
+-
+ 		dma_unmap_single(&cp->pdev->dev, mapping,
+ 				 buflen, PCI_DMA_FROMDEVICE);
+=20
+@@ -1057,12 +1055,10 @@ static int cp_refill_rx(struct cp_private *cp)
+ 		struct sk_buff *skb;
+ 		dma_addr_t mapping;
+=20
+-		skb =3D netdev_alloc_skb(dev, cp->rx_buf_sz + NET_IP_ALIGN);
++		skb =3D netdev_alloc_skb_ip_align(dev, cp->rx_buf_sz);
+ 		if (!skb)
+ 			goto err_out;
+=20
+-		skb_reserve(skb, NET_IP_ALIGN);
+-
+ 		mapping =3D dma_map_single(&cp->pdev->dev, skb->data,
+ 					 cp->rx_buf_sz, PCI_DMA_FROMDEVICE);
+ 		cp->rx_skb[i] =3D skb;
+diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
+index 4a36287..7e333f7 100644
+--- a/drivers/net/8139too.c
++++ b/drivers/net/8139too.c
+@@ -2004,9 +2004,8 @@ no_early_rx:
+ 		/* Malloc up new buffer, compatible with net-2e. */
+ 		/* Omit the four octet CRC from the length. */
+=20
+-		skb =3D netdev_alloc_skb(dev, pkt_size + NET_IP_ALIGN);
++		skb =3D netdev_alloc_skb_ip_align(dev, pkt_size);
+ 		if (likely(skb)) {
+-			skb_reserve (skb, NET_IP_ALIGN);	/* 16 byte align the IP fields. */
+ #if RX_BUF_IDX =3D=3D 3
+ 			wrap_copy(skb, rx_ring, ring_offset+4, pkt_size);
+ #else
+diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_m=
+ain.c
+index 955da73..8b889ab 100644
+--- a/drivers/net/atl1e/atl1e_main.c
++++ b/drivers/net/atl1e/atl1e_main.c
+@@ -1433,14 +1433,12 @@ static void atl1e_clean_rx_irq(struct atl1e_ada=
+pter *adapter, u8 que,
+=20
+ 			packet_size =3D ((prrs->word1 >> RRS_PKT_SIZE_SHIFT) &
+ 					RRS_PKT_SIZE_MASK) - 4; /* CRC */
+-			skb =3D netdev_alloc_skb(netdev,
+-					       packet_size + NET_IP_ALIGN);
++			skb =3D netdev_alloc_skb_ip_align(netdev, packet_size);
+ 			if (skb =3D=3D NULL) {
+ 				dev_warn(&pdev->dev, "%s: Memory squeeze,"
+ 					"deferring packet.\n", netdev->name);
+ 				goto skip_pkt;
+ 			}
+-			skb_reserve(skb, NET_IP_ALIGN);
+ 			skb->dev =3D netdev;
+ 			memcpy(skb->data, (u8 *)(prrs + 1), packet_size);
+ 			skb_put(skb, packet_size);
+diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
+index 00569dc..963df50 100644
+--- a/drivers/net/atlx/atl1.c
++++ b/drivers/net/atlx/atl1.c
+@@ -1864,21 +1864,14 @@ static u16 atl1_alloc_rx_buffers(struct atl1_ad=
+apter *adapter)
+=20
+ 		rfd_desc =3D ATL1_RFD_DESC(rfd_ring, rfd_next_to_use);
+=20
+-		skb =3D netdev_alloc_skb(adapter->netdev,
+-				       adapter->rx_buffer_len + NET_IP_ALIGN);
++		skb =3D netdev_alloc_skb_ip_align(adapter->netdev,
++						adapter->rx_buffer_len);
+ 		if (unlikely(!skb)) {
+ 			/* Better luck next round */
+ 			adapter->netdev->stats.rx_dropped++;
+ 			break;
+ 		}
+=20
+-		/*
+-		 * Make buffer alignment 2 beyond a 16 byte boundary
+-		 * this will result in a 16 byte aligned IP header after
+-		 * the 14 byte MAC header is removed
+-		 */
+-		skb_reserve(skb, NET_IP_ALIGN);
+-
+ 		buffer_info->alloced =3D 1;
+ 		buffer_info->skb =3D skb;
+ 		buffer_info->length =3D (u16) adapter->rx_buffer_len;
+diff --git a/drivers/net/atlx/atl2.c b/drivers/net/atlx/atl2.c
+index ab68886..0d26807 100644
+--- a/drivers/net/atlx/atl2.c
++++ b/drivers/net/atlx/atl2.c
+@@ -409,7 +409,7 @@ static void atl2_intr_rx(struct atl2_adapter *adapt=
+er)
+ 		if (rxd->status.ok && rxd->status.pkt_size >=3D 60) {
+ 			int rx_size =3D (int)(rxd->status.pkt_size - 4);
+ 			/* alloc new buffer */
+-			skb =3D netdev_alloc_skb(netdev, rx_size + NET_IP_ALIGN);
++			skb =3D netdev_alloc_skb_ip_align(netdev, rx_size);
+ 			if (NULL =3D=3D skb) {
+ 				printk(KERN_WARNING
+ 					"%s: Mem squeeze, deferring packet.\n",
+@@ -421,7 +421,6 @@ static void atl2_intr_rx(struct atl2_adapter *adapt=
+er)
+ 				netdev->stats.rx_dropped++;
+ 				break;
+ 			}
+-			skb_reserve(skb, NET_IP_ALIGN);
+ 			skb->dev =3D netdev;
+ 			memcpy(skb->data, rxd->packet, rx_size);
+ 			skb_put(skb, rx_size);
+diff --git a/drivers/net/bcm63xx_enet.c b/drivers/net/bcm63xx_enet.c
+index ba29dc3..1f6c548 100644
+--- a/drivers/net/bcm63xx_enet.c
++++ b/drivers/net/bcm63xx_enet.c
+@@ -320,16 +320,13 @@ static int bcm_enet_receive_queue(struct net_devi=
+ce *dev, int budget)
+ 		if (len < copybreak) {
+ 			struct sk_buff *nskb;
+=20
+-			nskb =3D netdev_alloc_skb(dev, len + NET_IP_ALIGN);
++			nskb =3D netdev_alloc_skb_ip_align(dev, len);
+ 			if (!nskb) {
+ 				/* forget packet, just rearm desc */
+ 				priv->stats.rx_dropped++;
+ 				continue;
+ 			}
+=20
+-			/* since we're copying the data, we can align
+-			 * them properly */
+-			skb_reserve(nskb, NET_IP_ALIGN);
+ 			dma_sync_single_for_cpu(kdev, desc->address,
+ 						len, DMA_FROM_DEVICE);
+ 			memcpy(nskb->data, skb->data, len);
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 0e92a1f..e0f9d64 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -756,7 +756,7 @@ static void be_rx_compl_process(struct be_adapter *=
+adapter,
+ 	if ((adapter->cap =3D=3D 0x400) && !vtm)
+ 		vlanf =3D 0;
+=20
+-	skb =3D netdev_alloc_skb(adapter->netdev, BE_HDR_LEN + NET_IP_ALIGN);
++	skb =3D netdev_alloc_skb_ip_align(adapter->netdev, BE_HDR_LEN);
+ 	if (!skb) {
+ 		if (net_ratelimit())
+ 			dev_warn(&adapter->pdev->dev, "skb alloc failed\n");
+@@ -764,8 +764,6 @@ static void be_rx_compl_process(struct be_adapter *=
+adapter,
+ 		return;
+ 	}
+=20
+-	skb_reserve(skb, NET_IP_ALIGN);
+-
+ 	skb_fill_rx_data(adapter, skb, rxcp);
+=20
+ 	if (do_pkt_csum(rxcp, adapter->rx_csum))
+diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
+index 61f9da2..6782223 100644
+--- a/drivers/net/cpmac.c
++++ b/drivers/net/cpmac.c
+@@ -380,9 +380,8 @@ static struct sk_buff *cpmac_rx_one(struct cpmac_pr=
+iv *priv,
+ 		return NULL;
+ 	}
+=20
+-	skb =3D netdev_alloc_skb(priv->dev, CPMAC_SKB_SIZE);
++	skb =3D netdev_alloc_skb_ip_align(priv->dev, CPMAC_SKB_SIZE);
+ 	if (likely(skb)) {
+-		skb_reserve(skb, 2);
+ 		skb_put(desc->skb, desc->datalen);
+ 		desc->skb->protocol =3D eth_type_trans(desc->skb, priv->dev);
+ 		desc->skb->ip_summed =3D CHECKSUM_NONE;
+@@ -991,12 +990,11 @@ static int cpmac_open(struct net_device *dev)
+=20
+ 	priv->rx_head =3D &priv->desc_ring[CPMAC_QUEUES];
+ 	for (i =3D 0, desc =3D priv->rx_head; i < priv->ring_size; i++, desc+=
++) {
+-		skb =3D netdev_alloc_skb(dev, CPMAC_SKB_SIZE);
++		skb =3D netdev_alloc_skb_ip_align(dev, CPMAC_SKB_SIZE);
+ 		if (unlikely(!skb)) {
+ 			res =3D -ENOMEM;
+ 			goto fail_desc;
+ 		}
+-		skb_reserve(skb, 2);
+ 		desc->skb =3D skb;
+ 		desc->data_mapping =3D dma_map_single(&dev->dev, skb->data,
+ 						    CPMAC_SKB_SIZE,
+diff --git a/drivers/net/dl2k.c b/drivers/net/dl2k.c
+index 7fa7a90..ce8fef1 100644
+--- a/drivers/net/dl2k.c
++++ b/drivers/net/dl2k.c
+@@ -505,7 +505,8 @@ rio_timer (unsigned long data)
+ 			entry =3D np->old_rx % RX_RING_SIZE;
+ 			/* Dropped packets don't need to re-allocate */
+ 			if (np->rx_skbuff[entry] =3D=3D NULL) {
+-				skb =3D netdev_alloc_skb (dev, np->rx_buf_sz);
++				skb =3D netdev_alloc_skb_ip_align(dev,
++								np->rx_buf_sz);
+ 				if (skb =3D=3D NULL) {
+ 					np->rx_ring[entry].fraginfo =3D 0;
+ 					printk (KERN_INFO
+@@ -514,8 +515,6 @@ rio_timer (unsigned long data)
+ 					break;
+ 				}
+ 				np->rx_skbuff[entry] =3D skb;
+-				/* 16 byte align the IP header */
+-				skb_reserve (skb, 2);
+ 				np->rx_ring[entry].fraginfo =3D
+ 				    cpu_to_le64 (pci_map_single
+ 					 (np->pdev, skb->data, np->rx_buf_sz,
+@@ -576,7 +575,9 @@ alloc_list (struct net_device *dev)
+ 	/* Allocate the rx buffers */
+ 	for (i =3D 0; i < RX_RING_SIZE; i++) {
+ 		/* Allocated fixed size of skbuff */
+-		struct sk_buff *skb =3D netdev_alloc_skb (dev, np->rx_buf_sz);
++		struct sk_buff *skb;
++
++		skb =3D netdev_alloc_skb_ip_align(dev, np->rx_buf_sz);
+ 		np->rx_skbuff[i] =3D skb;
+ 		if (skb =3D=3D NULL) {
+ 			printk (KERN_ERR
+@@ -584,7 +585,6 @@ alloc_list (struct net_device *dev)
+ 				dev->name);
+ 			break;
+ 		}
+-		skb_reserve (skb, 2);	/* 16 byte align the IP header. */
+ 		/* Rubicon now supports 40 bits of addressing space. */
+ 		np->rx_ring[i].fraginfo =3D
+ 		    cpu_to_le64 ( pci_map_single (
+@@ -871,13 +871,11 @@ receive_packet (struct net_device *dev)
+ 						  PCI_DMA_FROMDEVICE);
+ 				skb_put (skb =3D np->rx_skbuff[entry], pkt_len);
+ 				np->rx_skbuff[entry] =3D NULL;
+-			} else if ((skb =3D netdev_alloc_skb(dev, pkt_len + 2))) {
++			} else if ((skb =3D netdev_alloc_skb_ip_align(dev, pkt_len))) {
+ 				pci_dma_sync_single_for_cpu(np->pdev,
+ 							    desc_to_dma(desc),
+ 							    np->rx_buf_sz,
+ 							    PCI_DMA_FROMDEVICE);
+-				/* 16 byte align the IP header */
+-				skb_reserve (skb, 2);
+ 				skb_copy_to_linear_data (skb,
+ 						  np->rx_skbuff[entry]->data,
+ 						  pkt_len);
+@@ -907,7 +905,7 @@ receive_packet (struct net_device *dev)
+ 		struct sk_buff *skb;
+ 		/* Dropped packets don't need to re-allocate */
+ 		if (np->rx_skbuff[entry] =3D=3D NULL) {
+-			skb =3D netdev_alloc_skb(dev, np->rx_buf_sz);
++			skb =3D netdev_alloc_skb_ip_align(dev, np->rx_buf_sz);
+ 			if (skb =3D=3D NULL) {
+ 				np->rx_ring[entry].fraginfo =3D 0;
+ 				printk (KERN_INFO
+@@ -917,8 +915,6 @@ receive_packet (struct net_device *dev)
+ 				break;
+ 			}
+ 			np->rx_skbuff[entry] =3D skb;
+-			/* 16 byte align the IP header */
+-			skb_reserve (skb, 2);
+ 			np->rx_ring[entry].fraginfo =3D
+ 			    cpu_to_le64 (pci_map_single
+ 					 (np->pdev, skb->data, np->rx_buf_sz,
+diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+index 679965c..ff83efd 100644
+--- a/drivers/net/e100.c
++++ b/drivers/net/e100.c
+@@ -1839,11 +1839,10 @@ static inline void e100_start_receiver(struct n=
+ic *nic, struct rx *rx)
+ #define RFD_BUF_LEN (sizeof(struct rfd) + VLAN_ETH_FRAME_LEN)
+ static int e100_rx_alloc_skb(struct nic *nic, struct rx *rx)
+ {
+-	if (!(rx->skb =3D netdev_alloc_skb(nic->netdev, RFD_BUF_LEN + NET_IP_=
+ALIGN)))
++	if (!(rx->skb =3D netdev_alloc_skb_ip_align(nic->netdev, RFD_BUF_LEN)=
+))
+ 		return -ENOMEM;
+=20
+-	/* Align, init, and map the RFD. */
+-	skb_reserve(rx->skb, NET_IP_ALIGN);
++	/* Init, and map the RFD. */
+ 	skb_copy_to_linear_data(rx->skb, &nic->blank_rfd, sizeof(struct rfd))=
+;
+ 	rx->dma_addr =3D pci_map_single(nic->pdev, rx->skb->data,
+ 		RFD_BUF_LEN, PCI_DMA_BIDIRECTIONAL);
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_m=
+ain.c
+index 6a61414..c938114 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -3866,9 +3866,8 @@ static bool e1000_clean_rx_irq(struct e1000_adapt=
+er *adapter,
+ 		 * of reassembly being done in the stack */
+ 		if (length < copybreak) {
+ 			struct sk_buff *new_skb =3D
+-			    netdev_alloc_skb(netdev, length + NET_IP_ALIGN);
++			    netdev_alloc_skb_ip_align(netdev, length);
+ 			if (new_skb) {
+-				skb_reserve(new_skb, NET_IP_ALIGN);
+ 				skb_copy_to_linear_data_offset(new_skb,
+ 							       -NET_IP_ALIGN,
+ 							       (skb->data -
+@@ -3937,9 +3936,7 @@ e1000_alloc_jumbo_rx_buffers(struct e1000_adapter=
+ *adapter,
+ 	struct e1000_buffer *buffer_info;
+ 	struct sk_buff *skb;
+ 	unsigned int i;
+-	unsigned int bufsz =3D 256 -
+-	                     16 /*for skb_reserve */ -
+-	                     NET_IP_ALIGN;
++	unsigned int bufsz =3D 256 - 16 /*for skb_reserve */ ;
+=20
+ 	i =3D rx_ring->next_to_use;
+ 	buffer_info =3D &rx_ring->buffer_info[i];
+@@ -3951,7 +3948,7 @@ e1000_alloc_jumbo_rx_buffers(struct e1000_adapter=
+ *adapter,
+ 			goto check_page;
+ 		}
+=20
+-		skb =3D netdev_alloc_skb(netdev, bufsz);
++		skb =3D netdev_alloc_skb_ip_align(netdev, bufsz);
+ 		if (unlikely(!skb)) {
+ 			/* Better luck next round */
+ 			adapter->alloc_rx_buff_failed++;
+@@ -3964,7 +3961,7 @@ e1000_alloc_jumbo_rx_buffers(struct e1000_adapter=
+ *adapter,
+ 			DPRINTK(PROBE, ERR, "skb align check failed: %u bytes "
+ 					     "at %p\n", bufsz, skb->data);
+ 			/* Try again, without freeing the previous */
+-			skb =3D netdev_alloc_skb(netdev, bufsz);
++			skb =3D netdev_alloc_skb_ip_align(netdev, bufsz);
+ 			/* Failed allocation, critical failure */
+ 			if (!skb) {
+ 				dev_kfree_skb(oldskb);
+@@ -3982,12 +3979,6 @@ e1000_alloc_jumbo_rx_buffers(struct e1000_adapte=
+r *adapter,
+ 			/* Use new allocation */
+ 			dev_kfree_skb(oldskb);
+ 		}
+-		/* Make buffer alignment 2 beyond a 16 byte boundary
+-		 * this will result in a 16 byte aligned IP header after
+-		 * the 14 byte MAC header is removed
+-		 */
+-		skb_reserve(skb, NET_IP_ALIGN);
+-
+ 		buffer_info->skb =3D skb;
+ 		buffer_info->length =3D adapter->rx_buffer_len;
+ check_page:
+@@ -4044,7 +4035,7 @@ static void e1000_alloc_rx_buffers(struct e1000_a=
+dapter *adapter,
+ 	struct e1000_buffer *buffer_info;
+ 	struct sk_buff *skb;
+ 	unsigned int i;
+-	unsigned int bufsz =3D adapter->rx_buffer_len + NET_IP_ALIGN;
++	unsigned int bufsz =3D adapter->rx_buffer_len;
+=20
+ 	i =3D rx_ring->next_to_use;
+ 	buffer_info =3D &rx_ring->buffer_info[i];
+@@ -4056,7 +4047,7 @@ static void e1000_alloc_rx_buffers(struct e1000_a=
+dapter *adapter,
+ 			goto map_skb;
+ 		}
+=20
+-		skb =3D netdev_alloc_skb(netdev, bufsz);
++		skb =3D netdev_alloc_skb_ip_align(netdev, bufsz);
+ 		if (unlikely(!skb)) {
+ 			/* Better luck next round */
+ 			adapter->alloc_rx_buff_failed++;
+@@ -4069,7 +4060,7 @@ static void e1000_alloc_rx_buffers(struct e1000_a=
+dapter *adapter,
+ 			DPRINTK(RX_ERR, ERR, "skb align check failed: %u bytes "
+ 					     "at %p\n", bufsz, skb->data);
+ 			/* Try again, without freeing the previous */
+-			skb =3D netdev_alloc_skb(netdev, bufsz);
++			skb =3D netdev_alloc_skb_ip_align(netdev, bufsz);
+ 			/* Failed allocation, critical failure */
+ 			if (!skb) {
+ 				dev_kfree_skb(oldskb);
+@@ -4088,12 +4079,6 @@ static void e1000_alloc_rx_buffers(struct e1000_=
+adapter *adapter,
+ 			/* Use new allocation */
+ 			dev_kfree_skb(oldskb);
+ 		}
+-		/* Make buffer alignment 2 beyond a 16 byte boundary
+-		 * this will result in a 16 byte aligned IP header after
+-		 * the 14 byte MAC header is removed
+-		 */
+-		skb_reserve(skb, NET_IP_ALIGN);
+-
+ 		buffer_info->skb =3D skb;
+ 		buffer_info->length =3D adapter->rx_buffer_len;
+ map_skb:
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 21af398..3769248 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -167,7 +167,7 @@ static void e1000_alloc_rx_buffers(struct e1000_ada=
+pter *adapter,
+ 	struct e1000_buffer *buffer_info;
+ 	struct sk_buff *skb;
+ 	unsigned int i;
+-	unsigned int bufsz =3D adapter->rx_buffer_len + NET_IP_ALIGN;
++	unsigned int bufsz =3D adapter->rx_buffer_len;
+=20
+ 	i =3D rx_ring->next_to_use;
+ 	buffer_info =3D &rx_ring->buffer_info[i];
+@@ -179,20 +179,13 @@ static void e1000_alloc_rx_buffers(struct e1000_a=
+dapter *adapter,
+ 			goto map_skb;
+ 		}
+=20
+-		skb =3D netdev_alloc_skb(netdev, bufsz);
++		skb =3D netdev_alloc_skb_ip_align(netdev, bufsz);
+ 		if (!skb) {
+ 			/* Better luck next round */
+ 			adapter->alloc_rx_buff_failed++;
+ 			break;
+ 		}
+=20
+-		/*
+-		 * Make buffer alignment 2 beyond a 16 byte boundary
+-		 * this will result in a 16 byte aligned IP header after
+-		 * the 14 byte MAC header is removed
+-		 */
+-		skb_reserve(skb, NET_IP_ALIGN);
+-
+ 		buffer_info->skb =3D skb;
+ map_skb:
+ 		buffer_info->dma =3D pci_map_single(pdev, skb->data,
+@@ -284,21 +277,14 @@ static void e1000_alloc_rx_buffers_ps(struct e100=
+0_adapter *adapter,
+ 			     cpu_to_le64(ps_page->dma);
+ 		}
+=20
+-		skb =3D netdev_alloc_skb(netdev,
+-				       adapter->rx_ps_bsize0 + NET_IP_ALIGN);
++		skb =3D netdev_alloc_skb_ip_align(netdev,
++						adapter->rx_ps_bsize0);
+=20
+ 		if (!skb) {
+ 			adapter->alloc_rx_buff_failed++;
+ 			break;
+ 		}
+=20
+-		/*
+-		 * Make buffer alignment 2 beyond a 16 byte boundary
+-		 * this will result in a 16 byte aligned IP header after
+-		 * the 14 byte MAC header is removed
+-		 */
+-		skb_reserve(skb, NET_IP_ALIGN);
+-
+ 		buffer_info->skb =3D skb;
+ 		buffer_info->dma =3D pci_map_single(pdev, skb->data,
+ 						  adapter->rx_ps_bsize0,
+@@ -359,9 +345,7 @@ static void e1000_alloc_jumbo_rx_buffers(struct e10=
+00_adapter *adapter,
+ 	struct e1000_buffer *buffer_info;
+ 	struct sk_buff *skb;
+ 	unsigned int i;
+-	unsigned int bufsz =3D 256 -
+-	                     16 /* for skb_reserve */ -
+-	                     NET_IP_ALIGN;
++	unsigned int bufsz =3D 256 - 16 /* for skb_reserve */;
+=20
+ 	i =3D rx_ring->next_to_use;
+ 	buffer_info =3D &rx_ring->buffer_info[i];
+@@ -373,19 +357,13 @@ static void e1000_alloc_jumbo_rx_buffers(struct e=
+1000_adapter *adapter,
+ 			goto check_page;
+ 		}
+=20
+-		skb =3D netdev_alloc_skb(netdev, bufsz);
++		skb =3D netdev_alloc_skb_ip_align(netdev, bufsz);
+ 		if (unlikely(!skb)) {
+ 			/* Better luck next round */
+ 			adapter->alloc_rx_buff_failed++;
+ 			break;
+ 		}
+=20
+-		/* Make buffer alignment 2 beyond a 16 byte boundary
+-		 * this will result in a 16 byte aligned IP header after
+-		 * the 14 byte MAC header is removed
+-		 */
+-		skb_reserve(skb, NET_IP_ALIGN);
+-
+ 		buffer_info->skb =3D skb;
+ check_page:
+ 		/* allocate a new page if necessary */
+@@ -513,9 +491,8 @@ static bool e1000_clean_rx_irq(struct e1000_adapter=
+ *adapter,
+ 		 */
+ 		if (length < copybreak) {
+ 			struct sk_buff *new_skb =3D
+-			    netdev_alloc_skb(netdev, length + NET_IP_ALIGN);
++			    netdev_alloc_skb_ip_align(netdev, length);
+ 			if (new_skb) {
+-				skb_reserve(new_skb, NET_IP_ALIGN);
+ 				skb_copy_to_linear_data_offset(new_skb,
+ 							       -NET_IP_ALIGN,
+ 							       (skb->data -
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.=
+c
+index 41bd7ae..7f8fcc2 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -447,7 +447,9 @@ static int ehea_refill_rq_def(struct ehea_port_res =
+*pr,
+ 	max_index_mask =3D q_skba->len - 1;
+ 	for (i =3D 0; i < fill_wqes; i++) {
+ 		u64 tmp_addr;
+-		struct sk_buff *skb =3D netdev_alloc_skb(dev, packet_size);
++		struct sk_buff *skb;
++
++		skb =3D netdev_alloc_skb_ip_align(dev, packet_size);
+ 		if (!skb) {
+ 			q_skba->os_skbs =3D fill_wqes - i;
+ 			if (q_skba->os_skbs =3D=3D q_skba->len - 2) {
+@@ -457,7 +459,6 @@ static int ehea_refill_rq_def(struct ehea_port_res =
+*pr,
+ 			}
+ 			break;
+ 		}
+-		skb_reserve(skb, NET_IP_ALIGN);
+=20
+ 		skb_arr[index] =3D skb;
+ 		tmp_addr =3D ehea_map_vaddr(skb->data);
+@@ -500,7 +501,7 @@ static int ehea_refill_rq2(struct ehea_port_res *pr=
+, int nr_of_wqes)
+ {
+ 	return ehea_refill_rq_def(pr, &pr->rq2_skba, 2,
+ 				  nr_of_wqes, EHEA_RWQE2_TYPE,
+-				  EHEA_RQ2_PKT_SIZE + NET_IP_ALIGN);
++				  EHEA_RQ2_PKT_SIZE);
+ }
+=20
+=20
+@@ -508,7 +509,7 @@ static int ehea_refill_rq3(struct ehea_port_res *pr=
+, int nr_of_wqes)
+ {
+ 	return ehea_refill_rq_def(pr, &pr->rq3_skba, 3,
+ 				  nr_of_wqes, EHEA_RWQE3_TYPE,
+-				  EHEA_MAX_PACKET_SIZE + NET_IP_ALIGN);
++				  EHEA_MAX_PACKET_SIZE);
+ }
+=20
+ static inline int ehea_check_cqe(struct ehea_cqe *cqe, int *rq_num)
+diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.=
+c
+index d69d52e..f875751 100644
+--- a/drivers/net/enic/enic_main.c
++++ b/drivers/net/enic/enic_main.c
+@@ -870,19 +870,6 @@ static void enic_free_rq_buf(struct vnic_rq *rq, s=
+truct vnic_rq_buf *buf)
+ 	dev_kfree_skb_any(buf->os_buf);
+ }
+=20
+-static inline struct sk_buff *enic_rq_alloc_skb(struct net_device *net=
+dev,
+-	unsigned int size)
+-{
+-	struct sk_buff *skb;
+-
+-	skb =3D netdev_alloc_skb(netdev, size + NET_IP_ALIGN);
+-
+-	if (skb)
+-		skb_reserve(skb, NET_IP_ALIGN);
+-
+-	return skb;
+-}
+-
+ static int enic_rq_alloc_buf(struct vnic_rq *rq)
+ {
+ 	struct enic *enic =3D vnic_dev_priv(rq->vdev);
+@@ -892,7 +879,7 @@ static int enic_rq_alloc_buf(struct vnic_rq *rq)
+ 	unsigned int os_buf_index =3D 0;
+ 	dma_addr_t dma_addr;
+=20
+-	skb =3D enic_rq_alloc_skb(netdev, len);
++	skb =3D netdev_alloc_skb_ip_align(netdev, len);
+ 	if (!skb)
+ 		return -ENOMEM;
+=20
+diff --git a/drivers/net/ethoc.c b/drivers/net/ethoc.c
+index 34d0c69..0c229a5 100644
+--- a/drivers/net/ethoc.c
++++ b/drivers/net/ethoc.c
+@@ -404,10 +404,10 @@ static int ethoc_rx(struct net_device *dev, int l=
+imit)
+=20
+ 		if (ethoc_update_rx_stats(priv, &bd) =3D=3D 0) {
+ 			int size =3D bd.stat >> 16;
+-			struct sk_buff *skb =3D netdev_alloc_skb(dev, size);
++			struct sk_buff *skb;
+=20
+ 			size -=3D 4; /* strip the CRC */
+-			skb_reserve(skb, 2); /* align TCP/IP header */
++			skb =3D netdev_alloc_skb_ip_align(dev, size);
+=20
+ 			if (likely(skb)) {
+ 				void *src =3D phys_to_virt(bd.addr);
+diff --git a/drivers/net/hamachi.c b/drivers/net/hamachi.c
+index 1d5064a..18bd9fe 100644
+--- a/drivers/net/hamachi.c
++++ b/drivers/net/hamachi.c
+@@ -406,10 +406,9 @@ that case.
+ /* A few values that may be tweaked. */
+ /* Size of each temporary Rx buffer, calculated as:
+  * 1518 bytes (ethernet packet) + 2 bytes (to get 8 byte alignment for
+- * the card) + 8 bytes of status info + 8 bytes for the Rx Checksum +
+- * 2 more because we use skb_reserve.
++ * the card) + 8 bytes of status info + 8 bytes for the Rx Checksum
+  */
+-#define PKT_BUF_SZ		1538
++#define PKT_BUF_SZ		1536
+=20
+ /* For now, this is going to be set to the maximum size of an ethernet
+  * packet.  Eventually, we may want to make it a variable that is
+@@ -1151,12 +1150,13 @@ static void hamachi_tx_timeout(struct net_devic=
+e *dev)
+ 	}
+ 	/* Fill in the Rx buffers.  Handle allocation failure gracefully. */
+ 	for (i =3D 0; i < RX_RING_SIZE; i++) {
+-		struct sk_buff *skb =3D netdev_alloc_skb(dev, hmp->rx_buf_sz);
++		struct sk_buff *skb;
++
++		skb =3D netdev_alloc_skb_ip_align(dev, hmp->rx_buf_sz);
+ 		hmp->rx_skbuff[i] =3D skb;
+ 		if (skb =3D=3D NULL)
+ 			break;
+=20
+-		skb_reserve(skb, 2); /* 16 byte align the IP header. */
+                 hmp->rx_ring[i].addr =3D cpu_to_leXX(pci_map_single(hm=
+p->pci_dev,
+ 			skb->data, hmp->rx_buf_sz, PCI_DMA_FROMDEVICE));
+ 		hmp->rx_ring[i].status_n_length =3D cpu_to_le32(DescOwn |
+@@ -1195,7 +1195,7 @@ static void hamachi_init_ring(struct net_device *=
+dev)
+ 	 * card.  -KDU
+ 	 */
+ 	hmp->rx_buf_sz =3D (dev->mtu <=3D 1492 ? PKT_BUF_SZ :
+-		(((dev->mtu+26+7) & ~7) + 2 + 16));
++		(((dev->mtu+26+7) & ~7) + 16));
+=20
+ 	/* Initialize all Rx descriptors. */
+ 	for (i =3D 0; i < RX_RING_SIZE; i++) {
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 428d504..2ffe099 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -4934,18 +4934,12 @@ static void igb_alloc_rx_buffers_adv(struct igb=
+_ring *rx_ring,
+ 		}
+=20
+ 		if (!buffer_info->skb) {
+-			skb =3D netdev_alloc_skb(netdev, bufsz + NET_IP_ALIGN);
++			skb =3D netdev_alloc_skb_ip_align(netdev, bufsz);
+ 			if (!skb) {
+ 				adapter->alloc_rx_buff_failed++;
+ 				goto no_buffers;
+ 			}
+=20
+-			/* Make buffer alignment 2 beyond a 16 byte boundary
+-			 * this will result in a 16 byte aligned IP header after
+-			 * the 14 byte MAC header is removed
+-			 */
+-			skb_reserve(skb, NET_IP_ALIGN);
+-
+ 			buffer_info->skb =3D skb;
+ 			buffer_info->dma =3D pci_map_single(pdev, skb->data,
+ 							  bufsz,
+diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
+index 91024a3..fad7f34 100644
+--- a/drivers/net/igbvf/netdev.c
++++ b/drivers/net/igbvf/netdev.c
+@@ -170,18 +170,12 @@ static void igbvf_alloc_rx_buffers(struct igbvf_r=
+ing *rx_ring,
+ 		}
+=20
+ 		if (!buffer_info->skb) {
+-			skb =3D netdev_alloc_skb(netdev, bufsz + NET_IP_ALIGN);
++			skb =3D netdev_alloc_skb_ip_align(netdev, bufsz);
+ 			if (!skb) {
+ 				adapter->alloc_rx_buff_failed++;
+ 				goto no_buffers;
+ 			}
+=20
+-			/* Make buffer alignment 2 beyond a 16 byte boundary
+-			 * this will result in a 16 byte aligned IP header after
+-			 * the 14 byte MAC header is removed
+-			 */
+-			skb_reserve(skb, NET_IP_ALIGN);
+-
+ 			buffer_info->skb =3D skb;
+ 			buffer_info->dma =3D pci_map_single(pdev, skb->data,
+ 			                                  bufsz,
+diff --git a/drivers/net/ipg.c b/drivers/net/ipg.c
+index 9f7b5d4..63056e7 100644
+--- a/drivers/net/ipg.c
++++ b/drivers/net/ipg.c
+@@ -738,17 +738,12 @@ static int ipg_get_rxbuff(struct net_device *dev,=
+ int entry)
+=20
+ 	IPG_DEBUG_MSG("_get_rxbuff\n");
+=20
+-	skb =3D netdev_alloc_skb(dev, sp->rxsupport_size + NET_IP_ALIGN);
++	skb =3D netdev_alloc_skb_ip_align(dev, sp->rxsupport_size);
+ 	if (!skb) {
+ 		sp->rx_buff[entry] =3D NULL;
+ 		return -ENOMEM;
+ 	}
+=20
+-	/* Adjust the data start location within the buffer to
+-	 * align IP address field to a 16 byte boundary.
+-	 */
+-	skb_reserve(skb, NET_IP_ALIGN);
+-
+ 	/* Associate the receive buffer with the IPG NIC. */
+ 	skb->dev =3D dev;
+=20
+diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.=
+c
+index f9f633c..1bd0ca1 100644
+--- a/drivers/net/ixgb/ixgb_main.c
++++ b/drivers/net/ixgb/ixgb_main.c
+@@ -1972,9 +1972,8 @@ ixgb_clean_rx_irq(struct ixgb_adapter *adapter, i=
+nt *work_done, int work_to_do)
+ 		 * of reassembly being done in the stack */
+ 		if (length < copybreak) {
+ 			struct sk_buff *new_skb =3D
+-			    netdev_alloc_skb(netdev, length + NET_IP_ALIGN);
++			    netdev_alloc_skb_ip_align(netdev, length);
+ 			if (new_skb) {
+-				skb_reserve(new_skb, NET_IP_ALIGN);
+ 				skb_copy_to_linear_data_offset(new_skb,
+ 							       -NET_IP_ALIGN,
+ 							       (skb->data -
+@@ -2057,20 +2056,13 @@ ixgb_alloc_rx_buffers(struct ixgb_adapter *adap=
+ter, int cleaned_count)
+ 			goto map_skb;
+ 		}
+=20
+-		skb =3D netdev_alloc_skb(netdev, adapter->rx_buffer_len
+-			               + NET_IP_ALIGN);
++		skb =3D netdev_alloc_skb_ip_align(netdev, adapter->rx_buffer_len);
+ 		if (unlikely(!skb)) {
+ 			/* Better luck next round */
+ 			adapter->alloc_rx_buff_failed++;
+ 			break;
+ 		}
+=20
+-		/* Make buffer alignment 2 beyond a 16 byte boundary
+-		 * this will result in a 16 byte aligned IP header after
+-		 * the 14 byte MAC header is removed
+-		 */
+-		skb_reserve(skb, NET_IP_ALIGN);
+-
+ 		buffer_info->skb =3D skb;
+ 		buffer_info->length =3D adapter->rx_buffer_len;
+ map_skb:
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_m=
+ain.c
+index eb3abd7..4c8a449 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -616,22 +616,14 @@ static void ixgbe_alloc_rx_buffers(struct ixgbe_a=
+dapter *adapter,
+=20
+ 		if (!bi->skb) {
+ 			struct sk_buff *skb;
+-			skb =3D netdev_alloc_skb(adapter->netdev,
+-			                       (rx_ring->rx_buf_len +
+-			                        NET_IP_ALIGN));
++			skb =3D netdev_alloc_skb_ip_align(adapter->netdev,
++							rx_ring->rx_buf_len);
+=20
+ 			if (!skb) {
+ 				adapter->alloc_rx_buff_failed++;
+ 				goto no_buffers;
+ 			}
+=20
+-			/*
+-			 * Make buffer alignment 2 beyond a 16 byte boundary
+-			 * this will result in a 16 byte aligned IP header after
+-			 * the 14 byte MAC header is removed
+-			 */
+-			skb_reserve(skb, NET_IP_ALIGN);
+-
+ 			bi->skb =3D skb;
+ 			bi->dma =3D pci_map_single(pdev, skb->data,
+ 			                         rx_ring->rx_buf_len,
+diff --git a/drivers/net/ixp2000/ixpdev.c b/drivers/net/ixp2000/ixpdev.=
+c
+index 1272434..6baf3c9 100644
+--- a/drivers/net/ixp2000/ixpdev.c
++++ b/drivers/net/ixp2000/ixpdev.c
+@@ -108,9 +108,8 @@ static int ixpdev_rx(struct net_device *dev, int pr=
+ocessed, int budget)
+ 		if (unlikely(!netif_running(nds[desc->channel])))
+ 			goto err;
+=20
+-		skb =3D netdev_alloc_skb(dev, desc->pkt_length + 2);
++		skb =3D netdev_alloc_skb_ip_align(dev, desc->pkt_length);
+ 		if (likely(skb !=3D NULL)) {
+-			skb_reserve(skb, 2);
+ 			skb_copy_to_linear_data(skb, buf, desc->pkt_length);
+ 			skb_put(skb, desc->pkt_length);
+ 			skb->protocol =3D eth_type_trans(skb, nds[desc->channel]);
+diff --git a/drivers/net/korina.c b/drivers/net/korina.c
+index 03199fa..a07a597 100644
+--- a/drivers/net/korina.c
++++ b/drivers/net/korina.c
+@@ -400,7 +400,7 @@ static int korina_rx(struct net_device *dev, int li=
+mit)
+ 			dma_cache_inv((unsigned long)pkt_buf, pkt_len - 4);
+=20
+ 			/* Malloc up new buffer. */
+-			skb_new =3D netdev_alloc_skb(dev, KORINA_RBSIZE + 2);
++			skb_new =3D netdev_alloc_skb_ip_align(dev, KORINA_RBSIZE);
+=20
+ 			if (!skb_new)
+ 				break;
+@@ -417,9 +417,6 @@ static int korina_rx(struct net_device *dev, int li=
+mit)
+ 			if (devcs & ETH_RX_MP)
+ 				dev->stats.multicast++;
+=20
+-			/* 16 bit align */
+-			skb_reserve(skb_new, 2);
+-
+ 			lp->rx_skb[lp->rx_next_done] =3D skb_new;
+ 		}
+=20
+diff --git a/drivers/net/ks8842.c b/drivers/net/ks8842.c
+index 99e9541..5c45cb5 100644
+--- a/drivers/net/ks8842.c
++++ b/drivers/net/ks8842.c
+@@ -357,7 +357,7 @@ static void ks8842_rx_frame(struct net_device *netd=
+ev,
+=20
+ 	/* check the status */
+ 	if ((status & RXSR_VALID) && !(status & RXSR_ERROR)) {
+-		struct sk_buff *skb =3D netdev_alloc_skb(netdev, len + 2);
++		struct sk_buff *skb =3D netdev_alloc_skb_ip_align(netdev, len);
+=20
+ 		dev_dbg(&adapter->pdev->dev, "%s, got package, len: %d\n",
+ 			__func__, len);
+@@ -369,9 +369,6 @@ static void ks8842_rx_frame(struct net_device *netd=
+ev,
+ 			if (status & RXSR_MULTICAST)
+ 				netdev->stats.multicast++;
+=20
+-			/* Align socket buffer in 4-byte boundary for
+-				 better performance. */
+-			skb_reserve(skb, 2);
+ 			data =3D (u32 *)skb_put(skb, len);
+=20
+ 			ks8842_select_bank(adapter, 17);
+diff --git a/drivers/net/lib82596.c b/drivers/net/lib82596.c
+index 51e11c3..5b24c67 100644
+--- a/drivers/net/lib82596.c
++++ b/drivers/net/lib82596.c
+@@ -470,11 +470,11 @@ static inline int init_rx_bufs(struct net_device =
+*dev)
+=20
+ 	for (i =3D 0, rbd =3D dma->rbds; i < rx_ring_size; i++, rbd++) {
+ 		dma_addr_t dma_addr;
+-		struct sk_buff *skb =3D netdev_alloc_skb(dev, PKT_BUF_SZ + 4);
++		struct sk_buff *skb;
+=20
++		skb =3D netdev_alloc_skb_ip_align(dev, PKT_BUF_SZ);
+ 		if (skb =3D=3D NULL)
+ 			return -1;
+-		skb_reserve(skb, 2);
+ 		dma_addr =3D dma_map_single(dev->dev.parent, skb->data,
+ 					  PKT_BUF_SZ, DMA_FROM_DEVICE);
+ 		rbd->v_next =3D rbd+1;
+@@ -697,12 +697,12 @@ static inline int i596_rx(struct net_device *dev)
+ 						 (dma_addr_t)SWAP32(rbd->b_data),
+ 						 PKT_BUF_SZ, DMA_FROM_DEVICE);
+ 				/* Get fresh skbuff to replace filled one. */
+-				newskb =3D netdev_alloc_skb(dev, PKT_BUF_SZ + 4);
++				newskb =3D netdev_alloc_skb_ip_align(dev,
++								   PKT_BUF_SZ);
+ 				if (newskb =3D=3D NULL) {
+ 					skb =3D NULL;	/* drop pkt */
+ 					goto memory_squeeze;
+ 				}
+-				skb_reserve(newskb, 2);
+=20
+ 				/* Pass up the skb already on the Rx ring. */
+ 				skb_put(skb, pkt_len);
+@@ -716,7 +716,7 @@ static inline int i596_rx(struct net_device *dev)
+ 				rbd->b_data =3D SWAP32(dma_addr);
+ 				DMA_WBACK_INV(dev, rbd, sizeof(struct i596_rbd));
+ 			} else
+-				skb =3D netdev_alloc_skb(dev, pkt_len + 2);
++				skb =3D netdev_alloc_skb_ip_align(dev, pkt_len);
+ memory_squeeze:
+ 			if (skb =3D=3D NULL) {
+ 				/* XXX tulip.c can defer packets here!! */
+@@ -730,7 +730,6 @@ memory_squeeze:
+ 					dma_sync_single_for_cpu(dev->dev.parent,
+ 								(dma_addr_t)SWAP32(rbd->b_data),
+ 								PKT_BUF_SZ, DMA_FROM_DEVICE);
+-					skb_reserve(skb, 2);
+ 					memcpy(skb_put(skb, pkt_len), rbd->v_data, pkt_len);
+ 					dma_sync_single_for_device(dev->dev.parent,
+ 								   (dma_addr_t)SWAP32(rbd->b_data),
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 50c6a3c..97b1704 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -3555,13 +3555,12 @@ static inline bool rtl8169_try_rx_copy(struct s=
+k_buff **sk_buff,
+ 	if (pkt_size >=3D rx_copybreak)
+ 		goto out;
+=20
+-	skb =3D netdev_alloc_skb(tp->dev, pkt_size + NET_IP_ALIGN);
++	skb =3D netdev_alloc_skb_ip_align(tp->dev, pkt_size);
+ 	if (!skb)
+ 		goto out;
+=20
+ 	pci_dma_sync_single_for_cpu(tp->pci_dev, addr, pkt_size,
+ 				    PCI_DMA_FROMDEVICE);
+-	skb_reserve(skb, NET_IP_ALIGN);
+ 	skb_copy_from_linear_data(*sk_buff, skb->data, pkt_size);
+ 	*sk_buff =3D skb;
+ 	done =3D true;
+diff --git a/drivers/net/sc92031.c b/drivers/net/sc92031.c
+index 8d60300..b7e0eb4 100644
+--- a/drivers/net/sc92031.c
++++ b/drivers/net/sc92031.c
+@@ -793,7 +793,7 @@ static void _sc92031_rx_tasklet(struct net_device *=
+dev)
+=20
+ 		rx_len -=3D rx_size_align + 4;
+=20
+-		skb =3D netdev_alloc_skb(dev, pkt_size + NET_IP_ALIGN);
++		skb =3D netdev_alloc_skb_ip_align(dev, pkt_size);
+ 		if (unlikely(!skb)) {
+ 			if (printk_ratelimit())
+ 				printk(KERN_ERR "%s: Couldn't allocate a skb_buff for a packet of =
+size %u\n",
+@@ -801,8 +801,6 @@ static void _sc92031_rx_tasklet(struct net_device *=
+dev)
+ 			goto next;
+ 		}
+=20
+-		skb_reserve(skb, NET_IP_ALIGN);
+-
+ 		if ((rx_ring_offset + pkt_size) > RX_BUF_LEN) {
+ 			memcpy(skb_put(skb, RX_BUF_LEN - rx_ring_offset),
+ 				rx_ring + rx_ring_offset, RX_BUF_LEN - rx_ring_offset);
+diff --git a/drivers/net/sgiseeq.c b/drivers/net/sgiseeq.c
+index f4dfd1f..6b364a6 100644
+--- a/drivers/net/sgiseeq.c
++++ b/drivers/net/sgiseeq.c
+@@ -365,11 +365,10 @@ static inline void sgiseeq_rx(struct net_device *=
+dev, struct sgiseeq_private *sp
+ 					}
+ 					skb_reserve(newskb, 2);
+ 				} else {
+-					skb =3D netdev_alloc_skb(dev, len + 2);
+-					if (skb) {
+-						skb_reserve(skb, 2);
++					skb =3D netdev_alloc_skb_ip_align(dev, len);
++					if (skb)
+ 						skb_copy_to_linear_data(skb, rd->skb->data, len);
+-					}
++
+ 					newskb =3D rd->skb;
+ 				}
+ memory_squeeze:
+diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
+index 7cc9898..31233b4 100644
+--- a/drivers/net/sis190.c
++++ b/drivers/net/sis190.c
+@@ -536,13 +536,12 @@ static bool sis190_try_rx_copy(struct sis190_priv=
+ate *tp,
+ 	if (pkt_size >=3D rx_copybreak)
+ 		goto out;
+=20
+-	skb =3D netdev_alloc_skb(tp->dev, pkt_size + 2);
++	skb =3D netdev_alloc_skb_ip_align(tp->dev, pkt_size);
+ 	if (!skb)
+ 		goto out;
+=20
+ 	pci_dma_sync_single_for_cpu(tp->pci_dev, addr, tp->rx_buf_sz,
+ 				PCI_DMA_FROMDEVICE);
+-	skb_reserve(skb, 2);
+ 	skb_copy_to_linear_data(skb, sk_buff[0]->data, pkt_size);
+ 	*sk_buff =3D skb;
+ 	done =3D true;
+diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+index 01f6811..be28ebb 100644
+--- a/drivers/net/skge.c
++++ b/drivers/net/skge.c
+@@ -3070,11 +3070,10 @@ static struct sk_buff *skge_rx_get(struct net_d=
+evice *dev,
+ 		goto error;
+=20
+ 	if (len < RX_COPY_THRESHOLD) {
+-		skb =3D netdev_alloc_skb(dev, len + 2);
++		skb =3D netdev_alloc_skb_ip_align(dev, len);
+ 		if (!skb)
+ 			goto resubmit;
+=20
+-		skb_reserve(skb, 2);
+ 		pci_dma_sync_single_for_cpu(skge->hw->pdev,
+ 					    pci_unmap_addr(e, mapaddr),
+ 					    len, PCI_DMA_FROMDEVICE);
+@@ -3085,11 +3084,11 @@ static struct sk_buff *skge_rx_get(struct net_d=
+evice *dev,
+ 		skge_rx_reuse(e, skge->rx_buf_size);
+ 	} else {
+ 		struct sk_buff *nskb;
+-		nskb =3D netdev_alloc_skb(dev, skge->rx_buf_size + NET_IP_ALIGN);
++
++		nskb =3D netdev_alloc_skb_ip_align(dev, skge->rx_buf_size);
+ 		if (!nskb)
+ 			goto resubmit;
+=20
+-		skb_reserve(nskb, NET_IP_ALIGN);
+ 		pci_unmap_single(skge->hw->pdev,
+ 				 pci_unmap_addr(e, mapaddr),
+ 				 pci_unmap_len(e, maplen),
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index 2ab5c39..3a449d0 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -2191,9 +2191,8 @@ static struct sk_buff *receive_copy(struct sky2_p=
+ort *sky2,
+ {
+ 	struct sk_buff *skb;
+=20
+-	skb =3D netdev_alloc_skb(sky2->netdev, length + 2);
++	skb =3D netdev_alloc_skb_ip_align(sky2->netdev, length);
+ 	if (likely(skb)) {
+-		skb_reserve(skb, 2);
+ 		pci_dma_sync_single_for_cpu(sky2->hw->pdev, re->data_addr,
+ 					    length, PCI_DMA_FROMDEVICE);
+ 		skb_copy_from_linear_data(re->skb, skb->data, length);
+diff --git a/drivers/net/tlan.c b/drivers/net/tlan.c
+index 3d31b47..16f23f8 100644
+--- a/drivers/net/tlan.c
++++ b/drivers/net/tlan.c
+@@ -1549,7 +1549,8 @@ static u32 TLan_HandleRxEOF( struct net_device *d=
+ev, u16 host_int )
+ 		if (tmpCStat & TLAN_CSTAT_EOC)
+ 			eoc =3D 1;
+=20
+-		new_skb =3D netdev_alloc_skb(dev, TLAN_MAX_FRAME_SIZE + 7 );
++		new_skb =3D netdev_alloc_skb_ip_align(dev,
++						    TLAN_MAX_FRAME_SIZE + 5);
+ 		if ( !new_skb )
+ 			goto drop_and_reuse;
+=20
+@@ -1563,7 +1564,6 @@ static u32 TLan_HandleRxEOF( struct net_device *d=
+ev, u16 host_int )
+ 		skb->protocol =3D eth_type_trans( skb, dev );
+ 		netif_rx( skb );
+=20
+-		skb_reserve( new_skb, NET_IP_ALIGN );
+ 		head_list->buffer[0].address =3D pci_map_single(priv->pciDev,
+ 							      new_skb->data,
+ 							      TLAN_MAX_FRAME_SIZE,
+@@ -1967,13 +1967,12 @@ static void TLan_ResetLists( struct net_device =
+*dev )
+ 		list->cStat =3D TLAN_CSTAT_READY;
+ 		list->frameSize =3D TLAN_MAX_FRAME_SIZE;
+ 		list->buffer[0].count =3D TLAN_MAX_FRAME_SIZE | TLAN_LAST_BUFFER;
+-		skb =3D netdev_alloc_skb(dev, TLAN_MAX_FRAME_SIZE + 7 );
++		skb =3D netdev_alloc_skb_ip_align(dev, TLAN_MAX_FRAME_SIZE + 5);
+ 		if ( !skb ) {
+ 			pr_err("TLAN: out of memory for received data.\n" );
+ 			break;
+ 		}
+=20
+-		skb_reserve( skb, NET_IP_ALIGN );
+ 		list->buffer[0].address =3D pci_map_single(priv->pciDev,
+ 							 skb->data,
+ 							 TLAN_MAX_FRAME_SIZE,
+diff --git a/drivers/net/tsi108_eth.c b/drivers/net/tsi108_eth.c
+index 7030bd5..a69c4a4 100644
+--- a/drivers/net/tsi108_eth.c
++++ b/drivers/net/tsi108_eth.c
+@@ -802,13 +802,11 @@ static int tsi108_refill_rx(struct net_device *de=
+v, int budget)
+ 		int rx =3D data->rxhead;
+ 		struct sk_buff *skb;
+=20
+-		data->rxskbs[rx] =3D skb =3D netdev_alloc_skb(dev,
+-							  TSI108_RXBUF_SIZE + 2);
++		skb =3D netdev_alloc_skb_ip_align(dev, TSI108_RXBUF_SIZE);
++		data->rxskbs[rx] =3D skb;
+ 		if (!skb)
+ 			break;
+=20
+-		skb_reserve(skb, 2); /* Align the data on a 4-byte boundary. */
+-
+ 		data->rxring[rx].buf0 =3D dma_map_single(NULL, skb->data,
+ 							TSI108_RX_SKB_SIZE,
+ 							DMA_FROM_DEVICE);
+@@ -1356,7 +1354,7 @@ static int tsi108_open(struct net_device *dev)
+ 	for (i =3D 0; i < TSI108_RXRING_LEN; i++) {
+ 		struct sk_buff *skb;
+=20
+-		skb =3D netdev_alloc_skb(dev, TSI108_RXBUF_SIZE + NET_IP_ALIGN);
++		skb =3D netdev_alloc_skb_ip_align(dev, TSI108_RXBUF_SIZE);
+ 		if (!skb) {
+ 			/* Bah.  No memory for now, but maybe we'll get
+ 			 * some more later.
+@@ -1370,8 +1368,6 @@ static int tsi108_open(struct net_device *dev)
+ 		}
+=20
+ 		data->rxskbs[i] =3D skb;
+-		/* Align the payload on a 4-byte boundary */
+-		skb_reserve(skb, 2);
+ 		data->rxskbs[i] =3D skb;
+ 		data->rxring[i].buf0 =3D virt_to_phys(data->rxskbs[i]->data);
+ 		data->rxring[i].misc =3D TSI108_RX_OWN | TSI108_RX_INT;
+diff --git a/drivers/net/via-rhine.c b/drivers/net/via-rhine.c
+index 1fd7058..4535e89 100644
+--- a/drivers/net/via-rhine.c
++++ b/drivers/net/via-rhine.c
+@@ -1484,15 +1484,15 @@ static int rhine_rx(struct net_device *dev, int=
+ limit)
+ 				}
+ 			}
+ 		} else {
+-			struct sk_buff *skb;
++			struct sk_buff *skb =3D NULL;
+ 			/* Length should omit the CRC */
+ 			int pkt_len =3D data_size - 4;
+=20
+ 			/* Check if the packet is long enough to accept without
+ 			   copying to a minimally-sized skbuff. */
+-			if (pkt_len < rx_copybreak &&
+-				(skb =3D netdev_alloc_skb(dev, pkt_len + NET_IP_ALIGN)) !=3D NULL)=
+ {
+-				skb_reserve(skb, NET_IP_ALIGN);	/* 16 byte align the IP header */
++			if (pkt_len < rx_copybreak)
++				skb =3D netdev_alloc_skb_ip_align(dev, pkt_len);
++			if (skb) {
+ 				pci_dma_sync_single_for_cpu(rp->pdev,
+ 							    rp->rx_skbuff_dma[entry],
+ 							    rp->rx_buf_sz,
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index e04e5be..144db63 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -1949,10 +1949,9 @@ static int velocity_rx_copy(struct sk_buff **rx_=
+skb, int pkt_size,
+ 	if (pkt_size < rx_copybreak) {
+ 		struct sk_buff *new_skb;
+=20
+-		new_skb =3D netdev_alloc_skb(vptr->dev, pkt_size + 2);
++		new_skb =3D netdev_alloc_skb_ip_align(vptr->dev, pkt_size);
+ 		if (new_skb) {
+ 			new_skb->ip_summed =3D rx_skb[0]->ip_summed;
+-			skb_reserve(new_skb, 2);
+ 			skb_copy_from_linear_data(*rx_skb, new_skb->data, pkt_size);
+ 			*rx_skb =3D new_skb;
+ 			ret =3D 0;
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 8d00976..556512d 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -283,13 +283,12 @@ static bool try_fill_recv_maxbufs(struct virtnet_=
+info *vi, gfp_t gfp)
+ 	do {
+ 		struct skb_vnet_hdr *hdr;
+=20
+-		skb =3D netdev_alloc_skb(vi->dev, MAX_PACKET_LEN + NET_IP_ALIGN);
++		skb =3D netdev_alloc_skb_ip_align(vi->dev, MAX_PACKET_LEN);
+ 		if (unlikely(!skb)) {
+ 			oom =3D true;
+ 			break;
+ 		}
+=20
+-		skb_reserve(skb, NET_IP_ALIGN);
+ 		skb_put(skb, MAX_PACKET_LEN);
+=20
+ 		hdr =3D skb_vnet_hdr(skb);
+@@ -344,14 +343,12 @@ static bool try_fill_recv(struct virtnet_info *vi=
+, gfp_t gfp)
+ 	do {
+ 		skb_frag_t *f;
+=20
+-		skb =3D netdev_alloc_skb(vi->dev, GOOD_COPY_LEN + NET_IP_ALIGN);
++		skb =3D netdev_alloc_skb_ip_align(vi->dev, GOOD_COPY_LEN);
+ 		if (unlikely(!skb)) {
+ 			oom =3D true;
+ 			break;
+ 		}
+=20
+-		skb_reserve(skb, NET_IP_ALIGN);
+-
+ 		f =3D &skb_shinfo(skb)->frags[0];
+ 		f->page =3D get_a_page(vi, gfp);
+ 		if (!f->page) {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 510ff20..28b0b9e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2604,20 +2604,13 @@ EXPORT_SYMBOL(napi_reuse_skb);
+=20
+ struct sk_buff *napi_get_frags(struct napi_struct *napi)
+ {
+-	struct net_device *dev =3D napi->dev;
+ 	struct sk_buff *skb =3D napi->skb;
+=20
+ 	if (!skb) {
+-		skb =3D netdev_alloc_skb(dev, GRO_MAX_HEAD + NET_IP_ALIGN);
+-		if (!skb)
+-			goto out;
+-
+-		skb_reserve(skb, NET_IP_ALIGN);
+-
+-		napi->skb =3D skb;
++		skb =3D netdev_alloc_skb_ip_align(napi->dev, GRO_MAX_HEAD);
++		if (skb)
++			napi->skb =3D skb;
+ 	}
+-
+-out:
+ 	return skb;
+ }
+ EXPORT_SYMBOL(napi_get_frags);
