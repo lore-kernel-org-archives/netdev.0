@@ -1,28 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] WAN: fix Cisco HDLC handshaking.
-Date: Tue, 13 Oct 2009 03:18:22 -0700 (PDT)
-Message-ID: <20091013.031822.05538491.davem@davemloft.net>
-References: <m3iqeoh7at.fsf@intrepid.localdomain>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [Bug #14378] Problems with net/core/skbuff.c
+Date: Tue, 13 Oct 2009 03:22:37 -0700 (PDT)
+Message-ID: <20091013.032237.45775304.davem@davemloft.net>
+References: <r-4Wjt4coy.A.CwC.Wal0KB@chimera>
+	<20091012.034224.64980795.davem@davemloft.net>
+	<4AD44435.3050703@navynet.it>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: khc@pm.waw.pl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46184
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759343AbZJMKS0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 06:18:26 -0400
-In-Reply-To: <m3iqeoh7at.fsf@intrepid.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rjw-KKrjLPT3xs0@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ctrixk-BBpJ+9iBSNKonA0d6jMUrA@public.gmane.org
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4AD44435.3050703-BBpJ+9iBSNKonA0d6jMUrA@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogS3J6eXN6dG9mIEhhbGFzYSA8a2hjQHBtLndhdy5wbD4NCkRhdGU6IEZyaSwgMDkgT2N0
-IDIwMDkgMTg6MTY6MTAgKzAyMDANCg0KPiBXQU46IGZpeCBDaXNjbyBIRExDIGhhbmRzaGFraW5n
-Lg0KPiANCj4gQ2lzY28gSERMQyB1c2VzIGtlZXBhbGl2ZSBwYWNrZXRzIGFuZCBzZXF1ZW5jZSBu
-dW1iZXJzIHRvIGRldGVybWluZSBsaW5rDQo+IHN0YXRlLiBJbiByYXJlIGNhc2VzIGJvdGggZW5k
-cyBjb3VsZCB0cmFuc21pdCBrZWVwYWxpdmUgcGFja2V0cyBhdCB0aGUgc2FtZQ0KPiB0aW1lLCBj
-YXVzaW5nIHRoZSByZWNlaXZlZCBzZXF1ZW5jZSBudW1iZXJzIHRvIGJlIHRyZWF0ZWQgYXMgaW5j
-b3JyZWN0Lg0KPiBOb3cgd2UgYWNjZXB0IG91ciBjdXJyZW50IHNlcXVlbmNlIG51bWJlciBhcyB3
-ZWxsIGFzIHRoZSBwcmV2aW91cyBvbmUuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBLcnp5c3p0b2Yg
-SGHFgmFzYSA8a2hjQHBtLndhdy5wbD4NCg0KQXBwbGllZCwgdGhhbmtzIQ0K
+From: Massimo Cetra <ctrixk-BBpJ+9iBSNKonA0d6jMUrA@public.gmane.org>
+Date: Tue, 13 Oct 2009 11:11:17 +0200
+
+> Here, vserver is not involved, and the problem starts at drbd which
+> lives in kernel space (the other oops started at ocfs2).
+> 
+> Both ocfs2 and drbd make heavy use of network I/O so i guess the
+> problem is something in the network layer.
+> 
+> Anything i can do to help to debugging and solving this issue ?
+
+Is all of your traffic going over virtio_net?
