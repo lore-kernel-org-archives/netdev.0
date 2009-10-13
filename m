@@ -1,118 +1,84 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: Re: [PATCH 2/8] bitmap: Introduce bitmap_set, bitmap_clear,
-	bitmap_find_next_zero_area
-Date: Tue, 13 Oct 2009 11:18:18 +0900
-Message-ID: <20091013021818.GA3898@localhost.localdomain>
-References: <1255076961-21325-1-git-send-email-akinobu.mita@gmail.com> <1255076961-21325-2-git-send-email-akinobu.mita@gmail.com> <20091009164100.85a36188.akpm@linux-foundation.org>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: bisect results of MSI-X related panic (help!)
+Date: Tue, 13 Oct 2009 11:39:49 +0900
+Message-ID: <4AD3E875.5040800@kernel.org>
+References: <1252699744.3877.15.camel@jbrandeb-hc.jf.intel.com>  <200909120623.49764.elendil@planet.nl> <4AAE0F7B.5050203@kernel.org>  <4AAE105E.1080005@kernel.org> <4807377b0910091724k2a332e90i9941971f6032663c@mail.gmail.com> <4AD2E05A.6060700@kernel.org> <alpine.WNT.2.00.0910120907170.11804@jbrandeb-mobl2.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
-	"David S. Miller" <davem@davemloft.net>,
-	sparclinux@vger.kernel.org,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>, linuxppc-dev@ozlabs.org,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Lothar Wassmann <LW@KARO-electronics.de>,
-	linux-usb@vger.kernel.org, Roland Dreier <rolandd@cisco.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
-	netdev@vger.kernel.org, Tony Luck <tony.luck@intel.com>,
-	Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org,
-	linux-altix@sgi.com
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-ia64-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091009164100.85a36188.akpm@linux-foundation.org>
-Sender: linux-ia64-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Frans Pop <elendil@planet.nl>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ingo Molnar <mingo@elte.hu>, "hpa@zytor.com" <hpa@zytor.com>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758879AbZJMCkh@vger.kernel.org>
+In-Reply-To: <alpine.WNT.2.00.0910120907170.11804@jbrandeb-mobl2.amr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 09, 2009 at 04:41:00PM -0700, Andrew Morton wrote:
-> On Fri,  9 Oct 2009 17:29:15 +0900
-> Akinobu Mita <akinobu.mita@gmail.com> wrote:
+Brandeburg, Jesse wrote:
+> On Mon, 12 Oct 2009, Tejun Heo wrote:
+>>> any other debugging tricks/ideas?
+>> Hmm... stackprotector adds considerable amount of stack usage and it
+>> could be you're seeing stack overflow which would also explain the
+>> random crashes you've been seeing.  Do you have DEBUG_STACKOVERFLOW
+>> turned on?  This is on x86_64, right?
 > 
-> > This introduces new bitmap functions:
-> > 
-> > bitmap_set: Set specified bit area
-> > bitmap_clear: Clear specified bit area
-> > bitmap_find_next_zero_area: Find free bit area
-> > 
-> > These are stolen from iommu helper.
-> > 
-> > I changed the return value of bitmap_find_next_zero_area if there is
-> > no zero area.
-> > 
-> > find_next_zero_area in iommu helper: returns -1
-> > bitmap_find_next_zero_area: return >= bitmap size
+> Hi, thanks for your response, 
 > 
-> I'll plan to merge this patch into 2.6.32 so we can trickle all the
-> other patches into subsystems in an orderly fashion.
-
-Sounds good.
-
-> > +void bitmap_set(unsigned long *map, int i, int len)
-> > +{
-> > +	int end = i + len;
-> > +
-> > +	while (i < end) {
-> > +		__set_bit(i, map);
-> > +		i++;
-> > +	}
-> > +}
+> [root@jbrandeb-hc linux-2.6.32-rc1]# grep STACKO .config
+> CONFIG_DEBUG_STACKOVERFLOW=y
 > 
-> This is really inefficient, isn't it?  It's a pretty trivial matter to
-> romp through memory 32 or 64 bits at a time.
-
-OK. I'll do
-
-> > +unsigned long bitmap_find_next_zero_area(unsigned long *map,
-> > +					 unsigned long size,
-> > +					 unsigned long start,
-> > +					 unsigned int nr,
-> > +					 unsigned long align_mask)
-> > +{
-> > +	unsigned long index, end, i;
-> > +again:
-> > +	index = find_next_zero_bit(map, size, start);
-> > +
-> > +	/* Align allocation */
-> > +	index = (index + align_mask) & ~align_mask;
-> > +
-> > +	end = index + nr;
-> > +	if (end >= size)
-> > +		return end;
-> > +	i = find_next_bit(map, end, index);
-> > +	if (i < end) {
-> > +		start = i + 1;
-> > +		goto again;
-> > +	}
-> > +	return index;
-> > +}
-> > +EXPORT_SYMBOL(bitmap_find_next_zero_area);
+> [root@jbrandeb-hc linux-2.6.32-rc1]# grep X86_64 .config
+> CONFIG_X86_64=y
+> CONFIG_X86_64_SMP=y
+> CONFIG_X86_64_ACPI_NUMA=y
 > 
-> This needs documentation, please.  It appears that `size' is the size
-> of the bitmap and `nr' is the number of zeroed bits we're looking for,
-> but an inattentive programmer could get those reversed.
+> stack size is 8K
 > 
-> Also the semantics of `align_mask' could benefit from spelling out.  Is
-> the alignment with respect to memory boundaries or with respect to
-> `map' or with respect to map+start or what?
+> I tried Jarek's suggestion of CPUMASK_OFFSTACK and still panic.
+> [66027.266057] Kernel panic - not syncing: stack-protector: Kernel stack 
+> is corrupted in: ffffffff810b4eb0
+> [66027.266059]
+> [66027.266070] Kernel panic - not syncing: stack-protector: Kernel stack 
+> is corrupted in: ffffffff81472856
+> [66027.266071]
+> [66027.266081] Pid: 0, comm: swapper Tainted: G        W  
+> 2.6.32-rc2-git-debug #6
+> [66027.266086] Call Trace:
+> 
+> that was all I got.  Interesting double fault, that hadn't happened 
+> before.
+> 
+> the symbols might be off slightly since I rebuilt the kernel, but this was 
+> initial poke at offsets above in gdb
+> (gdb) l *0xffffffff810b4eb0
+> 0xffffffff810b4eb0 is in dynamic_irq_cleanup (kernel/irq/chip.c:86).
+> 81              desc->handle_irq = handle_bad_irq;
+> 82              desc->chip = &no_irq_chip;
+> 83              desc->name = NULL;
+> 84              clear_kstat_irqs(desc);
+> 85              spin_unlock_irqrestore(&desc->lock, flags);
+> 86      }
 
-OK. I will document it.
+Can you please apply the following patch and try to retrigger the
+panic?
 
-And I plan to change bitmap_find_next_zero_area() to take the alignment
-instead of an align_mask as Roland said.
+diff --git a/kernel/irq/chip.c b/kernel/irq/chip.c
+index c166019..f5a1482 100644
+--- a/kernel/irq/chip.c
++++ b/kernel/irq/chip.c
+@@ -63,6 +63,9 @@ void dynamic_irq_cleanup(unsigned int irq)
+ 	struct irq_desc *desc = irq_to_desc(irq);
+ 	unsigned long flags;
 
-> And why does align_mask exist at all?  I was a bit surprised to see it
-> there.  In which scenarios will it be non-zero?
++	printk("XXX dynamic_irq_cleanup() called on %u\n", irq);
++	dump_stack();
++
+ 	if (!desc) {
+ 		WARN(1, KERN_ERR "Trying to cleanup invalid IRQ%d\n", irq);
+ 		return;
 
-Because the users of iommu-helper and mlx4 need the alignment requirement
-for the zero area.
-
-arch/powerpc/kernel/iommu.c
-arch/x86/kernel/amd_iommu.c
-arch/x86/kernel/pci-gart_64.c
-drivers/net/mlx4/alloc.c
-
+-- 
+tejun
