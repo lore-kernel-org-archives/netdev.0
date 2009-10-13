@@ -1,32 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sb1250-mac: duplicate setting of bit
- V_MAC_RX_PL_THRSH(4) in sbmac_channel_start()
-Date: Tue, 13 Oct 2009 03:48:02 -0700 (PDT)
-Message-ID: <20091013.034802.90039003.davem@davemloft.net>
-References: <4ACBA373.7040506@gmail.com>
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: (Solved) Problem compile kernel on Ubuntu and using on Debian
+Date: Tue, 13 Oct 2009 13:01:17 +0200
+Message-ID: <1255431677.13607.118.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
-To: roel.kluin@gmail.com
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Sam Ravnborg <sam@ravnborg.org>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49912
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757203AbZJMKsG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 06:48:06 -0400
-In-Reply-To: <4ACBA373.7040506@gmail.com>
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:32850 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750736AbZJMLBy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 07:01:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roel Kluin <roel.kluin@gmail.com>
-Date: Tue, 06 Oct 2009 22:07:15 +0200
 
-> The bit V_MAC_RX_PL_THRSH(4) was already set a few lines higher.
-> 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> ---
-> Please review. Maybe it should be replaced by something else?
+Hi Google,
 
-Maybe, but or'ing it in twice is definitely pointless.
+I had a problem compile kernel 2.6.31.3 on an Ubuntu 9.04 server (CPU
+core i7) and using it on a Debian 5.0.3 lenny (CPU Atom 330).  Both
+systems using the 64-bit version of the OS'es.  And kernel compiled
+for x86_64.
 
-Applied to net-next-2.6, thanks.
+Problems seen:
+ "Waiting for root file system..."
+
+If you get past this one, by compiling enough modules into the kernel,
+BUT then a lot of modules does not seem to be loaded (modprobe).
+
+Solution:
+
+The solution seems to be related to the modules.dep files generated on
+the Ubuntu system and copied to the debian system.
+
+Run the following commands on the debian system:
+
+ depmod -a              2.6.31.3-ubuntu-compiled
+ update-initramfs -u -k 2.6.31.3-ubuntu-compiled
+ update-grub2
+
+Which means:
+ 1. update the modules.dep files
+ 2. recreate the initrd.img
+ 3. update the grub config
+
+Q: I don't know why a depmod update is required, anyone feel free to answer that question?
+
+
+
+Ubuntu 9.04:
+ depmod -V
+     module-init-tools 3.7-pre9
+ gcc --version
+     gcc (Ubuntu 4.3.3-5ubuntu4) 4.3.3
+
+Debian lenny:
+ depmod -V
+     module-init-tools 3.4
+ gcc --version
+     gcc (Debian 4.3.2-1.1) 4.3.2
+
+
+My reason for compiling on the Ubuntu system, is that its CPU is a
+Core i7, which can compile the kernel in 5 minuts where the Debian
+systems has a ATOM 330 CPU which uses 58 minuts to compile the same
+kernel...
+
+-- 
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network developer
+  Cand. Scient Datalog / MSc.
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
+
