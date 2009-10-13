@@ -1,39 +1,40 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH] wan: pci200syn needs capability.h
-Date: Tue, 13 Oct 2009 10:00:16 -0700
-Message-ID: <20091013100016.3c9bfad7.randy.dunlap@oracle.com>
-References: <20091013162312.8b93998b.sfr@canb.auug.org.au>
+From: <Narendra_K@Dell.com>
+Subject: RE: PATCH: Network Device Naming mechanism and policy
+Date: Tue, 13 Oct 2009 22:43:49 +0530
+Message-ID: <EDA0A4495861324DA2618B4C45DCB3EE58954D@blrx3m08.blr.amer.dell.com>
+References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com> <20091009140000.GA18765@mock.linuxdev.us.dell.com> <20091013150839.GD32107@ldl.fc.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>, davem@davemloft.net,
-	Krzysztof Halasa <khc@pm.waw.pl>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20091013162312.8b93998b.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <linux-hotplug@vger.kernel.org>,
+	<Matt_Domsch@Dell.com>, <Jordan_Hargrave@Dell.com>,
+	<Charles_Rose@Dell.com>
+To: <dannf@hp.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20091013150839.GD32107@ldl.fc.hp.com>
+Sender: linux-hotplug-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Driver is missing header file capability.h:
+>> These device nodes are not functional at the moment - open() returns 
+>> -ENOSYS.  Their only purpose is to provide userspace with a kernel 
+>> name to ifindex mapping, in a form that udev can easily manage.
+>
+>If the idea is just to provide a userspace-visible mapping 
+>(and presumably take advantage of udev's infrastructure for 
+>naming) does this need kernel changes? Could this be a 
+>hierarchy under e.g. /etc/udev instead, using plain text 
+>files? It still means we need something like libnetdevname for 
+>apps to do the translation, but I'm not seeing why it matters 
+>how this map is stored. Is there some special property of the 
+>character devices (e.g. uevents) that we're not already 
+>getting with the existing interfaces?
 
-drivers/net/wan/pci200syn.c:212: error: implicit declaration of function 'capable'
-drivers/net/wan/pci200syn.c:212: error: 'CAP_NET_ADMIN' undeclared (first use in this function)
+Yes. The char device by itself doesn't help in any way. But it provides
+a flexible mechanism to provide multiple names for the same device, just
+the way it is for disks.
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- drivers/net/wan/pci200syn.c |    1 +
- 1 file changed, 1 insertion(+)
-
---- linux-next-20091012.orig/drivers/net/wan/pci200syn.c
-+++ linux-next-20091012/drivers/net/wan/pci200syn.c
-@@ -18,6 +18,7 @@
- #include <linux/kernel.h>
- #include <linux/slab.h>
- #include <linux/types.h>
-+#include <linux/capability.h>
- #include <linux/fcntl.h>
- #include <linux/in.h>
- #include <linux/string.h>
+With regards,
+Narendra K
