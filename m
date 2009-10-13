@@ -1,68 +1,37 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: PATCH: Network Device Naming mechanism and policy
-Date: Tue, 13 Oct 2009 11:02:30 -0700
-Message-ID: <1255456950.2196.18.camel@localhost.localdomain>
-References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com>
-	 <20091009140000.GA18765@mock.linuxdev.us.dell.com>
-	 <20091009210909.GA9836@auslistsprd01.us.dell.com>
-	 <20091009194401.036da080@nehalam>
-	 <20091010044056.GA5350@mock.linuxdev.us.dell.com>
-	 <20091010113219.3136fb8b@s6510>  <20091010210612.GA1927@kroah.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Add netdev_alloc_skb_ip_align() helper
+Date: Tue, 13 Oct 2009 20:06:15 +0200
+Message-ID: <4AD4C197.40608@gmail.com>
+References: <1254969161-3609-1-git-send-email-thomas@wytron.com.tw>	<4ACD585B.5080106@gmail.com>	<20091013.034532.36362276.davem@davemloft.net>	<4AD49DFC.9020406@gmail.com> <20091013103037.475e2400@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Matt Domsch <Matt_Domsch@dell.com>, netdev@vger.kernel.org,
-	linux-hotplug@vger.kernel.org, Narendra_K@dell.com,
-	jordan_hargrave@dell.com
-To: Greg KH <greg@kroah.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2181 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760461AbZJMSC5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Oct 2009 14:02:57 -0400
-In-Reply-To: <20091010210612.GA1927@kroah.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:37661 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760820AbZJMSHB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 14:07:01 -0400
+In-Reply-To: <20091013103037.475e2400@s6510>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2009-10-10 at 14:06 -0700, Greg KH wrote:
-> On Sat, Oct 10, 2009 at 11:32:19AM -0700, Stephen Hemminger wrote:
-> > 
-> > BTW, for our distro, we are looking into device renaming based on PCI slot
-> > because that is what router OS's do. Customers expect if they replace the card
-> > in slot 0, it will come back with the same name.  This is not what server
-> > customers expect.
-> 
-> If your bios exposes the PCI slots to userspace (through the proper ACPI
-> namespace), doing this type of naming should be trivial with some simple
-> udev rules, no additional kernel infrastructure is needed.
+Stephen Hemminger a =C3=A9crit :
+> Name_is_getting_too_damn_long can we think of something beter.
 
-By and large, the people that care most about persistent network device
-names based on *location in the machine* are server users.  This allows
-hotswap of cards or single-image-multiple-machine without needing
-configuration changes, which is nice.
+yes probably
 
-Those users can reasonably be expected to choose hardware whose BIOS
-supports the ACPI tables that (mostly) guarantee to provide actual,
-stable names for their hardware.  If there's even a 10% chance that on
-consumer-level systems the names won't be stable on a given boot (and I
-can't see how, without BIOS support, we can guarantee 100% stability)
-then it's a worthless guarantee.
+>=20
+> Also, it isn't really ip alignment but compensating for the ethernet
+> header.
+>     alloc_ether_skb?
 
-If the BIOS support exists, it is trivial to use udev to create the
-correct naming mechanism for your machine, either using MAC address or
-BIOS-provided slot naming.  No kernel patch is required.
+Dont know, but NET_IP_ALIGN was about making sure skb->data + sizeof(et=
+hernet header)
+is 4 bytes aligned, not for handling ethernet header itself in our stac=
+k (we only need
+2 bytes alignement for this ethernet header), but IP header.
 
-If the BIOS support does not exist, you are not guaranteed a stable
-naming mechanism except by MAC address, because the BIOS may randomly
-change enumeration based on the time of day, or it may not.  A 90 or 95%
-stability guarantee is not a guarantee at all.
-
-Third, USB enumeration will always be unstable.  Thus we have an
-unsolvable discrepancy in behavior between PCI and USB.
-
-Is this correct?
-
-Dan
-
+=20
 
