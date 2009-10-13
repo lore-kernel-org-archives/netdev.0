@@ -1,47 +1,41 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCHv2 1/4] First Patch on TFRC-SP. Copy base files from TFRC
-Date: Tue, 13 Oct 2009 15:42:32 -0300
-Message-ID: <20091013184232.GF21809@ghostprotocols.net>
-References: <4AD4B677.4000308@embedded.ufcg.edu.br> <4AD4C19E.5060608@gmail.com> <cb00fa210910131112w5e4cc3a6gd46b480efdb55262@mail.gmail.com> <20091013182144.GA3338@del.dom.local> <cb00fa210910131125m17eca24cx4a912e75f91f0fd2@mail.gmail.com>
+From: <Narendra_K@Dell.com>
+Subject: RE: PATCH: Network Device Naming mechanism and policy
+Date: Wed, 14 Oct 2009 00:23:02 +0530
+Message-ID: <EDA0A4495861324DA2618B4C45DCB3EE589552@blrx3m08.blr.amer.dell.com>
+References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com> <20091009140000.GA18765@mock.linuxdev.us.dell.com> <20091009210909.GA9836@auslistsprd01.us.dell.com> <20091009194401.036da080@nehalam> <20091010044056.GA5350@mock.linuxdev.us.dell.com> <20091010113219.3136fb8b@s6510>  <20091010210612.GA1927@kroah.com> <1255456950.2196.18.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jarek Poplawski <jarkao2@gmail.com>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <shemminger@vyatta.com>, <Matt_Domsch@Dell.com>,
+	<netdev@vger.kernel.org>, <linux-hotplug@vger.kernel.org>,
+	<Jordan_Hargrave@Dell.com>
+To: <dcbw@redhat.com>, <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62797 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760941AbZJMSnJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Oct 2009 14:43:09 -0400
-Content-Disposition: inline
-In-Reply-To: <cb00fa210910131125m17eca24cx4a912e75f91f0fd2@mail.gmail.com>
+Received: from ausxipps301.us.dell.com ([143.166.148.223]:14797 "EHLO
+	ausxipps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760722AbZJMSyA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 14:54:00 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1255456950.2196.18.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Tue, Oct 13, 2009 at 03:25:48PM -0300, Ivo Calado escreveu:
->      strange! I'm using the current DCCP test tree, branch dccp.
-> Am I correct in use these rules?
+>If the BIOS support exists, it is trivial to use udev to 
+>create the correct naming mechanism for your machine, either 
+>using MAC address or BIOS-provided slot naming.  No kernel 
+>patch is required.
+>
 
-Follow the rules in the latest Documentation/SubmittingPatches file,
-that is:
+Yes. In case, we want to rename only once. MAC address or slot names do
+provide persistent naming. They help in retaining whatever names are
+assigned during install time, which is the first instantiation of the
+OS. But these names may not be as expected (like first on board network
+interface name is expected to be "eth0" which is not always the case and
+might not reflect what is written on the chassis label as "Gb1" and
+"Gb2" etc) which would result in unattended installs break. Also image
+based deployments will face problems by introducing state such as MAC
+address. 
 
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=blob_plain;f=Documentation/SubmittingPatches;hb=HEAD
-
-And that states:
-
--------------------------------------------------------------------
-
-8) E-mail size.
-
-When sending patches to Linus, always follow step #7.
-
-Large changes are not appropriate for mailing lists, and some
-maintainers.  If your patch, uncompressed, exceeds 300 kB in size,
-it is preferred that you store your patch on an Internet-accessible
-server, and provide instead a URL (link) pointing to your patch.
-
--------------------------------------------------------------------
-
-As Jarek pointed out.
-
-- Arnaldo
+With regards,
+Narendra K
