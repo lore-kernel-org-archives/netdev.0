@@ -1,41 +1,62 @@
-From: <Narendra_K@Dell.com>
-Subject: RE: PATCH: Network Device Naming mechanism and policy
-Date: Wed, 14 Oct 2009 00:23:02 +0530
-Message-ID: <EDA0A4495861324DA2618B4C45DCB3EE589552@blrx3m08.blr.amer.dell.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com> <20091009140000.GA18765@mock.linuxdev.us.dell.com> <20091009210909.GA9836@auslistsprd01.us.dell.com> <20091009194401.036da080@nehalam> <20091010044056.GA5350@mock.linuxdev.us.dell.com> <20091010113219.3136fb8b@s6510>  <20091010210612.GA1927@kroah.com> <1255456950.2196.18.camel@localhost.localdomain>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: PATCH: Network Device Naming mechanism and policy
+Date: Tue, 13 Oct 2009 19:53:04 +0100
+Message-ID: <1255459984.13438.2.camel@achroite>
+References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com>
+	 <20091009140000.GA18765@mock.linuxdev.us.dell.com>
+	 <20091009145137.GD19218@mock.linuxdev.us.dell.com>
+	 <1255344075.2143.1.camel@warcraft>
+	 <20091012173705.GA22736@nostromo.devel.redhat.com>
+	 <1255457182.2196.21.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <shemminger@vyatta.com>, <Matt_Domsch@Dell.com>,
-	<netdev@vger.kernel.org>, <linux-hotplug@vger.kernel.org>,
-	<Jordan_Hargrave@Dell.com>
-To: <dcbw@redhat.com>, <greg@kroah.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Bill Nottingham <notting@redhat.com>,
+	Scott James Remnant <scott@ubuntu.com>,
+	Matt Domsch <Matt_Domsch@dell.com>,
+	Narendra K <narendra_k@dell.com>, netdev@vger.kernel.org,
+	linux-hotplug@vger.kernel.org, jordan_hargrave@dell.com
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausxipps301.us.dell.com ([143.166.148.223]:14797 "EHLO
-	ausxipps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760722AbZJMSyA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 14:54:00 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <1255456950.2196.18.camel@localhost.localdomain>
+Received: from mail.solarflare.com ([216.237.3.220]:39184 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933969AbZJMSxn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 14:53:43 -0400
+In-Reply-To: <1255457182.2196.21.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->If the BIOS support exists, it is trivial to use udev to 
->create the correct naming mechanism for your machine, either 
->using MAC address or BIOS-provided slot naming.  No kernel 
->patch is required.
->
+On Tue, 2009-10-13 at 11:06 -0700, Dan Williams wrote:
+> On Mon, 2009-10-12 at 13:37 -0400, Bill Nottingham wrote:
+> > Scott James Remnant (scott@ubuntu.com) said: 
+> > > On the other hand, they *tend* to be unique for a wide range of systems.
+> > > This makes them pretty comparable to LABELs on disks, and we have
+> > > a /dev/disk/by-label
+> > > 
+> > > Remember that udev already supports symlink stacking, and priorities and
+> > > such.
+> > > 
+> > > I don't think there's any danger of supporting a /dev/netdev/by-mac by
+> > > default, it'll be a benefit to most and those who don't have unique MACs
+> > > will just ignore it.
+> > 
+> > At the moment, we do not appear to get the proper change uevents from things
+> > like 'ip link set dev <foo> address <bar>', so we can't currently maintain
+> > these symlinks.
+> 
+> And if we really want seamless support for MAC spoofing, we want
+> ETHTOOL_GPERMADDR for all drivers too, so that if your configuration
+> says "rename device XX:XX:XX:XX:XX:XX to YY:YY:YY:YY:YY:YY" we can
+> actually figure stuff out after the spoof.
 
-Yes. In case, we want to rename only once. MAC address or slot names do
-provide persistent naming. They help in retaining whatever names are
-assigned during install time, which is the first instantiation of the
-OS. But these names may not be as expected (like first on board network
-interface name is expected to be "eth0" which is not always the case and
-might not reflect what is written on the chassis label as "Gb1" and
-"Gb2" etc) which would result in unattended installs break. Also image
-based deployments will face problems by introducing state such as MAC
-address. 
+ETHTOOL_GPERMADDR is handled in the ethtool core now.  Are you thinking
+of drivers that don't have ethtool ops?  Maybe it's time to add default
+operations.
 
-With regards,
-Narendra K
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
