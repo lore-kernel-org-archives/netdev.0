@@ -1,62 +1,59 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: PATCH: Network Device Naming mechanism and policy
-Date: Tue, 13 Oct 2009 19:53:04 +0100
-Message-ID: <1255459984.13438.2.camel@achroite>
-References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com>
-	 <20091009140000.GA18765@mock.linuxdev.us.dell.com>
-	 <20091009145137.GD19218@mock.linuxdev.us.dell.com>
-	 <1255344075.2143.1.camel@warcraft>
-	 <20091012173705.GA22736@nostromo.devel.redhat.com>
-	 <1255457182.2196.21.camel@localhost.localdomain>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCHv2 1/4] First Patch on TFRC-SP. Copy base files from TFRC
+Date: Tue, 13 Oct 2009 20:53:02 +0200
+Message-ID: <20091013185302.GA3491@del.dom.local>
+References: <4AD4B677.4000308@embedded.ufcg.edu.br>
+ <4AD4C19E.5060608@gmail.com>
+ <cb00fa210910131112w5e4cc3a6gd46b480efdb55262@mail.gmail.com>
+ <20091013182144.GA3338@del.dom.local>
+ <cb00fa210910131125m17eca24cx4a912e75f91f0fd2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Bill Nottingham <notting@redhat.com>,
-	Scott James Remnant <scott@ubuntu.com>,
-	Matt Domsch <Matt_Domsch@dell.com>,
-	Narendra K <narendra_k@dell.com>, netdev@vger.kernel.org,
-	linux-hotplug@vger.kernel.org, jordan_hargrave@dell.com
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:39184 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933969AbZJMSxn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 14:53:43 -0400
-In-Reply-To: <1255457182.2196.21.camel@localhost.localdomain>
+Received: from mail-fx0-f227.google.com ([209.85.220.227]:46759 "EHLO
+	mail-fx0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934072AbZJMSxt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 14:53:49 -0400
+Content-Disposition: inline
+In-Reply-To: <cb00fa210910131125m17eca24cx4a912e75f91f0fd2@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-10-13 at 11:06 -0700, Dan Williams wrote:
-> On Mon, 2009-10-12 at 13:37 -0400, Bill Nottingham wrote:
-> > Scott James Remnant (scott@ubuntu.com) said: 
-> > > On the other hand, they *tend* to be unique for a wide range of systems.
-> > > This makes them pretty comparable to LABELs on disks, and we have
-> > > a /dev/disk/by-label
-> > > 
-> > > Remember that udev already supports symlink stacking, and priorities and
-> > > such.
-> > > 
-> > > I don't think there's any danger of supporting a /dev/netdev/by-mac by
-> > > default, it'll be a benefit to most and those who don't have unique MACs
-> > > will just ignore it.
-> > 
-> > At the moment, we do not appear to get the proper change uevents from things
-> > like 'ip link set dev <foo> address <bar>', so we can't currently maintain
-> > these symlinks.
-> 
-> And if we really want seamless support for MAC spoofing, we want
-> ETHTOOL_GPERMADDR for all drivers too, so that if your configuration
-> says "rename device XX:XX:XX:XX:XX:XX to YY:YY:YY:YY:YY:YY" we can
-> actually figure stuff out after the spoof.
+On Tue, Oct 13, 2009 at 03:25:48PM -0300, Ivo Calado wrote:
+> On Tue, Oct 13, 2009 at 15:21, Jarek Poplawski <jarkao2@gmail.com> wr=
+ote:
+> > On Tue, Oct 13, 2009 at 03:12:14PM -0300, Ivo Calado wrote:
+> >> On Tue, Oct 13, 2009 at 15:06, Jarek Poplawski <jarkao2@gmail.com>=
+ wrote:
+> >> > Ivo Calado wrote, On 10/13/2009 07:18 PM:
+> >> >
+> >> > ...
+> >> >> Following the rule #8 in Documentation/SubmittingPatches the pa=
+tch is
+=2E..
+> >> 8) E-mail size.
+> >>
+> >> ...
+> >> Large changes are not appropriate for mailing lists, and some
+> >> maintainers. =A0If your patch, uncompressed, exceeds 40 kB in size=
+,
+=2E..
+> > Large changes are not appropriate for mailing lists, and some
+> > maintainers. =A0If your patch, uncompressed, exceeds 300 kB in size=
+,
+=2E..
+> Hi Jarek,
+>      strange! I'm using the current DCCP test tree, branch dccp.
+> Am I correct in use these rules?
 
-ETHTOOL_GPERMADDR is handled in the ethtool core now.  Are you thinking
-of drivers that don't have ethtool ops?  Maybe it's time to add default
-operations.
+Hmm... Looks like a fresh change in Linus' (and net-next) tree. So,
+there is a hard legal question: which tree rules should be respected
+here?
 
-Ben.
+I guess you're one of a few respecting these rules ;-) Well done!
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Best regards,
+Jarek P.
