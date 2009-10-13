@@ -1,35 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] mdio: Advertise pause (flow control) settings even
- if autoneg is off
-Date: Tue, 13 Oct 2009 00:01:53 -0700 (PDT)
-Message-ID: <20091013.000153.165586109.davem@davemloft.net>
-References: <1255375577.2931.11.camel@achroite>
+From: Rakib Mullick <rakib.mullick@gmail.com>
+Subject: Re: [PATCH -mm] connector: Passing required parameter for function
+	cn_add_callback.
+Date: Tue, 13 Oct 2009 13:00:18 +0600
+Message-ID: <b9df5fa10910130000k20f53a4pfc3593db95c66138@mail.gmail.com>
+References: <b9df5fa10910111944s274207aica39c0e646c10f7a@mail.gmail.com>
+	 <20091011.223502.77690228.davem@davemloft.net>
+	 <b9df5fa10910122227r710d6782m89fc9ec4273487b8@mail.gmail.com>
+	 <20091012.234214.110950674.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, zbr@ioremap.net,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52388
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933213AbZJMHB5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 03:01:57 -0400
-In-Reply-To: <1255375577.2931.11.camel@achroite>
+Received: from mail-px0-f187.google.com ([209.85.216.187]:39662 "EHLO
+	mail-px0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933333AbZJMHAz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 03:00:55 -0400
+In-Reply-To: <20091012.234214.110950674.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Mon, 12 Oct 2009 20:26:17 +0100
+On 10/13/09, David Miller <davem@davemloft.net> wrote:
+> From: Rakib Mullick <rakib.mullick@gmail.com>
+>
+> Date: Tue, 13 Oct 2009 11:27:49 +0600
+>
+>
+>  > On 10/12/09, David Miller <davem@davemloft.net> wrote:
+>  >> From: Rakib Mullick <rakib.mullick@gmail.com>
+>  >>  Date: Mon, 12 Oct 2009 08:44:33 +0600
+>  >>
+>  >>
+>  >>  >   */
+>  >>  > -static void cn_proc_mcast_ctl(struct cn_msg *msg)
+>  >>  > +static void cn_proc_mcast_ctl(struct cn_msg *msg, struct
+>  >>  > netlink_skb_parms *nsp)
+>  >>
+>  >>
+>  >> Your patches are unusable because your email client corrupts the
+>  >>  patch, here you can see it is splitting up long lines.
+>  >>
+>  >>  Please fix this up and resubmit.
+>  > Oops..... sorry for that. This is the second time I'm facing this
+>  > problem. I'll try to fix it.
+>  > I'm resubmitting the patch. Here I've recreate the patch to split the
+>  > line into two.
+>  > And it just reaches its 80 line mark. Hopefully it will be okay.
+>
+>
+> Upstream and my net-next-2.6 tree both have this function with
+>  the proper parameters, maybe Andrew's -mm tree had some conflicts
+>  and they weren't dealt with correctly.
+>
+Ah, sorry again. I should've check the upstream first. Sorry for noise.
 
-> Currently, if pause autoneg is off we do not set either pause
-> advertising flag.  If autonegotiation of speed and duplex settings is
-> enabled, there is no way for the link partner to distinguish this from
-> our refusing to use pause frames.
-> 
-> We should instead set the advertising flags according to the forced
-> mode so that the link partner can follow our lead.  This is consistent
-> with the behaviour of other drivers.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-
-Applied to net-next-2.6
+Thanks,
