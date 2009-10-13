@@ -1,343 +1,98 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH NEXT 4/5] netxen: separate register and memory access lock
-Date: Tue, 13 Oct 2009 08:31:44 -0700
-Message-ID: <1255447905-29805-5-git-send-email-dhananjay@netxen.com>
-References: <1255447905-29805-1-git-send-email-dhananjay@netxen.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
-To: davem@davemloft.net
+From: Alan Cox <alan@linux.intel.com>
+Subject: [PATCH] cosa: Kill off the use of the old ioctl path
+Date: Tue, 13 Oct 2009 16:31:03 +0100
+Message-ID: <20091013153103.20082.61146.stgit@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:45794 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1756199AbZJMPdE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Oct 2009 11:33:04 -0400
-In-Reply-To: <1255447905-29805-1-git-send-email-dhananjay@netxen.com>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:55259 "EHLO
+	bob.linux.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1760359AbZJMPnE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 11:43:04 -0400
+Received: from localhost.localdomain (localhost [127.0.0.1])
+	by bob.linux.org.uk (8.14.3/8.14.3) with ESMTP id n9DFV3vc020110
+	for <netdev@vger.kernel.org>; Tue, 13 Oct 2009 16:31:03 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since register and onboard memory access has separate
-window registers, they need not be kept under same lock.
-
-Also, memory is always accessed from process context
-(mostly for firmware init and diagnostic tools).
-
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+Signed-off-by: Alan Cox <alan@linux.intel.com>
 ---
- drivers/net/netxen/netxen_nic.h         |    5 +-
- drivers/net/netxen/netxen_nic_ethtool.c |    2 -
- drivers/net/netxen/netxen_nic_hw.c      |   63 +++++++++++++++----------------
- drivers/net/netxen/netxen_nic_init.c    |    6 +--
- drivers/net/netxen/netxen_nic_main.c    |    4 +-
- 5 files changed, 38 insertions(+), 42 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index 2a42132..1047609 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -551,6 +551,9 @@ struct netxen_hardware_context {
- 	u32 ocm_win;
- 	u32 crb_win;
+ drivers/message/i2o/i2o_config.c |    5 ++---
+ drivers/net/wan/cosa.c           |   20 +++++++++++++-------
+ 2 files changed, 15 insertions(+), 10 deletions(-)
+
+
+diff --git a/drivers/message/i2o/i2o_config.c b/drivers/message/i2o/i2o_config.c
+index 4e8722b..3d5f40c 100644
+--- a/drivers/message/i2o/i2o_config.c
++++ b/drivers/message/i2o/i2o_config.c
+@@ -40,8 +40,7 @@
  
-+	rwlock_t crb_lock;
-+	spinlock_t mem_lock;
-+
- 	u8 cut_through;
- 	u8 revision_id;
- 	u8 pci_func;
-@@ -1115,8 +1118,6 @@ struct netxen_adapter {
- 	struct pci_dev *pdev;
- 	struct list_head mac_list;
+ #define SG_TABLESIZE		30
  
--	rwlock_t adapter_lock;
--
- 	spinlock_t tx_clean_lock;
+-static int i2o_cfg_ioctl(struct inode *, struct file *, unsigned int,
+-			 unsigned long);
++static long i2o_cfg_ioctl(struct file *, unsigned int, unsigned long);
  
- 	u16 num_txd;
-diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
-index 714f387..a3b18e0 100644
---- a/drivers/net/netxen/netxen_nic_ethtool.c
-+++ b/drivers/net/netxen/netxen_nic_ethtool.c
-@@ -85,11 +85,9 @@ netxen_nic_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *drvinfo)
+ static spinlock_t i2o_config_lock;
  
- 	strncpy(drvinfo->driver, netxen_nic_driver_name, 32);
- 	strncpy(drvinfo->version, NETXEN_NIC_LINUX_VERSIONID, 32);
--	read_lock(&adapter->adapter_lock);
- 	fw_major = NXRD32(adapter, NETXEN_FW_VERSION_MAJOR);
- 	fw_minor = NXRD32(adapter, NETXEN_FW_VERSION_MINOR);
- 	fw_build = NXRD32(adapter, NETXEN_FW_VERSION_SUB);
--	read_unlock(&adapter->adapter_lock);
- 	sprintf(drvinfo->fw_version, "%d.%d.%d", fw_major, fw_minor, fw_build);
- 
- 	strncpy(drvinfo->bus_info, pci_name(adapter->pdev), 32);
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index 37f4766..d067bee 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -41,6 +41,11 @@
- #define CRB_HI(off)	((crb_hub_agt[CRB_BLK(off)] << 20) | ((off) & 0xf0000))
- #define CRB_INDIRECT_2M	(0x1e0000UL)
- 
-+static void netxen_nic_io_write_128M(struct netxen_adapter *adapter,
-+		void __iomem *addr, u32 data);
-+static u32 netxen_nic_io_read_128M(struct netxen_adapter *adapter,
-+		void __iomem *addr);
-+
- #ifndef readq
- static inline u64 readq(void __iomem *addr)
- {
-@@ -1164,17 +1169,15 @@ netxen_nic_hw_write_wx_128M(struct netxen_adapter *adapter, ulong off, u32 data)
- 	BUG_ON(!addr);
- 
- 	if (ADDR_IN_WINDOW1(off)) {	/* Window 1 */
--		read_lock(&adapter->adapter_lock);
--		writel(data, addr);
--		read_unlock(&adapter->adapter_lock);
-+		netxen_nic_io_write_128M(adapter, addr, data);
- 	} else {		/* Window 0 */
--		write_lock_irqsave(&adapter->adapter_lock, flags);
-+		write_lock_irqsave(&adapter->ahw.crb_lock, flags);
- 		addr = pci_base_offset(adapter, off);
- 		netxen_nic_pci_set_crbwindow_128M(adapter, 0);
- 		writel(data, addr);
- 		netxen_nic_pci_set_crbwindow_128M(adapter,
- 				NETXEN_WINDOW_ONE);
--		write_unlock_irqrestore(&adapter->adapter_lock, flags);
-+		write_unlock_irqrestore(&adapter->ahw.crb_lock, flags);
- 	}
- 
- 	return 0;
-@@ -1195,16 +1198,14 @@ netxen_nic_hw_read_wx_128M(struct netxen_adapter *adapter, ulong off)
- 	BUG_ON(!addr);
- 
- 	if (ADDR_IN_WINDOW1(off)) {	/* Window 1 */
--		read_lock(&adapter->adapter_lock);
--		data = readl(addr);
--		read_unlock(&adapter->adapter_lock);
-+		data = netxen_nic_io_read_128M(adapter, addr);
- 	} else {		/* Window 0 */
--		write_lock_irqsave(&adapter->adapter_lock, flags);
-+		write_lock_irqsave(&adapter->ahw.crb_lock, flags);
- 		netxen_nic_pci_set_crbwindow_128M(adapter, 0);
- 		data = readl(addr);
- 		netxen_nic_pci_set_crbwindow_128M(adapter,
- 				NETXEN_WINDOW_ONE);
--		write_unlock_irqrestore(&adapter->adapter_lock, flags);
-+		write_unlock_irqrestore(&adapter->ahw.crb_lock, flags);
- 	}
- 
- 	return data;
-@@ -1226,12 +1227,12 @@ netxen_nic_hw_write_wx_2M(struct netxen_adapter *adapter, ulong off, u32 data)
- 	}
- 
- 	if (rv == 1) {
--		write_lock_irqsave(&adapter->adapter_lock, flags);
-+		write_lock_irqsave(&adapter->ahw.crb_lock, flags);
- 		crb_win_lock(adapter);
- 		netxen_nic_pci_set_crbwindow_2M(adapter, &off);
- 		writel(data, (void __iomem *)off);
- 		crb_win_unlock(adapter);
--		write_unlock_irqrestore(&adapter->adapter_lock, flags);
-+		write_unlock_irqrestore(&adapter->ahw.crb_lock, flags);
- 	} else
- 		writel(data, (void __iomem *)off);
- 
-@@ -1256,12 +1257,12 @@ netxen_nic_hw_read_wx_2M(struct netxen_adapter *adapter, ulong off)
- 	}
- 
- 	if (rv == 1) {
--		write_lock_irqsave(&adapter->adapter_lock, flags);
-+		write_lock_irqsave(&adapter->ahw.crb_lock, flags);
- 		crb_win_lock(adapter);
- 		netxen_nic_pci_set_crbwindow_2M(adapter, &off);
- 		data = readl((void __iomem *)off);
- 		crb_win_unlock(adapter);
--		write_unlock_irqrestore(&adapter->adapter_lock, flags);
-+		write_unlock_irqrestore(&adapter->ahw.crb_lock, flags);
- 	} else
- 		data = readl((void __iomem *)off);
- 
-@@ -1272,9 +1273,9 @@ netxen_nic_hw_read_wx_2M(struct netxen_adapter *adapter, ulong off)
- static void netxen_nic_io_write_128M(struct netxen_adapter *adapter,
- 		void __iomem *addr, u32 data)
- {
--	read_lock(&adapter->adapter_lock);
-+	read_lock(&adapter->ahw.crb_lock);
- 	writel(data, addr);
--	read_unlock(&adapter->adapter_lock);
-+	read_unlock(&adapter->ahw.crb_lock);
+@@ -1118,7 +1117,7 @@ static int cfg_release(struct inode *inode, struct file *file)
+ static const struct file_operations config_fops = {
+ 	.owner = THIS_MODULE,
+ 	.llseek = no_llseek,
+-	.ioctl = i2o_cfg_ioctl,
++	.unlocked_ioctl = i2o_cfg_ioctl,
+ #ifdef CONFIG_COMPAT
+ 	.compat_ioctl = i2o_cfg_compat_ioctl,
+ #endif
+diff --git a/drivers/net/wan/cosa.c b/drivers/net/wan/cosa.c
+index e2c33c0..d888390 100644
+--- a/drivers/net/wan/cosa.c
++++ b/drivers/net/wan/cosa.c
+@@ -297,8 +297,8 @@ static ssize_t cosa_write(struct file *file,
+ static unsigned int cosa_poll(struct file *file, poll_table *poll);
+ static int cosa_open(struct inode *inode, struct file *file);
+ static int cosa_release(struct inode *inode, struct file *file);
+-static int cosa_chardev_ioctl(struct inode *inode, struct file *file,
+-	unsigned int cmd, unsigned long arg);
++static long cosa_chardev_ioctl(struct file *file, unsigned int cmd,
++				unsigned long arg);
+ #ifdef COSA_FASYNC_WORKING
+ static int cosa_fasync(struct inode *inode, struct file *file, int on);
+ #endif
+@@ -309,7 +309,7 @@ static const struct file_operations cosa_fops = {
+ 	.read		= cosa_read,
+ 	.write		= cosa_write,
+ 	.poll		= cosa_poll,
+-	.ioctl		= cosa_chardev_ioctl,
++	.unlocked_ioctl	= cosa_chardev_ioctl,
+ 	.open		= cosa_open,
+ 	.release	= cosa_release,
+ #ifdef COSA_FASYNC_WORKING
+@@ -1204,12 +1204,18 @@ static int cosa_net_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	return hdlc_ioctl(dev, ifr, cmd);
  }
  
- static u32 netxen_nic_io_read_128M(struct netxen_adapter *adapter,
-@@ -1282,9 +1283,9 @@ static u32 netxen_nic_io_read_128M(struct netxen_adapter *adapter,
+-static int cosa_chardev_ioctl(struct inode *inode, struct file *file,
+-	unsigned int cmd, unsigned long arg)
++static long cosa_chardev_ioctl(struct file *file, unsigned int cmd,
++							unsigned long arg)
  {
- 	u32 val;
- 
--	read_lock(&adapter->adapter_lock);
-+	read_lock(&adapter->ahw.crb_lock);
- 	val = readl(addr);
--	read_unlock(&adapter->adapter_lock);
-+	read_unlock(&adapter->ahw.crb_lock);
- 
- 	return val;
- }
-@@ -1366,11 +1367,10 @@ netxen_nic_pci_mem_access_direct(struct netxen_adapter *adapter, u64 off,
- {
- 	void __iomem *addr, *mem_ptr = NULL;
- 	resource_size_t mem_base;
--	unsigned long flags;
- 	int ret = -EIO;
- 	u32 start;
- 
--	write_lock_irqsave(&adapter->adapter_lock, flags);
-+	spin_lock(&adapter->ahw.mem_lock);
- 
- 	ret = adapter->pci_set_window(adapter, off, &start);
- 	if (ret != 0)
-@@ -1397,7 +1397,8 @@ noremap:
- 		writeq(*data, addr);
- 
- unlock:
--	write_unlock_irqrestore(&adapter->adapter_lock, flags);
-+	spin_unlock(&adapter->ahw.mem_lock);
-+
- 	if (mem_ptr)
- 		iounmap(mem_ptr);
- 	return ret;
-@@ -1409,7 +1410,6 @@ static int
- netxen_nic_pci_mem_write_128M(struct netxen_adapter *adapter,
- 		u64 off, u64 data)
- {
--	unsigned long   flags;
- 	int j, ret;
- 	u32 temp, off_lo, off_hi, addr_hi, data_hi, data_lo;
- 	void __iomem *mem_crb;
-@@ -1453,7 +1453,7 @@ netxen_nic_pci_mem_write_128M(struct netxen_adapter *adapter,
- 	return -EIO;
- 
- correct:
--	write_lock_irqsave(&adapter->adapter_lock, flags);
-+	spin_lock(&adapter->ahw.mem_lock);
- 	netxen_nic_pci_set_crbwindow_128M(adapter, 0);
- 
- 	writel(off_lo, (mem_crb + MIU_TEST_AGT_ADDR_LO));
-@@ -1479,7 +1479,7 @@ correct:
- 		ret = 0;
- 
- 	netxen_nic_pci_set_crbwindow_128M(adapter, NETXEN_WINDOW_ONE);
--	write_unlock_irqrestore(&adapter->adapter_lock, flags);
-+	spin_unlock(&adapter->ahw.mem_lock);
- 	return ret;
+ 	struct channel_data *channel = file->private_data;
+-	struct cosa_data *cosa = channel->cosa;
+-	return cosa_ioctl_common(cosa, channel, cmd, arg);
++	struct cosa_data *cosa;
++	long ret;
++	
++	lock_kernel();
++	cosa = channel->cosa;
++	ret = cosa_ioctl_common(cosa, channel, cmd, arg);
++	unlock_kernel();
++	return ret;
  }
  
-@@ -1487,7 +1487,6 @@ static int
- netxen_nic_pci_mem_read_128M(struct netxen_adapter *adapter,
- 		u64 off, u64 *data)
- {
--	unsigned long   flags;
- 	int j, ret;
- 	u32 temp, off_lo, off_hi, addr_hi, data_hi, data_lo;
- 	u64 val;
-@@ -1532,7 +1531,7 @@ netxen_nic_pci_mem_read_128M(struct netxen_adapter *adapter,
- 	return -EIO;
- 
- correct:
--	write_lock_irqsave(&adapter->adapter_lock, flags);
-+	spin_lock(&adapter->ahw.mem_lock);
- 	netxen_nic_pci_set_crbwindow_128M(adapter, 0);
- 
- 	writel(off_lo, (mem_crb + MIU_TEST_AGT_ADDR_LO));
-@@ -1561,7 +1560,7 @@ correct:
- 	}
- 
- 	netxen_nic_pci_set_crbwindow_128M(adapter, NETXEN_WINDOW_ONE);
--	write_unlock_irqrestore(&adapter->adapter_lock, flags);
-+	spin_unlock(&adapter->ahw.mem_lock);
- 
- 	return ret;
- }
-@@ -1570,7 +1569,6 @@ static int
- netxen_nic_pci_mem_write_2M(struct netxen_adapter *adapter,
- 		u64 off, u64 data)
- {
--	unsigned long   flags;
- 	int j, ret;
- 	u32 temp, off8;
- 	void __iomem *mem_crb;
-@@ -1601,7 +1599,7 @@ netxen_nic_pci_mem_write_2M(struct netxen_adapter *adapter,
- correct:
- 	off8 = off & MIU_TEST_AGT_ADDR_MASK;
- 
--	write_lock_irqsave(&adapter->adapter_lock, flags);
-+	spin_lock(&adapter->ahw.mem_lock);
- 
- 	writel(off8, (mem_crb + MIU_TEST_AGT_ADDR_LO));
- 	writel(0, (mem_crb + MIU_TEST_AGT_ADDR_HI));
-@@ -1625,7 +1623,7 @@ correct:
- 	} else
- 		ret = 0;
- 
--	write_unlock_irqrestore(&adapter->adapter_lock, flags);
-+	spin_unlock(&adapter->ahw.mem_lock);
- 
- 	return ret;
- }
-@@ -1634,7 +1632,6 @@ static int
- netxen_nic_pci_mem_read_2M(struct netxen_adapter *adapter,
- 		u64 off, u64 *data)
- {
--	unsigned long   flags;
- 	int j, ret;
- 	u32 temp, off8;
- 	u64 val;
-@@ -1668,7 +1665,7 @@ netxen_nic_pci_mem_read_2M(struct netxen_adapter *adapter,
- correct:
- 	off8 = off & MIU_TEST_AGT_ADDR_MASK;
- 
--	write_lock_irqsave(&adapter->adapter_lock, flags);
-+	spin_lock(&adapter->ahw.mem_lock);
- 
- 	writel(off8, (mem_crb + MIU_TEST_AGT_ADDR_LO));
- 	writel(0, (mem_crb + MIU_TEST_AGT_ADDR_HI));
-@@ -1694,7 +1691,7 @@ correct:
- 		ret = 0;
- 	}
- 
--	write_unlock_irqrestore(&adapter->adapter_lock, flags);
-+	spin_unlock(&adapter->ahw.mem_lock);
- 
- 	return ret;
- }
-diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
-index 424b456..83387c7 100644
---- a/drivers/net/netxen/netxen_nic_init.c
-+++ b/drivers/net/netxen/netxen_nic_init.c
-@@ -1513,10 +1513,8 @@ netxen_post_rx_buffers(struct netxen_adapter *adapter, u32 ringid,
- 					      (rds_ring->num_desc - 1)));
- 			netxen_set_msg_ctxid(msg, adapter->portnum);
- 			netxen_set_msg_opcode(msg, NETXEN_RCV_PRODUCER(ringid));
--			read_lock(&adapter->adapter_lock);
--			writel(msg, DB_NORMALIZE(adapter,
--					    NETXEN_RCV_PRODUCER_OFFSET));
--			read_unlock(&adapter->adapter_lock);
-+			NXWRIO(adapter, DB_NORMALIZE(adapter,
-+					NETXEN_RCV_PRODUCER_OFFSET), msg);
- 		}
- 	}
- }
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 2b4c682..6ba1c72 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -1241,7 +1241,9 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	revision_id = pdev->revision;
- 	adapter->ahw.revision_id = revision_id;
- 
--	rwlock_init(&adapter->adapter_lock);
-+	rwlock_init(&adapter->ahw.crb_lock);
-+	spin_lock_init(&adapter->ahw.mem_lock);
-+
- 	spin_lock_init(&adapter->tx_clean_lock);
- 	INIT_LIST_HEAD(&adapter->mac_list);
- 
--- 
-1.6.0.2
+ 
 
