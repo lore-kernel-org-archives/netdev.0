@@ -1,91 +1,57 @@
-From: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
-Subject: [PATCH 4/4] Implement loss intervals option
-Date: Tue, 13 Oct 2009 14:27:34 -0300
-Message-ID: <4AD4B886.5080804@embedded.ufcg.edu.br>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: behaviour question for igb on nehalem box
+Date: Tue, 13 Oct 2009 11:32:43 -0600
+Message-ID: <4AD4B9BB.3010209@nortel.com>
+References: <4ACF8466.5030309@nortel.com>	<alpine.WNT.2.00.0910091250440.5328@jbrandeb-desk1.amr.corp.intel.com>	<4ACFB9DF.9080909@nortel.com>
+	<4ACFC52F.4050509@intel.com> <4ACFCBE8.7060108@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ivocalado@embedded.ufcg.edu.br
-To: dccp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.embedded.ufcg.edu.br ([150.165.63.2]:2900 "EHLO
-	mail.embedded.ufcg.edu.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753842AbZJMR2V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 13:28:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: e1000-list <e1000-devel@lists.sourceforge.net>,
+	Linux Network Development list <netdev@vger.kernel.org>, "Allan,
+	Bruce W" <bruce.w.allan@intel.com>, "Brandeburg,
+	Jesse" <jesse.brandeburg@intel.com>, "Ronciak,
+	John" <john.ronciak@intel.com>, "Kirsher,
+	Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <4ACFCBE8.7060108@intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Implement loss intervals option. Similar to dropped packets option implementation, reference it.
+On 10/09/2009 05:48 PM, Alexander Duyck wrote:
 
-Changes:
- - Adds tfrc_sp_parse_loss_intervals_opt, that parses loss intervals option received data
+> The odds of any 2 flows overlapping when you are only using 4 flows is 
+> pretty high, especially if the addresses/ports are close in range.  You 
+> typically need something on the order of about 16 flows over a wide 
+> range of port numbers in order to get a good distribution.
 
-Signed-off-by: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
-Signed-off-by: Erivaldo Xavier <desadoc@gmail.com>
-Signed-off-by: Leandro Sales <leandroal@gmail.com>
+Yes, I realize this.  However, I was surprised that we were seeing the
+packet count increasing for only one queue but the interrupt count
+increasing for more than one.
 
-Index: dccp_tree_work03/net/dccp/ccids/lib/loss_interval_sp.c
-===================================================================
---- dccp_tree_work03.orig/net/dccp/ccids/lib/loss_interval_sp.c	2009-10-08 22:59:38.114908156 -0300
-+++ dccp_tree_work03/net/dccp/ccids/lib/loss_interval_sp.c	2009-10-08 22:59:43.986408220 -0300
-@@ -550,6 +550,46 @@
- 	li_data->dropped_packets_data[0] = optlen/3;
- }
- 
-+/*
-+ * tfrc_sp_parse_loss_intervals_opt  -  parses loss interval option
-+ * li_data:		used to store parsed data
-+ * optval:		option data
-+ * optlen:		option length
-+ */
-+void tfrc_sp_parse_loss_intervals_opt(struct tfrc_tx_li_data *li_data,
-+				      u8 *optval, u8 optlen)
-+{
-+	u8 pos;
-+	u32 length;
-+
-+	if ((optlen%9) != 1) {
-+		li_data->loss_interval_data[0] = 0;
-+		return;
-+	}
-+
-+	pos = 1;
-+	optval++;
-+
-+	while (pos < optlen) {
-+		length = ntohl(((*((u32 *)optval)) & 0xFFFFFF00) >> 8);
-+		pos += 3;
-+		optval += 3;
-+
-+		length += ntohl(((*((u32 *)optval))&0x7FFFFF00) >> 8);
-+		pos += 6;
-+		optval += 6;
-+
-+		li_data->loss_interval_data[(pos-1)%9] = length;
-+
-+		if ((pos/9) == 9) {
-+			li_data->loss_interval_data[0] = 9;
-+			return;
-+		}
-+	}
-+
-+	li_data->loss_interval_data[0] = (optlen-1)/9;
-+}
-+
- static void tfrc_sp_lh_calc_i_mean(struct tfrc_loss_hist *lh, __u8 curr_ccval)
- {
- 	u32 i_i, i_tot0 = 0, i_tot1 = 0, w_tot = 0;
-Index: dccp_tree_work03/net/dccp/ccids/lib/loss_interval_sp.h
-===================================================================
---- dccp_tree_work03.orig/net/dccp/ccids/lib/loss_interval_sp.h	2009-10-08 22:59:38.114908156 -0300
-+++ dccp_tree_work03/net/dccp/ccids/lib/loss_interval_sp.h	2009-10-08 22:59:43.986408220 -0300
-@@ -177,6 +177,8 @@
- 					     u8 curr_ccval, u64 seqno);
- extern void tfrc_sp_parse_dropped_packets_opt(struct tfrc_tx_li_data *li_data,
- 					      u8 *optval, u8 optlen);
-+extern void tfrc_sp_parse_loss_intervals_opt(struct tfrc_tx_li_data *li_data,
-+					      u8 *optval, u8 optlen);
- extern void tfrc_sp_tx_ld_cleanup(struct tfrc_ecn_echo_sum_entry **);
- 
- #endif /* _DCCP_LI_HIST_SP_ */
+Also, if we really crank up the traffic levels the box apparently
+panics.  They're working on getting a serial cable hooked up to it to
+get the debug information, so I don't really have much information on
+that part just yet.
 
+We're going to try the out-of-tree drivers.  Unfortunately it appears
+that the out-of-tree igb driver doesn't compile for this kernel.  I
+suspect the compat code needs tweaking.
+
+Chris
+
+------------------------------------------------------------------------------
+Come build with us! The BlackBerry(R) Developer Conference in SF, CA
+is the only developer event you need to attend this year. Jumpstart your
+developing skills, take BlackBerry mobile applications to market and stay 
+ahead of the curve. Join us from November 9 - 12, 2009. Register now!
+http://p.sf.net/sfu/devconference
