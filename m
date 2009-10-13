@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2009-10-13
-Date: Tue, 13 Oct 2009 11:42:06 -0700 (PDT)
-Message-ID: <20091013.114206.00578027.davem@davemloft.net>
-References: <20091013150558.GC2747@tuxdriver.com>
+Subject: Re: [PATCH 0/5] netxen: add diagnostic tools support
+Date: Tue, 13 Oct 2009 11:53:03 -0700 (PDT)
+Message-ID: <20091013.115303.197538715.davem@davemloft.net>
+References: <1255447905-29805-1-git-send-email-dhananjay@netxen.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
+To: dhananjay@netxen.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49312
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51069
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754156AbZJMSmK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 14:42:10 -0400
-In-Reply-To: <20091013150558.GC2747@tuxdriver.com>
+	by vger.kernel.org with ESMTP id S1754507AbZJMSxH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 14:53:07 -0400
+In-Reply-To: <1255447905-29805-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Tue, 13 Oct 2009 11:05:58 -0400
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Date: Tue, 13 Oct 2009 08:31:40 -0700
 
-> Here are a few (almost-)one-liners for 2.6.32.  Included are fixes for
-> a use-after-free, a missing "!" in front of a memcmp when comparing
-> BSSIDs, a race when using hardware-based scanning, the ieee80211_rx
-> context problem, a related documentation change, and a minor build
-> issue.
+> Series of 5 patches to add diagostic and various other
+> (internal) tools support.
 > 
-> Please let me know if there are problems!
+> Please apply to net-next-2.6.
 
-Pulled, thanks a lot!
+Applied, thanks.
