@@ -1,58 +1,44 @@
-From: Rakib Mullick <rakib.mullick@gmail.com>
-Subject: Re: [PATCH -mm] connector: Passing required parameter for function
-	cn_add_callback.
-Date: Tue, 13 Oct 2009 13:00:18 +0600
-Message-ID: <b9df5fa10910130000k20f53a4pfc3593db95c66138@mail.gmail.com>
-References: <b9df5fa10910111944s274207aica39c0e646c10f7a@mail.gmail.com>
-	 <20091011.223502.77690228.davem@davemloft.net>
-	 <b9df5fa10910122227r710d6782m89fc9ec4273487b8@mail.gmail.com>
-	 <20091012.234214.110950674.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.32-rc4] net: VMware virtual Ethernet NIC driver:
+	vmxnet3
+Date: Tue, 13 Oct 2009 00:16:03 -0700 (PDT)
+Message-ID: <20091013.001603.160899793.davem@davemloft.net>
+References: <alpine.LRH.2.00.0910121447090.13205@sbhatewara-dev1.eng.vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, zbr@ioremap.net,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f187.google.com ([209.85.216.187]:39662 "EHLO
-	mail-px0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933333AbZJMHAz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 03:00:55 -0400
-In-Reply-To: <20091012.234214.110950674.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: pv-drivers@vmware.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, chrisw@sous-sol.org,
+        greg@kroah.com, shemminger@linux-foundation.org
+To: sbhatewara@vmware.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <alpine.LRH.2.00.0910121447090.13205@sbhatewara-dev1.eng.vmware.com>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 10/13/09, David Miller <davem@davemloft.net> wrote:
-> From: Rakib Mullick <rakib.mullick@gmail.com>
->
-> Date: Tue, 13 Oct 2009 11:27:49 +0600
->
->
->  > On 10/12/09, David Miller <davem@davemloft.net> wrote:
->  >> From: Rakib Mullick <rakib.mullick@gmail.com>
->  >>  Date: Mon, 12 Oct 2009 08:44:33 +0600
->  >>
->  >>
->  >>  >   */
->  >>  > -static void cn_proc_mcast_ctl(struct cn_msg *msg)
->  >>  > +static void cn_proc_mcast_ctl(struct cn_msg *msg, struct
->  >>  > netlink_skb_parms *nsp)
->  >>
->  >>
->  >> Your patches are unusable because your email client corrupts the
->  >>  patch, here you can see it is splitting up long lines.
->  >>
->  >>  Please fix this up and resubmit.
->  > Oops..... sorry for that. This is the second time I'm facing this
->  > problem. I'll try to fix it.
->  > I'm resubmitting the patch. Here I've recreate the patch to split the
->  > line into two.
->  > And it just reaches its 80 line mark. Hopefully it will be okay.
->
->
-> Upstream and my net-next-2.6 tree both have this function with
->  the proper parameters, maybe Andrew's -mm tree had some conflicts
->  and they weren't dealt with correctly.
->
-Ah, sorry again. I should've check the upstream first. Sorry for noise.
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Date: Mon, 12 Oct 2009 15:18:42 -0700 (PDT)
 
-Thanks,
+> 
+> Ethernet NIC driver for VMware's vmxnet3
+> 
+> From: Shreyas Bhatewara <sbhatewara@vmware.com>
+> 
+> This patch adds driver support for VMware's virtual Ethernet NIC: vmxnet3
+> Guests running on VMware hypervisors supporting vmxnet3 device will thus have
+> access to improved network functionalities and performance.
+> 
+> Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
+> Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
+> Signed-off-by: Ronghua Zhang <ronghua@vmware.com>
+
+Ok, looks good, applied to net-2.6, thanks!
