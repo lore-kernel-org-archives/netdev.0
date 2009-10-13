@@ -1,43 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Use routing mark from skb in multicast forwarding
- routing lookups
-Date: Tue, 13 Oct 2009 03:33:45 -0700 (PDT)
-Message-ID: <20091013.033345.216191487.davem@davemloft.net>
-References: <200910071559.56526.atis@mikrotik.com>
-	<20091007.135627.96995518.davem@davemloft.net>
-	<200910081619.44880.atis@mikrotik.com>
+From: Massimo Cetra <ctrixk-BBpJ+9iBSNKonA0d6jMUrA@public.gmane.org>
+Subject: Re: [Bug #14378] Problems with net/core/skbuff.c
+Date: Tue, 13 Oct 2009 12:27:38 +0200
+Message-ID: <4AD4561A.5050109@navynet.it>
+References: <r-4Wjt4coy.A.CwC.Wal0KB@chimera>	<20091012.034224.64980795.davem@davemloft.net>	<4AD44435.3050703@navynet.it> <20091013.032237.45775304.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, panther@balabit.hu, eric.dumazet@gmail.com,
-	brian.haley@hp.com, zenczykowski@gmail.com
-To: atis@mikrotik.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49746
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933858AbZJMKdt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 06:33:49 -0400
-In-Reply-To: <200910081619.44880.atis@mikrotik.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ctrixk-BBpJ+9iBSNKonA0d6jMUrA@public.gmane.org, rjw-KKrjLPT3xs0@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20091013.032237.45775304.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Atis Elsts <atis@mikrotik.com>
-Date: Thu, 8 Oct 2009 16:19:44 +0300
+David Miller ha scritto:
+> From: Massimo Cetra <ctrixk-BBpJ+9iBSNKonA0d6jMUrA@public.gmane.org>
+> Date: Tue, 13 Oct 2009 11:11:17 +0200
+>
+>   
+>> Here, vserver is not involved, and the problem starts at drbd which
+>> lives in kernel space (the other oops started at ocfs2).
+>>
+>> Both ocfs2 and drbd make heavy use of network I/O so i guess the
+>> problem is something in the network layer.
+>>
+>> Anything i can do to help to debugging and solving this issue ?
+>>     
+>
+> Is all of your traffic going over virtio_net?
+>   
+Yes, indeed.
+I'm compiling the patch and i'll let you know.
 
-> On Wednesday 07 October 2009 23:56:27 David Miller wrote:
->> 
->> Ok submit just the else part and we'll have a look at it.
->> 
-> Here is a try.
-> 
-> Use routing mark from skb in routing lookup in IPv4 and IPv6 multicast forwarding code.
-> Signed-off-by: Atis Elsts <atis@mikrotik.com>
-
-The more I think about the less this makes sense.
-
-There is no way to setup these semantics of lower level
-routes and satisfy every reasonable use case.
-
-We'll need to provide another facility or suggest other
-methods to control marking of encapsulated routes from
-the socket level, sorry.
+Thanks,
+Max
