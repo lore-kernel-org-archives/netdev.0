@@ -1,19 +1,19 @@
 From: Alan Cox <alan@linux.intel.com>
 Subject: [PATCH] cosa: Kill off the use of the old ioctl path
-Date: Tue, 13 Oct 2009 16:31:03 +0100
-Message-ID: <20091013153103.20082.61146.stgit@localhost.localdomain>
+Date: Tue, 13 Oct 2009 16:30:46 +0100
+Message-ID: <20091013153045.20012.76202.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:55259 "EHLO
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:55256 "EHLO
 	bob.linux.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1760359AbZJMPnE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 11:43:04 -0400
+	with ESMTP id S1759977AbZJMPms (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 11:42:48 -0400
 Received: from localhost.localdomain (localhost [127.0.0.1])
-	by bob.linux.org.uk (8.14.3/8.14.3) with ESMTP id n9DFV3vc020110
-	for <netdev@vger.kernel.org>; Tue, 13 Oct 2009 16:31:03 +0100
+	by bob.linux.org.uk (8.14.3/8.14.3) with ESMTP id n9DFUk7s020040
+	for <netdev@vger.kernel.org>; Tue, 13 Oct 2009 16:30:46 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -21,8 +21,8 @@ Signed-off-by: Alan Cox <alan@linux.intel.com>
 ---
 
  drivers/message/i2o/i2o_config.c |    5 ++---
- drivers/net/wan/cosa.c           |   20 +++++++++++++-------
- 2 files changed, 15 insertions(+), 10 deletions(-)
+ drivers/net/wan/cosa.c           |   18 ++++++++++++------
+ 2 files changed, 14 insertions(+), 9 deletions(-)
 
 
 diff --git a/drivers/message/i2o/i2o_config.c b/drivers/message/i2o/i2o_config.c
@@ -49,7 +49,7 @@ index 4e8722b..3d5f40c 100644
  	.compat_ioctl = i2o_cfg_compat_ioctl,
  #endif
 diff --git a/drivers/net/wan/cosa.c b/drivers/net/wan/cosa.c
-index e2c33c0..d888390 100644
+index e2c33c0..a15f017 100644
 --- a/drivers/net/wan/cosa.c
 +++ b/drivers/net/wan/cosa.c
 @@ -297,8 +297,8 @@ static ssize_t cosa_write(struct file *file,
@@ -63,15 +63,6 @@ index e2c33c0..d888390 100644
  #ifdef COSA_FASYNC_WORKING
  static int cosa_fasync(struct inode *inode, struct file *file, int on);
  #endif
-@@ -309,7 +309,7 @@ static const struct file_operations cosa_fops = {
- 	.read		= cosa_read,
- 	.write		= cosa_write,
- 	.poll		= cosa_poll,
--	.ioctl		= cosa_chardev_ioctl,
-+	.unlocked_ioctl	= cosa_chardev_ioctl,
- 	.open		= cosa_open,
- 	.release	= cosa_release,
- #ifdef COSA_FASYNC_WORKING
 @@ -1204,12 +1204,18 @@ static int cosa_net_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
  	return hdlc_ioctl(dev, ifr, cmd);
  }
