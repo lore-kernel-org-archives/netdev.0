@@ -1,59 +1,43 @@
-From: Rakib Mullick <rakib.mullick@gmail.com>
-Subject: Re: [PATCH -mm] connector: Passing required parameter for function
-	cn_add_callback.
-Date: Tue, 13 Oct 2009 11:27:49 +0600
-Message-ID: <b9df5fa10910122227r710d6782m89fc9ec4273487b8@mail.gmail.com>
-References: <b9df5fa10910111944s274207aica39c0e646c10f7a@mail.gmail.com>
-	 <20091011.223502.77690228.davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net-next] cnic: Fix build error on powerpc.
+Date: Mon, 12 Oct 2009 22:42:13 -0700
+Message-ID: <1255412533-28136-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, zbr@ioremap.net,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757367AbZJMF21@vger.kernel.org>
-In-Reply-To: <20091011.223502.77690228.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sfr@canb.auug.org.au,
+	"Michael Chan" <mchan@broadcom.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:1578 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751782AbZJMFeW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Oct 2009 01:34:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/12/09, David Miller <davem@davemloft.net> wrote:
-> From: Rakib Mullick <rakib.mullick@gmail.com>
->  Date: Mon, 12 Oct 2009 08:44:33 +0600
->
->
->  >   */
->  > -static void cn_proc_mcast_ctl(struct cn_msg *msg)
->  > +static void cn_proc_mcast_ctl(struct cn_msg *msg, struct
->  > netlink_skb_parms *nsp)
->
->
-> Your patches are unusable because your email client corrupts the
->  patch, here you can see it is splitting up long lines.
->
->  Please fix this up and resubmit.
-Oops..... sorry for that. This is the second time I'm facing this
-problem. I'll try to fix it.
-I'm resubmitting the patch. Here I've recreate the patch to split the
-line into two.
-And it just reaches its 80 line mark. Hopefully it will be okay.
+Add missing #include <net/ip6_checksum.h>
 
-Thanks,
+Problem noted by Stephen Rothwell.
 
-----
-Signed-off-by: Rakib Mullick <rakib.mullick@gmail.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/cnic.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
---- linus/drivers/connector/cn_proc.c	2009-10-09 17:38:22.000000000 +0600
-+++ rakib/drivers/connector/cn_proc.c	2009-10-13 12:29:37.000000000 +0600
-@@ -225,9 +225,11 @@ static void cn_proc_ack(int err, int rcv
+diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
+index 6e7af7b..333b1d1 100644
+--- a/drivers/net/cnic.c
++++ b/drivers/net/cnic.c
+@@ -33,6 +33,7 @@
+ #include <net/route.h>
+ #include <net/ipv6.h>
+ #include <net/ip6_route.h>
++#include <net/ip6_checksum.h>
+ #include <scsi/iscsi_if.h>
+ 
+ #include "cnic_if.h"
+-- 
+1.6.4.GIT
 
- /**
-  * cn_proc_mcast_ctl
-- * @data: message sent from userspace via the connector
-+ * @msg: message sent from userspace via the connector
-+ * @nsp: remains unused but we need it to keep it
-  */
--static void cn_proc_mcast_ctl(struct cn_msg *msg)
-+static void cn_proc_mcast_ctl(struct cn_msg *msg,
-+				struct netlink_skb_parms *nsp)
- {
- 	enum proc_cn_mcast_op *mc_op = NULL;
- 	int err = 0;
+
