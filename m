@@ -1,42 +1,52 @@
-From: Massimo Cetra <mcetra@navynet.it>
-Subject: Re: [Bug #14378] Problems with net/core/skbuff.c
-Date: Tue, 13 Oct 2009 11:23:48 +0200
-Message-ID: <4AD44724.4040105@navynet.it>
-References: <zJ_pXHNwoHC.A.akB.Aal0KB@chimera>	<r-4Wjt4coy.A.CwC.Wal0KB@chimera> <20091012.034224.64980795.davem@davemloft.net> <4AD44435.3050703@navynet.it>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [PATCH] ax25: unsigned cannot be less than 0 in ax25_ctl_ioctl()
+Date: Tue, 13 Oct 2009 11:48:38 +0200
+Message-ID: <4AD44CF6.1070801@bfs.de>
+References: <4AD0FB0B.8050609@gmail.com> <4AD34D3C.1060206@bfs.de> <4AD37D44.9050207@gmail.com> <4AD3A67B.6070703@cerebellum.kd>
+Reply-To: wharms@bfs.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, rjw@sisk.pl,
-	linux-kernel@vger.kernel.org, kernel-testers@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Massimo Cetra <ctrixk@navynet.it>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759276AbZJMJYf@vger.kernel.org>
-In-Reply-To: <4AD44435.3050703@navynet.it>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Roel Kluin <roel.kluin@gmail.com>, linux-hams@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>, Joerg Reuter <jreuter@yaina.de>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Kevin Dawson <kevind@esi.com.au>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <4AD3A67B.6070703@cerebellum.kd>
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Massimo Cetra ha scritto:
-> David Miller ha scritto:
->> From: "Rafael J. Wysocki" <rjw@sisk.pl>
->> Date: Mon, 12 Oct 2009 00:22:04 +0200 (CEST)
->>
->>  
->>> Bug-Entry    : http://bugzilla.kernel.org/show_bug.cgi?id=14378
->>> Subject        : Problems with net/core/skbuff.c
->>> Submitter    : Massimo Cetra <mcetra@navynet.it>
->>> Date        : 2009-10-08 14:51 (4 days old)
->>> References    : http://marc.info/?l=linux-kernel&m=125501488220358&w=4
->>>     
->>
->> I don't know what to do about this one.
->>
->> The user indicates that they have the vserver patches applied,
->> so maybe there is some interaction with that stuff.
->>   
-> Actually i found another oops which is very similar to the previous one.
 
-And here it is another one, this time triggered by postfix, where mor 
-drbd nor vserver are involved.
-This is not the same server where the other oopses were grabbed.
 
-Max
+Kevin Dawson schrieb:
+> Roel Kluin wrote:
+> 
+>>>  tmp_arg=ax25_ctl.arg * HZ;
+>>>
+>>>   if (arg == 0 || arg >  ULONG_MAX )
+>>>         goto einval_put;
+>>
+>> I'm not sure, I think this would only work if we made `arg' an
+>> unsigned long long.
+> 
+> That depends on the possible values of ax25_ctl.arg.
+> 
+>> +    if (ax25_ctl.arg * HZ > ULONG_MAX && ax25_ctl.cmd != AX25_KILL)
+>> +        return -EINVAL;
+> 
+> Why the need to change arg before comparing it with a constant?  Let the
+> compiler do the work:
+> 
+>     if (ax25_ctl.arg > ULONG_MAX / HZ && ...
+> 
+> Kevin
+> 
+
+i like this because it prevents a wrap around for stupid ax25_ctl.arg values but will not help when
+ax25_ctl.arg * HZ is used later. NTL i think HZ does not need to be constant these days but i am not an
+expert on that area.
+
+  re,
+   wh
+
+
