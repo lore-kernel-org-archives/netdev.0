@@ -1,47 +1,59 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Ping Is Broken
-Date: Tue, 13 Oct 2009 05:10:19 +0000
-Message-ID: <20091013051019.GA6159@ff.dom.local>
-References: <7e84ed60910090316ne9224fat81d9c79c58fc713b@mail.gmail.com> <7e84ed60910090934y2a0d422cr158aa8d15e452f97@mail.gmail.com> <7e84ed60910090944q5c66ea0w63ed55a72482bf2f@mail.gmail.com> <4AD39342.7090209@hp.com> <4AD3A388.7020709@gmail.com> <4AD3BC12.6020409@hp.com>
+From: Rakib Mullick <rakib.mullick@gmail.com>
+Subject: Re: [PATCH -mm] connector: Passing required parameter for function
+	cn_add_callback.
+Date: Tue, 13 Oct 2009 11:27:49 +0600
+Message-ID: <b9df5fa10910122227r710d6782m89fc9ec4273487b8@mail.gmail.com>
+References: <b9df5fa10910111944s274207aica39c0e646c10f7a@mail.gmail.com>
+	 <20091011.223502.77690228.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rob.Townley@gmail.com, netdev@vger.kernel.org,
-	Omaha Linux User Group <olug@olug.org>,
-	CentOS mailing list <centos@centos.org>
-To: Brian Haley <brian.haley@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f227.google.com ([209.85.220.227]:65304 "EHLO
-	mail-fx0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751551AbZJMFLC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 01:11:02 -0400
-Received: by fxm27 with SMTP id 27so9828890fxm.17
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2009 22:10:24 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4AD3BC12.6020409@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, zbr@ioremap.net,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757367AbZJMF21@vger.kernel.org>
+In-Reply-To: <20091011.223502.77690228.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 12, 2009 at 07:30:26PM -0400, Brian Haley wrote:
-> 
-> 
-> Jarek Poplawski wrote:
-> > Brian Haley wrote, On 10/12/2009 10:36 PM:
-> > 
-> >> In this case ping is doing an SO_BINDTODEVICE to eth0, so the kernel is going
-> >> to force the packets out of it, even if it isn't the "correct" interface.  If
-> >> you ran tcpdump you'd probably see an ARP resolution failure, or an ICMP from
-> >> a gateway.
-> > 
-> > BTW, SO_BINDTODEVICE is used only to acquire a source address, not the real
-> > connection (unless I miss something).
-> 
-> No, SO_BINDTODEVICE affects routing, as well as incoming packets - it's in macros
-> like INET_MATCH(), from what I've seen it restricts a socket to only use the device
-> specified, irregardless of the source address you're using.  For example, you can
-> bind to 127.0.0.1 and send packets out eth0 if sk_bound_dev_if is set to it if I
-> remember correctly.
+On 10/12/09, David Miller <davem@davemloft.net> wrote:
+> From: Rakib Mullick <rakib.mullick@gmail.com>
+>  Date: Mon, 12 Oct 2009 08:44:33 +0600
+>
+>
+>  >   */
+>  > -static void cn_proc_mcast_ctl(struct cn_msg *msg)
+>  > +static void cn_proc_mcast_ctl(struct cn_msg *msg, struct
+>  > netlink_skb_parms *nsp)
+>
+>
+> Your patches are unusable because your email client corrupts the
+>  patch, here you can see it is splitting up long lines.
+>
+>  Please fix this up and resubmit.
+Oops..... sorry for that. This is the second time I'm facing this
+problem. I'll try to fix it.
+I'm resubmitting the patch. Here I've recreate the patch to split the
+line into two.
+And it just reaches its 80 line mark. Hopefully it will be okay.
 
-I've commented your: "In this case ping is doing an SO_BINDTODEVICE to eth0",
-so meant: SO_BINDTODEVICE is used *by ping* only to acquire a source address.
+Thanks,
 
-Jarek P.
+----
+Signed-off-by: Rakib Mullick <rakib.mullick@gmail.com>
+
+--- linus/drivers/connector/cn_proc.c	2009-10-09 17:38:22.000000000 +0600
++++ rakib/drivers/connector/cn_proc.c	2009-10-13 12:29:37.000000000 +0600
+@@ -225,9 +225,11 @@ static void cn_proc_ack(int err, int rcv
+
+ /**
+  * cn_proc_mcast_ctl
+- * @data: message sent from userspace via the connector
++ * @msg: message sent from userspace via the connector
++ * @nsp: remains unused but we need it to keep it
+  */
+-static void cn_proc_mcast_ctl(struct cn_msg *msg)
++static void cn_proc_mcast_ctl(struct cn_msg *msg,
++				struct netlink_skb_parms *nsp)
+ {
+ 	enum proc_cn_mcast_op *mc_op = NULL;
+ 	int err = 0;
