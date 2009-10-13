@@ -1,64 +1,44 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: Re: [PATCH 0/8] gianfar: Add support for hibernation
-Date: Tue, 13 Oct 2009 12:22:38 -0500
-Message-ID: <64B2BB18-32DC-4B98-95D6-F203F74040D5@freescale.com>
-References: <20091012160000.GA32406@oksana.dev.rtsoft.ru>
-	<20091012.235747.195783342.davem@davemloft.net>
-Mime-Version: 1.0 (Apple Message framework v1076)
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"; DelSp="yes"
+From: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
+Subject: [PATCHv2 0/4] Adds implementation of TFRC-SP receiver side into the
+ DCCP test tree
+Date: Tue, 13 Oct 2009 14:18:34 -0300
+Message-ID: <4AD4B66A.8010605@embedded.ufcg.edu.br>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: scottwood@freescale.com, linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20091012.235747.195783342.davem@davemloft.net>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ivocalado@embedded.ufcg.edu.br
+To: dccp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from embedded.ufcg.edu.br ([150.165.63.2]:50297 "EHLO
+	mail.embedded.ufcg.edu.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760625AbZJMRTW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 13:19:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+These patches adds implementation of TFRC-SP receiver side, and
+are targeted at the DCCP branch.
 
 
-On Oct 13, 2009, at 1:57 AM, David Miller wrote:
 
-> From: Anton Vorontsov <avorontsov@ru.mvista.com>
-> Date: Mon, 12 Oct 2009 20:00:00 +0400
->
->> Here are few patches that add support for hibernation for gianfar
->> driver.
->>
->> Technically, we could just do gfar_close() and then gfar_enet_open()
->> sequence to restore gianfar functionality after hibernation, but
->> close/open does so many unneeded things (e.g. BDs buffers freeing and
->> allocation, IRQ freeing and requesting), that I felt it would be much
->> better to cleanup and refactor some code to make the hibernation [and
->> not only hibernation] code a little bit prettier.
->
-> I applied all of this, it's a really nice patch set.  If there are any
-> problems we can deal with it using follow-on fixups.
->
-> I noticed something, in patch #3 where you remove the spurious wrap
-> bit setting in startup_gfar().  It looks like that was not only
-> spurious but it was doing it wrong too.
->
-> It's writing garbage into the status word, because it's not using the
-> BD_LFLAG() macro to shift the value up 16 bits.
->
+Patch #1: First Patch on TFRC-SP. Copy base files from TFRC
+Patch #2: Implement loss counting on TFRC-SP receiver
+Patch #3: Implement TFRC-SP calc of mean length of loss intervals
+accordingly to section 3 of RFC 4828
+Patch #4: Adds options DROPPED PACKETS and LOSS INTERVALS to receiver
 
-No, it was fine (though made unnecessary by other patches).  The BD  
-has a union:
 
-                 struct {
-                         u16     status; /* Status Fields */
-                         u16     length; /* Buffer length */
-                 };
-                 u32 lstatus;
+--
+Ivo Augusto Andrade Rocha Calado
+MSc. Candidate
+Embedded Systems and Pervasive Computing Lab -
+http://embedded.ufcg.edu.br
+Systems and Computing Department - http://www.dsc.ufcg.edu.br
+Electrical Engineering and Informatics Center -
+http://www.ceei.ufcg.edu.br
+Federal University of Campina Grande - http://www.ufcg.edu.br
 
-so when you write "lstatus", you need to use the BD_LFLAG() macro, but  
-when you write "status", you are just setting the status bits.
+PGP: 0x03422935
+Quidquid latine dictum sit, altum viditur.
 
-Andy
+
