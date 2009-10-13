@@ -1,30 +1,38 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [Bug #14378] Problems with net/core/skbuff.c
-Date: Tue, 13 Oct 2009 03:22:37 -0700 (PDT)
-Message-ID: <20091013.032237.45775304.davem@davemloft.net>
-References: <r-4Wjt4coy.A.CwC.Wal0KB@chimera>
-	<20091012.034224.64980795.davem@davemloft.net>
-	<4AD44435.3050703@navynet.it>
+Subject: Re: [PATCH] udp: Fix udp_poll() and ioctl()
+Date: Tue, 13 Oct 2009 03:18:14 -0700 (PDT)
+Message-ID: <20091013.031814.100807531.davem@davemloft.net>
+References: <4AC78F7C.40908@gmail.com>
+	<4ACCB6BE.5040602@gmail.com>
+	<4ACF4C1C.4050505@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rjw-KKrjLPT3xs0@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: ctrixk-BBpJ+9iBSNKonA0d6jMUrA@public.gmane.org
+Cc: herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, rjw-KKrjLPT3xs0@public.gmane.org,
+	Ralf.Hildebrandt-jq1tPX9l7E6ELgA04lAiVw@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	yjwei-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, tyasui-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, haoki-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4AD44435.3050703-BBpJ+9iBSNKonA0d6jMUrA@public.gmane.org>
+In-Reply-To: <4ACF4C1C.4050505-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Massimo Cetra <ctrixk-BBpJ+9iBSNKonA0d6jMUrA@public.gmane.org>
-Date: Tue, 13 Oct 2009 11:11:17 +0200
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Fri, 09 Oct 2009 16:43:40 +0200
 
-> Here, vserver is not involved, and the problem starts at drbd which
-> lives in kernel space (the other oops started at ocfs2).
+> [PATCH] udp: Fix udp_poll()
 > 
-> Both ocfs2 and drbd make heavy use of network I/O so i guess the
-> problem is something in the network layer.
+> udp_poll() can in some circumstances drop frames with incorrect checksums.
 > 
-> Anything i can do to help to debugging and solving this issue ?
+> Problem is we now have to lock the socket while dropping frames, or risk
+> sk_forward corruption.
+> 
+> This bug is present since commit 95766fff6b9a78d1
+> ([UDP]: Add memory accounting.)
+> 
+> While we are at it, we can correct ioctl(SIOCINQ) to also drop bad frames.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Is all of your traffic going over virtio_net?
+Looks good, applied, thanks Eric!
