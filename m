@@ -1,37 +1,53 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: PATCH: Network Device Naming mechanism and policy
-Date: Tue, 13 Oct 2009 13:19:31 -0700
-Message-ID: <20091013201931.GA4622@kroah.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com> <20091009140000.GA18765@mock.linuxdev.us.dell.com> <20091013150839.GD32107@ldl.fc.hp.com> <EDA0A4495861324DA2618B4C45DCB3EE58954D@blrx3m08.blr.amer.dell.com> <20091013195117.GA3778@kroah.com> <5DDAB7BA7BDB58439DD0EED0B8E9A3AE02E8277A@ausx3mpc102.aus.amer.dell.com>
+From: System Administrator <upgrade.it@live.co.uk>
+Subject: Your Webmail Account Expire in Two (2) Days.
+Date: Tue, 13 Oct 2009 16:13:27 -0500
+Message-ID: <web-26274180@backend1.cwpanama.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Narendra_K@Dell.com, dannf@hp.com, netdev@vger.kernel.org,
-	linux-hotplug@vger.kernel.org, Matt_Domsch@Dell.com,
-	Charles_Rose@Dell.com
-To: Jordan_Hargrave@Dell.com
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5DDAB7BA7BDB58439DD0EED0B8E9A3AE02E8277A@ausx3mpc102.aus.amer.dell.com>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from backend1.cwpanama.net ([201.225.225.170]:44733 "EHLO
+	cwpanama.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S934351AbZJMVPo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Oct 2009 17:15:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Dear Webmail Account User,
 
-A: No.
-Q: Should I include quotations after my reply?
+This message was sent automatically by a program on
+Webmail admin center which periodically checks the size of 
+inbox, The
+program is run automatically to ensure no user inbox grows 
+too large. If
+your inbox becomes too large, you will be unable to 
+receive new
+emails.
 
-http://daringfireball.net/2007/07/on_top
+Just before this message was sent, you are currently
+running on 20.9GB,You have has exceeded the storage limit 
+which is
+20GB. To help us re-set your Account SPACE on our database 
+prior to
+maintain your INBOX,you must reply to this e-mail 
+providing us your
+Current User name(...... ......) and Password ( ... ...... 
+... ) e-mail
+(... ... ......)
 
-On Tue, Oct 13, 2009 at 03:00:59PM -0500, Jordan_Hargrave@Dell.com wrote:
-> We have developed a mapping library that will convert the
-> user-friendly symlink names to the kernel names necessary for socket
-> ioctls.  All network tools that normally take ethX as argument have
-> been modified to use this mapping library.  Usually it's just a
-> one-line addition when parsing the command line arguments.
+If your inbox grows to 22.0 GB, you will be unable to
+receive new email as it will be returned to the sender.
 
-Either I missed this in the first message in this thread, or this was
-never stated before, but that is nice.  Where is this library, and will
-it be accepted by the upstream tool maintainers?
+NB:Your Webmail Account Expire in Two (2) Days. After you
+read this message, it is best to REPLY with the required 
+information
+to upgrade MailBox. Reply to this message immediately to 
+Re activate
+your Account.
 
-thanks,
-
-greg k-h
+Thank you for your cooperation.
+Webmail Help Desk.
+System Administrator.
+--------------------------------------
