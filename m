@@ -1,50 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -mm] connector: Passing required parameter for function
- cn_add_callback.
-Date: Mon, 12 Oct 2009 23:42:14 -0700 (PDT)
-Message-ID: <20091012.234214.110950674.davem@davemloft.net>
-References: <b9df5fa10910111944s274207aica39c0e646c10f7a@mail.gmail.com>
-	<20091011.223502.77690228.davem@davemloft.net>
-	<b9df5fa10910122227r710d6782m89fc9ec4273487b8@mail.gmail.com>
+Subject: Re: [PATCH 0/8] gianfar: Add support for hibernation
+Date: Mon, 12 Oct 2009 23:57:47 -0700 (PDT)
+Message-ID: <20091012.235747.195783342.davem@davemloft.net>
+References: <20091012160000.GA32406@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, zbr@ioremap.net,
-	linux-kernel@vger.kernel.org
-To: rakib.mullick@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38642
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932935AbZJMGmS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 02:42:18 -0400
-In-Reply-To: <b9df5fa10910122227r710d6782m89fc9ec4273487b8@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: scottwood@freescale.com, linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	afleming@freescale.com
+To: avorontsov@ru.mvista.com
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20091012160000.GA32406@oksana.dev.rtsoft.ru>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-From: Rakib Mullick <rakib.mullick@gmail.com>
-Date: Tue, 13 Oct 2009 11:27:49 +0600
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Date: Mon, 12 Oct 2009 20:00:00 +0400
 
-> On 10/12/09, David Miller <davem@davemloft.net> wrote:
->> From: Rakib Mullick <rakib.mullick@gmail.com>
->>  Date: Mon, 12 Oct 2009 08:44:33 +0600
->>
->>
->>  >   */
->>  > -static void cn_proc_mcast_ctl(struct cn_msg *msg)
->>  > +static void cn_proc_mcast_ctl(struct cn_msg *msg, struct
->>  > netlink_skb_parms *nsp)
->>
->>
->> Your patches are unusable because your email client corrupts the
->>  patch, here you can see it is splitting up long lines.
->>
->>  Please fix this up and resubmit.
-> Oops..... sorry for that. This is the second time I'm facing this
-> problem. I'll try to fix it.
-> I'm resubmitting the patch. Here I've recreate the patch to split the
-> line into two.
-> And it just reaches its 80 line mark. Hopefully it will be okay.
+> Here are few patches that add support for hibernation for gianfar
+> driver.
+> 
+> Technically, we could just do gfar_close() and then gfar_enet_open()
+> sequence to restore gianfar functionality after hibernation, but
+> close/open does so many unneeded things (e.g. BDs buffers freeing and
+> allocation, IRQ freeing and requesting), that I felt it would be much
+> better to cleanup and refactor some code to make the hibernation [and
+> not only hibernation] code a little bit prettier.
 
-Upstream and my net-next-2.6 tree both have this function with
-the proper parameters, maybe Andrew's -mm tree had some conflicts
-and they weren't dealt with correctly.
+I applied all of this, it's a really nice patch set.  If there are any
+problems we can deal with it using follow-on fixups.
+
+I noticed something, in patch #3 where you remove the spurious wrap
+bit setting in startup_gfar().  It looks like that was not only
+spurious but it was doing it wrong too.
+
+It's writing garbage into the status word, because it's not using the
+BD_LFLAG() macro to shift the value up 16 bits.
