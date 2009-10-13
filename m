@@ -1,88 +1,79 @@
-From: Ajit Khaparde <ajitk@serverengines.com>
-Subject: [PATCH net-next-2.6] ixgb: Fix erroneous display of stats by
-	ethtool -S
-Date: Tue, 13 Oct 2009 17:16:56 +0530
-Message-ID: <20091013114645.GA2453@serverengines.com>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: kernel mode pppoe ppp if + ifb + mirred redirect, ethernet
+	packets in ifb?!
+Date: Tue, 13 Oct 2009 08:21:17 -0400
+Message-ID: <1255436477.6305.2.camel@dogo.mojatatu.com>
+References: <200910121143.39924.denys@visp.net.lb>
+	 <200910130054.23237.denys@visp.net.lb>
+	 <1255385250.5406.43.camel@dogo.mojatatu.com>
+	 <200910130144.04910.denys@visp.net.lb>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	"Kirsher, Jef
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Denys Fedoryschenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:60548 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1759545AbZJMLrh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 07:47:37 -0400
-Content-Disposition: inline
+Received: from mail-qy0-f186.google.com ([209.85.221.186]:36879 "EHLO
+	mail-qy0-f186.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759616AbZJMMYz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 08:24:55 -0400
+Received: by qyk16 with SMTP id 16so3104528qyk.15
+        for <netdev@vger.kernel.org>; Tue, 13 Oct 2009 05:24:18 -0700 (PDT)
+In-Reply-To: <200910130144.04910.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 5675f221 overlooked the way offsets for netdev stats were considered.
-Because of this some of the stats shown by ethtool -S were wrong.
-This patch fixes it.
+On Tue, 2009-10-13 at 01:44 +0300, Denys Fedoryschenko wrote:
 
-Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
----
- drivers/net/ixgb/ixgb_ethtool.c |   27 ++++++++++++++++++++++-----
- 1 files changed, 22 insertions(+), 5 deletions(-)
+> It kills me :-) Each new version it doesn't work and i notice, i'm almost one  
+> who use it :-) Probably i should wait till netfilter API and iptables 
+> conversion will stabilize somehow.
+> 
 
-diff --git a/drivers/net/ixgb/ixgb_ethtool.c b/drivers/net/ixgb/ixgb_ethtool.c
-index deeb25d..a4ed96c 100644
---- a/drivers/net/ixgb/ixgb_ethtool.c
-+++ b/drivers/net/ixgb/ixgb_ethtool.c
-@@ -34,16 +34,22 @@
- 
- #define IXGB_ALL_RAR_ENTRIES 16
- 
-+enum {NETDEV_STATS, IXGB_STATS};
-+
- struct ixgb_stats {
- 	char stat_string[ETH_GSTRING_LEN];
-+	int type;
- 	int sizeof_stat;
- 	int stat_offset;
- };
- 
--#define IXGB_STAT(m) FIELD_SIZEOF(struct ixgb_adapter, m), \
--		      offsetof(struct ixgb_adapter, m)
--#define IXGB_NETDEV_STAT(m) FIELD_SIZEOF(struct net_device, m), \
--		      offsetof(struct net_device, m)
-+#define IXGB_STAT(m)		IXGB_STATS, \
-+				FIELD_SIZEOF(struct ixgb_adapter, m), \
-+				offsetof(struct ixgb_adapter, m)
-+#define IXGB_NETDEV_STAT(m)	NETDEV_STATS, \
-+				FIELD_SIZEOF(struct net_device, m), \
-+				offsetof(struct net_device, m)
-+
- static struct ixgb_stats ixgb_gstrings_stats[] = {
- 	{"rx_packets", IXGB_NETDEV_STAT(stats.rx_packets)},
- 	{"tx_packets", IXGB_NETDEV_STAT(stats.tx_packets)},
-@@ -664,10 +670,21 @@ ixgb_get_ethtool_stats(struct net_device *netdev,
- {
- 	struct ixgb_adapter *adapter = netdev_priv(netdev);
- 	int i;
-+	char *p = NULL;
- 
- 	ixgb_update_stats(adapter);
- 	for (i = 0; i < IXGB_STATS_LEN; i++) {
--		char *p = (char *)adapter+ixgb_gstrings_stats[i].stat_offset;
-+		switch (ixgb_gstrings_stats[i].type) {
-+		case NETDEV_STATS:
-+			p = (char *) netdev +
-+					ixgb_gstrings_stats[i].stat_offset;
-+			break;
-+		case IXGB_STATS:
-+			p = (char *) adapter +
-+					ixgb_gstrings_stats[i].stat_offset;
-+			break;
-+		}
-+
- 		data[i] = (ixgb_gstrings_stats[i].sizeof_stat ==
- 			sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
- 	}
--- 
-1.6.0.4
+I am a little frustrated - but yeah, waiting may help. I tend to do a
+lot of private support to fix integration with iptables problems, so you
+are not the only user ;->. I wish one distro gets it right.
+The most hopeful seems to be debian.
+
+> Plus skbedit in some cases will be faster, if i eliminate iptables, unloading 
+> modules even, basic filtering can be done by iproute2 too, i won't have 
+> netfilter locks that make things slow on SMP (at least what i heard here and 
+> what oprofile shows, that MARK was small CPU hog to compare with skbedit).
+> 
+
+Makes sense.
+
+> I am happily running 2k pppoe users on Quad Core CPU/on supercheap r8169
+> (better nic not available here) with skbedit and flow classifier. It can do 
+> more even, i think.
+
+I bet pppd in user space is probably your biggest problem in terms of
+performance.
+
+> After switching to skbedit things improve a lot (before 1k users was near max)
+> 
+
+Not using netfilter will improve your numbers. So can skbedit do fwmark
+as well?
+
+> I can test even, even if he won't.
+> As i understand, for pppoe case, he can just skip offset for ethernet and 
+> pppoe header, and he can filter by ip, or not?
+> Current way is maybe better, cause someone who want to count everything with 
+> ethernet and pppoe headers - can, and who want without - also can (by setting 
+> offset , just a bit more difficult.
+> 
+> Like 
+> /sbin/tc filter add dev eth1 protocol 0x8864  parent 2:0 prio 1 u32 \
+> match u32 0x$IPREMOTE_HEX 0xffffffff at 24 flowid 2:$ID
+> (found in LARTC)
+
+yes, something like that. 
+It may be easier to tcpdump -x on both pppoe and ifb and see how the
+packets look like at what offset. If that doesnt work well, I will work
+on a patch...
+
+cheers,
+jamal
 
