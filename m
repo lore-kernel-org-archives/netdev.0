@@ -1,53 +1,39 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 2/3] sky2: Reading registers in reset causes a hang
-Date: Tue, 13 Oct 2009 09:00:38 -0700
-Message-ID: <20091013090038.6ec27475@nehalam>
-References: <4AD337ED.4090409@ring3k.org>
-	<20091012091459.49eb1188@nehalam>
-	<392fb48f0910121536x3e7c37fbjd83ef821b3617644@mail.gmail.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH] wan: pci200syn needs capability.h
+Date: Tue, 13 Oct 2009 10:00:16 -0700
+Message-ID: <20091013100016.3c9bfad7.randy.dunlap@oracle.com>
+References: <20091013162312.8b93998b.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Mike McCormack <mikem@ring3k.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:44421 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760433AbZJMQBU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 12:01:20 -0400
-In-Reply-To: <392fb48f0910121536x3e7c37fbjd83ef821b3617644@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>, davem@davemloft.net,
+	Krzysztof Halasa <khc@pm.waw.pl>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20091013162312.8b93998b.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 13 Oct 2009 07:36:45 +0900
-Mike McCormack <mikem@ring3k.org> wrote:
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-> 2009/10/13 Stephen Hemminger <shemminger@linux-foundation.org>
-> >
-> > On Mon, 12 Oct 2009 23:06:37 +0900
-> > Mike McCormack <mikem@ring3k.org> wrote:
-> >
-> > > When sky2 hardware is in reset, reading registers with ethtool -d
-> > > causes a hard system hang. eg.
-> > >
-> > > =C2=A0 =C2=A0 ifconfig eth1 down
-> > > =C2=A0 =C2=A0 ethtool -d eth1
-> > >
-> > > Avoid reading FIFOs, descriptor and status unit, etc. after we've
-> > > =C2=A0bought the interface down, as these seem to cause the issue=
-=2E
-> > >
-> > > Assume the same is true for the second port, as my port only has
-> > > =C2=A0one card.
-> >
-> > I don't see this on my cards. Let me investigate further before
-> > committing this. Also, the debugfs interface would also be screwed
-> > if the registers were unavailable.
->=20
-> I forgot to include one other piece of information... I'm running a
-> ping -f at the sky2 interface on a remote machine. I'll check debugfs
-> tonight.
->=20
+Driver is missing header file capability.h:
 
-You are flooding a down interface??
---=20
+drivers/net/wan/pci200syn.c:212: error: implicit declaration of function 'capable'
+drivers/net/wan/pci200syn.c:212: error: 'CAP_NET_ADMIN' undeclared (first use in this function)
+
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ drivers/net/wan/pci200syn.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- linux-next-20091012.orig/drivers/net/wan/pci200syn.c
++++ linux-next-20091012/drivers/net/wan/pci200syn.c
+@@ -18,6 +18,7 @@
+ #include <linux/kernel.h>
+ #include <linux/slab.h>
+ #include <linux/types.h>
++#include <linux/capability.h>
+ #include <linux/fcntl.h>
+ #include <linux/in.h>
+ #include <linux/string.h>
