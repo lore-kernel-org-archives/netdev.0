@@ -1,44 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.32-rc4] net: VMware virtual Ethernet NIC driver:
-	vmxnet3
-Date: Tue, 13 Oct 2009 00:16:03 -0700 (PDT)
-Message-ID: <20091013.001603.160899793.davem@davemloft.net>
-References: <alpine.LRH.2.00.0910121447090.13205@sbhatewara-dev1.eng.vmware.com>
+Subject: Re: TCP_DEFER_ACCEPT is missing counter update
+Date: Tue, 13 Oct 2009 00:11:06 -0700 (PDT)
+Message-ID: <20091013.001106.226276168.davem@davemloft.net>
+References: <20091013050705.GA2194@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        virtualization@lists.linux-foundation.org, chrisw@sous-sol.org,
-        greg@kroah.com, shemminger@linux-foundation.org
-To: sbhatewara@vmware.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <alpine.LRH.2.00.0910121447090.13205@sbhatewara-dev1.eng.vmware.com>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: w@1wt.eu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58965
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933577AbZJMHLK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 03:11:10 -0400
+In-Reply-To: <20091013050705.GA2194@1wt.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Date: Mon, 12 Oct 2009 15:18:42 -0700 (PDT)
+From: Willy Tarreau <w@1wt.eu>
+Date: Tue, 13 Oct 2009 07:07:06 +0200
 
+> But in tcp_minisocks.c, this counter is only checked. And in
+> fact, I have found no location which updates it. So I think
+> that what was intended was to decrease it in tcp_minisocks
+> whenever it is checked, which the trivial patch below does :
 > 
-> Ethernet NIC driver for VMware's vmxnet3
-> 
-> From: Shreyas Bhatewara <sbhatewara@vmware.com>
-> 
-> This patch adds driver support for VMware's virtual Ethernet NIC: vmxnet3
-> Guests running on VMware hypervisors supporting vmxnet3 device will thus have
-> access to improved network functionalities and performance.
-> 
-> Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
-> Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
-> Signed-off-by: Ronghua Zhang <ronghua@vmware.com>
+> diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+> index f8d67cc..1b443b0 100644
+> --- a/net/ipv4/tcp_minisocks.c
+> +++ b/net/ipv4/tcp_minisocks.c
+> @@ -645,6 +645,7 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
+>  	if (inet_csk(sk)->icsk_accept_queue.rskq_defer_accept &&
+>  	    TCP_SKB_CB(skb)->end_seq == tcp_rsk(req)->rcv_isn + 1) {
+> +		inet_csk(sk)->icsk_accept_queue.rskq_defer_accept--;
+>  		inet_rsk(req)->acked = 1;
+>  		return NULL;
+>  	}
+>  
+> Is there anything I am missing ?
 
-Ok, looks good, applied to net-2.6, thanks!
+Your logic looks sound and I can't come to any other conclusion
+after going over this code, even going back to 2.4.x
+
+Feel free to make a formal patch submission, thanks Willy.
