@@ -1,53 +1,118 @@
-From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Subject: Re: [PATCH 1/1] net: Introduce recvmmsg socket syscall
-Date: Mon, 12 Oct 2009 22:56:37 -0300
-Message-ID: <20091013015637.GB21809@ghostprotocols.net>
-References: <1255364440-23271-1-git-send-email-acme@redhat.com> <9b2db90b0910121053h3c422beet487cc9a9b9be2894@mail.gmail.com>
+From: Akinobu Mita <akinobu.mita@gmail.com>
+Subject: Re: [PATCH 2/8] bitmap: Introduce bitmap_set, bitmap_clear,
+	bitmap_find_next_zero_area
+Date: Tue, 13 Oct 2009 11:18:18 +0900
+Message-ID: <20091013021818.GA3898@localhost.localdomain>
+References: <1255076961-21325-1-git-send-email-akinobu.mita@gmail.com> <1255076961-21325-2-git-send-email-akinobu.mita@gmail.com> <20091009164100.85a36188.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Caitlin Bestler <caitlin.bestler@gmail.com>,
-	Chris Van Hoof <vanhoof@redhat.com>,
-	Clark Williams <williams@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Nivedita Singhvi <niv@us.ibm.com>,
-	Paul Moore <paul.moore@hp.com>,
-	=?iso-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>,
-	Steven Whitehouse <steve@chygwyn.com>
-To: Nir Tzachar <nir.tzachar@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.25]:53968 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750745AbZJMCF7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Oct 2009 22:05:59 -0400
-Received: by qw-out-2122.google.com with SMTP id 9so738960qwb.37
-        for <netdev@vger.kernel.org>; Mon, 12 Oct 2009 19:04:52 -0700 (PDT)
+Cc: linux-kernel@vger.kernel.org,
+	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
+	"David S. Miller" <davem@davemloft.net>,
+	sparclinux@vger.kernel.org,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>, linuxppc-dev@ozlabs.org,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Lothar Wassmann <LW@KARO-electronics.de>,
+	linux-usb@vger.kernel.org, Roland Dreier <rolandd@cisco.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
+	netdev@vger.kernel.org, Tony Luck <tony.luck@intel.com>,
+	Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org,
+	linux-altix@sgi.com
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-ia64-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <9b2db90b0910121053h3c422beet487cc9a9b9be2894@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20091009164100.85a36188.akpm@linux-foundation.org>
+Sender: linux-ia64-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Em Mon, Oct 12, 2009 at 07:53:43PM +0200, Nir Tzachar escreveu:
-> Hi Arnaldo.
+On Fri, Oct 09, 2009 at 04:41:00PM -0700, Andrew Morton wrote:
+> On Fri,  9 Oct 2009 17:29:15 +0900
+> Akinobu Mita <akinobu.mita@gmail.com> wrote:
 > 
-> Do you have any plans on how we can further investigate the delays I
-> have seen with the second part of the patch? I have tried to simply
-> unlock/lock the socket's mutex every couple of iterations inside the
+> > This introduces new bitmap functions:
+> > 
+> > bitmap_set: Set specified bit area
+> > bitmap_clear: Clear specified bit area
+> > bitmap_find_next_zero_area: Find free bit area
+> > 
+> > These are stolen from iommu helper.
+> > 
+> > I changed the return value of bitmap_find_next_zero_area if there is
+> > no zero area.
+> > 
+> > find_next_zero_area in iommu helper: returns -1
+> > bitmap_find_next_zero_area: return >= bitmap size
+> 
+> I'll plan to merge this patch into 2.6.32 so we can trickle all the
+> other patches into subsystems in an orderly fashion.
 
-Yeah, that is what tcp does, look at tcp_recvmsg (net/ipv4/tcp.c, line
-1505), so I think we should do something along those lines, exactly when
-and after which tests is a matter of experimentation.
+Sounds good.
 
-I'll resume investigation tomorrow.
+> > +void bitmap_set(unsigned long *map, int i, int len)
+> > +{
+> > +	int end = i + len;
+> > +
+> > +	while (i < end) {
+> > +		__set_bit(i, map);
+> > +		i++;
+> > +	}
+> > +}
+> 
+> This is really inefficient, isn't it?  It's a pretty trivial matter to
+> romp through memory 32 or 64 bits at a time.
 
-> loop (to allow the system to process some backlog), but this seems to
-> have little to no effect.
- 
-> Also, a way to enable/disable the no_lock version at runtime will
-> greatly help in testing. Maybe by first introducing a second syscall,
-> recvmmsg_no_lock, for testing purposes??
+OK. I'll do
 
-I'll come up with a way for that to be possible.
+> > +unsigned long bitmap_find_next_zero_area(unsigned long *map,
+> > +					 unsigned long size,
+> > +					 unsigned long start,
+> > +					 unsigned int nr,
+> > +					 unsigned long align_mask)
+> > +{
+> > +	unsigned long index, end, i;
+> > +again:
+> > +	index = find_next_zero_bit(map, size, start);
+> > +
+> > +	/* Align allocation */
+> > +	index = (index + align_mask) & ~align_mask;
+> > +
+> > +	end = index + nr;
+> > +	if (end >= size)
+> > +		return end;
+> > +	i = find_next_bit(map, end, index);
+> > +	if (i < end) {
+> > +		start = i + 1;
+> > +		goto again;
+> > +	}
+> > +	return index;
+> > +}
+> > +EXPORT_SYMBOL(bitmap_find_next_zero_area);
+> 
+> This needs documentation, please.  It appears that `size' is the size
+> of the bitmap and `nr' is the number of zeroed bits we're looking for,
+> but an inattentive programmer could get those reversed.
+> 
+> Also the semantics of `align_mask' could benefit from spelling out.  Is
+> the alignment with respect to memory boundaries or with respect to
+> `map' or with respect to map+start or what?
 
-- Arnaldo
+OK. I will document it.
+
+And I plan to change bitmap_find_next_zero_area() to take the alignment
+instead of an align_mask as Roland said.
+
+> And why does align_mask exist at all?  I was a bit surprised to see it
+> there.  In which scenarios will it be non-zero?
+
+Because the users of iommu-helper and mlx4 need the alignment requirement
+for the zero area.
+
+arch/powerpc/kernel/iommu.c
+arch/x86/kernel/amd_iommu.c
+arch/x86/kernel/pci-gart_64.c
+drivers/net/mlx4/alloc.c
+
