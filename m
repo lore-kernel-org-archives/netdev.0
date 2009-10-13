@@ -1,58 +1,177 @@
-From: dann frazier <dannf@hp.com>
-Subject: Re: PATCH: Network Device Naming mechanism and policy
-Date: Tue, 13 Oct 2009 09:08:39 -0600
-Message-ID: <20091013150839.GD32107@ldl.fc.hp.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com>
- <20091009140000.GA18765@mock.linuxdev.us.dell.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: pull request: wireless-2.6 2009-10-13
+Date: Tue, 13 Oct 2009 11:05:58 -0400
+Message-ID: <20091013150558.GC2747@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
-	matt_domsch@dell.com, jordan_hargrave@dell.com
-To: Narendra K <narendra_k@dell.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:10646 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759942AbZJMPJQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 11:09:16 -0400
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20091009140000.GA18765@mock.linuxdev.us.dell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 09, 2009 at 09:00:01AM -0500, Narendra K wrote:
-> On Fri, Oct 09, 2009 at 07:12:07PM +0530, K, Narendra wrote:
-> > > example udev config:
-> > > SUBSYSTEM=="net",
-> > SYMLINK+="net/by-mac/$sysfs{ifindex}.$sysfs{address}"
-> > 
-> > work as well.  But coupling the ifindex to the MAC address like this
-> > doesn't work.  (In general, coupling any two unrelated attributes when
-> > trying to do persistent names doesn't work.)
-> > 
-> Attaching the latest patch incorporating review comments.
-> 
-> By creating character devices for every network device, we can use
-> udev to maintain alternate naming policies for devices, including
-> additional names for the same device, without interfering with the
-> name that the kernel assigns a device.
-> 
-> This is conditionalized on CONFIG_NET_CDEV.  If enabled (the default),
-> device nodes will automatically be created in /dev/netdev/ for each
-> network device.  (/dev/net/ is already populated by the tun device.)
-> 
-> These device nodes are not functional at the moment - open() returns
-> -ENOSYS.  Their only purpose is to provide userspace with a kernel
-> name to ifindex mapping, in a form that udev can easily manage.
+Dave,
 
-If the idea is just to provide a userspace-visible mapping (and
-presumably take advantage of udev's infrastructure for naming) does
-this need kernel changes? Could this be a hierarchy under
-e.g. /etc/udev instead, using plain text files? It still means we need
-something like libnetdevname for apps to do the translation, but I'm
-not seeing why it matters how this map is stored. Is there some
-special property of the character devices (e.g. uevents) that we're
-not already getting with the existing interfaces?
+Here are a few (almost-)one-liners for 2.6.32.  Included are fixes for
+a use-after-free, a missing "!" in front of a memcmp when comparing
+BSSIDs, a race when using hardware-based scanning, the ieee80211_rx
+context problem, a related documentation change, and a minor build
+issue.
 
+Please let me know if there are problems!
+
+Thanks,
+
+John
+
+---
+
+Individual patches are available here:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
+
+---
+
+The following changes since commit 10c435f18b8cb78a5870c08d52955594f5ec9c31:
+  David S. Miller (1):
+        net: Link in PHY drivers before others.
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
+
+Alan Cox (1):
+      libertas: fix build
+
+Felix Fietkau (1):
+      mac80211: fix logic error ibss merge bssid check
+
+Johannes Berg (3):
+      mac80211: fix ibss race
+      b43: fix ieee80211_rx() context
+      mac80211: document ieee80211_rx() context requirement
+
+Wey-Yi Guy (1):
+      iwlwifi: change the order of freeing memory
+
+ drivers/net/wireless/b43/xmit.c             |    3 +++
+ drivers/net/wireless/iwlwifi/iwl-agn.c      |    2 +-
+ drivers/net/wireless/iwlwifi/iwl3945-base.c |    2 +-
+ drivers/net/wireless/libertas/cmdresp.c     |    1 +
+ include/net/mac80211.h                      |    2 ++
+ net/mac80211/ibss.c                         |    4 ++--
+ net/mac80211/rx.c                           |    2 ++
+ 7 files changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/xmit.c b/drivers/net/wireless/b43/xmit.c
+index 892573b..f4e9695 100644
+--- a/drivers/net/wireless/b43/xmit.c
++++ b/drivers/net/wireless/b43/xmit.c
+@@ -690,7 +690,10 @@ void b43_rx(struct b43_wldev *dev, struct sk_buff *skb, const void *_rxhdr)
+ 	}
+ 
+ 	memcpy(IEEE80211_SKB_RXCB(skb), &status, sizeof(status));
++
++	local_bh_disable();
+ 	ieee80211_rx(dev->wl->hw, skb);
++	local_bh_enable();
+ 
+ #if B43_DEBUG
+ 	dev->rx_count++;
+diff --git a/drivers/net/wireless/iwlwifi/iwl-agn.c b/drivers/net/wireless/iwlwifi/iwl-agn.c
+index cdc07c4..9b5ea8b 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-agn.c
++++ b/drivers/net/wireless/iwlwifi/iwl-agn.c
+@@ -3105,8 +3105,8 @@ static int iwl_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+  out_pci_disable_device:
+ 	pci_disable_device(pdev);
+  out_ieee80211_free_hw:
+-	ieee80211_free_hw(priv->hw);
+ 	iwl_free_traffic_mem(priv);
++	ieee80211_free_hw(priv->hw);
+  out:
+ 	return err;
+ }
+diff --git a/drivers/net/wireless/iwlwifi/iwl3945-base.c b/drivers/net/wireless/iwlwifi/iwl3945-base.c
+index c390dbd..837a193 100644
+--- a/drivers/net/wireless/iwlwifi/iwl3945-base.c
++++ b/drivers/net/wireless/iwlwifi/iwl3945-base.c
+@@ -4096,8 +4096,8 @@ static int iwl3945_pci_probe(struct pci_dev *pdev, const struct pci_device_id *e
+ 	pci_set_drvdata(pdev, NULL);
+ 	pci_disable_device(pdev);
+  out_ieee80211_free_hw:
+-	ieee80211_free_hw(priv->hw);
+ 	iwl_free_traffic_mem(priv);
++	ieee80211_free_hw(priv->hw);
+  out:
+ 	return err;
+ }
+diff --git a/drivers/net/wireless/libertas/cmdresp.c b/drivers/net/wireless/libertas/cmdresp.c
+index c42d3fa..23f6843 100644
+--- a/drivers/net/wireless/libertas/cmdresp.c
++++ b/drivers/net/wireless/libertas/cmdresp.c
+@@ -3,6 +3,7 @@
+   * responses as well as events generated by firmware.
+   */
+ #include <linux/delay.h>
++#include <linux/sched.h>
+ #include <linux/if_arp.h>
+ #include <linux/netdevice.h>
+ #include <asm/unaligned.h>
+diff --git a/include/net/mac80211.h b/include/net/mac80211.h
+index 466859b..c75b960 100644
+--- a/include/net/mac80211.h
++++ b/include/net/mac80211.h
+@@ -1669,6 +1669,8 @@ void ieee80211_restart_hw(struct ieee80211_hw *hw);
+  * to this function and ieee80211_rx_irqsafe() may not be mixed for a
+  * single hardware.
+  *
++ * Note that right now, this function must be called with softirqs disabled.
++ *
+  * @hw: the hardware this frame came in on
+  * @skb: the buffer to receive, owned by mac80211 after this call
+  */
+diff --git a/net/mac80211/ibss.c b/net/mac80211/ibss.c
+index 920ec87..6eaf698 100644
+--- a/net/mac80211/ibss.c
++++ b/net/mac80211/ibss.c
+@@ -544,7 +544,7 @@ static void ieee80211_sta_find_ibss(struct ieee80211_sub_if_data *sdata)
+ 		       "%pM\n", bss->cbss.bssid, ifibss->bssid);
+ #endif /* CONFIG_MAC80211_IBSS_DEBUG */
+ 
+-	if (bss && memcmp(ifibss->bssid, bss->cbss.bssid, ETH_ALEN)) {
++	if (bss && !memcmp(ifibss->bssid, bss->cbss.bssid, ETH_ALEN)) {
+ 		printk(KERN_DEBUG "%s: Selected IBSS BSSID %pM"
+ 		       " based on configured SSID\n",
+ 		       sdata->dev->name, bss->cbss.bssid);
+@@ -829,7 +829,7 @@ void ieee80211_ibss_notify_scan_completed(struct ieee80211_local *local)
+ 		if (!sdata->u.ibss.ssid_len)
+ 			continue;
+ 		sdata->u.ibss.last_scan_completed = jiffies;
+-		ieee80211_sta_find_ibss(sdata);
++		mod_timer(&sdata->u.ibss.timer, 0);
+ 	}
+ 	mutex_unlock(&local->iflist_mtx);
+ }
+diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
+index 865fbc0..7170bf4 100644
+--- a/net/mac80211/rx.c
++++ b/net/mac80211/rx.c
+@@ -2453,6 +2453,8 @@ void ieee80211_rx(struct ieee80211_hw *hw, struct sk_buff *skb)
+ 	struct ieee80211_supported_band *sband;
+ 	struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(skb);
+ 
++	WARN_ON_ONCE(softirq_count() == 0);
++
+ 	if (WARN_ON(status->band < 0 ||
+ 		    status->band >= IEEE80211_NUM_BANDS))
+ 		goto drop;
 -- 
-dann frazier
-
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
