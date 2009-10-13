@@ -1,40 +1,29 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: Re: (Solved) Problem compile kernel on Ubuntu and using on Debian
-Date: Tue, 13 Oct 2009 19:19:31 +0200
-Message-ID: <200910131919.32560.elendil@planet.nl>
-References: <1255431677.13607.118.camel@localhost.localdomain>
+From: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
+Subject: [PATCHv2 1/4] First Patch on TFRC-SP. Copy base files from TFRC
+Date: Tue, 13 Oct 2009 14:18:47 -0300
+Message-ID: <4AD4B677.4000308@embedded.ufcg.edu.br>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	sam@ravnborg.org
-To: Jesper Dangaard Brouer <hawk@comx.dk>
+Cc: netdev@vger.kernel.org, ivocalado@embedded.ufcg.edu.br
+To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Cpsmtpm-eml108.kpnxchange.com ([195.121.3.12]:50987 "EHLO
-	CPSMTPM-EML108.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760066AbZJMRUN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 13:20:13 -0400
-In-reply-To: <1255431677.13607.118.camel@localhost.localdomain>
-Content-Disposition: inline
+Received: from embedded.ufcg.edu.br ([150.165.63.2]:50303 "EHLO
+	mail.embedded.ufcg.edu.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760668AbZJMRTe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 13:19:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesper Dangaard Brouer wrote:
-> If you get past this one, by compiling enough modules into the kernel,
-> BUT then a lot of modules does not seem to be loaded (modprobe).
-[...] 
-> Q: I don't know why a depmod update is required, anyone feel free to
-> answer that question?
+First Patch on TFRC-SP. Does a copy from TFRC and adjust symbols name
+with infix "_sp".
+Also updates Kconfig and init/exit code. An #ifndef was added to headers
+that
+have commom symbols with TFRC that were not changed, so they don't get
+included twice.
 
-The most likely reason is that the two systems have different, and 
-incompatible, versions of module-init-tools.
 
-I've seen the same problem in the past [1] and, after a hefty discussion, 
-accepted that you just _have_ to always run depmod -a after installing a 
-kernel and before generating an initrd.
+Following the rule #8 in Documentation/SubmittingPatches the patch is
+stored at
+http://embedded.ufcg.edu.br/~ivocalado/dccp/patches/patches_tfrc_sp_receiver-v2/tfrc_sp_receiver_01.patch
 
-Cheers,
-FJP
-
-[1] http://bugs.debian.org/518407
