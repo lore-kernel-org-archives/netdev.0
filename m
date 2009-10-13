@@ -1,40 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: Introduce recvmmsg socket syscall
-Date: Mon, 12 Oct 2009 23:40:46 -0700 (PDT)
-Message-ID: <20091012.234046.234165425.davem@davemloft.net>
-References: <y>
-	<1255364440-23271-1-git-send-email-acme@redhat.com>
+Subject: Re: [PATCH -mm] connector: Passing required parameter for function
+ cn_add_callback.
+Date: Mon, 12 Oct 2009 23:42:14 -0700 (PDT)
+Message-ID: <20091012.234214.110950674.davem@davemloft.net>
+References: <b9df5fa10910111944s274207aica39c0e646c10f7a@mail.gmail.com>
+	<20091011.223502.77690228.davem@davemloft.net>
+	<b9df5fa10910122227r710d6782m89fc9ec4273487b8@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, caitlin.bestler@gmail.com,
-	vanhoof@redhat.com, williams@redhat.com, nhorman@tuxdriver.com,
-	nir.tzachar@gmail.com, niv@us.ibm.com, paul.moore@hp.com,
-	remi.denis-courmont@nokia.com, steve@chygwyn.com
-To: acme@redhat.com
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, zbr@ioremap.net,
+	linux-kernel@vger.kernel.org
+To: rakib.mullick@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38634
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38642
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758922AbZJMGku (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 02:40:50 -0400
-In-Reply-To: <1255364440-23271-1-git-send-email-acme@redhat.com>
+	by vger.kernel.org with ESMTP id S932935AbZJMGmS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 02:42:18 -0400
+In-Reply-To: <b9df5fa10910122227r710d6782m89fc9ec4273487b8@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Date: Mon, 12 Oct 2009 13:20:40 -0300
+From: Rakib Mullick <rakib.mullick@gmail.com>
+Date: Tue, 13 Oct 2009 11:27:49 +0600
 
-> Meaning receive multiple messages, reducing the number of syscalls and
-> net stack entry/exit operations.
-> 
-> Next patches will introduce mechanisms where protocols that want to
-> optimize this operation will provide an unlocked_recvmsg operation.
-> 
-> This takes into account comments made by:
- ...
-> Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> On 10/12/09, David Miller <davem@davemloft.net> wrote:
+>> From: Rakib Mullick <rakib.mullick@gmail.com>
+>>  Date: Mon, 12 Oct 2009 08:44:33 +0600
+>>
+>>
+>>  >   */
+>>  > -static void cn_proc_mcast_ctl(struct cn_msg *msg)
+>>  > +static void cn_proc_mcast_ctl(struct cn_msg *msg, struct
+>>  > netlink_skb_parms *nsp)
+>>
+>>
+>> Your patches are unusable because your email client corrupts the
+>>  patch, here you can see it is splitting up long lines.
+>>
+>>  Please fix this up and resubmit.
+> Oops..... sorry for that. This is the second time I'm facing this
+> problem. I'll try to fix it.
+> I'm resubmitting the patch. Here I've recreate the patch to split the
+> line into two.
+> And it just reaches its 80 line mark. Hopefully it will be okay.
 
-You missed the syscall entry addition for arch/sparc/kernel/systbls_32.S
-but I fixed that up while applying this to net-next-2.6
-
-Thanks.
+Upstream and my net-next-2.6 tree both have this function with
+the proper parameters, maybe Andrew's -mm tree had some conflicts
+and they weren't dealt with correctly.
