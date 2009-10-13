@@ -1,84 +1,77 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: bisect results of MSI-X related panic (help!)
-Date: Tue, 13 Oct 2009 11:39:49 +0900
-Message-ID: <4AD3E875.5040800@kernel.org>
-References: <1252699744.3877.15.camel@jbrandeb-hc.jf.intel.com>  <200909120623.49764.elendil@planet.nl> <4AAE0F7B.5050203@kernel.org>  <4AAE105E.1080005@kernel.org> <4807377b0910091724k2a332e90i9941971f6032663c@mail.gmail.com> <4AD2E05A.6060700@kernel.org> <alpine.WNT.2.00.0910120907170.11804@jbrandeb-mobl2.amr.corp.intel.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: TCP_DEFER_ACCEPT is missing counter update
+Date: Tue, 13 Oct 2009 07:07:06 +0200
+Message-ID: <20091013050705.GA2194@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Frans Pop <elendil@planet.nl>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ingo Molnar <mingo@elte.hu>, "hpa@zytor.com" <hpa@zytor.com>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758879AbZJMCkh@vger.kernel.org>
-In-Reply-To: <alpine.WNT.2.00.0910120907170.11804@jbrandeb-mobl2.amr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 1wt.eu ([62.212.114.60]:50174 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753152AbZJMFHn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Oct 2009 01:07:43 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Brandeburg, Jesse wrote:
-> On Mon, 12 Oct 2009, Tejun Heo wrote:
->>> any other debugging tricks/ideas?
->> Hmm... stackprotector adds considerable amount of stack usage and it
->> could be you're seeing stack overflow which would also explain the
->> random crashes you've been seeing.  Do you have DEBUG_STACKOVERFLOW
->> turned on?  This is on x86_64, right?
-> 
-> Hi, thanks for your response, 
-> 
-> [root@jbrandeb-hc linux-2.6.32-rc1]# grep STACKO .config
-> CONFIG_DEBUG_STACKOVERFLOW=y
-> 
-> [root@jbrandeb-hc linux-2.6.32-rc1]# grep X86_64 .config
-> CONFIG_X86_64=y
-> CONFIG_X86_64_SMP=y
-> CONFIG_X86_64_ACPI_NUMA=y
-> 
-> stack size is 8K
-> 
-> I tried Jarek's suggestion of CPUMASK_OFFSTACK and still panic.
-> [66027.266057] Kernel panic - not syncing: stack-protector: Kernel stack 
-> is corrupted in: ffffffff810b4eb0
-> [66027.266059]
-> [66027.266070] Kernel panic - not syncing: stack-protector: Kernel stack 
-> is corrupted in: ffffffff81472856
-> [66027.266071]
-> [66027.266081] Pid: 0, comm: swapper Tainted: G        W  
-> 2.6.32-rc2-git-debug #6
-> [66027.266086] Call Trace:
-> 
-> that was all I got.  Interesting double fault, that hadn't happened 
-> before.
-> 
-> the symbols might be off slightly since I rebuilt the kernel, but this was 
-> initial poke at offsets above in gdb
-> (gdb) l *0xffffffff810b4eb0
-> 0xffffffff810b4eb0 is in dynamic_irq_cleanup (kernel/irq/chip.c:86).
-> 81              desc->handle_irq = handle_bad_irq;
-> 82              desc->chip = &no_irq_chip;
-> 83              desc->name = NULL;
-> 84              clear_kstat_irqs(desc);
-> 85              spin_unlock_irqrestore(&desc->lock, flags);
-> 86      }
+Hello,
 
-Can you please apply the following patch and try to retrigger the
-panic?
+I was trying to use TCP_DEFER_ACCEPT and noticed that if the
+client does not talk, the connection is never accepted and
+remains in SYN_RECV state until the retransmits expire, where
+it finally is deleted. This is bad when some firewall such as
+netfilter sits between the client and the server because the
+firewall sees the connection in ESTABLISHED state while the
+server will finally silently drop it without sending an RST.
 
-diff --git a/kernel/irq/chip.c b/kernel/irq/chip.c
-index c166019..f5a1482 100644
---- a/kernel/irq/chip.c
-+++ b/kernel/irq/chip.c
-@@ -63,6 +63,9 @@ void dynamic_irq_cleanup(unsigned int irq)
- 	struct irq_desc *desc = irq_to_desc(irq);
- 	unsigned long flags;
+This behaviour contradicts the man page which says it should
+wait only for some time :
 
-+	printk("XXX dynamic_irq_cleanup() called on %u\n", irq);
-+	dump_stack();
-+
- 	if (!desc) {
- 		WARN(1, KERN_ERR "Trying to cleanup invalid IRQ%d\n", irq);
- 		return;
+       TCP_DEFER_ACCEPT (since Linux 2.4)
+          Allows a listener to be awakened only when data arrives
+          on the socket.  Takes an integer value  (seconds), this
+          can  bound  the  maximum  number  of attempts TCP will
+          make to complete the connection. This option should not
+          be used in code intended to be portable.
 
--- 
-tejun
+Also, looking at ipv4/tcp.c, a retransmit counter is correctly
+computed :
+
+        case TCP_DEFER_ACCEPT:
+                icsk->icsk_accept_queue.rskq_defer_accept = 0;
+                if (val > 0) {
+                        /* Translate value in seconds to number of
+                         * retransmits */
+                        while (icsk->icsk_accept_queue.rskq_defer_accept < 32 &&
+                               val > ((TCP_TIMEOUT_INIT / HZ) <<
+                                       icsk->icsk_accept_queue.rskq_defer_accept))
+                                icsk->icsk_accept_queue.rskq_defer_accept++;
+                        icsk->icsk_accept_queue.rskq_defer_accept++;
+                }
+                break;
+
+==> rskq_defer_accept is used as a counter of retransmits.
+
+But in tcp_minisocks.c, this counter is only checked. And in
+fact, I have found no location which updates it. So I think
+that what was intended was to decrease it in tcp_minisocks
+whenever it is checked, which the trivial patch below does :
+
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index f8d67cc..1b443b0 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -645,6 +645,7 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
+ 	if (inet_csk(sk)->icsk_accept_queue.rskq_defer_accept &&
+ 	    TCP_SKB_CB(skb)->end_seq == tcp_rsk(req)->rcv_isn + 1) {
++		inet_csk(sk)->icsk_accept_queue.rskq_defer_accept--;
+ 		inet_rsk(req)->acked = 1;
+ 		return NULL;
+ 	}
+ 
+Is there anything I am missing ?
+
+Regards,
+Willy
+
+
