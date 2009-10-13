@@ -1,52 +1,62 @@
-From: dann frazier <dannf@dannf.org>
-Subject: Re: PATCH: Network Device Naming mechanism and policy
-Date: Tue, 13 Oct 2009 16:08:06 -0600
-Message-ID: <20091013220806.GB22641@ldl.fc.hp.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com>
- <20091009140000.GA18765@mock.linuxdev.us.dell.com>
- <20091013150839.GD32107@ldl.fc.hp.com>
- <EDA0A4495861324DA2618B4C45DCB3EE58954D@blrx3m08.blr.amer.dell.com>
- <20091013195117.GA3778@kroah.com>
- <5DDAB7BA7BDB58439DD0EED0B8E9A3AE02E8277A@ausx3mpc102.aus.amer.dell.com>
- <20091013201931.GA4622@kroah.com>
+From: Mike McCormack <mikem@ring3k.org>
+Subject: Re: [PATCH 2/3] sky2: Reading registers in reset causes a hang
+Date: Wed, 14 Oct 2009 08:08:44 +0900
+Message-ID: <4AD5087C.3050305@ring3k.org>
+References: <4AD337ED.4090409@ring3k.org>	<20091012091459.49eb1188@nehalam>	<392fb48f0910121536x3e7c37fbjd83ef821b3617644@mail.gmail.com> <20091013090038.6ec27475@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jordan_Hargrave@Dell.com, Narendra_K@Dell.com,
-	netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
-	Matt_Domsch@Dell.com, Charles_Rose@Dell.com
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091013201931.GA4622@kroah.com>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f188.google.com ([209.85.222.188]:38862 "EHLO
+	mail-pz0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753002AbZJMXKN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 19:10:13 -0400
+Received: by pzk26 with SMTP id 26so9424277pzk.4
+        for <netdev@vger.kernel.org>; Tue, 13 Oct 2009 16:09:36 -0700 (PDT)
+In-Reply-To: <20091013090038.6ec27475@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 13, 2009 at 01:19:31PM -0700, Greg KH wrote:
+Stephen Hemminger wrote:
+> On Tue, 13 Oct 2009 07:36:45 +0900
+> Mike McCormack <mikem@ring3k.org> wrote:
 > 
-> A: No.
-> Q: Should I include quotations after my reply?
+>> 2009/10/13 Stephen Hemminger <shemminger@linux-foundation.org>
+>>> On Mon, 12 Oct 2009 23:06:37 +0900
+>>> Mike McCormack <mikem@ring3k.org> wrote:
+>>>
+>>>> When sky2 hardware is in reset, reading registers with ethtool -d
+>>>> causes a hard system hang. eg.
+>>>>
+>>>>     ifconfig eth1 down
+>>>>     ethtool -d eth1
+>>>>
+>>>> Avoid reading FIFOs, descriptor and status unit, etc. after we've
+>>>>  bought the interface down, as these seem to cause the issue.
+>>>>
+>>>> Assume the same is true for the second port, as my port only has
+>>>>  one card.
+>>> I don't see this on my cards. Let me investigate further before
+>>> committing this. Also, the debugfs interface would also be screwed
+>>> if the registers were unavailable.
+>> I forgot to include one other piece of information... I'm running a
+>> ping -f at the sky2 interface on a remote machine. I'll check debugfs
+>> tonight.
+>>
 > 
-> http://daringfireball.net/2007/07/on_top
-> 
-> On Tue, Oct 13, 2009 at 03:00:59PM -0500, Jordan_Hargrave@Dell.com wrote:
-> > We have developed a mapping library that will convert the
-> > user-friendly symlink names to the kernel names necessary for socket
-> > ioctls.  All network tools that normally take ethX as argument have
-> > been modified to use this mapping library.  Usually it's just a
-> > one-line addition when parsing the command line arguments.
-> 
-> Either I missed this in the first message in this thread, or this was
-> never stated before, but that is nice.  Where is this library,
+> You are flooding a down interface??
 
-I read about it here:
-  http://linux.dell.com/wiki/index.php/Oss/libnetdevname#libnetdevname
+I'm flooding the interface from before it goes down. (Another machine ran
+ping -f 192.168.0.100 continuously while I was testing this...)
 
-Source appears to be here:
-  http://linux.dell.com/git/?p=libnetdevname.git;a=summary
+/sys/kernel/debug/sky2/eth1 no longer exists after ifconfig eth1 down,
+so debugfs cannot cause this problem on my machine.
 
-> and will
-> it be accepted by the upstream tool maintainers?
+It may be possible to fix this with extra cleanup in sky2_down, however I'm
+not really which part of the chip needs more resetting...
 
--- 
-dann frazier
+thanks,
 
+Mike
