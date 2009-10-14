@@ -1,59 +1,62 @@
-From: James Smart <James.Smart@Emulex.Com>
-Subject: Re: Moving drivers into staging (was Re: [GIT PULL] SCSI fixes for
- 2.6.32-rc3)
-Date: Wed, 14 Oct 2009 10:13:59 -0400
-Message-ID: <4AD5DCA7.5060704@emulex.com>
-References: <1255097287.2934.21.camel@localhost.localdomain> <20091012130652.GB25464@elte.hu> <1255357148.2850.91.camel@localhost.localdomain> <20091012145453.GD4565@elte.hu> <20091012150911.GB1656@suse.de> <20091012154244.GA13323@elte.hu> <20091012232429.GA24254@suse.de> <43e72e890910131108m789110b4hc35e25601ad67bb7@mail.gmail.com> <20091014044519.GA19199@suse.de> <1255497575.1851.16.camel@Joe-Laptop.home> <20091014063308.GE784@elte.hu>
+From: Brad Doctor <brad.doctor@gmail.com>
+Subject: PF_RING: Include in main line kernel?
+Date: Wed, 14 Oct 2009 08:33:08 -0600
+Message-ID: <a07586b0910140733s1976cd05u39286de42d9fac23@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>, Greg KH <gregkh@suse.de>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>,
-	James Bottomley <James.Bottomley@suse.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Theodore Tso <tytso@mit.edu>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-scsi <linux-scsi@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Jing Huang <huangj@brocade.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20091014063308.GE784@elte.hu>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Luca Deri <deri@ntop.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-px0-f187.google.com ([209.85.216.187]:48891 "EHLO
+	mail-px0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756640AbZJNOdp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 10:33:45 -0400
+Received: by pxi17 with SMTP id 17so1386208pxi.21
+        for <netdev@vger.kernel.org>; Wed, 14 Oct 2009 07:33:08 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Greetings,
 
+On behalf of the users and developers of the PF_RING project, we would
+like to ask consideration to include the PF_RING module in the main
+line kernel.
 
-Ingo Molnar wrote:
-> Yes, that's a real worry. Some time ago i suggested:
-> 
->   drivers/staging/good/
->   drivers/staging/bad/
->   drivers/staging/ugly/
-> 
->  good:  drivers that are to go upstream in the next cycle 
->  bad:   outgoing drivers being obsoleted or abandoned
->  ugly:  incoming messy drivers with active developers
-> 
-> The messaging of this looks nice and the names are short and obvious.
-> 
-> An added benefit is that this kind of separation makes it easy for 
-> people interested in drivers/staging to follow the 'status' of drivers. 
-> Once stuff goes into 'good' a different kind of review is needed than if 
-> a driver goes into 'ugly'.
-> 
-> The main disadvantage would be the PR angle: putting new drivers into a 
-> path named 'ugly'. Not something you want to put into a quarterly status 
-> report, right? If we put drivers/staging/ugly/ drivers into 
-> drivers/staging/ itself, we'd solve that problem. I.e. we'd keep the 
-> current scheme, but we'd also add drivers/staging/good/ and 
-> drivers/staging/bad/ as two extra stages for incoming and outgoing 
-> drivers.
+PF_RING (http://www.ntop.org/PF_RING.html) is a kernel module that
+implements an mmap()-ed memory ring for accelerating packet capture
+and for providing all the basic features a network monitoring
+application needs. PF_RING includes several features such as packet
+filtering, balancing across capture applications, packet reflection
+(i.e. capture application can decide to bounce selected packets onto
+an as-specified interface). Packets are filtered both using BPF and
+using ACL-like rules (e.g. tcp and ports from 80 to 100). Using
+PF_RING it is also possible to exploit multiple RX queues provided by
+modern NIC adapters. PF_RING achieves a significant speedup by making
+only one copy of the packet. Additionally, PF_RING is able to operate
+in a capture-only installation, further increasing performance.
 
-Change "ugly" to "wip"  (work in progress).  Should remove the negative 
-connotation and keeps things short. Does miss the spaghetti western theme
-though :)
+PF_RING has been around since 2003 and is very mature with an active
+contributing developer base. The developer and user community use a
+mailing list (http://listgateway.unipi.it/pipermail/ntop-misc/) for
+discussions and submissions. PF_RING is used in several projects,
+ranging from distributions such as DD-WRT/OpenWrt to improving
+performance of applications like Snort and Wireshark. Many commercial
+companies around the world in the field of intrusion detection and
+traffic analysis rely on PF_RING for accelerating their products and
+operations.
 
--- james s
+The PF_RING module relies on a small patch to net/core/dev.c that
+intercepts when a packet is received/transmitted so that it can be
+passed to the PF_RING module when present and with an active listener.
+Other than these minor changes, all the PF_RING code is
+self-contained, comprising jut two files: ring.c and ring.h. PF_RING
+is the result of many years of research and development specifically
+into high-speed packet capture, and is homegrown. PF_RING uses the
+stock GPL license.
+
+We feel that PF_RING is ready to be included with the mainline kernel.
+We are ready and eager to support PF_RING for the long term.
+
+Thank you in advance for your consideration!
+
+-brad
