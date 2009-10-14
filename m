@@ -1,46 +1,37 @@
-From: Luca Deri <deri@ntop.org>
+From: Evgeniy Polyakov <zbr@ioremap.net>
 Subject: Re: PF_RING: Include in main line kernel?
-Date: Wed, 14 Oct 2009 22:34:17 +0200
-Message-ID: <C803B824-8249-44BA-ACCD-D9AE4AA21F92@ntop.org>
-References: <903D7FEC-34E8-4F70-ABC0-E56A3A5FBBE6@ntop.org> <20091014.131526.181354809.davem@davemloft.net> <A2EB721D-3AC9-4815-ADCC-EC0B311C5AE7@ntop.org> <20091014.132911.174712308.davem@davemloft.net>
-Mime-Version: 1.0 (Apple Message framework v1076)
-Content-Type: text/plain; charset=us-ascii; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-Cc: bcook@bpointsys.com, brad.doctor@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Date: Thu, 15 Oct 2009 00:36:40 +0400
+Message-ID: <20091014203640.GB32317@ioremap.net>
+References: <a07586b0910140733s1976cd05u39286de42d9fac23@mail.gmail.com> <20091014090125.535ee0dc@nehalam> <a07586b0910141002m2a9f4466j412245fdae4e5372@mail.gmail.com> <20091014123328.1ebe35ea@s6510> <8B385E10-4BE2-48A6-BDE0-0AA1A603275E@ntop.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Brad Doctor <brad.doctor@gmail.com>, netdev@vger.kernel.org
+To: Luca Deri <deri@ntop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from jake.unipi.it ([131.114.21.22]:40709 "EHLO jake.ntop.org"
+Received: from kandzendo.ru ([195.178.208.66]:59174 "EHLO tservice.net.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751487AbZJNUfA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Oct 2009 16:35:00 -0400
-In-Reply-To: <20091014.132911.174712308.davem@davemloft.net>
+	id S933881AbZJNUhS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Oct 2009 16:37:18 -0400
+Content-Disposition: inline
+In-Reply-To: <8B385E10-4BE2-48A6-BDE0-0AA1A603275E@ntop.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David
-so do you want me to start porting PF_RING facilities into PF_PACKET?  
-As I have said I;m not against this: my goal is to include this work  
-into the linux kernel, as it has been separate for too long.
+On Wed, Oct 14, 2009 at 10:17:30PM +0200, Luca Deri (deri@ntop.org) wrote:
+> The reason why I decided to patch dev.c is because I wanted PF_RING to  
+> decide whether the packet journey shall continue or not. In other  
+> words with my solution PF_RING applications can decide whether the  
+> received packets will also be delivered to upper layers (and to other  
+> kernel network components). This configurable 'early packet drop'  
+> allows the overall performance to be significantly increased as  
+> received packets are not supposed to be delivered to upper layers;  
+> this is a typical situations for many monitoring devices.
 
-Luca
+This is a feature many projects implement themself indeed. What about
+creating special return value from the packet handler which will
+indicate that packet was already consumed and no further work should be
+done on it?
 
-On Oct 14, 2009, at 10:29 PM, David Miller wrote:
-
-> From: Luca Deri <deri@ntop.org>
-> Date: Wed, 14 Oct 2009 22:26:25 +0200
->
->> I agree that some PF_RING features could be merged into
->> PF_PACKET. However PF_RING is not just about improving packet capture
->> but it implements facilities that can be used by many monitoring
->> applications including, packet balancing, reflection, layer-7 packet
->> filtering, pf_ring socket clustering just to name a few. You can read
->> about PF_RING feature into this tutorial:
->> http://luca.ntop.org/IM2009_Tutorial.pdf
->
-> I've already researched several times what PF_RING does and
-> is capable of doing, and my position still stands that none of
-> it can't be added to existing facilities.
->
-> It's been an out of tree hack for years, and if it stays as
-> a seperate facility it's likely to stay that way.
-
+-- 
+	Evgeniy Polyakov
