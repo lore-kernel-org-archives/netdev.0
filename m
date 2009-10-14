@@ -1,11 +1,11 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH] net/fec_mpc52xx: Fix kernel panic on FEC error
-Date: Wed, 14 Oct 2009 11:40:00 -0600
-Message-ID: <20091014173842.29148.27965.stgit@angua>
+Subject: [PATCH v2] net/fec_mpc52xx: Fix kernel panic on FEC error
+Date: Wed, 14 Oct 2009 11:43:43 -0600
+Message-ID: <20091014174224.29221.18830.stgit@angua>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: John Bonesio <bonesio@secretlab.ca>
+Cc: John Bonesio <bones@secretlab.ca>
 To: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
 List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
@@ -19,7 +19,7 @@ Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
 Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-From: John Bonesio <bonesio@secretlab.ca>
+From: John Bonesio <bones@secretlab.ca>
 
 The MDIO bus cannot be accessed at interrupt context, but on an FEC
 error, the fec_mpc52xx driver reset function also tries to reset the
@@ -29,18 +29,11 @@ try to sleep, the kernel ends up panicking.
 Resetting the PHY on an FEC error isn't even necessary.  This patch
 solves the problem by removing the PHY reset entirely.
 
-Signed-off-by: John Bonesio <bonesio@secretlab.ca>
+Signed-off-by: John Bonesio <bones@secretlab.ca>
 Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
 ---
 
-Hi David,
-
-This patch is a bug fix that definitely needs to go in for 2.6.32.
-I'll also be asking Greg to pick it up for the stable tree once it
-is in mainline.
-
-Thanks,
-g.
+v2: fixed stupid misspelling of John's email address.  No changes to content.
 
  drivers/net/fec_mpc52xx.c |    6 ------
  1 files changed, 0 insertions(+), 6 deletions(-)
