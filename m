@@ -1,22 +1,36 @@
-From: Steve.Glendinning@smsc.com
-Subject: Re: [PATCH 1/2] net: enable smsc911x on MIPS
-Date: Wed, 14 Oct 2009 08:45:13 +0100
-Message-ID: <OF70E1E215.8EE7B66F-ON8025764E.006DA933-8025764F.002A9703@smsc.com>
-References: <1255454749-26895-1-git-send-email-manuel.lauss@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/6] netdev: Octeon MGMT new driver + octeon_ethernet
+ updates.
+Date: Wed, 14 Oct 2009 01:09:13 -0700 (PDT)
+Message-ID: <20091014.010913.21176323.davem@davemloft.net>
+References: <4ACD1F4E.8090603@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Manuel Lauss <manuel.lauss@gmail.com>, netdev@vger.kernel.org
-To: Manuel Lauss <manuel.lauss@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smsc.com ([170.129.50.11]:62618 "EHLO smsc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755644AbZJNIBt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Oct 2009 04:01:49 -0400
-In-Reply-To: <1255454749-26895-1-git-send-email-manuel.lauss@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ralf@linux-mips.org, linux-mips@linux-mips.org,
+	netdev@vger.kernel.org
+To: ddaney@caviumnetworks.com
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <4ACD1F4E.8090603@caviumnetworks.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-Id: netdev.vger.kernel.org
 
-> Signed-off-by: Manuel Lauss <manuel.lauss@gmail.com>
+From: David Daney <ddaney@caviumnetworks.com>
+Date: Wed, 07 Oct 2009 16:07:58 -0700
 
-Acked-by: Steve Glendinning <steve.glendinning@smsc.com>
+> The main thrust of this patch set is to add a driver for the Cavium
+> Networks Octeon processor's MII (Management port) Ethernet devices.
+> Since it shares an mdio bus with the existing octeon-ethernet driver,
+> there is also some rearrangement of that code.
 
+Ralf how do you want to handle this patch set?
+
+Since it's mostly MIPS infrastructure bits, please just add my:
+
+Acked-by: David S. Miller <davem@davemloft.net>
+
+to the commit that adds the actual driver under drivers/net/
+and you can merge all of it via your tree.
+
+Thanks!
