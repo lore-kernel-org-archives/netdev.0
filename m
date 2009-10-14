@@ -1,83 +1,92 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: [PATCH] Add sk_mark route lookup support for IPv4 listening
-	sockets, and for IPv4 multicast forwarding
-Date: Wed, 14 Oct 2009 11:33:39 -0700
-Message-ID: <55a4f86e0910141133y4decdeb4v43d9168687bbb724@mail.gmail.com>
-References: <20091007.223928.34412707.davem@davemloft.net>
-	 <55a4f86e0910140051v69441b09gd364b32f8e2d0c68@mail.gmail.com>
-	 <20091014072319.GA12095@fogou.chygwyn.com>
-	 <20091014.021505.181431380.davem@davemloft.net>
-	 <55a4f86e0910140250o45532dabr33707c025dfa25f9@mail.gmail.com>
-	 <20091014092743.GA13374@fogou.chygwyn.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: Moving drivers into staging (was Re: [GIT PULL] SCSI fixes for
+	2.6.32-rc3)
+Date: Wed, 14 Oct 2009 20:36:57 +0200
+Message-ID: <20091014183657.GB5133@elte.hu>
+References: <1255357148.2850.91.camel@localhost.localdomain> <20091012145453.GD4565@elte.hu> <20091012150911.GB1656@suse.de> <20091012154244.GA13323@elte.hu> <20091012232429.GA24254@suse.de> <43e72e890910131108m789110b4hc35e25601ad67bb7@mail.gmail.com> <20091014044519.GA19199@suse.de> <1255497575.1851.16.camel@Joe-Laptop.home> <20091014063308.GE784@elte.hu> <4AD60FF9.40200@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, atis@mikrotik.com,
-	netdev@vger.kernel.org, panther@balabit.hu, eric.dumazet@gmail.com,
-	brian.haley@hp.com
-To: steve@chygwyn.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f227.google.com ([209.85.220.227]:61857 "EHLO
-	mail-fx0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756482AbZJNSeQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 14:34:16 -0400
-Received: by fxm27 with SMTP id 27so74935fxm.17
-        for <netdev@vger.kernel.org>; Wed, 14 Oct 2009 11:33:39 -0700 (PDT)
-In-Reply-To: <20091014092743.GA13374@fogou.chygwyn.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Joe Perches <joe@perches.com>, Greg KH <gregkh@suse.de>,
+	"Luis R. Rodriguez" <mcgrof@gmail.com>,
+	James Bottomley <James.Bottomley@suse.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Theodore Tso <tytso@mit.edu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-scsi <linux-scsi@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Jing Huang <huangj@brocade.com>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4AD60FF9.40200@s5r6.in-berlin.de>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> I don't agree. There are two route lookups with a tunnel, the
-> internal one and the tunnel one. Here is an example of what I'm
-> thinking:
->
-> 1. Look up a route which points at a remote ip addres via a tunnel de=
-vice.
-> =C2=A0 The "setmark" on this route sets the skb mark
 
-imho, this is much better done by having the mark setting performed
-explicitly by the tunnel device itself.
-That's also were we set ttl and qos (or inherit) on the outgoing packet=
-).
+* Stefan Richter <stefanr@s5r6.in-berlin.de> wrote:
 
-> 2. Look up a route on the tunnel itself (i.e. the tunnel endpoint not
-> =C2=A0 the socket endpoint) using the mark from the initial lookup. T=
-his
-> =C2=A0 route can depend on the previous lookup (if there are multiple
-> =C2=A0 routes for multiple marks) and also set the mark to use.
+> Ingo Molnar wrote:
+> > * Joe Perches <joe@perches.com> wrote:
+> > 
+> >> On Tue, 2009-10-13 at 21:45 -0700, Greg KH wrote:
+> >> > How about when it was scheduled to be removed, we put it in staging and
+> >> > I'll add it to my announcements about the staging tree every release?
+> >> > Unless you can think of a better way?
+> >> 
+> >> staging/to_be_removed_unless_fixed_by/v.x.y ?
+> > 
+> > Yes, that's a real worry. Some time ago i suggested:
+> > 
+> >   drivers/staging/good/
+> >   drivers/staging/bad/
+> >   drivers/staging/ugly/
+> 
+> How well do "git am", "quilt import" and friends cope with ever 
+> changing directories?
 
-we would get the mark set by the tunneling module here.
+Once a driver is in a tree it's in Git and git mv is easy. People 
+working with Linux better familiarize themselves with Git workflow - the 
+sooner the better.
 
-> The default would be to inherit the mark over a route lookup, in
-> case that no "setmark" had been specified for that route. In
-> other words, it would be the same as it is now.
+If it's not in tree then it will adopt to whatever layout there is once 
+it gets into Greg's tree. I dont see the problem.
 
-I'm not saying your solution wouldn't work, but I think it's less
-clean.  I don't think marking should be inherited (in the general
-case) in case of packet wrapping (whether via gre, ipip, sit, or other
-methods).
+> How about using drivers/staging/this_driver/TODO and (or) its Kconfig 
+> help text to leave a note about the plans for this driver?
 
-> The mark is supposed to be a generic thing, not just for routing
-> lookups, it can be used for classification, etc as well. I would
-> expect to see such a thing used for maybe specifying a VLAN or
-> a reference to an MPLS label stack, or something similar too,
+Well, the answer is obvious i think. Tell me, at a glance, if you see a 
+patch on lkml, which one is for a staging driver to be obsoleted, and 
+which one is the one going upstream real soon? The patches say:
 
-Right, the mark can currently (as far as I know) be set in one of two
-ways - either from the mangle table (and it can also be matched on in
-netfilter) or by using setsockopt(SO_MARK).
+ +++ a/drivers/staging/foo/x.c
 
-Imagine a situation where you have a machine with routing already
-configured (pretty complex setup, tunnels, firewalls, etc) and you
-want to run a user space application that verifies (health-checks)
-some remote host (or something).  As part of the health check you want
-to verify a particular route to the destination.  This requires
-per-socket routing, which can (almost) be achieved by having proper
-routing (on fwmark) setup and using setsockopt(SO_MARK) on the health
-check socket in order to force specific routing.  These health checks
-may then of course be feedback into the routing system (ie. if they
-fail the routing rules get modified).  Note, that in particular we may
-want to be healthchecking routes that aren't even available in the
-default routing table (because they've currently been removed from the
-default table, because previous health checks failed).
+ +++ a/drivers/staging/bar/y.c
 
-Maciej
+Then tell me the same at a glance if you see patches for:
+
+ +++ a/drivers/staging/wip/x.c
+
+ +++ a/drivers/staging/bad/y.c
+
+> The worry that these will be ignored like 
+> Documentation/feature-removal-schedule.txt is being ignored may apply 
+> to the path name based solution too, I'm afraid.
+
+It wont be 'ignored', as it's in every patch, it's in every commit, it's 
+in every substantial communication about that driver.
+
+The problem with feature-removal-schedule.txt is that it's too much out 
+of sight and not part of the regular patch workflow. Same goes for any 
+TODO file. Experience has shown that the actual _path_ were drivers end 
+up does matter quite a bit, to general visibility and to mindset.
+
+That's one of the reasons why we have _half a thousand_ directories in 
+drivers/ to begin with. The directory namespace is very powerful, and we 
+use it to convey all sorts of information about the logical category a 
+driver is in.
+
+Using it in drivers/staging/ instead of the current flat hierarchy would 
+thus be pretty natural.
+
+	Ingo
