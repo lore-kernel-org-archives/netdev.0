@@ -1,38 +1,35 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: PF_RING: Include in main line kernel?
-Date: Wed, 14 Oct 2009 13:29:11 -0700 (PDT)
-Message-ID: <20091014.132911.174712308.davem@davemloft.net>
-References: <903D7FEC-34E8-4F70-ABC0-E56A3A5FBBE6@ntop.org>
-	<20091014.131526.181354809.davem@davemloft.net>
-	<A2EB721D-3AC9-4815-ADCC-EC0B311C5AE7@ntop.org>
+Date: Wed, 14 Oct 2009 13:27:56 -0700 (PDT)
+Message-ID: <20091014.132756.231458769.davem@davemloft.net>
+References: <a07586b0910141002m2a9f4466j412245fdae4e5372@mail.gmail.com>
+	<20091014123328.1ebe35ea@s6510>
+	<8B385E10-4BE2-48A6-BDE0-0AA1A603275E@ntop.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bcook@bpointsys.com, brad.doctor@gmail.com, netdev@vger.kernel.org
+Cc: shemminger@vyatta.com, brad.doctor@gmail.com,
+	netdev@vger.kernel.org
 To: deri@ntop.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49621
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49616
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754112AbZJNU3O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 16:29:14 -0400
-In-Reply-To: <A2EB721D-3AC9-4815-ADCC-EC0B311C5AE7@ntop.org>
+	by vger.kernel.org with ESMTP id S933895AbZJNU17 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 16:27:59 -0400
+In-Reply-To: <8B385E10-4BE2-48A6-BDE0-0AA1A603275E@ntop.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Luca Deri <deri@ntop.org>
-Date: Wed, 14 Oct 2009 22:26:25 +0200
+Date: Wed, 14 Oct 2009 22:17:30 +0200
 
-> I agree that some PF_RING features could be merged into
-> PF_PACKET. However PF_RING is not just about improving packet capture
-> but it implements facilities that can be used by many monitoring
-> applications including, packet balancing, reflection, layer-7 packet
-> filtering, pf_ring socket clustering just to name a few. You can read
-> about PF_RING feature into this tutorial:
-> http://luca.ntop.org/IM2009_Tutorial.pdf
+> Another reason, is that having a hook in dev.c, device drivers can
+> pass PF_RING packets directly without going through the standard
+> kernel mechanisms. For instance I have developed some drivers that if
+> they detect the presence of PF_RING, pass received packets directly to
+> PF_RING instead of going with NAPI.
 
-I've already researched several times what PF_RING does and
-is capable of doing, and my position still stands that none of
-it can't be added to existing facilities.
+There is absolutely no reason to do this.
 
-It's been an out of tree hack for years, and if it stays as
-a seperate facility it's likely to stay that way.
+If the existing infrastructure isn't good or fast enough,
+fix it, don't bypass it.
