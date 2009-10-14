@@ -1,77 +1,69 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: Re: [PATCH] ax25: unsigned cannot be less than 0 in ax25_ctl_ioctl()
-Date: Wed, 14 Oct 2009 17:26:30 +0200
-Message-ID: <4AD5EDA6.4040709@gmail.com>
-References: <4AD0FB0B.8050609@gmail.com> <4AD34D3C.1060206@bfs.de> <4AD37D44.9050207@gmail.com> <4AD3A67B.6070703@cerebellum.kd>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: query: bnx2 and tg3 don't check tcp and/or ip header length validity?
+Date: Wed, 14 Oct 2009 11:50:11 -0400
+Message-ID: <4AD5F333.3040002@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: wharms@bfs.de, linux-hams@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>, Joerg Reuter <jreuter@yaina.de>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Kevin Dawson <kevind@esi.com.au>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f208.google.com ([209.85.219.208]:61859 "EHLO
-	mail-ew0-f208.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761864AbZJNPRn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 11:17:43 -0400
-In-Reply-To: <4AD3A67B.6070703@cerebellum.kd>
+Received: from fg-out-1718.google.com ([72.14.220.158]:37939 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934682AbZJNPwD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 11:52:03 -0400
+Received: by fg-out-1718.google.com with SMTP id 16so1450199fgg.1
+        for <netdev@vger.kernel.org>; Wed, 14 Oct 2009 08:50:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-struct ax25_ctl_struct member `arg' is unsigned and cannot be less
-than 0.
+My question is whether it would be OK to add a simple test, and set it to
+zero in case of bad values?
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-Op 12-10-09 23:58, Kevin Dawson schreef:
+In both cases, they get a number that could be negative (in the case of a
+badly formed header), and mash it into a flag vector of some sort.
 
->>>  tmp_arg=ax25_ctl.arg * HZ;
->>>
->>>   if (arg == 0 || arg >  ULONG_MAX )
->>>         goto einval_put;
->>
->> I'm not sure, I think this would only work if we made `arg' an
->> unsigned long long.
-> 
-> That depends on the possible values of ax25_ctl.arg.
-> 
->> +    if (ax25_ctl.arg * HZ > ULONG_MAX && ax25_ctl.cmd != AX25_KILL)
->> +        return -EINVAL;
-> 
-> Why the need to change arg before comparing it with a constant?  Let the
-> compiler do the work:
-> 
->     if (ax25_ctl.arg > ULONG_MAX / HZ && ...
+No comments/documentation explaining purpose.
 
-Ok, How about this then?
+===
 
-diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
-index f454607..d923ac4 100644
---- a/net/ax25/af_ax25.c
-+++ b/net/ax25/af_ax25.c
-@@ -369,6 +369,9 @@ static int ax25_ctl_ioctl(const unsigned int cmd, void __user *arg)
- 	if (ax25_ctl.digi_count > AX25_MAX_DIGIS)
- 		return -EINVAL;
- 
-+	if (ax25_ctl.arg > ULONG_MAX / HZ && ax25_ctl.cmd != AX25_KILL)
-+		return -EINVAL;
-+
- 	digi.ndigi = ax25_ctl.digi_count;
- 	for (k = 0; k < digi.ndigi; k++)
- 		digi.calls[k] = ax25_ctl.digi_addr[k];
-@@ -418,14 +421,10 @@ static int ax25_ctl_ioctl(const unsigned int cmd, void __user *arg)
- 		break;
- 
- 	case AX25_T3:
--		if (ax25_ctl.arg < 0)
--			goto einval_put;
- 		ax25->t3 = ax25_ctl.arg * HZ;
- 		break;
- 
- 	case AX25_IDLE:
--		if (ax25_ctl.arg < 0)
--			goto einval_put;
- 		ax25->idle = ax25_ctl.arg * 60 * HZ;
- 		break;
- 
+bnx2.c:
+		u32 tcp_opt_len;
+(ipv6 variant)
+			vlan_tag_flags |= ((tcp_opt_len >> 2) << 8) |
+					  TX_BD_FLAGS_SW_FLAGS;
+(ipv4 variant)
+			if (tcp_opt_len || (iph->ihl > 5)) {
+				vlan_tag_flags |= ((iph->ihl - 5) +
+						   (tcp_opt_len >> 2)) << 8;
+			}
+
+At least in the latter case, it bothers to check the IP header validity....
+
+These are transmit-only, I cannot find where they use them on receive?
+
+===
+
+tg3.c:
+		int tcp_opt_len, ip_tcp_len;
+
+			tcp_opt_len = tcp_optlen(skb);
+			ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
+
+			iph->check = 0;
+			iph->tot_len = htons(mss + ip_tcp_len + tcp_opt_len);
+			hdrlen = ip_tcp_len + tcp_opt_len;
+
+...
+
+		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717) {
+			mss |= (hdrlen & 0xc) << 12;
+			if (hdrlen & 0x10)
+				base_flags |= 0x00000010;
+			base_flags |= (hdrlen & 0x3e0) << 5;
+		} else
+			mss |= hdrlen << 9;
+
+Likewise, transmit-only.  With completely different code later, in a dma
+bug fix function.  But that's the overall picture....
+
+Anybody have any idea what's going on here?
