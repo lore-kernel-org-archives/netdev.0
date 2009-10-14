@@ -1,199 +1,74 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: [net-next-2.6 PATCH 3/4 resent] TCPCT part 1c: redefine TCP header
- functions *_len_th(), cleanup
-Date: Thu, 15 Oct 2009 11:07:39 -0400
-Message-ID: <4AD73ABB.7010503@gmail.com>
+From: Alan Cox <alan@linux.intel.com>
+Subject: [PATCH] cosa: Kill off the use of the old ioctl path
+Date: Wed, 14 Oct 2009 16:22:24 +0100
+Message-ID: <20091014152224.30363.72926.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000008010703010108040607"
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.153]:15438 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753358AbZJOPJc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 11:09:32 -0400
-Received: by fg-out-1718.google.com with SMTP id 16so533724fgg.1
-        for <netdev@vger.kernel.org>; Thu, 15 Oct 2009 08:07:44 -0700 (PDT)
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:50948 "EHLO
+	bob.linux.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758493AbZJOPJw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 11:09:52 -0400
+Received: from localhost.localdomain (localhost [127.0.0.1])
+	by bob.linux.org.uk (8.14.3/8.14.3) with ESMTP id n9EFMOmD030391
+	for <netdev@vger.kernel.org>; Wed, 14 Oct 2009 16:25:04 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------000008010703010108040607
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-
-Redefine two TCP header functions to accept TCP header pointer.
-When subtracting, return signed int to allow error checking.
-
-In the only two existing files using the latter function, clean up
-confusing and inconsistent mixing of both byte and word offsets.
-However, remove proposed header length checking, and document the
-assumptions instead.  In the immortal words of the reviewer:
-
-    This is transmit, and the packets can only come from the Linux
-    TCP stack, not some external entity.
-
-    You're being way too anal here, and adding these checks to
-    drivers would be just a lot of rediculious bloat. [sic]
-
-These functions will also be used in subsequent patches that implement
-additional features.
+Signed-off-by: Alan Cox <alan@linux.intel.com>
 ---
-   drivers/net/bnx2.c  |   22 +++++++++++++---------
-   drivers/net/tg3.c   |   32 +++++++++++++++++---------------
-   include/linux/tcp.h |   10 ++++++++--
-   3 files changed, 38 insertions(+), 26 deletions(-)
+
+ drivers/net/wan/cosa.c |   20 +++++++++++++-------
+ 1 files changed, 13 insertions(+), 7 deletions(-)
 
 
-
---------------000008010703010108040607
-Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
- name="TCPCT+1-3.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="TCPCT+1-3.patch"
-
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 08cddb6..2cb342c 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -6330,18 +6330,17 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
+diff --git a/drivers/net/wan/cosa.c b/drivers/net/wan/cosa.c
+index e2c33c0..d888390 100644
+--- a/drivers/net/wan/cosa.c
++++ b/drivers/net/wan/cosa.c
+@@ -297,8 +297,8 @@ static ssize_t cosa_write(struct file *file,
+ static unsigned int cosa_poll(struct file *file, poll_table *poll);
+ static int cosa_open(struct inode *inode, struct file *file);
+ static int cosa_release(struct inode *inode, struct file *file);
+-static int cosa_chardev_ioctl(struct inode *inode, struct file *file,
+-	unsigned int cmd, unsigned long arg);
++static long cosa_chardev_ioctl(struct file *file, unsigned int cmd,
++				unsigned long arg);
+ #ifdef COSA_FASYNC_WORKING
+ static int cosa_fasync(struct inode *inode, struct file *file, int on);
  #endif
- 	if ((mss = skb_shinfo(skb)->gso_size)) {
--		u32 tcp_opt_len;
--		struct iphdr *iph;
-+		struct tcphdr *th = tcp_hdr(skb);
-+		int tcp_opt_words = th->doff - (sizeof(*th) >> 2);
- 
-+		/* assumes positive tcp_opt_words without checking */
- 		vlan_tag_flags |= TX_BD_FLAGS_SW_LSO;
- 
--		tcp_opt_len = tcp_optlen(skb);
--
- 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
- 			u32 tcp_off = skb_transport_offset(skb) -
- 				      sizeof(struct ipv6hdr) - ETH_HLEN;
- 
--			vlan_tag_flags |= ((tcp_opt_len >> 2) << 8) |
-+			vlan_tag_flags |= (tcp_opt_words << 8) |
- 					  TX_BD_FLAGS_SW_FLAGS;
- 			if (likely(tcp_off == 0))
- 				vlan_tag_flags &= ~TX_BD_FLAGS_TCP6_OFF0_MSK;
-@@ -6354,10 +6353,15 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 				mss |= (tcp_off & 0xc) << TX_BD_TCP6_OFF2_SHL;
- 			}
- 		} else {
--			iph = ip_hdr(skb);
--			if (tcp_opt_len || (iph->ihl > 5)) {
--				vlan_tag_flags |= ((iph->ihl - 5) +
--						   (tcp_opt_len >> 2)) << 8;
-+			struct iphdr *iph = ip_hdr(skb);
-+			int ip_opt_words = iph->ihl - (sizeof(*iph) >> 2);
-+			int opt_words;
-+
-+			/* assumes positive ip_opt_words without checking */
-+			opt_words = ip_opt_words + tcp_opt_words;
-+
-+			if (opt_words > 0) {
-+				vlan_tag_flags |= opt_words << 8;
- 			}
- 		}
- 	} else
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index ba5d3fe..7e89e2a 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -5230,7 +5230,8 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb,
- 		else {
- 			struct iphdr *iph = ip_hdr(skb);
- 
--			tcp_opt_len = tcp_optlen(skb);
-+			tcp_opt_len = tcp_option_len_th(tcp_hdr(skb));
-+			/* assumes positive tcp_opt_len without checking */
- 			ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
- 
- 			iph->check = 0;
-@@ -5392,7 +5393,8 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 	mss = 0;
- 	if ((mss = skb_shinfo(skb)->gso_size) != 0) {
- 		struct iphdr *iph;
--		int tcp_opt_len, ip_tcp_len, hdr_len;
-+		int tcp_opt_len, ip_hdr_len, ip_opt_len, ip_tcp_len, hdr_len;
-+		int opt_bytes;
- 
- 		if (skb_header_cloned(skb) &&
- 		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
-@@ -5400,10 +5402,12 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 			goto out_unlock;
- 		}
- 
--		tcp_opt_len = tcp_optlen(skb);
--		ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
--
-+		tcp_opt_len = tcp_option_len_th(tcp_hdr(skb));
-+		/* assumes positive tcp_opt_len without checking */
-+		ip_hdr_len = ip_hdrlen(skb);
-+		ip_tcp_len = ip_hdr_len + sizeof(struct tcphdr);
- 		hdr_len = ip_tcp_len + tcp_opt_len;
-+
- 		if (unlikely((ETH_HLEN + hdr_len) > 80) &&
- 			     (tp->tg3_flags2 & TG3_FLG2_TSO_BUG))
- 			return (tg3_tso_bug(tp, skb));
-@@ -5423,20 +5427,18 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 								 IPPROTO_TCP,
- 								 0);
- 
-+		ip_opt_len = ip_hdr_len - sizeof(struct iphdr);
-+		/* assumes positive ip_opt_len without checking */
-+		opt_bytes = ip_opt_len + tcp_opt_len;
-+
- 		if ((tp->tg3_flags2 & TG3_FLG2_HW_TSO) ||
- 		    (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705)) {
--			if (tcp_opt_len || iph->ihl > 5) {
--				int tsflags;
--
--				tsflags = (iph->ihl - 5) + (tcp_opt_len >> 2);
--				mss |= (tsflags << 11);
-+			if (opt_bytes > 0) {
-+				mss |= (opt_bytes >> 2) << 11;
- 			}
- 		} else {
--			if (tcp_opt_len || iph->ihl > 5) {
--				int tsflags;
--
--				tsflags = (iph->ihl - 5) + (tcp_opt_len >> 2);
--				base_flags |= tsflags << 12;
-+			if (opt_bytes > 0) {
-+				base_flags |= (opt_bytes >> 2) << 12;
- 			}
- 		}
- 	}
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 63ab660..d304ba5 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -217,9 +217,15 @@ static inline unsigned int tcp_hdrlen(const struct sk_buff *skb)
- 	return tcp_hdr(skb)->doff * 4;
+@@ -309,7 +309,7 @@ static const struct file_operations cosa_fops = {
+ 	.read		= cosa_read,
+ 	.write		= cosa_write,
+ 	.poll		= cosa_poll,
+-	.ioctl		= cosa_chardev_ioctl,
++	.unlocked_ioctl	= cosa_chardev_ioctl,
+ 	.open		= cosa_open,
+ 	.release	= cosa_release,
+ #ifdef COSA_FASYNC_WORKING
+@@ -1204,12 +1204,18 @@ static int cosa_net_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	return hdlc_ioctl(dev, ifr, cmd);
  }
  
--static inline unsigned int tcp_optlen(const struct sk_buff *skb)
-+static inline unsigned int tcp_header_len_th(const struct tcphdr *th)
+-static int cosa_chardev_ioctl(struct inode *inode, struct file *file,
+-	unsigned int cmd, unsigned long arg)
++static long cosa_chardev_ioctl(struct file *file, unsigned int cmd,
++							unsigned long arg)
  {
--	return (tcp_hdr(skb)->doff - 5) * 4;
-+	return th->doff * 4;
-+}
-+
-+/* When doff is bad, this could be negative. */
-+static inline int tcp_option_len_th(const struct tcphdr *th)
-+{
-+	return (int)tcp_header_len_th(th) - sizeof(*th);
+ 	struct channel_data *channel = file->private_data;
+-	struct cosa_data *cosa = channel->cosa;
+-	return cosa_ioctl_common(cosa, channel, cmd, arg);
++	struct cosa_data *cosa;
++	long ret;
++	
++	lock_kernel();
++	cosa = channel->cosa;
++	ret = cosa_ioctl_common(cosa, channel, cmd, arg);
++	unlock_kernel();
++	return ret;
  }
  
- /* This defines a selective acknowledgement block. */
--- 
-1.6.0.4
+ 
 
-
-
---------------000008010703010108040607--
