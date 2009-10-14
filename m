@@ -1,78 +1,90 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: Moving drivers into staging (was Re: [GIT PULL] SCSI fixes for
- 2.6.32-rc3)
-Date: Wed, 14 Oct 2009 21:00:49 +0200 (CEST)
-Message-ID: <tkrat.88ac5cebebbd9689@s5r6.in-berlin.de>
-References: <1255357148.2850.91.camel@localhost.localdomain>
- <20091012145453.GD4565@elte.hu> <20091012150911.GB1656@suse.de>
- <20091012154244.GA13323@elte.hu> <20091012232429.GA24254@suse.de>
- <43e72e890910131108m789110b4hc35e25601ad67bb7@mail.gmail.com>
- <20091014044519.GA19199@suse.de> <1255497575.1851.16.camel@Joe-Laptop.home>
- <20091014063308.GE784@elte.hu> <4AD60FF9.40200@s5r6.in-berlin.de>
- <20091014183657.GB5133@elte.hu>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; CHARSET=us-ascii
-Cc: Joe Perches <joe@perches.com>, Greg KH <gregkh@suse.de>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>,
-	James Bottomley <James.Bottomley@suse.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Theodore Tso <tytso@mit.edu>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-scsi <linux-scsi@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Jing Huang <huangj@brocade.com>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20091014183657.GB5133@elte.hu>
-Content-Disposition: INLINE
-Sender: linux-scsi-owner@vger.kernel.org
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: [PATCH 3/6] MIPS: Octeon: Add platform devices MGMT Ethernet ports.
+Date: Wed, 14 Oct 2009 12:04:39 -0700
+Message-ID: <1255547082-7388-3-git-send-email-ddaney@caviumnetworks.com>
+References: <4AD6205A.8070200@caviumnetworks.com>
+Cc: David Daney <ddaney@caviumnetworks.com>
+To: ralf@linux-mips.org, linux-mips@linux-mips.org,
+	netdev@vger.kernel.org
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <4AD6205A.8070200@caviumnetworks.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-On 14 Oct, Ingo Molnar wrote:
-> * Stefan Richter <stefanr@s5r6.in-berlin.de> wrote:
->> How well do "git am", "quilt import" and friends cope with ever 
->> changing directories?
+Signed-off-by: David Daney <ddaney@caviumnetworks.com>
+---
+ arch/mips/cavium-octeon/octeon-platform.c |   58 +++++++++++++++++++++++++++++
+ 1 files changed, 58 insertions(+), 0 deletions(-)
 
-[Perhaps the -p option does the trick.  And git-am could be done on a
-temporary branch from before the move of the files.]
-
-> Once a driver is in a tree it's in Git and git mv is easy. People 
-> working with Linux better familiarize themselves with Git workflow - the 
-> sooner the better.
-
-Even if author and committer both work with git, they often use e-mail
-to transfer patches.
-
-> If it's not in tree then it will adopt to whatever layout there is once 
-> it gets into Greg's tree.
-
-Many "good" drivers will start as "ugly" or "bad" ones.
-
->> How about using drivers/staging/this_driver/TODO and (or) its Kconfig 
->> help text to leave a note about the plans for this driver?
-> 
-> Well, the answer is obvious i think. Tell me, at a glance, if you see a 
-> patch on lkml, which one is for a staging driver to be obsoleted, and 
-> which one is the one going upstream real soon? The patches say:
-> 
->  +++ a/drivers/staging/foo/x.c
-> 
->  +++ a/drivers/staging/bar/y.c
-> 
-> Then tell me the same at a glance if you see patches for:
-> 
->  +++ a/drivers/staging/wip/x.c
-> 
->  +++ a/drivers/staging/bad/y.c
-
-Does this information matter much?
-
-What's more interesting is whether development activity will _lead_ to a
-driver being moved from bad or ugly to good.
+diff --git a/arch/mips/cavium-octeon/octeon-platform.c b/arch/mips/cavium-octeon/octeon-platform.c
+index febfdd7..cfdb4c2 100644
+--- a/arch/mips/cavium-octeon/octeon-platform.c
++++ b/arch/mips/cavium-octeon/octeon-platform.c
+@@ -189,6 +189,64 @@ out:
+ }
+ device_initcall(octeon_mdiobus_device_init);
+ 
++/* Octeon mgmt port Ethernet interface.  */
++static int __init octeon_mgmt_device_init(void)
++{
++	struct platform_device *pd;
++	int ret = 0;
++	int port, num_ports;
++
++	struct resource mgmt_port_resource = {
++		.flags	= IORESOURCE_IRQ,
++		.start	= -1,
++		.end	= -1
++	};
++
++	if (!OCTEON_IS_MODEL(OCTEON_CN56XX) && !OCTEON_IS_MODEL(OCTEON_CN52XX))
++		return 0;
++
++	if (OCTEON_IS_MODEL(OCTEON_CN56XX))
++		num_ports = 1;
++	else
++		num_ports = 2;
++
++	for (port = 0; port < num_ports; port++) {
++		pd = platform_device_alloc("octeon_mgmt", port);
++		if (!pd) {
++			ret = -ENOMEM;
++			goto out;
++		}
++		switch (port) {
++		case 0:
++			mgmt_port_resource.start = OCTEON_IRQ_MII0;
++			break;
++		case 1:
++			mgmt_port_resource.start = OCTEON_IRQ_MII1;
++			break;
++		default:
++			BUG();
++		}
++		mgmt_port_resource.end = mgmt_port_resource.start;
++
++		ret = platform_device_add_resources(pd, &mgmt_port_resource, 1);
++
++		if (ret)
++			goto fail;
++
++		ret = platform_device_add(pd);
++		if (ret)
++			goto fail;
++	}
++	return ret;
++fail:
++	platform_device_put(pd);
++
++out:
++	return ret;
++
++}
++device_initcall(octeon_mgmt_device_init);
++
+ MODULE_AUTHOR("David Daney <ddaney@caviumnetworks.com>");
+ MODULE_LICENSE("GPL");
+ MODULE_DESCRIPTION("Platform driver for Octeon SOC");
 -- 
-Stefan Richter
--=====-==--= =-=- -===-
-http://arcgraph.de/sr/
-
-
+1.6.0.6
