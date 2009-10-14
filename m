@@ -1,49 +1,78 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: query: tcpdump versus atomic?
-Date: Wed, 14 Oct 2009 00:23:07 -0400
-Message-ID: <4AD5522B.50101@gmail.com>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: Moving drivers into staging (was Re: [GIT PULL] SCSI fixes for
+	2.6.32-rc3)
+Date: Tue, 13 Oct 2009 21:45:19 -0700
+Message-ID: <20091014044519.GA19199@suse.de>
+References: <alpine.LFD.2.01.0910081410400.3432@localhost.localdomain> <20091009091538.GA4154@elte.hu> <1255097287.2934.21.camel@localhost.localdomain> <20091012130652.GB25464@elte.hu> <1255357148.2850.91.camel@localhost.localdomain> <20091012145453.GD4565@elte.hu> <20091012150911.GB1656@suse.de> <20091012154244.GA13323@elte.hu> <20091012232429.GA24254@suse.de> <43e72e890910131108m789110b4hc35e25601ad67bb7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f188.google.com ([209.85.210.188]:48636 "EHLO
-	mail-yx0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751157AbZJNEXr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 00:23:47 -0400
-Received: by yxe26 with SMTP id 26so5034405yxe.4
-        for <netdev@vger.kernel.org>; Tue, 13 Oct 2009 21:23:11 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@elte.hu>,
+	James Bottomley <James.Bottomley@suse.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Theodore Tso <tytso@mit.edu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-scsi <linux-scsi@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Jing Huang <huangj@brocade.com>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752280AbZJNEqG@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <43e72e890910131108m789110b4hc35e25601ad67bb7@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Anybody know what code path tcpdump changes to running atomic?
+On Tue, Oct 13, 2009 at 11:08:15AM -0700, Luis R. Rodriguez wrote:
+> On Mon, Oct 12, 2009 at 4:24 PM, Greg KH <gregkh@suse.de> wrote:
+> > On Mon, Oct 12, 2009 at 05:42:44PM +0200, Ingo Molnar wrote:
+> >> Hm, i think i even gave drivers/staging/ its name?
+> >
+> > Yes you did, and I appreciate it :)
+> >
+> >> > [...] It seems that I'm the only one that has the ability to drop
+> >> > drivers out of the kernel tree, which is a funny situation :)
+> >>
+> >> You are the only one who has the ability to send a warning shot towards
+> >> drivers _without hurting users_, and by moving it into the focus of a
+> >> team of cleanup oriented developers.
+> >>
+> >> I think that's an important distinction ;-)
+> >
+> > Good point.
+> >
+> >> > In thinking about this a lot more, I don't really mind it. ??If people
+> >> > want to push stuff out of "real" places in the kernel, into
+> >> > drivers/staging/ and give the original authors and maintainers notice
+> >> > about what is going on, _and_ provide a TODO file for what needs to
+> >> > happen to get the code back into the main portion of the kernel tree,
+> >> > then I'll be happy to help out with this and manage it.
+> >> >
+> >> > I think a 6-9 month window (basically 3 kernel releases) should be
+> >> > sufficient time to have a driver that has been in drivers/staging/ be
+> >> > cleaned up enough to move back into the main kernel tree. ??If not, it
+> >> > could be easily dropped.
+> >> >
+> >> > Any objections to this?
+> >>
+> >> Sounds excellent to me!
+> >
+> > Great, I'll await the patches to move stuff to drivers/staging/ now.
+> >
+> > Wireless developers, warm up your editors :)
+> 
+> OK -- prism54 seems like a good candidate, instead of removing it
+> completely as I originally outlined on the feature removal schedule.
+> Do we have a file to give notices to move drivers to staging because
+> they are old as with the feature removal schedule? The more visible
+> these things become the better it is for users.
 
-Is there a function to test whether you're running atomic?
+We've found that the feature removal file is also ignored :)
 
-Dutifully testing, and noticed a strange anomaly.  When the code is
-running normally, no problems.  When running tcpdump on the client, no
-problems.  When running tcpdump on the server:
+How about when it was scheduled to be removed, we put it in staging and
+I'll add it to my announcements about the staging tree every release?
 
-[   88.997594] device eth0 entered promiscuous mode
-[  114.827403] BUG: scheduling while atomic: swapper/0/0x10000100
-[  114.827462] Modules linked in: lp snd_intel8x0 snd_ac97_codec ac97_bus snd_pcm snd_timer snd ppdev iTCO_wdt iTCO_vendor_support psmouse soundcore parport_pc intel_agp parport agpgart pcspkr serio_raw shpchp snd_page_alloc 8139too aic7xxx 8139cp 
-scsi_transport_spi mii floppy
-[  114.827493]
-[  114.827497] Pid: 0, comm: swapper Not tainted (2.6.32-rc3 #4) Imperial
-[  114.827501] EIP: 0060:[<c0123295>] EFLAGS: 00000246 CPU: 0
-[  114.827512] EIP is at native_safe_halt+0x5/0x10
-[  114.827515] EAX: c0740000 EBX: 00000000 ECX: ffff4b6e EDX: 00000000
-[  114.827519] ESI: c07992c0 EDI: c0743000 EBP: c0741fa0 ESP: c0741fa0
-[  114.827522]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
-[  114.827525] CR0: 8005003b CR2: 09278fc4 CR3: 04b56000 CR4: 00000690
-[  114.827529] DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 00000000
-[  114.827532] DR6: ffff0ff0 DR7: 00000400
-[  114.827535] Call Trace:
-[  114.827546]  [<c01098b5>] default_idle+0x65/0x90
-[  114.827550]  [<c0102062>] cpu_idle+0x52/0x90
-[  114.827558]  [<c056cc23>] rest_init+0x53/0x60
-[  114.827565]  [<c079c93d>] start_kernel+0x328/0x390
-[  114.827569]  [<c079c3ce>] ? unknown_bootoption+0x0/0x1f6
-[  114.827574]  [<c079c07e>] i386_start_kernel+0x7e/0xa8
-[  136.570632] device eth0 left promiscuous mode
+Unless you can think of a better way?
 
+thanks,
+
+greg k-h
