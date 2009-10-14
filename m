@@ -1,243 +1,51 @@
 From: Gregory Haskins <ghaskins@novell.com>
-Subject: [NET PATCH 7/9] venet: use an skblist for outstanding descriptors
-Date: Wed, 14 Oct 2009 11:59:22 -0400
-Message-ID: <20091014155922.18864.84913.stgit@dev.haskins.net>
-References: <20091014154457.18864.28382.stgit@dev.haskins.net>
+Subject: [NET PATCH 0/9] ZC/L4RO enhancements to alacrityvm::vbus-enet driver
+Date: Wed, 14 Oct 2009 11:58:45 -0400
+Message-ID: <20091014154457.18864.28382.stgit@dev.haskins.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: alacrityvm-devel@lists.sourceforge.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934828AbZJNQJw@vger.kernel.org>
-In-Reply-To: <20091014154457.18864.28382.stgit@dev.haskins.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934678AbZJNP7d@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This will be useful later in the series so that we can switch to
-an asynchronous model.
+The following series applies to the "linux-next" branch in the
+alacrityvm tree:
 
-Signed-off-by: Gregory Haskins <ghaskins@novell.com>
+git://git.kernel.org/pub/scm/linux/kernel/git/ghaskins/alacrityvm/linux-2.6.git
+
+These patches add support for zero-copy, and reassembly-offloading to the
+venet driver.  This means we can transmit a guest GSO packet directly into
+the host hardware, and receive fully reassembled LRO frames without
+artificially segmenting them.
+
+Unofficial testing against a ZC/L4RO capable backend show that we are
+supporting about 6.6Gb/s in throughput (vs 7.3Gb/s for native) which is
+up from the prior result of 5.7Gb/s without affecting our latency numbers.
+I will officially re-run my tests and update the graphs asap.
+
+http://developer.novell.com/wiki/index.php/AlacrityVM
+
+Kind Regards,
+-Greg
+
 ---
 
- drivers/net/vbus-enet.c |   59 +++++++++++++++++++++++++++--------------------
- 1 files changed, 34 insertions(+), 25 deletions(-)
+Gregory Haskins (9):
+      venet: add Layer-4 Reassembler Offload (L4RO) support
+      venet: add a tx-complete event for out-of-order support
+      venet: use an skblist for outstanding descriptors
+      venet: add eventq protocol
+      venet: cache the ringlen values at init
+      venet: report actual used descriptor size
+      venet: add pre-mapped tx descriptor feature
+      venet: fix gso.hdr_len to report correct length
+      venet: Update maintainer
 
-diff --git a/drivers/net/vbus-enet.c b/drivers/net/vbus-enet.c
-index 5fccfd1..3032169 100644
---- a/drivers/net/vbus-enet.c
-+++ b/drivers/net/vbus-enet.c
-@@ -59,8 +59,11 @@ struct vbus_enet_priv {
- 	struct vbus_device_proxy  *vdev;
- 	struct napi_struct         napi;
- 	struct vbus_enet_queue     rxq;
--	struct vbus_enet_queue     txq;
--	struct tasklet_struct      txtask;
-+	struct {
-+		struct vbus_enet_queue veq;
-+		struct tasklet_struct  task;
-+		struct sk_buff_head    outstanding;
-+	} tx;
- 	bool                       sg;
- 	struct {
- 		bool               enabled;
-@@ -76,7 +79,7 @@ struct vbus_enet_priv {
- 	} evq;
- };
- 
--static void vbus_enet_tx_reap(struct vbus_enet_priv *priv, int force);
-+static void vbus_enet_tx_reap(struct vbus_enet_priv *priv);
- 
- static struct vbus_enet_priv *
- napi_to_priv(struct napi_struct *napi)
-@@ -216,7 +219,7 @@ rx_teardown(struct vbus_enet_priv *priv)
- static int
- tx_setup(struct vbus_enet_priv *priv)
- {
--	struct ioq *ioq    = priv->txq.queue;
-+	struct ioq *ioq    = priv->tx.veq.queue;
- 	size_t      iovlen = sizeof(struct venet_iov) * (MAX_SKB_FRAGS-1);
- 	size_t      len    = sizeof(struct venet_sg) + iovlen;
- 	struct ioq_iterator iter;
-@@ -233,7 +236,7 @@ tx_setup(struct vbus_enet_priv *priv)
- 	/* pre-allocate our descriptor pool if pmtd is enabled */
- 	if (priv->pmtd.enabled) {
- 		struct vbus_device_proxy *dev = priv->vdev;
--		size_t poollen = len * priv->txq.count;
-+		size_t poollen = len * priv->tx.veq.count;
- 		char *pool;
- 		int shmid;
- 
-@@ -262,7 +265,7 @@ tx_setup(struct vbus_enet_priv *priv)
- 	/*
- 	 * Now populate each descriptor with an empty SG descriptor
- 	 */
--	for (i = 0; i < priv->txq.count; i++) {
-+	for (i = 0; i < priv->tx.veq.count; i++) {
- 		struct venet_sg *vsg;
- 
- 		if (priv->pmtd.enabled) {
-@@ -291,12 +294,14 @@ tx_setup(struct vbus_enet_priv *priv)
- static void
- tx_teardown(struct vbus_enet_priv *priv)
- {
--	struct ioq *ioq = priv->txq.queue;
-+	struct ioq *ioq = priv->tx.veq.queue;
- 	struct ioq_iterator iter;
-+	struct sk_buff *skb;
- 	int ret;
- 
- 	/* forcefully free all outstanding transmissions */
--	vbus_enet_tx_reap(priv, 1);
-+	while ((skb = __skb_dequeue(&priv->tx.outstanding)))
-+		dev_kfree_skb(skb);
- 
- 	if (!priv->sg)
- 		/*
-@@ -529,7 +534,7 @@ vbus_enet_tx_start(struct sk_buff *skb, struct net_device *dev)
- 
- 	spin_lock_irqsave(&priv->lock, flags);
- 
--	if (ioq_full(priv->txq.queue, ioq_idxtype_valid)) {
-+	if (ioq_full(priv->tx.veq.queue, ioq_idxtype_valid)) {
- 		/*
- 		 * We must flow-control the kernel by disabling the
- 		 * queue
-@@ -544,7 +549,7 @@ vbus_enet_tx_start(struct sk_buff *skb, struct net_device *dev)
- 	 * We want to iterate on the tail of both the "inuse" and "valid" index
- 	 * so we specify the "both" index
- 	 */
--	ret = ioq_iter_init(priv->txq.queue, &iter, ioq_idxtype_both,
-+	ret = ioq_iter_init(priv->tx.veq.queue, &iter, ioq_idxtype_both,
- 			    IOQ_ITER_AUTOUPDATE);
- 	BUG_ON(ret < 0);
- 
-@@ -620,6 +625,8 @@ vbus_enet_tx_start(struct sk_buff *skb, struct net_device *dev)
- 	priv->dev->stats.tx_packets++;
- 	priv->dev->stats.tx_bytes += skb->len;
- 
-+	__skb_queue_tail(&priv->tx.outstanding, skb);
-+
- 	/*
- 	 * This advances both indexes together implicitly, and then
- 	 * signals the south side to consume the packet
-@@ -629,7 +636,7 @@ vbus_enet_tx_start(struct sk_buff *skb, struct net_device *dev)
- 
- 	dev->trans_start = jiffies; /* save the timestamp */
- 
--	if (ioq_full(priv->txq.queue, ioq_idxtype_valid)) {
-+	if (ioq_full(priv->tx.veq.queue, ioq_idxtype_valid)) {
- 		/*
- 		 * If the queue is congested, we must flow-control the kernel
- 		 */
-@@ -648,7 +655,7 @@ vbus_enet_tx_start(struct sk_buff *skb, struct net_device *dev)
-  * assumes priv->lock held
-  */
- static void
--vbus_enet_tx_reap(struct vbus_enet_priv *priv, int force)
-+vbus_enet_tx_reap(struct vbus_enet_priv *priv)
- {
- 	struct ioq_iterator iter;
- 	int ret;
-@@ -658,7 +665,7 @@ vbus_enet_tx_reap(struct vbus_enet_priv *priv, int force)
- 	 * do not want the iter_pop (below) to flip the ownership, so
- 	 * we set the NOFLIPOWNER option
- 	 */
--	ret = ioq_iter_init(priv->txq.queue, &iter, ioq_idxtype_valid,
-+	ret = ioq_iter_init(priv->tx.veq.queue, &iter, ioq_idxtype_valid,
- 			    IOQ_ITER_NOFLIPOWNER);
- 	BUG_ON(ret < 0);
- 
-@@ -669,7 +676,7 @@ vbus_enet_tx_reap(struct vbus_enet_priv *priv, int force)
- 	 * We are done once we find the first packet either invalid or still
- 	 * owned by the south-side
- 	 */
--	while (iter.desc->valid && (!iter.desc->sown || force)) {
-+	while (iter.desc->valid && !iter.desc->sown) {
- 		struct sk_buff *skb;
- 
- 		if (priv->sg) {
-@@ -687,6 +694,7 @@ vbus_enet_tx_reap(struct vbus_enet_priv *priv, int force)
- 		/* Reset the descriptor */
- 		iter.desc->valid  = 0;
- 
-+		__skb_unlink(skb, &priv->tx.outstanding);
- 		dev_kfree_skb(skb);
- 
- 		/* Advance the valid-index head */
-@@ -699,7 +707,7 @@ vbus_enet_tx_reap(struct vbus_enet_priv *priv, int force)
- 	 * processing
- 	 */
- 	if (netif_queue_stopped(priv->dev)
--	    && !ioq_full(priv->txq.queue, ioq_idxtype_valid)) {
-+	    && !ioq_full(priv->tx.veq.queue, ioq_idxtype_valid)) {
- 		PDEBUG(priv->dev, "re-enabling tx queue\n");
- 		netif_wake_queue(priv->dev);
- 	}
-@@ -714,7 +722,7 @@ vbus_enet_timeout(struct net_device *dev)
- 	dev_dbg(&dev->dev, "Transmit timeout\n");
- 
- 	spin_lock_irqsave(&priv->lock, flags);
--	vbus_enet_tx_reap(priv, 0);
-+	vbus_enet_tx_reap(priv);
- 	spin_unlock_irqrestore(&priv->lock, flags);
- }
- 
-@@ -740,10 +748,10 @@ deferred_tx_isr(unsigned long data)
- 	PDEBUG(priv->dev, "deferred_tx_isr\n");
- 
- 	spin_lock_irqsave(&priv->lock, flags);
--	vbus_enet_tx_reap(priv, 0);
-+	vbus_enet_tx_reap(priv);
- 	spin_unlock_irqrestore(&priv->lock, flags);
- 
--	ioq_notify_enable(priv->txq.queue, 0);
-+	ioq_notify_enable(priv->tx.veq.queue, 0);
- }
- 
- static void
-@@ -751,12 +759,12 @@ tx_isr(struct ioq_notifier *notifier)
- {
-        struct vbus_enet_priv *priv;
- 
--       priv = container_of(notifier, struct vbus_enet_priv, txq.notifier);
-+       priv = container_of(notifier, struct vbus_enet_priv, tx.veq.notifier);
- 
-        PDEBUG(priv->dev, "tx_isr\n");
- 
--       ioq_notify_disable(priv->txq.queue, 0);
--       tasklet_schedule(&priv->txtask);
-+       ioq_notify_disable(priv->tx.veq.queue, 0);
-+       tasklet_schedule(&priv->tx.task);
- }
- 
- static void
-@@ -1043,16 +1051,17 @@ vbus_enet_probe(struct vbus_device_proxy *vdev)
- 		goto out_free;
- 	}
- 
--	tasklet_init(&priv->txtask, deferred_tx_isr, (unsigned long)priv);
-+	tasklet_init(&priv->tx.task, deferred_tx_isr, (unsigned long)priv);
-+	skb_queue_head_init(&priv->tx.outstanding);
- 
- 	queue_init(priv, &priv->rxq, VENET_QUEUE_RX, rx_ringlen, rx_isr);
--	queue_init(priv, &priv->txq, VENET_QUEUE_TX, tx_ringlen, tx_isr);
-+	queue_init(priv, &priv->tx.veq, VENET_QUEUE_TX, tx_ringlen, tx_isr);
- 
- 	rx_setup(priv);
- 	tx_setup(priv);
- 
- 	ioq_notify_enable(priv->rxq.queue, 0);  /* enable interrupts */
--	ioq_notify_enable(priv->txq.queue, 0);
-+	ioq_notify_enable(priv->tx.veq.queue, 0);
- 
- 	dev->netdev_ops     = &vbus_enet_netdev_ops;
- 	dev->watchdog_timeo = 5 * HZ;
-@@ -1101,7 +1110,7 @@ vbus_enet_remove(struct vbus_device_proxy *vdev)
- 	ioq_put(priv->rxq.queue);
- 
- 	tx_teardown(priv);
--	ioq_put(priv->txq.queue);
-+	ioq_put(priv->tx.veq.queue);
- 
- 	if (priv->evq.enabled)
- 		evq_teardown(priv);
+
+ MAINTAINERS             |    7 
+ drivers/net/vbus-enet.c |  770 +++++++++++++++++++++++++++++++++++++++++++----
+ include/linux/venet.h   |   61 +++-
+ 3 files changed, 764 insertions(+), 74 deletions(-)
