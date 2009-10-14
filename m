@@ -1,62 +1,53 @@
-From: Brad Doctor <brad.doctor@gmail.com>
-Subject: PF_RING: Include in main line kernel?
-Date: Wed, 14 Oct 2009 08:33:08 -0600
-Message-ID: <a07586b0910140733s1976cd05u39286de42d9fac23@mail.gmail.com>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: [net-next 0/8] bnx2x: Device Control Channel bug fixes
+Date: Wed, 14 Oct 2009 17:07:05 +0200
+Message-ID: <1255532825.25030.35.camel@lb-tlvb-eilong>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Luca Deri <deri@ntop.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f187.google.com ([209.85.216.187]:48891 "EHLO
-	mail-px0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756640AbZJNOdp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 10:33:45 -0400
-Received: by pxi17 with SMTP id 17so1386208pxi.21
-        for <netdev@vger.kernel.org>; Wed, 14 Oct 2009 07:33:08 -0700 (PDT)
+Received: from mms3.broadcom.com ([216.31.210.19]:3224 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756676AbZJNPHz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Oct 2009 11:07:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greetings,
+Hi Dave,
 
-On behalf of the users and developers of the PF_RING project, we would
-like to ask consideration to include the PF_RING module in the main
-line kernel.
+This bnx2x patch series is fixing some bugs that relates to the Device
+Control Channel (DCC) code. There are actually 3 different failures:
 
-PF_RING (http://www.ntop.org/PF_RING.html) is a kernel module that
-implements an mmap()-ed memory ring for accelerating packet capture
-and for providing all the basic features a network monitoring
-application needs. PF_RING includes several features such as packet
-filtering, balancing across capture applications, packet reflection
-(i.e. capture application can decide to bounce selected packets onto
-an as-specified interface). Packets are filtered both using BPF and
-using ACL-like rules (e.g. tcp and ports from 80 to 100). Using
-PF_RING it is also possible to exploit multiple RX queues provided by
-modern NIC adapters. PF_RING achieves a significant speedup by making
-only one copy of the packet. Additionally, PF_RING is able to operate
-in a capture-only installation, further increasing performance.
+1. When the fairness initial value was set to zero, the device could not
+be enabled. This is caused since zero indicated that the mechanism is
+disabled, and the code (both FW and driver) was not ready to allow
+enabling it at run time. This patch requires replacing the FW - to allow
+easier review, it is split to 3 patches:
+        P1: adding the new FW
+        P2: the actually patch
+        P3: removing the old FW
+        
+2. Races when loading/unloading the driver when DCC link enable/disable
+commands are received. There were 3 different races:
+        P4: The state of the driver which indicates if it is loaded or
+        not was also used to signal if its link is enabled/disabled by
+        DCC
+        P5: The FW commands to acknowledge the DCC command and
+        loading/unloading the driver run over each other
+        P6: Setting/clearing the MAC address and the FW filtering rules
+        
+3.	P7: Reporting the maximal BW as the link speed
 
-PF_RING has been around since 2003 and is very mature with an active
-contributing developer base. The developer and user community use a
-mailing list (http://listgateway.unipi.it/pipermail/ntop-misc/) for
-discussions and submissions. PF_RING is used in several projects,
-ranging from distributions such as DD-WRT/OpenWrt to improving
-performance of applications like Snort and Wireshark. Many commercial
-companies around the world in the field of intrusion detection and
-traffic analysis rely on PF_RING for accelerating their products and
-operations.
+Patch number 8 is the version update.
 
-The PF_RING module relies on a small patch to net/core/dev.c that
-intercepts when a packet is received/transmitted so that it can be
-passed to the PF_RING module when present and with an active listener.
-Other than these minor changes, all the PF_RING code is
-self-contained, comprising jut two files: ring.c and ring.h. PF_RING
-is the result of many years of research and development specifically
-into high-speed packet capture, and is homegrown. PF_RING uses the
-stock GPL license.
+The patches were made based on net-next. Since those are bug fixes,
+please let me know if I should send them based on net-2.6 as well.
 
-We feel that PF_RING is ready to be included with the mainline kernel.
-We are ready and eager to support PF_RING for the long term.
+Thanks,
+Eilon
 
-Thank you in advance for your consideration!
 
--brad
+
