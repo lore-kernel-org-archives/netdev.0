@@ -1,66 +1,66 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [PATCH] iproute2: skbedit: Fix help message
-Date: Wed, 14 Oct 2009 08:07:21 -0400
-Message-ID: <1255522041.21940.7.camel@dogo.mojatatu.com>
-Reply-To: hadi@cyberus.ca
+From: Ajit Khaparde <ajitk@serverengines.com>
+Subject: [net-next-2.6 PATCH 1/2] be2net: Add support for next generation
+	of BladeEngine device
+Date: Wed, 14 Oct 2009 17:54:09 +0530
+Message-ID: <20091014122358.GA11905@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-S+S43U99zgXBdudXpzb1"
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset=us-ascii
+To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f172.google.com ([209.85.221.172]:39322 "EHLO
-	mail-qy0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759324AbZJNMK7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 08:10:59 -0400
-Received: by qyk2 with SMTP id 2so9663120qyk.21
-        for <netdev@vger.kernel.org>; Wed, 14 Oct 2009 05:10:23 -0700 (PDT)
+Received: from segment-124-30.sify.net ([124.30.166.146]:2594 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756516AbZJNMYw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 08:24:52 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add new PCI ids to support next generation of BladeEnigne device.
 
---=-S+S43U99zgXBdudXpzb1
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+---
+ drivers/net/benet/be.h |   15 +++++++++++++--
+ 1 files changed, 13 insertions(+), 2 deletions(-)
 
-
-This fixes the help message on the skbedit action.
-Stephen, please apply if Alexander ACKs.
-
-cheers,
-jamal
-
---=-S+S43U99zgXBdudXpzb1
-Content-Disposition: attachment; filename=skbe-help
-Content-Type: text/plain; name=skbe-help; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-
-commit 28dd9c19a1fa618105238a3302f272e2aee7918a
-Author: Jamal Hadi Salim <hadi@cyberus.ca>
-Date:   Tue Oct 14 07:32:51 2009 -0400
-
-    skbedit: Fix help message
-    
-    Currently the help text implies you can either pass queue mapping
-    or priority. Truth is you can pass both
-    
-    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
-
-diff --git a/tc/m_skbedit.c b/tc/m_skbedit.c
-index 9044353..ecb1f2d 100644
---- a/tc/m_skbedit.c
-+++ b/tc/m_skbedit.c
-@@ -31,8 +31,9 @@
- static void
- explain(void)
+diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+index 4b61a91..151e73e 100644
+--- a/drivers/net/benet/be.h
++++ b/drivers/net/benet/be.h
+@@ -35,20 +35,31 @@
+ #define DRV_VER			"2.101.205"
+ #define DRV_NAME		"be2net"
+ #define BE_NAME			"ServerEngines BladeEngine2 10Gbps NIC"
++#define BE3_NAME		"ServerEngines BladeEngine3 10Gbps NIC"
+ #define OC_NAME			"Emulex OneConnect 10Gbps NIC"
++#define OC_NAME1		"Emulex OneConnect 10Gbps NIC (be3)"
+ #define DRV_DESC		BE_NAME "Driver"
+ 
+ #define BE_VENDOR_ID 		0x19a2
+ #define BE_DEVICE_ID1		0x211
++#define BE_DEVICE_ID1		0x221
+ #define OC_DEVICE_ID1		0x700
+ #define OC_DEVICE_ID2		0x701
++#define OC_DEVICE_ID2		0x710
+ 
+ static inline char *nic_name(struct pci_dev *pdev)
  {
--	fprintf(stderr, "Usage: ... skbedit "
--			"queue_mapping QUEUE_MAPPING | priority PRIORITY \n"
-+	fprintf(stderr, "Usage: ... skbedit <[QM] [PM]>\n"
-+			"QM = queue_mapping QUEUE_MAPPING\n"
-+			"PM = priority PRIORITY \n"
- 			"QUEUE_MAPPING = device transmit queue to use\n"
- 			"PRIORITY = classID to assign to priority field\n");
+-	if (pdev->device == OC_DEVICE_ID1 || pdev->device == OC_DEVICE_ID2)
++	switch (pdev->device) {
++	case OC_DEVICE_ID1:
++	case OC_DEVICE_ID2:
+ 		return OC_NAME;
+-	else
++	case OC_DEVICE_ID3:
++		return OC_NAME1;
++	case BE_DEVICE_ID2:
++		return BE3_NAME;
++	default:
+ 		return BE_NAME;
++	}
  }
-
---=-S+S43U99zgXBdudXpzb1--
+ 
+ /* Number of bytes of an RX frame that are copied to skb->data */
+-- 
+1.6.0.4
 
