@@ -1,44 +1,36 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [net-next 8/8] bnx2x: Update to version 1.52.1-1
-Date: Wed, 14 Oct 2009 17:10:11 +0200
-Message-ID: <1255533011.25030.43.camel@lb-tlvb-eilong>
-Reply-To: eilong@broadcom.com
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: query: tcpdump versus atomic?
+Date: Wed, 14 Oct 2009 11:20:12 -0400
+Message-ID: <4AD5EC2C.6070005@gmail.com>
+References: <4AD5522B.50101@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3391 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761878AbZJNPLB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Oct 2009 11:11:01 -0400
+Received: from mail-fx0-f227.google.com ([209.85.220.227]:37768 "EHLO
+	mail-fx0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756686AbZJNPUx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 11:20:53 -0400
+Received: by fxm27 with SMTP id 27so11718573fxm.17
+        for <netdev@vger.kernel.org>; Wed, 14 Oct 2009 08:20:16 -0700 (PDT)
+In-Reply-To: <4AD5522B.50101@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+William Allen Simpson wrote:
+> Anybody know what code path tcpdump changes to running atomic?
+> 
+> Is there a function to test whether you're running atomic?
+> 
+To partially answer my own question, after laboriously #if'ing compiling
+section by section, it affects the tcp_minisockets.c code at
+tcp_create_openreq_child().
 
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index ba131f4..59b58d8 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -56,8 +56,8 @@
- #include "bnx2x_init_ops.h"
- #include "bnx2x_dump.h"
- 
--#define DRV_MODULE_VERSION	"1.52.1"
--#define DRV_MODULE_RELDATE	"2009/08/12"
-+#define DRV_MODULE_VERSION	"1.52.1-1"
-+#define DRV_MODULE_RELDATE	"2009/10/13"
- #define BNX2X_BC_VER		0x040200
- 
- #include <linux/firmware.h>
--- 
-1.5.4.3
+I've not found a function to test.  I've found sk->sk_allocation, but
+that doesn't seem to be dynamically updated to reflect the current state.
 
-
-
+Anyway, sorry David, but there's at least two GFP_ATOMIC here (one existing,
+one new).  I've managed to change the others, by careful rearrangement.  At
+least, I hope so, until some future testing reveals otherwise....
 
