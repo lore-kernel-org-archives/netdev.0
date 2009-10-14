@@ -1,40 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net/fec_mpc52xx: Fix kernel panic on FEC error
-Date: Wed, 14 Oct 2009 15:10:25 -0700 (PDT)
-Message-ID: <20091014.151025.83161886.davem@davemloft.net>
-References: <20091014174224.29221.18830.stgit@angua>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH -mmotm] net: ks8851_mll uses mii interfaces
+Date: Wed, 14 Oct 2009 14:59:05 -0700
+Message-ID: <20091014145905.219416bb.randy.dunlap@oracle.com>
+References: <200910140436.n9E4aF9G001644@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bones@secretlab.ca, netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-To: grant.likely@secretlab.ca
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20091014174224.29221.18830.stgit@angua>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Cc: linux-kernel@vger.kernel.org, David Choi <david.choi@micrel.com>
+To: akpm@linux-foundation.org, netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761947AbZJNWBv@vger.kernel.org>
+In-Reply-To: <200910140436.n9E4aF9G001644@imap1.linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Grant Likely <grant.likely@secretlab.ca>
-Date: Wed, 14 Oct 2009 11:43:43 -0600
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-> From: John Bonesio <bones@secretlab.ca>
-> 
-> The MDIO bus cannot be accessed at interrupt context, but on an FEC
-> error, the fec_mpc52xx driver reset function also tries to reset the
-> PHY.  Since the error is detected at IRQ context, and the PHY functions
-> try to sleep, the kernel ends up panicking.
-> 
-> Resetting the PHY on an FEC error isn't even necessary.  This patch
-> solves the problem by removing the PHY reset entirely.
-> 
-> Signed-off-by: John Bonesio <bones@secretlab.ca>
-> Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
+ks8851_mll uses mii interfaces so it needs to select MII.
 
-Applied, thanks.
+ks8851_mll.c:(.text+0xf95ac): undefined reference to `generic_mii_ioctl'
+ks8851_mll.c:(.text+0xf96a0): undefined reference to `mii_ethtool_gset'
+ks8851_mll.c:(.text+0xf96fa): undefined reference to `mii_ethtool_sset'
+ks8851_mll.c:(.text+0xf9754): undefined reference to `mii_link_ok'
+ks8851_mll.c:(.text+0xf97ae): undefined reference to `mii_nway_restart'
+
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+Cc: David Choi <david.choi@micrel.com>
+---
+ drivers/net/Kconfig |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- mmotm-2009-1013-2113.orig/drivers/net/Kconfig
++++ mmotm-2009-1013-2113/drivers/net/Kconfig
+@@ -1741,6 +1741,7 @@ config KS8851
+ config KS8851_MLL
+ 	tristate "Micrel KS8851 MLL"
+ 	depends on HAS_IOMEM
++	select MII
+ 	help
+ 	  This platform driver is for Micrel KS8851 Address/data bus
+ 	  multiplexed network chip.
