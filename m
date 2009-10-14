@@ -1,7 +1,7 @@
 From: David Daney <ddaney@caviumnetworks.com>
-Subject: [PATCH 5/6] netdev: Add Ethernet driver for Octeon MGMT devices.
-Date: Wed, 14 Oct 2009 12:04:41 -0700
-Message-ID: <1255547082-7388-5-git-send-email-ddaney@caviumnetworks.com>
+Subject: [PATCH 6/6] Staging: octeon-ethernet: Convert to use PHY Abstraction Layer.
+Date: Wed, 14 Oct 2009 12:04:42 -0700
+Message-ID: <1255547082-7388-6-git-send-email-ddaney@caviumnetworks.com>
 References: <4AD6205A.8070200@caviumnetworks.com>
 Cc: David Daney <ddaney@caviumnetworks.com>
 To: ralf@linux-mips.org, linux-mips@linux-mips.org,
@@ -12,1261 +12,644 @@ Sender: linux-mips-bounce@linux-mips.org
 Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-The Octeon MGMT Ethernet ports are present in some members of the
-Octeon SOC family (cn52XX and cn56XX have them).
-
-The mdio bus connected to the MGMT PHYs is shared with the main
-octeon-ethernet driver, we force it to be loaded first by calling
-octeon_mdiobus_force_mod_depencency.  The platform devices for the
-MGMT Ethernet ports are added in
-arch/mips/cavium-octeon/octeon-platform.c, and the register
-definitions for the ports live in arch/mips/include/asm/octeon/ along
-with their ilk.
-
-Although it currently is the only driver in drivers/net/octeon, the
-directory was created looking forward to the day that octeon-ethernet
-will move there from its current home in drivers/staging.
+The octeon-ethernet driver shares an mdio bus with the octeon-mgmt
+driver.  Here we convert the octeon-ethernet driver to use the PHY
+Abstraction Layer.
 
 Signed-off-by: David Daney <ddaney@caviumnetworks.com>
-Acked-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/Kconfig              |    2 +
- drivers/net/Makefile             |    2 +
- drivers/net/octeon/Kconfig       |   10 +
- drivers/net/octeon/Makefile      |    2 +
- drivers/net/octeon/octeon_mgmt.c | 1175 ++++++++++++++++++++++++++++++++++++++
- 5 files changed, 1191 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/octeon/Kconfig
- create mode 100644 drivers/net/octeon/Makefile
- create mode 100644 drivers/net/octeon/octeon_mgmt.c
+ drivers/staging/octeon/Kconfig           |    3 +-
+ drivers/staging/octeon/ethernet-mdio.c   |  204 ++++++++++++------------------
+ drivers/staging/octeon/ethernet-mdio.h   |    2 +-
+ drivers/staging/octeon/ethernet-proc.c   |  112 ----------------
+ drivers/staging/octeon/ethernet-rgmii.c  |   52 ++++----
+ drivers/staging/octeon/ethernet-sgmii.c  |    2 +-
+ drivers/staging/octeon/ethernet-xaui.c   |    2 +-
+ drivers/staging/octeon/ethernet.c        |   23 ++--
+ drivers/staging/octeon/octeon-ethernet.h |    6 +-
+ 9 files changed, 125 insertions(+), 281 deletions(-)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 37ff3c7..9a7a283 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -1952,6 +1952,8 @@ config BCM63XX_ENET
- 
- source "drivers/net/fs_enet/Kconfig"
- 
-+source "drivers/net/octeon/Kconfig"
-+
- endif # NET_ETHERNET
- 
- #
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 678a4fd..9a9b641 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -285,3 +285,5 @@ obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
- obj-$(CONFIG_SFC) += sfc/
- 
- obj-$(CONFIG_WIMAX) += wimax/
-+
-+obj-$(CONFIG_OCTEON_MGMT_ETHERNET) += octeon/
-diff --git a/drivers/net/octeon/Kconfig b/drivers/net/octeon/Kconfig
-new file mode 100644
-index 0000000..1e56bbf
---- /dev/null
-+++ b/drivers/net/octeon/Kconfig
-@@ -0,0 +1,10 @@
-+config OCTEON_MGMT_ETHERNET
-+	tristate "Octeon Management port ethernet driver (CN5XXX, CN6XXX)"
-+	depends on  CPU_CAVIUM_OCTEON
+diff --git a/drivers/staging/octeon/Kconfig b/drivers/staging/octeon/Kconfig
+index 536e238..638ad6b 100644
+--- a/drivers/staging/octeon/Kconfig
++++ b/drivers/staging/octeon/Kconfig
+@@ -1,7 +1,8 @@
+ config OCTEON_ETHERNET
+ 	tristate "Cavium Networks Octeon Ethernet support"
+ 	depends on CPU_CAVIUM_OCTEON
+-	select MII
 +	select PHYLIB
 +	select MDIO_OCTEON
-+	default y
-+	help
-+	  This option enables the ethernet driver for the management
-+	  port on Cavium Networks' Octeon CN57XX, CN56XX, CN55XX,
-+	  CN54XX, CN52XX, and CN6XXX chips.
-diff --git a/drivers/net/octeon/Makefile b/drivers/net/octeon/Makefile
-new file mode 100644
-index 0000000..906edec
---- /dev/null
-+++ b/drivers/net/octeon/Makefile
-@@ -0,0 +1,2 @@
-+
-+obj-$(CONFIG_OCTEON_MGMT_ETHERNET)	+= octeon_mgmt.o
-diff --git a/drivers/net/octeon/octeon_mgmt.c b/drivers/net/octeon/octeon_mgmt.c
-new file mode 100644
-index 0000000..83a636d
---- /dev/null
-+++ b/drivers/net/octeon/octeon_mgmt.c
-@@ -0,0 +1,1175 @@
-+/*
-+ * This file is subject to the terms and conditions of the GNU General Public
-+ * License.  See the file "COPYING" in the main directory of this archive
-+ * for more details.
-+ *
-+ * Copyright (C) 2009 Cavium Networks
-+ */
-+
-+#include <linux/dma-mapping.h>
-+#include <linux/init.h>
-+#include <linux/platform_device.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/if_vlan.h>
+ 	help
+ 	  This driver supports the builtin ethernet ports on Cavium
+ 	  Networks' products in the Octeon family. This driver supports the
+diff --git a/drivers/staging/octeon/ethernet-mdio.c b/drivers/staging/octeon/ethernet-mdio.c
+index 31a58e5..05a5cc0 100644
+--- a/drivers/staging/octeon/ethernet-mdio.c
++++ b/drivers/staging/octeon/ethernet-mdio.c
+@@ -26,7 +26,8 @@
+ **********************************************************************/
+ #include <linux/kernel.h>
+ #include <linux/ethtool.h>
+-#include <linux/mii.h>
 +#include <linux/phy.h>
-+#include <linux/spinlock.h>
 +
-+#include <asm/octeon/octeon.h>
-+#include <asm/octeon/cvmx-mixx-defs.h>
-+#include <asm/octeon/cvmx-agl-defs.h>
-+
-+#define DRV_NAME "octeon_mgmt"
-+#define DRV_VERSION "2.0"
-+#define DRV_DESCRIPTION \
-+	"Cavium Networks Octeon MII (management) port Network Driver"
-+
-+#define OCTEON_MGMT_NAPI_WEIGHT 16
-+
-+/*
-+ * Ring sizes that are powers of two allow for more efficient modulo
-+ * opertions.
-+ */
-+#define OCTEON_MGMT_RX_RING_SIZE 512
-+#define OCTEON_MGMT_TX_RING_SIZE 128
-+
-+/* Allow 8 bytes for vlan and FCS. */
-+#define OCTEON_MGMT_RX_HEADROOM (ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN)
-+
-+union mgmt_port_ring_entry {
-+	u64 d64;
-+	struct {
-+		u64    reserved_62_63:2;
-+		/* Length of the buffer/packet in bytes */
-+		u64    len:14;
-+		/* For TX, signals that the packet should be timestamped */
-+		u64    tstamp:1;
-+		/* The RX error code */
-+		u64    code:7;
-+#define RING_ENTRY_CODE_DONE 0xf
-+#define RING_ENTRY_CODE_MORE 0x10
-+		/* Physical address of the buffer */
-+		u64    addr:40;
-+	} s;
-+};
-+
-+struct octeon_mgmt {
-+	struct net_device *netdev;
-+	int port;
-+	int irq;
-+	u64 *tx_ring;
-+	dma_addr_t tx_ring_handle;
-+	unsigned int tx_next;
-+	unsigned int tx_next_clean;
-+	unsigned int tx_current_fill;
-+	/* The tx_list lock also protects the ring related variables */
-+	struct sk_buff_head tx_list;
-+
-+	/* RX variables only touched in napi_poll.  No locking necessary. */
-+	u64 *rx_ring;
-+	dma_addr_t rx_ring_handle;
-+	unsigned int rx_next;
-+	unsigned int rx_next_fill;
-+	unsigned int rx_current_fill;
-+	struct sk_buff_head rx_list;
-+
-+	spinlock_t lock;
-+	unsigned int last_duplex;
-+	unsigned int last_link;
-+	struct device *dev;
-+	struct napi_struct napi;
-+	struct tasklet_struct tx_clean_tasklet;
-+	struct phy_device *phydev;
-+};
-+
-+static void octeon_mgmt_set_rx_irq(struct octeon_mgmt *p, int enable)
-+{
-+	int port = p->port;
-+	union cvmx_mixx_intena mix_intena;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&p->lock, flags);
-+	mix_intena.u64 = cvmx_read_csr(CVMX_MIXX_INTENA(port));
-+	mix_intena.s.ithena = enable ? 1 : 0;
-+	cvmx_write_csr(CVMX_MIXX_INTENA(port), mix_intena.u64);
-+	spin_unlock_irqrestore(&p->lock, flags);
-+}
-+
-+static void octeon_mgmt_set_tx_irq(struct octeon_mgmt *p, int enable)
-+{
-+	int port = p->port;
-+	union cvmx_mixx_intena mix_intena;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&p->lock, flags);
-+	mix_intena.u64 = cvmx_read_csr(CVMX_MIXX_INTENA(port));
-+	mix_intena.s.othena = enable ? 1 : 0;
-+	cvmx_write_csr(CVMX_MIXX_INTENA(port), mix_intena.u64);
-+	spin_unlock_irqrestore(&p->lock, flags);
-+}
-+
-+static inline void octeon_mgmt_enable_rx_irq(struct octeon_mgmt *p)
-+{
-+	octeon_mgmt_set_rx_irq(p, 1);
-+}
-+
-+static inline void octeon_mgmt_disable_rx_irq(struct octeon_mgmt *p)
-+{
-+	octeon_mgmt_set_rx_irq(p, 0);
-+}
-+
-+static inline void octeon_mgmt_enable_tx_irq(struct octeon_mgmt *p)
-+{
-+	octeon_mgmt_set_tx_irq(p, 1);
-+}
-+
-+static inline void octeon_mgmt_disable_tx_irq(struct octeon_mgmt *p)
-+{
-+	octeon_mgmt_set_tx_irq(p, 0);
-+}
-+
-+static unsigned int ring_max_fill(unsigned int ring_size)
-+{
-+	return ring_size - 8;
-+}
-+
-+static unsigned int ring_size_to_bytes(unsigned int ring_size)
-+{
-+	return ring_size * sizeof(union mgmt_port_ring_entry);
-+}
-+
-+static void octeon_mgmt_rx_fill_ring(struct net_device *netdev)
-+{
-+	struct octeon_mgmt *p = netdev_priv(netdev);
-+	int port = p->port;
-+
-+	while (p->rx_current_fill < ring_max_fill(OCTEON_MGMT_RX_RING_SIZE)) {
-+		unsigned int size;
-+		union mgmt_port_ring_entry re;
-+		struct sk_buff *skb;
-+
-+		/* CN56XX pass 1 needs 8 bytes of padding.  */
-+		size = netdev->mtu + OCTEON_MGMT_RX_HEADROOM + 8 + NET_IP_ALIGN;
-+
-+		skb = netdev_alloc_skb(netdev, size);
-+		if (!skb)
-+			break;
-+		skb_reserve(skb, NET_IP_ALIGN);
-+		__skb_queue_tail(&p->rx_list, skb);
-+
-+		re.d64 = 0;
-+		re.s.len = size;
-+		re.s.addr = dma_map_single(p->dev, skb->data,
-+					   size,
-+					   DMA_FROM_DEVICE);
-+
-+		/* Put it in the ring.  */
-+		p->rx_ring[p->rx_next_fill] = re.d64;
-+		dma_sync_single_for_device(p->dev, p->rx_ring_handle,
-+					   ring_size_to_bytes(OCTEON_MGMT_RX_RING_SIZE),
-+					   DMA_BIDIRECTIONAL);
-+		p->rx_next_fill =
-+			(p->rx_next_fill + 1) % OCTEON_MGMT_RX_RING_SIZE;
-+		p->rx_current_fill++;
-+		/* Ring the bell.  */
-+		cvmx_write_csr(CVMX_MIXX_IRING2(port), 1);
-+	}
-+}
-+
-+static void octeon_mgmt_clean_tx_buffers(struct octeon_mgmt *p)
-+{
-+	int port = p->port;
-+	union cvmx_mixx_orcnt mix_orcnt;
-+	union mgmt_port_ring_entry re;
-+	struct sk_buff *skb;
-+	int cleaned = 0;
-+	unsigned long flags;
-+
-+	mix_orcnt.u64 = cvmx_read_csr(CVMX_MIXX_ORCNT(port));
-+	while (mix_orcnt.s.orcnt) {
-+		dma_sync_single_for_cpu(p->dev, p->tx_ring_handle,
-+					ring_size_to_bytes(OCTEON_MGMT_TX_RING_SIZE),
-+					DMA_BIDIRECTIONAL);
-+
-+		spin_lock_irqsave(&p->tx_list.lock, flags);
-+
-+		re.d64 = p->tx_ring[p->tx_next_clean];
-+		p->tx_next_clean =
-+			(p->tx_next_clean + 1) % OCTEON_MGMT_TX_RING_SIZE;
-+		skb = __skb_dequeue(&p->tx_list);
-+
-+		mix_orcnt.u64 = 0;
-+		mix_orcnt.s.orcnt = 1;
-+
-+		/* Acknowledge to hardware that we have the buffer.  */
-+		cvmx_write_csr(CVMX_MIXX_ORCNT(port), mix_orcnt.u64);
-+		p->tx_current_fill--;
-+
-+		spin_unlock_irqrestore(&p->tx_list.lock, flags);
-+
-+		dma_unmap_single(p->dev, re.s.addr, re.s.len,
-+				 DMA_TO_DEVICE);
-+		dev_kfree_skb_any(skb);
-+		cleaned++;
-+
-+		mix_orcnt.u64 = cvmx_read_csr(CVMX_MIXX_ORCNT(port));
-+	}
-+
-+	if (cleaned && netif_queue_stopped(p->netdev))
-+		netif_wake_queue(p->netdev);
-+}
-+
-+static void octeon_mgmt_clean_tx_tasklet(unsigned long arg)
-+{
-+	struct octeon_mgmt *p = (struct octeon_mgmt *)arg;
-+	octeon_mgmt_clean_tx_buffers(p);
-+	octeon_mgmt_enable_tx_irq(p);
-+}
-+
-+static void octeon_mgmt_update_rx_stats(struct net_device *netdev)
-+{
-+	struct octeon_mgmt *p = netdev_priv(netdev);
-+	int port = p->port;
-+	unsigned long flags;
-+	u64 drop, bad;
-+
-+	/* These reads also clear the count registers.  */
-+	drop = cvmx_read_csr(CVMX_AGL_GMX_RXX_STATS_PKTS_DRP(port));
-+	bad = cvmx_read_csr(CVMX_AGL_GMX_RXX_STATS_PKTS_BAD(port));
-+
-+	if (drop || bad) {
-+		/* Do an atomic update. */
-+		spin_lock_irqsave(&p->lock, flags);
-+		netdev->stats.rx_errors += bad;
-+		netdev->stats.rx_dropped += drop;
-+		spin_unlock_irqrestore(&p->lock, flags);
-+	}
-+}
-+
-+static void octeon_mgmt_update_tx_stats(struct net_device *netdev)
-+{
-+	struct octeon_mgmt *p = netdev_priv(netdev);
-+	int port = p->port;
-+	unsigned long flags;
-+
-+	union cvmx_agl_gmx_txx_stat0 s0;
-+	union cvmx_agl_gmx_txx_stat1 s1;
-+
-+	/* These reads also clear the count registers.  */
-+	s0.u64 = cvmx_read_csr(CVMX_AGL_GMX_TXX_STAT0(port));
-+	s1.u64 = cvmx_read_csr(CVMX_AGL_GMX_TXX_STAT1(port));
-+
-+	if (s0.s.xsdef || s0.s.xscol || s1.s.scol || s1.s.mcol) {
-+		/* Do an atomic update. */
-+		spin_lock_irqsave(&p->lock, flags);
-+		netdev->stats.tx_errors += s0.s.xsdef + s0.s.xscol;
-+		netdev->stats.collisions += s1.s.scol + s1.s.mcol;
-+		spin_unlock_irqrestore(&p->lock, flags);
-+	}
-+}
-+
-+/*
-+ * Dequeue a receive skb and its corresponding ring entry.  The ring
-+ * entry is returned, *pskb is updated to point to the skb.
-+ */
-+static u64 octeon_mgmt_dequeue_rx_buffer(struct octeon_mgmt *p,
-+					 struct sk_buff **pskb)
-+{
-+	union mgmt_port_ring_entry re;
-+
-+	dma_sync_single_for_cpu(p->dev, p->rx_ring_handle,
-+				ring_size_to_bytes(OCTEON_MGMT_RX_RING_SIZE),
-+				DMA_BIDIRECTIONAL);
-+
-+	re.d64 = p->rx_ring[p->rx_next];
-+	p->rx_next = (p->rx_next + 1) % OCTEON_MGMT_RX_RING_SIZE;
-+	p->rx_current_fill--;
-+	*pskb = __skb_dequeue(&p->rx_list);
-+
-+	dma_unmap_single(p->dev, re.s.addr,
-+			 ETH_FRAME_LEN + OCTEON_MGMT_RX_HEADROOM,
-+			 DMA_FROM_DEVICE);
-+
-+	return re.d64;
-+}
-+
-+
-+static int octeon_mgmt_receive_one(struct octeon_mgmt *p)
-+{
-+	int port = p->port;
-+	struct net_device *netdev = p->netdev;
-+	union cvmx_mixx_ircnt mix_ircnt;
-+	union mgmt_port_ring_entry re;
-+	struct sk_buff *skb;
-+	struct sk_buff *skb2;
-+	struct sk_buff *skb_new;
-+	union mgmt_port_ring_entry re2;
-+	int rc = 1;
-+
-+
-+	re.d64 = octeon_mgmt_dequeue_rx_buffer(p, &skb);
-+	if (likely(re.s.code == RING_ENTRY_CODE_DONE)) {
-+		/* A good packet, send it up. */
-+		skb_put(skb, re.s.len);
-+good:
-+		skb->protocol = eth_type_trans(skb, netdev);
-+		netdev->stats.rx_packets++;
-+		netdev->stats.rx_bytes += skb->len;
-+		netdev->last_rx = jiffies;
-+		netif_receive_skb(skb);
-+		rc = 0;
-+	} else if (re.s.code == RING_ENTRY_CODE_MORE) {
-+		/*
-+		 * Packet split across skbs.  This can happen if we
-+		 * increase the MTU.  Buffers that are already in the
-+		 * rx ring can then end up being too small.  As the rx
-+		 * ring is refilled, buffers sized for the new MTU
-+		 * will be used and we should go back to the normal
-+		 * non-split case.
-+		 */
-+		skb_put(skb, re.s.len);
-+		do {
-+			re2.d64 = octeon_mgmt_dequeue_rx_buffer(p, &skb2);
-+			if (re2.s.code != RING_ENTRY_CODE_MORE
-+				&& re2.s.code != RING_ENTRY_CODE_DONE)
-+				goto split_error;
-+			skb_put(skb2,  re2.s.len);
-+			skb_new = skb_copy_expand(skb, 0, skb2->len,
-+						  GFP_ATOMIC);
-+			if (!skb_new)
-+				goto split_error;
-+			if (skb_copy_bits(skb2, 0, skb_tail_pointer(skb_new),
-+					  skb2->len))
-+				goto split_error;
-+			skb_put(skb_new, skb2->len);
-+			dev_kfree_skb_any(skb);
-+			dev_kfree_skb_any(skb2);
-+			skb = skb_new;
-+		} while (re2.s.code == RING_ENTRY_CODE_MORE);
-+		goto good;
-+	} else {
-+		/* Some other error, discard it. */
-+		dev_kfree_skb_any(skb);
-+		/*
-+		 * Error statistics are accumulated in
-+		 * octeon_mgmt_update_rx_stats.
-+		 */
-+	}
-+	goto done;
-+split_error:
-+	/* Discard the whole mess. */
-+	dev_kfree_skb_any(skb);
-+	dev_kfree_skb_any(skb2);
-+	while (re2.s.code == RING_ENTRY_CODE_MORE) {
-+		re2.d64 = octeon_mgmt_dequeue_rx_buffer(p, &skb2);
-+		dev_kfree_skb_any(skb2);
-+	}
-+	netdev->stats.rx_errors++;
-+
-+done:
-+	/* Tell the hardware we processed a packet.  */
-+	mix_ircnt.u64 = 0;
-+	mix_ircnt.s.ircnt = 1;
-+	cvmx_write_csr(CVMX_MIXX_IRCNT(port), mix_ircnt.u64);
-+	return rc;
-+
-+}
-+
-+static int octeon_mgmt_receive_packets(struct octeon_mgmt *p, int budget)
-+{
-+	int port = p->port;
-+	unsigned int work_done = 0;
-+	union cvmx_mixx_ircnt mix_ircnt;
-+	int rc;
-+
-+
-+	mix_ircnt.u64 = cvmx_read_csr(CVMX_MIXX_IRCNT(port));
-+	while (work_done < budget && mix_ircnt.s.ircnt) {
-+
-+		rc = octeon_mgmt_receive_one(p);
-+		if (!rc)
-+			work_done++;
-+
-+		/* Check for more packets. */
-+		mix_ircnt.u64 = cvmx_read_csr(CVMX_MIXX_IRCNT(port));
-+	}
-+
-+	octeon_mgmt_rx_fill_ring(p->netdev);
-+
-+	return work_done;
-+}
-+
-+static int octeon_mgmt_napi_poll(struct napi_struct *napi, int budget)
-+{
-+	struct octeon_mgmt *p = container_of(napi, struct octeon_mgmt, napi);
-+	struct net_device *netdev = p->netdev;
-+	unsigned int work_done = 0;
-+
-+	work_done = octeon_mgmt_receive_packets(p, budget);
-+
-+	if (work_done < budget) {
-+		/* We stopped because no more packets were available. */
-+		napi_complete(napi);
-+		octeon_mgmt_enable_rx_irq(p);
-+	}
-+	octeon_mgmt_update_rx_stats(netdev);
-+
-+	return work_done;
-+}
-+
-+/* Reset the hardware to clean state.  */
-+static void octeon_mgmt_reset_hw(struct octeon_mgmt *p)
-+{
-+	union cvmx_mixx_ctl mix_ctl;
-+	union cvmx_mixx_bist mix_bist;
-+	union cvmx_agl_gmx_bist agl_gmx_bist;
-+
-+	mix_ctl.u64 = 0;
-+	cvmx_write_csr(CVMX_MIXX_CTL(p->port), mix_ctl.u64);
-+	do {
-+		mix_ctl.u64 = cvmx_read_csr(CVMX_MIXX_CTL(p->port));
-+	} while (mix_ctl.s.busy);
-+	mix_ctl.s.reset = 1;
-+	cvmx_write_csr(CVMX_MIXX_CTL(p->port), mix_ctl.u64);
-+	cvmx_read_csr(CVMX_MIXX_CTL(p->port));
-+	cvmx_wait(64);
-+
-+	mix_bist.u64 = cvmx_read_csr(CVMX_MIXX_BIST(p->port));
-+	if (mix_bist.u64)
-+		dev_warn(p->dev, "MIX failed BIST (0x%016llx)\n",
-+			(unsigned long long)mix_bist.u64);
-+
-+	agl_gmx_bist.u64 = cvmx_read_csr(CVMX_AGL_GMX_BIST);
-+	if (agl_gmx_bist.u64)
-+		dev_warn(p->dev, "AGL failed BIST (0x%016llx)\n",
-+			 (unsigned long long)agl_gmx_bist.u64);
-+}
-+
-+struct octeon_mgmt_cam_state {
-+	u64 cam[6];
-+	u64 cam_mask;
-+	int cam_index;
-+};
-+
-+static void octeon_mgmt_cam_state_add(struct octeon_mgmt_cam_state *cs,
-+				      unsigned char *addr)
-+{
-+	int i;
-+
-+	for (i = 0; i < 6; i++)
-+		cs->cam[i] |= (u64)addr[i] << (8 * (cs->cam_index));
-+	cs->cam_mask |= (1ULL << cs->cam_index);
-+	cs->cam_index++;
-+}
-+
-+static void octeon_mgmt_set_rx_filtering(struct net_device *netdev)
-+{
-+	struct octeon_mgmt *p = netdev_priv(netdev);
-+	int port = p->port;
-+	int i;
-+	union cvmx_agl_gmx_rxx_adr_ctl adr_ctl;
-+	union cvmx_agl_gmx_prtx_cfg agl_gmx_prtx;
-+	unsigned long flags;
-+	unsigned int prev_packet_enable;
-+	unsigned int cam_mode = 1; /* 1 - Accept on CAM match */
-+	unsigned int multicast_mode = 1; /* 1 - Reject all multicast.  */
-+	struct octeon_mgmt_cam_state cam_state;
-+	struct dev_addr_list *list;
-+	struct list_head *pos;
-+	int available_cam_entries;
-+
-+	memset(&cam_state, 0, sizeof(cam_state));
-+
-+	if ((netdev->flags & IFF_PROMISC) || netdev->dev_addrs.count > 7) {
-+		cam_mode = 0;
-+		available_cam_entries = 8;
-+	} else {
-+		/*
-+		 * One CAM entry for the primary address, leaves seven
-+		 * for the secondary addresses.
-+		 */
-+		available_cam_entries = 7 - netdev->dev_addrs.count;
-+	}
-+
-+	if (netdev->flags & IFF_MULTICAST) {
-+		if (cam_mode == 0 || (netdev->flags & IFF_ALLMULTI)
-+		    || netdev->mc_count  > available_cam_entries)
-+			multicast_mode = 2; /* 1 - Accept all multicast.  */
-+		else
-+			multicast_mode = 0; /* 0 - Use CAM.  */
-+	}
-+
-+	if (cam_mode == 1) {
-+		/* Add primary address. */
-+		octeon_mgmt_cam_state_add(&cam_state, netdev->dev_addr);
-+		list_for_each(pos, &netdev->dev_addrs.list) {
-+			struct netdev_hw_addr *hw_addr;
-+			hw_addr = list_entry(pos, struct netdev_hw_addr, list);
-+			octeon_mgmt_cam_state_add(&cam_state, hw_addr->addr);
-+			list = list->next;
-+		}
-+	}
-+	if (multicast_mode == 0) {
-+		i = netdev->mc_count;
-+		list = netdev->mc_list;
-+		while (i--) {
-+			octeon_mgmt_cam_state_add(&cam_state, list->da_addr);
-+			list = list->next;
-+		}
-+	}
-+
-+
-+	spin_lock_irqsave(&p->lock, flags);
-+
-+	/* Disable packet I/O. */
-+	agl_gmx_prtx.u64 = cvmx_read_csr(CVMX_AGL_GMX_PRTX_CFG(port));
-+	prev_packet_enable = agl_gmx_prtx.s.en;
-+	agl_gmx_prtx.s.en = 0;
-+	cvmx_write_csr(CVMX_AGL_GMX_PRTX_CFG(port), agl_gmx_prtx.u64);
-+
-+
-+	adr_ctl.u64 = 0;
-+	adr_ctl.s.cam_mode = cam_mode;
-+	adr_ctl.s.mcst = multicast_mode;
-+	adr_ctl.s.bcst = 1;     /* Allow broadcast */
-+
-+	cvmx_write_csr(CVMX_AGL_GMX_RXX_ADR_CTL(port), adr_ctl.u64);
-+
-+	cvmx_write_csr(CVMX_AGL_GMX_RXX_ADR_CAM0(port), cam_state.cam[0]);
-+	cvmx_write_csr(CVMX_AGL_GMX_RXX_ADR_CAM1(port), cam_state.cam[1]);
-+	cvmx_write_csr(CVMX_AGL_GMX_RXX_ADR_CAM2(port), cam_state.cam[2]);
-+	cvmx_write_csr(CVMX_AGL_GMX_RXX_ADR_CAM3(port), cam_state.cam[3]);
-+	cvmx_write_csr(CVMX_AGL_GMX_RXX_ADR_CAM4(port), cam_state.cam[4]);
-+	cvmx_write_csr(CVMX_AGL_GMX_RXX_ADR_CAM5(port), cam_state.cam[5]);
-+	cvmx_write_csr(CVMX_AGL_GMX_RXX_ADR_CAM_EN(port), cam_state.cam_mask);
-+
-+	/* Restore packet I/O. */
-+	agl_gmx_prtx.s.en = prev_packet_enable;
-+	cvmx_write_csr(CVMX_AGL_GMX_PRTX_CFG(port), agl_gmx_prtx.u64);
-+
-+	spin_unlock_irqrestore(&p->lock, flags);
-+}
-+
-+static int octeon_mgmt_set_mac_address(struct net_device *netdev, void *addr)
-+{
-+	struct sockaddr *sa = addr;
-+
-+	if (!is_valid_ether_addr(sa->sa_data))
-+		return -EADDRNOTAVAIL;
-+
-+	memcpy(netdev->dev_addr, sa->sa_data, ETH_ALEN);
-+
-+	octeon_mgmt_set_rx_filtering(netdev);
-+
-+	return 0;
-+}
-+
-+static int octeon_mgmt_change_mtu(struct net_device *netdev, int new_mtu)
-+{
-+	struct octeon_mgmt *p = netdev_priv(netdev);
-+	int port = p->port;
-+	int size_without_fcs = new_mtu + OCTEON_MGMT_RX_HEADROOM;
-+
-+	/*
-+	 * Limit the MTU to make sure the ethernet packets are between
-+	 * 64 bytes and 16383 bytes.
-+	 */
-+	if (size_without_fcs < 64 || size_without_fcs > 16383) {
-+		dev_warn(p->dev, "MTU must be between %d and %d.\n",
-+			 64 - OCTEON_MGMT_RX_HEADROOM,
-+			 16383 - OCTEON_MGMT_RX_HEADROOM);
-+		return -EINVAL;
-+	}
-+
-+	netdev->mtu = new_mtu;
-+
-+	cvmx_write_csr(CVMX_AGL_GMX_RXX_FRM_MAX(port), size_without_fcs);
-+	cvmx_write_csr(CVMX_AGL_GMX_RXX_JABBER(port),
-+		       (size_without_fcs + 7) & 0xfff8);
-+
-+	return 0;
-+}
-+
-+static irqreturn_t octeon_mgmt_interrupt(int cpl, void *dev_id)
-+{
-+	struct net_device *netdev = dev_id;
-+	struct octeon_mgmt *p = netdev_priv(netdev);
-+	int port = p->port;
-+	union cvmx_mixx_isr mixx_isr;
-+
-+	mixx_isr.u64 = cvmx_read_csr(CVMX_MIXX_ISR(port));
-+
-+	/* Clear any pending interrupts */
-+	cvmx_write_csr(CVMX_MIXX_ISR(port),
-+		       cvmx_read_csr(CVMX_MIXX_ISR(port)));
-+	cvmx_read_csr(CVMX_MIXX_ISR(port));
-+
-+	if (mixx_isr.s.irthresh) {
-+		octeon_mgmt_disable_rx_irq(p);
-+		napi_schedule(&p->napi);
-+	}
-+	if (mixx_isr.s.orthresh) {
-+		octeon_mgmt_disable_tx_irq(p);
-+		tasklet_schedule(&p->tx_clean_tasklet);
-+	}
-+
-+	return IRQ_HANDLED;
-+}
-+
-+static int octeon_mgmt_ioctl(struct net_device *netdev,
-+			     struct ifreq *rq, int cmd)
-+{
-+	struct octeon_mgmt *p = netdev_priv(netdev);
-+
-+	if (!netif_running(netdev))
-+		return -EINVAL;
-+
-+	if (!p->phydev)
-+		return -EINVAL;
-+
-+	return phy_mii_ioctl(p->phydev, if_mii(rq), cmd);
-+}
-+
-+static void octeon_mgmt_adjust_link(struct net_device *netdev)
-+{
-+	struct octeon_mgmt *p = netdev_priv(netdev);
-+	int port = p->port;
-+	union cvmx_agl_gmx_prtx_cfg prtx_cfg;
-+	unsigned long flags;
-+	int link_changed = 0;
-+
-+	spin_lock_irqsave(&p->lock, flags);
-+	if (p->phydev->link) {
-+		if (!p->last_link)
-+			link_changed = 1;
-+		if (p->last_duplex != p->phydev->duplex) {
-+			p->last_duplex = p->phydev->duplex;
-+			prtx_cfg.u64 =
-+				cvmx_read_csr(CVMX_AGL_GMX_PRTX_CFG(port));
-+			prtx_cfg.s.duplex = p->phydev->duplex;
-+			cvmx_write_csr(CVMX_AGL_GMX_PRTX_CFG(port),
-+				       prtx_cfg.u64);
-+		}
-+	} else {
-+		if (p->last_link)
-+			link_changed = -1;
-+	}
-+	p->last_link = p->phydev->link;
-+	spin_unlock_irqrestore(&p->lock, flags);
-+
-+	if (link_changed != 0) {
-+		if (link_changed > 0) {
-+			netif_carrier_on(netdev);
-+			pr_info("%s: Link is up - %d/%s\n", netdev->name,
-+				p->phydev->speed,
-+				DUPLEX_FULL == p->phydev->duplex ?
-+				"Full" : "Half");
-+		} else {
-+			netif_carrier_off(netdev);
-+			pr_info("%s: Link is down\n", netdev->name);
-+		}
-+	}
-+}
-+
-+static int octeon_mgmt_init_phy(struct net_device *netdev)
-+{
-+	struct octeon_mgmt *p = netdev_priv(netdev);
-+	char phy_id[20];
-+
-+	if (octeon_is_simulation()) {
-+		/* No PHYs in the simulator. */
-+		netif_carrier_on(netdev);
-+		return 0;
-+	}
-+
-+	snprintf(phy_id, sizeof(phy_id), PHY_ID_FMT, "0", p->port);
-+
-+	p->phydev = phy_connect(netdev, phy_id, octeon_mgmt_adjust_link, 0,
-+				PHY_INTERFACE_MODE_MII);
-+
-+	if (IS_ERR(p->phydev)) {
-+		p->phydev = NULL;
-+		return -1;
-+	}
-+
-+	phy_start_aneg(p->phydev);
-+
-+	return 0;
-+}
-+
-+static int octeon_mgmt_open(struct net_device *netdev)
-+{
-+	struct octeon_mgmt *p = netdev_priv(netdev);
-+	int port = p->port;
-+	union cvmx_mixx_ctl mix_ctl;
-+	union cvmx_agl_gmx_inf_mode agl_gmx_inf_mode;
-+	union cvmx_mixx_oring1 oring1;
-+	union cvmx_mixx_iring1 iring1;
-+	union cvmx_agl_gmx_prtx_cfg prtx_cfg;
-+	union cvmx_agl_gmx_rxx_frm_ctl rxx_frm_ctl;
-+	union cvmx_mixx_irhwm mix_irhwm;
-+	union cvmx_mixx_orhwm mix_orhwm;
-+	union cvmx_mixx_intena mix_intena;
-+	struct sockaddr sa;
-+
-+	/* Allocate ring buffers.  */
-+	p->tx_ring = kzalloc(ring_size_to_bytes(OCTEON_MGMT_TX_RING_SIZE),
-+			     GFP_KERNEL);
-+	if (!p->tx_ring)
-+		return -ENOMEM;
-+	p->tx_ring_handle =
-+		dma_map_single(p->dev, p->tx_ring,
-+			       ring_size_to_bytes(OCTEON_MGMT_TX_RING_SIZE),
-+			       DMA_BIDIRECTIONAL);
-+	p->tx_next = 0;
-+	p->tx_next_clean = 0;
-+	p->tx_current_fill = 0;
-+
-+
-+	p->rx_ring = kzalloc(ring_size_to_bytes(OCTEON_MGMT_RX_RING_SIZE),
-+			     GFP_KERNEL);
-+	if (!p->rx_ring)
-+		goto err_nomem;
-+	p->rx_ring_handle =
-+		dma_map_single(p->dev, p->rx_ring,
-+			       ring_size_to_bytes(OCTEON_MGMT_RX_RING_SIZE),
-+			       DMA_BIDIRECTIONAL);
-+
-+	p->rx_next = 0;
-+	p->rx_next_fill = 0;
-+	p->rx_current_fill = 0;
-+
-+	octeon_mgmt_reset_hw(p);
-+
-+	mix_ctl.u64 = cvmx_read_csr(CVMX_MIXX_CTL(port));
-+
-+	/* Bring it out of reset if needed. */
-+	if (mix_ctl.s.reset) {
-+		mix_ctl.s.reset = 0;
-+		cvmx_write_csr(CVMX_MIXX_CTL(port), mix_ctl.u64);
-+		do {
-+			mix_ctl.u64 = cvmx_read_csr(CVMX_MIXX_CTL(port));
-+		} while (mix_ctl.s.reset);
-+	}
-+
-+	agl_gmx_inf_mode.u64 = 0;
-+	agl_gmx_inf_mode.s.en = 1;
-+	cvmx_write_csr(CVMX_AGL_GMX_INF_MODE, agl_gmx_inf_mode.u64);
-+
-+	oring1.u64 = 0;
-+	oring1.s.obase = p->tx_ring_handle >> 3;
-+	oring1.s.osize = OCTEON_MGMT_TX_RING_SIZE;
-+	cvmx_write_csr(CVMX_MIXX_ORING1(port), oring1.u64);
-+
-+	iring1.u64 = 0;
-+	iring1.s.ibase = p->rx_ring_handle >> 3;
-+	iring1.s.isize = OCTEON_MGMT_RX_RING_SIZE;
-+	cvmx_write_csr(CVMX_MIXX_IRING1(port), iring1.u64);
-+
-+	/* Disable packet I/O. */
-+	prtx_cfg.u64 = cvmx_read_csr(CVMX_AGL_GMX_PRTX_CFG(port));
-+	prtx_cfg.s.en = 0;
-+	cvmx_write_csr(CVMX_AGL_GMX_PRTX_CFG(port), prtx_cfg.u64);
-+
-+	memcpy(sa.sa_data, netdev->dev_addr, ETH_ALEN);
-+	octeon_mgmt_set_mac_address(netdev, &sa);
-+
-+	octeon_mgmt_change_mtu(netdev, netdev->mtu);
-+
-+	/*
-+	 * Enable the port HW. Packets are not allowed until
-+	 * cvmx_mgmt_port_enable() is called.
-+	 */
-+	mix_ctl.u64 = 0;
-+	mix_ctl.s.crc_strip = 1;    /* Strip the ending CRC */
-+	mix_ctl.s.en = 1;           /* Enable the port */
-+	mix_ctl.s.nbtarb = 0;       /* Arbitration mode */
-+	/* MII CB-request FIFO programmable high watermark */
-+	mix_ctl.s.mrq_hwm = 1;
-+	cvmx_write_csr(CVMX_MIXX_CTL(port), mix_ctl.u64);
-+
-+	if (OCTEON_IS_MODEL(OCTEON_CN56XX_PASS1_X)
-+	    || OCTEON_IS_MODEL(OCTEON_CN52XX_PASS1_X)) {
-+		/*
-+		 * Force compensation values, as they are not
-+		 * determined properly by HW
-+		 */
-+		union cvmx_agl_gmx_drv_ctl drv_ctl;
-+
-+		drv_ctl.u64 = cvmx_read_csr(CVMX_AGL_GMX_DRV_CTL);
-+		if (port) {
-+			drv_ctl.s.byp_en1 = 1;
-+			drv_ctl.s.nctl1 = 6;
-+			drv_ctl.s.pctl1 = 6;
-+		} else {
-+			drv_ctl.s.byp_en = 1;
-+			drv_ctl.s.nctl = 6;
-+			drv_ctl.s.pctl = 6;
-+		}
-+		cvmx_write_csr(CVMX_AGL_GMX_DRV_CTL, drv_ctl.u64);
-+	}
-+
-+	octeon_mgmt_rx_fill_ring(netdev);
-+
-+	/* Clear statistics. */
-+	/* Clear on read. */
-+	cvmx_write_csr(CVMX_AGL_GMX_RXX_STATS_CTL(port), 1);
-+	cvmx_write_csr(CVMX_AGL_GMX_RXX_STATS_PKTS_DRP(port), 0);
-+	cvmx_write_csr(CVMX_AGL_GMX_RXX_STATS_PKTS_BAD(port), 0);
-+
-+	cvmx_write_csr(CVMX_AGL_GMX_TXX_STATS_CTL(port), 1);
-+	cvmx_write_csr(CVMX_AGL_GMX_TXX_STAT0(port), 0);
-+	cvmx_write_csr(CVMX_AGL_GMX_TXX_STAT1(port), 0);
-+
-+	/* Clear any pending interrupts */
-+	cvmx_write_csr(CVMX_MIXX_ISR(port), cvmx_read_csr(CVMX_MIXX_ISR(port)));
-+
-+	if (request_irq(p->irq, octeon_mgmt_interrupt, 0, netdev->name,
-+			netdev)) {
-+		dev_err(p->dev, "request_irq(%d) failed.\n", p->irq);
-+		goto err_noirq;
-+	}
-+
-+	/* Interrupt every single RX packet */
-+	mix_irhwm.u64 = 0;
-+	mix_irhwm.s.irhwm = 0;
-+	cvmx_write_csr(CVMX_MIXX_IRHWM(port), mix_irhwm.u64);
-+
-+	/* Interrupt when we have 5 or more packets to clean.  */
-+	mix_orhwm.u64 = 0;
-+	mix_orhwm.s.orhwm = 5;
-+	cvmx_write_csr(CVMX_MIXX_ORHWM(port), mix_orhwm.u64);
-+
-+	/* Enable receive and transmit interrupts */
-+	mix_intena.u64 = 0;
-+	mix_intena.s.ithena = 1;
-+	mix_intena.s.othena = 1;
-+	cvmx_write_csr(CVMX_MIXX_INTENA(port), mix_intena.u64);
-+
-+
-+	/* Enable packet I/O. */
-+
-+	rxx_frm_ctl.u64 = 0;
-+	rxx_frm_ctl.s.pre_align = 1;
-+	/*
-+	 * When set, disables the length check for non-min sized pkts
-+	 * with padding in the client data.
-+	 */
-+	rxx_frm_ctl.s.pad_len = 1;
-+	/* When set, disables the length check for VLAN pkts */
-+	rxx_frm_ctl.s.vlan_len = 1;
-+	/* When set, PREAMBLE checking is  less strict */
-+	rxx_frm_ctl.s.pre_free = 1;
-+	/* Control Pause Frames can match station SMAC */
-+	rxx_frm_ctl.s.ctl_smac = 0;
-+	/* Control Pause Frames can match globally assign Multicast address */
-+	rxx_frm_ctl.s.ctl_mcst = 1;
-+	/* Forward pause information to TX block */
-+	rxx_frm_ctl.s.ctl_bck = 1;
-+	/* Drop Control Pause Frames */
-+	rxx_frm_ctl.s.ctl_drp = 1;
-+	/* Strip off the preamble */
-+	rxx_frm_ctl.s.pre_strp = 1;
-+	/*
-+	 * This port is configured to send PREAMBLE+SFD to begin every
-+	 * frame.  GMX checks that the PREAMBLE is sent correctly.
-+	 */
-+	rxx_frm_ctl.s.pre_chk = 1;
-+	cvmx_write_csr(CVMX_AGL_GMX_RXX_FRM_CTL(port), rxx_frm_ctl.u64);
-+
-+	/* Enable the AGL block */
-+	agl_gmx_inf_mode.u64 = 0;
-+	agl_gmx_inf_mode.s.en = 1;
-+	cvmx_write_csr(CVMX_AGL_GMX_INF_MODE, agl_gmx_inf_mode.u64);
-+
-+	/* Configure the port duplex and enables */
-+	prtx_cfg.u64 = cvmx_read_csr(CVMX_AGL_GMX_PRTX_CFG(port));
-+	prtx_cfg.s.tx_en = 1;
-+	prtx_cfg.s.rx_en = 1;
-+	prtx_cfg.s.en = 1;
-+	p->last_duplex = 1;
-+	prtx_cfg.s.duplex = p->last_duplex;
-+	cvmx_write_csr(CVMX_AGL_GMX_PRTX_CFG(port), prtx_cfg.u64);
-+
-+	p->last_link = 0;
-+	netif_carrier_off(netdev);
-+
-+	if (octeon_mgmt_init_phy(netdev)) {
-+		dev_err(p->dev, "Cannot initialize PHY.\n");
-+		goto err_noirq;
-+	}
-+
-+	netif_wake_queue(netdev);
-+	napi_enable(&p->napi);
-+
-+	return 0;
-+err_noirq:
-+	octeon_mgmt_reset_hw(p);
-+	dma_unmap_single(p->dev, p->rx_ring_handle,
-+			 ring_size_to_bytes(OCTEON_MGMT_RX_RING_SIZE),
-+			 DMA_BIDIRECTIONAL);
-+	kfree(p->rx_ring);
-+err_nomem:
-+	dma_unmap_single(p->dev, p->tx_ring_handle,
-+			 ring_size_to_bytes(OCTEON_MGMT_TX_RING_SIZE),
-+			 DMA_BIDIRECTIONAL);
-+	kfree(p->tx_ring);
-+	return -ENOMEM;
-+}
-+
-+static int octeon_mgmt_stop(struct net_device *netdev)
-+{
-+	struct octeon_mgmt *p = netdev_priv(netdev);
-+
-+	napi_disable(&p->napi);
-+	netif_stop_queue(netdev);
-+
-+	if (p->phydev)
-+		phy_disconnect(p->phydev);
-+
-+	netif_carrier_off(netdev);
-+
-+	octeon_mgmt_reset_hw(p);
-+
-+
-+	free_irq(p->irq, netdev);
-+
-+	/* dma_unmap is a nop on Octeon, so just free everything.  */
-+	skb_queue_purge(&p->tx_list);
-+	skb_queue_purge(&p->rx_list);
-+
-+	dma_unmap_single(p->dev, p->rx_ring_handle,
-+			 ring_size_to_bytes(OCTEON_MGMT_RX_RING_SIZE),
-+			 DMA_BIDIRECTIONAL);
-+	kfree(p->rx_ring);
-+
-+	dma_unmap_single(p->dev, p->tx_ring_handle,
-+			 ring_size_to_bytes(OCTEON_MGMT_TX_RING_SIZE),
-+			 DMA_BIDIRECTIONAL);
-+	kfree(p->tx_ring);
-+
-+
-+	return 0;
-+}
-+
-+static int octeon_mgmt_xmit(struct sk_buff *skb, struct net_device *netdev)
-+{
-+	struct octeon_mgmt *p = netdev_priv(netdev);
-+	int port = p->port;
-+	union mgmt_port_ring_entry re;
-+	unsigned long flags;
-+
-+	re.d64 = 0;
-+	re.s.len = skb->len;
-+	re.s.addr = dma_map_single(p->dev, skb->data,
-+				   skb->len,
-+				   DMA_TO_DEVICE);
-+
-+	spin_lock_irqsave(&p->tx_list.lock, flags);
-+
-+	if (unlikely(p->tx_current_fill >=
-+		     ring_max_fill(OCTEON_MGMT_TX_RING_SIZE))) {
-+		spin_unlock_irqrestore(&p->tx_list.lock, flags);
-+
-+		dma_unmap_single(p->dev, re.s.addr, re.s.len,
-+				 DMA_TO_DEVICE);
-+
-+		netif_stop_queue(netdev);
-+		return NETDEV_TX_BUSY;
-+	}
-+
-+	__skb_queue_tail(&p->tx_list, skb);
-+
-+	/* Put it in the ring.  */
-+	p->tx_ring[p->tx_next] = re.d64;
-+	p->tx_next = (p->tx_next + 1) % OCTEON_MGMT_TX_RING_SIZE;
-+	p->tx_current_fill++;
-+
-+	spin_unlock_irqrestore(&p->tx_list.lock, flags);
-+
-+	dma_sync_single_for_device(p->dev, p->tx_ring_handle,
-+				   ring_size_to_bytes(OCTEON_MGMT_TX_RING_SIZE),
-+				   DMA_BIDIRECTIONAL);
-+
-+	netdev->stats.tx_packets++;
-+	netdev->stats.tx_bytes += skb->len;
-+
-+	/* Ring the bell.  */
-+	cvmx_write_csr(CVMX_MIXX_ORING2(port), 1);
-+
-+	netdev->trans_start = jiffies;
-+	octeon_mgmt_clean_tx_buffers(p);
-+	octeon_mgmt_update_tx_stats(netdev);
-+	return NETDEV_TX_OK;
-+}
-+
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+static void octeon_mgmt_poll_controller(struct net_device *netdev)
-+{
-+	struct octeon_mgmt *p = netdev_priv(netdev);
-+
-+	octeon_mgmt_receive_packets(p, 16);
-+	octeon_mgmt_update_rx_stats(netdev);
-+	return;
-+}
-+#endif
-+
-+static void octeon_mgmt_get_drvinfo(struct net_device *netdev,
-+				    struct ethtool_drvinfo *info)
-+{
-+	strncpy(info->driver, DRV_NAME, sizeof(info->driver));
-+	strncpy(info->version, DRV_VERSION, sizeof(info->version));
-+	strncpy(info->fw_version, "N/A", sizeof(info->fw_version));
-+	strncpy(info->bus_info, "N/A", sizeof(info->bus_info));
-+	info->n_stats = 0;
-+	info->testinfo_len = 0;
-+	info->regdump_len = 0;
-+	info->eedump_len = 0;
-+}
-+
-+static int octeon_mgmt_get_settings(struct net_device *netdev,
-+				    struct ethtool_cmd *cmd)
-+{
-+	struct octeon_mgmt *p = netdev_priv(netdev);
-+
-+	if (p->phydev)
-+		return phy_ethtool_gset(p->phydev, cmd);
-+
+ #include <net/dst.h>
+ 
+ #include <asm/octeon/octeon.h>
+@@ -34,86 +35,12 @@
+ #include "ethernet-defines.h"
+ #include "octeon-ethernet.h"
+ #include "ethernet-mdio.h"
++#include "ethernet-util.h"
+ 
+ #include "cvmx-helper-board.h"
+ 
+ #include "cvmx-smix-defs.h"
+ 
+-DECLARE_MUTEX(mdio_sem);
+-
+-/**
+- * Perform an MII read. Called by the generic MII routines
+- *
+- * @dev:      Device to perform read for
+- * @phy_id:   The MII phy id
+- * @location: Register location to read
+- * Returns Result from the read or zero on failure
+- */
+-static int cvm_oct_mdio_read(struct net_device *dev, int phy_id, int location)
+-{
+-	union cvmx_smix_cmd smi_cmd;
+-	union cvmx_smix_rd_dat smi_rd;
+-
+-	smi_cmd.u64 = 0;
+-	smi_cmd.s.phy_op = 1;
+-	smi_cmd.s.phy_adr = phy_id;
+-	smi_cmd.s.reg_adr = location;
+-	cvmx_write_csr(CVMX_SMIX_CMD(0), smi_cmd.u64);
+-
+-	do {
+-		if (!in_interrupt())
+-			yield();
+-		smi_rd.u64 = cvmx_read_csr(CVMX_SMIX_RD_DAT(0));
+-	} while (smi_rd.s.pending);
+-
+-	if (smi_rd.s.val)
+-		return smi_rd.s.dat;
+-	else
+-		return 0;
+-}
+-
+-static int cvm_oct_mdio_dummy_read(struct net_device *dev, int phy_id,
+-				   int location)
+-{
+-	return 0xffff;
+-}
+-
+-/**
+- * Perform an MII write. Called by the generic MII routines
+- *
+- * @dev:      Device to perform write for
+- * @phy_id:   The MII phy id
+- * @location: Register location to write
+- * @val:      Value to write
+- */
+-static void cvm_oct_mdio_write(struct net_device *dev, int phy_id, int location,
+-			       int val)
+-{
+-	union cvmx_smix_cmd smi_cmd;
+-	union cvmx_smix_wr_dat smi_wr;
+-
+-	smi_wr.u64 = 0;
+-	smi_wr.s.dat = val;
+-	cvmx_write_csr(CVMX_SMIX_WR_DAT(0), smi_wr.u64);
+-
+-	smi_cmd.u64 = 0;
+-	smi_cmd.s.phy_op = 0;
+-	smi_cmd.s.phy_adr = phy_id;
+-	smi_cmd.s.reg_adr = location;
+-	cvmx_write_csr(CVMX_SMIX_CMD(0), smi_cmd.u64);
+-
+-	do {
+-		if (!in_interrupt())
+-			yield();
+-		smi_wr.u64 = cvmx_read_csr(CVMX_SMIX_WR_DAT(0));
+-	} while (smi_wr.s.pending);
+-}
+-
+-static void cvm_oct_mdio_dummy_write(struct net_device *dev, int phy_id,
+-				     int location, int val)
+-{
+-}
+-
+ static void cvm_oct_get_drvinfo(struct net_device *dev,
+ 				struct ethtool_drvinfo *info)
+ {
+@@ -125,49 +52,37 @@ static void cvm_oct_get_drvinfo(struct net_device *dev,
+ static int cvm_oct_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+ 	struct octeon_ethernet *priv = netdev_priv(dev);
+-	int ret;
+ 
+-	down(&mdio_sem);
+-	ret = mii_ethtool_gset(&priv->mii_info, cmd);
+-	up(&mdio_sem);
++	if (priv->phydev)
++		return phy_ethtool_gset(priv->phydev, cmd);
+ 
+-	return ret;
 +	return -EINVAL;
-+}
-+
-+static int octeon_mgmt_set_settings(struct net_device *netdev,
-+				    struct ethtool_cmd *cmd)
-+{
-+	struct octeon_mgmt *p = netdev_priv(netdev);
-+
+ }
+ 
+ static int cvm_oct_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+ 	struct octeon_ethernet *priv = netdev_priv(dev);
+-	int ret;
+ 
+-	down(&mdio_sem);
+-	ret = mii_ethtool_sset(&priv->mii_info, cmd);
+-	up(&mdio_sem);
 +	if (!capable(CAP_NET_ADMIN))
 +		return -EPERM;
 +
-+	if (p->phydev)
-+		return phy_ethtool_sset(p->phydev, cmd);
-+
++	if (priv->phydev)
++		return phy_ethtool_sset(priv->phydev, cmd);
+ 
+-	return ret;
 +	return -EINVAL;
-+}
-+
-+static const struct ethtool_ops octeon_mgmt_ethtool_ops = {
-+	.get_drvinfo = octeon_mgmt_get_drvinfo,
+ }
+ 
+ static int cvm_oct_nway_reset(struct net_device *dev)
+ {
+ 	struct octeon_ethernet *priv = netdev_priv(dev);
+-	int ret;
+ 
+-	down(&mdio_sem);
+-	ret = mii_nway_restart(&priv->mii_info);
+-	up(&mdio_sem);
++	if (!capable(CAP_NET_ADMIN))
++		return -EPERM;
+ 
+-	return ret;
+-}
++	if (priv->phydev)
++		return phy_start_aneg(priv->phydev);
+ 
+-static u32 cvm_oct_get_link(struct net_device *dev)
+-{
+-	struct octeon_ethernet *priv = netdev_priv(dev);
+-	u32 ret;
+-
+-	down(&mdio_sem);
+-	ret = mii_link_ok(&priv->mii_info);
+-	up(&mdio_sem);
+-
+-	return ret;
++	return -EINVAL;
+ }
+ 
+ const struct ethtool_ops cvm_oct_ethtool_ops = {
+@@ -175,7 +90,7 @@ const struct ethtool_ops cvm_oct_ethtool_ops = {
+ 	.get_settings = cvm_oct_get_settings,
+ 	.set_settings = cvm_oct_set_settings,
+ 	.nway_reset = cvm_oct_nway_reset,
+-	.get_link = cvm_oct_get_link,
 +	.get_link = ethtool_op_get_link,
-+	.get_settings = octeon_mgmt_get_settings,
-+	.set_settings = octeon_mgmt_set_settings
-+};
+ 	.get_sg = ethtool_op_get_sg,
+ 	.get_tx_csum = ethtool_op_get_tx_csum,
+ };
+@@ -191,41 +106,78 @@ const struct ethtool_ops cvm_oct_ethtool_ops = {
+ int cvm_oct_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+ 	struct octeon_ethernet *priv = netdev_priv(dev);
+-	struct mii_ioctl_data *data = if_mii(rq);
+-	unsigned int duplex_chg;
+-	int ret;
+ 
+-	down(&mdio_sem);
+-	ret = generic_mii_ioctl(&priv->mii_info, data, cmd, &duplex_chg);
+-	up(&mdio_sem);
++	if (!netif_running(dev))
++		return -EINVAL;
 +
-+static const struct net_device_ops octeon_mgmt_ops = {
-+	.ndo_open =			octeon_mgmt_open,
-+	.ndo_stop =			octeon_mgmt_stop,
-+	.ndo_start_xmit =		octeon_mgmt_xmit,
-+	.ndo_set_rx_mode = 		octeon_mgmt_set_rx_filtering,
-+	.ndo_set_multicast_list =	octeon_mgmt_set_rx_filtering,
-+	.ndo_set_mac_address =		octeon_mgmt_set_mac_address,
-+	.ndo_do_ioctl = 		octeon_mgmt_ioctl,
-+	.ndo_change_mtu =		octeon_mgmt_change_mtu,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller =		octeon_mgmt_poll_controller,
-+#endif
-+};
++	if (!priv->phydev)
++		return -EINVAL;
 +
-+static int __init octeon_mgmt_probe(struct platform_device *pdev)
-+{
-+	struct resource *res_irq;
-+	struct net_device *netdev;
-+	struct octeon_mgmt *p;
-+	int i;
-+
-+	netdev = alloc_etherdev(sizeof(struct octeon_mgmt));
-+	if (netdev == NULL)
-+		return -ENOMEM;
-+
-+	dev_set_drvdata(&pdev->dev, netdev);
-+	p = netdev_priv(netdev);
-+	netif_napi_add(netdev, &p->napi, octeon_mgmt_napi_poll,
-+		       OCTEON_MGMT_NAPI_WEIGHT);
-+
-+	p->netdev = netdev;
-+	p->dev = &pdev->dev;
-+
-+	p->port = pdev->id;
-+	snprintf(netdev->name, IFNAMSIZ, "mgmt%d", p->port);
-+
-+	res_irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-+	if (!res_irq)
-+		goto err;
-+
-+	p->irq = res_irq->start;
-+	spin_lock_init(&p->lock);
-+
-+	skb_queue_head_init(&p->tx_list);
-+	skb_queue_head_init(&p->rx_list);
-+	tasklet_init(&p->tx_clean_tasklet,
-+		     octeon_mgmt_clean_tx_tasklet, (unsigned long)p);
-+
-+	netdev->netdev_ops = &octeon_mgmt_ops;
-+	netdev->ethtool_ops = &octeon_mgmt_ethtool_ops;
-+
-+
-+	/* The mgmt ports get the first N MACs.  */
-+	for (i = 0; i < 6; i++)
-+		netdev->dev_addr[i] = octeon_bootinfo->mac_addr_base[i];
-+	netdev->dev_addr[5] += p->port;
-+
-+	if (p->port >= octeon_bootinfo->mac_addr_count)
-+		dev_err(&pdev->dev,
-+			"Error %s: Using MAC outside of the assigned range: "
-+			"%02x:%02x:%02x:%02x:%02x:%02x\n", netdev->name,
-+			netdev->dev_addr[0], netdev->dev_addr[1],
-+			netdev->dev_addr[2], netdev->dev_addr[3],
-+			netdev->dev_addr[4], netdev->dev_addr[5]);
-+
-+	if (register_netdev(netdev))
-+		goto err;
-+
-+	dev_info(&pdev->dev, "Version " DRV_VERSION "\n");
-+	return 0;
-+err:
-+	free_netdev(netdev);
-+	return -ENOENT;
++	return phy_mii_ioctl(priv->phydev, if_mii(rq), cmd);
 +}
-+
-+static int __exit octeon_mgmt_remove(struct platform_device *pdev)
+ 
+-	return ret;
++static void cvm_oct_adjust_link(struct net_device *dev)
 +{
-+	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
++	struct octeon_ethernet *priv = netdev_priv(dev);
++	cvmx_helper_link_info_t link_info;
 +
-+	unregister_netdev(netdev);
-+	free_netdev(netdev);
-+	return 0;
-+}
++	if (priv->last_link != priv->phydev->link) {
++		priv->last_link = priv->phydev->link;
++		link_info.u64 = 0;
++		link_info.s.link_up = priv->last_link ? 1 : 0;
++		link_info.s.full_duplex = priv->phydev->duplex ? 1 : 0;
++		link_info.s.speed = priv->phydev->speed;
++		cvmx_helper_link_set( priv->port, link_info);
++		if (priv->last_link) {
++			netif_carrier_on(dev);
++			if (priv->queue != -1)
++				DEBUGPRINT("%s: %u Mbps %s duplex, "
++					   "port %2d, queue %2d\n",
++					   dev->name, priv->phydev->speed,
++					   priv->phydev->duplex ?
++						"Full" : "Half",
++					   priv->port, priv->queue);
++			else
++				DEBUGPRINT("%s: %u Mbps %s duplex, "
++					   "port %2d, POW\n",
++					   dev->name, priv->phydev->speed,
++					   priv->phydev->duplex ?
++						"Full" : "Half",
++					   priv->port);
++		} else {
++			netif_carrier_off(dev);
++			DEBUGPRINT("%s: Link down\n", dev->name);
++		}
++	}
+ }
+ 
 +
-+static struct platform_driver octeon_mgmt_driver = {
-+	.driver = {
-+		.name		= "octeon_mgmt",
-+		.owner		= THIS_MODULE,
-+	},
-+	.probe		= octeon_mgmt_probe,
-+	.remove		= __exit_p(octeon_mgmt_remove),
-+};
+ /**
+- * Setup the MDIO device structures
++ * Setup the PHY
+  *
+  * @dev:    Device to setup
+  *
+  * Returns Zero on success, negative on failure
+  */
+-int cvm_oct_mdio_setup_device(struct net_device *dev)
++int cvm_oct_phy_setup_device(struct net_device *dev)
+ {
+ 	struct octeon_ethernet *priv = netdev_priv(dev);
+-	int phy_id = cvmx_helper_board_get_mii_address(priv->port);
+-	if (phy_id != -1) {
+-		priv->mii_info.dev = dev;
+-		priv->mii_info.phy_id = phy_id;
+-		priv->mii_info.phy_id_mask = 0xff;
+-		priv->mii_info.supports_gmii = 1;
+-		priv->mii_info.reg_num_mask = 0x1f;
+-		priv->mii_info.mdio_read = cvm_oct_mdio_read;
+-		priv->mii_info.mdio_write = cvm_oct_mdio_write;
+-	} else {
+-		/* Supply dummy MDIO routines so the kernel won't crash
+-		   if the user tries to read them */
+-		priv->mii_info.mdio_read = cvm_oct_mdio_dummy_read;
+-		priv->mii_info.mdio_write = cvm_oct_mdio_dummy_write;
 +
++	int phy_addr = cvmx_helper_board_get_mii_address(priv->port);
++	if (phy_addr != -1) {
++		char phy_id[20];
++
++		snprintf(phy_id, sizeof(phy_id), PHY_ID_FMT, "0", phy_addr);
++
++		priv->phydev = phy_connect(dev, phy_id, cvm_oct_adjust_link, 0,
++					PHY_INTERFACE_MODE_GMII);
++
++		if (IS_ERR(priv->phydev)) {
++			priv->phydev = NULL;
++			return -1;
++		}
++		priv->last_link = 0;
++		phy_start_aneg(priv->phydev);
+ 	}
+ 	return 0;
+ }
+diff --git a/drivers/staging/octeon/ethernet-mdio.h b/drivers/staging/octeon/ethernet-mdio.h
+index b3328ae..55d0614 100644
+--- a/drivers/staging/octeon/ethernet-mdio.h
++++ b/drivers/staging/octeon/ethernet-mdio.h
+@@ -43,4 +43,4 @@
+ 
+ extern const struct ethtool_ops cvm_oct_ethtool_ops;
+ int cvm_oct_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+-int cvm_oct_mdio_setup_device(struct net_device *dev);
++int cvm_oct_phy_setup_device(struct net_device *dev);
+diff --git a/drivers/staging/octeon/ethernet-proc.c b/drivers/staging/octeon/ethernet-proc.c
+index 8fa88fc..16308d4 100644
+--- a/drivers/staging/octeon/ethernet-proc.c
++++ b/drivers/staging/octeon/ethernet-proc.c
+@@ -25,7 +25,6 @@
+  * Contact Cavium Networks for more information
+ **********************************************************************/
+ #include <linux/kernel.h>
+-#include <linux/mii.h>
+ #include <linux/seq_file.h>
+ #include <linux/proc_fs.h>
+ #include <net/dst.h>
+@@ -38,112 +37,6 @@
+ #include "cvmx-helper.h"
+ #include "cvmx-pip.h"
+ 
+-static unsigned long long cvm_oct_stats_read_switch(struct net_device *dev,
+-						    int phy_id, int offset)
+-{
+-	struct octeon_ethernet *priv = netdev_priv(dev);
+-
+-	priv->mii_info.mdio_write(dev, phy_id, 0x1d, 0xcc00 | offset);
+-	return ((uint64_t) priv->mii_info.
+-		mdio_read(dev, phy_id,
+-			  0x1e) << 16) | (uint64_t) priv->mii_info.
+-	    mdio_read(dev, phy_id, 0x1f);
+-}
+-
+-static int cvm_oct_stats_switch_show(struct seq_file *m, void *v)
+-{
+-	static const int ports[] = { 0, 1, 2, 3, 9, -1 };
+-	struct net_device *dev = cvm_oct_device[0];
+-	int index = 0;
+-
+-	while (ports[index] != -1) {
+-
+-		/* Latch port */
+-		struct octeon_ethernet *priv = netdev_priv(dev);
+-
+-		priv->mii_info.mdio_write(dev, 0x1b, 0x1d,
+-					  0xdc00 | ports[index]);
+-		seq_printf(m, "\nSwitch Port %d\n", ports[index]);
+-		seq_printf(m, "InGoodOctets:   %12llu\t"
+-			   "OutOctets:      %12llu\t"
+-			   "64 Octets:      %12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b,
+-						     0x00) |
+-			   (cvm_oct_stats_read_switch(dev, 0x1b, 0x01) << 32),
+-			   cvm_oct_stats_read_switch(dev, 0x1b,
+-						     0x0E) |
+-			   (cvm_oct_stats_read_switch(dev, 0x1b, 0x0F) << 32),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x08));
+-
+-		seq_printf(m, "InBadOctets:    %12llu\t"
+-			   "OutUnicast:     %12llu\t"
+-			   "65-127 Octets:  %12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x02),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x10),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x09));
+-
+-		seq_printf(m, "InUnicast:      %12llu\t"
+-			   "OutBroadcasts:  %12llu\t"
+-			   "128-255 Octets: %12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x04),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x13),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x0A));
+-
+-		seq_printf(m, "InBroadcasts:   %12llu\t"
+-			   "OutMulticasts:  %12llu\t"
+-			   "256-511 Octets: %12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x06),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x12),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x0B));
+-
+-		seq_printf(m, "InMulticasts:   %12llu\t"
+-			   "OutPause:       %12llu\t"
+-			   "512-1023 Octets:%12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x07),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x15),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x0C));
+-
+-		seq_printf(m, "InPause:        %12llu\t"
+-			   "Excessive:      %12llu\t"
+-			   "1024-Max Octets:%12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x16),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x11),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x0D));
+-
+-		seq_printf(m, "InUndersize:    %12llu\t"
+-			   "Collisions:     %12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x18),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x1E));
+-
+-		seq_printf(m, "InFragments:    %12llu\t"
+-			   "Deferred:       %12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x19),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x05));
+-
+-		seq_printf(m, "InOversize:     %12llu\t"
+-			   "Single:         %12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x1A),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x14));
+-
+-		seq_printf(m, "InJabber:       %12llu\t"
+-			   "Multiple:       %12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x1B),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x17));
+-
+-		seq_printf(m, "In RxErr:       %12llu\t"
+-			   "OutFCSErr:      %12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x1C),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x03));
+-
+-		seq_printf(m, "InFCSErr:       %12llu\t"
+-			   "Late:           %12llu\n",
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x1D),
+-			   cvm_oct_stats_read_switch(dev, 0x1b, 0x1F));
+-		index++;
+-	}
+-	return 0;
+-}
+-
+ /**
+  * User is reading /proc/octeon_ethernet_stats
+  *
+@@ -215,11 +108,6 @@ static int cvm_oct_stats_show(struct seq_file *m, void *v)
+ 		}
+ 	}
+ 
+-	if (cvm_oct_device[0]) {
+-		priv = netdev_priv(cvm_oct_device[0]);
+-		if (priv->imode == CVMX_HELPER_INTERFACE_MODE_GMII)
+-			cvm_oct_stats_switch_show(m, v);
+-	}
+ 	return 0;
+ }
+ 
+diff --git a/drivers/staging/octeon/ethernet-rgmii.c b/drivers/staging/octeon/ethernet-rgmii.c
+index 8704133..d238611 100644
+--- a/drivers/staging/octeon/ethernet-rgmii.c
++++ b/drivers/staging/octeon/ethernet-rgmii.c
+@@ -147,32 +147,36 @@ static void cvm_oct_rgmii_poll(struct net_device *dev)
+ 		cvmx_write_csr(CVMX_GMXX_RXX_INT_REG(index, interface),
+ 			       gmxx_rxx_int_reg.u64);
+ 	}
+-
+-	link_info = cvmx_helper_link_autoconf(priv->port);
+-	priv->link_info = link_info.u64;
++	if (priv->phydev == NULL) {
++		link_info = cvmx_helper_link_autoconf(priv->port);
++		priv->link_info = link_info.u64;
++	}
+ 	spin_unlock_irqrestore(&global_register_lock, flags);
+ 
+-	/* Tell Linux */
+-	if (link_info.s.link_up) {
+-
+-		if (!netif_carrier_ok(dev))
+-			netif_carrier_on(dev);
+-		if (priv->queue != -1)
+-			DEBUGPRINT
+-			    ("%s: %u Mbps %s duplex, port %2d, queue %2d\n",
+-			     dev->name, link_info.s.speed,
+-			     (link_info.s.full_duplex) ? "Full" : "Half",
+-			     priv->port, priv->queue);
+-		else
+-			DEBUGPRINT("%s: %u Mbps %s duplex, port %2d, POW\n",
+-				   dev->name, link_info.s.speed,
+-				   (link_info.s.full_duplex) ? "Full" : "Half",
+-				   priv->port);
+-	} else {
+-
+-		if (netif_carrier_ok(dev))
+-			netif_carrier_off(dev);
+-		DEBUGPRINT("%s: Link down\n", dev->name);
++	if (priv->phydev == NULL) {
++		/* Tell core. */
++		if (link_info.s.link_up) {
++			if (!netif_carrier_ok(dev))
++				netif_carrier_on(dev);
++			if (priv->queue != -1)
++				DEBUGPRINT("%s: %u Mbps %s duplex, "
++					   "port %2d, queue %2d\n",
++					   dev->name, link_info.s.speed,
++					   (link_info.s.full_duplex) ?
++						"Full" : "Half",
++					   priv->port, priv->queue);
++			else
++				DEBUGPRINT("%s: %u Mbps %s duplex, "
++					   "port %2d, POW\n",
++					   dev->name, link_info.s.speed,
++					   (link_info.s.full_duplex) ?
++						"Full" : "Half",
++					   priv->port);
++		} else {
++			if (netif_carrier_ok(dev))
++				netif_carrier_off(dev);
++			DEBUGPRINT("%s: Link down\n", dev->name);
++		}
+ 	}
+ }
+ 
+diff --git a/drivers/staging/octeon/ethernet-sgmii.c b/drivers/staging/octeon/ethernet-sgmii.c
+index 2b54996..6061d01 100644
+--- a/drivers/staging/octeon/ethernet-sgmii.c
++++ b/drivers/staging/octeon/ethernet-sgmii.c
+@@ -113,7 +113,7 @@ int cvm_oct_sgmii_init(struct net_device *dev)
+ 	struct octeon_ethernet *priv = netdev_priv(dev);
+ 	cvm_oct_common_init(dev);
+ 	dev->netdev_ops->ndo_stop(dev);
+-	if (!octeon_is_simulation())
++	if (!octeon_is_simulation() && priv->phydev == NULL)
+ 		priv->poll = cvm_oct_sgmii_poll;
+ 
+ 	/* FIXME: Need autoneg logic */
+diff --git a/drivers/staging/octeon/ethernet-xaui.c b/drivers/staging/octeon/ethernet-xaui.c
+index 0c2e7cc..ee3dc41 100644
+--- a/drivers/staging/octeon/ethernet-xaui.c
++++ b/drivers/staging/octeon/ethernet-xaui.c
+@@ -112,7 +112,7 @@ int cvm_oct_xaui_init(struct net_device *dev)
+ 	struct octeon_ethernet *priv = netdev_priv(dev);
+ 	cvm_oct_common_init(dev);
+ 	dev->netdev_ops->ndo_stop(dev);
+-	if (!octeon_is_simulation())
++	if (!octeon_is_simulation() && priv->phydev == NULL)
+ 		priv->poll = cvm_oct_xaui_poll;
+ 
+ 	return 0;
+diff --git a/drivers/staging/octeon/ethernet.c b/drivers/staging/octeon/ethernet.c
+index 492c502..4cfd4b1 100644
+--- a/drivers/staging/octeon/ethernet.c
++++ b/drivers/staging/octeon/ethernet.c
+@@ -30,7 +30,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/delay.h>
+-#include <linux/mii.h>
++#include <linux/phy.h>
+ 
+ #include <net/dst.h>
+ 
+@@ -132,8 +132,6 @@ static struct timer_list cvm_oct_poll_timer;
+  */
+ struct net_device *cvm_oct_device[TOTAL_NUMBER_OF_PORTS];
+ 
+-extern struct semaphore mdio_sem;
+-
+ /**
+  * Periodic timer tick for slow management operations
+  *
+@@ -160,13 +158,8 @@ static void cvm_do_timer(unsigned long arg)
+ 		goto out;
+ 
+ 	priv = netdev_priv(cvm_oct_device[port]);
+-	if (priv->poll) {
+-		/* skip polling if we don't get the lock */
+-		if (!down_trylock(&mdio_sem)) {
+-			priv->poll(cvm_oct_device[port]);
+-			up(&mdio_sem);
+-		}
+-	}
++	if (priv->poll)
++		priv->poll(cvm_oct_device[port]);
+ 
+ 	queues_per_port = cvmx_pko_get_num_queues(port);
+ 	/* Drain any pending packets in the free list */
+@@ -524,7 +517,7 @@ int cvm_oct_common_init(struct net_device *dev)
+ 	dev->features |= NETIF_F_LLTX;
+ 	SET_ETHTOOL_OPS(dev, &cvm_oct_ethtool_ops);
+ 
+-	cvm_oct_mdio_setup_device(dev);
++	cvm_oct_phy_setup_device(dev);
+ 	dev->netdev_ops->ndo_set_mac_address(dev, &sa);
+ 	dev->netdev_ops->ndo_change_mtu(dev, dev->mtu);
+ 
+@@ -540,7 +533,10 @@ int cvm_oct_common_init(struct net_device *dev)
+ 
+ void cvm_oct_common_uninit(struct net_device *dev)
+ {
+-	/* Currently nothing to do */
++	struct octeon_ethernet *priv = netdev_priv(dev);
++
++	if (priv->phydev)
++		phy_disconnect(priv->phydev);
+ }
+ 
+ static const struct net_device_ops cvm_oct_npi_netdev_ops = {
+@@ -627,6 +623,8 @@ static const struct net_device_ops cvm_oct_pow_netdev_ops = {
+ #endif
+ };
+ 
 +extern void octeon_mdiobus_force_mod_depencency(void);
 +
-+static int __init octeon_mgmt_mod_init(void)
-+{
-+	/* Force our mdiobus driver module to be loaded first. */
+ /**
+  * Module/ driver initialization. Creates the linux network
+  * devices.
+@@ -640,6 +638,7 @@ static int __init cvm_oct_init_module(void)
+ 	int fau = FAU_NUM_PACKET_BUFFERS_TO_FREE;
+ 	int qos;
+ 
 +	octeon_mdiobus_force_mod_depencency();
-+	return platform_driver_register(&octeon_mgmt_driver);
-+}
-+
-+static void __exit octeon_mgmt_mod_exit(void)
-+{
-+	platform_driver_unregister(&octeon_mgmt_driver);
-+}
-+
-+module_init(octeon_mgmt_mod_init);
-+module_exit(octeon_mgmt_mod_exit);
-+
-+MODULE_DESCRIPTION(DRV_DESCRIPTION);
-+MODULE_AUTHOR("David Daney");
-+MODULE_LICENSE("GPL");
-+MODULE_VERSION(DRV_VERSION);
+ 	pr_notice("cavium-ethernet %s\n", OCTEON_ETHERNET_VERSION);
+ 
+ 	if (OCTEON_IS_MODEL(OCTEON_CN52XX))
+diff --git a/drivers/staging/octeon/octeon-ethernet.h b/drivers/staging/octeon/octeon-ethernet.h
+index 3aef987..402a15b 100644
+--- a/drivers/staging/octeon/octeon-ethernet.h
++++ b/drivers/staging/octeon/octeon-ethernet.h
+@@ -50,9 +50,9 @@ struct octeon_ethernet {
+ 	/* List of outstanding tx buffers per queue */
+ 	struct sk_buff_head tx_free_list[16];
+ 	/* Device statistics */
+-	struct net_device_stats stats
+-;	/* Generic MII info structure */
+-	struct mii_if_info mii_info;
++	struct net_device_stats stats;
++	struct phy_device *phydev;
++	unsigned int last_link;
+ 	/* Last negotiated link state */
+ 	uint64_t link_info;
+ 	/* Called periodically to check link status */
 -- 
 1.6.0.6
