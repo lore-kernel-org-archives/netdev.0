@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] Phonet: basic routing support
-Date: Wed, 14 Oct 2009 15:08:43 -0700 (PDT)
-Message-ID: <20091014.150843.59514584.davem@davemloft.net>
-References: <06dcdf33b2a0132b2a05c3220735a81e@chewa.net>
+Subject: Re: [PATCH -mmotm] net: ks8851_mll uses mii interfaces
+Date: Wed, 14 Oct 2009 15:11:06 -0700 (PDT)
+Message-ID: <20091014.151106.138362225.davem@davemloft.net>
+References: <200910140436.n9E4aF9G001644@imap1.linux-foundation.org>
+	<20091014145905.219416bb.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: remi@remlab.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59244
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752060AbZJNWIq convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Oct 2009 18:08:46 -0400
-In-Reply-To: <06dcdf33b2a0132b2a05c3220735a81e@chewa.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, david.choi@micrel.com
+To: randy.dunlap@oracle.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762049AbZJNWLM@vger.kernel.org>
+In-Reply-To: <20091014145905.219416bb.randy.dunlap@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: R=E9mi Denis-Courmont <remi@remlab.net>
-Date: Wed, 14 Oct 2009 12:47:34 +0200
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Wed, 14 Oct 2009 14:59:05 -0700
 
->=20
-> This patchset provides rudimentary support for routing Phonet packets=
-=2E
-> Configuration is done with the common rtnetlink infrastructure.
->=20
-> This is useful when there is more than one Phonet interface in the sa=
-me
-> namespace,
-> e.g. a serial bus to a cellular modem and a USB gadget function to a =
-PC.
+> From: Randy Dunlap <randy.dunlap@oracle.com>
+> 
+> ks8851_mll uses mii interfaces so it needs to select MII.
+> 
+> ks8851_mll.c:(.text+0xf95ac): undefined reference to `generic_mii_ioctl'
+> ks8851_mll.c:(.text+0xf96a0): undefined reference to `mii_ethtool_gset'
+> ks8851_mll.c:(.text+0xf96fa): undefined reference to `mii_ethtool_sset'
+> ks8851_mll.c:(.text+0xf9754): undefined reference to `mii_link_ok'
+> ks8851_mll.c:(.text+0xf97ae): undefined reference to `mii_nway_restart'
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+> Cc: David Choi <david.choi@micrel.com>
 
-Looks good, applied to net-next-2.6, thanks.
+Applied, thanks Randy.
