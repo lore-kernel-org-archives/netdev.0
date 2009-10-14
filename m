@@ -1,87 +1,57 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: PF_RING: Include in main line kernel?
-Date: Wed, 14 Oct 2009 12:33:28 -0700
-Message-ID: <20091014123328.1ebe35ea@s6510>
-References: <a07586b0910140733s1976cd05u39286de42d9fac23@mail.gmail.com>
-	<20091014090125.535ee0dc@nehalam>
-	<a07586b0910141002m2a9f4466j412245fdae4e5372@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: kernel mode pppoe ppp if + ifb + mirred redirect, ethernet
+ packets in ifb?!
+Date: Wed, 14 Oct 2009 21:59:11 +0200
+Message-ID: <20091014195911.GA3603@del.dom.local>
+References: <200910130144.04910.denys@visp.net.lb>
+ <20091014191155.GA3471@del.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Luca Deri <deri@ntop.org>
-To: Brad Doctor <brad.doctor@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org
+To: Denys Fedoryschenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34909 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757033AbZJNTeR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Oct 2009 15:34:17 -0400
-In-Reply-To: <a07586b0910141002m2a9f4466j412245fdae4e5372@mail.gmail.com>
+Received: from mail-fx0-f227.google.com ([209.85.220.227]:41749 "EHLO
+	mail-fx0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754659AbZJNT74 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 15:59:56 -0400
+Received: by fxm27 with SMTP id 27so175165fxm.17
+        for <netdev@vger.kernel.org>; Wed, 14 Oct 2009 12:59:20 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20091014191155.GA3471@del.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 14 Oct 2009 11:02:45 -0600
-Brad Doctor <brad.doctor@gmail.com> wrote:
-
-> Good point for sure. We will make the change and get back to you.
-> Thanks for the quick reply, we appreciate it very much!
+On Wed, Oct 14, 2009 at 09:11:55PM +0200, Jarek Poplawski wrote:
+> Denys Fedoryschenko wrote, On 10/13/2009 12:44 AM:
+> ...
+> > As i understand, for pppoe case, he can just skip offset for ethernet and 
+> > pppoe header, and he can filter by ip, or not?
+> > Current way is maybe better, cause someone who want to count everything with 
+> > ethernet and pppoe headers - can, and who want without - also can (by setting 
+> > offset , just a bit more difficult.
+> > 
+> > Like 
+> > /sbin/tc filter add dev eth1 protocol 0x8864  parent 2:0 prio 1 u32 \
+> > match u32 0x$IPREMOTE_HEX 0xffffffff at 24 flowid 2:$ID
+> > (found in LARTC)
 > 
-> -brad
-> 
-> On Wed, Oct 14, 2009 at 10:01 AM, Stephen Hemminger
-> <shemminger@vyatta.com> wrote:
-> > On Wed, 14 Oct 2009 08:33:08 -0600
-> > Brad Doctor <brad.doctor@gmail.com> wrote:
-> >
-> >> Greetings,
-> >>
-> >> On behalf of the users and developers of the PF_RING project, we would
-> >> like to ask consideration to include the PF_RING module in the main
-> >> line kernel.
-> >>
-> >> PF_RING (http://www.ntop.org/PF_RING.html) is a kernel module that
-> >> implements an mmap()-ed memory ring for accelerating packet capture
-> >> and for providing all the basic features a network monitoring
-> >> application needs. PF_RING includes several features such as packet
-> >> filtering, balancing across capture applications, packet reflection
-> >> (i.e. capture application can decide to bounce selected packets onto
-> >> an as-specified interface). Packets are filtered both using BPF and
-> >> using ACL-like rules (e.g. tcp and ports from 80 to 100). Using
-> >> PF_RING it is also possible to exploit multiple RX queues provided by
-> >> modern NIC adapters. PF_RING achieves a significant speedup by making
-> >> only one copy of the packet. Additionally, PF_RING is able to operate
-> >> in a capture-only installation, further increasing performance.
-> >>
-> >> PF_RING has been around since 2003 and is very mature with an active
-> >> contributing developer base. The developer and user community use a
-> >> mailing list (http://listgateway.unipi.it/pipermail/ntop-misc/) for
-> >> discussions and submissions. PF_RING is used in several projects,
-> >> ranging from distributions such as DD-WRT/OpenWrt to improving
-> >> performance of applications like Snort and Wireshark. Many commercial
-> >> companies around the world in the field of intrusion detection and
-> >> traffic analysis rely on PF_RING for accelerating their products and
-> >> operations.
-> >>
-> >> The PF_RING module relies on a small patch to net/core/dev.c that
-> >> intercepts when a packet is received/transmitted so that it can be
-> >> passed to the PF_RING module when present and with an active listener.
-> >> Other than these minor changes, all the PF_RING code is
-> >> self-contained, comprising jut two files: ring.c and ring.h. PF_RING
-> >> is the result of many years of research and development specifically
-> >> into high-speed packet capture, and is homegrown. PF_RING uses the
-> >> stock GPL license.
-> >>
-> >> We feel that PF_RING is ready to be included with the mainline kernel.
-> >> We are ready and eager to support PF_RING for the long term.
-> >>
-> >> Thank you in advance for your consideration!
-> >
-> > I was going to wrap pfring up for the staging tree.
-> > The code you put in network receive path is not necessary;
-> > it would be cleaner to just use existing packet type all hook, and
-> > then PF_RING could be a loadable module without having to be compiled in.
-> >
-> > --
-> >
+> Maybe I miss something, but generally (for IP, TCP etc. matches) it
+> should work "as usual". I think you and those other users you quoted
+> were mislead by that tcpdump on ifb. Probably in some configs you
+> might needed this 'protocol 0x8864' or 'protocol all'. You should
+> see it on ppp's tcpdump then, like yours:
 
-If you want, I'll try and do it. Are there any tests other
-than just ntop?
+Hmm... Of course, like yours, where we can't see it ;-)
+so 'protocol ip' is enough.
+
+> 
+> > PPPoE_146 ~ # tcpdump -ni ppp0 -e -vvv -s 1500 -c 4
+> > tcpdump: WARNING:
+> > tcpdump: listening on ppp0, link-type LINUX_SLL (Linux cooked), capture size 
+> > 1500 bytes
+> > 17:03:17.015598 Out ethertype IPv4 (0x0800), length 68: (tos 0x0, ttl 111, id 
+
+BTW, let's note this 'protocol 0x8864' was used with dev eth1, so it's
+a different case.
+
+Jarek P.
