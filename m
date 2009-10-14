@@ -1,109 +1,118 @@
-From: Luca Deri <deri@ntop.org>
-Subject: Re: PF_RING: Include in main line kernel?
-Date: Wed, 14 Oct 2009 21:54:26 +0200
-Message-ID: <903D7FEC-34E8-4F70-ABC0-E56A3A5FBBE6@ntop.org>
-References: <a07586b0910140733s1976cd05u39286de42d9fac23@mail.gmail.com> <200910141319.43884.bcook@bpointsys.com>
-Mime-Version: 1.0 (Apple Message framework v1076)
-Content-Type: text/plain; charset=us-ascii; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-Cc: Brad Doctor <brad.doctor@gmail.com>, netdev@vger.kernel.org
-To: Brent Cook <bcook@bpointsys.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: TCP_DEFER_ACCEPT is missing counter update
+Date: Wed, 14 Oct 2009 22:17:06 +0200
+Message-ID: <20091014201706.GA24298@1wt.eu>
+References: <20091013050705.GA2194@1wt.eu> <20091013.001106.226276168.davem@davemloft.net> <20091013071955.GA3587@1wt.eu> <Pine.LNX.4.58.0910132335390.3095@u.domain.uli> <20091014045226.GA15655@1wt.eu> <Pine.LNX.4.58.0910140912420.2714@u.domain.uli>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from jake.unipi.it ([131.114.21.22]:53734 "EHLO jake.ntop.org"
+Received: from 1wt.eu ([62.212.114.60]:50221 "EHLO 1wt.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757097AbZJNUGL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Oct 2009 16:06:11 -0400
-In-Reply-To: <200910141319.43884.bcook@bpointsys.com>
+	id S1755872AbZJNUSA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Oct 2009 16:18:00 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.58.0910140912420.2714@u.domain.uli>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brent
-contrary to other socket types, PF_RING allows
-- packets to be filtered using both BPF and ACL-like filters
-- parsing information is returned as metadata with the packet (i.e.  
-you don't have to parse the packet again as it happens with BPF)
-- ACL-like filters allows you to specify advanced features such as  
-port ranges or packet payload match
+Hello Julian,
 
-I agree with you that PF_RING has some overlaps with PACKET_RX/ 
-TX_RING, but the main idea behind PF_RING is not just to accelerate  
-packet capture. For instance in PF_RING you can have actions attached  
-to rules, or extend PF_RING filtering/packet handling by means of  
-plugins.
-For instance I have coded PF_RING plugins for parsing and filtering  
-inside PF_RING protocols such as SIP, RTP, RTCP just to name a few  
-that I would like to release after PF_RING kernel integration.
+On Wed, Oct 14, 2009 at 10:27:50AM +0300, Julian Anastasov wrote:
+> 	There were attempts to switch the server socket to
+> established state, no SYN-ACK retransmissions after client ACK
+> and send FIN (or RST) to client on TCP_DEFER_ACCEPT expiration
+> but due to some locking problems it was reverted:
+> 
+> http://marc.info/?t=121318919000001&r=1&w=2
 
-For all those who want to see what you can do with PF_RING, I suggest  
-to read this tutorial: http://luca.ntop.org/MulticorePacketCapture.pdf
+interesting lecture, thanks for the link.
 
-Regards Luca
+> 	Current handling is as before: drop client ACKs before DATA,
+> stay in SYN_RECV state, send RST on outdated ACKs.
 
-PF_RING allows you to specify mutiple
-On Oct 14, 2009, at 8:19 PM, Brent Cook wrote:
+OK, that's what I observed too.
 
-> On Wednesday 14 October 2009 09:33:08 Brad Doctor wrote:
->> Greetings,
->>
->> On behalf of the users and developers of the PF_RING project, we  
->> would
->> like to ask consideration to include the PF_RING module in the main
->> line kernel.
->>
->> PF_RING (http://www.ntop.org/PF_RING.html) is a kernel module that
->> implements an mmap()-ed memory ring for accelerating packet capture
->> and for providing all the basic features a network monitoring
->> application needs. PF_RING includes several features such as packet
->> filtering, balancing across capture applications, packet reflection
->> (i.e. capture application can decide to bounce selected packets onto
->> an as-specified interface). Packets are filtered both using BPF and
->> using ACL-like rules (e.g. tcp and ports from 80 to 100). Using
->> PF_RING it is also possible to exploit multiple RX queues provided by
->> modern NIC adapters. PF_RING achieves a significant speedup by making
->> only one copy of the packet. Additionally, PF_RING is able to operate
->> in a capture-only installation, further increasing performance.
->
-> What is the difference between PF_RING and the existing
-> PACKET_RX_RING support (which is now complemented by PACKET_TX_RING).
->
-> ggaoed makes use of both of these, though it is one of the few open- 
-> source projects I've found that do: http://code.google.com/p/ggaoed/
->
-> I've used PACKET_RX_RING with SO_ATTACH_FILTER to implement  
-> filtering via BPF code. You can also set PACKET_COPY_THRESH to  
-> filter on size, etc. Has anyone done a PF_RING/PACKET_RX_RING speed  
-> comparison? They seem feature-wise pretty similar.
->
->> PF_RING has been around since 2003 and is very mature with an active
->> contributing developer base. The developer and user community use a
->> mailing list (http://listgateway.unipi.it/pipermail/ntop-misc/) for
->> discussions and submissions. PF_RING is used in several projects,
->> ranging from distributions such as DD-WRT/OpenWrt to improving
->> performance of applications like Snort and Wireshark. Many commercial
->> companies around the world in the field of intrusion detection and
->> traffic analysis rely on PF_RING for accelerating their products and
->> operations.
->>
->> The PF_RING module relies on a small patch to net/core/dev.c that
->> intercepts when a packet is received/transmitted so that it can be
->> passed to the PF_RING module when present and with an active  
->> listener.
->> Other than these minor changes, all the PF_RING code is
->> self-contained, comprising jut two files: ring.c and ring.h. PF_RING
->> is the result of many years of research and development specifically
->> into high-speed packet capture, and is homegrown. PF_RING uses the
->> stock GPL license.
->>
->> We feel that PF_RING is ready to be included with the mainline  
->> kernel.
->> We are ready and eager to support PF_RING for the long term.
->>
->> Thank you in advance for your consideration!
->>
->> -brad
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
+(...)
+> > > 	This works properly in 2.6.31.3, I set TCP_SYNCNT=1
+> > > and TCP_DEFER_ACCEPT then only 2 SYN-ACKs are sent.
+> > 
+> > That's what I observe too, but the connection is silently dropped
+> > afterwards and I'm clearly not sure this was the intended behaviour.
+> 
+> 	Yes, bad only for firewalls. Note that if
+> TCP_SYNCNT/TCP_DEFER_ACCEPT is shorter the client still gets
+> RST on next ACK. So, the problem is when client is silent
+> after first ACK.
+
+Not only, we have the problem that the application layer has no way
+to be informed that someone connected and failed to send anything.
+
+I have added the defer_accept feature in haproxy (http load balancer),
+just as an optimization to avoid a EAGAIN upon first recv() attempt
+to read the HTTP request after an accept. But users rely on stats and
+logs a lot to check if their site works. If clients really connect and
+fail to send a request (most often because of PPPoE outgoing MTU issues),
+they want to see that in the stats in order to monitor their quality of
+service. Also, having the ability to return a "408 request timeout" to
+the users is a lot cleaner and easier to debug than not responding
+anything at all, especially when there are reverse-proxies between
+both ends.
+
+So this behaviour has visible effects to the end user, that are not
+expected at all when reading the doc.
+
+> > So clearly this is in order to improve chances that the application
+> > will receive the connection, no ?
+> 
+> 	Yes, it is not logical to configure
+> TCP_DEFER_ACCEPT < TCP_SYNCNT with the idea TCP_DEFER_ACCEPT
+> to reduce the SYN_RECV period. TCP_DEFER_ACCEPT does not
+> reduce the SYN_RECV period (before ACK), may be this is lacking
+> in man page. The idea to optionally give more time for DATA
+> to come after ACK is more logical. If TCP_DEFER_ACCEPT
+> switches state to ESTABLISHED may be then the TCP_DEFER_ACCEPT
+> period should start after ACK, eg. "wait for DATA 10 seconds after
+> ACK" sounds logical, it will need new name...
+
+I don't even need to wait for 10 seconds after first ACK, being
+able to drop only the first ACK is already excellent IMHO.
+
+> Note that
+> TCP_DEFER_ACCEPT is used also as flag for clients but you can do
+> the same with TCP_QUICKACK=0 (to delay first ACK and to send
+> DATA with first ACK).
+
+Yes and I already use that, this gives substantial performance
+boosts on small HTTP requests ; unfortunately I have no control
+over the end-user's browser !
+
+> > Yes this is what happens right now, but reading the man again
+> > does not imply to me that the connection will not be accepted
+> > once we reach the retransmit limit.
+> > 
+> > Maybe we have different usages and different interpretations of
+> > the man can satisfy either, but I don't see what this would be
+> > useful to in case we silently drop instead of finally accepting.
+> 
+> 	May be we want the same but currently TCP_DEFER_ACCEPT
+> works as ACK dropper which is easier for implementation.
+
+That's what I like too. No timer, very light requirements, just drop
+the first empty ACK I'm not interested in, and that's all. That's
+really what I understood from the man page.
+
+> The semantic 'TCP_DEFER_ACCEPT extends the period after ACK'
+> is good, you can tune it together with TCP_SYNCNT, to
+> extend or not to extend the period. What happens on
+> TCP_DEFER_ACCEPT expiration after ACK - we all prefer to
+> see FIN, so we have to wait someone to come with new
+> implementation.
+
+Well, too much complicated for very little gain IMHO.
+
+Regards,
+Willy
 
