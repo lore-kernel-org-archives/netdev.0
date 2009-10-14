@@ -1,69 +1,49 @@
-From: David Rientjes <rientjes@google.com>
-Subject: Re: [PATCH] connector: Fix regression introduced by sid connector
-Date: Tue, 13 Oct 2009 17:53:30 -0700 (PDT)
-Message-ID: <alpine.DEB.1.00.0910131740400.14235@chino.kir.corp.google.com>
-References: <200909251123.03482.borntraeger@de.ibm.com> <200909300843.11208.borntraeger@de.ibm.com> <20091001141426.2c1a0139.akpm@linux-foundation.org> <200910020816.41323.borntraeger@de.ibm.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] net/hamradio: fix test in receive()
+Date: Tue, 13 Oct 2009 19:10:03 -0700
+Message-ID: <20091013191003.9778c4bb.akpm@linux-foundation.org>
+References: <4ACB27E8.8060401@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Oleg Nesterov <oleg@redhat.com>, scott@ubuntu.com,
-	zbr@ioremap.net, linux-kernel@vger.kernel.org,
-	Matt Helsley <matthltc@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Christian Borntraeger <borntraeger@de.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761191AbZJNAyr@vger.kernel.org>
-In-Reply-To: <200910020816.41323.borntraeger@de.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Thomas Sailer <t.sailer@alumni.ethz.ch>
+To: Roel Kluin <roel.kluin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:44094 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760617AbZJNCK4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 22:10:56 -0400
+In-Reply-To: <4ACB27E8.8060401@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2 Oct 2009, Christian Borntraeger wrote:
+On Tue, 06 Oct 2009 13:20:08 +0200 Roel Kluin <roel.kluin@gmail.com> wrote:
 
-> since commit 02b51df1b07b4e9ca823c89284e704cadb323cd1 (proc connector: add event 
-> for process becoming session leader) we have the following warning:
-> Badness at kernel/softirq.c:143
-> [...]
-> Krnl PSW : 0404c00180000000 00000000001481d4 (local_bh_enable+0xb0/0xe0)
-> [...]
-> Call Trace:
-> ([<000000013fe04100>] 0x13fe04100)
->  [<000000000048a946>] sk_filter+0x9a/0xd0
->  [<000000000049d938>] netlink_broadcast+0x2c0/0x53c
->  [<00000000003ba9ae>] cn_netlink_send+0x272/0x2b0
->  [<00000000003baef0>] proc_sid_connector+0xc4/0xd4
->  [<0000000000142604>] __set_special_pids+0x58/0x90
->  [<0000000000159938>] sys_setsid+0xb4/0xd8
->  [<00000000001187fe>] sysc_noemu+0x10/0x16
->  [<00000041616cb266>] 0x41616cb266
+> The negation makes it a bool before the comparison and hence it
+> will never evaluate to true.
 > 
-> The warning is
-> --->    WARN_ON_ONCE(in_irq() || irqs_disabled());
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> ---
+> Was this intended?
 > 
-> The network code must not be called with disabled interrupts but
-> sys_setsid holds the tasklist_lock with spinlock_irq while calling
-> the connector. 
-> After a discussion we agreed that we can move proc_sid_connector
-> from __set_special_pids to sys_setsid.
-> We also agreed that it is sufficient to change the check from
-> task_session(curr) != pid into err > 0, since if we don't change the
-> session, this means we were already the leader and return -EPERM.
-> 
-> One last thing:
-> There is also daemonize(), and some people might want to get a
-> notification in that case. Since daemonize() is only needed if a user
-> space does kernel_thread this does not look important (and there seems
-> to be no consensus if this connector should be called in daemonize). If
-> we really want this, we can add proc_sid_connector to daemonize() in an
-> additional patch (Scott?)
-> 
-> Signed-off-by: Christian Borntraeger <borntraeger@de.ibm.com>
-> CCed: Scott James Remnant <scott@ubuntu.com>
-> CCed: Matt Helsley <matthltc@us.ibm.com>
-> CCed: David S. Miller <davem@davemloft.net>
-> Acked-by: Oleg Nesterov <oleg@redhat.com>
-> Acked-by: Evgeniy Polyakov <zbr@ioremap.net>
+> diff --git a/drivers/net/hamradio/baycom_epp.c b/drivers/net/hamradio/baycom_epp.c
+> index 7bcaf7c..ee06a13 100644
+> --- a/drivers/net/hamradio/baycom_epp.c
+> +++ b/drivers/net/hamradio/baycom_epp.c
+> @@ -596,7 +596,8 @@ static int receive(struct net_device *dev, int cnt)
+>  						state = 0;
+>  
+>  					/* not flag received */
+> -					else if (!(bitstream & (0x1fe << j)) != (0x0fc << j)) {
+> +					else if ((bitstream & (0x1fe << j)) !=
+> +							(0x0fc << j)) {
+>  						if (state)
+>  							do_rxpacket(dev);
+>  						bc->hdlcrx.bufcnt = 0;
 
-Acked-by: David Rientjes <rientjes@google.com>
+It does look like that is what was intended.
 
-I was getting the same softirq warnings and later in slub in slab_alloc() 
-at might_sleep_if(gfpflags & __GFP_WAIT) from __alloc_skb(..., GFP_KERNEL) 
-in this context that would infinitely spam my log.
+With this fix we're turning on a code path which probably hasn't been
+executed by anyone in a decade or so.  I wonder what it'll do?
+
