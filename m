@@ -1,46 +1,98 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 14330] New: Kernel
-Date: Tue, 13 Oct 2009 20:43:26 -0700 (PDT)
-Message-ID: <20091013.204326.219351074.davem@davemloft.net>
-References: <bug-14330-10286@http.bugzilla.kernel.org/>
-	<20091013194806.e1403ca9.akpm@linux-foundation.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: add support for STMicroelectronics Ethernet controllers.
+Date: Wed, 14 Oct 2009 06:07:13 +0200
+Message-ID: <4AD54E71.7070400@gmail.com>
+References: <1254815493-17576-1-git-send-email-peppe.cavallaro@st.com> <4ACB1B95.4090701@gmail.com> <4ACB3A42.9070600@st.com> <4ACB47B5.5050700@gmail.com> <4ACB4934.8090407@st.com> <4AD47425.7050003@st.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, hannes@stressinduktion.org
-To: akpm@linux-foundation.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38970
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753705AbZJNDna (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 23:43:30 -0400
-In-Reply-To: <20091013194806.e1403ca9.akpm@linux-foundation.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:34802 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750722AbZJNEHw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 00:07:52 -0400
+In-Reply-To: <4AD47425.7050003@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Tue, 13 Oct 2009 19:48:06 -0700
+Giuseppe CAVALLARO a =E9crit :
+> Hi Eric,
+>=20
+> Giuseppe CAVALLARO wrote:
+>> I'm going to post a new patch for the stmmac as soon as I fix all th=
+ese
+>> points.
+>=20
+> Hoping to have well followed all your advice, I'm attaching the
+> patch again.
+>=20
+> As you will see, I've reviewed the tx clean process by removing the
+> wrong check that improperly impacted the poll logic.
+> I've noticed an improvement in terms of performances as well (*).
+> Taking as example the tg3 driver, I've reviewed and modified the
+> locking mechanism (fixing the issue on tso you had raised).
+>=20
+> Please, let me know if you have other suggestions and/or advice.
+>=20
+> Regards,
+> Peppe
+>=20
+>=20
+> P.S. (*)
+> I've just done some stress tests on our STB (mb618 - STi7111 SH4-300
+> @450MHz) and I cannot see any failures or strange issues at this time=
+=2E
+>=20
 
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
+Hi Giuseppe
 
-Fixed by:
+I reviewed your code and found no obvious issues
 
-commit a21090cff296eb82b6de09304d64de466bdcaefc
-Author: Stephen Hemminger <shemminger@vyatta.com>
-Date:   Wed Oct 7 03:18:17 2009 -0700
+Could you please avoid defining this
 
-    ipv4: arp_notify address list bug
-    
-    This fixes a bug with arp_notify.
-    
-    If arp_notify is enabled, kernel will crash if address is changed
-    and no IP address is assigned.
-      http://bugzilla.kernel.org/show_bug.cgi?id=14330
-    
-    Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-    Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-    Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+#define STMMAC_IP_ALIGN NET_IP_ALIGN
+
+(I see tg3.c uses a similar TG3_RAW_IP_ALIGN, this is probably why you =
+felt it was necessary :
+In case of tg3, TG3_RAW_IP_ALIGN is used in cases where we always want =
+to align the
+IP/network header on dword boundaries, even on platforms where NET_IP_A=
+LIGN)
+
+I am not sure this is what you want for STM.
+
+In that case, please check new netdev_alloc_skb_ip_align() helper
+
++		skb =3D netdev_alloc_skb(dev, bfsize);
++		if (unlikely(skb =3D=3D NULL)) {
++			pr_err("%s: Rx init fails; skb is NULL\n",
++			       __func__);
++			break;
++		}
++		skb_reserve(skb, STMMAC_IP_ALIGN);
++
++		priv->rx_skbuff[i] =3D skb;
++		priv->rx_skbuff_dma[i] =3D dma_map_single(priv->device,
++						skb->data,
++						bfsize - STMMAC_IP_ALIGN,
++						DMA_FROM_DEVICE);
+
+becomes  (pktsize being real packet size, not packet size + NET_IP_ALIG=
+N)
+
++		skb =3D netdev_alloc_skb_ip_align(dev, pktsize);
++		if (unlikely(skb =3D=3D NULL)) {
++			pr_err("%s: Rx init fails; skb is NULL\n",
++			       __func__);
++			break;
++		}
++
++		priv->rx_skbuff[i] =3D skb;
++		priv->rx_skbuff_dma[i] =3D dma_map_single(priv->device,
++						skb->data,
++						pktsize,
++						DMA_FROM_DEVICE);
+
 
