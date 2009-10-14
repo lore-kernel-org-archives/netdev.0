@@ -1,37 +1,36 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH 0/6] netdev: Octeon MGMT new driver + octeon_ethernet
-	updates.
-Date: Wed, 14 Oct 2009 11:04:29 +0200
-Message-ID: <20091014090429.GB17300@linux-mips.org>
-References: <4ACD1F4E.8090603@caviumnetworks.com> <20091014.010913.21176323.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Add sk_mark route lookup support for IPv4 listening
+ sockets, and for IPv4 multicast forwarding
+Date: Wed, 14 Oct 2009 02:15:05 -0700 (PDT)
+Message-ID: <20091014.021505.181431380.davem@davemloft.net>
+References: <20091007.223928.34412707.davem@davemloft.net>
+	<55a4f86e0910140051v69441b09gd364b32f8e2d0c68@mail.gmail.com>
+	<20091014072319.GA12095@fogou.chygwyn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ddaney@caviumnetworks.com, linux-mips@linux-mips.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-mips-bounce@linux-mips.org>
-Content-Disposition: inline
-In-Reply-To: <20091014.010913.21176323.davem@davemloft.net>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: zenczykowski@gmail.com, atis@mikrotik.com, netdev@vger.kernel.org,
+	panther@balabit.hu, eric.dumazet@gmail.com, brian.haley@hp.com
+To: steve@chygwyn.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47015
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757941AbZJNJPJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 05:15:09 -0400
+In-Reply-To: <20091014072319.GA12095@fogou.chygwyn.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 14, 2009 at 01:09:13AM -0700, David Miller wrote:
-
-> > The main thrust of this patch set is to add a driver for the Cavium
-> > Networks Octeon processor's MII (Management port) Ethernet devices.
-> > Since it shares an mdio bus with the existing octeon-ethernet driver,
-> > there is also some rearrangement of that code.
-> 
-> Ralf how do you want to handle this patch set?
-> 
-> Since it's mostly MIPS infrastructure bits, please just add my:
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
-> 
-> to the commit that adds the actual driver under drivers/net/
-> and you can merge all of it via your tree.
-
-Okay, will merge.  Thanks!
-
-  Ralf
+RnJvbTogc3RldmVAY2h5Z3d5bi5jb20NCkRhdGU6IFdlZCwgMTQgT2N0IDIwMDkgMDg6MjM6MTkg
+KzAxMDANCg0KPiBPbiBXZWQsIE9jdCAxNCwgMjAwOSBhdCAxMjo1MTo1NkFNIC0wNzAwLCBNYWNp
+ZWogxbtlbmN6eWtvd3NraSB3cm90ZToNCj4+IEknbSB0aGlua2luZyB0aGF0IHRoZSBtYXJrIHNo
+b3VsZCBiZSBhIHR1bm5lbCBwYXJhbWV0ZXIgd2l0aCB2YWx1ZXMgb2YNCj4+IGluaGVyaXQgb3Ig
+YSBjb25zdGFudC4NCj4+DQo+IFdoeSBub3QgZG8gdGhpcyBvbiBhIHBlci1yb3V0ZSBiYXNpcyAo
+aS5lLiBsZXRzIHN1cHBvc2Ugd2UgYWRkIGENCj4gInNldG1hcmsiIHBhcmFtZXRlciB0byBlYWNo
+IHJvdXRlKSBhbmQgdGhpcyB3b3VsZCBhbGxvdyBjaGFuZ2luZw0KPiBhIG1hcmsgd2hlbiBhIHBh
+Y2tldCBtYXRjaGVzIHRoZSByb3V0ZS4gVGhpcyBub3Qgb25seSBzb2x2ZXMgdGhlDQo+IHR1bm5l
+bCBjYXNlLCBidXQgd291bGQgYmUgZ2VuZXJpY2FsbHkgdXNlZnVsIGFzIHdlbGwuDQo+IA0KPiBT
+aW5jZSB3ZSBoYXZlIHRvIGxvb2sgdXAgcm91dGVzIGFueXdheSwgaXQgc2hvdWxkbid0IGFkZCBh
+bnkNCj4gcmVhbCBvdmVyaGVhZCB0byB0aGUgcm91dGluZyBwcm9jZXNzIGFuZCB3ZSBjYW4gYmVu
+ZWZpdCBmcm9tDQo+IGFsbCB0aGUgZXhpc3RpbmcgaW5mcmFzdHJ1Y3R1cmUgKHJvdXRlIGNhY2hl
+LCBldGMpLg0KDQpUaGlzIGlkZWEsIEkgbGlrZSA6LSkNCg==
