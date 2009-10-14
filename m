@@ -1,41 +1,53 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH -mmotm] net: ks8851_mll uses mii interfaces
-Date: Wed, 14 Oct 2009 14:59:05 -0700
-Message-ID: <20091014145905.219416bb.randy.dunlap@oracle.com>
-References: <200910140436.n9E4aF9G001644@imap1.linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 0/8] bnx2x: Device Control Channel bug fixes
+Date: Wed, 14 Oct 2009 15:09:22 -0700 (PDT)
+Message-ID: <20091014.150922.64618889.davem@davemloft.net>
+References: <1255532825.25030.35.camel@lb-tlvb-eilong>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, David Choi <david.choi@micrel.com>
-To: akpm@linux-foundation.org, netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761947AbZJNWBv@vger.kernel.org>
-In-Reply-To: <200910140436.n9E4aF9G001644@imap1.linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eilong@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59247
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753635AbZJNWJZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 18:09:25 -0400
+In-Reply-To: <1255532825.25030.35.camel@lb-tlvb-eilong>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Date: Wed, 14 Oct 2009 17:07:05 +0200
 
-ks8851_mll uses mii interfaces so it needs to select MII.
+> This bnx2x patch series is fixing some bugs that relates to the Device
+> Control Channel (DCC) code. There are actually 3 different failures:
+> 
+> 1. When the fairness initial value was set to zero, the device could not
+> be enabled. This is caused since zero indicated that the mechanism is
+> disabled, and the code (both FW and driver) was not ready to allow
+> enabling it at run time. This patch requires replacing the FW - to allow
+> easier review, it is split to 3 patches:
+>         P1: adding the new FW
+>         P2: the actually patch
+>         P3: removing the old FW
+>         
+> 2. Races when loading/unloading the driver when DCC link enable/disable
+> commands are received. There were 3 different races:
+>         P4: The state of the driver which indicates if it is loaded or
+>         not was also used to signal if its link is enabled/disabled by
+>         DCC
+>         P5: The FW commands to acknowledge the DCC command and
+>         loading/unloading the driver run over each other
+>         P6: Setting/clearing the MAC address and the FW filtering rules
+>         
+> 3.	P7: Reporting the maximal BW as the link speed
+> 
+> Patch number 8 is the version update.
+> 
+> The patches were made based on net-next. Since those are bug fixes,
+> please let me know if I should send them based on net-2.6 as well.
 
-ks8851_mll.c:(.text+0xf95ac): undefined reference to `generic_mii_ioctl'
-ks8851_mll.c:(.text+0xf96a0): undefined reference to `mii_ethtool_gset'
-ks8851_mll.c:(.text+0xf96fa): undefined reference to `mii_ethtool_sset'
-ks8851_mll.c:(.text+0xf9754): undefined reference to `mii_link_ok'
-ks8851_mll.c:(.text+0xf97ae): undefined reference to `mii_nway_restart'
+Applied to net-next-2.6, which is where this likely belongs.
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-Cc: David Choi <david.choi@micrel.com>
----
- drivers/net/Kconfig |    1 +
- 1 file changed, 1 insertion(+)
-
---- mmotm-2009-1013-2113.orig/drivers/net/Kconfig
-+++ mmotm-2009-1013-2113/drivers/net/Kconfig
-@@ -1741,6 +1741,7 @@ config KS8851
- config KS8851_MLL
- 	tristate "Micrel KS8851 MLL"
- 	depends on HAS_IOMEM
-+	select MII
- 	help
- 	  This platform driver is for Micrel KS8851 Address/data bus
- 	  multiplexed network chip.
+Thanks!
