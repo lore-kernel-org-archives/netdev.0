@@ -1,59 +1,36 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: VLAN rx acceleration bypasses bridge
-Date: Thu, 15 Oct 2009 01:58:05 +0200
-Message-ID: <1255564685.21615.131.camel@sakura.staff.proxad.net>
-Reply-To: mbizon@freebox.fr
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 0/8] bnx2x: Device Control Channel bug fixes
+Date: Wed, 14 Oct 2009 16:57:04 -0700 (PDT)
+Message-ID: <20091014.165704.59488176.davem@davemloft.net>
+References: <1255532825.25030.35.camel@lb-tlvb-eilong>
+	<20091014.150922.64618889.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>, shemminger@linux-foundation.org
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:44362 "EHLO smtp6-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754632AbZJNX6u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Oct 2009 19:58:50 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59184
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1762174AbZJNX5I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 19:57:08 -0400
+In-Reply-To: <20091014.150922.64618889.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: David Miller <davem@davemloft.net>
+Date: Wed, 14 Oct 2009 15:09:22 -0700 (PDT)
 
-Hi Patrick, Stephen & all,
+> Applied to net-next-2.6, which is where this likely belongs.
 
+Eilon I somehow screwed up this patch set, and largely that is
+because the firmware patch was too large for the list and therefore
+it didn't end up in patchwork.
 
-If I do:
+I tried to force in the private copy you sent me into the bundle
+I applied, but I screwed that up somehow.
 
-# vconfig add eth0 100
-# brctl addbr br0
-# brctl addif br0 eth0
+Could you please privately send me this whole patch set again so I can
+try to apply it properly?
 
-Then eth0.100 gets no more packet and br0.100 should be used instead to
-get tagged packets.
-
-But, if vlan rx acceleration is enabled on eth0, then vlan 100 packets
-no longer go through bridge, and eth0.100 is to be used instead.
-
-This is fixable, but I'm not sure which behavior is preferred ?
-
-
-In case we prefer the first one, how could someone bridge untagged
-packets from eth0 with some tagged packets from eth1, and some tagged
-packets from eth0 with untagged packets from eth1 ?
-
-Something like this, which currently works when vlan rx accel is on:
-
-# vconfig add eth0 100
-# vconfig add eth1 100
-# brctl addbr br0
-# brctl addif br0 eth0
-# brctl addif br0 eth1.100
-# brctl addbr br1
-# brctl addif br1 eth0.100
-# brctl addif br1 eth1
-
-
-Regards,
-
--- 
-Maxime
-
-
+Thanks!
