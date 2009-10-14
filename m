@@ -1,36 +1,41 @@
-From: David Miller <davem@davemloft.net>
+From: steve@chygwyn.com
 Subject: Re: [PATCH] Add sk_mark route lookup support for IPv4 listening
- sockets, and for IPv4 multicast forwarding
-Date: Wed, 14 Oct 2009 02:15:05 -0700 (PDT)
-Message-ID: <20091014.021505.181431380.davem@davemloft.net>
-References: <20091007.223928.34412707.davem@davemloft.net>
-	<55a4f86e0910140051v69441b09gd364b32f8e2d0c68@mail.gmail.com>
-	<20091014072319.GA12095@fogou.chygwyn.com>
+	sockets, and for IPv4 multicast forwarding
+Date: Wed, 14 Oct 2009 08:23:19 +0100
+Message-ID: <20091014072319.GA12095@fogou.chygwyn.com>
+References: <200910071559.56526.atis@mikrotik.com> <20091007.135627.96995518.davem@davemloft.net> <55a4f86e0910071703i4735f1aan1ddba81eec7eef19@mail.gmail.com> <20091007.223928.34412707.davem@davemloft.net> <55a4f86e0910140051v69441b09gd364b32f8e2d0c68@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: zenczykowski@gmail.com, atis@mikrotik.com, netdev@vger.kernel.org,
-	panther@balabit.hu, eric.dumazet@gmail.com, brian.haley@hp.com
-To: steve@chygwyn.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, atis@mikrotik.com,
+	netdev@vger.kernel.org, panther@balabit.hu, eric.dumazet@gmail.com,
+	brian.haley@hp.com
+To: Maciej =?utf-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47015
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757941AbZJNJPJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 05:15:09 -0400
-In-Reply-To: <20091014072319.GA12095@fogou.chygwyn.com>
+Received: from fogou.chygwyn.com ([195.171.2.24]:60447 "EHLO fogou.chygwyn.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753351AbZJNJSI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Oct 2009 05:18:08 -0400
+Content-Disposition: inline
+In-Reply-To: <55a4f86e0910140051v69441b09gd364b32f8e2d0c68@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogc3RldmVAY2h5Z3d5bi5jb20NCkRhdGU6IFdlZCwgMTQgT2N0IDIwMDkgMDg6MjM6MTkg
-KzAxMDANCg0KPiBPbiBXZWQsIE9jdCAxNCwgMjAwOSBhdCAxMjo1MTo1NkFNIC0wNzAwLCBNYWNp
-ZWogxbtlbmN6eWtvd3NraSB3cm90ZToNCj4+IEknbSB0aGlua2luZyB0aGF0IHRoZSBtYXJrIHNo
-b3VsZCBiZSBhIHR1bm5lbCBwYXJhbWV0ZXIgd2l0aCB2YWx1ZXMgb2YNCj4+IGluaGVyaXQgb3Ig
-YSBjb25zdGFudC4NCj4+DQo+IFdoeSBub3QgZG8gdGhpcyBvbiBhIHBlci1yb3V0ZSBiYXNpcyAo
-aS5lLiBsZXRzIHN1cHBvc2Ugd2UgYWRkIGENCj4gInNldG1hcmsiIHBhcmFtZXRlciB0byBlYWNo
-IHJvdXRlKSBhbmQgdGhpcyB3b3VsZCBhbGxvdyBjaGFuZ2luZw0KPiBhIG1hcmsgd2hlbiBhIHBh
-Y2tldCBtYXRjaGVzIHRoZSByb3V0ZS4gVGhpcyBub3Qgb25seSBzb2x2ZXMgdGhlDQo+IHR1bm5l
-bCBjYXNlLCBidXQgd291bGQgYmUgZ2VuZXJpY2FsbHkgdXNlZnVsIGFzIHdlbGwuDQo+IA0KPiBT
-aW5jZSB3ZSBoYXZlIHRvIGxvb2sgdXAgcm91dGVzIGFueXdheSwgaXQgc2hvdWxkbid0IGFkZCBh
-bnkNCj4gcmVhbCBvdmVyaGVhZCB0byB0aGUgcm91dGluZyBwcm9jZXNzIGFuZCB3ZSBjYW4gYmVu
-ZWZpdCBmcm9tDQo+IGFsbCB0aGUgZXhpc3RpbmcgaW5mcmFzdHJ1Y3R1cmUgKHJvdXRlIGNhY2hl
-LCBldGMpLg0KDQpUaGlzIGlkZWEsIEkgbGlrZSA6LSkNCg==
+Hi,
+
+On Wed, Oct 14, 2009 at 12:51:56AM -0700, Maciej =C5=BBenczykowski wrot=
+e:
+> I'm thinking that the mark should be a tunnel parameter with values o=
+f
+> inherit or a constant.
+>
+Why not do this on a per-route basis (i.e. lets suppose we add a
+"setmark" parameter to each route) and this would allow changing
+a mark when a packet matches the route. This not only solves the
+tunnel case, but would be generically useful as well.
+
+Since we have to look up routes anyway, it shouldn't add any
+real overhead to the routing process and we can benefit from
+all the existing infrastructure (route cache, etc).
+
+Steve.
