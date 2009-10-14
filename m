@@ -1,22 +1,49 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH 6/6] Staging: octeon-ethernet: Convert to use PHY
-	Abstraction Layer.
-Date: Wed, 14 Oct 2009 21:23:48 +0200
-Message-ID: <20091014192348.GF22885@linux-mips.org>
-References: <4AD6205A.8070200@caviumnetworks.com> <1255547082-7388-6-git-send-email-ddaney@caviumnetworks.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: kernel mode pppoe ppp if + ifb + mirred redirect, ethernet
+ packets in ifb?!
+Date: Wed, 14 Oct 2009 21:11:55 +0200
+Message-ID: <20091014191155.GA3471@del.dom.local>
+References: <200910130144.04910.denys@visp.net.lb>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: David Daney <ddaney@caviumnetworks.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org
+To: Denys Fedoryschenko <denys@visp.net.lb>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f227.google.com ([209.85.220.227]:62776 "EHLO
+	mail-fx0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751941AbZJNTMj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 15:12:39 -0400
+Received: by fxm27 with SMTP id 27so119536fxm.17
+        for <netdev@vger.kernel.org>; Wed, 14 Oct 2009 12:12:01 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1255547082-7388-6-git-send-email-ddaney@caviumnetworks.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <200910130144.04910.denys@visp.net.lb>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 14, 2009 at 12:04:42PM -0700, David Daney wrote:
+Denys Fedoryschenko wrote, On 10/13/2009 12:44 AM:
+...
+> As i understand, for pppoe case, he can just skip offset for ethernet and 
+> pppoe header, and he can filter by ip, or not?
+> Current way is maybe better, cause someone who want to count everything with 
+> ethernet and pppoe headers - can, and who want without - also can (by setting 
+> offset , just a bit more difficult.
+> 
+> Like 
+> /sbin/tc filter add dev eth1 protocol 0x8864  parent 2:0 prio 1 u32 \
+> match u32 0x$IPREMOTE_HEX 0xffffffff at 24 flowid 2:$ID
+> (found in LARTC)
 
-Also queued for 2.6.33.
+Maybe I miss something, but generally (for IP, TCP etc. matches) it
+should work "as usual". I think you and those other users you quoted
+were mislead by that tcpdump on ifb. Probably in some configs you
+might needed this 'protocol 0x8864' or 'protocol all'. You should
+see it on ppp's tcpdump then, like yours:
 
-  Ralf
+> PPPoE_146 ~ # tcpdump -ni ppp0 -e -vvv -s 1500 -c 4
+> tcpdump: WARNING:
+> tcpdump: listening on ppp0, link-type LINUX_SLL (Linux cooked), capture size 
+> 1500 bytes
+> 17:03:17.015598 Out ethertype IPv4 (0x0800), length 68: (tos 0x0, ttl 111, id 
+
+Cheers,
+Jarek P.
