@@ -1,49 +1,58 @@
 From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] net/hamradio: fix test in receive()
-Date: Tue, 13 Oct 2009 19:10:03 -0700
-Message-ID: <20091013191003.9778c4bb.akpm@linux-foundation.org>
-References: <4ACB27E8.8060401@gmail.com>
+Subject: Re: [Bugme-new] [Bug 14330] New: Kernel
+Date: Tue, 13 Oct 2009 19:48:06 -0700
+Message-ID: <20091013194806.e1403ca9.akpm@linux-foundation.org>
+References: <bug-14330-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Thomas Sailer <t.sailer@alumni.ethz.ch>
-To: Roel Kluin <roel.kluin@gmail.com>
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, hannes@stressinduktion.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:44094 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:38522 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760617AbZJNCK4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 22:10:56 -0400
-In-Reply-To: <4ACB27E8.8060401@gmail.com>
+	by vger.kernel.org with ESMTP id S1753060AbZJNCst (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Oct 2009 22:48:49 -0400
+In-Reply-To: <bug-14330-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 06 Oct 2009 13:20:08 +0200 Roel Kluin <roel.kluin@gmail.com> wrote:
 
-> The negation makes it a bool before the comparison and hence it
-> will never evaluate to true.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Tue, 6 Oct 2009 00:16:31 GMT bugzilla-daemon@bugzilla.kernel.org wrote:
+
+> http://bugzilla.kernel.org/show_bug.cgi?id=14330
 > 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> ---
-> Was this intended?
+>                URL: NULL pointer dereference with arp_notify and no ip
+>                     address
+>            Summary: Kernel
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 2.6.30.8-64.fc11.x86_64
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Fedora
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV4
+>         AssignedTo: shemminger@linux-foundation.org
+>         ReportedBy: hannes@stressinduktion.org
+>         Regression: No
 > 
-> diff --git a/drivers/net/hamradio/baycom_epp.c b/drivers/net/hamradio/baycom_epp.c
-> index 7bcaf7c..ee06a13 100644
-> --- a/drivers/net/hamradio/baycom_epp.c
-> +++ b/drivers/net/hamradio/baycom_epp.c
-> @@ -596,7 +596,8 @@ static int receive(struct net_device *dev, int cnt)
->  						state = 0;
->  
->  					/* not flag received */
-> -					else if (!(bitstream & (0x1fe << j)) != (0x0fc << j)) {
-> +					else if ((bitstream & (0x1fe << j)) !=
-> +							(0x0fc << j)) {
->  						if (state)
->  							do_rxpacket(dev);
->  						bc->hdlcrx.bufcnt = 0;
-
-It does look like that is what was intended.
-
-With this fix we're turning on a code path which probably hasn't been
-executed by anyone in a decade or so.  I wonder what it'll do?
-
+> 
+> A NULL pointer dereference happens if arp_notify is enabled, no ip address is
+> set
+> and the mac address changes on an interface.
+> 
+> Steps to reproduce:
+> sysctl -w net.ipv4.conf.all.arp_notify=1
+> ip a f dev eth0
+> ip l s eth0 a 02:00:00:00:00:00
+> 
+> It seems that in function inetdev_event (net/ipv4/devinet.c:1081) the
+> dereference of in_dev->ifa_list->ifa_address blows up because in_dev->ifa_list
+> is NULL.
