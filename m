@@ -1,43 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: add support for STMicroelectronics Ethernet
- controllers.
-Date: Wed, 14 Oct 2009 15:14:15 -0700 (PDT)
-Message-ID: <20091014.151415.50147706.davem@davemloft.net>
-References: <4AD47425.7050003@st.com>
-	<4AD54E71.7070400@gmail.com>
-	<4AD57693.1010604@st.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: bisect results of MSI-X related panic (help!)
+Date: Wed, 14 Oct 2009 15:30:38 -0700 (Pacific Daylight Time)
+Message-ID: <alpine.WNT.2.00.0910141527550.3036@jbrandeb-desk1.amr.corp.intel.com>
+References: <1252699744.3877.15.camel@jbrandeb-hc.jf.intel.com>  <200909120623.49764.elendil@planet.nl> <4AAE0F7B.5050203@kernel.org>  <4AAE105E.1080005@kernel.org> <4807377b0910091724k2a332e90i9941971f6032663c@mail.gmail.com> <4AD2E05A.6060700@kernel.org>
+ <alpine.WNT.2.00.0910120907170.11804@jbrandeb-mobl2.amr.corp.intel.com> <4AD3E875.5040800@kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47139
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760276AbZJNWOT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 18:14:19 -0400
-In-Reply-To: <4AD57693.1010604@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Frans Pop <elendil@planet.nl>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ingo Molnar <mingo@elte.hu>, "hpa@zytor.com" <hpa@zytor.com>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762084AbZJNWbR@vger.kernel.org>
+In-Reply-To: <4AD3E875.5040800@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Wed, 14 Oct 2009 08:58:27 +0200
+On Mon, 12 Oct 2009, Tejun Heo wrote:
+> Can you please apply the following patch and try to retrigger the
+> panic?
+> 
+> diff --git a/kernel/irq/chip.c b/kernel/irq/chip.c
+> index c166019..f5a1482 100644
+> --- a/kernel/irq/chip.c
+> +++ b/kernel/irq/chip.c
+> @@ -63,6 +63,9 @@ void dynamic_irq_cleanup(unsigned int irq)
+>  	struct irq_desc *desc = irq_to_desc(irq);
+>  	unsigned long flags;
+> 
+> +	printk("XXX dynamic_irq_cleanup() called on %u\n", irq);
+> +	dump_stack();
+> +
+>  	if (!desc) {
+>  		WARN(1, KERN_ERR "Trying to cleanup invalid IRQ%d\n", irq);
+>  		return;
 
->>From d370c0d34c2cfe20de94c05e243ab761e316ab4d Mon Sep 17 00:00:00 2001
-> From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> Date: Mon, 12 Oct 2009 11:11:06 +0200
-> Subject: [PATCH] net: add support for STMicroelectronics Ethernet controllers.
-> 
-> This is the driver for the ST MAC 10/100/1000 on-chip Ethernet
-> controllers (Synopsys IP blocks).
-> 
-> Driver documentation:
->  o http://stlinux.com/drupal/kernel/network/stmmac
-> Revisions:
->  o http://stlinux.com/drupal/kernel/network/stmmac-driver-revisions
-> Performances:
->  o http://stlinux.com/drupal/benchmarks/networking/stmmac
-> 
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+I'm working on it, but now that I've added a bunch of debug including the 
+above printk, my system panics (with a stack protector canary overwrite) 
+when loading the first network adapter with 30+ MSI-X vectors.  I can boot 
+single user mode and bring up netconsole, but then as soon as I brought up 
+the first port with lots of MSI-X vectors, the system hard locks, no panic 
+message.
+ 
+I have a bit of a theory that the node = -1 (numa_node) stuff might be 
+playing some havoc with the code in numa_migrate.c.  I'm not sure if that 
+is contributing, but the code in there doesn't seem written to handle node 
+= - 1 very well.  As in I never see it do an smp_processor_id at the 
+bottom before accessing the node value.
 
-Applied, thanks.
+Not sure if that is relevant, but I wanted to mention it before I went 
+home.
+
+What next?  I made it worse so I guess that is something.
