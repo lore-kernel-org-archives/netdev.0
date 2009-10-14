@@ -1,37 +1,50 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: PF_RING: Include in main line kernel?
-Date: Thu, 15 Oct 2009 00:36:40 +0400
-Message-ID: <20091014203640.GB32317@ioremap.net>
-References: <a07586b0910140733s1976cd05u39286de42d9fac23@mail.gmail.com> <20091014090125.535ee0dc@nehalam> <a07586b0910141002m2a9f4466j412245fdae4e5372@mail.gmail.com> <20091014123328.1ebe35ea@s6510> <8B385E10-4BE2-48A6-BDE0-0AA1A603275E@ntop.org>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: query: tcpdump versus atomic?
+Date: Wed, 14 Oct 2009 16:36:36 -0400
+Message-ID: <4AD63654.6050200@gmail.com>
+References: <4AD5522B.50101@gmail.com>	<4AD5EC2C.6070005@gmail.com> <20091014085941.6897d9d9@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Brad Doctor <brad.doctor@gmail.com>, netdev@vger.kernel.org
-To: Luca Deri <deri@ntop.org>
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kandzendo.ru ([195.178.208.66]:59174 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933881AbZJNUhS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Oct 2009 16:37:18 -0400
-Content-Disposition: inline
-In-Reply-To: <8B385E10-4BE2-48A6-BDE0-0AA1A603275E@ntop.org>
+Received: from fg-out-1718.google.com ([72.14.220.159]:37898 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933724AbZJNUi3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 16:38:29 -0400
+Received: by fg-out-1718.google.com with SMTP id d23so1580068fga.1
+        for <netdev@vger.kernel.org>; Wed, 14 Oct 2009 13:36:40 -0700 (PDT)
+In-Reply-To: <20091014085941.6897d9d9@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 14, 2009 at 10:17:30PM +0200, Luca Deri (deri@ntop.org) wrote:
-> The reason why I decided to patch dev.c is because I wanted PF_RING to  
-> decide whether the packet journey shall continue or not. In other  
-> words with my solution PF_RING applications can decide whether the  
-> received packets will also be delivered to upper layers (and to other  
-> kernel network components). This configurable 'early packet drop'  
-> allows the overall performance to be significantly increased as  
-> received packets are not supposed to be delivered to upper layers;  
-> this is a typical situations for many monitoring devices.
+Stephen Hemminger wrote:
+> On Wed, 14 Oct 2009 11:20:12 -0400
+> William Allen Simpson <william.allen.simpson@gmail.com> wrote:
+> 
+>> William Allen Simpson wrote:
+>>> Anybody know what code path tcpdump changes to running atomic?
+>>>
+>>> Is there a function to test whether you're running atomic?
+>>>
+>> To partially answer my own question, after laboriously #if'ing compiling
+>> section by section, it affects the tcp_minisockets.c code at
+>> tcp_create_openreq_child().
+>>
+>> I've not found a function to test.  I've found sk->sk_allocation, but
+>> that doesn't seem to be dynamically updated to reflect the current state.
+>>
+> did you look at your ethernet's drivers code to turn on promiscuous mode.
+> It could be leaving irq's or bottom half disabled.
+> 
+[    2.876485] eth0: RealTek RTL8139 at 0x2000, 00:40:2b:6b:61:36, IRQ 17
+[    2.876490] eth0:  Identified 8139 chip type 'RTL-8101'
 
-This is a feature many projects implement themself indeed. What about
-creating special return value from the packet handler which will
-indicate that packet was already consumed and no further work should be
-done on it?
+No idea on the driver file name, but that's a fairly popular chipset, so
+the code should be fairly well reviewed.
 
--- 
-	Evgeniy Polyakov
+Still, tcp shouldn't be processed with interrupts disabled.  That's *way*
+too much code....
+
+And we need a function that tells us whether we're atomic already....  And
+better function header descriptions that mention the assumptions.
