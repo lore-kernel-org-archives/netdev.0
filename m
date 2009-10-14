@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix OF platform drivers coldplug/hotplug when
-	compiled as modules
-Date: Wed, 14 Oct 2009 14:54:59 -0700 (PDT)
-Message-ID: <20091014.145459.118730396.davem@davemloft.net>
-References: <20091008121512.GA2390@oksana.dev.rtsoft.ru>
+Subject: Re: PF_RING: Include in main line kernel?
+Date: Wed, 14 Oct 2009 14:49:23 -0700 (PDT)
+Message-ID: <20091014.144923.112167161.davem@davemloft.net>
+References: <8B385E10-4BE2-48A6-BDE0-0AA1A603275E@ntop.org>
+	<20091014203640.GB32317@ioremap.net>
+	<4AD64251.50903@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-To: avorontsov@ru.mvista.com
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20091008121512.GA2390@oksana.dev.rtsoft.ru>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: zbr@ioremap.net, deri@ntop.org, shemminger@vyatta.com,
+	brad.doctor@gmail.com, netdev@vger.kernel.org
+To: greearb@candelatech.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51902
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752728AbZJNVt0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Oct 2009 17:49:26 -0400
+In-Reply-To: <4AD64251.50903@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Date: Thu, 8 Oct 2009 16:15:12 +0400
+From: Ben Greear <greearb@candelatech.com>
+Date: Wed, 14 Oct 2009 14:27:45 -0700
 
-> Some OF platform drivers are missing module device tables, so they won't
-> load automatically on boot. This patch fixes the issue by adding proper
-> MODULE_DEVICE_TABLE() macros to the drivers.
-> 
-> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+> Maybe something similar to the attached patch?
 
-Applied, thanks!
+This is not something I'm interested in applying.
+
+It makes implementing proprietary complete networking stacks
+for Linux way too easy.
+
+Instead I'd rather have a GPL exported function that allows indication
+of consumption somehow.  That's why we have a special hook for
+bonding, so it cannot be abused in proprietary modules.
