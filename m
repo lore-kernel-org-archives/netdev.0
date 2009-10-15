@@ -1,522 +1,199 @@
-From: Sandeep Gopalpet <sandeep.kumar@freescale.com>
-Subject: [PATCH v0 7/7] gianfar: Basic Support for programming hash rules
-Date: Thu, 15 Oct 2009 22:01:36 +0530
-Message-ID: <1255624296129-git-send-email-sandeep.kumar@freescale.com>
-Cc: Sandeep Gopalpet <sandeep.kumar@freescale.com>
-To: netdev@vger.kernel.org
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: [net-next-2.6 PATCH 3/4 resent] TCPCT part 1c: redefine TCP header
+ functions *_len_th(), cleanup
+Date: Thu, 15 Oct 2009 11:07:39 -0400
+Message-ID: <4AD73ABB.7010503@gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------000008010703010108040607"
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:60031 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762776AbZJOPEE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 11:04:04 -0400
-Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
-	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n9FF3SmI027947
-	for <netdev@vger.kernel.org>; Thu, 15 Oct 2009 08:03:28 -0700 (MST)
-Received: from udp153986uds.ap.freescale.net (udp153986uds.ap.freescale.net [10.232.134.194])
-	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id n9FF5tAj021438
-	for <netdev@vger.kernel.org>; Thu, 15 Oct 2009 10:05:58 -0500 (CDT)
+Received: from fg-out-1718.google.com ([72.14.220.153]:15438 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753358AbZJOPJc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 11:09:32 -0400
+Received: by fg-out-1718.google.com with SMTP id 16so533724fgg.1
+        for <netdev@vger.kernel.org>; Thu, 15 Oct 2009 08:07:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch provides basic hash rules programming via the ethtool
-interface.
+This is a multi-part message in MIME format.
+--------------000008010703010108040607
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Sandeep Gopalpet <sandeep.kumar@freescale.com>
+Redefine two TCP header functions to accept TCP header pointer.
+When subtracting, return signed int to allow error checking.
+
+In the only two existing files using the latter function, clean up
+confusing and inconsistent mixing of both byte and word offsets.
+However, remove proposed header length checking, and document the
+assumptions instead.  In the immortal words of the reviewer:
+
+    This is transmit, and the packets can only come from the Linux
+    TCP stack, not some external entity.
+
+    You're being way too anal here, and adding these checks to
+    drivers would be just a lot of rediculious bloat. [sic]
+
+These functions will also be used in subsequent patches that implement
+additional features.
 ---
- drivers/net/gianfar.c         |   73 +++++++++++++
- drivers/net/gianfar.h         |   93 ++++++++++++++++
- drivers/net/gianfar_ethtool.c |  236 +++++++++++++++++++++++++++++++++++++++++
- include/linux/ethtool.h       |    2 +
- 4 files changed, 404 insertions(+), 0 deletions(-)
+   drivers/net/bnx2.c  |   22 +++++++++++++---------
+   drivers/net/tg3.c   |   32 +++++++++++++++++---------------
+   include/linux/tcp.h |   10 ++++++++--
+   3 files changed, 38 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 4ea85f1..d4ccc42 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -166,6 +166,9 @@ static const struct net_device_ops gfar_netdev_ops = {
- #endif
- };
- 
-+unsigned int ftp_rqfpr[MAX_FILER_IDX + 1];
-+unsigned int ftp_rqfcr[MAX_FILER_IDX + 1];
-+
- inline void lock_rx_qs(struct gfar_private *priv)
- {
- 	int i = 0x0;
-@@ -501,6 +504,73 @@ static unsigned int reverse_bitmap(unsigned int bit_map, unsigned int max_qs)
+
+
+--------------000008010703010108040607
+Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
+ name="TCPCT+1-3.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="TCPCT+1-3.patch"
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 08cddb6..2cb342c 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -6330,18 +6330,17 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
  	}
- 	return new_bit_map;
- }
+ #endif
+ 	if ((mss = skb_shinfo(skb)->gso_size)) {
+-		u32 tcp_opt_len;
+-		struct iphdr *iph;
++		struct tcphdr *th = tcp_hdr(skb);
++		int tcp_opt_words = th->doff - (sizeof(*th) >> 2);
+ 
++		/* assumes positive tcp_opt_words without checking */
+ 		vlan_tag_flags |= TX_BD_FLAGS_SW_LSO;
+ 
+-		tcp_opt_len = tcp_optlen(skb);
+-
+ 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
+ 			u32 tcp_off = skb_transport_offset(skb) -
+ 				      sizeof(struct ipv6hdr) - ETH_HLEN;
+ 
+-			vlan_tag_flags |= ((tcp_opt_len >> 2) << 8) |
++			vlan_tag_flags |= (tcp_opt_words << 8) |
+ 					  TX_BD_FLAGS_SW_FLAGS;
+ 			if (likely(tcp_off == 0))
+ 				vlan_tag_flags &= ~TX_BD_FLAGS_TCP6_OFF0_MSK;
+@@ -6354,10 +6353,15 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 				mss |= (tcp_off & 0xc) << TX_BD_TCP6_OFF2_SHL;
+ 			}
+ 		} else {
+-			iph = ip_hdr(skb);
+-			if (tcp_opt_len || (iph->ihl > 5)) {
+-				vlan_tag_flags |= ((iph->ihl - 5) +
+-						   (tcp_opt_len >> 2)) << 8;
++			struct iphdr *iph = ip_hdr(skb);
++			int ip_opt_words = iph->ihl - (sizeof(*iph) >> 2);
++			int opt_words;
 +
-+u32 cluster_entry_per_class(struct gfar_private *priv, u32 rqfar, u32 class)
-+{
-+	u32 rqfpr = FPR_FILER_MASK;
-+	u32 rqfcr = 0x0;
++			/* assumes positive ip_opt_words without checking */
++			opt_words = ip_opt_words + tcp_opt_words;
 +
-+	rqfar--;
-+	rqfcr = RQFCR_CLE | RQFCR_PID_MASK | RQFCR_CMP_EXACT;
-+	ftp_rqfpr[rqfar] = rqfpr;
-+	ftp_rqfcr[rqfar] = rqfcr;
-+	gfar_write_filer(priv, rqfar, rqfcr, rqfpr);
++			if (opt_words > 0) {
++				vlan_tag_flags |= opt_words << 8;
+ 			}
+ 		}
+ 	} else
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index ba5d3fe..7e89e2a 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -5230,7 +5230,8 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb,
+ 		else {
+ 			struct iphdr *iph = ip_hdr(skb);
+ 
+-			tcp_opt_len = tcp_optlen(skb);
++			tcp_opt_len = tcp_option_len_th(tcp_hdr(skb));
++			/* assumes positive tcp_opt_len without checking */
+ 			ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
+ 
+ 			iph->check = 0;
+@@ -5392,7 +5393,8 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
+ 	mss = 0;
+ 	if ((mss = skb_shinfo(skb)->gso_size) != 0) {
+ 		struct iphdr *iph;
+-		int tcp_opt_len, ip_tcp_len, hdr_len;
++		int tcp_opt_len, ip_hdr_len, ip_opt_len, ip_tcp_len, hdr_len;
++		int opt_bytes;
+ 
+ 		if (skb_header_cloned(skb) &&
+ 		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
+@@ -5400,10 +5402,12 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
+ 			goto out_unlock;
+ 		}
+ 
+-		tcp_opt_len = tcp_optlen(skb);
+-		ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
+-
++		tcp_opt_len = tcp_option_len_th(tcp_hdr(skb));
++		/* assumes positive tcp_opt_len without checking */
++		ip_hdr_len = ip_hdrlen(skb);
++		ip_tcp_len = ip_hdr_len + sizeof(struct tcphdr);
+ 		hdr_len = ip_tcp_len + tcp_opt_len;
 +
-+	rqfar--;
-+	rqfcr = RQFCR_CMP_NOMATCH;
-+	ftp_rqfpr[rqfar] = rqfpr;
-+	ftp_rqfcr[rqfar] = rqfcr;
-+	gfar_write_filer(priv, rqfar, rqfcr, rqfpr);
+ 		if (unlikely((ETH_HLEN + hdr_len) > 80) &&
+ 			     (tp->tg3_flags2 & TG3_FLG2_TSO_BUG))
+ 			return (tg3_tso_bug(tp, skb));
+@@ -5423,20 +5427,18 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
+ 								 IPPROTO_TCP,
+ 								 0);
+ 
++		ip_opt_len = ip_hdr_len - sizeof(struct iphdr);
++		/* assumes positive ip_opt_len without checking */
++		opt_bytes = ip_opt_len + tcp_opt_len;
 +
-+	rqfar--;
-+	rqfcr = RQFCR_CMP_EXACT | RQFCR_PID_PARSE | RQFCR_CLE | RQFCR_AND;
-+	rqfpr = class;
-+	ftp_rqfcr[rqfar] = rqfcr;
-+	ftp_rqfpr[rqfar] = rqfpr;
-+	gfar_write_filer(priv, rqfar, rqfcr, rqfpr);
-+
-+	rqfar--;
-+	rqfcr = RQFCR_CMP_EXACT | RQFCR_PID_MASK | RQFCR_AND;
-+	rqfpr = class;
-+	ftp_rqfcr[rqfar] = rqfcr;
-+	ftp_rqfpr[rqfar] = rqfpr;
-+	gfar_write_filer(priv, rqfar, rqfcr, rqfpr);
-+
-+	return rqfar;
-+}
-+
-+static void gfar_init_filer_table(struct gfar_private *priv)
-+{
-+	int i = 0x0;
-+	u32 rqfar = MAX_FILER_IDX;
-+	u32 rqfcr = 0x0;
-+	u32 rqfpr = FPR_FILER_MASK;
-+
-+	/* Default rule */
-+	rqfcr = RQFCR_CMP_MATCH;
-+	ftp_rqfcr[rqfar] = rqfcr;
-+	ftp_rqfpr[rqfar] = rqfpr;
-+	gfar_write_filer(priv, rqfar, rqfcr, rqfpr);
-+
-+	rqfar = cluster_entry_per_class(priv, rqfar, RQFPR_IPV6);
-+	rqfar = cluster_entry_per_class(priv, rqfar, RQFPR_IPV6 | RQFPR_UDP);
-+	rqfar = cluster_entry_per_class(priv, rqfar, RQFPR_IPV6 | RQFPR_TCP);
-+	rqfar = cluster_entry_per_class(priv, rqfar, RQFPR_IPV4);
-+	rqfar = cluster_entry_per_class(priv, rqfar, RQFPR_IPV4 | RQFPR_UDP);
-+	rqfar = cluster_entry_per_class(priv, rqfar, RQFPR_IPV4 | RQFPR_TCP);
-+
-+	/* cur_filer_idx indicated the fisrt non-masked rule */
-+	priv->cur_filer_idx = rqfar;
-+
-+	/* Rest are masked rules */
-+	rqfcr = RQFCR_CMP_NOMATCH;
-+	for (i = 0; i < rqfar; i++) {
-+		ftp_rqfcr[i] = rqfcr;
-+		ftp_rqfpr[i] = rqfpr;
-+		gfar_write_filer(priv, i, rqfcr, rqfpr);
-+	}
-+}
-+
- /* Set up the ethernet device structure, private data,
-  * and anything else we need before we start */
- static int gfar_probe(struct of_device *ofdev,
-@@ -740,6 +810,9 @@ static int gfar_probe(struct of_device *ofdev,
- 			priv->gfargrp[i].int_name_tx[len_devname] = '\0';
+ 		if ((tp->tg3_flags2 & TG3_FLG2_HW_TSO) ||
+ 		    (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705)) {
+-			if (tcp_opt_len || iph->ihl > 5) {
+-				int tsflags;
+-
+-				tsflags = (iph->ihl - 5) + (tcp_opt_len >> 2);
+-				mss |= (tsflags << 11);
++			if (opt_bytes > 0) {
++				mss |= (opt_bytes >> 2) << 11;
+ 			}
+ 		} else {
+-			if (tcp_opt_len || iph->ihl > 5) {
+-				int tsflags;
+-
+-				tsflags = (iph->ihl - 5) + (tcp_opt_len >> 2);
+-				base_flags |= tsflags << 12;
++			if (opt_bytes > 0) {
++				base_flags |= (opt_bytes >> 2) << 12;
+ 			}
+ 		}
  	}
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 63ab660..d304ba5 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -217,9 +217,15 @@ static inline unsigned int tcp_hdrlen(const struct sk_buff *skb)
+ 	return tcp_hdr(skb)->doff * 4;
+ }
  
-+	/* Initialize the filer table */
-+	gfar_init_filer_table(priv);
-+
- 	/* Create all the sysfs files */
- 	gfar_init_sysfs(dev);
- 
-diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
-index feba4d7..c669b2d 100644
---- a/drivers/net/gianfar.h
-+++ b/drivers/net/gianfar.h
-@@ -381,6 +381,84 @@ extern const char gfar_driver_version[];
- #define BD_LFLAG(flags) ((flags) << 16)
- #define BD_LENGTH_MASK		0x0000ffff
- 
-+#define CLASS_CODE_UNRECOG		0x00
-+#define CLASS_CODE_DUMMY1		0x01
-+#define CLASS_CODE_ETHERTYPE1		0x02
-+#define CLASS_CODE_ETHERTYPE2		0x03
-+#define CLASS_CODE_USER_PROG1		0x04
-+#define CLASS_CODE_USER_PROG2		0x05
-+#define CLASS_CODE_USER_PROG3		0x06
-+#define CLASS_CODE_USER_PROG4		0x07
-+#define CLASS_CODE_TCP_IPV4		0x08
-+#define CLASS_CODE_UDP_IPV4		0x09
-+#define CLASS_CODE_AH_ESP_IPV4		0x0a
-+#define CLASS_CODE_SCTP_IPV4		0x0b
-+#define CLASS_CODE_TCP_IPV6		0x0c
-+#define CLASS_CODE_UDP_IPV6		0x0d
-+#define CLASS_CODE_AH_ESP_IPV6		0x0e
-+#define CLASS_CODE_SCTP_IPV6		0x0f
-+
-+#define FPR_FILER_MASK	0xFFFFFFFF
-+#define MAX_FILER_IDX	0xFF
-+
-+/* RQFCR register bits */
-+#define RQFCR_GPI		0x80000000
-+#define RQFCR_HASHTBL_Q		0x00000000
-+#define RQFCR_HASHTBL_0		0x00020000
-+#define RQFCR_HASHTBL_1		0x00040000
-+#define RQFCR_HASHTBL_2		0x00060000
-+#define RQFCR_HASHTBL_3		0x00080000
-+#define RQFCR_HASH		0x00010000
-+#define RQFCR_CLE		0x00000200
-+#define RQFCR_RJE		0x00000100
-+#define RQFCR_AND		0x00000080
-+#define RQFCR_CMP_EXACT		0x00000000
-+#define RQFCR_CMP_MATCH		0x00000020
-+#define RQFCR_CMP_NOEXACT	0x00000040
-+#define RQFCR_CMP_NOMATCH	0x00000060
-+
-+/* RQFCR PID values */
-+#define	RQFCR_PID_MASK		0x00000000
-+#define	RQFCR_PID_PARSE		0x00000001
-+#define	RQFCR_PID_ARB		0x00000002
-+#define	RQFCR_PID_DAH		0x00000003
-+#define	RQFCR_PID_DAL		0x00000004
-+#define	RQFCR_PID_SAH		0x00000005
-+#define	RQFCR_PID_SAL		0x00000006
-+#define	RQFCR_PID_ETY		0x00000007
-+#define	RQFCR_PID_VID		0x00000008
-+#define	RQFCR_PID_PRI		0x00000009
-+#define	RQFCR_PID_TOS		0x0000000A
-+#define	RQFCR_PID_L4P		0x0000000B
-+#define	RQFCR_PID_DIA		0x0000000C
-+#define	RQFCR_PID_SIA		0x0000000D
-+#define	RQFCR_PID_DPT		0x0000000E
-+#define	RQFCR_PID_SPT		0x0000000F
-+
-+/* RQFPR when PID is 0x0001 */
-+#define RQFPR_HDR_GE_512	0x00200000
-+#define RQFPR_LERR		0x00100000
-+#define RQFPR_RAR		0x00080000
-+#define RQFPR_RARQ		0x00040000
-+#define RQFPR_AR		0x00020000
-+#define RQFPR_ARQ		0x00010000
-+#define RQFPR_EBC		0x00008000
-+#define RQFPR_VLN		0x00004000
-+#define RQFPR_CFI		0x00002000
-+#define RQFPR_JUM		0x00001000
-+#define RQFPR_IPF		0x00000800
-+#define RQFPR_FIF		0x00000400
-+#define RQFPR_IPV4		0x00000200
-+#define RQFPR_IPV6		0x00000100
-+#define RQFPR_ICC		0x00000080
-+#define RQFPR_ICV		0x00000040
-+#define RQFPR_TCP		0x00000020
-+#define RQFPR_UDP		0x00000010
-+#define RQFPR_TUC		0x00000008
-+#define RQFPR_TUV		0x00000004
-+#define RQFPR_PER		0x00000002
-+#define RQFPR_EER		0x00000001
-+
- /* TxBD status field bits */
- #define TXBD_READY		0x8000
- #define TXBD_PADCRC		0x4000
-@@ -957,6 +1035,8 @@ struct gfar_private {
- 	unsigned int rx_stash_size;
- 	unsigned int rx_stash_index;
- 
-+	u32 cur_filer_idx;
-+
- 	struct sk_buff_head rx_recycle;
- 
- 	struct vlan_group *vlgrp;
-@@ -1000,6 +1080,9 @@ struct gfar_private {
- 	struct gfar_extra_stats extra_stats;
- };
- 
-+extern unsigned int ftp_rqfpr[MAX_FILER_IDX + 1];
-+extern unsigned int ftp_rqfcr[MAX_FILER_IDX + 1];
-+
- static inline u32 gfar_read(volatile unsigned __iomem *addr)
+-static inline unsigned int tcp_optlen(const struct sk_buff *skb)
++static inline unsigned int tcp_header_len_th(const struct tcphdr *th)
  {
- 	u32 val;
-@@ -1012,6 +1095,16 @@ static inline void gfar_write(volatile unsigned __iomem *addr, u32 val)
- 	out_be32(addr, val);
+-	return (tcp_hdr(skb)->doff - 5) * 4;
++	return th->doff * 4;
++}
++
++/* When doff is bad, this could be negative. */
++static inline int tcp_option_len_th(const struct tcphdr *th)
++{
++	return (int)tcp_header_len_th(th) - sizeof(*th);
  }
  
-+static inline void gfar_write_filer(struct gfar_private *priv,
-+		unsigned int far, unsigned int fcr, unsigned int fpr)
-+{
-+	struct gfar __iomem *regs = priv->gfargrp[0].regs;
-+
-+	gfar_write(&regs->rqfar, far);
-+	gfar_write(&regs->rqfcr, fcr);
-+	gfar_write(&regs->rqfpr, fpr);
-+}
-+
- extern inline void lock_rx_qs(struct gfar_private *priv);
- extern inline void lock_tx_qs(struct gfar_private *priv);
- extern inline void unlock_rx_qs(struct gfar_private *priv);
-diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_ethtool.c
-index 562f6c2..1010367 100644
---- a/drivers/net/gianfar_ethtool.c
-+++ b/drivers/net/gianfar_ethtool.c
-@@ -645,6 +645,241 @@ static int gfar_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
- }
- #endif
- 
-+static int gfar_ethflow_to_class(int flow_type, u64 *class)
-+{
-+	switch (flow_type) {
-+	case TCP_V4_FLOW:
-+		*class = CLASS_CODE_TCP_IPV4;
-+		break;
-+	case UDP_V4_FLOW:
-+		*class = CLASS_CODE_UDP_IPV4;
-+		break;
-+	case AH_V4_FLOW:
-+	case ESP_V4_FLOW:
-+		*class = CLASS_CODE_AH_ESP_IPV4;
-+		break;
-+	case SCTP_V4_FLOW:
-+		*class = CLASS_CODE_SCTP_IPV4;
-+		break;
-+	case TCP_V6_FLOW:
-+		*class = CLASS_CODE_TCP_IPV6;
-+		break;
-+	case UDP_V6_FLOW:
-+		*class = CLASS_CODE_UDP_IPV6;
-+		break;
-+	case AH_V6_FLOW:
-+	case ESP_V6_FLOW:
-+		*class = CLASS_CODE_AH_ESP_IPV6;
-+		break;
-+	case SCTP_V6_FLOW:
-+		*class = CLASS_CODE_SCTP_IPV6;
-+		break;
-+	default:
-+		return 0;
-+	}
-+
-+	return 1;
-+}
-+
-+static void ethflow_to_filer_rules (struct gfar_private *priv, u64 ethflow)
-+{
-+	u32 fcr = 0x0, fpr = FPR_FILER_MASK;
-+
-+	if (ethflow & RXH_L2DA) {
-+		fcr = RQFCR_PID_DAH |RQFCR_CMP_NOMATCH |
-+			RQFCR_HASH | RQFCR_AND | RQFCR_HASHTBL_0;
-+		ftp_rqfpr[priv->cur_filer_idx] = fpr;
-+		ftp_rqfcr[priv->cur_filer_idx] = fcr;
-+		gfar_write_filer(priv, priv->cur_filer_idx, fcr, fpr);
-+		priv->cur_filer_idx = priv->cur_filer_idx - 1;
-+
-+		fcr = RQFCR_PID_DAL | RQFCR_AND | RQFCR_CMP_NOMATCH |
-+				RQFCR_HASH | RQFCR_AND | RQFCR_HASHTBL_0;
-+		ftp_rqfpr[priv->cur_filer_idx] = fpr;
-+		ftp_rqfcr[priv->cur_filer_idx] = fcr;
-+		gfar_write_filer(priv, priv->cur_filer_idx, fcr, fpr);
-+		priv->cur_filer_idx = priv->cur_filer_idx - 1;
-+	}
-+
-+	if (ethflow & RXH_VLAN) {
-+		fcr = RQFCR_PID_VID | RQFCR_CMP_NOMATCH | RQFCR_HASH |
-+				RQFCR_AND | RQFCR_HASHTBL_0;
-+		gfar_write_filer(priv, priv->cur_filer_idx, fcr, fpr);
-+		ftp_rqfpr[priv->cur_filer_idx] = fpr;
-+		ftp_rqfcr[priv->cur_filer_idx] = fcr;
-+		priv->cur_filer_idx = priv->cur_filer_idx - 1;
-+	}
-+
-+	if (ethflow & RXH_IP_SRC) {
-+		fcr = RQFCR_PID_SIA | RQFCR_CMP_NOMATCH | RQFCR_HASH |
-+			RQFCR_AND | RQFCR_HASHTBL_0;
-+		ftp_rqfpr[priv->cur_filer_idx] = fpr;
-+		ftp_rqfcr[priv->cur_filer_idx] = fcr;
-+		gfar_write_filer(priv, priv->cur_filer_idx, fcr, fpr);
-+		priv->cur_filer_idx = priv->cur_filer_idx - 1;
-+	}
-+
-+	if (ethflow & (RXH_IP_DST)) {
-+		fcr = RQFCR_PID_DIA | RQFCR_CMP_NOMATCH | RQFCR_HASH |
-+			RQFCR_AND | RQFCR_HASHTBL_0;
-+		ftp_rqfpr[priv->cur_filer_idx] = fpr;
-+		ftp_rqfcr[priv->cur_filer_idx] = fcr;
-+		gfar_write_filer(priv, priv->cur_filer_idx, fcr, fpr);
-+		priv->cur_filer_idx = priv->cur_filer_idx - 1;
-+	}
-+
-+	if (ethflow & RXH_L3_PROTO) {
-+		fcr = RQFCR_PID_L4P | RQFCR_CMP_NOMATCH | RQFCR_HASH |
-+			RQFCR_AND | RQFCR_HASHTBL_0;
-+		ftp_rqfpr[priv->cur_filer_idx] = fpr;
-+		ftp_rqfcr[priv->cur_filer_idx] = fcr;
-+		gfar_write_filer(priv, priv->cur_filer_idx, fcr, fpr);
-+		priv->cur_filer_idx = priv->cur_filer_idx - 1;
-+	}
-+
-+	if (ethflow & RXH_L4_B_0_1) {
-+		fcr = RQFCR_PID_SPT | RQFCR_CMP_NOMATCH | RQFCR_HASH |
-+			RQFCR_AND | RQFCR_HASHTBL_0;
-+		ftp_rqfpr[priv->cur_filer_idx] = fpr;
-+		ftp_rqfcr[priv->cur_filer_idx] = fcr;
-+		gfar_write_filer(priv, priv->cur_filer_idx, fcr, fpr);
-+		priv->cur_filer_idx = priv->cur_filer_idx - 1;
-+	}
-+
-+	if (ethflow & RXH_L4_B_2_3) {
-+		fcr = RQFCR_PID_DPT | RQFCR_CMP_NOMATCH | RQFCR_HASH |
-+			RQFCR_AND | RQFCR_HASHTBL_0;
-+		ftp_rqfpr[priv->cur_filer_idx] = fpr;
-+		ftp_rqfcr[priv->cur_filer_idx] = fcr;
-+		gfar_write_filer(priv, priv->cur_filer_idx, fcr, fpr);
-+		priv->cur_filer_idx = priv->cur_filer_idx - 1;
-+	}
-+}
-+
-+static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow, u64 class)
-+{
-+	unsigned int last_rule_idx = priv->cur_filer_idx;
-+	unsigned int cmp_rqfpr;
-+	unsigned int local_rqfpr[MAX_FILER_IDX + 1];
-+	unsigned int local_rqfcr[MAX_FILER_IDX + 1];
-+	int i = 0x0, k = 0x0;
-+	int j = MAX_FILER_IDX, l = 0x0;
-+
-+	switch (class) {
-+	case TCP_V4_FLOW:
-+		cmp_rqfpr = RQFPR_IPV4 |RQFPR_TCP;
-+		break;
-+	case UDP_V4_FLOW:
-+		cmp_rqfpr = RQFPR_IPV4 |RQFPR_UDP;
-+		break;
-+	case TCP_V6_FLOW:
-+		cmp_rqfpr = RQFPR_IPV6 |RQFPR_TCP;
-+		break;
-+	case UDP_V6_FLOW:
-+		cmp_rqfpr = RQFPR_IPV6 |RQFPR_UDP;
-+		break;
-+	case IPV4_FLOW:
-+		cmp_rqfpr = RQFPR_IPV4;
-+	case IPV6_FLOW:
-+		cmp_rqfpr = RQFPR_IPV6;
-+		break;
-+	default:
-+		printk(KERN_ERR "Right now this class is not supported\n");
-+		return 0;
-+	}
-+
-+	for (i = 0; i < MAX_FILER_IDX + 1; i++) {
-+		local_rqfpr[j] = ftp_rqfpr[i];
-+		local_rqfcr[j] = ftp_rqfcr[i];
-+		j--;
-+		if ((ftp_rqfcr[i] == (RQFCR_PID_PARSE |
-+			RQFCR_CLE |RQFCR_AND)) &&
-+			(ftp_rqfpr[i] == cmp_rqfpr))
-+			break;
-+	}
-+
-+	if (i == MAX_FILER_IDX + 1) {
-+		printk(KERN_ERR "No parse rule found, ");
-+		printk(KERN_ERR "can't create hash rules\n");
-+		return 0;
-+	}
-+
-+	/* If a match was found, then it begins the starting of a cluster rule
-+	 * if it was already programmed, we need to overwrite these rules
-+	 */
-+	for (l = i+1; l < MAX_FILER_IDX; l++) {
-+		if ((ftp_rqfcr[l] & RQFCR_CLE) &&
-+			!(ftp_rqfcr[l] & RQFCR_AND)) {
-+			ftp_rqfcr[l] = RQFCR_CLE | RQFCR_CMP_EXACT |
-+				RQFCR_HASHTBL_0 | RQFCR_PID_MASK;
-+			ftp_rqfpr[l] = FPR_FILER_MASK;
-+			gfar_write_filer(priv, l, ftp_rqfcr[l], ftp_rqfpr[l]);
-+			break;
-+		}
-+
-+		if (!(ftp_rqfcr[l] & RQFCR_CLE) && (ftp_rqfcr[l] & RQFCR_AND))
-+			continue;
-+		else {
-+			local_rqfpr[j] = ftp_rqfpr[l];
-+			local_rqfcr[j] = ftp_rqfcr[l];
-+			j--;
-+		}
-+	}
-+
-+	priv->cur_filer_idx = l - 1;
-+	last_rule_idx = l;
-+
-+	/* hash rules */
-+	ethflow_to_filer_rules(priv, ethflow);
-+
-+	/* Write back the popped out rules again */
-+	for (k = j+1; k < MAX_FILER_IDX; k++) {
-+		ftp_rqfpr[priv->cur_filer_idx] = local_rqfpr[k];
-+		ftp_rqfcr[priv->cur_filer_idx] = local_rqfcr[k];
-+		gfar_write_filer(priv, priv->cur_filer_idx,
-+				local_rqfcr[k], local_rqfpr[k]);
-+		if (!priv->cur_filer_idx)
-+			break;
-+		priv->cur_filer_idx = priv->cur_filer_idx - 1;
-+	}
-+
-+	return 1;
-+}
-+
-+static int gfar_set_hash_opts(struct gfar_private *priv, struct ethtool_rxnfc *cmd)
-+{
-+	u64 class;
-+
-+	if (!gfar_ethflow_to_class(cmd->flow_type, &class))
-+		return -EINVAL;
-+
-+	if (class < CLASS_CODE_USER_PROG1 ||
-+			class > CLASS_CODE_SCTP_IPV6)
-+		return -EINVAL;
-+
-+	/* write the filer rules here */
-+	if (!gfar_ethflow_to_filer_table(priv, cmd->data, cmd->flow_type))
-+		return -1;
-+
-+	return 0;
-+}
-+
-+static int gfar_set_nfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
-+{
-+	struct gfar_private *priv = netdev_priv(dev);
-+	int ret = 0;
-+
-+	switch(cmd->cmd) {
-+	case ETHTOOL_SRXFH:
-+		ret = gfar_set_hash_opts(priv, cmd);
-+		break;
-+	default:
-+		ret = -EINVAL;
-+	}
-+
-+	return ret;
-+}
-+
- const struct ethtool_ops gfar_ethtool_ops = {
- 	.get_settings = gfar_gsettings,
- 	.set_settings = gfar_ssettings,
-@@ -670,4 +905,5 @@ const struct ethtool_ops gfar_ethtool_ops = {
- 	.get_wol = gfar_get_wol,
- 	.set_wol = gfar_set_wol,
- #endif
-+	.set_rxnfc = gfar_set_nfc,
- };
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 15e4eb7..a476321 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -676,6 +676,8 @@ struct ethtool_ops {
- #define	AH_V6_FLOW	0x0b
- #define	ESP_V6_FLOW	0x0c
- #define	IP_USER_FLOW	0x0d
-+#define IPV4_FLOW       0x10
-+#define IPV6_FLOW       0x11
- 
- /* L3-L4 network traffic flow hash options */
- #define	RXH_L2DA	(1 << 1)
+ /* This defines a selective acknowledgement block. */
 -- 
-1.5.2.2
+1.6.0.4
 
+
+
+--------------000008010703010108040607--
