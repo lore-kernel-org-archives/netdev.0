@@ -1,77 +1,48 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: NOHZ: local_softirq_pending 08
-Date: Thu, 15 Oct 2009 11:40:52 +0000
-Message-ID: <20091015114052.GA9870@ff.dom.local>
-References: <4AD31213.6020006@imap.cc>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [net-next-2.6 PATCH 1/4] TCPCT part 1: initial SYN exchange with
+ SYNACK data
+Date: Thu, 15 Oct 2009 07:45:55 -0400
+Message-ID: <4AD70B73.2040401@gmail.com>
+References: <4AD6B31B.3060402@gmail.com> <20091014.231540.01186298.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, johannes@sipsolutions.net,
-	hidave.darkstar@gmail.com, linux-kernel@vger.kernel.org,
-	tglx@linutronix.de, linux-wireless@vger.kernel.org,
-	linux-ppp@vger.kernel.org, netdev@vger.kernel.org, paulus@samba.org
-To: Tilman Schmidt <tilman@imap.cc>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4AD31213.6020006@imap.cc>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qy0-f172.google.com ([209.85.221.172]:59371 "EHLO
+	mail-qy0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762699AbZJOLqe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 07:46:34 -0400
+Received: by qyk2 with SMTP id 2so570677qyk.21
+        for <netdev@vger.kernel.org>; Thu, 15 Oct 2009 04:45:58 -0700 (PDT)
+In-Reply-To: <20091014.231540.01186298.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12-10-2009 13:25, Tilman Schmidt wrote:
-> -----BEGIN PGP SIGNED MESSAGE-----
-> Hash: SHA1
+David Miller wrote:
+> This callback is generic and isn't designed to take opaque
+> data.  All the other arguments to this callback are strongly
+> typed, and this is on purpose.
 > 
-> On Mon, 12 Oct 2009 03:32:46 -0700 (PDT), David Miller wrote:
->> The PPP receive paths in ppp_generic.c do a local_bh_disable()/
->> local_bh_enable() around packet receiving (via ppp_recv_lock()/
->> ppp_recv_unlock() in ppp_do_recv).
->>
->> So at least that part is perfectly fine.
->>
->> ppp_input(), as called from ppp_sync_process(), also disables BH's
->> around ppp_do_recv() calls (via read_lock_bh()/read_unlock_bh()).
->>
->> So that's fine too.
->>
->> Do you have a bug report or are you just scanning around looking
->> for trouble? :-)
+> You'll need to find another way to implement this.
 > 
-> I have encountered the message in the subject during a test of
-> the Gigaset CAPI driver, and would like to determine whether
-> it's a bug in the driver, a bug somewhere else, or no bug at
-> all. The test scenario was PPP over ISDN with pppd+capiplugin.
-> In an alternative scenario, also PPP over ISDN but with
-> smpppd+capidrv, the message did not occur.
-> 
-> Johannes' answer pointed me to the netif_rx() function.
-> The Gigaset driver itself doesn't call that function at all.
-> In the scenario where I saw the message, it was the SYNC_PPP
-> line discipline that did. But from your explanation I gather
-> that the cause cannot lie there.
-> 
-> So now I'm looking for other possible causes of that message.
+This was the most controversial change, so I made it the first separate
+patch to get strong review.
 
-Anyway, I agree with Michael Buesch there is no reason to waste time
-for tracking all netif_rx vs netif_rx_ni uses, and it seems we could
-avoid it by using the "proper" version of raise_softirq_irqoff() in
-__napi_schedule(). Could anybody try if I'm not wrong?
+#1 You recently shot down adding a GFP_ATOMIC kref (Adam's original code),
+after having approved it a year ago.
 
-Thanks,
-Jarek P.
----
+#2 The entire struct could be added to all struct request_sock, but you
+already rejected adding fewer bytes to the much larger tcp_sock.  And that
+isn't the best strategy, as request_sock otherwise would not have a cookie
+and is intended to be small.
 
- net/core/dev.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+#3 It's not possible to wrap and extend request_sock, as that is already
+done by IPv6 and others, causing a conflict.  That was suggested by
+another maintainer, and I drafted some code last week, but wasn't able to
+figure out a non-conflicting code path.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 28b0b9e..7fc4009 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2728,7 +2728,7 @@ void __napi_schedule(struct napi_struct *n)
- 
- 	local_irq_save(flags);
- 	list_add_tail(&n->poll_list, &__get_cpu_var(softnet_data).poll_list);
--	__raise_softirq_irqoff(NET_RX_SOFTIRQ);
-+	raise_softirq_irqoff(NET_RX_SOFTIRQ);
- 	local_irq_restore(flags);
- }
- EXPORT_SYMBOL(__napi_schedule);
+#4 Passing a pointer parameter is the only option left that I've discovered.
+Now, you've rejected that as well....
+
+So, lead me to "another way"?
