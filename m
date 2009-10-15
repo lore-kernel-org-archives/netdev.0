@@ -1,70 +1,58 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: [BUILD-FAILURE] next-20091015 - vbus_enet driver breaks with
- allmodconfig
-Date: Thu, 15 Oct 2009 18:25:05 -0400
-Message-ID: <4AD7A141.3060102@gmail.com>
-References: <20091015152538.74a1cb15.sfr@canb.auug.org.au>	<20091015104852.GA6740@linux.vnet.ibm.com>	<4AD6CD940200005A00056857@sinclair.provo.novell.com>	<4AD75E60.4020306@gmail.com> <20091015114210.65e1be72.randy.dunlap@oracle.com>
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Subject: RE: [PATCH -next] vmxnet3: use dev_dbg, fix build for CONFIG_BLOCK=n
+Date: Thu, 15 Oct 2009 15:37:23 -0700
+Message-ID: <89E2752CFA8EC044846EB8499819134101741BA4C0@EXCH-MBX-4.vmware.com>
+References: <20091015152538.74a1cb15.sfr@canb.auug.org.au>
+ <4AD7A24F.6000900@oracle.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigF135C229963BF58A4FFDD8B8"
-Cc: Gregory Haskins <ghaskins@novell.com>,
-	Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>,
-	sfr@canb.auug.org.au, greg@kroah.com, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, linux-next@vger.kernel.org
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763020AbZJOW0T@vger.kernel.org>
-In-Reply-To: <20091015114210.65e1be72.randy.dunlap@oracle.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"pv-drivers@vmware.com" <pv-drivers@vmware.com>
+To: Randy Dunlap <randy.dunlap@oracle.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763100AbZJOWiF@vger.kernel.org>
+In-Reply-To: <4AD7A24F.6000900@oracle.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigF135C229963BF58A4FFDD8B8
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-Randy Dunlap wrote:
-> On Thu, 15 Oct 2009 13:39:44 -0400 Gregory Haskins wrote:
->=20
->>
->> I am having difficulty reproducing the problem.  When I look at the
->> Kconfig, I see that VBUS_ENET has a "select VBUS_PROXY" as I would
->> expect.  Additionally, if I run allmodconfig I can confirm that I get
->> VBUS_ENET=3Dm, VBUS_PROXY=3Dy:
->=20
-> Greg,
->=20
-> Did you try to reproduce it with the ppc64 config file?
-> allmodconfig on what arch?
->=20
-> I think the problem is that arch/x86/Kconfig says:
->=20
-> source "drivers/vbus/Kconfig"
->=20
-> and that should actually be in drivers/Kconfig, so that it applies
-> to ppc64 et al, not just x86.
-
-Ah, indeed.  I only have/tried x86, and that is the issue.  I will have
-to fix this (and the create_irq() dependency you mention in the next mail=
-).
-
-Thanks Randy.
-
--Greg
+> -----Original Message-----
+> From: Randy Dunlap [mailto:randy.dunlap@oracle.com]
+> Sent: Thursday, October 15, 2009 3:30 PM
+> To: Stephen Rothwell
+> Cc: linux-next@vger.kernel.org; LKML; netdev; David Miller; Shreyas
+> Bhatewara; pv-drivers@vmware.com
+> Subject: [PATCH -next] vmxnet3: use dev_dbg, fix build for
+> CONFIG_BLOCK=n
+> 
+> From: Randy Dunlap <randy.dunlap@oracle.com>
+> 
+> vmxnet3 was using dprintk() for debugging output.  This was
+> defined in <linux/dst.h> and was the only thing that was
+> used from that header file.  This caused compile errors
+> when CONFIG_BLOCK was not enabled due to bio* and BIO*
+> uses in the header file, so change this driver to use
+> dev_dbg() for debugging output.
+> 
+> include/linux/dst.h:520: error: dereferencing pointer to incomplete
+> type
+> include/linux/dst.h:520: error: 'BIO_POOL_BITS' undeclared (first use
+> in this function)
+> include/linux/dst.h:521: error: dereferencing pointer to incomplete
+> type
+> include/linux/dst.h:522: error: dereferencing pointer to incomplete
+> type
+> include/linux/dst.h:525: error: dereferencing pointer to incomplete
+> type
+> make[4]: *** [drivers/net/vmxnet3/vmxnet3_drv.o] Error 1
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 
 
---------------enigF135C229963BF58A4FFDD8B8
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Thanks for the changes Randy, appreciate it.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkrXoUEACgkQP5K2CMvXmqHjPwCdGjUZb1/Cutbea5ZkZYkYI832
-+x0Ani3clRM6y9kcGDoZouUZb4weaht/
-=OVu/
------END PGP SIGNATURE-----
-
---------------enigF135C229963BF58A4FFDD8B8--
+->Shreyas
