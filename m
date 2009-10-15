@@ -1,46 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/8] bnx2x: Device Control Channel bug fixes
-Date: Thu, 15 Oct 2009 00:23:10 -0700 (PDT)
-Message-ID: <20091015.002310.06135042.davem@davemloft.net>
-References: <20091014.150922.64618889.davem@davemloft.net>
-	<20091014.165704.59488176.davem@davemloft.net>
-	<1255589271.25030.69.camel@lb-tlvb-eilong>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: bisect results of MSI-X related panic (help!)
+Date: Thu, 15 Oct 2009 16:30:25 +0900
+Message-ID: <4AD6CF91.8090203@kernel.org>
+References: <1252699744.3877.15.camel@jbrandeb-hc.jf.intel.com>  <200909120623.49764.elendil@planet.nl> <4AAE0F7B.5050203@kernel.org>  <4AAE105E.1080005@kernel.org> <4807377b0910091724k2a332e90i9941971f6032663c@mail.gmail.com> <4AD2E05A.6060700@kernel.org> <alpine.WNT.2.00.0910120907170.11804@jbrandeb-mobl2.amr.corp.intel.com> <4AD3E875.5040800@kernel.org> <alpine.WNT.2.00.0910141527550.3036@jbrandeb-desk1.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eilong@broadcom.com
+Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Frans Pop <elendil@planet.nl>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ingo Molnar <mingo@elte.hu>, "hpa@zytor.com" <hpa@zytor.com>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44668
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753875AbZJOHXO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 03:23:14 -0400
-In-Reply-To: <1255589271.25030.69.camel@lb-tlvb-eilong>
+Received: from hera.kernel.org ([140.211.167.34]:53066 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754317AbZJOHc4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Oct 2009 03:32:56 -0400
+In-Reply-To: <alpine.WNT.2.00.0910141527550.3036@jbrandeb-desk1.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Thu, 15 Oct 2009 08:47:51 +0200
+Hello,
 
-> On Wed, 2009-10-14 at 16:57 -0700, David Miller wrote:
->> From: David Miller <davem@davemloft.net>
->> Date: Wed, 14 Oct 2009 15:09:22 -0700 (PDT)
->> 
->> > Applied to net-next-2.6, which is where this likely belongs.
->> 
->> Eilon I somehow screwed up this patch set, and largely that is
->> because the firmware patch was too large for the list and therefore
->> it didn't end up in patchwork.
->> 
->> I tried to force in the private copy you sent me into the bundle
->> I applied, but I screwed that up somehow.
->> 
->> Could you please privately send me this whole patch set again so I can
->> try to apply it properly?
->> 
->> Thanks!
->> 
-> Coming right up! Just in case it helps in any way, here is a link to the
-> patches: http://linux.broadcom.com/eilong/
+Brandeburg, Jesse wrote:
+> On Mon, 12 Oct 2009, Tejun Heo wrote:
+>> Can you please apply the following patch and try to retrigger the
+>> panic?
+>>
+>> diff --git a/kernel/irq/chip.c b/kernel/irq/chip.c
+>> index c166019..f5a1482 100644
+>> --- a/kernel/irq/chip.c
+>> +++ b/kernel/irq/chip.c
+>> @@ -63,6 +63,9 @@ void dynamic_irq_cleanup(unsigned int irq)
+>>  	struct irq_desc *desc = irq_to_desc(irq);
+>>  	unsigned long flags;
+>>
+>> +	printk("XXX dynamic_irq_cleanup() called on %u\n", irq);
+>> +	dump_stack();
+>> +
+>>  	if (!desc) {
+>>  		WARN(1, KERN_ERR "Trying to cleanup invalid IRQ%d\n", irq);
+>>  		return;
+> 
+> I'm working on it, but now that I've added a bunch of debug including the 
+> above printk, my system panics (with a stack protector canary overwrite) 
+> when loading the first network adapter with 30+ MSI-X vectors.  I can boot 
+> single user mode and bring up netconsole, but then as soon as I brought up 
+> the first port with lots of MSI-X vectors, the system hard locks, no panic 
+> message.
+>  
+> I have a bit of a theory that the node = -1 (numa_node) stuff might be 
+> playing some havoc with the code in numa_migrate.c.  I'm not sure if that 
+> is contributing, but the code in there doesn't seem written to handle node 
+> = - 1 very well.  As in I never see it do an smp_processor_id at the 
+> bottom before accessing the node value.
+> 
+> Not sure if that is relevant, but I wanted to mention it before I went 
+> home.
+> 
+> What next?  I made it worse so I guess that is something.
 
-Applied and pushed out to net-next-2.6, thank you.
+I don't know.  At this point, I can't think of anything other than
+sprinkling printks and dump_stacks around.  :-(
+
+Thanks.
+
+-- 
+tejun
