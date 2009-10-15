@@ -1,1535 +1,1725 @@
 From: Sandeep Gopalpet <sandeep.kumar@freescale.com>
-Subject: [PATCH v0 1/7] gianfar: Add per queue structure support
-Date: Thu, 15 Oct 2009 22:00:49 +0530
-Message-ID: <12556242491498-git-send-email-sandeep.kumar@freescale.com>
+Subject: [PATCH v0 3/7] gianfar: Add Multiple Queue Support
+Date: Thu, 15 Oct 2009 22:01:05 +0530
+Message-ID: <12556242651370-git-send-email-sandeep.kumar@freescale.com>
 Cc: Sandeep Gopalpet <sandeep.kumar@freescale.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:59946 "EHLO
+Received: from az33egw02.freescale.net ([192.88.158.103]:59962 "EHLO
 	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762394AbZJOPDm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 11:03:42 -0400
-Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
-	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n9FF2i3b027686
-	for <netdev@vger.kernel.org>; Thu, 15 Oct 2009 08:02:55 -0700 (MST)
+	with ESMTP id S1762748AbZJOPDo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 11:03:44 -0400
+Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
+	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n9FF2vck027764
+	for <netdev@vger.kernel.org>; Thu, 15 Oct 2009 08:03:03 -0700 (MST)
 Received: from udp153986uds.ap.freescale.net (udp153986uds.ap.freescale.net [10.232.134.194])
-	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id n9FF5VZF005967
-	for <netdev@vger.kernel.org>; Thu, 15 Oct 2009 10:05:36 -0500 (CDT)
+	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id n9FF5OHb021199
+	for <netdev@vger.kernel.org>; Thu, 15 Oct 2009 10:05:28 -0500 (CDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch introduces per tx and per rx queue structures.
-Earlier the members of these structures were inside the
-gfar_private structure.
+This patch introduces multiple Tx and Rx queues.
+The incoming packets can be classified into different queues
+based on filer rules (out of scope of this patch). The number
+of queues enabled will be based on a DTS entries fsl,num_tx_queues
+and fsl,num_rx_queues.
 
-Moving forward if we want to support multiple queues, we need
-to refactor the gfar_private structure so that introduction of
-multiple queues is easier.
+Although we are enabling multiple queues, the interrupt coalescing
+is on per device level (etsec-1.7 doesn't support multiple rxics
+and txics).
 
 Signed-off-by: Sandeep Gopalpet <sandeep.kumar@freescale.com>
 ---
- drivers/net/gianfar.c         |  362 ++++++++++++++++++++++++-----------------
- drivers/net/gianfar.h         |  114 +++++++++-----
- drivers/net/gianfar_ethtool.c |  100 ++++++++----
- drivers/net/gianfar_sysfs.c   |   43 ++++--
- 4 files changed, 381 insertions(+), 238 deletions(-)
+ drivers/net/gianfar.c         |  658 ++++++++++++++++++++++++++++-------------
+ drivers/net/gianfar.h         |   95 ++++++-
+ drivers/net/gianfar_ethtool.c |   70 +++--
+ drivers/net/gianfar_sysfs.c   |   50 ++--
+ 4 files changed, 598 insertions(+), 275 deletions(-)
 
 diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 1e5289f..3fdccd4 100644
+index 8bee911..bb5dd08 100644
 --- a/drivers/net/gianfar.c
 +++ b/drivers/net/gianfar.c
-@@ -8,9 +8,10 @@
-  *
-  * Author: Andy Fleming
-  * Maintainer: Kumar Gala
-+ * Modifier: Sandeep Gopalpet <sandeep.kumar@freescale.com>
-  *
-- * Copyright (c) 2002-2006 Freescale Semiconductor, Inc.
-- * Copyright (c) 2007 MontaVista Software, Inc.
-+ * Copyright 2002-2009 Freescale Semiconductor, Inc.
-+ * Copyright 2007 MontaVista Software, Inc.
-  *
-  * This program is free software; you can redistribute  it and/or modify it
-  * under  the terms of  the GNU General  Public License as published by the
-@@ -109,7 +110,7 @@ static void gfar_reset_task(struct work_struct *work);
- static void gfar_timeout(struct net_device *dev);
- static int gfar_close(struct net_device *dev);
- struct sk_buff *gfar_new_skb(struct net_device *dev);
--static void gfar_new_rxbdp(struct net_device *dev, struct rxbd8 *bdp,
-+static void gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
- 		struct sk_buff *skb);
- static int gfar_set_mac_address(struct net_device *dev);
- static int gfar_change_mtu(struct net_device *dev, int new_mtu);
-@@ -130,8 +131,8 @@ static int gfar_poll(struct napi_struct *napi, int budget);
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void gfar_netpoll(struct net_device *dev);
- #endif
--int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit);
--static int gfar_clean_tx_ring(struct net_device *dev);
-+int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit);
-+static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue);
- static int gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
- 			      int amount_pull);
- static void gfar_vlan_rx_register(struct net_device *netdev,
-@@ -212,7 +213,7 @@ static int gfar_of_init(struct net_device *dev)
+@@ -143,6 +143,7 @@ void gfar_start(struct net_device *dev);
+ static void gfar_clear_exact_match(struct net_device *dev);
+ static void gfar_set_mac_for_addr(struct net_device *dev, int num, u8 *addr);
+ static int gfar_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
++u16 gfar_select_queue(struct net_device *dev, struct sk_buff *skb);
  
+ MODULE_AUTHOR("Freescale Semiconductor, Inc");
+ MODULE_DESCRIPTION("Gianfar Ethernet Driver");
+@@ -156,6 +157,7 @@ static const struct net_device_ops gfar_netdev_ops = {
+ 	.ndo_set_multicast_list = gfar_set_multi,
+ 	.ndo_tx_timeout = gfar_timeout,
+ 	.ndo_do_ioctl = gfar_ioctl,
++	.ndo_select_queue = gfar_select_queue,
+ 	.ndo_vlan_rx_register = gfar_vlan_rx_register,
+ 	.ndo_set_mac_address = eth_mac_addr,
+ 	.ndo_validate_addr = eth_validate_addr,
+@@ -164,36 +166,131 @@ static const struct net_device_ops gfar_netdev_ops = {
+ #endif
+ };
+ 
++inline void lock_rx_qs(struct gfar_private *priv)
++{
++	int i = 0x0;
++
++	for (i = 0; i < priv->num_rx_queues; i++)
++		spin_lock(&priv->rx_queue[i]->rxlock);
++}
++
++inline void lock_tx_qs(struct gfar_private *priv)
++{
++	int i = 0x0;
++
++	for (i = 0; i < priv->num_tx_queues; i++)
++		spin_lock(&priv->tx_queue[i]->txlock);
++}
++
++inline void unlock_rx_qs(struct gfar_private *priv)
++{
++	int i = 0x0;
++
++	for (i = 0; i < priv->num_rx_queues; i++)
++		spin_unlock(&priv->rx_queue[i]->rxlock);
++}
++
++inline void unlock_tx_qs(struct gfar_private *priv)
++{
++	int i = 0x0;
++
++	for (i = 0; i < priv->num_tx_queues; i++)
++		spin_unlock(&priv->tx_queue[i]->txlock);
++}
++
+ /* Returns 1 if incoming frames use an FCB */
+ static inline int gfar_uses_fcb(struct gfar_private *priv)
+ {
+ 	return priv->vlgrp || priv->rx_csum_enable;
+ }
+ 
+-static int gfar_of_init(struct net_device *dev)
++u16 gfar_select_queue(struct net_device *dev, struct sk_buff *skb)
++{
++	return skb_get_queue_mapping(skb);
++}
++static void free_tx_pointers(struct gfar_private *priv)
++{
++	int i = 0;
++
++	for (i = 0; i < priv->num_tx_queues; i++)
++		kfree(priv->tx_queue[i]);
++}
++
++static void free_rx_pointers(struct gfar_private *priv)
++{
++	int i = 0;
++
++	for (i = 0; i < priv->num_rx_queues; i++)
++		kfree(priv->rx_queue[i]);
++}
++
++static int gfar_of_init(struct of_device *ofdev, struct net_device **pdev)
+ {
+ 	const char *model;
+ 	const char *ctype;
+ 	const void *mac_addr;
+ 	u64 addr, size;
+-	int err = 0;
+-	struct gfar_private *priv = netdev_priv(dev);
+-	struct device_node *np = priv->node;
++	int err = 0, i;
++	struct net_device *dev = NULL;
++	struct gfar_private *priv = NULL;
++	struct device_node *np = ofdev->node;
+ 	const u32 *stash;
+ 	const u32 *stash_len;
+ 	const u32 *stash_idx;
++	unsigned int num_tx_qs, num_rx_qs;
++	u32 *tx_queues, *rx_queues;
+ 
+ 	if (!np || !of_device_is_available(np))
+ 		return -ENODEV;
+ 
++	/* parse the num of tx and rx queues */
++	tx_queues = (u32 *)of_get_property(np, "fsl,num_tx_queues", NULL);
++	num_tx_qs = tx_queues ? *tx_queues : 1;
++
++	if (num_tx_qs > MAX_TX_QS) {
++		printk(KERN_ERR "num_tx_qs(=%d) greater than MAX_TX_QS(=%d)\n",
++				num_tx_qs, MAX_TX_QS);
++		printk(KERN_ERR "Cannot do alloc_etherdev, aborting\n");
++		return -EINVAL;
++	}
++
++	rx_queues = (u32 *)of_get_property(np, "fsl,num_rx_queues", NULL);
++	num_rx_qs = rx_queues ? *rx_queues : 1;
++
++	if (num_rx_qs > MAX_RX_QS) {
++		printk(KERN_ERR "num_rx_qs(=%d) greater than MAX_RX_QS(=%d)\n",
++				num_tx_qs, MAX_TX_QS);
++		printk(KERN_ERR "Cannot do alloc_etherdev, aborting\n");
++		return -EINVAL;
++	}
++
++	*pdev = alloc_etherdev_mq(sizeof(*priv), num_tx_qs);
++	dev = *pdev;
++	if (NULL == dev)
++		return -ENOMEM;
++
++	priv = netdev_priv(dev);
++	priv->node = ofdev->node;
++	priv->ndev = dev;
++
++	dev->num_tx_queues = num_tx_qs;
++	dev->real_num_tx_queues = num_tx_qs;
++	priv->num_tx_queues = num_tx_qs;
++	priv->num_rx_queues = num_rx_qs;
++
+ 	/* get a pointer to the register memory */
+ 	addr = of_translate_address(np, of_get_address(np, 0, &size, NULL));
+ 	priv->gfargrp.regs = ioremap(addr, size);
+ 
+-	if (priv->gfargrp.regs == NULL)
+-		return -ENOMEM;
++	if (priv->gfargrp.regs == NULL) {
++		err = -ENOMEM;
++		goto err_out;
++	}
+ 
+ 	priv->gfargrp.priv = priv; /* back pointer from group to priv */
++	priv->gfargrp.rx_bit_map = DEFAULT_MAPPING;
++	priv->gfargrp.tx_bit_map = DEFAULT_MAPPING;
++
+ 	priv->gfargrp.interruptTransmit = irq_of_parse_and_map(np, 0);
+ 
+ 	model = of_get_property(np, "model", NULL);
+@@ -212,6 +309,38 @@ static int gfar_of_init(struct net_device *dev)
+ 		}
+ 	}
+ 
++	for (i = 0; i < priv->num_tx_queues; i++)
++	       priv->tx_queue[i] = NULL;
++	for (i = 0; i < priv->num_rx_queues; i++)
++		priv->rx_queue[i] = NULL;
++
++	for (i = 0; i < priv->num_tx_queues; i++) {
++		priv->tx_queue[i] =  (struct gfar_priv_tx_q *)kmalloc(
++				sizeof (struct gfar_priv_tx_q), GFP_KERNEL);
++		if (!priv->tx_queue[i]) {
++			err = -ENOMEM;
++			goto tx_alloc_failed;
++		}
++		priv->tx_queue[i]->tx_skbuff = NULL;
++		priv->tx_queue[i]->qindex = i;
++		priv->tx_queue[i]->dev = dev;
++		spin_lock_init(&(priv->tx_queue[i]->txlock));
++	}
++
++	for (i = 0; i < priv->num_rx_queues; i++) {
++		priv->rx_queue[i] = (struct gfar_priv_rx_q *)kmalloc(
++					sizeof (struct gfar_priv_rx_q), GFP_KERNEL);
++		if (!priv->rx_queue[i]) {
++			err = -ENOMEM;
++			goto rx_alloc_failed;
++		}
++		priv->rx_queue[i]->rx_skbuff = NULL;
++		priv->rx_queue[i]->qindex = i;
++		priv->rx_queue[i]->dev = dev;
++		spin_lock_init(&(priv->rx_queue[i]->rxlock));
++	}
++
++
  	stash = of_get_property(np, "bd-stash", NULL);
  
--	if(stash) {
-+	if (stash) {
- 		priv->device_flags |= FSL_GIANFAR_DEV_HAS_BD_STASHING;
- 		priv->bd_stash_en = 1;
- 	}
-@@ -317,8 +318,18 @@ static int gfar_probe(struct of_device *ofdev,
- 	if (err)
- 		goto regs_fail;
+ 	if (stash) {
+@@ -272,8 +401,13 @@ static int gfar_of_init(struct net_device *dev)
  
--	spin_lock_init(&priv->txlock);
--	spin_lock_init(&priv->rxlock);
-+	priv->tx_queue = (struct gfar_priv_tx_q *)kmalloc(
-+				sizeof (struct gfar_priv_tx_q), GFP_KERNEL);
-+	if (!priv->tx_queue)
-+		goto regs_fail;
-+
-+	priv->rx_queue = (struct gfar_priv_rx_q *)kmalloc(
-+				sizeof (struct gfar_priv_rx_q), GFP_KERNEL);
-+	if (!priv->rx_queue)
-+		goto rx_queue_fail;
-+
-+	spin_lock_init(&priv->tx_queue->txlock);
-+	spin_lock_init(&priv->rx_queue->rxlock);
+ 	return 0;
+ 
++rx_alloc_failed:
++	free_rx_pointers(priv);
++tx_alloc_failed:
++	free_tx_pointers(priv);
+ err_out:
+ 	iounmap(priv->gfargrp.regs);
++	free_netdev(dev);
+ 	return err;
+ }
+ 
+@@ -291,6 +425,17 @@ static int gfar_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 	return phy_mii_ioctl(priv->phydev, if_mii(rq), cmd);
+ }
+ 
++static unsigned int reverse_bitmap(unsigned int bit_map, unsigned int max_qs)
++{
++	unsigned int new_bit_map = 0x0;
++	int mask = 0x1 << (max_qs - 1), i;
++	for (i = 0; i < max_qs; i++) {
++		if (bit_map & mask)
++			new_bit_map = new_bit_map + (1 << i);
++		mask = mask >> 0x1;
++	}
++	return new_bit_map;
++}
+ /* Set up the ethernet device structure, private data,
+  * and anything else we need before we start */
+ static int gfar_probe(struct of_device *ofdev,
+@@ -300,14 +445,14 @@ static int gfar_probe(struct of_device *ofdev,
+ 	struct net_device *dev = NULL;
+ 	struct gfar_private *priv = NULL;
+ 	struct gfar __iomem *regs = NULL;
+-	int err = 0;
++	int err = 0, i;
+ 	int len_devname;
++	u32 rstat = 0, tstat = 0, rqueue = 0, tqueue = 0;
+ 
+-	/* Create an ethernet device instance */
+-	dev = alloc_etherdev(sizeof (*priv));
++	err = gfar_of_init(ofdev, &dev);
+ 
+-	if (NULL == dev)
+-		return -ENOMEM;
++	if (err)
++		return err;
+ 
+ 	priv = netdev_priv(dev);
+ 	priv->ndev = dev;
+@@ -315,23 +460,6 @@ static int gfar_probe(struct of_device *ofdev,
+ 	priv->node = ofdev->node;
+ 	SET_NETDEV_DEV(dev, &ofdev->dev);
+ 
+-	err = gfar_of_init(dev);
+-
+-	if (err)
+-		goto regs_fail;
+-
+-	priv->tx_queue = (struct gfar_priv_tx_q *)kmalloc(
+-				sizeof (struct gfar_priv_tx_q), GFP_KERNEL);
+-	if (!priv->tx_queue)
+-		goto regs_fail;
+-
+-	priv->rx_queue = (struct gfar_priv_rx_q *)kmalloc(
+-				sizeof (struct gfar_priv_rx_q), GFP_KERNEL);
+-	if (!priv->rx_queue)
+-		goto rx_queue_fail;
+-
+-	spin_lock_init(&priv->tx_queue->txlock);
+-	spin_lock_init(&priv->rx_queue->rxlock);
+ 	spin_lock_init(&priv->gfargrp.grplock);
  	spin_lock_init(&priv->bflock);
  	INIT_WORK(&priv->reset_task, gfar_reset_task);
- 
-@@ -350,12 +361,13 @@ static int gfar_probe(struct of_device *ofdev,
- 
- 	/* Fill in the dev structure */
- 	dev->watchdog_timeo = TX_TIMEOUT;
--	netif_napi_add(dev, &priv->napi, gfar_poll, GFAR_DEV_WEIGHT);
- 	dev->mtu = 1500;
--
+@@ -369,8 +497,8 @@ static int gfar_probe(struct of_device *ofdev,
  	dev->netdev_ops = &gfar_netdev_ops;
  	dev->ethtool_ops = &gfar_ethtool_ops;
  
-+	/* Register for napi ...NAPI is for each rx_queue */
-+	netif_napi_add(dev, &priv->rx_queue->napi, gfar_poll, GFAR_DEV_WEIGHT);
-+
+-	/* Register for napi ...NAPI is for each rx_queue */
+-	netif_napi_add(dev, &priv->rx_queue->napi, gfar_poll, GFAR_DEV_WEIGHT);
++	/* Register for napi ...We are registering NAPI for each grp */
++	netif_napi_add(dev, &priv->gfargrp.napi, gfar_poll, GFAR_DEV_WEIGHT);
+ 
  	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_CSUM) {
  		priv->rx_csum_enable = 1;
- 		dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_HIGHDMA;
-@@ -411,14 +423,16 @@ static int gfar_probe(struct of_device *ofdev,
+@@ -426,17 +554,44 @@ static int gfar_probe(struct of_device *ofdev,
+ 	if (dev->features & NETIF_F_IP_CSUM)
  		dev->hard_header_len += GMAC_FCB_LEN;
  
- 	priv->rx_buffer_size = DEFAULT_RX_BUFFER_SIZE;
--	priv->tx_ring_size = DEFAULT_TX_RING_SIZE;
--	priv->rx_ring_size = DEFAULT_RX_RING_SIZE;
--	priv->num_txbdfree = DEFAULT_TX_RING_SIZE;
- 
--	priv->txcoalescing = DEFAULT_TX_COALESCE;
--	priv->txic = DEFAULT_TXIC;
--	priv->rxcoalescing = DEFAULT_RX_COALESCE;
--	priv->rxic = DEFAULT_RXIC;
-+	/* Initializing some of the rx/tx queue level parameters */
-+	priv->tx_queue->tx_ring_size = DEFAULT_TX_RING_SIZE;
-+	priv->tx_queue->num_txbdfree = DEFAULT_TX_RING_SIZE;
-+	priv->tx_queue->txcoalescing = DEFAULT_TX_COALESCE;
-+	priv->tx_queue->txic = DEFAULT_TXIC;
++	/* Need to reverse the bit maps as  bit_map's MSB is q0
++	 * but, for_each_bit parses from right to left, which
++	 * basically reverses the queue numbers */
++	priv->gfargrp.tx_bit_map = reverse_bitmap(priv->gfargrp.tx_bit_map, MAX_TX_QS);
++	priv->gfargrp.rx_bit_map = reverse_bitmap(priv->gfargrp.rx_bit_map, MAX_RX_QS);
 +
-+	priv->rx_queue->rx_ring_size = DEFAULT_RX_RING_SIZE;
-+	priv->rx_queue->rxcoalescing = DEFAULT_RX_COALESCE;
-+	priv->rx_queue->rxic = DEFAULT_RXIC;
++	/* Calculate RSTAT, TSTAT, RQUEUE and TQUEUE values */
++	for_each_bit(i, &priv->gfargrp.rx_bit_map, priv->num_rx_queues) {
++		priv->gfargrp.num_rx_queues++;
++		rstat = rstat | (RSTAT_CLEAR_RHALT >> i);
++		rqueue = rqueue | ((RQUEUE_EN0 | RQUEUE_EX0) >> i);
++	}
++	for_each_bit (i, &priv->gfargrp.tx_bit_map, priv->num_tx_queues) {
++		priv->gfargrp.num_tx_queues++;
++		tstat = tstat | (TSTAT_CLEAR_THALT >> i);
++		tqueue = tqueue | (TQUEUE_EN0 >> i);
++	}
++	priv->gfargrp.rstat = rstat;
++	priv->gfargrp.tstat = tstat;
++
++	gfar_write(&regs->rqueue, rqueue);
++	gfar_write(&regs->tqueue, tqueue);
++
+ 	priv->rx_buffer_size = DEFAULT_RX_BUFFER_SIZE;
+ 
+ 	/* Initializing some of the rx/tx queue level parameters */
+-	priv->tx_queue->tx_ring_size = DEFAULT_TX_RING_SIZE;
+-	priv->tx_queue->num_txbdfree = DEFAULT_TX_RING_SIZE;
+-	priv->tx_queue->txcoalescing = DEFAULT_TX_COALESCE;
+-	priv->tx_queue->txic = DEFAULT_TXIC;
++	for (i = 0; i < priv->num_tx_queues; i++) {
++		priv->tx_queue[i]->tx_ring_size = DEFAULT_TX_RING_SIZE;
++		priv->tx_queue[i]->num_txbdfree = DEFAULT_TX_RING_SIZE;
++		priv->tx_queue[i]->txcoalescing = DEFAULT_TX_COALESCE;
++		priv->tx_queue[i]->txic = DEFAULT_TXIC;
++	}
+ 
+-	priv->rx_queue->rx_ring_size = DEFAULT_RX_RING_SIZE;
+-	priv->rx_queue->rxcoalescing = DEFAULT_RX_COALESCE;
+-	priv->rx_queue->rxic = DEFAULT_RXIC;
++	for (i = 0; i < priv->num_rx_queues; i++) {
++		priv->rx_queue[i]->rx_ring_size = DEFAULT_RX_RING_SIZE;
++		priv->rx_queue[i]->rxcoalescing = DEFAULT_RX_COALESCE;
++		priv->rx_queue[i]->rxic = DEFAULT_RXIC;
++	}
  
  	/* Enable most messages by default */
  	priv->msg_enable = (NETIF_MSG_IFUP << 1 ) - 1;
-@@ -464,12 +478,15 @@ static int gfar_probe(struct of_device *ofdev,
+@@ -481,17 +636,19 @@ static int gfar_probe(struct of_device *ofdev,
+ 	/* Even more device info helps when determining which kernel */
  	/* provided which set of benchmarks. */
  	printk(KERN_INFO "%s: Running with NAPI enabled\n", dev->name);
- 	printk(KERN_INFO "%s: %d/%d RX/TX BD ring size\n",
--	       dev->name, priv->rx_ring_size, priv->tx_ring_size);
-+	       dev->name, priv->rx_queue->rx_ring_size, priv->tx_queue->tx_ring_size);
+-	printk(KERN_INFO "%s: %d/%d RX/TX BD ring size\n",
+-	       dev->name, priv->rx_queue->rx_ring_size, priv->tx_queue->tx_ring_size);
++	for (i = 0; i < priv->num_rx_queues; i++)
++		printk(KERN_INFO "%s: :RX BD ring size for Q[%d]: %d\n",
++			dev->name, i, priv->rx_queue[i]->rx_ring_size);
++	for(i = 0; i < priv->num_tx_queues; i++)
++		 printk(KERN_INFO "%s:TX BD ring size for Q[%d]: %d\n",
++			dev->name, i, priv->tx_queue[i]->tx_ring_size);
  
  	return 0;
  
  register_fail:
- 	iounmap(priv->regs);
-+	kfree(priv->rx_queue);
-+rx_queue_fail:
-+	kfree(priv->tx_queue);
- regs_fail:
+ 	iounmap(priv->gfargrp.regs);
+-	kfree(priv->rx_queue);
+-rx_queue_fail:
+-	kfree(priv->tx_queue);
+-regs_fail:
++	free_tx_pointers(priv);
++	free_rx_pointers(priv);
  	if (priv->phy_node)
  		of_node_put(priv->phy_node);
-@@ -502,6 +519,8 @@ static int gfar_suspend(struct of_device *ofdev, pm_message_t state)
+ 	if (priv->tbi_node)
+@@ -523,8 +680,6 @@ static int gfar_suspend(struct of_device *ofdev, pm_message_t state)
  {
  	struct gfar_private *priv = dev_get_drvdata(&ofdev->dev);
  	struct net_device *dev = priv->ndev;
-+	struct gfar_priv_tx_q *tx_queue = NULL;
-+	struct gfar_priv_rx_q *rx_queue = NULL;
+-	struct gfar_priv_tx_q *tx_queue = NULL;
+-	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	struct gfar __iomem *regs = NULL;
  	unsigned long flags;
  	u32 tempval;
- 
-@@ -510,9 +529,12 @@ static int gfar_suspend(struct of_device *ofdev, pm_message_t state)
+@@ -534,13 +689,12 @@ static int gfar_suspend(struct of_device *ofdev, pm_message_t state)
  
  	netif_device_detach(dev);
  
-+	tx_queue = priv->tx_queue;
-+	rx_queue = priv->rx_queue;
-+
+-	tx_queue = priv->tx_queue;
+-	rx_queue = priv->rx_queue;
+ 	regs = priv->gfargrp.regs;
+ 
  	if (netif_running(dev)) {
--		spin_lock_irqsave(&priv->txlock, flags);
--		spin_lock(&priv->rxlock);
-+		spin_lock_irqsave(&tx_queue->txlock, flags);
-+		spin_lock(&tx_queue->rxlock);
+-		spin_lock_irqsave(&tx_queue->txlock, flags);
+-		spin_lock(&tx_queue->rxlock);
++		local_irq_save(flags);
++		lock_tx_qs(priv);
++		lock_rx_qs(priv);
  
  		gfar_halt_nodisable(dev);
  
-@@ -526,10 +548,10 @@ static int gfar_suspend(struct of_device *ofdev, pm_message_t state)
+@@ -554,10 +708,11 @@ static int gfar_suspend(struct of_device *ofdev, pm_message_t state)
  
- 		gfar_write(&priv->regs->maccfg1, tempval);
+ 		gfar_write(&regs->maccfg1, tempval);
  
--		spin_unlock(&priv->rxlock);
--		spin_unlock_irqrestore(&priv->txlock, flags);
-+		spin_unlock(&rx_queue->rxlock);
-+		spin_unlock_irqrestore(&tx_queue->txlock, flags);
+-		spin_unlock(&rx_queue->rxlock);
+-		spin_unlock_irqrestore(&tx_queue->txlock, flags);
++		unlock_rx_qs(priv);
++		unlock_tx_qs(priv);
++		local_irq_restore(flags);
  
--		napi_disable(&priv->napi);
-+		napi_disable(&rx_queue->napi);
+-		napi_disable(&rx_queue->napi);
++		napi_disable(&priv->gfargrp.napi);
  
  		if (magic_packet) {
  			/* Enable interrupt on Magic Packet */
-@@ -551,6 +573,8 @@ static int gfar_resume(struct of_device *ofdev)
+@@ -579,8 +734,6 @@ static int gfar_resume(struct of_device *ofdev)
  {
  	struct gfar_private *priv = dev_get_drvdata(&ofdev->dev);
  	struct net_device *dev = priv->ndev;
-+	struct gfar_priv_tx_q *tx_queue = NULL;
-+	struct gfar_priv_rx_q *rx_queue = NULL;
+-	struct gfar_priv_tx_q *tx_queue = NULL;
+-	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	struct gfar __iomem *regs = NULL;
  	unsigned long flags;
  	u32 tempval;
- 	int magic_packet = priv->wol_en &&
-@@ -567,9 +591,11 @@ static int gfar_resume(struct of_device *ofdev)
+@@ -598,12 +751,11 @@ static int gfar_resume(struct of_device *ofdev)
  	/* Disable Magic Packet mode, in case something
  	 * else woke us up.
  	 */
-+	rx_queue = priv->rx_queue;
-+	tx_queue = priv->tx_queue;
+-	rx_queue = priv->rx_queue;
+-	tx_queue = priv->tx_queue;
+ 	regs = priv->gfargrp.regs;
  
--	spin_lock_irqsave(&priv->txlock, flags);
--	spin_lock(&priv->rxlock);
-+	spin_lock_irqsave(&tx_queue->txlock, flags);
-+	spin_lock(&rx_queue->rxlock);
+-	spin_lock_irqsave(&tx_queue->txlock, flags);
+-	spin_lock(&rx_queue->rxlock);
++	local_irq_save(flags);
++	lock_tx_qs(priv);
++	lock_rx_qs(priv);
  
- 	tempval = gfar_read(&priv->regs->maccfg2);
+ 	tempval = gfar_read(&regs->maccfg2);
  	tempval &= ~MACCFG2_MPEN;
-@@ -577,12 +603,12 @@ static int gfar_resume(struct of_device *ofdev)
+@@ -611,12 +763,13 @@ static int gfar_resume(struct of_device *ofdev)
  
  	gfar_start(dev);
  
--	spin_unlock(&priv->rxlock);
--	spin_unlock_irqrestore(&priv->txlock, flags);
-+	spin_unlock(&rx_queue->rxlock);
-+	spin_unlock_irqrestore(&tx_queue->txlock, flags);
+-	spin_unlock(&rx_queue->rxlock);
+-	spin_unlock_irqrestore(&tx_queue->txlock, flags);
++	unlock_rx_qs(priv);
++	unlock_tx_qs(priv);
++	local_irq_restore(flags);
  
  	netif_device_attach(dev);
  
--	napi_enable(&priv->napi);
-+	napi_enable(&rx_queue->napi);
+-	napi_enable(&rx_queue->napi);
++	napi_enable(&priv->gfargrp.napi);
  
  	return 0;
  }
-@@ -807,18 +833,23 @@ void stop_gfar(struct net_device *dev)
+@@ -847,23 +1000,20 @@ void stop_gfar(struct net_device *dev)
  {
  	struct gfar_private *priv = netdev_priv(dev);
- 	struct gfar __iomem *regs = priv->regs;
-+	struct gfar_priv_tx_q *tx_queue = NULL;
-+	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	struct gfar __iomem *regs = priv->gfargrp.regs;
+-	struct gfar_priv_tx_q *tx_queue = NULL;
+-	struct gfar_priv_rx_q *rx_queue = NULL;
  	unsigned long flags;
  
  	phy_stop(priv->phydev);
  
-+	tx_queue = priv->tx_queue;
-+	rx_queue = priv->rx_queue;
-+
+-	tx_queue = priv->tx_queue;
+-	rx_queue = priv->rx_queue;
+-
  	/* Lock it down */
--	spin_lock_irqsave(&priv->txlock, flags);
--	spin_lock(&priv->rxlock);
-+	spin_lock_irqsave(&tx_queue->txlock, flags);
-+	spin_lock(&rx_queue->rxlock);
+-	spin_lock_irqsave(&tx_queue->txlock, flags);
+-	spin_lock(&rx_queue->rxlock);
++	local_irq_save(flags);
++	lock_tx_qs(priv);
++	lock_rx_qs(priv);
  
  	gfar_halt(dev);
  
--	spin_unlock(&priv->rxlock);
--	spin_unlock_irqrestore(&priv->txlock, flags);
-+	spin_unlock(&rx_queue->rxlock);
-+	spin_unlock_irqrestore(&tx_queue->txlock, flags);
+-	spin_unlock(&rx_queue->rxlock);
+-	spin_unlock_irqrestore(&tx_queue->txlock, flags);
++	unlock_rx_qs(priv);
++	unlock_tx_qs(priv);
++	local_irq_restore(flags);
  
  	/* Free the IRQs */
  	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_MULTI_INTR) {
-@@ -832,9 +863,9 @@ void stop_gfar(struct net_device *dev)
+@@ -877,24 +1027,18 @@ void stop_gfar(struct net_device *dev)
  	free_skb_resources(priv);
  
  	dma_free_coherent(&priv->ofdev->dev,
--			sizeof(struct txbd8)*priv->tx_ring_size
--			+ sizeof(struct rxbd8)*priv->rx_ring_size,
--			priv->tx_bd_base,
-+			sizeof(struct txbd8)* tx_queue->tx_ring_size
-+			+ sizeof(struct rxbd8)* rx_queue->rx_ring_size,
-+			tx_queue->tx_bd_base,
+-			sizeof(struct txbd8)* tx_queue->tx_ring_size
+-			+ sizeof(struct rxbd8)* rx_queue->rx_ring_size,
+-			tx_queue->tx_bd_base,
++			sizeof(struct txbd8)* priv->total_tx_ring_size
++			+ sizeof(struct rxbd8)* priv->total_rx_ring_size,
++			priv->tx_queue[0]->tx_bd_base,
  			gfar_read(&regs->tbase0));
  }
  
-@@ -844,43 +875,47 @@ static void free_skb_resources(struct gfar_private *priv)
+-/* If there are any tx skbs or rx skbs still around, free them.
+- * Then free tx_skbuff and rx_skbuff */
+-static void free_skb_resources(struct gfar_private *priv)
++static void free_skb_tx_queue(struct gfar_priv_tx_q *tx_queue)
  {
- 	struct rxbd8 *rxbdp;
+-	struct rxbd8 *rxbdp;
  	struct txbd8 *txbdp;
-+	struct gfar_priv_tx_q *tx_queue = NULL;
-+	struct gfar_priv_rx_q *rx_queue = NULL;
+-	struct gfar_priv_tx_q *tx_queue = NULL;
+-	struct gfar_priv_rx_q *rx_queue = NULL;
++	struct gfar_private *priv = netdev_priv(tx_queue->dev);
  	int i, j;
  
- 	/* Go through all the buffer descriptors and free their data buffers */
--	txbdp = priv->tx_bd_base;
-+	tx_queue = priv->tx_queue;
-+	txbdp = tx_queue->tx_bd_base;
+-	/* Go through all the buffer descriptors and free their data buffers */
+-	tx_queue = priv->tx_queue;
+ 	txbdp = tx_queue->tx_bd_base;
  
--	for (i = 0; i < priv->tx_ring_size; i++) {
--		if (!priv->tx_skbuff[i])
-+	for (i = 0; i < tx_queue->tx_ring_size; i++) {
-+		if (!tx_queue->tx_skbuff[i])
- 			continue;
- 
- 		dma_unmap_single(&priv->ofdev->dev, txbdp->bufPtr,
- 				txbdp->length, DMA_TO_DEVICE);
- 		txbdp->lstatus = 0;
--		for (j = 0; j < skb_shinfo(priv->tx_skbuff[i])->nr_frags; j++) {
-+		for (j = 0; j < skb_shinfo(tx_queue->tx_skbuff[i])->nr_frags; j++) {
- 			txbdp++;
- 			dma_unmap_page(&priv->ofdev->dev, txbdp->bufPtr,
- 					txbdp->length, DMA_TO_DEVICE);
- 		}
- 		txbdp++;
--		dev_kfree_skb_any(priv->tx_skbuff[i]);
--		priv->tx_skbuff[i] = NULL;
-+		dev_kfree_skb_any(tx_queue->tx_skbuff[i]);
-+		tx_queue->tx_skbuff[i] = NULL;
+ 	for (i = 0; i < tx_queue->tx_ring_size; i++) {
+@@ -915,8 +1059,14 @@ static void free_skb_resources(struct gfar_private *priv)
  	}
  
--	kfree(priv->tx_skbuff);
-+	kfree(tx_queue->tx_skbuff);
+ 	kfree(tx_queue->tx_skbuff);
++}
++
++static void free_skb_rx_queue(struct gfar_priv_rx_q *rx_queue)
++{
++	struct rxbd8 *rxbdp;
++	struct gfar_private *priv = netdev_priv(rx_queue->dev);
++	int i;
  
--	rxbdp = priv->rx_bd_base;
-+	rx_queue = priv->rx_queue;
-+	rxbdp = rx_queue->rx_bd_base;
+-	rx_queue = priv->rx_queue;
+ 	rxbdp = rx_queue->rx_bd_base;
  
  	/* rx_skbuff is not guaranteed to be allocated, so only
- 	 * free it and its contents if it is allocated */
--	if(priv->rx_skbuff != NULL) {
--		for (i = 0; i < priv->rx_ring_size; i++) {
--			if (priv->rx_skbuff[i]) {
-+	if (rx_queue->rx_skbuff != NULL) {
-+		for (i = 0; i < rx_queue->rx_ring_size; i++) {
-+			if (rx_queue->rx_skbuff[i]) {
- 				dma_unmap_single(&priv->ofdev->dev, rxbdp->bufPtr,
- 						priv->rx_buffer_size,
- 						DMA_FROM_DEVICE);
+@@ -924,9 +1074,9 @@ static void free_skb_resources(struct gfar_private *priv)
+ 	if (rx_queue->rx_skbuff != NULL) {
+ 		for (i = 0; i < rx_queue->rx_ring_size; i++) {
+ 			if (rx_queue->rx_skbuff[i]) {
+-				dma_unmap_single(&priv->ofdev->dev, rxbdp->bufPtr,
+-						priv->rx_buffer_size,
+-						DMA_FROM_DEVICE);
++				dma_unmap_single(&priv->ofdev->dev,
++				rxbdp->bufPtr, priv->rx_buffer_size,
++					DMA_FROM_DEVICE);
  
--				dev_kfree_skb_any(priv->rx_skbuff[i]);
--				priv->rx_skbuff[i] = NULL;
-+				dev_kfree_skb_any(rx_queue->rx_skbuff[i]);
-+				rx_queue->rx_skbuff[i] = NULL;
- 			}
- 
- 			rxbdp->lstatus = 0;
-@@ -889,7 +924,7 @@ static void free_skb_resources(struct gfar_private *priv)
- 			rxbdp++;
- 		}
- 
--		kfree(priv->rx_skbuff);
-+		kfree(rx_queue->rx_skbuff);
+ 				dev_kfree_skb_any(rx_queue->rx_skbuff[i]);
+ 				rx_queue->rx_skbuff[i] = NULL;
+@@ -942,6 +1092,26 @@ static void free_skb_resources(struct gfar_private *priv)
  	}
  }
  
-@@ -933,6 +968,8 @@ int startup_gfar(struct net_device *dev)
- 	unsigned long vaddr;
- 	int i;
++/* If there are any tx skbs or rx skbs still around, free them.
++ * Then free tx_skbuff and rx_skbuff */
++static void free_skb_resources(struct gfar_private *priv)
++{
++	struct gfar_priv_tx_q *tx_queue = NULL;
++	struct gfar_priv_rx_q *rx_queue = NULL;
++	int i;
++
++	/* Go through all the buffer descriptors and free their data buffers */
++	for (i = 0; i < priv->num_tx_queues; i++) {
++		tx_queue = priv->tx_queue[i];
++		free_skb_tx_queue(tx_queue);
++	}
++
++	for (i = 0; i < priv->num_rx_queues; i++) {
++		rx_queue = priv->rx_queue[i];
++		free_skb_rx_queue(rx_queue);
++	}
++}
++
+ void gfar_start(struct net_device *dev)
+ {
  	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_priv_tx_q *tx_queue;
-+	struct gfar_priv_rx_q *rx_queue;
- 	struct gfar __iomem *regs = priv->regs;
+@@ -964,8 +1134,8 @@ void gfar_start(struct net_device *dev)
+ 	gfar_write(&regs->dmactrl, tempval);
+ 
+ 	/* Clear THLT/RHLT, so that the DMA starts polling now */
+-	gfar_write(&regs->tstat, TSTAT_CLEAR_THALT);
+-	gfar_write(&regs->rstat, RSTAT_CLEAR_RHALT);
++	gfar_write(&regs->tstat, priv->gfargrp.tstat);
++	gfar_write(&regs->rstat, priv->gfargrp.rstat);
+ 
+ 	/* Unmask the interrupts we look for */
+ 	gfar_write(&regs->imask, IMASK_DEFAULT);
+@@ -980,25 +1150,31 @@ int startup_gfar(struct net_device *dev)
+ 	struct rxbd8 *rxbdp;
+ 	dma_addr_t addr = 0;
+ 	unsigned long vaddr;
+-	int i;
++	int i, j, k;
+ 	struct gfar_private *priv = netdev_priv(dev);
+-	struct gfar_priv_tx_q *tx_queue;
+-	struct gfar_priv_rx_q *rx_queue;
++	struct gfar_priv_tx_q *tx_queue = NULL;
++	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	struct gfar __iomem *regs = priv->gfargrp.regs;
  	int err = 0;
++	u32 *baddr;
  	u32 rctrl = 0;
-@@ -941,10 +978,13 @@ int startup_gfar(struct net_device *dev)
+ 	u32 tctrl = 0;
+ 	u32 attrs = 0;
  
  	gfar_write(&regs->imask, IMASK_INIT_CLEAR);
  
-+	tx_queue = priv->tx_queue;
-+	rx_queue = priv->rx_queue;
+-	tx_queue = priv->tx_queue;
+-	rx_queue = priv->rx_queue;
++	priv->total_tx_ring_size = 0;
++	for (i = 0; i < priv->num_tx_queues; i++)
++		priv->total_tx_ring_size += priv->tx_queue[i]->tx_ring_size;
 +
++	priv->total_rx_ring_size = 0;
++	for (i = 0; i < priv->num_rx_queues; i++)
++		priv->total_rx_ring_size += priv->rx_queue[i]->rx_ring_size;
+ 
  	/* Allocate memory for the buffer descriptors */
  	vaddr = (unsigned long) dma_alloc_coherent(&priv->ofdev->dev,
--			sizeof (struct txbd8) * priv->tx_ring_size +
--			sizeof (struct rxbd8) * priv->rx_ring_size,
-+			sizeof (struct txbd8) * tx_queue->tx_ring_size +
-+			sizeof (struct rxbd8) * rx_queue->rx_ring_size,
+-			sizeof (struct txbd8) * tx_queue->tx_ring_size +
+-			sizeof (struct rxbd8) * rx_queue->rx_ring_size,
++			sizeof (struct txbd8) * priv->total_tx_ring_size +
++			sizeof (struct rxbd8) * priv->total_rx_ring_size,
  			&addr, GFP_KERNEL);
  
  	if (vaddr == 0) {
-@@ -954,23 +994,25 @@ int startup_gfar(struct net_device *dev)
+@@ -1008,93 +1184,123 @@ int startup_gfar(struct net_device *dev)
  		return -ENOMEM;
  	}
  
--	priv->tx_bd_base = (struct txbd8 *) vaddr;
-+	tx_queue->tx_bd_base = (struct txbd8 *) vaddr;
-+	tx_queue->dev = dev;
+-	tx_queue->tx_bd_base = (struct txbd8 *) vaddr;
+-	tx_queue->dev = dev;
+-
+-	/* enet DMA only understands physical addresses */
+-	gfar_write(&regs->tbase0, addr);
++	baddr = &regs->tbase0;
++	for (i = 0; i < priv->num_tx_queues; i++) {
++		tx_queue = priv->tx_queue[i];
++		tx_queue->tx_bd_base = (struct txbd8 *) vaddr;
++		/* enet DMA only understands physical addresses */
++		gfar_write(baddr, addr);
++		printk("txbd[%d]: addr, vaddr = 0x%lx,0x%lx\n",
++				i, (unsigned long)addr, (unsigned long)vaddr);
++		addr    += sizeof(struct txbd8) *tx_queue->tx_ring_size;
++		vaddr   += sizeof(struct txbd8) *tx_queue->tx_ring_size;
++		baddr   += 2;
++	}
  
- 	/* enet DMA only understands physical addresses */
- 	gfar_write(&regs->tbase0, addr);
- 
++	baddr = &regs->rbase0;
  	/* Start the rx descriptor ring where the tx ring leaves off */
--	addr = addr + sizeof (struct txbd8) * priv->tx_ring_size;
--	vaddr = vaddr + sizeof (struct txbd8) * priv->tx_ring_size;
--	priv->rx_bd_base = (struct rxbd8 *) vaddr;
-+	addr = addr + sizeof (struct txbd8) * tx_queue->tx_ring_size;
-+	vaddr = vaddr + sizeof (struct txbd8) * tx_queue->tx_ring_size;
-+	rx_queue->rx_bd_base = (struct rxbd8 *) vaddr;
-+	rx_queue->dev = dev;
- 	gfar_write(&regs->rbase0, addr);
+-	addr = addr + sizeof (struct txbd8) * tx_queue->tx_ring_size;
+-	vaddr = vaddr + sizeof (struct txbd8) * tx_queue->tx_ring_size;
+-	rx_queue->rx_bd_base = (struct rxbd8 *) vaddr;
+-	rx_queue->dev = dev;
+-	gfar_write(&regs->rbase0, addr);
++	for (i = 0; i < priv->num_rx_queues; i++) {
++		rx_queue = priv->rx_queue[i];
++		rx_queue->rx_bd_base = (struct rxbd8 *) vaddr;
++		gfar_write(baddr, addr);
++		printk("rxbd[%d]: addr,vaddr=0x%lx,0x%lx\n",
++				i,(unsigned long)addr,(unsigned long)vaddr);
++		addr    += sizeof (struct rxbd8) * rx_queue->rx_ring_size;
++		vaddr   += sizeof (struct rxbd8) * rx_queue->rx_ring_size;
++		baddr   += 2;
++	}
  
  	/* Setup the skbuff rings */
--	priv->tx_skbuff =
-+	tx_queue->tx_skbuff =
- 	    (struct sk_buff **) kmalloc(sizeof (struct sk_buff *) *
--					priv->tx_ring_size, GFP_KERNEL);
-+					tx_queue->tx_ring_size, GFP_KERNEL);
- 
--	if (NULL == priv->tx_skbuff) {
-+	if (NULL == tx_queue->tx_skbuff) {
- 		if (netif_msg_ifup(priv))
- 			printk(KERN_ERR "%s: Could not allocate tx_skbuff\n",
+-	tx_queue->tx_skbuff =
+-	    (struct sk_buff **) kmalloc(sizeof (struct sk_buff *) *
+-					tx_queue->tx_ring_size, GFP_KERNEL);
+-
+-	if (NULL == tx_queue->tx_skbuff) {
+-		if (netif_msg_ifup(priv))
+-			printk(KERN_ERR "%s: Could not allocate tx_skbuff\n",
++	for (i = 0; i < priv->num_tx_queues; i++) {
++		tx_queue = priv->tx_queue[i];
++		tx_queue->tx_skbuff =
++			(struct sk_buff **)kmalloc(sizeof
++				(struct sk_buff *) * tx_queue->tx_ring_size,
++				GFP_KERNEL);
++		if (NULL == tx_queue->tx_skbuff) {
++			if (netif_msg_ifup(priv))
++				printk(KERN_ERR
++					"%s: Could not allocate	tx_skbuff\n",
  					dev->name);
-@@ -978,14 +1020,15 @@ int startup_gfar(struct net_device *dev)
- 		goto tx_skb_fail;
- 	}
+-		err = -ENOMEM;
+-		goto tx_skb_fail;
+-	}
+-
++			err = -ENOMEM;
++			goto tx_skb_fail;
++		}
  
--	for (i = 0; i < priv->tx_ring_size; i++)
--		priv->tx_skbuff[i] = NULL;
+-	for (i = 0; i < tx_queue->tx_ring_size; i++)
+-		tx_queue->tx_skbuff[i] = NULL;
++		for (k = 0; k < tx_queue->tx_ring_size; k++)
++			tx_queue->tx_skbuff[k] = NULL;
++	}
  
--	priv->rx_skbuff =
-+	for (i = 0; i < tx_queue->tx_ring_size; i++)
-+		tx_queue->tx_skbuff[i] = NULL;
+-	rx_queue->rx_skbuff =
+-	    (struct sk_buff **) kmalloc(sizeof (struct sk_buff *) *
++	for (i = 0; i < priv->num_rx_queues; i++) {
++		rx_queue = priv->rx_queue[i];
++		rx_queue->rx_skbuff =
++			(struct sk_buff **)kmalloc(sizeof (struct sk_buff *) *
+ 					rx_queue->rx_ring_size, GFP_KERNEL);
+ 
+-	if (NULL == rx_queue->rx_skbuff) {
+-		if (netif_msg_ifup(priv))
+-			printk(KERN_ERR "%s: Could not allocate rx_skbuff\n",
++		if (NULL == rx_queue->rx_skbuff) {
++			if (netif_msg_ifup(priv))
++				printk(KERN_ERR
++					"%s: Could not allocate rx_skbuff\n",
+ 					dev->name);
+-		err = -ENOMEM;
+-		goto rx_skb_fail;
+-	}
++			err = -ENOMEM;
++			goto rx_skb_fail;
++		}
+ 
+-	for (i = 0; i < rx_queue->rx_ring_size; i++)
+-		rx_queue->rx_skbuff[i] = NULL;
++		for (j = 0; j < rx_queue->rx_ring_size; j++)
++			rx_queue->rx_skbuff[j] = NULL;
++	}
+ 
+ 	/* Initialize some variables in our per tx/rx queue structure */
+-	tx_queue->num_txbdfree = tx_queue->tx_ring_size;
+-	tx_queue->dirty_tx = tx_queue->cur_tx = tx_queue->tx_bd_base;
+-	tx_queue->skb_curtx = tx_queue->skb_dirtytx = 0;
+-	rx_queue->cur_rx = rx_queue->rx_bd_base;
+-	rx_queue->skb_currx = 0;
++	for (i = 0; i < priv->num_tx_queues; i++) {
++		tx_queue = priv->tx_queue[i];
++		tx_queue->num_txbdfree = tx_queue->tx_ring_size;
++		tx_queue->dirty_tx = tx_queue->tx_bd_base;
++		tx_queue->cur_tx = tx_queue->tx_bd_base;
++		tx_queue->skb_curtx = 0;
++		tx_queue->skb_dirtytx = 0;
++		txbdp = tx_queue->tx_bd_base;
 +
-+	rx_queue->rx_skbuff =
- 	    (struct sk_buff **) kmalloc(sizeof (struct sk_buff *) *
--					priv->rx_ring_size, GFP_KERNEL);
-+					rx_queue->rx_ring_size, GFP_KERNEL);
++		/* Initialize Transmit Descriptor Ring */
++		for (j = 0; j < tx_queue->tx_ring_size; j++) {
++			txbdp->lstatus = 0;
++			txbdp->bufPtr = 0;
++			txbdp++;
++		}
  
--	if (NULL == priv->rx_skbuff) {
-+	if (NULL == rx_queue->rx_skbuff) {
- 		if (netif_msg_ifup(priv))
- 			printk(KERN_ERR "%s: Could not allocate rx_skbuff\n",
+-	/* Initialize Transmit Descriptor Ring */
+-	txbdp = tx_queue->tx_bd_base;
+-	for (i = 0; i < tx_queue->tx_ring_size; i++) {
+-		txbdp->lstatus = 0;
+-		txbdp->bufPtr = 0;
+-		txbdp++;
++		/* Set the last descriptor in the ring to indicate wrap */
++		txbdp--;
++		txbdp->status |= TXBD_WRAP;
+ 	}
+ 
+-	/* Set the last descriptor in the ring to indicate wrap */
+-	txbdp--;
+-	txbdp->status |= TXBD_WRAP;
++	for (i = 0; i < priv->num_rx_queues; i++) {
++		rx_queue = priv->rx_queue[i];
++		rx_queue->cur_rx = rx_queue->rx_bd_base;
++		rx_queue->skb_currx = 0;
++		rxbdp = rx_queue->rx_bd_base;
+ 
+-	rxbdp = rx_queue->rx_bd_base;
+-	for (i = 0; i < rx_queue->rx_ring_size; i++) {
+-		struct sk_buff *skb;
++		for (j = 0; j < rx_queue->rx_ring_size; j++) {
++			struct sk_buff *skb;
+ 
+-		skb = gfar_new_skb(dev);
++			skb = gfar_new_skb(dev);
+ 
+-		if (!skb) {
+-			printk(KERN_ERR "%s: Can't allocate RX buffers\n",
++			if (!skb) {
++				printk(KERN_ERR
++					"%s: Can't allocate RX buffers\n",
  					dev->name);
-@@ -993,19 +1036,19 @@ int startup_gfar(struct net_device *dev)
- 		goto rx_skb_fail;
- 	}
  
--	for (i = 0; i < priv->rx_ring_size; i++)
--		priv->rx_skbuff[i] = NULL;
-+	for (i = 0; i < rx_queue->rx_ring_size; i++)
-+		rx_queue->rx_skbuff[i] = NULL;
+-			goto err_rxalloc_fail;
+-		}
++				goto err_rxalloc_fail;
++			}
  
--	/* Initialize some variables in our dev structure */
--	priv->num_txbdfree = priv->tx_ring_size;
--	priv->dirty_tx = priv->cur_tx = priv->tx_bd_base;
--	priv->cur_rx = priv->rx_bd_base;
--	priv->skb_curtx = priv->skb_dirtytx = 0;
--	priv->skb_currx = 0;
-+	/* Initialize some variables in our per tx/rx queue structure */
-+	tx_queue->num_txbdfree = tx_queue->tx_ring_size;
-+	tx_queue->dirty_tx = tx_queue->cur_tx = tx_queue->tx_bd_base;
-+	tx_queue->skb_curtx = tx_queue->skb_dirtytx = 0;
-+	rx_queue->cur_rx = rx_queue->rx_bd_base;
-+	rx_queue->skb_currx = 0;
+-		rx_queue->rx_skbuff[i] = skb;
++			rx_queue->rx_skbuff[j] = skb;
  
- 	/* Initialize Transmit Descriptor Ring */
--	txbdp = priv->tx_bd_base;
--	for (i = 0; i < priv->tx_ring_size; i++) {
-+	txbdp = tx_queue->tx_bd_base;
-+	for (i = 0; i < tx_queue->tx_ring_size; i++) {
- 		txbdp->lstatus = 0;
- 		txbdp->bufPtr = 0;
- 		txbdp++;
-@@ -1015,8 +1058,8 @@ int startup_gfar(struct net_device *dev)
- 	txbdp--;
- 	txbdp->status |= TXBD_WRAP;
+-		gfar_new_rxbdp(rx_queue, rxbdp, skb);
++			gfar_new_rxbdp(rx_queue, rxbdp, skb);
  
--	rxbdp = priv->rx_bd_base;
--	for (i = 0; i < priv->rx_ring_size; i++) {
-+	rxbdp = rx_queue->rx_bd_base;
-+	for (i = 0; i < rx_queue->rx_ring_size; i++) {
- 		struct sk_buff *skb;
+-		rxbdp++;
+-	}
++			rxbdp++;
++		}
  
- 		skb = gfar_new_skb(dev);
-@@ -1028,9 +1071,9 @@ int startup_gfar(struct net_device *dev)
- 			goto err_rxalloc_fail;
- 		}
+-	/* Set the last descriptor in the ring to wrap */
+-	rxbdp--;
+-	rxbdp->status |= RXBD_WRAP;
++		/* Set the last descriptor in the ring to wrap */
++		rxbdp--;
++		rxbdp->status |= RXBD_WRAP;
++	}
  
--		priv->rx_skbuff[i] = skb;
-+		rx_queue->rx_skbuff[i] = skb;
- 
--		gfar_new_rxbdp(dev, rxbdp, skb);
-+		gfar_new_rxbdp(rx_queue, rxbdp, skb);
- 
- 		rxbdp++;
- 	}
-@@ -1090,12 +1133,12 @@ int startup_gfar(struct net_device *dev)
- 
- 	/* Configure the coalescing support */
- 	gfar_write(&regs->txic, 0);
--	if (priv->txcoalescing)
--		gfar_write(&regs->txic, priv->txic);
-+	if (tx_queue->txcoalescing)
-+		gfar_write(&regs->txic, tx_queue->txic);
- 
- 	gfar_write(&regs->rxic, 0);
--	if (priv->rxcoalescing)
--		gfar_write(&regs->rxic, priv->rxic);
-+	if (rx_queue->rxcoalescing)
-+		gfar_write(&regs->rxic, rx_queue->rxic);
- 
+ 	/* If the device has multiple interrupts, register for
+ 	 * them.  Otherwise, only register for the one */
+@@ -1157,6 +1363,9 @@ int startup_gfar(struct net_device *dev)
  	if (priv->rx_csum_enable)
  		rctrl |= RCTRL_CHECKSUMMING;
-@@ -1163,9 +1206,9 @@ rx_skb_fail:
- 	free_skb_resources(priv);
+ 
++	if (priv->filer_en)
++		rctrl |= RCTRL_FILREN;
++
+ 	if (priv->extended_hash) {
+ 		rctrl |= RCTRL_EXTHASH;
+ 
+@@ -1181,6 +1390,8 @@ int startup_gfar(struct net_device *dev)
+ 	if (dev->features & NETIF_F_IP_CSUM)
+ 		tctrl |= TCTRL_INIT_CSUM;
+ 
++	tctrl |= TCTRL_TXSCHED_PRIO;
++
+ 	gfar_write(&regs->tctrl, tctrl);
+ 
+ 	/* Set the extraction length and index */
+@@ -1217,12 +1428,12 @@ tx_irq_fail:
+ err_irq_fail:
+ err_rxalloc_fail:
+ rx_skb_fail:
+-	free_skb_resources(priv);
  tx_skb_fail:
++	free_skb_resources(priv);
  	dma_free_coherent(&priv->ofdev->dev,
--			sizeof(struct txbd8)*priv->tx_ring_size
--			+ sizeof(struct rxbd8)*priv->rx_ring_size,
--			priv->tx_bd_base,
-+			sizeof(struct txbd8)*tx_queue->tx_ring_size
-+			+ sizeof(struct rxbd8)*rx_queue->rx_ring_size,
-+			tx_queue->tx_bd_base,
+-			sizeof(struct txbd8)*tx_queue->tx_ring_size
+-			+ sizeof(struct rxbd8)*rx_queue->rx_ring_size,
+-			tx_queue->tx_bd_base,
++			sizeof(struct txbd8)*priv->total_tx_ring_size
++			+ sizeof(struct rxbd8)*priv->total_rx_ring_size,
++			priv->tx_queue[0]->tx_bd_base,
  			gfar_read(&regs->tbase0));
  
  	return err;
-@@ -1178,7 +1221,7 @@ static int gfar_enet_open(struct net_device *dev)
+@@ -1235,7 +1446,7 @@ static int gfar_enet_open(struct net_device *dev)
  	struct gfar_private *priv = netdev_priv(dev);
  	int err;
  
--	napi_enable(&priv->napi);
-+	napi_enable(&priv->rx_queue->napi);
+-	napi_enable(&priv->rx_queue->napi);
++	napi_enable(&priv->gfargrp.napi);
  
  	skb_queue_head_init(&priv->rx_recycle);
  
-@@ -1189,14 +1232,14 @@ static int gfar_enet_open(struct net_device *dev)
- 
+@@ -1247,17 +1458,17 @@ static int gfar_enet_open(struct net_device *dev)
  	err = init_phy(dev);
  
--	if(err) {
--		napi_disable(&priv->napi);
-+	if (err) {
-+		napi_disable(&priv->rx_queue->napi);
+ 	if (err) {
+-		napi_disable(&priv->rx_queue->napi);
++		napi_disable(&priv->gfargrp.napi);
  		return err;
  	}
  
  	err = startup_gfar(dev);
  	if (err) {
--		napi_disable(&priv->napi);
-+		napi_disable(&priv->rx_queue->napi);
+-		napi_disable(&priv->rx_queue->napi);
++		napi_disable(&priv->gfargrp.napi);
  		return err;
  	}
  
-@@ -1269,6 +1312,7 @@ static inline struct txbd8 *next_txbd(struct txbd8 *bdp, struct txbd8 *base,
- static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+-	netif_start_queue(dev);
++	netif_tx_start_all_queues(dev);
+ 
+ 	device_set_wakeup_enable(&dev->dev, priv->wol_en);
+ 
+@@ -1327,16 +1538,20 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
  {
  	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_priv_tx_q *tx_queue = NULL;
+ 	struct gfar_priv_tx_q *tx_queue = NULL;
++	struct netdev_queue *txq;
+ 	struct gfar __iomem *regs = NULL;
  	struct txfcb *fcb = NULL;
  	struct txbd8 *txbdp, *txbdp_start, *base;
  	u32 lstatus;
-@@ -1277,7 +1321,8 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+-	int i;
++	int i, rq = 0;
+ 	u32 bufaddr;
  	unsigned long flags;
  	unsigned int nr_frags, length;
  
--	base = priv->tx_bd_base;
-+	tx_queue = priv->tx_queue;
-+	base = tx_queue->tx_bd_base;
+-	tx_queue = priv->tx_queue;
++
++	rq = skb->queue_mapping;
++	tx_queue = priv->tx_queue[rq];
++	txq = netdev_get_tx_queue(dev, rq);
+ 	base = tx_queue->tx_bd_base;
+ 	regs = priv->gfargrp.regs;
  
- 	/* make space for additional header when fcb is needed */
- 	if (((skb->ip_summed == CHECKSUM_PARTIAL) ||
-@@ -1298,21 +1343,21 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	/* total number of fragments in the SKB */
- 	nr_frags = skb_shinfo(skb)->nr_frags;
- 
--	spin_lock_irqsave(&priv->txlock, flags);
-+	spin_lock_irqsave(&tx_queue->txlock, flags);
- 
+@@ -1364,7 +1579,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
  	/* check if there is space to queue this packet */
--	if ((nr_frags+1) > priv->num_txbdfree) {
-+	if ((nr_frags+1) > tx_queue->num_txbdfree) {
+ 	if ((nr_frags+1) > tx_queue->num_txbdfree) {
  		/* no space, stop the queue */
- 		netif_stop_queue(dev);
+-		netif_stop_queue(dev);
++		netif_tx_stop_queue(txq);
  		dev->stats.tx_fifo_errors++;
--		spin_unlock_irqrestore(&priv->txlock, flags);
-+		spin_unlock_irqrestore(&tx_queue->txlock, flags);
+ 		spin_unlock_irqrestore(&tx_queue->txlock, flags);
  		return NETDEV_TX_BUSY;
- 	}
- 
- 	/* Update transmit stats */
- 	dev->stats.tx_bytes += skb->len;
- 
--	txbdp = txbdp_start = priv->cur_tx;
-+	txbdp = txbdp_start = tx_queue->cur_tx;
- 
- 	if (nr_frags == 0) {
- 		lstatus = txbdp->lstatus | BD_LFLAG(TXBD_LAST | TXBD_INTERRUPT);
-@@ -1320,7 +1365,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		/* Place the fragment addresses and lengths into the TxBDs */
- 		for (i = 0; i < nr_frags; i++) {
- 			/* Point at the next BD, wrapping as needed */
--			txbdp = next_txbd(txbdp, base, priv->tx_ring_size);
-+			txbdp = next_txbd(txbdp, base, tx_queue->tx_ring_size);
- 
- 			length = skb_shinfo(skb)->frags[i].size;
- 
-@@ -1362,7 +1407,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- 
- 	/* setup the TxBD length and buffer pointer for the first BD */
--	priv->tx_skbuff[priv->skb_curtx] = skb;
-+	tx_queue->tx_skbuff[tx_queue->skb_curtx] = skb;
- 	txbdp_start->bufPtr = dma_map_single(&priv->ofdev->dev, skb->data,
- 			skb_headlen(skb), DMA_TO_DEVICE);
- 
-@@ -1382,19 +1427,19 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	/* Update the current skb pointer to the next entry we will use
- 	 * (wrapping if necessary) */
--	priv->skb_curtx = (priv->skb_curtx + 1) &
--		TX_RING_MOD_MASK(priv->tx_ring_size);
-+	tx_queue->skb_curtx = (tx_queue->skb_curtx + 1) &
-+		TX_RING_MOD_MASK(tx_queue->tx_ring_size);
- 
--	priv->cur_tx = next_txbd(txbdp, base, priv->tx_ring_size);
-+	tx_queue->cur_tx = next_txbd(txbdp, base, tx_queue->tx_ring_size);
- 
- 	/* reduce TxBD free count */
--	priv->num_txbdfree -= (nr_frags + 1);
-+	tx_queue->num_txbdfree -= (nr_frags + 1);
- 
- 	dev->trans_start = jiffies;
- 
+@@ -1456,13 +1671,13 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
  	/* If the next BD still needs to be cleaned up, then the bds
  	   are full.  We need to tell the kernel to stop sending us stuff. */
--	if (!priv->num_txbdfree) {
-+	if (!tx_queue->num_txbdfree) {
- 		netif_stop_queue(dev);
+ 	if (!tx_queue->num_txbdfree) {
+-		netif_stop_queue(dev);
++		netif_tx_stop_queue(txq);
  
  		dev->stats.tx_fifo_errors++;
-@@ -1404,7 +1449,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	gfar_write(&priv->regs->tstat, TSTAT_CLEAR_THALT);
+ 	}
+ 
+ 	/* Tell the DMA to go go go */
+-	gfar_write(&regs->tstat, TSTAT_CLEAR_THALT);
++	gfar_write(&regs->tstat, TSTAT_CLEAR_THALT >> tx_queue->qindex);
  
  	/* Unlock priv */
--	spin_unlock_irqrestore(&priv->txlock, flags);
-+	spin_unlock_irqrestore(&tx_queue->txlock, flags);
- 
- 	return NETDEV_TX_OK;
- }
-@@ -1414,7 +1459,7 @@ static int gfar_close(struct net_device *dev)
+ 	spin_unlock_irqrestore(&tx_queue->txlock, flags);
+@@ -1475,7 +1690,7 @@ static int gfar_close(struct net_device *dev)
  {
  	struct gfar_private *priv = netdev_priv(dev);
  
--	napi_disable(&priv->napi);
-+	napi_disable(&priv->rx_queue->napi);
+-	napi_disable(&priv->rx_queue->napi);
++	napi_disable(&priv->gfargrp.napi);
  
  	skb_queue_purge(&priv->rx_recycle);
  	cancel_work_sync(&priv->reset_task);
-@@ -1443,10 +1488,12 @@ static void gfar_vlan_rx_register(struct net_device *dev,
+@@ -1485,7 +1700,7 @@ static int gfar_close(struct net_device *dev)
+ 	phy_disconnect(priv->phydev);
+ 	priv->phydev = NULL;
+ 
+-	netif_stop_queue(dev);
++	netif_tx_stop_all_queues(dev);
+ 
+ 	return 0;
+ }
+@@ -1504,14 +1719,13 @@ static void gfar_vlan_rx_register(struct net_device *dev,
  		struct vlan_group *grp)
  {
  	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_priv_rx_q *rx_queue = NULL;
+-	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	struct gfar __iomem *regs = NULL;
  	unsigned long flags;
  	u32 tempval;
  
--	spin_lock_irqsave(&priv->rxlock, flags);
-+	rx_queue = priv->rx_queue;
-+	spin_lock_irqsave(&rx_queue->rxlock, flags);
+-	rx_queue = priv->rx_queue;
+ 	regs = priv->gfargrp.regs;
+-	spin_lock_irqsave(&rx_queue->rxlock, flags);
++	local_irq_save(flags);
++	lock_rx_qs(priv);
  
  	priv->vlgrp = grp;
  
-@@ -1480,7 +1527,7 @@ static void gfar_vlan_rx_register(struct net_device *dev,
+@@ -1545,7 +1759,8 @@ static void gfar_vlan_rx_register(struct net_device *dev,
  
  	gfar_change_mtu(dev, dev->mtu);
  
--	spin_unlock_irqrestore(&priv->rxlock, flags);
-+	spin_unlock_irqrestore(&rx_queue->rxlock, flags);
+-	spin_unlock_irqrestore(&rx_queue->rxlock, flags);
++	unlock_rx_qs(priv);
++	local_irq_restore(flags);
  }
  
  static int gfar_change_mtu(struct net_device *dev, int new_mtu)
-@@ -1569,24 +1616,27 @@ static void gfar_timeout(struct net_device *dev)
- }
+@@ -1617,10 +1832,10 @@ static void gfar_reset_task(struct work_struct *work)
+ 	struct net_device *dev = priv->ndev;
  
- /* Interrupt Handler for Transmit complete */
--static int gfar_clean_tx_ring(struct net_device *dev)
-+static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
- {
-+	struct net_device *dev = tx_queue->dev;
- 	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_priv_rx_q *rx_queue = NULL;
- 	struct txbd8 *bdp;
- 	struct txbd8 *lbdp = NULL;
--	struct txbd8 *base = priv->tx_bd_base;
-+	struct txbd8 *base = tx_queue->tx_bd_base;
- 	struct sk_buff *skb;
- 	int skb_dirtytx;
--	int tx_ring_size = priv->tx_ring_size;
-+	int tx_ring_size = tx_queue->tx_ring_size;
- 	int frags = 0;
- 	int i;
+ 	if (dev->flags & IFF_UP) {
+-		netif_stop_queue(dev);
++		netif_tx_stop_all_queues(dev);
+ 		stop_gfar(dev);
+ 		startup_gfar(dev);
+-		netif_start_queue(dev);
++		netif_tx_start_all_queues(dev);
+ 	}
+ 
+ 	netif_tx_schedule_all(dev);
+@@ -1651,7 +1866,7 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
  	int howmany = 0;
  	u32 lstatus;
  
--	bdp = priv->dirty_tx;
--	skb_dirtytx = priv->skb_dirtytx;
-+	rx_queue = priv->rx_queue;
-+	bdp = tx_queue->dirty_tx;
-+	skb_dirtytx = tx_queue->skb_dirtytx;
+-	rx_queue = priv->rx_queue;
++	rx_queue = priv->rx_queue[tx_queue->qindex];
+ 	bdp = tx_queue->dirty_tx;
+ 	skb_dirtytx = tx_queue->skb_dirtytx;
  
--	while ((skb = priv->tx_skbuff[skb_dirtytx])) {
-+	while ((skb = tx_queue->tx_skbuff[skb_dirtytx])) {
- 		frags = skb_shinfo(skb)->nr_frags;
- 		lbdp = skip_txbd(bdp, frags, base, tx_ring_size);
- 
-@@ -1618,29 +1668,29 @@ static int gfar_clean_tx_ring(struct net_device *dev)
- 		 * If there's room in the queue (limit it to rx_buffer_size)
- 		 * we add this skb back into the pool, if it's the right size
- 		 */
--		if (skb_queue_len(&priv->rx_recycle) < priv->rx_ring_size &&
-+		if (skb_queue_len(&priv->rx_recycle) < rx_queue->rx_ring_size &&
- 				skb_recycle_check(skb, priv->rx_buffer_size +
- 					RXBUF_ALIGNMENT))
- 			__skb_queue_head(&priv->rx_recycle, skb);
- 		else
- 			dev_kfree_skb_any(skb);
- 
--		priv->tx_skbuff[skb_dirtytx] = NULL;
-+		tx_queue->tx_skbuff[skb_dirtytx] = NULL;
- 
- 		skb_dirtytx = (skb_dirtytx + 1) &
- 			TX_RING_MOD_MASK(tx_ring_size);
- 
- 		howmany++;
--		priv->num_txbdfree += frags + 1;
-+		tx_queue->num_txbdfree += frags + 1;
+@@ -1704,8 +1919,8 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
  	}
  
  	/* If we freed a buffer, we can restart transmission, if necessary */
--	if (netif_queue_stopped(dev) && priv->num_txbdfree)
-+	if (netif_queue_stopped(dev) && tx_queue->num_txbdfree)
- 		netif_wake_queue(dev);
+-	if (netif_queue_stopped(dev) && tx_queue->num_txbdfree)
+-		netif_wake_queue(dev);
++	if (__netif_subqueue_stopped(dev, tx_queue->qindex) && tx_queue->num_txbdfree)
++		netif_wake_subqueue(dev, tx_queue->qindex);
  
  	/* Update dirty indicators */
--	priv->skb_dirtytx = skb_dirtytx;
--	priv->dirty_tx = bdp;
-+	tx_queue->skb_dirtytx = skb_dirtytx;
-+	tx_queue->dirty_tx = bdp;
+ 	tx_queue->skb_dirtytx = skb_dirtytx;
+@@ -1718,19 +1933,12 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
  
- 	dev->stats.tx_packets += howmany;
- 
-@@ -1650,14 +1700,18 @@ static int gfar_clean_tx_ring(struct net_device *dev)
- static void gfar_schedule_cleanup(struct net_device *dev)
+ static void gfar_schedule_cleanup(struct gfar_priv_grp *gfargrp)
  {
- 	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_priv_tx_q *tx_queue = NULL;
-+	struct gfar_priv_rx_q *rx_queue = NULL;
+-	struct gfar_private *priv = gfargrp->priv;
+-	struct gfar_priv_tx_q *tx_queue = NULL;
+-	struct gfar_priv_rx_q *rx_queue = NULL;
  	unsigned long flags;
  
--	spin_lock_irqsave(&priv->txlock, flags);
--	spin_lock(&priv->rxlock);
-+	rx_queue = priv->rx_queue;
-+	tx_queue = priv->tx_queue;
-+	spin_lock_irqsave(&tx_queue->txlock, flags);
-+	spin_lock(&rx_queue->rxlock);
- 
--	if (napi_schedule_prep(&priv->napi)) {
-+	if (napi_schedule_prep(&rx_queue->napi)) {
- 		gfar_write(&priv->regs->imask, IMASK_RTX_DISABLED);
--		__napi_schedule(&priv->napi);
-+		__napi_schedule(&rx_queue->napi);
+-	rx_queue = priv->rx_queue;
+-	tx_queue = priv->tx_queue;
+-	spin_lock_irqsave(&tx_queue->txlock, flags);
+-	spin_lock(&rx_queue->rxlock);
+-
+-	if (napi_schedule_prep(&rx_queue->napi)) {
++	spin_lock_irqsave(&gfargrp->grplock, flags);
++	if (napi_schedule_prep(&gfargrp->napi)) {
+ 		gfar_write(&gfargrp->regs->imask, IMASK_RTX_DISABLED);
+-		__napi_schedule(&rx_queue->napi);
++		__napi_schedule(&gfargrp->napi);
  	} else {
  		/*
  		 * Clear IEVENT, so interrupts aren't called again
-@@ -1666,8 +1720,8 @@ static void gfar_schedule_cleanup(struct net_device *dev)
- 		gfar_write(&priv->regs->ievent, IEVENT_RTX_MASK);
+@@ -1738,9 +1946,8 @@ static void gfar_schedule_cleanup(struct gfar_priv_grp *gfargrp)
+ 		 */
+ 		gfar_write(&gfargrp->regs->ievent, IEVENT_RTX_MASK);
  	}
++	spin_unlock_irqrestore(&gfargrp->grplock, flags);
  
--	spin_unlock(&priv->rxlock);
--	spin_unlock_irqrestore(&priv->txlock, flags);
-+	spin_unlock(&rx_queue->rxlock);
-+	spin_unlock_irqrestore(&tx_queue->txlock, flags);
+-	spin_unlock(&rx_queue->rxlock);
+-	spin_unlock_irqrestore(&tx_queue->txlock, flags);
  }
  
  /* Interrupt Handler for Transmit complete */
-@@ -1677,9 +1731,10 @@ static irqreturn_t gfar_transmit(int irq, void *dev_id)
- 	return IRQ_HANDLED;
- }
+@@ -1866,6 +2073,7 @@ static int gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
+ 	fcb = (struct rxfcb *)skb->data;
  
--static void gfar_new_rxbdp(struct net_device *dev, struct rxbd8 *bdp,
-+static void gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
- 		struct sk_buff *skb)
- {
-+	struct net_device *dev = rx_queue->dev;
- 	struct gfar_private *priv = netdev_priv(dev);
- 	u32 lstatus;
- 
-@@ -1688,7 +1743,7 @@ static void gfar_new_rxbdp(struct net_device *dev, struct rxbd8 *bdp,
- 
- 	lstatus = BD_LFLAG(RXBD_EMPTY | RXBD_INTERRUPT);
- 
--	if (bdp == priv->rx_bd_base + priv->rx_ring_size - 1)
-+	if (bdp == rx_queue->rx_bd_base + rx_queue->rx_ring_size - 1)
- 		lstatus |= BD_LFLAG(RXBD_WRAP);
- 
- 	eieio();
-@@ -1818,8 +1873,9 @@ static int gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
-  *   until the budget/quota has been reached. Returns the number
-  *   of frames handled
-  */
--int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit)
-+int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
- {
-+	struct net_device *dev = rx_queue->dev;
- 	struct rxbd8 *bdp, *base;
- 	struct sk_buff *skb;
- 	int pkt_len;
-@@ -1828,8 +1884,8 @@ int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit)
- 	struct gfar_private *priv = netdev_priv(dev);
- 
- 	/* Get the first full descriptor */
--	bdp = priv->cur_rx;
--	base = priv->rx_bd_base;
-+	bdp = rx_queue->cur_rx;
-+	base = rx_queue->rx_bd_base;
- 
- 	amount_pull = (gfar_uses_fcb(priv) ? GMAC_FCB_LEN : 0) +
- 		priv->padding;
-@@ -1841,7 +1897,7 @@ int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit)
- 		/* Add another skb for the future */
- 		newskb = gfar_new_skb(dev);
- 
--		skb = priv->rx_skbuff[priv->skb_currx];
-+		skb = rx_queue->rx_skbuff[rx_queue->skb_currx];
- 
- 		dma_unmap_single(&priv->ofdev->dev, bdp->bufPtr,
- 				priv->rx_buffer_size, DMA_FROM_DEVICE);
-@@ -1889,30 +1945,33 @@ int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit)
- 
- 		}
- 
--		priv->rx_skbuff[priv->skb_currx] = newskb;
-+		rx_queue->rx_skbuff[rx_queue->skb_currx] = newskb;
- 
- 		/* Setup the new bdp */
--		gfar_new_rxbdp(dev, bdp, newskb);
-+		gfar_new_rxbdp(rx_queue, bdp, newskb);
- 
- 		/* Update to the next pointer */
--		bdp = next_bd(bdp, base, priv->rx_ring_size);
-+		bdp = next_bd(bdp, base, rx_queue->rx_ring_size);
- 
- 		/* update to point at the next skb */
--		priv->skb_currx =
--		    (priv->skb_currx + 1) &
--		    RX_RING_MOD_MASK(priv->rx_ring_size);
-+		rx_queue->skb_currx =
-+		    (rx_queue->skb_currx + 1) &
-+		    RX_RING_MOD_MASK(rx_queue->rx_ring_size);
- 	}
- 
- 	/* Update the current rxbd pointer to be the next one */
--	priv->cur_rx = bdp;
-+	rx_queue->cur_rx = bdp;
- 
- 	return howmany;
- }
+ 	/* Remove the FCB from the skb */
++	skb_set_queue_mapping(skb, fcb->rq);
+ 	/* Remove the padded bytes, if there are any */
+ 	if (amount_pull)
+ 		skb_pull(skb, amount_pull);
+@@ -1986,28 +2194,54 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
  
  static int gfar_poll(struct napi_struct *napi, int budget)
  {
--	struct gfar_private *priv = container_of(napi, struct gfar_private, napi);
--	struct net_device *dev = priv->ndev;
-+	struct gfar_priv_rx_q *rx_queue = container_of(napi,
-+			struct gfar_priv_rx_q, napi);
-+	struct net_device *dev = rx_queue->dev;
-+	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_priv_tx_q *tx_queue = NULL;
- 	int tx_cleaned = 0;
- 	int rx_cleaned = 0;
+-	struct gfar_priv_rx_q *rx_queue = container_of(napi,
+-			struct gfar_priv_rx_q, napi);
+-	struct net_device *dev = rx_queue->dev;
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_priv_grp *gfargrp = container_of(napi,
++			struct gfar_priv_grp, napi);
++	struct gfar_private *priv = gfargrp->priv;
+ 	struct gfar __iomem *regs = priv->gfargrp.regs;
+ 	struct gfar_priv_tx_q *tx_queue = NULL;
+-	int tx_cleaned = 0;
+-	int rx_cleaned = 0;
++	struct gfar_priv_rx_q *rx_queue = NULL;
++	int rx_cleaned = 0, budget_per_queue = 0, rx_cleaned_per_queue = 0;
++	int tx_cleaned = 0, i, left_over_budget = budget, serviced_queues = 0;
++	int num_queues = 0;
  	unsigned long flags;
-@@ -1920,14 +1979,15 @@ static int gfar_poll(struct napi_struct *napi, int budget)
+ 
++	num_queues = gfargrp->num_rx_queues;
++	budget_per_queue = budget/num_queues;
++
  	/* Clear IEVENT, so interrupts aren't called again
  	 * because of the packets that have already arrived */
- 	gfar_write(&priv->regs->ievent, IEVENT_RTX_MASK);
-+	tx_queue = priv->tx_queue;
+ 	gfar_write(&regs->ievent, IEVENT_RTX_MASK);
+-	tx_queue = priv->tx_queue;
  
- 	/* If we fail to get the lock, don't bother with the TX BDs */
--	if (spin_trylock_irqsave(&priv->txlock, flags)) {
--		tx_cleaned = gfar_clean_tx_ring(dev);
--		spin_unlock_irqrestore(&priv->txlock, flags);
-+	if (spin_trylock_irqsave(&tx_queue->txlock, flags)) {
-+		tx_cleaned = gfar_clean_tx_ring(tx_queue);
-+		spin_unlock_irqrestore(&tx_queue->txlock, flags);
- 	}
+-	/* If we fail to get the lock, don't bother with the TX BDs */
+-	if (spin_trylock_irqsave(&tx_queue->txlock, flags)) {
+-		tx_cleaned = gfar_clean_tx_ring(tx_queue);
+-		spin_unlock_irqrestore(&tx_queue->txlock, flags);
+-	}
++	while (num_queues && left_over_budget) {
++
++		budget_per_queue = left_over_budget/num_queues;
++		left_over_budget = 0;
  
--	rx_cleaned = gfar_clean_rx_ring(dev, budget);
-+	rx_cleaned = gfar_clean_rx_ring(rx_queue, budget);
+-	rx_cleaned = gfar_clean_rx_ring(rx_queue, budget);
++		for_each_bit(i, &gfargrp->rx_bit_map, priv->num_rx_queues) {
++			if (test_bit(i, &serviced_queues))
++				continue;
++			rx_queue = priv->rx_queue[i];
++			tx_queue = priv->tx_queue[rx_queue->qindex];
++
++			/* If we fail to get the lock,
++			 * don't bother with the TX BDs */
++			if (spin_trylock_irqsave(&tx_queue->txlock, flags)) {
++				tx_cleaned += gfar_clean_tx_ring(tx_queue);
++				spin_unlock_irqrestore(&tx_queue->txlock,
++							flags);
++			}
++
++			rx_cleaned_per_queue = gfar_clean_rx_ring(rx_queue,
++							budget_per_queue);
++			rx_cleaned += rx_cleaned_per_queue;
++			if(rx_cleaned_per_queue < budget_per_queue) {
++				left_over_budget = left_over_budget +
++					(budget_per_queue - rx_cleaned_per_queue);
++				set_bit(i, &serviced_queues);
++				num_queues--;
++			}
++		}
++	}
  
  	if (tx_cleaned)
  		return budget;
-@@ -1942,13 +2002,13 @@ static int gfar_poll(struct napi_struct *napi, int budget)
+@@ -2016,7 +2250,7 @@ static int gfar_poll(struct napi_struct *napi, int budget)
+ 		napi_complete(napi);
  
- 		/* If we are coalescing interrupts, update the timer */
- 		/* Otherwise, clear it */
--		if (likely(priv->rxcoalescing)) {
-+		if (likely(rx_queue->rxcoalescing)) {
- 			gfar_write(&priv->regs->rxic, 0);
--			gfar_write(&priv->regs->rxic, priv->rxic);
-+			gfar_write(&priv->regs->rxic, rx_queue->rxic);
- 		}
--		if (likely(priv->txcoalescing)) {
-+		if (likely(tx_queue->txcoalescing)) {
- 			gfar_write(&priv->regs->txic, 0);
--			gfar_write(&priv->regs->txic, priv->txic);
-+			gfar_write(&priv->regs->txic, tx_queue->txic);
- 		}
- 	}
+ 		/* Clear the halt bit in RSTAT */
+-		gfar_write(&regs->rstat, RSTAT_CLEAR_RHALT);
++		gfar_write(&regs->rstat, gfargrp->rstat);
  
-@@ -2015,12 +2075,14 @@ static irqreturn_t gfar_interrupt(int irq, void *dev_id)
+ 		gfar_write(&regs->imask, IMASK_DEFAULT);
+ 
+@@ -2094,14 +2328,14 @@ static irqreturn_t gfar_interrupt(int irq, void *grp_id)
  static void adjust_link(struct net_device *dev)
  {
  	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_priv_tx_q *tx_queue = NULL;
- 	struct gfar __iomem *regs = priv->regs;
+-	struct gfar_priv_tx_q *tx_queue = NULL;
+ 	struct gfar __iomem *regs = priv->gfargrp.regs;
  	unsigned long flags;
  	struct phy_device *phydev = priv->phydev;
  	int new_state = 0;
  
--	spin_lock_irqsave(&priv->txlock, flags);
-+	tx_queue = priv->tx_queue;
-+	spin_lock_irqsave(&tx_queue->txlock, flags);
+-	tx_queue = priv->tx_queue;
+-	spin_lock_irqsave(&tx_queue->txlock, flags);
++	local_irq_save(flags);
++	lock_tx_qs(priv);
++
  	if (phydev->link) {
  		u32 tempval = gfar_read(&regs->maccfg2);
  		u32 ecntrl = gfar_read(&regs->ecntrl);
-@@ -2086,7 +2148,7 @@ static void adjust_link(struct net_device *dev)
+@@ -2166,8 +2400,8 @@ static void adjust_link(struct net_device *dev)
+ 
  	if (new_state && netif_msg_link(priv))
  		phy_print_status(phydev);
- 
--	spin_unlock_irqrestore(&priv->txlock, flags);
-+	spin_unlock_irqrestore(&tx_queue->txlock, flags);
+-
+-	spin_unlock_irqrestore(&tx_queue->txlock, flags);
++	unlock_tx_qs(priv);
++	local_irq_restore(flags);
  }
  
  /* Update the hash table based on the current list of multicast
-@@ -2100,7 +2162,7 @@ static void gfar_set_multi(struct net_device *dev)
- 	struct gfar __iomem *regs = priv->regs;
- 	u32 tempval;
+@@ -2371,7 +2605,7 @@ static irqreturn_t gfar_error(int irq, void *grp_id)
+ 			priv->extra_stats.tx_underrun++;
  
--	if(dev->flags & IFF_PROMISC) {
-+	if (dev->flags & IFF_PROMISC) {
- 		/* Set RCTRL to PROM */
- 		tempval = gfar_read(&regs->rctrl);
- 		tempval |= RCTRL_PROM;
-@@ -2112,7 +2174,7 @@ static void gfar_set_multi(struct net_device *dev)
- 		gfar_write(&regs->rctrl, tempval);
- 	}
- 
--	if(dev->flags & IFF_ALLMULTI) {
-+	if (dev->flags & IFF_ALLMULTI) {
- 		/* Set the hash to rx all multicast frames */
- 		gfar_write(&regs->igaddr0, 0xffffffff);
- 		gfar_write(&regs->igaddr1, 0xffffffff);
-@@ -2164,7 +2226,7 @@ static void gfar_set_multi(struct net_device *dev)
- 			em_num = 0;
+ 			/* Reactivate the Tx Queues */
+-			gfar_write(&regs->tstat, TSTAT_CLEAR_THALT);
++			gfar_write(&regs->tstat, gfargrp->tstat);
  		}
- 
--		if(dev->mc_count == 0)
-+		if (dev->mc_count == 0)
- 			return;
- 
- 		/* Parse the list, and set the appropriate bits */
+ 		if (netif_msg_tx_err(priv))
+ 			printk(KERN_DEBUG "%s: Transmit Error\n", dev->name);
 diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
-index 2cd9433..8bb77f1 100644
+index 440f17c..9b466c2 100644
 --- a/drivers/net/gianfar.h
 +++ b/drivers/net/gianfar.h
-@@ -7,8 +7,9 @@
-  *
-  * Author: Andy Fleming
-  * Maintainer: Kumar Gala
-+ * Modifier: Sandeep Gopalpet <sandeep.kumar@freescale.com>
-  *
-- * Copyright (c) 2002-2004 Freescale Semiconductor, Inc.
-+ * Copyright 2002-2009 Freescale Semiconductor, Inc.
-  *
-  * This program is free software; you can redistribute  it and/or modify it
-  * under  the terms of  the GNU General  Public License as published by the
-@@ -699,6 +700,75 @@ struct gfar {
+@@ -75,6 +75,10 @@
+ extern const char gfar_driver_name[];
+ extern const char gfar_driver_version[];
+ 
++/* MAXIMUM NUMBER OF QUEUES SUPPORTED */
++#define MAX_TX_QS	0x8
++#define MAX_RX_QS	0x8
++
+ /* These need to be powers of 2 for this driver */
+ #define DEFAULT_TX_RING_SIZE	256
+ #define DEFAULT_RX_RING_SIZE	256
+@@ -172,12 +176,63 @@ extern const char gfar_driver_version[];
+ 
+ #define MINFLR_INIT_SETTINGS	0x00000040
+ 
++/* Tqueue control */
++#define TQUEUE_EN0		0x00008000
++#define TQUEUE_EN1		0x00004000
++#define TQUEUE_EN2		0x00002000
++#define TQUEUE_EN3		0x00001000
++#define TQUEUE_EN4		0x00000800
++#define TQUEUE_EN5		0x00000400
++#define TQUEUE_EN6		0x00000200
++#define TQUEUE_EN7		0x00000100
++#define TQUEUE_EN_ALL		0x0000FF00
++
++#define TR03WT_WT0_MASK		0xFF000000
++#define TR03WT_WT1_MASK		0x00FF0000
++#define TR03WT_WT2_MASK		0x0000FF00
++#define TR03WT_WT3_MASK		0x000000FF
++
++#define TR47WT_WT4_MASK		0xFF000000
++#define TR47WT_WT5_MASK		0x00FF0000
++#define TR47WT_WT6_MASK		0x0000FF00
++#define TR47WT_WT7_MASK		0x000000FF
++
++/* Rqueue control */
++#define RQUEUE_EX0		0x00800000
++#define RQUEUE_EX1		0x00400000
++#define RQUEUE_EX2		0x00200000
++#define RQUEUE_EX3		0x00100000
++#define RQUEUE_EX4		0x00080000
++#define RQUEUE_EX5		0x00040000
++#define RQUEUE_EX6		0x00020000
++#define RQUEUE_EX7		0x00010000
++#define RQUEUE_EX_ALL		0x00FF0000
++
++#define RQUEUE_EN0		0x00000080
++#define RQUEUE_EN1		0x00000040
++#define RQUEUE_EN2		0x00000020
++#define RQUEUE_EN3		0x00000010
++#define RQUEUE_EN4		0x00000008
++#define RQUEUE_EN5		0x00000004
++#define RQUEUE_EN6		0x00000002
++#define RQUEUE_EN7		0x00000001
++#define RQUEUE_EN_ALL		0x000000FF
++
+ /* Init to do tx snooping for buffers and descriptors */
+ #define DMACTRL_INIT_SETTINGS   0x000000c3
+ #define DMACTRL_GRS             0x00000010
+ #define DMACTRL_GTS             0x00000008
+ 
+-#define TSTAT_CLEAR_THALT       0x80000000
++#define TSTAT_CLEAR_THALT_ALL	0xFF000000
++#define TSTAT_CLEAR_THALT	0x80000000
++#define TSTAT_CLEAR_THALT0	0x80000000
++#define TSTAT_CLEAR_THALT1	0x40000000
++#define TSTAT_CLEAR_THALT2	0x20000000
++#define TSTAT_CLEAR_THALT3	0x10000000
++#define TSTAT_CLEAR_THALT4	0x08000000
++#define TSTAT_CLEAR_THALT5	0x04000000
++#define TSTAT_CLEAR_THALT6	0x02000000
++#define TSTAT_CLEAR_THALT7	0x01000000
+ 
+ /* Interrupt coalescing macros */
+ #define IC_ICEN			0x80000000
+@@ -228,6 +283,13 @@ extern const char gfar_driver_version[];
+ #define TCTRL_IPCSEN		0x00004000
+ #define TCTRL_TUCSEN		0x00002000
+ #define TCTRL_VLINS		0x00001000
++#define TCTRL_THDF		0x00000800
++#define TCTRL_RFCPAUSE		0x00000010
++#define TCTRL_TFCPAUSE		0x00000008
++#define TCTRL_TXSCHED_MASK	0x00000006
++#define TCTRL_TXSCHED_INIT	0x00000000
++#define TCTRL_TXSCHED_PRIO	0x00000002
++#define TCTRL_TXSCHED_WRRS	0x00000004
+ #define TCTRL_INIT_CSUM		(TCTRL_TUCSEN | TCTRL_IPCSEN)
+ 
+ #define IEVENT_INIT_CLEAR	0xffffffff
+@@ -700,6 +762,8 @@ struct gfar {
  #define FSL_GIANFAR_DEV_HAS_BD_STASHING		0x00000200
  #define FSL_GIANFAR_DEV_HAS_BUF_STASHING	0x00000400
  
-+/**
-+ *	struct gfar_priv_tx_q - per tx queue structure
-+ *	@txlock: per queue tx spin lock
-+ *	@tx_skbuff:skb pointers
-+ *	@skb_curtx: to be used skb pointer
-+ *	@skb_dirtytx:the last used skb pointer
-+ *	@qindex: index of this queue
-+ *	@dev: back pointer to the dev structure
-+ *	@grp: back pointer to the group to which this queue belongs
-+ *	@tx_bd_base: First tx buffer descriptor
-+ *	@cur_tx: Next free ring entry
-+ *	@dirty_tx: First buffer in line to be transmitted
-+ *	@tx_ring_size: Tx ring size
-+ *	@num_txbdfree: number of free TxBds
-+ *	@txcoalescing: enable/disable tx coalescing
-+ *	@txic: transmit interrupt coalescing value
-+ *	@txcount: coalescing value if based on tx frame count
-+ *	@txtime: coalescing value if based on time
-+ */
-+struct gfar_priv_tx_q {
-+	spinlock_t txlock __attribute__ ((aligned (SMP_CACHE_BYTES)));
-+	struct sk_buff ** tx_skbuff;
-+	/* Buffer descriptor pointers */
-+	struct	txbd8 *tx_bd_base;
-+	struct	txbd8 *cur_tx;
-+	struct	txbd8 *dirty_tx;
-+	struct	net_device *dev;
-+	u16	skb_curtx;
-+	u16	skb_dirtytx;
-+	u16	qindex;
-+	unsigned int tx_ring_size;
-+	unsigned int num_txbdfree;
-+	/* Configuration info for the coalescing features */
-+	unsigned char txcoalescing;
-+	unsigned long txic;
-+	unsigned short txcount;
-+	unsigned short txtime;
-+};
++#define DEFAULT_MAPPING 	0xFF
 +
-+/**
-+ *	struct gfar_priv_rx_q - per rx queue structure
-+ *	@rxlock: per queue rx spin lock
+ /**
+  *	struct gfar_priv_tx_q - per tx queue structure
+  *	@txlock: per queue tx spin lock
+@@ -742,7 +806,6 @@ struct gfar_priv_tx_q {
+ /**
+  *	struct gfar_priv_rx_q - per rx queue structure
+  *	@rxlock: per queue rx spin lock
+- *	@napi: the napi poll function
+  *	@rx_skbuff: skb pointers
+  *	@skb_currx: currently use skb pointer
+  *	@rx_bd_base: First rx buffer descriptor
+@@ -756,7 +819,6 @@ struct gfar_priv_tx_q {
+ 
+ struct gfar_priv_rx_q {
+ 	spinlock_t rxlock __attribute__ ((aligned (SMP_CACHE_BYTES)));
+-	struct	napi_struct napi;
+ 	struct	sk_buff ** rx_skbuff;
+ 	struct	rxbd8 *rx_bd_base;
+ 	struct	rxbd8 *cur_rx;
+@@ -771,6 +833,7 @@ struct gfar_priv_rx_q {
+ 
+ /**
+  *	struct gfar_priv_grp - per group structure
 + *	@napi: the napi poll function
-+ *	@rx_skbuff: skb pointers
-+ *	@skb_currx: currently use skb pointer
-+ *	@rx_bd_base: First rx buffer descriptor
-+ *	@cur_rx: Next free rx ring entry
-+ *	@qindex: index of this queue
-+ *	@dev: back pointer to the dev structure
-+ *	@rx_ring_size: Rx ring size
-+ *	@rxcoalescing: enable/disable rx-coalescing
-+ *	@rxic: receive interrupt coalescing vlaue
-+ */
-+
-+struct gfar_priv_rx_q {
-+	spinlock_t rxlock __attribute__ ((aligned (SMP_CACHE_BYTES)));
+  *	@priv: back pointer to the priv structure
+  *	@regs: the ioremapped register space for this group
+  *	@grp_id: group id for this group
+@@ -784,8 +847,17 @@ struct gfar_priv_rx_q {
+ 
+ struct gfar_priv_grp {
+ 	spinlock_t grplock __attribute__ ((aligned (SMP_CACHE_BYTES)));
 +	struct	napi_struct napi;
-+	struct	sk_buff ** rx_skbuff;
-+	struct	rxbd8 *rx_bd_base;
-+	struct	rxbd8 *cur_rx;
-+	struct	net_device *dev;
-+	u16	skb_currx;
-+	u16	qindex;
-+	unsigned int	rx_ring_size;
-+	/* RX Coalescing values */
-+	unsigned char rxcoalescing;
-+	unsigned long rxic;
-+};
-+
- /* Struct stolen almost completely (and shamelessly) from the FCC enet source
-  * (Ok, that's not so true anymore, but there is a family resemblence)
-  * The GFAR buffer descriptors track the ring buffers.  The rx_bd_base
-@@ -709,51 +779,15 @@ struct gfar {
-  * the buffer descriptor determines the actual condition.
+ 	struct gfar_private *priv;
+ 	struct gfar __iomem *regs;
++	unsigned int rx_bit_map;
++	unsigned int tx_bit_map;
++	unsigned int num_tx_queues;
++	unsigned int num_rx_queues;
++	unsigned int rstat;
++	unsigned int tstat;
++	unsigned int imask;
++	unsigned int ievent;
+ 	unsigned int interruptTransmit;
+ 	unsigned int interruptReceive;
+ 	unsigned int interruptError;
+@@ -806,13 +878,21 @@ struct gfar_priv_grp {
   */
  struct gfar_private {
--	/* Fields controlled by TX lock */
--	spinlock_t txlock;
--
--	/* Pointer to the array of skbuffs */
--	struct sk_buff ** tx_skbuff;
--
--	/* next free skb in the array */
--	u16 skb_curtx;
--
--	/* First skb in line to be transmitted */
--	u16 skb_dirtytx;
--
--	/* Configuration info for the coalescing features */
--	unsigned char txcoalescing;
--	unsigned long txic;
--
--	/* Buffer descriptor pointers */
--	struct txbd8 *tx_bd_base;	/* First tx buffer descriptor */
--	struct txbd8 *cur_tx;	        /* Next free ring entry */
--	struct txbd8 *dirty_tx;		/* First buffer in line
--					   to be transmitted */
--	unsigned int tx_ring_size;
--	unsigned int num_txbdfree;	/* number of TxBDs free */
--
--	/* RX Locked fields */
--	spinlock_t rxlock;
  
++	/* Indicates how many tx, rx queues are enabled */
++	unsigned int num_tx_queues;
++	unsigned int num_rx_queues;
++
++	/* The total tx and rx ring size for the enabled queues */
++	unsigned int total_tx_ring_size;
++	unsigned int total_rx_ring_size;
++
  	struct device_node *node;
  	struct net_device *ndev;
  	struct of_device *ofdev;
--	struct napi_struct napi;
--
--	/* skb array and index */
--	struct sk_buff ** rx_skbuff;
--	u16 skb_currx;
--
--	/* RX Coalescing values */
--	unsigned char rxcoalescing;
--	unsigned long rxic;
  
--	struct rxbd8 *rx_bd_base;	/* First Rx buffers */
--	struct rxbd8 *cur_rx;           /* Next free rx ring entry */
-+	struct gfar_priv_tx_q *tx_queue;
-+	struct gfar_priv_rx_q *rx_queue;
+ 	struct gfar_priv_grp gfargrp;
+-	struct gfar_priv_tx_q *tx_queue;
+-	struct gfar_priv_rx_q *rx_queue;
++	struct gfar_priv_tx_q *tx_queue[MAX_TX_QS];
++	struct gfar_priv_rx_q *rx_queue[MAX_RX_QS];
  
--	/* RX parameters */
--	unsigned int rx_ring_size;
-+	/* RX per device parameters */
+ 	/* RX per device parameters */
  	unsigned int rx_buffer_size;
- 	unsigned int rx_stash_size;
- 	unsigned int rx_stash_index;
+@@ -843,6 +923,7 @@ struct gfar_private {
+ 	unsigned char rx_csum_enable:1,
+ 		extended_hash:1,
+ 		bd_stash_en:1,
++		filer_en:1,
+ 		wol_en:1; /* Wake-on-LAN enabled */
+ 	unsigned short padding;
+ 
+@@ -873,6 +954,10 @@ static inline void gfar_write(volatile unsigned __iomem *addr, u32 val)
+ 	out_be32(addr, val);
+ }
+ 
++extern inline void lock_rx_qs(struct gfar_private *priv);
++extern inline void lock_tx_qs(struct gfar_private *priv);
++extern inline void unlock_rx_qs(struct gfar_private *priv);
++extern inline void unlock_tx_qs(struct gfar_private *priv);
+ extern irqreturn_t gfar_receive(int irq, void *dev_id);
+ extern int startup_gfar(struct net_device *dev);
+ extern void stop_gfar(struct net_device *dev);
 diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_ethtool.c
-index 6c144b5..6d0d171 100644
+index c681b41..d3d2623 100644
 --- a/drivers/net/gianfar_ethtool.c
 +++ b/drivers/net/gianfar_ethtool.c
-@@ -7,8 +7,9 @@
-  *
-  *  Author: Andy Fleming
-  *  Maintainer: Kumar Gala
-+ *  Modifier: Sandeep Gopalpet <sandeep.kumar@freescale.com>
-  *
-- *  Copyright (c) 2003,2004 Freescale Semiconductor, Inc.
-+ *  Copyright 2003-2006, 2008-2009 Freescale Semiconductor, Inc.
-  *
-  *  This software may be used and distributed according to
-  *  the terms of the GNU Public License, Version 2, incorporated herein
-@@ -41,7 +42,7 @@
- #include "gianfar.h"
- 
- extern void gfar_start(struct net_device *dev);
--extern int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit);
-+extern int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit);
- 
- #define GFAR_MAX_COAL_USECS 0xffff
- #define GFAR_MAX_COAL_FRAMES 0xff
-@@ -197,12 +198,16 @@ static int gfar_gsettings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct gfar_private *priv = netdev_priv(dev);
- 	struct phy_device *phydev = priv->phydev;
-+	struct gfar_priv_rx_q *rx_queue = NULL;
-+	struct gfar_priv_tx_q *tx_queue = NULL;
+@@ -204,9 +204,11 @@ static int gfar_gsettings(struct net_device *dev, struct ethtool_cmd *cmd)
  
  	if (NULL == phydev)
  		return -ENODEV;
-+	tx_queue = priv->tx_queue;
-+	rx_queue = priv->rx_queue;
+-	tx_queue = priv->tx_queue;
+-	rx_queue = priv->rx_queue;
++	tx_queue = priv->tx_queue[0];
++	rx_queue = priv->rx_queue[0];
  
--	cmd->maxtxpkt = get_icft_value(priv->txic);
--	cmd->maxrxpkt = get_icft_value(priv->rxic);
-+	cmd->maxtxpkt = get_icft_value(tx_queue->txic);
-+	cmd->maxrxpkt = get_icft_value(rx_queue->rxic);
++	/* etsec-1.7 and older versions have only one txic
++	 * and rxic regs although they support multiple queues */
+ 	cmd->maxtxpkt = get_icft_value(tx_queue->txic);
+ 	cmd->maxrxpkt = get_icft_value(rx_queue->rxic);
  
- 	return phy_ethtool_gset(phydev, cmd);
- }
-@@ -279,6 +284,8 @@ static unsigned int gfar_ticks2usecs(struct gfar_private *priv, unsigned int tic
- static int gfar_gcoalesce(struct net_device *dev, struct ethtool_coalesce *cvals)
- {
- 	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_priv_rx_q *rx_queue = NULL;
-+	struct gfar_priv_tx_q *tx_queue = NULL;
- 	unsigned long rxtime;
- 	unsigned long rxcount;
- 	unsigned long txtime;
-@@ -290,10 +297,13 @@ static int gfar_gcoalesce(struct net_device *dev, struct ethtool_coalesce *cvals
+@@ -298,8 +300,8 @@ static int gfar_gcoalesce(struct net_device *dev, struct ethtool_coalesce *cvals
  	if (NULL == priv->phydev)
  		return -ENODEV;
  
--	rxtime  = get_ictt_value(priv->rxic);
--	rxcount = get_icft_value(priv->rxic);
--	txtime  = get_ictt_value(priv->txic);
--	txcount = get_icft_value(priv->txic);
-+	rx_queue = priv->rx_queue;
-+	tx_queue = priv->tx_queue;
-+
-+	rxtime  = get_ictt_value(rx_queue->rxic);
-+	rxcount = get_icft_value(rx_queue->rxic);
-+	txtime  = get_ictt_value(tx_queue->txic);
-+	txcount = get_icft_value(tx_queue->txic);
- 	cvals->rx_coalesce_usecs = gfar_ticks2usecs(priv, rxtime);
- 	cvals->rx_max_coalesced_frames = rxcount;
+-	rx_queue = priv->rx_queue;
+-	tx_queue = priv->tx_queue;
++	rx_queue = priv->rx_queue[0];
++	tx_queue = priv->tx_queue[0];
  
-@@ -339,16 +349,21 @@ static int gfar_gcoalesce(struct net_device *dev, struct ethtool_coalesce *cvals
- static int gfar_scoalesce(struct net_device *dev, struct ethtool_coalesce *cvals)
- {
- 	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_priv_tx_q *tx_queue = NULL;
-+	struct gfar_priv_rx_q *rx_queue = NULL;
- 
+ 	rxtime  = get_ictt_value(rx_queue->rxic);
+ 	rxcount = get_icft_value(rx_queue->rxic);
+@@ -357,8 +359,8 @@ static int gfar_scoalesce(struct net_device *dev, struct ethtool_coalesce *cvals
  	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_COALESCE))
  		return -EOPNOTSUPP;
  
-+	tx_queue = priv->tx_queue;
-+	rx_queue = priv->rx_queue;
-+
+-	tx_queue = priv->tx_queue;
+-	rx_queue = priv->rx_queue;
++	tx_queue = priv->tx_queue[0];
++	rx_queue = priv->rx_queue[0];
+ 
  	/* Set up rx coalescing */
  	if ((cvals->rx_coalesce_usecs == 0) ||
- 	    (cvals->rx_max_coalesced_frames == 0))
--		priv->rxcoalescing = 0;
-+		rx_queue->rxcoalescing = 0;
- 	else
--		priv->rxcoalescing = 1;
-+		rx_queue->rxcoalescing = 1;
+@@ -429,8 +431,8 @@ static void gfar_gringparam(struct net_device *dev, struct ethtool_ringparam *rv
+ 	struct gfar_priv_tx_q *tx_queue = NULL;
+ 	struct gfar_priv_rx_q *rx_queue = NULL;
  
- 	if (NULL == priv->phydev)
- 		return -ENODEV;
-@@ -366,15 +381,15 @@ static int gfar_scoalesce(struct net_device *dev, struct ethtool_coalesce *cvals
- 		return -EINVAL;
- 	}
- 
--	priv->rxic = mk_ic_value(cvals->rx_max_coalesced_frames,
-+	rx_queue->rxic = mk_ic_value(cvals->rx_max_coalesced_frames,
- 		gfar_usecs2ticks(priv, cvals->rx_coalesce_usecs));
- 
- 	/* Set up tx coalescing */
- 	if ((cvals->tx_coalesce_usecs == 0) ||
- 	    (cvals->tx_max_coalesced_frames == 0))
--		priv->txcoalescing = 0;
-+		tx_queue->txcoalescing = 0;
- 	else
--		priv->txcoalescing = 1;
-+		tx_queue->txcoalescing = 1;
- 
- 	/* Check the bounds of the values */
- 	if (cvals->tx_coalesce_usecs > GFAR_MAX_COAL_USECS) {
-@@ -389,16 +404,16 @@ static int gfar_scoalesce(struct net_device *dev, struct ethtool_coalesce *cvals
- 		return -EINVAL;
- 	}
- 
--	priv->txic = mk_ic_value(cvals->tx_max_coalesced_frames,
-+	tx_queue->txic = mk_ic_value(cvals->tx_max_coalesced_frames,
- 		gfar_usecs2ticks(priv, cvals->tx_coalesce_usecs));
- 
- 	gfar_write(&priv->regs->rxic, 0);
--	if (priv->rxcoalescing)
--		gfar_write(&priv->regs->rxic, priv->rxic);
-+	if (rx_queue->rxcoalescing)
-+		gfar_write(&priv->regs->rxic, rx_queue->rxic);
- 
- 	gfar_write(&priv->regs->txic, 0);
--	if (priv->txcoalescing)
--		gfar_write(&priv->regs->txic, priv->txic);
-+	if (tx_queue->txcoalescing)
-+		gfar_write(&priv->regs->txic, tx_queue->txic);
- 
- 	return 0;
- }
-@@ -409,6 +424,11 @@ static int gfar_scoalesce(struct net_device *dev, struct ethtool_coalesce *cvals
- static void gfar_gringparam(struct net_device *dev, struct ethtool_ringparam *rvals)
- {
- 	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_priv_tx_q *tx_queue = NULL;
-+	struct gfar_priv_rx_q *rx_queue = NULL;
-+
-+	tx_queue = priv->tx_queue;
-+	rx_queue = priv->rx_queue;
+-	tx_queue = priv->tx_queue;
+-	rx_queue = priv->rx_queue;
++	tx_queue = priv->tx_queue[0];
++	rx_queue = priv->rx_queue[0];
  
  	rvals->rx_max_pending = GFAR_RX_MAX_RING_SIZE;
  	rvals->rx_mini_max_pending = GFAR_RX_MAX_RING_SIZE;
-@@ -418,10 +438,10 @@ static void gfar_gringparam(struct net_device *dev, struct ethtool_ringparam *rv
- 	/* Values changeable by the user.  The valid values are
- 	 * in the range 1 to the "*_max_pending" counterpart above.
- 	 */
--	rvals->rx_pending = priv->rx_ring_size;
--	rvals->rx_mini_pending = priv->rx_ring_size;
--	rvals->rx_jumbo_pending = priv->rx_ring_size;
--	rvals->tx_pending = priv->tx_ring_size;
-+	rvals->rx_pending = rx_queue->rx_ring_size;
-+	rvals->rx_mini_pending = rx_queue->rx_ring_size;
-+	rvals->rx_jumbo_pending = rx_queue->rx_ring_size;
-+	rvals->tx_pending = tx_queue->tx_ring_size;
- }
- 
- /* Change the current ring parameters, stopping the controller if
-@@ -431,6 +451,8 @@ static void gfar_gringparam(struct net_device *dev, struct ethtool_ringparam *rv
+@@ -453,9 +455,7 @@ static void gfar_gringparam(struct net_device *dev, struct ethtool_ringparam *rv
  static int gfar_sringparam(struct net_device *dev, struct ethtool_ringparam *rvals)
  {
  	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_priv_tx_q *tx_queue = NULL;
-+	struct gfar_priv_rx_q *rx_queue = NULL;
- 	int err = 0;
+-	struct gfar_priv_tx_q *tx_queue = NULL;
+-	struct gfar_priv_rx_q *rx_queue = NULL;
+-	int err = 0;
++	int err = 0, i = 0;
  
  	if (rvals->rx_pending > GFAR_RX_MAX_RING_SIZE)
-@@ -451,29 +473,32 @@ static int gfar_sringparam(struct net_device *dev, struct ethtool_ringparam *rva
+ 		return -EINVAL;
+@@ -475,37 +475,41 @@ static int gfar_sringparam(struct net_device *dev, struct ethtool_ringparam *rva
  		return -EINVAL;
  	}
  
-+	tx_queue = priv->tx_queue;
-+	rx_queue = priv->rx_queue;
-+
+-	tx_queue = priv->tx_queue;
+-	rx_queue = priv->rx_queue;
+ 
  	if (dev->flags & IFF_UP) {
  		unsigned long flags;
  
  		/* Halt TX and RX, and process the frames which
  		 * have already been received */
--		spin_lock_irqsave(&priv->txlock, flags);
--		spin_lock(&priv->rxlock);
-+		spin_lock_irqsave(&tx_queue->txlock, flags);
-+		spin_lock(&rx_queue->rxlock);
+-		spin_lock_irqsave(&tx_queue->txlock, flags);
+-		spin_lock(&rx_queue->rxlock);
++		local_irq_save(flags);
++		lock_tx_qs(priv);
++		lock_rx_qs(priv);
  
  		gfar_halt(dev);
  
--		spin_unlock(&priv->rxlock);
--		spin_unlock_irqrestore(&priv->txlock, flags);
-+		spin_unlock(&rx_queue->rxlock);
-+		spin_unlock_irqrestore(&tx_queue->txlock, flags);
+-		spin_unlock(&rx_queue->rxlock);
+-		spin_unlock_irqrestore(&tx_queue->txlock, flags);
++		unlock_rx_qs(priv);
++		unlock_tx_qs(priv);
++		local_irq_restore(flags);
  
--		gfar_clean_rx_ring(dev, priv->rx_ring_size);
-+		gfar_clean_rx_ring(rx_queue, rx_queue->rx_ring_size);
+-		gfar_clean_rx_ring(rx_queue, rx_queue->rx_ring_size);
++		for (i = 0; i < priv->num_rx_queues; i++)
++			gfar_clean_rx_ring(priv->rx_queue[i],
++					priv->rx_queue[i]->rx_ring_size);
  
  		/* Now we take down the rings to rebuild them */
  		stop_gfar(dev);
  	}
  
  	/* Change the size */
--	priv->rx_ring_size = rvals->rx_pending;
--	priv->tx_ring_size = rvals->tx_pending;
--	priv->num_txbdfree = priv->tx_ring_size;
-+	rx_queue->rx_ring_size = rvals->rx_pending;
-+	tx_queue->tx_ring_size = rvals->tx_pending;
-+	tx_queue->num_txbdfree = tx_queue->tx_ring_size;
+-	rx_queue->rx_ring_size = rvals->rx_pending;
+-	tx_queue->tx_ring_size = rvals->tx_pending;
+-	tx_queue->num_txbdfree = tx_queue->tx_ring_size;
++	for (i = 0; i < priv->num_rx_queues; i++) {
++		priv->rx_queue[i]->rx_ring_size = rvals->rx_pending;
++		priv->tx_queue[i]->tx_ring_size = rvals->tx_pending;
++		priv->tx_queue[i]->num_txbdfree = priv->tx_queue[i]->tx_ring_size;
++	}
  
  	/* Rebuild the rings with the new size */
  	if (dev->flags & IFF_UP) {
-@@ -486,24 +511,29 @@ static int gfar_sringparam(struct net_device *dev, struct ethtool_ringparam *rva
+ 		err = startup_gfar(dev);
+-		netif_wake_queue(dev);
++		netif_tx_wake_all_queues(dev);
+ 	}
+ 	return err;
+ }
+@@ -513,29 +517,29 @@ static int gfar_sringparam(struct net_device *dev, struct ethtool_ringparam *rva
  static int gfar_set_rx_csum(struct net_device *dev, uint32_t data)
  {
  	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_priv_rx_q *rx_queue = NULL;
-+	struct gfar_priv_tx_q *tx_queue = NULL;
+-	struct gfar_priv_rx_q *rx_queue = NULL;
+-	struct gfar_priv_tx_q *tx_queue = NULL;
  	unsigned long flags;
- 	int err = 0;
+-	int err = 0;
++	int err = 0, i = 0;
  
  	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_CSUM))
  		return -EOPNOTSUPP;
  
-+	tx_queue = priv->tx_queue;
-+	rx_queue = priv->rx_queue;
-+
+-	tx_queue = priv->tx_queue;
+-	rx_queue = priv->rx_queue;
+ 
  	if (dev->flags & IFF_UP) {
  		/* Halt TX and RX, and process the frames which
  		 * have already been received */
--		spin_lock_irqsave(&priv->txlock, flags);
--		spin_lock(&priv->rxlock);
-+		spin_lock_irqsave(&tx_queue->txlock, flags);
-+		spin_lock(&rx_queue->rxlock);
+-		spin_lock_irqsave(&tx_queue->txlock, flags);
+-		spin_lock(&rx_queue->rxlock);
++		local_irq_save(flags);
++		lock_tx_qs(priv);
++		lock_rx_qs(priv);
  
  		gfar_halt(dev);
  
--		spin_unlock(&priv->rxlock);
--		spin_unlock_irqrestore(&priv->txlock, flags);
-+		spin_unlock(&rx_queue->rxlock);
-+		spin_unlock_irqrestore(&tx_queue->txlock, flags);
+-		spin_unlock(&rx_queue->rxlock);
+-		spin_unlock_irqrestore(&tx_queue->txlock, flags);
++		unlock_tx_qs(priv);
++		unlock_rx_qs(priv);
++		local_irq_save(flags);
  
--		gfar_clean_rx_ring(dev, priv->rx_ring_size);
-+		gfar_clean_rx_ring(rx_queue, rx_queue->rx_ring_size);
+-		gfar_clean_rx_ring(rx_queue, rx_queue->rx_ring_size);
++		for (i = 0; i < priv->num_rx_queues; i++)
++			gfar_clean_rx_ring(priv->rx_queue[i],
++					priv->rx_queue[i]->rx_ring_size);
  
  		/* Now we take down the rings to rebuild them */
  		stop_gfar(dev);
+@@ -547,7 +551,7 @@ static int gfar_set_rx_csum(struct net_device *dev, uint32_t data)
+ 
+ 	if (dev->flags & IFF_UP) {
+ 		err = startup_gfar(dev);
+-		netif_wake_queue(dev);
++		netif_tx_wake_all_queues(dev);
+ 	}
+ 	return err;
+ }
 diff --git a/drivers/net/gianfar_sysfs.c b/drivers/net/gianfar_sysfs.c
-index dd26da7..9c664f8 100644
+index adea11e..4b726f6 100644
 --- a/drivers/net/gianfar_sysfs.c
 +++ b/drivers/net/gianfar_sysfs.c
-@@ -8,8 +8,9 @@
-  *
-  * Author: Andy Fleming
-  * Maintainer: Kumar Gala (galak@kernel.crashing.org)
-+ * Modifier: Sandeep Gopalpet <sandeep.kumar@freescale.com>
-  *
-- * Copyright (c) 2002-2005 Freescale Semiconductor, Inc.
-+ * Copyright 2002-2009 Freescale Semiconductor, Inc.
-  *
-  * This program is free software; you can redistribute  it and/or modify it
-  * under  the terms of  the GNU General  Public License as published by the
-@@ -49,6 +50,7 @@ static ssize_t gfar_set_bd_stash(struct device *dev,
- 				 const char *buf, size_t count)
+@@ -51,7 +51,6 @@ static ssize_t gfar_set_bd_stash(struct device *dev,
  {
  	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
-+	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	struct gfar __iomem *regs = priv->gfargrp.regs;
+-	struct gfar_priv_rx_q *rx_queue = NULL;
  	int new_setting = 0;
  	u32 temp;
  	unsigned long flags;
-@@ -56,6 +58,8 @@ static ssize_t gfar_set_bd_stash(struct device *dev,
+@@ -59,7 +58,6 @@ static ssize_t gfar_set_bd_stash(struct device *dev,
  	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_BD_STASHING))
  		return count;
  
-+	rx_queue = priv->rx_queue;
-+
+-	rx_queue = priv->rx_queue;
+ 
  	/* Find out the new setting */
  	if (!strncmp("on", buf, count - 1) || !strncmp("1", buf, count - 1))
- 		new_setting = 1;
-@@ -65,7 +69,7 @@ static ssize_t gfar_set_bd_stash(struct device *dev,
+@@ -70,7 +68,9 @@ static ssize_t gfar_set_bd_stash(struct device *dev,
  	else
  		return count;
  
--	spin_lock_irqsave(&priv->rxlock, flags);
-+	spin_lock_irqsave(&rx_queue->rxlock, flags);
+-	spin_lock_irqsave(&rx_queue->rxlock, flags);
++
++	local_irq_save(flags);
++	lock_rx_qs(priv);
  
  	/* Set the new stashing value */
  	priv->bd_stash_en = new_setting;
-@@ -79,7 +83,7 @@ static ssize_t gfar_set_bd_stash(struct device *dev,
+@@ -84,7 +84,8 @@ static ssize_t gfar_set_bd_stash(struct device *dev,
  
- 	gfar_write(&priv->regs->attr, temp);
+ 	gfar_write(&regs->attr, temp);
  
--	spin_unlock_irqrestore(&priv->rxlock, flags);
-+	spin_unlock_irqrestore(&rx_queue->rxlock, flags);
+-	spin_unlock_irqrestore(&rx_queue->rxlock, flags);
++	unlock_rx_qs(priv);
++	local_irq_restore(flags);
  
  	return count;
  }
-@@ -99,6 +103,7 @@ static ssize_t gfar_set_rx_stash_size(struct device *dev,
- 				      const char *buf, size_t count)
+@@ -105,7 +106,6 @@ static ssize_t gfar_set_rx_stash_size(struct device *dev,
  {
  	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
-+	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	struct gfar __iomem *regs = priv->gfargrp.regs;
+-	struct gfar_priv_rx_q *rx_queue = NULL;
  	unsigned int length = simple_strtoul(buf, NULL, 0);
  	u32 temp;
  	unsigned long flags;
-@@ -106,7 +111,9 @@ static ssize_t gfar_set_rx_stash_size(struct device *dev,
+@@ -113,9 +113,9 @@ static ssize_t gfar_set_rx_stash_size(struct device *dev,
  	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_BUF_STASHING))
  		return count;
  
--	spin_lock_irqsave(&priv->rxlock, flags);
-+	rx_queue = priv->rx_queue;
-+
-+	spin_lock_irqsave(&rx_queue->rxlock, flags);
+-	rx_queue = priv->rx_queue;
++	local_irq_save(flags);
++	lock_rx_qs(priv);
+ 
+-	spin_lock_irqsave(&rx_queue->rxlock, flags);
  	if (length > priv->rx_buffer_size)
  		goto out;
  
-@@ -131,7 +138,7 @@ static ssize_t gfar_set_rx_stash_size(struct device *dev,
- 	gfar_write(&priv->regs->attr, temp);
+@@ -140,7 +140,8 @@ static ssize_t gfar_set_rx_stash_size(struct device *dev,
+ 	gfar_write(&regs->attr, temp);
  
  out:
--	spin_unlock_irqrestore(&priv->rxlock, flags);
-+	spin_unlock_irqrestore(&rx_queue->rxlock, flags);
+-	spin_unlock_irqrestore(&rx_queue->rxlock, flags);
++	unlock_rx_qs(priv);
++	local_irq_restore(flags);
  
  	return count;
  }
-@@ -154,6 +161,7 @@ static ssize_t gfar_set_rx_stash_index(struct device *dev,
- 				       const char *buf, size_t count)
+@@ -164,7 +165,6 @@ static ssize_t gfar_set_rx_stash_index(struct device *dev,
  {
  	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
-+	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	struct gfar __iomem *regs = priv->gfargrp.regs;
+-	struct gfar_priv_rx_q *rx_queue = NULL;
  	unsigned short index = simple_strtoul(buf, NULL, 0);
  	u32 temp;
  	unsigned long flags;
-@@ -161,7 +169,9 @@ static ssize_t gfar_set_rx_stash_index(struct device *dev,
+@@ -172,9 +172,9 @@ static ssize_t gfar_set_rx_stash_index(struct device *dev,
  	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_BUF_STASHING))
  		return count;
  
--	spin_lock_irqsave(&priv->rxlock, flags);
-+	rx_queue = priv->rx_queue;
-+
-+	spin_lock_irqsave(&rx_queue->rxlock, flags);
+-	rx_queue = priv->rx_queue;
++	local_irq_save(flags);
++	lock_rx_qs(priv);
+ 
+-	spin_lock_irqsave(&rx_queue->rxlock, flags);
  	if (index > priv->rx_stash_size)
  		goto out;
  
-@@ -176,7 +186,7 @@ static ssize_t gfar_set_rx_stash_index(struct device *dev,
- 	gfar_write(&priv->regs->attreli, flags);
+@@ -189,7 +189,8 @@ static ssize_t gfar_set_rx_stash_index(struct device *dev,
+ 	gfar_write(&regs->attreli, flags);
  
  out:
--	spin_unlock_irqrestore(&priv->rxlock, flags);
-+	spin_unlock_irqrestore(&rx_queue->rxlock, flags);
+-	spin_unlock_irqrestore(&rx_queue->rxlock, flags);
++	unlock_rx_qs(priv);
++	local_irq_restore(flags);
  
  	return count;
  }
-@@ -198,6 +208,7 @@ static ssize_t gfar_set_fifo_threshold(struct device *dev,
- 				       const char *buf, size_t count)
+@@ -212,7 +213,6 @@ static ssize_t gfar_set_fifo_threshold(struct device *dev,
  {
  	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
-+	struct gfar_priv_tx_q *tx_queue = NULL;
+ 	struct gfar __iomem *regs = priv->gfargrp.regs;
+-	struct gfar_priv_tx_q *tx_queue = NULL;
  	unsigned int length = simple_strtoul(buf, NULL, 0);
  	u32 temp;
  	unsigned long flags;
-@@ -205,7 +216,9 @@ static ssize_t gfar_set_fifo_threshold(struct device *dev,
+@@ -220,9 +220,8 @@ static ssize_t gfar_set_fifo_threshold(struct device *dev,
  	if (length > GFAR_MAX_FIFO_THRESHOLD)
  		return count;
  
--	spin_lock_irqsave(&priv->txlock, flags);
-+	tx_queue = priv->tx_queue;
-+
-+	spin_lock_irqsave(&tx_queue->txlock, flags);
+-	tx_queue = priv->tx_queue;
+-
+-	spin_lock_irqsave(&tx_queue->txlock, flags);
++	local_irq_save(flags);
++	lock_tx_qs(priv);
  
  	priv->fifo_threshold = length;
  
-@@ -214,7 +227,7 @@ static ssize_t gfar_set_fifo_threshold(struct device *dev,
+@@ -231,7 +230,8 @@ static ssize_t gfar_set_fifo_threshold(struct device *dev,
  	temp |= length;
- 	gfar_write(&priv->regs->fifo_tx_thr, temp);
+ 	gfar_write(&regs->fifo_tx_thr, temp);
  
--	spin_unlock_irqrestore(&priv->txlock, flags);
-+	spin_unlock_irqrestore(&tx_queue->txlock, flags);
+-	spin_unlock_irqrestore(&tx_queue->txlock, flags);
++	unlock_tx_qs(priv);
++	local_irq_restore(flags);
  
  	return count;
  }
-@@ -235,6 +248,7 @@ static ssize_t gfar_set_fifo_starve(struct device *dev,
- 				    const char *buf, size_t count)
+@@ -253,7 +253,6 @@ static ssize_t gfar_set_fifo_starve(struct device *dev,
  {
  	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
-+	struct gfar_priv_tx_q *tx_queue = NULL;
+ 	struct gfar __iomem *regs = priv->gfargrp.regs;
+-	struct gfar_priv_tx_q *tx_queue = NULL;
  	unsigned int num = simple_strtoul(buf, NULL, 0);
  	u32 temp;
  	unsigned long flags;
-@@ -242,7 +256,8 @@ static ssize_t gfar_set_fifo_starve(struct device *dev,
+@@ -261,8 +260,8 @@ static ssize_t gfar_set_fifo_starve(struct device *dev,
  	if (num > GFAR_MAX_FIFO_STARVE)
  		return count;
  
--	spin_lock_irqsave(&priv->txlock, flags);
-+	tx_queue = priv->tx_queue;
-+	spin_lock_irqsave(&tx_queue->txlock, flags);
+-	tx_queue = priv->tx_queue;
+-	spin_lock_irqsave(&tx_queue->txlock, flags);
++	local_irq_save(flags);
++	lock_tx_qs(priv);
  
  	priv->fifo_starve = num;
  
-@@ -251,7 +266,7 @@ static ssize_t gfar_set_fifo_starve(struct device *dev,
+@@ -271,7 +270,8 @@ static ssize_t gfar_set_fifo_starve(struct device *dev,
  	temp |= num;
- 	gfar_write(&priv->regs->fifo_tx_starve, temp);
+ 	gfar_write(&regs->fifo_tx_starve, temp);
  
--	spin_unlock_irqrestore(&priv->txlock, flags);
-+	spin_unlock_irqrestore(&tx_queue->txlock, flags);
+-	spin_unlock_irqrestore(&tx_queue->txlock, flags);
++	unlock_tx_qs(priv);
++	local_irq_restore(flags);
  
  	return count;
  }
-@@ -273,6 +288,7 @@ static ssize_t gfar_set_fifo_starve_off(struct device *dev,
- 					const char *buf, size_t count)
+@@ -294,7 +294,6 @@ static ssize_t gfar_set_fifo_starve_off(struct device *dev,
  {
  	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
-+	struct gfar_priv_tx_q *tx_queue = NULL;
+ 	struct gfar __iomem *regs = priv->gfargrp.regs;
+-	struct gfar_priv_tx_q *tx_queue = NULL;
  	unsigned int num = simple_strtoul(buf, NULL, 0);
  	u32 temp;
  	unsigned long flags;
-@@ -280,7 +296,8 @@ static ssize_t gfar_set_fifo_starve_off(struct device *dev,
+@@ -302,8 +301,8 @@ static ssize_t gfar_set_fifo_starve_off(struct device *dev,
  	if (num > GFAR_MAX_FIFO_STARVE_OFF)
  		return count;
  
--	spin_lock_irqsave(&priv->txlock, flags);
-+	tx_queue = priv->tx_queue;
-+	spin_lock_irqsave(&tx_queue->txlock, flags);
+-	tx_queue = priv->tx_queue;
+-	spin_lock_irqsave(&tx_queue->txlock, flags);
++	local_irq_save(flags);
++	lock_tx_qs(priv);
  
  	priv->fifo_starve_off = num;
  
-@@ -289,7 +306,7 @@ static ssize_t gfar_set_fifo_starve_off(struct device *dev,
+@@ -312,7 +311,8 @@ static ssize_t gfar_set_fifo_starve_off(struct device *dev,
  	temp |= num;
- 	gfar_write(&priv->regs->fifo_tx_starve_shutoff, temp);
+ 	gfar_write(&regs->fifo_tx_starve_shutoff, temp);
  
--	spin_unlock_irqrestore(&priv->txlock, flags);
-+	spin_unlock_irqrestore(&tx_queue->txlock, flags);
+-	spin_unlock_irqrestore(&tx_queue->txlock, flags);
++	unlock_tx_qs(priv);
++	local_irq_restore(flags);
  
  	return count;
  }
