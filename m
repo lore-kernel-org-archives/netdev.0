@@ -1,139 +1,166 @@
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [RFC] [PATCH 4/5] net: Fix for dst_negative_advice
-Date: Thu, 15 Oct 2009 11:27:46 +0530
-Message-ID: <20091015055746.30145.33219.sendpatchset@localhost.localdomain>
-References: <20091015055602.30145.65852.sendpatchset@localhost.localdomain>
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	Krishna Kumar <krkumar2@in.ibm.com>, dada1@cosmosbay.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp03.in.ibm.com ([59.145.155.3]:56482 "EHLO
-	e28smtp03.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753606AbZJOF6i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 01:58:38 -0400
-Received: from d28relay01.in.ibm.com (d28relay01.in.ibm.com [9.184.220.58])
-	by e28smtp03.in.ibm.com (8.14.3/8.13.1) with ESMTP id n9F5vnul025235
-	for <netdev@vger.kernel.org>; Thu, 15 Oct 2009 11:27:49 +0530
-Received: from d28av05.in.ibm.com (d28av05.in.ibm.com [9.184.220.67])
-	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n9F5vn4s2400346
-	for <netdev@vger.kernel.org>; Thu, 15 Oct 2009 11:27:49 +0530
-Received: from d28av05.in.ibm.com (loopback [127.0.0.1])
-	by d28av05.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n9F5vmX5032302
-	for <netdev@vger.kernel.org>; Thu, 15 Oct 2009 16:57:49 +1100
-In-Reply-To: <20091015055602.30145.65852.sendpatchset@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Akinobu Mita <akinobu.mita@gmail.com>
+Subject: [PATCH -mmotm -v2] Fix
+	bitmap-introduce-bitmap_set-bitmap_clear-bitmap_find_next_zero_area.
+	patch
+Date: Thu, 15 Oct 2009 15:07:07 +0900
+Message-ID: <20091015060706.GA26956@localhost.localdomain>
+References: <1255076961-21325-1-git-send-email-akinobu.mita@gmail.com>
+	<1255076961-21325-2-git-send-email-akinobu.mita@gmail.com>
+	<20091009164100.85a36188.akpm@linux-foundation.org>
+	<20091013021818.GA3898@localhost.localdomain>
+	<20091013091017.GA18431@localhost.localdomain>
+	<20091014032258.GA18527@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-usb@vger.kernel.org, linux-ia64@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, Paul Mackerras <paulus@samba.org>,
+	"H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org,
+	Lothar Wassmann <LW@KARO-electronics.de>, x86@kernel.org,
+	linux-altix@sgi.com, Ingo Molnar <mingo@redhat.com>,
+	Fenghua Yu <fenghua.yu@intel.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Tony Luck <tony.luck@intel.com>, Kyle Hubert <khubert@gmail.com>,
+	netdev@vger.kernel.org, Greg Kroah-Hartman <gregkh@suse.de>,
+	linux-kernel@vger.kernel.org,
+	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
+	"David S. Miller" <davem@davemloft.net>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <20091014032258.GA18527@localhost.localdomain>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-From: Krishna Kumar <krkumar2@in.ibm.com>
+From: Akinobu Mita <akinobu.mita@gmail.com>
+Subject: Fix bitmap-introduce-bitmap_set-bitmap_clear-bitmap_find_next_zero_area.patch
 
-dst_negative_advice() should check for changed dst and reset
-sk_tx_queue_mapping accordingly. Pass sock to the callers of
-dst_negative_advice.
+- Rewrite bitmap_set and bitmap_clear
 
-(sk_reset_txq is defined just for use by dst_negative_advice. The
-only way I could find to get around this is to move dst_negative_()
-from dst.h to dst.c, include sock.h in dst.c, etc)
+  Instead of setting or clearing for each bit.
 
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+- Fix off-by-one errors in bitmap_find_next_zero_area
+
+  This bug was derived from find_next_zero_area in iommu-helper.
+
+- Add kerneldoc for bitmap_find_next_zero_area
+
+This patch is supposed to be folded into
+bitmap-introduce-bitmap_set-bitmap_clear-bitmap_find_next_zero_area.patch
+
+* -v2
+- Remove an extra test at the "index" value by find_next_bit
+
+Index was just returned by find_next_zero_bit, so we know it's zero.
+
+Noticed-by: Kyle Hubert <khubert@gmail.com>
+Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
 ---
- include/net/dst.h      |   12 ++++++++++--
- net/core/sock.c        |    6 ++++++
- net/dccp/timer.c       |    4 ++--
- net/decnet/af_decnet.c |    2 +-
- net/ipv4/tcp_timer.c   |    4 ++--
- 5 files changed, 21 insertions(+), 7 deletions(-)
+ lib/bitmap.c |   62 ++++++++++++++++++++++++++++++++++++++++++++-------------
+ 1 files changed, 48 insertions(+), 14 deletions(-)
 
-diff -ruNp org/include/net/dst.h new/include/net/dst.h
---- org/include/net/dst.h	2009-10-14 18:00:07.000000000 +0530
-+++ new/include/net/dst.h	2009-10-14 18:00:22.000000000 +0530
-@@ -222,11 +222,19 @@ static inline void dst_confirm(struct ds
- 		neigh_confirm(dst->neighbour);
+diff --git a/lib/bitmap.c b/lib/bitmap.c
+index 2415da4..962b863 100644
+--- a/lib/bitmap.c
++++ b/lib/bitmap.c
+@@ -271,28 +271,62 @@ int __bitmap_weight(const unsigned long *bitmap, int bits)
  }
+ EXPORT_SYMBOL(__bitmap_weight);
  
--static inline void dst_negative_advice(struct dst_entry **dst_p)
-+static inline void dst_negative_advice(struct dst_entry **dst_p,
-+				       struct sock *sk)
- {
- 	struct dst_entry * dst = *dst_p;
--	if (dst && dst->ops->negative_advice)
-+	if (dst && dst->ops->negative_advice) {
- 		*dst_p = dst->ops->negative_advice(dst);
-+
-+		if (dst != *dst_p) {
-+			extern void sk_reset_txq(struct sock *sk);
-+
-+			sk_reset_txq(sk);
-+		}
-+	}
- }
+-void bitmap_set(unsigned long *map, int i, int len)
+-{
+-	int end = i + len;
++#define BITMAP_FIRST_WORD_MASK(start) (~0UL << ((start) % BITS_PER_LONG))
  
- static inline void dst_link_failure(struct sk_buff *skb)
-diff -ruNp org/net/core/sock.c new/net/core/sock.c
---- org/net/core/sock.c	2009-10-14 18:00:07.000000000 +0530
-+++ new/net/core/sock.c	2009-10-14 18:00:22.000000000 +0530
-@@ -353,6 +353,12 @@ discard_and_relse:
- }
- EXPORT_SYMBOL(sk_receive_skb);
- 
-+void sk_reset_txq(struct sock *sk)
+-	while (i < end) {
+-		__set_bit(i, map);
+-		i++;
++void bitmap_set(unsigned long *map, int start, int nr)
 +{
-+	sk_record_tx_queue(sk, -1);
-+}
-+EXPORT_SYMBOL(sk_reset_txq);
++	unsigned long *p = map + BIT_WORD(start);
++	const int size = start + nr;
++	int bits_to_set = BITS_PER_LONG - (start % BITS_PER_LONG);
++	unsigned long mask_to_set = BITMAP_FIRST_WORD_MASK(start);
 +
- struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie)
- {
- 	struct dst_entry *dst = sk->sk_dst_cache;
-diff -ruNp org/net/dccp/timer.c new/net/dccp/timer.c
---- org/net/dccp/timer.c	2009-10-14 18:00:07.000000000 +0530
-+++ new/net/dccp/timer.c	2009-10-14 18:00:22.000000000 +0530
-@@ -38,7 +38,7 @@ static int dccp_write_timeout(struct soc
- 
- 	if (sk->sk_state == DCCP_REQUESTING || sk->sk_state == DCCP_PARTOPEN) {
- 		if (icsk->icsk_retransmits != 0)
--			dst_negative_advice(&sk->sk_dst_cache);
-+			dst_negative_advice(&sk->sk_dst_cache, sk);
- 		retry_until = icsk->icsk_syn_retries ?
- 			    : sysctl_dccp_request_retries;
- 	} else {
-@@ -63,7 +63,7 @@ static int dccp_write_timeout(struct soc
- 			   Golden words :-).
- 		   */
- 
--			dst_negative_advice(&sk->sk_dst_cache);
-+			dst_negative_advice(&sk->sk_dst_cache, sk);
- 		}
- 
- 		retry_until = sysctl_dccp_retries2;
-diff -ruNp org/net/decnet/af_decnet.c new/net/decnet/af_decnet.c
---- org/net/decnet/af_decnet.c	2009-10-14 18:00:07.000000000 +0530
-+++ new/net/decnet/af_decnet.c	2009-10-14 18:00:22.000000000 +0530
-@@ -1955,7 +1955,7 @@ static int dn_sendmsg(struct kiocb *iocb
++	while (nr - bits_to_set >= 0) {
++		*p |= mask_to_set;
++		nr -= bits_to_set;
++		bits_to_set = BITS_PER_LONG;
++		mask_to_set = ~0UL;
++		p++;
++	}
++	if (nr) {
++		mask_to_set &= BITMAP_LAST_WORD_MASK(size);
++		*p |= mask_to_set;
  	}
+ }
+ EXPORT_SYMBOL(bitmap_set);
  
- 	if ((flags & MSG_TRYHARD) && sk->sk_dst_cache)
--		dst_negative_advice(&sk->sk_dst_cache);
-+		dst_negative_advice(&sk->sk_dst_cache, sk);
+ void bitmap_clear(unsigned long *map, int start, int nr)
+ {
+-	int end = start + nr;
+-
+-	while (start < end) {
+-		__clear_bit(start, map);
+-		start++;
++	unsigned long *p = map + BIT_WORD(start);
++	const int size = start + nr;
++	int bits_to_clear = BITS_PER_LONG - (start % BITS_PER_LONG);
++	unsigned long mask_to_clear = BITMAP_FIRST_WORD_MASK(start);
++
++	while (nr - bits_to_clear >= 0) {
++		*p &= ~mask_to_clear;
++		nr -= bits_to_clear;
++		bits_to_clear = BITS_PER_LONG;
++		mask_to_clear = ~0UL;
++		p++;
++	}
++	if (nr) {
++		mask_to_clear &= BITMAP_LAST_WORD_MASK(size);
++		*p &= ~mask_to_clear;
+ 	}
+ }
+ EXPORT_SYMBOL(bitmap_clear);
  
- 	mss = scp->segsize_rem;
- 	fctype = scp->services_rem & NSP_FC_MASK;
-diff -ruNp org/net/ipv4/tcp_timer.c new/net/ipv4/tcp_timer.c
---- org/net/ipv4/tcp_timer.c	2009-10-14 18:00:07.000000000 +0530
-+++ new/net/ipv4/tcp_timer.c	2009-10-14 18:00:22.000000000 +0530
-@@ -141,14 +141,14 @@ static int tcp_write_timeout(struct sock
++/*
++ * bitmap_find_next_zero_area - find a contiguous aligned zero area
++ * @map: The address to base the search on
++ * @size: The bitmap size in bits
++ * @start: The bitnumber to start searching at
++ * @nr: The number of zeroed bits we're looking for
++ * @align_mask: Alignment mask for zero area
++ *
++ * The @align_mask should be one less than a power of 2; the effect is that
++ * the bit offset of all zero areas this function finds is multiples of that
++ * power of 2. A @align_mask of 0 means no alignment is required.
++ */
+ unsigned long bitmap_find_next_zero_area(unsigned long *map,
+ 					 unsigned long size,
+ 					 unsigned long start,
+@@ -304,12 +338,12 @@ again:
+ 	index = find_next_zero_bit(map, size, start);
  
- 	if ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV)) {
- 		if (icsk->icsk_retransmits)
--			dst_negative_advice(&sk->sk_dst_cache);
-+			dst_negative_advice(&sk->sk_dst_cache, sk);
- 		retry_until = icsk->icsk_syn_retries ? : sysctl_tcp_syn_retries;
- 	} else {
- 		if (retransmits_timed_out(sk, sysctl_tcp_retries1)) {
- 			/* Black hole detection */
- 			tcp_mtu_probing(icsk, sk);
+ 	/* Align allocation */
+-	index = (index + align_mask) & ~align_mask;
++	index = __ALIGN_MASK(index, align_mask);
  
--			dst_negative_advice(&sk->sk_dst_cache);
-+			dst_negative_advice(&sk->sk_dst_cache, sk);
- 		}
- 
- 		retry_until = sysctl_tcp_retries2;
+ 	end = index + nr;
+-	if (end >= size)
++	if (end > size)
+ 		return end;
+-	i = find_next_bit(map, end, index);
++	i = find_next_bit(map, end, index + 1);
+ 	if (i < end) {
+ 		start = i + 1;
+ 		goto again;
+-- 
+1.5.4.3
