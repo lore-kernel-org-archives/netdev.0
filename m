@@ -1,66 +1,70 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: Moving drivers into staging (was Re: [GIT PULL] SCSI fixes for
-	2.6.32-rc3)
-Date: Thu, 15 Oct 2009 08:03:03 +0200
-Message-ID: <20091015060303.GA32415@elte.hu>
-References: <20091012150911.GB1656@suse.de> <20091012154244.GA13323@elte.hu> <20091012232429.GA24254@suse.de> <43e72e890910131108m789110b4hc35e25601ad67bb7@mail.gmail.com> <20091014044519.GA19199@suse.de> <1255497575.1851.16.camel@Joe-Laptop.home> <20091014063308.GE784@elte.hu> <4AD60FF9.40200@s5r6.in-berlin.de> <20091014183657.GB5133@elte.hu> <tkrat.88ac5cebebbd9689@s5r6.in-berlin.de>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: TCP_DEFER_ACCEPT is missing counter update
+Date: Thu, 15 Oct 2009 08:08:34 +0200
+Message-ID: <20091015060834.GB29564@1wt.eu>
+References: <20091014045226.GA15655@1wt.eu> <Pine.LNX.4.58.0910140912420.2714@u.domain.uli> <20091014201706.GA24298@1wt.eu> <20091014.154349.83940908.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>, Greg KH <gregkh@suse.de>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>,
-	James Bottomley <James.Bottomley@suse.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Theodore Tso <tytso@mit.edu>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-scsi <linux-scsi@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Jing Huang <huangj@brocade.com>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Cc: ja@ssi.bg, netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:36795 "EHLO mx3.mail.elte.hu"
+Received: from 1wt.eu ([62.212.114.60]:50248 "EHLO 1wt.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933619AbZJOGEB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Oct 2009 02:04:01 -0400
+	id S934644AbZJOGJW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Oct 2009 02:09:22 -0400
 Content-Disposition: inline
-In-Reply-To: <tkrat.88ac5cebebbd9689@s5r6.in-berlin.de>
+In-Reply-To: <20091014.154349.83940908.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-* Stefan Richter <stefanr@s5r6.in-berlin.de> wrote:
-
-> > Well, the answer is obvious i think. Tell me, at a glance, if you 
-> > see a patch on lkml, which one is for a staging driver to be 
-> > obsoleted, and which one is the one going upstream real soon? The 
-> > patches say:
-> > 
-> >  +++ a/drivers/staging/foo/x.c
-> > 
-> >  +++ a/drivers/staging/bar/y.c
-> > 
-> > Then tell me the same at a glance if you see patches for:
-> > 
-> >  +++ a/drivers/staging/wip/x.c
-> > 
-> >  +++ a/drivers/staging/bad/y.c
+On Wed, Oct 14, 2009 at 03:43:49PM -0700, David Miller wrote:
+> For now I'm pushing Willy's change into Linus's tree.
 > 
-> Does this information matter much?
+> After more discussion we can revert if necessary.
+> 
+> I won't submit this to -stable until the discussion is fully resolved.
 
-Yes. You might not appreciate it as you are active in a relatively 
-narrow field (so all patches in your world have an 'obvious' place) - 
-but i for example take most of the context of a change from the email 
-itself and the more self-descriptive it is, the better. I would be more 
-likely to review work-in-progress patches while not bother about 
-obsolete drivers on the way out. YMMV.
+Makes sense, thanks David.
 
-> What's more interesting is whether development activity will _lead_ to 
-> a driver being moved from bad or ugly to good.
+BTW, I found a use case I didn't think about where current behaviour
+causes trouble :
 
-... a prerequisite of which is for more developers to be accutely aware 
-of in what state a driver is.
+   https://bugs.launchpad.net/ubuntu/+source/apache2/+bug/134274
+   http://lkml.indiana.edu/hypermail/linux/kernel/0711.0/0461.html
 
-Anyway ... it's all up to Greg and he indicated that he wants the 
-simplest structure, which is fair enough.
+In summary, when front proxies establish pools of connections to
+an apache server making use of TCP_DEFER_ACCEPT, the connection
+never establishes on the apache server but silently expires in
+SYN_RECV state. The front proxy sees lots of SYN/ACKs and sends
+many ACKs trying to complete this connection and finally believes
+it got it since the server eventually becomes silent. However,
+when trying to send data over such a socket, the server immediately
+returns an RST.
 
-	Ingo
+Such a problem would not happen if we would only drop the first
+X packets (X >= 1 is already fine), because the front proxy would
+establish the connection, send a second ACK in response to the
+second SYN/ACK and the connection would then really be established
+and would not have to expire early in SYN_RECV state.
+
+If we really want to behave as it does today, well, let's not fix
+it, but obviously, I fail to see what real world use it has, except
+causing random and hard to debug issues :-/
+
+Reading the articles below clearly make it think it was designed
+to help with HTTP connections by skipping the first expected and
+useless ACK packet before waking up the task :
+
+   http://httpd.apache.org/docs/1.3/misc/perf-bsd44.html
+   http://articles.techrepublic.com.com/5100-10878_11-1050771.html
+
+and people still get caught :
+
+   http://lkml.indiana.edu/hypermail/linux/kernel/0711.0/0416.html
+
+Maybe it was a bit over-engineered, in the end causing it to fail
+to satisfy the primary goal ?
+
+Regards,
+Willy
+
