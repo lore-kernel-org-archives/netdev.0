@@ -1,98 +1,139 @@
 From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [RFC] [PATCH 5/5] net: Encapsulate inner code of __sk_dst_reset
-Date: Thu, 15 Oct 2009 11:27:58 +0530
-Message-ID: <20091015055758.30145.77495.sendpatchset@localhost.localdomain>
+Subject: [RFC] [PATCH 4/5] net: Fix for dst_negative_advice
+Date: Thu, 15 Oct 2009 11:27:46 +0530
+Message-ID: <20091015055746.30145.33219.sendpatchset@localhost.localdomain>
 References: <20091015055602.30145.65852.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
 	Krishna Kumar <krkumar2@in.ibm.com>, dada1@cosmosbay.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp01.in.ibm.com ([59.145.155.1]:55006 "EHLO
-	e28smtp01.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933015AbZJOF6v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 01:58:51 -0400
-Received: from d28relay05.in.ibm.com (d28relay05.in.ibm.com [9.184.220.62])
-	by e28smtp01.in.ibm.com (8.14.3/8.13.1) with ESMTP id n9F5w2Ju004147
-	for <netdev@vger.kernel.org>; Thu, 15 Oct 2009 11:28:02 +0530
-Received: from d28av04.in.ibm.com (d28av04.in.ibm.com [9.184.220.66])
-	by d28relay05.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n9F5w1oM2429078
-	for <netdev@vger.kernel.org>; Thu, 15 Oct 2009 11:28:01 +0530
-Received: from d28av04.in.ibm.com (loopback [127.0.0.1])
-	by d28av04.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n9F5w1s8016623
-	for <netdev@vger.kernel.org>; Thu, 15 Oct 2009 16:58:01 +1100
+Received: from e28smtp03.in.ibm.com ([59.145.155.3]:56482 "EHLO
+	e28smtp03.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753606AbZJOF6i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 01:58:38 -0400
+Received: from d28relay01.in.ibm.com (d28relay01.in.ibm.com [9.184.220.58])
+	by e28smtp03.in.ibm.com (8.14.3/8.13.1) with ESMTP id n9F5vnul025235
+	for <netdev@vger.kernel.org>; Thu, 15 Oct 2009 11:27:49 +0530
+Received: from d28av05.in.ibm.com (d28av05.in.ibm.com [9.184.220.67])
+	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n9F5vn4s2400346
+	for <netdev@vger.kernel.org>; Thu, 15 Oct 2009 11:27:49 +0530
+Received: from d28av05.in.ibm.com (loopback [127.0.0.1])
+	by d28av05.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n9F5vmX5032302
+	for <netdev@vger.kernel.org>; Thu, 15 Oct 2009 16:57:49 +1100
 In-Reply-To: <20091015055602.30145.65852.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Krishna Kumar <krkumar2@in.ibm.com>
 
-Reuse code by adding ___sk_dst_reset() which is called by
-__sk_dst_reset() and __sk_dst_check(). This new API is also
-called from IPv6 to hide the internals of __sk_dst_reset
-and the setting of sk_tx_queue_mapping.
+dst_negative_advice() should check for changed dst and reset
+sk_tx_queue_mapping accordingly. Pass sock to the callers of
+dst_negative_advice.
+
+(sk_reset_txq is defined just for use by dst_negative_advice. The
+only way I could find to get around this is to move dst_negative_()
+from dst.h to dst.c, include sock.h in dst.c, etc)
 
 Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 ---
- include/net/sock.h               |   13 +++++++++----
- net/core/sock.c                  |    4 +---
- net/ipv6/inet6_connection_sock.c |    4 +---
- 3 files changed, 11 insertions(+), 10 deletions(-)
+ include/net/dst.h      |   12 ++++++++++--
+ net/core/sock.c        |    6 ++++++
+ net/dccp/timer.c       |    4 ++--
+ net/decnet/af_decnet.c |    2 +-
+ net/ipv4/tcp_timer.c   |    4 ++--
+ 5 files changed, 21 insertions(+), 7 deletions(-)
 
-diff -ruNp org/include/net/sock.h new/include/net/sock.h
---- org/include/net/sock.h	2009-10-14 18:00:17.000000000 +0530
-+++ new/include/net/sock.h	2009-10-14 18:00:30.000000000 +0530
-@@ -1186,17 +1186,22 @@ sk_dst_set(struct sock *sk, struct dst_e
+diff -ruNp org/include/net/dst.h new/include/net/dst.h
+--- org/include/net/dst.h	2009-10-14 18:00:07.000000000 +0530
++++ new/include/net/dst.h	2009-10-14 18:00:22.000000000 +0530
+@@ -222,11 +222,19 @@ static inline void dst_confirm(struct ds
+ 		neigh_confirm(dst->neighbour);
  }
  
- static inline void
--__sk_dst_reset(struct sock *sk)
-+___sk_dst_reset(struct sock *sk, struct dst_entry *old_dst)
+-static inline void dst_negative_advice(struct dst_entry **dst_p)
++static inline void dst_negative_advice(struct dst_entry **dst_p,
++				       struct sock *sk)
  {
--	struct dst_entry *old_dst;
--
- 	sk_record_tx_queue(sk, -1);
--	old_dst = sk->sk_dst_cache;
- 	sk->sk_dst_cache = NULL;
- 	dst_release(old_dst);
+ 	struct dst_entry * dst = *dst_p;
+-	if (dst && dst->ops->negative_advice)
++	if (dst && dst->ops->negative_advice) {
+ 		*dst_p = dst->ops->negative_advice(dst);
++
++		if (dst != *dst_p) {
++			extern void sk_reset_txq(struct sock *sk);
++
++			sk_reset_txq(sk);
++		}
++	}
  }
  
- static inline void
-+__sk_dst_reset(struct sock *sk)
-+{
-+	struct dst_entry *old_dst = sk->sk_dst_cache;
-+
-+	___sk_dst_reset(sk, old_dst);
-+}
-+
-+static inline void
- sk_dst_reset(struct sock *sk)
- {
- 	write_lock(&sk->sk_dst_lock);
+ static inline void dst_link_failure(struct sk_buff *skb)
 diff -ruNp org/net/core/sock.c new/net/core/sock.c
---- org/net/core/sock.c	2009-10-14 18:00:22.000000000 +0530
-+++ new/net/core/sock.c	2009-10-14 18:00:30.000000000 +0530
-@@ -364,9 +364,7 @@ struct dst_entry *__sk_dst_check(struct 
+--- org/net/core/sock.c	2009-10-14 18:00:07.000000000 +0530
++++ new/net/core/sock.c	2009-10-14 18:00:22.000000000 +0530
+@@ -353,6 +353,12 @@ discard_and_relse:
+ }
+ EXPORT_SYMBOL(sk_receive_skb);
+ 
++void sk_reset_txq(struct sock *sk)
++{
++	sk_record_tx_queue(sk, -1);
++}
++EXPORT_SYMBOL(sk_reset_txq);
++
+ struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie)
+ {
  	struct dst_entry *dst = sk->sk_dst_cache;
+diff -ruNp org/net/dccp/timer.c new/net/dccp/timer.c
+--- org/net/dccp/timer.c	2009-10-14 18:00:07.000000000 +0530
++++ new/net/dccp/timer.c	2009-10-14 18:00:22.000000000 +0530
+@@ -38,7 +38,7 @@ static int dccp_write_timeout(struct soc
  
- 	if (dst && dst->obsolete && dst->ops->check(dst, cookie) == NULL) {
--		sk_record_tx_queue(sk, -1);
--		sk->sk_dst_cache = NULL;
--		dst_release(dst);
-+		___sk_dst_reset(sk, dst);
- 		return NULL;
- 	}
+ 	if (sk->sk_state == DCCP_REQUESTING || sk->sk_state == DCCP_PARTOPEN) {
+ 		if (icsk->icsk_retransmits != 0)
+-			dst_negative_advice(&sk->sk_dst_cache);
++			dst_negative_advice(&sk->sk_dst_cache, sk);
+ 		retry_until = icsk->icsk_syn_retries ?
+ 			    : sysctl_dccp_request_retries;
+ 	} else {
+@@ -63,7 +63,7 @@ static int dccp_write_timeout(struct soc
+ 			   Golden words :-).
+ 		   */
  
-diff -ruNp org/net/ipv6/inet6_connection_sock.c new/net/ipv6/inet6_connection_sock.c
---- org/net/ipv6/inet6_connection_sock.c	2009-10-14 18:00:17.000000000 +0530
-+++ new/net/ipv6/inet6_connection_sock.c	2009-10-14 18:00:30.000000000 +0530
-@@ -168,9 +168,7 @@ struct dst_entry *__inet6_csk_dst_check(
- 	if (dst) {
- 		struct rt6_info *rt = (struct rt6_info *)dst;
- 		if (rt->rt6i_flow_cache_genid != atomic_read(&flow_cache_genid)) {
--			sk_record_tx_queue(sk, -1);
--			sk->sk_dst_cache = NULL;
--			dst_release(dst);
-+			___sk_dst_reset(sk, dst);
- 			dst = NULL;
+-			dst_negative_advice(&sk->sk_dst_cache);
++			dst_negative_advice(&sk->sk_dst_cache, sk);
  		}
+ 
+ 		retry_until = sysctl_dccp_retries2;
+diff -ruNp org/net/decnet/af_decnet.c new/net/decnet/af_decnet.c
+--- org/net/decnet/af_decnet.c	2009-10-14 18:00:07.000000000 +0530
++++ new/net/decnet/af_decnet.c	2009-10-14 18:00:22.000000000 +0530
+@@ -1955,7 +1955,7 @@ static int dn_sendmsg(struct kiocb *iocb
  	}
+ 
+ 	if ((flags & MSG_TRYHARD) && sk->sk_dst_cache)
+-		dst_negative_advice(&sk->sk_dst_cache);
++		dst_negative_advice(&sk->sk_dst_cache, sk);
+ 
+ 	mss = scp->segsize_rem;
+ 	fctype = scp->services_rem & NSP_FC_MASK;
+diff -ruNp org/net/ipv4/tcp_timer.c new/net/ipv4/tcp_timer.c
+--- org/net/ipv4/tcp_timer.c	2009-10-14 18:00:07.000000000 +0530
++++ new/net/ipv4/tcp_timer.c	2009-10-14 18:00:22.000000000 +0530
+@@ -141,14 +141,14 @@ static int tcp_write_timeout(struct sock
+ 
+ 	if ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV)) {
+ 		if (icsk->icsk_retransmits)
+-			dst_negative_advice(&sk->sk_dst_cache);
++			dst_negative_advice(&sk->sk_dst_cache, sk);
+ 		retry_until = icsk->icsk_syn_retries ? : sysctl_tcp_syn_retries;
+ 	} else {
+ 		if (retransmits_timed_out(sk, sysctl_tcp_retries1)) {
+ 			/* Black hole detection */
+ 			tcp_mtu_probing(icsk, sk);
+ 
+-			dst_negative_advice(&sk->sk_dst_cache);
++			dst_negative_advice(&sk->sk_dst_cache, sk);
+ 		}
+ 
+ 		retry_until = sysctl_tcp_retries2;
