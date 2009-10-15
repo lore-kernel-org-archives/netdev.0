@@ -1,165 +1,199 @@
 From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: [net-next-2.6 PATCH 2/4] TCPCT part 1: initial SYN exchange with
+Subject: [net-next-2.6 PATCH 3/4] TCPCT part 1: initial SYN exchange with
  SYNACK data
-Date: Thu, 15 Oct 2009 01:32:24 -0400
-Message-ID: <4AD6B3E8.2050904@gmail.com>
-References: <4AD6B31B.3060402@gmail.com>
+Date: Thu, 15 Oct 2009 01:34:31 -0400
+Message-ID: <4AD6B467.2080701@gmail.com>
+References: <4AD6B31B.3060402@gmail.com> <4AD6B3E8.2050904@gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------040707030707060503080104"
+ boundary="------------030609040806070000050904"
 To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f188.google.com ([209.85.210.188]:61301 "EHLO
-	mail-yx0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932297AbZJOFik (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 01:38:40 -0400
-Received: by yxe26 with SMTP id 26so524686yxe.4
-        for <netdev@vger.kernel.org>; Wed, 14 Oct 2009 22:38:04 -0700 (PDT)
-In-Reply-To: <4AD6B31B.3060402@gmail.com>
+Received: from mail-yw0-f176.google.com ([209.85.211.176]:37267 "EHLO
+	mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752974AbZJOFfJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 01:35:09 -0400
+Received: by ywh6 with SMTP id 6so522789ywh.4
+        for <netdev@vger.kernel.org>; Wed, 14 Oct 2009 22:34:33 -0700 (PDT)
+In-Reply-To: <4AD6B3E8.2050904@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------040707030707060503080104
+--------------030609040806070000050904
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Define sysctl (tcp_cookie_size) to turn on and off the cookie option
-default globally, instead of a compiled configuration option.
+Redefine two TCP header functions to accept TCP header pointer.
+When subtracting, return signed int to allow error checking.
 
-Define per socket option (TCP_COOKIE_TRANSACTIONS) for setting constant
-data values, retrieving variable cookie values, and other facilities.
+In the only two existing files using the latter function, clean up
+confusing and inconsistent mixing of both byte and word offsets.
+However, remove proposed header length checking, and document the
+assumptions instead.  In the immortal words of the reviewer:
 
-This is a straightforward re-implementation of an earlier (year-old)
-patch that no longer applies cleanly, with permission of the original
-author (Adam Langley).  The patch was previously reviewed:
+   This is transmit, and the packets can only come from the Linux
+   TCP stack, not some external entity.
 
-   http://thread.gmane.org/gmane.linux.network/102586
+   You're being way too anal here, and adding these checks to
+   drivers would be just a lot of rediculious bloat. [sic]
 
 These functions will also be used in subsequent patches that implement
 additional features.
 ---
-  include/linux/tcp.h        |   31 ++++++++++++++++++++++++++++++-
-  include/net/tcp.h          |    1 +
-  net/ipv4/sysctl_net_ipv4.c |    8 ++++++++
-  net/ipv4/tcp_output.c      |    8 ++++++++
-  4 files changed, 47 insertions(+), 1 deletions(-)
+  drivers/net/bnx2.c  |   22 +++++++++++++---------
+  drivers/net/tg3.c   |   32 +++++++++++++++++---------------
+  include/linux/tcp.h |   10 ++++++++--
+  3 files changed, 38 insertions(+), 26 deletions(-)
 
 
---------------040707030707060503080104
+--------------030609040806070000050904
 Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
- name="TCPCT+1-2.patch"
+ name="TCPCT+1-3.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="TCPCT+1-2.patch"
+ filename="TCPCT+1-3.patch"
 
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 08cddb6..2cb342c 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -6330,18 +6330,17 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	}
+ #endif
+ 	if ((mss = skb_shinfo(skb)->gso_size)) {
+-		u32 tcp_opt_len;
+-		struct iphdr *iph;
++		struct tcphdr *th = tcp_hdr(skb);
++		int tcp_opt_words = th->doff - (sizeof(*th) >> 2);
+ 
++		/* assumes positive tcp_opt_words without checking */
+ 		vlan_tag_flags |= TX_BD_FLAGS_SW_LSO;
+ 
+-		tcp_opt_len = tcp_optlen(skb);
+-
+ 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
+ 			u32 tcp_off = skb_transport_offset(skb) -
+ 				      sizeof(struct ipv6hdr) - ETH_HLEN;
+ 
+-			vlan_tag_flags |= ((tcp_opt_len >> 2) << 8) |
++			vlan_tag_flags |= (tcp_opt_words << 8) |
+ 					  TX_BD_FLAGS_SW_FLAGS;
+ 			if (likely(tcp_off == 0))
+ 				vlan_tag_flags &= ~TX_BD_FLAGS_TCP6_OFF0_MSK;
+@@ -6354,10 +6353,15 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 				mss |= (tcp_off & 0xc) << TX_BD_TCP6_OFF2_SHL;
+ 			}
+ 		} else {
+-			iph = ip_hdr(skb);
+-			if (tcp_opt_len || (iph->ihl > 5)) {
+-				vlan_tag_flags |= ((iph->ihl - 5) +
+-						   (tcp_opt_len >> 2)) << 8;
++			struct iphdr *iph = ip_hdr(skb);
++			int ip_opt_words = iph->ihl - (sizeof(*iph) >> 2);
++			int opt_words;
++
++			/* assumes positive ip_opt_words without checking */
++			opt_words = ip_opt_words + tcp_opt_words;
++
++			if (opt_words > 0) {
++				vlan_tag_flags |= opt_words << 8;
+ 			}
+ 		}
+ 	} else
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index ba5d3fe..7e89e2a 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -5230,7 +5230,8 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb,
+ 		else {
+ 			struct iphdr *iph = ip_hdr(skb);
+ 
+-			tcp_opt_len = tcp_optlen(skb);
++			tcp_opt_len = tcp_option_len_th(tcp_hdr(skb));
++			/* assumes positive tcp_opt_len without checking */
+ 			ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
+ 
+ 			iph->check = 0;
+@@ -5392,7 +5393,8 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
+ 	mss = 0;
+ 	if ((mss = skb_shinfo(skb)->gso_size) != 0) {
+ 		struct iphdr *iph;
+-		int tcp_opt_len, ip_tcp_len, hdr_len;
++		int tcp_opt_len, ip_hdr_len, ip_opt_len, ip_tcp_len, hdr_len;
++		int opt_bytes;
+ 
+ 		if (skb_header_cloned(skb) &&
+ 		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
+@@ -5400,10 +5402,12 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
+ 			goto out_unlock;
+ 		}
+ 
+-		tcp_opt_len = tcp_optlen(skb);
+-		ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
+-
++		tcp_opt_len = tcp_option_len_th(tcp_hdr(skb));
++		/* assumes positive tcp_opt_len without checking */
++		ip_hdr_len = ip_hdrlen(skb);
++		ip_tcp_len = ip_hdr_len + sizeof(struct tcphdr);
+ 		hdr_len = ip_tcp_len + tcp_opt_len;
++
+ 		if (unlikely((ETH_HLEN + hdr_len) > 80) &&
+ 			     (tp->tg3_flags2 & TG3_FLG2_TSO_BUG))
+ 			return (tg3_tso_bug(tp, skb));
+@@ -5423,20 +5427,18 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
+ 								 IPPROTO_TCP,
+ 								 0);
+ 
++		ip_opt_len = ip_hdr_len - sizeof(struct iphdr);
++		/* assumes positive ip_opt_len without checking */
++		opt_bytes = ip_opt_len + tcp_opt_len;
++
+ 		if ((tp->tg3_flags2 & TG3_FLG2_HW_TSO) ||
+ 		    (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705)) {
+-			if (tcp_opt_len || iph->ihl > 5) {
+-				int tsflags;
+-
+-				tsflags = (iph->ihl - 5) + (tcp_opt_len >> 2);
+-				mss |= (tsflags << 11);
++			if (opt_bytes > 0) {
++				mss |= (opt_bytes >> 2) << 11;
+ 			}
+ 		} else {
+-			if (tcp_opt_len || iph->ihl > 5) {
+-				int tsflags;
+-
+-				tsflags = (iph->ihl - 5) + (tcp_opt_len >> 2);
+-				base_flags |= tsflags << 12;
++			if (opt_bytes > 0) {
++				base_flags |= (opt_bytes >> 2) << 12;
+ 			}
+ 		}
+ 	}
 diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 61723a7..63ab660 100644
+index 63ab660..d304ba5 100644
 --- a/include/linux/tcp.h
 +++ b/include/linux/tcp.h
-@@ -96,6 +96,7 @@ enum {
- #define TCP_QUICKACK		12	/* Block/reenable quick acks */
- #define TCP_CONGESTION		13	/* Congestion control algorithm */
- #define TCP_MD5SIG		14	/* TCP MD5 Signature (RFC2385) */
-+#define TCP_COOKIE_TRANSACTIONS	15	/* TCP Cookie Transactions */
- 
- #define TCPI_OPT_TIMESTAMPS	1
- #define TCPI_OPT_SACK		2
-@@ -170,6 +171,34 @@ struct tcp_md5sig {
- 	__u8	tcpm_key[TCP_MD5SIG_MAXKEYLEN];		/* key (binary) */
- };
- 
-+/* for TCP_COOKIE_TRANSACTIONS (TCPCT) socket option */
-+#define TCP_COOKIE_MAX		16		/* 128-bits */
-+#define TCP_COOKIE_MIN		 8		/*  64-bits */
-+#define TCP_COOKIE_PAIR_SIZE	(2*TCP_COOKIE_MAX)
-+
-+#define TCP_S_DATA_MAX		64U		/* after TCP+IP options */
-+#define TCP_S_DATA_MSS_DEFAULT	536U		/* default MSS (RFC1122) */
-+
-+/* Flags for both getsockopt and setsockopt */
-+#define TCP_COOKIE_IN_ALWAYS	(1 << 0)	/* Discard SYN without cookie */
-+#define TCP_COOKIE_OUT_NEVER	(1 << 1)	/* Prohibit outgoing cookies,
-+						 * supercedes everything else. */
-+#define TCP_EXTEND_TIMESTAMP	(1 << 4)	/* Initiate 64-bit timestamps */
-+
-+/* Flags for getsockopt */
-+#define TCP_S_DATA_IN		(1 << 2)	/* Was data received? */
-+#define TCP_S_DATA_OUT		(1 << 3)	/* Was data sent? */
-+
-+/* TCP_COOKIE_TRANSACTIONS data */
-+struct tcp_cookie_transactions {
-+	__u16	tcpct_flags;			/* see above */
-+	__u8	__tcpct_pad1;			/* zero */
-+	__u8	tcpct_cookie_desired;		/* bytes */
-+	__u16	tcpct_s_data_desired;		/* bytes of variable data */
-+	__u16	tcpct_used;			/* bytes in value */
-+	__u8	tcpct_value[TCP_S_DATA_MSS_DEFAULT];
-+};
-+
- #ifdef __KERNEL__
- 
- #include <linux/skbuff.h>
-@@ -431,6 +460,6 @@ static inline struct tcp_timewait_sock *tcp_twsk(const struct sock *sk)
- 	return (struct tcp_timewait_sock *)sk;
+@@ -217,9 +217,15 @@ static inline unsigned int tcp_hdrlen(const struct sk_buff *skb)
+ 	return tcp_hdr(skb)->doff * 4;
  }
  
--#endif
-+#endif	/* __KERNEL__ */
- 
- #endif	/* _LINUX_TCP_H */
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 28bcaf7..63d17fd 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -237,6 +237,7 @@ extern int sysctl_tcp_base_mss;
- extern int sysctl_tcp_workaround_signed_windows;
- extern int sysctl_tcp_slow_start_after_idle;
- extern int sysctl_tcp_max_ssthresh;
-+extern int sysctl_tcp_cookie_size;
- 
- extern atomic_t tcp_memory_allocated;
- extern struct percpu_counter tcp_sockets_allocated;
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 2dcf04d..3422c54 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -714,6 +714,14 @@ static struct ctl_table ipv4_table[] = {
- 	},
- 	{
- 		.ctl_name	= CTL_UNNUMBERED,
-+		.procname	= "tcp_cookie_size",
-+		.data		= &sysctl_tcp_cookie_size,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
-+	{
-+		.ctl_name	= CTL_UNNUMBERED,
- 		.procname	= "udp_mem",
- 		.data		= &sysctl_udp_mem,
- 		.maxlen		= sizeof(sysctl_udp_mem),
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 765d80f..c235196 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -59,6 +59,14 @@ int sysctl_tcp_base_mss __read_mostly = 512;
- /* By default, RFC2861 behavior.  */
- int sysctl_tcp_slow_start_after_idle __read_mostly = 1;
- 
-+#ifdef CONFIG_SYSCTL
-+/* By default, let the user enable it. */
-+int sysctl_tcp_cookie_size __read_mostly = 0;
-+#else
-+int sysctl_tcp_cookie_size __read_mostly = TCP_COOKIE_MAX;
-+#endif
-+
-+
- /* Account for new data that has been sent to the network. */
- static void tcp_event_new_data_sent(struct sock *sk, struct sk_buff *skb)
+-static inline unsigned int tcp_optlen(const struct sk_buff *skb)
++static inline unsigned int tcp_header_len_th(const struct tcphdr *th)
  {
+-	return (tcp_hdr(skb)->doff - 5) * 4;
++	return th->doff * 4;
++}
++
++/* When doff is bad, this could be negative. */
++static inline int tcp_option_len_th(const struct tcphdr *th)
++{
++	return (int)tcp_header_len_th(th) - sizeof(*th);
+ }
+ 
+ /* This defines a selective acknowledgement block. */
 -- 
 1.6.0.4
 
 
---------------040707030707060503080104--
+--------------030609040806070000050904--
