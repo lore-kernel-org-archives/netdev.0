@@ -1,55 +1,54 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH 0/8] SECURITY ISSUE with connector
-Date: Sun, 4 Oct 2009 14:24:50 +0400
-Message-ID: <20091004102450.GB2569@ioremap.net>
-References: <1254487211-11810-1-git-send-email-philipp.reisner@linbit.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [net-next-2.6 PATCH 1/4] TCPCT part 1: initial SYN exchange with
+ SYNACK data
+Date: Thu, 15 Oct 2009 12:29:56 -0400
+Message-ID: <4AD74E04.4040009@gmail.com>
+References: <4AD6B31B.3060402@gmail.com> <20091014.231540.01186298.davem@davemloft.net> <4AD70B73.2040401@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-fbdev-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, dm-devel@redhat.com,
-	Greg KH <greg@kroah.com>, Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Philipp Reisner <philipp.reisner@linbit.com>
-Return-path: <linux-fbdev-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <1254487211-11810-1-git-send-email-philipp.reisner@linbit.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-fbdev-devel>,
-	<mailto:linux-fbdev-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-fbdev-devel>
-List-Post: <mailto:linux-fbdev-devel@lists.sourceforge.net>
-List-Help: <mailto:linux-fbdev-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-fbdev-devel>,
-	<mailto:linux-fbdev-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: linux-fbdev-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f176.google.com ([209.85.211.176]:42827 "EHLO
+	mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932843AbZJOQak (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 12:30:40 -0400
+Received: by ywh6 with SMTP id 6so988863ywh.4
+        for <netdev@vger.kernel.org>; Thu, 15 Oct 2009 09:30:03 -0700 (PDT)
+In-Reply-To: <4AD70B73.2040401@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 02, 2009 at 02:40:03PM +0200, Philipp Reisner (philipp.reisner@linbit.com) wrote:
-> Affected: All code that uses connector, in kernel and out of mainline
+William Allen Simpson wrote:
+> #3 It's not possible to wrap and extend request_sock, as that is already
+> done by IPv6 and others, causing a conflict.  That was suggested by
+> another maintainer, and I drafted some code last week, but wasn't able to
+> figure out a non-conflicting code path.
 > 
-> The connector, as it is today, does not allow the in kernel receiving
-> parts to do any checks on privileges of a message's sender.
-> 
-> I know, there are not many out there that like connector, but as
-> long as it is in the kernel, we have to fix the security issues it has!
-> 
-> Please either drop connector, or someone who feels a bit responsible
-> and has our beloved dictator's blessing, PLEASE PLEASE PLEASE take 
-> this into your tree, and send the pull request to Linus.
+After private discussion with others, I'm proposing a wrapper over a union
+of those other header files, that would ensure new fields would be beyond
+the previous extensions.  It would have to be in its own .h file, and
+would have the unfortunate side effect of hauling in other protocols, but
+only into a very few net/ipv4/tcp*.c files.
 
-How expressive! :)
+The only advantage is that it doesn't matter how big this request_sock
+will become, as it is thrown away immediately after use (just like stack
+parameters in the previous proposal).  Fourth time's the charm?
 
-> Patches 1 to 4 are already Acked-by Evgeny, the connector's maintainer.
-> Patches 5 to 7 are the obvious fixes to the connector user's code.
+That is, something like:
 
-I ack those changes either since they do not affect logic of the user.
+#include <linux/ipv6.h>
+#include <net/dccp/ipv6.h>
 
--- 
-	Evgeniy Polyakov
+struct extend_request_sock {
+	union {
+		/* the biggest known */
+		struct tcp6_request_sock tcp6rsk;
+		struct dccp6_request_sock dccp6rsk;
+	} wrap;
 
-------------------------------------------------------------------------------
-Come build with us! The BlackBerry(R) Developer Conference in SF, CA
-is the only developer event you need to attend this year. Jumpstart your
-developing skills, take BlackBerry mobile applications to market and stay 
-ahead of the curve. Join us from November 9 - 12, 2009. Register now!
-http://p.sf.net/sfu/devconference
+	u8	cookie_bakery[TCP_COOKIE_MAX];
+	u8	cookie_plus;
+	u8	cookie_in_always:1,
+		cookie_out_never:1;
+}
