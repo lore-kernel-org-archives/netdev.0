@@ -1,2646 +1,4891 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] inet: rename some inet_sock fields
-Date: Thu, 15 Oct 2009 18:30:45 +0200
-Message-ID: <4AD74E35.9080004@gmail.com>
+From: Gregory Haskins <gregory.haskins@gmail.com>
+Subject: Re: [BUILD-FAILURE] next-20091015 - vbus_enet driver breaks with
+ allmodconfig
+Date: Thu, 15 Oct 2009 13:39:44 -0400
+Message-ID: <4AD75E60.4020306@gmail.com>
+References: <20091015152538.74a1cb15.sfr@canb.auug.org.au> <20091015104852.GA6740@linux.vnet.ibm.com> <4AD6CD940200005A00056857@sinclair.provo.novell.com>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig881B66A084871483C7477037"
+Cc: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>,
+	sfr@canb.auug.org.au, greg@kroah.com, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>, linux-next@vger.kernel.org
+To: Gregory Haskins <ghaskins@novell.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S935227AbZJORkr@vger.kernel.org>
+In-Reply-To: <4AD6CD940200005A00056857@sinclair.provo.novell.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig881B66A084871483C7477037
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:58036 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932908AbZJOQb1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 12:31:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-In order to have better cache layouts of struct sock (separate zones
-for rx/tx paths), we need this preliminary patch.
+Gregory Haskins wrote:
+>>>> On 10/15/2009 at  6:48 AM, in message
+> <20091015104852.GA6740@linux.vnet.ibm.com>, Kamalesh Babulal
+> <kamalesh@linux.vnet.ibm.com> wrote:=20
+>> Hi Gregory,
+>>
+>> 	While building next-20091015 with allmodconfig on the powerpc
+>> vbus-enet driver breaks
+>=20
+> Hi Kamalesh,
+>=20
+> I'll take a look at this and get a fix submitted today.
+>=20
+> Kind Regards,
+> -Greg
+>=20
+>> MODPOST 2492 modules
+>> ERROR: ".vbus_driver_register" [drivers/net/vbus-enet.ko] undefined!
+>> ERROR: ".vbus_driver_unregister" [drivers/net/vbus-enet.ko] undefined!=
 
-Goal is to transfert fields used at lookup time in the first
-read-mostly cache line (inside struct sock_common) and move sk_refcnt
-to a separate cache line (only written by rx path)
+>> ERROR: ".vbus_driver_ioq_alloc" [drivers/net/vbus-enet.ko] undefined!
+>>
+>> CONFIG_VBUS_ENET=3Dm
+>> CONFIG_VBUS_ENET_DEBUG=3Dy
+>> CONFIG_VBUS_PROXY=3Dn
 
-This patch adds inet_ prefix to daddr, rcv_saddr, dport, num, saddr,
-sport and id fields. This allows a future patch to define these
-fields as macros, like sk_refcnt, without name clashes.
+Hi Kamalesh,
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- drivers/net/pppol2tp.c                         |   22 ++--
- fs/ocfs2/cluster/netdebug.c                    |    8 -
- include/linux/ipv6.h                           |    2 
- include/net/inet6_hashtables.h                 |    4 
- include/net/inet_hashtables.h                  |   12 +-
- include/net/inet_sock.h                        |   36 +++----
- include/net/inet_timewait_sock.h               |    2 
- include/net/ip.h                               |   12 +-
- net/dccp/ipv4.c                                |   40 ++++----
- net/dccp/ipv6.c                                |   27 +++--
- net/dccp/output.c                              |    4 
- net/dccp/probe.c                               |   13 +-
- net/dccp/proto.c                               |    4 
- net/ipv4/af_inet.c                             |   62 ++++++-------
- net/ipv4/datagram.c                            |   18 +--
- net/ipv4/inet_connection_sock.c                |   20 ++--
- net/ipv4/inet_diag.c                           |   26 ++---
- net/ipv4/inet_hashtables.c                     |   34 +++----
- net/ipv4/inet_timewait_sock.c                  |   12 +-
- net/ipv4/ip_input.c                            |    2 
- net/ipv4/ip_output.c                           |   15 +--
- net/ipv4/ip_sockglue.c                         |    8 -
- net/ipv4/ipmr.c                                |    2 
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |    8 -
- net/ipv4/raw.c                                 |   30 +++---
- net/ipv4/tcp.c                                 |    4 
- net/ipv4/tcp_ipv4.c                            |   70 +++++++--------
- net/ipv4/tcp_output.c                          |    4 
- net/ipv4/tcp_probe.c                           |   11 +-
- net/ipv4/tcp_timer.c                           |    8 -
- net/ipv4/udp.c                                 |   51 +++++-----
- net/ipv6/af_inet6.c                            |   28 +++---
- net/ipv6/datagram.c                            |   15 +--
- net/ipv6/inet6_connection_sock.c               |    6 -
- net/ipv6/inet6_hashtables.c                    |   12 +-
- net/ipv6/ip6mr.c                               |    2 
- net/ipv6/ipv6_sockglue.c                       |    6 -
- net/ipv6/raw.c                                 |   30 +++---
- net/ipv6/syncookies.c                          |    2 
- net/ipv6/tcp_ipv6.c                            |   32 +++---
- net/ipv6/udp.c                                 |   24 ++---
- net/netfilter/xt_socket.c                      |    2 
- net/rds/tcp_listen.c                           |    8 -
- net/sctp/protocol.c                            |    8 -
- net/sctp/socket.c                              |   30 +++---
- net/sunrpc/svcsock.c                           |    8 -
- security/lsm_audit.c                           |   12 +-
- 47 files changed, 408 insertions(+), 388 deletions(-)
+I am having difficulty reproducing the problem.  When I look at the
+Kconfig, I see that VBUS_ENET has a "select VBUS_PROXY" as I would
+expect.  Additionally, if I run allmodconfig I can confirm that I get
+VBUS_ENET=3Dm, VBUS_PROXY=3Dy:
 
-diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
-index 5910df6..849cc9c 100644
---- a/drivers/net/pppol2tp.c
-+++ b/drivers/net/pppol2tp.c
-@@ -516,7 +516,7 @@ static inline int pppol2tp_verify_udp_checksum(struct sock *sk,
- 		return 0;
- 
- 	inet = inet_sk(sk);
--	psum = csum_tcpudp_nofold(inet->saddr, inet->daddr, ulen,
-+	psum = csum_tcpudp_nofold(inet->inet_saddr, inet->inet_daddr, ulen,
- 				  IPPROTO_UDP, 0);
- 
- 	if ((skb->ip_summed == CHECKSUM_COMPLETE) &&
-@@ -949,8 +949,8 @@ static int pppol2tp_sendmsg(struct kiocb *iocb, struct socket *sock, struct msgh
- 	inet = inet_sk(sk_tun);
- 	udp_len = hdr_len + sizeof(ppph) + total_len;
- 	uh = (struct udphdr *) skb->data;
--	uh->source = inet->sport;
--	uh->dest = inet->dport;
-+	uh->source = inet->inet_sport;
-+	uh->dest = inet->inet_dport;
- 	uh->len = htons(udp_len);
- 	uh->check = 0;
- 	skb_put(skb, sizeof(struct udphdr));
-@@ -978,7 +978,8 @@ static int pppol2tp_sendmsg(struct kiocb *iocb, struct socket *sock, struct msgh
- 	else if (!(skb_dst(skb)->dev->features & NETIF_F_V4_CSUM)) {
- 		skb->ip_summed = CHECKSUM_COMPLETE;
- 		csum = skb_checksum(skb, 0, udp_len, 0);
--		uh->check = csum_tcpudp_magic(inet->saddr, inet->daddr,
-+		uh->check = csum_tcpudp_magic(inet->inet_saddr,
-+					      inet->inet_daddr,
- 					      udp_len, IPPROTO_UDP, csum);
- 		if (uh->check == 0)
- 			uh->check = CSUM_MANGLED_0;
-@@ -986,7 +987,8 @@ static int pppol2tp_sendmsg(struct kiocb *iocb, struct socket *sock, struct msgh
- 		skb->ip_summed = CHECKSUM_PARTIAL;
- 		skb->csum_start = skb_transport_header(skb) - skb->head;
- 		skb->csum_offset = offsetof(struct udphdr, check);
--		uh->check = ~csum_tcpudp_magic(inet->saddr, inet->daddr,
-+		uh->check = ~csum_tcpudp_magic(inet->inet_saddr,
-+					       inet->inet_daddr,
- 					       udp_len, IPPROTO_UDP, 0);
- 	}
- 
-@@ -1136,8 +1138,8 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
- 	__skb_push(skb, sizeof(*uh));
- 	skb_reset_transport_header(skb);
- 	uh = udp_hdr(skb);
--	uh->source = inet->sport;
--	uh->dest = inet->dport;
-+	uh->source = inet->inet_sport;
-+	uh->dest = inet->inet_dport;
- 	uh->len = htons(udp_len);
- 	uh->check = 0;
- 
-@@ -1181,7 +1183,8 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
- 	else if (!(skb_dst(skb)->dev->features & NETIF_F_V4_CSUM)) {
- 		skb->ip_summed = CHECKSUM_COMPLETE;
- 		csum = skb_checksum(skb, 0, udp_len, 0);
--		uh->check = csum_tcpudp_magic(inet->saddr, inet->daddr,
-+		uh->check = csum_tcpudp_magic(inet->inet_saddr,
-+					      inet->inet_daddr,
- 					      udp_len, IPPROTO_UDP, csum);
- 		if (uh->check == 0)
- 			uh->check = CSUM_MANGLED_0;
-@@ -1189,7 +1192,8 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
- 		skb->ip_summed = CHECKSUM_PARTIAL;
- 		skb->csum_start = skb_transport_header(skb) - skb->head;
- 		skb->csum_offset = offsetof(struct udphdr, check);
--		uh->check = ~csum_tcpudp_magic(inet->saddr, inet->daddr,
-+		uh->check = ~csum_tcpudp_magic(inet->inet_saddr,
-+					       inet->inet_daddr,
- 					       udp_len, IPPROTO_UDP, 0);
- 	}
- 
-diff --git a/fs/ocfs2/cluster/netdebug.c b/fs/ocfs2/cluster/netdebug.c
-index da794bc..a3f150e 100644
---- a/fs/ocfs2/cluster/netdebug.c
-+++ b/fs/ocfs2/cluster/netdebug.c
-@@ -294,10 +294,10 @@ static int sc_seq_show(struct seq_file *seq, void *v)
- 		if (sc->sc_sock) {
- 			inet = inet_sk(sc->sc_sock->sk);
- 			/* the stack's structs aren't sparse endian clean */
--			saddr = (__force __be32)inet->saddr;
--			daddr = (__force __be32)inet->daddr;
--			sport = (__force __be16)inet->sport;
--			dport = (__force __be16)inet->dport;
-+			saddr = (__force __be32)inet->inet_saddr;
-+			daddr = (__force __be32)inet->inet_daddr;
-+			sport = (__force __be16)inet->inet_sport;
-+			dport = (__force __be16)inet->inet_dport;
- 		}
- 
- 		/* XXX sigh, inet-> doesn't have sparse annotation so any
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 5640425..e0cc9a7 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -505,7 +505,7 @@ static inline struct raw6_sock *raw6_sk(const struct sock *sk)
- 
- #define INET6_MATCH(__sk, __net, __hash, __saddr, __daddr, __ports, __dif)\
- 	(((__sk)->sk_hash == (__hash)) && sock_net((__sk)) == (__net)	&& \
--	 ((*((__portpair *)&(inet_sk(__sk)->dport))) == (__ports))  	&& \
-+	 ((*((__portpair *)&(inet_sk(__sk)->inet_dport))) == (__ports)) && \
- 	 ((__sk)->sk_family		== AF_INET6)		&& \
- 	 ipv6_addr_equal(&inet6_sk(__sk)->daddr, (__saddr))	&& \
- 	 ipv6_addr_equal(&inet6_sk(__sk)->rcv_saddr, (__daddr))	&& \
-diff --git a/include/net/inet6_hashtables.h b/include/net/inet6_hashtables.h
-index 22c73a7..92838d3 100644
---- a/include/net/inet6_hashtables.h
-+++ b/include/net/inet6_hashtables.h
-@@ -46,8 +46,8 @@ static inline int inet6_sk_ehashfn(const struct sock *sk)
- 	const struct ipv6_pinfo *np = inet6_sk(sk);
- 	const struct in6_addr *laddr = &np->rcv_saddr;
- 	const struct in6_addr *faddr = &np->daddr;
--	const __u16 lport = inet->num;
--	const __be16 fport = inet->dport;
-+	const __u16 lport = inet->inet_num;
-+	const __be16 fport = inet->inet_dport;
- 	struct net *net = sock_net(sk);
- 
- 	return inet6_ehashfn(net, laddr, lport, faddr, fport);
-diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
-index 5f11c4a..5b698b3 100644
---- a/include/net/inet_hashtables.h
-+++ b/include/net/inet_hashtables.h
-@@ -241,7 +241,7 @@ static inline int inet_lhashfn(struct net *net, const unsigned short num)
- 
- static inline int inet_sk_listen_hashfn(const struct sock *sk)
- {
--	return inet_lhashfn(sock_net(sk), inet_sk(sk)->num);
-+	return inet_lhashfn(sock_net(sk), inet_sk(sk)->inet_num);
- }
- 
- /* Caller must disable local BH processing. */
-@@ -301,8 +301,8 @@ typedef __u64 __bitwise __addrpair;
- #endif /* __BIG_ENDIAN */
- #define INET_MATCH(__sk, __net, __hash, __cookie, __saddr, __daddr, __ports, __dif)\
- 	(((__sk)->sk_hash == (__hash)) && net_eq(sock_net(__sk), (__net)) &&	\
--	 ((*((__addrpair *)&(inet_sk(__sk)->daddr))) == (__cookie))	&&	\
--	 ((*((__portpair *)&(inet_sk(__sk)->dport))) == (__ports))	&&	\
-+	 ((*((__addrpair *)&(inet_sk(__sk)->inet_daddr))) == (__cookie))  &&	\
-+	 ((*((__portpair *)&(inet_sk(__sk)->inet_dport))) == (__ports))   &&	\
- 	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))))
- #define INET_TW_MATCH(__sk, __net, __hash, __cookie, __saddr, __daddr, __ports, __dif)\
- 	(((__sk)->sk_hash == (__hash)) && net_eq(sock_net(__sk), (__net)) &&	\
-@@ -313,9 +313,9 @@ typedef __u64 __bitwise __addrpair;
- #define INET_ADDR_COOKIE(__name, __saddr, __daddr)
- #define INET_MATCH(__sk, __net, __hash, __cookie, __saddr, __daddr, __ports, __dif)	\
- 	(((__sk)->sk_hash == (__hash)) && net_eq(sock_net(__sk), (__net))	&&	\
--	 (inet_sk(__sk)->daddr		== (__saddr))		&&	\
--	 (inet_sk(__sk)->rcv_saddr	== (__daddr))		&&	\
--	 ((*((__portpair *)&(inet_sk(__sk)->dport))) == (__ports))	&&	\
-+	 (inet_sk(__sk)->inet_daddr	== (__saddr))		&&	\
-+	 (inet_sk(__sk)->inet_rcv_saddr	== (__daddr))		&&	\
-+	 ((*((__portpair *)&(inet_sk(__sk)->inet_dport))) == (__ports))	&&	\
- 	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))))
- #define INET_TW_MATCH(__sk, __net, __hash,__cookie, __saddr, __daddr, __ports, __dif)	\
- 	(((__sk)->sk_hash == (__hash)) && net_eq(sock_net(__sk), (__net))	&&	\
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index 47004f3..bd4c53f 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -93,14 +93,14 @@ struct rtable;
-  *
-  * @sk - ancestor class
-  * @pinet6 - pointer to IPv6 control block
-- * @daddr - Foreign IPv4 addr
-- * @rcv_saddr - Bound local IPv4 addr
-- * @dport - Destination port
-- * @num - Local port
-- * @saddr - Sending source
-+ * @inet_daddr - Foreign IPv4 addr
-+ * @inet_rcv_saddr - Bound local IPv4 addr
-+ * @inet_dport - Destination port
-+ * @inet_num - Local port
-+ * @inet_saddr - Sending source
-  * @uc_ttl - Unicast TTL
-- * @sport - Source port
-- * @id - ID counter for DF pkts
-+ * @inet_sport - Source port
-+ * @inet_id - ID counter for DF pkts
-  * @tos - TOS
-  * @mc_ttl - Multicasting TTL
-  * @is_icsk - is this an inet_connection_sock?
-@@ -115,16 +115,16 @@ struct inet_sock {
- 	struct ipv6_pinfo	*pinet6;
- #endif
- 	/* Socket demultiplex comparisons on incoming packets. */
--	__be32			daddr;
--	__be32			rcv_saddr;
--	__be16			dport;
--	__u16			num;
--	__be32			saddr;
-+	__be32			inet_daddr;
-+	__be32			inet_rcv_saddr;
-+	__be16			inet_dport;
-+	__u16			inet_num;
-+	__be32			inet_saddr;
- 	__s16			uc_ttl;
- 	__u16			cmsg_flags;
- 	struct ip_options	*opt;
--	__be16			sport;
--	__u16			id;
-+	__be16			inet_sport;
-+	__u16			inet_id;
- 	__u8			tos;
- 	__u8			mc_ttl;
- 	__u8			pmtudisc;
-@@ -190,10 +190,10 @@ static inline unsigned int inet_ehashfn(struct net *net,
- static inline int inet_sk_ehashfn(const struct sock *sk)
- {
- 	const struct inet_sock *inet = inet_sk(sk);
--	const __be32 laddr = inet->rcv_saddr;
--	const __u16 lport = inet->num;
--	const __be32 faddr = inet->daddr;
--	const __be16 fport = inet->dport;
-+	const __be32 laddr = inet->inet_rcv_saddr;
-+	const __u16 lport = inet->inet_num;
-+	const __be32 faddr = inet->inet_daddr;
-+	const __be16 fport = inet->inet_dport;
- 	struct net *net = sock_net(sk);
- 
- 	return inet_ehashfn(net, laddr, lport, faddr, fport);
-diff --git a/include/net/inet_timewait_sock.h b/include/net/inet_timewait_sock.h
-index b63b80f..37f3aea 100644
---- a/include/net/inet_timewait_sock.h
-+++ b/include/net/inet_timewait_sock.h
-@@ -194,7 +194,7 @@ static inline struct inet_timewait_sock *inet_twsk(const struct sock *sk)
- static inline __be32 inet_rcv_saddr(const struct sock *sk)
- {
- 	return likely(sk->sk_state != TCP_TIME_WAIT) ?
--		inet_sk(sk)->rcv_saddr : inet_twsk(sk)->tw_rcv_saddr;
-+		inet_sk(sk)->inet_rcv_saddr : inet_twsk(sk)->tw_rcv_saddr;
- }
- 
- extern void inet_twsk_put(struct inet_timewait_sock *tw);
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 2f47e54..376adf4 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -240,8 +240,8 @@ static inline void ip_select_ident(struct iphdr *iph, struct dst_entry *dst, str
- 		 * does not change, they drop every other packet in
- 		 * a TCP stream using header compression.
- 		 */
--		iph->id = (sk && inet_sk(sk)->daddr) ?
--					htons(inet_sk(sk)->id++) : 0;
-+		iph->id = (sk && inet_sk(sk)->inet_daddr) ?
-+					htons(inet_sk(sk)->inet_id++) : 0;
- 	} else
- 		__ip_select_ident(iph, dst, 0);
- }
-@@ -249,9 +249,9 @@ static inline void ip_select_ident(struct iphdr *iph, struct dst_entry *dst, str
- static inline void ip_select_ident_more(struct iphdr *iph, struct dst_entry *dst, struct sock *sk, int more)
- {
- 	if (iph->frag_off & htons(IP_DF)) {
--		if (sk && inet_sk(sk)->daddr) {
--			iph->id = htons(inet_sk(sk)->id);
--			inet_sk(sk)->id += 1 + more;
-+		if (sk && inet_sk(sk)->inet_daddr) {
-+			iph->id = htons(inet_sk(sk)->inet_id);
-+			inet_sk(sk)->inet_id += 1 + more;
- 		} else
- 			iph->id = 0;
- 	} else
-@@ -317,7 +317,7 @@ static inline void ip_ib_mc_map(__be32 naddr, const unsigned char *broadcast, ch
- 
- static __inline__ void inet_reset_saddr(struct sock *sk)
- {
--	inet_sk(sk)->rcv_saddr = inet_sk(sk)->saddr = 0;
-+	inet_sk(sk)->inet_rcv_saddr = inet_sk(sk)->inet_saddr = 0;
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- 	if (sk->sk_family == PF_INET6) {
- 		struct ipv6_pinfo *np = inet6_sk(sk);
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index 7302e14..00028d4 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -62,10 +62,10 @@ int dccp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 		nexthop = inet->opt->faddr;
- 	}
- 
--	tmp = ip_route_connect(&rt, nexthop, inet->saddr,
-+	tmp = ip_route_connect(&rt, nexthop, inet->inet_saddr,
- 			       RT_CONN_FLAGS(sk), sk->sk_bound_dev_if,
- 			       IPPROTO_DCCP,
--			       inet->sport, usin->sin_port, sk, 1);
-+			       inet->inet_sport, usin->sin_port, sk, 1);
- 	if (tmp < 0)
- 		return tmp;
- 
-@@ -77,12 +77,12 @@ int dccp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	if (inet->opt == NULL || !inet->opt->srr)
- 		daddr = rt->rt_dst;
- 
--	if (inet->saddr == 0)
--		inet->saddr = rt->rt_src;
--	inet->rcv_saddr = inet->saddr;
-+	if (inet->inet_saddr == 0)
-+		inet->inet_saddr = rt->rt_src;
-+	inet->inet_rcv_saddr = inet->inet_saddr;
- 
--	inet->dport = usin->sin_port;
--	inet->daddr = daddr;
-+	inet->inet_dport = usin->sin_port;
-+	inet->inet_daddr = daddr;
- 
- 	inet_csk(sk)->icsk_ext_hdr_len = 0;
- 	if (inet->opt != NULL)
-@@ -98,17 +98,19 @@ int dccp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	if (err != 0)
- 		goto failure;
- 
--	err = ip_route_newports(&rt, IPPROTO_DCCP, inet->sport, inet->dport,
--				sk);
-+	err = ip_route_newports(&rt, IPPROTO_DCCP, inet->inet_sport,
-+				inet->inet_dport, sk);
- 	if (err != 0)
- 		goto failure;
- 
- 	/* OK, now commit destination to socket.  */
- 	sk_setup_caps(sk, &rt->u.dst);
- 
--	dp->dccps_iss = secure_dccp_sequence_number(inet->saddr, inet->daddr,
--						    inet->sport, inet->dport);
--	inet->id = dp->dccps_iss ^ jiffies;
-+	dp->dccps_iss = secure_dccp_sequence_number(inet->inet_saddr,
-+						    inet->inet_daddr,
-+						    inet->inet_sport,
-+						    inet->inet_dport);
-+	inet->inet_id = dp->dccps_iss ^ jiffies;
- 
- 	err = dccp_connect(sk);
- 	rt = NULL;
-@@ -123,7 +125,7 @@ failure:
- 	dccp_set_state(sk, DCCP_CLOSED);
- 	ip_rt_put(rt);
- 	sk->sk_route_caps = 0;
--	inet->dport = 0;
-+	inet->inet_dport = 0;
- 	goto out;
- }
- 
-@@ -352,7 +354,9 @@ void dccp_v4_send_check(struct sock *sk, int unused, struct sk_buff *skb)
- 	struct dccp_hdr *dh = dccp_hdr(skb);
- 
- 	dccp_csum_outgoing(skb);
--	dh->dccph_checksum = dccp_v4_csum_finish(skb, inet->saddr, inet->daddr);
-+	dh->dccph_checksum = dccp_v4_csum_finish(skb,
-+						 inet->inet_saddr,
-+						 inet->inet_daddr);
- }
- 
- EXPORT_SYMBOL_GPL(dccp_v4_send_check);
-@@ -393,14 +397,14 @@ struct sock *dccp_v4_request_recv_sock(struct sock *sk, struct sk_buff *skb,
- 
- 	newinet		   = inet_sk(newsk);
- 	ireq		   = inet_rsk(req);
--	newinet->daddr	   = ireq->rmt_addr;
--	newinet->rcv_saddr = ireq->loc_addr;
--	newinet->saddr	   = ireq->loc_addr;
-+	newinet->inet_daddr	= ireq->rmt_addr;
-+	newinet->inet_rcv_saddr = ireq->loc_addr;
-+	newinet->inet_saddr	= ireq->loc_addr;
- 	newinet->opt	   = ireq->opt;
- 	ireq->opt	   = NULL;
- 	newinet->mc_index  = inet_iif(skb);
- 	newinet->mc_ttl	   = ip_hdr(skb)->ttl;
--	newinet->id	   = jiffies;
-+	newinet->inet_id   = jiffies;
- 
- 	dccp_sync_mss(newsk, dst_mtu(dst));
- 
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index a2afb55..6d89f9f 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -158,8 +158,8 @@ static void dccp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 			ipv6_addr_copy(&fl.fl6_dst, &np->daddr);
- 			ipv6_addr_copy(&fl.fl6_src, &np->saddr);
- 			fl.oif = sk->sk_bound_dev_if;
--			fl.fl_ip_dport = inet->dport;
--			fl.fl_ip_sport = inet->sport;
-+			fl.fl_ip_dport = inet->inet_dport;
-+			fl.fl_ip_sport = inet->inet_sport;
- 			security_sk_classify_flow(sk, &fl);
- 
- 			err = ip6_dst_lookup(sk, &dst, &fl);
-@@ -510,9 +510,9 @@ static struct sock *dccp_v6_request_recv_sock(struct sock *sk,
- 
- 		memcpy(newnp, np, sizeof(struct ipv6_pinfo));
- 
--		ipv6_addr_set_v4mapped(newinet->daddr, &newnp->daddr);
-+		ipv6_addr_set_v4mapped(newinet->inet_daddr, &newnp->daddr);
- 
--		ipv6_addr_set_v4mapped(newinet->saddr, &newnp->saddr);
-+		ipv6_addr_set_v4mapped(newinet->inet_saddr, &newnp->saddr);
- 
- 		ipv6_addr_copy(&newnp->rcv_saddr, &newnp->saddr);
- 
-@@ -640,7 +640,8 @@ static struct sock *dccp_v6_request_recv_sock(struct sock *sk,
- 
- 	dccp_sync_mss(newsk, dst_mtu(dst));
- 
--	newinet->daddr = newinet->saddr = newinet->rcv_saddr = LOOPBACK4_IPV6;
-+	newinet->inet_daddr = newinet->inet_saddr = LOOPBACK4_IPV6;
-+	newinet->inet_rcv_saddr = LOOPBACK4_IPV6;
- 
- 	__inet6_hash(newsk);
- 	__inet_inherit_port(sk, newsk);
-@@ -968,10 +969,9 @@ static int dccp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 			icsk->icsk_af_ops = &dccp_ipv6_af_ops;
- 			sk->sk_backlog_rcv = dccp_v6_do_rcv;
- 			goto failure;
--		} else {
--			ipv6_addr_set_v4mapped(inet->saddr, &np->saddr);
--			ipv6_addr_set_v4mapped(inet->rcv_saddr, &np->rcv_saddr);
- 		}
-+		ipv6_addr_set_v4mapped(inet->inet_saddr, &np->saddr);
-+		ipv6_addr_set_v4mapped(inet->inet_rcv_saddr, &np->rcv_saddr);
- 
- 		return err;
- 	}
-@@ -984,7 +984,7 @@ static int dccp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	ipv6_addr_copy(&fl.fl6_src, saddr ? saddr : &np->saddr);
- 	fl.oif = sk->sk_bound_dev_if;
- 	fl.fl_ip_dport = usin->sin6_port;
--	fl.fl_ip_sport = inet->sport;
-+	fl.fl_ip_sport = inet->inet_sport;
- 	security_sk_classify_flow(sk, &fl);
- 
- 	if (np->opt != NULL && np->opt->srcrt != NULL) {
-@@ -1017,7 +1017,7 @@ static int dccp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 
- 	/* set the source address */
- 	ipv6_addr_copy(&np->saddr, saddr);
--	inet->rcv_saddr = LOOPBACK4_IPV6;
-+	inet->inet_rcv_saddr = LOOPBACK4_IPV6;
- 
- 	__ip6_dst_store(sk, dst, NULL, NULL);
- 
-@@ -1026,7 +1026,7 @@ static int dccp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 		icsk->icsk_ext_hdr_len = (np->opt->opt_flen +
- 					  np->opt->opt_nflen);
- 
--	inet->dport = usin->sin6_port;
-+	inet->inet_dport = usin->sin6_port;
- 
- 	dccp_set_state(sk, DCCP_REQUESTING);
- 	err = inet6_hash_connect(&dccp_death_row, sk);
-@@ -1035,7 +1035,8 @@ static int dccp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 
- 	dp->dccps_iss = secure_dccpv6_sequence_number(np->saddr.s6_addr32,
- 						      np->daddr.s6_addr32,
--						      inet->sport, inet->dport);
-+						      inet->inet_sport,
-+						      inet->inet_dport);
- 	err = dccp_connect(sk);
- 	if (err)
- 		goto late_failure;
-@@ -1046,7 +1047,7 @@ late_failure:
- 	dccp_set_state(sk, DCCP_CLOSED);
- 	__sk_dst_reset(sk);
- failure:
--	inet->dport = 0;
-+	inet->inet_dport = 0;
- 	sk->sk_route_caps = 0;
- 	return err;
- }
-diff --git a/net/dccp/output.c b/net/dccp/output.c
-index c96119f..d6bb753 100644
---- a/net/dccp/output.c
-+++ b/net/dccp/output.c
-@@ -99,8 +99,8 @@ static int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
- 		/* Build DCCP header and checksum it. */
- 		dh = dccp_zeroed_hdr(skb, dccp_header_size);
- 		dh->dccph_type	= dcb->dccpd_type;
--		dh->dccph_sport	= inet->sport;
--		dh->dccph_dport	= inet->dport;
-+		dh->dccph_sport	= inet->inet_sport;
-+		dh->dccph_dport	= inet->inet_dport;
- 		dh->dccph_doff	= (dccp_header_size + dcb->dccpd_opt_len) / 4;
- 		dh->dccph_ccval	= dcb->dccpd_ccval;
- 		dh->dccph_cscov = dp->dccps_pcslen;
-diff --git a/net/dccp/probe.c b/net/dccp/probe.c
-index 5e6ec8b..dc32842 100644
---- a/net/dccp/probe.c
-+++ b/net/dccp/probe.c
-@@ -80,19 +80,20 @@ static int jdccp_sendmsg(struct kiocb *iocb, struct sock *sk,
- 	if (ccid_get_current_tx_ccid(dccp_sk(sk)) == DCCPC_CCID3)
- 		hc = ccid3_hc_tx_sk(sk);
- 
--	if (port == 0 || ntohs(inet->dport) == port ||
--	    ntohs(inet->sport) == port) {
-+	if (port == 0 || ntohs(inet->inet_dport) == port ||
-+	    ntohs(inet->inet_sport) == port) {
- 		if (hc)
- 			printl("%pI4:%u %pI4:%u %d %d %d %d %u %llu %llu %d\n",
--			       &inet->saddr, ntohs(inet->sport),
--			       &inet->daddr, ntohs(inet->dport), size,
-+			       &inet->inet_saddr, ntohs(inet->inet_sport),
-+			       &inet->inet_daddr, ntohs(inet->inet_dport), size,
- 			       hc->tx_s, hc->tx_rtt, hc->tx_p,
- 			       hc->tx_x_calc, hc->tx_x_recv >> 6,
- 			       hc->tx_x >> 6, hc->tx_t_ipi);
- 		else
- 			printl("%pI4:%u %pI4:%u %d\n",
--			       &inet->saddr, ntohs(inet->sport),
--			       &inet->daddr, ntohs(inet->dport), size);
-+			       &inet->inet_saddr, ntohs(inet->inet_sport),
-+			       &inet->inet_daddr, ntohs(inet->inet_dport),
-+			       size);
- 	}
- 
- 	jprobe_return();
-diff --git a/net/dccp/proto.c b/net/dccp/proto.c
-index ecb203f..671cd14 100644
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -278,7 +278,7 @@ int dccp_disconnect(struct sock *sk, int flags)
- 		sk->sk_send_head = NULL;
- 	}
- 
--	inet->dport = 0;
-+	inet->inet_dport = 0;
- 
- 	if (!(sk->sk_userlocks & SOCK_BINDADDR_LOCK))
- 		inet_reset_saddr(sk);
-@@ -290,7 +290,7 @@ int dccp_disconnect(struct sock *sk, int flags)
- 	inet_csk_delack_init(sk);
- 	__sk_dst_reset(sk);
- 
--	WARN_ON(inet->num && !icsk->icsk_bind_hash);
-+	WARN_ON(inet->inet_num && !icsk->icsk_bind_hash);
- 
- 	sk->sk_error_report(sk);
- 	return err;
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 1deff48..04a14b1 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -174,12 +174,12 @@ static int inet_autobind(struct sock *sk)
- 	/* We may need to bind the socket. */
- 	lock_sock(sk);
- 	inet = inet_sk(sk);
--	if (!inet->num) {
-+	if (!inet->inet_num) {
- 		if (sk->sk_prot->get_port(sk, 0)) {
- 			release_sock(sk);
- 			return -EAGAIN;
- 		}
--		inet->sport = htons(inet->num);
-+		inet->inet_sport = htons(inet->inet_num);
- 	}
- 	release_sock(sk);
- 	return 0;
-@@ -354,7 +354,7 @@ lookup_protocol:
- 	inet->is_icsk = (INET_PROTOSW_ICSK & answer_flags) != 0;
- 
- 	if (SOCK_RAW == sock->type) {
--		inet->num = protocol;
-+		inet->inet_num = protocol;
- 		if (IPPROTO_RAW == protocol)
- 			inet->hdrincl = 1;
- 	}
-@@ -364,7 +364,7 @@ lookup_protocol:
- 	else
- 		inet->pmtudisc = IP_PMTUDISC_WANT;
- 
--	inet->id = 0;
-+	inet->inet_id = 0;
- 
- 	sock_init_data(sock, sk);
- 
-@@ -381,13 +381,13 @@ lookup_protocol:
- 
- 	sk_refcnt_debug_inc(sk);
- 
--	if (inet->num) {
-+	if (inet->inet_num) {
- 		/* It assumes that any protocol which allows
- 		 * the user to assign a number at socket
- 		 * creation time automatically
- 		 * shares.
- 		 */
--		inet->sport = htons(inet->num);
-+		inet->inet_sport = htons(inet->inet_num);
- 		/* Add to protocol hash chains. */
- 		sk->sk_prot->hash(sk);
- 	}
-@@ -494,27 +494,27 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 
- 	/* Check these errors (active socket, double bind). */
- 	err = -EINVAL;
--	if (sk->sk_state != TCP_CLOSE || inet->num)
-+	if (sk->sk_state != TCP_CLOSE || inet->inet_num)
- 		goto out_release_sock;
- 
--	inet->rcv_saddr = inet->saddr = addr->sin_addr.s_addr;
-+	inet->inet_rcv_saddr = inet->inet_saddr = addr->sin_addr.s_addr;
- 	if (chk_addr_ret == RTN_MULTICAST || chk_addr_ret == RTN_BROADCAST)
--		inet->saddr = 0;  /* Use device */
-+		inet->inet_saddr = 0;  /* Use device */
- 
- 	/* Make sure we are allowed to bind here. */
- 	if (sk->sk_prot->get_port(sk, snum)) {
--		inet->saddr = inet->rcv_saddr = 0;
-+		inet->inet_saddr = inet->inet_rcv_saddr = 0;
- 		err = -EADDRINUSE;
- 		goto out_release_sock;
- 	}
- 
--	if (inet->rcv_saddr)
-+	if (inet->inet_rcv_saddr)
- 		sk->sk_userlocks |= SOCK_BINDADDR_LOCK;
- 	if (snum)
- 		sk->sk_userlocks |= SOCK_BINDPORT_LOCK;
--	inet->sport = htons(inet->num);
--	inet->daddr = 0;
--	inet->dport = 0;
-+	inet->inet_sport = htons(inet->inet_num);
-+	inet->inet_daddr = 0;
-+	inet->inet_dport = 0;
- 	sk_dst_reset(sk);
- 	err = 0;
- out_release_sock:
-@@ -532,7 +532,7 @@ int inet_dgram_connect(struct socket *sock, struct sockaddr * uaddr,
- 	if (uaddr->sa_family == AF_UNSPEC)
- 		return sk->sk_prot->disconnect(sk, flags);
- 
--	if (!inet_sk(sk)->num && inet_autobind(sk))
-+	if (!inet_sk(sk)->inet_num && inet_autobind(sk))
- 		return -EAGAIN;
- 	return sk->sk_prot->connect(sk, (struct sockaddr *)uaddr, addr_len);
- }
-@@ -689,17 +689,17 @@ int inet_getname(struct socket *sock, struct sockaddr *uaddr,
- 
- 	sin->sin_family = AF_INET;
- 	if (peer) {
--		if (!inet->dport ||
-+		if (!inet->inet_dport ||
- 		    (((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_SYN_SENT)) &&
- 		     peer == 1))
- 			return -ENOTCONN;
--		sin->sin_port = inet->dport;
--		sin->sin_addr.s_addr = inet->daddr;
-+		sin->sin_port = inet->inet_dport;
-+		sin->sin_addr.s_addr = inet->inet_daddr;
- 	} else {
--		__be32 addr = inet->rcv_saddr;
-+		__be32 addr = inet->inet_rcv_saddr;
- 		if (!addr)
--			addr = inet->saddr;
--		sin->sin_port = inet->sport;
-+			addr = inet->inet_saddr;
-+		sin->sin_port = inet->inet_sport;
- 		sin->sin_addr.s_addr = addr;
- 	}
- 	memset(sin->sin_zero, 0, sizeof(sin->sin_zero));
-@@ -714,7 +714,7 @@ int inet_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
- 	struct sock *sk = sock->sk;
- 
- 	/* We may need to bind the socket. */
--	if (!inet_sk(sk)->num && inet_autobind(sk))
-+	if (!inet_sk(sk)->inet_num && inet_autobind(sk))
- 		return -EAGAIN;
- 
- 	return sk->sk_prot->sendmsg(iocb, sk, msg, size);
-@@ -728,7 +728,7 @@ static ssize_t inet_sendpage(struct socket *sock, struct page *page, int offset,
- 	struct sock *sk = sock->sk;
- 
- 	/* We may need to bind the socket. */
--	if (!inet_sk(sk)->num && inet_autobind(sk))
-+	if (!inet_sk(sk)->inet_num && inet_autobind(sk))
- 		return -EAGAIN;
- 
- 	if (sk->sk_prot->sendpage)
-@@ -1059,9 +1059,9 @@ static int inet_sk_reselect_saddr(struct sock *sk)
- 	struct inet_sock *inet = inet_sk(sk);
- 	int err;
- 	struct rtable *rt;
--	__be32 old_saddr = inet->saddr;
-+	__be32 old_saddr = inet->inet_saddr;
- 	__be32 new_saddr;
--	__be32 daddr = inet->daddr;
-+	__be32 daddr = inet->inet_daddr;
- 
- 	if (inet->opt && inet->opt->srr)
- 		daddr = inet->opt->faddr;
-@@ -1071,7 +1071,7 @@ static int inet_sk_reselect_saddr(struct sock *sk)
- 			       RT_CONN_FLAGS(sk),
- 			       sk->sk_bound_dev_if,
- 			       sk->sk_protocol,
--			       inet->sport, inet->dport, sk, 0);
-+			       inet->inet_sport, inet->inet_dport, sk, 0);
- 	if (err)
- 		return err;
- 
-@@ -1087,7 +1087,7 @@ static int inet_sk_reselect_saddr(struct sock *sk)
- 		       __func__, &old_saddr, &new_saddr);
- 	}
- 
--	inet->saddr = inet->rcv_saddr = new_saddr;
-+	inet->inet_saddr = inet->inet_rcv_saddr = new_saddr;
- 
- 	/*
- 	 * XXX The only one ugly spot where we need to
-@@ -1113,7 +1113,7 @@ int inet_sk_rebuild_header(struct sock *sk)
- 		return 0;
- 
- 	/* Reroute. */
--	daddr = inet->daddr;
-+	daddr = inet->inet_daddr;
- 	if (inet->opt && inet->opt->srr)
- 		daddr = inet->opt->faddr;
- {
-@@ -1123,7 +1123,7 @@ int inet_sk_rebuild_header(struct sock *sk)
- 		.nl_u = {
- 			.ip4_u = {
- 				.daddr	= daddr,
--				.saddr	= inet->saddr,
-+				.saddr	= inet->inet_saddr,
- 				.tos	= RT_CONN_FLAGS(sk),
- 			},
- 		},
-@@ -1131,8 +1131,8 @@ int inet_sk_rebuild_header(struct sock *sk)
- 		.flags = inet_sk_flowi_flags(sk),
- 		.uli_u = {
- 			.ports = {
--				.sport = inet->sport,
--				.dport = inet->dport,
-+				.sport = inet->inet_sport,
-+				.dport = inet->inet_dport,
- 			},
- 		},
- 	};
-diff --git a/net/ipv4/datagram.c b/net/ipv4/datagram.c
-index 5e6c5a0..fb24658 100644
---- a/net/ipv4/datagram.c
-+++ b/net/ipv4/datagram.c
-@@ -39,7 +39,7 @@ int ip4_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	sk_dst_reset(sk);
- 
- 	oif = sk->sk_bound_dev_if;
--	saddr = inet->saddr;
-+	saddr = inet->inet_saddr;
- 	if (ipv4_is_multicast(usin->sin_addr.s_addr)) {
- 		if (!oif)
- 			oif = inet->mc_index;
-@@ -49,7 +49,7 @@ int ip4_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	err = ip_route_connect(&rt, usin->sin_addr.s_addr, saddr,
- 			       RT_CONN_FLAGS(sk), oif,
- 			       sk->sk_protocol,
--			       inet->sport, usin->sin_port, sk, 1);
-+			       inet->inet_sport, usin->sin_port, sk, 1);
- 	if (err) {
- 		if (err == -ENETUNREACH)
- 			IP_INC_STATS_BH(sock_net(sk), IPSTATS_MIB_OUTNOROUTES);
-@@ -60,14 +60,14 @@ int ip4_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 		ip_rt_put(rt);
- 		return -EACCES;
- 	}
--	if (!inet->saddr)
--		inet->saddr = rt->rt_src;	/* Update source address */
--	if (!inet->rcv_saddr)
--		inet->rcv_saddr = rt->rt_src;
--	inet->daddr = rt->rt_dst;
--	inet->dport = usin->sin_port;
-+	if (!inet->inet_saddr)
-+		inet->inet_saddr = rt->rt_src;	/* Update source address */
-+	if (!inet->inet_rcv_saddr)
-+		inet->inet_rcv_saddr = rt->rt_src;
-+	inet->inet_daddr = rt->rt_dst;
-+	inet->inet_dport = usin->sin_port;
- 	sk->sk_state = TCP_ESTABLISHED;
--	inet->id = jiffies;
-+	inet->inet_id = jiffies;
- 
- 	sk_dst_set(sk, &rt->u.dst);
- 	return(0);
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 9139e8f..f6a0af7 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -368,7 +368,7 @@ struct dst_entry *inet_csk_route_req(struct sock *sk,
- 			    .proto = sk->sk_protocol,
- 			    .flags = inet_sk_flowi_flags(sk),
- 			    .uli_u = { .ports =
--				       { .sport = inet_sk(sk)->sport,
-+				       { .sport = inet_sk(sk)->inet_sport,
- 					 .dport = ireq->rmt_port } } };
- 	struct net *net = sock_net(sk);
- 
-@@ -547,9 +547,9 @@ struct sock *inet_csk_clone(struct sock *sk, const struct request_sock *req,
- 		newsk->sk_state = TCP_SYN_RECV;
- 		newicsk->icsk_bind_hash = NULL;
- 
--		inet_sk(newsk)->dport = inet_rsk(req)->rmt_port;
--		inet_sk(newsk)->num = ntohs(inet_rsk(req)->loc_port);
--		inet_sk(newsk)->sport = inet_rsk(req)->loc_port;
-+		inet_sk(newsk)->inet_dport = inet_rsk(req)->rmt_port;
-+		inet_sk(newsk)->inet_num = ntohs(inet_rsk(req)->loc_port);
-+		inet_sk(newsk)->inet_sport = inet_rsk(req)->loc_port;
- 		newsk->sk_write_space = sk_stream_write_space;
- 
- 		newicsk->icsk_retransmits = 0;
-@@ -580,8 +580,8 @@ void inet_csk_destroy_sock(struct sock *sk)
- 	/* It cannot be in hash table! */
- 	WARN_ON(!sk_unhashed(sk));
- 
--	/* If it has not 0 inet_sk(sk)->num, it must be bound */
--	WARN_ON(inet_sk(sk)->num && !inet_csk(sk)->icsk_bind_hash);
-+	/* If it has not 0 inet_sk(sk)->inet_num, it must be bound */
-+	WARN_ON(inet_sk(sk)->inet_num && !inet_csk(sk)->icsk_bind_hash);
- 
- 	sk->sk_prot->destroy(sk);
- 
-@@ -616,8 +616,8 @@ int inet_csk_listen_start(struct sock *sk, const int nr_table_entries)
- 	 * after validation is complete.
- 	 */
- 	sk->sk_state = TCP_LISTEN;
--	if (!sk->sk_prot->get_port(sk, inet->num)) {
--		inet->sport = htons(inet->num);
-+	if (!sk->sk_prot->get_port(sk, inet->inet_num)) {
-+		inet->inet_sport = htons(inet->inet_num);
- 
- 		sk_dst_reset(sk);
- 		sk->sk_prot->hash(sk);
-@@ -693,8 +693,8 @@ void inet_csk_addr2sockaddr(struct sock *sk, struct sockaddr *uaddr)
- 	const struct inet_sock *inet = inet_sk(sk);
- 
- 	sin->sin_family		= AF_INET;
--	sin->sin_addr.s_addr	= inet->daddr;
--	sin->sin_port		= inet->dport;
-+	sin->sin_addr.s_addr	= inet->inet_daddr;
-+	sin->sin_port		= inet->inet_dport;
- }
- 
- EXPORT_SYMBOL_GPL(inet_csk_addr2sockaddr);
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index cb73fde..bdb78dd 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -116,10 +116,10 @@ static int inet_csk_diag_fill(struct sock *sk,
- 	r->id.idiag_cookie[0] = (u32)(unsigned long)sk;
- 	r->id.idiag_cookie[1] = (u32)(((unsigned long)sk >> 31) >> 1);
- 
--	r->id.idiag_sport = inet->sport;
--	r->id.idiag_dport = inet->dport;
--	r->id.idiag_src[0] = inet->rcv_saddr;
--	r->id.idiag_dst[0] = inet->daddr;
-+	r->id.idiag_sport = inet->inet_sport;
-+	r->id.idiag_dport = inet->inet_dport;
-+	r->id.idiag_src[0] = inet->inet_rcv_saddr;
-+	r->id.idiag_dst[0] = inet->inet_daddr;
- 
- #if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
- 	if (r->idiag_family == AF_INET6) {
-@@ -504,11 +504,11 @@ static int inet_csk_diag_dump(struct sock *sk,
- 		} else
- #endif
- 		{
--			entry.saddr = &inet->rcv_saddr;
--			entry.daddr = &inet->daddr;
-+			entry.saddr = &inet->inet_rcv_saddr;
-+			entry.daddr = &inet->inet_daddr;
- 		}
--		entry.sport = inet->num;
--		entry.dport = ntohs(inet->dport);
-+		entry.sport = inet->inet_num;
-+		entry.dport = ntohs(inet->inet_dport);
- 		entry.userlocks = sk->sk_userlocks;
- 
- 		if (!inet_diag_bc_run(RTA_DATA(bc), RTA_PAYLOAD(bc), &entry))
-@@ -584,7 +584,7 @@ static int inet_diag_fill_req(struct sk_buff *skb, struct sock *sk,
- 	if (tmo < 0)
- 		tmo = 0;
- 
--	r->id.idiag_sport = inet->sport;
-+	r->id.idiag_sport = inet->inet_sport;
- 	r->id.idiag_dport = ireq->rmt_port;
- 	r->id.idiag_src[0] = ireq->loc_addr;
- 	r->id.idiag_dst[0] = ireq->rmt_addr;
-@@ -639,7 +639,7 @@ static int inet_diag_dump_reqs(struct sk_buff *skb, struct sock *sk,
- 
- 	if (cb->nlh->nlmsg_len > 4 + NLMSG_SPACE(sizeof(*r))) {
- 		bc = (struct rtattr *)(r + 1);
--		entry.sport = inet->num;
-+		entry.sport = inet->inet_num;
- 		entry.userlocks = sk->sk_userlocks;
- 	}
- 
-@@ -732,7 +732,7 @@ static int inet_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 					continue;
- 				}
- 
--				if (r->id.idiag_sport != inet->sport &&
-+				if (r->id.idiag_sport != inet->inet_sport &&
- 				    r->id.idiag_sport)
- 					goto next_listen;
- 
-@@ -797,10 +797,10 @@ skip_listen_ht:
- 				goto next_normal;
- 			if (!(r->idiag_states & (1 << sk->sk_state)))
- 				goto next_normal;
--			if (r->id.idiag_sport != inet->sport &&
-+			if (r->id.idiag_sport != inet->inet_sport &&
- 			    r->id.idiag_sport)
- 				goto next_normal;
--			if (r->id.idiag_dport != inet->dport &&
-+			if (r->id.idiag_dport != inet->inet_dport &&
- 			    r->id.idiag_dport)
- 				goto next_normal;
- 			if (inet_csk_diag_dump(sk, skb, cb) < 0) {
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index a45aaf3..47ad7aa 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -64,7 +64,7 @@ void inet_bind_hash(struct sock *sk, struct inet_bind_bucket *tb,
- 
- 	atomic_inc(&hashinfo->bsockets);
- 
--	inet_sk(sk)->num = snum;
-+	inet_sk(sk)->inet_num = snum;
- 	sk_add_bind_node(sk, &tb->owners);
- 	tb->num_owners++;
- 	inet_csk(sk)->icsk_bind_hash = tb;
-@@ -76,7 +76,7 @@ void inet_bind_hash(struct sock *sk, struct inet_bind_bucket *tb,
- static void __inet_put_port(struct sock *sk)
- {
- 	struct inet_hashinfo *hashinfo = sk->sk_prot->h.hashinfo;
--	const int bhash = inet_bhashfn(sock_net(sk), inet_sk(sk)->num,
-+	const int bhash = inet_bhashfn(sock_net(sk), inet_sk(sk)->inet_num,
- 			hashinfo->bhash_size);
- 	struct inet_bind_hashbucket *head = &hashinfo->bhash[bhash];
- 	struct inet_bind_bucket *tb;
-@@ -88,7 +88,7 @@ static void __inet_put_port(struct sock *sk)
- 	__sk_del_bind_node(sk);
- 	tb->num_owners--;
- 	inet_csk(sk)->icsk_bind_hash = NULL;
--	inet_sk(sk)->num = 0;
-+	inet_sk(sk)->inet_num = 0;
- 	inet_bind_bucket_destroy(hashinfo->bind_bucket_cachep, tb);
- 	spin_unlock(&head->lock);
- }
-@@ -105,7 +105,7 @@ EXPORT_SYMBOL(inet_put_port);
- void __inet_inherit_port(struct sock *sk, struct sock *child)
- {
- 	struct inet_hashinfo *table = sk->sk_prot->h.hashinfo;
--	const int bhash = inet_bhashfn(sock_net(sk), inet_sk(child)->num,
-+	const int bhash = inet_bhashfn(sock_net(sk), inet_sk(child)->inet_num,
- 			table->bhash_size);
- 	struct inet_bind_hashbucket *head = &table->bhash[bhash];
- 	struct inet_bind_bucket *tb;
-@@ -126,9 +126,9 @@ static inline int compute_score(struct sock *sk, struct net *net,
- 	int score = -1;
- 	struct inet_sock *inet = inet_sk(sk);
- 
--	if (net_eq(sock_net(sk), net) && inet->num == hnum &&
-+	if (net_eq(sock_net(sk), net) && inet->inet_num == hnum &&
- 			!ipv6_only_sock(sk)) {
--		__be32 rcv_saddr = inet->rcv_saddr;
-+		__be32 rcv_saddr = inet->inet_rcv_saddr;
- 		score = sk->sk_family == PF_INET ? 1 : 0;
- 		if (rcv_saddr) {
- 			if (rcv_saddr != daddr)
-@@ -273,13 +273,14 @@ static int __inet_check_established(struct inet_timewait_death_row *death_row,
- {
- 	struct inet_hashinfo *hinfo = death_row->hashinfo;
- 	struct inet_sock *inet = inet_sk(sk);
--	__be32 daddr = inet->rcv_saddr;
--	__be32 saddr = inet->daddr;
-+	__be32 daddr = inet->inet_rcv_saddr;
-+	__be32 saddr = inet->inet_daddr;
- 	int dif = sk->sk_bound_dev_if;
- 	INET_ADDR_COOKIE(acookie, saddr, daddr)
--	const __portpair ports = INET_COMBINED_PORTS(inet->dport, lport);
-+	const __portpair ports = INET_COMBINED_PORTS(inet->inet_dport, lport);
- 	struct net *net = sock_net(sk);
--	unsigned int hash = inet_ehashfn(net, daddr, lport, saddr, inet->dport);
-+	unsigned int hash = inet_ehashfn(net, daddr, lport,
-+					 saddr, inet->inet_dport);
- 	struct inet_ehash_bucket *head = inet_ehash_bucket(hinfo, hash);
- 	spinlock_t *lock = inet_ehash_lockp(hinfo, hash);
- 	struct sock *sk2;
-@@ -312,8 +313,8 @@ static int __inet_check_established(struct inet_timewait_death_row *death_row,
- unique:
- 	/* Must record num and sport now. Otherwise we will see
- 	 * in hash table socket with a funny identity. */
--	inet->num = lport;
--	inet->sport = htons(lport);
-+	inet->inet_num = lport;
-+	inet->inet_sport = htons(lport);
- 	sk->sk_hash = hash;
- 	WARN_ON(!sk_unhashed(sk));
- 	__sk_nulls_add_node_rcu(sk, &head->chain);
-@@ -341,8 +342,9 @@ not_unique:
- static inline u32 inet_sk_port_offset(const struct sock *sk)
- {
- 	const struct inet_sock *inet = inet_sk(sk);
--	return secure_ipv4_port_ephemeral(inet->rcv_saddr, inet->daddr,
--					  inet->dport);
-+	return secure_ipv4_port_ephemeral(inet->inet_rcv_saddr,
-+					  inet->inet_daddr,
-+					  inet->inet_dport);
- }
- 
- void __inet_hash_nolisten(struct sock *sk)
-@@ -424,7 +426,7 @@ int __inet_hash_connect(struct inet_timewait_death_row *death_row,
- 		void (*hash)(struct sock *sk))
- {
- 	struct inet_hashinfo *hinfo = death_row->hashinfo;
--	const unsigned short snum = inet_sk(sk)->num;
-+	const unsigned short snum = inet_sk(sk)->inet_num;
- 	struct inet_bind_hashbucket *head;
- 	struct inet_bind_bucket *tb;
- 	int ret;
-@@ -485,7 +487,7 @@ ok:
- 		/* Head lock still held and bh's disabled */
- 		inet_bind_hash(sk, tb, port);
- 		if (sk_unhashed(sk)) {
--			inet_sk(sk)->sport = htons(port);
-+			inet_sk(sk)->inet_sport = htons(port);
- 			hash(sk);
- 		}
- 		spin_unlock(&head->lock);
-diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
-index 2fe5711..1f5d508 100644
---- a/net/ipv4/inet_timewait_sock.c
-+++ b/net/ipv4/inet_timewait_sock.c
-@@ -86,7 +86,7 @@ void __inet_twsk_hashdance(struct inet_timewait_sock *tw, struct sock *sk,
- 	   Note, that any socket with inet->num != 0 MUST be bound in
- 	   binding cache, even if it is closed.
- 	 */
--	bhead = &hashinfo->bhash[inet_bhashfn(twsk_net(tw), inet->num,
-+	bhead = &hashinfo->bhash[inet_bhashfn(twsk_net(tw), inet->inet_num,
- 			hashinfo->bhash_size)];
- 	spin_lock(&bhead->lock);
- 	tw->tw_tb = icsk->icsk_bind_hash;
-@@ -124,14 +124,14 @@ struct inet_timewait_sock *inet_twsk_alloc(const struct sock *sk, const int stat
- 		kmemcheck_annotate_bitfield(tw, flags);
- 
- 		/* Give us an identity. */
--		tw->tw_daddr	    = inet->daddr;
--		tw->tw_rcv_saddr    = inet->rcv_saddr;
-+		tw->tw_daddr	    = inet->inet_daddr;
-+		tw->tw_rcv_saddr    = inet->inet_rcv_saddr;
- 		tw->tw_bound_dev_if = sk->sk_bound_dev_if;
--		tw->tw_num	    = inet->num;
-+		tw->tw_num	    = inet->inet_num;
- 		tw->tw_state	    = TCP_TIME_WAIT;
- 		tw->tw_substate	    = state;
--		tw->tw_sport	    = inet->sport;
--		tw->tw_dport	    = inet->dport;
-+		tw->tw_sport	    = inet->inet_sport;
-+		tw->tw_dport	    = inet->inet_dport;
- 		tw->tw_family	    = sk->sk_family;
- 		tw->tw_reuse	    = sk->sk_reuse;
- 		tw->tw_hash	    = sk->sk_hash;
-diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-index 6c98b43..fdf51ba 100644
---- a/net/ipv4/ip_input.c
-+++ b/net/ipv4/ip_input.c
-@@ -161,7 +161,7 @@ int ip_call_ra_chain(struct sk_buff *skb)
- 		/* If socket is bound to an interface, only report
- 		 * the packet if it came  from that interface.
- 		 */
--		if (sk && inet_sk(sk)->num == protocol &&
-+		if (sk && inet_sk(sk)->inet_num == protocol &&
- 		    (!sk->sk_bound_dev_if ||
- 		     sk->sk_bound_dev_if == dev->ifindex) &&
- 		    sock_net(sk) == dev_net(dev)) {
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index f989518..322b408 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -329,7 +329,7 @@ int ip_queue_xmit(struct sk_buff *skb, int ipfragok)
- 		__be32 daddr;
- 
- 		/* Use correct destination address if we have options. */
--		daddr = inet->daddr;
-+		daddr = inet->inet_daddr;
- 		if(opt && opt->srr)
- 			daddr = opt->faddr;
- 
-@@ -338,13 +338,13 @@ int ip_queue_xmit(struct sk_buff *skb, int ipfragok)
- 					    .mark = sk->sk_mark,
- 					    .nl_u = { .ip4_u =
- 						      { .daddr = daddr,
--							.saddr = inet->saddr,
-+							.saddr = inet->inet_saddr,
- 							.tos = RT_CONN_FLAGS(sk) } },
- 					    .proto = sk->sk_protocol,
- 					    .flags = inet_sk_flowi_flags(sk),
- 					    .uli_u = { .ports =
--						       { .sport = inet->sport,
--							 .dport = inet->dport } } };
-+						       { .sport = inet->inet_sport,
-+							 .dport = inet->inet_dport } } };
- 
- 			/* If this fails, retransmit mechanism of transport layer will
- 			 * keep trying until route appears or the connection times
-@@ -379,7 +379,7 @@ packet_routed:
- 
- 	if (opt && opt->optlen) {
- 		iph->ihl += opt->optlen >> 2;
--		ip_options_build(skb, opt, inet->daddr, rt, 0);
-+		ip_options_build(skb, opt, inet->inet_daddr, rt, 0);
- 	}
- 
- 	ip_select_ident_more(iph, &rt->u.dst, sk,
-@@ -846,7 +846,8 @@ int ip_append_data(struct sock *sk,
- 	maxfraglen = ((mtu - fragheaderlen) & ~7) + fragheaderlen;
- 
- 	if (inet->cork.length + length > 0xFFFF - fragheaderlen) {
--		ip_local_error(sk, EMSGSIZE, rt->rt_dst, inet->dport, mtu-exthdrlen);
-+		ip_local_error(sk, EMSGSIZE, rt->rt_dst, inet->inet_dport,
-+			       mtu-exthdrlen);
- 		return -EMSGSIZE;
- 	}
- 
-@@ -1100,7 +1101,7 @@ ssize_t	ip_append_page(struct sock *sk, struct page *page,
- 	maxfraglen = ((mtu - fragheaderlen) & ~7) + fragheaderlen;
- 
- 	if (inet->cork.length + size > 0xFFFF - fragheaderlen) {
--		ip_local_error(sk, EMSGSIZE, rt->rt_dst, inet->dport, mtu);
-+		ip_local_error(sk, EMSGSIZE, rt->rt_dst, inet->inet_dport, mtu);
- 		return -EMSGSIZE;
- 	}
- 
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 0c0b6e3..c602d98 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -245,7 +245,7 @@ int ip_ra_control(struct sock *sk, unsigned char on,
- {
- 	struct ip_ra_chain *ra, *new_ra, **rap;
- 
--	if (sk->sk_type != SOCK_RAW || inet_sk(sk)->num == IPPROTO_RAW)
-+	if (sk->sk_type != SOCK_RAW || inet_sk(sk)->inet_num == IPPROTO_RAW)
- 		return -EINVAL;
- 
- 	new_ra = on ? kmalloc(sizeof(*new_ra), GFP_KERNEL) : NULL;
-@@ -492,7 +492,7 @@ static int do_ip_setsockopt(struct sock *sk, int level,
- 			if (sk->sk_family == PF_INET ||
- 			    (!((1 << sk->sk_state) &
- 			       (TCPF_LISTEN | TCPF_CLOSE)) &&
--			     inet->daddr != LOOPBACK4_IPV6)) {
-+			     inet->inet_daddr != LOOPBACK4_IPV6)) {
- #endif
- 				if (inet->opt)
- 					icsk->icsk_ext_hdr_len -= inet->opt->optlen;
-@@ -1181,8 +1181,8 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
- 		if (inet->cmsg_flags & IP_CMSG_PKTINFO) {
- 			struct in_pktinfo info;
- 
--			info.ipi_addr.s_addr = inet->rcv_saddr;
--			info.ipi_spec_dst.s_addr = inet->rcv_saddr;
-+			info.ipi_addr.s_addr = inet->inet_rcv_saddr;
-+			info.ipi_spec_dst.s_addr = inet->inet_rcv_saddr;
- 			info.ipi_ifindex = inet->mc_index;
- 			put_cmsg(&msg, SOL_IP, IP_PKTINFO, sizeof(info), &info);
- 		}
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index c757f0b..6949745 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -956,7 +956,7 @@ int ip_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, unsi
- 	switch (optname) {
- 	case MRT_INIT:
- 		if (sk->sk_type != SOCK_RAW ||
--		    inet_sk(sk)->num != IPPROTO_IGMP)
-+		    inet_sk(sk)->inet_num != IPPROTO_IGMP)
- 			return -EOPNOTSUPP;
- 		if (optlen != sizeof(int))
- 			return -ENOPROTOOPT;
-diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-index aa95bb8..9cd423f 100644
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-@@ -255,10 +255,10 @@ getorigdst(struct sock *sk, int optval, void __user *user, int *len)
- 	struct nf_conntrack_tuple tuple;
- 
- 	memset(&tuple, 0, sizeof(tuple));
--	tuple.src.u3.ip = inet->rcv_saddr;
--	tuple.src.u.tcp.port = inet->sport;
--	tuple.dst.u3.ip = inet->daddr;
--	tuple.dst.u.tcp.port = inet->dport;
-+	tuple.src.u3.ip = inet->inet_rcv_saddr;
-+	tuple.src.u.tcp.port = inet->inet_sport;
-+	tuple.dst.u3.ip = inet->inet_daddr;
-+	tuple.dst.u.tcp.port = inet->inet_dport;
- 	tuple.src.l3num = PF_INET;
- 	tuple.dst.protonum = sk->sk_protocol;
- 
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 39e2a6b..9ef8c08 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -87,7 +87,7 @@ void raw_hash_sk(struct sock *sk)
- 	struct raw_hashinfo *h = sk->sk_prot->h.raw_hash;
- 	struct hlist_head *head;
- 
--	head = &h->ht[inet_sk(sk)->num & (RAW_HTABLE_SIZE - 1)];
-+	head = &h->ht[inet_sk(sk)->inet_num & (RAW_HTABLE_SIZE - 1)];
- 
- 	write_lock_bh(&h->lock);
- 	sk_add_node(sk, head);
-@@ -115,9 +115,9 @@ static struct sock *__raw_v4_lookup(struct net *net, struct sock *sk,
- 	sk_for_each_from(sk, node) {
- 		struct inet_sock *inet = inet_sk(sk);
- 
--		if (net_eq(sock_net(sk), net) && inet->num == num	&&
--		    !(inet->daddr && inet->daddr != raddr) 		&&
--		    !(inet->rcv_saddr && inet->rcv_saddr != laddr)	&&
-+		if (net_eq(sock_net(sk), net) && inet->inet_num == num	&&
-+		    !(inet->inet_daddr && inet->inet_daddr != raddr) 	&&
-+		    !(inet->inet_rcv_saddr && inet->inet_rcv_saddr != laddr) &&
- 		    !(sk->sk_bound_dev_if && sk->sk_bound_dev_if != dif))
- 			goto found; /* gotcha */
- 	}
-@@ -326,7 +326,7 @@ static int raw_send_hdrinc(struct sock *sk, void *from, size_t length,
- 	int err;
- 
- 	if (length > rt->u.dst.dev->mtu) {
--		ip_local_error(sk, EMSGSIZE, rt->rt_dst, inet->dport,
-+		ip_local_error(sk, EMSGSIZE, rt->rt_dst, inet->inet_dport,
- 			       rt->u.dst.dev->mtu);
- 		return -EMSGSIZE;
- 	}
-@@ -489,10 +489,10 @@ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		err = -EDESTADDRREQ;
- 		if (sk->sk_state != TCP_ESTABLISHED)
- 			goto out;
--		daddr = inet->daddr;
-+		daddr = inet->inet_daddr;
- 	}
- 
--	ipc.addr = inet->saddr;
-+	ipc.addr = inet->inet_saddr;
- 	ipc.opt = NULL;
- 	ipc.shtx.flags = 0;
- 	ipc.oif = sk->sk_bound_dev_if;
-@@ -634,9 +634,9 @@ static int raw_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	if (addr->sin_addr.s_addr && chk_addr_ret != RTN_LOCAL &&
- 	    chk_addr_ret != RTN_MULTICAST && chk_addr_ret != RTN_BROADCAST)
- 		goto out;
--	inet->rcv_saddr = inet->saddr = addr->sin_addr.s_addr;
-+	inet->inet_rcv_saddr = inet->inet_saddr = addr->sin_addr.s_addr;
- 	if (chk_addr_ret == RTN_MULTICAST || chk_addr_ret == RTN_BROADCAST)
--		inet->saddr = 0;  /* Use device */
-+		inet->inet_saddr = 0;  /* Use device */
- 	sk_dst_reset(sk);
- 	ret = 0;
- out:	return ret;
-@@ -706,7 +706,7 @@ static int raw_init(struct sock *sk)
- {
- 	struct raw_sock *rp = raw_sk(sk);
- 
--	if (inet_sk(sk)->num == IPPROTO_ICMP)
-+	if (inet_sk(sk)->inet_num == IPPROTO_ICMP)
- 		memset(&rp->filter, 0, sizeof(rp->filter));
- 	return 0;
- }
-@@ -743,7 +743,7 @@ static int do_raw_setsockopt(struct sock *sk, int level, int optname,
- 			  char __user *optval, unsigned int optlen)
- {
- 	if (optname == ICMP_FILTER) {
--		if (inet_sk(sk)->num != IPPROTO_ICMP)
-+		if (inet_sk(sk)->inet_num != IPPROTO_ICMP)
- 			return -EOPNOTSUPP;
- 		else
- 			return raw_seticmpfilter(sk, optval, optlen);
-@@ -773,7 +773,7 @@ static int do_raw_getsockopt(struct sock *sk, int level, int optname,
- 			  char __user *optval, int __user *optlen)
- {
- 	if (optname == ICMP_FILTER) {
--		if (inet_sk(sk)->num != IPPROTO_ICMP)
-+		if (inet_sk(sk)->inet_num != IPPROTO_ICMP)
- 			return -EOPNOTSUPP;
- 		else
- 			return raw_geticmpfilter(sk, optval, optlen);
-@@ -932,10 +932,10 @@ EXPORT_SYMBOL_GPL(raw_seq_stop);
- static void raw_sock_seq_show(struct seq_file *seq, struct sock *sp, int i)
- {
- 	struct inet_sock *inet = inet_sk(sp);
--	__be32 dest = inet->daddr,
--	       src = inet->rcv_saddr;
-+	__be32 dest = inet->inet_daddr,
-+	       src = inet->inet_rcv_saddr;
- 	__u16 destp = 0,
--	      srcp  = inet->num;
-+	      srcp  = inet->inet_num;
- 
- 	seq_printf(seq, "%4d: %08X:%04X %08X:%04X"
- 		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p %d\n",
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index cf13726..206a291 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1998,7 +1998,7 @@ int tcp_disconnect(struct sock *sk, int flags)
- 	__skb_queue_purge(&sk->sk_async_wait_queue);
- #endif
- 
--	inet->dport = 0;
-+	inet->inet_dport = 0;
- 
- 	if (!(sk->sk_userlocks & SOCK_BINDADDR_LOCK))
- 		inet_reset_saddr(sk);
-@@ -2022,7 +2022,7 @@ int tcp_disconnect(struct sock *sk, int flags)
- 	memset(&tp->rx_opt, 0, sizeof(tp->rx_opt));
- 	__sk_dst_reset(sk);
- 
--	WARN_ON(inet->num && !icsk->icsk_bind_hash);
-+	WARN_ON(inet->inet_num && !icsk->icsk_bind_hash);
- 
- 	sk->sk_error_report(sk);
- 	return err;
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 9971870..a4a3390 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -165,10 +165,10 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 		nexthop = inet->opt->faddr;
- 	}
- 
--	tmp = ip_route_connect(&rt, nexthop, inet->saddr,
-+	tmp = ip_route_connect(&rt, nexthop, inet->inet_saddr,
- 			       RT_CONN_FLAGS(sk), sk->sk_bound_dev_if,
- 			       IPPROTO_TCP,
--			       inet->sport, usin->sin_port, sk, 1);
-+			       inet->inet_sport, usin->sin_port, sk, 1);
- 	if (tmp < 0) {
- 		if (tmp == -ENETUNREACH)
- 			IP_INC_STATS_BH(sock_net(sk), IPSTATS_MIB_OUTNOROUTES);
-@@ -183,11 +183,11 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	if (!inet->opt || !inet->opt->srr)
- 		daddr = rt->rt_dst;
- 
--	if (!inet->saddr)
--		inet->saddr = rt->rt_src;
--	inet->rcv_saddr = inet->saddr;
-+	if (!inet->inet_saddr)
-+		inet->inet_saddr = rt->rt_src;
-+	inet->inet_rcv_saddr = inet->inet_saddr;
- 
--	if (tp->rx_opt.ts_recent_stamp && inet->daddr != daddr) {
-+	if (tp->rx_opt.ts_recent_stamp && inet->inet_daddr != daddr) {
- 		/* Reset inherited state */
- 		tp->rx_opt.ts_recent	   = 0;
- 		tp->rx_opt.ts_recent_stamp = 0;
-@@ -210,8 +210,8 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 		}
- 	}
- 
--	inet->dport = usin->sin_port;
--	inet->daddr = daddr;
-+	inet->inet_dport = usin->sin_port;
-+	inet->inet_daddr = daddr;
- 
- 	inet_csk(sk)->icsk_ext_hdr_len = 0;
- 	if (inet->opt)
-@@ -230,7 +230,7 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 		goto failure;
- 
- 	err = ip_route_newports(&rt, IPPROTO_TCP,
--				inet->sport, inet->dport, sk);
-+				inet->inet_sport, inet->inet_dport, sk);
- 	if (err)
- 		goto failure;
- 
-@@ -239,12 +239,12 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	sk_setup_caps(sk, &rt->u.dst);
- 
- 	if (!tp->write_seq)
--		tp->write_seq = secure_tcp_sequence_number(inet->saddr,
--							   inet->daddr,
--							   inet->sport,
-+		tp->write_seq = secure_tcp_sequence_number(inet->inet_saddr,
-+							   inet->inet_daddr,
-+							   inet->inet_sport,
- 							   usin->sin_port);
- 
--	inet->id = tp->write_seq ^ jiffies;
-+	inet->inet_id = tp->write_seq ^ jiffies;
- 
- 	err = tcp_connect(sk);
- 	rt = NULL;
-@@ -261,7 +261,7 @@ failure:
- 	tcp_set_state(sk, TCP_CLOSE);
- 	ip_rt_put(rt);
- 	sk->sk_route_caps = 0;
--	inet->dport = 0;
-+	inet->inet_dport = 0;
- 	return err;
- }
- 
-@@ -520,12 +520,13 @@ void tcp_v4_send_check(struct sock *sk, int len, struct sk_buff *skb)
- 	struct tcphdr *th = tcp_hdr(skb);
- 
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		th->check = ~tcp_v4_check(len, inet->saddr,
--					  inet->daddr, 0);
-+		th->check = ~tcp_v4_check(len, inet->inet_saddr,
-+					  inet->inet_daddr, 0);
- 		skb->csum_start = skb_transport_header(skb) - skb->head;
- 		skb->csum_offset = offsetof(struct tcphdr, check);
- 	} else {
--		th->check = tcp_v4_check(len, inet->saddr, inet->daddr,
-+		th->check = tcp_v4_check(len, inet->inet_saddr,
-+					 inet->inet_daddr,
- 					 csum_partial(th,
- 						      th->doff << 2,
- 						      skb->csum));
-@@ -848,7 +849,7 @@ static struct tcp_md5sig_key *
- struct tcp_md5sig_key *tcp_v4_md5_lookup(struct sock *sk,
- 					 struct sock *addr_sk)
- {
--	return tcp_v4_md5_do_lookup(sk, inet_sk(addr_sk)->daddr);
-+	return tcp_v4_md5_do_lookup(sk, inet_sk(addr_sk)->inet_daddr);
- }
- 
- EXPORT_SYMBOL(tcp_v4_md5_lookup);
-@@ -923,7 +924,7 @@ EXPORT_SYMBOL(tcp_v4_md5_do_add);
- static int tcp_v4_md5_add_func(struct sock *sk, struct sock *addr_sk,
- 			       u8 *newkey, u8 newkeylen)
- {
--	return tcp_v4_md5_do_add(sk, inet_sk(addr_sk)->daddr,
-+	return tcp_v4_md5_do_add(sk, inet_sk(addr_sk)->inet_daddr,
- 				 newkey, newkeylen);
- }
- 
-@@ -1089,8 +1090,8 @@ int tcp_v4_md5_hash_skb(char *md5_hash, struct tcp_md5sig_key *key,
- 	__be32 saddr, daddr;
- 
- 	if (sk) {
--		saddr = inet_sk(sk)->saddr;
--		daddr = inet_sk(sk)->daddr;
-+		saddr = inet_sk(sk)->inet_saddr;
-+		daddr = inet_sk(sk)->inet_daddr;
- 	} else if (req) {
- 		saddr = inet_rsk(req)->loc_addr;
- 		daddr = inet_rsk(req)->rmt_addr;
-@@ -1380,9 +1381,9 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 	newtp		      = tcp_sk(newsk);
- 	newinet		      = inet_sk(newsk);
- 	ireq		      = inet_rsk(req);
--	newinet->daddr	      = ireq->rmt_addr;
--	newinet->rcv_saddr    = ireq->loc_addr;
--	newinet->saddr	      = ireq->loc_addr;
-+	newinet->inet_daddr   = ireq->rmt_addr;
-+	newinet->inet_rcv_saddr = ireq->loc_addr;
-+	newinet->inet_saddr	      = ireq->loc_addr;
- 	newinet->opt	      = ireq->opt;
- 	ireq->opt	      = NULL;
- 	newinet->mc_index     = inet_iif(skb);
-@@ -1390,7 +1391,7 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 	inet_csk(newsk)->icsk_ext_hdr_len = 0;
- 	if (newinet->opt)
- 		inet_csk(newsk)->icsk_ext_hdr_len = newinet->opt->optlen;
--	newinet->id = newtp->write_seq ^ jiffies;
-+	newinet->inet_id = newtp->write_seq ^ jiffies;
- 
- 	tcp_mtup_init(newsk);
- 	tcp_sync_mss(newsk, dst_mtu(dst));
-@@ -1403,7 +1404,8 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 
- #ifdef CONFIG_TCP_MD5SIG
- 	/* Copy over the MD5 key from the original socket */
--	if ((key = tcp_v4_md5_do_lookup(sk, newinet->daddr)) != NULL) {
-+	key = tcp_v4_md5_do_lookup(sk, newinet->inet_daddr);
-+	if (key != NULL) {
- 		/*
- 		 * We're using one, so create a matching key
- 		 * on the newsk structure. If we fail to get
-@@ -1412,7 +1414,7 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 		 */
- 		char *newkey = kmemdup(key->key, key->keylen, GFP_ATOMIC);
- 		if (newkey != NULL)
--			tcp_v4_md5_do_add(newsk, newinet->daddr,
-+			tcp_v4_md5_do_add(newsk, newinet->inet_daddr,
- 					  newkey, key->keylen);
- 		newsk->sk_route_caps &= ~NETIF_F_GSO_MASK;
- 	}
-@@ -1711,8 +1713,8 @@ int tcp_v4_remember_stamp(struct sock *sk)
- 	struct inet_peer *peer = NULL;
- 	int release_it = 0;
- 
--	if (!rt || rt->rt_dst != inet->daddr) {
--		peer = inet_getpeer(inet->daddr, 1);
-+	if (!rt || rt->rt_dst != inet->inet_daddr) {
-+		peer = inet_getpeer(inet->inet_daddr, 1);
- 		release_it = 1;
- 	} else {
- 		if (!rt->peer)
-@@ -2225,7 +2227,7 @@ static void get_openreq4(struct sock *sk, struct request_sock *req,
- 		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %u %d %p%n",
- 		i,
- 		ireq->loc_addr,
--		ntohs(inet_sk(sk)->sport),
-+		ntohs(inet_sk(sk)->inet_sport),
- 		ireq->rmt_addr,
- 		ntohs(ireq->rmt_port),
- 		TCP_SYN_RECV,
-@@ -2248,10 +2250,10 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i, int *len)
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct inet_sock *inet = inet_sk(sk);
--	__be32 dest = inet->daddr;
--	__be32 src = inet->rcv_saddr;
--	__u16 destp = ntohs(inet->dport);
--	__u16 srcp = ntohs(inet->sport);
-+	__be32 dest = inet->inet_daddr;
-+	__be32 src = inet->inet_rcv_saddr;
-+	__u16 destp = ntohs(inet->inet_dport);
-+	__u16 srcp = ntohs(inet->inet_sport);
- 
- 	if (icsk->icsk_pending == ICSK_TIME_RETRANS) {
- 		timer_active	= 1;
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index fcd278a..2e2eb74 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -661,8 +661,8 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 
- 	/* Build TCP header and checksum it. */
- 	th = tcp_hdr(skb);
--	th->source		= inet->sport;
--	th->dest		= inet->dport;
-+	th->source		= inet->inet_sport;
-+	th->dest		= inet->inet_dport;
- 	th->seq			= htonl(tcb->seq);
- 	th->ack_seq		= htonl(tp->rcv_nxt);
- 	*(((__be16 *)th) + 6)	= htons(((tcp_header_size >> 2) << 12) |
-diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
-index 59f5b5e..7a3cc2f 100644
---- a/net/ipv4/tcp_probe.c
-+++ b/net/ipv4/tcp_probe.c
-@@ -94,7 +94,8 @@ static int jtcp_rcv_established(struct sock *sk, struct sk_buff *skb,
- 	const struct inet_sock *inet = inet_sk(sk);
- 
- 	/* Only update if port matches */
--	if ((port == 0 || ntohs(inet->dport) == port || ntohs(inet->sport) == port)
-+	if ((port == 0 || ntohs(inet->inet_dport) == port ||
-+	     ntohs(inet->inet_sport) == port)
- 	    && (full || tp->snd_cwnd != tcp_probe.lastcwnd)) {
- 
- 		spin_lock(&tcp_probe.lock);
-@@ -103,10 +104,10 @@ static int jtcp_rcv_established(struct sock *sk, struct sk_buff *skb,
- 			struct tcp_log *p = tcp_probe.log + tcp_probe.head;
- 
- 			p->tstamp = ktime_get();
--			p->saddr = inet->saddr;
--			p->sport = inet->sport;
--			p->daddr = inet->daddr;
--			p->dport = inet->dport;
-+			p->saddr = inet->inet_saddr;
-+			p->sport = inet->inet_sport;
-+			p->daddr = inet->inet_daddr;
-+			p->dport = inet->inet_dport;
- 			p->length = skb->len;
- 			p->snd_nxt = tp->snd_nxt;
- 			p->snd_una = tp->snd_una;
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index cdb2ca7..6e8996c 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -303,15 +303,15 @@ void tcp_retransmit_timer(struct sock *sk)
- 		struct inet_sock *inet = inet_sk(sk);
- 		if (sk->sk_family == AF_INET) {
- 			LIMIT_NETDEBUG(KERN_DEBUG "TCP: Peer %pI4:%u/%u unexpectedly shrunk window %u:%u (repaired)\n",
--			       &inet->daddr, ntohs(inet->dport),
--			       inet->num, tp->snd_una, tp->snd_nxt);
-+			       &inet->inet_daddr, ntohs(inet->inet_dport),
-+			       inet->inet_num, tp->snd_una, tp->snd_nxt);
- 		}
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- 		else if (sk->sk_family == AF_INET6) {
- 			struct ipv6_pinfo *np = inet6_sk(sk);
- 			LIMIT_NETDEBUG(KERN_DEBUG "TCP: Peer %pI6:%u/%u unexpectedly shrunk window %u:%u (repaired)\n",
--			       &np->daddr, ntohs(inet->dport),
--			       inet->num, tp->snd_una, tp->snd_nxt);
-+			       &np->daddr, ntohs(inet->inet_dport),
-+			       inet->inet_num, tp->snd_una, tp->snd_nxt);
- 		}
- #endif
- #endif
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 45a8a7e..ec5c7a7 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -214,7 +214,7 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
- 			goto fail_unlock;
- 	}
- found:
--	inet_sk(sk)->num = snum;
-+	inet_sk(sk)->inet_num = snum;
- 	sk->sk_hash = snum;
- 	if (sk_unhashed(sk)) {
- 		sk_nulls_add_node_rcu(sk, &hslot->head);
-@@ -233,8 +233,8 @@ static int ipv4_rcv_saddr_equal(const struct sock *sk1, const struct sock *sk2)
- 	struct inet_sock *inet1 = inet_sk(sk1), *inet2 = inet_sk(sk2);
- 
- 	return 	(!ipv6_only_sock(sk2)  &&
--		 (!inet1->rcv_saddr || !inet2->rcv_saddr ||
--		   inet1->rcv_saddr == inet2->rcv_saddr));
-+		 (!inet1->inet_rcv_saddr || !inet2->inet_rcv_saddr ||
-+		   inet1->inet_rcv_saddr == inet2->inet_rcv_saddr));
- }
- 
- int udp_v4_get_port(struct sock *sk, unsigned short snum)
-@@ -253,18 +253,18 @@ static inline int compute_score(struct sock *sk, struct net *net, __be32 saddr,
- 		struct inet_sock *inet = inet_sk(sk);
- 
- 		score = (sk->sk_family == PF_INET ? 1 : 0);
--		if (inet->rcv_saddr) {
--			if (inet->rcv_saddr != daddr)
-+		if (inet->inet_rcv_saddr) {
-+			if (inet->inet_rcv_saddr != daddr)
- 				return -1;
- 			score += 2;
- 		}
--		if (inet->daddr) {
--			if (inet->daddr != saddr)
-+		if (inet->inet_daddr) {
-+			if (inet->inet_daddr != saddr)
- 				return -1;
- 			score += 2;
- 		}
--		if (inet->dport) {
--			if (inet->dport != sport)
-+		if (inet->inet_dport) {
-+			if (inet->inet_dport != sport)
- 				return -1;
- 			score += 2;
- 		}
-@@ -360,9 +360,10 @@ static inline struct sock *udp_v4_mcast_next(struct net *net, struct sock *sk,
- 
- 		if (!net_eq(sock_net(s), net)				||
- 		    s->sk_hash != hnum					||
--		    (inet->daddr && inet->daddr != rmt_addr)		||
--		    (inet->dport != rmt_port && inet->dport)		||
--		    (inet->rcv_saddr && inet->rcv_saddr != loc_addr)	||
-+		    (inet->inet_daddr && inet->inet_daddr != rmt_addr)	||
-+		    (inet->inet_dport != rmt_port && inet->inet_dport)	||
-+		    (inet->inet_rcv_saddr	&&
-+		     inet->inet_rcv_saddr != loc_addr)			||
- 		    ipv6_only_sock(s)					||
- 		    (s->sk_bound_dev_if && s->sk_bound_dev_if != dif))
- 			continue;
-@@ -646,14 +647,14 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	} else {
- 		if (sk->sk_state != TCP_ESTABLISHED)
- 			return -EDESTADDRREQ;
--		daddr = inet->daddr;
--		dport = inet->dport;
-+		daddr = inet->inet_daddr;
-+		dport = inet->inet_dport;
- 		/* Open fast path for connected socket.
- 		   Route will not be used, if at least one option is set.
- 		 */
- 		connected = 1;
- 	}
--	ipc.addr = inet->saddr;
-+	ipc.addr = inet->inet_saddr;
- 
- 	ipc.oif = sk->sk_bound_dev_if;
- 	err = sock_tx_timestamp(msg, sk, &ipc.shtx);
-@@ -708,7 +709,7 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 				    .proto = sk->sk_protocol,
- 				    .flags = inet_sk_flowi_flags(sk),
- 				    .uli_u = { .ports =
--					       { .sport = inet->sport,
-+					       { .sport = inet->inet_sport,
- 						 .dport = dport } } };
- 		struct net *net = sock_net(sk);
- 
-@@ -752,7 +753,7 @@ back_from_confirm:
- 	inet->cork.fl.fl4_dst = daddr;
- 	inet->cork.fl.fl_ip_dport = dport;
- 	inet->cork.fl.fl4_src = saddr;
--	inet->cork.fl.fl_ip_sport = inet->sport;
-+	inet->cork.fl.fl_ip_sport = inet->inet_sport;
- 	up->pending = AF_INET;
- 
- do_append_data:
-@@ -1029,15 +1030,15 @@ int udp_disconnect(struct sock *sk, int flags)
- 	 */
- 
- 	sk->sk_state = TCP_CLOSE;
--	inet->daddr = 0;
--	inet->dport = 0;
-+	inet->inet_daddr = 0;
-+	inet->inet_dport = 0;
- 	sk->sk_bound_dev_if = 0;
- 	if (!(sk->sk_userlocks & SOCK_BINDADDR_LOCK))
- 		inet_reset_saddr(sk);
- 
- 	if (!(sk->sk_userlocks & SOCK_BINDPORT_LOCK)) {
- 		sk->sk_prot->unhash(sk);
--		inet->sport = 0;
-+		inet->inet_sport = 0;
- 	}
- 	sk_dst_reset(sk);
- 	return 0;
-@@ -1053,7 +1054,7 @@ void udp_lib_unhash(struct sock *sk)
- 
- 		spin_lock_bh(&hslot->lock);
- 		if (sk_nulls_del_node_init_rcu(sk)) {
--			inet_sk(sk)->num = 0;
-+			inet_sk(sk)->inet_num = 0;
- 			sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
- 		}
- 		spin_unlock_bh(&hslot->lock);
-@@ -1752,10 +1753,10 @@ static void udp4_format_sock(struct sock *sp, struct seq_file *f,
- 		int bucket, int *len)
- {
- 	struct inet_sock *inet = inet_sk(sp);
--	__be32 dest = inet->daddr;
--	__be32 src  = inet->rcv_saddr;
--	__u16 destp	  = ntohs(inet->dport);
--	__u16 srcp	  = ntohs(inet->sport);
-+	__be32 dest = inet->inet_daddr;
-+	__be32 src  = inet->inet_rcv_saddr;
-+	__u16 destp	  = ntohs(inet->inet_dport);
-+	__u16 srcp	  = ntohs(inet->inet_sport);
- 
- 	seq_printf(f, "%5d: %08X:%04X %08X:%04X"
- 		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p %d%n",
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 9421651..b6d0588 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -185,7 +185,7 @@ lookup_protocol:
- 	inet->is_icsk = (INET_PROTOSW_ICSK & answer_flags) != 0;
- 
- 	if (SOCK_RAW == sock->type) {
--		inet->num = protocol;
-+		inet->inet_num = protocol;
- 		if (IPPROTO_RAW == protocol)
- 			inet->hdrincl = 1;
- 	}
-@@ -228,12 +228,12 @@ lookup_protocol:
- 	 */
- 	sk_refcnt_debug_inc(sk);
- 
--	if (inet->num) {
-+	if (inet->inet_num) {
- 		/* It assumes that any protocol which allows
- 		 * the user to assign a number at socket
- 		 * creation time automatically shares.
- 		 */
--		inet->sport = htons(inet->num);
-+		inet->inet_sport = htons(inet->inet_num);
- 		sk->sk_prot->hash(sk);
- 	}
- 	if (sk->sk_prot->init) {
-@@ -281,7 +281,7 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 	lock_sock(sk);
- 
- 	/* Check these errors (active socket, double bind). */
--	if (sk->sk_state != TCP_CLOSE || inet->num) {
-+	if (sk->sk_state != TCP_CLOSE || inet->inet_num) {
- 		err = -EINVAL;
- 		goto out;
- 	}
-@@ -353,8 +353,8 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 		}
- 	}
- 
--	inet->rcv_saddr = v4addr;
--	inet->saddr = v4addr;
-+	inet->inet_rcv_saddr = v4addr;
-+	inet->inet_saddr = v4addr;
- 
- 	ipv6_addr_copy(&np->rcv_saddr, &addr->sin6_addr);
- 
-@@ -375,9 +375,9 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 	}
- 	if (snum)
- 		sk->sk_userlocks |= SOCK_BINDPORT_LOCK;
--	inet->sport = htons(inet->num);
--	inet->dport = 0;
--	inet->daddr = 0;
-+	inet->inet_sport = htons(inet->inet_num);
-+	inet->inet_dport = 0;
-+	inet->inet_daddr = 0;
- out:
- 	release_sock(sk);
- 	return err;
-@@ -441,12 +441,12 @@ int inet6_getname(struct socket *sock, struct sockaddr *uaddr,
- 	sin->sin6_flowinfo = 0;
- 	sin->sin6_scope_id = 0;
- 	if (peer) {
--		if (!inet->dport)
-+		if (!inet->inet_dport)
- 			return -ENOTCONN;
- 		if (((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_SYN_SENT)) &&
- 		    peer == 1)
- 			return -ENOTCONN;
--		sin->sin6_port = inet->dport;
-+		sin->sin6_port = inet->inet_dport;
- 		ipv6_addr_copy(&sin->sin6_addr, &np->daddr);
- 		if (np->sndflow)
- 			sin->sin6_flowinfo = np->flow_label;
-@@ -456,7 +456,7 @@ int inet6_getname(struct socket *sock, struct sockaddr *uaddr,
- 		else
- 			ipv6_addr_copy(&sin->sin6_addr, &np->rcv_saddr);
- 
--		sin->sin6_port = inet->sport;
-+		sin->sin6_port = inet->inet_sport;
- 	}
- 	if (ipv6_addr_type(&sin->sin6_addr) & IPV6_ADDR_LINKLOCAL)
- 		sin->sin6_scope_id = sk->sk_bound_dev_if;
-@@ -655,8 +655,8 @@ int inet6_sk_rebuild_header(struct sock *sk)
- 		fl.fl6_flowlabel = np->flow_label;
- 		fl.oif = sk->sk_bound_dev_if;
- 		fl.mark = sk->sk_mark;
--		fl.fl_ip_dport = inet->dport;
--		fl.fl_ip_sport = inet->sport;
-+		fl.fl_ip_dport = inet->inet_dport;
-+		fl.fl_ip_sport = inet->inet_sport;
- 		security_sk_classify_flow(sk, &fl);
- 
- 		if (np->opt && np->opt->srcrt) {
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index dbfec71..9f70452 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -98,13 +98,14 @@ ipv4_connected:
- 		if (err)
- 			goto out;
- 
--		ipv6_addr_set_v4mapped(inet->daddr, &np->daddr);
-+		ipv6_addr_set_v4mapped(inet->inet_daddr, &np->daddr);
- 
- 		if (ipv6_addr_any(&np->saddr))
--			ipv6_addr_set_v4mapped(inet->saddr, &np->saddr);
-+			ipv6_addr_set_v4mapped(inet->inet_saddr, &np->saddr);
- 
- 		if (ipv6_addr_any(&np->rcv_saddr))
--			ipv6_addr_set_v4mapped(inet->rcv_saddr, &np->rcv_saddr);
-+			ipv6_addr_set_v4mapped(inet->inet_rcv_saddr,
-+					       &np->rcv_saddr);
- 
- 		goto out;
- 	}
-@@ -133,7 +134,7 @@ ipv4_connected:
- 	ipv6_addr_copy(&np->daddr, daddr);
- 	np->flow_label = fl.fl6_flowlabel;
- 
--	inet->dport = usin->sin6_port;
-+	inet->inet_dport = usin->sin6_port;
- 
- 	/*
- 	 *	Check for a route to destination an obtain the
-@@ -145,8 +146,8 @@ ipv4_connected:
- 	ipv6_addr_copy(&fl.fl6_src, &np->saddr);
- 	fl.oif = sk->sk_bound_dev_if;
- 	fl.mark = sk->sk_mark;
--	fl.fl_ip_dport = inet->dport;
--	fl.fl_ip_sport = inet->sport;
-+	fl.fl_ip_dport = inet->inet_dport;
-+	fl.fl_ip_sport = inet->inet_sport;
- 
- 	if (!fl.oif && (addr_type&IPV6_ADDR_MULTICAST))
- 		fl.oif = np->mcast_oif;
-@@ -188,7 +189,7 @@ ipv4_connected:
- 
- 	if (ipv6_addr_any(&np->rcv_saddr)) {
- 		ipv6_addr_copy(&np->rcv_saddr, &fl.fl6_src);
--		inet->rcv_saddr = LOOPBACK4_IPV6;
-+		inet->inet_rcv_saddr = LOOPBACK4_IPV6;
- 	}
- 
- 	ip6_dst_store(sk, dst,
-diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
-index a9f4a21..19dceef 100644
---- a/net/ipv6/inet6_connection_sock.c
-+++ b/net/ipv6/inet6_connection_sock.c
-@@ -132,7 +132,7 @@ void inet6_csk_addr2sockaddr(struct sock *sk, struct sockaddr * uaddr)
- 
- 	sin6->sin6_family = AF_INET6;
- 	ipv6_addr_copy(&sin6->sin6_addr, &np->daddr);
--	sin6->sin6_port	= inet_sk(sk)->dport;
-+	sin6->sin6_port	= inet_sk(sk)->inet_dport;
- 	/* We do not store received flowlabel for TCP */
- 	sin6->sin6_flowinfo = 0;
- 	sin6->sin6_scope_id = 0;
-@@ -195,8 +195,8 @@ int inet6_csk_xmit(struct sk_buff *skb, int ipfragok)
- 	IP6_ECN_flow_xmit(sk, fl.fl6_flowlabel);
- 	fl.oif = sk->sk_bound_dev_if;
- 	fl.mark = sk->sk_mark;
--	fl.fl_ip_sport = inet->sport;
--	fl.fl_ip_dport = inet->dport;
-+	fl.fl_ip_sport = inet->inet_sport;
-+	fl.fl_ip_dport = inet->inet_dport;
- 	security_sk_classify_flow(sk, &fl);
- 
- 	if (np->opt && np->opt->srcrt) {
-diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-index 874aed8..00c6a3e 100644
---- a/net/ipv6/inet6_hashtables.c
-+++ b/net/ipv6/inet6_hashtables.c
-@@ -125,7 +125,7 @@ static int inline compute_score(struct sock *sk, struct net *net,
- {
- 	int score = -1;
- 
--	if (net_eq(sock_net(sk), net) && inet_sk(sk)->num == hnum &&
-+	if (net_eq(sock_net(sk), net) && inet_sk(sk)->inet_num == hnum &&
- 	    sk->sk_family == PF_INET6) {
- 		const struct ipv6_pinfo *np = inet6_sk(sk);
- 
-@@ -214,10 +214,10 @@ static int __inet6_check_established(struct inet_timewait_death_row *death_row,
- 	const struct in6_addr *daddr = &np->rcv_saddr;
- 	const struct in6_addr *saddr = &np->daddr;
- 	const int dif = sk->sk_bound_dev_if;
--	const __portpair ports = INET_COMBINED_PORTS(inet->dport, lport);
-+	const __portpair ports = INET_COMBINED_PORTS(inet->inet_dport, lport);
- 	struct net *net = sock_net(sk);
- 	const unsigned int hash = inet6_ehashfn(net, daddr, lport, saddr,
--						inet->dport);
-+						inet->inet_dport);
- 	struct inet_ehash_bucket *head = inet_ehash_bucket(hinfo, hash);
- 	spinlock_t *lock = inet_ehash_lockp(hinfo, hash);
- 	struct sock *sk2;
-@@ -248,8 +248,8 @@ static int __inet6_check_established(struct inet_timewait_death_row *death_row,
- unique:
- 	/* Must record num and sport now. Otherwise we will see
- 	 * in hash table socket with a funny identity. */
--	inet->num = lport;
--	inet->sport = htons(lport);
-+	inet->inet_num = lport;
-+	inet->inet_sport = htons(lport);
- 	WARN_ON(!sk_unhashed(sk));
- 	__sk_nulls_add_node_rcu(sk, &head->chain);
- 	sk->sk_hash = hash;
-@@ -279,7 +279,7 @@ static inline u32 inet6_sk_port_offset(const struct sock *sk)
- 	const struct ipv6_pinfo *np = inet6_sk(sk);
- 	return secure_ipv6_port_ephemeral(np->rcv_saddr.s6_addr32,
- 					  np->daddr.s6_addr32,
--					  inet->dport);
-+					  inet->inet_dport);
- }
- 
- int inet6_hash_connect(struct inet_timewait_death_row *death_row,
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index 7161539..85849b4 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -1297,7 +1297,7 @@ int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, uns
- 	switch (optname) {
- 	case MRT6_INIT:
- 		if (sk->sk_type != SOCK_RAW ||
--		    inet_sk(sk)->num != IPPROTO_ICMPV6)
-+		    inet_sk(sk)->inet_num != IPPROTO_ICMPV6)
- 			return -EOPNOTSUPP;
- 		if (optlen < sizeof(int))
- 			return -EINVAL;
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index dc0f736..39e10ac 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -64,7 +64,7 @@ int ip6_ra_control(struct sock *sk, int sel)
- 	struct ip6_ra_chain *ra, *new_ra, **rap;
- 
- 	/* RA packet may be delivered ONLY to IPPROTO_RAW socket */
--	if (sk->sk_type != SOCK_RAW || inet_sk(sk)->num != IPPROTO_RAW)
-+	if (sk->sk_type != SOCK_RAW || inet_sk(sk)->inet_num != IPPROTO_RAW)
- 		return -ENOPROTOOPT;
- 
- 	new_ra = (sel>=0) ? kmalloc(sizeof(*new_ra), GFP_KERNEL) : NULL;
-@@ -106,7 +106,7 @@ struct ipv6_txoptions *ipv6_update_options(struct sock *sk,
- 	if (inet_sk(sk)->is_icsk) {
- 		if (opt &&
- 		    !((1 << sk->sk_state) & (TCPF_LISTEN | TCPF_CLOSE)) &&
--		    inet_sk(sk)->daddr != LOOPBACK4_IPV6) {
-+		    inet_sk(sk)->inet_daddr != LOOPBACK4_IPV6) {
- 			struct inet_connection_sock *icsk = inet_csk(sk);
- 			icsk->icsk_ext_hdr_len = opt->opt_flen + opt->opt_nflen;
- 			icsk->icsk_sync_mss(sk, icsk->icsk_pmtu_cookie);
-@@ -234,7 +234,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
- 
- 	case IPV6_V6ONLY:
- 		if (optlen < sizeof(int) ||
--		    inet_sk(sk)->num)
-+		    inet_sk(sk)->inet_num)
- 			goto e_inval;
- 		np->ipv6only = valbool;
- 		retv = 0;
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index fd737ef..52ed7d7 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -72,7 +72,7 @@ static struct sock *__raw_v6_lookup(struct net *net, struct sock *sk,
- 	int is_multicast = ipv6_addr_is_multicast(loc_addr);
- 
- 	sk_for_each_from(sk, node)
--		if (inet_sk(sk)->num == num) {
-+		if (inet_sk(sk)->inet_num == num) {
- 			struct ipv6_pinfo *np = inet6_sk(sk);
- 
- 			if (!net_eq(sock_net(sk), net))
-@@ -298,7 +298,7 @@ static int rawv6_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 			dev_put(dev);
- 	}
- 
--	inet->rcv_saddr = inet->saddr = v4addr;
-+	inet->inet_rcv_saddr = inet->inet_saddr = v4addr;
- 	ipv6_addr_copy(&np->rcv_saddr, &addr->sin6_addr);
- 	if (!(addr_type & IPV6_ADDR_MULTICAST))
- 		ipv6_addr_copy(&np->saddr, &addr->sin6_addr);
-@@ -415,14 +415,14 @@ int rawv6_rcv(struct sock *sk, struct sk_buff *skb)
- 				   skb_network_header_len(skb));
- 		if (!csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
- 				     &ipv6_hdr(skb)->daddr,
--				     skb->len, inet->num, skb->csum))
-+				     skb->len, inet->inet_num, skb->csum))
- 			skb->ip_summed = CHECKSUM_UNNECESSARY;
- 	}
- 	if (!skb_csum_unnecessary(skb))
- 		skb->csum = ~csum_unfold(csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
- 							 &ipv6_hdr(skb)->daddr,
- 							 skb->len,
--							 inet->num, 0));
-+							 inet->inet_num, 0));
- 
- 	if (inet->hdrincl) {
- 		if (skb_checksum_complete(skb)) {
-@@ -765,8 +765,8 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 		proto = ntohs(sin6->sin6_port);
- 
- 		if (!proto)
--			proto = inet->num;
--		else if (proto != inet->num)
-+			proto = inet->inet_num;
-+		else if (proto != inet->inet_num)
- 			return(-EINVAL);
- 
- 		if (proto > 255)
-@@ -799,7 +799,7 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 		if (sk->sk_state != TCP_ESTABLISHED)
- 			return -EDESTADDRREQ;
- 
--		proto = inet->num;
-+		proto = inet->inet_num;
- 		daddr = &np->daddr;
- 		fl.fl6_flowlabel = np->flow_label;
- 	}
-@@ -966,7 +966,7 @@ static int do_rawv6_setsockopt(struct sock *sk, int level, int optname,
- 
- 	switch (optname) {
- 		case IPV6_CHECKSUM:
--			if (inet_sk(sk)->num == IPPROTO_ICMPV6 &&
-+			if (inet_sk(sk)->inet_num == IPPROTO_ICMPV6 &&
- 			    level == IPPROTO_IPV6) {
- 				/*
- 				 * RFC3542 tells that IPV6_CHECKSUM socket
-@@ -1006,7 +1006,7 @@ static int rawv6_setsockopt(struct sock *sk, int level, int optname,
- 			break;
- 
- 		case SOL_ICMPV6:
--			if (inet_sk(sk)->num != IPPROTO_ICMPV6)
-+			if (inet_sk(sk)->inet_num != IPPROTO_ICMPV6)
- 				return -EOPNOTSUPP;
- 			return rawv6_seticmpfilter(sk, level, optname, optval,
- 						   optlen);
-@@ -1029,7 +1029,7 @@ static int compat_rawv6_setsockopt(struct sock *sk, int level, int optname,
- 	case SOL_RAW:
- 		break;
- 	case SOL_ICMPV6:
--		if (inet_sk(sk)->num != IPPROTO_ICMPV6)
-+		if (inet_sk(sk)->inet_num != IPPROTO_ICMPV6)
- 			return -EOPNOTSUPP;
- 		return rawv6_seticmpfilter(sk, level, optname, optval, optlen);
- 	case SOL_IPV6:
-@@ -1086,7 +1086,7 @@ static int rawv6_getsockopt(struct sock *sk, int level, int optname,
- 			break;
- 
- 		case SOL_ICMPV6:
--			if (inet_sk(sk)->num != IPPROTO_ICMPV6)
-+			if (inet_sk(sk)->inet_num != IPPROTO_ICMPV6)
- 				return -EOPNOTSUPP;
- 			return rawv6_geticmpfilter(sk, level, optname, optval,
- 						   optlen);
-@@ -1109,7 +1109,7 @@ static int compat_rawv6_getsockopt(struct sock *sk, int level, int optname,
- 	case SOL_RAW:
- 		break;
- 	case SOL_ICMPV6:
--		if (inet_sk(sk)->num != IPPROTO_ICMPV6)
-+		if (inet_sk(sk)->inet_num != IPPROTO_ICMPV6)
- 			return -EOPNOTSUPP;
- 		return rawv6_geticmpfilter(sk, level, optname, optval, optlen);
- 	case SOL_IPV6:
-@@ -1156,7 +1156,7 @@ static int rawv6_ioctl(struct sock *sk, int cmd, unsigned long arg)
- 
- static void rawv6_close(struct sock *sk, long timeout)
- {
--	if (inet_sk(sk)->num == IPPROTO_RAW)
-+	if (inet_sk(sk)->inet_num == IPPROTO_RAW)
- 		ip6_ra_control(sk, -1);
- 	ip6mr_sk_done(sk);
- 	sk_common_release(sk);
-@@ -1175,7 +1175,7 @@ static int rawv6_init_sk(struct sock *sk)
- {
- 	struct raw6_sock *rp = raw6_sk(sk);
- 
--	switch (inet_sk(sk)->num) {
-+	switch (inet_sk(sk)->inet_num) {
- 	case IPPROTO_ICMPV6:
- 		rp->checksum = 1;
- 		rp->offset   = 2;
-@@ -1225,7 +1225,7 @@ static void raw6_sock_seq_show(struct seq_file *seq, struct sock *sp, int i)
- 	dest  = &np->daddr;
- 	src   = &np->rcv_saddr;
- 	destp = 0;
--	srcp  = inet_sk(sp)->num;
-+	srcp  = inet_sk(sp)->inet_num;
- 	seq_printf(seq,
- 		   "%4d: %08X%08X%08X%08X:%04X %08X%08X%08X%08X:%04X "
- 		   "%02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p %d\n",
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index cbe55e5..c46da53 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -254,7 +254,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 		fl.oif = sk->sk_bound_dev_if;
- 		fl.mark = sk->sk_mark;
- 		fl.fl_ip_dport = inet_rsk(req)->rmt_port;
--		fl.fl_ip_sport = inet_sk(sk)->sport;
-+		fl.fl_ip_sport = inet_sk(sk)->inet_sport;
- 		security_req_classify_flow(req, &fl);
- 		if (ip6_dst_lookup(sk, &dst, &fl))
- 			goto out_free;
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 4517630..c54ec36 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -226,8 +226,9 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- #endif
- 			goto failure;
- 		} else {
--			ipv6_addr_set_v4mapped(inet->saddr, &np->saddr);
--			ipv6_addr_set_v4mapped(inet->rcv_saddr, &np->rcv_saddr);
-+			ipv6_addr_set_v4mapped(inet->inet_saddr, &np->saddr);
-+			ipv6_addr_set_v4mapped(inet->inet_rcv_saddr,
-+					       &np->rcv_saddr);
- 		}
- 
- 		return err;
-@@ -243,7 +244,7 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	fl.oif = sk->sk_bound_dev_if;
- 	fl.mark = sk->sk_mark;
- 	fl.fl_ip_dport = usin->sin6_port;
--	fl.fl_ip_sport = inet->sport;
-+	fl.fl_ip_sport = inet->inet_sport;
- 
- 	if (np->opt && np->opt->srcrt) {
- 		struct rt0_hdr *rt0 = (struct rt0_hdr *)np->opt->srcrt;
-@@ -275,7 +276,7 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 
- 	/* set the source address */
- 	ipv6_addr_copy(&np->saddr, saddr);
--	inet->rcv_saddr = LOOPBACK4_IPV6;
-+	inet->inet_rcv_saddr = LOOPBACK4_IPV6;
- 
- 	sk->sk_gso_type = SKB_GSO_TCPV6;
- 	__ip6_dst_store(sk, dst, NULL, NULL);
-@@ -287,7 +288,7 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 
- 	tp->rx_opt.mss_clamp = IPV6_MIN_MTU - sizeof(struct tcphdr) - sizeof(struct ipv6hdr);
- 
--	inet->dport = usin->sin6_port;
-+	inet->inet_dport = usin->sin6_port;
- 
- 	tcp_set_state(sk, TCP_SYN_SENT);
- 	err = inet6_hash_connect(&tcp_death_row, sk);
-@@ -297,8 +298,8 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	if (!tp->write_seq)
- 		tp->write_seq = secure_tcpv6_sequence_number(np->saddr.s6_addr32,
- 							     np->daddr.s6_addr32,
--							     inet->sport,
--							     inet->dport);
-+							     inet->inet_sport,
-+							     inet->inet_dport);
- 
- 	err = tcp_connect(sk);
- 	if (err)
-@@ -310,7 +311,7 @@ late_failure:
- 	tcp_set_state(sk, TCP_CLOSE);
- 	__sk_dst_reset(sk);
- failure:
--	inet->dport = 0;
-+	inet->inet_dport = 0;
- 	sk->sk_route_caps = 0;
- 	return err;
- }
-@@ -383,8 +384,8 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 			ipv6_addr_copy(&fl.fl6_src, &np->saddr);
- 			fl.oif = sk->sk_bound_dev_if;
- 			fl.mark = sk->sk_mark;
--			fl.fl_ip_dport = inet->dport;
--			fl.fl_ip_sport = inet->sport;
-+			fl.fl_ip_dport = inet->inet_dport;
-+			fl.fl_ip_sport = inet->inet_sport;
- 			security_skb_classify_flow(skb, &fl);
- 
- 			if ((err = ip6_dst_lookup(sk, &dst, &fl))) {
-@@ -1291,9 +1292,9 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 
- 		memcpy(newnp, np, sizeof(struct ipv6_pinfo));
- 
--		ipv6_addr_set_v4mapped(newinet->daddr, &newnp->daddr);
-+		ipv6_addr_set_v4mapped(newinet->inet_daddr, &newnp->daddr);
- 
--		ipv6_addr_set_v4mapped(newinet->saddr, &newnp->saddr);
-+		ipv6_addr_set_v4mapped(newinet->inet_saddr, &newnp->saddr);
- 
- 		ipv6_addr_copy(&newnp->rcv_saddr, &newnp->saddr);
- 
-@@ -1431,7 +1432,8 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 	newtp->advmss = dst_metric(dst, RTAX_ADVMSS);
- 	tcp_initialize_rcv_mss(newsk);
- 
--	newinet->daddr = newinet->saddr = newinet->rcv_saddr = LOOPBACK4_IPV6;
-+	newinet->inet_daddr = newinet->inet_saddr = LOOPBACK4_IPV6;
-+	newinet->inet_rcv_saddr = LOOPBACK4_IPV6;
- 
- #ifdef CONFIG_TCP_MD5SIG
- 	/* Copy over the MD5 key from the original socket */
-@@ -1931,8 +1933,8 @@ static void get_tcp6_sock(struct seq_file *seq, struct sock *sp, int i)
- 
- 	dest  = &np->daddr;
- 	src   = &np->rcv_saddr;
--	destp = ntohs(inet->dport);
--	srcp  = ntohs(inet->sport);
-+	destp = ntohs(inet->inet_dport);
-+	srcp  = ntohs(inet->inet_sport);
- 
- 	if (icsk->icsk_pending == ICSK_TIME_RETRANS) {
- 		timer_active	= 1;
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index b86425b..829d300 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -53,7 +53,7 @@ int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2)
- {
- 	const struct in6_addr *sk_rcv_saddr6 = &inet6_sk(sk)->rcv_saddr;
- 	const struct in6_addr *sk2_rcv_saddr6 = inet6_rcv_saddr(sk2);
--	__be32 sk_rcv_saddr = inet_sk(sk)->rcv_saddr;
-+	__be32 sk1_rcv_saddr = inet_sk(sk)->inet_rcv_saddr;
- 	__be32 sk2_rcv_saddr = inet_rcv_saddr(sk2);
- 	int sk_ipv6only = ipv6_only_sock(sk);
- 	int sk2_ipv6only = inet_v6_ipv6only(sk2);
-@@ -63,8 +63,8 @@ int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2)
- 	/* if both are mapped, treat as IPv4 */
- 	if (addr_type == IPV6_ADDR_MAPPED && addr_type2 == IPV6_ADDR_MAPPED)
- 		return (!sk2_ipv6only &&
--			(!sk_rcv_saddr || !sk2_rcv_saddr ||
--			  sk_rcv_saddr == sk2_rcv_saddr));
-+			(!sk1_rcv_saddr || !sk2_rcv_saddr ||
-+			  sk1_rcv_saddr == sk2_rcv_saddr));
- 
- 	if (addr_type2 == IPV6_ADDR_ANY &&
- 	    !(sk2_ipv6only && addr_type == IPV6_ADDR_MAPPED))
-@@ -100,8 +100,8 @@ static inline int compute_score(struct sock *sk, struct net *net,
- 		struct inet_sock *inet = inet_sk(sk);
- 
- 		score = 0;
--		if (inet->dport) {
--			if (inet->dport != sport)
-+		if (inet->inet_dport) {
-+			if (inet->inet_dport != sport)
- 				return -1;
- 			score++;
- 		}
-@@ -417,8 +417,8 @@ static struct sock *udp_v6_mcast_next(struct net *net, struct sock *sk,
- 
- 		if (s->sk_hash == num && s->sk_family == PF_INET6) {
- 			struct ipv6_pinfo *np = inet6_sk(s);
--			if (inet->dport) {
--				if (inet->dport != rmt_port)
-+			if (inet->inet_dport) {
-+				if (inet->inet_dport != rmt_port)
- 					continue;
- 			}
- 			if (!ipv6_addr_any(&np->daddr) &&
-@@ -792,7 +792,7 @@ int udpv6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 		if (ipv6_addr_v4mapped(daddr)) {
- 			struct sockaddr_in sin;
- 			sin.sin_family = AF_INET;
--			sin.sin_port = sin6 ? sin6->sin6_port : inet->dport;
-+			sin.sin_port = sin6 ? sin6->sin6_port : inet->inet_dport;
- 			sin.sin_addr.s_addr = daddr->s6_addr32[3];
- 			msg->msg_name = &sin;
- 			msg->msg_namelen = sizeof(sin);
-@@ -865,7 +865,7 @@ do_udp_sendmsg:
- 		if (sk->sk_state != TCP_ESTABLISHED)
- 			return -EDESTADDRREQ;
- 
--		fl.fl_ip_dport = inet->dport;
-+		fl.fl_ip_dport = inet->inet_dport;
- 		daddr = &np->daddr;
- 		fl.fl6_flowlabel = np->flow_label;
- 		connected = 1;
-@@ -911,7 +911,7 @@ do_udp_sendmsg:
- 		fl.fl6_dst.s6_addr[15] = 0x1; /* :: means loopback (BSD'ism) */
- 	if (ipv6_addr_any(&fl.fl6_src) && !ipv6_addr_any(&np->saddr))
- 		ipv6_addr_copy(&fl.fl6_src, &np->saddr);
--	fl.fl_ip_sport = inet->sport;
-+	fl.fl_ip_sport = inet->inet_sport;
- 
- 	/* merge ip6_build_xmit from ip6_output */
- 	if (opt && opt->srcrt) {
-@@ -1192,8 +1192,8 @@ static void udp6_sock_seq_show(struct seq_file *seq, struct sock *sp, int bucket
- 
- 	dest  = &np->daddr;
- 	src   = &np->rcv_saddr;
--	destp = ntohs(inet->dport);
--	srcp  = ntohs(inet->sport);
-+	destp = ntohs(inet->inet_dport);
-+	srcp  = ntohs(inet->inet_sport);
- 	seq_printf(seq,
- 		   "%5d: %08X%08X%08X%08X:%04X %08X%08X%08X%08X:%04X "
- 		   "%02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p %d\n",
-diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
-index ebf00ad..362afbd 100644
---- a/net/netfilter/xt_socket.c
-+++ b/net/netfilter/xt_socket.c
-@@ -149,7 +149,7 @@ socket_match(const struct sk_buff *skb, const struct xt_match_param *par,
- 
- 		/* Ignore sockets listening on INADDR_ANY */
- 		wildcard = (sk->sk_state != TCP_TIME_WAIT &&
--			    inet_sk(sk)->rcv_saddr == 0);
-+			    inet_sk(sk)->inet_rcv_saddr == 0);
- 
- 		/* Ignore non-transparent sockets,
- 		   if XT_SOCKET_TRANSPARENT is used */
-diff --git a/net/rds/tcp_listen.c b/net/rds/tcp_listen.c
-index 24b743e..45474a4 100644
---- a/net/rds/tcp_listen.c
-+++ b/net/rds/tcp_listen.c
-@@ -67,11 +67,11 @@ static int rds_tcp_accept_one(struct socket *sock)
- 	inet = inet_sk(new_sock->sk);
- 
- 	rdsdebug("accepted tcp %u.%u.%u.%u:%u -> %u.%u.%u.%u:%u\n",
--		  NIPQUAD(inet->saddr), ntohs(inet->sport),
--		  NIPQUAD(inet->daddr), ntohs(inet->dport));
-+		  NIPQUAD(inet->inet_saddr), ntohs(inet->inet_sport),
-+		  NIPQUAD(inet->inet_daddr), ntohs(inet->inet_dport));
- 
--	conn = rds_conn_create(inet->saddr, inet->daddr, &rds_tcp_transport,
--			       GFP_KERNEL);
-+	conn = rds_conn_create(inet->inet_saddr, inet->inet_daddr,
-+			       &rds_tcp_transport, GFP_KERNEL);
- 	if (IS_ERR(conn)) {
- 		ret = PTR_ERR(conn);
- 		goto out;
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 612dc87..d9f4cc2 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -296,19 +296,19 @@ static void sctp_v4_from_sk(union sctp_addr *addr, struct sock *sk)
- {
- 	addr->v4.sin_family = AF_INET;
- 	addr->v4.sin_port = 0;
--	addr->v4.sin_addr.s_addr = inet_sk(sk)->rcv_saddr;
-+	addr->v4.sin_addr.s_addr = inet_sk(sk)->inet_rcv_saddr;
- }
- 
- /* Initialize sk->sk_rcv_saddr from sctp_addr. */
- static void sctp_v4_to_sk_saddr(union sctp_addr *addr, struct sock *sk)
- {
--	inet_sk(sk)->rcv_saddr = addr->v4.sin_addr.s_addr;
-+	inet_sk(sk)->inet_rcv_saddr = addr->v4.sin_addr.s_addr;
- }
- 
- /* Initialize sk->sk_daddr from sctp_addr. */
- static void sctp_v4_to_sk_daddr(union sctp_addr *addr, struct sock *sk)
- {
--	inet_sk(sk)->daddr = addr->v4.sin_addr.s_addr;
-+	inet_sk(sk)->inet_daddr = addr->v4.sin_addr.s_addr;
- }
- 
- /* Initialize a sctp_addr from an address parameter. */
-@@ -598,7 +598,7 @@ static struct sock *sctp_v4_create_accept_sk(struct sock *sk,
- 
- 	newinet = inet_sk(newsk);
- 
--	newinet->daddr = asoc->peer.primary_addr.v4.sin_addr.s_addr;
-+	newinet->inet_daddr = asoc->peer.primary_addr.v4.sin_addr.s_addr;
- 
- 	sk_refcnt_debug_inc(newsk);
- 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 0970e92..4085db9 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -394,7 +394,7 @@ SCTP_STATIC int sctp_do_bind(struct sock *sk, union sctp_addr *addr, int len)
- 
- 	/* Refresh ephemeral port.  */
- 	if (!bp->port)
--		bp->port = inet_sk(sk)->num;
-+		bp->port = inet_sk(sk)->inet_num;
- 
- 	/* Add the address to the bind address list.
- 	 * Use GFP_ATOMIC since BHs will be disabled.
-@@ -403,7 +403,7 @@ SCTP_STATIC int sctp_do_bind(struct sock *sk, union sctp_addr *addr, int len)
- 
- 	/* Copy back into socket for getsockname() use. */
- 	if (!ret) {
--		inet_sk(sk)->sport = htons(inet_sk(sk)->num);
-+		inet_sk(sk)->inet_sport = htons(inet_sk(sk)->inet_num);
- 		af->to_sk_saddr(addr, sk);
- 	}
- 
-@@ -1115,7 +1115,7 @@ static int __sctp_connect(struct sock* sk,
- 	}
- 
- 	/* Initialize sk's dport and daddr for getpeername() */
--	inet_sk(sk)->dport = htons(asoc->peer.port);
-+	inet_sk(sk)->inet_dport = htons(asoc->peer.port);
- 	af = sctp_get_af_specific(sa_addr->sa.sa_family);
- 	af->to_sk_daddr(sa_addr, sk);
- 	sk->sk_err = 0;
-@@ -5851,7 +5851,7 @@ pp_not_found:
- 	 */
- success:
- 	if (!sctp_sk(sk)->bind_hash) {
--		inet_sk(sk)->num = snum;
-+		inet_sk(sk)->inet_num = snum;
- 		sk_add_bind_node(sk, &pp->owner);
- 		sctp_sk(sk)->bind_hash = pp;
- 	}
-@@ -5923,7 +5923,7 @@ SCTP_STATIC int sctp_listen_start(struct sock *sk, int backlog)
- 		if (sctp_autobind(sk))
- 			return -EAGAIN;
- 	} else {
--		if (sctp_get_port(sk, inet_sk(sk)->num)) {
-+		if (sctp_get_port(sk, inet_sk(sk)->inet_num)) {
- 			sk->sk_state = SCTP_SS_CLOSED;
- 			return -EADDRINUSE;
- 		}
-@@ -6094,14 +6094,14 @@ static void sctp_bucket_destroy(struct sctp_bind_bucket *pp)
- static inline void __sctp_put_port(struct sock *sk)
- {
- 	struct sctp_bind_hashbucket *head =
--		&sctp_port_hashtable[sctp_phashfn(inet_sk(sk)->num)];
-+		&sctp_port_hashtable[sctp_phashfn(inet_sk(sk)->inet_num)];
- 	struct sctp_bind_bucket *pp;
- 
- 	sctp_spin_lock(&head->lock);
- 	pp = sctp_sk(sk)->bind_hash;
- 	__sk_del_bind_node(sk);
- 	sctp_sk(sk)->bind_hash = NULL;
--	inet_sk(sk)->num = 0;
-+	inet_sk(sk)->inet_num = 0;
- 	sctp_bucket_destroy(pp);
- 	sctp_spin_unlock(&head->lock);
- }
-@@ -6128,7 +6128,7 @@ static int sctp_autobind(struct sock *sk)
- 	/* Initialize a local sockaddr structure to INADDR_ANY. */
- 	af = sctp_sk(sk)->pf->af;
- 
--	port = htons(inet_sk(sk)->num);
-+	port = htons(inet_sk(sk)->inet_num);
- 	af->inaddr_any(&autoaddr, port);
- 
- 	return sctp_do_bind(sk, &autoaddr, af->sockaddr_len);
-@@ -6697,12 +6697,12 @@ void sctp_copy_sock(struct sock *newsk, struct sock *sk,
- 	/* Initialize sk's sport, dport, rcv_saddr and daddr for
- 	 * getsockname() and getpeername()
- 	 */
--	newinet->sport = inet->sport;
--	newinet->saddr = inet->saddr;
--	newinet->rcv_saddr = inet->rcv_saddr;
--	newinet->dport = htons(asoc->peer.port);
-+	newinet->inet_sport = inet->inet_sport;
-+	newinet->inet_saddr = inet->inet_saddr;
-+	newinet->inet_rcv_saddr = inet->inet_rcv_saddr;
-+	newinet->inet_dport = htons(asoc->peer.port);
- 	newinet->pmtudisc = inet->pmtudisc;
--	newinet->id = asoc->next_tsn ^ jiffies;
-+	newinet->inet_id = asoc->next_tsn ^ jiffies;
- 
- 	newinet->uc_ttl = inet->uc_ttl;
- 	newinet->mc_loop = 1;
-@@ -6741,13 +6741,13 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
- 	newsp->hmac = NULL;
- 
- 	/* Hook this new socket in to the bind_hash list. */
--	head = &sctp_port_hashtable[sctp_phashfn(inet_sk(oldsk)->num)];
-+	head = &sctp_port_hashtable[sctp_phashfn(inet_sk(oldsk)->inet_num)];
- 	sctp_local_bh_disable();
- 	sctp_spin_lock(&head->lock);
- 	pp = sctp_sk(oldsk)->bind_hash;
- 	sk_add_bind_node(newsk, &pp->owner);
- 	sctp_sk(newsk)->bind_hash = pp;
--	inet_sk(newsk)->num = inet_sk(oldsk)->num;
-+	inet_sk(newsk)->inet_num = inet_sk(oldsk)->inet_num;
- 	sctp_spin_unlock(&head->lock);
- 	sctp_local_bh_enable();
- 
-diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
-index ccc5e83..c2a1787 100644
---- a/net/sunrpc/svcsock.c
-+++ b/net/sunrpc/svcsock.c
-@@ -272,14 +272,14 @@ static int svc_one_sock_name(struct svc_sock *svsk, char *buf, int remaining)
- 	case PF_INET:
- 		len = snprintf(buf, remaining, "ipv4 %s %pI4 %d\n",
- 				proto_name,
--				&inet_sk(sk)->rcv_saddr,
--				inet_sk(sk)->num);
-+				&inet_sk(sk)->inet_rcv_saddr,
-+				inet_sk(sk)->inet_num);
- 		break;
- 	case PF_INET6:
- 		len = snprintf(buf, remaining, "ipv6 %s %pI6 %d\n",
- 				proto_name,
- 				&inet6_sk(sk)->rcv_saddr,
--				inet_sk(sk)->num);
-+				inet_sk(sk)->inet_num);
- 		break;
- 	default:
- 		len = snprintf(buf, remaining, "*unknown-%d*\n",
-@@ -1311,7 +1311,7 @@ static struct svc_sock *svc_setup_socket(struct svc_serv *serv,
- 	/* Register socket with portmapper */
- 	if (*errp >= 0 && pmap_register)
- 		*errp = svc_register(serv, inet->sk_family, inet->sk_protocol,
--				     ntohs(inet_sk(inet)->sport));
-+				     ntohs(inet_sk(inet)->inet_sport));
- 
- 	if (*errp < 0) {
- 		kfree(svsk);
-diff --git a/security/lsm_audit.c b/security/lsm_audit.c
-index 3bb90b6..e04566a 100644
---- a/security/lsm_audit.c
-+++ b/security/lsm_audit.c
-@@ -273,11 +273,11 @@ static void dump_common_audit_data(struct audit_buffer *ab,
- 			case AF_INET: {
- 				struct inet_sock *inet = inet_sk(sk);
- 
--				print_ipv4_addr(ab, inet->rcv_saddr,
--						inet->sport,
-+				print_ipv4_addr(ab, inet->inet_rcv_saddr,
-+						inet->inet_sport,
- 						"laddr", "lport");
--				print_ipv4_addr(ab, inet->daddr,
--						inet->dport,
-+				print_ipv4_addr(ab, inet->inet_daddr,
-+						inet->inet_dport,
- 						"faddr", "fport");
- 				break;
- 			}
-@@ -286,10 +286,10 @@ static void dump_common_audit_data(struct audit_buffer *ab,
- 				struct ipv6_pinfo *inet6 = inet6_sk(sk);
- 
- 				print_ipv6_addr(ab, &inet6->rcv_saddr,
--						inet->sport,
-+						inet->inet_sport,
- 						"laddr", "lport");
- 				print_ipv6_addr(ab, &inet6->daddr,
--						inet->dport,
-+						inet->inet_dport,
- 						"faddr", "fport");
- 				break;
- 			}
+ghaskins@dev:~/sandbox/git/fabric/linux-2.6-next> rm .config
+ghaskins@dev:~/sandbox/git/fabric/linux-2.6-next> make allmodconfig
+scripts/kconfig/conf -m arch/x86/Kconfig
+#
+# configuration written to .config
+#
+ghaskins@dev:~/sandbox/git/fabric/linux-2.6-next> grep -i vbus .config
+CONFIG_VBUS_PROXY=3Dy
+CONFIG_VBUS_PCIBRIDGE=3Dy
+CONFIG_VBUS_ENET=3Dm
+CONFIG_VBUS_ENET_DEBUG=3Dy
+CONFIG_USB_GADGET_VBUS_DRAW=3D2
+CONFIG_USB_GPIO_VBUS=3Dm
+
+I am not sure how your environment could have generated the VBUS_PROXY=3D=
+n
+outcome.  Does anyone have any ideas?
+
+-Greg
+
+>>
+>>
+>> #
+>> # Automatically generated make config: don't edit
+>> # Linux kernel version: 2.6.32-rc4
+>> # Thu Oct 15 03:26:26 2009
+>> #
+>> CONFIG_PPC64=3Dy
+>>
+>> #
+>> # Processor support
+>> #
+>> CONFIG_PPC_BOOK3S_64=3Dy
+>> # CONFIG_PPC_BOOK3E_64 is not set
+>> CONFIG_PPC_BOOK3S=3Dy
+>> CONFIG_POWER4_ONLY=3Dy
+>> CONFIG_POWER4=3Dy
+>> CONFIG_TUNE_CELL=3Dy
+>> CONFIG_PPC_FPU=3Dy
+>> CONFIG_ALTIVEC=3Dy
+>> CONFIG_VSX=3Dy
+>> CONFIG_PPC_STD_MMU=3Dy
+>> CONFIG_PPC_STD_MMU_64=3Dy
+>> CONFIG_PPC_MM_SLICES=3Dy
+>> CONFIG_VIRT_CPU_ACCOUNTING=3Dy
+>> CONFIG_PPC_HAVE_PMU_SUPPORT=3Dy
+>> CONFIG_PPC_PERF_CTRS=3Dy
+>> CONFIG_SMP=3Dy
+>> CONFIG_NR_CPUS=3D32
+>> CONFIG_64BIT=3Dy
+>> CONFIG_WORD_SIZE=3D64
+>> CONFIG_ARCH_PHYS_ADDR_T_64BIT=3Dy
+>> CONFIG_MMU=3Dy
+>> CONFIG_GENERIC_CMOS_UPDATE=3Dy
+>> CONFIG_GENERIC_TIME=3Dy
+>> CONFIG_GENERIC_TIME_VSYSCALL=3Dy
+>> CONFIG_GENERIC_CLOCKEVENTS=3Dy
+>> CONFIG_GENERIC_HARDIRQS=3Dy
+>> CONFIG_GENERIC_HARDIRQS_NO__DO_IRQ=3Dy
+>> CONFIG_HAVE_SETUP_PER_CPU_AREA=3Dy
+>> CONFIG_NEED_PER_CPU_EMBED_FIRST_CHUNK=3Dy
+>> CONFIG_IRQ_PER_CPU=3Dy
+>> CONFIG_STACKTRACE_SUPPORT=3Dy
+>> CONFIG_HAVE_LATENCYTOP_SUPPORT=3Dy
+>> CONFIG_TRACE_IRQFLAGS_SUPPORT=3Dy
+>> CONFIG_LOCKDEP_SUPPORT=3Dy
+>> CONFIG_RWSEM_XCHGADD_ALGORITHM=3Dy
+>> CONFIG_ARCH_HAS_ILOG2_U32=3Dy
+>> CONFIG_ARCH_HAS_ILOG2_U64=3Dy
+>> CONFIG_GENERIC_HWEIGHT=3Dy
+>> CONFIG_GENERIC_FIND_NEXT_BIT=3Dy
+>> CONFIG_GENERIC_GPIO=3Dy
+>> CONFIG_ARCH_NO_VIRT_TO_BUS=3Dy
+>> CONFIG_PPC=3Dy
+>> CONFIG_EARLY_PRINTK=3Dy
+>> CONFIG_COMPAT=3Dy
+>> CONFIG_SYSVIPC_COMPAT=3Dy
+>> CONFIG_SCHED_OMIT_FRAME_POINTER=3Dy
+>> CONFIG_ARCH_MAY_HAVE_PC_FDC=3Dy
+>> CONFIG_PPC_OF=3Dy
+>> CONFIG_OF=3Dy
+>> CONFIG_PPC_UDBG_16550=3Dy
+>> CONFIG_GENERIC_TBSYNC=3Dy
+>> CONFIG_AUDIT_ARCH=3Dy
+>> CONFIG_GENERIC_BUG=3Dy
+>> CONFIG_DTC=3Dy
+>> # CONFIG_DEFAULT_UIMAGE is not set
+>> CONFIG_HIBERNATE_64=3Dy
+>> CONFIG_ARCH_HIBERNATION_POSSIBLE=3Dy
+>> CONFIG_ARCH_SUSPEND_POSSIBLE=3Dy
+>> # CONFIG_PPC_DCR_NATIVE is not set
+>> CONFIG_PPC_DCR_MMIO=3Dy
+>> CONFIG_PPC_DCR=3Dy
+>> CONFIG_PPC_OF_PLATFORM_PCI=3Dy
+>> CONFIG_ARCH_SUPPORTS_DEBUG_PAGEALLOC=3Dy
+>> CONFIG_DEFCONFIG_LIST=3D"/lib/modules/$UNAME_RELEASE/.config"
+>> CONFIG_CONSTRUCTORS=3Dy
+>>
+>> #
+>> # General setup
+>> #
+>> CONFIG_EXPERIMENTAL=3Dy
+>> CONFIG_LOCK_KERNEL=3Dy
+>> CONFIG_INIT_ENV_ARG_LIMIT=3D32
+>> CONFIG_LOCALVERSION=3D""
+>> # CONFIG_LOCALVERSION_AUTO is not set
+>> CONFIG_SWAP=3Dy
+>> CONFIG_SYSVIPC=3Dy
+>> CONFIG_SYSVIPC_SYSCTL=3Dy
+>> CONFIG_POSIX_MQUEUE=3Dy
+>> CONFIG_POSIX_MQUEUE_SYSCTL=3Dy
+>> CONFIG_BSD_PROCESS_ACCT=3Dy
+>> CONFIG_BSD_PROCESS_ACCT_V3=3Dy
+>> CONFIG_TASKSTATS=3Dy
+>> CONFIG_TASK_DELAY_ACCT=3Dy
+>> CONFIG_TASK_XACCT=3Dy
+>> CONFIG_TASK_IO_ACCOUNTING=3Dy
+>> CONFIG_AUDIT=3Dy
+>> CONFIG_AUDITSYSCALL=3Dy
+>> CONFIG_AUDIT_WATCH=3Dy
+>> CONFIG_AUDIT_TREE=3Dy
+>>
+>> #
+>> # RCU Subsystem
+>> #
+>> CONFIG_TREE_RCU=3Dy
+>> # CONFIG_TREE_PREEMPT_RCU is not set
+>> CONFIG_RCU_TRACE=3Dy
+>> CONFIG_RCU_FANOUT=3D64
+>> CONFIG_RCU_FANOUT_EXACT=3Dy
+>> CONFIG_TREE_RCU_TRACE=3Dy
+>> CONFIG_IKCONFIG=3Dm
+>> CONFIG_IKCONFIG_PROC=3Dy
+>> CONFIG_LOG_BUF_SHIFT=3D17
+>> CONFIG_GROUP_SCHED=3Dy
+>> CONFIG_FAIR_GROUP_SCHED=3Dy
+>> CONFIG_RT_GROUP_SCHED=3Dy
+>> CONFIG_USER_SCHED=3Dy
+>> # CONFIG_CGROUP_SCHED is not set
+>> CONFIG_CGROUPS=3Dy
+>> CONFIG_CGROUP_DEBUG=3Dy
+>> CONFIG_CGROUP_NS=3Dy
+>> CONFIG_CGROUP_FREEZER=3Dy
+>> CONFIG_CGROUP_DEVICE=3Dy
+>> CONFIG_CPUSETS=3Dy
+>> CONFIG_PROC_PID_CPUSET=3Dy
+>> CONFIG_CGROUP_CPUACCT=3Dy
+>> CONFIG_RESOURCE_COUNTERS=3Dy
+>> CONFIG_CGROUP_MEM_RES_CTLR=3Dy
+>> CONFIG_CGROUP_MEM_RES_CTLR_SWAP=3Dy
+>> CONFIG_MM_OWNER=3Dy
+>> CONFIG_SYSFS_DEPRECATED=3Dy
+>> CONFIG_SYSFS_DEPRECATED_V2=3Dy
+>> CONFIG_RELAY=3Dy
+>> CONFIG_NAMESPACES=3Dy
+>> CONFIG_UTS_NS=3Dy
+>> CONFIG_IPC_NS=3Dy
+>> CONFIG_USER_NS=3Dy
+>> CONFIG_PID_NS=3Dy
+>> CONFIG_NET_NS=3Dy
+>> CONFIG_BLK_DEV_INITRD=3Dy
+>> CONFIG_INITRAMFS_SOURCE=3D""
+>> CONFIG_RD_GZIP=3Dy
+>> CONFIG_RD_BZIP2=3Dy
+>> CONFIG_RD_LZMA=3Dy
+>> CONFIG_CC_OPTIMIZE_FOR_SIZE=3Dy
+>> CONFIG_SYSCTL=3Dy
+>> CONFIG_ANON_INODES=3Dy
+>> CONFIG_EMBEDDED=3Dy
+>> CONFIG_SYSCTL_SYSCALL=3Dy
+>> CONFIG_KALLSYMS=3Dy
+>> CONFIG_KALLSYMS_ALL=3Dy
+>> CONFIG_KALLSYMS_EXTRA_PASS=3Dy
+>> CONFIG_HOTPLUG=3Dy
+>> CONFIG_PRINTK=3Dy
+>> CONFIG_BUG=3Dy
+>> CONFIG_ELF_CORE=3Dy
+>> CONFIG_PCSPKR_PLATFORM=3Dy
+>> CONFIG_BASE_FULL=3Dy
+>> CONFIG_FUTEX=3Dy
+>> CONFIG_EPOLL=3Dy
+>> CONFIG_SIGNALFD=3Dy
+>> CONFIG_TIMERFD=3Dy
+>> CONFIG_EVENTFD=3Dy
+>> CONFIG_SHMEM=3Dy
+>> CONFIG_AIO=3Dy
+>> CONFIG_HAVE_PERF_EVENTS=3Dy
+>> CONFIG_PERF_USE_VMALLOC=3Dy
+>>
+>> #
+>> # Kernel Performance Events And Counters
+>> #
+>> CONFIG_PERF_EVENTS=3Dy
+>> CONFIG_EVENT_PROFILE=3Dy
+>> CONFIG_PERF_COUNTERS=3Dy
+>> CONFIG_DEBUG_PERF_USE_VMALLOC=3Dy
+>> CONFIG_VM_EVENT_COUNTERS=3Dy
+>> CONFIG_PCI_QUIRKS=3Dy
+>> CONFIG_SLUB_DEBUG=3Dy
+>> CONFIG_COMPAT_BRK=3Dy
+>> # CONFIG_SLAB is not set
+>> CONFIG_SLUB=3Dy
+>> # CONFIG_SLQB is not set
+>> # CONFIG_SLOB is not set
+>> CONFIG_PROFILING=3Dy
+>> CONFIG_TRACEPOINTS=3Dy
+>> CONFIG_OPROFILE=3Dm
+>> CONFIG_HAVE_OPROFILE=3Dy
+>> CONFIG_KPROBES=3Dy
+>> CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS=3Dy
+>> CONFIG_HAVE_SYSCALL_WRAPPERS=3Dy
+>> CONFIG_KRETPROBES=3Dy
+>> CONFIG_HAVE_IOREMAP_PROT=3Dy
+>> CONFIG_HAVE_KPROBES=3Dy
+>> CONFIG_HAVE_KRETPROBES=3Dy
+>> CONFIG_HAVE_ARCH_TRACEHOOK=3Dy
+>> CONFIG_HAVE_DMA_ATTRS=3Dy
+>> CONFIG_USE_GENERIC_SMP_HELPERS=3Dy
+>> CONFIG_HAVE_DMA_API_DEBUG=3Dy
+>>
+>> #
+>> # GCOV-based kernel profiling
+>> #
+>> CONFIG_GCOV_KERNEL=3Dy
+>> CONFIG_GCOV_PROFILE_ALL=3Dy
+>> CONFIG_SLOW_WORK=3Dy
+>> # CONFIG_HAVE_GENERIC_DMA_COHERENT is not set
+>> CONFIG_SLABINFO=3Dy
+>> CONFIG_RT_MUTEXES=3Dy
+>> CONFIG_BASE_SMALL=3D0
+>> CONFIG_MODULES=3Dy
+>> CONFIG_MODULE_FORCE_LOAD=3Dy
+>> CONFIG_MODULE_UNLOAD=3Dy
+>> CONFIG_MODULE_FORCE_UNLOAD=3Dy
+>> CONFIG_MODVERSIONS=3Dy
+>> CONFIG_MODULE_SRCVERSION_ALL=3Dy
+>> CONFIG_STOP_MACHINE=3Dy
+>> CONFIG_BLOCK=3Dy
+>> CONFIG_BLK_DEV_BSG=3Dy
+>> CONFIG_BLK_DEV_INTEGRITY=3Dy
+>> CONFIG_BLOCK_COMPAT=3Dy
+>>
+>> #
+>> # IO Schedulers
+>> #
+>> CONFIG_IOSCHED_NOOP=3Dy
+>> CONFIG_IOSCHED_DEADLINE=3Dm
+>> CONFIG_IOSCHED_CFQ=3Dm
+>> # CONFIG_DEFAULT_DEADLINE is not set
+>> # CONFIG_DEFAULT_CFQ is not set
+>> CONFIG_DEFAULT_NOOP=3Dy
+>> CONFIG_DEFAULT_IOSCHED=3D"noop"
+>> CONFIG_FREEZER=3Dy
+>> CONFIG_PPC_MSI_BITMAP=3Dy
+>>
+>> #
+>> # Platform support
+>> #
+>> CONFIG_PPC_PSERIES=3Dy
+>> CONFIG_PPC_SPLPAR=3Dy
+>> CONFIG_EEH=3Dy
+>> CONFIG_PSERIES_MSI=3Dy
+>> CONFIG_SCANLOG=3Dm
+>> CONFIG_LPARCFG=3Dy
+>> CONFIG_PPC_PSERIES_DEBUG=3Dy
+>> CONFIG_PPC_SMLPAR=3Dy
+>> CONFIG_DTL=3Dy
+>> CONFIG_PPC_ISERIES=3Dy
+>>
+>> #
+>> # iSeries device drivers
+>> #
+>> CONFIG_VIODASD=3Dm
+>> CONFIG_VIOCD=3Dm
+>> CONFIG_VIOTAPE=3Dm
+>> CONFIG_VIOPATH=3Dy
+>> CONFIG_PPC_PMAC=3Dy
+>> CONFIG_PPC_PMAC64=3Dy
+>> CONFIG_PPC_MAPLE=3Dy
+>> CONFIG_PPC_PASEMI=3Dy
+>>
+>> #
+>> # PA Semi PWRficient options
+>> #
+>> CONFIG_PPC_PASEMI_IOMMU=3Dy
+>> CONFIG_PPC_PASEMI_IOMMU_DMA_FORCE=3Dy
+>> CONFIG_PPC_PASEMI_MDIO=3Dm
+>> CONFIG_PPC_PS3=3Dy
+>>
+>> #
+>> # PS3 Platform Options
+>> #
+>> CONFIG_PS3_ADVANCED=3Dy
+>> CONFIG_PS3_HTAB_SIZE=3D20
+>> CONFIG_PS3_DYNAMIC_DMA=3Dy
+>> CONFIG_PS3_VUART=3Dm
+>> CONFIG_PS3_PS3AV=3Dm
+>> CONFIG_PS3_SYS_MANAGER=3Dm
+>> CONFIG_PS3_STORAGE=3Dm
+>> CONFIG_PS3_DISK=3Dm
+>> CONFIG_PS3_ROM=3Dm
+>> CONFIG_PS3_FLASH=3Dm
+>> CONFIG_PS3_LPM=3Dm
+>> CONFIG_PPC_CELL=3Dy
+>> CONFIG_PPC_CELL_COMMON=3Dy
+>> CONFIG_PPC_CELL_NATIVE=3Dy
+>> CONFIG_PPC_IBM_CELL_BLADE=3Dy
+>> CONFIG_PPC_CELLEB=3Dy
+>> CONFIG_PPC_CELL_QPACE=3Dy
+>> CONFIG_AXON_MSI=3Dy
+>>
+>> #
+>> # Cell Broadband Engine options
+>> #
+>> CONFIG_SPU_FS=3Dm
+>> CONFIG_SPU_FS_64K_LS=3Dy
+>> CONFIG_SPU_BASE=3Dy
+>> CONFIG_CBE_RAS=3Dy
+>> CONFIG_PPC_IBM_CELL_RESETBUTTON=3Dy
+>> CONFIG_PPC_IBM_CELL_POWERBUTTON=3Dm
+>> CONFIG_CBE_THERM=3Dm
+>> CONFIG_CBE_CPUFREQ=3Dm
+>> CONFIG_CBE_CPUFREQ_PMI_ENABLE=3Dy
+>> CONFIG_CBE_CPUFREQ_PMI=3Dm
+>> CONFIG_PPC_PMI=3Dm
+>> CONFIG_CBE_CPUFREQ_SPU_GOVERNOR=3Dm
+>> CONFIG_OPROFILE_CELL=3Dy
+>> # CONFIG_PQ2ADS is not set
+>> CONFIG_PPC_NATIVE=3Dy
+>> CONFIG_PPC_OF_BOOT_TRAMPOLINE=3Dy
+>> CONFIG_UDBG_RTAS_CONSOLE=3Dy
+>> CONFIG_PPC_UDBG_BEAT=3Dy
+>> CONFIG_XICS=3Dy
+>> # CONFIG_IPIC is not set
+>> CONFIG_MPIC=3Dy
+>> # CONFIG_MPIC_WEIRD is not set
+>> CONFIG_PPC_I8259=3Dy
+>> CONFIG_U3_DART=3Dy
+>> CONFIG_PPC_RTAS=3Dy
+>> CONFIG_RTAS_ERROR_LOGGING=3Dy
+>> CONFIG_RTAS_PROC=3Dy
+>> CONFIG_RTAS_FLASH=3Dm
+>> CONFIG_MMIO_NVRAM=3Dy
+>> CONFIG_MPIC_U3_HT_IRQS=3Dy
+>> CONFIG_MPIC_BROKEN_REGREAD=3Dy
+>> CONFIG_IBMVIO=3Dy
+>> CONFIG_IBMEBUS=3Dy
+>> # CONFIG_PPC_MPC106 is not set
+>> CONFIG_PPC_970_NAP=3Dy
+>> CONFIG_PPC_INDIRECT_IO=3Dy
+>> CONFIG_GENERIC_IOMAP=3Dy
+>> CONFIG_CPU_FREQ=3Dy
+>> CONFIG_CPU_FREQ_TABLE=3Dy
+>> CONFIG_CPU_FREQ_DEBUG=3Dy
+>> CONFIG_CPU_FREQ_STAT=3Dm
+>> CONFIG_CPU_FREQ_STAT_DETAILS=3Dy
+>> CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE=3Dy
+>> # CONFIG_CPU_FREQ_DEFAULT_GOV_POWERSAVE is not set
+>> # CONFIG_CPU_FREQ_DEFAULT_GOV_USERSPACE is not set
+>> # CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND is not set
+>> # CONFIG_CPU_FREQ_DEFAULT_GOV_CONSERVATIVE is not set
+>> CONFIG_CPU_FREQ_GOV_PERFORMANCE=3Dy
+>> CONFIG_CPU_FREQ_GOV_POWERSAVE=3Dm
+>> CONFIG_CPU_FREQ_GOV_USERSPACE=3Dm
+>> CONFIG_CPU_FREQ_GOV_ONDEMAND=3Dm
+>> CONFIG_CPU_FREQ_GOV_CONSERVATIVE=3Dm
+>>
+>> #
+>> # CPU Frequency drivers
+>> #
+>> CONFIG_CPU_FREQ_PMAC64=3Dy
+>> CONFIG_PPC_PASEMI_CPUFREQ=3Dy
+>> CONFIG_AXON_RAM=3Dm
+>> # CONFIG_FSL_ULI1575 is not set
+>> CONFIG_SIMPLE_GPIO=3Dy
+>>
+>> #
+>> # Kernel options
+>> #
+>> CONFIG_TICK_ONESHOT=3Dy
+>> CONFIG_NO_HZ=3Dy
+>> CONFIG_HIGH_RES_TIMERS=3Dy
+>> CONFIG_GENERIC_CLOCKEVENTS_BUILD=3Dy
+>> # CONFIG_HZ_100 is not set
+>> CONFIG_HZ_250=3Dy
+>> # CONFIG_HZ_300 is not set
+>> # CONFIG_HZ_1000 is not set
+>> CONFIG_HZ=3D250
+>> CONFIG_SCHED_HRTICK=3Dy
+>> CONFIG_PREEMPT_NONE=3Dy
+>> # CONFIG_PREEMPT_VOLUNTARY is not set
+>> # CONFIG_PREEMPT is not set
+>> CONFIG_BINFMT_ELF=3Dy
+>> CONFIG_COMPAT_BINFMT_ELF=3Dy
+>> CONFIG_CORE_DUMP_DEFAULT_ELF_HEADERS=3Dy
+>> # CONFIG_HAVE_AOUT is not set
+>> CONFIG_BINFMT_MISC=3Dm
+>> CONFIG_HUGETLB_PAGE_SIZE_VARIABLE=3Dy
+>> CONFIG_IOMMU_VMERGE=3Dy
+>> CONFIG_IOMMU_HELPER=3Dy
+>> CONFIG_SWIOTLB=3Dy
+>> CONFIG_HOTPLUG_CPU=3Dy
+>> CONFIG_ARCH_ENABLE_MEMORY_HOTPLUG=3Dy
+>> CONFIG_ARCH_HAS_WALK_MEMORY=3Dy
+>> CONFIG_ARCH_ENABLE_MEMORY_HOTREMOVE=3Dy
+>> CONFIG_KEXEC=3Dy
+>> CONFIG_CRASH_DUMP=3Dy
+>> CONFIG_PHYP_DUMP=3Dy
+>> CONFIG_IRQ_ALL_CPUS=3Dy
+>> CONFIG_NUMA=3Dy
+>> CONFIG_NODES_SHIFT=3D8
+>> CONFIG_MAX_ACTIVE_REGIONS=3D256
+>> CONFIG_ARCH_SELECT_MEMORY_MODEL=3Dy
+>> CONFIG_ARCH_SPARSEMEM_ENABLE=3Dy
+>> CONFIG_ARCH_SPARSEMEM_DEFAULT=3Dy
+>> CONFIG_ARCH_POPULATES_NODE_MAP=3Dy
+>> CONFIG_SELECT_MEMORY_MODEL=3Dy
+>> # CONFIG_FLATMEM_MANUAL is not set
+>> # CONFIG_DISCONTIGMEM_MANUAL is not set
+>> CONFIG_SPARSEMEM_MANUAL=3Dy
+>> CONFIG_SPARSEMEM=3Dy
+>> CONFIG_NEED_MULTIPLE_NODES=3Dy
+>> CONFIG_HAVE_MEMORY_PRESENT=3Dy
+>> CONFIG_SPARSEMEM_EXTREME=3Dy
+>> CONFIG_SPARSEMEM_VMEMMAP_ENABLE=3Dy
+>> CONFIG_SPARSEMEM_VMEMMAP=3Dy
+>> CONFIG_MEMORY_HOTPLUG=3Dy
+>>
+>> #
+>> # Memory hotplug is currently incompatible with Software Suspend
+>> #
+>> CONFIG_MEMORY_HOTPLUG_SPARSE=3Dy
+>> CONFIG_MEMORY_HOTREMOVE=3Dy
+>> CONFIG_PAGEFLAGS_EXTENDED=3Dy
+>> CONFIG_SPLIT_PTLOCK_CPUS=3D4
+>> CONFIG_MIGRATION=3Dy
+>> CONFIG_PHYS_ADDR_T_64BIT=3Dy
+>> CONFIG_ZONE_DMA_FLAG=3D1
+>> CONFIG_BOUNCE=3Dy
+>> CONFIG_HAVE_MLOCK=3Dy
+>> CONFIG_HAVE_MLOCKED_PAGE_BIT=3Dy
+>> CONFIG_KSM=3Dy
+>> CONFIG_DEFAULT_MMAP_MIN_ADDR=3D4096
+>> CONFIG_ARCH_MEMORY_PROBE=3Dy
+>> CONFIG_NODES_SPAN_OTHER_NODES=3Dy
+>> CONFIG_PPC_HAS_HASH_64K=3Dy
+>> CONFIG_PPC_4K_PAGES=3Dy
+>> # CONFIG_PPC_16K_PAGES is not set
+>> # CONFIG_PPC_64K_PAGES is not set
+>> # CONFIG_PPC_256K_PAGES is not set
+>> CONFIG_FORCE_MAX_ZONEORDER=3D13
+>> CONFIG_SCHED_SMT=3Dy
+>> CONFIG_PROC_DEVICETREE=3Dy
+>> CONFIG_CMDLINE_BOOL=3Dy
+>> CONFIG_CMDLINE=3D"console=3DttyS0,9600 console=3Dtty0 root=3D/dev/sda2=
+"
+>> CONFIG_EXTRA_TARGETS=3D""
+>> CONFIG_ARCH_WANTS_FREEZER_CONTROL=3Dy
+>> CONFIG_PM=3Dy
+>> CONFIG_PM_DEBUG=3Dy
+>> CONFIG_PM_ADVANCED_DEBUG=3Dy
+>> CONFIG_PM_VERBOSE=3Dy
+>> CONFIG_CAN_PM_TRACE=3Dy
+>> CONFIG_PM_SLEEP_SMP=3Dy
+>> CONFIG_PM_SLEEP=3Dy
+>> # CONFIG_PM_SLEEP_ADVANCED_DEBUG is not set
+>> CONFIG_SUSPEND=3Dy
+>> CONFIG_SUSPEND_FREEZER=3Dy
+>> CONFIG_HIBERNATION_NVS=3Dy
+>> CONFIG_HIBERNATION=3Dy
+>> CONFIG_PM_STD_PARTITION=3D""
+>> CONFIG_PM_RUNTIME=3Dy
+>> CONFIG_SECCOMP=3Dy
+>> CONFIG_ISA_DMA_API=3Dy
+>>
+>> #
+>> # Bus options
+>> #
+>> CONFIG_ZONE_DMA=3Dy
+>> CONFIG_GENERIC_ISA_DMA=3Dy
+>> # CONFIG_PPC_INDIRECT_PCI is not set
+>> CONFIG_PPC_PCI_CHOICE=3Dy
+>> CONFIG_PCI=3Dy
+>> CONFIG_PCI_DOMAINS=3Dy
+>> CONFIG_PCI_SYSCALL=3Dy
+>> CONFIG_PCIEPORTBUS=3Dy
+>> CONFIG_HOTPLUG_PCI_PCIE=3Dm
+>> CONFIG_PCIEAER=3Dy
+>> CONFIG_PCIE_ECRC=3Dy
+>> CONFIG_PCIEAER_INJECT=3Dm
+>> CONFIG_PCIEASPM=3Dy
+>> CONFIG_PCIEASPM_DEBUG=3Dy
+>> CONFIG_ARCH_SUPPORTS_MSI=3Dy
+>> CONFIG_PCI_MSI=3Dy
+>> CONFIG_PCI_LEGACY=3Dy
+>> CONFIG_PCI_DEBUG=3Dy
+>> CONFIG_PCI_STUB=3Dm
+>> CONFIG_PCI_IOV=3Dy
+>> CONFIG_PCCARD=3Dm
+>> CONFIG_PCMCIA_DEBUG=3Dy
+>> CONFIG_PCMCIA=3Dm
+>> CONFIG_PCMCIA_LOAD_CIS=3Dy
+>> CONFIG_PCMCIA_IOCTL=3Dy
+>> CONFIG_CARDBUS=3Dy
+>>
+>> #
+>> # PC-card bridges
+>> #
+>> CONFIG_YENTA=3Dm
+>> CONFIG_YENTA_O2=3Dy
+>> CONFIG_YENTA_RICOH=3Dy
+>> CONFIG_YENTA_TI=3Dy
+>> CONFIG_YENTA_ENE_TUNE=3Dy
+>> CONFIG_YENTA_TOSHIBA=3Dy
+>> CONFIG_PD6729=3Dm
+>> CONFIG_I82092=3Dm
+>> CONFIG_ELECTRA_CF=3Dm
+>> CONFIG_PCCARD_NONSTATIC=3Dm
+>> CONFIG_HOTPLUG_PCI=3Dm
+>> CONFIG_HOTPLUG_PCI_FAKE=3Dm
+>> CONFIG_HOTPLUG_PCI_CPCI=3Dy
+>> CONFIG_HOTPLUG_PCI_SHPC=3Dm
+>> CONFIG_HOTPLUG_PCI_RPA=3Dm
+>> CONFIG_HOTPLUG_PCI_RPA_DLPAR=3Dm
+>> # CONFIG_HAS_RAPIDIO is not set
+>> CONFIG_RELOCATABLE=3Dy
+>> CONFIG_PAGE_OFFSET=3D0xc000000000000000
+>> CONFIG_KERNEL_START=3D0xc000000000000000
+>> CONFIG_PHYSICAL_START=3D0x00000000
+>> CONFIG_NET=3Dy
+>> CONFIG_COMPAT_NETLINK_MESSAGES=3Dy
+>>
+>> #
+>> # Networking options
+>> #
+>> CONFIG_PACKET=3Dm
+>> CONFIG_PACKET_MMAP=3Dy
+>> CONFIG_UNIX=3Dm
+>> CONFIG_XFRM=3Dy
+>> CONFIG_XFRM_USER=3Dm
+>> CONFIG_XFRM_SUB_POLICY=3Dy
+>> CONFIG_XFRM_MIGRATE=3Dy
+>> CONFIG_XFRM_STATISTICS=3Dy
+>> CONFIG_XFRM_IPCOMP=3Dm
+>> CONFIG_NET_KEY=3Dm
+>> CONFIG_NET_KEY_MIGRATE=3Dy
+>> CONFIG_INET=3Dy
+>> CONFIG_IP_MULTICAST=3Dy
+>> CONFIG_IP_ADVANCED_ROUTER=3Dy
+>> CONFIG_ASK_IP_FIB_HASH=3Dy
+>> # CONFIG_IP_FIB_TRIE is not set
+>> CONFIG_IP_FIB_HASH=3Dy
+>> CONFIG_IP_MULTIPLE_TABLES=3Dy
+>> CONFIG_IP_ROUTE_MULTIPATH=3Dy
+>> CONFIG_IP_ROUTE_VERBOSE=3Dy
+>> CONFIG_IP_PNP=3Dy
+>> CONFIG_IP_PNP_DHCP=3Dy
+>> CONFIG_IP_PNP_BOOTP=3Dy
+>> CONFIG_IP_PNP_RARP=3Dy
+>> CONFIG_NET_IPIP=3Dm
+>> CONFIG_NET_IPGRE=3Dm
+>> CONFIG_NET_IPGRE_BROADCAST=3Dy
+>> CONFIG_IP_MROUTE=3Dy
+>> CONFIG_IP_PIMSM_V1=3Dy
+>> CONFIG_IP_PIMSM_V2=3Dy
+>> CONFIG_ARPD=3Dy
+>> CONFIG_SYN_COOKIES=3Dy
+>> CONFIG_INET_AH=3Dm
+>> CONFIG_INET_ESP=3Dm
+>> CONFIG_INET_IPCOMP=3Dm
+>> CONFIG_INET_XFRM_TUNNEL=3Dm
+>> CONFIG_INET_TUNNEL=3Dm
+>> CONFIG_INET_XFRM_MODE_TRANSPORT=3Dm
+>> CONFIG_INET_XFRM_MODE_TUNNEL=3Dm
+>> CONFIG_INET_XFRM_MODE_BEET=3Dm
+>> CONFIG_INET_LRO=3Dy
+>> CONFIG_INET_DIAG=3Dm
+>> CONFIG_INET_TCP_DIAG=3Dm
+>> CONFIG_TCP_CONG_ADVANCED=3Dy
+>> CONFIG_TCP_CONG_BIC=3Dm
+>> CONFIG_TCP_CONG_CUBIC=3Dm
+>> CONFIG_TCP_CONG_WESTWOOD=3Dm
+>> CONFIG_TCP_CONG_HTCP=3Dm
+>> CONFIG_TCP_CONG_HSTCP=3Dm
+>> CONFIG_TCP_CONG_HYBLA=3Dm
+>> CONFIG_TCP_CONG_VEGAS=3Dm
+>> CONFIG_TCP_CONG_SCALABLE=3Dm
+>> CONFIG_TCP_CONG_LP=3Dm
+>> CONFIG_TCP_CONG_VENO=3Dm
+>> CONFIG_TCP_CONG_YEAH=3Dm
+>> CONFIG_TCP_CONG_ILLINOIS=3Dm
+>> # CONFIG_DEFAULT_BIC is not set
+>> # CONFIG_DEFAULT_CUBIC is not set
+>> # CONFIG_DEFAULT_HTCP is not set
+>> # CONFIG_DEFAULT_VEGAS is not set
+>> # CONFIG_DEFAULT_WESTWOOD is not set
+>> CONFIG_DEFAULT_RENO=3Dy
+>> CONFIG_DEFAULT_TCP_CONG=3D"reno"
+>> CONFIG_TCP_MD5SIG=3Dy
+>> CONFIG_IPV6=3Dm
+>> CONFIG_IPV6_PRIVACY=3Dy
+>> CONFIG_IPV6_ROUTER_PREF=3Dy
+>> CONFIG_IPV6_ROUTE_INFO=3Dy
+>> CONFIG_IPV6_OPTIMISTIC_DAD=3Dy
+>> CONFIG_INET6_AH=3Dm
+>> CONFIG_INET6_ESP=3Dm
+>> CONFIG_INET6_IPCOMP=3Dm
+>> CONFIG_IPV6_MIP6=3Dm
+>> CONFIG_INET6_XFRM_TUNNEL=3Dm
+>> CONFIG_INET6_TUNNEL=3Dm
+>> CONFIG_INET6_XFRM_MODE_TRANSPORT=3Dm
+>> CONFIG_INET6_XFRM_MODE_TUNNEL=3Dm
+>> CONFIG_INET6_XFRM_MODE_BEET=3Dm
+>> CONFIG_INET6_XFRM_MODE_ROUTEOPTIMIZATION=3Dm
+>> CONFIG_IPV6_SIT=3Dm
+>> CONFIG_IPV6_SIT_6RD=3Dy
+>> CONFIG_IPV6_NDISC_NODETYPE=3Dy
+>> CONFIG_IPV6_TUNNEL=3Dm
+>> CONFIG_IPV6_MULTIPLE_TABLES=3Dy
+>> CONFIG_IPV6_SUBTREES=3Dy
+>> CONFIG_IPV6_MROUTE=3Dy
+>> CONFIG_IPV6_PIMSM_V2=3Dy
+>> CONFIG_NETLABEL=3Dy
+>> CONFIG_NETWORK_SECMARK=3Dy
+>> CONFIG_NETFILTER=3Dy
+>> CONFIG_NETFILTER_DEBUG=3Dy
+>> CONFIG_NETFILTER_ADVANCED=3Dy
+>> CONFIG_BRIDGE_NETFILTER=3Dy
+>>
+>> #
+>> # Core Netfilter Configuration
+>> #
+>> CONFIG_NETFILTER_NETLINK=3Dm
+>> CONFIG_NETFILTER_NETLINK_QUEUE=3Dm
+>> CONFIG_NETFILTER_NETLINK_LOG=3Dm
+>> CONFIG_NF_CONNTRACK=3Dm
+>> CONFIG_NF_CT_ACCT=3Dy
+>> CONFIG_NF_CONNTRACK_MARK=3Dy
+>> CONFIG_NF_CONNTRACK_SECMARK=3Dy
+>> CONFIG_NF_CONNTRACK_EVENTS=3Dy
+>> CONFIG_NF_CT_PROTO_DCCP=3Dm
+>> CONFIG_NF_CT_PROTO_GRE=3Dm
+>> CONFIG_NF_CT_PROTO_SCTP=3Dm
+>> CONFIG_NF_CT_PROTO_UDPLITE=3Dm
+>> CONFIG_NF_CONNTRACK_AMANDA=3Dm
+>> CONFIG_NF_CONNTRACK_FTP=3Dm
+>> CONFIG_NF_CONNTRACK_H323=3Dm
+>> CONFIG_NF_CONNTRACK_IRC=3Dm
+>> CONFIG_NF_CONNTRACK_NETBIOS_NS=3Dm
+>> CONFIG_NF_CONNTRACK_PPTP=3Dm
+>> CONFIG_NF_CONNTRACK_SANE=3Dm
+>> CONFIG_NF_CONNTRACK_SIP=3Dm
+>> CONFIG_NF_CONNTRACK_TFTP=3Dm
+>> CONFIG_NF_CT_NETLINK=3Dm
+>> CONFIG_NETFILTER_TPROXY=3Dm
+>> CONFIG_NETFILTER_XTABLES=3Dm
+>> CONFIG_NETFILTER_XT_TARGET_CLASSIFY=3Dm
+>> CONFIG_NETFILTER_XT_TARGET_CONNMARK=3Dm
+>> CONFIG_NETFILTER_XT_TARGET_CONNSECMARK=3Dm
+>> CONFIG_NETFILTER_XT_TARGET_DSCP=3Dm
+>> CONFIG_NETFILTER_XT_TARGET_HL=3Dm
+>> CONFIG_NETFILTER_XT_TARGET_LED=3Dm
+>> CONFIG_NETFILTER_XT_TARGET_MARK=3Dm
+>> CONFIG_NETFILTER_XT_TARGET_NFLOG=3Dm
+>> CONFIG_NETFILTER_XT_TARGET_NFQUEUE=3Dm
+>> CONFIG_NETFILTER_XT_TARGET_NOTRACK=3Dm
+>> CONFIG_NETFILTER_XT_TARGET_RATEEST=3Dm
+>> CONFIG_NETFILTER_XT_TARGET_TPROXY=3Dm
+>> CONFIG_NETFILTER_XT_TARGET_TRACE=3Dm
+>> CONFIG_NETFILTER_XT_TARGET_SECMARK=3Dm
+>> CONFIG_NETFILTER_XT_TARGET_TCPMSS=3Dm
+>> CONFIG_NETFILTER_XT_TARGET_TCPOPTSTRIP=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_CLUSTER=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_COMMENT=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_CONNBYTES=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_CONNLIMIT=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_CONNMARK=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_CONNTRACK=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_DCCP=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_DSCP=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_ESP=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_HASHLIMIT=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_HELPER=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_HL=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_IPRANGE=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_LENGTH=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_LIMIT=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_MAC=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_MARK=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_MULTIPORT=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_OWNER=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_POLICY=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_PHYSDEV=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_PKTTYPE=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_QUOTA=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_RATEEST=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_REALM=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_RECENT=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_RECENT_PROC_COMPAT=3Dy
+>> CONFIG_NETFILTER_XT_MATCH_SCTP=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_SOCKET=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_STATE=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_STATISTIC=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_STRING=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_TCPMSS=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_TIME=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_U32=3Dm
+>> CONFIG_NETFILTER_XT_MATCH_OSF=3Dm
+>> CONFIG_IP_VS=3Dm
+>> CONFIG_IP_VS_IPV6=3Dy
+>> CONFIG_IP_VS_DEBUG=3Dy
+>> CONFIG_IP_VS_TAB_BITS=3D12
+>>
+>> #
+>> # IPVS transport protocol load balancing support
+>> #
+>> CONFIG_IP_VS_PROTO_TCP=3Dy
+>> CONFIG_IP_VS_PROTO_UDP=3Dy
+>> CONFIG_IP_VS_PROTO_AH_ESP=3Dy
+>> CONFIG_IP_VS_PROTO_ESP=3Dy
+>> CONFIG_IP_VS_PROTO_AH=3Dy
+>>
+>> #
+>> # IPVS scheduler
+>> #
+>> CONFIG_IP_VS_RR=3Dm
+>> CONFIG_IP_VS_WRR=3Dm
+>> CONFIG_IP_VS_LC=3Dm
+>> CONFIG_IP_VS_WLC=3Dm
+>> CONFIG_IP_VS_LBLC=3Dm
+>> CONFIG_IP_VS_LBLCR=3Dm
+>> CONFIG_IP_VS_DH=3Dm
+>> CONFIG_IP_VS_SH=3Dm
+>> CONFIG_IP_VS_SED=3Dm
+>> CONFIG_IP_VS_NQ=3Dm
+>>
+>> #
+>> # IPVS application helper
+>> #
+>> CONFIG_IP_VS_FTP=3Dm
+>>
+>> #
+>> # IP: Netfilter Configuration
+>> #
+>> CONFIG_NF_DEFRAG_IPV4=3Dm
+>> CONFIG_NF_CONNTRACK_IPV4=3Dm
+>> CONFIG_NF_CONNTRACK_PROC_COMPAT=3Dy
+>> CONFIG_IP_NF_QUEUE=3Dm
+>> CONFIG_IP_NF_IPTABLES=3Dm
+>> CONFIG_IP_NF_MATCH_ADDRTYPE=3Dm
+>> CONFIG_IP_NF_MATCH_AH=3Dm
+>> CONFIG_IP_NF_MATCH_ECN=3Dm
+>> CONFIG_IP_NF_MATCH_TTL=3Dm
+>> CONFIG_IP_NF_FILTER=3Dm
+>> CONFIG_IP_NF_TARGET_REJECT=3Dm
+>> CONFIG_IP_NF_TARGET_LOG=3Dm
+>> CONFIG_IP_NF_TARGET_ULOG=3Dm
+>> CONFIG_NF_NAT=3Dm
+>> CONFIG_NF_NAT_NEEDED=3Dy
+>> CONFIG_IP_NF_TARGET_MASQUERADE=3Dm
+>> CONFIG_IP_NF_TARGET_NETMAP=3Dm
+>> CONFIG_IP_NF_TARGET_REDIRECT=3Dm
+>> CONFIG_NF_NAT_SNMP_BASIC=3Dm
+>> CONFIG_NF_NAT_PROTO_DCCP=3Dm
+>> CONFIG_NF_NAT_PROTO_GRE=3Dm
+>> CONFIG_NF_NAT_PROTO_UDPLITE=3Dm
+>> CONFIG_NF_NAT_PROTO_SCTP=3Dm
+>> CONFIG_NF_NAT_FTP=3Dm
+>> CONFIG_NF_NAT_IRC=3Dm
+>> CONFIG_NF_NAT_TFTP=3Dm
+>> CONFIG_NF_NAT_AMANDA=3Dm
+>> CONFIG_NF_NAT_PPTP=3Dm
+>> CONFIG_NF_NAT_H323=3Dm
+>> CONFIG_NF_NAT_SIP=3Dm
+>> CONFIG_IP_NF_MANGLE=3Dm
+>> CONFIG_IP_NF_TARGET_CLUSTERIP=3Dm
+>> CONFIG_IP_NF_TARGET_ECN=3Dm
+>> CONFIG_IP_NF_TARGET_TTL=3Dm
+>> CONFIG_IP_NF_RAW=3Dm
+>> CONFIG_IP_NF_SECURITY=3Dm
+>> CONFIG_IP_NF_ARPTABLES=3Dm
+>> CONFIG_IP_NF_ARPFILTER=3Dm
+>> CONFIG_IP_NF_ARP_MANGLE=3Dm
+>>
+>> #
+>> # IPv6: Netfilter Configuration
+>> #
+>> CONFIG_NF_CONNTRACK_IPV6=3Dm
+>> CONFIG_IP6_NF_QUEUE=3Dm
+>> CONFIG_IP6_NF_IPTABLES=3Dm
+>> CONFIG_IP6_NF_MATCH_AH=3Dm
+>> CONFIG_IP6_NF_MATCH_EUI64=3Dm
+>> CONFIG_IP6_NF_MATCH_FRAG=3Dm
+>> CONFIG_IP6_NF_MATCH_OPTS=3Dm
+>> CONFIG_IP6_NF_MATCH_HL=3Dm
+>> CONFIG_IP6_NF_MATCH_IPV6HEADER=3Dm
+>> CONFIG_IP6_NF_MATCH_MH=3Dm
+>> CONFIG_IP6_NF_MATCH_RT=3Dm
+>> CONFIG_IP6_NF_TARGET_HL=3Dm
+>> CONFIG_IP6_NF_TARGET_LOG=3Dm
+>> CONFIG_IP6_NF_FILTER=3Dm
+>> CONFIG_IP6_NF_TARGET_REJECT=3Dm
+>> CONFIG_IP6_NF_MANGLE=3Dm
+>> CONFIG_IP6_NF_RAW=3Dm
+>> CONFIG_IP6_NF_SECURITY=3Dm
+>>
+>> #
+>> # DECnet: Netfilter Configuration
+>> #
+>> CONFIG_DECNET_NF_GRABULATOR=3Dm
+>> CONFIG_BRIDGE_NF_EBTABLES=3Dm
+>> CONFIG_BRIDGE_EBT_BROUTE=3Dm
+>> CONFIG_BRIDGE_EBT_T_FILTER=3Dm
+>> CONFIG_BRIDGE_EBT_T_NAT=3Dm
+>> CONFIG_BRIDGE_EBT_802_3=3Dm
+>> CONFIG_BRIDGE_EBT_AMONG=3Dm
+>> CONFIG_BRIDGE_EBT_ARP=3Dm
+>> CONFIG_BRIDGE_EBT_IP=3Dm
+>> CONFIG_BRIDGE_EBT_IP6=3Dm
+>> CONFIG_BRIDGE_EBT_LIMIT=3Dm
+>> CONFIG_BRIDGE_EBT_MARK=3Dm
+>> CONFIG_BRIDGE_EBT_PKTTYPE=3Dm
+>> CONFIG_BRIDGE_EBT_STP=3Dm
+>> CONFIG_BRIDGE_EBT_VLAN=3Dm
+>> CONFIG_BRIDGE_EBT_ARPREPLY=3Dm
+>> CONFIG_BRIDGE_EBT_DNAT=3Dm
+>> CONFIG_BRIDGE_EBT_MARK_T=3Dm
+>> CONFIG_BRIDGE_EBT_REDIRECT=3Dm
+>> CONFIG_BRIDGE_EBT_SNAT=3Dm
+>> CONFIG_BRIDGE_EBT_LOG=3Dm
+>> CONFIG_BRIDGE_EBT_ULOG=3Dm
+>> CONFIG_BRIDGE_EBT_NFLOG=3Dm
+>> CONFIG_IP_DCCP=3Dm
+>> CONFIG_INET_DCCP_DIAG=3Dm
+>>
+>> #
+>> # DCCP CCIDs Configuration (EXPERIMENTAL)
+>> #
+>> CONFIG_IP_DCCP_CCID2_DEBUG=3Dy
+>> CONFIG_IP_DCCP_CCID3=3Dy
+>> CONFIG_IP_DCCP_CCID3_DEBUG=3Dy
+>> CONFIG_IP_DCCP_CCID3_RTO=3D100
+>> CONFIG_IP_DCCP_TFRC_LIB=3Dy
+>> CONFIG_IP_DCCP_TFRC_DEBUG=3Dy
+>>
+>> #
+>> # DCCP Kernel Hacking
+>> #
+>> CONFIG_IP_DCCP_DEBUG=3Dy
+>> CONFIG_NET_DCCPPROBE=3Dm
+>> CONFIG_IP_SCTP=3Dm
+>> CONFIG_SCTP_DBG_MSG=3Dy
+>> CONFIG_SCTP_DBG_OBJCNT=3Dy
+>> # CONFIG_SCTP_HMAC_NONE is not set
+>> # CONFIG_SCTP_HMAC_SHA1 is not set
+>> CONFIG_SCTP_HMAC_MD5=3Dy
+>> CONFIG_RDS=3Dm
+>> CONFIG_RDS_RDMA=3Dm
+>> CONFIG_RDS_TCP=3Dm
+>> CONFIG_RDS_DEBUG=3Dy
+>> CONFIG_TIPC=3Dm
+>> CONFIG_TIPC_ADVANCED=3Dy
+>> CONFIG_TIPC_ZONES=3D3
+>> CONFIG_TIPC_CLUSTERS=3D1
+>> CONFIG_TIPC_NODES=3D255
+>> CONFIG_TIPC_SLAVE_NODES=3D0
+>> CONFIG_TIPC_PORTS=3D8191
+>> CONFIG_TIPC_LOG=3D0
+>> CONFIG_TIPC_DEBUG=3Dy
+>> CONFIG_ATM=3Dm
+>> CONFIG_ATM_CLIP=3Dm
+>> CONFIG_ATM_CLIP_NO_ICMP=3Dy
+>> CONFIG_ATM_LANE=3Dm
+>> CONFIG_ATM_MPOA=3Dm
+>> CONFIG_ATM_BR2684=3Dm
+>> CONFIG_ATM_BR2684_IPFILTER=3Dy
+>> CONFIG_STP=3Dm
+>> CONFIG_GARP=3Dm
+>> CONFIG_BRIDGE=3Dm
+>> CONFIG_NET_DSA=3Dy
+>> CONFIG_NET_DSA_TAG_DSA=3Dy
+>> CONFIG_NET_DSA_TAG_EDSA=3Dy
+>> CONFIG_NET_DSA_TAG_TRAILER=3Dy
+>> CONFIG_NET_DSA_MV88E6XXX=3Dy
+>> CONFIG_NET_DSA_MV88E6060=3Dy
+>> CONFIG_NET_DSA_MV88E6XXX_NEED_PPU=3Dy
+>> CONFIG_NET_DSA_MV88E6131=3Dy
+>> CONFIG_NET_DSA_MV88E6123_61_65=3Dy
+>> CONFIG_VLAN_8021Q=3Dm
+>> CONFIG_VLAN_8021Q_GVRP=3Dy
+>> CONFIG_DECNET=3Dm
+>> CONFIG_DECNET_ROUTER=3Dy
+>> CONFIG_LLC=3Dm
+>> CONFIG_LLC2=3Dm
+>> CONFIG_IPX=3Dm
+>> CONFIG_IPX_INTERN=3Dy
+>> CONFIG_ATALK=3Dm
+>> CONFIG_DEV_APPLETALK=3Dm
+>> CONFIG_IPDDP=3Dm
+>> CONFIG_IPDDP_ENCAP=3Dy
+>> CONFIG_IPDDP_DECAP=3Dy
+>> CONFIG_X25=3Dm
+>> CONFIG_LAPB=3Dm
+>> CONFIG_ECONET=3Dm
+>> CONFIG_ECONET_AUNUDP=3Dy
+>> CONFIG_ECONET_NATIVE=3Dy
+>> CONFIG_WAN_ROUTER=3Dm
+>> CONFIG_PHONET=3Dm
+>> CONFIG_IEEE802154=3Dm
+>> CONFIG_NET_SCHED=3Dy
+>>
+>> #
+>> # Queueing/Scheduling
+>> #
+>> CONFIG_NET_SCH_CBQ=3Dm
+>> CONFIG_NET_SCH_HTB=3Dm
+>> CONFIG_NET_SCH_HFSC=3Dm
+>> CONFIG_NET_SCH_ATM=3Dm
+>> CONFIG_NET_SCH_PRIO=3Dm
+>> CONFIG_NET_SCH_MULTIQ=3Dm
+>> CONFIG_NET_SCH_RED=3Dm
+>> CONFIG_NET_SCH_SFQ=3Dm
+>> CONFIG_NET_SCH_TEQL=3Dm
+>> CONFIG_NET_SCH_TBF=3Dm
+>> CONFIG_NET_SCH_GRED=3Dm
+>> CONFIG_NET_SCH_DSMARK=3Dm
+>> CONFIG_NET_SCH_NETEM=3Dm
+>> CONFIG_NET_SCH_DRR=3Dm
+>> CONFIG_NET_SCH_INGRESS=3Dm
+>>
+>> #
+>> # Classification
+>> #
+>> CONFIG_NET_CLS=3Dy
+>> CONFIG_NET_CLS_BASIC=3Dm
+>> CONFIG_NET_CLS_TCINDEX=3Dm
+>> CONFIG_NET_CLS_ROUTE4=3Dm
+>> CONFIG_NET_CLS_ROUTE=3Dy
+>> CONFIG_NET_CLS_FW=3Dm
+>> CONFIG_NET_CLS_U32=3Dm
+>> CONFIG_CLS_U32_PERF=3Dy
+>> CONFIG_CLS_U32_MARK=3Dy
+>> CONFIG_NET_CLS_RSVP=3Dm
+>> CONFIG_NET_CLS_RSVP6=3Dm
+>> CONFIG_NET_CLS_FLOW=3Dm
+>> CONFIG_NET_CLS_CGROUP=3Dy
+>> CONFIG_NET_EMATCH=3Dy
+>> CONFIG_NET_EMATCH_STACK=3D32
+>> CONFIG_NET_EMATCH_CMP=3Dm
+>> CONFIG_NET_EMATCH_NBYTE=3Dm
+>> CONFIG_NET_EMATCH_U32=3Dm
+>> CONFIG_NET_EMATCH_META=3Dm
+>> CONFIG_NET_EMATCH_TEXT=3Dm
+>> CONFIG_NET_CLS_ACT=3Dy
+>> CONFIG_NET_ACT_POLICE=3Dm
+>> CONFIG_NET_ACT_GACT=3Dm
+>> CONFIG_GACT_PROB=3Dy
+>> CONFIG_NET_ACT_MIRRED=3Dm
+>> CONFIG_NET_ACT_IPT=3Dm
+>> CONFIG_NET_ACT_NAT=3Dm
+>> CONFIG_NET_ACT_PEDIT=3Dm
+>> CONFIG_NET_ACT_SIMP=3Dm
+>> CONFIG_NET_ACT_SKBEDIT=3Dm
+>> CONFIG_NET_CLS_IND=3Dy
+>> CONFIG_NET_SCH_FIFO=3Dy
+>> CONFIG_DCB=3Dy
+>>
+>> #
+>> # Network testing
+>> #
+>> CONFIG_NET_PKTGEN=3Dm
+>> CONFIG_NET_TCPPROBE=3Dm
+>> CONFIG_NET_DROP_MONITOR=3Dy
+>> CONFIG_HAMRADIO=3Dy
+>>
+>> #
+>> # Packet Radio protocols
+>> #
+>> CONFIG_AX25=3Dm
+>> CONFIG_AX25_DAMA_SLAVE=3Dy
+>> CONFIG_NETROM=3Dm
+>> CONFIG_ROSE=3Dm
+>>
+>> #
+>> # AX.25 network device drivers
+>> #
+>> CONFIG_MKISS=3Dm
+>> CONFIG_6PACK=3Dm
+>> CONFIG_BPQETHER=3Dm
+>> CONFIG_BAYCOM_SER_FDX=3Dm
+>> CONFIG_BAYCOM_SER_HDX=3Dm
+>> CONFIG_BAYCOM_PAR=3Dm
+>> CONFIG_YAM=3Dm
+>> CONFIG_CAN=3Dm
+>> CONFIG_CAN_RAW=3Dm
+>> CONFIG_CAN_BCM=3Dm
+>>
+>> #
+>> # CAN Device Drivers
+>> #
+>> CONFIG_CAN_VCAN=3Dm
+>> CONFIG_CAN_DEV=3Dm
+>> CONFIG_CAN_CALC_BITTIMING=3Dy
+>> CONFIG_CAN_SJA1000=3Dm
+>> CONFIG_CAN_SJA1000_PLATFORM=3Dm
+>> CONFIG_CAN_SJA1000_OF_PLATFORM=3Dm
+>> CONFIG_CAN_EMS_PCI=3Dm
+>> CONFIG_CAN_EMS_USB=3Dm
+>> CONFIG_CAN_KVASER_PCI=3Dm
+>> CONFIG_CAN_DEBUG_DEVICES=3Dy
+>> CONFIG_IRDA=3Dm
+>>
+>> #
+>> # IrDA protocols
+>> #
+>> CONFIG_IRLAN=3Dm
+>> CONFIG_IRNET=3Dm
+>> CONFIG_IRCOMM=3Dm
+>> CONFIG_IRDA_ULTRA=3Dy
+>>
+>> #
+>> # IrDA options
+>> #
+>> CONFIG_IRDA_CACHE_LAST_LSAP=3Dy
+>> CONFIG_IRDA_FAST_RR=3Dy
+>> CONFIG_IRDA_DEBUG=3Dy
+>>
+>> #
+>> # Infrared-port device drivers
+>> #
+>>
+>> #
+>> # SIR device drivers
+>> #
+>> CONFIG_IRTTY_SIR=3Dm
+>>
+>> #
+>> # Dongle support
+>> #
+>> CONFIG_DONGLE=3Dy
+>> CONFIG_ESI_DONGLE=3Dm
+>> CONFIG_ACTISYS_DONGLE=3Dm
+>> CONFIG_TEKRAM_DONGLE=3Dm
+>> CONFIG_TOIM3232_DONGLE=3Dm
+>> CONFIG_LITELINK_DONGLE=3Dm
+>> CONFIG_MA600_DONGLE=3Dm
+>> CONFIG_GIRBIL_DONGLE=3Dm
+>> CONFIG_MCP2120_DONGLE=3Dm
+>> CONFIG_OLD_BELKIN_DONGLE=3Dm
+>> CONFIG_ACT200L_DONGLE=3Dm
+>> CONFIG_KINGSUN_DONGLE=3Dm
+>> CONFIG_KSDAZZLE_DONGLE=3Dm
+>> CONFIG_KS959_DONGLE=3Dm
+>>
+>> #
+>> # FIR device drivers
+>> #
+>> CONFIG_USB_IRDA=3Dm
+>> CONFIG_SIGMATEL_FIR=3Dm
+>> CONFIG_NSC_FIR=3Dm
+>> CONFIG_WINBOND_FIR=3Dm
+>> CONFIG_SMC_IRCC_FIR=3Dm
+>> CONFIG_ALI_FIR=3Dm
+>> CONFIG_VLSI_FIR=3Dm
+>> CONFIG_VIA_FIR=3Dm
+>> CONFIG_MCS_FIR=3Dm
+>> CONFIG_BT=3Dm
+>> CONFIG_BT_L2CAP=3Dm
+>> CONFIG_BT_SCO=3Dm
+>> CONFIG_BT_RFCOMM=3Dm
+>> CONFIG_BT_RFCOMM_TTY=3Dy
+>> CONFIG_BT_BNEP=3Dm
+>> CONFIG_BT_BNEP_MC_FILTER=3Dy
+>> CONFIG_BT_BNEP_PROTO_FILTER=3Dy
+>> CONFIG_BT_CMTP=3Dm
+>> CONFIG_BT_HIDP=3Dm
+>>
+>> #
+>> # Bluetooth device drivers
+>> #
+>> CONFIG_BT_HCIBTUSB=3Dm
+>> CONFIG_BT_HCIBTSDIO=3Dm
+>> CONFIG_BT_HCIUART=3Dm
+>> CONFIG_BT_HCIUART_H4=3Dy
+>> CONFIG_BT_HCIUART_BCSP=3Dy
+>> CONFIG_BT_HCIUART_LL=3Dy
+>> CONFIG_BT_HCIBCM203X=3Dm
+>> CONFIG_BT_HCIBPA10X=3Dm
+>> CONFIG_BT_HCIBFUSB=3Dm
+>> CONFIG_BT_HCIDTL1=3Dm
+>> CONFIG_BT_HCIBT3C=3Dm
+>> CONFIG_BT_HCIBLUECARD=3Dm
+>> CONFIG_BT_HCIBTUART=3Dm
+>> CONFIG_BT_HCIVHCI=3Dm
+>> CONFIG_BT_MRVL=3Dm
+>> CONFIG_BT_MRVL_SDIO=3Dm
+>> CONFIG_AF_RXRPC=3Dm
+>> CONFIG_AF_RXRPC_DEBUG=3Dy
+>> CONFIG_RXKAD=3Dm
+>> CONFIG_FIB_RULES=3Dy
+>> CONFIG_WIRELESS=3Dy
+>> CONFIG_WIRELESS_EXT=3Dy
+>> CONFIG_WEXT_CORE=3Dy
+>> CONFIG_WEXT_PROC=3Dy
+>> CONFIG_WEXT_SPY=3Dy
+>> CONFIG_WEXT_PRIV=3Dy
+>> CONFIG_CFG80211=3Dm
+>> CONFIG_NL80211_TESTMODE=3Dy
+>> CONFIG_CFG80211_DEVELOPER_WARNINGS=3Dy
+>> CONFIG_CFG80211_REG_DEBUG=3Dy
+>> CONFIG_CFG80211_DEFAULT_PS_VALUE=3D1
+>> CONFIG_CFG80211_DEFAULT_PS=3Dy
+>> CONFIG_CFG80211_DEBUGFS=3Dy
+>> CONFIG_WIRELESS_OLD_REGULATORY=3Dy
+>> CONFIG_CFG80211_WEXT=3Dy
+>> CONFIG_WIRELESS_EXT_SYSFS=3Dy
+>> CONFIG_LIB80211=3Dm
+>> CONFIG_LIB80211_CRYPT_WEP=3Dm
+>> CONFIG_LIB80211_CRYPT_CCMP=3Dm
+>> CONFIG_LIB80211_CRYPT_TKIP=3Dm
+>> CONFIG_LIB80211_DEBUG=3Dy
+>> CONFIG_MAC80211=3Dm
+>> CONFIG_MAC80211_RC_PID=3Dy
+>> CONFIG_MAC80211_RC_MINSTREL=3Dy
+>> # CONFIG_MAC80211_RC_DEFAULT_PID is not set
+>> CONFIG_MAC80211_RC_DEFAULT_MINSTREL=3Dy
+>> CONFIG_MAC80211_RC_DEFAULT=3D"minstrel"
+>> CONFIG_MAC80211_MESH=3Dy
+>> CONFIG_MAC80211_LEDS=3Dy
+>> CONFIG_MAC80211_DEBUGFS=3Dy
+>> CONFIG_MAC80211_DEBUG_MENU=3Dy
+>> CONFIG_MAC80211_DEBUG_PACKET_ALIGNMENT=3Dy
+>> CONFIG_MAC80211_NOINLINE=3Dy
+>> CONFIG_MAC80211_VERBOSE_DEBUG=3Dy
+>> CONFIG_MAC80211_HT_DEBUG=3Dy
+>> CONFIG_MAC80211_TKIP_DEBUG=3Dy
+>> CONFIG_MAC80211_IBSS_DEBUG=3Dy
+>> CONFIG_MAC80211_VERBOSE_PS_DEBUG=3Dy
+>> CONFIG_MAC80211_VERBOSE_MPL_DEBUG=3Dy
+>> CONFIG_MAC80211_DEBUG_COUNTERS=3Dy
+>> CONFIG_MAC80211_DRIVER_API_TRACER=3Dy
+>> CONFIG_WIMAX=3Dm
+>> CONFIG_WIMAX_DEBUG_LEVEL=3D8
+>> CONFIG_RFKILL=3Dm
+>> CONFIG_RFKILL_LEDS=3Dy
+>> CONFIG_RFKILL_INPUT=3Dy
+>> CONFIG_NET_9P=3Dm
+>> CONFIG_NET_9P_VIRTIO=3Dm
+>> CONFIG_NET_9P_RDMA=3Dm
+>> CONFIG_NET_9P_DEBUG=3Dy
+>>
+>> #
+>> # Device Drivers
+>> #
+>>
+>> #
+>> # Generic Driver Options
+>> #
+>> CONFIG_UEVENT_HELPER_PATH=3D"/sbin/hotplug"
+>> CONFIG_DEVTMPFS=3Dy
+>> CONFIG_DEVTMPFS_MOUNT=3Dy
+>> CONFIG_STANDALONE=3Dy
+>> CONFIG_PREVENT_FIRMWARE_BUILD=3Dy
+>> CONFIG_FW_LOADER=3Dm
+>> CONFIG_FIRMWARE_IN_KERNEL=3Dy
+>> CONFIG_EXTRA_FIRMWARE=3D""
+>> CONFIG_DEBUG_DRIVER=3Dy
+>> CONFIG_DEBUG_DEVRES=3Dy
+>> # CONFIG_SYS_HYPERVISOR is not set
+>> CONFIG_CONNECTOR=3Dm
+>> CONFIG_MTD=3Dm
+>> CONFIG_MTD_DEBUG=3Dy
+>> CONFIG_MTD_DEBUG_VERBOSE=3D0
+>> CONFIG_MTD_TESTS=3Dm
+>> CONFIG_MTD_CONCAT=3Dm
+>> CONFIG_MTD_PARTITIONS=3Dy
+>> CONFIG_MTD_REDBOOT_PARTS=3Dm
+>> CONFIG_MTD_REDBOOT_DIRECTORY_BLOCK=3D-1
+>> CONFIG_MTD_REDBOOT_PARTS_UNALLOCATED=3Dy
+>> CONFIG_MTD_REDBOOT_PARTS_READONLY=3Dy
+>> CONFIG_MTD_OF_PARTS=3Dm
+>> CONFIG_MTD_AR7_PARTS=3Dm
+>>
+>> #
+>> # User Modules And Translation Layers
+>> #
+>> CONFIG_MTD_CHAR=3Dm
+>> CONFIG_HAVE_MTD_OTP=3Dy
+>> CONFIG_MTD_BLKDEVS=3Dm
+>> CONFIG_MTD_BLOCK=3Dm
+>> CONFIG_MTD_BLOCK_RO=3Dm
+>> CONFIG_FTL=3Dm
+>> CONFIG_NFTL=3Dm
+>> CONFIG_NFTL_RW=3Dy
+>> CONFIG_INFTL=3Dm
+>> CONFIG_RFD_FTL=3Dm
+>> CONFIG_SSFDC=3Dm
+>> CONFIG_MTD_OOPS=3Dm
+>>
+>> #
+>> # RAM/ROM/Flash chip drivers
+>> #
+>> CONFIG_MTD_CFI=3Dm
+>> CONFIG_MTD_JEDECPROBE=3Dm
+>> CONFIG_MTD_GEN_PROBE=3Dm
+>> CONFIG_MTD_CFI_ADV_OPTIONS=3Dy
+>> CONFIG_MTD_CFI_NOSWAP=3Dy
+>> # CONFIG_MTD_CFI_BE_BYTE_SWAP is not set
+>> # CONFIG_MTD_CFI_LE_BYTE_SWAP is not set
+>> CONFIG_MTD_CFI_GEOMETRY=3Dy
+>> CONFIG_MTD_MAP_BANK_WIDTH_1=3Dy
+>> CONFIG_MTD_MAP_BANK_WIDTH_2=3Dy
+>> CONFIG_MTD_MAP_BANK_WIDTH_4=3Dy
+>> CONFIG_MTD_MAP_BANK_WIDTH_8=3Dy
+>> CONFIG_MTD_MAP_BANK_WIDTH_16=3Dy
+>> CONFIG_MTD_MAP_BANK_WIDTH_32=3Dy
+>> CONFIG_MTD_CFI_I1=3Dy
+>> CONFIG_MTD_CFI_I2=3Dy
+>> CONFIG_MTD_CFI_I4=3Dy
+>> CONFIG_MTD_CFI_I8=3Dy
+>> CONFIG_MTD_OTP=3Dy
+>> CONFIG_MTD_CFI_INTELEXT=3Dm
+>> CONFIG_MTD_CFI_AMDSTD=3Dm
+>> CONFIG_MTD_CFI_STAA=3Dm
+>> CONFIG_MTD_CFI_UTIL=3Dm
+>> CONFIG_MTD_RAM=3Dm
+>> CONFIG_MTD_ROM=3Dm
+>> CONFIG_MTD_ABSENT=3Dm
+>>
+>> #
+>> # Mapping drivers for chip access
+>> #
+>> CONFIG_MTD_COMPLEX_MAPPINGS=3Dy
+>> CONFIG_MTD_PHYSMAP=3Dm
+>> CONFIG_MTD_PHYSMAP_COMPAT=3Dy
+>> CONFIG_MTD_PHYSMAP_START=3D0x8000000
+>> CONFIG_MTD_PHYSMAP_LEN=3D0
+>> CONFIG_MTD_PHYSMAP_BANKWIDTH=3D2
+>> CONFIG_MTD_PHYSMAP_OF=3Dm
+>> CONFIG_MTD_PCI=3Dm
+>> CONFIG_MTD_GPIO_ADDR=3Dm
+>> CONFIG_MTD_INTEL_VR_NOR=3Dm
+>> CONFIG_MTD_PLATRAM=3Dm
+>>
+>> #
+>> # Self-contained MTD device drivers
+>> #
+>> CONFIG_MTD_PMC551=3Dm
+>> CONFIG_MTD_PMC551_BUGFIX=3Dy
+>> CONFIG_MTD_PMC551_DEBUG=3Dy
+>> CONFIG_MTD_DATAFLASH=3Dm
+>> CONFIG_MTD_DATAFLASH_WRITE_VERIFY=3Dy
+>> CONFIG_MTD_DATAFLASH_OTP=3Dy
+>> CONFIG_MTD_M25P80=3Dm
+>> CONFIG_M25PXX_USE_FAST_READ=3Dy
+>> CONFIG_MTD_SST25L=3Dm
+>> CONFIG_MTD_SLRAM=3Dm
+>> CONFIG_MTD_PHRAM=3Dm
+>> CONFIG_MTD_MTDRAM=3Dm
+>> CONFIG_MTDRAM_TOTAL_SIZE=3D4096
+>> CONFIG_MTDRAM_ERASE_SIZE=3D128
+>> CONFIG_MTD_BLOCK2MTD=3Dm
+>>
+>> #
+>> # Disk-On-Chip Device Drivers
+>> #
+>> CONFIG_MTD_DOC2000=3Dm
+>> CONFIG_MTD_DOC2001=3Dm
+>> CONFIG_MTD_DOC2001PLUS=3Dm
+>> CONFIG_MTD_DOCPROBE=3Dm
+>> CONFIG_MTD_DOCECC=3Dm
+>> CONFIG_MTD_DOCPROBE_ADVANCED=3Dy
+>> CONFIG_MTD_DOCPROBE_ADDRESS=3D0x0000
+>> CONFIG_MTD_DOCPROBE_HIGH=3Dy
+>> CONFIG_MTD_DOCPROBE_55AA=3Dy
+>> CONFIG_MTD_NAND=3Dm
+>> CONFIG_MTD_NAND_VERIFY_WRITE=3Dy
+>> CONFIG_MTD_NAND_ECC_SMC=3Dy
+>> CONFIG_MTD_NAND_MUSEUM_IDS=3Dy
+>> CONFIG_MTD_NAND_IDS=3Dm
+>> CONFIG_MTD_NAND_DISKONCHIP=3Dm
+>> CONFIG_MTD_NAND_DISKONCHIP_PROBE_ADVANCED=3Dy
+>> CONFIG_MTD_NAND_DISKONCHIP_PROBE_ADDRESS=3D0
+>> CONFIG_MTD_NAND_DISKONCHIP_PROBE_HIGH=3Dy
+>> CONFIG_MTD_NAND_DISKONCHIP_BBTWRITE=3Dy
+>> CONFIG_MTD_NAND_CAFE=3Dm
+>> CONFIG_MTD_NAND_PASEMI=3Dm
+>> CONFIG_MTD_NAND_NANDSIM=3Dm
+>> CONFIG_MTD_NAND_PLATFORM=3Dm
+>> CONFIG_MTD_ALAUDA=3Dm
+>> CONFIG_MTD_NAND_FSL_ELBC=3Dm
+>> CONFIG_MTD_ONENAND=3Dm
+>> CONFIG_MTD_ONENAND_VERIFY_WRITE=3Dy
+>> CONFIG_MTD_ONENAND_GENERIC=3Dm
+>> CONFIG_MTD_ONENAND_OTP=3Dy
+>> CONFIG_MTD_ONENAND_2X_PROGRAM=3Dy
+>> CONFIG_MTD_ONENAND_SIM=3Dm
+>>
+>> #
+>> # LPDDR flash memory drivers
+>> #
+>> CONFIG_MTD_LPDDR=3Dm
+>> CONFIG_MTD_QINFO_PROBE=3Dm
+>>
+>> #
+>> # UBI - Unsorted block images
+>> #
+>> CONFIG_MTD_UBI=3Dm
+>> CONFIG_MTD_UBI_WL_THRESHOLD=3D4096
+>> CONFIG_MTD_UBI_BEB_RESERVE=3D1
+>> CONFIG_MTD_UBI_GLUEBI=3Dm
+>>
+>> #
+>> # UBI debugging options
+>> #
+>> CONFIG_MTD_UBI_DEBUG=3Dy
+>> CONFIG_MTD_UBI_DEBUG_MSG=3Dy
+>> CONFIG_MTD_UBI_DEBUG_PARANOID=3Dy
+>> CONFIG_MTD_UBI_DEBUG_DISABLE_BGT=3Dy
+>> CONFIG_MTD_UBI_DEBUG_EMULATE_BITFLIPS=3Dy
+>> CONFIG_MTD_UBI_DEBUG_EMULATE_WRITE_FAILURES=3Dy
+>> CONFIG_MTD_UBI_DEBUG_EMULATE_ERASE_FAILURES=3Dy
+>>
+>> #
+>> # Additional UBI debugging messages
+>> #
+>> CONFIG_MTD_UBI_DEBUG_MSG_BLD=3Dy
+>> CONFIG_MTD_UBI_DEBUG_MSG_EBA=3Dy
+>> CONFIG_MTD_UBI_DEBUG_MSG_WL=3Dy
+>> CONFIG_MTD_UBI_DEBUG_MSG_IO=3Dy
+>> CONFIG_OF_DEVICE=3Dy
+>> CONFIG_OF_GPIO=3Dy
+>> CONFIG_OF_I2C=3Dm
+>> CONFIG_OF_SPI=3Dy
+>> CONFIG_OF_MDIO=3Dy
+>> CONFIG_PARPORT=3Dm
+>> CONFIG_PARPORT_PC=3Dm
+>> CONFIG_PARPORT_SERIAL=3Dm
+>> CONFIG_PARPORT_PC_FIFO=3Dy
+>> CONFIG_PARPORT_PC_SUPERIO=3Dy
+>> CONFIG_PARPORT_PC_PCMCIA=3Dm
+>> # CONFIG_PARPORT_GSC is not set
+>> CONFIG_PARPORT_AX88796=3Dm
+>> CONFIG_PARPORT_1284=3Dy
+>> CONFIG_PARPORT_NOT_PC=3Dy
+>> CONFIG_BLK_DEV=3Dy
+>> CONFIG_BLK_DEV_FD=3Dm
+>> CONFIG_PARIDE=3Dm
+>>
+>> #
+>> # Parallel IDE high-level drivers
+>> #
+>> CONFIG_PARIDE_PD=3Dm
+>> CONFIG_PARIDE_PCD=3Dm
+>> CONFIG_PARIDE_PF=3Dm
+>> CONFIG_PARIDE_PT=3Dm
+>> CONFIG_PARIDE_PG=3Dm
+>>
+>> #
+>> # Parallel IDE protocol modules
+>> #
+>> CONFIG_PARIDE_ATEN=3Dm
+>> CONFIG_PARIDE_BPCK=3Dm
+>> CONFIG_PARIDE_COMM=3Dm
+>> CONFIG_PARIDE_DSTR=3Dm
+>> CONFIG_PARIDE_FIT2=3Dm
+>> CONFIG_PARIDE_FIT3=3Dm
+>> CONFIG_PARIDE_EPAT=3Dm
+>> CONFIG_PARIDE_EPATC8=3Dy
+>> CONFIG_PARIDE_EPIA=3Dm
+>> CONFIG_PARIDE_FRIQ=3Dm
+>> CONFIG_PARIDE_FRPW=3Dm
+>> CONFIG_PARIDE_KBIC=3Dm
+>> CONFIG_PARIDE_KTTI=3Dm
+>> CONFIG_PARIDE_ON20=3Dm
+>> CONFIG_PARIDE_ON26=3Dm
+>> CONFIG_BLK_CPQ_CISS_DA=3Dm
+>> CONFIG_CISS_SCSI_TAPE=3Dy
+>> CONFIG_BLK_DEV_DAC960=3Dm
+>> CONFIG_BLK_DEV_UMEM=3Dm
+>> # CONFIG_BLK_DEV_COW_COMMON is not set
+>> CONFIG_BLK_DEV_LOOP=3Dm
+>> CONFIG_BLK_DEV_CRYPTOLOOP=3Dm
+>>
+>> #
+>> # DRBD disabled because PROC_FS, INET or CONNECTOR not selected
+>> #
+>> CONFIG_BLK_DEV_DRBD=3Dm
+>> CONFIG_DRBD_FAULT_INJECTION=3Dy
+>> CONFIG_BLK_DEV_NBD=3Dm
+>> CONFIG_BLK_DEV_OSD=3Dm
+>> CONFIG_BLK_DEV_SX8=3Dm
+>> CONFIG_BLK_DEV_UB=3Dm
+>> CONFIG_BLK_DEV_RAM=3Dm
+>> CONFIG_BLK_DEV_RAM_COUNT=3D16
+>> CONFIG_BLK_DEV_RAM_SIZE=3D4096
+>> CONFIG_BLK_DEV_XIP=3Dy
+>> CONFIG_CDROM_PKTCDVD=3Dm
+>> CONFIG_CDROM_PKTCDVD_BUFFERS=3D8
+>> CONFIG_CDROM_PKTCDVD_WCACHE=3Dy
+>> CONFIG_ATA_OVER_ETH=3Dm
+>> CONFIG_VIRTIO_BLK=3Dm
+>> CONFIG_BLK_DEV_HD=3Dy
+>> CONFIG_MISC_DEVICES=3Dy
+>> CONFIG_HWLAT_DETECTOR=3Dm
+>> CONFIG_PHANTOM=3Dm
+>> CONFIG_SGI_IOC4=3Dm
+>> CONFIG_TIFM_CORE=3Dm
+>> CONFIG_TIFM_7XX1=3Dm
+>> CONFIG_ICS932S401=3Dm
+>> CONFIG_ENCLOSURE_SERVICES=3Dm
+>> CONFIG_HP_ILO=3Dm
+>> CONFIG_ISL29003=3Dm
+>> CONFIG_DS1682=3Dm
+>> CONFIG_C2PORT=3Dm
+>>
+>> #
+>> # EEPROM support
+>> #
+>> CONFIG_EEPROM_AT24=3Dm
+>> CONFIG_EEPROM_AT25=3Dm
+>> CONFIG_EEPROM_LEGACY=3Dm
+>> CONFIG_EEPROM_MAX6875=3Dm
+>> CONFIG_EEPROM_93CX6=3Dm
+>> CONFIG_CB710_CORE=3Dm
+>> CONFIG_CB710_DEBUG=3Dy
+>> CONFIG_CB710_DEBUG_ASSUMPTIONS=3Dy
+>> CONFIG_HAVE_IDE=3Dy
+>> CONFIG_IDE=3Dm
+>>
+>> #
+>> # Please see Documentation/ide/ide.txt for help/info on IDE drives
+>> #
+>> CONFIG_IDE_XFER_MODE=3Dy
+>> CONFIG_IDE_TIMINGS=3Dy
+>> CONFIG_IDE_ATAPI=3Dy
+>> CONFIG_BLK_DEV_IDE_SATA=3Dy
+>> CONFIG_IDE_GD=3Dm
+>> CONFIG_IDE_GD_ATA=3Dy
+>> CONFIG_IDE_GD_ATAPI=3Dy
+>> CONFIG_BLK_DEV_IDECS=3Dm
+>> CONFIG_BLK_DEV_DELKIN=3Dm
+>> CONFIG_BLK_DEV_IDECD=3Dm
+>> CONFIG_BLK_DEV_IDECD_VERBOSE_ERRORS=3Dy
+>> CONFIG_BLK_DEV_IDETAPE=3Dm
+>> CONFIG_IDE_TASK_IOCTL=3Dy
+>> CONFIG_IDE_PROC_FS=3Dy
+>>
+>> #
+>> # IDE chipset support/bugfixes
+>> #
+>> CONFIG_BLK_DEV_PLATFORM=3Dm
+>> CONFIG_BLK_DEV_IDEDMA_SFF=3Dy
+>>
+>> #
+>> # PCI IDE chipsets support
+>> #
+>> CONFIG_BLK_DEV_IDEPCI=3Dy
+>> CONFIG_BLK_DEV_OFFBOARD=3Dy
+>> CONFIG_BLK_DEV_GENERIC=3Dm
+>> CONFIG_BLK_DEV_OPTI621=3Dm
+>> CONFIG_BLK_DEV_IDEDMA_PCI=3Dy
+>> CONFIG_BLK_DEV_AEC62XX=3Dm
+>> CONFIG_BLK_DEV_ALI15X3=3Dm
+>> CONFIG_BLK_DEV_AMD74XX=3Dm
+>> CONFIG_BLK_DEV_CMD64X=3Dm
+>> CONFIG_BLK_DEV_TRIFLEX=3Dm
+>> CONFIG_BLK_DEV_CS5520=3Dm
+>> CONFIG_BLK_DEV_CS5530=3Dm
+>> CONFIG_BLK_DEV_HPT366=3Dm
+>> CONFIG_BLK_DEV_JMICRON=3Dm
+>> CONFIG_BLK_DEV_SC1200=3Dm
+>> CONFIG_BLK_DEV_PIIX=3Dm
+>> CONFIG_BLK_DEV_IT8172=3Dm
+>> CONFIG_BLK_DEV_IT8213=3Dm
+>> CONFIG_BLK_DEV_IT821X=3Dm
+>> CONFIG_BLK_DEV_NS87415=3Dm
+>> CONFIG_BLK_DEV_PDC202XX_OLD=3Dm
+>> CONFIG_BLK_DEV_PDC202XX_NEW=3Dm
+>> CONFIG_BLK_DEV_SVWKS=3Dm
+>> CONFIG_BLK_DEV_SIIMAGE=3Dm
+>> CONFIG_BLK_DEV_SL82C105=3Dm
+>> CONFIG_BLK_DEV_SLC90E66=3Dm
+>> CONFIG_BLK_DEV_TRM290=3Dm
+>> CONFIG_BLK_DEV_VIA82CXXX=3Dm
+>> CONFIG_BLK_DEV_TC86C001=3Dm
+>> CONFIG_BLK_DEV_CELLEB=3Dm
+>> CONFIG_BLK_DEV_IDE_PMAC=3Dm
+>> CONFIG_BLK_DEV_IDE_PMAC_ATA100FIRST=3Dy
+>> CONFIG_BLK_DEV_IDEDMA=3Dy
+>>
+>> #
+>> # SCSI device support
+>> #
+>> CONFIG_RAID_ATTRS=3Dm
+>> CONFIG_SCSI=3Dm
+>> CONFIG_SCSI_DMA=3Dy
+>> CONFIG_SCSI_TGT=3Dm
+>> CONFIG_SCSI_NETLINK=3Dy
+>> CONFIG_SCSI_PROC_FS=3Dy
+>>
+>> #
+>> # SCSI support type (disk, tape, CD-ROM)
+>> #
+>> CONFIG_BLK_DEV_SD=3Dm
+>> CONFIG_CHR_DEV_ST=3Dm
+>> CONFIG_CHR_DEV_OSST=3Dm
+>> CONFIG_BLK_DEV_SR=3Dm
+>> CONFIG_BLK_DEV_SR_VENDOR=3Dy
+>> CONFIG_CHR_DEV_SG=3Dm
+>> CONFIG_CHR_DEV_SCH=3Dm
+>> CONFIG_SCSI_ENCLOSURE=3Dm
+>> CONFIG_SCSI_MULTI_LUN=3Dy
+>> CONFIG_SCSI_CONSTANTS=3Dy
+>> CONFIG_SCSI_LOGGING=3Dy
+>> CONFIG_SCSI_SCAN_ASYNC=3Dy
+>> CONFIG_SCSI_WAIT_SCAN=3Dm
+>>
+>> #
+>> # SCSI Transports
+>> #
+>> CONFIG_SCSI_SPI_ATTRS=3Dm
+>> CONFIG_SCSI_FC_ATTRS=3Dm
+>> CONFIG_SCSI_FC_TGT_ATTRS=3Dy
+>> CONFIG_SCSI_ISCSI_ATTRS=3Dm
+>> CONFIG_SCSI_SAS_ATTRS=3Dm
+>> CONFIG_SCSI_SAS_LIBSAS=3Dm
+>> CONFIG_SCSI_SAS_ATA=3Dy
+>> CONFIG_SCSI_SAS_HOST_SMP=3Dy
+>> CONFIG_SCSI_SAS_LIBSAS_DEBUG=3Dy
+>> CONFIG_SCSI_SRP_ATTRS=3Dm
+>> CONFIG_SCSI_SRP_TGT_ATTRS=3Dy
+>> CONFIG_SCSI_LOWLEVEL=3Dy
+>> CONFIG_ISCSI_TCP=3Dm
+>> CONFIG_SCSI_CXGB3_ISCSI=3Dm
+>> CONFIG_SCSI_BNX2_ISCSI=3Dm
+>> CONFIG_BE2ISCSI=3Dm
+>> CONFIG_BLK_DEV_3W_XXXX_RAID=3Dm
+>> CONFIG_SCSI_3W_9XXX=3Dm
+>> CONFIG_SCSI_ACARD=3Dm
+>> CONFIG_SCSI_AACRAID=3Dm
+>> CONFIG_SCSI_AIC7XXX=3Dm
+>> CONFIG_AIC7XXX_CMDS_PER_DEVICE=3D32
+>> CONFIG_AIC7XXX_RESET_DELAY_MS=3D5000
+>> CONFIG_AIC7XXX_DEBUG_ENABLE=3Dy
+>> CONFIG_AIC7XXX_DEBUG_MASK=3D0
+>> CONFIG_AIC7XXX_REG_PRETTY_PRINT=3Dy
+>> CONFIG_SCSI_AIC7XXX_OLD=3Dm
+>> CONFIG_SCSI_AIC79XX=3Dm
+>> CONFIG_AIC79XX_CMDS_PER_DEVICE=3D32
+>> CONFIG_AIC79XX_RESET_DELAY_MS=3D5000
+>> CONFIG_AIC79XX_DEBUG_ENABLE=3Dy
+>> CONFIG_AIC79XX_DEBUG_MASK=3D0
+>> CONFIG_AIC79XX_REG_PRETTY_PRINT=3Dy
+>> CONFIG_SCSI_AIC94XX=3Dm
+>> CONFIG_AIC94XX_DEBUG=3Dy
+>> CONFIG_SCSI_MVSAS=3Dm
+>> CONFIG_SCSI_MVSAS_DEBUG=3Dy
+>> CONFIG_SCSI_ARCMSR=3Dm
+>> CONFIG_SCSI_ARCMSR_AER=3Dy
+>> CONFIG_MEGARAID_NEWGEN=3Dy
+>> CONFIG_MEGARAID_MM=3Dm
+>> CONFIG_MEGARAID_MAILBOX=3Dm
+>> CONFIG_MEGARAID_LEGACY=3Dm
+>> CONFIG_MEGARAID_SAS=3Dm
+>> CONFIG_SCSI_MPT2SAS=3Dm
+>> CONFIG_SCSI_MPT2SAS_MAX_SGE=3D128
+>> CONFIG_SCSI_MPT2SAS_LOGGING=3Dy
+>> CONFIG_SCSI_HPTIOP=3Dm
+>> CONFIG_LIBFC=3Dm
+>> CONFIG_LIBFCOE=3Dm
+>> CONFIG_FCOE=3Dm
+>> CONFIG_SCSI_DMX3191D=3Dm
+>> CONFIG_SCSI_EATA=3Dm
+>> CONFIG_SCSI_EATA_TAGGED_QUEUE=3Dy
+>> CONFIG_SCSI_EATA_LINKED_COMMANDS=3Dy
+>> CONFIG_SCSI_EATA_MAX_TAGS=3D16
+>> CONFIG_SCSI_FUTURE_DOMAIN=3Dm
+>> CONFIG_SCSI_GDTH=3Dm
+>> CONFIG_SCSI_IPS=3Dm
+>> CONFIG_SCSI_IBMVSCSI=3Dm
+>> CONFIG_SCSI_IBMVSCSIS=3Dm
+>> CONFIG_SCSI_IBMVFC=3Dm
+>> CONFIG_SCSI_IBMVFC_TRACE=3Dy
+>> CONFIG_SCSI_INITIO=3Dm
+>> CONFIG_SCSI_INIA100=3Dm
+>> CONFIG_SCSI_PPA=3Dm
+>> CONFIG_SCSI_IMM=3Dm
+>> CONFIG_SCSI_IZIP_EPP16=3Dy
+>> CONFIG_SCSI_IZIP_SLOW_CTR=3Dy
+>> CONFIG_SCSI_STEX=3Dm
+>> CONFIG_SCSI_SYM53C8XX_2=3Dm
+>> CONFIG_SCSI_SYM53C8XX_DMA_ADDRESSING_MODE=3D1
+>> CONFIG_SCSI_SYM53C8XX_DEFAULT_TAGS=3D16
+>> CONFIG_SCSI_SYM53C8XX_MAX_TAGS=3D64
+>> CONFIG_SCSI_SYM53C8XX_MMIO=3Dy
+>> CONFIG_SCSI_IPR=3Dm
+>> CONFIG_SCSI_IPR_TRACE=3Dy
+>> CONFIG_SCSI_IPR_DUMP=3Dy
+>> CONFIG_SCSI_QLOGIC_1280=3Dm
+>> CONFIG_SCSI_QLA_FC=3Dm
+>> CONFIG_SCSI_QLA_ISCSI=3Dm
+>> CONFIG_SCSI_LPFC=3Dm
+>> CONFIG_SCSI_LPFC_DEBUG_FS=3Dy
+>> CONFIG_SCSI_DC395x=3Dm
+>> CONFIG_SCSI_DC390T=3Dm
+>> CONFIG_SCSI_DEBUG=3Dm
+>> CONFIG_SCSI_PMCRAID=3Dm
+>> CONFIG_SCSI_SRP=3Dm
+>> CONFIG_SCSI_BFA_FC=3Dm
+>> CONFIG_SCSI_LOWLEVEL_PCMCIA=3Dy
+>> CONFIG_PCMCIA_FDOMAIN=3Dm
+>> CONFIG_PCMCIA_QLOGIC=3Dm
+>> CONFIG_PCMCIA_SYM53C500=3Dm
+>> CONFIG_SCSI_DH=3Dm
+>> CONFIG_SCSI_DH_RDAC=3Dm
+>> CONFIG_SCSI_DH_HP_SW=3Dm
+>> CONFIG_SCSI_DH_EMC=3Dm
+>> CONFIG_SCSI_DH_ALUA=3Dm
+>> CONFIG_SCSI_OSD_INITIATOR=3Dm
+>> CONFIG_SCSI_OSD_ULD=3Dm
+>> CONFIG_SCSI_OSD_DPRINT_SENSE=3D1
+>> CONFIG_SCSI_OSD_DEBUG=3Dy
+>> CONFIG_ATA=3Dm
+>> CONFIG_ATA_NONSTANDARD=3Dy
+>> CONFIG_ATA_VERBOSE_ERROR=3Dy
+>> CONFIG_SATA_PMP=3Dy
+>> CONFIG_SATA_AHCI=3Dm
+>> CONFIG_SATA_SIL24=3Dm
+>> CONFIG_ATA_SFF=3Dy
+>> CONFIG_SATA_SVW=3Dm
+>> CONFIG_ATA_PIIX=3Dm
+>> CONFIG_SATA_MV=3Dm
+>> CONFIG_SATA_NV=3Dm
+>> CONFIG_PDC_ADMA=3Dm
+>> CONFIG_SATA_QSTOR=3Dm
+>> CONFIG_SATA_PROMISE=3Dm
+>> CONFIG_SATA_SX4=3Dm
+>> CONFIG_SATA_SIL=3Dm
+>> CONFIG_SATA_SIS=3Dm
+>> CONFIG_SATA_ULI=3Dm
+>> CONFIG_SATA_VIA=3Dm
+>> CONFIG_SATA_VITESSE=3Dm
+>> CONFIG_SATA_INIC162X=3Dm
+>> CONFIG_PATA_ALI=3Dm
+>> CONFIG_PATA_AMD=3Dm
+>> CONFIG_PATA_ARTOP=3Dm
+>> CONFIG_PATA_ATP867X=3Dm
+>> CONFIG_PATA_ATIIXP=3Dm
+>> CONFIG_PATA_CMD640_PCI=3Dm
+>> CONFIG_PATA_CMD64X=3Dm
+>> CONFIG_PATA_CS5520=3Dm
+>> CONFIG_PATA_CS5530=3Dm
+>> CONFIG_PATA_CYPRESS=3Dm
+>> CONFIG_PATA_EFAR=3Dm
+>> CONFIG_ATA_GENERIC=3Dm
+>> CONFIG_PATA_HPT366=3Dm
+>> CONFIG_PATA_HPT37X=3Dm
+>> CONFIG_PATA_HPT3X2N=3Dm
+>> CONFIG_PATA_HPT3X3=3Dm
+>> CONFIG_PATA_HPT3X3_DMA=3Dy
+>> CONFIG_PATA_IT821X=3Dm
+>> CONFIG_PATA_IT8213=3Dm
+>> CONFIG_PATA_JMICRON=3Dm
+>> CONFIG_PATA_TRIFLEX=3Dm
+>> CONFIG_PATA_MARVELL=3Dm
+>> CONFIG_PATA_MPIIX=3Dm
+>> CONFIG_PATA_OLDPIIX=3Dm
+>> CONFIG_PATA_NETCELL=3Dm
+>> CONFIG_PATA_NINJA32=3Dm
+>> CONFIG_PATA_NS87410=3Dm
+>> CONFIG_PATA_NS87415=3Dm
+>> CONFIG_PATA_OPTI=3Dm
+>> CONFIG_PATA_OPTIDMA=3Dm
+>> CONFIG_PATA_PCMCIA=3Dm
+>> CONFIG_PATA_PDC_OLD=3Dm
+>> CONFIG_PATA_RADISYS=3Dm
+>> CONFIG_PATA_RDC=3Dm
+>> CONFIG_PATA_RZ1000=3Dm
+>> CONFIG_PATA_SC1200=3Dm
+>> CONFIG_PATA_SERVERWORKS=3Dm
+>> CONFIG_PATA_PDC2027X=3Dm
+>> CONFIG_PATA_SIL680=3Dm
+>> CONFIG_PATA_SIS=3Dm
+>> CONFIG_PATA_VIA=3Dm
+>> CONFIG_PATA_WINBOND=3Dm
+>> CONFIG_PATA_PLATFORM=3Dm
+>> CONFIG_PATA_OF_PLATFORM=3Dm
+>> CONFIG_PATA_SCC=3Dm
+>> CONFIG_PATA_SCH=3Dm
+>> CONFIG_MD=3Dy
+>> CONFIG_BLK_DEV_MD=3Dm
+>> CONFIG_MD_LINEAR=3Dm
+>> CONFIG_MD_RAID0=3Dm
+>> CONFIG_MD_RAID1=3Dm
+>> CONFIG_MD_RAID10=3Dm
+>> CONFIG_MD_RAID456=3Dm
+>> CONFIG_MULTICORE_RAID456=3Dy
+>> CONFIG_MD_RAID6_PQ=3Dm
+>> CONFIG_ASYNC_RAID6_TEST=3Dm
+>> CONFIG_MD_MULTIPATH=3Dm
+>> CONFIG_MD_FAULTY=3Dm
+>> CONFIG_BLK_DEV_DM=3Dm
+>> CONFIG_DM_DEBUG=3Dy
+>> CONFIG_DM_CRYPT=3Dm
+>> CONFIG_DM_SNAPSHOT=3Dm
+>> CONFIG_DM_MIRROR=3Dm
+>> CONFIG_DM_LOG_USERSPACE=3Dm
+>> CONFIG_DM_ZERO=3Dm
+>> CONFIG_DM_MULTIPATH=3Dm
+>> CONFIG_DM_MULTIPATH_QL=3Dm
+>> CONFIG_DM_MULTIPATH_ST=3Dm
+>> CONFIG_DM_DELAY=3Dm
+>> CONFIG_DM_UEVENT=3Dy
+>> CONFIG_FUSION=3Dy
+>> CONFIG_FUSION_SPI=3Dm
+>> CONFIG_FUSION_FC=3Dm
+>> CONFIG_FUSION_SAS=3Dm
+>> CONFIG_FUSION_MAX_SGE=3D128
+>> CONFIG_FUSION_CTL=3Dm
+>> CONFIG_FUSION_LAN=3Dm
+>> CONFIG_FUSION_LOGGING=3Dy
+>>
+>> #
+>> # IEEE 1394 (FireWire) support
+>> #
+>>
+>> #
+>> # You can enable one or both FireWire driver stacks.
+>> #
+>>
+>> #
+>> # See the help texts for more information.
+>> #
+>> CONFIG_FIREWIRE=3Dm
+>> CONFIG_FIREWIRE_OHCI=3Dm
+>> CONFIG_FIREWIRE_OHCI_DEBUG=3Dy
+>> CONFIG_FIREWIRE_SBP2=3Dm
+>> CONFIG_FIREWIRE_NET=3Dm
+>> CONFIG_IEEE1394=3Dm
+>> CONFIG_IEEE1394_OHCI1394=3Dm
+>> CONFIG_IEEE1394_PCILYNX=3Dm
+>> CONFIG_IEEE1394_SBP2=3Dm
+>> CONFIG_IEEE1394_ETH1394_ROM_ENTRY=3Dy
+>> CONFIG_IEEE1394_ETH1394=3Dm
+>> CONFIG_IEEE1394_RAWIO=3Dm
+>> CONFIG_IEEE1394_VIDEO1394=3Dm
+>> CONFIG_IEEE1394_DV1394=3Dm
+>> CONFIG_IEEE1394_VERBOSEDEBUG=3Dy
+>> CONFIG_I2O=3Dm
+>> CONFIG_I2O_LCT_NOTIFY_ON_CHANGES=3Dy
+>> CONFIG_I2O_EXT_ADAPTEC=3Dy
+>> CONFIG_I2O_EXT_ADAPTEC_DMA64=3Dy
+>> CONFIG_I2O_BUS=3Dm
+>> CONFIG_I2O_BLOCK=3Dm
+>> CONFIG_I2O_SCSI=3Dm
+>> CONFIG_I2O_PROC=3Dm
+>> CONFIG_MACINTOSH_DRIVERS=3Dy
+>> CONFIG_ADB_PMU=3Dy
+>> CONFIG_ADB_PMU_LED=3Dy
+>> CONFIG_ADB_PMU_LED_IDE=3Dy
+>> CONFIG_PMAC_SMU=3Dy
+>> CONFIG_MAC_EMUMOUSEBTN=3Dy
+>> CONFIG_THERM_PM72=3Dm
+>> CONFIG_WINDFARM=3Dm
+>> CONFIG_WINDFARM_PM81=3Dm
+>> CONFIG_WINDFARM_PM91=3Dm
+>> CONFIG_WINDFARM_PM112=3Dm
+>> CONFIG_WINDFARM_PM121=3Dm
+>> CONFIG_PMAC_RACKMETER=3Dm
+>> CONFIG_NETDEVICES=3Dy
+>> CONFIG_IFB=3Dm
+>> CONFIG_DUMMY=3Dm
+>> CONFIG_BONDING=3Dm
+>> CONFIG_MACVLAN=3Dm
+>> CONFIG_EQUALIZER=3Dm
+>> CONFIG_TUN=3Dm
+>> CONFIG_VETH=3Dm
+>> CONFIG_ARCNET=3Dm
+>> CONFIG_ARCNET_1201=3Dm
+>> CONFIG_ARCNET_1051=3Dm
+>> CONFIG_ARCNET_RAW=3Dm
+>> CONFIG_ARCNET_CAP=3Dm
+>> CONFIG_ARCNET_COM90xx=3Dm
+>> CONFIG_ARCNET_COM90xxIO=3Dm
+>> CONFIG_ARCNET_RIM_I=3Dm
+>> CONFIG_ARCNET_COM20020=3Dm
+>> CONFIG_ARCNET_COM20020_PCI=3Dm
+>> CONFIG_PHYLIB=3Dy
+>>
+>> #
+>> # MII PHY device drivers
+>> #
+>> CONFIG_MARVELL_PHY=3Dm
+>> CONFIG_DAVICOM_PHY=3Dm
+>> CONFIG_QSEMI_PHY=3Dm
+>> CONFIG_LXT_PHY=3Dm
+>> CONFIG_CICADA_PHY=3Dm
+>> CONFIG_VITESSE_PHY=3Dm
+>> CONFIG_SMSC_PHY=3Dm
+>> CONFIG_BROADCOM_PHY=3Dm
+>> CONFIG_ICPLUS_PHY=3Dm
+>> CONFIG_REALTEK_PHY=3Dm
+>> CONFIG_NATIONAL_PHY=3Dm
+>> CONFIG_STE10XP=3Dm
+>> CONFIG_LSI_ET1011C_PHY=3Dm
+>> CONFIG_FIXED_PHY=3Dy
+>> CONFIG_MDIO_BITBANG=3Dm
+>> CONFIG_MDIO_GPIO=3Dm
+>> CONFIG_NET_ETHERNET=3Dy
+>> CONFIG_MII=3Dm
+>> CONFIG_HAPPYMEAL=3Dm
+>> CONFIG_SUNGEM=3Dm
+>> CONFIG_CASSINI=3Dm
+>> CONFIG_NET_VENDOR_3COM=3Dy
+>> CONFIG_VORTEX=3Dm
+>> CONFIG_TYPHOON=3Dm
+>> CONFIG_ENC28J60=3Dm
+>> CONFIG_ENC28J60_WRITEVERIFY=3Dy
+>> CONFIG_ETHOC=3Dm
+>> CONFIG_DNET=3Dm
+>> CONFIG_NET_TULIP=3Dy
+>> CONFIG_DE2104X=3Dm
+>> CONFIG_DE2104X_DSL=3D0
+>> CONFIG_TULIP=3Dm
+>> CONFIG_TULIP_MWI=3Dy
+>> CONFIG_TULIP_MMIO=3Dy
+>> CONFIG_TULIP_NAPI=3Dy
+>> CONFIG_TULIP_NAPI_HW_MITIGATION=3Dy
+>> CONFIG_DE4X5=3Dm
+>> CONFIG_WINBOND_840=3Dm
+>> CONFIG_DM9102=3Dm
+>> CONFIG_ULI526X=3Dm
+>> CONFIG_PCMCIA_XIRCOM=3Dm
+>> CONFIG_HP100=3Dm
+>> CONFIG_IBMVETH=3Dm
+>> CONFIG_IBM_NEW_EMAC=3Dm
+>> CONFIG_IBM_NEW_EMAC_RXB=3D128
+>> CONFIG_IBM_NEW_EMAC_TXB=3D64
+>> CONFIG_IBM_NEW_EMAC_POLL_WEIGHT=3D32
+>> CONFIG_IBM_NEW_EMAC_RX_COPY_THRESHOLD=3D256
+>> CONFIG_IBM_NEW_EMAC_RX_SKB_HEADROOM=3D0
+>> CONFIG_IBM_NEW_EMAC_DEBUG=3Dy
+>> CONFIG_IBM_NEW_EMAC_ZMII=3Dy
+>> CONFIG_IBM_NEW_EMAC_RGMII=3Dy
+>> CONFIG_IBM_NEW_EMAC_TAH=3Dy
+>> CONFIG_IBM_NEW_EMAC_EMAC4=3Dy
+>> # CONFIG_IBM_NEW_EMAC_NO_FLOW_CTRL is not set
+>> # CONFIG_IBM_NEW_EMAC_MAL_CLR_ICINTSTAT is not set
+>> # CONFIG_IBM_NEW_EMAC_MAL_COMMON_ERR is not set
+>> CONFIG_NET_PCI=3Dy
+>> CONFIG_PCNET32=3Dm
+>> CONFIG_AMD8111_ETH=3Dm
+>> CONFIG_ADAPTEC_STARFIRE=3Dm
+>> CONFIG_B44=3Dm
+>> CONFIG_B44_PCI_AUTOSELECT=3Dy
+>> CONFIG_B44_PCICORE_AUTOSELECT=3Dy
+>> CONFIG_B44_PCI=3Dy
+>> CONFIG_FORCEDETH=3Dm
+>> CONFIG_FORCEDETH_NAPI=3Dy
+>> CONFIG_E100=3Dm
+>> CONFIG_FEALNX=3Dm
+>> CONFIG_NATSEMI=3Dm
+>> CONFIG_NE2K_PCI=3Dm
+>> CONFIG_8139CP=3Dm
+>> CONFIG_8139TOO=3Dm
+>> CONFIG_8139TOO_PIO=3Dy
+>> CONFIG_8139TOO_TUNE_TWISTER=3Dy
+>> CONFIG_8139TOO_8129=3Dy
+>> CONFIG_8139_OLD_RX_RESET=3Dy
+>> CONFIG_R6040=3Dm
+>> CONFIG_SIS900=3Dm
+>> CONFIG_EPIC100=3Dm
+>> CONFIG_SMSC9420=3Dm
+>> CONFIG_SUNDANCE=3Dm
+>> CONFIG_SUNDANCE_MMIO=3Dy
+>> CONFIG_TLAN=3Dm
+>> CONFIG_KS8842=3Dm
+>> CONFIG_KS8851=3Dm
+>> CONFIG_KS8851_MLL=3Dm
+>> CONFIG_VIA_RHINE=3Dm
+>> CONFIG_VIA_RHINE_MMIO=3Dy
+>> CONFIG_SC92031=3Dm
+>> CONFIG_NET_POCKET=3Dy
+>> CONFIG_DE600=3Dm
+>> CONFIG_DE620=3Dm
+>> CONFIG_ATL2=3Dm
+>> CONFIG_NETDEV_1000=3Dy
+>> CONFIG_ACENIC=3Dm
+>> CONFIG_ACENIC_OMIT_TIGON_I=3Dy
+>> CONFIG_DL2K=3Dm
+>> CONFIG_E1000=3Dm
+>> CONFIG_E1000E=3Dm
+>> CONFIG_IP1000=3Dm
+>> CONFIG_IGB=3Dm
+>> CONFIG_IGBVF=3Dm
+>> CONFIG_NS83820=3Dm
+>> CONFIG_HAMACHI=3Dm
+>> CONFIG_YELLOWFIN=3Dm
+>> CONFIG_R8169=3Dm
+>> CONFIG_R8169_VLAN=3Dy
+>> CONFIG_SIS190=3Dm
+>> CONFIG_SKGE=3Dm
+>> CONFIG_SKGE_DEBUG=3Dy
+>> CONFIG_SKY2=3Dm
+>> CONFIG_SKY2_DEBUG=3Dy
+>> CONFIG_VIA_VELOCITY=3Dm
+>> CONFIG_TIGON3=3Dm
+>> CONFIG_BNX2=3Dm
+>> CONFIG_CNIC=3Dm
+>> CONFIG_SPIDER_NET=3Dm
+>> CONFIG_GELIC_NET=3Dm
+>> CONFIG_GELIC_WIRELESS=3Dy
+>> CONFIG_GELIC_WIRELESS_OLD_PSK_INTERFACE=3Dy
+>> CONFIG_QLA3XXX=3Dm
+>> CONFIG_ATL1=3Dm
+>> CONFIG_ATL1E=3Dm
+>> CONFIG_ATL1C=3Dm
+>> CONFIG_JME=3Dm
+>> CONFIG_NETDEV_10000=3Dy
+>> CONFIG_MDIO=3Dm
+>> CONFIG_CHELSIO_T1=3Dm
+>> CONFIG_CHELSIO_T1_1G=3Dy
+>> CONFIG_CHELSIO_T3_DEPENDS=3Dy
+>> CONFIG_CHELSIO_T3=3Dm
+>> CONFIG_EHEA=3Dm
+>> CONFIG_ENIC=3Dm
+>> CONFIG_IXGBE=3Dm
+>> CONFIG_IXGBE_DCB=3Dy
+>> CONFIG_IXGB=3Dm
+>> CONFIG_S2IO=3Dm
+>> CONFIG_VXGE=3Dm
+>> CONFIG_VXGE_DEBUG_TRACE_ALL=3Dy
+>> CONFIG_MYRI10GE=3Dm
+>> CONFIG_NETXEN_NIC=3Dm
+>> CONFIG_NIU=3Dm
+>> CONFIG_PASEMI_MAC=3Dm
+>> CONFIG_MLX4_EN=3Dm
+>> CONFIG_MLX4_CORE=3Dm
+>> CONFIG_MLX4_DEBUG=3Dy
+>> CONFIG_TEHUTI=3Dm
+>> CONFIG_BNX2X=3Dm
+>> CONFIG_QLGE=3Dm
+>> CONFIG_SFC=3Dm
+>> CONFIG_SFC_MTD=3Dy
+>> CONFIG_BE2NET=3Dm
+>> CONFIG_TR=3Dm
+>> CONFIG_IBMOL=3Dm
+>> CONFIG_3C359=3Dm
+>> CONFIG_TMS380TR=3Dm
+>> CONFIG_TMSPCI=3Dm
+>> CONFIG_ABYSS=3Dm
+>> CONFIG_WLAN=3Dy
+>> CONFIG_WLAN_PRE80211=3Dy
+>> CONFIG_STRIP=3Dm
+>> CONFIG_PCMCIA_WAVELAN=3Dm
+>> CONFIG_PCMCIA_NETWAVE=3Dm
+>> CONFIG_WLAN_80211=3Dy
+>> CONFIG_PCMCIA_RAYCS=3Dm
+>> CONFIG_LIBERTAS_THINFIRM=3Dm
+>> CONFIG_LIBERTAS_THINFIRM_USB=3Dm
+>> CONFIG_AIRO=3Dm
+>> CONFIG_ATMEL=3Dm
+>> CONFIG_PCI_ATMEL=3Dm
+>> CONFIG_PCMCIA_ATMEL=3Dm
+>> CONFIG_AT76C50X_USB=3Dm
+>> CONFIG_AIRO_CS=3Dm
+>> CONFIG_PCMCIA_WL3501=3Dm
+>> CONFIG_PRISM54=3Dm
+>> CONFIG_USB_ZD1201=3Dm
+>> CONFIG_USB_NET_RNDIS_WLAN=3Dm
+>> CONFIG_RTL8180=3Dm
+>> CONFIG_RTL8187=3Dm
+>> CONFIG_RTL8187_LEDS=3Dy
+>> CONFIG_ADM8211=3Dm
+>> CONFIG_MAC80211_HWSIM=3Dm
+>> CONFIG_MWL8K=3Dm
+>> CONFIG_ATH_COMMON=3Dm
+>> CONFIG_ATH_DEBUG=3Dy
+>> CONFIG_ATH5K=3Dm
+>> CONFIG_ATH5K_DEBUG=3Dy
+>> CONFIG_ATH9K_HW=3Dm
+>> CONFIG_ATH9K=3Dm
+>> CONFIG_ATH9K_DEBUG=3Dy
+>> CONFIG_AR9170_USB=3Dm
+>> CONFIG_AR9170_LEDS=3Dy
+>> CONFIG_B43=3Dm
+>> CONFIG_B43_PCI_AUTOSELECT=3Dy
+>> CONFIG_B43_PCICORE_AUTOSELECT=3Dy
+>> CONFIG_B43_PCMCIA=3Dy
+>> CONFIG_B43_SDIO=3Dy
+>> CONFIG_B43_PIO=3Dy
+>> CONFIG_B43_PHY_LP=3Dy
+>> CONFIG_B43_LEDS=3Dy
+>> CONFIG_B43_HWRNG=3Dy
+>> CONFIG_B43_DEBUG=3Dy
+>> CONFIG_B43_FORCE_PIO=3Dy
+>> CONFIG_B43LEGACY=3Dm
+>> CONFIG_B43LEGACY_PCI_AUTOSELECT=3Dy
+>> CONFIG_B43LEGACY_PCICORE_AUTOSELECT=3Dy
+>> CONFIG_B43LEGACY_LEDS=3Dy
+>> CONFIG_B43LEGACY_HWRNG=3Dy
+>> CONFIG_B43LEGACY_DEBUG=3Dy
+>> CONFIG_B43LEGACY_DMA=3Dy
+>> CONFIG_B43LEGACY_PIO=3Dy
+>> CONFIG_B43LEGACY_DMA_AND_PIO_MODE=3Dy
+>> # CONFIG_B43LEGACY_DMA_MODE is not set
+>> # CONFIG_B43LEGACY_PIO_MODE is not set
+>> CONFIG_HOSTAP=3Dm
+>> CONFIG_HOSTAP_FIRMWARE=3Dy
+>> CONFIG_HOSTAP_FIRMWARE_NVRAM=3Dy
+>> CONFIG_HOSTAP_PLX=3Dm
+>> CONFIG_HOSTAP_PCI=3Dm
+>> CONFIG_HOSTAP_CS=3Dm
+>> CONFIG_IPW2100=3Dm
+>> CONFIG_IPW2100_MONITOR=3Dy
+>> CONFIG_IPW2100_DEBUG=3Dy
+>> CONFIG_IPW2200=3Dm
+>> CONFIG_IPW2200_MONITOR=3Dy
+>> CONFIG_IPW2200_RADIOTAP=3Dy
+>> CONFIG_IPW2200_PROMISCUOUS=3Dy
+>> CONFIG_IPW2200_QOS=3Dy
+>> CONFIG_IPW2200_DEBUG=3Dy
+>> CONFIG_LIBIPW=3Dm
+>> CONFIG_LIBIPW_DEBUG=3Dy
+>> CONFIG_IWLWIFI=3Dm
+>> CONFIG_IWLWIFI_SPECTRUM_MEASUREMENT=3Dy
+>> CONFIG_IWLWIFI_DEBUG=3Dy
+>> CONFIG_IWLWIFI_DEBUGFS=3Dy
+>> CONFIG_IWLWIFI_DEVICE_TRACING=3Dy
+>> CONFIG_IWLAGN=3Dm
+>> CONFIG_IWL4965=3Dy
+>> CONFIG_IWL5000=3Dy
+>> CONFIG_IWL3945=3Dm
+>> CONFIG_IWL3945_SPECTRUM_MEASUREMENT=3Dy
+>> CONFIG_IWM=3Dm
+>> CONFIG_IWM_DEBUG=3Dy
+>> CONFIG_LIBERTAS=3Dm
+>> CONFIG_LIBERTAS_USB=3Dm
+>> CONFIG_LIBERTAS_CS=3Dm
+>> CONFIG_LIBERTAS_SDIO=3Dm
+>> CONFIG_LIBERTAS_SPI=3Dm
+>> CONFIG_LIBERTAS_DEBUG=3Dy
+>> CONFIG_HERMES=3Dm
+>> CONFIG_HERMES_CACHE_FW_ON_INIT=3Dy
+>> CONFIG_APPLE_AIRPORT=3Dm
+>> CONFIG_PLX_HERMES=3Dm
+>> CONFIG_TMD_HERMES=3Dm
+>> CONFIG_NORTEL_HERMES=3Dm
+>> CONFIG_PCI_HERMES=3Dm
+>> CONFIG_PCMCIA_HERMES=3Dm
+>> CONFIG_PCMCIA_SPECTRUM=3Dm
+>> CONFIG_P54_COMMON=3Dm
+>> CONFIG_P54_USB=3Dm
+>> CONFIG_P54_PCI=3Dm
+>> CONFIG_P54_SPI=3Dm
+>> CONFIG_P54_LEDS=3Dy
+>> CONFIG_RT2X00=3Dm
+>> CONFIG_RT2400PCI=3Dm
+>> CONFIG_RT2500PCI=3Dm
+>> CONFIG_RT61PCI=3Dm
+>> CONFIG_RT2500USB=3Dm
+>> CONFIG_RT73USB=3Dm
+>> CONFIG_RT2800USB=3Dm
+>> CONFIG_RT2X00_LIB_PCI=3Dm
+>> CONFIG_RT2X00_LIB_USB=3Dm
+>> CONFIG_RT2X00_LIB=3Dm
+>> CONFIG_RT2X00_LIB_HT=3Dy
+>> CONFIG_RT2X00_LIB_FIRMWARE=3Dy
+>> CONFIG_RT2X00_LIB_CRYPTO=3Dy
+>> CONFIG_RT2X00_LIB_LEDS=3Dy
+>> CONFIG_RT2X00_LIB_DEBUGFS=3Dy
+>> CONFIG_RT2X00_DEBUG=3Dy
+>> CONFIG_WL12XX=3Dm
+>> CONFIG_WL1251=3Dm
+>> CONFIG_WL1251_SPI=3Dm
+>> CONFIG_WL1251_SDIO=3Dm
+>> CONFIG_WL1271=3Dm
+>> CONFIG_ZD1211RW=3Dm
+>> CONFIG_ZD1211RW_DEBUG=3Dy
+>>
+>> #
+>> # WiMAX Wireless Broadband devices
+>> #
+>> CONFIG_WIMAX_I2400M=3Dm
+>> CONFIG_WIMAX_I2400M_USB=3Dm
+>> CONFIG_WIMAX_I2400M_SDIO=3Dm
+>> CONFIG_WIMAX_I2400M_DEBUG_LEVEL=3D8
+>>
+>> #
+>> # USB Network Adapters
+>> #
+>> CONFIG_USB_CATC=3Dm
+>> CONFIG_USB_KAWETH=3Dm
+>> CONFIG_USB_PEGASUS=3Dm
+>> CONFIG_USB_RTL8150=3Dm
+>> CONFIG_USB_USBNET=3Dm
+>> CONFIG_USB_NET_AX8817X=3Dm
+>> CONFIG_USB_NET_CDCETHER=3Dm
+>> CONFIG_USB_NET_CDC_EEM=3Dm
+>> CONFIG_USB_NET_DM9601=3Dm
+>> CONFIG_USB_NET_SMSC95XX=3Dm
+>> CONFIG_USB_NET_GL620A=3Dm
+>> CONFIG_USB_NET_NET1080=3Dm
+>> CONFIG_USB_NET_PLUSB=3Dm
+>> CONFIG_USB_NET_MCS7830=3Dm
+>> CONFIG_USB_NET_RNDIS_HOST=3Dm
+>> CONFIG_USB_NET_CDC_SUBSET=3Dm
+>> CONFIG_USB_ALI_M5632=3Dy
+>> CONFIG_USB_AN2720=3Dy
+>> CONFIG_USB_BELKIN=3Dy
+>> CONFIG_USB_ARMLINUX=3Dy
+>> CONFIG_USB_EPSON2888=3Dy
+>> CONFIG_USB_KC2190=3Dy
+>> CONFIG_USB_NET_ZAURUS=3Dm
+>> CONFIG_USB_HSO=3Dm
+>> CONFIG_USB_NET_INT51X1=3Dm
+>> CONFIG_USB_CDC_PHONET=3Dm
+>> CONFIG_NET_PCMCIA=3Dy
+>> CONFIG_PCMCIA_3C589=3Dm
+>> CONFIG_PCMCIA_3C574=3Dm
+>> CONFIG_PCMCIA_FMVJ18X=3Dm
+>> CONFIG_PCMCIA_PCNET=3Dm
+>> CONFIG_PCMCIA_NMCLAN=3Dm
+>> CONFIG_PCMCIA_SMC91C92=3Dm
+>> CONFIG_PCMCIA_XIRC2PS=3Dm
+>> CONFIG_PCMCIA_AXNET=3Dm
+>> CONFIG_ARCNET_COM20020_CS=3Dm
+>> CONFIG_PCMCIA_IBMTR=3Dm
+>> CONFIG_WAN=3Dy
+>> CONFIG_HDLC=3Dm
+>> CONFIG_HDLC_RAW=3Dm
+>> CONFIG_HDLC_RAW_ETH=3Dm
+>> CONFIG_HDLC_CISCO=3Dm
+>> CONFIG_HDLC_FR=3Dm
+>> CONFIG_HDLC_PPP=3Dm
+>> CONFIG_HDLC_X25=3Dm
+>> CONFIG_PCI200SYN=3Dm
+>> CONFIG_WANXL=3Dm
+>> CONFIG_PC300TOO=3Dm
+>> CONFIG_FARSYNC=3Dm
+>> CONFIG_DSCC4=3Dm
+>> CONFIG_DSCC4_PCISYNC=3Dy
+>> CONFIG_DSCC4_PCI_RST=3Dy
+>> CONFIG_DLCI=3Dm
+>> CONFIG_DLCI_MAX=3D8
+>> CONFIG_WAN_ROUTER_DRIVERS=3Dm
+>> CONFIG_CYCLADES_SYNC=3Dm
+>> CONFIG_CYCLOMX_X25=3Dy
+>> CONFIG_LAPBETHER=3Dm
+>> CONFIG_X25_ASY=3Dm
+>> CONFIG_ATM_DRIVERS=3Dy
+>> CONFIG_ATM_DUMMY=3Dm
+>> CONFIG_ATM_TCP=3Dm
+>> CONFIG_ATM_LANAI=3Dm
+>> CONFIG_ATM_ENI=3Dm
+>> CONFIG_ATM_ENI_DEBUG=3Dy
+>> CONFIG_ATM_ENI_TUNE_BURST=3Dy
+>> CONFIG_ATM_ENI_BURST_TX_16W=3Dy
+>> CONFIG_ATM_ENI_BURST_TX_8W=3Dy
+>> CONFIG_ATM_ENI_BURST_TX_4W=3Dy
+>> CONFIG_ATM_ENI_BURST_TX_2W=3Dy
+>> CONFIG_ATM_ENI_BURST_RX_16W=3Dy
+>> CONFIG_ATM_ENI_BURST_RX_8W=3Dy
+>> CONFIG_ATM_ENI_BURST_RX_4W=3Dy
+>> CONFIG_ATM_ENI_BURST_RX_2W=3Dy
+>> CONFIG_ATM_IDT77252=3Dm
+>> CONFIG_ATM_IDT77252_DEBUG=3Dy
+>> CONFIG_ATM_IDT77252_RCV_ALL=3Dy
+>> CONFIG_ATM_IDT77252_USE_SUNI=3Dy
+>> CONFIG_ATM_IA=3Dm
+>> CONFIG_ATM_IA_DEBUG=3Dy
+>> CONFIG_ATM_FORE200E=3Dm
+>> CONFIG_ATM_FORE200E_USE_TASKLET=3Dy
+>> CONFIG_ATM_FORE200E_TX_RETRY=3D16
+>> CONFIG_ATM_FORE200E_DEBUG=3D0
+>> CONFIG_ATM_HE=3Dm
+>> CONFIG_ATM_HE_USE_SUNI=3Dy
+>> CONFIG_ATM_SOLOS=3Dm
+>> CONFIG_IEEE802154_DRIVERS=3Dm
+>> CONFIG_IEEE802154_FAKEHARD=3Dm
+>> CONFIG_ISERIES_VETH=3Dm
+>> CONFIG_FDDI=3Dm
+>> CONFIG_DEFXX=3Dm
+>> CONFIG_DEFXX_MMIO=3Dy
+>> CONFIG_SKFP=3Dm
+>> CONFIG_HIPPI=3Dy
+>> CONFIG_ROADRUNNER=3Dm
+>> CONFIG_ROADRUNNER_LARGE_RINGS=3Dy
+>> CONFIG_PLIP=3Dm
+>> CONFIG_PPP=3Dm
+>> CONFIG_PPP_MULTILINK=3Dy
+>> CONFIG_PPP_FILTER=3Dy
+>> CONFIG_PPP_ASYNC=3Dm
+>> CONFIG_PPP_SYNC_TTY=3Dm
+>> CONFIG_PPP_DEFLATE=3Dm
+>> CONFIG_PPP_BSDCOMP=3Dm
+>> CONFIG_PPP_MPPE=3Dm
+>> CONFIG_PPPOE=3Dm
+>> CONFIG_PPPOATM=3Dm
+>> CONFIG_PPPOL2TP=3Dm
+>> CONFIG_SLIP=3Dm
+>> CONFIG_SLIP_COMPRESSED=3Dy
+>> CONFIG_SLHC=3Dm
+>> CONFIG_SLIP_SMART=3Dy
+>> CONFIG_SLIP_MODE_SLIP6=3Dy
+>> CONFIG_NET_FC=3Dy
+>> CONFIG_NETCONSOLE=3Dm
+>> CONFIG_NETCONSOLE_DYNAMIC=3Dy
+>> CONFIG_NETPOLL=3Dy
+>> CONFIG_NETPOLL_TRAP=3Dy
+>> CONFIG_NET_POLL_CONTROLLER=3Dy
+>> CONFIG_VIRTIO_NET=3Dm
+>> CONFIG_VBUS_ENET=3Dm
+>> CONFIG_VBUS_ENET_DEBUG=3Dy
+>> CONFIG_ISDN=3Dy
+>> CONFIG_ISDN_I4L=3Dm
+>> CONFIG_MISDN=3Dm
+>> CONFIG_MISDN_DSP=3Dm
+>> CONFIG_MISDN_L1OIP=3Dm
+>>
+>> #
+>> # mISDN hardware drivers
+>> #
+>> CONFIG_MISDN_HFCPCI=3Dm
+>> CONFIG_MISDN_HFCMULTI=3Dm
+>> CONFIG_MISDN_HFCUSB=3Dm
+>> CONFIG_MISDN_AVMFRITZ=3Dm
+>> CONFIG_MISDN_SPEEDFAX=3Dm
+>> CONFIG_MISDN_INFINEON=3Dm
+>> CONFIG_MISDN_W6692=3Dm
+>> CONFIG_MISDN_NETJET=3Dm
+>> CONFIG_MISDN_IPAC=3Dm
+>> CONFIG_MISDN_ISAR=3Dm
+>> CONFIG_ISDN_PPP=3Dy
+>> CONFIG_ISDN_PPP_VJ=3Dy
+>> CONFIG_ISDN_MPP=3Dy
+>> CONFIG_IPPP_FILTER=3Dy
+>> CONFIG_ISDN_PPP_BSDCOMP=3Dm
+>> CONFIG_ISDN_AUDIO=3Dy
+>> CONFIG_ISDN_TTY_FAX=3Dy
+>> CONFIG_ISDN_X25=3Dy
+>>
+>> #
+>> # ISDN feature submodules
+>> #
+>> CONFIG_ISDN_DIVERSION=3Dm
+>>
+>> #
+>> # ISDN4Linux hardware drivers
+>> #
+>>
+>> #
+>> # Passive cards
+>> #
+>> CONFIG_ISDN_DRV_HISAX=3Dm
+>>
+>> #
+>> # D-channel protocol features
+>> #
+>> CONFIG_HISAX_EURO=3Dy
+>> CONFIG_DE_AOC=3Dy
+>> CONFIG_HISAX_NO_SENDCOMPLETE=3Dy
+>> CONFIG_HISAX_NO_LLC=3Dy
+>> CONFIG_HISAX_NO_KEYPAD=3Dy
+>> CONFIG_HISAX_1TR6=3Dy
+>> CONFIG_HISAX_NI1=3Dy
+>> CONFIG_HISAX_MAX_CARDS=3D8
+>>
+>> #
+>> # HiSax supported cards
+>> #
+>> CONFIG_HISAX_16_3=3Dy
+>> CONFIG_HISAX_S0BOX=3Dy
+>> CONFIG_HISAX_AVM_A1_PCMCIA=3Dy
+>> CONFIG_HISAX_ELSA=3Dy
+>> CONFIG_HISAX_DIEHLDIVA=3Dy
+>> CONFIG_HISAX_SEDLBAUER=3Dy
+>> CONFIG_HISAX_NICCY=3Dy
+>> CONFIG_HISAX_BKM_A4T=3Dy
+>> CONFIG_HISAX_SCT_QUADRO=3Dy
+>> CONFIG_HISAX_GAZEL=3Dy
+>> CONFIG_HISAX_W6692=3Dy
+>> CONFIG_HISAX_HFC_SX=3Dy
+>> CONFIG_HISAX_DEBUG=3Dy
+>>
+>> #
+>> # HiSax PCMCIA card service modules
+>> #
+>> CONFIG_HISAX_SEDLBAUER_CS=3Dm
+>> CONFIG_HISAX_ELSA_CS=3Dm
+>> CONFIG_HISAX_AVM_A1_CS=3Dm
+>> CONFIG_HISAX_TELES_CS=3Dm
+>>
+>> #
+>> # HiSax sub driver modules
+>> #
+>> CONFIG_HISAX_ST5481=3Dm
+>> CONFIG_HISAX_HFCUSB=3Dm
+>> CONFIG_HISAX_HFC4S8S=3Dm
+>> CONFIG_HISAX_FRITZ_PCIPNP=3Dm
+>>
+>> #
+>> # Active cards
+>> #
+>> CONFIG_HYSDN=3Dm
+>> CONFIG_HYSDN_CAPI=3Dy
+>> CONFIG_ISDN_HDLC=3Dm
+>> CONFIG_ISDN_CAPI=3Dm
+>> CONFIG_ISDN_DRV_AVMB1_VERBOSE_REASON=3Dy
+>> CONFIG_CAPI_TRACE=3Dy
+>> CONFIG_ISDN_CAPI_MIDDLEWARE=3Dy
+>> CONFIG_ISDN_CAPI_CAPI20=3Dm
+>> CONFIG_ISDN_CAPI_CAPIFS_BOOL=3Dy
+>> CONFIG_ISDN_CAPI_CAPIFS=3Dm
+>> CONFIG_ISDN_CAPI_CAPIDRV=3Dm
+>>
+>> #
+>> # CAPI hardware drivers
+>> #
+>> CONFIG_CAPI_AVM=3Dy
+>> CONFIG_ISDN_DRV_AVMB1_B1PCI=3Dm
+>> CONFIG_ISDN_DRV_AVMB1_B1PCIV4=3Dy
+>> CONFIG_ISDN_DRV_AVMB1_B1PCMCIA=3Dm
+>> CONFIG_ISDN_DRV_AVMB1_AVM_CS=3Dm
+>> CONFIG_ISDN_DRV_AVMB1_T1PCI=3Dm
+>> CONFIG_ISDN_DRV_AVMB1_C4=3Dm
+>> CONFIG_CAPI_EICON=3Dy
+>> CONFIG_ISDN_DIVAS=3Dm
+>> CONFIG_ISDN_DIVAS_BRIPCI=3Dy
+>> CONFIG_ISDN_DIVAS_PRIPCI=3Dy
+>> CONFIG_ISDN_DIVAS_DIVACAPI=3Dm
+>> CONFIG_ISDN_DIVAS_USERIDI=3Dm
+>> CONFIG_ISDN_DIVAS_MAINT=3Dm
+>> CONFIG_ISDN_DRV_GIGASET=3Dm
+>> CONFIG_GIGASET_CAPI=3Dy
+>> # CONFIG_GIGASET_I4L is not set
+>> # CONFIG_GIGASET_DUMMYLL is not set
+>> CONFIG_GIGASET_BASE=3Dm
+>> CONFIG_GIGASET_M105=3Dm
+>> CONFIG_GIGASET_M101=3Dm
+>> CONFIG_GIGASET_DEBUG=3Dy
+>> CONFIG_PHONE=3Dm
+>> CONFIG_PHONE_IXJ=3Dm
+>> CONFIG_PHONE_IXJ_PCMCIA=3Dm
+>>
+>> #
+>> # Input device support
+>> #
+>> CONFIG_INPUT=3Dy
+>> CONFIG_INPUT_FF_MEMLESS=3Dm
+>> CONFIG_INPUT_POLLDEV=3Dm
+>>
+>> #
+>> # Userland interfaces
+>> #
+>> CONFIG_INPUT_MOUSEDEV=3Dm
+>> CONFIG_INPUT_MOUSEDEV_PSAUX=3Dy
+>> CONFIG_INPUT_MOUSEDEV_SCREEN_X=3D1024
+>> CONFIG_INPUT_MOUSEDEV_SCREEN_Y=3D768
+>> CONFIG_INPUT_JOYDEV=3Dm
+>> CONFIG_INPUT_EVDEV=3Dm
+>> CONFIG_INPUT_EVBUG=3Dm
+>>
+>> #
+>> # Input Device Drivers
+>> #
+>> CONFIG_INPUT_KEYBOARD=3Dy
+>> CONFIG_KEYBOARD_ADP5588=3Dm
+>> CONFIG_KEYBOARD_ATKBD=3Dm
+>> CONFIG_QT2160=3Dm
+>> CONFIG_KEYBOARD_LKKBD=3Dm
+>> CONFIG_KEYBOARD_GPIO=3Dm
+>> CONFIG_KEYBOARD_MATRIX=3Dm
+>> CONFIG_KEYBOARD_LM8323=3Dm
+>> CONFIG_KEYBOARD_MAX7359=3Dm
+>> CONFIG_KEYBOARD_NEWTON=3Dm
+>> CONFIG_KEYBOARD_OPENCORES=3Dm
+>> CONFIG_KEYBOARD_STOWAWAY=3Dm
+>> CONFIG_KEYBOARD_SUNKBD=3Dm
+>> CONFIG_KEYBOARD_XTKBD=3Dm
+>> CONFIG_INPUT_MOUSE=3Dy
+>> CONFIG_MOUSE_PS2=3Dm
+>> CONFIG_MOUSE_PS2_ALPS=3Dy
+>> CONFIG_MOUSE_PS2_LOGIPS2PP=3Dy
+>> CONFIG_MOUSE_PS2_SYNAPTICS=3Dy
+>> CONFIG_MOUSE_PS2_TRACKPOINT=3Dy
+>> CONFIG_MOUSE_PS2_ELANTECH=3Dy
+>> CONFIG_MOUSE_PS2_SENTELIC=3Dy
+>> CONFIG_MOUSE_PS2_TOUCHKIT=3Dy
+>> CONFIG_MOUSE_SERIAL=3Dm
+>> CONFIG_MOUSE_APPLETOUCH=3Dm
+>> CONFIG_MOUSE_BCM5974=3Dm
+>> CONFIG_MOUSE_VSXXXAA=3Dm
+>> CONFIG_MOUSE_GPIO=3Dm
+>> CONFIG_MOUSE_SYNAPTICS_I2C=3Dm
+>> CONFIG_INPUT_JOYSTICK=3Dy
+>> CONFIG_JOYSTICK_ANALOG=3Dm
+>> CONFIG_JOYSTICK_A3D=3Dm
+>> CONFIG_JOYSTICK_ADI=3Dm
+>> CONFIG_JOYSTICK_COBRA=3Dm
+>> CONFIG_JOYSTICK_GF2K=3Dm
+>> CONFIG_JOYSTICK_GRIP=3Dm
+>> CONFIG_JOYSTICK_GRIP_MP=3Dm
+>> CONFIG_JOYSTICK_GUILLEMOT=3Dm
+>> CONFIG_JOYSTICK_INTERACT=3Dm
+>> CONFIG_JOYSTICK_SIDEWINDER=3Dm
+>> CONFIG_JOYSTICK_TMDC=3Dm
+>> CONFIG_JOYSTICK_IFORCE=3Dm
+>> CONFIG_JOYSTICK_IFORCE_USB=3Dy
+>> CONFIG_JOYSTICK_IFORCE_232=3Dy
+>> CONFIG_JOYSTICK_WARRIOR=3Dm
+>> CONFIG_JOYSTICK_MAGELLAN=3Dm
+>> CONFIG_JOYSTICK_SPACEORB=3Dm
+>> CONFIG_JOYSTICK_SPACEBALL=3Dm
+>> CONFIG_JOYSTICK_STINGER=3Dm
+>> CONFIG_JOYSTICK_TWIDJOY=3Dm
+>> CONFIG_JOYSTICK_ZHENHUA=3Dm
+>> CONFIG_JOYSTICK_DB9=3Dm
+>> CONFIG_JOYSTICK_GAMECON=3Dm
+>> CONFIG_JOYSTICK_TURBOGRAFX=3Dm
+>> CONFIG_JOYSTICK_JOYDUMP=3Dm
+>> CONFIG_JOYSTICK_XPAD=3Dm
+>> CONFIG_JOYSTICK_XPAD_FF=3Dy
+>> CONFIG_JOYSTICK_XPAD_LEDS=3Dy
+>> CONFIG_JOYSTICK_WALKERA0701=3Dm
+>> CONFIG_INPUT_TABLET=3Dy
+>> CONFIG_TABLET_USB_ACECAD=3Dm
+>> CONFIG_TABLET_USB_AIPTEK=3Dm
+>> CONFIG_TABLET_USB_GTCO=3Dm
+>> CONFIG_TABLET_USB_KBTAB=3Dm
+>> CONFIG_TABLET_USB_WACOM=3Dm
+>> CONFIG_INPUT_TOUCHSCREEN=3Dy
+>> CONFIG_TOUCHSCREEN_ADS7846=3Dm
+>> CONFIG_TOUCHSCREEN_AD7877=3Dm
+>> CONFIG_TOUCHSCREEN_AD7879_I2C=3Dm
+>> CONFIG_TOUCHSCREEN_AD7879=3Dm
+>> CONFIG_TOUCHSCREEN_EETI=3Dm
+>> CONFIG_TOUCHSCREEN_FUJITSU=3Dm
+>> CONFIG_TOUCHSCREEN_GUNZE=3Dm
+>> CONFIG_TOUCHSCREEN_ELO=3Dm
+>> CONFIG_TOUCHSCREEN_WACOM_W8001=3Dm
+>> CONFIG_TOUCHSCREEN_MCS5000=3Dm
+>> CONFIG_TOUCHSCREEN_MTOUCH=3Dm
+>> CONFIG_TOUCHSCREEN_INEXIO=3Dm
+>> CONFIG_TOUCHSCREEN_MK712=3Dm
+>> CONFIG_TOUCHSCREEN_PENMOUNT=3Dm
+>> CONFIG_TOUCHSCREEN_TOUCHRIGHT=3Dm
+>> CONFIG_TOUCHSCREEN_TOUCHWIN=3Dm
+>> CONFIG_TOUCHSCREEN_UCB1400=3Dm
+>> CONFIG_TOUCHSCREEN_WM97XX=3Dm
+>> CONFIG_TOUCHSCREEN_WM9705=3Dy
+>> CONFIG_TOUCHSCREEN_WM9712=3Dy
+>> CONFIG_TOUCHSCREEN_WM9713=3Dy
+>> CONFIG_TOUCHSCREEN_USB_COMPOSITE=3Dm
+>> CONFIG_TOUCHSCREEN_USB_EGALAX=3Dy
+>> CONFIG_TOUCHSCREEN_USB_PANJIT=3Dy
+>> CONFIG_TOUCHSCREEN_USB_3M=3Dy
+>> CONFIG_TOUCHSCREEN_USB_ITM=3Dy
+>> CONFIG_TOUCHSCREEN_USB_ETURBO=3Dy
+>> CONFIG_TOUCHSCREEN_USB_GUNZE=3Dy
+>> CONFIG_TOUCHSCREEN_USB_DMC_TSC10=3Dy
+>> CONFIG_TOUCHSCREEN_USB_IRTOUCH=3Dy
+>> CONFIG_TOUCHSCREEN_USB_IDEALTEK=3Dy
+>> CONFIG_TOUCHSCREEN_USB_GENERAL_TOUCH=3Dy
+>> CONFIG_TOUCHSCREEN_USB_GOTOP=3Dy
+>> CONFIG_TOUCHSCREEN_USB_JASTEC=3Dy
+>> CONFIG_TOUCHSCREEN_USB_E2I=3Dy
+>> CONFIG_TOUCHSCREEN_TOUCHIT213=3Dm
+>> CONFIG_TOUCHSCREEN_TSC2007=3Dm
+>> CONFIG_TOUCHSCREEN_PCAP=3Dm
+>> CONFIG_INPUT_MISC=3Dy
+>> CONFIG_INPUT_PCSPKR=3Dm
+>> CONFIG_INPUT_ATI_REMOTE=3Dm
+>> CONFIG_INPUT_ATI_REMOTE2=3Dm
+>> CONFIG_INPUT_KEYSPAN_REMOTE=3Dm
+>> CONFIG_INPUT_POWERMATE=3Dm
+>> CONFIG_INPUT_YEALINK=3Dm
+>> CONFIG_INPUT_CM109=3Dm
+>> CONFIG_INPUT_UINPUT=3Dm
+>> CONFIG_INPUT_PCF50633_PMU=3Dm
+>> CONFIG_INPUT_GPIO_ROTARY_ENCODER=3Dm
+>> CONFIG_INPUT_WM831X_ON=3Dm
+>> CONFIG_INPUT_PCAP=3Dm
+>>
+>> #
+>> # Hardware I/O ports
+>> #
+>> CONFIG_SERIO=3Dm
+>> CONFIG_SERIO_I8042=3Dm
+>> CONFIG_SERIO_SERPORT=3Dm
+>> CONFIG_SERIO_PARKBD=3Dm
+>> CONFIG_SERIO_PCIPS2=3Dm
+>> CONFIG_SERIO_LIBPS2=3Dm
+>> CONFIG_SERIO_RAW=3Dm
+>> CONFIG_SERIO_XILINX_XPS_PS2=3Dm
+>> CONFIG_SERIO_ALTERA_PS2=3Dm
+>> CONFIG_GAMEPORT=3Dm
+>> CONFIG_GAMEPORT_NS558=3Dm
+>> CONFIG_GAMEPORT_L4=3Dm
+>> CONFIG_GAMEPORT_EMU10K1=3Dm
+>> CONFIG_GAMEPORT_FM801=3Dm
+>>
+>> #
+>> # Character devices
+>> #
+>> CONFIG_VT=3Dy
+>> CONFIG_CONSOLE_TRANSLATIONS=3Dy
+>> CONFIG_VT_CONSOLE=3Dy
+>> CONFIG_HW_CONSOLE=3Dy
+>> CONFIG_VT_HW_CONSOLE_BINDING=3Dy
+>> CONFIG_DEVKMEM=3Dy
+>> CONFIG_SERIAL_NONSTANDARD=3Dy
+>> CONFIG_COMPUTONE=3Dm
+>> CONFIG_ROCKETPORT=3Dm
+>> CONFIG_CYCLADES=3Dm
+>> CONFIG_CYZ_INTR=3Dy
+>> CONFIG_DIGIEPCA=3Dm
+>> CONFIG_MOXA_INTELLIO=3Dm
+>> CONFIG_MOXA_SMARTIO=3Dm
+>> CONFIG_ISI=3Dm
+>> CONFIG_SYNCLINK=3Dm
+>> CONFIG_SYNCLINKMP=3Dm
+>> CONFIG_SYNCLINK_GT=3Dm
+>> CONFIG_N_HDLC=3Dm
+>> CONFIG_RISCOM8=3Dm
+>> CONFIG_SPECIALIX=3Dm
+>> CONFIG_SX=3Dm
+>> CONFIG_RIO=3Dm
+>> CONFIG_RIO_OLDPCI=3Dy
+>> CONFIG_STALDRV=3Dy
+>> CONFIG_STALLION=3Dm
+>> CONFIG_ISTALLION=3Dm
+>> CONFIG_NOZOMI=3Dm
+>>
+>> #
+>> # Serial drivers
+>> #
+>> CONFIG_SERIAL_8250=3Dm
+>> CONFIG_SERIAL_8250_PCI=3Dm
+>> CONFIG_SERIAL_8250_CS=3Dm
+>> CONFIG_SERIAL_8250_NR_UARTS=3D4
+>> CONFIG_SERIAL_8250_RUNTIME_UARTS=3D4
+>> CONFIG_SERIAL_8250_EXTENDED=3Dy
+>> CONFIG_SERIAL_8250_MANY_PORTS=3Dy
+>> CONFIG_SERIAL_8250_SHARE_IRQ=3Dy
+>> CONFIG_SERIAL_8250_DETECT_IRQ=3Dy
+>> CONFIG_SERIAL_8250_RSA=3Dy
+>>
+>> #
+>> # Non-8250 serial port support
+>> #
+>> CONFIG_SERIAL_MAX3100=3Dm
+>> CONFIG_SERIAL_CORE=3Dy
+>> CONFIG_SERIAL_CORE_CONSOLE=3Dy
+>> CONFIG_CONSOLE_POLL=3Dy
+>> CONFIG_SERIAL_PMACZILOG=3Dm
+>> CONFIG_SERIAL_PMACZILOG_TTYS=3Dy
+>> CONFIG_SERIAL_ICOM=3Dm
+>> CONFIG_SERIAL_TXX9=3Dy
+>> CONFIG_HAS_TXX9_SERIAL=3Dy
+>> CONFIG_SERIAL_TXX9_NR_UARTS=3D6
+>> CONFIG_SERIAL_TXX9_CONSOLE=3Dy
+>> CONFIG_SERIAL_TXX9_STDSERIAL=3Dy
+>> CONFIG_SERIAL_JSM=3Dm
+>> CONFIG_SERIAL_OF_PLATFORM=3Dm
+>> CONFIG_SERIAL_OF_PLATFORM_NWPSERIAL=3Dm
+>> CONFIG_UNIX98_PTYS=3Dy
+>> CONFIG_DEVPTS_MULTIPLE_INSTANCES=3Dy
+>> CONFIG_LEGACY_PTYS=3Dy
+>> CONFIG_LEGACY_PTY_COUNT=3D256
+>> CONFIG_PRINTER=3Dm
+>> CONFIG_LP_CONSOLE=3Dy
+>> CONFIG_PPDEV=3Dm
+>> CONFIG_HVC_DRIVER=3Dy
+>> CONFIG_HVC_IRQ=3Dy
+>> CONFIG_HVC_CONSOLE=3Dy
+>> CONFIG_HVC_ISERIES=3Dy
+>> CONFIG_HVC_RTAS=3Dy
+>> CONFIG_HVC_BEAT=3Dy
+>> CONFIG_HVC_UDBG=3Dy
+>> CONFIG_VIRTIO_CONSOLE=3Dm
+>> CONFIG_HVCS=3Dm
+>> CONFIG_IBM_BSR=3Dm
+>> CONFIG_IPMI_HANDLER=3Dm
+>> CONFIG_IPMI_PANIC_EVENT=3Dy
+>> CONFIG_IPMI_PANIC_STRING=3Dy
+>> CONFIG_IPMI_DEVICE_INTERFACE=3Dm
+>> CONFIG_IPMI_SI=3Dm
+>> CONFIG_IPMI_WATCHDOG=3Dm
+>> CONFIG_IPMI_POWEROFF=3Dm
+>> CONFIG_HW_RANDOM=3Dm
+>> CONFIG_HW_RANDOM_TIMERIOMEM=3Dm
+>> CONFIG_HW_RANDOM_PASEMI=3Dm
+>> CONFIG_HW_RANDOM_VIRTIO=3Dm
+>> CONFIG_R3964=3Dm
+>> CONFIG_APPLICOM=3Dm
+>>
+>> #
+>> # PCMCIA character devices
+>> #
+>> CONFIG_SYNCLINK_CS=3Dm
+>> CONFIG_CARDMAN_4000=3Dm
+>> CONFIG_CARDMAN_4040=3Dm
+>> CONFIG_IPWIRELESS=3Dm
+>> CONFIG_RAW_DRIVER=3Dm
+>> CONFIG_MAX_RAW_DEVS=3D256
+>> CONFIG_HANGCHECK_TIMER=3Dm
+>> CONFIG_TCG_TPM=3Dm
+>> CONFIG_TCG_NSC=3Dm
+>> CONFIG_TCG_ATMEL=3Dm
+>> CONFIG_DEVPORT=3Dy
+>> CONFIG_I2C=3Dm
+>> CONFIG_I2C_BOARDINFO=3Dy
+>> CONFIG_I2C_COMPAT=3Dy
+>> CONFIG_I2C_CHARDEV=3Dm
+>> CONFIG_I2C_HELPER_AUTO=3Dy
+>> CONFIG_I2C_ALGOBIT=3Dm
+>> CONFIG_I2C_ALGOPCA=3Dm
+>>
+>> #
+>> # I2C Hardware Bus support
+>> #
+>>
+>> #
+>> # PC SMBus host controller drivers
+>> #
+>> CONFIG_I2C_ALI1535=3Dm
+>> CONFIG_I2C_ALI1563=3Dm
+>> CONFIG_I2C_ALI15X3=3Dm
+>> CONFIG_I2C_AMD756=3Dm
+>> CONFIG_I2C_AMD8111=3Dm
+>> CONFIG_I2C_I801=3Dm
+>> CONFIG_I2C_ISCH=3Dm
+>> CONFIG_I2C_PIIX4=3Dm
+>> CONFIG_I2C_NFORCE2=3Dm
+>> CONFIG_I2C_SIS5595=3Dm
+>> CONFIG_I2C_SIS630=3Dm
+>> CONFIG_I2C_SIS96X=3Dm
+>> CONFIG_I2C_VIA=3Dm
+>> CONFIG_I2C_VIAPRO=3Dm
+>>
+>> #
+>> # Mac SMBus host controller drivers
+>> #
+>> CONFIG_I2C_POWERMAC=3Dm
+>>
+>> #
+>> # I2C system bus drivers (mostly embedded / system-on-chip)
+>> #
+>> CONFIG_I2C_GPIO=3Dm
+>> CONFIG_I2C_OCORES=3Dm
+>> CONFIG_I2C_PASEMI=3Dm
+>> CONFIG_I2C_SIMTEC=3Dm
+>>
+>> #
+>> # External I2C/SMBus adapter drivers
+>> #
+>> CONFIG_I2C_PARPORT=3Dm
+>> CONFIG_I2C_PARPORT_LIGHT=3Dm
+>> CONFIG_I2C_TAOS_EVM=3Dm
+>> CONFIG_I2C_TINY_USB=3Dm
+>>
+>> #
+>> # Other I2C/SMBus bus drivers
+>> #
+>> CONFIG_I2C_PCA_PLATFORM=3Dm
+>> CONFIG_I2C_STUB=3Dm
+>>
+>> #
+>> # Miscellaneous I2C Chip support
+>> #
+>> CONFIG_SENSORS_TSL2550=3Dm
+>> CONFIG_I2C_DEBUG_CORE=3Dy
+>> CONFIG_I2C_DEBUG_ALGO=3Dy
+>> CONFIG_I2C_DEBUG_BUS=3Dy
+>> CONFIG_I2C_DEBUG_CHIP=3Dy
+>> CONFIG_SPI=3Dy
+>> CONFIG_SPI_DEBUG=3Dy
+>> CONFIG_SPI_MASTER=3Dy
+>>
+>> #
+>> # SPI Master Controller Drivers
+>> #
+>> CONFIG_SPI_BITBANG=3Dm
+>> CONFIG_SPI_BUTTERFLY=3Dm
+>> CONFIG_SPI_GPIO=3Dm
+>> CONFIG_SPI_LM70_LLP=3Dm
+>>
+>> #
+>> # SPI Protocol Masters
+>> #
+>> CONFIG_SPI_SPIDEV=3Dm
+>> CONFIG_SPI_TLE62X0=3Dm
+>>
+>> #
+>> # PPS support
+>> #
+>> CONFIG_PPS=3Dm
+>> CONFIG_PPS_DEBUG=3Dy
+>> CONFIG_ARCH_WANT_OPTIONAL_GPIOLIB=3Dy
+>> CONFIG_ARCH_REQUIRE_GPIOLIB=3Dy
+>> CONFIG_GPIOLIB=3Dy
+>> CONFIG_DEBUG_GPIO=3Dy
+>> CONFIG_GPIO_SYSFS=3Dy
+>>
+>> #
+>> # Memory mapped GPIO expanders:
+>> #
+>> CONFIG_GPIO_XILINX=3Dy
+>>
+>> #
+>> # I2C GPIO expanders:
+>> #
+>> CONFIG_GPIO_MAX732X=3Dm
+>> CONFIG_GPIO_PCA953X=3Dm
+>> CONFIG_GPIO_PCF857X=3Dm
+>> CONFIG_GPIO_WM831X=3Dm
+>>
+>> #
+>> # PCI GPIO expanders:
+>> #
+>> CONFIG_GPIO_LANGWELL=3Dy
+>>
+>> #
+>> # SPI GPIO expanders:
+>> #
+>> CONFIG_GPIO_MAX7301=3Dm
+>> CONFIG_GPIO_MCP23S08=3Dm
+>> CONFIG_GPIO_MC33880=3Dm
+>>
+>> #
+>> # AC97 GPIO expanders:
+>> #
+>> CONFIG_GPIO_UCB1400=3Dy
+>> CONFIG_W1=3Dm
+>> CONFIG_W1_CON=3Dy
+>>
+>> #
+>> # 1-wire Bus Masters
+>> #
+>> CONFIG_W1_MASTER_MATROX=3Dm
+>> CONFIG_W1_MASTER_DS2490=3Dm
+>> CONFIG_W1_MASTER_DS2482=3Dm
+>> CONFIG_W1_MASTER_GPIO=3Dm
+>>
+>> #
+>> # 1-wire Slaves
+>> #
+>> CONFIG_W1_SLAVE_THERM=3Dm
+>> CONFIG_W1_SLAVE_SMEM=3Dm
+>> CONFIG_W1_SLAVE_DS2431=3Dm
+>> CONFIG_W1_SLAVE_DS2433=3Dm
+>> CONFIG_W1_SLAVE_DS2433_CRC=3Dy
+>> CONFIG_W1_SLAVE_DS2760=3Dm
+>> CONFIG_W1_SLAVE_BQ27000=3Dm
+>> CONFIG_POWER_SUPPLY=3Dm
+>> CONFIG_POWER_SUPPLY_DEBUG=3Dy
+>> CONFIG_PDA_POWER=3Dm
+>> CONFIG_WM831X_POWER=3Dm
+>> CONFIG_WM8350_POWER=3Dm
+>> CONFIG_BATTERY_DS2760=3Dm
+>> CONFIG_BATTERY_DS2782=3Dm
+>> CONFIG_BATTERY_BQ27x00=3Dm
+>> CONFIG_BATTERY_MAX17040=3Dm
+>> CONFIG_CHARGER_PCF50633=3Dm
+>> CONFIG_HWMON=3Dm
+>> CONFIG_HWMON_VID=3Dm
+>> CONFIG_HWMON_DEBUG_CHIP=3Dy
+>>
+>> #
+>> # Native drivers
+>> #
+>> CONFIG_SENSORS_AD7414=3Dm
+>> CONFIG_SENSORS_AD7418=3Dm
+>> CONFIG_SENSORS_ADCXX=3Dm
+>> CONFIG_SENSORS_ADM1021=3Dm
+>> CONFIG_SENSORS_ADM1025=3Dm
+>> CONFIG_SENSORS_ADM1026=3Dm
+>> CONFIG_SENSORS_ADM1029=3Dm
+>> CONFIG_SENSORS_ADM1031=3Dm
+>> CONFIG_SENSORS_ADM9240=3Dm
+>> CONFIG_SENSORS_ADT7462=3Dm
+>> CONFIG_SENSORS_ADT7470=3Dm
+>> CONFIG_SENSORS_ADT7473=3Dm
+>> CONFIG_SENSORS_ADT7475=3Dm
+>> CONFIG_SENSORS_ATXP1=3Dm
+>> CONFIG_SENSORS_DS1621=3Dm
+>> CONFIG_SENSORS_I5K_AMB=3Dm
+>> CONFIG_SENSORS_F71805F=3Dm
+>> CONFIG_SENSORS_F71882FG=3Dm
+>> CONFIG_SENSORS_F75375S=3Dm
+>> CONFIG_SENSORS_G760A=3Dm
+>> CONFIG_SENSORS_GL518SM=3Dm
+>> CONFIG_SENSORS_GL520SM=3Dm
+>> CONFIG_SENSORS_IBMAEM=3Dm
+>> CONFIG_SENSORS_IBMPEX=3Dm
+>> CONFIG_SENSORS_IT87=3Dm
+>> CONFIG_SENSORS_LM63=3Dm
+>> CONFIG_SENSORS_LM70=3Dm
+>> CONFIG_SENSORS_LM73=3Dm
+>> CONFIG_SENSORS_LM75=3Dm
+>> CONFIG_SENSORS_LM77=3Dm
+>> CONFIG_SENSORS_LM78=3Dm
+>> CONFIG_SENSORS_LM80=3Dm
+>> CONFIG_SENSORS_LM83=3Dm
+>> CONFIG_SENSORS_LM85=3Dm
+>> CONFIG_SENSORS_LM87=3Dm
+>> CONFIG_SENSORS_LM90=3Dm
+>> CONFIG_SENSORS_LM92=3Dm
+>> CONFIG_SENSORS_LM93=3Dm
+>> CONFIG_SENSORS_LTC4215=3Dm
+>> CONFIG_SENSORS_LTC4245=3Dm
+>> CONFIG_SENSORS_LM95241=3Dm
+>> CONFIG_SENSORS_MAX1111=3Dm
+>> CONFIG_SENSORS_MAX1619=3Dm
+>> CONFIG_SENSORS_MAX6650=3Dm
+>> CONFIG_SENSORS_PC87360=3Dm
+>> CONFIG_SENSORS_PC87427=3Dm
+>> CONFIG_SENSORS_PCF8591=3Dm
+>> CONFIG_SENSORS_SHT15=3Dm
+>> CONFIG_SENSORS_SIS5595=3Dm
+>> CONFIG_SENSORS_DME1737=3Dm
+>> CONFIG_SENSORS_SMSC47M1=3Dm
+>> CONFIG_SENSORS_SMSC47M192=3Dm
+>> CONFIG_SENSORS_SMSC47B397=3Dm
+>> CONFIG_SENSORS_ADS7828=3Dm
+>> CONFIG_SENSORS_THMC50=3Dm
+>> CONFIG_SENSORS_TMP401=3Dm
+>> CONFIG_SENSORS_TMP421=3Dm
+>> CONFIG_SENSORS_VIA686A=3Dm
+>> CONFIG_SENSORS_VT1211=3Dm
+>> CONFIG_SENSORS_VT8231=3Dm
+>> CONFIG_SENSORS_W83781D=3Dm
+>> CONFIG_SENSORS_W83791D=3Dm
+>> CONFIG_SENSORS_W83792D=3Dm
+>> CONFIG_SENSORS_W83793=3Dm
+>> CONFIG_SENSORS_W83L785TS=3Dm
+>> CONFIG_SENSORS_W83L786NG=3Dm
+>> CONFIG_SENSORS_W83627HF=3Dm
+>> CONFIG_SENSORS_W83627EHF=3Dm
+>> CONFIG_SENSORS_WM831X=3Dm
+>> CONFIG_SENSORS_WM8350=3Dm
+>> CONFIG_SENSORS_LIS3_SPI=3Dm
+>> CONFIG_SENSORS_MC13783_ADC=3Dm
+>> CONFIG_THERMAL=3Dm
+>> CONFIG_THERMAL_HWMON=3Dy
+>> CONFIG_WATCHDOG=3Dy
+>> CONFIG_WATCHDOG_NOWAYOUT=3Dy
+>>
+>> #
+>> # Watchdog Device Drivers
+>> #
+>> CONFIG_SOFT_WATCHDOG=3Dm
+>> CONFIG_WM831X_WATCHDOG=3Dm
+>> CONFIG_WM8350_WATCHDOG=3Dm
+>> CONFIG_ALIM7101_WDT=3Dm
+>> CONFIG_WATCHDOG_RTAS=3Dm
+>>
+>> #
+>> # PCI-based Watchdog Cards
+>> #
+>> CONFIG_PCIPCWATCHDOG=3Dm
+>> CONFIG_WDTPCI=3Dm
+>>
+>> #
+>> # USB-based Watchdog Cards
+>> #
+>> CONFIG_USBPCWATCHDOG=3Dm
+>> CONFIG_SSB_POSSIBLE=3Dy
+>>
+>> #
+>> # Sonics Silicon Backplane
+>> #
+>> CONFIG_SSB=3Dm
+>> CONFIG_SSB_SPROM=3Dy
+>> CONFIG_SSB_BLOCKIO=3Dy
+>> CONFIG_SSB_PCIHOST_POSSIBLE=3Dy
+>> CONFIG_SSB_PCIHOST=3Dy
+>> CONFIG_SSB_B43_PCI_BRIDGE=3Dy
+>> CONFIG_SSB_PCMCIAHOST_POSSIBLE=3Dy
+>> CONFIG_SSB_PCMCIAHOST=3Dy
+>> CONFIG_SSB_SDIOHOST_POSSIBLE=3Dy
+>> CONFIG_SSB_SDIOHOST=3Dy
+>> CONFIG_SSB_SILENT=3Dy
+>> CONFIG_SSB_DRIVER_PCICORE_POSSIBLE=3Dy
+>> CONFIG_SSB_DRIVER_PCICORE=3Dy
+>>
+>> #
+>> # Multifunction device drivers
+>> #
+>> CONFIG_MFD_CORE=3Dm
+>> CONFIG_MFD_SM501=3Dm
+>> CONFIG_MFD_SM501_GPIO=3Dy
+>> CONFIG_HTC_PASIC3=3Dm
+>> CONFIG_UCB1400_CORE=3Dm
+>> CONFIG_TPS65010=3Dm
+>> # CONFIG_MFD_TMIO is not set
+>> CONFIG_MFD_WM8400=3Dm
+>> CONFIG_MFD_WM831X=3Dm
+>> CONFIG_MFD_WM8350=3Dm
+>> CONFIG_MFD_WM8350_I2C=3Dm
+>> CONFIG_MFD_PCF50633=3Dm
+>> CONFIG_MFD_MC13783=3Dm
+>> CONFIG_PCF50633_ADC=3Dm
+>> CONFIG_PCF50633_GPIO=3Dm
+>> CONFIG_AB3100_CORE=3Dm
+>> CONFIG_AB3100_OTP=3Dm
+>> CONFIG_EZX_PCAP=3Dy
+>> CONFIG_AB4500_CORE=3Dm
+>> CONFIG_REGULATOR=3Dy
+>> CONFIG_REGULATOR_DEBUG=3Dy
+>> CONFIG_REGULATOR_FIXED_VOLTAGE=3Dm
+>> CONFIG_REGULATOR_VIRTUAL_CONSUMER=3Dm
+>> CONFIG_REGULATOR_USERSPACE_CONSUMER=3Dm
+>> CONFIG_REGULATOR_BQ24022=3Dm
+>> CONFIG_REGULATOR_MAX1586=3Dm
+>> CONFIG_REGULATOR_MAX8660=3Dm
+>> CONFIG_REGULATOR_WM831X=3Dm
+>> CONFIG_REGULATOR_WM8350=3Dm
+>> CONFIG_REGULATOR_WM8400=3Dm
+>> CONFIG_REGULATOR_PCF50633=3Dm
+>> CONFIG_REGULATOR_LP3971=3Dm
+>> CONFIG_REGULATOR_PCAP=3Dm
+>> CONFIG_REGULATOR_MC13783=3Dm
+>> CONFIG_REGULATOR_AB3100=3Dm
+>> CONFIG_REGULATOR_TPS65023=3Dm
+>> CONFIG_REGULATOR_TPS6507X=3Dm
+>> CONFIG_MEDIA_SUPPORT=3Dm
+>>
+>> #
+>> # Multimedia core support
+>> #
+>> CONFIG_VIDEO_DEV=3Dm
+>> CONFIG_VIDEO_V4L2_COMMON=3Dm
+>> CONFIG_VIDEO_ALLOW_V4L1=3Dy
+>> CONFIG_VIDEO_V4L1_COMPAT=3Dy
+>> CONFIG_DVB_CORE=3Dm
+>> CONFIG_VIDEO_MEDIA=3Dm
+>>
+>> #
+>> # Multimedia drivers
+>> #
+>> CONFIG_VIDEO_SAA7146=3Dm
+>> CONFIG_VIDEO_SAA7146_VV=3Dm
+>> CONFIG_MEDIA_ATTACH=3Dy
+>> CONFIG_MEDIA_TUNER=3Dm
+>> CONFIG_MEDIA_TUNER_CUSTOMISE=3Dy
+>> CONFIG_MEDIA_TUNER_SIMPLE=3Dm
+>> CONFIG_MEDIA_TUNER_TDA8290=3Dm
+>> CONFIG_MEDIA_TUNER_TDA827X=3Dm
+>> CONFIG_MEDIA_TUNER_TDA18271=3Dm
+>> CONFIG_MEDIA_TUNER_TDA9887=3Dm
+>> CONFIG_MEDIA_TUNER_TEA5761=3Dm
+>> CONFIG_MEDIA_TUNER_TEA5767=3Dm
+>> CONFIG_MEDIA_TUNER_MT20XX=3Dm
+>> CONFIG_MEDIA_TUNER_MT2060=3Dm
+>> CONFIG_MEDIA_TUNER_MT2266=3Dm
+>> CONFIG_MEDIA_TUNER_MT2131=3Dm
+>> CONFIG_MEDIA_TUNER_QT1010=3Dm
+>> CONFIG_MEDIA_TUNER_XC2028=3Dm
+>> CONFIG_MEDIA_TUNER_XC5000=3Dm
+>> CONFIG_MEDIA_TUNER_MXL5005S=3Dm
+>> CONFIG_MEDIA_TUNER_MXL5007T=3Dm
+>> CONFIG_MEDIA_TUNER_MC44S803=3Dm
+>> CONFIG_VIDEO_V4L2=3Dm
+>> CONFIG_VIDEO_V4L1=3Dm
+>> CONFIG_VIDEOBUF_GEN=3Dm
+>> CONFIG_VIDEOBUF_DMA_SG=3Dm
+>> CONFIG_VIDEOBUF_VMALLOC=3Dm
+>> CONFIG_VIDEOBUF_DVB=3Dm
+>> CONFIG_VIDEO_BTCX=3Dm
+>> CONFIG_VIDEO_IR=3Dm
+>> CONFIG_VIDEO_TVEEPROM=3Dm
+>> CONFIG_VIDEO_TUNER=3Dm
+>> CONFIG_VIDEO_CAPTURE_DRIVERS=3Dy
+>> CONFIG_VIDEO_ADV_DEBUG=3Dy
+>> CONFIG_VIDEO_FIXED_MINOR_RANGES=3Dy
+>> CONFIG_VIDEO_HELPER_CHIPS_AUTO=3Dy
+>> CONFIG_VIDEO_IR_I2C=3Dm
+>> CONFIG_VIDEO_TVAUDIO=3Dm
+>> CONFIG_VIDEO_TDA7432=3Dm
+>> CONFIG_VIDEO_TDA9840=3Dm
+>> CONFIG_VIDEO_TEA6415C=3Dm
+>> CONFIG_VIDEO_TEA6420=3Dm
+>> CONFIG_VIDEO_MSP3400=3Dm
+>> CONFIG_VIDEO_CS5345=3Dm
+>> CONFIG_VIDEO_CS53L32A=3Dm
+>> CONFIG_VIDEO_M52790=3Dm
+>> CONFIG_VIDEO_WM8775=3Dm
+>> CONFIG_VIDEO_WM8739=3Dm
+>> CONFIG_VIDEO_VP27SMPX=3Dm
+>> CONFIG_VIDEO_SAA6588=3Dm
+>> CONFIG_VIDEO_OV7670=3Dm
+>> CONFIG_VIDEO_MT9V011=3Dm
+>> CONFIG_VIDEO_SAA711X=3Dm
+>> CONFIG_VIDEO_SAA717X=3Dm
+>> CONFIG_VIDEO_TVP5150=3Dm
+>> CONFIG_VIDEO_CX25840=3Dm
+>> CONFIG_VIDEO_CX2341X=3Dm
+>> CONFIG_VIDEO_SAA7127=3Dm
+>> CONFIG_VIDEO_UPD64031A=3Dm
+>> CONFIG_VIDEO_UPD64083=3Dm
+>> CONFIG_VIDEO_VIVI=3Dm
+>> CONFIG_VIDEO_BT848=3Dm
+>> CONFIG_VIDEO_BT848_DVB=3Dy
+>> CONFIG_VIDEO_BWQCAM=3Dm
+>> CONFIG_VIDEO_CQCAM=3Dm
+>> CONFIG_VIDEO_W9966=3Dm
+>> CONFIG_VIDEO_CPIA=3Dm
+>> CONFIG_VIDEO_CPIA_PP=3Dm
+>> CONFIG_VIDEO_CPIA_USB=3Dm
+>> CONFIG_VIDEO_CPIA2=3Dm
+>> CONFIG_VIDEO_SAA5246A=3Dm
+>> CONFIG_VIDEO_SAA5249=3Dm
+>> CONFIG_VIDEO_SAA7134=3Dm
+>> CONFIG_VIDEO_SAA7134_ALSA=3Dm
+>> CONFIG_VIDEO_SAA7134_DVB=3Dm
+>> CONFIG_VIDEO_MXB=3Dm
+>> CONFIG_VIDEO_HEXIUM_ORION=3Dm
+>> CONFIG_VIDEO_HEXIUM_GEMINI=3Dm
+>> CONFIG_VIDEO_CX88=3Dm
+>> CONFIG_VIDEO_CX88_ALSA=3Dm
+>> CONFIG_VIDEO_CX88_BLACKBIRD=3Dm
+>> CONFIG_VIDEO_CX88_DVB=3Dm
+>> CONFIG_VIDEO_CX88_MPEG=3Dm
+>> CONFIG_VIDEO_CX88_VP3054=3Dm
+>> CONFIG_VIDEO_CX23885=3Dm
+>> CONFIG_VIDEO_AU0828=3Dm
+>> CONFIG_VIDEO_IVTV=3Dm
+>> CONFIG_VIDEO_FB_IVTV=3Dm
+>> CONFIG_VIDEO_CX18=3Dm
+>> CONFIG_VIDEO_SAA7164=3Dm
+>> CONFIG_VIDEO_CAFE_CCIC=3Dm
+>> CONFIG_SOC_CAMERA=3Dm
+>> CONFIG_SOC_CAMERA_MT9M001=3Dm
+>> CONFIG_SOC_CAMERA_MT9M111=3Dm
+>> CONFIG_SOC_CAMERA_MT9T031=3Dm
+>> CONFIG_SOC_CAMERA_MT9V022=3Dm
+>> CONFIG_SOC_CAMERA_TW9910=3Dm
+>> CONFIG_SOC_CAMERA_PLATFORM=3Dm
+>> CONFIG_SOC_CAMERA_OV772X=3Dm
+>> CONFIG_V4L_USB_DRIVERS=3Dy
+>> CONFIG_USB_VIDEO_CLASS=3Dm
+>> CONFIG_USB_VIDEO_CLASS_INPUT_EVDEV=3Dy
+>> CONFIG_USB_GSPCA=3Dm
+>> CONFIG_USB_M5602=3Dm
+>> CONFIG_USB_STV06XX=3Dm
+>> CONFIG_USB_GL860=3Dm
+>> CONFIG_USB_GSPCA_CONEX=3Dm
+>> CONFIG_USB_GSPCA_ETOMS=3Dm
+>> CONFIG_USB_GSPCA_FINEPIX=3Dm
+>> CONFIG_USB_GSPCA_JEILINJ=3Dm
+>> CONFIG_USB_GSPCA_MARS=3Dm
+>> CONFIG_USB_GSPCA_MR97310A=3Dm
+>> CONFIG_USB_GSPCA_OV519=3Dm
+>> CONFIG_USB_GSPCA_OV534=3Dm
+>> CONFIG_USB_GSPCA_PAC207=3Dm
+>> CONFIG_USB_GSPCA_PAC7311=3Dm
+>> CONFIG_USB_GSPCA_SN9C20X=3Dm
+>> CONFIG_USB_GSPCA_SN9C20X_EVDEV=3Dy
+>> CONFIG_USB_GSPCA_SONIXB=3Dm
+>> CONFIG_USB_GSPCA_SONIXJ=3Dm
+>> CONFIG_USB_GSPCA_SPCA500=3Dm
+>> CONFIG_USB_GSPCA_SPCA501=3Dm
+>> CONFIG_USB_GSPCA_SPCA505=3Dm
+>> CONFIG_USB_GSPCA_SPCA506=3Dm
+>> CONFIG_USB_GSPCA_SPCA508=3Dm
+>> CONFIG_USB_GSPCA_SPCA561=3Dm
+>> CONFIG_USB_GSPCA_SQ905=3Dm
+>> CONFIG_USB_GSPCA_SQ905C=3Dm
+>> CONFIG_USB_GSPCA_STK014=3Dm
+>> CONFIG_USB_GSPCA_SUNPLUS=3Dm
+>> CONFIG_USB_GSPCA_T613=3Dm
+>> CONFIG_USB_GSPCA_TV8532=3Dm
+>> CONFIG_USB_GSPCA_VC032X=3Dm
+>> CONFIG_USB_GSPCA_ZC3XX=3Dm
+>> CONFIG_VIDEO_PVRUSB2=3Dm
+>> CONFIG_VIDEO_PVRUSB2_SYSFS=3Dy
+>> CONFIG_VIDEO_PVRUSB2_DVB=3Dy
+>> CONFIG_VIDEO_PVRUSB2_DEBUGIFC=3Dy
+>> CONFIG_VIDEO_HDPVR=3Dm
+>> CONFIG_VIDEO_EM28XX=3Dm
+>> CONFIG_VIDEO_EM28XX_ALSA=3Dm
+>> CONFIG_VIDEO_EM28XX_DVB=3Dm
+>> CONFIG_VIDEO_CX231XX=3Dm
+>> CONFIG_VIDEO_CX231XX_ALSA=3Dm
+>> CONFIG_VIDEO_CX231XX_DVB=3Dm
+>> CONFIG_VIDEO_USBVISION=3Dm
+>> CONFIG_VIDEO_USBVIDEO=3Dm
+>> CONFIG_USB_VICAM=3Dm
+>> CONFIG_USB_IBMCAM=3Dm
+>> CONFIG_USB_KONICAWC=3Dm
+>> CONFIG_USB_QUICKCAM_MESSENGER=3Dm
+>> CONFIG_USB_ET61X251=3Dm
+>> CONFIG_VIDEO_OVCAMCHIP=3Dm
+>> CONFIG_USB_W9968CF=3Dm
+>> CONFIG_USB_OV511=3Dm
+>> CONFIG_USB_SE401=3Dm
+>> CONFIG_USB_SN9C102=3Dm
+>> CONFIG_USB_STV680=3Dm
+>> CONFIG_USB_ZC0301=3Dm
+>> CONFIG_USB_PWC=3Dm
+>> CONFIG_USB_PWC_DEBUG=3Dy
+>> CONFIG_USB_PWC_INPUT_EVDEV=3Dy
+>> CONFIG_USB_ZR364XX=3Dm
+>> CONFIG_USB_STKWEBCAM=3Dm
+>> CONFIG_USB_S2255=3Dm
+>> CONFIG_RADIO_ADAPTERS=3Dy
+>> CONFIG_RADIO_GEMTEK_PCI=3Dm
+>> CONFIG_RADIO_MAXIRADIO=3Dm
+>> CONFIG_RADIO_MAESTRO=3Dm
+>> CONFIG_I2C_SI4713=3Dm
+>> CONFIG_RADIO_SI4713=3Dm
+>> CONFIG_USB_DSBR=3Dm
+>> CONFIG_RADIO_SI470X=3Dy
+>> CONFIG_USB_SI470X=3Dm
+>> CONFIG_I2C_SI470X=3Dm
+>> CONFIG_USB_MR800=3Dm
+>> CONFIG_RADIO_TEA5764=3Dm
+>> CONFIG_DVB_MAX_ADAPTERS=3D8
+>> CONFIG_DVB_DYNAMIC_MINORS=3Dy
+>> CONFIG_DVB_CAPTURE_DRIVERS=3Dy
+>>
+>> #
+>> # Supported SAA7146 based PCI Adapters
+>> #
+>> CONFIG_TTPCI_EEPROM=3Dm
+>> CONFIG_DVB_AV7110=3Dm
+>> CONFIG_DVB_AV7110_OSD=3Dy
+>> CONFIG_DVB_BUDGET_CORE=3Dm
+>> CONFIG_DVB_BUDGET=3Dm
+>> CONFIG_DVB_BUDGET_CI=3Dm
+>> CONFIG_DVB_BUDGET_AV=3Dm
+>> CONFIG_DVB_BUDGET_PATCH=3Dm
+>>
+>> #
+>> # Supported USB Adapters
+>> #
+>> CONFIG_DVB_USB=3Dm
+>> CONFIG_DVB_USB_DEBUG=3Dy
+>> CONFIG_DVB_USB_A800=3Dm
+>> CONFIG_DVB_USB_DIBUSB_MB=3Dm
+>> CONFIG_DVB_USB_DIBUSB_MB_FAULTY=3Dy
+>> CONFIG_DVB_USB_DIBUSB_MC=3Dm
+>> CONFIG_DVB_USB_DIB0700=3Dm
+>> CONFIG_DVB_USB_UMT_010=3Dm
+>> CONFIG_DVB_USB_CXUSB=3Dm
+>> CONFIG_DVB_USB_M920X=3Dm
+>> CONFIG_DVB_USB_GL861=3Dm
+>> CONFIG_DVB_USB_AU6610=3Dm
+>> CONFIG_DVB_USB_DIGITV=3Dm
+>> CONFIG_DVB_USB_VP7045=3Dm
+>> CONFIG_DVB_USB_VP702X=3Dm
+>> CONFIG_DVB_USB_GP8PSK=3Dm
+>> CONFIG_DVB_USB_NOVA_T_USB2=3Dm
+>> CONFIG_DVB_USB_TTUSB2=3Dm
+>> CONFIG_DVB_USB_DTT200U=3Dm
+>> CONFIG_DVB_USB_OPERA1=3Dm
+>> CONFIG_DVB_USB_AF9005=3Dm
+>> CONFIG_DVB_USB_AF9005_REMOTE=3Dm
+>> CONFIG_DVB_USB_DW2102=3Dm
+>> CONFIG_DVB_USB_CINERGY_T2=3Dm
+>> CONFIG_DVB_USB_ANYSEE=3Dm
+>> CONFIG_DVB_USB_DTV5100=3Dm
+>> CONFIG_DVB_USB_AF9015=3Dm
+>> CONFIG_DVB_USB_CE6230=3Dm
+>> CONFIG_DVB_USB_FRIIO=3Dm
+>> CONFIG_DVB_TTUSB_BUDGET=3Dm
+>> CONFIG_DVB_TTUSB_DEC=3Dm
+>> CONFIG_SMS_SIANO_MDTV=3Dm
+>>
+>> #
+>> # Siano module components
+>> #
+>> CONFIG_SMS_USB_DRV=3Dm
+>> CONFIG_SMS_SDIO_DRV=3Dm
+>>
+>> #
+>> # Supported FlexCopII (B2C2) Adapters
+>> #
+>> CONFIG_DVB_B2C2_FLEXCOP=3Dm
+>> CONFIG_DVB_B2C2_FLEXCOP_PCI=3Dm
+>> CONFIG_DVB_B2C2_FLEXCOP_USB=3Dm
+>> CONFIG_DVB_B2C2_FLEXCOP_DEBUG=3Dy
+>>
+>> #
+>> # Supported BT878 Adapters
+>> #
+>> CONFIG_DVB_BT8XX=3Dm
+>>
+>> #
+>> # Supported Pluto2 Adapters
+>> #
+>> CONFIG_DVB_PLUTO2=3Dm
+>>
+>> #
+>> # Supported SDMC DM1105 Adapters
+>> #
+>> CONFIG_DVB_DM1105=3Dm
+>>
+>> #
+>> # Supported FireWire (IEEE 1394) Adapters
+>> #
+>> CONFIG_DVB_FIREDTV=3Dm
+>> CONFIG_DVB_FIREDTV_IEEE1394=3Dy
+>> CONFIG_DVB_FIREDTV_INPUT=3Dy
+>>
+>> #
+>> # Supported Earthsoft PT1 Adapters
+>> #
+>> CONFIG_DVB_PT1=3Dm
+>>
+>> #
+>> # Supported DVB Frontends
+>> #
+>> CONFIG_DVB_FE_CUSTOMISE=3Dy
+>>
+>> #
+>> # Customise DVB Frontends
+>> #
+>>
+>> #
+>> # Multistandard (satellite) frontends
+>> #
+>> CONFIG_DVB_STB0899=3Dm
+>> CONFIG_DVB_STB6100=3Dm
+>> CONFIG_DVB_STV090x=3Dm
+>> CONFIG_DVB_STV6110x=3Dm
+>>
+>> #
+>> # DVB-S (satellite) frontends
+>> #
+>> CONFIG_DVB_CX24110=3Dm
+>> CONFIG_DVB_CX24123=3Dm
+>> CONFIG_DVB_MT312=3Dm
+>> CONFIG_DVB_ZL10036=3Dm
+>> CONFIG_DVB_ZL10039=3Dm
+>> CONFIG_DVB_S5H1420=3Dm
+>> CONFIG_DVB_STV0288=3Dm
+>> CONFIG_DVB_STB6000=3Dm
+>> CONFIG_DVB_STV0299=3Dm
+>> CONFIG_DVB_STV6110=3Dm
+>> CONFIG_DVB_STV0900=3Dm
+>> CONFIG_DVB_TDA8083=3Dm
+>> CONFIG_DVB_TDA10086=3Dm
+>> CONFIG_DVB_TDA8261=3Dm
+>> CONFIG_DVB_VES1X93=3Dm
+>> CONFIG_DVB_TUNER_ITD1000=3Dm
+>> CONFIG_DVB_TUNER_CX24113=3Dm
+>> CONFIG_DVB_TDA826X=3Dm
+>> CONFIG_DVB_TUA6100=3Dm
+>> CONFIG_DVB_CX24116=3Dm
+>> CONFIG_DVB_SI21XX=3Dm
+>>
+>> #
+>> # DVB-T (terrestrial) frontends
+>> #
+>> CONFIG_DVB_SP8870=3Dm
+>> CONFIG_DVB_SP887X=3Dm
+>> CONFIG_DVB_CX22700=3Dm
+>> CONFIG_DVB_CX22702=3Dm
+>> CONFIG_DVB_DRX397XD=3Dm
+>> CONFIG_DVB_L64781=3Dm
+>> CONFIG_DVB_TDA1004X=3Dm
+>> CONFIG_DVB_NXT6000=3Dm
+>> CONFIG_DVB_MT352=3Dm
+>> CONFIG_DVB_ZL10353=3Dm
+>> CONFIG_DVB_DIB3000MB=3Dm
+>> CONFIG_DVB_DIB3000MC=3Dm
+>> CONFIG_DVB_DIB7000M=3Dm
+>> CONFIG_DVB_DIB7000P=3Dm
+>> CONFIG_DVB_TDA10048=3Dm
+>> CONFIG_DVB_AF9013=3Dm
+>>
+>> #
+>> # DVB-C (cable) frontends
+>> #
+>> CONFIG_DVB_VES1820=3Dm
+>> CONFIG_DVB_TDA10021=3Dm
+>> CONFIG_DVB_TDA10023=3Dm
+>> CONFIG_DVB_STV0297=3Dm
+>>
+>> #
+>> # ATSC (North American/Korean Terrestrial/Cable DTV) frontends
+>> #
+>> CONFIG_DVB_NXT200X=3Dm
+>> CONFIG_DVB_OR51211=3Dm
+>> CONFIG_DVB_OR51132=3Dm
+>> CONFIG_DVB_BCM3510=3Dm
+>> CONFIG_DVB_LGDT330X=3Dm
+>> CONFIG_DVB_LGDT3304=3Dm
+>> CONFIG_DVB_LGDT3305=3Dm
+>> CONFIG_DVB_S5H1409=3Dm
+>> CONFIG_DVB_AU8522=3Dm
+>> CONFIG_DVB_S5H1411=3Dm
+>>
+>> #
+>> # ISDB-T (terrestrial) frontends
+>> #
+>> CONFIG_DVB_S921=3Dm
+>> CONFIG_DVB_DIB8000=3Dm
+>>
+>> #
+>> # Digital terrestrial only tuners/PLL
+>> #
+>> CONFIG_DVB_PLL=3Dm
+>> CONFIG_DVB_TUNER_DIB0070=3Dm
+>>
+>> #
+>> # SEC control devices for DVB-S
+>> #
+>> CONFIG_DVB_LNBP21=3Dm
+>> CONFIG_DVB_ISL6405=3Dm
+>> CONFIG_DVB_ISL6421=3Dm
+>> CONFIG_DVB_ISL6423=3Dm
+>> CONFIG_DVB_LGS8GL5=3Dm
+>> CONFIG_DVB_LGS8GXX=3Dm
+>>
+>> #
+>> # Tools to develop new frontends
+>> #
+>> CONFIG_DVB_DUMMY_FE=3Dm
+>> CONFIG_DAB=3Dy
+>> CONFIG_USB_DABUSB=3Dm
+>>
+>> #
+>> # Graphics support
+>> #
+>> CONFIG_AGP=3Dm
+>> CONFIG_AGP_UNINORTH=3Dm
+>> CONFIG_VGA_ARB=3Dy
+>> CONFIG_DRM=3Dm
+>> CONFIG_DRM_KMS_HELPER=3Dm
+>> CONFIG_DRM_TTM=3Dm
+>> CONFIG_DRM_TDFX=3Dm
+>> CONFIG_DRM_R128=3Dm
+>> CONFIG_DRM_RADEON=3Dm
+>> CONFIG_DRM_MGA=3Dm
+>> CONFIG_DRM_SIS=3Dm
+>> CONFIG_DRM_VIA=3Dm
+>> CONFIG_DRM_SAVAGE=3Dm
+>> CONFIG_VGASTATE=3Dm
+>> CONFIG_VIDEO_OUTPUT_CONTROL=3Dm
+>> CONFIG_FB=3Dm
+>> CONFIG_FIRMWARE_EDID=3Dy
+>> CONFIG_FB_DDC=3Dm
+>> # CONFIG_FB_BOOT_VESA_SUPPORT is not set
+>> CONFIG_FB_CFB_FILLRECT=3Dm
+>> CONFIG_FB_CFB_COPYAREA=3Dm
+>> CONFIG_FB_CFB_IMAGEBLIT=3Dm
+>> # CONFIG_FB_CFB_REV_PIXELS_IN_BYTE is not set
+>> CONFIG_FB_SYS_FILLRECT=3Dm
+>> CONFIG_FB_SYS_COPYAREA=3Dm
+>> CONFIG_FB_SYS_IMAGEBLIT=3Dm
+>> CONFIG_FB_FOREIGN_ENDIAN=3Dy
+>> CONFIG_FB_BOTH_ENDIAN=3Dy
+>> # CONFIG_FB_BIG_ENDIAN is not set
+>> # CONFIG_FB_LITTLE_ENDIAN is not set
+>> CONFIG_FB_SYS_FOPS=3Dm
+>> CONFIG_FB_DEFERRED_IO=3Dy
+>> CONFIG_FB_SVGALIB=3Dm
+>> CONFIG_FB_MACMODES=3Dm
+>> CONFIG_FB_BACKLIGHT=3Dy
+>> CONFIG_FB_MODE_HELPERS=3Dy
+>> CONFIG_FB_TILEBLITTING=3Dy
+>>
+>> #
+>> # Frame buffer hardware drivers
+>> #
+>> CONFIG_FB_CIRRUS=3Dm
+>> CONFIG_FB_PM2=3Dm
+>> CONFIG_FB_PM2_FIFO_DISCONNECT=3Dy
+>> CONFIG_FB_CYBER2000=3Dm
+>> CONFIG_FB_VGA16=3Dm
+>> CONFIG_FB_UVESA=3Dm
+>> CONFIG_FB_S1D13XXX=3Dm
+>> CONFIG_FB_NVIDIA=3Dm
+>> CONFIG_FB_NVIDIA_I2C=3Dy
+>> CONFIG_FB_NVIDIA_DEBUG=3Dy
+>> CONFIG_FB_NVIDIA_BACKLIGHT=3Dy
+>> CONFIG_FB_RIVA=3Dm
+>> CONFIG_FB_RIVA_I2C=3Dy
+>> CONFIG_FB_RIVA_DEBUG=3Dy
+>> CONFIG_FB_RIVA_BACKLIGHT=3Dy
+>> CONFIG_FB_MATROX=3Dm
+>> CONFIG_FB_MATROX_MILLENIUM=3Dy
+>> CONFIG_FB_MATROX_MYSTIQUE=3Dy
+>> CONFIG_FB_MATROX_G=3Dy
+>> CONFIG_FB_MATROX_I2C=3Dm
+>> CONFIG_FB_MATROX_MAVEN=3Dm
+>> CONFIG_FB_RADEON=3Dm
+>> CONFIG_FB_RADEON_I2C=3Dy
+>> CONFIG_FB_RADEON_BACKLIGHT=3Dy
+>> CONFIG_FB_RADEON_DEBUG=3Dy
+>> CONFIG_FB_ATY128=3Dm
+>> CONFIG_FB_ATY128_BACKLIGHT=3Dy
+>> CONFIG_FB_ATY=3Dm
+>> CONFIG_FB_ATY_CT=3Dy
+>> CONFIG_FB_ATY_GENERIC_LCD=3Dy
+>> CONFIG_FB_ATY_GX=3Dy
+>> CONFIG_FB_ATY_BACKLIGHT=3Dy
+>> CONFIG_FB_S3=3Dm
+>> CONFIG_FB_SAVAGE=3Dm
+>> CONFIG_FB_SAVAGE_I2C=3Dy
+>> CONFIG_FB_SAVAGE_ACCEL=3Dy
+>> CONFIG_FB_SIS=3Dm
+>> CONFIG_FB_SIS_300=3Dy
+>> CONFIG_FB_SIS_315=3Dy
+>> CONFIG_FB_VIA=3Dm
+>> CONFIG_FB_NEOMAGIC=3Dm
+>> CONFIG_FB_KYRO=3Dm
+>> CONFIG_FB_3DFX=3Dm
+>> CONFIG_FB_3DFX_ACCEL=3Dy
+>> CONFIG_FB_3DFX_I2C=3Dy
+>> CONFIG_FB_VOODOO1=3Dm
+>> CONFIG_FB_VT8623=3Dm
+>> CONFIG_FB_TRIDENT=3Dm
+>> CONFIG_FB_ARK=3Dm
+>> CONFIG_FB_PM3=3Dm
+>> CONFIG_FB_CARMINE=3Dm
+>> CONFIG_FB_CARMINE_DRAM_EVAL=3Dy
+>> # CONFIG_CARMINE_DRAM_CUSTOM is not set
+>> CONFIG_FB_TMIO=3Dm
+>> CONFIG_FB_TMIO_ACCELL=3Dy
+>> CONFIG_FB_SM501=3Dm
+>> CONFIG_FB_IBM_GXT4500=3Dm
+>> CONFIG_FB_PS3=3Dm
+>> CONFIG_FB_PS3_DEFAULT_SIZE_M=3D9
+>> CONFIG_FB_VIRTUAL=3Dm
+>> CONFIG_FB_METRONOME=3Dm
+>> CONFIG_FB_MB862XX=3Dm
+>> CONFIG_FB_MB862XX_PCI_GDC=3Dy
+>> CONFIG_FB_BROADSHEET=3Dm
+>> CONFIG_BACKLIGHT_LCD_SUPPORT=3Dy
+>> CONFIG_LCD_CLASS_DEVICE=3Dm
+>> CONFIG_LCD_LMS283GF05=3Dm
+>> CONFIG_LCD_LTV350QV=3Dm
+>> CONFIG_LCD_ILI9320=3Dm
+>> CONFIG_LCD_TDO24M=3Dm
+>> CONFIG_LCD_VGG2432A4=3Dm
+>> CONFIG_LCD_PLATFORM=3Dm
+>> CONFIG_BACKLIGHT_CLASS_DEVICE=3Dm
+>> CONFIG_BACKLIGHT_GENERIC=3Dm
+>> CONFIG_BACKLIGHT_WM831X=3Dm
+>>
+>> #
+>> # Display device support
+>> #
+>> CONFIG_DISPLAY_SUPPORT=3Dm
+>>
+>> #
+>> # Display hardware drivers
+>> #
+>>
+>> #
+>> # Console display driver support
+>> #
+>> CONFIG_VGA_CONSOLE=3Dy
+>> CONFIG_VGACON_SOFT_SCROLLBACK=3Dy
+>> CONFIG_VGACON_SOFT_SCROLLBACK_SIZE=3D64
+>> CONFIG_DUMMY_CONSOLE=3Dy
+>> CONFIG_FRAMEBUFFER_CONSOLE=3Dm
+>> CONFIG_FRAMEBUFFER_CONSOLE_DETECT_PRIMARY=3Dy
+>> CONFIG_FRAMEBUFFER_CONSOLE_ROTATION=3Dy
+>> CONFIG_FONTS=3Dy
+>> CONFIG_FONT_8x8=3Dy
+>> CONFIG_FONT_8x16=3Dy
+>> CONFIG_FONT_6x11=3Dy
+>> CONFIG_FONT_7x14=3Dy
+>> CONFIG_FONT_PEARL_8x8=3Dy
+>> CONFIG_FONT_ACORN_8x8=3Dy
+>> CONFIG_FONT_MINI_4x6=3Dy
+>> CONFIG_FONT_SUN8x16=3Dy
+>> CONFIG_FONT_SUN12x22=3Dy
+>> CONFIG_FONT_10x18=3Dy
+>> CONFIG_LOGO=3Dy
+>> CONFIG_LOGO_LINUX_MONO=3Dy
+>> CONFIG_LOGO_LINUX_VGA16=3Dy
+>> CONFIG_LOGO_LINUX_CLUT224=3Dy
+>> CONFIG_SOUND=3Dm
+>> CONFIG_SOUND_OSS_CORE=3Dy
+>> CONFIG_SOUND_OSS_CORE_PRECLAIM=3Dy
+>> CONFIG_SND=3Dm
+>> CONFIG_SND_TIMER=3Dm
+>> CONFIG_SND_PCM=3Dm
+>> CONFIG_SND_HWDEP=3Dm
+>> CONFIG_SND_RAWMIDI=3Dm
+>> CONFIG_SND_JACK=3Dy
+>> CONFIG_SND_SEQUENCER=3Dm
+>> CONFIG_SND_SEQ_DUMMY=3Dm
+>> CONFIG_SND_OSSEMUL=3Dy
+>> CONFIG_SND_MIXER_OSS=3Dm
+>> CONFIG_SND_PCM_OSS=3Dm
+>> CONFIG_SND_PCM_OSS_PLUGINS=3Dy
+>> CONFIG_SND_SEQUENCER_OSS=3Dy
+>> CONFIG_SND_HRTIMER=3Dm
+>> CONFIG_SND_SEQ_HRTIMER_DEFAULT=3Dy
+>> CONFIG_SND_DYNAMIC_MINORS=3Dy
+>> CONFIG_SND_SUPPORT_OLD_API=3Dy
+>> CONFIG_SND_VERBOSE_PROCFS=3Dy
+>> CONFIG_SND_VERBOSE_PRINTK=3Dy
+>> CONFIG_SND_DEBUG=3Dy
+>> CONFIG_SND_DEBUG_VERBOSE=3Dy
+>> CONFIG_SND_PCM_XRUN_DEBUG=3Dy
+>> CONFIG_SND_VMASTER=3Dy
+>> CONFIG_SND_RAWMIDI_SEQ=3Dm
+>> CONFIG_SND_OPL3_LIB_SEQ=3Dm
+>> # CONFIG_SND_OPL4_LIB_SEQ is not set
+>> # CONFIG_SND_SBAWE_SEQ is not set
+>> CONFIG_SND_EMU10K1_SEQ=3Dm
+>> CONFIG_SND_MPU401_UART=3Dm
+>> CONFIG_SND_OPL3_LIB=3Dm
+>> CONFIG_SND_VX_LIB=3Dm
+>> CONFIG_SND_AC97_CODEC=3Dm
+>> CONFIG_SND_DRIVERS=3Dy
+>> CONFIG_SND_DUMMY=3Dm
+>> CONFIG_SND_VIRMIDI=3Dm
+>> CONFIG_SND_MTPAV=3Dm
+>> CONFIG_SND_MTS64=3Dm
+>> CONFIG_SND_SERIAL_U16550=3Dm
+>> CONFIG_SND_MPU401=3Dm
+>> CONFIG_SND_PORTMAN2X4=3Dm
+>> CONFIG_SND_AC97_POWER_SAVE=3Dy
+>> CONFIG_SND_AC97_POWER_SAVE_DEFAULT=3D0
+>> CONFIG_SND_SB_COMMON=3Dm
+>> CONFIG_SND_SB16_DSP=3Dm
+>> CONFIG_SND_PCI=3Dy
+>> CONFIG_SND_AD1889=3Dm
+>> CONFIG_SND_ALS300=3Dm
+>> CONFIG_SND_ALS4000=3Dm
+>> CONFIG_SND_ALI5451=3Dm
+>> CONFIG_SND_ATIIXP=3Dm
+>> CONFIG_SND_ATIIXP_MODEM=3Dm
+>> CONFIG_SND_AU8810=3Dm
+>> CONFIG_SND_AU8820=3Dm
+>> CONFIG_SND_AU8830=3Dm
+>> CONFIG_SND_AW2=3Dm
+>> CONFIG_SND_AZT3328=3Dm
+>> CONFIG_SND_BT87X=3Dm
+>> CONFIG_SND_BT87X_OVERCLOCK=3Dy
+>> CONFIG_SND_CA0106=3Dm
+>> CONFIG_SND_CMIPCI=3Dm
+>> CONFIG_SND_OXYGEN_LIB=3Dm
+>> CONFIG_SND_OXYGEN=3Dm
+>> CONFIG_SND_CS4281=3Dm
+>> CONFIG_SND_CS46XX=3Dm
+>> CONFIG_SND_CS46XX_NEW_DSP=3Dy
+>> CONFIG_SND_CS5530=3Dm
+>> CONFIG_SND_CS5535AUDIO=3Dm
+>> CONFIG_SND_CTXFI=3Dm
+>> CONFIG_SND_DARLA20=3Dm
+>> CONFIG_SND_GINA20=3Dm
+>> CONFIG_SND_LAYLA20=3Dm
+>> CONFIG_SND_DARLA24=3Dm
+>> CONFIG_SND_GINA24=3Dm
+>> CONFIG_SND_LAYLA24=3Dm
+>> CONFIG_SND_MONA=3Dm
+>> CONFIG_SND_MIA=3Dm
+>> CONFIG_SND_ECHO3G=3Dm
+>> CONFIG_SND_INDIGO=3Dm
+>> CONFIG_SND_INDIGOIO=3Dm
+>> CONFIG_SND_INDIGODJ=3Dm
+>> CONFIG_SND_INDIGOIOX=3Dm
+>> CONFIG_SND_INDIGODJX=3Dm
+>> CONFIG_SND_EMU10K1=3Dm
+>> CONFIG_SND_EMU10K1X=3Dm
+>> CONFIG_SND_ENS1370=3Dm
+>> CONFIG_SND_ENS1371=3Dm
+>> CONFIG_SND_ES1938=3Dm
+>> CONFIG_SND_ES1968=3Dm
+>> CONFIG_SND_FM801=3Dm
+>> CONFIG_SND_FM801_TEA575X_BOOL=3Dy
+>> CONFIG_SND_FM801_TEA575X=3Dm
+>> CONFIG_SND_HDA_INTEL=3Dm
+>> CONFIG_SND_HDA_HWDEP=3Dy
+>> CONFIG_SND_HDA_RECONFIG=3Dy
+>> CONFIG_SND_HDA_INPUT_BEEP=3Dy
+>> CONFIG_SND_HDA_INPUT_JACK=3Dy
+>> CONFIG_SND_HDA_PATCH_LOADER=3Dy
+>> CONFIG_SND_HDA_CODEC_REALTEK=3Dy
+>> CONFIG_SND_HDA_CODEC_ANALOG=3Dy
+>> CONFIG_SND_HDA_CODEC_SIGMATEL=3Dy
+>> CONFIG_SND_HDA_CODEC_VIA=3Dy
+>> CONFIG_SND_HDA_CODEC_ATIHDMI=3Dy
+>> CONFIG_SND_HDA_CODEC_NVHDMI=3Dy
+>> CONFIG_SND_HDA_CODEC_INTELHDMI=3Dy
+>> CONFIG_SND_HDA_ELD=3Dy
+>> CONFIG_SND_HDA_CODEC_CIRRUS=3Dy
+>> CONFIG_SND_HDA_CODEC_CONEXANT=3Dy
+>> CONFIG_SND_HDA_CODEC_CA0110=3Dy
+>> CONFIG_SND_HDA_CODEC_CMEDIA=3Dy
+>> CONFIG_SND_HDA_CODEC_SI3054=3Dy
+>> CONFIG_SND_HDA_GENERIC=3Dy
+>> CONFIG_SND_HDA_POWER_SAVE=3Dy
+>> CONFIG_SND_HDA_POWER_SAVE_DEFAULT=3D0
+>> CONFIG_SND_HDSP=3Dm
+>> CONFIG_SND_HDSPM=3Dm
+>> CONFIG_SND_HIFIER=3Dm
+>> CONFIG_SND_ICE1712=3Dm
+>> CONFIG_SND_ICE1724=3Dm
+>> CONFIG_SND_INTEL8X0=3Dm
+>> CONFIG_SND_INTEL8X0M=3Dm
+>> CONFIG_SND_KORG1212=3Dm
+>> CONFIG_SND_LX6464ES=3Dm
+>> CONFIG_SND_MAESTRO3=3Dm
+>> CONFIG_SND_MIXART=3Dm
+>> CONFIG_SND_NM256=3Dm
+>> CONFIG_SND_PCXHR=3Dm
+>> CONFIG_SND_RIPTIDE=3Dm
+>> CONFIG_SND_RME32=3Dm
+>> CONFIG_SND_RME96=3Dm
+>> CONFIG_SND_RME9652=3Dm
+>> CONFIG_SND_SONICVIBES=3Dm
+>> CONFIG_SND_TRIDENT=3Dm
+>> CONFIG_SND_VIA82XX=3Dm
+>> CONFIG_SND_VIA82XX_MODEM=3Dm
+>> CONFIG_SND_VIRTUOSO=3Dm
+>> CONFIG_SND_VX222=3Dm
+>> CONFIG_SND_YMFPCI=3Dm
+>> CONFIG_SND_PPC=3Dy
+>> CONFIG_SND_POWERMAC=3Dm
+>> CONFIG_SND_POWERMAC_AUTO_DRC=3Dy
+>> CONFIG_SND_PS3=3Dm
+>> CONFIG_SND_PS3_DEFAULT_START_DELAY=3D2000
+>> CONFIG_SND_AOA=3Dm
+>> CONFIG_SND_AOA_FABRIC_LAYOUT=3Dm
+>> CONFIG_SND_AOA_ONYX=3Dm
+>> CONFIG_SND_AOA_TAS=3Dm
+>> CONFIG_SND_AOA_TOONIE=3Dm
+>> CONFIG_SND_AOA_SOUNDBUS=3Dm
+>> CONFIG_SND_AOA_SOUNDBUS_I2S=3Dm
+>> CONFIG_SND_SPI=3Dy
+>> CONFIG_SND_USB=3Dy
+>> CONFIG_SND_USB_AUDIO=3Dm
+>> CONFIG_SND_USB_USX2Y=3Dm
+>> CONFIG_SND_USB_CAIAQ=3Dm
+>> CONFIG_SND_USB_CAIAQ_INPUT=3Dy
+>> CONFIG_SND_PCMCIA=3Dy
+>> CONFIG_SND_VXPOCKET=3Dm
+>> CONFIG_SND_PDAUDIOCF=3Dm
+>> CONFIG_SND_SOC=3Dm
+>> CONFIG_SND_SOC_I2C_AND_SPI=3Dm
+>> CONFIG_SND_SOC_ALL_CODECS=3Dm
+>> CONFIG_SND_SOC_WM_HUBS=3Dm
+>> CONFIG_SND_SOC_AD1836=3Dm
+>> CONFIG_SND_SOC_AD1938=3Dm
+>> CONFIG_SND_SOC_AD73311=3Dm
+>> CONFIG_SND_SOC_AK4104=3Dm
+>> CONFIG_SND_SOC_AK4535=3Dm
+>> CONFIG_SND_SOC_AK4642=3Dm
+>> CONFIG_SND_SOC_AK4671=3Dm
+>> CONFIG_SND_SOC_CS4270=3Dm
+>> CONFIG_SND_SOC_L3=3Dm
+>> CONFIG_SND_SOC_PCM3008=3Dm
+>> CONFIG_SND_SOC_SPDIF=3Dm
+>> CONFIG_SND_SOC_SSM2602=3Dm
+>> CONFIG_SND_SOC_TLV320AIC23=3Dm
+>> CONFIG_SND_SOC_TLV320AIC26=3Dm
+>> CONFIG_SND_SOC_TLV320AIC3X=3Dm
+>> CONFIG_SND_SOC_UDA134X=3Dm
+>> CONFIG_SND_SOC_UDA1380=3Dm
+>> CONFIG_SND_SOC_WM8350=3Dm
+>> CONFIG_SND_SOC_WM8400=3Dm
+>> CONFIG_SND_SOC_WM8510=3Dm
+>> CONFIG_SND_SOC_WM8523=3Dm
+>> CONFIG_SND_SOC_WM8580=3Dm
+>> CONFIG_SND_SOC_WM8711=3Dm
+>> CONFIG_SND_SOC_WM8728=3Dm
+>> CONFIG_SND_SOC_WM8731=3Dm
+>> CONFIG_SND_SOC_WM8750=3Dm
+>> CONFIG_SND_SOC_WM8753=3Dm
+>> CONFIG_SND_SOC_WM8776=3Dm
+>> CONFIG_SND_SOC_WM8900=3Dm
+>> CONFIG_SND_SOC_WM8903=3Dm
+>> CONFIG_SND_SOC_WM8940=3Dm
+>> CONFIG_SND_SOC_WM8960=3Dm
+>> CONFIG_SND_SOC_WM8961=3Dm
+>> CONFIG_SND_SOC_WM8971=3Dm
+>> CONFIG_SND_SOC_WM8974=3Dm
+>> CONFIG_SND_SOC_WM8988=3Dm
+>> CONFIG_SND_SOC_WM8990=3Dm
+>> CONFIG_SND_SOC_WM8993=3Dm
+>> CONFIG_SND_SOC_WM9081=3Dm
+>> CONFIG_SND_SOC_MAX9877=3Dm
+>> CONFIG_SND_SOC_TPA6130A2=3Dm
+>> CONFIG_SOUND_PRIME=3Dm
+>> CONFIG_AC97_BUS=3Dm
+>> CONFIG_HID_SUPPORT=3Dy
+>> CONFIG_HID=3Dm
+>> CONFIG_HIDRAW=3Dy
+>>
+>> #
+>> # USB Input Devices
+>> #
+>> CONFIG_USB_HID=3Dm
+>> CONFIG_HID_PID=3Dy
+>> CONFIG_USB_HIDDEV=3Dy
+>>
+>> #
+>> # USB HID Boot Protocol drivers
+>> #
+>> CONFIG_USB_KBD=3Dm
+>> CONFIG_USB_MOUSE=3Dm
+>>
+>> #
+>> # Special HID drivers
+>> #
+>> CONFIG_HID_A4TECH=3Dm
+>> CONFIG_HID_APPLE=3Dm
+>> CONFIG_HID_BELKIN=3Dm
+>> CONFIG_HID_CHERRY=3Dm
+>> CONFIG_HID_CHICONY=3Dm
+>> CONFIG_HID_CYPRESS=3Dm
+>> CONFIG_HID_DRAGONRISE=3Dm
+>> CONFIG_DRAGONRISE_FF=3Dy
+>> CONFIG_HID_EZKEY=3Dm
+>> CONFIG_HID_KYE=3Dm
+>> CONFIG_HID_GYRATION=3Dm
+>> CONFIG_HID_TWINHAN=3Dm
+>> CONFIG_HID_KENSINGTON=3Dm
+>> CONFIG_HID_LOGITECH=3Dm
+>> CONFIG_LOGITECH_FF=3Dy
+>> CONFIG_LOGIRUMBLEPAD2_FF=3Dy
+>> CONFIG_HID_MICROSOFT=3Dm
+>> CONFIG_HID_MONTEREY=3Dm
+>> CONFIG_HID_NTRIG=3Dm
+>> CONFIG_HID_PANTHERLORD=3Dm
+>> CONFIG_PANTHERLORD_FF=3Dy
+>> CONFIG_HID_PETALYNX=3Dm
+>> CONFIG_HID_SAMSUNG=3Dm
+>> CONFIG_HID_SONY=3Dm
+>> CONFIG_HID_SUNPLUS=3Dm
+>> CONFIG_HID_GREENASIA=3Dm
+>> CONFIG_GREENASIA_FF=3Dy
+>> CONFIG_HID_SMARTJOYPLUS=3Dm
+>> CONFIG_SMARTJOYPLUS_FF=3Dy
+>> CONFIG_HID_TOPSEED=3Dm
+>> CONFIG_HID_THRUSTMASTER=3Dm
+>> CONFIG_THRUSTMASTER_FF=3Dy
+>> CONFIG_HID_WACOM=3Dm
+>> CONFIG_HID_ZEROPLUS=3Dm
+>> CONFIG_ZEROPLUS_FF=3Dy
+>> CONFIG_USB_SUPPORT=3Dy
+>> CONFIG_USB_ARCH_HAS_HCD=3Dy
+>> CONFIG_USB_ARCH_HAS_OHCI=3Dy
+>> CONFIG_USB_ARCH_HAS_EHCI=3Dy
+>> CONFIG_USB=3Dm
+>> CONFIG_USB_DEBUG=3Dy
+>> CONFIG_USB_ANNOUNCE_NEW_DEVICES=3Dy
+>>
+>> #
+>> # Miscellaneous USB options
+>> #
+>> CONFIG_USB_DEVICEFS=3Dy
+>> CONFIG_USB_DEVICE_CLASS=3Dy
+>> CONFIG_USB_DYNAMIC_MINORS=3Dy
+>> CONFIG_USB_SUSPEND=3Dy
+>> # CONFIG_USB_OTG is not set
+>> CONFIG_USB_OTG_WHITELIST=3Dy
+>> CONFIG_USB_OTG_BLACKLIST_HUB=3Dy
+>> CONFIG_USB_MON=3Dm
+>> CONFIG_USB_WUSB=3Dm
+>> CONFIG_USB_WUSB_CBAF=3Dm
+>> CONFIG_USB_WUSB_CBAF_DEBUG=3Dy
+>>
+>> #
+>> # USB Host Controller Drivers
+>> #
+>> CONFIG_USB_C67X00_HCD=3Dm
+>> CONFIG_USB_XHCI_HCD=3Dm
+>> CONFIG_USB_XHCI_HCD_DEBUGGING=3Dy
+>> CONFIG_USB_EHCI_HCD=3Dm
+>> CONFIG_USB_EHCI_ROOT_HUB_TT=3Dy
+>> CONFIG_USB_EHCI_TT_NEWSCHED=3Dy
+>> CONFIG_USB_EHCI_BIG_ENDIAN_MMIO=3Dy
+>> CONFIG_USB_EHCI_HCD_PPC_OF=3Dy
+>> CONFIG_USB_OXU210HP_HCD=3Dm
+>> CONFIG_USB_ISP116X_HCD=3Dm
+>> CONFIG_USB_ISP1760_HCD=3Dm
+>> CONFIG_USB_ISP1362_HCD=3Dm
+>> CONFIG_USB_OHCI_HCD=3Dm
+>> CONFIG_USB_OHCI_HCD_PPC_OF_BE=3Dy
+>> CONFIG_USB_OHCI_HCD_PPC_OF_LE=3Dy
+>> CONFIG_USB_OHCI_HCD_PPC_OF=3Dy
+>> CONFIG_USB_OHCI_HCD_PCI=3Dy
+>> CONFIG_USB_OHCI_HCD_SSB=3Dy
+>> CONFIG_USB_OHCI_BIG_ENDIAN_DESC=3Dy
+>> CONFIG_USB_OHCI_BIG_ENDIAN_MMIO=3Dy
+>> CONFIG_USB_OHCI_LITTLE_ENDIAN=3Dy
+>> CONFIG_USB_UHCI_HCD=3Dm
+>> CONFIG_USB_U132_HCD=3Dm
+>> CONFIG_USB_SL811_HCD=3Dm
+>> CONFIG_USB_SL811_CS=3Dm
+>> CONFIG_USB_R8A66597_HCD=3Dm
+>> CONFIG_USB_WHCI_HCD=3Dm
+>> CONFIG_USB_HWA_HCD=3Dm
+>> # CONFIG_USB_GADGET_MUSB_HDRC is not set
+>>
+>> #
+>> # USB Device Class drivers
+>> #
+>> CONFIG_USB_ACM=3Dm
+>> CONFIG_USB_PRINTER=3Dm
+>> CONFIG_USB_WDM=3Dm
+>> CONFIG_USB_TMC=3Dm
+>>
+>> #
+>> # NOTE: USB_STORAGE depends on SCSI but BLK_DEV_SD may
+>> #
+>>
+>> #
+>> # also be needed; see USB_STORAGE Help for more info
+>> #
+>> CONFIG_USB_STORAGE=3Dm
+>> CONFIG_USB_STORAGE_DEBUG=3Dy
+>> CONFIG_USB_STORAGE_DATAFAB=3Dm
+>> CONFIG_USB_STORAGE_FREECOM=3Dm
+>> CONFIG_USB_STORAGE_ISD200=3Dm
+>> CONFIG_USB_STORAGE_USBAT=3Dm
+>> CONFIG_USB_STORAGE_SDDR09=3Dm
+>> CONFIG_USB_STORAGE_SDDR55=3Dm
+>> CONFIG_USB_STORAGE_JUMPSHOT=3Dm
+>> CONFIG_USB_STORAGE_ALAUDA=3Dm
+>> CONFIG_USB_STORAGE_ONETOUCH=3Dm
+>> CONFIG_USB_STORAGE_KARMA=3Dm
+>> # CONFIG_USB_STORAGE_CYPRESS_ATACB is not set
+>> CONFIG_USB_LIBUSUAL=3Dy
+>>
+>> #
+>> # USB Imaging devices
+>> #
+>> CONFIG_USB_MDC800=3Dm
+>> CONFIG_USB_MICROTEK=3Dm
+>>
+>> #
+>> # USB port drivers
+>> #
+>> CONFIG_USB_USS720=3Dm
+>> CONFIG_USB_SERIAL=3Dm
+>> CONFIG_USB_EZUSB=3Dy
+>> CONFIG_USB_SERIAL_GENERIC=3Dy
+>> CONFIG_USB_SERIAL_AIRCABLE=3Dm
+>> CONFIG_USB_SERIAL_ARK3116=3Dm
+>> CONFIG_USB_SERIAL_BELKIN=3Dm
+>> CONFIG_USB_SERIAL_CH341=3Dm
+>> CONFIG_USB_SERIAL_WHITEHEAT=3Dm
+>> CONFIG_USB_SERIAL_DIGI_ACCELEPORT=3Dm
+>> CONFIG_USB_SERIAL_CP210X=3Dm
+>> CONFIG_USB_SERIAL_CYPRESS_M8=3Dm
+>> CONFIG_USB_SERIAL_EMPEG=3Dm
+>> CONFIG_USB_SERIAL_FTDI_SIO=3Dm
+>> CONFIG_USB_SERIAL_FUNSOFT=3Dm
+>> CONFIG_USB_SERIAL_VISOR=3Dm
+>> CONFIG_USB_SERIAL_IPAQ=3Dm
+>> CONFIG_USB_SERIAL_IR=3Dm
+>> CONFIG_USB_SERIAL_EDGEPORT=3Dm
+>> CONFIG_USB_SERIAL_EDGEPORT_TI=3Dm
+>> CONFIG_USB_SERIAL_GARMIN=3Dm
+>> CONFIG_USB_SERIAL_IPW=3Dm
+>> CONFIG_USB_SERIAL_IUU=3Dm
+>> CONFIG_USB_SERIAL_KEYSPAN_PDA=3Dm
+>> CONFIG_USB_SERIAL_KEYSPAN=3Dm
+>> CONFIG_USB_SERIAL_KEYSPAN_MPR=3Dy
+>> CONFIG_USB_SERIAL_KEYSPAN_USA28=3Dy
+>> CONFIG_USB_SERIAL_KEYSPAN_USA28X=3Dy
+>> CONFIG_USB_SERIAL_KEYSPAN_USA28XA=3Dy
+>> CONFIG_USB_SERIAL_KEYSPAN_USA28XB=3Dy
+>> CONFIG_USB_SERIAL_KEYSPAN_USA19=3Dy
+>> CONFIG_USB_SERIAL_KEYSPAN_USA18X=3Dy
+>> CONFIG_USB_SERIAL_KEYSPAN_USA19W=3Dy
+>> CONFIG_USB_SERIAL_KEYSPAN_USA19QW=3Dy
+>> CONFIG_USB_SERIAL_KEYSPAN_USA19QI=3Dy
+>> CONFIG_USB_SERIAL_KEYSPAN_USA49W=3Dy
+>> CONFIG_USB_SERIAL_KEYSPAN_USA49WLC=3Dy
+>> CONFIG_USB_SERIAL_KLSI=3Dm
+>> CONFIG_USB_SERIAL_KOBIL_SCT=3Dm
+>> CONFIG_USB_SERIAL_MCT_U232=3Dm
+>> CONFIG_USB_SERIAL_MOS7720=3Dm
+>> CONFIG_USB_SERIAL_MOS7840=3Dm
+>> CONFIG_USB_SERIAL_MOTOROLA=3Dm
+>> CONFIG_USB_SERIAL_NAVMAN=3Dm
+>> CONFIG_USB_SERIAL_PL2303=3Dm
+>> CONFIG_USB_SERIAL_OTI6858=3Dm
+>> CONFIG_USB_SERIAL_QUALCOMM=3Dm
+>> CONFIG_USB_SERIAL_SPCP8X5=3Dm
+>> CONFIG_USB_SERIAL_HP4X=3Dm
+>> CONFIG_USB_SERIAL_SAFE=3Dm
+>> CONFIG_USB_SERIAL_SAFE_PADDED=3Dy
+>> CONFIG_USB_SERIAL_SIEMENS_MPI=3Dm
+>> CONFIG_USB_SERIAL_SIERRAWIRELESS=3Dm
+>> CONFIG_USB_SERIAL_SYMBOL=3Dm
+>> CONFIG_USB_SERIAL_TI=3Dm
+>> CONFIG_USB_SERIAL_CYBERJACK=3Dm
+>> CONFIG_USB_SERIAL_XIRCOM=3Dm
+>> CONFIG_USB_SERIAL_OPTION=3Dm
+>> CONFIG_USB_SERIAL_OMNINET=3Dm
+>> CONFIG_USB_SERIAL_OPTICON=3Dm
+>> CONFIG_USB_SERIAL_DEBUG=3Dm
+>>
+>> #
+>> # USB Miscellaneous drivers
+>> #
+>> CONFIG_USB_EMI62=3Dm
+>> CONFIG_USB_EMI26=3Dm
+>> CONFIG_USB_ADUTUX=3Dm
+>> CONFIG_USB_SEVSEG=3Dm
+>> CONFIG_USB_RIO500=3Dm
+>> CONFIG_USB_LEGOTOWER=3Dm
+>> CONFIG_USB_LCD=3Dm
+>> CONFIG_USB_BERRY_CHARGE=3Dm
+>> CONFIG_USB_LED=3Dm
+>> CONFIG_USB_CYPRESS_CY7C63=3Dm
+>> CONFIG_USB_CYTHERM=3Dm
+>> CONFIG_USB_IDMOUSE=3Dm
+>> CONFIG_USB_FTDI_ELAN=3Dm
+>> CONFIG_USB_APPLEDISPLAY=3Dm
+>> CONFIG_USB_SISUSBVGA=3Dm
+>> CONFIG_USB_SISUSBVGA_CON=3Dy
+>> CONFIG_USB_LD=3Dm
+>> CONFIG_USB_TRANCEVIBRATOR=3Dm
+>> CONFIG_USB_IOWARRIOR=3Dm
+>> CONFIG_USB_TEST=3Dm
+>> CONFIG_USB_ISIGHTFW=3Dm
+>> CONFIG_USB_VST=3Dm
+>> CONFIG_USB_ATM=3Dm
+>> CONFIG_USB_SPEEDTOUCH=3Dm
+>> CONFIG_USB_CXACRU=3Dm
+>> CONFIG_USB_UEAGLEATM=3Dm
+>> CONFIG_USB_XUSBATM=3Dm
+>> CONFIG_USB_GADGET=3Dm
+>> CONFIG_USB_GADGET_DEBUG=3Dy
+>> CONFIG_USB_GADGET_DEBUG_FILES=3Dy
+>> CONFIG_USB_GADGET_DEBUG_FS=3Dy
+>> CONFIG_USB_GADGET_VBUS_DRAW=3D2
+>> CONFIG_USB_GADGET_SELECTED=3Dy
+>> # CONFIG_USB_GADGET_AT91 is not set
+>> # CONFIG_USB_GADGET_ATMEL_USBA is not set
+>> # CONFIG_USB_GADGET_FSL_USB2 is not set
+>> # CONFIG_USB_GADGET_LH7A40X is not set
+>> # CONFIG_USB_GADGET_OMAP is not set
+>> # CONFIG_USB_GADGET_PXA25X is not set
+>> CONFIG_USB_GADGET_R8A66597=3Dy
+>> CONFIG_USB_R8A66597=3Dm
+>> # CONFIG_USB_GADGET_PXA27X is not set
+>> # CONFIG_USB_GADGET_S3C_HSOTG is not set
+>> # CONFIG_USB_GADGET_IMX is not set
+>> # CONFIG_USB_GADGET_S3C2410 is not set
+>> # CONFIG_USB_GADGET_M66592 is not set
+>> # CONFIG_USB_GADGET_AMD5536UDC is not set
+>> # CONFIG_USB_GADGET_FSL_QE is not set
+>> # CONFIG_USB_GADGET_CI13XXX is not set
+>> # CONFIG_USB_GADGET_NET2280 is not set
+>> # CONFIG_USB_GADGET_GOKU is not set
+>> # CONFIG_USB_GADGET_LANGWELL is not set
+>> # CONFIG_USB_GADGET_DUMMY_HCD is not set
+>> CONFIG_USB_GADGET_DUALSPEED=3Dy
+>> CONFIG_USB_ZERO=3Dm
+>> CONFIG_USB_AUDIO=3Dm
+>> CONFIG_USB_ETH=3Dm
+>> CONFIG_USB_ETH_RNDIS=3Dy
+>> CONFIG_USB_ETH_EEM=3Dy
+>> CONFIG_USB_GADGETFS=3Dm
+>> CONFIG_USB_FILE_STORAGE=3Dm
+>> CONFIG_USB_FILE_STORAGE_TEST=3Dy
+>> CONFIG_USB_G_SERIAL=3Dm
+>> CONFIG_USB_MIDI_GADGET=3Dm
+>> CONFIG_USB_G_PRINTER=3Dm
+>> CONFIG_USB_CDC_COMPOSITE=3Dm
+>>
+>> #
+>> # OTG and related infrastructure
+>> #
+>> CONFIG_USB_OTG_UTILS=3Dy
+>> CONFIG_USB_GPIO_VBUS=3Dm
+>> CONFIG_NOP_USB_XCEIV=3Dm
+>> CONFIG_UWB=3Dm
+>> CONFIG_UWB_HWA=3Dm
+>> CONFIG_UWB_WHCI=3Dm
+>> CONFIG_UWB_WLP=3Dm
+>> CONFIG_UWB_I1480U=3Dm
+>> CONFIG_UWB_I1480U_WLP=3Dm
+>> CONFIG_MMC=3Dm
+>> CONFIG_MMC_DEBUG=3Dy
+>> CONFIG_MMC_UNSAFE_RESUME=3Dy
+>>
+>> #
+>> # MMC/SD/SDIO Card Drivers
+>> #
+>> CONFIG_MMC_BLOCK=3Dm
+>> CONFIG_MMC_BLOCK_BOUNCE=3Dy
+>> CONFIG_SDIO_UART=3Dm
+>> CONFIG_MMC_TEST=3Dm
+>>
+>> #
+>> # MMC/SD/SDIO Host Controller Drivers
+>> #
+>> CONFIG_MMC_SDHCI=3Dm
+>> CONFIG_MMC_SDHCI_IO_ACCESSORS=3Dy
+>> CONFIG_MMC_SDHCI_PCI=3Dm
+>> CONFIG_MMC_RICOH_MMC=3Dm
+>> CONFIG_MMC_SDHCI_OF=3Dm
+>> CONFIG_MMC_SDHCI_PLTFM=3Dm
+>> CONFIG_MMC_WBSD=3Dm
+>> # CONFIG_MMC_AT91 is not set
+>> # CONFIG_MMC_ATMELMCI is not set
+>> CONFIG_MMC_TIFM_SD=3Dm
+>> CONFIG_MMC_SPI=3Dm
+>> CONFIG_MMC_SDRICOH_CS=3Dm
+>> CONFIG_MMC_CB710=3Dm
+>> CONFIG_MMC_VIA_SDMMC=3Dm
+>> CONFIG_MEMSTICK=3Dm
+>> CONFIG_MEMSTICK_DEBUG=3Dy
+>>
+>> #
+>> # MemoryStick drivers
+>> #
+>> CONFIG_MEMSTICK_UNSAFE_RESUME=3Dy
+>> CONFIG_MSPRO_BLOCK=3Dm
+>>
+>> #
+>> # MemoryStick Host Controller Drivers
+>> #
+>> CONFIG_MEMSTICK_TIFM_MS=3Dm
+>> CONFIG_MEMSTICK_JMICRON_38X=3Dm
+>> CONFIG_NEW_LEDS=3Dy
+>> CONFIG_LEDS_CLASS=3Dy
+>>
+>> #
+>> # LED drivers
+>> #
+>> CONFIG_LEDS_PCA9532=3Dm
+>> CONFIG_LEDS_GPIO=3Dm
+>> CONFIG_LEDS_GPIO_PLATFORM=3Dy
+>> CONFIG_LEDS_GPIO_OF=3Dy
+>> CONFIG_LEDS_LP3944=3Dm
+>> CONFIG_LEDS_PCA955X=3Dm
+>> CONFIG_LEDS_WM831X_STATUS=3Dm
+>> CONFIG_LEDS_WM8350=3Dm
+>> CONFIG_LEDS_DAC124S085=3Dm
+>> CONFIG_LEDS_BD2802=3Dm
+>>
+>> #
+>> # LED Triggers
+>> #
+>> CONFIG_LEDS_TRIGGERS=3Dy
+>> CONFIG_LEDS_TRIGGER_TIMER=3Dm
+>> CONFIG_LEDS_TRIGGER_IDE_DISK=3Dy
+>> CONFIG_LEDS_TRIGGER_HEARTBEAT=3Dm
+>> CONFIG_LEDS_TRIGGER_BACKLIGHT=3Dm
+>> CONFIG_LEDS_TRIGGER_GPIO=3Dm
+>> CONFIG_LEDS_TRIGGER_DEFAULT_ON=3Dm
+>>
+>> #
+>> # iptables trigger is under Netfilter config (LED target)
+>> #
+>> CONFIG_ACCESSIBILITY=3Dy
+>> CONFIG_A11Y_BRAILLE_CONSOLE=3Dy
+>> CONFIG_INFINIBAND=3Dm
+>> CONFIG_INFINIBAND_USER_MAD=3Dm
+>> CONFIG_INFINIBAND_USER_ACCESS=3Dm
+>> CONFIG_INFINIBAND_USER_MEM=3Dy
+>> CONFIG_INFINIBAND_ADDR_TRANS=3Dy
+>> CONFIG_INFINIBAND_MTHCA=3Dm
+>> CONFIG_INFINIBAND_MTHCA_DEBUG=3Dy
+>> CONFIG_INFINIBAND_IPATH=3Dm
+>> CONFIG_INFINIBAND_EHCA=3Dm
+>> CONFIG_INFINIBAND_AMSO1100=3Dm
+>> CONFIG_INFINIBAND_AMSO1100_DEBUG=3Dy
+>> CONFIG_INFINIBAND_CXGB3=3Dm
+>> CONFIG_INFINIBAND_CXGB3_DEBUG=3Dy
+>> CONFIG_MLX4_INFINIBAND=3Dm
+>> CONFIG_INFINIBAND_NES=3Dm
+>> CONFIG_INFINIBAND_NES_DEBUG=3Dy
+>> CONFIG_INFINIBAND_IPOIB=3Dm
+>> CONFIG_INFINIBAND_IPOIB_CM=3Dy
+>> CONFIG_INFINIBAND_IPOIB_DEBUG=3Dy
+>> CONFIG_INFINIBAND_IPOIB_DEBUG_DATA=3Dy
+>> CONFIG_INFINIBAND_SRP=3Dm
+>> CONFIG_INFINIBAND_ISER=3Dm
+>> CONFIG_EDAC=3Dy
+>>
+>> #
+>> # Reporting subsystems
+>> #
+>> CONFIG_EDAC_DEBUG=3Dy
+>> CONFIG_EDAC_DEBUG_VERBOSE=3Dy
+>> CONFIG_EDAC_MM_EDAC=3Dm
+>> CONFIG_EDAC_PASEMI=3Dm
+>> CONFIG_EDAC_CELL=3Dm
+>> CONFIG_EDAC_AMD8131=3Dm
+>> CONFIG_EDAC_AMD8111=3Dm
+>> CONFIG_EDAC_CPC925=3Dm
+>> CONFIG_RTC_LIB=3Dm
+>> CONFIG_RTC_CLASS=3Dm
+>>
+>> #
+>> # RTC interfaces
+>> #
+>> CONFIG_RTC_INTF_SYSFS=3Dy
+>> CONFIG_RTC_INTF_PROC=3Dy
+>> CONFIG_RTC_INTF_DEV=3Dy
+>> CONFIG_RTC_INTF_DEV_UIE_EMUL=3Dy
+>> CONFIG_RTC_DRV_TEST=3Dm
+>>
+>> #
+>> # I2C RTC drivers
+>> #
+>> CONFIG_RTC_DRV_DS1307=3Dm
+>> CONFIG_RTC_DRV_DS1374=3Dm
+>> CONFIG_RTC_DRV_DS1672=3Dm
+>> CONFIG_RTC_DRV_MAX6900=3Dm
+>> CONFIG_RTC_DRV_RS5C372=3Dm
+>> CONFIG_RTC_DRV_ISL1208=3Dm
+>> CONFIG_RTC_DRV_X1205=3Dm
+>> CONFIG_RTC_DRV_PCF8563=3Dm
+>> CONFIG_RTC_DRV_PCF8583=3Dm
+>> CONFIG_RTC_DRV_M41T80=3Dm
+>> CONFIG_RTC_DRV_M41T80_WDT=3Dy
+>> CONFIG_RTC_DRV_S35390A=3Dm
+>> CONFIG_RTC_DRV_FM3130=3Dm
+>> CONFIG_RTC_DRV_RX8581=3Dm
+>> CONFIG_RTC_DRV_RX8025=3Dm
+>>
+>> #
+>> # SPI RTC drivers
+>> #
+>> CONFIG_RTC_DRV_M41T94=3Dm
+>> CONFIG_RTC_DRV_DS1305=3Dm
+>> CONFIG_RTC_DRV_DS1390=3Dm
+>> CONFIG_RTC_DRV_MAX6902=3Dm
+>> CONFIG_RTC_DRV_R9701=3Dm
+>> CONFIG_RTC_DRV_RS5C348=3Dm
+>> CONFIG_RTC_DRV_DS3234=3Dm
+>> CONFIG_RTC_DRV_PCF2123=3Dm
+>>
+>> #
+>> # Platform RTC drivers
+>> #
+>> CONFIG_RTC_DRV_CMOS=3Dm
+>> CONFIG_RTC_DRV_DS1286=3Dm
+>> CONFIG_RTC_DRV_DS1511=3Dm
+>> CONFIG_RTC_DRV_DS1553=3Dm
+>> CONFIG_RTC_DRV_DS1742=3Dm
+>> CONFIG_RTC_DRV_STK17TA8=3Dm
+>> CONFIG_RTC_DRV_M48T86=3Dm
+>> CONFIG_RTC_DRV_M48T35=3Dm
+>> CONFIG_RTC_DRV_M48T59=3Dm
+>> CONFIG_RTC_DRV_MSM6242=3Dm
+>> CONFIG_RTC_DRV_BQ4802=3Dm
+>> CONFIG_RTC_DRV_RP5C01=3Dm
+>> CONFIG_RTC_DRV_V3020=3Dm
+>> CONFIG_RTC_DRV_WM831X=3Dm
+>> CONFIG_RTC_DRV_WM8350=3Dm
+>> CONFIG_RTC_DRV_PCF50633=3Dm
+>> CONFIG_RTC_DRV_AB3100=3Dm
+>>
+>> #
+>> # on-CPU RTC drivers
+>> #
+>> CONFIG_RTC_DRV_GENERIC=3Dm
+>> CONFIG_RTC_DRV_PS3=3Dm
+>> CONFIG_RTC_DRV_PCAP=3Dm
+>> CONFIG_DMADEVICES=3Dy
+>>
+>> #
+>> # DMA Devices
+>> #
+>> CONFIG_AUXDISPLAY=3Dy
+>> CONFIG_KS0108=3Dm
+>> CONFIG_KS0108_PORT=3D0x378
+>> CONFIG_KS0108_DELAY=3D2
+>> CONFIG_UIO=3Dm
+>> CONFIG_UIO_CIF=3Dm
+>> CONFIG_UIO_PDRV=3Dm
+>> CONFIG_UIO_PDRV_GENIRQ=3Dm
+>> CONFIG_UIO_SMX=3Dm
+>> CONFIG_UIO_AEC=3Dm
+>> CONFIG_UIO_SERCOS3=3Dm
+>> CONFIG_UIO_PCI_GENERIC=3Dm
+>>
+>> #
+>> # TI VLYNQ
+>> #
+>> CONFIG_STAGING=3Dy
+>> CONFIG_STAGING_EXCLUDE_BUILD=3Dy
+>>
+>> #
+>> # File systems
+>> #
+>> CONFIG_EXT2_FS=3Dm
+>> CONFIG_EXT2_FS_XATTR=3Dy
+>> CONFIG_EXT2_FS_POSIX_ACL=3Dy
+>> CONFIG_EXT2_FS_SECURITY=3Dy
+>> CONFIG_EXT2_FS_XIP=3Dy
+>> CONFIG_EXT3_FS=3Dm
+>> CONFIG_EXT3_DEFAULTS_TO_ORDERED=3Dy
+>> CONFIG_EXT3_FS_XATTR=3Dy
+>> CONFIG_EXT3_FS_POSIX_ACL=3Dy
+>> CONFIG_EXT3_FS_SECURITY=3Dy
+>> CONFIG_EXT4_FS=3Dm
+>> CONFIG_EXT4_FS_XATTR=3Dy
+>> CONFIG_EXT4_FS_POSIX_ACL=3Dy
+>> CONFIG_EXT4_FS_SECURITY=3Dy
+>> CONFIG_EXT4_DEBUG=3Dy
+>> CONFIG_FS_XIP=3Dy
+>> CONFIG_JBD=3Dm
+>> CONFIG_JBD_DEBUG=3Dy
+>> CONFIG_JBD2=3Dm
+>> CONFIG_JBD2_DEBUG=3Dy
+>> CONFIG_FS_MBCACHE=3Dm
+>> CONFIG_REISERFS_FS=3Dm
+>> CONFIG_REISERFS_CHECK=3Dy
+>> CONFIG_REISERFS_PROC_INFO=3Dy
+>> CONFIG_REISERFS_FS_XATTR=3Dy
+>> CONFIG_REISERFS_FS_POSIX_ACL=3Dy
+>> CONFIG_REISERFS_FS_SECURITY=3Dy
+>> CONFIG_JFS_FS=3Dm
+>> CONFIG_JFS_POSIX_ACL=3Dy
+>> CONFIG_JFS_SECURITY=3Dy
+>> CONFIG_JFS_DEBUG=3Dy
+>> CONFIG_JFS_STATISTICS=3Dy
+>> CONFIG_FS_POSIX_ACL=3Dy
+>> CONFIG_XFS_FS=3Dm
+>> CONFIG_XFS_QUOTA=3Dy
+>> CONFIG_XFS_POSIX_ACL=3Dy
+>> CONFIG_XFS_RT=3Dy
+>> CONFIG_XFS_DEBUG=3Dy
+>> CONFIG_GFS2_FS=3Dm
+>> CONFIG_GFS2_FS_LOCKING_DLM=3Dy
+>> CONFIG_OCFS2_FS=3Dm
+>> CONFIG_OCFS2_FS_O2CB=3Dm
+>> CONFIG_OCFS2_FS_USERSPACE_CLUSTER=3Dm
+>> CONFIG_OCFS2_FS_STATS=3Dy
+>> CONFIG_OCFS2_DEBUG_MASKLOG=3Dy
+>> CONFIG_OCFS2_DEBUG_FS=3Dy
+>> CONFIG_OCFS2_FS_POSIX_ACL=3Dy
+>> CONFIG_BTRFS_FS=3Dm
+>> CONFIG_BTRFS_FS_POSIX_ACL=3Dy
+>> CONFIG_NILFS2_FS=3Dm
+>> CONFIG_FILE_LOCKING=3Dy
+>> CONFIG_FSNOTIFY=3Dy
+>> CONFIG_DNOTIFY=3Dy
+>> CONFIG_INOTIFY=3Dy
+>> CONFIG_INOTIFY_USER=3Dy
+>> CONFIG_QUOTA=3Dy
+>> CONFIG_QUOTA_NETLINK_INTERFACE=3Dy
+>> CONFIG_PRINT_QUOTA_WARNING=3Dy
+>> CONFIG_QUOTA_TREE=3Dm
+>> CONFIG_QFMT_V1=3Dm
+>> CONFIG_QFMT_V2=3Dm
+>> CONFIG_QUOTACTL=3Dy
+>> CONFIG_AUTOFS_FS=3Dm
+>> CONFIG_AUTOFS4_FS=3Dm
+>> CONFIG_FUSE_FS=3Dm
+>> CONFIG_CUSE=3Dm
+>> CONFIG_GENERIC_ACL=3Dy
+>>
+>> #
+>> # Caches
+>> #
+>> CONFIG_FSCACHE=3Dm
+>> CONFIG_FSCACHE_STATS=3Dy
+>> CONFIG_FSCACHE_HISTOGRAM=3Dy
+>> CONFIG_FSCACHE_DEBUG=3Dy
+>> CONFIG_CACHEFILES=3Dm
+>> CONFIG_CACHEFILES_DEBUG=3Dy
+>> CONFIG_CACHEFILES_HISTOGRAM=3Dy
+>>
+>> #
+>> # CD-ROM/DVD Filesystems
+>> #
+>> CONFIG_ISO9660_FS=3Dm
+>> CONFIG_JOLIET=3Dy
+>> CONFIG_ZISOFS=3Dy
+>> CONFIG_UDF_FS=3Dm
+>> CONFIG_UDF_NLS=3Dy
+>>
+>> #
+>> # DOS/FAT/NT Filesystems
+>> #
+>> CONFIG_FAT_FS=3Dm
+>> CONFIG_MSDOS_FS=3Dm
+>> CONFIG_VFAT_FS=3Dm
+>> CONFIG_FAT_DEFAULT_CODEPAGE=3D437
+>> CONFIG_FAT_DEFAULT_IOCHARSET=3D"iso8859-1"
+>> CONFIG_NTFS_FS=3Dm
+>> CONFIG_NTFS_DEBUG=3Dy
+>> CONFIG_NTFS_RW=3Dy
+>>
+>> #
+>> # Pseudo filesystems
+>> #
+>> CONFIG_PROC_FS=3Dy
+>> CONFIG_PROC_KCORE=3Dy
+>> CONFIG_PROC_VMCORE=3Dy
+>> CONFIG_PROC_SYSCTL=3Dy
+>> CONFIG_PROC_PAGE_MONITOR=3Dy
+>> CONFIG_SYSFS=3Dy
+>> CONFIG_TMPFS=3Dy
+>> CONFIG_TMPFS_POSIX_ACL=3Dy
+>> CONFIG_HUGETLBFS=3Dy
+>> CONFIG_HUGETLB_PAGE=3Dy
+>> CONFIG_CONFIGFS_FS=3Dm
+>> CONFIG_MISC_FILESYSTEMS=3Dy
+>> CONFIG_ADFS_FS=3Dm
+>> CONFIG_ADFS_FS_RW=3Dy
+>> CONFIG_AFFS_FS=3Dm
+>> CONFIG_ECRYPT_FS=3Dm
+>> CONFIG_HFS_FS=3Dm
+>> CONFIG_HFSPLUS_FS=3Dm
+>> CONFIG_BEFS_FS=3Dm
+>> CONFIG_BEFS_DEBUG=3Dy
+>> CONFIG_BFS_FS=3Dm
+>> CONFIG_EFS_FS=3Dm
+>> CONFIG_JFFS2_FS=3Dm
+>> CONFIG_JFFS2_FS_DEBUG=3D0
+>> CONFIG_JFFS2_FS_WRITEBUFFER=3Dy
+>> CONFIG_JFFS2_FS_WBUF_VERIFY=3Dy
+>> CONFIG_JFFS2_SUMMARY=3Dy
+>> CONFIG_JFFS2_FS_XATTR=3Dy
+>> CONFIG_JFFS2_FS_POSIX_ACL=3Dy
+>> CONFIG_JFFS2_FS_SECURITY=3Dy
+>> CONFIG_JFFS2_COMPRESSION_OPTIONS=3Dy
+>> CONFIG_JFFS2_ZLIB=3Dy
+>> CONFIG_JFFS2_LZO=3Dy
+>> CONFIG_JFFS2_RTIME=3Dy
+>> CONFIG_JFFS2_RUBIN=3Dy
+>> # CONFIG_JFFS2_CMODE_NONE is not set
+>> CONFIG_JFFS2_CMODE_PRIORITY=3Dy
+>> # CONFIG_JFFS2_CMODE_SIZE is not set
+>> # CONFIG_JFFS2_CMODE_FAVOURLZO is not set
+>> CONFIG_UBIFS_FS=3Dm
+>> CONFIG_UBIFS_FS_XATTR=3Dy
+>> CONFIG_UBIFS_FS_ADVANCED_COMPR=3Dy
+>> CONFIG_UBIFS_FS_LZO=3Dy
+>> CONFIG_UBIFS_FS_ZLIB=3Dy
+>> CONFIG_UBIFS_FS_DEBUG=3Dy
+>> CONFIG_UBIFS_FS_DEBUG_MSG_LVL=3D0
+>> CONFIG_UBIFS_FS_DEBUG_CHKS=3Dy
+>> CONFIG_CRAMFS=3Dm
+>> CONFIG_SQUASHFS=3Dm
+>> CONFIG_SQUASHFS_EMBEDDED=3Dy
+>> CONFIG_SQUASHFS_FRAGMENT_CACHE_SIZE=3D3
+>> CONFIG_VXFS_FS=3Dm
+>> CONFIG_MINIX_FS=3Dm
+>> CONFIG_OMFS_FS=3Dm
+>> CONFIG_HPFS_FS=3Dm
+>> CONFIG_QNX4FS_FS=3Dm
+>> CONFIG_ROMFS_FS=3Dm
+>> CONFIG_ROMFS_BACKED_BY_BLOCK=3Dy
+>> # CONFIG_ROMFS_BACKED_BY_MTD is not set
+>> # CONFIG_ROMFS_BACKED_BY_BOTH is not set
+>> CONFIG_ROMFS_ON_BLOCK=3Dy
+>> CONFIG_SYSV_FS=3Dm
+>> CONFIG_UFS_FS=3Dm
+>> CONFIG_UFS_FS_WRITE=3Dy
+>> CONFIG_UFS_DEBUG=3Dy
+>> CONFIG_EXOFS_FS=3Dm
+>> CONFIG_EXOFS_DEBUG=3Dy
+>> CONFIG_NETWORK_FILESYSTEMS=3Dy
+>> CONFIG_NFS_FS=3Dm
+>> CONFIG_NFS_V3=3Dy
+>> CONFIG_NFS_V3_ACL=3Dy
+>> CONFIG_NFS_V4=3Dy
+>> CONFIG_NFS_V4_1=3Dy
+>> CONFIG_NFS_FSCACHE=3Dy
+>> CONFIG_NFSD=3Dm
+>> CONFIG_NFSD_V2_ACL=3Dy
+>> CONFIG_NFSD_V3=3Dy
+>> CONFIG_NFSD_V3_ACL=3Dy
+>> CONFIG_NFSD_V4=3Dy
+>> CONFIG_LOCKD=3Dm
+>> CONFIG_LOCKD_V4=3Dy
+>> CONFIG_EXPORTFS=3Dm
+>> CONFIG_NFS_ACL_SUPPORT=3Dm
+>> CONFIG_NFS_COMMON=3Dy
+>> CONFIG_SUNRPC=3Dm
+>> CONFIG_SUNRPC_GSS=3Dm
+>> CONFIG_SUNRPC_XPRT_RDMA=3Dm
+>> CONFIG_RPCSEC_GSS_KRB5=3Dm
+>> CONFIG_RPCSEC_GSS_SPKM3=3Dm
+>> CONFIG_SMB_FS=3Dm
+>> CONFIG_SMB_NLS_DEFAULT=3Dy
+>> CONFIG_SMB_NLS_REMOTE=3D"cp437"
+>> CONFIG_CIFS=3Dm
+>> CONFIG_CIFS_STATS=3Dy
+>> CONFIG_CIFS_STATS2=3Dy
+>> CONFIG_CIFS_WEAK_PW_HASH=3Dy
+>> CONFIG_CIFS_UPCALL=3Dy
+>> CONFIG_CIFS_XATTR=3Dy
+>> CONFIG_CIFS_POSIX=3Dy
+>> CONFIG_CIFS_DEBUG2=3Dy
+>> CONFIG_CIFS_DFS_UPCALL=3Dy
+>> CONFIG_CIFS_EXPERIMENTAL=3Dy
+>> CONFIG_NCP_FS=3Dm
+>> CONFIG_NCPFS_PACKET_SIGNING=3Dy
+>> CONFIG_NCPFS_IOCTL_LOCKING=3Dy
+>> CONFIG_NCPFS_STRONG=3Dy
+>> CONFIG_NCPFS_NFS_NS=3Dy
+>> CONFIG_NCPFS_OS2_NS=3Dy
+>> CONFIG_NCPFS_SMALLDOS=3Dy
+>> CONFIG_NCPFS_NLS=3Dy
+>> CONFIG_NCPFS_EXTRAS=3Dy
+>> CONFIG_CODA_FS=3Dm
+>> CONFIG_AFS_FS=3Dm
+>> CONFIG_AFS_DEBUG=3Dy
+>> CONFIG_AFS_FSCACHE=3Dy
+>> CONFIG_9P_FS=3Dm
+>> CONFIG_9P_FSCACHE=3Dy
+>>
+>> #
+>> # Partition Types
+>> #
+>> CONFIG_PARTITION_ADVANCED=3Dy
+>> CONFIG_ACORN_PARTITION=3Dy
+>> CONFIG_ACORN_PARTITION_CUMANA=3Dy
+>> CONFIG_ACORN_PARTITION_EESOX=3Dy
+>> CONFIG_ACORN_PARTITION_ICS=3Dy
+>> CONFIG_ACORN_PARTITION_ADFS=3Dy
+>> CONFIG_ACORN_PARTITION_POWERTEC=3Dy
+>> CONFIG_ACORN_PARTITION_RISCIX=3Dy
+>> CONFIG_OSF_PARTITION=3Dy
+>> CONFIG_AMIGA_PARTITION=3Dy
+>> CONFIG_ATARI_PARTITION=3Dy
+>> CONFIG_MAC_PARTITION=3Dy
+>> CONFIG_MSDOS_PARTITION=3Dy
+>> CONFIG_BSD_DISKLABEL=3Dy
+>> CONFIG_MINIX_SUBPARTITION=3Dy
+>> CONFIG_SOLARIS_X86_PARTITION=3Dy
+>> CONFIG_UNIXWARE_DISKLABEL=3Dy
+>> CONFIG_LDM_PARTITION=3Dy
+>> CONFIG_LDM_DEBUG=3Dy
+>> CONFIG_SGI_PARTITION=3Dy
+>> CONFIG_ULTRIX_PARTITION=3Dy
+>> CONFIG_SUN_PARTITION=3Dy
+>> CONFIG_KARMA_PARTITION=3Dy
+>> CONFIG_EFI_PARTITION=3Dy
+>> CONFIG_SYSV68_PARTITION=3Dy
+>> CONFIG_NLS=3Dm
+>> CONFIG_NLS_DEFAULT=3D"iso8859-1"
+>> CONFIG_NLS_CODEPAGE_437=3Dm
+>> CONFIG_NLS_CODEPAGE_737=3Dm
+>> CONFIG_NLS_CODEPAGE_775=3Dm
+>> CONFIG_NLS_CODEPAGE_850=3Dm
+>> CONFIG_NLS_CODEPAGE_852=3Dm
+>> CONFIG_NLS_CODEPAGE_855=3Dm
+>> CONFIG_NLS_CODEPAGE_857=3Dm
+>> CONFIG_NLS_CODEPAGE_860=3Dm
+>> CONFIG_NLS_CODEPAGE_861=3Dm
+>> CONFIG_NLS_CODEPAGE_862=3Dm
+>> CONFIG_NLS_CODEPAGE_863=3Dm
+>> CONFIG_NLS_CODEPAGE_864=3Dm
+>> CONFIG_NLS_CODEPAGE_865=3Dm
+>> CONFIG_NLS_CODEPAGE_866=3Dm
+>> CONFIG_NLS_CODEPAGE_869=3Dm
+>> CONFIG_NLS_CODEPAGE_936=3Dm
+>> CONFIG_NLS_CODEPAGE_950=3Dm
+>> CONFIG_NLS_CODEPAGE_932=3Dm
+>> CONFIG_NLS_CODEPAGE_949=3Dm
+>> CONFIG_NLS_CODEPAGE_874=3Dm
+>> CONFIG_NLS_ISO8859_8=3Dm
+>> CONFIG_NLS_CODEPAGE_1250=3Dm
+>> CONFIG_NLS_CODEPAGE_1251=3Dm
+>> CONFIG_NLS_ASCII=3Dm
+>> CONFIG_NLS_ISO8859_1=3Dm
+>> CONFIG_NLS_ISO8859_2=3Dm
+>> CONFIG_NLS_ISO8859_3=3Dm
+>> CONFIG_NLS_ISO8859_4=3Dm
+>> CONFIG_NLS_ISO8859_5=3Dm
+>> CONFIG_NLS_ISO8859_6=3Dm
+>> CONFIG_NLS_ISO8859_7=3Dm
+>> CONFIG_NLS_ISO8859_9=3Dm
+>> CONFIG_NLS_ISO8859_13=3Dm
+>> CONFIG_NLS_ISO8859_14=3Dm
+>> CONFIG_NLS_ISO8859_15=3Dm
+>> CONFIG_NLS_KOI8_R=3Dm
+>> CONFIG_NLS_KOI8_U=3Dm
+>> CONFIG_NLS_UTF8=3Dm
+>> CONFIG_DLM=3Dm
+>> CONFIG_DLM_DEBUG=3Dy
+>> CONFIG_BINARY_PRINTF=3Dy
+>>
+>> #
+>> # Library routines
+>> #
+>> CONFIG_BITREVERSE=3Dy
+>> CONFIG_GENERIC_FIND_LAST_BIT=3Dy
+>> CONFIG_CRC_CCITT=3Dm
+>> CONFIG_CRC16=3Dm
+>> CONFIG_CRC_T10DIF=3Dm
+>> CONFIG_CRC_ITU_T=3Dm
+>> CONFIG_CRC32=3Dy
+>> CONFIG_CRC7=3Dm
+>> CONFIG_LIBCRC32C=3Dm
+>> CONFIG_ZLIB_INFLATE=3Dy
+>> CONFIG_ZLIB_DEFLATE=3Dm
+>> CONFIG_LZO_COMPRESS=3Dm
+>> CONFIG_LZO_DECOMPRESS=3Dm
+>> CONFIG_DECOMPRESS_GZIP=3Dy
+>> CONFIG_DECOMPRESS_BZIP2=3Dy
+>> CONFIG_DECOMPRESS_LZMA=3Dy
+>> CONFIG_GENERIC_ALLOCATOR=3Dy
+>> CONFIG_REED_SOLOMON=3Dm
+>> CONFIG_REED_SOLOMON_DEC16=3Dy
+>> CONFIG_TEXTSEARCH=3Dy
+>> CONFIG_TEXTSEARCH_KMP=3Dm
+>> CONFIG_TEXTSEARCH_BM=3Dm
+>> CONFIG_TEXTSEARCH_FSM=3Dm
+>> CONFIG_HAS_IOMEM=3Dy
+>> CONFIG_HAS_IOPORT=3Dy
+>> CONFIG_HAS_DMA=3Dy
+>> CONFIG_CHECK_SIGNATURE=3Dy
+>> CONFIG_HAVE_LMB=3Dy
+>> CONFIG_NLATTR=3Dy
+>> CONFIG_LRU_CACHE=3Dm
+>> CONFIG_SHM_SIGNAL=3Dm
+>> CONFIG_IOQ=3Dm
+>>
+>> #
+>> # Kernel hacking
+>> #
+>> CONFIG_PRINTK_TIME=3Dy
+>> CONFIG_ENABLE_WARN_DEPRECATED=3Dy
+>> CONFIG_ENABLE_MUST_CHECK=3Dy
+>> CONFIG_FRAME_WARN=3D2048
+>> CONFIG_MAGIC_SYSRQ=3Dy
+>> CONFIG_STRIP_ASM_SYMS=3Dy
+>> CONFIG_UNUSED_SYMBOLS=3Dy
+>> CONFIG_DEBUG_FS=3Dy
+>> CONFIG_HEADERS_CHECK=3Dy
+>> CONFIG_DEBUG_KERNEL=3Dy
+>> CONFIG_DEBUG_SHIRQ=3Dy
+>> CONFIG_DETECT_SOFTLOCKUP=3Dy
+>> CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC=3Dy
+>> CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC_VALUE=3D1
+>> CONFIG_DETECT_HUNG_TASK=3Dy
+>> CONFIG_BOOTPARAM_HUNG_TASK_PANIC=3Dy
+>> CONFIG_BOOTPARAM_HUNG_TASK_PANIC_VALUE=3D1
+>> CONFIG_SCHED_DEBUG=3Dy
+>> CONFIG_SCHEDSTATS=3Dy
+>> CONFIG_TIMER_STATS=3Dy
+>> CONFIG_DEBUG_OBJECTS=3Dy
+>> CONFIG_DEBUG_OBJECTS_SELFTEST=3Dy
+>> CONFIG_DEBUG_OBJECTS_FREE=3Dy
+>> CONFIG_DEBUG_OBJECTS_TIMERS=3Dy
+>> CONFIG_DEBUG_OBJECTS_ENABLE_DEFAULT=3D1
+>> CONFIG_SLUB_DEBUG_ON=3Dy
+>> CONFIG_SLUB_STATS=3Dy
+>> CONFIG_DEBUG_RT_MUTEXES=3Dy
+>> CONFIG_DEBUG_PI_LIST=3Dy
+>> CONFIG_RT_MUTEX_TESTER=3Dy
+>> CONFIG_DEBUG_SPINLOCK=3Dy
+>> CONFIG_DEBUG_MUTEXES=3Dy
+>> CONFIG_DEBUG_LOCK_ALLOC=3Dy
+>> CONFIG_PROVE_LOCKING=3Dy
+>> CONFIG_LOCKDEP=3Dy
+>> CONFIG_LOCK_STAT=3Dy
+>> CONFIG_DEBUG_LOCKDEP=3Dy
+>> CONFIG_TRACE_IRQFLAGS=3Dy
+>> CONFIG_DEBUG_SPINLOCK_SLEEP=3Dy
+>> CONFIG_DEBUG_LOCKING_API_SELFTESTS=3Dy
+>> CONFIG_STACKTRACE=3Dy
+>> CONFIG_DEBUG_KOBJECT=3Dy
+>> CONFIG_DEBUG_BUGVERBOSE=3Dy
+>> CONFIG_DEBUG_INFO=3Dy
+>> CONFIG_DEBUG_VM=3Dy
+>> CONFIG_DEBUG_WRITECOUNT=3Dy
+>> CONFIG_DEBUG_MEMORY_INIT=3Dy
+>> CONFIG_DEBUG_LIST=3Dy
+>> CONFIG_DEBUG_SG=3Dy
+>> CONFIG_DEBUG_NOTIFIERS=3Dy
+>> CONFIG_DEBUG_CREDENTIALS=3Dy
+>> CONFIG_FRAME_POINTER=3Dy
+>> CONFIG_RCU_TORTURE_TEST=3Dm
+>> CONFIG_RCU_CPU_STALL_DETECTOR=3Dy
+>> CONFIG_KPROBES_SANITY_TEST=3Dy
+>> CONFIG_BACKTRACE_SELF_TEST=3Dm
+>> CONFIG_DEBUG_BLOCK_EXT_DEVT=3Dy
+>> CONFIG_DEBUG_FORCE_WEAK_PER_CPU=3Dy
+>> CONFIG_LKDTM=3Dm
+>> CONFIG_FAULT_INJECTION=3Dy
+>> CONFIG_FAILSLAB=3Dy
+>> CONFIG_FAIL_PAGE_ALLOC=3Dy
+>> CONFIG_FAIL_MAKE_REQUEST=3Dy
+>> CONFIG_FAIL_IO_TIMEOUT=3Dy
+>> CONFIG_FAULT_INJECTION_DEBUG_FS=3Dy
+>> CONFIG_FAULT_INJECTION_STACKTRACE_FILTER=3Dy
+>> CONFIG_LATENCYTOP=3Dy
+>> CONFIG_SYSCTL_SYSCALL_CHECK=3Dy
+>> CONFIG_NOP_TRACER=3Dy
+>> CONFIG_HAVE_FUNCTION_TRACER=3Dy
+>> CONFIG_HAVE_FUNCTION_GRAPH_TRACER=3Dy
+>> CONFIG_HAVE_DYNAMIC_FTRACE=3Dy
+>> CONFIG_HAVE_FTRACE_MCOUNT_RECORD=3Dy
+>> CONFIG_TRACER_MAX_TRACE=3Dy
+>> CONFIG_RING_BUFFER=3Dy
+>> CONFIG_EVENT_TRACING=3Dy
+>> CONFIG_CONTEXT_SWITCH_TRACER=3Dy
+>> CONFIG_RING_BUFFER_ALLOW_SWAP=3Dy
+>> CONFIG_TRACING=3Dy
+>> CONFIG_GENERIC_TRACER=3Dy
+>> CONFIG_TRACING_SUPPORT=3Dy
+>> CONFIG_FTRACE=3Dy
+>> CONFIG_FUNCTION_TRACER=3Dy
+>> CONFIG_FUNCTION_GRAPH_TRACER=3Dy
+>> CONFIG_IRQSOFF_TRACER=3Dy
+>> CONFIG_SCHED_TRACER=3Dy
+>> CONFIG_BOOT_TRACER=3Dy
+>> CONFIG_BRANCH_PROFILE_NONE=3Dy
+>> # CONFIG_PROFILE_ANNOTATED_BRANCHES is not set
+>> # CONFIG_PROFILE_ALL_BRANCHES is not set
+>> CONFIG_STACK_TRACER=3Dy
+>> CONFIG_KMEMTRACE=3Dy
+>> CONFIG_WORKQUEUE_TRACER=3Dy
+>> CONFIG_BLK_DEV_IO_TRACE=3Dy
+>> CONFIG_DYNAMIC_FTRACE=3Dy
+>> CONFIG_FUNCTION_PROFILER=3Dy
+>> CONFIG_FTRACE_MCOUNT_RECORD=3Dy
+>> CONFIG_FTRACE_SELFTEST=3Dy
+>> CONFIG_FTRACE_STARTUP_TEST=3Dy
+>> CONFIG_EVENT_TRACE_TEST_SYSCALLS=3Dy
+>> CONFIG_RING_BUFFER_BENCHMARK=3Dm
+>> CONFIG_FIREWIRE_OHCI_REMOTE_DMA=3Dy
+>> CONFIG_BUILD_DOCSRC=3Dy
+>> CONFIG_DYNAMIC_DEBUG=3Dy
+>> CONFIG_DMA_API_DEBUG=3Dy
+>> CONFIG_SAMPLES=3Dy
+>> CONFIG_SAMPLE_TRACEPOINTS=3Dm
+>> CONFIG_SAMPLE_TRACE_EVENTS=3Dm
+>> CONFIG_SAMPLE_KOBJECT=3Dm
+>> CONFIG_SAMPLE_KPROBES=3Dm
+>> CONFIG_SAMPLE_KRETPROBES=3Dm
+>> CONFIG_HAVE_ARCH_KGDB=3Dy
+>> CONFIG_KGDB=3Dy
+>> CONFIG_KGDB_SERIAL_CONSOLE=3Dm
+>> CONFIG_KGDB_TESTS=3Dy
+>> CONFIG_KGDB_TESTS_ON_BOOT=3Dy
+>> CONFIG_KGDB_TESTS_BOOT_STRING=3D"V1F100"
+>> CONFIG_PPC_DISABLE_WERROR=3Dy
+>> CONFIG_PRINT_STACK_DEPTH=3D64
+>> CONFIG_DEBUG_STACKOVERFLOW=3Dy
+>> CONFIG_DEBUG_STACK_USAGE=3Dy
+>> CONFIG_HCALL_STATS=3Dy
+>> CONFIG_PPC_EMULATED_STATS=3Dy
+>> CONFIG_CODE_PATCHING_SELFTEST=3Dy
+>> CONFIG_FTR_FIXUP_SELFTEST=3Dy
+>> CONFIG_MSI_BITMAP_SELFTEST=3Dy
+>> CONFIG_XMON=3Dy
+>> CONFIG_XMON_DEFAULT=3Dy
+>> CONFIG_XMON_DISASSEMBLY=3Dy
+>> CONFIG_DEBUGGER=3Dy
+>> CONFIG_IRQSTACKS=3Dy
+>> CONFIG_VIRQ_DEBUG=3Dy
+>> CONFIG_BOOTX_TEXT=3Dy
+>> CONFIG_PPC_EARLY_DEBUG=3Dy
+>> CONFIG_PPC_EARLY_DEBUG_LPAR=3Dy
+>> # CONFIG_PPC_EARLY_DEBUG_G5 is not set
+>> # CONFIG_PPC_EARLY_DEBUG_RTAS_PANEL is not set
+>> # CONFIG_PPC_EARLY_DEBUG_RTAS_CONSOLE is not set
+>> # CONFIG_PPC_EARLY_DEBUG_MAPLE is not set
+>> # CONFIG_PPC_EARLY_DEBUG_ISERIES is not set
+>> # CONFIG_PPC_EARLY_DEBUG_PAS_REALMODE is not set
+>> # CONFIG_PPC_EARLY_DEBUG_BEAT is not set
+>> # CONFIG_PPC_EARLY_DEBUG_44x is not set
+>> # CONFIG_PPC_EARLY_DEBUG_40x is not set
+>> # CONFIG_PPC_EARLY_DEBUG_CPM is not set
+>>
+>> #
+>> # Security options
+>> #
+>> CONFIG_KEYS=3Dy
+>> CONFIG_KEYS_DEBUG_PROC_KEYS=3Dy
+>> CONFIG_SECURITY=3Dy
+>> CONFIG_SECURITYFS=3Dy
+>> CONFIG_SECURITY_NETWORK=3Dy
+>> CONFIG_SECURITY_NETWORK_XFRM=3Dy
+>> CONFIG_SECURITY_PATH=3Dy
+>> CONFIG_SECURITY_FILE_CAPABILITIES=3Dy
+>> CONFIG_LSM_MMAP_MIN_ADDR=3D65536
+>> CONFIG_SECURITY_SELINUX=3Dy
+>> CONFIG_SECURITY_SELINUX_BOOTPARAM=3Dy
+>> CONFIG_SECURITY_SELINUX_BOOTPARAM_VALUE=3D1
+>> CONFIG_SECURITY_SELINUX_DISABLE=3Dy
+>> CONFIG_SECURITY_SELINUX_DEVELOP=3Dy
+>> CONFIG_SECURITY_SELINUX_AVC_STATS=3Dy
+>> CONFIG_SECURITY_SELINUX_CHECKREQPROT_VALUE=3D1
+>> CONFIG_SECURITY_SELINUX_POLICYDB_VERSION_MAX=3Dy
+>> CONFIG_SECURITY_SELINUX_POLICYDB_VERSION_MAX_VALUE=3D19
+>> CONFIG_SECURITY_SMACK=3Dy
+>> CONFIG_SECURITY_TOMOYO=3Dy
+>> CONFIG_KEYS_COMPAT=3Dy
+>> CONFIG_XOR_BLOCKS=3Dm
+>> CONFIG_ASYNC_CORE=3Dm
+>> CONFIG_ASYNC_MEMCPY=3Dm
+>> CONFIG_ASYNC_XOR=3Dm
+>> CONFIG_ASYNC_PQ=3Dm
+>> CONFIG_ASYNC_RAID6_RECOV=3Dm
+>> CONFIG_CRYPTO=3Dy
+>>
+>> #
+>> # Crypto core or helper
+>> #
+>> CONFIG_CRYPTO_FIPS=3Dy
+>> CONFIG_CRYPTO_ALGAPI=3Dy
+>> CONFIG_CRYPTO_ALGAPI2=3Dy
+>> CONFIG_CRYPTO_AEAD=3Dm
+>> CONFIG_CRYPTO_AEAD2=3Dy
+>> CONFIG_CRYPTO_BLKCIPHER=3Dm
+>> CONFIG_CRYPTO_BLKCIPHER2=3Dy
+>> CONFIG_CRYPTO_HASH=3Dy
+>> CONFIG_CRYPTO_HASH2=3Dy
+>> CONFIG_CRYPTO_RNG=3Dm
+>> CONFIG_CRYPTO_RNG2=3Dy
+>> CONFIG_CRYPTO_PCOMP=3Dy
+>> CONFIG_CRYPTO_MANAGER=3Dm
+>> CONFIG_CRYPTO_MANAGER2=3Dy
+>> CONFIG_CRYPTO_GF128MUL=3Dm
+>> CONFIG_CRYPTO_NULL=3Dm
+>> CONFIG_CRYPTO_WORKQUEUE=3Dy
+>> CONFIG_CRYPTO_CRYPTD=3Dm
+>> CONFIG_CRYPTO_AUTHENC=3Dm
+>> CONFIG_CRYPTO_TEST=3Dm
+>>
+>> #
+>> # Authenticated Encryption with Associated Data
+>> #
+>> CONFIG_CRYPTO_CCM=3Dm
+>> CONFIG_CRYPTO_GCM=3Dm
+>> CONFIG_CRYPTO_SEQIV=3Dm
+>>
+>> #
+>> # Block modes
+>> #
+>> CONFIG_CRYPTO_CBC=3Dm
+>> CONFIG_CRYPTO_CTR=3Dm
+>> CONFIG_CRYPTO_CTS=3Dm
+>> CONFIG_CRYPTO_ECB=3Dm
+>> CONFIG_CRYPTO_LRW=3Dm
+>> CONFIG_CRYPTO_PCBC=3Dm
+>> CONFIG_CRYPTO_XTS=3Dm
+>>
+>> #
+>> # Hash modes
+>> #
+>> CONFIG_CRYPTO_HMAC=3Dm
+>> CONFIG_CRYPTO_XCBC=3Dm
+>> CONFIG_CRYPTO_VMAC=3Dm
+>>
+>> #
+>> # Digest
+>> #
+>> CONFIG_CRYPTO_CRC32C=3Dm
+>> CONFIG_CRYPTO_GHASH=3Dm
+>> CONFIG_CRYPTO_MD4=3Dm
+>> CONFIG_CRYPTO_MD5=3Dy
+>> CONFIG_CRYPTO_MICHAEL_MIC=3Dm
+>> CONFIG_CRYPTO_RMD128=3Dm
+>> CONFIG_CRYPTO_RMD160=3Dm
+>> CONFIG_CRYPTO_RMD256=3Dm
+>> CONFIG_CRYPTO_RMD320=3Dm
+>> CONFIG_CRYPTO_SHA1=3Dm
+>> CONFIG_CRYPTO_SHA256=3Dm
+>> CONFIG_CRYPTO_SHA512=3Dm
+>> CONFIG_CRYPTO_TGR192=3Dm
+>> CONFIG_CRYPTO_WP512=3Dm
+>>
+>> #
+>> # Ciphers
+>> #
+>> CONFIG_CRYPTO_AES=3Dm
+>> CONFIG_CRYPTO_ANUBIS=3Dm
+>> CONFIG_CRYPTO_ARC4=3Dm
+>> CONFIG_CRYPTO_BLOWFISH=3Dm
+>> CONFIG_CRYPTO_CAMELLIA=3Dm
+>> CONFIG_CRYPTO_CAST5=3Dm
+>> CONFIG_CRYPTO_CAST6=3Dm
+>> CONFIG_CRYPTO_DES=3Dm
+>> CONFIG_CRYPTO_FCRYPT=3Dm
+>> CONFIG_CRYPTO_KHAZAD=3Dm
+>> CONFIG_CRYPTO_SALSA20=3Dm
+>> CONFIG_CRYPTO_SEED=3Dm
+>> CONFIG_CRYPTO_SERPENT=3Dm
+>> CONFIG_CRYPTO_TEA=3Dm
+>> CONFIG_CRYPTO_TWOFISH=3Dm
+>> CONFIG_CRYPTO_TWOFISH_COMMON=3Dm
+>>
+>> #
+>> # Compression
+>> #
+>> CONFIG_CRYPTO_DEFLATE=3Dm
+>> CONFIG_CRYPTO_ZLIB=3Dm
+>> CONFIG_CRYPTO_LZO=3Dm
+>>
+>> #
+>> # Random Number Generation
+>> #
+>> CONFIG_CRYPTO_ANSI_CPRNG=3Dm
+>> CONFIG_CRYPTO_HW=3Dy
+>> CONFIG_CRYPTO_DEV_HIFN_795X=3Dm
+>> CONFIG_CRYPTO_DEV_HIFN_795X_RNG=3Dy
+>> # CONFIG_PPC_CLOCK is not set
+>> CONFIG_VIRTUALIZATION=3Dy
+>> CONFIG_VIRTIO=3Dm
+>> CONFIG_VIRTIO_RING=3Dm
+>> CONFIG_VIRTIO_PCI=3Dm
+>> CONFIG_VIRTIO_BALLOON=3Dm
+>> 			Kamalesh
+>=20
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel"=
+ in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+
+
+
+--------------enig881B66A084871483C7477037
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAkrXXmAACgkQP5K2CMvXmqGnxgCfZrW/BA2tS8U6azsZbYybrpt+
+uMYAn3k5lSGqn6/BVeXia67m/lCOKrdx
+=ynVT
+-----END PGP SIGNATURE-----
+
+--------------enig881B66A084871483C7477037--
