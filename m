@@ -1,8 +1,7 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [net-next 7/8] bnx2x: Report the maximal available BW as link
- speed
-Date: Thu, 15 Oct 2009 08:48:45 +0200
-Message-ID: <1255589325.25030.77.camel@lb-tlvb-eilong>
+Subject: [net-next 8/8] bnx2x: Update to version 1.52.1-1
+Date: Thu, 15 Oct 2009 08:48:50 +0200
+Message-ID: <1255589330.25030.78.camel@lb-tlvb-eilong>
 Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,50 +9,33 @@ Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3447 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4643 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934833AbZJOGtl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Oct 2009 02:49:41 -0400
+	id S934580AbZJOGtQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Oct 2009 02:49:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The device is limited to the maximal BW allocation, so it should be displayed as
-the link speed to notify the user.
-
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_main.c |   14 +++++++++++++-
- 1 files changed, 13 insertions(+), 1 deletions(-)
+ drivers/net/bnx2x_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 42cd957..ba131f4 100644
+index ba131f4..59b58d8 100644
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -2163,11 +2163,23 @@ static void bnx2x_link_report(struct bnx2x *bp)
- 	}
+@@ -56,8 +56,8 @@
+ #include "bnx2x_init_ops.h"
+ #include "bnx2x_dump.h"
  
- 	if (bp->link_vars.link_up) {
-+		u16 line_speed;
-+
- 		if (bp->state == BNX2X_STATE_OPEN)
- 			netif_carrier_on(bp->dev);
- 		printk(KERN_INFO PFX "%s NIC Link is Up, ", bp->dev->name);
+-#define DRV_MODULE_VERSION	"1.52.1"
+-#define DRV_MODULE_RELDATE	"2009/08/12"
++#define DRV_MODULE_VERSION	"1.52.1-1"
++#define DRV_MODULE_RELDATE	"2009/10/13"
+ #define BNX2X_BC_VER		0x040200
  
--		printk("%d Mbps ", bp->link_vars.line_speed);
-+		line_speed = bp->link_vars.line_speed;
-+		if (IS_E1HMF(bp)) {
-+			u16 vn_max_rate;
-+
-+			vn_max_rate =
-+				((bp->mf_config & FUNC_MF_CFG_MAX_BW_MASK) >>
-+				 FUNC_MF_CFG_MAX_BW_SHIFT) * 100;
-+			if (vn_max_rate < line_speed)
-+				line_speed = vn_max_rate;
-+		}
-+		printk("%d Mbps ", line_speed);
- 
- 		if (bp->link_vars.duplex == DUPLEX_FULL)
- 			printk("full duplex");
+ #include <linux/firmware.h>
 -- 
 1.5.4.3
 
