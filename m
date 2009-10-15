@@ -1,283 +1,87 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: [PATCH] can: provide library functions for skb allocation
-Date: Thu, 15 Oct 2009 11:22:18 +0200
-Message-ID: <4AD6E9CA.3070605@grandegger.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] [PATCH 2/5] net: Use sk_tx_queue_mapping for connected
+ sockets
+Date: Thu, 15 Oct 2009 11:41:52 +0200
+Message-ID: <4AD6EE60.6040009@gmail.com>
+References: <20091015055602.30145.65852.sendpatchset@localhost.localdomain> <20091015055702.30145.41799.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: Krishna Kumar <krkumar2@in.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:35853 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752503AbZJOJmi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 05:42:38 -0400
+In-Reply-To: <20091015055702.30145.41799.sendpatchset@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch makes the private functions alloc_can_skb() and
-alloc_can_err_skb() of the at91_can driver public and adapts all
-drivers  to use these. While making the patch I realized, that the
-skb's are *not* setup consistently. It's now done as shown below:
+Krishna Kumar a =E9crit :
+> From: Krishna Kumar <krkumar2@in.ibm.com>
+>=20
+> For connected sockets, the first run of dev_pick_tx saves the
+> calculated txq in sk_tx_queue_mapping. This is not saved if
+> either skb rx was recorded, or if the device has a queue select
+> handler. Next iterations of dev_pick_tx uses the cached value of
+> sk_tx_queue_mapping.
+>=20
+> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+> ---
+>  net/core/dev.c |   24 ++++++++++++++++++------
+>  1 file changed, 18 insertions(+), 6 deletions(-)
+>=20
+> diff -ruNp org/net/core/dev.c new/net/core/dev.c
+> --- org/net/core/dev.c	2009-10-14 17:59:40.000000000 +0530
+> +++ new/net/core/dev.c	2009-10-14 18:00:04.000000000 +0530
+> @@ -1791,13 +1791,25 @@ EXPORT_SYMBOL(skb_tx_hash);
+>  static struct netdev_queue *dev_pick_tx(struct net_device *dev,
+>  					struct sk_buff *skb)
+>  {
+> -	const struct net_device_ops *ops =3D dev->netdev_ops;
+> -	u16 queue_index =3D 0;
+> +	u16 queue_index;
+> +	struct sock *sk =3D skb->sk;
+> +
+> +	if (sk_tx_queue_recorded(sk)) {
+> +		queue_index =3D sk_get_tx_queue(sk);
+> +	} else {
+> +		const struct net_device_ops *ops =3D dev->netdev_ops;
+> =20
+> -	if (ops->ndo_select_queue)
+> -		queue_index =3D ops->ndo_select_queue(dev, skb);
+> -	else if (dev->real_num_tx_queues > 1)
+> -		queue_index =3D skb_tx_hash(dev, skb);
+> +		if (ops->ndo_select_queue) {
+> +			queue_index =3D ops->ndo_select_queue(dev, skb);
+> +		} else {
+> +			queue_index =3D 0;
+> +			if (dev->real_num_tx_queues > 1)
+> +				queue_index =3D skb_tx_hash(dev, skb);
+> +
+> +			if (sk && sk->sk_dst_cache)
+> +				sk_record_tx_queue(sk, queue_index);
+> +		}
+> +	}
+> =20
+>  	skb_set_queue_mapping(skb, queue_index);
+>  	return netdev_get_tx_queue(dev, queue_index);
+>=20
+>=20
 
-  skb->protocol = __constant_htons(ETH_P_CAN);
-  skb->pkt_type = PACKET_BROADCAST;
-  skb->ip_summed = CHECKSUM_UNNECESSARY;
-  *cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
-  memset(*cf, 0, sizeof(struct can_frame));
+Hmm, why not cache ops->ndo_select_queue(dev, skb) choice too ?
 
-The frame is zeroed out to avoid uninitialized data to be passed
-to user space. Some drivers or library code used "htons(ETH_P_CAN)"
-or did not set "pkt_type" or "ip_summed" or did not zero the fame.
+		if (ops->ndo_select_queue)
+			queue_index =3D ops->ndo_select_queue(dev, skb);
+		else {
+			queue_index =3D 0;
+			if (dev->real_num_tx_queues > 1)
+				queue_index =3D skb_tx_hash(dev, skb);
+		}
+		if (sk && sk->sk_dst_cache)
+			sk_record_tx_queue(sk, queue_index);
 
-Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
----
- drivers/net/can/at91_can.c        |   32 ---------------------------
- drivers/net/can/dev.c             |   44 +++++++++++++++++++++++++++++++-------
- drivers/net/can/sja1000/sja1000.c |   12 +---------
- drivers/net/can/ti_hecc.c         |   17 +++-----------
- drivers/net/can/usb/ems_usb.c     |   16 +------------
- 5 files changed, 44 insertions(+), 77 deletions(-)
-
-Index: net-next-2.6/drivers/net/can/dev.c
-===================================================================
---- net-next-2.6.orig/drivers/net/can/dev.c
-+++ net-next-2.6/drivers/net/can/dev.c
-@@ -291,7 +291,7 @@ void can_put_echo_skb(struct sk_buff *sk
- 		skb->sk = srcsk;
- 
- 		/* make settings for echo to reduce code in irq context */
--		skb->protocol = htons(ETH_P_CAN);
-+		skb->protocol = __constant_htons(ETH_P_CAN);
- 		skb->pkt_type = PACKET_BROADCAST;
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
- 		skb->dev = dev;
-@@ -366,17 +366,12 @@ void can_restart(unsigned long data)
- 	can_flush_echo_skb(dev);
- 
- 	/* send restart message upstream */
--	skb = dev_alloc_skb(sizeof(struct can_frame));
-+	skb = alloc_can_err_skb(dev, &cf);
- 	if (skb == NULL) {
- 		err = -ENOMEM;
- 		goto restart;
- 	}
--	skb->dev = dev;
--	skb->protocol = htons(ETH_P_CAN);
--	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
--	memset(cf, 0, sizeof(struct can_frame));
--	cf->can_id = CAN_ERR_FLAG | CAN_ERR_RESTARTED;
--	cf->can_dlc = CAN_ERR_DLC;
-+	cf->can_id |= CAN_ERR_RESTARTED;
- 
- 	netif_rx(skb);
- 
-@@ -449,6 +444,39 @@ static void can_setup(struct net_device 
- 	dev->features = NETIF_F_NO_CSUM;
- }
- 
-+struct sk_buff *alloc_can_skb(struct net_device *dev, struct can_frame **cf)
-+{
-+	struct sk_buff *skb;
-+
-+	skb = netdev_alloc_skb(dev, sizeof(struct can_frame));
-+	if (unlikely(!skb))
-+		return NULL;
-+
-+	skb->protocol = __constant_htons(ETH_P_CAN);
-+	skb->pkt_type = PACKET_BROADCAST;
-+	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+	*cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
-+	memset(*cf, 0, sizeof(struct can_frame));
-+
-+	return skb;
-+}
-+EXPORT_SYMBOL_GPL(alloc_can_skb);
-+
-+struct sk_buff *alloc_can_err_skb(struct net_device *dev, struct can_frame **cf)
-+{
-+	struct sk_buff *skb;
-+
-+	skb = alloc_can_skb(dev, cf);
-+	if (unlikely(!skb))
-+		return NULL;
-+
-+	(*cf)->can_id = CAN_ERR_FLAG;
-+	(*cf)->can_dlc = CAN_ERR_DLC;
-+
-+	return skb;
-+}
-+EXPORT_SYMBOL_GPL(alloc_can_err_skb);
-+
- /*
-  * Allocate and setup space for the CAN network device
-  */
-Index: net-next-2.6/drivers/net/can/at91_can.c
-===================================================================
---- net-next-2.6.orig/drivers/net/can/at91_can.c
-+++ net-next-2.6/drivers/net/can/at91_can.c
-@@ -221,38 +221,6 @@ static inline void set_mb_mode(const str
- 	set_mb_mode_prio(priv, mb, mode, 0);
- }
- 
--static struct sk_buff *alloc_can_skb(struct net_device *dev,
--		struct can_frame **cf)
--{
--	struct sk_buff *skb;
--
--	skb = netdev_alloc_skb(dev, sizeof(struct can_frame));
--	if (unlikely(!skb))
--		return NULL;
--
--	skb->protocol = htons(ETH_P_CAN);
--	skb->ip_summed = CHECKSUM_UNNECESSARY;
--	*cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
--
--	return skb;
--}
--
--static struct sk_buff *alloc_can_err_skb(struct net_device *dev,
--		struct can_frame **cf)
--{
--	struct sk_buff *skb;
--
--	skb = alloc_can_skb(dev, cf);
--	if (unlikely(!skb))
--		return NULL;
--
--	memset(*cf, 0, sizeof(struct can_frame));
--	(*cf)->can_id = CAN_ERR_FLAG;
--	(*cf)->can_dlc = CAN_ERR_DLC;
--
--	return skb;
--}
--
- /*
-  * Swtich transceiver on or off
-  */
-Index: net-next-2.6/drivers/net/can/sja1000/sja1000.c
-===================================================================
---- net-next-2.6.orig/drivers/net/can/sja1000/sja1000.c
-+++ net-next-2.6/drivers/net/can/sja1000/sja1000.c
-@@ -296,11 +296,9 @@ static void sja1000_rx(struct net_device
- 	uint8_t dlc;
- 	int i;
- 
--	skb = dev_alloc_skb(sizeof(struct can_frame));
-+	skb = alloc_can_skb(dev, &cf);
- 	if (skb == NULL)
- 		return;
--	skb->dev = dev;
--	skb->protocol = htons(ETH_P_CAN);
- 
- 	fi = priv->read_reg(priv, REG_FI);
- 	dlc = fi & 0x0F;
-@@ -351,15 +349,9 @@ static int sja1000_err(struct net_device
- 	enum can_state state = priv->can.state;
- 	uint8_t ecc, alc;
- 
--	skb = dev_alloc_skb(sizeof(struct can_frame));
-+	skb = alloc_can_err_skb(dev, &cf);
- 	if (skb == NULL)
- 		return -ENOMEM;
--	skb->dev = dev;
--	skb->protocol = htons(ETH_P_CAN);
--	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
--	memset(cf, 0, sizeof(struct can_frame));
--	cf->can_id = CAN_ERR_FLAG;
--	cf->can_dlc = CAN_ERR_DLC;
- 
- 	if (isrc & IRQ_DOI) {
- 		/* data overrun interrupt */
-Index: net-next-2.6/drivers/net/can/usb/ems_usb.c
-===================================================================
---- net-next-2.6.orig/drivers/net/can/usb/ems_usb.c
-+++ net-next-2.6/drivers/net/can/usb/ems_usb.c
-@@ -311,14 +311,10 @@ static void ems_usb_rx_can_msg(struct em
- 	int i;
- 	struct net_device_stats *stats = &dev->netdev->stats;
- 
--	skb = netdev_alloc_skb(dev->netdev, sizeof(struct can_frame));
-+	skb = alloc_can_skb(dev->netdev, &cf);
- 	if (skb == NULL)
- 		return;
- 
--	skb->protocol = htons(ETH_P_CAN);
--
--	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
--
- 	cf->can_id = msg->msg.can_msg.id;
- 	cf->can_dlc = min_t(u8, msg->msg.can_msg.length, 8);
- 
-@@ -346,18 +342,10 @@ static void ems_usb_rx_err(struct ems_us
- 	struct sk_buff *skb;
- 	struct net_device_stats *stats = &dev->netdev->stats;
- 
--	skb = netdev_alloc_skb(dev->netdev, sizeof(struct can_frame));
-+	skb = alloc_can_err_skb(dev->netdev, &cf);
- 	if (skb == NULL)
- 		return;
- 
--	skb->protocol = htons(ETH_P_CAN);
--
--	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
--	memset(cf, 0, sizeof(struct can_frame));
--
--	cf->can_id = CAN_ERR_FLAG;
--	cf->can_dlc = CAN_ERR_DLC;
--
- 	if (msg->type == CPC_MSG_TYPE_CAN_STATE) {
- 		u8 state = msg->msg.can_state;
- 
-Index: net-next-2.6/drivers/net/can/ti_hecc.c
-===================================================================
---- net-next-2.6.orig/drivers/net/can/ti_hecc.c
-+++ net-next-2.6/drivers/net/can/ti_hecc.c
-@@ -535,18 +535,15 @@ static int ti_hecc_rx_pkt(struct ti_hecc
- 	u32 data, mbx_mask;
- 	unsigned long flags;
- 
--	skb = netdev_alloc_skb(priv->ndev, sizeof(struct can_frame));
-+	skb = alloc_can_skb(priv->ndev, &cf);
- 	if (!skb) {
- 		if (printk_ratelimit())
- 			dev_err(priv->ndev->dev.parent,
--				"ti_hecc_rx_pkt: netdev_alloc_skb() failed\n");
-+				"ti_hecc_rx_pkt: alloc_can_skb() failed\n");
- 		return -ENOMEM;
- 	}
--	skb->protocol = __constant_htons(ETH_P_CAN);
--	skb->ip_summed = CHECKSUM_UNNECESSARY;
- 
- 	mbx_mask = BIT(mbxno);
--	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
- 	data = hecc_read_mbx(priv, mbxno, HECC_CANMID);
- 	if (data & HECC_CANMID_IDE)
- 		cf->can_id = (data & CAN_EFF_MASK) | CAN_EFF_FLAG;
-@@ -656,19 +653,13 @@ static int ti_hecc_error(struct net_devi
- 	struct sk_buff *skb;
- 
- 	/* propogate the error condition to the can stack */
--	skb = netdev_alloc_skb(ndev, sizeof(struct can_frame));
-+	skb = alloc_can_err_skb(ndev, &cf);
- 	if (!skb) {
- 		if (printk_ratelimit())
- 			dev_err(priv->ndev->dev.parent,
--				"ti_hecc_error: netdev_alloc_skb() failed\n");
-+				"ti_hecc_error: alloc_can_err_skb() failed\n");
- 		return -ENOMEM;
- 	}
--	skb->protocol = __constant_htons(ETH_P_CAN);
--	skb->ip_summed = CHECKSUM_UNNECESSARY;
--	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
--	memset(cf, 0, sizeof(struct can_frame));
--	cf->can_id = CAN_ERR_FLAG;
--	cf->can_dlc = CAN_ERR_DLC;
- 
- 	if (int_status & HECC_CANGIF_WLIF) { /* warning level int */
- 		if ((int_status & HECC_CANGIF_BOIF) == 0) {
+Or should ndo_select_queue() method take care of calling sk_record_tx_q=
+ueue() itself ?
