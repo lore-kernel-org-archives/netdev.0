@@ -1,48 +1,48 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [net-next-2.6 PATCH 1/4] TCPCT part 1: initial SYN exchange with
- SYNACK data
-Date: Thu, 15 Oct 2009 07:45:55 -0400
-Message-ID: <4AD70B73.2040401@gmail.com>
-References: <4AD6B31B.3060402@gmail.com> <20091014.231540.01186298.davem@davemloft.net>
+From: =?ISO-8859-2?Q?Krzysztof_Ol=EAdzki?= <ole@ans.pl>
+Subject: Re: [Patch] (updated) netfilter: remove deprecated CONFIG_NF_CT_ACCT
+Date: Thu, 15 Oct 2009 14:04:18 +0200
+Message-ID: <4AD70FC2.5050302@ans.pl>
+References: <20091015080211.4561.78538.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-2;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, netfilter-devel@vger.kernel.org
+To: Amerigo Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f172.google.com ([209.85.221.172]:59371 "EHLO
-	mail-qy0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762699AbZJOLqe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 07:46:34 -0400
-Received: by qyk2 with SMTP id 2so570677qyk.21
-        for <netdev@vger.kernel.org>; Thu, 15 Oct 2009 04:45:58 -0700 (PDT)
-In-Reply-To: <20091014.231540.01186298.davem@davemloft.net>
+Received: from bizon.gios.gov.pl ([195.187.34.71]:46096 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757499AbZJOMFR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 08:05:17 -0400
+In-Reply-To: <20091015080211.4561.78538.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> This callback is generic and isn't designed to take opaque
-> data.  All the other arguments to this callback are strongly
-> typed, and this is on purpose.
-> 
-> You'll need to find another way to implement this.
-> 
-This was the most controversial change, so I made it the first separate
-patch to get strong review.
+[resend, previously I incorrectly copied netfilter-devel-owner]
 
-#1 You recently shot down adding a GFP_ATOMIC kref (Adam's original code),
-after having approved it a year ago.
+Adding CC to netfilter-devel@vger.kernel.org, where netfilter
+related issues are discussed.
 
-#2 The entire struct could be added to all struct request_sock, but you
-already rejected adding fewer bytes to the much larger tcp_sock.  And that
-isn't the best strategy, as request_sock otherwise would not have a cookie
-and is intended to be small.
+On Thu, 15 Oct 2009, Amerigo Wang wrote:
 
-#3 It's not possible to wrap and extend request_sock, as that is already
-done by IPv6 and others, causing a conflict.  That was suggested by
-another maintainer, and I drafted some code last week, but wasn't able to
-figure out a non-conflicting code path.
+>
+> CONFIG_NF_CT_ACCT is scheduled to be removed in 2.6.29.
+>
+> Cc: Krzysztof Piotr Oledzki <ole@ans.pl>
+> Signed-off-by: WANG Cong <amwang@redhat.com>
 
-#4 Passing a pointer parameter is the only option left that I've discovered.
-Now, you've rejected that as well....
+This is not so easy - it was decided that we don't want to remove it=20
+just that because of connbytes. The final conclusion was to keep it=20
+disabled by default (if not enabled by kernel/modules/sysctl option) bu=
+t=20
+enabling it automatically for the current NS if nefilter rules contains=
+=20
+"-m connbytes".
 
-So, lead me to "another way"?
+Sorry, I should have gotten into this and finished it earlier, my bad. =
+:(
+
+Best regards,
+
+  				Krzysztof Ol=EAdzki
