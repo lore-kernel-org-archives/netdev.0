@@ -1,166 +1,66 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: [PATCH -mmotm -v2] Fix
-	bitmap-introduce-bitmap_set-bitmap_clear-bitmap_find_next_zero_area.
-	patch
-Date: Thu, 15 Oct 2009 15:07:07 +0900
-Message-ID: <20091015060706.GA26956@localhost.localdomain>
-References: <1255076961-21325-1-git-send-email-akinobu.mita@gmail.com>
-	<1255076961-21325-2-git-send-email-akinobu.mita@gmail.com>
-	<20091009164100.85a36188.akpm@linux-foundation.org>
-	<20091013021818.GA3898@localhost.localdomain>
-	<20091013091017.GA18431@localhost.localdomain>
-	<20091014032258.GA18527@localhost.localdomain>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: Moving drivers into staging (was Re: [GIT PULL] SCSI fixes for
+	2.6.32-rc3)
+Date: Thu, 15 Oct 2009 08:03:03 +0200
+Message-ID: <20091015060303.GA32415@elte.hu>
+References: <20091012150911.GB1656@suse.de> <20091012154244.GA13323@elte.hu> <20091012232429.GA24254@suse.de> <43e72e890910131108m789110b4hc35e25601ad67bb7@mail.gmail.com> <20091014044519.GA19199@suse.de> <1255497575.1851.16.camel@Joe-Laptop.home> <20091014063308.GE784@elte.hu> <4AD60FF9.40200@s5r6.in-berlin.de> <20091014183657.GB5133@elte.hu> <tkrat.88ac5cebebbd9689@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, linux-ia64@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, Paul Mackerras <paulus@samba.org>,
-	"H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org,
-	Lothar Wassmann <LW@KARO-electronics.de>, x86@kernel.org,
-	linux-altix@sgi.com, Ingo Molnar <mingo@redhat.com>,
-	Fenghua Yu <fenghua.yu@intel.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Tony Luck <tony.luck@intel.com>, Kyle Hubert <khubert@gmail.com>,
-	netdev@vger.kernel.org, Greg Kroah-Hartman <gregkh@suse.de>,
-	linux-kernel@vger.kernel.org,
-	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
-	"David S. Miller" <davem@davemloft.net>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Joe Perches <joe@perches.com>, Greg KH <gregkh@suse.de>,
+	"Luis R. Rodriguez" <mcgrof@gmail.com>,
+	James Bottomley <James.Bottomley@suse.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Theodore Tso <tytso@mit.edu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-scsi <linux-scsi@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Jing Huang <huangj@brocade.com>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:36795 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933619AbZJOGEB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Oct 2009 02:04:01 -0400
 Content-Disposition: inline
-In-Reply-To: <20091014032258.GA18527@localhost.localdomain>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <tkrat.88ac5cebebbd9689@s5r6.in-berlin.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: Fix bitmap-introduce-bitmap_set-bitmap_clear-bitmap_find_next_zero_area.patch
 
-- Rewrite bitmap_set and bitmap_clear
+* Stefan Richter <stefanr@s5r6.in-berlin.de> wrote:
 
-  Instead of setting or clearing for each bit.
+> > Well, the answer is obvious i think. Tell me, at a glance, if you 
+> > see a patch on lkml, which one is for a staging driver to be 
+> > obsoleted, and which one is the one going upstream real soon? The 
+> > patches say:
+> > 
+> >  +++ a/drivers/staging/foo/x.c
+> > 
+> >  +++ a/drivers/staging/bar/y.c
+> > 
+> > Then tell me the same at a glance if you see patches for:
+> > 
+> >  +++ a/drivers/staging/wip/x.c
+> > 
+> >  +++ a/drivers/staging/bad/y.c
+> 
+> Does this information matter much?
 
-- Fix off-by-one errors in bitmap_find_next_zero_area
+Yes. You might not appreciate it as you are active in a relatively 
+narrow field (so all patches in your world have an 'obvious' place) - 
+but i for example take most of the context of a change from the email 
+itself and the more self-descriptive it is, the better. I would be more 
+likely to review work-in-progress patches while not bother about 
+obsolete drivers on the way out. YMMV.
 
-  This bug was derived from find_next_zero_area in iommu-helper.
+> What's more interesting is whether development activity will _lead_ to 
+> a driver being moved from bad or ugly to good.
 
-- Add kerneldoc for bitmap_find_next_zero_area
+... a prerequisite of which is for more developers to be accutely aware 
+of in what state a driver is.
 
-This patch is supposed to be folded into
-bitmap-introduce-bitmap_set-bitmap_clear-bitmap_find_next_zero_area.patch
+Anyway ... it's all up to Greg and he indicated that he wants the 
+simplest structure, which is fair enough.
 
-* -v2
-- Remove an extra test at the "index" value by find_next_bit
-
-Index was just returned by find_next_zero_bit, so we know it's zero.
-
-Noticed-by: Kyle Hubert <khubert@gmail.com>
-Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
----
- lib/bitmap.c |   62 ++++++++++++++++++++++++++++++++++++++++++++-------------
- 1 files changed, 48 insertions(+), 14 deletions(-)
-
-diff --git a/lib/bitmap.c b/lib/bitmap.c
-index 2415da4..962b863 100644
---- a/lib/bitmap.c
-+++ b/lib/bitmap.c
-@@ -271,28 +271,62 @@ int __bitmap_weight(const unsigned long *bitmap, int bits)
- }
- EXPORT_SYMBOL(__bitmap_weight);
- 
--void bitmap_set(unsigned long *map, int i, int len)
--{
--	int end = i + len;
-+#define BITMAP_FIRST_WORD_MASK(start) (~0UL << ((start) % BITS_PER_LONG))
- 
--	while (i < end) {
--		__set_bit(i, map);
--		i++;
-+void bitmap_set(unsigned long *map, int start, int nr)
-+{
-+	unsigned long *p = map + BIT_WORD(start);
-+	const int size = start + nr;
-+	int bits_to_set = BITS_PER_LONG - (start % BITS_PER_LONG);
-+	unsigned long mask_to_set = BITMAP_FIRST_WORD_MASK(start);
-+
-+	while (nr - bits_to_set >= 0) {
-+		*p |= mask_to_set;
-+		nr -= bits_to_set;
-+		bits_to_set = BITS_PER_LONG;
-+		mask_to_set = ~0UL;
-+		p++;
-+	}
-+	if (nr) {
-+		mask_to_set &= BITMAP_LAST_WORD_MASK(size);
-+		*p |= mask_to_set;
- 	}
- }
- EXPORT_SYMBOL(bitmap_set);
- 
- void bitmap_clear(unsigned long *map, int start, int nr)
- {
--	int end = start + nr;
--
--	while (start < end) {
--		__clear_bit(start, map);
--		start++;
-+	unsigned long *p = map + BIT_WORD(start);
-+	const int size = start + nr;
-+	int bits_to_clear = BITS_PER_LONG - (start % BITS_PER_LONG);
-+	unsigned long mask_to_clear = BITMAP_FIRST_WORD_MASK(start);
-+
-+	while (nr - bits_to_clear >= 0) {
-+		*p &= ~mask_to_clear;
-+		nr -= bits_to_clear;
-+		bits_to_clear = BITS_PER_LONG;
-+		mask_to_clear = ~0UL;
-+		p++;
-+	}
-+	if (nr) {
-+		mask_to_clear &= BITMAP_LAST_WORD_MASK(size);
-+		*p &= ~mask_to_clear;
- 	}
- }
- EXPORT_SYMBOL(bitmap_clear);
- 
-+/*
-+ * bitmap_find_next_zero_area - find a contiguous aligned zero area
-+ * @map: The address to base the search on
-+ * @size: The bitmap size in bits
-+ * @start: The bitnumber to start searching at
-+ * @nr: The number of zeroed bits we're looking for
-+ * @align_mask: Alignment mask for zero area
-+ *
-+ * The @align_mask should be one less than a power of 2; the effect is that
-+ * the bit offset of all zero areas this function finds is multiples of that
-+ * power of 2. A @align_mask of 0 means no alignment is required.
-+ */
- unsigned long bitmap_find_next_zero_area(unsigned long *map,
- 					 unsigned long size,
- 					 unsigned long start,
-@@ -304,12 +338,12 @@ again:
- 	index = find_next_zero_bit(map, size, start);
- 
- 	/* Align allocation */
--	index = (index + align_mask) & ~align_mask;
-+	index = __ALIGN_MASK(index, align_mask);
- 
- 	end = index + nr;
--	if (end >= size)
-+	if (end > size)
- 		return end;
--	i = find_next_bit(map, end, index);
-+	i = find_next_bit(map, end, index + 1);
- 	if (i < end) {
- 		start = i + 1;
- 		goto again;
--- 
-1.5.4.3
+	Ingo
