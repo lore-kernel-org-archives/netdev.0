@@ -1,96 +1,96 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: NOHZ: local_softirq_pending 08
-Date: Thu, 15 Oct 2009 19:53:08 +0200
-Message-ID: <4AD76184.6030900@gmail.com>
-References: <4AD31213.6020006@imap.cc> <20091015114052.GA9870@ff.dom.local>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [BUILD-FAILURE] next-20091015 - vbus_enet driver breaks with
+ allmodconfig
+Date: Thu, 15 Oct 2009 11:42:10 -0700
+Message-ID: <20091015114210.65e1be72.randy.dunlap@oracle.com>
+References: <20091015152538.74a1cb15.sfr@canb.auug.org.au>
+	<20091015104852.GA6740@linux.vnet.ibm.com>
+	<4AD6CD940200005A00056857@sinclair.provo.novell.com>
+	<4AD75E60.4020306@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, johannes@sipsolutions.net,
-	hidave.darkstar@gmail.com, linux-kernel@vger.kernel.org,
-	tglx@linutronix.de, linux-wireless@vger.kernel.org,
-	linux-ppp@vger.kernel.org, netdev@vger.kernel.org, paulus@samba.org
-To: Tilman Schmidt <tilman@imap.cc>
+Cc: Gregory Haskins <ghaskins@novell.com>,
+	Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>,
+	sfr@canb.auug.org.au, greg@kroah.com, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>, linux-next@vger.kernel.org
+To: Gregory Haskins <gregory.haskins@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f227.google.com ([209.85.220.227]:59711 "EHLO
-	mail-fx0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934526AbZJORxw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 13:53:52 -0400
-In-Reply-To: <20091015114052.GA9870@ff.dom.local>
+Received: from acsinet11.oracle.com ([141.146.126.233]:34513 "EHLO
+	acsinet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935242AbZJOSnD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 14:43:03 -0400
+In-Reply-To: <4AD75E60.4020306@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote, On 10/15/2009 01:40 PM:
+On Thu, 15 Oct 2009 13:39:44 -0400 Gregory Haskins wrote:
 
-> On 12-10-2009 13:25, Tilman Schmidt wrote:
->> -----BEGIN PGP SIGNED MESSAGE-----
->> Hash: SHA1
->>
->> On Mon, 12 Oct 2009 03:32:46 -0700 (PDT), David Miller wrote:
->>> The PPP receive paths in ppp_generic.c do a local_bh_disable()/
->>> local_bh_enable() around packet receiving (via ppp_recv_lock()/
->>> ppp_recv_unlock() in ppp_do_recv).
->>>
->>> So at least that part is perfectly fine.
->>>
->>> ppp_input(), as called from ppp_sync_process(), also disables BH's
->>> around ppp_do_recv() calls (via read_lock_bh()/read_unlock_bh()).
->>>
->>> So that's fine too.
->>>
->>> Do you have a bug report or are you just scanning around looking
->>> for trouble? :-)
->> I have encountered the message in the subject during a test of
->> the Gigaset CAPI driver, and would like to determine whether
->> it's a bug in the driver, a bug somewhere else, or no bug at
->> all. The test scenario was PPP over ISDN with pppd+capiplugin.
->> In an alternative scenario, also PPP over ISDN but with
->> smpppd+capidrv, the message did not occur.
->>
->> Johannes' answer pointed me to the netif_rx() function.
->> The Gigaset driver itself doesn't call that function at all.
->> In the scenario where I saw the message, it was the SYNC_PPP
->> line discipline that did. But from your explanation I gather
->> that the cause cannot lie there.
->>
->> So now I'm looking for other possible causes of that message.
-
-
-BTW, it seems calling napi_schedule() from process context should
-trigger such a warning too.
-
-Jarek P.
-
+> Gregory Haskins wrote:
+> >>>> On 10/15/2009 at  6:48 AM, in message
+> > <20091015104852.GA6740@linux.vnet.ibm.com>, Kamalesh Babulal
+> > <kamalesh@linux.vnet.ibm.com> wrote: 
+> >> Hi Gregory,
+> >>
+> >> 	While building next-20091015 with allmodconfig on the powerpc
+> >> vbus-enet driver breaks
+> > 
+> > Hi Kamalesh,
+> > 
+> > I'll take a look at this and get a fix submitted today.
+> > 
+> > Kind Regards,
+> > -Greg
+> > 
+> >> MODPOST 2492 modules
+> >> ERROR: ".vbus_driver_register" [drivers/net/vbus-enet.ko] undefined!
+> >> ERROR: ".vbus_driver_unregister" [drivers/net/vbus-enet.ko] undefined!
+> >> ERROR: ".vbus_driver_ioq_alloc" [drivers/net/vbus-enet.ko] undefined!
+> >>
+> >> CONFIG_VBUS_ENET=m
+> >> CONFIG_VBUS_ENET_DEBUG=y
+> >> CONFIG_VBUS_PROXY=n
 > 
-> Anyway, I agree with Michael Buesch there is no reason to waste time
-> for tracking all netif_rx vs netif_rx_ni uses, and it seems we could
-> avoid it by using the "proper" version of raise_softirq_irqoff() in
-> __napi_schedule(). Could anybody try if I'm not wrong?
+> Hi Kamalesh,
 > 
-> Thanks,
-> Jarek P.
-> ---
-> 
->  net/core/dev.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 28b0b9e..7fc4009 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2728,7 +2728,7 @@ void __napi_schedule(struct napi_struct *n)
->  
->  	local_irq_save(flags);
->  	list_add_tail(&n->poll_list, &__get_cpu_var(softnet_data).poll_list);
-> -	__raise_softirq_irqoff(NET_RX_SOFTIRQ);
-> +	raise_softirq_irqoff(NET_RX_SOFTIRQ);
->  	local_irq_restore(flags);
->  }
->  EXPORT_SYMBOL(__napi_schedule);
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-ppp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> I am having difficulty reproducing the problem.  When I look at the
+> Kconfig, I see that VBUS_ENET has a "select VBUS_PROXY" as I would
+> expect.  Additionally, if I run allmodconfig I can confirm that I get
+> VBUS_ENET=m, VBUS_PROXY=y:
+
+Greg,
+
+Did you try to reproduce it with the ppc64 config file?
+allmodconfig on what arch?
+
+I think the problem is that arch/x86/Kconfig says:
+
+source "drivers/vbus/Kconfig"
+
+and that should actually be in drivers/Kconfig, so that it applies
+to ppc64 et al, not just x86.
 
 
+
+> ghaskins@dev:~/sandbox/git/fabric/linux-2.6-next> rm .config
+> ghaskins@dev:~/sandbox/git/fabric/linux-2.6-next> make allmodconfig
+> scripts/kconfig/conf -m arch/x86/Kconfig
+> #
+> # configuration written to .config
+> #
+> ghaskins@dev:~/sandbox/git/fabric/linux-2.6-next> grep -i vbus .config
+> CONFIG_VBUS_PROXY=y
+> CONFIG_VBUS_PCIBRIDGE=y
+> CONFIG_VBUS_ENET=m
+> CONFIG_VBUS_ENET_DEBUG=y
+> CONFIG_USB_GADGET_VBUS_DRAW=2
+> CONFIG_USB_GPIO_VBUS=m
+> 
+> I am not sure how your environment could have generated the VBUS_PROXY=n
+> outcome.  Does anyone have any ideas?
+> 
+> -Greg
+
+
+---
+~Randy
