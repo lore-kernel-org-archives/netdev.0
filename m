@@ -1,151 +1,182 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH -next] vmxnet3: use dev_dbg, fix build for CONFIG_BLOCK=n
-Date: Thu, 15 Oct 2009 15:29:35 -0700
-Message-ID: <4AD7A24F.6000900@oracle.com>
-References: <20091015152538.74a1cb15.sfr@canb.auug.org.au>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: TCP_DEFER_ACCEPT is missing counter update
+Date: Fri, 16 Oct 2009 01:44:34 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0910152257410.3047@u.domain.uli>
+References: <20091014045226.GA15655@1wt.eu> <Pine.LNX.4.58.0910140912420.2714@u.domain.uli>
+ <20091014201706.GA24298@1wt.eu> <20091014.154349.83940908.davem@davemloft.net>
+ <20091015060834.GB29564@1wt.eu> <Pine.LNX.4.58.0910151120340.2879@u.domain.uli>
+ <20091015124134.GB1073@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Shreyas Bhatewara <sbhatewara@vmware.com>,
-	pv-drivers@vmware.com
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20091015152538.74a1cb15.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([217.79.71.194]:59087 "EHLO u.domain.uli"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1762340AbZJOWo1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Oct 2009 18:44:27 -0400
+In-Reply-To: <20091015124134.GB1073@1wt.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
 
-vmxnet3 was using dprintk() for debugging output.  This was
-defined in <linux/dst.h> and was the only thing that was
-used from that header file.  This caused compile errors
-when CONFIG_BLOCK was not enabled due to bio* and BIO*
-uses in the header file, so change this driver to use
-dev_dbg() for debugging output.
+	Hello,
 
-include/linux/dst.h:520: error: dereferencing pointer to incomplete type
-include/linux/dst.h:520: error: 'BIO_POOL_BITS' undeclared (first use in this function)
-include/linux/dst.h:521: error: dereferencing pointer to incomplete type
-include/linux/dst.h:522: error: dereferencing pointer to incomplete type
-include/linux/dst.h:525: error: dereferencing pointer to incomplete type
-make[4]: *** [drivers/net/vmxnet3/vmxnet3_drv.o] Error 1
+On Thu, 15 Oct 2009, Willy Tarreau wrote:
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- drivers/net/vmxnet3/vmxnet3_drv.c |   27 ++++++++++++++++++---------
- drivers/net/vmxnet3/vmxnet3_int.h |    2 +-
- 2 files changed, 19 insertions(+), 10 deletions(-)
+> Hello Julian,
+> 
+> On Thu, Oct 15, 2009 at 11:47:51AM +0300, Julian Anastasov wrote:
+> (...)
+> > 	If one changes TCP_DEFER_ACCEPT to create socket it
+> > will save wakeups but not resources. I'm wondering if the
+> > behavior should be changed at all. For me the options are two:
+> > 
+> > a) you want to save resources: use TCP_DEFER_ACCEPT. To help
+> > proxies use large values for TCP_SYNCNT and TCP_DEFER_ACCEPT.
+> > 
+> > b) you can live with wakeups and many sockets: do not use
+> > TCP_DEFER_ACCEPT. Suitable for servers using short timeouts
+> > for first request.
+> 
+> and c) you want to avoid wakeups as much as possible and you'd like
+> to drop just one empty ACK packet, so that as soon as you accept a
+> an HTTP connection, you can read the request without polling at all.
+> 
+> Right now I'm able to process a complete HTTP request without
+> registering the any FD in epoll *at all* for most requests if the first
+> two ACKs are close enough and the server responds quickly. This saves a
+> substantial amount of CPU cycles. Epoll is fast, but calling epoll_ctl()
+> 100000 times a second still has a measurable cost. Doing an accept() on
+> an empty connection implies this cost. Waiting for data always saves this
+> cost, but causes the undesirable side effects that have been reported.
+> Waiting for data just a few milliseconds is enough to save this cost
+> 99.99% of the time, just as skipping the first empty packet.
+> 
+> Since you're saying that updating the value is wrong when it's used as
+> a flag, would a patch to implement a specific option for this usage be
+> accepted ?  Either by passing a negative value to TCP_DEFER_ACCEPT, or
+> by using another flag ?
 
---- linux-next-20091015.orig/drivers/net/vmxnet3/vmxnet3_int.h
-+++ linux-next-20091015/drivers/net/vmxnet3/vmxnet3_int.h
-@@ -30,6 +30,7 @@
- #include <linux/types.h>
- #include <linux/ethtool.h>
- #include <linux/delay.h>
-+#include <linux/device.h>
- #include <linux/netdevice.h>
- #include <linux/pci.h>
- #include <linux/ethtool.h>
-@@ -59,7 +60,6 @@
- #include <linux/if_vlan.h>
- #include <linux/if_arp.h>
- #include <linux/inetdevice.h>
--#include <linux/dst.h>
- 
- #include "vmxnet3_defs.h"
- 
---- linux-next-20091015.orig/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ linux-next-20091015/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -481,7 +481,8 @@ vmxnet3_rq_alloc_rx_buf(struct vmxnet3_r
- 	}
- 	rq->uncommitted[ring_idx] += num_allocated;
- 
--	dprintk(KERN_ERR "alloc_rx_buf: %d allocated, next2fill %u, next2comp "
-+	dev_dbg(&adapter->netdev->dev,
-+		"alloc_rx_buf: %d allocated, next2fill %u, next2comp "
- 		"%u, uncommited %u\n", num_allocated, ring->next2fill,
- 		ring->next2comp, rq->uncommitted[ring_idx]);
- 
-@@ -539,7 +540,8 @@ vmxnet3_map_pkt(struct sk_buff *skb, str
- 		tbi = tq->buf_info + tq->tx_ring.next2fill;
- 		tbi->map_type = VMXNET3_MAP_NONE;
- 
--		dprintk(KERN_ERR "txd[%u]: 0x%Lx 0x%x 0x%x\n",
-+		dev_dbg(&adapter->netdev->dev,
-+			"txd[%u]: 0x%Lx 0x%x 0x%x\n",
- 			tq->tx_ring.next2fill, ctx->sop_txd->txd.addr,
- 			ctx->sop_txd->dword[2], ctx->sop_txd->dword[3]);
- 		vmxnet3_cmd_ring_adv_next2fill(&tq->tx_ring);
-@@ -572,7 +574,8 @@ vmxnet3_map_pkt(struct sk_buff *skb, str
- 		gdesc->dword[2] = dw2 | buf_size;
- 		gdesc->dword[3] = 0;
- 
--		dprintk(KERN_ERR "txd[%u]: 0x%Lx 0x%x 0x%x\n",
-+		dev_dbg(&adapter->netdev->dev,
-+			"txd[%u]: 0x%Lx 0x%x 0x%x\n",
- 			tq->tx_ring.next2fill, gdesc->txd.addr,
- 			gdesc->dword[2], gdesc->dword[3]);
- 		vmxnet3_cmd_ring_adv_next2fill(&tq->tx_ring);
-@@ -600,7 +603,8 @@ vmxnet3_map_pkt(struct sk_buff *skb, str
- 		gdesc->dword[2] = dw2 | frag->size;
- 		gdesc->dword[3] = 0;
- 
--		dprintk(KERN_ERR "txd[%u]: 0x%llu %u %u\n",
-+		dev_dbg(&adapter->netdev->dev,
-+			"txd[%u]: 0x%llu %u %u\n",
- 			tq->tx_ring.next2fill, gdesc->txd.addr,
- 			gdesc->dword[2], gdesc->dword[3]);
- 		vmxnet3_cmd_ring_adv_next2fill(&tq->tx_ring);
-@@ -697,7 +701,8 @@ vmxnet3_parse_and_copy_hdr(struct sk_buf
- 	tdd = tq->data_ring.base + tq->tx_ring.next2fill;
- 
- 	memcpy(tdd->data, skb->data, ctx->copy_size);
--	dprintk(KERN_ERR "copy %u bytes to dataRing[%u]\n",
-+	dev_dbg(&adapter->netdev->dev,
-+		"copy %u bytes to dataRing[%u]\n",
- 		ctx->copy_size, tq->tx_ring.next2fill);
- 	return 1;
- 
-@@ -808,7 +813,8 @@ vmxnet3_tq_xmit(struct sk_buff *skb, str
- 
- 	if (count > vmxnet3_cmd_ring_desc_avail(&tq->tx_ring)) {
- 		tq->stats.tx_ring_full++;
--		dprintk(KERN_ERR "tx queue stopped on %s, next2comp %u"
-+		dev_dbg(&adapter->netdev->dev,
-+			"tx queue stopped on %s, next2comp %u"
- 			" next2fill %u\n", adapter->netdev->name,
- 			tq->tx_ring.next2comp, tq->tx_ring.next2fill);
- 
-@@ -853,7 +859,8 @@ vmxnet3_tq_xmit(struct sk_buff *skb, str
- 
- 	/* finally flips the GEN bit of the SOP desc */
- 	gdesc->dword[2] ^= VMXNET3_TXD_GEN;
--	dprintk(KERN_ERR "txd[%u]: SOP 0x%Lx 0x%x 0x%x\n",
-+	dev_dbg(&adapter->netdev->dev,
-+		"txd[%u]: SOP 0x%Lx 0x%x 0x%x\n",
- 		(u32)((union Vmxnet3_GenericDesc *)ctx.sop_txd -
- 		tq->tx_ring.base), gdesc->txd.addr, gdesc->dword[2],
- 		gdesc->dword[3]);
-@@ -990,7 +997,8 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx
- 			if (unlikely(rcd->len == 0)) {
- 				/* Pretend the rx buffer is skipped. */
- 				BUG_ON(!(rcd->sop && rcd->eop));
--				dprintk(KERN_ERR "rxRing[%u][%u] 0 length\n",
-+				dev_dbg(&adapter->netdev->dev,
-+					"rxRing[%u][%u] 0 length\n",
- 					ring_idx, idx);
- 				goto rcd_done;
- 			}
-@@ -1676,7 +1684,8 @@ vmxnet3_activate_dev(struct vmxnet3_adap
- 	int err;
- 	u32 ret;
- 
--	dprintk(KERN_ERR "%s: skb_buf_size %d, rx_buf_per_pkt %d, ring sizes"
-+	dev_dbg(&adapter->netdev->dev,
-+		"%s: skb_buf_size %d, rx_buf_per_pkt %d, ring sizes"
- 		" %u %u %u\n", adapter->netdev->name, adapter->skb_buf_size,
- 		adapter->rx_buf_per_pkt, adapter->tx_queue.tx_ring.size,
- 		adapter->rx_queue.rx_ring[0].size,
+	Sorry for the long mail ...
+
+	I was not clear enough in previous email. Your goal
+is to decrease period per client while the actually decreased
+threshold is on the listener's socket. 256 conns will be enough
+to completely disable TCP_DEFER_ACCEPT on the listener (u8). I'm not
+sure that you tested what happens after Nth client (where
+N matches your TCP_DEFER_ACCEPT value as retransmissions), do you
+still see accept deferring for next clients? Now if your patch
+is applied the deferring will be disabled soon after server start.
+
+	The open requests are just 64 bytes for me:
+cat /proc/slabinfo | grep request_sock_TCP
+and there is no rskq_defer_accept flag in struct tcp_request_sock,
+struct inet_request_sock or struct request_sock. It is
+present only for normal sockets. These open connection
+requests have only 'retrans' and 'acked' flag. Please,
+check again what your patch does and test it with some simple
+client that sleeps after connect().
+
+	As for new flags, may be we should not change
+TCP_DEFER_ACCEPT values because current applications can
+depend on it. There is some free space in
+struct request_sock_queue just after u8 rskq_defer_accept.
+May be new flags/modes can go there to define another
+behavior but it means also changes in applications to support
+it.
+
+	Because using TCP_DEFER_ACCEPT as flag is not documented
+one solution can be the following change, may be it matches your
+idea but implemented correctly:
+
+        /* If TCP_DEFER_ACCEPT is set, drop bare ACK. */
+-       if (inet_csk(sk)->icsk_accept_queue.rskq_defer_accept &&
++       if (req->retrans < inet_csk(sk)->icsk_accept_queue.rskq_defer_accept &&
+            TCP_SKB_CB(skb)->end_seq == tcp_rsk(req)->rcv_isn + 1) {
+                inet_rsk(req)->acked = 1;
+                return NULL;
+        }
+
+	with the meaning "When TCP_DEFER_ACCEPT retransmission
+period is shorter than SYN-ACK retrans period (eg. TCP_SYNCNT
+or sysctl_tcp_synack_retries) move the open request as
+established on client's packet after the TCP_DEFER_ACCEPT
+period has expired". Then if you set TCP_SYNCNT=5 and
+TCP_DEFER_ACCEPT=1retrans first ACK will set inet_rsk(req)->acked=1
+because req->retrans is 0 and rskq_defer_accept is 1,
+later timer will send one SYN-ACK (which marks the end
+of TCP_DEFER_ACCEPT period), then client will send DATA or it
+will be forced by our SYN-ACK retransmission to send 2nd
+ACK packet for which we will create established socket.
+
+	Such change will affect all servers that use
+TCP_DEFER_ACCEPT retransmissions less than TCP_SYNCNT. They
+will start to see wakeups without data after the TCP_DEFER_ACCEPT
+period.
+
+	To summarize:
+
+SECOND	CLIENT			SERVER
+---------------------------------------------------------
+0	SYN			SYN-ACK
+	if DATA => ESTABLISH
+	if ACK => acked=1
+3				SYN-ACK (set retrans=1)
+	if ACK and TCP_DEFER_ACCEPT=1retrans => ESTABLISH
+	if DATA => ESTABLISH
+	if ACK => acked=1
+9				if TCP_SYNCNT=1 => expire
+				else SYN-ACK (set retrans=2)
+	if ACK and TCP_DEFER_ACCEPT=2retrans => ESTABLISH
+	if DATA => ESTABLISH
+	if ACK => acked=1
+...
+
+PRO:
+
+- if TCP_DEFER_ACCEPT<TCP_SYNCNT and client properly resends
+ACK on every SYN-ACK retransmission then we always will
+switch to established state on TCP_DEFER_ACCEPT expiration.
+Such conns will never expire in SYN_RECV state. They
+will be terminated by client's FIN or will be accepted
+by server application and terminated properly. Of course,
+there is some chance if client delays its ACKs or if SYN-ACK
+is lost the open request to expire in SYN_RECV state.
+
+CON:
+
+- if client refuses to send DATA we still need these SYN-ACKs
+to trigger ACK retransmissions from client because the only
+way to switch to established state is when packet is received,
+I don't know how TCP_DEFER_ACCEPT expiration can directly change
+the open request to established state.
+
+	May be it is possible to send first SYN-ACK and
+if one ACK is received to send more SYN-ACKs after
+TCP_DEFER_ACCEPT period expires. Then client still has chance
+to send ACK or DATA that will switch open request to established
+socket. So, our timer will be silent when acked=1 while
+TCP_DEFER_ACCEPT period is active, for example:
+
+SYN
+	SYN-ACK
+ACK
+	...
+	acked=1 => no SYN-ACKs retrans (assume they are sent and lost)
+	...
+	TCP_DEFER_ACCEPT expires => send 2nd SYN-ACK
+	... If no client's ACK then resend SYN-ACK while retrans<TCP_SYNCNT
+	...
+ACK or DATA => ESTABLISHED
+
+	This will need little change in inet_csk_reqsk_queue_prune()
+but it saves SYN-ACK traffic during deferring period in the
+common case when client sends ACK. If such compromise is
+acceptable I can prepare and test some patch.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
