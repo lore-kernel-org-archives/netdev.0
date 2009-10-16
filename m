@@ -1,54 +1,63 @@
-From: Kurt Van Dijck <kurt.van.dijck@eia.be>
-Subject: Re: [PATCH 1/2] Add an alternative cs89x0 driver
-Date: Fri, 16 Oct 2009 11:37:01 +0200
-Message-ID: <20091016093659.GB330@e-circ.dyndns.org>
-References: <1240387172-21818-1-git-send-email-s.hauer@pengutronix.de> <1240387172-21818-2-git-send-email-s.hauer@pengutronix.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/4 v2] net: Use sk_tx_queue_mapping for connected sockets
+Date: Fri, 16 Oct 2009 11:48:56 +0200
+Message-ID: <4AD84188.7030804@gmail.com>
+References: <20091016072107.24384.17358.sendpatchset@localhost.localdomain> <20091016072132.24384.38301.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, Lennert Buytenhek <kernel@wantstofly.org>,
-	Ivo Clarysse <ivo.clarysse@gmail.com>,
-	Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
-To: Sascha Hauer <s.hauer@pengutronix.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: Krishna Kumar <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.eia.be ([194.78.71.18]:16361 "EHLO mail.eia.be"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751300AbZJPJhp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Oct 2009 05:37:45 -0400
-Content-Disposition: inline
-In-Reply-To: <1240387172-21818-2-git-send-email-s.hauer@pengutronix.de>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:45444 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758183AbZJPJtr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 05:49:47 -0400
+In-Reply-To: <20091016072132.24384.38301.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 22, 2009 at 09:59:31AM +0200, Sascha Hauer wrote:
-> The in Kernel driver is far beyond its age. it still does not use
-> driver model and its mere presence in the Kernel image prevents
-> booting my board. The CS8900 still is in use on some embedded
-> boards, so this patch adds an alternative driver to the tree
-> designed to replace the old one.
-> 
-> Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
-> ---
->  drivers/net/Kconfig         |   12 +
->  drivers/net/Makefile        |    1 +
->  drivers/net/cirrus-cs89x0.c |  847 +++++++++++++++++++++++++++++++++++++++++++
->  3 files changed, 860 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/net/cirrus-cs89x0.c
-[...]
-> diff --git a/drivers/net/cirrus-cs89x0.c b/drivers/net/cirrus-cs89x0.c
-[...]
-> +static void
-> +cirrus_set_receive_mode(struct net_device *ndev)
-> +{
-> +	struct cirrus_priv *priv = netdev_priv(ndev);
-> +
-> +	spin_lock(&priv->lock);
-> +
+Krishna Kumar a =E9crit :
+> From: Krishna Kumar <krkumar2@in.ibm.com>
+>=20
+> For connected sockets, the first run of dev_pick_tx saves the
+> calculated txq in sk_tx_queue_mapping. This is not saved if
+> either skb rx was recorded, or if the device has a queue select
+> handler. Next iterations of dev_pick_tx uses the cached value of
+> sk_tx_queue_mapping.
 
-I found this function causing locking problems.
-using spin_lock_irqsave/spin_lock_irqrestore solved them.
+Are we sure that for selection done by skb_tx_hash(dev, skb),
+rx packets will use the same queue/cpu ?
 
-Can xxx_set_receive_mode be called with interrupts enabled?
-I just want to make sure that I didn't break something elsewhere, and
-I don't know ethernet (devices) that well.
+Probably not, since it uses sk->sk_hash (tcp/udp port) :
 
-Kurt
+u16 skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb=
+)
+{
+        u32 hash;
+
+        if (skb_rx_queue_recorded(skb)) {
+                hash =3D skb_get_rx_queue(skb);
+                while (unlikely(hash >=3D dev->real_num_tx_queues))
+                        hash -=3D dev->real_num_tx_queues;
+                return hash;
+        }
+
+        if (skb->sk && skb->sk->sk_hash)
+                hash =3D skb->sk->sk_hash;
+        else
+                hash =3D skb->protocol;
+
+        hash =3D jhash_1word(hash, skb_tx_hashrnd);
+
+        return (u16) (((u64) hash * dev->real_num_tx_queues) >> 32);
+}
+
+If NIC has some proprietary hash, and selects rx queue 3 for feeding us
+packets, it would be nice to also use tx queue 3 for transmit.
+
+We would have to record in sk the rx queue chosen by the device
+when processing SYN / SYN-ACK packet for example for tcp flows.
+
+
