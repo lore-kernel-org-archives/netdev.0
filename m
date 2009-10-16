@@ -1,40 +1,52 @@
-From: Gregory Haskins <ghaskins@novell.com>
-Subject: [PATCH 1/2] net: fix vbus-enet Kconfig dependencies
-Date: Fri, 16 Oct 2009 09:36:19 -0400
-Message-ID: <20091016133618.13423.38066.stgit@dev.haskins.net>
-References: <20091016133411.13423.36106.stgit@dev.haskins.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] af_packet: Avoid cache line dirtying
+Date: Fri, 16 Oct 2009 16:02:20 +0200
+Message-ID: <4AD87CEC.4020407@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	alacrityvm-devel@lists.sourceforge.net
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759770AbZJPNhH@vger.kernel.org>
-In-Reply-To: <20091016133411.13423.36106.stgit@dev.haskins.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Luca Deri <deri@ntop.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:59275 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752702AbZJPODV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 10:03:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We currently select VBUS_PROXY when vbus-enet is enabled, which is
-the wrong direction.  Not all platforms will define VBUS-PROXY, and
-venet depends on its inclusion.  Therefore, lets fix vbus-enet to
-properly depend on the presence of VBUS_PROXY to get this right.
+While doing multiple captures, I found af_packet was dirtying cache line
+containing its prot_hook.
 
-Signed-off-by: Gregory Haskins <ghaskins@novell.com>
+This slow down machines where several cpus are necessary to handle capture
+traffic, as each prot_hook is traversed for each packet coming in or out
+the host.
+
+This patches moves "struct packet_type prot_hook" to the end of 
+packet_sock, and uses a ____cacheline_aligned_in_smp to make sure
+this remains shared by all cpus.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
 
- drivers/net/Kconfig |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 47dfa04..c9128ea 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -3233,7 +3233,7 @@ config VIRTIO_NET
- config VBUS_ENET
- 	tristate "VBUS Ethernet Driver"
- 	default n
--	select VBUS_PROXY
-+	depends on VBUS_PROXY
- 	help
- 	   A virtualized 802.x network device based on the VBUS
- 	   "virtual-ethernet" interface.  It can be used with any
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index bf3a295..dac775e 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -188,7 +188,6 @@ struct packet_sock {
+ 	struct packet_ring_buffer	tx_ring;
+ 	int			copy_thresh;
+ #endif
+-	struct packet_type	prot_hook;
+ 	spinlock_t		bind_lock;
+ 	struct mutex		pg_vec_lock;
+ 	unsigned int		running:1,	/* prot_hook is attached*/
+@@ -204,6 +203,7 @@ struct packet_sock {
+ 	unsigned int		tp_reserve;
+ 	unsigned int		tp_loss:1;
+ #endif
++	struct packet_type	prot_hook ____cacheline_aligned_in_smp;
+ };
+ 
+ struct packet_skb_cb {
