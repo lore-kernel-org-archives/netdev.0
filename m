@@ -1,157 +1,51 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH NEXT 6/7] netxen: fix error codes in for tools access
-Date: Thu, 15 Oct 2009 23:09:12 -0700
-Message-ID: <1255673353-31797-7-git-send-email-dhananjay@netxen.com>
-References: <1255673353-31797-1-git-send-email-dhananjay@netxen.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: TCP_DEFER_ACCEPT is missing counter update
+Date: Fri, 16 Oct 2009 08:18:06 +0200
+Message-ID: <20091016061806.GD5574@1wt.eu>
+References: <20091014201706.GA24298@1wt.eu> <20091014.154349.83940908.davem@davemloft.net> <20091015060834.GB29564@1wt.eu> <Pine.LNX.4.58.0910151120340.2879@u.domain.uli> <20091015124134.GB1073@1wt.eu> <Pine.LNX.4.58.0910152257410.3047@u.domain.uli> <4AD7EDB4.7060907@gmail.com> <4AD7FE01.1010805@gmail.com> <20091016052913.GB5574@1wt.eu> <4AD80D1F.3090601@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Anastasov <ja@ssi.bg>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:45979 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1754490AbZJPGKb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Oct 2009 02:10:31 -0400
-In-Reply-To: <1255673353-31797-1-git-send-email-dhananjay@netxen.com>
+Received: from 1wt.eu ([62.212.114.60]:50276 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751252AbZJPGSw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Oct 2009 02:18:52 -0400
+Content-Disposition: inline
+In-Reply-To: <4AD80D1F.3090601@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use -EIO or -EINVAL as error codes, these can get passed up
-to applications (tools).
+On Fri, Oct 16, 2009 at 08:05:19AM +0200, Eric Dumazet wrote:
+> > Couldn't we just rely on the retrans vs rskq_defer_accept comparison ?
+> > 
+> 
+> In this case, we lose TCP_DEFER_ACCEPT advantage in case one SYN-ACK was dropped
+> by the network : We wakeup the listening server when first ACK comes from client,
+> instead of really wait the request.
+> 
+> I think being able to count pure-acks would be slighly better, and cost nothing.
+> 
+> 
+> retrans is the number of SYN-RECV (re)sent, while req_acks would count number of
+> pure ACK received.
+> 
+> Those numbers, in an ideal world should be related, but could differ in real world ?
 
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
----
- drivers/net/netxen/netxen_nic_hw.c   |   49 +++++++++++++++++----------------
- drivers/net/netxen/netxen_nic_init.c |    6 ++++
- 2 files changed, 31 insertions(+), 24 deletions(-)
+Yes it could differ if a pure ACK is lost between the client and the server,
+but in my opinion what is important is not to precisely account the number
+of ACKs to ensure we wake up exactly after XXX ACKs received, but that in
+most common situations we avoid to wake up too early.
 
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index ce07d13..320ded9 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -332,7 +332,7 @@ netxen_pcie_sem_lock(struct netxen_adapter *adapter, int sem, u32 id_reg)
- 		if (done == 1)
- 			break;
- 		if (++timeout >= NETXEN_PCIE_SEM_TIMEOUT)
--			return -1;
-+			return -EIO;
- 		msleep(1);
- 	}
- 
-@@ -1083,7 +1083,7 @@ netxen_nic_pci_set_crbwindow_128M(struct netxen_adapter *adapter,
- }
- 
- /*
-- * Return -1 if off is not valid,
-+ * Returns < 0 if off is not valid,
-  *	 1 if window access is needed. 'off' is set to offset from
-  *	   CRB space in 128M pci map
-  *	 0 if no window access is needed. 'off' is set to 2M addr
-@@ -1096,7 +1096,7 @@ netxen_nic_pci_get_crb_addr_2M(struct netxen_adapter *adapter, ulong *off)
- 
- 
- 	if (*off >= NETXEN_CRB_MAX)
--		return -1;
-+		return -EINVAL;
- 
- 	if (*off >= NETXEN_PCI_CAMQM && (*off < NETXEN_PCI_CAMQM_2M_END)) {
- 		*off = (*off - NETXEN_PCI_CAMQM) + NETXEN_PCI_CAMQM_2M_BASE +
-@@ -1105,7 +1105,7 @@ netxen_nic_pci_get_crb_addr_2M(struct netxen_adapter *adapter, ulong *off)
- 	}
- 
- 	if (*off < NETXEN_PCI_CRBSPACE)
--		return -1;
-+		return -EINVAL;
- 
- 	*off -= NETXEN_PCI_CRBSPACE;
- 
-@@ -1220,25 +1220,26 @@ netxen_nic_hw_write_wx_2M(struct netxen_adapter *adapter, ulong off, u32 data)
- 
- 	rv = netxen_nic_pci_get_crb_addr_2M(adapter, &off);
- 
--	if (rv == -1) {
--		printk(KERN_ERR "%s: invalid offset: 0x%016lx\n",
--				__func__, off);
--		dump_stack();
--		return -1;
-+	if (rv == 0) {
-+		writel(data, (void __iomem *)off);
-+		return 0;
- 	}
- 
--	if (rv == 1) {
-+	if (rv > 0) {
-+		/* indirect access */
- 		write_lock_irqsave(&adapter->ahw.crb_lock, flags);
- 		crb_win_lock(adapter);
- 		netxen_nic_pci_set_crbwindow_2M(adapter, &off);
- 		writel(data, (void __iomem *)off);
- 		crb_win_unlock(adapter);
- 		write_unlock_irqrestore(&adapter->ahw.crb_lock, flags);
--	} else
--		writel(data, (void __iomem *)off);
--
-+		return 0;
-+	}
- 
--	return 0;
-+	dev_err(&adapter->pdev->dev,
-+			"%s: invalid offset: 0x%016lx\n", __func__, off);
-+	dump_stack();
-+	return -EIO;
- }
- 
- static u32
-@@ -1250,24 +1251,24 @@ netxen_nic_hw_read_wx_2M(struct netxen_adapter *adapter, ulong off)
- 
- 	rv = netxen_nic_pci_get_crb_addr_2M(adapter, &off);
- 
--	if (rv == -1) {
--		printk(KERN_ERR "%s: invalid offset: 0x%016lx\n",
--				__func__, off);
--		dump_stack();
--		return -1;
--	}
-+	if (rv == 0)
-+		return readl((void __iomem *)off);
- 
--	if (rv == 1) {
-+	if (rv > 0) {
-+		/* indirect access */
- 		write_lock_irqsave(&adapter->ahw.crb_lock, flags);
- 		crb_win_lock(adapter);
- 		netxen_nic_pci_set_crbwindow_2M(adapter, &off);
- 		data = readl((void __iomem *)off);
- 		crb_win_unlock(adapter);
- 		write_unlock_irqrestore(&adapter->ahw.crb_lock, flags);
--	} else
--		data = readl((void __iomem *)off);
-+		return data;
-+	}
- 
--	return data;
-+	dev_err(&adapter->pdev->dev,
-+			"%s: invalid offset: 0x%016lx\n", __func__, off);
-+	dump_stack();
-+	return -1;
- }
- 
- /* window 1 registers only */
-diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
-index a524844..d8c4b70 100644
---- a/drivers/net/netxen/netxen_nic_init.c
-+++ b/drivers/net/netxen/netxen_nic_init.c
-@@ -832,6 +832,12 @@ void netxen_request_firmware(struct netxen_adapter *adapter)
- 		goto request_fw;
- 	}
- 
-+	if (NX_IS_REVISION_P3P(adapter->ahw.revision_id)) {
-+		/* No file firmware for the time being */
-+		fw_type = NX_FLASH_ROMIMAGE;
-+		goto done;
-+	}
-+
- 	fw_type = netxen_p3_has_mn(adapter) ?
- 		NX_P3_MN_ROMIMAGE : NX_P3_CT_ROMIMAGE;
- 
--- 
-1.6.0.2
+Also, keep in mind that the TCP_DEFER_ACCEPT parameter is passed in number
+of seconds by the application, which are in turn converted to a number of
+retransmits based on our own timer, which means that our SYN-ACK counter
+is what most closely matches the application's expected delay, even if an
+ACK from the client gets lost in between or if a client's stack retransmits
+pure ACKs very fast for any implementation-specific reason.
+
+Regards,
+Willy
 
