@@ -1,37 +1,182 @@
 From: Gregory Haskins <ghaskins@novell.com>
-Subject: [PATCH 0/2] net: vbus-enet fixes
-Date: Fri, 16 Oct 2009 09:36:13 -0400
-Message-ID: <20091016133411.13423.36106.stgit@dev.haskins.net>
+Subject: [PATCH 2/2] venet: fix locking issue with dev_kfree_skb()
+Date: Fri, 16 Oct 2009 09:36:24 -0400
+Message-ID: <20091016133624.13423.46727.stgit@dev.haskins.net>
+References: <20091016133411.13423.36106.stgit@dev.haskins.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org,
 	alacrityvm-devel@lists.sourceforge.net
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759393AbZJPNhH@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+In-Reply-To: <20091016133411.13423.36106.stgit@dev.haskins.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The following apply to the linux-next branch for AlacrityVM:
+We currently hold the priv->lock with interrupts disabled while calling
+dev_kfree_skb().  lockdep indicated that this arrangement is problematic
+with higher stack components which handle the wmem facility.  It is
+probably a bad idea to hold the lock/interrupts over the duration of this
+function independent of the lock-conflict issue, so lets rectify this.
 
-git://git.kernel.org/pub/scm/linux/kernel/git/ghaskins/alacrityvm/linux-2.6.git
+This new design switches to a finer-grained model, where we acquire/release
+the lock for each packet that we reap from the tx queue.  This adds
+theoretical lock acquistion overhead, but gains the ability to release
+the skbs without holding a lock and while improving critical section
+granularity.
 
-The series fixes a few problems discovered via community feedback and
-lockdep.  Please see the patch headers for more details.
-
-Kind Regards,
--Greg
-
+Signed-off-by: Gregory Haskins <ghaskins@novell.com>
 ---
 
-Gregory Haskins (2):
-      venet: fix locking issue with dev_kfree_skb()
-      net: fix vbus-enet Kconfig dependencies
-
-
- drivers/net/Kconfig     |    2 +
  drivers/net/vbus-enet.c |   71 +++++++++++++++++++++++------------------------
- 2 files changed, 36 insertions(+), 37 deletions(-)
+ 1 files changed, 35 insertions(+), 36 deletions(-)
 
--- 
-Signature
+diff --git a/drivers/net/vbus-enet.c b/drivers/net/vbus-enet.c
+index 9d48674..228c366 100644
+--- a/drivers/net/vbus-enet.c
++++ b/drivers/net/vbus-enet.c
+@@ -883,7 +883,7 @@ vbus_enet_tx_start(struct sk_buff *skb, struct net_device *dev)
+ 	priv->dev->stats.tx_packets++;
+ 	priv->dev->stats.tx_bytes += skb->len;
+ 
+-	__skb_queue_tail(&priv->tx.outstanding, skb);
++	skb_queue_tail(&priv->tx.outstanding, skb);
+ 
+ 	/*
+ 	 * This advances both indexes together implicitly, and then
+@@ -914,7 +914,7 @@ vbus_enet_skb_complete(struct vbus_enet_priv *priv, struct sk_buff *skb)
+ 	PDEBUG(priv->dev, "completed sending %d bytes\n",
+ 	       skb->len);
+ 
+-	__skb_unlink(skb, &priv->tx.outstanding);
++	skb_unlink(skb, &priv->tx.outstanding);
+ 	dev_kfree_skb(skb);
+ }
+ 
+@@ -923,12 +923,16 @@ vbus_enet_skb_complete(struct vbus_enet_priv *priv, struct sk_buff *skb)
+  *
+  * assumes priv->lock held
+  */
+-static void
+-vbus_enet_tx_reap(struct vbus_enet_priv *priv)
++static struct sk_buff *
++vbus_enet_tx_reap_one(struct vbus_enet_priv *priv)
+ {
++	struct sk_buff *skb = NULL;
+ 	struct ioq_iterator iter;
++	unsigned long flags;
+ 	int ret;
+ 
++	spin_lock_irqsave(&priv->lock, flags);
++
+ 	/*
+ 	 * We want to iterate on the head of the valid index, but we
+ 	 * do not want the iter_pop (below) to flip the ownership, so
+@@ -941,29 +945,15 @@ vbus_enet_tx_reap(struct vbus_enet_priv *priv)
+ 	ret = ioq_iter_seek(&iter, ioq_seek_head, 0, 0);
+ 	BUG_ON(ret < 0);
+ 
+-	/*
+-	 * We are done once we find the first packet either invalid or still
+-	 * owned by the south-side
+-	 */
+-	while (iter.desc->valid && !iter.desc->sown) {
+-
+-		if (!priv->evq.txc) {
+-			struct sk_buff *skb;
++	if (iter.desc->valid && !iter.desc->sown) {
+ 
+-			if (priv->sg) {
+-				struct venet_sg *vsg;
+-
+-				vsg = (struct venet_sg *)iter.desc->cookie;
+-				skb = (struct sk_buff *)vsg->cookie;
+-			} else
+-				skb = (struct sk_buff *)iter.desc->cookie;
++		if (priv->sg) {
++			struct venet_sg *vsg;
+ 
+-			/*
+-			 * If TXC is not enabled, we are required to free
+-			 * the buffer resources now
+-			 */
+-			vbus_enet_skb_complete(priv, skb);
+-		}
++			vsg = (struct venet_sg *)iter.desc->cookie;
++			skb = (struct sk_buff *)vsg->cookie;
++		} else
++			skb = (struct sk_buff *)iter.desc->cookie;
+ 
+ 		/* Reset the descriptor */
+ 		iter.desc->valid  = 0;
+@@ -982,19 +972,35 @@ vbus_enet_tx_reap(struct vbus_enet_priv *priv)
+ 		PDEBUG(priv->dev, "re-enabling tx queue\n");
+ 		netif_wake_queue(priv->dev);
+ 	}
++
++	spin_unlock_irqrestore(&priv->lock, flags);
++
++	return skb;
++}
++
++static void
++vbus_enet_tx_reap(struct vbus_enet_priv *priv)
++{
++	struct sk_buff *skb;
++
++	while ((skb = vbus_enet_tx_reap_one(priv))) {
++		if (!priv->evq.txc)
++			/*
++			 * We are responsible for freeing the packet upon
++			 * reap if TXC is not enabled
++			 */
++			vbus_enet_skb_complete(priv, skb);
++	}
+ }
+ 
+ static void
+ vbus_enet_timeout(struct net_device *dev)
+ {
+ 	struct vbus_enet_priv *priv = netdev_priv(dev);
+-	unsigned long flags;
+ 
+ 	dev_dbg(&dev->dev, "Transmit timeout\n");
+ 
+-	spin_lock_irqsave(&priv->lock, flags);
+ 	vbus_enet_tx_reap(priv);
+-	spin_unlock_irqrestore(&priv->lock, flags);
+ }
+ 
+ static void
+@@ -1014,13 +1020,10 @@ static void
+ deferred_tx_isr(unsigned long data)
+ {
+ 	struct vbus_enet_priv *priv = (struct vbus_enet_priv *)data;
+-	unsigned long flags;
+ 
+ 	PDEBUG(priv->dev, "deferred_tx_isr\n");
+ 
+-	spin_lock_irqsave(&priv->lock, flags);
+ 	vbus_enet_tx_reap(priv);
+-	spin_unlock_irqrestore(&priv->lock, flags);
+ 
+ 	ioq_notify_enable(priv->tx.veq.queue, 0);
+ }
+@@ -1063,14 +1066,10 @@ evq_txc_event(struct vbus_enet_priv *priv,
+ {
+ 	struct venet_event_txc *event =
+ 		(struct venet_event_txc *)header;
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&priv->lock, flags);
+ 
+ 	vbus_enet_tx_reap(priv);
+-	vbus_enet_skb_complete(priv, (struct sk_buff *)event->cookie);
+ 
+-	spin_unlock_irqrestore(&priv->lock, flags);
++	vbus_enet_skb_complete(priv, (struct sk_buff *)event->cookie);
+ }
+ 
+ static void
+
