@@ -1,89 +1,87 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: [net-next-2.6 PATCH 1/4 revised] TCPCT part 1a: extend struct tcp_request_sock
-Date: Fri, 16 Oct 2009 13:39:12 -0400
-Message-ID: <4AD8AFC0.1090101@gmail.com>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: Subject: [PATCH 6/6] bna: Brocade 10Gb Ethernet device driver
+Date: Fri, 16 Oct 2009 11:24:56 -0700
+Message-ID: <200910161824.n9GIOu9A010151@blc-10-10.brocade.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060904040004060802030407"
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: amathur@brocade.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:38956 "EHLO
-	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752386AbZJPRjN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 13:39:13 -0400
-Received: by fxm18 with SMTP id 18so2684328fxm.37
-        for <netdev@vger.kernel.org>; Fri, 16 Oct 2009 10:39:16 -0700 (PDT)
+Received: from hq-exedge.brocade.com ([66.243.153.83]:36257 "EHLO
+	hq-exedge.brocade.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752238AbZJPSaE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 14:30:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------060904040004060802030407
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+From: Rasesh Mody <rmody@brocade.com>
 
-Pass additional parameters associated with sending SYNACK.  This
-is not as straightforward or architecturally clean as previously
-proposed, and has the unfortunate side effect of potentially
-including otherwise unneeded headers for related protocols, but
-that problem will affect very few files.
+This is patch 6/6 which contains linux driver source for
+Brocade's BR1010/BR1020 10Gb CEE capable ethernet adapter.
+
+We wish this patch to be considered for inclusion in 2.6.32
+
+Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
-  include/net/extend_request_sock.h |   37 +++++++++++++++++++++++++++++++++++++
-  1 files changed, 37 insertions(+), 0 deletions(-)
-  create mode 100644 include/net/extend_request_sock.h
+ Kconfig  |   15 +++++++++++++++
+ Makefile |    1 +
+ bna      |   17 +++++++++++++++++
+ 3 files changed, 33 insertions(+)
 
-
---------------060904040004060802030407
-Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
- name="TCPCT+1+1.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="TCPCT+1+1.patch"
-
-diff --git a/include/net/extend_request_sock.h b/include/net/extend_request_sock.h
-new file mode 100644
-index 0000000..c991af9
---- /dev/null
-+++ b/include/net/extend_request_sock.h
-@@ -0,0 +1,37 @@
-+#ifndef _EXTEND_REQUEST_SOCK_H
-+#define _EXTEND_REQUEST_SOCK_H
-+/*
-+ * Short term extension of struct tcp_request_sock and related.
-+ *
-+ * Copyright (C) 2009 William.Allen.Simpson@gmail.com
-+ * All rights reserved.
-+ *
-+ *	This program is free software; you can redistribute it and/or
-+ *	modify it under the terms of the GNU General Public License
-+ *	as published by the Free Software Foundation; either version
-+ *	2 of the License, or (at your option) any later version.
-+ */
-+#include <linux/tcp.h>
-+#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
-+#include <linux/ipv6.h>
-+#endif
+diff -ruP linux-2.6.32-rc4-orig/drivers/net/bna linux-2.6.32-rc4-mod/drivers/net/bna
+--- linux-2.6.32-rc4-orig/drivers/net/bna	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.32-rc4-mod/drivers/net/bna	2009-10-16 10:36:26.005199000 -0700
+@@ -0,0 +1,17 @@
++#
++#    Copyright (c) 2005-2008 Brocade Communications Systems, Inc.
++#    All rights reserved.
++#
 +
-+struct extend_request_sock {
-+	union {
-+		struct tcp_request_sock tcp4rsk;
-+#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
-+		struct tcp6_request_sock tcp6rsk;
-+#endif
-+	} header;
++obj-$(CONFIG_BNA) += bna.o
 +
-+	u8	cookie_plus;
-+	u8	cookie_in_always:1,
-+		cookie_out_never:1;
-+};
++bna-objs := bnad.o bnad_ethtool.o bna_fn.o bna_if.o bna_queue.o \
++		bfad_fwimg.o bfa_csdebug.o bfa_sm.o \
++		bfa_ioc.o bfa_timer.o \
++		bfa_cee.o
 +
-+static inline struct extend_request_sock *ext_rsk(const struct request_sock *req)
-+{
-+	return (struct extend_request_sock *)req;
-+}
++EXTRA_CFLAGS += -Idrivers/net/bna \
++		-Idrivers/net/bna/include \
++		-Idrivers/net/bna/include/cee \
++		-Idrivers/net/bna/include/cna/pstats \
++		-Idrivers/net/bna/include/cs 
+diff -ruP linux-2.6.32-rc4-orig/drivers/net/Kconfig linux-2.6.32-rc4-mod/drivers/net/Kconfig
+--- linux-2.6.32-rc4-orig/drivers/net/Kconfig	2009-10-11 14:43:56.000000000 -0700
++++ linux-2.6.32-rc4-mod/drivers/net/Kconfig	2009-10-16 10:36:25.990206000 -0700
+@@ -2757,6 +2757,21 @@
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called qlge.
+ 
++config BNA
++	tristate "Brocade 1010/1020 10Gb Ethernet Driver support"
++	depends on PCI
++	---help---
++	  This driver supports Brocade 1010/1020 10Gb CEE capable Ethernet 
++	  cards.
 +
-+#endif /* _EXTEND_REQUEST_SOCK_H */
--- 
-1.6.0.4
-
-
---------------060904040004060802030407--
++	  To compile this driver as a module, choose M here: the module
++	  will be called bna.
++
++	  For general information and support, go to the Brocade support
++	  website at:
++
++	  <http://support.brocade.com>
++
+ source "drivers/net/sfc/Kconfig"
+ 
+ source "drivers/net/benet/Kconfig"
+diff -ruP linux-2.6.32-rc4-orig/drivers/net/Makefile linux-2.6.32-rc4-mod/drivers/net/Makefile
+--- linux-2.6.32-rc4-orig/drivers/net/Makefile	2009-10-11 14:43:56.000000000 -0700
++++ linux-2.6.32-rc4-mod/drivers/net/Makefile	2009-10-16 10:36:25.999196000 -0700
+@@ -26,6 +26,7 @@
+ obj-$(CONFIG_ENIC) += enic/
+ obj-$(CONFIG_JME) += jme.o
+ obj-$(CONFIG_BE2NET) += benet/
++obj-$(CONFIG_BNA) += bna/
+ 
+ gianfar_driver-objs := gianfar.o \
+ 		gianfar_ethtool.o \
