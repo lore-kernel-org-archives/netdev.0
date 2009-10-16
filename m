@@ -1,103 +1,40 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH NEXT 5/7] netxen: onchip memory access change
-Date: Thu, 15 Oct 2009 23:09:11 -0700
-Message-ID: <1255673353-31797-6-git-send-email-dhananjay@netxen.com>
-References: <1255673353-31797-1-git-send-email-dhananjay@netxen.com>
-Cc: netdev@vger.kernel.org, Amit Kumar Salecha <amit@netxen.com>
-To: davem@davemloft.net
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 0/2] Add implementation of CCID4 into the DCCP test tree
+Date: Fri, 16 Oct 2009 08:07:18 +0200
+Message-ID: <20091016060718.GA7199@gerrit.erg.abdn.ac.uk>
+References: <4AD4B89C.6010704@embedded.ufcg.edu.br>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:45978 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1754551AbZJPGKb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Oct 2009 02:10:31 -0400
-In-Reply-To: <1255673353-31797-1-git-send-email-dhananjay@netxen.com>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:49065 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752840AbZJPGIL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Oct 2009 02:08:11 -0400
+Content-Disposition: inline
+In-Reply-To: <4AD4B89C.6010704@embedded.ufcg.edu.br>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit@netxen.com>
+| These patches add implementation of CCID4 into the DCCP test tree.
+Thank you for sending these.
 
-Add support for different windowing scheme for on chip
-memory in future chip revisions. This is required by
-diagnostic tools.
+I have taken all three series,
+ * 4-part TFRC-SP receiver set,
+ * 4-part TFRC-SP sender set,
+ * 2-part CCID-4 implementation set,
+and replaced the old ccid4 subtree of the DCCP test tree.
 
-Signed-off-by: Amit Kumar Salecha <amit@netxen.com>
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
----
- drivers/net/netxen/netxen_nic_hdr.h  |    3 +++
- drivers/net/netxen/netxen_nic_hw.c   |   21 ++++++++++++++-------
- drivers/net/netxen/netxen_nic_main.c |    6 +++++-
- 3 files changed, 22 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic_hdr.h b/drivers/net/netxen/netxen_nic_hdr.h
-index d40fe33..7386a7c 100644
---- a/drivers/net/netxen/netxen_nic_hdr.h
-+++ b/drivers/net/netxen/netxen_nic_hdr.h
-@@ -867,6 +867,9 @@ enum {
- 		(PCIX_SN_WINDOW_F0 + (0x20 * (func))) :\
- 		(PCIX_SN_WINDOW_F4 + (0x10 * ((func)-4))))
- 
-+#define PCIX_OCM_WINDOW		(0x10800)
-+#define PCIX_OCM_WINDOW_REG(func)	(PCIX_OCM_WINDOW + 0x20 * (func))
-+
- #define PCIX_TARGET_STATUS	(0x10118)
- #define PCIX_TARGET_STATUS_F1	(0x10160)
- #define PCIX_TARGET_STATUS_F2	(0x10164)
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index 52a2f2d..ce07d13 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -31,6 +31,7 @@
- #define MASK(n) ((1ULL<<(n))-1)
- #define MN_WIN(addr) (((addr & 0x1fc0000) >> 1) | ((addr >> 25) & 0x3ff))
- #define OCM_WIN(addr) (((addr & 0x1ff0000) >> 1) | ((addr >> 25) & 0x3ff))
-+#define OCM_WIN_P3P(addr) (addr & 0xffc0000)
- #define MS_WIN(addr) (addr & 0x0ffc0000)
- 
- #define GET_MEM_OFFS_2M(addr) (addr & MASK(18))
-@@ -1347,13 +1348,19 @@ netxen_nic_pci_set_window_2M(struct netxen_adapter *adapter,
- 		return -EIO;
- 	}
- 
--	window = OCM_WIN(addr);
--	writel(window, adapter->ahw.ocm_win_crb);
--	win_read = readl(adapter->ahw.ocm_win_crb);
--	if ((win_read >> 7) != window) {
--		if (printk_ratelimit())
--			dev_warn(&pdev->dev, "failed to set OCM window\n");
--		return -EIO;
-+	if (NX_IS_REVISION_P3P(adapter->ahw.revision_id)) {
-+		window = OCM_WIN_P3P(addr);
-+		writel(window, adapter->ahw.ocm_win_crb);
-+	} else {
-+		window = OCM_WIN(addr);
-+		writel(window, adapter->ahw.ocm_win_crb);
-+		win_read = readl(adapter->ahw.ocm_win_crb);
-+		if ((win_read >> 7) != window) {
-+			if (printk_ratelimit())
-+				dev_warn(&pdev->dev,
-+						"failed to set OCM window\n");
-+			return -EIO;
-+		}
- 	}
- 
- 	adapter->ahw.ocm_win = window;
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 2d772dd..30d9afe 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -649,7 +649,11 @@ netxen_setup_pci_map(struct netxen_adapter *adapter)
- 	adapter->ahw.pci_base1 = mem_ptr1;
- 	adapter->ahw.pci_base2 = mem_ptr2;
- 
--	if (!NX_IS_REVISION_P2(adapter->ahw.revision_id)) {
-+	if (NX_IS_REVISION_P3P(adapter->ahw.revision_id)) {
-+		adapter->ahw.ocm_win_crb = netxen_get_ioaddr(adapter,
-+			NETXEN_PCIX_PS_REG(PCIX_OCM_WINDOW_REG(pci_func)));
-+
-+	} else if (NX_IS_REVISION_P3(adapter->ahw.revision_id)) {
- 		adapter->ahw.ocm_win_crb = netxen_get_ioaddr(adapter,
- 			NETXEN_PCIX_PS_REG(PCIE_MN_WINDOW_REG(pci_func)));
- 	}
--- 
-1.6.0.2
+You can checkout the whole CCID-4 subtree via
+    git://eden-feed.erg.abdn.ac.uk/dccp_exp    => subtree 'ccid4'
 
+and view (or download) the CCID-4 patch series at
+    http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=log;h=ccid4
+
+These are all your patches, no edits apart from removing some trailing whitespace.
+If you make changes to your patches please send them relative to this tree.
+
+So far I have only verified that they build cleanly, will be back next week after
+some more tests.
