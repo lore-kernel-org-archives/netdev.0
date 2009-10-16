@@ -1,101 +1,56 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: not supported broadcom (?) NIC revision
-Date: Fri, 16 Oct 2009 09:30:14 -0700
-Message-ID: <1255710614.20869.335.camel@nseg_linux_HP1.broadcom.com>
-References: <4AD86F2F.90809@no-ip.pl>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] filter: Add SKF_AD_QUEUE instruction
+Date: Fri, 16 Oct 2009 19:10:46 +0200
+Message-ID: <4AD8A916.3060807@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"jgarzik@pobox.com" <jgarzik@pobox.com>
-To: "Wojtek Sawasciuk" <voyo@no-ip.pl>
+To: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1133 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750897AbZJPQks (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Oct 2009 12:40:48 -0400
-In-Reply-To: <4AD86F2F.90809@no-ip.pl>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:53180 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751296AbZJPRKr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 13:10:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+It can help being able to filter packets on their queue_mapping.
 
-On Fri, 2009-10-16 at 06:03 -0700, Wojtek Sawasciuk wrote:
-> Hi,
-> 
-> I'v got server with built-in 9 NIC ports. Two ports are not recognized 
-> by any driver, I suppose it *should* be by tg3 or bnx2
-> Below is lspci info, not supported NIC are in slots 00:10.0 and 00:10.2
-> strange thing is that this vendor is described as Serverworks, but lspci 
-> says its Broadcom.
+If filter performance is not good, we could add a "numqueue" field
+in struct packet_type, so that netif_nit_deliver() and other functions
+can directly ignore packets with not expected queue number.
 
-ServerWorks was bought by Broadcom many years ago.
+Lets experiment this simple filter extension first.
 
-> 
-> # grep 1166 include/linux/pci_ids.h
-> #define PCI_VENDOR_ID_SERVERWORKS         0x1166
-> 
-> Can someone help here ?
-> 
-> 
-> # lspci
-> 00:00.0 Host bridge: Broadcom GCNB-LE Host Bridge (rev 32)
-> 00:00.1 Host bridge: Broadcom GCNB-LE Host Bridge
-> 00:02.0 Ethernet controller: Intel Corporation 82541GI Gigabit Ethernet 
-> Controller (rev 05)
-> 00:0f.0 ISA bridge: Broadcom CSB5 South Bridge (rev 93)
-> 00:0f.1 IDE interface: Broadcom CSB5 IDE Controller (rev 93)
-> 00:0f.2 USB Controller: Broadcom OSB4/CSB5 OHCI USB Controller (rev 05)
-> 00:0f.3 Host bridge: Broadcom CSB5 LPC bridge
-> 
-> 00:10.0 Host bridge: Broadcom CIOB-E I/O Bridge with Gigabit Ethernet 
-> (rev 12)
-> 00:10.2 Host bridge: Broadcom CIOB-E I/O Bridge with Gigabit Ethernet 
-> (rev 12)
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
 
-These 2 are bridge devices and no driver is needed.  I think the
-integrated ethernet device should be behind these bridges showing up as
-BCM5704 below.
-
-> 
-> 02:02.0 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet 
-> Controller (rev 03)
-> 02:02.1 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet 
-> Controller (rev 03)
-> 02:04.0 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet 
-> Controller (rev 03)
-> 02:04.1 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet 
-> Controller (rev 03)
-> 03:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5704 
-> Gigabit Ethernet (rev 02)
-> 03:00.1 Ethernet controller: Broadcom Corporation NetXtreme BCM5704 
-> Gigabit Ethernet (rev 02)
-> 
-> 
-> 00:10.0 0600: 1166:0110 (rev 12)
->         Control: I/O- Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- 
-> ParErr- Stepping- SERR+ FastB2B-
->         Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort+ >SERR- <PERR-
->         Capabilities: [60] PCI-X non-bridge device
->                 Command: DPERE- ERO- RBC=512 OST=8
->                 Status: Dev=00:00.0 64bit+ 133MHz+ SCD- USC- DC=bridge 
-> DMMRBC=512 DMOST=8 DMCRS=8 RSCEM- 266MHz- 533MHz-
-> 
-> 00:10.2 0600: 1166:0110 (rev 12)
->         Control: I/O- Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- 
-> ParErr- Stepping- SERR+ FastB2B-
->         Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort+ >SERR- <PERR-
->         Capabilities: [60] PCI-X non-bridge device
->                 Command: DPERE- ERO- RBC=512 OST=8
->                 Status: Dev=00:00.0 64bit+ 133MHz+ SCD- USC- DC=bridge 
-> DMMRBC=512 DMOST=8 DMCRS=8 RSCEM- 266MHz- 533MHz-
-> 
-> 
-> 
-> 
-> 
-> 
-
-
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 1354aaf..a93f885 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -123,7 +123,8 @@ struct sock_fprog	/* Required for SO_ATTACH_FILTER. */
+ #define SKF_AD_IFINDEX 	8
+ #define SKF_AD_NLATTR	12
+ #define SKF_AD_NLATTR_NEST	16
+-#define SKF_AD_MAX	20
++#define SKF_AD_QUEUE	20
++#define SKF_AD_MAX	24
+ #define SKF_NET_OFF   (-0x100000)
+ #define SKF_LL_OFF    (-0x200000)
+ 
+diff --git a/net/core/filter.c b/net/core/filter.c
+index d1d779c..0fc83f7 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -303,6 +303,9 @@ load_b:
+ 		case SKF_AD_IFINDEX:
+ 			A = skb->dev->ifindex;
+ 			continue;
++		case SKF_AD_QUEUE:
++			A = skb->queue_mapping;
++			continue;
+ 		case SKF_AD_NLATTR: {
+ 			struct nlattr *nla;
+ 
