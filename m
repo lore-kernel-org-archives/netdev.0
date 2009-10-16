@@ -1,74 +1,48 @@
-From: Mel Gorman <mel@csn.ul.ie>
-Subject: Re: [PATCH 2/2] page allocator: Direct reclaim should always obey
-	watermarks
-Date: Fri, 16 Oct 2009 23:32:37 +0100
-Message-ID: <20091016223237.GE32397@csn.ul.ie>
-References: <1255689446-3858-1-git-send-email-mel@csn.ul.ie> <1255689446-3858-3-git-send-email-mel@csn.ul.ie> <alpine.DEB.1.00.0910161204140.21328@chino.kir.corp.google.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: [E1000-devel] behaviour question for igb on nehalem box
+Date: Fri, 16 Oct 2009 15:48:18 -0700 (Pacific Daylight Time)
+Message-ID: <alpine.WNT.2.00.0910161544330.13364@jbrandeb-mobl2.amr.corp.intel.com>
+References: <4ACF8466.5030309@nortel.com> <alpine.WNT.2.00.0910091250440.5328@jbrandeb-desk1.amr.corp.intel.com> <4ACFB9DF.9080909@nortel.com> <4ACFC52F.4050509@intel.com> <4ACFCBE8.7060108@intel.com> <4AD4B9BB.3010209@nortel.com>
+ <4AD8F089.9010602@sauce.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Andrew Morton <akpm@linux-foundation.org>, stable <stable@kernel.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	David Miller <davem@davemloft.net>, Frans Pop <elendil@planet.nl>,
-	reinette chatre <reinette.chatre@intel.com>,
-	Kalle Valo <kalle.valo@iki.fi>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Karol Lewandowski <karol.k.lewandowski@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>
-To: David Rientjes <rientjes@google.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.1.00.0910161204140.21328@chino.kir.corp.google.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Chris Friesen <cfriesen@nortel.com>,
+	e1000-list <e1000-devel@lists.sourceforge.net>,
+	Linux Network Development list <netdev@vger.kernel.org>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: Richard Scobie <richard@sauce.co.nz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:47395 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751116AbZJPWsP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Oct 2009 18:48:15 -0400
+In-Reply-To: <4AD8F089.9010602@sauce.co.nz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 16, 2009 at 12:07:07PM -0700, David Rientjes wrote:
-> On Fri, 16 Oct 2009, Mel Gorman wrote:
+On Fri, 16 Oct 2009, Richard Scobie wrote:
+> I'm have just put together a Nehalem system (1 x Xeon), 
+> 2.6.30.8-64.fc11.x86_64, which has quad onboard 82576 and noticed during 
+> testing using just a single interface, that the RX queues on the other 3 
+> were receiving interrupts - observed in /proc/interrupts.
 > 
-> > ALLOC_NO_WATERMARKS should be cleared when trying to allocate from the
-> > free-lists after a direct reclaim. If it's not, __GFP_NOFAIL allocations
-> > from a process that is exiting can ignore watermarks. __GFP_NOFAIL is not
-> > often used but the journal layer is one of those places. This is suspected of
-> > causing an increase in the number of GFP_ATOMIC allocation failures reported.
-> > 
-> > Signed-off-by: Mel Gorman <mel@csn.ul.ie>
-> > ---
-> >  mm/page_alloc.c |    3 ++-
-> >  1 files changed, 2 insertions(+), 1 deletions(-)
-> > 
-> > diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-> > index dfa4362..a3e5fed 100644
-> > --- a/mm/page_alloc.c
-> > +++ b/mm/page_alloc.c
-> > @@ -1860,7 +1860,8 @@ rebalance:
-> >  	page = __alloc_pages_direct_reclaim(gfp_mask, order,
-> >  					zonelist, high_zoneidx,
-> >  					nodemask,
-> > -					alloc_flags, preferred_zone,
-> > +					alloc_flags & ~ALLOC_NO_WATERMARKS,
-> > +					preferred_zone,
-> >  					migratetype, &did_some_progress);
-> >  	if (page)
-> >  		goto got_pg;
-> 
-> I don't get it.  __alloc_pages_high_priority() will already loop 
-> indefinitely if ALLOC_NO_WATERMARKS is set and its a __GFP_NOFAIL 
-> allocation.  How do we even reach this code in such a condition?
-> 
+> Is this normal behaviour?
 
-Frans, you reported that both patches in combination reduced the number
-of failures. Was it in fact just the kswapd change that made the
-difference?
+Hi Richard, 
 
--- 
-Mel Gorman
-Part-time Phd Student                          Linux Technology Center
-University of Limerick                         IBM Dublin Software Lab
+This is normal, since we trigger an interrupt on every queue during our 
+watchdog.  So if the interface is up it should be triggering an interrupt 
+on every queue every two seconds.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+This has (and will probably continue to be) necessary in order to pick up 
+any straggler packets due to any (extremely rare, but expected to occur) 
+missed interrupts that could happen when traffic is running.  It also is 
+extremely useful if you're doing irq affinitization and/or debugging 
+interrupts.
+
+you can bring down the interfaces and they will stop interrupting.
+
+Jesse
