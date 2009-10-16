@@ -1,90 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP_DEFER_ACCEPT is missing counter update
-Date: Fri, 16 Oct 2009 12:40:11 +0200
-Message-ID: <4AD84D8B.5020103@gmail.com>
-References: <20091014045226.GA15655@1wt.eu> <Pine.LNX.4.58.0910140912420.2714@u.domain.uli> <20091014201706.GA24298@1wt.eu> <20091014.154349.83940908.davem@davemloft.net> <20091015060834.GB29564@1wt.eu> <Pine.LNX.4.58.0910151120340.2879@u.domain.uli> <20091015124134.GB1073@1wt.eu> <Pine.LNX.4.58.0910152257410.3047@u.domain.uli> <20091016050310.GA5574@1wt.eu> <Pine.LNX.4.58.0910161137490.3886@u.domain.uli>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: [PATCH 1/2] page allocator: Always wake kswapd when restarting an
+	allocation attempt after direct reclaim failed
+Date: Fri, 16 Oct 2009 13:52:09 +0300
+Message-ID: <84144f020910160352n3a334e84hd248b78e0093716d@mail.gmail.com>
+References: <1255689446-3858-1-git-send-email-mel@csn.ul.ie>
+	 <1255689446-3858-2-git-send-email-mel@csn.ul.ie>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Willy Tarreau <w@1wt.eu>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:50318 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752877AbZJPKl3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 06:41:29 -0400
-In-Reply-To: <Pine.LNX.4.58.0910161137490.3886@u.domain.uli>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
+Cc: Andrew Morton <akpm@linux-foundation.org>, stable <stable@kernel.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, David Miller <davem@davemloft.net>, Frans Pop <elendil@planet.nl>,
+	reinette chatre <reinette.chatre@intel.com>, Kalle Valo <kalle.valo@iki.fi>,
+	"John W. Linville" <linville@tuxdriver.com>, Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Karol Lewandowski <karol.k.lewandowski@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, "linux-mm@kvack.org\"" <linux-mm@kvack.org>
+To: Mel Gorman <mel@csn.ul.ie>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1255689446-3858-2-git-send-email-mel@csn.ul.ie>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Julian Anastasov a =E9crit :
-> 	Hello,
->=20
-> On Fri, 16 Oct 2009, Willy Tarreau wrote:
->=20
->>> 	This will need little change in inet_csk_reqsk_queue_prune()
->>> but it saves SYN-ACK traffic during deferring period in the
->>> common case when client sends ACK. If such compromise is
->>> acceptable I can prepare and test some patch.
->> I would personally like this a lot ! This will satisfy people who
->> expect it to establish at the end of the "TCP_DEFER_ACCEPT delay"
->> as can be interpreted from the man page, will reduce the number of
->> useless SYN-ACKs that annoy other people while still making no
->> visible change for anyone who would rely on the current behaviour.
->=20
-> 	OK, I don't have much time now, this is what I'm
-> going to test later today and later can provide proper comments:
->=20
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+On Fri, Oct 16, 2009 at 1:37 PM, Mel Gorman <mel@csn.ul.ie> wrote:
+> If a direct reclaim makes no forward progress, it considers whether it
+> should go OOM or not. Whether OOM is triggered or not, it may retry the
+> application afterwards. In times past, this would always wake kswapd as w=
+ell
+> but currently, kswapd is not woken up after direct reclaim fails. For ord=
+er-0
+> allocations, this makes little difference but if there is a heavy mix of
+> higher-order allocations that direct reclaim is failing for, it might mea=
+n
+> that kswapd is not rewoken for higher orders as much as it did previously=
+.
+>
+> This patch wakes up kswapd when an allocation is being retried after a di=
+rect
+> reclaim failure. It would be expected that kswapd is already awake, but
+> this has the effect of telling kswapd to reclaim at the higher order as w=
+ell.
+>
+> Signed-off-by: Mel Gorman <mel@csn.ul.ie>
 
-I tested both patches and they perform very well, thank you !
+Reviewed-by: Pekka Enberg <penberg@cs.helsinki.fi>
 
-=46or the minimum 1 sec value, tcpdump looks like :
-12:32:03.850456 IP 127.0.0.1.20000 > 127.0.0.1.2222: S 1879889239:18798=
-89239(0) win 32792 <mss 16396,nop,nop,timestamp 952803 0,nop,wscale 6>
-12:32:03.850463 IP 127.0.0.1.2222 > 127.0.0.1.20000: S 1890330616:18903=
-30616(0) ack 1879889240 win 32768 <mss 16396,nop,nop,timestamp 952803 9=
-52803,nop,wscale 6>
-12:32:03.850469 IP 127.0.0.1.20000 > 127.0.0.1.2222: . ack 1 win 513 <n=
-op,nop,timestamp 952803 952803>
+> ---
+> =A0mm/page_alloc.c | =A0 =A02 +-
+> =A01 files changed, 1 insertions(+), 1 deletions(-)
+>
+> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+> index bf72055..dfa4362 100644
+> --- a/mm/page_alloc.c
+> +++ b/mm/page_alloc.c
+> @@ -1817,9 +1817,9 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int=
+ order,
+> =A0 =A0 =A0 =A0if (NUMA_BUILD && (gfp_mask & GFP_THISNODE) =3D=3D GFP_THI=
+SNODE)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto nopage;
+>
+> +restart:
+> =A0 =A0 =A0 =A0wake_all_kswapd(order, zonelist, high_zoneidx);
+>
+> -restart:
+> =A0 =A0 =A0 =A0/*
+> =A0 =A0 =A0 =A0 * OK, we're below the kswapd watermark and have kicked ba=
+ckground
+> =A0 =A0 =A0 =A0 * reclaim. Now things get more complex, so set up alloc_f=
+lags according
+> --
+> 1.6.3.3
+>
+> --
+> To unsubscribe, send a message with 'unsubscribe linux-mm' in
+> the body to majordomo@kvack.org. =A0For more info on Linux MM,
+> see: http://www.linux-mm.org/ .
+> Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+>
 
-12:32:06.849989 IP 127.0.0.1.2222 > 127.0.0.1.20000: S 1890330616:18903=
-30616(0) ack 1879889240 win 32768 <mss 16396,nop,nop,timestamp 955803 9=
-52803,nop,wscale 6>
-12:32:06.849996 IP 127.0.0.1.20000 > 127.0.0.1.2222: . ack 1 win 513 <n=
-op,nop,timestamp 955803 955803>
-
-So listening application gets the accept() 3 seconds after initial SYN
-
-
-# ss -emoian | grep SYN-RECV
-SYN-RECV   0      0                 127.0.0.1:2222             127.0.0.=
-1:20000  timer:(on,24sec,4) ino:0 sk:f6f0ec80
-
-I wonder if tcp_diag should be extented a bit to reflect fact that the =
-ACK was received from client
-(ie forward the inet_rsk(req)->acked information to idiag_rqueue)
-
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index cb73fde..c172bd4 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -589,7 +589,7 @@ static int inet_diag_fill_req(struct sk_buff *skb, =
-struct sock *sk,
- 	r->id.idiag_src[0] =3D ireq->loc_addr;
- 	r->id.idiag_dst[0] =3D ireq->rmt_addr;
- 	r->idiag_expires =3D jiffies_to_msecs(tmo);
-- 	r->idiag_rqueue =3D 0;
-+	r->idiag_rqueue =3D ireq->acked;
- 	r->idiag_wqueue =3D 0;
- 	r->idiag_uid =3D sock_i_uid(sk);
- 	r->idiag_inode =3D 0;
-
-
-
-->=20
-# ss -emoian | grep SYN-RECV
-SYN-RECV   1      0                 127.0.0.1:2222             127.0.0.=
-1:20000  timer:(on,24sec,4) ino:0 sk:f6f0ec80
-
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
