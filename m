@@ -1,50 +1,37 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: [PATCH 5/8] trivial: fix typo s/assocate/associate/ in comment
-Date: Fri, 16 Oct 2009 15:25:24 +0200 (CEST)
-Message-ID: <alpine.LSU.2.00.0910161525190.8582@wotan.suse.de>
-References: <1255637738-6069-1-git-send-email-cascardo@holoscopio.com>
+From: Gregory Haskins <ghaskins@novell.com>
+Subject: [PATCH 0/2] net: vbus-enet fixes
+Date: Fri, 16 Oct 2009 09:36:13 -0400
+Message-ID: <20091016133411.13423.36106.stgit@dev.haskins.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jiri Slaby <jirislaby@gmail.com>,
-	Nick Kossifidis <mickflemm@gmail.com>,
-	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
-	Bob Copeland <me@bobcopeland.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, ath5k-devel@venema.h4ckr.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:37180 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759545AbZJPN0C (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Oct 2009 09:26:02 -0400
-In-Reply-To: <1255637738-6069-1-git-send-email-cascardo@holoscopio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	alacrityvm-devel@lists.sourceforge.net
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759393AbZJPNhH@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 15 Oct 2009, Thadeu Lima de Souza Cascardo wrote:
+The following apply to the linux-next branch for AlacrityVM:
 
-> Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
-> ---
->  drivers/net/wireless/ath/ath5k/base.h |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/ath/ath5k/base.h b/drivers/net/wireless/ath/ath5k/base.h
-> index b14ba07..b73e7d3 100644
-> --- a/drivers/net/wireless/ath/ath5k/base.h
-> +++ b/drivers/net/wireless/ath/ath5k/base.h
-> @@ -192,7 +192,7 @@ struct ath5k_softc {
->  	struct ath5k_txq	*cabq;		/* content after beacon */
->  
->  	int 			power_level;	/* Requested tx power in dbm */
-> -	bool			assoc;		/* assocate state */
-> +	bool			assoc;		/* associate state */
->  	bool			enable_beacon;	/* true if beacons are on */
->  };
+git://git.kernel.org/pub/scm/linux/kernel/git/ghaskins/alacrityvm/linux-2.6.git
 
-Merged together with patches 2-8 from your series and applied to trivial
-queue.
+The series fixes a few problems discovered via community feedback and
+lockdep.  Please see the patch headers for more details.
+
+Kind Regards,
+-Greg
+
+---
+
+Gregory Haskins (2):
+      venet: fix locking issue with dev_kfree_skb()
+      net: fix vbus-enet Kconfig dependencies
+
+
+ drivers/net/Kconfig     |    2 +
+ drivers/net/vbus-enet.c |   71 +++++++++++++++++++++++------------------------
+ 2 files changed, 36 insertions(+), 37 deletions(-)
 
 -- 
-Jiri Kosina
-SUSE Labs, Novell Inc.
+Signature
