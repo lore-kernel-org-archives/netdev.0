@@ -1,68 +1,43 @@
-From: dann frazier <dannf@hp.com>
-Subject: Re: PATCH: Network Device Naming mechanism and policy
-Date: Thu, 15 Oct 2009 18:32:45 -0600
-Message-ID: <20091016003245.GD29672@ldl.fc.hp.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com>
- <20091009140000.GA18765@mock.linuxdev.us.dell.com>
- <20091013150839.GD32107@ldl.fc.hp.com>
- <EDA0A4495861324DA2618B4C45DCB3EE58954D@blrx3m08.blr.amer.dell.com>
- <20091013173638.GE1119@ldl.fc.hp.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP_DEFER_ACCEPT is missing counter update
+Date: Fri, 16 Oct 2009 05:51:16 +0200
+Message-ID: <4AD7EDB4.7060907@gmail.com>
+References: <20091014045226.GA15655@1wt.eu> <Pine.LNX.4.58.0910140912420.2714@u.domain.uli> <20091014201706.GA24298@1wt.eu> <20091014.154349.83940908.davem@davemloft.net> <20091015060834.GB29564@1wt.eu> <Pine.LNX.4.58.0910151120340.2879@u.domain.uli> <20091015124134.GB1073@1wt.eu> <Pine.LNX.4.58.0910152257410.3047@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
-	Matt_Domsch@Dell.com, Jordan_Hargrave@Dell.com,
-	Charles_Rose@Dell.com
-To: Narendra_K@Dell.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Willy Tarreau <w@1wt.eu>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0185.atlanta.hp.com ([15.193.32.62]:43375 "EHLO
-	g6t0185.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758841AbZJPAeF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 20:34:05 -0400
-Content-Disposition: inline
-In-Reply-To: <20091013173638.GE1119@ldl.fc.hp.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:56746 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750951AbZJPDwf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 23:52:35 -0400
+In-Reply-To: <Pine.LNX.4.58.0910152257410.3047@u.domain.uli>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 13, 2009 at 11:36:38AM -0600, dann frazier wrote:
-> 1;2202;0cOn Tue, Oct 13, 2009 at 10:43:49PM +0530, Narendra_K@Dell.com wrote:
-> > 
-> > >> These device nodes are not functional at the moment - open() returns 
-> > >> -ENOSYS.  Their only purpose is to provide userspace with a kernel 
-> > >> name to ifindex mapping, in a form that udev can easily manage.
-> > >
-> > >If the idea is just to provide a userspace-visible mapping 
-> > >(and presumably take advantage of udev's infrastructure for 
-> > >naming) does this need kernel changes? Could this be a 
-> > >hierarchy under e.g. /etc/udev instead, using plain text 
-> > >files? It still means we need something like libnetdevname for 
-> > >apps to do the translation, but I'm not seeing why it matters 
-> > >how this map is stored. Is there some special property of the 
-> > >character devices (e.g. uevents) that we're not already 
-> > >getting with the existing interfaces?
-> > 
-> > Yes. The char device by itself doesn't help in any way. But it provides
-> > a flexible mechanism to provide multiple names for the same device, just
-> > the way it is for disks.
-> 
-> Right - so any reason this couldn't be implemented completely in
-> userspace by having udev manipulate plain text files under say
-> /etc/udev/net/?
-> 
-> I do agree that it would be nice for admins/installers to tweak/use
-> nic names in a similar way to storage names (udev rules), and it might
-> let us take advantage of a lot of the existing udev code.
+Julian Anastasov a =E9crit :
+> 	Sorry for the long mail ...
+>=20
+> 	I was not clear enough in previous email. Your goal
+> is to decrease period per client while the actually decreased
+> threshold is on the listener's socket. 256 conns will be enough
+> to completely disable TCP_DEFER_ACCEPT on the listener (u8). I'm not
+> sure that you tested what happens after Nth client (where
+> N matches your TCP_DEFER_ACCEPT value as retransmissions), do you
+> still see accept deferring for next clients? Now if your patch
+> is applied the deferring will be disabled soon after server start.
 
-Is there interest in this approach?
 
- - modify udev to manage network devices names as regular (non-device)
-   files (stored in /etc/udev, /dev/netdev, or wherever)
- - use the existing udev rules to manage symlinks to these files
- - point libnetdevname at these text files for its name resolution
+So, it appears defer_accept value is not an inherited attribute,
+but shared by all embryons. Therefore we should not touch it.
 
-I've started prototyping this, and it certainly looks possible w/o any
-kernel changes. However, I could probably use some advice from a udev
-person to do a proper implementation.
+No need to type so much text Julian.
 
--- 
-dann frazier
+Of course it should be done, or add a new connection field to count num=
+ber
+of pure ACKS received on each SYN_RECV embryon.
 
+Do you volunter for this patch ?
