@@ -1,53 +1,90 @@
-From: Mel Gorman <mel@csn.ul.ie>
-Subject: [PATCH 0/2] Reduce number of GFP_ATOMIC allocation failures
-Date: Fri, 16 Oct 2009 11:37:24 +0100
-Message-ID: <1255689446-3858-1-git-send-email-mel@csn.ul.ie>
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, David Miller <davem@davemloft.net>, Frans Pop <elendil@planet.nl>, reinette chatre <reinette.chatre@intel.com>, Kalle Valo <kalle.valo@iki.fi>, "John W. Linville" <linville@tuxdriver.com>, Pekka Enberg <penberg@cs.helsinki.fi>, Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>, Karol Lewandowski <karol.k.lewandowski@gmail.com>, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, "linux-mm@kvack.org\"" <linux-mm@kvack.org>, Mel Gorman <mel@csn.ul.ie>
-To: Andrew Morton <akpm@linux-foundation.org>,
-	stable <stable@kernel.org>
-Return-path: <owner-linux-mm@kvack.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP_DEFER_ACCEPT is missing counter update
+Date: Fri, 16 Oct 2009 12:40:11 +0200
+Message-ID: <4AD84D8B.5020103@gmail.com>
+References: <20091014045226.GA15655@1wt.eu> <Pine.LNX.4.58.0910140912420.2714@u.domain.uli> <20091014201706.GA24298@1wt.eu> <20091014.154349.83940908.davem@davemloft.net> <20091015060834.GB29564@1wt.eu> <Pine.LNX.4.58.0910151120340.2879@u.domain.uli> <20091015124134.GB1073@1wt.eu> <Pine.LNX.4.58.0910152257410.3047@u.domain.uli> <20091016050310.GA5574@1wt.eu> <Pine.LNX.4.58.0910161137490.3886@u.domain.uli>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Willy Tarreau <w@1wt.eu>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:50318 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752877AbZJPKl3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 06:41:29 -0400
+In-Reply-To: <Pine.LNX.4.58.0910161137490.3886@u.domain.uli>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The following two patches against 2.6.32-rc4 should reduce allocation
-failure reports for GFP_ATOMIC allocations that have being cropping up
-since 2.6.31-rc1.
+Julian Anastasov a =E9crit :
+> 	Hello,
+>=20
+> On Fri, 16 Oct 2009, Willy Tarreau wrote:
+>=20
+>>> 	This will need little change in inet_csk_reqsk_queue_prune()
+>>> but it saves SYN-ACK traffic during deferring period in the
+>>> common case when client sends ACK. If such compromise is
+>>> acceptable I can prepare and test some patch.
+>> I would personally like this a lot ! This will satisfy people who
+>> expect it to establish at the end of the "TCP_DEFER_ACCEPT delay"
+>> as can be interpreted from the man page, will reduce the number of
+>> useless SYN-ACKs that annoy other people while still making no
+>> visible change for anyone who would rely on the current behaviour.
+>=20
+> 	OK, I don't have much time now, this is what I'm
+> going to test later today and later can provide proper comments:
+>=20
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
 
-I believe these are candidates for -stable as they address issues in the
-following commit introduced in the v2.6.30..v2.6.31-rc1 window
+I tested both patches and they perform very well, thank you !
 
-11e33f6 page allocator: break up the allocator entry point into fast and slow paths
+=46or the minimum 1 sec value, tcpdump looks like :
+12:32:03.850456 IP 127.0.0.1.20000 > 127.0.0.1.2222: S 1879889239:18798=
+89239(0) win 32792 <mss 16396,nop,nop,timestamp 952803 0,nop,wscale 6>
+12:32:03.850463 IP 127.0.0.1.2222 > 127.0.0.1.20000: S 1890330616:18903=
+30616(0) ack 1879889240 win 32768 <mss 16396,nop,nop,timestamp 952803 9=
+52803,nop,wscale 6>
+12:32:03.850469 IP 127.0.0.1.20000 > 127.0.0.1.2222: . ack 1 win 513 <n=
+op,nop,timestamp 952803 952803>
 
-The patch should not have made functional changes but at least two slipped
-by. The first patch wakes kswapd up each time after OOM-killing has been
-considered. This can be important to high-order allocations where kswapd
-needs to reclaim at a higher order. The second patch corrects a problem
-whereby a process that is exiting and making a __GFP_NOFAIL allocation can
-ignore watermarks.
+12:32:06.849989 IP 127.0.0.1.2222 > 127.0.0.1.20000: S 1890330616:18903=
+30616(0) ack 1879889240 win 32768 <mss 16396,nop,nop,timestamp 955803 9=
+52803,nop,wscale 6>
+12:32:06.849996 IP 127.0.0.1.20000 > 127.0.0.1.2222: . ack 1 win 513 <n=
+op,nop,timestamp 955803 955803>
 
-These patches in combination should help reduce the number of GFP_ATOMIC
-failures in the following bug.
+So listening application gets the accept() 3 seconds after initial SYN
 
-[Bug #14141] order 2 page allocation failures in iwlagn
 
-However, this bug should not yet be closed as there are still problems in
-the driver itself that increase the number of GFP_ATOMIC allocations that bug.
+# ss -emoian | grep SYN-RECV
+SYN-RECV   0      0                 127.0.0.1:2222             127.0.0.=
+1:20000  timer:(on,24sec,4) ino:0 sk:f6f0ec80
 
-The patches should also help the following bugs as well and testing there
-would be appreciated.
+I wonder if tcp_diag should be extented a bit to reflect fact that the =
+ACK was received from client
+(ie forward the inet_rsk(req)->acked information to idiag_rqueue)
 
-[Bug #14265] ifconfig: page allocation failure. order:5, mode:0x8020 w/ e100
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index cb73fde..c172bd4 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -589,7 +589,7 @@ static int inet_diag_fill_req(struct sk_buff *skb, =
+struct sock *sk,
+ 	r->id.idiag_src[0] =3D ireq->loc_addr;
+ 	r->id.idiag_dst[0] =3D ireq->rmt_addr;
+ 	r->idiag_expires =3D jiffies_to_msecs(tmo);
+- 	r->idiag_rqueue =3D 0;
++	r->idiag_rqueue =3D ireq->acked;
+ 	r->idiag_wqueue =3D 0;
+ 	r->idiag_uid =3D sock_i_uid(sk);
+ 	r->idiag_inode =3D 0;
 
-It might also have helped the following bug although that driver has already
-been fixed by not making high-order atomic allocations.
 
-[Bug #14016] mm/ipw2200 regression
 
- mm/page_alloc.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+->=20
+# ss -emoian | grep SYN-RECV
+SYN-RECV   1      0                 127.0.0.1:2222             127.0.0.=
+1:20000  timer:(on,24sec,4) ino:0 sk:f6f0ec80
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
