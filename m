@@ -1,52 +1,55 @@
-From: dann frazier <dannf@dannf.org>
-Subject: Re: PATCH: Network Device Naming mechanism and policy
-Date: Fri, 16 Oct 2009 09:41:37 -0600
-Message-ID: <20091016154137.GB9862@ldl.fc.hp.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com>
- <20091009140000.GA18765@mock.linuxdev.us.dell.com>
- <20091013150839.GD32107@ldl.fc.hp.com>
- <EDA0A4495861324DA2618B4C45DCB3EE58954D@blrx3m08.blr.amer.dell.com>
- <20091013173638.GE1119@ldl.fc.hp.com>
- <20091016003245.GD29672@ldl.fc.hp.com>
- <EDA0A4495861324DA2618B4C45DCB3EE589579@blrx3m08.blr.amer.dell.com>
- <20091016152053.GA9862@ldl.fc.hp.com>
- <1255707193.2869.12.camel@achroite>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH 2/4 v2] net: Use sk_tx_queue_mapping for connected sockets
+Date: Fri, 16 Oct 2009 21:17:10 +0530
+Message-ID: <OFF47153C2.42E54782-ON65257651.005080BE-65257651.0056B757@in.ibm.com>
+References: <20091016072107.24384.17358.sendpatchset@localhost.localdomain> <20091016072132.24384.38301.sendpatchset@localhost.localdomain> <4AD84188.7030804@gmail.com> <OFAE5CC975.C26B600E-ON65257651.00401683-65257651.004721BC@in.ibm.com> <4AD87E22.9040500@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Narendra_K@Dell.com, netdev@vger.kernel.org,
-	linux-hotplug@vger.kernel.org, Matt_Domsch@Dell.com,
-	Jordan_Hargrave@Dell.com, Charles_Rose@Dell.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:11870 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760604AbZJPPmO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 11:42:14 -0400
-Content-Disposition: inline
-In-Reply-To: <1255707193.2869.12.camel@achroite>
+Received: from e28smtp05.in.ibm.com ([59.145.155.5]:37712 "EHLO
+	e28smtp05.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762082AbZJPPsZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 11:48:25 -0400
+Received: from d28relay03.in.ibm.com (d28relay03.in.ibm.com [9.184.220.60])
+	by e28smtp05.in.ibm.com (8.14.3/8.13.1) with ESMTP id n9GFlXG4026231
+	for <netdev@vger.kernel.org>; Fri, 16 Oct 2009 21:17:33 +0530
+Received: from d28av05.in.ibm.com (d28av05.in.ibm.com [9.184.220.67])
+	by d28relay03.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n9GFlXY32727960
+	for <netdev@vger.kernel.org>; Fri, 16 Oct 2009 21:17:33 +0530
+Received: from d28av05.in.ibm.com (loopback [127.0.0.1])
+	by d28av05.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n9GFlW6I030633
+	for <netdev@vger.kernel.org>; Sat, 17 Oct 2009 02:47:32 +1100
+In-Reply-To: <4AD87E22.9040500@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 16, 2009 at 04:33:13PM +0100, Ben Hutchings wrote:
-> On Fri, 2009-10-16 at 09:20 -0600, dann frazier wrote:
-> > On Fri, Oct 16, 2009 at 07:32:50PM +0530, Narendra_K@Dell.com wrote:
-> [...]
-> > > And how would the regular file look like in terms of holding ifindex of
-> > > the interface, which can be passed to libnetdevname.
-> > 
-> > I can't think of anything we need to store in the regular file. If we
-> > have the kernel name for the device, we can look up the ifindex in
-> > /sys. Correct me if I'm wrong, but storing it ourselves seems
-> > redundant.
-> 
-> But the name of a netdev can change whereas its ifindex never does.
-> Identifying netdevs by name would require additional work to update the
-> links when a netdev is renamed and would still be prone to race
-> conditions.  This is why Narendra and Matt were proposing to store the
-> ifindex in the node all along...
+Hi Eric,
 
-ah, yes - I see that now - the ability to rename an interface is what
-prevents this from working. Thanks for the explanation.
--- 
-dann frazier
+Eric Dumazet <eric.dumazet@gmail.com> wrote on 10/16/2009 07:37:30 PM:
+
+> > I wait for tcp_v4_syn_recv_sock to finish and create a connection.
+> > sk_setup_caps/__sk_dst_set are called for the new socket resulting
+> > in sk_dst_cache getting set (I cannot set the cache till the
+> > connection is finished and dst is set). I guess that means that I
+> > will wait for another skb to come and the response will use skb_tx_hash
+> > instead of using the rx recorded.
+>
+> Well, I see no relation between rx mapping and tx mapping currently.
+
+You are suggesting an enhancement to assign the txq# at ack processing
+using the skb->rx#. As you said it will help cards that are hashing the
+rx# internally. I will try that separately after this patch.
+
+> > Will this suffice, but if not, is it something I should handle or an
+> > add-on patch should do instead?
+> >
+>
+> Your patch is fine, I was only giving ideas for future patches :)
+
+Thanks for the suggestions, I just wanted to make sure.
+
+- KK
 
