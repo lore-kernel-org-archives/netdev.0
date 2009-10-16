@@ -1,102 +1,54 @@
-From: Joyce Yu <Joyce.Yu@Sun.COM>
-Subject: [Fwd: [PATCH] [NIU] VLAN does not work with niu driver]
-Date: Fri, 16 Oct 2009 09:21:46 -0700
-Message-ID: <4AD89D9A.7090405@Sun.COM>
-Reply-To: Joyce.Yu@Sun.COM
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] af_packet: mc_drop/flush_mclist changes
+Date: Fri, 16 Oct 2009 18:38:46 +0200
+Message-ID: <4AD8A195.3040902@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="Boundary_(ID_0BiUJJRt20xJ4sadlF+MKw)"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from brmea-mail-2.Sun.COM ([192.18.98.43]:41305 "EHLO
-	brmea-mail-2.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751306AbZJPQVp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 12:21:45 -0400
-Received: from fe-amer-09.sun.com ([192.18.109.79])
-	by brmea-mail-2.sun.com (8.13.6+Sun/8.12.9) with ESMTP id n9GGLn40025038
-	for <netdev@vger.kernel.org>; Fri, 16 Oct 2009 16:21:49 GMT
-Received: from conversion-daemon.mail-amer.sun.com by mail-amer.sun.com
- (Sun Java(tm) System Messaging Server 7u2-7.04 64bit (built Jul  2 2009))
- id <0KRM00L007JLF700@mail-amer.sun.com> for netdev@vger.kernel.org; Fri,
- 16 Oct 2009 10:21:49 -0600 (MDT)
-Received: from [129.145.154.82] ([unknown] [129.145.154.82])
- by mail-amer.sun.com
- (Sun Java(tm) System Messaging Server 7u2-7.04 64bit (built Jul  2 2009))
- with ESMTPSA id <0KRM00K8784B8720@mail-amer.sun.com> for
- netdev@vger.kernel.org; Fri, 16 Oct 2009 10:21:48 -0600 (MDT)
+Received: from gw1.cosmosbay.com ([212.99.114.194]:51313 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751327AbZJPQip (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 12:38:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
+We hold RTNL, we can use __dev_get_by_index() instead of dev_get_by_index()
 
---Boundary_(ID_0BiUJJRt20xJ4sadlF+MKw)
-Content-type: text/plain; CHARSET=US-ASCII; format=flowed
-Content-transfer-encoding: 7BIT
-
-
-Can this patch be accepted and integrated to the main tree?
-
-Thanks,
-Joyce
-
-
-=============================
-
- From eb878a6887fed77e6b4c69a014a2c98ea2b52736 Mon Sep 17 00:00:00 2001
-From: Joyce Yu <joyce.yu@sun.com>
-Date: Thu, 15 Oct 2009 06:49:29 -0700
-Subject: [PATCH] VLAN does not work with niu driver
-
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
-  drivers/net/niu.c |    2 +-
-  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index f9364d0..d6c7ac6 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -3545,7 +3545,7 @@ static int niu_process_rx_pkt(struct napi_struct 
-*napi, struct niu *np,
-  	rp->rcr_index = index;
-
-  	skb_reserve(skb, NET_IP_ALIGN);
--	__pskb_pull_tail(skb, min(len, NIU_RXPULL_MAX));
-+	__pskb_pull_tail(skb, min(len, VLAN_ETH_HLEN));
-
-  	rp->rx_packets++;
-  	rp->rx_bytes += skb->len;
--- 1.6.4
-
---Boundary_(ID_0BiUJJRt20xJ4sadlF+MKw)
-Content-type: text/x-patch; name=0001-VLAN-does-not-work-with-niu-driver.patch
-Content-transfer-encoding: 7BIT
-Content-disposition: inline;
- filename=0001-VLAN-does-not-work-with-niu-driver.patch
-
->From eb878a6887fed77e6b4c69a014a2c98ea2b52736 Mon Sep 17 00:00:00 2001
-From: Joyce Yu <joyce.yu@sun.com>
-Date: Thu, 15 Oct 2009 06:49:29 -0700
-Subject: [PATCH] VLAN does not work with niu driver
-
----
- drivers/net/niu.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index f9364d0..d6c7ac6 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -3545,7 +3545,7 @@ static int niu_process_rx_pkt(struct napi_struct *napi, struct niu *np,
- 	rp->rcr_index = index;
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index bf3a295..12b6d5b 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1664,11 +1664,9 @@ static int packet_mc_drop(struct sock *sk, struct packet_mreq_max *mreq)
+ 			if (--ml->count == 0) {
+ 				struct net_device *dev;
+ 				*mlp = ml->next;
+-				dev = dev_get_by_index(sock_net(sk), ml->ifindex);
+-				if (dev) {
++				dev = __dev_get_by_index(sock_net(sk), ml->ifindex);
++				if (dev)
+ 					packet_dev_mc(dev, ml, -1);
+-					dev_put(dev);
+-				}
+ 				kfree(ml);
+ 			}
+ 			rtnl_unlock();
+@@ -1692,11 +1690,9 @@ static void packet_flush_mclist(struct sock *sk)
+ 		struct net_device *dev;
  
- 	skb_reserve(skb, NET_IP_ALIGN);
--	__pskb_pull_tail(skb, min(len, NIU_RXPULL_MAX));
-+	__pskb_pull_tail(skb, min(len, VLAN_ETH_HLEN));
- 
- 	rp->rx_packets++;
- 	rp->rx_bytes += skb->len;
--- 
-1.6.4
-
-
-
---Boundary_(ID_0BiUJJRt20xJ4sadlF+MKw)--
+ 		po->mclist = ml->next;
+-		dev = dev_get_by_index(sock_net(sk), ml->ifindex);
+-		if (dev != NULL) {
++		dev = __dev_get_by_index(sock_net(sk), ml->ifindex);
++		if (dev != NULL)
+ 			packet_dev_mc(dev, ml, -1);
+-			dev_put(dev);
+-		}
+ 		kfree(ml);
+ 	}
+ 	rtnl_unlock();
