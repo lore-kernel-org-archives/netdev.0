@@ -1,96 +1,80 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH 1/2] syncookies: print synflood warning if syn queue is full
-Date: Fri, 16 Oct 2009 21:49:30 +0200
-Message-ID: <1255722570-12803-1-git-send-email-fw@strlen.de>
-References: <b2cc26e40910150159q68ce555fs4b1683969d939d25@mail.gmail.com>
+Subject: [PATCH 2/2] syncookies: enable by default
+Date: Fri, 16 Oct 2009 21:51:00 +0200
+Message-ID: <1255722660-12857-1-git-send-email-fw@strlen.de>
+References: <1255722570-12803-1-git-send-email-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:44834 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:51560 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751013AbZJPTuf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 15:50:35 -0400
-In-Reply-To: <b2cc26e40910150159q68ce555fs4b1683969d939d25@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1751192AbZJPTv7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 15:51:59 -0400
+In-Reply-To: <1255722570-12803-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Always print a warning if the syn queue is full, just like
-the tcp/ipv6 code does.
+change syncookie sysctl initialization to 1.
 
-The "want_cookie" define is no longer needed -- gcc
-removes the relevant branches in the CONFIG_SYN_COOKIES=n case.
+Syn cookies have no effect under normal conditions; cookies are
+only sent if a sockets syn queue is exhausted (and the connection
+request would be dropped with cookies disabled).
+
+sysctl_tcp_syncookies needs to be set to 0 in the CONFIG_SYN_COOKIES=n
+case, as tcp_v4_conn_request() evaluates the variable in a conditional
+expression (which then would always be false).
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- net/ipv4/tcp_ipv4.c |   27 ++++++++++++---------------
- 1 files changed, 12 insertions(+), 15 deletions(-)
+ net/ipv4/Kconfig         |    7 +++----
+ net/ipv4/tcp_minisocks.c |    6 +++---
+ 2 files changed, 6 insertions(+), 7 deletions(-)
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 7cda24b..93b02a3 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -786,19 +786,19 @@ static void tcp_v4_reqsk_destructor(struct request_sock *req)
- 	kfree(inet_rsk(req)->opt);
- }
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 70491d9..86e5bc8 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -289,7 +289,7 @@ config ARPD
+ 	  If unsure, say N.
  
--#ifdef CONFIG_SYN_COOKIES
- static void syn_flood_warning(struct sk_buff *skb)
- {
--	static unsigned long warntime;
--
--	if (time_after(jiffies, (warntime + HZ * 60))) {
--		warntime = jiffies;
-+#ifdef CONFIG_SYN_COOKIES
-+	if (sysctl_tcp_syncookies)
- 		printk(KERN_INFO
--		       "possible SYN flooding on port %d. Sending cookies.\n",
--		       ntohs(tcp_hdr(skb)->dest));
--	}
--}
-+		       "Possible SYN flooding on port %d. "
-+		       "Sending cookies.\n", ntohs(tcp_hdr(skb)->dest));
-+	else
- #endif
-+		printk(KERN_INFO
-+		       "Possible SYN flooding on port %d. "
-+		       "Dropping request.\n", ntohs(tcp_hdr(skb)->dest));
-+}
+ config SYN_COOKIES
+-	bool "IP: TCP syncookie support (disabled per default)"
++	bool "IP: TCP syncookie support"
+ 	---help---
+ 	  Normal TCP/IP networking is open to an attack known as "SYN
+ 	  flooding". This denial-of-service attack prevents legitimate remote
+@@ -314,11 +314,10 @@ config SYN_COOKIES
+ 	  server is really overloaded. If this happens frequently better turn
+ 	  them off.
  
- /*
-  * Save and compile IPv4 options into the request_sock if needed.
-@@ -1217,11 +1217,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	__be32 daddr = ip_hdr(skb)->daddr;
- 	__u32 isn = TCP_SKB_CB(skb)->when;
- 	struct dst_entry *dst = NULL;
--#ifdef CONFIG_SYN_COOKIES
- 	int want_cookie = 0;
+-	  If you say Y here, note that SYN cookies aren't enabled by default;
+-	  you can enable them by saying Y to "/proc file system support" and
++	  You can disable them by saying Y to "/proc file system support" and
+ 	  "Sysctl support" below and executing the command
+ 
+-	  echo 1 >/proc/sys/net/ipv4/tcp_syncookies
++	  echo 0 >/proc/sys/net/ipv4/tcp_syncookies
+ 
+ 	  at boot time after the /proc file system has been mounted.
+ 
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 624c3c9..2b0ddc2 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -26,10 +26,10 @@
+ #include <net/inet_common.h>
+ #include <net/xfrm.h>
+ 
+-#ifdef CONFIG_SYSCTL
+-#define SYNC_INIT 0 /* let the user enable it */
 -#else
--#define want_cookie 0 /* Argh, why doesn't gcc optimize this :( */
--#endif
++#ifdef CONFIG_SYN_COOKIES
+ #define SYNC_INIT 1
++#else
++#define SYNC_INIT 0 /* tcp_ipv4.c checks sysctl_tcp_syncookies even if CONFIG_SYN_COOKIES=n */
+ #endif
  
- 	/* Never answer to SYNs send to broadcast or multicast */
- 	if (skb_rtable(skb)->rt_flags & (RTCF_BROADCAST | RTCF_MULTICAST))
-@@ -1232,6 +1228,8 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	 * evidently real one.
- 	 */
- 	if (inet_csk_reqsk_queue_is_full(sk) && !isn) {
-+		if (net_ratelimit())
-+			syn_flood_warning(skb);
- #ifdef CONFIG_SYN_COOKIES
- 		if (sysctl_tcp_syncookies) {
- 			want_cookie = 1;
-@@ -1283,10 +1281,9 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 
- 	if (want_cookie) {
- #ifdef CONFIG_SYN_COOKIES
--		syn_flood_warning(skb);
- 		req->cookie_ts = tmp_opt.tstamp_ok;
--#endif
- 		isn = cookie_v4_init_sequence(sk, skb, &req->mss);
-+#endif
- 	} else if (!isn) {
- 		struct inet_peer *peer = NULL;
- 
+ int sysctl_tcp_syncookies __read_mostly = SYNC_INIT;
 -- 
 1.6.3.3
 
