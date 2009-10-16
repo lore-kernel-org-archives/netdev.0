@@ -1,144 +1,157 @@
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH NEXT 7/7] netxen: sysfs control for auto firmware recovery
-Date: Thu, 15 Oct 2009 23:09:13 -0700
-Message-ID: <1255673353-31797-8-git-send-email-dhananjay@netxen.com>
+Subject: [PATCH NEXT 6/7] netxen: fix error codes in for tools access
+Date: Thu, 15 Oct 2009 23:09:12 -0700
+Message-ID: <1255673353-31797-7-git-send-email-dhananjay@netxen.com>
 References: <1255673353-31797-1-git-send-email-dhananjay@netxen.com>
-Cc: netdev@vger.kernel.org, Narender Kumar <narender.kumar@qlogic.com>
+Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:45980 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:45979 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1754577AbZJPGKb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754490AbZJPGKb (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 16 Oct 2009 02:10:31 -0400
 In-Reply-To: <1255673353-31797-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Narender Kumar <narender.kumar@qlogic.com>
+Use -EIO or -EINVAL as error codes, these can get passed up
+to applications (tools).
 
-Firmware hang detection and recovery (reset) need to
-be disabled for diagnostic tools, which can run
-some disruptive tests.
-
-This adds a driver level control to turn off this
-feature by diag tools.
-
-Signed-off-by: Narender Kumar <narender.kumar@qlogic.com>
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- drivers/net/netxen/netxen_nic.h      |    3 ++
- drivers/net/netxen/netxen_nic_main.c |   50 +++++++++++++++++++++++++++++++++-
- 2 files changed, 52 insertions(+), 1 deletions(-)
+ drivers/net/netxen/netxen_nic_hw.c   |   49 +++++++++++++++++----------------
+ drivers/net/netxen/netxen_nic_init.c |    6 ++++
+ 2 files changed, 31 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index ae4bc7b..9936f92 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -1044,6 +1044,9 @@ typedef struct {
- #define LINKEVENT_LINKSPEED_MBPS	0
- #define LINKEVENT_LINKSPEED_ENCODED	1
+diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+index ce07d13..320ded9 100644
+--- a/drivers/net/netxen/netxen_nic_hw.c
++++ b/drivers/net/netxen/netxen_nic_hw.c
+@@ -332,7 +332,7 @@ netxen_pcie_sem_lock(struct netxen_adapter *adapter, int sem, u32 id_reg)
+ 		if (done == 1)
+ 			break;
+ 		if (++timeout >= NETXEN_PCIE_SEM_TIMEOUT)
+-			return -1;
++			return -EIO;
+ 		msleep(1);
+ 	}
  
-+#define AUTO_FW_RESET_ENABLED	0xEF10AF12
-+#define AUTO_FW_RESET_DISABLED	0xDCBAAF12
-+
- /* firmware response header:
-  *	63:58 - message type
-  *	57:56 - owner
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 30d9afe..bfe8fcc 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -52,6 +52,8 @@ static int use_msi = 1;
- 
- static int use_msi_x = 1;
- 
-+static unsigned long auto_fw_reset = AUTO_FW_RESET_ENABLED;
-+
- /* Local functions to NetXen NIC driver */
- static int __devinit netxen_nic_probe(struct pci_dev *pdev,
- 		const struct pci_device_id *ent);
-@@ -2264,7 +2266,8 @@ netxen_check_health(struct netxen_adapter *adapter)
- 	dev_info(&netdev->dev, "firmware hang detected\n");
- 
- detach:
--	if (!test_and_set_bit(__NX_RESETTING, &adapter->state))
-+	if ((auto_fw_reset == AUTO_FW_RESET_ENABLED) &&
-+			!test_and_set_bit(__NX_RESETTING, &adapter->state))
- 		netxen_schedule_work(adapter, netxen_detach_work, 0);
- 	return 1;
+@@ -1083,7 +1083,7 @@ netxen_nic_pci_set_crbwindow_128M(struct netxen_adapter *adapter,
  }
-@@ -2496,6 +2499,41 @@ static struct bin_attribute bin_attr_mem = {
- 	.write = netxen_sysfs_write_mem,
- };
  
-+static ssize_t
-+netxen_store_auto_fw_reset(struct module_attribute *mattr,
-+		struct module *mod, const char *buf, size_t count)
-+
-+{
-+	unsigned long new;
-+
-+	if (strict_strtoul(buf, 16, &new))
+ /*
+- * Return -1 if off is not valid,
++ * Returns < 0 if off is not valid,
+  *	 1 if window access is needed. 'off' is set to offset from
+  *	   CRB space in 128M pci map
+  *	 0 if no window access is needed. 'off' is set to 2M addr
+@@ -1096,7 +1096,7 @@ netxen_nic_pci_get_crb_addr_2M(struct netxen_adapter *adapter, ulong *off)
+ 
+ 
+ 	if (*off >= NETXEN_CRB_MAX)
+-		return -1;
 +		return -EINVAL;
-+
-+	if ((new == AUTO_FW_RESET_ENABLED) || (new == AUTO_FW_RESET_DISABLED)) {
-+		auto_fw_reset = new;
-+		return count;
+ 
+ 	if (*off >= NETXEN_PCI_CAMQM && (*off < NETXEN_PCI_CAMQM_2M_END)) {
+ 		*off = (*off - NETXEN_PCI_CAMQM) + NETXEN_PCI_CAMQM_2M_BASE +
+@@ -1105,7 +1105,7 @@ netxen_nic_pci_get_crb_addr_2M(struct netxen_adapter *adapter, ulong *off)
+ 	}
+ 
+ 	if (*off < NETXEN_PCI_CRBSPACE)
+-		return -1;
++		return -EINVAL;
+ 
+ 	*off -= NETXEN_PCI_CRBSPACE;
+ 
+@@ -1220,25 +1220,26 @@ netxen_nic_hw_write_wx_2M(struct netxen_adapter *adapter, ulong off, u32 data)
+ 
+ 	rv = netxen_nic_pci_get_crb_addr_2M(adapter, &off);
+ 
+-	if (rv == -1) {
+-		printk(KERN_ERR "%s: invalid offset: 0x%016lx\n",
+-				__func__, off);
+-		dump_stack();
+-		return -1;
++	if (rv == 0) {
++		writel(data, (void __iomem *)off);
++		return 0;
+ 	}
+ 
+-	if (rv == 1) {
++	if (rv > 0) {
++		/* indirect access */
+ 		write_lock_irqsave(&adapter->ahw.crb_lock, flags);
+ 		crb_win_lock(adapter);
+ 		netxen_nic_pci_set_crbwindow_2M(adapter, &off);
+ 		writel(data, (void __iomem *)off);
+ 		crb_win_unlock(adapter);
+ 		write_unlock_irqrestore(&adapter->ahw.crb_lock, flags);
+-	} else
+-		writel(data, (void __iomem *)off);
+-
++		return 0;
++	}
+ 
+-	return 0;
++	dev_err(&adapter->pdev->dev,
++			"%s: invalid offset: 0x%016lx\n", __func__, off);
++	dump_stack();
++	return -EIO;
+ }
+ 
+ static u32
+@@ -1250,24 +1251,24 @@ netxen_nic_hw_read_wx_2M(struct netxen_adapter *adapter, ulong off)
+ 
+ 	rv = netxen_nic_pci_get_crb_addr_2M(adapter, &off);
+ 
+-	if (rv == -1) {
+-		printk(KERN_ERR "%s: invalid offset: 0x%016lx\n",
+-				__func__, off);
+-		dump_stack();
+-		return -1;
+-	}
++	if (rv == 0)
++		return readl((void __iomem *)off);
+ 
+-	if (rv == 1) {
++	if (rv > 0) {
++		/* indirect access */
+ 		write_lock_irqsave(&adapter->ahw.crb_lock, flags);
+ 		crb_win_lock(adapter);
+ 		netxen_nic_pci_set_crbwindow_2M(adapter, &off);
+ 		data = readl((void __iomem *)off);
+ 		crb_win_unlock(adapter);
+ 		write_unlock_irqrestore(&adapter->ahw.crb_lock, flags);
+-	} else
+-		data = readl((void __iomem *)off);
++		return data;
++	}
+ 
+-	return data;
++	dev_err(&adapter->pdev->dev,
++			"%s: invalid offset: 0x%016lx\n", __func__, off);
++	dump_stack();
++	return -1;
+ }
+ 
+ /* window 1 registers only */
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index a524844..d8c4b70 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -832,6 +832,12 @@ void netxen_request_firmware(struct netxen_adapter *adapter)
+ 		goto request_fw;
+ 	}
+ 
++	if (NX_IS_REVISION_P3P(adapter->ahw.revision_id)) {
++		/* No file firmware for the time being */
++		fw_type = NX_FLASH_ROMIMAGE;
++		goto done;
 +	}
 +
-+	return -EINVAL;
-+}
-+
-+static ssize_t
-+netxen_show_auto_fw_reset(struct module_attribute *mattr,
-+		struct module *mod, char *buf)
-+
-+{
-+	if (auto_fw_reset == AUTO_FW_RESET_ENABLED)
-+		return sprintf(buf, "enabled\n");
-+	else
-+		return sprintf(buf, "disabled\n");
-+}
-+
-+static struct module_attribute mod_attr_fw_reset = {
-+	.attr = {.name = "auto_fw_reset", .mode = (S_IRUGO | S_IWUSR)},
-+	.show = netxen_show_auto_fw_reset,
-+	.store = netxen_store_auto_fw_reset,
-+};
-+
- static void
- netxen_create_sysfs_entries(struct netxen_adapter *adapter)
- {
-@@ -2700,12 +2738,18 @@ static struct pci_driver netxen_driver = {
+ 	fw_type = netxen_p3_has_mn(adapter) ?
+ 		NX_P3_MN_ROMIMAGE : NX_P3_CT_ROMIMAGE;
  
- static int __init netxen_init_module(void)
- {
-+	struct module *mod = THIS_MODULE;
-+
- 	printk(KERN_INFO "%s\n", netxen_nic_driver_string);
- 
- #ifdef CONFIG_INET
- 	register_netdevice_notifier(&netxen_netdev_cb);
- 	register_inetaddr_notifier(&netxen_inetaddr_cb);
- #endif
-+	
-+	if (sysfs_create_file(&mod->mkobj.kobj, &mod_attr_fw_reset.attr))
-+		printk(KERN_ERR "%s: Failed to create auto_fw_reset "
-+				"sysfs entry.", netxen_nic_driver_name);
- 
- 	return pci_register_driver(&netxen_driver);
- }
-@@ -2714,6 +2758,10 @@ module_init(netxen_init_module);
- 
- static void __exit netxen_exit_module(void)
- {
-+	struct module *mod = THIS_MODULE;
-+
-+	sysfs_remove_file(&mod->mkobj.kobj, &mod_attr_fw_reset.attr);
-+
- 	pci_unregister_driver(&netxen_driver);
- 
- #ifdef CONFIG_INET
 -- 
 1.6.0.2
 
