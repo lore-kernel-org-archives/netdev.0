@@ -1,56 +1,89 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] filter: Add SKF_AD_QUEUE instruction
-Date: Fri, 16 Oct 2009 19:10:46 +0200
-Message-ID: <4AD8A916.3060807@gmail.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: [net-next-2.6 PATCH 1/4 revised] TCPCT part 1a: extend struct tcp_request_sock
+Date: Fri, 16 Oct 2009 13:39:12 -0400
+Message-ID: <4AD8AFC0.1090101@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------060904040004060802030407"
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:53180 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751296AbZJPRKr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 13:10:47 -0400
+Received: from mail-fx0-f218.google.com ([209.85.220.218]:38956 "EHLO
+	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752386AbZJPRjN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 13:39:13 -0400
+Received: by fxm18 with SMTP id 18so2684328fxm.37
+        for <netdev@vger.kernel.org>; Fri, 16 Oct 2009 10:39:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It can help being able to filter packets on their queue_mapping.
+This is a multi-part message in MIME format.
+--------------060904040004060802030407
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-If filter performance is not good, we could add a "numqueue" field
-in struct packet_type, so that netif_nit_deliver() and other functions
-can directly ignore packets with not expected queue number.
-
-Lets experiment this simple filter extension first.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Pass additional parameters associated with sending SYNACK.  This
+is not as straightforward or architecturally clean as previously
+proposed, and has the unfortunate side effect of potentially
+including otherwise unneeded headers for related protocols, but
+that problem will affect very few files.
 ---
+  include/net/extend_request_sock.h |   37 +++++++++++++++++++++++++++++++++++++
+  1 files changed, 37 insertions(+), 0 deletions(-)
+  create mode 100644 include/net/extend_request_sock.h
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 1354aaf..a93f885 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -123,7 +123,8 @@ struct sock_fprog	/* Required for SO_ATTACH_FILTER. */
- #define SKF_AD_IFINDEX 	8
- #define SKF_AD_NLATTR	12
- #define SKF_AD_NLATTR_NEST	16
--#define SKF_AD_MAX	20
-+#define SKF_AD_QUEUE	20
-+#define SKF_AD_MAX	24
- #define SKF_NET_OFF   (-0x100000)
- #define SKF_LL_OFF    (-0x200000)
- 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index d1d779c..0fc83f7 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -303,6 +303,9 @@ load_b:
- 		case SKF_AD_IFINDEX:
- 			A = skb->dev->ifindex;
- 			continue;
-+		case SKF_AD_QUEUE:
-+			A = skb->queue_mapping;
-+			continue;
- 		case SKF_AD_NLATTR: {
- 			struct nlattr *nla;
- 
+
+--------------060904040004060802030407
+Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
+ name="TCPCT+1+1.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="TCPCT+1+1.patch"
+
+diff --git a/include/net/extend_request_sock.h b/include/net/extend_request_sock.h
+new file mode 100644
+index 0000000..c991af9
+--- /dev/null
++++ b/include/net/extend_request_sock.h
+@@ -0,0 +1,37 @@
++#ifndef _EXTEND_REQUEST_SOCK_H
++#define _EXTEND_REQUEST_SOCK_H
++/*
++ * Short term extension of struct tcp_request_sock and related.
++ *
++ * Copyright (C) 2009 William.Allen.Simpson@gmail.com
++ * All rights reserved.
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ */
++#include <linux/tcp.h>
++#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
++#include <linux/ipv6.h>
++#endif
++
++struct extend_request_sock {
++	union {
++		struct tcp_request_sock tcp4rsk;
++#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
++		struct tcp6_request_sock tcp6rsk;
++#endif
++	} header;
++
++	u8	cookie_plus;
++	u8	cookie_in_always:1,
++		cookie_out_never:1;
++};
++
++static inline struct extend_request_sock *ext_rsk(const struct request_sock *req)
++{
++	return (struct extend_request_sock *)req;
++}
++
++#endif /* _EXTEND_REQUEST_SOCK_H */
+-- 
+1.6.0.4
+
+
+--------------060904040004060802030407--
