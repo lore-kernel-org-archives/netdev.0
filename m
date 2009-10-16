@@ -1,107 +1,139 @@
 From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [PATCH 0/4 v2] net: Implement fast TX queue selection
-Date: Fri, 16 Oct 2009 12:51:07 +0530
-Message-ID: <20091016072107.24384.17358.sendpatchset@localhost.localdomain>
+Subject: [PATCH 4/4 v2] net: Fix for dst_negative_advice
+Date: Fri, 16 Oct 2009 12:52:02 +0530
+Message-ID: <20091016072202.24384.11010.sendpatchset@localhost.localdomain>
+References: <20091016072107.24384.17358.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
 	Krishna Kumar <krkumar2@in.ibm.com>, dada1@cosmosbay.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp01.in.ibm.com ([59.145.155.1]:45445 "EHLO
-	e28smtp01.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756240AbZJPHWB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 03:22:01 -0400
-Received: from d28relay03.in.ibm.com (d28relay03.in.ibm.com [9.184.220.60])
-	by e28smtp01.in.ibm.com (8.14.3/8.13.1) with ESMTP id n9G7LBPD028369
-	for <netdev@vger.kernel.org>; Fri, 16 Oct 2009 12:51:11 +0530
-Received: from d28av03.in.ibm.com (d28av03.in.ibm.com [9.184.220.65])
-	by d28relay03.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n9G7LBkU2904300
-	for <netdev@vger.kernel.org>; Fri, 16 Oct 2009 12:51:11 +0530
-Received: from d28av03.in.ibm.com (loopback [127.0.0.1])
-	by d28av03.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n9G7LAHn025916
-	for <netdev@vger.kernel.org>; Fri, 16 Oct 2009 18:21:11 +1100
+Received: from e23smtp04.au.ibm.com ([202.81.31.146]:44845 "EHLO
+	e23smtp04.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756590AbZJPHWz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 03:22:55 -0400
+Received: from d23relay05.au.ibm.com (d23relay05.au.ibm.com [202.81.31.247])
+	by e23smtp04.au.ibm.com (8.14.3/8.13.1) with ESMTP id n9G7J81n018413
+	for <netdev@vger.kernel.org>; Fri, 16 Oct 2009 18:19:08 +1100
+Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.235.138])
+	by d23relay05.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n9G7JSnF1532078
+	for <netdev@vger.kernel.org>; Fri, 16 Oct 2009 18:19:28 +1100
+Received: from d23av02.au.ibm.com (loopback [127.0.0.1])
+	by d23av02.au.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n9G7M626010749
+	for <netdev@vger.kernel.org>; Fri, 16 Oct 2009 18:22:07 +1100
+In-Reply-To: <20091016072107.24384.17358.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Krishna Kumar <krkumar2@in.ibm.com>
 
-Changelog [from v1]
+dst_negative_advice() should check for changed dst and reset
+sk_tx_queue_mapping accordingly. Pass sock to the callers of
+dst_negative_advice.
 
-1. Changed IPv6 code to call __sk_dst_reset() directly.
-2. Removed the patch re-arranging ("encapsulating") __sk_dst_reset()
-
-Multiqueue cards on routers/firewalls set skb->queue_mapping on
-input which helps in faster xmit. Implement fast queue selection
-for locally generated packets also, by saving the txq# for
-connected sockets (in dev_pick_tx) and use it in subsequent
-iterations. Locally generated packets for a connection will xmit
-on the same txq, but routing & firewall loads should not be
-affected by this patch. Tests shows the distribution across txq's
-for 1-4 netperf sessions is similar to existing code.
-
-
-                   Testing & results:
-                   ------------------
-
-1. Cycles/Iter (C/I) used by dev_pick_tx:
-         (B -> Billion,   M -> Million)
-   |--------------|------------------------|------------------------|
-   |              |          ORG           |          NEW           |
-   |  Test        |--------|---------|-----|--------|---------|-----|
-   |              | Cycles |  Iters  | C/I | Cycles | Iters   | C/I |
-   |--------------|--------|---------|-----|--------|---------|-----|
-   | [TCP_STREAM, | 3.98 B | 12.47 M | 320 | 1.95 B | 12.92 M | 152 |
-   |  UDP_STREAM, |        |         |     |        |         |     |         
-   |  TCP_RR,     |        |         |     |        |         |     |        
-   |  UDP_RR]     |        |         |     |        |         |     |        
-   |--------------|--------|---------|-----|--------|---------|-----|        
-   | [TCP_STREAM, | 8.92 B | 29.66 M | 300 | 3.82 B | 38.88 M | 98  |        
-   |  TCP_RR,     |        |         |     |        |         |     |         
-   |  UDP_RR]     |        |         |     |        |         |     |         
-   |--------------|--------|---------|-----|--------|---------|-----|
-
-2. Stress test (over 48 hours) : 1000 netperfs running combination
-   of TCP_STREAM/RR, UDP_STREAM/RR (v4/6, NODELAY/~NODELAY for all
-   tests), with some ssh sessions, reboots, modprobe -r driver, etc.
-
-3. Performance test (10 hours): Single 10 hour netperf run of
-   TCP_STREAM/RR, TCP_STREAM + NO_DELAY and UDP_RR. Results show an
-   improvement in both performance and cpu utilization.
-
-Tested on a 4-processor AMD Opteron 2.8 GHz system with 1GB memory,
-10G Chelsio card. Each BW number is the sum of 3 iterations of
-individual tests using 512, 16K, 64K & 128K I/O sizes, in Mb/s:
-
-------------------------  TCP Tests  -----------------------
-#procs  Org BW     New BW (%)     Org SD     New SD (%)
-------------------------------------------------------------
-1       77777.7    81011.0 (4.15)    42.3     40.2 (-5.11)
-4       91599.2    91878.8 (.30)    955.9    919.3 (-3.83)
-6       89533.3    91792.2 (2.52)  2262.0   2143.0 (-5.25)
-8       87507.5    89161.9 (1.89)  4363.4   4073.6 (-6.64)
-10      85152.4    85607.8 (.53)   6890.4   6851.2 (-.56)
-------------------------------------------------------------
-
-------------------------- TCP NO_DELAY Tests ---------------
-#procs  Org BW     New BW (%)      Org SD      New SD (%)
-------------------------------------------------------------
-1       57001.9    57888.0 (1.55)     67.7      70.2 (3.75)
-4       69555.1    69957.4 (.57)     823.0     834.3 (1.36)
-6       71359.3    71918.7 (.78)    1740.8    1724.5 (-.93)
-8       72577.6    72496.1 (-.11)   2955.4    2937.7 (-.59)
-10      70829.6    71444.2 (.86)    4826.1    4673.4 (-3.16)
-------------------------------------------------------------
-
------------------------ Request Response Tests --------------------
-#procs  Org TPS     New TPS (%)      Org SD    New SD (%)
-(1-10)
--------------------------------------------------------------------
-TCP     1019245.9   1042626.4 (2.29) 16352.9   16459.8 (.65)
-UDP     934598.64   942956.9  (.89)  11607.3   11593.2 (-.12)
--------------------------------------------------------------------
-
-Thanks,
-
-- KK
+(sk_reset_txq is defined just for use by dst_negative_advice. The
+only way I could find to get around this is to move dst_negative_()
+from dst.h to dst.c, include sock.h in dst.c, etc)
 
 Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 ---
+ include/net/dst.h      |   12 ++++++++++--
+ net/core/sock.c        |    6 ++++++
+ net/dccp/timer.c       |    4 ++--
+ net/decnet/af_decnet.c |    2 +-
+ net/ipv4/tcp_timer.c   |    4 ++--
+ 5 files changed, 21 insertions(+), 7 deletions(-)
+
+diff -ruNp org/include/net/dst.h new/include/net/dst.h
+--- org/include/net/dst.h	2009-10-16 11:59:20.000000000 +0530
++++ new/include/net/dst.h	2009-10-16 12:01:03.000000000 +0530
+@@ -222,11 +222,19 @@ static inline void dst_confirm(struct ds
+ 		neigh_confirm(dst->neighbour);
+ }
+ 
+-static inline void dst_negative_advice(struct dst_entry **dst_p)
++static inline void dst_negative_advice(struct dst_entry **dst_p,
++				       struct sock *sk)
+ {
+ 	struct dst_entry * dst = *dst_p;
+-	if (dst && dst->ops->negative_advice)
++	if (dst && dst->ops->negative_advice) {
+ 		*dst_p = dst->ops->negative_advice(dst);
++
++		if (dst != *dst_p) {
++			extern void sk_reset_txq(struct sock *sk);
++
++			sk_reset_txq(sk);
++		}
++	}
+ }
+ 
+ static inline void dst_link_failure(struct sk_buff *skb)
+diff -ruNp org/net/core/sock.c new/net/core/sock.c
+--- org/net/core/sock.c	2009-10-16 11:59:20.000000000 +0530
++++ new/net/core/sock.c	2009-10-16 12:01:03.000000000 +0530
+@@ -352,6 +352,12 @@ discard_and_relse:
+ }
+ EXPORT_SYMBOL(sk_receive_skb);
+ 
++void sk_reset_txq(struct sock *sk)
++{
++	sk_record_tx_queue(sk, -1);
++}
++EXPORT_SYMBOL(sk_reset_txq);
++
+ struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie)
+ {
+ 	struct dst_entry *dst = sk->sk_dst_cache;
+diff -ruNp org/net/dccp/timer.c new/net/dccp/timer.c
+--- org/net/dccp/timer.c	2009-10-16 11:59:20.000000000 +0530
++++ new/net/dccp/timer.c	2009-10-16 12:01:03.000000000 +0530
+@@ -38,7 +38,7 @@ static int dccp_write_timeout(struct soc
+ 
+ 	if (sk->sk_state == DCCP_REQUESTING || sk->sk_state == DCCP_PARTOPEN) {
+ 		if (icsk->icsk_retransmits != 0)
+-			dst_negative_advice(&sk->sk_dst_cache);
++			dst_negative_advice(&sk->sk_dst_cache, sk);
+ 		retry_until = icsk->icsk_syn_retries ?
+ 			    : sysctl_dccp_request_retries;
+ 	} else {
+@@ -63,7 +63,7 @@ static int dccp_write_timeout(struct soc
+ 			   Golden words :-).
+ 		   */
+ 
+-			dst_negative_advice(&sk->sk_dst_cache);
++			dst_negative_advice(&sk->sk_dst_cache, sk);
+ 		}
+ 
+ 		retry_until = sysctl_dccp_retries2;
+diff -ruNp org/net/decnet/af_decnet.c new/net/decnet/af_decnet.c
+--- org/net/decnet/af_decnet.c	2009-10-16 11:59:20.000000000 +0530
++++ new/net/decnet/af_decnet.c	2009-10-16 12:01:03.000000000 +0530
+@@ -1955,7 +1955,7 @@ static int dn_sendmsg(struct kiocb *iocb
+ 	}
+ 
+ 	if ((flags & MSG_TRYHARD) && sk->sk_dst_cache)
+-		dst_negative_advice(&sk->sk_dst_cache);
++		dst_negative_advice(&sk->sk_dst_cache, sk);
+ 
+ 	mss = scp->segsize_rem;
+ 	fctype = scp->services_rem & NSP_FC_MASK;
+diff -ruNp org/net/ipv4/tcp_timer.c new/net/ipv4/tcp_timer.c
+--- org/net/ipv4/tcp_timer.c	2009-10-16 11:59:20.000000000 +0530
++++ new/net/ipv4/tcp_timer.c	2009-10-16 12:01:03.000000000 +0530
+@@ -141,14 +141,14 @@ static int tcp_write_timeout(struct sock
+ 
+ 	if ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV)) {
+ 		if (icsk->icsk_retransmits)
+-			dst_negative_advice(&sk->sk_dst_cache);
++			dst_negative_advice(&sk->sk_dst_cache, sk);
+ 		retry_until = icsk->icsk_syn_retries ? : sysctl_tcp_syn_retries;
+ 	} else {
+ 		if (retransmits_timed_out(sk, sysctl_tcp_retries1)) {
+ 			/* Black hole detection */
+ 			tcp_mtu_probing(icsk, sk);
+ 
+-			dst_negative_advice(&sk->sk_dst_cache);
++			dst_negative_advice(&sk->sk_dst_cache, sk);
+ 		}
+ 
+ 		retry_until = sysctl_tcp_retries2;
