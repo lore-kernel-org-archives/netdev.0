@@ -1,54 +1,101 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] af_packet: mc_drop/flush_mclist changes
-Date: Fri, 16 Oct 2009 18:38:46 +0200
-Message-ID: <4AD8A195.3040902@gmail.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: not supported broadcom (?) NIC revision
+Date: Fri, 16 Oct 2009 09:30:14 -0700
+Message-ID: <1255710614.20869.335.camel@nseg_linux_HP1.broadcom.com>
+References: <4AD86F2F.90809@no-ip.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"jgarzik@pobox.com" <jgarzik@pobox.com>
+To: "Wojtek Sawasciuk" <voyo@no-ip.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:51313 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751327AbZJPQip (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 12:38:45 -0400
+Received: from mms2.broadcom.com ([216.31.210.18]:1133 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750897AbZJPQks (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Oct 2009 12:40:48 -0400
+In-Reply-To: <4AD86F2F.90809@no-ip.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We hold RTNL, we can use __dev_get_by_index() instead of dev_get_by_index()
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
+On Fri, 2009-10-16 at 06:03 -0700, Wojtek Sawasciuk wrote:
+> Hi,
+> 
+> I'v got server with built-in 9 NIC ports. Two ports are not recognized 
+> by any driver, I suppose it *should* be by tg3 or bnx2
+> Below is lspci info, not supported NIC are in slots 00:10.0 and 00:10.2
+> strange thing is that this vendor is described as Serverworks, but lspci 
+> says its Broadcom.
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index bf3a295..12b6d5b 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1664,11 +1664,9 @@ static int packet_mc_drop(struct sock *sk, struct packet_mreq_max *mreq)
- 			if (--ml->count == 0) {
- 				struct net_device *dev;
- 				*mlp = ml->next;
--				dev = dev_get_by_index(sock_net(sk), ml->ifindex);
--				if (dev) {
-+				dev = __dev_get_by_index(sock_net(sk), ml->ifindex);
-+				if (dev)
- 					packet_dev_mc(dev, ml, -1);
--					dev_put(dev);
--				}
- 				kfree(ml);
- 			}
- 			rtnl_unlock();
-@@ -1692,11 +1690,9 @@ static void packet_flush_mclist(struct sock *sk)
- 		struct net_device *dev;
- 
- 		po->mclist = ml->next;
--		dev = dev_get_by_index(sock_net(sk), ml->ifindex);
--		if (dev != NULL) {
-+		dev = __dev_get_by_index(sock_net(sk), ml->ifindex);
-+		if (dev != NULL)
- 			packet_dev_mc(dev, ml, -1);
--			dev_put(dev);
--		}
- 		kfree(ml);
- 	}
- 	rtnl_unlock();
+ServerWorks was bought by Broadcom many years ago.
+
+> 
+> # grep 1166 include/linux/pci_ids.h
+> #define PCI_VENDOR_ID_SERVERWORKS         0x1166
+> 
+> Can someone help here ?
+> 
+> 
+> # lspci
+> 00:00.0 Host bridge: Broadcom GCNB-LE Host Bridge (rev 32)
+> 00:00.1 Host bridge: Broadcom GCNB-LE Host Bridge
+> 00:02.0 Ethernet controller: Intel Corporation 82541GI Gigabit Ethernet 
+> Controller (rev 05)
+> 00:0f.0 ISA bridge: Broadcom CSB5 South Bridge (rev 93)
+> 00:0f.1 IDE interface: Broadcom CSB5 IDE Controller (rev 93)
+> 00:0f.2 USB Controller: Broadcom OSB4/CSB5 OHCI USB Controller (rev 05)
+> 00:0f.3 Host bridge: Broadcom CSB5 LPC bridge
+> 
+> 00:10.0 Host bridge: Broadcom CIOB-E I/O Bridge with Gigabit Ethernet 
+> (rev 12)
+> 00:10.2 Host bridge: Broadcom CIOB-E I/O Bridge with Gigabit Ethernet 
+> (rev 12)
+
+These 2 are bridge devices and no driver is needed.  I think the
+integrated ethernet device should be behind these bridges showing up as
+BCM5704 below.
+
+> 
+> 02:02.0 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet 
+> Controller (rev 03)
+> 02:02.1 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet 
+> Controller (rev 03)
+> 02:04.0 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet 
+> Controller (rev 03)
+> 02:04.1 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet 
+> Controller (rev 03)
+> 03:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5704 
+> Gigabit Ethernet (rev 02)
+> 03:00.1 Ethernet controller: Broadcom Corporation NetXtreme BCM5704 
+> Gigabit Ethernet (rev 02)
+> 
+> 
+> 00:10.0 0600: 1166:0110 (rev 12)
+>         Control: I/O- Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- 
+> ParErr- Stepping- SERR+ FastB2B-
+>         Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- 
+> <TAbort- <MAbort+ >SERR- <PERR-
+>         Capabilities: [60] PCI-X non-bridge device
+>                 Command: DPERE- ERO- RBC=512 OST=8
+>                 Status: Dev=00:00.0 64bit+ 133MHz+ SCD- USC- DC=bridge 
+> DMMRBC=512 DMOST=8 DMCRS=8 RSCEM- 266MHz- 533MHz-
+> 
+> 00:10.2 0600: 1166:0110 (rev 12)
+>         Control: I/O- Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- 
+> ParErr- Stepping- SERR+ FastB2B-
+>         Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- 
+> <TAbort- <MAbort+ >SERR- <PERR-
+>         Capabilities: [60] PCI-X non-bridge device
+>                 Command: DPERE- ERO- RBC=512 OST=8
+>                 Status: Dev=00:00.0 64bit+ 133MHz+ SCD- USC- DC=bridge 
+> DMMRBC=512 DMOST=8 DMCRS=8 RSCEM- 266MHz- 533MHz-
+> 
+> 
+> 
+> 
+> 
+> 
+
+
