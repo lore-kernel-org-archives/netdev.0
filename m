@@ -1,35 +1,55 @@
-From: Rob Townley <rob.townley@gmail.com>
-Subject: Re: [PATCH] iputils: ping by mark
-Date: Fri, 16 Oct 2009 16:05:39 -0500
-Message-ID: <7e84ed60910161405i2ce46053m9858b7f1c086e6b7@mail.gmail.com>
-References: <1255381558.5406.33.camel@dogo.mojatatu.com>
-Reply-To: Rob.Townley@gmail.com
+From: dann frazier <dannf@hp.com>
+Subject: Re: PATCH: Network Device Naming mechanism and policy
+Date: Fri, 16 Oct 2009 15:40:24 -0600
+Message-ID: <20091016214024.GA10091@ldl.fc.hp.com>
+References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com>
+ <20091009140000.GA18765@mock.linuxdev.us.dell.com>
+ <20091013150839.GD32107@ldl.fc.hp.com>
+ <EDA0A4495861324DA2618B4C45DCB3EE58954D@blrx3m08.blr.amer.dell.com>
+ <20091013173638.GE1119@ldl.fc.hp.com>
+ <20091016003245.GD29672@ldl.fc.hp.com>
+ <EDA0A4495861324DA2618B4C45DCB3EE589579@blrx3m08.blr.amer.dell.com>
+ <20091016152053.GA9862@ldl.fc.hp.com>
+ <1255707193.2869.12.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f184.google.com ([209.85.212.184]:61090 "EHLO
-	mail-vw0-f184.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752065AbZJPVM3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 17:12:29 -0400
-Received: by vws14 with SMTP id 14so553926vws.33
-        for <netdev@vger.kernel.org>; Fri, 16 Oct 2009 14:12:34 -0700 (PDT)
-In-Reply-To: <1255381558.5406.33.camel@dogo.mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Narendra_K@Dell.com, netdev@vger.kernel.org,
+	linux-hotplug@vger.kernel.org, Matt_Domsch@Dell.com,
+	Jordan_Hargrave@Dell.com, Charles_Rose@Dell.com
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1255707193.2869.12.camel@achroite>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 12, 2009 at 4:05 PM, jamal <hadi@cyberus.ca> wrote:
->
-> ping by mark, example to use firewall mark decimal 10
-> (which hopefully maps to something meaningful with policy routing):
->
-> ping -m 10 10.0.0.1
->
-> cheers,
-> jamal
->
+On Fri, Oct 16, 2009 at 04:33:13PM +0100, Ben Hutchings wrote:
+> On Fri, 2009-10-16 at 09:20 -0600, dann frazier wrote:
+> > On Fri, Oct 16, 2009 at 07:32:50PM +0530, Narendra_K@Dell.com wrote:
+> [...]
+> > > And how would the regular file look like in terms of holding ifindex of
+> > > the interface, which can be passed to libnetdevname.
+> > 
+> > I can't think of anything we need to store in the regular file. If we
+> > have the kernel name for the device, we can look up the ifindex in
+> > /sys. Correct me if I'm wrong, but storing it ourselves seems
+> > redundant.
+> 
+> But the name of a netdev can change whereas its ifindex never does.
+> Identifying netdevs by name would require additional work to update the
+> links when a netdev is renamed and would still be prone to race
+> conditions.  This is why Narendra and Matt were proposing to store the
+> ifindex in the node all along...
 
-Would this make it easier to ping multiple gateways so if one goes
-down, it is taken almost out of the routing table until it comes back
-up.
+Matt, Ben and I talked about a few other possibilities on IRC.
+The one I like the most at the moment is an idea Ben had to creat
+dummy files named after the ifindex. Then, use symlinks for the kernel
+name and the various by-$property subdirectories. This means the KOBJ
+events will need to expose the ifindex.
+
+I'm a novice at net programming, but I'm told that ifindex is
+the information apps ultimately require here.
+
+-- 
+dann frazier
+
