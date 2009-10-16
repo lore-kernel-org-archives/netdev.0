@@ -1,92 +1,68 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: [BUILD-FAILURE] next-20091015 - vbus_enet driver breaks with
- allmodconfig
-Date: Thu, 15 Oct 2009 20:29:09 -0400
-Message-ID: <4AD7BE55.5050905@gmail.com>
-References: <20091015152538.74a1cb15.sfr@canb.auug.org.au> <20091015104852.GA6740@linux.vnet.ibm.com>
+From: dann frazier <dannf@hp.com>
+Subject: Re: PATCH: Network Device Naming mechanism and policy
+Date: Thu, 15 Oct 2009 18:32:45 -0600
+Message-ID: <20091016003245.GD29672@ldl.fc.hp.com>
+References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com>
+ <20091009140000.GA18765@mock.linuxdev.us.dell.com>
+ <20091013150839.GD32107@ldl.fc.hp.com>
+ <EDA0A4495861324DA2618B4C45DCB3EE58954D@blrx3m08.blr.amer.dell.com>
+ <20091013173638.GE1119@ldl.fc.hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig38C353B18AFE9ABD0D88BB72"
-Cc: ghaskins@novell.com, linux-next@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, sfr@canb.auug.org.au,
-	netdev@vger.kernel.org, greg@kroah.com
-To: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
+	Matt_Domsch@Dell.com, Jordan_Hargrave@Dell.com,
+	Charles_Rose@Dell.com
+To: Narendra_K@Dell.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.27]:54847 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758688AbZJPAaX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 20:30:23 -0400
-In-Reply-To: <20091015104852.GA6740@linux.vnet.ibm.com>
+Received: from g6t0185.atlanta.hp.com ([15.193.32.62]:43375 "EHLO
+	g6t0185.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758841AbZJPAeF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Oct 2009 20:34:05 -0400
+Content-Disposition: inline
+In-Reply-To: <20091013173638.GE1119@ldl.fc.hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig38C353B18AFE9ABD0D88BB72
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Tue, Oct 13, 2009 at 11:36:38AM -0600, dann frazier wrote:
+> 1;2202;0cOn Tue, Oct 13, 2009 at 10:43:49PM +0530, Narendra_K@Dell.com wrote:
+> > 
+> > >> These device nodes are not functional at the moment - open() returns 
+> > >> -ENOSYS.  Their only purpose is to provide userspace with a kernel 
+> > >> name to ifindex mapping, in a form that udev can easily manage.
+> > >
+> > >If the idea is just to provide a userspace-visible mapping 
+> > >(and presumably take advantage of udev's infrastructure for 
+> > >naming) does this need kernel changes? Could this be a 
+> > >hierarchy under e.g. /etc/udev instead, using plain text 
+> > >files? It still means we need something like libnetdevname for 
+> > >apps to do the translation, but I'm not seeing why it matters 
+> > >how this map is stored. Is there some special property of the 
+> > >character devices (e.g. uevents) that we're not already 
+> > >getting with the existing interfaces?
+> > 
+> > Yes. The char device by itself doesn't help in any way. But it provides
+> > a flexible mechanism to provide multiple names for the same device, just
+> > the way it is for disks.
+> 
+> Right - so any reason this couldn't be implemented completely in
+> userspace by having udev manipulate plain text files under say
+> /etc/udev/net/?
+> 
+> I do agree that it would be nice for admins/installers to tweak/use
+> nic names in a similar way to storage names (udev rules), and it might
+> let us take advantage of a lot of the existing udev code.
 
-Kamalesh Babulal wrote:
-> Hi Gregory,
->=20
-> 	While building next-20091015 with allmodconfig on the powerpc
-> vbus-enet driver breaks
->=20
-> MODPOST 2492 modules
-> ERROR: ".vbus_driver_register" [drivers/net/vbus-enet.ko] undefined!
-> ERROR: ".vbus_driver_unregister" [drivers/net/vbus-enet.ko] undefined!
-> ERROR: ".vbus_driver_ioq_alloc" [drivers/net/vbus-enet.ko] undefined!
->=20
-> CONFIG_VBUS_ENET=3Dm
-> CONFIG_VBUS_ENET_DEBUG=3Dy
-> CONFIG_VBUS_PROXY=3Dn
+Is there interest in this approach?
 
-Hi Kamalesh,
+ - modify udev to manage network devices names as regular (non-device)
+   files (stored in /etc/udev, /dev/netdev, or wherever)
+ - use the existing udev rules to manage symlinks to these files
+ - point libnetdevname at these text files for its name resolution
 
-Please try the following patch:
+I've started prototyping this, and it certainly looks possible w/o any
+kernel changes. However, I could probably use some advice from a udev
+person to do a proper implementation.
 
-commit 1de440616ac84679902d045b4476effcebfae400
-Author: Gregory Haskins <ghaskins@novell.com>
-Date:   Thu Oct 15 20:25:05 2009 -0400
+-- 
+dann frazier
 
-    net: fix vbus-enet Kconfig dependencies
-
-    We currently select VBUS_PROXY when vbus-enet is enabled, which is
-    the wrong direction.  Not all platforms will define VBUS-PROXY, and
-    venet depends on its inclusion.  Therefore, lets fix vbus-enet to
-    properly depend on the presence of VBUS_PROXY to get this right.
-
-    Signed-off-by: Gregory Haskins <ghaskins@novell.com>
-
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 47dfa04..c9128ea 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -3233,7 +3233,7 @@ config VIRTIO_NET
- config VBUS_ENET
-        tristate "VBUS Ethernet Driver"
-        default n
--       select VBUS_PROXY
-+       depends on VBUS_PROXY
-        help
-           A virtualized 802.x network device based on the VBUS
-           "virtual-ethernet" interface.  It can be used with any
-
-
-
-
---------------enig38C353B18AFE9ABD0D88BB72
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkrXvlUACgkQP5K2CMvXmqG/DgCaAgpjHZ8jzeARE8KA/yJ5Ycek
-ab4An30M7wOxsz9GTpS3+9BMmphlu4G7
-=QLOe
------END PGP SIGNATURE-----
-
---------------enig38C353B18AFE9ABD0D88BB72--
