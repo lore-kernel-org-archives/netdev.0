@@ -1,44 +1,163 @@
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH NEXT v2 1/7] netxen: defines for next revision
-Date: Fri, 16 Oct 2009 18:50:06 -0700
-Message-ID: <1255744212-28074-2-git-send-email-dhananjay@netxen.com>
+Subject: [PATCH NEXT v2 3/7] netxen: reset sequence changes
+Date: Fri, 16 Oct 2009 18:50:08 -0700
+Message-ID: <1255744212-28074-4-git-send-email-dhananjay@netxen.com>
 References: <1255744212-28074-1-git-send-email-dhananjay@netxen.com>
 Cc: netdev@vger.kernel.org, Amit Kumar Salecha <amit@qlogic.com>,
 	Amit Kumar Salecha <amit@netxen.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:49983 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:49987 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1751690AbZJQBuK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Oct 2009 21:50:10 -0400
+	id S1751548AbZJQBuJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Oct 2009 21:50:09 -0400
 In-Reply-To: <1255744212-28074-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Amit Kumar Salecha <amit@qlogic.com>
 
+Future revisions need different chip reset sequence
+and firmware initialization.
+
+Also clean up some never used debug code.
+
 Signed-off-by: Amit Kumar Salecha <amit@netxen.com>
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- drivers/net/netxen/netxen_nic.h |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ drivers/net/netxen/netxen_nic.h      |    2 +-
+ drivers/net/netxen/netxen_nic_init.c |   41 +++++++++++----------------------
+ drivers/net/netxen/netxen_nic_main.c |    2 +-
+ 3 files changed, 16 insertions(+), 29 deletions(-)
 
 diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index 1bdb8f4..a608e25 100644
+index a608e25..db28f8a 100644
 --- a/drivers/net/netxen/netxen_nic.h
 +++ b/drivers/net/netxen/netxen_nic.h
-@@ -117,9 +117,11 @@
- #define NX_P3_B0		0x40
- #define NX_P3_B1		0x41
- #define NX_P3_B2		0x42
-+#define NX_P3P_A0		0x50
+@@ -1270,7 +1270,7 @@ int netxen_load_firmware(struct netxen_adapter *adapter);
+ int netxen_need_fw_reset(struct netxen_adapter *adapter);
+ void netxen_request_firmware(struct netxen_adapter *adapter);
+ void netxen_release_firmware(struct netxen_adapter *adapter);
+-int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose);
++int netxen_pinit_from_rom(struct netxen_adapter *adapter);
  
- #define NX_IS_REVISION_P2(REVISION)     (REVISION <= NX_P2_C1)
- #define NX_IS_REVISION_P3(REVISION)     (REVISION >= NX_P3_A0)
-+#define NX_IS_REVISION_P3P(REVISION)     (REVISION >= NX_P3P_A0)
+ int netxen_rom_fast_read(struct netxen_adapter *adapter, int addr, int *valp);
+ int netxen_rom_fast_read_words(struct netxen_adapter *adapter, int addr,
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index 83387c7..a524844 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -437,7 +437,7 @@ int netxen_rom_fast_read(struct netxen_adapter *adapter, int addr, int *valp)
+ #define NETXEN_BOARDNUM 		0x400c
+ #define NETXEN_CHIPNUM			0x4010
  
- #define FIRST_PAGE_GROUP_START	0
- #define FIRST_PAGE_GROUP_END	0x100000
+-int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
++int netxen_pinit_from_rom(struct netxen_adapter *adapter)
+ {
+ 	int addr, val;
+ 	int i, n, init_delay = 0;
+@@ -450,21 +450,6 @@ int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
+ 	NXWR32(adapter, NETXEN_ROMUSB_GLB_SW_RESET, 0xffffffff);
+ 	netxen_rom_unlock(adapter);
+ 
+-	if (verbose) {
+-		if (netxen_rom_fast_read(adapter, NETXEN_BOARDTYPE, &val) == 0)
+-			printk("P2 ROM board type: 0x%08x\n", val);
+-		else
+-			printk("Could not read board type\n");
+-		if (netxen_rom_fast_read(adapter, NETXEN_BOARDNUM, &val) == 0)
+-			printk("P2 ROM board  num: 0x%08x\n", val);
+-		else
+-			printk("Could not read board number\n");
+-		if (netxen_rom_fast_read(adapter, NETXEN_CHIPNUM, &val) == 0)
+-			printk("P2 ROM chip   num: 0x%08x\n", val);
+-		else
+-			printk("Could not read chip number\n");
+-	}
+-
+ 	if (NX_IS_REVISION_P3(adapter->ahw.revision_id)) {
+ 		if (netxen_rom_fast_read(adapter, 0, &n) != 0 ||
+ 			(n != 0xcafecafe) ||
+@@ -486,11 +471,7 @@ int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
+ 		n &= ~0x80000000;
+ 	}
+ 
+-	if (n < 1024) {
+-		if (verbose)
+-			printk(KERN_DEBUG "%s: %d CRB init values found"
+-			       " in ROM.\n", netxen_nic_driver_name, n);
+-	} else {
++	if (n >= 1024) {
+ 		printk(KERN_ERR "%s:n=0x%x Error! NetXen card flash not"
+ 		       " initialized.\n", __func__, n);
+ 		return -EIO;
+@@ -502,6 +483,7 @@ int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
+ 				netxen_nic_driver_name);
+ 		return -ENOMEM;
+ 	}
++
+ 	for (i = 0; i < n; i++) {
+ 		if (netxen_rom_fast_read(adapter, 8*i + 4*offset, &val) != 0 ||
+ 		netxen_rom_fast_read(adapter, 8*i + 4*offset + 4, &addr) != 0) {
+@@ -512,11 +494,8 @@ int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
+ 		buf[i].addr = addr;
+ 		buf[i].data = val;
+ 
+-		if (verbose)
+-			printk(KERN_DEBUG "%s: PCI:     0x%08x == 0x%08x\n",
+-				netxen_nic_driver_name,
+-				(u32)netxen_decode_crb_addr(addr), val);
+ 	}
++
+ 	for (i = 0; i < n; i++) {
+ 
+ 		off = netxen_decode_crb_addr(buf[i].addr);
+@@ -526,6 +505,10 @@ int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
+ 			continue;
+ 		}
+ 		off += NETXEN_PCI_CRBSPACE;
++
++		if (off & 1)
++			continue;
++
+ 		/* skipping cold reboot MAGIC */
+ 		if (off == NETXEN_CAM_RAM(0x1fc))
+ 			continue;
+@@ -542,7 +525,8 @@ int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
+ 				continue;
+ 			if (off == (ROMUSB_GLB + 0x1c)) /* MS clock */
+ 				continue;
+-			if (off == (NETXEN_CRB_PEG_NET_1 + 0x18))
++			if (off == (NETXEN_CRB_PEG_NET_1 + 0x18) &&
++				!NX_IS_REVISION_P3P(adapter->ahw.revision_id))
+ 				buf[i].data = 0x1020;
+ 			/* skip the function enable register */
+ 			if (off == NETXEN_PCIE_REG(PCIE_SETUP_FUNCTION))
+@@ -751,7 +735,10 @@ netxen_load_firmware(struct netxen_adapter *adapter)
+ 	}
+ 	msleep(1);
+ 
+-	if (NX_IS_REVISION_P3(adapter->ahw.revision_id))
++	if (NX_IS_REVISION_P3P(adapter->ahw.revision_id)) {
++		NXWR32(adapter, NETXEN_CRB_PEG_NET_0 + 0x18, 0x1020);
++		NXWR32(adapter, NETXEN_ROMUSB_GLB_SW_RESET, 0x80001e);
++	} else if (NX_IS_REVISION_P3(adapter->ahw.revision_id))
+ 		NXWR32(adapter, NETXEN_ROMUSB_GLB_SW_RESET, 0x80001d);
+ 	else {
+ 		NXWR32(adapter, NETXEN_ROMUSB_GLB_CHIP_CLK_CTRL, 0x3fff);
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 5bc8520..2d772dd 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -810,7 +810,7 @@ netxen_start_firmware(struct netxen_adapter *adapter)
+ 
+ 	if (first_boot != 0x55555555) {
+ 		NXWR32(adapter, CRB_CMDPEG_STATE, 0);
+-		netxen_pinit_from_rom(adapter, 0);
++		netxen_pinit_from_rom(adapter);
+ 		msleep(1);
+ 	}
+ 
 -- 
 1.6.0.2
 
