@@ -1,232 +1,144 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH 1/2] alchemy: add au1000-eth platform device
-Date: Sat, 17 Oct 2009 10:48:23 +0200
-Message-ID: <200910171048.24962.florian@openwrt.org>
-References: <200908170105.38154.florian@openwrt.org> <4A969519.7010604@ru.mvista.com> <200908271655.11086.florian@openwrt.org>
-Reply-To: Florian Fainelli <florian@openwrt.org>
+From: Chuck Ebbert <cebbert@redhat.com>
+Subject: Oops in
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c::ipv6_confirm(), kernel
+ 2.6.30.8
+Date: Sat, 17 Oct 2009 05:01:37 -0400
+Message-ID: <200910170903.n9H93bKI012269@int-mx03.intmail.prod.int.phx2.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Ralf Baechle <ralf@linux-mips.org>, linux-mips@linux-mips.org,
-	Manuel Lauss <manuel.lauss@googlemail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f208.google.com ([209.85.219.208]:35189 "EHLO
-	mail-ew0-f208.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752412AbZJQIsX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2009 04:48:23 -0400
-Received: by ewy4 with SMTP id 4so67568ewy.37
-        for <netdev@vger.kernel.org>; Sat, 17 Oct 2009 01:48:26 -0700 (PDT)
-In-Reply-To: <200908271655.11086.florian@openwrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+general protection fault: 0000 [#1] SMP 
+last sysfs file: /sys/devices/system/cpu/sched_mc_power_savings
+CPU 0 
+Modules linked in: tun fuse rfcomm sco bridge stp llc bnep l2cap autofs4
+w83627ehf hwmon_vid sunrpc sit tunnel4 nf_nat_sip nf_conntrack_sip nf_nat_ftp
+nf_conntrack_ftp ipt_LOG xt_owner iptable_mangle ipt_MASQUERADE iptable_nat
+nf_nat xt_limit nf_conntrack_ipv6 xt_mac ip6t_LOG ip6table_filter ip6_tables
+p4_clockmod freq_table speedstep_lib squashfs nls_utf8 dm_multipath raid1
+kvm_intel kvm uinput ipv6 ppdev snd_hda_codec_realtek snd_hda_intel
+snd_hda_codec snd_hwdep snd_pcm nouveau pcspkr i2c_i801 firewire_ohci snd_timer
+btusb firewire_core e1000 snd bluetooth drm iTCO_wdt iTCO_vendor_support
+crc_itu_t i2c_algo_bit asus_atk0110 i82975x_edac soundcore sky2 edac_core
+parport_pc i2c_core floppy hwmon snd_page_alloc parport raid456 raid6_pq
+async_xor async_memcpy async_tx xor [last unloaded: freq_table]
+Pid: 4104, comm: qemu-kvm Not tainted 2.6.30.8-64.fc11.x86_64.debug #1 System
+Product Name
+RIP: 0010:[<ffffffffa03624e1>]  [<ffffffffa03624e1>] ipv6_confirm+0xd0/0x147
+[nf_conntrack_ipv6]
+RSP: 0018:ffff880035203668  EFLAGS: 00010212
+RAX: 0000000000000030 RBX: ffff8801f90a1080 RCX: 0000000000000002
+RDX: ffffffff81783f40 RSI: 0000000000000030 RDI: ffff8801f90a1080
+RBP: ffff880035203698 R08: ffffffffa04520ee R09: ffff880035203748
+R10: 0000000000000000 R11: 0000000000000000 R12: ffffffff81783f40
+R13: 6b6b6b6b6b6b6b6b R14: 0000000000000002 R15: 0000000000000004
+FS:  00007f944e44b740(0000) GS:ffff880035200000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+CR2: 00007fffbc54ef60 CR3: 000000020f8d8000 CR4: 00000000000026e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Process qemu-kvm (pid: 4104, threadinfo ffff88020f89c000, task
+ffff8802104a4760)
+Stack:
+ 3a00000000000246 00000000696092b1 0000000080000000 ffff8801f90a1080
+ ffffffffa04520ee ffffffff81783bd0 ffff880035203708 ffffffff8142b117
+ ffff8800352036c8 ffff880035203748 ffff880210492060 0000000000000000
+Call Trace:
+ <IRQ> <0> [<ffffffffa04520ee>] ? br_nf_dev_queue_xmit+0x0/0xa1 [bridge]
+ [<ffffffff8142b117>] nf_iterate+0x5c/0xb3
+ [<ffffffffa04520ee>] ? br_nf_dev_queue_xmit+0x0/0xa1 [bridge]
+ [<ffffffff8142b214>] nf_hook_slow+0xa6/0x136
+ [<ffffffffa04520ee>] ? br_nf_dev_queue_xmit+0x0/0xa1 [bridge]
+ [<ffffffffa044c29d>] ? br_dev_queue_push_xmit+0x0/0xae [bridge]
+ [<ffffffffa045263b>] nf_hook_thresh.clone.0+0x4c/0x62 [bridge]
+ [<ffffffffa0452d92>] br_nf_post_routing+0x1a8/0x1e4 [bridge]
+ [<ffffffff8142b117>] nf_iterate+0x5c/0xb3
+ [<ffffffffa044c29d>] ? br_dev_queue_push_xmit+0x0/0xae [bridge]
+ [<ffffffff8142b214>] nf_hook_slow+0xa6/0x136
+ [<ffffffffa044c29d>] ? br_dev_queue_push_xmit+0x0/0xae [bridge]
+ [<ffffffffa044c39d>] nf_hook_thresh.clone.0+0x52/0x68 [bridge]
+ [<ffffffffa044c3ed>] br_forward_finish+0x3a/0x62 [bridge]
+ [<ffffffffa0452aaa>] br_nf_forward_finish+0xb3/0xd2 [bridge]
+ [<ffffffffa045263b>] ? nf_hook_thresh.clone.0+0x4c/0x62 [bridge]
+ [<ffffffffa045318a>] br_nf_forward_ip+0x1af/0x1de [bridge]
+ [<ffffffffa044c3b3>] ? br_forward_finish+0x0/0x62 [bridge]
+ [<ffffffff8142b117>] nf_iterate+0x5c/0xb3
+ [<ffffffffa044c3b3>] ? br_forward_finish+0x0/0x62 [bridge]
+ [<ffffffff8142b214>] nf_hook_slow+0xa6/0x136
+ [<ffffffffa044c3b3>] ? br_forward_finish+0x0/0x62 [bridge]
+ [<ffffffffa044c415>] ? __br_forward+0x0/0xab [bridge]
+ [<ffffffffa044c39d>] nf_hook_thresh.clone.0+0x52/0x68 [bridge]
+ [<ffffffffa044c499>] __br_forward+0x84/0xab [bridge]
+ [<ffffffffa044c1ca>] br_flood+0x82/0xd9 [bridge]
+ [<ffffffff814086ee>] ? netif_receive_skb+0x120/0x44c
+ [<ffffffffa044c249>] br_flood_forward+0x28/0x3e [bridge]
+ [<ffffffffa044d36a>] br_handle_frame_finish+0x13a/0x167 [bridge]
+ [<ffffffffa04529da>] br_nf_pre_routing_finish_ipv6+0xb7/0xd4 [bridge]
+ [<ffffffffa045263b>] ? nf_hook_thresh.clone.0+0x4c/0x62 [bridge]
+ [<ffffffffa04534e8>] br_nf_pre_routing+0x32f/0x577 [bridge]
+ [<ffffffffa044d230>] ? br_handle_frame_finish+0x0/0x167 [bridge]
+ [<ffffffff8142b117>] nf_iterate+0x5c/0xb3
+ [<ffffffff8123bbf6>] ? kobject_put+0x54/0x6f
+ [<ffffffffa044d230>] ? br_handle_frame_finish+0x0/0x167 [bridge]
+ [<ffffffff8142b214>] nf_hook_slow+0xa6/0x136
+ [<ffffffffa044d230>] ? br_handle_frame_finish+0x0/0x167 [bridge]
+ [<ffffffffa044d21a>] nf_hook_thresh.clone.0+0x52/0x68 [bridge]
+ [<ffffffffa044d533>] br_handle_frame+0x19c/0x1d9 [bridge]
+ [<ffffffff814088fa>] netif_receive_skb+0x32c/0x44c
+ [<ffffffff814086ee>] ? netif_receive_skb+0x120/0x44c
+ [<ffffffff81087465>] ? trace_hardirqs_on_caller+0x32/0x173
+ [<ffffffff81408ac5>] process_backlog+0xab/0xfb
+ [<ffffffff81060805>] ? _local_bh_enable+0xad/0xd6
+ [<ffffffff81409348>] net_rx_action+0xc6/0x226
+ [<ffffffff8140944c>] ? net_rx_action+0x1ca/0x226
+ [<ffffffff81060900>] __do_softirq+0xd2/0x1d2
+ [<ffffffff8101328c>] call_softirq+0x1c/0x30
+ <EOI> <0> [<ffffffff81014bf3>] do_softirq+0x5f/0xd7
+ [<ffffffff814094dd>] netif_rx_ni+0x35/0x4e
+ [<ffffffffa049a0b3>] tun_chr_aio_write+0x384/0x3f3 [tun]
+ [<ffffffffa0499d2f>] ? tun_chr_aio_write+0x0/0x3f3 [tun]
+ [<ffffffff81124aba>] do_sync_readv_writev+0xf7/0x14a
+ [<ffffffff81088f33>] ? print_lock_contention_bug+0x2a/0x106
+ [<ffffffff810745bf>] ? autoremove_wake_function+0x0/0x5f
+ [<ffffffff811f488c>] ? security_file_permission+0x29/0x3f
+ [<ffffffff81125b15>] do_readv_writev+0xbf/0x156
+ [<ffffffff8112630b>] ? fget_light+0x66/0x113
+ [<ffffffff8124036a>] ? __up_read+0x89/0xaa
+ [<ffffffff81125c02>] vfs_writev+0x56/0x75
+ [<ffffffff81125d38>] sys_writev+0x59/0xb6
+ [<ffffffff81012002>] system_call_fastpath+0x16/0x1b
+Code: 2c 75 1d f6 05 1a fc 1c e2 40 74 60 f6 05 17 fc 1c e2 04 74 57 80 3d ad
+4d 00 00 00 74 4e eb 62 44 89 f1 4c 89 e2 89 c6 48 89 df <41> ff 55 50 83 f8 01
+75 3d 4c 8b a3 88 00 00 00 4d 85 e4 74 2c 
+RIP  [<ffffffffa03624e1>] ipv6_confirm+0xd0/0x147 [nf_conntrack_ipv6]
+ RSP <ffff880035203668>
+---[ end trace 5dc400d9f2f8290b ]---
 
-Please find below and updated version, hopefully addressing most if not all
-of your comments.
---
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 1/2] alchemy: add au1000-eth platform device (v3)
+   c: f6 05 17 fc 1c e2 04  testb  $0x4,-0x1de303e9(%rip)
+  13: 74 57                 je     0x6c
+  15: 80 3d ad 4d 00 00 00  cmpb   $0x0,0x4dad(%rip)
+  1c: 74 4e                 je     0x6c
+  1e: eb 62                 jmp    0x82
+  20: 44 89 f1              mov    %r14d,%ecx
+  23: 4c 89 e2              mov    %r12,%rdx
+  26: 89 c6                 mov    %eax,%esi
+  28: 48 89 df              mov    %rbx,%rdi
 
-This patch makes the board code register the au1000-eth
-platform device. The au1000-eth platform data can be
-overriden with the au1xxx_override_eth_cfg function
-like it has to be done for the Bosporus board which uses
-a different MAC/PHY setup.
+   0: 41 ff 55 50           callq  *0x50(%r13)  <===========
+   4: 83 f8 01              cmp    $0x1,%eax
+   7: 75 3d                 jne    0x46
+   9: 4c 8b a3 88 00 00 00  mov    0x88(%rbx),%r12
+  10: 4d 85 e4              test   %r12,%r12
+  13: 74 2c                 je     0x41
 
-Changes from v2:
-- declared the au1000-eth second driver instance platform_data
-- made the override function generic and pass it the port number too
+R13: 6b6b6b6b6b6b6b6b  
 
-Changes from v1:
-- remove per-board platform.c file
-- add an override function to pass custom eth0 platform_data PHY settings
+Corresponds to:
+net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c:178:
 
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
-diff --git a/arch/mips/alchemy/common/platform.c b/arch/mips/alchemy/common/platform.c
-index 195e5b3..167b24e 100644
---- a/arch/mips/alchemy/common/platform.c
-+++ b/arch/mips/alchemy/common/platform.c
-@@ -19,6 +19,7 @@
- #include <asm/mach-au1x00/au1xxx.h>
- #include <asm/mach-au1x00/au1xxx_dbdma.h>
- #include <asm/mach-au1x00/au1100_mmc.h>
-+#include <asm/mach-au1x00/au1xxx_eth.h>
- 
- #define PORT(_base, _irq)					\
- 	{							\
-@@ -324,6 +325,88 @@ static struct platform_device pbdb_smbus_device = {
- };
- #endif
- 
-+/* Macro to help defining the Ethernet MAC resources */
-+#define MAC_RES(_base, _enable, _irq)			\
-+	{						\
-+		.start	= CPHYSADDR(_base),		\
-+		.end	= CPHYSADDR(_base + 0xffff),	\
-+		.flags	= IORESOURCE_MEM,		\
-+	},						\
-+	{						\
-+		.start	= CPHYSADDR(_enable),		\
-+		.end	= CPHYSADDR(_enable + 0x3),	\
-+		.flags	= IORESOURCE_MEM,		\
-+	},						\
-+	{						\
-+		.start	= _irq,				\
-+		.end	= _irq,				\
-+		.flags	= IORESOURCE_IRQ		\
-+	}
-+
-+static struct resource au1xxx_eth0_resources[] = {
-+#if defined(CONFIG_SOC_AU1000)
-+	MAC_RES(AU1000_ETH0_BASE, AU1000_MAC0_ENABLE, AU1000_MAC0_DMA_INT),
-+#elif defined(CONFIG_SOC_AU1100)
-+	MAC_RES(AU1100_ETH0_BASE, AU1100_MAC0_ENABLE, AU1100_MAC0_DMA_INT),
-+#elif defined(CONFIG_SOC_AU1550)
-+	MAC_RES(AU1550_ETH0_BASE, AU1550_MAC0_ENABLE, AU1550_MAC0_DMA_INT),
-+#elif defined(CONFIG_SOC_AU1500)
-+	MAC_RES(AU1500_ETH0_BASE, AU1500_MAC0_ENABLE, AU1500_MAC0_DMA_INT),
-+#endif
-+};
-+
-+static struct resource au1xxx_eth1_resources[] = {
-+#if defined(CONFIG_SOC_AU1000)
-+	MAC_RES(AU1000_ETH1_BASE, AU1000_MAC1_ENABLE, AU1000_MAC1_DMA_INT),
-+#elif defined(CONFIG_SOC_AU1550)
-+	MAC_RES(AU1550_ETH1_BASE, AU1550_MAC1_ENABLE, AU1550_MAC1_DMA_INT),
-+#elif defined(CONFIG_SOC_AU1500)
-+	MAC_RES(AU1500_ETH1_BASE, AU1500_MAC1_ENABLE, AU1500_MAC1_DMA_INT),
-+#endif
-+};
-+
-+static struct au1000_eth_platform_data au1xxx_eth0_platform_data = {
-+	.phy1_search_mac0 = 1,
-+};
-+
-+static struct platform_device au1xxx_eth0_device = {
-+	.name		= "au1000-eth",
-+	.id		= 0,
-+	.num_resources	= ARRAY_SIZE(au1xxx_eth0_resources),
-+	.resource	= au1xxx_eth0_resources,
-+	.dev.platform_data = &au1xxx_eth0_platform_data,
-+};
-+
-+#ifndef CONFIG_SOC_AU1100
-+static struct au1000_eth_platform_data au1xxx_eth1_platform_data = {
-+	.phy1_search_mac0 = 1,
-+};
-+
-+static struct platform_device au1xxx_eth1_device = {
-+	.name		= "au1000-eth",
-+	.id		= 1,
-+	.num_resources	= ARRAY_SIZE(au1xxx_eth1_resources),
-+	.resource	= au1xxx_eth1_resources,
-+	.dev.platform_data = &au1xxx_eth1_platform_data,
-+};
-+#endif
-+
-+void __init au1xxx_override_eth_cfg(unsigned int port,
-+			struct au1000_eth_platform_data *eth_data)
-+{
-+	if (!eth_data || port > 1)
-+		return;
-+
-+	if (port == 0)
-+		memcpy(&au1xxx_eth0_platform_data, eth_data,
-+			sizeof(struct au1000_eth_platform_data));
-+#ifndef CONFIG_SOC_AU1100
-+	else
-+		memcpy(&au1xxx_eth1_platform_data, eth_data,
-+			sizeof(struct au1000_eth_platform_data));
-+#endif
-+}
-+
- static struct platform_device *au1xxx_platform_devices[] __initdata = {
- 	&au1xx0_uart_device,
- 	&au1xxx_usb_ohci_device,
-@@ -343,6 +426,7 @@ static struct platform_device *au1xxx_platform_devices[] __initdata = {
- #ifdef SMBUS_PSC_BASE
- 	&pbdb_smbus_device,
- #endif
-+	&au1xxx_eth0_device,
- };
- 
- static int __init au1xxx_platform_init(void)
-@@ -354,6 +438,12 @@ static int __init au1xxx_platform_init(void)
- 	for (i = 0; au1x00_uart_data[i].flags; i++)
- 		au1x00_uart_data[i].uartclk = uartclk;
- 
-+#ifndef CONFIG_SOC_AU1100
-+	/* Register second MAC if enabled in pinfunc */
-+	if (!(au_readl(SYS_PINFUNC) & (u32)(SYS_PF_NI2)) >> 4)
-+		platform_device_register(&au1xxx_eth1_device);
-+#endif
-+
- 	return platform_add_devices(au1xxx_platform_devices,
- 				    ARRAY_SIZE(au1xxx_platform_devices));
- }
-diff --git a/arch/mips/alchemy/devboards/db1x00/board_setup.c b/arch/mips/alchemy/devboards/db1x00/board_setup.c
-index 64eb26f..f938924 100644
---- a/arch/mips/alchemy/devboards/db1x00/board_setup.c
-+++ b/arch/mips/alchemy/devboards/db1x00/board_setup.c
-@@ -32,6 +32,7 @@
- #include <linux/interrupt.h>
- 
- #include <asm/mach-au1x00/au1000.h>
-+#include <asm/mach-au1x00/au1xxx_eth.h>
- #include <asm/mach-db1x00/db1x00.h>
- #include <asm/mach-db1x00/bcsr.h>
- 
-@@ -101,6 +102,22 @@ void __init board_setup(void)
- 	printk(KERN_INFO "AMD Alchemy Au1100/Db1100 Board\n");
- #endif
- #ifdef CONFIG_MIPS_BOSPORUS
-+	struct au1000_eth_platform_data eth0_pdata;
-+
-+	/*
-+	 * Micrel/Kendin 5 port switch attached to MAC0,
-+	 * MAC0 is associated with PHY address 5 (== WAN port)
-+	 * MAC1 is not associated with any PHY, since it's connected directly
-+	 * to the switch.
-+	 * no interrupts are used
-+	 */
-+	eth0_pdata.phy1_search_mac0 = 0;
-+	eth0_pdata.phy_static_config = 1;
-+	eth0_pdata.phy_addr = 5;
-+	eth0_pdata.phy_busid = 0;
-+
-+	au1xxx_override_eth_cfg(0, &eth0_pdata);
-+
- 	printk(KERN_INFO "AMD Alchemy Bosporus Board\n");
- #endif
- #ifdef CONFIG_MIPS_MIRAGE
-diff --git a/arch/mips/include/asm/mach-au1x00/au1xxx_eth.h b/arch/mips/include/asm/mach-au1x00/au1xxx_eth.h
-new file mode 100644
-index 0000000..f30529e
---- /dev/null
-+++ b/arch/mips/include/asm/mach-au1x00/au1xxx_eth.h
-@@ -0,0 +1,18 @@
-+#ifndef __AU1X00_ETH_DATA_H
-+#define __AU1X00_ETH_DATA_H
-+
-+/* Platform specific PHY configuration passed to the MAC driver */
-+struct au1000_eth_platform_data {
-+	int phy_static_config;
-+	int phy_search_highest_addr;
-+	int phy1_search_mac0;
-+	int phy_addr;
-+	int phy_busid;
-+	int phy_irq;
-+};
-+
-+void __init au1xxx_override_eth_cfg(unsigned port,
-+			struct au1000_eth_platform_data *eth_data);
-+
-+#endif /* __AU1X00_ETH_DATA_H */
-+
-
-
+        ret = helper->help(skb, protoff, ct, ctinfo);  
