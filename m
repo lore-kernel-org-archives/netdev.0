@@ -1,35 +1,70 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Fwd: [PATCH] [NIU] VLAN does not work with niu driver]
-Date: Fri, 16 Oct 2009 17:40:08 -0700 (PDT)
-Message-ID: <20091016.174008.193713863.davem@davemloft.net>
-References: <4AD89D9A.7090405@Sun.COM>
+Subject: Re: [net-next PATCH 0/3] qlge: Size RX buffers based on MTU.
+Date: Fri, 16 Oct 2009 17:51:42 -0700 (PDT)
+Message-ID: <20091016.175142.52482970.davem@davemloft.net>
+References: <1255724136-27264-1-git-send-email-ron.mercer@qlogic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org
-To: Joyce.Yu@Sun.COM
+To: ron.mercer@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50107
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53014
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750791AbZJQAjq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 20:39:46 -0400
-In-Reply-To: <4AD89D9A.7090405@Sun.COM>
+	by vger.kernel.org with ESMTP id S1752359AbZJQAvU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 20:51:20 -0400
+In-Reply-To: <1255724136-27264-1-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joyce Yu <Joyce.Yu@Sun.COM>
-Date: Fri, 16 Oct 2009 09:21:46 -0700
-
-> 
-> Can this patch be accepted and integrated to the main tree?
-
-Well, what happened to all of those page fragment modifications?
-
-They all of a sudden are no longer necessary?  Why?
-
-I'm not going to apply this patch until you start explaining
-why these things are being done, or not done.  And you must
-add some more text to your commit messages so that you explain
-your change sufficiently.
-
-Thank you.
+RnJvbTogUm9uIE1lcmNlciA8cm9uLm1lcmNlckBxbG9naWMuY29tPg0KRGF0ZTogRnJpLCAxNiBP
+Y3QgMjAwOSAxMzoxNTozMyAtMDcwMA0KDQo+IFRoZXNlIHBhdGNoZXMgYXJlIGludGVyZGVwZW5k
+ZW50Lg0KDQpObywgUm9uLCB0aGV5IGFyZSBhYnNvbHV0ZWx5IG5vdC4NCg0KQXBwbHkgdGhlIGZp
+cnN0IHBhdGNoLCBhbmQgdGhhdCBicmVha3MgdGhlIGJ1aWxkIGJlY2F1c2UNCnlvdSd2ZSByZW1v
+dmVkIExBUkdFX0JVRkZFUl9TSVpFIGJ1dCBpdCdzIHN0aWxsIHJlZmVyZW5jZWQNCmluIHFsZ2Vf
+bWFpbi5jLCBhbmQgdGhlcmUgYXJlIHRvbnMgb2Ygb3RoZXIgYnJlYWthZ2VzIHRvby4NCg0KRG9u
+J3Qgc2VuZCBtZSBnYXJiYWdlIGxpa2UgdGhpcyBhbmQgdGhlbiBjbGFpbSBpdCdzIGEgc2V0DQpv
+ZiBpbmRlcGVuZGVudCBwYXRjaGVzLiAgQSB0cml2aWFsIGJ1aWxkIHRlc3Qgd291bGQgaGF2ZQ0K
+c2hvd24gb3RoZXJ3aXNlLCBidXQgeW91IG9idmlvdXNseSBkaWRuJ3QgZG8gdGhhdC4NCg0KVGhp
+cyBpcyBjb21wbGV0ZWx5IHJlZGljdWxpb3VzOg0KDQogIENDIFtNXSAgZHJpdmVycy9uZXQvcWxn
+ZS9xbGdlX21haW4ubw0KZHJpdmVycy9uZXQvcWxnZS9xbGdlX21haW4uYzogSW4gZnVuY3Rpb24g
+4oCYcWxfdXBkYXRlX2xiceKAmToNCmRyaXZlcnMvbmV0L3FsZ2UvcWxnZV9tYWluLmM6MTA4MTog
+ZXJyb3I6IOKAmHVuaW9uIDxhbm9ueW1vdXM+4oCZIGhhcyBubyBtZW1iZXIgbmFtZWQg4oCYbGJx
+X3BhZ2XigJkNCmRyaXZlcnMvbmV0L3FsZ2UvcWxnZV9tYWluLmM6MTA4NTogZXJyb3I6IOKAmHVu
+aW9uIDxhbm9ueW1vdXM+4oCZIGhhcyBubyBtZW1iZXIgbmFtZWQg4oCYbGJxX3BhZ2XigJkNCmRy
+aXZlcnMvbmV0L3FsZ2UvcWxnZV9tYWluLmM6MTA4NjogZXJyb3I6IOKAmHVuaW9uIDxhbm9ueW1v
+dXM+4oCZIGhhcyBubyBtZW1iZXIgbmFtZWQg4oCYbGJxX3BhZ2XigJkNCmRyaXZlcnMvbmV0L3Fs
+Z2UvcWxnZV9tYWluLmM6MTA5MzogZXJyb3I6IOKAmHVuaW9uIDxhbm9ueW1vdXM+4oCZIGhhcyBu
+byBtZW1iZXIgbmFtZWQg4oCYbGJxX3BhZ2XigJkNCmRyaXZlcnMvbmV0L3FsZ2UvcWxnZV9tYWlu
+LmM6MTA5ODogZXJyb3I6IOKAmHVuaW9uIDxhbm9ueW1vdXM+4oCZIGhhcyBubyBtZW1iZXIgbmFt
+ZWQg4oCYbGJxX3BhZ2XigJkNCmRyaXZlcnMvbmV0L3FsZ2UvcWxnZV9tYWluLmM6MTA5OTogZXJy
+b3I6IOKAmHVuaW9uIDxhbm9ueW1vdXM+4oCZIGhhcyBubyBtZW1iZXIgbmFtZWQg4oCYbGJxX3Bh
+Z2XigJkNCmRyaXZlcnMvbmV0L3FsZ2UvcWxnZV9tYWluLmM6IEluIGZ1bmN0aW9uIOKAmHFsX2J1
+aWxkX3J4X3NrYuKAmToNCmRyaXZlcnMvbmV0L3FsZ2UvcWxnZV9tYWluLmM6MTQ5MTogZXJyb3I6
+IOKAmHVuaW9uIDxhbm9ueW1vdXM+4oCZIGhhcyBubyBtZW1iZXIgbmFtZWQg4oCYbGJxX3BhZ2Xi
+gJkNCmRyaXZlcnMvbmV0L3FsZ2UvcWxnZV9tYWluLmM6MTQ5NjogZXJyb3I6IOKAmHVuaW9uIDxh
+bm9ueW1vdXM+4oCZIGhhcyBubyBtZW1iZXIgbmFtZWQg4oCYbGJxX3BhZ2XigJkNCmRyaXZlcnMv
+bmV0L3FsZ2UvcWxnZV9tYWluLmM6MTUxODogZXJyb3I6IOKAmHVuaW9uIDxhbm9ueW1vdXM+4oCZ
+IGhhcyBubyBtZW1iZXIgbmFtZWQg4oCYbGJxX3BhZ2XigJkNCmRyaXZlcnMvbmV0L3FsZ2UvcWxn
+ZV9tYWluLmM6MTUyNDogZXJyb3I6IOKAmHVuaW9uIDxhbm9ueW1vdXM+4oCZIGhhcyBubyBtZW1i
+ZXIgbmFtZWQg4oCYbGJxX3BhZ2XigJkNCmRyaXZlcnMvbmV0L3FsZ2UvcWxnZV9tYWluLmM6MTU4
+NDogZXJyb3I6IOKAmHVuaW9uIDxhbm9ueW1vdXM+4oCZIGhhcyBubyBtZW1iZXIgbmFtZWQg4oCY
+bGJxX3BhZ2XigJkNCmRyaXZlcnMvbmV0L3FsZ2UvcWxnZV9tYWluLmM6MTU5MDogZXJyb3I6IOKA
+mHVuaW9uIDxhbm9ueW1vdXM+4oCZIGhhcyBubyBtZW1iZXIgbmFtZWQg4oCYbGJxX3BhZ2XigJkN
+CmRyaXZlcnMvbmV0L3FsZ2UvcWxnZV9tYWluLmM6IEluIGZ1bmN0aW9uIOKAmHFsX2ZyZWVfbGJx
+X2J1ZmZlcnPigJk6DQpkcml2ZXJzL25ldC9xbGdlL3FsZ2VfbWFpbi5jOjIzMTM6IGVycm9yOiDi
+gJh1bmlvbiA8YW5vbnltb3VzPuKAmSBoYXMgbm8gbWVtYmVyIG5hbWVkIOKAmGxicV9wYWdl4oCZ
+DQpkcml2ZXJzL25ldC9xbGdlL3FsZ2VfbWFpbi5jOjIzMTk6IGVycm9yOiDigJh1bmlvbiA8YW5v
+bnltb3VzPuKAmSBoYXMgbm8gbWVtYmVyIG5hbWVkIOKAmGxicV9wYWdl4oCZDQpkcml2ZXJzL25l
+dC9xbGdlL3FsZ2VfbWFpbi5jOjIzMjA6IGVycm9yOiDigJh1bmlvbiA8YW5vbnltb3VzPuKAmSBo
+YXMgbm8gbWVtYmVyIG5hbWVkIOKAmGxicV9wYWdl4oCZDQpkcml2ZXJzL25ldC9xbGdlL3FsZ2Vf
+bWFpbi5jOiBJbiBmdW5jdGlvbiDigJhxbF9jb25maWd1cmVfcmluZ3PigJk6DQpkcml2ZXJzL25l
+dC9xbGdlL3FsZ2VfbWFpbi5jOjM1NDY6IGVycm9yOiDigJhMQVJHRV9CVUZGRVJfU0laReKAmSB1
+bmRlY2xhcmVkIChmaXJzdCB1c2UgaW4gdGhpcyBmdW5jdGlvbikNCmRyaXZlcnMvbmV0L3FsZ2Uv
+cWxnZV9tYWluLmM6MzU0NjogZXJyb3I6IChFYWNoIHVuZGVjbGFyZWQgaWRlbnRpZmllciBpcyBy
+ZXBvcnRlZCBvbmx5IG9uY2UNCmRyaXZlcnMvbmV0L3FsZ2UvcWxnZV9tYWluLmM6MzU0NjogZXJy
+b3I6IGZvciBlYWNoIGZ1bmN0aW9uIGl0IGFwcGVhcnMgaW4uKQ0KbWFrZVszXTogKioqIFtkcml2
+ZXJzL25ldC9xbGdlL3FsZ2VfbWFpbi5vXSBFcnJvciAxDQptYWtlWzJdOiAqKiogW2RyaXZlcnMv
+bmV0L3FsZ2VdIEVycm9yIDINCm1ha2VbMV06ICoqKiBbZHJpdmVycy9uZXRdIEVycm9yIDINCm1h
+a2U6ICoqKiBbZHJpdmVyc10gRXJyb3IgMg0KbWFrZTogKioqIFdhaXRpbmcgZm9yIHVuZmluaXNo
+ZWQgam9icy4uLi4NCg==
