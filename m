@@ -1,54 +1,35 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: Re: [PATCH 2/2] page allocator: Direct reclaim should always obey watermarks
-Date: Sat, 17 Oct 2009 01:28:26 +0200
-Message-ID: <200910170128.29086.elendil@planet.nl>
-References: <1255689446-3858-1-git-send-email-mel@csn.ul.ie> <alpine.DEB.1.00.0910161204140.21328@chino.kir.corp.google.com> <20091016223237.GE32397@csn.ul.ie>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Fwd: [PATCH] [NIU] VLAN does not work with niu driver]
+Date: Fri, 16 Oct 2009 17:40:08 -0700 (PDT)
+Message-ID: <20091016.174008.193713863.davem@davemloft.net>
+References: <4AD89D9A.7090405@Sun.COM>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Rientjes <rientjes@google.com>,
- Andrew Morton <akpm@linux-foundation.org>,
- stable <stable@kernel.org>,
- "Rafael J. Wysocki" <rjw@sisk.pl>,
- David Miller <davem@davemloft.net>,
- reinette chatre <reinette.chatre@intel.com>,
- Kalle Valo <kalle.valo@iki.fi>,
- "John W. Linville" <linville@tuxdriver.com>,
- Pekka Enberg <penberg@cs.helsinki.fi>,
- Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
- Karol Lewandowski <karol.k.lewandowski@gmail.com>,
- netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org,
- "linux-mm@kvack.org" <linux-mm@kvack.org>
-To: Mel Gorman <mel@csn.ul.ie>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20091016223237.GE32397@csn.ul.ie>
-Content-Disposition: inline
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Joyce.Yu@Sun.COM
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50107
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750791AbZJQAjq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 20:39:46 -0400
+In-Reply-To: <4AD89D9A.7090405@Sun.COM>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday 17 October 2009, Mel Gorman wrote:
-> Frans, you reported that both patches in combination reduced the number
-> of failures. Was it in fact just the kswapd change that made the
-> difference?
+From: Joyce Yu <Joyce.Yu@Sun.COM>
+Date: Fri, 16 Oct 2009 09:21:46 -0700
 
-I will retest both patches (as I already mailed you privately yesterday), 
-but not today. The improvement with the combination was real, but I'm not 
-sure which patch is the reason. I think the second, but I need to verify.
+> 
+> Can this patch be accepted and integrated to the main tree?
 
-I've done another 30 boots or so today, mainly in the "akpm" merge, and 
-I've found new patterns that will help me nail down the regression. But 
-ATM I can't see straight anymore, so it will have to wait until tomorrow.
+Well, what happened to all of those page fragment modifications?
 
-I'd suggest to delay merging any patches for now. There are still too many 
-open ends.
+They all of a sudden are no longer necessary?  Why?
 
-Cheers,
-FJP
+I'm not going to apply this patch until you start explaining
+why these things are being done, or not done.  And you must
+add some more text to your commit messages so that you explain
+your change sufficiently.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thank you.
