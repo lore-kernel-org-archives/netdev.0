@@ -1,46 +1,56 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] iputils: ping by mark
-Date: Sat, 17 Oct 2009 08:30:35 -0400
-Message-ID: <1255782635.11213.7.camel@dogo.mojatatu.com>
-References: <1255381558.5406.33.camel@dogo.mojatatu.com>
-	 <7e84ed60910161405i2ce46053m9858b7f1c086e6b7@mail.gmail.com>
-Reply-To: hadi@cyberus.ca
+From: FUJITA Tomonori <fujita.tomonori-Zyj7fXuS5i5L9jVzuh4AOg@public.gmane.org>
+Subject: Re: [PATCH 2/8] bitmap: Introduce bitmap_set, bitmap_clear,
+	bitmap_find_next_zero_area
+Date: Sat, 17 Oct 2009 22:43:02 +0900
+Message-ID: <20091017224028V.fujita.tomonori@lab.ntt.co.jp>
+References: <20091009164100.85a36188.akpm@linux-foundation.org>
+	<20091013021818.GA3898@localhost.localdomain>
+	<20091013091017.GA18431@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
-To: Rob.Townley@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f194.google.com ([209.85.221.194]:39269 "EHLO
-	mail-qy0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751092AbZJQMdh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2009 08:33:37 -0400
-Received: by qyk32 with SMTP id 32so1972527qyk.4
-        for <netdev@vger.kernel.org>; Sat, 17 Oct 2009 05:33:41 -0700 (PDT)
-In-Reply-To: <7e84ed60910161405i2ce46053m9858b7f1c086e6b7@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	fujita.tomonori-Zyj7fXuS5i5L9jVzuh4AOg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org,
+	paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org, linuxppc-dev-mnsaURCQ41sdnm+yROfE0A@public.gmane.org, tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org,
+	mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
+	LW-bxm8fMRDkQLDiMYJYoSAnRvVK+yQ3ZXh@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org, yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, fenghua.yu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-altix-sJ/iWh9BUns@public.gmane.org
+To: akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20091013091017.GA18431-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2009-10-16 at 16:05 -0500, Rob Townley wrote:
+On Tue, 13 Oct 2009 18:10:17 +0900
+Akinobu Mita <akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
 
-> Would this make it easier to ping multiple gateways 
+> My user space testing exposed off-by-one error find_next_zero_area
+> in iommu-helper. Some zero area cannot be found by this bug.
+> 
+> Subject: [PATCH] Fix off-by-one error in find_next_zero_area
+> 
+> Signed-off-by: Akinobu Mita <akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  lib/iommu-helper.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/lib/iommu-helper.c b/lib/iommu-helper.c
+> index 75dbda0..afc58bc 100644
+> --- a/lib/iommu-helper.c
+> +++ b/lib/iommu-helper.c
+> @@ -19,7 +19,7 @@ again:
+>  	index = (index + align_mask) & ~align_mask;
+>  
+>  	end = index + nr;
+> -	if (end >= size)
+> +	if (end > size)
 
-yes. 
-You need to set your policy routing accordingly to have a different
-gateway for the same destination and then use the -m to select the
-routing table..
-
-> so if one goes
-> down, it is taken almost out of the routing table until it comes back
-> up.
-
-I am not sure i followed or see any relation to the first part of your
-question.
-Ive never heard of routing table entries automagically being taken down
-until something comes up. You could do it probably by writting a user
-space daemon.
-
-cheers,
-jamal
-
-
+I think that this is intentional; the last byte of the limit doesn't
+work.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
