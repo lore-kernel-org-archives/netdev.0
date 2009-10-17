@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Pv-drivers] [PATCH -next] vmxnet3: use dev_dbg, fix build for
- CONFIG_BLOCK=n
-Date: Fri, 16 Oct 2009 17:54:13 -0700 (PDT)
-Message-ID: <20091016.175413.236830274.davem@davemloft.net>
-References: <20091015152538.74a1cb15.sfr@canb.auug.org.au>
-	<4AD7A24F.6000900@oracle.com>
-	<8B1F619C9F5F454E81D90D3C161698D7017DD56435@EXCH-MBX-3.vmware.com>
+Subject: Re: [PATCH NEXT 1/7] netxen; update version to 4.0.56
+Date: Fri, 16 Oct 2009 17:56:21 -0700 (PDT)
+Message-ID: <20091016.175621.76312736.davem@davemloft.net>
+References: <1255673353-31797-1-git-send-email-dhananjay@netxen.com>
+	<1255673353-31797-2-git-send-email-dhananjay@netxen.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: randy.dunlap@oracle.com, sfr@canb.auug.org.au,
-	pv-drivers@vmware.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org
-To: bhavesh@vmware.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <8B1F619C9F5F454E81D90D3C161698D7017DD56435@EXCH-MBX-3.vmware.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: dhananjay@netxen.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53024
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752359AbZJQAz7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Oct 2009 20:55:59 -0400
+In-Reply-To: <1255673353-31797-2-git-send-email-dhananjay@netxen.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bhavesh Davda <bhavesh@vmware.com>
-Date: Thu, 15 Oct 2009 15:35:02 -0700
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Date: Thu, 15 Oct 2009 23:09:07 -0700
 
-> Who ever compiles with CONFIG_BLOCK=n? Just kidding...
+> Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 
-Who ever uses block layer debugging facilities in a networking
-driver?
+This doesn't make any sense at all.
 
-> Thanks again for making this change! Ship it!
-> 
-> Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
+You should update the driver version _AFTER_ your set
+of changes, not before.
 
-Applied, thanks everyone.
+I have never in my entire life seen someone bump the
+driver version before the actual changes.
+
+Please respin this properly, thanks.
