@@ -1,145 +1,44 @@
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH NEXT v2 6/7] netxen: sysfs control for auto firmware recovery
-Date: Fri, 16 Oct 2009 18:50:11 -0700
-Message-ID: <1255744212-28074-7-git-send-email-dhananjay@netxen.com>
+Subject: [PATCH NEXT v2 1/7] netxen: defines for next revision
+Date: Fri, 16 Oct 2009 18:50:06 -0700
+Message-ID: <1255744212-28074-2-git-send-email-dhananjay@netxen.com>
 References: <1255744212-28074-1-git-send-email-dhananjay@netxen.com>
-Cc: netdev@vger.kernel.org, Narender Kumar <narender.kumar@qlogic.com>
+Cc: netdev@vger.kernel.org, Amit Kumar Salecha <amit@qlogic.com>,
+	Amit Kumar Salecha <amit@netxen.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:49991 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:49983 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1751986AbZJQBuK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751690AbZJQBuK (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 16 Oct 2009 21:50:10 -0400
 In-Reply-To: <1255744212-28074-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Narender Kumar <narender.kumar@qlogic.com>
+From: Amit Kumar Salecha <amit@qlogic.com>
 
-Firmware hang detection and recovery (reset) need to
-be disabled for diagnostic tools, which can run
-some disruptive tests.
-
-This adds a driver level control to turn off this
-feature by diag tools.
-
-Signed-off-by: Narender Kumar <narender.kumar@qlogic.com>
+Signed-off-by: Amit Kumar Salecha <amit@netxen.com>
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- drivers/net/netxen/netxen_nic.h      |    3 ++
- drivers/net/netxen/netxen_nic_main.c |   50 +++++++++++++++++++++++++++++++++-
- 2 files changed, 52 insertions(+), 1 deletions(-)
+ drivers/net/netxen/netxen_nic.h |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index db28f8a..fa7511e 100644
+index 1bdb8f4..a608e25 100644
 --- a/drivers/net/netxen/netxen_nic.h
 +++ b/drivers/net/netxen/netxen_nic.h
-@@ -1044,6 +1044,9 @@ typedef struct {
- #define LINKEVENT_LINKSPEED_MBPS	0
- #define LINKEVENT_LINKSPEED_ENCODED	1
+@@ -117,9 +117,11 @@
+ #define NX_P3_B0		0x40
+ #define NX_P3_B1		0x41
+ #define NX_P3_B2		0x42
++#define NX_P3P_A0		0x50
  
-+#define AUTO_FW_RESET_ENABLED	0xEF10AF12
-+#define AUTO_FW_RESET_DISABLED	0xDCBAAF12
-+
- /* firmware response header:
-  *	63:58 - message type
-  *	57:56 - owner
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 30d9afe..1071f09 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -52,6 +52,8 @@ static int use_msi = 1;
+ #define NX_IS_REVISION_P2(REVISION)     (REVISION <= NX_P2_C1)
+ #define NX_IS_REVISION_P3(REVISION)     (REVISION >= NX_P3_A0)
++#define NX_IS_REVISION_P3P(REVISION)     (REVISION >= NX_P3P_A0)
  
- static int use_msi_x = 1;
- 
-+static unsigned long auto_fw_reset = AUTO_FW_RESET_ENABLED;
-+
- /* Local functions to NetXen NIC driver */
- static int __devinit netxen_nic_probe(struct pci_dev *pdev,
- 		const struct pci_device_id *ent);
-@@ -2264,7 +2266,8 @@ netxen_check_health(struct netxen_adapter *adapter)
- 	dev_info(&netdev->dev, "firmware hang detected\n");
- 
- detach:
--	if (!test_and_set_bit(__NX_RESETTING, &adapter->state))
-+	if ((auto_fw_reset == AUTO_FW_RESET_ENABLED) &&
-+			!test_and_set_bit(__NX_RESETTING, &adapter->state))
- 		netxen_schedule_work(adapter, netxen_detach_work, 0);
- 	return 1;
- }
-@@ -2496,6 +2499,41 @@ static struct bin_attribute bin_attr_mem = {
- 	.write = netxen_sysfs_write_mem,
- };
- 
-+static ssize_t
-+netxen_store_auto_fw_reset(struct module_attribute *mattr,
-+		struct module *mod, const char *buf, size_t count)
-+
-+{
-+	unsigned long new;
-+
-+	if (strict_strtoul(buf, 16, &new))
-+		return -EINVAL;
-+
-+	if ((new == AUTO_FW_RESET_ENABLED) || (new == AUTO_FW_RESET_DISABLED)) {
-+		auto_fw_reset = new;
-+		return count;
-+	}
-+
-+	return -EINVAL;
-+}
-+
-+static ssize_t
-+netxen_show_auto_fw_reset(struct module_attribute *mattr,
-+		struct module *mod, char *buf)
-+
-+{
-+	if (auto_fw_reset == AUTO_FW_RESET_ENABLED)
-+		return sprintf(buf, "enabled\n");
-+	else
-+		return sprintf(buf, "disabled\n");
-+}
-+
-+static struct module_attribute mod_attr_fw_reset = {
-+	.attr = {.name = "auto_fw_reset", .mode = (S_IRUGO | S_IWUSR)},
-+	.show = netxen_show_auto_fw_reset,
-+	.store = netxen_store_auto_fw_reset,
-+};
-+
- static void
- netxen_create_sysfs_entries(struct netxen_adapter *adapter)
- {
-@@ -2700,6 +2738,8 @@ static struct pci_driver netxen_driver = {
- 
- static int __init netxen_init_module(void)
- {
-+	struct module *mod = THIS_MODULE;
-+
- 	printk(KERN_INFO "%s\n", netxen_nic_driver_string);
- 
- #ifdef CONFIG_INET
-@@ -2707,6 +2747,10 @@ static int __init netxen_init_module(void)
- 	register_inetaddr_notifier(&netxen_inetaddr_cb);
- #endif
- 
-+	if (sysfs_create_file(&mod->mkobj.kobj, &mod_attr_fw_reset.attr))
-+		printk(KERN_ERR "%s: Failed to create auto_fw_reset "
-+				"sysfs entry.", netxen_nic_driver_name);
-+
- 	return pci_register_driver(&netxen_driver);
- }
- 
-@@ -2714,6 +2758,10 @@ module_init(netxen_init_module);
- 
- static void __exit netxen_exit_module(void)
- {
-+	struct module *mod = THIS_MODULE;
-+
-+	sysfs_remove_file(&mod->mkobj.kobj, &mod_attr_fw_reset.attr);
-+
- 	pci_unregister_driver(&netxen_driver);
- 
- #ifdef CONFIG_INET
+ #define FIRST_PAGE_GROUP_START	0
+ #define FIRST_PAGE_GROUP_END	0x100000
 -- 
 1.6.0.2
 
