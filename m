@@ -1,163 +1,145 @@
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH NEXT v2 2/7] netxen: 128 memory controller support
-Date: Fri, 16 Oct 2009 18:50:07 -0700
-Message-ID: <1255744212-28074-3-git-send-email-dhananjay@netxen.com>
+Subject: [PATCH NEXT v2 6/7] netxen: sysfs control for auto firmware recovery
+Date: Fri, 16 Oct 2009 18:50:11 -0700
+Message-ID: <1255744212-28074-7-git-send-email-dhananjay@netxen.com>
 References: <1255744212-28074-1-git-send-email-dhananjay@netxen.com>
-Cc: netdev@vger.kernel.org, Amit Kumar Salecha <amit@qlogic.com>,
-	Amit Kumar Salecha <amit@netxen.com>
+Cc: netdev@vger.kernel.org, Narender Kumar <narender.kumar@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:49989 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:49991 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1751793AbZJQBuJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Oct 2009 21:50:09 -0400
+	id S1751986AbZJQBuK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Oct 2009 21:50:10 -0400
 In-Reply-To: <1255744212-28074-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit@qlogic.com>
+From: Narender Kumar <narender.kumar@qlogic.com>
 
-Future revisions of the chip have 128 bit memory
-transactions. Require drivers to implement rmw
-in case of sub-128 bit accesses by driver. This
-is mostly used by diagnostic tools.
+Firmware hang detection and recovery (reset) need to
+be disabled for diagnostic tools, which can run
+some disruptive tests.
 
-Signed-off-by: Amit Kumar Salecha <amit@netxen.com>
+This adds a driver level control to turn off this
+feature by diag tools.
+
+Signed-off-by: Narender Kumar <narender.kumar@qlogic.com>
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- drivers/net/netxen/netxen_nic_hdr.h |    8 ++++-
- drivers/net/netxen/netxen_nic_hw.c  |   55 +++++++++++++++++++++++++++++-----
- 2 files changed, 53 insertions(+), 10 deletions(-)
+ drivers/net/netxen/netxen_nic.h      |    3 ++
+ drivers/net/netxen/netxen_nic_main.c |   50 +++++++++++++++++++++++++++++++++-
+ 2 files changed, 52 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic_hdr.h b/drivers/net/netxen/netxen_nic_hdr.h
-index 3461350..d40fe33 100644
---- a/drivers/net/netxen/netxen_nic_hdr.h
-+++ b/drivers/net/netxen/netxen_nic_hdr.h
-@@ -678,10 +678,14 @@ enum {
- #define MIU_TEST_AGT_ADDR_HI		(0x08)
- #define MIU_TEST_AGT_WRDATA_LO		(0x10)
- #define MIU_TEST_AGT_WRDATA_HI		(0x14)
--#define MIU_TEST_AGT_WRDATA(i)		(0x10+(4*(i)))
-+#define MIU_TEST_AGT_WRDATA_UPPER_LO	(0x20)
-+#define MIU_TEST_AGT_WRDATA_UPPER_HI	(0x24)
-+#define MIU_TEST_AGT_WRDATA(i)		(0x10+(0x10*((i)>>1))+(4*((i)&1)))
- #define MIU_TEST_AGT_RDDATA_LO		(0x18)
- #define MIU_TEST_AGT_RDDATA_HI		(0x1c)
--#define MIU_TEST_AGT_RDDATA(i)		(0x18+(4*(i)))
-+#define MIU_TEST_AGT_RDDATA_UPPER_LO	(0x28)
-+#define MIU_TEST_AGT_RDDATA_UPPER_HI	(0x2c)
-+#define MIU_TEST_AGT_RDDATA(i)		(0x18+(0x10*((i)>>1))+(4*((i)&1)))
+diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
+index db28f8a..fa7511e 100644
+--- a/drivers/net/netxen/netxen_nic.h
++++ b/drivers/net/netxen/netxen_nic.h
+@@ -1044,6 +1044,9 @@ typedef struct {
+ #define LINKEVENT_LINKSPEED_MBPS	0
+ #define LINKEVENT_LINKSPEED_ENCODED	1
  
- #define MIU_TEST_AGT_ADDR_MASK		0xfffffff8
- #define MIU_TEST_AGT_UPPER_ADDR(off)	(0)
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index d067bee..52a2f2d 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -1569,8 +1569,9 @@ static int
- netxen_nic_pci_mem_write_2M(struct netxen_adapter *adapter,
- 		u64 off, u64 data)
- {
--	int j, ret;
-+	int i, j, ret;
- 	u32 temp, off8;
-+	u64 stride;
- 	void __iomem *mem_crb;
++#define AUTO_FW_RESET_ENABLED	0xEF10AF12
++#define AUTO_FW_RESET_DISABLED	0xDCBAAF12
++
+ /* firmware response header:
+  *	63:58 - message type
+  *	57:56 - owner
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 30d9afe..1071f09 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -52,6 +52,8 @@ static int use_msi = 1;
  
- 	/* Only 64-bit aligned access */
-@@ -1597,14 +1598,45 @@ netxen_nic_pci_mem_write_2M(struct netxen_adapter *adapter,
- 	return -EIO;
+ static int use_msi_x = 1;
  
- correct:
--	off8 = off & MIU_TEST_AGT_ADDR_MASK;
-+	stride = NX_IS_REVISION_P3P(adapter->ahw.revision_id) ? 16 : 8;
++static unsigned long auto_fw_reset = AUTO_FW_RESET_ENABLED;
 +
-+	off8 = off & ~(stride-1);
+ /* Local functions to NetXen NIC driver */
+ static int __devinit netxen_nic_probe(struct pci_dev *pdev,
+ 		const struct pci_device_id *ent);
+@@ -2264,7 +2266,8 @@ netxen_check_health(struct netxen_adapter *adapter)
+ 	dev_info(&netdev->dev, "firmware hang detected\n");
  
- 	spin_lock(&adapter->ahw.mem_lock);
+ detach:
+-	if (!test_and_set_bit(__NX_RESETTING, &adapter->state))
++	if ((auto_fw_reset == AUTO_FW_RESET_ENABLED) &&
++			!test_and_set_bit(__NX_RESETTING, &adapter->state))
+ 		netxen_schedule_work(adapter, netxen_detach_work, 0);
+ 	return 1;
+ }
+@@ -2496,6 +2499,41 @@ static struct bin_attribute bin_attr_mem = {
+ 	.write = netxen_sysfs_write_mem,
+ };
  
- 	writel(off8, (mem_crb + MIU_TEST_AGT_ADDR_LO));
- 	writel(0, (mem_crb + MIU_TEST_AGT_ADDR_HI));
--	writel(data & 0xffffffff, mem_crb + MIU_TEST_AGT_WRDATA_LO);
--	writel((data >> 32) & 0xffffffff, mem_crb + MIU_TEST_AGT_WRDATA_HI);
++static ssize_t
++netxen_store_auto_fw_reset(struct module_attribute *mattr,
++		struct module *mod, const char *buf, size_t count)
 +
-+	i = 0;
-+	if (stride == 16) {
-+		writel(TA_CTL_ENABLE, (mem_crb + TEST_AGT_CTRL));
-+		writel((TA_CTL_START | TA_CTL_ENABLE),
-+				(mem_crb + TEST_AGT_CTRL));
++{
++	unsigned long new;
 +
-+		for (j = 0; j < MAX_CTL_CHECK; j++) {
-+			temp = readl(mem_crb + TEST_AGT_CTRL);
-+			if ((temp & TA_CTL_BUSY) == 0)
-+				break;
-+		}
++	if (strict_strtoul(buf, 16, &new))
++		return -EINVAL;
 +
-+		if (j >= MAX_CTL_CHECK) {
-+			ret = -EIO;
-+			goto done;
-+		}
-+
-+		i = (off & 0xf) ? 0 : 2;
-+		writel(readl(mem_crb + MIU_TEST_AGT_RDDATA(i)),
-+				mem_crb + MIU_TEST_AGT_WRDATA(i));
-+		writel(readl(mem_crb + MIU_TEST_AGT_RDDATA(i+1)),
-+				mem_crb + MIU_TEST_AGT_WRDATA(i+1));
-+		i = (off & 0xf) ? 2 : 0;
++	if ((new == AUTO_FW_RESET_ENABLED) || (new == AUTO_FW_RESET_DISABLED)) {
++		auto_fw_reset = new;
++		return count;
 +	}
 +
-+	writel(data & 0xffffffff,
-+			mem_crb + MIU_TEST_AGT_WRDATA(i));
-+	writel((data >> 32) & 0xffffffff,
-+			mem_crb + MIU_TEST_AGT_WRDATA(i+1));
++	return -EINVAL;
++}
 +
- 	writel((TA_CTL_ENABLE | TA_CTL_WRITE), (mem_crb + TEST_AGT_CTRL));
- 	writel((TA_CTL_START | TA_CTL_ENABLE | TA_CTL_WRITE),
- 			(mem_crb + TEST_AGT_CTRL));
-@@ -1623,6 +1655,7 @@ correct:
- 	} else
- 		ret = 0;
- 
-+done:
- 	spin_unlock(&adapter->ahw.mem_lock);
- 
- 	return ret;
-@@ -1634,7 +1667,7 @@ netxen_nic_pci_mem_read_2M(struct netxen_adapter *adapter,
++static ssize_t
++netxen_show_auto_fw_reset(struct module_attribute *mattr,
++		struct module *mod, char *buf)
++
++{
++	if (auto_fw_reset == AUTO_FW_RESET_ENABLED)
++		return sprintf(buf, "enabled\n");
++	else
++		return sprintf(buf, "disabled\n");
++}
++
++static struct module_attribute mod_attr_fw_reset = {
++	.attr = {.name = "auto_fw_reset", .mode = (S_IRUGO | S_IWUSR)},
++	.show = netxen_show_auto_fw_reset,
++	.store = netxen_store_auto_fw_reset,
++};
++
+ static void
+ netxen_create_sysfs_entries(struct netxen_adapter *adapter)
  {
- 	int j, ret;
- 	u32 temp, off8;
--	u64 val;
-+	u64 val, stride;
- 	void __iomem *mem_crb;
+@@ -2700,6 +2738,8 @@ static struct pci_driver netxen_driver = {
  
- 	/* Only 64-bit aligned access */
-@@ -1663,7 +1696,9 @@ netxen_nic_pci_mem_read_2M(struct netxen_adapter *adapter,
- 	return -EIO;
- 
- correct:
--	off8 = off & MIU_TEST_AGT_ADDR_MASK;
-+	stride = NX_IS_REVISION_P3P(adapter->ahw.revision_id) ? 16 : 8;
+ static int __init netxen_init_module(void)
+ {
++	struct module *mod = THIS_MODULE;
 +
-+	off8 = off & ~(stride-1);
+ 	printk(KERN_INFO "%s\n", netxen_nic_driver_string);
  
- 	spin_lock(&adapter->ahw.mem_lock);
+ #ifdef CONFIG_INET
+@@ -2707,6 +2747,10 @@ static int __init netxen_init_module(void)
+ 	register_inetaddr_notifier(&netxen_inetaddr_cb);
+ #endif
  
-@@ -1684,9 +1719,13 @@ correct:
- 					"failed to read through agent\n");
- 		ret = -EIO;
- 	} else {
--		temp = readl(mem_crb + MIU_TEST_AGT_RDDATA_HI);
-+		off8 = MIU_TEST_AGT_RDDATA_LO;
-+		if ((stride == 16) && (off & 0xf))
-+			off8 = MIU_TEST_AGT_RDDATA_UPPER_LO;
++	if (sysfs_create_file(&mod->mkobj.kobj, &mod_attr_fw_reset.attr))
++		printk(KERN_ERR "%s: Failed to create auto_fw_reset "
++				"sysfs entry.", netxen_nic_driver_name);
 +
-+		temp = readl(mem_crb + off8 + 4);
- 		val = (u64)temp << 32;
--		val |= readl(mem_crb + MIU_TEST_AGT_RDDATA_LO);
-+		val |= readl(mem_crb + off8);
- 		*data = val;
- 		ret = 0;
- 	}
+ 	return pci_register_driver(&netxen_driver);
+ }
+ 
+@@ -2714,6 +2758,10 @@ module_init(netxen_init_module);
+ 
+ static void __exit netxen_exit_module(void)
+ {
++	struct module *mod = THIS_MODULE;
++
++	sysfs_remove_file(&mod->mkobj.kobj, &mod_attr_fw_reset.attr);
++
+ 	pci_unregister_driver(&netxen_driver);
+ 
+ #ifdef CONFIG_INET
 -- 
 1.6.0.2
 
