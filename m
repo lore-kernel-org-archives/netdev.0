@@ -1,60 +1,53 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: [PATCH] iputils: ping by mark
-Date: Sat, 17 Oct 2009 11:54:56 -0700
-Message-ID: <55a4f86e0910171154v460146a8m1360fac71f9ddac8@mail.gmail.com>
-References: <1255381558.5406.33.camel@dogo.mojatatu.com>
-	 <7e84ed60910161405i2ce46053m9858b7f1c086e6b7@mail.gmail.com>
-	 <1255782635.11213.7.camel@dogo.mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rob.Townley@gmail.com, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org
-To: hadi@cyberus.ca
+From: Tomas Winkler <tomas.winkler@intel.com>
+Subject: [PATCH net-next V2 2/3] iwmc3200wifi: select IWMC3200TOP in Kconfig
+Date: Sat, 17 Oct 2009 21:09:35 +0200
+Message-ID: <1255806576-26869-2-git-send-email-tomas.winkler@intel.com>
+References: <1255806576-26869-1-git-send-email-tomas.winkler@intel.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: yi.zhu@intel.com, inaky.perez-gonzalez@intel.com,
+	cindy.h.kao@intel.com, guy.cohen@intel.com,
+	ron.rindjunsky@intel.com, Tomas Winkler <tomas.winkler@intel.com>
+To: davem@davemloft.net, linville@tuxdriver.com,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-mmc@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:44481 "EHLO
-	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753194AbZJQSyx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2009 14:54:53 -0400
-Received: by fxm18 with SMTP id 18so3597901fxm.37
-        for <netdev@vger.kernel.org>; Sat, 17 Oct 2009 11:54:57 -0700 (PDT)
-In-Reply-To: <1255782635.11213.7.camel@dogo.mojatatu.com>
+Received: from mga11.intel.com ([192.55.52.93]:13245 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752542AbZJQT0t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Oct 2009 15:26:49 -0400
+In-Reply-To: <1255806576-26869-1-git-send-email-tomas.winkler@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch requires the currently being suggested/reviewed/written
-'fix SO_MARK' patches, some of which have already been committed.
+iwmc3200wifi requires iwmc3200top  for its operation
 
-On Sat, Oct 17, 2009 at 05:30, jamal <hadi@cyberus.ca> wrote:
-> On Fri, 2009-10-16 at 16:05 -0500, Rob Townley wrote:
->
->> Would this make it easier to ping multiple gateways
->
-> yes.
-> You need to set your policy routing accordingly to have a different
-> gateway for the same destination and then use the -m to select the
-> routing table..
->
->> so if one goes
->> down, it is taken almost out of the routing table until it comes bac=
-k
->> up.
->
-> I am not sure i followed or see any relation to the first part of you=
-r
-> question.
-> Ive never heard of routing table entries automagically being taken do=
-wn
-> until something comes up. You could do it probably by writting a user
-> space daemon.
->
-> cheers,
-> jamal
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =C2=A0http://vger.kernel.org/majordomo-info.ht=
-ml
->
+Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
+Acked-by: Zhu Yi <yi.zhu@intel.com>
+---
+ drivers/net/wireless/iwmc3200wifi/Kconfig |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/wireless/iwmc3200wifi/Kconfig b/drivers/net/wireless/iwmc3200wifi/Kconfig
+index c25a043..9606b31 100644
+--- a/drivers/net/wireless/iwmc3200wifi/Kconfig
++++ b/drivers/net/wireless/iwmc3200wifi/Kconfig
+@@ -3,6 +3,7 @@ config IWM
+ 	depends on MMC && WLAN_80211 && EXPERIMENTAL
+ 	depends on CFG80211
+ 	select FW_LOADER
++	select IWMC3200TOP
+ 	help
+ 	  The Intel Wireless Multicomm 3200 hardware is a combo
+ 	  card with GPS, Bluetooth, WiMax and 802.11 radios. It
+-- 
+1.6.0.6
+
+---------------------------------------------------------------------
+Intel Israel (74) Limited
+
+This e-mail and any attachments may contain confidential material for
+the sole use of the intended recipient(s). Any review or distribution
+by others is strictly prohibited. If you are not the intended
+recipient, please contact the sender and delete all copies.
+
