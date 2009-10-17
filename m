@@ -1,80 +1,40 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: [PATCH/RFC] make unregister_netdev() delete more than 4 interfaces per second
-Date: Sat, 17 Oct 2009 18:18:57 -0400
-Message-ID: <20091017221857.GG1925@kvack.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] iputils: ping by mark
+Date: Sat, 17 Oct 2009 19:04:52 -0400
+Message-ID: <1255820692.4815.2.camel@dogo.mojatatu.com>
+References: <1255381558.5406.33.camel@dogo.mojatatu.com>
+	 <7e84ed60910161405i2ce46053m9858b7f1c086e6b7@mail.gmail.com>
+	 <1255782635.11213.7.camel@dogo.mojatatu.com>
+	 <55a4f86e0910171154v460146a8m1360fac71f9ddac8@mail.gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Rob.Townley@gmail.com, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org
+To: Maciej =?UTF-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:49293 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752362AbZJQWpe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Oct 2009 18:45:34 -0400
-Content-Disposition: inline
+Received: from mail-qy0-f194.google.com ([209.85.221.194]:39737 "EHLO
+	mail-qy0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752403AbZJQXHx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2009 19:07:53 -0400
+Received: by qyk32 with SMTP id 32so2215838qyk.4
+        for <netdev@vger.kernel.org>; Sat, 17 Oct 2009 16:07:58 -0700 (PDT)
+In-Reply-To: <55a4f86e0910171154v460146a8m1360fac71f9ddac8@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi folks,
+On Sat, 2009-10-17 at 11:54 -0700, Maciej =C5=BBenczykowski wrote:
+> This patch requires the currently being suggested/reviewed/written
+> 'fix SO_MARK' patches, some of which have already been committed.
+>=20
 
-Below is a patch that changes the interaction between netdev_wait_allrefs() 
-and dev_put() to replace an msleep(250) with a wait_event() on the final 
-dev_put().  This change reduces the time spent sleeping during an 
-unregister_netdev(), causing the system to go from <1% CPU time to something 
-more CPU bound (50+% in a test vm).  This increases the speed of a bulk 
-unregister_netdev() from 4 interfaces per second to over 500 per second on 
-my test system.  The requirement comes from handling thousands of L2TP 
-sessions where a tunnel flap results in all interfaces being torn down at 
-one time.
+Elucidate please.
 
-Note that there is still more work to be done in this area.
+SO_MARK has been in for at least a year. This patch has worked fine in
+2.6.31 and pre-31 where i tested. What patches and what are they fixing
+in this regard to get this working?
 
-		-ben
+cheers,
+jamal
 
-Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 812a5f3..e20d4a4 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1514,10 +1514,7 @@ extern void netdev_run_todo(void);
-  *
-  * Release reference to device to allow it to be freed.
-  */
--static inline void dev_put(struct net_device *dev)
--{
--	atomic_dec(&dev->refcnt);
--}
-+void dev_put(struct net_device *dev);
- 
- /**
-  *	dev_hold - get reference to device
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b8f74cf..155217f 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4945,6 +4945,16 @@ out:
- }
- EXPORT_SYMBOL(register_netdev);
- 
-+DECLARE_WAIT_QUEUE_HEAD(netdev_refcnt_wait);
-+
-+void dev_put(struct net_device *dev)
-+{
-+        if (atomic_dec_and_test(&dev->refcnt))
-+		wake_up(&netdev_refcnt_wait);
-+}
-+EXPORT_SYMBOL(dev_put);
-+
-+
- /*
-  * netdev_wait_allrefs - wait until all references are gone.
-  *
-@@ -4984,7 +4994,8 @@ static void netdev_wait_allrefs(struct net_device *dev)
- 			rebroadcast_time = jiffies;
- 		}
- 
--		msleep(250);
-+		wait_event_timeout(netdev_refcnt_wait,
-+				   !atomic_read(&dev->refcnt), HZ/4);
- 
- 		if (time_after(jiffies, warning_time + 10 * HZ)) {
- 			printk(KERN_EMERG "unregister_netdevice: "
