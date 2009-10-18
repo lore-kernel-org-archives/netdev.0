@@ -1,37 +1,52 @@
 From: Evgeniy Polyakov <zbr@ioremap.net>
 Subject: Re: PF_RING: Include in main line kernel?
-Date: Sun, 18 Oct 2009 18:18:26 +0400
-Message-ID: <20091018141826.GA12085@ioremap.net>
-References: <8B385E10-4BE2-48A6-BDE0-0AA1A603275E@ntop.org> <20091014203640.GB32317@ioremap.net> <4AD64251.50903@candelatech.com> <20091014.144923.112167161.davem@davemloft.net> <20091018124337.GE27747@prithivi.gnumonks.org>
+Date: Sun, 18 Oct 2009 18:50:00 +0400
+Message-ID: <20091018145000.GA16925@ioremap.net>
+References: <a07586b0910140733s1976cd05u39286de42d9fac23@mail.gmail.com> <200910141319.43884.bcook@bpointsys.com> <903D7FEC-34E8-4F70-ABC0-E56A3A5FBBE6@ntop.org> <20091018125014.GH27747@prithivi.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, greearb@candelatech.com,
-	deri@ntop.org, shemminger@vyatta.com, brad.doctor@gmail.com,
-	netdev@vger.kernel.org
+Cc: Luca Deri <deri@ntop.org>, Brent Cook <bcook@bpointsys.com>,
+	Brad Doctor <brad.doctor@gmail.com>, netdev@vger.kernel.org
 To: Harald Welte <laforge@gnumonks.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tservice.net.ru ([195.178.208.66]:57896 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754469AbZJROSX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 Oct 2009 10:18:23 -0400
+Received: from intermatrixgroup.ru ([195.178.208.66]:60652 "EHLO
+	tservice.net.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754642AbZJROt5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2009 10:49:57 -0400
 Content-Disposition: inline
-In-Reply-To: <20091018124337.GE27747@prithivi.gnumonks.org>
+In-Reply-To: <20091018125014.GH27747@prithivi.gnumonks.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 18, 2009 at 02:43:37PM +0200, Harald Welte (laforge@gnumonks.org) wrote:
-> How does it make it any easier?  Even right now you can implement an entire
-> protocol family in your own module, either by registering as netpoll handler,
-> or even using the regular dev_add_pack().
+On Sun, Oct 18, 2009 at 02:50:14PM +0200, Harald Welte (laforge@gnumonks.org) wrote:
+> > contrary to other socket types, PF_RING allows
+> > - packets to be filtered using both BPF and ACL-like filters
+> > - parsing information is returned as metadata with the packet (i.e.
+> > you don't have to parse the packet again as it happens with BPF)
+> > - ACL-like filters allows you to specify advanced features such as
+> > port ranges or packet payload match
+> 
+> So it seems there is some added features over the existing functionality, plus
+> probably increased performance mainly to hooking earlier in the packet receive
+> flow.
+> 
+> What would normally be done is to try to make incremental changes
+> to the existing code and extend their features/performacne, rather than
+> adding something relatively similar alternative.
 
-Well, it does, since packet will be processed by the main stack after
-that, and module will work with the copy only. But I agree that this is
-a weak argument.
+PF_PACKET as is can not be made faster - it requires a packet copy, so
+virtually this is an end of the game, while mapped packet socket is
+quite different and does not require that expensive copy. And while
+currently difference between both goes down, it still exists and may
+hummer some use cases.
 
-If it is still a blocking one, what about implementing additional
-gpl-only list of handlers which will have 'consumed' skb check? I
-believe it would be enough to put it only in single place after the
-bridge?
+PF_RING uses another ring structure and I saw comparisons of both (many
+years ago though), where pf_ring was faster. Unfortunately there is no
+way to easily adopt its mapping into pf_packet ring without breaking
+compatibility, but I wonder whether performance different between both
+still exists and can it be a main factor for the preference. If
+difference is not visible, than I believe the only way for PF_RING is to
+extend existing packet sockets with its other features.
 
 -- 
 	Evgeniy Polyakov
