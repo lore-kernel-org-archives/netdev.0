@@ -1,52 +1,75 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: PF_RING: Include in main line kernel?
-Date: Sun, 18 Oct 2009 18:50:00 +0400
-Message-ID: <20091018145000.GA16925@ioremap.net>
-References: <a07586b0910140733s1976cd05u39286de42d9fac23@mail.gmail.com> <200910141319.43884.bcook@bpointsys.com> <903D7FEC-34E8-4F70-ABC0-E56A3A5FBBE6@ntop.org> <20091018125014.GH27747@prithivi.gnumonks.org>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [net-next-2.6 PATCH 1/4 revised] TCPCT part 1a: extend struct
+ tcp_request_sock
+Date: Sun, 18 Oct 2009 11:57:52 -0400
+Message-ID: <4ADB3B00.7040409@gmail.com>
+References: <4AD8AFC0.1090101@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Luca Deri <deri@ntop.org>, Brent Cook <bcook@bpointsys.com>,
-	Brad Doctor <brad.doctor@gmail.com>, netdev@vger.kernel.org
-To: Harald Welte <laforge@gnumonks.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intermatrixgroup.ru ([195.178.208.66]:60652 "EHLO
-	tservice.net.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754642AbZJROt5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2009 10:49:57 -0400
-Content-Disposition: inline
-In-Reply-To: <20091018125014.GH27747@prithivi.gnumonks.org>
+Received: from mail-pz0-f188.google.com ([209.85.222.188]:51589 "EHLO
+	mail-pz0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754715AbZJRP5w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2009 11:57:52 -0400
+Received: by pzk26 with SMTP id 26so2715048pzk.4
+        for <netdev@vger.kernel.org>; Sun, 18 Oct 2009 08:57:56 -0700 (PDT)
+In-Reply-To: <4AD8AFC0.1090101@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 18, 2009 at 02:50:14PM +0200, Harald Welte (laforge@gnumonks.org) wrote:
-> > contrary to other socket types, PF_RING allows
-> > - packets to be filtered using both BPF and ACL-like filters
-> > - parsing information is returned as metadata with the packet (i.e.
-> > you don't have to parse the packet again as it happens with BPF)
-> > - ACL-like filters allows you to specify advanced features such as
-> > port ranges or packet payload match
+William Allen Simpson wrote:
+> Pass additional parameters associated with sending SYNACK.  This
+> is not as straightforward or architecturally clean as previously
+> proposed, and has the unfortunate side effect of potentially
+> including otherwise unneeded headers for related protocols, but
+> that problem will affect very few files.
+> ---
+>  include/net/extend_request_sock.h |   37 
+> +++++++++++++++++++++++++++++++++++++
+>  1 files changed, 37 insertions(+), 0 deletions(-)
+>  create mode 100644 include/net/extend_request_sock.h
 > 
-> So it seems there is some added features over the existing functionality, plus
-> probably increased performance mainly to hooking earlier in the packet receive
-> flow.
-> 
-> What would normally be done is to try to make incremental changes
-> to the existing code and extend their features/performacne, rather than
-> adding something relatively similar alternative.
+This technique appears to be unworkable:
 
-PF_PACKET as is can not be made faster - it requires a packet copy, so
-virtually this is an end of the game, while mapped packet socket is
-quite different and does not require that expensive copy. And while
-currently difference between both goes down, it still exists and may
-hummer some use cases.
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 9971870..30c4808 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -71,6 +71,7 @@
+  #include <net/timewait_sock.h>
+  #include <net/xfrm.h>
+  #include <net/netdma.h>
++#include <net/extend_request_sock.h>
 
-PF_RING uses another ring structure and I saw comparisons of both (many
-years ago though), where pf_ring was faster. Unfortunately there is no
-way to easily adopt its mapping into pf_packet ring without breaking
-compatibility, but I wonder whether performance different between both
-still exists and can it be a main factor for the preference. If
-difference is not visible, than I believe the only way for PF_RING is to
-extend existing packet sockets with its other features.
+  #include <linux/inet.h>
+  #include <linux/ipv6.h>
+@@ -1195,6 +1196,15 @@ struct request_sock_ops tcp_request_sock_ops __read_mostly = {
+  	.send_reset	=	tcp_v4_send_reset,
+  };
 
--- 
-	Evgeniy Polyakov
++struct request_sock_ops tcp4_extend_request_sock_ops __read_mostly = {
++	.family		=	PF_INET,
++	.obj_size	=	sizeof(struct extend_request_sock),
++	.rtx_syn_ack	=	tcp_v4_send_synack,
++	.send_ack	=	tcp_v4_reqsk_send_ack,
++	.destructor	=	tcp_v4_reqsk_destructor,
++	.send_reset	=	tcp_v4_send_reset,
++};
++
+
+...
+
++		req = inet_reqsk_alloc(&tcp4_extend_request_sock_ops);
++		if (NULL == req)
++			goto drop;
++
+
+Many hours of investigation demonstrated that the obj_size isn't actually
+used to allocate the structure.  Heck, it's not even checked to determine
+whether there's enough room!  Instead, the kernel crashes later, as the
+extended variables are accessed!
+
+Returning to the architecturally clean parameters of the previous patch
+series, that has the distinct advantage of actually working....
