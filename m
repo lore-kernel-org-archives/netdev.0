@@ -1,46 +1,52 @@
 From: Harald Welte <laforge@gnumonks.org>
-Subject: [OT] ntop / GPL (was Re: PF_RING: Include in main line kernel?)
-Date: Sun, 18 Oct 2009 14:47:06 +0200
-Message-ID: <20091018124706.GG27747@prithivi.gnumonks.org>
+Subject: Re: PF_RING: Include in main line kernel?
+Date: Sun, 18 Oct 2009 14:50:14 +0200
+Message-ID: <20091018125014.GH27747@prithivi.gnumonks.org>
 References: <a07586b0910140733s1976cd05u39286de42d9fac23@mail.gmail.com>
- <4AD60053.1030804@gmail.com>
+ <200910141319.43884.bcook@bpointsys.com>
+ <903D7FEC-34E8-4F70-ABC0-E56A3A5FBBE6@ntop.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Brad Doctor <brad.doctor@gmail.com>, netdev@vger.kernel.org,
-	Luca Deri <deri@ntop.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: Brent Cook <bcook@bpointsys.com>,
+	Brad Doctor <brad.doctor@gmail.com>, netdev@vger.kernel.org
+To: Luca Deri <deri@ntop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ganesha.gnumonks.org ([213.95.27.120]:60291 "EHLO
+Received: from ganesha.gnumonks.org ([213.95.27.120]:53883 "EHLO
 	ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751961AbZJRMrR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2009 08:47:17 -0400
+	with ESMTP id S1754251AbZJRM4b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2009 08:56:31 -0400
 Content-Disposition: inline
-In-Reply-To: <4AD60053.1030804@gmail.com>
+In-Reply-To: <903D7FEC-34E8-4F70-ABC0-E56A3A5FBBE6@ntop.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jarek, Brad, Luca,
+On Wed, Oct 14, 2009 at 09:54:26PM +0200, Luca Deri wrote:
+> Brent
+> contrary to other socket types, PF_RING allows
+> - packets to be filtered using both BPF and ACL-like filters
+> - parsing information is returned as metadata with the packet (i.e.
+> you don't have to parse the packet again as it happens with BPF)
+> - ACL-like filters allows you to specify advanced features such as
+> port ranges or packet payload match
 
-[putting my gpl-violations.org hat on]
+So it seems there is some added features over the existing functionality, plus
+probably increased performance mainly to hooking earlier in the packet receive
+flow.
 
-On Wed, Oct 14, 2009 at 06:46:11PM +0200, Jarek Poplawski wrote:
-> Brad Doctor wrote, On 10/14/2009 04:33 PM:
-> 
-> > Download ntop
-> > 
-> > ntop is distributed under the GNU GPL. In order to be entitled to download
-> > ntop you must accept the GNU license. 
-> 
-> I can't find such a thing neither in GNU GPL v2:
+What would normally be done is to try to make incremental changes
+to the existing code and extend their features/performacne, rather than
+adding something relatively similar alternative.
 
-This is true.  The GPL does never need to be accepted for mere use (i.e.
-running) the program.  This is at least true for the continental european
-copyright systems, where any legally obtained copy of a program implicitly
-carries the permission for running the program.  Only for any other activity
-you will need to accept the license.
+> I agree with you that PF_RING has some overlaps with PACKET_RX/
+> TX_RING, but the main idea behind PF_RING is not just to accelerate
+> packet capture. For instance in PF_RING you can have actions
+> attached to rules, or extend PF_RING filtering/packet handling by
+> means of plugins.
 
-but, like others posted in this thread, ntop is not the PF_RING code.
+Is this in the actual kernel code?  I am not sure whether people generally want
+to see ayet another packet filter in Linux ;)
 
+Regards,
 -- 
 - Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
 ============================================================================
