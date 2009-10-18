@@ -1,66 +1,275 @@
-From: Benjamin LaHaise <bcrl@lhnet.ca>
-Subject: Re: [PATCH/RFC] make unregister_netdev() delete more than 4 interfaces per second
-Date: Sun, 18 Oct 2009 14:21:44 -0400
-Message-ID: <20091018182144.GC23395@kvack.org>
-References: <20091017221857.GG1925@kvack.org> <4ADA98EE.9040509@gmail.com> <20091018161356.GA23395@kvack.org> <4ADB55BC.5020107@gmail.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: [PATCH v2] can: provide library functions for skb allocation
+Date: Sun, 18 Oct 2009 20:45:23 +0200
+Message-ID: <4ADB6243.2040109@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: SocketCAN Core Mailing List <socketcan-core@lists.berlios.de>,
+	Sebastian Haas <haas@ems-wuensche.com>,
+	"Gole, Anant" <anantgole@ti.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	David Miller <davem@davemloft.net>
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:60766 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754494AbZJRSVk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 Oct 2009 14:21:40 -0400
-Content-Disposition: inline
-In-Reply-To: <4ADB55BC.5020107@gmail.com>
+Received: from mail-out.m-online.net ([212.18.0.10]:50360 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754951AbZJRSpy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2009 14:45:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 18, 2009 at 07:51:56PM +0200, Eric Dumazet wrote:
-> You forgot af_packet sendmsg() users, and heavy routers where route cache
-> is stressed or disabled. I know several of them, they even added mmap TX 
-> support to get better performance. They will be disapointed by your patch.
+This patch makes the private functions alloc_can_skb() and
+alloc_can_err_skb() of the at91_can driver public and adapts all
+drivers to use these. While making the patch I realized, that
+the skb's are *not* setup consistently. It's now done as shown
+below:
 
-If that's a problem, the cacheline overhead is a more serious issue.  
-AF_PACKET should really keep the reference on the device between syscalls.  
-Do you have a benchmark in mind that would show the overhead?
+  skb->protocol = htons(ETH_P_CAN);
+  skb->pkt_type = PACKET_BROADCAST;
+  skb->ip_summed = CHECKSUM_UNNECESSARY;
+  *cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
+  memset(*cf, 0, sizeof(struct can_frame));
 
-> atomic_dec_and_test() is definitly more expensive, because of strong barrier
-> semantics and added test after the decrement.
-> refcnt being close to zero or not has not impact, even on 2 years old cpus.
+The frame is zeroed out to avoid uninitialized data to be passed to
+user space. Some drivers or library code did not set "pkt_type" or 
+"ip_summed". Also,  "__constant_htons()" should not be used for
+runtime invocations, as pointed out by David Miller.
 
-At least on x86, the atomic_dec_and_test() cost is pretty much identical to 
-atomic_dec().  If this really is a performance bottleneck, people should be 
-complaining about the cache miss overhead and lock overhead which will dwarf 
-the atomic_dec_and_test() cost vs atomic_dec().  Granted, I'm not saying 
-that it isn't an issue on other architectures, but for x86 the lock prefix 
-is what's expensive, not checking the flags or not after doing the operation.
+Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+---
+ drivers/net/can/at91_can.c        |   32 ----------------------------
+ drivers/net/can/dev.c             |   42 +++++++++++++++++++++++++++++++-------
+ drivers/net/can/sja1000/sja1000.c |   12 +---------
+ drivers/net/can/ti_hecc.c         |   17 +++------------
+ drivers/net/can/usb/ems_usb.c     |   16 +-------------
+ 5 files changed, 43 insertions(+), 76 deletions(-)
 
-If your complaint is about uninlining dev_put(), I'm indifferent to keeping 
-it inline or out of line and can change the patch to suit.
-
-> Machines hardly had to dismantle a netdevice in a normal lifetime, so maybe
-> we were lazy with this insane msleep(250). This came from old linux times,
-> when cpus were soooo slow and programers soooo lazy :)
-
-It's only now that machines can actually route one or more 10Gbps links 
-that it really becomes an issue.  I've been hacking around it for some 
-time, but fixing it properly is starting to be a real requirement.
-
-> The msleep(250) should be tuned first. Then if this is really necessary
-> to dismantle 100.000 netdevices per second, we might have to think a bit more.
-> 
-> Just try msleep(1 or 2), it should work quite well.
-
-My goal is tearing down 100,000 interfaces in a few seconds, which really is 
-necessary.  Right now we're running about 40,000 interfaces on a not yet 
-saturated 10Gbps link.  Going to dual 10Gbps links means pushing more than 
-100,000 subscriber interfaces, and it looks like a modern dual socket system 
-can handle that.
-
-A bigger concern is rtnl_lock().  It is a huge impediment to scaling up 
-interface creation/deletion on multicore systems.  That's going to be a 
-lot more invasive to fix, though.
-
-		-ben
+Index: net-next-2.6/drivers/net/can/dev.c
+===================================================================
+--- net-next-2.6.orig/drivers/net/can/dev.c
++++ net-next-2.6/drivers/net/can/dev.c
+@@ -366,17 +366,12 @@ void can_restart(unsigned long data)
+ 	can_flush_echo_skb(dev);
+ 
+ 	/* send restart message upstream */
+-	skb = dev_alloc_skb(sizeof(struct can_frame));
++	skb = alloc_can_err_skb(dev, &cf);
+ 	if (skb == NULL) {
+ 		err = -ENOMEM;
+ 		goto restart;
+ 	}
+-	skb->dev = dev;
+-	skb->protocol = htons(ETH_P_CAN);
+-	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
+-	memset(cf, 0, sizeof(struct can_frame));
+-	cf->can_id = CAN_ERR_FLAG | CAN_ERR_RESTARTED;
+-	cf->can_dlc = CAN_ERR_DLC;
++	cf->can_id |= CAN_ERR_RESTARTED;
+ 
+ 	netif_rx(skb);
+ 
+@@ -449,6 +444,39 @@ static void can_setup(struct net_device 
+ 	dev->features = NETIF_F_NO_CSUM;
+ }
+ 
++struct sk_buff *alloc_can_skb(struct net_device *dev, struct can_frame **cf)
++{
++	struct sk_buff *skb;
++
++	skb = netdev_alloc_skb(dev, sizeof(struct can_frame));
++	if (unlikely(!skb))
++		return NULL;
++
++	skb->protocol = htons(ETH_P_CAN);
++	skb->pkt_type = PACKET_BROADCAST;
++	skb->ip_summed = CHECKSUM_UNNECESSARY;
++	*cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
++	memset(*cf, 0, sizeof(struct can_frame));
++
++	return skb;
++}
++EXPORT_SYMBOL_GPL(alloc_can_skb);
++
++struct sk_buff *alloc_can_err_skb(struct net_device *dev, struct can_frame **cf)
++{
++	struct sk_buff *skb;
++
++	skb = alloc_can_skb(dev, cf);
++	if (unlikely(!skb))
++		return NULL;
++
++	(*cf)->can_id = CAN_ERR_FLAG;
++	(*cf)->can_dlc = CAN_ERR_DLC;
++
++	return skb;
++}
++EXPORT_SYMBOL_GPL(alloc_can_err_skb);
++
+ /*
+  * Allocate and setup space for the CAN network device
+  */
+Index: net-next-2.6/drivers/net/can/at91_can.c
+===================================================================
+--- net-next-2.6.orig/drivers/net/can/at91_can.c
++++ net-next-2.6/drivers/net/can/at91_can.c
+@@ -221,38 +221,6 @@ static inline void set_mb_mode(const str
+ 	set_mb_mode_prio(priv, mb, mode, 0);
+ }
+ 
+-static struct sk_buff *alloc_can_skb(struct net_device *dev,
+-		struct can_frame **cf)
+-{
+-	struct sk_buff *skb;
+-
+-	skb = netdev_alloc_skb(dev, sizeof(struct can_frame));
+-	if (unlikely(!skb))
+-		return NULL;
+-
+-	skb->protocol = htons(ETH_P_CAN);
+-	skb->ip_summed = CHECKSUM_UNNECESSARY;
+-	*cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
+-
+-	return skb;
+-}
+-
+-static struct sk_buff *alloc_can_err_skb(struct net_device *dev,
+-		struct can_frame **cf)
+-{
+-	struct sk_buff *skb;
+-
+-	skb = alloc_can_skb(dev, cf);
+-	if (unlikely(!skb))
+-		return NULL;
+-
+-	memset(*cf, 0, sizeof(struct can_frame));
+-	(*cf)->can_id = CAN_ERR_FLAG;
+-	(*cf)->can_dlc = CAN_ERR_DLC;
+-
+-	return skb;
+-}
+-
+ /*
+  * Swtich transceiver on or off
+  */
+Index: net-next-2.6/drivers/net/can/sja1000/sja1000.c
+===================================================================
+--- net-next-2.6.orig/drivers/net/can/sja1000/sja1000.c
++++ net-next-2.6/drivers/net/can/sja1000/sja1000.c
+@@ -296,11 +296,9 @@ static void sja1000_rx(struct net_device
+ 	uint8_t dlc;
+ 	int i;
+ 
+-	skb = dev_alloc_skb(sizeof(struct can_frame));
++	skb = alloc_can_skb(dev, &cf);
+ 	if (skb == NULL)
+ 		return;
+-	skb->dev = dev;
+-	skb->protocol = htons(ETH_P_CAN);
+ 
+ 	fi = priv->read_reg(priv, REG_FI);
+ 	dlc = fi & 0x0F;
+@@ -351,15 +349,9 @@ static int sja1000_err(struct net_device
+ 	enum can_state state = priv->can.state;
+ 	uint8_t ecc, alc;
+ 
+-	skb = dev_alloc_skb(sizeof(struct can_frame));
++	skb = alloc_can_err_skb(dev, &cf);
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+-	skb->dev = dev;
+-	skb->protocol = htons(ETH_P_CAN);
+-	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
+-	memset(cf, 0, sizeof(struct can_frame));
+-	cf->can_id = CAN_ERR_FLAG;
+-	cf->can_dlc = CAN_ERR_DLC;
+ 
+ 	if (isrc & IRQ_DOI) {
+ 		/* data overrun interrupt */
+Index: net-next-2.6/drivers/net/can/usb/ems_usb.c
+===================================================================
+--- net-next-2.6.orig/drivers/net/can/usb/ems_usb.c
++++ net-next-2.6/drivers/net/can/usb/ems_usb.c
+@@ -311,14 +311,10 @@ static void ems_usb_rx_can_msg(struct em
+ 	int i;
+ 	struct net_device_stats *stats = &dev->netdev->stats;
+ 
+-	skb = netdev_alloc_skb(dev->netdev, sizeof(struct can_frame));
++	skb = alloc_can_skb(dev->netdev, &cf);
+ 	if (skb == NULL)
+ 		return;
+ 
+-	skb->protocol = htons(ETH_P_CAN);
+-
+-	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
+-
+ 	cf->can_id = msg->msg.can_msg.id;
+ 	cf->can_dlc = min_t(u8, msg->msg.can_msg.length, 8);
+ 
+@@ -346,18 +342,10 @@ static void ems_usb_rx_err(struct ems_us
+ 	struct sk_buff *skb;
+ 	struct net_device_stats *stats = &dev->netdev->stats;
+ 
+-	skb = netdev_alloc_skb(dev->netdev, sizeof(struct can_frame));
++	skb = alloc_can_err_skb(dev->netdev, &cf);
+ 	if (skb == NULL)
+ 		return;
+ 
+-	skb->protocol = htons(ETH_P_CAN);
+-
+-	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
+-	memset(cf, 0, sizeof(struct can_frame));
+-
+-	cf->can_id = CAN_ERR_FLAG;
+-	cf->can_dlc = CAN_ERR_DLC;
+-
+ 	if (msg->type == CPC_MSG_TYPE_CAN_STATE) {
+ 		u8 state = msg->msg.can_state;
+ 
+Index: net-next-2.6/drivers/net/can/ti_hecc.c
+===================================================================
+--- net-next-2.6.orig/drivers/net/can/ti_hecc.c
++++ net-next-2.6/drivers/net/can/ti_hecc.c
+@@ -535,18 +535,15 @@ static int ti_hecc_rx_pkt(struct ti_hecc
+ 	u32 data, mbx_mask;
+ 	unsigned long flags;
+ 
+-	skb = netdev_alloc_skb(priv->ndev, sizeof(struct can_frame));
++	skb = alloc_can_skb(priv->ndev, &cf);
+ 	if (!skb) {
+ 		if (printk_ratelimit())
+ 			dev_err(priv->ndev->dev.parent,
+-				"ti_hecc_rx_pkt: netdev_alloc_skb() failed\n");
++				"ti_hecc_rx_pkt: alloc_can_skb() failed\n");
+ 		return -ENOMEM;
+ 	}
+-	skb->protocol = __constant_htons(ETH_P_CAN);
+-	skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 
+ 	mbx_mask = BIT(mbxno);
+-	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
+ 	data = hecc_read_mbx(priv, mbxno, HECC_CANMID);
+ 	if (data & HECC_CANMID_IDE)
+ 		cf->can_id = (data & CAN_EFF_MASK) | CAN_EFF_FLAG;
+@@ -656,19 +653,13 @@ static int ti_hecc_error(struct net_devi
+ 	struct sk_buff *skb;
+ 
+ 	/* propogate the error condition to the can stack */
+-	skb = netdev_alloc_skb(ndev, sizeof(struct can_frame));
++	skb = alloc_can_err_skb(ndev, &cf);
+ 	if (!skb) {
+ 		if (printk_ratelimit())
+ 			dev_err(priv->ndev->dev.parent,
+-				"ti_hecc_error: netdev_alloc_skb() failed\n");
++				"ti_hecc_error: alloc_can_err_skb() failed\n");
+ 		return -ENOMEM;
+ 	}
+-	skb->protocol = __constant_htons(ETH_P_CAN);
+-	skb->ip_summed = CHECKSUM_UNNECESSARY;
+-	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
+-	memset(cf, 0, sizeof(struct can_frame));
+-	cf->can_id = CAN_ERR_FLAG;
+-	cf->can_dlc = CAN_ERR_DLC;
+ 
+ 	if (int_status & HECC_CANGIF_WLIF) { /* warning level int */
+ 		if ((int_status & HECC_CANGIF_BOIF) == 0) {
