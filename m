@@ -1,61 +1,46 @@
 From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Question about IPV6 forwarding and proxy_ndp
-Date: Sun, 18 Oct 2009 00:30:30 -0700
-Message-ID: <55a4f86e0910180030s52484bffs4ca42eb1ff4d5131@mail.gmail.com>
+Subject: Re: Question about IPV6 forwarding and proxy_ndp
+Date: Sun, 18 Oct 2009 00:37:55 -0700
+Message-ID: <55a4f86e0910180037vb40b588qb02a6438a57f9875@mail.gmail.com>
+References: <55a4f86e0910180030s52484bffs4ca42eb1ff4d5131@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 To: Linux Networking <netdev@vger.kernel.org>,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:44603 "EHLO
+Received: from mail-fx0-f218.google.com ([209.85.220.218]:36502 "EHLO
 	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751411AbZJRHa0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2009 03:30:26 -0400
-Received: by fxm18 with SMTP id 18so3898292fxm.37
-        for <netdev@vger.kernel.org>; Sun, 18 Oct 2009 00:30:30 -0700 (PDT)
+	with ESMTP id S1751362AbZJRHhw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2009 03:37:52 -0400
+Received: by fxm18 with SMTP id 18so3900946fxm.37
+        for <netdev@vger.kernel.org>; Sun, 18 Oct 2009 00:37:55 -0700 (PDT)
+In-Reply-To: <55a4f86e0910180030s52484bffs4ca42eb1ff4d5131@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I would like to have a machine:
+Just a quick follow up.
 
-* do IPv6 forwarding
-- thus "echo 1 > /proc/sys/net/ipv6/conf/all/forwarding"
+The current logic for when to do proxy ndp seems to be:
 
-* accept router advertisements and default route from eth0
-- thus "echo 0 > /proc/sys/net/ipv6/conf/eth0/forwarding"
+network_device_is_forwarding && (global_proxy_ndp_is_on ||
+network_device_is configured_for_proxy_ndp)
 
-* do proxy NDP on eth0 for a specific v6 address
-- thus "echo 1 > /proc/sys/net/ipv6/conf/eth0/proxy_ndp"
-- and "ip -6 neigh add proxy ${PROXIED_V6_IP} dev eth0"
+Maybe this should be:
 
-Problem is, this doesn't work (no ndp responses for the proxied v6 ip)...
-While, if I "echo 1 > /proc/sys/net/ipv6/conf/eth0/forwarding" than
-proxy ndp starts working, but I lose my default route...
+(network_device_is_forwarding && global_proxy_ndp_is_on) ||
+network_device_is configured_for_proxy_ndp
 
-I think the problem is at:
+After all, if the admin has explicitly set proxy ndp on this specific
+device, then maybe he knows best?
 
-http://lxr.linux.no/linux+v2.6.31/net/ipv6/ndisc.c#L832
+Alternatively it could also just be:
 
- 831                if (ipv6_chk_acast_addr(net, dev, &msg->target) ||
- 832                    (idev->cnf.forwarding &&
- 833                     (net->ipv6.devconf_all->proxy_ndp ||
-idev->cnf.proxy_ndp) &&
- 834                     (is_router = pndisc_is_router(&msg->target,
-dev)) >= 0)) {
- 835                        if (!(NEIGH_CB(skb)->flags & LOCALLY_ENQUEUED) &&
- 836                            skb->pkt_type != PACKET_HOST &&
- 837                            inc != 0 &&
- 838                            idev->nd_parms->proxy_delay != 0) {
+global_proxy_ndp_is_on || network_device_is configured_for_proxy_ndp
 
-notice that we require idev->cnf.forwarding to be true.
+and not bother with checking forwarding at all.
 
-Should this perhaps be changed to
-    (net->ipv6.devconf_all->forwarding || idev->cnf.forwarding)
 
-or even just
-    net->ipv6.devconf_all->forwarding
-?
-
-It's not clear to me what the reasoning behind that if statement is...
-
-- Maciej
+[It should be pointed out that ipv6/conf/all/forwarding is a very
+different beast than ipv6/conf/<device>/forwarding, the first globally
+turns on ipv6 forwarding, the second switches a device between 'I am a
+host' and 'I am a router' modes of operation]
