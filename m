@@ -1,38 +1,63 @@
-From: Steven King <sfking@fdwdc.com>
-Subject: [PATCH] fix section mismatch in fec.c
-Date: Sun, 18 Oct 2009 15:25:48 -0700
-Message-ID: <200910181525.48574.sfking@fdwdc.com>
+From: Frans Pop <elendil@planet.nl>
+Subject: Re: [PATCH 0/2] Reduce number of GFP_ATOMIC allocation failures
+Date: Mon, 19 Oct 2009 00:31:15 +0200
+Message-ID: <200910190031.23237.elendil@planet.nl>
+References: <1255689446-3858-1-git-send-email-mel@csn.ul.ie> <20091017183421.GA3370@bizet.domek.prywatny> <20091018221844.GA2061@bizet.domek.prywatny>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="us-ascii"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755371AbZJRWZr@vger.kernel.org>
+Cc: Mel Gorman <mel@csn.ul.ie>,
+ Andrew Morton <akpm@linux-foundation.org>,
+ stable <stable@kernel.org>,
+ "Rafael J. Wysocki" <rjw@sisk.pl>,
+ David Miller <davem@davemloft.net>,
+ reinette chatre <reinette.chatre@intel.com>,
+ Kalle Valo <kalle.valo@iki.fi>,
+ "John W. Linville" <linville@tuxdriver.com>,
+ Pekka Enberg <penberg@cs.helsinki.fi>,
+ Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+ netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org,
+ "linux-mm@kvack.org" <linux-mm@kvack.org>
+To: Karol Lewandowski <karol.k.lewandowski@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20091018221844.GA2061@bizet.domek.prywatny>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-fec_enet_init is called by both fec_probe and fec_resume, so it shouldn't 
-be marked as __init.
+Hi Karol,
 
-Signed-off-by: Steven King <sfking@fdwdc.com>
+On Monday 19 October 2009, Karol Lewandowski wrote:
+> On Sat, Oct 17, 2009 at 08:34:21PM +0200, Karol Lewandowski wrote:
+> > I'll go now for another round of bisecting... and hopefully this time
+> > I'll be able to trigger this problem on different/faster computer with
+> > e100-based card.
+>
+> No luck with that either.
+>
+> I've tried merging 'akpm' (517d08699b25) into clean 2.6.30 tree and
+> got suspend-breakage which makes it untestable for me.  (I've tried
+> reverting drm, suspend, and other commits... all that failed.)
+>
+> Is there mm-related git tree hidden somewhere?  ... or broken out
+> mm-related patches that were sent to Andrew ... or maybe it's possible
+> to get "git log -p" from Mel's private repo?  Anything?
 
+Please try reverting 373c0a7e + 8aa7e847 [1] on top of 2.6.31. I've finally 
+been able to solidly trace the main regression to that. I'm doing some 
+final confirmation tests now and will mail detailed results afterwards.
 
-diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index 2923438..e8218a3 100644
---- a/drivers/net/fec.c
-+++ b/drivers/net/fec.c
-@@ -1654,7 +1654,8 @@ static const struct net_device_ops fec_netdev_ops = {
-   *
-   * index is only used in legacy code
-   */
--int __init fec_enet_init(struct net_device *dev, int index)
-+static int
-+fec_enet_init(struct net_device *dev, int index)
- {
- 	struct fec_enet_private *fep = netdev_priv(dev);
- 	struct bufdesc *cbd_base;
+It would be great if you could confirm if that fixes the issue for you too.
 
--- 
-Steven King -- sfking at fdwdc dot com
+Cheers,
+FJP
+
+[1] The first commit is a build fix for the second.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
