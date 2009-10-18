@@ -1,180 +1,99 @@
-From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-Subject: [PATCH  kernel 2.6.32-rc5] pcnet_cs: add cis of PreMax PE-200
- ethernet pcmcia card
-Date: Sun, 18 Oct 2009 10:39:20 +0900
-Message-ID: <20091018103920.ca9217ee.ken_kawasaki@spring.nifty.jp>
-References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
-	<20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
-	<20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
-	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
-	<20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: [PATCH] iputils: ping by mark
+Date: Sat, 17 Oct 2009 18:46:11 -0700
+Message-ID: <55a4f86e0910171846w45dda0e9w86f570b087c1543d@mail.gmail.com>
+References: <1255381558.5406.33.camel@dogo.mojatatu.com>
+	 <7e84ed60910161405i2ce46053m9858b7f1c086e6b7@mail.gmail.com>
+	 <1255782635.11213.7.camel@dogo.mojatatu.com>
+	 <55a4f86e0910171154v460146a8m1360fac71f9ddac8@mail.gmail.com>
+	 <1255820692.4815.2.camel@dogo.mojatatu.com>
+	 <1255822485.4815.15.camel@dogo.mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Rob.Townley@gmail.com, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userg502.nifty.com ([202.248.238.82]:48464 "EHLO
-	userg502.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753908AbZJRBkF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2009 21:40:05 -0400
-Received: from localhost.localdomain (eaoska192212.adsl.ppp.infoweb.ne.jp [220.145.29.212])by userg502.nifty.com with SMTP id n9I1dcpk017017
-	for <netdev@vger.kernel.org>; Sun, 18 Oct 2009 10:39:38 +0900
-In-Reply-To: <20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
+Received: from mail-fx0-f218.google.com ([209.85.220.218]:42974 "EHLO
+	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753777AbZJRBqI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2009 21:46:08 -0400
+Received: by fxm18 with SMTP id 18so3789532fxm.37
+        for <netdev@vger.kernel.org>; Sat, 17 Oct 2009 18:46:12 -0700 (PDT)
+In-Reply-To: <1255822485.4815.15.camel@dogo.mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Try it with a udp packet or a tcp connection - so_mark and ip rule
+fwmark only work for raw sockets (and maybe some other special cases),
+unless you're lucky and the ip(6)tables mangle module just happens to
+rerun the routing decision (because it mangles the packet in some
+other way...).
 
-pcnet_cs,serial_cs:
+The problem is that the SO_MARK mark is not used for the initial
+routing decision for most protocols (it _is_ used for raw sockets).
+There have been a few patches lately from atis@mikrotik.com that have
+fixed some of the outstanding problems.
+I have not had the opportunity to take a look at the current state of
+the breakage.
 
-add cis of PreMax ethernet pcmcia card,
-and some Sierra Wireless serial card(AC555, AC7xx, AC8xx).
-
-use PROD_ID for AC7xx, because MANF_ID of AC7xx and AC8xx are the same.
-
-
-Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-
----
-
- drivers/net/pcmcia/pcnet_cs.c    |    2 +-
- drivers/serial/serial_cs.c       |    8 ++++----
- firmware/Makefile                |    6 ++++--
- firmware/WHENCE                  |    4 ++++
- firmware/cis/PE-200.cis.ihex     |    9 +++++++++
- firmware/cis/SW_555_SER.cis.ihex |   12 ++++++++++++
- firmware/cis/SW_7xx_SER.cis.ihex |   13 +++++++++++++
- firmware/cis/SW_8xx_SER.cis.ihex |   13 +++++++++++++
- 8 files changed, 60 insertions(+), 7 deletions(-)
-
-diff -urpN linux-2.6.32-rc5.orig/drivers/net/pcmcia/pcnet_cs.c linux-2.6.32-rc5/drivers/net/pcmcia/pcnet_cs.c
---- linux-2.6.32-rc5.orig/drivers/net/pcmcia/pcnet_cs.c	2009-10-17 15:53:44.000000000 +0900
-+++ linux-2.6.32-rc5/drivers/net/pcmcia/pcnet_cs.c	2009-10-17 16:07:12.000000000 +0900
-@@ -1760,7 +1760,7 @@ static struct pcmcia_device_id pcnet_ids
- 	PCMCIA_DEVICE_CIS_MANF_CARD(0xc00f, 0x0002, "cis/LA-PCM.cis"),
- 	PCMCIA_DEVICE_CIS_PROD_ID12("KTI", "PE520 PLUS", 0xad180345, 0x9d58d392, "PE520.cis"),
- 	PCMCIA_DEVICE_CIS_PROD_ID12("NDC", "Ethernet", 0x01c43ae1, 0x00b2e941, "cis/NE2K.cis"),
--	PCMCIA_DEVICE_CIS_PROD_ID12("PMX   ", "PE-200", 0x34f3f1c8, 0x10b59f8c, "PE-200.cis"),
-+	PCMCIA_DEVICE_CIS_PROD_ID12("PMX   ", "PE-200", 0x34f3f1c8, 0x10b59f8c, "cis/PE-200.cis"),
- 	PCMCIA_DEVICE_CIS_PROD_ID12("TAMARACK", "Ethernet", 0xcf434fba, 0x00b2e941, "cis/tamarack.cis"),
- 	PCMCIA_DEVICE_PROD_ID12("Ethernet", "CF Size PC Card", 0x00b2e941, 0x43ac239b),
- 	PCMCIA_DEVICE_PROD_ID123("Fast Ethernet", "CF Size PC Card", "1.0",
-diff -urpN linux-2.6.32-rc5.orig/drivers/serial/serial_cs.c linux-2.6.32-rc5/drivers/serial/serial_cs.c
---- linux-2.6.32-rc5.orig/drivers/serial/serial_cs.c	2009-10-17 15:53:45.000000000 +0900
-+++ linux-2.6.32-rc5/drivers/serial/serial_cs.c	2009-10-17 16:02:50.000000000 +0900
-@@ -879,10 +879,10 @@ static struct pcmcia_device_id serial_id
- 	PCMCIA_MFC_DEVICE_CIS_MANF_CARD(1, 0x0175, 0x0000, "cis/DP83903.cis"),
- 	PCMCIA_MFC_DEVICE_CIS_MANF_CARD(1, 0x0101, 0x0035, "cis/3CXEM556.cis"),
- 	PCMCIA_MFC_DEVICE_CIS_MANF_CARD(1, 0x0101, 0x003d, "cis/3CXEM556.cis"),
--	PCMCIA_DEVICE_CIS_PROD_ID12("Sierra Wireless", "AC850", 0xd85f6206, 0x42a2c018, "SW_8xx_SER.cis"),  /* Sierra Wireless AC850 3G Network Adapter R1 */
--	PCMCIA_DEVICE_CIS_MANF_CARD(0x0192, 0x0710, "SW_7xx_SER.cis"),	/* Sierra Wireless AC710/AC750 GPRS Network Adapter R1 */
--	PCMCIA_DEVICE_CIS_MANF_CARD(0x0192, 0xa555, "SW_555_SER.cis"),  /* Sierra Aircard 555 CDMA 1xrtt Modem -- pre update */
--	PCMCIA_DEVICE_CIS_MANF_CARD(0x013f, 0xa555, "SW_555_SER.cis"),  /* Sierra Aircard 555 CDMA 1xrtt Modem -- post update */
-+	PCMCIA_DEVICE_CIS_PROD_ID12("Sierra Wireless", "AC850", 0xd85f6206, 0x42a2c018, "cis/SW_8xx_SER.cis"), /* Sierra Wireless AC850 3G Network Adapter R1 */
-+	PCMCIA_DEVICE_CIS_PROD_ID12("Sierra Wireless", "AC710/AC750", 0xd85f6206, 0x761b11e0, "cis/SW_7xx_SER.cis"),  /* Sierra Wireless AC710/AC750 GPRS Network Adapter R1 */
-+	PCMCIA_DEVICE_CIS_MANF_CARD(0x0192, 0xa555, "cis/SW_555_SER.cis"),  /* Sierra Aircard 555 CDMA 1xrtt Modem -- pre update */
-+	PCMCIA_DEVICE_CIS_MANF_CARD(0x013f, 0xa555, "cis/SW_555_SER.cis"),  /* Sierra Aircard 555 CDMA 1xrtt Modem -- post update */
- 	PCMCIA_DEVICE_CIS_PROD_ID12("MultiTech", "PCMCIA 56K DataFax", 0x842047ee, 0xc2efcf03, "cis/MT5634ZLX.cis"),
- 	PCMCIA_DEVICE_CIS_PROD_ID12("ADVANTECH", "COMpad-32/85B-2", 0x96913a85, 0x27ab5437, "cis/COMpad2.cis"),
- 	PCMCIA_DEVICE_CIS_PROD_ID12("ADVANTECH", "COMpad-32/85B-4", 0x96913a85, 0xcec8f102, "cis/COMpad4.cis"),
-diff -urpN linux-2.6.32-rc5.orig/firmware/cis/PE-200.cis.ihex linux-2.6.32-rc5/firmware/cis/PE-200.cis.ihex
---- linux-2.6.32-rc5.orig/firmware/cis/PE-200.cis.ihex	1970-01-01 09:00:00.000000000 +0900
-+++ linux-2.6.32-rc5/firmware/cis/PE-200.cis.ihex	2009-10-17 16:13:21.000000000 +0900
-@@ -0,0 +1,9 @@
-+:1000000001030000FF151E0401504D582020200060
-+:1000100050452D3230300045544845524E4554002D
-+:1000200052303100FF210206031A050101000101CF
-+:100030001B0EC181190155E051000F100F30FFFF59
-+:040040001400FF00A9
-+:00000001FF
-+#
-+# Replacement CIS for PE-200 ethernet card
-+#
-diff -urpN linux-2.6.32-rc5.orig/firmware/cis/SW_555_SER.cis.ihex linux-2.6.32-rc5/firmware/cis/SW_555_SER.cis.ihex
---- linux-2.6.32-rc5.orig/firmware/cis/SW_555_SER.cis.ihex	1970-01-01 09:00:00.000000000 +0900
-+++ linux-2.6.32-rc5/firmware/cis/SW_555_SER.cis.ihex	2009-10-17 16:12:47.000000000 +0900
-@@ -0,0 +1,12 @@
-+:100000000101FF17034100FF20043F0110072102F7
-+:100010000200152A070053696572726120576972E0
-+:10002000656C657373004169724361726420353594
-+:1000300035004135353500526576203100FF1A050F
-+:1000400001030007731B0BE00118A360F8030730DE
-+:10005000BC3F1B08A10108A360F802071B08A2010E
-+:1000600008A360E803071B08A30108A360E80207D0
-+:0A0070001B04A40108231400FF0084
-+:00000001FF
-+#
-+# Replacement CIS for AC555 provided by Sierra Wireless
-+#
-diff -urpN linux-2.6.32-rc5.orig/firmware/cis/SW_7xx_SER.cis.ihex linux-2.6.32-rc5/firmware/cis/SW_7xx_SER.cis.ihex
---- linux-2.6.32-rc5.orig/firmware/cis/SW_7xx_SER.cis.ihex	1970-01-01 09:00:00.000000000 +0900
-+++ linux-2.6.32-rc5/firmware/cis/SW_7xx_SER.cis.ihex	2009-10-17 16:12:47.000000000 +0900
-@@ -0,0 +1,13 @@
-+:100000000101FF17034100FF2004920110072102A4
-+:1000100002001537070053696572726120576972D3
-+:10002000656C6573730041433731302F4143373579
-+:10003000300047505253204E6574776F726B2041E9
-+:1000400064617074657200523100FF1A050103008B
-+:1000500007731B10E00119784D555D25A360F80367
-+:100060000730BC861B08A10108A360F802071B0823
-+:10007000A20108A360E803071B08A30108A360E826
-+:0C00800002071B04A40108231400FF0069
-+:00000001FF
-+#
-+# Replacement CIS for AC7xx provided by Sierra Wireless
-+#
-diff -urpN linux-2.6.32-rc5.orig/firmware/cis/SW_8xx_SER.cis.ihex linux-2.6.32-rc5/firmware/cis/SW_8xx_SER.cis.ihex
---- linux-2.6.32-rc5.orig/firmware/cis/SW_8xx_SER.cis.ihex	1970-01-01 09:00:00.000000000 +0900
-+++ linux-2.6.32-rc5/firmware/cis/SW_8xx_SER.cis.ihex	2009-10-17 16:12:47.000000000 +0900
-@@ -0,0 +1,13 @@
-+:100000000101FF17034100FF2004920110072102A4
-+:100010000200152F070053696572726120576972DB
-+:10002000656C657373004143383530003347204EAB
-+:100030006574776F726B20416461707465720052F1
-+:100040003100FF1A0501030007731B10E001197846
-+:100050004D555D25A360F8480730BC861B08A101FB
-+:1000600008A360F847071B08A20108A360E8480737
-+:100070001B08A30108A360E847071B04A401082389
-+:040080001400FF0069
-+:00000001FF
-+#
-+# Replacement CIS for AC8xx provided by Sierra Wireless
-+#
-diff -urpN linux-2.6.32-rc5.orig/firmware/Makefile linux-2.6.32-rc5/firmware/Makefile
---- linux-2.6.32-rc5.orig/firmware/Makefile	2009-10-17 15:53:52.000000000 +0900
-+++ linux-2.6.32-rc5/firmware/Makefile	2009-10-17 16:12:21.000000000 +0900
-@@ -69,11 +69,13 @@ fw-shipped-$(CONFIG_E100) += e100/d101m_
- fw-shipped-$(CONFIG_MYRI_SBUS) += myricom/lanai.bin
- fw-shipped-$(CONFIG_PCMCIA_PCNET) += cis/LA-PCM.cis cis/PCMLM28.cis \
- 				     cis/DP83903.cis cis/NE2K.cis \
--				     cis/tamarack.cis
-+				     cis/tamarack.cis cis/PE-200.cis
- fw-shipped-$(CONFIG_PCMCIA_3C589) += cis/3CXEM556.cis
- fw-shipped-$(CONFIG_PCMCIA_3C574) += cis/3CCFEM556.cis
- fw-shipped-$(CONFIG_SERIAL_8250_CS) += cis/MT5634ZLX.cis cis/RS-COM-2P.cis \
--				       cis/COMpad2.cis cis/COMpad4.cis
-+				       cis/COMpad2.cis cis/COMpad4.cis \
-+				       cis/SW_555_SER.cis cis/SW_7xx_SER.cis \
-+				       cis/SW_8xx_SER.cis
- fw-shipped-$(CONFIG_PCMCIA_SMC91C92) += ositech/Xilinx7OD.bin
- fw-shipped-$(CONFIG_SCSI_ADVANSYS) += advansys/mcode.bin advansys/38C1600.bin \
- 				      advansys/3550.bin advansys/38C0800.bin
-diff -urpN linux-2.6.32-rc5.orig/firmware/WHENCE linux-2.6.32-rc5/firmware/WHENCE
---- linux-2.6.32-rc5.orig/firmware/WHENCE	2009-10-17 15:53:52.000000000 +0900
-+++ linux-2.6.32-rc5/firmware/WHENCE	2009-10-17 16:12:04.000000000 +0900
-@@ -600,6 +600,7 @@ File: cis/LA-PCM.cis
-       cis/DP83903.cis
-       cis/NE2K.cis
-       cis/tamarack.cis
-+      cis/PE-200.cis
- 
- Licence: GPL
- 
-@@ -633,6 +634,9 @@ File: cis/MT5634ZLX.cis
-       cis/RS-COM-2P.cis
-       cis/COMpad2.cis
-       cis/COMpad4.cis
-+      cis/SW_555_SER.cis
-+      cis/SW_7xx_SER.cis
-+      cis/SW_8xx_SER.cis
- 
- Licence: GPL
+2009/10/17 jamal <hadi@cyberus.ca>:
+> On Sat, 2009-10-17 at 19:04 -0400, jamal wrote:
+>
+>> This patch has worked fine in
+>> 2.6.31 and pre-31 where i tested.
+>
+> Ok, just to be sure - here's a simple test i just did on my laptop...
+>
+> ------
+> hadi@dogo:~$ uname -a
+> Linux dogo 2.6.31-rc7-00001-g6da17c5-dirty #7 PREEMPT Thu Oct 15
+> 16:35:13 EDT 2009 i686 GNU/Linux
+> hadi@dogo:~$ ip a ls dev eth0
+> 11: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+> state UNKNOWN qlen 1000
+> =C2=A0 =C2=A0link/ether 00:0b:97:97:4d:6a brd ff:ff:ff:ff:ff:ff
+> =C2=A0 =C2=A0inet 10.0.0.31/24 brd 10.0.0.255 scope global eth0
+> =C2=A0 =C2=A0inet 10.0.0.2/32 scope global eth0
+> =C2=A0 =C2=A0inet6 fe80::20b:97ff:fe97:4d6a/64 scope link
+> =C2=A0 =C2=A0 =C2=A0 valid_lft forever preferred_lft forever
+> hadi@dogo:~$ ip ru ls
+> 0: =C2=A0 =C2=A0 =C2=A0from all lookup local
+> 15: =C2=A0 =C2=A0 from all fwmark 0xf lookup 15
+> 16: =C2=A0 =C2=A0 from all fwmark 0x10 lookup 16
+> 32766: =C2=A0from all lookup main
+> 32767: =C2=A0from all lookup default
+>
+> hadi@dogo:~$ ip r ls table 15
+> 208.67.217.231 via 10.0.0.1 dev eth0 =C2=A0src 10.0.0.31
+> hadi@dogo:~$ ip r ls table 16
+> 208.67.217.231 via 10.0.0.1 dev eth0 =C2=A0src 10.0.0.2
+> hadi@dogo:~$
+>
+> One ping with -m 15 -c1 to 208.67.217.231, tcpdump:
+> 19:22:09.467555 IP 10.0.0.31 > 208.67.217.231: ICMP echo request, id
+> 34328, seq 1, length 64
+> 19:22:09.535429 IP 208.67.217.231 > 10.0.0.31: ICMP echo reply, id
+> 34328, seq 1, length 64
+>
+> repeat ping with -m 16 and watch tcpdump
+> 19:23:19.731592 IP 10.0.0.2 > 208.67.217.231: ICMP echo request, id
+> 50712, seq 1, length 64
+> 19:23:19.790672 IP 208.67.217.231 > 10.0.0.2: ICMP echo reply, id 507=
+12,
+> seq 1, length 64
+>
+> ------
+>
+>
+> I have also tried it with udp (hacked netcat) and i dont see any prob=
+lem
+> either
+>
+> What did i miss?
+>
+> cheers,
+> jamal
+>
+>
