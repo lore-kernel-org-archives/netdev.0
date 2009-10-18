@@ -1,41 +1,45 @@
 From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: PF_RING: Include in main line kernel?
-Date: Sun, 18 Oct 2009 14:43:37 +0200
-Message-ID: <20091018124337.GE27747@prithivi.gnumonks.org>
-References: <8B385E10-4BE2-48A6-BDE0-0AA1A603275E@ntop.org>
- <20091014203640.GB32317@ioremap.net>
- <4AD64251.50903@candelatech.com>
- <20091014.144923.112167161.davem@davemloft.net>
+Subject: [OT] ntop / GPL (was Re: PF_RING: Include in main line kernel?)
+Date: Sun, 18 Oct 2009 14:47:06 +0200
+Message-ID: <20091018124706.GG27747@prithivi.gnumonks.org>
+References: <a07586b0910140733s1976cd05u39286de42d9fac23@mail.gmail.com>
+ <4AD60053.1030804@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: greearb@candelatech.com, zbr@ioremap.net, deri@ntop.org,
-	shemminger@vyatta.com, brad.doctor@gmail.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Brad Doctor <brad.doctor@gmail.com>, netdev@vger.kernel.org,
+	Luca Deri <deri@ntop.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ganesha.gnumonks.org ([213.95.27.120]:60311 "EHLO
+Received: from ganesha.gnumonks.org ([213.95.27.120]:60291 "EHLO
 	ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754437AbZJRMrS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2009 08:47:18 -0400
+	with ESMTP id S1751961AbZJRMrR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2009 08:47:17 -0400
 Content-Disposition: inline
-In-Reply-To: <20091014.144923.112167161.davem@davemloft.net>
+In-Reply-To: <4AD60053.1030804@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Hi Jarek, Brad, Luca,
 
-On Wed, Oct 14, 2009 at 02:49:23PM -0700, David Miller wrote:
+[putting my gpl-violations.org hat on]
 
-> > Maybe something similar to the attached patch?
+On Wed, Oct 14, 2009 at 06:46:11PM +0200, Jarek Poplawski wrote:
+> Brad Doctor wrote, On 10/14/2009 04:33 PM:
 > 
-> This is not something I'm interested in applying.
+> > Download ntop
+> > 
+> > ntop is distributed under the GNU GPL. In order to be entitled to download
+> > ntop you must accept the GNU license. 
 > 
-> It makes implementing proprietary complete networking stacks
-> for Linux way too easy.
+> I can't find such a thing neither in GNU GPL v2:
 
-How does it make it any easier?  Even right now you can implement an entire
-protocol family in your own module, either by registering as netpoll handler,
-or even using the regular dev_add_pack().
+This is true.  The GPL does never need to be accepted for mere use (i.e.
+running) the program.  This is at least true for the continental european
+copyright systems, where any legally obtained copy of a program implicitly
+carries the permission for running the program.  Only for any other activity
+you will need to accept the license.
+
+but, like others posted in this thread, ntop is not the PF_RING code.
 
 -- 
 - Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
