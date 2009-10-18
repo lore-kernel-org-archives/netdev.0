@@ -1,46 +1,48 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: Question about IPV6 forwarding and proxy_ndp
-Date: Sun, 18 Oct 2009 00:37:55 -0700
-Message-ID: <55a4f86e0910180037vb40b588qb02a6438a57f9875@mail.gmail.com>
-References: <55a4f86e0910180030s52484bffs4ca42eb1ff4d5131@mail.gmail.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] iputils: ping by mark
+Date: Sun, 18 Oct 2009 07:37:46 -0400
+Message-ID: <1255865866.4815.21.camel@dogo.mojatatu.com>
+References: <1255381558.5406.33.camel@dogo.mojatatu.com>
+	 <7e84ed60910161405i2ce46053m9858b7f1c086e6b7@mail.gmail.com>
+	 <1255782635.11213.7.camel@dogo.mojatatu.com>
+	 <55a4f86e0910171154v460146a8m1360fac71f9ddac8@mail.gmail.com>
+	 <1255820692.4815.2.camel@dogo.mojatatu.com>
+	 <1255822485.4815.15.camel@dogo.mojatatu.com>
+	 <55a4f86e0910171846w45dda0e9w86f570b087c1543d@mail.gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Linux Networking <netdev@vger.kernel.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Rob.Townley@gmail.com, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org
+To: Maciej =?UTF-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:36502 "EHLO
-	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751362AbZJRHhw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2009 03:37:52 -0400
-Received: by fxm18 with SMTP id 18so3900946fxm.37
-        for <netdev@vger.kernel.org>; Sun, 18 Oct 2009 00:37:55 -0700 (PDT)
-In-Reply-To: <55a4f86e0910180030s52484bffs4ca42eb1ff4d5131@mail.gmail.com>
+Received: from mail-qy0-f202.google.com ([209.85.221.202]:51048 "EHLO
+	mail-qy0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753441AbZJRLku (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2009 07:40:50 -0400
+Received: by qyk40 with SMTP id 40so2602026qyk.22
+        for <netdev@vger.kernel.org>; Sun, 18 Oct 2009 04:40:54 -0700 (PDT)
+In-Reply-To: <55a4f86e0910171846w45dda0e9w86f570b087c1543d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just a quick follow up.
 
-The current logic for when to do proxy ndp seems to be:
+On Sat, 2009-10-17 at 18:46 -0700, Maciej =C5=BBenczykowski wrote:
+> Try it with a udp packet or a tcp connection - so_mark and ip rule
+> fwmark only work for raw sockets (and maybe some other special cases)=
+,
+> unless you're lucky and the ip(6)tables mangle module just happens to
+> rerun the routing decision (because it mangles the packet in some
+> other way...).
 
-network_device_is_forwarding && (global_proxy_ndp_is_on ||
-network_device_is configured_for_proxy_ndp)
+It works fine with tcp and udp and to emphasize: i have never seen it
+broken.
+Above you mention iptables - I dont use it and that maybe the missing
+part in our discussion.
+I should note though that rpf is broken with policy routing;-> Now that
+you got me going on this, I will post a patch.=20
 
-Maybe this should be:
+cheers,
+jamal
 
-(network_device_is_forwarding && global_proxy_ndp_is_on) ||
-network_device_is configured_for_proxy_ndp
-
-After all, if the admin has explicitly set proxy ndp on this specific
-device, then maybe he knows best?
-
-Alternatively it could also just be:
-
-global_proxy_ndp_is_on || network_device_is configured_for_proxy_ndp
-
-and not bother with checking forwarding at all.
-
-
-[It should be pointed out that ipv6/conf/all/forwarding is a very
-different beast than ipv6/conf/<device>/forwarding, the first globally
-turns on ipv6 forwarding, the second switches a device between 'I am a
-host' and 'I am a router' modes of operation]
