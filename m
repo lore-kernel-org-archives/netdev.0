@@ -1,74 +1,44 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [PATCH][RFC]: ingress socket filter by mark
-Date: Sun, 18 Oct 2009 08:42:38 -0400
-Message-ID: <1255869758.4815.40.camel@dogo.mojatatu.com>
-Reply-To: hadi@cyberus.ca
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: PF_RING: Include in main line kernel?
+Date: Sun, 18 Oct 2009 14:45:06 +0200
+Message-ID: <20091018124506.GF27747@prithivi.gnumonks.org>
+References: <8B385E10-4BE2-48A6-BDE0-0AA1A603275E@ntop.org>
+ <20091014203640.GB32317@ioremap.net>
+ <4AD64251.50903@candelatech.com>
+ <20091014.144923.112167161.davem@davemloft.net>
+ <20091015070234.GA29506@ioremap.net>
+ <4AD74EF1.6080106@candelatech.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-e9dyI/LHVN6Uuy2tXfeE"
-Cc: David Miller <davem@davemloft.net>, Atis Elsts <atis@mikrotik.com>,
-	eric.dumazet@gmail.com,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>, deri@ntop.org,
+	shemminger@vyatta.com, brad.doctor@gmail.com,
+	netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f194.google.com ([209.85.221.194]:58556 "EHLO
-	mail-qy0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754305AbZJRMpj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2009 08:45:39 -0400
-Received: by qyk32 with SMTP id 32so2437638qyk.4
-        for <netdev@vger.kernel.org>; Sun, 18 Oct 2009 05:45:43 -0700 (PDT)
+Received: from ganesha.gnumonks.org ([213.95.27.120]:60309 "EHLO
+	ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754485AbZJRMrS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2009 08:47:18 -0400
+Content-Disposition: inline
+In-Reply-To: <4AD74EF1.6080106@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Ben,
 
---=-e9dyI/LHVN6Uuy2tXfeE
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+On Thu, Oct 15, 2009 at 09:33:53AM -0700, Ben Greear wrote:
 
+> Bonding, bridging, mac-vlans, pktgen-rx logic, sniffers, and others could.
+> The only trick is ordering...it may be better to keep the hard-coded hooks in
+> a definite order than to allow users to switch them around.
 
-Maciej forced me to dig into this ;->
+why does this sound like the netfilter hooks with their priorities to me?  The
+only difference is that netfilter hooks are inside the layer 3 protocols at the
+moment, whereas this is one layer lower...
 
-at the socket level if a packet arrives with a different mark than
-what we bind to, drop it. I have tested this patch and it drops a packet
-with mismatching mark.
-
-There are several approaches - and i think the patch suggestion i have
-made here maybe too strict. I assume that if someone binds to a mark,
-they want to not only send packets with that mark but receive
-only if that mark is set. 
-A looser check would be something along the line accept as well if mark
-is not set i.e
-if (sk->sk_mark && skb->mark && sk->sk_mark != skb->mark)
-
-Alternatively i could add one bit in the socket flags and have it so
-that check is made only if app has been explicit:
-if (sock_flag(sk, SOCK_CHK_SOMARK) && sk->sk_mark != skb->mark) drop
-
-Another approach  is to set sock filter from app. I dont like this
-approach because it will be the least usable from app level and would be
-the least simple from kernel level.
-
-cheers,
-jamal
-
---=-e9dyI/LHVN6Uuy2tXfeE
-Content-Disposition: attachment; filename=filt-sock-m
-Content-Type: text/x-patch; name=filt-sock-m; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-
-diff --git a/net/core/filter.c b/net/core/filter.c
-index d1d779c..6fcf577 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -85,6 +85,9 @@ int sk_filter(struct sock *sk, struct sk_buff *skb)
- 	if (err)
- 		return err;
- 
-+	if (sk->sk_mark && sk->sk_mark != skb->mark)
-+		return -EPERM;
-+
- 	rcu_read_lock_bh();
- 	filter = rcu_dereference(sk->sk_filter);
- 	if (filter) {
-
---=-e9dyI/LHVN6Uuy2tXfeE--
-
+-- 
+- Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
+============================================================================
+"Privacy in residential applications is a desirable marketing option."
+                                                  (ETSI EN 300 175-7 Ch. A6)
