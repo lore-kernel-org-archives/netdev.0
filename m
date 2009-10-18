@@ -1,63 +1,35 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: Re: [PATCH 0/2] Reduce number of GFP_ATOMIC allocation failures
-Date: Mon, 19 Oct 2009 00:31:15 +0200
-Message-ID: <200910190031.23237.elendil@planet.nl>
-References: <1255689446-3858-1-git-send-email-mel@csn.ul.ie> <20091017183421.GA3370@bizet.domek.prywatny> <20091018221844.GA2061@bizet.domek.prywatny>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: [PATCH] iputils: ping by mark
+Date: Sun, 18 Oct 2009 15:57:17 -0700
+Message-ID: <55a4f86e0910181557r3900939xc05a5ba1c1ffb0a4@mail.gmail.com>
+References: <1255381558.5406.33.camel@dogo.mojatatu.com>
+	 <7e84ed60910161405i2ce46053m9858b7f1c086e6b7@mail.gmail.com>
+	 <1255782635.11213.7.camel@dogo.mojatatu.com>
+	 <55a4f86e0910171154v460146a8m1360fac71f9ddac8@mail.gmail.com>
+	 <1255820692.4815.2.camel@dogo.mojatatu.com>
+	 <1255822485.4815.15.camel@dogo.mojatatu.com>
+	 <55a4f86e0910171846w45dda0e9w86f570b087c1543d@mail.gmail.com>
+	 <1255865866.4815.21.camel@dogo.mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Mel Gorman <mel@csn.ul.ie>,
- Andrew Morton <akpm@linux-foundation.org>,
- stable <stable@kernel.org>,
- "Rafael J. Wysocki" <rjw@sisk.pl>,
- David Miller <davem@davemloft.net>,
- reinette chatre <reinette.chatre@intel.com>,
- Kalle Valo <kalle.valo@iki.fi>,
- "John W. Linville" <linville@tuxdriver.com>,
- Pekka Enberg <penberg@cs.helsinki.fi>,
- Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
- netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org,
- "linux-mm@kvack.org" <linux-mm@kvack.org>
-To: Karol Lewandowski <karol.k.lewandowski@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20091018221844.GA2061@bizet.domek.prywatny>
-Content-Disposition: inline
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Rob.Townley@gmail.com, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org
+To: hadi@cyberus.ca
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f218.google.com ([209.85.220.218]:49241 "EHLO
+	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755070AbZJRW5O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2009 18:57:14 -0400
+Received: by fxm18 with SMTP id 18so4409871fxm.37
+        for <netdev@vger.kernel.org>; Sun, 18 Oct 2009 15:57:18 -0700 (PDT)
+In-Reply-To: <1255865866.4815.21.camel@dogo.mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Karol,
+> It works fine with tcp and udp and to emphasize: i have never seen it
+> broken.
 
-On Monday 19 October 2009, Karol Lewandowski wrote:
-> On Sat, Oct 17, 2009 at 08:34:21PM +0200, Karol Lewandowski wrote:
-> > I'll go now for another round of bisecting... and hopefully this time
-> > I'll be able to trigger this problem on different/faster computer with
-> > e100-based card.
->
-> No luck with that either.
->
-> I've tried merging 'akpm' (517d08699b25) into clean 2.6.30 tree and
-> got suspend-breakage which makes it untestable for me.  (I've tried
-> reverting drm, suspend, and other commits... all that failed.)
->
-> Is there mm-related git tree hidden somewhere?  ... or broken out
-> mm-related patches that were sent to Andrew ... or maybe it's possible
-> to get "git log -p" from Mel's private repo?  Anything?
-
-Please try reverting 373c0a7e + 8aa7e847 [1] on top of 2.6.31. I've finally 
-been able to solidly trace the main regression to that. I'm doing some 
-final confirmation tests now and will mail detailed results afterwards.
-
-It would be great if you could confirm if that fixes the issue for you too.
-
-Cheers,
-FJP
-
-[1] The first commit is a build fix for the second.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Really? Ok, so we're doing something very differently...
+My testing was done on a 2.6.26 kernel (but AFAICT from browsing the
+code, the behaviour in question should not have changed till the last
+few patches posted in the last 2-3 weeks).
