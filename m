@@ -1,99 +1,96 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: [PATCH] iputils: ping by mark
-Date: Sat, 17 Oct 2009 18:46:11 -0700
-Message-ID: <55a4f86e0910171846w45dda0e9w86f570b087c1543d@mail.gmail.com>
-References: <1255381558.5406.33.camel@dogo.mojatatu.com>
-	 <7e84ed60910161405i2ce46053m9858b7f1c086e6b7@mail.gmail.com>
-	 <1255782635.11213.7.camel@dogo.mojatatu.com>
-	 <55a4f86e0910171154v460146a8m1360fac71f9ddac8@mail.gmail.com>
-	 <1255820692.4815.2.camel@dogo.mojatatu.com>
-	 <1255822485.4815.15.camel@dogo.mojatatu.com>
+From: Anirban Sinha <ani@anirban.org>
+Subject: Re: Kernel oops when clearing bgp neighbor info with TCP MD5SUM enabled
+Date: Sat, 17 Oct 2009 19:35:08 -0700
+Message-ID: <4ADA7EDC.5010402@anirban.org>
+References: <Pine.LNX.4.64.0910081514050.18315@sleet.zeugmasystems.local> <20091008.155429.02850661.davem@davemloft.net> <Pine.LNX.4.64.0910081622400.18315@sleet.zeugmasystems.local> <20091008.175703.83006470.davem@davemloft.net> <Pine.LNX.4.64.0910171035340.2364@sleet.zeugmasystems.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rob.Townley@gmail.com, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Anirban Sinha <asinha@zeugmasystems.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:42974 "EHLO
-	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753777AbZJRBqI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2009 21:46:08 -0400
-Received: by fxm18 with SMTP id 18so3789532fxm.37
-        for <netdev@vger.kernel.org>; Sat, 17 Oct 2009 18:46:12 -0700 (PDT)
-In-Reply-To: <1255822485.4815.15.camel@dogo.mojatatu.com>
+Received: from mail-px0-f171.google.com ([209.85.216.171]:46676 "EHLO
+	mail-px0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754037AbZJRCky (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Oct 2009 22:40:54 -0400
+In-Reply-To: <Pine.LNX.4.64.0910171035340.2364@sleet.zeugmasystems.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Try it with a udp packet or a tcp connection - so_mark and ip rule
-fwmark only work for raw sockets (and maybe some other special cases),
-unless you're lucky and the ip(6)tables mangle module just happens to
-rerun the routing decision (because it mangles the packet in some
-other way...).
 
-The problem is that the SO_MARK mark is not used for the initial
-routing decision for most protocols (it _is_ used for raw sockets).
-There have been a few patches lately from atis@mikrotik.com that have
-fixed some of the outstanding problems.
-I have not had the opportunity to take a look at the current state of
-the breakage.
 
-2009/10/17 jamal <hadi@cyberus.ca>:
-> On Sat, 2009-10-17 at 19:04 -0400, jamal wrote:
->
->> This patch has worked fine in
->> 2.6.31 and pre-31 where i tested.
->
-> Ok, just to be sure - here's a simple test i just did on my laptop...
->
-> ------
-> hadi@dogo:~$ uname -a
-> Linux dogo 2.6.31-rc7-00001-g6da17c5-dirty #7 PREEMPT Thu Oct 15
-> 16:35:13 EDT 2009 i686 GNU/Linux
-> hadi@dogo:~$ ip a ls dev eth0
-> 11: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-> state UNKNOWN qlen 1000
-> =C2=A0 =C2=A0link/ether 00:0b:97:97:4d:6a brd ff:ff:ff:ff:ff:ff
-> =C2=A0 =C2=A0inet 10.0.0.31/24 brd 10.0.0.255 scope global eth0
-> =C2=A0 =C2=A0inet 10.0.0.2/32 scope global eth0
-> =C2=A0 =C2=A0inet6 fe80::20b:97ff:fe97:4d6a/64 scope link
-> =C2=A0 =C2=A0 =C2=A0 valid_lft forever preferred_lft forever
-> hadi@dogo:~$ ip ru ls
-> 0: =C2=A0 =C2=A0 =C2=A0from all lookup local
-> 15: =C2=A0 =C2=A0 from all fwmark 0xf lookup 15
-> 16: =C2=A0 =C2=A0 from all fwmark 0x10 lookup 16
-> 32766: =C2=A0from all lookup main
-> 32767: =C2=A0from all lookup default
->
-> hadi@dogo:~$ ip r ls table 15
-> 208.67.217.231 via 10.0.0.1 dev eth0 =C2=A0src 10.0.0.31
-> hadi@dogo:~$ ip r ls table 16
-> 208.67.217.231 via 10.0.0.1 dev eth0 =C2=A0src 10.0.0.2
-> hadi@dogo:~$
->
-> One ping with -m 15 -c1 to 208.67.217.231, tcpdump:
-> 19:22:09.467555 IP 10.0.0.31 > 208.67.217.231: ICMP echo request, id
-> 34328, seq 1, length 64
-> 19:22:09.535429 IP 208.67.217.231 > 10.0.0.31: ICMP echo reply, id
-> 34328, seq 1, length 64
->
-> repeat ping with -m 16 and watch tcpdump
-> 19:23:19.731592 IP 10.0.0.2 > 208.67.217.231: ICMP echo request, id
-> 50712, seq 1, length 64
-> 19:23:19.790672 IP 208.67.217.231 > 10.0.0.2: ICMP echo reply, id 507=
-12,
-> seq 1, length 64
->
-> ------
->
->
-> I have also tried it with udp (hacked netcat) and i dont see any prob=
-lem
-> either
->
-> What did i miss?
->
-> cheers,
-> jamal
->
->
+Once upon a time, like on 09-10-17 10:57 AM, Anirban Sinha wrote:
+> On Thu, 8 Oct 2009, David Miller wrote:
+> 
+>>>>> We are noticing a kernel OOPS on 2.6.26 kernel when we issue the command
+>>>>> "clear ip bgp <bgp-peer-ip>" on Quagga BGP routing software.
+
+and btw, this is the crash (on mips) we are talking about:
+
+# [23:10:35.108808] Kernel bug detected[#1]:
+[23:10:35.112527] Cpu 0
+[23:10:35.114676] $ 0   : 0000000000000000 0000000014001fe0
+0000000000000066 0000000000000004
+[23:10:35.122845] $ 4   : ffffffff80516c10 0000000014001fe0
+ffffffff8050c010 0000000000000004
+[23:10:35.131015] $ 8   : 0000000000000000 0000000000000041
+ffffffff805142e8 0000000000000001
+[23:10:35.139184] $12   : ffffffff80600000 ffffffff805f0000
+0000000000000064 0000000000000190
+[23:10:35.147354] $16   : 0000000000000102 ffffffff803afdf0
+ffffffff80539040 ffffffff80600780
+[23:10:35.155526] $20   : ffffffff80540000 0000000000200200
+ffffffff804c0000 000000000000000a
+[23:10:35.163695] $24   : a3d70a3d70a3d70b 8000000000000003
+[23:10:35.171865] $28   : ffffffff8050c000 ffffffff8050fd90
+9000000010030000 ffffffff801487a8
+[23:10:35.180035] Hi    : 0000000000000000
+[23:10:35.183819] Lo    : 0000000000000000
+[23:10:35.187603] epc   : ffffffff801487a8 run_timer_softirq+0x198/0x258
+Tainted: P
+[23:10:35.196032] ra    : ffffffff801487a8 run_timer_softirq+0x198/0x258
+[23:10:35.202395] Status: 14001fe3    KX SX UX KERNEL EXL IE
+[23:10:35.207814] Cause : 00808024
+[23:10:35.210911] PrId  : 01041100 (SiByte SB1A)
+[23:10:35.215209] Modules linked in: xt_state ipt_REJECT iptable_filter
+nf_conntrack_ftp ipt_MASQUERADE iptable_nat nf_nat nf_conntrack_ipv4
+ip_tables ebtable_filter ebtables bridge llc zeug_ipmcdrv(P) irqdisp(P)
+zvirt(P) zeugmod(P) softdog
+[23:10:35.236024] Process swapper (pid: 0, threadinfo=ffffffff8050c000,
+task=ffffffff805142e8, tls=0000000000000000)
+[23:10:35.246169] Stack : ffffffff8050fd90 ffffffff8050fd90
+0000000014001fe0 ffffffff805ff3e0
+[23:10:35.254166]         ffffffff806003c4 0000000000000001
+ffffffff8053f650 ffffffff805706d0
+[23:10:35.262337]         ffffffff80572020 ffffffff80142280
+ffffffff806003c0 0000000000000000
+[23:10:35.270507]         0000000014001fe0 000000000000c5b0
+ffffffff8fefc520 ffffffff8feea52c
+[23:10:35.278676]         0000000000000015 0000000000004460
+0000000000000940 ffffffff8fe1bf00
+[23:10:35.286846]         ffffffff8fffdab0 ffffffff80142410
+0000000000000000 ffffffff80142778
+[23:10:35.295017]         ffffffff80103d20 ffffffff80103d20
+0000000000000000 0000000014001fe1
+[23:10:35.303187]         0000000000040000 ffffffff8050c010
+0000000000000000 a80000017f87c138
+[23:10:35.311357]         0000000014001fe0 ffffffffffff00fe
+0000000000000004 a80000017e7e0680
+[23:10:35.319528]         0000000000000000 000000000000001d
+ffffffff8050ffe0 0000000000001f00
+[23:10:35.327696]         ...
+[23:10:35.330536] Call Trace:
+[23:10:35.333201] [<ffffffff801487a8>] run_timer_softirq+0x198/0x258
+[23:10:35.339224] [<ffffffff80142280>] __do_softirq+0x198/0x288
+[23:10:35.344812] [<ffffffff80142410>] do_softirq+0xa0/0xa8
+[23:10:35.350057] [<ffffffff80142778>] irq_exit+0x70/0x88
+[23:10:35.355131] [<ffffffff80103d20>] ret_from_irq+0x0/0x4
+[23:10:35.360377] [<ffffffff801063f4>] cpu_idle+0x1c/0x88
+[23:10:35.365455]
+[23:10:35.367171]
+[23:10:35.367174] Code: 0040382d  0c04ef4c  00000000 <0200000d> 0c10ee9c
+0260202d  dfa60000  17a6ffe5  00000000
+[23:10:35.378822] Kernel panic - not syncing: Fatal exception in
+interrupt
+
