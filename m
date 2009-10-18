@@ -1,306 +1,156 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: kernel panic in latest vanilla stable, while using nameif with "alive" pppoe interfaces
-Date: Mon, 19 Oct 2009 00:02:39 +0300
-Message-ID: <200910190002.39937.denys@visp.net.lb>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: possible circular locking dependency in ISDN PPP
+Date: Mon, 19 Oct 2009 00:16:36 +0200
+Message-ID: <4ADB93C4.4090607@imap.cc>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>, linux-ppp@vger.kernel.org,
-	paulus@samba.org, mostrows@earthlink.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:46950 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750970AbZJRVEY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2009 17:04:24 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig76E76DB8A384B495F208F952"
+To: LKML <linux-kernel@vger.kernel.org>,
+	isdn4linux <isdn4linux@listserv.isdn4linux.de>,
+	Netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755359AbZJRWQy@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I have server running as pppoe NAS.
-Tried to rename customers without dropping pppd connections first, got panic 
-after few seconds.
-Panic triggerable at 2.6.30.4 and 2.6.31.4
-pppoe users running on eth2
-pppoe flags:
- 1457 root     /usr/sbin/pppoe-server -I eth2 -k -L 172.16.1.1 -R 
-172.16.1.2 -N 253 -C gpzone -S gpzone
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig76E76DB8A384B495F208F952
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: quoted-printable
+
+A test of PPP over ISDN with ipppd, capidrv and the so far unmerged
+CAPI port of the Gigaset driver produced the following lockdep
+message:
+
+ =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D
+ [ INFO: possible circular locking dependency detected ]
+ 2.6.32-rc4-testing #7
+ -------------------------------------------------------
+ ipppd/28379 is trying to acquire lock:
+  (&netdev->queue_lock){......}, at: [<e62ad0fd>] isdn_net_device_busy+0x=
+2c/0x74 [isdn]
+=20
+ but task is already holding lock:
+  (&netdev->local->xmit_lock){+.....}, at: [<e62aefc2>] isdn_net_write_su=
+per+0x3f/0x6e [isdn]
+=20
+ which lock already depends on the new lock.=20
+ =20
+ =20
+ the existing dependency chain (in reverse order) is:
+ =20
+ -> #1 (&netdev->local->xmit_lock){+.....}:
+        [<c0157e9c>] __lock_acquire+0xa12/0xb99
+        [<c01580ac>] lock_acquire+0x89/0xa0
+        [<c0373249>] _spin_lock+0x1b/0x2a
+        [<e62b9d1c>] isdn_ppp_xmit+0xf0/0x5b0 [isdn]
+        [<e62b03f0>] isdn_net_start_xmit+0x4c6/0x66b [isdn]
+        [<c0307e75>] dev_hard_start_xmit+0x251/0x2e4
+        [<c0317bcc>] sch_direct_xmit+0x4f/0x122
+        [<c030829c>] dev_queue_xmit+0x2ae/0x412
+        [<c030d748>] neigh_resolve_output+0x1f2/0x23c
+        [<c0329b9c>] ip_finish_output2+0x1b1/0x1db
+        [<c0329c25>] ip_finish_output+0x5f/0x62
+        [<c0329cb5>] ip_output+0x8d/0x92
+        [<c03290c0>] ip_local_out+0x18/0x1b
+        [<c032932c>] ip_push_pending_frames+0x269/0x2c1
+        [<c033fd78>] raw_sendmsg+0x618/0x6b0
+        [<c0347ac9>] inet_sendmsg+0x3b/0x48
+        [<c02fa5b5>] __sock_sendmsg+0x45/0x4e
+        [<c02fad4b>] sock_sendmsg+0xb8/0xce
+        [<c02faea0>] sys_sendmsg+0x13f/0x192
+        [<c02fbeb2>] sys_socketcall+0x157/0x18e
+        [<c0102974>] sysenter_do_call+0x12/0x32
+ =20
+ -> #0 (&netdev->queue_lock){......}:
+        [<c0157da9>] __lock_acquire+0x91f/0xb99
+        [<c01580ac>] lock_acquire+0x89/0xa0
+        [<c03732db>] _spin_lock_irqsave+0x24/0x34
+        [<e62ad0fd>] isdn_net_device_busy+0x2c/0x74 [isdn]
+        [<e62aeee3>] isdn_net_writebuf_skb+0x6e/0xc2 [isdn]
+        [<e62aefd4>] isdn_net_write_super+0x51/0x6e [isdn]
+        [<e62bc26f>] isdn_ppp_write+0x3a8/0x3bc [isdn]
+        [<e62b785a>] isdn_write+0x1d9/0x1f9 [isdn]
+        [<c01c42c5>] vfs_write+0x84/0xdf
+        [<c01c43b9>] sys_write+0x3b/0x60
+        [<c0102974>] sysenter_do_call+0x12/0x32
+ =20
+ other info that might help us debug this:
+ =20
+ 1 lock held by ipppd/28379:
+  #0:  (&netdev->local->xmit_lock){+.....}, at: [<e62aefc2>] isdn_net_wri=
+te_super+0x3f/0x6e [isdn]
+ =20
+ stack backtrace:
+ Pid: 28379, comm: ipppd Not tainted 2.6.32-rc4-testing #7
+ Call Trace:
+  [<c03710dc>] ? printk+0xf/0x13
+  [<c015714d>] print_circular_bug+0x90/0x9c
+  [<c0157da9>] __lock_acquire+0x91f/0xb99
+  [<c01580ac>] lock_acquire+0x89/0xa0
+  [<e62ad0fd>] ? isdn_net_device_busy+0x2c/0x74 [isdn]
+  [<c03732db>] _spin_lock_irqsave+0x24/0x34
+  [<e62ad0fd>] ? isdn_net_device_busy+0x2c/0x74 [isdn]
+  [<e62ad0fd>] isdn_net_device_busy+0x2c/0x74 [isdn]
+  [<e62aeee3>] isdn_net_writebuf_skb+0x6e/0xc2 [isdn]
+  [<e62aefd4>] isdn_net_write_super+0x51/0x6e [isdn]
+  [<e62bc26f>] isdn_ppp_write+0x3a8/0x3bc [isdn]
+  [<e62b785a>] isdn_write+0x1d9/0x1f9 [isdn]
+  [<c01c3b6c>] ? rw_verify_area+0x8a/0xad
+  [<e62b7681>] ? isdn_write+0x0/0x1f9 [isdn]
+  [<c01c42c5>] vfs_write+0x84/0xdf
+  [<c01c43b9>] sys_write+0x3b/0x60
+  [<c0102974>] sysenter_do_call+0x12/0x32
+
+The message appeared shortly after initiating the connection,
+during the PPP negotiation, just when the IP address was assigned.
+The system continued to run normally, and the connection was
+successfully established. Full log showing the entire connection
+(with capidrv and Gigaset driver debugging output enabled, 70 kB),
+available at http://www.phoenixsoftware.de/~ts/ppp-lockprob-full.log
+in case someone's interested. It shows the messages from ipppd
+about the IP address assignment arriving in the middle of the
+lockdep message.
+
+I cannot say whether this is a regression. My previous tests of
+that scenario were done on a machine with an Nvidia graphics card
+where the lockdep machinery would refuse to run because of the
+kernel being tainted by the Nvidia driver, so I wouldn't have seen
+anything one way or another.
+
+Btw, one of those "NOHZ: local_softirq_pending 08" messages is also
+present in the log, but that's 28 seconds later so I'd be surprised
+if the two were related.
+
+Any hints about the possible cause and seriousness of that
+message would be welcome. I'm particularly interested, of course,
+in finding out whether the Gigaset driver might somehow be causing
+it, even though it doesn't appear anywhere in the backtraces.
+
+aTdHvAaNnKcSe
+Tilman
+
+--=20
+Tilman Schmidt                    E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
 
 
-Commands sequence that i think triggered that:
+--------------enig76E76DB8A384B495F208F952
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-ip link set eth0 down
-ip link set eth1 down
-ip link set eth2 down
-nameif etherx 00:16:76:8D:83:BA
-nameif eth0 00:19:e0:72:4a:37
-nameif eth1 00:19:e0:72:4a:4b
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.4-svn0 (GNU/Linux)
+Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
 
-ip addr flush dev eth0
-ip addr flush dev eth1
-ip addr add X.X.X.X/29 dev eth0
-ip addr add 192.168.2.177/24 dev eth0
-ip addr add 192.168.0.1/32 dev eth1
-ip addr add 127.0.0.0/8 dev lo
-#ip link set eth0 up
-ip link set eth0 up
-ip link set eth1 up
-ip link set lo up
-ip route add 0.0.0.0/0 via X.X.X.X
+iD8DBQFK25PUQ3+did9BuFsRAjffAJ0Q68oQRTIgMiu0vaAOdB0Dzi/PJwCaAiCS
+Kwc4NBDQpLYMaOzudXkPy9g=
+=yXsr
+-----END PGP SIGNATURE-----
 
-
-[  103.428591] r8169: eth0: link up
-[  103.430360] r8169: eth1: link up
-[  113.361528] BUG: unable to handle kernel
-NULL pointer dereference
-at 0000018f
-[  113.361717] IP:
-[<f8868269>] pppoe_device_event+0x80/0x12c [pppoe]
-[  113.361853] *pdpt = 000000003411a001
-*pde = 0000000000000000
-Oct 18 23:59:40 194.146.153.93
-[  113.362012] Oops: 0000 [#1]
-SMP
-Oct 18 23:59:40 194.146.153.93
-[  113.362166] last sysfs file: /sys/devices/virtual/vc/vcs3/dev
-[  113.362246] Modules linked in:
-netconsole
-configfs
-act_skbedit
-sch_ingress
-sch_prio
-cls_flow
-cls_u32
-em_meta
-cls_basic
-xt_dscp
-xt_DSCP
-ipt_REJECT
-ts_bm
-xt_string
-xt_hl
-ifb
-cls_fw
-sch_tbf
-sch_htb
-act_ipt
-act_mirred
-xt_MARK
-pppoe
-pppox
-ppp_generic
-slhc
-xt_TCPMSS
-xt_mark
-xt_tcpudp
-iptable_mangle
-iptable_nat
-nf_nat
-rtc_cmos
-nf_conntrack_ipv4
-rtc_core
-nf_conntrack
-rtc_lib
-nf_defrag_ipv4
-iptable_filter
-ip_tables
-x_tables
-8021q
-garp
-stp
-llc
-loop
-sata_sil
-pata_atiixp
-pata_acpi
-ata_generic
-libata
-8139cp
-usb_storage
-mtdblock
-mtd_blkdevs
-mtd
-sr_mod
-cdrom
-tulip
-r8169
-sky2
-via_velocity
-via_rhine
-sis900
-ne2k_pci
-8390
-skge
-tg3
-libphy
-8139too
-e1000
-e100
-usbhid
-ohci_hcd
-uhci_hcd
-ehci_hcd
-usbcore
-nls_base
-Oct 18 23:59:40 194.146.153.93
-[  113.362344]
-[  113.362344] Pid: 2858, comm: pppd Not tainted (2.6.31.4-build-0047 #7)
-[  113.362344] EIP: 0060:[<f8868269>] EFLAGS: 00010286 CPU: 0
-[  113.362344] EIP is at pppoe_device_event+0x80/0x12c [pppoe]
-[  113.362344] EAX: f4fbe000 EBX: ffffffff ECX: f6cea5a0 EDX: f7403680
-[  113.362344] ESI: 0000000f EDI: f6cea5e0 EBP: f4145e34 ESP: f4145e1c
-[  113.362344]  DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
-[  113.362344] Process pppd (pid: 2858, ti=f4145000 task=f4112ff0 
-task.ti=f4145000)
-[  113.362344] Stack:
-[  113.362344]  f4fbe220
-f4fbe000
-f6cea5a0
-f886a430
-fffffff5
-00000000
-f4145e54
-c01422b3
-Oct 18 23:59:40 194.146.153.93
-[  113.362344] <0>
-f4fbe000
-00000009
-f8a457d8
-f4fbe000
-f8850190
-00001091
-f4145e64
-c0142361
-Oct 18 23:59:40 194.146.153.93
-[  113.362344] <0>
-ffffffff
-00000000
-f4145e74
-c029ffbf
-f4fbe000
-000010d0
-f4145e90
-c029fa70
-Oct 18 23:59:40 194.146.153.93
-[  113.362344] Call Trace:
-[  113.362344]  [<c01422b3>] ? notifier_call_chain+0x2b/0x4a
-[  113.362344]  [<c0142361>] ? raw_notifier_call_chain+0xc/0xe
-[  113.362344]  [<c029ffbf>] ? dev_close+0x4c/0x8c
-[  113.362344]  [<c029fa70>] ? dev_change_flags+0xa5/0x158
-[  113.362344]  [<c02da633>] ? devinet_ioctl+0x21a/0x503
-[  113.362344]  [<c02db693>] ? inet_ioctl+0x8d/0xa6
-[  113.362344]  [<c0292b21>] ? sock_ioctl+0x1c8/0x1ec
-[  113.362344]  [<c0292959>] ? sock_ioctl+0x0/0x1ec
-[  113.362344]  [<c019af2b>] ? vfs_ioctl+0x22/0x69
-[  113.362344]  [<c019b435>] ? do_vfs_ioctl+0x41f/0x459
-[  113.362344]  [<c02934eb>] ? sys_send+0x18/0x1a
-[  113.362344]  [<c011942f>] ? do_page_fault+0x242/0x26f
-[  113.362344]  [<c019b49b>] ? sys_ioctl+0x2c/0x45
-[  113.362344]  [<c0102975>] ? syscall_call+0x7/0xb
-[  113.362344] Code:
-c9
-00
-00
-00
-89
-c7
-31
-f6
-83
-c7
-40
-89
-f8
-e8
-cc
-60
-a9
-c7
-8b
-45
-ec
-05
-20
-02
-00
-00
-89
-45
-e8
-8b
-4d
-f0
-8b
-1c
-b1
-e9
-8c
-00
-00
-00
-8b
-45
-ec
-Oct 18 23:59:40 194.146.153.93
-83
-90
-01
-00
-00
-74
-08
-8b
-9b
-8c
-01
-00
-00
-eb
-79
-b8
-c0
-a6
-86
-f8
-Oct 18 23:59:40 194.146.153.93
-[  113.362344] EIP: [<f8868269>]
-pppoe_device_event+0x80/0x12c [pppoe]
-SS:ESP 0068:f4145e1c
-[  113.362344] CR2: 000000000000018f
-[  113.373124] ---[ end trace f6fe64a307e97f3b ]---
-[  113.373203] Kernel panic - not syncing: Fatal exception in interrupt
-[  113.373286] Pid: 2858, comm: pppd Tainted: G      D    2.6.31.4-build-0047 
-#7
-[  113.373379] Call Trace:
-[  113.373479]  [<c02fc496>] ? printk+0xf/0x11
-[  113.373561]  [<c02fc3e7>] panic+0x39/0xd9
-[  113.373656]  [<c01059b7>] oops_end+0x8b/0x9a
-[  113.373727]  [<c0118f6d>] no_context+0x13d/0x147
-[  113.373800]  [<c011908a>] __bad_area_nosemaphore+0x113/0x11b
-[  113.373881]  [<c02953b3>] ? sock_alloc_send_pskb+0x8b/0x24a
-[  113.373959]  [<c0121801>] ? __wake_up_sync_key+0x3b/0x45
-[  113.374030]  [<c0131967>] ? irq_exit+0x39/0x5c
-[  113.374107]  [<c0104393>] ? do_IRQ+0x80/0x96
-[  113.374183]  [<c0102f49>] ? common_interrupt+0x29/0x30
-[  113.374259]  [<c011909f>] bad_area_nosemaphore+0xd/0x10
-[  113.374348]  [<c0119301>] do_page_fault+0x114/0x26f
-[  113.374526]  [<c01191ed>] ? do_page_fault+0x0/0x26f
-[  113.374605]  [<c02fe506>] error_code+0x66/0x6c
-[  113.374683]  [<c02d007b>] ? tcp_v4_send_ack+0xa3/0x10e
-[  113.374764]  [<c01191ed>] ? do_page_fault+0x0/0x26f
-[  113.374850]  [<f8868269>] ? pppoe_device_event+0x80/0x12c [pppoe]
-[  113.374928]  [<c01422b3>] notifier_call_chain+0x2b/0x4a
-[  113.375012]  [<c0142361>] raw_notifier_call_chain+0xc/0xe
-[  113.375097]  [<c029ffbf>] dev_close+0x4c/0x8c
-[  113.375169]  [<c029fa70>] dev_change_flags+0xa5/0x158
-[  113.375239]  [<c02da633>] devinet_ioctl+0x21a/0x503
-[  113.375318]  [<c02db693>] inet_ioctl+0x8d/0xa6
-[  113.375411]  [<c0292b21>] sock_ioctl+0x1c8/0x1ec
-[  113.375491]  [<c0292959>] ? sock_ioctl+0x0/0x1ec
-[  113.375574]  [<c019af2b>] vfs_ioctl+0x22/0x69
-[  113.375653]  [<c019b435>] do_vfs_ioctl+0x41f/0x459
-[  113.375734]  [<c02934eb>] ? sys_send+0x18/0x1a
-[  113.375813]  [<c011942f>] ? do_page_fault+0x242/0x26f
-[  113.375884]  [<c019b49b>] sys_ioctl+0x2c/0x45
-[  113.375960]  [<c0102975>] syscall_call+0x7/0xb
-[  113.376041] Rebooting in 5 seconds..
+--------------enig76E76DB8A384B495F208F952--
