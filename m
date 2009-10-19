@@ -1,31 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: sk_drops consolidation part 2
-Date: Sun, 18 Oct 2009 18:54:45 -0700 (PDT)
-Message-ID: <20091018.185445.43365815.davem@davemloft.net>
-References: <4AD68D4C.2080108@gmail.com>
-	<20091014.204021.97690983.davem@davemloft.net>
-	<4AD6F598.4080007@gmail.com>
+From: Pawel Pastuszak <pawelpastuszak@gmail.com>
+Subject: ARP Table Access
+Date: Sun, 18 Oct 2009 23:35:36 -0400
+Message-ID: <8ff29df80910182035t70a9e98fi1cc69fdb2677b3c7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47243
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750918AbZJSByW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2009 21:54:22 -0400
-In-Reply-To: <4AD6F598.4080007@gmail.com>
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:49006 "EHLO
+	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753916AbZJSDlG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Oct 2009 23:41:06 -0400
+Received: by yxe17 with SMTP id 17so3598209yxe.33
+        for <netdev@vger.kernel.org>; Sun, 18 Oct 2009 20:41:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 15 Oct 2009 12:12:40 +0200
+Hi All,
 
-> - skb_kill_datagram() can increment sk->sk_drops itself, not callers.
-> 
-> - UDP on IPV4 & IPV6 dropped frames (because of bad checksum or policy checks) increment sk_drops
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Can anybody guide me to how to access ARP Table to lookup an MAC
+access for IP address inside an Network Interface driver (net_dev)?
 
-Applied.
+Also how can i insert into the ARP Table.
+
+Thanks,
+Pawel
