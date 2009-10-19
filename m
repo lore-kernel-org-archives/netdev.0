@@ -1,47 +1,57 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH][RFC]: ingress socket filter by mark
-Date: Mon, 19 Oct 2009 08:12:05 -0400
-Message-ID: <1255954325.21059.3.camel@dogo.mojatatu.com>
-References: <1255869758.4815.40.camel@dogo.mojatatu.com>
-	 <4ADB5043.7070707@gmail.com> <1255897680.4815.63.camel@dogo.mojatatu.com>
-	 <55a4f86e0910181609o6b21d667g8e65638667a1d687@mail.gmail.com>
-Reply-To: hadi@cyberus.ca
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: Kernel oops when clearing bgp neighbor info with TCP MD5SUM
+	enabled
+Date: Mon, 19 Oct 2009 14:13:27 +0200
+Message-ID: <20091019121327.GA11423@redhat.com>
+References: <Pine.LNX.4.64.0910081514050.18315@sleet.zeugmasystems.local> <20091008.155429.02850661.davem@davemloft.net> <Pine.LNX.4.64.0910081622400.18315@sleet.zeugmasystems.local> <20091008.175703.83006470.davem@davemloft.net> <Pine.LNX.4.64.0910171035340.2364@sleet.zeugmasystems.local> <4ADA7EDC.5010402@anirban.org> <4ADB7856.7000803@anirban.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Atis Elsts <atis@mikrotik.com>
-To: Maciej =?UTF-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, Anirban Sinha <asinha@zeugmasystems.com>
+To: Anirban Sinha <ani@anirban.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f179.google.com ([209.85.216.179]:48196 "EHLO
-	mail-px0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753952AbZJSMPJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 08:15:09 -0400
-Received: by pxi9 with SMTP id 9so1069933pxi.4
-        for <netdev@vger.kernel.org>; Mon, 19 Oct 2009 05:15:14 -0700 (PDT)
-In-Reply-To: <55a4f86e0910181609o6b21d667g8e65638667a1d687@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:56782 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755529AbZJSMSA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Oct 2009 08:18:00 -0400
+Content-Disposition: inline
+In-Reply-To: <4ADB7856.7000803@anirban.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2009-10-18 at 16:09 -0700, Maciej =C5=BBenczykowski wrote:
->=20
-> I agree that being able to filter on mark in bpf makes a lot of sense=
-=2E
+Hi Anirban,
 
-I agree as well - i posted a patch yesterday; i just tested it and it
-works so i will formally post it shortly.
+On 10/18, Anirban Sinha wrote:
+>
+> I have a question for you. The queue_work() routine which is called from
+> schedule_work() does a put_cpu() which in turn does a enable_preempt(). Is
+> this an attempt to trigger the scheduler?
 
-> I wonder if we're not hitting the filters potentially before the mark
-> is set though (on receive at least)...
-> I'm nowhere near sure but I think packets get diverted/cloned to
-> tcpdump before they hit the ip stack (and thus potentially get marked
-> by ip(6)table mangle rules)
+No. please note that queue_work() does get_cpu() + put_cpu() to protect
+against cpu_down() in between.
 
-There are many ways to mark the packets before they get to the socket.
-tc ingress provides at least two ways (ipt action and recently posted
-patch by me on skbedit); iptables as well.
+This can trigger the scheduler of course, but everything should be OK.
 
-cheers,
-jamal
+> One of the side affects of
+> this enable_preempt() is the crash that we see below. What is happening
+> is that  a timer callback routine, in  this case inet_twdr_hangman(),
+> tries a bunch of cleanup until a threshold is reached. If further cleanups
+> needs to be done beyond the threshold, it queues a work function. Now when
+> the timer callback is run in __run_timers(), the routine grabs the value
+> of preempt_count before and after the callback function call. If the two
+> counts do not match, it calls BUG() (line 1037 in kernel/timer.c).
+
+Yes, but I can't see how queue_work() can be involved, it doesn't change
+->preempt_count. Note again it does put after get.
+
+> Is is
+> it illegal to schedule a work function from within a timer callback?
+
+Yes sure.
+
+I'd suppose that this unbalance comes from inet_twdr_hangman() pathes.
+
+Could you verify this?
+
+Oleg.
 
