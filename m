@@ -1,38 +1,26 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: Re: [PATCH] myri10ge: improve port type reporting in ethtool output
-Date: Mon, 19 Oct 2009 08:34:00 -0400
-Message-ID: <4ADC5CB8.4010801@myri.com>
-References: <4ADBFA88.8030300@myri.com> <1255939929.3916.13.camel@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] AF_UNIX: Fix deadlock on connecting to shutdown socket
+Date: Mon, 19 Oct 2009 06:14:59 -0700 (PDT)
+Message-ID: <20091019.061459.193694892.davem@davemloft.net>
+References: <4ADC010C.5070809@hitachi.com>
+	<20091019115713.GB6869@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Brice Goglin <brice@myri.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1815 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755572AbZJSNKw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Oct 2009 09:10:52 -0400
-In-Reply-To: <1255939929.3916.13.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tomoki.sekiyama.qu@hitachi.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, alan@lxorguk.ukuu.org.uk,
+	satoshi.oshima.fk@hitachi.com, hidehiro.kawai.ez@hitachi.com,
+	hideo.aoki.tk@hitachi.com
+To: jarkao2@gmail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756144AbZJSNOi@vger.kernel.org>
+In-Reply-To: <20091019115713.GB6869@ff.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ben Hutchings wrote:
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Mon, 19 Oct 2009 11:57:13 +0000
 
-> Lying about link modes is not an improvement.
+> Isn't the shutdown call expected to change sk_state to TCP_CLOSE?
 
-OK, so we're probably doing something wrong. I suspect we're not
-alone.  At least we don't set SUPPORTED_TP for CX4, like I've
-seen some NICs do.
-
-Can somebody suggest how we can tell ethtool that
-the NIC supports 10Gb only (no autoneg down to 1Gb or lower)
-for copper (10Gbase-CX4)?   How about for fiber (10Gbase-{S,L})R?
-
-
-
-Thanks,
-
-Drew
+No, because the send side is still up and operational, it's
+only a half duplex close.
