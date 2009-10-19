@@ -1,64 +1,51 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] myri10ge: improve port type reporting in ethtool output
-Date: Mon, 19 Oct 2009 15:17:51 +0100
-Message-ID: <1255961871.2782.15.camel@achroite>
-References: <4ADBFA88.8030300@myri.com> <1255939929.3916.13.camel@localhost>
-	 <4ADC5CB8.4010801@myri.com> <1255957384.2782.2.camel@achroite>
-	 <4ADC69FF.5000109@myri.com>
+From: Anirban Sinha <ani@anirban.org>
+Subject: Re: Kernel oops when clearing bgp neighbor info with TCP MD5SUM enabled
+Date: Mon, 19 Oct 2009 08:32:07 -0700
+Message-ID: <4ADC8677.7000607@anirban.org>
+References: <Pine.LNX.4.64.0910081514050.18315@sleet.zeugmasystems.local> <20091008.155429.02850661.davem@davemloft.net> <Pine.LNX.4.64.0910081622400.18315@sleet.zeugmasystems.local> <20091008.175703.83006470.davem@davemloft.net> <Pine.LNX.4.64.0910171035340.2364@sleet.zeugmasystems.local> <4ADA7EDC.5010402@anirban.org> <4ADB7856.7000803@anirban.org> <20091019121327.GA11423@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Brice Goglin <brice@myri.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Andrew Gallatin <gallatin@myri.com>
+Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, Anirban Sinha <asinha@zeugmasystems.com>
+To: Oleg Nesterov <oleg@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:55673 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756195AbZJSORt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 10:17:49 -0400
-In-Reply-To: <4ADC69FF.5000109@myri.com>
+Received: from mail-px0-f179.google.com ([209.85.216.179]:53729 "EHLO
+	mail-px0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756686AbZJSPcE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 11:32:04 -0400
+In-Reply-To: <20091019121327.GA11423@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-10-19 at 09:30 -0400, Andrew Gallatin wrote:
-> Ben Hutchings wrote:
-> > On Mon, 2009-10-19 at 08:34 -0400, Andrew Gallatin wrote:
-> >> Ben Hutchings wrote:
-> >>
-> >>> Lying about link modes is not an improvement.
-> >> OK, so we're probably doing something wrong. I suspect we're not
-> >> alone.  At least we don't set SUPPORTED_TP for CX4, like I've
-> >> seen some NICs do.
-> >>
-> >> Can somebody suggest how we can tell ethtool that
-> >> the NIC supports 10Gb only (no autoneg down to 1Gb or lower)
-> >> for copper (10Gbase-CX4)?   How about for fiber (10Gbase-{S,L})R?
-> > 
-> > What's wrong with what you already do?  Customers expect to see
-> > something on the supported line?
+
+
+Once upon a time, like on 09-10-19 5:13 AM, Oleg Nesterov wrote:
+> Hi Anirban,
 > 
-> Exactly.  One has complained because drivers for
-> other vendors NICs show this, even if they are fibre NICs
-> or CX4 NICs, and don't actually support 10GbaseT.
+> On 10/18, Anirban Sinha wrote:
+>>
+>> I have a question for you. The queue_work() routine which is called from
+>> schedule_work() does a put_cpu() which in turn does a enable_preempt(). Is
+>> this an attempt to trigger the scheduler?
+> 
+> No. please note that queue_work() does get_cpu() + put_cpu() to protect
+> against cpu_down() in between.
 
-Let's fix the other drivers then.  Labelling these NICs as supporting
-10GBASE-T is liable to confuse more people (and tools) in the long run.
+grrr! Ah yes, my eyes failed me (or it saw what I wanted it to see :)). You do have a get_cpu() and put_cpu() together in the same code path. I guess I will have to keep looking at inet_twdr_hangman(). 
 
-> I'm happy to back this part out, and resubmit the patch without
-> it. There is still some fairly valuable stuff in the patch
-> -- mainly updating the NIC detection logic for new NICs to
-> detect fibre vs copper.
+>> Is is
+>> it illegal to schedule a work function from within a timer callback?
+> 
+> Yes sure.
 
-Sure.
+hmm. may be in that case, that function needs to be re-written. 
 
-You should also set port = PORT_OTHER for CX4 or KX4.  Currently it
-looks like you don't set port, so it appears as 0 == PORT_TP.
+> I'd suppose that this unbalance comes from inet_twdr_hangman() pathes.
+> 
+> Could you verify this?
 
-Ben.
+I'll keep looking. Thanks for the help Oleg. 
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Ani
 
