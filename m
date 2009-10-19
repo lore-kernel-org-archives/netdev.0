@@ -1,61 +1,55 @@
-From: <Narendra_K@Dell.com>
-Subject: RE: PATCH: Network Device Naming mechanism and policy
-Date: Mon, 19 Oct 2009 17:00:50 +0530
-Message-ID: <EDA0A4495861324DA2618B4C45DCB3EE5895AF@blrx3m08.blr.amer.dell.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com> <20091009140000.GA18765@mock.linuxdev.us.dell.com> <20091013150839.GD32107@ldl.fc.hp.com> <EDA0A4495861324DA2618B4C45DCB3EE58954D@blrx3m08.blr.amer.dell.com> <20091013173638.GE1119@ldl.fc.hp.com> <20091016003245.GD29672@ldl.fc.hp.com> <EDA0A4495861324DA2618B4C45DCB3EE589579@blrx3m08.blr.amer.dell.com> <20091016152053.GA9862@ldl.fc.hp.com> <1255707193.2869.12.camel@achroite> <20091016214024.GA10091@ldl.fc.hp.com>
+From: Atis Elsts <atis@mikrotik.com>
+Subject: Re: [PATCH] Add sk_mark route lookup support for IPv4 listening sockets, and for IPv4 multicast forwarding
+Date: Mon, 19 Oct 2009 14:38:26 +0300
+Message-ID: <200910191438.27328.atis@mikrotik.com>
+References: <20091007.223928.34412707.davem@davemloft.net> <55a4f86e0910141133y4decdeb4v43d9168687bbb724@mail.gmail.com> <20091019082033.GB27230@fogou.chygwyn.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <linux-hotplug@vger.kernel.org>,
-	<Matt_Domsch@Dell.com>, <Jordan_Hargrave@Dell.com>,
-	<Charles_Rose@Dell.com>
-To: <dannf@hp.com>, <bhutchings@solarflare.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <20091016214024.GA10091@ldl.fc.hp.com>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Maciej =?utf-8?q?=C5=BBenczykowski?= <zenczykowski@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	panther@balabit.hu, eric.dumazet@gmail.com, brian.haley@hp.com
+To: steve@chygwyn.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bute.mt.lv ([159.148.172.196]:49567 "EHLO bute.mt.lv"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755899AbZJSLhG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Oct 2009 07:37:06 -0400
+In-Reply-To: <20091019082033.GB27230@fogou.chygwyn.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
->> > > And how would the regular file look like in terms of holding 
->> > > ifindex of the interface, which can be passed to libnetdevname.
->> > 
->> > I can't think of anything we need to store in the regular file. If 
->> > we have the kernel name for the device, we can look up the ifindex 
->> > in /sys. Correct me if I'm wrong, but storing it ourselves seems 
->> > redundant.
->> 
->> But the name of a netdev can change whereas its ifindex never does.
->> Identifying netdevs by name would require additional work to update 
->> the links when a netdev is renamed and would still be prone to race 
->> conditions.  This is why Narendra and Matt were proposing to 
->store the 
->> ifindex in the node all along...
+On Monday 19 October 2009 11:20:33 steve@chygwyn.com wrote:
 >
->Matt, Ben and I talked about a few other possibilities on IRC.
->The one I like the most at the moment is an idea Ben had to 
->creat dummy files named after the ifindex. Then, use symlinks 
->for the kernel name and the various by-$property 
->subdirectories. This means the KOBJ events will need to expose 
->the ifindex.
->
+> Another potential use case would be to segregate traffic into different
+> routing domains (and thus being able to change the mark when moving from
+> one routing domain to another might be useful).
 
-I suppose the KOBJ events already expose the ifindex of a network
-interface. The file "/sys/class/net/ethN/uevent" contains INTERFACE=ethN
-and IFINDEX=n already. But it looks like udev doesn't use it in any way.
-For example, with the kernel patch the "/sys/class/net/ethN/uevent"
-contains in addition to the above details, MAJOR=M and MINOR=m which the
-udev knows how to make use of with a rule like 
+I agree. Actually, one of our  users recenlty requested adding matcher in 
+firewall that would match outgoing the packets by the routing table that was 
+used to route them. (For now we found a workaround using tclassid, but that 
+requires manual configuration.) So yes, it's an useful feature even excluding 
+the tunnel cases.
 
-SUBSYSTEM=="net", KERNEL!="tun", NAME="netdev/%k", MODE="0600".
+I don't like the idea of using skb->mark for storing that information though, 
+because I think these multiple uses of the same field would be too confusing 
+for users, even if the default behavior remained the same as now. Also, 
+consider the case when someone watch to match packets in post routing chain 
+*both* by the mark that was set in prerouting chain, and routing table used 
+to route the packet?
 
->I'm a novice at net programming, but I'm told that ifindex is 
->the information apps ultimately require here.
+There already is free space (padding fieds) in struct dst_entry, so why not 
+use this space to store the routing table? Speed is also not an issue, 
+because the field only needs to be filled in slowpath routing lookup, and 
+will be used only
+1) if iptables are explicitly configured to match by it;
+2) (?) in tunnel routing lookups. (no idea which is the best option here)
 
-Yes. The minor number of the device node is retreived by libnetdevname
-by "stat"ing the pathname which happens to be ifindex of the device and
-it is mapped to corresponding kernel name by "if_indextoname"  call.
+I see that struct rt6_info already has field
+    struct fib6_table		*rt6i_table
+so this matcher already can be made for IPv6 firewall. But IPv4 still is more 
+imporant at the moment :)
 
-With regards,
-Narendra K  
+Atis
