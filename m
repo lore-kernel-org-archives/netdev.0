@@ -1,77 +1,69 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [PATCH]: ingress socket filter by mark
-Date: Mon, 19 Oct 2009 08:17:56 -0400
-Message-ID: <1255954676.21059.7.camel@dogo.mojatatu.com>
-Reply-To: hadi@cyberus.ca
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: kernel panic in latest vanilla stable, while using nameif with
+ 	"alive" pppoe interfaces
+Date: Mon, 19 Oct 2009 14:36:11 +0200
+Message-ID: <4ADC5D3B.8010006@gmail.com>
+References: <200910190002.39937.denys@visp.net.lb> <e6d1cecd0910182034t9d24859mc6f392875b36ad17@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-KDcTSkDgA4Z5dvqAwrYJ"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f179.google.com ([209.85.216.179]:38664 "EHLO
-	mail-px0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755182AbZJSMU7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 08:20:59 -0400
-Received: by pxi9 with SMTP id 9so1072541pxi.4
-        for <netdev@vger.kernel.org>; Mon, 19 Oct 2009 05:21:04 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Denys Fedoryschenko <denys@visp.net.lb>,
+	netdev <netdev@vger.kernel.org>, linux-ppp@vger.kernel.org,
+	paulus@samba.org, mostrows@earthlink.net
+To: Michal Ostrowski <mostrows@gmail.com>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <e6d1cecd0910182034t9d24859mc6f392875b36ad17@mail.gmail.com>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Michal Ostrowski a =E9crit :
+> Here's my theory on this after an inital look...
+>=20
+> Looking at the oops report and disassembly of the actual module binar=
+y
+> that caused the oops, one can deduce that:
+>=20
+> Execution was in pppoe_flush_dev().  %ebx contained the pointer "stru=
+ct
+> pppox_sock *po", which is what we faulted on, excuting "cmp %eax, 0x1=
+90(%ebx)".
+> %ebx value was 0xffffffff (hence we got "NULL pointer dereference at =
+0x18f").
+>=20
+> At this point "i" (stored in %esi) is 15 (valid), meaning that we got=
+ a value
+> of 0xffffffff in pn->hash_table[i].
+>=20
+>>From this I'd hypothesize that the combination of dev_put() and relea=
+se_sock()
+> may have allowed us to free "pn".  At the bottom of the loop we alrea=
+yd
+> recognize that since locks are dropped we're responsible for handling
+> invalidation of objects, and perhaps that should be extended to "pn" =
+as well.
+> --
+> Michal Ostrowski
+> mostrows@gmail.com
+>=20
+>=20
 
---=-KDcTSkDgA4Z5dvqAwrYJ
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Looking at this stuff, I do believe flush_lock protection is not
+properly done.
 
-apps can specify mark that they want to accept/reject.
+At the end of pppoe_connect() for example we can find :
 
-cheers,
-jamal
+err_put:
+        if (po->pppoe_dev) {
+                dev_put(po->pppoe_dev);
+                po->pppoe_dev =3D NULL;
+        }
 
---=-KDcTSkDgA4Z5dvqAwrYJ
-Content-Disposition: attachment; filename=filt-sock-m-3
-Content-Type: text/plain; name=filt-sock-m-3; charset=UTF-8
-Content-Transfer-Encoding: 7bit
+This is done without any protection, and can therefore clash with=20
+pppoe_flush_dev() :
 
-commit ec187e3028db866161b881c5ac9eeea4e9bb0f1f
-Author: Jamal Hadi Salim <hadi@cyberus.ca>
-Date:   Mon Oct 19 08:12:46 2009 -0400
+	spin_lock(&flush_lock);
+	po->pppoe_dev =3D NULL; /* ppoe_dev can already be NULL before this po=
+int */
+	spin_unlock(&flush_lock);
 
-    [PATCH]: ingress socket filter by mark
-    
-    Allow bpf to set a filter to drop packets that dont
-    match a specific mark
-    
-    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
-
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 1354aaf..909193e 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -123,7 +123,8 @@ struct sock_fprog	/* Required for SO_ATTACH_FILTER. */
- #define SKF_AD_IFINDEX 	8
- #define SKF_AD_NLATTR	12
- #define SKF_AD_NLATTR_NEST	16
--#define SKF_AD_MAX	20
-+#define SKF_AD_MARK 	20
-+#define SKF_AD_MAX	24
- #define SKF_NET_OFF   (-0x100000)
- #define SKF_LL_OFF    (-0x200000)
- 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index d1d779c..e3987e1 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -303,6 +303,9 @@ load_b:
- 		case SKF_AD_IFINDEX:
- 			A = skb->dev->ifindex;
- 			continue;
-+		case SKF_AD_MARK:
-+			A = skb->mark;
-+			continue;
- 		case SKF_AD_NLATTR: {
- 			struct nlattr *nla;
- 
-
---=-KDcTSkDgA4Z5dvqAwrYJ--
-
+	dev_put(dev);    /* oops */
