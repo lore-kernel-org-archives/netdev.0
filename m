@@ -1,46 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: Fix struct inet_timewait_sock bitfield annotation
-Date: Mon, 19 Oct 2009 10:48:51 +0200
-Message-ID: <4ADC27F3.5050508@gmail.com>
+From: Tomoki Sekiyama <tomoki.sekiyama.qu@hitachi.com>
+Subject: Re: [PATCH] AF_UNIX: Fix deadlock on connecting to shutdown socket
+Date: Mon, 19 Oct 2009 17:54:04 +0900
+Message-ID: <4ADC292C.8010608@hitachi.com>
+References: <4ADC010C.5070809@hitachi.com> <2375c9f90910190002m372edafq9a4c95d754640487@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	alan@lxorguk.ukuu.org.uk, davem@davemloft.net,
+	satoshi.oshima.fk@hitachi.com, hidehiro.kawai.ez@hitachi.com,
+	hideo.aoki.tk@hitachi.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:57282 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750821AbZJSIsu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 04:48:50 -0400
+Received: from mail9.hitachi.co.jp ([133.145.228.44]:53593 "EHLO
+	mail9.hitachi.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754534AbZJSIyG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 04:54:06 -0400
+In-Reply-To: <2375c9f90910190002m372edafq9a4c95d754640487@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 9e337b0f (net: annotate inet_timewait_sock bitfields)
-added 4/8 bytes in struct inet_timewait_sock.
+Hi, thanks for testing!
 
-Fix this by declaring tw_ipv6_offset in the 'flags' bitfield
-The 14 bits hole is named tw_pad to make it cleary apparent.
+Am=C3=A9rico Wang wrote:
+> On Mon, Oct 19, 2009 at 2:02 PM, Tomoki Sekiyama
+> <tomoki.sekiyama.qu@hitachi.com> wrote:
+>> Hi,
+>> I found a deadlock bug in UNIX domain socket, which makes able to Do=
+S
+>> attack against the local machine by non-root users.
+>>
+>> How to reproduce:
+>> 1. Make a listening AF_UNIX/SOCK_STREAM socket with an abstruct
+>>    namespace(*), and shutdown(2) it.
+>>  2. Repeat connect(2)ing to the listening socket from the other sock=
+ets
+>>    until the connection backlog is full-filled.
+>>  3. connect(2) takes the CPU forever. If every core is taken, the
+>>    system hangs.
+>>
+>> PoC code: (Run as many times as cores on SMP machines.)
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
+Sorry for my ambiguous explanation ...
 
-diff --git a/include/net/inet_timewait_sock.h b/include/net/inet_timewait_sock.h
-index 37f3aea..b5ad469 100644
---- a/include/net/inet_timewait_sock.h
-+++ b/include/net/inet_timewait_sock.h
-@@ -130,11 +130,11 @@ struct inet_timewait_sock {
- 	__u16			tw_num;
- 	kmemcheck_bitfield_begin(flags);
- 	/* And these are ours. */
--	__u8			tw_ipv6only:1,
--				tw_transparent:1;
--	/* 14 bits hole, try to pack */
-+	unsigned int		tw_ipv6only     : 1,
-+				tw_transparent  : 1,
-+				tw_pad		: 14,	/* 14 bits hole */
-+				tw_ipv6_offset  : 16;
- 	kmemcheck_bitfield_end(flags);
--	__u16			tw_ipv6_offset;
- 	unsigned long		tw_ttd;
- 	struct inet_bind_bucket	*tw_tb;
- 	struct hlist_node	tw_death_node;
+> Interesting...
+>=20
+> I tried this with the following command:
+>=20
+> % for i in `seq 1 $(grep processor -c /proc/cpuinfo)`;
+> do ./unix-socket-dos-exploit; echo "=3D=3D=3D=3D=3D$i=3D=3D=3D=3D";do=
+ne
+<snip>
+> My system doesn't hang at all.
+>=20
+> Am I missing something?
+>
+> Thanks!
+
+You should run the ./unix-socket-dos-exploit concurrently, like below:
+
+for i in {1..4} ; do ./unix-socket-dos-exploit & done
+
+# For safety reason, the PoC code stops in 15 seconds by alarm(15).
+
+--=20
+Tomoki Sekiyama
+Linux Technology Center
+Hitachi, Ltd., Systems Development Laboratory
+E-mail: tomoki.sekiyama.qu@hitachi.com
