@@ -1,70 +1,27 @@
-From: Joyce Yu <Joyce.Yu@Sun.COM>
-Subject: Re: [Fwd: [PATCH] [NIU] VLAN does not work with niu driver]
-Date: Mon, 19 Oct 2009 15:12:49 -0700
-Message-ID: <4ADCE461.9080809@Sun.COM>
-References: <4AD89D9A.7090405@Sun.COM>
- <20091016.174008.193713863.davem@davemloft.net>
-Reply-To: Joyce.Yu@Sun.COM
+From: Ilmo Juiz da 10a Comarca/SP <pauloarrochado@uol.com.br>
+Subject: =?utf-8?Q?Ilmo_Sr=2E_Juiz_da_=34a_Vara_Criminal_SP_=2D_Atos_processuais_na_Lei_n=C2=BA_=31=31=2E=34=31=39=2F=30=36=31=39=2F=31=30=2F=32=30=30=39=32=31=3A=31=36=3A=30=38?=
+Date: Mon, 19 Oct 2009 21:16:15 -0200
+Message-ID: <4adcf33f57019_5542ed17eb049@weasel22.tmail>
 Mime-Version: 1.0
-Content-Type: text/plain; CHARSET=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+To: net-snmp-users@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from brmea-mail-4.Sun.COM ([192.18.98.36]:47413 "EHLO
-	brmea-mail-4.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753410AbZJSWMq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 18:12:46 -0400
-Received: from fe-amer-10.sun.com ([192.18.109.80])
-	by brmea-mail-4.sun.com (8.13.6+Sun/8.12.9) with ESMTP id n9JMCoPk008320
-	for <netdev@vger.kernel.org>; Mon, 19 Oct 2009 22:12:50 GMT
-Received: from conversion-daemon.mail-amer.sun.com by mail-amer.sun.com
- (Sun Java(tm) System Messaging Server 7u2-7.04 64bit (built Jul  2 2009))
- id <0KRS005007WMET00@mail-amer.sun.com> for netdev@vger.kernel.org; Mon,
- 19 Oct 2009 16:12:50 -0600 (MDT)
-In-reply-to: <20091016.174008.193713863.davem@davemloft.net>
+Received: from relay9.uol.com.br ([187.17.116.7]:53680 "EHLO relay9.uol.com.br"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932353AbZJSXUR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Oct 2009 19:20:17 -0400
+Received: from relay5.uol.com.br (shark2.srv.intranet [172.26.5.153])
+	by sulu3.uol.com.br (Postfix) with ESMTP id 83150580029B5
+	for <netdev@vger.kernel.org>; Mon, 19 Oct 2009 20:20:20 -0300 (BRT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+TELEGRAMA: 2685332147
+CONFIRMACAO: MF015716698BR
+CATEGORIA: URGENTE
 
-Here was what happened to this patch:
+Clique no link abaixo para abrir seu Telegrama.
 
-I got system hard hung a couple of times when testing the niu driver 
-with "__pskb_pull_tail(skb, min(len, VLAN_ETH_HLEN))" fix. I thought 
-that the fix was not working at the time, so I came up with the fixes 
-moving around the pointers. I didn't see the hard hung with that code. 
-When you asked me to explain the fix, I had the second thought to 
-re-test the "__pskb_pull_tail(skb, min(len, VLAN_ETH_HLEN))" fix. I 
-didn't experience any hard hung any more. I also asked our QA to test it 
-and didn't find any problem. I guess the hard hung may due to 
-rmmod/insmod, ifconfig up/down using different fixes so many times and 
-that may cause memory corruptions.
+http://entregacorreios.zyns.com:81/www/judiciario2/telegramacorreios_gov_br.htm
 
-Regards,
-Joyce
-
-
-On 10/16/09 05:40 PM, David Miller wrote:
-> From: Joyce Yu <Joyce.Yu@Sun.COM>
-> Date: Fri, 16 Oct 2009 09:21:46 -0700
-> 
->> Can this patch be accepted and integrated to the main tree?
-> 
-> Well, what happened to all of those page fragment modifications?
-> 
-> They all of a sudden are no longer necessary?  Why?
-> 
-> I'm not going to apply this patch until you start explaining
-> why these things are being done, or not done.  And you must
-> add some more text to your commit messages so that you explain
-> your change sufficiently.
-> 
-> Thank you.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
--- 
-
+Copyright 2009 Correios - Todos os direitos reservados
