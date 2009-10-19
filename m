@@ -1,78 +1,55 @@
-From: John Dykstra <john.dykstra1@gmail.com>
-Subject: PATCH [net-next-2.6] IP: Cleanups
-Date: Mon, 19 Oct 2009 14:31:30 -0500
-Message-ID: <1255980690.20673.5.camel@Maple>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH] tcp: accept socket after TCP_DEFER_ACCEPT period
+Date: Mon, 19 Oct 2009 23:01:56 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0910192259280.2971@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gv-out-0910.google.com ([216.239.58.188]:49986 "EHLO
-	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753988AbZJSTbe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 15:31:34 -0400
-Received: by gv-out-0910.google.com with SMTP id r4so485586gve.37
-        for <netdev@vger.kernel.org>; Mon, 19 Oct 2009 12:31:38 -0700 (PDT)
+Received: from ja.ssi.bg ([217.79.71.194]:59732 "EHLO u.domain.uli"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751103AbZJSUAY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Oct 2009 16:00:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've been sitting on these waiting to accumulate more, but that isn't
-likely to happen short-term.
 
+	Willy Tarreau and many other folks in recent years
+were concerned what happens when the TCP_DEFER_ACCEPT period
+expires for clients which sent ACK packet. They prefer clients
+that actively resend ACK on our SYN-ACK retransmissions to be
+converted from open requests to sockets and queued to the
+listener for accepting after the deferring period is finished.
+Then application server can decide to wait longer for data
+or to properly terminate the connection with FIN if read()
+returns EAGAIN which is an indication for accepting after
+the deferring period. This change still can have side effects
+for applications that expect always to see data on the accepted
+socket. Others can be prepared to work in both modes (with or
+without TCP_DEFER_ACCEPT period) and their data processing can
+ignore the read=EAGAIN notification and to allocate resources for
+clients which proved to have no data to send during the deferring
+period. OTOH, servers that use TCP_DEFER_ACCEPT=1 as flag (not
+as a timeout) to wait for data will notice clients that didn't
+send data for 3 seconds but that still resend ACKs.
+Thanks to Willy Tarreau for the initial idea and to
+Eric Dumazet for the review and testing the change.
+
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
 ---
-Use symbols instead of magic constants while checking PMTU discovery
-setsockopt.
 
-Remove redundant test in ip_rt_frag_needed() (done by caller).
-
-Signed-off-by: John Dykstra <john.dykstra1@gmail.com>
----
- net/ipv4/ip_sockglue.c   |    2 +-
- net/ipv4/route.c         |    3 ---
- net/ipv6/ipv6_sockglue.c |    2 +-
- 3 files changed, 2 insertions(+), 5 deletions(-)
-
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index c602d98..2445fed 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -575,7 +575,7 @@ static int do_ip_setsockopt(struct sock *sk, int level,
- 		inet->hdrincl = val ? 1 : 0;
- 		break;
- 	case IP_MTU_DISCOVER:
--		if (val < 0 || val > 3)
-+		if (val < IP_PMTUDISC_DONT || val > IP_PMTUDISC_PROBE)
- 			goto e_inval;
- 		inet->pmtudisc = val;
- 		break;
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 39e10ac..68566de 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -662,7 +662,7 @@ done:
- 	case IPV6_MTU_DISCOVER:
- 		if (optlen < sizeof(int))
- 			goto e_inval;
--		if (val<0 || val>3)
-+		if (val < IP_PMTUDISC_DONT || val > IP_PMTUDISC_PROBE)
- 			goto e_inval;
- 		np->pmtudisc = val;
- 		retv = 0;
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index bb41992..68fb227 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1628,9 +1628,6 @@ unsigned short ip_rt_frag_needed(struct net *net, struct iphdr *iph,
- 	__be32  daddr = iph->daddr;
- 	unsigned short est_mtu = 0;
+diff -urp v2.6.31/linux/net/ipv4/tcp_minisocks.c linux/net/ipv4/tcp_minisocks.c
+--- v2.6.31/linux/net/ipv4/tcp_minisocks.c	2009-09-11 10:27:17.000000000 +0300
++++ linux/net/ipv4/tcp_minisocks.c	2009-10-16 10:29:19.000000000 +0300
+@@ -641,8 +641,8 @@ struct sock *tcp_check_req(struct sock *
+ 	if (!(flg & TCP_FLAG_ACK))
+ 		return NULL;
  
--	if (ipv4_config.no_pmtu_disc)
--		return 0;
--
- 	for (k = 0; k < 2; k++) {
- 		for (i = 0; i < 2; i++) {
- 			unsigned hash = rt_hash(daddr, skeys[i], ikeys[k],-- 
-1.5.4.3
-
-
-
+-	/* If TCP_DEFER_ACCEPT is set, drop bare ACK. */
+-	if (inet_csk(sk)->icsk_accept_queue.rskq_defer_accept &&
++	/* While TCP_DEFER_ACCEPT is active, drop bare ACK. */
++	if (req->retrans < inet_csk(sk)->icsk_accept_queue.rskq_defer_accept &&
+ 	    TCP_SKB_CB(skb)->end_seq == tcp_rsk(req)->rcv_isn + 1) {
+ 		inet_rsk(req)->acked = 1;
+ 		return NULL;
