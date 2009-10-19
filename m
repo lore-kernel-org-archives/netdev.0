@@ -1,58 +1,42 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [OT] ntop / GPL (was Re: PF_RING: Include in main line kernel?)
-Date: Mon, 19 Oct 2009 05:55:21 +0000
-Message-ID: <20091019055521.GA5948@ff.dom.local>
-References: <a07586b0910140733s1976cd05u39286de42d9fac23@mail.gmail.com> <4AD60053.1030804@gmail.com> <20091018124706.GG27747@prithivi.gnumonks.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] AF_UNIX: Fix deadlock on connecting to shutdown socket
+Date: Sun, 18 Oct 2009 23:18:46 -0700 (PDT)
+Message-ID: <20091018.231846.205270907.davem@davemloft.net>
+References: <4ADC010C.5070809@hitachi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Brad Doctor <brad.doctor@gmail.com>, netdev@vger.kernel.org,
-	Luca Deri <deri@ntop.org>
-To: Harald Welte <laforge@gnumonks.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	alan@lxorguk.ukuu.org.uk, satoshi.oshima.fk@hitachi.com,
+	hidehiro.kawai.ez@hitachi.com, hideo.aoki.tk@hitachi.com
+To: tomoki.sekiyama.qu@hitachi.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.157]:36915 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750833AbZJSFzY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 01:55:24 -0400
-Received: by fg-out-1718.google.com with SMTP id d23so1295547fga.1
-        for <netdev@vger.kernel.org>; Sun, 18 Oct 2009 22:55:27 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20091018124706.GG27747@prithivi.gnumonks.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54036
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751873AbZJSGSY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 02:18:24 -0400
+In-Reply-To: <4ADC010C.5070809@hitachi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 18, 2009 at 02:47:06PM +0200, Harald Welte wrote:
-> Hi Jarek, Brad, Luca,
+From: Tomoki Sekiyama <tomoki.sekiyama.qu@hitachi.com>
+Date: Mon, 19 Oct 2009 15:02:52 +0900
+
+> I found a deadlock bug in UNIX domain socket, which makes able to DoS
+> attack against the local machine by non-root users.
+ ...
+> Why this happens:
+>  Error checks between unix_socket_connect() and unix_wait_for_peer() are
+>  inconsistent. The former calls the latter to wait until the backlog is
+>  processed. Despite the latter returns without doing anything when the
+>  socket is shutdown, the former doesn't check the shutdown state and
+>  just retries calling the latter forever.
 > 
-> [putting my gpl-violations.org hat on]
+> Patch:
+>  The patch below adds shutdown check into unix_socket_connect(), so
+>  connect(2) to the shutdown socket will return -ECONREFUSED.
 > 
-> On Wed, Oct 14, 2009 at 06:46:11PM +0200, Jarek Poplawski wrote:
-> > Brad Doctor wrote, On 10/14/2009 04:33 PM:
-> > 
-> > > Download ntop
-> > > 
-> > > ntop is distributed under the GNU GPL. In order to be entitled to download
-> > > ntop you must accept the GNU license. 
-> > 
-> > I can't find such a thing neither in GNU GPL v2:
-> 
-> This is true.  The GPL does never need to be accepted for mere use (i.e.
-> running) the program.  This is at least true for the continental european
-> copyright systems, where any legally obtained copy of a program implicitly
-> carries the permission for running the program.  Only for any other activity
-> you will need to accept the license.
-> 
-> but, like others posted in this thread, ntop is not the PF_RING code.
+> Signed-off-by: Tomoki Sekiyama <tomoki.sekiyama.qu@hitachi.com>
+> Signed-off-by: Masanori Yoshida <masanori.yoshida.tv@hitachi.com>
 
-ntop doesn't matter here at all:
-
-if ((X uses the stock GPL license.) &&
-    (Y is distributed under the GNU GPL) &&
-    (In order to be entitled to download Y
-     you must accept the GNU license.) &&
-    (The GPL does never need to be accepted for mere use.))
-
-	is logically false.
-
-BTW, legal systems don't matter here at all.
-
-Jarek P.
+Looks good, applied, thank you!
