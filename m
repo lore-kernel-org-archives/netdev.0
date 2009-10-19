@@ -1,66 +1,76 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [PATCH 4/4 v3] net: Fix for dst_negative_advice
-Date: Mon, 19 Oct 2009 10:04:53 +0530
-Message-ID: <OF47BDCCCB.33D1775A-ON65257654.00178901-65257654.00192AA2@in.ibm.com>
-References: <20091018130727.3960.32107.sendpatchset@localhost.localdomain>	<20091018130816.3960.87384.sendpatchset@localhost.localdomain> <20091019131209.1c782c8a@s6510>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: dccp-test-tree [PATCH 1/1]: Count lost data packets in a burst loss
+Date: Mon, 19 Oct 2009 07:16:42 +0200
+Message-ID: <20091019051642.GA3366@gerrit.erg.abdn.ac.uk>
+References: <20091001204003.GA5632@gerrit.erg.abdn.ac.uk> <4AD4B67F.8040208@embedded.ufcg.edu.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: dada1@cosmosbay.com, davem@davemloft.net,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ivo Calado <ivocalado@embedded.ufcg.edu.br>, netdev@vger.kernel.org
+To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp04.in.ibm.com ([59.145.155.4]:60651 "EHLO
-	e28smtp04.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750999AbZJSEfo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 00:35:44 -0400
-Received: from d28relay01.in.ibm.com (d28relay01.in.ibm.com [9.184.220.58])
-	by e28smtp04.in.ibm.com (8.14.3/8.13.1) with ESMTP id n9J4Zlds031540
-	for <netdev@vger.kernel.org>; Mon, 19 Oct 2009 10:05:47 +0530
-Received: from d28av06.in.ibm.com (d28av06.in.ibm.com [9.184.220.48])
-	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n9J4ZlNw2265324
-	for <netdev@vger.kernel.org>; Mon, 19 Oct 2009 10:05:47 +0530
-Received: from d28av06.in.ibm.com (loopback [127.0.0.1])
-	by d28av06.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n9J4Zka1018655
-	for <netdev@vger.kernel.org>; Mon, 19 Oct 2009 10:05:47 +0530
-In-Reply-To: <20091019131209.1c782c8a@s6510>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:40353 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751029AbZJSFQt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Oct 2009 01:16:49 -0400
+Content-Disposition: inline
+In-Reply-To: <4AD4B67F.8040208@embedded.ufcg.edu.br>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <shemminger@vyatta.com>  wrote on 10/19/2009 09:42:09 AM:
+dccp: Generalise data-loss condition
 
-> > diff -ruNp org/net/ipv4/tcp_timer.c new/net/ipv4/tcp_timer.c
-> > --- org/net/ipv4/tcp_timer.c   2009-10-16 21:30:56.000000000 +0530
-> > +++ new/net/ipv4/tcp_timer.c   2009-10-16 21:31:30.000000000 +0530
-> > @@ -141,14 +141,14 @@ static int tcp_write_timeout(struct sock
-> >
-> >     if ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV)) {
-> >        if (icsk->icsk_retransmits)
-> > -         dst_negative_advice(&sk->sk_dst_cache);
-> > +         dst_negative_advice(&sk->sk_dst_cache, sk);
-> >        retry_until = icsk->icsk_syn_retries ? : sysctl_tcp_syn_retries;
-> >     } else {
-> >        if (retransmits_timed_out(sk, sysctl_tcp_retries1)) {
-> >           /* Black hole detection */
-> >           tcp_mtu_probing(icsk, sk);
-> >
-> > -         dst_negative_advice(&sk->sk_dst_cache);
-> > +         dst_negative_advice(&sk->sk_dst_cache, sk);
-> >        }
-> >
-> >        retry_until = sysctl_tcp_retries2;
->
-> It is good that your patch is broken in pieces, but will the intermediate
-patches
-> still function correctly. I.e are they bisect safe?
+This patch is thanks to Ivo Calado who had integrated this function into one
+of the TFRC-SP patches.
 
-I have only compile tested each patch, but I assume it could break
-something.
-Individual patches can be made to function correctly by renaming patch#2 to
-patch#4 and move patch#3 and #4 ahead.
+It generalises the task of determining data loss from RFC 43430, 7.7.1.
 
-Should I resubmit with the changed order?
+Let S_A, S_B be sequence numbers such that S_B is "after" S_A, and let
+N_B be the NDP count of packet S_B. Then, using module-2^48 arithmetic,
+ D = S_B - S_A - 1  is an upper bound of the number of lost data packets,
+ D - N_B            is an approximation of the number of lost data packets
+                    (there are cases where this is not exact).
 
-Thanks,
+The patch implements this as
+ dccp_loss_count(S_A, S_B, N_B) := max(S_B - S_A - 1 - N_B, 0)
 
-- KK
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/dccp.h |   21 +++++++++++++++------
+ 1 file changed, 15 insertions(+), 6 deletions(-)
 
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -153,18 +153,27 @@ static inline u64 max48(const u64 seq1, 
+ }
+ 
+ /**
+- * dccp_loss_free  -  Evaluates condition for data loss from RFC 4340, 7.7.1
+- * @s1:	 start sequence number
+- * @s2:  end sequence number
++ * dccp_loss_count - Approximate the number of lost data packets in a burst loss
++ * @s1:  last known sequence number before the loss ('hole')
++ * @s2:  first sequence number seen after the 'hole'
+  * @ndp: NDP count on packet with sequence number @s2
+- * Returns true if the sequence range s1...s2 has no data loss.
+  */
+-static inline bool dccp_loss_free(const u64 s1, const u64 s2, const u64 ndp)
++static inline u64 dccp_loss_count(const u64 s1, const u64 s2, const u64 ndp)
+ {
+ 	s64 delta = dccp_delta_seqno(s1, s2);
+ 
+ 	WARN_ON(delta < 0);
+-	return (u64)delta <= ndp + 1;
++	delta -= ndp + 1;
++
++	return delta > 0 ? delta : 0;
++}
++
++/**
++ * dccp_loss_free - Evaluate condition for data loss from RFC 4340, 7.7.1
++ */
++static inline bool dccp_loss_free(const u64 s1, const u64 s2, const u64 ndp)
++{
++	return dccp_loss_count(s1, s2, ndp) == 0;
+ }
+ 
+ enum {
