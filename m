@@ -1,76 +1,68 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: dccp-test-tree [PATCH 1/1]: Count lost data packets in a burst loss
-Date: Mon, 19 Oct 2009 07:16:42 +0200
-Message-ID: <20091019051642.GA3366@gerrit.erg.abdn.ac.uk>
-References: <20091001204003.GA5632@gerrit.erg.abdn.ac.uk> <4AD4B67F.8040208@embedded.ufcg.edu.br>
+Subject: Re: [PATCHv2 1/4] First Patch on TFRC-SP. Copy base files from TFRC
+Date: Mon, 19 Oct 2009 07:21:53 +0200
+Message-ID: <20091019052153.GB3366@gerrit.erg.abdn.ac.uk>
+References: <cb00fa210909141738l60d02cd5p287d990326ce6c3c@mail.gmail.com> <4AD4B677.4000308@embedded.ufcg.edu.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ivo Calado <ivocalado@embedded.ufcg.edu.br>, netdev@vger.kernel.org
-To: dccp@vger.kernel.org
+Content-Type: multipart/mixed; boundary="oyUTqETQ0mS9luUI"
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:40353 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:40477 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751029AbZJSFQt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Oct 2009 01:16:49 -0400
+	id S1751912AbZJSFV7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Oct 2009 01:21:59 -0400
 Content-Disposition: inline
-In-Reply-To: <4AD4B67F.8040208@embedded.ufcg.edu.br>
+In-Reply-To: <4AD4B677.4000308@embedded.ufcg.edu.br>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dccp: Generalise data-loss condition
 
-This patch is thanks to Ivo Calado who had integrated this function into one
-of the TFRC-SP patches.
+--oyUTqETQ0mS9luUI
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-It generalises the task of determining data loss from RFC 43430, 7.7.1.
+| First Patch on TFRC-SP.
+Please find attached one edit that I made.
 
-Let S_A, S_B be sequence numbers such that S_B is "after" S_A, and let
-N_B be the NDP count of packet S_B. Then, using module-2^48 arithmetic,
- D = S_B - S_A - 1  is an upper bound of the number of lost data packets,
- D - N_B            is an approximation of the number of lost data packets
-                    (there are cases where this is not exact).
+I added unwinding the initialisation of tfrc_lib in the case where the
+initialisation of tfrc_sp_lib fails.  Unwinding is now done in the reverse
+order of the steps done during initialisation.
 
-The patch implements this as
- dccp_loss_count(S_A, S_B, N_B) := max(S_B - S_A - 1 - N_B, 0)
+--oyUTqETQ0mS9luUI
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="1.diff"
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/dccp.h |   21 +++++++++++++++------
- 1 file changed, 15 insertions(+), 6 deletions(-)
-
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -153,18 +153,27 @@ static inline u64 max48(const u64 seq1, 
+--- a/net/dccp/ccid.c
++++ b/net/dccp/ccid.c
+@@ -223,7 +223,7 @@ int __init ccid_initialize_builtins(void
+ 
+ 	err = tfrc_sp_lib_init();
+ 	if (err)
+-		return err;
++		goto unwind_tfrc_lib;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(ccids); i++) {
+ 		err = ccid_activate(ccids[i]);
+@@ -235,8 +235,10 @@ int __init ccid_initialize_builtins(void
+ unwind_registrations:
+ 	while(--i >= 0)
+ 		ccid_deactivate(ccids[i]);
+-	tfrc_lib_exit();
++
+ 	tfrc_sp_lib_exit();
++unwind_tfrc_lib:	
++	tfrc_lib_exit();
+ 	return err;
  }
  
- /**
-- * dccp_loss_free  -  Evaluates condition for data loss from RFC 4340, 7.7.1
-- * @s1:	 start sequence number
-- * @s2:  end sequence number
-+ * dccp_loss_count - Approximate the number of lost data packets in a burst loss
-+ * @s1:  last known sequence number before the loss ('hole')
-+ * @s2:  first sequence number seen after the 'hole'
-  * @ndp: NDP count on packet with sequence number @s2
-- * Returns true if the sequence range s1...s2 has no data loss.
-  */
--static inline bool dccp_loss_free(const u64 s1, const u64 s2, const u64 ndp)
-+static inline u64 dccp_loss_count(const u64 s1, const u64 s2, const u64 ndp)
- {
- 	s64 delta = dccp_delta_seqno(s1, s2);
+@@ -246,6 +248,6 @@ void ccid_cleanup_builtins(void)
  
- 	WARN_ON(delta < 0);
--	return (u64)delta <= ndp + 1;
-+	delta -= ndp + 1;
-+
-+	return delta > 0 ? delta : 0;
-+}
-+
-+/**
-+ * dccp_loss_free - Evaluate condition for data loss from RFC 4340, 7.7.1
-+ */
-+static inline bool dccp_loss_free(const u64 s1, const u64 s2, const u64 ndp)
-+{
-+	return dccp_loss_count(s1, s2, ndp) == 0;
+ 	for (i = 0; i < ARRAY_SIZE(ccids); i++)
+ 		ccid_deactivate(ccids[i]);
+-	tfrc_lib_exit();
+ 	tfrc_sp_lib_exit();
++	tfrc_lib_exit();
  }
- 
- enum {
+
+--oyUTqETQ0mS9luUI--
