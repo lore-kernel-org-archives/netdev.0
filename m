@@ -1,152 +1,58 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: kernel panic in latest vanilla stable, while using nameif with
-	"alive" pppoe interfaces
-Date: Mon, 19 Oct 2009 19:50:34 +0400
-Message-ID: <20091019155034.GA5233@lenovo>
-References: <200910190002.39937.denys@visp.net.lb> <e6d1cecd0910182034t9d24859mc6f392875b36ad17@mail.gmail.com> <4ADC5D3B.8010006@gmail.com> <e6d1cecd0910190619t3e009e1by49cc8f7307eb7cdb@mail.gmail.com>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: MAINTAINERS drivers/net cleanups?
+Date: Mon, 19 Oct 2009 11:24:44 -0400
+Message-ID: <1255965884.32011.13.camel@lap75545.ornl.gov>
+References: <1255729936.2267.179.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Denys Fedoryschenko <denys@visp.net.lb>,
-	netdev <netdev@vger.kernel.org>, linux-ppp@vger.kernel.org,
-	paulus@samba.org, mostrows@earthlink.net
-To: Michal Ostrowski <mostrows@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f207.google.com ([209.85.219.207]:46948 "EHLO
-	mail-ew0-f207.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755512AbZJSP4Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 11:56:16 -0400
-Content-Disposition: inline
-In-Reply-To: <e6d1cecd0910190619t3e009e1by49cc8f7307eb7cdb@mail.gmail.com>
+Received: from emroute2.ornl.gov ([160.91.86.17]:42482 "EHLO emroute2.ornl.gov"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756765AbZJSQAM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Oct 2009 12:00:12 -0400
+Received: from emroute2.ornl.gov ([127.0.0.1])
+ by emroute2.ornl.gov (PMDF V6.4 #31561)
+ with ESMTP id <0KRR00CI7PH9PK@emroute2.ornl.gov> for netdev@vger.kernel.org;
+ Mon, 19 Oct 2009 11:24:45 -0400 (EDT)
+In-reply-to: <1255729936.2267.179.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Michal Ostrowski - Mon, Oct 19, 2009 at 08:19:23AM -0500]
-|
-| The entire scheme for managing net namespaces seems unsafe.  We depen=
-d
-| on synchronization via pn->hash_lock, but have no guarantee of the
-| existence of the "net" object -- hence no way to ensure the existence
-| of the lock itself.  This should be relatively easy to fix though as
-| we should be able to get/put the net namespace as we add remove
-| objects to/from the pppoe hash.
-|
+On Fri, 2009-10-16 at 14:52 -0700, Joe Perches wrote:
+> Ben Hutchings suggested adding a facility to
+> scripts/get_maintainer.pl to print the role of
+> each maintainer.  I added a bit more to print
+> statistics about the maintainers and "-by:" lines
+> from each git commit as well.
+[snip script]
+> There are many people described as MAINTAINERS for
+> these files that have not had a single sign-off or
+> commit in git history.
 
-Hmm... it seems not. The only possible scenario I see (for such nonexis=
-tence
-namespace is that when it was cached via RCU and returned before grace =
-period
-elapsed, so perhaps we need to call synchronize_net somewhere).
+Uhm, I think your script is broken, as I've patched typhoon this year.
+I've also ACKed a few patches that have been sent to me, and tried to
+watch the list for patches that weren't.
 
-|=20
-| Once you solve this existence issue, the flush_lock can be eliminated
-| altogether since all of the relevant code paths already depend on a
-| write_lock_bh(&pn->hash_lock), and that's the lock that should be use
-| to protect the pppoe_dev field.
-|=20
-| Another patch to follow later...
-|=20
-| --
-| Michal Ostrowski
-| mostrows@gmail.com
-|=20
-|=20
-|=20
-| On Mon, Oct 19, 2009 at 7:36 AM, Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
-| > Michal Ostrowski a =E9crit :
-| >> Here's my theory on this after an inital look...
-| >>
-| >> Looking at the oops report and disassembly of the actual module bi=
-nary
-| >> that caused the oops, one can deduce that:
-| >>
-| >> Execution was in pppoe_flush_dev(). =A0%ebx contained the pointer =
-"struct
-| >> pppox_sock *po", which is what we faulted on, excuting "cmp %eax, =
-0x190(%ebx)".
-| >> %ebx value was 0xffffffff (hence we got "NULL pointer dereference =
-at 0x18f").
-| >>
-| >> At this point "i" (stored in %esi) is 15 (valid), meaning that we =
-got a value
-| >> of 0xffffffff in pn->hash_table[i].
-| >>
-| >>>From this I'd hypothesize that the combination of dev_put() and re=
-lease_sock()
-| >> may have allowed us to free "pn". =A0At the bottom of the loop we =
-alreayd
-| >> recognize that since locks are dropped we're responsible for handl=
-ing
-| >> invalidation of objects, and perhaps that should be extended to "p=
-n" as well.
-| >> --
-| >> Michal Ostrowski
-| >> mostrows@gmail.com
-| >>
-| >>
-| >
-| > Looking at this stuff, I do believe flush_lock protection is not
-| > properly done.
-| >
-| > At the end of pppoe_connect() for example we can find :
-| >
-| > err_put:
-| > =A0 =A0 =A0 =A0if (po->pppoe_dev) {
-| > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_put(po->pppoe_dev);
-| > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0po->pppoe_dev =3D NULL;
-| > =A0 =A0 =A0 =A0}
+> Should these individuals be removed from MAINTAINERS
+> and added to CREDITS if not already there?
 
-Yep, this is unsafe, thanks!
+I think you should try to contact the ones listed and see if they are
+still actively watching for their drivers. I've not had to do a lot to
+typhoon, as there is no new hardware coming out, and while I've sent in
+several Acked-by's, not all of them have made it to the final commit.
 
-| >
-| > This is done without any protection, and can therefore clash with
-| > pppoe_flush_dev() :
-| >
-| > =A0 =A0 =A0 =A0spin_lock(&flush_lock);
-| > =A0 =A0 =A0 =A0po->pppoe_dev =3D NULL; /* ppoe_dev can already be N=
-ULL before this point */
-| > =A0 =A0 =A0 =A0spin_unlock(&flush_lock);
-| >
-| > =A0 =A0 =A0 =A0dev_put(dev); =A0 =A0/* oops */
-| >
-|=20
+Just because there are few patches from the person listed as maintainer
+does not mean they are not keeping an eye on things.
 
-Denys, could you check if the patch below help?
+> ------> drivers/net/typhoon.c
+> David Dillow <dave@thedillows.org> (maintainer)
+> 
+> 3CR990 NETWORK DRIVER
+> M: David Dillow <dave@thedillows.org>
+> L: netdev@vger.kernel.org
+> S: Maintained
+> F: drivers/net/typhoon*
 
-	-- Cyrill
----
- drivers/net/pppoe.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-Index: linux-2.6.git/drivers/net/pppoe.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
---- linux-2.6.git.orig/drivers/net/pppoe.c
-+++ linux-2.6.git/drivers/net/pppoe.c
-@@ -312,9 +312,9 @@ static void pppoe_flush_dev(struct net_d
- 			}
- 			sk =3D sk_pppox(po);
- 			spin_lock(&flush_lock);
-+			dev_put(po->pppoe_dev);
- 			po->pppoe_dev =3D NULL;
- 			spin_unlock(&flush_lock);
--			dev_put(dev);
-=20
- 			/* We always grab the socket lock, followed by the
- 			 * hash_lock, in that order.  Since we should
-@@ -708,10 +708,12 @@ end:
- 	release_sock(sk);
- 	return error;
- err_put:
-+	spin_lock(&flush_lock);
- 	if (po->pppoe_dev) {
- 		dev_put(po->pppoe_dev);
- 		po->pppoe_dev =3D NULL;
- 	}
-+	spin_unlock(&flush_lock);
- 	goto end;
- }
-=20
