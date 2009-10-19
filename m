@@ -1,71 +1,93 @@
-From: Leandro Sales <leandroal@gmail.com>
-Subject: Re: [PATCHv2 2/4] Implement loss counting on TFRC-SP receiver
-Date: Mon, 19 Oct 2009 13:04:15 -0300
-Message-ID: <5bc4c4570910190904t1ee39a02i8df1354ca8929a2a@mail.gmail.com>
-References: <20091001204003.GA5632@gerrit.erg.abdn.ac.uk> <4AD4B67F.8040208@embedded.ufcg.edu.br>
-	<20091019052612.GE3366@gerrit.erg.abdn.ac.uk>
+From: Bryan Kadzban <bryan@kadzban.is-a-geek.net>
+Subject: Re: PATCH: Network Device Naming mechanism and policy
+Date: Mon, 19 Oct 2009 09:14:38 -0700
+Message-ID: <4ADC906E.2050909@kadzban.is-a-geek.net>
+References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com> <20091009140000.GA18765@mock.linuxdev.us.dell.com> <20091013150839.GD32107@ldl.fc.hp.com> <EDA0A4495861324DA2618B4C45DCB3EE58954D@blrx3m08.blr.amer.dell.com> <20091013173638.GE1119@ldl.fc.hp.com> <20091016003245.GD29672@ldl.fc.hp.com> <EDA0A4495861324DA2618B4C45DCB3EE589579@blrx3m08.blr.amer.dell.com> <20091016152053.GA9862@ldl.fc.hp.com> <1255707193.2869.12.camel@achroite> <20091016214024.GA10091@ldl.fc.hp.com> <EDA0A4495861324DA2618B4C45DCB3EE5895AF@blrx3m08.blr.amer.dell.com>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-ripemd160;
+ protocol="application/pgp-signature";
+ boundary="------------enigFC838F5020A2E346D0E4E3C2"
+Cc: dannf@hp.com, bhutchings@solarflare.com, netdev@vger.kernel.org,
+	linux-hotplug@vger.kernel.org, Matt_Domsch@Dell.com,
+	Jordan_Hargrave@Dell.com, Charles_Rose@Dell.com
+To: Narendra_K@Dell.com
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+In-Reply-To: <EDA0A4495861324DA2618B4C45DCB3EE5895AF@blrx3m08.blr.amer.dell.com>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigFC838F5020A2E346D0E4E3C2
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	Ivo Calado <ivocalado@embedded.ufcg.edu.br>,
-	dccp@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f207.google.com ([209.85.219.207]:35283 "EHLO
-	mail-ew0-f207.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754765AbZJSQKN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 12:10:13 -0400
-In-Reply-To: <20091019052612.GE3366@gerrit.erg.abdn.ac.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-Hi Gerrit,
+Narendra_K@Dell.com wrote:
+>>>>> And how would the regular file look like in terms of holding
+>>>>>  ifindex of the interface, which can be passed to
+>>>>> libnetdevname.
+>>>> I can't think of anything we need to store in the regular file.
+>>>> If we have the kernel name for the device, we can look up the
+>>>> ifindex in /sys. Correct me if I'm wrong, but storing it
+>>>> ourselves seems redundant.
+>>> But the name of a netdev can change whereas its ifindex never
+>>> does. Identifying netdevs by name would require additional work
+>>> to update the links when a netdev is renamed and would still be
+>>> prone to race conditions.  This is why Narendra and Matt were
+>>> proposing to
+>> store the
+>>> ifindex in the node all along...
+>> Matt, Ben and I talked about a few other possibilities on IRC. The
+>> one I like the most at the moment is an idea Ben had to creat dummy
+>> files named after the ifindex. Then, use symlinks for the kernel
+>> name and the various by-$property subdirectories. This means the
+>> KOBJ events will need to expose the ifindex.
+>>=20
+>=20
+> I suppose the KOBJ events already expose the ifindex of a network=20
+> interface. The file "/sys/class/net/ethN/uevent" contains
+> INTERFACE=3DethN and IFINDEX=3Dn already. But it looks like udev doesn'=
+t
+> use it in any way.
 
-On Mon, Oct 19, 2009 at 2:26 AM, Gerrit Renker <gerrit@erg.abdn.ac.uk> =
-wrote:
->
-> | --- dccp_tree_work03.orig/net/dccp/ccids/lib/packet_history_sp.c =A0=
- =A0 =A02009-10-08 22:58:21.418908270 -0300
-> | +++ dccp_tree_work03/net/dccp/ccids/lib/packet_history_sp.c =A0 200=
-9-10-08 22:59:07.442411383 -0300
-> | @@ -243,6 +243,7 @@
-> | =A0{
-> | =A0 =A0 =A0 u64 s0 =3D tfrc_rx_hist_loss_prev(h)->tfrchrx_seqno,
-> | =A0 =A0 =A0 =A0 =A0 s1 =3D tfrc_rx_hist_entry(h, 1)->tfrchrx_seqno,
-> | + =A0 =A0 =A0 =A0 n1 =3D tfrc_rx_hist_entry(h, 1)->tfrchrx_ndp,
-> | =A0 =A0 =A0 =A0 =A0 s2 =3D tfrc_rx_hist_entry(h, 2)->tfrchrx_seqno,
-> | =A0 =A0 =A0 =A0 =A0 s3 =3D DCCP_SKB_CB(skb)->dccpd_seq;
-> I have removed the old definition of n1, which was further below and =
-which caused this warning.
->
-> net/dccp/ccids/lib/packet_history_sp.c:276:7: warning: symbol 'n1' sh=
-adows an earlier
-> net/dccp/ccids/lib/packet_history_sp.c:247:6: originally declared her=
-e
->
->
+Right; it could simply do the equivalent of:
 
-Well done!
+touch /dev/netdev/$env{IFINDEX}
 
-> I thought again about the earlier suggestion to make 'num_losses' u64=
-=2E Since li_losses sums the values
-> stored in num_losses, it needs to have the same size (currently it is=
- u32). But then another thought is
-> that if there are so many losses that u32 overflows, then the perform=
-ance is so bad anyway that it is
-> better to turn off the receiver. Hence I have reverted it to u32, as =
-per your original patch.
->
+instead of its normal mknod(2), and then do normal SYMLINK processing.
+That last part is what would link /dev/netdev/by-name/$env{INTERFACE} to
+that device, along with /dev/netdev/by-mac/*, /dev/netdev/by-path/*,
+etc., etc., in as many different ways as people want to add rules.
 
-OK
+(Or /dev/net/by-* instead of netdev; I'm mostly ambivalent about the
+first-level directory under /dev.  Looks like libnetdevname requires
+/dev/netdev though.)
 
-> Please find attached a patch of the changes I made. As per posting, I=
- have separated out the dccp.h part,
-> since it is also useful in general.
+> For example, with the kernel patch the "/sys/class/net/ethN/uevent"=20
+> contains in addition to the above details, MAJOR=3DM and MINOR=3Dm whic=
+h
+> the udev knows how to make use of with a rule like
+>=20
+> SUBSYSTEM=3D=3D"net", KERNEL!=3D"tun", NAME=3D"netdev/%k", MODE=3D"0600=
+".
 
-OK, agreed!
+And if the only point is to get the ifindex via stat(2) on the resulting
+symlinks, but people don't like device files, then why not get the
+ifindex via readlink(2) (and a bit of string parsing, and a strtol(3) or
+strtoul(3) call) instead?  :-)
 
-Thank you,
 
-BR,
-Leandro.
+--------------enigFC838F5020A2E346D0E4E3C2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iEYEAREDAAYFAkrckHUACgkQYasYN+YI5W7nVwCcDMCx+WmE2rA/jCq0dref1+kX
+MjcAnAip5w6rVqoZDK7T+ilXRzcZkFFd
+=gXBU
+-----END PGP SIGNATURE-----
+
+--------------enigFC838F5020A2E346D0E4E3C2--
