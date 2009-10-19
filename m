@@ -1,48 +1,78 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: kernel panic in latest vanilla stable, while using nameif with
-	"alive" pppoe interfaces
-Date: Mon, 19 Oct 2009 23:29:10 +0400
-Message-ID: <20091019192910.GC5233@lenovo>
-References: <200910190002.39937.denys@visp.net.lb> <e6d1cecd0910182034t9d24859mc6f392875b36ad17@mail.gmail.com> <4ADC5D3B.8010006@gmail.com> <e6d1cecd0910190619t3e009e1by49cc8f7307eb7cdb@mail.gmail.com> <20091019155034.GA5233@lenovo> <e6d1cecd0910190905x382bfc23w2987c84aa0837609@mail.gmail.com> <4ADC9DE2.5010308@gmail.com> <e6d1cecd0910191107h899a4ffs588f2413093dfb4b@mail.gmail.com> <4ADCB3A4.8060408@gmail.com>
+From: John Dykstra <john.dykstra1@gmail.com>
+Subject: PATCH [net-next-2.6] IP: Cleanups
+Date: Mon, 19 Oct 2009 14:31:30 -0500
+Message-ID: <1255980690.20673.5.camel@Maple>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michal Ostrowski <mostrows@gmail.com>,
-	Denys Fedoryschenko <denys@visp.net.lb>,
-	netdev <netdev@vger.kernel.org>, linux-ppp@vger.kernel.org,
-	paulus@samba.org, mostrows@earthlink.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4ADCB3A4.8060408@gmail.com>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gv-out-0910.google.com ([216.239.58.188]:49986 "EHLO
+	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753988AbZJSTbe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 15:31:34 -0400
+Received: by gv-out-0910.google.com with SMTP id r4so485586gve.37
+        for <netdev@vger.kernel.org>; Mon, 19 Oct 2009 12:31:38 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[Eric Dumazet - Mon, Oct 19, 2009 at 08:44:52PM +0200]
-...
-| 
-| Not really :)
-| 
-| I dont believe you should care of namespace, and/or mess with its refcount at all.
-| 
-| Please dont use maybe_get_net() : This function should not ever be used in drivers/net
-| 
-| You can add a BUG_ON(dev_net(xxxx)->count <= 0) if you really want, but if this
-| assertion is false, this is not because of pppoe.
-| 
-...
-| So pppoe_flush_dev() can run concurently and dev_put(po->ppoe_dev) at same time.
-| 
-| In fact pppoe_flush_dev() can change po->ppoe_dev anytime, so you should check
-| all occurences of po->ppoe_dev use in the code and check if appropriate locking is done.
-| 
-| pppoe_rcv_core() is not safe
-| pppoe_ioctl() is not safe
-| pppoe_sendmsg() is not safe
-| __pppoe_xmit() is not safe
-| 
+I've been sitting on these waiting to accumulate more, but that isn't
+likely to happen short-term.
 
-Sigh... seem so (which is mostly my fault not Michal). Every time we touch pppoe_dev we
-should dev_hold on it and dev_put as only done all we need. Async nature
-of notifier seem to be a key here.
+---
+Use symbols instead of magic constants while checking PMTU discovery
+setsockopt.
 
-	-- Cyrill
+Remove redundant test in ip_rt_frag_needed() (done by caller).
+
+Signed-off-by: John Dykstra <john.dykstra1@gmail.com>
+---
+ net/ipv4/ip_sockglue.c   |    2 +-
+ net/ipv4/route.c         |    3 ---
+ net/ipv6/ipv6_sockglue.c |    2 +-
+ 3 files changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index c602d98..2445fed 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -575,7 +575,7 @@ static int do_ip_setsockopt(struct sock *sk, int level,
+ 		inet->hdrincl = val ? 1 : 0;
+ 		break;
+ 	case IP_MTU_DISCOVER:
+-		if (val < 0 || val > 3)
++		if (val < IP_PMTUDISC_DONT || val > IP_PMTUDISC_PROBE)
+ 			goto e_inval;
+ 		inet->pmtudisc = val;
+ 		break;
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index 39e10ac..68566de 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -662,7 +662,7 @@ done:
+ 	case IPV6_MTU_DISCOVER:
+ 		if (optlen < sizeof(int))
+ 			goto e_inval;
+-		if (val<0 || val>3)
++		if (val < IP_PMTUDISC_DONT || val > IP_PMTUDISC_PROBE)
+ 			goto e_inval;
+ 		np->pmtudisc = val;
+ 		retv = 0;
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index bb41992..68fb227 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1628,9 +1628,6 @@ unsigned short ip_rt_frag_needed(struct net *net, struct iphdr *iph,
+ 	__be32  daddr = iph->daddr;
+ 	unsigned short est_mtu = 0;
+ 
+-	if (ipv4_config.no_pmtu_disc)
+-		return 0;
+-
+ 	for (k = 0; k < 2; k++) {
+ 		for (i = 0; i < 2; i++) {
+ 			unsigned hash = rt_hash(daddr, skeys[i], ikeys[k],-- 
+1.5.4.3
+
+
+
