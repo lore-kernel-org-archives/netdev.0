@@ -1,55 +1,66 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH] tcp: accept socket after TCP_DEFER_ACCEPT period
-Date: Mon, 19 Oct 2009 23:01:56 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.0910192259280.2971@u.domain.uli>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP_DEFER_ACCEPT is missing counter update
+Date: Mon, 19 Oct 2009 22:01:15 +0200
+Message-ID: <4ADCC58B.2060408@gmail.com>
+References: <20091014045226.GA15655@1wt.eu> <Pine.LNX.4.58.0910140912420.2714@u.domain.uli> <20091014201706.GA24298@1wt.eu> <20091014.154349.83940908.davem@davemloft.net> <20091015060834.GB29564@1wt.eu> <Pine.LNX.4.58.0910151120340.2879@u.domain.uli> <20091015124134.GB1073@1wt.eu> <Pine.LNX.4.58.0910152257410.3047@u.domain.uli> <20091016050310.GA5574@1wt.eu> <Pine.LNX.4.58.0910161137490.3886@u.domain.uli> <4AD84D8B.5020103@gmail.com> <Pine.LNX.4.58.0910171417260.7818@u.domain.uli> <4AD9B37A.3090606@gmail.com> <Pine.LNX.4.58.0910171709190.10440@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Willy Tarreau <w@1wt.eu>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([217.79.71.194]:59732 "EHLO u.domain.uli"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751103AbZJSUAY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Oct 2009 16:00:24 -0400
+Received: from gw1.cosmosbay.com ([212.99.114.194]:57629 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755220AbZJSUBv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 16:01:51 -0400
+In-Reply-To: <Pine.LNX.4.58.0910171709190.10440@u.domain.uli>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Julian Anastasov a =E9crit :
+> 	Hello,
+>=20
+> On Sat, 17 Oct 2009, Eric Dumazet wrote:
+>=20
+>> I really like this, but please define helper functions out of do_tcp=
+_setsockopt()
+>>
+>> /* Translate value in seconds to number of SYN-ACK retransmits */
+>> static u8 secs_to_retrans(int seconds)
+>> {
+>> 	u8 res =3D 0;
+>>
+>> 	if (seconds > 0) {
+>> 		int timeout =3D TCP_TIMEOUT_INIT / HZ;
+>> 		int period =3D timeout;
+>>
+>> 		res =3D 1;
+>> 		while (res < 255 && seconds > period) {
+>> 			res++;
+>> 			timeout <<=3D 1;
+>> 			if (timeout > TCP_RTO_MAX / HZ)
+>> 				timeout =3D TCP_RTO_MAX / HZ;
+>> 			period +=3D timeout;
+>> 		}
+>> 	}
+>> 	return res;
+>> }
+>>
+>> You also need the reverse function for getsockopt()...
+>=20
+> 	Yes, I forgot that. Here is what I tested, should
+> I split it later to 2 patches? May be it should go somewhere
+> in net/core/sock.c as extern funcs with EXPORT_SYMBOL to
+> allow other protocols one day to use it?
+>=20
 
-	Willy Tarreau and many other folks in recent years
-were concerned what happens when the TCP_DEFER_ACCEPT period
-expires for clients which sent ACK packet. They prefer clients
-that actively resend ACK on our SYN-ACK retransmissions to be
-converted from open requests to sockets and queued to the
-listener for accepting after the deferring period is finished.
-Then application server can decide to wait longer for data
-or to properly terminate the connection with FIN if read()
-returns EAGAIN which is an indication for accepting after
-the deferring period. This change still can have side effects
-for applications that expect always to see data on the accepted
-socket. Others can be prepared to work in both modes (with or
-without TCP_DEFER_ACCEPT period) and their data processing can
-ignore the read=EAGAIN notification and to allocate resources for
-clients which proved to have no data to send during the deferring
-period. OTOH, servers that use TCP_DEFER_ACCEPT=1 as flag (not
-as a timeout) to wait for data will notice clients that didn't
-send data for 3 seconds but that still resend ACKs.
-Thanks to Willy Tarreau for the initial idea and to
-Eric Dumazet for the review and testing the change.
+No need to EXPORT_SYMBOL it for the moment. We can add it later if real=
+ly needed.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
+David, I think we should revert 6d01a026b7d3009a418326bdcf313503a314f1e=
+a
+(tcp: fix tcp_defer_accept to consider the timeout)=20
+since we know its broken.
 
-diff -urp v2.6.31/linux/net/ipv4/tcp_minisocks.c linux/net/ipv4/tcp_minisocks.c
---- v2.6.31/linux/net/ipv4/tcp_minisocks.c	2009-09-11 10:27:17.000000000 +0300
-+++ linux/net/ipv4/tcp_minisocks.c	2009-10-16 10:29:19.000000000 +0300
-@@ -641,8 +641,8 @@ struct sock *tcp_check_req(struct sock *
- 	if (!(flg & TCP_FLAG_ACK))
- 		return NULL;
- 
--	/* If TCP_DEFER_ACCEPT is set, drop bare ACK. */
--	if (inet_csk(sk)->icsk_accept_queue.rskq_defer_accept &&
-+	/* While TCP_DEFER_ACCEPT is active, drop bare ACK. */
-+	if (req->retrans < inet_csk(sk)->icsk_accept_queue.rskq_defer_accept &&
- 	    TCP_SKB_CB(skb)->end_seq == tcp_rsk(req)->rcv_isn + 1) {
- 		inet_rsk(req)->acked = 1;
- 		return NULL;
+
