@@ -1,73 +1,92 @@
 From: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 1/2] bluetooth: scheduling while atomic bug fix
-Date: Mon, 19 Oct 2009 14:24:41 +0800
-Message-ID: <20091019062441.GA4102@darkstar.vlan7>
+Subject: [PATCH 2/2] bluetooth: static lock key fix
+Date: Mon, 19 Oct 2009 14:28:30 +0800
+Message-ID: <20091019062830.GB4102@darkstar.vlan7>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org, oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
 Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
 Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Due to driver core changes dev_set_drvdata will call kzalloc which should be
-in might_sleep context, but hci_conn_add will be called in atomic context
+When shutdown ppp connection, lockdep waring about non-static key
+will happen, it is caused by the lock is not initialized properly
+at that time.
 
-Like dev_set_name move dev_set_drvdata to work queue function.
+Fix with tuning the lock/skb_queue_head init order
 
-oops as following:
+[   94.339261] INFO: trying to register non-static key.
+[   94.342509] the code is fine but needs lockdep annotation.
+[   94.342509] turning off the locking correctness validator.
+[   94.342509] Pid: 0, comm: swapper Not tainted 2.6.31-mm1 #2
+[   94.342509] Call Trace:
+[   94.342509]  [<c0248fbe>] register_lock_class+0x58/0x241
+[   94.342509]  [<c024b5df>] ? __lock_acquire+0xb57/0xb73
+[   94.342509]  [<c024ab34>] __lock_acquire+0xac/0xb73
+[   94.342509]  [<c024b7fa>] ? lock_release_non_nested+0x17b/0x1de
+[   94.342509]  [<c024b662>] lock_acquire+0x67/0x84
+[   94.342509]  [<c04cd1eb>] ? skb_dequeue+0x15/0x41
+[   94.342509]  [<c054a857>] _spin_lock_irqsave+0x2f/0x3f
+[   94.342509]  [<c04cd1eb>] ? skb_dequeue+0x15/0x41
+[   94.342509]  [<c04cd1eb>] skb_dequeue+0x15/0x41
+[   94.342509]  [<c054a648>] ? _read_unlock+0x1d/0x20
+[   94.342509]  [<c04cd641>] skb_queue_purge+0x14/0x1b
+[   94.342509]  [<fab94fdc>] l2cap_recv_frame+0xea1/0x115a [l2cap]
+[   94.342509]  [<c024b5df>] ? __lock_acquire+0xb57/0xb73
+[   94.342509]  [<c0249c04>] ? mark_lock+0x1e/0x1c7
+[   94.342509]  [<f8364963>] ? hci_rx_task+0xd2/0x1bc [bluetooth]
+[   94.342509]  [<fab95346>] l2cap_recv_acldata+0xb1/0x1c6 [l2cap]
+[   94.342509]  [<f8364997>] hci_rx_task+0x106/0x1bc [bluetooth]
+[   94.342509]  [<fab95295>] ? l2cap_recv_acldata+0x0/0x1c6 [l2cap]
+[   94.342509]  [<c02302c4>] tasklet_action+0x69/0xc1
+[   94.342509]  [<c022fbef>] __do_softirq+0x94/0x11e
+[   94.342509]  [<c022fcaf>] do_softirq+0x36/0x5a
+[   94.342509]  [<c022fe14>] irq_exit+0x35/0x68
+[   94.342509]  [<c0204ced>] do_IRQ+0x72/0x89
+[   94.342509]  [<c02038ee>] common_interrupt+0x2e/0x34
+[   94.342509]  [<c024007b>] ? pm_qos_add_requirement+0x63/0x9d
+[   94.342509]  [<c038e8a5>] ? acpi_idle_enter_bm+0x209/0x238
+[   94.342509]  [<c049d238>] cpuidle_idle_call+0x5c/0x94
+[   94.342509]  [<c02023f8>] cpu_idle+0x4e/0x6f
+[   94.342509]  [<c0534153>] rest_init+0x53/0x55
+[   94.342509]  [<c0781894>] start_kernel+0x2f0/0x2f5
+[   94.342509]  [<c0781091>] i386_start_kernel+0x91/0x96
 
-Oct  2 17:41:59 darkstar kernel: [  438.001341] BUG: sleeping function called from invalid context at mm/slqb.c:1546
-Oct  2 17:41:59 darkstar kernel: [  438.001345] in_atomic(): 1, irqs_disabled(): 0, pid: 2133, name: sdptool
-Oct  2 17:41:59 darkstar kernel: [  438.001348] 2 locks held by sdptool/2133:
-Oct  2 17:41:59 darkstar kernel: [  438.001350]  #0:  (sk_lock-AF_BLUETOOTH-BTPROTO_L2CAP){+.+.+.}, at: [<faa1d2f5>] lock_sock+0xa/0xc [l2cap]
-Oct  2 17:41:59 darkstar kernel: [  438.001360]  #1:  (&hdev->lock){+.-.+.}, at: [<faa20e16>] l2cap_sock_connect+0x103/0x26b [l2cap]
-Oct  2 17:41:59 darkstar kernel: [  438.001371] Pid: 2133, comm: sdptool Not tainted 2.6.31-mm1 #2
-Oct  2 17:41:59 darkstar kernel: [  438.001373] Call Trace:
-Oct  2 17:41:59 darkstar kernel: [  438.001381]  [<c022433f>] __might_sleep+0xde/0xe5
-Oct  2 17:41:59 darkstar kernel: [  438.001386]  [<c0298843>] __kmalloc+0x4a/0x15a
-Oct  2 17:41:59 darkstar kernel: [  438.001392]  [<c03f0065>] ? kzalloc+0xb/0xd
-Oct  2 17:41:59 darkstar kernel: [  438.001396]  [<c03f0065>] kzalloc+0xb/0xd
-Oct  2 17:41:59 darkstar kernel: [  438.001400]  [<c03f04ff>] device_private_init+0x15/0x3d
-Oct  2 17:41:59 darkstar kernel: [  438.001405]  [<c03f24c5>] dev_set_drvdata+0x18/0x26
-Oct  2 17:41:59 darkstar kernel: [  438.001414]  [<fa51fff7>] hci_conn_init_sysfs+0x40/0xd9 [bluetooth]
-Oct  2 17:41:59 darkstar kernel: [  438.001422]  [<fa51cdc0>] ? hci_conn_add+0x128/0x186 [bluetooth]
-Oct  2 17:41:59 darkstar kernel: [  438.001429]  [<fa51ce0f>] hci_conn_add+0x177/0x186 [bluetooth]
-Oct  2 17:41:59 darkstar kernel: [  438.001437]  [<fa51cf8a>] hci_connect+0x3c/0xfb [bluetooth]
-Oct  2 17:41:59 darkstar kernel: [  438.001442]  [<faa20e87>] l2cap_sock_connect+0x174/0x26b [l2cap]
-Oct  2 17:41:59 darkstar kernel: [  438.001448]  [<c04c8df5>] sys_connect+0x60/0x7a
-Oct  2 17:41:59 darkstar kernel: [  438.001453]  [<c024b703>] ? lock_release_non_nested+0x84/0x1de
-Oct  2 17:41:59 darkstar kernel: [  438.001458]  [<c028804b>] ? might_fault+0x47/0x81
-Oct  2 17:41:59 darkstar kernel: [  438.001462]  [<c028804b>] ? might_fault+0x47/0x81
-Oct  2 17:41:59 darkstar kernel: [  438.001468]  [<c033361f>] ? __copy_from_user_ll+0x11/0xce
-Oct  2 17:41:59 darkstar kernel: [  438.001472]  [<c04c9419>] sys_socketcall+0x82/0x17b
-Oct  2 17:41:59 darkstar kernel: [  438.001477]  [<c020329d>] syscall_call+0x7/0xb
-
+Reported-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
 Signed-off-by: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Tested-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
 ---
-net/bluetooth/hci_sysfs.c |    4 ++--
-1 file changed, 2 insertions(+), 2 deletions(-)
+net/bluetooth/l2cap.c |    9 ++++++---
+1 file changed, 6 insertions(+), 3 deletions(-)
 
---- linux-2.6.31.orig/net/bluetooth/hci_sysfs.c	2009-10-09 20:50:43.000000000 +0800
-+++ linux-2.6.31/net/bluetooth/hci_sysfs.c	2009-10-10 21:24:56.000000000 +0800
-@@ -92,6 +92,8 @@ static void add_conn(struct work_struct 
+--- linux-2.6.31.orig/net/bluetooth/l2cap.c	2009-10-09 08:32:46.000000000 +0800
++++ linux-2.6.31/net/bluetooth/l2cap.c	2009-10-09 08:33:57.000000000 +0800
+@@ -555,12 +555,12 @@ static struct l2cap_conn *l2cap_conn_add
  
- 	dev_set_name(&conn->dev, "%s:%d", hdev->name, conn->handle);
+ 	conn->feat_mask = 0;
  
-+	dev_set_drvdata(&conn->dev, conn);
-+
- 	if (device_add(&conn->dev) < 0) {
- 		BT_ERR("Failed to register connection device");
- 		return;
-@@ -144,8 +146,6 @@ void hci_conn_init_sysfs(struct hci_conn
- 	conn->dev.class = bt_class;
- 	conn->dev.parent = &hdev->dev;
- 
--	dev_set_drvdata(&conn->dev, conn);
+-	setup_timer(&conn->info_timer, l2cap_info_timeout,
+-						(unsigned long) conn);
 -
- 	device_initialize(&conn->dev);
+ 	spin_lock_init(&conn->lock);
+ 	rwlock_init(&conn->chan_list.lock);
  
- 	INIT_WORK(&conn->work_add, add_conn);
++	setup_timer(&conn->info_timer, l2cap_info_timeout,
++						(unsigned long) conn);
++
+ 	conn->disc_reason = 0x13;
+ 
+ 	return conn;
+@@ -783,6 +783,9 @@ static void l2cap_sock_init(struct sock 
+ 	/* Default config options */
+ 	pi->conf_len = 0;
+ 	pi->flush_to = L2CAP_DEFAULT_FLUSH_TO;
++	skb_queue_head_init(TX_QUEUE(sk));
++	skb_queue_head_init(SREJ_QUEUE(sk));
++	INIT_LIST_HEAD(SREJ_LIST(sk));
+ }
+ 
+ static struct proto l2cap_proto = {
