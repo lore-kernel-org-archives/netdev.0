@@ -1,35 +1,68 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP_DEFER_ACCEPT is missing counter update
-Date: Mon, 19 Oct 2009 22:17:32 +0200
-Message-ID: <4ADCC95C.8030401@gmail.com>
-References: <Pine.LNX.4.58.0910151120340.2879@u.domain.uli> <20091015124134.GB1073@1wt.eu> <Pine.LNX.4.58.0910152257410.3047@u.domain.uli> <20091016050310.GA5574@1wt.eu> <Pine.LNX.4.58.0910161137490.3886@u.domain.uli> <4AD84D8B.5020103@gmail.com> <Pine.LNX.4.58.0910171417260.7818@u.domain.uli> <4AD9B37A.3090606@gmail.com> <Pine.LNX.4.58.0910171709190.10440@u.domain.uli> <4ADCC58B.2060408@gmail.com> <20091019201122.GC21437@1wt.eu>
+Subject: Re: [PATCH] IPv4: skip loopback checksums in ip_rcv()
+Date: Mon, 19 Oct 2009 22:42:02 +0200
+Message-ID: <4ADCCF1A.7070301@gmail.com>
+References: <200910192134.02125.schmto@hrz.tu-chemnitz.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Julian Anastasov <ja@ssi.bg>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Torsten Schmidt <torsten.schmidt@s2006.tu-chemnitz.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:49653 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:42746 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752315AbZJSUSH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 16:18:07 -0400
-In-Reply-To: <20091019201122.GC21437@1wt.eu>
+	with ESMTP id S1757557AbZJSUmB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 16:42:01 -0400
+In-Reply-To: <200910192134.02125.schmto@hrz.tu-chemnitz.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Willy Tarreau a =E9crit :
-> On Mon, Oct 19, 2009 at 10:01:15PM +0200, Eric Dumazet wrote:
->> David, I think we should revert 6d01a026b7d3009a418326bdcf313503a314=
-f1ea
->> (tcp: fix tcp_defer_accept to consider the timeout)=20
->> since we know its broken.
+Torsten Schmidt a =E9crit :
+> Skip loopback checksum in ip_rcv() for speed optimisation.
 >=20
-> yes I agree with Eric, please revert it and wait for Julian's
-> patch which gets it right. Sorry for the wrong fix, at least
-> it will have brought the discussion on the table, but without
-> a faulty patch it would have been better :-/
+> Signed-off-by: Torsten Schmidt <schmto@hrz.tu-chemnitz.de>
+> ---
+>  net/ipv4/ip_input.c |    7 ++++---
+>  1 files changed, 4 insertions(+), 3 deletions(-)
 >=20
+> diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+> index 6c98b43..dc72286 100644
+> --- a/net/ipv4/ip_input.c
+> +++ b/net/ipv4/ip_input.c
+> @@ -406,7 +406,7 @@ int ip_rcv(struct sk_buff *skb, struct net_device=
+ *dev, struct packet_type *pt,
+>  	 *
+>  	 *	1.	Length at least the size of an ip header
+>  	 *	2.	Version of 4
+> -	 *	3.	Checksums correctly. [Speed optimisation for later, skip loop=
+back checksums]
+> +	 *	3.	Checksums correctly. [Speed optimisation: skip loopback check=
+sums]
+>  	 *	4.	Doesn't have a bogus length
+>  	 */
+> =20
+> @@ -418,8 +418,9 @@ int ip_rcv(struct sk_buff *skb, struct net_device=
+ *dev, struct packet_type *pt,
+> =20
+>  	iph =3D ip_hdr(skb);
+> =20
+> -	if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
+> -		goto inhdr_error;
+> +	if (!ipv4_is_loopback(iph->daddr))
+> +		if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
+> +			goto inhdr_error;
+> =20
+>  	len =3D ntohs(iph->tot_len);
+>  	if (skb->len < len) {
 
-Thanks again Willy, we made progress and this is nice :)
+This is bogus IMHO.
+
+One bit could be corrupted in iph, and ntohl(iph->daddr) becomes 0x7fxx=
+yyzz,
+we then accept a bogus frame. This is a RFC violation.
+
+This also slows down non loopback devices, adding an extra test.
+
+ip_fast_csum() is really fast (about 16 instructions).
 
