@@ -1,187 +1,35 @@
-From: Michal Ostrowski <mostrows@gmail.com>
-Subject: Re: kernel panic in latest vanilla stable, while using nameif with
-	"alive" pppoe interfaces
-Date: Mon, 19 Oct 2009 13:07:53 -0500
-Message-ID: <e6d1cecd0910191107h899a4ffs588f2413093dfb4b@mail.gmail.com>
-References: <200910190002.39937.denys@visp.net.lb>
-	 <e6d1cecd0910182034t9d24859mc6f392875b36ad17@mail.gmail.com>
-	 <4ADC5D3B.8010006@gmail.com>
-	 <e6d1cecd0910190619t3e009e1by49cc8f7307eb7cdb@mail.gmail.com>
-	 <20091019155034.GA5233@lenovo>
-	 <e6d1cecd0910190905x382bfc23w2987c84aa0837609@mail.gmail.com>
-	 <4ADC9DE2.5010308@gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] AF_UNIX: Fix deadlock on connecting to shutdown socket
+Date: Mon, 19 Oct 2009 20:07:12 +0200
+Message-ID: <20091019180712.GA2959@ami.dom.local>
+References: <4ADC010C.5070809@hitachi.com>
+ <20091019115713.GB6869@ff.dom.local>
+ <20091019.061459.193694892.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=000e0cd16eb0e22a2604764d9f1b
-Cc: Cyrill Gorcunov <gorcunov@gmail.com>,
-	Denys Fedoryschenko <denys@visp.net.lb>,
-	netdev <netdev@vger.kernel.org>, linux-ppp@vger.kernel.org,
-	paulus@samba.org, mostrows@earthlink.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: tomoki.sekiyama.qu@hitachi.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, alan@lxorguk.ukuu.org.uk,
+	satoshi.oshima.fk@hitachi.com, hidehiro.kawai.ez@hitachi.com,
+	hideo.aoki.tk@hitachi.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f187.google.com ([209.85.222.187]:35149 "EHLO
-	mail-pz0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757174AbZJSSHt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 14:07:49 -0400
-In-Reply-To: <4ADC9DE2.5010308@gmail.com>
+Received: from mail-fx0-f218.google.com ([209.85.220.218]:51226 "EHLO
+	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754781AbZJSSH0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 14:07:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20091019.061459.193694892.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---000e0cd16eb0e22a2604764d9f1b
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Mon, Oct 19, 2009 at 06:14:59AM -0700, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Mon, 19 Oct 2009 11:57:13 +0000
+> 
+> > Isn't the shutdown call expected to change sk_state to TCP_CLOSE?
+> 
+> No, because the send side is still up and operational, it's
+> only a half duplex close.
 
-On Mon, Oct 19, 2009 at 12:12 PM, Eric Dumazet <eric.dumazet@gmail.com> wro=
-te:
-> Michal Ostrowski a =E9crit :
->> Here's a bigger patch that just gets rid of flush_lock altogether.
->>
->> We were seeing oopses due to net namespaces going away while we were usi=
-ng
->> them, which turns out is simply due to the fact that pppoew wasn't claim=
-ing ref
->> counts properly.
->>
->> Fixing this requires that adding and removing entries to the per-net has=
-h-table
->> requires incrementing and decrementing the ref count. =A0This also allow=
-s us to
->> get rid of the flush_lock since we can now depend on the existence of
->> "pn->hash_lock".
->>
->> We also have to be careful when flushing devices that removal of a hash =
-table
->> entry may bring the net namespace refcount to 0.
->>
->
-> Your patch is mangled (tabulation -> white spaces),
-
-Patch mangling was due to mailer interactions, I'll attach a clean
-version here, no more inlining.
-
->
-> and I dont believe namespace refcount can reach 0 inside pppoe_flush_dev(=
-),
-> it would be a bug from core network code.
->
-
->From the original oops I was able to deduce that the namespace somehow
-managed to get destroyed during the interval where we dropped locks.
-If that's not due to the release_sock() call in pppoe_flush_dev()
-triggering a cleanup then I'd have to assume that that it's due to a
-secondary actor closing the socket in parallel, but that in turn would
-point to issues with the flush_lock.  Having said that the thrust of
-this patch remains valid; it just means I don't need to inc the ref
-count in pppoe_flush_dev().
-
-Do you agree?
-
---
-Michal Ostrowski
-mostrows@gmail.com
-
---000e0cd16eb0e22a2604764d9f1b
-Content-Type: application/octet-stream;
-	name="0001-PPPoE-Fix-ref-counts-on-net-namespaces.patch"
-Content-Disposition: attachment;
-	filename="0001-PPPoE-Fix-ref-counts-on-net-namespaces.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_g0zjhdf20
-
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3BwcG9lLmMgYi9kcml2ZXJzL25ldC9wcHBvZS5jCmlu
-ZGV4IDdjYmY2ZjkuLjYwYmJlYjIgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3BwcG9lLmMKKysr
-IGIvZHJpdmVycy9uZXQvcHBwb2UuYwpAQCAtMTExLDkgKzExMSw2IEBAIHN0cnVjdCBwcHBvZV9u
-ZXQgewogCXJ3bG9ja190IGhhc2hfbG9jazsKIH07CiAKLS8qIHRvIGVsaW1pbmF0ZSBhIHJhY2Ug
-YnR3IHBwcG9lX2ZsdXNoX2RldiBhbmQgcHBwb2VfcmVsZWFzZSAqLwotc3RhdGljIERFRklORV9T
-UElOTE9DSyhmbHVzaF9sb2NrKTsKLQogLyoKICAqIFBQUG9FIGNvdWxkIGJlIGluIHRoZSBmb2xs
-b3dpbmcgc3RhZ2VzOgogICogMSkgRGlzY292ZXJ5IHN0YWdlICh0byBvYnRhaW4gcmVtb3RlIE1B
-QyBhbmQgU2Vzc2lvbiBJRCkKQEAgLTMwMyw0OCArMzAwLDQ5IEBAIHN0YXRpYyB2b2lkIHBwcG9l
-X2ZsdXNoX2RldihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCXdyaXRlX2xvY2tfYmgoJnBuLT5o
-YXNoX2xvY2spOwogCWZvciAoaSA9IDA7IGkgPCBQUFBPRV9IQVNIX1NJWkU7IGkrKykgewogCQlz
-dHJ1Y3QgcHBwb3hfc29jayAqcG8gPSBwbi0+aGFzaF90YWJsZVtpXTsKKwkJc3RydWN0IHNvY2sg
-KnNrOwogCi0JCXdoaWxlIChwbyAhPSBOVUxMKSB7Ci0JCQlzdHJ1Y3Qgc29jayAqc2s7Ci0JCQlp
-ZiAocG8tPnBwcG9lX2RldiAhPSBkZXYpIHsKLQkJCQlwbyA9IHBvLT5uZXh0OwotCQkJCWNvbnRp
-bnVlOwotCQkJfQotCQkJc2sgPSBza19wcHBveChwbyk7Ci0JCQlzcGluX2xvY2soJmZsdXNoX2xv
-Y2spOwotCQkJcG8tPnBwcG9lX2RldiA9IE5VTEw7Ci0JCQlzcGluX3VubG9jaygmZmx1c2hfbG9j
-ayk7Ci0JCQlkZXZfcHV0KGRldik7Ci0KLQkJCS8qIFdlIGFsd2F5cyBncmFiIHRoZSBzb2NrZXQg
-bG9jaywgZm9sbG93ZWQgYnkgdGhlCi0JCQkgKiBoYXNoX2xvY2ssIGluIHRoYXQgb3JkZXIuICBT
-aW5jZSB3ZSBzaG91bGQKLQkJCSAqIGhvbGQgdGhlIHNvY2sgbG9jayB3aGlsZSBkb2luZyBhbnkg
-dW5iaW5kaW5nLAotCQkJICogd2UgbmVlZCB0byByZWxlYXNlIHRoZSBsb2NrIHdlJ3JlIGhvbGRp
-bmcuCi0JCQkgKiBIb2xkIGEgcmVmZXJlbmNlIHRvIHRoZSBzb2NrIHNvIGl0IGRvZXNuJ3QgZGlz
-YXBwZWFyCi0JCQkgKiBhcyB3ZSdyZSBqdW1waW5nIGJldHdlZW4gbG9ja3MuCi0JCQkgKi8KKwkJ
-d2hpbGUgKHBvICYmIHBvLT5wcHBvZV9kZXYgIT0gZGV2KSB7CisJCQlwbyA9IHBvLT5uZXh0Owor
-CQl9CiAKLQkJCXNvY2tfaG9sZChzayk7CisJCWlmIChwbyA9PSBOVUxMKSB7CisJCQljb250aW51
-ZTsKKwkJfQogCi0JCQl3cml0ZV91bmxvY2tfYmgoJnBuLT5oYXNoX2xvY2spOwotCQkJbG9ja19z
-b2NrKHNrKTsKKwkJc2sgPSBza19wcHBveChwbyk7CiAKLQkJCWlmIChzay0+c2tfc3RhdGUgJiAo
-UFBQT1hfQ09OTkVDVEVEIHwgUFBQT1hfQk9VTkQpKSB7Ci0JCQkJcHBwb3hfdW5iaW5kX3NvY2so
-c2spOwotCQkJCXNrLT5za19zdGF0ZSA9IFBQUE9YX1pPTUJJRTsKLQkJCQlzay0+c2tfc3RhdGVf
-Y2hhbmdlKHNrKTsKLQkJCX0KKwkJaWYgKHBvLT5wcHBvZV9kZXYpIHsKKwkJCWRldl9wdXQocG8t
-PnBwcG9lX2Rldik7CisJCQlwby0+cHBwb2VfZGV2ID0gTlVMTDsKKwkJfQogCi0JCQlyZWxlYXNl
-X3NvY2soc2spOwotCQkJc29ja19wdXQoc2spOworCQkvKiBXZSBhbHdheXMgZ3JhYiB0aGUgc29j
-a2V0IGxvY2ssIGZvbGxvd2VkIGJ5IHRoZSBoYXNoX2xvY2ssCisJCSAqIGluIHRoYXQgb3JkZXIu
-ICBTaW5jZSB3ZSBzaG91bGQgaG9sZCB0aGUgc29jayBsb2NrIHdoaWxlCisJCSAqIGRvaW5nIGFu
-eSB1bmJpbmRpbmcsIHdlIG5lZWQgdG8gcmVsZWFzZSB0aGUgbG9jayB3ZSdyZQorCQkgKiBob2xk
-aW5nLiAgSG9sZCBhIHJlZmVyZW5jZSB0byB0aGUgc29jayBzbyBpdCBkb2Vzbid0CisJCSAqIGRp
-c2FwcGVhciBhcyB3ZSdyZSBqdW1waW5nIGJldHdlZW4gbG9ja3MuCisJCSAqLwogCi0JCQkvKiBS
-ZXN0YXJ0IHNjYW4gYXQgdGhlIGJlZ2lubmluZyBvZiB0aGlzIGhhc2ggY2hhaW4uCi0JCQkgKiBX
-aGlsZSB0aGUgbG9jayB3YXMgZHJvcHBlZCB0aGUgY2hhaW4gY29udGVudHMgbWF5Ci0JCQkgKiBo
-YXZlIGNoYW5nZWQuCi0JCQkgKi8KLQkJCXdyaXRlX2xvY2tfYmgoJnBuLT5oYXNoX2xvY2spOwot
-CQkJcG8gPSBwbi0+aGFzaF90YWJsZVtpXTsKKwkJc29ja19ob2xkKHNrKTsKKwkJd3JpdGVfdW5s
-b2NrX2JoKCZwbi0+aGFzaF9sb2NrKTsKKwkJbG9ja19zb2NrKHNrKTsKKworCQlpZiAoc2stPnNr
-X3N0YXRlICYgKFBQUE9YX0NPTk5FQ1RFRCB8IFBQUE9YX0JPVU5EKSkgeworCQkJcHBwb3hfdW5i
-aW5kX3NvY2soc2spOworCQkJc2stPnNrX3N0YXRlID0gUFBQT1hfWk9NQklFOworCQkJc2stPnNr
-X3N0YXRlX2NoYW5nZShzayk7CiAJCX0KKworCQlyZWxlYXNlX3NvY2soc2spOworCQlzb2NrX3B1
-dChzayk7CisKKwkJLyogUmVzdGFydCB0aGUgcHJvY2VzcyBmcm9tIHRoZSBzdGFydCBvZiB0aGUg
-Y3VycmVudCBoYXNoCisJCSAqIGNoYWluLiBXZSBkcm9wcGVkIGxvY2tzIHNvIHRoZSB3b3JsZCBt
-YXkgaGF2ZSBjaGFuZ2UgZnJvbQorCQkgKiB1bmRlcm5lYXRoIHVzLgorCQkgKi8KKwkJd3JpdGVf
-dW5sb2NrX2JoKCZwbi0+aGFzaF9sb2NrKTsKKwkJcG8gPSBwbi0+aGFzaF90YWJsZVtpXTsKIAl9
-CiAJd3JpdGVfdW5sb2NrX2JoKCZwbi0+aGFzaF9sb2NrKTsKIH0KQEAgLTU2MSw2ICs1NTksNyBA
-QCBzdGF0aWMgaW50IHBwcG9lX3JlbGVhc2Uoc3RydWN0IHNvY2tldCAqc29jaykKIAlzdHJ1Y3Qg
-c29jayAqc2sgPSBzb2NrLT5zazsKIAlzdHJ1Y3QgcHBwb3hfc29jayAqcG87CiAJc3RydWN0IHBw
-cG9lX25ldCAqcG47CisJc3RydWN0IG5ldCAqbmV0ID0gTlVMTDsKIAogCWlmICghc2spCiAJCXJl
-dHVybiAwOwpAQCAtNTc2LDE5ICs1NzUsOCBAQCBzdGF0aWMgaW50IHBwcG9lX3JlbGVhc2Uoc3Ry
-dWN0IHNvY2tldCAqc29jaykKIAkvKiBTaWduYWwgdGhlIGRlYXRoIG9mIHRoZSBzb2NrZXQuICov
-CiAJc2stPnNrX3N0YXRlID0gUFBQT1hfREVBRDsKIAotCS8qCi0JICogcHBwb2VfZmx1c2hfZGV2
-IGNvdWxkIGxlYWQgdG8gYSByYWNlIHdpdGgKLQkgKiB0aGlzIHJvdXRpbmUgc28gd2UgdXNlIGZs
-dXNoX2xvY2sgdG8gZWxpbWluYXRlCi0JICogc3VjaCBhIGNhc2UgKHdlIG9ubHkgbmVlZCBwZXIt
-bmV0IHNwZWNpZmljIGRhdGEpCi0JICovCi0Jc3Bpbl9sb2NrKCZmbHVzaF9sb2NrKTsKLQlwbyA9
-IHBwcG94X3NrKHNrKTsKLQlpZiAoIXBvLT5wcHBvZV9kZXYpIHsKLQkJc3Bpbl91bmxvY2soJmZs
-dXNoX2xvY2spOwotCQlnb3RvIG91dDsKLQl9Ci0JcG4gPSBwcHBvZV9wZXJuZXQoZGV2X25ldChw
-by0+cHBwb2VfZGV2KSk7Ci0Jc3Bpbl91bmxvY2soJmZsdXNoX2xvY2spOworCW5ldCA9IHNvY2tf
-bmV0KHNrKTsKKwlwbiA9IHBwcG9lX3Blcm5ldChuZXQpOwogCiAJLyoKIAkgKiBwcm90ZWN0ICJw
-byIgZnJvbSBjb25jdXJyZW50IHVwZGF0ZXMKQEAgLTYwNyw4ICs1OTUsOCBAQCBzdGF0aWMgaW50
-IHBwcG9lX3JlbGVhc2Uoc3RydWN0IHNvY2tldCAqc29jaykKIAl9CiAKIAl3cml0ZV91bmxvY2tf
-YmgoJnBuLT5oYXNoX2xvY2spOworCXB1dF9uZXQobmV0KTsKIAotb3V0OgogCXNvY2tfb3JwaGFu
-KHNrKTsKIAlzb2NrLT5zayA9IE5VTEw7CiAKQEAgLTYyNSw4ICs2MTMsOSBAQCBzdGF0aWMgaW50
-IHBwcG9lX2Nvbm5lY3Qoc3RydWN0IHNvY2tldCAqc29jaywgc3RydWN0IHNvY2thZGRyICp1c2Vy
-dmFkZHIsCiAJc3RydWN0IHNvY2sgKnNrID0gc29jay0+c2s7CiAJc3RydWN0IHNvY2thZGRyX3Bw
-cG94ICpzcCA9IChzdHJ1Y3Qgc29ja2FkZHJfcHBwb3ggKil1c2VydmFkZHI7CiAJc3RydWN0IHBw
-cG94X3NvY2sgKnBvID0gcHBwb3hfc2soc2spOwotCXN0cnVjdCBuZXRfZGV2aWNlICpkZXY7CiAJ
-c3RydWN0IHBwcG9lX25ldCAqcG47CisJc3RydWN0IG5ldF9kZXZpY2UgKmRldiA9IE5VTEw7CisJ
-c3RydWN0IG5ldCAqbmV0ID0gTlVMTDsKIAlpbnQgZXJyb3I7CiAKIAlsb2NrX3NvY2soc2spOwpA
-QCAtNjUzLDEwICs2NDIsMTIgQEAgc3RhdGljIGludCBwcHBvZV9jb25uZWN0KHN0cnVjdCBzb2Nr
-ZXQgKnNvY2ssIHN0cnVjdCBzb2NrYWRkciAqdXNlcnZhZGRyLAogCWlmIChzdGFnZV9zZXNzaW9u
-KHBvLT5wcHBvZV9wYS5zaWQpKSB7CiAJCXBwcG94X3VuYmluZF9zb2NrKHNrKTsKIAkJaWYgKHBv
-LT5wcHBvZV9kZXYpIHsKLQkJCXBuID0gcHBwb2VfcGVybmV0KGRldl9uZXQocG8tPnBwcG9lX2Rl
-dikpOworCQkJc3RydWN0IG5ldCAqb2xkID0gZGV2X25ldChwby0+cHBwb2VfZGV2KTsKKwkJCXBu
-ID0gcHBwb2VfcGVybmV0KG9sZCk7CiAJCQlkZWxldGVfaXRlbShwbiwgcG8tPnBwcG9lX3BhLnNp
-ZCwKIAkJCQlwby0+cHBwb2VfcGEucmVtb3RlLCBwby0+cHBwb2VfaWZpbmRleCk7CiAJCQlkZXZf
-cHV0KHBvLT5wcHBvZV9kZXYpOworCQkJcHV0X25ldChvbGQpOwogCQl9CiAJCW1lbXNldChza19w
-cHBveChwbykgKyAxLCAwLAogCQkgICAgICAgc2l6ZW9mKHN0cnVjdCBwcHBveF9zb2NrKSAtIHNp
-emVvZihzdHJ1Y3Qgc29jaykpOwpAQCAtNjY2LDEzICs2NTcsMTcgQEAgc3RhdGljIGludCBwcHBv
-ZV9jb25uZWN0KHN0cnVjdCBzb2NrZXQgKnNvY2ssIHN0cnVjdCBzb2NrYWRkciAqdXNlcnZhZGRy
-LAogCS8qIFJlLWJpbmQgaW4gc2Vzc2lvbiBzdGFnZSBvbmx5ICovCiAJaWYgKHN0YWdlX3Nlc3Np
-b24oc3AtPnNhX2FkZHIucHBwb2Uuc2lkKSkgewogCQllcnJvciA9IC1FTk9ERVY7Ci0JCWRldiA9
-IGRldl9nZXRfYnlfbmFtZShzb2NrX25ldChzayksIHNwLT5zYV9hZGRyLnBwcG9lLmRldik7Ci0J
-CWlmICghZGV2KQorCQluZXQgPSBtYXliZV9nZXRfbmV0KGRldl9uZXQoZGV2KSk7CisJCWlmICgh
-bmV0KQogCQkJZ290byBlbmQ7CiAKKwkJZGV2ID0gZGV2X2dldF9ieV9uYW1lKG5ldCwgc3AtPnNh
-X2FkZHIucHBwb2UuZGV2KTsKKwkJaWYgKCFkZXYpCisJCQlnb3RvIGVycl9wdXRfbmV0OworCiAJ
-CXBvLT5wcHBvZV9kZXYgPSBkZXY7CiAJCXBvLT5wcHBvZV9pZmluZGV4ID0gZGV2LT5pZmluZGV4
-OwotCQlwbiA9IHBwcG9lX3Blcm5ldChkZXZfbmV0KGRldikpOworCQlwbiA9IHBwcG9lX3Blcm5l
-dChuZXQpOwogCQl3cml0ZV9sb2NrX2JoKCZwbi0+aGFzaF9sb2NrKTsKIAkJaWYgKCEoZGV2LT5m
-bGFncyAmIElGRl9VUCkpIHsKIAkJCXdyaXRlX3VubG9ja19iaCgmcG4tPmhhc2hfbG9jayk7CkBA
-IC03MDcsNiArNzAyLDEwIEBAIHN0YXRpYyBpbnQgcHBwb2VfY29ubmVjdChzdHJ1Y3Qgc29ja2V0
-ICpzb2NrLCBzdHJ1Y3Qgc29ja2FkZHIgKnVzZXJ2YWRkciwKIGVuZDoKIAlyZWxlYXNlX3NvY2so
-c2spOwogCXJldHVybiBlcnJvcjsKK2Vycl9wdXRfbmV0OgorCWlmIChuZXQpCisJCXB1dF9uZXQo
-bmV0KTsKKwogZXJyX3B1dDoKIAlpZiAocG8tPnBwcG9lX2RldikgewogCQlkZXZfcHV0KHBvLT5w
-cHBvZV9kZXYpOwo=
---000e0cd16eb0e22a2604764d9f1b--
+OK, thanks for the explanation,
+Jarek P.
