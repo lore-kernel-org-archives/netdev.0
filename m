@@ -1,24 +1,19 @@
 From: Tomoki Sekiyama <tomoki.sekiyama.qu@hitachi.com>
 Subject: Re: [PATCH] AF_UNIX: Fix deadlock on connecting to shutdown socket
-Date: Mon, 19 Oct 2009 17:54:04 +0900
-Message-ID: <4ADC292C.8010608@hitachi.com>
+Date: Mon, 19 Oct 2009 17:58:05 +0900
+Message-ID: <4ADC2A1D.2090303@hitachi.com>
 References: <4ADC010C.5070809@hitachi.com> <2375c9f90910190002m372edafq9a4c95d754640487@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	alan@lxorguk.ukuu.org.uk, davem@davemloft.net,
+Cc: alan@lxorguk.ukuu.org.uk, davem@davemloft.net,
 	satoshi.oshima.fk@hitachi.com, hidehiro.kawai.ez@hitachi.com,
-	hideo.aoki.tk@hitachi.com
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail9.hitachi.co.jp ([133.145.228.44]:53593 "EHLO
-	mail9.hitachi.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754534AbZJSIyG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 04:54:06 -0400
+	hideo.aoki.tk@hitachi.com, masanori.yoshida.tv@hitachi.com
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755926AbZJSI6L@vger.kernel.org>
 In-Reply-To: <2375c9f90910190002m372edafq9a4c95d754640487@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hi, thanks for testing!
 
