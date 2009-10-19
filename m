@@ -1,55 +1,46 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] myri10ge: improve port type reporting in ethtool output
-Date: Mon, 19 Oct 2009 09:12:09 +0100
-Message-ID: <1255939929.3916.13.camel@localhost>
-References: <4ADBFA88.8030300@myri.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: Fix struct inet_timewait_sock bitfield annotation
+Date: Mon, 19 Oct 2009 10:48:51 +0200
+Message-ID: <4ADC27F3.5050508@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Brice Goglin <brice@myri.com>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:45157 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754572AbZJSIML (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 04:12:11 -0400
-In-Reply-To: <4ADBFA88.8030300@myri.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:57282 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750821AbZJSIsu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 04:48:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-10-19 at 07:35 +0200, Brice Goglin wrote:
-> Improve the reporting of the port type in ethtool,
-> update for new boards.
-> 
-> Signed-off-by: Brice Goglin <brice@myri.com>
-> 
-> --- a/drivers/net/myri10ge/myri10ge.c
-> +++ b/drivers/net/myri10ge/myri10ge.c
-> @@ -75,7 +75,7 @@
->  #include "myri10ge_mcp.h"
->  #include "myri10ge_mcp_gen_header.h"
->  
-> -#define MYRI10GE_VERSION_STR "1.5.0-1.432"
-> +#define MYRI10GE_VERSION_STR "1.5.1-1.450"
->  
->  MODULE_DESCRIPTION("Myricom 10G driver (10GbE)");
->  MODULE_AUTHOR("Maintainer: help@myri.com");
-> @@ -1601,6 +1601,8 @@ myri10ge_get_settings(struct net_device *netdev,
-> struct ethtool_cmd *cmd)
->      cmd->autoneg = AUTONEG_DISABLE;
->      cmd->speed = SPEED_10000;
->      cmd->duplex = DUPLEX_FULL;
-> +    cmd->supported = SUPPORTED_10000baseT_Full;
-> +    cmd->advertising = ADVERTISED_10000baseT_Full;
-[...]
+commit 9e337b0f (net: annotate inet_timewait_sock bitfields)
+added 4/8 bytes in struct inet_timewait_sock.
 
-Lying about link modes is not an improvement.
+Fix this by declaring tw_ipv6_offset in the 'flags' bitfield
+The 14 bits hole is named tw_pad to make it cleary apparent.
 
-Ben.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+diff --git a/include/net/inet_timewait_sock.h b/include/net/inet_timewait_sock.h
+index 37f3aea..b5ad469 100644
+--- a/include/net/inet_timewait_sock.h
++++ b/include/net/inet_timewait_sock.h
+@@ -130,11 +130,11 @@ struct inet_timewait_sock {
+ 	__u16			tw_num;
+ 	kmemcheck_bitfield_begin(flags);
+ 	/* And these are ours. */
+-	__u8			tw_ipv6only:1,
+-				tw_transparent:1;
+-	/* 14 bits hole, try to pack */
++	unsigned int		tw_ipv6only     : 1,
++				tw_transparent  : 1,
++				tw_pad		: 14,	/* 14 bits hole */
++				tw_ipv6_offset  : 16;
+ 	kmemcheck_bitfield_end(flags);
+-	__u16			tw_ipv6_offset;
+ 	unsigned long		tw_ttd;
+ 	struct inet_bind_bucket	*tw_tb;
+ 	struct hlist_node	tw_death_node;
