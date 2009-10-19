@@ -1,96 +1,47 @@
-From: Michal Ostrowski <mostrows@gmail.com>
-Subject: Re: kernel panic in latest vanilla stable, while using nameif with
-	"alive" pppoe interfaces
-Date: Mon, 19 Oct 2009 08:19:23 -0500
-Message-ID: <e6d1cecd0910190619t3e009e1by49cc8f7307eb7cdb@mail.gmail.com>
-References: <200910190002.39937.denys@visp.net.lb>
-	 <e6d1cecd0910182034t9d24859mc6f392875b36ad17@mail.gmail.com>
-	 <4ADC5D3B.8010006@gmail.com>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: Re: [PATCH] myri10ge: improve port type reporting in ethtool output
+Date: Mon, 19 Oct 2009 09:30:39 -0400
+Message-ID: <4ADC69FF.5000109@myri.com>
+References: <4ADBFA88.8030300@myri.com> <1255939929.3916.13.camel@localhost>	 <4ADC5CB8.4010801@myri.com> <1255957384.2782.2.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Denys Fedoryschenko <denys@visp.net.lb>,
-	netdev <netdev@vger.kernel.org>, linux-ppp@vger.kernel.org,
-	paulus@samba.org, mostrows@earthlink.net,
-	Cyrill Gorcunov <gorcunov@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <4ADC5D3B.8010006@gmail.com>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Brice Goglin <brice@myri.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailbox2.myri.com ([64.172.73.26]:1855 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755948AbZJSNak (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Oct 2009 09:30:40 -0400
+In-Reply-To: <1255957384.2782.2.camel@achroite>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The entire scheme for managing net namespaces seems unsafe.  We depend
-on synchronization via pn->hash_lock, but have no guarantee of the
-existence of the "net" object -- hence no way to ensure the existence
-of the lock itself.  This should be relatively easy to fix though as
-we should be able to get/put the net namespace as we add remove
-objects to/from the pppoe hash.
-
-Once you solve this existence issue, the flush_lock can be eliminated
-altogether since all of the relevant code paths already depend on a
-write_lock_bh(&pn->hash_lock), and that's the lock that should be use
-to protect the pppoe_dev field.
-
-Another patch to follow later...
-
---
-Michal Ostrowski
-mostrows@gmail.com
-
-
-
-On Mon, Oct 19, 2009 at 7:36 AM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Michal Ostrowski a =E9crit :
->> Here's my theory on this after an inital look...
+Ben Hutchings wrote:
+> On Mon, 2009-10-19 at 08:34 -0400, Andrew Gallatin wrote:
+>> Ben Hutchings wrote:
 >>
->> Looking at the oops report and disassembly of the actual module bina=
-ry
->> that caused the oops, one can deduce that:
+>>> Lying about link modes is not an improvement.
+>> OK, so we're probably doing something wrong. I suspect we're not
+>> alone.  At least we don't set SUPPORTED_TP for CX4, like I've
+>> seen some NICs do.
 >>
->> Execution was in pppoe_flush_dev(). =A0%ebx contained the pointer "s=
-truct
->> pppox_sock *po", which is what we faulted on, excuting "cmp %eax, 0x=
-190(%ebx)".
->> %ebx value was 0xffffffff (hence we got "NULL pointer dereference at=
- 0x18f").
->>
->> At this point "i" (stored in %esi) is 15 (valid), meaning that we go=
-t a value
->> of 0xffffffff in pn->hash_table[i].
->>
->>>From this I'd hypothesize that the combination of dev_put() and rele=
-ase_sock()
->> may have allowed us to free "pn". =A0At the bottom of the loop we al=
-reayd
->> recognize that since locks are dropped we're responsible for handlin=
-g
->> invalidation of objects, and perhaps that should be extended to "pn"=
- as well.
->> --
->> Michal Ostrowski
->> mostrows@gmail.com
->>
->>
->
-> Looking at this stuff, I do believe flush_lock protection is not
-> properly done.
->
-> At the end of pppoe_connect() for example we can find :
->
-> err_put:
-> =A0 =A0 =A0 =A0if (po->pppoe_dev) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_put(po->pppoe_dev);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0po->pppoe_dev =3D NULL;
-> =A0 =A0 =A0 =A0}
->
-> This is done without any protection, and can therefore clash with
-> pppoe_flush_dev() :
->
-> =A0 =A0 =A0 =A0spin_lock(&flush_lock);
-> =A0 =A0 =A0 =A0po->pppoe_dev =3D NULL; /* ppoe_dev can already be NUL=
-L before this point */
-> =A0 =A0 =A0 =A0spin_unlock(&flush_lock);
->
-> =A0 =A0 =A0 =A0dev_put(dev); =A0 =A0/* oops */
->
+>> Can somebody suggest how we can tell ethtool that
+>> the NIC supports 10Gb only (no autoneg down to 1Gb or lower)
+>> for copper (10Gbase-CX4)?   How about for fiber (10Gbase-{S,L})R?
+> 
+> What's wrong with what you already do?  Customers expect to see
+> something on the supported line?
+
+Exactly.  One has complained because drivers for
+other vendors NICs show this, even if they are fibre NICs
+or CX4 NICs, and don't actually support 10GbaseT.
+
+I'm happy to back this part out, and resubmit the patch without
+it. There is still some fairly valuable stuff in the patch
+-- mainly updating the NIC detection logic for new NICs to
+detect fibre vs copper.
+
+Drew
