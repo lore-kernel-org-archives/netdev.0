@@ -1,55 +1,70 @@
-From: Torsten Schmidt <torsten.schmidt@s2006.tu-chemnitz.de>
-Subject: Re: [PATCH] IPv4: skip loopback checksums in ip_rcv()
-Date: Mon, 19 Oct 2009 23:34:29 +0200
-Message-ID: <200910192334.29770.schmto@hrz.tu-chemnitz.de>
-References: <200910192134.02125.schmto@hrz.tu-chemnitz.de> <200910192256.52780.schmto@hrz.tu-chemnitz.de> <4ADCD5E1.7060400@gmail.com>
+From: Joyce Yu <Joyce.Yu@Sun.COM>
+Subject: Re: [Fwd: [PATCH] [NIU] VLAN does not work with niu driver]
+Date: Mon, 19 Oct 2009 15:12:49 -0700
+Message-ID: <4ADCE461.9080809@Sun.COM>
+References: <4AD89D9A.7090405@Sun.COM>
+ <20091016.174008.193713863.davem@davemloft.net>
+Reply-To: Joyce.Yu@Sun.COM
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; CHARSET=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from jessica.hrz.tu-chemnitz.de ([134.109.132.47]:33415 "EHLO
-	jessica.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757727AbZJSVe1 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Oct 2009 17:34:27 -0400
-In-Reply-To: <4ADCD5E1.7060400@gmail.com>
-Content-Disposition: inline
+Received: from brmea-mail-4.Sun.COM ([192.18.98.36]:47413 "EHLO
+	brmea-mail-4.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753410AbZJSWMq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 18:12:46 -0400
+Received: from fe-amer-10.sun.com ([192.18.109.80])
+	by brmea-mail-4.sun.com (8.13.6+Sun/8.12.9) with ESMTP id n9JMCoPk008320
+	for <netdev@vger.kernel.org>; Mon, 19 Oct 2009 22:12:50 GMT
+Received: from conversion-daemon.mail-amer.sun.com by mail-amer.sun.com
+ (Sun Java(tm) System Messaging Server 7u2-7.04 64bit (built Jul  2 2009))
+ id <0KRS005007WMET00@mail-amer.sun.com> for netdev@vger.kernel.org; Mon,
+ 19 Oct 2009 16:12:50 -0600 (MDT)
+In-reply-to: <20091016.174008.193713863.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet:
-> Torsten Schmidt a =E9crit :
->> Eric Dumazet wrotes:
->>> This is bogus IMHO.
->>>
->>> One bit could be corrupted in iph, and ntohl(iph->daddr) becomes 0x=
-7fxxyyzz,
->>> we then accept a bogus frame. This is a RFC violation.
->>>
->>> This also slows down non loopback devices, adding an extra test.
->>>
->>> ip_fast_csum() is really fast (about 16 instructions).
->>=20
->> Yes, you are right. So it would be better to only skip csum if *dev =
-is=20
->> our loopback interface ? Right ?
->=20
-> An application could send a bogus IP packet using RAW interface, and =
-we still should
-> check IP checksum before delivering this packet, even on loopback dev=
-ice.
 
-Yes, then we should fix this comment in ip_rcv():
+Here was what happened to this patch:
 
-	RFC1122: 3.2.1.2 MUST silently discard any IP frame that fails the che=
-cksum.
-	Is the datagram acceptable?
-	1.	Length at least the size of an ip header
-	2.	Version of 4
-->	3.	Checksums correctly. [Speed optimisation for later, skip loopback=
- checksums]
-	4.	Doesn't have a bogus length
+I got system hard hung a couple of times when testing the niu driver 
+with "__pskb_pull_tail(skb, min(len, VLAN_ETH_HLEN))" fix. I thought 
+that the fix was not working at the time, so I came up with the fixes 
+moving around the pointers. I didn't see the hard hung with that code. 
+When you asked me to explain the fix, I had the second thought to 
+re-test the "__pskb_pull_tail(skb, min(len, VLAN_ETH_HLEN))" fix. I 
+didn't experience any hard hung any more. I also asked our QA to test it 
+and didn't find any problem. I guess the hard hung may due to 
+rmmod/insmod, ifconfig up/down using different fixes so many times and 
+that may cause memory corruptions.
 
-Right ?
+Regards,
+Joyce
+
+
+On 10/16/09 05:40 PM, David Miller wrote:
+> From: Joyce Yu <Joyce.Yu@Sun.COM>
+> Date: Fri, 16 Oct 2009 09:21:46 -0700
+> 
+>> Can this patch be accepted and integrated to the main tree?
+> 
+> Well, what happened to all of those page fragment modifications?
+> 
+> They all of a sudden are no longer necessary?  Why?
+> 
+> I'm not going to apply this patch until you start explaining
+> why these things are being done, or not done.  And you must
+> add some more text to your commit messages so that you explain
+> your change sufficiently.
+> 
+> Thank you.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+-- 
+
