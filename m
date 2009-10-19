@@ -1,68 +1,107 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCHv2 1/4] First Patch on TFRC-SP. Copy base files from TFRC
-Date: Mon, 19 Oct 2009 07:21:53 +0200
-Message-ID: <20091019052153.GB3366@gerrit.erg.abdn.ac.uk>
-References: <cb00fa210909141738l60d02cd5p287d990326ce6c3c@mail.gmail.com> <4AD4B677.4000308@embedded.ufcg.edu.br>
+Subject: Re: [PATCH 1/4] Adds random ect generation to tfrc-sp sender side
+Date: Mon, 19 Oct 2009 07:23:13 +0200
+Message-ID: <20091019052313.GC3366@gerrit.erg.abdn.ac.uk>
+References: <4AD4B6B2.1020502@embedded.ufcg.edu.br> <4AD4B790.9000701@embedded.ufcg.edu.br>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="oyUTqETQ0mS9luUI"
+Content-Type: text/plain; charset=us-ascii
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
 To: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:40477 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:40519 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751912AbZJSFV7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Oct 2009 01:21:59 -0400
+	id S1751029AbZJSFXS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Oct 2009 01:23:18 -0400
 Content-Disposition: inline
-In-Reply-To: <4AD4B677.4000308@embedded.ufcg.edu.br>
+In-Reply-To: <4AD4B790.9000701@embedded.ufcg.edu.br>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+| Adds random ect generation to tfrc-sp sender side.
 
---oyUTqETQ0mS9luUI
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I thought about this and found several reasons why it would be better to
+defer ECN Nonce sums to a later implementation.
 
-| First Patch on TFRC-SP.
-Please find attached one edit that I made.
+ 1) At the moment the code always sets ECT(0). Even if it would
+    alternate ECT(0) and ECT(1), this would later be overwritten by ECT(0)
+    in dccp_msghdr_parse(). Ok, this could be fixed, but the real problem
+    is that the underlying machinery does not support ECN nonces, since
 
-I added unwinding the initialisation of tfrc_lib in the case where the
-initialisation of tfrc_sp_lib fails.  Unwinding is now done in the reverse
-order of the steps done during initialisation.
+    * ECN / DiffServ information is in two separate places of the
+      inet_sock (u8 `tos' field and u8 `tclass' field of ipv6_pinfo);
 
---oyUTqETQ0mS9luUI
-Content-Type: text/x-diff; charset=us-ascii
-Content-Disposition: attachment; filename="1.diff"
+    * the ECN driver sits in include/net/inet_ecn.h as
+      #define INET_ECN_xmit(sk) do { inet_sk(sk)->tos |= INET_ECN_ECT_0; } while (0)
 
---- a/net/dccp/ccid.c
-+++ b/net/dccp/ccid.c
-@@ -223,7 +223,7 @@ int __init ccid_initialize_builtins(void
- 
- 	err = tfrc_sp_lib_init();
- 	if (err)
--		return err;
-+		goto unwind_tfrc_lib;
- 
- 	for (i = 0; i < ARRAY_SIZE(ccids); i++) {
- 		err = ccid_activate(ccids[i]);
-@@ -235,8 +235,10 @@ int __init ccid_initialize_builtins(void
- unwind_registrations:
- 	while(--i >= 0)
- 		ccid_deactivate(ccids[i]);
--	tfrc_lib_exit();
-+
- 	tfrc_sp_lib_exit();
-+unwind_tfrc_lib:	
-+	tfrc_lib_exit();
- 	return err;
- }
- 
-@@ -246,6 +248,6 @@ void ccid_cleanup_builtins(void)
- 
- 	for (i = 0; i < ARRAY_SIZE(ccids); i++)
- 		ccid_deactivate(ccids[i]);
--	tfrc_lib_exit();
- 	tfrc_sp_lib_exit();
-+	tfrc_lib_exit();
- }
+    * hence this would need to be revised and the best way to make an
+      acceptable suggestion would be a coded proof of concept that 
+      changing the underlying implementation does have benefits.
 
---oyUTqETQ0mS9luUI--
+    On the receiver side the situation is the same. The function
+    tfrc_sp_check_ecn_sum(), introduced in Patch 2/4 of the TFRC-SP sender
+    implementation is only referenced in Patch 2/2 of the CCID-4 set, where
+    it ends, without side effect in "TODO: consider ecn sum test fail".
+
+    That is, at the moment both the sender and receiver side of the ECN Nonce
+    sum verification are placeholders which currently have no effect.
+
+
+ 2) As far as I can see the ECN Nonce is an optimisation, an
+
+      "optional addition to Explicit Congestion Notification [RFC3168]
+       improving its robustness against malicious or accidental
+       concealment of marked packets [...]" (from the abstract)
+
+    Hence if at all, we would only have a benefit of adding the ECN Nonce
+    verification on top of an already verified implementation.
+
+ 3) Starting an implementation throws up further questions that need to
+    be addressed, both the basis and the extension need to be verified.
+
+I would like to suggest to implement the basis, that is CCID-4 with ECN
+(using plain ECT(0)), test with that until it works satisfactorily, and
+then continue adding measures such as the ECN Nonce verification.
+
+Nothing is lost, once we are at this stage we can return to this set of
+initial patches and revise the situation based on the insights gained 
+with ECT(0) experience.
+
+In summary, I would like to suggest to remove the ECN verification for
+the moment and focus on the "basic" issues first.
+
+Would you be ok with that?
+
+
+
+Appendix
+--------
+| +int tfrc_sp_get_random_ect(struct tfrc_tx_li_data *li_data, u64 seqn)
+| +{
+| +	int ect;
+| +	struct tfrc_ecn_echo_sum_entry *sum;
+| +
+| +	/* TODO: implement random ect*/
+| +	ect = INET_ECN_ECT_0;
+| +
+| +	sum = kmem_cache_alloc(tfrc_ecn_echo_sum_slab, GFP_ATOMIC);
+
+For a later implementation, there should be protection against NULL, e.g.
+        if (sum == NULL) {
+	   DCCP_CRIT("Problem here ...");
+	   return 0;
+	}
+| +
+| +	sum->previous = li_data->ecn_sums_head;
+| +	sum->ecn_echo_sum = (sum->previous->ecn_echo_sum) ? !ect : ect;
+
+(Also for later) I wonder how to do the sums, with RFC 3168
+ECT(0) = 0x2 => !0x2 = 0
+ECT(1) = 0x1 => !0x1 = 0
+
+>From the addition table in RFC 3540, section 2,
+ECT(0) + ECT(0) = 0
+ECT(0) + ECT(1) = 1
+ECT(1) + ECT(1) = 0
+
+One way could be
+        sum->ecn_echo_sum ^= (ect == INET_ECN_ECT_1);
