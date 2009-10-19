@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fix section mismatch in fec.c
-Date: Sun, 18 Oct 2009 21:27:21 -0700 (PDT)
-Message-ID: <20091018.212721.27805107.davem@davemloft.net>
-References: <200910181525.48574.sfking@fdwdc.com>
+Subject: Re: [PATCH 0/5] IPsec: convert to ahash
+Date: Sun, 18 Oct 2009 21:34:29 -0700 (PDT)
+Message-ID: <20091018.213429.242479125.davem@davemloft.net>
+References: <20091008084631.GJ15653@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: sfking@fdwdc.com
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37727
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41454
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750837AbZJSE06 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 00:26:58 -0400
-In-Reply-To: <200910181525.48574.sfking@fdwdc.com>
+	by vger.kernel.org with ESMTP id S1750837AbZJSEeH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 00:34:07 -0400
+In-Reply-To: <20091008084631.GJ15653@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steven King <sfking@fdwdc.com>
-Date: Sun, 18 Oct 2009 15:25:48 -0700
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Thu, 8 Oct 2009 10:46:31 +0200
 
->    */
-> -int __init fec_enet_init(struct net_device *dev, int index)
-> +static int
-> +fec_enet_init(struct net_device *dev, int index)
->  {
+> This patchset converts the authentication header (ah4/ah6) IPsec protocol
+> over to the new ahash interface. With this patchset IPsec is completely
+> converted to ahash. The esp protocol is already converted to ahash by
+> converting the authenc crypto algorithm.
 
-Don't change coding style when fixing a bug.
-
-Fix this up and resubmit your fix, thanks.
+All applied to net-next-2.6, thanks Steffen!
