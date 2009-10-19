@@ -1,501 +1,463 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [net-next PATCH 1/1] qlge: Size RX buffers based on MTU.
-Date: Mon, 19 Oct 2009 06:32:19 -0700
-Message-ID: <1255959139-26999-1-git-send-email-ron.mercer@qlogic.com>
-References: <20091019132902.GB14919@linux-ox1b.qlogic.org>
-Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:39511 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755902AbZJSNiO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 09:38:14 -0400
-In-Reply-To: <20091019132902.GB14919@linux-ox1b.qlogic.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Subject: power management for zaurus
+Date: Mon, 19 Oct 2009 15:40:52 +0200
+Message-ID: <200910191540.52639.oliver@neukum.org>
+Mime-Version: 1.0
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_kxG3KD89IEoJXCo"
+To: pavel-+ZI9xUNit7I@public.gmane.org, David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Change RX large buffer size based on MTU. If pages are larger
-than the MTU the page is divided up into multiple chunks and passed to
-the hardware.  When pages are smaller than MTU each RX buffer can
-contain be comprised of up to 2 pages.
+--Boundary-00=_kxG3KD89IEoJXCo
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
----
- drivers/net/qlge/qlge.h      |   15 ++-
- drivers/net/qlge/qlge_main.c |  273 +++++++++++++++++++++++++++++++-----------
- 2 files changed, 214 insertions(+), 74 deletions(-)
+Hi,
 
-diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
-index fd47691..9cdf8ff 100644
---- a/drivers/net/qlge/qlge.h
-+++ b/drivers/net/qlge/qlge.h
-@@ -56,7 +56,8 @@
- 		MAX_DB_PAGES_PER_BQ(NUM_LARGE_BUFFERS) * sizeof(u64))
- #define SMALL_BUFFER_SIZE 512
- #define SMALL_BUF_MAP_SIZE (SMALL_BUFFER_SIZE / 2)
--#define LARGE_BUFFER_SIZE	PAGE_SIZE
-+#define LARGE_BUFFER_MAX_SIZE 8192
-+#define LARGE_BUFFER_MIN_SIZE 2048
- #define MAX_SPLIT_SIZE 1023
- #define QLGE_SB_PAD 32
- 
-@@ -1201,9 +1202,17 @@ struct tx_ring_desc {
- 	struct tx_ring_desc *next;
- };
- 
-+struct page_chunk {
-+	struct page *page;	/* master page */
-+	char *va;		/* virt addr for this chunk */
-+	u64 map;		/* mapping for master */
-+	unsigned int offset;	/* offset for this chunk */
-+	unsigned int last_flag; /* flag set for last chunk in page */
-+};
-+
- struct bq_desc {
- 	union {
--		struct page *lbq_page;
-+		struct page_chunk pg_chunk;
- 		struct sk_buff *skb;
- 	} p;
- 	__le64 *addr;
-@@ -1272,6 +1281,7 @@ struct rx_ring {
- 	dma_addr_t lbq_base_dma;
- 	void *lbq_base_indirect;
- 	dma_addr_t lbq_base_indirect_dma;
-+	struct page_chunk pg_chunk; /* current page for chunks */
- 	struct bq_desc *lbq;	/* array of control blocks */
- 	void __iomem *lbq_prod_idx_db_reg;	/* PCI doorbell mem area + 0x18 */
- 	u32 lbq_prod_idx;	/* current sw prod idx */
-@@ -1526,6 +1536,7 @@ struct ql_adapter {
- 
- 	struct rx_ring rx_ring[MAX_RX_RINGS];
- 	struct tx_ring tx_ring[MAX_TX_RINGS];
-+	unsigned int lbq_buf_order;
- 
- 	int rx_csum;
- 	u32 default_rx_queue;
-diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-index 9eefb11..4935710 100644
---- a/drivers/net/qlge/qlge_main.c
-+++ b/drivers/net/qlge/qlge_main.c
-@@ -1025,6 +1025,11 @@ end:
- 	return status;
+could somebody with a zaurus test this patch?
+It introduces aggressive usb autosuspend for the devices.
+It depends on the attached basic support for usbnet.
+
+	Regards
+		Oliver
+
+--
+
+commit ce0be29fc149b0e178a47a9a2380ef2be52ea7c6
+Author: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Date:   Mon Oct 19 13:55:56 2009 +0200
+
+    zaurus & rndis_host autosuspend
+
+diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
+index 0caa800..4630703 100644
+--- a/drivers/net/usb/rndis_host.c
++++ b/drivers/net/usb/rndis_host.c
+@@ -571,12 +571,19 @@ fill:
  }
+ EXPORT_SYMBOL_GPL(rndis_tx_fixup);
  
-+static inline unsigned int ql_lbq_block_size(struct ql_adapter *qdev)
++static int rndis_manage_power(struct usbnet *dev, int on)
 +{
-+	return PAGE_SIZE << qdev->lbq_buf_order;
-+}
-+
- /* Get the next large buffer. */
- static struct bq_desc *ql_get_curr_lbuf(struct rx_ring *rx_ring)
- {
-@@ -1036,6 +1041,28 @@ static struct bq_desc *ql_get_curr_lbuf(struct rx_ring *rx_ring)
- 	return lbq_desc;
- }
- 
-+static struct bq_desc *ql_get_curr_lchunk(struct ql_adapter *qdev,
-+		struct rx_ring *rx_ring)
-+{
-+	struct bq_desc *lbq_desc = ql_get_curr_lbuf(rx_ring);
-+
-+	pci_dma_sync_single_for_cpu(qdev->pdev,
-+					pci_unmap_addr(lbq_desc, mapaddr),
-+				    rx_ring->lbq_buf_size,
-+					PCI_DMA_FROMDEVICE);
-+
-+	/* If it's the last chunk of our master page then
-+	 * we unmap it.
-+	 */
-+	if ((lbq_desc->p.pg_chunk.offset + rx_ring->lbq_buf_size)
-+					== ql_lbq_block_size(qdev))
-+		pci_unmap_page(qdev->pdev,
-+				lbq_desc->p.pg_chunk.map,
-+				ql_lbq_block_size(qdev),
-+				PCI_DMA_FROMDEVICE);
-+	return lbq_desc;
-+}
-+
- /* Get the next small buffer. */
- static struct bq_desc *ql_get_curr_sbuf(struct rx_ring *rx_ring)
- {
-@@ -1063,6 +1090,53 @@ static void ql_write_cq_idx(struct rx_ring *rx_ring)
- 	ql_write_db_reg(rx_ring->cnsmr_idx, rx_ring->cnsmr_idx_db_reg);
- }
- 
-+static int ql_get_next_chunk(struct ql_adapter *qdev, struct rx_ring *rx_ring,
-+						struct bq_desc *lbq_desc)
-+{
-+	if (!rx_ring->pg_chunk.page) {
-+		u64 map;
-+		rx_ring->pg_chunk.page = alloc_pages(__GFP_COLD | __GFP_COMP |
-+						GFP_ATOMIC,
-+						qdev->lbq_buf_order);
-+		if (unlikely(!rx_ring->pg_chunk.page)) {
-+			QPRINTK(qdev, DRV, ERR,
-+				"page allocation failed.\n");
-+			return -ENOMEM;
-+		}
-+		rx_ring->pg_chunk.offset = 0;
-+		map = pci_map_page(qdev->pdev, rx_ring->pg_chunk.page,
-+					0, ql_lbq_block_size(qdev),
-+					PCI_DMA_FROMDEVICE);
-+		if (pci_dma_mapping_error(qdev->pdev, map)) {
-+			__free_pages(rx_ring->pg_chunk.page,
-+					qdev->lbq_buf_order);
-+			QPRINTK(qdev, DRV, ERR,
-+				"PCI mapping failed.\n");
-+			return -ENOMEM;
-+		}
-+		rx_ring->pg_chunk.map = map;
-+		rx_ring->pg_chunk.va = page_address(rx_ring->pg_chunk.page);
-+	}
-+
-+	/* Copy the current master pg_chunk info
-+	 * to the current descriptor.
-+	 */
-+	lbq_desc->p.pg_chunk = rx_ring->pg_chunk;
-+
-+	/* Adjust the master page chunk for next
-+	 * buffer get.
-+	 */
-+	rx_ring->pg_chunk.offset += rx_ring->lbq_buf_size;
-+	if (rx_ring->pg_chunk.offset == ql_lbq_block_size(qdev)) {
-+		rx_ring->pg_chunk.page = NULL;
-+		lbq_desc->p.pg_chunk.last_flag = 1;
-+	} else {
-+		rx_ring->pg_chunk.va += rx_ring->lbq_buf_size;
-+		get_page(rx_ring->pg_chunk.page);
-+		lbq_desc->p.pg_chunk.last_flag = 0;
-+	}
++	dev->intf->needs_remote_wakeup = on;
 +	return 0;
 +}
- /* Process (refill) a large buffer queue. */
- static void ql_update_lbq(struct ql_adapter *qdev, struct rx_ring *rx_ring)
- {
-@@ -1072,39 +1146,28 @@ static void ql_update_lbq(struct ql_adapter *qdev, struct rx_ring *rx_ring)
- 	u64 map;
- 	int i;
++
  
--	while (rx_ring->lbq_free_cnt > 16) {
-+	while (rx_ring->lbq_free_cnt > 32) {
- 		for (i = 0; i < 16; i++) {
- 			QPRINTK(qdev, RX_STATUS, DEBUG,
- 				"lbq: try cleaning clean_idx = %d.\n",
- 				clean_idx);
- 			lbq_desc = &rx_ring->lbq[clean_idx];
--			if (lbq_desc->p.lbq_page == NULL) {
--				QPRINTK(qdev, RX_STATUS, DEBUG,
--					"lbq: getting new page for index %d.\n",
--					lbq_desc->index);
--				lbq_desc->p.lbq_page = alloc_page(GFP_ATOMIC);
--				if (lbq_desc->p.lbq_page == NULL) {
--					rx_ring->lbq_clean_idx = clean_idx;
--					QPRINTK(qdev, RX_STATUS, ERR,
--						"Couldn't get a page.\n");
--					return;
--				}
--				map = pci_map_page(qdev->pdev,
--						   lbq_desc->p.lbq_page,
--						   0, PAGE_SIZE,
--						   PCI_DMA_FROMDEVICE);
--				if (pci_dma_mapping_error(qdev->pdev, map)) {
--					rx_ring->lbq_clean_idx = clean_idx;
--					put_page(lbq_desc->p.lbq_page);
--					lbq_desc->p.lbq_page = NULL;
--					QPRINTK(qdev, RX_STATUS, ERR,
--						"PCI mapping failed.\n");
-+			if (ql_get_next_chunk(qdev, rx_ring, lbq_desc)) {
-+				QPRINTK(qdev, IFUP, ERR,
-+					"Could not get a page chunk.\n");
- 					return;
- 				}
-+
-+			map = lbq_desc->p.pg_chunk.map +
-+				lbq_desc->p.pg_chunk.offset;
- 				pci_unmap_addr_set(lbq_desc, mapaddr, map);
--				pci_unmap_len_set(lbq_desc, maplen, PAGE_SIZE);
-+			pci_unmap_len_set(lbq_desc, maplen,
-+					rx_ring->lbq_buf_size);
- 				*lbq_desc->addr = cpu_to_le64(map);
--			}
-+
-+			pci_dma_sync_single_for_device(qdev->pdev, map,
-+						rx_ring->lbq_buf_size,
-+						PCI_DMA_FROMDEVICE);
- 			clean_idx++;
- 			if (clean_idx == rx_ring->lbq_len)
- 				clean_idx = 0;
-@@ -1480,27 +1543,24 @@ static struct sk_buff *ql_build_rx_skb(struct ql_adapter *qdev,
- 			 * chain it to the header buffer's skb and let
- 			 * it rip.
- 			 */
--			lbq_desc = ql_get_curr_lbuf(rx_ring);
--			pci_unmap_page(qdev->pdev,
--				       pci_unmap_addr(lbq_desc,
--						      mapaddr),
--				       pci_unmap_len(lbq_desc, maplen),
--				       PCI_DMA_FROMDEVICE);
-+			lbq_desc = ql_get_curr_lchunk(qdev, rx_ring);
- 			QPRINTK(qdev, RX_STATUS, DEBUG,
--				"Chaining page to skb.\n");
--			skb_fill_page_desc(skb, 0, lbq_desc->p.lbq_page,
--					   0, length);
-+				"Chaining page at offset = %d,"
-+				"for %d bytes  to skb.\n",
-+				lbq_desc->p.pg_chunk.offset, length);
-+			skb_fill_page_desc(skb, 0, lbq_desc->p.pg_chunk.page,
-+						lbq_desc->p.pg_chunk.offset,
-+						length);
- 			skb->len += length;
- 			skb->data_len += length;
- 			skb->truesize += length;
--			lbq_desc->p.lbq_page = NULL;
- 		} else {
- 			/*
- 			 * The headers and data are in a single large buffer. We
- 			 * copy it to a new skb and let it go. This can happen with
- 			 * jumbo mtu on a non-TCP/UDP frame.
- 			 */
--			lbq_desc = ql_get_curr_lbuf(rx_ring);
-+			lbq_desc = ql_get_curr_lchunk(qdev, rx_ring);
- 			skb = netdev_alloc_skb(qdev->ndev, length);
- 			if (skb == NULL) {
- 				QPRINTK(qdev, PROBE, DEBUG,
-@@ -1515,13 +1575,14 @@ static struct sk_buff *ql_build_rx_skb(struct ql_adapter *qdev,
- 			skb_reserve(skb, NET_IP_ALIGN);
- 			QPRINTK(qdev, RX_STATUS, DEBUG,
- 				"%d bytes of headers and data in large. Chain page to new skb and pull tail.\n", length);
--			skb_fill_page_desc(skb, 0, lbq_desc->p.lbq_page,
--					   0, length);
-+			skb_fill_page_desc(skb, 0,
-+						lbq_desc->p.pg_chunk.page,
-+						lbq_desc->p.pg_chunk.offset,
-+						length);
- 			skb->len += length;
- 			skb->data_len += length;
- 			skb->truesize += length;
- 			length -= length;
--			lbq_desc->p.lbq_page = NULL;
- 			__pskb_pull_tail(skb,
- 				(ib_mac_rsp->flags2 & IB_MAC_IOCB_RSP_V) ?
- 				VLAN_ETH_HLEN : ETH_HLEN);
-@@ -1538,8 +1599,7 @@ static struct sk_buff *ql_build_rx_skb(struct ql_adapter *qdev,
- 		 *         frames.  If the MTU goes up we could
- 		 *          eventually be in trouble.
- 		 */
--		int size, offset, i = 0;
--		__le64 *bq, bq_array[8];
-+		int size, i = 0;
- 		sbq_desc = ql_get_curr_sbuf(rx_ring);
- 		pci_unmap_single(qdev->pdev,
- 				 pci_unmap_addr(sbq_desc, mapaddr),
-@@ -1558,37 +1618,25 @@ static struct sk_buff *ql_build_rx_skb(struct ql_adapter *qdev,
- 			QPRINTK(qdev, RX_STATUS, DEBUG,
- 				"%d bytes of headers & data in chain of large.\n", length);
- 			skb = sbq_desc->p.skb;
--			bq = &bq_array[0];
--			memcpy(bq, skb->data, sizeof(bq_array));
- 			sbq_desc->p.skb = NULL;
- 			skb_reserve(skb, NET_IP_ALIGN);
--		} else {
--			QPRINTK(qdev, RX_STATUS, DEBUG,
--				"Headers in small, %d bytes of data in chain of large.\n", length);
--			bq = (__le64 *)sbq_desc->p.skb->data;
- 		}
- 		while (length > 0) {
--			lbq_desc = ql_get_curr_lbuf(rx_ring);
--			pci_unmap_page(qdev->pdev,
--				       pci_unmap_addr(lbq_desc,
--						      mapaddr),
--				       pci_unmap_len(lbq_desc,
--						     maplen),
--				       PCI_DMA_FROMDEVICE);
--			size = (length < PAGE_SIZE) ? length : PAGE_SIZE;
--			offset = 0;
-+			lbq_desc = ql_get_curr_lchunk(qdev, rx_ring);
-+			size = (length < rx_ring->lbq_buf_size) ? length :
-+				rx_ring->lbq_buf_size;
+ static const struct driver_info	rndis_info = {
+ 	.description =	"RNDIS device",
+ 	.flags =	FLAG_ETHER | FLAG_FRAMING_RN | FLAG_NO_SETINT,
+ 	.bind =		rndis_bind,
+ 	.unbind =	rndis_unbind,
++	.manage_power =	rndis_manage_power,
+ 	.status =	rndis_status,
+ 	.rx_fixup =	rndis_rx_fixup,
+ 	.tx_fixup =	rndis_tx_fixup,
+@@ -609,6 +616,7 @@ static struct usb_driver rndis_driver = {
+ 	.disconnect =	usbnet_disconnect,
+ 	.suspend =	usbnet_suspend,
+ 	.resume =	usbnet_resume,
++	.supports_autosuspend = 1,
+ };
  
- 			QPRINTK(qdev, RX_STATUS, DEBUG,
- 				"Adding page %d to skb for %d bytes.\n",
- 				i, size);
--			skb_fill_page_desc(skb, i, lbq_desc->p.lbq_page,
--					   offset, size);
-+			skb_fill_page_desc(skb, i,
-+						lbq_desc->p.pg_chunk.page,
-+						lbq_desc->p.pg_chunk.offset,
-+						size);
- 			skb->len += size;
- 			skb->data_len += size;
- 			skb->truesize += size;
- 			length -= size;
--			lbq_desc->p.lbq_page = NULL;
--			bq++;
- 			i++;
- 		}
- 		__pskb_pull_tail(skb, (ib_mac_rsp->flags2 & IB_MAC_IOCB_RSP_V) ?
-@@ -2304,20 +2352,29 @@ err:
- 
- static void ql_free_lbq_buffers(struct ql_adapter *qdev, struct rx_ring *rx_ring)
- {
--	int i;
- 	struct bq_desc *lbq_desc;
- 
--	for (i = 0; i < rx_ring->lbq_len; i++) {
--		lbq_desc = &rx_ring->lbq[i];
--		if (lbq_desc->p.lbq_page) {
-+	uint32_t  curr_idx, clean_idx;
-+
-+	curr_idx = rx_ring->lbq_curr_idx;
-+	clean_idx = rx_ring->lbq_clean_idx;
-+	while (curr_idx != clean_idx) {
-+		lbq_desc = &rx_ring->lbq[curr_idx];
-+
-+		if (lbq_desc->p.pg_chunk.last_flag) {
- 			pci_unmap_page(qdev->pdev,
--				       pci_unmap_addr(lbq_desc, mapaddr),
--				       pci_unmap_len(lbq_desc, maplen),
-+				lbq_desc->p.pg_chunk.map,
-+				ql_lbq_block_size(qdev),
- 				       PCI_DMA_FROMDEVICE);
--
--			put_page(lbq_desc->p.lbq_page);
--			lbq_desc->p.lbq_page = NULL;
-+			lbq_desc->p.pg_chunk.last_flag = 0;
- 		}
-+
-+		put_page(lbq_desc->p.pg_chunk.page);
-+		lbq_desc->p.pg_chunk.page = NULL;
-+
-+		if (++curr_idx == rx_ring->lbq_len)
-+			curr_idx = 0;
-+
- 	}
+ static int __init rndis_init(void)
+diff --git a/drivers/net/usb/zaurus.c b/drivers/net/usb/zaurus.c
+index 04882c8..015c49d 100644
+--- a/drivers/net/usb/zaurus.c
++++ b/drivers/net/usb/zaurus.c
+@@ -94,6 +94,12 @@ static int zaurus_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	return usbnet_generic_cdc_bind(dev, intf);
  }
  
-@@ -2615,6 +2672,7 @@ static int ql_start_rx_ring(struct ql_adapter *qdev, struct rx_ring *rx_ring)
- 	/* Set up the shadow registers for this ring. */
- 	rx_ring->prod_idx_sh_reg = shadow_reg;
- 	rx_ring->prod_idx_sh_reg_dma = shadow_reg_dma;
-+	*rx_ring->prod_idx_sh_reg = 0;
- 	shadow_reg += sizeof(u64);
- 	shadow_reg_dma += sizeof(u64);
- 	rx_ring->lbq_base_indirect = shadow_reg;
-@@ -3495,6 +3553,10 @@ static int ql_configure_rings(struct ql_adapter *qdev)
- 	struct rx_ring *rx_ring;
- 	struct tx_ring *tx_ring;
- 	int cpu_cnt = min(MAX_CPUS, (int)num_online_cpus());
-+	unsigned int lbq_buf_len = (qdev->ndev->mtu > 1500) ?
-+		LARGE_BUFFER_MAX_SIZE : LARGE_BUFFER_MIN_SIZE;
-+
-+	qdev->lbq_buf_order = get_order(lbq_buf_len);
- 
- 	/* In a perfect world we have one RSS ring for each CPU
- 	 * and each has it's own vector.  To do that we ask for
-@@ -3542,7 +3604,10 @@ static int ql_configure_rings(struct ql_adapter *qdev)
- 			rx_ring->lbq_len = NUM_LARGE_BUFFERS;
- 			rx_ring->lbq_size =
- 			    rx_ring->lbq_len * sizeof(__le64);
--			rx_ring->lbq_buf_size = LARGE_BUFFER_SIZE;
-+			rx_ring->lbq_buf_size = (u16)lbq_buf_len;
-+			QPRINTK(qdev, IFUP, DEBUG,
-+				"lbq_buf_size %d, order = %d\n",
-+				rx_ring->lbq_buf_size, qdev->lbq_buf_order);
- 			rx_ring->sbq_len = NUM_SMALL_BUFFERS;
- 			rx_ring->sbq_size =
- 			    rx_ring->sbq_len * sizeof(__le64);
-@@ -3592,14 +3657,63 @@ error_up:
- 	return err;
- }
- 
-+static int ql_change_rx_buffers(struct ql_adapter *qdev)
++static int zaurus_manage_power(struct usbnet *dev, int on)
 +{
-+	struct rx_ring *rx_ring;
-+	int i, status;
-+	u32 lbq_buf_len;
-+
-+	/* Wait for an oustanding reset to complete. */
-+	if (!test_bit(QL_ADAPTER_UP, &qdev->flags)) {
-+		int i = 3;
-+		while (i-- && !test_bit(QL_ADAPTER_UP, &qdev->flags)) {
-+			QPRINTK(qdev, IFUP, ERR,
-+				 "Waiting for adapter UP...\n");
-+			ssleep(1);
-+		}
-+
-+		if (!i) {
-+			QPRINTK(qdev, IFUP, ERR,
-+			 "Timed out waiting for adapter UP\n");
-+			return -ETIMEDOUT;
-+		}
-+	}
-+
-+	status = ql_adapter_down(qdev);
-+	if (status)
-+		goto error;
-+
-+	/* Get the new rx buffer size. */
-+	lbq_buf_len = (qdev->ndev->mtu > 1500) ?
-+		LARGE_BUFFER_MAX_SIZE : LARGE_BUFFER_MIN_SIZE;
-+	qdev->lbq_buf_order = get_order(lbq_buf_len);
-+
-+	for (i = 0; i < qdev->rss_ring_count; i++) {
-+		rx_ring = &qdev->rx_ring[i];
-+		/* Set the new size. */
-+		rx_ring->lbq_buf_size = lbq_buf_len;
-+	}
-+
-+	status = ql_adapter_up(qdev);
-+	if (status)
-+		goto error;
-+
-+	return status;
-+error:
-+	QPRINTK(qdev, IFUP, ALERT,
-+		"Driver up/down cycle failed, closing device.\n");
-+	set_bit(QL_ADAPTER_UP, &qdev->flags);
-+	dev_close(qdev->ndev);
-+	return status;
++	dev->intf->needs_remote_wakeup = on;
++	return 0;
 +}
 +
- static int qlge_change_mtu(struct net_device *ndev, int new_mtu)
+ /* PDA style devices are always connected if present */
+ static int always_connected (struct usbnet *dev)
  {
- 	struct ql_adapter *qdev = netdev_priv(ndev);
-+	int status;
+@@ -106,6 +112,7 @@ static const struct driver_info	zaurus_sl5x00_info = {
+ 	.check_connect = always_connected,
+ 	.bind =		zaurus_bind,
+ 	.unbind =	usbnet_cdc_unbind,
++	.manage_power =	zaurus_manage_power,
+ 	.tx_fixup =	zaurus_tx_fixup,
+ };
+ #define	ZAURUS_STRONGARM_INFO	((unsigned long)&zaurus_sl5x00_info)
+@@ -116,6 +123,7 @@ static const struct driver_info	zaurus_pxa_info = {
+ 	.check_connect = always_connected,
+ 	.bind =		zaurus_bind,
+ 	.unbind =	usbnet_cdc_unbind,
++	.manage_power =	zaurus_manage_power,
+ 	.tx_fixup =	zaurus_tx_fixup,
+ };
+ #define	ZAURUS_PXA_INFO		((unsigned long)&zaurus_pxa_info)
+@@ -126,6 +134,7 @@ static const struct driver_info	olympus_mxl_info = {
+ 	.check_connect = always_connected,
+ 	.bind =		zaurus_bind,
+ 	.unbind =	usbnet_cdc_unbind,
++	.manage_power =	zaurus_manage_power,
+ 	.tx_fixup =	zaurus_tx_fixup,
+ };
+ #define	OLYMPUS_MXL_INFO	((unsigned long)&olympus_mxl_info)
+@@ -262,6 +271,7 @@ static const struct driver_info	bogus_mdlm_info = {
+ 	.check_connect = always_connected,
+ 	.tx_fixup =	zaurus_tx_fixup,
+ 	.bind =		blan_mdlm_bind,
++	.manage_power = zaurus_manage_power
+ };
  
- 	if (ndev->mtu == 1500 && new_mtu == 9000) {
- 		QPRINTK(qdev, IFUP, ERR, "Changing to jumbo MTU.\n");
--		queue_delayed_work(qdev->workqueue,
--				&qdev->mpi_port_cfg_work, 0);
- 	} else if (ndev->mtu == 9000 && new_mtu == 1500) {
- 		QPRINTK(qdev, IFUP, ERR, "Changing to normal MTU.\n");
- 	} else if ((ndev->mtu == 1500 && new_mtu == 1500) ||
-@@ -3607,8 +3721,23 @@ static int qlge_change_mtu(struct net_device *ndev, int new_mtu)
- 		return 0;
- 	} else
- 		return -EINVAL;
-+
-+	queue_delayed_work(qdev->workqueue,
-+			&qdev->mpi_port_cfg_work, 3*HZ);
-+
-+	if (!netif_running(qdev->ndev)) {
-+		ndev->mtu = new_mtu;
-+		return 0;
-+	}
-+
- 	ndev->mtu = new_mtu;
--	return 0;
-+	status = ql_change_rx_buffers(qdev);
-+	if (status) {
-+		QPRINTK(qdev, IFUP, ERR,
-+			"Changing MTU failed.\n");
-+	}
-+
-+	return status;
+ static const struct usb_device_id	products [] = {
+@@ -370,6 +380,7 @@ static struct usb_driver zaurus_driver = {
+ 	.disconnect =	usbnet_disconnect,
+ 	.suspend =	usbnet_suspend,
+ 	.resume =	usbnet_resume,
++	.supports_autosuspend = 1,
+ };
+ 
+ static int __init zaurus_init(void)
+
+
+--Boundary-00=_kxG3KD89IEoJXCo
+Content-Type: text/x-patch;
+  charset="UTF-8";
+  name="usbnet_tested_auto.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="usbnet_tested_auto.diff"
+
+commit 956c214d266fc1764ceb931b039c7aadded4eb24
+Author: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Date:   Mon Oct 19 15:07:54 2009 +0200
+
+    usb:usbnet&cdc-ether:full aggressive autosuspend
+    
+    autosuspend for cdc-ether devices while online if
+    the device supports remote wakeup
+
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index 4a6aff5..8ee5bd7 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -411,6 +411,12 @@ static int cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	return 0;
  }
  
- static struct net_device_stats *qlge_get_stats(struct net_device
--- 
-1.6.0.2
++static int cdc_manage_power(struct usbnet *dev, int on)
++{
++	dev->intf->needs_remote_wakeup = on;
++	return 0;
++}
++
+ static const struct driver_info	cdc_info = {
+ 	.description =	"CDC Ethernet Device",
+ 	.flags =	FLAG_ETHER,
+@@ -418,6 +424,7 @@ static const struct driver_info	cdc_info = {
+ 	.bind =		cdc_bind,
+ 	.unbind =	usbnet_cdc_unbind,
+ 	.status =	cdc_status,
++	.manage_power =	cdc_manage_power,
+ };
+ 
+ /*-------------------------------------------------------------------------*/
+@@ -570,6 +577,7 @@ static struct usb_driver cdc_driver = {
+ 	.disconnect =	usbnet_disconnect,
+ 	.suspend =	usbnet_suspend,
+ 	.resume =	usbnet_resume,
++	.supports_autosuspend = 1,
+ };
+ 
+ 
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index ca5ca5a..c9938d5 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -353,7 +353,8 @@ static void rx_submit (struct usbnet *dev, struct urb *urb, gfp_t flags)
+ 
+ 	if (netif_running (dev->net)
+ 			&& netif_device_present (dev->net)
+-			&& !test_bit (EVENT_RX_HALT, &dev->flags)) {
++			&& !test_bit (EVENT_RX_HALT, &dev->flags)
++			&& !test_bit (EVENT_DEV_ASLEEP, &dev->flags)) {
+ 		switch (retval = usb_submit_urb (urb, GFP_ATOMIC)) {
+ 		case -EPIPE:
+ 			usbnet_defer_kevent (dev, EVENT_RX_HALT);
+@@ -611,15 +612,36 @@ EXPORT_SYMBOL_GPL(usbnet_unlink_rx_urbs);
+ /*-------------------------------------------------------------------------*/
+ 
+ // precondition: never called in_interrupt
++static void usbnet_terminate_urbs(struct usbnet *dev)
++{
++	DECLARE_WAIT_QUEUE_HEAD_ONSTACK (unlink_wakeup);
++	DECLARE_WAITQUEUE (wait, current);
++	int temp;
++
++	/* ensure there are no more active urbs */
++	add_wait_queue(&unlink_wakeup, &wait);
++	dev->wait = &unlink_wakeup;
++	temp = unlink_urbs(dev, &dev->txq) +
++		unlink_urbs(dev, &dev->rxq);
++
++	/* maybe wait for deletions to finish. */
++	while (!skb_queue_empty(&dev->rxq)
++		&& !skb_queue_empty(&dev->txq)
++		&& !skb_queue_empty(&dev->done)) {
++			schedule_timeout(UNLINK_TIMEOUT_MS);
++			if (netif_msg_ifdown(dev))
++				devdbg(dev, "waited for %d urb completions",
++					temp);
++	}
++	dev->wait = NULL;
++	remove_wait_queue(&unlink_wakeup, &wait);
++}
+ 
+ int usbnet_stop (struct net_device *net)
+ {
+ 	struct usbnet		*dev = netdev_priv(net);
+ 	struct driver_info	*info = dev->driver_info;
+-	int			temp;
+ 	int			retval;
+-	DECLARE_WAIT_QUEUE_HEAD_ONSTACK (unlink_wakeup);
+-	DECLARE_WAITQUEUE (wait, current);
+ 
+ 	netif_stop_queue (net);
+ 
+@@ -641,25 +663,8 @@ int usbnet_stop (struct net_device *net)
+ 				info->description);
+ 	}
+ 
+-	if (!(info->flags & FLAG_AVOID_UNLINK_URBS)) {
+-		/* ensure there are no more active urbs */
+-		add_wait_queue(&unlink_wakeup, &wait);
+-		dev->wait = &unlink_wakeup;
+-		temp = unlink_urbs(dev, &dev->txq) +
+-			unlink_urbs(dev, &dev->rxq);
+-
+-		/* maybe wait for deletions to finish. */
+-		while (!skb_queue_empty(&dev->rxq)
+-				&& !skb_queue_empty(&dev->txq)
+-				&& !skb_queue_empty(&dev->done)) {
+-			msleep(UNLINK_TIMEOUT_MS);
+-			if (netif_msg_ifdown(dev))
+-				devdbg(dev, "waited for %d urb completions",
+-					temp);
+-		}
+-		dev->wait = NULL;
+-		remove_wait_queue(&unlink_wakeup, &wait);
+-	}
++	if (!(info->flags & FLAG_AVOID_UNLINK_URBS))
++		usbnet_terminate_urbs(dev);
+ 
+ 	usb_kill_urb(dev->interrupt);
+ 
+@@ -672,7 +677,10 @@ int usbnet_stop (struct net_device *net)
+ 	dev->flags = 0;
+ 	del_timer_sync (&dev->delay);
+ 	tasklet_kill (&dev->bh);
+-	usb_autopm_put_interface(dev->intf);
++	if (info->manage_power)
++		info->manage_power(dev, 0);
++	else
++		usb_autopm_put_interface(dev->intf);
+ 
+ 	return 0;
+ }
+@@ -753,6 +761,12 @@ int usbnet_open (struct net_device *net)
+ 
+ 	// delay posting reads until we're fully open
+ 	tasklet_schedule (&dev->bh);
++	if (info->manage_power) {
++		retval = info->manage_power(dev, 1);
++		if (retval < 0)
++			goto done;
++		usb_autopm_put_interface(dev->intf);
++	}
+ 	return retval;
+ done:
+ 	usb_autopm_put_interface(dev->intf);
+@@ -882,6 +896,7 @@ kevent (struct work_struct *work)
+ 	if (test_bit (EVENT_TX_HALT, &dev->flags)) {
+ 		unlink_urbs (dev, &dev->txq);
+ 		status = usb_clear_halt (dev->udev, dev->out);
++		usb_autopm_put_interface(dev->intf);
+ 		if (status < 0
+ 				&& status != -EPIPE
+ 				&& status != -ESHUTDOWN) {
+@@ -953,17 +968,20 @@ static void tx_complete (struct urb *urb)
+ 	if (urb->status == 0) {
+ 		dev->net->stats.tx_packets++;
+ 		dev->net->stats.tx_bytes += entry->length;
++		usb_autopm_put_interface_async(dev->intf);
+ 	} else {
+ 		dev->net->stats.tx_errors++;
+ 
+ 		switch (urb->status) {
+ 		case -EPIPE:
++			/* we do not allow autosuspension */
+ 			usbnet_defer_kevent (dev, EVENT_TX_HALT);
+ 			break;
+ 
+ 		/* software-driven interface shutdown */
+ 		case -ECONNRESET:		// async unlink
+ 		case -ESHUTDOWN:		// hardware gone
++			usb_autopm_put_interface_async(dev->intf);
+ 			break;
+ 
+ 		// like rx, tx gets controller i/o faults during khubd delays
+@@ -971,6 +989,7 @@ static void tx_complete (struct urb *urb)
+ 		case -EPROTO:
+ 		case -ETIME:
+ 		case -EILSEQ:
++			usb_mark_last_busy(dev->udev);
+ 			if (!timer_pending (&dev->delay)) {
+ 				mod_timer (&dev->delay,
+ 					jiffies + THROTTLE_JIFFIES);
+@@ -979,8 +998,10 @@ static void tx_complete (struct urb *urb)
+ 							urb->status);
+ 			}
+ 			netif_stop_queue (dev->net);
++			usb_autopm_put_interface_async(dev->intf);
+ 			break;
+ 		default:
++			usb_autopm_put_interface_async(dev->intf);
+ 			if (netif_msg_tx_err (dev))
+ 				devdbg (dev, "tx err %d", entry->urb->status);
+ 			break;
+@@ -1058,6 +1079,23 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
+ 	}
+ 
+ 	spin_lock_irqsave (&dev->txq.lock, flags);
++	retval = usb_autopm_get_interface_async(dev->intf);
++	if (retval < 0) {
++		spin_unlock_irqrestore (&dev->txq.lock, flags);
++		goto drop;
++	}
++
++#ifdef CONFIG_PM
++	/* if this triggers the device is still a sleep */
++	if (test_bit(EVENT_DEV_ASLEEP, &dev->flags)) {
++		/* transmission will be done in resume */
++		dev->deferred = urb;
++		/* no use to process more packets */
++		netif_stop_queue(net);
++		spin_unlock_irqrestore(&dev->txq.lock, flags);
++		goto deferred;
++	}
++#endif
+ 
+ 	switch ((retval = usb_submit_urb (urb, GFP_ATOMIC))) {
+ 	case -EPIPE:
+@@ -1088,6 +1126,7 @@ drop:
+ 		devdbg (dev, "> tx, len %d, type 0x%x",
+ 			length, skb->protocol);
+ 	}
++deferred:
+ 	return NETDEV_TX_OK;
+ }
+ EXPORT_SYMBOL_GPL(usbnet_start_xmit);
+@@ -1363,13 +1402,23 @@ int usbnet_suspend (struct usb_interface *intf, pm_message_t message)
+ 	struct usbnet		*dev = usb_get_intfdata(intf);
+ 
+ 	if (!dev->suspend_count++) {
++		spin_lock_irq(&dev->txq.lock);
++		/* don't autosuspend while transmitting */
++		if (dev->txq.qlen && (message.event & PM_EVENT_AUTO)) {
++			spin_unlock_irq(&dev->txq.lock);
++			return -EBUSY;
++		} else {
++			set_bit(EVENT_DEV_ASLEEP, &dev->flags);
++			spin_unlock_irq(&dev->txq.lock);
++		}
+ 		/*
+ 		 * accelerate emptying of the rx and queues, to avoid
+ 		 * having everything error out.
+ 		 */
+ 		netif_device_detach (dev->net);
+-		(void) unlink_urbs (dev, &dev->rxq);
+-		(void) unlink_urbs (dev, &dev->txq);
++		usbnet_terminate_urbs(dev);
++		usb_kill_urb(dev->interrupt);
++		
+ 		/*
+ 		 * reattach so runtime management can use and
+ 		 * wake the device
+@@ -1383,10 +1432,32 @@ EXPORT_SYMBOL_GPL(usbnet_suspend);
+ int usbnet_resume (struct usb_interface *intf)
+ {
+ 	struct usbnet		*dev = usb_get_intfdata(intf);
+-
+-	if (!--dev->suspend_count)
++	struct sk_buff          *skb;
++	struct urb              *res;
++	int                     retval;
++	
++	if (!--dev->suspend_count) {
++		spin_lock_irq(&dev->txq.lock);
++		res = dev->deferred;
++		dev->deferred = NULL;
++		clear_bit(EVENT_DEV_ASLEEP, &dev->flags);
++		spin_unlock_irq(&dev->txq.lock);
++		if (res) {
++			retval = usb_submit_urb(res, GFP_NOIO);
++			if (retval < 0) {
++				usb_free_urb(res);
++				netif_start_queue(dev->net);
++				usb_autopm_put_interface_async(dev->intf);
++			} else {
++				skb = (struct sk_buff *)res->context;
++				dev->net->trans_start = jiffies;
++				__skb_queue_tail (&dev->txq, skb);
++				if (!(dev->txq.qlen >= TX_QLEN(dev)))
++					netif_start_queue(dev->net);
++			}
++		}
+ 		tasklet_schedule (&dev->bh);
+-
++	}
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(usbnet_resume);
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index f814730..e418c0b 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -55,6 +55,7 @@ struct usbnet {
+ 	struct sk_buff_head	done;
+ 	struct sk_buff_head	rxq_pause;
+ 	struct urb		*interrupt;
++	struct urb		*deferred;
+ 	struct tasklet_struct	bh;
+ 
+ 	struct work_struct	kevent;
+@@ -65,6 +66,8 @@ struct usbnet {
+ #		define EVENT_STS_SPLIT	3
+ #		define EVENT_LINK_RESET	4
+ #		define EVENT_RX_PAUSED	5
++#             define EVENT_DEV_WAKING 6 
++#             define EVENT_DEV_ASLEEP 7 
+ };
+ 
+ static inline struct usb_driver *driver_of(struct usb_interface *intf)
+@@ -107,6 +110,9 @@ struct driver_info {
+ 	/* see if peer is connected ... can sleep */
+ 	int	(*check_connect)(struct usbnet *);
+ 
++	/* (dis)activate runtime power management */
++	int	(*manage_power)(struct usbnet *, int);
++
+ 	/* for status polling */
+ 	void	(*status)(struct usbnet *, struct urb *);
+ 
 
+--Boundary-00=_kxG3KD89IEoJXCo--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
