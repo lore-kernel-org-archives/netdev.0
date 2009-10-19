@@ -1,108 +1,33 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH] tcp: fix TCP_DEFER_ACCEPT retrans calculation
-Date: Mon, 19 Oct 2009 23:10:40 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.0910192304060.2971@u.domain.uli>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: TCP_DEFER_ACCEPT is missing counter update
+Date: Mon, 19 Oct 2009 22:11:22 +0200
+Message-ID: <20091019201122.GC21437@1wt.eu>
+References: <Pine.LNX.4.58.0910151120340.2879@u.domain.uli> <20091015124134.GB1073@1wt.eu> <Pine.LNX.4.58.0910152257410.3047@u.domain.uli> <20091016050310.GA5574@1wt.eu> <Pine.LNX.4.58.0910161137490.3886@u.domain.uli> <4AD84D8B.5020103@gmail.com> <Pine.LNX.4.58.0910171417260.7818@u.domain.uli> <4AD9B37A.3090606@gmail.com> <Pine.LNX.4.58.0910171709190.10440@u.domain.uli> <4ADCC58B.2060408@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Anastasov <ja@ssi.bg>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([217.79.71.194]:45928 "EHLO u.domain.uli"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752134AbZJSUJH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Oct 2009 16:09:07 -0400
+Received: from 1wt.eu ([62.212.114.60]:50396 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753486AbZJSUL2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Oct 2009 16:11:28 -0400
+Content-Disposition: inline
+In-Reply-To: <4ADCC58B.2060408@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Oct 19, 2009 at 10:01:15PM +0200, Eric Dumazet wrote:
+> David, I think we should revert 6d01a026b7d3009a418326bdcf313503a314f1ea
+> (tcp: fix tcp_defer_accept to consider the timeout) 
+> since we know its broken.
 
-	Fix TCP_DEFER_ACCEPT conversion between seconds and
-retransmission to match the TCP SYN-ACK retransmission periods
-because the time is converted to such retransmissions. The old
-algorithm selects one more retransmission in some cases. Allow
-up to 255 retransmissions.
+yes I agree with Eric, please revert it and wait for Julian's
+patch which gets it right. Sorry for the wrong fix, at least
+it will have brought the discussion on the table, but without
+a faulty patch it would have been better :-/
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
+Thanks,
+Willy
 
-	Not sure if this is the right place to put both
-functions ...
-
-diff -urp v2.6.31/linux/net/ipv4/tcp.c linux/net/ipv4/tcp.c
---- v2.6.31/linux/net/ipv4/tcp.c	2009-09-11 10:27:17.000000000 +0300
-+++ linux/net/ipv4/tcp.c	2009-10-17 16:37:48.000000000 +0300
-@@ -326,6 +326,43 @@ void tcp_enter_memory_pressure(struct so
- 
- EXPORT_SYMBOL(tcp_enter_memory_pressure);
- 
-+/* Convert seconds to retransmits based on initial and max timeout */
-+static u8 secs_to_retrans(int seconds, int timeout, int rto_max)
-+{
-+	u8 res = 0;
-+
-+	if (seconds > 0) {
-+		int period = timeout;
-+
-+		res = 1;
-+		while (seconds > period && res < 255) {
-+			res++;
-+			timeout <<= 1;
-+			if (timeout > rto_max)
-+				timeout = rto_max;
-+			period += timeout;
-+		}
-+	}
-+	return res;
-+}
-+
-+/* Convert retransmits to seconds based on initial and max timeout */
-+static int retrans_to_secs(u8 retrans, int timeout, int rto_max)
-+{
-+	int period = 0;
-+
-+	if (retrans > 0) {
-+		period = timeout;
-+		while (--retrans) {
-+			timeout <<= 1;
-+			if (timeout > rto_max)
-+				timeout = rto_max;
-+			period += timeout;
-+		}
-+	}
-+	return period;
-+}
-+
- /*
-  *	Wait for a TCP event.
-  *
-@@ -2163,16 +2200,10 @@ static int do_tcp_setsockopt(struct sock
- 		break;
- 
- 	case TCP_DEFER_ACCEPT:
--		icsk->icsk_accept_queue.rskq_defer_accept = 0;
--		if (val > 0) {
--			/* Translate value in seconds to number of
--			 * retransmits */
--			while (icsk->icsk_accept_queue.rskq_defer_accept < 32 &&
--			       val > ((TCP_TIMEOUT_INIT / HZ) <<
--				       icsk->icsk_accept_queue.rskq_defer_accept))
--				icsk->icsk_accept_queue.rskq_defer_accept++;
--			icsk->icsk_accept_queue.rskq_defer_accept++;
--		}
-+		/* Translate value in seconds to number of retransmits */
-+		icsk->icsk_accept_queue.rskq_defer_accept =
-+			secs_to_retrans(val, TCP_TIMEOUT_INIT / HZ,
-+					TCP_RTO_MAX / HZ);
- 		break;
- 
- 	case TCP_WINDOW_CLAMP:
-@@ -2353,8 +2384,8 @@ static int do_tcp_getsockopt(struct sock
- 			val = (val ? : sysctl_tcp_fin_timeout) / HZ;
- 		break;
- 	case TCP_DEFER_ACCEPT:
--		val = !icsk->icsk_accept_queue.rskq_defer_accept ? 0 :
--			((TCP_TIMEOUT_INIT / HZ) << (icsk->icsk_accept_queue.rskq_defer_accept - 1));
-+		val = retrans_to_secs(icsk->icsk_accept_queue.rskq_defer_accept,
-+				      TCP_TIMEOUT_INIT / HZ, TCP_RTO_MAX / HZ);
- 		break;
- 	case TCP_WINDOW_CLAMP:
- 		val = tp->window_clamp;
