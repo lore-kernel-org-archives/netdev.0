@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: TCP_DEFER_ACCEPT is missing counter update
-Date: Mon, 19 Oct 2009 19:23:44 -0700 (PDT)
-Message-ID: <20091019.192344.193705436.davem@davemloft.net>
-References: <4AD9B37A.3090606@gmail.com>
-	<Pine.LNX.4.58.0910171709190.10440@u.domain.uli>
-	<4ADCC58B.2060408@gmail.com>
+Subject: Re: kernel panic in latest vanilla stable, while using nameif with
+ "alive" pppoe interfaces
+Date: Mon, 19 Oct 2009 19:28:02 -0700 (PDT)
+Message-ID: <20091019.192802.11400458.davem@davemloft.net>
+References: <4ADCB3A4.8060408@gmail.com>
+	<20091019205740.GD5233@lenovo>
+	<e6d1cecd0910191422t2905d9bbl3355fc50cf36ff90@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, w@1wt.eu, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38303
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757229AbZJTCXW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 22:23:22 -0400
-In-Reply-To: <4ADCC58B.2060408@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gorcunov@gmail.com, eric.dumazet@gmail.com, denys@visp.net.lb,
+	netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
+	paulus@samba.org, mostrows@earthlink.net
+To: mostrows@gmail.com
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <e6d1cecd0910191422t2905d9bbl3355fc50cf36ff90@mail.gmail.com>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 19 Oct 2009 22:01:15 +0200
 
-> David, I think we should revert 6d01a026b7d3009a418326bdcf313503a314f1ea
-> (tcp: fix tcp_defer_accept to consider the timeout) 
-> since we know its broken.
+Please stop top posting!
 
-I've reverted that patch and applied Julian's three tcp
-patches, thanks!
+I want to follow this discussions efficiently and that's impossible
+if you reply BEFORE instead of AFTER the context of what you're
+replying to.
+
+Note that a day will come very soon that postings to these lists
+that do top posting will be flat out bounced back to you and
+never make it to the list at all.
