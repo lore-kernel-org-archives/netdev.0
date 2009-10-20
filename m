@@ -1,33 +1,44 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel panic in latest vanilla stable, while using nameif with
- "alive" pppoe interfaces
-Date: Tue, 20 Oct 2009 05:42:26 +0200
-Message-ID: <4ADD31A2.4030702@gmail.com>
-References: <200910190002.39937.denys@visp.net.lb>	 <e6d1cecd0910182034t9d24859mc6f392875b36ad17@mail.gmail.com>	 <4ADC5D3B.8010006@gmail.com>	 <e6d1cecd0910190619t3e009e1by49cc8f7307eb7cdb@mail.gmail.com>	 <20091019155034.GA5233@lenovo>	 <e6d1cecd0910190905x382bfc23w2987c84aa0837609@mail.gmail.com>	 <4ADC9DE2.5010308@gmail.com>	 <e6d1cecd0910191107h899a4ffs588f2413093dfb4b@mail.gmail.com>	 <4ADCB3A4.8060408@gmail.com> <e6d1cecd0910191354o16d023d2lbe2761a97e88acea@mail.gmail.com>
+Subject: Re: pktgen and spin_lock_bh in xmit path
+Date: Tue, 20 Oct 2009 05:48:10 +0200
+Message-ID: <4ADD32FA.6030409@gmail.com>
+References: <4ADD309B.1040505@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Cyrill Gorcunov <gorcunov@gmail.com>,
-	Denys Fedoryschenko <denys@visp.net.lb>,
-	netdev <netdev@vger.kernel.org>, linux-ppp@vger.kernel.org,
-	paulus@samba.org, mostrows@earthlink.net
-To: Michal Ostrowski <mostrows@gmail.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <e6d1cecd0910191354o16d023d2lbe2761a97e88acea@mail.gmail.com>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: NetDev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:58963 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753612AbZJTDsI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 23:48:08 -0400
+In-Reply-To: <4ADD309B.1040505@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michal Ostrowski a =E9crit :
-> Access of po->pppoe_dev is guarded by sk->sk_state & PPPOX_CONNECTED,
-> and all use cases now rely on the socket lock.  Because of this, the
-> ref-count on the namespace held by the socket object suffices to hold
-> the namespace in existence and so we don't need to ref-count the
-> namespace in PPPoE. The flush_lock is gone.
+Ben Greear a =E9crit :
+> I'm having strange issues when running pktgen on 10G interfaces while
+> also running
+> pktgen on mac-vlans on that interface, when the mac-vlan pktgen threa=
+ds
+> are on a different
+> CPU.
+>=20
+> First, lockdep gives up and says that things are not properly
+> annotated.  I believe this is because
+> the macvlan tx path will lock it's txq and will also lock the
+> lower-dev's txq.  To fix this, perhaps
+> we need some new lockdep aware primitives for netdev txq locking?
+>=20
+> Second, is using _bh() locking really sufficient if we have pktgen
+> writing to a physical device
+> and also have other pktgen threads writing to that same device though
+> mac-vlans?   I'm seeing
+> deadlocks spinning on the _bh() lock in pktgen as well as strange
+> corruptions, so I think there
+> must be *some* problem somewhere, I just don't know quite what it is =
+yet.
 >=20
 
-Seems good !
-
-But can we use lock_sock() in __pppoe_xmit() context ?
-
-
-
+Could you please give us a copy if your pktgen scripts ?
