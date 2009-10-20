@@ -1,27 +1,39 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: kernel panic in latest vanilla stable, while using nameif with  "alive" pppoe interfaces
-Date: Tue, 20 Oct 2009 03:08:57 +0300
-Message-ID: <200910200308.57381.denys@visp.net.lb>
-References: <200910190002.39937.denys@visp.net.lb> <20091019205740.GD5233@lenovo> <e6d1cecd0910191422t2905d9bbl3355fc50cf36ff90@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] IPv4: skip loopback checksums in ip_rcv()
+Date: Mon, 19 Oct 2009 17:24:55 -0700 (PDT)
+Message-ID: <20091019.172455.139931137.davem@davemloft.net>
+References: <200910192134.02125.schmto@hrz.tu-chemnitz.de>
+	<4ADCCF1A.7070301@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Cyrill Gorcunov <gorcunov@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>, linux-ppp@vger.kernel.org,
-	paulus@samba.org, mostrows@earthlink.net
-To: Michal Ostrowski <mostrows@gmail.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <e6d1cecd0910191422t2905d9bbl3355fc50cf36ff90@mail.gmail.com>
-Content-Disposition: inline
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: torsten.schmidt@s2006.tu-chemnitz.de, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45304
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751077AbZJTAYd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 20:24:33 -0400
+In-Reply-To: <4ADCCF1A.7070301@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 20 October 2009 00:22:39 Michal Ostrowski wrote:
-> I'm assuming that there was a race in us sending patches at nearly the same
-> time I'm convinced now that the flush_lock can die, and the patch I sent
-> out kills it.
-o_O 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 19 Oct 2009 22:42:02 +0200
 
-I am drowning in patches. Just let me know which one to test :-)
+> One bit could be corrupted in iph, and ntohl(iph->daddr) becomes 0x7fxxyyzz,
+> we then accept a bogus frame. This is a RFC violation.
+> 
+> This also slows down non loopback devices, adding an extra test.
+> 
+> ip_fast_csum() is really fast (about 16 instructions).
+
+Also loopback doesn't mean anything.  That packet could
+be mirrored and sent externally via packet scheduler
+rules and actions.
+
+And for this specific case, the savings are absolutely zero.
+
+We've brought the whole damn IP header into the CPU cache and
+that is the real cost.  The calculation is something like 12
+instructions, maybe 6 cycles on a modern cpu, which is nothing.
