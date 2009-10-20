@@ -1,30 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 2/2] bluetooth: static lock key fix
-Date: Mon, 19 Oct 2009 19:37:29 -0700 (PDT)
-Message-ID: <20091019.193729.102016721.davem@davemloft.net>
-References: <20091019062830.GB4102@darkstar.vlan7>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: kernel panic in latest vanilla stable, while using nameif with
+	"alive" pppoe interfaces
+Date: Tue, 20 Oct 2009 07:04:35 +0400
+Message-ID: <aa79d98a0910192004g43de90d5p823293b888cf0c1d@mail.gmail.com>
+References: <200910190002.39937.denys@visp.net.lb>
+	 <20091019205740.GD5233@lenovo>
+	 <e6d1cecd0910191422t2905d9bbl3355fc50cf36ff90@mail.gmail.com>
+	 <200910200308.57381.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20091019062830.GB4102-4/PLUo9XfK+SVgrV+fD4Uw@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Michal Ostrowski <mostrows@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>, linux-ppp@vger.kernel.org,
+	paulus@samba.org, mostrows@earthlink.net
+To: Denys Fedoryschenko <denys@visp.net.lb>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <200910200308.57381.denys@visp.net.lb>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Mon, 19 Oct 2009 14:28:30 +0800
-
-> When shutdown ppp connection, lockdep waring about non-static key
-> will happen, it is caused by the lock is not initialized properly
-> at that time.
-> 
-> Fix with tuning the lock/skb_queue_head init order
- ...
-> Reported-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-> Signed-off-by: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Tested-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-
-Applied, thanks Dave.
+On 10/20/09, Denys Fedoryschenko <denys@visp.net.lb> wrote:
+> On Tuesday 20 October 2009 00:22:39 Michal Ostrowski wrote:
+>> I'm assuming that there was a race in us sending patches at nearly the
+>> same
+>> time I'm convinced now that the flush_lock can die, and the patch I sent
+>> out kills it.
+> o_O
+>
+> I am drowning in patches. Just let me know which one to test :-)
+>
+Oh ;) Try out latest Michal's patch (and then mine). I'll continue
+digg this issue at next spare time slot. Thanks!
