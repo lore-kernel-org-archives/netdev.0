@@ -1,36 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v0 1/7] gianfar: Add per queue structure support
-Date: Tue, 20 Oct 2009 00:56:46 -0700 (PDT)
-Message-ID: <20091020.005646.227664762.davem@davemloft.net>
-References: <20091019.231633.25328647.davem@davemloft.net>
-	<9F4C7D19E8361D4C94921B95BE08B81B8940DB@zin33exm22.fsl.freescale.net>
-	<20091020.000358.53030357.davem@davemloft.net>
+Subject: Re: [PATCH] af_packet: Avoid cache line dirtying
+Date: Tue, 20 Oct 2009 01:07:53 -0700 (PDT)
+Message-ID: <20091020.010753.129086177.davem@davemloft.net>
+References: <4AD87CEC.4020407@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sandeep.Kumar@freescale.com
+Cc: netdev@vger.kernel.org, deri@ntop.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41313
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59687
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750885AbZJTH4X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 03:56:23 -0400
-In-Reply-To: <20091020.000358.53030357.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1751076AbZJTIHb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 04:07:31 -0400
+In-Reply-To: <4AD87CEC.4020407@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 20 Oct 2009 00:03:58 -0700 (PDT)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 16 Oct 2009 16:02:20 +0200
 
-> From: "Kumar Gopalpet-B05799" <Sandeep.Kumar@freescale.com>
-> Date: Tue, 20 Oct 2009 12:15:14 +0530
+> While doing multiple captures, I found af_packet was dirtying cache line
+> containing its prot_hook.
 > 
->> I am assuming all the 7 patches are applied.
+> This slow down machines where several cpus are necessary to handle capture
+> traffic, as each prot_hook is traversed for each packet coming in or out
+> the host.
 > 
-> I am going to add them, yes.
+> This patches moves "struct packet_type prot_hook" to the end of 
+> packet_sock, and uses a ____cacheline_aligned_in_smp to make sure
+> this remains shared by all cpus.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Nevermind, these patches don't apply to net-next-2.6 at all
-and will need to be respun.
-
-For example, patch #1 rejects because gfar_suspend() in
-net-next-2.6 takes a 'dev' not an 'ofdev'.
+Applied.
