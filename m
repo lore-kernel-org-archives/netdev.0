@@ -1,33 +1,47 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Subject: [PATCH 1/6] bna: Brocade 10Gb Ethernet device driver
-Date: Tue, 20 Oct 2009 09:54:15 +0900
-Message-ID: <20091020005415.GA3937@gondor.apana.org.au>
-References: <200910161824.n9GIOuoX010135@blc-10-10.brocade.com>
+From: Anirban Sinha <asinha@zeugmasystems.com>
+Subject: Re: Kernel oops when clearing bgp neighbor info with TCP MD5SUM
+ enabled
+Date: Mon, 19 Oct 2009 17:56:07 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0910191745050.20086@sleet.zeugmasystems.local>
+References: <Pine.LNX.4.64.0910081514050.18315@sleet.zeugmasystems.local>
+ <20091008.155429.02850661.davem@davemloft.net>
+ <Pine.LNX.4.64.0910081622400.18315@sleet.zeugmasystems.local>
+ <20091008.175703.83006470.davem@davemloft.net>
+ <Pine.LNX.4.64.0910171035340.2364@sleet.zeugmasystems.local>
+ <4ADA7EDC.5010402@anirban.org> <4ADB7856.7000803@anirban.org>
+ <20091019121327.GA11423@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, amathur@brocade.com
-To: Rasesh Mody <rmody@brocade.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Anirban Sinha <ani@anirban.org>, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Oleg Nesterov <oleg@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:53906 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755609AbZJTAyM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 20:54:12 -0400
-Content-Disposition: inline
-In-Reply-To: <200910161824.n9GIOuoX010135@blc-10-10.brocade.com>
+Received: from smtp.zeugmasystems.com ([70.79.96.174]:25008 "EHLO
+	zeugmasystems.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932396AbZJTA4D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 20:56:03 -0400
+In-Reply-To: <20091019121327.GA11423@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rasesh Mody <rmody@brocade.com> wrote:
-.
-> +static int bnad_lro_get_skb_header(struct sk_buff *skb, void **iphdr,
-> +    void **tcphdr, u64 *hdr_flags, void *priv)
 
-Please stop using LRO in new code.  The GRO replacement should
-be used instead.
+> I'd suppose that this unbalance comes from inet_twdr_hangman() pathes.
+>
+> Could you verify this?
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+Yes, I have now verified this. There is indeed an issue with one of the
+functions called by inet_twdr_hangman(). The call sequence is:
+
+inet_twdr_hangman() -> inet_twdr_do_twkill_work() -> inet_twsk_put() ->
+twsk_destructor().
+
+In this case, the destructor callback is tcp_twsk_destructor() (installed
+from line 1208 in net/ipv4/tcp_ipv4.c and line 906 in net/ipv6/tcp_ipv6.c) .
+Without the TCP_MD5SUM compiled in, the function is a no-op. However, with the MD5SUM
+compiled in, it calls tcp_put_md5_sig_pool() (when keylen is non zero) which
+does an unbalanced put_cpu(). I did a grep across the entire tree.
+tcp_put_md5_sig_pool() is a matching function for tcp_get_md5_sig_pool() and
+in all other TCP IPV4 cases, it is called from net/ipv4/tcp_ipv4.c from
+functions tcp_v4_md5_hash_hdr() and
+
