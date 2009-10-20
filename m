@@ -1,44 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: pktgen and spin_lock_bh in xmit path
-Date: Tue, 20 Oct 2009 05:48:10 +0200
-Message-ID: <4ADD32FA.6030409@gmail.com>
-References: <4ADD309B.1040505@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Fix IP_MULTICAST_IF
+Date: Mon, 19 Oct 2009 20:59:48 -0700 (PDT)
+Message-ID: <20091019.205948.193706797.davem@davemloft.net>
+References: <4ADC96D6.4000909@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: NetDev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:58963 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753612AbZJTDsI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 23:48:08 -0400
-In-Reply-To: <4ADD309B.1040505@candelatech.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48756
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755843AbZJTD7Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 23:59:25 -0400
+In-Reply-To: <4ADC96D6.4000909@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Greear a =E9crit :
-> I'm having strange issues when running pktgen on 10G interfaces while
-> also running
-> pktgen on mac-vlans on that interface, when the mac-vlan pktgen threa=
-ds
-> are on a different
-> CPU.
->=20
-> First, lockdep gives up and says that things are not properly
-> annotated.  I believe this is because
-> the macvlan tx path will lock it's txq and will also lock the
-> lower-dev's txq.  To fix this, perhaps
-> we need some new lockdep aware primitives for netdev txq locking?
->=20
-> Second, is using _bh() locking really sufficient if we have pktgen
-> writing to a physical device
-> and also have other pktgen threads writing to that same device though
-> mac-vlans?   I'm seeing
-> deadlocks spinning on the _bh() lock in pktgen as well as strange
-> corruptions, so I think there
-> must be *some* problem somewhere, I just don't know quite what it is =
-yet.
->=20
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 19 Oct 2009 18:41:58 +0200
 
-Could you please give us a copy if your pktgen scripts ?
+> ipv4/ipv6 setsockopt(IP_MULTICAST_IF) have dubious __dev_get_by_index() calls.
+
+Dubious, how so?
+
+Yes, I know RTNL/dev_base_lock, but it's not using what it gets
+back at all.
+
+It's testing existence, a boolean, it doesn't dereference the
+'dev' it gets back at all.
+
+This code is intentional and perfectly fine.
