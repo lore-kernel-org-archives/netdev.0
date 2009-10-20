@@ -1,35 +1,43 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH RFC] Per route TCP options
-Date: Tue, 20 Oct 2009 09:26:44 -0700
-Message-ID: <4ADDE4C4.5080501@hp.com>
-References: <1256052161-14156-1-git-send-email-gilad@codefidence.com>
+From: Atis Elsts <atis@mikrotik.com>
+Subject: Re: Policy routing + route "via" gives a strange behavior
+Date: Tue, 20 Oct 2009 19:48:39 +0300
+Message-ID: <200910201948.39778.atis@mikrotik.com>
+References: <20091020132820.GA3159@gg.studio.tixteam.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ori@comsleep.com
-To: Gilad Ben-Yossef <gilad@codefidence.com>
+Cc: netdev@vger.kernel.org
+To: Guido Trotter <ultrotter@quaqua.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0187.atlanta.hp.com ([15.193.32.64]:33074 "EHLO
-	g6t0187.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752604AbZJTQ0n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 12:26:43 -0400
-In-Reply-To: <1256052161-14156-1-git-send-email-gilad@codefidence.com>
+Received: from bute.mt.lv ([159.148.172.196]:41789 "EHLO bute.mt.lv"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751855AbZJTQrS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Oct 2009 12:47:18 -0400
+In-Reply-To: <20091020132820.GA3159@gg.studio.tixteam.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Gilad Ben-Yossef wrote:
-> Turn the global sysctls allowing disabling of TCP SACK, DSCAK,
-> time stamp and window scale into per route entry feature options,
-> laying the ground to future removal of the relevant global sysctls.
-> 
-> You really only want to disable SACK, DSACK, time stamp or window
-> scale if you've got a piece of broken networking equipment somewhere 
-> as a stop gap until you can bring a big enough hammer to deal with
-> the broken network equipment. It doesn't make sense to "punish" the
-> entire connections going through the machine to destinations not 
-> related to the broken equipment.
+On Tuesday 20 October 2009 16:28:20 you wrote:
+> This is also refused unless a route like the one before appears in the
+> default table, even though it does appear in table 100. Is this the right
+> behavior, and if yes, why? 
 
-Is it really only the case that those options get disabled for broken networking 
-equipment?  Does this presage making all TCP options per-route only?
+I guess what you describe is too infrequent use case for anyone to really 
+care. Connected and link scoped routes are usually not added to policy 
+routing tables :) Can you explain more for what kind of setup this is needed?
 
-rick jones
+This "issue" could be solved by using routing table in the FIB lookup done in 
+fib_check_nh(). However, doing that would break a lot more setups than it 
+would "fix".
+For example, if you had these rules
+  from all to 1.2.3.4 fwmark 0x64 lookup 100
+  from all fwmark 0x64 unreachable
+then adding policy route to table 100 would fail unless nexthop 1.2.3.4 was 
+used...
+
+Anyway, you can achieve what you wish by using the "onlink" option, e.g.:
+  ip route add table 100 default dev eth1 via 192.168.5.254 onlink
+
+Atis
