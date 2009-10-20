@@ -1,73 +1,111 @@
-From: Guido Trotter <ultrotter@quaqua.net>
-Subject: Re: Policy routing + route "via" gives a strange behavior
-Date: Tue, 20 Oct 2009 19:23:34 +0200
-Message-ID: <20091020172334.GA6404@gg.studio.tixteam.net>
-References: <20091020132820.GA3159@gg.studio.tixteam.net> <200910201948.39778.atis@mikrotik.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: pktgen and spin_lock_bh in xmit path
+Date: Tue, 20 Oct 2009 10:37:36 -0700
+Message-ID: <4ADDF560.1020509@candelatech.com>
+References: <4ADD309B.1040505@candelatech.com> <4ADD32FA.6030409@gmail.com> <4ADD41F5.5080707@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Atis Elsts <atis@mikrotik.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: NetDev <netdev@vger.kernel.org>, robert@herjulf.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip-146-243.sn2.eutelia.it ([83.211.146.243]:53482 "EHLO
-	gg.studio.tixteam.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752787AbZJTR2L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 13:28:11 -0400
-Content-Disposition: inline
-In-Reply-To: <200910201948.39778.atis@mikrotik.com>
+Received: from mail.candelatech.com ([208.74.158.172]:50152 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751539AbZJTRhk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 13:37:40 -0400
+In-Reply-To: <4ADD41F5.5080707@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 20, 2009 at 07:48:39PM +0300, Atis Elsts wrote:
+On 10/19/2009 09:52 PM, Ben Greear wrote:
+> Eric Dumazet wrote:
+>> Ben Greear a =E9crit :
+>>> I'm having strange issues when running pktgen on 10G interfaces whi=
+le
+>>> also running
+>>> pktgen on mac-vlans on that interface, when the mac-vlan pktgen thr=
+eads
+>>> are on a different
+>>> CPU.
 
-Hi,
 
-Thanks for your explanation/help!
+I think I found the problem.  First, lockdep was not the issue, and mac=
+-vlans
+were properly setting up the lockdep keys.  I would have expected lockd=
+ep to
+figure out I was trying to lock a non-valid lock, but maybe something e=
+lse
+kept that from happening.
 
-> > This is also refused unless a route like the one before appears in the
-> > default table, even though it does appear in table 100. Is this the right
-> > behavior, and if yes, why? 
-> 
-> I guess what you describe is too infrequent use case for anyone to really 
-> care. Connected and link scoped routes are usually not added to policy 
-> routing tables :) Can you explain more for what kind of setup this is needed?
-> 
+Second:  I think the problem can only happen on my code tree because I
+added code to allow mac-vlans to return NETDEV_TX_BUSY
+when a hacked varient of dev_queue_xmit decided it could not immediatel=
+y
+transmit a packet.  Without my change, a packet would have to be create=
+d fresh
+in this scenario, so it would not hit the bug.
 
-What I'm using it to is to force virtual machine traffic from a host to be
-routed to a different interface (a gre interface, in my case). I set up a rule
-that traffic from the guests' network (or from their interfaces) looks up a
-different routing table, and in that table I set a default gateway so that any
-traffic the instance would do is sent via that gateway.
+However, I think pktgen might still need a similar fix because other dr=
+ivers or
+logic might also change the skb tx-queue map.
 
-> This "issue" could be solved by using routing table in the FIB lookup done in 
-> fib_check_nh(). However, doing that would break a lot more setups than it 
-> would "fix".
-> For example, if you had these rules
->   from all to 1.2.3.4 fwmark 0x64 lookup 100
->   from all fwmark 0x64 unreachable
-> then adding policy route to table 100 would fail unless nexthop 1.2.3.4 was 
-> used...
-> 
-Not sure I follow you here, sorry! :/ How would it behave differently depending
-on the rules used? If in table 100 I had something like:
+Here is the problem, or at least one of them:
 
-ip route add 1.2.3.4 dev eth1 via 2.3.4.5
+pktgen tries to xmit, but gets NETDEV_TX_BUSY.  During the xmit attempt=
+, the
+skb queue map was changed to that of the underlying device, which was 4=
+=2E  Note
+that mac-vlans have only a single tx queue.
+pktgen will retry this skb, but it never resets the skb queue back to 0=
+=2E
+This means that it will soon be accessing txq[4], which is corrupting
+memory.  Things rapidly decline from here!
 
-Then the traffic looking up 100 (which according to the rules is to 1.2.3.4, but
-could be to something else as well) must be routed via 2.3.4.5.
-Of course then in table 100 I need a route to 2.3.4.5, or I need one in the
-default table (which is the only one that gets checked now).
+Here is a patch for comment, in case the pktgen folks would like to
+apply something similar:
 
-> Anyway, you can achieve what you wish by using the "onlink" option, e.g.:
->   ip route add table 100 default dev eth1 via 192.168.5.254 onlink
+@@ -3991,11 +4001,26 @@ static void pktgen_xmit(struct pktgen_dev *pkt_=
+dev, u64 now)
+                 }
+         }
 
-I will try this, thanks! What I was doing now was something like:
-ip route add 192.168.5.254/32 dev eth1 # no table 100
-ip route add table 100 default dev eth1 via 192.168.5.254
-ip route del 192.168.5.254/32 dev eth1
+-       if (!pkt_dev->skb) {
++       if ((!pkt_dev->skb) || (pkt_dev->clone_count <=3D 1)) {
++               /** If clone count is low, that might be because device=
+ is a layered
++                * virtual device, like mac-vlan.  In that case, the qu=
+eue-map may be
++                * changed while transmitting out the lower levels, so =
+we need to
++                * reset this here so we don't accidentally use a bogus=
+ queue.
++                */
++       reset_queue_map:
+                 set_cur_queue_map(pkt_dev);
+                 queue_map =3D pkt_dev->cur_queue_map;
+         } else {
+                 queue_map =3D skb_get_queue_mapping(pkt_dev->skb);
++               if (unlikely(queue_map >=3D odev->num_tx_queues)) {
++                       static int do_once =3D 1;
++                       if (do_once) {
++                               printk("pktgen ERROR:  queue_map range =
+error, queue_map: %i  num_tx_queues: %i  iface: %s\n",
++                                      queue_map, odev->num_tx_queues, =
+odev->name);
++                               WARN_ON(1);
++                       }
++                       goto reset_queue_map;
++               }
+         }
 
-But it was kind of a nasty workaround. Although it was working :)
+         txq =3D netdev_get_tx_queue(odev, queue_map);
+
 
 Thanks,
+Ben
 
-Guido
+--=20
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
