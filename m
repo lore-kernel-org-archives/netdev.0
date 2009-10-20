@@ -1,74 +1,38 @@
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [PATCH 4/4 v4] net: Use sk_tx_queue_mapping for connected sockets
-Date: Tue, 20 Oct 2009 15:20:07 +0530
-Message-ID: <20091020095007.10404.15676.sendpatchset@localhost.localdomain>
-References: <20091020094607.10404.81794.sendpatchset@localhost.localdomain>
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	Krishna Kumar <krkumar2@in.ibm.com>, dada1@cosmosbay.com
-To: davem@davemloft.net
+From: Ben Dooks <ben@fluff.org>
+Subject: Re: [PATCH] Add new cs89x0 driver
+Date: Tue, 20 Oct 2009 10:55:01 +0100
+Message-ID: <20091020095501.GA306@fluff.org.uk>
+References: <1240387172-21818-1-git-send-email-s.hauer@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Lennert Buytenhek <kernel@wantstofly.org>,
+	Ivo Clarysse <ivo.clarysse@gmail.com>,
+	Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
+To: Sascha Hauer <s.hauer@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp03.au.ibm.com ([202.81.31.145]:42831 "EHLO
-	e23smtp03.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751695AbZJTJuK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 05:50:10 -0400
-Received: from d23relay04.au.ibm.com (d23relay04.au.ibm.com [202.81.31.246])
-	by e23smtp03.au.ibm.com (8.14.3/8.13.1) with ESMTP id n9K9le35008083
-	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 20:47:40 +1100
-Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.235.138])
-	by d23relay04.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n9K9lXic1573104
-	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 20:47:33 +1100
-Received: from d23av02.au.ibm.com (loopback [127.0.0.1])
-	by d23av02.au.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n9K9oBUa000490
-	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 20:50:13 +1100
-In-Reply-To: <20091020094607.10404.81794.sendpatchset@localhost.localdomain>
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:44516 "EHLO
+	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750776AbZJTJzT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 05:55:19 -0400
+Content-Disposition: inline
+In-Reply-To: <1240387172-21818-1-git-send-email-s.hauer@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krishna Kumar <krkumar2@in.ibm.com>
+On Wed, Apr 22, 2009 at 09:59:30AM +0200, Sascha Hauer wrote:
+> While this is a very old chip it is still in use on some embedded boards.
+> I see myself unable to fix the in Kernel driver to bring it to driver
+> model support, so this patch adds a new driver designed to replace
+> the old one, at least for non-ISA hardware.
 
-For connected sockets, the first run of dev_pick_tx saves the
-calculated txq in sk_tx_queue_mapping. This is not saved if
-either the device has a queue select or the socket is not
-connected. Next iterations of dev_pick_tx uses the cached value
-of sk_tx_queue_mapping.
+I think it is worthwile, there's a number of SMDK boards and similar
+which have used this board, including boards released in the last year
+or so.
 
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
----
- net/core/dev.c |   24 ++++++++++++++++++------
- 1 file changed, 18 insertions(+), 6 deletions(-)
+I will try and see if I can do some reviewing and testing of this in
+the next few days.
 
-diff -ruNp org/net/core/dev.c new/net/core/dev.c
---- org/net/core/dev.c	2009-10-19 15:43:30.000000000 +0530
-+++ new/net/core/dev.c	2009-10-20 12:24:40.000000000 +0530
-@@ -1791,13 +1791,25 @@ EXPORT_SYMBOL(skb_tx_hash);
- static struct netdev_queue *dev_pick_tx(struct net_device *dev,
- 					struct sk_buff *skb)
- {
--	const struct net_device_ops *ops = dev->netdev_ops;
--	u16 queue_index = 0;
-+	u16 queue_index;
-+	struct sock *sk = skb->sk;
-+
-+	if (sk_tx_queue_recorded(sk)) {
-+		queue_index = sk_tx_queue_get(sk);
-+	} else {
-+		const struct net_device_ops *ops = dev->netdev_ops;
- 
--	if (ops->ndo_select_queue)
--		queue_index = ops->ndo_select_queue(dev, skb);
--	else if (dev->real_num_tx_queues > 1)
--		queue_index = skb_tx_hash(dev, skb);
-+		if (ops->ndo_select_queue) {
-+			queue_index = ops->ndo_select_queue(dev, skb);
-+		} else {
-+			queue_index = 0;
-+			if (dev->real_num_tx_queues > 1)
-+				queue_index = skb_tx_hash(dev, skb);
-+
-+			if (sk && sk->sk_dst_cache)
-+				sk_tx_queue_set(sk, queue_index);
-+		}
-+	}
- 
- 	skb_set_queue_mapping(skb, queue_index);
- 	return netdev_get_tx_queue(dev, queue_index);
+-- 
+Ben (ben@fluff.org, http://www.fluff.org/)
+
+  'a smiley only costs 4 bytes'
