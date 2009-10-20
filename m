@@ -1,27 +1,27 @@
-From: Ilmo Juiz da 10a Comarca/SP <pauloarrochado@uol.com.br>
-Subject: =?utf-8?Q?Ilmo_Sr=2E_Juiz_da_=34a_Vara_Criminal_SP_=2D_Atos_processuais_na_Lei_n=C2=BA_=31=31=2E=34=31=39=2F=30=36=31=39=2F=31=30=2F=32=30=30=39=32=31=3A=31=36=3A=30=38?=
-Date: Mon, 19 Oct 2009 21:16:15 -0200
-Message-ID: <4adcf33f57019_5542ed17eb049@weasel22.tmail>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: Re: kernel panic in latest vanilla stable, while using nameif with  "alive" pppoe interfaces
+Date: Tue, 20 Oct 2009 03:08:57 +0300
+Message-ID: <200910200308.57381.denys@visp.net.lb>
+References: <200910190002.39937.denys@visp.net.lb> <20091019205740.GD5233@lenovo> <e6d1cecd0910191422t2905d9bbl3355fc50cf36ff90@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: net-snmp-users@lists.sourceforge.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay9.uol.com.br ([187.17.116.7]:53680 "EHLO relay9.uol.com.br"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932353AbZJSXUR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Oct 2009 19:20:17 -0400
-Received: from relay5.uol.com.br (shark2.srv.intranet [172.26.5.153])
-	by sulu3.uol.com.br (Postfix) with ESMTP id 83150580029B5
-	for <netdev@vger.kernel.org>; Mon, 19 Oct 2009 20:20:20 -0300 (BRT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Cyrill Gorcunov <gorcunov@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>, linux-ppp@vger.kernel.org,
+	paulus@samba.org, mostrows@earthlink.net
+To: Michal Ostrowski <mostrows@gmail.com>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <e6d1cecd0910191422t2905d9bbl3355fc50cf36ff90@mail.gmail.com>
+Content-Disposition: inline
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-TELEGRAMA: 2685332147
-CONFIRMACAO: MF015716698BR
-CATEGORIA: URGENTE
+On Tuesday 20 October 2009 00:22:39 Michal Ostrowski wrote:
+> I'm assuming that there was a race in us sending patches at nearly the same
+> time I'm convinced now that the flush_lock can die, and the patch I sent
+> out kills it.
+o_O 
 
-Clique no link abaixo para abrir seu Telegrama.
-
-http://entregacorreios.zyns.com:81/www/judiciario2/telegramacorreios_gov_br.htm
-
-Copyright 2009 Correios - Todos os direitos reservados
+I am drowning in patches. Just let me know which one to test :-)
