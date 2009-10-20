@@ -1,45 +1,36 @@
-From: Guido Trotter <ultrotter@quaqua.net>
-Subject: Policy routing + route "via" gives a strange behavior
-Date: Tue, 20 Oct 2009 15:28:20 +0200
-Message-ID: <20091020132820.GA3159@gg.studio.tixteam.net>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: kernel panic in latest vanilla stable, while using nameif with
+	"alive" pppoe interfaces
+Date: Tue, 20 Oct 2009 17:42:17 +0400
+Message-ID: <20091020134217.GA5181@lenovo>
+References: <200910190002.39937.denys@visp.net.lb> <200910201436.50249.denys@visp.net.lb> <aa79d98a0910200450n1a283f87hf946bb3b756d0bd@mail.gmail.com> <200910201452.58789.denys@visp.net.lb>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip-146-243.sn2.eutelia.it ([83.211.146.243]:35838 "EHLO
-	gg.studio.tixteam.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751343AbZJTNlE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 09:41:04 -0400
+Cc: Michal Ostrowski <mostrows@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>, linux-ppp@vger.kernel.org,
+	paulus@samba.org, mostrows@earthlink.net
+To: Denys Fedoryschenko <denys@visp.net.lb>
+Return-path: <linux-ppp-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <200910201452.58789.denys@visp.net.lb>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+[Denys Fedoryschenko - Tue, Oct 20, 2009 at 02:52:58PM +0300]
+...
+| > Thanks a lot! I'll back with new one in a couple of hours. Meanwhile i
+| > suppose you may try Michal's patch as well.
+| I did, it didn't help.
+| Maybe i can run some debugging options in kernel?
+| Also i can add debug(printk) lines in kernel if you want, to see where is bug 
+| appearing.
+| Note, i told to Michal, so will tell here, this pc is hyperthreading P4, as i 
+| know it is very good to trigger various SMP race conditions.
+| I can try also it with nosmp if u want.
+| 
 
-Hi,
+Thanks Denys, I'm preparing new patch (just back from office
+and had no inet connection that is why reply is delayed, sorry).
 
-I'm seeing what I think might be a strange kernel behavior when setting up a
-route "via" a gateway, with policy routing. When adding a route with a gateway,
-the kernel accepts it only if the gateway is reachable via that device. For
-example:
-
-ip route add default dev eth1 via 192.168.5.254
-
-is only accepted if there is a route like:
-192.168.5.0/24 dev eth1 scope link
-
-in the main routing table. which, of course, is ok, otherwise the kernel
-wouldn't be able to reach 192.168.5.254 in the first place.
-
-Now, when adding policy routing to the mix, if I do:
-ip route add table 100 default dev eth1 via 192.168.5.254
-
-This is also refused unless a route like the one before appears in the default
-table, even though it does appear in table 100. Is this the right behavior, and
-if yes, why? It seems to me that it should be acceptable to have the network
-route as well just in the separate routing table, since the "via" will only be
-used by traffic hitting that table anyway.
-
-Thanks a lot,
-
-Guido
-
+	-- Cyrill
