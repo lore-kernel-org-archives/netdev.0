@@ -1,55 +1,43 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch] (updated) netfilter: remove deprecated CONFIG_NF_CT_ACCT
-Date: Tue, 20 Oct 2009 17:58:47 +0800
-Message-ID: <4ADD89D7.3050902@redhat.com>
-References: <20091015080211.4561.78538.sendpatchset@localhost.localdomain> <4AD70FC2.5050302@ans.pl>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: Re: kernel panic in latest vanilla stable, while using nameif with  "alive" pppoe interfaces
+Date: Tue, 20 Oct 2009 14:36:49 +0300
+Message-ID: <200910201436.50249.denys@visp.net.lb>
+References: <200910190002.39937.denys@visp.net.lb> <200910200308.57381.denys@visp.net.lb> <aa79d98a0910192004g43de90d5p823293b888cf0c1d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, netfilter-devel@vger.kernel.org
-To: =?ISO-8859-2?Q?Krzysztof_Ol=EAdzki?= <ole@ans.pl>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4AD70FC2.5050302@ans.pl>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Michal Ostrowski <mostrows@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>, linux-ppp@vger.kernel.org,
+	paulus@samba.org, mostrows@earthlink.net
+To: Cyrill Gorcunov <gorcunov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hosting.visp.net.lb ([194.146.153.11]:52638 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751848AbZJTLis (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 07:38:48 -0400
+In-Reply-To: <aa79d98a0910192004g43de90d5p823293b888cf0c1d@mail.gmail.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tuesday 20 October 2009 06:04:35 Cyrill Gorcunov wrote:
+> On 10/20/09, Denys Fedoryschenko <denys@visp.net.lb> wrote:
+> > On Tuesday 20 October 2009 00:22:39 Michal Ostrowski wrote:
+> >> I'm assuming that there was a race in us sending patches at nearly the
+> >> same
+> >> time I'm convinced now that the flush_lock can die, and the patch I sent
+> >> out kills it.
+> >
+> > o_O
+> >
+> > I am drowning in patches. Just let me know which one to test :-)
+>
+> Oh ;) Try out latest Michal's patch (and then mine). I'll continue
+> digg this issue at next spare time slot. Thanks!
+Tried your patch, panic almost immediately
+Here is a text of panic message over netconsole
+http://www.nuclearcat.com/files/panic_pppoe3.txt
+It is  different now, before it was pppoe_device_event, now in pppoe_rcv
 
-Sorry that I lost this thread. :(
-
-Krzysztof Ol=EAdzki wrote:
-> [resend, previously I incorrectly copied netfilter-devel-owner]
->=20
-> Adding CC to netfilter-devel@vger.kernel.org, where netfilter
-> related issues are discussed.
->=20
-> On Thu, 15 Oct 2009, Amerigo Wang wrote:
->=20
->>
->> CONFIG_NF_CT_ACCT is scheduled to be removed in 2.6.29.
->>
->> Cc: Krzysztof Piotr Oledzki <ole@ans.pl>
->> Signed-off-by: WANG Cong <amwang@redhat.com>
->=20
-> This is not so easy - it was decided that we don't want to remove it=20
-> just that because of connbytes. The final conclusion was to keep it=20
-> disabled by default (if not enabled by kernel/modules/sysctl option) =
-but=20
-> enabling it automatically for the current NS if nefilter rules contai=
-ns=20
-> "-m connbytes".
->=20
-> Sorry, I should have gotten into this and finished it earlier, my bad=
-=2E :(
-
-No problem.
-
-So we just want CONFIG_NF_CT_ACCT=3Dn in default configs?
-
-Thanks!
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
