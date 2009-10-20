@@ -1,43 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] can: provide library functions for skb allocation
-Date: Tue, 20 Oct 2009 00:35:38 -0700 (PDT)
-Message-ID: <20091020.003538.84720318.davem@davemloft.net>
-References: <4ADD5C35.1070300@grandegger.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: build test your changes!
+Date: Tue, 20 Oct 2009 09:36:30 +0200
+Message-ID: <4ADD687E.4040808@gmail.com>
+References: <20091019.232204.52827242.davem@davemloft.net> <OF1BCE4CF8.BD48A587-ON65257655.0024B1CD-65257655.0025CC6C@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, socketcan-core@lists.berlios.de,
-	haas@ems-wuensche.com, anantgole@ti.com, mkl@pengutronix.de
-To: wg@grandegger.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49593
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751691AbZJTHfQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 03:35:16 -0400
-In-Reply-To: <4ADD5C35.1070300@grandegger.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:58809 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750795AbZJTHgc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 03:36:32 -0400
+In-Reply-To: <OF1BCE4CF8.BD48A587-ON65257655.0024B1CD-65257655.0025CC6C@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wolfgang Grandegger <wg@grandegger.com>
-Date: Tue, 20 Oct 2009 08:44:05 +0200
+Krishna Kumar2 a =E9crit :
 
-> This patch makes the private functions alloc_can_skb() and
-> alloc_can_err_skb() of the at91_can driver public and adapts all
-> drivers to use these. While making the patch I realized, that
-> the skb's are *not* setup consistently. It's now done as shown
-> below:
-> 
->   skb->protocol = htons(ETH_P_CAN);
->   skb->pkt_type = PACKET_BROADCAST;
->   skb->ip_summed = CHECKSUM_UNNECESSARY;
->   *cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
->   memset(*cf, 0, sizeof(struct can_frame));
-> 
-> The frame is zeroed out to avoid uninitialized data to be passed to
-> user space. Some drivers or library code did not set "pkt_type" or
-> "ip_summed". Also,  "__constant_htons()" should not be used for
-> runtime invocations, as pointed out by David Miller.
-> 
-> Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+> Sorry about the build failure. I did do a build and a stress test. Bu=
+t
+> I missed changing the name sk_record_tx_queue() in both sock.h
+> and dev.c when testing. I caught the miss before sending the patch,
+> but changed the name only in sock.h, and didn't do a final build
+> again. Sorry about this, will not assume next time.
+>=20
+> I will fix this (including patch order) and resend after build and te=
+st.
+>=20
 
-Wow, it builds, applied :-)
+Yes please, I am looking for your patches being added before my next ro=
+und :)
+
+(Specifically, I was waiting sizeof(struct sock_common) goes from 0x38 =
+to 0x40=20
+on 64 bit arches)
