@@ -1,38 +1,38 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: pktgen and spin_lock_bh in xmit path
-Date: Tue, 20 Oct 2009 10:54:16 -0700
-Message-ID: <4ADDF948.1050208@candelatech.com>
-References: <4ADD309B.1040505@candelatech.com> <4ADD32FA.6030409@gmail.com> <4ADD41F5.5080707@candelatech.com> <4ADDF560.1020509@candelatech.com> <4ADDF6E5.4070509@gmail.com>
+From: "Doong, Ping" <Ping.Doong@Micrel.Com>
+Subject: RE: [patch 0/3] KS8851 updates for -rc5
+Date: Tue, 20 Oct 2009 10:53:05 -0700
+Message-ID: <6DA9692E60FD324FBF17D6336890798104259C@MELANITE.micrel.com>
+References: <20091020094902.274646871@fluff.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>, robert@herjulf.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Li, Charles" <Charles.Li@Micrel.Com>
+To: "Ben Dooks" <ben@simtec.co.uk>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:44095 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752717AbZJTRyR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 13:54:17 -0400
-In-Reply-To: <4ADDF6E5.4070509@gmail.com>
+Received: from p01c12o143.mxlogic.net ([208.65.145.66]:34907 "EHLO
+	p01c12o143.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752124AbZJTSBP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 14:01:15 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20091020094902.274646871@fluff.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/20/2009 10:44 AM, Eric Dumazet wrote:
+Hi Ben,
 
->
-> Please try last kernel before posting patches :)
+I'm sorry. I am busy on other project, and have got the change to verify
+your new patch on our side. I will do it soon.
 
-I should have looked at the latest code, but even if mac-vlan is no longer
-an issue, I suspect it may still be possible to get into this case with
-other virtual devices because pktgen plays tricks by cloning pkts.
+Thank you,
+Ping
 
-That said, I have no proof, so no further arguments from me.
+-----Original Message-----
+From: Ben Dooks [mailto:ben@simtec.co.uk] 
+Sent: Tuesday, October 20, 2009 2:49 AM
+To: netdev@vger.kernel.org
+Cc: Doong, Ping
+Subject: [patch 0/3] KS8851 updates for -rc5
 
-Thanks for pointing out the new mac-vlan patch.
-
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+Patches for some minor problems with the KS8851 SPI network driver
+for inclusion into the kernel. This set is based on -rc5.
