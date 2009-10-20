@@ -1,39 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IPv4: skip loopback checksums in ip_rcv()
-Date: Mon, 19 Oct 2009 17:24:55 -0700 (PDT)
-Message-ID: <20091019.172455.139931137.davem@davemloft.net>
-References: <200910192134.02125.schmto@hrz.tu-chemnitz.de>
-	<4ADCCF1A.7070301@gmail.com>
+Subject: Re: [PATCH] [NIU] VLAN does not work with niu driver
+Date: Mon, 19 Oct 2009 17:28:38 -0700 (PDT)
+Message-ID: <20091019.172838.231011593.davem@davemloft.net>
+References: <4AD4F0BF.1040606@Sun.COM>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: torsten.schmidt@s2006.tu-chemnitz.de, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: Joyce.Yu@Sun.COM
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45304
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52129
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751077AbZJTAYd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 20:24:33 -0400
-In-Reply-To: <4ADCCF1A.7070301@gmail.com>
+	by vger.kernel.org with ESMTP id S1758039AbZJTA2P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 20:28:15 -0400
+In-Reply-To: <4AD4F0BF.1040606@Sun.COM>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 19 Oct 2009 22:42:02 +0200
 
-> One bit could be corrupted in iph, and ntohl(iph->daddr) becomes 0x7fxxyyzz,
-> we then accept a bogus frame. This is a RFC violation.
-> 
-> This also slows down non loopback devices, adding an extra test.
-> 
-> ip_fast_csum() is really fast (about 16 instructions).
+If you send this patch improperly any more times, I'm simply just
+going to start ignoring your patch postings completely.
 
-Also loopback doesn't mean anything.  That packet could
-be mirrored and sent externally via packet scheduler
-rules and actions.
+First of all, you did not add a proper commit message with your patch
+explaining your change, in detail.  I've asked you for this not ONCE,
+but TWICE.
 
-And for this specific case, the savings are absolutely zero.
+You also did not provide a proper Signed-off-by: tag for your change,
+please read linux/Documentation/SubmittingPatches for details.
 
-We've brought the whole damn IP header into the CPU cache and
-that is the real cost.  The calculation is something like 12
-instructions, maybe 6 cycles on a modern cpu, which is nothing.
+Every time you submit a patch improperly, you waste a lot of my time.
+
+I have to handle receiving patches from hundreds of people every day,
+I don't have time to teach each and every one of them how to submit
+things properly.  I especially don't have time to do it MULTIPLE
+TIMES, like I have been doing for you.
+
