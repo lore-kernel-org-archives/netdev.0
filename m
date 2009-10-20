@@ -1,37 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [NIU] VLAN does not work with niu driver
-Date: Mon, 19 Oct 2009 17:28:38 -0700 (PDT)
-Message-ID: <20091019.172838.231011593.davem@davemloft.net>
-References: <4AD4F0BF.1040606@Sun.COM>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Subject: [PATCH 1/6] bna: Brocade 10Gb Ethernet device driver
+Date: Tue, 20 Oct 2009 09:54:15 +0900
+Message-ID: <20091020005415.GA3937@gondor.apana.org.au>
+References: <200910161824.n9GIOuoX010135@blc-10-10.brocade.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Joyce.Yu@Sun.COM
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, amathur@brocade.com
+To: Rasesh Mody <rmody@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52129
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758039AbZJTA2P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 20:28:15 -0400
-In-Reply-To: <4AD4F0BF.1040606@Sun.COM>
+Received: from rhun.apana.org.au ([64.62.148.172]:53906 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755609AbZJTAyM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 20:54:12 -0400
+Content-Disposition: inline
+In-Reply-To: <200910161824.n9GIOuoX010135@blc-10-10.brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Rasesh Mody <rmody@brocade.com> wrote:
+.
+> +static int bnad_lro_get_skb_header(struct sk_buff *skb, void **iphdr,
+> +    void **tcphdr, u64 *hdr_flags, void *priv)
 
-If you send this patch improperly any more times, I'm simply just
-going to start ignoring your patch postings completely.
+Please stop using LRO in new code.  The GRO replacement should
+be used instead.
 
-First of all, you did not add a proper commit message with your patch
-explaining your change, in detail.  I've asked you for this not ONCE,
-but TWICE.
-
-You also did not provide a proper Signed-off-by: tag for your change,
-please read linux/Documentation/SubmittingPatches for details.
-
-Every time you submit a patch improperly, you waste a lot of my time.
-
-I have to handle receiving patches from hundreds of people every day,
-I don't have time to teach each and every one of them how to submit
-things properly.  I especially don't have time to do it MULTIPLE
-TIMES, like I have been doing for you.
-
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
