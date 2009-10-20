@@ -1,38 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: build test your changes!
-Date: Tue, 20 Oct 2009 09:36:30 +0200
-Message-ID: <4ADD687E.4040808@gmail.com>
-References: <20091019.232204.52827242.davem@davemloft.net> <OF1BCE4CF8.BD48A587-ON65257655.0024B1CD-65257655.0025CC6C@in.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: tcp: Try to catch MSG_PEEK bug
+Date: Tue, 20 Oct 2009 00:52:20 -0700 (PDT)
+Message-ID: <20091020.005220.117385594.davem@davemloft.net>
+References: <20091020054106.GA5507@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:58809 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750795AbZJTHgc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 03:36:32 -0400
-In-Reply-To: <OF1BCE4CF8.BD48A587-ON65257655.0024B1CD-65257655.0025CC6C@in.ibm.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42695
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751112AbZJTHv6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 03:51:58 -0400
+In-Reply-To: <20091020054106.GA5507@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Krishna Kumar2 a =E9crit :
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 20 Oct 2009 14:41:06 +0900
 
-> Sorry about the build failure. I did do a build and a stress test. Bu=
-t
-> I missed changing the name sk_record_tx_queue() in both sock.h
-> and dev.c when testing. I caught the miss before sending the patch,
-> but changed the name only in sock.h, and didn't do a final build
-> again. Sorry about this, will not assume next time.
->=20
-> I will fix this (including patch order) and resend after build and te=
-st.
->=20
+> tcp: Try to catch MSG_PEEK bug
+> 
+> This patch tries to print out more information when we hit the
+> MSG_PEEK bug in tcp_recvmsg.  It's been around since at least
+> 2005 and it's about time that we finally fix it.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Yes please, I am looking for your patches being added before my next ro=
-und :)
-
-(Specifically, I was waiting sizeof(struct sock_common) goes from 0x38 =
-to 0x40=20
-on 64 bit arches)
+Ok, fair enough, I'll stick this into net-2.6 and hopefully
+that will help us.
