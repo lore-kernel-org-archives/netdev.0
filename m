@@ -1,41 +1,49 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: kernel panic in latest vanilla stable, while using nameif with "alive" pppoe interfaces
-Date: Tue, 20 Oct 2009 16:50:09 +0300
-Message-ID: <200910201650.10066.denys@visp.net.lb>
-References: <200910190002.39937.denys@visp.net.lb> <200910201452.58789.denys@visp.net.lb> <20091020134217.GA5181@lenovo>
+From: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
+Subject: Re: [PATCHv2 1/4] First Patch on TFRC-SP. Copy base files from TFRC
+Date: Tue, 20 Oct 2009 10:51:36 -0300
+Message-ID: <cb00fa210910200651r6cc0a7adq971fbc2c21c7fedf@mail.gmail.com>
+References: <cb00fa210909141738l60d02cd5p287d990326ce6c3c@mail.gmail.com>
+	<4AD4B677.4000308@embedded.ufcg.edu.br> <20091019052153.GB3366@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Michal Ostrowski <mostrows@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>, linux-ppp@vger.kernel.org,
-	paulus@samba.org, mostrows@earthlink.net
-To: Cyrill Gorcunov <gorcunov@gmail.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <20091020134217.GA5181@lenovo>
-Content-Disposition: inline
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	Ivo Calado <ivocalado@embedded.ufcg.edu.br>,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:50446 "EHLO
+	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751190AbZJTNvw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 09:51:52 -0400
+In-Reply-To: <20091019052153.GB3366@gerrit.erg.abdn.ac.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 20 October 2009 16:42:17 Cyrill Gorcunov wrote:
-> [Denys Fedoryschenko - Tue, Oct 20, 2009 at 02:52:58PM +0300]
-> ...
+On Mon, Oct 19, 2009 at 02:21, Gerrit Renker <gerrit@erg.abdn.ac.uk> wr=
+ote:
+> | First Patch on TFRC-SP.
+> Please find attached one edit that I made.
 >
-> | > Thanks a lot! I'll back with new one in a couple of hours. Meanwhile i
-> | > suppose you may try Michal's patch as well.
-> |
-> | I did, it didn't help.
-> | Maybe i can run some debugging options in kernel?
-> | Also i can add debug(printk) lines in kernel if you want, to see where is
-> | bug appearing.
-> | Note, i told to Michal, so will tell here, this pc is hyperthreading P4,
-> | as i know it is very good to trigger various SMP race conditions.
-> | I can try also it with nosmp if u want.
+> I added unwinding the initialisation of tfrc_lib in the case where th=
+e
+> initialisation of tfrc_sp_lib fails. =A0Unwinding is now done in the =
+reverse
+> order of the steps done during initialisation.
 >
-> Thanks Denys, I'm preparing new patch (just back from office
-> and had no inet connection that is why reply is delayed, sorry).
-There is no problem at all.
-This rename operation is just future operation and host is redundant, so i can 
-do tests on it anytime.
 
+Agree.
+
+
+
+--=20
+Ivo Augusto Andrade Rocha Calado
+MSc. Candidate
+Embedded Systems and Pervasive Computing Lab - http://embedded.ufcg.edu=
+=2Ebr
+Systems and Computing Department - http://www.dsc.ufcg.edu.br
+Electrical Engineering and Informatics Center - http://www.ceei.ufcg.ed=
+u.br
+=46ederal University of Campina Grande - http://www.ufcg.edu.br
+
+PGP: 0x03422935
+Quidquid latine dictum sit, altum viditur.
