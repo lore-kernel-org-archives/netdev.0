@@ -1,58 +1,135 @@
-From: "Kumar Gopalpet-B05799" <Sandeep.Kumar@freescale.com>
-Subject: RE: [PATCH v0 1/7] gianfar: Add per queue structure support
-Date: Tue, 20 Oct 2009 13:57:57 +0530
-Message-ID: <9F4C7D19E8361D4C94921B95BE08B81B8940F9@zin33exm22.fsl.freescale.net>
-References: <20091019.231633.25328647.davem@davemloft.net><9F4C7D19E8361D4C94921B95BE08B81B8940DB@zin33exm22.fsl.freescale.net><20091020.000358.53030357.davem@davemloft.net> <20091020.005646.227664762.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
+From: Krishna Kumar <krkumar2@in.ibm.com>
+Subject: [PATCH 0/4 v4] net: Implement fast TX queue selection
+Date: Tue, 20 Oct 2009 15:16:07 +0530
+Message-ID: <20091020094607.10404.81794.sendpatchset@localhost.localdomain>
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	Krishna Kumar <krkumar2@in.ibm.com>, dada1@cosmosbay.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:51588 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751071AbZJTI14 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 04:27:56 -0400
-Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
-	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n9K8S0KF014537
-	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 01:28:01 -0700 (MST)
-Received: from zin33exm22.fsl.freescale.net (zin33exm22.ap.freescale.net [10.232.192.20])
-	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id n9K8Ue37008181
-	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 03:30:41 -0500 (CDT)
-Content-class: urn:content-classes:message
-In-Reply-To: <20091020.005646.227664762.davem@davemloft.net>
+Received: from e28smtp01.in.ibm.com ([59.145.155.1]:44503 "EHLO
+	e28smtp01.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751695AbZJTJqK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 05:46:10 -0400
+Received: from d28relay01.in.ibm.com (d28relay01.in.ibm.com [9.184.220.58])
+	by e28smtp01.in.ibm.com (8.14.3/8.13.1) with ESMTP id n9K9kCT7010238
+	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 15:16:12 +0530
+Received: from d28av03.in.ibm.com (d28av03.in.ibm.com [9.184.220.65])
+	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n9K9kBiE1314874
+	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 15:16:11 +0530
+Received: from d28av03.in.ibm.com (loopback [127.0.0.1])
+	by d28av03.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n9K9kA11003288
+	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 20:46:11 +1100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Krishna Kumar <krkumar2@in.ibm.com>
 
-Will respin them and send again.
+Notes:
+------
+    1.  Eric suggested:
+	- To use u16 for txq#, but I am using an "int" for now as that
+	  avoids one unnecessary subtraction during tx.
+	- An improvement of caching the txq at connection establishment
+	  time so as to use rxq# = txq# (TBD later).
+	- Drivers can call sk_tx_queue_set() to set the txq if they are
+	  going to call skb_tx_hash() internally.
+    2. v3 & v4 patch stress tested with 1000 netperfs, reboot's, etc.
 
--Thanks
-Sandeep 
 
->-----Original Message-----
->From: David Miller [mailto:davem@davemloft.net] 
->Sent: Tuesday, October 20, 2009 1:27 PM
->To: Kumar Gopalpet-B05799
->Cc: netdev@vger.kernel.org
->Subject: Re: [PATCH v0 1/7] gianfar: Add per queue structure support
->
->From: David Miller <davem@davemloft.net>
->Date: Tue, 20 Oct 2009 00:03:58 -0700 (PDT)
->
->> From: "Kumar Gopalpet-B05799" <Sandeep.Kumar@freescale.com>
->> Date: Tue, 20 Oct 2009 12:15:14 +0530
->> 
->>> I am assuming all the 7 patches are applied.
->> 
->> I am going to add them, yes.
->
->Nevermind, these patches don't apply to net-next-2.6 at all 
->and will need to be respun.
->
->For example, patch #1 rejects because gfar_suspend() in
->net-next-2.6 takes a 'dev' not an 'ofdev'.
->
->
+Changelog [from v3]:
+--------------------
+	1. Changed the order of patches so that the patch setting the
+	   txq is moved to the end. This results in bisect-safe patches.
+	2. Fixed a build failure.
+
+
+Changelog [from v2]:
+--------------------
+	1. Changed names of functions setting, getting and returning the
+	   txq#; and added a new one to reset the txq#.
+	2. Free sk doesn't need to reset txq#.
+
+
+Changelog [from v1]:
+--------------------
+	1. Changed IPv6 code to call __sk_dst_reset() directly.
+	2. Removed the patch re-arranging ("encapsulating") __sk_dst_reset()
+
+
+Multiqueue cards on routers/firewalls set skb->queue_mapping on
+input which helps in faster xmit. Implement fast queue selection
+for locally generated packets also, by saving the txq# for
+connected sockets (in dev_pick_tx) and use it in subsequent
+iterations. Locally generated packets for a connection will xmit
+on the same txq, but routing & firewall loads should not be
+affected by this patch. Tests shows the distribution across txq's
+for 1-4 netperf sessions is similar to existing code.
+
+
+                   Testing & results:
+                   ------------------
+
+1. Cycles/Iter (C/I) used by dev_pick_tx:
+         (B -> Billion,   M -> Million)
+   |--------------|------------------------|------------------------|
+   |              |          ORG           |          NEW           |
+   |  Test        |--------|---------|-----|--------|---------|-----|
+   |              | Cycles |  Iters  | C/I | Cycles | Iters   | C/I |
+   |--------------|--------|---------|-----|--------|---------|-----|
+   | [TCP_STREAM, | 3.98 B | 12.47 M | 320 | 1.95 B | 12.92 M | 152 |
+   |  UDP_STREAM, |        |         |     |        |         |     |         
+   |  TCP_RR,     |        |         |     |        |         |     |        
+   |  UDP_RR]     |        |         |     |        |         |     |        
+   |--------------|--------|---------|-----|--------|---------|-----|        
+   | [TCP_STREAM, | 8.92 B | 29.66 M | 300 | 3.82 B | 38.88 M | 98  |        
+   |  TCP_RR,     |        |         |     |        |         |     |         
+   |  UDP_RR]     |        |         |     |        |         |     |         
+   |--------------|--------|---------|-----|--------|---------|-----|
+
+2. Stress test (over 48 hours) : 1000 netperfs running combination
+   of TCP_STREAM/RR, UDP_STREAM/RR (v4/6, NODELAY/~NODELAY for all
+   tests), with some ssh sessions, reboots, modprobe -r driver, etc.
+
+3. Performance test (10 hours): Single 10 hour netperf run of
+   TCP_STREAM/RR, TCP_STREAM + NO_DELAY and UDP_RR. Results show an
+   improvement in both performance and cpu utilization.
+
+Tested on a 4-processor AMD Opteron 2.8 GHz system with 1GB memory,
+10G Chelsio card. Each BW number is the sum of 3 iterations of
+individual tests using 512, 16K, 64K & 128K I/O sizes, in Mb/s:
+
+------------------------  TCP Tests  -----------------------
+#procs  Org BW     New BW (%)     Org SD     New SD (%)
+------------------------------------------------------------
+1       77777.7    81011.0 (4.15)    42.3     40.2 (-5.11)
+4       91599.2    91878.8 (.30)    955.9    919.3 (-3.83)
+6       89533.3    91792.2 (2.52)  2262.0   2143.0 (-5.25)
+8       87507.5    89161.9 (1.89)  4363.4   4073.6 (-6.64)
+10      85152.4    85607.8 (.53)   6890.4   6851.2 (-.56)
+------------------------------------------------------------
+
+------------------------- TCP NO_DELAY Tests ---------------
+#procs  Org BW     New BW (%)      Org SD      New SD (%)
+------------------------------------------------------------
+1       57001.9    57888.0 (1.55)     67.7      70.2 (3.75)
+4       69555.1    69957.4 (.57)     823.0     834.3 (1.36)
+6       71359.3    71918.7 (.78)    1740.8    1724.5 (-.93)
+8       72577.6    72496.1 (-.11)   2955.4    2937.7 (-.59)
+10      70829.6    71444.2 (.86)    4826.1    4673.4 (-3.16)
+------------------------------------------------------------
+
+----------------------- Request Response Tests --------------------
+#procs  Org TPS     New TPS (%)      Org SD    New SD (%)
+(1-10)
+-------------------------------------------------------------------
+TCP     1019245.9   1042626.4 (2.29) 16352.9   16459.8 (.65)
+UDP     934598.64   942956.9  (.89)  11607.3   11593.2 (-.12)
+-------------------------------------------------------------------
+
+Thanks,
+
+- KK
+
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
