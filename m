@@ -1,139 +1,101 @@
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [PATCH 3/4 v4] net: Fix for dst_negative_advice
-Date: Tue, 20 Oct 2009 15:16:45 +0530
-Message-ID: <20091020094645.10404.68879.sendpatchset@localhost.localdomain>
-References: <20091020094607.10404.81794.sendpatchset@localhost.localdomain>
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	Krishna Kumar <krkumar2@in.ibm.com>, dada1@cosmosbay.com
-To: davem@davemloft.net
+From: Ben Dooks <ben@simtec.co.uk>
+Subject: [patch 2/3] KS8851: Fix MAC address write order
+Date: Tue, 20 Oct 2009 10:49:04 +0100
+Message-ID: <20091020094954.442531232@fluff.org.uk>
+References: <20091020094902.274646871@fluff.org.uk>
+Cc: Ping.Doong@Micrel.Com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp05.in.ibm.com ([59.145.155.5]:60112 "EHLO
-	e28smtp05.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751800AbZJTJt4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 05:49:56 -0400
-Received: from d28relay05.in.ibm.com (d28relay05.in.ibm.com [9.184.220.62])
-	by e28smtp05.in.ibm.com (8.14.3/8.13.1) with ESMTP id n9K9nwbS011782
-	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 15:19:58 +0530
-Received: from d28av01.in.ibm.com (d28av01.in.ibm.com [9.184.220.63])
-	by d28relay05.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n9K9nwNE2191430
-	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 15:19:58 +0530
-Received: from d28av01.in.ibm.com (loopback [127.0.0.1])
-	by d28av01.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n9K9nv0h021481
-	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 15:19:57 +0530
-In-Reply-To: <20091020094607.10404.81794.sendpatchset@localhost.localdomain>
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:50631 "EHLO
+	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751797AbZJTJtz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 05:49:55 -0400
+Content-Disposition: inline; filename=ks8851-fix-mac-order.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krishna Kumar <krkumar2@in.ibm.com>
+The MAC address register was being written in the wrong order, so add
+a new address macro to convert mac-address byte to register address and
+a ks8851_wrreg8() function to write each byte without having to worry
+about any difficult byte swapping.
 
-dst_negative_advice() should check for changed dst and reset
-sk_tx_queue_mapping accordingly. Pass sock to the callers of
-dst_negative_advice.
+Fixes a bug reported by Doong, Ping of Micrel.
 
-(sk_reset_txq is defined just for use by dst_negative_advice. The
-only way I could find to get around this is to move dst_negative_()
-from dst.h to dst.c, include sock.h in dst.c, etc)
+Signed-off-by: Ben Dooks <ben@simtec.co.uk>
 
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 ---
- include/net/dst.h      |   12 ++++++++++--
- net/core/sock.c        |    6 ++++++
- net/dccp/timer.c       |    4 ++--
- net/decnet/af_decnet.c |    2 +-
- net/ipv4/tcp_timer.c   |    4 ++--
- 5 files changed, 21 insertions(+), 7 deletions(-)
+ drivers/net/ks8851.c |   39 ++++++++++++++++++++++++++++++++++-----
+ drivers/net/ks8851.h |    1 +
+ 2 files changed, 35 insertions(+), 5 deletions(-)
 
-diff -ruNp org/include/net/dst.h new/include/net/dst.h
---- org/include/net/dst.h	2009-10-16 21:30:56.000000000 +0530
-+++ new/include/net/dst.h	2009-10-16 21:31:30.000000000 +0530
-@@ -222,11 +222,19 @@ static inline void dst_confirm(struct ds
- 		neigh_confirm(dst->neighbour);
+Index: b/drivers/net/ks8851.c
+===================================================================
+--- a/drivers/net/ks8851.c	2009-10-06 14:25:53.000000000 +0100
++++ b/drivers/net/ks8851.c	2009-10-06 14:42:39.000000000 +0100
+@@ -171,6 +171,36 @@ static void ks8851_wrreg16(struct ks8851
  }
  
--static inline void dst_negative_advice(struct dst_entry **dst_p)
-+static inline void dst_negative_advice(struct dst_entry **dst_p,
-+				       struct sock *sk)
- {
- 	struct dst_entry * dst = *dst_p;
--	if (dst && dst->ops->negative_advice)
-+	if (dst && dst->ops->negative_advice) {
- 		*dst_p = dst->ops->negative_advice(dst);
-+
-+		if (dst != *dst_p) {
-+			extern void sk_reset_txq(struct sock *sk);
-+
-+			sk_reset_txq(sk);
-+		}
-+	}
- }
- 
- static inline void dst_link_failure(struct sk_buff *skb)
-diff -ruNp org/net/core/sock.c new/net/core/sock.c
---- org/net/core/sock.c	2009-10-16 21:30:56.000000000 +0530
-+++ new/net/core/sock.c	2009-10-16 21:32:33.000000000 +0530
-@@ -352,6 +352,12 @@ discard_and_relse:
- }
- EXPORT_SYMBOL(sk_receive_skb);
- 
-+void sk_reset_txq(struct sock *sk)
+ /**
++ * ks8851_wrreg8 - write 8bit register value to chip
++ * @ks: The chip state
++ * @reg: The register address
++ * @val: The value to write
++ *
++ * Issue a write to put the value @val into the register specified in @reg.
++ */
++static void ks8851_wrreg8(struct ks8851_net *ks, unsigned reg, unsigned val)
 +{
-+	sk_tx_queue_clear(sk);
-+}
-+EXPORT_SYMBOL(sk_reset_txq);
++	struct spi_transfer *xfer = &ks->spi_xfer1;
++	struct spi_message *msg = &ks->spi_msg1;
++	__le16 txb[2];
++	int ret;
++	int bit;
 +
- struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie)
++	bit = 1 << (reg & 3);
++
++	txb[0] = cpu_to_le16(MK_OP(bit, reg) | KS_SPIOP_WR);
++	txb[1] = val;
++
++	xfer->tx_buf = txb;
++	xfer->rx_buf = NULL;
++	xfer->len = 3;
++
++	ret = spi_sync(ks->spidev, msg);
++	if (ret < 0)
++		ks_err(ks, "spi_sync() failed\n");
++}
++
++/**
+  * ks8851_rx_1msg - select whether to use one or two messages for spi read
+  * @ks: The device structure
+  *
+@@ -322,13 +352,12 @@ static void ks8851_soft_reset(struct ks8
+ static int ks8851_write_mac_addr(struct net_device *dev)
  {
- 	struct dst_entry *dst = sk->sk_dst_cache;
-diff -ruNp org/net/dccp/timer.c new/net/dccp/timer.c
---- org/net/dccp/timer.c	2009-10-16 21:30:56.000000000 +0530
-+++ new/net/dccp/timer.c	2009-10-16 21:31:30.000000000 +0530
-@@ -38,7 +38,7 @@ static int dccp_write_timeout(struct soc
+ 	struct ks8851_net *ks = netdev_priv(dev);
+-	u16 *mcp = (u16 *)dev->dev_addr;
++	int i;
  
- 	if (sk->sk_state == DCCP_REQUESTING || sk->sk_state == DCCP_PARTOPEN) {
- 		if (icsk->icsk_retransmits != 0)
--			dst_negative_advice(&sk->sk_dst_cache);
-+			dst_negative_advice(&sk->sk_dst_cache, sk);
- 		retry_until = icsk->icsk_syn_retries ?
- 			    : sysctl_dccp_request_retries;
- 	} else {
-@@ -63,7 +63,7 @@ static int dccp_write_timeout(struct soc
- 			   Golden words :-).
- 		   */
+ 	mutex_lock(&ks->lock);
  
--			dst_negative_advice(&sk->sk_dst_cache);
-+			dst_negative_advice(&sk->sk_dst_cache, sk);
- 		}
+-	ks8851_wrreg16(ks, KS_MARL, mcp[0]);
+-	ks8851_wrreg16(ks, KS_MARM, mcp[1]);
+-	ks8851_wrreg16(ks, KS_MARH, mcp[2]);
++	for (i = 0; i < ETH_ALEN; i++)
++		ks8851_wrreg8(ks, KS_MAR(i), dev->dev_addr[i]);
  
- 		retry_until = sysctl_dccp_retries2;
-diff -ruNp org/net/decnet/af_decnet.c new/net/decnet/af_decnet.c
---- org/net/decnet/af_decnet.c	2009-10-16 21:30:56.000000000 +0530
-+++ new/net/decnet/af_decnet.c	2009-10-16 21:31:30.000000000 +0530
-@@ -1955,7 +1955,7 @@ static int dn_sendmsg(struct kiocb *iocb
- 	}
+ 	mutex_unlock(&ks->lock);
  
- 	if ((flags & MSG_TRYHARD) && sk->sk_dst_cache)
--		dst_negative_advice(&sk->sk_dst_cache);
-+		dst_negative_advice(&sk->sk_dst_cache, sk);
+Index: b/drivers/net/ks8851.h
+===================================================================
+--- a/drivers/net/ks8851.h	2009-10-06 14:34:32.000000000 +0100
++++ b/drivers/net/ks8851.h	2009-10-06 14:35:08.000000000 +0100
+@@ -16,6 +16,7 @@
+ #define CCR_32PIN				(1 << 0)
  
- 	mss = scp->segsize_rem;
- 	fctype = scp->services_rem & NSP_FC_MASK;
-diff -ruNp org/net/ipv4/tcp_timer.c new/net/ipv4/tcp_timer.c
---- org/net/ipv4/tcp_timer.c	2009-10-16 21:30:56.000000000 +0530
-+++ new/net/ipv4/tcp_timer.c	2009-10-16 21:31:30.000000000 +0530
-@@ -141,14 +141,14 @@ static int tcp_write_timeout(struct sock
- 
- 	if ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV)) {
- 		if (icsk->icsk_retransmits)
--			dst_negative_advice(&sk->sk_dst_cache);
-+			dst_negative_advice(&sk->sk_dst_cache, sk);
- 		retry_until = icsk->icsk_syn_retries ? : sysctl_tcp_syn_retries;
- 	} else {
- 		if (retransmits_timed_out(sk, sysctl_tcp_retries1)) {
- 			/* Black hole detection */
- 			tcp_mtu_probing(icsk, sk);
- 
--			dst_negative_advice(&sk->sk_dst_cache);
-+			dst_negative_advice(&sk->sk_dst_cache, sk);
- 		}
- 
- 		retry_until = sysctl_tcp_retries2;
+ /* MAC address registers */
++#define KS_MAR(_m)				0x15 - (_m)
+ #define KS_MARL					0x10
+ #define KS_MARM					0x12
+ #define KS_MARH					0x14
+
