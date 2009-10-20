@@ -1,49 +1,44 @@
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [PATCH 2/4 v4] net: IPv6 changes
-Date: Tue, 20 Oct 2009 15:16:32 +0530
-Message-ID: <20091020094632.10404.32941.sendpatchset@localhost.localdomain>
-References: <20091020094607.10404.81794.sendpatchset@localhost.localdomain>
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	Krishna Kumar <krkumar2@in.ibm.com>, dada1@cosmosbay.com
-To: davem@davemloft.net
+From: Ben Dooks <ben@simtec.co.uk>
+Subject: [patch 1/3] KS8851: Add soft reset at probe time
+Date: Tue, 20 Oct 2009 10:49:03 +0100
+Message-ID: <20091020094954.310595275@fluff.org.uk>
+References: <20091020094902.274646871@fluff.org.uk>
+Cc: Ping.Doong@Micrel.Com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp03.in.ibm.com ([59.145.155.3]:56846 "EHLO
-	e28smtp03.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751757AbZJTJqd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 05:46:33 -0400
-Received: from d28relay05.in.ibm.com (d28relay05.in.ibm.com [9.184.220.62])
-	by e28smtp03.in.ibm.com (8.14.3/8.13.1) with ESMTP id n9K9kaHt007456
-	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 15:16:36 +0530
-Received: from d28av01.in.ibm.com (d28av01.in.ibm.com [9.184.220.63])
-	by d28relay05.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n9K9kaSp2478162
-	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 15:16:36 +0530
-Received: from d28av01.in.ibm.com (loopback [127.0.0.1])
-	by d28av01.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n9K9kZJY014737
-	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 15:16:36 +0530
-In-Reply-To: <20091020094607.10404.81794.sendpatchset@localhost.localdomain>
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:50627 "EHLO
+	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751701AbZJTJtw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 05:49:52 -0400
+Content-Disposition: inline; filename=ks8851-reset-at-probe.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krishna Kumar <krkumar2@in.ibm.com>
+Issue a full soft reset at probe time.
 
-IPv6: Reset sk_tx_queue_mapping when dst_cache is reset. Use existing
-macro to do the work.
+This was reported by Doong Ping of Micrel, but no explanation of why this
+is necessary or what bug it is fixing. Add it as it does not seem to hurt
+the current driver and ensures that the device is in a known state when we
+start setting it up.
 
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+Signed-off-by: Ben Dooks <ben@simtec.co.uk>
+
 ---
- net/ipv6/inet6_connection_sock.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ks8851.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-diff -ruNp org/net/ipv6/inet6_connection_sock.c new/net/ipv6/inet6_connection_sock.c
---- org/net/ipv6/inet6_connection_sock.c	2009-10-16 21:29:19.000000000 +0530
-+++ new/net/ipv6/inet6_connection_sock.c	2009-10-16 21:31:00.000000000 +0530
-@@ -168,8 +168,7 @@ struct dst_entry *__inet6_csk_dst_check(
- 	if (dst) {
- 		struct rt6_info *rt = (struct rt6_info *)dst;
- 		if (rt->rt6i_flow_cache_genid != atomic_read(&flow_cache_genid)) {
--			sk->sk_dst_cache = NULL;
--			dst_release(dst);
-+			__sk_dst_reset(sk);
- 			dst = NULL;
- 		}
- 	}
+Index: b/drivers/net/ks8851.c
+===================================================================
+--- a/drivers/net/ks8851.c	2009-10-12 23:04:15.000000000 +0100
++++ b/drivers/net/ks8851.c	2009-10-13 13:28:43.000000000 +0100
+@@ -1239,6 +1239,9 @@ static int __devinit ks8851_probe(struct
+ 	ndev->netdev_ops = &ks8851_netdev_ops;
+ 	ndev->irq = spi->irq;
+ 
++	/* issue a global soft reset to reset the device. */
++	ks8851_soft_reset(ks, GRR_GSR);
++
+ 	/* simple check for a valid chip being connected to the bus */
+ 
+ 	if ((ks8851_rdreg16(ks, KS_CIDER) & ~CIDER_REV_MASK) != CIDER_ID) {
+
