@@ -1,33 +1,49 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: kernel panic in latest vanilla stable, while using nameif with
-	"alive" pppoe interfaces
-Date: Tue, 20 Oct 2009 07:04:35 +0400
-Message-ID: <aa79d98a0910192004g43de90d5p823293b888cf0c1d@mail.gmail.com>
-References: <200910190002.39937.denys@visp.net.lb>
-	 <20091019205740.GD5233@lenovo>
-	 <e6d1cecd0910191422t2905d9bbl3355fc50cf36ff90@mail.gmail.com>
-	 <200910200308.57381.denys@visp.net.lb>
+From: Ben Greear <greearb@candelatech.com>
+Subject: pktgen and spin_lock_bh in xmit path
+Date: Mon, 19 Oct 2009 20:38:03 -0700
+Message-ID: <4ADD309B.1040505@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Michal Ostrowski <mostrows@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>, linux-ppp@vger.kernel.org,
-	paulus@samba.org, mostrows@earthlink.net
-To: Denys Fedoryschenko <denys@visp.net.lb>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <200910200308.57381.denys@visp.net.lb>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: NetDev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:33991 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753693AbZJTDiB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Oct 2009 23:38:01 -0400
+Received: from [71.112.54.138] (pool-71-112-54-138.sttlwa.dsl-w.verizon.net [71.112.54.138])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id n9K3c3t5025432
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 19 Oct 2009 20:38:04 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/20/09, Denys Fedoryschenko <denys@visp.net.lb> wrote:
-> On Tuesday 20 October 2009 00:22:39 Michal Ostrowski wrote:
->> I'm assuming that there was a race in us sending patches at nearly the
->> same
->> time I'm convinced now that the flush_lock can die, and the patch I sent
->> out kills it.
-> o_O
->
-> I am drowning in patches. Just let me know which one to test :-)
->
-Oh ;) Try out latest Michal's patch (and then mine). I'll continue
-digg this issue at next spare time slot. Thanks!
+I'm having strange issues when running pktgen on 10G interfaces while 
+also running
+pktgen on mac-vlans on that interface, when the mac-vlan pktgen threads 
+are on a different
+CPU.
+
+First, lockdep gives up and says that things are not properly 
+annotated.  I believe this is because
+the macvlan tx path will lock it's txq and will also lock the 
+lower-dev's txq.  To fix this, perhaps
+we need some new lockdep aware primitives for netdev txq locking?
+
+Second, is using _bh() locking really sufficient if we have pktgen 
+writing to a physical device
+and also have other pktgen threads writing to that same device though 
+mac-vlans?   I'm seeing
+deadlocks spinning on the _bh() lock in pktgen as well as strange 
+corruptions, so I think there
+must be *some* problem somewhere, I just don't know quite what it is yet.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
+
