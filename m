@@ -1,101 +1,74 @@
-From: Ben Dooks <ben@simtec.co.uk>
-Subject: [patch 2/3] KS8851: Fix MAC address write order
-Date: Tue, 20 Oct 2009 10:49:04 +0100
-Message-ID: <20091020094954.442531232@fluff.org.uk>
-References: <20091020094902.274646871@fluff.org.uk>
-Cc: Ping.Doong@Micrel.Com
-To: netdev@vger.kernel.org
+From: Krishna Kumar <krkumar2@in.ibm.com>
+Subject: [PATCH 4/4 v4] net: Use sk_tx_queue_mapping for connected sockets
+Date: Tue, 20 Oct 2009 15:20:07 +0530
+Message-ID: <20091020095007.10404.15676.sendpatchset@localhost.localdomain>
+References: <20091020094607.10404.81794.sendpatchset@localhost.localdomain>
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	Krishna Kumar <krkumar2@in.ibm.com>, dada1@cosmosbay.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aeryn.fluff.org.uk ([87.194.8.8]:50631 "EHLO
-	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751797AbZJTJtz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 05:49:55 -0400
-Content-Disposition: inline; filename=ks8851-fix-mac-order.patch
+Received: from e23smtp03.au.ibm.com ([202.81.31.145]:42831 "EHLO
+	e23smtp03.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751695AbZJTJuK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 05:50:10 -0400
+Received: from d23relay04.au.ibm.com (d23relay04.au.ibm.com [202.81.31.246])
+	by e23smtp03.au.ibm.com (8.14.3/8.13.1) with ESMTP id n9K9le35008083
+	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 20:47:40 +1100
+Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.235.138])
+	by d23relay04.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n9K9lXic1573104
+	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 20:47:33 +1100
+Received: from d23av02.au.ibm.com (loopback [127.0.0.1])
+	by d23av02.au.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n9K9oBUa000490
+	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 20:50:13 +1100
+In-Reply-To: <20091020094607.10404.81794.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The MAC address register was being written in the wrong order, so add
-a new address macro to convert mac-address byte to register address and
-a ks8851_wrreg8() function to write each byte without having to worry
-about any difficult byte swapping.
+From: Krishna Kumar <krkumar2@in.ibm.com>
 
-Fixes a bug reported by Doong, Ping of Micrel.
+For connected sockets, the first run of dev_pick_tx saves the
+calculated txq in sk_tx_queue_mapping. This is not saved if
+either the device has a queue select or the socket is not
+connected. Next iterations of dev_pick_tx uses the cached value
+of sk_tx_queue_mapping.
 
-Signed-off-by: Ben Dooks <ben@simtec.co.uk>
-
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 ---
- drivers/net/ks8851.c |   39 ++++++++++++++++++++++++++++++++++-----
- drivers/net/ks8851.h |    1 +
- 2 files changed, 35 insertions(+), 5 deletions(-)
+ net/core/dev.c |   24 ++++++++++++++++++------
+ 1 file changed, 18 insertions(+), 6 deletions(-)
 
-Index: b/drivers/net/ks8851.c
-===================================================================
---- a/drivers/net/ks8851.c	2009-10-06 14:25:53.000000000 +0100
-+++ b/drivers/net/ks8851.c	2009-10-06 14:42:39.000000000 +0100
-@@ -171,6 +171,36 @@ static void ks8851_wrreg16(struct ks8851
- }
- 
- /**
-+ * ks8851_wrreg8 - write 8bit register value to chip
-+ * @ks: The chip state
-+ * @reg: The register address
-+ * @val: The value to write
-+ *
-+ * Issue a write to put the value @val into the register specified in @reg.
-+ */
-+static void ks8851_wrreg8(struct ks8851_net *ks, unsigned reg, unsigned val)
-+{
-+	struct spi_transfer *xfer = &ks->spi_xfer1;
-+	struct spi_message *msg = &ks->spi_msg1;
-+	__le16 txb[2];
-+	int ret;
-+	int bit;
-+
-+	bit = 1 << (reg & 3);
-+
-+	txb[0] = cpu_to_le16(MK_OP(bit, reg) | KS_SPIOP_WR);
-+	txb[1] = val;
-+
-+	xfer->tx_buf = txb;
-+	xfer->rx_buf = NULL;
-+	xfer->len = 3;
-+
-+	ret = spi_sync(ks->spidev, msg);
-+	if (ret < 0)
-+		ks_err(ks, "spi_sync() failed\n");
-+}
-+
-+/**
-  * ks8851_rx_1msg - select whether to use one or two messages for spi read
-  * @ks: The device structure
-  *
-@@ -322,13 +352,12 @@ static void ks8851_soft_reset(struct ks8
- static int ks8851_write_mac_addr(struct net_device *dev)
+diff -ruNp org/net/core/dev.c new/net/core/dev.c
+--- org/net/core/dev.c	2009-10-19 15:43:30.000000000 +0530
++++ new/net/core/dev.c	2009-10-20 12:24:40.000000000 +0530
+@@ -1791,13 +1791,25 @@ EXPORT_SYMBOL(skb_tx_hash);
+ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
+ 					struct sk_buff *skb)
  {
- 	struct ks8851_net *ks = netdev_priv(dev);
--	u16 *mcp = (u16 *)dev->dev_addr;
-+	int i;
+-	const struct net_device_ops *ops = dev->netdev_ops;
+-	u16 queue_index = 0;
++	u16 queue_index;
++	struct sock *sk = skb->sk;
++
++	if (sk_tx_queue_recorded(sk)) {
++		queue_index = sk_tx_queue_get(sk);
++	} else {
++		const struct net_device_ops *ops = dev->netdev_ops;
  
- 	mutex_lock(&ks->lock);
+-	if (ops->ndo_select_queue)
+-		queue_index = ops->ndo_select_queue(dev, skb);
+-	else if (dev->real_num_tx_queues > 1)
+-		queue_index = skb_tx_hash(dev, skb);
++		if (ops->ndo_select_queue) {
++			queue_index = ops->ndo_select_queue(dev, skb);
++		} else {
++			queue_index = 0;
++			if (dev->real_num_tx_queues > 1)
++				queue_index = skb_tx_hash(dev, skb);
++
++			if (sk && sk->sk_dst_cache)
++				sk_tx_queue_set(sk, queue_index);
++		}
++	}
  
--	ks8851_wrreg16(ks, KS_MARL, mcp[0]);
--	ks8851_wrreg16(ks, KS_MARM, mcp[1]);
--	ks8851_wrreg16(ks, KS_MARH, mcp[2]);
-+	for (i = 0; i < ETH_ALEN; i++)
-+		ks8851_wrreg8(ks, KS_MAR(i), dev->dev_addr[i]);
- 
- 	mutex_unlock(&ks->lock);
- 
-Index: b/drivers/net/ks8851.h
-===================================================================
---- a/drivers/net/ks8851.h	2009-10-06 14:34:32.000000000 +0100
-+++ b/drivers/net/ks8851.h	2009-10-06 14:35:08.000000000 +0100
-@@ -16,6 +16,7 @@
- #define CCR_32PIN				(1 << 0)
- 
- /* MAC address registers */
-+#define KS_MAR(_m)				0x15 - (_m)
- #define KS_MARL					0x10
- #define KS_MARM					0x12
- #define KS_MARH					0x14
-
+ 	skb_set_queue_mapping(skb, queue_index);
+ 	return netdev_get_tx_queue(dev, queue_index);
