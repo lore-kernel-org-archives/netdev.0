@@ -1,32 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: tcp: Try to catch MSG_PEEK bug
-Date: Tue, 20 Oct 2009 00:52:20 -0700 (PDT)
-Message-ID: <20091020.005220.117385594.davem@davemloft.net>
-References: <20091020054106.GA5507@gondor.apana.org.au>
+Subject: Re: [PATCH RFC] net: add alloc_skb_mustcopy() to make clone copy
+Date: Tue, 20 Oct 2009 00:52:47 -0700 (PDT)
+Message-ID: <20091020.005247.59537364.davem@davemloft.net>
+References: <4ADD5666.9090409@goop.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: jeremy@goop.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42695
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42698
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751112AbZJTHv6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 03:51:58 -0400
-In-Reply-To: <20091020054106.GA5507@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1751134AbZJTHwZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 03:52:25 -0400
+In-Reply-To: <4ADD5666.9090409@goop.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 20 Oct 2009 14:41:06 +0900
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Date: Tue, 20 Oct 2009 15:19:18 +0900
 
-> tcp: Try to catch MSG_PEEK bug
+> When doing network IO on behalf of guests, a Xen dom0 kernel gets granted
+> pages from guests.  These pages cannot be released normally, so we must
+> handle releasing them specially, which can do with a skb_destructor.
 > 
-> This patch tries to print out more information when we hit the
-> MSG_PEEK bug in tcp_recvmsg.  It's been around since at least
-> 2005 and it's about time that we finally fix it.
+> This is complicated by the fact that the lifetime of an skb's
+> frags can be extended via cloning.  To address this, this patch adds
+> alloc_skb_mustcopy() which allocates an skb with fclone==SKB_MUST_COPY.
+> If skb_clone() sees an skb with this set, it simply calls skb_copy
+> instead so that there are no aliases to the granted pages.
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> /* Signed-off-by: Jeremy Fitzhardinge <jeremy.fitzhardinge@citrix.com> */
 
-Ok, fair enough, I'll stick this into net-2.6 and hopefully
-that will help us.
+This looks perfectly fine to me.
+
+Let me know if it actually works out for you and we can merge
+this.
