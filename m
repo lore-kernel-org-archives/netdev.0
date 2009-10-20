@@ -1,30 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: kernel panic in latest vanilla stable, while using nameif with
- "alive" pppoe interfaces
-Date: Mon, 19 Oct 2009 19:28:02 -0700 (PDT)
-Message-ID: <20091019.192802.11400458.davem@davemloft.net>
-References: <4ADCB3A4.8060408@gmail.com>
-	<20091019205740.GD5233@lenovo>
-	<e6d1cecd0910191422t2905d9bbl3355fc50cf36ff90@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/2] bluetooth: scheduling while atomic bug fix
+Date: Mon, 19 Oct 2009 19:37:11 -0700 (PDT)
+Message-ID: <20091019.193711.147629067.davem@davemloft.net>
+References: <20091019062441.GA4102@darkstar.vlan7>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gorcunov@gmail.com, eric.dumazet@gmail.com, denys@visp.net.lb,
-	netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
-	paulus@samba.org, mostrows@earthlink.net
-To: mostrows@gmail.com
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <e6d1cecd0910191422t2905d9bbl3355fc50cf36ff90@mail.gmail.com>
-Sender: linux-ppp-owner@vger.kernel.org
+Cc: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org, oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20091019062441.GA4102-4/PLUo9XfK+SVgrV+fD4Uw@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+From: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Mon, 19 Oct 2009 14:24:41 +0800
 
-Please stop top posting!
+> Due to driver core changes dev_set_drvdata will call kzalloc which should be
+> in might_sleep context, but hci_conn_add will be called in atomic context
+> 
+> Like dev_set_name move dev_set_drvdata to work queue function.
+> 
+> oops as following:
+ ...
+> Signed-off-by: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-I want to follow this discussions efficiently and that's impossible
-if you reply BEFORE instead of AFTER the context of what you're
-replying to.
-
-Note that a day will come very soon that postings to these lists
-that do top posting will be flat out bounced back to you and
-never make it to the list at all.
+Applied.
