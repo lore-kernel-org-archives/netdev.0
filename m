@@ -1,36 +1,37 @@
-From: Ben Dooks <ben@simtec.co.uk>
-Subject: Re: [patch 0/3] KS8851 updates for -rc5
-Date: Tue, 20 Oct 2009 23:26:30 +0100
-Message-ID: <4ADE3916.3050206@simtec.co.uk>
-References: <6DA9692E60FD324FBF17D6336890798104259C@MELANITE.micrel.com>
+From: Steven King <sfking@fdwdc.com>
+Subject: [PATCH v2] fix section mismatch in fec.c
+Date: Tue, 20 Oct 2009 16:00:10 -0700
+Message-ID: <200910201600.10545.sfking@fdwdc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Li, Charles" <Charles.Li@Micrel.Com>
-To: "Doong, Ping" <Ping.Doong@Micrel.Com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aeryn.fluff.org.uk ([87.194.8.8]:36037 "EHLO
-	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751907AbZJTW0k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 18:26:40 -0400
-In-Reply-To: <6DA9692E60FD324FBF17D6336890798104259C@MELANITE.micrel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752839AbZJTXAL@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Doong, Ping wrote:
-> Hi Ben,
-> 
-> I'm sorry. I am busy on other project, and have got the change to verify
-> your new patch on our side. I will do it soon.
+fec_enet_init is called by both fec_probe and fec_resume, so it shouldn't 
+be marked as __init.
 
- From testing, these verify for me now that I've seen the
-issues for myself. I belive they're ready for merging so
-unless Dave (or someone else) objects, then I'd like to
-see them in as soon as possible.
+Signed-off-by: Steven King <sfking@fdwdc.com>
 
-Thanks for the bug reports.
+
+diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+index 2923438..16a1d58 100644
+--- a/drivers/net/fec.c
++++ b/drivers/net/fec.c
+@@ -1654,7 +1654,7 @@ static const struct net_device_ops fec_netdev_ops = {
+   *
+   * index is only used in legacy code
+   */
+-int __init fec_enet_init(struct net_device *dev, int index)
++static int fec_enet_init(struct net_device *dev, int index)
+ {
+ 	struct fec_enet_private *fep = netdev_priv(dev);
+ 	struct bufdesc *cbd_base;
 
 -- 
-Ben Dooks, Software Engineer, Simtec Electronics
-
-http://www.simtec.co.uk/
+Steven King -- sfking at fdwdc dot com
