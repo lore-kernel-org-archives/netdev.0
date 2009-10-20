@@ -1,135 +1,143 @@
 From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [PATCH 0/4 v4] net: Implement fast TX queue selection
-Date: Tue, 20 Oct 2009 15:16:07 +0530
-Message-ID: <20091020094607.10404.81794.sendpatchset@localhost.localdomain>
+Subject: [PATCH 1/4 v4] net: Introduce sk_tx_queue_mapping
+Date: Tue, 20 Oct 2009 15:16:20 +0530
+Message-ID: <20091020094620.10404.32429.sendpatchset@localhost.localdomain>
+References: <20091020094607.10404.81794.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
 	Krishna Kumar <krkumar2@in.ibm.com>, dada1@cosmosbay.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp01.in.ibm.com ([59.145.155.1]:44503 "EHLO
-	e28smtp01.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751695AbZJTJqK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 05:46:10 -0400
+Received: from e28smtp08.in.ibm.com ([59.145.155.8]:49514 "EHLO
+	e28smtp08.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751750AbZJTJqV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 05:46:21 -0400
 Received: from d28relay01.in.ibm.com (d28relay01.in.ibm.com [9.184.220.58])
-	by e28smtp01.in.ibm.com (8.14.3/8.13.1) with ESMTP id n9K9kCT7010238
-	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 15:16:12 +0530
-Received: from d28av03.in.ibm.com (d28av03.in.ibm.com [9.184.220.65])
-	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n9K9kBiE1314874
-	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 15:16:11 +0530
-Received: from d28av03.in.ibm.com (loopback [127.0.0.1])
-	by d28av03.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n9K9kA11003288
-	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 20:46:11 +1100
+	by e28smtp08.in.ibm.com (8.14.3/8.13.1) with ESMTP id n9K9XQLr012951
+	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 15:03:26 +0530
+Received: from d28av02.in.ibm.com (d28av02.in.ibm.com [9.184.220.64])
+	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n9K9kNY72490504
+	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 15:16:23 +0530
+Received: from d28av02.in.ibm.com (loopback [127.0.0.1])
+	by d28av02.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n9K9kMgw024087
+	for <netdev@vger.kernel.org>; Tue, 20 Oct 2009 20:46:23 +1100
+In-Reply-To: <20091020094607.10404.81794.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Krishna Kumar <krkumar2@in.ibm.com>
 
-Notes:
-------
-    1.  Eric suggested:
-	- To use u16 for txq#, but I am using an "int" for now as that
-	  avoids one unnecessary subtraction during tx.
-	- An improvement of caching the txq at connection establishment
-	  time so as to use rxq# = txq# (TBD later).
-	- Drivers can call sk_tx_queue_set() to set the txq if they are
-	  going to call skb_tx_hash() internally.
-    2. v3 & v4 patch stress tested with 1000 netperfs, reboot's, etc.
-
-
-Changelog [from v3]:
---------------------
-	1. Changed the order of patches so that the patch setting the
-	   txq is moved to the end. This results in bisect-safe patches.
-	2. Fixed a build failure.
-
-
-Changelog [from v2]:
---------------------
-	1. Changed names of functions setting, getting and returning the
-	   txq#; and added a new one to reset the txq#.
-	2. Free sk doesn't need to reset txq#.
-
-
-Changelog [from v1]:
---------------------
-	1. Changed IPv6 code to call __sk_dst_reset() directly.
-	2. Removed the patch re-arranging ("encapsulating") __sk_dst_reset()
-
-
-Multiqueue cards on routers/firewalls set skb->queue_mapping on
-input which helps in faster xmit. Implement fast queue selection
-for locally generated packets also, by saving the txq# for
-connected sockets (in dev_pick_tx) and use it in subsequent
-iterations. Locally generated packets for a connection will xmit
-on the same txq, but routing & firewall loads should not be
-affected by this patch. Tests shows the distribution across txq's
-for 1-4 netperf sessions is similar to existing code.
-
-
-                   Testing & results:
-                   ------------------
-
-1. Cycles/Iter (C/I) used by dev_pick_tx:
-         (B -> Billion,   M -> Million)
-   |--------------|------------------------|------------------------|
-   |              |          ORG           |          NEW           |
-   |  Test        |--------|---------|-----|--------|---------|-----|
-   |              | Cycles |  Iters  | C/I | Cycles | Iters   | C/I |
-   |--------------|--------|---------|-----|--------|---------|-----|
-   | [TCP_STREAM, | 3.98 B | 12.47 M | 320 | 1.95 B | 12.92 M | 152 |
-   |  UDP_STREAM, |        |         |     |        |         |     |         
-   |  TCP_RR,     |        |         |     |        |         |     |        
-   |  UDP_RR]     |        |         |     |        |         |     |        
-   |--------------|--------|---------|-----|--------|---------|-----|        
-   | [TCP_STREAM, | 8.92 B | 29.66 M | 300 | 3.82 B | 38.88 M | 98  |        
-   |  TCP_RR,     |        |         |     |        |         |     |         
-   |  UDP_RR]     |        |         |     |        |         |     |         
-   |--------------|--------|---------|-----|--------|---------|-----|
-
-2. Stress test (over 48 hours) : 1000 netperfs running combination
-   of TCP_STREAM/RR, UDP_STREAM/RR (v4/6, NODELAY/~NODELAY for all
-   tests), with some ssh sessions, reboots, modprobe -r driver, etc.
-
-3. Performance test (10 hours): Single 10 hour netperf run of
-   TCP_STREAM/RR, TCP_STREAM + NO_DELAY and UDP_RR. Results show an
-   improvement in both performance and cpu utilization.
-
-Tested on a 4-processor AMD Opteron 2.8 GHz system with 1GB memory,
-10G Chelsio card. Each BW number is the sum of 3 iterations of
-individual tests using 512, 16K, 64K & 128K I/O sizes, in Mb/s:
-
-------------------------  TCP Tests  -----------------------
-#procs  Org BW     New BW (%)     Org SD     New SD (%)
-------------------------------------------------------------
-1       77777.7    81011.0 (4.15)    42.3     40.2 (-5.11)
-4       91599.2    91878.8 (.30)    955.9    919.3 (-3.83)
-6       89533.3    91792.2 (2.52)  2262.0   2143.0 (-5.25)
-8       87507.5    89161.9 (1.89)  4363.4   4073.6 (-6.64)
-10      85152.4    85607.8 (.53)   6890.4   6851.2 (-.56)
-------------------------------------------------------------
-
-------------------------- TCP NO_DELAY Tests ---------------
-#procs  Org BW     New BW (%)      Org SD      New SD (%)
-------------------------------------------------------------
-1       57001.9    57888.0 (1.55)     67.7      70.2 (3.75)
-4       69555.1    69957.4 (.57)     823.0     834.3 (1.36)
-6       71359.3    71918.7 (.78)    1740.8    1724.5 (-.93)
-8       72577.6    72496.1 (-.11)   2955.4    2937.7 (-.59)
-10      70829.6    71444.2 (.86)    4826.1    4673.4 (-3.16)
-------------------------------------------------------------
-
------------------------ Request Response Tests --------------------
-#procs  Org TPS     New TPS (%)      Org SD    New SD (%)
-(1-10)
--------------------------------------------------------------------
-TCP     1019245.9   1042626.4 (2.29) 16352.9   16459.8 (.65)
-UDP     934598.64   942956.9  (.89)  11607.3   11593.2 (-.12)
--------------------------------------------------------------------
-
-Thanks,
-
-- KK
+Introduce sk_tx_queue_mapping; and functions that set, test and
+get this value. Reset sk_tx_queue_mapping to -1 whenever the dst
+cache is set/reset, and in socket alloc. Setting txq to -1 and
+using valid txq=<0 to n-1> allows the tx path to use the value
+of sk_tx_queue_mapping directly instead of subtracting 1 on every
+tx.
 
 Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
+ include/net/sock.h |   26 ++++++++++++++++++++++++++
+ net/core/sock.c    |    5 ++++-
+ 2 files changed, 30 insertions(+), 1 deletion(-)
+
+diff -ruNp org/include/net/sock.h new/include/net/sock.h
+--- org/include/net/sock.h	2009-10-16 18:53:40.000000000 +0530
++++ new/include/net/sock.h	2009-10-16 21:38:44.000000000 +0530
+@@ -107,6 +107,7 @@ struct net;
+  *	@skc_node: main hash linkage for various protocol lookup tables
+  *	@skc_nulls_node: main hash linkage for UDP/UDP-Lite protocol
+  *	@skc_refcnt: reference count
++ *	@skc_tx_queue_mapping: tx queue number for this connection
+  *	@skc_hash: hash value used with various protocol lookup tables
+  *	@skc_family: network address family
+  *	@skc_state: Connection state
+@@ -128,6 +129,7 @@ struct sock_common {
+ 		struct hlist_nulls_node skc_nulls_node;
+ 	};
+ 	atomic_t		skc_refcnt;
++	int			skc_tx_queue_mapping;
+ 
+ 	unsigned int		skc_hash;
+ 	unsigned short		skc_family;
+@@ -215,6 +217,7 @@ struct sock {
+ #define sk_node			__sk_common.skc_node
+ #define sk_nulls_node		__sk_common.skc_nulls_node
+ #define sk_refcnt		__sk_common.skc_refcnt
++#define sk_tx_queue_mapping	__sk_common.skc_tx_queue_mapping
+ 
+ #define sk_copy_start		__sk_common.skc_hash
+ #define sk_hash			__sk_common.skc_hash
+@@ -1094,8 +1097,29 @@ static inline void sock_put(struct sock 
+ extern int sk_receive_skb(struct sock *sk, struct sk_buff *skb,
+ 			  const int nested);
+ 
++static inline void sk_tx_queue_set(struct sock *sk, int tx_queue)
++{
++	sk->sk_tx_queue_mapping = tx_queue;
++}
++
++static inline void sk_tx_queue_clear(struct sock *sk)
++{
++	sk->sk_tx_queue_mapping = -1;
++}
++
++static inline int sk_tx_queue_get(const struct sock *sk)
++{
++	return sk->sk_tx_queue_mapping;
++}
++
++static inline bool sk_tx_queue_recorded(const struct sock *sk)
++{
++	return (sk && sk->sk_tx_queue_mapping >= 0);
++}
++
+ static inline void sk_set_socket(struct sock *sk, struct socket *sock)
+ {
++	sk_tx_queue_clear(sk);
+ 	sk->sk_socket = sock;
+ }
+ 
+@@ -1152,6 +1176,7 @@ __sk_dst_set(struct sock *sk, struct dst
+ {
+ 	struct dst_entry *old_dst;
+ 
++	sk_tx_queue_clear(sk);
+ 	old_dst = sk->sk_dst_cache;
+ 	sk->sk_dst_cache = dst;
+ 	dst_release(old_dst);
+@@ -1170,6 +1195,7 @@ __sk_dst_reset(struct sock *sk)
+ {
+ 	struct dst_entry *old_dst;
+ 
++	sk_tx_queue_clear(sk);
+ 	old_dst = sk->sk_dst_cache;
+ 	sk->sk_dst_cache = NULL;
+ 	dst_release(old_dst);
+diff -ruNp org/net/core/sock.c new/net/core/sock.c
+--- org/net/core/sock.c	2009-10-16 18:53:40.000000000 +0530
++++ new/net/core/sock.c	2009-10-16 21:29:02.000000000 +0530
+@@ -357,6 +357,7 @@ struct dst_entry *__sk_dst_check(struct 
+ 	struct dst_entry *dst = sk->sk_dst_cache;
+ 
+ 	if (dst && dst->obsolete && dst->ops->check(dst, cookie) == NULL) {
++		sk_tx_queue_clear(sk);
+ 		sk->sk_dst_cache = NULL;
+ 		dst_release(dst);
+ 		return NULL;
+@@ -953,7 +954,8 @@ static void sock_copy(struct sock *nsk, 
+ 	void *sptr = nsk->sk_security;
+ #endif
+ 	BUILD_BUG_ON(offsetof(struct sock, sk_copy_start) !=
+-		     sizeof(osk->sk_node) + sizeof(osk->sk_refcnt));
++		     sizeof(osk->sk_node) + sizeof(osk->sk_refcnt) +
++		     sizeof(osk->sk_tx_queue_mapping));
+ 	memcpy(&nsk->sk_copy_start, &osk->sk_copy_start,
+ 	       osk->sk_prot->obj_size - offsetof(struct sock, sk_copy_start));
+ #ifdef CONFIG_SECURITY_NETWORK
+@@ -997,6 +999,7 @@ static struct sock *sk_prot_alloc(struct
+ 
+ 		if (!try_module_get(prot->owner))
+ 			goto out_free_sec;
++		sk_tx_queue_clear(sk);
+ 	}
+ 
+ 	return sk;
