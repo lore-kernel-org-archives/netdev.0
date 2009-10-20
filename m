@@ -1,53 +1,46 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: kernel panic in latest vanilla stable, while using nameif with  "alive" pppoe interfaces
-Date: Tue, 20 Oct 2009 14:52:58 +0300
-Message-ID: <200910201452.58789.denys@visp.net.lb>
-References: <200910190002.39937.denys@visp.net.lb> <200910201436.50249.denys@visp.net.lb> <aa79d98a0910200450n1a283f87hf946bb3b756d0bd@mail.gmail.com>
+From: Tomas Winkler <tomasw@gmail.com>
+Subject: Re: [PATCH net-next V2 1/3] iwmc3200top: Add Intel Wireless MultiCom
+	3200 top driver.
+Date: Tue, 20 Oct 2009 13:53:33 +0200
+Message-ID: <1ba2fa240910200453k4638dc6cm8c8911353ea85b60@mail.gmail.com>
+References: <1255806576-26869-1-git-send-email-tomas.winkler@intel.com>
+	 <20091019.215457.43252934.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Michal Ostrowski <mostrows@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>, linux-ppp@vger.kernel.org,
-	paulus@samba.org, mostrows@earthlink.net
-To: Cyrill Gorcunov <gorcunov@gmail.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <aa79d98a0910200450n1a283f87hf946bb3b756d0bd@mail.gmail.com>
-Content-Disposition: inline
-Sender: linux-ppp-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linux-mmc@vger.kernel.org,
+	yi.zhu@intel.com, inaky.perez-gonzalez@intel.com,
+	cindy.h.kao@intel.com, guy.cohen@intel.com,
+	ron.rindjunsky@intel.com
+To: David Miller <davem@davemloft.net>,
+	Marcel Holtmann <marcel@holtmann.org>
+Return-path: <linux-mmc-owner@vger.kernel.org>
+In-Reply-To: <20091019.215457.43252934.davem@davemloft.net>
+Sender: linux-mmc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 20 October 2009 14:50:09 Cyrill Gorcunov wrote:
-> On 10/20/09, Denys Fedoryschenko <denys@visp.net.lb> wrote:
-> > On Tuesday 20 October 2009 06:04:35 Cyrill Gorcunov wrote:
-> >> On 10/20/09, Denys Fedoryschenko <denys@visp.net.lb> wrote:
-> >> > On Tuesday 20 October 2009 00:22:39 Michal Ostrowski wrote:
-> >> >> I'm assuming that there was a race in us sending patches at nearly
-> >> >> the same
-> >> >> time I'm convinced now that the flush_lock can die, and the patch I
-> >> >> sent
-> >> >> out kills it.
-> >> >
-> >> > o_O
-> >> >
-> >> > I am drowning in patches. Just let me know which one to test :-)
-> >>
-> >> Oh ;) Try out latest Michal's patch (and then mine). I'll continue
-> >> digg this issue at next spare time slot. Thanks!
-> >
-> > Tried your patch, panic almost immediately
-> > Here is a text of panic message over netconsole
-> > http://www.nuclearcat.com/files/panic_pppoe3.txt
-> > It is  different now, before it was pppoe_device_event, now in pppoe_rcv
+On Tue, Oct 20, 2009 at 6:54 AM, David Miller <davem@davemloft.net> wrote:
+> From: Tomas Winkler <tomas.winkler@intel.com>
+> Date: Sat, 17 Oct 2009 21:09:34 +0200
 >
-> Thanks a lot! I'll back with new one in a couple of hours. Meanwhile i
-> suppose you may try Michal's patch as well.
-I did, it didn't help.
-Maybe i can run some debugging options in kernel?
-Also i can add debug(printk) lines in kernel if you want, to see where is bug 
-appearing.
-Note, i told to Michal, so will tell here, this pc is hyperthreading P4, as i 
-know it is very good to trigger various SMP race conditions.
-I can try also it with nosmp if u want.
+>> This patch adds Intel Wireless MultiCom 3200 top driver.
+>> IWMC3200 is 4Wireless Com CHIP (GPS/BT/WiFi/WiMAX).
+>> Top driver is responsible for device initialization and firmware download.
+>> Firmware handled by top is responsible for top itself and
+>> as well as bluetooth and GPS coms. (Wifi and WiMax provide their own firmware)
+>> In addition top driver is used to retrieve firmware logs
+>> and supports other debugging features
+>>
+>> Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
+>
+> Applied to net-next-2.6
 
+Thanks Dave
+
+Marcel
+I want to send out now the BT driver, would like the patch against
+bluetooth-next-2.6.git, then I wait till you sync or can you also pick
+it from net-next if Dave is OK with that?
+
+Thanks
+Tomas
