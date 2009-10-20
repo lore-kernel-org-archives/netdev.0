@@ -1,42 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel panic in latest vanilla stable, while using nameif with
- "alive" pppoe interfaces
-Date: Tue, 20 Oct 2009 07:05:28 +0200
-Message-ID: <4ADD4518.8020909@gmail.com>
-References: <200910190002.39937.denys@visp.net.lb> <4ADC5D3B.8010006@gmail.com>	 <e6d1cecd0910190619t3e009e1by49cc8f7307eb7cdb@mail.gmail.com>	 <20091019155034.GA5233@lenovo>	 <e6d1cecd0910190905x382bfc23w2987c84aa0837609@mail.gmail.com>	 <4ADC9DE2.5010308@gmail.com>	 <e6d1cecd0910191107h899a4ffs588f2413093dfb4b@mail.gmail.com>	 <4ADCB3A4.8060408@gmail.com>	 <e6d1cecd0910191354o16d023d2lbe2761a97e88acea@mail.gmail.com>	 <4ADD31A2.4030702@gmail.com> <aa79d98a0910192202j4ea9f189g2ff719d57aa5a5eb@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH net-next-2.6] net: Introduce dev_get_by_index_rcu()
+Date: Tue, 20 Oct 2009 14:06:32 +0900
+Message-ID: <20091020140632.79efb738@s6510>
+References: <4ADD3794.8030906@gmail.com>
+	<20091019.212018.79580287.davem@davemloft.net>
+	<4ADD3B5A.1080905@gmail.com>
+	<20091019.212855.179405364.davem@davemloft.net>
+	<4ADD44B0.8030204@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michal Ostrowski <mostrows@gmail.com>,
-	Denys Fedoryschenko <denys@visp.net.lb>,
-	netdev <netdev@vger.kernel.org>, linux-ppp@vger.kernel.org,
-	paulus@samba.org, mostrows@earthlink.net
-To: Cyrill Gorcunov <gorcunov@gmail.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <aa79d98a0910192202j4ea9f189g2ff719d57aa5a5eb@mail.gmail.com>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:49537 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751633AbZJTFGh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 01:06:37 -0400
+In-Reply-To: <4ADD44B0.8030204@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Cyrill Gorcunov a =E9crit :
-> On 10/20/09, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> Michal Ostrowski a =E9crit :
->>> Access of po->pppoe_dev is guarded by sk->sk_state & PPPOX_CONNECTE=
-D,
->>> and all use cases now rely on the socket lock.  Because of this, th=
-e
->>> ref-count on the namespace held by the socket object suffices to ho=
-ld
->>> the namespace in existence and so we don't need to ref-count the
->>> namespace in PPPoE. The flush_lock is gone.
->>>
->> Seems good !
->>
->> But can we use lock_sock() in __pppoe_xmit() context ?
->>
+On Tue, 20 Oct 2009 07:03:44 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> David Miller a =C3=A9crit :
+> > From: Eric Dumazet <eric.dumazet@gmail.com>
+> > Date: Tue, 20 Oct 2009 06:23:54 +0200
+> >=20
+> >> I wonder if the whole thing could use RCU somehow, since some
+> >> workloads hit this dev_base_lock rwlock pretty hard...
+> >=20
+> > True, but for now we'll put your fix in :-)
 >=20
-> Eric, most probably i miss something, but how lock sock protect us
-> from mtu changed via sysfs. This action calls change mtu notifier
-> which doesn't care about sockets at all...
+> [PATCH net-next-2.6] net: Introduce dev_get_by_index_rcu()
+>=20
+> Some workloads hit dev_base_lock rwlock pretty hard.
+> We can use RCU lookups to avoid touching this rwlock.
+>=20
+> netdevices are already freed after a RCU grace period, so this patch
+> adds no penalty at device dismantle time.
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-This ultimately calls pppoe_flush_dev() and this function
-takes care of taking appropriate sock_locks() on each sockets ?
+All usage dev_base_lock should be replaceable by using combination of r=
+tnl_mutex
+and RCU?
