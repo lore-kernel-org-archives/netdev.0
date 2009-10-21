@@ -1,62 +1,69 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [PATCH] net: allow netdev_wait_allrefs() to run faster
-Date: Wed, 21 Oct 2009 19:55:39 +0300
-Message-ID: <200910211955.40084.opurdila@ixiacom.com>
-References: <20091017221857.GG1925@kvack.org> <200910211539.01824.opurdila@ixiacom.com> <4ADF2B57.4030708@gmail.com>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: [RFC] net,socket: introduce build_sockaddr_check helper to catch
+	overflow at build time
+Date: Wed, 21 Oct 2009 21:07:32 +0400
+Message-ID: <20091021170732.GE5976@lenovo>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Benjamin LaHaise <bcrl@lhnet.ca>, netdev@vger.kernel.org,
-	Cosmin Ratiu <cratiu@ixiacom.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>
+To: Linux-Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:13180 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753661AbZJUQ6a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 12:58:30 -0400
-In-Reply-To: <4ADF2B57.4030708@gmail.com>
+Received: from mail-ew0-f207.google.com ([209.85.219.207]:57682 "EHLO
+	mail-ew0-f207.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754493AbZJURHa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 13:07:30 -0400
+Received: by ewy3 with SMTP id 3so6264471ewy.17
+        for <netdev@vger.kernel.org>; Wed, 21 Oct 2009 10:07:34 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 21 October 2009 18:40:07 you wrote:
+Hi,
 
-> >
-> > I would also like to see this patch in, we are running into scalability
-> > issues with creating/deleting lots of interfaces as well.
-> 
-> Ben patch only address interface deletion, and one part of the problem,
-> maybe the more visible one for the current kernel.
-> 
-> Adding lots of interfaces only needs several threads to run concurently.
-> 
-> Before applying/examining his patch I suggest identifying all dev_put()
->  spots than can be deleted and replaced by something more scalable. I began
->  this job but others can help me.
-> 
+while were sneaking thru sockets code I've got the idea that we may
+check for __kernel_sockaddr_storage overflow at build time. At moment
+this structure is big enough and I hardly believe it could be overflowed
+ever (hmm?).
 
-Yes, I agree with you, there are multiple places which needs to be touched to 
-allow for better scaling with regard to the number of interfaces. We do have 
-patches that addresses some of these issues, but unfortunately they are based 
-on 2.6.7 and some of them are quite ugly hacks :) 
+Anyway just an idea which could be stupid perhaps but I decided to
+put it out. An idea is that before copy protocol specific data in
+socket->ops->getname implementation the driver code may put
 
-However, we are in the process of switching to 2.6.31 so I hope we will be 
-able to contribute on this effort.
+build_sockaddr_check(sizeof(some_struct));
 
-> RTNL and rcu grace periods are going to hurt anyway, so you probably need
-> to use many tasks to be able to delete lots of interfaces in parallel.
-> 
+and be sure it doesn't overflow the hosting unit.
 
-Hmm, how would multiple tasks help here? Isn't the RTNL mutex global?
+Feel free to just ignore this RFC, was just an idea to share.
 
-> netdev_run_todo() should also use a better algorithm to allow parallelism.
-> 
-> Following patch doesnt slow down dev_put() users and real scalability
-> problems will surface and might be addressed.
-> 
-> [PATCH] net: allow netdev_wait_allrefs() to run faster
-> 
+	-- Cyrill
+---
+net,socket: introduce build_sockaddr_check helper to catch overflow at build time
 
-Thanks, I am going to test it on our platform and send back the results.
+proto_ops->getname implies copying protocol specific data
+into storage unit (particulary to __kernel_sockaddr_storage).
+So when one implements new protocol he either may keep this
+in mind (or may not).
 
-tavi
+Lets introduce build_sockaddr_check helper which check if
+storage unit is not overfowed. Note that the check is build
+time and introduce no slowdown at execution time.
+
+Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
+---
+ include/linux/socket.h |    3 +++
+ 1 file changed, 3 insertions(+)
+
+Index: linux-2.6.git/include/linux/socket.h
+=====================================================================
+--- linux-2.6.git.orig/include/linux/socket.h
++++ linux-2.6.git/include/linux/socket.h
+@@ -24,6 +24,9 @@ struct __kernel_sockaddr_storage {
+ #include <linux/types.h>		/* pid_t			*/
+ #include <linux/compiler.h>		/* __user			*/
+ 
++#define build_sockaddr_check(size)	\
++	BUILD_BUG_ON(((size) > sizeof(struct __kernel_sockaddr_storage)))
++
+ #ifdef __KERNEL__
+ # ifdef CONFIG_PROC_FS
+ struct seq_file;
