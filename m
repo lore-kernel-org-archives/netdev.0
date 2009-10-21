@@ -1,40 +1,52 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH RFC] Per route TCP options
-Date: Tue, 20 Oct 2009 22:13:54 -0400
-Message-ID: <20091020221354.5a714323.billfink@mindspring.com>
-References: <1256052161-14156-1-git-send-email-gilad@codefidence.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH 1/3] irq: Export irq_set_affinity() for drivers
+Date: Tue, 20 Oct 2009 19:26:53 -0700
+Message-ID: <20091021022626.32449.73883.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ori@comsleep.com
-To: Gilad Ben-Yossef <gilad@codefidence.com>
+Cc: gospo@redhat.com, netdev@vger.kernel.org,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-kukur.atl.sa.earthlink.net ([209.86.89.65]:32975 "EHLO
-	elasmtp-kukur.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751781AbZJUCNu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 22:13:50 -0400
-In-Reply-To: <1256052161-14156-1-git-send-email-gilad@codefidence.com>
+Received: from qmta12.emeryville.ca.mail.comcast.net ([76.96.27.227]:52317
+	"EHLO QMTA12.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751182AbZJUC34 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 22:29:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 20 Oct 2009, Gilad Ben-Yossef wrote:
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 
-> Turn the global sysctls allowing disabling of TCP SACK, DSCAK,
-> time stamp and window scale into per route entry feature options,
-> laying the ground to future removal of the relevant global sysctls.
-> 
-> You really only want to disable SACK, DSACK, time stamp or window
-> scale if you've got a piece of broken networking equipment somewhere 
-> as a stop gap until you can bring a big enough hammer to deal with
-> the broken network equipment. It doesn't make sense to "punish" the
-> entire connections going through the machine to destinations not 
-> related to the broken equipment.
+This patch allows drivers to specify an IRQ affinity mask for
+their respective interrupt sources.  This is very useful on
+network adapters using MSI-X, where aligning network flows
+linearly to CPUs greatly improves efficiency of the network
+stack.
 
-For certain test situations, it is sometimes desirable to globally
-disable TCP timestamps.  Although I have not personally wanted to
-globally disable the other mentioned features, I can imagine test
-scenarios where it could be useful.  Admittedly it could also be
-accomplished with per route features, just not as conveniently,
-especially if there are a large number of interfaces and/or routes.
+Today, users must either hand-set affinity through /proc, or
+use a script through the same interface.  This patch will allow
+a driver to come completely pre-canned with an optimal
+configuration.
 
-						-Bill
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ kernel/irq/manage.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
+index bde4c66..185eb26 100644
+--- a/kernel/irq/manage.c
++++ b/kernel/irq/manage.c
+@@ -137,6 +137,7 @@ int irq_set_affinity(unsigned int irq, const struct cpumask *cpumask)
+ 	spin_unlock_irqrestore(&desc->lock, flags);
+ 	return 0;
+ }
++EXPORT_SYMBOL(irq_set_affinity);
+ 
+ #ifndef CONFIG_AUTO_IRQ_AFFINITY
+ /*
+
