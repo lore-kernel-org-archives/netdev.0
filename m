@@ -1,65 +1,33 @@
-From: Gilad Ben-Yossef <gilad@codefidence.com>
-Subject: Re: [PATCH RFC] Allow to turn off TCP window scale opt per route
-Date: Wed, 21 Oct 2009 10:18:54 +0200
-Message-ID: <4ADEC3EE.2070301@codefidence.com>
-References: <1256052161-14156-1-git-send-email-gilad@codefidence.com>	<1256052161-14156-2-git-send-email-gilad@codefidence.com>	<1256052161-14156-3-git-send-email-gilad@codefidence.com>	<1256052161-14156-4-git-send-email-gilad@codefidence.com>	<1256052161-14156-5-git-send-email-gilad@codefidence.com>	<1256052161-14156-6-git-send-email-gilad@codefidence.com>	<1256052161-14156-7-git-send-email-gilad@codefidence.com> <20091021104024.32adab23@s6510>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH RFC] Per route TCP options
+Date: Wed, 21 Oct 2009 10:21:09 +0200
+Message-ID: <20091021082109.GE8704@Chamillionaire.breakpoint.cc>
+References: <1256052161-14156-1-git-send-email-gilad@codefidence.com>
+ <4ADDE4C4.5080501@hp.com>
+ <4ADEC076.2030105@codefidence.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ori@comsleep.com
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org,
+	ori@comsleep.com
+To: Gilad Ben-Yossef <gilad@codefidence.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenbox.codefidence.com ([92.48.73.16]:59833 "EHLO
-	xenbox.codefidence.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751804AbZJUISz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 04:18:55 -0400
-In-Reply-To: <20091021104024.32adab23@s6510>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:54310 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752028AbZJUIVI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 04:21:08 -0400
+Content-Disposition: inline
+In-Reply-To: <4ADEC076.2030105@codefidence.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
+Gilad Ben-Yossef <gilad@codefidence.com> wrote:
+> The point is that even then you are more then likely to wish to turn
+> off these options to specific destination and routes (that go over
+> said exotic link) and keep using them over others - e.g. timestamp
+> OK for local LAN, but for default route that goes over exotic TCP/IP
+> over carrier penguins turn it off.
 
-> On Tue, 20 Oct 2009 17:22:39 +0200
-> Gilad Ben-Yossef <gilad@codefidence.com> wrote:
->
->   
->> Add and use no window scale bit in the features field.
->>
->> Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
->> Sigend-off-by: Ori Finkelman <ori@comsleep.com>
->> Sigend-off-by: Yony Amit <yony@comsleep.com>
->>     
->
-> The same effect can by just using window limit on route
->   
-Actually, not exactly. There is a subtle but important difference 
-between "I support window scaling, but choose a scale of 0", which is 
-what your suggestion will imply and "I don't support window scaling at 
-all", which is what the suggested feature field does.
+If you need a bandaid solution, its is possible to replace tcp
+options with NOOPs using netfilters TCPOPTSTRIP target.
 
-To make things more complicated, until the previous patch I sent, when 
-Linux would choose a window scale of zero for any reason, it would also 
-wrongfully report it does not support window scaling at all to the other 
-side, with some subtle bug caused by it, but this is no longer the 
-behavior and I believe rightly so.
-
-Thanks,
-Gilad
-
--- 
-Gilad Ben-Yossef
-Chief Coffee Drinker & CTO
-Codefidence Ltd.
-
-Web:   http://codefidence.com
-Cell:  +972-52-8260388
-Skype: gilad_codefidence
-Tel:   +972-8-9316883 ext. 201
-Fax:   +972-8-9316884
-Email: gilad@codefidence.com
-
-Check out our Open Source technology and training blog - http://tuxology.net
-
-	"Sorry cannot parse this, its too long to be true  :)"
-	  -- Eric Dumazet on netdev mailing list
-
+There is also an ECN target to work around ECN blackholes.
