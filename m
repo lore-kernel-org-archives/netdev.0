@@ -1,74 +1,60 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] bonding: fix a race condition in calls to slave MII ioctls
-Date: Wed, 21 Oct 2009 11:13:46 -0700
-Message-ID: <17766.1256148826@death.nxdomain.ibm.com>
-References: <20091021130301.GA4762@midget.suse.cz>
-Cc: netdev@vger.kernel.org
-To: Jiri Bohac <jbohac@suse.cz>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: Enable syn cookies by default
+Date: Wed, 21 Oct 2009 14:36:09 -0400
+Message-ID: <4ADF5499.2080107@gmail.com>
+References: <b2cc26e40910100601q7aed04acjcc9973ef06e6458f@mail.gmail.com>	 <b2cc26e40910150159q68ce555fs4b1683969d939d25@mail.gmail.com>	 <b2cc26e40910210017v3885b18dre5021c8a920f30d7@mail.gmail.com>	 <4ADEB752.50103@gmail.com>	 <b2cc26e40910210048y43bdb604pcd356376a93c41e@mail.gmail.com>	 <4ADED186.3040300@gmail.com> <b2cc26e40910210310o31ca24dcv50f8bd0c3234b71b@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:33419 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754690AbZJUSNv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Oct 2009 14:13:51 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e3.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id n9LI5w81008382
-	for <netdev@vger.kernel.org>; Wed, 21 Oct 2009 14:05:58 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n9LIDtZa250142
-	for <netdev@vger.kernel.org>; Wed, 21 Oct 2009 14:13:55 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n9LIDs8r009784
-	for <netdev@vger.kernel.org>; Wed, 21 Oct 2009 14:13:55 -0400
-In-reply-to: <20091021130301.GA4762@midget.suse.cz>
+Received: from fg-out-1718.google.com ([72.14.220.156]:2256 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753610AbZJUSgK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 14:36:10 -0400
+Received: by fg-out-1718.google.com with SMTP id d23so2736086fga.1
+        for <netdev@vger.kernel.org>; Wed, 21 Oct 2009 11:36:14 -0700 (PDT)
+In-Reply-To: <b2cc26e40910210310o31ca24dcv50f8bd0c3234b71b@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Bohac <jbohac@suse.cz> wrote:
+Olaf van der Spek wrote:
+> How and when do they interfere?
+> If syn cookies are enabled and the queue isn't full, they're not used
+> so they don't interfere.
+> If the queue is full, they do interfere, but the alternative would be
+> no connection at all.
 
->In mii monitor mode, bond_check_dev_link() calls the the ioctl
->handler of slave devices. It stores the ndo_do_ioctl function
->pointer to a static (!) ioctl variable and later uses it to call the
->handler with the IOCTL macro.
->
->If another thread executes bond_check_dev_link() at the same time
->(even with a different bond, which none of the locks prevent), a
->race condition occurs. If the two racing slaves have different
->drivers, this may result in one driver's ioctl handler being
->called with a pointer to a net_device controlled with a different
->driver, resulting in unpredictable breakage.
->
->Unless I am overlooking something, the "static" must be a
->copy'n'paste error (?).
+You just answered your own question, both "how" and "when"....
 
-	Heh, I was curious, so I looked it up; this bit was added as-is
-in September 2000, when the original "miimon" link monitoring code was
-added.  It's interesting that nobody hit this bug back in the days
-before netif_carrier; I know I ran a lot of mixed slave environments.
+> So I really don't see the disadvantage of enabling cookies by default.
+> 
+On systems with long delay paths, it represents turning back the clock
+more than a decade or so.  A better solution is usually a firewall/IDS.
+The best solution: I'm working on it.
 
->Signed-off-by: Jiri Bohac <jbohac@suse.cz>
-
-	Anyway, the static is obviously wrong, even without the race.
-
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+As I'm sure you're aware, Timestamps and Sack options are fairly crucial.
 
 
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 69c5b15..5bfdd0c 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -691,7 +691,7 @@ static int bond_check_dev_link(struct bonding *bond,
-> 			       struct net_device *slave_dev, int reporting)
-> {
-> 	const struct net_device_ops *slave_ops = slave_dev->netdev_ops;
->-	static int (*ioctl)(struct net_device *, struct ifreq *, int);
->+	int (*ioctl)(struct net_device *, struct ifreq *, int);
-> 	struct ifreq ifr;
-> 	struct mii_ioctl_data *mii;
->
->
->
->
->-- 
->Jiri Bohac <jbohac@suse.cz>
->SUSE Labs, SUSE CZ
->
+>> As Ubuntu is debian based, perhaps they can back-port the Ubuntu changes?
+> 
+> Actually changing the value isn't the problem, but the Debian
+> maintainer isn't sure it's a good idea (but he doesn't know why).
+> 
+Well, that depends.  For a client, it's a good idea, as the defense is
+mostly local and rare.  For a server run by a small underfunded ISP, it's
+still a good idea as a last ditch defense.  But for a full-fledged ISP,
+especially running in a satellite environment or with a lot of dial-up
+customers, it's terrible!
+
+That's a reason the Ubuntu configuration approach works for me.
+
+A caveat: I've not run debian directly in many, many years (IIRC, since
+Red Hat Colgate), and more recently via Unbuntu (since Badger).  I don't
+know whether debian has evolved different installation procedures for
+different environments.
+
+My comments are based on fairly extensive experience with deployment of
+Yellow Dog Linux servers at an ISP (as a co-founder), and Ubuntu clients
+for the past 2 (US) election cycles.
+
