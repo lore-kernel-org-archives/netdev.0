@@ -1,122 +1,272 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] rtnetlink: rtnl_setlink() and rtnl_getlink()
- changes
-Date: Wed, 21 Oct 2009 22:59:31 +0200
-Message-ID: <4ADF7633.9050208@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: [net-next PATCH 3/4] qlge: Add ethtool wake on LAN function.
+Date: Wed, 21 Oct 2009 14:07:40 -0700
+Message-ID: <1256159261-29151-3-git-send-email-ron.mercer@qlogic.com>
+References: <[net-next PATCH 0/4] qlge: Add some ethtool functions.>
+Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:46880 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753635AbZJUU7a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 16:59:30 -0400
+Received: from avexch1.qlogic.com ([198.70.193.115]:55641 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753838AbZJUVNh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 17:13:37 -0400
+In-Reply-To: <[net-next PATCH 0/4] qlge: Add some ethtool functions.>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen, do you think we could change "ip link show dev ethX" to
-let it use rtnl_getlink() instead of rtnl_dump_ifinfo() ?
 
-Thanks !
-
-[PATCH net-next-2.6]rtnetlink: rtnl_setlink() and rtnl_getlink() changes
-
-rtnl_getlink() & rtnl_setlink() run with RTNL held, we can use
-__dev_get_by_index() and __dev_get_by_name() variants and avoid
-dev_hold()/dev_put()
-
-Adds to rtnl_getlink() the capability to find a device by its name,
-not only by its index.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 ---
- net/core/rtnetlink.c |   38 +++++++++++++++++++-------------------
- 1 files changed, 19 insertions(+), 19 deletions(-)
+ drivers/net/qlge/qlge.h         |    4 ++
+ drivers/net/qlge/qlge_ethtool.c |   32 ++++++++++++++++++
+ drivers/net/qlge/qlge_main.c    |   66 ++++++++++++++++++++++++++++++++++++
+ drivers/net/qlge/qlge_mpi.c     |   70 +++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 172 insertions(+), 0 deletions(-)
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index eb42873..ba13b09 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -910,9 +910,9 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	err = -EINVAL;
- 	ifm = nlmsg_data(nlh);
- 	if (ifm->ifi_index > 0)
--		dev = dev_get_by_index(net, ifm->ifi_index);
-+		dev = __dev_get_by_index(net, ifm->ifi_index);
- 	else if (tb[IFLA_IFNAME])
--		dev = dev_get_by_name(net, ifname);
-+		dev = __dev_get_by_name(net, ifname);
- 	else
- 		goto errout;
+diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
+index 0e0cce9..157f55e 100644
+--- a/drivers/net/qlge/qlge.h
++++ b/drivers/net/qlge/qlge.h
+@@ -796,6 +796,7 @@ enum {
+ 	MB_WOL_BCAST = (1 << 5),
+ 	MB_WOL_LINK_UP = (1 << 6),
+ 	MB_WOL_LINK_DOWN = (1 << 7),
++	MB_WOL_MODE_ON = (1 << 16),		/* Wake on Lan Mode on */
+ 	MB_CMD_SET_WOL_FLTR = 0x00000111,	/* Wake On Lan Filter */
+ 	MB_CMD_CLEAR_WOL_FLTR = 0x00000112, /* Wake On Lan Filter */
+ 	MB_CMD_SET_WOL_MAGIC = 0x00000113,	/* Wake On Lan Magic Packet */
+@@ -1647,6 +1648,9 @@ int ql_mb_get_fw_state(struct ql_adapter *qdev);
+ int ql_cam_route_initialize(struct ql_adapter *qdev);
+ int ql_read_mpi_reg(struct ql_adapter *qdev, u32 reg, u32 *data);
+ int ql_mb_about_fw(struct ql_adapter *qdev);
++int ql_wol(struct ql_adapter *qdev);
++int ql_mb_wol_set_magic(struct ql_adapter *qdev, u32 enable_wol);
++int ql_mb_wol_mode(struct ql_adapter *qdev, u32 wol);
+ int ql_mb_set_led_cfg(struct ql_adapter *qdev, u32 led_config);
+ int ql_mb_get_led_cfg(struct ql_adapter *qdev);
+ void ql_link_on(struct ql_adapter *qdev);
+diff --git a/drivers/net/qlge/qlge_ethtool.c b/drivers/net/qlge/qlge_ethtool.c
+index 0c0549b..019f35f 100644
+--- a/drivers/net/qlge/qlge_ethtool.c
++++ b/drivers/net/qlge/qlge_ethtool.c
+@@ -371,6 +371,36 @@ static void ql_get_drvinfo(struct net_device *ndev,
+ 	drvinfo->eedump_len = 0;
+ }
  
-@@ -922,11 +922,9 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static void ql_get_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
++{
++	struct ql_adapter *qdev = netdev_priv(ndev);
++	/* What we support. */
++	wol->supported = WAKE_MAGIC;
++	/* What we've currently got set. */
++	wol->wolopts = qdev->wol;
++}
++
++static int ql_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
++{
++	struct ql_adapter *qdev = netdev_priv(ndev);
++	int status;
++
++	if (wol->wolopts & ~WAKE_MAGIC)
++		return -EINVAL;
++	qdev->wol = wol->wolopts;
++
++	QPRINTK(qdev, DRV, INFO, "Set wol option 0x%x on %s\n",
++			 qdev->wol, ndev->name);
++	if (!qdev->wol) {
++		u32 wol = 0;
++		status = ql_mb_wol_mode(qdev, wol);
++		QPRINTK(qdev, DRV, ERR, "WOL %s (wol code 0x%x) on %s\n",
++			(status == 0) ? "cleared sucessfully" : "clear failed",
++			wol, qdev->ndev->name);
++	}
++
++	return 0;
++}
+ 
+ static int ql_phys_id(struct net_device *ndev, u32 data)
+ {
+@@ -523,6 +553,8 @@ static void ql_set_msglevel(struct net_device *ndev, u32 value)
+ const struct ethtool_ops qlge_ethtool_ops = {
+ 	.get_settings = ql_get_settings,
+ 	.get_drvinfo = ql_get_drvinfo,
++	.get_wol = ql_get_wol,
++	.set_wol = ql_set_wol,
+ 	.get_msglevel = ql_get_msglevel,
+ 	.set_msglevel = ql_set_msglevel,
+ 	.get_link = ethtool_op_get_link,
+diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
+index 4935710..fb8209c 100644
+--- a/drivers/net/qlge/qlge_main.c
++++ b/drivers/net/qlge/qlge_main.c
+@@ -3334,6 +3334,22 @@ static int ql_adapter_initialize(struct ql_adapter *qdev)
+ 	 * the same MAC address.
+ 	 */
+ 	ql_write32(qdev, RST_FO, RST_FO_RR_MASK | RST_FO_RR_RCV_FUNC_CQ);
++	/* Reroute all packets to our Interface.
++	 * They may have been routed to MPI firmware
++	 * due to WOL.
++	 */
++	value = ql_read32(qdev, MGMT_RCV_CFG);
++	value &= ~MGMT_RCV_CFG_RM;
++	mask = 0xffff0000;
++
++	/* Sticky reg needs clearing due to WOL. */
++	ql_write32(qdev, MGMT_RCV_CFG, mask);
++	ql_write32(qdev, MGMT_RCV_CFG, mask | value);
++
++	/* Default WOL is enable on Mezz cards */
++	if (qdev->pdev->subsystem_device == 0x0068 ||
++			qdev->pdev->subsystem_device == 0x0180)
++		qdev->wol = WAKE_MAGIC;
+ 
+ 	/* Start up the rx queues. */
+ 	for (i = 0; i < qdev->rx_ring_count; i++) {
+@@ -3448,6 +3464,55 @@ static void ql_display_dev_info(struct net_device *ndev)
+ 	QPRINTK(qdev, PROBE, INFO, "MAC address %pM\n", ndev->dev_addr);
+ }
+ 
++int ql_wol(struct ql_adapter *qdev)
++{
++	int status = 0;
++	u32 wol = MB_WOL_DISABLE;
++
++	/* The CAM is still intact after a reset, but if we
++	 * are doing WOL, then we may need to program the
++	 * routing regs. We would also need to issue the mailbox
++	 * commands to instruct the MPI what to do per the ethtool
++	 * settings.
++	 */
++
++	if (qdev->wol & (WAKE_ARP | WAKE_MAGICSECURE | WAKE_PHY | WAKE_UCAST |
++			WAKE_MCAST | WAKE_BCAST)) {
++		QPRINTK(qdev, IFDOWN, ERR,
++			"Unsupported WOL paramter. qdev->wol = 0x%x.\n",
++			qdev->wol);
++		return -EINVAL;
++	}
++
++	if (qdev->wol & WAKE_MAGIC) {
++		status = ql_mb_wol_set_magic(qdev, 1);
++		if (status) {
++			QPRINTK(qdev, IFDOWN, ERR,
++				"Failed to set magic packet on %s.\n",
++				qdev->ndev->name);
++			return status;
++		} else
++			QPRINTK(qdev, DRV, INFO,
++				"Enabled magic packet successfully on %s.\n",
++				qdev->ndev->name);
++
++		wol |= MB_WOL_MAGIC_PKT;
++	}
++
++	if (qdev->wol) {
++		/* Reroute all packets to Management Interface */
++		ql_write32(qdev, MGMT_RCV_CFG, (MGMT_RCV_CFG_RM |
++			(MGMT_RCV_CFG_RM << 16)));
++		wol |= MB_WOL_MODE_ON;
++		status = ql_mb_wol_mode(qdev, wol);
++		QPRINTK(qdev, DRV, ERR, "WOL %s (wol code 0x%x) on %s\n",
++			(status == 0) ? "Sucessfully set" : "Failed", wol,
++			qdev->ndev->name);
++	}
++
++	return status;
++}
++
+ static int ql_adapter_down(struct ql_adapter *qdev)
+ {
+ 	int i, status = 0;
+@@ -4285,6 +4350,7 @@ static int qlge_suspend(struct pci_dev *pdev, pm_message_t state)
+ 			return err;
  	}
  
- 	if ((err = validate_linkmsg(dev, tb)) < 0)
--		goto errout_dev;
-+		goto errout;
- 
- 	err = do_setlink(dev, ifm, tb, ifname, 0);
--errout_dev:
--	dev_put(dev);
- errout:
- 	return err;
- }
-@@ -1154,6 +1152,7 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- {
- 	struct net *net = sock_net(skb->sk);
- 	struct ifinfomsg *ifm;
-+	char ifname[IFNAMSIZ];
- 	struct nlattr *tb[IFLA_MAX+1];
- 	struct net_device *dev = NULL;
- 	struct sk_buff *nskb;
-@@ -1163,19 +1162,23 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- 	if (err < 0)
++	ql_wol(qdev);
+ 	err = pci_save_state(pdev);
+ 	if (err)
  		return err;
- 
-+	if (tb[IFLA_IFNAME])
-+		nla_strlcpy(ifname, tb[IFLA_IFNAME], IFNAMSIZ);
-+
- 	ifm = nlmsg_data(nlh);
--	if (ifm->ifi_index > 0) {
--		dev = dev_get_by_index(net, ifm->ifi_index);
--		if (dev == NULL)
--			return -ENODEV;
--	} else
-+	if (ifm->ifi_index > 0)
-+		dev = __dev_get_by_index(net, ifm->ifi_index);
-+	else if (tb[IFLA_IFNAME])
-+		dev = __dev_get_by_name(net, ifname);
-+	else
- 		return -EINVAL;
- 
-+	if (dev == NULL)
-+		return -ENODEV;
-+
- 	nskb = nlmsg_new(if_nlmsg_size(dev), GFP_KERNEL);
--	if (nskb == NULL) {
--		err = -ENOBUFS;
--		goto errout;
--	}
-+	if (nskb == NULL)
-+		return -ENOBUFS;
- 
- 	err = rtnl_fill_ifinfo(nskb, dev, RTM_NEWLINK, NETLINK_CB(skb).pid,
- 			       nlh->nlmsg_seq, 0, 0);
-@@ -1183,11 +1186,8 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- 		/* -EMSGSIZE implies BUG in if_nlmsg_size */
- 		WARN_ON(err == -EMSGSIZE);
- 		kfree_skb(nskb);
--		goto errout;
--	}
--	err = rtnl_unicast(nskb, net, NETLINK_CB(skb).pid);
--errout:
--	dev_put(dev);
-+	} else
-+		err = rtnl_unicast(nskb, net, NETLINK_CB(skb).pid);
- 
- 	return err;
+diff --git a/drivers/net/qlge/qlge_mpi.c b/drivers/net/qlge/qlge_mpi.c
+index 14d76f1..80b6853 100644
+--- a/drivers/net/qlge/qlge_mpi.c
++++ b/drivers/net/qlge/qlge_mpi.c
+@@ -702,6 +702,76 @@ int ql_mb_get_port_cfg(struct ql_adapter *qdev)
+ 	return status;
  }
+ 
++int ql_mb_wol_mode(struct ql_adapter *qdev, u32 wol)
++{
++	struct mbox_params mbc;
++	struct mbox_params *mbcp = &mbc;
++	int status;
++
++	memset(mbcp, 0, sizeof(struct mbox_params));
++
++	mbcp->in_count = 2;
++	mbcp->out_count = 1;
++
++	mbcp->mbox_in[0] = MB_CMD_SET_WOL_MODE;
++	mbcp->mbox_in[1] = wol;
++
++
++	status = ql_mailbox_command(qdev, mbcp);
++	if (status)
++		return status;
++
++	if (mbcp->mbox_out[0] != MB_CMD_STS_GOOD) {
++		QPRINTK(qdev, DRV, ERR,
++			"Failed to set WOL mode.\n");
++		status = -EIO;
++	}
++	return status;
++}
++
++int ql_mb_wol_set_magic(struct ql_adapter *qdev, u32 enable_wol)
++{
++	struct mbox_params mbc;
++	struct mbox_params *mbcp = &mbc;
++	int status;
++	u8 *addr = qdev->ndev->dev_addr;
++
++	memset(mbcp, 0, sizeof(struct mbox_params));
++
++	mbcp->in_count = 8;
++	mbcp->out_count = 1;
++
++	mbcp->mbox_in[0] = MB_CMD_SET_WOL_MAGIC;
++	if (enable_wol) {
++		mbcp->mbox_in[1] = (u32)addr[0];
++		mbcp->mbox_in[2] = (u32)addr[1];
++		mbcp->mbox_in[3] = (u32)addr[2];
++		mbcp->mbox_in[4] = (u32)addr[3];
++		mbcp->mbox_in[5] = (u32)addr[4];
++		mbcp->mbox_in[6] = (u32)addr[5];
++		mbcp->mbox_in[7] = 0;
++	} else {
++		mbcp->mbox_in[1] = 0;
++		mbcp->mbox_in[2] = 1;
++		mbcp->mbox_in[3] = 1;
++		mbcp->mbox_in[4] = 1;
++		mbcp->mbox_in[5] = 1;
++		mbcp->mbox_in[6] = 1;
++		mbcp->mbox_in[7] = 0;
++	}
++
++	status = ql_mailbox_command(qdev, mbcp);
++	if (status)
++		return status;
++
++	if (mbcp->mbox_out[0] != MB_CMD_STS_GOOD) {
++		QPRINTK(qdev, DRV, ERR,
++			"Failed to set WOL mode.\n");
++		status = -EIO;
++	}
++	return status;
++}
++
+ /* IDC - Inter Device Communication...
+  * Some firmware commands require consent of adjacent FCOE
+  * function.  This function waits for the OK, or a
+-- 
+1.6.0.2
+
