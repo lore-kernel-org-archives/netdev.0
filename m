@@ -1,59 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: allow netdev_wait_allrefs() to run faster
-Date: Wed, 21 Oct 2009 21:54:55 +0200
-Message-ID: <4ADF670F.1010200@gmail.com>
-References: <20091017221857.GG1925@kvack.org> <4ADB55BC.5020107@gmail.com> <20091018182144.GC23395@kvack.org> <200910211539.01824.opurdila@ixiacom.com> <4ADF2B57.4030708@gmail.com> <20091021165139.GL877@kvack.org>
+From: Bernhard Kaindl <bernhard.kaindl@gmx.net>
+Subject: [PATCH] e100: fix 10sec DHCP delay (regression for 82559ER)
+Date: Wed, 21 Oct 2009 22:29:09 +0200
+Message-ID: <4ADF6F15.5040301@gmx.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Octavian Purdila <opurdila@ixiacom.com>, netdev@vger.kernel.org,
-	Cosmin Ratiu <cratiu@ixiacom.com>
-To: Benjamin LaHaise <bcrl@lhnet.ca>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:37723 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753668AbZJUTy5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 15:54:57 -0400
-In-Reply-To: <20091021165139.GL877@kvack.org>
+Received: from mail-fx0-f218.google.com ([209.85.220.218]:40602 "EHLO
+	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753079AbZJUU3J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 16:29:09 -0400
+Received: by fxm18 with SMTP id 18so8216281fxm.37
+        for <netdev@vger.kernel.org>; Wed, 21 Oct 2009 13:29:13 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Benjamin LaHaise a =E9crit :
-> On Wed, Oct 21, 2009 at 05:40:07PM +0200, Eric Dumazet wrote:
->> Ben patch only address interface deletion, and one part of the probl=
-em,
->> maybe the more visible one for the current kernel.
->=20
-> The first part I've been tackling has been the overhead in procfs, sy=
-sctl=20
-> and sysfs.  I've got patches for some of the issues, hacks for others=
-, and=20
-> should have something to post in a few days.  Getting rid of those ov=
-erheads=20
-> is enough to get to decent interface creation times for the first 20 =
-or 30k=20
-> interfaces.
->=20
-> On the interface deletion side of things, within the network code, fi=
-b_hash=20
-> has a few linear scans that really start hurting.  trie is a bit bett=
-er,=20
-> but I haven't started digging too deeply into its flush/remove overhe=
-ad yet,=20
-> aside from noticing that trie has a linear scan if=20
-> CONFIG_IP_ROUTE_MULTIPATH is set since it sets the hash size to 1. =20
-> fn_trie_flush() is currently the worst offender during deletion.
+From: Bernhard Kaindl <bernhard.kaindl@gmx.net>
 
-Well, there are many things to change...
+With 2.6.30, we noticed a regression on our Intel 82559ER-equipped
+boards regarding the PHY initialization. The Intel 82559ER uses an
+internal PHY bus, so our PHY environment should be not be very special.
 
-# ip -o link | wc -l
-13097
-# time ip -o link show mv22248
-13045: mv22248@eth3: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DO=
-WN \    link/ether 00:1e:0b:8e:c8:08 brd ff:ff:ff:ff:ff:ff
+The symptom which we observed on these boards was that the boot-time
+DHCP negotiation was stalled for ~5secs and went very slowly until
+it was finally completed after ~10secs after initial interface start.
 
-real    0m0.840s
-user    0m0.473s
-sys     0m0.368s
+I reported our finding along with a proposal for a fix to netdev and
+Bruce Allan@Intel, whose patch to support the new Intel 82552 adapter
+included a workaround for the 82552 with this side effect for our env.
 
-almost one second to get link status of one particular interface :(
+Bruce worked on a way to have both environments working and tested
+it on as many 10/100 parts he could get his hands on and started
+a process which allows for more testing and patch submission from
+
+So pending this process which allows for more testing at Intel, I am
+submitting our common patch. For PHYs other than the 82552, it resembles
+mostly how 2.6.23-2.6.29 have been selecting and isolating the PHYs.
+
+This patch applies to 2.6.30.9, 2.6.31.4 and 2.6.32-rc5-git1 and is
+essentially what Bruce has been testing:
+
+Signed-off-by: Bernhard Kaindl <bernhard.kaindl@gmx.net>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+---
+
+  drivers/net/e100.c |   10 +++++++---
+  1 files changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+index 5d2f48f..aed18a4 100644
+--- a/drivers/net/e100.c
++++ b/drivers/net/e100.c
+@@ -1427,13 +1427,17 @@ static int e100_phy_init(struct nic *nic)
+  	} else
+  		DPRINTK(HW, DEBUG, "phy_addr = %d\n", nic->mii.phy_id);
+
+-	/* Isolate all the PHY ids */
+-	for (addr = 0; addr < 32; addr++)
+-		mdio_write(netdev, addr, MII_BMCR, BMCR_ISOLATE);
+  	/* Select the discovered PHY */
+  	bmcr &= ~BMCR_ISOLATE;
+  	mdio_write(netdev, nic->mii.phy_id, MII_BMCR, bmcr);
+
++	if (nic->phy != phy_82552_v) {
++		/* Isolate the unused PHY ids */
++		for (addr = 0; addr < 32; addr++)
++			if (addr != nic->mii.phy_id)
++				mdio_write(netdev, addr, MII_BMCR, BMCR_ISOLATE);
++	}
++
+  	/* Get phy ID */
+  	id_lo = mdio_read(netdev, nic->mii.phy_id, MII_PHYSID1);
+  	id_hi = mdio_read(netdev, nic->mii.phy_id, MII_PHYSID2);
