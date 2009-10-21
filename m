@@ -1,74 +1,41 @@
-From: Joyce Yu <Joyce.Yu@Sun.COM>
-Subject: [PATCH] [NIU] VLAN does not work with niu driver
-Date: Wed, 21 Oct 2009 11:02:37 -0700
-Message-ID: <4ADF4CBD.90104@Sun.COM>
-Reply-To: Joyce.Yu@Sun.COM
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: Enable syn cookies by default
+Date: Wed, 21 Oct 2009 14:04:33 -0400
+Message-ID: <4ADF4D31.5020803@gmail.com>
+References: <b2cc26e40910100601q7aed04acjcc9973ef06e6458f@mail.gmail.com>	<b2cc26e40910150159q68ce555fs4b1683969d939d25@mail.gmail.com>	<b2cc26e40910210017v3885b18dre5021c8a920f30d7@mail.gmail.com> <20091021.060443.193726483.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="Boundary_(ID_CK5EEL3jhR4JXab+jdTRaA)"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from brmea-mail-2.Sun.COM ([192.18.98.43]:64092 "EHLO
-	brmea-mail-2.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753900AbZJUSCf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 14:02:35 -0400
-Received: from fe-amer-10.sun.com ([192.18.109.80])
-	by brmea-mail-2.sun.com (8.13.6+Sun/8.12.9) with ESMTP id n9LI2dVj024506
-	for <netdev@vger.kernel.org>; Wed, 21 Oct 2009 18:02:39 GMT
-Received: from conversion-daemon.mail-amer.sun.com by mail-amer.sun.com
- (Sun Java(tm) System Messaging Server 7u2-7.04 64bit (built Jul  2 2009))
- id <0KRV00D00L9VFR00@mail-amer.sun.com> for netdev@vger.kernel.org; Wed,
- 21 Oct 2009 12:02:39 -0600 (MDT)
-Received: from [129.145.154.82] ([unknown] [129.145.154.82])
- by mail-amer.sun.com
- (Sun Java(tm) System Messaging Server 7u2-7.04 64bit (built Jul  2 2009))
- with ESMTPSA id <0KRV00E25M4D6R90@mail-amer.sun.com> for
- netdev@vger.kernel.org; Wed, 21 Oct 2009 12:02:38 -0600 (MDT)
+Received: from gv-out-0910.google.com ([216.239.58.191]:57308 "EHLO
+	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754631AbZJUSEf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 14:04:35 -0400
+Received: by gv-out-0910.google.com with SMTP id r4so819623gve.37
+        for <netdev@vger.kernel.org>; Wed, 21 Oct 2009 11:04:39 -0700 (PDT)
+In-Reply-To: <20091021.060443.193726483.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
+David Miller wrote:
+> Would please you be patient?
+> 
+> In case you haven't fucking noticed, all of the major kernel
+> developers are in Japan at the annual kernel summit and the Japan
+> Linux Symposium since late last week.
+> 
+Wow, that's way over the top!  I'd noticed your recent rudeness to many
+folks in my perusal of this list, and carelessness about reading their
+documentation (such as confusing "interdependent" with independent), but
+I'd ascribed that to the Peter Principle and overwork....
 
---Boundary_(ID_CK5EEL3jhR4JXab+jdTRaA)
-Content-type: text/plain; CHARSET=US-ASCII; format=flowed
-Content-transfer-encoding: 7BIT
-
-
--- 
-
-
---Boundary_(ID_CK5EEL3jhR4JXab+jdTRaA)
-Content-type: text/x-patch;
- name=0001-VLAN_ETH_HLEN-should-be-used-to-make-sure-that-the-w.patch
-Content-transfer-encoding: 7BIT
-Content-disposition: inline;
- filename*0=0001-VLAN_ETH_HLEN-should-be-used-to-mak;
- filename*1=e-sure-that-the-w.patch
-
->From f301748d3156437d65305f14288c7d5711861980 Mon Sep 17 00:00:00 2001
-From: Joyce Yu <joyce.yu@sun.com>
-Date: Wed, 21 Oct 2009 05:35:46 -0700
-Subject: [PATCH] VLAN_ETH_HLEN should be used to make sure that the whole MAC header was copied to the head buffer in the Vlan packets case
-Signed-off-by: Joyce Yu <joyce.yu@sun.com>
-
----
- drivers/net/niu.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index f9364d0..d6c7ac6 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -3545,7 +3545,7 @@ static int niu_process_rx_pkt(struct napi_struct *napi, struct niu *np,
- 	rp->rcr_index = index;
- 
- 	skb_reserve(skb, NET_IP_ALIGN);
--	__pskb_pull_tail(skb, min(len, NIU_RXPULL_MAX));
-+	__pskb_pull_tail(skb, min(len, VLAN_ETH_HLEN));
- 
- 	rp->rx_packets++;
- 	rp->rx_bytes += skb->len;
--- 
-1.6.4
+This behavior is inexcusable.  Please apologize or resign.
 
 
---Boundary_(ID_CK5EEL3jhR4JXab+jdTRaA)--
+> So nobody has the time to look into anything requiring real
+> long thinking like this issue does.
+> 
+Thanks for the information.  Too bad it conflicts with the NANOG and ARIN
+conferences hosted here in Michigan this week.
