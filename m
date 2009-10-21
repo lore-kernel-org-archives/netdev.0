@@ -1,56 +1,129 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] net: Adjust softirq raising in __napi_schedule
-Date: Wed, 21 Oct 2009 23:39:47 +0200
-Message-ID: <20091021213947.GA12202@ami.dom.local>
-References: <4AD31213.6020006@imap.cc>
- <20091015114052.GA9870@ff.dom.local>
- <4AD76184.6030900@gmail.com>
- <4ADF5710.4030505@imap.cc>
- <20091021211906.GA11401@ami.dom.local>
- <1256160330.12174.2.camel@johannes.local>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH net-next-2.6] rtnetlink: rtnl_setlink() and
+ rtnl_getlink() changes
+Date: Thu, 22 Oct 2009 06:48:39 +0900
+Message-ID: <20091022064839.6b343125@s6510>
+References: <4ADF7633.9050208@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tilman Schmidt <tilman@imap.cc>,
-	David Miller <davem@davemloft.net>, hidave.darkstar@gmail.com,
-	linux-kernel@vger.kernel.org, tglx@linutronix.de,
-	linux-wireless@vger.kernel.org, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, paulus@samba.org,
-	Michael Buesch <mb@bu3sch.de>,
-	Oliver Hartkopp <oliver@hartkopp.net>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:41171 "EHLO
-	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755445AbZJUVqt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 17:46:49 -0400
-Content-Disposition: inline
-In-Reply-To: <1256160330.12174.2.camel@johannes.local>
+Received: from mail.vyatta.com ([76.74.103.46]:48353 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754762AbZJUVsn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Oct 2009 17:48:43 -0400
+In-Reply-To: <4ADF7633.9050208@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 22, 2009 at 06:25:30AM +0900, Johannes Berg wrote:
-> On Wed, 2009-10-21 at 23:19 +0200, Jarek Poplawski wrote:
-...
-> > --- a/net/core/dev.c
-> > +++ b/net/core/dev.c
-> > @@ -2728,7 +2728,7 @@ void __napi_schedule(struct napi_struct *n)
-> >  
-> >  	local_irq_save(flags);
-> >  	list_add_tail(&n->poll_list, &__get_cpu_var(softnet_data).poll_list);
-> > -	__raise_softirq_irqoff(NET_RX_SOFTIRQ);
-> > +	raise_softirq_irqoff(NET_RX_SOFTIRQ);
-> 
-> This still doesn't make any sense.
-> 
-> There may or may not be a lot of code that assumes that everything else
-> is run with other tasklets disabled, and that it cannot be interrupted
-> by a tasklet and thus create a race.
-> 
-> Can you prove that is not the case, across the entire networking layer?
+On Wed, 21 Oct 2009 22:59:31 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-I'm not sure I can understand your question. This patch is mainly to
-avoid using netif_rx()/netif_rx_ni() pair as a test of proper process
-context handling; IMHO there're better tools for this (lockdep,
-WARN_ON's).
+> Stephen, do you think we could change "ip link show dev ethX" to
+> let it use rtnl_getlink() instead of rtnl_dump_ifinfo() ?
+> 
+> Thanks !
+> 
+> [PATCH net-next-2.6]rtnetlink: rtnl_setlink() and rtnl_getlink() changes
+> 
+> rtnl_getlink() & rtnl_setlink() run with RTNL held, we can use
+> __dev_get_by_index() and __dev_get_by_name() variants and avoid
+> dev_hold()/dev_put()
+> 
+> Adds to rtnl_getlink() the capability to find a device by its name,
+> not only by its index.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>  net/core/rtnetlink.c |   38 +++++++++++++++++++-------------------
+>  1 files changed, 19 insertions(+), 19 deletions(-)
+> 
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index eb42873..ba13b09 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -910,9 +910,9 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+>  	err = -EINVAL;
+>  	ifm = nlmsg_data(nlh);
+>  	if (ifm->ifi_index > 0)
+> -		dev = dev_get_by_index(net, ifm->ifi_index);
+> +		dev = __dev_get_by_index(net, ifm->ifi_index);
+>  	else if (tb[IFLA_IFNAME])
+> -		dev = dev_get_by_name(net, ifname);
+> +		dev = __dev_get_by_name(net, ifname);
+>  	else
+>  		goto errout;
+>  
+> @@ -922,11 +922,9 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+>  	}
+>  
+>  	if ((err = validate_linkmsg(dev, tb)) < 0)
+> -		goto errout_dev;
+> +		goto errout;
+>  
+>  	err = do_setlink(dev, ifm, tb, ifname, 0);
+> -errout_dev:
+> -	dev_put(dev);
+>  errout:
+>  	return err;
+>  }
+> @@ -1154,6 +1152,7 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+>  {
+>  	struct net *net = sock_net(skb->sk);
+>  	struct ifinfomsg *ifm;
+> +	char ifname[IFNAMSIZ];
+>  	struct nlattr *tb[IFLA_MAX+1];
+>  	struct net_device *dev = NULL;
+>  	struct sk_buff *nskb;
+> @@ -1163,19 +1162,23 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+>  	if (err < 0)
+>  		return err;
+>  
+> +	if (tb[IFLA_IFNAME])
+> +		nla_strlcpy(ifname, tb[IFLA_IFNAME], IFNAMSIZ);
+> +
+>  	ifm = nlmsg_data(nlh);
+> -	if (ifm->ifi_index > 0) {
+> -		dev = dev_get_by_index(net, ifm->ifi_index);
+> -		if (dev == NULL)
+> -			return -ENODEV;
+> -	} else
+> +	if (ifm->ifi_index > 0)
+> +		dev = __dev_get_by_index(net, ifm->ifi_index);
+> +	else if (tb[IFLA_IFNAME])
+> +		dev = __dev_get_by_name(net, ifname);
+> +	else
+>  		return -EINVAL;
+>  
+> +	if (dev == NULL)
+> +		return -ENODEV;
+> +
+>  	nskb = nlmsg_new(if_nlmsg_size(dev), GFP_KERNEL);
+> -	if (nskb == NULL) {
+> -		err = -ENOBUFS;
+> -		goto errout;
+> -	}
+> +	if (nskb == NULL)
+> +		return -ENOBUFS;
+>  
+>  	err = rtnl_fill_ifinfo(nskb, dev, RTM_NEWLINK, NETLINK_CB(skb).pid,
+>  			       nlh->nlmsg_seq, 0, 0);
+> @@ -1183,11 +1186,8 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+>  		/* -EMSGSIZE implies BUG in if_nlmsg_size */
+>  		WARN_ON(err == -EMSGSIZE);
+>  		kfree_skb(nskb);
+> -		goto errout;
+> -	}
+> -	err = rtnl_unicast(nskb, net, NETLINK_CB(skb).pid);
+> -errout:
+> -	dev_put(dev);
+> +	} else
+> +		err = rtnl_unicast(nskb, net, NETLINK_CB(skb).pid);
+>  
+>  	return err;
+>  }
 
-Jarek P.
+Would work, but not sure what it gains.
