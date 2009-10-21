@@ -1,41 +1,34 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: Enable syn cookies by default
-Date: Wed, 21 Oct 2009 14:04:33 -0400
-Message-ID: <4ADF4D31.5020803@gmail.com>
-References: <b2cc26e40910100601q7aed04acjcc9973ef06e6458f@mail.gmail.com>	<b2cc26e40910150159q68ce555fs4b1683969d939d25@mail.gmail.com>	<b2cc26e40910210017v3885b18dre5021c8a920f30d7@mail.gmail.com> <20091021.060443.193726483.davem@davemloft.net>
+From: Dan Smith <danms@us.ibm.com>
+Subject: Re: [PATCH 2/4] [RFC] Add c/r support for connected INET sockets
+Date: Wed, 21 Oct 2009 11:05:05 -0700
+Message-ID: <87ws2oei7i.fsf@caffeine.danplanet.com>
+References: <1256072803-3518-1-git-send-email-danms@us.ibm.com>
+	<1256072803-3518-3-git-send-email-danms@us.ibm.com>
+	<20091021175624.GA20972@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: containers@lists.osdl.org, John Dykstra <jdykstra72@gmail.com>,
+	netdev@vger.kernel.org
+To: "Serge E. Hallyn" <serue@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gv-out-0910.google.com ([216.239.58.191]:57308 "EHLO
-	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754631AbZJUSEf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 14:04:35 -0400
-Received: by gv-out-0910.google.com with SMTP id r4so819623gve.37
-        for <netdev@vger.kernel.org>; Wed, 21 Oct 2009 11:04:39 -0700 (PDT)
-In-Reply-To: <20091021.060443.193726483.davem@davemloft.net>
+Received: from gw0.danplanet.com ([71.245.107.82]:34950 "EHLO
+	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754642AbZJUSFD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 14:05:03 -0400
+In-Reply-To: <20091021175624.GA20972@us.ibm.com> (Serge E. Hallyn's message of "Wed\, 21 Oct 2009 12\:56\:24 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> Would please you be patient?
-> 
-> In case you haven't fucking noticed, all of the major kernel
-> developers are in Japan at the annual kernel summit and the Japan
-> Linux Symposium since late last week.
-> 
-Wow, that's way over the top!  I'd noticed your recent rudeness to many
-folks in my perusal of this list, and carelessness about reading their
-documentation (such as confusing "interdependent" with independent), but
-I'd ascribed that to the Peter Principle and overwork....
+SH> Sorry, I think we've discussed this before but can't recall - does
+SH> setting sport here allow an unpriv user to bypass
+SH> CAP_NET_BIND_SERVICE?
 
-This behavior is inexcusable.  Please apologize or resign.
+Yes, it does.  I was kinda considering that part of the input sanity
+checking that I officially punted on.  However, as far as I know,
+we'll just need to check that capability before we bind() in the
+listen/closed case and hash in the connected case.
 
-
-> So nobody has the time to look into anything requiring real
-> long thinking like this issue does.
-> 
-Thanks for the information.  Too bad it conflicts with the NANOG and ARIN
-conferences hosted here in Michigan this week.
+-- 
+Dan Smith
+IBM Linux Technology Center
+email: danms@us.ibm.com
