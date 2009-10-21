@@ -1,63 +1,125 @@
-From: Gilad Ben-Yossef <gilad@codefidence.com>
-Subject: Re: [PATCH v2 8/8] Document future removal of sysctl_tcp_* options
-Date: Wed, 21 Oct 2009 12:23:21 +0200
-Message-ID: <4ADEE119.7020803@codefidence.com>
-References: <1256115421-12714-1-git-send-email-gilad@codefidence.com> <1256115421-12714-9-git-send-email-gilad@codefidence.com> <4ADED6FA.2030502@gmail.com>
+From: Naohiro Ooiwa <nooiwa@miraclelinux.com>
+Subject: [PATCH] e1000: the power down when running ifdown command
+Date: Wed, 21 Oct 2009 18:52:49 +0900
+Message-ID: <4ADED9F1.4060308@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ori@comsleep.com
-To: William Allen Simpson <william.allen.simpson@gmail.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	e1000-devel@lists.sourceforge.net, svaidy@linux.vnet.ibm.com,
+	linux-kernel-owner@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenbox.codefidence.com ([92.48.73.16]:42579 "EHLO
-	xenbox.codefidence.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752730AbZJUKXV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 06:23:21 -0400
-In-Reply-To: <4ADED6FA.2030502@gmail.com>
+Received: from mailgw.miraclelinux.com ([122.216.84.157]:11498 "EHLO
+	mailgw.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753243AbZJUKZ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 06:25:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-William Allen Simpson wrote:
+Hi all
 
-> Gilad Ben-Yossef wrote:
->> +What:    sysctl_tcp_sack, sysctl_tcp_timestamps, 
->> sysctl_tcp_window_scaling,
->> +    sysctl_tcp_dsack
->
-> Opposed to removing, as this is a common configuration for *BSD.  It 
-> helps
-> operators to have similar utility across systems.
->
-> net.inet.tcp.sack.enable
->
-> net.inet.tcp.timestamps
->
-> net.inet.tcp.win_scale
->
-> Support removing sysctl_tcp_dsack, as this appears to be Linux-only.
+I'm trying to modify e1000 driver for power saving.
 
-I have no issue with leaving those, if everyone thinks we're better off.
+The e1000 driver doesn't let the power down when running ifdown command.
+So, I set to the D3hot state of a PCI device at the end of e1000_close().
 
-BTW, while we're talking about OS envy, I do believe that Windows do let
-you specify on a per route basis. Not that this is really a good ground for
-technical decision, but still... :-)
+With this modification, e1000 driver reduces power by ifdown
+to the same level as link-down case.
 
-Gilad
+I spoke it in Collaboration Summit 2009.
+For details and result of power measurement,
+please refer the 36-38 page of following document.
+http://events.linuxfoundation.org/archive/lfcs09_ooiwa.pdf
+
+Could you please check the my patch ?
+
+Should I consider WOL ?
+Dosen't E1000_PCI_POWER_SAVE need ?
+
+
+Hi Vaidy
+
+I was glad that you talked to me in Collaboration Summit.
+I'm sorry for sending the patch so late.
+
+I found a bug in the patch which I used in Collaboration Summit.
+Sometimes, it's don't work to auto-negotiation by repeated ifup and ifdown.
+
+I fixed it. I'd appreciate it if you could test.
+
+
+Thanks you.
+Naohiro Ooiwa
+
+Signed-off-by: Naohiro Ooiwa <nooiwa@miraclelinux.com>
+---
+ drivers/net/e1000/e1000_main.c |   32 ++++++++++++++++++++++++++++++++
+ 1 files changed, 32 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index bcd192c..12e1a42 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -26,6 +26,11 @@
+
+ *******************************************************************************/
+
++/*
++ * define this if you want pci save power while ifdown.
++ */
++#define E1000_PCI_POWER_SAVE
++
+ #include "e1000.h"
+ #include <net/ip6_checksum.h>
+
+@@ -1248,6 +1253,23 @@ static int e1000_open(struct net_device *netdev)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	int err;
+
++#ifdef E1000_PCI_POWER_SAVE
++	struct pci_dev *pdev = adapter->pdev;
++
++	pci_set_power_state(pdev, PCI_D0);
++	pci_restore_state(pdev);
++
++	if (adapter->need_ioport)
++		err = pci_enable_device(pdev);
++	else
++		err = pci_enable_device_mem(pdev);
++	if (err) {
++		printk(KERN_ERR "e1000: Cannot enable PCI device from power-save\n");
++		return err;
++	}
++	pci_set_master(pdev);
++#endif
++
+ 	/* disallow open during test */
+ 	if (test_bit(__E1000_TESTING, &adapter->flags))
+ 		return -EBUSY;
+@@ -1265,6 +1287,7 @@ static int e1000_open(struct net_device *netdev)
+ 		goto err_setup_rx;
+
+ 	e1000_power_up_phy(adapter);
++	e1000_reset(adapter);
+
+ 	adapter->mng_vlan_id = E1000_MNG_VLAN_NONE;
+ 	if ((hw->mng_cookie.status &
+@@ -1341,6 +1364,15 @@ static int e1000_close(struct net_device *netdev)
+ 		e1000_vlan_rx_kill_vid(netdev, adapter->mng_vlan_id);
+ 	}
+
++#ifdef E1000_PCI_POWER_SAVE
++#ifdef CONFIG_PM
++	pci_save_state(adapter->pdev);
++#endif
++	pci_disable_device(adapter->pdev);
++	pci_wake_from_d3(adapter->pdev, true);
++	pci_set_power_state(adapter->pdev, PCI_D3hot);
++#endif
++
+ 	return 0;
+ }
 
 -- 
-Gilad Ben-Yossef
-Chief Coffee Drinker & CTO
-Codefidence Ltd.
-
-Web:   http://codefidence.com
-Cell:  +972-52-8260388
-Skype: gilad_codefidence
-Tel:   +972-8-9316883 ext. 201
-Fax:   +972-8-9316884
-Email: gilad@codefidence.com
-
-Check out our Open Source technology and training blog - http://tuxology.net
-
-	"Sorry cannot parse this, its too long to be true  :)"
-	  -- Eric Dumazet on netdev mailing list
+1.5.4.1
 
