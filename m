@@ -1,60 +1,41 @@
 From: Gilad Ben-Yossef <gilad@codefidence.com>
 Subject: Re: [PATCH RFC] Per route TCP options
-Date: Wed, 21 Oct 2009 10:04:06 +0200
-Message-ID: <4ADEC076.2030105@codefidence.com>
-References: <1256052161-14156-1-git-send-email-gilad@codefidence.com> <4ADDE4C4.5080501@hp.com>
+Date: Wed, 21 Oct 2009 10:10:38 +0200
+Message-ID: <4ADEC1FE.1090209@codefidence.com>
+References: <1256052161-14156-1-git-send-email-gilad@codefidence.com> <20091020.173653.193717720.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, ori@comsleep.com
-To: Rick Jones <rick.jones2@hp.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenbox.codefidence.com ([92.48.73.16]:39177 "EHLO
+Received: from xenbox.codefidence.com ([92.48.73.16]:43920 "EHLO
 	xenbox.codefidence.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752447AbZJUIEG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 04:04:06 -0400
-In-Reply-To: <4ADDE4C4.5080501@hp.com>
+	with ESMTP id S1751918AbZJUIKi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 04:10:38 -0400
+In-Reply-To: <20091020.173653.193717720.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rick Jones wrote:
+David Miller wrote:
 
-> Gilad Ben-Yossef wrote:
->> Turn the global sysctls allowing disabling of TCP SACK, DSCAK,
->> time stamp and window scale into per route entry feature options,
->> laying the ground to future removal of the relevant global sysctls.
->>
->> You really only want to disable SACK, DSACK, time stamp or window
->> scale if you've got a piece of broken networking equipment somewhere 
->> as a stop gap until you can bring a big enough hammer to deal with
->> the broken network equipment. It doesn't make sense to "punish" the
->> entire connections going through the machine to destinations not 
->> related to the broken equipment.
+> When sending more than one patch in a patch set, you must
+> number your patches so that people know in what order your
+> pathes should be applied.
 >
-> Is it really only the case that those options get disabled for broken 
-> networking equipment?  Does this presage making all TCP options 
-> per-route only?
-Well, I assume it might be the case that there are situations where you 
-are trying to communicate over some exotic link  where the networking 
-equipment is not broken as such, but the unusual properties of the link 
-makes one of the features not desirable. I can't think of such a 
-situation right now off the top of my head, but maybe they exist.
+> Mailing lists and other entities reorder list postings
+> quite severely, so it's not "obvious" what order your
+> postings matter just based upon arrival order.
+>
+>   
+Yes, of course. How silly of me not to notice. My apologies.
 
-The point is that even then you are more then likely to wish to turn off 
-these options to specific destination and routes (that go over said 
-exotic link) and keep using them over others - e.g. timestamp OK for 
-local LAN, but for default route that goes over exotic TCP/IP over 
-carrier penguins turn it off.
+git and I are currently have a bit of love hate thing going on...
 
-To sum it up, I think making these options per route is a win no matter 
-the situation. The question I am less certain about if it is also 
-desirable to have a global kill switch in addition to the per route 
-options. My gut feeling is that this is not needed once you have a per 
-route option.
+I will re-send the patch set in a more favorable form.
 
-Cheers,
+Thanks,
 Gilad
-
 
 
 -- 
