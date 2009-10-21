@@ -1,113 +1,97 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: allow netdev_wait_allrefs() to run faster
-Date: Wed, 21 Oct 2009 18:09:44 +0200
-Message-ID: <4ADF3248.6060304@gmail.com>
-References: <20091017221857.GG1925@kvack.org> <4ADB55BC.5020107@gmail.com> <20091018182144.GC23395@kvack.org> <200910211539.01824.opurdila@ixiacom.com> <4ADF2B57.4030708@gmail.com>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: possible circular locking dependency in ISDN PPP
+Date: Wed, 21 Oct 2009 18:24:42 +0200
+Message-ID: <4ADF35CA.5020207@imap.cc>
+References: <4ADB93C4.4090607@imap.cc> <7b6bb4a50910182227y1281b40bj3fcc082d32cf4496@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Benjamin LaHaise <bcrl@lhnet.ca>, netdev@vger.kernel.org,
-	Cosmin Ratiu <cratiu@ixiacom.com>
-To: Octavian Purdila <opurdila@ixiacom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:35058 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752800AbZJUQJp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 12:09:45 -0400
-In-Reply-To: <4ADF2B57.4030708@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig239C4265D1F2F745A65DB119"
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	isdn4linux <isdn4linux@listserv.isdn4linux.de>,
+	Netdev <netdev@vger.kernel.org>,
+	Karsten Keil <isdn@linux-pingi.de>
+To: Xiaotian Feng <xtfeng@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754427AbZJUQYx@vger.kernel.org>
+In-Reply-To: <7b6bb4a50910182227y1281b40bj3fcc082d32cf4496@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet a =E9crit :
-> Octavian Purdila a =E9crit :
->> On Sunday 18 October 2009 21:21:44 you wrote:
->>>> The msleep(250) should be tuned first. Then if this is really nece=
-ssary
->>>> to dismantle 100.000 netdevices per second, we might have to think=
- a bit
->>>> more.=20
->>>> Just try msleep(1 or 2), it should work quite well.
->>> My goal is tearing down 100,000 interfaces in a few seconds, which =
-really
->>>  is  necessary.  Right now we're running about 40,000 interfaces on=
- a not
->>>  yet saturated 10Gbps link.  Going to dual 10Gbps links means pushi=
-ng more
->>>  than 100,000 subscriber interfaces, and it looks like a modern dua=
-l socket
->>>  system can handle that.
->>>
->> I would also like to see this patch in, we are running into scalabil=
-ity issues=20
->> with creating/deleting lots of interfaces as well.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig239C4265D1F2F745A65DB119
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+Thanks for your analysis. The patch you propose does indeed prevent the
+"circular locking dependency" message, with no noticeable ill effect.
+
+I cannot say why xmit_lock was taken around isdn_net_lp_busy() in the
+first place. The ISDN4Linux people would be the ones to comment on that.
+If none of them objects, I propose you add a Signed-off-by line to your
+patch and submit it to Karsten Keil, the ISDN maintainer, for inclusion.
+You can also add a "Tested-by: Tilman Schmidt <tilman@imap.cc>" line.
+
+Thanks,
+Tilman
+
+Am 19.10.2009 07:27 schrieb Xiaotian Feng:
+> So there's a circular locking dependency.. Looking into isdn_net_get_lo=
+cked_lp()
+[...]
+> Why do we need to hold xmit_lock while using
+> isdn_net_lp_busy(nd->queue) ? Can following patch fix this bug?
 >=20
-> Ben patch only address interface deletion, and one part of the proble=
-m,
-> maybe the more visible one for the current kernel.
+> ---
+> diff --git a/drivers/isdn/i4l/isdn_net.h b/drivers/isdn/i4l/isdn_net.h
+> index 74032d0..7511f08 100644
+> --- a/drivers/isdn/i4l/isdn_net.h
+> +++ b/drivers/isdn/i4l/isdn_net.h
+> @@ -83,19 +83,19 @@ static __inline__ isdn_net_local *
+> isdn_net_get_locked_lp(isdn_net_dev *nd)
 >=20
-> Adding lots of interfaces only needs several threads to run concurent=
-ly.
+>         spin_lock_irqsave(&nd->queue_lock, flags);
+>         lp =3D nd->queue;         /* get lp on top of queue */
+> -       spin_lock(&nd->queue->xmit_lock);
+>         while (isdn_net_lp_busy(nd->queue)) {
+> -               spin_unlock(&nd->queue->xmit_lock);
+>                 nd->queue =3D nd->queue->next;
+>                 if (nd->queue =3D=3D lp) { /* not found -- should never=
+ happen */
+>                         lp =3D NULL;
+>                         goto errout;
+>                 }
+> -               spin_lock(&nd->queue->xmit_lock);
+>         }
+>         lp =3D nd->queue;
+>         nd->queue =3D nd->queue->next;
+> +       spin_unlock_irqrestore(&nd->queue_lock, flags);
+> +       spin_lock(&lp->xmit_lock);
+>         local_bh_disable();
+> +       return lp;
+>  errout:
+>         spin_unlock_irqrestore(&nd->queue_lock, flags);
+>         return lp;
 >=20
-> Before applying/examining his patch I suggest identifying all dev_put=
-() spots than
-> can be deleted and replaced by something more scalable. I began this =
-job
-> but others can help me.
->=20
-> RTNL and rcu grace periods are going to hurt anyway, so you probably =
-need
-> to use many tasks to be able to delete lots of interfaces in parallel=
-=2E
->=20
-> netdev_run_todo() should also use a better algorithm to allow paralle=
-lism.
->=20
-> Following patch doesnt slow down dev_put() users and real scalability
-> problems will surface and might be addressed.
->=20
 
-Here are typical timings (on current kernel, but on following example
-netdev_wait_allrefs() doesnt wait at all, because my netdevice has no r=
-efs)
+--=20
+Tilman Schmidt                    E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=C3=B6ffnet mindestens haltbar bis: (siehe R=C3=BCckseite)
 
-# time ip link add link eth3 address 00:1E:0B:8F:D0:D6 mv161 type macvl=
-an
 
-real    0m0.001s
-user    0m0.000s
-sys     0m0.001s
-# time ip link set mv161 up
+--------------enig239C4265D1F2F745A65DB119
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-real    0m0.001s
-user    0m0.000s
-sys     0m0.001s
-# time ip link set mv161 down
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.4-svn0 (GNU/Linux)
+Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
 
-real    0m0.021s
-user    0m0.000s
-sys     0m0.001s
-# time ip link del mv161
+iD8DBQFK3zXUQ3+did9BuFsRAjW8AJwL3SzKAXohbqJ3wCBkXpHdV+26ewCfbOHY
+0SAccy0ec6LHrkgNx2bWfcI=
+=e2Vg
+-----END PGP SIGNATURE-----
 
-real    0m0.022s
-user    0m0.000s
-sys     0m0.001s
-
-# time ip link add link eth3 address 00:1E:0B:8F:D0:D6 mv161 type macvl=
-an
-
-real    0m0.001s
-user    0m0.001s
-sys     0m0.001s
-# time ip link set mv161 up
-
-real    0m0.001s
-user    0m0.000s
-sys     0m0.001s
-# time ip link del mv161
-
-real    0m0.036s
-user    0m0.000s
-sys     0m0.001s
-
-22 ms (or 36 ms) delay are also problematic if you want to dismantle 1.=
-000.000 netdevices at once.
+--------------enig239C4265D1F2F745A65DB119--
