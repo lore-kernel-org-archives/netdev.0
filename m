@@ -1,101 +1,73 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] pktgen: Dont leak kernel memory
-Date: Wed, 21 Oct 2009 07:01:58 +0200
-Message-ID: <4ADE95C6.40103@gmail.com>
-References: <4ADE8C85.6020809@gmail.com>
+Subject: Re: pktgen and spin_lock_bh in xmit path
+Date: Wed, 21 Oct 2009 07:14:02 +0200
+Message-ID: <4ADE989A.90209@gmail.com>
+References: <4ADD309B.1040505@candelatech.com> <4ADD32FA.6030409@gmail.com> <4ADD41F5.5080707@candelatech.com> <4ADDF560.1020509@candelatech.com> <4ADDF6E5.4070509@gmail.com> <4ADDF948.1050208@candelatech.com> <4ADE0306.6060101@gmail.com> <4ADE0770.8060708@gmail.com> <4ADE2735.9000807@candelatech.com> <4ADE2A24.6080300@gmail.com> <4ADE2C00.8030900@candelatech.com> <4ADE3253.10302@gmail.com> <4ADE44FC.4030406@candelatech.com> <4ADE7A63.4090404@candelatech.com> <4ADE7C0D.5070208@gmail.com> <4ADE873F.3030903@gmail.com> <4ADE9560.5050500@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: NetDev <netdev@vger.kernel.org>, robert@herjulf.net,
+	"David S. Miller" <davem@davemloft.net>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:57846 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:58449 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751501AbZJUFB4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 01:01:56 -0400
-In-Reply-To: <4ADE8C85.6020809@gmail.com>
+	with ESMTP id S1750749AbZJUFOD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 01:14:03 -0400
+In-Reply-To: <4ADE9560.5050500@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet a =E9crit :
-> While playing with pktgen, I realized IP ID was not filled and a rand=
-om value
-> was taken, possibly leaking 2 bytes of kernel memory.
+Ben Greear a =E9crit :
+> Eric Dumazet wrote:
+>> pktgen should not use "clone XXX" pkts if macvlan is used (or any
+>> other driver
+>> that ultimatly calls dev_queue_xmit() and queue packet), since skb
+>> queue anchor
+>> is shared and would be overwritten.
+>>   After some thoughts, I believe user is in error :)
+> I tried to explain in my original post:  The problem arises when
+> when the hard-start-xmit fails with NETDEV_TX_BUSY.  Part of the
+> hard-start-xmit logic for virtual devices can call dev_queue_xmit, wh=
+ich
+> can ultimately
+> change the queue mapping and yet may still return NETDEV_TX_BUSY.
 >=20
-> We can use an increasing ID, this can help diagnostics anyway.
+> pktgen would try to resend this skb next loop, and this is where it w=
+ould
+> blow up.
 >=20
+> I have a patched macvlan logic and a patched dev queue xmit logic tha=
+t
+> allows
+> me to return NETDEV_TX_BUSY when underlying device fails to transmit.
 >=20
+> It may be that my hacked macvlan is the only virtual device that coul=
+d ever
+> return NETDEV_TX_BUSY, and if that is the case, I don't think the bug
+> could ever be hit in official kernel code.  My opinion is that the
+> current pktgen code makes
+> too many assumptions, so unless there is a performance penalty, I sti=
+ll
+> think it should be cleaned up.  But, I may be too paranoid.
 
-Here is a more complete version of the patch, since we leak lot of kern=
-el
-memory :(
+If a virtual device changes skb->queue_map, it must consume skb,
+or it breaks caller.
 
-[PATCH] pktgen: Dont leak kernel memory
+Alternative would be to restore queue_map to its initial value in
+your hacked macvlan when it wants to return NETDEV_TX_BUSY status.
 
-While playing with pktgen, I realized IP ID was not filled and a random=
- value
-was taken, possibly leaking 2 bytes of kernel memory.
-=20
-We can use an increasing ID, this can help diagnostics anyway.
 
-Also clear packet payload, instead of leaking kernel memory.
+We could add a WARN_ON(skb_get_queue_mapping(pkt_dev->skb) !=3D queue_m=
+ap);
+in pktgen, to catch driver errors but pktgen assumption is right IMHO
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 1da0e03..5ce017b 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -335,6 +335,7 @@ struct pktgen_dev {
- 	__u32 cur_src_mac_offset;
- 	__be32 cur_saddr;
- 	__be32 cur_daddr;
-+	__u16 ip_id;
- 	__u16 cur_udp_dst;
- 	__u16 cur_udp_src;
- 	__u16 cur_queue_map;
-@@ -2630,6 +2631,8 @@ static struct sk_buff *fill_packet_ipv4(struct ne=
-t_device *odev,
- 	iph->protocol =3D IPPROTO_UDP;	/* UDP */
- 	iph->saddr =3D pkt_dev->cur_saddr;
- 	iph->daddr =3D pkt_dev->cur_daddr;
-+	iph->id =3D htons(pkt_dev->ip_id);
-+	pkt_dev->ip_id++;
- 	iph->frag_off =3D 0;
- 	iplen =3D 20 + 8 + datalen;
- 	iph->tot_len =3D htons(iplen);
-@@ -2641,24 +2644,26 @@ static struct sk_buff *fill_packet_ipv4(struct =
-net_device *odev,
- 	skb->dev =3D odev;
- 	skb->pkt_type =3D PACKET_HOST;
-=20
--	if (pkt_dev->nfrags <=3D 0)
-+	if (pkt_dev->nfrags <=3D 0) {
- 		pgh =3D (struct pktgen_hdr *)skb_put(skb, datalen);
--	else {
-+		memset(pgh + 1, 0, datalen - sizeof(struct pktgen_hdr));
-+	} else {
- 		int frags =3D pkt_dev->nfrags;
--		int i;
-+		int i, len;
-=20
- 		pgh =3D (struct pktgen_hdr *)(((char *)(udph)) + 8);
-=20
- 		if (frags > MAX_SKB_FRAGS)
- 			frags =3D MAX_SKB_FRAGS;
- 		if (datalen > frags * PAGE_SIZE) {
--			skb_put(skb, datalen - frags * PAGE_SIZE);
-+			len =3D datalen - frags * PAGE_SIZE;
-+			memset(skb_put(skb, len), 0, len);
- 			datalen =3D frags * PAGE_SIZE;
- 		}
-=20
- 		i =3D 0;
- 		while (datalen > 0) {
--			struct page *page =3D alloc_pages(GFP_KERNEL, 0);
-+			struct page *page =3D alloc_pages(GFP_KERNEL | __GFP_ZERO, 0);
- 			skb_shinfo(skb)->frags[i].page =3D page;
- 			skb_shinfo(skb)->frags[i].page_offset =3D 0;
- 			skb_shinfo(skb)->frags[i].size =3D
-
+@@ -3466,6 +3471,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_de=
+v)
+ 		/* fallthru */
+ 	case NETDEV_TX_LOCKED:
+ 	case NETDEV_TX_BUSY:
++		WARN_ON(skb_get_queue_mapping(pkt_dev->skb) !=3D queue_map);
+ 		/* Retry it next time */
+ 		atomic_dec(&(pkt_dev->skb->users));
+ 		pkt_dev->last_ok =3D 0;
