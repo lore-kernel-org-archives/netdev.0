@@ -1,125 +1,32 @@
-From: Naohiro Ooiwa <nooiwa@miraclelinux.com>
-Subject: [PATCH] e1000: the power down when running ifdown command
-Date: Wed, 21 Oct 2009 18:52:49 +0900
-Message-ID: <4ADED9F1.4060308@miraclelinux.com>
+From: Ben Dooks <ben@fluff.org>
+Subject: Re: [patch 0/3] KS8851 updates for -rc5
+Date: Wed, 21 Oct 2009 11:44:09 +0100
+Message-ID: <20091021104409.GB306@fluff.org.uk>
+References: <6DA9692E60FD324FBF17D6336890798104259C@MELANITE.micrel.com>
+ <4ADE3916.3050206@simtec.co.uk>
+ <20091020.191142.193713900.davem@davemloft.net>
+ <20091020.191204.183462320.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	e1000-devel@lists.sourceforge.net, svaidy@linux.vnet.ibm.com,
-	linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: ben@simtec.co.uk, Ping.Doong@Micrel.Com, netdev@vger.kernel.org,
+	Charles.Li@Micrel.Com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw.miraclelinux.com ([122.216.84.157]:11498 "EHLO
-	mailgw.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753243AbZJUKZ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 06:25:59 -0400
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:51024 "EHLO
+	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753304AbZJUKoW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 06:44:22 -0400
+Content-Disposition: inline
+In-Reply-To: <20091020.191204.183462320.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all
+On Tue, Oct 20, 2009 at 07:12:04PM -0700, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Tue, 20 Oct 2009 19:11:42 -0700 (PDT)
 
-I'm trying to modify e1000 driver for power saving.
+> > All applied to net-next-2.6, thanks.
+> 
+> Sorry, I meant 'net-2.6'
 
-The e1000 driver doesn't let the power down when running ifdown command.
-So, I set to the D3hot state of a PCI device at the end of e1000_close().
-
-With this modification, e1000 driver reduces power by ifdown
-to the same level as link-down case.
-
-I spoke it in Collaboration Summit 2009.
-For details and result of power measurement,
-please refer the 36-38 page of following document.
-http://events.linuxfoundation.org/archive/lfcs09_ooiwa.pdf
-
-Could you please check the my patch ?
-
-Should I consider WOL ?
-Dosen't E1000_PCI_POWER_SAVE need ?
-
-
-Hi Vaidy
-
-I was glad that you talked to me in Collaboration Summit.
-I'm sorry for sending the patch so late.
-
-I found a bug in the patch which I used in Collaboration Summit.
-Sometimes, it's don't work to auto-negotiation by repeated ifup and ifdown.
-
-I fixed it. I'd appreciate it if you could test.
-
-
-Thanks you.
-Naohiro Ooiwa
-
-Signed-off-by: Naohiro Ooiwa <nooiwa@miraclelinux.com>
----
- drivers/net/e1000/e1000_main.c |   32 ++++++++++++++++++++++++++++++++
- 1 files changed, 32 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index bcd192c..12e1a42 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -26,6 +26,11 @@
-
- *******************************************************************************/
-
-+/*
-+ * define this if you want pci save power while ifdown.
-+ */
-+#define E1000_PCI_POWER_SAVE
-+
- #include "e1000.h"
- #include <net/ip6_checksum.h>
-
-@@ -1248,6 +1253,23 @@ static int e1000_open(struct net_device *netdev)
- 	struct e1000_hw *hw = &adapter->hw;
- 	int err;
-
-+#ifdef E1000_PCI_POWER_SAVE
-+	struct pci_dev *pdev = adapter->pdev;
-+
-+	pci_set_power_state(pdev, PCI_D0);
-+	pci_restore_state(pdev);
-+
-+	if (adapter->need_ioport)
-+		err = pci_enable_device(pdev);
-+	else
-+		err = pci_enable_device_mem(pdev);
-+	if (err) {
-+		printk(KERN_ERR "e1000: Cannot enable PCI device from power-save\n");
-+		return err;
-+	}
-+	pci_set_master(pdev);
-+#endif
-+
- 	/* disallow open during test */
- 	if (test_bit(__E1000_TESTING, &adapter->flags))
- 		return -EBUSY;
-@@ -1265,6 +1287,7 @@ static int e1000_open(struct net_device *netdev)
- 		goto err_setup_rx;
-
- 	e1000_power_up_phy(adapter);
-+	e1000_reset(adapter);
-
- 	adapter->mng_vlan_id = E1000_MNG_VLAN_NONE;
- 	if ((hw->mng_cookie.status &
-@@ -1341,6 +1364,15 @@ static int e1000_close(struct net_device *netdev)
- 		e1000_vlan_rx_kill_vid(netdev, adapter->mng_vlan_id);
- 	}
-
-+#ifdef E1000_PCI_POWER_SAVE
-+#ifdef CONFIG_PM
-+	pci_save_state(adapter->pdev);
-+#endif
-+	pci_disable_device(adapter->pdev);
-+	pci_wake_from_d3(adapter->pdev, true);
-+	pci_set_power_state(adapter->pdev, PCI_D3hot);
-+#endif
-+
- 	return 0;
- }
-
--- 
-1.5.4.1
-
+thanks.
