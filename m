@@ -1,169 +1,112 @@
 From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [net-next PATCH 2/4] qlge: Add ethtool blink function.
-Date: Wed, 21 Oct 2009 14:07:39 -0700
-Message-ID: <1256159261-29151-2-git-send-email-ron.mercer@qlogic.com>
+Subject: [net-next PATCH 1/4] qlge: Add ethtool get/set pause parameter.
+Date: Wed, 21 Oct 2009 14:07:38 -0700
+Message-ID: <1256159261-29151-1-git-send-email-ron.mercer@qlogic.com>
 References: <[net-next PATCH 0/4] qlge: Add some ethtool functions.>
 Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from avexch1.qlogic.com ([198.70.193.115]:55641 "EHLO
 	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754015AbZJUVNi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 17:13:38 -0400
+	with ESMTP id S1753970AbZJUVNh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 17:13:37 -0400
 In-Reply-To: <[net-next PATCH 0/4] qlge: Add some ethtool functions.>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 ---
- drivers/net/qlge/qlge.h         |    6 ++++
- drivers/net/qlge/qlge_ethtool.c |   28 ++++++++++++++++++++
- drivers/net/qlge/qlge_mpi.c     |   55 +++++++++++++++++++++++++++++++++++++++
- 3 files changed, 89 insertions(+), 0 deletions(-)
+ drivers/net/qlge/qlge.h         |    2 ++
+ drivers/net/qlge/qlge_ethtool.c |   33 +++++++++++++++++++++++++++++++++
+ drivers/net/qlge/qlge_mpi.c     |    4 ++--
+ 3 files changed, 37 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
-index b1b3375..0e0cce9 100644
+index 9cdf8ff..b1b3375 100644
 --- a/drivers/net/qlge/qlge.h
 +++ b/drivers/net/qlge/qlge.h
-@@ -805,6 +805,9 @@ enum {
- 	MB_CMD_SET_PORT_CFG = 0x00000122,
- 	MB_CMD_GET_PORT_CFG = 0x00000123,
- 	MB_CMD_GET_LINK_STS = 0x00000124,
-+	MB_CMD_SET_LED_CFG = 0x00000125, /* Set LED Configuration Register */
-+		QL_LED_BLINK = 0x03e803e8,
-+	MB_CMD_GET_LED_CFG = 0x00000126, /* Get LED Configuration Register */
- 	MB_CMD_SET_MGMNT_TFK_CTL = 0x00000160, /* Set Mgmnt Traffic Control */
- 	MB_SET_MPI_TFK_STOP = (1 << 0),
- 	MB_SET_MPI_TFK_RESUME = (1 << 1),
-@@ -1551,6 +1554,7 @@ struct ql_adapter {
- 	u32 port_init;
- 	u32 link_status;
- 	u32 link_config;
-+	u32 led_config;
- 	u32 max_frame_size;
- 
- 	union flash_params flash;
-@@ -1643,6 +1647,8 @@ int ql_mb_get_fw_state(struct ql_adapter *qdev);
- int ql_cam_route_initialize(struct ql_adapter *qdev);
- int ql_read_mpi_reg(struct ql_adapter *qdev, u32 reg, u32 *data);
- int ql_mb_about_fw(struct ql_adapter *qdev);
-+int ql_mb_set_led_cfg(struct ql_adapter *qdev, u32 led_config);
-+int ql_mb_get_led_cfg(struct ql_adapter *qdev);
+@@ -1646,6 +1646,8 @@ int ql_mb_about_fw(struct ql_adapter *qdev);
  void ql_link_on(struct ql_adapter *qdev);
  void ql_link_off(struct ql_adapter *qdev);
  int ql_mb_set_mgmnt_traffic_ctl(struct ql_adapter *qdev, u32 control);
++int ql_mb_get_port_cfg(struct ql_adapter *qdev);
++int ql_mb_set_port_cfg(struct ql_adapter *qdev);
+ int ql_wait_fifo_empty(struct ql_adapter *qdev);
+ 
+ #if 1
 diff --git a/drivers/net/qlge/qlge_ethtool.c b/drivers/net/qlge/qlge_ethtool.c
-index dfb5c80..0c0549b 100644
+index aac6c6f..dfb5c80 100644
 --- a/drivers/net/qlge/qlge_ethtool.c
 +++ b/drivers/net/qlge/qlge_ethtool.c
-@@ -371,6 +371,33 @@ static void ql_get_drvinfo(struct net_device *ndev,
- 	drvinfo->eedump_len = 0;
+@@ -424,6 +424,37 @@ static int ql_set_coalesce(struct net_device *ndev, struct ethtool_coalesce *c)
+ 	return ql_update_ring_coalescing(qdev);
  }
  
-+
-+static int ql_phys_id(struct net_device *ndev, u32 data)
++static void ql_get_pauseparam(struct net_device *netdev,
++			struct ethtool_pauseparam *pause)
 +{
-+	struct ql_adapter *qdev = netdev_priv(ndev);
-+	u32 led_reg, i;
-+	int status;
++	struct ql_adapter *qdev = netdev_priv(netdev);
 +
-+	/* Save the current LED settings */
-+	status = ql_mb_get_led_cfg(qdev);
-+	if (status)
-+		return status;
-+	led_reg = qdev->led_config;
-+
-+	/* Start blinking the led */
-+	if (!data || data > 300)
-+		data = 300;
-+
-+	for (i = 0; i < (data * 10); i++)
-+		ql_mb_set_led_cfg(qdev, QL_LED_BLINK);
-+
-+	/* Restore LED settings */
-+	status = ql_mb_set_led_cfg(qdev, led_reg);
-+	if (status)
-+		return status;
-+
-+	return 0;
++	ql_mb_get_port_cfg(qdev);
++	if (qdev->link_config & CFG_PAUSE_STD) {
++		pause->rx_pause = 1;
++		pause->tx_pause = 1;
++	}
 +}
- static int ql_get_coalesce(struct net_device *dev, struct ethtool_coalesce *c)
++
++static int ql_set_pauseparam(struct net_device *netdev,
++			struct ethtool_pauseparam *pause)
++{
++	struct ql_adapter *qdev = netdev_priv(netdev);
++	int status = 0;
++
++	if ((pause->rx_pause) && (pause->tx_pause))
++		qdev->link_config |= CFG_PAUSE_STD;
++	else if (!pause->rx_pause && !pause->tx_pause)
++		qdev->link_config &= ~CFG_PAUSE_STD;
++	else
++		return -EINVAL;
++
++	status = ql_mb_set_port_cfg(qdev);
++	if (status)
++		return status;
++	return status;
++}
++
+ static u32 ql_get_rx_csum(struct net_device *netdev)
  {
- 	struct ql_adapter *qdev = netdev_priv(dev);
-@@ -499,6 +526,7 @@ const struct ethtool_ops qlge_ethtool_ops = {
+ 	struct ql_adapter *qdev = netdev_priv(netdev);
+@@ -468,6 +499,8 @@ const struct ethtool_ops qlge_ethtool_ops = {
  	.get_msglevel = ql_get_msglevel,
  	.set_msglevel = ql_set_msglevel,
  	.get_link = ethtool_op_get_link,
-+	.phys_id		 = ql_phys_id,
- 	.get_pauseparam		 = ql_get_pauseparam,
- 	.set_pauseparam		 = ql_set_pauseparam,
++	.get_pauseparam		 = ql_get_pauseparam,
++	.set_pauseparam		 = ql_set_pauseparam,
  	.get_rx_csum = ql_get_rx_csum,
+ 	.set_rx_csum = ql_set_rx_csum,
+ 	.get_tx_csum = ethtool_op_get_tx_csum,
 diff --git a/drivers/net/qlge/qlge_mpi.c b/drivers/net/qlge/qlge_mpi.c
-index 81a8489..14d76f1 100644
+index e497eac..81a8489 100644
 --- a/drivers/net/qlge/qlge_mpi.c
 +++ b/drivers/net/qlge/qlge_mpi.c
-@@ -751,6 +751,61 @@ static int ql_idc_wait(struct ql_adapter *qdev)
- 	return status;
- }
- 
-+int ql_mb_set_led_cfg(struct ql_adapter *qdev, u32 led_config)
-+{
-+	struct mbox_params mbc;
-+	struct mbox_params *mbcp = &mbc;
-+	int status;
-+
-+	memset(mbcp, 0, sizeof(struct mbox_params));
-+
-+	mbcp->in_count = 2;
-+	mbcp->out_count = 1;
-+
-+	mbcp->mbox_in[0] = MB_CMD_SET_LED_CFG;
-+	mbcp->mbox_in[1] = led_config;
-+
-+
-+	status = ql_mailbox_command(qdev, mbcp);
-+	if (status)
-+		return status;
-+
-+	if (mbcp->mbox_out[0] != MB_CMD_STS_GOOD) {
-+		QPRINTK(qdev, DRV, ERR,
-+			"Failed to set LED Configuration.\n");
-+		status = -EIO;
-+	}
-+
-+	return status;
-+}
-+
-+int ql_mb_get_led_cfg(struct ql_adapter *qdev)
-+{
-+	struct mbox_params mbc;
-+	struct mbox_params *mbcp = &mbc;
-+	int status;
-+
-+	memset(mbcp, 0, sizeof(struct mbox_params));
-+
-+	mbcp->in_count = 1;
-+	mbcp->out_count = 2;
-+
-+	mbcp->mbox_in[0] = MB_CMD_GET_LED_CFG;
-+
-+	status = ql_mailbox_command(qdev, mbcp);
-+	if (status)
-+		return status;
-+
-+	if (mbcp->mbox_out[0] != MB_CMD_STS_GOOD) {
-+		QPRINTK(qdev, DRV, ERR,
-+			"Failed to get LED Configuration.\n");
-+		status = -EIO;
-+	} else
-+		qdev->led_config = mbcp->mbox_out[1];
-+
-+	return status;
-+}
-+
- int ql_mb_set_mgmnt_traffic_ctl(struct ql_adapter *qdev, u32 control)
+@@ -637,7 +637,7 @@ int ql_mb_idc_ack(struct ql_adapter *qdev)
+  * for the current port.
+  * Most likely will block.
+  */
+-static int ql_mb_set_port_cfg(struct ql_adapter *qdev)
++int ql_mb_set_port_cfg(struct ql_adapter *qdev)
  {
  	struct mbox_params mbc;
+ 	struct mbox_params *mbcp = &mbc;
+@@ -672,7 +672,7 @@ static int ql_mb_set_port_cfg(struct ql_adapter *qdev)
+  * for the current port.
+  * Most likely will block.
+  */
+-static int ql_mb_get_port_cfg(struct ql_adapter *qdev)
++int ql_mb_get_port_cfg(struct ql_adapter *qdev)
+ {
+ 	struct mbox_params mbc;
+ 	struct mbox_params *mbcp = &mbc;
 -- 
 1.6.0.2
 
