@@ -1,78 +1,101 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: pktgen and spin_lock_bh in xmit path
-Date: Tue, 20 Oct 2009 22:00:16 -0700
-Message-ID: <4ADE9560.5050500@candelatech.com>
-References: <4ADD309B.1040505@candelatech.com> <4ADD32FA.6030409@gmail.com> <4ADD41F5.5080707@candelatech.com> <4ADDF560.1020509@candelatech.com> <4ADDF6E5.4070509@gmail.com> <4ADDF948.1050208@candelatech.com> <4ADE0306.6060101@gmail.com> <4ADE0770.8060708@gmail.com> <4ADE2735.9000807@candelatech.com> <4ADE2A24.6080300@gmail.com> <4ADE2C00.8030900@candelatech.com> <4ADE3253.10302@gmail.com> <4ADE44FC.4030406@candelatech.com> <4ADE7A63.4090404@candelatech.com> <4ADE7C0D.5070208@gmail.com> <4ADE873F.3030903@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] pktgen: Dont leak kernel memory
+Date: Wed, 21 Oct 2009 07:01:58 +0200
+Message-ID: <4ADE95C6.40103@gmail.com>
+References: <4ADE8C85.6020809@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>, robert@herjulf.net,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:50789 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751330AbZJUFAT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 01:00:19 -0400
-In-Reply-To: <4ADE873F.3030903@gmail.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:57846 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751501AbZJUFB4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 01:01:56 -0400
+In-Reply-To: <4ADE8C85.6020809@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> pktgen should not use "clone XXX" pkts if macvlan is used (or any other driver
-> that ultimatly calls dev_queue_xmit() and queue packet), since skb queue anchor
-> is shared and would be overwritten.
->   
-> After some thoughts, I believe user is in error :)
-I tried to explain in my original post:  The problem arises when
-when the hard-start-xmit fails with NETDEV_TX_BUSY.  Part of the
-hard-start-xmit logic for virtual devices can call dev_queue_xmit, which 
-can ultimately
-change the queue mapping and yet may still return NETDEV_TX_BUSY.
+Eric Dumazet a =E9crit :
+> While playing with pktgen, I realized IP ID was not filled and a rand=
+om value
+> was taken, possibly leaking 2 bytes of kernel memory.
+>=20
+> We can use an increasing ID, this can help diagnostics anyway.
+>=20
+>=20
 
-pktgen would try to resend this skb next loop, and this is where it would
-blow up.
+Here is a more complete version of the patch, since we leak lot of kern=
+el
+memory :(
 
-I have a patched macvlan logic and a patched dev queue xmit logic that 
-allows
-me to return NETDEV_TX_BUSY when underlying device fails to transmit.
+[PATCH] pktgen: Dont leak kernel memory
 
-It may be that my hacked macvlan is the only virtual device that could ever
-return NETDEV_TX_BUSY, and if that is the case, I don't think the bug
-could ever be hit in official kernel code.  My opinion is that the 
-current pktgen code makes
-too many assumptions, so unless there is a performance penalty, I still
-think it should be cleaned up.  But, I may be too paranoid.
-> 1) Only way to use "clone XXXX" pkts is when using real device.
->   
-Agreed, and I was not cloning pkts on the mac-vlan interface.
-> 2) Also, using macvlan in pktgen is sub-optimal, since you can already put any
-> MAC addresses in pktgen pkts, you dont need to go through macvlan layer.
->   
-It's sub-optimal for massive pkt pushing, but still useful for sending 
-multiple distinct flows
-across a single physical wire.
-> 3) If ixgbe overwrites skb->queue_mapping to current cpu, you should setup pktgen
->  queue_map_min and queue_map_max to match you cpu number, or use QUEUE_MAP_CPU pktgen flag
-> Or else, pktgen wont get  the appropriate txq (and lock) before calling driver start_xmit()
->   
-The hard-start-xmit path doesn't call the driver's queue-mapping logic, 
-so you
-only get that fun when transmitting through mac-vlans (or .1q vlans, 
-etc).  There appears to be
-no watchdog for virtual devices, and the dev_queue_xmit path updates the 
-proper txq, so, as long as you
-aren't using that +1 variant of the skb set queue map logic in pktgen, I 
-think you will be fine.  The
-current code is fine in this manner, but your patch broke it w/out the 
-second patch to remove the +1
-logic.
+While playing with pktgen, I realized IP ID was not filled and a random=
+ value
+was taken, possibly leaking 2 bytes of kernel memory.
+=20
+We can use an increasing ID, this can help diagnostics anyway.
 
-Thanks,
-Ben
+Also clear packet payload, instead of leaking kernel memory.
 
--- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
 
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 1da0e03..5ce017b 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -335,6 +335,7 @@ struct pktgen_dev {
+ 	__u32 cur_src_mac_offset;
+ 	__be32 cur_saddr;
+ 	__be32 cur_daddr;
++	__u16 ip_id;
+ 	__u16 cur_udp_dst;
+ 	__u16 cur_udp_src;
+ 	__u16 cur_queue_map;
+@@ -2630,6 +2631,8 @@ static struct sk_buff *fill_packet_ipv4(struct ne=
+t_device *odev,
+ 	iph->protocol =3D IPPROTO_UDP;	/* UDP */
+ 	iph->saddr =3D pkt_dev->cur_saddr;
+ 	iph->daddr =3D pkt_dev->cur_daddr;
++	iph->id =3D htons(pkt_dev->ip_id);
++	pkt_dev->ip_id++;
+ 	iph->frag_off =3D 0;
+ 	iplen =3D 20 + 8 + datalen;
+ 	iph->tot_len =3D htons(iplen);
+@@ -2641,24 +2644,26 @@ static struct sk_buff *fill_packet_ipv4(struct =
+net_device *odev,
+ 	skb->dev =3D odev;
+ 	skb->pkt_type =3D PACKET_HOST;
+=20
+-	if (pkt_dev->nfrags <=3D 0)
++	if (pkt_dev->nfrags <=3D 0) {
+ 		pgh =3D (struct pktgen_hdr *)skb_put(skb, datalen);
+-	else {
++		memset(pgh + 1, 0, datalen - sizeof(struct pktgen_hdr));
++	} else {
+ 		int frags =3D pkt_dev->nfrags;
+-		int i;
++		int i, len;
+=20
+ 		pgh =3D (struct pktgen_hdr *)(((char *)(udph)) + 8);
+=20
+ 		if (frags > MAX_SKB_FRAGS)
+ 			frags =3D MAX_SKB_FRAGS;
+ 		if (datalen > frags * PAGE_SIZE) {
+-			skb_put(skb, datalen - frags * PAGE_SIZE);
++			len =3D datalen - frags * PAGE_SIZE;
++			memset(skb_put(skb, len), 0, len);
+ 			datalen =3D frags * PAGE_SIZE;
+ 		}
+=20
+ 		i =3D 0;
+ 		while (datalen > 0) {
+-			struct page *page =3D alloc_pages(GFP_KERNEL, 0);
++			struct page *page =3D alloc_pages(GFP_KERNEL | __GFP_ZERO, 0);
+ 			skb_shinfo(skb)->frags[i].page =3D page;
+ 			skb_shinfo(skb)->frags[i].page_offset =3D 0;
+ 			skb_shinfo(skb)->frags[i].size =3D
 
