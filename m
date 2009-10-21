@@ -1,14 +1,14 @@
 From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [net-next PATCH 1/4] qlge: Add ethtool get/set pause parameter.
-Date: Wed, 21 Oct 2009 14:07:38 -0700
-Message-ID: <1256159261-29151-1-git-send-email-ron.mercer@qlogic.com>
+Subject: [net-next PATCH 4/4] qlge: Add ethtool register dump function.
+Date: Wed, 21 Oct 2009 14:07:41 -0700
+Message-ID: <1256159261-29151-4-git-send-email-ron.mercer@qlogic.com>
 References: <[net-next PATCH 0/4] qlge: Add some ethtool functions.>
 Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from avexch1.qlogic.com ([198.70.193.115]:55641 "EHLO
 	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753970AbZJUVNh (ORCPT
+	with ESMTP id S1754480AbZJUVNh (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 17:13:37 -0400
 In-Reply-To: <[net-next PATCH 0/4] qlge: Add some ethtool functions.>
 Sender: netdev-owner@vger.kernel.org
@@ -16,97 +16,402 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 ---
- drivers/net/qlge/qlge.h         |    2 ++
- drivers/net/qlge/qlge_ethtool.c |   33 +++++++++++++++++++++++++++++++++
- drivers/net/qlge/qlge_mpi.c     |    4 ++--
- 3 files changed, 37 insertions(+), 2 deletions(-)
+ drivers/net/qlge/qlge.h         |  149 ++++++++++++++++++++++++++++++++
+ drivers/net/qlge/qlge_dbg.c     |  180 +++++++++++++++++++++++++++++++++++++++
+ drivers/net/qlge/qlge_ethtool.c |   16 ++++
+ 3 files changed, 345 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
-index 9cdf8ff..b1b3375 100644
+index 157f55e..58fffc9 100644
 --- a/drivers/net/qlge/qlge.h
 +++ b/drivers/net/qlge/qlge.h
-@@ -1646,6 +1646,8 @@ int ql_mb_about_fw(struct ql_adapter *qdev);
- void ql_link_on(struct ql_adapter *qdev);
- void ql_link_off(struct ql_adapter *qdev);
- int ql_mb_set_mgmnt_traffic_ctl(struct ql_adapter *qdev, u32 control);
-+int ql_mb_get_port_cfg(struct ql_adapter *qdev);
-+int ql_mb_set_port_cfg(struct ql_adapter *qdev);
+@@ -1400,6 +1400,153 @@ struct nic_stats {
+ 	u64 rx_nic_fifo_drop;
+ };
+ 
++/* Address/Length pairs for the coredump. */
++enum {
++	MPI_CORE_REGS_ADDR = 0x00030000,
++	MPI_CORE_REGS_CNT = 127,
++	MPI_CORE_SH_REGS_CNT = 16,
++	TEST_REGS_ADDR = 0x00001000,
++	TEST_REGS_CNT = 23,
++	RMII_REGS_ADDR = 0x00001040,
++	RMII_REGS_CNT = 64,
++	FCMAC1_REGS_ADDR = 0x00001080,
++	FCMAC2_REGS_ADDR = 0x000010c0,
++	FCMAC_REGS_CNT = 64,
++	FC1_MBX_REGS_ADDR = 0x00001100,
++	FC2_MBX_REGS_ADDR = 0x00001240,
++	FC_MBX_REGS_CNT = 64,
++	IDE_REGS_ADDR = 0x00001140,
++	IDE_REGS_CNT = 64,
++	NIC1_MBX_REGS_ADDR = 0x00001180,
++	NIC2_MBX_REGS_ADDR = 0x00001280,
++	NIC_MBX_REGS_CNT = 64,
++	SMBUS_REGS_ADDR = 0x00001200,
++	SMBUS_REGS_CNT = 64,
++	I2C_REGS_ADDR = 0x00001fc0,
++	I2C_REGS_CNT = 64,
++	MEMC_REGS_ADDR = 0x00003000,
++	MEMC_REGS_CNT = 256,
++	PBUS_REGS_ADDR = 0x00007c00,
++	PBUS_REGS_CNT = 256,
++	MDE_REGS_ADDR = 0x00010000,
++	MDE_REGS_CNT = 6,
++	CODE_RAM_ADDR = 0x00020000,
++	CODE_RAM_CNT = 0x2000,
++	MEMC_RAM_ADDR = 0x00100000,
++	MEMC_RAM_CNT = 0x2000,
++};
++
++#define MPI_COREDUMP_COOKIE 0x5555aaaa
++struct mpi_coredump_global_header {
++	u32	cookie;
++	u8	idString[16];
++	u32	timeLo;
++	u32	timeHi;
++	u32	imageSize;
++	u32	headerSize;
++	u8	info[220];
++};
++
++struct mpi_coredump_segment_header {
++	u32	cookie;
++	u32	segNum;
++	u32	segSize;
++	u32	extra;
++	u8	description[16];
++};
++
++/* Reg dump segment numbers. */
++enum {
++	CORE_SEG_NUM = 1,
++	TEST_LOGIC_SEG_NUM = 2,
++	RMII_SEG_NUM = 3,
++	FCMAC1_SEG_NUM = 4,
++	FCMAC2_SEG_NUM = 5,
++	FC1_MBOX_SEG_NUM = 6,
++	IDE_SEG_NUM = 7,
++	NIC1_MBOX_SEG_NUM = 8,
++	SMBUS_SEG_NUM = 9,
++	FC2_MBOX_SEG_NUM = 10,
++	NIC2_MBOX_SEG_NUM = 11,
++	I2C_SEG_NUM = 12,
++	MEMC_SEG_NUM = 13,
++	PBUS_SEG_NUM = 14,
++	MDE_SEG_NUM = 15,
++	NIC1_CONTROL_SEG_NUM = 16,
++	NIC2_CONTROL_SEG_NUM = 17,
++	NIC1_XGMAC_SEG_NUM = 18,
++	NIC2_XGMAC_SEG_NUM = 19,
++	WCS_RAM_SEG_NUM = 20,
++	MEMC_RAM_SEG_NUM = 21,
++	XAUI_AN_SEG_NUM = 22,
++	XAUI_HSS_PCS_SEG_NUM = 23,
++	XFI_AN_SEG_NUM = 24,
++	XFI_TRAIN_SEG_NUM = 25,
++	XFI_HSS_PCS_SEG_NUM = 26,
++	XFI_HSS_TX_SEG_NUM = 27,
++	XFI_HSS_RX_SEG_NUM = 28,
++	XFI_HSS_PLL_SEG_NUM = 29,
++	MISC_NIC_INFO_SEG_NUM = 30,
++	INTR_STATES_SEG_NUM = 31,
++	CAM_ENTRIES_SEG_NUM = 32,
++	ROUTING_WORDS_SEG_NUM = 33,
++	ETS_SEG_NUM = 34,
++	PROBE_DUMP_SEG_NUM = 35,
++	ROUTING_INDEX_SEG_NUM = 36,
++	MAC_PROTOCOL_SEG_NUM = 37,
++	XAUI2_AN_SEG_NUM = 38,
++	XAUI2_HSS_PCS_SEG_NUM = 39,
++	XFI2_AN_SEG_NUM = 40,
++	XFI2_TRAIN_SEG_NUM = 41,
++	XFI2_HSS_PCS_SEG_NUM = 42,
++	XFI2_HSS_TX_SEG_NUM = 43,
++	XFI2_HSS_RX_SEG_NUM = 44,
++	XFI2_HSS_PLL_SEG_NUM = 45,
++	SEM_REGS_SEG_NUM = 50
++
++};
++
++struct ql_nic_misc {
++	u32 rx_ring_count;
++	u32 tx_ring_count;
++	u32 intr_count;
++	u32 function;
++};
++
++struct ql_reg_dump {
++
++	/* segment 0 */
++	struct mpi_coredump_global_header mpi_global_header;
++
++	/* segment 16 */
++	struct mpi_coredump_segment_header nic_regs_seg_hdr;
++	u32 nic_regs[64];
++
++	/* segment 30 */
++	struct mpi_coredump_segment_header misc_nic_seg_hdr;
++	struct ql_nic_misc misc_nic_info;
++
++	/* segment 31 */
++	/* one interrupt state for each CQ */
++	struct mpi_coredump_segment_header intr_states_seg_hdr;
++	u32 intr_states[MAX_CPUS];
++
++	/* segment 32 */
++	/* 3 cam words each for 16 unicast,
++	 * 2 cam words for each of 32 multicast.
++	 */
++	struct mpi_coredump_segment_header cam_entries_seg_hdr;
++	u32 cam_entries[(16 * 3) + (32 * 3)];
++
++	/* segment 33 */
++	struct mpi_coredump_segment_header nic_routing_words_seg_hdr;
++	u32 nic_routing_words[16];
++
++	/* segment 34 */
++	struct mpi_coredump_segment_header ets_seg_hdr;
++	u32 ets[8+2];
++};
++
+ /*
+  * intr_context structure is used during initialization
+  * to hook the interrupts.  It is also used in a single
+@@ -1659,6 +1806,8 @@ int ql_mb_set_mgmnt_traffic_ctl(struct ql_adapter *qdev, u32 control);
+ int ql_mb_get_port_cfg(struct ql_adapter *qdev);
+ int ql_mb_set_port_cfg(struct ql_adapter *qdev);
  int ql_wait_fifo_empty(struct ql_adapter *qdev);
++void ql_gen_reg_dump(struct ql_adapter *qdev,
++			struct ql_reg_dump *mpi_coredump);
  
  #if 1
-diff --git a/drivers/net/qlge/qlge_ethtool.c b/drivers/net/qlge/qlge_ethtool.c
-index aac6c6f..dfb5c80 100644
---- a/drivers/net/qlge/qlge_ethtool.c
-+++ b/drivers/net/qlge/qlge_ethtool.c
-@@ -424,6 +424,37 @@ static int ql_set_coalesce(struct net_device *ndev, struct ethtool_coalesce *c)
- 	return ql_update_ring_coalescing(qdev);
- }
+ #define QL_ALL_DUMP
+diff --git a/drivers/net/qlge/qlge_dbg.c b/drivers/net/qlge/qlge_dbg.c
+index aa88cb3..9f58c47 100644
+--- a/drivers/net/qlge/qlge_dbg.c
++++ b/drivers/net/qlge/qlge_dbg.c
+@@ -1,5 +1,185 @@
+ #include "qlge.h"
  
-+static void ql_get_pauseparam(struct net_device *netdev,
-+			struct ethtool_pauseparam *pause)
-+{
-+	struct ql_adapter *qdev = netdev_priv(netdev);
 +
-+	ql_mb_get_port_cfg(qdev);
-+	if (qdev->link_config & CFG_PAUSE_STD) {
-+		pause->rx_pause = 1;
-+		pause->tx_pause = 1;
-+	}
-+}
-+
-+static int ql_set_pauseparam(struct net_device *netdev,
-+			struct ethtool_pauseparam *pause)
++static int ql_get_ets_regs(struct ql_adapter *qdev, u32 * buf)
 +{
-+	struct ql_adapter *qdev = netdev_priv(netdev);
 +	int status = 0;
++	int i;
 +
-+	if ((pause->rx_pause) && (pause->tx_pause))
-+		qdev->link_config |= CFG_PAUSE_STD;
-+	else if (!pause->rx_pause && !pause->tx_pause)
-+		qdev->link_config &= ~CFG_PAUSE_STD;
-+	else
-+		return -EINVAL;
++	for (i = 0; i < 8; i++, buf++) {
++		ql_write32(qdev, NIC_ETS, i << 29 | 0x08000000);
++		*buf = ql_read32(qdev, NIC_ETS);
++	}
 +
-+	status = ql_mb_set_port_cfg(qdev);
-+	if (status)
-+		return status;
++	for (i = 0; i < 2; i++, buf++) {
++		ql_write32(qdev, CNA_ETS, i << 29 | 0x08000000);
++		*buf = ql_read32(qdev, CNA_ETS);
++	}
++
 +	return status;
 +}
 +
- static u32 ql_get_rx_csum(struct net_device *netdev)
++static void ql_get_intr_states(struct ql_adapter *qdev, u32 * buf)
++{
++	int i;
++
++	for (i = 0; i < qdev->rx_ring_count; i++, buf++) {
++		ql_write32(qdev, INTR_EN,
++				qdev->intr_context[i].intr_read_mask);
++		*buf = ql_read32(qdev, INTR_EN);
++	}
++}
++
++static int ql_get_cam_entries(struct ql_adapter *qdev, u32 * buf)
++{
++	int i, status;
++	u32 value[3];
++
++	status = ql_sem_spinlock(qdev, SEM_MAC_ADDR_MASK);
++	if (status)
++		return status;
++
++	for (i = 0; i < 16; i++) {
++		status = ql_get_mac_addr_reg(qdev,
++					MAC_ADDR_TYPE_CAM_MAC, i, value);
++		if (status) {
++			QPRINTK(qdev, DRV, ERR,
++				"Failed read of mac index register.\n");
++			goto err;
++		}
++		*buf++ = value[0];	/* lower MAC address */
++		*buf++ = value[1];	/* upper MAC address */
++		*buf++ = value[2];	/* output */
++	}
++	for (i = 0; i < 32; i++) {
++		status = ql_get_mac_addr_reg(qdev,
++					MAC_ADDR_TYPE_MULTI_MAC, i, value);
++		if (status) {
++			QPRINTK(qdev, DRV, ERR,
++				"Failed read of mac index register.\n");
++			goto err;
++		}
++		*buf++ = value[0];	/* lower Mcast address */
++		*buf++ = value[1];	/* upper Mcast address */
++	}
++err:
++	ql_sem_unlock(qdev, SEM_MAC_ADDR_MASK);
++	return status;
++}
++
++static int ql_get_routing_entries(struct ql_adapter *qdev, u32 * buf)
++{
++	int status;
++	u32 value, i;
++
++	status = ql_sem_spinlock(qdev, SEM_RT_IDX_MASK);
++	if (status)
++		return status;
++
++	for (i = 0; i < 16; i++) {
++		status = ql_get_routing_reg(qdev, i, &value);
++		if (status) {
++			QPRINTK(qdev, DRV, ERR,
++				"Failed read of routing index register.\n");
++			goto err;
++		} else {
++			*buf++ = value;
++		}
++	}
++err:
++	ql_sem_unlock(qdev, SEM_RT_IDX_MASK);
++	return status;
++}
++
++/* Create a coredump segment header */
++static void ql_build_coredump_seg_header(
++		struct mpi_coredump_segment_header *seg_hdr,
++		u32 seg_number, u32 seg_size, u8 *desc)
++{
++	memset(seg_hdr, 0, sizeof(struct mpi_coredump_segment_header));
++	seg_hdr->cookie = MPI_COREDUMP_COOKIE;
++	seg_hdr->segNum = seg_number;
++	seg_hdr->segSize = seg_size;
++	memcpy(seg_hdr->description, desc, (sizeof(seg_hdr->description)) - 1);
++}
++
++void ql_gen_reg_dump(struct ql_adapter *qdev,
++			struct ql_reg_dump *mpi_coredump)
++{
++	int i, status;
++
++
++	memset(&(mpi_coredump->mpi_global_header), 0,
++		sizeof(struct mpi_coredump_global_header));
++	mpi_coredump->mpi_global_header.cookie = MPI_COREDUMP_COOKIE;
++	mpi_coredump->mpi_global_header.headerSize =
++		sizeof(struct mpi_coredump_global_header);
++	mpi_coredump->mpi_global_header.imageSize =
++		sizeof(struct ql_reg_dump);
++	memcpy(mpi_coredump->mpi_global_header.idString, "MPI Coredump",
++		sizeof(mpi_coredump->mpi_global_header.idString));
++
++
++	/* segment 16 */
++	ql_build_coredump_seg_header(&mpi_coredump->misc_nic_seg_hdr,
++				MISC_NIC_INFO_SEG_NUM,
++				sizeof(struct mpi_coredump_segment_header)
++				+ sizeof(mpi_coredump->misc_nic_info),
++				"MISC NIC INFO");
++	mpi_coredump->misc_nic_info.rx_ring_count = qdev->rx_ring_count;
++	mpi_coredump->misc_nic_info.tx_ring_count = qdev->tx_ring_count;
++	mpi_coredump->misc_nic_info.intr_count = qdev->intr_count;
++	mpi_coredump->misc_nic_info.function = qdev->func;
++
++	/* Segment 16, Rev C. Step 18 */
++	ql_build_coredump_seg_header(&mpi_coredump->nic_regs_seg_hdr,
++				NIC1_CONTROL_SEG_NUM,
++				sizeof(struct mpi_coredump_segment_header)
++				+ sizeof(mpi_coredump->nic_regs),
++				"NIC Registers");
++	/* Get generic reg dump */
++	for (i = 0; i < 64; i++)
++		mpi_coredump->nic_regs[i] = ql_read32(qdev, i * sizeof(u32));
++
++	/* Segment 31 */
++	/* Get indexed register values. */
++	ql_build_coredump_seg_header(&mpi_coredump->intr_states_seg_hdr,
++				INTR_STATES_SEG_NUM,
++				sizeof(struct mpi_coredump_segment_header)
++				+ sizeof(mpi_coredump->intr_states),
++				"INTR States");
++	ql_get_intr_states(qdev, &mpi_coredump->intr_states[0]);
++
++	ql_build_coredump_seg_header(&mpi_coredump->cam_entries_seg_hdr,
++				CAM_ENTRIES_SEG_NUM,
++				sizeof(struct mpi_coredump_segment_header)
++				+ sizeof(mpi_coredump->cam_entries),
++				"CAM Entries");
++	status = ql_get_cam_entries(qdev, &mpi_coredump->cam_entries[0]);
++	if (status)
++		return;
++
++	ql_build_coredump_seg_header(&mpi_coredump->nic_routing_words_seg_hdr,
++				ROUTING_WORDS_SEG_NUM,
++				sizeof(struct mpi_coredump_segment_header)
++				+ sizeof(mpi_coredump->nic_routing_words),
++				"Routing Words");
++	status = ql_get_routing_entries(qdev,
++			 &mpi_coredump->nic_routing_words[0]);
++	if (status)
++		return;
++
++	/* Segment 34 (Rev C. step 23) */
++	ql_build_coredump_seg_header(&mpi_coredump->ets_seg_hdr,
++				ETS_SEG_NUM,
++				sizeof(struct mpi_coredump_segment_header)
++				+ sizeof(mpi_coredump->ets),
++				"ETS Registers");
++	status = ql_get_ets_regs(qdev, &mpi_coredump->ets[0]);
++	if (status)
++		return;
++}
++
+ #ifdef QL_REG_DUMP
+ static void ql_dump_intr_states(struct ql_adapter *qdev)
  {
- 	struct ql_adapter *qdev = netdev_priv(netdev);
-@@ -468,6 +499,8 @@ const struct ethtool_ops qlge_ethtool_ops = {
+diff --git a/drivers/net/qlge/qlge_ethtool.c b/drivers/net/qlge/qlge_ethtool.c
+index 019f35f..62c4af0 100644
+--- a/drivers/net/qlge/qlge_ethtool.c
++++ b/drivers/net/qlge/qlge_ethtool.c
+@@ -428,6 +428,20 @@ static int ql_phys_id(struct net_device *ndev, u32 data)
+ 
+ 	return 0;
+ }
++
++static int ql_get_regs_len(struct net_device *ndev)
++{
++	return sizeof(struct ql_reg_dump);
++}
++
++static void ql_get_regs(struct net_device *ndev,
++			struct ethtool_regs *regs, void *p)
++{
++	struct ql_adapter *qdev = netdev_priv(ndev);
++
++	ql_gen_reg_dump(qdev, p);
++}
++
+ static int ql_get_coalesce(struct net_device *dev, struct ethtool_coalesce *c)
+ {
+ 	struct ql_adapter *qdev = netdev_priv(dev);
+@@ -555,6 +569,8 @@ const struct ethtool_ops qlge_ethtool_ops = {
+ 	.get_drvinfo = ql_get_drvinfo,
+ 	.get_wol = ql_get_wol,
+ 	.set_wol = ql_set_wol,
++	.get_regs_len	= ql_get_regs_len,
++	.get_regs = ql_get_regs,
  	.get_msglevel = ql_get_msglevel,
  	.set_msglevel = ql_set_msglevel,
  	.get_link = ethtool_op_get_link,
-+	.get_pauseparam		 = ql_get_pauseparam,
-+	.set_pauseparam		 = ql_set_pauseparam,
- 	.get_rx_csum = ql_get_rx_csum,
- 	.set_rx_csum = ql_set_rx_csum,
- 	.get_tx_csum = ethtool_op_get_tx_csum,
-diff --git a/drivers/net/qlge/qlge_mpi.c b/drivers/net/qlge/qlge_mpi.c
-index e497eac..81a8489 100644
---- a/drivers/net/qlge/qlge_mpi.c
-+++ b/drivers/net/qlge/qlge_mpi.c
-@@ -637,7 +637,7 @@ int ql_mb_idc_ack(struct ql_adapter *qdev)
-  * for the current port.
-  * Most likely will block.
-  */
--static int ql_mb_set_port_cfg(struct ql_adapter *qdev)
-+int ql_mb_set_port_cfg(struct ql_adapter *qdev)
- {
- 	struct mbox_params mbc;
- 	struct mbox_params *mbcp = &mbc;
-@@ -672,7 +672,7 @@ static int ql_mb_set_port_cfg(struct ql_adapter *qdev)
-  * for the current port.
-  * Most likely will block.
-  */
--static int ql_mb_get_port_cfg(struct ql_adapter *qdev)
-+int ql_mb_get_port_cfg(struct ql_adapter *qdev)
- {
- 	struct mbox_params mbc;
- 	struct mbox_params *mbcp = &mbc;
 -- 
 1.6.0.2
 
