@@ -1,87 +1,74 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [PATCH 2/4] [RFC] Add c/r support for connected INET sockets
-Date: Wed, 21 Oct 2009 12:56:24 -0500
-Message-ID: <20091021175624.GA20972@us.ibm.com>
-References: <1256072803-3518-1-git-send-email-danms@us.ibm.com> <1256072803-3518-3-git-send-email-danms@us.ibm.com>
+From: Joyce Yu <Joyce.Yu@Sun.COM>
+Subject: [PATCH] [NIU] VLAN does not work with niu driver
+Date: Wed, 21 Oct 2009 11:02:37 -0700
+Message-ID: <4ADF4CBD.90104@Sun.COM>
+Reply-To: Joyce.Yu@Sun.COM
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: containers@lists.osdl.org, John Dykstra <jdykstra72@gmail.com>,
-	netdev@vger.kernel.org
-To: Dan Smith <danms@us.ibm.com>
+Content-Type: multipart/mixed; boundary="Boundary_(ID_CK5EEL3jhR4JXab+jdTRaA)"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:44418 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754495AbZJUR4q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 13:56:46 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e37.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id n9LHtfJE016231
-	for <netdev@vger.kernel.org>; Wed, 21 Oct 2009 11:55:41 -0600
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n9LHuQWj073856
-	for <netdev@vger.kernel.org>; Wed, 21 Oct 2009 11:56:28 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n9LHuP63017087
-	for <netdev@vger.kernel.org>; Wed, 21 Oct 2009 11:56:25 -0600
-Content-Disposition: inline
-In-Reply-To: <1256072803-3518-3-git-send-email-danms@us.ibm.com>
+Received: from brmea-mail-2.Sun.COM ([192.18.98.43]:64092 "EHLO
+	brmea-mail-2.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753900AbZJUSCf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 14:02:35 -0400
+Received: from fe-amer-10.sun.com ([192.18.109.80])
+	by brmea-mail-2.sun.com (8.13.6+Sun/8.12.9) with ESMTP id n9LI2dVj024506
+	for <netdev@vger.kernel.org>; Wed, 21 Oct 2009 18:02:39 GMT
+Received: from conversion-daemon.mail-amer.sun.com by mail-amer.sun.com
+ (Sun Java(tm) System Messaging Server 7u2-7.04 64bit (built Jul  2 2009))
+ id <0KRV00D00L9VFR00@mail-amer.sun.com> for netdev@vger.kernel.org; Wed,
+ 21 Oct 2009 12:02:39 -0600 (MDT)
+Received: from [129.145.154.82] ([unknown] [129.145.154.82])
+ by mail-amer.sun.com
+ (Sun Java(tm) System Messaging Server 7u2-7.04 64bit (built Jul  2 2009))
+ with ESMTPSA id <0KRV00E25M4D6R90@mail-amer.sun.com> for
+ netdev@vger.kernel.org; Wed, 21 Oct 2009 12:02:38 -0600 (MDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting Dan Smith (danms@us.ibm.com):
-> This patch adds basic support for C/R of open INET sockets.  I think that
-> all the important bits of the TCP and ICSK socket structures is saved,
-> but I think there is still some additional IPv6 stuff that needs to be
-> handled.
-> 
-> With this patch applied, the following script can be used to demonstrate
-> the functionality:
-> 
->   https://lists.linux-foundation.org/pipermail/containers/2009-October/021239.html
-> 
-> It shows that this enables migration of a sendmail process with open
-> connections from one machine to another without dropping.
-> 
-> We still need comments from the netdev people about what sort of sanity
-> checking we need to do on the values in the ckpt_hdr_socket_inet
-> structure on restart.
-> 
-> Note that this still doesn't address lingering sockets yet.
-> 
-> Changes in v2:
->  - Restore saddr, rcv_saddr, daddr, sport, and dport from the sockaddr
->    structure instead of saving them separately
->  - Fix 'sock' naming in sock_cptrst()
->  - Don't take the queue lock before skb_queue_tail() since it is
->    done for us
->  - Allow "listen only" restore behavior if RESTART_SOCK_LISTENONLY
->    flag is specified on sys_restart()
->  - Pull the implementation of the list of listening sockets back into
->    this patch
->  - Fix dangling printk
->  - Add some comments around the parent/child restore logic
-> 
-> Cc: netdev@vger.kernel.org
-> Cc: Oren Laadan <orenl@librato.com>
-> Cc: John Dykstra <jdykstra72@gmail.com>
-> Signed-off-by: Dan Smith <danms@us.ibm.com>
+This is a multi-part message in MIME format.
 
-fwiw,
+--Boundary_(ID_CK5EEL3jhR4JXab+jdTRaA)
+Content-type: text/plain; CHARSET=US-ASCII; format=flowed
+Content-transfer-encoding: 7BIT
 
-Acked-by: Serge Hallyn <serue@us.ibm.com>
 
-except
+-- 
 
-> +static int sock_inet_restore_addrs(struct inet_sock *inet,
-> +				   struct ckpt_hdr_socket_inet *hh)
-> +{
-> +	inet->daddr = hh->raddr.sin_addr.s_addr;
-> +	inet->saddr = hh->laddr.sin_addr.s_addr;
-> +	inet->rcv_saddr = inet->saddr;
-> +
-> +	inet->dport = hh->raddr.sin_port;
-> +	inet->sport = hh->laddr.sin_port;
 
-Sorry, I think we've discussed this before but can't recall - does
-setting sport here allow an unpriv user to bypass CAP_NET_BIND_SERVICE?
+--Boundary_(ID_CK5EEL3jhR4JXab+jdTRaA)
+Content-type: text/x-patch;
+ name=0001-VLAN_ETH_HLEN-should-be-used-to-make-sure-that-the-w.patch
+Content-transfer-encoding: 7BIT
+Content-disposition: inline;
+ filename*0=0001-VLAN_ETH_HLEN-should-be-used-to-mak;
+ filename*1=e-sure-that-the-w.patch
 
--serge
+>From f301748d3156437d65305f14288c7d5711861980 Mon Sep 17 00:00:00 2001
+From: Joyce Yu <joyce.yu@sun.com>
+Date: Wed, 21 Oct 2009 05:35:46 -0700
+Subject: [PATCH] VLAN_ETH_HLEN should be used to make sure that the whole MAC header was copied to the head buffer in the Vlan packets case
+Signed-off-by: Joyce Yu <joyce.yu@sun.com>
+
+---
+ drivers/net/niu.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/niu.c b/drivers/net/niu.c
+index f9364d0..d6c7ac6 100644
+--- a/drivers/net/niu.c
++++ b/drivers/net/niu.c
+@@ -3545,7 +3545,7 @@ static int niu_process_rx_pkt(struct napi_struct *napi, struct niu *np,
+ 	rp->rcr_index = index;
+ 
+ 	skb_reserve(skb, NET_IP_ALIGN);
+-	__pskb_pull_tail(skb, min(len, NIU_RXPULL_MAX));
++	__pskb_pull_tail(skb, min(len, VLAN_ETH_HLEN));
+ 
+ 	rp->rx_packets++;
+ 	rp->rx_bytes += skb->len;
+-- 
+1.6.4
+
+
+--Boundary_(ID_CK5EEL3jhR4JXab+jdTRaA)--
