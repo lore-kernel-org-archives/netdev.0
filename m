@@ -1,44 +1,57 @@
-From: Mallika Gautam <mallika.gautam@gmail.com>
-Subject: Re: Policy routing + route "via" gives a strange behavior
-Date: Wed, 21 Oct 2009 09:47:08 +0100
-Message-ID: <9041a1390910210147v57b04afg5c0ac320b87eafd2@mail.gmail.com>
-References: <20091020132820.GA3159@gg.studio.tixteam.net> <200910201948.39778.atis@mikrotik.com>
-	<20091020172334.GA6404@gg.studio.tixteam.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Atis Elsts <atis@mikrotik.com>, netdev@vger.kernel.org
-To: Guido Trotter <ultrotter@quaqua.net>
+From: Gilad Ben-Yossef <gilad@codefidence.com>
+Subject: [PATCH v2 3/8] Add dst_feature to query route entry features
+Date: Wed, 21 Oct 2009 10:56:56 +0200
+Message-ID: <1256115421-12714-4-git-send-email-gilad@codefidence.com>
+References: <1256115421-12714-1-git-send-email-gilad@codefidence.com>
+Cc: ori@comsleep.com, Gilad Ben-Yossef <gilad@codefidence.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f207.google.com ([209.85.219.207]:44761 "EHLO
-	mail-ew0-f207.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753210AbZJUIrY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 04:47:24 -0400
-Received: by ewy3 with SMTP id 3so5770001ewy.17
-        for <netdev@vger.kernel.org>; Wed, 21 Oct 2009 01:47:28 -0700 (PDT)
-In-Reply-To: <20091020172334.GA6404@gg.studio.tixteam.net>
+Received: from xenbox.codefidence.com ([92.48.73.16]:39384 "EHLO
+	xenbox.codefidence.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752445AbZJUI47 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 04:56:59 -0400
+In-Reply-To: <1256115421-12714-1-git-send-email-gilad@codefidence.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->
->> Anyway, you can achieve what you wish by using the "onlink" option, =
-e.g.:
->> =A0 ip route add table 100 default dev eth1 via 192.168.5.254 onlink
->
+Adding an accessor to existing  dst_entry feautres field and
+refactor the only supported feature (allfrag) to use it.
 
-Hi,
-I am facing exactly the same issue and have to flush the main table
-once the routes in the table get added. This is really nasty as I need
-to this from a kernel module every time an interface is shutdown and
-again brought up.
 
-"onlink" doesn't seem to work as it "sees" the destination IP address
-"onlink" instead of resolving it via the gateway. E.g. if I want to
-ping 139.85.111.12 via eth1, it tries to send ARP request for
-139.85.111.12  and not 192.168.5.254. So it doesn' work.
+Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
+Sigend-off-by: Ori Finkelman <ori@comsleep.com>
+Sigend-off-by: Yony Amit <yony@comsleep.com>
 
-I would really link to see this behaviour fixed as the workarounds are
-equally painful.
+---
+ include/net/dst.h |    8 +++++++-
+ 1 files changed, 7 insertions(+), 1 deletions(-)
 
-Regards
-Mallika
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 5a900dd..b562be3 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -111,6 +111,12 @@ dst_metric(const struct dst_entry *dst, int metric)
+ 	return dst->metrics[metric-1];
+ }
+ 
++static inline u32
++dst_feature(const struct dst_entry *dst, u32 feature)
++{
++	return dst_metric(dst, RTAX_FEATURES) & feature;
++}
++
+ static inline u32 dst_mtu(const struct dst_entry *dst)
+ {
+ 	u32 mtu = dst_metric(dst, RTAX_MTU);
+@@ -136,7 +142,7 @@ static inline void set_dst_metric_rtt(struct dst_entry *dst, int metric,
+ static inline u32
+ dst_allfrag(const struct dst_entry *dst)
+ {
+-	int ret = dst_metric(dst, RTAX_FEATURES) & RTAX_FEATURE_ALLFRAG;
++	int ret = dst_feature(dst,  RTAX_FEATURE_ALLFRAG);
+ 	/* Yes, _exactly_. This is paranoia. */
+ 	barrier();
+ 	return ret;
+-- 
+1.5.6.3
+
