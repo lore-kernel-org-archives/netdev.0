@@ -1,37 +1,28 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH RFC] Allow to turn off TCP window scale opt per route
-Date: Wed, 21 Oct 2009 10:40:24 +0900
-Message-ID: <20091021104024.32adab23@s6510>
-References: <1256052161-14156-1-git-send-email-gilad@codefidence.com>
-	<1256052161-14156-2-git-send-email-gilad@codefidence.com>
-	<1256052161-14156-3-git-send-email-gilad@codefidence.com>
-	<1256052161-14156-4-git-send-email-gilad@codefidence.com>
-	<1256052161-14156-5-git-send-email-gilad@codefidence.com>
-	<1256052161-14156-6-git-send-email-gilad@codefidence.com>
-	<1256052161-14156-7-git-send-email-gilad@codefidence.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] fix section mismatch in fec.c
+Date: Tue, 20 Oct 2009 18:51:48 -0700 (PDT)
+Message-ID: <20091020.185148.193710136.davem@davemloft.net>
+References: <200910201600.10545.sfking@fdwdc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ori@comsleep.com,
-	Gilad Ben-Yossef <gilad@codefidence.com>
-To: Gilad Ben-Yossef <gilad@codefidence.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: sfking@fdwdc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:50330 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750914AbZJUBk2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Oct 2009 21:40:28 -0400
-In-Reply-To: <1256052161-14156-7-git-send-email-gilad@codefidence.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32911
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751247AbZJUBvZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Oct 2009 21:51:25 -0400
+In-Reply-To: <200910201600.10545.sfking@fdwdc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 20 Oct 2009 17:22:39 +0200
-Gilad Ben-Yossef <gilad@codefidence.com> wrote:
+From: Steven King <sfking@fdwdc.com>
+Date: Tue, 20 Oct 2009 16:00:10 -0700
 
-> Add and use no window scale bit in the features field.
+> fec_enet_init is called by both fec_probe and fec_resume, so it shouldn't 
+> be marked as __init.
 > 
-> Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
-> Sigend-off-by: Ori Finkelman <ori@comsleep.com>
-> Sigend-off-by: Yony Amit <yony@comsleep.com>
+> Signed-off-by: Steven King <sfking@fdwdc.com>
 
-The same effect can by just using window limit on route
-
+Applied, thanks.
