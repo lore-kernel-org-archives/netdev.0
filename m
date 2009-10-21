@@ -1,41 +1,122 @@
-From: "Denis Kirjanov <kirjanov@gmail.com" <kirjanov@gmail.com>
-Subject: [PATCH]bnx2x: remove duplication of the BCM_VLAN macro
-Date: Thu, 22 Oct 2009 00:38:51 +0400
-Message-ID: <20091021203851.GA5311@coldcone>
-Reply-To: kirjanov@gmail.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] rtnetlink: rtnl_setlink() and rtnl_getlink()
+ changes
+Date: Wed, 21 Oct 2009 22:59:31 +0200
+Message-ID: <4ADF7633.9050208@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: eilong@broadcom.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:37568 "EHLO
-	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753616AbZJUUg6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 16:36:58 -0400
-Received: by fxm18 with SMTP id 18so8224897fxm.37
-        for <netdev@vger.kernel.org>; Wed, 21 Oct 2009 13:37:01 -0700 (PDT)
-Content-Disposition: inline
+Received: from gw1.cosmosbay.com ([212.99.114.194]:46880 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753635AbZJUU7a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 16:59:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-File bnx2.c already contains condition of the macro inclusion.
-So we can remove this.
+Stephen, do you think we could change "ip link show dev ethX" to
+let it use rtnl_getlink() instead of rtnl_dump_ifinfo() ?
 
-Signed-off-by: Denis Kirjanov <kirjanov@gmail.com>
+Thanks !
+
+[PATCH net-next-2.6]rtnetlink: rtnl_setlink() and rtnl_getlink() changes
+
+rtnl_getlink() & rtnl_setlink() run with RTNL held, we can use
+__dev_get_by_index() and __dev_get_by_name() variants and avoid
+dev_hold()/dev_put()
+
+Adds to rtnl_getlink() the capability to find a device by its name,
+not only by its index.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
+ net/core/rtnetlink.c |   38 +++++++++++++++++++-------------------
+ 1 files changed, 19 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
-index bbf8422..4b99fd2 100644
---- a/drivers/net/bnx2x.h
-+++ b/drivers/net/bnx2x.h
-@@ -20,10 +20,6 @@
-  * (you will need to reboot afterwards) */
- /* #define BNX2X_STOP_ON_ERROR */
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index eb42873..ba13b09 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -910,9 +910,9 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	err = -EINVAL;
+ 	ifm = nlmsg_data(nlh);
+ 	if (ifm->ifi_index > 0)
+-		dev = dev_get_by_index(net, ifm->ifi_index);
++		dev = __dev_get_by_index(net, ifm->ifi_index);
+ 	else if (tb[IFLA_IFNAME])
+-		dev = dev_get_by_name(net, ifname);
++		dev = __dev_get_by_name(net, ifname);
+ 	else
+ 		goto errout;
  
--#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
--#define BCM_VLAN			1
--#endif
--
+@@ -922,11 +922,9 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	}
  
- #define BNX2X_MULTI_QUEUE
+ 	if ((err = validate_linkmsg(dev, tb)) < 0)
+-		goto errout_dev;
++		goto errout;
  
+ 	err = do_setlink(dev, ifm, tb, ifname, 0);
+-errout_dev:
+-	dev_put(dev);
+ errout:
+ 	return err;
+ }
+@@ -1154,6 +1152,7 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct ifinfomsg *ifm;
++	char ifname[IFNAMSIZ];
+ 	struct nlattr *tb[IFLA_MAX+1];
+ 	struct net_device *dev = NULL;
+ 	struct sk_buff *nskb;
+@@ -1163,19 +1162,23 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	if (err < 0)
+ 		return err;
+ 
++	if (tb[IFLA_IFNAME])
++		nla_strlcpy(ifname, tb[IFLA_IFNAME], IFNAMSIZ);
++
+ 	ifm = nlmsg_data(nlh);
+-	if (ifm->ifi_index > 0) {
+-		dev = dev_get_by_index(net, ifm->ifi_index);
+-		if (dev == NULL)
+-			return -ENODEV;
+-	} else
++	if (ifm->ifi_index > 0)
++		dev = __dev_get_by_index(net, ifm->ifi_index);
++	else if (tb[IFLA_IFNAME])
++		dev = __dev_get_by_name(net, ifname);
++	else
+ 		return -EINVAL;
+ 
++	if (dev == NULL)
++		return -ENODEV;
++
+ 	nskb = nlmsg_new(if_nlmsg_size(dev), GFP_KERNEL);
+-	if (nskb == NULL) {
+-		err = -ENOBUFS;
+-		goto errout;
+-	}
++	if (nskb == NULL)
++		return -ENOBUFS;
+ 
+ 	err = rtnl_fill_ifinfo(nskb, dev, RTM_NEWLINK, NETLINK_CB(skb).pid,
+ 			       nlh->nlmsg_seq, 0, 0);
+@@ -1183,11 +1186,8 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 		/* -EMSGSIZE implies BUG in if_nlmsg_size */
+ 		WARN_ON(err == -EMSGSIZE);
+ 		kfree_skb(nskb);
+-		goto errout;
+-	}
+-	err = rtnl_unicast(nskb, net, NETLINK_CB(skb).pid);
+-errout:
+-	dev_put(dev);
++	} else
++		err = rtnl_unicast(nskb, net, NETLINK_CB(skb).pid);
+ 
+ 	return err;
+ }
