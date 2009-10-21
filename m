@@ -1,69 +1,87 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: [RFC] net,socket: introduce build_sockaddr_check helper to catch
-	overflow at build time
-Date: Wed, 21 Oct 2009 21:07:32 +0400
-Message-ID: <20091021170732.GE5976@lenovo>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [PATCH 2/4] [RFC] Add c/r support for connected INET sockets
+Date: Wed, 21 Oct 2009 12:56:24 -0500
+Message-ID: <20091021175624.GA20972@us.ibm.com>
+References: <1256072803-3518-1-git-send-email-danms@us.ibm.com> <1256072803-3518-3-git-send-email-danms@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>
-To: Linux-Netdev <netdev@vger.kernel.org>
+Cc: containers@lists.osdl.org, John Dykstra <jdykstra72@gmail.com>,
+	netdev@vger.kernel.org
+To: Dan Smith <danms@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f207.google.com ([209.85.219.207]:57682 "EHLO
-	mail-ew0-f207.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754493AbZJURHa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 13:07:30 -0400
-Received: by ewy3 with SMTP id 3so6264471ewy.17
-        for <netdev@vger.kernel.org>; Wed, 21 Oct 2009 10:07:34 -0700 (PDT)
+Received: from e37.co.us.ibm.com ([32.97.110.158]:44418 "EHLO
+	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754495AbZJUR4q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 13:56:46 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e37.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id n9LHtfJE016231
+	for <netdev@vger.kernel.org>; Wed, 21 Oct 2009 11:55:41 -0600
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n9LHuQWj073856
+	for <netdev@vger.kernel.org>; Wed, 21 Oct 2009 11:56:28 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n9LHuP63017087
+	for <netdev@vger.kernel.org>; Wed, 21 Oct 2009 11:56:25 -0600
 Content-Disposition: inline
+In-Reply-To: <1256072803-3518-3-git-send-email-danms@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Quoting Dan Smith (danms@us.ibm.com):
+> This patch adds basic support for C/R of open INET sockets.  I think that
+> all the important bits of the TCP and ICSK socket structures is saved,
+> but I think there is still some additional IPv6 stuff that needs to be
+> handled.
+> 
+> With this patch applied, the following script can be used to demonstrate
+> the functionality:
+> 
+>   https://lists.linux-foundation.org/pipermail/containers/2009-October/021239.html
+> 
+> It shows that this enables migration of a sendmail process with open
+> connections from one machine to another without dropping.
+> 
+> We still need comments from the netdev people about what sort of sanity
+> checking we need to do on the values in the ckpt_hdr_socket_inet
+> structure on restart.
+> 
+> Note that this still doesn't address lingering sockets yet.
+> 
+> Changes in v2:
+>  - Restore saddr, rcv_saddr, daddr, sport, and dport from the sockaddr
+>    structure instead of saving them separately
+>  - Fix 'sock' naming in sock_cptrst()
+>  - Don't take the queue lock before skb_queue_tail() since it is
+>    done for us
+>  - Allow "listen only" restore behavior if RESTART_SOCK_LISTENONLY
+>    flag is specified on sys_restart()
+>  - Pull the implementation of the list of listening sockets back into
+>    this patch
+>  - Fix dangling printk
+>  - Add some comments around the parent/child restore logic
+> 
+> Cc: netdev@vger.kernel.org
+> Cc: Oren Laadan <orenl@librato.com>
+> Cc: John Dykstra <jdykstra72@gmail.com>
+> Signed-off-by: Dan Smith <danms@us.ibm.com>
 
-while were sneaking thru sockets code I've got the idea that we may
-check for __kernel_sockaddr_storage overflow at build time. At moment
-this structure is big enough and I hardly believe it could be overflowed
-ever (hmm?).
+fwiw,
 
-Anyway just an idea which could be stupid perhaps but I decided to
-put it out. An idea is that before copy protocol specific data in
-socket->ops->getname implementation the driver code may put
+Acked-by: Serge Hallyn <serue@us.ibm.com>
 
-build_sockaddr_check(sizeof(some_struct));
+except
 
-and be sure it doesn't overflow the hosting unit.
+> +static int sock_inet_restore_addrs(struct inet_sock *inet,
+> +				   struct ckpt_hdr_socket_inet *hh)
+> +{
+> +	inet->daddr = hh->raddr.sin_addr.s_addr;
+> +	inet->saddr = hh->laddr.sin_addr.s_addr;
+> +	inet->rcv_saddr = inet->saddr;
+> +
+> +	inet->dport = hh->raddr.sin_port;
+> +	inet->sport = hh->laddr.sin_port;
 
-Feel free to just ignore this RFC, was just an idea to share.
+Sorry, I think we've discussed this before but can't recall - does
+setting sport here allow an unpriv user to bypass CAP_NET_BIND_SERVICE?
 
-	-- Cyrill
----
-net,socket: introduce build_sockaddr_check helper to catch overflow at build time
-
-proto_ops->getname implies copying protocol specific data
-into storage unit (particulary to __kernel_sockaddr_storage).
-So when one implements new protocol he either may keep this
-in mind (or may not).
-
-Lets introduce build_sockaddr_check helper which check if
-storage unit is not overfowed. Note that the check is build
-time and introduce no slowdown at execution time.
-
-Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
----
- include/linux/socket.h |    3 +++
- 1 file changed, 3 insertions(+)
-
-Index: linux-2.6.git/include/linux/socket.h
-=====================================================================
---- linux-2.6.git.orig/include/linux/socket.h
-+++ linux-2.6.git/include/linux/socket.h
-@@ -24,6 +24,9 @@ struct __kernel_sockaddr_storage {
- #include <linux/types.h>		/* pid_t			*/
- #include <linux/compiler.h>		/* __user			*/
- 
-+#define build_sockaddr_check(size)	\
-+	BUILD_BUG_ON(((size) > sizeof(struct __kernel_sockaddr_storage)))
-+
- #ifdef __KERNEL__
- # ifdef CONFIG_PROC_FS
- struct seq_file;
+-serge
