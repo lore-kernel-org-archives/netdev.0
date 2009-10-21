@@ -1,56 +1,52 @@
 From: Gilad Ben-Yossef <gilad@codefidence.com>
-Subject: Re: [PATCH RFC] Per route TCP options
-Date: Wed, 21 Oct 2009 10:15:14 +0200
-Message-ID: <4ADEC312.7090609@codefidence.com>
-References: <1256052161-14156-1-git-send-email-gilad@codefidence.com> <4ADDDAFB.5040600@gmail.com> <4ADDE132.3010408@codefidence.com> <Pine.LNX.4.64.0910202151160.22058@melkinkari.cs.Helsinki.FI>
+Subject: Re: [PATCH RFC] Allow to turn off TCP window scale opt per route
+Date: Wed, 21 Oct 2009 10:18:54 +0200
+Message-ID: <4ADEC3EE.2070301@codefidence.com>
+References: <1256052161-14156-1-git-send-email-gilad@codefidence.com>	<1256052161-14156-2-git-send-email-gilad@codefidence.com>	<1256052161-14156-3-git-send-email-gilad@codefidence.com>	<1256052161-14156-4-git-send-email-gilad@codefidence.com>	<1256052161-14156-5-git-send-email-gilad@codefidence.com>	<1256052161-14156-6-git-send-email-gilad@codefidence.com>	<1256052161-14156-7-git-send-email-gilad@codefidence.com> <20091021104024.32adab23@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Netdev <netdev@vger.kernel.org>, ori@comsleep.com
-To: =?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ori@comsleep.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenbox.codefidence.com ([92.48.73.16]:56789 "EHLO
+Received: from xenbox.codefidence.com ([92.48.73.16]:59833 "EHLO
 	xenbox.codefidence.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752445AbZJUIPO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 04:15:14 -0400
-In-Reply-To: <Pine.LNX.4.64.0910202151160.22058@melkinkari.cs.Helsinki.FI>
+	with ESMTP id S1751804AbZJUISz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 04:18:55 -0400
+In-Reply-To: <20091021104024.32adab23@s6510>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Ilpo,
+Stephen Hemminger wrote:
 
-
-Ilpo J=E4rvinen wrote:
-
+> On Tue, 20 Oct 2009 17:22:39 +0200
+> Gilad Ben-Yossef <gilad@codefidence.com> wrote:
 >
->> Specifically, I couldn't understand why sysctl_tcp_ecn is documented=
- to be a
->> boolean value, but is initialized to 2 and queried with if (sysctl_t=
-cp_ecn =3D=3D
->> 1) so I decided to let it be until I figure it out... ;-)
->>    =20
+>   
+>> Add and use no window scale bit in the features field.
+>>
+>> Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
+>> Sigend-off-by: Ori Finkelman <ori@comsleep.com>
+>> Sigend-off-by: Yony Amit <yony@comsleep.com>
+>>     
 >
-> Ah, I didn't notice that "- BOOLEAN" there so I modified only the=20
-> description (some blindness to caps perhaps :-)), did you perhaps rea=
-d
-> it fully?
->
->  =20
-Yes, I did finally. What threw me off was that that=20
-TCP_ECN_create_request() were the value if checked as a boolean was=20
-inlined in the include file. I've missed that. Thanks for the tip.
+> The same effect can by just using window limit on route
+>   
+Actually, not exactly. There is a subtle but important difference 
+between "I support window scaling, but choose a scale of 0", which is 
+what your suggestion will imply and "I don't support window scaling at 
+all", which is what the suggested feature field does.
 
-At any rate, it means that "noecn" is not a good route option feature,=20
-since it is not boolean. I plan to handle those in the next patch set,=20
-if the current one is accepted.
+To make things more complicated, until the previous patch I sent, when 
+Linux would choose a window scale of zero for any reason, it would also 
+wrongfully report it does not support window scaling at all to the other 
+side, with some subtle bug caused by it, but this is no longer the 
+behavior and I believe rightly so.
 
 Thanks,
 Gilad
 
-
---=20
+-- 
 Gilad Ben-Yossef
 Chief Coffee Drinker & CTO
 Codefidence Ltd.
@@ -59,11 +55,10 @@ Web:   http://codefidence.com
 Cell:  +972-52-8260388
 Skype: gilad_codefidence
 Tel:   +972-8-9316883 ext. 201
-=46ax:   +972-8-9316884
+Fax:   +972-8-9316884
 Email: gilad@codefidence.com
 
-Check out our Open Source technology and training blog - http://tuxolog=
-y.net
+Check out our Open Source technology and training blog - http://tuxology.net
 
 	"Sorry cannot parse this, its too long to be true  :)"
 	  -- Eric Dumazet on netdev mailing list
