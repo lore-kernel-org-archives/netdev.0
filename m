@@ -1,417 +1,79 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [net-next PATCH 4/4] qlge: Add ethtool register dump function.
-Date: Wed, 21 Oct 2009 14:07:41 -0700
-Message-ID: <1256159261-29151-4-git-send-email-ron.mercer@qlogic.com>
-References: <[net-next PATCH 0/4] qlge: Add some ethtool functions.>
-Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
-To: davem@davemloft.net
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH] net: Adjust softirq raising in __napi_schedule
+Date: Wed, 21 Oct 2009 23:19:06 +0200
+Message-ID: <20091021211906.GA11401@ami.dom.local>
+References: <4AD31213.6020006@imap.cc>
+ <20091015114052.GA9870@ff.dom.local>
+ <4AD76184.6030900@gmail.com>
+ <4ADF5710.4030505@imap.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, johannes@sipsolutions.net,
+	hidave.darkstar@gmail.com, linux-kernel@vger.kernel.org,
+	tglx@linutronix.de, linux-wireless@vger.kernel.org,
+	linux-ppp@vger.kernel.org, netdev@vger.kernel.org,
+	paulus@samba.org, Michael Buesch <mb@bu3sch.de>,
+	Oliver Hartkopp <oliver@hartkopp.net>
+To: Tilman Schmidt <tilman@imap.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:55641 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754480AbZJUVNh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 17:13:37 -0400
-In-Reply-To: <[net-next PATCH 0/4] qlge: Add some ethtool functions.>
+Received: from mail-fx0-f218.google.com ([209.85.220.218]:52429 "EHLO
+	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754147AbZJUVTN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 17:19:13 -0400
+Content-Disposition: inline
+In-Reply-To: <4ADF5710.4030505@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+On Wed, Oct 21, 2009 at 08:46:40PM +0200, Tilman Schmidt wrote:
+...
+> I have tested your patch and I can confirm that it fixes the messages.
+> I have not noticed any ill effects.
+
+OK. So, in any case, here is this next variant/proposal.
+
+Thanks,
+Jarek P.
+------------------------>
+net: Adjust softirq raising in __napi_schedule
+
+This patch changes __raise_softirq_irqoff() to raise_softirq_irqoff()
+in __napi_schedule() to enable proper softirq scheduling from process
+context. The main intent is to let use netif_rx() universally, and
+make netif_rx_ni() redundant.
+
+Currently using netif_rx() instead of netif_rx_ni() triggers:
+"NOHZ: local_softirq_pending 08" warnings, but additional cost of one
+"if" on the fast path doesn't seem to justify maintaining it
+separately.
+
+This patch is based on the analysis, suggestions and the original
+patch for mac80211 by: Michael Buesch <mb@bu3sch.de>
+
+Another patch calling netif_rx variants conditionally was done by:
+Oliver Hartkopp <oliver@hartkopp.net>
+
+Reported-by: Michael Buesch <mb@bu3sch.de>
+Reported-by: Oliver Hartkopp <oliver@hartkopp.net>
+Reported-by: Tilman Schmidt <tilman@imap.cc>
+Diagnosed-by: Michael Buesch <mb@bu3sch.de>
+Tested-by: Tilman Schmidt <tilman@imap.cc>
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 ---
- drivers/net/qlge/qlge.h         |  149 ++++++++++++++++++++++++++++++++
- drivers/net/qlge/qlge_dbg.c     |  180 +++++++++++++++++++++++++++++++++++++++
- drivers/net/qlge/qlge_ethtool.c |   16 ++++
- 3 files changed, 345 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
-index 157f55e..58fffc9 100644
---- a/drivers/net/qlge/qlge.h
-+++ b/drivers/net/qlge/qlge.h
-@@ -1400,6 +1400,153 @@ struct nic_stats {
- 	u64 rx_nic_fifo_drop;
- };
+ net/core/dev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 28b0b9e..7fc4009 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2728,7 +2728,7 @@ void __napi_schedule(struct napi_struct *n)
  
-+/* Address/Length pairs for the coredump. */
-+enum {
-+	MPI_CORE_REGS_ADDR = 0x00030000,
-+	MPI_CORE_REGS_CNT = 127,
-+	MPI_CORE_SH_REGS_CNT = 16,
-+	TEST_REGS_ADDR = 0x00001000,
-+	TEST_REGS_CNT = 23,
-+	RMII_REGS_ADDR = 0x00001040,
-+	RMII_REGS_CNT = 64,
-+	FCMAC1_REGS_ADDR = 0x00001080,
-+	FCMAC2_REGS_ADDR = 0x000010c0,
-+	FCMAC_REGS_CNT = 64,
-+	FC1_MBX_REGS_ADDR = 0x00001100,
-+	FC2_MBX_REGS_ADDR = 0x00001240,
-+	FC_MBX_REGS_CNT = 64,
-+	IDE_REGS_ADDR = 0x00001140,
-+	IDE_REGS_CNT = 64,
-+	NIC1_MBX_REGS_ADDR = 0x00001180,
-+	NIC2_MBX_REGS_ADDR = 0x00001280,
-+	NIC_MBX_REGS_CNT = 64,
-+	SMBUS_REGS_ADDR = 0x00001200,
-+	SMBUS_REGS_CNT = 64,
-+	I2C_REGS_ADDR = 0x00001fc0,
-+	I2C_REGS_CNT = 64,
-+	MEMC_REGS_ADDR = 0x00003000,
-+	MEMC_REGS_CNT = 256,
-+	PBUS_REGS_ADDR = 0x00007c00,
-+	PBUS_REGS_CNT = 256,
-+	MDE_REGS_ADDR = 0x00010000,
-+	MDE_REGS_CNT = 6,
-+	CODE_RAM_ADDR = 0x00020000,
-+	CODE_RAM_CNT = 0x2000,
-+	MEMC_RAM_ADDR = 0x00100000,
-+	MEMC_RAM_CNT = 0x2000,
-+};
-+
-+#define MPI_COREDUMP_COOKIE 0x5555aaaa
-+struct mpi_coredump_global_header {
-+	u32	cookie;
-+	u8	idString[16];
-+	u32	timeLo;
-+	u32	timeHi;
-+	u32	imageSize;
-+	u32	headerSize;
-+	u8	info[220];
-+};
-+
-+struct mpi_coredump_segment_header {
-+	u32	cookie;
-+	u32	segNum;
-+	u32	segSize;
-+	u32	extra;
-+	u8	description[16];
-+};
-+
-+/* Reg dump segment numbers. */
-+enum {
-+	CORE_SEG_NUM = 1,
-+	TEST_LOGIC_SEG_NUM = 2,
-+	RMII_SEG_NUM = 3,
-+	FCMAC1_SEG_NUM = 4,
-+	FCMAC2_SEG_NUM = 5,
-+	FC1_MBOX_SEG_NUM = 6,
-+	IDE_SEG_NUM = 7,
-+	NIC1_MBOX_SEG_NUM = 8,
-+	SMBUS_SEG_NUM = 9,
-+	FC2_MBOX_SEG_NUM = 10,
-+	NIC2_MBOX_SEG_NUM = 11,
-+	I2C_SEG_NUM = 12,
-+	MEMC_SEG_NUM = 13,
-+	PBUS_SEG_NUM = 14,
-+	MDE_SEG_NUM = 15,
-+	NIC1_CONTROL_SEG_NUM = 16,
-+	NIC2_CONTROL_SEG_NUM = 17,
-+	NIC1_XGMAC_SEG_NUM = 18,
-+	NIC2_XGMAC_SEG_NUM = 19,
-+	WCS_RAM_SEG_NUM = 20,
-+	MEMC_RAM_SEG_NUM = 21,
-+	XAUI_AN_SEG_NUM = 22,
-+	XAUI_HSS_PCS_SEG_NUM = 23,
-+	XFI_AN_SEG_NUM = 24,
-+	XFI_TRAIN_SEG_NUM = 25,
-+	XFI_HSS_PCS_SEG_NUM = 26,
-+	XFI_HSS_TX_SEG_NUM = 27,
-+	XFI_HSS_RX_SEG_NUM = 28,
-+	XFI_HSS_PLL_SEG_NUM = 29,
-+	MISC_NIC_INFO_SEG_NUM = 30,
-+	INTR_STATES_SEG_NUM = 31,
-+	CAM_ENTRIES_SEG_NUM = 32,
-+	ROUTING_WORDS_SEG_NUM = 33,
-+	ETS_SEG_NUM = 34,
-+	PROBE_DUMP_SEG_NUM = 35,
-+	ROUTING_INDEX_SEG_NUM = 36,
-+	MAC_PROTOCOL_SEG_NUM = 37,
-+	XAUI2_AN_SEG_NUM = 38,
-+	XAUI2_HSS_PCS_SEG_NUM = 39,
-+	XFI2_AN_SEG_NUM = 40,
-+	XFI2_TRAIN_SEG_NUM = 41,
-+	XFI2_HSS_PCS_SEG_NUM = 42,
-+	XFI2_HSS_TX_SEG_NUM = 43,
-+	XFI2_HSS_RX_SEG_NUM = 44,
-+	XFI2_HSS_PLL_SEG_NUM = 45,
-+	SEM_REGS_SEG_NUM = 50
-+
-+};
-+
-+struct ql_nic_misc {
-+	u32 rx_ring_count;
-+	u32 tx_ring_count;
-+	u32 intr_count;
-+	u32 function;
-+};
-+
-+struct ql_reg_dump {
-+
-+	/* segment 0 */
-+	struct mpi_coredump_global_header mpi_global_header;
-+
-+	/* segment 16 */
-+	struct mpi_coredump_segment_header nic_regs_seg_hdr;
-+	u32 nic_regs[64];
-+
-+	/* segment 30 */
-+	struct mpi_coredump_segment_header misc_nic_seg_hdr;
-+	struct ql_nic_misc misc_nic_info;
-+
-+	/* segment 31 */
-+	/* one interrupt state for each CQ */
-+	struct mpi_coredump_segment_header intr_states_seg_hdr;
-+	u32 intr_states[MAX_CPUS];
-+
-+	/* segment 32 */
-+	/* 3 cam words each for 16 unicast,
-+	 * 2 cam words for each of 32 multicast.
-+	 */
-+	struct mpi_coredump_segment_header cam_entries_seg_hdr;
-+	u32 cam_entries[(16 * 3) + (32 * 3)];
-+
-+	/* segment 33 */
-+	struct mpi_coredump_segment_header nic_routing_words_seg_hdr;
-+	u32 nic_routing_words[16];
-+
-+	/* segment 34 */
-+	struct mpi_coredump_segment_header ets_seg_hdr;
-+	u32 ets[8+2];
-+};
-+
- /*
-  * intr_context structure is used during initialization
-  * to hook the interrupts.  It is also used in a single
-@@ -1659,6 +1806,8 @@ int ql_mb_set_mgmnt_traffic_ctl(struct ql_adapter *qdev, u32 control);
- int ql_mb_get_port_cfg(struct ql_adapter *qdev);
- int ql_mb_set_port_cfg(struct ql_adapter *qdev);
- int ql_wait_fifo_empty(struct ql_adapter *qdev);
-+void ql_gen_reg_dump(struct ql_adapter *qdev,
-+			struct ql_reg_dump *mpi_coredump);
- 
- #if 1
- #define QL_ALL_DUMP
-diff --git a/drivers/net/qlge/qlge_dbg.c b/drivers/net/qlge/qlge_dbg.c
-index aa88cb3..9f58c47 100644
---- a/drivers/net/qlge/qlge_dbg.c
-+++ b/drivers/net/qlge/qlge_dbg.c
-@@ -1,5 +1,185 @@
- #include "qlge.h"
- 
-+
-+static int ql_get_ets_regs(struct ql_adapter *qdev, u32 * buf)
-+{
-+	int status = 0;
-+	int i;
-+
-+	for (i = 0; i < 8; i++, buf++) {
-+		ql_write32(qdev, NIC_ETS, i << 29 | 0x08000000);
-+		*buf = ql_read32(qdev, NIC_ETS);
-+	}
-+
-+	for (i = 0; i < 2; i++, buf++) {
-+		ql_write32(qdev, CNA_ETS, i << 29 | 0x08000000);
-+		*buf = ql_read32(qdev, CNA_ETS);
-+	}
-+
-+	return status;
-+}
-+
-+static void ql_get_intr_states(struct ql_adapter *qdev, u32 * buf)
-+{
-+	int i;
-+
-+	for (i = 0; i < qdev->rx_ring_count; i++, buf++) {
-+		ql_write32(qdev, INTR_EN,
-+				qdev->intr_context[i].intr_read_mask);
-+		*buf = ql_read32(qdev, INTR_EN);
-+	}
-+}
-+
-+static int ql_get_cam_entries(struct ql_adapter *qdev, u32 * buf)
-+{
-+	int i, status;
-+	u32 value[3];
-+
-+	status = ql_sem_spinlock(qdev, SEM_MAC_ADDR_MASK);
-+	if (status)
-+		return status;
-+
-+	for (i = 0; i < 16; i++) {
-+		status = ql_get_mac_addr_reg(qdev,
-+					MAC_ADDR_TYPE_CAM_MAC, i, value);
-+		if (status) {
-+			QPRINTK(qdev, DRV, ERR,
-+				"Failed read of mac index register.\n");
-+			goto err;
-+		}
-+		*buf++ = value[0];	/* lower MAC address */
-+		*buf++ = value[1];	/* upper MAC address */
-+		*buf++ = value[2];	/* output */
-+	}
-+	for (i = 0; i < 32; i++) {
-+		status = ql_get_mac_addr_reg(qdev,
-+					MAC_ADDR_TYPE_MULTI_MAC, i, value);
-+		if (status) {
-+			QPRINTK(qdev, DRV, ERR,
-+				"Failed read of mac index register.\n");
-+			goto err;
-+		}
-+		*buf++ = value[0];	/* lower Mcast address */
-+		*buf++ = value[1];	/* upper Mcast address */
-+	}
-+err:
-+	ql_sem_unlock(qdev, SEM_MAC_ADDR_MASK);
-+	return status;
-+}
-+
-+static int ql_get_routing_entries(struct ql_adapter *qdev, u32 * buf)
-+{
-+	int status;
-+	u32 value, i;
-+
-+	status = ql_sem_spinlock(qdev, SEM_RT_IDX_MASK);
-+	if (status)
-+		return status;
-+
-+	for (i = 0; i < 16; i++) {
-+		status = ql_get_routing_reg(qdev, i, &value);
-+		if (status) {
-+			QPRINTK(qdev, DRV, ERR,
-+				"Failed read of routing index register.\n");
-+			goto err;
-+		} else {
-+			*buf++ = value;
-+		}
-+	}
-+err:
-+	ql_sem_unlock(qdev, SEM_RT_IDX_MASK);
-+	return status;
-+}
-+
-+/* Create a coredump segment header */
-+static void ql_build_coredump_seg_header(
-+		struct mpi_coredump_segment_header *seg_hdr,
-+		u32 seg_number, u32 seg_size, u8 *desc)
-+{
-+	memset(seg_hdr, 0, sizeof(struct mpi_coredump_segment_header));
-+	seg_hdr->cookie = MPI_COREDUMP_COOKIE;
-+	seg_hdr->segNum = seg_number;
-+	seg_hdr->segSize = seg_size;
-+	memcpy(seg_hdr->description, desc, (sizeof(seg_hdr->description)) - 1);
-+}
-+
-+void ql_gen_reg_dump(struct ql_adapter *qdev,
-+			struct ql_reg_dump *mpi_coredump)
-+{
-+	int i, status;
-+
-+
-+	memset(&(mpi_coredump->mpi_global_header), 0,
-+		sizeof(struct mpi_coredump_global_header));
-+	mpi_coredump->mpi_global_header.cookie = MPI_COREDUMP_COOKIE;
-+	mpi_coredump->mpi_global_header.headerSize =
-+		sizeof(struct mpi_coredump_global_header);
-+	mpi_coredump->mpi_global_header.imageSize =
-+		sizeof(struct ql_reg_dump);
-+	memcpy(mpi_coredump->mpi_global_header.idString, "MPI Coredump",
-+		sizeof(mpi_coredump->mpi_global_header.idString));
-+
-+
-+	/* segment 16 */
-+	ql_build_coredump_seg_header(&mpi_coredump->misc_nic_seg_hdr,
-+				MISC_NIC_INFO_SEG_NUM,
-+				sizeof(struct mpi_coredump_segment_header)
-+				+ sizeof(mpi_coredump->misc_nic_info),
-+				"MISC NIC INFO");
-+	mpi_coredump->misc_nic_info.rx_ring_count = qdev->rx_ring_count;
-+	mpi_coredump->misc_nic_info.tx_ring_count = qdev->tx_ring_count;
-+	mpi_coredump->misc_nic_info.intr_count = qdev->intr_count;
-+	mpi_coredump->misc_nic_info.function = qdev->func;
-+
-+	/* Segment 16, Rev C. Step 18 */
-+	ql_build_coredump_seg_header(&mpi_coredump->nic_regs_seg_hdr,
-+				NIC1_CONTROL_SEG_NUM,
-+				sizeof(struct mpi_coredump_segment_header)
-+				+ sizeof(mpi_coredump->nic_regs),
-+				"NIC Registers");
-+	/* Get generic reg dump */
-+	for (i = 0; i < 64; i++)
-+		mpi_coredump->nic_regs[i] = ql_read32(qdev, i * sizeof(u32));
-+
-+	/* Segment 31 */
-+	/* Get indexed register values. */
-+	ql_build_coredump_seg_header(&mpi_coredump->intr_states_seg_hdr,
-+				INTR_STATES_SEG_NUM,
-+				sizeof(struct mpi_coredump_segment_header)
-+				+ sizeof(mpi_coredump->intr_states),
-+				"INTR States");
-+	ql_get_intr_states(qdev, &mpi_coredump->intr_states[0]);
-+
-+	ql_build_coredump_seg_header(&mpi_coredump->cam_entries_seg_hdr,
-+				CAM_ENTRIES_SEG_NUM,
-+				sizeof(struct mpi_coredump_segment_header)
-+				+ sizeof(mpi_coredump->cam_entries),
-+				"CAM Entries");
-+	status = ql_get_cam_entries(qdev, &mpi_coredump->cam_entries[0]);
-+	if (status)
-+		return;
-+
-+	ql_build_coredump_seg_header(&mpi_coredump->nic_routing_words_seg_hdr,
-+				ROUTING_WORDS_SEG_NUM,
-+				sizeof(struct mpi_coredump_segment_header)
-+				+ sizeof(mpi_coredump->nic_routing_words),
-+				"Routing Words");
-+	status = ql_get_routing_entries(qdev,
-+			 &mpi_coredump->nic_routing_words[0]);
-+	if (status)
-+		return;
-+
-+	/* Segment 34 (Rev C. step 23) */
-+	ql_build_coredump_seg_header(&mpi_coredump->ets_seg_hdr,
-+				ETS_SEG_NUM,
-+				sizeof(struct mpi_coredump_segment_header)
-+				+ sizeof(mpi_coredump->ets),
-+				"ETS Registers");
-+	status = ql_get_ets_regs(qdev, &mpi_coredump->ets[0]);
-+	if (status)
-+		return;
-+}
-+
- #ifdef QL_REG_DUMP
- static void ql_dump_intr_states(struct ql_adapter *qdev)
- {
-diff --git a/drivers/net/qlge/qlge_ethtool.c b/drivers/net/qlge/qlge_ethtool.c
-index 019f35f..62c4af0 100644
---- a/drivers/net/qlge/qlge_ethtool.c
-+++ b/drivers/net/qlge/qlge_ethtool.c
-@@ -428,6 +428,20 @@ static int ql_phys_id(struct net_device *ndev, u32 data)
- 
- 	return 0;
+ 	local_irq_save(flags);
+ 	list_add_tail(&n->poll_list, &__get_cpu_var(softnet_data).poll_list);
+-	__raise_softirq_irqoff(NET_RX_SOFTIRQ);
++	raise_softirq_irqoff(NET_RX_SOFTIRQ);
+ 	local_irq_restore(flags);
  }
-+
-+static int ql_get_regs_len(struct net_device *ndev)
-+{
-+	return sizeof(struct ql_reg_dump);
-+}
-+
-+static void ql_get_regs(struct net_device *ndev,
-+			struct ethtool_regs *regs, void *p)
-+{
-+	struct ql_adapter *qdev = netdev_priv(ndev);
-+
-+	ql_gen_reg_dump(qdev, p);
-+}
-+
- static int ql_get_coalesce(struct net_device *dev, struct ethtool_coalesce *c)
- {
- 	struct ql_adapter *qdev = netdev_priv(dev);
-@@ -555,6 +569,8 @@ const struct ethtool_ops qlge_ethtool_ops = {
- 	.get_drvinfo = ql_get_drvinfo,
- 	.get_wol = ql_get_wol,
- 	.set_wol = ql_set_wol,
-+	.get_regs_len	= ql_get_regs_len,
-+	.get_regs = ql_get_regs,
- 	.get_msglevel = ql_get_msglevel,
- 	.set_msglevel = ql_set_msglevel,
- 	.get_link = ethtool_op_get_link,
--- 
-1.6.0.2
-
+ EXPORT_SYMBOL(__napi_schedule);
