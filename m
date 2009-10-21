@@ -1,59 +1,54 @@
 From: Gilad Ben-Yossef <gilad@codefidence.com>
 Subject: Re: [PATCH RFC] Per route TCP options
-Date: Wed, 21 Oct 2009 10:27:20 +0200
-Message-ID: <4ADEC5E8.9060205@codefidence.com>
-References: <1256052161-14156-1-git-send-email-gilad@codefidence.com> <20091020221354.5a714323.billfink@mindspring.com>
+Date: Wed, 21 Oct 2009 10:40:00 +0200
+Message-ID: <4ADEC8E0.5020709@codefidence.com>
+References: <1256052161-14156-1-git-send-email-gilad@codefidence.com> <4ADDE4C4.5080501@hp.com> <4ADEC076.2030105@codefidence.com> <20091021082109.GE8704@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ori@comsleep.com
-To: Bill Fink <billfink@mindspring.com>
+Cc: Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org,
+	ori@comsleep.com
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenbox.codefidence.com ([92.48.73.16]:39921 "EHLO
+Received: from xenbox.codefidence.com ([92.48.73.16]:45717 "EHLO
 	xenbox.codefidence.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751163AbZJUI1U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 04:27:20 -0400
-In-Reply-To: <20091020221354.5a714323.billfink@mindspring.com>
+	with ESMTP id S1753032AbZJUIkC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 04:40:02 -0400
+In-Reply-To: <20091021082109.GE8704@Chamillionaire.breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi Florian,
 
 
-Bill Fink wrote:
+Florian Westphal wrote:
 
-> On Tue, 20 Oct 2009, Gilad Ben-Yossef wrote:
->
+> Gilad Ben-Yossef <gilad@codefidence.com> wrote:
 >   
->> Turn the global sysctls allowing disabling of TCP SACK, DSCAK,
->> time stamp and window scale into per route entry feature options,
->> laying the ground to future removal of the relevant global sysctls.
->>
->> You really only want to disable SACK, DSACK, time stamp or window
->> scale if you've got a piece of broken networking equipment somewhere 
->> as a stop gap until you can bring a big enough hammer to deal with
->> the broken network equipment. It doesn't make sense to "punish" the
->> entire connections going through the machine to destinations not 
->> related to the broken equipment.
+>> The point is that even then you are more then likely to wish to turn
+>> off these options to specific destination and routes (that go over
+>> said exotic link) and keep using them over others - e.g. timestamp
+>> OK for local LAN, but for default route that goes over exotic TCP/IP
+>> over carrier penguins turn it off.
 >>     
 >
-> For certain test situations, it is sometimes desirable to globally
-> disable TCP timestamps.  Although I have not personally wanted to
-> globally disable the other mentioned features, I can imagine test
-> scenarios where it could be useful.  Admittedly it could also be
-> accomplished with per route features, just not as conveniently,
-> especially if there are a large number of interfaces and/or routes.
+> If you need a bandaid solution, its is possible to replace tcp
+> options with NOOPs using netfilters TCPOPTSTRIP target.
 >
+> There is also an ECN target to work around ECN blackholes.
 >   
-I don't feel that strongly about it either way, just trying to hearken to
-Linus "Linux is bloated" message by not fostering duplicate ways to do
-the same thing... ;-)
+Thanks for the tip. It is appreciated.
 
-If the consensus is to adopt the route features but leave the global
-kill switches, I certainly have no problem with that.
+The band aid solution that Ori and company found was
+simply to patch the local copy of the kernel used but being that sitting
+on a bunch of "private" patches seems like a lose-lose situation (there
+is a term you don't hear much when talking to MBAs :-) I'm now trying
+to get it mainlined for them.
+
 
 Thanks,
 Gilad
+
 
 -- 
 Gilad Ben-Yossef
