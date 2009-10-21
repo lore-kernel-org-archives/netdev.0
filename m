@@ -1,38 +1,62 @@
-From: Benjamin LaHaise <bcrl@lhnet.ca>
+From: Octavian Purdila <opurdila@ixiacom.com>
 Subject: Re: [PATCH] net: allow netdev_wait_allrefs() to run faster
-Date: Wed, 21 Oct 2009 12:51:39 -0400
-Message-ID: <20091021165139.GL877@kvack.org>
-References: <20091017221857.GG1925@kvack.org> <4ADB55BC.5020107@gmail.com> <20091018182144.GC23395@kvack.org> <200910211539.01824.opurdila@ixiacom.com> <4ADF2B57.4030708@gmail.com>
+Date: Wed, 21 Oct 2009 19:55:39 +0300
+Message-ID: <200910211955.40084.opurdila@ixiacom.com>
+References: <20091017221857.GG1925@kvack.org> <200910211539.01824.opurdila@ixiacom.com> <4ADF2B57.4030708@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Octavian Purdila <opurdila@ixiacom.com>, netdev@vger.kernel.org,
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Benjamin LaHaise <bcrl@lhnet.ca>, netdev@vger.kernel.org,
 	Cosmin Ratiu <cratiu@ixiacom.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:51504 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753926AbZJUQvf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Oct 2009 12:51:35 -0400
-Content-Disposition: inline
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:13180 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753661AbZJUQ6a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Oct 2009 12:58:30 -0400
 In-Reply-To: <4ADF2B57.4030708@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 21, 2009 at 05:40:07PM +0200, Eric Dumazet wrote:
+On Wednesday 21 October 2009 18:40:07 you wrote:
+
+> >
+> > I would also like to see this patch in, we are running into scalability
+> > issues with creating/deleting lots of interfaces as well.
+> 
 > Ben patch only address interface deletion, and one part of the problem,
 > maybe the more visible one for the current kernel.
+> 
+> Adding lots of interfaces only needs several threads to run concurently.
+> 
+> Before applying/examining his patch I suggest identifying all dev_put()
+>  spots than can be deleted and replaced by something more scalable. I began
+>  this job but others can help me.
+> 
 
-The first part I've been tackling has been the overhead in procfs, sysctl 
-and sysfs.  I've got patches for some of the issues, hacks for others, and 
-should have something to post in a few days.  Getting rid of those overheads 
-is enough to get to decent interface creation times for the first 20 or 30k 
-interfaces.
+Yes, I agree with you, there are multiple places which needs to be touched to 
+allow for better scaling with regard to the number of interfaces. We do have 
+patches that addresses some of these issues, but unfortunately they are based 
+on 2.6.7 and some of them are quite ugly hacks :) 
 
-On the interface deletion side of things, within the network code, fib_hash 
-has a few linear scans that really start hurting.  trie is a bit better, 
-but I haven't started digging too deeply into its flush/remove overhead yet, 
-aside from noticing that trie has a linear scan if 
-CONFIG_IP_ROUTE_MULTIPATH is set since it sets the hash size to 1.  
-fn_trie_flush() is currently the worst offender during deletion.
+However, we are in the process of switching to 2.6.31 so I hope we will be 
+able to contribute on this effort.
 
-		-ben
+> RTNL and rcu grace periods are going to hurt anyway, so you probably need
+> to use many tasks to be able to delete lots of interfaces in parallel.
+> 
+
+Hmm, how would multiple tasks help here? Isn't the RTNL mutex global?
+
+> netdev_run_todo() should also use a better algorithm to allow parallelism.
+> 
+> Following patch doesnt slow down dev_put() users and real scalability
+> problems will surface and might be addressed.
+> 
+> [PATCH] net: allow netdev_wait_allrefs() to run faster
+> 
+
+Thanks, I am going to test it on our platform and send back the results.
+
+tavi
