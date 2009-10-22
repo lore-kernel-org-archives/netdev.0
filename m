@@ -1,51 +1,78 @@
 From: Mel Gorman <mel@csn.ul.ie>
-Subject: [PATCH 3/5] vmscan: Force kswapd to take notice faster when high-order watermarks are being hit
-Date: Thu, 22 Oct 2009 15:22:34 +0100
-Message-ID: <1256221356-26049-4-git-send-email-mel@csn.ul.ie>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, David Miller <davem@davemloft.net>, Reinette Chatre <reinette.chatre@intel.com>, Kalle Valo <kalle.valo@iki.fi>, David Rientjes <rientjes@google.com>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Mohamed Abbas <mohamed.abbas@intel.com>, Jens Axboe <jens.axboe@oracle.com>, "John W. Linville" <linville@tuxdriver.com>, Pekka Enberg <penberg@cs.helsinki.fi>, Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>, Greg Kroah-Hartman <gregkh@suse.de>, Stephan von Krawczynski <skraw@ithnet.com>, Kernel Testers List <kernel-testers@vger.kernel.org>, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, "linux-mm@kvack.org\"" <linux-mm@kvack.org>, Mel Gorman <mel@csn.ul.ie>
-To: Frans Pop <elendil@planet.nl>,
-	Jiri Kosina <jkosina@suse.cz>,
+Subject: [PATCH 1/5 Against 2.6.31.4] page allocator: Always wake kswapd
+	when restarting an allocation attempt after direct reclaim failed
+Date: Thu, 22 Oct 2009 15:24:17 +0100
+Message-ID: <20091022142417.GO11778@csn.ul.ie>
+References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <1256221356-26049-2-git-send-email-mel@csn.ul.ie>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-15
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, David Miller <davem@davemloft.net>,
+	Reinette Chatre <reinette.chatre@intel.com>,
+	Kalle Valo <kalle.valo@iki.fi>,
+	David Rientjes <rientjes@google.com>,
+	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
+	Mohamed Abbas <mohamed.abbas@intel.com>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Stephan von Krawczynski <skraw@ithnet.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>
+To: Frans Pop <elendil@planet.nl>, Jiri Kosina <jkosina@suse.cz>,
 	Sven Geggus <lists@fuchsschwanzdomain.de>,
 	Karol Lewandowski <karol.k.lewandowski@gmail.com>,
 	Tobias Oetiker <tobi@oetiker.ch>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
+Content-Disposition: inline
+In-Reply-To: <1256221356-26049-2-git-send-email-mel@csn.ul.ie>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-When a high-order allocation fails, kswapd is kicked so that it reclaims
-at a higher-order to avoid direct reclaimers stall and to help GFP_ATOMIC
-allocations. Something has changed in recent kernels that affect the timing
-where high-order GFP_ATOMIC allocations are now failing with more frequency,
-particularly under pressure. This patch forces kswapd to notice sooner that
-high-order allocations are occuring.
+This is a version that applies against 2.6.31.4
+
+==== CUT HERE ====
+page allocator: Always wake kswapd when restarting an allocation attempt after direct reclaim failed
+
+If a direct reclaim makes no forward progress, it considers whether it
+should go OOM or not. Whether OOM is triggered or not, it may retry the
+application afterwards. In times past, this would always wake kswapd as well
+but currently, kswapd is not woken up after direct reclaim fails. For order-0
+allocations, this makes little difference but if there is a heavy mix of
+higher-order allocations that direct reclaim is failing for, it might mean
+that kswapd is not rewoken for higher orders as much as it did previously.
+
+This patch wakes up kswapd when an allocation is being retried after a direct
+reclaim failure. It would be expected that kswapd is already awake, but
+this has the effect of telling kswapd to reclaim at the higher order as well.
 
 Signed-off-by: Mel Gorman <mel@csn.ul.ie>
 ---
- mm/vmscan.c |    9 +++++++++
- 1 files changed, 9 insertions(+), 0 deletions(-)
+ mm/page_alloc.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/mm/vmscan.c b/mm/vmscan.c
-index 64e4388..cd68109 100644
---- a/mm/vmscan.c
-+++ b/mm/vmscan.c
-@@ -2016,6 +2016,15 @@ loop_again:
- 					priority != DEF_PRIORITY)
- 				continue;
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 0b3c6cb..239677a 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -1763,6 +1763,7 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
+ 	if (NUMA_BUILD && (gfp_mask & GFP_THISNODE) == GFP_THISNODE)
+ 		goto nopage;
  
-+			/*
-+			 * Exit quickly to restart if it has been indicated
-+			 * that higher orders are required
-+			 */
-+			if (pgdat->kswapd_max_order > order) {
-+				all_zones_ok = 1;
-+				goto out;
-+			}
-+
- 			if (!zone_watermark_ok(zone, order,
- 					high_wmark_pages(zone), end_zone, 0))
- 				all_zones_ok = 0;
++restart:
+ 	wake_all_kswapd(order, zonelist, high_zoneidx);
+ 
+ 	/*
+@@ -1772,7 +1773,6 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
+ 	 */
+ 	alloc_flags = gfp_to_alloc_flags(gfp_mask);
+ 
+-restart:
+ 	/* This is the last chance, in general, before the goto nopage. */
+ 	page = get_page_from_freelist(gfp_mask, nodemask, order, zonelist,
+ 			high_zoneidx, alloc_flags & ~ALLOC_NO_WATERMARKS,
 -- 
 1.6.3.3
 
