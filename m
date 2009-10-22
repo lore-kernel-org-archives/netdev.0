@@ -1,73 +1,124 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH net-next-2.6 1/4] net: introduce mc list helpers
-Date: Thu, 22 Oct 2009 16:28:06 +0200
-Message-ID: <20091022142806.GJ2868@psychotron.lab.eng.brq.redhat.com>
-References: <20091022135120.GC2868@psychotron.lab.eng.brq.redhat.com> <20091022135220.GD2868@psychotron.lab.eng.brq.redhat.com> <1256221112.2785.13.camel@achroite>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] rtnetlink: speedup rtnl_dump_ifinfo()
+Date: Thu, 22 Oct 2009 16:34:41 +0200
+Message-ID: <4AE06D81.4050003@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	eric.dumazet@gmail.com, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com,
-	e1000-devel@lists.sourceforge.net, mchehab@infradead.org,
-	linux-media@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Benjamin LaHaise <bcrl@lhnet.ca>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6413 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756178AbZJVO2S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Oct 2009 10:28:18 -0400
-Content-Disposition: inline
-In-Reply-To: <1256221112.2785.13.camel@achroite>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:35158 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754812AbZJVOeq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2009 10:34:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Oct 22, 2009 at 04:18:32PM CEST, bhutchings@solarflare.com wrote:
->On Thu, 2009-10-22 at 15:52 +0200, Jiri Pirko wrote:
->> This helpers should be used by network drivers to access to netdev
->> multicast lists.
->[...]
->> +static inline void netdev_mc_walk(struct net_device *dev,
->> +				  void (*func)(void *, unsigned char *),
->> +				  void *data)
->> +{
->> +	struct dev_addr_list *mclist;
->> +	int i;
->> +
->> +	for (i =3D 0, mclist =3D dev->mc_list; mclist && i < dev->mc_count=
-;
->> +	     i++, mclist =3D mclist->next)
->> +		func(data, mclist->dmi_addr);
->> +}
->[...]
->
->=EF=BB=BFWe usually implement iteration as macros so that any context =
-doesn't
->have to be squeezed through a single untyped (void *) variable.  A mac=
-ro
->for this would look something like:
->
->#define netdev_for_each_mc_addr(dev, addr)						\
->	for (addr =3D (dev)->mc_list ? (dev)->mc_list->dmi_addr : NULL;			\
->	     addr;									\
->	     addr =3D (container_of(addr, struct dev_addr_list, dmi_addr)->ne=
-xt ?		\
->		     =EF=BB=BFcontainer_of(addr, struct dev_addr_list, dmi_addr)->ne=
-xt->dmi_addr : \
->		     NULL))
+When handling large number of netdevice, rtnl_dump_ifinfo()
+is very slow because it has O(N^2) complexity.
 
-I admit this would look better. Going to change this and then repost.
+Instead of scanning one single list, we can use the 256 sub lists
+of the dev_index hash table.
 
-Thanks Ben
+This considerably speedups "ip link" operations
 
->
->Once you change the list type this can presumably be made less ugly.
->
->Ben.
->
->--=20
->Ben Hutchings, Senior Software Engineer, Solarflare Communications
->Not speaking for my employer; that's the marketing department's job.
->They asked us to note that Solarflare product names are trademarked.
->
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/net/net_namespace.h |    4 +++
+ net/core/dev.c              |    7 +-----
+ net/core/rtnetlink.c        |   37 ++++++++++++++++++++++------------
+ 3 files changed, 30 insertions(+), 18 deletions(-)
+
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 6994101..0addd45 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -28,6 +28,10 @@ struct ctl_table_header;
+ struct net_generic;
+ struct sock;
+ 
++
++#define NETDEV_HASHBITS    8
++#define NETDEV_HASHENTRIES (1 << NETDEV_HASHBITS)
++
+ struct net {
+ 	atomic_t		count;		/* To decided when the network
+ 						 *  namespace should be freed.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index fa88dcd..e7bada1 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -193,18 +193,15 @@ static struct list_head ptype_all __read_mostly;	/* Taps */
+ DEFINE_RWLOCK(dev_base_lock);
+ EXPORT_SYMBOL(dev_base_lock);
+ 
+-#define NETDEV_HASHBITS	8
+-#define NETDEV_HASHENTRIES (1 << NETDEV_HASHBITS)
+-
+ static inline struct hlist_head *dev_name_hash(struct net *net, const char *name)
+ {
+ 	unsigned hash = full_name_hash(name, strnlen(name, IFNAMSIZ));
+-	return &net->dev_name_head[hash & ((1 << NETDEV_HASHBITS) - 1)];
++	return &net->dev_name_head[hash & (NETDEV_HASHENTRIES - 1)];
+ }
+ 
+ static inline struct hlist_head *dev_index_hash(struct net *net, int ifindex)
+ {
+-	return &net->dev_index_head[ifindex & ((1 << NETDEV_HASHBITS) - 1)];
++	return &net->dev_index_head[ifindex & (NETDEV_HASHENTRIES - 1)];
+ }
+ 
+ /* Device list insertion */
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index ba13b09..52ea418 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -682,22 +682,33 @@ nla_put_failure:
+ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+ 	struct net *net = sock_net(skb->sk);
+-	int idx;
+-	int s_idx = cb->args[0];
++	int h, s_h;
++	int idx = 0, s_idx;
+ 	struct net_device *dev;
+-
+-	idx = 0;
+-	for_each_netdev(net, dev) {
+-		if (idx < s_idx)
+-			goto cont;
+-		if (rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
+-				     NETLINK_CB(cb->skb).pid,
+-				     cb->nlh->nlmsg_seq, 0, NLM_F_MULTI) <= 0)
+-			break;
++	struct hlist_head *head;
++	struct hlist_node *node;
++
++	s_h = cb->args[0];
++	s_idx = cb->args[1];
++
++	for (h = s_h; h < NETDEV_HASHENTRIES; h++, s_idx = 0) {
++		idx = 0;
++		head = &net->dev_index_head[h];
++		hlist_for_each_entry(dev, node, head, index_hlist) {
++			if (idx < s_idx)
++				goto cont;
++			if (rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
++					     NETLINK_CB(cb->skb).pid,
++					     cb->nlh->nlmsg_seq, 0,
++					     NLM_F_MULTI) <= 0)
++				goto out;
+ cont:
+-		idx++;
++			idx++;
++		}
+ 	}
+-	cb->args[0] = idx;
++out:
++	cb->args[1] = idx;
++	cb->args[0] = h;
+ 
+ 	return skb->len;
+ }
