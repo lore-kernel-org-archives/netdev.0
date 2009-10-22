@@ -1,67 +1,108 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [PATCH net-next-2.6 1/4] net: introduce mc list helpers
-Date: Thu, 22 Oct 2009 15:52:21 +0200
-Message-ID: <20091022135220.GD2868@psychotron.lab.eng.brq.redhat.com>
+Subject: [PATCH net-next-2.6 3/4] e1000e: use mc helpers to
+	access	multicast list
+Date: Thu, 22 Oct 2009 15:54:05 +0200
+Message-ID: <20091022135404.GF2868@psychotron.lab.eng.brq.redhat.com>
 References: <20091022135120.GC2868@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, eric.dumazet@gmail.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, peter.p.waskiewicz.jr@intel.com,
-	john.ronciak@intel.com, e1000-devel@lists.sourceforge.net,
-	mchehab@infradead.org, linux-media@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, e1000-devel@lists.sourceforge.net,
+	bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
+	mchehab@infradead.org, john.ronciak@intel.com,
+	jeffrey.t.kirsher@intel.com, davem@davemloft.net,
+	linux-media@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:23986 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755413AbZJVNwf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Oct 2009 09:52:35 -0400
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
 In-Reply-To: <20091022135120.GC2868@psychotron.lab.eng.brq.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This helpers should be used by network drivers to access to netdev
-multicast lists.
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- include/linux/netdevice.h |   22 ++++++++++++++++++++++
- 1 files changed, 22 insertions(+), 0 deletions(-)
+ drivers/net/e1000e/netdev.c |   34 +++++++++++++++++++---------------
+ 1 files changed, 19 insertions(+), 15 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 8380009..7edc4a6 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -921,6 +921,28 @@ struct net_device
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 3769248..97cd106 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -2529,6 +2529,17 @@ static void e1000_update_mc_addr_list(struct e1000_hw *hw, u8 *mc_addr_list,
+ }
  
- #define	NETDEV_ALIGN		32
+ /**
++ * e1000_mc_walker - helper function
++ **/
++static void e1000_mc_walker(void *data, unsigned char *addr)
++{
++	u8 **mta_list_i = data;
++
++	memcpy(*mta_list_i, addr, ETH_ALEN);
++	*mta_list_i += ETH_ALEN;
++}
++
++/**
+  * e1000_set_multi - Multicast and Promiscuous mode set
+  * @netdev: network interface device structure
+  *
+@@ -2542,10 +2553,9 @@ static void e1000_set_multi(struct net_device *netdev)
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	struct e1000_mac_info *mac = &hw->mac;
+-	struct dev_mc_list *mc_ptr;
+-	u8  *mta_list;
++	u8  *mta_list, *mta_list_i;
+ 	u32 rctl;
+-	int i;
++	int mc_count;
  
-+static inline int netdev_mc_count(struct net_device *dev)
-+{
-+	return dev->mc_count;
-+}
-+
-+static inline bool netdev_mc_empty(struct net_device *dev)
-+{
-+	return netdev_mc_count(dev) == 0;
-+}
-+
-+static inline void netdev_mc_walk(struct net_device *dev,
-+				  void (*func)(void *, unsigned char *),
-+				  void *data)
-+{
-+	struct dev_addr_list *mclist;
-+	int i;
-+
-+	for (i = 0, mclist = dev->mc_list; mclist && i < dev->mc_count;
-+	     i++, mclist = mclist->next)
-+		func(data, mclist->dmi_addr);
-+}
-+
- static inline
- struct netdev_queue *netdev_get_tx_queue(const struct net_device *dev,
- 					 unsigned int index)
+ 	/* Check for Promiscuous and All Multicast modes */
+ 
+@@ -2567,23 +2577,17 @@ static void e1000_set_multi(struct net_device *netdev)
+ 
+ 	ew32(RCTL, rctl);
+ 
+-	if (netdev->mc_count) {
+-		mta_list = kmalloc(netdev->mc_count * 6, GFP_ATOMIC);
++	mc_count = netdev_mc_count(netdev);
++	if (mc_count) {
++		mta_list = kmalloc(mc_count * ETH_ALEN, GFP_ATOMIC);
+ 		if (!mta_list)
+ 			return;
+ 
+ 		/* prepare a packed array of only addresses. */
+-		mc_ptr = netdev->mc_list;
+-
+-		for (i = 0; i < netdev->mc_count; i++) {
+-			if (!mc_ptr)
+-				break;
+-			memcpy(mta_list + (i*ETH_ALEN), mc_ptr->dmi_addr,
+-			       ETH_ALEN);
+-			mc_ptr = mc_ptr->next;
+-		}
++		mta_list_i = mta_list;
++		netdev_mc_walk(netdev, e1000_mc_walker, &mta_list_i);
+ 
+-		e1000_update_mc_addr_list(hw, mta_list, i, 1,
++		e1000_update_mc_addr_list(hw, mta_list, mc_count, 1,
+ 					  mac->rar_entry_count);
+ 		kfree(mta_list);
+ 	} else {
 -- 
 1.6.2.5
 
+
+------------------------------------------------------------------------------
+Come build with us! The BlackBerry(R) Developer Conference in SF, CA
+is the only developer event you need to attend this year. Jumpstart your
+developing skills, take BlackBerry mobile applications to market and stay 
+ahead of the curve. Join us from November 9 - 12, 2009. Register now!
+http://p.sf.net/sfu/devconference
