@@ -1,68 +1,68 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] net: Adjust softirq raising in __napi_schedule
-Date: Thu, 22 Oct 2009 12:54:15 +0000
-Message-ID: <20091022125415.GA21699@ff.dom.local>
-References: <20091021211906.GA11401@ami.dom.local> <1256160330.12174.2.camel@johannes.local> <20091021213947.GA12202@ami.dom.local> <20091022.042939.95166154.davem@davemloft.net>
+From: Jasper Spaans <spaans@fox-it.com>
+Subject: bridging + load balancing bonding
+Date: Thu, 22 Oct 2009 14:23:39 +0200
+Message-ID: <20091022122339.GA20148@spaans.fox.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johannes@sipsolutions.net, tilman@imap.cc,
-	hidave.darkstar@gmail.com, linux-kernel@vger.kernel.org,
-	tglx@linutronix.de, linux-wireless@vger.kernel.org,
-	linux-ppp@vger.kernel.org, netdev@vger.kernel.org,
-	paulus@samba.org, mb@bu3sch.de, oliver@hartkopp.net
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755958AbZJVMyY@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns2.fox-it.com ([82.94.91.210]:34835 "EHLO mail2.fox-it.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755443AbZJVM6B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Oct 2009 08:58:01 -0400
+Received: from localhost (mail2 [127.0.0.1])
+	by mail2.fox-it.com (Postfix) with ESMTP id C4E1E4EC84
+	for <netdev@vger.kernel.org>; Thu, 22 Oct 2009 14:23:44 +0200 (CEST)
+Received: from mail2.fox-it.com ([127.0.0.1])
+ by localhost (mail2.fox-it.com [127.0.0.1]) (amavisd-new, port 10024)
+ with ESMTP id 12889-09 for <netdev@vger.kernel.org>;
+ Thu, 22 Oct 2009 14:23:44 +0200 (CEST)
+Received: from FOXDFT02.FOX.local (unknown [10.0.0.66])
+	by mail2.fox-it.com (Postfix) with ESMTP
+	for <netdev@vger.kernel.org>; Thu, 22 Oct 2009 14:23:44 +0200 (CEST)
+Received: from spaans by spaans.fox.local with local (Exim 4.69)
+	(envelope-from <spaans@fox-it.com>)	id 1N0whf-0005Os-58	for
+ netdev@vger.kernel.org; Thu, 22 Oct 2009 14:23:39 +0200
 Content-Disposition: inline
-In-Reply-To: <20091022.042939.95166154.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 22, 2009 at 04:29:39AM -0700, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Wed, 21 Oct 2009 23:39:47 +0200
-> 
-> > I'm not sure I can understand your question. This patch is mainly to
-> > avoid using netif_rx()/netif_rx_ni() pair as a test of proper process
-> > context handling; IMHO there're better tools for this (lockdep,
-> > WARN_ON's).
-> 
-> Semantically I think your patch is correct, but I wonder about cost.
-> 
-> Something that is a simply per-cpu inline "or" operation is now a
-> function call and potentially mispredicted branch inside of
-> raise_softirq_irqoff().
-> 
-> And netif_rx() is indeed a fast path for tunnels and other users so
-> this does matter.
-> 
-> I like having people call things in the correct context the function
-> was built for, and thus we can avoiryd completely useless operations and
-> tests as we can now in netif_rx().
+Hi,
 
-I like it too, but in this particular case I'm not sure netif_rx()
-functionality requires this kind of separation; it looks to me quite
-similarly to e.g. tasklet_schedule(), the same for process or softirq
-contexts.
+We're using the following setup for bonding and bridging, to be able to put
+large amounts of data through multiple IDS analyzers:
 
-> 
-> Makaing things general purpose costs something, and it costs too much
-> here for this critical routine, sorry.
-> 
-> I was just having a talk with Nick Piggin about these kinds of issues
-> today, too few people care about these ever encrouching tiny pieces
-> of bloat that slow the kernel down gradually over time, and I simply
-> won't stand for it when I notice it :-)
+                             +---[br0]----+     +--- eth1 ---(IDS machine 1)
+(Span port from switch) -- eth0          bond0--+
+                                                +--- eth2 ---(IDS machine 2)
 
-I'm not sure we're saving in the right place. As a matter of fact,
-whenever I look into kernel/ code I can't see this kind of
-optimization. There is quite a lot of WARN_ON's and if's. These NOHZ
-warnings simply show somebody's else debugging triggers far from
-places where it all started and is quite accidental, while this
-particular "bug" should've been printed immediately long time ago, if
-we really cared.
+eth0 receives network traffic, which should be passed to machines which are
+connected to eth1 and eth2. These machines run an IDS package, and there are
+two of those for performance reasons.
 
-Since I understand it's a question of taste, and it's not anything
-critical, I'm quite OK with staying with the old way (except old
-bugs, I hope ;-).
+bond0 is configured to load balance the packets using "balance-xor", in this
+case combined with xmit_hash_policy layer2.
 
-Jarek P.
+However, we're seeing problems: packets from one flow do not end up at the
+same IDS machine.  This is because this selection is not based on the source
+_and_ destination mac addresses of the original packet, but on the mac
+address of the bonding device and the destination mac address of the
+package.
+
+This is also clear in the code:
+For example, in bond_main.c, in bond_xmit_hash_policy_l2:
+	return (data->h_dest[5] ^ bond_dev->dev_addr[5]) % count;
+
+Changing this to
+	return (data->h_dest[5] ^ data->h_source[5]) % count;
+fixes our problems, but is this harmful for packets originating locally (or
+being routed?)
+
+If not, can this be applied? Or does anyone have other ideas?
+
+Thanks,
+Jasper Spaans
+-- 
+Fox-IT Experts in IT Security!
+T: +31 (0) 15 284 79 99
+KvK Haaglanden 27301624
