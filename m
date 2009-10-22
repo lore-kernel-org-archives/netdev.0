@@ -1,38 +1,63 @@
-From: almaop@poczta.fm
-Subject: =?UTF-8?q?iproute2:_2_questions?=
-Date: 22 Oct 2009 14:42:21 +0200
-Message-ID: <20091022124221.55FCE1A530EE@f12.poczta.interia.pl>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: xfrm transport mode policy and forward packets
+Date: Thu, 22 Oct 2009 22:21:26 +0900
+Message-ID: <20091022132126.GB28893@gondor.apana.org.au>
+References: <4AE04B00.8090207@iki.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/plain; CHARSET=UTF-8
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp240.poczta.interia.pl ([217.74.64.240]:9925 "EHLO
-	smtp240.poczta.interia.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755413AbZJVNNH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2009 09:13:07 -0400
-Received: from f12.poczta.interia.pl (f12.poczta.interia.pl [10.217.2.12])
-	by smtp240.poczta.interia.pl (INTERIA.PL) with ESMTP id 94C8B106928
-	for <netdev@vger.kernel.org>; Thu, 22 Oct 2009 14:42:21 +0200 (CEST)
-Received: from localhost (localhost [127.0.0.1])
-	by f12.poczta.interia.pl (Postfix) with ESMTP id 55FCE1A530EE
-	for <netdev@vger.kernel.org>; Thu, 22 Oct 2009 14:42:21 +0200 (CEST)
+Received: from rhun.apana.org.au ([64.62.148.172]:41641 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755219AbZJVNV2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2009 09:21:28 -0400
+Content-Disposition: inline
+In-Reply-To: <4AE04B00.8090207@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1. There is the known bug so we cant use ipt action with recent  iptables:
-tc filter add ...
-action ipt -j mark --set-mark 2
-does not work.
-It does not work with the last iproute2-2.6.29 and with latest git.
-Is there some official workaround?
-2. Are there plans to release the new iproute2 which fixes this bug?
+On Thu, Oct 22, 2009 at 03:07:28PM +0300, Timo Ter=E4s wrote:
+>
+> I'm using on my dmvpn environment security policies like:
+>
+> src 0.0.0.0/0 dst 0.0.0.0/0 proto gre 	dir in priority 2147483648 pty=
+pe=20
+> main 	tmpl src 0.0.0.0 dst 0.0.0.0
+> 		proto esp reqid 0 mode transport
+>
+> src 0.0.0.0/0 dst 0.0.0.0/0 proto gre 	dir out priority 2147483648 pt=
+ype=20
+> main 	tmpl src 0.0.0.0 dst 0.0.0.0
+> 		proto esp reqid 0 mode transport
+>
+> To make sure the locally generated/received GRE traffic is IPsec prot=
+ected.
+> Now when some other non-local gre traffic is being forwarded by this =
+router,
+> that seems to match these SPs too. Basically no one behind this route=
+r box
+> can use GRE (or PPTP).
 
-Krzysiek
+This is expected since forwarded GRE packets match the selector
+given.
 
+> My ideas so far have been:
+> a) rename 'fwd' to 'infwd' and split 'out' to 'out' and 'outfwd' ?
+>   (sounds kinda intrusive)
+> b) iptables target that would be able to disable xfrm
+>
+> Any other ideas?
+> What would be the proper fix for this problem?
 
+We could add the fwmark as a key.
 
-----------------------------------------------------------------------
-Afera Hazardowa- O co tu chodzi?
-Sprawdz >>> http://link.interia.pl/f238e
+Alexey and others may have better ideas on this.
 
+Cheers,
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
