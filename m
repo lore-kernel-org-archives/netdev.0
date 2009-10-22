@@ -1,43 +1,90 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-2.6] sfc: 10Xpress: Report support for pause frames
-Date: Thu, 22 Oct 2009 23:30:02 +0100
-Message-ID: <1256250602.2785.25.camel@achroite>
-References: <1256250314.2785.22.camel@achroite>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: NOHZ: local_softirq_pending 08
+Date: Fri, 23 Oct 2009 01:37:50 +0200
+Message-ID: <4AE0ECCE.2020407@imap.cc>
+References: <4AD31213.6020006@imap.cc> <20091015114052.GA9870@ff.dom.local> <4AD76184.6030900@gmail.com> <4ADF5710.4030505@imap.cc>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:19776 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750765AbZJVWaB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2009 18:30:01 -0400
-In-Reply-To: <1256250314.2785.22.camel@achroite>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigF862EA24A0DD2A624C0B4238"
+Cc: David Miller <davem@davemloft.net>, johannes@sipsolutions.net,
+	hidave.darkstar@gmail.com, linux-kernel@vger.kernel.org,
+	tglx@linutronix.de, linux-wireless@vger.kernel.org,
+	linux-ppp@vger.kernel.org, netdev@vger.kernel.org,
+	paulus@samba.org, isdn4linux <isdn4linux@listserv.isdn4linux.de>,
+	i4ldeveloper <i4ldeveloper@listserv.isdn4linux.de>,
+	Karsten Keil <isdn@linux-pingi.de>
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <4ADF5710.4030505@imap.cc>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2009-10-22 at 23:25 +0100, Ben Hutchings wrote:
-> Commits 27fbc7d 'mdio: Expose pause frame advertising flags to ethtool'
-> and c634263 'sfc: 10Xpress: Initialise pause advertising flags'
-> added to our reported advertising flags.
-> 
-> efx_mdio_set_settings() requires that all advertising flags are
-> also present in the supported flags, so make sure that is true.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
-> This fixes a regression in 2.6.32: after resetting a 10Xpress PHY we
-> fail to reconfigure it if pause frames are enabled.  Manually changing
-> pause frame settings will also fail.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigF862EA24A0DD2A624C0B4238
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Sorry, I was mistaken - those earlier commits are only in net-next-2.6,
-so this is not needed for 2.6.32.
+On 21.10.2009 20:46, /me wrote:
+>>>> I have encountered the message in the subject during a test of
+>>>> the Gigaset CAPI driver, and would like to determine whether
+>>>> it's a bug in the driver, a bug somewhere else, or no bug at
+>>>> all. The test scenario was PPP over ISDN with pppd+capiplugin.
+>>>> In an alternative scenario, also PPP over ISDN but with
+>>>> smpppd+capidrv, the message did not occur.
+>=20
+> I'm sorry, I had confused the two cases. The message occurs in
+> the smpppd+capidrv scenario, not with pppd+capiplugin.
+>=20
+>>>> Johannes' answer pointed me to the netif_rx() function.
+>>>> The Gigaset driver itself doesn't call that function at all.
+>>>> In the scenario where I saw the message, it was the SYNC_PPP
+>>>> line discipline that did.
+>=20
+> This analysis was therefore wrong. It would be the netif_rx()
+> call towards the end of isdn_ppp_push_higher() in
+> drivers/isdn/i4l/isdn_ppp.c L1177.
 
-Ben.
+Having noticed that, I cooked up the following patch which fixed
+the messages for me. Comments? (Adding i4l people to the already
+impressive CC list.)
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--- a/drivers/isdn/i4l/isdn_ppp.c
++++ b/drivers/isdn/i4l/isdn_ppp.c
+@@ -1174,7 +1174,10 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_=
+net_local * lp, struct sk_buff
+ #endif /* CONFIG_IPPP_FILTER */
+ 	skb->dev =3D dev;
+ 	skb_reset_mac_header(skb);
+-	netif_rx(skb);
++	if (in_interrupt())
++		netif_rx(skb);
++	else
++		netif_rx_ni(skb);
+ 	/* net_dev->local->stats.rx_packets++; done in isdn_net.c */
+ 	return;
+=20
 
+
+--=20
+Tilman Schmidt                    E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
+
+
+--------------enigF862EA24A0DD2A624C0B4238
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.4-svn0 (GNU/Linux)
+Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
+
+iD8DBQFK4OzYQ3+did9BuFsRAkYFAJ9p0uXB1gzluEYm8YBmtGTABgKAXwCfUglT
+B4aCF7nlk1CbzDVbizivdeI=
+=8zJK
+-----END PGP SIGNATURE-----
+
+--------------enigF862EA24A0DD2A624C0B4238--
