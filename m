@@ -1,124 +1,94 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] rtnetlink: speedup rtnl_dump_ifinfo()
-Date: Thu, 22 Oct 2009 16:34:41 +0200
-Message-ID: <4AE06D81.4050003@gmail.com>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: [PATCH 1/5] page allocator: Always wake kswapd when restarting an
+	allocation attempt after direct reclaim failed
+Date: Thu, 22 Oct 2009 17:41:53 +0300
+Message-ID: <84144f020910220741o51c7e3dajcfd7b78d6dbbc4eb@mail.gmail.com>
+References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
+	 <1256221356-26049-2-git-send-email-mel@csn.ul.ie>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Benjamin LaHaise <bcrl@lhnet.ca>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:35158 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754812AbZJVOeq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2009 10:34:46 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Frans Pop <elendil@planet.nl>, Jiri Kosina <jkosina@suse.cz>,
+	Sven Geggus <lists@fuchsschwanzdomain.de>,
+	Karol Lewandowski <karol.k.lewandowski@gmail.com>,
+	Tobias Oetiker <tobi@oetiker.ch>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	David Miller <davem@davemloft.net>,
+	Reinette Chatre <reinette.chatre@intel.com>,
+	Kalle Valo <kalle.valo@iki.fi>,
+	David Rientjes <rientjes@google.com>,
+	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
+	Mohamed Abbas <mohamed.abbas@intel.com>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Stephan von Krawczynski <skraw@ithnet.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"linux-mm@kvack.org\"" <linux-mm@kvack.org>
+To: Mel Gorman <mel@csn.ul.ie>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756442AbZJVOlv@vger.kernel.org>
+In-Reply-To: <1256221356-26049-2-git-send-email-mel@csn.ul.ie>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When handling large number of netdevice, rtnl_dump_ifinfo()
-is very slow because it has O(N^2) complexity.
+On Thu, Oct 22, 2009 at 5:22 PM, Mel Gorman <mel@csn.ul.ie> wrote:
+> If a direct reclaim makes no forward progress, it considers whether i=
+t
+> should go OOM or not. Whether OOM is triggered or not, it may retry t=
+he
+> application afterwards. In times past, this would always wake kswapd =
+as well
+> but currently, kswapd is not woken up after direct reclaim fails. For=
+ order-0
+> allocations, this makes little difference but if there is a heavy mix=
+ of
+> higher-order allocations that direct reclaim is failing for, it might=
+ mean
+> that kswapd is not rewoken for higher orders as much as it did previo=
+usly.
+>
+> This patch wakes up kswapd when an allocation is being retried after =
+a direct
+> reclaim failure. It would be expected that kswapd is already awake, b=
+ut
+> this has the effect of telling kswapd to reclaim at the higher order =
+as well.
+>
+> Signed-off-by: Mel Gorman <mel@csn.ul.ie>
 
-Instead of scanning one single list, we can use the 256 sub lists
-of the dev_index hash table.
+You seem to have dropped the Reviewed-by tags from me and Christoph
+for this patch.
 
-This considerably speedups "ip link" operations
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/net/net_namespace.h |    4 +++
- net/core/dev.c              |    7 +-----
- net/core/rtnetlink.c        |   37 ++++++++++++++++++++++------------
- 3 files changed, 30 insertions(+), 18 deletions(-)
-
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 6994101..0addd45 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -28,6 +28,10 @@ struct ctl_table_header;
- struct net_generic;
- struct sock;
- 
-+
-+#define NETDEV_HASHBITS    8
-+#define NETDEV_HASHENTRIES (1 << NETDEV_HASHBITS)
-+
- struct net {
- 	atomic_t		count;		/* To decided when the network
- 						 *  namespace should be freed.
-diff --git a/net/core/dev.c b/net/core/dev.c
-index fa88dcd..e7bada1 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -193,18 +193,15 @@ static struct list_head ptype_all __read_mostly;	/* Taps */
- DEFINE_RWLOCK(dev_base_lock);
- EXPORT_SYMBOL(dev_base_lock);
- 
--#define NETDEV_HASHBITS	8
--#define NETDEV_HASHENTRIES (1 << NETDEV_HASHBITS)
--
- static inline struct hlist_head *dev_name_hash(struct net *net, const char *name)
- {
- 	unsigned hash = full_name_hash(name, strnlen(name, IFNAMSIZ));
--	return &net->dev_name_head[hash & ((1 << NETDEV_HASHBITS) - 1)];
-+	return &net->dev_name_head[hash & (NETDEV_HASHENTRIES - 1)];
- }
- 
- static inline struct hlist_head *dev_index_hash(struct net *net, int ifindex)
- {
--	return &net->dev_index_head[ifindex & ((1 << NETDEV_HASHBITS) - 1)];
-+	return &net->dev_index_head[ifindex & (NETDEV_HASHENTRIES - 1)];
- }
- 
- /* Device list insertion */
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index ba13b09..52ea418 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -682,22 +682,33 @@ nla_put_failure:
- static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	struct net *net = sock_net(skb->sk);
--	int idx;
--	int s_idx = cb->args[0];
-+	int h, s_h;
-+	int idx = 0, s_idx;
- 	struct net_device *dev;
--
--	idx = 0;
--	for_each_netdev(net, dev) {
--		if (idx < s_idx)
--			goto cont;
--		if (rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
--				     NETLINK_CB(cb->skb).pid,
--				     cb->nlh->nlmsg_seq, 0, NLM_F_MULTI) <= 0)
--			break;
-+	struct hlist_head *head;
-+	struct hlist_node *node;
-+
-+	s_h = cb->args[0];
-+	s_idx = cb->args[1];
-+
-+	for (h = s_h; h < NETDEV_HASHENTRIES; h++, s_idx = 0) {
-+		idx = 0;
-+		head = &net->dev_index_head[h];
-+		hlist_for_each_entry(dev, node, head, index_hlist) {
-+			if (idx < s_idx)
-+				goto cont;
-+			if (rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
-+					     NETLINK_CB(cb->skb).pid,
-+					     cb->nlh->nlmsg_seq, 0,
-+					     NLM_F_MULTI) <= 0)
-+				goto out;
- cont:
--		idx++;
-+			idx++;
-+		}
- 	}
--	cb->args[0] = idx;
-+out:
-+	cb->args[1] = idx;
-+	cb->args[0] = h;
- 
- 	return skb->len;
- }
+> =A0mm/page_alloc.c | =A0 =A02 +-
+> =A01 files changed, 1 insertions(+), 1 deletions(-)
+>
+> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+> index bf72055..dfa4362 100644
+> --- a/mm/page_alloc.c
+> +++ b/mm/page_alloc.c
+> @@ -1817,9 +1817,9 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned=
+ int order,
+> =A0 =A0 =A0 =A0if (NUMA_BUILD && (gfp_mask & GFP_THISNODE) =3D=3D GFP=
+_THISNODE)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto nopage;
+>
+> +restart:
+> =A0 =A0 =A0 =A0wake_all_kswapd(order, zonelist, high_zoneidx);
+>
+> -restart:
+> =A0 =A0 =A0 =A0/*
+> =A0 =A0 =A0 =A0 * OK, we're below the kswapd watermark and have kicke=
+d background
+> =A0 =A0 =A0 =A0 * reclaim. Now things get more complex, so set up all=
+oc_flags according
+> --
+> 1.6.3.3
+>
+> --
+> To unsubscribe, send a message with 'unsubscribe linux-mm' in
+> the body to majordomo@kvack.org. =A0For more info on Linux MM,
+> see: http://www.linux-mm.org/ .
+> Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+>
