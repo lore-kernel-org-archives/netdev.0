@@ -1,63 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Modify bonding hash transmit policies to use the packet's
- source MAC address
-Date: Fri, 23 Oct 2009 14:37:19 +0200
-Message-ID: <4AE1A37F.8010203@gmail.com>
-References: <20091023114511.GA537@spaans.fox.local> <20091023115834.GA2216@spaans.fox.local>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] net: Adjust softirq raising in __napi_schedule
+Date: Thu, 22 Oct 2009 10:27:01 +0200
+Message-ID: <1256200021.12174.11.camel@johannes.local>
+References: <4AD31213.6020006@imap.cc> <20091015114052.GA9870@ff.dom.local>
+	 <4AD76184.6030900@gmail.com> <4ADF5710.4030505@imap.cc>
+	 <20091021211906.GA11401@ami.dom.local>
+	 <1256160330.12174.2.camel@johannes.local>
+	 <20091021213947.GA12202@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jasper Spaans <spaans@fox-it.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:40950 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751858AbZJWMhT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 08:37:19 -0400
-In-Reply-To: <20091023115834.GA2216@spaans.fox.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-CucNFXYmnSnNQhEM6i4T"
+Cc: Tilman Schmidt <tilman@imap.cc>,
+	David Miller <davem@davemloft.net>, hidave.darkstar@gmail.com,
+	linux-kernel@vger.kernel.org, tglx@linutronix.de,
+	linux-wireless@vger.kernel.org, linux-ppp@vger.kernel.org,
+	netdev@vger.kernel.org, paulus@samba.org,
+	Michael Buesch <mb@bu3sch.de>,
+	Oliver Hartkopp <oliver@hartkopp.net>
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <20091021213947.GA12202@ami.dom.local>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jasper Spaans a =E9crit :
-> Modify bonding hash transmit policies to use the psource MAC address =
-of
-> the packet instead of the MAC address configured for the bonding devi=
-ce.
+
+--=-CucNFXYmnSnNQhEM6i4T
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, 2009-10-21 at 23:39 +0200, Jarek Poplawski wrote:
+
+> > > -	__raise_softirq_irqoff(NET_RX_SOFTIRQ);
+> > > +	raise_softirq_irqoff(NET_RX_SOFTIRQ);
+> >=20
+> > This still doesn't make any sense.
+> >=20
+> > There may or may not be a lot of code that assumes that everything else
+> > is run with other tasklets disabled, and that it cannot be interrupted
+> > by a tasklet and thus create a race.
+> >=20
+> > Can you prove that is not the case, across the entire networking layer?
 >=20
-> The old sitation conflicts with the documentation.
-> ---
->  drivers/net/bonding/bond_main.c |    6 +++---
->  1 files changed, 3 insertions(+), 3 deletions(-)
->=20
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bo=
-nd_main.c
-> index 69c5b15..b140b52 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -3668,7 +3668,7 @@ static int bond_xmit_hash_policy_l23(struct sk_=
-buff *skb,
->  			(data->h_dest[5] ^ bond_dev->dev_addr[5])) % count;
+> I'm not sure I can understand your question. This patch is mainly to
+> avoid using netif_rx()/netif_rx_ni() pair as a test of proper process
+> context handling; IMHO there're better tools for this (lockdep,
+> WARN_ON's).
 
-You forgot one bond_dev->dev_addr[5] occurrence here
+And how exactly does that matter to the patch at hand?!
 
+I'm saying that it seems to me, as indicated by the API (and without
+proof otherwise that's how it is) the networking layer needs to have
+packets handed to it with softirqs disabled. Therefore, this patch is
+not needed. While it may not be _wrong_, it'll definitely introduce a
+performance regression.
 
->  	}
-> =20
-> -	return (data->h_dest[5] ^ bond_dev->dev_addr[5]) % count;
-> +	return (data->h_dest[5] ^ data->h_source[5]) % count;
->  }
+This really should be obvious. You're fixing the warning at the source
+of the warning, rather than the source of the problem.
 
-Could you check if bond->xmit_hash_policy(skb, bond_dev, bond->slave_cn=
-t);
-could be replaced by bond->xmit_hash_policy(skb, bond->slave_cnt),
-now that various implementations dont need bond_dev anymore ?
+johannes
 
-static int bond_xmit_hash_policy_l23(struct sk_buff *skb, int count) ..=
-=2E
+--=-CucNFXYmnSnNQhEM6i4T
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-Dont forget your "Signed-off-by: Jasper Spaans <spaans@fox-it.com>",
-copied to "David S. Miller" <davem@davemloft.net>  and "Jay Vosburgh" <=
-fubar@us.ibm.com>
-(respectively network and bonding maintainers)
+-----BEGIN PGP SIGNATURE-----
 
-Thanks
+iQIcBAABAgAGBQJK4BdSAAoJEODzc/N7+QmazNcP/1JmQK9nI+Lg9fAQRj+Anj4h
+dzuASnI6MGz+uSIueUNPQN7uv57tvD17jsftZzgR2MawI6WDJSNR6qZM2eICXKa6
+HUfxBlByQ7mQN+IuigMlop1ZGTHza7UjUVQq/YLsVU99y4LwAPZJIYddAbtiXzWq
+xrOPSSc1QUIjfgZct+FlJBrdS/G0JIxCNwyD7HyJcxaSyOuNW/lmqg7YEF6hnoCV
+NBVCszM0KUHaxQVumy97YnaIOvxC8w+fVycI4kvWDhKLhHfwowc+Vi3/Pkb5ofML
+WaWTvaoEGeml99YD2uprZb5vKWmKGm4NxHJr2s/3AC0xbDVLsXDg9hPVZdTwVE0d
+Hx4L4uYQC4hr9+TRrFBDYqymbYgbJ0ZufdrIwicygQBpOZfLDmx7M47LDGlbJ7D3
+LfE5PWu3C0+qegi9k5MI8w6DlyVlVAnG6jgWGgyNle5fOCg7cmN+IBGl57XrTVPF
+G1vRBDSFzBLDUQPRkBrwDO7rDNRoB3xiOAQiDNsKf1h0zdsDY4PlgOKlT6A6sVMC
+8UqB5D1nLM57IShUH+0bypp9GNEN7q2XGge8nyXYKDsMlPZjLOJMMUR5IdJZxnbS
+CeIWTQqoqu/inV381OWn4S20tofOQI38F4h4WOWswLUlRbWh+HDPTnfJpeim2Z7q
+u6tvV3UkEoicmPfJcqbD
+=aeCA
+-----END PGP SIGNATURE-----
+
+--=-CucNFXYmnSnNQhEM6i4T--
+
