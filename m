@@ -1,52 +1,54 @@
-From: Jens Axboe <jens.axboe@oracle.com>
-Subject: Re: [PATCH 5/5] ONLY-APPLY-IF-STILL-FAILING Revert 373c0a7e,
-	8aa7e847: Fix congestion_wait() sync/async vs read/write confusion
-Date: Thu, 22 Oct 2009 23:49:34 +0200
-Message-ID: <20091022214934.GQ10727@kernel.dk>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <1256221356-26049-6-git-send-email-mel@csn.ul.ie>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: Irq architecture for multi-core network driver.
+Date: Thu, 22 Oct 2009 16:05:30 -0600
+Message-ID: <4AE0D72A.4090607@nortel.com>
+References: <4AE0D14B.1070307@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Frans Pop <elendil@planet.nl>, Jiri Kosina <jkosina@suse.cz>,
-	Sven Geggus <lists@fuchsschwanzdomain.de>,
-	Karol Lewandowski <karol.k.lewandowski@gmail.com>,
-	Tobias Oetiker <tobi@oetiker.ch>, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	David Miller <davem@davemloft.net>,
-	Reinette Chatre <reinette.chatre@intel.com>,
-	Kalle Valo <kalle.valo@iki.fi>,
-	David Rientjes <rientjes@google.com>,
-	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-	Mohamed Abbas <mohamed.abbas@intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Stephan von Krawczynski <skraw@ithnet.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>
-To: Mel Gorman <mel@csn.ul.ie>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1256221356-26049-6-git-send-email-mel@csn.ul.ie>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-mips <linux-mips@linux-mips.org>
+To: David Daney <ddaney@caviumnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zrtps0kp.nortel.com ([47.140.192.56]:64454 "EHLO
+	zrtps0kp.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755146AbZJVWI6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2009 18:08:58 -0400
+In-Reply-To: <4AE0D14B.1070307@caviumnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 22 2009, Mel Gorman wrote:
-> Testing by Frans Pop indicates that in the 2.6.30..2.6.31 window at
-> least that the commits 373c0a7e 8aa7e847 dramatically increased the
-> number of GFP_ATOMIC failures that were occuring within a wireless
-> driver. It was never isolated which of the changes was the exact problem
-> and it's possible it has been fixed since. If problems are still
-> occuring with GFP_ATOMIC in 2.6.31-rc5, then this patch should be
-> applied to determine if the congestion_wait() callers are still broken.
+On 10/22/2009 03:40 PM, David Daney wrote:
 
-I still think this is a complete red herring.
+> The main problem I have encountered is how to fit the interrupt
+> management into the kernel framework.  Currently the interrupt source
+> is connected to a single irq number.  I request_irq, and then manage
+> the masking and unmasking on a per cpu basis by directly manipulating
+> the interrupt controller's affinity/routing registers.  This goes
+> behind the back of all the kernel's standard interrupt management
+> routines.  I am looking for a better approach.
+> 
+> One thing that comes to mind is that I could assign a different
+> interrupt number per cpu to the interrupt signal.  So instead of
+> having one irq I would have 32 of them.  The driver would then do
+> request_irq for all 32 irqs, and could call enable_irq and disable_irq
+> to enable and disable them.  The problem with this is that there isn't
+> really a single packets-ready signal, but instead 16 of them.  So If I
+> go this route I would have 16(lines) x 32(cpus) = 512 interrupt
+> numbers just for the networking hardware, which seems a bit excessive.
 
--- 
-Jens Axboe
+Does your hardware do flow-based queues?  In this model you have
+multiple rx queues and the hardware hashes incoming packets to a single
+queue based on the addresses, ports, etc. This ensures that all the
+packets of a single connection always get processed in the order they
+arrived at the net device.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Typically in this model you have as many interrupts as queues
+(presumably 16 in your case).  Each queue is assigned an interrupt and
+that interrupt is affined to a single core.
+
+The intel igb driver is an example of one that uses this sort of design.
+
+Chris
+
