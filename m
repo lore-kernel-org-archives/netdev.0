@@ -1,33 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] rtnetlink: rtnl_setlink() and
- rtnl_getlink() changes
-Date: Thu, 22 Oct 2009 04:34:20 -0700 (PDT)
-Message-ID: <20091022.043420.34866291.davem@davemloft.net>
-References: <4ADF7633.9050208@gmail.com>
+Subject: Re: [RFC] net,socket: introduce build_sockaddr_check helper to
+ catch overflow at build time
+Date: Thu, 22 Oct 2009 04:49:14 -0700 (PDT)
+Message-ID: <20091022.044914.36401063.davem@davemloft.net>
+References: <20091021170732.GE5976@lenovo>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: gorcunov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51183
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58939
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754812AbZJVLd5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2009 07:33:57 -0400
-In-Reply-To: <4ADF7633.9050208@gmail.com>
+	by vger.kernel.org with ESMTP id S1754362AbZJVLsw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2009 07:48:52 -0400
+In-Reply-To: <20091021170732.GE5976@lenovo>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 21 Oct 2009 22:59:31 +0200
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Date: Wed, 21 Oct 2009 21:07:32 +0400
 
-> rtnl_getlink() & rtnl_setlink() run with RTNL held, we can use
-> __dev_get_by_index() and __dev_get_by_name() variants and avoid
-> dev_hold()/dev_put()
+> net,socket: introduce build_sockaddr_check helper to catch overflow at build time
 > 
-> Adds to rtnl_getlink() the capability to find a device by its name,
-> not only by its index.
+> proto_ops->getname implies copying protocol specific data
+> into storage unit (particulary to __kernel_sockaddr_storage).
+> So when one implements new protocol he either may keep this
+> in mind (or may not).
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Lets introduce build_sockaddr_check helper which check if
+> storage unit is not overfowed. Note that the check is build
+> time and introduce no slowdown at execution time.
+> 
+> Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 
-Looks good, applied, thanks.
+Nice idea, and I wonder if we can automate it even further.
+Perhaps some tag that gets put on the socket address type
+definition or similar?
