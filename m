@@ -1,86 +1,86 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [net-next-2.6 PATCH 2/3] ixgbe: Set MSI-X vectors to
- NOBALANCING and set affinity
-Date: Thu, 22 Oct 2009 01:22:36 -0700
-Message-ID: <1256199756.2634.65.camel@ppwaskie-mobl2>
-References: <20091021022626.32449.73883.stgit@localhost.localdomain>
-	 <20091021022713.32449.54868.stgit@localhost.localdomain>
-	 <20091021.215031.57955781.davem@davemloft.net>
+From: Xiaotian Feng <xtfeng@gmail.com>
+Subject: [PATCH] isdn: fix possible circular locking dependency
+Date: Thu, 22 Oct 2009 17:07:04 +0800
+Message-ID: <1256202424-28314-1-git-send-email-xtfeng@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:38110 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752664AbZJVIX7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Oct 2009 04:23:59 -0400
-In-Reply-To: <20091021.215031.57955781.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: tilman@imap.cc, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Xiaotian Feng <xtfeng@gmail.com>
+To: isdn@linux-pingi.de, isdn4linux@listserv.isdn4linux.de
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754405AbZJVJGq@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2009-10-21 at 21:50 -0700, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Tue, 20 Oct 2009 19:27:14 -0700
-> 
-> > From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> > 
-> > This patch will set each MSI-X vector to IRQF_NOBALANCING to
-> > prevent autobalance of the interrupts, then applies a CPU
-> > affinity.  This will only be done when Flow Director is enabled,
-> > which needs interrupts to be processed on the same CPUs where the
-> > applications are running.
-> > 
-> > Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> 
-> Just explain to me why irqbalanced in userspace cannot take care
-> of this issue.
+There's a circular locking dependency:
 
-The problem we have is when Flow Director is enabled, we want to try and
-balance the applications across all CPUs.  irqbalance is going to fight
-with the scheduler to balance things, and our tests show that irqbalance
-only utilizes a few of the CPU cores, not all of them.  That fights
-directly with Flow Director and what it's trying to do.
+---> isdn_net_get_locked_lp
+=C2=A0 =C2=A0 --->lock &nd->queue_lock
+=C2=A0 =C2=A0 --->lock &nd->queue->xmit_lock
+=C2=A0 =C2=A0 .....................
+=C2=A0 =C2=A0 ---->unlock &nd->queue_lock
 
-> Second, even if we cannot use irqbalanced for some reason, the last
-> thing I want to see is drivers directly fiddling with interrupt
-> states and attributes.  Every driver is going to do it every so
-> slightly differently, and often will get it wrong.
+---> isdn_net_writebuf_skb (called with &nd->queue->xmit_lock locked)
+=C2=A0 =C2=A0 ---->isdn_net_inc_frame_cnt
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0---->isdn_net_device_busy
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ----> lock &nd->queue_=
+lock
 
-The first thing any performance guide says is to disable irqbalance, and
-affinitize the interrupts in /proc/irq/<irq>/smp_affinity.  This will
-ensure the best distribution of work.  The major disadvantage in doing
-this is disabling irqbalance affects the entire system.  What this
-patchset is trying to do is make sure a single driver, trying to
-optimize for performance, doesn't need to affect the entire system.
-Setting no-balancing on a vector is the best approach for the entire
-system.
+This will trigger lockdep warnings:
 
-I completely understand your concern that this opens precedent for other
-drivers to potentially start doing crazy things with interrupts, but
-with MSI-X, we're only impacting our driver.
+=C2=A0=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D
+=C2=A0[ INFO: possible circular locking dependency detected ]
+=C2=A02.6.32-rc4-testing #7
+=C2=A0-------------------------------------------------------
+=C2=A0ipppd/28379 is trying to acquire lock:
+=C2=A0(&netdev->queue_lock){......}, at: [<e62ad0fd>] isdn_net_device_b=
+usy+0x2c/0x74 [isdn]
 
-> There is also no global policy or policy control available when
-> drivers do this stuff directly.  And that's how we end up with
-> situations where every driver behaves differently which results in a
-> terrible user experience.
+=C2=A0but task is already holding lock:
+=C2=A0(&netdev->local->xmit_lock){+.....}, at: [<e62aefc2>] isdn_net_wr=
+ite_super+0x3f/0x6e [isdn]
 
-Again, I think the overall impact is worse where the normal approach to
-performance tuning is to altogether disable irqbalancing.  The same
-effect can be attained by a user disabling irqbalance, and assigning
-whatever affinity they want, which could be even more devastating.  What
-we're trying to do here is have the driver come as best tuned out of the
-box as possible.
+=C2=A0which lock already depends on the new lock.
+ .......
 
-If there's something about this particular implementation you're not
-comfortable with, I'm very willing to take any feedback on it.  We're
-trying to do a specific thing, not lead poor design in drivers when
-dealing with interrupts.
+ We don't need to lock nd->queue->xmit_lock to protect single
+isdn_net_lp_busy(). This can fix above lockdep warnings.
 
-Regards,
--PJ Waskiewicz
+Reported-and-tested-by: Tilman Schmidt <tilman@imap.cc>
+Signed-off-by: Xiaotian Feng <xtfeng@gmail.com>
+---
+ drivers/isdn/i4l/isdn_net.h |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/isdn/i4l/isdn_net.h b/drivers/isdn/i4l/isdn_net.h
+index 74032d0..7511f08 100644
+--- a/drivers/isdn/i4l/isdn_net.h
++++ b/drivers/isdn/i4l/isdn_net.h
+@@ -83,19 +83,19 @@ static __inline__ isdn_net_local * isdn_net_get_loc=
+ked_lp(isdn_net_dev *nd)
+=20
+ 	spin_lock_irqsave(&nd->queue_lock, flags);
+ 	lp =3D nd->queue;         /* get lp on top of queue */
+-	spin_lock(&nd->queue->xmit_lock);
+ 	while (isdn_net_lp_busy(nd->queue)) {
+-		spin_unlock(&nd->queue->xmit_lock);
+ 		nd->queue =3D nd->queue->next;
+ 		if (nd->queue =3D=3D lp) { /* not found -- should never happen */
+ 			lp =3D NULL;
+ 			goto errout;
+ 		}
+-		spin_lock(&nd->queue->xmit_lock);
+ 	}
+ 	lp =3D nd->queue;
+ 	nd->queue =3D nd->queue->next;
++	spin_unlock_irqrestore(&nd->queue_lock, flags);
++	spin_lock(&lp->xmit_lock);
+ 	local_bh_disable();
++	return lp;
+ errout:
+ 	spin_unlock_irqrestore(&nd->queue_lock, flags);
+ 	return lp;
+--=20
+1.6.2.5
