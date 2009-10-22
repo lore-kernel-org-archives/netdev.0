@@ -1,8 +1,8 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [PATCH net-next-2.6 3/4] e1000e: use mc helpers to
-	access	multicast list
-Date: Thu, 22 Oct 2009 15:54:05 +0200
-Message-ID: <20091022135404.GF2868@psychotron.lab.eng.brq.redhat.com>
+Subject: Re: [PATCH net-next-2.6 0/4] net: change the way
+	mc_list is	accessed
+Date: Thu, 22 Oct 2009 15:54:47 +0200
+Message-ID: <20091022135446.GG2868@psychotron.lab.eng.brq.redhat.com>
 References: <20091022135120.GC2868@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,74 +28,60 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- drivers/net/e1000e/netdev.c |   34 +++++++++++++++++++---------------
- 1 files changed, 19 insertions(+), 15 deletions(-)
+ drivers/media/dvb/dvb-core/dvb_net.c |   22 +++++++---------------
+ 1 files changed, 7 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 3769248..97cd106 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -2529,6 +2529,17 @@ static void e1000_update_mc_addr_list(struct e1000_hw *hw, u8 *mc_addr_list,
+diff --git a/drivers/media/dvb/dvb-core/dvb_net.c b/drivers/media/dvb/dvb-core/dvb_net.c
+index 8c9ae0a..eb50fb0 100644
+--- a/drivers/media/dvb/dvb-core/dvb_net.c
++++ b/drivers/media/dvb/dvb-core/dvb_net.c
+@@ -1110,17 +1110,16 @@ static int dvb_net_feed_stop(struct net_device *dev)
  }
  
- /**
-+ * e1000_mc_walker - helper function
-+ **/
-+static void e1000_mc_walker(void *data, unsigned char *addr)
-+{
-+	u8 **mta_list_i = data;
-+
-+	memcpy(*mta_list_i, addr, ETH_ALEN);
-+	*mta_list_i += ETH_ALEN;
-+}
-+
-+/**
-  * e1000_set_multi - Multicast and Promiscuous mode set
-  * @netdev: network interface device structure
-  *
-@@ -2542,10 +2553,9 @@ static void e1000_set_multi(struct net_device *netdev)
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct e1000_mac_info *mac = &hw->mac;
--	struct dev_mc_list *mc_ptr;
--	u8  *mta_list;
-+	u8  *mta_list, *mta_list_i;
- 	u32 rctl;
--	int i;
-+	int mc_count;
  
- 	/* Check for Promiscuous and All Multicast modes */
+-static int dvb_set_mc_filter (struct net_device *dev, struct dev_mc_list *mc)
++static void dvb_set_mc_filter(void *data, unsigned char *addr)
+ {
+-	struct dvb_net_priv *priv = netdev_priv(dev);
++	struct dvb_net_priv *priv = data;
  
-@@ -2567,23 +2577,17 @@ static void e1000_set_multi(struct net_device *netdev)
+ 	if (priv->multi_num == DVB_NET_MULTICAST_MAX)
+-		return -ENOMEM;
++		return;
  
- 	ew32(RCTL, rctl);
+-	memcpy(priv->multi_macs[priv->multi_num], mc->dmi_addr, 6);
++	memcpy(priv->multi_macs[priv->multi_num], addr, ETH_ALEN);
  
--	if (netdev->mc_count) {
--		mta_list = kmalloc(netdev->mc_count * 6, GFP_ATOMIC);
-+	mc_count = netdev_mc_count(netdev);
-+	if (mc_count) {
-+		mta_list = kmalloc(mc_count * ETH_ALEN, GFP_ATOMIC);
- 		if (!mta_list)
- 			return;
+ 	priv->multi_num++;
+-	return 0;
+ }
  
- 		/* prepare a packed array of only addresses. */
--		mc_ptr = netdev->mc_list;
+ 
+@@ -1140,21 +1139,14 @@ static void wq_set_multicast_list (struct work_struct *work)
+ 	} else if ((dev->flags & IFF_ALLMULTI)) {
+ 		dprintk("%s: allmulti mode\n", dev->name);
+ 		priv->rx_mode = RX_MODE_ALL_MULTI;
+-	} else if (dev->mc_count) {
+-		int mci;
+-		struct dev_mc_list *mc;
 -
--		for (i = 0; i < netdev->mc_count; i++) {
--			if (!mc_ptr)
--				break;
--			memcpy(mta_list + (i*ETH_ALEN), mc_ptr->dmi_addr,
--			       ETH_ALEN);
--			mc_ptr = mc_ptr->next;
--		}
-+		mta_list_i = mta_list;
-+		netdev_mc_walk(netdev, e1000_mc_walker, &mta_list_i);
++	} else if (netdev_mc_count(dev)) {
+ 		dprintk("%s: set_mc_list, %d entries\n",
+-			dev->name, dev->mc_count);
++			dev->name, netdev_mc_count(dev));
  
--		e1000_update_mc_addr_list(hw, mta_list, i, 1,
-+		e1000_update_mc_addr_list(hw, mta_list, mc_count, 1,
- 					  mac->rar_entry_count);
- 		kfree(mta_list);
- 	} else {
+ 		priv->rx_mode = RX_MODE_MULTI;
+ 		priv->multi_num = 0;
+ 
+-		for (mci = 0, mc=dev->mc_list;
+-		     mci < dev->mc_count;
+-		     mc = mc->next, mci++) {
+-			dvb_set_mc_filter(dev, mc);
+-		}
++		netdev_mc_walk(dev, dvb_set_mc_filter, priv);
+ 	}
+ 
+ 	netif_addr_unlock_bh(dev);
 -- 
 1.6.2.5
 
