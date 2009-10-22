@@ -1,66 +1,97 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next-2.6 1/4] net: introduce mc list helpers
-Date: Thu, 22 Oct 2009 15:18:32 +0100
-Message-ID: <1256221112.2785.13.camel@achroite>
-References: <20091022135120.GC2868@psychotron.lab.eng.brq.redhat.com>
-	 <20091022135220.GD2868@psychotron.lab.eng.brq.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	eric.dumazet@gmail.com, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com,
-	e1000-devel@lists.sourceforge.net, mchehab@infradead.org,
-	linux-media@vger.kernel.org
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:53672 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754812AbZJVOSc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2009 10:18:32 -0400
-In-Reply-To: <20091022135220.GD2868@psychotron.lab.eng.brq.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mel Gorman <mel@csn.ul.ie>
+Subject: [PATCH 4/5] page allocator: Pre-emptively wake kswapd when high-order watermarks are hit
+Date: Thu, 22 Oct 2009 15:22:35 +0100
+Message-ID: <1256221356-26049-5-git-send-email-mel@csn.ul.ie>
+References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, David Miller <davem@davemloft.net>, Reinette Chatre <reinette.chatre@intel.com>, Kalle Valo <kalle.valo@iki.fi>, David Rientjes <rientjes@google.com>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Mohamed Abbas <mohamed.abbas@intel.com>, Jens Axboe <jens.axboe@oracle.com>, "John W. Linville" <linville@tuxdriver.com>, Pekka Enberg <penberg@cs.helsinki.fi>, Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>, Greg Kroah-Hartman <gregkh@suse.de>, Stephan von Krawczynski <skraw@ithnet.com>, Kernel Testers List <kernel-testers@vger.kernel.org>, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, "linux-mm@kvack.org\"" <linux-mm@kvack.org>, Mel Gorman <mel@csn.ul.ie>
+To: Frans Pop <elendil@planet.nl>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Sven Geggus <lists@fuchsschwanzdomain.de>,
+	Karol Lewandowski <karol.k.lewandowski@gmail.com>,
+	Tobias Oetiker <tobi@oetiker.ch>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2009-10-22 at 15:52 +0200, Jiri Pirko wrote:
-> This helpers should be used by network drivers to access to netdev
-> multicast lists.
-[...]
-> +static inline void netdev_mc_walk(struct net_device *dev,
-> +				  void (*func)(void *, unsigned char *),
-> +				  void *data)
-> +{
-> +	struct dev_addr_list *mclist;
-> +	int i;
-> +
-> +	for (i =3D 0, mclist =3D dev->mc_list; mclist && i < dev->mc_count;
-> +	     i++, mclist =3D mclist->next)
-> +		func(data, mclist->dmi_addr);
-> +}
-[...]
+When a high-order allocation fails, kswapd is kicked so that it reclaims
+at a higher-order to avoid direct reclaimers stall and to help GFP_ATOMIC
+allocations. Something has changed in recent kernels that affect the timing
+where high-order GFP_ATOMIC allocations are now failing with more frequency,
+particularly under pressure.
 
-=EF=BB=BFWe usually implement iteration as macros so that any context d=
-oesn't
-have to be squeezed through a single untyped (void *) variable.  A macr=
-o
-for this would look something like:
+This patch pre-emptively checks if watermarks have been hit after a
+high-order allocation completes successfully. If the watermarks have been
+reached, kswapd is woken in the hope it fixes the watermarks before the
+next GFP_ATOMIC allocation fails.
 
-#define netdev_for_each_mc_addr(dev, addr)						\
-	for (addr =3D (dev)->mc_list ? (dev)->mc_list->dmi_addr : NULL;			\
-	     addr;									\
-	     addr =3D (container_of(addr, struct dev_addr_list, dmi_addr)->nex=
-t ?		\
-		     =EF=BB=BFcontainer_of(addr, struct dev_addr_list, dmi_addr)->nex=
-t->dmi_addr : \
-		     NULL))
+Warning, this patch is somewhat of a band-aid. If this makes a difference,
+it still implies that something has changed that is either causing more
+GFP_ATOMIC allocations to occur (such as the case with iwlagn wireless
+driver) or make them more likely to fail.
 
-Once you change the list type this can presumably be made less ugly.
+Signed-off-by: Mel Gorman <mel@csn.ul.ie>
+---
+ mm/page_alloc.c |   33 ++++++++++++++++++++++-----------
+ 1 files changed, 22 insertions(+), 11 deletions(-)
 
-Ben.
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 7f2aa3e..851df40 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -1596,6 +1596,17 @@ try_next_zone:
+ 	return page;
+ }
+ 
++static inline
++void wake_all_kswapd(unsigned int order, struct zonelist *zonelist,
++						enum zone_type high_zoneidx)
++{
++	struct zoneref *z;
++	struct zone *zone;
++
++	for_each_zone_zonelist(zone, z, zonelist, high_zoneidx)
++		wakeup_kswapd(zone, order);
++}
++
+ static inline int
+ should_alloc_retry(gfp_t gfp_mask, unsigned int order,
+ 				unsigned long pages_reclaimed)
+@@ -1730,18 +1741,18 @@ __alloc_pages_high_priority(gfp_t gfp_mask, unsigned int order,
+ 			congestion_wait(BLK_RW_ASYNC, HZ/50);
+ 	} while (!page && (gfp_mask & __GFP_NOFAIL));
+ 
+-	return page;
+-}
+-
+-static inline
+-void wake_all_kswapd(unsigned int order, struct zonelist *zonelist,
+-						enum zone_type high_zoneidx)
+-{
+-	struct zoneref *z;
+-	struct zone *zone;
++	/*
++	 * If after a high-order allocation we are now below watermarks,
++	 * pre-emptively kick kswapd rather than having the next allocation
++	 * fail and have to wake up kswapd, potentially failing GFP_ATOMIC
++	 * allocations or entering direct reclaim
++	 */
++	if (unlikely(order) && page && !zone_watermark_ok(preferred_zone, order,
++				preferred_zone->watermark[ALLOC_WMARK_LOW],
++				zone_idx(preferred_zone), ALLOC_WMARK_LOW))
++		wake_all_kswapd(order, zonelist, high_zoneidx);
+ 
+-	for_each_zone_zonelist(zone, z, zonelist, high_zoneidx)
+-		wakeup_kswapd(zone, order);
++	return page;
+ }
+ 
+ static inline int
+-- 
+1.6.3.3
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
