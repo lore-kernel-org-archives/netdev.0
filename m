@@ -1,65 +1,82 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [RFC] net,socket: introduce build_sockaddr_check helper to
-	catch overflow at build time
-Date: Thu, 22 Oct 2009 17:55:57 +0400
-Message-ID: <20091022135557.GA5162@lenovo>
-References: <20091021170732.GE5976@lenovo> <20091022.044914.36401063.davem@davemloft.net>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH net-next-2.6 0/4] net: change the way mc_list is
+	accessed
+Date: Thu, 22 Oct 2009 15:56:29 +0200
+Message-ID: <20091022135628.GH2868@psychotron.lab.eng.brq.redhat.com>
+References: <20091022135120.GC2868@psychotron.lab.eng.brq.redhat.com> <20091022135446.GG2868@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f207.google.com ([209.85.219.207]:57382 "EHLO
-	mail-ew0-f207.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755992AbZJVNz5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2009 09:55:57 -0400
-Received: by ewy3 with SMTP id 3so604862ewy.17
-        for <netdev@vger.kernel.org>; Thu, 22 Oct 2009 06:56:01 -0700 (PDT)
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, peter.p.waskiewicz.jr@intel.com,
+	john.ronciak@intel.com, e1000-devel@lists.sourceforge.net,
+	mchehab@infradead.org, linux-media@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-media-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20091022.044914.36401063.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20091022135446.GG2868@psychotron.lab.eng.brq.redhat.com>
+Sender: linux-media-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[David Miller - Thu, Oct 22, 2009 at 04:49:14AM -0700]
-| From: Cyrill Gorcunov <gorcunov@gmail.com>
-| Date: Wed, 21 Oct 2009 21:07:32 +0400
-| 
-| > net,socket: introduce build_sockaddr_check helper to catch overflow at build time
-| > 
-| > proto_ops->getname implies copying protocol specific data
-| > into storage unit (particulary to __kernel_sockaddr_storage).
-| > So when one implements new protocol he either may keep this
-| > in mind (or may not).
-| > 
-| > Lets introduce build_sockaddr_check helper which check if
-| > storage unit is not overfowed. Note that the check is build
-| > time and introduce no slowdown at execution time.
-| > 
-| > Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
-| 
-| Nice idea, and I wonder if we can automate it even further.
-| Perhaps some tag that gets put on the socket address type
-| definition or similar?
-| 
+wrong subject... reposting...
 
-Thanks for review David! Not sure if I understand you right.
-Initially I was trying to bring as minimum changes as possible.
-Also I was shuffle in mind the following possibilities:
-
-1) Since at least one .getname handler use memcpy, we could
-   introduce some helper which check size (at build time) and
-   then do memcpy (not optimal perhaps).
-
-
-2) All handlers set *len to some size explicitly so we may
-   introduce set_sockaddr_size() helper like
-
-#define set_sockaddr_size(ptr, size)		\
-	do {					\
-		build_sockaddr_check(size);	\
-		*ptr = size;			\
-	} while (0)
-
-Or you meant something completely different?
-
-	-- Cyrill
+Thu, Oct 22, 2009 at 03:54:47PM CEST, jpirko@redhat.com wrote:
+>Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>---
+> drivers/media/dvb/dvb-core/dvb_net.c |   22 +++++++---------------
+> 1 files changed, 7 insertions(+), 15 deletions(-)
+>
+>diff --git a/drivers/media/dvb/dvb-core/dvb_net.c b/drivers/media/dvb/dvb-core/dvb_net.c
+>index 8c9ae0a..eb50fb0 100644
+>--- a/drivers/media/dvb/dvb-core/dvb_net.c
+>+++ b/drivers/media/dvb/dvb-core/dvb_net.c
+>@@ -1110,17 +1110,16 @@ static int dvb_net_feed_stop(struct net_device *dev)
+> }
+> 
+> 
+>-static int dvb_set_mc_filter (struct net_device *dev, struct dev_mc_list *mc)
+>+static void dvb_set_mc_filter(void *data, unsigned char *addr)
+> {
+>-	struct dvb_net_priv *priv = netdev_priv(dev);
+>+	struct dvb_net_priv *priv = data;
+> 
+> 	if (priv->multi_num == DVB_NET_MULTICAST_MAX)
+>-		return -ENOMEM;
+>+		return;
+> 
+>-	memcpy(priv->multi_macs[priv->multi_num], mc->dmi_addr, 6);
+>+	memcpy(priv->multi_macs[priv->multi_num], addr, ETH_ALEN);
+> 
+> 	priv->multi_num++;
+>-	return 0;
+> }
+> 
+> 
+>@@ -1140,21 +1139,14 @@ static void wq_set_multicast_list (struct work_struct *work)
+> 	} else if ((dev->flags & IFF_ALLMULTI)) {
+> 		dprintk("%s: allmulti mode\n", dev->name);
+> 		priv->rx_mode = RX_MODE_ALL_MULTI;
+>-	} else if (dev->mc_count) {
+>-		int mci;
+>-		struct dev_mc_list *mc;
+>-
+>+	} else if (netdev_mc_count(dev)) {
+> 		dprintk("%s: set_mc_list, %d entries\n",
+>-			dev->name, dev->mc_count);
+>+			dev->name, netdev_mc_count(dev));
+> 
+> 		priv->rx_mode = RX_MODE_MULTI;
+> 		priv->multi_num = 0;
+> 
+>-		for (mci = 0, mc=dev->mc_list;
+>-		     mci < dev->mc_count;
+>-		     mc = mc->next, mci++) {
+>-			dvb_set_mc_filter(dev, mc);
+>-		}
+>+		netdev_mc_walk(dev, dvb_set_mc_filter, priv);
+> 	}
+> 
+> 	netif_addr_unlock_bh(dev);
+>-- 
+>1.6.2.5
+>
