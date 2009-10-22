@@ -1,46 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 8/8] Document future removal of sysctl_tcp_* options
-Date: Thu, 22 Oct 2009 06:57:25 +0200
-Message-ID: <4ADFE635.4020109@gmail.com>
-References: <1256115421-12714-1-git-send-email-gilad@codefidence.com>	<1256115421-12714-9-git-send-email-gilad@codefidence.com>	<4ADED6FA.2030502@gmail.com>	<4ADEE119.7020803@codefidence.com>	<4ADF616B.1090405@gmail.com> <20091022003245.5cd4885c.billfink@mindspring.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: William Allen Simpson <william.allen.simpson@gmail.com>,
-	netdev@vger.kernel.org
-To: Bill Fink <billfink@mindspring.com>
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [PATCH 1/3] netxen: fix i2c init
+Date: Wed, 21 Oct 2009 22:39:01 -0700
+Message-ID: <1256189943-20477-2-git-send-email-dhananjay@netxen.com>
+References: <1256189943-20477-1-git-send-email-dhananjay@netxen.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:37812 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751919AbZJVE51 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2009 00:57:27 -0400
-In-Reply-To: <20091022003245.5cd4885c.billfink@mindspring.com>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:24196 "HELO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1751815AbZJVFjA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Oct 2009 01:39:00 -0400
+In-Reply-To: <1256189943-20477-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bill Fink a =E9crit :
+Avoid resetting subsys ID in i2c block. Also remove duplicate
+check for address tranlsation error.
 
-> And as mentioned previously, the global options can be quite useful
-> in certain test scenarios.  I also agree the per route settings are
-> a very useful addition.  I think the global and per route settings
-> are complementary and shouldn't be thought of as in conflict with
-> one another.
->=20
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+---
+ drivers/net/netxen/netxen_nic_hdr.h  |    1 +
+ drivers/net/netxen/netxen_nic_init.c |    8 ++------
+ 2 files changed, 3 insertions(+), 6 deletions(-)
 
-Absolutely, global setting is a must when an admin wants a quick path.
+diff --git a/drivers/net/netxen/netxen_nic_hdr.h b/drivers/net/netxen/netxen_nic_hdr.h
+index 7a71774..1c46da6 100644
+--- a/drivers/net/netxen/netxen_nic_hdr.h
++++ b/drivers/net/netxen/netxen_nic_hdr.h
+@@ -419,6 +419,7 @@ enum {
+ #define NETXEN_CRB_ROMUSB	\
+ 	NETXEN_PCI_CRB_WINDOW(NETXEN_HW_PX_MAP_CRB_ROMUSB)
+ #define NETXEN_CRB_I2Q		NETXEN_PCI_CRB_WINDOW(NETXEN_HW_PX_MAP_CRB_I2Q)
++#define NETXEN_CRB_I2C0		NETXEN_PCI_CRB_WINDOW(NETXEN_HW_PX_MAP_CRB_I2C0)
+ #define NETXEN_CRB_SMB		NETXEN_PCI_CRB_WINDOW(NETXEN_HW_PX_MAP_CRB_SMB)
+ #define NETXEN_CRB_MAX		NETXEN_PCI_CRB_WINDOW(64)
+ 
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index 91c2bc6..e40b914 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -531,6 +531,8 @@ int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
+ 			continue;
+ 
+ 		if (NX_IS_REVISION_P3(adapter->ahw.revision_id)) {
++			if (off == (NETXEN_CRB_I2C0 + 0x1c))
++				continue;
+ 			/* do not reset PCI */
+ 			if (off == (ROMUSB_GLB + 0xbc))
+ 				continue;
+@@ -553,12 +555,6 @@ int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
+ 				continue;
+ 		}
+ 
+-		if (off == NETXEN_ADDR_ERROR) {
+-			printk(KERN_ERR "%s: Err: Unknown addr: 0x%08x\n",
+-					netxen_nic_driver_name, buf[i].addr);
+-			continue;
+-		}
+-
+ 		init_delay = 1;
+ 		/* After writing this register, HW needs time for CRB */
+ 		/* to quiet down (else crb_window returns 0xffffffff) */
+-- 
+1.6.0.2
 
-The more flexible would be to have two bits per route, plus
-2 bits on the global configuration.
-
-global conf:
-00 : timestamps OFF, unless a route setting is not 00
-01 : timestamps ON, unless a route setting is not 00
-10 : Force timestamps OFF, ignore route settings (emergency sysadmin re=
-quest)
-11 : Force timestamps ON, ignore route settings=20
-
-Route settings (used *only* if global setting is 0Y)
-00 : global conf is used
-01 : Force timestamps being OFF for this route
-10 : Force timestamps being ON for this route
-11 : complement global conf
