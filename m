@@ -1,107 +1,91 @@
-From: Mel Gorman <mel@csn.ul.ie>
-Subject: Re: [PATCH 1/5] page allocator: Always wake kswapd when restarting
-	an allocation attempt after direct reclaim failed
-Date: Thu, 22 Oct 2009 16:49:13 +0100
-Message-ID: <20091022154913.GQ11778@csn.ul.ie>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <1256221356-26049-2-git-send-email-mel@csn.ul.ie> <84144f020910220741o51c7e3dajcfd7b78d6dbbc4eb@mail.gmail.com>
+From: Mel Gorman <mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
+	failures V2
+Date: Thu, 22 Oct 2009 17:03:10 +0100
+Message-ID: <20091022160310.GS11778@csn.ul.ie>
+References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <84144f020910220747nba30d8bkc83c2569da79bd7c@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-15
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Frans Pop <elendil@planet.nl>, Jiri Kosina <jkosina@suse.cz>,
-	Sven Geggus <lists@fuchsschwanzdomain.de>,
-	Karol Lewandowski <karol.k.lewandowski@gmail.com>,
-	Tobias Oetiker <tobi@oetiker.ch>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	David Miller <davem@davemloft.net>,
-	Reinette Chatre <reinette.chatre@intel.com>,
-	Kalle Valo <kalle.valo@iki.fi>,
-	David Rientjes <rientjes@google.com>,
-	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-	Mohamed Abbas <mohamed.abbas@intel.com>,
-	Jens Axboe <jens.axboe@oracle.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Stephan von Krawczynski <skraw@ithnet.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>
-To: Pekka Enberg <penberg@cs.helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gir.skynet.ie ([193.1.99.77]:44653 "EHLO gir.skynet.ie"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756512AbZJVPtI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Oct 2009 11:49:08 -0400
+Cc: Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>, Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
+	Sven Geggus <lists-+AJD3D7QEjjt/htJsj1pd9AswbaBtrod@public.gmane.org>,
+	Karol Lewandowski <karol.k.lewandowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Tobias Oetiker <tobi-7K0TWYW2a3pyDzI6CaY1VQ@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Reinette Chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>,
+	David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
+	Mohamed Abbas <mohamed.abbas-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Jens Axboe <jens.axboe-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
+	Stephan von Krawczynski <skraw-DcQCyzbjH0jQT0dZR+AlfA@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org" <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, cl-de/tnXTf+JLsfHDXvbKv3Sm6D+HspMUB@public.gmane.org
+To: Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <84144f020910220741o51c7e3dajcfd7b78d6dbbc4eb@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <84144f020910220747nba30d8bkc83c2569da79bd7c-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 22, 2009 at 05:41:53PM +0300, Pekka Enberg wrote:
-> On Thu, Oct 22, 2009 at 5:22 PM, Mel Gorman <mel@csn.ul.ie> wrote:
-> > If a direct reclaim makes no forward progress, it considers whether=
- it
-> > should go OOM or not. Whether OOM is triggered or not, it may retry=
- the
-> > application afterwards. In times past, this would always wake kswap=
-d as well
-> > but currently, kswapd is not woken up after direct reclaim fails. F=
-or order-0
-> > allocations, this makes little difference but if there is a heavy m=
-ix of
-> > higher-order allocations that direct reclaim is failing for, it mig=
-ht mean
-> > that kswapd is not rewoken for higher orders as much as it did prev=
-iously.
+On Thu, Oct 22, 2009 at 05:47:10PM +0300, Pekka Enberg wrote:
+> On Thu, Oct 22, 2009 at 5:22 PM, Mel Gorman <mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org> wrote:
+> > Test 1: Verify your problem occurs on 2.6.32-rc5 if you can
 > >
-> > This patch wakes up kswapd when an allocation is being retried afte=
-r a direct
-> > reclaim failure. It would be expected that kswapd is already awake,=
- but
-> > this has the effect of telling kswapd to reclaim at the higher orde=
-r as well.
+> > Test 2: Apply the following two patches and test again
 > >
-> > Signed-off-by: Mel Gorman <mel@csn.ul.ie>
+> > =A01/5 page allocator: Always wake kswapd when restarting an alloca=
+tion attempt after direct reclaim failed
+> > =A02/5 page allocator: Do not allow interrupts to use ALLOC_HARDER
 >=20
-> You seem to have dropped the Reviewed-by tags from me and Christoph
-> for this patch.
+> These are pretty obvious bug fixes and should go to linux-next ASAP I=
+MHO.
 >=20
 
-My apologies. I missed then when going through the old mails.
+Agreed, but I wanted to pin down where exactly we stand with this
+problem before sending patches any direction for merging.
 
-> > =A0mm/page_alloc.c | =A0 =A02 +-
-> > =A01 files changed, 1 insertions(+), 1 deletions(-)
+> > Test 5: If things are still screwed, apply the following
+> > =A05/5 Revert 373c0a7e, 8aa7e847: Fix congestion_wait() sync/async =
+vs read/write confusion
 > >
-> > diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-> > index bf72055..dfa4362 100644
-> > --- a/mm/page_alloc.c
-> > +++ b/mm/page_alloc.c
-> > @@ -1817,9 +1817,9 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsign=
-ed int order,
-> > =A0 =A0 =A0 =A0if (NUMA_BUILD && (gfp_mask & GFP_THISNODE) =3D=3D G=
-=46P_THISNODE)
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto nopage;
-> >
-> > +restart:
-> > =A0 =A0 =A0 =A0wake_all_kswapd(order, zonelist, high_zoneidx);
-> >
-> > -restart:
-> > =A0 =A0 =A0 =A0/*
-> > =A0 =A0 =A0 =A0 * OK, we're below the kswapd watermark and have kic=
-ked background
-> > =A0 =A0 =A0 =A0 * reclaim. Now things get more complex, so set up a=
-lloc_flags according
-> > --
-> > 1.6.3.3
-> >
-> > --
-> > To unsubscribe, send a message with 'unsubscribe linux-mm' in
-> > the body to majordomo@kvack.org. =A0For more info on Linux MM,
-> > see: http://www.linux-mm.org/ .
-> > Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a=
->
-> >
+> > =A0 =A0 =A0 =A0Frans Pop reports that the bulk of his problems go a=
+way when this
+> > =A0 =A0 =A0 =A0patch is reverted on 2.6.31. There has been some con=
+fusion on why
+> > =A0 =A0 =A0 =A0exactly this patch was wrong but apparently the conv=
+ersion was not
+> > =A0 =A0 =A0 =A0complete and further work was required. It's unknown=
+ if all the
+> > =A0 =A0 =A0 =A0necessary work exists in 2.6.31-rc5 or not. If there=
+ are still
+> > =A0 =A0 =A0 =A0allocation failures and applying this patch fixes th=
+e problem,
+> > =A0 =A0 =A0 =A0there are still snags that need to be ironed out.
 >=20
+> As explained by Jens Axboe, this changes timing but is not the source
+> of the OOMs so the revert is bogus even if it "helps" on some
+> workloads. IIRC the person who reported the revert to help things did
+> report that the OOMs did not go away, they were simply harder to
+> trigger with the revert.
+>=20
+
+IIRC, there were mixed reports as to how much the revert helped.  I'm h=
+oping
+that patches 1+2 cover the bases hence why I asked them to be tested on
+their own. Patch 2 in particular might be responsible for watermarks be=
+ing
+impacted enough to cause timing problems. I left reverting with patch 5=
+ as
+a standalone test to see how much of a factor the timing changes introd=
+uced
+are if there are still allocation problems.
 
 --=20
 Mel Gorman
