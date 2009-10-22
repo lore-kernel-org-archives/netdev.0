@@ -1,68 +1,38 @@
-From: Jasper Spaans <spaans@fox-it.com>
-Subject: bridging + load balancing bonding
-Date: Thu, 22 Oct 2009 14:23:39 +0200
-Message-ID: <20091022122339.GA20148@spaans.fox.local>
+From: almaop@poczta.fm
+Subject: =?UTF-8?q?iproute2:_2_questions?=
+Date: 22 Oct 2009 14:42:21 +0200
+Message-ID: <20091022124221.55FCE1A530EE@f12.poczta.interia.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-To: <netdev@vger.kernel.org>
+Content-Type: TEXT/plain; CHARSET=UTF-8
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.fox-it.com ([82.94.91.210]:34835 "EHLO mail2.fox-it.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755443AbZJVM6B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Oct 2009 08:58:01 -0400
-Received: from localhost (mail2 [127.0.0.1])
-	by mail2.fox-it.com (Postfix) with ESMTP id C4E1E4EC84
-	for <netdev@vger.kernel.org>; Thu, 22 Oct 2009 14:23:44 +0200 (CEST)
-Received: from mail2.fox-it.com ([127.0.0.1])
- by localhost (mail2.fox-it.com [127.0.0.1]) (amavisd-new, port 10024)
- with ESMTP id 12889-09 for <netdev@vger.kernel.org>;
- Thu, 22 Oct 2009 14:23:44 +0200 (CEST)
-Received: from FOXDFT02.FOX.local (unknown [10.0.0.66])
-	by mail2.fox-it.com (Postfix) with ESMTP
-	for <netdev@vger.kernel.org>; Thu, 22 Oct 2009 14:23:44 +0200 (CEST)
-Received: from spaans by spaans.fox.local with local (Exim 4.69)
-	(envelope-from <spaans@fox-it.com>)	id 1N0whf-0005Os-58	for
- netdev@vger.kernel.org; Thu, 22 Oct 2009 14:23:39 +0200
-Content-Disposition: inline
+Received: from smtp240.poczta.interia.pl ([217.74.64.240]:9925 "EHLO
+	smtp240.poczta.interia.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755413AbZJVNNH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2009 09:13:07 -0400
+Received: from f12.poczta.interia.pl (f12.poczta.interia.pl [10.217.2.12])
+	by smtp240.poczta.interia.pl (INTERIA.PL) with ESMTP id 94C8B106928
+	for <netdev@vger.kernel.org>; Thu, 22 Oct 2009 14:42:21 +0200 (CEST)
+Received: from localhost (localhost [127.0.0.1])
+	by f12.poczta.interia.pl (Postfix) with ESMTP id 55FCE1A530EE
+	for <netdev@vger.kernel.org>; Thu, 22 Oct 2009 14:42:21 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+1. There is the known bug so we cant use ipt action with recent  iptables:
+tc filter add ...
+action ipt -j mark --set-mark 2
+does not work.
+It does not work with the last iproute2-2.6.29 and with latest git.
+Is there some official workaround?
+2. Are there plans to release the new iproute2 which fixes this bug?
 
-We're using the following setup for bonding and bridging, to be able to put
-large amounts of data through multiple IDS analyzers:
+Krzysiek
 
-                             +---[br0]----+     +--- eth1 ---(IDS machine 1)
-(Span port from switch) -- eth0          bond0--+
-                                                +--- eth2 ---(IDS machine 2)
 
-eth0 receives network traffic, which should be passed to machines which are
-connected to eth1 and eth2. These machines run an IDS package, and there are
-two of those for performance reasons.
 
-bond0 is configured to load balance the packets using "balance-xor", in this
-case combined with xmit_hash_policy layer2.
+----------------------------------------------------------------------
+Afera Hazardowa- O co tu chodzi?
+Sprawdz >>> http://link.interia.pl/f238e
 
-However, we're seeing problems: packets from one flow do not end up at the
-same IDS machine.  This is because this selection is not based on the source
-_and_ destination mac addresses of the original packet, but on the mac
-address of the bonding device and the destination mac address of the
-package.
-
-This is also clear in the code:
-For example, in bond_main.c, in bond_xmit_hash_policy_l2:
-	return (data->h_dest[5] ^ bond_dev->dev_addr[5]) % count;
-
-Changing this to
-	return (data->h_dest[5] ^ data->h_source[5]) % count;
-fixes our problems, but is this harmful for packets originating locally (or
-being routed?)
-
-If not, can this be applied? Or does anyone have other ideas?
-
-Thanks,
-Jasper Spaans
--- 
-Fox-IT Experts in IT Security!
-T: +31 (0) 15 284 79 99
-KvK Haaglanden 27301624
