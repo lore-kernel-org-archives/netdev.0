@@ -1,69 +1,52 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Irq architecture for multi-core network driver.
-Date: Thu, 22 Oct 2009 14:40:27 -0700
-Message-ID: <4AE0D14B.1070307@caviumnetworks.com>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [Patch] sctp: remove deprecated SCTP_GET_*_OLD stuffs
+Date: Thu, 22 Oct 2009 23:44:39 +0200
+Message-ID: <20091022214439.GA2635@merkur.ravnborg.org>
+References: <20091015082849.4605.48311.sendpatchset@localhost.localdomain> <4AE0C64A.9080400@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-mips <linux-mips@linux-mips.org>
-To: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756810AbZJVVlF@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Amerigo Wang <amwang@redhat.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, akpm@linux-foundation.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pfepa.post.tele.dk ([195.41.46.235]:54681 "EHLO
+	pfepa.post.tele.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755906AbZJVVog (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2009 17:44:36 -0400
+Content-Disposition: inline
+In-Reply-To: <4AE0C64A.9080400@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-My network controller is part of a multicore SOC family[1] with up to 32 
-cpu cores.
+On Thu, Oct 22, 2009 at 04:53:30PM -0400, Vlad Yasevich wrote:
+> > diff --git a/include/net/sctp/user.h b/include/net/sctp/user.h
+> > index be2334a..0991f1b 100644
+> > --- a/include/net/sctp/user.h
+> > +++ b/include/net/sctp/user.h
+> > @@ -131,14 +131,6 @@ enum sctp_optname {
+> >  #define SCTP_SOCKOPT_BINDX_REM	SCTP_SOCKOPT_BINDX_REM
+> >  	SCTP_SOCKOPT_PEELOFF, 	/* peel off association. */
+> >  #define SCTP_SOCKOPT_PEELOFF	SCTP_SOCKOPT_PEELOFF
+> > -	SCTP_GET_PEER_ADDRS_NUM_OLD, 	/* Get number of peer addresss. */
+> > -#define SCTP_GET_PEER_ADDRS_NUM_OLD	SCTP_GET_PEER_ADDRS_NUM_OLD
+> > -	SCTP_GET_PEER_ADDRS_OLD, 	/* Get all peer addresss. */
+> > -#define SCTP_GET_PEER_ADDRS_OLD	SCTP_GET_PEER_ADDRS_OLD
+> > -	SCTP_GET_LOCAL_ADDRS_NUM_OLD, 	/* Get number of local addresss. */
+> > -#define SCTP_GET_LOCAL_ADDRS_NUM_OLD	SCTP_GET_LOCAL_ADDRS_NUM_OLD
+> > -	SCTP_GET_LOCAL_ADDRS_OLD, 	/* Get all local addresss. */
+> > -#define SCTP_GET_LOCAL_ADDRS_OLD	SCTP_GET_LOCAL_ADDRS_OLD
+> >  	SCTP_SOCKOPT_CONNECTX_OLD, /* CONNECTX old requests. */
+> 
+> After running the regression suite against this patch I find that we can't
+> remove the enum values.  Removing the enums changes the value for the remainder
+> of the definitions and breaks binary compatibility for applications that use
+> those trailing options.
+> 
+> You should be ok with removing the #defines and actual code that uses them,
+> but not the enums.  You can even rename the enums, but we must preserve
+> numeric ordering.
 
-The the packets-ready signal from the network controller can trigger
-an interrupt on any or all cpus and is configurable on a per cpu basis.
+If we really depend on the actual value of an enum as in this case,
+then e should assign them direct to better document this.
 
-If more than one cpu has the interrupt enabled, they would all get the
-interrupt, so if a single packet were to be ready, all cpus could be
-interrupted and try to process it.  The kernel interrupt management
-functions don't seem to give me a good way to manage the interrupts.
-More on this later.
-
-My current approach is to add a NAPI instance for each cpu.  I start
-with the interrupt enabled on a single cpu, when the interrupt
-triggers, I mask the interrupt on that cpu and schedule the
-napi_poll.  When the napi_poll function is entered, I look at the
-packet backlog and if it is above a threshold , I enable the interrupt
-on an additional cpu.  The process then iterates until the number of cpu
-running the napi_poll function can maintain the backlog under the
-threshold.  This all seems to work fairly well.
-
-The main problem I have encountered is how to fit the interrupt
-management into the kernel framework.  Currently the interrupt source
-is connected to a single irq number.  I request_irq, and then manage
-the masking and unmasking on a per cpu basis by directly manipulating
-the interrupt controller's affinity/routing registers.  This goes
-behind the back of all the kernel's standard interrupt management
-routines.  I am looking for a better approach.
-
-One thing that comes to mind is that I could assign a different
-interrupt number per cpu to the interrupt signal.  So instead of
-having one irq I would have 32 of them.  The driver would then do
-request_irq for all 32 irqs, and could call enable_irq and disable_irq
-to enable and disable them.  The problem with this is that there isn't
-really a single packets-ready signal, but instead 16 of them.  So If I
-go this route I would have 16(lines) x 32(cpus) = 512 interrupt
-numbers just for the networking hardware, which seems a bit excessive.
-
-A second possibility is to add something like:
-
-int irq_add_affinity(unsigned int irq, cpumask_t cpumask);
-
-int irq_remove_affinity(unsigned int irq, cpumask_t cpumask);
-
-These would atomically add and remove cpus from an irq's affinity.
-This is essentially what my current driver does, but it would be with
-a new officially blessed kernel interface.
-
-Any opinions about the best way forward are most welcome.
-
-Thanks,
-David Daney
-
-[1]: See: arch/mips/cavium-octeon and drivers/staging/octeon.  Yes the 
-staging driver is ugly, I am working to improve it.
+	Sam
