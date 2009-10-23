@@ -1,77 +1,74 @@
-From: Mel Gorman <mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH 4/5] page allocator: Pre-emptively wake kswapd when
-	high-order watermarks are hit
-Date: Fri, 23 Oct 2009 14:39:08 +0100
-Message-ID: <20091023133908.GX11778@csn.ul.ie>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <1256221356-26049-5-git-send-email-mel@csn.ul.ie> <alpine.DEB.2.00.0910221227010.21601@chino.kir.corp.google.com> <20091023091334.GV11778@csn.ul.ie> <alpine.DEB.2.00.0910230229010.28109@chino.kir.corp.google.com> <20091023112512.GW11778@csn.ul.ie> <alpine.DEB.2.00.0910231329550.26462@sebohet.brgvxre.pu>
+From: Jasper Spaans <spaans@fox-it.com>
+Subject: [PATCH] Modify bonding hash transmit policies to use the packet's
+	source MAC address
+Date: Fri, 23 Oct 2009 16:08:46 +0200
+Message-ID: <20091023140845.GA24564@spaans.fox.local>
+References: <4AE1A37F.8010203@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>, Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	Sven Geggus <lists-+AJD3D7QEjjt/htJsj1pd9AswbaBtrod@public.gmane.org>,
-	Karol Lewandowski <karol.k.lewandowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Reinette Chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>,
-	KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	Mohamed Abbas <mohamed.abbas-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Jens Axboe <jens.axboe-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
-	Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	Stephan von Krawczynski <skraw-DcQCyzbjH0jQT0dZR+AlfA@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org" <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>
-To: Tobias Oetiker <tobi-7K0TWYW2a3pyDzI6CaY1VQ@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns2.fox-it.com ([82.94.91.210]:17472 "EHLO mail2.fox-it.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751822AbZJWOIr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Oct 2009 10:08:47 -0400
 Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.0910231329550.26462-EjsAmf5DE5zIvOfxy3zmAzgUDZmNtoG9@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4AE1A37F.8010203@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 23, 2009 at 01:31:10PM +0200, Tobias Oetiker wrote:
-> Mel,
-> 
-> Today Mel Gorman wrote:
-> 
-> > On Fri, Oct 23, 2009 at 02:36:53AM -0700, David Rientjes wrote:
-> > > On Fri, 23 Oct 2009, Mel Gorman wrote:
-> > >
-> > > > > Hmm, is this really supposed to be added to __alloc_pages_high_priority()?
-> > > > > By the patch description I was expecting kswapd to be woken up
-> > > > > preemptively whenever the preferred zone is below ALLOC_WMARK_LOW and
-> > > > > we're known to have just allocated at a higher order, not just when
-> > > > > current was oom killed (when we should already be freeing a _lot_ of
-> > > > > memory soon) or is doing a higher order allocation during direct reclaim.
-> > > > >
-> > > >
-> > > > It was a somewhat arbitrary choice to have it trigger in the event high
-> > > > priority allocations were happening frequently.
-> > > >
-> > >
-> > > I don't quite understand, users of PF_MEMALLOC shouldn't be doing these
-> > > higher order allocations and if ALLOC_NO_WATERMARKS is by way of the oom
-> > > killer, we should be freeing a substantial amount of memory imminently
-> > > when it exits that waking up kswapd would be irrelevant.
-> > >
-> >
-> > I agree. I think it's highly unlikely this patch will make any
-> > difference but I wanted to eliminate it as a possibility. Patch 3 and 4
-> > were previously one patch that were tested together.
-> 
-> hi hi ... I have tested '3 only' this morning, and the allocation
-> problems started again ... so for me 3 alone does not work while
-> 3+4 does.
-> 
+Modify bonding hash transmit policies to use the psource MAC address of
+the packet instead of the MAC address configured for the bonding device.
 
-Hi,
+The old sitation conflicts with the documentation.
 
-What was the outcome of 1+2?
+Signed-off-by: Jasper Spaans <spaans@fox-it.com>
+---
+ drivers/net/bonding/bond_main.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 69c5b15..3f05267 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3665,10 +3665,10 @@ static int bond_xmit_hash_policy_l23(struct sk_buff *skb,
+ 
+ 	if (skb->protocol == htons(ETH_P_IP)) {
+ 		return ((ntohl(iph->saddr ^ iph->daddr) & 0xffff) ^
+-			(data->h_dest[5] ^ bond_dev->dev_addr[5])) % count;
++			(data->h_dest[5] ^ data->h_source[5])) % count;
+ 	}
+ 
+-	return (data->h_dest[5] ^ bond_dev->dev_addr[5]) % count;
++	return (data->h_dest[5] ^ data->h_source[5]) % count;
+ }
+ 
+ /*
+@@ -3695,7 +3695,7 @@ static int bond_xmit_hash_policy_l34(struct sk_buff *skb,
+ 
+ 	}
+ 
+-	return (data->h_dest[5] ^ bond_dev->dev_addr[5]) % count;
++	return (data->h_dest[5] ^ data->h_source[5]) % count;
+ }
+ 
+ /*
+@@ -3706,7 +3706,7 @@ static int bond_xmit_hash_policy_l2(struct sk_buff *skb,
+ {
+ 	struct ethhdr *data = (struct ethhdr *)skb->data;
+ 
+-	return (data->h_dest[5] ^ bond_dev->dev_addr[5]) % count;
++	return (data->h_dest[5] ^ data->h_source[5]) % count;
+ }
+ 
+ /*-------------------------- Device entry points ----------------------------*/
+-- 
+1.6.0.4
+
 
 -- 
-Mel Gorman
-Part-time Phd Student                          Linux Technology Center
-University of Limerick                         IBM Dublin Software Lab
+Fox-IT Experts in IT Security!
+T: +31 (0) 15 284 79 99
+KvK Haaglanden 27301624
