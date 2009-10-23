@@ -1,59 +1,66 @@
-From: Sven Geggus <lists@fuchsschwanzdomain.de>
-Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
-	failures V2
-Date: Fri, 23 Oct 2009 09:31:21 +0200
-Message-ID: <20091023073120.GA16987@geggus.net>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Irq architecture for multi-core network driver.
+Date: Fri, 23 Oct 2009 00:59:03 -0700
+Message-ID: <m13a5apmm0.fsf@fess.ebiederm.org>
+References: <4AE0D14B.1070307@caviumnetworks.com>
+	<4AE0D72A.4090607@nortel.com> <4AE0DB98.1000101@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Frans Pop <elendil@planet.nl>, Jiri Kosina <jkosina@suse.cz>,
-	Karol Lewandowski <karol.k.lewandowski@gmail.com>,
-	Tobias Oetiker <tobi@oetiker.ch>, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	David Miller <davem@davemloft.net>,
-	Reinette Chatre <reinette.chatre@intel.com>,
-	Kalle Valo <kalle.valo@iki.fi>,
-	David Rientjes <rientjes@google.com>,
-	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-	Mohamed Abbas <mohamed.abbas@intel.com>,
-	Jens Axboe <jens.axboe@oracle.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Stephan von Krawczynski <skraw@ithnet.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>
-To: Mel Gorman <mel@csn.ul.ie>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Chris Friesen <cfriesen@nortel.com>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-mips <linux-mips@linux-mips.org>
+To: David Daney <ddaney@caviumnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:34810 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751346AbZJWH7D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 03:59:03 -0400
+In-Reply-To: <4AE0DB98.1000101@caviumnetworks.com> (David Daney's message of "Thu\, 22 Oct 2009 15\:24\:24 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mel Gorman schrieb am Donnerstag, den 22. Oktober um 16:22 Uhr:
+David Daney <ddaney@caviumnetworks.com> writes:
 
-> [No BZ ID] Kernel crash on 2.6.31.x (kcryptd: page allocation failure..)
-> 	This apparently is easily reproducible, particular in comparison to
-> 	the other reports. The point of greatest interest is that this is
-> 	order-0 GFP_ATOMIC failures. Sven, I'm hoping that you in particular
-> 	will be able to follow the tests below as you are the most likely
-> 	person to have an easily reproducible situation.
+> Chris Friesen wrote:
+>> On 10/22/2009 03:40 PM, David Daney wrote:
+>>
+>>> The main problem I have encountered is how to fit the interrupt
+>>> management into the kernel framework.  Currently the interrupt source
+>>> is connected to a single irq number.  I request_irq, and then manage
+>>> the masking and unmasking on a per cpu basis by directly manipulating
+>>> the interrupt controller's affinity/routing registers.  This goes
+>>> behind the back of all the kernel's standard interrupt management
+>>> routines.  I am looking for a better approach.
+>>>
+>>> One thing that comes to mind is that I could assign a different
+>>> interrupt number per cpu to the interrupt signal.  So instead of
+>>> having one irq I would have 32 of them.  The driver would then do
+>>> request_irq for all 32 irqs, and could call enable_irq and disable_irq
+>>> to enable and disable them.  The problem with this is that there isn't
+>>> really a single packets-ready signal, but instead 16 of them.  So If I
+>>> go this route I would have 16(lines) x 32(cpus) = 512 interrupt
+>>> numbers just for the networking hardware, which seems a bit excessive.
+>>
+>> Does your hardware do flow-based queues?  In this model you have
+>> multiple rx queues and the hardware hashes incoming packets to a single
+>> queue based on the addresses, ports, etc. This ensures that all the
+>> packets of a single connection always get processed in the order they
+>> arrived at the net device.
+>>
+>
+> Indeed, this is exactly what we have.
+>
+>
+>> Typically in this model you have as many interrupts as queues
+>> (presumably 16 in your case).  Each queue is assigned an interrupt and
+>> that interrupt is affined to a single core.
+>
+> Certainly this is one mode of operation that should be supported, but I would
+> also like to be able to go for raw throughput and have as many cores as possible
+> reading from a single queue (like I currently have).
 
-I will see what I can do on the weekend. Unfortunately the crash happens on
-a somewhat important machine and afterwards the Software-RAID needs a resync
-which takes a few hours.
+I believe will detect false packet drops and ask for unnecessary
+retransmits if you have multiple cores processing a single queue,
+because you are processing the packets out of order.
 
-Sven
-
--- 
-"Those who do not understand Unix are condemned to reinvent it, poorly"
-(Henry Spencer)
-
-/me is giggls@ircnet, http://sven.gegg.us/ on the Web
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Eric
