@@ -1,64 +1,62 @@
-From: Oren Laadan <orenl@librato.com>
-Subject: Re: [PATCH 2/4] [RFC] Add c/r support for connected INET sockets
-Date: Fri, 23 Oct 2009 15:37:48 -0400
-Message-ID: <4AE2060C.5000903@librato.com>
-References: <1256072803-3518-1-git-send-email-danms@us.ibm.com> <1256072803-3518-3-git-send-email-danms@us.ibm.com>
+From: Karol Lewandowski <karol.k.lewandowski@gmail.com>
+Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
+	failures V2
+Date: Fri, 23 Oct 2009 23:12:39 +0200
+Message-ID: <20091023211239.GA6185@bizet.domek.prywatny>
+References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <20091023165810.GA4588@bizet.domek.prywatny>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org,
-	John Dykstra <jdykstra72@gmail.com>
-To: Dan Smith <danms@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp171.iad.emailsrvr.com ([207.97.245.171]:59532 "EHLO
-	smtp171.iad.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752862AbZJWTho (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 15:37:44 -0400
-In-Reply-To: <1256072803-3518-3-git-send-email-danms@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mel Gorman <mel@csn.ul.ie>, Frans Pop <elendil@planet.nl>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Sven Geggus <lists@fuchsschwanzdomain.de>,
+	Tobias Oetiker <tobi@oetiker.ch>, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	David Miller <davem@davemloft.net>,
+	Reinette Chatre <reinette.chatre@intel.com>,
+	Kalle Valo <kalle.valo@iki.fi>,
+	David Rientjes <rientjes@google.com>,
+	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
+	Mohamed Abbas <mohamed.abbas@intel.com>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Stephan von Krawczynski <skraw@ithnet.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>
+To: Karol Lewandowski <karol.k.lewandowski@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20091023165810.GA4588@bizet.domek.prywatny>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, Oct 23, 2009 at 06:58:10PM +0200, Karol Lewandowski wrote:
+> On Thu, Oct 22, 2009 at 03:22:31PM +0100, Mel Gorman wrote:
+> > Test 3: If you are getting allocation failures, try with the following patch
+> > 
+> >   3/5 vmscan: Force kswapd to take notice faster when high-order watermarks are being hit
 
-
-Dan Smith wrote:
-> This patch adds basic support for C/R of open INET sockets.  I think that
-> all the important bits of the TCP and ICSK socket structures is saved,
-> but I think there is still some additional IPv6 stuff that needs to be
-> handled.
+> No, problem doesn't go away with these patches (1+2+3).  However, from
+> my testing this particular patch makes it way, way harder to trigger
+> allocation failures (but these are still present).
 > 
-> With this patch applied, the following script can be used to demonstrate
-> the functionality:
-> 
->   https://lists.linux-foundation.org/pipermail/containers/2009-October/021239.html
-> 
-> It shows that this enables migration of a sendmail process with open
-> connections from one machine to another without dropping.
-> 
-> We still need comments from the netdev people about what sort of sanity
-> checking we need to do on the values in the ckpt_hdr_socket_inet
-> structure on restart.
-> 
-> Note that this still doesn't address lingering sockets yet.
-> 
+> This bothers me - should I test following patches with or without
+> above patch?  This patch makes bug harder to find, IMVHO it doesn't
+> fix the real problem.
+..
 
-[...]
+> Test 4: If you are still getting failures, apply the following
+>  4/5 page allocator: Pre-emptively wake kswapd when high-order watermarks are hit
 
-> diff --git a/include/linux/checkpoint_types.h b/include/linux/checkpoint_types.h
-> index fa57cdc..91c141b 100644
-> --- a/include/linux/checkpoint_types.h
-> +++ b/include/linux/checkpoint_types.h
-> @@ -65,6 +65,8 @@ struct ckpt_ctx {
->  	struct list_head pgarr_list;	/* page array to dump VMA contents */
->  	struct list_head pgarr_pool;	/* pool of empty page arrays chain */
->  
-> +	struct list_head listen_sockets;/* listening parent sockets */
-> +
+Ok, I've tested patches 1+2+4 and bug, while very hard to trigger, is
+still present. I'll test complete 1-4 patchset as time permits.
 
-Nit: maybe move under the comment "multi-process restart" ?
+Thanks.
 
-[...]
-
-Otherwise (and pending comments from netdev people on sanity checks):
-
-Acked-by: Oren Laadan <orenl@cs.columbia.edu>
-
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
