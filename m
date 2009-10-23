@@ -1,102 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH iproute2] ip: Support IFLA_TXQLEN in ip link command
-Date: Fri, 23 Oct 2009 06:13:21 +0200
-Message-ID: <4AE12D61.2040607@gmail.com>
-References: <4AE068EB.70005@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-2.6 PATCH] e1000e: reset the PHY on 82577/82578 when
+ going to Sx
+Date: Thu, 22 Oct 2009 21:22:28 -0700 (PDT)
+Message-ID: <20091022.212228.193712916.davem@davemloft.net>
+References: <20091023025247.6750.89717.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bruce.w.allan@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:39789 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750799AbZJWENU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 00:13:20 -0400
-In-Reply-To: <4AE068EB.70005@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43226
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750759AbZJWEWF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 00:22:05 -0400
+In-Reply-To: <20091023025247.6750.89717.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet a =E9crit :
-> We currently use an expensive ioctl() to get device txqueuelen, while
-> rtnetlink gave it to us for free. This patch speeds up ip link operat=
-ion
-> when many devices are registered.
->=20
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 22 Oct 2009 19:53:00 -0700
 
-Here is a 2nd version od this patch, not displaying "qlen 0" useless in=
-fo
+> From: Bruce Allan <bruce.w.allan@intel.com>
+> 
+> The PHY on 82577/82578 parts needs a soft reset when transitioning to Sx
+> state in order for the PHY write which disables gigabit speed to take
+> effect.  Gigabit speed must be disabled in order for the PHY writes to
+> registers on page 800 (the wakeup control registers) to work as expected
+> otherwise the system might not wake via WoL.
+> 
+> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-[PATCH iproute2] ip: Support IFLA_TXQLEN in ip link show command
-
-We currently use an expensive ioctl() to get device txqueuelen, while
-rtnetlink gave it to us for free. This patch speeds up ip link operatio=
-n
-when many devices are registered.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 267ecb3..cadc1a3 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -131,26 +131,31 @@ static void print_operstate(FILE *f, __u8 state)
- 		fprintf(f, "state %s ", oper_states[state]);
- }
-=20
--static void print_queuelen(FILE *f, const char *name)
-+static void print_queuelen(FILE *f, struct rtattr *tb[IFLA_MAX + 1])
- {
--	struct ifreq ifr;
--	int s;
--
--	s =3D socket(AF_INET, SOCK_STREAM, 0);
--	if (s < 0)
--		return;
--
--	memset(&ifr, 0, sizeof(ifr));
--	strcpy(ifr.ifr_name, name);
--	if (ioctl(s, SIOCGIFTXQLEN, &ifr) < 0) {
--		fprintf(f, "ioctl(SIOCGIFXQLEN) failed: %s\n", strerror(errno));
-+	int qlen;
-+
-+	if (tb[IFLA_TXQLEN])
-+		qlen =3D *(int *)RTA_DATA(tb[IFLA_TXQLEN]);
-+	else {
-+		struct ifreq ifr;
-+		int s =3D socket(AF_INET, SOCK_STREAM, 0);
-+
-+		if (s < 0)
-+			return;
-+
-+		memset(&ifr, 0, sizeof(ifr));
-+		strcpy(ifr.ifr_name, (char *)RTA_DATA(tb[IFLA_IFNAME]));
-+		if (ioctl(s, SIOCGIFTXQLEN, &ifr) < 0) {
-+			fprintf(f, "ioctl(SIOCGIFXQLEN) failed: %s\n", strerror(errno));
-+			close(s);
-+			return;
-+		}
- 		close(s);
--		return;
-+		qlen =3D ifr.ifr_qlen;
- 	}
--	close(s);
--
--	if (ifr.ifr_qlen)
--		fprintf(f, "qlen %d", ifr.ifr_qlen);
-+	if (qlen)
-+		fprintf(f, "qlen %d", qlen);
- }
-=20
- static void print_linktype(FILE *fp, struct rtattr *tb)
-@@ -253,7 +258,7 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 		print_operstate(fp, *(__u8 *)RTA_DATA(tb[IFLA_OPERSTATE]));
- 	=09
- 	if (filter.showqueue)
--		print_queuelen(fp, (char*)RTA_DATA(tb[IFLA_IFNAME]));
-+		print_queuelen(fp, tb);
-=20
- 	if (!filter.family || filter.family =3D=3D AF_PACKET) {
- 		SPRINT_BUF(b1);
-
+Applied.
