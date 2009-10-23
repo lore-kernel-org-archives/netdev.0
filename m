@@ -1,63 +1,93 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: udp: break from the lookup when hitting the maximum score value
-Date: Fri, 23 Oct 2009 18:57:32 +0200
-Message-ID: <4AE1E07C.5030502@gmail.com>
-References: <200910231936.16022.lgrijincu@ixiacom.com>
+From: Karol Lewandowski <karol.k.lewandowski@gmail.com>
+Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
+	failures V2
+Date: Fri, 23 Oct 2009 18:58:10 +0200
+Message-ID: <20091023165810.GA4588@bizet.domek.prywatny>
+References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: opurdila@ixiacom.com, netdev@vger.kernel.org
-To: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:57213 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752525AbZJWQ5n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 12:57:43 -0400
-In-Reply-To: <200910231936.16022.lgrijincu@ixiacom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Frans Pop <elendil@planet.nl>, Jiri Kosina <jkosina@suse.cz>,
+	Sven Geggus <lists@fuchsschwanzdomain.de>,
+	Karol Lewandowski <karol.k.lewandowski@gmail.com>,
+	Tobias Oetiker <tobi@oetiker.ch>, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	David Miller <davem@davemloft.net>,
+	Reinette Chatre <reinette.chatre@intel.com>,
+	Kalle Valo <kalle.valo@iki.fi>,
+	David Rientjes <rientjes@google.com>,
+	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
+	Mohamed Abbas <mohamed.abbas@intel.com>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Stephan von Krawczynski <skraw@ithnet.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>
+To: Mel Gorman <mel@csn.ul.ie>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Lucian Adrian Grijincu a =C3=A9crit :
-> Before udp hashes were converted to rcu in
-> 	udp: introduce struct udp_table and multiple spinlocks
-> 	645ca708f936b2fbeb79e52d7823e3eb2c0905f8
-> we stopped searching in list upon hitting the maximum score value (wh=
-ich is=20
-> 9).
->=20
-> This got removed in the conversion to rcu.
-> I'm not sure whether this was intentional or it just slipped by.
->=20
-> As far as I understand it this does not interfere with the lockless r=
-cu: there=20
-> is another score check the result will have to pass and if it doesn't=
- have a=20
-> score of 9 (which will be the value of badness) we'll just restart th=
-e lookup.
->=20
-> Even if the node was deleted from the chain and reclaimed at a later =
-time, if=20
-> at the second score test we have value 9 again, we can still return w=
-ith this=20
-> result.
->=20
-> Am I missing something?
->=20
->=20
+On Thu, Oct 22, 2009 at 03:22:31PM +0100, Mel Gorman wrote:
 
-This was intentional.
-
-This never happens in practice and slowdown lookups.
-
-(To reach score 9, your UDP socket must be connected, and bound to a de=
-vice)
-Most developpers dont even know UDP socket can be connected...
-
-We added large hashtables in commit f86dcc5aa8c7908f2c287e7a211228df599=
-e3e71
-(udp: dynamically size hash tables at boot time), so average chain leng=
-th should
-be small anyway...
+[Cut everything but my bug]
+> [Bug #14265] ifconfig: page allocation failure. order:5, mode:0x8020 w/ e100
+> 	Karol Lewandows reported that e100 fails to allocate order-5
+> 	GFP_ATOMIC when loading firmware during resume. This has started
+> 	happening relatively recent.
 
 
+> Test 1: Verify your problem occurs on 2.6.32-rc5 if you can
 
+Yes, bug is still there.
+
+
+> Test 2: Apply the following two patches and test again
+> 
+>   1/5 page allocator: Always wake kswapd when restarting an allocation attempt after direct reclaim failed
+>   2/5 page allocator: Do not allow interrupts to use ALLOC_HARDER
+> 
+> 
+> 	These patches correct problems introduced by me during the 2.6.31-rc1
+> 	merge window. The patches were not meant to introduce any functional
+> 	changes but two were missed.
+> 
+> 	If your problem goes away with just these two patches applied,
+> 	please tell me.
+
+Likewise.
+
+
+> Test 3: If you are getting allocation failures, try with the following patch
+> 
+>   3/5 vmscan: Force kswapd to take notice faster when high-order watermarks are being hit
+> 
+> 	This is a functional change that causes kswapd to notice sooner
+> 	when high-order watermarks have been hit. There have been a number
+> 	of changes in page reclaim since 2.6.30 that might have delayed
+> 	when kswapd kicks in for higher orders
+> 
+> 	If your problem goes away with these three patches applied, please
+> 	tell me
+
+No, problem doesn't go away with these patches (1+2+3).  However, from
+my testing this particular patch makes it way, way harder to trigger
+allocation failures (but these are still present).
+
+This bothers me - should I test following patches with or without
+above patch?  This patch makes bug harder to find, IMVHO it doesn't
+fix the real problem.
+
+(Rest not tested yet.)
+
+Thanks.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
