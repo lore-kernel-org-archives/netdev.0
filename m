@@ -1,64 +1,44 @@
-From: Jasper Spaans <spaans@fox-it.com>
-Subject: Re: bridging + load balancing bonding
-Date: Fri, 23 Oct 2009 13:45:11 +0200
-Message-ID: <20091023114511.GA537@spaans.fox.local>
-References: <20091022122339.GA20148@spaans.fox.local> <4AE07D3C.3040702@gmail.com> <347.1256232960@death.nxdomain.ibm.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: PATCH 23/10]Optimize the upload speed for PPP connection.
+Date: Fri, 23 Oct 2009 07:46:08 -0400
+Message-ID: <4AE19780.3020507@gmail.com>
+References: <fae097f21b27.1b27fae097f2@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	zihan@huawei.com, greg@kroah.com, haegar@sdinet.de
+To: fangxiaozhi 00110321 <huananhu@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.fox-it.com ([82.94.91.210]:22730 "EHLO mail2.fox-it.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751554AbZJWLpN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Oct 2009 07:45:13 -0400
-Content-Disposition: inline
-In-Reply-To: <347.1256232960@death.nxdomain.ibm.com>
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:41791 "EHLO
+	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751884AbZJWLqI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 07:46:08 -0400
+In-Reply-To: <fae097f21b27.1b27fae097f2@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 22, 2009 at 07:36:00PM +0200, Jay Vosburgh wrote:
-> 	By "packets from one flow" do you really mean that packets from
-> a given "flow" (TCP connection, UDP "stream", etc) are not always
-> delivered to the same bonding port?  I.e., that two packets from the
-> same "flow" will be delivered to different ports?  I'm not sure how
-> that's possible unless the source MAC in the packets changes during the
-> course of the flow.
+fangxiaozhi 00110321 wrote:
+> From: fangxiaozhi <huananhu@huawei.com>
+> 1. This patch is based on the kernel of 2.6.32-rc4 
+> 2. In this patch, we enlarge the out buffer size to optimize the upload speed for the ppp connection. Then it can support the upload of HSUPA data cards.
+> Signed-off-by: fangxiaozhi <huananhu@huawei.com>
+> -----------------------------------------------------------------------------------------
+> --- a/drivers/net/ppp_async.c	2009-10-12 05:43:56.000000000 +0800
+> +++ b/drivers/net/ppp_async.c	2009-10-15 16:29:56.000000000 +0800
+> @@ -36,7 +36,7 @@
+>  
+>  #define PPP_VERSION	"2.4.2"
+>  
+> -#define OBUFSIZE	256
+> +#define OBUFSIZE	2048
+>  
+>  /* Structure for storing local state. */
+>  struct asyncppp {
 > 
-> 	Or is your problem really that the balance algorithm on the
-> bonding send side doesn't match the algorithm used on the other side of
-> the IDS machines coming the other direction (and, thus, packets for a
-> given flow going in one direction end up at a different IDS than the
-> packets going the other direction)?
+Concur.  I'd go further than that, my code usually made room for at least
+a full MTU (MRU) with HDLC escaping.  To minimize context switches, that
+should be 3014 ((1500 MRU + 2 FCS + 4 header) * 2 escapes + 2 flags).
 
-It's the second problem: traffic in one direction ends up at another
-node than traffic in the other direction, even if between the same pair of
-machines.
-
-> 	Locally generated packets do, but he's got a bridge in there, so
-> the traffic they're balancing is presumably not locally generated (i.e.,
-> is being forwarded by the bridge, in which case they'll still bear the
-> source MAC of the originating node on the subnet).  If the packets were
-> being routed instead of bridged, then, yah, they'd have the bond's
-> source MAC.
-
-And in case of routing, the destination MAC will also be modified.. so worst
-case (all traffic goes to one node), no balancing will happen. This also
-affects non-IDS use of load balancing, I guess.
-
-> >So your solution might be the right fix...
-> 
-> 	Yes, I think he's found a legitimate bug, one that only will
-> manifest when balancing bridged traffic.  I had to think for a minute if
-> this change would break anything, and I'm coming up empty.  Locally
-> generated or routed traffic won't see a change, and bridged traffic will
-> be correctly balanced according to the "source MAC XOR destination MAC"
-> forumla described in the documentation.
-
-I'll post a patch shortly.
-
-Jasper
--- 
-Fox-IT Experts in IT Security!
-T: +31 (0) 15 284 79 99
-KvK Haaglanden 27301624
+Even in the old days, when memory was tight, context switches and interrupt
+time were more expensive, too.  PPP is supposed to scale to OC-192.
