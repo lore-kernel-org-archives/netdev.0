@@ -1,158 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] ipip: convert hash tables locking to RCU
-Date: Fri, 23 Oct 2009 17:42:02 +0200
-Message-ID: <4AE1CECA.1060503@gmail.com>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] net: Cleanup redundant tests on unsigned
+Date: Fri, 23 Oct 2009 17:59:21 +0200
+Message-ID: <4AE1D2D9.5000906@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:43752 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752285AbZJWPmD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 11:42:03 -0400
+Received: from mail-ew0-f208.google.com ([209.85.219.208]:45618 "EHLO
+	mail-ew0-f208.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752302AbZJWPtB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 11:49:01 -0400
+Received: by ewy4 with SMTP id 4so1751623ewy.37
+        for <netdev@vger.kernel.org>; Fri, 23 Oct 2009 08:49:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IPIP tunnels use one rwlock to protect their hash tables.
+optlen is unsigned so the `< 0' test is never true.
 
-This locking scheme can be converted to RCU for free, since netdevice
-already must wait for a RCU grace period at dismantle time.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 ---
- net/ipv4/ipip.c |   49 ++++++++++++++++++++++++++--------------------
- 1 files changed, 28 insertions(+), 21 deletions(-)
+ net/can/raw.c          |    2 --
+ net/compat.c           |    3 ---
+ net/ipv4/ip_sockglue.c |    2 +-
+ 3 files changed, 1 insertions(+), 6 deletions(-)
 
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index 6a55392..3bd6998 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -134,7 +134,13 @@ static void ipip_fb_tunnel_init(struct net_device *dev);
- static void ipip_tunnel_init(struct net_device *dev);
- static void ipip_tunnel_setup(struct net_device *dev);
+Or should the tests in net/can/raw.c or net/compat.c
+be replaced by something else?
+
+diff --git a/net/can/raw.c b/net/can/raw.c
+index b5e8979..9e18c2a 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -424,8 +424,6 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
  
--static DEFINE_RWLOCK(ipip_lock);
-+/*
-+ * Locking : hash tables are protected by RCU and a spinlock
-+ */
-+static DEFINE_SPINLOCK(ipip_lock);
-+
-+#define for_each_ip_tunnel_rcu(start) \
-+	for (t = rcu_dereference(start); t; t = rcu_dereference(t->next))
+ 	if (level != SOL_CAN_RAW)
+ 		return -EINVAL;
+-	if (optlen < 0)
+-		return -EINVAL;
  
- static struct ip_tunnel * ipip_tunnel_lookup(struct net *net,
- 		__be32 remote, __be32 local)
-@@ -144,20 +150,21 @@ static struct ip_tunnel * ipip_tunnel_lookup(struct net *net,
- 	struct ip_tunnel *t;
- 	struct ipip_net *ipn = net_generic(net, ipip_net_id);
+ 	switch (optname) {
  
--	for (t = ipn->tunnels_r_l[h0^h1]; t; t = t->next) {
-+	for_each_ip_tunnel_rcu(ipn->tunnels_r_l[h0 ^ h1])
- 		if (local == t->parms.iph.saddr &&
- 		    remote == t->parms.iph.daddr && (t->dev->flags&IFF_UP))
- 			return t;
--	}
--	for (t = ipn->tunnels_r[h0]; t; t = t->next) {
-+
-+	for_each_ip_tunnel_rcu(ipn->tunnels_r[h0])
- 		if (remote == t->parms.iph.daddr && (t->dev->flags&IFF_UP))
- 			return t;
--	}
--	for (t = ipn->tunnels_l[h1]; t; t = t->next) {
-+
-+	for_each_ip_tunnel_rcu(ipn->tunnels_l[h1])
- 		if (local == t->parms.iph.saddr && (t->dev->flags&IFF_UP))
- 			return t;
--	}
--	if ((t = ipn->tunnels_wc[0]) != NULL && (t->dev->flags&IFF_UP))
-+
-+	t = rcu_dereference(ipn->tunnels_wc[0]);
-+	if (t && (t->dev->flags&IFF_UP))
- 		return t;
- 	return NULL;
- }
-@@ -193,9 +200,9 @@ static void ipip_tunnel_unlink(struct ipip_net *ipn, struct ip_tunnel *t)
+diff --git a/net/compat.c b/net/compat.c
+index a407c3a..e373995 100644
+--- a/net/compat.c
++++ b/net/compat.c
+@@ -390,9 +390,6 @@ asmlinkage long compat_sys_setsockopt(int fd, int level, int optname,
+ 	int err;
+ 	struct socket *sock;
  
- 	for (tp = ipip_bucket(ipn, t); *tp; tp = &(*tp)->next) {
- 		if (t == *tp) {
--			write_lock_bh(&ipip_lock);
-+			spin_lock_bh(&ipip_lock);
- 			*tp = t->next;
--			write_unlock_bh(&ipip_lock);
-+			spin_unlock_bh(&ipip_lock);
- 			break;
- 		}
- 	}
-@@ -205,10 +212,10 @@ static void ipip_tunnel_link(struct ipip_net *ipn, struct ip_tunnel *t)
- {
- 	struct ip_tunnel **tp = ipip_bucket(ipn, t);
- 
-+	spin_lock_bh(&ipip_lock);
- 	t->next = *tp;
--	write_lock_bh(&ipip_lock);
--	*tp = t;
--	write_unlock_bh(&ipip_lock);
-+	rcu_assign_pointer(*tp, t);
-+	spin_unlock_bh(&ipip_lock);
- }
- 
- static struct ip_tunnel * ipip_tunnel_locate(struct net *net,
-@@ -267,9 +274,9 @@ static void ipip_tunnel_uninit(struct net_device *dev)
- 	struct ipip_net *ipn = net_generic(net, ipip_net_id);
- 
- 	if (dev == ipn->fb_tunnel_dev) {
--		write_lock_bh(&ipip_lock);
-+		spin_lock_bh(&ipip_lock);
- 		ipn->tunnels_wc[0] = NULL;
--		write_unlock_bh(&ipip_lock);
-+		spin_unlock_bh(&ipip_lock);
- 	} else
- 		ipip_tunnel_unlink(ipn, netdev_priv(dev));
- 	dev_put(dev);
-@@ -318,7 +325,7 @@ static int ipip_err(struct sk_buff *skb, u32 info)
- 
- 	err = -ENOENT;
- 
--	read_lock(&ipip_lock);
-+	rcu_read_lock();
- 	t = ipip_tunnel_lookup(dev_net(skb->dev), iph->daddr, iph->saddr);
- 	if (t == NULL || t->parms.iph.daddr == 0)
- 		goto out;
-@@ -333,7 +340,7 @@ static int ipip_err(struct sk_buff *skb, u32 info)
- 		t->err_count = 1;
- 	t->err_time = jiffies;
- out:
--	read_unlock(&ipip_lock);
-+	rcu_read_unlock();
- 	return err;
- }
- 
-@@ -351,11 +358,11 @@ static int ipip_rcv(struct sk_buff *skb)
- 	struct ip_tunnel *tunnel;
- 	const struct iphdr *iph = ip_hdr(skb);
- 
--	read_lock(&ipip_lock);
-+	rcu_read_lock();
- 	if ((tunnel = ipip_tunnel_lookup(dev_net(skb->dev),
- 					iph->saddr, iph->daddr)) != NULL) {
- 		if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
--			read_unlock(&ipip_lock);
-+			rcu_read_unlock();
- 			kfree_skb(skb);
- 			return 0;
- 		}
-@@ -374,10 +381,10 @@ static int ipip_rcv(struct sk_buff *skb)
- 		nf_reset(skb);
- 		ipip_ecn_decapsulate(iph, skb);
- 		netif_rx(skb);
--		read_unlock(&ipip_lock);
-+		rcu_read_unlock();
- 		return 0;
- 	}
--	read_unlock(&ipip_lock);
-+	rcu_read_unlock();
- 
- 	return -1;
- }
+-	if (optlen < 0)
+-		return -EINVAL;
+-
+ 	if ((sock = sockfd_lookup(fd, &err))!=NULL)
+ 	{
+ 		err = security_socket_setsockopt(sock,level,optname);
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index e982b5c..15dbf30 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -480,7 +480,7 @@ static int do_ip_setsockopt(struct sock *sk, int level,
+ 	case IP_OPTIONS:
+ 	{
+ 		struct ip_options *opt = NULL;
+-		if (optlen > 40 || optlen < 0)
++		if (optlen > 40)
+ 			goto e_inval;
+ 		err = ip_options_get_from_user(sock_net(sk), &opt,
+ 					       optval, optlen);
