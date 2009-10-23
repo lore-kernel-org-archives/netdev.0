@@ -1,59 +1,102 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: [PATCH] net: use WARN() for the WARN_ON in commit b6b39e8f3fbbb
-Date: Thu, 22 Oct 2009 20:35:12 -0700
-Message-ID: <20091022203512.1d714d5a@infradead.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH iproute2] ip: Support IFLA_TXQLEN in ip link command
+Date: Fri, 23 Oct 2009 06:13:21 +0200
+Message-ID: <4AE12D61.2040607@gmail.com>
+References: <4AE068EB.70005@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-To: <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen.hemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:34746 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750840AbZJWDeL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Oct 2009 23:34:11 -0400
+Received: from gw1.cosmosbay.com ([212.99.114.194]:39789 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750799AbZJWENU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 00:13:20 -0400
+In-Reply-To: <4AE068EB.70005@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From d63ae5a34f2ed0821870c9e4c797e4e095f0c58a Mon Sep 17 00:00:00 2001
-From: Arjan van de Ven <arjan@linux.intel.com>
-Date: Thu, 22 Oct 2009 20:32:24 -0700
-Subject: [PATCH] net: use WARN() for the WARN_ON in commit b6b39e8f3fbbb
+Eric Dumazet a =E9crit :
+> We currently use an expensive ioctl() to get device txqueuelen, while
+> rtnetlink gave it to us for free. This patch speeds up ip link operat=
+ion
+> when many devices are registered.
+>=20
 
-Commit b6b39e8f3fbbb (tcp: Try to catch MSG_PEEK bug) added a printk()
-to the WARN_ON() that's in tcp.c. This patch changes this combination
-to WARN(); the advantage of WARN() is that the printk message shows up
-inside the message, so that kerneloops.org will collect the message.
+Here is a 2nd version od this patch, not displaying "qlen 0" useless in=
+fo
 
-In addition, this gets rid of an extra if() statement.
+[PATCH iproute2] ip: Support IFLA_TXQLEN in ip link show command
 
-Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+We currently use an expensive ioctl() to get device txqueuelen, while
+rtnetlink gave it to us for free. This patch speeds up ip link operatio=
+n
+when many devices are registered.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- net/ipv4/tcp.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 90b2e06..a0e56db 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1442,9 +1442,9 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 				goto found_ok_skb;
- 			if (tcp_hdr(skb)->fin)
- 				goto found_fin_ok;
--			if (WARN_ON(!(flags & MSG_PEEK)))
--				printk(KERN_INFO "recvmsg bug 2: copied %X "
--				       "seq %X\n", *seq, TCP_SKB_CB(skb)->seq);
-+			WARN(!(flags & MSG_PEEK), KERN_INFO "recvmsg bug 2: "
-+					"copied %X seq %X\n", *seq, 
-+					TCP_SKB_CB(skb)->seq);
- 		}
- 
- 		/* Well, if we have backlog, try to process it now yet. */
--- 
-1.6.2.5
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 267ecb3..cadc1a3 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -131,26 +131,31 @@ static void print_operstate(FILE *f, __u8 state)
+ 		fprintf(f, "state %s ", oper_states[state]);
+ }
+=20
+-static void print_queuelen(FILE *f, const char *name)
++static void print_queuelen(FILE *f, struct rtattr *tb[IFLA_MAX + 1])
+ {
+-	struct ifreq ifr;
+-	int s;
+-
+-	s =3D socket(AF_INET, SOCK_STREAM, 0);
+-	if (s < 0)
+-		return;
+-
+-	memset(&ifr, 0, sizeof(ifr));
+-	strcpy(ifr.ifr_name, name);
+-	if (ioctl(s, SIOCGIFTXQLEN, &ifr) < 0) {
+-		fprintf(f, "ioctl(SIOCGIFXQLEN) failed: %s\n", strerror(errno));
++	int qlen;
++
++	if (tb[IFLA_TXQLEN])
++		qlen =3D *(int *)RTA_DATA(tb[IFLA_TXQLEN]);
++	else {
++		struct ifreq ifr;
++		int s =3D socket(AF_INET, SOCK_STREAM, 0);
++
++		if (s < 0)
++			return;
++
++		memset(&ifr, 0, sizeof(ifr));
++		strcpy(ifr.ifr_name, (char *)RTA_DATA(tb[IFLA_IFNAME]));
++		if (ioctl(s, SIOCGIFTXQLEN, &ifr) < 0) {
++			fprintf(f, "ioctl(SIOCGIFXQLEN) failed: %s\n", strerror(errno));
++			close(s);
++			return;
++		}
+ 		close(s);
+-		return;
++		qlen =3D ifr.ifr_qlen;
+ 	}
+-	close(s);
+-
+-	if (ifr.ifr_qlen)
+-		fprintf(f, "qlen %d", ifr.ifr_qlen);
++	if (qlen)
++		fprintf(f, "qlen %d", qlen);
+ }
+=20
+ static void print_linktype(FILE *fp, struct rtattr *tb)
+@@ -253,7 +258,7 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 		print_operstate(fp, *(__u8 *)RTA_DATA(tb[IFLA_OPERSTATE]));
+ 	=09
+ 	if (filter.showqueue)
+-		print_queuelen(fp, (char*)RTA_DATA(tb[IFLA_IFNAME]));
++		print_queuelen(fp, tb);
+=20
+ 	if (!filter.family || filter.family =3D=3D AF_PACKET) {
+ 		SPRINT_BUF(b1);
 
-
-
--- 
-Arjan van de Ven 	Intel Open Source Technology Centre
-For development, discussion and tips for power savings, 
-visit http://www.lesswatts.org
