@@ -1,64 +1,114 @@
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [RFC] [PATCH] udp: Don't save dst in udpv6_sendmsg()
-Date: Fri, 23 Oct 2009 16:43:36 +0530
-Message-ID: <20091023111336.4733.4901.sendpatchset@localhost.localdomain>
-Cc: netdev@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:49836 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751786AbZJWLNh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Oct 2009 07:13:37 -0400
-Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
-	by e5.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id n9NB3kos003436
-	for <netdev@vger.kernel.org>; Fri, 23 Oct 2009 07:03:46 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n9NBDfkR086522
-	for <netdev@vger.kernel.org>; Fri, 23 Oct 2009 07:13:41 -0400
-Received: from d01av01.pok.ibm.com (d03av01 [127.0.0.1])
-	by d01av01.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n9NBDfxf002171
-	for <netdev@vger.kernel.org>; Fri, 23 Oct 2009 07:13:41 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mel Gorman <mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [PATCH 4/5] page allocator: Pre-emptively wake kswapd when
+	high-order watermarks are hit
+Date: Fri, 23 Oct 2009 12:25:13 +0100
+Message-ID: <20091023112512.GW11778@csn.ul.ie>
+References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <1256221356-26049-5-git-send-email-mel@csn.ul.ie> <alpine.DEB.2.00.0910221227010.21601@chino.kir.corp.google.com> <20091023091334.GV11778@csn.ul.ie> <alpine.DEB.2.00.0910230229010.28109@chino.kir.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>, Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
+	Sven Geggus <lists-+AJD3D7QEjjt/htJsj1pd9AswbaBtrod@public.gmane.org>,
+	Karol Lewandowski <karol.k.lewandowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Tobias Oetiker <tobi-7K0TWYW2a3pyDzI6CaY1VQ@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Reinette Chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>,
+	KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
+	Mohamed Abbas <mohamed.abbas-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Jens Axboe <jens.axboe-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
+	Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
+	Stephan von Krawczynski <skraw-DcQCyzbjH0jQT0dZR+AlfA@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org" <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>
+To: David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.00.0910230229010.28109-X6Q0R45D7oAcqpCFd4KODRPsWskHk0ljAL8bYrjMMd8@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Krishna Kumar <krkumar2@in.ibm.com>
+On Fri, Oct 23, 2009 at 02:36:53AM -0700, David Rientjes wrote:
+> On Fri, 23 Oct 2009, Mel Gorman wrote:
+> 
+> > > Hmm, is this really supposed to be added to __alloc_pages_high_priority()?  
+> > > By the patch description I was expecting kswapd to be woken up 
+> > > preemptively whenever the preferred zone is below ALLOC_WMARK_LOW and 
+> > > we're known to have just allocated at a higher order, not just when 
+> > > current was oom killed (when we should already be freeing a _lot_ of 
+> > > memory soon) or is doing a higher order allocation during direct reclaim.
+> > > 
+> > 
+> > It was a somewhat arbitrary choice to have it trigger in the event high
+> > priority allocations were happening frequently.
+> > 
+> 
+> I don't quite understand, users of PF_MEMALLOC shouldn't be doing these 
+> higher order allocations and if ALLOC_NO_WATERMARKS is by way of the oom 
+> killer, we should be freeing a substantial amount of memory imminently 
+> when it exits that waking up kswapd would be irrelevant.
+> 
 
-Since ip6_datagram_connect saves the dst entry, it is not
-required to do the same in every iteration of udpv6_sendmsg.
-It also breaks the txq# caching, which then gets updated
-every time in dev_pick_tx only to get reset again here.
-Update dst only if ip6_sk_dst_lookup changed the dst entry.
+I agree. I think it's highly unlikely this patch will make any
+difference but I wanted to eliminate it as a possibility. Patch 3 and 4
+were previously one patch that were tested together.
 
-Performance: I ran netperf UDPv6 RR to use connected sockets.
-Tested with a 70 min run, aggregate of 5 netperf runs for
-each result.
+> > > If this is moved to the fastpath, why is this wake_all_kswapd() and not
+> > > wakeup_kswapd(preferred_zone, order)?  Do we need to kick kswapd in all 
+> > > zones even though they may be free just because preferred_zone is now 
+> > > below the watermark?
+> > > 
+> > 
+> > It probably makes no difference as zones are checked for their watermarks
+> > before any real work happens. However, even if this patch makes a difference,
+> > I don't want to see it merged.  At best, it is an extremely heavy-handed
+> > hack which is why I asked for it to be tested in isolation. It shouldn't
+> > be necessary at all because sort of pre-emptive waking of kswapd was never
+> > necessary before.
+> > 
+> 
+> Ahh, that makes a ton more sense: this particular patch is a debugging 
+> effort while the first two are candidates for 2.6.32 and -stable.  Gotcha.
+> 
 
-------------------------  UDPv6 RR Test  ---------------------
-#procs  Org TPS     New TPS (%)       Org SD    New SD (%)
---------------------------------------------------------------
-1       119031      118793 (-0.19)      82         77 (-5.23)
-2       217572      218607 (0.47)      315        300 (-4.65)
-4       258463      258823 (0.13)     1334       1248 (-6.44)
-8       318018      319425 (0.44)     5735       5500 (-4.09)
-10      395531      401529 (1.51)     9901       9507 (-3.98)
-12      453319      453492 (0.03)    15473       15131 (-2.21)
---------------------------------------------------------------
+Yep.
 
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
----
- net/ipv6/udp.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+> > > Wouldn't it be better to do this on page_zone(page) instead of 
+> > > preferred_zone anyway?
+> > > 
+> > 
+> > No. The preferred_zone is the zone we should be allocating from. If we
+> > failed to allocate from it, it implies the watermarks are not being met
+> > so we want to wake it.
+> > 
+> 
+> Oops, I'm even more confused now :)  I thought the existing 
+> wake_all_kswapd() in the slowpath was doing that and that this patch was 
+> waking them prematurely because it speculates that a subsequent high 
+> order allocation will fail unless memory is reclaimed. 
 
-diff -ruNp org/net/ipv6/udp.c new/net/ipv6/udp.c
---- org/net/ipv6/udp.c	2009-10-19 11:58:16.000000000 +0530
-+++ new/net/ipv6/udp.c	2009-10-23 10:42:35.000000000 +0530
-@@ -990,7 +990,8 @@ do_append_data:
- 
- 	if (dst) {
- 		if (connected) {
--			ip6_dst_store(sk, dst,
-+			if (__sk_dst_get(sk) != dst)
-+				ip6_dst_store(sk, dst,
- 				      ipv6_addr_equal(&fl.fl6_dst, &np->daddr) ?
- 				      &np->daddr : NULL,
- #ifdef CONFIG_IPV6_SUBTREES
+
+It should be doing that. This patch should be junk but because it was tested
+previously, I needed to be sure it was actually junk.
+
+> I thought we'd  
+> want to reclaim from the zone we just did a high order allocation from so 
+> that the fastpath could find the memory next time with ALLOC_WMARK_LOW.
+
+The fastpath should be getting the pages it needs from the
+preferred_zone. If it's not, we still want to get pages back in that
+zone and the zone we actually ended up getting pages from.
+
+It's probably best to ignore this patch except in the unlikely event Tobias
+says it makes a difference to his testing. I'm hoping he's covered by patches
+1+2 and maybe 3 and that patches 4 and 5 of this set get consigned to
+the bit bucket.
+
+-- 
+Mel Gorman
+Part-time Phd Student                          Linux Technology Center
+University of Limerick                         IBM Dublin Software Lab
