@@ -1,7 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 25/27] sfc: Merge efx_fc_resolve() into efx_mdio_get_pause()
-Date: Fri, 23 Oct 2009 19:33:17 +0100
-Message-ID: <1256322797.2785.53.camel@achroite>
+Subject: [PATCH 26/27] sfc: Remove unused code for non-autoneg speed/duplex
+	switching
+Date: Fri, 23 Oct 2009 19:33:27 +0100
+Message-ID: <1256322807.2785.55.camel@achroite>
 References: <1256322441.2785.3.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,68 +10,150 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:8982 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:8995 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752862AbZJWSdP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 14:33:15 -0400
+	with ESMTP id S1753036AbZJWSdZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 14:33:25 -0400
 In-Reply-To: <1256322441.2785.3.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-efx_fc_resolve() is specific to MDIO and is not used by any other
-function.
+The only multi-speed PHY driver using this is 10Xpress, and it does
+not support non-autoneg operation.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/mdio_10g.c   |   12 ++++++++----
- drivers/net/sfc/net_driver.h |   11 -----------
- 2 files changed, 8 insertions(+), 15 deletions(-)
+ drivers/net/sfc/mdio_10g.c |  108 ++++++++++++++++----------------------------
+ 1 files changed, 39 insertions(+), 69 deletions(-)
 
 diff --git a/drivers/net/sfc/mdio_10g.c b/drivers/net/sfc/mdio_10g.c
-index b355872..25fb20a 100644
+index 25fb20a..231e580 100644
 --- a/drivers/net/sfc/mdio_10g.c
 +++ b/drivers/net/sfc/mdio_10g.c
-@@ -341,10 +341,14 @@ int efx_mdio_set_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd)
- 
- enum efx_fc_type efx_mdio_get_pause(struct efx_nic *efx)
+@@ -248,7 +248,7 @@ void efx_mdio_set_mmds_lpower(struct efx_nic *efx,
+ int efx_mdio_set_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd)
  {
--	int lpa;
-+	BUILD_BUG_ON(EFX_FC_AUTO & (EFX_FC_RX | EFX_FC_TX));
+ 	struct ethtool_cmd prev;
+-	u32 required;
++	bool xnp;
+ 	int reg;
  
--	if (!(efx->phy_op->mmds & MDIO_DEVS_AN))
-+	if (!(efx->wanted_fc & EFX_FC_AUTO))
- 		return efx->wanted_fc;
--	lpa = efx_mdio_read(efx, MDIO_MMD_AN, MDIO_AN_LPA);
--	return efx_fc_resolve(efx->wanted_fc, lpa);
+ 	efx->phy_op->get_settings(efx, &prev);
+@@ -265,76 +265,46 @@ int efx_mdio_set_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd)
+ 		return -EINVAL;
+ 
+ 	/* Check that PHY supports these settings */
+-	if (ecmd->autoneg) {
+-		required = SUPPORTED_Autoneg;
+-	} else if (ecmd->duplex) {
+-		switch (ecmd->speed) {
+-		case SPEED_10:  required = SUPPORTED_10baseT_Full;  break;
+-		case SPEED_100: required = SUPPORTED_100baseT_Full; break;
+-		default:        return -EINVAL;
+-		}
+-	} else {
+-		switch (ecmd->speed) {
+-		case SPEED_10:  required = SUPPORTED_10baseT_Half;  break;
+-		case SPEED_100: required = SUPPORTED_100baseT_Half; break;
+-		default:        return -EINVAL;
+-		}
+-	}
+-	required |= ecmd->advertising;
+-	if (required & ~prev.supported)
++	if (!ecmd->autoneg ||
++	    (ecmd->advertising | SUPPORTED_Autoneg) & ~prev.supported)
+ 		return -EINVAL;
+ 
+-	if (ecmd->autoneg) {
+-		bool xnp = (ecmd->advertising & ADVERTISED_10000baseT_Full
+-			    || EFX_WORKAROUND_13204(efx));
+-
+-		/* Set up the base page */
+-		reg = ADVERTISE_CSMA;
+-		if (ecmd->advertising & ADVERTISED_10baseT_Half)
+-			reg |= ADVERTISE_10HALF;
+-		if (ecmd->advertising & ADVERTISED_10baseT_Full)
+-			reg |= ADVERTISE_10FULL;
+-		if (ecmd->advertising & ADVERTISED_100baseT_Half)
+-			reg |= ADVERTISE_100HALF;
+-		if (ecmd->advertising & ADVERTISED_100baseT_Full)
+-			reg |= ADVERTISE_100FULL;
+-		if (xnp)
+-			reg |= ADVERTISE_RESV;
+-		else if (ecmd->advertising & (ADVERTISED_1000baseT_Half |
+-					      ADVERTISED_1000baseT_Full))
+-			reg |= ADVERTISE_NPAGE;
+-		reg |= mii_advertise_flowctrl(efx->wanted_fc);
+-		efx_mdio_write(efx, MDIO_MMD_AN, MDIO_AN_ADVERTISE, reg);
+-
+-		/* Set up the (extended) next page if necessary */
+-		if (efx->phy_op->set_npage_adv)
+-			efx->phy_op->set_npage_adv(efx, ecmd->advertising);
+-
+-		/* Enable and restart AN */
+-		reg = efx_mdio_read(efx, MDIO_MMD_AN, MDIO_CTRL1);
+-		reg |= MDIO_AN_CTRL1_ENABLE;
+-		if (!(EFX_WORKAROUND_15195(efx) &&
+-		      LOOPBACK_MASK(efx) & efx->phy_op->loopbacks))
+-			reg |= MDIO_AN_CTRL1_RESTART;
+-		if (xnp)
+-			reg |= MDIO_AN_CTRL1_XNP;
+-		else
+-			reg &= ~MDIO_AN_CTRL1_XNP;
+-		efx_mdio_write(efx, MDIO_MMD_AN, MDIO_CTRL1, reg);
+-	} else {
+-		/* Disable AN */
+-		efx_mdio_set_flag(efx, MDIO_MMD_AN, MDIO_CTRL1,
+-				  MDIO_AN_CTRL1_ENABLE, false);
+-
+-		/* Set the basic control bits */
+-		reg = efx_mdio_read(efx, MDIO_MMD_PMAPMD, MDIO_CTRL1);
+-		reg &= ~(MDIO_CTRL1_SPEEDSEL | MDIO_CTRL1_FULLDPLX);
+-		if (ecmd->speed == SPEED_100)
+-			reg |= MDIO_PMA_CTRL1_SPEED100;
+-		if (ecmd->duplex)
+-			reg |= MDIO_CTRL1_FULLDPLX;
+-		efx_mdio_write(efx, MDIO_MMD_PMAPMD, MDIO_CTRL1, reg);
+-	}
++	xnp = (ecmd->advertising & ADVERTISED_10000baseT_Full
++	       || EFX_WORKAROUND_13204(efx));
 +
-+	WARN_ON(!(efx->mdio.mmds & MDIO_DEVS_AN));
++	/* Set up the base page */
++	reg = ADVERTISE_CSMA;
++	if (ecmd->advertising & ADVERTISED_10baseT_Half)
++		reg |= ADVERTISE_10HALF;
++	if (ecmd->advertising & ADVERTISED_10baseT_Full)
++		reg |= ADVERTISE_10FULL;
++	if (ecmd->advertising & ADVERTISED_100baseT_Half)
++		reg |= ADVERTISE_100HALF;
++	if (ecmd->advertising & ADVERTISED_100baseT_Full)
++		reg |= ADVERTISE_100FULL;
++	if (xnp)
++		reg |= ADVERTISE_RESV;
++	else if (ecmd->advertising & (ADVERTISED_1000baseT_Half |
++				      ADVERTISED_1000baseT_Full))
++		reg |= ADVERTISE_NPAGE;
++	reg |= mii_advertise_flowctrl(efx->wanted_fc);
++	efx_mdio_write(efx, MDIO_MMD_AN, MDIO_AN_ADVERTISE, reg);
 +
-+	return mii_resolve_flowctrl_fdx(
-+		mii_advertise_flowctrl(efx->wanted_fc),
-+		efx_mdio_read(efx, MDIO_MMD_AN, MDIO_AN_LPA));
++	/* Set up the (extended) next page if necessary */
++	if (efx->phy_op->set_npage_adv)
++		efx->phy_op->set_npage_adv(efx, ecmd->advertising);
++
++	/* Enable and restart AN */
++	reg = efx_mdio_read(efx, MDIO_MMD_AN, MDIO_CTRL1);
++	reg |= MDIO_AN_CTRL1_ENABLE;
++	if (!(EFX_WORKAROUND_15195(efx) &&
++	      LOOPBACK_MASK(efx) & efx->phy_op->loopbacks))
++		reg |= MDIO_AN_CTRL1_RESTART;
++	if (xnp)
++		reg |= MDIO_AN_CTRL1_XNP;
++	else
++		reg &= ~MDIO_AN_CTRL1_XNP;
++	efx_mdio_write(efx, MDIO_MMD_AN, MDIO_CTRL1, reg);
+ 
+ 	return 0;
  }
-diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index 13bc1b4..bb3d258 100644
---- a/drivers/net/sfc/net_driver.h
-+++ b/drivers/net/sfc/net_driver.h
-@@ -497,17 +497,6 @@ enum efx_mac_type {
- 	EFX_XMAC = 2,
- };
- 
--static inline enum efx_fc_type efx_fc_resolve(enum efx_fc_type wanted_fc,
--					      unsigned int lpa)
--{
--	BUILD_BUG_ON(EFX_FC_AUTO & (EFX_FC_RX | EFX_FC_TX));
--
--	if (!(wanted_fc & EFX_FC_AUTO))
--		return wanted_fc;
--
--	return mii_resolve_flowctrl_fdx(mii_advertise_flowctrl(wanted_fc), lpa);
--}
--
- /**
-  * struct efx_mac_operations - Efx MAC operations table
-  * @reconfigure: Reconfigure MAC. Serialised by the mac_lock
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
