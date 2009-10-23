@@ -1,163 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] gre: convert hash tables locking to RCU
-Date: Fri, 23 Oct 2009 18:14:38 +0200
-Message-ID: <4AE1D66E.2020605@gmail.com>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: NOHZ: local_softirq_pending 08
+Date: Fri, 23 Oct 2009 18:33:13 +0200
+Message-ID: <4AE1DAC9.5040603@imap.cc>
+References: <4AD31213.6020006@imap.cc> <20091015114052.GA9870@ff.dom.local>	 <4AD76184.6030900@gmail.com> <4ADF5710.4030505@imap.cc>	 <4AE0ECCE.2020407@imap.cc> <1256304869.12174.20.camel@johannes.local>	 <4AE1BD3D.3020007@imap.cc> <1256308311.12174.38.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>, hidave.darkstar@gmail.com,
+	linux-kernel@vger.kernel.org, tglx@linutronix.de,
+	linux-wireless@vger.kernel.org, linux-ppp@vger.kernel.org,
+	netdev@vger.kernel.org, paulus@samba.org,
+	isdn4linux <isdn4linux@listserv.isdn4linux.de>,
+	i4ldeveloper <i4ldeveloper@listserv.isdn4linux.de>,
+	Karsten Keil <isdn@linux-pingi.de>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:54724 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752017AbZJWQOi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 12:14:38 -0400
+Received: from out2.smtp.messagingengine.com ([66.111.4.26]:38125 "EHLO
+	out2.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752535AbZJWQdP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 12:33:15 -0400
+In-Reply-To: <1256308311.12174.38.camel@johannes.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-GRE tunnels use one rwlock to protect their hash tables.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-This locking scheme can be converted to RCU for free, since netdevice
-already must wait for a RCU grace period at dismantle time.
+Johannes Berg schrieb:
+> On Fri, 2009-10-23 at 16:27 +0200, Tilman Schmidt wrote:
+>> Johannes Berg schrieb:
+>>> So you've verified that the entire i4l stack can cope with being ca=
+lled
+>>> twice on the same CPU, from different contexts?
+>> What makes you think so?
+>=20
+> I thought I'd explained this in my other email. *sigh*
+[snip]
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/ip_gre.c |   40 +++++++++++++++++++++++-----------------
- 1 files changed, 23 insertions(+), 17 deletions(-)
+Ah, I see. You misunderstood my posting. I did not propose that
+patch as a definitive and verified solution, but rather as a
+request for comments from the people who know and maintain the
+code in question. I thought that was clear from the facts that
+- - I didn't include "[PATCH]" in the subject line
+- - I didn't add a "Signed-off-by" line
+- - I wrote "fixed the messages", not "solved the problem"
+- - I explicitly wrote "Comments?" and "Adding i4l people to CC"
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 89ff9d5..40f0439 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -156,8 +156,13 @@ struct ipgre_net {
- #define tunnels_r	tunnels[2]
- #define tunnels_l	tunnels[1]
- #define tunnels_wc	tunnels[0]
-+/*
-+ * Locking : hash tables are protected by RCU and a spinlock
-+ */
-+static DEFINE_SPINLOCK(ipgre_lock);
- 
--static DEFINE_RWLOCK(ipgre_lock);
-+#define for_each_ip_tunnel_rcu(start) \
-+	for (t = rcu_dereference(start); t; t = rcu_dereference(t->next))
- 
- /* Given src, dst and key, find appropriate for input tunnel. */
- 
-@@ -175,7 +180,7 @@ static struct ip_tunnel * ipgre_tunnel_lookup(struct net_device *dev,
- 		       ARPHRD_ETHER : ARPHRD_IPGRE;
- 	int score, cand_score = 4;
- 
--	for (t = ign->tunnels_r_l[h0^h1]; t; t = t->next) {
-+	for_each_ip_tunnel_rcu(ign->tunnels_r_l[h0 ^ h1]) {
- 		if (local != t->parms.iph.saddr ||
- 		    remote != t->parms.iph.daddr ||
- 		    key != t->parms.i_key ||
-@@ -200,7 +205,7 @@ static struct ip_tunnel * ipgre_tunnel_lookup(struct net_device *dev,
- 		}
- 	}
- 
--	for (t = ign->tunnels_r[h0^h1]; t; t = t->next) {
-+	for_each_ip_tunnel_rcu(ign->tunnels_r[h0 ^ h1]) {
- 		if (remote != t->parms.iph.daddr ||
- 		    key != t->parms.i_key ||
- 		    !(t->dev->flags & IFF_UP))
-@@ -224,7 +229,7 @@ static struct ip_tunnel * ipgre_tunnel_lookup(struct net_device *dev,
- 		}
- 	}
- 
--	for (t = ign->tunnels_l[h1]; t; t = t->next) {
-+	for_each_ip_tunnel_rcu(ign->tunnels_l[h1]) {
- 		if ((local != t->parms.iph.saddr &&
- 		     (local != t->parms.iph.daddr ||
- 		      !ipv4_is_multicast(local))) ||
-@@ -250,7 +255,7 @@ static struct ip_tunnel * ipgre_tunnel_lookup(struct net_device *dev,
- 		}
- 	}
- 
--	for (t = ign->tunnels_wc[h1]; t; t = t->next) {
-+	for_each_ip_tunnel_rcu(ign->tunnels_wc[h1]) {
- 		if (t->parms.i_key != key ||
- 		    !(t->dev->flags & IFF_UP))
- 			continue;
-@@ -276,8 +281,9 @@ static struct ip_tunnel * ipgre_tunnel_lookup(struct net_device *dev,
- 	if (cand != NULL)
- 		return cand;
- 
--	if (ign->fb_tunnel_dev->flags & IFF_UP)
--		return netdev_priv(ign->fb_tunnel_dev);
-+	dev = ign->fb_tunnel_dev;
-+	if (dev->flags & IFF_UP)
-+		return netdev_priv(dev);
- 
- 	return NULL;
- }
-@@ -311,10 +317,10 @@ static void ipgre_tunnel_link(struct ipgre_net *ign, struct ip_tunnel *t)
- {
- 	struct ip_tunnel **tp = ipgre_bucket(ign, t);
- 
-+	spin_lock_bh(&ipgre_lock);
- 	t->next = *tp;
--	write_lock_bh(&ipgre_lock);
--	*tp = t;
--	write_unlock_bh(&ipgre_lock);
-+	rcu_assign_pointer(*tp, t);
-+	spin_unlock_bh(&ipgre_lock);
- }
- 
- static void ipgre_tunnel_unlink(struct ipgre_net *ign, struct ip_tunnel *t)
-@@ -323,9 +329,9 @@ static void ipgre_tunnel_unlink(struct ipgre_net *ign, struct ip_tunnel *t)
- 
- 	for (tp = ipgre_bucket(ign, t); *tp; tp = &(*tp)->next) {
- 		if (t == *tp) {
--			write_lock_bh(&ipgre_lock);
-+			spin_lock_bh(&ipgre_lock);
- 			*tp = t->next;
--			write_unlock_bh(&ipgre_lock);
-+			spin_unlock_bh(&ipgre_lock);
- 			break;
- 		}
- 	}
-@@ -476,7 +482,7 @@ static void ipgre_err(struct sk_buff *skb, u32 info)
- 		break;
- 	}
- 
--	read_lock(&ipgre_lock);
-+	rcu_read_lock();
- 	t = ipgre_tunnel_lookup(skb->dev, iph->daddr, iph->saddr,
- 				flags & GRE_KEY ?
- 				*(((__be32 *)p) + (grehlen / 4) - 1) : 0,
-@@ -494,7 +500,7 @@ static void ipgre_err(struct sk_buff *skb, u32 info)
- 		t->err_count = 1;
- 	t->err_time = jiffies;
- out:
--	read_unlock(&ipgre_lock);
-+	rcu_read_unlock();
- 	return;
- }
- 
-@@ -573,7 +579,7 @@ static int ipgre_rcv(struct sk_buff *skb)
- 
- 	gre_proto = *(__be16 *)(h + 2);
- 
--	read_lock(&ipgre_lock);
-+	rcu_read_lock();
- 	if ((tunnel = ipgre_tunnel_lookup(skb->dev,
- 					  iph->saddr, iph->daddr, key,
- 					  gre_proto))) {
-@@ -647,13 +653,13 @@ static int ipgre_rcv(struct sk_buff *skb)
- 		ipgre_ecn_decapsulate(iph, skb);
- 
- 		netif_rx(skb);
--		read_unlock(&ipgre_lock);
-+		rcu_read_unlock();
- 		return(0);
- 	}
- 	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
- 
- drop:
--	read_unlock(&ipgre_lock);
-+	rcu_read_unlock();
- drop_nolock:
- 	kfree_skb(skb);
- 	return(0);
+Apparently all that was still not clear enough. Sorry about that.
+So let me try to make my concern as explicit as possible:
+
+- - The patch I posted had the effect that the test which reliably
+  triggered the local_softirq_pending message before did not do
+  so anymore.
+
+- - To me, this seems to indicate that the netif_rx(skb) call in
+  line 1177 of source file drivers/isdn/i4l/isdn_ppp.c is indeed
+  involved in the problem.
+
+- - Now I'm asking people who know more than myself about the
+  ramifications of that message (ie., you) and/or the code I
+  narrowed it down to (ie., the ISDN4Linux maintainers - which
+  is why I added them to the CC list) to have a look and determine
+  how to fix the problem properly.
+
+- - This would of course include, in finis, the verification you
+  mistakenly assumed I might have done already.
+
+I hope that's clear enough. If you have any questions, feel free
+to ask.
+
+Thanks,
+Tilman
+
+- --
+Tilman Schmidt                    E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=C3=B6ffnet mindestens haltbar bis: (siehe R=C3=BCckseite)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.4 (MingW32)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iD8DBQFK4drJQ3+did9BuFsRAmstAJ94UF/LupINlYpjbxzz9xoiN5w34wCfflRz
+YfR/fXt3HasrxUSP29REOnE=3D
+=3DVQ/C
+-----END PGP SIGNATURE-----
