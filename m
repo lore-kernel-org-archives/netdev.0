@@ -1,96 +1,102 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] Modify bonding hash transmit policies to use the packet's source MAC address
-Date: Fri, 23 Oct 2009 09:23:12 -0700
-Message-ID: <15644.1256314992@death.nxdomain.ibm.com>
-References: <4AE1A37F.8010203@gmail.com> <20091023140845.GA24564@spaans.fox.local>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jasper Spaans <spaans@fox-it.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH 00/27] sfc: Cleanup and preparation for new hardware
+Date: Fri, 23 Oct 2009 19:27:21 +0100
+Message-ID: <1256322441.2785.3.camel@achroite>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:35539 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751480AbZJWSNZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 14:13:25 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e31.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id n9NI6jpu021328
-	for <netdev@vger.kernel.org>; Fri, 23 Oct 2009 12:06:45 -0600
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id n9NIDP7f204410
-	for <netdev@vger.kernel.org>; Fri, 23 Oct 2009 12:13:25 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n9NIDO0i016490
-	for <netdev@vger.kernel.org>; Fri, 23 Oct 2009 12:13:25 -0600
-In-reply-to: <20091023140845.GA24564@spaans.fox.local>
+Received: from exchange.solarflare.com ([216.237.3.220]:8378 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751978AbZJWS1U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 14:27:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jasper Spaans <spaans@fox-it.com> wrote:
+David,
 
->Modify bonding hash transmit policies to use the psource MAC address of
->the packet instead of the MAC address configured for the bonding device.
->
->The old sitation conflicts with the documentation.
->
->Signed-off-by: Jasper Spaans <spaans@fox-it.com>
+This is a mixture of small cleanups, refactoring, renaming and an update
+to the register definitions.  There's more to come, in particular
+support for the new hardware, but I'll let you digest this batch first.
 
-	Looks good.
+Ben.
 
-	Dave, please apply.  This may be suitable for -stable, as it's
-pretty much a day one bug.
+Ben Hutchings (27):
+  sfc: Remove redundant header gmii.h
+  sfc: Remove redundant hardware initialisation
+  sfc: Rename Falcon-specific board code and types
+  sfc: Merge sfe4001.c into falcon_boards.c
+  sfc: Remove boards.h, moving last remaining declaration to falcon.h
+  sfc: Remove versioned bitfield macros
+  sfc: Move RX data FIFO thresholds out of struct efx_nic_type
+  sfc: Update hardware definitions for Siena
+  sfc: Rename register I/O header and functions used by both Falcon and
+    Siena
+  sfc: Eliminate indirect lookups of queue size constants
+  sfc: Define DMA address mask explicitly in terms of descriptor field
+    width
+  sfc: Move all TX DMA length limiting into tx.c
+  sfc: Merge struct efx_blinker into struct efx_board
+  sfc: Change order of device removal to reverse of probe order
+  sfc: Remove declarations of nonexistent functions
+  sfc: Move efx_xmit_done() declaration into correct stanza
+  sfc: Move shared members of struct falcon_nic_data into struct
+    efx_nic
+  sfc: Maintain interrupt moderation values in ticks, not microseconds
+  sfc: Removed kernel-doc for nonexistent member of efx_phy_operations
+  sfc: Remove pointless abstraction of memory BAR number
+  sfc: Merge falcon_probe_phy() into falcon_probe_port()
+  sfc: Remove incorrect assertion from efx_pci_remove_main()
+  sfc: Remove unnecessary tests of efx->membase
+  sfc: Move MTD probe after netdev registration and name allocation
+  sfc: Merge efx_fc_resolve() into efx_mdio_get_pause()
+  sfc: Remove unused code for non-autoneg speed/duplex switching
+  sfc: Rename 'xfp' file and functions to reflect reality
 
-	-J
+ drivers/net/sfc/Makefile                    |    4 +-
+ drivers/net/sfc/bitfield.h                  |   13 -
+ drivers/net/sfc/boards.c                    |  328 ---
+ drivers/net/sfc/boards.h                    |   28 -
+ drivers/net/sfc/efx.c                       |   89 +-
+ drivers/net/sfc/efx.h                       |   11 +-
+ drivers/net/sfc/ethtool.c                   |    8 +-
+ drivers/net/sfc/falcon.c                    | 1122 +++++-----
+ drivers/net/sfc/falcon.h                    |    4 +-
+ drivers/net/sfc/falcon_boards.c             |  752 +++++++
+ drivers/net/sfc/falcon_gmac.c               |   95 +-
+ drivers/net/sfc/falcon_hwdefs.h             | 1333 -----------
+ drivers/net/sfc/falcon_io.h                 |  258 ---
+ drivers/net/sfc/falcon_xmac.c               |  178 +-
+ drivers/net/sfc/gmii.h                      |   60 -
+ drivers/net/sfc/io.h                        |  256 +++
+ drivers/net/sfc/mdio_10g.c                  |  121 +-
+ drivers/net/sfc/mdio_10g.h                  |    1 -
+ drivers/net/sfc/net_driver.h                |   56 +-
+ drivers/net/sfc/phy.h                       |    6 +-
+ drivers/net/sfc/{xfp_phy.c => qt202x_phy.c} |   80 +-
+ drivers/net/sfc/regs.h                      | 3180 +++++++++++++++++++++++++++
+ drivers/net/sfc/rx.c                        |   16 +-
+ drivers/net/sfc/selftest.c                  |    5 +-
+ drivers/net/sfc/sfe4001.c                   |  435 ----
+ drivers/net/sfc/tenxpress.c                 |    3 +-
+ drivers/net/sfc/tx.c                        |   83 +-
+ drivers/net/sfc/workarounds.h               |    2 +
+ 28 files changed, 5091 insertions(+), 3436 deletions(-)
+ delete mode 100644 drivers/net/sfc/boards.c
+ delete mode 100644 drivers/net/sfc/boards.h
+ create mode 100644 drivers/net/sfc/falcon_boards.c
+ delete mode 100644 drivers/net/sfc/falcon_hwdefs.h
+ delete mode 100644 drivers/net/sfc/falcon_io.h
+ delete mode 100644 drivers/net/sfc/gmii.h
+ create mode 100644 drivers/net/sfc/io.h
+ rename drivers/net/sfc/{xfp_phy.c => qt202x_phy.c} (73%)
+ create mode 100644 drivers/net/sfc/regs.h
+ delete mode 100644 drivers/net/sfc/sfe4001.c
 
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
->---
-> drivers/net/bonding/bond_main.c |    8 ++++----
-> 1 files changed, 4 insertions(+), 4 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 69c5b15..3f05267 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -3665,10 +3665,10 @@ static int bond_xmit_hash_policy_l23(struct sk_buff *skb,
->
-> 	if (skb->protocol == htons(ETH_P_IP)) {
-> 		return ((ntohl(iph->saddr ^ iph->daddr) & 0xffff) ^
->-			(data->h_dest[5] ^ bond_dev->dev_addr[5])) % count;
->+			(data->h_dest[5] ^ data->h_source[5])) % count;
-> 	}
->
->-	return (data->h_dest[5] ^ bond_dev->dev_addr[5]) % count;
->+	return (data->h_dest[5] ^ data->h_source[5]) % count;
-> }
->
-> /*
->@@ -3695,7 +3695,7 @@ static int bond_xmit_hash_policy_l34(struct sk_buff *skb,
->
-> 	}
->
->-	return (data->h_dest[5] ^ bond_dev->dev_addr[5]) % count;
->+	return (data->h_dest[5] ^ data->h_source[5]) % count;
-> }
->
-> /*
->@@ -3706,7 +3706,7 @@ static int bond_xmit_hash_policy_l2(struct sk_buff *skb,
-> {
-> 	struct ethhdr *data = (struct ethhdr *)skb->data;
->
->-	return (data->h_dest[5] ^ bond_dev->dev_addr[5]) % count;
->+	return (data->h_dest[5] ^ data->h_source[5]) % count;
-> }
->
-> /*-------------------------- Device entry points ----------------------------*/
->-- 
->1.6.0.4
->
->
->-- 
->Fox-IT Experts in IT Security!
->T: +31 (0) 15 284 79 99
->KvK Haaglanden 27301624
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
