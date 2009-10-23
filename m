@@ -1,154 +1,64 @@
-From: Jasper Spaans <spaans@fox-it.com>
-Subject: [PATCH] Remove bond_dev from xmit_hash_policy call.
-Date: Fri, 23 Oct 2009 16:09:24 +0200
-Message-ID: <20091023140924.GA24611@spaans.fox.local>
-References: <4AE1A37F.8010203@gmail.com>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: NOHZ: local_softirq_pending 08
+Date: Fri, 23 Oct 2009 16:27:09 +0200
+Message-ID: <4AE1BD3D.3020007@imap.cc>
+References: <4AD31213.6020006@imap.cc> <20091015114052.GA9870@ff.dom.local>	 <4AD76184.6030900@gmail.com> <4ADF5710.4030505@imap.cc>	 <4AE0ECCE.2020407@imap.cc> <1256304869.12174.20.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.fox-it.com ([82.94.91.210]:11762 "EHLO mail2.fox-it.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751901AbZJWOJ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Oct 2009 10:09:26 -0400
-Content-Disposition: inline
-In-Reply-To: <4AE1A37F.8010203@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>, hidave.darkstar@gmail.com,
+	linux-kernel@vger.kernel.org, tglx@linutronix.de,
+	linux-wireless@vger.kernel.org, linux-ppp@vger.kernel.org,
+	netdev@vger.kernel.org, paulus@samba.org,
+	isdn4linux <isdn4linux@listserv.isdn4linux.de>,
+	i4ldeveloper <i4ldeveloper@listserv.isdn4linux.de>,
+	Karsten Keil <isdn@linux-pingi.de>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <1256304869.12174.20.camel@johannes.local>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now that the bonding device is no longer used in determining the device to
-which to send packets, it can be dropped from the argument list of the various
-xmit_hash_policy calls.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Signed-off-by: Jasper Spaans <spaans@fox-it.com>
----
- drivers/net/bonding/bond_3ad.c  |   11 +++++------
- drivers/net/bonding/bond_main.c |   11 ++++-------
- drivers/net/bonding/bonding.h   |    3 +--
- 3 files changed, 10 insertions(+), 15 deletions(-)
+Johannes Berg schrieb:
+> On Fri, 2009-10-23 at 01:37 +0200, Tilman Schmidt wrote:
+>=20
+>> --- a/drivers/isdn/i4l/isdn_ppp.c
+>> +++ b/drivers/isdn/i4l/isdn_ppp.c
+>> @@ -1174,7 +1174,10 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, =
+isdn_net_local * lp, struct sk_buff
+>>  #endif /* CONFIG_IPPP_FILTER */
+>>  	skb->dev =3D dev;
+>>  	skb_reset_mac_header(skb);
+>> -	netif_rx(skb);
+>> +	if (in_interrupt())
+>> +		netif_rx(skb);
+>> +	else
+>> +		netif_rx_ni(skb);
+>=20
+> So you've verified that the entire i4l stack can cope with being call=
+ed
+> twice on the same CPU, from different contexts?
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index c3fa31c..3cd8153 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -1956,7 +1956,7 @@ void bond_3ad_unbind_slave(struct slave *slave)
- 	struct port *port, *prev_port, *temp_port;
- 	struct aggregator *aggregator, *new_aggregator, *temp_aggregator;
- 	int select_new_active_agg = 0;
--	
-+
- 	// find the aggregator related to this slave
- 	aggregator = &(SLAVE_AD_INFO(slave).aggregator);
- 
-@@ -2024,7 +2024,7 @@ void bond_3ad_unbind_slave(struct slave *slave)
- 
- 				// clear the aggregator
- 				ad_clear_agg(aggregator);
--				
-+
- 				if (select_new_active_agg) {
- 					ad_agg_selection_logic(__get_first_agg(port));
- 				}
-@@ -2075,7 +2075,7 @@ void bond_3ad_unbind_slave(struct slave *slave)
- 			}
- 		}
- 	}
--	port->slave=NULL;	
-+	port->slave=NULL;
- }
- 
- /**
-@@ -2301,7 +2301,7 @@ void bond_3ad_handle_link_change(struct slave *slave, char link)
- }
- 
- /*
-- * set link state for bonding master: if we have an active 
-+ * set link state for bonding master: if we have an active
-  * aggregator, we're up, if not, we're down.  Presumes that we cannot
-  * have an active aggregator if there are no slaves with link up.
-  *
-@@ -2395,7 +2395,7 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
- 		goto out;
- 	}
- 
--	slave_agg_no = bond->xmit_hash_policy(skb, dev, slaves_in_agg);
-+	slave_agg_no = bond->xmit_hash_policy(skb, slaves_in_agg);
- 
- 	bond_for_each_slave(bond, slave, i) {
- 		struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
-@@ -2468,4 +2468,3 @@ out:
- 
- 	return ret;
- }
--
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 3f05267..13058c5 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3657,8 +3657,7 @@ void bond_unregister_arp(struct bonding *bond)
-  * Hash for the output device based upon layer 2 and layer 3 data. If
-  * the packet is not IP mimic bond_xmit_hash_policy_l2()
-  */
--static int bond_xmit_hash_policy_l23(struct sk_buff *skb,
--				     struct net_device *bond_dev, int count)
-+static int bond_xmit_hash_policy_l23(struct sk_buff *skb, int count)
- {
- 	struct ethhdr *data = (struct ethhdr *)skb->data;
- 	struct iphdr *iph = ip_hdr(skb);
-@@ -3676,8 +3675,7 @@ static int bond_xmit_hash_policy_l23(struct sk_buff *skb,
-  * the packet is a frag or not TCP or UDP, just use layer 3 data.  If it is
-  * altogether not IP, mimic bond_xmit_hash_policy_l2()
-  */
--static int bond_xmit_hash_policy_l34(struct sk_buff *skb,
--				    struct net_device *bond_dev, int count)
-+static int bond_xmit_hash_policy_l34(struct sk_buff *skb, int count)
- {
- 	struct ethhdr *data = (struct ethhdr *)skb->data;
- 	struct iphdr *iph = ip_hdr(skb);
-@@ -3701,8 +3699,7 @@ static int bond_xmit_hash_policy_l34(struct sk_buff *skb,
- /*
-  * Hash for the output device based upon layer 2 data
-  */
--static int bond_xmit_hash_policy_l2(struct sk_buff *skb,
--				   struct net_device *bond_dev, int count)
-+static int bond_xmit_hash_policy_l2(struct sk_buff *skb, int count)
- {
- 	struct ethhdr *data = (struct ethhdr *)skb->data;
- 
-@@ -4295,7 +4292,7 @@ static int bond_xmit_xor(struct sk_buff *skb, struct net_device *bond_dev)
- 	if (!BOND_IS_OK(bond))
- 		goto out;
- 
--	slave_no = bond->xmit_hash_policy(skb, bond_dev, bond->slave_cnt);
-+	slave_no = bond->xmit_hash_policy(skb, bond->slave_cnt);
- 
- 	bond_for_each_slave(bond, slave, i) {
- 		slave_no--;
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 6824771..02e1f9e 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -204,7 +204,7 @@ struct bonding {
- #endif /* CONFIG_PROC_FS */
- 	struct   list_head bond_list;
- 	struct   dev_mc_list *mc_list;
--	int      (*xmit_hash_policy)(struct sk_buff *, struct net_device *, int);
-+	int      (*xmit_hash_policy)(struct sk_buff *, int);
- 	__be32   master_ip;
- 	u16      flags;
- 	u16      rr_tx_counter;
-@@ -370,4 +370,3 @@ static inline void bond_unregister_ipv6_notifier(void)
- #endif
- 
- #endif /* _LINUX_BONDING_H */
--
--- 
-1.6.0.4
+What makes you think so?
+Better yet, what do you propose?
 
+Thanks,
+Tilman
 
--- 
-Fox-IT Experts in IT Security!
-T: +31 (0) 15 284 79 99
-KvK Haaglanden 27301624
+- --
+Tilman Schmidt                    E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=C3=B6ffnet mindestens haltbar bis: (siehe R=C3=BCckseite)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.4 (MingW32)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iD8DBQFK4b09Q3+did9BuFsRAqBvAKCbRI0iXQEyK3ztxkGHcqpbcceqbACgkagX
+JF7nYd152ihp2uemIs/cB54=3D
+=3DYOin
+-----END PGP SIGNATURE-----
