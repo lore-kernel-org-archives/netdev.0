@@ -1,35 +1,41 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: kernel panic in latest vanilla stable, while using nameif with
-	"alive" pppoe interfaces
-Date: Fri, 23 Oct 2009 19:18:37 +0400
-Message-ID: <20091023151837.GB5394@lenovo>
-References: <200910190002.39937.denys@visp.net.lb> <200910201650.10066.denys@visp.net.lb> <20091020135920.GB5181@lenovo> <200910201720.00473.denys@visp.net.lb> <20091020190821.GO5181@lenovo>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] net: Fix RPF to work with policy routing
+Date: Fri, 23 Oct 2009 08:34:49 -0700
+Message-ID: <4AE1CD19.8090901@candelatech.com>
+References: <1255867954.4815.25.camel@dogo.mojatatu.com>	 <1255868019.4815.27.camel@dogo.mojatatu.com>	 <20091022.214943.105371652.davem@davemloft.net> <1256295075.6264.59.camel@dogo.mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Denys Fedoryschenko <denys@visp.net.lb>,
-	Michal Ostrowski <mostrows@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-ppp@vger.kernel.org, paulus@samba.org, mostrows@earthlink.net
-To: netdev <netdev@vger.kernel.org>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091020190821.GO5181@lenovo>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	atis@mikrotik.com, eric.dumazet@gmail.com, zenczykowski@gmail.com
+To: hadi@cyberus.ca
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:49556 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752171AbZJWPhT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 11:37:19 -0400
+In-Reply-To: <1256295075.6264.59.camel@dogo.mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[Cyrill Gorcunov - Tue, Oct 20, 2009 at 11:08:21PM +0400]
-...
-| 
-| Just to update status of the issue. The key moment is that pppoe_flush_dev
-| may be called asynchronously (especially via sysfs on dev entry, for example
-| we retrieve mtu of device and while we at it other process may update mtu
-| via sysfs). So I'm returning pppoe_hash_lock back which should eliminate a
-| number of lock complains and make locking scheme easier. All-in-one: I'm
-| working on it. Just need some more time.
-| 
-| 	-- Cyrill
+jamal wrote:
+> with the ipt or skbedit actions or via netfilter i could
+> set marks which could be as trivial as "set mark X if packet 
+> came in via eth0 or eth1 and mark Y if they came in via gre0"
+>   
+I implemented something similar while allowing for virtual router like
+applications.  I had to add a mark very early in the pkt rx logic in dev.c,
+and had to add a 'skb_default_mark' member to the netdevice because
+the route lookup is done before the normal iptables logic ran.  Without
+this, if a flow already existed for pkts coming in eth1, if the packet came
+back in eth2, it would use eth1's flow.
 
-Another status update -- the patch is under testing stage. Hope we will
-reveal proper patch soon (in a few days I guess).
+I'll dig out the patch if anyone is interested...
 
-	-- Cyrill
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
+
