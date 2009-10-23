@@ -1,88 +1,168 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: NOHZ: local_softirq_pending 08
-Date: Fri, 23 Oct 2009 18:33:13 +0200
-Message-ID: <4AE1DAC9.5040603@imap.cc>
-References: <4AD31213.6020006@imap.cc> <20091015114052.GA9870@ff.dom.local>	 <4AD76184.6030900@gmail.com> <4ADF5710.4030505@imap.cc>	 <4AE0ECCE.2020407@imap.cc> <1256304869.12174.20.camel@johannes.local>	 <4AE1BD3D.3020007@imap.cc> <1256308311.12174.38.camel@johannes.local>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] ip6tnl: convert hash tables locking to RCU
+Date: Fri, 23 Oct 2009 18:34:34 +0200
+Message-ID: <4AE1DB1A.3070709@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	David Miller <davem@davemloft.net>, hidave.darkstar@gmail.com,
-	linux-kernel@vger.kernel.org, tglx@linutronix.de,
-	linux-wireless@vger.kernel.org, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, paulus@samba.org,
-	isdn4linux <isdn4linux@listserv.isdn4linux.de>,
-	i4ldeveloper <i4ldeveloper@listserv.isdn4linux.de>,
-	Karsten Keil <isdn@linux-pingi.de>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2.smtp.messagingengine.com ([66.111.4.26]:38125 "EHLO
-	out2.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752535AbZJWQdP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 12:33:15 -0400
-In-Reply-To: <1256308311.12174.38.camel@johannes.local>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:35327 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752444AbZJWQed (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 12:34:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+ip6_tunnels use one rwlock to protect their hash tables.
 
-Johannes Berg schrieb:
-> On Fri, 2009-10-23 at 16:27 +0200, Tilman Schmidt wrote:
->> Johannes Berg schrieb:
->>> So you've verified that the entire i4l stack can cope with being ca=
-lled
->>> twice on the same CPU, from different contexts?
->> What makes you think so?
->=20
-> I thought I'd explained this in my other email. *sigh*
-[snip]
+This locking scheme can be converted to RCU for free, since netdevice
+already must wait for a RCU grace period at dismantle time.
 
-Ah, I see. You misunderstood my posting. I did not propose that
-patch as a definitive and verified solution, but rather as a
-request for comments from the people who know and maintain the
-code in question. I thought that was clear from the facts that
-- - I didn't include "[PATCH]" in the subject line
-- - I didn't add a "Signed-off-by" line
-- - I wrote "fixed the messages", not "solved the problem"
-- - I explicitly wrote "Comments?" and "Adding i4l people to CC"
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv6/ip6_tunnel.c |   44 ++++++++++++++++++++++------------------
+ 1 files changed, 25 insertions(+), 19 deletions(-)
 
-Apparently all that was still not clear enough. Sorry about that.
-So let me try to make my concern as explicit as possible:
-
-- - The patch I posted had the effect that the test which reliably
-  triggered the local_softirq_pending message before did not do
-  so anymore.
-
-- - To me, this seems to indicate that the netif_rx(skb) call in
-  line 1177 of source file drivers/isdn/i4l/isdn_ppp.c is indeed
-  involved in the problem.
-
-- - Now I'm asking people who know more than myself about the
-  ramifications of that message (ie., you) and/or the code I
-  narrowed it down to (ie., the ISDN4Linux maintainers - which
-  is why I added them to the CC list) to have a look and determine
-  how to fix the problem properly.
-
-- - This would of course include, in finis, the verification you
-  mistakenly assumed I might have done already.
-
-I hope that's clear enough. If you have any questions, feel free
-to ask.
-
-Thanks,
-Tilman
-
-- --
-Tilman Schmidt                    E-Mail: tilman@imap.cc
-Bonn, Germany
-Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
-Unge=C3=B6ffnet mindestens haltbar bis: (siehe R=C3=BCckseite)
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.4 (MingW32)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iD8DBQFK4drJQ3+did9BuFsRAmstAJ94UF/LupINlYpjbxzz9xoiN5w34wCfflRz
-YfR/fXt3HasrxUSP29REOnE=3D
-=3DVQ/C
------END PGP SIGNATURE-----
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index c595bbe..670c291 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -88,8 +88,10 @@ struct ip6_tnl_net {
+ 	struct ip6_tnl **tnls[2];
+ };
+ 
+-/* lock for the tunnel lists */
+-static DEFINE_RWLOCK(ip6_tnl_lock);
++/*
++ * Locking : hash tables are protected by RCU and a spinlock
++ */
++static DEFINE_SPINLOCK(ip6_tnl_lock);
+ 
+ static inline struct dst_entry *ip6_tnl_dst_check(struct ip6_tnl *t)
+ {
+@@ -130,6 +132,9 @@ static inline void ip6_tnl_dst_store(struct ip6_tnl *t, struct dst_entry *dst)
+  *   else %NULL
+  **/
+ 
++#define for_each_ip6_tunnel_rcu(start) \
++	for (t = rcu_dereference(start); t; t = rcu_dereference(t->next))
++
+ static struct ip6_tnl *
+ ip6_tnl_lookup(struct net *net, struct in6_addr *remote, struct in6_addr *local)
+ {
+@@ -138,13 +143,14 @@ ip6_tnl_lookup(struct net *net, struct in6_addr *remote, struct in6_addr *local)
+ 	struct ip6_tnl *t;
+ 	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
+ 
+-	for (t = ip6n->tnls_r_l[h0 ^ h1]; t; t = t->next) {
++	for_each_ip6_tunnel_rcu(ip6n->tnls_r_l[h0 ^ h1]) {
+ 		if (ipv6_addr_equal(local, &t->parms.laddr) &&
+ 		    ipv6_addr_equal(remote, &t->parms.raddr) &&
+ 		    (t->dev->flags & IFF_UP))
+ 			return t;
+ 	}
+-	if ((t = ip6n->tnls_wc[0]) != NULL && (t->dev->flags & IFF_UP))
++	t = rcu_dereference(ip6n->tnls_wc[0]);
++	if (t && (t->dev->flags & IFF_UP))
+ 		return t;
+ 
+ 	return NULL;
+@@ -186,10 +192,10 @@ ip6_tnl_link(struct ip6_tnl_net *ip6n, struct ip6_tnl *t)
+ {
+ 	struct ip6_tnl **tp = ip6_tnl_bucket(ip6n, &t->parms);
+ 
++	spin_lock_bh(&ip6_tnl_lock);
+ 	t->next = *tp;
+-	write_lock_bh(&ip6_tnl_lock);
+-	*tp = t;
+-	write_unlock_bh(&ip6_tnl_lock);
++	rcu_assign_pointer(*tp, t);
++	spin_unlock_bh(&ip6_tnl_lock);
+ }
+ 
+ /**
+@@ -204,9 +210,9 @@ ip6_tnl_unlink(struct ip6_tnl_net *ip6n, struct ip6_tnl *t)
+ 
+ 	for (tp = ip6_tnl_bucket(ip6n, &t->parms); *tp; tp = &(*tp)->next) {
+ 		if (t == *tp) {
+-			write_lock_bh(&ip6_tnl_lock);
++			spin_lock_bh(&ip6_tnl_lock);
+ 			*tp = t->next;
+-			write_unlock_bh(&ip6_tnl_lock);
++			spin_unlock_bh(&ip6_tnl_lock);
+ 			break;
+ 		}
+ 	}
+@@ -313,9 +319,9 @@ ip6_tnl_dev_uninit(struct net_device *dev)
+ 	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
+ 
+ 	if (dev == ip6n->fb_tnl_dev) {
+-		write_lock_bh(&ip6_tnl_lock);
++		spin_lock_bh(&ip6_tnl_lock);
+ 		ip6n->tnls_wc[0] = NULL;
+-		write_unlock_bh(&ip6_tnl_lock);
++		spin_unlock_bh(&ip6_tnl_lock);
+ 	} else {
+ 		ip6_tnl_unlink(ip6n, t);
+ 	}
+@@ -409,7 +415,7 @@ ip6_tnl_err(struct sk_buff *skb, __u8 ipproto, struct inet6_skb_parm *opt,
+ 	   in trouble since we might need the source address for further
+ 	   processing of the error. */
+ 
+-	read_lock(&ip6_tnl_lock);
++	rcu_read_lock();
+ 	if ((t = ip6_tnl_lookup(dev_net(skb->dev), &ipv6h->daddr,
+ 					&ipv6h->saddr)) == NULL)
+ 		goto out;
+@@ -482,7 +488,7 @@ ip6_tnl_err(struct sk_buff *skb, __u8 ipproto, struct inet6_skb_parm *opt,
+ 	*msg = rel_msg;
+ 
+ out:
+-	read_unlock(&ip6_tnl_lock);
++	rcu_read_unlock();
+ 	return err;
+ }
+ 
+@@ -693,23 +699,23 @@ static int ip6_tnl_rcv(struct sk_buff *skb, __u16 protocol,
+ 	struct ip6_tnl *t;
+ 	struct ipv6hdr *ipv6h = ipv6_hdr(skb);
+ 
+-	read_lock(&ip6_tnl_lock);
++	rcu_read_lock();
+ 
+ 	if ((t = ip6_tnl_lookup(dev_net(skb->dev), &ipv6h->saddr,
+ 					&ipv6h->daddr)) != NULL) {
+ 		if (t->parms.proto != ipproto && t->parms.proto != 0) {
+-			read_unlock(&ip6_tnl_lock);
++			rcu_read_unlock();
+ 			goto discard;
+ 		}
+ 
+ 		if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb)) {
+-			read_unlock(&ip6_tnl_lock);
++			rcu_read_unlock();
+ 			goto discard;
+ 		}
+ 
+ 		if (!ip6_tnl_rcv_ctl(t)) {
+ 			t->dev->stats.rx_dropped++;
+-			read_unlock(&ip6_tnl_lock);
++			rcu_read_unlock();
+ 			goto discard;
+ 		}
+ 		secpath_reset(skb);
+@@ -727,10 +733,10 @@ static int ip6_tnl_rcv(struct sk_buff *skb, __u16 protocol,
+ 		t->dev->stats.rx_packets++;
+ 		t->dev->stats.rx_bytes += skb->len;
+ 		netif_rx(skb);
+-		read_unlock(&ip6_tnl_lock);
++		rcu_read_unlock();
+ 		return 0;
+ 	}
+-	read_unlock(&ip6_tnl_lock);
++	rcu_read_unlock();
+ 	return 1;
+ 
+ discard:
