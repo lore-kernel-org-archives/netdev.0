@@ -1,87 +1,91 @@
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: RE: [PATCH] e100: fix 10sec DHCP delay (regression for 82559ER)
-Date: Fri, 23 Oct 2009 14:45:49 -0700
-Message-ID: <8DD2590731AB5D4C9DBF71A877482A903B165929@orsmsx509.amr.corp.intel.com>
-References: <4ADF6F15.5040301@gmx.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] net: Fix RPF to work with policy routing
+Date: Fri, 23 Oct 2009 18:40:12 -0400
+Message-ID: <1256337612.4878.14.camel@dogo.mojatatu.com>
+References: <1255867954.4815.25.camel@dogo.mojatatu.com>
+	 <1255868019.4815.27.camel@dogo.mojatatu.com>
+	 <20091022.214943.105371652.davem@davemloft.net>
+	 <1256295075.6264.59.camel@dogo.mojatatu.com>
+	 <4AE1CD19.8090901@candelatech.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Bernhard Kaindl <bernhard.kaindl@gmx.net>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	atis@mikrotik.com, eric.dumazet@gmail.com, zenczykowski@gmail.com
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:37843 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751111AbZJWVpq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 17:45:46 -0400
-In-Reply-To: <4ADF6F15.5040301@gmx.net>
-Content-Language: en-US
+Received: from mail-qy0-f174.google.com ([209.85.221.174]:63180 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751385AbZJWWnU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 18:43:20 -0400
+Received: by qyk4 with SMTP id 4so6951934qyk.33
+        for <netdev@vger.kernel.org>; Fri, 23 Oct 2009 15:43:24 -0700 (PDT)
+In-Reply-To: <4AE1CD19.8090901@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After further testing, this introduces a problem on 82552 parts where it no longer autonegs to 100Full.  I've created a different patch that reverts my code put in to 2.6.30 which isolates all PHY ids (which causes the problem discovered by Bernhard) yet still works around the problem on 82552.  It is currently queued up for testing here at Intel and will be pushed to netdev in the next few days.
+On Fri, 2009-10-23 at 08:34 -0700, Ben Greear wrote:
 
->-----Original Message-----
->From: Bernhard Kaindl [mailto:bernhard.kaindl@gmx.net]
->Sent: Wednesday, October 21, 2009 1:29 PM
->To: David S. Miller
->Cc: Allan, Bruce W; netdev@vger.kernel.org
->Subject: [PATCH] e100: fix 10sec DHCP delay (regression for 82559ER)
->
->From: Bernhard Kaindl <bernhard.kaindl@gmx.net>
->
->With 2.6.30, we noticed a regression on our Intel 82559ER-equipped
->boards regarding the PHY initialization. The Intel 82559ER uses an
->internal PHY bus, so our PHY environment should be not be very special.
->
->The symptom which we observed on these boards was that the boot-time
->DHCP negotiation was stalled for ~5secs and went very slowly until
->it was finally completed after ~10secs after initial interface start.
->
->I reported our finding along with a proposal for a fix to netdev and
->Bruce Allan@Intel, whose patch to support the new Intel 82552 adapter
->included a workaround for the 82552 with this side effect for our env.
->
->Bruce worked on a way to have both environments working and tested
->it on as many 10/100 parts he could get his hands on and started
->a process which allows for more testing and patch submission from
->
->So pending this process which allows for more testing at Intel, I am
->submitting our common patch. For PHYs other than the 82552, it resembles
->mostly how 2.6.23-2.6.29 have been selecting and isolating the PHYs.
->
->This patch applies to 2.6.30.9, 2.6.31.4 and 2.6.32-rc5-git1 and is
->essentially what Bruce has been testing:
->
->Signed-off-by: Bernhard Kaindl <bernhard.kaindl@gmx.net>
->Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
->---
->
->  drivers/net/e100.c |   10 +++++++---
->  1 files changed, 7 insertions(+), 3 deletions(-)
->
->diff --git a/drivers/net/e100.c b/drivers/net/e100.c
->index 5d2f48f..aed18a4 100644
->--- a/drivers/net/e100.c
->+++ b/drivers/net/e100.c
->@@ -1427,13 +1427,17 @@ static int e100_phy_init(struct nic *nic)
->  	} else
->  		DPRINTK(HW, DEBUG, "phy_addr = %d\n", nic->mii.phy_id);
->
->-	/* Isolate all the PHY ids */
->-	for (addr = 0; addr < 32; addr++)
->-		mdio_write(netdev, addr, MII_BMCR, BMCR_ISOLATE);
->  	/* Select the discovered PHY */
->  	bmcr &= ~BMCR_ISOLATE;
->  	mdio_write(netdev, nic->mii.phy_id, MII_BMCR, bmcr);
->
->+	if (nic->phy != phy_82552_v) {
->+		/* Isolate the unused PHY ids */
->+		for (addr = 0; addr < 32; addr++)
->+			if (addr != nic->mii.phy_id)
->+				mdio_write(netdev, addr, MII_BMCR, BMCR_ISOLATE);
->+	}
->+
->  	/* Get phy ID */
->  	id_lo = mdio_read(netdev, nic->mii.phy_id, MII_PHYSID1);
->  	id_hi = mdio_read(netdev, nic->mii.phy_id, MII_PHYSID2);
+> I implemented something similar while allowing for virtual router like
+> applications.  I had to add a mark very early in the pkt rx logic in dev.c,
+> and had to add a 'skb_default_mark' member to the netdevice because
+> the route lookup is done before the normal iptables logic ran.  
+
+You dont need to add a new construct to netdev.
+Here's how youd tag all packets coming on eth0 with mark 7:
+----
+tc filter add dev eth0 parent ffff: protocol ip \
+pref 10 u32 match u32 0 0 flowid 1:17 \
+action skbedit mark 7
+---
+
+Of course you could also be very flow specific, example:
+
+----
+tc filter add dev eth0 parent ffff: protocol ip \
+pref 9 u32 match ip src 64.233.169.99/32 flowid 1:5 \
+action skbedit mark 5
+---
+
+Or even use iptable marker
+---
+tc filter add dev eth2 parent 1:0 protocol ip \
+prio 5 u32 match ip dst 10.0.0.90/32 flowid 1:12 \
+action ipt -j mark --set-mark 2
+----
+
+You could even slice bread with this stuff. Example
+you could use certain policy routing tables only
+if a flow misbehaved (works well with routing not
+local destined packets), example
+
+---
+tc filter add dev eth0 parent ffff: protocol ip prio 1 u32 \
+match ip src 10.0.0.90/32 flowid 1:10 \
+action ipt -j mark --set-mark 1 \
+action police rate 100kbit burst 90k pipe \
+action ipt -j mark --set-mark 2 \
+action police rate 50kbit burst 50k pipe \
+action ipt -j mark --set-mark 3 \
+action police rate 50kbit burst 50k drop
+----
+
+As a warning ipt could be shaky in some distros because
+of the morphing iptables interface.
+
+> Without
+> this, if a flow already existed for pkts coming in eth1, if the packet came
+> back in eth2, it would use eth1's flow.
+
+True. Of course you can avoid that with the patch i posted 
+meeting the conditions i described with RPF.
+
+> I'll dig out the patch if anyone is interested...
+
+If you can do overlapping IP addresses, it would be interesting
+to see. Otherwise all is achievable with smart policy routing.
+
+cheers,
+jamal
+
