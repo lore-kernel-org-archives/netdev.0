@@ -1,99 +1,59 @@
-From: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>
-Subject: [PATCHv2 2.6.32-rc5] r8169: fix Ethernet Hangup for RTL8110SC rev d
-Date: Fri, 23 Oct 2009 08:57:17 +0200
-Message-ID: <20091023065717.GA22484@pandem0nium>
+From: Sven Geggus <lists@fuchsschwanzdomain.de>
+Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
+	failures V2
+Date: Fri, 23 Oct 2009 09:31:21 +0200
+Message-ID: <20091023073120.GA16987@geggus.net>
+References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="2oS5YaxWCcQjTEyO"
-To: netdev@vger.kernel.org, simon.wunderlich@saxnet.de,
-	David Miller <davem@davemloft.net>, bernhard.schmidt@saxnet.de,
-	romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from jessica.hrz.tu-chemnitz.de ([134.109.132.47]:52303 "EHLO
-	jessica.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751525AbZJWG5Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 02:57:16 -0400
+Content-Type: text/plain; charset=utf-8
+Cc: Frans Pop <elendil@planet.nl>, Jiri Kosina <jkosina@suse.cz>,
+	Karol Lewandowski <karol.k.lewandowski@gmail.com>,
+	Tobias Oetiker <tobi@oetiker.ch>, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	David Miller <davem@davemloft.net>,
+	Reinette Chatre <reinette.chatre@intel.com>,
+	Kalle Valo <kalle.valo@iki.fi>,
+	David Rientjes <rientjes@google.com>,
+	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
+	Mohamed Abbas <mohamed.abbas@intel.com>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Stephan von Krawczynski <skraw@ithnet.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>
+To: Mel Gorman <mel@csn.ul.ie>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
+Mel Gorman schrieb am Donnerstag, den 22. Oktober um 16:22 Uhr:
 
---2oS5YaxWCcQjTEyO
-Content-Type: text/plain; charset=utf8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> [No BZ ID] Kernel crash on 2.6.31.x (kcryptd: page allocation failure..)
+> 	This apparently is easily reproducible, particular in comparison to
+> 	the other reports. The point of greatest interest is that this is
+> 	order-0 GFP_ATOMIC failures. Sven, I'm hoping that you in particular
+> 	will be able to follow the tests below as you are the most likely
+> 	person to have an easily reproducible situation.
 
-The 8110SC rev d chip on our board shows a regression which the 8110SB chip
-did not have. When inbound traffic is overflowing the receive descriptor qu=
-eue,
-"holes" in the ring buffer may occur which lead to a hangup until the buffer
-is filled again. The packets are than completely processed, but the ring
-remains porous and no packets are processed until the next overflow. Setting
-the interface down and up can fix the problem temporary from userspace.
+I will see what I can do on the weekend. Unfortunately the crash happens on
+a somewhat important machine and afterwards the Software-RAID needs a resync
+which takes a few hours.
 
-For some reason we don't know, this behaviour is not occuring if the RxVlan
-bit for hardware VLAN untagging is set. There is another "Work around for
-AMD plateform" in the current code which checks the VLAN status
-word in receive descriptors, but does never come to effect when hardware
-VLAN support is enabled. We assume that this is a bug in the chip.
+Sven
 
-The following patch fixes the problem. Without the patch we could reproduce
-the hang within minutes (given other devices also generating lots of
-interrupts), without we couldn't reproduce within a few days of long term
-testing.
+-- 
+"Those who do not understand Unix are condemned to reinvent it, poorly"
+(Henry Spencer)
 
-This version contains minor style adjustments and is sent with mutt which
-will hopefully not destroy the formatting again.
+/me is giggls@ircnet, http://sven.gegg.us/ on the Web
 
-Signed-off-by: Bernhard Schmidt <bernhard.schmidt@saxnet.de>
-Signed-off-by: Simon Wunderlich <simon.wunderlich@saxnet.de>
-Acked-by: Francois Romieu <romieu@zoreil.com>
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 83c47d9..f98ef52 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -1029,7 +1029,10 @@ static void rtl8169_vlan_rx_register(struct net_devi=
-ce *dev,
-=20
- 	spin_lock_irqsave(&tp->lock, flags);
- 	tp->vlgrp =3D grp;
--	if (tp->vlgrp)
-+	/*
-+	 * Do not disable RxVlan on 8110SCd.
-+	 */
-+	if (tp->vlgrp || (tp->mac_version =3D=3D RTL_GIGA_MAC_VER_05))
- 		tp->cp_cmd |=3D RxVlan;
- 	else
- 		tp->cp_cmd &=3D ~RxVlan;
-@@ -3197,6 +3200,14 @@ rtl8169_init_one(struct pci_dev *pdev, const struct =
-pci_device_id *ent)
- 	}
-=20
- 	rtl8169_init_phy(dev, tp);
-+
-+	/*
-+	 * Pretend we are using VLANs; This bypasses a nasty bug where
-+	 * Interrupts stop flowing on high load on 8110SCd controllers.
-+	 */
-+	if (tp->mac_version =3D=3D RTL_GIGA_MAC_VER_05)
-+		RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) | RxVlan);
-+
- 	device_set_wakeup_enable(&pdev->dev, tp->features & RTL_FEATURE_WOL);
-=20
- out:
-
---2oS5YaxWCcQjTEyO
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAkrhU80ACgkQrzg/fFk7axblGQCeOgOXC1KRLZKOzObDZpLGC47h
-YMIAoLPPKbv72uMiNbO6dJSFjZAe2QlZ
-=zn5l
------END PGP SIGNATURE-----
-
---2oS5YaxWCcQjTEyO--
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
