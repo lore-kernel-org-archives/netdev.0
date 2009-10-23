@@ -1,108 +1,75 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: Re: [PATCH 1/2] alchemy: add au1000-eth platform device
-Date: Fri, 23 Oct 2009 20:51:09 +0400
-Message-ID: <4AE1DEFD.4090902@ru.mvista.com>
-References: <200908170105.38154.florian@openwrt.org> <4A969519.7010604@ru.mvista.com> <200908271655.11086.florian@openwrt.org> <200910171048.24962.florian@openwrt.org>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [Patch] sctp: remove deprecated SCTP_GET_*_OLD stuffs
+Date: Fri, 23 Oct 2009 12:57:04 -0400
+Message-ID: <4AE1E060.5000903@hp.com>
+References: <20091015082849.4605.48311.sendpatchset@localhost.localdomain> <4AE0C64A.9080400@hp.com> <20091022214439.GA2635@merkur.ravnborg.org> <4AE1D2AA.8060200@hp.com> <20091023163938.GA3858@merkur.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Ralf Baechle <ralf@linux-mips.org>, linux-mips@linux-mips.org,
-	Manuel Lauss <manuel.lauss@googlemail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <200910171048.24962.florian@openwrt.org>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+Cc: Amerigo Wang <amwang@redhat.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, akpm@linux-foundation.org
+To: Sam Ravnborg <sam@ravnborg.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:26181 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752480AbZJWQ5C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 12:57:02 -0400
+In-Reply-To: <20091023163938.GA3858@merkur.ravnborg.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
 
-Florian Fainelli wrote:
 
-> Please find below and updated version, hopefully addressing most if not all
-> of your comments.
-
-    Thanks. I still have some comments on the code testing the NI2 bit. :-)
-
-> --
-> From: Florian Fainelli <florian@openwrt.org>
-> Subject: [PATCH 1/2] alchemy: add au1000-eth platform device (v3)
+Sam Ravnborg wrote:
+> On Fri, Oct 23, 2009 at 11:58:34AM -0400, Vlad Yasevich wrote:
+>>
+>> Sam Ravnborg wrote:
+>>> On Thu, Oct 22, 2009 at 04:53:30PM -0400, Vlad Yasevich wrote:
+>>>>> diff --git a/include/net/sctp/user.h b/include/net/sctp/user.h
+>>>>> index be2334a..0991f1b 100644
+>>>>> --- a/include/net/sctp/user.h
+>>>>> +++ b/include/net/sctp/user.h
+>>>>> @@ -131,14 +131,6 @@ enum sctp_optname {
+>>>>>  #define SCTP_SOCKOPT_BINDX_REM	SCTP_SOCKOPT_BINDX_REM
+>>>>>  	SCTP_SOCKOPT_PEELOFF, 	/* peel off association. */
+>>>>>  #define SCTP_SOCKOPT_PEELOFF	SCTP_SOCKOPT_PEELOFF
+>>>>> -	SCTP_GET_PEER_ADDRS_NUM_OLD, 	/* Get number of peer addresss. */
+>>>>> -#define SCTP_GET_PEER_ADDRS_NUM_OLD	SCTP_GET_PEER_ADDRS_NUM_OLD
+>>>>> -	SCTP_GET_PEER_ADDRS_OLD, 	/* Get all peer addresss. */
+>>>>> -#define SCTP_GET_PEER_ADDRS_OLD	SCTP_GET_PEER_ADDRS_OLD
+>>>>> -	SCTP_GET_LOCAL_ADDRS_NUM_OLD, 	/* Get number of local addresss. */
+>>>>> -#define SCTP_GET_LOCAL_ADDRS_NUM_OLD	SCTP_GET_LOCAL_ADDRS_NUM_OLD
+>>>>> -	SCTP_GET_LOCAL_ADDRS_OLD, 	/* Get all local addresss. */
+>>>>> -#define SCTP_GET_LOCAL_ADDRS_OLD	SCTP_GET_LOCAL_ADDRS_OLD
+>>>>>  	SCTP_SOCKOPT_CONNECTX_OLD, /* CONNECTX old requests. */
+>>>> After running the regression suite against this patch I find that we can't
+>>>> remove the enum values.  Removing the enums changes the value for the remainder
+>>>> of the definitions and breaks binary compatibility for applications that use
+>>>> those trailing options.
+>>>>
+>>>> You should be ok with removing the #defines and actual code that uses them,
+>>>> but not the enums.  You can even rename the enums, but we must preserve
+>>>> numeric ordering.
+>>> If we really depend on the actual value of an enum as in this case,
+>>> then e should assign them direct to better document this.
+>>>
+>>> 	Sam
+>>>
+>> I agree.  I have a patch that converts the enum to just a #define section that
+>> I'll apply on top of this removal patch and document the deletion.
 > 
-> This patch makes the board code register the au1000-eth
-> platform device. The au1000-eth platform data can be
-> overriden with the au1xxx_override_eth_cfg function
-> like it has to be done for the Bosporus board which uses
-> a different MAC/PHY setup.
+> If you keep the enum then you will have a have extras:
+> - a debugger will understand the symbols and display the correct value
+> - sparse may trigger a warning if you try to assign a non-valid value
+>   (a value which is not included in the enum)
 > 
-> Changes from v2:
-> - declared the au1000-eth second driver instance platform_data
-> - made the override function generic and pass it the port number too
+> But that may not matter much in this case - just wanted to highligt it.
+
+Yep, but this is just socket option definitions.  The enum type is not even used
+anywhere, so no help from sparse.  I think it's here just for sequential numbering.
+
+Thanks
+-vlad
 > 
-> Changes from v1:
-> - remove per-board platform.c file
-> - add an override function to pass custom eth0 platform_data PHY settings
+> 	Sam
 > 
-> Signed-off-by: Florian Fainelli <florian@openwrt.org>
-> ---
-> diff --git a/arch/mips/alchemy/common/platform.c b/arch/mips/alchemy/common/platform.c
-> index 195e5b3..167b24e 100644
-> --- a/arch/mips/alchemy/common/platform.c
-> +++ b/arch/mips/alchemy/common/platform.c
-[...]
->  static int __init au1xxx_platform_init(void)
-> @@ -354,6 +438,12 @@ static int __init au1xxx_platform_init(void)
->  	for (i = 0; au1x00_uart_data[i].flags; i++)
->  		au1x00_uart_data[i].uartclk = uartclk;
->  
-> +#ifndef CONFIG_SOC_AU1100
-> +	/* Register second MAC if enabled in pinfunc */
-> +	if (!(au_readl(SYS_PINFUNC) & (u32)(SYS_PF_NI2)) >> 4)
-
-    Parens around SYS_PF_NI2 not needed. Shift not needed too.
-
-> +		platform_device_register(&au1xxx_eth1_device);
-> +#endif
-> +
->  	return platform_add_devices(au1xxx_platform_devices,
->  				    ARRAY_SIZE(au1xxx_platform_devices));
->  }
-> diff --git a/arch/mips/alchemy/devboards/db1x00/board_setup.c b/arch/mips/alchemy/devboards/db1x00/board_setup.c
-> index 64eb26f..f938924 100644
-> --- a/arch/mips/alchemy/devboards/db1x00/board_setup.c
-> +++ b/arch/mips/alchemy/devboards/db1x00/board_setup.c
-> @@ -32,6 +32,7 @@
->  #include <linux/interrupt.h>
->  
->  #include <asm/mach-au1x00/au1000.h>
-> +#include <asm/mach-au1x00/au1xxx_eth.h>
->  #include <asm/mach-db1x00/db1x00.h>
->  #include <asm/mach-db1x00/bcsr.h>
->  
-> @@ -101,6 +102,22 @@ void __init board_setup(void)
->  	printk(KERN_INFO "AMD Alchemy Au1100/Db1100 Board\n");
->  #endif
->  #ifdef CONFIG_MIPS_BOSPORUS
-> +	struct au1000_eth_platform_data eth0_pdata;
-
-    You can't declare data like that, amidst the code -- gcc will emit a 
-warning which would be fatal with -Werror in Makefile. Do it inside a block 
-instead.
-
-> +
-> +	/*
-> +	 * Micrel/Kendin 5 port switch attached to MAC0,
-> +	 * MAC0 is associated with PHY address 5 (== WAN port)
-> +	 * MAC1 is not associated with any PHY, since it's connected directly
-> +	 * to the switch.
-> +	 * no interrupts are used
-> +	 */
-> +	eth0_pdata.phy1_search_mac0 = 0;
-> +	eth0_pdata.phy_static_config = 1;
-> +	eth0_pdata.phy_addr = 5;
-> +	eth0_pdata.phy_busid = 0;
-
-    Why noyt have an initializer instead (and why not make eth0_data 
-*static* too)?
-
-WBR, Sergei
