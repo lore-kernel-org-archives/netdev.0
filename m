@@ -1,56 +1,32 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] atm: Cleanup redundant tests on unsigned
-Date: Fri, 23 Oct 2009 18:09:55 +0200
-Message-ID: <4AE1D553.8010406@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] Modify bonding hash transmit policies to use the packet's
+ source MAC address
+Date: Fri, 23 Oct 2009 18:02:55 +0200
+Message-ID: <4AE1D3AF.9050207@gmail.com>
+References: <4AE1A37F.8010203@gmail.com> <20091023140845.GA24564@spaans.fox.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Chas Williams <chas@cmf.nrl.navy.mil>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jasper Spaans <spaans@fox-it.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f208.google.com ([209.85.219.208]:63419 "EHLO
-	mail-ew0-f208.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752393AbZJWP7e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 11:59:34 -0400
-Received: by ewy4 with SMTP id 4so1762141ewy.37
-        for <netdev@vger.kernel.org>; Fri, 23 Oct 2009 08:59:38 -0700 (PDT)
+Received: from gw1.cosmosbay.com ([212.99.114.194]:38592 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752373AbZJWQDJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 12:03:09 -0400
+In-Reply-To: <20091023140845.GA24564@spaans.fox.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The variables are unsigned so the `< 0' test always fails, the
-other part of the test catches wrapped values.
+Jasper Spaans a =E9crit :
+> Modify bonding hash transmit policies to use the psource MAC address =
+of
+> the packet instead of the MAC address configured for the bonding devi=
+ce.
+>=20
+> The old sitation conflicts with the documentation.
+>=20
+> Signed-off-by: Jasper Spaans <spaans@fox-it.com>
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
- drivers/atm/fore200e.c |    4 ++--
- drivers/atm/he.c       |    2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
-index f766cc4..bc53fed 100644
---- a/drivers/atm/fore200e.c
-+++ b/drivers/atm/fore200e.c
-@@ -2906,8 +2906,8 @@ fore200e_proc_read(struct atm_dev *dev, loff_t* pos, char* page)
- 	u32 media_index    = FORE200E_MEDIA_INDEX(fore200e->bus->read(&fore200e->cp_queues->media_type));
- 	u32 oc3_index;
- 
--	if ((media_index < 0) || (media_index > 4))
--	    media_index = 5;
-+	if (media_index > 4)
-+		media_index = 5;
- 	
- 	switch (fore200e->loop_mode) {
- 	    case ATM_LM_NONE:    oc3_index = 0;
-diff --git a/drivers/atm/he.c b/drivers/atm/he.c
-index 7066703..e906658 100644
---- a/drivers/atm/he.c
-+++ b/drivers/atm/he.c
-@@ -2739,7 +2739,7 @@ he_ioctl(struct atm_dev *atm_dev, unsigned int cmd, void __user *arg)
- 			spin_lock_irqsave(&he_dev->global_lock, flags);
- 			switch (reg.type) {
- 				case HE_REGTYPE_PCI:
--					if (reg.addr < 0 || reg.addr >= HE_REGMAP_SIZE) {
-+					if (reg.addr >= HE_REGMAP_SIZE) {
- 						err = -EINVAL;
- 						break;
- 					}
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
