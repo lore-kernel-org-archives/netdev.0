@@ -1,93 +1,47 @@
-From: Karol Lewandowski <karol.k.lewandowski@gmail.com>
-Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
-	failures V2
-Date: Fri, 23 Oct 2009 18:58:10 +0200
-Message-ID: <20091023165810.GA4588@bizet.domek.prywatny>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
+From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Subject: Re: Irq architecture for multi-core network driver.
+Date: Fri, 23 Oct 2009 10:28:10 -0700
+Message-ID: <4807377b0910231028g60b479cfycdbf3f4e25384c58@mail.gmail.com>
+References: <4AE0D14B.1070307@caviumnetworks.com> <4AE0D72A.4090607@nortel.com>
+	 <4AE0DB98.1000101@caviumnetworks.com>
+	 <m13a5apmm0.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Frans Pop <elendil@planet.nl>, Jiri Kosina <jkosina@suse.cz>,
-	Sven Geggus <lists@fuchsschwanzdomain.de>,
-	Karol Lewandowski <karol.k.lewandowski@gmail.com>,
-	Tobias Oetiker <tobi@oetiker.ch>, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	David Miller <davem@davemloft.net>,
-	Reinette Chatre <reinette.chatre@intel.com>,
-	Kalle Valo <kalle.valo@iki.fi>,
-	David Rientjes <rientjes@google.com>,
-	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-	Mohamed Abbas <mohamed.abbas@intel.com>,
-	Jens Axboe <jens.axboe@oracle.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Stephan von Krawczynski <skraw@ithnet.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>
-To: Mel Gorman <mel@csn.ul.ie>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Daney <ddaney@caviumnetworks.com>,
+	Chris Friesen <cfriesen@nortel.com>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-mips <linux-mips@linux-mips.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751564AbZJWR2L@vger.kernel.org>
+In-Reply-To: <m13a5apmm0.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 22, 2009 at 03:22:31PM +0100, Mel Gorman wrote:
+On Fri, Oct 23, 2009 at 12:59 AM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+> David Daney <ddaney@caviumnetworks.com> writes:
+>> Certainly this is one mode of operation that should be supported, but I would
+>> also like to be able to go for raw throughput and have as many cores as possible
+>> reading from a single queue (like I currently have).
+>
+> I believe will detect false packet drops and ask for unnecessary
+> retransmits if you have multiple cores processing a single queue,
+> because you are processing the packets out of order.
 
-[Cut everything but my bug]
-> [Bug #14265] ifconfig: page allocation failure. order:5, mode:0x8020 w/ e100
-> 	Karol Lewandows reported that e100 fails to allocate order-5
-> 	GFP_ATOMIC when loading firmware during resume. This has started
-> 	happening relatively recent.
+So, the way the default linux kernel configures today's many core
+server systems is to leave the affinity mask by default at 0xffffffff,
+and most current Intel hardware based on 5000 (older core cpus), or
+5500 chipset (used with Core i7 processors) that I have seen will
+allow for round robin interrupts by default.  This kind of sucks for
+the above unless you run irqbalance or set smp_affinity by hand.
 
+Yes, I know Arjan and others will say you should always run
+irqbalance, but some people don't and some distros don't ship it
+enabled by default (or their version doesn't work for one reason or
+another)  The question is should the kernel work better by default
+*without* irqbalance loaded, or does it not matter?
 
-> Test 1: Verify your problem occurs on 2.6.32-rc5 if you can
-
-Yes, bug is still there.
-
-
-> Test 2: Apply the following two patches and test again
-> 
->   1/5 page allocator: Always wake kswapd when restarting an allocation attempt after direct reclaim failed
->   2/5 page allocator: Do not allow interrupts to use ALLOC_HARDER
-> 
-> 
-> 	These patches correct problems introduced by me during the 2.6.31-rc1
-> 	merge window. The patches were not meant to introduce any functional
-> 	changes but two were missed.
-> 
-> 	If your problem goes away with just these two patches applied,
-> 	please tell me.
-
-Likewise.
-
-
-> Test 3: If you are getting allocation failures, try with the following patch
-> 
->   3/5 vmscan: Force kswapd to take notice faster when high-order watermarks are being hit
-> 
-> 	This is a functional change that causes kswapd to notice sooner
-> 	when high-order watermarks have been hit. There have been a number
-> 	of changes in page reclaim since 2.6.30 that might have delayed
-> 	when kswapd kicks in for higher orders
-> 
-> 	If your problem goes away with these three patches applied, please
-> 	tell me
-
-No, problem doesn't go away with these patches (1+2+3).  However, from
-my testing this particular patch makes it way, way harder to trigger
-allocation failures (but these are still present).
-
-This bothers me - should I test following patches with or without
-above patch?  This patch makes bug harder to find, IMVHO it doesn't
-fix the real problem.
-
-(Rest not tested yet.)
-
-Thanks.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I don't believe we should re-enable the kernel irq balancer, but
+should we consider only setting a single bit in each new interrupt's
+irq affinity?  Doing it with a random spread for the initial affinity
+would be better than setting them all to one.
