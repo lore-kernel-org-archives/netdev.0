@@ -1,88 +1,42 @@
-From: David Rientjes <rientjes@google.com>
-Subject: Re: [PATCH 4/5] page allocator: Pre-emptively wake kswapd when
- high-order watermarks are hit
-Date: Fri, 23 Oct 2009 02:36:53 -0700 (PDT)
-Message-ID: <alpine.DEB.2.00.0910230229010.28109@chino.kir.corp.google.com>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <1256221356-26049-5-git-send-email-mel@csn.ul.ie> <alpine.DEB.2.00.0910221227010.21601@chino.kir.corp.google.com> <20091023091334.GV11778@csn.ul.ie>
+From: Benny Amorsen <benny+usenet@amorsen.dk>
+Subject: Re: VLAN and ARP failure on tg3 drivers
+Date: Fri, 23 Oct 2009 11:12:46 +0200
+Message-ID: <m3zl7i5v8x.fsf@ursa.amorsen.dk>
+References: <93821.71108.qm@web32607.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Frans Pop <elendil@planet.nl>, Jiri Kosina <jkosina@suse.cz>,
-        Sven Geggus <lists@fuchsschwanzdomain.de>,
-        Karol Lewandowski <karol.k.lewandowski@gmail.com>,
-        Tobias Oetiker <tobi@oetiker.ch>, "Rafael J. Wysocki" <rjw@sisk.pl>,
-        David Miller <davem@davemloft.net>,
-        Reinette Chatre <reinette.chatre@intel.com>,
-        Kalle Valo <kalle.valo@iki.fi>,
-        KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-        Mohamed Abbas <mohamed.abbas@intel.com>,
-        Jens Axboe <jens.axboe@oracle.com>,
-        "John W. Linville" <linville@tuxdriver.com>,
-        Pekka Enberg <penberg@cs.helsinki.fi>,
-        Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-        Greg Kroah-Hartman <gregkh@suse.de>,
-        Stephan von Krawczynski <skraw@ithnet.com>,
-        Kernel Testers List <kernel-testers@vger.kernel.org>,
-        netdev@vger.kernel.org, linux-kernel
-To: Mel Gorman <mel@csn.ul.ie>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20091023091334.GV11778@csn.ul.ie>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Gertjan Hofman <gertjan_hofman@yahoo.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate1.ipvision.dk ([94.127.49.2]:55589 "EHLO gate1.ipvision.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751338AbZJWJjW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 05:39:22 -0400
+In-Reply-To: <93821.71108.qm@web32607.mail.mud.yahoo.com> (Gertjan Hofman's
+	message of "Thu, 22 Oct 2009 21:52:42 -0700 (PDT)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 23 Oct 2009, Mel Gorman wrote:
+Gertjan Hofman <gertjan_hofman@yahoo.com> writes:
 
-> > Hmm, is this really supposed to be added to __alloc_pages_high_priority()?  
-> > By the patch description I was expecting kswapd to be woken up 
-> > preemptively whenever the preferred zone is below ALLOC_WMARK_LOW and 
-> > we're known to have just allocated at a higher order, not just when 
-> > current was oom killed (when we should already be freeing a _lot_ of 
-> > memory soon) or is doing a higher order allocation during direct reclaim.
-> > 
-> 
-> It was a somewhat arbitrary choice to have it trigger in the event high
-> priority allocations were happening frequently.
-> 
+> Dear Kernel developers,
+>
+> A couple of weeks ago we tried to migrate from a 2.6.24=C2=A0 kernel =
+to a
+> 2.6.29 kernel and noticed our VLAN application no longer works.=C2=A0=
+ The
+> problem is easy to replicate:
+>
+> 1. connect 2 PC's with a cross-over cable
+> 2. set up a fixed IP address to both PC's=C2=A0 (say 192.168.0.[1,2])
+> 3. create a vlan:=C2=A0 vconfig=C2=A0 add eth0 0.
 
-I don't quite understand, users of PF_MEMALLOC shouldn't be doing these 
-higher order allocations and if ALLOC_NO_WATERMARKS is by way of the oom 
-killer, we should be freeing a substantial amount of memory imminently 
-when it exits that waking up kswapd would be irrelevant.
+VLAN 0 is a special case ("priority tag only"). If you're just trying t=
+o
+use VLAN's, pick a different number. Also avoid 1001-1024 and 4095 if
+you add switches to the mix, because some vendors have odd ideas.
 
-> > If this is moved to the fastpath, why is this wake_all_kswapd() and not
-> > wakeup_kswapd(preferred_zone, order)?  Do we need to kick kswapd in all 
-> > zones even though they may be free just because preferred_zone is now 
-> > below the watermark?
-> > 
-> 
-> It probably makes no difference as zones are checked for their watermarks
-> before any real work happens. However, even if this patch makes a difference,
-> I don't want to see it merged.  At best, it is an extremely heavy-handed
-> hack which is why I asked for it to be tested in isolation. It shouldn't
-> be necessary at all because sort of pre-emptive waking of kswapd was never
-> necessary before.
-> 
 
-Ahh, that makes a ton more sense: this particular patch is a debugging 
-effort while the first two are candidates for 2.6.32 and -stable.  Gotcha.
+/Benny
 
-> > Wouldn't it be better to do this on page_zone(page) instead of 
-> > preferred_zone anyway?
-> > 
-> 
-> No. The preferred_zone is the zone we should be allocating from. If we
-> failed to allocate from it, it implies the watermarks are not being met
-> so we want to wake it.
-> 
-
-Oops, I'm even more confused now :)  I thought the existing 
-wake_all_kswapd() in the slowpath was doing that and that this patch was 
-waking them prematurely because it speculates that a subsequent high 
-order allocation will fail unless memory is reclaimed.  I thought we'd  
-want to reclaim from the zone we just did a high order allocation from so 
-that the fastpath could find the memory next time with ALLOC_WMARK_LOW.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
