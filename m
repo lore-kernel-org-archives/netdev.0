@@ -1,99 +1,107 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 00/27] sfc: Cleanup and preparation for new hardware
-Date: Fri, 23 Oct 2009 19:27:21 +0100
-Message-ID: <1256322441.2785.3.camel@achroite>
+Subject: [PATCH 01/27] sfc: Remove redundant header gmii.h
+Date: Fri, 23 Oct 2009 19:28:45 +0100
+Message-ID: <1256322525.2785.5.camel@achroite>
+References: <1256322441.2785.3.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:8378 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:8483 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751978AbZJWS1U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 14:27:20 -0400
+	with ESMTP id S1752646AbZJWS2n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 14:28:43 -0400
+In-Reply-To: <1256322441.2785.3.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David,
-
-This is a mixture of small cleanups, refactoring, renaming and an update
-to the register definitions.  There's more to come, in particular
-support for the new hardware, but I'll let you digest this batch first.
-
-Ben.
-
-Ben Hutchings (27):
-  sfc: Remove redundant header gmii.h
-  sfc: Remove redundant hardware initialisation
-  sfc: Rename Falcon-specific board code and types
-  sfc: Merge sfe4001.c into falcon_boards.c
-  sfc: Remove boards.h, moving last remaining declaration to falcon.h
-  sfc: Remove versioned bitfield macros
-  sfc: Move RX data FIFO thresholds out of struct efx_nic_type
-  sfc: Update hardware definitions for Siena
-  sfc: Rename register I/O header and functions used by both Falcon and
-    Siena
-  sfc: Eliminate indirect lookups of queue size constants
-  sfc: Define DMA address mask explicitly in terms of descriptor field
-    width
-  sfc: Move all TX DMA length limiting into tx.c
-  sfc: Merge struct efx_blinker into struct efx_board
-  sfc: Change order of device removal to reverse of probe order
-  sfc: Remove declarations of nonexistent functions
-  sfc: Move efx_xmit_done() declaration into correct stanza
-  sfc: Move shared members of struct falcon_nic_data into struct
-    efx_nic
-  sfc: Maintain interrupt moderation values in ticks, not microseconds
-  sfc: Removed kernel-doc for nonexistent member of efx_phy_operations
-  sfc: Remove pointless abstraction of memory BAR number
-  sfc: Merge falcon_probe_phy() into falcon_probe_port()
-  sfc: Remove incorrect assertion from efx_pci_remove_main()
-  sfc: Remove unnecessary tests of efx->membase
-  sfc: Move MTD probe after netdev registration and name allocation
-  sfc: Merge efx_fc_resolve() into efx_mdio_get_pause()
-  sfc: Remove unused code for non-autoneg speed/duplex switching
-  sfc: Rename 'xfp' file and functions to reflect reality
-
- drivers/net/sfc/Makefile                    |    4 +-
- drivers/net/sfc/bitfield.h                  |   13 -
- drivers/net/sfc/boards.c                    |  328 ---
- drivers/net/sfc/boards.h                    |   28 -
- drivers/net/sfc/efx.c                       |   89 +-
- drivers/net/sfc/efx.h                       |   11 +-
- drivers/net/sfc/ethtool.c                   |    8 +-
- drivers/net/sfc/falcon.c                    | 1122 +++++-----
- drivers/net/sfc/falcon.h                    |    4 +-
- drivers/net/sfc/falcon_boards.c             |  752 +++++++
- drivers/net/sfc/falcon_gmac.c               |   95 +-
- drivers/net/sfc/falcon_hwdefs.h             | 1333 -----------
- drivers/net/sfc/falcon_io.h                 |  258 ---
- drivers/net/sfc/falcon_xmac.c               |  178 +-
- drivers/net/sfc/gmii.h                      |   60 -
- drivers/net/sfc/io.h                        |  256 +++
- drivers/net/sfc/mdio_10g.c                  |  121 +-
- drivers/net/sfc/mdio_10g.h                  |    1 -
- drivers/net/sfc/net_driver.h                |   56 +-
- drivers/net/sfc/phy.h                       |    6 +-
- drivers/net/sfc/{xfp_phy.c => qt202x_phy.c} |   80 +-
- drivers/net/sfc/regs.h                      | 3180 +++++++++++++++++++++++++++
- drivers/net/sfc/rx.c                        |   16 +-
- drivers/net/sfc/selftest.c                  |    5 +-
- drivers/net/sfc/sfe4001.c                   |  435 ----
- drivers/net/sfc/tenxpress.c                 |    3 +-
- drivers/net/sfc/tx.c                        |   83 +-
- drivers/net/sfc/workarounds.h               |    2 +
- 28 files changed, 5091 insertions(+), 3436 deletions(-)
- delete mode 100644 drivers/net/sfc/boards.c
- delete mode 100644 drivers/net/sfc/boards.h
- create mode 100644 drivers/net/sfc/falcon_boards.c
- delete mode 100644 drivers/net/sfc/falcon_hwdefs.h
- delete mode 100644 drivers/net/sfc/falcon_io.h
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/sfc/falcon_gmac.c |    1 -
+ drivers/net/sfc/gmii.h        |   60 -----------------------------------------
+ 2 files changed, 0 insertions(+), 61 deletions(-)
  delete mode 100644 drivers/net/sfc/gmii.h
- create mode 100644 drivers/net/sfc/io.h
- rename drivers/net/sfc/{xfp_phy.c => qt202x_phy.c} (73%)
- create mode 100644 drivers/net/sfc/regs.h
- delete mode 100644 drivers/net/sfc/sfe4001.c
+
+diff --git a/drivers/net/sfc/falcon_gmac.c b/drivers/net/sfc/falcon_gmac.c
+index 8865eae..36f57b1 100644
+--- a/drivers/net/sfc/falcon_gmac.c
++++ b/drivers/net/sfc/falcon_gmac.c
+@@ -15,7 +15,6 @@
+ #include "mac.h"
+ #include "falcon_hwdefs.h"
+ #include "falcon_io.h"
+-#include "gmii.h"
+ 
+ /**************************************************************************
+  *
+diff --git a/drivers/net/sfc/gmii.h b/drivers/net/sfc/gmii.h
+deleted file mode 100644
+index dfccaa7..0000000
+--- a/drivers/net/sfc/gmii.h
++++ /dev/null
+@@ -1,60 +0,0 @@
+-/****************************************************************************
+- * Driver for Solarflare Solarstorm network controllers and boards
+- * Copyright 2005-2006 Fen Systems Ltd.
+- * Copyright 2006-2008 Solarflare Communications Inc.
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms of the GNU General Public License version 2 as published
+- * by the Free Software Foundation, incorporated herein by reference.
+- */
+-
+-#ifndef EFX_GMII_H
+-#define EFX_GMII_H
+-
+-/*
+- * GMII interface
+- */
+-
+-#include <linux/mii.h>
+-
+-/* GMII registers, excluding registers already defined as MII
+- * registers in mii.h
+- */
+-#define GMII_IER		0x12	/* Interrupt enable register */
+-#define GMII_ISR		0x13	/* Interrupt status register */
+-
+-/* Interrupt enable register */
+-#define IER_ANEG_ERR		0x8000	/* Bit 15 - autonegotiation error */
+-#define IER_SPEED_CHG		0x4000	/* Bit 14 - speed changed */
+-#define IER_DUPLEX_CHG		0x2000	/* Bit 13 - duplex changed */
+-#define IER_PAGE_RCVD		0x1000	/* Bit 12 - page received */
+-#define IER_ANEG_DONE		0x0800	/* Bit 11 - autonegotiation complete */
+-#define IER_LINK_CHG		0x0400	/* Bit 10 - link status changed */
+-#define IER_SYM_ERR		0x0200	/* Bit 9 - symbol error */
+-#define IER_FALSE_CARRIER	0x0100	/* Bit 8 - false carrier */
+-#define IER_FIFO_ERR		0x0080	/* Bit 7 - FIFO over/underflow */
+-#define IER_MDIX_CHG		0x0040	/* Bit 6 - MDI crossover changed */
+-#define IER_DOWNSHIFT		0x0020	/* Bit 5 - downshift */
+-#define IER_ENERGY		0x0010	/* Bit 4 - energy detect */
+-#define IER_DTE_POWER		0x0004	/* Bit 2 - DTE power detect */
+-#define IER_POLARITY_CHG	0x0002	/* Bit 1 - polarity changed */
+-#define IER_JABBER		0x0001	/* Bit 0 - jabber */
+-
+-/* Interrupt status register */
+-#define ISR_ANEG_ERR		0x8000	/* Bit 15 - autonegotiation error */
+-#define ISR_SPEED_CHG		0x4000	/* Bit 14 - speed changed */
+-#define ISR_DUPLEX_CHG		0x2000	/* Bit 13 - duplex changed */
+-#define ISR_PAGE_RCVD		0x1000	/* Bit 12 - page received */
+-#define ISR_ANEG_DONE		0x0800	/* Bit 11 - autonegotiation complete */
+-#define ISR_LINK_CHG		0x0400	/* Bit 10 - link status changed */
+-#define ISR_SYM_ERR		0x0200	/* Bit 9 - symbol error */
+-#define ISR_FALSE_CARRIER	0x0100	/* Bit 8 - false carrier */
+-#define ISR_FIFO_ERR		0x0080	/* Bit 7 - FIFO over/underflow */
+-#define ISR_MDIX_CHG		0x0040	/* Bit 6 - MDI crossover changed */
+-#define ISR_DOWNSHIFT		0x0020	/* Bit 5 - downshift */
+-#define ISR_ENERGY		0x0010	/* Bit 4 - energy detect */
+-#define ISR_DTE_POWER		0x0004	/* Bit 2 - DTE power detect */
+-#define ISR_POLARITY_CHG	0x0002	/* Bit 1 - polarity changed */
+-#define ISR_JABBER		0x0001	/* Bit 0 - jabber */
+-
+-#endif /* EFX_GMII_H */
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
