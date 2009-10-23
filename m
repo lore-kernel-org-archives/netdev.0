@@ -1,7 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 06/27] sfc: Remove versioned bitfield macros
-Date: Fri, 23 Oct 2009 19:30:06 +0100
-Message-ID: <1256322606.2785.15.camel@achroite>
+Subject: [PATCH 07/27] sfc: Move RX data FIFO thresholds out of struct
+	efx_nic_type
+Date: Fri, 23 Oct 2009 19:30:17 +0100
+Message-ID: <1256322617.2785.17.camel@achroite>
 References: <1256322441.2785.3.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,189 +10,105 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:8602 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:8619 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752823AbZJWSaE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 14:30:04 -0400
+	with ESMTP id S1752828AbZJWSaP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 14:30:15 -0400
 In-Reply-To: <1256322441.2785.3.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These macros are not extensible to more than two NIC types without
-repetition of register definitions, and they are only used to deal
-with a few fields in RX_CFG_REG and global events which moved between
-Falcon rev A1 and B0.
-
-Therefore:
-- Move RX_CFG_REG initialisation into its own function which tests the
-  NIC revision just once
-- Explicitly test the NIC revision when checking the RX_RECOVERY flag in
-  global events
-- Merge definitions of RX_XOFF_MAC_EN flag, which did not move
-- Remove the macro definitions
+Since there are now separate blocks of code to set the thresholds for
+each NIC type, it is no longer useful to include them in the NIC type
+description.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/bitfield.h      |   13 -------
- drivers/net/sfc/falcon.c        |   67 +++++++++++++++++++++++++-------------
- drivers/net/sfc/falcon_hwdefs.h |    7 ++--
- 3 files changed, 47 insertions(+), 40 deletions(-)
+ drivers/net/sfc/falcon.c     |   23 ++++++++++++-----------
+ drivers/net/sfc/net_driver.h |    4 ----
+ 2 files changed, 12 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/sfc/bitfield.h b/drivers/net/sfc/bitfield.h
-index d54d84c..6ad909b 100644
---- a/drivers/net/sfc/bitfield.h
-+++ b/drivers/net/sfc/bitfield.h
-@@ -520,19 +520,6 @@ typedef union efx_oword {
- #define EFX_SET_QWORD_FIELD EFX_SET_QWORD_FIELD32
- #endif
- 
--#define EFX_SET_OWORD_FIELD_VER(efx, oword, field, value) do { \
--	if (falcon_rev(efx) >= FALCON_REV_B0) {			   \
--		EFX_SET_OWORD_FIELD((oword), field##_B0, (value)); \
--	} else { \
--		EFX_SET_OWORD_FIELD((oword), field##_A1, (value)); \
--	} \
--} while (0)
--
--#define EFX_QWORD_FIELD_VER(efx, qword, field)	\
--	(falcon_rev(efx) >= FALCON_REV_B0 ?	\
--	 EFX_QWORD_FIELD((qword), field##_B0) :	\
--	 EFX_QWORD_FIELD((qword), field##_A1))
--
- /* Used to avoid compiler warnings about shift range exceeding width
-  * of the data types when dma_addr_t is only 32 bits wide.
-  */
 diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index eed8d1f..4cb98d4 100644
+index 4cb98d4..c23e8e2 100644
 --- a/drivers/net/sfc/falcon.c
 +++ b/drivers/net/sfc/falcon.c
-@@ -929,7 +929,9 @@ static void falcon_handle_global_event(struct efx_channel *channel,
- 		handled = true;
- 	}
+@@ -2922,16 +2922,17 @@ static void falcon_init_rx_cfg(struct efx_nic *efx)
+ 	const unsigned ctrl_xon_thr = 20;
+ 	const unsigned ctrl_xoff_thr = 25;
+ 	/* RX data FIFO thresholds (256-byte units; size varies) */
+-	unsigned data_xon_thr =
+-		((rx_xon_thresh_bytes >= 0) ?
+-		 rx_xon_thresh_bytes : efx->type->rx_xon_thresh) >> 8;
+-	unsigned data_xoff_thr =
+-		((rx_xoff_thresh_bytes >= 0) ?
+-		 rx_xoff_thresh_bytes : efx->type->rx_xoff_thresh) >> 8;
++	int data_xon_thr = rx_xon_thresh_bytes >> 8;
++	int data_xoff_thr = rx_xoff_thresh_bytes >> 8;
+ 	efx_oword_t reg;
  
--	if (EFX_QWORD_FIELD_VER(efx, *event, RX_RECOVERY)) {
-+	if (falcon_rev(efx) <= FALCON_REV_A1 ?
-+	    EFX_QWORD_FIELD(*event, RX_RECOVERY_A1) :
-+	    EFX_QWORD_FIELD(*event, RX_RECOVERY_B0)) {
- 		EFX_ERR(efx, "channel %d seen global RX_RESET "
- 			"event. Resetting.\n", channel->channel);
- 
-@@ -2006,7 +2008,7 @@ void falcon_reconfigure_mac_wrapper(struct efx_nic *efx)
- 	 * Action on receipt of pause frames is controller by XM_DIS_FCNTL */
- 	tx_fc = !!(efx->link_fc & EFX_FC_TX);
  	falcon_read(efx, &reg, RX_CFG_REG_KER);
--	EFX_SET_OWORD_FIELD_VER(efx, reg, RX_XOFF_MAC_EN, tx_fc);
-+	EFX_SET_OWORD_FIELD(reg, RX_XOFF_MAC_EN, tx_fc);
+ 	if (falcon_rev(efx) <= FALCON_REV_A1) {
++		/* Data FIFO size is 5.5K */
++		if (data_xon_thr < 0)
++			data_xon_thr = 512 >> 8;
++		if (data_xoff_thr < 0)
++			data_xoff_thr = 2048 >> 8;
+ 		EFX_SET_OWORD_FIELD(reg, RX_DESC_PUSH_EN_A1, 0);
+ 		EFX_SET_OWORD_FIELD(reg, RX_USR_BUF_SIZE_A1, huge_buf_size);
+ 		EFX_SET_OWORD_FIELD(reg, RX_XON_MAC_TH_A1, data_xon_thr);
+@@ -2939,7 +2940,11 @@ static void falcon_init_rx_cfg(struct efx_nic *efx)
+ 		EFX_SET_OWORD_FIELD(reg, RX_XON_TX_TH_A1, ctrl_xon_thr);
+ 		EFX_SET_OWORD_FIELD(reg, RX_XOFF_TX_TH_A1, ctrl_xoff_thr);
+ 	} else {
+-		/* Register fields moved */
++		/* Data FIFO size is 80K; register fields moved */
++		if (data_xon_thr < 0)
++			data_xon_thr = 27648 >> 8; /* ~3*max MTU */
++		if (data_xoff_thr < 0)
++			data_xoff_thr = 54272 >> 8; /* ~80Kb - 3*max MTU */
+ 		EFX_SET_OWORD_FIELD(reg, RX_DESC_PUSH_EN_B0, 0);
+ 		EFX_SET_OWORD_FIELD(reg, RX_USR_BUF_SIZE_B0, huge_buf_size);
+ 		EFX_SET_OWORD_FIELD(reg, RX_XON_MAC_TH_B0, data_xon_thr);
+@@ -3130,8 +3135,6 @@ struct efx_nic_type falcon_a_nic_type = {
+ 	.max_dma_mask = FALCON_DMA_MASK,
+ 	.tx_dma_mask = FALCON_TX_DMA_MASK,
+ 	.bug5391_mask = 0xf,
+-	.rx_xoff_thresh = 2048,
+-	.rx_xon_thresh = 512,
+ 	.rx_buffer_padding = 0x24,
+ 	.max_interrupt_mode = EFX_INT_MODE_MSI,
+ 	.phys_addr_channels = 4,
+@@ -3154,8 +3157,6 @@ struct efx_nic_type falcon_b_nic_type = {
+ 	.max_dma_mask = FALCON_DMA_MASK,
+ 	.tx_dma_mask = FALCON_TX_DMA_MASK,
+ 	.bug5391_mask = 0,
+-	.rx_xoff_thresh = 54272, /* ~80Kb - 3*max MTU */
+-	.rx_xon_thresh = 27648,  /* ~3*max MTU */
+ 	.rx_buffer_padding = 0,
+ 	.max_interrupt_mode = EFX_INT_MODE_MSIX,
+ 	.phys_addr_channels = 32, /* Hardware limit is 64, but the legacy
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index 298566d..479a6fe 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -875,8 +875,6 @@ static inline const char *efx_dev_name(struct efx_nic *efx)
+  * @max_dma_mask: Maximum possible DMA mask
+  * @tx_dma_mask: TX DMA mask
+  * @bug5391_mask: Address mask for bug 5391 workaround
+- * @rx_xoff_thresh: RX FIFO XOFF watermark (bytes)
+- * @rx_xon_thresh: RX FIFO XON watermark (bytes)
+  * @rx_buffer_padding: Padding added to each RX buffer
+  * @max_interrupt_mode: Highest capability interrupt mode supported
+  *	from &enum efx_init_mode.
+@@ -899,8 +897,6 @@ struct efx_nic_type {
+ 	unsigned int tx_dma_mask;
+ 	unsigned bug5391_mask;
  
- 	/* Unisolate the MAC -> RX */
- 	if (falcon_rev(efx) >= FALCON_REV_B0)
-@@ -2910,6 +2912,45 @@ int falcon_probe_nic(struct efx_nic *efx)
- 	return rc;
- }
- 
-+static void falcon_init_rx_cfg(struct efx_nic *efx)
-+{
-+	/* Prior to Siena the RX DMA engine will split each frame at
-+	 * intervals of RX_USR_BUF_SIZE (32-byte units). We set it to
-+	 * be so large that that never happens. */
-+	const unsigned huge_buf_size = (3 * 4096) >> 5;
-+	/* RX control FIFO thresholds (32 entries) */
-+	const unsigned ctrl_xon_thr = 20;
-+	const unsigned ctrl_xoff_thr = 25;
-+	/* RX data FIFO thresholds (256-byte units; size varies) */
-+	unsigned data_xon_thr =
-+		((rx_xon_thresh_bytes >= 0) ?
-+		 rx_xon_thresh_bytes : efx->type->rx_xon_thresh) >> 8;
-+	unsigned data_xoff_thr =
-+		((rx_xoff_thresh_bytes >= 0) ?
-+		 rx_xoff_thresh_bytes : efx->type->rx_xoff_thresh) >> 8;
-+	efx_oword_t reg;
-+
-+	falcon_read(efx, &reg, RX_CFG_REG_KER);
-+	if (falcon_rev(efx) <= FALCON_REV_A1) {
-+		EFX_SET_OWORD_FIELD(reg, RX_DESC_PUSH_EN_A1, 0);
-+		EFX_SET_OWORD_FIELD(reg, RX_USR_BUF_SIZE_A1, huge_buf_size);
-+		EFX_SET_OWORD_FIELD(reg, RX_XON_MAC_TH_A1, data_xon_thr);
-+		EFX_SET_OWORD_FIELD(reg, RX_XOFF_MAC_TH_A1, data_xoff_thr);
-+		EFX_SET_OWORD_FIELD(reg, RX_XON_TX_TH_A1, ctrl_xon_thr);
-+		EFX_SET_OWORD_FIELD(reg, RX_XOFF_TX_TH_A1, ctrl_xoff_thr);
-+	} else {
-+		/* Register fields moved */
-+		EFX_SET_OWORD_FIELD(reg, RX_DESC_PUSH_EN_B0, 0);
-+		EFX_SET_OWORD_FIELD(reg, RX_USR_BUF_SIZE_B0, huge_buf_size);
-+		EFX_SET_OWORD_FIELD(reg, RX_XON_MAC_TH_B0, data_xon_thr);
-+		EFX_SET_OWORD_FIELD(reg, RX_XOFF_MAC_TH_B0, data_xoff_thr);
-+		EFX_SET_OWORD_FIELD(reg, RX_XON_TX_TH_B0, ctrl_xon_thr);
-+		EFX_SET_OWORD_FIELD(reg, RX_XOFF_TX_TH_B0, ctrl_xoff_thr);
-+		EFX_SET_OWORD_FIELD(reg, RX_INGR_EN_B0, 1);
-+	}
-+	falcon_write(efx, &reg, RX_CFG_REG_KER);
-+}
-+
- /* This call performs hardware-specific global initialisation, such as
-  * defining the descriptor cache sizes and number of RSS channels.
-  * It does not set up any buffers, descriptor rings or event queues.
-@@ -2917,7 +2958,6 @@ int falcon_probe_nic(struct efx_nic *efx)
- int falcon_init_nic(struct efx_nic *efx)
- {
- 	efx_oword_t temp;
--	unsigned thresh;
- 	int rc;
- 
- 	/* Use on-chip SRAM */
-@@ -3024,26 +3064,7 @@ int falcon_init_nic(struct efx_nic *efx)
- 	EFX_SET_OWORD_FIELD(temp, TX_NO_EOP_DISC_EN, 0);
- 	falcon_write(efx, &temp, TX_CFG_REG_KER);
- 
--	/* RX config */
--	falcon_read(efx, &temp, RX_CFG_REG_KER);
--	EFX_SET_OWORD_FIELD_VER(efx, temp, RX_DESC_PUSH_EN, 0);
--	if (EFX_WORKAROUND_7575(efx))
--		EFX_SET_OWORD_FIELD_VER(efx, temp, RX_USR_BUF_SIZE,
--					(3 * 4096) / 32);
--	if (falcon_rev(efx) >= FALCON_REV_B0)
--		EFX_SET_OWORD_FIELD(temp, RX_INGR_EN_B0, 1);
--
--	/* RX FIFO flow control thresholds */
--	thresh = ((rx_xon_thresh_bytes >= 0) ?
--		  rx_xon_thresh_bytes : efx->type->rx_xon_thresh);
--	EFX_SET_OWORD_FIELD_VER(efx, temp, RX_XON_MAC_TH, thresh / 256);
--	thresh = ((rx_xoff_thresh_bytes >= 0) ?
--		  rx_xoff_thresh_bytes : efx->type->rx_xoff_thresh);
--	EFX_SET_OWORD_FIELD_VER(efx, temp, RX_XOFF_MAC_TH, thresh / 256);
--	/* RX control FIFO thresholds [32 entries] */
--	EFX_SET_OWORD_FIELD_VER(efx, temp, RX_XON_TX_TH, 20);
--	EFX_SET_OWORD_FIELD_VER(efx, temp, RX_XOFF_TX_TH, 25);
--	falcon_write(efx, &temp, RX_CFG_REG_KER);
-+	falcon_init_rx_cfg(efx);
- 
- 	/* Set destination of both TX and RX Flush events */
- 	if (falcon_rev(efx) >= FALCON_REV_B0) {
-diff --git a/drivers/net/sfc/falcon_hwdefs.h b/drivers/net/sfc/falcon_hwdefs.h
-index 2d22611..13f3999 100644
---- a/drivers/net/sfc/falcon_hwdefs.h
-+++ b/drivers/net/sfc/falcon_hwdefs.h
-@@ -313,8 +313,6 @@
- #define RX_XON_MAC_TH_B0_WIDTH 9
- #define RX_XOFF_MAC_TH_B0_LBN 1
- #define RX_XOFF_MAC_TH_B0_WIDTH 9
--#define RX_XOFF_MAC_EN_B0_LBN 0
--#define RX_XOFF_MAC_EN_B0_WIDTH 1
- 
- /* A1 */
- #define RX_DESC_PUSH_EN_A1_LBN 35
-@@ -329,8 +327,9 @@
- #define RX_XON_MAC_TH_A1_WIDTH 5
- #define RX_XOFF_MAC_TH_A1_LBN 1
- #define RX_XOFF_MAC_TH_A1_WIDTH 5
--#define RX_XOFF_MAC_EN_A1_LBN 0
--#define RX_XOFF_MAC_EN_A1_WIDTH 1
-+
-+#define RX_XOFF_MAC_EN_LBN 0
-+#define RX_XOFF_MAC_EN_WIDTH 1
- 
- /* Receive filter control register */
- #define RX_FILTER_CTL_REG 0x810
+-	int rx_xoff_thresh;
+-	int rx_xon_thresh;
+ 	unsigned int rx_buffer_padding;
+ 	unsigned int max_interrupt_mode;
+ 	unsigned int phys_addr_channels;
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
