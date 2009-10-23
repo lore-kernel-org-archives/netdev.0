@@ -1,7 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 12/27] sfc: Move all TX DMA length limiting into tx.c
-Date: Fri, 23 Oct 2009 19:31:20 +0100
-Message-ID: <1256322680.2785.27.camel@achroite>
+Subject: [PATCH 13/27] sfc: Merge struct efx_blinker into struct efx_board
+Date: Fri, 23 Oct 2009 19:31:29 +0100
+Message-ID: <1256322689.2785.29.camel@achroite>
 References: <1256322441.2785.3.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,173 +9,116 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:8749 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:8760 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752865AbZJWSbS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 14:31:18 -0400
+	with ESMTP id S1752905AbZJWSb0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 14:31:26 -0400
 In-Reply-To: <1256322441.2785.3.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace the duplicated logic in efx_enqueue_skb() and
-efx_tx_queue_insert() with an inline function, efx_max_tx_len().
-
-Remove the failed attempt at abstracting hardware-specifics and put
-all the magic numbers in efx_max_tx_len().
-
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/falcon.c      |    7 -------
- drivers/net/sfc/net_driver.h  |    4 ----
- drivers/net/sfc/tx.c          |   37 +++++++++++++++++++++++--------------
- drivers/net/sfc/workarounds.h |    2 ++
- 4 files changed, 25 insertions(+), 25 deletions(-)
+ drivers/net/sfc/falcon_boards.c |   29 +++++++++++++++--------------
+ drivers/net/sfc/net_driver.h    |   21 ++++++---------------
+ 2 files changed, 21 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index 47507b6..34b475e 100644
---- a/drivers/net/sfc/falcon.c
-+++ b/drivers/net/sfc/falcon.c
-@@ -127,9 +127,6 @@ MODULE_PARM_DESC(rx_xon_thresh_bytes, "RX fifo XON threshold");
-  **************************************************************************
-  */
- 
--/* TX DMA length mask (13-bit) */
--#define FALCON_TX_DMA_MASK (4096 - 1)
--
- /* Size and alignment of special buffers (4KB) */
- #define FALCON_BUF_SIZE 4096
- 
-@@ -3146,8 +3143,6 @@ struct efx_nic_type falcon_a_nic_type = {
- 	.evq_ptr_tbl_base = FR_AA_EVQ_PTR_TBL_KER,
- 	.evq_rptr_tbl_base = FR_AA_EVQ_RPTR_KER,
- 	.max_dma_mask = DMA_BIT_MASK(FSF_AZ_TX_KER_BUF_ADDR_WIDTH),
--	.tx_dma_mask = FALCON_TX_DMA_MASK,
--	.bug5391_mask = 0xf,
- 	.rx_buffer_padding = 0x24,
- 	.max_interrupt_mode = EFX_INT_MODE_MSI,
- 	.phys_addr_channels = 4,
-@@ -3167,8 +3162,6 @@ struct efx_nic_type falcon_b_nic_type = {
- 	.evq_ptr_tbl_base = FR_BZ_EVQ_PTR_TBL,
- 	.evq_rptr_tbl_base = FR_BZ_EVQ_RPTR,
- 	.max_dma_mask = DMA_BIT_MASK(FSF_AZ_TX_KER_BUF_ADDR_WIDTH),
--	.tx_dma_mask = FALCON_TX_DMA_MASK,
--	.bug5391_mask = 0,
- 	.rx_buffer_padding = 0,
- 	.max_interrupt_mode = EFX_INT_MODE_MSIX,
- 	.phys_addr_channels = 32, /* Hardware limit is 64, but the legacy
-diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index 3afadc6..91d8952 100644
---- a/drivers/net/sfc/net_driver.h
-+++ b/drivers/net/sfc/net_driver.h
-@@ -870,8 +870,6 @@ static inline const char *efx_dev_name(struct efx_nic *efx)
-  * @evq_ptr_tbl_base: Event queue pointer table base address
-  * @evq_rptr_tbl_base: Event queue read-pointer table base address
-  * @max_dma_mask: Maximum possible DMA mask
-- * @tx_dma_mask: TX DMA mask
-- * @bug5391_mask: Address mask for bug 5391 workaround
-  * @rx_buffer_padding: Padding added to each RX buffer
-  * @max_interrupt_mode: Highest capability interrupt mode supported
-  *	from &enum efx_init_mode.
-@@ -888,8 +886,6 @@ struct efx_nic_type {
- 	unsigned int evq_rptr_tbl_base;
- 
- 	u64 max_dma_mask;
--	unsigned int tx_dma_mask;
--	unsigned bug5391_mask;
- 
- 	unsigned int rx_buffer_padding;
- 	unsigned int max_interrupt_mode;
-diff --git a/drivers/net/sfc/tx.c b/drivers/net/sfc/tx.c
-index ae554ee..303919a 100644
---- a/drivers/net/sfc/tx.c
-+++ b/drivers/net/sfc/tx.c
-@@ -124,6 +124,24 @@ static void efx_tsoh_free(struct efx_tx_queue *tx_queue,
+diff --git a/drivers/net/sfc/falcon_boards.c b/drivers/net/sfc/falcon_boards.c
+index 3078c00..f65738b 100644
+--- a/drivers/net/sfc/falcon_boards.c
++++ b/drivers/net/sfc/falcon_boards.c
+@@ -35,30 +35,31 @@
+ static void blink_led_timer(unsigned long context)
+ {
+ 	struct efx_nic *efx = (struct efx_nic *)context;
+-	struct efx_blinker *bl = &efx->board_info.blinker;
+-	efx->board_info.set_id_led(efx, bl->state);
+-	bl->state = !bl->state;
+-	if (bl->resubmit)
+-		mod_timer(&bl->timer, jiffies + BLINK_INTERVAL);
++	struct efx_board *board = &efx->board_info;
++
++	board->set_id_led(efx, board->blink_state);
++	board->blink_state = !board->blink_state;
++	if (board->blink_resubmit)
++		mod_timer(&board->blink_timer, jiffies + BLINK_INTERVAL);
  }
  
-
-+static inline unsigned
-+efx_max_tx_len(struct efx_nic *efx, dma_addr_t dma_addr)
-+{
-+	/* Depending on the NIC revision, we can use descriptor
-+	 * lengths up to 8K or 8K-1.  However, since PCI Express
-+	 * devices must split read requests at 4K boundaries, there is
-+	 * little benefit from using descriptors that cross those
-+	 * boundaries and we keep things simple by not doing so.
-+	 */
-+	unsigned len = (~dma_addr & 0xfff) + 1;
-+
-+	/* Work around hardware bug for unaligned buffers. */
-+	if (EFX_WORKAROUND_5391(efx) && (dma_addr & 0xf))
-+		len = min_t(unsigned, len, 512 - (dma_addr & 0xf));
-+
-+	return len;
-+}
-+
- /*
-  * Add a socket buffer to a TX queue
-  *
-@@ -146,7 +164,7 @@ static netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue,
- 	skb_frag_t *fragment;
- 	struct page *page;
- 	int page_offset;
--	unsigned int len, unmap_len = 0, fill_level, insert_ptr, misalign;
-+	unsigned int len, unmap_len = 0, fill_level, insert_ptr;
- 	dma_addr_t dma_addr, unmap_addr = 0;
- 	unsigned int dma_len;
- 	bool unmap_single;
-@@ -223,14 +241,10 @@ static netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue,
- 			EFX_BUG_ON_PARANOID(!buffer->continuation);
- 			EFX_BUG_ON_PARANOID(buffer->unmap_len);
- 
--			dma_len = (((~dma_addr) & efx->type->tx_dma_mask) + 1);
--			if (likely(dma_len > len))
-+			dma_len = efx_max_tx_len(efx, dma_addr);
-+			if (likely(dma_len >= len))
- 				dma_len = len;
- 
--			misalign = (unsigned)dma_addr & efx->type->bug5391_mask;
--			if (misalign && dma_len + misalign > 512)
--				dma_len = 512 - misalign;
--
- 			/* Fill out per descriptor fields */
- 			buffer->len = dma_len;
- 			buffer->dma_addr = dma_addr;
-@@ -703,7 +717,7 @@ static int efx_tx_queue_insert(struct efx_tx_queue *tx_queue,
+ static void board_blink(struct efx_nic *efx, bool blink)
  {
- 	struct efx_tx_buffer *buffer;
- 	struct efx_nic *efx = tx_queue->efx;
--	unsigned dma_len, fill_level, insert_ptr, misalign;
-+	unsigned dma_len, fill_level, insert_ptr;
- 	int q_space;
+-	struct efx_blinker *blinker = &efx->board_info.blinker;
++	struct efx_board *board = &efx->board_info;
  
- 	EFX_BUG_ON_PARANOID(len <= 0);
-@@ -752,12 +766,7 @@ static int efx_tx_queue_insert(struct efx_tx_queue *tx_queue,
+ 	/* The rtnl mutex serialises all ethtool ioctls, so
+ 	 * nothing special needs doing here. */
+ 	if (blink) {
+-		blinker->resubmit = true;
+-		blinker->state = false;
+-		setup_timer(&blinker->timer, blink_led_timer,
++		board->blink_resubmit = true;
++		board->blink_state = false;
++		setup_timer(&board->blink_timer, blink_led_timer,
+ 			    (unsigned long)efx);
+-		mod_timer(&blinker->timer, jiffies + BLINK_INTERVAL);
++		mod_timer(&board->blink_timer, jiffies + BLINK_INTERVAL);
+ 	} else {
+-		blinker->resubmit = false;
+-		if (blinker->timer.function)
+-			del_timer_sync(&blinker->timer);
+-		efx->board_info.init_leds(efx);
++		board->blink_resubmit = false;
++		if (board->blink_timer.function)
++			del_timer_sync(&board->blink_timer);
++		board->init_leds(efx);
+ 	}
+ }
  
- 		buffer->dma_addr = dma_addr;
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index 91d8952..8e7b854 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -389,19 +389,6 @@ struct efx_channel {
+ };
  
--		/* Ensure we do not cross a boundary unsupported by H/W */
--		dma_len = (~dma_addr & efx->type->tx_dma_mask) + 1;
+ /**
+- * struct efx_blinker - S/W LED blinking context
+- * @state: Current state - on or off
+- * @resubmit: Timer resubmission flag
+- * @timer: Control timer for blinking
+- */
+-struct efx_blinker {
+-	bool state;
+-	bool resubmit;
+-	struct timer_list timer;
+-};
 -
--		misalign = (unsigned)dma_addr & efx->type->bug5391_mask;
--		if (misalign && dma_len + misalign > 512)
--			dma_len = 512 - misalign;
-+		dma_len = efx_max_tx_len(efx, dma_addr);
+-
+-/**
+  * struct efx_board - board information
+  * @type: Board model type
+  * @major: Major rev. ('A', 'B' ...)
+@@ -412,7 +399,9 @@ struct efx_blinker {
+  * @blink: Starts/stops blinking
+  * @monitor: Board-specific health check function
+  * @fini: Cleanup function
+- * @blinker: used to blink LEDs in software
++ * @blink_state: Current blink state
++ * @blink_resubmit: Blink timer resubmission flag
++ * @blink_timer: Blink timer
+  * @hwmon_client: I2C client for hardware monitor
+  * @ioexp_client: I2C client for power/port control
+  */
+@@ -429,7 +418,9 @@ struct efx_board {
+ 	int (*monitor) (struct efx_nic *nic);
+ 	void (*blink) (struct efx_nic *efx, bool start);
+ 	void (*fini) (struct efx_nic *nic);
+-	struct efx_blinker blinker;
++	bool blink_state;
++	bool blink_resubmit;
++	struct timer_list blink_timer;
+ 	struct i2c_client *hwmon_client, *ioexp_client;
+ };
  
- 		/* If there is enough space to send then do so */
- 		if (dma_len >= len)
-diff --git a/drivers/net/sfc/workarounds.h b/drivers/net/sfc/workarounds.h
-index c821c15..3250299 100644
---- a/drivers/net/sfc/workarounds.h
-+++ b/drivers/net/sfc/workarounds.h
-@@ -41,6 +41,8 @@
- 
- /* Spurious parity errors in TSORT buffers */
- #define EFX_WORKAROUND_5129 EFX_WORKAROUND_FALCON_A
-+/* Unaligned read request >512 bytes after aligning may break TSORT */
-+#define EFX_WORKAROUND_5391 EFX_WORKAROUND_FALCON_A
- /* iSCSI parsing errors */
- #define EFX_WORKAROUND_5583 EFX_WORKAROUND_FALCON_A
- /* RX events go missing */
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
