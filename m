@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH 2/2 net-next-2.6] ipv6 sit: RCU conversion phase II
-Date: Sat, 24 Oct 2009 05:52:14 +0200
-Message-ID: <4AE279EE.8090007@gmail.com>
+Subject: [PATCH net-next-2.6] xfrm6_tunnel: RCU conversion
+Date: Sat, 24 Oct 2009 06:19:19 +0200
+Message-ID: <4AE28047.1020904@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -9,163 +9,158 @@ Cc: Linux Netdev List <netdev@vger.kernel.org>,
 	Yoshifuji Hideaki <yoshfuji@linux-ipv6.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:42361 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:49024 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751670AbZJXDwQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 23:52:16 -0400
+	with ESMTP id S1751376AbZJXETV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Oct 2009 00:19:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SIT tunnels use one rwlock to protect their hash tables.
+xfrm6_tunnels use one rwlock to protect their hash tables.
 
-This locking scheme can be converted to RCU for free, since netdevice
-already must wait for a RCU grace period at dismantle time.
+Plain and straightforward conversion to RCU locking to permit better SMP
+performance.
 
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv6/sit.c |   45 +++++++++++++++++++++++++++------------------
- 1 files changed, 27 insertions(+), 18 deletions(-)
+--- 
+ net/ipv6/xfrm6_tunnel.c |   47 ++++++++++++++++++++++----------------
+ 1 files changed, 28 insertions(+), 19 deletions(-)
 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 8cdcc2a..b6b1626 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -77,8 +77,17 @@ struct sit_net {
- 	struct net_device *fb_tunnel_dev;
+diff --git a/net/ipv6/xfrm6_tunnel.c b/net/ipv6/xfrm6_tunnel.c
+index 81a95c0..438831d 100644
+--- a/net/ipv6/xfrm6_tunnel.c
++++ b/net/ipv6/xfrm6_tunnel.c
+@@ -23,7 +23,7 @@
+  */
+ #include <linux/module.h>
+ #include <linux/xfrm.h>
+-#include <linux/list.h>
++#include <linux/rculist.h>
+ #include <net/ip.h>
+ #include <net/xfrm.h>
+ #include <net/ipv6.h>
+@@ -36,14 +36,15 @@
+  * per xfrm_address_t.
+  */
+ struct xfrm6_tunnel_spi {
+-	struct hlist_node list_byaddr;
+-	struct hlist_node list_byspi;
+-	xfrm_address_t addr;
+-	u32 spi;
+-	atomic_t refcnt;
++	struct hlist_node	list_byaddr;
++	struct hlist_node	list_byspi;
++	xfrm_address_t		addr;
++	u32			spi;
++	atomic_t		refcnt;
++	struct rcu_head		rcu_head;
  };
  
--static DEFINE_RWLOCK(ipip6_lock);
-+/*
-+ * Locking : hash tables are protected by RCU and a spinlock
-+ */
-+static DEFINE_SPINLOCK(ipip6_lock);
+-static DEFINE_RWLOCK(xfrm6_tunnel_spi_lock);
++static DEFINE_SPINLOCK(xfrm6_tunnel_spi_lock);
+ 
+ static u32 xfrm6_tunnel_spi;
+ 
+@@ -107,6 +108,7 @@ static void xfrm6_tunnel_spi_fini(void)
+ 		if (!hlist_empty(&xfrm6_tunnel_spi_byspi[i]))
+ 			return;
+ 	}
++	rcu_barrier();
+ 	kmem_cache_destroy(xfrm6_tunnel_spi_kmem);
+ 	xfrm6_tunnel_spi_kmem = NULL;
+ }
+@@ -116,7 +118,7 @@ static struct xfrm6_tunnel_spi *__xfrm6_tunnel_spi_lookup(xfrm_address_t *saddr)
+ 	struct xfrm6_tunnel_spi *x6spi;
+ 	struct hlist_node *pos;
+ 
+-	hlist_for_each_entry(x6spi, pos,
++	hlist_for_each_entry_rcu(x6spi, pos,
+ 			     &xfrm6_tunnel_spi_byaddr[xfrm6_tunnel_spi_hash_byaddr(saddr)],
+ 			     list_byaddr) {
+ 		if (memcmp(&x6spi->addr, saddr, sizeof(x6spi->addr)) == 0)
+@@ -131,10 +133,10 @@ __be32 xfrm6_tunnel_spi_lookup(xfrm_address_t *saddr)
+ 	struct xfrm6_tunnel_spi *x6spi;
+ 	u32 spi;
+ 
+-	read_lock_bh(&xfrm6_tunnel_spi_lock);
++	rcu_read_lock_bh();
+ 	x6spi = __xfrm6_tunnel_spi_lookup(saddr);
+ 	spi = x6spi ? x6spi->spi : 0;
+-	read_unlock_bh(&xfrm6_tunnel_spi_lock);
++	rcu_read_unlock_bh();
+ 	return htonl(spi);
+ }
+ 
+@@ -185,14 +187,15 @@ alloc_spi:
+ 	if (!x6spi)
+ 		goto out;
+ 
++	INIT_RCU_HEAD(&x6spi->rcu_head);
+ 	memcpy(&x6spi->addr, saddr, sizeof(x6spi->addr));
+ 	x6spi->spi = spi;
+ 	atomic_set(&x6spi->refcnt, 1);
+ 
+-	hlist_add_head(&x6spi->list_byspi, &xfrm6_tunnel_spi_byspi[index]);
++	hlist_add_head_rcu(&x6spi->list_byspi, &xfrm6_tunnel_spi_byspi[index]);
+ 
+ 	index = xfrm6_tunnel_spi_hash_byaddr(saddr);
+-	hlist_add_head(&x6spi->list_byaddr, &xfrm6_tunnel_spi_byaddr[index]);
++	hlist_add_head_rcu(&x6spi->list_byaddr, &xfrm6_tunnel_spi_byaddr[index]);
+ out:
+ 	return spi;
+ }
+@@ -202,26 +205,32 @@ __be32 xfrm6_tunnel_alloc_spi(xfrm_address_t *saddr)
+ 	struct xfrm6_tunnel_spi *x6spi;
+ 	u32 spi;
+ 
+-	write_lock_bh(&xfrm6_tunnel_spi_lock);
++	spin_lock_bh(&xfrm6_tunnel_spi_lock);
+ 	x6spi = __xfrm6_tunnel_spi_lookup(saddr);
+ 	if (x6spi) {
+ 		atomic_inc(&x6spi->refcnt);
+ 		spi = x6spi->spi;
+ 	} else
+ 		spi = __xfrm6_tunnel_alloc_spi(saddr);
+-	write_unlock_bh(&xfrm6_tunnel_spi_lock);
++	spin_unlock_bh(&xfrm6_tunnel_spi_lock);
+ 
+ 	return htonl(spi);
+ }
+ 
+ EXPORT_SYMBOL(xfrm6_tunnel_alloc_spi);
+ 
++static void x6spi_destroy_rcu(struct rcu_head *head)
++{
++	kmem_cache_free(xfrm6_tunnel_spi_kmem,
++			container_of(head, struct xfrm6_tunnel_spi, rcu_head));
++}
 +
-+#define for_each_ip_tunnel_rcu(start) \
-+	for (t = rcu_dereference(start); t; t = rcu_dereference(t->next))
- 
-+/*
-+ * Must be invoked with rcu_read_lock
-+ */
- static struct ip_tunnel * ipip6_tunnel_lookup(struct net *net,
- 		struct net_device *dev, __be32 remote, __be32 local)
+ void xfrm6_tunnel_free_spi(xfrm_address_t *saddr)
  {
-@@ -87,26 +96,26 @@ static struct ip_tunnel * ipip6_tunnel_lookup(struct net *net,
- 	struct ip_tunnel *t;
- 	struct sit_net *sitn = net_generic(net, sit_net_id);
+ 	struct xfrm6_tunnel_spi *x6spi;
+ 	struct hlist_node *pos, *n;
  
--	for (t = sitn->tunnels_r_l[h0^h1]; t; t = t->next) {
-+	for_each_ip_tunnel_rcu(sitn->tunnels_r_l[h0 ^ h1]) {
- 		if (local == t->parms.iph.saddr &&
- 		    remote == t->parms.iph.daddr &&
- 		    (!dev || !t->parms.link || dev->iflink == t->parms.link) &&
- 		    (t->dev->flags & IFF_UP))
- 			return t;
- 	}
--	for (t = sitn->tunnels_r[h0]; t; t = t->next) {
-+	for_each_ip_tunnel_rcu(sitn->tunnels_r[h0]) {
- 		if (remote == t->parms.iph.daddr &&
- 		    (!dev || !t->parms.link || dev->iflink == t->parms.link) &&
- 		    (t->dev->flags & IFF_UP))
- 			return t;
- 	}
--	for (t = sitn->tunnels_l[h1]; t; t = t->next) {
-+	for_each_ip_tunnel_rcu(sitn->tunnels_l[h1]) {
- 		if (local == t->parms.iph.saddr &&
- 		    (!dev || !t->parms.link || dev->iflink == t->parms.link) &&
- 		    (t->dev->flags & IFF_UP))
- 			return t;
- 	}
--	t = sitn->tunnels_wc[0];
-+	t = rcu_dereference(sitn->tunnels_wc[0]);
- 	if ((t != NULL) && (t->dev->flags & IFF_UP))
- 		return t;
- 	return NULL;
-@@ -143,9 +152,9 @@ static void ipip6_tunnel_unlink(struct sit_net *sitn, struct ip_tunnel *t)
+-	write_lock_bh(&xfrm6_tunnel_spi_lock);
++	spin_lock_bh(&xfrm6_tunnel_spi_lock);
  
- 	for (tp = ipip6_bucket(sitn, t); *tp; tp = &(*tp)->next) {
- 		if (t == *tp) {
--			write_lock_bh(&ipip6_lock);
-+			spin_lock_bh(&ipip6_lock);
- 			*tp = t->next;
--			write_unlock_bh(&ipip6_lock);
-+			spin_unlock_bh(&ipip6_lock);
- 			break;
+ 	hlist_for_each_entry_safe(x6spi, pos, n,
+ 				  &xfrm6_tunnel_spi_byaddr[xfrm6_tunnel_spi_hash_byaddr(saddr)],
+@@ -229,14 +238,14 @@ void xfrm6_tunnel_free_spi(xfrm_address_t *saddr)
+ 	{
+ 		if (memcmp(&x6spi->addr, saddr, sizeof(x6spi->addr)) == 0) {
+ 			if (atomic_dec_and_test(&x6spi->refcnt)) {
+-				hlist_del(&x6spi->list_byaddr);
+-				hlist_del(&x6spi->list_byspi);
+-				kmem_cache_free(xfrm6_tunnel_spi_kmem, x6spi);
++				hlist_del_rcu(&x6spi->list_byaddr);
++				hlist_del_rcu(&x6spi->list_byspi);
++				call_rcu(&x6spi->rcu_head, x6spi_destroy_rcu);
+ 				break;
+ 			}
  		}
  	}
-@@ -155,10 +164,10 @@ static void ipip6_tunnel_link(struct sit_net *sitn, struct ip_tunnel *t)
- {
- 	struct ip_tunnel **tp = ipip6_bucket(sitn, t);
- 
-+	spin_lock_bh(&ipip6_lock);
- 	t->next = *tp;
--	write_lock_bh(&ipip6_lock);
--	*tp = t;
--	write_unlock_bh(&ipip6_lock);
-+	rcu_assign_pointer(*tp, t);
-+	spin_unlock_bh(&ipip6_lock);
+-	write_unlock_bh(&xfrm6_tunnel_spi_lock);
++	spin_unlock_bh(&xfrm6_tunnel_spi_lock);
  }
  
- static void ipip6_tunnel_clone_6rd(struct net_device *dev, struct sit_net *sitn)
-@@ -447,9 +456,9 @@ static void ipip6_tunnel_uninit(struct net_device *dev)
- 	struct sit_net *sitn = net_generic(net, sit_net_id);
- 
- 	if (dev == sitn->fb_tunnel_dev) {
--		write_lock_bh(&ipip6_lock);
-+		spin_lock_bh(&ipip6_lock);
- 		sitn->tunnels_wc[0] = NULL;
--		write_unlock_bh(&ipip6_lock);
-+		spin_unlock_bh(&ipip6_lock);
- 		dev_put(dev);
- 	} else {
- 		ipip6_tunnel_unlink(sitn, netdev_priv(dev));
-@@ -502,7 +511,7 @@ static int ipip6_err(struct sk_buff *skb, u32 info)
- 
- 	err = -ENOENT;
- 
--	read_lock(&ipip6_lock);
-+	rcu_read_lock();
- 	t = ipip6_tunnel_lookup(dev_net(skb->dev),
- 				skb->dev,
- 				iph->daddr,
-@@ -520,7 +529,7 @@ static int ipip6_err(struct sk_buff *skb, u32 info)
- 		t->err_count = 1;
- 	t->err_time = jiffies;
- out:
--	read_unlock(&ipip6_lock);
-+	rcu_read_unlock();
- 	return err;
- }
- 
-@@ -540,7 +549,7 @@ static int ipip6_rcv(struct sk_buff *skb)
- 
- 	iph = ip_hdr(skb);
- 
--	read_lock(&ipip6_lock);
-+	rcu_read_lock();
- 	tunnel = ipip6_tunnel_lookup(dev_net(skb->dev), skb->dev,
- 				     iph->saddr, iph->daddr);
- 	if (tunnel != NULL) {
-@@ -554,7 +563,7 @@ static int ipip6_rcv(struct sk_buff *skb)
- 		if ((tunnel->dev->priv_flags & IFF_ISATAP) &&
- 		    !isatap_chksrc(skb, iph, tunnel)) {
- 			tunnel->dev->stats.rx_errors++;
--			read_unlock(&ipip6_lock);
-+			rcu_read_unlock();
- 			kfree_skb(skb);
- 			return 0;
- 		}
-@@ -565,12 +574,12 @@ static int ipip6_rcv(struct sk_buff *skb)
- 		nf_reset(skb);
- 		ipip6_ecn_decapsulate(iph, skb);
- 		netif_rx(skb);
--		read_unlock(&ipip6_lock);
-+		rcu_read_unlock();
- 		return 0;
- 	}
- 
- 	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
--	read_unlock(&ipip6_lock);
-+	rcu_read_unlock();
- out:
- 	kfree_skb(skb);
- 	return 0;
+ EXPORT_SYMBOL(xfrm6_tunnel_free_spi);
