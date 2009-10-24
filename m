@@ -1,40 +1,32 @@
-From: Luca Dionisi <luca.dionisi@gmail.com>
-Subject: Request: how do packet routing based on input gateway
-Date: Sat, 24 Oct 2009 19:14:21 +0200
-Message-ID: <73dbe2850910241014k8038fb5v6b098b5e3f91e4a4@mail.gmail.com>
-References: <73dbe2850910240622s2453c252p17d928f8a94ffe33@mail.gmail.com>
-	 <4AE30D01.7030700@lemonia.org>
-	 <73dbe2850910241013k7a83b07qed1f6f365e18c90e@mail.gmail.com>
+From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+Subject: RE: [patch next 3/4] netxen: fix bonding support
+Date: Sat, 24 Oct 2009 10:29:50 -0700
+Message-ID: <7608421F3572AB4292BB2532AE89D5658B0B6E4F74@AVEXMB1.qlogic.org>
+References: <1241586309-12112-1-git-send-email-dhananjay@netxen.com>
+	<1241586309-12112-4-git-send-email-dhananjay@netxen.com>
+	<m1ljj2ps80.fsf@fess.ebiederm.org>
+	<7608421F3572AB4292BB2532AE89D5658B0B6E4F72@AVEXMB1.qlogic.org>,<m1skd9letu.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <73dbe2850910241013k7a83b07qed1f6f365e18c90e@mail.gmail.com>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from avexch1.qlogic.com ([198.70.193.115]:24072 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751645AbZJXRan convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Oct 2009 13:30:43 -0400
+In-Reply-To: <m1skd9letu.fsf@fess.ebiederm.org>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 24, 2009 at 4:19 PM, Dunc <dunc@lemonia.org> wrote:
-> If both of your last hops are on the same subnet you can't use incoming
-> interface, so the only thing I can think of is to match the MAC address
-> of the ethernet frame. If the last hop wasn't the source of the packet I
-> don't think there's anything else to uniquely identify it.
+> Yes.  That should prevent the null pointer deference.  Will it also
+> allow setting the mac address when the NIC is down?
+> 
+> Eric
 
-There is another reason why I can't use the input interface. It's
-because 2 or more gateways of mine could be accessible by the same
-interface. I have to distinguish the route on the base of the last
-hop, not on the base of the interface.
+Yes, we do save new address in netdev->dev_addr.
+This is later on programmed in hardware when interface is brought up.
 
-If I get it right, the kernel is aware of what the MAC address of the
-previous hop was, but it is not aware of its IP address.
-
-This is surprising to me. I mean, I can understand that this
-information is not in the headings of the packet, but nevertheless I
-thought the kernel was able to remember the gateway it came from.
-
-If this is the situation I have to live in, then what are the commands
-I must give to instruct the kernel?
-Suppose I want a packet for 192.168.1.0/24 to be forwarded to
-192.168.2.1 if the packet was sent to me by MAC 00:22:44:99:66:77.
-
-Thanks alot
---Luca Dionisi
+-Dhannajay
