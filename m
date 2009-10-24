@@ -1,30 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 2.6.32-rc5] r8169: fix Ethernet Hangup for RTL8110SC
- rev d
-Date: Sat, 24 Oct 2009 06:48:09 -0700 (PDT)
-Message-ID: <20091024.064809.28007995.davem@davemloft.net>
-References: <20091023065717.GA22484@pandem0nium>
+Subject: Re: [RFC] [PATCH] udp: Don't save dst in udpv6_sendmsg()
+Date: Sat, 24 Oct 2009 06:49:15 -0700 (PDT)
+Message-ID: <20091024.064915.76607526.davem@davemloft.net>
+References: <20091023111336.4733.4901.sendpatchset@localhost.localdomain>
+	<20091024.064010.145864194.davem@davemloft.net>
+	<OF34F531CA.C8E6FDAE-ON65257659.004B6782-65257659.004B99F8@in.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, simon.wunderlich@saxnet.de,
-	bernhard.schmidt@saxnet.de, romieu@fr.zoreil.com
-To: simon.wunderlich@s2003.tu-chemnitz.de
+Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+To: krkumar2@in.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32831
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32837
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753578AbZJXNrq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Oct 2009 09:47:46 -0400
-In-Reply-To: <20091023065717.GA22484@pandem0nium>
+	by vger.kernel.org with ESMTP id S1753559AbZJXNsw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Oct 2009 09:48:52 -0400
+In-Reply-To: <OF34F531CA.C8E6FDAE-ON65257659.004B6782-65257659.004B99F8@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>
-Date: Fri, 23 Oct 2009 08:57:17 +0200
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Date: Sat, 24 Oct 2009 19:15:46 +0530
 
- ...
-> Signed-off-by: Bernhard Schmidt <bernhard.schmidt@saxnet.de>
-> Signed-off-by: Simon Wunderlich <simon.wunderlich@saxnet.de>
-> Acked-by: Francois Romieu <romieu@zoreil.com>
+> David Miller wrote on 10/24/2009 07:10:10 PM:
+>>
+>> > Performance: I ran netperf UDPv6 RR to use connected sockets.
+>> > Tested with a 70 min run, aggregate of 5 netperf runs for
+>> > each result.
+>>
+>> Who actually uses connected UDP sockets? :-)
+> 
+> Just something I found when running netperf RR tests, and the code is there
+> doing it anyway. Maybe I can drop doing this testing, but upto you.
 
-Applied, thanks.
+Eric Dumazet or someone else made comments recently about how
+nobody uses connected UDP sockets.
+
+And if someone actually does, they can complain and we can
+go back to looking into it :-)
