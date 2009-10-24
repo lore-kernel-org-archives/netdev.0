@@ -1,52 +1,40 @@
-From: Sven Geggus <lists@fuchsschwanzdomain.de>
-Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
- failures V2
-Date: Sat, 24 Oct 2009 16:02:09 +0200
-Message-ID: <20091024140207.GA5102@geggus.net>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Modify bonding hash transmit policies to use the
+ packet's source MAC address
+Date: Sat, 24 Oct 2009 07:02:59 -0700 (PDT)
+Message-ID: <20091024.070259.156043509.davem@davemloft.net>
+References: <4AE1A37F.8010203@gmail.com>
+	<20091023140845.GA24564@spaans.fox.local>
+	<15644.1256314992@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Frans Pop <elendil@planet.nl>, Jiri Kosina <jkosina@suse.cz>,
-	Karol Lewandowski <karol.k.lewandowski@gmail.com>,
-	Tobias Oetiker <tobi@oetiker.ch>, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	David Miller <davem@davemloft.net>,
-	Reinette Chatre <reinette.chatre@intel.com>,
-	Kalle Valo <kalle.valo@iki.fi>,
-	David Rientjes <rientjes@google.com>,
-	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-	Mohamed Abbas <mohamed.abbas@intel.com>,
-	Jens Axboe <jens.axboe@oracle.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Stephan von Krawczynski <skraw@ithnet.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>
-To: Mel Gorman <mel@csn.ul.ie>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: spaans@fox-it.com, eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: fubar@us.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48839
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753779AbZJXOCg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Oct 2009 10:02:36 -0400
+In-Reply-To: <15644.1256314992@death.nxdomain.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mel Gorman schrieb am Donnerstag, den 22. Oktober um 16:22 Uhr:
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Fri, 23 Oct 2009 09:23:12 -0700
 
-> Test 1: Verify your problem occurs on 2.6.32-rc5 if you can
+> Jasper Spaans <spaans@fox-it.com> wrote:
+> 
+>>Modify bonding hash transmit policies to use the psource MAC address of
+>>the packet instead of the MAC address configured for the bonding device.
+>>
+>>The old sitation conflicts with the documentation.
+>>
+>>Signed-off-by: Jasper Spaans <spaans@fox-it.com>
+> 
+> 	Looks good.
+> 
+> 	Dave, please apply.  This may be suitable for -stable, as it's
+> pretty much a day one bug.
 
-Problem persists. RAID resync in progress :(
-
-Sven
-
--- 
-"linux is evolution, not intelligent design"
-(Linus Torvalds)
-
-/me is giggls@ircnet, http://sven.gegg.us/ on the Web
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Applied, and queued up for stable, thanks everyone.
