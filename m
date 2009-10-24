@@ -1,33 +1,27 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] xfrm6_tunnel: RCU conversion
-Date: Sat, 24 Oct 2009 15:34:31 +0200
-Message-ID: <4AE30267.3080905@gmail.com>
-References: <4AE28047.1020904@gmail.com> <20091024.060920.258223911.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] [PATCH] udp: Don't save dst in udpv6_sendmsg()
+Date: Sat, 24 Oct 2009 06:40:10 -0700 (PDT)
+Message-ID: <20091024.064010.145864194.davem@davemloft.net>
+References: <20091023111336.4733.4901.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: krkumar2@in.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:48834 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753360AbZJXNef (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Oct 2009 09:34:35 -0400
-In-Reply-To: <20091024.060920.258223911.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55543
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753429AbZJXNjr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Oct 2009 09:39:47 -0400
+In-Reply-To: <20091023111336.4733.4901.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller a =E9crit :
-> Nice work Eric, I applied all of your RCU conversions to
-> net-next-2.6, thanks!
->=20
-> Applying: ipv6 sit: RCU conversion phase I
-> Applying: ipv6 sit: RCU conversion phase II
-> Applying: xfrm6_tunnel: RCU conversion
-> Applying: ipip: convert hash tables locking to RCU
-> Applying: ip6tnl: convert hash tables locking to RCU
-> Applying: gre: convert hash tables locking to RCU
+From: Krishna Kumar <krkumar2@in.ibm.com>
+Date: Fri, 23 Oct 2009 16:43:36 +0530
 
-Thanks a lot !
+> Performance: I ran netperf UDPv6 RR to use connected sockets.
+> Tested with a 70 min run, aggregate of 5 netperf runs for
+> each result.
 
-
+Who actually uses connected UDP sockets? :-)
