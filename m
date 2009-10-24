@@ -1,40 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Modify bonding hash transmit policies to use the
- packet's source MAC address
-Date: Sat, 24 Oct 2009 07:02:59 -0700 (PDT)
-Message-ID: <20091024.070259.156043509.davem@davemloft.net>
-References: <4AE1A37F.8010203@gmail.com>
-	<20091023140845.GA24564@spaans.fox.local>
-	<15644.1256314992@death.nxdomain.ibm.com>
+Subject: Re: [RFC] [PATCH] cxgb3: Set the rxq
+Date: Sat, 24 Oct 2009 07:07:15 -0700 (PDT)
+Message-ID: <20091024.070715.241603365.davem@davemloft.net>
+References: <20091023111321.4726.29354.sendpatchset@localhost.localdomain>
+	<op.u193nu1zduofyu@speedy5>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: spaans@fox-it.com, eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: fubar@us.ibm.com
+Cc: krkumar2@in.ibm.com, netdev@vger.kernel.org
+To: divy@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48839
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38599
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753779AbZJXOCg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Oct 2009 10:02:36 -0400
-In-Reply-To: <15644.1256314992@death.nxdomain.ibm.com>
+	by vger.kernel.org with ESMTP id S1753315AbZJXOGw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Oct 2009 10:06:52 -0400
+In-Reply-To: <op.u193nu1zduofyu@speedy5>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jay Vosburgh <fubar@us.ibm.com>
-Date: Fri, 23 Oct 2009 09:23:12 -0700
+From: "Divy Le Ray" <divy@chelsio.com>
+Date: Fri, 23 Oct 2009 17:29:44 -0700
 
-> Jasper Spaans <spaans@fox-it.com> wrote:
+> On Fri, 23 Oct 2009 04:13:21 -0700, Krishna Kumar
+> <krkumar2@in.ibm.com> wrote:
 > 
->>Modify bonding hash transmit policies to use the psource MAC address of
->>the packet instead of the MAC address configured for the bonding device.
+>> From: Krishna Kumar <krkumar2@in.ibm.com>
 >>
->>The old sitation conflicts with the documentation.
+>> Set the rxq# for LRO when processing the last fragment of a
+>> frame. This helps in fast txq selection for routing workloads.
 >>
->>Signed-off-by: Jasper Spaans <spaans@fox-it.com>
+>> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 > 
-> 	Looks good.
-> 
-> 	Dave, please apply.  This may be suitable for -stable, as it's
-> pretty much a day one bug.
+> Acked-by: Divy Le Ray <divy@chelsio.com>
 
-Applied, and queued up for stable, thanks everyone.
+Applied to net-next-2.6, thanks!
