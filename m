@@ -1,43 +1,57 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: [PATCH 2/5] page allocator: Do not allow interrupts to use
- ALLOC_HARDER
-Date: Fri, 23 Oct 2009 22:03:05 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0910232201520.9557@V090114053VZO-1>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <1256221356-26049-3-git-send-email-mel@csn.ul.ie> <20091022183303.2448942d.skraw@ithnet.com> <20091022163752.GU11778@csn.ul.ie>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch] sctp: remove deprecated SCTP_GET_*_OLD stuffs
+Date: Sat, 24 Oct 2009 10:41:58 +0800
+Message-ID: <4AE26976.6070809@redhat.com>
+References: <20091015082849.4605.48311.sendpatchset@localhost.localdomain> <4AE0C64A.9080400@hp.com> <20091022214439.GA2635@merkur.ravnborg.org> <4AE1D2AA.8060200@hp.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Stephan von Krawczynski <skraw@ithnet.com>, Frans Pop <elendil@planet.nl>,
-    Jiri Kosina <jkosina@suse.cz>, Sven Geggus <lists@fuchsschwanzdomain.de>,
-    Karol Lewandowski <karol.k.lewandowski@gmail.com>,
-    Tobias Oetiker <tobi@oetiker.ch>, "Rafael J. Wysocki" <rjw@sisk.pl>,
-    David Miller <davem@davemloft.net>,
-    Reinette Chatre <reinette.chatre@intel.com>,
-    Kalle Valo <kalle.valo@iki.fi>, David Rientjes <rientjes@google.com>,
-    KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-    Mohamed Abbas <mohamed.abbas@intel.com>,
-    Jens Axboe <jens.axboe@oracle.com>,
-    "John W. Linville" <linville@tuxdriver.com>,
-    Pekka Enberg <penberg@cs.helsinki.fi>,
-    Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-    Greg Kroah-Hartman <gregkh@suse.de>,
-    Kernel Testers List <kernel-testers@vger.kernel.org>,
-    netdev@vger.kernel.org, linux-kernel@vger.kernel.or
-To: Mel Gorman <mel@csn.ul.ie>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20091022163752.GU11778@csn.ul.ie>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Sam Ravnborg <sam@ravnborg.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, akpm@linux-foundation.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752125AbZJXCjW@vger.kernel.org>
+In-Reply-To: <4AE1D2AA.8060200@hp.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There are now rt dependencies in the page allocator that screw things up?
+Vlad Yasevich wrote:
+> 
+> Sam Ravnborg wrote:
+>> On Thu, Oct 22, 2009 at 04:53:30PM -0400, Vlad Yasevich wrote:
+>>>> diff --git a/include/net/sctp/user.h b/include/net/sctp/user.h
+>>>> index be2334a..0991f1b 100644
+>>>> --- a/include/net/sctp/user.h
+>>>> +++ b/include/net/sctp/user.h
+>>>> @@ -131,14 +131,6 @@ enum sctp_optname {
+>>>>  #define SCTP_SOCKOPT_BINDX_REM	SCTP_SOCKOPT_BINDX_REM
+>>>>  	SCTP_SOCKOPT_PEELOFF, 	/* peel off association. */
+>>>>  #define SCTP_SOCKOPT_PEELOFF	SCTP_SOCKOPT_PEELOFF
+>>>> -	SCTP_GET_PEER_ADDRS_NUM_OLD, 	/* Get number of peer addresss. */
+>>>> -#define SCTP_GET_PEER_ADDRS_NUM_OLD	SCTP_GET_PEER_ADDRS_NUM_OLD
+>>>> -	SCTP_GET_PEER_ADDRS_OLD, 	/* Get all peer addresss. */
+>>>> -#define SCTP_GET_PEER_ADDRS_OLD	SCTP_GET_PEER_ADDRS_OLD
+>>>> -	SCTP_GET_LOCAL_ADDRS_NUM_OLD, 	/* Get number of local addresss. */
+>>>> -#define SCTP_GET_LOCAL_ADDRS_NUM_OLD	SCTP_GET_LOCAL_ADDRS_NUM_OLD
+>>>> -	SCTP_GET_LOCAL_ADDRS_OLD, 	/* Get all local addresss. */
+>>>> -#define SCTP_GET_LOCAL_ADDRS_OLD	SCTP_GET_LOCAL_ADDRS_OLD
+>>>>  	SCTP_SOCKOPT_CONNECTX_OLD, /* CONNECTX old requests. */
+>>> After running the regression suite against this patch I find that we can't
+>>> remove the enum values.  Removing the enums changes the value for the remainder
+>>> of the definitions and breaks binary compatibility for applications that use
+>>> those trailing options.
+>>>
+>>> You should be ok with removing the #defines and actual code that uses them,
+>>> but not the enums.  You can even rename the enums, but we must preserve
+>>> numeric ordering.
+>> If we really depend on the actual value of an enum as in this case,
+>> then e should assign them direct to better document this.
+>>
+>> 	Sam
+>>
+> 
+> I agree.  I have a patch that converts the enum to just a #define section that
+> I'll apply on top of this removal patch and document the deletion.
 
-And an rt flag causes the page allocator to try harder meaning it adds
-latency.
+Hi, Vlad.
 
-?
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I was busy, sorry for joining late. Thanks for doing this!
