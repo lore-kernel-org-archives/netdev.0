@@ -1,29 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] xfrm6_tunnel: RCU conversion
-Date: Sat, 24 Oct 2009 06:09:20 -0700 (PDT)
-Message-ID: <20091024.060920.258223911.davem@davemloft.net>
-References: <4AE28047.1020904@gmail.com>
+Subject: Re: [RFC] net,socket: introduce build_sockaddr_check helper to
+ catch overflow at build time
+Date: Sat, 24 Oct 2009 06:12:09 -0700 (PDT)
+Message-ID: <20091024.061209.39469983.davem@davemloft.net>
+References: <20091022.044914.36401063.davem@davemloft.net>
+	<20091022135557.GA5162@lenovo>
+	<20091023214306.GA30616@lenovo>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: gorcunov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39864
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58960
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753292AbZJXNI5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Oct 2009 09:08:57 -0400
-In-Reply-To: <4AE28047.1020904@gmail.com>
+	by vger.kernel.org with ESMTP id S1753325AbZJXNLq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Oct 2009 09:11:46 -0400
+In-Reply-To: <20091023214306.GA30616@lenovo>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Date: Sat, 24 Oct 2009 01:43:06 +0400
 
-Nice work Eric, I applied all of your RCU conversions to
-net-next-2.6, thanks!
+> Or say it could be something like that
+> 
+> #define __sockaddr(type, src)	\
+> 	({ build_sockaddr_check(sizeof(type)); (type *) src; })
+> 
+> and say in function af_inet.c:inet_getname instead of
+> 
+> 	struct sockaddr_in *sin	= (struct sockaddr_in *)uaddr;
+> 
+> we may write like
+> 
+> 	struct sockaddr_in *sin	= __sockaddr(struct sockaddr_in, uaddr);
+> 
+> which would check the size.
 
-Applying: ipv6 sit: RCU conversion phase I
-Applying: ipv6 sit: RCU conversion phase II
-Applying: xfrm6_tunnel: RCU conversion
-Applying: ipip: convert hash tables locking to RCU
-Applying: ip6tnl: convert hash tables locking to RCU
-Applying: gre: convert hash tables locking to RCU
+Or even a "DECLARE_SOCKADDR(type, src, dest)" which encapsulates the
+entire declaration statement.
