@@ -1,49 +1,52 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [RFC] [PATCH] udp: Don't save dst in udpv6_sendmsg()
-Date: Sat, 24 Oct 2009 19:30:21 +0530
-Message-ID: <OF5DC88D9B.31D2C6B4-ON65257659.004CC0D9-65257659.004CEFFC@in.ibm.com>
-References: <20091023111336.4733.4901.sendpatchset@localhost.localdomain>	<20091024.064010.145864194.davem@davemloft.net>
-	<OF34F531CA.C8E6FDAE-ON65257659.004B6782-65257659.004B99F8@in.ibm.com> <20091024.064915.76607526.davem@davemloft.net>
+From: Sven Geggus <lists@fuchsschwanzdomain.de>
+Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
+ failures V2
+Date: Sat, 24 Oct 2009 16:02:09 +0200
+Message-ID: <20091024140207.GA5102@geggus.net>
+References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp02.in.ibm.com ([59.145.155.2]:40382 "EHLO
-	e28smtp02.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753737AbZJXOBa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Oct 2009 10:01:30 -0400
-Received: from d28relay03.in.ibm.com (d28relay03.in.ibm.com [9.184.220.60])
-	by e28smtp02.in.ibm.com (8.14.3/8.13.1) with ESMTP id n9OE1XaK030049
-	for <netdev@vger.kernel.org>; Sat, 24 Oct 2009 19:31:33 +0530
-Received: from d28av05.in.ibm.com (d28av05.in.ibm.com [9.184.220.67])
-	by d28relay03.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n9OE1WZa2388194
-	for <netdev@vger.kernel.org>; Sat, 24 Oct 2009 19:31:33 +0530
-Received: from d28av05.in.ibm.com (loopback [127.0.0.1])
-	by d28av05.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n9OE1W1t020608
-	for <netdev@vger.kernel.org>; Sun, 25 Oct 2009 01:01:32 +1100
-In-Reply-To: <20091024.064915.76607526.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Frans Pop <elendil@planet.nl>, Jiri Kosina <jkosina@suse.cz>,
+	Karol Lewandowski <karol.k.lewandowski@gmail.com>,
+	Tobias Oetiker <tobi@oetiker.ch>, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	David Miller <davem@davemloft.net>,
+	Reinette Chatre <reinette.chatre@intel.com>,
+	Kalle Valo <kalle.valo@iki.fi>,
+	David Rientjes <rientjes@google.com>,
+	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
+	Mohamed Abbas <mohamed.abbas@intel.com>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Stephan von Krawczynski <skraw@ithnet.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>
+To: Mel Gorman <mel@csn.ul.ie>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote on 10/24/2009 07:19:15 PM:
+Mel Gorman schrieb am Donnerstag, den 22. Oktober um 16:22 Uhr:
 
->
-> >> Who actually uses connected UDP sockets? :-)
-> >
-> > Just something I found when running netperf RR tests, and the code is
-there
-> > doing it anyway. Maybe I can drop doing this testing, but upto you.
->
-> Eric Dumazet or someone else made comments recently about how
-> nobody uses connected UDP sockets.
->
-> And if someone actually does, they can complain and we can
-> go back to looking into it :-)
+> Test 1: Verify your problem occurs on 2.6.32-rc5 if you can
 
-Agreed. Please drop it.
+Problem persists. RAID resync in progress :(
 
-Thanks,
+Sven
 
-- KK
+-- 
+"linux is evolution, not intelligent design"
+(Linus Torvalds)
 
+/me is giggls@ircnet, http://sven.gegg.us/ on the Web
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
