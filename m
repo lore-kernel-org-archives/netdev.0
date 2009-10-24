@@ -1,43 +1,34 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
- failures V2
-Date: Fri, 23 Oct 2009 21:52:39 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0910232151380.2001@V090114053VZO-1>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <84144f020910220747nba30d8bkc83c2569da79bd7c@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [patch next 3/4] netxen: fix bonding support
+Date: Fri, 23 Oct 2009 19:13:01 -0700
+Message-ID: <m1skd9letu.fsf@fess.ebiederm.org>
+References: <1241586309-12112-1-git-send-email-dhananjay@netxen.com>
+	<1241586309-12112-4-git-send-email-dhananjay@netxen.com>
+	<m1ljj2ps80.fsf@fess.ebiederm.org>
+	<7608421F3572AB4292BB2532AE89D5658B0B6E4F72@AVEXMB1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Mel Gorman <mel@csn.ul.ie>, Frans Pop <elendil@planet.nl>,
-    Jiri Kosina <jkosina@suse.cz>, Sven Geggus <lists@fuchsschwanzdomain.de>,
-    Karol Lewandowski <karol.k.lewandowski@gmail.com>,
-    Tobias Oetiker <tobi@oetiker.ch>, "Rafael J. Wysocki" <rjw@sisk.pl>,
-    David Miller <davem@davemloft.net>,
-    Reinette Chatre <reinette.chatre@intel.com>,
-    Kalle Valo <kalle.valo@iki.fi>, David Rientjes <rientjes@google.com>,
-    KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-    Mohamed Abbas <mohamed.abbas@intel.com>,
-    Jens Axboe <jens.axboe@oracle.com>,
-    "John W. Linville" <linville@tuxdriver.com>,
-    Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-    Greg Kroah-Hartman <gregkh@suse.de>,
-    Stephan von Krawczynski <skraw@ithnet.com>,
-    Kernel Testers List <kernel-testers@vger.kernel.org>,
-    netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-    "li
-To: Pekka Enberg <penberg@cs.helsinki.fi>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <84144f020910220747nba30d8bkc83c2569da79bd7c@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>
+To: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:57473 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751385AbZJXCM5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Oct 2009 22:12:57 -0400
+In-Reply-To: <7608421F3572AB4292BB2532AE89D5658B0B6E4F72@AVEXMB1.qlogic.org> (Dhananjay Phadke's message of "Fri\, 23 Oct 2009 18\:54\:35 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 22 Oct 2009, Pekka Enberg wrote:
+Dhananjay Phadke <dhananjay.phadke@qlogic.com> writes:
 
-> These are pretty obvious bug fixes and should go to linux-next ASAP IMHO.
+> Yes, this was a bug until recent times.
+>
+> It should be fixed in 2.6.32 development cycle by this commit -
+> db4cfd8a6149e778befb2ff6e6f91cdc6394cbe6 ("netxen: handle firmware load errors").
+>
+> This added a check for adapter->is_up before touching txq lock.
 
-Bug fixes go into main not linux-next. Lets make sure these fixes really
-work and then merge.
+Yes.  That should prevent the null pointer deference.  Will it also
+allow setting the mac address when the NIC is down?
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Eric
