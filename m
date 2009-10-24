@@ -1,33 +1,76 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [RFC] [PATCH] udp: Don't save dst in udpv6_sendmsg()
-Date: Sat, 24 Oct 2009 19:15:46 +0530
-Message-ID: <OF34F531CA.C8E6FDAE-ON65257659.004B6782-65257659.004B99F8@in.ibm.com>
-References: <20091023111336.4733.4901.sendpatchset@localhost.localdomain> <20091024.064010.145864194.davem@davemloft.net>
+From: Mel LKML <mel.lkml@gmail.com>
+Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
+	failures V2
+Date: Sat, 24 Oct 2009 14:46:56 +0100
+Message-ID: <9ec2d7290910240646p75b93c68v6ea1648d628a9660@mail.gmail.com>
+References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
+	 <20091023165810.GA4588@bizet.domek.prywatny>
+	 <20091023211239.GA6185@bizet.domek.prywatny>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp01.in.ibm.com ([59.145.155.1]:44873 "EHLO
-	e28smtp01.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753506AbZJXNqq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Oct 2009 09:46:46 -0400
-In-Reply-To: <20091024.064010.145864194.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Mel Gorman <mel@csn.ul.ie>, Frans Pop <elendil@planet.nl>, Jiri Kosina <jkosina@suse.cz>,
+	Sven Geggus <lists@fuchsschwanzdomain.de>, Tobias Oetiker <tobi@oetiker.ch>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, David Miller <davem@davemloft.net>,
+	Reinette Chatre <reinette.chatre@intel.com>, Kalle Valo <kalle.valo@iki.fi>,
+	David Rientjes <rientjes@google.com>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
+	Mohamed Abbas <mohamed.abbas@intel.com>, Jens Axboe <jens.axboe@oracle.com>,
+	"John W. Linville" <linville@tuxdriver.com>, Pekka Enberg <penberg@cs.helsinki.fi>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>, Greg Kroah-Hartman <gregkh@suse.de>,
+	Stephan von Krawczynski <skraw@ithnet.com>, Kernel Testers List <kernel-testers@vger.kernel.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>
+To: Karol Lewandowski <karol.k.lewandowski@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20091023211239.GA6185@bizet.domek.prywatny>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote on 10/24/2009 07:10:10 PM:
+Hi,
+
+This is the same Mel as mel@csn.ul.ie. The mail server the address is
+on has no power until Tuesday so I'm not going to be very unresponsive
+until then. Monday is also a public holiday here and apparently they
+are upgrading the power transformers near the building.
+
+On 10/23/09, Karol Lewandowski <karol.k.lewandowski@gmail.com> wrote:
+> On Fri, Oct 23, 2009 at 06:58:10PM +0200, Karol Lewandowski wrote:
+>> On Thu, Oct 22, 2009 at 03:22:31PM +0100, Mel Gorman wrote:
+>> > Test 3: If you are getting allocation failures, try with the following
+>> > patch
+>> >
+>> >   3/5 vmscan: Force kswapd to take notice faster when high-order
+>> > watermarks are being hit
 >
-> > Performance: I ran netperf UDPv6 RR to use connected sockets.
-> > Tested with a 70 min run, aggregate of 5 netperf runs for
-> > each result.
+>> No, problem doesn't go away with these patches (1+2+3).  However, from
+>> my testing this particular patch makes it way, way harder to trigger
+>> allocation failures (but these are still present).
+>>
+>> This bothers me - should I test following patches with or without
+>> above patch?  This patch makes bug harder to find, IMVHO it doesn't
+>> fix the real problem.
+> ..
 >
-> Who actually uses connected UDP sockets? :-)
+>> Test 4: If you are still getting failures, apply the following
+>>  4/5 page allocator: Pre-emptively wake kswapd when high-order watermarks
+>> are hit
+>
+> Ok, I've tested patches 1+2+4 and bug, while very hard to trigger, is
+> still present. I'll test complete 1-4 patchset as time permits.
+>
 
-Just something I found when running netperf RR tests, and the code is there
-doing it anyway. Maybe I can drop doing this testing, but upto you.
+And also patch 5 please which is the revert. Patch 5 as pointed out is
+probably a red herring. Hwoever, it has changed the timing and made a
+difference for some testing so I'd like to know if it helps yours as
+well.
 
-Thanks,
+As things stand, it looks like patches 1+2 should certainly go ahead.
+I need to give more thought on patches 3 and 4 as to why they help
+Tobias but not anyone elses testing.
 
-- KK
+Thanks
 
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
