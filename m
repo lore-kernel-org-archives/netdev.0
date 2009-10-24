@@ -1,94 +1,88 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] net: allow netdev_wait_allrefs() to run faster
-Date: Sat, 24 Oct 2009 13:22:38 -0700
-Message-ID: <20091024132238.35069740@nehalam>
-References: <20091017221857.GG1925@kvack.org>
-	<4ADB55BC.5020107@gmail.com>
-	<20091018182144.GC23395@kvack.org>
-	<200910211539.01824.opurdila@ixiacom.com>
-	<4ADF2B57.4030708@gmail.com>
-	<20091023211338.GA6145@linux.vnet.ibm.com>
-	<4AE28429.6040608@gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH  kernel 2.6.32-rc5] pcnet_cs: add cis of PreMax PE-200
+ ethernet pcmcia card
+Date: Sat, 24 Oct 2009 21:33:41 +0100
+Message-ID: <1256416421.3916.312.camel@localhost>
+References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
+	 <20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
+	 <20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
+	 <20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
+	 <20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
+	 <20091018103920.ca9217ee.ken_kawasaki@spring.nifty.jp>
+	 <1256152686.8469.34.camel@localhost.localdomain>
+	 <20091022201006.1fdfb5cc.ken_kawasaki@spring.nifty.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: paulmck@linux.vnet.ibm.com,
-	Octavian Purdila <opurdila@ixiacom.com>,
-	Benjamin LaHaise <bcrl@lhnet.ca>, netdev@vger.kernel.org,
-	Cosmin Ratiu <cratiu@ixiacom.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-Otp9cNKPqgVvkw1qddaI"
+Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org
+To: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:55492 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751864AbZJXUWj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Oct 2009 16:22:39 -0400
-In-Reply-To: <4AE28429.6040608@gmail.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:48186 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752098AbZJXUhR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Oct 2009 16:37:17 -0400
+In-Reply-To: <20091022201006.1fdfb5cc.ken_kawasaki@spring.nifty.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 24 Oct 2009 06:35:53 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> Paul E. McKenney a =C3=A9crit :
-> > On Wed, Oct 21, 2009 at 05:40:07PM +0200, Eric Dumazet wrote:
-> >> [PATCH] net: allow netdev_wait_allrefs() to run faster
-> >>
-> >> netdev_wait_allrefs() waits that all references to a device vanish=
-es.
-> >>
-> >> It currently uses a _very_ pessimistic 250 ms delay between each p=
-robe.
-> >> Some users report that no more than 4 devices can be dismantled pe=
-r second,
-> >> this is a pretty serious problem for extreme setups.
-> >>
-> >> Most likely, references only wait for a rcu grace period that shou=
-ld come
-> >> fast, so use a schedule_timeout_uninterruptible(1) to allow faster=
- recovery.
-> >=20
-> > Is this a place where synchronize_rcu_expedited() is appropriate?
-> > (It went in to 2.6.32-rc1.)
-> >=20
->=20
-> Thanks for the tip Paul
->=20
-> I believe netdev_wait_allrefs() is not a perfect candidate, because=20
-> synchronize_sched_expedited() seems really expensive.
->=20
-> Maybe we could call it once only, if we had to call 1 times
-> the jiffie delay ?
->=20
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index fa88dcd..9b04b9a 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -4970,6 +4970,7 @@ EXPORT_SYMBOL(register_netdev);
->  static void netdev_wait_allrefs(struct net_device *dev)
->  {
->  	unsigned long rebroadcast_time, warning_time;
-> +	unsigned int count =3D 0;
-> =20
->  	rebroadcast_time =3D warning_time =3D jiffies;
->  	while (atomic_read(&dev->refcnt) !=3D 0) {
-> @@ -4995,7 +4996,10 @@ static void netdev_wait_allrefs(struct net_dev=
-ice *dev)
->  			rebroadcast_time =3D jiffies;
->  		}
-> =20
-> -		msleep(250);
-> +		if (count++ =3D=3D 1)
-> +			synchronize_rcu_expedited();
-> +		else
-> +			schedule_timeout_uninterruptible(1);
-> =20
->  		if (time_after(jiffies, warning_time + 10 * HZ)) {
->  			printk(KERN_EMERG "unregister_netdevice: "
+--=-Otp9cNKPqgVvkw1qddaI
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Actually, anything that requires more than one pass through the loop is
-broken. Devices and protocols should be cleaning up on the first notifi=
-er.
-The worst offender seems to be the dst cache gc code.
+On Thu, 2009-10-22 at 20:47 +0100, Ken Kawasaki wrote:
+> Hi,
+>=20
+> >Dan Williams <dcbw@redhat.com> wrote:
+>=20
+> > > add cis of PreMax ethernet pcmcia card,
+> > > and some Sierra Wireless serial card(AC555, AC7xx, AC8xx).
+> =20
+> > Random question: are CIS files copyrightable? =20
+>=20
+> The CIS contains the IRQ, ioport-range, voltage information etc
+> like the PCI config space.
+> So I think it is not copyrightable.
+> but Sierra Wireless provided this CIS by GPL.
+[...]
 
+If it is subject to copyright - which apparently they think it is - then
+when redistributing under GPL we must be able to provide the 'preferred
+form for modification'.  So that leads to the question, is this blob or
+hex file the preferred form?
+
+I know very little about CIS but it appears to have a fairly simple
+structure that could perhaps be constructed with a hex editor.  However,
+if a manufacturer or a later maintainer actually compiles it from a file
+in some other format which has extra information like comments or named
+constants then I think that should be included in the kernel source.
+
+Ben.
 
 --=20
+Ben Hutchings
+The obvious mathematical breakthrough [to break modern encryption] would be
+development of an easy way to factor large prime numbers. - Bill Gates
+
+--=-Otp9cNKPqgVvkw1qddaI
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIVAwUASuNko+e/yOyVhhEJAQJRGRAAsP3+ggnmvh3irBSVPFoqoAm2IxcMMm/7
+eLLH+BiSnhqGjKqr9PURCg8/fmf1qXO7dqcdY9G5DRUf/8c3roLt4Q+IWlDWWV6K
+4NESX2iopAZ9pg0pTGN2TmyBe4n/GovvQT13Sb4PYMVMxQtsHn95UdzUTZ2fmGMq
+acHyPGrQrzHobvv8RqFbz5JgmsHlq0fzhrfdV9gF2oOlIOBJ2sdAOMEeDt6bFQgm
+l76/JrOHL/yEKbvzBwahM74BoKMi6yR9bxOaxV2Gmdm6dC1c7KivUgGLk9Fzpx4p
+2X2RJQablYL2OfwrMdEiiNDwXRFkcrr1+XUykzzhIy9YrW1f7pIeU1paJ1S12F8g
+8q5+Y7ghKZD2DxdePq3Y2jT2aBT0t37Sg0CVKSYe0wHg/Am7tpYub8aTVd6smAiy
+KkDrgq50erwHw0LusUh39srPTaCsa+gx3JE31B83Kk9R/NRHxYHBJ43mlPSRJpZt
+diJ3UoIGto3efMXMySwr8xKCm8t9kneYmSuycBkdK3gddg6WC/XWkdqUNk8g77TQ
+s00vKoOgxpQP3J8eoeTsUGozrCNkrR2yoL+Dn2/LyEcmQJRhaNgkdgW1F3DKMY+3
+n9ST2sMI8ml9Wfs0xj2Fo16p6DgM/8IgC6woFEIhJgUESq8gy3SO6Z3BKSUKCT8A
+LUXQQjanYLQ=
+=+q0o
+-----END PGP SIGNATURE-----
+
+--=-Otp9cNKPqgVvkw1qddaI--
