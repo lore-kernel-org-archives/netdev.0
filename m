@@ -1,399 +1,1147 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 3/9] gigaset: fix bad assumptions about CAPI skbuffs
-Date: Sun, 25 Oct 2009 20:29:57 +0100 (CET)
-Message-ID: <20091023-patch-gigaset-03.tilman@imap.cc>
+Subject: [PATCH 4/9] usb_gigaset: code cleanup
+Date: Sun, 25 Oct 2009 20:30:07 +0100 (CET)
+Message-ID: <20091023-patch-gigaset-04.tilman@imap.cc>
 References: <20091023-patch-gigaset-00.tilman@imap.cc>
 Cc: Hansjoerg Lipp <hjlipp@web.de>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, isdn4linux@listserv.isdn4linux.de,
 	i4ldeveloper@listserv.isdn4linux.de
 To: David Miller <davem@davemloft.net>,
 	Karsten Keil <isdn@linux-pingi.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754087AbZJYTaN@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754094AbZJYTaZ@vger.kernel.org>
 In-Reply-To: <20091023-patch-gigaset-00.tilman@imap.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The CAPI interface incorrectly assumed that CAPI messages would always
-start at the beginning of the data buffer: fix by treating DATA_B3
-messages as the link layer header to their payload data. This fix
-changes the way acknowledgement information is propagated through the
-hardware specific modules and thereby impacts the ISDN4Linux variant
-of the driver, too.
+Reorganize the code of the Gigaset M10x driver to make it more
+readable, less redundant, better aligned to the style of other
+parts of the driver, and cause fewer checkpatch.pl complaints.
 
-Also some assumptions about methods not being called from interrupt
-context turned out to be unwarranted; fix by using dev_kfree_skb_any()
-wherever non-interrupt context isn't guaranteed.
-
-Impact: bugfix
+Impact: code reorganization, no functional change
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 ---
- drivers/isdn/gigaset/asyncdata.c |   55 +++++++++++++++++++++----------------
- drivers/isdn/gigaset/capi.c      |   29 ++++++++++---------
- drivers/isdn/gigaset/gigaset.h   |    2 +-
- drivers/isdn/gigaset/i4l.c       |   28 ++++++++++++++-----
- drivers/isdn/gigaset/isocdata.c  |    6 ++--
- 5 files changed, 70 insertions(+), 50 deletions(-)
+ drivers/isdn/gigaset/asyncdata.c   |  573 +++++++++++++++++++-----------------
+ drivers/isdn/gigaset/common.c      |   34 +--
+ drivers/isdn/gigaset/gigaset.h     |   13 +-
+ drivers/isdn/gigaset/usb-gigaset.c |   69 +++---
+ 4 files changed, 358 insertions(+), 331 deletions(-)
 
 diff --git a/drivers/isdn/gigaset/asyncdata.c b/drivers/isdn/gigaset/asyncdata.c
-index a25216b..256fc48 100644
+index 256fc48..ccb2a7b 100644
 --- a/drivers/isdn/gigaset/asyncdata.c
 +++ b/drivers/isdn/gigaset/asyncdata.c
-@@ -156,7 +156,7 @@ byte_stuff:
+@@ -19,7 +19,7 @@
  
- 				/* end of frame */
- 				gigaset_isdn_rcv_err(bcs);
--				dev_kfree_skb(skb);
-+				dev_kfree_skb_any(skb);
- 			} else if (!(inputstate & INS_have_data)) { /* 7E 7E */
+ /* check if byte must be stuffed/escaped
+  * I'm not sure which data should be encoded.
+- * Therefore I will go the hard way and decode every value
++ * Therefore I will go the hard way and encode every value
+  * less than 0x20, the flag sequence and the control escape char.
+  */
+ static inline int muststuff(unsigned char c)
+@@ -35,288 +35,383 @@ static inline int muststuff(unsigned char c)
+ 
+ /* == data input =========================================================== */
+ 
+-/* process a block of received bytes in command mode (modem response)
++/* process a block of received bytes in command mode
++ * (mstate != MS_LOCKED && (inputstate & INS_command))
++ * Append received bytes to the command response buffer and forward them
++ * line by line to the response handler. Exit whenever a mode/state change
++ * might have occurred.
+  * Return value:
+  *	number of processed bytes
+  */
+-static inline int cmd_loop(unsigned char c, unsigned char *src, int numbytes,
+-			   struct inbuf_t *inbuf)
++static unsigned cmd_loop(unsigned numbytes, struct inbuf_t *inbuf)
+ {
++	unsigned char *src = inbuf->data + inbuf->head;
+ 	struct cardstate *cs = inbuf->cs;
+-	unsigned cbytes      = cs->cbytes;
+-	int inputstate = inbuf->inputstate;
+-	int startbytes = numbytes;
+-
+-	for (;;) {
+-		cs->respdata[cbytes] = c;
+-		if (c == 10 || c == 13) {
+-			gig_dbg(DEBUG_TRANSCMD, "%s: End of Command (%d Bytes)",
++	unsigned cbytes = cs->cbytes;
++	unsigned procbytes = 0;
++	unsigned char c;
++
++	while (procbytes < numbytes) {
++		c = *src++;
++		procbytes++;
++
++		switch (c) {
++		case '\n':
++			if (cbytes == 0 && cs->respdata[0] == '\r') {
++				/* collapse LF with preceding CR */
++				cs->respdata[0] = 0;
++				break;
++			}
++			/* --v-- fall through --v-- */
++		case '\r':
++			/* end of message line, pass to response handler */
++			gig_dbg(DEBUG_TRANSCMD, "%s: End of Message (%d Bytes)",
+ 				__func__, cbytes);
++			if (cbytes >= MAX_RESP_SIZE) {
++				dev_warn(cs->dev, "response too large (%d)\n",
++					 cbytes);
++				cbytes = MAX_RESP_SIZE;
++			}
+ 			cs->cbytes = cbytes;
+-			gigaset_handle_modem_response(cs); /* can change
+-							      cs->dle */
++			gigaset_handle_modem_response(cs);
+ 			cbytes = 0;
+ 
+-			if (cs->dle &&
+-			    !(inputstate & INS_DLE_command)) {
+-				inputstate &= ~INS_command;
+-				break;
+-			}
+-		} else {
+-			/* advance in line buffer, checking for overflow */
+-			if (cbytes < MAX_RESP_SIZE - 1)
+-				cbytes++;
+-			else
+-				dev_warn(cs->dev, "response too large\n");
+-		}
++			/* store EOL byte for CRLF collapsing */
++			cs->respdata[0] = c;
+ 
+-		if (!numbytes)
+-			break;
+-		c = *src++;
+-		--numbytes;
+-		if (c == DLE_FLAG &&
+-		    (cs->dle || inputstate & INS_DLE_command)) {
+-			inputstate |= INS_DLE_char;
+-			break;
++			/* cs->dle may have changed */
++			if (cs->dle && !(inbuf->inputstate & INS_DLE_command))
++				inbuf->inputstate &= ~INS_command;
++
++			/* return for reevaluating state */
++			goto exit;
++
++		case DLE_FLAG:
++			if (inbuf->inputstate & INS_DLE_char) {
++				/* quoted DLE: clear quote flag */
++				inbuf->inputstate &= ~INS_DLE_char;
++			} else if (cs->dle ||
++				   (inbuf->inputstate & INS_DLE_command)) {
++				/* DLE escape, pass up for handling */
++				inbuf->inputstate |= INS_DLE_char;
++				goto exit;
++			}
++			/* quoted or not in DLE mode: treat as regular data */
++			/* --v-- fall through --v-- */
++		default:
++			/* append to line buffer if possible */
++			if (cbytes < MAX_RESP_SIZE)
++				cs->respdata[cbytes] = c;
++			cbytes++;
+ 		}
+ 	}
+-
++exit:
+ 	cs->cbytes = cbytes;
+-	inbuf->inputstate = inputstate;
+-
+-	return startbytes - numbytes;
++	return procbytes;
+ }
+ 
+-/* process a block of received bytes in lock mode (tty i/f)
++/* process a block of received bytes in lock mode
++ * All received bytes are passed unmodified to the tty i/f.
+  * Return value:
+  *	number of processed bytes
+  */
+-static inline int lock_loop(unsigned char *src, int numbytes,
+-			    struct inbuf_t *inbuf)
++static unsigned lock_loop(unsigned numbytes, struct inbuf_t *inbuf)
+ {
+-	struct cardstate *cs = inbuf->cs;
+-
+-	gigaset_dbg_buffer(DEBUG_LOCKCMD, "received response",
+-			   numbytes, src);
+-	gigaset_if_receive(cs, src, numbytes);
++	unsigned char *src = inbuf->data + inbuf->head;
+ 
++	gigaset_dbg_buffer(DEBUG_LOCKCMD, "received response", numbytes, src);
++	gigaset_if_receive(inbuf->cs, src, numbytes);
+ 	return numbytes;
+ }
+ 
++/* set up next receive skb for data mode
++ */
++static void new_rcv_skb(struct bc_state *bcs)
++{
++	struct cardstate *cs = bcs->cs;
++	unsigned short hw_hdr_len = cs->hw_hdr_len;
++
++	if (bcs->ignore) {
++		bcs->skb = NULL;
++		return;
++	}
++
++	bcs->skb = dev_alloc_skb(SBUFSIZE + hw_hdr_len);
++	if (bcs->skb == NULL) {
++		dev_warn(cs->dev, "could not allocate new skb\n");
++		return;
++	}
++	skb_reserve(bcs->skb, hw_hdr_len);
++}
++
+ /* process a block of received bytes in HDLC data mode
++ * (mstate != MS_LOCKED && !(inputstate & INS_command) && proto2 == L2_HDLC)
+  * Collect HDLC frames, undoing byte stuffing and watching for DLE escapes.
+  * When a frame is complete, check the FCS and pass valid frames to the LL.
+  * If DLE is encountered, return immediately to let the caller handle it.
+  * Return value:
+  *	number of processed bytes
+- *	numbytes (all bytes processed) on error --FIXME
+  */
+-static inline int hdlc_loop(unsigned char c, unsigned char *src, int numbytes,
+-			    struct inbuf_t *inbuf)
++static unsigned hdlc_loop(unsigned numbytes, struct inbuf_t *inbuf)
+ {
+ 	struct cardstate *cs = inbuf->cs;
+-	struct bc_state *bcs = inbuf->bcs;
++	struct bc_state *bcs = cs->bcs;
+ 	int inputstate = bcs->inputstate;
+ 	__u16 fcs = bcs->fcs;
+ 	struct sk_buff *skb = bcs->skb;
+-	int startbytes = numbytes;
++	unsigned char *src = inbuf->data + inbuf->head;
++	unsigned procbytes = 0;
++	unsigned char c;
+ 
+-	if (unlikely(inputstate & INS_byte_stuff)) {
++	if (inputstate & INS_byte_stuff) {
++		if (!numbytes)
++			return 0;
+ 		inputstate &= ~INS_byte_stuff;
+ 		goto byte_stuff;
+ 	}
+-	for (;;) {
+-		if (unlikely(c == PPP_ESCAPE)) {
+-			if (unlikely(!numbytes)) {
+-				inputstate |= INS_byte_stuff;
++
++	while (procbytes < numbytes) {
++		c = *src++;
++		procbytes++;
++		if (c == DLE_FLAG) {
++			if (inputstate & INS_DLE_char) {
++				/* quoted DLE: clear quote flag */
++				inputstate &= ~INS_DLE_char;
++			} else if (cs->dle || (inputstate & INS_DLE_command)) {
++				/* DLE escape, pass up for handling */
++				inputstate |= INS_DLE_char;
+ 				break;
+ 			}
+-			c = *src++;
+-			--numbytes;
+-			if (unlikely(c == DLE_FLAG &&
+-				     (cs->dle ||
+-				      inbuf->inputstate & INS_DLE_command))) {
+-				inbuf->inputstate |= INS_DLE_char;
++		}
++
++		if (c == PPP_ESCAPE) {
++			/* byte stuffing indicator: pull in next byte */
++			if (procbytes >= numbytes) {
++				/* end of buffer, save for later processing */
+ 				inputstate |= INS_byte_stuff;
+ 				break;
+ 			}
+ byte_stuff:
++			c = *src++;
++			procbytes++;
++			if (c == DLE_FLAG) {
++				if (inputstate & INS_DLE_char) {
++					/* quoted DLE: clear quote flag */
++					inputstate &= ~INS_DLE_char;
++				} else if (cs->dle ||
++					   (inputstate & INS_DLE_command)) {
++					/* DLE escape, pass up for handling */
++					inputstate |=
++						INS_DLE_char | INS_byte_stuff;
++					break;
++				}
++			}
+ 			c ^= PPP_TRANS;
+-			if (unlikely(!muststuff(c)))
+-				gig_dbg(DEBUG_HDLC, "byte stuffed: 0x%02x", c);
+-		} else if (unlikely(c == PPP_FLAG)) {
+-			if (unlikely(inputstate & INS_skip_frame)) {
  #ifdef CONFIG_GIGASET_DEBUG
- 				++bcs->emptycount;
-@@ -172,7 +172,7 @@ byte_stuff:
+-				if (!(inputstate & INS_have_data)) { /* 7E 7E */
+-					++bcs->emptycount;
+-				} else
+-					gig_dbg(DEBUG_HDLC,
+-					    "7e----------------------------");
+-#endif
+-
+-				/* end of frame */
+-				gigaset_isdn_rcv_err(bcs);
+-				dev_kfree_skb_any(skb);
+-			} else if (!(inputstate & INS_have_data)) { /* 7E 7E */
+-#ifdef CONFIG_GIGASET_DEBUG
+-				++bcs->emptycount;
++			if (!muststuff(c))
++				gig_dbg(DEBUG_HDLC, "byte stuffed: 0x%02x", c);
+ #endif
+-				break;
+-			} else {
++		} else if (c == PPP_FLAG) {
++			/* end of frame: process content if any */
++			if (inputstate & INS_have_data) {
+ 				gig_dbg(DEBUG_HDLC,
+ 					"7e----------------------------");
+ 
+-				/* end of frame */
+-				if (unlikely(fcs != PPP_GOODFCS)) {
++				/* check and pass received frame */
++				if (!skb) {
++					/* skipped frame */
++					gigaset_isdn_rcv_err(bcs);
++				} else if (skb->len < 2) {
++					/* frame too short for FCS */
++					dev_warn(cs->dev,
++						 "short frame (%d)\n",
++						 skb->len);
++					gigaset_isdn_rcv_err(bcs);
++					dev_kfree_skb_any(skb);
++				} else if (fcs != PPP_GOODFCS) {
++					/* frame check error */
+ 					dev_err(cs->dev,
  				"Checksum failed, %u bytes corrupted!\n",
  						skb->len);
  					gigaset_isdn_rcv_err(bcs);
--					dev_kfree_skb(skb);
-+					dev_kfree_skb_any(skb);
- 				} else if (likely(skb->len > 2)) {
+ 					dev_kfree_skb_any(skb);
+-				} else if (likely(skb->len > 2)) {
++				} else {
++					/* good frame */
  					__skb_trim(skb, skb->len - 2);
  					gigaset_skb_rcvd(bcs, skb);
-@@ -182,7 +182,7 @@ byte_stuff:
- 					"invalid packet size (%d)\n", skb->len);
- 						gigaset_isdn_rcv_err(bcs);
- 					}
--					dev_kfree_skb(skb);
-+					dev_kfree_skb_any(skb);
+-				} else {
+-					if (skb->len) {
+-						dev_err(cs->dev,
+-					"invalid packet size (%d)\n", skb->len);
+-						gigaset_isdn_rcv_err(bcs);
+-					}
+-					dev_kfree_skb_any(skb);
+ 				}
+-			}
+ 
+-			fcs = PPP_INITFCS;
+-			inputstate &= ~(INS_have_data | INS_skip_frame);
+-			if (unlikely(bcs->ignore)) {
+-				inputstate |= INS_skip_frame;
+-				skb = NULL;
++				/* prepare reception of next frame */
++				inputstate &= ~INS_have_data;
++				new_rcv_skb(bcs);
++				skb = bcs->skb;
+ 			} else {
+-				skb = dev_alloc_skb(SBUFSIZE + cs->hw_hdr_len);
+-				if (skb != NULL) {
+-					skb_reserve(skb, cs->hw_hdr_len);
+-				} else {
+-					dev_warn(cs->dev,
+-						"could not allocate new skb\n");
+-					inputstate |= INS_skip_frame;
++				/* empty frame (7E 7E) */
++#ifdef CONFIG_GIGASET_DEBUG
++				++bcs->emptycount;
++#endif
++				if (!skb) {
++					/* skipped (?) */
++					gigaset_isdn_rcv_err(bcs);
++					new_rcv_skb(bcs);
++					skb = bcs->skb;
  				}
  			}
  
-@@ -430,11 +430,11 @@ EXPORT_SYMBOL_GPL(gigaset_m10x_input);
-  * opening and closing flags, preserving headroom data.
-  * parameters:
-  *	skb		skb containing original packet (freed upon return)
-- *	headroom	number of headroom bytes to preserve
-  * Return value:
-  *	pointer to newly allocated skb containing the result frame
-+ *	and the original link layer header, NULL on error
-  */
--static struct sk_buff *HDLC_Encode(struct sk_buff *skb, int headroom)
-+static struct sk_buff *HDLC_Encode(struct sk_buff *skb)
- {
- 	struct sk_buff *hdlc_skb;
- 	__u16 fcs;
-@@ -456,17 +456,19 @@ static struct sk_buff *HDLC_Encode(struct sk_buff *skb, int headroom)
+-			break;
+-		} else if (unlikely(muststuff(c))) {
++			fcs = PPP_INITFCS;
++			continue;
++#ifdef CONFIG_GIGASET_DEBUG
++		} else if (muststuff(c)) {
+ 			/* Should not happen. Possible after ZDLE=1<CR><LF>. */
+ 			gig_dbg(DEBUG_HDLC, "not byte stuffed: 0x%02x", c);
++#endif
+ 		}
  
- 	/* size of new buffer: original size + number of stuffing bytes
- 	 * + 2 bytes FCS + 2 stuffing bytes for FCS (if needed) + 2 flag bytes
--	 * + room for acknowledgement header
-+	 * + room for link layer header
- 	 */
--	hdlc_skb = dev_alloc_skb(skb->len + stuf_cnt + 6 + headroom);
-+	hdlc_skb = dev_alloc_skb(skb->len + stuf_cnt + 6 + skb->mac_len);
- 	if (!hdlc_skb) {
--		dev_kfree_skb(skb);
-+		dev_kfree_skb_any(skb);
- 		return NULL;
+-		/* add character */
+-
++		/* regular data byte, append to skb */
+ #ifdef CONFIG_GIGASET_DEBUG
+-		if (unlikely(!(inputstate & INS_have_data))) {
++		if (!(inputstate & INS_have_data)) {
+ 			gig_dbg(DEBUG_HDLC, "7e (%d x) ================",
+ 				bcs->emptycount);
+ 			bcs->emptycount = 0;
+ 		}
+ #endif
+-
+ 		inputstate |= INS_have_data;
+-
+-		if (likely(!(inputstate & INS_skip_frame))) {
+-			if (unlikely(skb->len == SBUFSIZE)) {
++		if (skb) {
++			if (skb->len == SBUFSIZE) {
+ 				dev_warn(cs->dev, "received packet too long\n");
+ 				dev_kfree_skb_any(skb);
+-				skb = NULL;
+-				inputstate |= INS_skip_frame;
+-				break;
++				/* skip remainder of packet */
++				bcs->skb = skb = NULL;
++			} else {
++				*__skb_put(skb, 1) = c;
++				fcs = crc_ccitt_byte(fcs, c);
+ 			}
+-			*__skb_put(skb, 1) = c;
+-			fcs = crc_ccitt_byte(fcs, c);
+-		}
+-
+-		if (unlikely(!numbytes))
+-			break;
+-		c = *src++;
+-		--numbytes;
+-		if (unlikely(c == DLE_FLAG &&
+-			     (cs->dle ||
+-			      inbuf->inputstate & INS_DLE_command))) {
+-			inbuf->inputstate |= INS_DLE_char;
+-			break;
+ 		}
  	}
- 
--	/* Copy acknowledgement header into new skb */
--	skb_reserve(hdlc_skb, headroom);
--	memcpy(hdlc_skb->head, skb->head, headroom);
-+	/* Copy link layer header into new skb */
-+	skb_reset_mac_header(hdlc_skb);
-+	skb_reserve(hdlc_skb, skb->mac_len);
-+	memcpy(skb_mac_header(hdlc_skb), skb_mac_header(skb), skb->mac_len);
-+	hdlc_skb->mac_len = skb->mac_len;
- 
- 	/* Add flag sequence in front of everything.. */
- 	*(skb_put(hdlc_skb, 1)) = PPP_FLAG;
-@@ -497,7 +499,7 @@ static struct sk_buff *HDLC_Encode(struct sk_buff *skb, int headroom)
- 
- 	*(skb_put(hdlc_skb, 1)) = PPP_FLAG;
- 
--	dev_kfree_skb(skb);
-+	dev_kfree_skb_any(skb);
- 	return hdlc_skb;
++
+ 	bcs->inputstate = inputstate;
+ 	bcs->fcs = fcs;
+-	bcs->skb = skb;
+-	return startbytes - numbytes;
++	return procbytes;
  }
  
-@@ -506,28 +508,33 @@ static struct sk_buff *HDLC_Encode(struct sk_buff *skb, int headroom)
-  * preserving headroom data.
-  * parameters:
-  *	skb		skb containing original packet (freed upon return)
-- *	headroom	number of headroom bytes to preserve
+ /* process a block of received bytes in transparent data mode
++ * (mstate != MS_LOCKED && !(inputstate & INS_command) && proto2 != L2_HDLC)
+  * Invert bytes, undoing byte stuffing and watching for DLE escapes.
+  * If DLE is encountered, return immediately to let the caller handle it.
   * Return value:
-  *	pointer to newly allocated skb containing the result frame
-+ *	and the original link layer header, NULL on error
+  *	number of processed bytes
+- *	numbytes (all bytes processed) on error --FIXME
   */
--static struct sk_buff *iraw_encode(struct sk_buff *skb, int headroom)
-+static struct sk_buff *iraw_encode(struct sk_buff *skb)
+-static inline int iraw_loop(unsigned char c, unsigned char *src, int numbytes,
+-			    struct inbuf_t *inbuf)
++static unsigned iraw_loop(unsigned numbytes, struct inbuf_t *inbuf)
  {
- 	struct sk_buff *iraw_skb;
- 	unsigned char c;
- 	unsigned char *cp;
- 	int len;
+ 	struct cardstate *cs = inbuf->cs;
+-	struct bc_state *bcs = inbuf->bcs;
++	struct bc_state *bcs = cs->bcs;
+ 	int inputstate = bcs->inputstate;
+ 	struct sk_buff *skb = bcs->skb;
+-	int startbytes = numbytes;
++	unsigned char *src = inbuf->data + inbuf->head;
++	unsigned procbytes = 0;
++	unsigned char c;
  
--	/* worst case: every byte must be stuffed */
--	iraw_skb = dev_alloc_skb(2*skb->len + headroom);
-+	/* size of new buffer (worst case = every byte must be stuffed):
-+	 * 2 * original size + room for link layer header
-+	 */
-+	iraw_skb = dev_alloc_skb(2*skb->len + skb->mac_len);
- 	if (!iraw_skb) {
--		dev_kfree_skb(skb);
-+		dev_kfree_skb_any(skb);
- 		return NULL;
+-	for (;;) {
+-		/* add character */
+-		inputstate |= INS_have_data;
++	if (!skb) {
++		/* skip this block */
++		new_rcv_skb(bcs);
++		return numbytes;
++	}
+ 
+-		if (likely(!(inputstate & INS_skip_frame))) {
+-			if (unlikely(skb->len == SBUFSIZE)) {
+-				//FIXME just pass skb up and allocate a new one
+-				dev_warn(cs->dev, "received packet too long\n");
+-				dev_kfree_skb_any(skb);
+-				skb = NULL;
+-				inputstate |= INS_skip_frame;
++	while (procbytes < numbytes && skb->len < SBUFSIZE) {
++		c = *src++;
++		procbytes++;
++
++		if (c == DLE_FLAG) {
++			if (inputstate & INS_DLE_char) {
++				/* quoted DLE: clear quote flag */
++				inputstate &= ~INS_DLE_char;
++			} else if (cs->dle || (inputstate & INS_DLE_command)) {
++				/* DLE escape, pass up for handling */
++				inputstate |= INS_DLE_char;
+ 				break;
+ 			}
+-			*__skb_put(skb, 1) = bitrev8(c);
+ 		}
+ 
+-		if (unlikely(!numbytes))
+-			break;
+-		c = *src++;
+-		--numbytes;
+-		if (unlikely(c == DLE_FLAG &&
+-			     (cs->dle ||
+-			      inbuf->inputstate & INS_DLE_command))) {
+-			inbuf->inputstate |= INS_DLE_char;
+-			break;
+-		}
++		/* regular data byte: append to current skb */
++		inputstate |= INS_have_data;
++		*__skb_put(skb, 1) = bitrev8(c);
  	}
  
--	/* Copy acknowledgement header into new skb */
--	skb_reserve(iraw_skb, headroom);
--	memcpy(iraw_skb->head, skb->head, headroom);
-+	/* copy link layer header into new skb */
-+	skb_reset_mac_header(iraw_skb);
-+	skb_reserve(iraw_skb, skb->mac_len);
-+	memcpy(skb_mac_header(iraw_skb), skb_mac_header(skb), skb->mac_len);
-+	iraw_skb->mac_len = skb->mac_len;
- 
-+	/* copy and stuff data */
- 	cp = skb->data;
- 	len = skb->len;
- 	while (len--) {
-@@ -536,7 +543,7 @@ static struct sk_buff *iraw_encode(struct sk_buff *skb, int headroom)
- 			*(skb_put(iraw_skb, 1)) = c;
- 		*(skb_put(iraw_skb, 1)) = c;
+ 	/* pass data up */
+-	if (likely(inputstate & INS_have_data)) {
+-		if (likely(!(inputstate & INS_skip_frame))) {
+-			gigaset_skb_rcvd(bcs, skb);
+-		}
+-		inputstate &= ~(INS_have_data | INS_skip_frame);
+-		if (unlikely(bcs->ignore)) {
+-			inputstate |= INS_skip_frame;
+-			skb = NULL;
+-		} else {
+-			skb = dev_alloc_skb(SBUFSIZE + cs->hw_hdr_len);
+-			if (skb != NULL) {
+-				skb_reserve(skb, cs->hw_hdr_len);
+-			} else {
+-				dev_warn(cs->dev,
+-					 "could not allocate new skb\n");
+-				inputstate |= INS_skip_frame;
++	if (inputstate & INS_have_data) {
++		gigaset_skb_rcvd(bcs, skb);
++		inputstate &= ~INS_have_data;
++		new_rcv_skb(bcs);
++	}
++
++	bcs->inputstate = inputstate;
++	return procbytes;
++}
++
++/* process DLE escapes
++ * Called whenever a DLE sequence might be encountered in the input stream.
++ * Either processes the entire DLE sequence or, if that isn't possible,
++ * notes the fact that an initial DLE has been received in the INS_DLE_char
++ * inputstate flag and resumes processing of the sequence on the next call.
++ */
++static void handle_dle(struct inbuf_t *inbuf)
++{
++	struct cardstate *cs = inbuf->cs;
++
++	if (cs->mstate == MS_LOCKED)
++		return;		/* no DLE processing in lock mode */
++
++	if (!(inbuf->inputstate & INS_DLE_char)) {
++		/* no DLE pending */
++		if (inbuf->data[inbuf->head] == DLE_FLAG &&
++		    (cs->dle || inbuf->inputstate & INS_DLE_command)) {
++			/* start of DLE sequence */
++			inbuf->head++;
++			if (inbuf->head == inbuf->tail ||
++			    inbuf->head == RBUFSIZE) {
++				/* end of buffer, save for later processing */
++				inbuf->inputstate |= INS_DLE_char;
++				return;
+ 			}
++		} else {
++			/* regular data byte */
++			return;
+ 		}
  	}
--	dev_kfree_skb(skb);
-+	dev_kfree_skb_any(skb);
- 	return iraw_skb;
+ 
+-	bcs->inputstate = inputstate;
+-	bcs->skb = skb;
+-	return startbytes - numbytes;
++	/* consume pending DLE */
++	inbuf->inputstate &= ~INS_DLE_char;
++
++	switch (inbuf->data[inbuf->head]) {
++	case 'X':	/* begin of event message */
++		if (inbuf->inputstate & INS_command)
++			dev_notice(cs->dev,
++				   "received <DLE>X in command mode\n");
++		inbuf->inputstate |= INS_command | INS_DLE_command;
++		inbuf->head++;	/* byte consumed */
++		break;
++	case '.':	/* end of event message */
++		if (!(inbuf->inputstate & INS_DLE_command))
++			dev_notice(cs->dev,
++				   "received <DLE>. without <DLE>X\n");
++		inbuf->inputstate &= ~INS_DLE_command;
++		/* return to data mode if in DLE mode */
++		if (cs->dle)
++			inbuf->inputstate &= ~INS_command;
++		inbuf->head++;	/* byte consumed */
++		break;
++	case DLE_FLAG:	/* DLE in data stream */
++		/* mark as quoted */
++		inbuf->inputstate |= INS_DLE_char;
++		if (!(cs->dle || inbuf->inputstate & INS_DLE_command))
++			dev_notice(cs->dev,
++				   "received <DLE><DLE> not in DLE mode\n");
++		break;	/* quoted byte left in buffer */
++	default:
++		dev_notice(cs->dev, "received <DLE><%02x>\n",
++			   inbuf->data[inbuf->head]);
++		/* quoted byte left in buffer */
++	}
  }
  
-@@ -548,7 +555,7 @@ static struct sk_buff *iraw_encode(struct sk_buff *skb, int headroom)
-  * Called by LL to encode and queue an skb for sending, and start
-  * transmission if necessary.
-  * Once the payload data has been transmitted completely, gigaset_skb_sent()
-- * will be called with the first cs->hw_hdr_len bytes of skb->head preserved.
-+ * will be called with the skb's link layer header preserved.
-  *
-  * Return value:
-  *	number of bytes accepted for sending (skb->len) if ok,
-@@ -560,9 +567,9 @@ int gigaset_m10x_send_skb(struct bc_state *bcs, struct sk_buff *skb)
+ /**
+@@ -330,94 +425,39 @@ static inline int iraw_loop(unsigned char c, unsigned char *src, int numbytes,
+  */
+ void gigaset_m10x_input(struct inbuf_t *inbuf)
+ {
+-	struct cardstate *cs;
+-	unsigned tail, head, numbytes;
+-	unsigned char *src, c;
+-	int procbytes;
+-
+-	head = inbuf->head;
+-	tail = inbuf->tail;
+-	gig_dbg(DEBUG_INTR, "buffer state: %u -> %u", head, tail);
+-
+-	if (head != tail) {
+-		cs = inbuf->cs;
+-		src = inbuf->data + head;
+-		numbytes = (head > tail ? RBUFSIZE : tail) - head;
+-		gig_dbg(DEBUG_INTR, "processing %u bytes", numbytes);
++	struct cardstate *cs = inbuf->cs;
++	unsigned numbytes, procbytes;
+ 
+-		while (numbytes) {
+-			if (cs->mstate == MS_LOCKED) {
+-				procbytes = lock_loop(src, numbytes, inbuf);
+-				src += procbytes;
+-				numbytes -= procbytes;
+-			} else {
+-				c = *src++;
+-				--numbytes;
+-				if (c == DLE_FLAG && (cs->dle ||
+-				    inbuf->inputstate & INS_DLE_command)) {
+-					if (!(inbuf->inputstate & INS_DLE_char)) {
+-						inbuf->inputstate |= INS_DLE_char;
+-						goto nextbyte;
+-					}
+-					/* <DLE> <DLE> => <DLE> in data stream */
+-					inbuf->inputstate &= ~INS_DLE_char;
+-				}
++	gig_dbg(DEBUG_INTR, "buffer state: %u -> %u", inbuf->head, inbuf->tail);
+ 
+-				if (!(inbuf->inputstate & INS_DLE_char)) {
+-
+-					/* FIXME use function pointers?  */
+-					if (inbuf->inputstate & INS_command)
+-						procbytes = cmd_loop(c, src, numbytes, inbuf);
+-					else if (inbuf->bcs->proto2 == L2_HDLC)
+-						procbytes = hdlc_loop(c, src, numbytes, inbuf);
+-					else
+-						procbytes = iraw_loop(c, src, numbytes, inbuf);
+-
+-					src += procbytes;
+-					numbytes -= procbytes;
+-				} else {  /* DLE char */
+-					inbuf->inputstate &= ~INS_DLE_char;
+-					switch (c) {
+-					case 'X': /*begin of command*/
+-						if (inbuf->inputstate & INS_command)
+-							dev_warn(cs->dev,
+-					"received <DLE> 'X' in command mode\n");
+-						inbuf->inputstate |=
+-							INS_command | INS_DLE_command;
+-						break;
+-					case '.': /*end of command*/
+-						if (!(inbuf->inputstate & INS_command))
+-							dev_warn(cs->dev,
+-					"received <DLE> '.' in hdlc mode\n");
+-						inbuf->inputstate &= cs->dle ?
+-							~(INS_DLE_command|INS_command)
+-							: ~INS_DLE_command;
+-						break;
+-					//case DLE_FLAG: /*DLE_FLAG in data stream*/ /* schon oben behandelt! */
+-					default:
+-						dev_err(cs->dev,
+-						      "received 0x10 0x%02x!\n",
+-							(int) c);
+-						/* FIXME: reset driver?? */
+-					}
+-				}
+-			}
+-nextbyte:
+-			if (!numbytes) {
+-				/* end of buffer, check for wrap */
+-				if (head > tail) {
+-					head = 0;
+-					src = inbuf->data;
+-					numbytes = tail;
+-				} else {
+-					head = tail;
+-					break;
+-				}
+-			}
+-		}
++	while (inbuf->head != inbuf->tail) {
++		/* check for DLE escape */
++		handle_dle(inbuf);
+ 
+-		gig_dbg(DEBUG_INTR, "setting head to %u", head);
+-		inbuf->head = head;
++		/* process a contiguous block of bytes */
++		numbytes = (inbuf->head > inbuf->tail ?
++			    RBUFSIZE : inbuf->tail) - inbuf->head;
++		gig_dbg(DEBUG_INTR, "processing %u bytes", numbytes);
++		/*
++		 * numbytes may be 0 if handle_dle() ate the last byte.
++		 * This does no harm, *_loop() will just return 0 immediately.
++		 */
++
++		if (cs->mstate == MS_LOCKED)
++			procbytes = lock_loop(numbytes, inbuf);
++		else if (inbuf->inputstate & INS_command)
++			procbytes = cmd_loop(numbytes, inbuf);
++		else if (cs->bcs->proto2 == L2_HDLC)
++			procbytes = hdlc_loop(numbytes, inbuf);
++		else
++			procbytes = iraw_loop(numbytes, inbuf);
++		inbuf->head += procbytes;
++
++		/* check for buffer wraparound */
++		if (inbuf->head >= RBUFSIZE)
++			inbuf->head = 0;
++
++		gig_dbg(DEBUG_INTR, "head set to %u", inbuf->head);
+ 	}
+ }
+ EXPORT_SYMBOL_GPL(gigaset_m10x_input);
+@@ -563,6 +603,7 @@ static struct sk_buff *iraw_encode(struct sk_buff *skb)
+  */
+ int gigaset_m10x_send_skb(struct bc_state *bcs, struct sk_buff *skb)
+ {
++	struct cardstate *cs = bcs->cs;
+ 	unsigned len = skb->len;
  	unsigned long flags;
  
- 	if (bcs->proto2 == L2_HDLC)
--		skb = HDLC_Encode(skb, bcs->cs->hw_hdr_len);
-+		skb = HDLC_Encode(skb);
+@@ -571,16 +612,16 @@ int gigaset_m10x_send_skb(struct bc_state *bcs, struct sk_buff *skb)
  	else
--		skb = iraw_encode(skb, bcs->cs->hw_hdr_len);
-+		skb = iraw_encode(skb);
+ 		skb = iraw_encode(skb);
  	if (!skb) {
- 		dev_err(bcs->cs->dev,
+-		dev_err(bcs->cs->dev,
++		dev_err(cs->dev,
  			"unable to allocate memory for encoding!\n");
-diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.c
-index d1afac2..3f5cd06 100644
---- a/drivers/isdn/gigaset/capi.c
-+++ b/drivers/isdn/gigaset/capi.c
-@@ -362,6 +362,7 @@ void gigaset_skb_sent(struct bc_state *bcs, struct sk_buff *dskb)
- 	struct cardstate *cs = bcs->cs;
- 	struct gigaset_capi_ctr *iif = cs->iif;
- 	struct gigaset_capi_appl *ap = bcs->ap;
-+	unsigned char *req = skb_mac_header(dskb);
- 	struct sk_buff *cskb;
- 	u16 flags;
- 
-@@ -380,7 +381,7 @@ void gigaset_skb_sent(struct bc_state *bcs, struct sk_buff *dskb)
+ 		return -ENOMEM;
  	}
  
- 	/* ToDo: honor unset "delivery confirmation" bit */
--	flags = CAPIMSG_FLAGS(dskb->head);
-+	flags = CAPIMSG_FLAGS(req);
+ 	skb_queue_tail(&bcs->squeue, skb);
+-	spin_lock_irqsave(&bcs->cs->lock, flags);
+-	if (bcs->cs->connected)
+-		tasklet_schedule(&bcs->cs->write_tasklet);
+-	spin_unlock_irqrestore(&bcs->cs->lock, flags);
++	spin_lock_irqsave(&cs->lock, flags);
++	if (cs->connected)
++		tasklet_schedule(&cs->write_tasklet);
++	spin_unlock_irqrestore(&cs->lock, flags);
  
- 	/* build DATA_B3_CONF message */
- 	cskb = alloc_skb(CAPI_DATA_B3_CONF_LEN, GFP_ATOMIC);
-@@ -393,11 +394,11 @@ void gigaset_skb_sent(struct bc_state *bcs, struct sk_buff *dskb)
- 	CAPIMSG_SETAPPID(cskb->data, ap->id);
- 	CAPIMSG_SETCOMMAND(cskb->data, CAPI_DATA_B3);
- 	CAPIMSG_SETSUBCOMMAND(cskb->data,  CAPI_CONF);
--	CAPIMSG_SETMSGID(cskb->data, CAPIMSG_MSGID(dskb->head));
-+	CAPIMSG_SETMSGID(cskb->data, CAPIMSG_MSGID(req));
- 	CAPIMSG_SETCONTROLLER(cskb->data, iif->ctr.cnr);
- 	CAPIMSG_SETPLCI_PART(cskb->data, bcs->channel + 1);
- 	CAPIMSG_SETNCCI_PART(cskb->data, 1);
--	CAPIMSG_SETHANDLE_CONF(cskb->data, CAPIMSG_HANDLE_REQ(dskb->head));
-+	CAPIMSG_SETHANDLE_CONF(cskb->data, CAPIMSG_HANDLE_REQ(req));
- 	if (flags & ~CAPI_FLAGS_DELIVERY_CONFIRMATION)
- 		CAPIMSG_SETINFO_CONF(cskb->data,
- 				     CapiFlagsNotSupportedByProtocol);
-@@ -437,7 +438,7 @@ void gigaset_skb_rcvd(struct bc_state *bcs, struct sk_buff *skb)
- 	/* don't send further B3 messages if disconnected */
- 	if (ap->connected < APCONN_ACTIVE) {
- 		gig_dbg(DEBUG_LLDATA, "disconnected, discarding data");
--		dev_kfree_skb(skb);
-+		dev_kfree_skb_any(skb);
- 		return;
- 	}
+ 	return len;	/* ok so far */
+ }
+diff --git a/drivers/isdn/gigaset/common.c b/drivers/isdn/gigaset/common.c
+index 1d2ae2e..690ac74 100644
+--- a/drivers/isdn/gigaset/common.c
++++ b/drivers/isdn/gigaset/common.c
+@@ -400,9 +400,9 @@ static void gigaset_freebcs(struct bc_state *bcs)
+ 	gig_dbg(DEBUG_INIT, "clearing bcs[%d]->at_state", bcs->channel);
+ 	clear_at_state(&bcs->at_state);
+ 	gig_dbg(DEBUG_INIT, "freeing bcs[%d]->skb", bcs->channel);
++	dev_kfree_skb(bcs->skb);
++	bcs->skb = NULL;
  
-@@ -1461,7 +1462,7 @@ static void do_connect_resp(struct gigaset_capi_ctr *iif,
- 	/* decode message */
- 	capi_message2cmsg(cmsg, skb->data);
- 	dump_cmsg(DEBUG_CMD, __func__, cmsg);
--	dev_kfree_skb(skb);
-+	dev_kfree_skb_any(skb);
- 
- 	/* extract and check channel number from PLCI */
- 	channel = (cmsg->adr.adrPLCI >> 8) & 0xff;
-@@ -1652,7 +1653,7 @@ static void do_connect_b3_resp(struct gigaset_capi_ctr *iif,
- 	    ((cmsg->adr.adrNCCI >> 16) & 0xffff) != 1) {
- 		dev_notice(cs->dev, "%s: invalid %s 0x%02x\n",
- 			   "CONNECT_B3_RESP", "NCCI", cmsg->adr.adrNCCI);
--		dev_kfree_skb(skb);
-+		dev_kfree_skb_any(skb);
- 		return;
- 	}
- 	bcs = &cs->bcs[channel-1];
-@@ -1665,7 +1666,7 @@ static void do_connect_b3_resp(struct gigaset_capi_ctr *iif,
- 		if (!gigaset_add_event(cs, &bcs->at_state,
- 				       EV_HUP, NULL, 0, NULL)) {
- 			dev_err(cs->dev, "%s: out of memory\n", __func__);
--			dev_kfree_skb(skb);
-+			dev_kfree_skb_any(skb);
- 			return;
- 		}
- 		gig_dbg(DEBUG_CMD, "scheduling HUP");
-@@ -1880,12 +1881,12 @@ static void do_data_b3_req(struct gigaset_capi_ctr *iif,
- 		return;
- 	}
- 
--	/*
--	 * pull CAPI message from skb,
--	 * pass payload data to device-specific module
--	 * CAPI message will be preserved in headroom
--	 */
-+	/* pull CAPI message into link layer header */
-+	skb_reset_mac_header(skb);
-+	skb->mac_len = msglen;
- 	skb_pull(skb, msglen);
-+
-+	/* pass to device-specific module */
- 	if (cs->ops->send_skb(&cs->bcs[channel-1], skb) < 0) {
- 		send_conf(iif, ap, skb, CAPI_MSGOSRESOURCEERR);
- 		return;
-@@ -1946,7 +1947,7 @@ static void do_nothing(struct gigaset_capi_ctr *iif,
- 		capi_message2cmsg(&iif->acmsg, skb->data);
- 		dump_cmsg(DEBUG_CMD, __func__, &iif->acmsg);
- 	}
--	dev_kfree_skb(skb);
-+	dev_kfree_skb_any(skb);
+-	if (bcs->skb)
+-		dev_kfree_skb(bcs->skb);
+ 	for (i = 0; i < AT_NUM; ++i) {
+ 		kfree(bcs->commands[i]);
+ 		bcs->commands[i] = NULL;
+@@ -560,16 +560,13 @@ void gigaset_at_init(struct at_state_t *at_state, struct bc_state *bcs,
  }
  
- static void do_data_b3_resp(struct gigaset_capi_ctr *iif,
-@@ -1954,7 +1955,7 @@ static void do_data_b3_resp(struct gigaset_capi_ctr *iif,
- 			    struct sk_buff *skb)
+ 
+-static void gigaset_inbuf_init(struct inbuf_t *inbuf, struct bc_state *bcs,
+-			       struct cardstate *cs, int inputstate)
++static void gigaset_inbuf_init(struct inbuf_t *inbuf, struct cardstate *cs)
+ /* inbuf->read must be allocated before! */
  {
- 	dump_rawmsg(DEBUG_LLDATA, __func__, skb->data);
--	dev_kfree_skb(skb);
-+	dev_kfree_skb_any(skb);
+ 	inbuf->head = 0;
+ 	inbuf->tail = 0;
+ 	inbuf->cs = cs;
+-	inbuf->bcs = bcs; /*base driver: NULL*/
+-	inbuf->rcvbuf = NULL;
+-	inbuf->inputstate = inputstate;
++	inbuf->inputstate = INS_command;
  }
  
- /* table of outgoing CAPI message handlers with lookup function */
+ /**
+@@ -644,16 +641,13 @@ static struct bc_state *gigaset_initbcs(struct bc_state *bcs,
+ 	bcs->fcs = PPP_INITFCS;
+ 	bcs->inputstate = 0;
+ 	if (cs->ignoreframes) {
+-		bcs->inputstate |= INS_skip_frame;
+ 		bcs->skb = NULL;
+ 	} else {
+ 		bcs->skb = dev_alloc_skb(SBUFSIZE + cs->hw_hdr_len);
+ 		if (bcs->skb != NULL)
+ 			skb_reserve(bcs->skb, cs->hw_hdr_len);
+-		else {
++		else
+ 			pr_err("out of memory\n");
+-			bcs->inputstate |= INS_skip_frame;
+-		}
+ 	}
+ 
+ 	bcs->channel = channel;
+@@ -674,8 +668,8 @@ static struct bc_state *gigaset_initbcs(struct bc_state *bcs,
+ 	gig_dbg(DEBUG_INIT, "  failed");
+ 
+ 	gig_dbg(DEBUG_INIT, "  freeing bcs[%d]->skb", channel);
+-	if (bcs->skb)
+-		dev_kfree_skb(bcs->skb);
++	dev_kfree_skb(bcs->skb);
++	bcs->skb = NULL;
+ 
+ 	return NULL;
+ }
+@@ -764,10 +758,7 @@ struct cardstate *gigaset_initcs(struct gigaset_driver *drv, int channels,
+ 	cs->cbytes = 0;
+ 
+ 	gig_dbg(DEBUG_INIT, "setting up inbuf");
+-	if (onechannel) {			//FIXME distinction necessary?
+-		gigaset_inbuf_init(cs->inbuf, cs->bcs, cs, INS_command);
+-	} else
+-		gigaset_inbuf_init(cs->inbuf, NULL,    cs, INS_command);
++	gigaset_inbuf_init(cs->inbuf, cs);
+ 
+ 	cs->connected = 0;
+ 	cs->isdn_up = 0;
+@@ -854,9 +845,10 @@ void gigaset_bcs_reinit(struct bc_state *bcs)
+ 	bcs->chstate = 0;
+ 
+ 	bcs->ignore = cs->ignoreframes;
+-	if (bcs->ignore)
+-		bcs->inputstate |= INS_skip_frame;
+-
++	if (bcs->ignore) {
++		dev_kfree_skb(bcs->skb);
++		bcs->skb = NULL;
++	}
+ 
+ 	cs->ops->reinitbcshw(bcs);
+ }
+@@ -877,8 +869,6 @@ static void cleanup_cs(struct cardstate *cs)
+ 	free_strings(&cs->at_state);
+ 	gigaset_at_init(&cs->at_state, NULL, cs, 0);
+ 
+-	kfree(cs->inbuf->rcvbuf);
+-	cs->inbuf->rcvbuf = NULL;
+ 	cs->inbuf->inputstate = INS_command;
+ 	cs->inbuf->head = 0;
+ 	cs->inbuf->tail = 0;
 diff --git a/drivers/isdn/gigaset/gigaset.h b/drivers/isdn/gigaset/gigaset.h
-index 4749ef1..c59216b 100644
+index c59216b..18bff9f 100644
 --- a/drivers/isdn/gigaset/gigaset.h
 +++ b/drivers/isdn/gigaset/gigaset.h
-@@ -625,7 +625,7 @@ struct gigaset_ops {
+@@ -223,12 +223,11 @@ void gigaset_dbg_buffer(enum debuglevel level, const unsigned char *msg,
+ #define EV_BC_CLOSED	-118
  
- 	/* Called from LL interface to put an skb into the send-queue.
- 	 * After sending is completed, gigaset_skb_sent() must be called
--	 * with the first cs->hw_hdr_len bytes of skb->head preserved. */
-+	 * with the skb's link layer header preserved. */
- 	int (*send_skb)(struct bc_state *bcs, struct sk_buff *skb);
+ /* input state */
+-#define INS_command	0x0001
+-#define INS_DLE_char	0x0002
++#define INS_command	0x0001	/* receiving messages (not payload data) */
++#define INS_DLE_char	0x0002	/* DLE flag received (in DLE mode) */
+ #define INS_byte_stuff	0x0004
+ #define INS_have_data	0x0008
+-#define INS_skip_frame	0x0010
+-#define INS_DLE_command	0x0020
++#define INS_DLE_command	0x0020	/* DLE message start (<DLE> X) received */
+ #define INS_flag_hunt	0x0040
  
- 	/* Called from ev-layer.c to process a block of data
-diff --git a/drivers/isdn/gigaset/i4l.c b/drivers/isdn/gigaset/i4l.c
-index aca72a0..828824f 100644
---- a/drivers/isdn/gigaset/i4l.c
-+++ b/drivers/isdn/gigaset/i4l.c
-@@ -41,8 +41,8 @@ static int writebuf_from_LL(int driverID, int channel, int ack,
+ /* channel state */
+@@ -290,8 +289,6 @@ extern struct reply_t gigaset_tab_cid[];
+ extern struct reply_t gigaset_tab_nocid[];
+ 
+ struct inbuf_t {
+-	unsigned char		*rcvbuf;	/* usb-gigaset receive buffer */
+-	struct bc_state		*bcs;
+ 	struct cardstate	*cs;
+ 	int			inputstate;
+ 	int			head, tail;
+@@ -483,8 +480,8 @@ struct cardstate {
+ 
+ 	struct timer_list timer;
+ 	int retry_count;
+-	int dle;			/* !=0 if modem commands/responses are
+-					   dle encoded */
++	int dle;			/* !=0 if DLE mode is active
++					   (ZDLE=1 received -- M10x only) */
+ 	int cur_at_seq;			/* sequence of AT commands being
+ 					   processed */
+ 	int curchannel;			/* channel those commands are meant
+diff --git a/drivers/isdn/gigaset/usb-gigaset.c b/drivers/isdn/gigaset/usb-gigaset.c
+index 4deb1ab..f56b2a8 100644
+--- a/drivers/isdn/gigaset/usb-gigaset.c
++++ b/drivers/isdn/gigaset/usb-gigaset.c
+@@ -43,14 +43,14 @@ MODULE_PARM_DESC(cidmode, "Call-ID mode");
+ #define GIGASET_MODULENAME "usb_gigaset"
+ #define GIGASET_DEVNAME    "ttyGU"
+ 
+-#define IF_WRITEBUF 2000 //FIXME  // WAKEUP_CHARS: 256
++#define IF_WRITEBUF 2000	/* arbitrary limit */
+ 
+ /* Values for the Gigaset M105 Data */
+ #define USB_M105_VENDOR_ID	0x0681
+ #define USB_M105_PRODUCT_ID	0x0009
+ 
+ /* table of devices that work with this driver */
+-static const struct usb_device_id gigaset_table [] = {
++static const struct usb_device_id gigaset_table[] = {
+ 	{ USB_DEVICE(USB_M105_VENDOR_ID, USB_M105_PRODUCT_ID) },
+ 	{ }					/* Terminating entry */
+ };
+@@ -97,8 +97,8 @@ MODULE_DEVICE_TABLE(usb, gigaset_table);
+  *       41 19 -- -- -- -- 06 00 00 00 00 xx 11 13
+  *            Used after every "configuration sequence" (RQ 12, RQs 01/03/13).
+  *            xx is usually 0x00 but was 0x7e before starting data transfer
+- *            in unimodem mode. So, this might be an array of characters that need
+- *            special treatment ("commit all bufferd data"?), 11=^Q, 13=^S.
++ *            in unimodem mode. So, this might be an array of characters that
++ *            need special treatment ("commit all bufferd data"?), 11=^Q, 13=^S.
+  *
+  * Unimodem mode: use "modprobe ppp_async flag_time=0" as the device _needs_ two
+  * flags per packet.
+@@ -114,7 +114,7 @@ static int gigaset_suspend(struct usb_interface *intf, pm_message_t message);
+ static int gigaset_resume(struct usb_interface *intf);
+ static int gigaset_pre_reset(struct usb_interface *intf);
+ 
+-static struct gigaset_driver *driver = NULL;
++static struct gigaset_driver *driver;
+ 
+ /* usb specific object needed to register this driver with the usb subsystem */
+ static struct usb_driver gigaset_usb_driver = {
+@@ -141,6 +141,7 @@ struct usb_cardstate {
+ 	struct urb		*bulk_out_urb;
+ 
+ 	/* Input buffer */
++	unsigned char		*rcvbuf;
+ 	int			rcvbuf_size;
+ 	struct urb		*read_urb;
+ 	__u8			int_in_endpointAddr;
+@@ -164,13 +165,11 @@ static int gigaset_set_modem_ctrl(struct cardstate *cs, unsigned old_state,
+ 	val = tiocm_to_gigaset(new_state);
+ 
+ 	gig_dbg(DEBUG_USBREQ, "set flags 0x%02x with mask 0x%02x", val, mask);
+-	// don't use this in an interrupt/BH
+ 	r = usb_control_msg(udev, usb_sndctrlpipe(udev, 0), 7, 0x41,
+ 			    (val & 0xff) | ((mask & 0xff) << 8), 0,
+ 			    NULL, 0, 2000 /* timeout? */);
+ 	if (r < 0)
+ 		return r;
+-	//..
+ 	return 0;
+ }
+ 
+@@ -220,7 +219,6 @@ static int gigaset_baud_rate(struct cardstate *cs, unsigned cflag)
+ 	cflag &= CBAUD;
+ 
+ 	switch (cflag) {
+-	//FIXME more values?
+ 	case    B300: rate =     300; break;
+ 	case    B600: rate =     600; break;
+ 	case   B1200: rate =    1200; break;
+@@ -273,7 +271,7 @@ static int gigaset_set_line_ctrl(struct cardstate *cs, unsigned cflag)
+ 	/* set the number of stop bits */
+ 	if (cflag & CSTOPB) {
+ 		if ((cflag & CSIZE) == CS5)
+-			val |= 1; /* 1.5 stop bits */ //FIXME is this okay?
++			val |= 1; /* 1.5 stop bits */
+ 		else
+ 			val |= 2; /* 2 stop bits */
+ 	}
+@@ -282,7 +280,7 @@ static int gigaset_set_line_ctrl(struct cardstate *cs, unsigned cflag)
+ }
+ 
+ 
+- /*================================================================================================================*/
++/*============================================================================*/
+ static int gigaset_init_bchannel(struct bc_state *bcs)
  {
- 	struct cardstate *cs;
- 	struct bc_state *bcs;
-+	unsigned char *ack_header;
- 	unsigned len;
--	unsigned skblen;
+ 	/* nothing to do for M10x */
+@@ -344,7 +342,6 @@ static void gigaset_modem_fill(unsigned long data)
+ 			if (write_modem(cs) < 0) {
+ 				gig_dbg(DEBUG_OUTPUT,
+ 					"modem_fill: write_modem failed");
+-				// FIXME should we tell the LL?
+ 				again = 1; /* no callback will be called! */
+ 			}
+ 		}
+@@ -356,8 +353,8 @@ static void gigaset_modem_fill(unsigned long data)
+  */
+ static void gigaset_read_int_callback(struct urb *urb)
+ {
+-	struct inbuf_t *inbuf = urb->context;
+-	struct cardstate *cs = inbuf->cs;
++	struct cardstate *cs = urb->context;
++	struct inbuf_t *inbuf = cs->inbuf;
+ 	int status = urb->status;
+ 	int r;
+ 	unsigned numbytes;
+@@ -368,7 +365,7 @@ static void gigaset_read_int_callback(struct urb *urb)
+ 		numbytes = urb->actual_length;
  
- 	if (!(cs = gigaset_get_cs_by_id(driverID))) {
- 		pr_err("%s: invalid driver ID (%d)\n", __func__, driverID);
-@@ -78,11 +78,23 @@ static int writebuf_from_LL(int driverID, int channel, int ack,
+ 		if (numbytes) {
+-			src = inbuf->rcvbuf;
++			src = cs->hw.usb->rcvbuf;
+ 			if (unlikely(*src))
+ 				dev_warn(cs->dev,
+ 				    "%s: There was no leading 0, but 0x%02x!\n",
+@@ -440,7 +437,7 @@ static int send_cb(struct cardstate *cs, struct cmdbuf_t *cb)
+ 	struct cmdbuf_t *tcb;
+ 	unsigned long flags;
+ 	int count;
+-	int status = -ENOENT; // FIXME
++	int status = -ENOENT;
+ 	struct usb_cardstate *ucs = cs->hw.usb;
+ 
+ 	do {
+@@ -480,7 +477,9 @@ static int send_cb(struct cardstate *cs, struct cmdbuf_t *cb)
+ 			ucs->busy = 1;
+ 
+ 			spin_lock_irqsave(&cs->lock, flags);
+-			status = cs->connected ? usb_submit_urb(ucs->bulk_out_urb, GFP_ATOMIC) : -ENODEV;
++			status = cs->connected ?
++				usb_submit_urb(ucs->bulk_out_urb, GFP_ATOMIC) :
++				-ENODEV;
+ 			spin_unlock_irqrestore(&cs->lock, flags);
+ 
+ 			if (status) {
+@@ -510,8 +509,8 @@ static int gigaset_write_cmd(struct cardstate *cs, const unsigned char *buf,
+ 
+ 	if (len <= 0)
+ 		return 0;
+-
+-	if (!(cb = kmalloc(sizeof(struct cmdbuf_t) + len, GFP_ATOMIC))) {
++	cb = kmalloc(sizeof(struct cmdbuf_t) + len, GFP_ATOMIC);
++	if (!cb) {
+ 		dev_err(cs->dev, "%s: out of memory\n", __func__);
+ 		return -ENOMEM;
+ 	}
+@@ -637,9 +636,7 @@ static int write_modem(struct cardstate *cs)
  		return -EINVAL;
  	}
  
--	skblen = ack ? len : 0;
--	skb->head[0] = skblen & 0xff;
--	skb->head[1] = skblen >> 8;
--	gig_dbg(DEBUG_MCMD, "skb: len=%u, skblen=%u: %02x %02x",
--		len, skblen, (unsigned) skb->head[0], (unsigned) skb->head[1]);
-+	/* set up acknowledgement header */
-+	if (skb_headroom(skb) < HW_HDR_LEN) {
-+		/* should never happen */
-+		dev_err(cs->dev, "%s: insufficient skb headroom\n", __func__);
-+		return -ENOMEM;
-+	}
-+	skb_set_mac_header(skb, -HW_HDR_LEN);
-+	skb->mac_len = HW_HDR_LEN;
-+	ack_header = skb_mac_header(skb);
-+	if (ack) {
-+		ack_header[0] = len & 0xff;
-+		ack_header[1] = len >> 8;
-+	} else {
-+		ack_header[0] = ack_header[1] = 0;
-+	}
-+	gig_dbg(DEBUG_MCMD, "skb: len=%u, ack=%d: %02x %02x",
-+		len, ack, ack_header[0], ack_header[1]);
+-	/* Copy data to bulk out buffer and  // FIXME copying not necessary
+-	 * transmit data
+-	 */
++	/* Copy data to bulk out buffer and transmit data */
+ 	count = min(bcs->tx_skb->len, (unsigned) ucs->bulk_out_size);
+ 	skb_copy_from_linear_data(bcs->tx_skb, ucs->bulk_out_buffer, count);
+ 	skb_pull(bcs->tx_skb, count);
+@@ -650,7 +647,8 @@ static int write_modem(struct cardstate *cs)
+ 	if (cs->connected) {
+ 		usb_fill_bulk_urb(ucs->bulk_out_urb, ucs->udev,
+ 				  usb_sndbulkpipe(ucs->udev,
+-						  ucs->bulk_out_endpointAddr & 0x0f),
++						  ucs->bulk_out_endpointAddr &
++						  0x0f),
+ 				  ucs->bulk_out_buffer, count,
+ 				  gigaset_write_bulk_callback, cs);
+ 		ret = usb_submit_urb(ucs->bulk_out_urb, GFP_ATOMIC);
+@@ -666,7 +664,7 @@ static int write_modem(struct cardstate *cs)
  
- 	/* pass to device-specific module */
- 	return cs->ops->send_skb(bcs, skb);
-@@ -99,6 +111,7 @@ static int writebuf_from_LL(int driverID, int channel, int ack,
- void gigaset_skb_sent(struct bc_state *bcs, struct sk_buff *skb)
- {
- 	isdn_if *iif = bcs->cs->iif;
-+	unsigned char *ack_header = skb_mac_header(skb);
- 	unsigned len;
- 	isdn_ctrl response;
+ 	if (!bcs->tx_skb->len) {
+ 		/* skb sent completely */
+-		gigaset_skb_sent(bcs, bcs->tx_skb); //FIXME also, when ret<0?
++		gigaset_skb_sent(bcs, bcs->tx_skb);
  
-@@ -108,8 +121,7 @@ void gigaset_skb_sent(struct bc_state *bcs, struct sk_buff *skb)
- 		dev_warn(bcs->cs->dev, "%s: skb->len==%d\n",
- 			 __func__, skb->len);
+ 		gig_dbg(DEBUG_INTR, "kfree skb (Adr: %lx)!",
+ 			(unsigned long) bcs->tx_skb);
+@@ -763,8 +761,8 @@ static int gigaset_probe(struct usb_interface *interface,
+ 	buffer_size = le16_to_cpu(endpoint->wMaxPacketSize);
+ 	ucs->rcvbuf_size = buffer_size;
+ 	ucs->int_in_endpointAddr = endpoint->bEndpointAddress;
+-	cs->inbuf[0].rcvbuf = kmalloc(buffer_size, GFP_KERNEL);
+-	if (!cs->inbuf[0].rcvbuf) {
++	ucs->rcvbuf = kmalloc(buffer_size, GFP_KERNEL);
++	if (!ucs->rcvbuf) {
+ 		dev_err(cs->dev, "Couldn't allocate rcvbuf\n");
+ 		retval = -ENOMEM;
+ 		goto error;
+@@ -773,9 +771,9 @@ static int gigaset_probe(struct usb_interface *interface,
+ 	usb_fill_int_urb(ucs->read_urb, udev,
+ 			 usb_rcvintpipe(udev,
+ 					endpoint->bEndpointAddress & 0x0f),
+-			 cs->inbuf[0].rcvbuf, buffer_size,
++			 ucs->rcvbuf, buffer_size,
+ 			 gigaset_read_int_callback,
+-			 cs->inbuf + 0, endpoint->bInterval);
++			 cs, endpoint->bInterval);
  
--	len = (unsigned char) skb->head[0] |
--	      (unsigned) (unsigned char) skb->head[1] << 8;
-+	len = ack_header[0] + ((unsigned) ack_header[1] << 8);
- 	if (len) {
- 		gig_dbg(DEBUG_MCMD, "ACKing to LL (id: %d, ch: %d, sz: %u)",
- 			bcs->cs->myid, bcs->channel, len);
-diff --git a/drivers/isdn/gigaset/isocdata.c b/drivers/isdn/gigaset/isocdata.c
-index 7dabfd3..bc41611 100644
---- a/drivers/isdn/gigaset/isocdata.c
-+++ b/drivers/isdn/gigaset/isocdata.c
-@@ -576,12 +576,12 @@ static inline void hdlc_done(struct bc_state *bcs)
- 		dev_notice(cs->dev, "received short frame (%d octets)\n",
- 			   procskb->len);
- 		bcs->hw.bas->runts++;
--		dev_kfree_skb(procskb);
-+		dev_kfree_skb_any(procskb);
- 		gigaset_isdn_rcv_err(bcs);
- 	} else if (bcs->fcs != PPP_GOODFCS) {
- 		dev_notice(cs->dev, "frame check error (0x%04x)\n", bcs->fcs);
- 		bcs->hw.bas->fcserrs++;
--		dev_kfree_skb(procskb);
-+		dev_kfree_skb_any(procskb);
- 		gigaset_isdn_rcv_err(bcs);
- 	} else {
- 		len = procskb->len;
-@@ -985,7 +985,7 @@ void gigaset_isoc_input(struct inbuf_t *inbuf)
-  * Called by LL to queue an skb for sending, and start transmission if
-  * necessary.
-  * Once the payload data has been transmitted completely, gigaset_skb_sent()
-- * will be called with the first cs->hw_hdr_len bytes of skb->head preserved.
-+ * will be called with the skb's link layer header preserved.
-  *
-  * Return value:
-  *	number of bytes accepted for sending (skb->len) if ok,
+ 	retval = usb_submit_urb(ucs->read_urb, GFP_KERNEL);
+ 	if (retval) {
+@@ -789,7 +787,7 @@ static int gigaset_probe(struct usb_interface *interface,
+ 
+ 	if (!gigaset_start(cs)) {
+ 		tasklet_kill(&cs->write_tasklet);
+-		retval = -ENODEV; //FIXME
++		retval = -ENODEV;
+ 		goto error;
+ 	}
+ 	return 0;
+@@ -798,11 +796,11 @@ error:
+ 	usb_kill_urb(ucs->read_urb);
+ 	kfree(ucs->bulk_out_buffer);
+ 	usb_free_urb(ucs->bulk_out_urb);
+-	kfree(cs->inbuf[0].rcvbuf);
++	kfree(ucs->rcvbuf);
+ 	usb_free_urb(ucs->read_urb);
+ 	usb_set_intfdata(interface, NULL);
+ 	ucs->read_urb = ucs->bulk_out_urb = NULL;
+-	cs->inbuf[0].rcvbuf = ucs->bulk_out_buffer = NULL;
++	ucs->rcvbuf = ucs->bulk_out_buffer = NULL;
+ 	usb_put_dev(ucs->udev);
+ 	ucs->udev = NULL;
+ 	ucs->interface = NULL;
+@@ -831,10 +829,10 @@ static void gigaset_disconnect(struct usb_interface *interface)
+ 
+ 	kfree(ucs->bulk_out_buffer);
+ 	usb_free_urb(ucs->bulk_out_urb);
+-	kfree(cs->inbuf[0].rcvbuf);
++	kfree(ucs->rcvbuf);
+ 	usb_free_urb(ucs->read_urb);
+ 	ucs->read_urb = ucs->bulk_out_urb = NULL;
+-	cs->inbuf[0].rcvbuf = ucs->bulk_out_buffer = NULL;
++	ucs->rcvbuf = ucs->bulk_out_buffer = NULL;
+ 
+ 	usb_put_dev(ucs->udev);
+ 	ucs->interface = NULL;
+@@ -916,9 +914,10 @@ static int __init usb_gigaset_init(void)
+ 	int result;
+ 
+ 	/* allocate memory for our driver state and intialize it */
+-	if ((driver = gigaset_initdriver(GIGASET_MINOR, GIGASET_MINORS,
+-				       GIGASET_MODULENAME, GIGASET_DEVNAME,
+-				       &ops, THIS_MODULE)) == NULL)
++	driver = gigaset_initdriver(GIGASET_MINOR, GIGASET_MINORS,
++				    GIGASET_MODULENAME, GIGASET_DEVNAME,
++				    &ops, THIS_MODULE);
++	if (driver == NULL)
+ 		goto error;
+ 
+ 	/* register this driver with the USB subsystem */
 -- 
 1.6.2.1.214.ge986c
