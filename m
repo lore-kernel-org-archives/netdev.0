@@ -1,40 +1,95 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: kernel panic in latest vanilla stable, while using nameif with "alive" pppoe interfaces
-Date: Sun, 25 Oct 2009 20:10:24 +0200
-Message-ID: <200910252010.24767.denys@visp.net.lb>
-References: <200910190002.39937.denys@visp.net.lb> <20091020190821.GO5181@lenovo> <20091023151837.GB5394@lenovo>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH 02/31] swap over network documentation
+Date: Sun, 25 Oct 2009 07:30:40 +0100
+Message-ID: <20091025063040.GB1480@ucw.cz>
+References: <1254405891-15724-1-git-send-email-sjayaraman@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Michal Ostrowski <mostrows@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-ppp@vger.kernel.org, paulus@samba.org, mostrows@earthlink.net
-To: Cyrill Gorcunov <gorcunov@gmail.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <20091023151837.GB5394@lenovo>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, Neil Brown <neilb@suse.de>,
+	Miklos Szeredi <mszeredi@suse.cz>, Wouter Verhelst <w@uter.be>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>, trond.myklebust@fys.uio.no
+To: Suresh Jayaraman <sjayaraman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-Sender: linux-ppp-owner@vger.kernel.org
+In-Reply-To: <1254405891-15724-1-git-send-email-sjayaraman@suse.de>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 23 October 2009 18:18:37 Cyrill Gorcunov wrote:
-> [Cyrill Gorcunov - Tue, Oct 20, 2009 at 11:08:21PM +0400]
-> ...
->
-> | Just to update status of the issue. The key moment is that
-> | pppoe_flush_dev may be called asynchronously (especially via sysfs on dev
-> | entry, for example we retrieve mtu of device and while we at it other
-> | process may update mtu via sysfs). So I'm returning pppoe_hash_lock back
-> | which should eliminate a number of lock complains and make locking scheme
-> | easier. All-in-one: I'm working on it. Just need some more time.
-> |
-> | 	-- Cyrill
->
-> Another status update -- the patch is under testing stage. Hope we will
-> reveal proper patch soon (in a few days I guess).
->
-> 	-- Cyrill
-During normal operation till now no issues (2 days uptime, 100-150 users 
-online on this pppoe). Testing more some stress scenarios.
+Hi!
 
+> From: Neil Brown <neilb@suse.de>
+> 
+> Document describing the problem and proposed solution
+
+> +Problem:
+> +   When Linux needs to allocate memory it may find that there is
+> +   insufficient free memory so it needs to reclaim space that is in
+> +   use but not needed at the moment.  There are several options:
+...
+> +   3/ Write out some dirty page-cache pages so that they become clean.
+> +      The VM limits the number of dirty page-cache pages to e.g. 40%
+> +      of available memory so that (among other reasons) a "sync" will
+> +      not take excessively long.  So there should never be excessive
+> +      amounts of dirty pagecache.
+
+I'd say "So it is not common to have excessive...". Yes, we try to
+limit it, but IIRC malicious users would still be able to dirty
+arbitrary ammounts...
+
+....
+> +      So anon pages tend to be left until last to be cleaned, and may
+> +      be the only cleanable pages while there are still some dirty
+> +      page-cache pages (which are waiting on a GFP_NOFS allocation).
+
+Are you sure? Because this is saying 'Linux is broken without swap'
+(and swap-less configs are more and more common). 
+
+> +  For memory allocated using slab/slub: If a page that is added to a
+> +  kmem_cache is found to have page->reserve set, then a  s->reserve
+> +  flag is set for the whole kmem_cache.  Further allocations will only
+> +  be returned from that page (or any other page in the cache) if they
+> +  are emergency allocation (i.e. PF_MEMALLOC or GFP_MEMALLOC is set).
+> +  Non-emergency allocations will block in alloc_page until a
+> +  non-reserve page is available.  Once a non-reserve page has been
+> +  added to the cache, the s->reserve flag on the cache is removed.
+
+Does this greatly increase probability of GFP_ATOMIC allocations
+failing?
+
+> +  Similarly, if an skb is ever queued for delivery to user-space for
+> +  example by netfilter, the ->emergency flag is tested and the skb is
+> +  released if ->emergency is set. (so obviously the storage route may
+> +  not pass through a userspace helper, otherwise the packets will never
+> +  arrive and we'll deadlock)
+
+(So -- .)
+
+> +  pages_emergency can be changed dynamically based on need.  When
+> +  swapout over the network is required, pages_emergency is increased
+> +  to cover the maximum expected load.  When network swapout is
+> +  disabled, pages_emergency is decreased.
+
+Hmm, increasing pages_emergency is pretty interesting
+operation.... right?
+
+> +Thanks for reading this far.  I hope it made sense :-)
+> +
+> +Neil Brown (with updates from Peter Zijlstra)
+
+Well, some warnings are misssing.
+
+For example... swap over nfs over openvpn will do bad bad things,
+right? ... and I guess that should be documented.
+								Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
