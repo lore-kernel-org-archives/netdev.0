@@ -1,95 +1,136 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH 02/31] swap over network documentation
-Date: Sun, 25 Oct 2009 07:30:40 +0100
-Message-ID: <20091025063040.GB1480@ucw.cz>
-References: <1254405891-15724-1-git-send-email-sjayaraman@suse.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: allow netdev_wait_allrefs() to run faster
+Date: Sun, 25 Oct 2009 20:28:25 +0100
+Message-ID: <4AE4A6D9.5090307@gmail.com>
+References: <20091017221857.GG1925@kvack.org> <200910250249.00382.opurdila@ixiacom.com> <4AE40DBE.8050505@gmail.com> <200910251719.13748.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, Neil Brown <neilb@suse.de>,
-	Miklos Szeredi <mszeredi@suse.cz>, Wouter Verhelst <w@uter.be>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>, trond.myklebust@fys.uio.no
-To: Suresh Jayaraman <sjayaraman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1254405891-15724-1-git-send-email-sjayaraman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: paulmck@linux.vnet.ibm.com, Benjamin LaHaise <bcrl@lhnet.ca>,
+	netdev@vger.kernel.org, Cosmin Ratiu <cratiu@ixiacom.com>
+To: Octavian Purdila <opurdila@ixiacom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:56556 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751553AbZJYT2a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Oct 2009 15:28:30 -0400
+In-Reply-To: <200910251719.13748.opurdila@ixiacom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
+Octavian Purdila a =E9crit :
+> On Sunday 25 October 2009 10:35:10 you wrote:
+>>> Got some time today and did some experiments myself. The test is de=
+leting
+>>> 1000 dummy interfaces (interface status down, no IP/IPv6 addresses
+>>> assigned) on a UP non-preempt ppc750 @800Mhz system.
+>>>
+>>> 1. Ben's patch:
+>>>
+>>> real    0m 3.42s
+>>> user    0m 0.00s
+>>> sys     0m 0.00s
+>>>
+>>> 2. Eric's schedule_timeout_uninterruptible(1);
+>>>
+>>> real    0m 3.00s
+>>> user    0m 0.00s
+>>> sys     0m 0.00s
+>>>
+>>> 3. Simple synchronize_rcu_expedited()
+>>>
+>>> This doesn't seem to work well with the UP non-preempt case since
+>>> synchronize_rcu_expedited() is a noop in this case - turning
+>>> netdev_wait_allrefs() into a while(1) loop.
+>> Thanks for these numbers. I presume HZ value is 1000 on this platfor=
+m ?
+>>
+>=20
+> Yes. I've attach the full config to this email as well.
+>=20
+>> Could you give us your scripts so that we can use same "benchmark" ?
+>>
+>=20
+> Sure, I've attached the hack module code I've used.=20
+>=20
+> For creating interfaces: echo 1000 > /proc/sys/net/ndst/add
+> For deleting interface echo start_ifindex stop_ifindex > /proc/sys/ne=
+t/ndst/del
+>=20
+> Some more information:
+>=20
+> - on our old and optimized kernel I am getting 0.4s for creating 1280=
+00=20
+> interfaces and 0.57s for deleting them
+>=20
+> - the 2.6.31 kernel I got the 3s numbers does have some patches to sp=
+eed-up=20
+> interface creating and deletion (removal of per device sysctl and dev=
+_snmp6=20
+> entries)
+>=20
+> I'll start posting the patches we have as RFC.
+>=20
 
-> From: Neil Brown <neilb@suse.de>
-> 
-> Document describing the problem and proposed solution
+OK thanks, I thought you were using dummy module
 
-> +Problem:
-> +   When Linux needs to allocate memory it may find that there is
-> +   insufficient free memory so it needs to reclaim space that is in
-> +   use but not needed at the moment.  There are several options:
-...
-> +   3/ Write out some dirty page-cache pages so that they become clean.
-> +      The VM limits the number of dirty page-cache pages to e.g. 40%
-> +      of available memory so that (among other reasons) a "sync" will
-> +      not take excessively long.  So there should never be excessive
-> +      amounts of dirty pagecache.
+$ time insmod drivers/net/dummy.ko numdummies=3D100
 
-I'd say "So it is not common to have excessive...". Yes, we try to
-limit it, but IIRC malicious users would still be able to dirty
-arbitrary ammounts...
+real    0m2.493s
+user    0m0.001s
+sys     0m0.021s
 
-....
-> +      So anon pages tend to be left until last to be cleaned, and may
-> +      be the only cleanable pages while there are still some dirty
-> +      page-cache pages (which are waiting on a GFP_NOFS allocation).
+$ time rmmod dummy
 
-Are you sure? Because this is saying 'Linux is broken without swap'
-(and swap-less configs are more and more common). 
+real    0m1.610s
+user    0m0.000s
+sys     0m0.001s
 
-> +  For memory allocated using slab/slub: If a page that is added to a
-> +  kmem_cache is found to have page->reserve set, then a  s->reserve
-> +  flag is set for the whole kmem_cache.  Further allocations will only
-> +  be returned from that page (or any other page in the cache) if they
-> +  are emergency allocation (i.e. PF_MEMALLOC or GFP_MEMALLOC is set).
-> +  Non-emergency allocations will block in alloc_page until a
-> +  non-reserve page is available.  Once a non-reserve page has been
-> +  added to the cache, the s->reserve flag on the cache is removed.
+$ time insmod drivers/net/dummy.ko numdummies=3D200
 
-Does this greatly increase probability of GFP_ATOMIC allocations
-failing?
+real    0m10.118s
+user    0m0.000s
+sys     0m0.015s
 
-> +  Similarly, if an skb is ever queued for delivery to user-space for
-> +  example by netfilter, the ->emergency flag is tested and the skb is
-> +  released if ->emergency is set. (so obviously the storage route may
-> +  not pass through a userspace helper, otherwise the packets will never
-> +  arrive and we'll deadlock)
+$ time rmmod dummy
 
-(So -- .)
+real    0m3.218s
+user    0m0.000s
+sys     0m0.001s
 
-> +  pages_emergency can be changed dynamically based on need.  When
-> +  swapout over the network is required, pages_emergency is increased
-> +  to cover the maximum expected load.  When network swapout is
-> +  disabled, pages_emergency is decreased.
+$ time insmod drivers/net/dummy.ko numdummies=3D300
 
-Hmm, increasing pages_emergency is pretty interesting
-operation.... right?
+real    0m22.564s
+user    0m0.000s
+sys     0m0.034s
 
-> +Thanks for reading this far.  I hope it made sense :-)
-> +
-> +Neil Brown (with updates from Peter Zijlstra)
+$ time rmmod dummy
 
-Well, some warnings are misssing.
+real    0m4.755s
+user    0m0.000s
+sys     0m0.006s
 
-For example... swap over nfs over openvpn will do bad bad things,
-right? ... and I guess that should be documented.
-								Pavel
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+$ perf record -f insmod drivers/net/dummy.ko numdummies=3D300
+$ perf report
+# Samples: 898
+#
+# Overhead  Command           Shared Object  Symbol
+# ........  .......  ......................  ......
+#
+    41.65%   insmod  [kernel]                [k] __register_sysctl_path=
+s
+    22.83%   insmod  [kernel]                [k] strcmp
+     5.46%   insmod  [kernel]                [k] pcpu_alloc
+     2.23%   insmod  [kernel]                [k] sysfs_find_dirent
+     1.56%   insmod  [kernel]                [k] __sysfs_add_one
+     1.11%   insmod  [kernel]                [k] pcpu_alloc_area
+     1.11%   insmod  [kernel]                [k] _spin_lock
+     1.00%   insmod  [kernel]                [k] kmemdup
+     1.00%   insmod  [kernel]                [k] kmem_cache_alloc
+     0.67%   insmod  [kernel]                [k] find_symbol_in_section
+     0.67%   insmod  [kernel]                [k] find_next_zero_bit
+     0.67%   insmod  [kernel]                [k] idr_get_empty_slot
+     0.67%   insmod  [kernel]                [k] mutex_lock
+     0.67%   insmod  [kernel]                [k] mutex_unlock
+     0.56%   insmod  [kernel]                [k] vunmap_page_range
+     0.56%   insmod  [kernel]                [k] __slab_alloc
