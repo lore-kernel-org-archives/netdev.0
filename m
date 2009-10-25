@@ -1,82 +1,84 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH  kernel 2.6.32-rc5] pcnet_cs: add cis of PreMax PE-200
- ethernet pcmcia card
-Date: Sun, 25 Oct 2009 02:13:29 +0000
-Message-ID: <1256436809.2510.0.camel@localhost>
-References: <20091025111000.2d97e595.ken_kawasaki@spring.nifty.jp>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] net: allow netdev_wait_allrefs() to run faster
+Date: Sat, 24 Oct 2009 21:47:55 -0700
+Message-ID: <20091025044755.GA6678@linux.vnet.ibm.com>
+References: <20091017221857.GG1925@kvack.org> <20091024135214.GB6638@linux.vnet.ibm.com> <4AE30E1B.5080008@gmail.com> <200910250249.00382.opurdila@ixiacom.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-M8WL5Ph3mS0b9IvpLPJ0"
-Cc: netdev@vger.kernel.org
-To: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Benjamin LaHaise <bcrl@lhnet.ca>, netdev@vger.kernel.org,
+	Cosmin Ratiu <cratiu@ixiacom.com>
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:57677 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752489AbZJYCNg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Oct 2009 22:13:36 -0400
-In-Reply-To: <20091025111000.2d97e595.ken_kawasaki@spring.nifty.jp>
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:56344 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752164AbZJYEx5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Oct 2009 00:53:57 -0400
+Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
+	by e7.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id n9P4oibd020062
+	for <netdev@vger.kernel.org>; Sun, 25 Oct 2009 00:50:44 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n9P4s1a8090336
+	for <netdev@vger.kernel.org>; Sun, 25 Oct 2009 00:54:01 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n9P4s0sS008075
+	for <netdev@vger.kernel.org>; Sun, 25 Oct 2009 00:54:01 -0400
+Content-Disposition: inline
+In-Reply-To: <200910250249.00382.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---=-M8WL5Ph3mS0b9IvpLPJ0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Sun, 2009-10-25 at 11:10 +0900, Ken Kawasaki wrote:
-> Hi,
+On Sun, Oct 25, 2009 at 02:49:00AM +0300, Octavian Purdila wrote:
+> On Saturday 24 October 2009 17:24:27 you wrote:
+> > Paul E. McKenney a =E9crit :
+> > > On Sat, Oct 24, 2009 at 10:49:55AM +0200, Eric Dumazet wrote:
+> > >> On my dev machine, a synchronize_rcu() lasts between 2 an 12 ms
+> > >
+> > > That sounds like the right range, depending on what else is happe=
+ning
+> > > on the machine at the time.
+> > >
+> > > The synchronize_rcu_expedited() primitive would run in the 10s-10=
+0s
+> > > of microseconds.  It involves a pair of wakeups and a pair of con=
+text
+> > > switches on each CPU.
+> >=20
+> > Hmm... I'll make some experiments Monday and post results, but it s=
+eems
+> >  very promising.
+> >=20
 >=20
-> >> > Random question: are CIS files copyrightable? =20
-> >>=20
-> >> The CIS contains the IRQ, ioport-range, voltage information etc
-> >> like the PCI config space.
-> >> So I think it is not copyrightable.
-> >> but Sierra Wireless provided this CIS by GPL.
-> >[...]
+> Got some time today and did some experiments myself. The test is dele=
+ting 1000=20
+> dummy interfaces (interface status down, no IP/IPv6 addresses assigne=
+d) on a=20
+> UP non-preempt ppc750 @800Mhz system.
 >=20
-> >If it is subject to copyright - which apparently they think it is - then
-> >when redistributing under GPL we must be able to provide the 'preferred
-> >form for modification'.  So that leads to the question, is this blob or
-> >hex file the preferred form?
+> 1. Ben's patch:
 >=20
+> real    0m 3.42s
+> user    0m 0.00s
+> sys     0m 0.00s
 >=20
-> (1)The CIS contains data only,
->     does not contain the code to be executed.
-> (2)Sierra Wireless provided the binary of the CIS only.
-> (3)These CIS are stable and does not need to be modified.
-> (3)The content of the CIS can be seen by the dump_cis utility.
+> 2. Eric's schedule_timeout_uninterruptible(1);
 >=20
-> So if someone want to modify the CIS , I think it is OK
-> to use hex editor.
+> real    0m 3.00s
+> user    0m 0.00s
+> sys     0m 0.00s
+>=20
+> 3. Simple synchronize_rcu_expedited()
+>=20
+> This doesn't seem to work well with the UP non-preempt case since=20
+> synchronize_rcu_expedited() is a noop in this case - turning=20
+> netdev_wait_allrefs() into a while(1) loop.
 
-That sounds reasonable.  Thanks.
+Indeed -- but then again, in the UP case, synchronize_rcu() itself
+is pretty much a no-op.  So if your main target is UP, you should
+be able to have seriously fast RCU updates.
 
-Ben.
+(I know, I know, you want SMP to run fast as well...)
 
---=20
-Ben Hutchings
-The obvious mathematical breakthrough [to break modern encryption] would be
-development of an easy way to factor large prime numbers. - Bill Gates
-
---=-M8WL5Ph3mS0b9IvpLPJ0
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIVAwUASuO0Pee/yOyVhhEJAQIKwQ//QnWgHowZf3Ai3Dm6IHKIwqyUlfagROKt
-S3nzhpa928BhXnHoHEmde0ReeVfa9cayDtRxGPWqSf9BG1n9MCOxa74NQ6PZW/1h
-6Y8BU9UAIMKxDmP24/QOS7VjpOQnNk/kmR7839U+i4RhIRg5mhcpgOKQyc2llfyb
-zMja3kqamF9UfWB96S+mqId8qLgOI4nGH83ARBy0gvRRaS7tEmPutSyG7gjRsIE5
-nQa3g6EW+ZPrq6M1a1Fhq/nftCyCrLAu/vH+HSaQe9kNPDuHIMPlyI83T9YhGQw6
-53ShCojbaZUtWEM5Vd417IHQv+vUV//Z+v7dBYLxYOgQo8gUvJZ42OTVguUCgXsL
-cUwV75ZFRhc8v81LB4qVzlk8hoju7OYgsfGSTyVFDsr1mAvqoa7NdXQPA/yhpqCq
-sSMmqfYF+DUMjt/ctczzi9JsSnLUysGZNlWYOr86I0e0ct2Jt/MdJrmTmkvYBdq+
-S2/UmO5zHhoiDNjD4GhqiX3eZ57e4OK4KjtWJAyNmi0uHN4Kb0MOL846NgDmdCbE
-HFjcR8IjtJwAzrnLJniJjgqbdVnzrUcOP8F9yoMlJ9lVdeL4KvoLFrFaaD3pTLiE
-g5faqU6nHDLTu8t+oMA/2wYRBvEf00+laF0OPpHcrR412OuNdAAQ57V/KakN8Qp7
-Psv68XlCqzc=
-=xkwB
------END PGP SIGNATURE-----
-
---=-M8WL5Ph3mS0b9IvpLPJ0--
+						Thanx, Paul
