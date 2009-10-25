@@ -1,71 +1,158 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: [PATCH next-next-2.6] netdev: better dev_name_hash
-Date: Sun, 25 Oct 2009 21:58:53 +0200
-Message-ID: <200910252158.53921.opurdila@ixiacom.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH] via-velocity: Remove private device list
+Date: Sun, 25 Oct 2009 20:08:49 +0000
+Message-ID: <1256501329.3136.109.camel@localhost>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_93K5KtoEllBzRnC"
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-TFauGXZfSfmJrTzr8iS6"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:12065 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753599AbZJYUCf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Oct 2009 16:02:35 -0400
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:42130 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753978AbZJYUIx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Oct 2009 16:08:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---Boundary-00=_93K5KtoEllBzRnC
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
 
+--=-TFauGXZfSfmJrTzr8iS6
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-The current dev_name_hash is not very good at spreading entries when a
-large number of interfaces of the same type (e.g. ethXXXXX) are used.
+via-velocity maintains a list of its devices in order to determine
+whether a netdev notification applies to one of them.  That can be
+determined simply by checking the netdev_ops pointer, so the list can
+be removed.
 
-Here are some performance numbers for creating 16000 dummy interfaces with
-and without the patch (with per device sysctl entries disabled)
+Compile-tested only.
 
-    With patch                      Without patch
-
-    real    0m 2.27s                real    0m 4.32s
-    user    0m 0.00s                user    0m 0.00s
-    sys     0m 1.13s                sys     0m 2.16s
-
-Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
- net/core/dev.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
+ drivers/net/via-velocity.c |   37 +++----------------------------------
+ drivers/net/via-velocity.h |    2 --
+ 2 files changed, 3 insertions(+), 36 deletions(-)
 
---Boundary-00=_93K5KtoEllBzRnC
-Content-Type: text/x-patch;
-  charset="utf-8";
-  name="5504c10b4f96275a4b60d0705f71614b6eba6b5c.diff"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: inline;
-	filename="5504c10b4f96275a4b60d0705f71614b6eba6b5c.diff"
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index fa88dcd..af3cab3 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -198,7 +198,13 @@ EXPORT_SYMBOL(dev_base_lock);
- 
- static inline struct hlist_head *dev_name_hash(struct net *net, const char *name)
- {
--	unsigned hash = full_name_hash(name, strnlen(name, IFNAMSIZ));
-+	unsigned hash = 0;
-+	int len = strnlen(name, IFNAMSIZ);
-+	int i;
-+
-+	for (i = 0; i < len; ++i)
-+		hash = 31 * hash + name[i];
-+
- 	return &net->dev_name_head[hash & ((1 << NETDEV_HASHBITS) - 1)];
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index e2a7725..0342d18 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -406,9 +406,6 @@ static int velocity_set_media_mode(struct velocity_info=
+ *vptr, u32 mii_status);
+ static int velocity_suspend(struct pci_dev *pdev, pm_message_t state);
+ static int velocity_resume(struct pci_dev *pdev);
+=20
+-static DEFINE_SPINLOCK(velocity_dev_list_lock);
+-static LIST_HEAD(velocity_dev_list);
+-
+ #endif
+=20
+ #if defined(CONFIG_PM) && defined(CONFIG_INET)
+@@ -488,14 +485,6 @@ static void __devexit velocity_remove1(struct pci_dev =
+*pdev)
+ 	struct net_device *dev =3D pci_get_drvdata(pdev);
+ 	struct velocity_info *vptr =3D netdev_priv(dev);
+=20
+-#ifdef CONFIG_PM
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&velocity_dev_list_lock, flags);
+-	if (!list_empty(&velocity_dev_list))
+-		list_del(&vptr->list);
+-	spin_unlock_irqrestore(&velocity_dev_list_lock, flags);
+-#endif
+ 	unregister_netdev(dev);
+ 	iounmap(vptr->mac_regs);
+ 	pci_release_regions(pdev);
+@@ -998,15 +987,6 @@ static int __devinit velocity_found1(struct pci_dev *p=
+dev, const struct pci_devi
+ 	/* and leave the chip powered down */
+=20
+ 	pci_set_power_state(pdev, PCI_D3hot);
+-#ifdef CONFIG_PM
+-	{
+-		unsigned long flags;
+-
+-		spin_lock_irqsave(&velocity_dev_list_lock, flags);
+-		list_add(&vptr->list, &velocity_dev_list);
+-		spin_unlock_irqrestore(&velocity_dev_list_lock, flags);
+-	}
+-#endif
+ 	velocity_nics++;
+ out:
+ 	return ret;
+@@ -1062,7 +1042,6 @@ static void __devinit velocity_init_info(struct pci_d=
+ev *pdev,
+ 	vptr->tx.numq =3D info->txqueue;
+ 	vptr->multicast_limit =3D MCAM_SIZE;
+ 	spin_lock_init(&vptr->lock);
+-	INIT_LIST_HEAD(&vptr->list);
  }
- 
+=20
+ /**
+@@ -3470,20 +3449,10 @@ static int velocity_netdev_event(struct notifier_bl=
+ock *nb, unsigned long notifi
+ {
+ 	struct in_ifaddr *ifa =3D (struct in_ifaddr *) ptr;
+ 	struct net_device *dev =3D ifa->ifa_dev->dev;
+-	struct velocity_info *vptr;
+-	unsigned long flags;
+=20
+-	if (dev_net(dev) !=3D &init_net)
+-		return NOTIFY_DONE;
+-
+-	spin_lock_irqsave(&velocity_dev_list_lock, flags);
+-	list_for_each_entry(vptr, &velocity_dev_list, list) {
+-		if (vptr->dev =3D=3D dev) {
+-			velocity_get_ip(vptr);
+-			break;
+-		}
+-	}
+-	spin_unlock_irqrestore(&velocity_dev_list_lock, flags);
++	if (dev_net(dev) =3D=3D &init_net &&
++	    dev->netdev_ops =3D=3D &velocity_netdev_ops)
++		velocity_get_ip(netdev_priv(dev));
+=20
+ 	return NOTIFY_DONE;
+ }
+diff --git a/drivers/net/via-velocity.h b/drivers/net/via-velocity.h
+index 4cd3f6c..6289241 100644
+--- a/drivers/net/via-velocity.h
++++ b/drivers/net/via-velocity.h
+@@ -1499,8 +1499,6 @@ struct velocity_opt {
+ #define GET_RD_BY_IDX(vptr, idx)   (vptr->rd_ring[idx])
+=20
+ struct velocity_info {
+-	struct list_head list;
+-
+ 	struct pci_dev *pdev;
+ 	struct net_device *dev;
+=20
+--=20
+1.6.4.3
 
---Boundary-00=_93K5KtoEllBzRnC--
 
 
+--=-TFauGXZfSfmJrTzr8iS6
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIVAwUASuSwTOe/yOyVhhEJAQKoOQ/+JrjYjtI9HFnVjLObjkgOtRLulXQZaRCV
+Y+D9IGEvW6gEjuBu8cp8kvU/1OjQoBMAPj92Gm1lJbIlEMxPDLgRnbND8DVzI+QC
+uatLCkGaCeXkPHDlFcNbu4snzIQde7AgVVOVKyWvyfMw/D8Fi7DcCIeqxwafDDkH
+sVs+O7KiKYR01SdAtTGKSOUX3G6cYcRcks+9hdwl+CjV4CCzkLJ7DupFedGAKTW2
+FB274oYRtfxLorQhB49RSfO9usmX/jMp8MiQe0Vw3q8G3Eyuz2mQVnfnBD/USaqy
+wGkGVObIiJnaK2o7RK0TQp9fzTSB0RCd0FHL2h4VARaMTOqUHZSWQOk0EVbrBTXN
+hwOBsXGukgc1feERX5NAeZf3gNJ+2Aec1bGU8dxLeiN7jVXGjHvJI4MTkHy445v7
+iny+7k7iihc0NxVPaG3n1FFnn0QHKte2rN1L4HJbDkQ44UuFQzyGnhEJ2Qt7UwgK
+0LPbDwQfL9wT+xaNy9mSiWArLurGnr+r26gzFyz3/Opu/j3TfqtvHFB1Qp1XgYWO
+aYMI8LYFMHAceK1R1aOeVT1mzmLhvXXHmnGQ26OyA0bM+nrVuDE9R8i/H0k8HT8l
+KNVJjrjAqpAbcSV4O1XWw58+txbTEKoo3Fn4MDZwmevIrK/Hn4mLLJ7MflThfs5+
+bsmLYty8lSU=
+=E+Lb
+-----END PGP SIGNATURE-----
+
+--=-TFauGXZfSfmJrTzr8iS6--
