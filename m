@@ -1,78 +1,196 @@
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH NEXT 5/6] netxen: module firmware hints
-Date: Sat, 24 Oct 2009 19:04:02 -0700
-Message-ID: <1256436243-5736-6-git-send-email-dhananjay@netxen.com>
+Subject: [PATCH NEXT 2/6] netxen: refactor indirect register access
+Date: Sat, 24 Oct 2009 19:03:59 -0700
+Message-ID: <1256436243-5736-3-git-send-email-dhananjay@netxen.com>
 References: <1256436243-5736-1-git-send-email-dhananjay@netxen.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:1509 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:1497 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752481AbZJYCEA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752480AbZJYCEA (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 24 Oct 2009 22:04:00 -0400
 In-Reply-To: <1256436243-5736-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add MODULE_FIRMWARE hints for various firmware file types,
-required by different chip revisions.
+Refactor code to calculate and set indirect access
+window for control registers in 2MB address space
+(NX3031 or newer). Use void __iomem * data type for
+absolute pci addresses.
 
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- drivers/net/netxen/netxen_nic.h      |    6 ++++++
- drivers/net/netxen/netxen_nic_init.c |    6 +++++-
- drivers/net/netxen/netxen_nic_main.c |    4 ++++
- 3 files changed, 15 insertions(+), 1 deletions(-)
+ drivers/net/netxen/netxen_nic_hw.c |   75 +++++++++++++++++------------------
+ 1 files changed, 36 insertions(+), 39 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index 5d0810f..5982dac 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -517,6 +517,12 @@ struct uni_data_desc{
- #define NX_FLASH_ROMIMAGE	4
- #define NX_UNKNOWN_ROMIMAGE	0xff
+diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+index e43cbbd..8fbb053 100644
+--- a/drivers/net/netxen/netxen_nic_hw.c
++++ b/drivers/net/netxen/netxen_nic_hw.c
+@@ -1090,39 +1090,33 @@ netxen_nic_pci_set_crbwindow_128M(struct netxen_adapter *adapter,
+  * In: 'off' is offset from base in 128M pci map
+  */
+ static int
+-netxen_nic_pci_get_crb_addr_2M(struct netxen_adapter *adapter, ulong *off)
++netxen_nic_pci_get_crb_addr_2M(struct netxen_adapter *adapter,
++		ulong off, void __iomem **addr)
+ {
+ 	crb_128M_2M_sub_block_map_t *m;
  
-+#define NX_P2_MN_ROMIMAGE_NAME		"nxromimg.bin"
-+#define NX_P3_CT_ROMIMAGE_NAME		"nx3fwct.bin"
-+#define NX_P3_MN_ROMIMAGE_NAME		"nx3fwmn.bin"
-+#define NX_UNIFIED_ROMIMAGE_NAME	"phanfw.bin"
-+#define NX_FLASH_ROMIMAGE_NAME		"flash"
-+
- extern char netxen_nic_driver_name[];
  
- /* Number of status descriptors to handle per interrupt */
-diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
-index 5f96045..bc80aa3 100644
---- a/drivers/net/netxen/netxen_nic_init.c
-+++ b/drivers/net/netxen/netxen_nic_init.c
-@@ -826,7 +826,11 @@ netxen_need_fw_reset(struct netxen_adapter *adapter)
+-	if (*off >= NETXEN_CRB_MAX)
++	if ((off >= NETXEN_CRB_MAX) || (off < NETXEN_PCI_CRBSPACE))
+ 		return -EINVAL;
+ 
+-	if (*off >= NETXEN_PCI_CAMQM && (*off < NETXEN_PCI_CAMQM_2M_END)) {
+-		*off = (*off - NETXEN_PCI_CAMQM) + NETXEN_PCI_CAMQM_2M_BASE +
+-			(ulong)adapter->ahw.pci_base0;
+-		return 0;
+-	}
+-
+-	if (*off < NETXEN_PCI_CRBSPACE)
+-		return -EINVAL;
+-
+-	*off -= NETXEN_PCI_CRBSPACE;
++	off -= NETXEN_PCI_CRBSPACE;
+ 
+ 	/*
+ 	 * Try direct map
+ 	 */
+-	m = &crb_128M_2M_map[CRB_BLK(*off)].sub_block[CRB_SUBBLK(*off)];
++	m = &crb_128M_2M_map[CRB_BLK(off)].sub_block[CRB_SUBBLK(off)];
+ 
+-	if (m->valid && (m->start_128M <= *off) && (m->end_128M > *off)) {
+-		*off = *off + m->start_2M - m->start_128M +
+-			(ulong)adapter->ahw.pci_base0;
++	if (m->valid && (m->start_128M <= off) && (m->end_128M > off)) {
++		*addr = adapter->ahw.pci_base0 + m->start_2M +
++			(off - m->start_128M);
+ 		return 0;
+ 	}
+ 
+ 	/*
+ 	 * Not in direct map, use crb window
+ 	 */
++	*addr = adapter->ahw.pci_base0 + CRB_INDIRECT_2M +
++		(off & MASK(16));
+ 	return 1;
  }
  
- static char *fw_name[] = {
--	"nxromimg.bin", "nx3fwct.bin", "nx3fwmn.bin", "phanfw.bin", "flash",
-+	NX_P2_MN_ROMIMAGE_NAME,
-+	NX_P3_CT_ROMIMAGE_NAME,
-+	NX_P3_MN_ROMIMAGE_NAME,
-+	NX_UNIFIED_ROMIMAGE_NAME,
-+	NX_FLASH_ROMIMAGE_NAME,
- };
+@@ -1132,28 +1126,26 @@ netxen_nic_pci_get_crb_addr_2M(struct netxen_adapter *adapter, ulong *off)
+  * side effect: lock crb window
+  */
+ static void
+-netxen_nic_pci_set_crbwindow_2M(struct netxen_adapter *adapter, ulong *off)
++netxen_nic_pci_set_crbwindow_2M(struct netxen_adapter *adapter, ulong off)
+ {
+ 	u32 window;
+ 	void __iomem *addr = adapter->ahw.pci_base0 + CRB_WINDOW_2M;
  
- int
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 3861da9..302a58e 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -38,6 +38,10 @@
- MODULE_DESCRIPTION("QLogic/NetXen (1/10) GbE Converged Ethernet Driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(NETXEN_NIC_LINUX_VERSIONID);
-+MODULE_FIRMWARE(NX_P2_MN_ROMIMAGE_NAME);
-+MODULE_FIRMWARE(NX_P3_CT_ROMIMAGE_NAME);
-+MODULE_FIRMWARE(NX_P3_MN_ROMIMAGE_NAME);
-+MODULE_FIRMWARE(NX_UNIFIED_ROMIMAGE_NAME);
+-	window = CRB_HI(*off);
++	off -= NETXEN_PCI_CRBSPACE;
++
++	window = CRB_HI(off);
  
- char netxen_nic_driver_name[] = "netxen_nic";
- static char netxen_nic_driver_string[] = "QLogic/NetXen Network Driver v"
+ 	if (adapter->ahw.crb_win == window)
+-		goto done;
++		return;
+ 
+ 	writel(window, addr);
+ 	if (readl(addr) != window) {
+ 		if (printk_ratelimit())
+ 			dev_warn(&adapter->pdev->dev,
+ 				"failed to set CRB window to %d off 0x%lx\n",
+-				window, *off);
++				window, off);
+ 	}
+ 	adapter->ahw.crb_win = window;
+-
+-done:
+-	*off = (*off & MASK(16)) + CRB_INDIRECT_2M +
+-		(ulong)adapter->ahw.pci_base0;
+ }
+ 
+ static int
+@@ -1217,11 +1209,12 @@ netxen_nic_hw_write_wx_2M(struct netxen_adapter *adapter, ulong off, u32 data)
+ {
+ 	unsigned long flags;
+ 	int rv;
++	void __iomem *addr = NULL;
+ 
+-	rv = netxen_nic_pci_get_crb_addr_2M(adapter, &off);
++	rv = netxen_nic_pci_get_crb_addr_2M(adapter, off, &addr);
+ 
+ 	if (rv == 0) {
+-		writel(data, (void __iomem *)off);
++		writel(data, addr);
+ 		return 0;
+ 	}
+ 
+@@ -1229,8 +1222,8 @@ netxen_nic_hw_write_wx_2M(struct netxen_adapter *adapter, ulong off, u32 data)
+ 		/* indirect access */
+ 		write_lock_irqsave(&adapter->ahw.crb_lock, flags);
+ 		crb_win_lock(adapter);
+-		netxen_nic_pci_set_crbwindow_2M(adapter, &off);
+-		writel(data, (void __iomem *)off);
++		netxen_nic_pci_set_crbwindow_2M(adapter, off);
++		writel(data, addr);
+ 		crb_win_unlock(adapter);
+ 		write_unlock_irqrestore(&adapter->ahw.crb_lock, flags);
+ 		return 0;
+@@ -1248,18 +1241,19 @@ netxen_nic_hw_read_wx_2M(struct netxen_adapter *adapter, ulong off)
+ 	unsigned long flags;
+ 	int rv;
+ 	u32 data;
++	void __iomem *addr = NULL;
+ 
+-	rv = netxen_nic_pci_get_crb_addr_2M(adapter, &off);
++	rv = netxen_nic_pci_get_crb_addr_2M(adapter, off, &addr);
+ 
+ 	if (rv == 0)
+-		return readl((void __iomem *)off);
++		return readl(addr);
+ 
+ 	if (rv > 0) {
+ 		/* indirect access */
+ 		write_lock_irqsave(&adapter->ahw.crb_lock, flags);
+ 		crb_win_lock(adapter);
+-		netxen_nic_pci_set_crbwindow_2M(adapter, &off);
+-		data = readl((void __iomem *)off);
++		netxen_nic_pci_set_crbwindow_2M(adapter, off);
++		data = readl(addr);
+ 		crb_win_unlock(adapter);
+ 		write_unlock_irqrestore(&adapter->ahw.crb_lock, flags);
+ 		return data;
+@@ -1307,17 +1301,20 @@ static u32 netxen_nic_io_read_2M(struct netxen_adapter *adapter,
+ void __iomem *
+ netxen_get_ioaddr(struct netxen_adapter *adapter, u32 offset)
+ {
+-	ulong off = offset;
++	void __iomem *addr = NULL;
+ 
+ 	if (NX_IS_REVISION_P2(adapter->ahw.revision_id)) {
+-		if (offset < NETXEN_CRB_PCIX_HOST2 &&
+-				offset > NETXEN_CRB_PCIX_HOST)
+-			return PCI_OFFSET_SECOND_RANGE(adapter, offset);
+-		return NETXEN_CRB_NORMALIZE(adapter, offset);
++		if ((offset < NETXEN_CRB_PCIX_HOST2) &&
++				(offset > NETXEN_CRB_PCIX_HOST))
++			addr = PCI_OFFSET_SECOND_RANGE(adapter, offset);
++		else
++			addr = NETXEN_CRB_NORMALIZE(adapter, offset);
++	} else {
++		WARN_ON(netxen_nic_pci_get_crb_addr_2M(adapter,
++					offset, &addr));
+ 	}
+ 
+-	BUG_ON(netxen_nic_pci_get_crb_addr_2M(adapter, &off));
+-	return (void __iomem *)off;
++	return addr;
+ }
+ 
+ static int
 -- 
 1.6.0.2
 
