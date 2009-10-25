@@ -1,196 +1,46 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH NEXT 2/6] netxen: refactor indirect register access
-Date: Sat, 24 Oct 2009 19:03:59 -0700
-Message-ID: <1256436243-5736-3-git-send-email-dhananjay@netxen.com>
-References: <1256436243-5736-1-git-send-email-dhananjay@netxen.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Subject: Re: [PATCH  kernel 2.6.32-rc5] pcnet_cs: add cis of PreMax PE-200
+ ethernet pcmcia card
+Date: Sun, 25 Oct 2009 11:10:00 +0900
+Message-ID: <20091025111000.2d97e595.ken_kawasaki@spring.nifty.jp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ben@decadent.org.uk
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:1497 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752480AbZJYCEA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Oct 2009 22:04:00 -0400
-In-Reply-To: <1256436243-5736-1-git-send-email-dhananjay@netxen.com>
+Received: from userg501.nifty.com ([202.248.238.81]:46658 "EHLO
+	userg501.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752379AbZJYCKX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Oct 2009 22:10:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Refactor code to calculate and set indirect access
-window for control registers in 2MB address space
-(NX3031 or newer). Use void __iomem * data type for
-absolute pci addresses.
+Hi,
 
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
----
- drivers/net/netxen/netxen_nic_hw.c |   75 +++++++++++++++++------------------
- 1 files changed, 36 insertions(+), 39 deletions(-)
+>> > Random question: are CIS files copyrightable?  
+>> 
+>> The CIS contains the IRQ, ioport-range, voltage information etc
+>> like the PCI config space.
+>> So I think it is not copyrightable.
+>> but Sierra Wireless provided this CIS by GPL.
+>[...]
 
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index e43cbbd..8fbb053 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -1090,39 +1090,33 @@ netxen_nic_pci_set_crbwindow_128M(struct netxen_adapter *adapter,
-  * In: 'off' is offset from base in 128M pci map
-  */
- static int
--netxen_nic_pci_get_crb_addr_2M(struct netxen_adapter *adapter, ulong *off)
-+netxen_nic_pci_get_crb_addr_2M(struct netxen_adapter *adapter,
-+		ulong off, void __iomem **addr)
- {
- 	crb_128M_2M_sub_block_map_t *m;
- 
- 
--	if (*off >= NETXEN_CRB_MAX)
-+	if ((off >= NETXEN_CRB_MAX) || (off < NETXEN_PCI_CRBSPACE))
- 		return -EINVAL;
- 
--	if (*off >= NETXEN_PCI_CAMQM && (*off < NETXEN_PCI_CAMQM_2M_END)) {
--		*off = (*off - NETXEN_PCI_CAMQM) + NETXEN_PCI_CAMQM_2M_BASE +
--			(ulong)adapter->ahw.pci_base0;
--		return 0;
--	}
--
--	if (*off < NETXEN_PCI_CRBSPACE)
--		return -EINVAL;
--
--	*off -= NETXEN_PCI_CRBSPACE;
-+	off -= NETXEN_PCI_CRBSPACE;
- 
- 	/*
- 	 * Try direct map
- 	 */
--	m = &crb_128M_2M_map[CRB_BLK(*off)].sub_block[CRB_SUBBLK(*off)];
-+	m = &crb_128M_2M_map[CRB_BLK(off)].sub_block[CRB_SUBBLK(off)];
- 
--	if (m->valid && (m->start_128M <= *off) && (m->end_128M > *off)) {
--		*off = *off + m->start_2M - m->start_128M +
--			(ulong)adapter->ahw.pci_base0;
-+	if (m->valid && (m->start_128M <= off) && (m->end_128M > off)) {
-+		*addr = adapter->ahw.pci_base0 + m->start_2M +
-+			(off - m->start_128M);
- 		return 0;
- 	}
- 
- 	/*
- 	 * Not in direct map, use crb window
- 	 */
-+	*addr = adapter->ahw.pci_base0 + CRB_INDIRECT_2M +
-+		(off & MASK(16));
- 	return 1;
- }
- 
-@@ -1132,28 +1126,26 @@ netxen_nic_pci_get_crb_addr_2M(struct netxen_adapter *adapter, ulong *off)
-  * side effect: lock crb window
-  */
- static void
--netxen_nic_pci_set_crbwindow_2M(struct netxen_adapter *adapter, ulong *off)
-+netxen_nic_pci_set_crbwindow_2M(struct netxen_adapter *adapter, ulong off)
- {
- 	u32 window;
- 	void __iomem *addr = adapter->ahw.pci_base0 + CRB_WINDOW_2M;
- 
--	window = CRB_HI(*off);
-+	off -= NETXEN_PCI_CRBSPACE;
-+
-+	window = CRB_HI(off);
- 
- 	if (adapter->ahw.crb_win == window)
--		goto done;
-+		return;
- 
- 	writel(window, addr);
- 	if (readl(addr) != window) {
- 		if (printk_ratelimit())
- 			dev_warn(&adapter->pdev->dev,
- 				"failed to set CRB window to %d off 0x%lx\n",
--				window, *off);
-+				window, off);
- 	}
- 	adapter->ahw.crb_win = window;
--
--done:
--	*off = (*off & MASK(16)) + CRB_INDIRECT_2M +
--		(ulong)adapter->ahw.pci_base0;
- }
- 
- static int
-@@ -1217,11 +1209,12 @@ netxen_nic_hw_write_wx_2M(struct netxen_adapter *adapter, ulong off, u32 data)
- {
- 	unsigned long flags;
- 	int rv;
-+	void __iomem *addr = NULL;
- 
--	rv = netxen_nic_pci_get_crb_addr_2M(adapter, &off);
-+	rv = netxen_nic_pci_get_crb_addr_2M(adapter, off, &addr);
- 
- 	if (rv == 0) {
--		writel(data, (void __iomem *)off);
-+		writel(data, addr);
- 		return 0;
- 	}
- 
-@@ -1229,8 +1222,8 @@ netxen_nic_hw_write_wx_2M(struct netxen_adapter *adapter, ulong off, u32 data)
- 		/* indirect access */
- 		write_lock_irqsave(&adapter->ahw.crb_lock, flags);
- 		crb_win_lock(adapter);
--		netxen_nic_pci_set_crbwindow_2M(adapter, &off);
--		writel(data, (void __iomem *)off);
-+		netxen_nic_pci_set_crbwindow_2M(adapter, off);
-+		writel(data, addr);
- 		crb_win_unlock(adapter);
- 		write_unlock_irqrestore(&adapter->ahw.crb_lock, flags);
- 		return 0;
-@@ -1248,18 +1241,19 @@ netxen_nic_hw_read_wx_2M(struct netxen_adapter *adapter, ulong off)
- 	unsigned long flags;
- 	int rv;
- 	u32 data;
-+	void __iomem *addr = NULL;
- 
--	rv = netxen_nic_pci_get_crb_addr_2M(adapter, &off);
-+	rv = netxen_nic_pci_get_crb_addr_2M(adapter, off, &addr);
- 
- 	if (rv == 0)
--		return readl((void __iomem *)off);
-+		return readl(addr);
- 
- 	if (rv > 0) {
- 		/* indirect access */
- 		write_lock_irqsave(&adapter->ahw.crb_lock, flags);
- 		crb_win_lock(adapter);
--		netxen_nic_pci_set_crbwindow_2M(adapter, &off);
--		data = readl((void __iomem *)off);
-+		netxen_nic_pci_set_crbwindow_2M(adapter, off);
-+		data = readl(addr);
- 		crb_win_unlock(adapter);
- 		write_unlock_irqrestore(&adapter->ahw.crb_lock, flags);
- 		return data;
-@@ -1307,17 +1301,20 @@ static u32 netxen_nic_io_read_2M(struct netxen_adapter *adapter,
- void __iomem *
- netxen_get_ioaddr(struct netxen_adapter *adapter, u32 offset)
- {
--	ulong off = offset;
-+	void __iomem *addr = NULL;
- 
- 	if (NX_IS_REVISION_P2(adapter->ahw.revision_id)) {
--		if (offset < NETXEN_CRB_PCIX_HOST2 &&
--				offset > NETXEN_CRB_PCIX_HOST)
--			return PCI_OFFSET_SECOND_RANGE(adapter, offset);
--		return NETXEN_CRB_NORMALIZE(adapter, offset);
-+		if ((offset < NETXEN_CRB_PCIX_HOST2) &&
-+				(offset > NETXEN_CRB_PCIX_HOST))
-+			addr = PCI_OFFSET_SECOND_RANGE(adapter, offset);
-+		else
-+			addr = NETXEN_CRB_NORMALIZE(adapter, offset);
-+	} else {
-+		WARN_ON(netxen_nic_pci_get_crb_addr_2M(adapter,
-+					offset, &addr));
- 	}
- 
--	BUG_ON(netxen_nic_pci_get_crb_addr_2M(adapter, &off));
--	return (void __iomem *)off;
-+	return addr;
- }
- 
- static int
--- 
-1.6.0.2
+>If it is subject to copyright - which apparently they think it is - then
+>when redistributing under GPL we must be able to provide the 'preferred
+>form for modification'.  So that leads to the question, is this blob or
+>hex file the preferred form?
+
+
+(1)The CIS contains data only,
+    does not contain the code to be executed.
+(2)Sierra Wireless provided the binary of the CIS only.
+(3)These CIS are stable and does not need to be modified.
+(3)The content of the CIS can be seen by the dump_cis utility.
+
+So if someone want to modify the CIS , I think it is OK
+to use hex editor.
+
+Best Regards
+Ken
 
