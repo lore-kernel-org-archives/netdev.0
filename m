@@ -1,99 +1,144 @@
-From: Gilad Ben-Yossef <gilad@codefidence.com>
-Subject: Re: [PATCH v2 8/8] Document future removal of sysctl_tcp_* options
-Date: Sun, 25 Oct 2009 11:09:49 +0200
-Message-ID: <4AE415DD.5050406@codefidence.com>
-References: <1256115421-12714-1-git-send-email-gilad@codefidence.com>	<1256115421-12714-9-git-send-email-gilad@codefidence.com>	<4ADED6FA.2030502@gmail.com>	<4ADEE119.7020803@codefidence.com>	<4ADF616B.1090405@gmail.com> <20091022003245.5cd4885c.billfink@mindspring.com> <4ADFE635.4020109@gmail.com>
+From: Mike McCormack <mikem@ring3k.org>
+Subject: [PATCH] sky2: Refactor sky2_get_regs into two functions
+Date: Sun, 25 Oct 2009 18:42:32 +0900
+Message-ID: <4AE41D88.4000100@ring3k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Bill Fink <billfink@mindspring.com>,
-	William Allen Simpson <william.allen.simpson@gmail.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenbox.codefidence.com ([92.48.73.16]:57024 "EHLO
-	xenbox.codefidence.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750895AbZJYJJt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Oct 2009 05:09:49 -0400
-In-Reply-To: <4ADFE635.4020109@gmail.com>
+Received: from mail-px0-f179.google.com ([209.85.216.179]:36043 "EHLO
+	mail-px0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753140AbZJYJno (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Oct 2009 05:43:44 -0400
+Received: by pxi9 with SMTP id 9so639726pxi.4
+        for <netdev@vger.kernel.org>; Sun, 25 Oct 2009 02:43:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Separate code deciding which registers can be accessed out of sky2_get_regs.
 
+Signed-off-by: Mike McCormack <mikem@ring3k.org>
+---
+ drivers/net/sky2.c |   94 ++++++++++++++++++++++++++-------------------------
+ 1 files changed, 48 insertions(+), 46 deletions(-)
 
-Eric Dumazet wrote:
-
-> Bill Fink a =E9crit :
->
->  =20
->> And as mentioned previously, the global options can be quite useful
->> in certain test scenarios.  I also agree the per route settings are
->> a very useful addition.  I think the global and per route settings
->> are complementary and shouldn't be thought of as in conflict with
->> one another.
->>    =20
-> Absolutely, global setting is a must when an admin wants a quick path=
-=2E
->
-> The more flexible would be to have two bits per route, plus
-> 2 bits on the global configuration.
->
-> global conf:
-> 00 : timestamps OFF, unless a route setting is not 00
-> 01 : timestamps ON, unless a route setting is not 00
-> 10 : Force timestamps OFF, ignore route settings (emergency sysadmin =
-request)
-> 11 : Force timestamps ON, ignore route settings=20
->
-> Route settings (used *only* if global setting is 0Y)
-> 00 : global conf is used
-> 01 : Force timestamps being OFF for this route
-> 10 : Force timestamps being ON for this route
-> 11 : complement global conf
-> --
->  =20
-
-Hey, I have no issue to re-spin the patch with this suggestion, if you=20
-truly think this is valuable, but would you please consider the=20
-nightmare of having to just explain this to someone?
-
-It sounds to me way too complicated for what it does.
-
-I still think having a global kill switch and per route options better=20
-(basically use the exiting patch but not retire the global kill=20
-switch|), but if you must Hgow about we leave the global sysctl as they=
-=20
-are and just have a two bit route option:
-
-0 Use global default
-1 Off
-2 On
-
-It's kind of funny, because this is what the original patch from=20
-Comsleep does and I thought it needlessly complicates things.
-
-So, what do you say - which will it be?
-
-Gilad
-
-
---=20
-Gilad Ben-Yossef
-Chief Coffee Drinker & CTO
-Codefidence Ltd.
-
-Web:   http://codefidence.com
-Cell:  +972-52-8260388
-Skype: gilad_codefidence
-Tel:   +972-8-9316883 ext. 201
-=46ax:   +972-8-9316884
-Email: gilad@codefidence.com
-
-Check out our Open Source technology and training blog - http://tuxolog=
-y.net
-
-	"Sorry cannot parse this, its too long to be true  :)"
-	  -- Eric Dumazet on netdev mailing list
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index 2ab5c39..9713527 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -3730,6 +3730,50 @@ static int sky2_get_regs_len(struct net_device *dev)
+ 	return 0x4000;
+ }
+ 
++static int sky2_reg_access_ok(struct sky2_hw *hw, unsigned int b)
++{
++	/* This complicated switch statement is to make sure and
++	 * only access regions that are unreserved.
++	 * Some blocks are only valid on dual port cards.
++	 */
++	switch (b) {
++	/* second port */
++	case 5:		/* Tx Arbiter 2 */
++	case 9:		/* RX2 */
++	case 14 ... 15:	/* TX2 */
++	case 17: case 19: /* Ram Buffer 2 */
++	case 22 ... 23: /* Tx Ram Buffer 2 */
++	case 25:	/* Rx MAC Fifo 1 */
++	case 27:	/* Tx MAC Fifo 2 */
++	case 31:	/* GPHY 2 */
++	case 40 ... 47: /* Pattern Ram 2 */
++	case 52: case 54: /* TCP Segmentation 2 */
++	case 112 ... 116: /* GMAC 2 */
++		return hw->ports > 1;
++
++	case 0:		/* Control */
++	case 2:		/* Mac address */
++	case 4:		/* Tx Arbiter 1 */
++	case 7:		/* PCI express reg */
++	case 8:		/* RX1 */
++	case 12 ... 13: /* TX1 */
++	case 16: case 18:/* Rx Ram Buffer 1 */
++	case 20 ... 21: /* Tx Ram Buffer 1 */
++	case 24:	/* Rx MAC Fifo 1 */
++	case 26:	/* Tx MAC Fifo 1 */
++	case 28 ... 29: /* Descriptor and status unit */
++	case 30:	/* GPHY 1*/
++	case 32 ... 39: /* Pattern Ram 1 */
++	case 48: case 50: /* TCP Segmentation 1 */
++	case 56 ... 60:	/* PCI space */
++	case 80 ... 84:	/* GMAC 1 */
++		return 1;
++
++	default:
++		return 0;
++	}
++}
++
+ /*
+  * Returns copy of control register region
+  * Note: ethtool_get_regs always provides full size (16k) buffer
+@@ -3744,55 +3788,13 @@ static void sky2_get_regs(struct net_device *dev, struct ethtool_regs *regs,
+ 	regs->version = 1;
+ 
+ 	for (b = 0; b < 128; b++) {
+-		/* This complicated switch statement is to make sure and
+-		 * only access regions that are unreserved.
+-		 * Some blocks are only valid on dual port cards.
+-		 * and block 3 has some special diagnostic registers that
+-		 * are poison.
+-		 */
+-		switch (b) {
+-		case 3:
+-			/* skip diagnostic ram region */
++		/* skip poisonous diagnostic ram region in block 3 */
++		if (b == 3)
+ 			memcpy_fromio(p + 0x10, io + 0x10, 128 - 0x10);
+-			break;
+-
+-		/* dual port cards only */
+-		case 5:		/* Tx Arbiter 2 */
+-		case 9: 	/* RX2 */
+-		case 14 ... 15:	/* TX2 */
+-		case 17: case 19: /* Ram Buffer 2 */
+-		case 22 ... 23: /* Tx Ram Buffer 2 */
+-		case 25: 	/* Rx MAC Fifo 1 */
+-		case 27: 	/* Tx MAC Fifo 2 */
+-		case 31:	/* GPHY 2 */
+-		case 40 ... 47: /* Pattern Ram 2 */
+-		case 52: case 54: /* TCP Segmentation 2 */
+-		case 112 ... 116: /* GMAC 2 */
+-			if (sky2->hw->ports == 1)
+-				goto reserved;
+-			/* fall through */
+-		case 0:		/* Control */
+-		case 2:		/* Mac address */
+-		case 4:		/* Tx Arbiter 1 */
+-		case 7:		/* PCI express reg */
+-		case 8:		/* RX1 */
+-		case 12 ... 13: /* TX1 */
+-		case 16: case 18:/* Rx Ram Buffer 1 */
+-		case 20 ... 21: /* Tx Ram Buffer 1 */
+-		case 24: 	/* Rx MAC Fifo 1 */
+-		case 26: 	/* Tx MAC Fifo 1 */
+-		case 28 ... 29: /* Descriptor and status unit */
+-		case 30:	/* GPHY 1*/
+-		case 32 ... 39: /* Pattern Ram 1 */
+-		case 48: case 50: /* TCP Segmentation 1 */
+-		case 56 ... 60:	/* PCI space */
+-		case 80 ... 84:	/* GMAC 1 */
++		else if (sky2_reg_access_ok(sky2->hw, b))
+ 			memcpy_fromio(p, io, 128);
+-			break;
+-		default:
+-reserved:
++		else
+ 			memset(p, 0, 128);
+-		}
+ 
+ 		p += 128;
+ 		io += 128;
+-- 
+1.5.6.5
 
