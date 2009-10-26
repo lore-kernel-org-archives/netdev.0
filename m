@@ -1,35 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 1/7] gianfar: Add per queue structure support
-Date: Mon, 26 Oct 2009 16:07:23 -0700 (PDT)
-Message-ID: <20091026.160723.40116800.davem@davemloft.net>
-References: <1256574433500-git-send-email-sandeep.kumar@freescale.com>
+Subject: Re: [net-2.6 PATCH 1/3] igb: fix memory leak when setting ring
+ size while interface is down
+Date: Mon, 26 Oct 2009 16:09:14 -0700 (PDT)
+Message-ID: <20091026.160914.44259149.davem@davemloft.net>
+References: <20091026213147.9993.9778.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sandeep.kumar@freescale.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	alexander.h.duyck@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55303
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55305
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753987AbZJZXHA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 19:07:00 -0400
-In-Reply-To: <1256574433500-git-send-email-sandeep.kumar@freescale.com>
+	by vger.kernel.org with ESMTP id S1754286AbZJZXIv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 19:08:51 -0400
+In-Reply-To: <20091026213147.9993.9778.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Mon, 26 Oct 2009 14:31:47 -0700
 
-This patch set still doesn't apply cleanly to net-next-2.6,
-in particular patch #4 fails to apply:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> 
+> Changing ring sizes while the interface was down was causing a double
+> allocation of the receive and transmit rings.  This issue is amplified when
+> there are multiple rings enabled.  To prevent this we need to add an
+> additional check which will just update the ring counts when the interface
+> is not up and skip the allocation steps.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Applying: fsl_pq_mdio: Add Suport for etsec2.0 devices.
-error: patch failed: drivers/net/fsl_pq_mdio.c:405
-error: drivers/net/fsl_pq_mdio.c: patch does not apply
-Patch failed at 0004 fsl_pq_mdio: Add Suport for etsec2.0 devices.
-When you have resolved this problem run "git am --resolved".
-If you would prefer to skip this patch, instead run "git am --skip".
-To restore the original branch and stop patching run "git am --abort".
-
-Please respin this, and also please CC: on all of your patch
-postings as that helps me sort things.
-
-Thanks.
+Applied.
