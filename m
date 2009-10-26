@@ -1,81 +1,75 @@
 From: Gilad Ben-Yossef <gilad@codefidence.com>
-Subject: [PATCH v3 4/7] Add the no SACK route option feature
-Date: Mon, 26 Oct 2009 10:06:30 +0200
-Message-ID: <1256544393-12450-5-git-send-email-gilad@codefidence.com>
+Subject: [PATCH v3 7/7] Allow disabling of DSACK TCP option per route
+Date: Mon, 26 Oct 2009 10:06:33 +0200
+Message-ID: <1256544393-12450-8-git-send-email-gilad@codefidence.com>
 References: <1256544393-12450-1-git-send-email-gilad@codefidence.com>
 Cc: ori@comsleep.com, Gilad Ben-Yossef <gilad@codefidence.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenbox.codefidence.com ([92.48.73.16]:47189 "EHLO
+Received: from xenbox.codefidence.com ([92.48.73.16]:47197 "EHLO
 	xenbox.codefidence.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755210AbZJZIGj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 04:06:39 -0400
+	with ESMTP id S1755214AbZJZIGo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 04:06:44 -0400
 In-Reply-To: <1256544393-12450-1-git-send-email-gilad@codefidence.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement querying and acting upon the no sack bit in the features
-field.
+Add and use no DSCAK bit in the features field.
 
 Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
 Sigend-off-by: Ori Finkelman <ori@comsleep.com>
 Sigend-off-by: Yony Amit <yony@comsleep.com>
 
 ---
- include/linux/rtnetlink.h |    2 +-
- net/ipv4/tcp_input.c      |    3 ++-
- net/ipv4/tcp_output.c     |    4 +++-
- 3 files changed, 6 insertions(+), 3 deletions(-)
+ include/linux/rtnetlink.h |    1 +
+ net/ipv4/tcp_input.c      |    8 ++++++--
+ 2 files changed, 7 insertions(+), 2 deletions(-)
 
 diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index adf2068..9c802a6 100644
+index 6784b34..e78b60c 100644
 --- a/include/linux/rtnetlink.h
 +++ b/include/linux/rtnetlink.h
-@@ -377,7 +377,7 @@ enum
- #define RTAX_MAX (__RTAX_MAX - 1)
- 
- #define RTAX_FEATURE_ECN	0x00000001
--#define RTAX_FEATURE_SACK	0x00000002
-+#define RTAX_FEATURE_NO_SACK	0x00000002
- #define RTAX_FEATURE_TIMESTAMP	0x00000004
+@@ -381,6 +381,7 @@ enum
+ #define RTAX_FEATURE_NO_TSTAMP	0x00000004
  #define RTAX_FEATURE_ALLFRAG	0x00000008
+ #define RTAX_FEATURE_NO_WSCALE	0x00000010
++#define RTAX_FEATURE_NO_DSACK	0x00000020
  
+ struct rta_session
+ {
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index d502f49..b14f780 100644
+index 4f5e914..4262da5 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -3763,7 +3763,8 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
- 				break;
- 			case TCPOPT_SACK_PERM:
- 				if (opsize == TCPOLEN_SACK_PERM && th->syn &&
--				    !estab && sysctl_tcp_sack) {
-+				    !estab && sysctl_tcp_sack &&
-+				    !dst_feature(dst, RTAX_FEATURE_NO_SACK)) {
- 					opt_rx->sack_ok = 1;
- 					tcp_sack_reset(opt_rx);
- 				}
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index fcd278a..64db8dd 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -464,6 +464,7 @@ static unsigned tcp_syn_options(struct sock *sk, struct sk_buff *skb,
- 				struct tcp_md5sig_key **md5) {
+@@ -4080,8 +4080,10 @@ static inline int tcp_sack_extend(struct tcp_sack_block *sp, u32 seq,
+ static void tcp_dsack_set(struct sock *sk, u32 seq, u32 end_seq)
+ {
  	struct tcp_sock *tp = tcp_sk(sk);
- 	unsigned size = 0;
 +	struct dst_entry *dst = __sk_dst_get(sk);
  
- #ifdef CONFIG_TCP_MD5SIG
- 	*md5 = tp->af_specific->md5_lookup(sk, sk);
-@@ -498,7 +499,8 @@ static unsigned tcp_syn_options(struct sock *sk, struct sk_buff *skb,
- 		opts->options |= OPTION_WSCALE;
- 		size += TCPOLEN_WSCALE_ALIGNED;
- 	}
--	if (likely(sysctl_tcp_sack)) {
-+	if (likely(sysctl_tcp_sack &&
-+		   !dst_feature(dst, RTAX_FEATURE_NO_SACK))) {
- 		opts->options |= OPTION_SACK_ADVERTISE;
- 		if (unlikely(!(OPTION_TS & opts->options)))
- 			size += TCPOLEN_SACKPERM_ALIGNED;
+-	if (tcp_is_sack(tp) && sysctl_tcp_dsack) {
++	if (tcp_is_sack(tp) && sysctl_tcp_dsack &&
++	    !dst_feature(dst, RTAX_FEATURE_NO_DSACK)) {
+ 		int mib_idx;
+ 
+ 		if (before(seq, tp->rcv_nxt))
+@@ -4110,13 +4112,15 @@ static void tcp_dsack_extend(struct sock *sk, u32 seq, u32 end_seq)
+ static void tcp_send_dupack(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
++	struct dst_entry *dst = __sk_dst_get(sk);
+ 
+ 	if (TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq &&
+ 	    before(TCP_SKB_CB(skb)->seq, tp->rcv_nxt)) {
+ 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_DELAYEDACKLOST);
+ 		tcp_enter_quickack_mode(sk);
+ 
+-		if (tcp_is_sack(tp) && sysctl_tcp_dsack) {
++		if (tcp_is_sack(tp) && sysctl_tcp_dsack &&
++		    !dst_feature(dst, RTAX_FEATURE_NO_DSACK)) {
+ 			u32 end_seq = TCP_SKB_CB(skb)->end_seq;
+ 
+ 			if (after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt))
 -- 
 1.5.6.3
 
