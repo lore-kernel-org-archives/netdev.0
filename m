@@ -1,382 +1,113 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH next-next-2.6] netdev: better dev_name_hash
-Date: Sun, 25 Oct 2009 23:30:16 -0700
-Message-ID: <20091025233016.6860d9c7@nehalam>
-References: <200910252158.53921.opurdila@ixiacom.com>
-	<4AE4C1FA.7000002@gmail.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 1/4] Adds random ect generation to tfrc-sp sender side
+Date: Mon, 26 Oct 2009 07:55:07 +0100
+Message-ID: <20091026065507.GA5198@gerrit.erg.abdn.ac.uk>
+References: <4AD4B6B2.1020502@embedded.ufcg.edu.br> <4AD4B790.9000701@embedded.ufcg.edu.br> <20091019052313.GC3366@gerrit.erg.abdn.ac.uk> <425e6efa0910210449r1a10fb2cvf7650ad470d987aa@mail.gmail.com> <cb00fa210910210615v409d09c6p34cd6a48c48196f5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="MP_/hg0Dt9_Qt0xlGk=qq5xcQ6j"
-Cc: Octavian Purdila <opurdila@ixiacom.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dccp <dccp@vger.kernel.org>, netdev <netdev@vger.kernel.org>
+To: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:47384 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754417AbZJZGaU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Oct 2009 02:30:20 -0400
-In-Reply-To: <4AE4C1FA.7000002@gmail.com>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:50852 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754549AbZJZGzT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Oct 2009 02:55:19 -0400
+Content-Disposition: inline
+In-Reply-To: <cb00fa210910210615v409d09c6p34cd6a48c48196f5@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---MP_/hg0Dt9_Qt0xlGk=qq5xcQ6j
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+| > =A0 =A0That is, at the moment both the sender and receiver side of =
+the ECN Nonce
+| > =A0 =A0sum verification are placeholders which currently have no ef=
+fect.
+| >
+|=20
+| Okay, then the implementation would be useless now.
+I was not suggesting to throw away the patches, we can keep them for
+later use.
 
-I overkilled this with more functions and compared filenames as well.
+They are a good starting basis once it makes sense to work with ECN.
+Or how can we test ECN if we are not sure that the other parts work
+as they are supposed to?
+
+| > =A03) Starting an implementation throws up further questions that n=
+eed to
+| > =A0 =A0be addressed, both the basis and the extension need to be ve=
+rified.
+| >
+| > I would like to suggest to implement the basis, that is CCID-4 with=
+ ECN
+| > (using plain ECT(0)), test with that until it works satisfactorily,=
+ and
+| > then continue adding measures such as the ECN Nonce verification.
+| >
+|=20
+| Okay. But, when would be good to at least include random ECT
+| generation? When DCCP ECN code will get fixed? Is there any work on
+| this?
+|=20
+I asked this on netdev earlier, there was not much enthusiasm.
+
+The issue is that ECN belongs both to the network and the transport lay=
+er.
+This network layer is in inet_ecn.h, outside of DCCP.
+
+I believe that the changes would not be too hard to do, by changing the
+macros. But it requires working with the people on netdev, in particula=
+r
+to ensure it does not break something in the TCP/SCTP subsystems (both
+also use ECN, and then there are also raw sockets).
+
+I also have an interest in resolving this, due to the ugliness at the
+moment for enabling ECN on IPv6.
+
+RFC 2884, written by one of the Linux ECN developers, describes early
+IPv4 ECN evaluation. It seems that initially it was planned to only=20
+support ECN over Ipv4, parts of the code may be still from that time.
+
+We can pursue this in parallel to the other issues. Ideally this would =
+be
+resolved at the time the other parts of CCID-4 are ready for testing.
+
+| > In summary, I would like to suggest to remove the ECN verification =
+for
+| > the moment and focus on the "basic" issues first.
+| >
+| > Would you be ok with that?
+| >
+|=20
+| Yes, we'll keep the ECN verification code here at our git until the
+| scenario is ready.
+|=20
+I was going to suggest to put them onto a webpage, such as yours, or on=
+=20
+www.erg.abdn.ac.uk/users/gerrit/dccp there is also still some space.
+
+Can you please elaborate how to keep your git tree and the one on
+eden-feed synchronized? At the moment I have not made any changes other
+than the ones I emailed you about. Is there a way of keeping both trees
+in synch without running into versioning difficulties?
+
+(The simplest way I can think of is to keep the patches in a separate
+ set, or to spawn a subtree which contains the ECN patches on top of th=
+e
+ CCID-4 tree.)
 
 
-genarated names (dummyNNNN)
-Algorithm             Time (us)     Ratio       Max   StdDev
-kr_hash                  277925   152408.6   468448 543.19
-string_hash31            329356     5859.4    16042  44.18
-SuperFastHash            324570     4885.9    10502   2.29
-djb2                     327908     5608.5    15210  38.08
-string_hash17            326769     4883.6     9896   0.76
-full_name_hash           343196    63921.0   140628 343.62
-jhash_string             463801     4883.8    10085   1.02
-sdbm                     398587     9801.7    29634  99.18
+| > (Also for later) I wonder how to do the sums, with RFC 3168
+| > ECT(0) =3D 0x2 =3D> !0x2 =3D 0
+| > ECT(1) =3D 0x1 =3D> !0x1 =3D 0
+| >
+|=20
+| I don't understand. Can you try to explain it? Or cite RFC section
+| that address it?
+=20
+The values are from figure 1, page 7, the expressions evaluate both as =
+0:
 
-filesystem names
-Algorithm             Time (us)     Ratio       Max   StdDev
-kr_hash                  278840   152314.9   468717 543.01
-string_hash31            331206     5802.1    16004  42.87
-SuperFastHash            325938     4887.5    13528   2.88
-djb2                     330621     5607.1    15333  38.05
-string_hash17            331181     4884.9    13274   1.78
-full_name_hash           347312    63972.2   141336 343.77
-jhash_string             466799     4885.2    13275   1.92
-sdbm                     403691     9771.7    29629  98.88
-
-Ratio is the average number of buckets examined when scanning
-the whole set of names.
-
-
-1) Increased hash buckets to 1024 which seems reasonable if we are
-   going to test that many names.
-2) Increased name size to 256 so that longer filenames could be
-   checked and name blocks were not in same cache line
-
-* SuperFastHash is too big to put inline
-
-
---MP_/hg0Dt9_Qt0xlGk=qq5xcQ6j
-Content-Type: text/x-c++src; name=hashtest.c
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename=hashtest.c
-
-#include <stdio.h>
-#include <stdint.h>
-#include <malloc.h>
-#include <sys/types.h>
-#include <sys/time.h>
-#include <string.h>
-#include <stdlib.h>
-#include <math.h>
-
-static unsigned int
-kr_hash(const unsigned char *str, unsigned int len)
+void main(void)
 {
-	unsigned int hash = 0;
-
-        while (len--)
-	    hash += *str++;
-
-	return hash;
+	printf("!0x2 =3D %d, !0x1 =3D %d\n", !0x2, !0x1);
 }
-
-static unsigned int
-sdbm(const unsigned char *name, unsigned int len)
-{
-        unsigned long hash = 0;
-
-        while (len--)
-            hash = *name++ + (hash << 6) + (hash << 16) - hash;
-
-        return hash;
-}
-
-#define init_name_hash()                0
-
-/* partial hash update function. Assume roughly 4 bits per character */
-static inline unsigned long
-partial_name_hash(unsigned long c, unsigned long prevhash)
-{
-        return (prevhash + (c << 4) + (c >> 4)) * 11;
-}
-
-/* Compute the hash for a name string. */
-static unsigned int
-full_name_hash(const unsigned char *name, unsigned int len)
-{
-        unsigned long hash = 0;
-        while (len--)
-                hash = partial_name_hash(*name++, hash);
-        return hash;
-}
-
-static unsigned int
-djb2(const unsigned char *str, unsigned int len)
-{
-	unsigned long hash = 5381;
-
-        while (len--)
-		hash = ((hash << 5) + hash) + *str++; /* hash * 33 + c */
-
-        return hash;
-}
-
-static unsigned int
-string_hash31(const unsigned char *name, unsigned int len)
-{
-        unsigned hash = 0;
-        int i;
-
-        for (i = 0; i < len; ++i)
-                hash = 31 * hash + name[i];
-        return hash;
-}
-
-static unsigned int
-string_hash17(const unsigned char *name, unsigned int len)
-{
-        unsigned hash = 0;
-        int i;
-
-        for (i = 0; i < len; ++i)
-                hash = 17 * hash + name[i];
-        return hash;
-}
-
-/* will need to change to unaligned_access() */
-static inline uint16_t get16bits(const unsigned char *data)
-{
-	return *(uint16_t *) data;
-}
-
-static inline unsigned int
-SuperFastHash (const unsigned char * data, unsigned int len)
-{
-	uint32_t hash = len, tmp;
-	int rem;
-
-	rem = len & 3;
-	len >>= 2;
-
-	/* Main loop */
-	for (;len > 0; len--) {
-		hash  += get16bits (data);
-		tmp    = (get16bits (data+2) << 11) ^ hash;
-		hash   = (hash << 16) ^ tmp;
-		data  += 2*sizeof (uint16_t);
-		hash  += hash >> 11;
-	}
-
-	/* Handle end cases */
-	switch (rem) {
-        case 3: hash += get16bits (data);
-                hash ^= hash << 16;
-                hash ^= data[sizeof (uint16_t)] << 18;
-                hash += hash >> 11;
-                break;
-        case 2: hash += get16bits (data);
-                hash ^= hash << 11;
-                hash += hash >> 17;
-                break;
-        case 1: hash += *data;
-                hash ^= hash << 10;
-                hash += hash >> 1;
-	}
-
-	/* Force "avalanching" of final 127 bits */
-	hash ^= hash << 3;
-	hash += hash >> 5;
-	hash ^= hash << 4;
-	hash += hash >> 17;
-	hash ^= hash << 25;
-	hash += hash >> 6;
-
-	return hash;
-}
-
-
-/* NOTE: Arguments are modified. */
-#define __jhash_mix(a, b, c) \
-{ \
-  a -= b; a -= c; a ^= (c>>13); \
-  b -= c; b -= a; b ^= (a<<8); \
-  c -= a; c -= b; c ^= (b>>13); \
-  a -= b; a -= c; a ^= (c>>12);  \
-  b -= c; b -= a; b ^= (a<<16); \
-  c -= a; c -= b; c ^= (b>>5); \
-  a -= b; a -= c; a ^= (c>>3);  \
-  b -= c; b -= a; b ^= (a<<10); \
-  c -= a; c -= b; c ^= (b>>15); \
-}
-
-/* The golden ration: an arbitrary value */
-#define JHASH_GOLDEN_RATIO	0x9e3779b9
-
-/* The most generic version, hashes an arbitrary sequence
- * of bytes.  No alignment or length assumptions are made about
- * the input key.
- */
-static inline uint32_t jhash(const void *key, uint32_t length, uint32_t initval)
-{
-	uint32_t a, b, c, len;
-	const uint8_t *k = key;
-
-	len = length;
-	a = b = JHASH_GOLDEN_RATIO;
-	c = initval;
-
-	while (len >= 12) {
-		a += (k[0] +((uint32_t)k[1]<<8) +((uint32_t)k[2]<<16) +((uint32_t)k[3]<<24));
-		b += (k[4] +((uint32_t)k[5]<<8) +((uint32_t)k[6]<<16) +((uint32_t)k[7]<<24));
-		c += (k[8] +((uint32_t)k[9]<<8) +((uint32_t)k[10]<<16)+((uint32_t)k[11]<<24));
-
-		__jhash_mix(a,b,c);
-
-		k += 12;
-		len -= 12;
-	}
-
-	c += length;
-	switch (len) {
-	case 11: c += ((uint32_t)k[10]<<24);
-	case 10: c += ((uint32_t)k[9]<<16);
-	case 9 : c += ((uint32_t)k[8]<<8);
-	case 8 : b += ((uint32_t)k[7]<<24);
-	case 7 : b += ((uint32_t)k[6]<<16);
-	case 6 : b += ((uint32_t)k[5]<<8);
-	case 5 : b += k[4];
-	case 4 : a += ((uint32_t)k[3]<<24);
-	case 3 : a += ((uint32_t)k[2]<<16);
-	case 2 : a += ((uint32_t)k[1]<<8);
-	case 1 : a += k[0];
-	};
-
-	__jhash_mix(a,b,c);
-
-	return c;
-}
-
-static unsigned int
-jhash_string(const unsigned char *name, unsigned int len)
-{
-	return jhash(name, len, 0);
-}
-
-#define TESTSIZE	10000000ul
-#define HASHBITS	10
-#define HASHSZ		(1<<HASHBITS)
-#define HASHMSK		(HASHSZ-1)
-#define IFNAMSIZ	256
-
-static char *names[TESTSIZE];
-
-static void generate_names(void)
-{
-	unsigned int i;
-	char *buf = malloc(TESTSIZE * IFNAMSIZ);
-
-	printf("\ngenarated names (dummyNNNN)\n");
-	for (i = 0; i < TESTSIZE; i++) {
-		snprintf(buf, IFNAMSIZ, "dummy%d", i);
-		names[i] = buf;
-		buf += IFNAMSIZ;
-	}
-}
-
-static inline void measure(const char *name,  
-			   unsigned int (*hash)(const unsigned char *, unsigned int))
-{
-	unsigned int i;
-	struct timeval t0, t1;
-	unsigned int dist[HASHSZ] = { 0 };
-	unsigned long long ratio = 0;
-	long us;
-	unsigned long m = 0;
-	const double avg = TESTSIZE / HASHSZ;
-	double std = 0;
-
-	gettimeofday(&t0, NULL);
-	
-	for (i = 0; i < TESTSIZE; i++) {
-		const unsigned char *str = (const unsigned char *) names[i];
-		unsigned int h = hash(str, strlen(names[i]));
-		++dist[h & HASHMSK];
-	}
-
-	gettimeofday(&t1, NULL);
-	us = (t1.tv_sec - t0.tv_sec) * 1000000;
-	us += (t1.tv_usec - t0.tv_usec);
-
-	for (i = 0; i < HASHSZ; i++) {
-		unsigned int n = dist[i];
-		unsigned long long s;
-		double delta = (n - avg);
-
-		s = n;
-		s *= (1 + n);
-		ratio += s / 2;
-		if (n > m) m = n;
-		
-		std += delta * delta;
-	}
-
-	printf("%-20s %10ld %10.1f %8ld %6.2f\n", name, us, 
-	       (double) ratio / (double)TESTSIZE, m, sqrt(std / TESTSIZE));
-
-}
-#define MEASURE(func)	measure(#func, &func)
-
-
-static void filesystem_names(void)
-{
-	FILE *f = fopen("/tmp/names", "r");
-	if (!f) { perror("/tmp/names"); exit(1); }
-	unsigned int i = 0;
-	char line[IFNAMSIZ];
-
-	printf("\nfilesystem names\n");
-	while (fgets(line, sizeof line, f) != NULL) {
-		strncpy(names[i], line, IFNAMSIZ);
-		if (++i == TESTSIZE)
-			break;
-	}
-	fclose(f);
-
-}
-
-
-int main()
-{
-
-	generate_names();
-
-	printf("Algorithm             Time (us)     Ratio       Max   StdDev\n");
-	MEASURE(kr_hash);
-	MEASURE(string_hash31);
-	MEASURE(SuperFastHash);
-	MEASURE(djb2);
-	MEASURE(string_hash17);
-	MEASURE(full_name_hash);
-	MEASURE(jhash_string);
-	MEASURE(sdbm);
-
-	filesystem_names();
-
-	printf("Algorithm             Time (us)     Ratio       Max   StdDev\n");
-	MEASURE(kr_hash);
-	MEASURE(string_hash31);
-	MEASURE(SuperFastHash);
-	MEASURE(djb2);
-	MEASURE(string_hash17);
-	MEASURE(full_name_hash);
-	MEASURE(jhash_string);
-	MEASURE(sdbm);
-
-        return 0;
-}
-
---MP_/hg0Dt9_Qt0xlGk=qq5xcQ6j--
