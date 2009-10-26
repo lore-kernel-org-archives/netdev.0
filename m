@@ -1,522 +1,129 @@
 From: Sandeep Gopalpet <sandeep.kumar@freescale.com>
-Subject: [PATCH v1 7/7] gianfar: Basic Support for programming hash rules
-Date: Mon, 26 Oct 2009 21:57:54 +0530
-Message-ID: <12565744741359-git-send-email-sandeep.kumar@freescale.com>
+Subject: [PATCH v1 5/7] gianfar: Add support etsec2.0 registers.
+Date: Mon, 26 Oct 2009 21:57:42 +0530
+Message-ID: <12565744621835-git-send-email-sandeep.kumar@freescale.com>
 Cc: Sandeep Gopalpet <sandeep.kumar@freescale.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:46367 "EHLO
+Received: from az33egw02.freescale.net ([192.88.158.103]:46325 "EHLO
 	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752425AbZJZO5r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 10:57:47 -0400
+	with ESMTP id S1752299AbZJZO5g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 10:57:36 -0400
 Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
-	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n9QEvp2r020863
-	for <netdev@vger.kernel.org>; Mon, 26 Oct 2009 07:57:52 -0700 (MST)
+	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n9QEvdEF020798
+	for <netdev@vger.kernel.org>; Mon, 26 Oct 2009 07:57:41 -0700 (MST)
 Received: from udp153986uds.ap.freescale.net (udp153986uds.ap.freescale.net [10.232.134.194])
-	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id n9QF0c2R009194
-	for <netdev@vger.kernel.org>; Mon, 26 Oct 2009 10:00:41 -0500 (CDT)
+	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id n9QF0QXT009113
+	for <netdev@vger.kernel.org>; Mon, 26 Oct 2009 10:00:29 -0500 (CDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch provides basic hash rules programming via the ethtool
-interface.
+This patch adds support for etsec2.0 regsiters
 
 Signed-off-by: Sandeep Gopalpet <sandeep.kumar@freescale.com>
 ---
- drivers/net/gianfar.c         |   73 +++++++++++++
- drivers/net/gianfar.h         |   93 ++++++++++++++++
- drivers/net/gianfar_ethtool.c |  236 +++++++++++++++++++++++++++++++++++++++++
- include/linux/ethtool.h       |    2 +
- 4 files changed, 404 insertions(+), 0 deletions(-)
+ drivers/net/gianfar.h |   55 +++++++++++++++++++++++++++++++++++++++---------
+ 1 files changed, 44 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index a60e05f..c9179d7 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -416,6 +416,9 @@ static const struct net_device_ops gfar_netdev_ops = {
- #endif
- };
- 
-+unsigned int ftp_rqfpr[MAX_FILER_IDX + 1];
-+unsigned int ftp_rqfcr[MAX_FILER_IDX + 1];
-+
- inline void lock_rx_qs(struct gfar_private *priv)
- {
- 	int i = 0x0;
-@@ -751,6 +754,73 @@ static unsigned int reverse_bitmap(unsigned int bit_map, unsigned int max_qs)
- 	}
- 	return new_bit_map;
- }
-+
-+u32 cluster_entry_per_class(struct gfar_private *priv, u32 rqfar, u32 class)
-+{
-+	u32 rqfpr = FPR_FILER_MASK;
-+	u32 rqfcr = 0x0;
-+
-+	rqfar--;
-+	rqfcr = RQFCR_CLE | RQFCR_PID_MASK | RQFCR_CMP_EXACT;
-+	ftp_rqfpr[rqfar] = rqfpr;
-+	ftp_rqfcr[rqfar] = rqfcr;
-+	gfar_write_filer(priv, rqfar, rqfcr, rqfpr);
-+
-+	rqfar--;
-+	rqfcr = RQFCR_CMP_NOMATCH;
-+	ftp_rqfpr[rqfar] = rqfpr;
-+	ftp_rqfcr[rqfar] = rqfcr;
-+	gfar_write_filer(priv, rqfar, rqfcr, rqfpr);
-+
-+	rqfar--;
-+	rqfcr = RQFCR_CMP_EXACT | RQFCR_PID_PARSE | RQFCR_CLE | RQFCR_AND;
-+	rqfpr = class;
-+	ftp_rqfcr[rqfar] = rqfcr;
-+	ftp_rqfpr[rqfar] = rqfpr;
-+	gfar_write_filer(priv, rqfar, rqfcr, rqfpr);
-+
-+	rqfar--;
-+	rqfcr = RQFCR_CMP_EXACT | RQFCR_PID_MASK | RQFCR_AND;
-+	rqfpr = class;
-+	ftp_rqfcr[rqfar] = rqfcr;
-+	ftp_rqfpr[rqfar] = rqfpr;
-+	gfar_write_filer(priv, rqfar, rqfcr, rqfpr);
-+
-+	return rqfar;
-+}
-+
-+static void gfar_init_filer_table(struct gfar_private *priv)
-+{
-+	int i = 0x0;
-+	u32 rqfar = MAX_FILER_IDX;
-+	u32 rqfcr = 0x0;
-+	u32 rqfpr = FPR_FILER_MASK;
-+
-+	/* Default rule */
-+	rqfcr = RQFCR_CMP_MATCH;
-+	ftp_rqfcr[rqfar] = rqfcr;
-+	ftp_rqfpr[rqfar] = rqfpr;
-+	gfar_write_filer(priv, rqfar, rqfcr, rqfpr);
-+
-+	rqfar = cluster_entry_per_class(priv, rqfar, RQFPR_IPV6);
-+	rqfar = cluster_entry_per_class(priv, rqfar, RQFPR_IPV6 | RQFPR_UDP);
-+	rqfar = cluster_entry_per_class(priv, rqfar, RQFPR_IPV6 | RQFPR_TCP);
-+	rqfar = cluster_entry_per_class(priv, rqfar, RQFPR_IPV4);
-+	rqfar = cluster_entry_per_class(priv, rqfar, RQFPR_IPV4 | RQFPR_UDP);
-+	rqfar = cluster_entry_per_class(priv, rqfar, RQFPR_IPV4 | RQFPR_TCP);
-+
-+	/* cur_filer_idx indicated the fisrt non-masked rule */
-+	priv->cur_filer_idx = rqfar;
-+
-+	/* Rest are masked rules */
-+	rqfcr = RQFCR_CMP_NOMATCH;
-+	for (i = 0; i < rqfar; i++) {
-+		ftp_rqfcr[i] = rqfcr;
-+		ftp_rqfpr[i] = rqfpr;
-+		gfar_write_filer(priv, i, rqfcr, rqfpr);
-+	}
-+}
-+
- /* Set up the ethernet device structure, private data,
-  * and anything else we need before we start */
- static int gfar_probe(struct of_device *ofdev,
-@@ -990,6 +1060,9 @@ static int gfar_probe(struct of_device *ofdev,
- 			priv->gfargrp[i].int_name_tx[len_devname] = '\0';
- 	}
- 
-+	/* Initialize the filer table */
-+	gfar_init_filer_table(priv);
-+
- 	/* Create all the sysfs files */
- 	gfar_init_sysfs(dev);
- 
 diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
-index a43b238..1c9fdea 100644
+index fc43cfd..70c25ce 100644
 --- a/drivers/net/gianfar.h
 +++ b/drivers/net/gianfar.h
-@@ -381,6 +381,84 @@ extern const char gfar_driver_version[];
- #define BD_LFLAG(flags) ((flags) << 16)
- #define BD_LENGTH_MASK		0x0000ffff
+@@ -566,25 +566,32 @@ struct gfar_stats {
  
-+#define CLASS_CODE_UNRECOG		0x00
-+#define CLASS_CODE_DUMMY1		0x01
-+#define CLASS_CODE_ETHERTYPE1		0x02
-+#define CLASS_CODE_ETHERTYPE2		0x03
-+#define CLASS_CODE_USER_PROG1		0x04
-+#define CLASS_CODE_USER_PROG2		0x05
-+#define CLASS_CODE_USER_PROG3		0x06
-+#define CLASS_CODE_USER_PROG4		0x07
-+#define CLASS_CODE_TCP_IPV4		0x08
-+#define CLASS_CODE_UDP_IPV4		0x09
-+#define CLASS_CODE_AH_ESP_IPV4		0x0a
-+#define CLASS_CODE_SCTP_IPV4		0x0b
-+#define CLASS_CODE_TCP_IPV6		0x0c
-+#define CLASS_CODE_UDP_IPV6		0x0d
-+#define CLASS_CODE_AH_ESP_IPV6		0x0e
-+#define CLASS_CODE_SCTP_IPV6		0x0f
-+
-+#define FPR_FILER_MASK	0xFFFFFFFF
-+#define MAX_FILER_IDX	0xFF
-+
-+/* RQFCR register bits */
-+#define RQFCR_GPI		0x80000000
-+#define RQFCR_HASHTBL_Q		0x00000000
-+#define RQFCR_HASHTBL_0		0x00020000
-+#define RQFCR_HASHTBL_1		0x00040000
-+#define RQFCR_HASHTBL_2		0x00060000
-+#define RQFCR_HASHTBL_3		0x00080000
-+#define RQFCR_HASH		0x00010000
-+#define RQFCR_CLE		0x00000200
-+#define RQFCR_RJE		0x00000100
-+#define RQFCR_AND		0x00000080
-+#define RQFCR_CMP_EXACT		0x00000000
-+#define RQFCR_CMP_MATCH		0x00000020
-+#define RQFCR_CMP_NOEXACT	0x00000040
-+#define RQFCR_CMP_NOMATCH	0x00000060
-+
-+/* RQFCR PID values */
-+#define	RQFCR_PID_MASK		0x00000000
-+#define	RQFCR_PID_PARSE		0x00000001
-+#define	RQFCR_PID_ARB		0x00000002
-+#define	RQFCR_PID_DAH		0x00000003
-+#define	RQFCR_PID_DAL		0x00000004
-+#define	RQFCR_PID_SAH		0x00000005
-+#define	RQFCR_PID_SAL		0x00000006
-+#define	RQFCR_PID_ETY		0x00000007
-+#define	RQFCR_PID_VID		0x00000008
-+#define	RQFCR_PID_PRI		0x00000009
-+#define	RQFCR_PID_TOS		0x0000000A
-+#define	RQFCR_PID_L4P		0x0000000B
-+#define	RQFCR_PID_DIA		0x0000000C
-+#define	RQFCR_PID_SIA		0x0000000D
-+#define	RQFCR_PID_DPT		0x0000000E
-+#define	RQFCR_PID_SPT		0x0000000F
-+
-+/* RQFPR when PID is 0x0001 */
-+#define RQFPR_HDR_GE_512	0x00200000
-+#define RQFPR_LERR		0x00100000
-+#define RQFPR_RAR		0x00080000
-+#define RQFPR_RARQ		0x00040000
-+#define RQFPR_AR		0x00020000
-+#define RQFPR_ARQ		0x00010000
-+#define RQFPR_EBC		0x00008000
-+#define RQFPR_VLN		0x00004000
-+#define RQFPR_CFI		0x00002000
-+#define RQFPR_JUM		0x00001000
-+#define RQFPR_IPF		0x00000800
-+#define RQFPR_FIF		0x00000400
-+#define RQFPR_IPV4		0x00000200
-+#define RQFPR_IPV6		0x00000100
-+#define RQFPR_ICC		0x00000080
-+#define RQFPR_ICV		0x00000040
-+#define RQFPR_TCP		0x00000020
-+#define RQFPR_UDP		0x00000010
-+#define RQFPR_TUC		0x00000008
-+#define RQFPR_TUV		0x00000004
-+#define RQFPR_PER		0x00000002
-+#define RQFPR_EER		0x00000001
-+
- /* TxBD status field bits */
- #define TXBD_READY		0x8000
- #define TXBD_PADCRC		0x4000
-@@ -958,6 +1036,8 @@ struct gfar_private {
- 	unsigned int rx_stash_size;
- 	unsigned int rx_stash_index;
- 
-+	u32 cur_filer_idx;
-+
- 	struct sk_buff_head rx_recycle;
- 
- 	struct vlan_group *vlgrp;
-@@ -1001,6 +1081,9 @@ struct gfar_private {
- 	struct gfar_extra_stats extra_stats;
+ struct gfar {
+ 	u32	tsec_id;	/* 0x.000 - Controller ID register */
+-	u8	res1[12];
++	u32	tsec_id2;	/* 0x.004 - Controller ID2 register */
++	u8	res1[8];
+ 	u32	ievent;		/* 0x.010 - Interrupt Event Register */
+ 	u32	imask;		/* 0x.014 - Interrupt Mask Register */
+ 	u32	edis;		/* 0x.018 - Error Disabled Register */
+-	u8	res2[4];
++	u32	emapg;		/* 0x.01c - Group Error mapping register */
+ 	u32	ecntrl;		/* 0x.020 - Ethernet Control Register */
+ 	u32	minflr;		/* 0x.024 - Minimum Frame Length Register */
+ 	u32	ptv;		/* 0x.028 - Pause Time Value Register */
+ 	u32	dmactrl;	/* 0x.02c - DMA Control Register */
+ 	u32	tbipa;		/* 0x.030 - TBI PHY Address Register */
+-	u8	res3[88];
++	u8	res2[28];
++	u32	fifo_rx_pause;	/* 0x.050 - FIFO receive pause start threshold
++					register */
++	u32	fifo_rx_pause_shutoff;	/* x.054 - FIFO receive starve shutoff
++						register */
++	u32	fifo_rx_alarm;	/* 0x.058 - FIFO receive alarm start threshold
++						register */
++	u32	fifo_rx_alarm_shutoff;	/*0x.05c - FIFO receive alarm  starve
++						shutoff register */
++	u8	res3[44];
+ 	u32	fifo_tx_thr;	/* 0x.08c - FIFO transmit threshold register */
+ 	u8	res4[8];
+ 	u32	fifo_tx_starve;	/* 0x.098 - FIFO transmit starve register */
+ 	u32	fifo_tx_starve_shutoff;	/* 0x.09c - FIFO transmit starve shutoff register */
+-	u8	res5[4];
+-	u32	fifo_rx_pause;	/* 0x.0a4 - FIFO receive pause threshold register */
+-	u32	fifo_rx_alarm;	/* 0x.0a8 - FIFO receive alarm threshold register */
+-	u8	res6[84];
++	u8	res5[96];
+ 	u32	tctrl;		/* 0x.100 - Transmit Control Register */
+ 	u32	tstat;		/* 0x.104 - Transmit Status Register */
+ 	u32	dfvlan;		/* 0x.108 - Default VLAN Control word */
+@@ -635,7 +642,11 @@ struct gfar {
+ 	u8	res12[8];
+ 	u32	rxic;		/* 0x.310 - Receive Interrupt Coalescing Configuration Register */
+ 	u32	rqueue;		/* 0x.314 - Receive queue control register */
+-	u8	res13[24];
++	u32	rir0;		/* 0x.318 - Ring mapping register 0 */
++	u32	rir1;		/* 0x.31c - Ring mapping register 1 */
++	u32	rir2;		/* 0x.320 - Ring mapping register 2 */
++	u32	rir3;		/* 0x.324 - Ring mapping register 3 */
++	u8	res13[8];
+ 	u32	rbifx;		/* 0x.330 - Receive bit field extract control register */
+ 	u32	rqfar;		/* 0x.334 - Receive queue filing table address register */
+ 	u32	rqfcr;		/* 0x.338 - Receive queue filing table control register */
+@@ -684,7 +695,7 @@ struct gfar {
+ 	u32	maxfrm;		/* 0x.510 - Maximum Frame Length Register */
+ 	u8	res18[12];
+ 	u8	gfar_mii_regs[24];	/* See gianfar_phy.h */
+-	u8	res19[4];
++	u32	ifctrl;		/* 0x.538 - Interface control register */
+ 	u32	ifstat;		/* 0x.53c - Interface Status Register */
+ 	u32	macstnaddr1;	/* 0x.540 - Station Address Part 1 Register */
+ 	u32	macstnaddr2;	/* 0x.544 - Station Address Part 2 Register */
+@@ -745,8 +756,30 @@ struct gfar {
+ 	u8	res23c[248];
+ 	u32	attr;		/* 0x.bf8 - Attributes Register */
+ 	u32	attreli;	/* 0x.bfc - Attributes Extract Length and Extract Index Register */
+-	u8	res24[1024];
+-
++	u8	res24[688];
++	u32	isrg0;		/* 0x.eb0 - Interrupt steering group 0 register */
++	u32	isrg1;		/* 0x.eb4 - Interrupt steering group 1 register */
++	u32	isrg2;		/* 0x.eb8 - Interrupt steering group 2 register */
++	u32	isrg3;		/* 0x.ebc - Interrupt steering group 3 register */
++	u8	res25[16];
++	u32	rxic0;		/* 0x.ed0 - Ring 0 Rx interrupt coalescing */
++	u32	rxic1;		/* 0x.ed4 - Ring 1 Rx interrupt coalescing */
++	u32	rxic2;		/* 0x.ed8 - Ring 2 Rx interrupt coalescing */
++	u32	rxic3;		/* 0x.edc - Ring 3 Rx interrupt coalescing */
++	u32	rxic4;		/* 0x.ee0 - Ring 4 Rx interrupt coalescing */
++	u32	rxic5;		/* 0x.ee4 - Ring 5 Rx interrupt coalescing */
++	u32	rxic6;		/* 0x.ee8 - Ring 6 Rx interrupt coalescing */
++	u32	rxic7;		/* 0x.eec - Ring 7 Rx interrupt coalescing */
++	u8	res26[32];
++	u32	txic0;		/* 0x.f10 - Ring 0 Tx interrupt coalescing */
++	u32	txic1;		/* 0x.f14 - Ring 1 Tx interrupt coalescing */
++	u32	txic2;		/* 0x.f18 - Ring 2 Tx interrupt coalescing */
++	u32	txic3;		/* 0x.f1c - Ring 3 Tx interrupt coalescing */
++	u32	txic4;		/* 0x.f20 - Ring 4 Tx interrupt coalescing */
++	u32	txic5;		/* 0x.f24 - Ring 5 Tx interrupt coalescing */
++	u32	txic6;		/* 0x.f28 - Ring 6 Tx interrupt coalescing */
++	u32	txic7;		/* 0x.f2c - Ring 7 Tx interrupt coalescing */
++	u8	res27[208];
  };
  
-+extern unsigned int ftp_rqfpr[MAX_FILER_IDX + 1];
-+extern unsigned int ftp_rqfcr[MAX_FILER_IDX + 1];
-+
- static inline u32 gfar_read(volatile unsigned __iomem *addr)
- {
- 	u32 val;
-@@ -1013,6 +1096,16 @@ static inline void gfar_write(volatile unsigned __iomem *addr, u32 val)
- 	out_be32(addr, val);
- }
- 
-+static inline void gfar_write_filer(struct gfar_private *priv,
-+		unsigned int far, unsigned int fcr, unsigned int fpr)
-+{
-+	struct gfar __iomem *regs = priv->gfargrp[0].regs;
-+
-+	gfar_write(&regs->rqfar, far);
-+	gfar_write(&regs->rqfcr, fcr);
-+	gfar_write(&regs->rqfpr, fpr);
-+}
-+
- extern inline void lock_rx_qs(struct gfar_private *priv);
- extern inline void lock_tx_qs(struct gfar_private *priv);
- extern inline void unlock_rx_qs(struct gfar_private *priv);
-diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_ethtool.c
-index 562f6c2..1010367 100644
---- a/drivers/net/gianfar_ethtool.c
-+++ b/drivers/net/gianfar_ethtool.c
-@@ -645,6 +645,241 @@ static int gfar_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
- }
- #endif
- 
-+static int gfar_ethflow_to_class(int flow_type, u64 *class)
-+{
-+	switch (flow_type) {
-+	case TCP_V4_FLOW:
-+		*class = CLASS_CODE_TCP_IPV4;
-+		break;
-+	case UDP_V4_FLOW:
-+		*class = CLASS_CODE_UDP_IPV4;
-+		break;
-+	case AH_V4_FLOW:
-+	case ESP_V4_FLOW:
-+		*class = CLASS_CODE_AH_ESP_IPV4;
-+		break;
-+	case SCTP_V4_FLOW:
-+		*class = CLASS_CODE_SCTP_IPV4;
-+		break;
-+	case TCP_V6_FLOW:
-+		*class = CLASS_CODE_TCP_IPV6;
-+		break;
-+	case UDP_V6_FLOW:
-+		*class = CLASS_CODE_UDP_IPV6;
-+		break;
-+	case AH_V6_FLOW:
-+	case ESP_V6_FLOW:
-+		*class = CLASS_CODE_AH_ESP_IPV6;
-+		break;
-+	case SCTP_V6_FLOW:
-+		*class = CLASS_CODE_SCTP_IPV6;
-+		break;
-+	default:
-+		return 0;
-+	}
-+
-+	return 1;
-+}
-+
-+static void ethflow_to_filer_rules (struct gfar_private *priv, u64 ethflow)
-+{
-+	u32 fcr = 0x0, fpr = FPR_FILER_MASK;
-+
-+	if (ethflow & RXH_L2DA) {
-+		fcr = RQFCR_PID_DAH |RQFCR_CMP_NOMATCH |
-+			RQFCR_HASH | RQFCR_AND | RQFCR_HASHTBL_0;
-+		ftp_rqfpr[priv->cur_filer_idx] = fpr;
-+		ftp_rqfcr[priv->cur_filer_idx] = fcr;
-+		gfar_write_filer(priv, priv->cur_filer_idx, fcr, fpr);
-+		priv->cur_filer_idx = priv->cur_filer_idx - 1;
-+
-+		fcr = RQFCR_PID_DAL | RQFCR_AND | RQFCR_CMP_NOMATCH |
-+				RQFCR_HASH | RQFCR_AND | RQFCR_HASHTBL_0;
-+		ftp_rqfpr[priv->cur_filer_idx] = fpr;
-+		ftp_rqfcr[priv->cur_filer_idx] = fcr;
-+		gfar_write_filer(priv, priv->cur_filer_idx, fcr, fpr);
-+		priv->cur_filer_idx = priv->cur_filer_idx - 1;
-+	}
-+
-+	if (ethflow & RXH_VLAN) {
-+		fcr = RQFCR_PID_VID | RQFCR_CMP_NOMATCH | RQFCR_HASH |
-+				RQFCR_AND | RQFCR_HASHTBL_0;
-+		gfar_write_filer(priv, priv->cur_filer_idx, fcr, fpr);
-+		ftp_rqfpr[priv->cur_filer_idx] = fpr;
-+		ftp_rqfcr[priv->cur_filer_idx] = fcr;
-+		priv->cur_filer_idx = priv->cur_filer_idx - 1;
-+	}
-+
-+	if (ethflow & RXH_IP_SRC) {
-+		fcr = RQFCR_PID_SIA | RQFCR_CMP_NOMATCH | RQFCR_HASH |
-+			RQFCR_AND | RQFCR_HASHTBL_0;
-+		ftp_rqfpr[priv->cur_filer_idx] = fpr;
-+		ftp_rqfcr[priv->cur_filer_idx] = fcr;
-+		gfar_write_filer(priv, priv->cur_filer_idx, fcr, fpr);
-+		priv->cur_filer_idx = priv->cur_filer_idx - 1;
-+	}
-+
-+	if (ethflow & (RXH_IP_DST)) {
-+		fcr = RQFCR_PID_DIA | RQFCR_CMP_NOMATCH | RQFCR_HASH |
-+			RQFCR_AND | RQFCR_HASHTBL_0;
-+		ftp_rqfpr[priv->cur_filer_idx] = fpr;
-+		ftp_rqfcr[priv->cur_filer_idx] = fcr;
-+		gfar_write_filer(priv, priv->cur_filer_idx, fcr, fpr);
-+		priv->cur_filer_idx = priv->cur_filer_idx - 1;
-+	}
-+
-+	if (ethflow & RXH_L3_PROTO) {
-+		fcr = RQFCR_PID_L4P | RQFCR_CMP_NOMATCH | RQFCR_HASH |
-+			RQFCR_AND | RQFCR_HASHTBL_0;
-+		ftp_rqfpr[priv->cur_filer_idx] = fpr;
-+		ftp_rqfcr[priv->cur_filer_idx] = fcr;
-+		gfar_write_filer(priv, priv->cur_filer_idx, fcr, fpr);
-+		priv->cur_filer_idx = priv->cur_filer_idx - 1;
-+	}
-+
-+	if (ethflow & RXH_L4_B_0_1) {
-+		fcr = RQFCR_PID_SPT | RQFCR_CMP_NOMATCH | RQFCR_HASH |
-+			RQFCR_AND | RQFCR_HASHTBL_0;
-+		ftp_rqfpr[priv->cur_filer_idx] = fpr;
-+		ftp_rqfcr[priv->cur_filer_idx] = fcr;
-+		gfar_write_filer(priv, priv->cur_filer_idx, fcr, fpr);
-+		priv->cur_filer_idx = priv->cur_filer_idx - 1;
-+	}
-+
-+	if (ethflow & RXH_L4_B_2_3) {
-+		fcr = RQFCR_PID_DPT | RQFCR_CMP_NOMATCH | RQFCR_HASH |
-+			RQFCR_AND | RQFCR_HASHTBL_0;
-+		ftp_rqfpr[priv->cur_filer_idx] = fpr;
-+		ftp_rqfcr[priv->cur_filer_idx] = fcr;
-+		gfar_write_filer(priv, priv->cur_filer_idx, fcr, fpr);
-+		priv->cur_filer_idx = priv->cur_filer_idx - 1;
-+	}
-+}
-+
-+static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow, u64 class)
-+{
-+	unsigned int last_rule_idx = priv->cur_filer_idx;
-+	unsigned int cmp_rqfpr;
-+	unsigned int local_rqfpr[MAX_FILER_IDX + 1];
-+	unsigned int local_rqfcr[MAX_FILER_IDX + 1];
-+	int i = 0x0, k = 0x0;
-+	int j = MAX_FILER_IDX, l = 0x0;
-+
-+	switch (class) {
-+	case TCP_V4_FLOW:
-+		cmp_rqfpr = RQFPR_IPV4 |RQFPR_TCP;
-+		break;
-+	case UDP_V4_FLOW:
-+		cmp_rqfpr = RQFPR_IPV4 |RQFPR_UDP;
-+		break;
-+	case TCP_V6_FLOW:
-+		cmp_rqfpr = RQFPR_IPV6 |RQFPR_TCP;
-+		break;
-+	case UDP_V6_FLOW:
-+		cmp_rqfpr = RQFPR_IPV6 |RQFPR_UDP;
-+		break;
-+	case IPV4_FLOW:
-+		cmp_rqfpr = RQFPR_IPV4;
-+	case IPV6_FLOW:
-+		cmp_rqfpr = RQFPR_IPV6;
-+		break;
-+	default:
-+		printk(KERN_ERR "Right now this class is not supported\n");
-+		return 0;
-+	}
-+
-+	for (i = 0; i < MAX_FILER_IDX + 1; i++) {
-+		local_rqfpr[j] = ftp_rqfpr[i];
-+		local_rqfcr[j] = ftp_rqfcr[i];
-+		j--;
-+		if ((ftp_rqfcr[i] == (RQFCR_PID_PARSE |
-+			RQFCR_CLE |RQFCR_AND)) &&
-+			(ftp_rqfpr[i] == cmp_rqfpr))
-+			break;
-+	}
-+
-+	if (i == MAX_FILER_IDX + 1) {
-+		printk(KERN_ERR "No parse rule found, ");
-+		printk(KERN_ERR "can't create hash rules\n");
-+		return 0;
-+	}
-+
-+	/* If a match was found, then it begins the starting of a cluster rule
-+	 * if it was already programmed, we need to overwrite these rules
-+	 */
-+	for (l = i+1; l < MAX_FILER_IDX; l++) {
-+		if ((ftp_rqfcr[l] & RQFCR_CLE) &&
-+			!(ftp_rqfcr[l] & RQFCR_AND)) {
-+			ftp_rqfcr[l] = RQFCR_CLE | RQFCR_CMP_EXACT |
-+				RQFCR_HASHTBL_0 | RQFCR_PID_MASK;
-+			ftp_rqfpr[l] = FPR_FILER_MASK;
-+			gfar_write_filer(priv, l, ftp_rqfcr[l], ftp_rqfpr[l]);
-+			break;
-+		}
-+
-+		if (!(ftp_rqfcr[l] & RQFCR_CLE) && (ftp_rqfcr[l] & RQFCR_AND))
-+			continue;
-+		else {
-+			local_rqfpr[j] = ftp_rqfpr[l];
-+			local_rqfcr[j] = ftp_rqfcr[l];
-+			j--;
-+		}
-+	}
-+
-+	priv->cur_filer_idx = l - 1;
-+	last_rule_idx = l;
-+
-+	/* hash rules */
-+	ethflow_to_filer_rules(priv, ethflow);
-+
-+	/* Write back the popped out rules again */
-+	for (k = j+1; k < MAX_FILER_IDX; k++) {
-+		ftp_rqfpr[priv->cur_filer_idx] = local_rqfpr[k];
-+		ftp_rqfcr[priv->cur_filer_idx] = local_rqfcr[k];
-+		gfar_write_filer(priv, priv->cur_filer_idx,
-+				local_rqfcr[k], local_rqfpr[k]);
-+		if (!priv->cur_filer_idx)
-+			break;
-+		priv->cur_filer_idx = priv->cur_filer_idx - 1;
-+	}
-+
-+	return 1;
-+}
-+
-+static int gfar_set_hash_opts(struct gfar_private *priv, struct ethtool_rxnfc *cmd)
-+{
-+	u64 class;
-+
-+	if (!gfar_ethflow_to_class(cmd->flow_type, &class))
-+		return -EINVAL;
-+
-+	if (class < CLASS_CODE_USER_PROG1 ||
-+			class > CLASS_CODE_SCTP_IPV6)
-+		return -EINVAL;
-+
-+	/* write the filer rules here */
-+	if (!gfar_ethflow_to_filer_table(priv, cmd->data, cmd->flow_type))
-+		return -1;
-+
-+	return 0;
-+}
-+
-+static int gfar_set_nfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
-+{
-+	struct gfar_private *priv = netdev_priv(dev);
-+	int ret = 0;
-+
-+	switch(cmd->cmd) {
-+	case ETHTOOL_SRXFH:
-+		ret = gfar_set_hash_opts(priv, cmd);
-+		break;
-+	default:
-+		ret = -EINVAL;
-+	}
-+
-+	return ret;
-+}
-+
- const struct ethtool_ops gfar_ethtool_ops = {
- 	.get_settings = gfar_gsettings,
- 	.set_settings = gfar_ssettings,
-@@ -670,4 +905,5 @@ const struct ethtool_ops gfar_ethtool_ops = {
- 	.get_wol = gfar_get_wol,
- 	.set_wol = gfar_set_wol,
- #endif
-+	.set_rxnfc = gfar_set_nfc,
- };
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index eb1a48d..edd03b7 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -674,6 +674,8 @@ struct ethtool_ops {
- #define	AH_V6_FLOW	0x0b
- #define	ESP_V6_FLOW	0x0c
- #define	IP_USER_FLOW	0x0d
-+#define IPV4_FLOW       0x10
-+#define IPV6_FLOW       0x11
- 
- /* L3-L4 network traffic flow hash options */
- #define	RXH_L2DA	(1 << 1)
+ /* Flags related to gianfar device features */
 -- 
 1.5.2.2
 
