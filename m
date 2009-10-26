@@ -1,90 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] vlan: allow VLAN ID 0 to be used
-Date: Mon, 26 Oct 2009 17:13:58 +0100
-Message-ID: <4AE5CAC6.4000604@gmail.com>
-References: <477963.52849.qm@web32605.mail.mud.yahoo.com> <m34opmr2fz.fsf@ursa.amorsen.dk> <4AE563C7.5070702@gmail.com>
+From: reinette chatre <reinette.chatre@intel.com>
+Subject: Re: iwl3945, after a while stops working with "No space for Tx"
+Date: Mon, 26 Oct 2009 09:25:52 -0700
+Message-ID: <1256574352.21134.7591.camel@rc-desk>
+References: <177253.23325.qm@web53903.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Benny Amorsen <benny+usenet@amorsen.dk>,
-	Gertjan Hofman <gertjan_hofman@yahoo.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Zhu, Yi" <yi.zhu@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Winkler, Tomas" <tomas.winkler@intel.com>,
+	"Kolekar, Abhijeet" <abhijeet.kolekar@intel.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: unlisted-recipients:; (no To-header on input)
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Frederik Nosi <fredin77@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:45642 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752999AbZJZQOE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 12:14:04 -0400
-In-Reply-To: <4AE563C7.5070702@gmail.com>
+Received: from mga09.intel.com ([134.134.136.24]:10309 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753434AbZJZQZr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Oct 2009 12:25:47 -0400
+In-Reply-To: <177253.23325.qm@web53903.mail.re2.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet a =C3=A9crit :
-> VLAN id 0 is not usable on current kernel because we use 16 bits in s=
-kb to
->  store vlan_tci, and vlan_tci =3D 0 means there is no VLAN tagging.
->=20
->=20
-> We could use high order bit (0x8000) to tell if vlan tagging is set o=
-r not.
->=20
+On Sat, 2009-10-24 at 06:44 -0700, Frederik Nosi wrote:
+> Hi,
+> first sorry if somebody is not the right contact, got the adressess from ./scripts/get_maintainer.pl -f drivers/net/wireless/iwlwifi.
+> From some kernel versions now, after some time that im using this card it stops working and on messages i get this errors:
+> 
+> Oct 24 14:38:24 kotys NetworkManager: <info>  Activation (wlan0) Stage 5 of 5 (IP Configure Commit) complete.
+> [snip pulseaudio's stuppid log spam warning]
+> Oct 24 14:40:07 kotys kernel: iwl3945 0000:04:00.0: Error sending REPLY_TX_PWR_TABLE_CMD: time out after 500ms.
+> Oct 24 14:40:09 kotys pulseaudio[16469]: sap.c: sendmsg() failed: Invalid argument
+> Oct 24 14:40:10 kotys kernel: iwl3945 0000:04:00.0: Error sending REPLY_SCAN_CMD: time out after 500ms.
+> Oct 24 14:40:11 kotys kernel: iwl3945 0000:04:00.0: Error sending REPLY_TX_PWR_TABLE_CMD: time out after 500ms.
+> Oct 24 14:40:11 kotys kernel: iwl3945 0000:04:00.0: Error sending POWER_TABLE_CMD: time out after 500ms.
+> Oct 24 14:40:14 kotys kernel: iwl3945 0000:04:00.0: set power fail, ret = -110
+> Oct 24 14:40:14 kotys kernel: No probe response from AP 00:1c:df:82:63:c9 after 500ms, disconnecting.
+> Oct 24 14:40:14 kotys NetworkManager: <info>  (wlan0): supplicant connection state:  completed -> disconnected
+> Oct 24 14:40:14 kotys NetworkManager: <info>  (wlan0): supplicant connection state:  disconnected -> scanning
+> Oct 24 14:40:14 kotys pulseaudio[16469]: sap.c: sendmsg() failed: Invalid argument
+> Oct 24 14:40:14 kotys kernel: iwl3945 0000:04:00.0: Error sending REPLY_RXON: time out after 500ms.
+> Oct 24 14:40:14 kotys kernel: iwl3945 0000:04:00.0: Error setting new configuration (-110).
+> Oct 24 14:40:15 kotys kernel: iwl3945 0000:04:00.0: Error sending REPLY_SCAN_CMD: time out after 500ms.
+> Oct 24 14:40:15 kotys kernel: wlan0: direct probe to AP 00:1c:df:82:63:c9 (try 1)
+> Oct 24 14:40:15 kotys NetworkManager: <info>  (wlan0): supplicant connection state:  scanning -> associating
+> Oct 24 14:40:15 kotys kernel: wlan0: direct probe to AP 00:1c:df:82:63:c9 (try 2)
+> Oct 24 14:40:15 kotys kernel: wlan0: direct probe to AP 00:1c:df:82:63:c9 (try 3)
+> Oct 24 14:40:15 kotys kernel: iwl3945 0000:04:00.0: Error sending REPLY_RXON: time out after 500ms.
+> Oct 24 14:40:15 kotys kernel: iwl3945 0000:04:00.0: Error setting new configuration (-110).
+> Oct 24 14:40:15 kotys kernel: wlan0: direct probe to AP 00:1c:df:82:63:c9 timed out
+> Oct 24 14:40:16 kotys kernel: iwl3945 0000:04:00.0: Error sending REPLY_TX_PWR_TABLE_CMD: time out after 500ms.
+> Oct 24 14:40:16 kotys kernel: iwl3945 0000:04:00.0: Error sending REPLY_RXON: time out after 500ms.
+> Oct 24 14:40:16 kotys kernel: iwl3945 0000:04:00.0: Error setting new configuration (-110).
+> 
+> 
+> When this happens i am able to use the card only after reloading the related modules, iwl3945 ecc. But the problem happens again after some minutes that im connected.
+> 
+> Kernel is 2.6.32-rc5 but his started happening around 2.6.31, not sure exactly what version as i update kernel often. Firmware is iwl3945-ucode-15.32.2.9.
+> 
+> Every other info that you need just ask. I hope i dont have to bisect as this is the laptop i use for work too, but if it's needed i'll do.
+> 
+> I'm not subscribed on any ML, so in case please cc me.
+> 
 
-Here is the patch I cooked that permitted VLAN 0 to be used with tg3
-(and other HW accelerated vlan nics I suppose)
+We currently have a bug open for this issue. Could you please add this
+information to
+http://bugzilla.intellinuxwireless.org/show_bug.cgi?id=1944 ?
 
-[PATCH] vlan: allow VLAN ID 0 to be used
+Thank you
 
-We currently use a 16 bit field (vlan_tci) to store VLAN ID on a skb.
+Reinette
 
-0 value is used a special value, meaning VLAN ID not set.
-This forbids use of VLAN ID 0
 
-As VLAN ID is 12 bits, we can use high order bit as a flag, and
-allow VLAN ID 0
 
-Reported-by: Gertjan Hofman <gertjan_hofman@yahoo.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index 7ff9af1..7dfcdb5 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -105,8 +105,9 @@ static inline void vlan_group_set_device(struct vla=
-n_group *vg,
- 	array[vlan_id % VLAN_GROUP_ARRAY_PART_LEN] =3D dev;
- }
-=20
--#define vlan_tx_tag_present(__skb)	((__skb)->vlan_tci)
--#define vlan_tx_tag_get(__skb)		((__skb)->vlan_tci)
-+#define VLAN_TAG_PRESENT		0x8000
-+#define vlan_tx_tag_present(__skb)	((__skb)->vlan_tci & VLAN_TAG_PRESE=
-NT)
-+#define vlan_tx_tag_get(__skb)		((__skb)->vlan_tci & 0x7fff)
-=20
- #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
- extern struct net_device *vlan_dev_real_dev(const struct net_device *d=
-ev);
-@@ -231,7 +232,7 @@ static inline struct sk_buff *__vlan_put_tag(struct=
- sk_buff *skb, u16 vlan_tci)
- static inline struct sk_buff *__vlan_hwaccel_put_tag(struct sk_buff *s=
-kb,
- 						     u16 vlan_tci)
- {
--	skb->vlan_tci =3D vlan_tci;
-+	skb->vlan_tci =3D VLAN_TAG_PRESENT | vlan_tci;
- 	return skb;
- }
-=20
-@@ -284,7 +285,7 @@ static inline int __vlan_hwaccel_get_tag(const stru=
-ct sk_buff *skb,
- 					 u16 *vlan_tci)
- {
- 	if (vlan_tx_tag_present(skb)) {
--		*vlan_tci =3D skb->vlan_tci;
-+		*vlan_tci =3D vlan_tx_tag_get(skb);
- 		return 0;
- 	} else {
- 		*vlan_tci =3D 0;
