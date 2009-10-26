@@ -1,35 +1,44 @@
-From: Yair Gottdenker <yairgott@gmail.com>
-Subject: Increasing TCP initial cwnd
-Date: Mon, 26 Oct 2009 15:40:37 +0200
-Message-ID: <fa3cddca0910260640s22d0396ey5fc51c51047bc2c@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Subject: [PATCH 1/2] tc35815: Fix return value of tc35815_do_interrupt when NAPI enabled
+Date: Mon, 26 Oct 2009 22:46:21 +0900
+Message-ID: <1256564782-2781-1-git-send-email-anemo@mba.ocn.ne.jp>
+Cc: David Miller <davem@davemloft.net>,
+	Ralf Roesch <ralf.roesch@rw-gmbh.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:36421 "EHLO
-	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751824AbZJZNke (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 09:40:34 -0400
-Received: by fxm18 with SMTP id 18so12057792fxm.37
-        for <netdev@vger.kernel.org>; Mon, 26 Oct 2009 06:40:38 -0700 (PDT)
+Received: from mba.ocn.ne.jp ([122.28.14.163]:58164 "EHLO smtp.mba.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751920AbZJZNqV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Oct 2009 09:46:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Return received count correctly even if tx completed at the same time.
+Currently NAPI is disabled for this driver so this patch does not fix
+any real problem.
 
-I am working on research project to control the sender initial
-congestion window size. I am trying to allow user space to set the
-initial congestion window size but with no luck. The sender always
-sends just 4 packets disregarding from the snd_cwnd.
+Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+---
+ drivers/net/tc35815.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-I am working on kernel version 2.6.31.3.
+diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
+index d1298e5..3d38479 100644
+--- a/drivers/net/tc35815.c
++++ b/drivers/net/tc35815.c
+@@ -1592,7 +1592,12 @@ static int tc35815_do_interrupt(struct net_device *dev, u32 status)
+ 		lp->lstats.tx_ints++;
+ 		tc35815_txdone(dev);
+ 		netif_wake_queue(dev);
++#ifdef TC35815_NAPI
++		if (ret < 0)
++			ret = 0;
++#else
+ 		ret = 0;
++#endif
+ 	}
+ 	return ret;
+ }
+-- 
+1.5.6.5
 
-I made the following changes:
-1. tcp_ipv4.c -> in function tcp_v4_init_sock, changed from
-tp->snd_cwnd = 2 to tp->snd_cwnd = user_space_initial_cwnd.
-2. tcp_output.c -> tcp_init_cwnd - to always return user_space_initial_cwnd.
-3. tcp_cong.c -> tcp_slow_start- to always return user_space_initial_cwnd.
-
-Any help will be more than welcome.
-
-Yair
