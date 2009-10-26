@@ -1,38 +1,36 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: 2.6.32-rc5-git3: Reported regressions from 2.6.31
-Date: Mon, 26 Oct 2009 19:45:48 +0100 (CET)
-Message-ID: <Sj-rRjx6TwF.A.djE.vqe5KB@chimera>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: 2.6.32-rc5-git3: Reported regressions 2.6.30 -> 2.6.31
+Date: Mon, 26 Oct 2009 20:26:08 +0100 (CET)
+Message-ID: <G2WU8XrUVpF.A.lxF.Ref5KB@chimera>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.sourceforge.net>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Return-path: <linux-acpi-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This message contains a list of some regressions from 2.6.31, for which=
- there
-are no fixes in the mainline I know of.  If any of them have been fixed=
- already,
-please let me know.
+This message contains a list of some regressions introduced between 2.6=
+=2E30 and
+2.6.31, for which there are no fixes in the mainline I know of.  If any=
+ of them
+have been fixed already, please let me know.
 
-If you know of any other unresolved regressions from 2.6.31, please let=
- me know
-either and I'll add them to the list.  Also, please let me know if any =
-of the
-entries below are invalid.
+If you know of any other unresolved regressions introduced between 2.6.=
+30
+and 2.6.31, please let me know either and I'll add them to the list.
+Also, please let me know if any of the entries below are invalid.
 
 Each entry from the list will be sent additionally in an automatic repl=
 y to
@@ -45,373 +43,325 @@ Listed regressions statistics:
 
   Date          Total  Pending  Unresolved
   ----------------------------------------
-  2009-10-26       66       42          37
-  2009-10-12       48       31          27
-  2009-10-02       22       15           9
+  2009-10-26      170       37          32
+  2009-10-12      161       45          35
+  2009-10-02      151       49          42
+  2009-09-06      123       34          27
+  2009-08-26      108       33          26
+  2009-08-20      102       32          29
+  2009-08-10       89       27          24
+  2009-08-02       76       36          28
+  2009-07-27       70       51          43
+  2009-07-07       35       25          21
+  2009-06-29       22       22          15
 
 
 Unresolved regressions
 ----------------------
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14485
-Subject		: System lockup running "cat /sys/kernel/debug/dri/0/i915_regs=
-"
-Submitter	: Miles Lane <miles.lane-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-10-26 4:00 (1 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125652968117713&w=3D=
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14476
+Subject		: Unable to handle kernel paging request in nfs_write_mapping
+Submitter	: Stephan von Krawczynski <skraw@ithnet.com>
+Date		: 2009-10-14 9:53 (13 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125551421405656&w=3D=
+4
+Handled-By	: Trond Myklebust <Trond.Myklebust@netapp.com>
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14474
+Subject		: restorecond going crazy on 2.6.31.4 - inotify regression?
+Submitter	: Robert Hancock <hancockrwd@gmail.com>
+Date		: 2009-10-16 0:03 (11 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125565159520489&w=3D=
 4
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14484
-Subject		: no video output after suspend
-Submitter	: Riccardo Magliocchetti <riccardo.magliocchetti-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-10-25 20:57 (2 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125650430123713&w=3D=
-4
-Handled-By	: Jesse Barnes <jbarnes-Y1mF5jBUw70BENJcbMCuUQ@public.gmane.org>
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14446
+Subject		: battery status info broken/useless in 2.6.32-rc3 - MSI PR200=
+ (possibly others, too)
+Submitter	: Eddy Petri=C8=99or <eddy.petrisor+linbug@gmail.com>
+Date		: 2009-10-20 08:25 (7 days old)
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14483
-Subject		: WARNING: at drivers/base/sys.c:353 __sysdev_resume+0x54/0xca=
-()
-Submitter	: Justin Mattock <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-10-25 19:58 (2 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125650070420168&w=3D=
-4
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14417
+Subject		: [Regression] Wireless driver iwlagn+iwlcore doesn't work aft=
+er resume (needs reloading)
+Submitter	: Eddy Petri=C8=99or <eddy.petrisor+linbug@gmail.com>
+Date		: 2009-10-16 11:07 (11 days old)
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14482
-Subject		: kernel BUG at fs/dcache.c:670 +lvm +md +ext3
-Submitter	: Alexander Clouter <alex-L4GPcECwBoDe9xe1eoZjHA@public.gmane.org>
-Date		: 2009-10-23 10:30 (4 days old)
-References	: http://lkml.org/lkml/2009/10/23/50
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14402
+Subject		: Atheros ath9k module is not working with 2.6.31.1 on an Acer=
+ Extensa 7630EZ
+Submitter	: Bernhard <berndl81@gmx.at>
+Date		: 2009-10-14 11:17 (13 days old)
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14481
-Subject		: umount blocked for more than 120 seconds after USB drive rem=
-oval
-Submitter	: Robert Hancock <hancockrwd-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-10-21 5:26 (6 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125610280532245&w=3D=
-4
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14400
+Subject		: disable/enable wlan broken with ath5k
+Submitter	: Daniel Bumke <danielbumke@gmail.com>
+Date		: 2009-10-13 12:35 (14 days old)
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14479
-Subject		: nfs oops
-Submitter	: Egon Alter <egon.alter-hi6Y0CQ0nG0@public.gmane.org>
-Date		: 2009-10-19 16:03 (8 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125596822630410&w=3D=
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14391
+Subject		: use after free of struct powernow_k8_data
+Submitter	: Michal Schmidt <mschmidt@redhat.com>
+Date		: 2009-09-24 14:51 (33 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125380383515615&w=3D=
 4
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14477
-Subject		: possible circular locking dependency in ISDN PPP
-Submitter	: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
-Date		: 2009-10-18 22:16 (9 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125590423416087&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14473
-Subject		: ATA related kernel warning after resume
-Submitter	: Tino Keitel <tino.keitel-rAwCM5oiXHA@public.gmane.org>
-Date		: 2009-10-14 6:55 (13 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125550466624678&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14472
-Subject		: EXT4 corruption
-Submitter	: Shawn Starr <shawn.starr-bJEeYj9oJeDQT0dZR+AlfA@public.gmane.org>
-Date		: 2009-10-13 2:07 (14 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125539997508256&w=3D=
-4
-Handled-By	: Theodore Tso <tytso-3s7WtUTddSA@public.gmane.org>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14467
-Subject		: Linker errors on ia64 with NR_CPUS=3D4096
-Submitter	: Jeff Mahoney <jeffm-IBi9RG/b67k@public.gmane.org>
-Date		: 2009-10-18 22:28 (9 days old)
-=46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
-s/linux-2.6.git;a=3Dcommit;h=3D34d76c41554a05425613d16efebb3069c4c545f0
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125590493116720&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14466
-Subject		: EFI boot on x86 fails in .32
-Submitter	: Matthew Garrett <mjg59-1xO5oi07KQx4cg9Nei1l7Q@public.gmane.org>
-Date		: 2009-10-20 0:34 (7 days old)
-=46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
-s/linux-2.6.git;a=3Dcommit;h=3D7bd867dfb4e0357e06a3211ab2bd0e714110def3
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125599887314290&w=3D=
-4
-Handled-By	: Feng Tang <feng.tang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14442
-Subject		: resume after hibernate: /dev/sdb drops and returns as /dev/s=
-de
-Submitter	: Duncan <1i5t5.duncan-j9pdmedNgrk@public.gmane.org>
-Date		: 2009-10-20 01:52 (7 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14430
-Subject		: sync() hangs in bdi_sched_wait
-Submitter	: Petr Vandrovec <petr-vPk2MGR0e28uaRcfnNAh7A@public.gmane.org>
-Date		: 2009-10-17 19:14 (10 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14415
-Subject		: Reboot on kernel load
-Submitter	: Brian Beardall <brian-sVkzCUl/XCrR7s880joybQ@public.gmane.org>
-Date		: 2009-10-15 23:57 (12 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14408
-Subject		: sysctl check failed
-Submitter	: Peter Teoh <htmldeveloper-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-10-14 22:59 (13 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14406
-Subject		: uvcvideo stopped work on Toshiba
-Submitter	: okias <d.okias-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-10-14 19:08 (13 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14390
-Subject		: "bind" a device to a driver doesn't not work anymore
-Submitter	: =C3=89ric Piel <Eric.Piel-VkQ1JFuSMpfAbQlEx87xDw@public.gmane.org>
-Date		: 2009-10-11 0:04 (16 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125521979921241&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14389
-Subject		: Build system issue
-Submitter	: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Date		: 2009-10-09 8:58 (18 days old)
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14388
+Subject		: keyboard under X with 2.6.31
+Submitter	: Fr=C3=A9d=C3=A9ric L. W. Meunier <fredlwm@gmail.com>
+Date		: 2009-10-07 20:19 (20 days old)
 =46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
 s/linux-2.6.git;a=3Dcommit;h=3Dhttp://git.kernel.org/?p=3Dlinux/kernel/=
-git/torvalds/linux-2.6.git;a=3Dcommit;h=3D575543347b5baed0ca927cb90ba88=
-07396fe9cc9
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125507914909152&w=3D=
+git/torvalds/linux-2.6.git;a=3Dcommit;h=3De043e42bdb66885b3ac10d27a01cc=
+b9972e2b0a3
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125494753228217&w=3D=
 4
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14387
-Subject		: deadlock with fallocate
-Submitter	: Thomas Neumann <tneumann-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Date		: 2009-10-07 3:00 (20 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125488495526471&w=3D=
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14385
+Subject		: DMAR regression in 2.6.31 leads to ext4 corruption?
+Submitter	: Andy Isaacson <adi@hexapodia.org>
+Date		: 2009-10-08 23:56 (19 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125504643703877&w=3D=
 4
-Handled-By	: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14384
-Subject		: tbench regression with 2.6.32-rc1
-Submitter	: Zhang, Yanmin <yanmin_zhang-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Date		: 2009-10-09 9:51 (18 days old)
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14294
+Subject		: kernel BUG at drivers/ide/ide-disk.c:187
+Submitter	: Santiago Garcia Mantinan <manty@manty.net>
+Date		: 2009-09-30 11:05 (27 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125430926311466&w=3D=
+4
+Handled-By	: David Miller <davem@davemloft.net>
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14267
+Subject		: Disassociating atheros wlan
+Submitter	: Kristoffer Ericson <kristoffer.ericson@gmail.com>
+Date		: 2009-09-24 10:16 (33 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125378723723384&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14265
+Subject		: ifconfig: page allocation failure. order:5, mode:0x8020 w/ e=
+100
+Submitter	: Karol Lewandowski <karol.k.lewandowski@gmail.com>
+Date		: 2009-09-15 12:05 (42 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125301636509517&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14257
+Subject		: Not able to boot on 32 bit System
+Submitter	: Rishikesh <risrajak@linux.vnet.ibm.com>
+Date		: 2009-09-21 15:25 (36 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125354604314412&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14256
+Subject		: kernel BUG at fs/ext3/super.c:435
+Submitter	: Mikael Pettersson <mikpe@it.uu.se>
+Date		: 2009-09-21 7:29 (36 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125351816109264&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14252
+Subject		: WARNING: at include/linux/skbuff.h:1382 w/ e1000
+Submitter	: Stephan von Krawczynski <skraw@ithnet.com>
+Date		: 2009-09-20 11:26 (37 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125344599006033&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14249
+Subject		: BUG: oops in gss_validate on 2.6.31
+Submitter	: Bastian Blank <bastian@waldi.eu.org>
+Date		: 2009-09-16 10:29 (41 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125309700417283&w=3D=
+4
+Handled-By	: Trond Myklebust <trond.myklebust@fys.uio.no>
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14248
+Subject		: 2.6.31 wireless: WARNING: at net/wireless/ibss.c:34
+Submitter	: Jurriaan <thunder8@xs4all.nl>
+Date		: 2009-09-13 7:32 (44 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125282721113553&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14204
+Subject		: MCE prevent booting on my computer(pentium iii @500Mhz)
+Submitter	: GNUtoo <GNUtoo@no-log.org>
+Date		: 2009-09-21 20:36 (36 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14181
+Subject		: b43 causes panic at ifconfig down / shutdown
+Submitter	: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date		: 2009-09-15 18:34 (42 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14157
+Subject		: end_request: I/O error, dev cciss/cXdX, sector 0
+Submitter	:  <jiri.harcarik@gmail.com>
+Date		: 2009-09-11 07:42 (46 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14141
+Subject		: order 2 page allocation failures in iwlagn
+Submitter	: Frans Pop <elendil@planet.nl>
+Date		: 2009-09-06 7:40 (51 days old)
 =46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
-s/linux-2.6.git;a=3Dcommit;h=3D59abf02644c45f1591e1374ee7bb45dc757fcb88
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125508216713138&w=3D=
+s/linux-2.6.git;a=3Dcommit;h=3D2ff05b2b4eac2e63d345fc731ea151a060247f53
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125222287419691&w=3D=
 4
-Handled-By	: Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>
+		  http://lkml.org/lkml/2009/10/2/86
+		  http://lkml.org/lkml/2009/10/5/24
+		  http://lkml.indiana.edu/hypermail/linux/kernel/0910.1/01395.html
+Handled-By	: Pekka Enberg <penberg@cs.helsinki.fi>
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14383
-Subject		: hackbench regression with kernel 2.6.32-rc1
-Submitter	: Zhang, Yanmin <yanmin_zhang-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Date		: 2009-10-09 9:19 (18 days old)
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14114
+Subject		: Tuning a saa7134 based card is broken in kernel 2.6.31-rc7
+Submitter	: Tsvety Petrov <Tsvetoslav.Petrov@itron.com>
+Date		: 2009-09-03 21:06 (54 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14090
+Subject		: WARNING: at fs/notify/inotify/inotify_user.c:394
+Submitter	: Joerg Platte <bugzilla@jako.ping.de>
+Date		: 2009-08-30 15:21 (58 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14058
+Subject		: Oops in fsnotify
+Submitter	: Grant Wilson <grant.wilson@zen.co.uk>
+Date		: 2009-08-20 15:48 (68 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125078450923133&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13987
+Subject		: Received NMI interrupt at resume
+Submitter	: Christian Casteyde <casteyde.christian@free.fr>
+Date		: 2009-08-15 07:55 (73 days old)
 =46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
-s/linux-2.6.git;a=3Dcommit;h=3D29cd8bae396583a2ee9a3340db8c5102acf9f6fd
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125508007510274&w=3D=
-4
-Handled-By	: Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>
+s/linux-2.6.git;a=3Dcommit;h=3Df41f3f373dd72344c65d801d6381fe83ef3a2c54
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14381
-Subject		: iwlagn lost connection after s2ram (with warnings)
-Submitter	: Carlos R. Mafra <crmafra2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-10-07 14:20 (20 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125492569119947&w=3D=
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13943
+Subject		: WARNING: at net/mac80211/mlme.c:2292 with ath5k
+Submitter	: Fabio Comolli <fabio.comolli@gmail.com>
+Date		: 2009-08-06 20:15 (82 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D124958978600600&w=3D=
 4
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14378
-Subject		: Problems with net/core/skbuff.c
-Submitter	: Massimo Cetra <mcetra-BBpJ+9iBSNKonA0d6jMUrA@public.gmane.org>
-Date		: 2009-10-08 14:51 (19 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125501488220358&w=3D=
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13941
+Subject		: x86 Geode issue
+Submitter	: Martin-=C3=89ric Racine <q-funk@iki.fi>
+Date		: 2009-08-03 12:58 (85 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D124930434732481&w=3D=
 4
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14376
-Subject		: Kernel NULL pointer dereference/ kvm subsystem
-Submitter	: Don Dupuis <dondster-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-10-06 14:38 (21 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125484025021737&w=3D=
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13906
+Subject		: Huawei E169 GPRS connection causes Ooops
+Submitter	: Clemens Eisserer <linuxhippy@gmail.com>
+Date		: 2009-08-04 09:02 (84 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13836
+Subject		: suspend script fails, related to stdout?
+Submitter	: Tomas M. <tmezzadra@gmail.com>
+Date		: 2009-07-17 21:24 (102 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D124785853811667&w=3D=
 4
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14373
-Subject		: Task blocked for more than 120 seconds
-Submitter	: Zeno Davatz <zdavatz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-10-02 10:16 (25 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125447858618412&w=3D=
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13809
+Subject		: oprofile: possible circular locking dependency detected
+Submitter	: Jerome Marchand <jmarchan@redhat.com>
+Date		: 2009-07-22 13:35 (97 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13733
+Subject		: 2.6.31-rc2: irq 16: nobody cared
+Submitter	: Niel Lambrechts <niel.lambrechts@gmail.com>
+Date		: 2009-07-06 18:32 (113 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D124690524027166&w=3D=
 4
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14372
-Subject		: ath5k wireless not working after suspend-resume - eeepc
-Submitter	: Fabio Comolli <fabio.comolli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-10-03 15:36 (24 days old)
-References	: http://lkml.org/lkml/2009/10/3/91
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14355
-Subject		: USB serial regression after 2.6.31.1 with Huawei E169 GSM mo=
-dem
-Submitter	: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
-Date		: 2009-10-10 03:07 (17 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125513456327542&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14354
-Subject		: Bad corruption with 2.6.32-rc1 and upwards
-Submitter	: Holger Freyther <zecke-MQnelBtSfJRAfugRpC6u6w@public.gmane.org>
-Date		: 2009-10-09 15:42 (18 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14353
-Subject		: BUG: sleeping function called from invalid context at kernel=
-/mutex.c:280
-Submitter	: Miles Lane <miles.lane-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-10-05 3:39 (22 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125471432208671&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14352
-Subject		: WARNING: at net/mac80211/scan.c:267
-Submitter	: Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-10-08 00:30 (19 days old)
-References	: http://bugzilla.intellinuxwireless.org/show_bug.cgi?id=3D2=
-089#c7
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14334
-Subject		: pcmcia suspend regression from 2.6.31.1 to 2.6.31.2 - Dell I=
-nspiron 600m
-Submitter	: Jose Marino <braket-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>
-Date		: 2009-10-06 15:44 (21 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14331
-Subject		: Radeon XPRESS 200M: System hang with radeon DRI and Fedora 1=
-0 userspace unless DRI=3Doff
-Submitter	: Alex Villacis Lasso <avillaci-x0m+Mc+nT7uljOmnV8AmnkElSqmLX1BE@public.gmane.org>
-Date		: 2009-10-06 00:29 (21 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14299
-Subject		: oops in wireless, iwl3945 related?
-Submitter	: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-Date		: 2009-09-29 17:12 (28 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125424439725743&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14298
-Subject		: warning at manage.c:361 (set_irq_wake), matrix-keypad relate=
-d?
-Submitter	: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-Date		: 2009-09-30 20:07 (27 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125434130703538&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14297
-Subject		: console resume broken since ba15ab0e8d
-Submitter	: Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Date		: 2009-09-30 15:11 (27 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125432349404060&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14296
-Subject		: spitz boots but suspend/resume is broken
-Submitter	: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-Date		: 2009-09-30 12:06 (27 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125431244516449&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14277
-Subject		: Caught 8-bit read from freed memory in b43 driver at associa=
-tion
-Submitter	: Christian Casteyde <casteyde.christian-GANU6spQydw@public.gmane.org>
-Date		: 2009-09-30 18:06 (27 days old)
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13645
+Subject		: NULL pointer dereference at (null) (level2_spare_pgt)
+Submitter	: poornima nayak <mpnayak@linux.vnet.ibm.com>
+Date		: 2009-06-17 17:56 (132 days old)
+References	: http://lkml.org/lkml/2009/6/17/194
 
 
 Regressions with patches
 ------------------------
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14480
-Subject		: 2 locks held by cat -- running "find /sys | head -c 4" --> s=
-ystem hang
-Submitter	: Miles Lane <miles.lane-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-10-20 16:11 (7 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125605511728088&w=3D=
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14340
+Subject		: speedstep-ich driver not working in 2.6.31
+Submitter	:  <dave.mueller@gmx.ch>
+Date		: 2009-10-07 08:16 (20 days old)
+Handled-By	: Eric Pielbug <e.a.b.piel@tudelft.nl>
+		  Rusty Russell <rusty@rustcorp.com.au>
+Patch		: http://patchwork.kernel.org/patch/54672/
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14258
+Subject		: Memory leak in SCSI initialization
+Submitter	: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
+Date		: 2009-09-22 4:18 (35 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125359311312243&w=3D=
 4
-Handled-By	: Chris Wilson <chris-Y6uKTt2uX1cEflXRtASbqLVCufUGDwFn@public.gmane.org>
-Patch		: http://patchwork.kernel.org/patch/54974/
+Handled-By	: Michael Ellerman <michael@ellerman.id.au>
+		  James Bottomley <James.Bottomley@suse.de>
+Patch		: http://patchwork.kernel.org/patch/51412/
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14380
-Subject		: Video tearing/glitching with T400 laptops
-Submitter	: Theodore Ts'o <tytso-3s7WtUTddSA@public.gmane.org>
-Date		: 2009-10-02 22:40 (25 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125452324520623&w=3D=
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14253
+Subject		: Oops in driversbasefirmware_class
+Submitter	: Lars Ericsson <Lars_Ericsson@telia.com>
+Date		: 2009-09-16 20:44 (41 days old)
+References	: http://lkml.org/lkml/2009/9/16/461
+Handled-By	: Frederik Deweerdt <frederik.deweerdt@xprog.eu>
+Patch		: http://patchwork.kernel.org/patch/49914/
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14137
+Subject		: usb console regressions
+Submitter	: Jason Wessel <jason.wessel@windriver.com>
+Date		: 2009-09-05 21:08 (52 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125218501310512&w=3D=
 4
-Handled-By	: Jesse Barnes <jbarnes-Y1mF5jBUw70BENJcbMCuUQ@public.gmane.org>
-Patch		: http://marc.info/?l=3Dlinux-kernel&m=3D125591495325000&w=3D4
+Handled-By	: Jason Wessel <jason.wessel@windriver.com>
+Patch		: http://patchwork.kernel.org/patch/45953/
+		  http://patchwork.kernel.org/patch/45952/
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14379
-Subject		: ACPI Warning for _SB_.BAT0._BIF: Converted Buffer to expecte=
-d String
-Submitter	: Justin Mattock <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-10-08 21:46 (19 days old)
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14017
+Subject		: _end symbol missing from Symbol.map
+Submitter	: Hannes Reinecke <hare@suse.de>
+Date		: 2009-08-13 6:45 (75 days old)
 =46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
-s/linux-2.6.git;a=3Dcommit;h=3Dd9adc2e031bd22d5d9607a53a8d3b30e0b675f39
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125504031328941&w=3D=
+s/linux-2.6.git;a=3Dcommit;h=3D091e52c3551d3031343df24b573b770b4c6c72b6
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125014649102253&w=3D=
 4
-Handled-By	: Alexey Starikovskiy <astarikovskiy-l3A5Bk7waGM@public.gmane.org>
-Patch		: http://bugzilla.kernel.org/attachment.cgi?id=3D23347
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14375
-Subject		: Intel(R) I/OAT DMA Engine init failed
-Submitter	: Alexander Beregalov <a.beregalov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-10-02 9:46 (25 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125447680016160&w=3D=
-4
-Handled-By	: Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Patch		: http://patchwork.kernel.org/patch/51808/
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14302
-Subject		: Kernel panic on i386 machine when booting with profile=3D2
-Submitter	: Shi, Alex <alex.shi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Date		: 2009-10-01 3:23 (26 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D125436749607199&w=3D=
-4
-Handled-By	: Alex Shi <alex.shi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Patch		: http://patchwork.kernel.org/patch/50813/
+Handled-By	: Hannes Reinecke <hare@suse.de>
+Patch		: http://marc.info/?l=3Dlinux-kernel&m=3D125014649102253&w=3D4
 
 
 =46or details, please visit the bug entries and follow the links given =
@@ -420,11 +370,11 @@ references.
 
 As you can see, there is a Bugzilla entry for each of the listed regres=
 sions.
-There also is a Bugzilla entry used for tracking the regressions from 2=
-=2E6.31,
-unresolved as well as resolved, at:
+There also is a Bugzilla entry used for tracking the regressions introd=
+uced
+between 2.6.30 and 2.6.31, unresolved as well as resolved, at:
 
-http://bugzilla.kernel.org/show_bug.cgi?id=3D14230
+http://bugzilla.kernel.org/show_bug.cgi?id=3D13615
 
 Please let me know if there are any Bugzilla entries that should be add=
 ed to
@@ -434,7 +384,7 @@ Thanks,
 Rafael
 
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To unsubscribe from this list: send the line "unsubscribe linux-acpi" i=
+n
+the body of a message to majordomo@vger.kernel.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
