@@ -1,18 +1,22 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [PATCH] virtio-net: fix data corruption with OOM
-Date: Mon, 26 Oct 2009 11:00:38 +0200
-Message-ID: <20091026090038.GA23408@redhat.com>
+Date: Mon, 26 Oct 2009 11:07:13 +0200
+Message-ID: <20091026090713.GA23510@redhat.com>
 References: <20091025170340.GA22099@redhat.com> <200910261211.52148.rusty@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
 	netdev@vger.kernel.org
 To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <kvm-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43839 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754999AbZJZJJl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Oct 2009 05:09:41 -0400
 Content-Disposition: inline
 In-Reply-To: <200910261211.52148.rusty@rustcorp.com.au>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On Mon, Oct 26, 2009 at 12:11:51PM +1030, Rusty Russell wrote:
 > On Mon, 26 Oct 2009 03:33:40 am Michael S. Tsirkin wrote:
@@ -28,15 +32,32 @@ On Mon, Oct 26, 2009 at 12:11:51PM +1030, Rusty Russell wrote:
 > I originally thought that this was racy: as soon as we do add_buf, we need to
 > make sure we're ready for the callback (for virtio_pci, it's ->kick, but we
 > shouldn't rely on that).
-
-BTW, wanted to note that unlink on error would *also* be racy if we did any
-processing in the callback.
-
+> 
 > So a comment would be nice.  How's this?
 > 
 > Subject: virtio-net: fix data corruption with OOM
 > Date: Sun, 25 Oct 2009 19:03:40 +0200
 > From: "Michael S. Tsirkin" <mst@redhat.com>
+
+Another, and hopefully the last, note, is that
+git-am can only handle Subject/From lines
+at the beginning of the message.
+So git style of the mail would be
+
+	Subject: XXX
+	From: YYY
+
+	Description
+
+	---
+
+	Discussion and notes.
+
+I think it's weird. We could invent some kind of separator
+that would make git-am accept Subject/From/Date lines in
+the middle of the message, so that discussion can come before
+the description. Worth it?
+
 > 
 > virtio net used to unlink skbs from send queues on error,
 > but ever since 48925e372f04f5e35fec6269127c62b2c71ab794
