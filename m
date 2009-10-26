@@ -1,142 +1,88 @@
-From: Fredi <fredin77@yahoo.com>
-Subject: Re: iwl3945, after a while stops working with "No space for Tx"
-Date: Mon, 26 Oct 2009 10:04:55 -0700 (PDT)
-Message-ID: <776769.29896.qm@web53901.mail.re2.yahoo.com>
-References: <1256574352.21134.7591.camel@rc-desk>
+From: Tobias Oetiker <tobi-7K0TWYW2a3pyDzI6CaY1VQ@public.gmane.org>
+Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
+ failures V2
+Date: Mon, 26 Oct 2009 18:37:36 +0100 (CET)
+Message-ID: <alpine.DEB.2.00.0910261835440.24625@wbuna.brgvxre.pu>
+References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: YiZhu <yi.zhu@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	TomasWinkler <tomas.winkler@intel.com>,
-	AbhijeetKolekar <abhijeet.kolekar@intel.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: reinette chatre <reinette.chatre@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753859AbZJZREx@vger.kernel.org>
-In-Reply-To: <1256574352.21134.7591.camel@rc-desk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>, Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
+	Sven Geggus <lists-+AJD3D7QEjjt/htJsj1pd9AswbaBtrod@public.gmane.org>,
+	Karol Lewandowski <karol.k.lewandowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Reinette Chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>,
+	David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
+	Mohamed Abbas <mohamed.abbas-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Jens Axboe <jens.axboe-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
+	Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
+	Stephan von Krawczynski <skraw-DcQCyzbjH0jQT0dZR+AlfA@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org\\\"" <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>
+To: Mel Gorman <mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1256221356-26049-1-git-send-email-mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi
-first thanks for your reply,
---- On Mon, 26/10/09, reinette chatre <reinette.chatre@intel.com> wrote=
-:
+Hi Mel,
 
-> From: reinette chatre <reinette.chatre@intel.com>
-> Subject: Re: iwl3945, after a while stops working with "No space for =
-Tx"
-> To: "Frederik Nosi" <fredin77@yahoo.com>
-> Cc: "Zhu, Yi" <yi.zhu@intel.com>, "Intel Linux Wireless" <ilw@linux.i=
-ntel.com>, "John W. Linville" <linville@tuxdriver.com>, "Winkler, Tomas=
-" <tomas.winkler@intel.com>, "Kolekar, Abhijeet" <abhijeet.kolekar@inte=
-l.com>, "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.or=
-g>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>, "linux-kernel@vg=
-er.kernel.org" <linux-kernel@vger.kernel.org>
-> Date: Monday, 26 October, 2009, 5:25 PM
-> On Sat, 2009-10-24 at 06:44 -0700,
-> Frederik Nosi wrote:
-> > Hi,
-> > first sorry if somebody is not the right contact, got
-> the adressess from ./scripts/get_maintainer.pl -f
-> drivers/net/wireless/iwlwifi.
-> > From some kernel versions now, after some time that im
-> using this card it stops working and on messages i get this
-> errors:
-> >=20
-> > Oct 24 14:38:24 kotys NetworkManager:
-> <info>=A0 Activation (wlan0) Stage 5 of 5 (IP
-> Configure Commit) complete.
-> > [snip pulseaudio's stuppid log spam warning]
-> > Oct 24 14:40:07 kotys kernel: iwl3945 0000:04:00.0:
-> Error sending REPLY_TX_PWR_TABLE_CMD: time out after 500ms.
-> > Oct 24 14:40:09 kotys pulseaudio[16469]: sap.c:
-> sendmsg() failed: Invalid argument
-> > Oct 24 14:40:10 kotys kernel: iwl3945 0000:04:00.0:
-> Error sending REPLY_SCAN_CMD: time out after 500ms.
-> > Oct 24 14:40:11 kotys kernel: iwl3945 0000:04:00.0:
-> Error sending REPLY_TX_PWR_TABLE_CMD: time out after 500ms.
-> > Oct 24 14:40:11 kotys kernel: iwl3945 0000:04:00.0:
-> Error sending POWER_TABLE_CMD: time out after 500ms.
-> > Oct 24 14:40:14 kotys kernel: iwl3945 0000:04:00.0:
-> set power fail, ret =3D -110
-> > Oct 24 14:40:14 kotys kernel: No probe response from
-> AP 00:1c:df:82:63:c9 after 500ms, disconnecting.
-> > Oct 24 14:40:14 kotys NetworkManager:
-> <info>=A0 (wlan0): supplicant connection
-> state:=A0 completed -> disconnected
-> > Oct 24 14:40:14 kotys NetworkManager:
-> <info>=A0 (wlan0): supplicant connection
-> state:=A0 disconnected -> scanning
-> > Oct 24 14:40:14 kotys pulseaudio[16469]: sap.c:
-> sendmsg() failed: Invalid argument
-> > Oct 24 14:40:14 kotys kernel: iwl3945 0000:04:00.0:
-> Error sending REPLY_RXON: time out after 500ms.
-> > Oct 24 14:40:14 kotys kernel: iwl3945 0000:04:00.0:
-> Error setting new configuration (-110).
-> > Oct 24 14:40:15 kotys kernel: iwl3945 0000:04:00.0:
-> Error sending REPLY_SCAN_CMD: time out after 500ms.
-> > Oct 24 14:40:15 kotys kernel: wlan0: direct probe to
-> AP 00:1c:df:82:63:c9 (try 1)
-> > Oct 24 14:40:15 kotys NetworkManager:
-> <info>=A0 (wlan0): supplicant connection
-> state:=A0 scanning -> associating
-> > Oct 24 14:40:15 kotys kernel: wlan0: direct probe to
-> AP 00:1c:df:82:63:c9 (try 2)
-> > Oct 24 14:40:15 kotys kernel: wlan0: direct probe to
-> AP 00:1c:df:82:63:c9 (try 3)
-> > Oct 24 14:40:15 kotys kernel: iwl3945 0000:04:00.0:
-> Error sending REPLY_RXON: time out after 500ms.
-> > Oct 24 14:40:15 kotys kernel: iwl3945 0000:04:00.0:
-> Error setting new configuration (-110).
-> > Oct 24 14:40:15 kotys kernel: wlan0: direct probe to
-> AP 00:1c:df:82:63:c9 timed out
-> > Oct 24 14:40:16 kotys kernel: iwl3945 0000:04:00.0:
-> Error sending REPLY_TX_PWR_TABLE_CMD: time out after 500ms.
-> > Oct 24 14:40:16 kotys kernel: iwl3945 0000:04:00.0:
-> Error sending REPLY_RXON: time out after 500ms.
-> > Oct 24 14:40:16 kotys kernel: iwl3945 0000:04:00.0:
-> Error setting new configuration (-110).
-> >=20
-> >=20
-> > When this happens i am able to use the card only after
-> reloading the related modules, iwl3945 ecc. But the problem
-> happens again after some minutes that im connected.
-> >=20
-> > Kernel is 2.6.32-rc5 but his started happening around
-> 2.6.31, not sure exactly what version as i update kernel
-> often. Firmware is iwl3945-ucode-15.32.2.9.
-> >=20
-> > Every other info that you need just ask. I hope i dont
-> have to bisect as this is the laptop i use for work too, but
-> if it's needed i'll do.
-> >=20
-> > I'm not subscribed on any ML, so in case please cc
-> me.
-> >=20
->=20
-> We currently have a bug open for this issue. Could you
-> please add this
+I have no done additional tests ... and can report the following
+
+Thursday Mel Gorman wrote:
+
+>   1/5 page allocator: Always wake kswapd when restarting an allocation attempt after direct reclaim failed
+>   2/5 page allocator: Do not allow interrupts to use ALLOC_HARDER
 >
-> information to
-> http://bugzilla.intellinuxwireless.org/show_bug.cgi?id=3D1944
-> ?
+>
+> 	These patches correct problems introduced by me during the 2.6.31-rc1
+> 	merge window. The patches were not meant to introduce any functional
+> 	changes but two were missed.
+>
+> 	If your problem goes away with just these two patches applied,
+> 	please tell me.
 
-Done, noticed that there's a patch for this issue. Will try and tell th=
-e results. And noticed the link on how to report possible firmware prob=
-lems, will follow that procedure and post the results of that too.
-=20
-> Thank you
+1+2 do not help
 
-Thaks for pointing me on the right direction!
+> Test 3: If you are getting allocation failures, try with the following patch
+>
+>   3/5 vmscan: Force kswapd to take notice faster when high-order watermarks are being hit
+>
+> 	This is a functional change that causes kswapd to notice sooner
+> 	when high-order watermarks have been hit. There have been a number
+> 	of changes in page reclaim since 2.6.30 that might have delayed
+> 	when kswapd kicks in for higher orders
+>
+> 	If your problem goes away with these three patches applied, please
+> 	tell me
 
-> Reinette
->=20
->=20
+1+2+3 do not help either
 
-=46rederik
+> Test 4: If you are still getting failures, apply the following
+>   4/5 page allocator: Pre-emptively wake kswapd when high-order watermarks are hit
+>
+> 	This patch is very heavy handed and pre-emptively kicks kswapd when
+> 	watermarks are hit. It should only be necessary if there has been
+> 	significant changes in the timing and density of page allocations
+> 	from an unknown source. Tobias, this patch is largely aimed at you.
+> 	You reported that with patches 3+4 applied that your problems went
+> 	away. I need to know if patch 3 on its own is enough or if both
+> 	are required
+>
+> 	If your problem goes away with these four patches applied, please
+> 	tell me
 
+3 allone does not help
+3+4 does ...
 
-     =20
+cheers
+tobi
+-- 
+Tobi Oetiker, OETIKER+PARTNER AG, Aarweg 15 CH-4600 Olten, Switzerland
+http://it.oetiker.ch tobi-7K0TWYW2a3pyDzI6CaY1VQ@public.gmane.org ++41 62 775 9902 / sb: -9900
