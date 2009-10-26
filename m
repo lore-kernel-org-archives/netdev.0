@@ -1,99 +1,135 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 8/8] Document future removal of sysctl_tcp_* options
-Date: Mon, 26 Oct 2009 06:03:57 +0100
-Message-ID: <4AE52DBD.3030805@gmail.com>
-References: <1256115421-12714-1-git-send-email-gilad@codefidence.com>	<1256115421-12714-9-git-send-email-gilad@codefidence.com>	<4ADED6FA.2030502@gmail.com>	<4ADEE119.7020803@codefidence.com>	<4ADF616B.1090405@gmail.com>	<20091022003245.5cd4885c.billfink@mindspring.com>	<4ADFE635.4020109@gmail.com>	<4AE415DD.5050406@codefidence.com> <20091025202114.152b94b8.billfink@mindspring.com>
+Subject: Re: [PATCH next-next-2.6] netdev: better dev_name_hash
+Date: Mon, 26 Oct 2009 06:28:34 +0100
+Message-ID: <4AE53382.8020308@gmail.com>
+References: <200910252158.53921.opurdila@ixiacom.com> <4AE4C1FA.7000002@gmail.com> <200910252355.32640.opurdila@ixiacom.com> <20091025224153.GB20987@nuttenaction>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Gilad Ben-Yossef <gilad@codefidence.com>,
-	William Allen Simpson <william.allen.simpson@gmail.com>,
-	netdev@vger.kernel.org
-To: Bill Fink <billfink@mindspring.com>
+Cc: Octavian Purdila <opurdila@ixiacom.com>, netdev@vger.kernel.org
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:55949 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:34497 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754637AbZJZFEE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 01:04:04 -0400
-In-Reply-To: <20091025202114.152b94b8.billfink@mindspring.com>
+	with ESMTP id S1754682AbZJZF2o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 01:28:44 -0400
+In-Reply-To: <20091025224153.GB20987@nuttenaction>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bill Fink a =E9crit :
-> On Sun, 25 Oct 2009, Gilad Ben-Yossef wrote:
+Hagen Paul Pfeifer a =E9crit :
+> * Octavian Purdila | 2009-10-25 23:55:32 [+0200]:
 >=20
->> Eric Dumazet wrote:
->>
->>> Bill Fink a =E9crit :
->>>
->>>  =20
->>>> And as mentioned previously, the global options can be quite usefu=
-l
->>>> in certain test scenarios.  I also agree the per route settings ar=
-e
->>>> a very useful addition.  I think the global and per route settings
->>>> are complementary and shouldn't be thought of as in conflict with
->>>> one another.
->>>>    =20
->>> Absolutely, global setting is a must when an admin wants a quick pa=
-th.
->>>
->>> The more flexible would be to have two bits per route, plus
->>> 2 bits on the global configuration.
->>>
->>> global conf:
->>> 00 : timestamps OFF, unless a route setting is not 00
->>> 01 : timestamps ON, unless a route setting is not 00
->>> 10 : Force timestamps OFF, ignore route settings (emergency sysadmi=
-n request)
->>> 11 : Force timestamps ON, ignore route settings=20
->>>
->>> Route settings (used *only* if global setting is 0Y)
->>> 00 : global conf is used
->>> 01 : Force timestamps being OFF for this route
->>> 10 : Force timestamps being ON for this route
->>> 11 : complement global conf
->> Hey, I have no issue to re-spin the patch with this suggestion, if y=
-ou=20
->> truly think this is valuable, but would you please consider the=20
->> nightmare of having to just explain this to someone?
->>
->> It sounds to me way too complicated for what it does.
->>
->> I still think having a global kill switch and per route options bett=
-er=20
->> (basically use the exiting patch but not retire the global kill=20
->> switch|), but if you must Hgow about we leave the global sysctl as t=
-hey=20
->> are and just have a two bit route option:
->>
->> 0 Use global default
->> 1 Off
->> 2 On
->>
->> It's kind of funny, because this is what the original patch from=20
->> Comsleep does and I thought it needlessly complicates things.
->>
->> So, what do you say - which will it be?
+>> My results shows that new17 is better or very close to jhash2. And I=
+ think its=20
+>> lighter then jhash too.
 >=20
-> I personally feel the 2-bit settings are overkill.  What i think
-> makes the most sense is for the global options to act as they always
-> have in the absence of any route specific settings, and for any
-> route specific settings to override the related global settings.
-> This is both simple and maintains backward compatibility.
+> If new17 is very close to jhash/jhash2 then the cycles comes into pla=
+y.
+> Anyway, there is already a very potent hash interface in form of jhas=
+h{,2}.
+>=20
+> +1 for jhash2
+>=20
 
-Backward compatibility is important, very important, if not the most
-important thing. Then usability comes.
+In fact, new10 should be the 'perfect' hash for the "eth%d"
+netdev use, not jhash (way more expensive in cpu cycles BTW)
 
-I know some busy servers where adding/changing a single route makes the=
-m
-go crazy (because of ip route flush cache)
+Most linux machines in the world have less than 10 interfaces, jhash
+would be really overkill.
 
-So if a route is overriding a global conf, and the admin wants to make =
-an
-emergency change during peak hours, he should do it by a global setting=
-,
-or he wont use at all this new stuff, and stay conservative.
 
-Alternative would be to not trigger the flush of cache when changing
-features flags.
+Thanks
+
+
+[PATCH net-next-2.6] netdev: better dev_name_hash
+
+Octavian Purdila pointed out that the current dev_name_hash is=20
+not very good at spreading entries when a large number of interfaces
+of the same type (e.g. ethXXXXX) are used.
+
+Here is hash distribution of 16000 "dummy%d" devices :
+
+full_name_hash[] =3D {
+0, 0, 0, 375, 0, 0, 562, 0, 0, 0, 6, 0, 0, 0, 0, 56,
+0, 0, 0, 374, 0, 0, 562, 0, 0, 0, 5, 0, 0, 0, 0, 57,
+0, 0, 0, 375, 0, 0, 562, 0, 0, 0, 6, 1, 0, 0, 0, 56,
+0, 0, 0, 375, 0, 0, 563, 0, 0, 0, 5, 1, 0, 0, 0, 56,
+0, 0, 0, 375, 0, 0, 563, 0, 0, 0, 6, 1, 0, 0, 0, 56,
+0, 0, 0, 375, 0, 0, 562, 0, 0, 0, 6, 0, 0, 0, 0, 57,
+0, 0, 0, 375, 0, 0, 563, 0, 0, 0, 5, 0, 0, 0, 0, 56,
+0, 0, 0, 376, 0, 0, 563, 0, 0, 0, 6, 1, 0, 0, 0, 56,
+0, 0, 0, 375, 0, 0, 562, 0, 0, 0, 5, 1, 0, 0, 0, 57,
+0, 0, 0, 374, 0, 0, 563, 0, 0, 0, 6, 1, 0, 0, 0, 56,
+0, 0, 0, 375, 0, 0, 563, 0, 0, 0, 6, 1, 0, 0, 0, 56,
+0, 0, 0, 376, 0, 0, 562, 0, 0, 0, 6, 0, 0, 0, 0, 56,
+0, 0, 0, 375, 0, 0, 562, 0, 0, 0, 5, 0, 0, 0, 0, 56,
+0, 0, 0, 375, 0, 0, 562, 0, 0, 0, 5, 1, 0, 0, 0, 56,
+0, 0, 0, 375, 0, 0, 563, 0, 0, 0, 6, 1, 0, 0, 0, 57,
+0, 0, 0, 375, 0, 0, 563, 0, 0, 0, 6, 1, 0, 0, 0, 56,
+};
+
+Instead of using full_name_hash(), netdev should use a hash suited
+to its typical uses, which are a common substring followed by a base 10=
+ number.
+
+new hash distribution :
+
+string_hash10[] =3D {
+62, 63, 61, 60, 61, 63, 61, 62, 64, 62, 61, 62, 62, 60, 60, 61,
+61, 59, 60, 63, 61, 60, 62, 63, 62, 60, 60, 60, 59, 60, 61, 59,
+58, 61, 61, 60, 60, 61, 61, 58, 58, 59, 58, 57, 58, 59, 58, 59,
+60, 60, 59, 61, 63, 61, 60, 60, 62, 61, 60, 61, 61, 60, 61, 62,
+61, 62, 63, 63, 62, 62, 64, 64, 61, 62, 63, 62, 62, 63, 64, 64,
+64, 64, 64, 62, 64, 65, 62, 62, 63, 63, 62, 62, 63, 64, 62, 62,
+64, 62, 63, 65, 64, 63, 63, 64, 64, 63, 63, 67, 65, 64, 66, 66,
+66, 66, 66, 65, 64, 63, 65, 63, 63, 66, 66, 64, 64, 65, 65, 64,
+63, 66, 64, 64, 65, 65, 63, 64, 65, 63, 62, 61, 64, 61, 61, 63,
+65, 64, 63, 64, 62, 62, 62, 64, 61, 61, 63, 63, 63, 63, 65, 64,
+62, 61, 63, 61, 61, 62, 61, 61, 62, 63, 62, 62, 63, 66, 62, 61,
+62, 62, 62, 61, 62, 61, 61, 61, 64, 62, 63, 65, 63, 63, 63, 64,
+62, 60, 60, 63, 61, 61, 63, 62, 63, 65, 65, 63, 62, 63, 65, 62,
+62, 64, 63, 63, 65, 66, 65, 64, 64, 65, 63, 64, 66, 63, 63, 65,
+66, 64, 63, 64, 66, 64, 63, 65, 63, 64, 66, 66, 64, 63, 64, 64,
+62, 62, 64, 61, 60, 62, 63, 62, 61, 62, 63, 61, 62, 63, 60, 59,
+};=20
+
+
+Based on a previous patch from Octavian Purdila
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/core/dev.c |   15 ++++++++++++++-
+ 1 files changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index fa88dcd..e192068 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -196,9 +196,22 @@ EXPORT_SYMBOL(dev_base_lock);
+ #define NETDEV_HASHBITS	8
+ #define NETDEV_HASHENTRIES (1 << NETDEV_HASHBITS)
+=20
++/*
++ * Because of "eth%d" patterns, following hash is giving good distribu=
+tion
++ */
++static inline unsigned int string_hash10(const char *name, unsigned in=
+t len)
++{
++	unsigned int i, hash =3D 0;
++
++	for (i =3D 0; i < len; i++)
++		hash =3D hash * 10 + name[i];
++
++	return hash;
++}
++
+ static inline struct hlist_head *dev_name_hash(struct net *net, const =
+char *name)
+ {
+-	unsigned hash =3D full_name_hash(name, strnlen(name, IFNAMSIZ));
++	unsigned hash =3D string_hash10(name, strnlen(name, IFNAMSIZ));
+ 	return &net->dev_name_head[hash & ((1 << NETDEV_HASHBITS) - 1)];
+ }
+=20
