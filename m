@@ -1,77 +1,120 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] net: Adjust softirq raising in __napi_schedule
-Date: Mon, 26 Oct 2009 08:58:52 +0100
-Message-ID: <1256543932.28230.9.camel@johannes.local>
-References: <4AD76184.6030900@gmail.com> <4ADF5710.4030505@imap.cc>
-	 <20091021211906.GA11401@ami.dom.local>
-	 <1256160330.12174.2.camel@johannes.local>
-	 <20091021213947.GA12202@ami.dom.local>
-	 <1256200021.12174.11.camel@johannes.local> <4AE1C00B.5010008@imap.cc>
-	 <1256309191.12174.51.camel@johannes.local>
-	 <20091026074126.GA6187@ff.dom.local>
-	 <1256543054.28230.6.camel@johannes.local>
-	 <20091026075438.GB6187@ff.dom.local>
+From: Gilad Ben-Yossef <gilad@codefidence.com>
+Subject: Re: [PATCH v2 8/8] Document future removal of sysctl_tcp_* options
+Date: Mon, 26 Oct 2009 10:05:50 +0200
+Message-ID: <4AE5585E.5010108@codefidence.com>
+References: <1256115421-12714-1-git-send-email-gilad@codefidence.com>	<1256115421-12714-9-git-send-email-gilad@codefidence.com>	<4ADED6FA.2030502@gmail.com>	<4ADEE119.7020803@codefidence.com>	<4ADF616B.1090405@gmail.com>	<20091022003245.5cd4885c.billfink@mindspring.com>	<4ADFE635.4020109@gmail.com>	<4AE415DD.5050406@codefidence.com> <20091025202114.152b94b8.billfink@mindspring.com> <4AE52DBD.3030805@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-5UamH4+2+8z4jInfScvN"
-Cc: Tilman Schmidt <tilman@imap.cc>,
-	David Miller <davem@davemloft.net>, hidave.darkstar@gmail.com,
-	linux-kernel@vger.kernel.org, tglx@linutronix.de,
-	linux-wireless@vger.kernel.org, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, paulus@samba.org,
-	Michael Buesch <mb@bu3sch.de>,
-	Oliver Hartkopp <oliver@hartkopp.net>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <20091026075438.GB6187@ff.dom.local>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Bill Fink <billfink@mindspring.com>,
+	William Allen Simpson <william.allen.simpson@gmail.com>,
+	netdev@vger.kernel.org,
+	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xenbox.codefidence.com ([92.48.73.16]:47164 "EHLO
+	xenbox.codefidence.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754875AbZJZIF6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 04:05:58 -0400
+In-Reply-To: <4AE52DBD.3030805@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Eric Dumazet wrote:
+
+> Bill Fink a =E9crit :
+>  =20
+>> On Sun, 25 Oct 2009, Gilad Ben-Yossef wrote:
+>>
+>>    =20
+>>> Eric Dumazet wrote:
+>>>
+>>>
+>>> I still think having a global kill switch and per route options bet=
+ter=20
+>>> (basically use the exiting patch but not retire the global kill=20
+>>> switch|), but if you must Hgow about we leave the global sysctl as =
+they=20
+>>> are and just have a two bit route option:
+>>>
+>>> 0 Use global default
+>>> 1 Off
+>>> 2 On
+>>>
+>>> It's kind of funny, because this is what the original patch from=20
+>>> Comsleep does and I thought it needlessly complicates things.
+>>>
+>>> So, what do you say - which will it be?
+>>>      =20
+>> I personally feel the 2-bit settings are overkill.  What i think
+>> makes the most sense is for the global options to act as they always
+>> have in the absence of any route specific settings, and for any
+>> route specific settings to override the related global settings.
+>> This is both simple and maintains backward compatibility.
+>>    =20
+>
+> Backward compatibility is important, very important, if not the most
+> important thing. Then usability comes.
+>  =20
+I tend to agree.
+> I know some busy servers where adding/changing a single route makes t=
+hem
+> go crazy (because of ip route flush cache)
+>
+> So if a route is overriding a global conf, and the admin wants to mak=
+e an
+> emergency change during peak hours, he should do it by a global setti=
+ng,
+> or he wont use at all this new stuff, and stay conservative.
+>
+> Alternative would be to not trigger the flush of cache when changing
+> features flags.
+>
+>  =20
+OK. It really sounds like we should go with my first suggestion: global=
+=20
+sysctl based kill switches, just as we have now and in addition, the=20
+ability to kill TCP options per route. The TCP option will be used if=20
+and only if both kill switches (global and per route) are not set.
+
+What we achieve is:
+
+1. Global kill switches work exactly as they do now, whether you use th=
+e=20
+new per route options or not, so backwards compatible.
+
+2. In addition, if the global kill switch is not in effect, you can als=
+o=20
+kill the options on a per route basis.
+
+I'm going to send third version of the patch to this effect, minus the=20
+new remote DoS possibility that Ilpo pointed out and leaving the global=
+=20
+sysctl kill switches be.
+
+If you like it, please ACK ;-)
+
+Thanks,
+Gilad
 
 
---=-5UamH4+2+8z4jInfScvN
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
 
-On Mon, 2009-10-26 at 07:54 +0000, Jarek Poplawski wrote:
+--=20
+Gilad Ben-Yossef
+Chief Coffee Drinker & CTO
+Codefidence Ltd.
 
-> > No, I wrote that I didn't know. I suppose now that I looked at it I do
-> > know, and only disabling preemption is required.
->=20
-> But netif_rx has preemption disabled most of the time (by hardirqs
-> disabling). So maybe disabling preemption isn't the main reason here
-> either?
+Web:   http://codefidence.com
+Cell:  +972-52-8260388
+Skype: gilad_codefidence
+Tel:   +972-8-9316883 ext. 201
+=46ax:   +972-8-9316884
+Email: gilad@codefidence.com
 
-Not for netpoll though, which may or may not be relevant (if I were to
-venture a guess I'd say it isn't and it disables preemption to be able
-to do the softirq thing)
+Check out our Open Source technology and training blog - http://tuxolog=
+y.net
 
-However, I lost track now of why we're discussing this.
-
-Basically it boils down to using netif_rx() when in (soft)irq, and
-netif_rx_ni() when in process context. That could just be an
-optimisation, but it's a very valid one.
-
-johannes
-
---=-5UamH4+2+8z4jInfScvN
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABAgAGBQJK5Va4AAoJEODzc/N7+QmaGZ0P/3XWgEgM6SCQX98BVmafmXc5
-2Mbi7bpGvxC34SPawy9T3H7vUgRrATm8S/DGDscgRjTAY0/bZQaau2dFs+a2UBfc
-4XJvc41om+OuhG83o9LvyjlGN1w0XFt8WwPFT7UeXoRRePnXz0DPt3YPMiZ9IkwY
-tynu6L3i2yG+G2xR2/rd49Dk15YZJfKzbJs6KrMJhtOWPYMWXrDfXD2CDUApbXOZ
-3tzaZrnRF/YbBLvOlNrxoRyBhQyvR+QgiKdnQkf5dD+DqAtPVdFPrJHRdp/W9m1p
-Dgqvml35IoWNA71BeDdH+ozEGkLLESp7G8nR1nnZpU2IBR5PhuPfAzfb6t763bW3
-qS57TUtAGcokPm+HonmginKt2q34+nN3J+iRyjr0XIRlcm05idvMImxBucVYf6CF
-cbVMZ5BGwZRvjj6e2YOdNRZRbcy+5sNfCRF+AGYWuDyF9WbEiaecKnAx0qkWcRQv
-BLTDC35t5cS5M4+Qa/cyopFc9uvBxGa1gMUYpqmSqV6Ix24bdzZlM+e9FrTprsud
-3L/9XjrA8daRU1DQzaAz0uWAL07gu0xq6kJpBndFsDcTq4HIKJvEERvF4fGogURu
-ENDJ6UgqWDMsnIzmVFsOTeZv0YggzRwIc6AxUoSwdHSwSJtszlknjN9Yhzxvw2AR
-Wh1lCuj79evprgY5Fhsx
-=NWhK
------END PGP SIGNATURE-----
-
---=-5UamH4+2+8z4jInfScvN--
+	"Linux is Ir. Ir, of course, is a form of hypereviscerated Reiyk."
+		-- Marc Volovic, linux-il, 14 Dec 2000
 
