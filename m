@@ -1,95 +1,91 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 3/3] igbvf: fix memory leak when ring size changed
-	while interface down
-Date: Mon, 26 Oct 2009 14:32:25 -0700
-Message-ID: <20091026213225.9993.25681.stgit@localhost.localdomain>
-References: <20091026213147.9993.9778.stgit@localhost.localdomain>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH -next] netxen: fix builds for SYSFS=n or MODULES=n
+Date: Mon, 26 Oct 2009 15:09:45 -0700
+Message-ID: <20091026150945.3f35a811.randy.dunlap@oracle.com>
+References: <20091026172104.205f15af.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta12.emeryville.ca.mail.comcast.net ([76.96.27.227]:57087
-	"EHLO QMTA12.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753912AbZJZVgA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 17:36:00 -0400
-In-Reply-To: <20091026213147.9993.9778.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	davem@davemloft.net, Dhananjay Phadke <dhananjay@netxen.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754535AbZJZWOc@vger.kernel.org>
+In-Reply-To: <20091026172104.205f15af.sfr@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-This patch resolves a memory leak which occurs while changing the ring size
-while the interface is down.
+When CONFIG_MODULES=n:
+drivers/net/netxen/netxen_nic_main.c:2751: error: dereferencing pointer to incomplete type
+drivers/net/netxen/netxen_nic_main.c:2764: error: dereferencing pointer to incomplete type
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Also needs addition of <linux/sysfs.h> for sysfs function prototypes or
+stubs when CONFIG_SYSFS=n.
+
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 ---
+ drivers/net/netxen/netxen_nic_main.c |    9 +++++++++
+ 1 file changed, 9 insertions(+)
 
- drivers/net/igbvf/ethtool.c |   30 +++++++++++++++++-------------
- 1 files changed, 17 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/net/igbvf/ethtool.c b/drivers/net/igbvf/ethtool.c
-index ee17a09..c68265b 100644
---- a/drivers/net/igbvf/ethtool.c
-+++ b/drivers/net/igbvf/ethtool.c
-@@ -279,7 +279,7 @@ static int igbvf_set_ringparam(struct net_device *netdev,
+--- linux-next-20091026.orig/drivers/net/netxen/netxen_nic_main.c
++++ linux-next-20091026/drivers/net/netxen/netxen_nic_main.c
+@@ -34,6 +34,7 @@
+ #include <net/ip.h>
+ #include <linux/ipv6.h>
+ #include <linux/inetdevice.h>
++#include <linux/sysfs.h>
+ 
+ MODULE_DESCRIPTION("NetXen Multi port (1/10) Gigabit Network Driver");
+ MODULE_LICENSE("GPL");
+@@ -2500,6 +2501,7 @@ static struct bin_attribute bin_attr_mem
+ 	.write = netxen_sysfs_write_mem,
+ };
+ 
++#ifdef CONFIG_MODULES
+ static ssize_t
+ netxen_store_auto_fw_reset(struct module_attribute *mattr,
+ 		struct module *mod, const char *buf, size_t count)
+@@ -2534,6 +2536,7 @@ static struct module_attribute mod_attr_
+ 	.show = netxen_show_auto_fw_reset,
+ 	.store = netxen_store_auto_fw_reset,
+ };
++#endif
+ 
+ static void
+ netxen_create_sysfs_entries(struct netxen_adapter *adapter)
+@@ -2739,7 +2742,9 @@ static struct pci_driver netxen_driver =
+ 
+ static int __init netxen_init_module(void)
  {
- 	struct igbvf_adapter *adapter = netdev_priv(netdev);
- 	struct igbvf_ring *temp_ring;
--	int err;
-+	int err = 0;
- 	u32 new_rx_count, new_tx_count;
++#ifdef CONFIG_MODULES
+ 	struct module *mod = THIS_MODULE;
++#endif
  
- 	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
-@@ -299,15 +299,22 @@ static int igbvf_set_ringparam(struct net_device *netdev,
- 		return 0;
- 	}
+ 	printk(KERN_INFO "%s\n", netxen_nic_driver_string);
  
--	temp_ring = vmalloc(sizeof(struct igbvf_ring));
--	if (!temp_ring)
--		return -ENOMEM;
--
- 	while (test_and_set_bit(__IGBVF_RESETTING, &adapter->state))
- 		msleep(1);
+@@ -2748,9 +2753,11 @@ static int __init netxen_init_module(voi
+ 	register_inetaddr_notifier(&netxen_inetaddr_cb);
+ #endif
  
--	if (netif_running(adapter->netdev))
--		igbvf_down(adapter);
-+	if (!netif_running(adapter->netdev)) {
-+		adapter->tx_ring->count = new_tx_count;
-+		adapter->rx_ring->count = new_rx_count;
-+		goto clear_reset;
-+	}
-+
-+	temp_ring = vmalloc(sizeof(struct igbvf_ring));
-+	if (!temp_ring) {
-+		err = -ENOMEM;
-+		goto clear_reset;
-+	}
-+
-+	igbvf_down(adapter);
++#ifdef CONFIG_MODULES
+ 	if (sysfs_create_file(&mod->mkobj.kobj, &mod_attr_fw_reset.attr))
+ 		printk(KERN_ERR "%s: Failed to create auto_fw_reset "
+ 				"sysfs entry.", netxen_nic_driver_name);
++#endif
  
- 	/*
- 	 * We can't just free everything and then setup again,
-@@ -339,14 +346,11 @@ static int igbvf_set_ringparam(struct net_device *netdev,
- 
- 		memcpy(adapter->rx_ring, temp_ring,sizeof(struct igbvf_ring));
- 	}
--
--	err = 0;
- err_setup:
--	if (netif_running(adapter->netdev))
--		igbvf_up(adapter);
--
--	clear_bit(__IGBVF_RESETTING, &adapter->state);
-+	igbvf_up(adapter);
- 	vfree(temp_ring);
-+clear_reset:
-+	clear_bit(__IGBVF_RESETTING, &adapter->state);
- 	return err;
+ 	return pci_register_driver(&netxen_driver);
  }
+@@ -2759,9 +2766,11 @@ module_init(netxen_init_module);
  
-
+ static void __exit netxen_exit_module(void)
+ {
++#ifdef CONFIG_MODULES
+ 	struct module *mod = THIS_MODULE;
+ 
+ 	sysfs_remove_file(&mod->mkobj.kobj, &mod_attr_fw_reset.attr);
++#endif
+ 
+ 	pci_unregister_driver(&netxen_driver);
+ 
