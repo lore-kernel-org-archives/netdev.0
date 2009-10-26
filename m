@@ -1,192 +1,131 @@
-From: Sandeep Gopalpet <sandeep.kumar@freescale.com>
-Subject: [PATCH v1 4/7] fsl_pq_mdio: Add Suport for etsec2.0 devices.
-Date: Mon, 26 Oct 2009 21:57:34 +0530
-Message-ID: <12565744542081-git-send-email-sandeep.kumar@freescale.com>
-Cc: Sandeep Gopalpet <sandeep.kumar@freescale.com>
-To: netdev@vger.kernel.org
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH v2 8/8] Document future removal of sysctl_tcp_* options
+Date: Mon, 26 Oct 2009 11:08:55 -0400
+Message-ID: <20091026110855.98a19f7a.billfink@mindspring.com>
+References: <1256115421-12714-1-git-send-email-gilad@codefidence.com>
+	<1256115421-12714-9-git-send-email-gilad@codefidence.com>
+	<4ADED6FA.2030502@gmail.com>
+	<4ADEE119.7020803@codefidence.com>
+	<4ADF616B.1090405@gmail.com>
+	<20091022003245.5cd4885c.billfink@mindspring.com>
+	<4ADFE635.4020109@gmail.com>
+	<4AE415DD.5050406@codefidence.com>
+	<20091025202114.152b94b8.billfink@mindspring.com>
+	<4AE52DBD.3030805@gmail.com>
+	<4AE5585E.5010108@codefidence.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	William Allen Simpson <william.allen.simpson@gmail.com>,
+	netdev@vger.kernel.org,
+	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+To: Gilad Ben-Yossef <gilad@codefidence.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:46294 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752330AbZJZO52 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 10:57:28 -0400
-Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
-	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n9QEvW0E020747
-	for <netdev@vger.kernel.org>; Mon, 26 Oct 2009 07:57:32 -0700 (MST)
-Received: from udp153986uds.ap.freescale.net (udp153986uds.ap.freescale.net [10.232.134.194])
-	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id n9QF0hoR005950
-	for <netdev@vger.kernel.org>; Mon, 26 Oct 2009 10:00:46 -0500 (CDT)
+Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:43005 "EHLO
+	elasmtp-scoter.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752557AbZJZPIy convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Oct 2009 11:08:54 -0400
+In-Reply-To: <4AE5585E.5010108@codefidence.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds mdio support for etsec2.0 devices.
+On Mon, 26 Oct 2009, Gilad Ben-Yossef wrote:
 
-Modified the fsl_pq_mdio structure to include the new mdio
-members.
+> Eric Dumazet wrote:
+>=20
+> > Bill Fink a =E9crit :
+> >  =20
+> >> On Sun, 25 Oct 2009, Gilad Ben-Yossef wrote:
+> >>
+> >>    =20
+> >>> Eric Dumazet wrote:
+> >>>
+> >>>
+> >>> I still think having a global kill switch and per route options b=
+etter=20
+> >>> (basically use the exiting patch but not retire the global kill=20
+> >>> switch|), but if you must Hgow about we leave the global sysctl a=
+s they=20
+> >>> are and just have a two bit route option:
+> >>>
+> >>> 0 Use global default
+> >>> 1 Off
+> >>> 2 On
+> >>>
+> >>> It's kind of funny, because this is what the original patch from=20
+> >>> Comsleep does and I thought it needlessly complicates things.
+> >>>
+> >>> So, what do you say - which will it be?
+> >>>      =20
+> >> I personally feel the 2-bit settings are overkill.  What i think
+> >> makes the most sense is for the global options to act as they alwa=
+ys
+> >> have in the absence of any route specific settings, and for any
+> >> route specific settings to override the related global settings.
+> >> This is both simple and maintains backward compatibility.
+> >>    =20
+> >
+> > Backward compatibility is important, very important, if not the mos=
+t
+> > important thing. Then usability comes.
+> >  =20
+> I tend to agree.
+> > I know some busy servers where adding/changing a single route makes=
+ them
+> > go crazy (because of ip route flush cache)
+> >
+> > So if a route is overriding a global conf, and the admin wants to m=
+ake an
+> > emergency change during peak hours, he should do it by a global set=
+ting,
+> > or he wont use at all this new stuff, and stay conservative.
+> >
+> > Alternative would be to not trigger the flush of cache when changin=
+g
+> > features flags.
+> >
+> >  =20
+> OK. It really sounds like we should go with my first suggestion: glob=
+al=20
+> sysctl based kill switches, just as we have now and in addition, the=20
+> ability to kill TCP options per route. The TCP option will be used if=
+=20
+> and only if both kill switches (global and per route) are not set.
 
-Signed-off-by: Sandeep Gopalpet <sandeep.kumar@freescale.com>
----
- drivers/net/fsl_pq_mdio.c |   59 ++++++++++++++++++++++++++++++++++++--------
- drivers/net/fsl_pq_mdio.h |   11 +++++++-
- 2 files changed, 57 insertions(+), 13 deletions(-)
+This wording is confusing.  The global kill switch not being set
+really means that the sysctl is set.  And this assumes the per-route
+default is not set.  Correct?
 
-diff --git a/drivers/net/fsl_pq_mdio.c b/drivers/net/fsl_pq_mdio.c
-index 6ac4648..4065b7c 100644
---- a/drivers/net/fsl_pq_mdio.c
-+++ b/drivers/net/fsl_pq_mdio.c
-@@ -3,8 +3,9 @@
-  * Provides Bus interface for MIIM regs
-  *
-  * Author: Andy Fleming <afleming@freescale.com>
-+ * Modifier: Sandeep Gopalpet <sandeep.kumar@freescale.com>
-  *
-- * Copyright (c) 2002-2004,2008 Freescale Semiconductor, Inc.
-+ * Copyright 2002-2004, 2008-2009 Freescale Semiconductor, Inc.
-  *
-  * Based on gianfar_mii.c and ucc_geth_mii.c (Li Yang, Kim Phillips)
-  *
-@@ -189,19 +190,29 @@ static int fsl_pq_mdio_find_free(struct mii_bus *new_bus)
- 
- 
- #if defined(CONFIG_GIANFAR) || defined(CONFIG_GIANFAR_MODULE)
--static u32 __iomem *get_gfar_tbipa(struct fsl_pq_mdio __iomem *regs)
-+static u32 __iomem *get_gfar_tbipa(struct fsl_pq_mdio __iomem *regs, struct device_node *np)
- {
- 	struct gfar __iomem *enet_regs;
-+	u32 __iomem *ioremap_tbipa;
-+	u64 addr, size;
- 
- 	/*
- 	 * This is mildly evil, but so is our hardware for doing this.
- 	 * Also, we have to cast back to struct gfar because of
- 	 * definition weirdness done in gianfar.h.
- 	 */
--	enet_regs = (struct gfar __iomem *)
--		((char __iomem *)regs - offsetof(struct gfar, gfar_mii_regs));
--
--	return &enet_regs->tbipa;
-+	if(of_device_is_compatible(np, "fsl,gianfar-mdio") ||
-+		of_device_is_compatible(np, "fsl,gianfar-tbi") ||
-+		of_device_is_compatible(np, "gianfar")) {
-+		enet_regs = (struct gfar __iomem *)regs;
-+		return &enet_regs->tbipa;
-+	} else if (of_device_is_compatible(np, "fsl,etsec2-mdio") ||
-+			of_device_is_compatible(np, "fsl,etsec2-tbi")) {
-+		addr = of_translate_address(np, of_get_address(np, 1, &size, NULL));
-+		ioremap_tbipa = ioremap(addr, size);
-+		return ioremap_tbipa;
-+	} else
-+		return NULL;
- }
- #endif
- 
-@@ -250,11 +261,11 @@ static int fsl_pq_mdio_probe(struct of_device *ofdev,
- {
- 	struct device_node *np = ofdev->node;
- 	struct device_node *tbi;
--	struct fsl_pq_mdio __iomem *regs;
-+	struct fsl_pq_mdio __iomem *regs = NULL;
- 	u32 __iomem *tbipa;
- 	struct mii_bus *new_bus;
- 	int tbiaddr = -1;
--	u64 addr, size;
-+	u64 addr = 0, size = 0, ioremap_miimcfg = 0;
- 	int err = 0;
- 
- 	new_bus = mdiobus_alloc();
-@@ -268,8 +279,22 @@ static int fsl_pq_mdio_probe(struct of_device *ofdev,
- 	fsl_pq_mdio_bus_name(new_bus->id, np);
- 
- 	/* Set the PHY base address */
--	addr = of_translate_address(np, of_get_address(np, 0, &size, NULL));
--	regs = ioremap(addr, size);
-+	if (of_device_is_compatible(np,"fsl,gianfar-mdio") ||
-+		of_device_is_compatible(np, "fsl,gianfar-tbi") ||
-+		of_device_is_compatible(np, "fsl,ucc-mdio") ||
-+		of_device_is_compatible(np,"ucc_geth_phy" )) {
-+		addr = of_translate_address(np, of_get_address(np, 0, &size, NULL));
-+		ioremap_miimcfg =  container_of(addr, struct fsl_pq_mdio, miimcfg);
-+		regs = ioremap(ioremap_miimcfg, size +
-+				offsetof(struct fsl_pq_mdio, miimcfg));
-+	} else if (of_device_is_compatible(np,"fsl,etsec2-mdio") ||
-+			of_device_is_compatible(np, "fsl,etsec2-tbi")) {
-+		addr = of_translate_address(np, of_get_address(np, 0, &size, NULL));
-+		regs = ioremap(addr, size);
-+	} else {
-+		err = -EINVAL;
-+		goto err_free_bus;
-+	}
- 
- 	if (NULL == regs) {
- 		err = -ENOMEM;
-@@ -290,9 +315,15 @@ static int fsl_pq_mdio_probe(struct of_device *ofdev,
- 
- 	if (of_device_is_compatible(np, "fsl,gianfar-mdio") ||
- 			of_device_is_compatible(np, "fsl,gianfar-tbi") ||
-+			of_device_is_compatible(np, "fsl,etsec2-mdio") ||
-+			of_device_is_compatible(np, "fsl,etsec2-tbi") ||
- 			of_device_is_compatible(np, "gianfar")) {
- #if defined(CONFIG_GIANFAR) || defined(CONFIG_GIANFAR_MODULE)
--		tbipa = get_gfar_tbipa(regs);
-+		tbipa = get_gfar_tbipa(regs, np);
-+		if (!tbipa) {
-+			err = -EINVAL;
-+			goto err_free_irqs;
-+		}
- #else
- 		err = -ENODEV;
- 		goto err_free_irqs;
-@@ -405,6 +436,12 @@ static struct of_device_id fsl_pq_mdio_match[] = {
- 	{
- 		.compatible = "fsl,gianfar-mdio",
- 	},
-+	{
-+		.compatible = "fsl,etsec2-tbi",
-+	},
-+	{
-+		.compatible = "fsl,etsec2-mdio",
-+	},
- 	{},
- };
- MODULE_DEVICE_TABLE(of, fsl_pq_mdio_match);
-diff --git a/drivers/net/fsl_pq_mdio.h b/drivers/net/fsl_pq_mdio.h
-index 36dad52..1f7d865 100644
---- a/drivers/net/fsl_pq_mdio.h
-+++ b/drivers/net/fsl_pq_mdio.h
-@@ -3,8 +3,9 @@
-  * Driver for the MDIO bus controller on Freescale PowerQUICC processors
-  *
-  * Author: Andy Fleming
-+ * Modifier: Sandeep Gopalpet
-  *
-- * Copyright (c) 2002-2004,2008 Freescale Semiconductor, Inc.
-+ * Copyright 2002-2004, 2008-2009 Freescale Semiconductor, Inc.
-  *
-  * This program is free software; you can redistribute  it and/or modify it
-  * under  the terms of  the GNU General  Public License as published by the
-@@ -23,6 +24,12 @@
- #define MII_READ_COMMAND       0x00000001
- 
- struct fsl_pq_mdio {
-+	u8 res1[16];
-+	u32 ieventm;	/* MDIO Interrupt event register (for etsec2)*/
-+	u32 imaskm;	/* MDIO Interrupt mask register (for etsec2)*/
-+	u8 res2[4];
-+	u32 emapm;	/* MDIO Event mapping register (for etsec2)*/
-+	u8 res3[1280];
- 	u32 miimcfg;		/* MII management configuration reg */
- 	u32 miimcom;		/* MII management command reg */
- 	u32 miimadd;		/* MII management address reg */
-@@ -31,9 +38,9 @@ struct fsl_pq_mdio {
- 	u32 miimind;		/* MII management indication reg */
- 	u8 reserved[28];	/* Space holder */
- 	u32 utbipar;		/* TBI phy address reg (only on UCC) */
-+	u8 res4[2728];
- } __attribute__ ((packed));
- 
--
- int fsl_pq_mdio_read(struct mii_bus *bus, int mii_id, int regnum);
- int fsl_pq_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 value);
- int fsl_pq_local_mdio_write(struct fsl_pq_mdio __iomem *regs, int mii_id,
--- 
-1.5.2.2
+> What we achieve is:
+>=20
+> 1. Global kill switches work exactly as they do now, whether you use =
+the=20
+> new per route options or not, so backwards compatible.
+>=20
+> 2. In addition, if the global kill switch is not in effect, you can a=
+lso=20
+> kill the options on a per route basis.
+>=20
+> I'm going to send third version of the patch to this effect, minus th=
+e=20
+> new remote DoS possibility that Ilpo pointed out and leaving the glob=
+al=20
+> sysctl kill switches be.
+>=20
+> If you like it, please ACK ;-)
 
+IIUC this doesn't seem right to me.  I believe the global setting
+should be a default and the route specific an override.  Your scheme
+would mean that if I set a global option to disable timestamps, then
+I couldn't enable timestamps on specific routes using the per route
+setting.
+
+And it also doesn't seem to address Eric's scenario.  If I understand
+his concern correctly, what seems to be needed is a third global
+reset value (not calling it a setting since the actual global setting
+wouldn't be changed), which would reset any per-route override settings
+to the global default setting.
+
+						-Bill
