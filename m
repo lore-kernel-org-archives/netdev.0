@@ -1,10 +1,17 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: [PATCH] net: Adjust softirq raising in __napi_schedule
-Date: Mon, 26 Oct 2009 07:41:26 +0000
-Message-ID: <20091026074126.GA6187@ff.dom.local>
-References: <4AD31213.6020006@imap.cc> <20091015114052.GA9870@ff.dom.local> <4AD76184.6030900@gmail.com> <4ADF5710.4030505@imap.cc> <20091021211906.GA11401@ami.dom.local> <1256160330.12174.2.camel@johannes.local> <20091021213947.GA12202@ami.dom.local> <1256200021.12174.11.camel@johannes.local> <4AE1C00B.5010008@imap.cc> <1256309191.12174.51.camel@johannes.local>
+Date: Mon, 26 Oct 2009 08:44:14 +0100
+Message-ID: <1256543054.28230.6.camel@johannes.local>
+References: <4AD31213.6020006@imap.cc> <20091015114052.GA9870@ff.dom.local>
+	 <4AD76184.6030900@gmail.com> <4ADF5710.4030505@imap.cc>
+	 <20091021211906.GA11401@ami.dom.local>
+	 <1256160330.12174.2.camel@johannes.local>
+	 <20091021213947.GA12202@ami.dom.local>
+	 <1256200021.12174.11.camel@johannes.local> <4AE1C00B.5010008@imap.cc>
+	 <1256309191.12174.51.camel@johannes.local>
+	 <20091026074126.GA6187@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-E+8aKjCJrS4WO5H9zABR"
 Cc: Tilman Schmidt <tilman@imap.cc>,
 	David Miller <davem@davemloft.net>, hidave.darkstar@gmail.com,
 	linux-kernel@vger.kernel.org, tglx@linutronix.de,
@@ -12,37 +19,58 @@ Cc: Tilman Schmidt <tilman@imap.cc>,
 	netdev@vger.kernel.org, paulus@samba.org,
 	Michael Buesch <mb@bu3sch.de>,
 	Oliver Hartkopp <oliver@hartkopp.net>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1256309191.12174.51.camel@johannes.local>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xc.sipsolutions.net ([83.246.72.84]:55234 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754897AbZJZHoR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 03:44:17 -0400
+In-Reply-To: <20091026074126.GA6187@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 23, 2009 at 04:46:31PM +0200, Johannes Berg wrote:
-> On Fri, 2009-10-23 at 16:39 +0200, Tilman Schmidt wrote:
-> 
-> > Strange. Then what are the two separate functions netif_rx() and
-> > netif_rx_ni() for?
-> 
-> netif_rx_ni() disables preemption.
 
-You wrote earlier:
+--=-E+8aKjCJrS4WO5H9zABR
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> [...] the networking layer needs to have
-> packets handed to it with softirqs disabled.
+On Mon, 2009-10-26 at 07:41 +0000, Jarek Poplawski wrote:
 
-How disabling preemption can fix something which needs softirqs
-disabled? Could you be more precise?
+> > netif_rx_ni() disables preemption.
+>=20
+> You wrote earlier:
+>=20
+> > [...] the networking layer needs to have
+> > packets handed to it with softirqs disabled.
+>=20
+> How disabling preemption can fix something which needs softirqs
+> disabled? Could you be more precise?
 
-> > > This really should be obvious. You're fixing the warning at the source
-> > > of the warning, rather than the source of the problem.
-> > 
-> > Good idea. So please do tell us where the source of the problem is.
-> 
-> You use netif_rx_ni() instead of netif_rx() at whatever place that
-> causes this problem.
+No, I wrote that I didn't know. I suppose now that I looked at it I do
+know, and only disabling preemption is required.
 
-This isn't a very precise description either.
+johannes
 
-Jarek P.
+--=-E+8aKjCJrS4WO5H9zABR
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAABAgAGBQJK5VNLAAoJEODzc/N7+QmaAZoP/j9hMJgijXD++p4xhyWTy+GX
+rFtthdxV0HfkilIABL2+ckwdscqaLsb7llJ7KRQrmGcIr//3pW3CUcSfsEVorvzR
+sOQE4mnQFR/MjpH+xKywUIZ99yS8ys8Ks/QeFOU5gQ3LrWF+xIVZf9jSXPR72GZg
+1fDCMbjmYn6NTuAdn9HC5go/WKRxhSn8OZe7NX8HsxCVqPlzIzgo0lrjVsH51FyR
+QNHdDT5qHZ6nADVolTC04v7VELo3cGPcrMr7GJnkwk8abfpNDR4rindKceF/yft0
+SSfgKVuAIicUS6/SwT4ktUdTe0kuZDE2keDJaK2zDJZUZNMOiI/NoShhNMv6lSBi
+CBx/o2lM7VoClPmMhjcf8feR3SHnqpgsZimDhmPBMxL7BSx+uIfLPfdp1WtHkzCl
+Vlxk1Nfr77G5RMspB6t68fRMzX80Xyh0Ok58opD/ToVtL9AvG3U8n998jwIM4sa7
+y8MpeiIIKOm0cm7r6s7iEaSTb92P3ZW+C28a6BWnm5Yxqy/SO4rhCmoYqNav16W4
+XuoZqa2WAEEV4pLM1oqPBRzRVN+dYzEOF9POS7eP3OQonxHKStjKldJRFMCAcX51
+58zZ+/FRlPOQP69xZYlpsYo9c66dZCgnbd9d23atBDxzEDLJjXimttWYRn0x+aZi
+tUbG6z5uXopGiNEU188C
+=FWoo
+-----END PGP SIGNATURE-----
+
+--=-E+8aKjCJrS4WO5H9zABR--
+
