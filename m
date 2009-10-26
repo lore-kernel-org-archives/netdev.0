@@ -1,101 +1,70 @@
-From: KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-Subject: Re: [PATCH 1/5] page allocator: Always wake kswapd when restarting an allocation attempt after direct reclaim failed
-Date: Mon, 26 Oct 2009 10:11:29 +0900 (JST)
-Message-ID: <20091026100019.2F4A.A69D9226@jp.fujitsu.com>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <1256221356-26049-2-git-send-email-mel@csn.ul.ie>
+From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Subject: Re: [PATCH 2/5] page allocator: Do not allow interrupts to use ALLOC_HARDER
+Date: Mon, 26 Oct 2009 10:15:12 +0900 (JST)
+Message-ID: <20091026101420.2F53.A69D9226@jp.fujitsu.com>
+References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <1256221356-26049-3-git-send-email-mel@csn.ul.ie>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org, Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>,
-	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	Sven Geggus <lists-+AJD3D7QEjjt/htJsj1pd9AswbaBtrod@public.gmane.org>,
-	Karol Lewandowski <karol.k.lewandowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Tobias Oetiker <tobi-7K0TWYW2a3pyDzI6CaY1VQ@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Reinette Chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>,
-	David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Mohamed Abbas <mohamed.abbas-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Jens Axboe <jens.axboe-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
-	Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	Stephan von Krawczynski <skraw-DcQCyzbjH0jQT0dZR+AlfA@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org\"" <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>
-To: Mel Gorman <mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1256221356-26049-2-git-send-email-mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: kosaki.motohiro@jp.fujitsu.com, Frans Pop <elendil@planet.nl>,
+        Jiri Kosina <jkosina@suse.cz>,
+        Sven Geggus <lists@fuchsschwanzdomain.de>,
+        Karol Lewandowski <karol.k.lewandowski@gmail.com>,
+        Tobias Oetiker <tobi@oetiker.ch>, "Rafael J. Wysocki" <rjw@sisk.pl>,
+        David Miller <davem@davemloft.net>,
+        Reinette Chatre <reinette.chatre@intel.com>,
+        Kalle Valo <kalle.valo@iki.fi>, David Rientjes <rientjes@google.com>,
+        Mohamed Abbas <mohamed.abbas@intel.com>,
+        Jens Axboe <jens.axboe@oracle.com>,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Pekka Enberg <penberg@cs.helsinki.fi>,
+        Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+        Greg Kroah-Hartman <gregkh@suse.de>,
+        Stephan von Krawczynski <skraw@ithnet.com>,
+        Kernel Testers List <kernel-testers@vger.kernel.org>,
+        netdev@vger.kern
+To: Mel Gorman <mel@csn.ul.ie>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1256221356-26049-3-git-send-email-mel@csn.ul.ie>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-> If a direct reclaim makes no forward progress, it considers whether it
-> should go OOM or not. Whether OOM is triggered or not, it may retry the
-> application afterwards. In times past, this would always wake kswapd as well
-> but currently, kswapd is not woken up after direct reclaim fails. For order-0
-> allocations, this makes little difference but if there is a heavy mix of
-> higher-order allocations that direct reclaim is failing for, it might mean
-> that kswapd is not rewoken for higher orders as much as it did previously.
+> Commit 341ce06f69abfafa31b9468410a13dbd60e2b237 altered watermark logic
+> slightly by allowing rt_tasks that are handling an interrupt to set
+> ALLOC_HARDER. This patch brings the watermark logic more in line with
+> 2.6.30.
 > 
-> This patch wakes up kswapd when an allocation is being retried after a direct
-> reclaim failure. It would be expected that kswapd is already awake, but
-> this has the effect of telling kswapd to reclaim at the higher order as well.
-> 
-> Signed-off-by: Mel Gorman <mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>
+> [rientjes@google.com: Spotted the problem]
+> Signed-off-by: Mel Gorman <mel@csn.ul.ie>
+> Reviewed-by: Pekka Enberg <penberg@cs.helsinki.fi>
 > ---
 >  mm/page_alloc.c |    2 +-
 >  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
 > diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-> index bf72055..dfa4362 100644
+> index dfa4362..7f2aa3e 100644
 > --- a/mm/page_alloc.c
 > +++ b/mm/page_alloc.c
-> @@ -1817,9 +1817,9 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
->  	if (NUMA_BUILD && (gfp_mask & GFP_THISNODE) == GFP_THISNODE)
->  		goto nopage;
+> @@ -1769,7 +1769,7 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
+>  		 * See also cpuset_zone_allowed() comment in kernel/cpuset.c.
+>  		 */
+>  		alloc_flags &= ~ALLOC_CPUSET;
+> -	} else if (unlikely(rt_task(p)))
+> +	} else if (unlikely(rt_task(p)) && !in_interrupt())
+>  		alloc_flags |= ALLOC_HARDER;
 >  
-> +restart:
->  	wake_all_kswapd(order, zonelist, high_zoneidx);
->  
-> -restart:
->  	/*
->  	 * OK, we're below the kswapd watermark and have kicked background
->  	 * reclaim. Now things get more complex, so set up alloc_flags according
+>  	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
+> -- 
+> 1.6.3.3
 
-I think this patch is correct. personally, I like to add some commnent
-at restart label. but it isn't big matter.
-	Reviewed-by: KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+good catch.
+	Reviewed-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
 
-However, I have a question. __alloc_pages_slowpath() retry logic is,
 
-1. try_to_free_pages() reclaimed some pages:
-	-> wait awhile and goto rebalance
-2. try_to_free_pages() didn't reclaimed any page:
-	-> call out_of_memory() and goto restart
 
-Then, case-1 should be fixed too? 
-I mean,
 
-diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index bf72055..5a27896 100644
---- a/mm/page_alloc.c
-+++ b/mm/page_alloc.c
-@@ -1899,6 +1899,12 @@ rebalance:
- 	if (should_alloc_retry(gfp_mask, order, pages_reclaimed)) {
- 		/* Wait for some write requests to complete then retry */
- 		congestion_wait(BLK_RW_ASYNC, HZ/50);
-+
-+		/*
-+		 * While we wait congestion wait, Amount of free memory can
-+		 * be changed dramatically. Thus, we kick kswapd again.
-+		 */
-+		wake_all_kswapd(order, zonelist, high_zoneidx);
- 		goto rebalance;
- 	}
- 
--------------------------------------------
-
-?
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
