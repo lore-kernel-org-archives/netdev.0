@@ -1,65 +1,76 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: wanPMC-CxT1E1
-Date: Mon, 26 Oct 2009 14:20:24 -0700
-Message-ID: <20091026212024.GA11918@kroah.com>
-References: <4f6ba3b0910261322j273c977fm356506c46f095832@mail.gmail.com>
- <20091026204144.GA28436@kroah.com>
- <4f6ba3b0910261357x2e5bdf5byb03b1debd177ec86@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH 1/5] e1000e: clear PHY wakeup bit after LCD reset on
+	82577/82578
+Date: Mon, 26 Oct 2009 14:22:47 -0700
+Message-ID: <20091026212242.9682.25442.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Bob Beers <bob.beers@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:56249 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753751AbZJZVXd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Oct 2009 17:23:33 -0400
-Content-Disposition: inline
-In-Reply-To: <4f6ba3b0910261357x2e5bdf5byb03b1debd177ec86@mail.gmail.com>
+Received: from qmta01.emeryville.ca.mail.comcast.net ([76.96.30.16]:47419 "EHLO
+	QMTA01.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752315AbZJZV0X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 17:26:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 26, 2009 at 04:57:35PM -0400, Bob Beers wrote:
-> On Mon, Oct 26, 2009 at 4:41 PM, Greg KH <greg@kroah.com> wrote:
-> > On Mon, Oct 26, 2009 at 04:22:08PM -0400, Bob Beers wrote:
-> >> Hello List,
-> >>
-> >> I am using subject named card[1] and it has a GPL driver that is
-> >> =A0out-of-tree. =A0I have permission from the manufacturer to post=
- and
-> >> =A0discuss it, so I'd like to get started. =A0Where/how shall I po=
-st the code,
-> >> =A0and my first patch which allows it to compile and run with the
-> >> =A0kernel of RHEL/CentOS 5? =A0The tarball includes driver source =
-and
-> >> =A0a utility pmcc4cfg, and is 174 093 bytes.
-> >
-> > Getting it to build on 2.6.31 is more important than RHEL5, we can'=
-t do
-> > anything with an old kernel like that.
-> >
->=20
-> I know, but I'll need to back port it as soon as possible.
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Sure, but that's nothing we can do, nor are able to even care about :)
+Performing a dummy read of the PHY Wakeup Control (WUC) register clears the
+wakeup enable bit set by an PHY reset.  If this bit remains set, link
+problems may occur.
 
-> > Do you have a pointer to where we can download the tarball? =A0I'll=
- be
-> > glad to add it to the staging tree so it can be cleaned up there be=
-fore
-> > being submitted to the main portion of the kernel tree.
-> >
->=20
-> <http://rapidshare.com/files/298314343/wanPMC_CxT1E1_Linux_3_1B.tgz.h=
-tml>
-> MD5: 563FC98A1A0EA625F72C45B89E5C726B
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-Care to put it somewhere that will actually work?  That site refuses to
-give it to me.
+ drivers/net/e1000e/ich8lan.c |   10 +++++++++-
+ 1 files changed, 9 insertions(+), 1 deletions(-)
 
-Heck, if it's only 174kb, can you just send it in email to me?
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index aa0ab0e..ead6651 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -844,7 +844,7 @@ static s32 e1000_phy_hw_reset_ich8lan(struct e1000_hw *hw)
+ 	u32 i;
+ 	u32 data, cnf_size, cnf_base_addr, sw_cfg_mask;
+ 	s32 ret_val;
+-	u16 word_addr, reg_data, reg_addr, phy_page = 0;
++	u16 reg, word_addr, reg_data, reg_addr, phy_page = 0;
+ 
+ 	ret_val = e1000e_phy_hw_reset_generic(hw);
+ 	if (ret_val)
+@@ -859,6 +859,10 @@ static s32 e1000_phy_hw_reset_ich8lan(struct e1000_hw *hw)
+ 			return ret_val;
+ 	}
+ 
++	/* Dummy read to clear the phy wakeup bit after lcd reset */
++	if (hw->mac.type == e1000_pchlan)
++		e1e_rphy(hw, BM_WUC, &reg);
++
+ 	/*
+ 	 * Initialize the PHY from the NVM on ICH platforms.  This
+ 	 * is needed due to an issue where the NVM configuration is
+@@ -2229,6 +2233,7 @@ static s32 e1000_get_bus_info_ich8lan(struct e1000_hw *hw)
+  **/
+ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
+ {
++	u16 reg;
+ 	u32 ctrl, icr, kab;
+ 	s32 ret_val;
+ 
+@@ -2304,6 +2309,9 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
+ 			hw_dbg(hw, "Auto Read Done did not complete\n");
+ 		}
+ 	}
++	/* Dummy read to clear the phy wakeup bit after lcd reset */
++	if (hw->mac.type == e1000_pchlan)
++		e1e_rphy(hw, BM_WUC, &reg);
+ 
+ 	/*
+ 	 * For PCH, this write will make sure that any noise
 
-thanks,
-
-greg k-h
