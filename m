@@ -1,54 +1,72 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Increasing TCP initial cwnd
-Date: Mon, 26 Oct 2009 15:57:44 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.0910261555450.19761@wel-95.cs.helsinki.fi>
-References: <fa3cddca0910260640s22d0396ey5fc51c51047bc2c@mail.gmail.com> <alpine.DEB.2.00.0910261553180.19761@wel-95.cs.helsinki.fi>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [PATCH next-next-2.6] netdev: better dev_name_hash
+Date: Mon, 26 Oct 2009 16:31:44 +0200
+Message-ID: <200910261631.44666.opurdila@ixiacom.com>
+References: <200910252158.53921.opurdila@ixiacom.com> <4AE53382.8020308@gmail.com> <OF703F980D.0971407E-ON6525765B.00458CCA-6525765B.00481976@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-1417950103-1256565464=:19761"
-Cc: Netdev <netdev@vger.kernel.org>
-To: Yair Gottdenker <yairgott@gmail.com>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>, netdev@vger.kernel.org
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:42315 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751973AbZJZN5k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 09:57:40 -0400
-In-Reply-To: <alpine.DEB.2.00.0910261553180.19761@wel-95.cs.helsinki.fi>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:27546 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751285AbZJZOel (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 10:34:41 -0400
+In-Reply-To: <OF703F980D.0971407E-ON6525765B.00458CCA-6525765B.00481976@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
---8323329-1417950103-1256565464=:19761
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-
-On Mon, 26 Oct 2009, Ilpo Järvinen wrote:
-
-> On Mon, 26 Oct 2009, Yair Gottdenker wrote:
+On Monday 26 October 2009 15:07:31 you wrote:
+> Eric Dumazet wrote on 10/26/2009 10:58:34 AM:
+> > In fact, new10 should be the 'perfect' hash for the "eth%d"
+> > netdev use, not jhash (way more expensive in cpu cycles BTW)
+> >
+> > Most linux machines in the world have less than 10 interfaces, jhash
+> > would be really overkill.
+> >
+> >
+> > Thanks
+> >
+> >
+> > [PATCH net-next-2.6] netdev: better dev_name_hash
 > 
-> > I am working on research project to control the sender initial
-> > congestion window size. I am trying to allow user space to set the
-> > initial congestion window size but with no luck. The sender always
-> > sends just 4 packets disregarding from the snd_cwnd.
-> > 
-> > I am working on kernel version 2.6.31.3.
-> > 
-> > I made the following changes:
-> > 1. tcp_ipv4.c -> in function tcp_v4_init_sock, changed from
-> > tp->snd_cwnd = 2 to tp->snd_cwnd = user_space_initial_cwnd.
-> > 2. tcp_output.c -> tcp_init_cwnd - to always return user_space_initial_cwnd.
-> > 3. tcp_cong.c -> tcp_slow_start- to always return user_space_initial_cwnd.
-> > 
-> > Any help will be more than welcome.
+> Changing Eric's test program to pass a multiplier to string_hash()
+> and calling string_hash with multipler=<2 - 63> confirms that 10
+> is almost always the best number for varying netdev names. I print
+> the number of times perfect 64 was scored, and for most passed
+> device names, the best is for n=10, followed by n=5 and others.
+> Almost the worst was n=31, slightly better was n=17.
 > 
-> How about trying tcp_init_metrics in tcp_input.c?
+> But other variables matter too, like fewer entries (4K or 1K) but
+> above values for are still better compared to n=31.
+> 
 
-Also, now that I looked. I don't understand what interesting you find in 
-tcp_slow_start to modify? That certainly has nothing to do with initial 
-window. ....Then you also might want to play with RW but that 
-is out-of-scope of your question, just mentioning it for completeleness.
+Hmm, I've found out that it very much depends on the name as well:
 
--- 
- i.
---8323329-1417950103-1256565464=:19761--
+0 - orig, 1 - jhash, 2 - new10, 3 - new17, 4 - new31
+
+$ ./dev_name_hash ixint 16000 0 16
+score 24741
+$ ./dev_name_hash ixint 16000 1 16
+score 17949
+$ ./dev_name_hash ixint 16000 2 16
+score 16000
+$ ./dev_name_hash ixint 16000 3 16
+score 16715
+$ ./dev_name_hash ixint 16000 4 16
+score 18125
+
+
+$ ./dev_name_hash ixunc 16000 0 16
+score 24741
+$ ./dev_name_hash ixunc 16000 1 16
+score 17904
+$ ./dev_name_hash ixunc 16000 2 16
+score 22180
+$ ./dev_name_hash ixunc 16000 3 16
+score 17065
+$ ./dev_name_hash ixunc 16000 4 16
+score 18038
