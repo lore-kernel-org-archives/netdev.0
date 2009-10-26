@@ -1,45 +1,99 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH next-next-2.6] netdev: better dev_name_hash
-Date: Sun, 25 Oct 2009 21:43:57 -0700
-Message-ID: <20091025214357.666350d2@nehalam>
-References: <200910252158.53921.opurdila@ixiacom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 8/8] Document future removal of sysctl_tcp_* options
+Date: Mon, 26 Oct 2009 06:03:57 +0100
+Message-ID: <4AE52DBD.3030805@gmail.com>
+References: <1256115421-12714-1-git-send-email-gilad@codefidence.com>	<1256115421-12714-9-git-send-email-gilad@codefidence.com>	<4ADED6FA.2030502@gmail.com>	<4ADEE119.7020803@codefidence.com>	<4ADF616B.1090405@gmail.com>	<20091022003245.5cd4885c.billfink@mindspring.com>	<4ADFE635.4020109@gmail.com>	<4AE415DD.5050406@codefidence.com> <20091025202114.152b94b8.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Octavian Purdila <opurdila@ixiacom.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Gilad Ben-Yossef <gilad@codefidence.com>,
+	William Allen Simpson <william.allen.simpson@gmail.com>,
+	netdev@vger.kernel.org
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:43102 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753300AbZJZEn7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Oct 2009 00:43:59 -0400
-In-Reply-To: <200910252158.53921.opurdila@ixiacom.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:55949 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754637AbZJZFEE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 01:04:04 -0400
+In-Reply-To: <20091025202114.152b94b8.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 25 Oct 2009 21:58:53 +0200
-Octavian Purdila <opurdila@ixiacom.com> wrote:
+Bill Fink a =E9crit :
+> On Sun, 25 Oct 2009, Gilad Ben-Yossef wrote:
+>=20
+>> Eric Dumazet wrote:
+>>
+>>> Bill Fink a =E9crit :
+>>>
+>>>  =20
+>>>> And as mentioned previously, the global options can be quite usefu=
+l
+>>>> in certain test scenarios.  I also agree the per route settings ar=
+e
+>>>> a very useful addition.  I think the global and per route settings
+>>>> are complementary and shouldn't be thought of as in conflict with
+>>>> one another.
+>>>>    =20
+>>> Absolutely, global setting is a must when an admin wants a quick pa=
+th.
+>>>
+>>> The more flexible would be to have two bits per route, plus
+>>> 2 bits on the global configuration.
+>>>
+>>> global conf:
+>>> 00 : timestamps OFF, unless a route setting is not 00
+>>> 01 : timestamps ON, unless a route setting is not 00
+>>> 10 : Force timestamps OFF, ignore route settings (emergency sysadmi=
+n request)
+>>> 11 : Force timestamps ON, ignore route settings=20
+>>>
+>>> Route settings (used *only* if global setting is 0Y)
+>>> 00 : global conf is used
+>>> 01 : Force timestamps being OFF for this route
+>>> 10 : Force timestamps being ON for this route
+>>> 11 : complement global conf
+>> Hey, I have no issue to re-spin the patch with this suggestion, if y=
+ou=20
+>> truly think this is valuable, but would you please consider the=20
+>> nightmare of having to just explain this to someone?
+>>
+>> It sounds to me way too complicated for what it does.
+>>
+>> I still think having a global kill switch and per route options bett=
+er=20
+>> (basically use the exiting patch but not retire the global kill=20
+>> switch|), but if you must Hgow about we leave the global sysctl as t=
+hey=20
+>> are and just have a two bit route option:
+>>
+>> 0 Use global default
+>> 1 Off
+>> 2 On
+>>
+>> It's kind of funny, because this is what the original patch from=20
+>> Comsleep does and I thought it needlessly complicates things.
+>>
+>> So, what do you say - which will it be?
+>=20
+> I personally feel the 2-bit settings are overkill.  What i think
+> makes the most sense is for the global options to act as they always
+> have in the absence of any route specific settings, and for any
+> route specific settings to override the related global settings.
+> This is both simple and maintains backward compatibility.
 
-> 
-> The current dev_name_hash is not very good at spreading entries when a
-> large number of interfaces of the same type (e.g. ethXXXXX) are used.
-> 
-> Here are some performance numbers for creating 16000 dummy interfaces with
-> and without the patch (with per device sysctl entries disabled)
-> 
->     With patch                      Without patch
-> 
->     real    0m 2.27s                real    0m 4.32s
->     user    0m 0.00s                user    0m 0.00s
->     sys     0m 1.13s                sys     0m 2.16s
-> 
-> Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
-> ---
->  net/core/dev.c |    8 +++++++-
->  1 files changed, 7 insertions(+), 1 deletions(-)
+Backward compatibility is important, very important, if not the most
+important thing. Then usability comes.
 
-My $.02 would for fixing full name hash because other usages would
-benefit as well.  Inventing special case for network devices seems
-unnecessary.
+I know some busy servers where adding/changing a single route makes the=
+m
+go crazy (because of ip route flush cache)
 
--- 
+So if a route is overriding a global conf, and the admin wants to make =
+an
+emergency change during peak hours, he should do it by a global setting=
+,
+or he wont use at all this new stuff, and stay conservative.
+
+Alternative would be to not trigger the flush of cache when changing
+features flags.
