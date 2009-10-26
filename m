@@ -1,8 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 1/5] e1000e: clear PHY wakeup bit after LCD reset on
-	82577/82578
-Date: Mon, 26 Oct 2009 14:22:47 -0700
-Message-ID: <20091026212242.9682.25442.stgit@localhost.localdomain>
+Subject: [net-2.6 PATCH 2/5] e1000e: increase swflag acquisition timeout for
+	ICHx/PCH
+Date: Mon, 26 Oct 2009 14:23:06 -0700
+Message-ID: <20091026212306.9682.73519.stgit@localhost.localdomain>
+References: <20091026212242.9682.25442.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,66 +12,49 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta01.emeryville.ca.mail.comcast.net ([76.96.30.16]:47419 "EHLO
-	QMTA01.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752315AbZJZV0X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 17:26:23 -0400
+Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:38012 "EHLO
+	QMTA06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753015AbZJZV0m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 17:26:42 -0400
+In-Reply-To: <20091026212242.9682.25442.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Performing a dummy read of the PHY Wakeup Control (WUC) register clears the
-wakeup enable bit set by an PHY reset.  If this bit remains set, link
-problems may occur.
+In some conditions (e.g. when AMT is enabled on the system), it is possible
+to take an extended period of time to for the driver to acquire the sw/fw/hw
+hardware semaphore used to protect against concurrent access of a shared
+resource (e.g. PHY registers).  This could cause PHY registers to not get
+configured properly resulting in link issues.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/ich8lan.c |   10 +++++++++-
- 1 files changed, 9 insertions(+), 1 deletions(-)
+ drivers/net/e1000e/ich8lan.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index aa0ab0e..ead6651 100644
+index ead6651..fb2222d 100644
 --- a/drivers/net/e1000e/ich8lan.c
 +++ b/drivers/net/e1000e/ich8lan.c
-@@ -844,7 +844,7 @@ static s32 e1000_phy_hw_reset_ich8lan(struct e1000_hw *hw)
- 	u32 i;
- 	u32 data, cnf_size, cnf_base_addr, sw_cfg_mask;
- 	s32 ret_val;
--	u16 word_addr, reg_data, reg_addr, phy_page = 0;
-+	u16 reg, word_addr, reg_data, reg_addr, phy_page = 0;
+@@ -122,6 +122,8 @@
  
- 	ret_val = e1000e_phy_hw_reset_generic(hw);
- 	if (ret_val)
-@@ -859,6 +859,10 @@ static s32 e1000_phy_hw_reset_ich8lan(struct e1000_hw *hw)
- 			return ret_val;
- 	}
+ #define HV_LED_CONFIG		PHY_REG(768, 30) /* LED Configuration */
  
-+	/* Dummy read to clear the phy wakeup bit after lcd reset */
-+	if (hw->mac.type == e1000_pchlan)
-+		e1e_rphy(hw, BM_WUC, &reg);
++#define SW_FLAG_TIMEOUT    1000 /* SW Semaphore flag timeout in milliseconds */
 +
- 	/*
- 	 * Initialize the PHY from the NVM on ICH platforms.  This
- 	 * is needed due to an issue where the NVM configuration is
-@@ -2229,6 +2233,7 @@ static s32 e1000_get_bus_info_ich8lan(struct e1000_hw *hw)
-  **/
- static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
- {
-+	u16 reg;
- 	u32 ctrl, icr, kab;
- 	s32 ret_val;
- 
-@@ -2304,6 +2309,9 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
- 			hw_dbg(hw, "Auto Read Done did not complete\n");
- 		}
+ /* ICH GbE Flash Hardware Sequencing Flash Status Register bit breakdown */
+ /* Offset 04h HSFSTS */
+ union ich8_hws_flash_status {
+@@ -599,7 +601,7 @@ static s32 e1000_acquire_swflag_ich8lan(struct e1000_hw *hw)
+ 		goto out;
  	}
-+	/* Dummy read to clear the phy wakeup bit after lcd reset */
-+	if (hw->mac.type == e1000_pchlan)
-+		e1e_rphy(hw, BM_WUC, &reg);
  
- 	/*
- 	 * For PCH, this write will make sure that any noise
+-	timeout = PHY_CFG_TIMEOUT * 2;
++	timeout = SW_FLAG_TIMEOUT;
+ 
+ 	extcnf_ctrl |= E1000_EXTCNF_CTRL_SWFLAG;
+ 	ew32(EXTCNF_CTRL, extcnf_ctrl);
 
