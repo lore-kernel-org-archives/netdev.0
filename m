@@ -1,65 +1,51 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net tree with the i2c tree
-Date: Mon, 26 Oct 2009 13:37:57 +1100
-Message-ID: <20091026133757.7cf87e49.sfr@canb.auug.org.au>
+From: Franko Fang <huananhu@huawei.com>
+Subject: Re: PATCH 23/10]Optimize the upload speed for PPP connection.
+Date: Mon, 26 Oct 2009 10:44:39 +0800
+Message-ID: <001401ca55e6$435c1e30$76900b0a@china.huawei.com>
+References: <fae097f21b27.1b27fae097f2@huawei.com> <4AE19780.3020507@gmail.com>
+ <20091024.064603.249036129.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Mika Kuoppala <mika.kuoppala@nokia.com>,
-	Jean Delvare <khali@linux-fr.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	zihan@huawei.com, greg@kroah.com, haegar@sdinet.de
+To: David Miller <davem@davemloft.net>, william.allen.simpson@gmail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754596AbZJZCoi@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+Thanks your advice.
 
-Today's linux-next merge of the net tree got a conflict in
-drivers/net/sfc/sfe4001.c between commit
-3f7c0648f727a6d5baf6117653e4001dc877b90b ("i2c: Prevent priority
-inversion on top of bus lock") from the i2c tree and commit
-c9597d4f89565b6562bd3026adbe6eac6c317f47 ("sfc: Merge sfe4001.c into
-falcon_boards.c") from the net tree.
+But generally, PAGE_SIZE is 4096, whether it is too large or not?
 
-I have applied the following merge fixup patch (after removing
-drivers/net/sfc/sfe4001.c) and can carry it as necessary.
+If PAGE_SIZE is really appropriate, then I can resubmit the patch.
 
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+Thanks very much.
+----- Original Message ----- 
+From: "David Miller" <davem@davemloft.net>
+To: <william.allen.simpson@gmail.com>
+Cc: <huananhu@huawei.com>; <netdev@vger.kernel.org>; <linux-kernel@vger.kernel.org>; <zihan@huawei.com>; <greg@kroah.com>; <haegar@sdinet.de>
+Sent: Saturday, October 24, 2009 9:46 PM
+Subject: Re: PATCH 23/10]Optimize the upload speed for PPP connection.
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 26 Oct 2009 12:24:55 +1100
-Subject: [PATCH] net: merge fixup for drivers/net/sfc/falcon_boards.c
 
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- drivers/net/sfc/falcon_boards.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/sfc/falcon_boards.c b/drivers/net/sfc/falcon_boards.c
-index 99f7372..788b336 100644
---- a/drivers/net/sfc/falcon_boards.c
-+++ b/drivers/net/sfc/falcon_boards.c
-@@ -327,7 +327,7 @@ static int sfn4111t_reset(struct efx_nic *efx)
- 	efx_oword_t reg;
- 
- 	/* GPIO 3 and the GPIO register are shared with I2C, so block that */
--	mutex_lock(&efx->i2c_adap.bus_lock);
-+	rt_mutex_lock(&efx->i2c_adap.bus_lock);
- 
- 	/* Pull RST_N (GPIO 2) low then let it up again, setting the
- 	 * FLASH_CFG_1 strap (GPIO 3) appropriately.  Only change the
-@@ -343,7 +343,7 @@ static int sfn4111t_reset(struct efx_nic *efx)
- 	efx_writeo(efx, &reg, FR_AB_GPIO_CTL);
- 	msleep(1);
- 
--	mutex_unlock(&efx->i2c_adap.bus_lock);
-+	rt_mutex_unlock(&efx->i2c_adap.bus_lock);
- 
- 	ssleep(1);
- 	return 0;
--- 
-1.6.5
+> From: William Allen Simpson <william.allen.simpson@gmail.com>
+> Date: Fri, 23 Oct 2009 07:46:08 -0400
+> 
+>> Concur.  I'd go further than that, my code usually made room for at
+>> least
+>> a full MTU (MRU) with HDLC escaping.  To minimize context switches,
+>> that
+>> should be 3014 ((1500 MRU + 2 FCS + 4 header) * 2 escapes + 2 flags).
+>> 
+>> Even in the old days, when memory was tight, context switches and
+>> interrupt
+>> time were more expensive, too.  PPP is supposed to scale to OC-192.
+> 
+> Actually I'd like to see ->obuf allocated externally and then
+> make it simply PAGE_SIZE.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
