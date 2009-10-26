@@ -1,61 +1,92 @@
-From: Cosmin Ratiu <cratiu@ixiacom.com>
-Subject: Re: [RFC] make per interface sysctl entries configurable
-Date: Mon, 26 Oct 2009 12:01:42 +0300
-Message-ID: <200910261101.43099.cratiu@ixiacom.com>
-References: <200910251954.49700.opurdila@ixiacom.com> <4AE4C50F.7060605@gmail.com> <200910260021.48785.opurdila@ixiacom.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] virtio-net: fix data corruption with OOM
+Date: Mon, 26 Oct 2009 11:00:38 +0200
+Message-ID: <20091026090038.GA23408@redhat.com>
+References: <20091025170340.GA22099@redhat.com> <200910261211.52148.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Benjamin LaHaise <bcrl@lhnet.ca>,
-	Stephen Hemminger <shemminger@vyatta.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Octavian Purdila <opurdila@ixiacom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:19581 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755383AbZJZJBk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 05:01:40 -0400
-In-Reply-To: <200910260021.48785.opurdila@ixiacom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <200910261211.52148.rusty@rustcorp.com.au>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Monday 26 October 2009 00:21:48 Octavian Purdila wrote:
-> On Sunday 25 October 2009 23:37:19 you wrote:
-> > Octavian Purdila a =C3=A9crit :
-> > > RFC patches are attached.
-> > >
-> > > Another possible approach: add an interface flag and use it to de=
-cide
-> > > whether we want per interface sysctl entries or not.
-> >
-> > Hmm, could we speedup sysctl instead, adding rbtree or something ?
->=20
-> Very good point, I think this is the best solution for people using a
-> moderately high number of interfaces (a few thousand).
->=20
-> But for really large setups there is another issue: memory consumptio=
-n. In
-> fact, in order to be able to scale to 128K interfaces and still have =
-a
-> significant amount of memory available to applications we also had to
->  disable sysfs and #ifdef CONFIG_SYSFS struct device from net_device.
->=20
-> I would also argue that when you have such a large number of interfac=
-es you
-> don't need to change setting on a per interface basis. Or at least th=
-is is
->  our case :)  and I suspect that the case with a large number of PPP
->  interfaces is similar.
->=20
+On Mon, Oct 26, 2009 at 12:11:51PM +1030, Rusty Russell wrote:
+> On Mon, 26 Oct 2009 03:33:40 am Michael S. Tsirkin wrote:
+> > virtio net used to unlink skbs from send queues on error,
+> > but ever since 48925e372f04f5e35fec6269127c62b2c71ab794
+> > we do not do this. This causes guest data corruption and crashes
+> > with vhost since net core can requeue the skb or free it without
+> > it being taken off the list.
+> > 
+> > This patch fixes this by queueing the skb after successfull
+> > transmit.
+> 
+> I originally thought that this was racy: as soon as we do add_buf, we need to
+> make sure we're ready for the callback (for virtio_pci, it's ->kick, but we
+> shouldn't rely on that).
 
-Another possible approach: shared settings for an interface group. If y=
-ou have=20
-a large number of interfaces of the same type it would be nice if you c=
-ould=20
-change some setting for the whole group instead of globally or individu=
-ally.=20
+BTW, wanted to note that unlink on error would *also* be racy if we did any
+processing in the callback.
 
-Is this approach feasible anyway? Or I'm talking rubbish.
-
-Cosmin.
+> So a comment would be nice.  How's this?
+> 
+> Subject: virtio-net: fix data corruption with OOM
+> Date: Sun, 25 Oct 2009 19:03:40 +0200
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> 
+> virtio net used to unlink skbs from send queues on error,
+> but ever since 48925e372f04f5e35fec6269127c62b2c71ab794
+> we do not do this. This causes guest data corruption and crashes
+> with vhost since net core can requeue the skb or free it without
+> it being taken off the list.
+> 
+> This patch fixes this by queueing the skb after successful
+> transmit.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au> (+ comment)
+> ---
+> 
+> Rusty, here's a fix for another data corrupter I saw.
+> This fixes a regression from 2.6.31, so definitely
+> 2.6.32 I think. Comments?
+> 
+>  drivers/net/virtio_net.c |    8 +++++---
+>  1 files changed, 5 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -516,8 +516,7 @@ again:
+>  	/* Free up any pending old buffers before queueing new ones. */
+>  	free_old_xmit_skbs(vi);
+>  
+> -	/* Put new one in send queue and do transmit */
+> -	__skb_queue_head(&vi->send, skb);
+> +	/* Try to transmit */
+>  	capacity = xmit_skb(vi, skb);
+>  
+>  	/* This can happen with OOM and indirect buffers. */
+> @@ -531,8 +530,17 @@ again:
+>  		}
+>  		return NETDEV_TX_BUSY;
+>  	}
+> +	vi->svq->vq_ops->kick(vi->svq);
+>  
+> -	vi->svq->vq_ops->kick(vi->svq);
+> +	/*
+> +	 * Put new one in send queue.  You'd expect we'd need this before
+> +	 * xmit_skb calls add_buf(), since the callback can be triggered
+> +	 * immediately after that.  But since the callback just triggers
+> +	 * another call back here, normal network xmit locking prevents the
+> +	 * race.
+> +	 */
+> +	__skb_queue_head(&vi->send, skb);
+> +
+>  	/* Don't wait up for transmitted skbs to be freed. */
+>  	skb_orphan(skb);
+>  	nf_reset(skb);
