@@ -1,70 +1,97 @@
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Subject: Re: [PATCH 2/5] page allocator: Do not allow interrupts to use ALLOC_HARDER
-Date: Mon, 26 Oct 2009 10:15:12 +0900 (JST)
-Message-ID: <20091026101420.2F53.A69D9226@jp.fujitsu.com>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <1256221356-26049-3-git-send-email-mel@csn.ul.ie>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] virtio-net: fix data corruption with OOM
+Date: Mon, 26 Oct 2009 12:11:51 +1030
+Message-ID: <200910261211.52148.rusty@rustcorp.com.au>
+References: <20091025170340.GA22099@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: kosaki.motohiro@jp.fujitsu.com, Frans Pop <elendil@planet.nl>,
-        Jiri Kosina <jkosina@suse.cz>,
-        Sven Geggus <lists@fuchsschwanzdomain.de>,
-        Karol Lewandowski <karol.k.lewandowski@gmail.com>,
-        Tobias Oetiker <tobi@oetiker.ch>, "Rafael J. Wysocki" <rjw@sisk.pl>,
-        David Miller <davem@davemloft.net>,
-        Reinette Chatre <reinette.chatre@intel.com>,
-        Kalle Valo <kalle.valo@iki.fi>, David Rientjes <rientjes@google.com>,
-        Mohamed Abbas <mohamed.abbas@intel.com>,
-        Jens Axboe <jens.axboe@oracle.com>,
-        "John W. Linville" <linville@tuxdriver.com>,
-        Pekka Enberg <penberg@cs.helsinki.fi>,
-        Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-        Greg Kroah-Hartman <gregkh@suse.de>,
-        Stephan von Krawczynski <skraw@ithnet.com>,
-        Kernel Testers List <kernel-testers@vger.kernel.org>,
-        netdev@vger.kern
-To: Mel Gorman <mel@csn.ul.ie>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1256221356-26049-3-git-send-email-mel@csn.ul.ie>
-Sender: owner-linux-mm@kvack.org
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+        virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20091025170340.GA22099@redhat.com>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-> Commit 341ce06f69abfafa31b9468410a13dbd60e2b237 altered watermark logic
-> slightly by allowing rt_tasks that are handling an interrupt to set
-> ALLOC_HARDER. This patch brings the watermark logic more in line with
-> 2.6.30.
+On Mon, 26 Oct 2009 03:33:40 am Michael S. Tsirkin wrote:
+> virtio net used to unlink skbs from send queues on error,
+> but ever since 48925e372f04f5e35fec6269127c62b2c71ab794
+> we do not do this. This causes guest data corruption and crashes
+> with vhost since net core can requeue the skb or free it without
+> it being taken off the list.
 > 
-> [rientjes@google.com: Spotted the problem]
-> Signed-off-by: Mel Gorman <mel@csn.ul.ie>
-> Reviewed-by: Pekka Enberg <penberg@cs.helsinki.fi>
-> ---
->  mm/page_alloc.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-> index dfa4362..7f2aa3e 100644
-> --- a/mm/page_alloc.c
-> +++ b/mm/page_alloc.c
-> @@ -1769,7 +1769,7 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
->  		 * See also cpuset_zone_allowed() comment in kernel/cpuset.c.
->  		 */
->  		alloc_flags &= ~ALLOC_CPUSET;
-> -	} else if (unlikely(rt_task(p)))
-> +	} else if (unlikely(rt_task(p)) && !in_interrupt())
->  		alloc_flags |= ALLOC_HARDER;
->  
->  	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
-> -- 
-> 1.6.3.3
+> This patch fixes this by queueing the skb after successfull
+> transmit.
 
-good catch.
-	Reviewed-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+I originally thought that this was racy: as soon as we do add_buf, we need to
+make sure we're ready for the callback (for virtio_pci, it's ->kick, but we
+shouldn't rely on that).
 
+So a comment would be nice.  How's this?
 
+Subject: virtio-net: fix data corruption with OOM
+Date: Sun, 25 Oct 2009 19:03:40 +0200
+From: "Michael S. Tsirkin" <mst@redhat.com>
 
+virtio net used to unlink skbs from send queues on error,
+but ever since 48925e372f04f5e35fec6269127c62b2c71ab794
+we do not do this. This causes guest data corruption and crashes
+with vhost since net core can requeue the skb or free it without
+it being taken off the list.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+This patch fixes this by queueing the skb after successful
+transmit.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au> (+ comment)
+---
+
+Rusty, here's a fix for another data corrupter I saw.
+This fixes a regression from 2.6.31, so definitely
+2.6.32 I think. Comments?
+
+ drivers/net/virtio_net.c |    8 +++++---
+ 1 files changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -516,8 +516,7 @@ again:
+ 	/* Free up any pending old buffers before queueing new ones. */
+ 	free_old_xmit_skbs(vi);
+ 
+-	/* Put new one in send queue and do transmit */
+-	__skb_queue_head(&vi->send, skb);
++	/* Try to transmit */
+ 	capacity = xmit_skb(vi, skb);
+ 
+ 	/* This can happen with OOM and indirect buffers. */
+@@ -531,8 +530,17 @@ again:
+ 		}
+ 		return NETDEV_TX_BUSY;
+ 	}
++	vi->svq->vq_ops->kick(vi->svq);
+ 
+-	vi->svq->vq_ops->kick(vi->svq);
++	/*
++	 * Put new one in send queue.  You'd expect we'd need this before
++	 * xmit_skb calls add_buf(), since the callback can be triggered
++	 * immediately after that.  But since the callback just triggers
++	 * another call back here, normal network xmit locking prevents the
++	 * race.
++	 */
++	__skb_queue_head(&vi->send, skb);
++
+ 	/* Don't wait up for transmitted skbs to be freed. */
+ 	skb_orphan(skb);
+ 	nf_reset(skb);
