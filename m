@@ -1,66 +1,83 @@
 From: Gilad Ben-Yossef <gilad@codefidence.com>
-Subject: [PATCH v3 0/7] Per route TCP options
-Date: Mon, 26 Oct 2009 10:06:26 +0200
-Message-ID: <1256544393-12450-1-git-send-email-gilad@codefidence.com>
+Subject: [PATCH v3 6/7] Allow to turn off TCP window scale opt per route
+Date: Mon, 26 Oct 2009 10:06:32 +0200
+Message-ID: <1256544393-12450-7-git-send-email-gilad@codefidence.com>
+References: <1256544393-12450-1-git-send-email-gilad@codefidence.com>
 Cc: ori@comsleep.com, Gilad Ben-Yossef <gilad@codefidence.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenbox.codefidence.com ([92.48.73.16]:47174 "EHLO
+Received: from xenbox.codefidence.com ([92.48.73.16]:47186 "EHLO
 	xenbox.codefidence.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754990AbZJZIGb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 04:06:31 -0400
+	with ESMTP id S1755189AbZJZIGh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 04:06:37 -0400
+In-Reply-To: <1256544393-12450-1-git-send-email-gilad@codefidence.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Third iteration of patch to allow disablng of TCP SACK, DSCAK, 
-time stamp and window scale TCP options on a per route basis, now
-with 100% less remote DoS opportunities (thank you Ilpo for 
-spotting it ;-)
+Add and use no window scale bit in the features field.
 
-You usualy want to disable SACK, DSACK, time stamp or window
-scale if you've got a piece of broken networking equipment somewhere 
-as a stop gap until you can bring a big enough hammer to deal with
-the broken network equipment. It doesn't make sense to "punish" the
-entire connections going through the machine to destinations not 
-related to the broken equipment.
+Note that this is not the same as setting a window scale of 0 
+as would happen with window limit on route.
 
-This is doubly true when you're dealing with network containers
-used to isolate several virtual domains.
+Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
+Sigend-off-by: Ori Finkelman <ori@comsleep.com>
+Sigend-off-by: Yony Amit <yony@comsleep.com>
+---
+ include/linux/rtnetlink.h |    1 +
+ net/ipv4/tcp_input.c      |    3 ++-
+ net/ipv4/tcp_output.c     |    6 ++++--
+ 3 files changed, 7 insertions(+), 3 deletions(-)
 
-Per route options implemented in free bits in the features route
-entry property, which in some cases were reserved by name for these
-options, so this does not inflate any structure.
-
-Global sysctl based kill switches for these options are still
-preserved, as some people seems to want them, so behaviour
-is default to on, unless switched off either globaly or on
-per route basis.
-
-Tested on x86 using Qemu/KVM.  
-
-Working but crude matching patch to iproute2 sent earlier to the list.
-
-Patchset based on original work by Ori Finkelman and Yony Amit 
-from ComSleep Ltd.
-
-Gilad Ben-Yossef (7):
-  Only parse time stamp TCP option in time wait sock
-  Allow tcp_parse_options to consult dst entry
-  Infrastructure for querying route entry features
-  Add the no SACK route option feature
-  Allow disabling TCP timestamp options per route
-  Allow to turn off TCP window scale opt per route
-  Allow disabling of DSACK TCP option per route
-
- include/linux/rtnetlink.h |    6 ++++--
- include/net/dst.h         |    8 +++++++-
- include/net/tcp.h         |    3 ++-
- net/ipv4/syncookies.c     |   27 ++++++++++++++-------------
- net/ipv4/tcp_input.c      |   26 ++++++++++++++++++--------
- net/ipv4/tcp_ipv4.c       |   21 ++++++++++++---------
- net/ipv4/tcp_minisocks.c  |    8 +++++---
- net/ipv4/tcp_output.c     |   18 +++++++++++++-----
- net/ipv6/syncookies.c     |   28 +++++++++++++++-------------
- net/ipv6/tcp_ipv6.c       |    3 ++-
- 10 files changed, 92 insertions(+), 56 deletions(-)
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 2ab8c75..6784b34 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -380,6 +380,7 @@ enum
+ #define RTAX_FEATURE_NO_SACK	0x00000002
+ #define RTAX_FEATURE_NO_TSTAMP	0x00000004
+ #define RTAX_FEATURE_ALLFRAG	0x00000008
++#define RTAX_FEATURE_NO_WSCALE	0x00000010
+ 
+ struct rta_session
+ {
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index d2f9742..4f5e914 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3739,7 +3739,8 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
+ 				break;
+ 			case TCPOPT_WINDOW:
+ 				if (opsize == TCPOLEN_WINDOW && th->syn &&
+-				    !estab && sysctl_tcp_window_scaling) {
++				    !estab && sysctl_tcp_window_scaling &&
++				    !dst_feature(dst, RTAX_FEATURE_NO_WSCALE)) {
+ 					__u8 snd_wscale = *(__u8 *)ptr;
+ 					opt_rx->wscale_ok = 1;
+ 					if (snd_wscale > 14) {
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 8f30c18..ff60a21 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -496,7 +496,8 @@ static unsigned tcp_syn_options(struct sock *sk, struct sk_buff *skb,
+ 		opts->tsecr = tp->rx_opt.ts_recent;
+ 		size += TCPOLEN_TSTAMP_ALIGNED;
+ 	}
+-	if (likely(sysctl_tcp_window_scaling)) {
++	if (likely(sysctl_tcp_window_scaling &&
++		   !dst_feature(dst, RTAX_FEATURE_NO_WSCALE))) {
+ 		opts->ws = tp->rx_opt.rcv_wscale;
+ 		opts->options |= OPTION_WSCALE;
+ 		size += TCPOLEN_WSCALE_ALIGNED;
+@@ -2347,7 +2348,8 @@ static void tcp_connect_init(struct sock *sk)
+ 				  tp->advmss - (tp->rx_opt.ts_recent_stamp ? tp->tcp_header_len - sizeof(struct tcphdr) : 0),
+ 				  &tp->rcv_wnd,
+ 				  &tp->window_clamp,
+-				  sysctl_tcp_window_scaling,
++				  (sysctl_tcp_window_scaling &&
++				   !dst_feature(dst, RTAX_FEATURE_NO_WSCALE)),
+ 				  &rcv_wscale);
+ 
+ 	tp->rx_opt.rcv_wscale = rcv_wscale;
+-- 
+1.5.6.3
 
