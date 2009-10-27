@@ -1,61 +1,53 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: Re: [PATCH 2/2] page allocator: Direct reclaim should always obey watermarks
-Date: Tue, 27 Oct 2009 22:00:04 +0100
-Message-ID: <200910272200.07614.elendil@planet.nl>
-References: <1255689446-3858-1-git-send-email-mel@csn.ul.ie> <20091016223237.GE32397@csn.ul.ie> <200910170128.29086.elendil@planet.nl>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC PATCH] fib_hash: improve route deletion scaling on interface
+ drop with lots of interfaces
+Date: Tue, 27 Oct 2009 23:07:57 +0200 (EET)
+Message-ID: <Pine.LNX.4.58.0910272251170.3059@u.domain.uli>
+References: <20091027000302.GA3141@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: David Rientjes <rientjes@google.com>,
- Andrew Morton <akpm@linux-foundation.org>,
- stable <stable@kernel.org>,
- "Rafael J. Wysocki" <rjw@sisk.pl>,
- David Miller <davem@davemloft.net>,
- reinette chatre <reinette.chatre@intel.com>,
- Kalle Valo <kalle.valo@iki.fi>,
- "John W. Linville" <linville@tuxdriver.com>,
- Pekka Enberg <penberg@cs.helsinki.fi>,
- Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
- Karol Lewandowski <karol.k.lewandowski@gmail.com>,
- netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org,
- "linux-mm@kvack.org" <linux-mm@kvack.org>
-To: Mel Gorman <mel@csn.ul.ie>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <200910170128.29086.elendil@planet.nl>
-Content-Disposition: inline
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Benjamin LaHaise <bcrl@lhnet.ca>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([217.79.71.194]:34148 "EHLO u.domain.uli"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932212AbZJ0VH4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Oct 2009 17:07:56 -0400
+In-Reply-To: <20091027000302.GA3141@kvack.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday 17 October 2009, Frans Pop wrote:
-> On Saturday 17 October 2009, Mel Gorman wrote:
-> > Frans, you reported that both patches in combination reduced the
-> > number of failures. Was it in fact just the kswapd change that made
-> > the difference?
->
-> I will retest both patches (as I already mailed you privately
-> yesterday), but not today. The improvement with the combination was
-> real, but I'm not sure which patch is the reason. I think the second,
-> but I need to verify.
->
-> I've done another 30 boots or so today, mainly in the "akpm" merge, and
-> I've found new patterns that will help me nail down the regression. But
-> ATM I can't see straight anymore, so it will have to wait until
-> tomorrow.
 
-Again sorry for the delay, but I needed to retest these with various 
-kernels as the results were inconclusive. AFAICT neither of the two 
-patches makes a significant difference for my test case.
+	Hello,
 
-Not sure if my initial test was broken or that it was just a case where the 
-timings worked out favorably.
+On Mon, 26 Oct 2009, Benjamin LaHaise wrote:
 
-Cheers,
-FJP
+> Hi folks,
+> 
+> Below is a patch to improve the scaling of interface destruction in 
+> fib_hash.  The general idea is to tie the fib_alias structure into a 
+> list off of net_device and walk that list during a fib_flush() caused 
+> by an interface drop.  This makes the resulting flush only have to walk 
+> the number of routes attached to an interface rather than the number of 
+> routes attached to all interfaces at the expense of a couple of additional 
+> pointers in struct fib_alias.
+
+	May be this can not work for multipath routes because
+you consider only the first device (fib_dev). Also nh_dev is
+optional, not every route has device, so you should add checks
+for dev ! NULL.
+
+> @@ -516,6 +517,10 @@ static int fn_hash_insert(struct fib_table *tb, struct fib_config *cfg)
+>  	new_fa->fa_type = cfg->fc_type;
+>  	new_fa->fa_scope = cfg->fc_scope;
+>  	new_fa->fa_state = 0;
+> +	new_fa->fa_fib_node = f;
+> +	new_fa->fa_fz = fz;
+> +
+> +	dev = fi->fib_dev;
+
+Regards
 
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Julian Anastasov <ja@ssi.bg>
+
