@@ -1,53 +1,50 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC PATCH] fib_hash: improve route deletion scaling on interface
- drop with lots of interfaces
-Date: Tue, 27 Oct 2009 23:07:57 +0200 (EET)
-Message-ID: <Pine.LNX.4.58.0910272251170.3059@u.domain.uli>
-References: <20091027000302.GA3141@kvack.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] net: fold network name hash (v2)
+Date: Tue, 27 Oct 2009 15:04:36 -0700
+Message-ID: <20091027150436.56e673cd@nehalam>
+References: <9986527.24561256620662709.JavaMail.root@tahiti.vyatta.com>
+	<19864844.24581256620784317.JavaMail.root@tahiti.vyatta.com>
+	<20091026.222428.80364204.davem@davemloft.net>
+	<20091027102251.244ee681@nehalam>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Benjamin LaHaise <bcrl@lhnet.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([217.79.71.194]:34148 "EHLO u.domain.uli"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932212AbZJ0VH4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Oct 2009 17:07:56 -0400
-In-Reply-To: <20091027000302.GA3141@kvack.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	opurdila@ixiacom.com, viro@zeniv.linux.org.uk
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756820AbZJ0WEn@vger.kernel.org>
+In-Reply-To: <20091027102251.244ee681@nehalam>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+The full_name_hash does not produce a value that is evenly distributed
+over the lower 8 bits. This causes name hash to be unbalanced with large
+number of names. There is a standard function to fold in upper bits
+so use that.
 
-	Hello,
+This is independent of possible improvements to full_name_hash()
+in future.
+ 
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-On Mon, 26 Oct 2009, Benjamin LaHaise wrote:
-
-> Hi folks,
-> 
-> Below is a patch to improve the scaling of interface destruction in 
-> fib_hash.  The general idea is to tie the fib_alias structure into a 
-> list off of net_device and walk that list during a fib_flush() caused 
-> by an interface drop.  This makes the resulting flush only have to walk 
-> the number of routes attached to an interface rather than the number of 
-> routes attached to all interfaces at the expense of a couple of additional 
-> pointers in struct fib_alias.
-
-	May be this can not work for multipath routes because
-you consider only the first device (fib_dev). Also nh_dev is
-optional, not every route has device, so you should add checks
-for dev ! NULL.
-
-> @@ -516,6 +517,10 @@ static int fn_hash_insert(struct fib_table *tb, struct fib_config *cfg)
->  	new_fa->fa_type = cfg->fc_type;
->  	new_fa->fa_scope = cfg->fc_scope;
->  	new_fa->fa_state = 0;
-> +	new_fa->fa_fib_node = f;
-> +	new_fa->fa_fz = fz;
-> +
-> +	dev = fi->fib_dev;
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
-
+--- a/net/core/dev.c	2009-10-27 14:54:21.922563076 -0700
++++ b/net/core/dev.c	2009-10-27 15:04:16.733813459 -0700
+@@ -86,6 +86,7 @@
+ #include <linux/socket.h>
+ #include <linux/sockios.h>
+ #include <linux/errno.h>
++#include <linux/hash.h>
+ #include <linux/interrupt.h>
+ #include <linux/if_ether.h>
+ #include <linux/netdevice.h>
+@@ -199,7 +200,7 @@ EXPORT_SYMBOL(dev_base_lock);
+ static inline struct hlist_head *dev_name_hash(struct net *net, const char *name)
+ {
+ 	unsigned hash = full_name_hash(name, strnlen(name, IFNAMSIZ));
+-	return &net->dev_name_head[hash & ((1 << NETDEV_HASHBITS) - 1)];
++	return &net->dev_name_head[hash_long(hash, NETDEV_HASHBITS)];
+ }
+ 
+ static inline struct hlist_head *dev_index_hash(struct net *net, int ifindex)
