@@ -1,55 +1,61 @@
-From: Matt Domsch <Matt_Domsch@Dell.com>
-Subject: Re: [PATCH] udev: create empty regular files to represent net interfaces
-Date: Tue, 27 Oct 2009 15:55:51 -0500
-Message-ID: <20091027205551.GA31963@auslistsprd01.us.dell.com>
-References: <20091016214024.GA10091@ldl.fc.hp.com> <20091022063619.GB6321@ldl.fc.hp.com>
+From: Frans Pop <elendil@planet.nl>
+Subject: Re: [PATCH 2/2] page allocator: Direct reclaim should always obey watermarks
+Date: Tue, 27 Oct 2009 22:00:04 +0100
+Message-ID: <200910272200.07614.elendil@planet.nl>
+References: <1255689446-3858-1-git-send-email-mel@csn.ul.ie> <20091016223237.GE32397@csn.ul.ie> <200910170128.29086.elendil@planet.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-hotplug@vger.kernel.org, Narendra_K@Dell.com,
-	netdev@vger.kernel.org, Jordan_Hargrave@Dell.com,
-	Charles_Rose@Dell.com, Ben Hutchings <bhutchings@solarflare.com>
-To: dann frazier <dannf@hp.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: David Rientjes <rientjes@google.com>,
+ Andrew Morton <akpm@linux-foundation.org>,
+ stable <stable@kernel.org>,
+ "Rafael J. Wysocki" <rjw@sisk.pl>,
+ David Miller <davem@davemloft.net>,
+ reinette chatre <reinette.chatre@intel.com>,
+ Kalle Valo <kalle.valo@iki.fi>,
+ "John W. Linville" <linville@tuxdriver.com>,
+ Pekka Enberg <penberg@cs.helsinki.fi>,
+ Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+ Karol Lewandowski <karol.k.lewandowski@gmail.com>,
+ netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org,
+ "linux-mm@kvack.org" <linux-mm@kvack.org>
+To: Mel Gorman <mel@csn.ul.ie>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <200910170128.29086.elendil@planet.nl>
 Content-Disposition: inline
-In-Reply-To: <20091022063619.GB6321@ldl.fc.hp.com>
-Sender: linux-hotplug-owner@vger.kernel.org
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 22, 2009 at 12:36:20AM -0600, dann frazier wrote:
-> Here's a proof of concept to further the discussion..
-> 
-> The default filename uses the format:
->   /dev/netdev/by-ifindex/$ifindex
-> 
-> This provides the infrastructure to permit udev rules to create aliases for
-> network devices using symlinks, for example:
-> 
->   /dev/netdev/by-name/eth0 -> ../by-ifindex/1
->   /dev/netdev/by-biosname/LOM0 -> ../by-ifindex/3
-> 
-> A library (such as the proposed libnetdevname) could use this information
-> to provide an alias->realname mapping for network utilities.
+On Saturday 17 October 2009, Frans Pop wrote:
+> On Saturday 17 October 2009, Mel Gorman wrote:
+> > Frans, you reported that both patches in combination reduced the
+> > number of failures. Was it in fact just the kswapd change that made
+> > the difference?
+>
+> I will retest both patches (as I already mailed you privately
+> yesterday), but not today. The improvement with the combination was
+> real, but I'm not sure which patch is the reason. I think the second,
+> but I need to verify.
+>
+> I've done another 30 boots or so today, mainly in the "akpm" merge, and
+> I've found new patterns that will help me nail down the regression. But
+> ATM I can't see straight anymore, so it will have to wait until
+> tomorrow.
 
-yes, this could work, as IFINDEX is already exported in the uevents,
-and that's the primary value udev needs to set up the mapping.
+Again sorry for the delay, but I needed to retest these with various 
+kernels as the results were inconclusive. AFAICT neither of the two 
+patches makes a significant difference for my test case.
 
-While I like the little ifindex2name script you've got, I think udev
-could simply call if_indextoname() to get this, and not call an
-external program?  I suppose it could be a really really simple
-external program too.
+Not sure if my initial test was broken or that it was just a case where the 
+timings worked out favorably.
 
-I'd be fine with this approach.  It has the advantages of not
-requiring a kernel change at all, and not creating a whole character
-device which would be useless.  And it doesn't preclude someone in the
-future from creating a char device for network devices should they so
-choose.
+Cheers,
+FJP
 
-Kay, what say you as udev owner?
-
-Thanks,
-Matt
-
--- 
-Matt Domsch
-Technology Strategist, Dell Office of the CTO
-linux.dell.com & www.dell.com/linux
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
