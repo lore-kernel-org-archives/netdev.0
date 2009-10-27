@@ -1,51 +1,39 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] net: fold network name hash
-Date: Tue, 27 Oct 2009 10:22:51 -0700
-Message-ID: <20091027102251.244ee681@nehalam>
-References: <9986527.24561256620662709.JavaMail.root@tahiti.vyatta.com>
- <19864844.24581256620784317.JavaMail.root@tahiti.vyatta.com>
- <20091026.222428.80364204.davem@davemloft.net>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [PATCH 2/6] net: Introduce unregister_netdevice_many()
+Date: Tue, 27 Oct 2009 19:26:41 +0200
+Message-ID: <200910271926.41734.opurdila@ixiacom.com>
+References: <4AE72813.5080709@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	eric.dumazet@gmail.com, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, opurdila@ixiacom.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	viro@zeniv.linux.org.uk
-To: David Miller <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54287 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751884AbZJ0RWx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Oct 2009 13:22:53 -0400
-In-Reply-To: <20091026.222428.80364204.davem@davemloft.net>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:11839 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753211AbZJ0R3f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 13:29:35 -0400
+In-Reply-To: <4AE72813.5080709@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The full_name_hash does not produce a value that is evenly distributed
-over the lower 8 bits. This causes name hash to be unbalanced with large
-number of names.  A simple fix is to just fold in the higher bits
-with XOR.
+On Tuesday 27 October 2009 19:04:19 you wrote:
 
-This is independent of possible improvements to full_name_hash()
-in future.
+> +void unregister_netdevice_many(struct list_head *head)
+> +{
+> +       struct net_device *dev;
+> +
+> +       if (!list_empty(head)) {
+> +               rollback_registered_many(head);
+> +               list_for_each_entry(dev, head, unreg_list)
+> +                       net_set_todo(dev);
+> +       }
+> +}
+> 
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Looks like EXPORT_SYMBOL(unregister_netdevice_many) is missing?
 
-
---- a/net/core/dev.c	2009-10-27 09:21:46.127252547 -0700
-+++ b/net/core/dev.c	2009-10-27 09:25:14.593313378 -0700
-@@ -199,7 +199,11 @@ EXPORT_SYMBOL(dev_base_lock);
- static inline struct hlist_head *dev_name_hash(struct net *net, const char *name)
- {
- 	unsigned hash = full_name_hash(name, strnlen(name, IFNAMSIZ));
--	return &net->dev_name_head[hash & ((1 << NETDEV_HASHBITS) - 1)];
-+
-+	hash ^= (hash >> NETDEV_HASHBITS);
-+	hash &= NETDEV_HASHENTRIES - 1;
-+
-+	return &net->dev_name_head[hash];
- }
- 
- static inline struct hlist_head *dev_index_hash(struct net *net, int ifindex)
+Thanks,
+tavi
