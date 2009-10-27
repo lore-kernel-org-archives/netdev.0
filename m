@@ -1,27 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dcache: better name hash function
-Date: Mon, 26 Oct 2009 22:24:28 -0700 (PDT)
-Message-ID: <20091026.222428.80364204.davem@davemloft.net>
-References: <9986527.24561256620662709.JavaMail.root@tahiti.vyatta.com>
-	<19864844.24581256620784317.JavaMail.root@tahiti.vyatta.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [patch next 3/4] netxen: fix bonding support
+Date: Mon, 26 Oct 2009 22:50:32 -0700
+Message-ID: <m1aazdl713.fsf@fess.ebiederm.org>
+References: <1241586309-12112-1-git-send-email-dhananjay@netxen.com>
+	<1241586309-12112-4-git-send-email-dhananjay@netxen.com>
+	<m1ljj2ps80.fsf@fess.ebiederm.org>
+	<7608421F3572AB4292BB2532AE89D5658B0B6E4F72@AVEXMB1.qlogic.org>
+	<m1skd9letu.fsf@fess.ebiederm.org>
+	<7608421F3572AB4292BB2532AE89D5658B0B6E4F74@AVEXMB1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, opurdila@ixiacom.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	viro@zeniv.linux.org.uk
-To: stephen.hemminger@vyatta.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755238AbZJ0FYH@vger.kernel.org>
-In-Reply-To: <19864844.24581256620784317.JavaMail.root@tahiti.vyatta.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>
+To: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:57173 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755762AbZJ0Fub (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 01:50:31 -0400
+In-Reply-To: <7608421F3572AB4292BB2532AE89D5658B0B6E4F74@AVEXMB1.qlogic.org> (Dhananjay Phadke's message of "Sat\, 24 Oct 2009 10\:29\:50 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Date: Mon, 26 Oct 2009 22:19:44 -0700 (PDT)
+Dhananjay Phadke <dhananjay.phadke@qlogic.com> writes:
 
-> How important is saving the one division, versus getting better
-> distribution.
+>> Yes.  That should prevent the null pointer deference.  Will it also
+>> allow setting the mac address when the NIC is down?
+>> 
+>> Eric
+>
+> Yes, we do save new address in netdev->dev_addr.
+> This is later on programmed in hardware when interface is brought up.
 
-80 cpu cycles or more on some processors.  Cheaper to use
-jenkins with a power-of-2 sized hash.
+Yep. Thanks.  I just tested it and confirmed the crash is no longer there.
+
+Eric
