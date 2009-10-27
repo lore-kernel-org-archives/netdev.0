@@ -1,90 +1,46 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: iproute uses too small of a receive buffer
-Date: Tue, 27 Oct 2009 16:16:52 -0700
-Message-ID: <4AE77F64.3090302@candelatech.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] Multicast packet reassembly can fail
+Date: Tue, 27 Oct 2009 16:22:51 -0700
+Message-ID: <4AE780CB.8070401@hp.com>
+References: <1256683583.3153.389.camel@linux-1lbu>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000008090208070504050807"
-To: NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Steve Chen <schen@mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:51679 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755979AbZJ0XQs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 19:16:48 -0400
-Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id n9RNGrx8024494
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 27 Oct 2009 16:16:53 -0700
+Received: from g6t0187.atlanta.hp.com ([15.193.32.64]:38142 "EHLO
+	g6t0187.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755902AbZJ0XWv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 19:22:51 -0400
+In-Reply-To: <1256683583.3153.389.camel@linux-1lbu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------000008090208070504050807
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Steve Chen wrote:
+> Multicast packet reassembly can fail
+> 
+> When multicast connections with multiple fragments are received by the same
+> node from more than one Ethernet ports, race condition between fragments
+> from each Ethernet port can cause fragment reassembly to fail leading to
+> packet drop.  This is because packets from each Ethernet port appears identical
+> to the the code that reassembles the Ethernet packet.
+> 
+> The solution is evaluate the Ethernet interface number in addition to all other
+> parameters so that every packet can be uniquely identified.  The existing
+> iif field in struct ipq is now used to generate the hash key, and iif is also
+> used for comparison in case of hash collision.
+> 
+> Please note that q->saddr ^ (q->iif << 5) is now being passed into
+> ipqhashfn to generate the hash key.  This is borrowed from the routing
+> code.
+> 
+> Signed-off-by: Steve Chen <schen@mvista.com>
+> Signed-off-by: Mark Huth <mhuth@mvista.com>
 
-I have a very busy system with a bunch of xorp router processes (mis)configured.
+It has been hours since my last good Emily Litella moment so I'll ask - isn't 
+the combination of source and dest addr, protocol, IP ID and fragment offset 
+supposed to take care of this?  How does the ingress interface have anything to 
+do with it?
 
-This thing is rapidly making route changes for whatever reason.
-
-The 'ip monitor route' command was failing:
-
-[root@i7-dqc-1 ]# ip monitor route
-netlink receive error No buffer space available (105)
-Dump terminated
-
-
-It is only using a 32k rcv buffer, and it seems the OS was
-overdriving it.
-
-Please consider making the rcv buffer larger, perhaps something
-like this (inline is white-space damaged...attachment should apply
-if deemed useful.):
-
-Signed-off-by:  Ben Greear <greearb@candelatech.com>
-
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index b68e2fd..95a7d1d 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -38,7 +38,7 @@ int rtnl_open_byproto(struct rtnl_handle *rth, unsigned subscriptions,
-  {
-         socklen_t addr_len;
-         int sndbuf = 32768;
--       int rcvbuf = 32768;
-+       int rcvbuf = 3276800;
-
-         memset(rth, 0, sizeof(*rth));
-
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
-
---------------000008090208070504050807
-Content-Type: text/plain;
- name="iputils.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="iputils.patch"
-
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index b68e2fd..95a7d1d 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -38,7 +38,7 @@ int rtnl_open_byproto(struct rtnl_handle *rth, unsigned subscriptions,
- {
- 	socklen_t addr_len;
- 	int sndbuf = 32768;
--	int rcvbuf = 32768;
-+	int rcvbuf = 3276800;
- 
- 	memset(rth, 0, sizeof(*rth));
- 
-
---------------000008090208070504050807--
+rick jones
