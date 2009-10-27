@@ -1,43 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next-next-2.6] netdev: better dev_name_hash
-Date: Mon, 26 Oct 2009 18:24:29 -0700 (PDT)
-Message-ID: <20091026.182429.55413765.davem@davemloft.net>
-References: <OF703F980D.0971407E-ON6525765B.00458CCA-6525765B.00481976@in.ibm.com>
-	<200910261631.44666.opurdila@ixiacom.com>
-	<4AE5B84E.8040505@gmail.com>
+Subject: Re: [PATCH] virtio-net: fix data corruption with OOM
+Date: Mon, 26 Oct 2009 18:27:20 -0700 (PDT)
+Message-ID: <20091026.182720.81248604.davem@davemloft.net>
+References: <20091025170340.GA22099@redhat.com>
+	<200910261211.52148.rusty@rustcorp.com.au>
+	<20091026090713.GA23510@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: opurdila@ixiacom.com, krkumar2@in.ibm.com, hagen@jauu.net,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60675
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755480AbZJ0BYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 21:24:05 -0400
-In-Reply-To: <4AE5B84E.8040505@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rusty@rustcorp.com.au, virtualization@lists.linux-foundation.org,
+	kvm@vger.kernel.org, netdev@vger.kernel.org
+To: mst@redhat.com
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20091026090713.GA23510@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 26 Oct 2009 15:55:10 +0100
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Mon, 26 Oct 2009 11:07:13 +0200
 
-> But should we really care ?
+> Another, and hopefully the last, note, is that
+> git-am can only handle Subject/From lines
+> at the beginning of the message.
+> So git style of the mail would be
+ ...
+> I think it's weird. We could invent some kind of separator
+> that would make git-am accept Subject/From/Date lines in
+> the middle of the message, so that discussion can come before
+> the description. Worth it?
 
-The only thing I see consistently in this thread is that
-jhash performs consistently well and without any tweaking.
+There is no need for this.  patchwork handles this situation perfectly
+and this is what I use to apply all networking patches.
 
-And without any assumptions about the characteristics of
-the device names.  I've seen everything from the traditional
-"eth%d" to things like "davem_is_a_prick%d" so you really cannot
-optimize for anything in particular.
-
-Jenkins is ~50 cycles per round of 4 bytes last time I checked, give
-or take, and that was on crappy sparc. :-) So the execution cost is
-really not that bad, contrary to what I've seen claimed as an argument
-against using jhash here.
-
-And if I-cache footprint is really an issue, we can have one
-out-of-line expansion of jhash somewhere under lib/ since we use jhash
-in so many places these days.
+Anything in a reply to a patch that looks like a signoff or ACK,
+patchwork adds to the commit message in the mbox blob it spits out for
+me.
