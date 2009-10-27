@@ -1,126 +1,68 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH 4/6] vlan: Optimize multiple unregistration
-Date: Tue, 27 Oct 2009 18:06:49 +0100
-Message-ID: <4AE728A9.2080209@gmail.com>
+Subject: [PATCH 5/6] ipip: Optimize multiple unregistration
+Date: Tue, 27 Oct 2009 18:06:59 +0100
+Message-ID: <4AE728B3.5010201@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:36643 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:36648 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756267AbZJ0RHA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 13:07:00 -0400
+	with ESMTP id S1754237AbZJ0RHM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 13:07:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use unregister_netdevice_many() to speedup master device unregister.
+Speedup module unloading by factorizing synchronize_rcu() calls
 
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- include/linux/if_vlan.h |    1 
- net/8021q/vlan.c        |   49 +++++++++++++++++++++++++-------------
- net/core/dev.c          |    1 
- 3 files changed, 35 insertions(+), 16 deletions(-)
+ net/ipv4/ipip.c |   17 +++++++++++------
+ 1 files changed, 11 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index 8898cbe..71a4870 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -85,6 +85,7 @@ struct vlan_group {
- 					    * the vlan is attached to.
- 					    */
- 	unsigned int		nr_vlans;
-+	int			killall;
- 	struct hlist_node	hlist;	/* linked list */
- 	struct net_device **vlan_devices_arrays[VLAN_GROUP_ARRAY_SPLIT_PARTS];
- 	struct rcu_head		rcu;
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 6b5c9dd..511afe7 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -159,11 +159,12 @@ void unregister_vlan_dev(struct net_device *dev, struct list_head *head)
- 	if (real_dev->features & NETIF_F_HW_VLAN_FILTER)
- 		ops->ndo_vlan_rx_kill_vid(real_dev, vlan_id);
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index 3bd6998..a2ca53d 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -754,16 +754,19 @@ static struct xfrm_tunnel ipip_handler = {
+ static const char banner[] __initconst =
+ 	KERN_INFO "IPv4 over IPv4 tunneling driver\n";
  
--	vlan_group_set_device(grp, vlan_id, NULL);
- 	grp->nr_vlans--;
- 
--	synchronize_net();
--
-+	if (!grp->killall) {
-+		vlan_group_set_device(grp, vlan_id, NULL);
-+		synchronize_net();
-+	}
- 	unregister_netdevice_queue(dev, head);
- 
- 	/* If the group is now empty, kill off the group. */
-@@ -183,6 +184,34 @@ void unregister_vlan_dev(struct net_device *dev, struct list_head *head)
- 	dev_put(real_dev);
- }
- 
-+void unregister_vlan_dev_alls(struct vlan_group *grp)
-+{
-+	LIST_HEAD(list);
-+	int i;
-+	struct net_device *vlandev;
-+	struct vlan_group save;
-+
-+	memcpy(&save, grp, sizeof(save));
-+	memset(&grp->vlan_devices_arrays, 0, sizeof(grp->vlan_devices_arrays));
-+	grp->killall = 1;
-+
-+	synchronize_net();
-+
-+	/* Delete all VLANs for this dev. */
-+	for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
-+		vlandev = vlan_group_get_device(&save, i);
-+		if (!vlandev)
-+			continue;
-+
-+		unregister_vlan_dev(vlandev, &list);
-+		if (grp->nr_vlans == 0)
-+			break;
-+	}
-+	unregister_netdevice_many(&list);
-+	for (i = 0; i < VLAN_GROUP_ARRAY_SPLIT_PARTS; i++)
-+		kfree(save.vlan_devices_arrays[i]);
-+}
-+
- static void vlan_transfer_operstate(const struct net_device *dev,
- 				    struct net_device *vlandev)
+-static void ipip_destroy_tunnels(struct ipip_net *ipn)
++static void ipip_destroy_tunnels(struct ipip_net *ipn, struct list_head *head)
  {
-@@ -524,19 +553,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 		break;
+ 	int prio;
  
- 	case NETDEV_UNREGISTER:
--		/* Delete all VLANs for this dev. */
--		for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
--			vlandev = vlan_group_get_device(grp, i);
--			if (!vlandev)
--				continue;
--
--			/* unregistration of last vlan destroys group, abort
--			 * afterwards */
--			if (grp->nr_vlans == 1)
--				i = VLAN_GROUP_ARRAY_LEN;
--
--			unregister_vlan_dev(vlandev, NULL);
--		}
-+		unregister_vlan_dev_alls(grp);
- 		break;
- 	}
- 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index dedacd8..82a3bb9 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5303,6 +5303,7 @@ void unregister_netdevice_many(struct list_head *head)
- 			net_set_todo(dev);
+ 	for (prio = 1; prio < 4; prio++) {
+ 		int h;
+ 		for (h = 0; h < HASH_SIZE; h++) {
+-			struct ip_tunnel *t;
+-			while ((t = ipn->tunnels[prio][h]) != NULL)
+-				unregister_netdevice(t->dev);
++			struct ip_tunnel *t = ipn->tunnels[prio][h];
++
++			while (t != NULL) {
++				unregister_netdevice_queue(t->dev, head);
++				t = t->next;
++			}
+ 		}
  	}
  }
-+EXPORT_SYMBOL(unregister_netdevice_many);
+@@ -816,11 +819,13 @@ err_alloc:
+ static void ipip_exit_net(struct net *net)
+ {
+ 	struct ipip_net *ipn;
++	LIST_HEAD(list);
  
- /**
-  *	unregister_netdev - remove device from the kernel
+ 	ipn = net_generic(net, ipip_net_id);
+ 	rtnl_lock();
+-	ipip_destroy_tunnels(ipn);
+-	unregister_netdevice(ipn->fb_tunnel_dev);
++	ipip_destroy_tunnels(ipn, &list);
++	unregister_netdevice_queue(ipn->fb_tunnel_dev, &list);
++	unregister_netdevice_many(&list);
+ 	rtnl_unlock();
+ 	kfree(ipn);
+ }
