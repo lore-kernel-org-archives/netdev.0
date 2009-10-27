@@ -1,8 +1,8 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] dcache: better name hash function
-Date: Tue, 27 Oct 2009 07:07:31 +0100
-Message-ID: <4AE68E23.20205@gmail.com>
-References: <19864844.24581256620784317.JavaMail.root@tahiti.vyatta.com>
+Date: Tue, 27 Oct 2009 07:50:17 +0100
+Message-ID: <4AE69829.9070207@gmail.com>
+References: <19864844.24581256620784317.JavaMail.root@tahiti.vyatta.com> <4AE68E23.20205@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -12,62 +12,44 @@ Cc: Andrew Morton <akpm@linux-foundation.org>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Al Viro <viro@zeniv.linux.org.uk>
 To: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:60914 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755451AbZJ0GIF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 02:08:05 -0400
-In-Reply-To: <19864844.24581256620784317.JavaMail.root@tahiti.vyatta.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756414AbZJ0Guv@vger.kernel.org>
+In-Reply-To: <4AE68E23.20205@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger a =C3=A9crit :
-> One of the root causes of slowness in network usage
-> was my original choice of power of 2 for hash size, to avoid
-> a mod operation. It turns out if size is not a power of 2
-> the original algorithm works fairly well.
-
-Interesting, but I suspect all users have power of 2 tables :(
-
+Eric Dumazet a =C3=A9crit :
+> unsigned int fold2(unsigned hash)
+> {
+> 	return ((unsigned long long)hash * 211) >> 32;
+> }
 >=20
-> On slow cpu; with 10million entries and 211 hash size
->=20
->
->=20
-> How important is saving the one division, versus getting better
-> distribution.
+
+I tried this reciprocal thing with 511 and 1023 values and got on a PII=
+I 550 MHz, gcc-3.3.2 :
+
+# ./hashtest 100000 511=20
+jhash_string         0.033123       1.01       234   1.06
+fnv32                0.033911       1.02       254   1.38
+# ./hashtest 1000000 511
+jhash_string         0.331155       1.00      2109   1.10
+fnv32                0.359346       1.00      2151   1.65
+# ./hashtest 10000000 511
+jhash_string         3.383340       1.00     19985   1.03
+fnv32                3.849359       1.00     20198   1.53
+
+# ./hashtest 100000 1023
+jhash_string         0.033123       1.03       134   1.01
+fnv32                0.034260       1.03       142   1.32
+# ./hashtest 1000000 1023
+jhash_string         0.332329       1.00      1075   1.06
+fnv32                0.422035       1.00      1121   1.59
+# ./hashtest 10000000 1023
+jhash_string         3.417559       1.00     10107   1.01
+fnv32                3.747563       1.00     10223   1.35
 
 
-unsigned int fold1(unsigned hash)
-{
-	return hash % 211;
-}
+511 value on 64bit, and 1023 on 32bit arches are nice because
+hashsz * sizeof(pointer) <=3D 4096, wasting space for one pointer only.
 
-Compiler uses a reciprocal divide because of 211 being a constant.
-
-And you also could try following that contains one multiply only,
-and check if hash distribution properties are still OK
-
-unsigned int fold2(unsigned hash)
-{
-	return ((unsigned long long)hash * 211) >> 32;
-}
-
-fold1:
-        movl    4(%esp), %ecx
-        movl    $-1689489505, %edx
-        movl    %ecx, %eax
-        mull    %edx
-        shrl    $7, %edx
-        imull   $211, %edx, %edx
-        subl    %edx, %ecx
-        movl    %ecx, %eax
-        ret
-
-fold2:
-        movl    $211, %eax
-        mull    4(%esp)
-        movl    %edx, %eax
-        ret
-
-
+Conclusion : jhash and 511/1023 hashsize for netdevices,
+no divides, only one multiply for the fold.
