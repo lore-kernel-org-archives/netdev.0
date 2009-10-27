@@ -1,58 +1,80 @@
-From: Antti =?ISO-8859-1?Q?Kaijanm=E4ki?= <antti.kaijanmaki@nomovok.com>
-Subject: [PATCH] hso: fix debug routines
-Date: Tue, 27 Oct 2009 16:26:55 +0200
-Message-ID: <1256653615.3591.113.camel@nomovok.homedomain>
-References: <1256200578.3057.113.camel@nomovok.homedomain>
-	 <20091026171550.GA24910@kroah.com>
-	 <1256585855.3591.52.camel@nomovok.homedomain>
-	 <20091026194058.GA25263@kroah.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: next tree for October 27:  znet build failure
+Date: Wed, 28 Oct 2009 01:37:21 +1100
+Message-ID: <20091028013721.049c0146.sfr@canb.auug.org.au>
+References: <20091027190850.9694fb39.sfr@canb.auug.org.au>
+	<4AE6BEC7.2030703@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jan Dumon <j.dumon@option.com>
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755001AbZJ0ObF@vger.kernel.org>
-In-Reply-To: <20091026194058.GA25263@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__28_Oct_2009_01_37_21_+1100_3o3/8wKb9Zsi6da2"
+Cc: linux-next@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Greg KH <greg@kroah.com>
+To: Sachin Sant <sachinp@in.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from chilli.pcug.org.au ([203.10.76.44]:52983 "EHLO smtps.tip.net.au"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752525AbZJ0OhY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Oct 2009 10:37:24 -0400
+In-Reply-To: <4AE6BEC7.2030703@in.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-10-26 at 12:40 -0700, Greg KH wrote:
-> Yes, that should be a new patch, especially as it would not be needed
-> to fix older kernels for the original bug.
+--Signature=_Wed__28_Oct_2009_01_37_21_+1100_3o3/8wKb9Zsi6da2
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Just adding John and Greg to the cc list as this is caused by patches in
+the staging tree.
+
+On Tue, 27 Oct 2009 15:05:03 +0530 Sachin Sant <sachinp@in.ibm.com> wrote:
+>
+> Fails to build on x86_32 with lots of errors related to znet
 >=20
-> So, care to send 2 patches?  The debug one isn't needed to be sent to
-> the stable@kernel.org address.
+> drivers/net/znet.c:107:29: error: wireless/i82593.h: No such file or dire=
+ctory
+> drivers/net/znet.c:133: error: field 'i593_init' has incomplete type
+> drivers/net/znet.c: In function 'znet_set_multicast_list':
+> drivers/net/znet.c:235: error: invalid application of 'sizeof' to incompl=
+ete type 'struct i82593_conf_block'
+> drivers/net/znet.c:247: error: dereferencing pointer to incomplete type
+> .....
+>=20
+> Commit 879e9304... moved wireless/i82593.h to drivers/staging/wavelan/i82=
+593.h
+>=20
+> Thanks
+> -Sachin
+>=20
+>=20
+> --=20
+>=20
+> ---------------------------------
+> Sachin Sant
+> IBM Linux Technology Center
+> India Systems and Technology Labs
+> Bangalore, India
+> ---------------------------------
+>=20
 
 
-Signed-off-by: Antti Kaijanm=C3=A4ki <antti.kaijanmaki@nomovok.com>
----
- drivers/net/usb/hso.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index fa4e581..746839b 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -378,7 +378,7 @@ static void dbg_dump(int line_count, const char *fu=
-nc_name, unsigned char *buf,
- }
-=20
- #define DUMP(buf_, len_)	\
--	dbg_dump(__LINE__, __func__, buf_, len_)
-+	dbg_dump(__LINE__, __func__, (unsigned char *)buf_, len_)
-=20
- #define DUMP1(buf_, len_)			\
- 	do {					\
-@@ -1527,7 +1527,7 @@ static void tiocmget_intr_callback(struct urb *ur=
-b)
- 		dev_warn(&usb->dev,
- 			 "hso received invalid serial state notification\n");
- 		DUMP(serial_state_notification,
--		     sizeof(hso_serial_state_notifation))
-+		     sizeof(struct hso_serial_state_notification));
- 	} else {
-=20
- 		UART_state_bitmap =3D le16_to_cpu(serial_state_notification->
 --=20
-1.6.3.3
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Wed__28_Oct_2009_01_37_21_+1100_3o3/8wKb9Zsi6da2
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAkrnBaEACgkQjjKRsyhoI8wQTACfYAhRQ4FqCL4tWGeQ4hUBMRe5
+wfEAnAooPN9lZEE8KJSXk71DpxKF2Ioi
+=Waq2
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__28_Oct_2009_01_37_21_+1100_3o3/8wKb9Zsi6da2--
