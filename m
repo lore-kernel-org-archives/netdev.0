@@ -1,40 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sh_eth: Add asm/cacheflush.h
-Date: Mon, 26 Oct 2009 17:28:38 -0700 (PDT)
-Message-ID: <20091026.172838.53981588.davem@davemloft.net>
-References: <29ab51dc0910261649p2fb22799o5cc70a71dff0f1dd@mail.gmail.com>
-	<20091026.171956.110203653.davem@davemloft.net>
-	<20091027002525.GA17085@linux-sh.org>
+Subject: Re: [PATCH] vlan: allow VLAN ID 0 to be used
+Date: Mon, 26 Oct 2009 17:32:32 -0700 (PDT)
+Message-ID: <20091026.173232.33817336.davem@davemloft.net>
+References: <m34opmr2fz.fsf@ursa.amorsen.dk>
+	<4AE563C7.5070702@gmail.com>
+	<4AE5CAC6.4000604@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: iwamatsu@nigauri.org, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
-To: lethal@linux-sh.org
+Cc: benny+usenet@amorsen.dk, gertjan_hofman@yahoo.com,
+	mcarlson@broadcom.com, netdev@vger.kernel.org, kaber@trash.net
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34939
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53768
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755491AbZJ0A2P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 20:28:15 -0400
-In-Reply-To: <20091027002525.GA17085@linux-sh.org>
+	by vger.kernel.org with ESMTP id S1754910AbZJ0AcI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 20:32:08 -0400
+In-Reply-To: <4AE5CAC6.4000604@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Mundt <lethal@linux-sh.org>
-Date: Tue, 27 Oct 2009 09:25:25 +0900
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 26 Oct 2009 17:13:58 +0100
 
-> On Mon, Oct 26, 2009 at 05:19:56PM -0700, David Miller wrote:
->> From: Nobuhiro Iwamatsu <iwamatsu@nigauri.org>
->> Date: Tue, 27 Oct 2009 08:49:50 +0900
->> 
->> > Add include asm/cacheflush.h,  because declaration of __flush_purge_region
->> > moved to asm/cacheflush.h.
->> > 
->> > Signed-off-by: Nobuhiro Iwamatsu <iwamatsu@nigauri.org>
->> 
->> Applied, thanks.
+> [PATCH] vlan: allow VLAN ID 0 to be used
 > 
-> Even though Iwamatsu-san didn't specify the kernel version, this is
-> relevant for 2.6.32 (as that's where we made the change).
+> We currently use a 16 bit field (vlan_tci) to store VLAN ID on a skb.
+> 
+> 0 value is used a special value, meaning VLAN ID not set.
+> This forbids use of VLAN ID 0
+> 
+> As VLAN ID is 12 bits, we can use high order bit as a flag, and
+> allow VLAN ID 0
+> 
+> Reported-by: Gertjan Hofman <gertjan_hofman@yahoo.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Ok.
+This is going to need some more work.
+
+IXGBE is already using the higher bits of ->vlan_tci internally,
+your change breaks that.
+
+QLGE explicitly initializes skb->vlan_tci to zero, you'll need to make
+sure that's OK.
+
+There is an explicit "if (skb->vlan_tci" (ie. zero vs. non-zero) test
+in net/core/dev.c:netif_receive_skb()
+
+net/core/skbuff.c:__copy_skb_header() does a straight copy, you'll
+need to make sure that's still OK.
+
+net/packet/af_packet.c:tpacket_rcv() and packet_recvmsg() report the
+skb->vlan_tci value to userspace, that's broken now as userspace
+doesn't expect that new bit to be there.
