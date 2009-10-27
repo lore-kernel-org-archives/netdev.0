@@ -1,8 +1,8 @@
 From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Subject: Re: [PATCH 4/5] page allocator: Pre-emptively wake kswapd when high-order watermarks are hit
-Date: Tue, 27 Oct 2009 11:42:58 +0900 (JST)
-Message-ID: <20091026235032.2F78.A69D9226@jp.fujitsu.com>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <1256221356-26049-5-git-send-email-mel@csn.ul.ie>
+Subject: Re: [PATCH 5/5] ONLY-APPLY-IF-STILL-FAILING Revert 373c0a7e, 8aa7e847: Fix congestion_wait() sync/async vs read/write confusion
+Date: Tue, 27 Oct 2009 11:42:59 +0900 (JST)
+Message-ID: <20091026235628.2F7B.A69D9226@jp.fujitsu.com>
+References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <1256221356-26049-6-git-send-email-mel@csn.ul.ie>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
@@ -25,104 +25,42 @@ Cc: kosaki.motohiro@jp.fujitsu.com, Frans Pop <elendil@planet.nl>,
         netdev@vger.kern
 To: Mel Gorman <mel@csn.ul.ie>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1256221356-26049-5-git-send-email-mel@csn.ul.ie>
+In-Reply-To: <1256221356-26049-6-git-send-email-mel@csn.ul.ie>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-> When a high-order allocation fails, kswapd is kicked so that it reclaims
-> at a higher-order to avoid direct reclaimers stall and to help GFP_ATOMIC
-> allocations. Something has changed in recent kernels that affect the timing
-> where high-order GFP_ATOMIC allocations are now failing with more frequency,
-> particularly under pressure.
-> 
-> This patch pre-emptively checks if watermarks have been hit after a
-> high-order allocation completes successfully. If the watermarks have been
-> reached, kswapd is woken in the hope it fixes the watermarks before the
-> next GFP_ATOMIC allocation fails.
-> 
-> Warning, this patch is somewhat of a band-aid. If this makes a difference,
-> it still implies that something has changed that is either causing more
-> GFP_ATOMIC allocations to occur (such as the case with iwlagn wireless
-> driver) or make them more likely to fail.
+> Testing by Frans Pop indicates that in the 2.6.30..2.6.31 window at
+> least that the commits 373c0a7e 8aa7e847 dramatically increased the
+> number of GFP_ATOMIC failures that were occuring within a wireless
+> driver. It was never isolated which of the changes was the exact problem
+> and it's possible it has been fixed since. If problems are still
+> occuring with GFP_ATOMIC in 2.6.31-rc5, then this patch should be
+> applied to determine if the congestion_wait() callers are still broken.
 
-hmm, I'm confused. this description addressed generic high order allocation.
-but, 
+Oops. no, please no.
+8aa7e847 is regression fixing commit. this revert indicate the regression
+occur again.
+if we really need to revert it, we need to revert 1faa16d2287 too.
+however, I doubt this commit really cause regression to iwlan. IOW,
+I agree Jens.
 
-> 
-> Signed-off-by: Mel Gorman <mel@csn.ul.ie>
-> ---
->  mm/page_alloc.c |   33 ++++++++++++++++++++++-----------
->  1 files changed, 22 insertions(+), 11 deletions(-)
-> 
-> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-> index 7f2aa3e..851df40 100644
-> --- a/mm/page_alloc.c
-> +++ b/mm/page_alloc.c
-> @@ -1596,6 +1596,17 @@ try_next_zone:
->  	return page;
->  }
->  
-> +static inline
-> +void wake_all_kswapd(unsigned int order, struct zonelist *zonelist,
-> +						enum zone_type high_zoneidx)
-> +{
-> +	struct zoneref *z;
-> +	struct zone *zone;
-> +
-> +	for_each_zone_zonelist(zone, z, zonelist, high_zoneidx)
-> +		wakeup_kswapd(zone, order);
-> +}
-> +
->  static inline int
->  should_alloc_retry(gfp_t gfp_mask, unsigned int order,
->  				unsigned long pages_reclaimed)
-> @@ -1730,18 +1741,18 @@ __alloc_pages_high_priority(gfp_t gfp_mask, unsigned int order,
-
-__alloc_pages_high_priority() is only called if ALLOC_NO_WATERMARKS.
-ALLOC_NO_WATERMARKS mean PF_MEMALLOC or TIF_MEMDIE and GFP_ATOMIC don't make
-nested alloc_pages() (= don't make PF_MEMALLOC case). 
-Then, I haven't understand why this patch improve iwlagn GFP_ATOMIC case.
-
-hmm, maybe I missed something. I see the code again tommorow.
+I hope to try reproduce this problem on my test environment. Can anyone
+please explain reproduce way?
+Is special hardware necessary?
 
 
->  			congestion_wait(BLK_RW_ASYNC, HZ/50);
->  	} while (!page && (gfp_mask & __GFP_NOFAIL));
->  
-> -	return page;
-> -}
-> -
-> -static inline
-> -void wake_all_kswapd(unsigned int order, struct zonelist *zonelist,
-> -						enum zone_type high_zoneidx)
-> -{
-> -	struct zoneref *z;
-> -	struct zone *zone;
-> +	/*
-> +	 * If after a high-order allocation we are now below watermarks,
-> +	 * pre-emptively kick kswapd rather than having the next allocation
-> +	 * fail and have to wake up kswapd, potentially failing GFP_ATOMIC
-> +	 * allocations or entering direct reclaim
-> +	 */
-> +	if (unlikely(order) && page && !zone_watermark_ok(preferred_zone, order,
-> +				preferred_zone->watermark[ALLOC_WMARK_LOW],
-> +				zone_idx(preferred_zone), ALLOC_WMARK_LOW))
-> +		wake_all_kswapd(order, zonelist, high_zoneidx);
->  
-> -	for_each_zone_zonelist(zone, z, zonelist, high_zoneidx)
-> -		wakeup_kswapd(zone, order);
-> +	return page;
->  }
->  
->  static inline int
-> -- 
-> 1.6.3.3
-> 
-> --
-> To unsubscribe, send a message with 'unsubscribe linux-mm' in
-> the body to majordomo@kvack.org.  For more info on Linux MM,
-> see: http://www.linux-mm.org/ .
-> Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+----------------------------------------------------
+commit 8aa7e847d834ed937a9ad37a0f2ad5b8584c1ab0
+Author: Jens Axboe <jens.axboe@oracle.com>
+Date:   Thu Jul 9 14:52:32 2009 +0200
+
+    Fix congestion_wait() sync/async vs read/write confusion
+
+    Commit 1faa16d22877f4839bd433547d770c676d1d964c accidentally broke
+    the bdi congestion wait queue logic, causing us to wait on congestion
+    for WRITE (== 1) when we really wanted BLK_RW_ASYNC (== 0) instead.
+
+    Signed-off-by: Jens Axboe <jens.axboe@oracle.com>
 
 
 
