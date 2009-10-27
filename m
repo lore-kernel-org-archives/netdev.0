@@ -1,47 +1,33 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC PATCH] fib_hash: improve route deletion scaling on
- interface drop with lots of interfaces
-Date: Mon, 26 Oct 2009 17:24:14 -0700
-Message-ID: <20091026172414.34f66f9f@nehalam>
-References: <20091027000302.GA3141@kvack.org>
+From: Paul Mundt <lethal@linux-sh.org>
+Subject: Re: [PATCH] sh_eth: Add asm/cacheflush.h
+Date: Tue, 27 Oct 2009 09:25:25 +0900
+Message-ID: <20091027002525.GA17085@linux-sh.org>
+References: <29ab51dc0910261649p2fb22799o5cc70a71dff0f1dd@mail.gmail.com> <20091026.171956.110203653.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Benjamin LaHaise <bcrl@lhnet.ca>
+Content-Type: text/plain; charset=us-ascii
+Cc: iwamatsu@nigauri.org, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:39655 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755224AbZJ0AYQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Oct 2009 20:24:16 -0400
-In-Reply-To: <20091027000302.GA3141@kvack.org>
+Received: from 124x34x33x190.ap124.ftth.ucom.ne.jp ([124.34.33.190]:53605 "EHLO
+	master.linux-sh.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753911AbZJ0AZ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 20:25:27 -0400
+Content-Disposition: inline
+In-Reply-To: <20091026.171956.110203653.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 26 Oct 2009 20:03:02 -0400
-Benjamin LaHaise <bcrl@lhnet.ca> wrote:
-
-> Hi folks,
+On Mon, Oct 26, 2009 at 05:19:56PM -0700, David Miller wrote:
+> From: Nobuhiro Iwamatsu <iwamatsu@nigauri.org>
+> Date: Tue, 27 Oct 2009 08:49:50 +0900
 > 
-> Below is a patch to improve the scaling of interface destruction in 
-> fib_hash.  The general idea is to tie the fib_alias structure into a 
-> list off of net_device and walk that list during a fib_flush() caused 
-> by an interface drop.  This makes the resulting flush only have to walk 
-> the number of routes attached to an interface rather than the number of 
-> routes attached to all interfaces at the expense of a couple of additional 
-> pointers in struct fib_alias.
+> > Add include asm/cacheflush.h,  because declaration of __flush_purge_region
+> > moved to asm/cacheflush.h.
+> > 
+> > Signed-off-by: Nobuhiro Iwamatsu <iwamatsu@nigauri.org>
 > 
-> This patch is against Linus' tree.  I'll post against net-next after a 
-> bit more testing and feedback.  With 20,000 interfaces & routes, interface 
-> deletion time improves from 53s to 40s.  Note that this is with other changes 
-> applied to improve sysfs and procfs scaling, as otherwise those are the 
-> bottleneck.  Next up in the network code is rt_cache_flush().  Comments?
-> 
-> 		-ben
-> 
+> Applied, thanks.
 
-Any one doing large number of interfaces should be using FIB_TRIE?
-
-
-
--- 
+Even though Iwamatsu-san didn't specify the kernel version, this is
+relevant for 2.6.32 (as that's where we made the change).
