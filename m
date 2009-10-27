@@ -1,74 +1,50 @@
-From: Kristoffer Glembo <kristoffer@gaisler.com>
-Subject: Re: phy_connect_direct problem
-Date: Tue, 27 Oct 2009 14:10:54 +0100
-Message-ID: <4AE6F15E.6080806@gaisler.com>
-References: <4AE6CB6A.5050600@gaisler.com>
+From: Mel Gorman <mel@csn.ul.ie>
+Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
+	failures V2
+Date: Tue, 27 Oct 2009 13:27:04 +0000
+Message-ID: <20091027132704.GE8900@csn.ul.ie>
+References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <20091024140207.GA5102@geggus.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail175c2.megamailservers.com ([69.49.111.75]:42129 "EHLO
-	mail175c2.megamailservers.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754530AbZJ0NN3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 09:13:29 -0400
-Received: from [192.168.0.35] (c-10a5e155.260-1-64736c10.cust.bredbandsbolaget.se [85.225.165.16])
-	(authenticated bits=0)
-	by mail175c2.megamailservers.com (8.13.6/8.13.1) with ESMTP id n9RDDVtR014817
-	for <netdev@vger.kernel.org>; Tue, 27 Oct 2009 09:13:33 -0400
-In-Reply-To: <4AE6CB6A.5050600@gaisler.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Frans Pop <elendil@planet.nl>, Jiri Kosina <jkosina@suse.cz>,
+	Karol Lewandowski <karol.k.lewandowski@gmail.com>,
+	Tobias Oetiker <tobi@oetiker.ch>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	David Miller <davem@davemloft.net>,
+	Reinette Chatre <reinette.chatre@intel.com>,
+	Kalle Valo <kalle.valo@iki.fi>,
+	David Rientjes <rientjes@google.com>,
+	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
+	Mohamed Abbas <mohamed.abbas@intel.com>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Stephan von Krawczynski <skraw@ithnet.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>
+To: Sven Geggus <lists@fuchsschwanzdomain.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754814AbZJ0N1F@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20091024140207.GA5102@geggus.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi again,
-
-Please forget about this. I'm obviously blind as I can't see the 
-difference between adjust_state and adjust_link  ...
-
-Best regards,
-Kristoffer Glembo
-
-Kristoffer Glembo wrote:
-> Hi,
+On Sat, Oct 24, 2009 at 04:02:09PM +0200, Sven Geggus wrote:
+> Mel Gorman schrieb am Donnerstag, den 22. Oktober um 16:22 Uhr:
 > 
-> I'm in the process of converting an ethernet driver to using the PHY 
-> layer, but ran into a problem where my adjust_state handler was never 
-> called and the link did not go up ...
+> > Test 1: Verify your problem occurs on 2.6.32-rc5 if you can
 > 
-> I use phy_connect to connect the PHY device with my ethernet driver. In 
-> phy_connect_direct I found the following code:    
-> 
-> phy_prepare_link(phydev, handler);
-> phy_start_machine(phydev, NULL);
-> 
-> So first the adjust_state is set to handler by phy_prepare_link and then 
-> it is overwritten with the NULL parameter passed to phy_start_machine.
-> 
-> Maybe I'm abusing the PHY layer somehow since there are plenty of other 
-> drivers using this interface. However the patch below solved the issue 
-> for me.
-> 
-> Best regards,
-> Kristoffer Glembo
-> 
-> 
-> ---
->  drivers/net/phy/phy_device.c |    3 +--
->  1 files changed, 1 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index b10fedd..d27ca80 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -311,8 +311,7 @@ int phy_connect_direct(struct net_device *dev, 
-> struct phy_device *phydev,
->      if (rc)
->          return rc;
-> 
-> -    phy_prepare_link(phydev, handler);
-> -    phy_start_machine(phydev, NULL);
-> +    phy_start_machine(phydev, handler);
->      if (phydev->irq > 0)
->          phy_start_interrupts(phydev);
+> Problem persists. RAID resync in progress :(
 > 
 
+What about the rest of the patches, any luck?
+
+Thanks
+
+-- 
+Mel Gorman
+Part-time Phd Student                          Linux Technology Center
+University of Limerick                         IBM Dublin Software Lab
