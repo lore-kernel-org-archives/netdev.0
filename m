@@ -1,58 +1,40 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Increasing TCP initial cwnd
-Date: Tue, 27 Oct 2009 09:38:55 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0910270925210.28036@melkinkari.cs.Helsinki.FI>
-References: <fa3cddca0910260640s22d0396ey5fc51c51047bc2c@mail.gmail.com>
- <alpine.DEB.2.00.0910261553180.19761@wel-95.cs.helsinki.fi>
- <fa3cddca0910260728n61d8de61p9e58260c893d9f9f@mail.gmail.com>
- <alpine.DEB.2.00.0910261629040.19761@wel-95.cs.helsinki.fi>
- <fa3cddca0910260807q714a24fdp1ffae601bb6f67ba@mail.gmail.com>
+From: Sachin Sant <sachinp@in.ibm.com>
+Subject: next tree for October 27:  znet build failure
+Date: Tue, 27 Oct 2009 15:05:03 +0530
+Message-ID: <4AE6BEC7.2030703@in.ibm.com>
+References: <20091027190850.9694fb39.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: Yair Gottdenker <yairgott@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:48107 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755447AbZJ0Hiw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 03:38:52 -0400
-In-Reply-To: <fa3cddca0910260807q714a24fdp1ffae601bb6f67ba@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: linux-next@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20091027190850.9694fb39.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 26 Oct 2009, Yair Gottdenker wrote:
+Fails to build on x86_32 with lots of errors related to znet
 
-> I already had a look in it. Their changes that are related to changing
-> the initial cwnd  (snd_cwnd) are in several places in the patch:
+drivers/net/znet.c:107:29: error: wireless/i82593.h: No such file or directory
+drivers/net/znet.c:133: error: field 'i593_init' has incomplete type
+drivers/net/znet.c: In function 'znet_set_multicast_list':
+drivers/net/znet.c:235: error: invalid application of 'sizeof' to incomplete type 'struct i82593_conf_block'
+drivers/net/znet.c:247: error: dereferencing pointer to incomplete type
+.....
 
-Right. I know what I've modified in that patch... ;-)
+Commit 879e9304... moved wireless/i82593.h to drivers/staging/wavelan/i82593.h
 
-> 1. tcp_ipv4.c in function tcp_init_cwnd. since currently I am working
-> with no metric this is irrelevant.
+Thanks
+-Sachin
 
-You managed to mix up this filename twice in a row in a different way :-). 
-...That function resides in tcp_input.c instead. And changes in 
-tcp_init_metrics are not completely irrelevant, even with no metrics it 
-is executed as "no metrics" works a bit differenctly than you seem to 
-think.
-
-> 2. tcp_ipv4.c: in function tcp_v4_init_sock, which I applied
-> 3. tcp_minisocks.c - which I applied
-> . They patched kernel 2.6.18.8 which is very old and there were a lot
-> of changes since that in the kernel tcp layer. I didn't test their
-> patch but applying the same logic to 2.6.31.3 doesn't seems to change
-> initial window size.
-> 
-> It is clear that in order to correctly make the change to the initial
-> cwnd, one should apply changes to many more scenarios like setting the
-> initial cwnd after idle time and more. I want to proceed step by step,
-> first the naive changes to make it work.
-
-Hmm, it now rings a bell... You cannot directly set initial window to a 
-large value (or you can but that doesn't do anything on the wire) because 
-you hit first the limit of receiver advertised window that applies 
-auto-tuning (with a starting value was four IIRC).
 
 -- 
- i.
+
+---------------------------------
+Sachin Sant
+IBM Linux Technology Center
+India Systems and Technology Labs
+Bangalore, India
+---------------------------------
