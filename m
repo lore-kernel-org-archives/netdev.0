@@ -1,34 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] dcache: better name hash function
-Date: Tue, 27 Oct 2009 08:29:51 +0100
-Message-ID: <4AE6A16F.4020002@gmail.com>
-References: <19864844.24581256620784317.JavaMail.root@tahiti.vyatta.com> <4AE68E23.20205@gmail.com> <4AE69829.9070207@gmail.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: Increasing TCP initial cwnd
+Date: Tue, 27 Oct 2009 09:38:55 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0910270925210.28036@melkinkari.cs.Helsinki.FI>
+References: <fa3cddca0910260640s22d0396ey5fc51c51047bc2c@mail.gmail.com>
+ <alpine.DEB.2.00.0910261553180.19761@wel-95.cs.helsinki.fi>
+ <fa3cddca0910260728n61d8de61p9e58260c893d9f9f@mail.gmail.com>
+ <alpine.DEB.2.00.0910261629040.19761@wel-95.cs.helsinki.fi>
+ <fa3cddca0910260807q714a24fdp1ffae601bb6f67ba@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Octavian Purdila <opurdila@ixiacom.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Al Viro <viro@zeniv.linux.org.uk>
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756036AbZJ0HaH@vger.kernel.org>
-In-Reply-To: <4AE69829.9070207@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>
+To: Yair Gottdenker <yairgott@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:48107 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755447AbZJ0Hiw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 03:38:52 -0400
+In-Reply-To: <fa3cddca0910260807q714a24fdp1ffae601bb6f67ba@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet a =C3=A9crit :
->=20
->=20
-> 511 value on 64bit, and 1023 on 32bit arches are nice because
-> hashsz * sizeof(pointer) <=3D 4096, wasting space for one pointer onl=
-y.
->=20
-> Conclusion : jhash and 511/1023 hashsize for netdevices,
-> no divides, only one multiply for the fold.
+On Mon, 26 Oct 2009, Yair Gottdenker wrote:
 
-Just forget about 511 & 1023, as power of two works too.
+> I already had a look in it. Their changes that are related to changing
+> the initial cwnd  (snd_cwnd) are in several places in the patch:
 
--> 512 & 1024 + jhash
+Right. I know what I've modified in that patch... ;-)
 
-Guess what, David already said this :)
+> 1. tcp_ipv4.c in function tcp_init_cwnd. since currently I am working
+> with no metric this is irrelevant.
+
+You managed to mix up this filename twice in a row in a different way :-). 
+...That function resides in tcp_input.c instead. And changes in 
+tcp_init_metrics are not completely irrelevant, even with no metrics it 
+is executed as "no metrics" works a bit differenctly than you seem to 
+think.
+
+> 2. tcp_ipv4.c: in function tcp_v4_init_sock, which I applied
+> 3. tcp_minisocks.c - which I applied
+> . They patched kernel 2.6.18.8 which is very old and there were a lot
+> of changes since that in the kernel tcp layer. I didn't test their
+> patch but applying the same logic to 2.6.31.3 doesn't seems to change
+> initial window size.
+> 
+> It is clear that in order to correctly make the change to the initial
+> cwnd, one should apply changes to many more scenarios like setting the
+> initial cwnd after idle time and more. I want to proceed step by step,
+> first the naive changes to make it work.
+
+Hmm, it now rings a bell... You cannot directly set initial window to a 
+large value (or you can but that doesn't do anything on the wire) because 
+you hit first the limit of receiver advertised window that applies 
+auto-tuning (with a starting value was four IIRC).
+
+-- 
+ i.
