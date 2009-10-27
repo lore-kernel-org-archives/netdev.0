@@ -1,42 +1,58 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH 3/9] pcmcia: use pcmcia_loop_config in misc pcmcia
-	drivers
-Date: Tue, 27 Oct 2009 15:28:32 -0400
-Message-ID: <20091027192832.GD15566@tuxdriver.com>
-References: <1255907255-28297-1-git-send-email-linux@dominikbrodowski.net> <1255907255-28297-2-git-send-email-linux@dominikbrodowski.net> <1255907255-28297-3-git-send-email-linux@dominikbrodowski.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-2.6] sfc: Really allow RX checksum offload to be
+	disabled
+Date: Tue, 27 Oct 2009 19:44:33 +0000
+Message-ID: <1256672673.2794.7.camel@achroite>
+References: <1256655057.2794.4.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-pcmcia-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>, David Sterba <dsterba-AlSwsSmVLrQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Dominik Brodowski <linux-X3ehHDuj6sIIGcDfoQAp7OTW4wlIGRCZ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1255907255-28297-3-git-send-email-linux-X3ehHDuj6sIIGcDfoQAp7OTW4wlIGRCZ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:55912 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753566AbZJ0Tom (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 15:44:42 -0400
+In-Reply-To: <1256655057.2794.4.camel@achroite>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 19, 2009 at 01:07:29AM +0200, Dominik Brodowski wrote:
-> Use pcmcia_loop_config() in a few drivers missed during the first
-> round. On fmvj18x_cs.c it -- strangely -- only requries us to set
-> conf.ConfigIndex, which is done by the core, so include an empty
-> loop function which returns 0 unconditionally.
-> 
-> CC: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> CC: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> CC: Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>
-> CC: David Sterba <dsterba-AlSwsSmVLrQ@public.gmane.org>
-> CC: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> CC: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Signed-off-by: Dominik Brodowski <linux-X3ehHDuj6sIIGcDfoQAp7OTW4wlIGRCZ@public.gmane.org>
+We have never checked the efx_nic::rx_checksum_enabled flag everywhere
+we should, and since the switch to GRO we don't check it anywhere.
+It's simplest to check it in the one place where we initialise the
+per-packet checksummed flag.
 
-Acked-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+Cc: stable@kernel.org
+---
+I'm not sure whether this is serious enough to merit a stable update.
+It's not a recent regression.
+
+Ben.
+
+ drivers/net/sfc/falcon.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
+index 8776432..865638b 100644
+--- a/drivers/net/sfc/falcon.c
++++ b/drivers/net/sfc/falcon.c
+@@ -869,8 +869,9 @@ static void falcon_handle_rx_event(struct efx_channel *channel,
+ 		 * UDP/IPv4, then we can rely on the hardware checksum.
+ 		 */
+ 		checksummed =
+-			rx_ev_hdr_type == FSE_AB_RX_EV_HDR_TYPE_IPV4_TCP ||
+-			rx_ev_hdr_type == FSE_AB_RX_EV_HDR_TYPE_IPV4_UDP;
++			efx->rx_checksum_enabled &&
++			(rx_ev_hdr_type == FSE_AB_RX_EV_HDR_TYPE_IPV4_TCP ||
++			 rx_ev_hdr_type == FSE_AB_RX_EV_HDR_TYPE_IPV4_UDP);
+ 	} else {
+ 		falcon_handle_rx_not_ok(rx_queue, event, &rx_ev_pkt_ok,
+ 					&discard);
 
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
