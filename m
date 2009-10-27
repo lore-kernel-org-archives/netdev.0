@@ -1,105 +1,52 @@
-From: Mel Gorman <mel@csn.ul.ie>
-Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
-	failures V2
-Date: Tue, 27 Oct 2009 15:36:00 +0000
-Message-ID: <20091027153600.GK8900@csn.ul.ie>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <alpine.DEB.2.00.0910261835440.24625@wbuna.brgvxre.pu>
+From: Andreas Petlund <apetlund@simula.no>
+Subject: [PATCH 0/3] net: TCP thin-stream latency-improving modifications
+Date: Tue, 27 Oct 2009 17:28:34 +0100
+Message-ID: <4AE71FB2.9080107@simula.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Frans Pop <elendil@planet.nl>, Jiri Kosina <jkosina@suse.cz>,
-	Sven Geggus <lists@fuchsschwanzdomain.de>,
-	Karol Lewandowski <karol.k.lewandowski@gmail.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	David Miller <davem@davemloft.net>,
-	Reinette Chatre <reinette.chatre@intel.com>,
-	Kalle Valo <kalle.valo@iki.fi>,
-	David Rientjes <rientjes@google.com>,
-	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-	Mohamed Abbas <mohamed.abbas@intel.com>,
-	Jens Axboe <jens.axboe@oracle.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Stephan von Krawczynski <skraw@ithnet.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>
-To: Tobias Oetiker <tobi@oetiker.ch>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.0910261835440.24625@wbuna.brgvxre.pu>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, shemminger@vyatta.com,
+	ilpo.jarvinen@helsinki.fi, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-forward1.uio.no ([129.240.10.70]:51775 "EHLO
+	mail-forward1.uio.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755949AbZJ0Q2m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 12:28:42 -0400
+Received: from exim by mail-out1.uio.no with local-bsmtp (Exim 4.69)
+	(envelope-from <apetlund@simula.no>)
+	id 1N2ouc-0005MB-Jq
+	for netdev@vger.kernel.org; Tue, 27 Oct 2009 17:28:46 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 26, 2009 at 06:37:36PM +0100, Tobias Oetiker wrote:
-> Hi Mel,
-> 
-> I have no done additional tests ... and can report the following
-> 
-> Thursday Mel Gorman wrote:
-> 
-> >   1/5 page allocator: Always wake kswapd when restarting an allocation attempt after direct reclaim failed
-> >   2/5 page allocator: Do not allow interrupts to use ALLOC_HARDER
-> >
-> >
-> > 	These patches correct problems introduced by me during the 2.6.31-rc1
-> > 	merge window. The patches were not meant to introduce any functional
-> > 	changes but two were missed.
-> >
-> > 	If your problem goes away with just these two patches applied,
-> > 	please tell me.
-> 
-> 1+2 do not help
-> 
-> > Test 3: If you are getting allocation failures, try with the following patch
-> >
-> >   3/5 vmscan: Force kswapd to take notice faster when high-order watermarks are being hit
-> >
-> > 	This is a functional change that causes kswapd to notice sooner
-> > 	when high-order watermarks have been hit. There have been a number
-> > 	of changes in page reclaim since 2.6.30 that might have delayed
-> > 	when kswapd kicks in for higher orders
-> >
-> > 	If your problem goes away with these three patches applied, please
-> > 	tell me
-> 
-> 1+2+3 do not help either
-> 
-> > Test 4: If you are still getting failures, apply the following
-> >   4/5 page allocator: Pre-emptively wake kswapd when high-order watermarks are hit
-> >
-> > 	This patch is very heavy handed and pre-emptively kicks kswapd when
-> > 	watermarks are hit. It should only be necessary if there has been
-> > 	significant changes in the timing and density of page allocations
-> > 	from an unknown source. Tobias, this patch is largely aimed at you.
-> > 	You reported that with patches 3+4 applied that your problems went
-> > 	away. I need to know if patch 3 on its own is enough or if both
-> > 	are required
-> >
-> > 	If your problem goes away with these four patches applied, please
-> > 	tell me
-> 
-> 3 allone does not help
-> 3+4 does ...
-> 
+This is a series of patches enabling non-intrusive, dynamically triggered modifications that improves retransmission latencies for thin streams.
 
-This is a bit surprising.....
+The patches are based on the original modifications posted in this RFC:
 
-Tell me, do you have an Intel IO-MMU on your system by any chance?  It should
-be mentioned in either dmesg or lspci -v (please send the full output of
-both). If you do have one of these things, I notice they abuse PF_MEMALLOC
-which would explain why this patch makes a difference to your testing.
+http://article.gmane.org/gmane.linux.rt.user/3674/match=
+http://article.gmane.org/gmane.linux.kernel/779290/match=
 
-Thanks
+We have done our best to address the feedback from the RFC in the new patch set.
 
--- 
-Mel Gorman
-Part-time Phd Student                          Linux Technology Center
-University of Limerick                         IBM Dublin Software Lab
+TCP streams with high interarrival time between packets (thin streams) are often found to be produced by interactive/time-dependent applications. Such streams are not able to trigger fast retransmissions, since too few dupACKs are received before a retransmission by timeout occurs. Exponential backoff also leads to large delays. Since the applications producing such data patterns are very often time-dependent, this causes delays that are very disturbing for the application performance/experience. This set of patches introduce two simple modifications that improves the latencies for thin streams:
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+1) If the stream is thin, fast retransmit on the first dupACK.
+2) If the stream is thin, do not apply exponential backoff.
+
+The modifications are only active if specifically enabled by syscontrol or iocontrol. If enabled, the thin-stream detection is dynamically triggering the modifications on and off based on the current number of packets in flight. Thus, regular (greedy) streams do not trigger the modifications.
+
+The modifications are thoroughly tested and found to improve retransmission latency considerably without negatively influencing fairness. This is also the case when very many streams using the modifications share a common bottleneck.
+
+We have also developed a bundling mechanism (see the RFC linked to above) that can be used in thin-stream scenarios where the packet sizes are small. This mechanism is more intrusive, and will be posted for the net-next tree when we have revised the design.
+
+For more information on time-dependent thin streams and the modifications, please refer to the articles linked to below:
+
+http://simula.no/research/networks/publications/Simula.ND.159/simula_pdf_file
+http://simula.no/research/networks/publications/Simula.ND.185/simula_pdf_file
+http://simula.no/research/networks/publications/Simula.ND.112/simula_pdf_file
+http://simula.no/research/networks/publications/Simula.ND.35/simula_pdf_file
+
+Cheers, 
+Andreas
+
