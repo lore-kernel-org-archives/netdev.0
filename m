@@ -1,80 +1,57 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-2.6] sfc: Set ip_summed correctly for page buffers
-	passed to GRO
-Date: Tue, 27 Oct 2009 14:50:57 +0000
-Message-ID: <1256655057.2794.4.camel@achroite>
+From: Mel Gorman <mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [PATCH 2/5] page allocator: Do not allow interrupts to use
+	ALLOC_HARDER
+Date: Tue, 27 Oct 2009 15:19:05 +0000
+Message-ID: <20091027151904.GH8900@csn.ul.ie>
+References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <1256221356-26049-3-git-send-email-mel@csn.ul.ie> <20091022183303.2448942d.skraw@ithnet.com> <20091022163752.GU11778@csn.ul.ie> <alpine.DEB.1.10.0910232201520.9557@V090114053VZO-1>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:39240 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754991AbZJ0Ouz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 10:50:55 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Stephan von Krawczynski <skraw-DcQCyzbjH0jQT0dZR+AlfA@public.gmane.org>,
+	Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>, Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
+	Sven Geggus <lists-+AJD3D7QEjjt/htJsj1pd9AswbaBtrod@public.gmane.org>,
+	Karol Lewandowski <karol.k.lewandowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Tobias Oetiker <tobi-7K0TWYW2a3pyDzI6CaY1VQ@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Reinette Chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>,
+	David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
+	Mohamed Abbas <mohamed.abbas-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Jens Axboe <jens.axboe-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
+	Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org" <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>
+To: Christoph Lameter <cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.1.10.0910232201520.9557@V090114053VZO-1>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Page buffers containing packets with an incorrect checksum or using a
-protocol not handled by hardware checksum offload were previously not
-passed to LRO.  The conversion to GRO changed this, but did not set
-the ip_summed value accordingly.
+On Fri, Oct 23, 2009 at 10:03:05PM -0400, Christoph Lameter wrote:
+> There are now rt dependencies in the page allocator that screw things up?
+> 
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-Cc: stable@kernel.org
----
-This affects 2.6.31 and seems like a candidate for a stable update.
+The rt logic was present before.
 
-Ben.
+> And an rt flag causes the page allocator to try harder meaning it adds
+> latency.
+> 
 
- drivers/net/sfc/rx.c |    9 ++++++---
- 1 files changed, 6 insertions(+), 3 deletions(-)
+The harder term in the flag is a bit misleading. The effect of ALLOC_HARDER
+is that the watermark is lower for the task. i.e. a rt task is less likely
+to enter direct reclaim than normal tasks so it should have less latency.
 
-diff --git a/drivers/net/sfc/rx.c b/drivers/net/sfc/rx.c
-index ea59ed2..4b65c62 100644
---- a/drivers/net/sfc/rx.c
-+++ b/drivers/net/sfc/rx.c
-@@ -441,7 +441,8 @@ static void efx_rx_packet__check_len(struct efx_rx_queue *rx_queue,
-  * the appropriate LRO method
-  */
- static void efx_rx_packet_lro(struct efx_channel *channel,
--			      struct efx_rx_buffer *rx_buf)
-+			      struct efx_rx_buffer *rx_buf,
-+			      bool checksummed)
- {
- 	struct napi_struct *napi = &channel->napi_str;
- 
-@@ -463,7 +464,8 @@ static void efx_rx_packet_lro(struct efx_channel *channel,
- 		skb->len = rx_buf->len;
- 		skb->data_len = rx_buf->len;
- 		skb->truesize += rx_buf->len;
--		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		skb->ip_summed =
-+			checksummed ? CHECKSUM_UNNECESSARY : CHECKSUM_NONE;
- 
- 		napi_gro_frags(napi);
- 
-@@ -472,6 +474,7 @@ out:
- 		rx_buf->page = NULL;
- 	} else {
- 		EFX_BUG_ON_PARANOID(!rx_buf->skb);
-+		EFX_BUG_ON_PARANOID(!checksummed);
- 
- 		napi_gro_receive(napi, rx_buf->skb);
- 		rx_buf->skb = NULL;
-@@ -567,7 +570,7 @@ void __efx_rx_packet(struct efx_channel *channel,
- 	}
- 
- 	if (likely(checksummed || rx_buf->page)) {
--		efx_rx_packet_lro(channel, rx_buf);
-+		efx_rx_packet_lro(channel, rx_buf, checksummed);
- 		goto done;
- 	}
- 
+> ?
+> 
+> 
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Mel Gorman
+Part-time Phd Student                          Linux Technology Center
+University of Limerick                         IBM Dublin Software Lab
