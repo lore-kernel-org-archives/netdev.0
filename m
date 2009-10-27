@@ -1,35 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vlan: allow VLAN ID 0 to be used
-Date: Mon, 26 Oct 2009 18:41:20 -0700 (PDT)
-Message-ID: <20091026.184120.255143588.davem@davemloft.net>
-References: <4AE5CAC6.4000604@gmail.com>
-	<20091026.173232.33817336.davem@davemloft.net>
-	<4AE64E41.5030607@gmail.com>
+From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Subject: Re: [PATCH 1/5] page allocator: Always wake kswapd when restarting an allocation attempt after direct reclaim failed
+Date: Tue, 27 Oct 2009 11:42:55 +0900 (JST)
+Message-ID: <20091026222159.2F72.A69D9226@jp.fujitsu.com>
+References: <20091026100019.2F4A.A69D9226@jp.fujitsu.com> <alpine.DEB.2.00.0910260005500.15361@chino.kir.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: benny+usenet@amorsen.dk, gertjan_hofman@yahoo.com,
-	mcarlson@broadcom.com, netdev@vger.kernel.org, kaber@trash.net
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60172
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753497AbZJ0Bk4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 21:40:56 -0400
-In-Reply-To: <4AE64E41.5030607@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kosaki.motohiro@jp.fujitsu.com, Mel Gorman <mel@csn.ul.ie>,
+        Frans Pop <elendil@planet.nl>, Jiri Kosina <jkosina@suse.cz>,
+        Sven Geggus <lists@fuchsschwanzdomain.de>,
+        Karol Lewandowski <karol.k.lewandowski@gmail.com>,
+        Tobias Oetiker <tobi@oetiker.ch>, "Rafael J. Wysocki" <rjw@sisk.pl>,
+        David Miller <davem@davemloft.net>,
+        Reinette Chatre <reinette.chatre@intel.com>,
+        Kalle Valo <kalle.valo@iki.fi>,
+        Mohamed Abbas <mohamed.abbas@intel.com>,
+        Jens Axboe <jens.axboe@oracle.com>,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Pekka Enberg <penberg@cs.helsinki.fi>,
+        Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+        Greg Kroah-Hartman <gregkh@suse.de>,
+        Stephan von Krawczynski <skraw@ithnet.com>,
+        Kernel Testers List <kernel-testers@vger.kernel.org>,
+        netdev@vger.kernel.org, li
+To: David Rientjes <rientjes@google.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <alpine.DEB.2.00.0910260005500.15361@chino.kir.corp.google.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 27 Oct 2009 02:34:57 +0100
-
-> I hope I did not miss another important thing in this second version.
+> On Mon, 26 Oct 2009, KOSAKI Motohiro wrote:
 > 
-> Again, tested on tg3 only, and on net-next-2.6 tree
+> > diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+> > index bf72055..5a27896 100644
+> > --- a/mm/page_alloc.c
+> > +++ b/mm/page_alloc.c
+> > @@ -1899,6 +1899,12 @@ rebalance:
+> >  	if (should_alloc_retry(gfp_mask, order, pages_reclaimed)) {
+> >  		/* Wait for some write requests to complete then retry */
+> >  		congestion_wait(BLK_RW_ASYNC, HZ/50);
+> > +
+> > +		/*
+> > +		 * While we wait congestion wait, Amount of free memory can
+> > +		 * be changed dramatically. Thus, we kick kswapd again.
+> > +		 */
+> > +		wake_all_kswapd(order, zonelist, high_zoneidx);
+> >  		goto rebalance;
+> >  	}
+> >  
 > 
-> [PATCH] vlan: allow null VLAN ID to be used
+> We're blocking to finish writeback of the directly reclaimed memory, why 
+> do we need to wake kswapd afterwards?
 
-Looks good, applied to net-next-2.6
+the same reason of "goto restart" case. that's my intention.
+if following scenario occur, it is equivalent that we didn't call wake_all_kswapd().
 
-Someone now needs to convert IXGBE to use VLAN_PRIO_MASK and
-VLAN_PRIO_SHIFT instead of it's internal macros.
+  1. call congestion_wait()
+  2. kswapd reclaimed lots memory and sleep
+  3. another task consume lots memory
+  4. wakeup from congestion_wait()
+
+IOW, if we falled into __alloc_pages_slowpath(), we naturally expect
+next page_alloc() don't fall into slowpath. however if kswapd end to
+its work too early, this assumption isn't true.
+
+Is this too pessimistic assumption?
+
+
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
