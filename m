@@ -1,78 +1,62 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: iproute uses too small of a receive buffer
-Date: Tue, 27 Oct 2009 16:30:31 -0700
-Message-ID: <4AE78297.9000909@candelatech.com>
-References: <4AE77F64.3090302@candelatech.com> <20091027162434.6dc31b2d@nehalam>
+From: reinette chatre <reinette.chatre@intel.com>
+Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
+ failures V2
+Date: Tue, 27 Oct 2009 16:34:05 -0700
+Message-ID: <1256686445.21134.10091.camel@rc-desk>
+References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
+	 <1256226219.21134.1493.camel@rc-desk>  <20091027104017.GC8900@csn.ul.ie>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:36761 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756270AbZJ0Xa0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 19:30:26 -0400
-In-Reply-To: <20091027162434.6dc31b2d@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Frans Pop <elendil@planet.nl>, Jiri Kosina <jkosina@suse.cz>, Sven Geggus <lists@fuchsschwanzdomain.de>, Karol Lewandowski <karol.k.lewandowski@gmail.com>,  Tobias Oetiker <tobi@oetiker.ch>, "Rafael J. Wysocki" <rjw@sisk.pl>, David Miller <davem@davemloft.net>, Kalle Valo <kalle.valo@iki.fi>, David Rientjes <rientjes@google.com>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,  "Abbas, Mohamed" <mohamed.abbas@intel.com>, Jens Axboe <jens.axboe@oracle.com>, "John W. Linville" <linville@tuxdriver.com>, Pekka Enberg <penberg@cs.helsinki.fi>, Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>, Greg Kroah-Hartman <gregkh@suse.de>, Stephan von Krawczynski <skraw@ithnet.com>, Kernel Testers List <kernel-testers@vger.kernel.org>,  "netdev@vger.kernel.org" <netdev@vger.kernel.org>, "linux-kernel@
+ vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>
+To: Mel Gorman <mel@csn.ul.ie>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20091027104017.GC8900@csn.ul.ie>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 10/27/2009 04:24 PM, Stephen Hemminger wrote:
-> On Tue, 27 Oct 2009 16:16:52 -0700
-> Ben Greear<greearb@candelatech.com>  wrote:
->
->> I have a very busy system with a bunch of xorp router processes (mis)configured.
->>
->> This thing is rapidly making route changes for whatever reason.
->>
->> The 'ip monitor route' command was failing:
->>
->> [root@i7-dqc-1 ]# ip monitor route
->> netlink receive error No buffer space available (105)
->> Dump terminated
->>
->>
->> It is only using a 32k rcv buffer, and it seems the OS was
->> overdriving it.
->>
->> Please consider making the rcv buffer larger, perhaps something
->> like this (inline is white-space damaged...attachment should apply
->> if deemed useful.):
->>
->> Signed-off-by:  Ben Greear<greearb@candelatech.com>
->>
->> diff --git a/lib/libnetlink.c b/lib/libnetlink.c
->> index b68e2fd..95a7d1d 100644
->> --- a/lib/libnetlink.c
->> +++ b/lib/libnetlink.c
->> @@ -38,7 +38,7 @@ int rtnl_open_byproto(struct rtnl_handle *rth, unsigned subscriptions,
->>    {
->>           socklen_t addr_len;
->>           int sndbuf = 32768;
->> -       int rcvbuf = 32768;
->> +       int rcvbuf = 3276800;
->>
->>           memset(rth, 0, sizeof(*rth));
->>
->>
->> Thanks,
->> Ben
->>
->
-> Just having larger buffer isn't guarantee of success. Allocating
-> a huge buffer is not going to work on embedded.
->
-> Why not have it continue after one error.
+On Tue, 2009-10-27 at 03:40 -0700, Mel Gorman wrote:
+> On Thu, Oct 22, 2009 at 08:43:38AM -0700, reinette chatre wrote:
+> > On Thu, 2009-10-22 at 07:22 -0700, Mel Gorman wrote:
+> > > [Bug #14141] order 2 page allocation failures in iwlagn
+> > > 	Commit 4752c93c30441f98f7ed723001b1a5e3e5619829 introduced GFP_ATO=
+MIC
+> > > 	allocations within the wireless driver. This has caused large numb=
+ers
+> > > 	of failure reports to occur as reported by Frans Pop. Fixing this
+> > > 	requires changes to the driver if it wants to use GFP_ATOMIC which
+> > > 	is in the hands of Mohamed Abbas and Reinette Chatre. However,
+> > > 	it is very likely that it has being compounded by core mm changes
+> > > 	that this series is aimed at.
+> >=20
+> > Driver has been changed to allocate paged skb for its receive buffers=
+.
+> > This reduces amount of memory needed from order-2 to order-1. This wo=
+rk
+> > is significant and will thus be in 2.6.33.=20
+> >=20
+>=20
+> What do you want to do for -stable in 2.6.31?
+>=20
 
-Probably the right way is to give a cmd-line arg to set the buffer size
-and also continue if the error is ENOBUFs (but print some error out
-so users know they have issues).  I can make the attempt if that
-sounds good to you.
+I have just posted two patches to stable. The first is to address a bug
+in which buffer loss occurs when there is an allocation failure and the
+second is what Frans has been testing that reduces the noise when these
+allocations fail. They are:
 
-Thanks,
-Ben
+  iwlwifi: fix potential rx buffer loss=C2=AD=C2=AD=C2=AD=C2=AD=C2=AD=C2=AD=
+=C2=AD
+de0bd50845eb5935ce3d503c5d2f565d6cb9ece1 in linux-2.6
+  iwlwifi: reduce noise when skb allocation fails
+=C2=AD=C2=AD=C2=AD=C2=AD=C2=AD=C2=AD=C2=ADf82a924cc88a5541df1d4b9d38a0968=
+cd077a051 in linux-2.6
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Reinette
 
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
