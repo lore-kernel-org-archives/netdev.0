@@ -1,50 +1,107 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] net: fold network name hash (v2)
-Date: Tue, 27 Oct 2009 15:04:36 -0700
-Message-ID: <20091027150436.56e673cd@nehalam>
-References: <9986527.24561256620662709.JavaMail.root@tahiti.vyatta.com>
-	<19864844.24581256620784317.JavaMail.root@tahiti.vyatta.com>
-	<20091026.222428.80364204.davem@davemloft.net>
-	<20091027102251.244ee681@nehalam>
+From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+Subject: RE: [PATCH -next] netxen: fix builds for SYSFS=n or MODULES=n
+Date: Tue, 27 Oct 2009 15:09:24 -0700
+Message-ID: <7608421F3572AB4292BB2532AE89D5658B0B8903CB@AVEXMB1.qlogic.org>
+References: <20091026172104.205f15af.sfr@canb.auug.org.au>
+ <20091026150945.3f35a811.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
-	akpm@linux-foundation.org, torvalds@linux-foundation.org,
-	opurdila@ixiacom.com, viro@zeniv.linux.org.uk
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756820AbZJ0WEn@vger.kernel.org>
-In-Reply-To: <20091027102251.244ee681@nehalam>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Randy Dunlap <randy.dunlap@oracle.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20091026150945.3f35a811.randy.dunlap@oracle.com>
+Content-Language: en-US
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The full_name_hash does not produce a value that is evenly distributed
-over the lower 8 bits. This causes name hash to be unbalanced with large
-number of names. There is a standard function to fold in upper bits
-so use that.
+Sorry, seems like I am keeping you busy with the build errors.
+Thanks for fixing it again (may be I need to setup all different build configs).
 
-This is independent of possible improvements to full_name_hash()
-in future.
+Acked-by: Dhananjay Phadke <dhananjay@netxen.com>
+
+-----Original Message-----
+From: Randy Dunlap [mailto:randy.dunlap@oracle.com] 
+Sent: Monday, October 26, 2009 3:10 PM
+To: Stephen Rothwell; netdev
+Cc: linux-next@vger.kernel.org; LKML; davem@davemloft.net; Dhananjay Phadke
+Subject: [PATCH -next] netxen: fix builds for SYSFS=n or MODULES=n
+
+From: Randy Dunlap <randy.dunlap@oracle.com>
+
+When CONFIG_MODULES=n:
+drivers/net/netxen/netxen_nic_main.c:2751: error: dereferencing pointer to incomplete type
+drivers/net/netxen/netxen_nic_main.c:2764: error: dereferencing pointer to incomplete type
+
+Also needs addition of <linux/sysfs.h> for sysfs function prototypes or
+stubs when CONFIG_SYSFS=n.
+
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ drivers/net/netxen/netxen_nic_main.c |    9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+--- linux-next-20091026.orig/drivers/net/netxen/netxen_nic_main.c
++++ linux-next-20091026/drivers/net/netxen/netxen_nic_main.c
+@@ -34,6 +34,7 @@
+ #include <net/ip.h>
+ #include <linux/ipv6.h>
+ #include <linux/inetdevice.h>
++#include <linux/sysfs.h>
  
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
---- a/net/core/dev.c	2009-10-27 14:54:21.922563076 -0700
-+++ b/net/core/dev.c	2009-10-27 15:04:16.733813459 -0700
-@@ -86,6 +86,7 @@
- #include <linux/socket.h>
- #include <linux/sockios.h>
- #include <linux/errno.h>
-+#include <linux/hash.h>
- #include <linux/interrupt.h>
- #include <linux/if_ether.h>
- #include <linux/netdevice.h>
-@@ -199,7 +200,7 @@ EXPORT_SYMBOL(dev_base_lock);
- static inline struct hlist_head *dev_name_hash(struct net *net, const char *name)
+ MODULE_DESCRIPTION("NetXen Multi port (1/10) Gigabit Network Driver");
+ MODULE_LICENSE("GPL");
+@@ -2500,6 +2501,7 @@ static struct bin_attribute bin_attr_mem
+ 	.write = netxen_sysfs_write_mem,
+ };
+ 
++#ifdef CONFIG_MODULES
+ static ssize_t
+ netxen_store_auto_fw_reset(struct module_attribute *mattr,
+ 		struct module *mod, const char *buf, size_t count)
+@@ -2534,6 +2536,7 @@ static struct module_attribute mod_attr_
+ 	.show = netxen_show_auto_fw_reset,
+ 	.store = netxen_store_auto_fw_reset,
+ };
++#endif
+ 
+ static void
+ netxen_create_sysfs_entries(struct netxen_adapter *adapter)
+@@ -2739,7 +2742,9 @@ static struct pci_driver netxen_driver =
+ 
+ static int __init netxen_init_module(void)
  {
- 	unsigned hash = full_name_hash(name, strnlen(name, IFNAMSIZ));
--	return &net->dev_name_head[hash & ((1 << NETDEV_HASHBITS) - 1)];
-+	return &net->dev_name_head[hash_long(hash, NETDEV_HASHBITS)];
- }
++#ifdef CONFIG_MODULES
+ 	struct module *mod = THIS_MODULE;
++#endif
  
- static inline struct hlist_head *dev_index_hash(struct net *net, int ifindex)
+ 	printk(KERN_INFO "%s\n", netxen_nic_driver_string);
+ 
+@@ -2748,9 +2753,11 @@ static int __init netxen_init_module(voi
+ 	register_inetaddr_notifier(&netxen_inetaddr_cb);
+ #endif
+ 
++#ifdef CONFIG_MODULES
+ 	if (sysfs_create_file(&mod->mkobj.kobj, &mod_attr_fw_reset.attr))
+ 		printk(KERN_ERR "%s: Failed to create auto_fw_reset "
+ 				"sysfs entry.", netxen_nic_driver_name);
++#endif
+ 
+ 	return pci_register_driver(&netxen_driver);
+ }
+@@ -2759,9 +2766,11 @@ module_init(netxen_init_module);
+ 
+ static void __exit netxen_exit_module(void)
+ {
++#ifdef CONFIG_MODULES
+ 	struct module *mod = THIS_MODULE;
+ 
+ 	sysfs_remove_file(&mod->mkobj.kobj, &mod_attr_fw_reset.attr);
++#endif
+ 
+ 	pci_unregister_driver(&netxen_driver);
+ 
