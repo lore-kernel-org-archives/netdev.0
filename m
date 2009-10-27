@@ -1,192 +1,129 @@
 From: Sandeep Gopalpet <sandeep.kumar@freescale.com>
-Subject: [PATCH v2 4/7] fsl_pq_mdio: Add Suport for etsec2.0 devices.
-Date: Tue, 27 Oct 2009 22:25:18 +0530
-Message-ID: <12566625182528-git-send-email-sandeep.kumar@freescale.com>
+Subject: [PATCH v2 5/7] gianfar: Add support etsec2.0 registers.
+Date: Tue, 27 Oct 2009 22:25:27 +0530
+Message-ID: <12566625273867-git-send-email-sandeep.kumar@freescale.com>
 Cc: davem@davemloft.net, Sandeep Gopalpet <sandeep.kumar@freescale.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:52301 "EHLO
+Received: from az33egw02.freescale.net ([192.88.158.103]:52358 "EHLO
 	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754560AbZJ0PZC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 11:25:02 -0400
+	with ESMTP id S1752897AbZJ0PZR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 11:25:17 -0400
 Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
-	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n9RFP6Fp009084
-	for <netdev@vger.kernel.org>; Tue, 27 Oct 2009 08:25:07 -0700 (MST)
+	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n9RFPLnO009166
+	for <netdev@vger.kernel.org>; Tue, 27 Oct 2009 08:25:21 -0700 (MST)
 Received: from udp153986uds.ap.freescale.net (udp153986uds.ap.freescale.net [10.232.134.194])
-	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id n9RFSIdU005724
-	for <netdev@vger.kernel.org>; Tue, 27 Oct 2009 10:28:23 -0500 (CDT)
+	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id n9RFSUv5005829
+	for <netdev@vger.kernel.org>; Tue, 27 Oct 2009 10:28:37 -0500 (CDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds mdio support for etsec2.0 devices.
-
-Modified the fsl_pq_mdio structure to include the new mdio
-members.
+This patch adds support for etsec2.0 regsiters
 
 Signed-off-by: Sandeep Gopalpet <sandeep.kumar@freescale.com>
 ---
- drivers/net/fsl_pq_mdio.c |   59 ++++++++++++++++++++++++++++++++++++--------
- drivers/net/fsl_pq_mdio.h |   11 +++++++-
- 2 files changed, 57 insertions(+), 13 deletions(-)
+ drivers/net/gianfar.h |   55 +++++++++++++++++++++++++++++++++++++++---------
+ 1 files changed, 44 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/fsl_pq_mdio.c b/drivers/net/fsl_pq_mdio.c
-index d167090..6de7b24 100644
---- a/drivers/net/fsl_pq_mdio.c
-+++ b/drivers/net/fsl_pq_mdio.c
-@@ -3,8 +3,9 @@
-  * Provides Bus interface for MIIM regs
-  *
-  * Author: Andy Fleming <afleming@freescale.com>
-+ * Modifier: Sandeep Gopalpet <sandeep.kumar@freescale.com>
-  *
-- * Copyright (c) 2002-2004,2008 Freescale Semiconductor, Inc.
-+ * Copyright 2002-2004, 2008-2009 Freescale Semiconductor, Inc.
-  *
-  * Based on gianfar_mii.c and ucc_geth_mii.c (Li Yang, Kim Phillips)
-  *
-@@ -189,19 +190,29 @@ static int fsl_pq_mdio_find_free(struct mii_bus *new_bus)
+diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
+index fc43cfd..70c25ce 100644
+--- a/drivers/net/gianfar.h
++++ b/drivers/net/gianfar.h
+@@ -566,25 +566,32 @@ struct gfar_stats {
  
- 
- #if defined(CONFIG_GIANFAR) || defined(CONFIG_GIANFAR_MODULE)
--static u32 __iomem *get_gfar_tbipa(struct fsl_pq_mdio __iomem *regs)
-+static u32 __iomem *get_gfar_tbipa(struct fsl_pq_mdio __iomem *regs, struct device_node *np)
- {
- 	struct gfar __iomem *enet_regs;
-+	u32 __iomem *ioremap_tbipa;
-+	u64 addr, size;
- 
- 	/*
- 	 * This is mildly evil, but so is our hardware for doing this.
- 	 * Also, we have to cast back to struct gfar because of
- 	 * definition weirdness done in gianfar.h.
- 	 */
--	enet_regs = (struct gfar __iomem *)
--		((char __iomem *)regs - offsetof(struct gfar, gfar_mii_regs));
+ struct gfar {
+ 	u32	tsec_id;	/* 0x.000 - Controller ID register */
+-	u8	res1[12];
++	u32	tsec_id2;	/* 0x.004 - Controller ID2 register */
++	u8	res1[8];
+ 	u32	ievent;		/* 0x.010 - Interrupt Event Register */
+ 	u32	imask;		/* 0x.014 - Interrupt Mask Register */
+ 	u32	edis;		/* 0x.018 - Error Disabled Register */
+-	u8	res2[4];
++	u32	emapg;		/* 0x.01c - Group Error mapping register */
+ 	u32	ecntrl;		/* 0x.020 - Ethernet Control Register */
+ 	u32	minflr;		/* 0x.024 - Minimum Frame Length Register */
+ 	u32	ptv;		/* 0x.028 - Pause Time Value Register */
+ 	u32	dmactrl;	/* 0x.02c - DMA Control Register */
+ 	u32	tbipa;		/* 0x.030 - TBI PHY Address Register */
+-	u8	res3[88];
++	u8	res2[28];
++	u32	fifo_rx_pause;	/* 0x.050 - FIFO receive pause start threshold
++					register */
++	u32	fifo_rx_pause_shutoff;	/* x.054 - FIFO receive starve shutoff
++						register */
++	u32	fifo_rx_alarm;	/* 0x.058 - FIFO receive alarm start threshold
++						register */
++	u32	fifo_rx_alarm_shutoff;	/*0x.05c - FIFO receive alarm  starve
++						shutoff register */
++	u8	res3[44];
+ 	u32	fifo_tx_thr;	/* 0x.08c - FIFO transmit threshold register */
+ 	u8	res4[8];
+ 	u32	fifo_tx_starve;	/* 0x.098 - FIFO transmit starve register */
+ 	u32	fifo_tx_starve_shutoff;	/* 0x.09c - FIFO transmit starve shutoff register */
+-	u8	res5[4];
+-	u32	fifo_rx_pause;	/* 0x.0a4 - FIFO receive pause threshold register */
+-	u32	fifo_rx_alarm;	/* 0x.0a8 - FIFO receive alarm threshold register */
+-	u8	res6[84];
++	u8	res5[96];
+ 	u32	tctrl;		/* 0x.100 - Transmit Control Register */
+ 	u32	tstat;		/* 0x.104 - Transmit Status Register */
+ 	u32	dfvlan;		/* 0x.108 - Default VLAN Control word */
+@@ -635,7 +642,11 @@ struct gfar {
+ 	u8	res12[8];
+ 	u32	rxic;		/* 0x.310 - Receive Interrupt Coalescing Configuration Register */
+ 	u32	rqueue;		/* 0x.314 - Receive queue control register */
+-	u8	res13[24];
++	u32	rir0;		/* 0x.318 - Ring mapping register 0 */
++	u32	rir1;		/* 0x.31c - Ring mapping register 1 */
++	u32	rir2;		/* 0x.320 - Ring mapping register 2 */
++	u32	rir3;		/* 0x.324 - Ring mapping register 3 */
++	u8	res13[8];
+ 	u32	rbifx;		/* 0x.330 - Receive bit field extract control register */
+ 	u32	rqfar;		/* 0x.334 - Receive queue filing table address register */
+ 	u32	rqfcr;		/* 0x.338 - Receive queue filing table control register */
+@@ -684,7 +695,7 @@ struct gfar {
+ 	u32	maxfrm;		/* 0x.510 - Maximum Frame Length Register */
+ 	u8	res18[12];
+ 	u8	gfar_mii_regs[24];	/* See gianfar_phy.h */
+-	u8	res19[4];
++	u32	ifctrl;		/* 0x.538 - Interface control register */
+ 	u32	ifstat;		/* 0x.53c - Interface Status Register */
+ 	u32	macstnaddr1;	/* 0x.540 - Station Address Part 1 Register */
+ 	u32	macstnaddr2;	/* 0x.544 - Station Address Part 2 Register */
+@@ -745,8 +756,30 @@ struct gfar {
+ 	u8	res23c[248];
+ 	u32	attr;		/* 0x.bf8 - Attributes Register */
+ 	u32	attreli;	/* 0x.bfc - Attributes Extract Length and Extract Index Register */
+-	u8	res24[1024];
 -
--	return &enet_regs->tbipa;
-+	if(of_device_is_compatible(np, "fsl,gianfar-mdio") ||
-+		of_device_is_compatible(np, "fsl,gianfar-tbi") ||
-+		of_device_is_compatible(np, "gianfar")) {
-+		enet_regs = (struct gfar __iomem *)regs;
-+		return &enet_regs->tbipa;
-+	} else if (of_device_is_compatible(np, "fsl,etsec2-mdio") ||
-+			of_device_is_compatible(np, "fsl,etsec2-tbi")) {
-+		addr = of_translate_address(np, of_get_address(np, 1, &size, NULL));
-+		ioremap_tbipa = ioremap(addr, size);
-+		return ioremap_tbipa;
-+	} else
-+		return NULL;
- }
- #endif
- 
-@@ -250,11 +261,11 @@ static int fsl_pq_mdio_probe(struct of_device *ofdev,
- {
- 	struct device_node *np = ofdev->node;
- 	struct device_node *tbi;
--	struct fsl_pq_mdio __iomem *regs;
-+	struct fsl_pq_mdio __iomem *regs = NULL;
- 	u32 __iomem *tbipa;
- 	struct mii_bus *new_bus;
- 	int tbiaddr = -1;
--	u64 addr, size;
-+	u64 addr = 0, size = 0, ioremap_miimcfg = 0;
- 	int err = 0;
- 
- 	new_bus = mdiobus_alloc();
-@@ -268,8 +279,22 @@ static int fsl_pq_mdio_probe(struct of_device *ofdev,
- 	fsl_pq_mdio_bus_name(new_bus->id, np);
- 
- 	/* Set the PHY base address */
--	addr = of_translate_address(np, of_get_address(np, 0, &size, NULL));
--	regs = ioremap(addr, size);
-+	if (of_device_is_compatible(np,"fsl,gianfar-mdio") ||
-+		of_device_is_compatible(np, "fsl,gianfar-tbi") ||
-+		of_device_is_compatible(np, "fsl,ucc-mdio") ||
-+		of_device_is_compatible(np,"ucc_geth_phy" )) {
-+		addr = of_translate_address(np, of_get_address(np, 0, &size, NULL));
-+		ioremap_miimcfg =  container_of(addr, struct fsl_pq_mdio, miimcfg);
-+		regs = ioremap(ioremap_miimcfg, size +
-+				offsetof(struct fsl_pq_mdio, miimcfg));
-+	} else if (of_device_is_compatible(np,"fsl,etsec2-mdio") ||
-+			of_device_is_compatible(np, "fsl,etsec2-tbi")) {
-+		addr = of_translate_address(np, of_get_address(np, 0, &size, NULL));
-+		regs = ioremap(addr, size);
-+	} else {
-+		err = -EINVAL;
-+		goto err_free_bus;
-+	}
- 
- 	if (NULL == regs) {
- 		err = -ENOMEM;
-@@ -290,9 +315,15 @@ static int fsl_pq_mdio_probe(struct of_device *ofdev,
- 
- 	if (of_device_is_compatible(np, "fsl,gianfar-mdio") ||
- 			of_device_is_compatible(np, "fsl,gianfar-tbi") ||
-+			of_device_is_compatible(np, "fsl,etsec2-mdio") ||
-+			of_device_is_compatible(np, "fsl,etsec2-tbi") ||
- 			of_device_is_compatible(np, "gianfar")) {
- #if defined(CONFIG_GIANFAR) || defined(CONFIG_GIANFAR_MODULE)
--		tbipa = get_gfar_tbipa(regs);
-+		tbipa = get_gfar_tbipa(regs, np);
-+		if (!tbipa) {
-+			err = -EINVAL;
-+			goto err_free_irqs;
-+		}
- #else
- 		err = -ENODEV;
- 		goto err_free_irqs;
-@@ -405,6 +436,12 @@ static struct of_device_id fsl_pq_mdio_match[] = {
- 	{
- 		.compatible = "fsl,gianfar-mdio",
- 	},
-+	{
-+		.compatible = "fsl,etsec2-tbi",
-+	},
-+	{
-+		.compatible = "fsl,etsec2-mdio",
-+	},
- 	{},
++	u8	res24[688];
++	u32	isrg0;		/* 0x.eb0 - Interrupt steering group 0 register */
++	u32	isrg1;		/* 0x.eb4 - Interrupt steering group 1 register */
++	u32	isrg2;		/* 0x.eb8 - Interrupt steering group 2 register */
++	u32	isrg3;		/* 0x.ebc - Interrupt steering group 3 register */
++	u8	res25[16];
++	u32	rxic0;		/* 0x.ed0 - Ring 0 Rx interrupt coalescing */
++	u32	rxic1;		/* 0x.ed4 - Ring 1 Rx interrupt coalescing */
++	u32	rxic2;		/* 0x.ed8 - Ring 2 Rx interrupt coalescing */
++	u32	rxic3;		/* 0x.edc - Ring 3 Rx interrupt coalescing */
++	u32	rxic4;		/* 0x.ee0 - Ring 4 Rx interrupt coalescing */
++	u32	rxic5;		/* 0x.ee4 - Ring 5 Rx interrupt coalescing */
++	u32	rxic6;		/* 0x.ee8 - Ring 6 Rx interrupt coalescing */
++	u32	rxic7;		/* 0x.eec - Ring 7 Rx interrupt coalescing */
++	u8	res26[32];
++	u32	txic0;		/* 0x.f10 - Ring 0 Tx interrupt coalescing */
++	u32	txic1;		/* 0x.f14 - Ring 1 Tx interrupt coalescing */
++	u32	txic2;		/* 0x.f18 - Ring 2 Tx interrupt coalescing */
++	u32	txic3;		/* 0x.f1c - Ring 3 Tx interrupt coalescing */
++	u32	txic4;		/* 0x.f20 - Ring 4 Tx interrupt coalescing */
++	u32	txic5;		/* 0x.f24 - Ring 5 Tx interrupt coalescing */
++	u32	txic6;		/* 0x.f28 - Ring 6 Tx interrupt coalescing */
++	u32	txic7;		/* 0x.f2c - Ring 7 Tx interrupt coalescing */
++	u8	res27[208];
  };
  
-diff --git a/drivers/net/fsl_pq_mdio.h b/drivers/net/fsl_pq_mdio.h
-index 36dad52..1f7d865 100644
---- a/drivers/net/fsl_pq_mdio.h
-+++ b/drivers/net/fsl_pq_mdio.h
-@@ -3,8 +3,9 @@
-  * Driver for the MDIO bus controller on Freescale PowerQUICC processors
-  *
-  * Author: Andy Fleming
-+ * Modifier: Sandeep Gopalpet
-  *
-- * Copyright (c) 2002-2004,2008 Freescale Semiconductor, Inc.
-+ * Copyright 2002-2004, 2008-2009 Freescale Semiconductor, Inc.
-  *
-  * This program is free software; you can redistribute  it and/or modify it
-  * under  the terms of  the GNU General  Public License as published by the
-@@ -23,6 +24,12 @@
- #define MII_READ_COMMAND       0x00000001
- 
- struct fsl_pq_mdio {
-+	u8 res1[16];
-+	u32 ieventm;	/* MDIO Interrupt event register (for etsec2)*/
-+	u32 imaskm;	/* MDIO Interrupt mask register (for etsec2)*/
-+	u8 res2[4];
-+	u32 emapm;	/* MDIO Event mapping register (for etsec2)*/
-+	u8 res3[1280];
- 	u32 miimcfg;		/* MII management configuration reg */
- 	u32 miimcom;		/* MII management command reg */
- 	u32 miimadd;		/* MII management address reg */
-@@ -31,9 +38,9 @@ struct fsl_pq_mdio {
- 	u32 miimind;		/* MII management indication reg */
- 	u8 reserved[28];	/* Space holder */
- 	u32 utbipar;		/* TBI phy address reg (only on UCC) */
-+	u8 res4[2728];
- } __attribute__ ((packed));
- 
--
- int fsl_pq_mdio_read(struct mii_bus *bus, int mii_id, int regnum);
- int fsl_pq_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 value);
- int fsl_pq_local_mdio_write(struct fsl_pq_mdio __iomem *regs, int mii_id,
+ /* Flags related to gianfar device features */
 -- 
 1.5.2.2
 
