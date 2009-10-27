@@ -1,50 +1,73 @@
-From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
-Subject: RE: [patch next 3/4] netxen: fix bonding support
-Date: Mon, 26 Oct 2009 23:06:08 -0700
-Message-ID: <7608421F3572AB4292BB2532AE89D5658B0B6E4F95@AVEXMB1.qlogic.org>
-References: <1241586309-12112-1-git-send-email-dhananjay@netxen.com>
-	<1241586309-12112-4-git-send-email-dhananjay@netxen.com>
-	<m1ljj2ps80.fsf@fess.ebiederm.org>
-	<7608421F3572AB4292BB2532AE89D5658B0B6E4F72@AVEXMB1.qlogic.org>
-	<m1skd9letu.fsf@fess.ebiederm.org>
-	<7608421F3572AB4292BB2532AE89D5658B0B6E4F74@AVEXMB1.qlogic.org>,<m1aazdl713.fsf@fess.ebiederm.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] dcache: better name hash function
+Date: Tue, 27 Oct 2009 07:07:31 +0100
+Message-ID: <4AE68E23.20205@gmail.com>
+References: <19864844.24581256620784317.JavaMail.root@tahiti.vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Octavian Purdila <opurdila@ixiacom.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Al Viro <viro@zeniv.linux.org.uk>
+To: Stephen Hemminger <stephen.hemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:3002 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932075AbZJ0GI1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 02:08:27 -0400
-In-Reply-To: <m1aazdl713.fsf@fess.ebiederm.org>
-Content-Language: en-US
+Received: from gw1.cosmosbay.com ([212.99.114.194]:60914 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755451AbZJ0GIF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 02:08:05 -0400
+In-Reply-To: <19864844.24581256620784317.JavaMail.root@tahiti.vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric,
+Stephen Hemminger a =C3=A9crit :
+> One of the root causes of slowness in network usage
+> was my original choice of power of 2 for hash size, to avoid
+> a mod operation. It turns out if size is not a power of 2
+> the original algorithm works fairly well.
 
-Thanks for reporting and verifying.
+Interesting, but I suspect all users have power of 2 tables :(
 
--Dhananjay
-________________________________________
-From: Eric W. Biederman [ebiederm@xmission.com]
-Sent: Monday, October 26, 2009 10:50 PM
-To: Dhananjay Phadke
-Cc: netdev@vger.kernel.org
-Subject: Re: [patch next 3/4] netxen: fix bonding support
-
-Dhananjay Phadke <dhananjay.phadke@qlogic.com> writes:
-
->> Yes.  That should prevent the null pointer deference.  Will it also
->> allow setting the mac address when the NIC is down?
->>
->> Eric
+>=20
+> On slow cpu; with 10million entries and 211 hash size
+>=20
 >
-> Yes, we do save new address in netdev->dev_addr.
-> This is later on programmed in hardware when interface is brought up.
+>=20
+> How important is saving the one division, versus getting better
+> distribution.
 
-Yep. Thanks.  I just tested it and confirmed the crash is no longer there.
 
-Eric
+unsigned int fold1(unsigned hash)
+{
+	return hash % 211;
+}
+
+Compiler uses a reciprocal divide because of 211 being a constant.
+
+And you also could try following that contains one multiply only,
+and check if hash distribution properties are still OK
+
+unsigned int fold2(unsigned hash)
+{
+	return ((unsigned long long)hash * 211) >> 32;
+}
+
+fold1:
+        movl    4(%esp), %ecx
+        movl    $-1689489505, %edx
+        movl    %ecx, %eax
+        mull    %edx
+        shrl    $7, %edx
+        imull   $211, %edx, %edx
+        subl    %edx, %ecx
+        movl    %ecx, %eax
+        ret
+
+fold2:
+        movl    $211, %eax
+        mull    4(%esp)
+        movl    %edx, %eax
+        ret
+
+
