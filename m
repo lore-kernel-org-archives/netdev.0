@@ -1,87 +1,74 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: Re: [PATCH 5/5] ONLY-APPLY-IF-STILL-FAILING Revert 373c0a7e, 8aa7e847: Fix congestion_wait() sync/async vs read/write confusion
-Date: Tue, 27 Oct 2009 11:29:01 +0100
-Message-ID: <200910271129.05586.elendil@planet.nl>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <1256221356-26049-6-git-send-email-mel@csn.ul.ie> <20091026235628.2F7B.A69D9226@jp.fujitsu.com>
+From: Kristoffer Glembo <kristoffer@gaisler.com>
+Subject: Re: phy_connect_direct problem
+Date: Tue, 27 Oct 2009 14:10:54 +0100
+Message-ID: <4AE6F15E.6080806@gaisler.com>
+References: <4AE6CB6A.5050600@gaisler.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Mel Gorman <mel@csn.ul.ie>,
- Jiri Kosina <jkosina@suse.cz>,
- Sven Geggus <lists@fuchsschwanzdomain.de>,
- Karol Lewandowski <karol.k.lewandowski@gmail.com>,
- Tobias Oetiker <tobi@oetiker.ch>,
- "Rafael J. Wysocki" <rjw@sisk.pl>,
- David Miller <davem@davemloft.net>,
- Reinette Chatre <reinette.chatre@intel.com>,
- Kalle Valo <kalle.valo@iki.fi>,
- David Rientjes <rientjes@google.com>,
- Mohamed Abbas <mohamed.abbas@intel.com>,
- Jens Axboe <jens.axboe@oracle.com>,
- "John W. Linville" <linville@tuxdriver.com>,
- Pekka Enberg <penberg@cs.helsinki.fi>,
- Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
- Greg Kroah-Hartman <gregkh@suse.de>,
- Stephan von Krawczynski <skraw@ithnet.com>,
- Kernel Testers List <kernel-testers@vger.kernel.org>,
- netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org,
- "linux-mm@kvack.org" <linux-mm@kvack.org>
-To: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20091026235628.2F7B.A69D9226@jp.fujitsu.com>
-Content-Disposition: inline
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail175c2.megamailservers.com ([69.49.111.75]:42129 "EHLO
+	mail175c2.megamailservers.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754530AbZJ0NN3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 09:13:29 -0400
+Received: from [192.168.0.35] (c-10a5e155.260-1-64736c10.cust.bredbandsbolaget.se [85.225.165.16])
+	(authenticated bits=0)
+	by mail175c2.megamailservers.com (8.13.6/8.13.1) with ESMTP id n9RDDVtR014817
+	for <netdev@vger.kernel.org>; Tue, 27 Oct 2009 09:13:33 -0400
+In-Reply-To: <4AE6CB6A.5050600@gaisler.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 27 October 2009, KOSAKI Motohiro wrote:
-> Oops. no, please no.
-> 8aa7e847 is regression fixing commit. this revert indicate the
-> regression occur again.
-> if we really need to revert it, we need to revert 1faa16d2287 too.
-> however, I doubt this commit really cause regression to iwlan. IOW,
-> I agree Jens.
+Hi again,
 
-This is not intended as a patch for mainline, but just as a test to see if 
-it improves things. It may be a regression fix, but it also creates a 
-significant change in behavior during swapping in my test case.
-If a fix is needed, it will probably by different from this revert.
-Please read: http://lkml.org/lkml/2009/10/26/510.
+Please forget about this. I'm obviously blind as I can't see the 
+difference between adjust_state and adjust_link  ...
 
-This mail has some data: http://lkml.org/lkml/2009/10/26/455.
+Best regards,
+Kristoffer Glembo
 
-> I hope to try reproduce this problem on my test environment. Can anyone
-> please explain reproduce way?
+Kristoffer Glembo wrote:
+> Hi,
+> 
+> I'm in the process of converting an ethernet driver to using the PHY 
+> layer, but ran into a problem where my adjust_state handler was never 
+> called and the link did not go up ...
+> 
+> I use phy_connect to connect the PHY device with my ethernet driver. In 
+> phy_connect_direct I found the following code:    
+> 
+> phy_prepare_link(phydev, handler);
+> phy_start_machine(phydev, NULL);
+> 
+> So first the adjust_state is set to handler by phy_prepare_link and then 
+> it is overwritten with the NULL parameter passed to phy_start_machine.
+> 
+> Maybe I'm abusing the PHY layer somehow since there are plenty of other 
+> drivers using this interface. However the patch below solved the issue 
+> for me.
+> 
+> Best regards,
+> Kristoffer Glembo
+> 
+> 
+> ---
+>  drivers/net/phy/phy_device.c |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> index b10fedd..d27ca80 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -311,8 +311,7 @@ int phy_connect_direct(struct net_device *dev, 
+> struct phy_device *phydev,
+>      if (rc)
+>          return rc;
+> 
+> -    phy_prepare_link(phydev, handler);
+> -    phy_start_machine(phydev, NULL);
+> +    phy_start_machine(phydev, handler);
+>      if (phydev->irq > 0)
+>          phy_start_interrupts(phydev);
+> 
 
-Please see my mails in this thread for bug #14141: 
-http://thread.gmane.org/gmane.linux.kernel/896714
-
-You will probably need to read some of them to understand the context of 
-the two mails linked above.
-
-The most relevant ones are (all from the same thread; not sure why gmane 
-gives such weird links):
-http://article.gmane.org/gmane.linux.kernel.mm/39909
-http://article.gmane.org/gmane.linux.kernel.kernel-testers/7228
-http://article.gmane.org/gmane.linux.kernel.kernel-testers/7165
-
-> Is special hardware necessary?
-
-Not special hardware, but you may need an encrypted partition and NFS; the 
-test may need to be modified according to the amount of memory you have.
-I think it should be possible to reproduce the freezes I see while ignoring 
-the SKB allocation errors as IMO those are just a symptom, not the cause.
-So you should not need wireless.
-
-The severity of the freezes during my test often increases if the test is 
-repeated (without rebooting).
-
-Cheers,
-FJP
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
