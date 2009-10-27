@@ -1,80 +1,80 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: next tree for October 27:  znet build failure
-Date: Wed, 28 Oct 2009 01:37:21 +1100
-Message-ID: <20091028013721.049c0146.sfr@canb.auug.org.au>
-References: <20091027190850.9694fb39.sfr@canb.auug.org.au>
-	<4AE6BEC7.2030703@in.ibm.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-2.6] sfc: Set ip_summed correctly for page buffers
+	passed to GRO
+Date: Tue, 27 Oct 2009 14:50:57 +0000
+Message-ID: <1256655057.2794.4.camel@achroite>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__28_Oct_2009_01_37_21_+1100_3o3/8wKb9Zsi6da2"
-Cc: linux-next@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Greg KH <greg@kroah.com>
-To: Sachin Sant <sachinp@in.ibm.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:52983 "EHLO smtps.tip.net.au"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752525AbZJ0OhY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Oct 2009 10:37:24 -0400
-In-Reply-To: <4AE6BEC7.2030703@in.ibm.com>
+Received: from mail.solarflare.com ([216.237.3.220]:39240 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754991AbZJ0Ouz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 10:50:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Signature=_Wed__28_Oct_2009_01_37_21_+1100_3o3/8wKb9Zsi6da2
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Page buffers containing packets with an incorrect checksum or using a
+protocol not handled by hardware checksum offload were previously not
+passed to LRO.  The conversion to GRO changed this, but did not set
+the ip_summed value accordingly.
 
-Just adding John and Greg to the cc list as this is caused by patches in
-the staging tree.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+Cc: stable@kernel.org
+---
+This affects 2.6.31 and seems like a candidate for a stable update.
 
-On Tue, 27 Oct 2009 15:05:03 +0530 Sachin Sant <sachinp@in.ibm.com> wrote:
->
-> Fails to build on x86_32 with lots of errors related to znet
->=20
-> drivers/net/znet.c:107:29: error: wireless/i82593.h: No such file or dire=
-ctory
-> drivers/net/znet.c:133: error: field 'i593_init' has incomplete type
-> drivers/net/znet.c: In function 'znet_set_multicast_list':
-> drivers/net/znet.c:235: error: invalid application of 'sizeof' to incompl=
-ete type 'struct i82593_conf_block'
-> drivers/net/znet.c:247: error: dereferencing pointer to incomplete type
-> .....
->=20
-> Commit 879e9304... moved wireless/i82593.h to drivers/staging/wavelan/i82=
-593.h
->=20
-> Thanks
-> -Sachin
->=20
->=20
-> --=20
->=20
-> ---------------------------------
-> Sachin Sant
-> IBM Linux Technology Center
-> India Systems and Technology Labs
-> Bangalore, India
-> ---------------------------------
->=20
+Ben.
 
+ drivers/net/sfc/rx.c |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+diff --git a/drivers/net/sfc/rx.c b/drivers/net/sfc/rx.c
+index ea59ed2..4b65c62 100644
+--- a/drivers/net/sfc/rx.c
++++ b/drivers/net/sfc/rx.c
+@@ -441,7 +441,8 @@ static void efx_rx_packet__check_len(struct efx_rx_queue *rx_queue,
+  * the appropriate LRO method
+  */
+ static void efx_rx_packet_lro(struct efx_channel *channel,
+-			      struct efx_rx_buffer *rx_buf)
++			      struct efx_rx_buffer *rx_buf,
++			      bool checksummed)
+ {
+ 	struct napi_struct *napi = &channel->napi_str;
+ 
+@@ -463,7 +464,8 @@ static void efx_rx_packet_lro(struct efx_channel *channel,
+ 		skb->len = rx_buf->len;
+ 		skb->data_len = rx_buf->len;
+ 		skb->truesize += rx_buf->len;
+-		skb->ip_summed = CHECKSUM_UNNECESSARY;
++		skb->ip_summed =
++			checksummed ? CHECKSUM_UNNECESSARY : CHECKSUM_NONE;
+ 
+ 		napi_gro_frags(napi);
+ 
+@@ -472,6 +474,7 @@ out:
+ 		rx_buf->page = NULL;
+ 	} else {
+ 		EFX_BUG_ON_PARANOID(!rx_buf->skb);
++		EFX_BUG_ON_PARANOID(!checksummed);
+ 
+ 		napi_gro_receive(napi, rx_buf->skb);
+ 		rx_buf->skb = NULL;
+@@ -567,7 +570,7 @@ void __efx_rx_packet(struct efx_channel *channel,
+ 	}
+ 
+ 	if (likely(checksummed || rx_buf->page)) {
+-		efx_rx_packet_lro(channel, rx_buf);
++		efx_rx_packet_lro(channel, rx_buf, checksummed);
+ 		goto done;
+ 	}
+ 
 
---Signature=_Wed__28_Oct_2009_01_37_21_+1100_3o3/8wKb9Zsi6da2
-Content-Type: application/pgp-signature
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAkrnBaEACgkQjjKRsyhoI8wQTACfYAhRQ4FqCL4tWGeQ4hUBMRe5
-wfEAnAooPN9lZEE8KJSXk71DpxKF2Ioi
-=Waq2
------END PGP SIGNATURE-----
-
---Signature=_Wed__28_Oct_2009_01_37_21_+1100_3o3/8wKb9Zsi6da2--
