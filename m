@@ -1,57 +1,64 @@
-From: Mel Gorman <mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
-	failures V2
-Date: Tue, 27 Oct 2009 10:40:17 +0000
-Message-ID: <20091027104017.GC8900@csn.ul.ie>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <1256226219.21134.1493.camel@rc-desk>
+From: Kristoffer Glembo <kristoffer@gaisler.com>
+Subject: phy_connect_direct problem
+Date: Tue, 27 Oct 2009 11:28:58 +0100
+Message-ID: <4AE6CB6A.5050600@gaisler.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>, Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	Sven Geggus <lists-+AJD3D7QEjjt/htJsj1pd9AswbaBtrod@public.gmane.org>,
-	Karol Lewandowski <karol.k.lewandowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Tobias Oetiker <tobi-7K0TWYW2a3pyDzI6CaY1VQ@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>,
-	David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	"Abbas, Mohamed" <mohamed.abbas-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Jens Axboe <jens.axboe-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
-	Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	Stephan von Krawczynski <skraw-DcQCyzbjH0jQT0dZR+AlfA@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org" <linux-mm@kvac
-To: reinette chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1256226219.21134.1493.camel@rc-desk>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail168c2.megamailservers.com ([69.49.111.68]:58474 "EHLO
+	mail168c2.megamailservers.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753428AbZJ0LJX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 07:09:23 -0400
+Received: from [192.168.0.35] (c-10a5e155.260-1-64736c10.cust.bredbandsbolaget.se [85.225.165.16])
+	(authenticated bits=0)
+	by mail168c2.megamailservers.com (8.13.6/8.13.1) with ESMTP id n9RAVY3O007510
+	for <netdev@vger.kernel.org>; Tue, 27 Oct 2009 06:31:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 22, 2009 at 08:43:38AM -0700, reinette chatre wrote:
-> On Thu, 2009-10-22 at 07:22 -0700, Mel Gorman wrote:
-> > [Bug #14141] order 2 page allocation failures in iwlagn
-> > 	Commit 4752c93c30441f98f7ed723001b1a5e3e5619829 introduced GFP_ATOMIC
-> > 	allocations within the wireless driver. This has caused large numbers
-> > 	of failure reports to occur as reported by Frans Pop. Fixing this
-> > 	requires changes to the driver if it wants to use GFP_ATOMIC which
-> > 	is in the hands of Mohamed Abbas and Reinette Chatre. However,
-> > 	it is very likely that it has being compounded by core mm changes
-> > 	that this series is aimed at.
-> 
-> Driver has been changed to allocate paged skb for its receive buffers.
-> This reduces amount of memory needed from order-2 to order-1. This work
-> is significant and will thus be in 2.6.33. 
-> 
+Hi,
 
-What do you want to do for -stable in 2.6.31?
+I'm in the process of converting an ethernet driver to using the PHY 
+layer, but ran into a problem where my adjust_state handler was never 
+called and the link did not go up ...
+
+I use phy_connect to connect the PHY device with my ethernet driver. In 
+phy_connect_direct I found the following code: 	
+
+phy_prepare_link(phydev, handler);
+phy_start_machine(phydev, NULL);
+
+So first the adjust_state is set to handler by phy_prepare_link and then 
+it is overwritten with the NULL parameter passed to phy_start_machine.
+
+Maybe I'm abusing the PHY layer somehow since there are plenty of other 
+drivers using this interface. However the patch below solved the issue 
+for me.
+
+Best regards,
+Kristoffer Glembo
+
+
+---
+  drivers/net/phy/phy_device.c |    3 +--
+  1 files changed, 1 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index b10fedd..d27ca80 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -311,8 +311,7 @@ int phy_connect_direct(struct net_device *dev, 
+struct phy_device *phydev,
+  	if (rc)
+  		return rc;
+
+-	phy_prepare_link(phydev, handler);
+-	phy_start_machine(phydev, NULL);
++	phy_start_machine(phydev, handler);
+  	if (phydev->irq > 0)
+  		phy_start_interrupts(phydev);
 
 -- 
-Mel Gorman
-Part-time Phd Student                          Linux Technology Center
-University of Limerick                         IBM Dublin Software Lab
+1.5.2.2
