@@ -1,101 +1,59 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 6/9] ser_gigaset: checkpatch cleanup
-Date: Mon, 26 Oct 2009 17:14:54 -0700
-Message-ID: <1256602494.29938.13.camel@Joe-Laptop.home>
-References: <20091023-patch-gigaset-00.tilman@imap.cc>
-	 <20091023-patch-gigaset-06.tilman@imap.cc>
-	 <1256518486.14711.13.camel@Joe-Laptop.home>  <4AE637D8.60809@imap.cc>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] fib_hash: improve route deletion scaling on
+ interface drop with lots of interfaces
+Date: Mon, 26 Oct 2009 17:17:49 -0700 (PDT)
+Message-ID: <20091026.171749.106971240.davem@davemloft.net>
+References: <20091027000302.GA3141@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	Hansjoerg Lipp <hjlipp@web.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, isdn4linux@listserv.isdn4linux.de,
-	i4ldeveloper@listserv.isdn4linux.de
-To: Tilman Schmidt <tilman@imap.cc>
+Cc: netdev@vger.kernel.org
+To: bcrl@lhnet.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1082 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754786AbZJ0AOu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Oct 2009 20:14:50 -0400
-In-Reply-To: <4AE637D8.60809@imap.cc>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59816
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755019AbZJ0AR0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Oct 2009 20:17:26 -0400
+In-Reply-To: <20091027000302.GA3141@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-10-27 at 00:59 +0100, Tilman Schmidt wrote:
-> Am 26.10.2009 01:54 schrieb Joe Perches:
-> > On Sun, 2009-10-25 at 20:30 +0100, Tilman Schmidt wrote:
-> >> Duly uglified as demanded by checkpatch.pl.
-> >> diff --git a/drivers/isdn/gigaset/ser-gigaset.c b/drivers/isdn/gigaset/ser-gigaset.c
-> >> index 3071a52..ac3409e 100644
-> >> --- a/drivers/isdn/gigaset/ser-gigaset.c
-> >> +++ b/drivers/isdn/gigaset/ser-gigaset.c
-> >> @@ -164,9 +164,15 @@ static void gigaset_modem_fill(unsigned long data)
-> >>  {
-> >>  	struct cardstate *cs = (struct cardstate *) data;
-> >>  	struct bc_state *bcs;
-> >> +	struct sk_buff *nextskb;
-> >>  	int sent = 0;
-> >>  
-> >> -	if (!cs || !(bcs = cs->bcs)) {
-> >> +	if (!cs) {
-> >> +		gig_dbg(DEBUG_OUTPUT, "%s: no cardstate", __func__);
-> >> +		return;
-> >> +	}
-> >> +	bcs = cs->bcs;
-> >> +	if (!bcs) {
-> >>  		gig_dbg(DEBUG_OUTPUT, "%s: no cardstate", __func__);
-> >>  		return;
-> >> 	}
-> > 
-> > perhaps:
-> > 	if (!cs || !cs->bcs) {
-> > 		gig_dbg(DEBUG_OUTPUT, "%s: no cardstate", __func__);
-> > 		return;
-> > 	}
-> > 	bcs = cs->bcs;
+From: Benjamin LaHaise <bcrl@lhnet.ca>
+Date: Mon, 26 Oct 2009 20:03:02 -0400
+
+> Below is a patch to improve the scaling of interface destruction in 
+> fib_hash.  The general idea is to tie the fib_alias structure into a 
+> list off of net_device and walk that list during a fib_flush() caused 
+> by an interface drop.  This makes the resulting flush only have to walk 
+> the number of routes attached to an interface rather than the number of 
+> routes attached to all interfaces at the expense of a couple of additional 
+> pointers in struct fib_alias.
 > 
-> That would evaluate cs->bcs twice, and is also, in my experience,
-> significantly more prone to easily overlooked typos which result in
-> checking a different pointer in the if statement than the one that's
-> actually used in the subsequent assignment.
+> This patch is against Linus' tree.  I'll post against net-next after a 
+> bit more testing and feedback.  With 20,000 interfaces & routes, interface 
+> deletion time improves from 53s to 40s.  Note that this is with other changes 
+> applied to improve sysfs and procfs scaling, as otherwise those are the 
+> bottleneck.  Next up in the network code is rt_cache_flush().  Comments?
 
-The other is to duplicate the gig_dbg function as you've done.
-Also prone to typos and more code as well.
+On a real router adding and removing routes is happening a lot
+whereas interface changes are rare.  You're making a more common
+operation more expensive for the sake of a less common one.
 
-> >> @@ -404,16 +412,20 @@ static void gigaset_device_release(struct device *dev)
-> >>  static int gigaset_initcshw(struct cardstate *cs)
-> >>  {
-> >>  	int rc;
-> >> +	struct ser_cardstate *scs;
-> >>  
-> >> -	if (!(cs->hw.ser = kzalloc(sizeof(struct ser_cardstate), GFP_KERNEL))) {
-> >> +	scs = kzalloc(sizeof(struct ser_cardstate), GFP_KERNEL);
-> >> +	if (!scs) {
-> >>  		pr_err("out of memory\n");
-> >>  		return 0;
-> >>  	}
-> >> +	cs->hw.ser = scs;
-> > 
-> > Why not no temporary and just:
-> > 
-> > 	cs->hw.ser = kzalloc...
-> > 	if (!cs->hw.ser)
-> 
-> For the same reasons as above.
+> @@ -128,18 +128,19 @@ void fib_select_default(struct net *net,
+>  		tb->tb_select_default(tb, flp, res);
+>  }
+>  
+> -static void fib_flush(struct net *net)
+> +static void fib_flush(struct net_device *dev)
+>  {
+>  	int flushed = 0;
+>  	struct fib_table *tb;
+>  	struct hlist_node *node;
+>  	struct hlist_head *head;
+>  	unsigned int h;
+> +	struct net *net = dev_net(dev);
+>  
 
-I believe the checkpatch recommended form is:
-
-	foo = func();
-	if ([!]foo) {
-		handle_error()...
-	}
-
-as you've used in all the other conversions.
-
-No big deal or difference, but I think what I
-suggested is more kernel style normal.
-
-cheers, Joe
-
+Please put local variable lines that are longer at the beginning of
+the list of variable declarations at the top of a function, not the
+other way around which stands out like a sore thumb and looks ugly.
