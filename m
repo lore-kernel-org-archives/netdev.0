@@ -1,134 +1,172 @@
-From: Andreas Petlund <apetlund@simula.no>
-Subject: [PATCH 3/3] net: TCP thin dupack
-Date: Tue, 27 Oct 2009 17:31:57 +0100
-Message-ID: <4AE7207D.8090402@simula.no>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] dcache: better name hash function
+Date: Tue, 27 Oct 2009 09:38:31 -0700
+Message-ID: <4AE72207.4030702@hp.com>
+References: <200910252158.53921.opurdila@ixiacom.com>	<20091025214357.666350d2@nehalam>	<20091026153656.25be4369@nehalam> <4AE65EDE.8080605@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, shemminger@vyatta.com,
-	ilpo.jarvinen@helsinki.fi, davem@davemloft.net
-To: netdev@vger.kernel.org
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Octavian Purdila <opurdila@ixiacom.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-forward1.uio.no ([129.240.10.70]:47719 "EHLO
-	mail-forward1.uio.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755505AbZJ0QcF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 12:32:05 -0400
-Received: from exim by mail-out1.uio.no with local-bsmtp (Exim 4.69)
-	(envelope-from <apetlund@simula.no>)
-	id 1N2oxt-0006El-Ha
-	for netdev@vger.kernel.org; Tue, 27 Oct 2009 17:32:09 +0100
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:9281 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755543AbZJ0Qia (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 12:38:30 -0400
+In-Reply-To: <4AE65EDE.8080605@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables fast retransmissions after one dupACK for TCP if the stream is identified as thin. This will reduce latencies for thin streams that are not able to trigger fast retransmissions due to high packet interarrival time. This mechanism is only active if enabled by iocontrol or syscontrol and the stream is identified as thin.
+Previously Stephen kindly sent me the source and instructions, and attached are 
+results from 1.0 GHz Itanium "McKinley" processors using an older gcc, both -O2 
+and -O3, -O2 first:
+
+ >>>
+ >>>
+ >>> $ ./hashtest 10000000 14 | sort -n -k 3 -k 2
+ >>> Algorithm             Time       Ratio       Max   StdDev
+ >>> string10             0.234133       1.00       612   0.03
+ >>> fnv32                0.241471       1.00       689   0.93
+ >>> fnv64                0.241964       1.00       680   0.85
+ >>> string_hash17        0.269656       1.00       645   0.36
+ >>> jhash_string         0.295795       1.00       702   1.00
+ >>> crc                  1.609449       1.00       634   0.41
+ >>> md5_string           2.479467       1.00       720   0.99
+ >>> SuperFastHash        0.273793       1.01       900   2.13
+ >>> djb2                 0.265877       1.15       964   9.52
+ >>> string_hash31        0.259110       1.21      1039  11.39
+ >>> sdbm                 0.369414       2.87      3268  33.77
+ >>> elf                  0.372251       3.71      2907  40.71
+ >>> pjw                  0.401732       3.71      2907  40.71
+ >>> full_name_hash       0.283508      13.09      8796  85.91
+ >>> kr_hash              0.220033     499.17    468448 551.55
+ >>> fletcher             0.267009     499.17    468448 551.55
+ >>> adler32              0.635047     499.17    468448 551.55
+ >>> xor                  0.220314     854.94    583189 722.12
+ >>> lastchar             0.155236    1637.61   1000000 999.69
+ >>
+ >>
+ >> here then are both, from a 1.0 GHz McKinley system, 64-bit, using an older
+ >> gcc
+ >>
+ >> raj@oslowest:~/hashtest$ ./hashtest 10000000 14 | sort -n -k 3 -k 2
+ >> Algorithm             Time       Ratio       Max   StdDev
+ >> string_hash17        0.901319       1.00       645   0.36
+ >> string10             0.986391       1.00       612   0.03
+ >> jhash_string         1.422065       1.00       702   1.00
+ >> fnv32                1.705116       1.00       689   0.93
+ >> fnv64                1.900326       1.00       680   0.85
+ >> crc                  3.651519       1.00       634   0.41
+ >> md5_string           14.155621       1.00       720   0.99
+ >> SuperFastHash        1.185206       1.01       900   2.13
+ >> djb2                 0.977166       1.15       964   9.52
+ >> string_hash31        0.989804       1.21      1039  11.39
+ >> sdbm                 1.188299       2.87      3268  33.77
+ >> pjw                  1.185963       3.71      2907  40.71
+ >> elf                  1.257023       3.71      2907  40.71
+ >> full_name_hash       1.231514      13.09      8796  85.91
+ >> kr_hash              0.890761     499.17    468448 551.55
+ >> fletcher             1.080981     499.17    468448 551.55
+ >> adler32              4.141714     499.17    468448 551.55
+ >> xor                  1.061445     854.94    583189 722.12
+ >> lastchar             0.676697    1637.61   1000000 999.69
+ >>
+ >> raj@oslowest:~/hashtest$ ./hashtest 10000000 8 | sort -n -k 3 -k 2
+ >> Algorithm             Time       Ratio       Max   StdDev
+ >> string_hash17        0.899988       1.00     39497   1.50
+ >> string10             0.985100       1.00     39064   0.01
+ >> SuperFastHash        1.141748       1.00     40497   2.17
+ >> jhash_string         1.376414       1.00     39669   1.04
+ >> fnv32                1.656967       1.00     39895   2.25
+ >> fnv64                1.855259       1.00     39215   0.35
+ >> crc                  3.615341       1.00     39088   0.07
+ >> md5_string           14.113307       1.00     39605   0.98
+ >> djb2                 0.972180       1.15     60681  76.16
+ >> string_hash31        0.982233       1.21     64950  91.12
+ >> sdbm                 1.181952       2.38    129900 232.22
+ >> pjw                  1.178994       2.45     99990 237.86
+ >> elf                  1.250936       2.45     99990 237.86
+ >> kr_hash              0.892633       7.80    468451 515.52
+ >> fletcher             1.082932       7.80    468451 515.52
+ >> adler32              4.142414       7.80    468451 515.52
+ >> full_name_hash       1.175324      13.09    562501 687.24
+ >> xor                  1.060091      13.36    583189 694.98
+ >> lastchar             0.675610      25.60   1000000 980.27
+ >>
+ >> raj@oslowest:~/hashtest$ gcc -v
+ >> Using built-in specs.
+ >> Target: ia64-linux-gnu
+ >> Configured with: ../src/configure -v 
+--enable-languages=c,c++,fortran,objc,obj-c++,treelang --prefix=/usr 
+--enable-shared --with-system-zlib --libexecdir=/usr/lib 
+--without-included-gettext --enable-threads=posix --enable-nls 
+--program-suffix=-4.1 --enable-__cxa_atexit --enable-clocale=gnu 
+--enable-libstdcxx-debug --enable-mpfr --disable-libssp --with-system-libunwind 
+--enable-checking=release ia64-linux-gnu
+ >> Thread model: posix
+ >> gcc version 4.1.2 20061115 (prerelease) (Debian 4.1.1-21)
+ >> raj@oslowest:~/hashtest$
+ >>
+ >> fnv doesn't seem to do as well there relative to the others as it did in your
+ >> tests.
+ >
+ >
+ >
+ > You could try -O3 since then gcc may replace the multiply with shift/add
+ > or is there something about forcing 32 and 64 bit that makes ia64 suffer.
 
 
-Signed-off-by: Andreas Petlund <apetlund@simula.no>
----
- include/linux/tcp.h        |    4 +++-
- include/net/tcp.h          |    1 +
- net/ipv4/sysctl_net_ipv4.c |    8 ++++++++
- net/ipv4/tcp.c             |    5 +++++
- net/ipv4/tcp_input.c       |    8 ++++++++
- 5 files changed, 25 insertions(+), 1 deletions(-)
+It seems to speed things up, but the relative ordering remains the same:
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index e64368d..f4a05ff 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -97,6 +97,7 @@ enum {
- #define TCP_CONGESTION		13	/* Congestion control algorithm */
- #define TCP_MD5SIG		14	/* TCP MD5 Signature (RFC2385) */
- #define TCP_THIN_RM_EXPB        15      /* Remove exp. backoff for thin streams*/
-+#define TCP_THIN_DUPACK         16      /* Fast retrans. after 1 dupack */
- 
- #define TCPI_OPT_TIMESTAMPS	1
- #define TCPI_OPT_SACK		2
-@@ -301,7 +302,8 @@ struct tcp_sock {
- 	u8	frto_counter;	/* Number of new acks after RTO */
- 	u8	nonagle;	/* Disable Nagle algorithm?             */
- 	u8      thin_rm_expb:1, /* Remove exp. backoff for thin streams */
--		thin_undef : 7;
-+		thin_dupack : 1,/* Fast retransmit on first dupack      */
-+		thin_undef : 6;
- 
- /* RTT measurement */
- 	u32	srtt;		/* smoothed round trip time << 3	*/
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 412c1bd..41f3a5e 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -238,6 +238,7 @@ extern int sysctl_tcp_workaround_signed_windows;
- extern int sysctl_tcp_slow_start_after_idle;
- extern int sysctl_tcp_max_ssthresh;
- extern int sysctl_tcp_force_thin_rm_expb;
-+extern int sysctl_tcp_force_thin_dupack;
- 
- extern atomic_t tcp_memory_allocated;
- extern struct percpu_counter tcp_sockets_allocated;
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 7458f37..8653867 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -721,6 +721,14 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler   = proc_dointvec
- 	},
- 	{
-+		.ctl_name       = CTL_UNNUMBERED,
-+		.procname       = "tcp_force_thin_dupack",
-+		.data           = &sysctl_tcp_force_thin_dupack,
-+		.maxlen         = sizeof(int),
-+		.mode           = 0644,
-+		.proc_handler   = proc_dointvec
-+	},
-+	{
- 		.ctl_name	= CTL_UNNUMBERED,
- 		.procname	= "udp_mem",
- 		.data		= &sysctl_udp_mem,
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index b4b0931..de190db 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2139,6 +2139,11 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 			tp->thin_rm_expb = 1;
- 		break;
- 
-+	case TCP_THIN_DUPACK:
-+		if (val)
-+			tp->thin_dupack = 1;
-+		break;
-+
- 	case TCP_CORK:
- 		/* When set indicates to always queue non-full frames.
- 		 * Later the user clears this option and we transmit
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index d86784b..b71eb89 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -89,6 +89,8 @@ int sysctl_tcp_frto __read_mostly = 2;
- int sysctl_tcp_frto_response __read_mostly;
- int sysctl_tcp_nometrics_save __read_mostly;
- 
-+int sysctl_tcp_force_thin_dupack __read_mostly;
-+
- int sysctl_tcp_moderate_rcvbuf __read_mostly = 1;
- int sysctl_tcp_abc __read_mostly;
- 
-@@ -2447,6 +2449,12 @@ static int tcp_time_to_recover(struct sock *sk)
- 		return 1;
- 	}
- 
-+	/* If a thin stream is detected, retransmit after first
-+	 * received dupack */
-+	if ((tp->thin_dupack || sysctl_tcp_force_thin_dupack) &&
-+	    tcp_dupack_heurestics(tp) > 1 && tcp_stream_is_thin(tp))
-+		return 1;
-+
- 	return 0;
- }
- 
--- 
-1.6.0.4
-
-
+oslowest:/home/raj/hashtest# make
+cc -O3 -Wall   -c -o hashtest.o hashtest.c
+cc -O3 -Wall   -c -o md5.o md5.c
+cc -lm  hashtest.o md5.o   -o hashtest
+oslowest:/home/raj/hashtest# ./hashtest 10000000 14 | sort -n -k 3 -k 2
+Algorithm             Time       Ratio       Max   StdDev
+string_hash17        0.893813       1.00       645   0.36
+string10             0.965596       1.00       612   0.03
+jhash_string         1.387773       1.00       702   1.00
+fnv32                1.699041       1.00       689   0.93
+fnv64                1.882314       1.00       680   0.85
+crc                  3.273676       1.00       634   0.41
+md5_string           13.913745       1.00       720   0.99
+SuperFastHash        1.135802       1.01       900   2.13
+djb2                 0.951571       1.15       964   9.52
+string_hash31        0.971081       1.21      1039  11.39
+sdbm                 1.168148       2.87      3268  33.77
+pjw                  1.159304       3.71      2907  40.71
+elf                  1.237662       3.71      2907  40.71
+full_name_hash       1.212588      13.09      8796  85.91
+kr_hash              0.856584     499.17    468448 551.55
+fletcher             1.054516     499.17    468448 551.55
+adler32              4.123742     499.17    468448 551.55
+xor                  1.031910     854.94    583189 722.12
+lastchar             0.648597    1637.61   1000000 999.69
+oslowest:/home/raj/hashtest# ./hashtest 10000000 8 | sort -n -k 3 -k 2
+Algorithm             Time       Ratio       Max   StdDev
+string_hash17        0.884829       1.00     39497   1.50
+string10             0.962258       1.00     39064   0.01
+SuperFastHash        1.088602       1.00     40497   2.17
+jhash_string         1.340878       1.00     39669   1.04
+fnv32                1.637096       1.00     39895   2.25
+fnv64                1.842330       1.00     39215   0.35
+crc                  3.230291       1.00     39088   0.07
+md5_string           13.863056       1.00     39605   0.98
+djb2                 0.944159       1.15     60681  76.16
+string_hash31        0.961978       1.21     64950  91.12
+sdbm                 1.159156       2.38    129900 232.22
+pjw                  1.154286       2.45     99990 237.86
+elf                  1.232842       2.45     99990 237.86
+kr_hash              0.856873       7.80    468451 515.52
+fletcher             1.055389       7.80    468451 515.52
+adler32              4.123254       7.80    468451 515.52
+full_name_hash       1.152628      13.09    562501 687.24
+xor                  1.033050      13.36    583189 694.98
+lastchar             0.647504      25.60   1000000 980.27
 
