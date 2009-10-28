@@ -1,60 +1,40 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: iproute uses too small of a receive buffer
-Date: Wed, 28 Oct 2009 08:37:20 +0100
-Message-ID: <4AE7F4B0.4010007@gmail.com>
-References: <4AE77F64.3090302@candelatech.com> <20091027162434.6dc31b2d@nehalam> <4AE78297.9000909@candelatech.com> <4AE7EC65.8000600@gmail.com>
+Date: Wed, 28 Oct 2009 08:52:57 +0100
+Message-ID: <4AE7F859.7020105@gmail.com>
+References: <4AE77F64.3090302@candelatech.com> <20091027162434.6dc31b2d@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: NetDev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
+Cc: Ben Greear <greearb@candelatech.com>,
+	NetDev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:33513 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:37593 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757462AbZJ1HhT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 03:37:19 -0400
-In-Reply-To: <4AE7EC65.8000600@gmail.com>
+	with ESMTP id S932543AbZJ1Hwz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 03:52:55 -0400
+In-Reply-To: <20091027162434.6dc31b2d@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet a =E9crit :
-> Ben Greear a =E9crit :
->> Probably the right way is to give a cmd-line arg to set the buffer s=
-ize
->> and also continue if the error is ENOBUFs (but print some error out
->> so users know they have issues).  I can make the attempt if that
->> sounds good to you.
+Stephen Hemminger a =E9crit :
 >=20
-> Real fix is to realloc buffer at receive time, no need for user setti=
-ng.
+> Just having larger buffer isn't guarantee of success. Allocating
+> a huge buffer is not going to work on embedded.
 >=20
-> In my testings I saw it reaching 1 Mbyte
-> write(2, "REALLOC buflen 8192\n"..., 20) =3D 20
-> write(2, "REALLOC buflen 16384\n"..., 21) =3D 21
-> write(2, "REALLOC buflen 32768\n"..., 21) =3D 21
-> write(2, "REALLOC buflen 65536\n"..., 21) =3D 21
-> write(2, "REALLOC buflen 131072\n"..., 22) =3D 22
-> write(2, "REALLOC buflen 262144\n"..., 22) =3D 22
-> write(2, "REALLOC buflen 524288\n"..., 22) =3D 22
->=20
->=20
-> [iproute2] realloc buffer in rtnl_listen
->=20
-> # ip monitor route
-> netlink receive error No buffer space available (105)
-> Dump terminated=20
->=20
-> Reported-by: Ben Greear<greearb@candelatech.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Oops, this was wrong, Ben was right, sorry...
+Please note we do not allocate a big buffer, only allow more small skbs
+to be queued on socket receive queue.
 
-ENOBUFS errors is a flag to actually report to user that some informati=
-on was dropped,
-not that user supplied buffer at recv() time is not big enough.
+If memory is not available, skb allocation will eventually fail
+and be reported as well, embedded or not.
 
-I was surprised that buffer could reach 1Mbytes, while RCVBUF was 32768=
- or so.
+I vote for allowing 1024*1024 bytes instead of 32768,
+and eventually user should be warned that it is capped by=20
+/proc/sys/net/core/rmem_max
 
 
+> Why not have it continue after one error.
+
+Yes, but caller of 'ip monitor' just restart it anyway
