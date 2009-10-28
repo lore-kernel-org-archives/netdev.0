@@ -1,132 +1,82 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 2/3] net: TCP thin linear timeouts
-Date: Wed, 28 Oct 2009 16:18:28 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.0910281610330.19761@wel-95.cs.helsinki.fi>
-References: <4AE72079.4030504@simula.no>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCHv4 0/7] Per route TCP options support kill switches
+Date: Wed, 28 Oct 2009 15:22:29 +0100
+Message-ID: <4AE853A5.3060804@gmail.com>
+References: <1256739327-11576-1-git-send-email-gilad@codefidence.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, shemminger@vyatta.com,
-	David Miller <davem@davemloft.net>
-To: Andreas Petlund <apetlund@simula.no>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754066AbZJ1OSZ@vger.kernel.org>
-In-Reply-To: <4AE72079.4030504@simula.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, ori@comsleep.com
+To: Gilad Ben-Yossef <gilad@codefidence.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:47301 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753999AbZJ1OWb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 10:22:31 -0400
+In-Reply-To: <1256739327-11576-1-git-send-email-gilad@codefidence.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 27 Oct 2009, Andreas Petlund wrote:
+Gilad Ben-Yossef a =E9crit :
+> Allow selectively turning off support for specific TCP options
+> on a per route basis.
+>=20
+> One normally want to disable SACK, DSACK, time stamp or window
+> scale if one got a piece of broken networking equipment somewhere
+> as a stop gap until you can bring a big enough hammer to deal with
+> the broken network equipment. It doesn't make sense to "punish" the
+> entire connections going through the machine to destinations not
+> related to the broken equipment.
+>=20
+> This is doubly true when one is dealing with network containers
+> used to isolate several virtual domains.
+>=20
+> Per route options implemented in free bits in the features route
+> entry property, which in some cases were reserved by name for these
+> options, so this does not inflate any structure.
+>=20
+> Global sysctls for these options are still preserved and retain=20
+> the exact original meaning (e.g. you have to have both the global=20
+> sysctl turned on and not turn off the TCP option parsing in the
+> specific route to have it proccessed).
+>=20
+> It is not possible to turn off globally an option but turn it on
+> per route, so as to not subtly change the meaning of current
+> establish sysctls (and this is a rare need anyway).
+>=20
+> Tested on x86 using Qemu/KVM.
+>=20
+> Working but crude matching patch to iproute2 sent earlier to the list=
+=2E
+>=20
+> Patchset based on original work by Ori Finkelman and Yony Amit
+> from ComSleep Ltd.
+>=20
+> The author wishes to thank Eric Dumazaet, William Allen Simpson,=20
+> Bill Fink and Ilpo Jarvinen for their feedback.
+>=20
+>=20
+> Gilad Ben-Yossef (7):
+>   Only parse time stamp TCP option in time wait sock
+>   Allow tcp_parse_options to consult dst entry
+>   Add dst_feature to query route entry features
+>   Add the no SACK route option feature
+>   Allow disabling TCP timestamp options per route
+>   Allow to turn off TCP window scale opt per route
+>   Allow disabling of DSACK TCP option per route
+>=20
+>  include/linux/rtnetlink.h |    6 ++++--
+>  include/net/dst.h         |    8 +++++++-
+>  include/net/tcp.h         |    3 ++-
+>  net/ipv4/syncookies.c     |   27 ++++++++++++++-------------
+>  net/ipv4/tcp_input.c      |   26 ++++++++++++++++++--------
+>  net/ipv4/tcp_ipv4.c       |   21 ++++++++++++---------
+>  net/ipv4/tcp_minisocks.c  |    9 ++++++---
+>  net/ipv4/tcp_output.c     |   18 +++++++++++++-----
+>  net/ipv6/syncookies.c     |   28 +++++++++++++++-------------
+>  net/ipv6/tcp_ipv6.c       |    3 ++-
+>  10 files changed, 93 insertions(+), 56 deletions(-)
+>=20
 
-> This patch will make TCP use only linear timeouts if the stream is thin. This will help to avoid the very high latencies that thin stream suffer because of exponential backoff. This mechanism is only active if enabled by iocontrol or syscontrol and the stream is identified as thin.
-> 
-> 
-> Signed-off-by: Andreas Petlund <apetlund@simula.no>
-> ---
->  include/linux/tcp.h        |    3 +++
->  include/net/tcp.h          |    1 +
->  net/ipv4/sysctl_net_ipv4.c |    8 ++++++++
->  net/ipv4/tcp.c             |    5 +++++
->  net/ipv4/tcp_timer.c       |   17 ++++++++++++++++-
->  5 files changed, 33 insertions(+), 1 deletions(-)
-> 
-> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-> index 61723a7..e64368d 100644
-> --- a/include/linux/tcp.h
-> +++ b/include/linux/tcp.h
-> @@ -96,6 +96,7 @@ enum {
->  #define TCP_QUICKACK		12	/* Block/reenable quick acks */
->  #define TCP_CONGESTION		13	/* Congestion control algorithm */
->  #define TCP_MD5SIG		14	/* TCP MD5 Signature (RFC2385) */
-> +#define TCP_THIN_RM_EXPB        15      /* Remove exp. backoff for thin streams*/
->  
->  #define TCPI_OPT_TIMESTAMPS	1
->  #define TCPI_OPT_SACK		2
-> @@ -299,6 +300,8 @@ struct tcp_sock {
->  	u16	advmss;		/* Advertised MSS			*/
->  	u8	frto_counter;	/* Number of new acks after RTO */
->  	u8	nonagle;	/* Disable Nagle algorithm?             */
-> +	u8      thin_rm_expb:1, /* Remove exp. backoff for thin streams */
-> +		thin_undef : 7;
->  
->  /* RTT measurement */
->  	u32	srtt;		/* smoothed round trip time << 3	*/
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 7c4482f..412c1bd 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -237,6 +237,7 @@ extern int sysctl_tcp_base_mss;
->  extern int sysctl_tcp_workaround_signed_windows;
->  extern int sysctl_tcp_slow_start_after_idle;
->  extern int sysctl_tcp_max_ssthresh;
-> +extern int sysctl_tcp_force_thin_rm_expb;
->  
->  extern atomic_t tcp_memory_allocated;
->  extern struct percpu_counter tcp_sockets_allocated;
-> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-> index 2dcf04d..7458f37 100644
-> --- a/net/ipv4/sysctl_net_ipv4.c
-> +++ b/net/ipv4/sysctl_net_ipv4.c
-> @@ -713,6 +713,14 @@ static struct ctl_table ipv4_table[] = {
->  		.proc_handler	= proc_dointvec,
->  	},
->  	{
-> +		.ctl_name       = CTL_UNNUMBERED,
-> +		.procname       = "tcp_force_thin_rm_expb",
-> +		.data           = &sysctl_tcp_force_thin_rm_expb,
-> +		.maxlen         = sizeof(int),
-> +		.mode           = 0644,
-> +		.proc_handler   = proc_dointvec
-> +	},
-> +	{
->  		.ctl_name	= CTL_UNNUMBERED,
->  		.procname	= "udp_mem",
->  		.data		= &sysctl_udp_mem,
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 90b2e06..b4b0931 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -2134,6 +2134,11 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
->  		}
->  		break;
->  
-> +	case TCP_THIN_RM_EXPB:
-> +		if (val)
-> +			tp->thin_rm_expb = 1;
-> +		break;
-> +
->  	case TCP_CORK:
->  		/* When set indicates to always queue non-full frames.
->  		 * Later the user clears this option and we transmit
-> diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-> index cdb2ca7..24d6dc3 100644
-> --- a/net/ipv4/tcp_timer.c
-> +++ b/net/ipv4/tcp_timer.c
-> @@ -29,6 +29,7 @@ int sysctl_tcp_keepalive_intvl __read_mostly = TCP_KEEPALIVE_INTVL;
->  int sysctl_tcp_retries1 __read_mostly = TCP_RETR1;
->  int sysctl_tcp_retries2 __read_mostly = TCP_RETR2;
->  int sysctl_tcp_orphan_retries __read_mostly;
-> +int sysctl_tcp_force_thin_rm_expb __read_mostly;
->  
->  static void tcp_write_timer(unsigned long);
->  static void tcp_delack_timer(unsigned long);
-> @@ -386,7 +387,21 @@ void tcp_retransmit_timer(struct sock *sk)
->  	icsk->icsk_retransmits++;
->  
->  out_reset_timer:
-> -	icsk->icsk_rto = min(icsk->icsk_rto << 1, TCP_RTO_MAX);
-> +	if ((tp->thin_rm_expb || sysctl_tcp_force_thin_rm_expb) &&
-> +	    tcp_stream_is_thin(tp) && sk->sk_state == TCP_ESTABLISHED) {
-> +		/* If stream is thin, remove exponential backoff.
-> +		 * Since 'icsk_backoff' is used to reset timer, set to 0
-> +		 * Recalculate 'icsk_rto' as this might be increased if
-> +		 * stream oscillates between thin and thick, thus the old
-> +		 * value might already be too high compared to the value
-> +		 * set by 'tcp_set_rto' in tcp_input.c which resets the
-> +		 * rto without backoff. */
-> +		icsk->icsk_backoff = 0;
-> +		icsk->icsk_rto = min(((tp->srtt >> 3) + tp->rttvar), TCP_RTO_MAX);
+I am a bit lost. What exactly changed in this new version, versus v3 ?
 
-The first part is nowadays done with __tcp_set_rto(tp).
-
--- 
- i.
