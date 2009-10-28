@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 18/23] igb: cleanup clean_rx_irq_adv and
-	alloc_rx_buffers_adv
-Date: Wed, 28 Oct 2009 02:51:16 -0700
-Message-ID: <20091028095115.13156.73668.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 19/23] igb: replace unecessary &adapter->hw with
+	just hw where applicable
+Date: Wed, 28 Oct 2009 02:51:35 -0700
+Message-ID: <20091028095134.13156.76163.stgit@localhost.localdomain>
 References: <20091028094540.13156.2637.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,101 +12,113 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta02.westchester.pa.mail.comcast.net ([76.96.62.24]:53203
-	"EHLO QMTA02.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751670AbZJ1JzA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 05:55:00 -0400
+Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:47371
+	"EHLO QMTA08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751783AbZJ1JzU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 05:55:20 -0400
 In-Reply-To: <20091028094540.13156.2637.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch cleans up some whitespace issues in clean_rx_irq_adv.  It also
-adds NUMA aware page allocation and dma error handling to
-alloc_rx_buffers_adv.
+This patch just cleans up some unecessary references to the adapter->hw
+member when it has already been placed in a local variable named hw.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb_main.c |   24 +++++++++++++++++++-----
- 1 files changed, 19 insertions(+), 5 deletions(-)
+ drivers/net/igb/igb_main.c |   26 ++++++++++++--------------
+ 1 files changed, 12 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 8f8b7cc..d3e8316 100644
+index d3e8316..b2c0c97 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -4952,6 +4952,7 @@ static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
- 		i++;
- 		if (i == rx_ring->count)
- 			i = 0;
-+
- 		next_rxd = E1000_RX_DESC_ADV(*rx_ring, i);
- 		prefetch(next_rxd);
- 		next_buffer = &rx_ring->buffer_info[i];
-@@ -4989,7 +4990,6 @@ static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
+@@ -1107,8 +1107,8 @@ int igb_up(struct igb_adapter *adapter)
  
- 			skb->len += length;
- 			skb->data_len += length;
--
- 			skb->truesize += length;
- 		}
+ void igb_down(struct igb_adapter *adapter)
+ {
+-	struct e1000_hw *hw = &adapter->hw;
+ 	struct net_device *netdev = adapter->netdev;
++	struct e1000_hw *hw = &adapter->hw;
+ 	u32 tctl, rctl;
+ 	int i;
  
-@@ -5071,7 +5071,7 @@ void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring, int cleaned_count)
+@@ -1271,10 +1271,10 @@ void igb_reset(struct igb_adapter *adapter)
+ 	}
  
- 		if ((bufsz < IGB_RXBUFFER_1024) && !buffer_info->page_dma) {
- 			if (!buffer_info->page) {
--				buffer_info->page = alloc_page(GFP_ATOMIC);
-+				buffer_info->page = netdev_alloc_page(netdev);
- 				if (!buffer_info->page) {
- 					rx_ring->rx_stats.alloc_failed++;
- 					goto no_buffers;
-@@ -5085,9 +5085,16 @@ void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring, int cleaned_count)
- 					     buffer_info->page_offset,
- 					     PAGE_SIZE / 2,
- 					     PCI_DMA_FROMDEVICE);
-+			if (pci_dma_mapping_error(rx_ring->pdev,
-+			                          buffer_info->page_dma)) {
-+				buffer_info->page_dma = 0;
-+				rx_ring->rx_stats.alloc_failed++;
-+				goto no_buffers;
-+			}
- 		}
+ 	/* Allow time for pending master requests to run */
+-	adapter->hw.mac.ops.reset_hw(&adapter->hw);
++	hw->mac.ops.reset_hw(hw);
+ 	wr32(E1000_WUC, 0);
  
--		if (!buffer_info->skb) {
-+		skb = buffer_info->skb;
-+		if (!skb) {
- 			skb = netdev_alloc_skb_ip_align(netdev, bufsz);
- 			if (!skb) {
- 				rx_ring->rx_stats.alloc_failed++;
-@@ -5095,10 +5102,18 @@ void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring, int cleaned_count)
- 			}
+-	if (adapter->hw.mac.ops.init_hw(&adapter->hw))
++	if (hw->mac.ops.init_hw(hw))
+ 		dev_err(&adapter->pdev->dev, "Hardware Error\n");
  
- 			buffer_info->skb = skb;
-+		}
-+		if (!buffer_info->dma) {
- 			buffer_info->dma = pci_map_single(rx_ring->pdev,
- 			                                  skb->data,
- 							  bufsz,
- 							  PCI_DMA_FROMDEVICE);
-+			if (pci_dma_mapping_error(rx_ring->pdev,
-+			                          buffer_info->dma)) {
-+				buffer_info->dma = 0;
-+				rx_ring->rx_stats.alloc_failed++;
-+				goto no_buffers;
-+			}
- 		}
- 		/* Refresh the desc even if buffer_addrs didn't change because
- 		 * each write-back erases this info. */
-@@ -5107,8 +5122,7 @@ void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring, int cleaned_count)
- 			     cpu_to_le64(buffer_info->page_dma);
- 			rx_desc->read.hdr_addr = cpu_to_le64(buffer_info->dma);
- 		} else {
--			rx_desc->read.pkt_addr =
--			     cpu_to_le64(buffer_info->dma);
-+			rx_desc->read.pkt_addr = cpu_to_le64(buffer_info->dma);
- 			rx_desc->read.hdr_addr = 0;
- 		}
+ 	igb_update_mng_vlan(adapter);
+@@ -1282,8 +1282,8 @@ void igb_reset(struct igb_adapter *adapter)
+ 	/* Enable h/w to recognize an 802.1Q VLAN Ethernet packet */
+ 	wr32(E1000_VET, ETHERNET_IEEE_VLAN_TYPE);
  
+-	igb_reset_adaptive(&adapter->hw);
+-	igb_get_phy_info(&adapter->hw);
++	igb_reset_adaptive(hw);
++	igb_get_phy_info(hw);
+ }
+ 
+ static const struct net_device_ops igb_netdev_ops = {
+@@ -1404,8 +1404,6 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 	hw->subsystem_vendor_id = pdev->subsystem_vendor;
+ 	hw->subsystem_device_id = pdev->subsystem_device;
+ 
+-	/* setup the private structure */
+-	hw->back = adapter;
+ 	/* Copy the default MAC, PHY and NVM function pointers */
+ 	memcpy(&hw->mac.ops, ei->mac_ops, sizeof(hw->mac.ops));
+ 	memcpy(&hw->phy.ops, ei->phy_ops, sizeof(hw->phy.ops));
+@@ -1460,7 +1458,7 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 	if (adapter->hw.mac.type == e1000_82576)
+ 		netdev->features |= NETIF_F_SCTP_CSUM;
+ 
+-	adapter->en_mng_pt = igb_enable_mng_pass_thru(&adapter->hw);
++	adapter->en_mng_pt = igb_enable_mng_pass_thru(hw);
+ 
+ 	/* before reading the NVM, reset the controller to put the device in a
+ 	 * known good starting state */
+@@ -1705,8 +1703,8 @@ static void __devexit igb_remove(struct pci_dev *pdev)
+ 
+ 	unregister_netdev(netdev);
+ 
+-	if (!igb_check_reset_block(&adapter->hw))
+-		igb_reset_phy(&adapter->hw);
++	if (!igb_check_reset_block(hw))
++		igb_reset_phy(hw);
+ 
+ 	igb_clear_interrupt_scheme(adapter);
+ 
+@@ -2928,9 +2926,9 @@ static void igb_watchdog_task(struct work_struct *work)
+ 	if (link) {
+ 		if (!netif_carrier_ok(netdev)) {
+ 			u32 ctrl;
+-			hw->mac.ops.get_speed_and_duplex(&adapter->hw,
+-						   &adapter->link_speed,
+-						   &adapter->link_duplex);
++			hw->mac.ops.get_speed_and_duplex(hw,
++			                                 &adapter->link_speed,
++			                                 &adapter->link_duplex);
+ 
+ 			ctrl = rd32(E1000_CTRL);
+ 			/* Links status message must follow this format */
+@@ -5552,7 +5550,7 @@ static int __igb_shutdown(struct pci_dev *pdev, bool *enable_wake)
+ 		wr32(E1000_CTRL, ctrl);
+ 
+ 		/* Allow time for pending master requests to run */
+-		igb_disable_pcie_master(&adapter->hw);
++		igb_disable_pcie_master(hw);
+ 
+ 		wr32(E1000_WUC, E1000_WUC_PME_EN);
+ 		wr32(E1000_WUFC, wufc);
 
