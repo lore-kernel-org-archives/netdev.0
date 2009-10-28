@@ -1,78 +1,99 @@
-From: Mel Gorman <mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
-	failures V2
-Date: Wed, 28 Oct 2009 11:59:26 +0000
-Message-ID: <20091028115926.GW8900@csn.ul.ie>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <20091023165810.GA4588@bizet.domek.prywatny> <20091023211239.GA6185@bizet.domek.prywatny> <9ec2d7290910240646p75b93c68v6ea1648d628a9660@mail.gmail.com> <20091028114208.GA14476@bizet.domek.prywatny>
+From: "Kumar Gopalpet-B05799" <B05799@freescale.com>
+Subject: RE: [PATCH v2 4/7] fsl_pq_mdio: Add Suport for etsec2.0 devices.
+Date: Wed, 28 Oct 2009 17:30:02 +0530
+Message-ID: <9F4C7D19E8361D4C94921B95BE08B81B9502EA@zin33exm22.fsl.freescale.net>
+References: <12566625182528-git-send-email-sandeep.kumar@freescale.com> <20091028.024325.134189895.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Mel LKML <mel.lkml-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>,
-	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	Sven Geggus <lists-+AJD3D7QEjjt/htJsj1pd9AswbaBtrod@public.gmane.org>,
-	Tobias Oetiker <tobi-7K0TWYW2a3pyDzI6CaY1VQ@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Reinette Chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>,
-	David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	Mohamed Abbas <mohamed.abbas-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Jens Axboe <jens.axboe-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
-	Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	Stephan von Krawczynski <skraw-DcQCyzbjH0jQT0dZR+AlfA@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org" <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>
-To: Karol Lewandowski <karol.k.lewandowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20091028114208.GA14476-nLtalAL5mPp2RxbNQum0x1nzlInOXLuq@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: "David Miller" <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:33320 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752670AbZJ1MAI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 08:00:08 -0400
+Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
+	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n9SC06kk000078
+	for <netdev@vger.kernel.org>; Wed, 28 Oct 2009 05:00:08 -0700 (MST)
+Received: from zin33exm22.fsl.freescale.net (zin33exm22.ap.freescale.net [10.232.192.20])
+	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id n9SC3N8t021217
+	for <netdev@vger.kernel.org>; Wed, 28 Oct 2009 07:03:24 -0500 (CDT)
+Content-class: urn:content-classes:message
+In-Reply-To: <20091028.024325.134189895.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 28, 2009 at 12:42:08PM +0100, Karol Lewandowski wrote:
-> On Sat, Oct 24, 2009 at 02:46:56PM +0100, Mel LKML wrote:
-> > Hi,
-> 
-> Hi,
-> 
-> > On 10/23/09, Karol Lewandowski <karol.k.lewandowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> > > On Fri, Oct 23, 2009 at 06:58:10PM +0200, Karol Lewandowski wrote:
-> 
-> > > Ok, I've tested patches 1+2+4 and bug, while very hard to trigger, is
-> > > still present. I'll test complete 1-4 patchset as time permits.
-> 
-> Sorry for silence, I've been quite busy lately.
-> 
-> 
-> > And also patch 5 please which is the revert. Patch 5 as pointed out is
-> > probably a red herring. Hwoever, it has changed the timing and made a
-> > difference for some testing so I'd like to know if it helps yours as
-> > well.
-> 
-> I've tested patches 1+2+3+4 in my normal usage scenario (do some work,
-> suspend, do work, suspend, ...) and it failed today after 4 days (== 4
-> suspend-resume cycles).
-> 
-> I'll test 1-5 now.
-> 
+ 
 
-I was digging through commits for suspend-related changes. Rafael, is
-there any chance that some change to suspend is responsible for this
-regression? This commit for example is a vague possibility;
-c6f37f12197ac3bd2e5a35f2f0e195ae63d437de: PM/Suspend: Do not shrink memory before suspend
+>-----Original Message-----
+>From: David Miller [mailto:davem@davemloft.net] 
+>Sent: Wednesday, October 28, 2009 3:13 PM
+>To: Kumar Gopalpet-B05799
+>Cc: netdev@vger.kernel.org
+>Subject: Re: [PATCH v2 4/7] fsl_pq_mdio: Add Suport for 
+>etsec2.0 devices.
+>
+>From: Sandeep Gopalpet <sandeep.kumar@freescale.com>
+>Date: Tue, 27 Oct 2009 22:25:18 +0530
+>
+>> This patch adds mdio support for etsec2.0 devices.
+>> 
+>> Modified the fsl_pq_mdio structure to include the new mdio members.
+>> 
+>> Signed-off-by: Sandeep Gopalpet <sandeep.kumar@freescale.com>
+>
+>This is the third time you've submitted this patch, and for 
+>the third time it DOES NOT apply to net-next-2.6 at all when I 
+>try to apply this gianfar patch series.
+>
+>You must be patching against another tree that has some 
+>changes that conflict with this one.
+>
 
-I say vague because FREE_PAGE_NUMBER is so small.
+I had rebased and tested on the master branch of the following tree
+http://www.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
 
-Also, what was the behaviour of the e100 driver when suspending before
-this commit?
+(The git protocol clone was not working, hence we used http)
+If this is not the right tree, kindly correct me.
+I could not find any other net-next-2.6 tree/branch on kernel.org.
 
-6905b1f1a03a48dcf115a2927f7b87dba8d5e566: Net / e100: Fix suspend of devices that cannot be power managed
 
--- 
-Mel Gorman
-Part-time Phd Student                          Linux Technology Center
-University of Limerick                         IBM Dublin Software Lab
+I have updated the tree again, (though there is no change)
+the last commit on the tree being :
+
+commit b37b62fea1d1bf68ca51818f8eb1035188efd030
+Author: Ben Hutchings <bhutchings@solarflare.com>
+Date:   Fri Oct 23 08:33:42 2009 +0000
+
+    sfc: Rename 'xfp' file and functions to reflect reality
+
+    The 'XFP' driver is really a driver for the QT2022C2 and QT2025C
+PHYs,
+    covering both more and less than XFP.  Rename its functions and
+    constants to reflect reality and to reduce namespace pollution when
+    sfc is a built-in driver.
+
+    Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+ 
+Also, I have merged it with the latest linux-next tree 
+(It is already updated with the net-next-2.6.git)
+
+>Sort this out before submitting this again.
+
+I am working on it.
+>
+>If you submit once more this same series, and it doesn't apply 
+>properly to net-next-2.6, I will flat our ignore your 
+>submissions for a week or so.
+>
+
+>You are wasting that much of my time by doing this over and over.
+I apologize for that.
+>
+>Get your act together.
+>
+
