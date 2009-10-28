@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 11/23] igb: make tx hang check multiqueue,
-	check eop descriptor
-Date: Wed, 28 Oct 2009 02:48:51 -0700
-Message-ID: <20091028094850.13156.29899.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 14/23] igb: cleanup interrupt enablement in
+	regards to msix_other
+Date: Wed, 28 Oct 2009 02:49:59 -0700
+Message-ID: <20091028094958.13156.17940.stgit@localhost.localdomain>
 References: <20091028094540.13156.2637.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,67 +12,102 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:36023
-	"EHLO QMTA04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751630AbZJ1Jwp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 05:52:45 -0400
+Received: from qmta07.westchester.pa.mail.comcast.net ([76.96.62.64]:46447
+	"EHLO QMTA07.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751499AbZJ1Jxo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 05:53:44 -0400
 In-Reply-To: <20091028094540.13156.2637.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change makes the tx hang check run over all tx queues instead of just
-queue 0.  Also have hang display info on EOP descriptor instead of the
-descriptor at the start of the chain.
+This patch changes a few things so that instead of firing a link status
+interrupt directly the get_link_status bit is set and the watchdog is
+scheduled.  In addition the mailbox bit is now only enabled if VFs are
+enabled.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb_main.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
+ drivers/net/igb/igb_main.c |   31 +++++++++++++++++++++++--------
+ 1 files changed, 23 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 7f32211..f75f90f 100644
+index 52c4302..5b0f939 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -3002,6 +3002,10 @@ link_up:
- 		}
- 	}
+@@ -919,6 +919,11 @@ static void igb_irq_disable(struct igb_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
  
-+	/* Force detection of hung controller every watchdog period */
-+	for (i = 0; i < adapter->num_tx_queues; i++)
-+		adapter->tx_ring[i].detect_tx_hung = true;
-+
- 	/* Cause software interrupt to ensure rx ring is cleaned */
++	/*
++	 * we need to be careful when disabling interrupts.  The VFs are also
++	 * mapped into these registers and so clearing the bits can cause
++	 * issues on the VF drivers so we only need to clear what we set
++	 */
  	if (adapter->msix_entries) {
- 		u32 eics = 0;
-@@ -3014,9 +3018,6 @@ link_up:
- 		wr32(E1000_ICS, E1000_ICS_RXDMT0);
+ 		u32 regval = rd32(E1000_EIAM);
+ 		wr32(E1000_EIAM, regval & ~adapter->eims_enable_mask);
+@@ -942,15 +947,17 @@ static void igb_irq_enable(struct igb_adapter *adapter)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 
+ 	if (adapter->msix_entries) {
++		u32 ims = E1000_IMS_LSC | E1000_IMS_DOUTSYNC;
+ 		u32 regval = rd32(E1000_EIAC);
+ 		wr32(E1000_EIAC, regval | adapter->eims_enable_mask);
+ 		regval = rd32(E1000_EIAM);
+ 		wr32(E1000_EIAM, regval | adapter->eims_enable_mask);
+ 		wr32(E1000_EIMS, adapter->eims_enable_mask);
+-		if (adapter->vfs_allocated_count)
++		if (adapter->vfs_allocated_count) {
+ 			wr32(E1000_MBVFIMR, 0xFF);
+-		wr32(E1000_IMS, (E1000_IMS_LSC | E1000_IMS_VMMB |
+-		                 E1000_IMS_DOUTSYNC));
++			ims |= E1000_IMS_VMMB;
++		}
++		wr32(E1000_IMS, ims);
+ 	} else {
+ 		wr32(E1000_IMS, IMS_ENABLE_MASK);
+ 		wr32(E1000_IAM, IMS_ENABLE_MASK);
+@@ -1091,8 +1098,10 @@ int igb_up(struct igb_adapter *adapter)
+ 
+ 	netif_tx_start_all_queues(adapter->netdev);
+ 
+-	/* Fire a link change interrupt to start the watchdog. */
+-	wr32(E1000_ICS, E1000_ICS_LSC);
++	/* start the watchdog. */
++	hw->mac.get_link_status = 1;
++	schedule_work(&adapter->watchdog_task);
++
+ 	return 0;
+ }
+ 
+@@ -1889,8 +1898,9 @@ static int igb_open(struct net_device *netdev)
+ 
+ 	netif_tx_start_all_queues(netdev);
+ 
+-	/* Fire a link status change interrupt to start the watchdog. */
+-	wr32(E1000_ICS, E1000_ICS_LSC);
++	/* start the watchdog. */
++	hw->mac.get_link_status = 1;
++	schedule_work(&adapter->watchdog_task);
+ 
+ 	return 0;
+ 
+@@ -3952,7 +3962,12 @@ static irqreturn_t igb_msix_other(int irq, void *data)
+ 			mod_timer(&adapter->watchdog_timer, jiffies + 1);
  	}
  
--	/* Force detection of hung controller every watchdog period */
--	tx_ring->detect_tx_hung = true;
--
- 	/* Reset the timer */
- 	if (!test_bit(__IGB_DOWN, &adapter->state))
- 		mod_timer(&adapter->watchdog_timer,
-@@ -3667,6 +3668,7 @@ static void igb_tx_timeout(struct net_device *netdev)
+-	wr32(E1000_IMS, E1000_IMS_LSC | E1000_IMS_DOUTSYNC | E1000_IMS_VMMB);
++	if (adapter->vfs_allocated_count)
++		wr32(E1000_IMS, E1000_IMS_LSC |
++				E1000_IMS_VMMB |
++				E1000_IMS_DOUTSYNC);
++	else
++		wr32(E1000_IMS, E1000_IMS_LSC | E1000_IMS_DOUTSYNC);
+ 	wr32(E1000_EIMS, adapter->eims_other);
  
- 	/* Do the reset outside of interrupt context */
- 	adapter->tx_timeout_count++;
-+
- 	schedule_work(&adapter->reset_task);
- 	wr32(E1000_EICS,
- 	     (adapter->eims_enable_mask & ~adapter->eims_other));
-@@ -4804,7 +4806,7 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
- 				readl(tx_ring->tail),
- 				tx_ring->next_to_use,
- 				tx_ring->next_to_clean,
--				tx_ring->buffer_info[i].time_stamp,
-+				tx_ring->buffer_info[eop].time_stamp,
- 				eop,
- 				jiffies,
- 				eop_desc->wb.status);
+ 	return IRQ_HANDLED;
 
