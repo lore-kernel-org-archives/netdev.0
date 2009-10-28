@@ -1,24 +1,41 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [PATCH 2/3] net: TCP thin linear timeouts
-Date: Tue, 27 Oct 2009 23:20:39 -0400
-Message-ID: <4AE7B887.6090806@gmail.com>
-References: <4AE72079.4030504@simula.no>
+From: <jie.yang@atheros.com>
+Subject: [patch net-next]atl1c: duplicate atl1c_get_tpd
+Date: Wed, 28 Oct 2009 13:14:15 +0800
+Message-ID: <12567068551959-git-send-email-jie.yang@atheros.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	shemminger@vyatta.com, ilpo.jarvinen@helsinki.fi,
-	davem@davemloft.net
-To: Andreas Petlund <apetlund@simula.no>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932567AbZJ1DUj@vger.kernel.org>
-In-Reply-To: <4AE72079.4030504@simula.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Jie Yang <jie.yang@atheros.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.atheros.com ([12.36.123.2]:14782 "EHLO mail.atheros.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757313AbZJ1FOT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Oct 2009 01:14:19 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sorry to be too picky about the naming, but "rm_expb" really doesn't
-mean what is actually done.  Perhaps TCP_THIN_LINEAR_BACKOFF and
-sysctl_tcp_thin_linear_backoff?
+From: Jie Yang <jie.yang@atheros.com>
 
-Also, as debated on some other recent patches, shouldn't the global
-sysctl specify the default, and the per socket option specify the
-forced override?
+remove duplicate atl1c_get_tpd, it may cause hardware to send wrong packets.
+
+Signed-off-by: Jie Yang <jie.yang@atheros.com>
+
+---
+
+ drivers/net/atl1c/atl1c_main.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/atl1c/atl1c_main.c b/drivers/net/atl1c/atl1c_main.c
+index 1372e9a..3b8801a 100644
+--- a/drivers/net/atl1c/atl1c_main.c
++++ b/drivers/net/atl1c/atl1c_main.c
+@@ -1981,8 +1981,6 @@ static void atl1c_tx_map(struct atl1c_adapter *adapter,
+ 		else {
+ 			use_tpd = atl1c_get_tpd(adapter, type);
+ 			memcpy(use_tpd, tpd, sizeof(struct atl1c_tpd_desc));
+-			use_tpd = atl1c_get_tpd(adapter, type);
+-			memcpy(use_tpd, tpd, sizeof(struct atl1c_tpd_desc));
+ 		}
+ 		buffer_info = atl1c_get_tx_buffer(adapter, use_tpd);
+ 		buffer_info->length = buf_len - mapped_len;
