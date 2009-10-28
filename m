@@ -1,97 +1,110 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] vlan: allow VLAN ID 0 to be used
-Date: Wed, 28 Oct 2009 17:13:26 +0100
-Message-ID: <4AE86DA6.40408@trash.net>
-References: <477963.52849.qm@web32605.mail.mud.yahoo.com>	<m34opmr2fz.fsf@ursa.amorsen.dk> <4AE563C7.5070702@gmail.com>	<4AE5CAC6.4000604@gmail.com> <m3aazdb1ue.fsf@ursa.amorsen.dk> <4AE6C54B.7080805@gmail.com>
+From: Steve Chen <schen@mvista.com>
+Subject: Re: [Fwd: Re: [PATCH] Multicast packet reassembly can fail]
+Date: Wed, 28 Oct 2009 12:05:58 -0500
+Message-ID: <1256749559.3153.447.camel@linux-1lbu>
+References: <1256740748.3153.418.camel@linux-1lbu>
+	 <4AE86420.3040607@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Benny Amorsen <benny+usenet@amorsen.dk>,
-	Gertjan Hofman <gertjan_hofman@yahoo.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61311 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752873AbZJ1QpG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 12:45:06 -0400
-In-Reply-To: <4AE6C54B.7080805@gmail.com>
+Received: from hu47.mvista.com ([206.112.117.47]:49137 "HELO
+	gateway-1237.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with SMTP id S1754398AbZJ1RBi convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Oct 2009 13:01:38 -0400
+In-Reply-To: <4AE86420.3040607@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Benny Amorsen a =E9crit :
->> Eric Dumazet <eric.dumazet@gmail.com> writes:
->>
->>> Here is the patch I cooked that permitted VLAN 0 to be used with tg=
-3
->>> (and other HW accelerated vlan nics I suppose)
->>>
->>> [PATCH] vlan: allow VLAN ID 0 to be used
->>>
->>> We currently use a 16 bit field (vlan_tci) to store VLAN ID on a sk=
-b.
->>>
->>> 0 value is used a special value, meaning VLAN ID not set.
->>> This forbids use of VLAN ID 0
->> Are you sure you actually want to do this?
->>
->> VLAN 0 IS special. Frames received on VLAN 0 should be treated just =
-as
->> if they had no VLAN tag at all, except that they have an 802.1p valu=
-e.
->>
->> Sending frames with VLAN 0 should have something to do with whether
->> the sender wants to use 802.1p, which doesn't really have much to do
->> with VLAN's at all...
->>
->> It would be nice if the unsuspecting user was at least warned that t=
-heir
->> use of VLAN 0 is non-standard and may cause surprising results like
->> leakage into the "native" VLAN. That could be done in /sbin/ip or
->> /sbin/vconfig, of course.
->>
+On Wed, 2009-10-28 at 16:32 +0100, Eric Dumazet wrote:
+> Steve Chen a =C3=A9crit :
+> > Following is the e-mail I replied to Rick Jones in case you haven't=
+ got
+> > it yet.  I have not posted the test code yet.  The test code is a t=
+ar gz
+> > file about 11k in size.  Lot of people will get very upset if I sen=
+d it
+> > to the mailing list.  If you can suggest a place to up load, I'll b=
+e
+> > happy to do so.
+> >=20
+> > Regards,
 >=20
-> Quotting http://en.wikipedia.org/wiki/IEEE_802.1Q
+> > Here is the scenario this patch tries to address
+> >=20
+> > <src node> ---->  <switch>  ----> <eth0 dest node>
+> >                             \--->  <eth1 dest node>
 >=20
-> VLAN Identifier (VID): a 12-bit field specifying the VLAN to which th=
-e frame belongs.
->  A value of 0 means that the frame doesn't belong to any VLAN; in thi=
-s case the 802.1Q
->  tag specifies only a priority and is referred to as a priority tag.
-> A value of hex FFF is reserved for implementation use.
-> All other values may be used as VLAN identifiers, allowing up to 4094=
- VLANs
+> If each fragment is received twice on host, once by eth0, once by eth=
+1,
+> should we deliver datagram once or twice ?
+
+The application received it once.  IIRC the duplicate packet is drop in
+the routing code.
+
+>=20
+> Once should be enough, even if in the non fragmented case, it will
+> be delivered twice (kernel cannot detect duplicates, user app might d=
+o itself)
+
+Routing code drops the duplicate packet for none-fragmented case as
+well.
+
 >=20
 >=20
-> So we expect to generate a 802.1Q frame, even with a VID=3D0 field.
-> Before patch, device sends a non 802.1Q frame, which is not what was =
-wanted by user.
-> (Maybe he wants to check its device/network is able to transport 1522=
- bytes frames, who knows...)
+> >=20
+> > For this specific case, src/dst address, protocol, IP ID and fragme=
+nt
+> > offset are all identical.  The only difference is the ingress inter=
+face.
+> > A good follow up question would be why would anyone in their right =
+mind
+> > multicast to the same destination?  well, I don't know.  I can not =
+get
+> > the people who reported the problem to tell me either.   Since some=
+one
+> > found the need to do this,  perhaps others may find it useful too.
+> >=20
 >=20
-> To use non tagged frames, user selects eth0 device, and to send tagge=
-d frames, he selects eth0.0
+> Then, if a 2000 bytes message is fragmented in two packets, one comin=
+g
+> from eth0, one coming from eth1, I suspect your patch drops the messa=
+ge,
+> unless eth0/eth1 are part of a bonding device...
 
-I agree. Quoting IEEE802.1Q:
+Actually, the patch tries to prevent packet drop for this exact
+scenario.  Please consider the following scenarios
+1.  Packet comes in the fragment reassemble code in the following order
+(eth0 frag1), (eth0 frag2), (eth1 frag1), (eth1 frag2)
+Packet from both interfaces get reassembled and gets further processed.
 
-0 The null VLAN ID. Indicates that the tag header contains only priorit=
-y
-  information; no VLAN identifier is present in the frame. ...
+2. Packet can some times arrive in (perhaps other orders as well)
+(eth0 frag1), (eth1 frag1), (eth0 frag2), (eth1 frag2)
+Without this patch, eth0 frag 1/2 are overwritten by eth1 frag1/2, and
+packet from eth1 is dropped in the routing code.
 
-which implies that its valid to use 0 as tag in the header.
+>=20
+> That would break common routing setups, using two links to aggregate =
+bandwidth ?
 
-> Now, maybe eth0 and eth0.0 should share same IP addresses, because in=
-coming frame
-> with ID=3D0 tag should be received by eth0 device, but I am not sure =
-standard requires this.
+I don't believe it would.  The aggregate bandwidth will work the same a=
+s
+before.  The attributes (src/dst addr, protocol, interface, etc.) shoul=
+d
+generate a unique hash key.  If hash collision should happen with the
+addition of iif << 5, the code still compare the original src addr alon=
+g
+with interface number, so there should be no issues.
 
-I don't think the standard makes any demands regarding this.
+> Nothing in IP forces all packets of a datagram to follow an unique ro=
+ute.
+>=20
+My understanding as well.
 
-The current behaviour seems better to me since its symetrical
-to the output path, where the VLAN device is necessary to be
-able to specify a priority mapping.
+Regards,
 
+Steve
 
