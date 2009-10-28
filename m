@@ -1,8 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 16/23] igb: cleanup igb.h header whitespace and
-	some structure formatting
-Date: Wed, 28 Oct 2009 02:50:38 -0700
-Message-ID: <20091028095037.13156.52084.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 17/23] igb: cleanup igb xmit frame path
+Date: Wed, 28 Oct 2009 02:50:57 -0700
+Message-ID: <20091028095056.13156.57574.stgit@localhost.localdomain>
 References: <20091028094540.13156.2637.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,68 +11,135 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:36277
-	"EHLO QMTA04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752196AbZJ1JyW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 05:54:22 -0400
+Received: from qmta09.westchester.pa.mail.comcast.net ([76.96.62.96]:55621
+	"EHLO QMTA09.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752360AbZJ1Jyl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 05:54:41 -0400
 In-Reply-To: <20091028094540.13156.2637.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch changes the layout of the ring and adapter structs to fill a few
-holes in the structure.  It also cleans up some whitespace and formatting
-issues.
+This patch cleans up the xmit frame path for igb to better handle xmit
+frame errors and avoid null pointer exceptions.  It also cleans up some
+whitespace issues found in the xmit frame path.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb.h |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/igb/igb_main.c |   30 +++++++++++++++---------------
+ 1 files changed, 15 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
-index b9fcfd3..3298f5a 100644
---- a/drivers/net/igb/igb.h
-+++ b/drivers/net/igb/igb.h
-@@ -185,16 +185,15 @@ struct igb_ring {
- 	dma_addr_t dma;                /* phys address of the ring */
- 	void *desc;                    /* descriptor ring memory */
- 	unsigned int size;             /* length of desc. ring in bytes */
--	unsigned int count;            /* number of desc. in the ring */
-+	u16 count;                     /* number of desc. in the ring */
- 	u16 next_to_use;
- 	u16 next_to_clean;
-+	u8 queue_index;
-+	u8 reg_idx;
- 	void __iomem *head;
- 	void __iomem *tail;
- 	struct igb_buffer *buffer_info; /* array of buffer info structs */
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index cb1acca..8f8b7cc 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -3245,9 +3245,9 @@ set_itr_now:
+ #define IGB_TX_FLAGS_VLAN		0x00000002
+ #define IGB_TX_FLAGS_TSO		0x00000004
+ #define IGB_TX_FLAGS_IPV4		0x00000008
+-#define IGB_TX_FLAGS_TSTAMP             0x00000010
+-#define IGB_TX_FLAGS_VLAN_MASK	0xffff0000
+-#define IGB_TX_FLAGS_VLAN_SHIFT	16
++#define IGB_TX_FLAGS_TSTAMP		0x00000010
++#define IGB_TX_FLAGS_VLAN_MASK		0xffff0000
++#define IGB_TX_FLAGS_VLAN_SHIFT		        16
  
--	u8 queue_index;
--	u8 reg_idx;
--
- 	unsigned int total_bytes;
- 	unsigned int total_packets;
+ static inline int igb_tso_adv(struct igb_ring *tx_ring,
+ 			      struct sk_buff *skb, u32 tx_flags, u8 *hdr_len)
+@@ -3346,6 +3346,7 @@ static inline bool igb_tx_csum_adv(struct igb_ring *tx_ring,
  
-@@ -249,6 +248,7 @@ struct igb_adapter {
- 	u32 en_mng_pt;
- 	u16 link_speed;
- 	u16 link_duplex;
+ 		if (tx_flags & IGB_TX_FLAGS_VLAN)
+ 			info |= (tx_flags & IGB_TX_FLAGS_VLAN_MASK);
 +
- 	unsigned int total_tx_bytes;
- 	unsigned int total_tx_packets;
- 	unsigned int total_rx_bytes;
-@@ -311,8 +311,8 @@ struct igb_adapter {
- 	u32 eeprom_wol;
+ 		info |= (skb_network_offset(skb) << E1000_ADVTXD_MACLEN_SHIFT);
+ 		if (skb->ip_summed == CHECKSUM_PARTIAL)
+ 			info |= skb_network_header_len(skb);
+@@ -3462,17 +3463,17 @@ static inline int igb_tx_map_adv(struct igb_ring *tx_ring, struct sk_buff *skb,
+ 	tx_ring->buffer_info[i].skb = skb;
+ 	tx_ring->buffer_info[first].next_to_watch = i;
  
- 	struct igb_ring *multi_tx_table[IGB_ABS_MAX_TX_QUEUES];
--	unsigned int tx_ring_count;
--	unsigned int rx_ring_count;
-+	u16 tx_ring_count;
-+	u16 rx_ring_count;
- 	unsigned int vfs_allocated_count;
- 	struct vf_data_storage *vf_data;
- };
+-	return count + 1;
++	return ++count;
+ }
+ 
+ static inline void igb_tx_queue_adv(struct igb_ring *tx_ring,
+ 				    int tx_flags, int count, u32 paylen,
+ 				    u8 hdr_len)
+ {
+-	union e1000_adv_tx_desc *tx_desc = NULL;
++	union e1000_adv_tx_desc *tx_desc;
+ 	struct igb_buffer *buffer_info;
+ 	u32 olinfo_status = 0, cmd_type_len;
+-	unsigned int i;
++	unsigned int i = tx_ring->next_to_use;
+ 
+ 	cmd_type_len = (E1000_ADVTXD_DTYP_DATA | E1000_ADVTXD_DCMD_IFCS |
+ 			E1000_ADVTXD_DCMD_DEXT);
+@@ -3505,18 +3506,18 @@ static inline void igb_tx_queue_adv(struct igb_ring *tx_ring,
+ 
+ 	olinfo_status |= ((paylen - hdr_len) << E1000_ADVTXD_PAYLEN_SHIFT);
+ 
+-	i = tx_ring->next_to_use;
+-	while (count--) {
++	do {
+ 		buffer_info = &tx_ring->buffer_info[i];
+ 		tx_desc = E1000_TX_DESC_ADV(*tx_ring, i);
+ 		tx_desc->read.buffer_addr = cpu_to_le64(buffer_info->dma);
+ 		tx_desc->read.cmd_type_len =
+ 			cpu_to_le32(cmd_type_len | buffer_info->length);
+ 		tx_desc->read.olinfo_status = cpu_to_le32(olinfo_status);
++		count--;
+ 		i++;
+ 		if (i == tx_ring->count)
+ 			i = 0;
+-	}
++	} while (count > 0);
+ 
+ 	tx_desc->read.cmd_type_len |= cpu_to_le32(IGB_ADVTXD_DCMD);
+ 	/* Force memory writes to complete before letting h/w
+@@ -3568,8 +3569,7 @@ netdev_tx_t igb_xmit_frame_ring_adv(struct sk_buff *skb,
+ 	unsigned int first;
+ 	unsigned int tx_flags = 0;
+ 	u8 hdr_len = 0;
+-	int count = 0;
+-	int tso = 0;
++	int tso = 0, count;
+ 	union skb_shared_tx *shtx = skb_tx(skb);
+ 
+ 	/* need: 1 descriptor per page,
+@@ -3587,7 +3587,7 @@ netdev_tx_t igb_xmit_frame_ring_adv(struct sk_buff *skb,
+ 		tx_flags |= IGB_TX_FLAGS_TSTAMP;
+ 	}
+ 
+-	if (adapter->vlgrp && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb) && adapter->vlgrp) {
+ 		tx_flags |= IGB_TX_FLAGS_VLAN;
+ 		tx_flags |= (vlan_tx_tag_get(skb) << IGB_TX_FLAGS_VLAN_SHIFT);
+ 	}
+@@ -3598,6 +3598,7 @@ netdev_tx_t igb_xmit_frame_ring_adv(struct sk_buff *skb,
+ 	first = tx_ring->next_to_use;
+ 	if (skb_is_gso(skb)) {
+ 		tso = igb_tso_adv(tx_ring, skb, tx_flags, &hdr_len);
++
+ 		if (tso < 0) {
+ 			dev_kfree_skb_any(skb);
+ 			return NETDEV_TX_OK;
+@@ -3611,12 +3612,11 @@ netdev_tx_t igb_xmit_frame_ring_adv(struct sk_buff *skb,
+ 		tx_flags |= IGB_TX_FLAGS_CSUM;
+ 
+ 	/*
+-	 * count reflects descriptors mapped, if 0 then mapping error
++	 * count reflects descriptors mapped, if 0 or less then mapping error
+ 	 * has occured and we need to rewind the descriptor queue
+ 	 */
+ 	count = igb_tx_map_adv(tx_ring, skb, first);
+-
+-	if (!count) {
++	if (count <= 0) {
+ 		dev_kfree_skb_any(skb);
+ 		tx_ring->buffer_info[first].time_stamp = 0;
+ 		tx_ring->next_to_use = first;
 
