@@ -1,7 +1,7 @@
 From: <Jordan_Hargrave@Dell.com>
 Subject: RE: [PATCH] udev: create empty regular files to represent net interfaces
-Date: Wed, 28 Oct 2009 11:09:10 -0500
-Message-ID: <5DDAB7BA7BDB58439DD0EED0B8E9A3AE02E827AE@ausx3mpc102.aus.amer.dell.com>
+Date: Wed, 28 Oct 2009 11:09:36 -0500
+Message-ID: <5DDAB7BA7BDB58439DD0EED0B8E9A3AE02E827AF@ausx3mpc102.aus.amer.dell.com>
 References: <20091016214024.GA10091@ldl.fc.hp.com> <20091022063619.GB6321@ldl.fc.hp.com> <20091027205551.GA31963@auslistsprd01.us.dell.com> <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com> <20091028130308.GA24611@auslistsprd01.us.dell.com> <20091028150913.GB3612@ldl.fc.hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -18,6 +18,7 @@ List-Id: netdev.vger.kernel.org
 I was thinking, if we're not planning on use the chardev/kernel route.  There already exists an ifindex file in /sys/class/net/XXX/ifindex.
 Should udev/helper be creating links to this, or is it better to keep everything under the /dev/ tree?
 Using this method would require the patch to udev to handle renaming events.
+
 
 --jordan hargrave
 Dell Enterprise Linux Engineering
