@@ -1,77 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Multicast packet reassembly can fail
-Date: Wed, 28 Oct 2009 11:18:24 +0100
-Message-ID: <4AE81A70.5060307@gmail.com>
-References: <1256683583.3153.389.camel@linux-1lbu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH 01/23] igb: add support for seperate
+ tx-usecs setting in ethtool
+Date: Wed, 28 Oct 2009 03:39:22 -0700 (PDT)
+Message-ID: <20091028.033922.99548522.davem@davemloft.net>
+References: <20091028094540.13156.2637.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Steve Chen <schen@mvista.com>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	alexander.h.duyck@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:49416 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752406AbZJ1KTj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 06:19:39 -0400
-In-Reply-To: <1256683583.3153.389.camel@linux-1lbu>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57590
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753504AbZJ1KjC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 06:39:02 -0400
+In-Reply-To: <20091028094540.13156.2637.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Steve Chen a =E9crit :
-> Multicast packet reassembly can fail
->=20
-> When multicast connections with multiple fragments are received by th=
-e same
-> node from more than one Ethernet ports, race condition between fragme=
-nts
-> from each Ethernet port can cause fragment reassembly to fail leading=
- to
-> packet drop.  This is because packets from each Ethernet port appears=
- identical
-> to the the code that reassembles the Ethernet packet.
->=20
-> The solution is evaluate the Ethernet interface number in addition to=
- all other
-> parameters so that every packet can be uniquely identified.  The exis=
-ting
-> iif field in struct ipq is now used to generate the hash key, and iif=
- is also
-> used for comparison in case of hash collision.
->=20
-> Please note that q->saddr ^ (q->iif << 5) is now being passed into
-> ipqhashfn to generate the hash key.  This is borrowed from the routin=
-g
-> code.
->=20
-> Signed-off-by: Steve Chen <schen@mvista.com>
-> Signed-off-by: Mark Huth <mhuth@mvista.com>
->=20
-
-This makes no sense to me, but I need to check the code.
-
-How interface could matter in IP defragmentation ?
-And why multicast is part of the equation ?
-
-If defrag fails, this must be for other reason,
-and probably needs another fix.
-
-Check line 219 of net/ipv4/inet_fragment.c
-
-#ifdef CONFIG_SMP
-        /* With SMP race we have to recheck hash table, because
-         * such entry could be created on other cpu, while we
-         * promoted read lock to write lock.
-         */
-        hlist_for_each_entry(qp, n, &f->hash[hash], list) {
-                if (qp->net =3D=3D nf && f->match(qp, arg)) {
-                        atomic_inc(&qp->refcnt);
-                        write_unlock(&f->lock);
-                        qp_in->last_in |=3D INET_FRAG_COMPLETE;   <<< H=
-ERE >>>
-                        inet_frag_put(qp_in, f);
-                        return qp;
-                }
-        }
-#endif
-
-I really wonder why we set INET_FRAG_COMPLETE here
+DQpBbGwgYXBwbGllZCB0byBuZXQtbmV4dC0yLjYsIGJ1dCB0aGVuIEkgaGFkIHRvIGFkZCB0aGUg
+Zm9sbG93aW5nDQpwYXRjaCB0byBraWxsIGEgd2FybmluZzoNCg0KaWdiOiBGaXggd2FybmluZ3Mg
+aW4gaWdiX3NldF9yaW5ncGFyYW0oKQ0KDQpkcml2ZXJzL25ldC9pZ2IvaWdiX2V0aHRvb2wuYzog
+SW4gZnVuY3Rpb24g4oCYaWdiX3NldF9yaW5ncGFyYW3igJk6DQpkcml2ZXJzL25ldC9pZ2IvaWdi
+X2V0aHRvb2wuYzo3NDQ6IHdhcm5pbmc6IGNvbXBhcmlzb24gb2YgZGlzdGluY3QgcG9pbnRlciB0
+eXBlcyBsYWNrcyBhIGNhc3QNCmRyaXZlcnMvbmV0L2lnYi9pZ2JfZXRodG9vbC5jOjc0ODogd2Fy
+bmluZzogY29tcGFyaXNvbiBvZiBkaXN0aW5jdCBwb2ludGVyIHR5cGVzIGxhY2tzIGEgY2FzdA0K
+DQpDYXN0cyB3ZXJlIHRvIHUxNiBvbiB0aGUgY29uc3RhbnQsIGJ1dCB0aGUgdHlwZSBvZiBuZXdf
+e3IsdH14X2NvdW50IGlzDQp1MzIuICBDYXN0IHRvIHUzMiBpbnN0ZWFkLg0KDQpTaWduZWQtb2Zm
+LWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+DQotLS0NCiBkcml2ZXJz
+L25ldC9pZ2IvaWdiX2V0aHRvb2wuYyB8ICAgIDQgKystLQ0KIDEgZmlsZXMgY2hhbmdlZCwgMiBp
+bnNlcnRpb25zKCspLCAyIGRlbGV0aW9ucygtKQ0KDQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQv
+aWdiL2lnYl9ldGh0b29sLmMgYi9kcml2ZXJzL25ldC9pZ2IvaWdiX2V0aHRvb2wuYw0KaW5kZXgg
+ZDI0YjkwMi4uOTBiODlhOCAxMDA2NDQNCi0tLSBhL2RyaXZlcnMvbmV0L2lnYi9pZ2JfZXRodG9v
+bC5jDQorKysgYi9kcml2ZXJzL25ldC9pZ2IvaWdiX2V0aHRvb2wuYw0KQEAgLTc0MSwxMSArNzQx
+LDExIEBAIHN0YXRpYyBpbnQgaWdiX3NldF9yaW5ncGFyYW0oc3RydWN0IG5ldF9kZXZpY2UgKm5l
+dGRldiwNCiAJCXJldHVybiAtRUlOVkFMOw0KIA0KIAluZXdfcnhfY291bnQgPSBtaW4ocmluZy0+
+cnhfcGVuZGluZywgKHUzMilJR0JfTUFYX1JYRCk7DQotCW5ld19yeF9jb3VudCA9IG1heChuZXdf
+cnhfY291bnQsICh1MTYpSUdCX01JTl9SWEQpOw0KKwluZXdfcnhfY291bnQgPSBtYXgobmV3X3J4
+X2NvdW50LCAodTMyKUlHQl9NSU5fUlhEKTsNCiAJbmV3X3J4X2NvdW50ID0gQUxJR04obmV3X3J4
+X2NvdW50LCBSRVFfUlhfREVTQ1JJUFRPUl9NVUxUSVBMRSk7DQogDQogCW5ld190eF9jb3VudCA9
+IG1pbihyaW5nLT50eF9wZW5kaW5nLCAodTMyKUlHQl9NQVhfVFhEKTsNCi0JbmV3X3R4X2NvdW50
+ID0gbWF4KG5ld190eF9jb3VudCwgKHUxNilJR0JfTUlOX1RYRCk7DQorCW5ld190eF9jb3VudCA9
+IG1heChuZXdfdHhfY291bnQsICh1MzIpSUdCX01JTl9UWEQpOw0KIAluZXdfdHhfY291bnQgPSBB
+TElHTihuZXdfdHhfY291bnQsIFJFUV9UWF9ERVNDUklQVE9SX01VTFRJUExFKTsNCiANCiAJaWYg
+KChuZXdfdHhfY291bnQgPT0gYWRhcHRlci0+dHhfcmluZ19jb3VudCkgJiYNCi0tIA0KMS42LjUu
+MQ0KDQo=
