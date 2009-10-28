@@ -1,7 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 05/20] igb: remove rx_ps_hdr_len
-Date: Tue, 27 Oct 2009 18:50:48 -0700
-Message-ID: <20091028015047.12470.60710.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 06/20] igb: move SRRCTL register configuration
+	into ring specific config
+Date: Tue, 27 Oct 2009 18:51:07 -0700
+Message-ID: <20091028015107.12470.34779.stgit@localhost.localdomain>
 References: <20091028014858.12470.99520.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,76 +12,111 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:46057
-	"EHLO QMTA10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757185AbZJ1Byb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 21:54:31 -0400
+Received: from qmta11.westchester.pa.mail.comcast.net ([76.96.59.211]:36359
+	"EHLO QMTA11.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757182AbZJ1Byu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 21:54:50 -0400
 In-Reply-To: <20091028014858.12470.99520.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch removes the rx_ps_hdr_len which isn't really needed since we can
-now use rx_buffer_len less than 1K to indicate that we are in a packet split
-mode.  We also don't need it since we always use a half page for the data
-buffers when receiving so we always know the size to map/unmap.
+The SRRCTL register exists per ring.  Instead of configuring all of them in
+the RCTL configuration which is meant to be global it makes more sense to move
+this out into the ring specific configuration.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb.h      |    1 
- drivers/net/igb/igb_main.c |   98 +++++++++++++++++---------------------------
- 2 files changed, 38 insertions(+), 61 deletions(-)
+ drivers/net/igb/igb_main.c |   60 +++++++++++++++++---------------------------
+ 1 files changed, 23 insertions(+), 37 deletions(-)
 
-diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
-index 1675f6a..303df02 100644
---- a/drivers/net/igb/igb.h
-+++ b/drivers/net/igb/igb.h
-@@ -259,7 +259,6 @@ struct igb_adapter {
- 	u32 alloc_rx_buff_failed;
- 	u32 gorc;
- 	u64 gorc_old;
--	u16 rx_ps_hdr_size;
- 	u32 max_frame_size;
- 	u32 min_frame_size;
- 
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 61ef4c2..24e502d 100644
+index 24e502d..dfca821 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -1862,7 +1862,6 @@ static int __devinit igb_sw_init(struct igb_adapter *adapter)
- 	adapter->tx_ring_count = IGB_DEFAULT_TXD;
- 	adapter->rx_ring_count = IGB_DEFAULT_RXD;
- 	adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
--	adapter->rx_ps_hdr_size = 0; /* disable packet split */
- 	adapter->max_frame_size = netdev->mtu + ETH_HLEN + ETH_FCS_LEN;
- 	adapter->min_frame_size = ETH_ZLEN + ETH_FCS_LEN;
+@@ -2230,8 +2230,6 @@ static void igb_setup_rctl(struct igb_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 rctl;
+-	u32 srrctl = 0;
+-	int i;
  
-@@ -2254,12 +2253,8 @@ static void igb_setup_rctl(struct igb_adapter *adapter)
- 	 */
- 	rctl &= ~(E1000_RCTL_SBP | E1000_RCTL_SZ_256);
+ 	rctl = rd32(E1000_RCTL);
  
--	/* enable LPE when to prevent packets larger than max_frame_size */
--		rctl |= E1000_RCTL_LPE;
+@@ -2256,31 +2254,8 @@ static void igb_setup_rctl(struct igb_adapter *adapter)
+ 	/* enable LPE to prevent packets larger than max_frame_size */
+ 	rctl |= E1000_RCTL_LPE;
+ 
+-	/* 82575 and greater support packet-split where the protocol
+-	 * header is placed in skb->data and the packet data is
+-	 * placed in pages hanging off of skb_shinfo(skb)->nr_frags.
+-	 * In the case of a non-split, skb->data is linearly filled,
+-	 * followed by the page buffers.  Therefore, skb->data is
+-	 * sized to hold the largest protocol header.
+-	 */
+-	/* allocations using alloc_page take too long for regular MTU
+-	 * so only enable packet split for jumbo frames */
+-	if (adapter->rx_buffer_len < IGB_RXBUFFER_1024) {
+-		srrctl = ALIGN(adapter->rx_buffer_len, 64) <<
+-		         E1000_SRRCTL_BSIZEHDRSIZE_SHIFT;
+-#if (PAGE_SIZE / 2) > IGB_RXBUFFER_16384
+-		srrctl |= IGB_RXBUFFER_16384 >>
+-		          E1000_SRRCTL_BSIZEPKT_SHIFT;
+-#else
+-		srrctl |= (PAGE_SIZE / 2) >>
+-		          E1000_SRRCTL_BSIZEPKT_SHIFT;
+-#endif
+-		srrctl |= E1000_SRRCTL_DESCTYPE_HDR_SPLIT_ALWAYS;
+-	} else {
+-		srrctl = ALIGN(adapter->rx_buffer_len, 1024) >>
+-		         E1000_SRRCTL_BSIZEPKT_SHIFT;
+-		srrctl |= E1000_SRRCTL_DESCTYPE_ADV_ONEBUF;
+-	}
++	/* disable queue 0 to prevent tail write w/o re-config */
++	wr32(E1000_RXDCTL(0), 0);
+ 
+ 	/* Attention!!!  For SR-IOV PF driver operations you must enable
+ 	 * queue drop for all VF and PF queues to prevent head of line blocking
+@@ -2291,10 +2266,6 @@ static void igb_setup_rctl(struct igb_adapter *adapter)
+ 
+ 		/* set all queue drop enable bits */
+ 		wr32(E1000_QDE, ALL_QUEUES);
+-		srrctl |= E1000_SRRCTL_DROP_EN;
 -
--	/* Setup buffer sizes */
--	srrctl = ALIGN(adapter->rx_buffer_len, 1024)
--	         >> E1000_SRRCTL_BSIZEPKT_SHIFT;
-+	/* enable LPE to prevent packets larger than max_frame_size */
-+	rctl |= E1000_RCTL_LPE;
+-		/* disable queue 0 to prevent tail write w/o re-config */
+-		wr32(E1000_RXDCTL(0), 0);
  
- 	/* 82575 and greater support packet-split where the protocol
- 	 * header is placed in skb->data and the packet data is
-@@ -2270,13 +2265,20 @@ static void igb_setup_rctl(struct igb_adapter *adapter)
- 	 */
- 	/* allocations using alloc_page take too long for regular MTU
- 	 * so only enable packet split for jumbo frames */
--	if (adapter->netdev->mtu > ETH_DATA_LEN) {
--		adapter->rx_ps_hdr_size = IGB_RXBUFFER_128;
--		srrctl |= adapter->rx_ps_hdr_size <<
--			 E1000_SRRCTL_BSIZEHDRSIZE_SHIFT;
+ 		vmolr = rd32(E1000_VMOLR(adapter->vfs_allocated_count));
+ 		if (rctl & E1000_RCTL_LPE)
+@@ -2304,11 +2275,6 @@ static void igb_setup_rctl(struct igb_adapter *adapter)
+ 		wr32(E1000_VMOLR(adapter->vfs_allocated_count), vmolr);
+ 	}
+ 
+-	for (i = 0; i < adapter->num_rx_queues; i++) {
+-		int j = adapter->rx_ring[i].reg_idx;
+-		wr32(E1000_SRRCTL(j), srrctl);
+-	}
+-
+ 	wr32(E1000_RCTL, rctl);
+ }
+ 
+@@ -2373,7 +2339,7 @@ static void igb_configure_rx_ring(struct igb_adapter *adapter,
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u64 rdba = ring->dma;
+ 	int reg_idx = ring->reg_idx;
+-	u32 rxdctl;
++	u32 srrctl, rxdctl;
+ 
+ 	/* disable the queue */
+ 	rxdctl = rd32(E1000_RXDCTL(reg_idx));
+@@ -2393,6 +2359,26 @@ static void igb_configure_rx_ring(struct igb_adapter *adapter,
+ 	writel(0, hw->hw_addr + ring->head);
+ 	writel(0, hw->hw_addr + ring->tail);
+ 
++	/* set descriptor configuration */
 +	if (adapter->rx_buffer_len < IGB_RXBUFFER_1024) {
 +		srrctl = ALIGN(adapter->rx_buffer_len, 64) <<
 +		         E1000_SRRCTL_BSIZEHDRSIZE_SHIFT;
@@ -91,152 +127,16 @@ index 61ef4c2..24e502d 100644
 +		srrctl |= (PAGE_SIZE / 2) >>
 +		          E1000_SRRCTL_BSIZEPKT_SHIFT;
 +#endif
- 		srrctl |= E1000_SRRCTL_DESCTYPE_HDR_SPLIT_ALWAYS;
- 	} else {
--		adapter->rx_ps_hdr_size = 0;
++		srrctl |= E1000_SRRCTL_DESCTYPE_HDR_SPLIT_ALWAYS;
++	} else {
 +		srrctl = ALIGN(adapter->rx_buffer_len, 1024) >>
 +		         E1000_SRRCTL_BSIZEPKT_SHIFT;
- 		srrctl |= E1000_SRRCTL_DESCTYPE_ADV_ONEBUF;
- 	}
- 
-@@ -2647,14 +2649,9 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
- 	for (i = 0; i < rx_ring->count; i++) {
- 		buffer_info = &rx_ring->buffer_info[i];
- 		if (buffer_info->dma) {
--			if (adapter->rx_ps_hdr_size)
--				pci_unmap_single(pdev, buffer_info->dma,
--						 adapter->rx_ps_hdr_size,
--						 PCI_DMA_FROMDEVICE);
--			else
--				pci_unmap_single(pdev, buffer_info->dma,
--						 adapter->rx_buffer_len,
--						 PCI_DMA_FROMDEVICE);
-+			pci_unmap_single(pdev, buffer_info->dma,
-+					 adapter->rx_buffer_len,
-+					 PCI_DMA_FROMDEVICE);
- 			buffer_info->dma = 0;
- 		}
- 
-@@ -2662,14 +2659,15 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
- 			dev_kfree_skb(buffer_info->skb);
- 			buffer_info->skb = NULL;
- 		}
-+		if (buffer_info->page_dma) {
-+			pci_unmap_page(pdev, buffer_info->page_dma,
-+				       PAGE_SIZE / 2,
-+				       PCI_DMA_FROMDEVICE);
-+			buffer_info->page_dma = 0;
-+		}
- 		if (buffer_info->page) {
--			if (buffer_info->page_dma)
--				pci_unmap_page(pdev, buffer_info->page_dma,
--					       PAGE_SIZE / 2,
--					       PCI_DMA_FROMDEVICE);
- 			put_page(buffer_info->page);
- 			buffer_info->page = NULL;
--			buffer_info->page_dma = 0;
- 			buffer_info->page_offset = 0;
- 		}
- 	}
-@@ -3792,19 +3790,10 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
- 
- 	if (max_frame <= IGB_RXBUFFER_1024)
- 		adapter->rx_buffer_len = IGB_RXBUFFER_1024;
--	else if (max_frame <= IGB_RXBUFFER_2048)
--		adapter->rx_buffer_len = IGB_RXBUFFER_2048;
--	else
--#if (PAGE_SIZE / 2) > IGB_RXBUFFER_16384
--		adapter->rx_buffer_len = IGB_RXBUFFER_16384;
--#else
--		adapter->rx_buffer_len = PAGE_SIZE / 2;
--#endif
--
--	/* adjust allocation if LPE protects us, and we aren't using SBP */
--	if ((max_frame == ETH_FRAME_LEN + ETH_FCS_LEN) ||
--	     (max_frame == MAXIMUM_ETHERNET_VLAN_SIZE))
-+	else if (max_frame <= MAXIMUM_ETHERNET_VLAN_SIZE)
- 		adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
-+	else
-+		adapter->rx_buffer_len = IGB_RXBUFFER_128;
- 
- 	dev_info(&adapter->pdev->dev, "changing MTU from %d to %d\n",
- 		 netdev->mtu, new_mtu);
-@@ -4864,8 +4853,8 @@ static inline u16 igb_get_hlen(struct igb_adapter *adapter,
- 	 */
- 	u16 hlen = (le16_to_cpu(rx_desc->wb.lower.lo_dword.hdr_info) &
- 	           E1000_RXDADV_HDRBUFLEN_MASK) >> E1000_RXDADV_HDRBUFLEN_SHIFT;
--	if (hlen > adapter->rx_ps_hdr_size)
--		hlen = adapter->rx_ps_hdr_size;
-+	if (hlen > adapter->rx_buffer_len)
-+		hlen = adapter->rx_buffer_len;
- 	return hlen;
- }
- 
-@@ -4913,23 +4902,16 @@ static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
- 		cleaned = true;
- 		cleaned_count++;
- 
--		/* this is the fast path for the non-packet split case */
--		if (!adapter->rx_ps_hdr_size) {
--			pci_unmap_single(pdev, buffer_info->dma,
--					 adapter->rx_buffer_len,
--					 PCI_DMA_FROMDEVICE);
--			buffer_info->dma = 0;
--			skb_put(skb, length);
--			goto send_up;
--		}
--
- 		if (buffer_info->dma) {
--			u16 hlen = igb_get_hlen(adapter, rx_desc);
- 			pci_unmap_single(pdev, buffer_info->dma,
--					 adapter->rx_ps_hdr_size,
-+					 adapter->rx_buffer_len,
- 					 PCI_DMA_FROMDEVICE);
- 			buffer_info->dma = 0;
--			skb_put(skb, hlen);
-+			if (adapter->rx_buffer_len >= IGB_RXBUFFER_1024) {
-+				skb_put(skb, length);
-+				goto send_up;
-+			}
-+			skb_put(skb, igb_get_hlen(adapter, rx_desc));
- 		}
- 
- 		if (length) {
-@@ -4942,8 +4924,7 @@ static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
- 						buffer_info->page_offset,
- 						length);
- 
--			if ((adapter->rx_buffer_len > (PAGE_SIZE / 2)) ||
--			    (page_count(buffer_info->page) != 1))
-+			if (page_count(buffer_info->page) != 1)
- 				buffer_info->page = NULL;
- 			else
- 				get_page(buffer_info->page);
-@@ -5070,15 +5051,12 @@ static void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring,
- 	i = rx_ring->next_to_use;
- 	buffer_info = &rx_ring->buffer_info[i];
- 
--	if (adapter->rx_ps_hdr_size)
--		bufsz = adapter->rx_ps_hdr_size;
--	else
--		bufsz = adapter->rx_buffer_len;
-+	bufsz = adapter->rx_buffer_len;
- 
- 	while (cleaned_count--) {
- 		rx_desc = E1000_RX_DESC_ADV(*rx_ring, i);
- 
--		if (adapter->rx_ps_hdr_size && !buffer_info->page_dma) {
-+		if ((bufsz < IGB_RXBUFFER_1024) && !buffer_info->page_dma) {
- 			if (!buffer_info->page) {
- 				buffer_info->page = alloc_page(GFP_ATOMIC);
- 				if (!buffer_info->page) {
-@@ -5110,7 +5088,7 @@ static void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring,
- 		}
- 		/* Refresh the desc even if buffer_addrs didn't change because
- 		 * each write-back erases this info. */
--		if (adapter->rx_ps_hdr_size) {
-+		if (bufsz < IGB_RXBUFFER_1024) {
- 			rx_desc->read.pkt_addr =
- 			     cpu_to_le64(buffer_info->page_dma);
- 			rx_desc->read.hdr_addr = cpu_to_le64(buffer_info->dma);
++		srrctl |= E1000_SRRCTL_DESCTYPE_ADV_ONEBUF;
++	}
++
++	wr32(E1000_SRRCTL(reg_idx), srrctl);
++
+ 	/* enable receive descriptor fetching */
+ 	rxdctl = rd32(E1000_RXDCTL(reg_idx));
+ 	rxdctl |= E1000_RXDCTL_QUEUE_ENABLE;
 
