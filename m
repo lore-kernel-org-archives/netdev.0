@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 12/20] igb: place a pointer to the netdev struct
-	in the ring itself
-Date: Tue, 27 Oct 2009 18:53:06 -0700
-Message-ID: <20091028015305.12470.84217.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 14/20] igb: delay VF reset notification until
+	after interrupts are enabed
+Date: Tue, 27 Oct 2009 18:53:45 -0700
+Message-ID: <20091028015344.12470.76498.stgit@localhost.localdomain>
 References: <20091028014858.12470.99520.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,162 +12,86 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta05.westchester.pa.mail.comcast.net ([76.96.62.48]:48679
-	"EHLO QMTA05.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756819AbZJ1B4t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 21:56:49 -0400
+Received: from qmta01.westchester.pa.mail.comcast.net ([76.96.62.16]:44460
+	"EHLO QMTA01.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756821AbZJ1B51 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 21:57:27 -0400
 In-Reply-To: <20091028014858.12470.99520.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change adds a pointer to the netdev to the ring itself.  The idea being
-at some point in the future it will be possible to support multiple netdevs
-from a single adapter struct.
+This update delays the VF reset notification until after interrupts are
+enabled.  Otherwise there is a chance of having the VF try to reset itself too
+soon and being ignored by the PF as a result.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb.h      |    3 ++-
- drivers/net/igb/igb_main.c |   29 ++++++++++++++---------------
- 2 files changed, 16 insertions(+), 16 deletions(-)
+ drivers/net/igb/igb_main.c |   33 +++++++++++++++++++++++----------
+ 1 files changed, 23 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
-index 0c30c5e..2416c12 100644
---- a/drivers/net/igb/igb.h
-+++ b/drivers/net/igb/igb.h
-@@ -175,9 +175,10 @@ struct igb_q_vector {
- 
- struct igb_ring {
- 	struct igb_q_vector *q_vector; /* backlink to q_vector */
--	void *desc;                    /* descriptor ring memory */
-+	struct net_device *netdev;     /* back pointer to net_device */
- 	struct pci_dev *pdev;          /* pci device for dma mapping */
- 	dma_addr_t dma;                /* phys address of the ring */
-+	void *desc;                    /* descriptor ring memory */
- 	unsigned int size;             /* length of desc. ring in bytes */
- 	unsigned int count;            /* number of desc. in the ring */
- 	u16 next_to_use;
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 00f3f2d..3dc8e88 100644
+index ea05604..24a119e 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -101,7 +101,6 @@ static void igb_update_phy_info(unsigned long);
- static void igb_watchdog(unsigned long);
- static void igb_watchdog_task(struct work_struct *);
- static netdev_tx_t igb_xmit_frame_ring_adv(struct sk_buff *,
--					   struct net_device *,
- 					   struct igb_ring *);
- static netdev_tx_t igb_xmit_frame_adv(struct sk_buff *skb,
- 				      struct net_device *);
-@@ -437,6 +436,7 @@ static int igb_alloc_queues(struct igb_adapter *adapter)
- 		ring->count = adapter->tx_ring_count;
- 		ring->queue_index = i;
- 		ring->pdev = adapter->pdev;
-+		ring->netdev = adapter->netdev;
- 		/* For 82575, context index must be unique per ring. */
- 		if (adapter->hw.mac.type == e1000_82575)
- 			ring->flags = IGB_RING_FLAG_TX_CTX_IDX;
-@@ -447,6 +447,7 @@ static int igb_alloc_queues(struct igb_adapter *adapter)
- 		ring->count = adapter->rx_ring_count;
- 		ring->queue_index = i;
- 		ring->pdev = adapter->pdev;
-+		ring->netdev = adapter->netdev;
- 		ring->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
- 		ring->flags = IGB_RING_FLAG_RX_CSUM; /* enable rx checksum */
- 		/* set flag indicating ring supports SCTP checksum offload */
-@@ -3550,9 +3551,10 @@ static inline void igb_tx_queue_adv(struct igb_ring *tx_ring,
- 	mmiowb();
- }
+@@ -1165,6 +1165,13 @@ int igb_up(struct igb_adapter *adapter)
+ 	rd32(E1000_ICR);
+ 	igb_irq_enable(adapter);
  
--static int __igb_maybe_stop_tx(struct net_device *netdev,
--			       struct igb_ring *tx_ring, int size)
-+static int __igb_maybe_stop_tx(struct igb_ring *tx_ring, int size)
- {
-+	struct net_device *netdev = tx_ring->netdev;
++	/* notify VFs that reset has been completed */
++	if (adapter->vfs_allocated_count) {
++		u32 reg_data = rd32(E1000_CTRL_EXT);
++		reg_data |= E1000_CTRL_EXT_PFRSTD;
++		wr32(E1000_CTRL_EXT, reg_data);
++	}
 +
- 	netif_stop_subqueue(netdev, tx_ring->queue_index);
+ 	netif_tx_start_all_queues(adapter->netdev);
  
- 	/* Herbert's original patch had:
-@@ -3571,19 +3573,17 @@ static int __igb_maybe_stop_tx(struct net_device *netdev,
- 	return 0;
- }
+ 	/* Fire a link change interrupt to start the watchdog. */
+@@ -1948,6 +1955,13 @@ static int igb_open(struct net_device *netdev)
  
--static int igb_maybe_stop_tx(struct net_device *netdev,
--			     struct igb_ring *tx_ring, int size)
-+static int igb_maybe_stop_tx(struct igb_ring *tx_ring, int size)
+ 	igb_irq_enable(adapter);
+ 
++	/* notify VFs that reset has been completed */
++	if (adapter->vfs_allocated_count) {
++		u32 reg_data = rd32(E1000_CTRL_EXT);
++		reg_data |= E1000_CTRL_EXT_PFRSTD;
++		wr32(E1000_CTRL_EXT, reg_data);
++	}
++
+ 	netif_tx_start_all_queues(netdev);
+ 
+ 	/* Fire a link status change interrupt to start the watchdog. */
+@@ -5785,19 +5799,18 @@ static int igb_set_vf_mac(struct igb_adapter *adapter,
+ static void igb_vmm_control(struct igb_adapter *adapter)
  {
- 	if (igb_desc_unused(tx_ring) >= size)
- 		return 0;
--	return __igb_maybe_stop_tx(netdev, tx_ring, size);
-+	return __igb_maybe_stop_tx(tx_ring, size);
- }
- 
- static netdev_tx_t igb_xmit_frame_ring_adv(struct sk_buff *skb,
--					   struct net_device *netdev,
- 					   struct igb_ring *tx_ring)
- {
--	struct igb_adapter *adapter = netdev_priv(netdev);
-+	struct igb_adapter *adapter = netdev_priv(tx_ring->netdev);
- 	unsigned int first;
- 	unsigned int tx_flags = 0;
- 	u8 hdr_len = 0;
-@@ -3606,7 +3606,7 @@ static netdev_tx_t igb_xmit_frame_ring_adv(struct sk_buff *skb,
- 	 *       + 1 desc for skb->data,
- 	 *       + 1 desc for context descriptor,
- 	 * otherwise try next time */
--	if (igb_maybe_stop_tx(netdev, tx_ring, skb_shinfo(skb)->nr_frags + 4)) {
-+	if (igb_maybe_stop_tx(tx_ring, skb_shinfo(skb)->nr_frags + 4)) {
- 		/* this is a hard error */
- 		return NETDEV_TX_BUSY;
- 	}
-@@ -3665,7 +3665,7 @@ static netdev_tx_t igb_xmit_frame_ring_adv(struct sk_buff *skb,
- 	igb_tx_queue_adv(tx_ring, tx_flags, count, skb->len, hdr_len);
- 
- 	/* Make sure there is space in the ring for the next send. */
--	igb_maybe_stop_tx(netdev, tx_ring, MAX_SKB_FRAGS + 4);
-+	igb_maybe_stop_tx(tx_ring, MAX_SKB_FRAGS + 4);
- 
- 	return NETDEV_TX_OK;
- }
-@@ -3684,7 +3684,7 @@ static netdev_tx_t igb_xmit_frame_adv(struct sk_buff *skb,
- 	 * to a flow.  Right now, performance is impacted slightly negatively
- 	 * if using multiple tx queues.  If the stack breaks away from a
- 	 * single qdisc implementation, we can look at this again. */
--	return igb_xmit_frame_ring_adv(skb, netdev, tx_ring);
-+	return igb_xmit_frame_ring_adv(skb, tx_ring);
- }
- 
- /**
-@@ -4667,7 +4667,7 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
- {
- 	struct igb_adapter *adapter = q_vector->adapter;
- 	struct igb_ring *tx_ring = q_vector->tx_ring;
--	struct net_device *netdev = adapter->netdev;
-+	struct net_device *netdev = tx_ring->netdev;
  	struct e1000_hw *hw = &adapter->hw;
- 	struct igb_buffer *buffer_info;
- 	struct sk_buff *skb;
-@@ -4841,8 +4841,8 @@ static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
-                                  int *work_done, int budget)
- {
- 	struct igb_adapter *adapter = q_vector->adapter;
--	struct net_device *netdev = adapter->netdev;
- 	struct igb_ring *rx_ring = q_vector->rx_ring;
-+	struct net_device *netdev = rx_ring->netdev;
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct pci_dev *pdev = rx_ring->pdev;
- 	union e1000_adv_rx_desc *rx_desc , *next_rxd;
-@@ -5018,8 +5018,7 @@ next_desc:
- static void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring,
- 				     int cleaned_count)
- {
--	struct igb_adapter *adapter = rx_ring->q_vector->adapter;
--	struct net_device *netdev = adapter->netdev;
-+	struct net_device *netdev = rx_ring->netdev;
- 	union e1000_adv_rx_desc *rx_desc;
- 	struct igb_buffer *buffer_info;
- 	struct sk_buff *skb;
+-	u32 reg_data;
+ 
+-	if (!adapter->vfs_allocated_count)
++	/* replication is not supported for 82575 */
++	if (hw->mac.type == e1000_82575)
+ 		return;
+ 
+-	/* VF's need PF reset indication before they
+-	 * can send/receive mail */
+-	reg_data = rd32(E1000_CTRL_EXT);
+-	reg_data |= E1000_CTRL_EXT_PFRSTD;
+-	wr32(E1000_CTRL_EXT, reg_data);
+-
+-	igb_vmdq_set_loopback_pf(hw, true);
+-	igb_vmdq_set_replication_pf(hw, true);
++	if (adapter->vfs_allocated_count) {
++		igb_vmdq_set_loopback_pf(hw, true);
++		igb_vmdq_set_replication_pf(hw, true);
++	} else {
++		igb_vmdq_set_loopback_pf(hw, false);
++		igb_vmdq_set_replication_pf(hw, false);
++	}
+ }
+ 
+ /* igb_main.c */
 
