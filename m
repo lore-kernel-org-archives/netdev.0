@@ -1,130 +1,58 @@
-From: Gilad Ben-Yossef <gilad@codefidence.com>
-Subject: Re: [PATCHv4 0/7] Per route TCP options support kill switches
-Date: Wed, 28 Oct 2009 16:31:10 +0200
-Message-ID: <4AE855AE.306@codefidence.com>
-References: <1256739327-11576-1-git-send-email-gilad@codefidence.com> <4AE853A5.3060804@gmail.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 2/3] net: TCP thin linear timeouts
+Date: Wed, 28 Oct 2009 16:31:32 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.0910281618330.19761@wel-95.cs.helsinki.fi>
+References: <4AE72079.4030504@simula.no> <4AE7262B.1060703@gmail.com> <4AE83FE4.1050309@nets.rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, ori@comsleep.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenbox.codefidence.com ([92.48.73.16]:60882 "EHLO
-	xenbox.codefidence.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751688AbZJ1ObO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 10:31:14 -0400
-In-Reply-To: <4AE853A5.3060804@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-2146794911-1256740292=:19761"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Andreas Petlund <apetlund@simula.no>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, shemminger@vyatta.com,
+	David Miller <davem@davemloft.net>
+To: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754089AbZJ1Ob3@vger.kernel.org>
+In-Reply-To: <4AE83FE4.1050309@nets.rwth-aachen.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> Gilad Ben-Yossef a =E9crit :
->  =20
->> Allow selectively turning off support for specific TCP options
->> on a per route basis.
->>
->> One normally want to disable SACK, DSACK, time stamp or window
->> scale if one got a piece of broken networking equipment somewhere
->> as a stop gap until you can bring a big enough hammer to deal with
->> the broken network equipment. It doesn't make sense to "punish" the
->> entire connections going through the machine to destinations not
->> related to the broken equipment.
->>
->> This is doubly true when one is dealing with network containers
->> used to isolate several virtual domains.
->>
->> Per route options implemented in free bits in the features route
->> entry property, which in some cases were reserved by name for these
->> options, so this does not inflate any structure.
->>
->> Global sysctls for these options are still preserved and retain=20
->> the exact original meaning (e.g. you have to have both the global=20
->> sysctl turned on and not turn off the TCP option parsing in the
->> specific route to have it proccessed).
->>
->> It is not possible to turn off globally an option but turn it on
->> per route, so as to not subtly change the meaning of current
->> establish sysctls (and this is a rare need anyway).
->>
->> Tested on x86 using Qemu/KVM.
->>
->> Working but crude matching patch to iproute2 sent earlier to the lis=
-t.
->>
->> Patchset based on original work by Ori Finkelman and Yony Amit
->> from ComSleep Ltd.
->>
->> The author wishes to thank Eric Dumazaet, William Allen Simpson,=20
->> Bill Fink and Ilpo Jarvinen for their feedback.
->>
->>
->> Gilad Ben-Yossef (7):
->>   Only parse time stamp TCP option in time wait sock
->>   Allow tcp_parse_options to consult dst entry
->>   Add dst_feature to query route entry features
->>   Add the no SACK route option feature
->>   Allow disabling TCP timestamp options per route
->>   Allow to turn off TCP window scale opt per route
->>   Allow disabling of DSACK TCP option per route
->>
->>  include/linux/rtnetlink.h |    6 ++++--
->>  include/net/dst.h         |    8 +++++++-
->>  include/net/tcp.h         |    3 ++-
->>  net/ipv4/syncookies.c     |   27 ++++++++++++++-------------
->>  net/ipv4/tcp_input.c      |   26 ++++++++++++++++++--------
->>  net/ipv4/tcp_ipv4.c       |   21 ++++++++++++---------
->>  net/ipv4/tcp_minisocks.c  |    9 ++++++---
->>  net/ipv4/tcp_output.c     |   18 +++++++++++++-----
->>  net/ipv6/syncookies.c     |   28 +++++++++++++++-------------
->>  net/ipv6/tcp_ipv6.c       |    3 ++-
->>  10 files changed, 93 insertions(+), 56 deletions(-)
->>
->>    =20
->
-> I am a bit lost. What exactly changed in this new version, versus v3 =
-?
->
->  =20
+--8323329-2146794911-1256740292=:19761
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
+On Wed, 28 Oct 2009, Arnd Hannemann wrote:
 
-Code wise only the first patch - in tcp_timewait_state_process I
-was calling tcp_parse_options() without actually initializing
-properly the tstamp_ok field of the truct tcp_options_received
-parameter to the that function.
+> Eric Dumazet schrieb:
+> > Andreas Petlund a écrit :
+> >> This patch will make TCP use only linear timeouts if the stream is 
+> >> thin. This will help to avoid the very high latencies that thin 
+> >> stream suffer because of exponential backoff. This mechanism is only 
+> >> active if enabled by iocontrol or syscontrol and the stream is 
+> >> identified as thin. 
 
-I failed to noticed that since being a non initalized structure
-on the stack it can actually produce the required behavior
-depending on whatever random data was there.
+...I don't see how high latency is in any connection to stream being 
+"thin" or not btw. If all ACKs are lost it usually requires silence for 
+the full RTT, which affects a stream regardless of its size. ...If not all 
+ACKs are lost, then the dupACK approach in the other patch should cover 
+it already.
 
-I spotted it thanks to Williams A.S. review of my changes in that area.
+> However, addressing the proposal:
+> I wonder how one can seriously suggest to just skip congestion response 
+> during timeout-based loss recovery? I believe that in a heavily 
+> congested scenarios, this would lead to a goodput disaster... Not to 
+> mention that in a heavily congested scenario, suddenly every flow will 
+> become "thin", so this will even amplify the problems. Or did I miss 
+> something?
 
-Since I had the opportunity, I also edited the patch set description to
-better document some of the things that seemed to bug some
-of the reviewers (namely Bill F. and Williams A.S ).
+Good point. I suppose such an under-provisioned network can certainly be
+there. I have heard that at least some people who remove exponential back 
+off apply it later on nth retransmission as very often there really isn't 
+such a super heavy congestion scenario but something completely unrelated 
+to congestion which causes the RTO.
 
-Sorry for the confusion.
-
-Thanks,
-Gilad
-
-
---=20
-Gilad Ben-Yossef
-Chief Coffee Drinker & CTO
-Codefidence Ltd.
-
-Web:   http://codefidence.com
-Cell:  +972-52-8260388
-Skype: gilad_codefidence
-Tel:   +972-8-9316883 ext. 201
-=46ax:   +972-8-9316884
-Email: gilad@codefidence.com
-
-Check out our Open Source technology and training blog - http://tuxolog=
-y.net
-
-	"The biggest risk you can take it is to take no risk."
-		-- Mark Zuckerberg and probably others
-
+-- 
+ i.
+--8323329-2146794911-1256740292=:19761--
