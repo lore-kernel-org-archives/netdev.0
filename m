@@ -1,41 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: sysfs: ethtool_ops can be NULL
-Date: Wed, 28 Oct 2009 04:02:32 -0700 (PDT)
-Message-ID: <20091028.040232.174448648.davem@davemloft.net>
-References: <4AE586B5.4030308@gmail.com>
-	<20091026134033.GD1639@gospo.rdu.redhat.com>
+Subject: Re: [PATCH] net: Corrected spelling error heurestics->heuristics
+Date: Wed, 28 Oct 2009 04:02:48 -0700 (PDT)
+Message-ID: <20091028.040248.05199637.davem@davemloft.net>
+References: <4AE6F539.1020107@simula.no>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: andy@greyhouse.net
+Cc: netdev@vger.kernel.org, trivial@kernel.org,
+	linux-kernel@vger.kernel.org, ilpo.jarvinen@helsinki.fi
+To: apetlund@simula.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51938
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51942
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752621AbZJ1LCL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 07:02:11 -0400
-In-Reply-To: <20091026134033.GD1639@gospo.rdu.redhat.com>
+	by vger.kernel.org with ESMTP id S1752625AbZJ1LC1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 07:02:27 -0400
+In-Reply-To: <4AE6F539.1020107@simula.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Gospodarek <andy@greyhouse.net>
-Date: Mon, 26 Oct 2009 09:40:33 -0400
+From: Andreas Petlund <apetlund@simula.no>
+Date: Tue, 27 Oct 2009 14:27:21 +0100
 
-> On Mon, Oct 26, 2009 at 12:23:33PM +0100, Eric Dumazet wrote:
->> commit d519e17e2d01a0ee9abe083019532061b4438065
->> (net: export device speed and duplex via sysfs)
->> made the wrong assumption that netdev->ethtool_ops was always set.
->> 
->> This makes possible to crash kernel and let rtnl in locked state.
->> 
->> modprobe dummy
->> ip link set dummy0 up
->> (udev runs and crash)
->> 
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
- ...
-> Nice catch, Eric.
+> Corrected a spelling error in a function name.
 > 
-> Acked-by: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Andreas Petlund <apetlund@simula.no>
 
-Applied.
+Applied to net-next-2.6, thanks.
