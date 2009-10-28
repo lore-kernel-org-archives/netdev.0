@@ -1,75 +1,47 @@
-From: Tobi Oetiker <tobi-7K0TWYW2a3pyDzI6CaY1VQ@public.gmane.org>
-Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
- failures V2
-Date: Wed, 28 Oct 2009 13:55:26 +0100 (CET)
-Message-ID: <alpine.DEB.2.00.0910281353180.19210@sebohet.brgvxre.pu>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <20091023165810.GA4588@bizet.domek.prywatny> <20091023211239.GA6185@bizet.domek.prywatny> <9ec2d7290910240646p75b93c68v6ea1648d628a9660@mail.gmail.com>
- <20091028114208.GA14476@bizet.domek.prywatny>
+From: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+Subject: Re: [PATCH 2/3] net: TCP thin linear timeouts
+Date: Wed, 28 Oct 2009 13:58:12 +0100
+Message-ID: <4AE83FE4.1050309@nets.rwth-aachen.de>
+References: <4AE72079.4030504@simula.no> <4AE7262B.1060703@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Mel LKML <mel.lkml-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Mel Gorman <mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>,
-	Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>, Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	Sven Geggus <lists-+AJD3D7QEjjt/htJsj1pd9AswbaBtrod@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Reinette Chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>,
-	David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	Mohamed Abbas <mohamed.abbas-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Jens Axboe <jens.axboe-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
-	Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	Stephan von Krawczynski <skraw-DcQCyzbjH0jQT0dZR+AlfA@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org" <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>
-To: Karol Lewandowski <karol.k.lewandowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20091028114208.GA14476-nLtalAL5mPp2RxbNQum0x1nzlInOXLuq@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andreas Petlund <apetlund@simula.no>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, shemminger@vyatta.com,
+	ilpo.jarvinen@helsinki.fi, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752934AbZJ1M61@vger.kernel.org>
+In-reply-to: <4AE7262B.1060703@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- Today Karol Lewandowski wrote:
+Eric Dumazet schrieb:
+> Andreas Petlund a =E9crit :
+>> This patch will make TCP use only linear timeouts if the stream is t=
+hin. This will help to avoid the very high latencies that thin stream s=
+uffer because of exponential backoff. This mechanism is only active if =
+enabled by iocontrol or syscontrol and the stream is identified as thin=
+=2E
+>>
+>=20
+> Wont this reduce the session timeout to something very small, ie 15 r=
+etransmits, way under the minute ?
 
-> On Sat, Oct 24, 2009 at 02:46:56PM +0100, Mel LKML wrote:
-> > Hi,
->
-> Hi,
->
-> > On 10/23/09, Karol Lewandowski <karol.k.lewandowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> > > On Fri, Oct 23, 2009 at 06:58:10PM +0200, Karol Lewandowski wrote:
->
-> > > Ok, I've tested patches 1+2+4 and bug, while very hard to trigger, is
-> > > still present. I'll test complete 1-4 patchset as time permits.
->
-> Sorry for silence, I've been quite busy lately.
->
->
-> > And also patch 5 please which is the revert. Patch 5 as pointed out is
-> > probably a red herring. Hwoever, it has changed the timing and made a
-> > difference for some testing so I'd like to know if it helps yours as
-> > well.
->
-> I've tested patches 1+2+3+4 in my normal usage scenario (do some work,
-> suspend, do work, suspend, ...) and it failed today after 4 days (== 4
-> suspend-resume cycles).
+The session timeout no longer depends on the actual number of retransmi=
+ts. Instead its a time interval,
+which is roughly equivalent to the time a TCP, performing exponential b=
+ackoff would need to perform
+15 retransmits.
 
-I have been testing 1+2,1+2+3 as well as 3+4 and have been of the
-assumption that 3+4 does help ... I have now been runing a modified
-version of 4 which prints a warning instead of doing anything ... I
-have now seen the allocation issue again without the warning being
-printed. So in other words
+However, addressing the proposal:
+I wonder how one can seriously suggest to just skip congestion response=
+ during timeout-based
+loss recovery? I believe that in a heavily congested scenarios, this wo=
+uld lead to a goodput
+goodput disaster... Not to mention that in a heavily congested scenario=
+, suddenly every flow
+will become "thin", so this will even amplify the problems. Or did I mi=
+ss something?
 
-1+2+3 make the problem less severe, but do not solve it
-4 seems to be a red hering.
-
-cheers
-tobi
-
-
--- 
-Tobi Oetiker, OETIKER+PARTNER AG, Aarweg 15 CH-4600 Olten, Switzerland
-http://it.oetiker.ch tobi-7K0TWYW2a3pyDzI6CaY1VQ@public.gmane.org ++41 62 775 9902 / sb: -9900
+Best regards,
+Arnd
