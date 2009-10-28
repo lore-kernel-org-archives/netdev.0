@@ -1,8 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 04/20] igb: move the tx and rx ring specific
-	config into seperate functions
-Date: Tue, 27 Oct 2009 18:50:29 -0700
-Message-ID: <20091028015028.12470.94380.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 05/20] igb: remove rx_ps_hdr_len
+Date: Tue, 27 Oct 2009 18:50:48 -0700
+Message-ID: <20091028015047.12470.60710.stgit@localhost.localdomain>
 References: <20091028014858.12470.99520.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,291 +11,232 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta05.westchester.pa.mail.comcast.net ([76.96.62.48]:47048
-	"EHLO QMTA05.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756721AbZJ1ByL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 21:54:11 -0400
+Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:46057
+	"EHLO QMTA10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757185AbZJ1Byb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 21:54:31 -0400
 In-Reply-To: <20091028014858.12470.99520.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change makes the tx and rx config a bit cleaner by breaking out the ring
-specific configuration from the generic rx and tx configuration.
+This patch removes the rx_ps_hdr_len which isn't really needed since we can
+now use rx_buffer_len less than 1K to indicate that we are in a packet split
+mode.  We also don't need it since we always use a half page for the data
+buffers when receiving so we always know the size to map/unmap.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb.h      |    6 +
- drivers/net/igb/igb_main.c |  179 ++++++++++++++++++++++++++++----------------
- 2 files changed, 117 insertions(+), 68 deletions(-)
+ drivers/net/igb/igb.h      |    1 
+ drivers/net/igb/igb_main.c |   98 +++++++++++++++++---------------------------
+ 2 files changed, 38 insertions(+), 61 deletions(-)
 
 diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
-index 044ba02..1675f6a 100644
+index 1675f6a..303df02 100644
 --- a/drivers/net/igb/igb.h
 +++ b/drivers/net/igb/igb.h
-@@ -87,9 +87,13 @@ struct vf_data_storage {
-  *           descriptors until either it has this many to write back, or the
-  *           ITR timer expires.
-  */
--#define IGB_RX_PTHRESH                    16
-+#define IGB_RX_PTHRESH                    (hw->mac.type <= e1000_82576 ? 16 : 8)
- #define IGB_RX_HTHRESH                     8
- #define IGB_RX_WTHRESH                     1
-+#define IGB_TX_PTHRESH                     8
-+#define IGB_TX_HTHRESH                     1
-+#define IGB_TX_WTHRESH                     ((hw->mac.type == e1000_82576 && \
-+                                             adapter->msix_entries) ? 0 : 16)
+@@ -259,7 +259,6 @@ struct igb_adapter {
+ 	u32 alloc_rx_buff_failed;
+ 	u32 gorc;
+ 	u64 gorc_old;
+-	u16 rx_ps_hdr_size;
+ 	u32 max_frame_size;
+ 	u32 min_frame_size;
  
- /* this is the size past which hardware will drop packets when setting LPE=0 */
- #define MAXIMUM_ETHERNET_VLAN_SIZE 1522
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 6146f5d..61ef4c2 100644
+index 61ef4c2..24e502d 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -90,6 +90,7 @@ static int igb_open(struct net_device *);
- static int igb_close(struct net_device *);
- static void igb_configure_tx(struct igb_adapter *);
- static void igb_configure_rx(struct igb_adapter *);
-+static void igb_setup_tctl(struct igb_adapter *);
- static void igb_setup_rctl(struct igb_adapter *);
- static void igb_clean_all_tx_rings(struct igb_adapter *);
- static void igb_clean_all_rx_rings(struct igb_adapter *);
-@@ -1101,8 +1102,10 @@ static void igb_configure(struct igb_adapter *adapter)
+@@ -1862,7 +1862,6 @@ static int __devinit igb_sw_init(struct igb_adapter *adapter)
+ 	adapter->tx_ring_count = IGB_DEFAULT_TXD;
+ 	adapter->rx_ring_count = IGB_DEFAULT_RXD;
+ 	adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
+-	adapter->rx_ps_hdr_size = 0; /* disable packet split */
+ 	adapter->max_frame_size = netdev->mtu + ETH_HLEN + ETH_FCS_LEN;
+ 	adapter->min_frame_size = ETH_ZLEN + ETH_FCS_LEN;
  
- 	igb_restore_vlan(adapter);
+@@ -2254,12 +2253,8 @@ static void igb_setup_rctl(struct igb_adapter *adapter)
+ 	 */
+ 	rctl &= ~(E1000_RCTL_SBP | E1000_RCTL_SZ_256);
  
--	igb_configure_tx(adapter);
-+	igb_setup_tctl(adapter);
- 	igb_setup_rctl(adapter);
-+
-+	igb_configure_tx(adapter);
- 	igb_configure_rx(adapter);
+-	/* enable LPE when to prevent packets larger than max_frame_size */
+-		rctl |= E1000_RCTL_LPE;
+-
+-	/* Setup buffer sizes */
+-	srrctl = ALIGN(adapter->rx_buffer_len, 1024)
+-	         >> E1000_SRRCTL_BSIZEPKT_SHIFT;
++	/* enable LPE to prevent packets larger than max_frame_size */
++	rctl |= E1000_RCTL_LPE;
  
- 	igb_rx_fifo_flush_82575(&adapter->hw);
-@@ -2069,49 +2072,16 @@ static int igb_setup_all_tx_resources(struct igb_adapter *adapter)
+ 	/* 82575 and greater support packet-split where the protocol
+ 	 * header is placed in skb->data and the packet data is
+@@ -2270,13 +2265,20 @@ static void igb_setup_rctl(struct igb_adapter *adapter)
+ 	 */
+ 	/* allocations using alloc_page take too long for regular MTU
+ 	 * so only enable packet split for jumbo frames */
+-	if (adapter->netdev->mtu > ETH_DATA_LEN) {
+-		adapter->rx_ps_hdr_size = IGB_RXBUFFER_128;
+-		srrctl |= adapter->rx_ps_hdr_size <<
+-			 E1000_SRRCTL_BSIZEHDRSIZE_SHIFT;
++	if (adapter->rx_buffer_len < IGB_RXBUFFER_1024) {
++		srrctl = ALIGN(adapter->rx_buffer_len, 64) <<
++		         E1000_SRRCTL_BSIZEHDRSIZE_SHIFT;
++#if (PAGE_SIZE / 2) > IGB_RXBUFFER_16384
++		srrctl |= IGB_RXBUFFER_16384 >>
++		          E1000_SRRCTL_BSIZEPKT_SHIFT;
++#else
++		srrctl |= (PAGE_SIZE / 2) >>
++		          E1000_SRRCTL_BSIZEPKT_SHIFT;
++#endif
+ 		srrctl |= E1000_SRRCTL_DESCTYPE_HDR_SPLIT_ALWAYS;
+ 	} else {
+-		adapter->rx_ps_hdr_size = 0;
++		srrctl = ALIGN(adapter->rx_buffer_len, 1024) >>
++		         E1000_SRRCTL_BSIZEPKT_SHIFT;
+ 		srrctl |= E1000_SRRCTL_DESCTYPE_ADV_ONEBUF;
+ 	}
+ 
+@@ -2647,14 +2649,9 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
+ 	for (i = 0; i < rx_ring->count; i++) {
+ 		buffer_info = &rx_ring->buffer_info[i];
+ 		if (buffer_info->dma) {
+-			if (adapter->rx_ps_hdr_size)
+-				pci_unmap_single(pdev, buffer_info->dma,
+-						 adapter->rx_ps_hdr_size,
+-						 PCI_DMA_FROMDEVICE);
+-			else
+-				pci_unmap_single(pdev, buffer_info->dma,
+-						 adapter->rx_buffer_len,
+-						 PCI_DMA_FROMDEVICE);
++			pci_unmap_single(pdev, buffer_info->dma,
++					 adapter->rx_buffer_len,
++					 PCI_DMA_FROMDEVICE);
+ 			buffer_info->dma = 0;
+ 		}
+ 
+@@ -2662,14 +2659,15 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
+ 			dev_kfree_skb(buffer_info->skb);
+ 			buffer_info->skb = NULL;
+ 		}
++		if (buffer_info->page_dma) {
++			pci_unmap_page(pdev, buffer_info->page_dma,
++				       PAGE_SIZE / 2,
++				       PCI_DMA_FROMDEVICE);
++			buffer_info->page_dma = 0;
++		}
+ 		if (buffer_info->page) {
+-			if (buffer_info->page_dma)
+-				pci_unmap_page(pdev, buffer_info->page_dma,
+-					       PAGE_SIZE / 2,
+-					       PCI_DMA_FROMDEVICE);
+ 			put_page(buffer_info->page);
+ 			buffer_info->page = NULL;
+-			buffer_info->page_dma = 0;
+ 			buffer_info->page_offset = 0;
+ 		}
+ 	}
+@@ -3792,19 +3790,10 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
+ 
+ 	if (max_frame <= IGB_RXBUFFER_1024)
+ 		adapter->rx_buffer_len = IGB_RXBUFFER_1024;
+-	else if (max_frame <= IGB_RXBUFFER_2048)
+-		adapter->rx_buffer_len = IGB_RXBUFFER_2048;
+-	else
+-#if (PAGE_SIZE / 2) > IGB_RXBUFFER_16384
+-		adapter->rx_buffer_len = IGB_RXBUFFER_16384;
+-#else
+-		adapter->rx_buffer_len = PAGE_SIZE / 2;
+-#endif
+-
+-	/* adjust allocation if LPE protects us, and we aren't using SBP */
+-	if ((max_frame == ETH_FRAME_LEN + ETH_FCS_LEN) ||
+-	     (max_frame == MAXIMUM_ETHERNET_VLAN_SIZE))
++	else if (max_frame <= MAXIMUM_ETHERNET_VLAN_SIZE)
+ 		adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
++	else
++		adapter->rx_buffer_len = IGB_RXBUFFER_128;
+ 
+ 	dev_info(&adapter->pdev->dev, "changing MTU from %d to %d\n",
+ 		 netdev->mtu, new_mtu);
+@@ -4864,8 +4853,8 @@ static inline u16 igb_get_hlen(struct igb_adapter *adapter,
+ 	 */
+ 	u16 hlen = (le16_to_cpu(rx_desc->wb.lower.lo_dword.hdr_info) &
+ 	           E1000_RXDADV_HDRBUFLEN_MASK) >> E1000_RXDADV_HDRBUFLEN_SHIFT;
+-	if (hlen > adapter->rx_ps_hdr_size)
+-		hlen = adapter->rx_ps_hdr_size;
++	if (hlen > adapter->rx_buffer_len)
++		hlen = adapter->rx_buffer_len;
+ 	return hlen;
  }
  
- /**
-- * igb_configure_tx - Configure transmit Unit after Reset
-- * @adapter: board private structure
-- *
-- * Configure the Tx unit of the MAC after a reset.
-+ * igb_setup_tctl - configure the transmit control registers
-+ * @adapter: Board private structure
-  **/
--static void igb_configure_tx(struct igb_adapter *adapter)
-+static void igb_setup_tctl(struct igb_adapter *adapter)
- {
--	u64 tdba;
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 tctl;
--	u32 txdctl, txctrl;
--	int i, j;
+@@ -4913,23 +4902,16 @@ static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
+ 		cleaned = true;
+ 		cleaned_count++;
+ 
+-		/* this is the fast path for the non-packet split case */
+-		if (!adapter->rx_ps_hdr_size) {
+-			pci_unmap_single(pdev, buffer_info->dma,
+-					 adapter->rx_buffer_len,
+-					 PCI_DMA_FROMDEVICE);
+-			buffer_info->dma = 0;
+-			skb_put(skb, length);
+-			goto send_up;
+-		}
 -
--	for (i = 0; i < adapter->num_tx_queues; i++) {
--		struct igb_ring *ring = &adapter->tx_ring[i];
--		j = ring->reg_idx;
--		wr32(E1000_TDLEN(j),
--		     ring->count * sizeof(union e1000_adv_tx_desc));
--		tdba = ring->dma;
--		wr32(E1000_TDBAL(j),
--		     tdba & 0x00000000ffffffffULL);
--		wr32(E1000_TDBAH(j), tdba >> 32);
--
--		ring->head = E1000_TDH(j);
--		ring->tail = E1000_TDT(j);
--		writel(0, hw->hw_addr + ring->tail);
--		writel(0, hw->hw_addr + ring->head);
--		txdctl = rd32(E1000_TXDCTL(j));
--		txdctl |= E1000_TXDCTL_QUEUE_ENABLE;
--		wr32(E1000_TXDCTL(j), txdctl);
--
--		/* Turn off Relaxed Ordering on head write-backs.  The
--		 * writebacks MUST be delivered in order or it will
--		 * completely screw up our bookeeping.
--		 */
--		txctrl = rd32(E1000_DCA_TXCTRL(j));
--		txctrl &= ~E1000_DCA_TXCTRL_TX_WB_RO_EN;
--		wr32(E1000_DCA_TXCTRL(j), txctrl);
--	}
+ 		if (buffer_info->dma) {
+-			u16 hlen = igb_get_hlen(adapter, rx_desc);
+ 			pci_unmap_single(pdev, buffer_info->dma,
+-					 adapter->rx_ps_hdr_size,
++					 adapter->rx_buffer_len,
+ 					 PCI_DMA_FROMDEVICE);
+ 			buffer_info->dma = 0;
+-			skb_put(skb, hlen);
++			if (adapter->rx_buffer_len >= IGB_RXBUFFER_1024) {
++				skb_put(skb, length);
++				goto send_up;
++			}
++			skb_put(skb, igb_get_hlen(adapter, rx_desc));
+ 		}
  
--	/* disable queue 0 to prevent tail bump w/o re-configuration */
--	if (adapter->vfs_allocated_count)
--		wr32(E1000_TXDCTL(0), 0);
-+	/* disable queue 0 which is enabled by default on 82575 and 82576 */
-+	wr32(E1000_TXDCTL(0), 0);
+ 		if (length) {
+@@ -4942,8 +4924,7 @@ static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
+ 						buffer_info->page_offset,
+ 						length);
  
- 	/* Program the Transmit Control Register */
- 	tctl = rd32(E1000_TCTL);
-@@ -2121,9 +2091,6 @@ static void igb_configure_tx(struct igb_adapter *adapter)
+-			if ((adapter->rx_buffer_len > (PAGE_SIZE / 2)) ||
+-			    (page_count(buffer_info->page) != 1))
++			if (page_count(buffer_info->page) != 1)
+ 				buffer_info->page = NULL;
+ 			else
+ 				get_page(buffer_info->page);
+@@ -5070,15 +5051,12 @@ static void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring,
+ 	i = rx_ring->next_to_use;
+ 	buffer_info = &rx_ring->buffer_info[i];
  
- 	igb_config_collision_dist(hw);
+-	if (adapter->rx_ps_hdr_size)
+-		bufsz = adapter->rx_ps_hdr_size;
+-	else
+-		bufsz = adapter->rx_buffer_len;
++	bufsz = adapter->rx_buffer_len;
  
--	/* Setup Transmit Descriptor Settings for eop descriptor */
--	adapter->txd_cmd = E1000_TXD_CMD_EOP | E1000_TXD_CMD_RS;
--
- 	/* Enable transmits */
- 	tctl |= E1000_TCTL_EN;
+ 	while (cleaned_count--) {
+ 		rx_desc = E1000_RX_DESC_ADV(*rx_ring, i);
  
-@@ -2131,6 +2098,64 @@ static void igb_configure_tx(struct igb_adapter *adapter)
- }
- 
- /**
-+ * igb_configure_tx_ring - Configure transmit ring after Reset
-+ * @adapter: board private structure
-+ * @ring: tx ring to configure
-+ *
-+ * Configure a transmit ring after a reset.
-+ **/
-+static void igb_configure_tx_ring(struct igb_adapter *adapter,
-+                                  struct igb_ring *ring)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+	u32 txdctl;
-+	u64 tdba = ring->dma;
-+	int reg_idx = ring->reg_idx;
-+
-+	/* disable the queue */
-+	txdctl = rd32(E1000_TXDCTL(reg_idx));
-+	wr32(E1000_TXDCTL(reg_idx),
-+	                txdctl & ~E1000_TXDCTL_QUEUE_ENABLE);
-+	wrfl();
-+	mdelay(10);
-+
-+	wr32(E1000_TDLEN(reg_idx),
-+	                ring->count * sizeof(union e1000_adv_tx_desc));
-+	wr32(E1000_TDBAL(reg_idx),
-+	                tdba & 0x00000000ffffffffULL);
-+	wr32(E1000_TDBAH(reg_idx), tdba >> 32);
-+
-+	ring->head = E1000_TDH(reg_idx);
-+	ring->tail = E1000_TDT(reg_idx);
-+	writel(0, hw->hw_addr + ring->tail);
-+	writel(0, hw->hw_addr + ring->head);
-+
-+	txdctl |= IGB_TX_PTHRESH;
-+	txdctl |= IGB_TX_HTHRESH << 8;
-+	txdctl |= IGB_TX_WTHRESH << 16;
-+
-+	txdctl |= E1000_TXDCTL_QUEUE_ENABLE;
-+	wr32(E1000_TXDCTL(reg_idx), txdctl);
-+}
-+
-+/**
-+ * igb_configure_tx - Configure transmit Unit after Reset
-+ * @adapter: board private structure
-+ *
-+ * Configure the Tx unit of the MAC after a reset.
-+ **/
-+static void igb_configure_tx(struct igb_adapter *adapter)
-+{
-+	int i;
-+
-+	for (i = 0; i < adapter->num_tx_queues; i++)
-+		igb_configure_tx_ring(adapter, &adapter->tx_ring[i]);
-+
-+	/* Setup Transmit Descriptor Settings for eop descriptor */
-+	adapter->txd_cmd = E1000_TXD_CMD_EOP | E1000_TXD_CMD_RS;
-+}
-+
-+/**
-  * igb_setup_rx_resources - allocate Rx resources (Descriptors)
-  * @adapter: board private structure
-  * @rx_ring:    rx descriptor ring (for a specific queue) to setup
-@@ -2334,6 +2359,49 @@ static void igb_configure_vt_default_pool(struct igb_adapter *adapter)
- }
- 
- /**
-+ * igb_configure_rx_ring - Configure a receive ring after Reset
-+ * @adapter: board private structure
-+ * @ring: receive ring to be configured
-+ *
-+ * Configure the Rx unit of the MAC after a reset.
-+ **/
-+static void igb_configure_rx_ring(struct igb_adapter *adapter,
-+                                  struct igb_ring *ring)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+	u64 rdba = ring->dma;
-+	int reg_idx = ring->reg_idx;
-+	u32 rxdctl;
-+
-+	/* disable the queue */
-+	rxdctl = rd32(E1000_RXDCTL(reg_idx));
-+	wr32(E1000_RXDCTL(reg_idx),
-+	                rxdctl & ~E1000_RXDCTL_QUEUE_ENABLE);
-+
-+	/* Set DMA base address registers */
-+	wr32(E1000_RDBAL(reg_idx),
-+	     rdba & 0x00000000ffffffffULL);
-+	wr32(E1000_RDBAH(reg_idx), rdba >> 32);
-+	wr32(E1000_RDLEN(reg_idx),
-+	               ring->count * sizeof(union e1000_adv_rx_desc));
-+
-+	/* initialize head and tail */
-+	ring->head = E1000_RDH(reg_idx);
-+	ring->tail = E1000_RDT(reg_idx);
-+	writel(0, hw->hw_addr + ring->head);
-+	writel(0, hw->hw_addr + ring->tail);
-+
-+	/* enable receive descriptor fetching */
-+	rxdctl = rd32(E1000_RXDCTL(reg_idx));
-+	rxdctl |= E1000_RXDCTL_QUEUE_ENABLE;
-+	rxdctl &= 0xFFF00000;
-+	rxdctl |= IGB_RX_PTHRESH;
-+	rxdctl |= IGB_RX_HTHRESH << 8;
-+	rxdctl |= IGB_RX_WTHRESH << 16;
-+	wr32(E1000_RXDCTL(reg_idx), rxdctl);
-+}
-+
-+/**
-  * igb_configure_rx - Configure receive Unit after Reset
-  * @adapter: board private structure
-  *
-@@ -2341,10 +2409,8 @@ static void igb_configure_vt_default_pool(struct igb_adapter *adapter)
-  **/
- static void igb_configure_rx(struct igb_adapter *adapter)
- {
--	u64 rdba;
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 rctl, rxcsum;
--	u32 rxdctl;
- 	int i;
- 
- 	/* disable receives while setting up the descriptors */
-@@ -2358,29 +2424,8 @@ static void igb_configure_rx(struct igb_adapter *adapter)
- 
- 	/* Setup the HW Rx Head and Tail Descriptor Pointers and
- 	 * the Base and Length of the Rx Descriptor Ring */
--	for (i = 0; i < adapter->num_rx_queues; i++) {
--		struct igb_ring *ring = &adapter->rx_ring[i];
--		int j = ring->reg_idx;
--		rdba = ring->dma;
--		wr32(E1000_RDBAL(j),
--		     rdba & 0x00000000ffffffffULL);
--		wr32(E1000_RDBAH(j), rdba >> 32);
--		wr32(E1000_RDLEN(j),
--		     ring->count * sizeof(union e1000_adv_rx_desc));
--
--		ring->head = E1000_RDH(j);
--		ring->tail = E1000_RDT(j);
--		writel(0, hw->hw_addr + ring->tail);
--		writel(0, hw->hw_addr + ring->head);
--
--		rxdctl = rd32(E1000_RXDCTL(j));
--		rxdctl |= E1000_RXDCTL_QUEUE_ENABLE;
--		rxdctl &= 0xFFF00000;
--		rxdctl |= IGB_RX_PTHRESH;
--		rxdctl |= IGB_RX_HTHRESH << 8;
--		rxdctl |= IGB_RX_WTHRESH << 16;
--		wr32(E1000_RXDCTL(j), rxdctl);
--	}
-+	for (i = 0; i < adapter->num_rx_queues; i++)
-+		igb_configure_rx_ring(adapter, &adapter->rx_ring[i]);
- 
- 	if (adapter->num_rx_queues > 1) {
- 		u32 random[10];
+-		if (adapter->rx_ps_hdr_size && !buffer_info->page_dma) {
++		if ((bufsz < IGB_RXBUFFER_1024) && !buffer_info->page_dma) {
+ 			if (!buffer_info->page) {
+ 				buffer_info->page = alloc_page(GFP_ATOMIC);
+ 				if (!buffer_info->page) {
+@@ -5110,7 +5088,7 @@ static void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring,
+ 		}
+ 		/* Refresh the desc even if buffer_addrs didn't change because
+ 		 * each write-back erases this info. */
+-		if (adapter->rx_ps_hdr_size) {
++		if (bufsz < IGB_RXBUFFER_1024) {
+ 			rx_desc->read.pkt_addr =
+ 			     cpu_to_le64(buffer_info->page_dma);
+ 			rx_desc->read.hdr_addr = cpu_to_le64(buffer_info->dma);
 
