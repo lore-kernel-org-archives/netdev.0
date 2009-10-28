@@ -1,145 +1,79 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 17/23] igb: cleanup igb xmit frame path
-Date: Wed, 28 Oct 2009 02:50:57 -0700
-Message-ID: <20091028095056.13156.57574.stgit@localhost.localdomain>
-References: <20091028094540.13156.2637.stgit@localhost.localdomain>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: Re: [PATCH net-next] bnx2x: Do Tx handling in a separate
+ tasklet.
+Date: Wed, 28 Oct 2009 02:54:37 -0700
+Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADCB2CFF2028@SJEXCHCCR02.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "Eilon Greenstein" <eilong@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "David Miller " <IMCEAMAILTO-davem+40davemloft+2Enet@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.westchester.pa.mail.comcast.net ([76.96.62.96]:55621
-	"EHLO QMTA09.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752360AbZJ1Jyl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 05:54:41 -0400
-In-Reply-To: <20091028094540.13156.2637.stgit@localhost.localdomain>
+Received: from mms2.broadcom.com ([216.31.210.18]:1782 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752622AbZJ1Jyq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 05:54:46 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+I'd like to start from your last remark: you r absolutely right, and this is the problem we have in the current net-next driver. More than that, this patch is fixing this problem: it moved liberation of Tx SKBs from hardIRQ context (ISR) to the softIRQ context (tasklet) thereby resolving the problem u've mentioned. So, total agreement with u on this one. I must have named the patch differently to emphasize it.
 
-This patch cleans up the xmit frame path for igb to better handle xmit
-frame errors and avoid null pointer exceptions.  It also cleans up some
-whitespace issues found in the xmit frame path.
+I'd like to summarize the patch I've sent:
+- Take Tx SKB liberation out of hardIRQ.
+- Instead schedule a DPC that handles Tx work.
+- Optimize the access to status block indices: read only the index we are about to use in the current context.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+So, could u, pls., apply the patch in order to fix the problem we currently have in bnx2x?
 
- drivers/net/igb/igb_main.c |   30 +++++++++++++++---------------
- 1 files changed, 15 insertions(+), 15 deletions(-)
+Bullet 1 is correct but not complete: what about SKB's needed for filling Rx ring, what about Tx-only scenarios where u'd prefer to liberate SKBs from start_xmit()? Generally, we'd like to do SKB liberation both from start_xmit and from NAPI. Making it straight forward would make us take a tx_lock from inside NAPI and this is what we surely don't wan't to do. We are working on this optimization at the moment and it will be the topic of one of the next patches.
 
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index cb1acca..8f8b7cc 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -3245,9 +3245,9 @@ set_itr_now:
- #define IGB_TX_FLAGS_VLAN		0x00000002
- #define IGB_TX_FLAGS_TSO		0x00000004
- #define IGB_TX_FLAGS_IPV4		0x00000008
--#define IGB_TX_FLAGS_TSTAMP             0x00000010
--#define IGB_TX_FLAGS_VLAN_MASK	0xffff0000
--#define IGB_TX_FLAGS_VLAN_SHIFT	16
-+#define IGB_TX_FLAGS_TSTAMP		0x00000010
-+#define IGB_TX_FLAGS_VLAN_MASK		0xffff0000
-+#define IGB_TX_FLAGS_VLAN_SHIFT		        16
- 
- static inline int igb_tso_adv(struct igb_ring *tx_ring,
- 			      struct sk_buff *skb, u32 tx_flags, u8 *hdr_len)
-@@ -3346,6 +3346,7 @@ static inline bool igb_tx_csum_adv(struct igb_ring *tx_ring,
- 
- 		if (tx_flags & IGB_TX_FLAGS_VLAN)
- 			info |= (tx_flags & IGB_TX_FLAGS_VLAN_MASK);
-+
- 		info |= (skb_network_offset(skb) << E1000_ADVTXD_MACLEN_SHIFT);
- 		if (skb->ip_summed == CHECKSUM_PARTIAL)
- 			info |= skb_network_header_len(skb);
-@@ -3462,17 +3463,17 @@ static inline int igb_tx_map_adv(struct igb_ring *tx_ring, struct sk_buff *skb,
- 	tx_ring->buffer_info[i].skb = skb;
- 	tx_ring->buffer_info[first].next_to_watch = i;
- 
--	return count + 1;
-+	return ++count;
- }
- 
- static inline void igb_tx_queue_adv(struct igb_ring *tx_ring,
- 				    int tx_flags, int count, u32 paylen,
- 				    u8 hdr_len)
- {
--	union e1000_adv_tx_desc *tx_desc = NULL;
-+	union e1000_adv_tx_desc *tx_desc;
- 	struct igb_buffer *buffer_info;
- 	u32 olinfo_status = 0, cmd_type_len;
--	unsigned int i;
-+	unsigned int i = tx_ring->next_to_use;
- 
- 	cmd_type_len = (E1000_ADVTXD_DTYP_DATA | E1000_ADVTXD_DCMD_IFCS |
- 			E1000_ADVTXD_DCMD_DEXT);
-@@ -3505,18 +3506,18 @@ static inline void igb_tx_queue_adv(struct igb_ring *tx_ring,
- 
- 	olinfo_status |= ((paylen - hdr_len) << E1000_ADVTXD_PAYLEN_SHIFT);
- 
--	i = tx_ring->next_to_use;
--	while (count--) {
-+	do {
- 		buffer_info = &tx_ring->buffer_info[i];
- 		tx_desc = E1000_TX_DESC_ADV(*tx_ring, i);
- 		tx_desc->read.buffer_addr = cpu_to_le64(buffer_info->dma);
- 		tx_desc->read.cmd_type_len =
- 			cpu_to_le32(cmd_type_len | buffer_info->length);
- 		tx_desc->read.olinfo_status = cpu_to_le32(olinfo_status);
-+		count--;
- 		i++;
- 		if (i == tx_ring->count)
- 			i = 0;
--	}
-+	} while (count > 0);
- 
- 	tx_desc->read.cmd_type_len |= cpu_to_le32(IGB_ADVTXD_DCMD);
- 	/* Force memory writes to complete before letting h/w
-@@ -3568,8 +3569,7 @@ netdev_tx_t igb_xmit_frame_ring_adv(struct sk_buff *skb,
- 	unsigned int first;
- 	unsigned int tx_flags = 0;
- 	u8 hdr_len = 0;
--	int count = 0;
--	int tso = 0;
-+	int tso = 0, count;
- 	union skb_shared_tx *shtx = skb_tx(skb);
- 
- 	/* need: 1 descriptor per page,
-@@ -3587,7 +3587,7 @@ netdev_tx_t igb_xmit_frame_ring_adv(struct sk_buff *skb,
- 		tx_flags |= IGB_TX_FLAGS_TSTAMP;
- 	}
- 
--	if (adapter->vlgrp && vlan_tx_tag_present(skb)) {
-+	if (vlan_tx_tag_present(skb) && adapter->vlgrp) {
- 		tx_flags |= IGB_TX_FLAGS_VLAN;
- 		tx_flags |= (vlan_tx_tag_get(skb) << IGB_TX_FLAGS_VLAN_SHIFT);
- 	}
-@@ -3598,6 +3598,7 @@ netdev_tx_t igb_xmit_frame_ring_adv(struct sk_buff *skb,
- 	first = tx_ring->next_to_use;
- 	if (skb_is_gso(skb)) {
- 		tso = igb_tso_adv(tx_ring, skb, tx_flags, &hdr_len);
-+
- 		if (tso < 0) {
- 			dev_kfree_skb_any(skb);
- 			return NETDEV_TX_OK;
-@@ -3611,12 +3612,11 @@ netdev_tx_t igb_xmit_frame_ring_adv(struct sk_buff *skb,
- 		tx_flags |= IGB_TX_FLAGS_CSUM;
- 
- 	/*
--	 * count reflects descriptors mapped, if 0 then mapping error
-+	 * count reflects descriptors mapped, if 0 or less then mapping error
- 	 * has occured and we need to rewind the descriptor queue
- 	 */
- 	count = igb_tx_map_adv(tx_ring, skb, first);
--
--	if (!count) {
-+	if (count <= 0) {
- 		dev_kfree_skb_any(skb);
- 		tx_ring->buffer_info[first].time_stamp = 0;
- 		tx_ring->next_to_use = first;
+Regarding the second bullet u wrote: saying "low CPU consumption" in regard of Tx work in my previous e-mail I meant that CPU per packet ratio for Tx is much lower than for Rx. Sorry for being unclear.
+
+Best regards
+vlad
+
+
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Tuesday, October 27, 2009 12:28 AM
+To: Vladislav Zolotarov
+Cc: Eilon Greenstein; netdev@vger.kernel.org
+Subject: Re: [PATCH net-next] bnx2x: Do Tx handling in a separate tasklet.
+
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Date: Mon, 26 Oct 2009 07:42:27 -0700
+
+> The separation of Tx and Rx interrupt handling gives us the
+> possibility to properly affinitize the Rx (heavy CPU consuming task)
+> and Tx (low CPU consuming task) and to ensure that Tx work is done
+> not long after the Tx interrupt without interference of Rx work thus
+> letting the user benefit from Tx coalescing configuration in order
+> to achieve the best performance in each specific scenario. This is
+> most important in heavy load scenarios with mixed traffic (UDP + TCP
+> for instance). If we didn't separate Tx and Rx interrupt handling Tx
+> coalescing configuration was not worth much.
+
+There are other issues:
+
+1) Actually, it makes sense to do TX and RX work together, since TX
+   packet liberation makes fresh CPU local packets available for
+   responses generated by RX packet reception.
+
+2) TX packet liberation is not low CPU consumption, it has to perform
+   many atomic instructions, reference socket state, enter the SLAB
+   allocator, potentially liberate netfilter state, etc.
+
+Using NAPI also moves the TX freeing into softirq context.
+
+If you do it from a hardirq you are making it more expensive.  From
+hardirq the free just puts the SKB on a list, schedules a softirq,
+then does the real SKB free work from the softirq.
+
+This needless SKB list management and softirq scheduling you'll
+avoid if you do things from softirqs, and thus using NAPI makes
+sense here.
+
 
