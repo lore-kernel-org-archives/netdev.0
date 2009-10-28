@@ -1,52 +1,29 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-2.6] sfc: Really allow RX checksum offload to be
- disabled
-Date: Wed, 28 Oct 2009 10:53:58 +0000
-Message-ID: <1256727238.3136.205.camel@localhost>
-References: <1256655057.2794.4.camel@achroite>
-	 <1256672673.2794.7.camel@achroite>
-	 <20091028.024940.181264224.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2]NET/KS8695: add support NAPI for Rx
+Date: Wed, 28 Oct 2009 03:55:38 -0700 (PDT)
+Message-ID: <20091028.035538.203384490.davem@davemloft.net>
+References: <1256653422.2148.23.camel@myhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
+Cc: dsilvers@simtec.co.uk, netdev@vger.kernel.org, ben@simtec.co.uk
+To: figo1802@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:28005 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751972AbZJ1KyA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 06:54:00 -0400
-In-Reply-To: <20091028.024940.181264224.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55416
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752414AbZJ1KzR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 06:55:17 -0400
+In-Reply-To: <1256653422.2148.23.camel@myhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-10-28 at 02:49 -0700, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Tue, 27 Oct 2009 19:44:33 +0000
+From: "Figo.zhang" <figo1802@gmail.com>
+Date: Tue, 27 Oct 2009 22:23:42 +0800
+
+> Add support NAPI Rx API for KS8695NET driver.
 > 
-> > We have never checked the efx_nic::rx_checksum_enabled flag everywhere
-> > we should, and since the switch to GRO we don't check it anywhere.
-> > It's simplest to check it in the one place where we initialise the
-> > per-packet checksummed flag.
-> > 
-> > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> > Cc: stable@kernel.org
-> > ---
-> > I'm not sure whether this is serious enough to merit a stable update.
-> > It's not a recent regression.
-> 
-> This patch only applies to net-next-2.6, so I can't see how it could
-> be a -stable candidate :-)
-> 
-> So I've applied it there.
+> v2, change the Rx function to NAPI.
+ ...
+> Signed-off-by: Figo.zhang <figo1802@gmail.com>
 
-The register name update in net-next-2.6 changed the context for this
-patch.  I'll send a new patch that will apply to the earlier versions.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Applied to net-next-2.6, thanks.
