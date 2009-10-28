@@ -1,69 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] ipv6 sit: Optimize multiple unregistration
-Date: Wed, 28 Oct 2009 15:37:43 +0100
-Message-ID: <4AE85737.4000809@gmail.com>
+From: Rik van Riel <riel@redhat.com>
+Subject: TG3, kvm, ipv6 & tso data corruption bug?
+Date: Wed, 28 Oct 2009 10:46:55 -0400
+Message-ID: <4AE8595F.1080404@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: Linux kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>,
+	KVM list <kvm@vger.kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:52856 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752104AbZJ1Ohl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 10:37:41 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:40387 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754197AbZJ1Oqz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Oct 2009 10:46:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Speedup module unloading by factorizing synchronize_rcu() calls
+I have been tracking down what I thought was a KVM related network
+issue for a while, however it appears it could be a hardware issue.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv6/sit.c |   17 +++++++++++------
- 1 files changed, 11 insertions(+), 6 deletions(-)
+The symptom is that data in network packets gets corrupted, before
+the checksum is calculated.  This means the remote host can get
+corrupted data, with no way to calculate it (except application
+level checksums).  Luckily ssh has such checksums, so my rsync over
+ssh backup script discovered this issue.
 
+On a very regular basis, I got this message from ssh:
 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index b6b1626..2362a33 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -1145,16 +1145,19 @@ static struct xfrm_tunnel sit_handler = {
- 	.priority	=	1,
- };
- 
--static void sit_destroy_tunnels(struct sit_net *sitn)
-+static void sit_destroy_tunnels(struct sit_net *sitn, struct list_head *head)
- {
- 	int prio;
- 
- 	for (prio = 1; prio < 4; prio++) {
- 		int h;
- 		for (h = 0; h < HASH_SIZE; h++) {
--			struct ip_tunnel *t;
--			while ((t = sitn->tunnels[prio][h]) != NULL)
--				unregister_netdevice(t->dev);
-+			struct ip_tunnel *t = sitn->tunnels[prio][h];
-+
-+			while (t != NULL) {
-+				unregister_netdevice_queue(t->dev, head);
-+				t = t->next;
-+			}
- 		}
- 	}
- }
-@@ -1208,11 +1211,13 @@ err_alloc:
- static void sit_exit_net(struct net *net)
- {
- 	struct sit_net *sitn;
-+	LIST_HEAD(list);
- 
- 	sitn = net_generic(net, sit_net_id);
- 	rtnl_lock();
--	sit_destroy_tunnels(sitn);
--	unregister_netdevice(sitn->fb_tunnel_dev);
-+	sit_destroy_tunnels(sitn, &list);
-+	unregister_netdevice_queue(sitn->fb_tunnel_dev, &list);
-+	unregister_netdevice_many(&list);
- 	rtnl_unlock();
- 	kfree(sitn);
- }
+	Corrupted MAC on input.
+
+I have played around a bit and narrowed it down to the following:
+
+ipv4          => no problem
+ipv6 w/o tso  => no problem
+ipv6 with tso => occasional data corruption
+
+Disabling tso with ethtool -K eth0 tso off makes the problem stop.
+
+I am running Fedora 12's 2.6.31.1-56.fc12.x86_64 kernel, with the
+following hardware:
+
+05:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5761 
+Gigabit Ethernet PCIe (rev 10)
+
+I do not know enough about the network layer to know whether this is
+fixable in software or whether TSO offloading for ipv6 should just
+be disabled on this model.
+
+-- 
+All rights reversed.
