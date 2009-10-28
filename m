@@ -1,74 +1,87 @@
-From: Gilad Ben-Yossef <gilad@codefidence.com>
-Subject: [PATCHv4 7/7] Allow disabling of DSACK TCP option per route
-Date: Wed, 28 Oct 2009 16:15:27 +0200
-Message-ID: <1256739327-11576-8-git-send-email-gilad@codefidence.com>
-References: <1256739327-11576-1-git-send-email-gilad@codefidence.com>
-Cc: ori@comsleep.com
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next-2.6 PATCH v4 3/3] TCPCT part 1c: initial SYN exchange
+ with SYNACK data
+Date: Wed, 28 Oct 2009 15:17:34 +0100
+Message-ID: <4AE8527E.4080603@gmail.com>
+References: <4AE6E35C.2050101@gmail.com> <4AE6E7C0.2050408@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenbox.codefidence.com ([92.48.73.16]:58574 "EHLO
-	xenbox.codefidence.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753910AbZJ1OPf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 10:15:35 -0400
-In-Reply-To: <1256739327-11576-1-git-send-email-gilad@codefidence.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:40133 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753583AbZJ1ORc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 10:17:32 -0400
+In-Reply-To: <4AE6E7C0.2050408@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add and use no DSCAK bit in the features field.
+William Allen Simpson a =E9crit :
+> This is a significantly revised implementation of an earlier (year-ol=
+d)
+> patch that no longer applies cleanly, with permission of the original
+> author (Adam Langley).  That patch was previously reviewed:
+>=20
+>    http://thread.gmane.org/gmane.linux.network/102586
+>=20
+> The principle difference is using a TCP option to carry the cookie no=
+nce,
+> instead of a user configured offset in the data.  This is more flexib=
+le and
+> less subject to user configuration error.  Such a cookie option has b=
+een
+> suggested for many years, and is also useful without SYN data, allowi=
+ng
+> several related concepts to use the same extension option.
+>=20
+>    "Re: SYN floods (was: does history repeat itself?)", September 9, =
+1996.
+>    http://www.merit.net/mail.archives/nanog/1996-09/msg00235.html
 
-Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
-Sigend-off-by: Ori Finkelman <ori@comsleep.com>
-Sigend-off-by: Yony Amit <yony@comsleep.com>
----
- include/linux/rtnetlink.h |    1 +
- net/ipv4/tcp_input.c      |    8 ++++++--
- 2 files changed, 7 insertions(+), 2 deletions(-)
+Sorry this link might be interesting to you, but I found nothing that e=
+xplains
+your patches.
 
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index 6784b34..e78b60c 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -381,6 +381,7 @@ enum
- #define RTAX_FEATURE_NO_TSTAMP	0x00000004
- #define RTAX_FEATURE_ALLFRAG	0x00000008
- #define RTAX_FEATURE_NO_WSCALE	0x00000010
-+#define RTAX_FEATURE_NO_DSACK	0x00000020
- 
- struct rta_session
- {
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 4f5e914..4262da5 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4080,8 +4080,10 @@ static inline int tcp_sack_extend(struct tcp_sack_block *sp, u32 seq,
- static void tcp_dsack_set(struct sock *sk, u32 seq, u32 end_seq)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
-+	struct dst_entry *dst = __sk_dst_get(sk);
- 
--	if (tcp_is_sack(tp) && sysctl_tcp_dsack) {
-+	if (tcp_is_sack(tp) && sysctl_tcp_dsack &&
-+	    !dst_feature(dst, RTAX_FEATURE_NO_DSACK)) {
- 		int mib_idx;
- 
- 		if (before(seq, tp->rcv_nxt))
-@@ -4110,13 +4112,15 @@ static void tcp_dsack_extend(struct sock *sk, u32 seq, u32 end_seq)
- static void tcp_send_dupack(struct sock *sk, struct sk_buff *skb)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
-+	struct dst_entry *dst = __sk_dst_get(sk);
- 
- 	if (TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq &&
- 	    before(TCP_SKB_CB(skb)->seq, tp->rcv_nxt)) {
- 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_DELAYEDACKLOST);
- 		tcp_enter_quickack_mode(sk);
- 
--		if (tcp_is_sack(tp) && sysctl_tcp_dsack) {
-+		if (tcp_is_sack(tp) && sysctl_tcp_dsack &&
-+		    !dst_feature(dst, RTAX_FEATURE_NO_DSACK)) {
- 			u32 end_seq = TCP_SKB_CB(skb)->end_seq;
- 
- 			if (after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt))
--- 
-1.5.6.3
+>=20
+>    "Re: what a new TCP header might look like", May 12, 1998.
+>    ftp://ftp.isi.edu/end2end/end2end-interest-1998.mail
+
+Same here....
+
+>=20
+> Data structures are carefully composed to require minimal additions.
+> For example, the struct tcp_options_received cookie_plus variable fit=
+s
+> between existing 16-bit and 8-bit variables, requiring no additional
+> space (taking alignment into consideration).  There are no additions =
+to
+> tcp_request_sock, and only 1 pointer and 1 flag byte in tcp_sock.
+>=20
+> Allocations have been rearranged to avoid requiring GFP_ATOMIC, with
+> only one unavoidable exception in tcp_create_openreq_child(), where t=
+he
+> tcp_sock itself is created GFP_ATOMIC.
+>=20
+> These functions will also be used in subsequent patches that implemen=
+t
+> additional features.
+>=20
+> Requires:
+>   TCPCT part 1a: add request_values parameter for sending SYNACK
+>   TCPCT part 1b: sysctl_tcp_cookie_size, socket option
+> TCP_COOKIE_TRANSACTIONS, functions
+>=20
+> Signed-off-by: William.Allen.Simpson@gmail.com
+
+I tried to find an RFC or document about this stuff and failed.
+
+Before reading implementation code, I like to have english text that de=
+scribes
+the new concept/design.
+
+(BTW I found http://ttcplinux.sourceforge.net/theses/ETTCP.pdf and foun=
+d it interesting,
+I wonder what happened to this)
 
