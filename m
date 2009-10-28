@@ -1,93 +1,92 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: fold network name hash (v2)
-Date: Wed, 28 Oct 2009 07:07:10 +0100
-Message-ID: <4AE7DF8E.3020607@gmail.com>
-References: <9986527.24561256620662709.JavaMail.root@tahiti.vyatta.com>	<19864844.24581256620784317.JavaMail.root@tahiti.vyatta.com>	<20091026.222428.80364204.davem@davemloft.net>	<20091027102251.244ee681@nehalam> <20091027150436.56e673cd@nehalam>
+Subject: Re: iproute uses too small of a receive buffer
+Date: Wed, 28 Oct 2009 08:01:57 +0100
+Message-ID: <4AE7EC65.8000600@gmail.com>
+References: <4AE77F64.3090302@candelatech.com> <20091027162434.6dc31b2d@nehalam> <4AE78297.9000909@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, opurdila@ixiacom.com,
-	viro@zeniv.linux.org.uk
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757411AbZJ1GHS@vger.kernel.org>
-In-Reply-To: <20091027150436.56e673cd@nehalam>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	NetDev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:59655 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932087AbZJ1HB5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 03:01:57 -0400
+In-Reply-To: <4AE78297.9000909@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger a =E9crit :
-> The full_name_hash does not produce a value that is evenly distribute=
-d
-> over the lower 8 bits. This causes name hash to be unbalanced with la=
-rge
-> number of names. There is a standard function to fold in upper bits
-> so use that.
+Ben Greear a =E9crit :
 >=20
-> This is independent of possible improvements to full_name_hash()
-> in future.
+> Probably the right way is to give a cmd-line arg to set the buffer si=
+ze
+> and also continue if the error is ENOBUFs (but print some error out
+> so users know they have issues).  I can make the attempt if that
+> sounds good to you.
 
->  static inline struct hlist_head *dev_name_hash(struct net *net, cons=
-t char *name)
->  {
->  	unsigned hash =3D full_name_hash(name, strnlen(name, IFNAMSIZ));
-> -	return &net->dev_name_head[hash & ((1 << NETDEV_HASHBITS) - 1)];
-> +	return &net->dev_name_head[hash_long(hash, NETDEV_HASHBITS)];
->  }
-> =20
->  static inline struct hlist_head *dev_index_hash(struct net *net, int=
- ifindex)
+Real fix is to realloc buffer at receive time, no need for user setting=
+=2E
 
-full_name_hash() returns an "unsigned int", which is guaranteed to be 3=
-2 bits
-
-You should therefore use hash_32(hash, NETDEV_HASHBITS),
-not hash_long() that maps to hash_64() on 64 bit arches, which is
-slower and certainly not any better with a 32bits input.
+In my testings I saw it reaching 1 Mbyte
+write(2, "REALLOC buflen 8192\n"..., 20) =3D 20
+write(2, "REALLOC buflen 16384\n"..., 21) =3D 21
+write(2, "REALLOC buflen 32768\n"..., 21) =3D 21
+write(2, "REALLOC buflen 65536\n"..., 21) =3D 21
+write(2, "REALLOC buflen 131072\n"..., 22) =3D 22
+write(2, "REALLOC buflen 262144\n"..., 22) =3D 22
+write(2, "REALLOC buflen 524288\n"..., 22) =3D 22
 
 
+[iproute2] realloc buffer in rtnl_listen
 
-/* Compute the hash for a name string. */
-static inline unsigned int
-full_name_hash(const unsigned char *name, unsigned int len)
-{
-        unsigned long hash =3D init_name_hash();
-        while (len--)
-                hash =3D partial_name_hash(*name++, hash);
-        return end_name_hash(hash);
-}
+# ip monitor route
+netlink receive error No buffer space available (105)
+Dump terminated=20
 
-static inline u32 hash_32(u32 val, unsigned int bits)
-{
-        /* On some cpus multiply is faster, on others gcc will do shift=
-s */
-        u32 hash =3D val * GOLDEN_RATIO_PRIME_32;
-
-        /* High bits are more random, so use them. */
-        return hash >> (32 - bits);
-}
-
-
-static inline u64 hash_64(u64 val, unsigned int bits)
-{
-        u64 hash =3D val;
-
-        /*  Sigh, gcc can't optimise this alone like it does for 32 bit=
-s. */
-        u64 n =3D hash;
-        n <<=3D 18;
-        hash -=3D n;
-        n <<=3D 33;
-        hash -=3D n;
-        n <<=3D 3;
-        hash +=3D n;
-        n <<=3D 3;
-        hash -=3D n;
-        n <<=3D 4;
-        hash +=3D n;
-        n <<=3D 2;
-        hash +=3D n;
-
-        /* High bits are more random, so use them. */
-        return hash >> (64 - bits);
-}
+Reported-by: Ben Greear<greearb@candelatech.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index b68e2fd..134ce7f 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -392,8 +392,14 @@ int rtnl_listen(struct rtnl_handle *rtnl,
+ 		.msg_iov =3D &iov,
+ 		.msg_iovlen =3D 1,
+ 	};
+-	char   buf[8192];
++	char   *buf;
++	size_t buflen =3D 8192;
+=20
++	buf =3D malloc(buflen);
++	if (buf =3D=3D NULL) {
++		fprintf(stderr, "netlink could not alloc %lu bytes\n", buflen);
++		return -1;
++	}
+ 	memset(&nladdr, 0, sizeof(nladdr));
+ 	nladdr.nl_family =3D AF_NETLINK;
+ 	nladdr.nl_pid =3D 0;
+@@ -401,12 +407,20 @@ int rtnl_listen(struct rtnl_handle *rtnl,
+=20
+ 	iov.iov_base =3D buf;
+ 	while (1) {
+-		iov.iov_len =3D sizeof(buf);
++		iov.iov_len =3D buflen;
+ 		status =3D recvmsg(rtnl->fd, &msg, 0);
+=20
+ 		if (status < 0) {
+ 			if (errno =3D=3D EINTR || errno =3D=3D EAGAIN)
+ 				continue;
++			if (errno =3D=3D ENOBUFS) {
++				buf =3D realloc(buf, buflen * 2);
++				if (buf) {
++					buflen *=3D 2;
++					iov.iov_base =3D buf;
++					continue;
++				}
++			}
+ 			fprintf(stderr, "netlink receive error %s (%d)\n",
+ 				strerror(errno), errno);
+ 			return -1;
