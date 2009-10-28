@@ -1,45 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 4/7] fsl_pq_mdio: Add Suport for etsec2.0 devices.
-Date: Wed, 28 Oct 2009 02:43:25 -0700 (PDT)
-Message-ID: <20091028.024325.134189895.davem@davemloft.net>
-References: <12566625182528-git-send-email-sandeep.kumar@freescale.com>
+Subject: Re: [net-next-2.6 PATCH] vxge: Configure the number of transmit
+ descriptors per packet to MAX_SKB_FRAGS + 1.
+Date: Wed, 28 Oct 2009 02:47:02 -0700 (PDT)
+Message-ID: <20091028.024702.05073807.davem@davemloft.net>
+References: <Pine.GSO.4.10.10910280147520.23102-100000@guinness>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sandeep.kumar@freescale.com
+Cc: netdev@vger.kernel.org, support@neterion.com
+To: Sreenivasa.Honnur@neterion.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34787
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36182
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751759AbZJ1JnB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 05:43:01 -0400
-In-Reply-To: <12566625182528-git-send-email-sandeep.kumar@freescale.com>
+	by vger.kernel.org with ESMTP id S1750928AbZJ1Jqi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 05:46:38 -0400
+In-Reply-To: <Pine.GSO.4.10.10910280147520.23102-100000@guinness>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sandeep Gopalpet <sandeep.kumar@freescale.com>
-Date: Tue, 27 Oct 2009 22:25:18 +0530
+From: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
+Date: Wed, 28 Oct 2009 01:49:41 -0400 (EDT)
 
-> This patch adds mdio support for etsec2.0 devices.
+> - Configure the number of transmit descriptors per packet to MAX_SKB_FRAGS + 1.
 > 
-> Modified the fsl_pq_mdio structure to include the new mdio
-> members.
-> 
-> Signed-off-by: Sandeep Gopalpet <sandeep.kumar@freescale.com>
+> Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
+> Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
 
-This is the third time you've submitted this patch, and for
-the third time it DOES NOT apply to net-next-2.6 at all when
-I try to apply this gianfar patch series.
-
-You must be patching against another tree that has some changes
-that conflict with this one.
-
-Sort this out before submitting this again.
-
-If you submit once more this same series, and it doesn't apply
-properly to net-next-2.6, I will flat our ignore your submissions
-for a week or so.
-
-You are wasting that much of my time by doing this over and over.
-
-Get your act together.
+Applied, thanks.
