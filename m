@@ -1,80 +1,63 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [net-next-2.6 PATCH v4 3/3] TCPCT part 1c: initial SYN exchange
- with SYNACK data
-Date: Wed, 28 Oct 2009 13:14:01 -0400
-Message-ID: <4AE87BD9.3040703@gmail.com>
-References: <4AE6E35C.2050101@gmail.com> <4AE6E7C0.2050408@gmail.com> <4AE8527E.4080603@gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] Multicast packet reassembly can fail
+Date: Wed, 28 Oct 2009 10:18:59 -0700
+Message-ID: <4AE87D03.4020708@hp.com>
+References: <1256683583.3153.389.camel@linux-1lbu> <4AE780CB.8070401@hp.com> <4AE8776D.4020609@mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Steve Chen <schen@mvista.com>, netdev@vger.kernel.org
+To: Mark Huth <mhuth@mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:38563 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753058AbZJ1ROE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 13:14:04 -0400
-Received: by bwz19 with SMTP id 19so1214954bwz.28
-        for <netdev@vger.kernel.org>; Wed, 28 Oct 2009 10:14:08 -0700 (PDT)
-In-Reply-To: <4AE8527E.4080603@gmail.com>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:40124 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753343AbZJ1RS4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 13:18:56 -0400
+In-Reply-To: <4AE8776D.4020609@mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> William Allen Simpson a =E9crit :
->> suggested for many years, and is also useful without SYN data, allow=
-ing
->> several related concepts to use the same extension option.
+>> It has been hours since my last good Emily Litella moment so I'll ask 
+>> - isn't the combination of source and dest addr, protocol, IP ID and 
+>> fragment offset supposed to take care of this?  How does the ingress 
+>> interface have anything to do with it?
 >>
->>    "Re: SYN floods (was: does history repeat itself?)", September 9,=
- 1996.
->>    http://www.merit.net/mail.archives/nanog/1996-09/msg00235.html
->=20
-> Sorry this link might be interesting to you, but I found nothing that=
- explains
-> your patches.
->=20
->>    "Re: what a new TCP header might look like", May 12, 1998.
->>    ftp://ftp.isi.edu/end2end/end2end-interest-1998.mail
->=20
-> Same here....
->=20
-They explain the "several related concepts" -- indeed the entire scope =
-of
-the whole project.  That's why this patch series is labeled "part 1".
+>> rick jones
+> 
+> The problem we've seen arises only when there are multiple interfaces 
+> each receiving the same multicast packets.  In that case there are 
+> multiple packets with the same key.  Steve was able to track down a 
+> packet loss due to re-assembly failure under certain arrival order 
+> conditions.
+> 
+> The proposed fix eliminated the packet loss in this case.  There might 
+> be a different problem in the re-assembly code that we have masked by 
+> separating the packets into streams from each interface.  Now that you 
+> mention it, the re-assembly code should be robust in the face of some 
+> duplicated and mis-ordered packets.  We can look more closely at that code.
 
+If I understand correctly, the idea here is to say that when multiple interfaces 
+receive fragments of copies of the same  IP datagram that both copies will 
+"survive" and flow up the stack?
 
-> I tried to find an RFC or document about this stuff and failed.
->=20
-This patch series was fairly clearly described in Adam's draft last yea=
-r.
-It's expired now, but I'll send you a copy privately.
+I'm basing that on your description, and an email from Steve that reads:
 
+> Actually, the patch tries to prevent packet drop for this exact
+> scenario.  Please consider the following scenarios
+> 1.  Packet comes in the fragment reassemble code in the following order
+> (eth0 frag1), (eth0 frag2), (eth1 frag1), (eth1 frag2)
+> Packet from both interfaces get reassembled and gets further processed.
+> 
+> 2. Packet can some times arrive in (perhaps other orders as well)
+> (eth0 frag1), (eth1 frag1), (eth0 frag2), (eth1 frag2)
+> Without this patch, eth0 frag 1/2 are overwritten by eth1 frag1/2, and
+> packet from eth1 is dropped in the routing code.
 
-> Before reading implementation code, I like to have english text that =
-describes
-> the new concept/design.
->=20
-Before writing text, I like to have implementation code.... :-)
+Doesn't that rather fly in the face of the weak-end-system model followed by Linux?
 
-In fact, it has long been my position that we shouldn't publish IETF RF=
-Cs
-without running code (and I never have).  Even PPP over SOnet/SDH had
-preliminary hardware before publication.  Unfortunately, those with
-standards-bodies-itis have a sad history of the opposite.
+I can see where scenario one leads to two IP datagrams making it up the stack, 
+but I would have thought that was simply an "accident" of the situation that 
+cannot reasonably be prevented, not justification to cause scenario two to send 
+two datagrams up the stack.
 
-The Usenix ;login: overview and other documents are embargoed until
-(December) publication, but I'll send you some recent galleys privately=
-=2E
-
-
-> (BTW I found http://ttcplinux.sourceforge.net/theses/ETTCP.pdf and fo=
-und it interesting,
-> I wonder what happened to this)
->=20
-I found it too, and deliberately extended Adam's sockopt to encompass i=
-t.
-It's one reason this was renamed TCP Cookie *Transactions* (TCPCT).  Th=
-at
-will come along later, probably about parts 4 or 5.
+rick jones
