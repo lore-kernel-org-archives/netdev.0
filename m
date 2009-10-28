@@ -1,99 +1,78 @@
-From: "Kumar Gopalpet-B05799" <B05799@freescale.com>
-Subject: RE: [PATCH v2 4/7] fsl_pq_mdio: Add Suport for etsec2.0 devices.
-Date: Wed, 28 Oct 2009 17:30:02 +0530
-Message-ID: <9F4C7D19E8361D4C94921B95BE08B81B9502EA@zin33exm22.fsl.freescale.net>
-References: <12566625182528-git-send-email-sandeep.kumar@freescale.com> <20091028.024325.134189895.davem@davemloft.net>
+From: Daniel Silverstone <dsilvers@simtec.co.uk>
+Subject: Re: [PATCH V2]NET/KS8695: add support NAPI for Rx
+Date: Wed, 28 Oct 2009 12:06:44 +0000
+Message-ID: <20091028120643.GA7883@digital-scurf.org>
+References: <1256653422.2148.23.camel@myhost>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: "David Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Ben Dooks <ben@simtec.co.uk>
+To: "Figo.zhang" <figo1802@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:33320 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752670AbZJ1MAI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 08:00:08 -0400
-Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
-	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n9SC06kk000078
-	for <netdev@vger.kernel.org>; Wed, 28 Oct 2009 05:00:08 -0700 (MST)
-Received: from zin33exm22.fsl.freescale.net (zin33exm22.ap.freescale.net [10.232.192.20])
-	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id n9SC3N8t021217
-	for <netdev@vger.kernel.org>; Wed, 28 Oct 2009 07:03:24 -0500 (CDT)
-Content-class: urn:content-classes:message
-In-Reply-To: <20091028.024325.134189895.davem@davemloft.net>
+Received: from flounder.pepperfish.net ([87.237.62.181]:33013 "EHLO
+	flounder.pepperfish.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753013AbZJ1MGn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 08:06:43 -0400
+Content-Disposition: inline
+In-Reply-To: <1256653422.2148.23.camel@myhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
+On Tue, Oct 27, 2009 at 10:23:42PM +0800, Figo.zhang wrote:
+> for wan, irq = 29; for lan ,irq = 16.
+> so we can do this read the interrupt status:
+> 
+> unsigned long mask_bit = 1 << ksp->rx_irq;
+> status = readl(KS8695_IRQ_VA + KS8695_INTST);
 
->-----Original Message-----
->From: David Miller [mailto:davem@davemloft.net] 
->Sent: Wednesday, October 28, 2009 3:13 PM
->To: Kumar Gopalpet-B05799
->Cc: netdev@vger.kernel.org
->Subject: Re: [PATCH v2 4/7] fsl_pq_mdio: Add Suport for 
->etsec2.0 devices.
->
->From: Sandeep Gopalpet <sandeep.kumar@freescale.com>
->Date: Tue, 27 Oct 2009 22:25:18 +0530
->
->> This patch adds mdio support for etsec2.0 devices.
->> 
->> Modified the fsl_pq_mdio structure to include the new mdio members.
->> 
->> Signed-off-by: Sandeep Gopalpet <sandeep.kumar@freescale.com>
->
->This is the third time you've submitted this patch, and for 
->the third time it DOES NOT apply to net-next-2.6 at all when I 
->try to apply this gianfar patch series.
->
->You must be patching against another tree that has some 
->changes that conflict with this one.
->
+I hate that there's no proper IRQ functions for managing these, as Ben has
+commented.  Although I can understand that writing such is beyond the scope of
+this patch.
 
-I had rebased and tested on the master branch of the following tree
-http://www.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
+>  #define MODULENAME	"ks8695_ether"
+>  #define MODULEVERSION	"1.01"
 
-(The git protocol clone was not working, hence we used http)
-If this is not the right tree, kindly correct me.
-I could not find any other net-next-2.6 tree/branch on kernel.org.
+You still didn't update the module version.  This is a pity because you've
+potentially radically changed behaviour and you definitely have radically
+changed implementation.
+
+> +	struct napi_struct	napi;
+> +	spinlock_t rx_lock;
+
+You have not added documentation for these fields in the structure's
+documentation string.
+
+> + *	Use NAPI to receive packets.
+
+"Inform NAPI that packet reception needs to be scheduled." might be better.
+
+> +static int ks8695_rx(struct net_device *ndev, int budget)
+
+This routine lacks a documentation string. Please write one.
+
+> -	/* Kick the RX DMA engine, in case it became suspended */
+> -	ks8695_writereg(ksp, KS8695_DRSC, 0);
+
+I can't see where you have moved this to.  Without it, sometimes the KS8695's
+RX DMA engine will falter and packets won't be transferred properly.
+
+> +static int ks8695_poll(struct napi_struct *napi, int budget)
+
+This routine also lacks a documentation string.
+
+> +	netif_napi_add(ndev, &ksp->napi, ks8695_poll, 64);
+
+This '64' seems quite arbitrary.  Is it a standard default? Did you work it out
+from something else?  Some explanation would be nice.
 
 
-I have updated the tree again, (though there is no change)
-the last commit on the tree being :
+I see that Dave Miller has accepted your patch into net-next-2.6.  I'd like to
+see the above fixed before that gets merged any further.
 
-commit b37b62fea1d1bf68ca51818f8eb1035188efd030
-Author: Ben Hutchings <bhutchings@solarflare.com>
-Date:   Fri Oct 23 08:33:42 2009 +0000
+Regards,
 
-    sfc: Rename 'xfp' file and functions to reflect reality
+Daniel.
 
-    The 'XFP' driver is really a driver for the QT2022C2 and QT2025C
-PHYs,
-    covering both more and less than XFP.  Rename its functions and
-    constants to reflect reality and to reduce namespace pollution when
-    sfc is a built-in driver.
-
-    Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
- 
-Also, I have merged it with the latest linux-next tree 
-(It is already updated with the net-next-2.6.git)
-
->Sort this out before submitting this again.
-
-I am working on it.
->
->If you submit once more this same series, and it doesn't apply 
->properly to net-next-2.6, I will flat our ignore your 
->submissions for a week or so.
->
-
->You are wasting that much of my time by doing this over and over.
-I apologize for that.
->
->Get your act together.
->
+-- 
+Daniel Silverstone                              http://www.simtec.co.uk/
 
