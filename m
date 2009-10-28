@@ -1,168 +1,46 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 23/23] igb: cleanup whitespace issues in
-	igb_main.c
-Date: Wed, 28 Oct 2009 02:52:50 -0700
-Message-ID: <20091028095249.13156.85799.stgit@localhost.localdomain>
-References: <20091028094540.13156.2637.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bnx2x: Do Tx handling in a separate tasklet.
+Date: Wed, 28 Oct 2009 02:57:42 -0700 (PDT)
+Message-ID: <20091028.025742.32857568.davem@davemloft.net>
+References: <8628FE4E7912BF47A96AE7DD7BAC0AADCB2CFF2028@SJEXCHCCR02.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Cc: IMCEAMAILTO-davem+40davemloft+2Enet@broadcom.com,
+	eilong@broadcom.com, netdev@vger.kernel.org
+To: vladz@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta05.emeryville.ca.mail.comcast.net ([76.96.30.48]:43710 "EHLO
-	QMTA05.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752566AbZJ1J4d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 05:56:33 -0400
-In-Reply-To: <20091028094540.13156.2637.stgit@localhost.localdomain>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52175
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753155AbZJ1J5S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 05:57:18 -0400
+In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADCB2CFF2028@SJEXCHCCR02.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Date: Wed, 28 Oct 2009 02:54:37 -0700
 
-This patch goes through and cleans up whitespace issues in igb_main.c
-to help improve readability.
+> I'd like to start from your last remark: you r absolutely right, and this is the problem we have in the current net-next driver. More than that, this patch is fixing this problem: it moved liberation of Tx SKBs from hardIRQ context (ISR) to the softIRQ context (tasklet) thereby resolving the problem u've mentioned. So, total agreement with u on this one. I must have named the patch differently to emphasize it.
+> 
+> I'd like to summarize the patch I've sent:
+> - Take Tx SKB liberation out of hardIRQ.
+> - Instead schedule a DPC that handles Tx work.
+> - Optimize the access to status block indices: read only the index we are about to use in the current context.
+> 
+> So, could u, pls., apply the patch in order to fix the problem we currently have in bnx2x?
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+There is no reason not to use NAPI to achieve this objective and that's
+the main objection I have to your patch.
 
- drivers/net/igb/igb_main.c |   41 +++++++++++++++++++----------------------
- 1 files changed, 19 insertions(+), 22 deletions(-)
+Using NAPI will not only allow you to move the SKB freeing to softirq
+context but it will also provide fairness between multiple NAPI
+contexts active at the same time on the same cpu.
 
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 1a6c074..b044c98 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -1006,7 +1006,6 @@ static void igb_release_hw_control(struct igb_adapter *adapter)
- 			ctrl_ext & ~E1000_CTRL_EXT_DRV_LOAD);
- }
- 
--
- /**
-  * igb_get_hw_control - get control of the h/w from f/w
-  * @adapter: address of board private structure
-@@ -1067,7 +1066,6 @@ static void igb_configure(struct igb_adapter *adapter)
-  * igb_up - Open the interface and prepare it to handle traffic
-  * @adapter: board private structure
-  **/
--
- int igb_up(struct igb_adapter *adapter)
- {
- 	struct e1000_hw *hw = &adapter->hw;
-@@ -1288,7 +1286,7 @@ void igb_reset(struct igb_adapter *adapter)
- }
- 
- static const struct net_device_ops igb_netdev_ops = {
--	.ndo_open 		= igb_open,
-+	.ndo_open		= igb_open,
- 	.ndo_stop		= igb_close,
- 	.ndo_start_xmit		= igb_xmit_frame_adv,
- 	.ndo_get_stats		= igb_get_stats,
-@@ -1444,7 +1442,6 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 	netdev->features |= NETIF_F_IPV6_CSUM;
- 	netdev->features |= NETIF_F_TSO;
- 	netdev->features |= NETIF_F_TSO6;
--
- 	netdev->features |= NETIF_F_GRO;
- 
- 	netdev->vlan_features |= NETIF_F_TSO;
-@@ -1569,7 +1566,6 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 	}
- 
- #endif
--
- 	switch (hw->mac.type) {
- 	case e1000_82576:
- 		/*
-@@ -1624,8 +1620,8 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 	/* print bus type/speed/width info */
- 	dev_info(&pdev->dev, "%s: (PCIe:%s:%s) %pM\n",
- 		 netdev->name,
--		 ((hw->bus.speed == e1000_bus_speed_2500)
--		  ? "2.5Gb/s" : "unknown"),
-+		 ((hw->bus.speed == e1000_bus_speed_2500) ? "2.5Gb/s" :
-+		                                            "unknown"),
- 		 ((hw->bus.width == e1000_bus_width_pcie_x4) ? "Width x4" :
- 		  (hw->bus.width == e1000_bus_width_pcie_x2) ? "Width x2" :
- 		  (hw->bus.width == e1000_bus_width_pcie_x1) ? "Width x1" :
-@@ -1658,8 +1654,8 @@ err_sw_init:
- err_ioremap:
- 	free_netdev(netdev);
- err_alloc_etherdev:
--	pci_release_selected_regions(pdev, pci_select_bars(pdev,
--	                             IORESOURCE_MEM));
-+	pci_release_selected_regions(pdev,
-+	                             pci_select_bars(pdev, IORESOURCE_MEM));
- err_pci_reg:
- err_dma:
- 	pci_disable_device(pdev);
-@@ -1723,11 +1719,12 @@ static void __devexit igb_remove(struct pci_dev *pdev)
- 		dev_info(&pdev->dev, "IOV Disabled\n");
- 	}
- #endif
-+
- 	iounmap(hw->hw_addr);
- 	if (hw->flash_address)
- 		iounmap(hw->flash_address);
--	pci_release_selected_regions(pdev, pci_select_bars(pdev,
--	                             IORESOURCE_MEM));
-+	pci_release_selected_regions(pdev,
-+	                             pci_select_bars(pdev, IORESOURCE_MEM));
- 
- 	free_netdev(netdev);
- 
-@@ -2288,9 +2285,7 @@ void igb_setup_rctl(struct igb_adapter *adapter)
- 	 */
- 	rctl |= E1000_RCTL_SECRC;
- 
--	/*
--	 * disable store bad packets and clear size bits.
--	 */
-+	/* disable store bad packets and clear size bits. */
- 	rctl &= ~(E1000_RCTL_SBP | E1000_RCTL_SZ_256);
- 
- 	/* enable LPE to prevent packets larger than max_frame_size */
-@@ -2916,7 +2911,8 @@ static void igb_watchdog(unsigned long data)
- static void igb_watchdog_task(struct work_struct *work)
- {
- 	struct igb_adapter *adapter = container_of(work,
--					struct igb_adapter, watchdog_task);
-+	                                           struct igb_adapter,
-+                                                   watchdog_task);
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct net_device *netdev = adapter->netdev;
- 	struct igb_ring *tx_ring = adapter->tx_ring;
-@@ -2935,14 +2931,14 @@ static void igb_watchdog_task(struct work_struct *work)
- 			/* Links status message must follow this format */
- 			printk(KERN_INFO "igb: %s NIC Link is Up %d Mbps %s, "
- 				 "Flow Control: %s\n",
--			         netdev->name,
--				 adapter->link_speed,
--				 adapter->link_duplex == FULL_DUPLEX ?
-+			       netdev->name,
-+			       adapter->link_speed,
-+			       adapter->link_duplex == FULL_DUPLEX ?
- 				 "Full Duplex" : "Half Duplex",
--				 ((ctrl & E1000_CTRL_TFCE) && (ctrl &
--				 E1000_CTRL_RFCE)) ? "RX/TX" : ((ctrl &
--				 E1000_CTRL_RFCE) ? "RX" : ((ctrl &
--				 E1000_CTRL_TFCE) ? "TX" : "None")));
-+			       ((ctrl & E1000_CTRL_TFCE) &&
-+			        (ctrl & E1000_CTRL_RFCE)) ? "RX/TX" :
-+			       ((ctrl & E1000_CTRL_RFCE) ?  "RX" :
-+			       ((ctrl & E1000_CTRL_TFCE) ?  "TX" : "None")));
- 
- 			/* tweak tx_queue_len according to speed/duplex and
- 			 * adjust the timeout factor */
-@@ -3724,6 +3720,7 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
- 
- 	/* igb_down has a dependency on max_frame_size */
- 	adapter->max_frame_size = max_frame;
-+
- 	/* NOTE: netdev_alloc_skb reserves 16 bytes, and typically NET_IP_ALIGN
- 	 * means we reserve 2 more, this pushes us to allocate from the next
- 	 * larger slab size.
+Furthermore, if you combine RX and TX NAPI work for a specific queue
+into the same NAPI context, TX liberation can run first and provide
+fresh CPU local SKBs for RX packet input processing created replies
+to allocate.
 
+You haven't addressed any of that, and I am not going to apply your
+patch becuase I don't want your driver to set a precedence here.
