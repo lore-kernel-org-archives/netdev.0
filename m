@@ -1,38 +1,46 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: dev_flags definitions in broadcom.c
-Date: Wed, 28 Oct 2009 14:25:45 -0700
-Message-ID: <20091028212545.GA9055@xw6200.broadcom.net>
+From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+Subject: Re: pull request: wireless-next-2.6 2009-10-28
+Date: Wed, 28 Oct 2009 22:56:00 +0100
+Message-ID: <200910282256.00407.bzolnier@gmail.com>
+References: <20091028211031.GF2856@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Maciej W. Rozycki" <macro@linux-mips.org>,
-	"Jeff Garzik" <jgarzik@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Nate Case" <ncase@xes-inc.com>
+Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1897 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755909AbZJ1VZx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Oct 2009 17:25:53 -0400
-Content-Disposition: inline
+Received: from fg-out-1718.google.com ([72.14.220.153]:18486 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751566AbZJ1V5Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 17:57:16 -0400
+In-Reply-To: <20091028211031.GF2856@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nate, On May 17, 2008 you submitted a patch titled
-"PHYLIB: Add 1000Base-X support for Broadcom bcm5482".  In that patch
-you defined several dev_flags definitions for the broadcom module.  I
-only see the PHY_BCM_FLAGS_MODE_1000BX being used in the code though.  I
-quickly scanned through the phy_connect calls in drivers/net and didn't
-see any caller using this preprocessor definition or an equivalent
-hardcoded constant.  Perhaps I missed something though.  Can you tell me
-where these flags are set?
+On Wednesday 28 October 2009 22:10:32 John W. Linville wrote:
+> Dave,
+> 
+> I let my patches pile-up!  Yikes!!
+> 
+> This request includes the usual ton of stuff for -next -- driver
+> updates, fixes for some earlier -next stuff, a few cfg80211 changes to
+> accomodate the libertas driver, etc.  Of note is the rt2800pci support
+> added to the rt2x00 family.
 
-My interest in this is several-fold.  First, I'd like to move the
-definitions to include/linux/brcmphy.h so that the same preprocessor
-definitons can be used at both ends.  But more important than that, I'd
-like to get a handle on how many of these definitions are actually used
-and how many are just placeholders.  With only 32-bits to use, the flags
-might become a precious resource.  I have plans for a few of these bits
-myself, and I'd like reviewers to take note of how they are used.
+Unfortunately rt2800pci support is non-functioning at the moment... :(
 
+> Pleaset let me know if there are problems!
+
+I find it rather disappointing that all my review comments regarding
+rt2800pci support were just completely ignored and then the initial
+patch was merged just as it was..
+
+The way rt2800usb and rt2800pci drivers are designed really results
+in making the task of adding working support for RT28x0 and RT30x0
+chipsets to rt2x00 infrastructure more difficult and time consuming
+than it should be... :(
+
+-- 
+Bartlomiej Zolnierkiewicz
