@@ -1,346 +1,91 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 11/20] igb: add a flags value to the ring
-Date: Tue, 27 Oct 2009 18:52:46 -0700
-Message-ID: <20091028015245.12470.68744.stgit@localhost.localdomain>
-References: <20091028014858.12470.99520.stgit@localhost.localdomain>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] dcache: better name hash function
+Date: Tue, 27 Oct 2009 18:56:13 -0700
+Message-ID: <20091027185613.1a7e8398@nehalam>
+References: <19864844.24581256620784317.JavaMail.root@tahiti.vyatta.com>
+	<4AE68E23.20205@gmail.com>
+	<4AE69829.9070207@gmail.com>
+	<4AE6A16F.4020002@gmail.com>
+	<20091027100736.5303f1ab@nehalam>
+	<alpine.LFD.2.01.0910271017170.31845@localhost.localdomain>
+	<20091027160822.384dc109@nehalam>
+	<alpine.LFD.2.01.0910271636100.31845@localhost.localdomain>
+	<20091027171035.39e18383@nehalam>
+	<alpine.LFD.2.01.0910271744560.31845@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:37994
-	"EHLO QMTA10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756987AbZJ1B43 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 21:56:29 -0400
-In-Reply-To: <20091028014858.12470.99520.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Octavian Purdila <opurdila@ixiacom.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Al Viro <viro@zeniv.linux.org.uk>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932416AbZJ1B4S@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.01.0910271744560.31845@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+On Tue, 27 Oct 2009 17:58:53 -0700 (PDT)
+Linus Torvalds <torvalds@linux-foundation.org> wrote:
 
-This patch adds a flags value to the ring that cleans up some of the last
-remaining items from the ring in order to help seperate it from the adapter
-struct.  By implementing these flags it becomes possible for different rings
-to support different functions such as rx checksumming.
+> 
+> 
+> On Tue, 27 Oct 2009, Stephen Hemminger wrote:
+> > 
+> > Agreed. Here is the reduced version of the program.
+> > To run:
+> >   find /home -printf '%f\n' 2>/dev/null | ./htest -n 100
+> 
+> The timings are very sensitive to random I$ layout at least on Nehalem. 
+> The reason seems to be that the inner loop is _so_ tight that just 
+> depending on exactly where the loop ends up, you can get subtle 
+> interactions with the loop cache.
+> 
+> Look here:
+> 
+> 	[torvalds@nehalem ~]$ find /home -printf '%f\n' 2>/dev/null | ./htest -n 100
+> 	Algorithm             Time       Ratio       Max   StdDev
+> 	full_name_hash       1.141899     1.03      4868 263.37
+> 	djb2                 0.980200     1.03      4835 266.05
+> 	string10             0.909175     1.03      4850 262.67
+> 	string10a            0.673915     1.03      4850 262.67
+> 	string10b            0.909374     1.03      4850 262.67
+> 	string_hash17        0.966050     1.03      4805 263.68
+> 	string_hash31        1.008544     1.03      4807 259.37
+> 	fnv32                0.774806     1.03      4817 259.17
+> 
+> what do you think the difference between 'string10', 'string10a' and 
+> 'string10b' are?
+> 
+> None. None what-so-ever. The source code is identical, and gcc generates 
+> identical assembly language. Yet those timings are extremely stable for 
+> me, and 'string10b' is 25% faster than the identical string10 and 
+> string10a functions.
+> 
+> The only difference? 'string10a' starts aligned to just 16 bytes, but that 
+> in turn happens to mean that the tight inner loop ends up aligned on a 
+> 128-byte boundary. And being cacheline aligned just there seems to matters 
+> for some subtle micro-architectural reason.
+> 
+> The reason I noticed this is that I wondered what small modifications to 
+> 'string10' would do for performance, and noticed that even _without_ the 
+> small modifications, performance fluctuated.
+> 
+> Lesson? Microbenchmarks like this can be dangerous and misleading. That's 
+> _especially_ true if the loop ends up being just tight enough that it can 
+> fit in some trace cache or similar. In real life, the name hash is 
+> performance-critical, but at the same time almost certainly won't be run 
+> in a tight enough loop that you'd ever notice things like that.
+> 
+> 		Linus
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+Thanks. I wasn't putting huge amount of stock in the micro benchmark,
+was more interested in how the distribution worked out (which is CPU
+independent) rather than the time. As long as all usage of name hashing
+fold properly, there isn't a lot of reason to change.
 
- drivers/net/igb/igb.h         |   12 ++++-
- drivers/net/igb/igb_ethtool.c |   13 ++++--
- drivers/net/igb/igb_main.c    |   93 +++++++++++++++++++----------------------
- 3 files changed, 60 insertions(+), 58 deletions(-)
 
-diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
-index 6a67fa2..0c30c5e 100644
---- a/drivers/net/igb/igb.h
-+++ b/drivers/net/igb/igb.h
-@@ -192,6 +192,8 @@ struct igb_ring {
- 	unsigned int total_bytes;
- 	unsigned int total_packets;
- 
-+	u32 flags;
-+
- 	union {
- 		/* TX */
- 		struct {
-@@ -206,6 +208,13 @@ struct igb_ring {
- 	};
- };
- 
-+#define IGB_RING_FLAG_RX_CSUM        0x00000001 /* RX CSUM enabled */
-+#define IGB_RING_FLAG_RX_SCTP_CSUM   0x00000002 /* SCTP CSUM offload enabled */
-+
-+#define IGB_RING_FLAG_TX_CTX_IDX     0x00000001 /* HW requires context index */
-+
-+#define IGB_ADVTXD_DCMD (E1000_TXD_CMD_EOP | E1000_TXD_CMD_RS)
-+
- #define E1000_RX_DESC_ADV(R, i)	    \
- 	(&(((union e1000_adv_rx_desc *)((R).desc))[i]))
- #define E1000_TX_DESC_ADV(R, i)	    \
-@@ -245,7 +254,6 @@ struct igb_adapter {
- 	/* TX */
- 	struct igb_ring *tx_ring;      /* One per active queue */
- 	unsigned long tx_queue_len;
--	u32 txd_cmd;
- 	u32 gotc;
- 	u64 gotc_old;
- 	u64 tpt_old;
-@@ -303,8 +311,6 @@ struct igb_adapter {
- #define IGB_FLAG_HAS_MSI           (1 << 0)
- #define IGB_FLAG_DCA_ENABLED       (1 << 1)
- #define IGB_FLAG_QUAD_PORT_A       (1 << 2)
--#define IGB_FLAG_NEED_CTX_IDX      (1 << 3)
--#define IGB_FLAG_RX_CSUM_DISABLED  (1 << 4)
- 
- enum e1000_state_t {
- 	__IGB_TESTING,
-diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
-index f62430b..c44dede 100644
---- a/drivers/net/igb/igb_ethtool.c
-+++ b/drivers/net/igb/igb_ethtool.c
-@@ -279,17 +279,20 @@ static int igb_set_pauseparam(struct net_device *netdev,
- static u32 igb_get_rx_csum(struct net_device *netdev)
- {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
--	return !(adapter->flags & IGB_FLAG_RX_CSUM_DISABLED);
-+	return !!(adapter->rx_ring[0].flags & IGB_RING_FLAG_RX_CSUM);
- }
- 
- static int igb_set_rx_csum(struct net_device *netdev, u32 data)
- {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
-+	int i;
- 
--	if (data)
--		adapter->flags &= ~IGB_FLAG_RX_CSUM_DISABLED;
--	else
--		adapter->flags |= IGB_FLAG_RX_CSUM_DISABLED;
-+	for (i = 0; i < adapter->num_rx_queues; i++) {
-+		if (data)
-+			adapter->rx_ring[i].flags |= IGB_RING_FLAG_RX_CSUM;
-+		else
-+			adapter->rx_ring[i].flags &= ~IGB_RING_FLAG_RX_CSUM;
-+	}
- 
- 	return 0;
- }
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index bdd7bf0..00f3f2d 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -437,13 +437,21 @@ static int igb_alloc_queues(struct igb_adapter *adapter)
- 		ring->count = adapter->tx_ring_count;
- 		ring->queue_index = i;
- 		ring->pdev = adapter->pdev;
-+		/* For 82575, context index must be unique per ring. */
-+		if (adapter->hw.mac.type == e1000_82575)
-+			ring->flags = IGB_RING_FLAG_TX_CTX_IDX;
- 	}
-+
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
- 		struct igb_ring *ring = &(adapter->rx_ring[i]);
- 		ring->count = adapter->rx_ring_count;
- 		ring->queue_index = i;
- 		ring->pdev = adapter->pdev;
- 		ring->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
-+		ring->flags = IGB_RING_FLAG_RX_CSUM; /* enable rx checksum */
-+		/* set flag indicating ring supports SCTP checksum offload */
-+		if (adapter->hw.mac.type >= e1000_82576)
-+			ring->flags |= IGB_RING_FLAG_RX_SCTP_CSUM;
- 	}
- 
- 	igb_cache_ring_register(adapter);
-@@ -1517,16 +1525,6 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 
- 	igb_get_bus_info_pcie(hw);
- 
--	/* set flags */
--	switch (hw->mac.type) {
--	case e1000_82575:
--		adapter->flags |= IGB_FLAG_NEED_CTX_IDX;
--		break;
--	case e1000_82576:
--	default:
--		break;
--	}
--
- 	hw->phy.autoneg_wait_to_complete = false;
- 	hw->mac.adaptive_ifs = true;
- 
-@@ -2149,9 +2147,6 @@ static void igb_configure_tx(struct igb_adapter *adapter)
- 
- 	for (i = 0; i < adapter->num_tx_queues; i++)
- 		igb_configure_tx_ring(adapter, &adapter->tx_ring[i]);
--
--	/* Setup Transmit Descriptor Settings for eop descriptor */
--	adapter->txd_cmd = E1000_TXD_CMD_EOP | E1000_TXD_CMD_RS;
- }
- 
- /**
-@@ -3272,8 +3267,7 @@ set_itr_now:
- #define IGB_TX_FLAGS_VLAN_MASK	0xffff0000
- #define IGB_TX_FLAGS_VLAN_SHIFT	16
- 
--static inline int igb_tso_adv(struct igb_adapter *adapter,
--			      struct igb_ring *tx_ring,
-+static inline int igb_tso_adv(struct igb_ring *tx_ring,
- 			      struct sk_buff *skb, u32 tx_flags, u8 *hdr_len)
- {
- 	struct e1000_adv_tx_context_desc *context_desc;
-@@ -3335,8 +3329,8 @@ static inline int igb_tso_adv(struct igb_adapter *adapter,
- 	mss_l4len_idx |= (l4len << E1000_ADVTXD_L4LEN_SHIFT);
- 
- 	/* For 82575, context index must be unique per ring. */
--	if (adapter->flags & IGB_FLAG_NEED_CTX_IDX)
--		mss_l4len_idx |= tx_ring->queue_index << 4;
-+	if (tx_ring->flags & IGB_RING_FLAG_TX_CTX_IDX)
-+		mss_l4len_idx |= tx_ring->reg_idx << 4;
- 
- 	context_desc->mss_l4len_idx = cpu_to_le32(mss_l4len_idx);
- 	context_desc->seqnum_seed = 0;
-@@ -3353,9 +3347,8 @@ static inline int igb_tso_adv(struct igb_adapter *adapter,
- 	return true;
- }
- 
--static inline bool igb_tx_csum_adv(struct igb_adapter *adapter,
--					struct igb_ring *tx_ring,
--					struct sk_buff *skb, u32 tx_flags)
-+static inline bool igb_tx_csum_adv(struct igb_ring *tx_ring,
-+				   struct sk_buff *skb, u32 tx_flags)
- {
- 	struct e1000_adv_tx_context_desc *context_desc;
- 	struct pci_dev *pdev = tx_ring->pdev;
-@@ -3417,11 +3410,9 @@ static inline bool igb_tx_csum_adv(struct igb_adapter *adapter,
- 
- 		context_desc->type_tucmd_mlhl = cpu_to_le32(tu_cmd);
- 		context_desc->seqnum_seed = 0;
--		if (adapter->flags & IGB_FLAG_NEED_CTX_IDX)
-+		if (tx_ring->flags & IGB_RING_FLAG_TX_CTX_IDX)
- 			context_desc->mss_l4len_idx =
--				cpu_to_le32(tx_ring->queue_index << 4);
--		else
--			context_desc->mss_l4len_idx = 0;
-+				cpu_to_le32(tx_ring->reg_idx << 4);
- 
- 		buffer_info->time_stamp = jiffies;
- 		buffer_info->next_to_watch = i;
-@@ -3492,8 +3483,7 @@ static inline int igb_tx_map_adv(struct igb_ring *tx_ring, struct sk_buff *skb,
- 	return count + 1;
- }
- 
--static inline void igb_tx_queue_adv(struct igb_adapter *adapter,
--				    struct igb_ring *tx_ring,
-+static inline void igb_tx_queue_adv(struct igb_ring *tx_ring,
- 				    int tx_flags, int count, u32 paylen,
- 				    u8 hdr_len)
- {
-@@ -3525,10 +3515,11 @@ static inline void igb_tx_queue_adv(struct igb_adapter *adapter,
- 		olinfo_status |= E1000_TXD_POPTS_TXSM << 8;
- 	}
- 
--	if ((adapter->flags & IGB_FLAG_NEED_CTX_IDX) &&
--	    (tx_flags & (IGB_TX_FLAGS_CSUM | IGB_TX_FLAGS_TSO |
-+	if ((tx_ring->flags & IGB_RING_FLAG_TX_CTX_IDX) &&
-+	    (tx_flags & (IGB_TX_FLAGS_CSUM |
-+	                 IGB_TX_FLAGS_TSO |
- 			 IGB_TX_FLAGS_VLAN)))
--		olinfo_status |= tx_ring->queue_index << 4;
-+		olinfo_status |= tx_ring->reg_idx << 4;
- 
- 	olinfo_status |= ((paylen - hdr_len) << E1000_ADVTXD_PAYLEN_SHIFT);
- 
-@@ -3545,7 +3536,7 @@ static inline void igb_tx_queue_adv(struct igb_adapter *adapter,
- 			i = 0;
- 	}
- 
--	tx_desc->read.cmd_type_len |= cpu_to_le32(adapter->txd_cmd);
-+	tx_desc->read.cmd_type_len |= cpu_to_le32(IGB_ADVTXD_DCMD);
- 	/* Force memory writes to complete before letting h/w
- 	 * know there are new descriptors to fetch.  (Only
- 	 * applicable for weak-ordered memory model archs,
-@@ -3644,17 +3635,17 @@ static netdev_tx_t igb_xmit_frame_ring_adv(struct sk_buff *skb,
- 		tx_flags |= IGB_TX_FLAGS_IPV4;
- 
- 	first = tx_ring->next_to_use;
--	tso = skb_is_gso(skb) ? igb_tso_adv(adapter, tx_ring, skb, tx_flags,
--					      &hdr_len) : 0;
--
--	if (tso < 0) {
--		dev_kfree_skb_any(skb);
--		return NETDEV_TX_OK;
-+	if (skb_is_gso(skb)) {
-+		tso = igb_tso_adv(tx_ring, skb, tx_flags, &hdr_len);
-+		if (tso < 0) {
-+			dev_kfree_skb_any(skb);
-+			return NETDEV_TX_OK;
-+		}
- 	}
- 
- 	if (tso)
- 		tx_flags |= IGB_TX_FLAGS_TSO;
--	else if (igb_tx_csum_adv(adapter, tx_ring, skb, tx_flags) &&
-+	else if (igb_tx_csum_adv(tx_ring, skb, tx_flags) &&
- 	         (skb->ip_summed == CHECKSUM_PARTIAL))
- 		tx_flags |= IGB_TX_FLAGS_CSUM;
- 
-@@ -3664,17 +3655,18 @@ static netdev_tx_t igb_xmit_frame_ring_adv(struct sk_buff *skb,
- 	 */
- 	count = igb_tx_map_adv(tx_ring, skb, first);
- 
--	if (count) {
--		igb_tx_queue_adv(adapter, tx_ring, tx_flags, count,
--			         skb->len, hdr_len);
--		/* Make sure there is space in the ring for the next send. */
--		igb_maybe_stop_tx(netdev, tx_ring, MAX_SKB_FRAGS + 4);
--	} else {
-+	if (!count) {
- 		dev_kfree_skb_any(skb);
- 		tx_ring->buffer_info[first].time_stamp = 0;
- 		tx_ring->next_to_use = first;
-+		return NETDEV_TX_OK;
- 	}
- 
-+	igb_tx_queue_adv(tx_ring, tx_flags, count, skb->len, hdr_len);
-+
-+	/* Make sure there is space in the ring for the next send. */
-+	igb_maybe_stop_tx(netdev, tx_ring, MAX_SKB_FRAGS + 4);
-+
- 	return NETDEV_TX_OK;
- }
- 
-@@ -4800,15 +4792,15 @@ static void igb_receive_skb(struct igb_q_vector *q_vector,
- }
- 
- static inline void igb_rx_checksum_adv(struct igb_ring *ring,
--                                       struct igb_adapter *adapter,
- 				       u32 status_err, struct sk_buff *skb)
- {
- 	skb->ip_summed = CHECKSUM_NONE;
- 
- 	/* Ignore Checksum bit is set or checksum is disabled through ethtool */
--	if ((status_err & E1000_RXD_STAT_IXSM) ||
--	    (adapter->flags & IGB_FLAG_RX_CSUM_DISABLED))
-+	if (!(ring->flags & IGB_RING_FLAG_RX_CSUM) ||
-+	     (status_err & E1000_RXD_STAT_IXSM))
- 		return;
-+
- 	/* TCP/UDP checksum error bit is set */
- 	if (status_err &
- 	    (E1000_RXDEXT_STATERR_TCPE | E1000_RXDEXT_STATERR_IPE)) {
-@@ -4817,9 +4809,10 @@ static inline void igb_rx_checksum_adv(struct igb_ring *ring,
- 		 * L4E bit is set incorrectly on 64 byte (60 byte w/o crc)
- 		 * packets, (aka let the stack check the crc32c)
- 		 */
--		if (!((adapter->hw.mac.type == e1000_82576) &&
--		      (skb->len == 60)))
-+		if ((skb->len == 60) &&
-+		    (ring->flags & IGB_RING_FLAG_RX_SCTP_CSUM))
- 			ring->rx_stats.csum_err++;
-+
- 		/* let the stack verify checksum errors */
- 		return;
- 	}
-@@ -4827,7 +4820,7 @@ static inline void igb_rx_checksum_adv(struct igb_ring *ring,
- 	if (status_err & (E1000_RXD_STAT_TCPCS | E1000_RXD_STAT_UDPCS))
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
- 
--	dev_dbg(&adapter->pdev->dev, "cksum success: bits %08X\n", status_err);
-+	dev_dbg(&ring->pdev->dev, "cksum success: bits %08X\n", status_err);
- }
- 
- static inline u16 igb_get_hlen(struct igb_ring *rx_ring,
-@@ -4978,7 +4971,7 @@ send_up:
- 		total_bytes += skb->len;
- 		total_packets++;
- 
--		igb_rx_checksum_adv(rx_ring, adapter, staterr, skb);
-+		igb_rx_checksum_adv(rx_ring, staterr, skb);
- 
- 		skb->protocol = eth_type_trans(skb, netdev);
- 		skb_record_rx_queue(skb, rx_ring->queue_index);
 
+-- 
