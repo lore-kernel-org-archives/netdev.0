@@ -1,93 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] ipmr: Optimize multiple unregistration
-Date: Wed, 28 Oct 2009 16:21:38 +0100
-Message-ID: <4AE86182.80804@gmail.com>
+From: Janusz Krzysztofik <jkrzyszt@tis.icnet.pl>
+Subject: [PATCH kernel 2.6.32-rc5] [RESEND] netdev: usb: dm9601.c can drive a device not supported yet, add support for it
+Date: Wed, 28 Oct 2009 16:34:21 +0100
+Message-ID: <200910281634.23635.jkrzyszt@tis.icnet.pl>
+References: <200910222025.50405.jkrzyszt@tis.icnet.pl> <87my3jnts0.fsf@macbook.be.48ers.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Peter Korsgaard <jacmet@sunsite.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:53806 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751023AbZJ1PVg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 11:21:36 -0400
+Received: from d1.icnet.pl ([212.160.220.21]:37740 "EHLO d1.icnet.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754346AbZJ1Pem (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Oct 2009 11:34:42 -0400
+In-Reply-To: <87my3jnts0.fsf@macbook.be.48ers.dk>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Speedup module unloading by factorizing synchronize_rcu() calls
+I found that the current version of drivers/net/usb/dm9601.c can be used to
+successfully drive a low-power, low-cost network adapter with USB ID
+0a46:9000, based on a DM9000E chipset. As no device with this ID is yet
+present in the kernel, I have created a patch that adds support for the device
+to the dm9601 driver.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Created and tested against linux-2.6.32-rc5.
+
+Signed-off-by: Janusz Krzysztofik <jkrzyszt@tis.icnet.pl>
+Acked-by: Peter Korsgaard <jacmet@sunsite.dk>
+
 ---
- net/ipv4/ipmr.c |   15 ++++++++++-----
- 1 files changed, 10 insertions(+), 5 deletions(-)
+Thursday 22 October 2009 20:54:55 Peter Korsgaard wrote:
 
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 6949745..ef4ee45 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -275,7 +275,8 @@ failure:
-  *	@notify: Set to 1, if the caller is a notifier_call
-  */
+> Acked-by: Peter Korsgaard <jacmet@sunsite.dk>
+
+I'm not sure if there was sometning wrong with my initial submition, but since
+the patch, unlike others, has not been applied since acked last week, neither
+to net-2.6 nor net-next-2.6, I decided to resend it, with a slightly modified
+subject, and CC: David this time.
+
+Thanks,
+Janusz
+
+--- linux-2.6.32-rc5/drivers/net/usb/dm9601.c.orig	2009-10-22 20:14:00.000000000 +0200
++++ linux-2.6.32-rc5/drivers/net/usb/dm9601.c	2009-10-22 20:14:04.000000000 +0200
+@@ -649,6 +649,10 @@ static const struct usb_device_id produc
+ 	USB_DEVICE(0x0fe6, 0x8101),	/* DM9601 USB to Fast Ethernet Adapter */
+ 	.driver_info = (unsigned long)&dm9601_info,
+ 	 },
++	{
++	 USB_DEVICE(0x0a46, 0x9000),	/* DM9000E */
++	 .driver_info = (unsigned long)&dm9601_info,
++	 },
+ 	{},			// END
+ };
  
--static int vif_delete(struct net *net, int vifi, int notify)
-+static int vif_delete(struct net *net, int vifi, int notify,
-+		      struct list_head *head)
- {
- 	struct vif_device *v;
- 	struct net_device *dev;
-@@ -319,7 +320,7 @@ static int vif_delete(struct net *net, int vifi, int notify)
- 	}
- 
- 	if (v->flags&(VIFF_TUNNEL|VIFF_REGISTER) && !notify)
--		unregister_netdevice(dev);
-+		unregister_netdevice_queue(dev, head);
- 
- 	dev_put(dev);
- 	return 0;
-@@ -870,14 +871,16 @@ static int ipmr_mfc_add(struct net *net, struct mfcctl *mfc, int mrtsock)
- static void mroute_clean_tables(struct net *net)
- {
- 	int i;
-+	LIST_HEAD(list);
- 
- 	/*
- 	 *	Shut down all active vif entries
- 	 */
- 	for (i = 0; i < net->ipv4.maxvif; i++) {
- 		if (!(net->ipv4.vif_table[i].flags&VIFF_STATIC))
--			vif_delete(net, i, 0);
-+			vif_delete(net, i, 0, &list);
- 	}
-+	unregister_netdevice_many(&list);
- 
- 	/*
- 	 *	Wipe the cache
-@@ -993,7 +996,7 @@ int ip_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, unsi
- 		if (optname == MRT_ADD_VIF) {
- 			ret = vif_add(net, &vif, sk == net->ipv4.mroute_sk);
- 		} else {
--			ret = vif_delete(net, vif.vifc_vifi, 0);
-+			ret = vif_delete(net, vif.vifc_vifi, 0, NULL);
- 		}
- 		rtnl_unlock();
- 		return ret;
-@@ -1156,6 +1159,7 @@ static int ipmr_device_event(struct notifier_block *this, unsigned long event, v
- 	struct net *net = dev_net(dev);
- 	struct vif_device *v;
- 	int ct;
-+	LIST_HEAD(list);
- 
- 	if (!net_eq(dev_net(dev), net))
- 		return NOTIFY_DONE;
-@@ -1165,8 +1169,9 @@ static int ipmr_device_event(struct notifier_block *this, unsigned long event, v
- 	v = &net->ipv4.vif_table[0];
- 	for (ct = 0; ct < net->ipv4.maxvif; ct++, v++) {
- 		if (v->dev == dev)
--			vif_delete(net, ct, 1);
-+			vif_delete(net, ct, 1, &list);
- 	}
-+	unregister_netdevice_many(&list);
- 	return NOTIFY_DONE;
- }
- 
+
