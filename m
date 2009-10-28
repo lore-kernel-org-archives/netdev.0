@@ -1,58 +1,56 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 2/3] net: TCP thin linear timeouts
-Date: Wed, 28 Oct 2009 16:31:32 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.0910281618330.19761@wel-95.cs.helsinki.fi>
-References: <4AE72079.4030504@simula.no> <4AE7262B.1060703@gmail.com> <4AE83FE4.1050309@nets.rwth-aachen.de>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCHv2 net-2.6] sfc: Really allow RX checksum offload to be
+	disabled
+Date: Wed, 28 Oct 2009 14:34:54 +0000
+Message-ID: <1256740494.2846.19.camel@achroite>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-2146794911-1256740292=:19761"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Andreas Petlund <apetlund@simula.no>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, shemminger@vyatta.com,
-	David Miller <davem@davemloft.net>
-To: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754089AbZJ1Ob3@vger.kernel.org>
-In-Reply-To: <4AE83FE4.1050309@nets.rwth-aachen.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:34742 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751543AbZJ1Oex (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 10:34:53 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+We have never checked the efx_nic::rx_checksum_enabled flag everywhere
+we should, and since the switch to GRO we don't check it anywhere.
+It's simplest to check it in the one place where we initialise the
+per-packet checksummed flag.
 
---8323329-2146794911-1256740292=:19761
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+Cc: stable@kernel.org
+---
+This version really is applicable to net-2.6 and 2.6.31.y, and to
+2.6.27.y with fuzz 1.  I'm not sure whether this bug is serious enough
+for a stable update but it is an obvious fix.
 
-On Wed, 28 Oct 2009, Arnd Hannemann wrote:
+Ben.
 
-> Eric Dumazet schrieb:
-> > Andreas Petlund a écrit :
-> >> This patch will make TCP use only linear timeouts if the stream is 
-> >> thin. This will help to avoid the very high latencies that thin 
-> >> stream suffer because of exponential backoff. This mechanism is only 
-> >> active if enabled by iocontrol or syscontrol and the stream is 
-> >> identified as thin. 
+ drivers/net/sfc/falcon.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-...I don't see how high latency is in any connection to stream being 
-"thin" or not btw. If all ACKs are lost it usually requires silence for 
-the full RTT, which affects a stream regardless of its size. ...If not all 
-ACKs are lost, then the dupACK approach in the other patch should cover 
-it already.
-
-> However, addressing the proposal:
-> I wonder how one can seriously suggest to just skip congestion response 
-> during timeout-based loss recovery? I believe that in a heavily 
-> congested scenarios, this would lead to a goodput disaster... Not to 
-> mention that in a heavily congested scenario, suddenly every flow will 
-> become "thin", so this will even amplify the problems. Or did I miss 
-> something?
-
-Good point. I suppose such an under-provisioned network can certainly be
-there. I have heard that at least some people who remove exponential back 
-off apply it later on nth retransmission as very often there really isn't 
-such a super heavy congestion scenario but something completely unrelated 
-to congestion which causes the RTO.
+diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
+index c049364..e75674e 100644
+--- a/drivers/net/sfc/falcon.c
++++ b/drivers/net/sfc/falcon.c
+@@ -884,7 +884,9 @@ static void falcon_handle_rx_event(struct efx_channel *channel,
+ 		/* If packet is marked as OK and packet type is TCP/IPv4 or
+ 		 * UDP/IPv4, then we can rely on the hardware checksum.
+ 		 */
+-		checksummed = RX_EV_HDR_TYPE_HAS_CHECKSUMS(rx_ev_hdr_type);
++		checksummed =
++			efx->rx_checksum_enabled &&
++			RX_EV_HDR_TYPE_HAS_CHECKSUMS(rx_ev_hdr_type);
+ 	} else {
+ 		falcon_handle_rx_not_ok(rx_queue, event, &rx_ev_pkt_ok,
+ 					&discard);
 
 -- 
- i.
---8323329-2146794911-1256740292=:19761--
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
