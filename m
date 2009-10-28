@@ -1,89 +1,43 @@
-From: Steve Chen <schen@mvista.com>
-Subject: Re: [PATCH] Multicast packet reassembly can fail
-Date: Wed, 28 Oct 2009 08:32:37 -0500
-Message-ID: <1256736757.3153.412.camel@linux-1lbu>
-References: <1256683583.3153.389.camel@linux-1lbu>
-	 <4AE81A70.5060307@gmail.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: WAN device configuration, again...
+Date: Wed, 28 Oct 2009 14:28:51 +0100
+Message-ID: <m3d447hcks.fsf@intrepid.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hu47.mvista.com ([206.112.117.47]:54910 "HELO
-	gateway-1237.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with SMTP id S1753796AbZJ1NYq convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Oct 2009 09:24:46 -0400
-In-Reply-To: <4AE81A70.5060307@gmail.com>
+Received: from khc.piap.pl ([195.187.100.11]:49718 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752054AbZJ1N2t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Oct 2009 09:28:49 -0400
+Received: from intrepid.localdomain (intrepid.localdomain [10.0.0.2])
+	by khc.piap.pl (Postfix) with ESMTP id EBE9292E2
+	for <netdev@vger.kernel.org>; Wed, 28 Oct 2009 14:28:51 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-10-28 at 11:18 +0100, Eric Dumazet wrote:
-> Steve Chen a =C3=A9crit :
-> > Multicast packet reassembly can fail
-> >=20
-> > When multicast connections with multiple fragments are received by =
-the same
-> > node from more than one Ethernet ports, race condition between frag=
-ments
-> > from each Ethernet port can cause fragment reassembly to fail leadi=
-ng to
-> > packet drop.  This is because packets from each Ethernet port appea=
-rs identical
-> > to the the code that reassembles the Ethernet packet.
-> >=20
-> > The solution is evaluate the Ethernet interface number in addition =
-to all other
-> > parameters so that every packet can be uniquely identified.  The ex=
-isting
-> > iif field in struct ipq is now used to generate the hash key, and i=
-if is also
-> > used for comparison in case of hash collision.
-> >=20
-> > Please note that q->saddr ^ (q->iif << 5) is now being passed into
-> > ipqhashfn to generate the hash key.  This is borrowed from the rout=
-ing
-> > code.
-> >=20
-> > Signed-off-by: Steve Chen <schen@mvista.com>
-> > Signed-off-by: Mark Huth <mhuth@mvista.com>
-> >=20
->=20
-> This makes no sense to me, but I need to check the code.
->=20
-> How interface could matter in IP defragmentation ?
-> And why multicast is part of the equation ?
->=20
-> If defrag fails, this must be for other reason,
-> and probably needs another fix.
->=20
-> Check line 219 of net/ipv4/inet_fragment.c
->=20
-> #ifdef CONFIG_SMP
->         /* With SMP race we have to recheck hash table, because
->          * such entry could be created on other cpu, while we
->          * promoted read lock to write lock.
->          */
->         hlist_for_each_entry(qp, n, &f->hash[hash], list) {
->                 if (qp->net =3D=3D nf && f->match(qp, arg)) {
->                         atomic_inc(&qp->refcnt);
->                         write_unlock(&f->lock);
->                         qp_in->last_in |=3D INET_FRAG_COMPLETE;   <<<=
- HERE >>>
->                         inet_frag_put(qp_in, f);
->                         return qp;
->                 }
->         }
-> #endif
->=20
-> I really wonder why we set INET_FRAG_COMPLETE here
+Hi,
 
-I sent the specific scenario the patch tries to address to the list in
-an earlier e-mail.  Would it be beneficial if I post the test code
-somewhere so everyone can have access?
+I'm currently at final stages of "producing" two WAN drivers and there
+is one thing to solve: they have really complex options. It's no longer
+a V.35 with ca. 4 clock modes, a clock rate and few encodings etc. They
+need many options unique to each driver/board. I think I need a more
+capable interface to configure the devices than the current ioctl-based
+one.
 
-Regards,
+I think of something:
+- using netlink or similar interface
+- with potentially unlimited "payload" size (data may be transfered in
+  smaller packets)
+- the "command" and "response" should be variable-length ASCII-based,
+  instead of fixed structures. This way I don't have to duplicate all
+  option handling in userspace, only the specific driver has to know
+  about them.
 
-Steve
+Comments? Perhaps there is already an example?
+Should I use something else?
 
+I also thought about using /sys read/write calls, but I'm not sure it's
+a good idea.
+-- 
+Krzysztof Halasa
