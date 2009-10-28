@@ -1,43 +1,25 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: WAN device configuration, again...
-Date: Wed, 28 Oct 2009 14:28:51 +0100
-Message-ID: <m3d447hcks.fsf@intrepid.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V3]NET/KS8695: add support NAPI for Rx
+Date: Wed, 28 Oct 2009 06:37:34 -0700 (PDT)
+Message-ID: <20091028.063734.194331974.davem@davemloft.net>
+References: <1256736189.2148.30.camel@myhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dsilvers@simtec.co.uk, netdev@vger.kernel.org, ben@simtec.co.uk
+To: figo1802@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:49718 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752054AbZJ1N2t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Oct 2009 09:28:49 -0400
-Received: from intrepid.localdomain (intrepid.localdomain [10.0.0.2])
-	by khc.piap.pl (Postfix) with ESMTP id EBE9292E2
-	for <netdev@vger.kernel.org>; Wed, 28 Oct 2009 14:28:51 +0100 (CET)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33172
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753319AbZJ1NhK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 09:37:10 -0400
+In-Reply-To: <1256736189.2148.30.camel@myhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-I'm currently at final stages of "producing" two WAN drivers and there
-is one thing to solve: they have really complex options. It's no longer
-a V.35 with ca. 4 clock modes, a clock rate and few encodings etc. They
-need many options unique to each driver/board. I think I need a more
-capable interface to configure the devices than the current ioctl-based
-one.
+I said to send a relative patch against V2, so that I can
+apply it on top what you've already sent.
 
-I think of something:
-- using netlink or similar interface
-- with potentially unlimited "payload" size (data may be transfered in
-  smaller packets)
-- the "command" and "response" should be variable-length ASCII-based,
-  instead of fixed structures. This way I don't have to duplicate all
-  option handling in userspace, only the specific driver has to know
-  about them.
-
-Comments? Perhaps there is already an example?
-Should I use something else?
-
-I also thought about using /sys read/write calls, but I'm not sure it's
-a good idea.
--- 
-Krzysztof Halasa
+Why are you sending a full fresh patch after being instructed
+not to do that?
