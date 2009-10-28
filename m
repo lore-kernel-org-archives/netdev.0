@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 06/20] igb: move SRRCTL register configuration
-	into ring specific config
-Date: Tue, 27 Oct 2009 18:51:07 -0700
-Message-ID: <20091028015107.12470.34779.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 07/20] igb: change the head and tail offsets into
+	pointers
+Date: Tue, 27 Oct 2009 18:51:27 -0700
+Message-ID: <20091028015126.12470.13190.stgit@localhost.localdomain>
 References: <20091028014858.12470.99520.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,131 +12,128 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.westchester.pa.mail.comcast.net ([76.96.59.211]:36359
-	"EHLO QMTA11.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757182AbZJ1Byu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 21:54:50 -0400
+Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:46057
+	"EHLO QMTA10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756807AbZJ1BzK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 21:55:10 -0400
 In-Reply-To: <20091028014858.12470.99520.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The SRRCTL register exists per ring.  Instead of configuring all of them in
-the RCTL configuration which is meant to be global it makes more sense to move
-this out into the ring specific configuration.
+Since we are writting to the head/tail pointers frequently we might as well
+save ourselves some processing time by converting the head and tail offsets
+directly to pointers.  This will shave a few cycles off the rx/tx path and
+allows us to move one step closer to the rings being a bit more independant of
+each other.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb_main.c |   60 +++++++++++++++++---------------------------
- 1 files changed, 23 insertions(+), 37 deletions(-)
+ drivers/net/igb/igb.h      |    4 ++--
+ drivers/net/igb/igb_main.c |   32 ++++++++++++++++----------------
+ 2 files changed, 18 insertions(+), 18 deletions(-)
 
+diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
+index 303df02..e52fee4 100644
+--- a/drivers/net/igb/igb.h
++++ b/drivers/net/igb/igb.h
+@@ -178,8 +178,8 @@ struct igb_ring {
+ 	unsigned int count;            /* number of desc. in the ring */
+ 	u16 next_to_use;
+ 	u16 next_to_clean;
+-	u16 head;
+-	u16 tail;
++	void __iomem *head;
++	void __iomem *tail;
+ 	struct igb_buffer *buffer_info; /* array of buffer info structs */
+ 
+ 	u8 queue_index;
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 24e502d..dfca821 100644
+index dfca821..2728f93 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -2230,8 +2230,6 @@ static void igb_setup_rctl(struct igb_adapter *adapter)
- {
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 rctl;
--	u32 srrctl = 0;
--	int i;
+@@ -2124,10 +2124,10 @@ static void igb_configure_tx_ring(struct igb_adapter *adapter,
+ 	                tdba & 0x00000000ffffffffULL);
+ 	wr32(E1000_TDBAH(reg_idx), tdba >> 32);
  
- 	rctl = rd32(E1000_RCTL);
+-	ring->head = E1000_TDH(reg_idx);
+-	ring->tail = E1000_TDT(reg_idx);
+-	writel(0, hw->hw_addr + ring->tail);
+-	writel(0, hw->hw_addr + ring->head);
++	ring->head = hw->hw_addr + E1000_TDH(reg_idx);
++	ring->tail = hw->hw_addr + E1000_TDT(reg_idx);
++	writel(0, ring->head);
++	writel(0, ring->tail);
  
-@@ -2256,31 +2254,8 @@ static void igb_setup_rctl(struct igb_adapter *adapter)
- 	/* enable LPE to prevent packets larger than max_frame_size */
- 	rctl |= E1000_RCTL_LPE;
+ 	txdctl |= IGB_TX_PTHRESH;
+ 	txdctl |= IGB_TX_HTHRESH << 8;
+@@ -2354,10 +2354,10 @@ static void igb_configure_rx_ring(struct igb_adapter *adapter,
+ 	               ring->count * sizeof(union e1000_adv_rx_desc));
  
--	/* 82575 and greater support packet-split where the protocol
--	 * header is placed in skb->data and the packet data is
--	 * placed in pages hanging off of skb_shinfo(skb)->nr_frags.
--	 * In the case of a non-split, skb->data is linearly filled,
--	 * followed by the page buffers.  Therefore, skb->data is
--	 * sized to hold the largest protocol header.
--	 */
--	/* allocations using alloc_page take too long for regular MTU
--	 * so only enable packet split for jumbo frames */
--	if (adapter->rx_buffer_len < IGB_RXBUFFER_1024) {
--		srrctl = ALIGN(adapter->rx_buffer_len, 64) <<
--		         E1000_SRRCTL_BSIZEHDRSIZE_SHIFT;
--#if (PAGE_SIZE / 2) > IGB_RXBUFFER_16384
--		srrctl |= IGB_RXBUFFER_16384 >>
--		          E1000_SRRCTL_BSIZEPKT_SHIFT;
--#else
--		srrctl |= (PAGE_SIZE / 2) >>
--		          E1000_SRRCTL_BSIZEPKT_SHIFT;
--#endif
--		srrctl |= E1000_SRRCTL_DESCTYPE_HDR_SPLIT_ALWAYS;
--	} else {
--		srrctl = ALIGN(adapter->rx_buffer_len, 1024) >>
--		         E1000_SRRCTL_BSIZEPKT_SHIFT;
--		srrctl |= E1000_SRRCTL_DESCTYPE_ADV_ONEBUF;
--	}
-+	/* disable queue 0 to prevent tail write w/o re-config */
-+	wr32(E1000_RXDCTL(0), 0);
+ 	/* initialize head and tail */
+-	ring->head = E1000_RDH(reg_idx);
+-	ring->tail = E1000_RDT(reg_idx);
+-	writel(0, hw->hw_addr + ring->head);
+-	writel(0, hw->hw_addr + ring->tail);
++	ring->head = hw->hw_addr + E1000_RDH(reg_idx);
++	ring->tail = hw->hw_addr + E1000_RDT(reg_idx);
++	writel(0, ring->head);
++	writel(0, ring->tail);
  
- 	/* Attention!!!  For SR-IOV PF driver operations you must enable
- 	 * queue drop for all VF and PF queues to prevent head of line blocking
-@@ -2291,10 +2266,6 @@ static void igb_setup_rctl(struct igb_adapter *adapter)
+ 	/* set descriptor configuration */
+ 	if (adapter->rx_buffer_len < IGB_RXBUFFER_1024) {
+@@ -2567,8 +2567,8 @@ static void igb_clean_tx_ring(struct igb_ring *tx_ring)
+ 	tx_ring->next_to_use = 0;
+ 	tx_ring->next_to_clean = 0;
  
- 		/* set all queue drop enable bits */
- 		wr32(E1000_QDE, ALL_QUEUES);
--		srrctl |= E1000_SRRCTL_DROP_EN;
--
--		/* disable queue 0 to prevent tail write w/o re-config */
--		wr32(E1000_RXDCTL(0), 0);
- 
- 		vmolr = rd32(E1000_VMOLR(adapter->vfs_allocated_count));
- 		if (rctl & E1000_RCTL_LPE)
-@@ -2304,11 +2275,6 @@ static void igb_setup_rctl(struct igb_adapter *adapter)
- 		wr32(E1000_VMOLR(adapter->vfs_allocated_count), vmolr);
- 	}
- 
--	for (i = 0; i < adapter->num_rx_queues; i++) {
--		int j = adapter->rx_ring[i].reg_idx;
--		wr32(E1000_SRRCTL(j), srrctl);
--	}
--
- 	wr32(E1000_RCTL, rctl);
+-	writel(0, adapter->hw.hw_addr + tx_ring->head);
+-	writel(0, adapter->hw.hw_addr + tx_ring->tail);
++	writel(0, tx_ring->head);
++	writel(0, tx_ring->tail);
  }
  
-@@ -2373,7 +2339,7 @@ static void igb_configure_rx_ring(struct igb_adapter *adapter,
- 	struct e1000_hw *hw = &adapter->hw;
- 	u64 rdba = ring->dma;
- 	int reg_idx = ring->reg_idx;
--	u32 rxdctl;
-+	u32 srrctl, rxdctl;
+ /**
+@@ -2667,8 +2667,8 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
+ 	rx_ring->next_to_clean = 0;
+ 	rx_ring->next_to_use = 0;
  
- 	/* disable the queue */
- 	rxdctl = rd32(E1000_RXDCTL(reg_idx));
-@@ -2393,6 +2359,26 @@ static void igb_configure_rx_ring(struct igb_adapter *adapter,
- 	writel(0, hw->hw_addr + ring->head);
- 	writel(0, hw->hw_addr + ring->tail);
+-	writel(0, adapter->hw.hw_addr + rx_ring->head);
+-	writel(0, adapter->hw.hw_addr + rx_ring->tail);
++	writel(0, rx_ring->head);
++	writel(0, rx_ring->tail);
+ }
  
-+	/* set descriptor configuration */
-+	if (adapter->rx_buffer_len < IGB_RXBUFFER_1024) {
-+		srrctl = ALIGN(adapter->rx_buffer_len, 64) <<
-+		         E1000_SRRCTL_BSIZEHDRSIZE_SHIFT;
-+#if (PAGE_SIZE / 2) > IGB_RXBUFFER_16384
-+		srrctl |= IGB_RXBUFFER_16384 >>
-+		          E1000_SRRCTL_BSIZEPKT_SHIFT;
-+#else
-+		srrctl |= (PAGE_SIZE / 2) >>
-+		          E1000_SRRCTL_BSIZEPKT_SHIFT;
-+#endif
-+		srrctl |= E1000_SRRCTL_DESCTYPE_HDR_SPLIT_ALWAYS;
-+	} else {
-+		srrctl = ALIGN(adapter->rx_buffer_len, 1024) >>
-+		         E1000_SRRCTL_BSIZEPKT_SHIFT;
-+		srrctl |= E1000_SRRCTL_DESCTYPE_ADV_ONEBUF;
-+	}
-+
-+	wr32(E1000_SRRCTL(reg_idx), srrctl);
-+
- 	/* enable receive descriptor fetching */
- 	rxdctl = rd32(E1000_RXDCTL(reg_idx));
- 	rxdctl |= E1000_RXDCTL_QUEUE_ENABLE;
+ /**
+@@ -3556,7 +3556,7 @@ static inline void igb_tx_queue_adv(struct igb_adapter *adapter,
+ 	wmb();
+ 
+ 	tx_ring->next_to_use = i;
+-	writel(i, adapter->hw.hw_addr + tx_ring->tail);
++	writel(i, tx_ring->tail);
+ 	/* we need this if more than one processor can write to our tail
+ 	 * at a time, it syncronizes IO on IA64/Altix systems */
+ 	mmiowb();
+@@ -4761,8 +4761,8 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
+ 				"  jiffies              <%lx>\n"
+ 				"  desc.status          <%x>\n",
+ 				tx_ring->queue_index,
+-				readl(adapter->hw.hw_addr + tx_ring->head),
+-				readl(adapter->hw.hw_addr + tx_ring->tail),
++				readl(tx_ring->head),
++				readl(tx_ring->tail),
+ 				tx_ring->next_to_use,
+ 				tx_ring->next_to_clean,
+ 				tx_ring->buffer_info[i].time_stamp,
+@@ -5103,7 +5103,7 @@ no_buffers:
+ 		 * applicable for weak-ordered memory model archs,
+ 		 * such as IA-64). */
+ 		wmb();
+-		writel(i, adapter->hw.hw_addr + rx_ring->tail);
++		writel(i, rx_ring->tail);
+ 	}
+ }
+ 
 
