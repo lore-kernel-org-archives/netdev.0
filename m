@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 06/23] igb: rework use of VMOLR in regards to PF
-	and VFs
-Date: Wed, 28 Oct 2009 02:47:16 -0700
-Message-ID: <20091028094715.13156.99653.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 07/23] igb: rework handling of the vfta and vlvf
+	registers in relation to mng_vlan
+Date: Wed, 28 Oct 2009 02:47:35 -0700
+Message-ID: <20091028094734.13156.1387.stgit@localhost.localdomain>
 References: <20091028094540.13156.2637.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,334 +12,210 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta15.emeryville.ca.mail.comcast.net ([76.96.27.228]:57561
-	"EHLO QMTA15.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752103AbZJ1JvA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 05:51:00 -0400
+Received: from qmta02.emeryville.ca.mail.comcast.net ([76.96.30.24]:50346 "EHLO
+	QMTA02.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751790AbZJ1JvS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 05:51:18 -0400
 In-Reply-To: <20091028094540.13156.2637.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch updates the use of the VMOLR to include enabling multicast
-promiscous for the VFs should they attempt to send over 30 multicast
-addresses or if they use the new message type to enable multicast
-promiscuous.
+This patch corrects some errors in how vlans are being handled when vfs
+start interacting with the management vlans.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/e1000_mbx.h |   10 +-
- drivers/net/igb/igb.h       |    2 
- drivers/net/igb/igb_main.c  |  173 +++++++++++++++++++++++++++++--------------
- 3 files changed, 125 insertions(+), 60 deletions(-)
+ drivers/net/igb/igb_main.c |   94 +++++++++++++++-----------------------------
+ 1 files changed, 32 insertions(+), 62 deletions(-)
 
-diff --git a/drivers/net/igb/e1000_mbx.h b/drivers/net/igb/e1000_mbx.h
-index ebc02ea..bb112fb 100644
---- a/drivers/net/igb/e1000_mbx.h
-+++ b/drivers/net/igb/e1000_mbx.h
-@@ -58,10 +58,12 @@
- #define E1000_VT_MSGINFO_MASK     (0xFF << E1000_VT_MSGINFO_SHIFT)
- 
- #define E1000_VF_RESET            0x01 /* VF requests reset */
--#define E1000_VF_SET_MAC_ADDR     0x02 /* VF requests PF to set MAC addr */
--#define E1000_VF_SET_MULTICAST    0x03 /* VF requests PF to set MC addr */
--#define E1000_VF_SET_VLAN         0x04 /* VF requests PF to set VLAN */
--#define E1000_VF_SET_LPE          0x05 /* VF requests PF to set VMOLR.LPE */
-+#define E1000_VF_SET_MAC_ADDR     0x02 /* VF requests to set MAC addr */
-+#define E1000_VF_SET_MULTICAST    0x03 /* VF requests to set MC addr */
-+#define E1000_VF_SET_VLAN         0x04 /* VF requests to set VLAN */
-+#define E1000_VF_SET_LPE          0x05 /* VF requests to set VMOLR.LPE */
-+#define E1000_VF_SET_PROMISC      0x06 /*VF requests to clear VMOLR.ROPE/MPME*/
-+#define E1000_VF_SET_PROMISC_MULTICAST    (0x02 << E1000_VT_MSGINFO_SHIFT)
- 
- #define E1000_PF_CONTROL_MSG      0x0100 /* PF control message */
- 
-diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
-index 7801d3f..c27dc1a 100644
---- a/drivers/net/igb/igb.h
-+++ b/drivers/net/igb/igb.h
-@@ -78,6 +78,8 @@ struct vf_data_storage {
- };
- 
- #define IGB_VF_FLAG_CTS            0x00000001 /* VF is clear to send data */
-+#define IGB_VF_FLAG_UNI_PROMISC    0x00000002 /* VF has unicast promisc */
-+#define IGB_VF_FLAG_MULTI_PROMISC  0x00000004 /* VF has multicast promisc */
- 
- /* RX descriptor control thresholds.
-  * PTHRESH - MAC will consider prefetch if it has fewer than this number of
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index a9e8ba2..3ab2978 100644
+index 3ab2978..9170927 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -129,38 +129,6 @@ static void igb_vmm_control(struct igb_adapter *);
- static int igb_set_vf_mac(struct igb_adapter *, int, unsigned char *);
- static void igb_restore_vf_multicasts(struct igb_adapter *adapter);
+@@ -963,24 +963,23 @@ static void igb_irq_enable(struct igb_adapter *adapter)
  
--static inline void igb_set_vmolr(struct e1000_hw *hw, int vfn)
--{
--	u32 reg_data;
--
--	reg_data = rd32(E1000_VMOLR(vfn));
--	reg_data |= E1000_VMOLR_BAM |	 /* Accept broadcast */
--	            E1000_VMOLR_ROMPE |  /* Accept packets matched in MTA */
--	            E1000_VMOLR_AUPE |   /* Accept untagged packets */
--	            E1000_VMOLR_STRVLAN; /* Strip vlan tags */
--	wr32(E1000_VMOLR(vfn), reg_data);
--}
--
--static inline int igb_set_vf_rlpml(struct igb_adapter *adapter, int size,
--                                 int vfn)
--{
--	struct e1000_hw *hw = &adapter->hw;
--	u32 vmolr;
--
--	/* if it isn't the PF check to see if VFs are enabled and
--	 * increase the size to support vlan tags */
--	if (vfn < adapter->vfs_allocated_count &&
--	    adapter->vf_data[vfn].vlans_enabled)
--		size += VLAN_TAG_SIZE;
--
--	vmolr = rd32(E1000_VMOLR(vfn));
--	vmolr &= ~E1000_VMOLR_RLPML_MASK;
--	vmolr |= size | E1000_VMOLR_LPE;
--	wr32(E1000_VMOLR(vfn), vmolr);
--
--	return 0;
--}
--
- #ifdef CONFIG_PM
- static int igb_suspend(struct pci_dev *, pm_message_t);
- static int igb_resume(struct pci_dev *);
-@@ -1115,8 +1083,6 @@ int igb_up(struct igb_adapter *adapter)
- 	if (adapter->msix_entries)
- 		igb_configure_msix(adapter);
- 
--	igb_set_vmolr(hw, adapter->vfs_allocated_count);
--
- 	/* Clear any pending interrupts. */
- 	rd32(E1000_ICR);
- 	igb_irq_enable(adapter);
-@@ -1892,8 +1858,6 @@ static int igb_open(struct net_device *netdev)
- 	 * clean_rx handler before we do so.  */
- 	igb_configure(adapter);
- 
--	igb_set_vmolr(hw, adapter->vfs_allocated_count);
--
- 	err = igb_request_irq(adapter);
- 	if (err)
- 		goto err_req_irq;
-@@ -2331,22 +2295,33 @@ void igb_setup_rctl(struct igb_adapter *adapter)
- 	 * if an un-trusted VF does not provide descriptors to hardware.
- 	 */
- 	if (adapter->vfs_allocated_count) {
--		u32 vmolr;
--
- 		/* set all queue drop enable bits */
- 		wr32(E1000_QDE, ALL_QUEUES);
--
--		vmolr = rd32(E1000_VMOLR(adapter->vfs_allocated_count));
--		if (rctl & E1000_RCTL_LPE)
--			vmolr |= E1000_VMOLR_LPE;
--		if (adapter->num_rx_queues > 1)
--			vmolr |= E1000_VMOLR_RSSE;
--		wr32(E1000_VMOLR(adapter->vfs_allocated_count), vmolr);
- 	}
- 
- 	wr32(E1000_RCTL, rctl);
- }
- 
-+static inline int igb_set_vf_rlpml(struct igb_adapter *adapter, int size,
-+                                   int vfn)
-+{
+ static void igb_update_mng_vlan(struct igb_adapter *adapter)
+ {
+-	struct net_device *netdev = adapter->netdev;
 +	struct e1000_hw *hw = &adapter->hw;
-+	u32 vmolr;
-+
-+	/* if it isn't the PF check to see if VFs are enabled and
-+	 * increase the size to support vlan tags */
-+	if (vfn < adapter->vfs_allocated_count &&
-+	    adapter->vf_data[vfn].vlans_enabled)
-+		size += VLAN_TAG_SIZE;
-+
-+	vmolr = rd32(E1000_VMOLR(vfn));
-+	vmolr &= ~E1000_VMOLR_RLPML_MASK;
-+	vmolr |= size | E1000_VMOLR_LPE;
-+	wr32(E1000_VMOLR(vfn), vmolr);
-+
-+	return 0;
-+}
-+
- /**
-  * igb_rlpml_set - set maximum receive packet size
-  * @adapter: board private structure
-@@ -2366,12 +2341,43 @@ static void igb_rlpml_set(struct igb_adapter *adapter)
- 	 * size and set the VMOLR RLPML to the size we need */
- 	if (pf_id) {
- 		igb_set_vf_rlpml(adapter, max_frame_size, pf_id);
--		max_frame_size = MAX_STD_JUMBO_FRAME_SIZE + VLAN_TAG_SIZE;
-+		max_frame_size = MAX_JUMBO_FRAME_SIZE;
- 	}
+ 	u16 vid = adapter->hw.mng_cookie.vlan_id;
+ 	u16 old_vid = adapter->mng_vlan_id;
+-	if (adapter->vlgrp) {
+-		if (!vlan_group_get_device(adapter->vlgrp, vid)) {
+-			if (adapter->hw.mng_cookie.status &
+-				E1000_MNG_DHCP_COOKIE_STATUS_VLAN) {
+-				igb_vlan_rx_add_vid(netdev, vid);
+-				adapter->mng_vlan_id = vid;
+-			} else
+-				adapter->mng_vlan_id = IGB_MNG_VLAN_NONE;
  
- 	wr32(E1000_RLPML, max_frame_size);
- }
- 
-+static inline void igb_set_vmolr(struct igb_adapter *adapter, int vfn)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+	u32 vmolr;
-+
-+	/*
-+	 * This register exists only on 82576 and newer so if we are older then
-+	 * we should exit and do nothing
-+	 */
-+	if (hw->mac.type < e1000_82576)
-+		return;
-+
-+	vmolr = rd32(E1000_VMOLR(vfn));
-+	vmolr |= E1000_VMOLR_AUPE |        /* Accept untagged packets */
-+	         E1000_VMOLR_STRVLAN;      /* Strip vlan tags */
-+
-+	/* clear all bits that might not be set */
-+	vmolr &= ~(E1000_VMOLR_BAM | E1000_VMOLR_RSSE);
-+
-+	if (adapter->num_rx_queues > 1 && vfn == adapter->vfs_allocated_count)
-+		vmolr |= E1000_VMOLR_RSSE; /* enable RSS */
-+	/*
-+	 * for VMDq only allow the VFs and pool 0 to accept broadcast and
-+	 * multicast packets
-+	 */
-+	if (vfn <= adapter->vfs_allocated_count)
-+		vmolr |= E1000_VMOLR_BAM;	   /* Accept broadcast */
-+
-+	wr32(E1000_VMOLR(vfn), vmolr);
-+}
-+
- /**
-  * igb_configure_rx_ring - Configure a receive ring after Reset
-  * @adapter: board private structure
-@@ -2425,6 +2431,9 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
- 
- 	wr32(E1000_SRRCTL(reg_idx), srrctl);
- 
-+	/* set filtering for VMDQ pools */
-+	igb_set_vmolr(adapter, reg_idx & 0x7);
-+
- 	/* enable receive descriptor fetching */
- 	rxdctl = rd32(E1000_RXDCTL(reg_idx));
- 	rxdctl |= E1000_RXDCTL_QUEUE_ENABLE;
-@@ -4101,6 +4110,45 @@ static void igb_ping_all_vfs(struct igb_adapter *adapter)
- 	}
- }
- 
-+static int igb_set_vf_promisc(struct igb_adapter *adapter, u32 *msgbuf, u32 vf)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+	u32 vmolr = rd32(E1000_VMOLR(vf));
-+	struct vf_data_storage *vf_data = &adapter->vf_data[vf];
-+
-+	vf_data->flags |= ~(IGB_VF_FLAG_UNI_PROMISC |
-+	                    IGB_VF_FLAG_MULTI_PROMISC);
-+	vmolr &= ~(E1000_VMOLR_ROPE | E1000_VMOLR_ROMPE | E1000_VMOLR_MPME);
-+
-+	if (*msgbuf & E1000_VF_SET_PROMISC_MULTICAST) {
-+		vmolr |= E1000_VMOLR_MPME;
-+		*msgbuf &= ~E1000_VF_SET_PROMISC_MULTICAST;
+-			if ((old_vid != (u16)IGB_MNG_VLAN_NONE) &&
+-					(vid != old_vid) &&
+-			    !vlan_group_get_device(adapter->vlgrp, old_vid))
+-				igb_vlan_rx_kill_vid(netdev, old_vid);
+-		} else
+-			adapter->mng_vlan_id = vid;
++	if (hw->mng_cookie.status & E1000_MNG_DHCP_COOKIE_STATUS_VLAN) {
++		/* add VID to filter table */
++		igb_vfta_set(hw, vid, true);
++		adapter->mng_vlan_id = vid;
 +	} else {
-+		/*
-+		 * if we have hashes and we are clearing a multicast promisc
-+		 * flag we need to write the hashes to the MTA as this step
-+		 * was previously skipped
-+		 */
-+		if (vf_data->num_vf_mc_hashes > 30) {
-+			vmolr |= E1000_VMOLR_MPME;
-+		} else if (vf_data->num_vf_mc_hashes) {
-+			int j;
-+			vmolr |= E1000_VMOLR_ROMPE;
-+			for (j = 0; j < vf_data->num_vf_mc_hashes; j++)
-+				igb_mta_set(hw, vf_data->vf_mc_hashes[j]);
-+		}
++		adapter->mng_vlan_id = IGB_MNG_VLAN_NONE;
 +	}
 +
-+	wr32(E1000_VMOLR(vf), vmolr);
-+
-+	/* there are flags left unprocessed, likely not supported */
-+	if (*msgbuf & E1000_VT_MSGINFO_MASK)
-+		return -EINVAL;
-+
-+	return 0;
-+
-+}
-+
- static int igb_set_vf_multicasts(struct igb_adapter *adapter,
- 				  u32 *msgbuf, u32 vf)
- {
-@@ -4109,18 +4157,17 @@ static int igb_set_vf_multicasts(struct igb_adapter *adapter,
- 	struct vf_data_storage *vf_data = &adapter->vf_data[vf];
- 	int i;
- 
--	/* only up to 30 hash values supported */
--	if (n > 30)
--		n = 30;
--
--	/* salt away the number of multi cast addresses assigned
-+	/* salt away the number of multicast addresses assigned
- 	 * to this VF for later use to restore when the PF multi cast
- 	 * list changes
- 	 */
- 	vf_data->num_vf_mc_hashes = n;
- 
--	/* VFs are limited to using the MTA hash table for their multicast
--	 * addresses */
-+	/* only up to 30 hash values supported */
-+	if (n > 30)
-+		n = 30;
-+
-+	/* store the hashes for later use */
- 	for (i = 0; i < n; i++)
- 		vf_data->vf_mc_hashes[i] = hash_list[i];
- 
-@@ -4137,9 +4184,20 @@ static void igb_restore_vf_multicasts(struct igb_adapter *adapter)
- 	int i, j;
- 
- 	for (i = 0; i < adapter->vfs_allocated_count; i++) {
-+		u32 vmolr = rd32(E1000_VMOLR(i));
-+		vmolr &= ~(E1000_VMOLR_ROMPE | E1000_VMOLR_MPME);
-+
- 		vf_data = &adapter->vf_data[i];
--		for (j = 0; j < vf_data->num_vf_mc_hashes; j++)
--			igb_mta_set(hw, vf_data->vf_mc_hashes[j]);
-+
-+		if ((vf_data->num_vf_mc_hashes > 30) ||
-+		    (vf_data->flags & IGB_VF_FLAG_MULTI_PROMISC)) {
-+			vmolr |= E1000_VMOLR_MPME;
-+		} else if (vf_data->num_vf_mc_hashes) {
-+			vmolr |= E1000_VMOLR_ROMPE;
-+			for (j = 0; j < vf_data->num_vf_mc_hashes; j++)
-+				igb_mta_set(hw, vf_data->vf_mc_hashes[j]);
-+		}
-+		wr32(E1000_VMOLR(i), vmolr);
++	if ((old_vid != (u16)IGB_MNG_VLAN_NONE) &&
++	    (vid != old_vid) &&
++	    !vlan_group_get_device(adapter->vlgrp, old_vid)) {
++		/* remove VID from filter table */
++		igb_vfta_set(hw, old_vid, false);
  	}
  }
  
-@@ -4282,7 +4340,7 @@ static inline void igb_vf_reset(struct igb_adapter *adapter, u32 vf)
- 	adapter->vf_data[vf].last_nack = jiffies;
+@@ -1847,11 +1846,6 @@ static int igb_open(struct net_device *netdev)
  
- 	/* reset offloads to defaults */
--	igb_set_vmolr(&adapter->hw, vf);
-+	igb_set_vmolr(adapter, vf);
+ 	/* e1000_power_up_phy(adapter); */
  
- 	/* reset vlans for device */
- 	igb_clear_vf_vfta(adapter, vf);
-@@ -4398,6 +4456,9 @@ static void igb_rcv_msg_from_vf(struct igb_adapter *adapter, u32 vf)
- 	case E1000_VF_SET_MAC_ADDR:
- 		retval = igb_set_vf_mac_addr(adapter, msgbuf, vf);
- 		break;
-+	case E1000_VF_SET_PROMISC:
-+		retval = igb_set_vf_promisc(adapter, msgbuf, vf);
-+		break;
- 	case E1000_VF_SET_MULTICAST:
- 		retval = igb_set_vf_multicasts(adapter, msgbuf, vf);
- 		break;
+-	adapter->mng_vlan_id = IGB_MNG_VLAN_NONE;
+-	if ((adapter->hw.mng_cookie.status &
+-	     E1000_MNG_DHCP_COOKIE_STATUS_VLAN))
+-		igb_update_mng_vlan(adapter);
+-
+ 	/* before we allocate an interrupt, we must be ready to handle it.
+ 	 * Setting DEBUG_SHIRQ in the kernel makes it fire an interrupt
+ 	 * as soon as we call pci_request_irq, so we have to setup our
+@@ -1924,14 +1918,6 @@ static int igb_close(struct net_device *netdev)
+ 	igb_free_all_tx_resources(adapter);
+ 	igb_free_all_rx_resources(adapter);
+ 
+-	/* kill manageability vlan ID if supported, but not if a vlan with
+-	 * the same ID is registered on the host OS (let 8021q kill it) */
+-	if ((adapter->hw.mng_cookie.status &
+-			  E1000_MNG_DHCP_COOKIE_STATUS_VLAN) &&
+-	     !(adapter->vlgrp &&
+-	       vlan_group_get_device(adapter->vlgrp, adapter->mng_vlan_id)))
+-		igb_vlan_rx_kill_vid(netdev, adapter->mng_vlan_id);
+-
+ 	return 0;
+ }
+ 
+@@ -4235,7 +4221,11 @@ static s32 igb_vlvf_set(struct igb_adapter *adapter, u32 vid, bool add, u32 vf)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 reg, i;
+ 
+-	/* It is an error to call this function when VFs are not enabled */
++	/* The vlvf table only exists on 82576 hardware and newer */
++	if (hw->mac.type < e1000_82576)
++		return -1;
++
++	/* we only need to do this if VMDq is enabled */
+ 	if (!adapter->vfs_allocated_count)
+ 		return -1;
+ 
+@@ -4265,16 +4255,12 @@ static s32 igb_vlvf_set(struct igb_adapter *adapter, u32 vid, bool add, u32 vf)
+ 
+ 			/* if !enabled we need to set this up in vfta */
+ 			if (!(reg & E1000_VLVF_VLANID_ENABLE)) {
+-				/* add VID to filter table, if bit already set
+-				 * PF must have added it outside of table */
+-				if (igb_vfta_set(hw, vid, true))
+-					reg |= 1 << (E1000_VLVF_POOLSEL_SHIFT +
+-						adapter->vfs_allocated_count);
++				/* add VID to filter table */
++				igb_vfta_set(hw, vid, true);
+ 				reg |= E1000_VLVF_VLANID_ENABLE;
+ 			}
+ 			reg &= ~E1000_VLVF_VLANID_MASK;
+ 			reg |= vid;
+-
+ 			wr32(E1000_VLVF(i), reg);
+ 
+ 			/* do not modify RLPML for PF devices */
+@@ -4290,8 +4276,8 @@ static s32 igb_vlvf_set(struct igb_adapter *adapter, u32 vid, bool add, u32 vf)
+ 				reg |= size;
+ 				wr32(E1000_VMOLR(vf), reg);
+ 			}
+-			adapter->vf_data[vf].vlans_enabled++;
+ 
++			adapter->vf_data[vf].vlans_enabled++;
+ 			return 0;
+ 		}
+ 	} else {
+@@ -5393,21 +5379,15 @@ static void igb_vlan_rx_register(struct net_device *netdev,
+ 		ctrl |= E1000_CTRL_VME;
+ 		wr32(E1000_CTRL, ctrl);
+ 
+-		/* enable VLAN receive filtering */
++		/* Disable CFI check */
+ 		rctl = rd32(E1000_RCTL);
+ 		rctl &= ~E1000_RCTL_CFIEN;
+ 		wr32(E1000_RCTL, rctl);
+-		igb_update_mng_vlan(adapter);
+ 	} else {
+ 		/* disable VLAN tag insert/strip */
+ 		ctrl = rd32(E1000_CTRL);
+ 		ctrl &= ~E1000_CTRL_VME;
+ 		wr32(E1000_CTRL, ctrl);
+-
+-		if (adapter->mng_vlan_id != (u16)IGB_MNG_VLAN_NONE) {
+-			igb_vlan_rx_kill_vid(netdev, adapter->mng_vlan_id);
+-			adapter->mng_vlan_id = IGB_MNG_VLAN_NONE;
+-		}
+ 	}
+ 
+ 	igb_rlpml_set(adapter);
+@@ -5422,16 +5402,11 @@ static void igb_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	int pf_id = adapter->vfs_allocated_count;
+ 
+-	if ((hw->mng_cookie.status &
+-	     E1000_MNG_DHCP_COOKIE_STATUS_VLAN) &&
+-	    (vid == adapter->mng_vlan_id))
+-		return;
+-
+-	/* add vid to vlvf if sr-iov is enabled,
+-	 * if that fails add directly to filter table */
+-	if (igb_vlvf_set(adapter, vid, true, pf_id))
+-		igb_vfta_set(hw, vid, true);
++	/* attempt to add filter to vlvf array */
++	igb_vlvf_set(adapter, vid, true, pf_id);
+ 
++	/* add the filter since PF can receive vlans w/o entry in vlvf */
++	igb_vfta_set(hw, vid, true);
+ }
+ 
+ static void igb_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
+@@ -5439,6 +5414,7 @@ static void igb_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
+ 	struct igb_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	int pf_id = adapter->vfs_allocated_count;
++	s32 err;
+ 
+ 	igb_irq_disable(adapter);
+ 	vlan_group_set_device(adapter->vlgrp, vid, NULL);
+@@ -5446,17 +5422,11 @@ static void igb_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
+ 	if (!test_bit(__IGB_DOWN, &adapter->state))
+ 		igb_irq_enable(adapter);
+ 
+-	if ((adapter->hw.mng_cookie.status &
+-	     E1000_MNG_DHCP_COOKIE_STATUS_VLAN) &&
+-	    (vid == adapter->mng_vlan_id)) {
+-		/* release control to f/w */
+-		igb_release_hw_control(adapter);
+-		return;
+-	}
++	/* remove vlan from VLVF table array */
++	err = igb_vlvf_set(adapter, vid, false, pf_id);
+ 
+-	/* remove vid from vlvf if sr-iov is enabled,
+-	 * if not in vlvf remove from vfta */
+-	if (igb_vlvf_set(adapter, vid, false, pf_id))
++	/* if vid was not present in VLVF just remove it from table */
++	if (err)
+ 		igb_vfta_set(hw, vid, false);
+ }
+ 
 
