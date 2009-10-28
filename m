@@ -1,58 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: iproute uses too small of a receive buffer
-Date: Wed, 28 Oct 2009 00:55:59 -0700 (PDT)
-Message-ID: <20091028.005559.92092291.davem@davemloft.net>
-References: <4AE77F64.3090302@candelatech.com>
-	<20091027162434.6dc31b2d@nehalam>
-	<4AE7F859.7020105@gmail.com>
+From: Kay Sievers <kay.sievers@vrfy.org>
+Subject: Re: [PATCH] udev: create empty regular files to represent net
+	interfaces
+Date: Wed, 28 Oct 2009 09:23:57 +0100
+Message-ID: <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com>
+References: <20091016214024.GA10091@ldl.fc.hp.com> <20091022063619.GB6321@ldl.fc.hp.com>
+	<20091027205551.GA31963@auslistsprd01.us.dell.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, greearb@candelatech.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34671
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932611AbZJ1Hzf convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Oct 2009 03:55:35 -0400
-In-Reply-To: <4AE7F859.7020105@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dann frazier <dannf@hp.com>, linux-hotplug@vger.kernel.org,
+	Narendra_K@dell.com, netdev@vger.kernel.org,
+	Jordan_Hargrave@dell.com, Charles_Rose@dell.com,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Matt Domsch <Matt_Domsch@dell.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+In-Reply-To: <20091027205551.GA31963@auslistsprd01.us.dell.com>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 28 Oct 2009 08:52:57 +0100
+On Tue, Oct 27, 2009 at 21:55, Matt Domsch <Matt_Domsch@dell.com> wrote=
+:
+> On Thu, Oct 22, 2009 at 12:36:20AM -0600, dann frazier wrote:
+>> Here's a proof of concept to further the discussion..
+>>
+>> The default filename uses the format:
+>> =C2=A0 /dev/netdev/by-ifindex/$ifindex
+>>
+>> This provides the infrastructure to permit udev rules to create alia=
+ses for
+>> network devices using symlinks, for example:
+>>
+>> =C2=A0 /dev/netdev/by-name/eth0 -> ../by-ifindex/1
+>> =C2=A0 /dev/netdev/by-biosname/LOM0 -> ../by-ifindex/3
+>>
+>> A library (such as the proposed libnetdevname) could use this inform=
+ation
+>> to provide an alias->realname mapping for network utilities.
+>
+> yes, this could work, as IFINDEX is already exported in the uevents,
+> and that's the primary value udev needs to set up the mapping.
+>
+> While I like the little ifindex2name script you've got, I think udev
+> could simply call if_indextoname() to get this, and not call an
+> external program? =C2=A0I suppose it could be a really really simple
+> external program too.
 
-> Stephen Hemminger a =E9crit :
->>=20
->> Just having larger buffer isn't guarantee of success. Allocating
->> a huge buffer is not going to work on embedded.
->>=20
->=20
-> Please note we do not allocate a big buffer, only allow more small sk=
-bs
-> to be queued on socket receive queue.
->=20
-> If memory is not available, skb allocation will eventually fail
-> and be reported as well, embedded or not.
->=20
-> I vote for allowing 1024*1024 bytes instead of 32768,
-> and eventually user should be warned that it is capped by=20
-> /proc/sys/net/core/rmem_max
+What's the point of all this? Why would udev ever need to find the
+name of a device by the ifindex? The device name is the primary value
+for the kernel events udev acts on.
 
-This discussion constantly reminds me of:
+> I'd be fine with this approach. =C2=A0It has the advantages of not
+> requiring a kernel change at all, and not creating a whole character
+> device which would be useless. =C2=A0And it doesn't preclude someone =
+in the
+> future from creating a char device for network devices should they so
+> choose.
+>
+> Kay, what say you as udev owner?
 
-/*
- *	skb should fit one page. This choice is good for headerless malloc.
- *	But we should limit to 8K so that userspace does not have to
- *	use enormous buffer sizes on recvmsg() calls just to avoid
- *	MSG_TRUNC when PAGE_SIZE is very large.
- */
-#if PAGE_SIZE < 8192UL
-#define NLMSG_GOODSIZE	SKB_WITH_OVERHEAD(PAGE_SIZE)
-#else
-#define NLMSG_GOODSIZE	SKB_WITH_OVERHEAD(8192UL)
-#endif
+That all sounds very much like something which will hit us back some
+day. I'm not sure, if udev should publish such dead text files in
+/dev, it does not seem to fit the usual APIs/assumptions where /sys
+and /dev match, and libudev provides access to both. It all sounds
+more like a database for a possible netdevname library, which does not
+need to be public in /dev, right?
 
-#define NLMSG_DEFAULT_SIZE (NLMSG_GOODSIZE - NLMSG_HDRLEN)
+Thanks,
+Kay
+--
+To unsubscribe from this list: send the line "unsubscribe linux-hotplug=
+" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
