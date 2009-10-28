@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 09/23] igb: only process global stats in
-	igb_update_stats
-Date: Wed, 28 Oct 2009 02:48:12 -0700
-Message-ID: <20091028094811.13156.36154.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 12/23] igb: cleanup code related to ring resource
+	allocation and free
+Date: Wed, 28 Oct 2009 02:49:20 -0700
+Message-ID: <20091028094919.13156.21655.stgit@localhost.localdomain>
 References: <20091028094540.13156.2637.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,133 +12,141 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta13.westchester.pa.mail.comcast.net ([76.96.59.243]:46798
-	"EHLO QMTA13.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752943AbZJ1Jv4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 05:51:56 -0400
+Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:40787
+	"EHLO QMTA10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751482AbZJ1JxG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 05:53:06 -0400
 In-Reply-To: <20091028094540.13156.2637.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch moves the update of adapter->net_stats.rx/tx values out of the
-interrupt routine and into igb_update_stats by just adding together the
-tx/rx byte/packet counts for the rings.
+This patch cleans up some of the ring alloc and free code to better handle
+exceptions such as attempting to free resources on an already freed ring.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb_main.c |   61 +++++++++++++++++++++-----------------------
- 1 files changed, 29 insertions(+), 32 deletions(-)
+ drivers/net/igb/igb_main.c |   29 +++++++++++++++++------------
+ 1 files changed, 17 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 54e8f02..62b6876 100644
+index f75f90f..e67ff0e 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -3769,7 +3769,10 @@ void igb_update_stats(struct igb_adapter *adapter)
- 	struct net_device *netdev = adapter->netdev;
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct pci_dev *pdev = adapter->pdev;
-+	u32 rnbc;
- 	u16 phy_tmp;
-+	int i;
-+	u64 bytes, packets;
+@@ -1952,7 +1952,8 @@ int igb_setup_tx_resources(struct igb_ring *tx_ring)
+ 	tx_ring->size = tx_ring->count * sizeof(union e1000_adv_tx_desc);
+ 	tx_ring->size = ALIGN(tx_ring->size, 4096);
  
- #define PHY_IDLE_ERROR_COUNT_MASK 0x00FF
+-	tx_ring->desc = pci_alloc_consistent(pdev, tx_ring->size,
++	tx_ring->desc = pci_alloc_consistent(pdev,
++	                                     tx_ring->size,
+ 					     &tx_ring->dma);
  
-@@ -3782,6 +3785,29 @@ void igb_update_stats(struct igb_adapter *adapter)
- 	if (pci_channel_offline(pdev))
+ 	if (!tx_ring->desc)
+@@ -1978,13 +1979,13 @@ err:
+  **/
+ static int igb_setup_all_tx_resources(struct igb_adapter *adapter)
+ {
++	struct pci_dev *pdev = adapter->pdev;
+ 	int i, err = 0;
+-	int r_idx;
+ 
+ 	for (i = 0; i < adapter->num_tx_queues; i++) {
+ 		err = igb_setup_tx_resources(&adapter->tx_ring[i]);
+ 		if (err) {
+-			dev_err(&adapter->pdev->dev,
++			dev_err(&pdev->dev,
+ 				"Allocation for Tx Queue %u failed\n", i);
+ 			for (i--; i >= 0; i--)
+ 				igb_free_tx_resources(&adapter->tx_ring[i]);
+@@ -1993,7 +1994,7 @@ static int igb_setup_all_tx_resources(struct igb_adapter *adapter)
+ 	}
+ 
+ 	for (i = 0; i < IGB_MAX_TX_QUEUES; i++) {
+-		r_idx = i % adapter->num_tx_queues;
++		int r_idx = i % adapter->num_tx_queues;
+ 		adapter->multi_tx_table[i] = &adapter->tx_ring[r_idx];
+ 	}
+ 	return err;
+@@ -2116,6 +2117,7 @@ int igb_setup_rx_resources(struct igb_ring *rx_ring)
+ 
+ err:
+ 	vfree(rx_ring->buffer_info);
++	rx_ring->buffer_info = NULL;
+ 	dev_err(&pdev->dev, "Unable to allocate memory for "
+ 		"the receive descriptor ring\n");
+ 	return -ENOMEM;
+@@ -2130,12 +2132,13 @@ err:
+  **/
+ static int igb_setup_all_rx_resources(struct igb_adapter *adapter)
+ {
++	struct pci_dev *pdev = adapter->pdev;
+ 	int i, err = 0;
+ 
+ 	for (i = 0; i < adapter->num_rx_queues; i++) {
+ 		err = igb_setup_rx_resources(&adapter->rx_ring[i]);
+ 		if (err) {
+-			dev_err(&adapter->pdev->dev,
++			dev_err(&pdev->dev,
+ 				"Allocation for Rx Queue %u failed\n", i);
+ 			for (i--; i >= 0; i--)
+ 				igb_free_rx_resources(&adapter->rx_ring[i]);
+@@ -2476,6 +2479,10 @@ void igb_free_tx_resources(struct igb_ring *tx_ring)
+ 	vfree(tx_ring->buffer_info);
+ 	tx_ring->buffer_info = NULL;
+ 
++	/* if not set, then don't free */
++	if (!tx_ring->desc)
++		return;
++
+ 	pci_free_consistent(tx_ring->pdev, tx_ring->size,
+ 	                    tx_ring->desc, tx_ring->dma);
+ 
+@@ -2534,14 +2541,10 @@ static void igb_clean_tx_ring(struct igb_ring *tx_ring)
+ 	memset(tx_ring->buffer_info, 0, size);
+ 
+ 	/* Zero out the descriptor ring */
+-
+ 	memset(tx_ring->desc, 0, tx_ring->size);
+ 
+ 	tx_ring->next_to_use = 0;
+ 	tx_ring->next_to_clean = 0;
+-
+-	writel(0, tx_ring->head);
+-	writel(0, tx_ring->tail);
+ }
+ 
+ /**
+@@ -2569,6 +2572,10 @@ void igb_free_rx_resources(struct igb_ring *rx_ring)
+ 	vfree(rx_ring->buffer_info);
+ 	rx_ring->buffer_info = NULL;
+ 
++	/* if not set, then don't free */
++	if (!rx_ring->desc)
++		return;
++
+ 	pci_free_consistent(rx_ring->pdev, rx_ring->size,
+ 	                    rx_ring->desc, rx_ring->dma);
+ 
+@@ -2601,6 +2608,7 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
+ 
+ 	if (!rx_ring->buffer_info)
  		return;
- 
-+	bytes = 0;
-+	packets = 0;
-+	for (i = 0; i < adapter->num_rx_queues; i++) {
-+		u32 rqdpc_tmp = rd32(E1000_RQDPC(i)) & 0x0FFF;
-+		adapter->rx_ring[i].rx_stats.drops += rqdpc_tmp;
-+		netdev->stats.rx_fifo_errors += rqdpc_tmp;
-+		bytes += adapter->rx_ring[i].rx_stats.bytes;
-+		packets += adapter->rx_ring[i].rx_stats.packets;
-+	}
 +
-+	netdev->stats.rx_bytes = bytes;
-+	netdev->stats.rx_packets = packets;
-+
-+	bytes = 0;
-+	packets = 0;
-+	for (i = 0; i < adapter->num_tx_queues; i++) {
-+		bytes += adapter->tx_ring[i].tx_stats.bytes;
-+		packets += adapter->tx_ring[i].tx_stats.packets;
-+	}
-+	netdev->stats.tx_bytes = bytes;
-+	netdev->stats.tx_packets = packets;
-+
-+	/* read stats registers */
- 	adapter->stats.crcerrs += rd32(E1000_CRCERRS);
- 	adapter->stats.gprc += rd32(E1000_GPRC);
- 	adapter->stats.gorc += rd32(E1000_GORCL);
-@@ -3814,7 +3840,9 @@ void igb_update_stats(struct igb_adapter *adapter)
- 	adapter->stats.gptc += rd32(E1000_GPTC);
- 	adapter->stats.gotc += rd32(E1000_GOTCL);
- 	rd32(E1000_GOTCH); /* clear GOTCL */
--	adapter->stats.rnbc += rd32(E1000_RNBC);
-+	rnbc = rd32(E1000_RNBC);
-+	adapter->stats.rnbc += rnbc;
-+	netdev->stats.rx_fifo_errors += rnbc;
- 	adapter->stats.ruc += rd32(E1000_RUC);
- 	adapter->stats.rfc += rd32(E1000_RFC);
- 	adapter->stats.rjc += rd32(E1000_RJC);
-@@ -3861,33 +3889,6 @@ void igb_update_stats(struct igb_adapter *adapter)
+ 	/* Free all the Rx ring sk_buffs */
+ 	for (i = 0; i < rx_ring->count; i++) {
+ 		buffer_info = &rx_ring->buffer_info[i];
+@@ -2638,9 +2646,6 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
  
- 	/* Rx Errors */
- 
--	if (hw->mac.type != e1000_82575) {
--		u32 rqdpc_tmp;
--		u64 rqdpc_total = 0;
--		int i;
--		/* Read out drops stats per RX queue.  Notice RQDPC (Receive
--		 * Queue Drop Packet Count) stats only gets incremented, if
--		 * the DROP_EN but it set (in the SRRCTL register for that
--		 * queue).  If DROP_EN bit is NOT set, then the some what
--		 * equivalent count is stored in RNBC (not per queue basis).
--		 * Also note the drop count is due to lack of available
--		 * descriptors.
--		 */
--		for (i = 0; i < adapter->num_rx_queues; i++) {
--			rqdpc_tmp = rd32(E1000_RQDPC(i)) & 0xFFF;
--			adapter->rx_ring[i].rx_stats.drops += rqdpc_tmp;
--			rqdpc_total += adapter->rx_ring[i].rx_stats.drops;
--		}
--		netdev->stats.rx_fifo_errors = rqdpc_total;
--	}
+ 	rx_ring->next_to_clean = 0;
+ 	rx_ring->next_to_use = 0;
 -
--	/* Note RNBC (Receive No Buffers Count) is an not an exact
--	 * drop count as the hardware FIFO might save the day.  Thats
--	 * one of the reason for saving it in rx_fifo_errors, as its
--	 * potentially not a true drop.
--	 */
--	netdev->stats.rx_fifo_errors += adapter->stats.rnbc;
--
- 	/* RLEC on some newer hardware can be incorrect so build
- 	 * our own version based on RUC and ROC */
- 	netdev->stats.rx_errors = adapter->stats.rxerrc +
-@@ -4818,8 +4819,6 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
- 	tx_ring->total_packets += total_packets;
- 	tx_ring->tx_stats.bytes += total_bytes;
- 	tx_ring->tx_stats.packets += total_packets;
--	netdev->stats.tx_bytes += total_bytes;
--	netdev->stats.tx_packets += total_packets;
- 	return (count < tx_ring->count);
+-	writel(0, rx_ring->head);
+-	writel(0, rx_ring->tail);
  }
  
-@@ -5043,8 +5042,6 @@ next_desc:
- 	rx_ring->total_bytes += total_bytes;
- 	rx_ring->rx_stats.packets += total_packets;
- 	rx_ring->rx_stats.bytes += total_bytes;
--	netdev->stats.rx_bytes += total_bytes;
--	netdev->stats.rx_packets += total_packets;
- 	return cleaned;
- }
- 
+ /**
 
