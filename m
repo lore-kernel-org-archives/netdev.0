@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 08/20] igb: add pci device pointer to ring
+Subject: [net-next-2.6 PATCH 09/20] igb: move rx_buffer_len into the ring
 	structure
-Date: Tue, 27 Oct 2009 18:51:47 -0700
-Message-ID: <20091028015146.12470.12654.stgit@localhost.localdomain>
+Date: Tue, 27 Oct 2009 18:52:07 -0700
+Message-ID: <20091028015206.12470.50840.stgit@localhost.localdomain>
 References: <20091028014858.12470.99520.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,356 +12,195 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta06.westchester.pa.mail.comcast.net ([76.96.62.56]:33852
-	"EHLO QMTA06.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753610AbZJ1Bza (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 21:55:30 -0400
+Received: from qmta01.westchester.pa.mail.comcast.net ([76.96.62.16]:43823
+	"EHLO QMTA01.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754349AbZJ1Bzu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 21:55:50 -0400
 In-Reply-To: <20091028014858.12470.99520.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch adds a pci device pointer to the ring structure.  The main use of
-this pointer is for memory mapping/unmapping of the rings.
+This patch moves the rx_buffer_len value into the ring structure.  This allows
+greater flexibility and the option of doing things such as supporting packet
+split only on some queues, or enabling virtualization.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb.h         |    5 ++-
- drivers/net/igb/igb_ethtool.c |    4 +-
- drivers/net/igb/igb_main.c    |   72 ++++++++++++++++++++---------------------
- 3 files changed, 40 insertions(+), 41 deletions(-)
+ drivers/net/igb/igb.h      |    3 +--
+ drivers/net/igb/igb_main.c |   41 ++++++++++++++++++++++-------------------
+ 2 files changed, 23 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
-index e52fee4..de26862 100644
+index de26862..00ff274 100644
 --- a/drivers/net/igb/igb.h
 +++ b/drivers/net/igb/igb.h
-@@ -173,6 +173,7 @@ struct igb_q_vector {
- struct igb_ring {
- 	struct igb_q_vector *q_vector; /* backlink to q_vector */
- 	void *desc;                    /* descriptor ring memory */
-+	struct pci_dev *pdev;          /* pci device for dma mapping */
- 	dma_addr_t dma;                /* phys address of the ring */
- 	unsigned int size;             /* length of desc. ring in bytes */
- 	unsigned int count;            /* number of desc. in the ring */
-@@ -325,8 +326,8 @@ extern void igb_down(struct igb_adapter *);
- extern void igb_reinit_locked(struct igb_adapter *);
- extern void igb_reset(struct igb_adapter *);
- extern int igb_set_spd_dplx(struct igb_adapter *, u16);
--extern int igb_setup_tx_resources(struct igb_adapter *, struct igb_ring *);
--extern int igb_setup_rx_resources(struct igb_adapter *, struct igb_ring *);
-+extern int igb_setup_tx_resources(struct igb_ring *);
-+extern int igb_setup_rx_resources(struct igb_ring *);
- extern void igb_free_tx_resources(struct igb_ring *);
- extern void igb_free_rx_resources(struct igb_ring *);
- extern void igb_update_stats(struct igb_adapter *);
-diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
-index 2929546..c48a555 100644
---- a/drivers/net/igb/igb_ethtool.c
-+++ b/drivers/net/igb/igb_ethtool.c
-@@ -794,7 +794,7 @@ static int igb_set_ringparam(struct net_device *netdev,
- 
- 		for (i = 0; i < adapter->num_tx_queues; i++) {
- 			temp_ring[i].count = new_tx_count;
--			err = igb_setup_tx_resources(adapter, &temp_ring[i]);
-+			err = igb_setup_tx_resources(&temp_ring[i]);
- 			if (err) {
- 				while (i) {
- 					i--;
-@@ -819,7 +819,7 @@ static int igb_set_ringparam(struct net_device *netdev,
- 
- 		for (i = 0; i < adapter->num_rx_queues; i++) {
- 			temp_ring[i].count = new_rx_count;
--			err = igb_setup_rx_resources(adapter, &temp_ring[i]);
-+			err = igb_setup_rx_resources(&temp_ring[i]);
- 			if (err) {
- 				while (i) {
- 					i--;
+@@ -198,7 +198,7 @@ struct igb_ring {
+ 		/* RX */
+ 		struct {
+ 			struct igb_rx_queue_stats rx_stats;
+-			u64 rx_queue_drops;
++			u32 rx_buffer_len;
+ 		};
+ 	};
+ };
+@@ -218,7 +218,6 @@ struct igb_adapter {
+ 	struct vlan_group *vlgrp;
+ 	u16 mng_vlan_id;
+ 	u32 bd_number;
+-	u32 rx_buffer_len;
+ 	u32 wol;
+ 	u32 en_mng_pt;
+ 	u16 link_speed;
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 2728f93..ff16b7a 100644
+index ff16b7a..04e860d 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -436,11 +436,13 @@ static int igb_alloc_queues(struct igb_adapter *adapter)
- 		struct igb_ring *ring = &(adapter->tx_ring[i]);
- 		ring->count = adapter->tx_ring_count;
- 		ring->queue_index = i;
-+		ring->pdev = adapter->pdev;
- 	}
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
- 		struct igb_ring *ring = &(adapter->rx_ring[i]);
+@@ -443,6 +443,7 @@ static int igb_alloc_queues(struct igb_adapter *adapter)
  		ring->count = adapter->rx_ring_count;
  		ring->queue_index = i;
-+		ring->pdev = adapter->pdev;
+ 		ring->pdev = adapter->pdev;
++		ring->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
  	}
  
  	igb_cache_ring_register(adapter);
-@@ -2002,15 +2004,13 @@ static int igb_close(struct net_device *netdev)
+@@ -1863,7 +1864,6 @@ static int __devinit igb_sw_init(struct igb_adapter *adapter)
  
- /**
-  * igb_setup_tx_resources - allocate Tx resources (Descriptors)
-- * @adapter: board private structure
-  * @tx_ring: tx descriptor ring (for a specific queue) to setup
-  *
-  * Return 0 on success, negative on failure
-  **/
--int igb_setup_tx_resources(struct igb_adapter *adapter,
--			   struct igb_ring *tx_ring)
-+int igb_setup_tx_resources(struct igb_ring *tx_ring)
- {
--	struct pci_dev *pdev = adapter->pdev;
-+	struct pci_dev *pdev = tx_ring->pdev;
- 	int size;
+ 	adapter->tx_ring_count = IGB_DEFAULT_TXD;
+ 	adapter->rx_ring_count = IGB_DEFAULT_RXD;
+-	adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
+ 	adapter->max_frame_size = netdev->mtu + ETH_HLEN + ETH_FCS_LEN;
+ 	adapter->min_frame_size = ETH_ZLEN + ETH_FCS_LEN;
  
- 	size = sizeof(struct igb_buffer) * tx_ring->count;
-@@ -2053,7 +2053,7 @@ static int igb_setup_all_tx_resources(struct igb_adapter *adapter)
- 	int r_idx;
+@@ -2358,8 +2358,8 @@ static void igb_configure_rx_ring(struct igb_adapter *adapter,
+ 	writel(0, ring->tail);
  
- 	for (i = 0; i < adapter->num_tx_queues; i++) {
--		err = igb_setup_tx_resources(adapter, &adapter->tx_ring[i]);
-+		err = igb_setup_tx_resources(&adapter->tx_ring[i]);
- 		if (err) {
- 			dev_err(&adapter->pdev->dev,
- 				"Allocation for Tx Queue %u failed\n", i);
-@@ -2156,15 +2156,13 @@ static void igb_configure_tx(struct igb_adapter *adapter)
- 
- /**
-  * igb_setup_rx_resources - allocate Rx resources (Descriptors)
-- * @adapter: board private structure
-  * @rx_ring:    rx descriptor ring (for a specific queue) to setup
-  *
-  * Returns 0 on success, negative on failure
-  **/
--int igb_setup_rx_resources(struct igb_adapter *adapter,
--			   struct igb_ring *rx_ring)
-+int igb_setup_rx_resources(struct igb_ring *rx_ring)
- {
--	struct pci_dev *pdev = adapter->pdev;
-+	struct pci_dev *pdev = rx_ring->pdev;
- 	int size, desc_len;
- 
- 	size = sizeof(struct igb_buffer) * rx_ring->count;
-@@ -2192,7 +2190,7 @@ int igb_setup_rx_resources(struct igb_adapter *adapter,
- 
- err:
- 	vfree(rx_ring->buffer_info);
--	dev_err(&adapter->pdev->dev, "Unable to allocate memory for "
-+	dev_err(&pdev->dev, "Unable to allocate memory for "
- 		"the receive descriptor ring\n");
- 	return -ENOMEM;
- }
-@@ -2209,7 +2207,7 @@ static int igb_setup_all_rx_resources(struct igb_adapter *adapter)
- 	int i, err = 0;
- 
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
--		err = igb_setup_rx_resources(adapter, &adapter->rx_ring[i]);
-+		err = igb_setup_rx_resources(&adapter->rx_ring[i]);
- 		if (err) {
- 			dev_err(&adapter->pdev->dev,
- 				"Allocation for Rx Queue %u failed\n", i);
-@@ -2497,14 +2495,13 @@ static void igb_configure_rx(struct igb_adapter *adapter)
-  **/
- void igb_free_tx_resources(struct igb_ring *tx_ring)
- {
--	struct pci_dev *pdev = tx_ring->q_vector->adapter->pdev;
--
- 	igb_clean_tx_ring(tx_ring);
- 
- 	vfree(tx_ring->buffer_info);
- 	tx_ring->buffer_info = NULL;
- 
--	pci_free_consistent(pdev, tx_ring->size, tx_ring->desc, tx_ring->dma);
-+	pci_free_consistent(tx_ring->pdev, tx_ring->size,
-+	                    tx_ring->desc, tx_ring->dma);
- 
- 	tx_ring->desc = NULL;
- }
-@@ -2523,12 +2520,13 @@ static void igb_free_all_tx_resources(struct igb_adapter *adapter)
- 		igb_free_tx_resources(&adapter->tx_ring[i]);
- }
- 
--static void igb_unmap_and_free_tx_resource(struct igb_adapter *adapter,
-+static void igb_unmap_and_free_tx_resource(struct igb_ring *tx_ring,
- 					   struct igb_buffer *buffer_info)
- {
- 	buffer_info->dma = 0;
- 	if (buffer_info->skb) {
--		skb_dma_unmap(&adapter->pdev->dev, buffer_info->skb,
-+		skb_dma_unmap(&tx_ring->pdev->dev,
-+		              buffer_info->skb,
- 		              DMA_TO_DEVICE);
- 		dev_kfree_skb_any(buffer_info->skb);
- 		buffer_info->skb = NULL;
-@@ -2543,7 +2541,6 @@ static void igb_unmap_and_free_tx_resource(struct igb_adapter *adapter,
-  **/
- static void igb_clean_tx_ring(struct igb_ring *tx_ring)
- {
--	struct igb_adapter *adapter = tx_ring->q_vector->adapter;
- 	struct igb_buffer *buffer_info;
- 	unsigned long size;
- 	unsigned int i;
-@@ -2554,7 +2551,7 @@ static void igb_clean_tx_ring(struct igb_ring *tx_ring)
- 
- 	for (i = 0; i < tx_ring->count; i++) {
- 		buffer_info = &tx_ring->buffer_info[i];
--		igb_unmap_and_free_tx_resource(adapter, buffer_info);
-+		igb_unmap_and_free_tx_resource(tx_ring, buffer_info);
+ 	/* set descriptor configuration */
+-	if (adapter->rx_buffer_len < IGB_RXBUFFER_1024) {
+-		srrctl = ALIGN(adapter->rx_buffer_len, 64) <<
++	if (ring->rx_buffer_len < IGB_RXBUFFER_1024) {
++		srrctl = ALIGN(ring->rx_buffer_len, 64) <<
+ 		         E1000_SRRCTL_BSIZEHDRSIZE_SHIFT;
+ #if (PAGE_SIZE / 2) > IGB_RXBUFFER_16384
+ 		srrctl |= IGB_RXBUFFER_16384 >>
+@@ -2370,7 +2370,7 @@ static void igb_configure_rx_ring(struct igb_adapter *adapter,
+ #endif
+ 		srrctl |= E1000_SRRCTL_DESCTYPE_HDR_SPLIT_ALWAYS;
+ 	} else {
+-		srrctl = ALIGN(adapter->rx_buffer_len, 1024) >>
++		srrctl = ALIGN(ring->rx_buffer_len, 1024) >>
+ 		         E1000_SRRCTL_BSIZEPKT_SHIFT;
+ 		srrctl |= E1000_SRRCTL_DESCTYPE_ADV_ONEBUF;
  	}
- 
- 	size = sizeof(struct igb_buffer) * tx_ring->count;
-@@ -2591,14 +2588,13 @@ static void igb_clean_all_tx_rings(struct igb_adapter *adapter)
+@@ -2619,7 +2619,6 @@ static void igb_free_all_rx_resources(struct igb_adapter *adapter)
   **/
- void igb_free_rx_resources(struct igb_ring *rx_ring)
+ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
  {
--	struct pci_dev *pdev = rx_ring->q_vector->adapter->pdev;
--
- 	igb_clean_rx_ring(rx_ring);
- 
- 	vfree(rx_ring->buffer_info);
- 	rx_ring->buffer_info = NULL;
- 
--	pci_free_consistent(pdev, rx_ring->size, rx_ring->desc, rx_ring->dma);
-+	pci_free_consistent(rx_ring->pdev, rx_ring->size,
-+	                    rx_ring->desc, rx_ring->dma);
- 
- 	rx_ring->desc = NULL;
- }
-@@ -2625,7 +2621,6 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
- {
- 	struct igb_adapter *adapter = rx_ring->q_vector->adapter;
+-	struct igb_adapter *adapter = rx_ring->q_vector->adapter;
  	struct igb_buffer *buffer_info;
--	struct pci_dev *pdev = adapter->pdev;
  	unsigned long size;
  	unsigned int i;
- 
-@@ -2635,7 +2630,8 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
- 	for (i = 0; i < rx_ring->count; i++) {
- 		buffer_info = &rx_ring->buffer_info[i];
+@@ -2632,7 +2631,7 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
  		if (buffer_info->dma) {
--			pci_unmap_single(pdev, buffer_info->dma,
-+			pci_unmap_single(rx_ring->pdev,
-+			                 buffer_info->dma,
- 					 adapter->rx_buffer_len,
+ 			pci_unmap_single(rx_ring->pdev,
+ 			                 buffer_info->dma,
+-					 adapter->rx_buffer_len,
++					 rx_ring->rx_buffer_len,
  					 PCI_DMA_FROMDEVICE);
  			buffer_info->dma = 0;
-@@ -2646,7 +2642,8 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
- 			buffer_info->skb = NULL;
  		}
- 		if (buffer_info->page_dma) {
--			pci_unmap_page(pdev, buffer_info->page_dma,
-+			pci_unmap_page(rx_ring->pdev,
-+			               buffer_info->page_dma,
- 				       PAGE_SIZE / 2,
- 				       PCI_DMA_FROMDEVICE);
- 			buffer_info->page_dma = 0;
-@@ -3362,9 +3359,10 @@ static inline bool igb_tx_csum_adv(struct igb_adapter *adapter,
- 					struct sk_buff *skb, u32 tx_flags)
+@@ -3746,6 +3745,7 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
  {
- 	struct e1000_adv_tx_context_desc *context_desc;
--	unsigned int i;
-+	struct pci_dev *pdev = tx_ring->pdev;
- 	struct igb_buffer *buffer_info;
- 	u32 info = 0, tu_cmd = 0;
-+	unsigned int i;
+ 	struct igb_adapter *adapter = netdev_priv(netdev);
+ 	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
++	u32 rx_buffer_len, i;
  
- 	if ((skb->ip_summed == CHECKSUM_PARTIAL) ||
- 	    (tx_flags & IGB_TX_FLAGS_VLAN)) {
-@@ -3411,7 +3409,7 @@ static inline bool igb_tx_csum_adv(struct igb_adapter *adapter,
- 				break;
- 			default:
- 				if (unlikely(net_ratelimit()))
--					dev_warn(&adapter->pdev->dev,
-+					dev_warn(&pdev->dev,
- 					    "partial checksum but proto=%x!\n",
- 					    skb->protocol);
- 				break;
-@@ -3443,11 +3441,11 @@ static inline bool igb_tx_csum_adv(struct igb_adapter *adapter,
- #define IGB_MAX_TXD_PWR	16
- #define IGB_MAX_DATA_PER_TXD	(1<<IGB_MAX_TXD_PWR)
+ 	if ((max_frame < ETH_ZLEN + ETH_FCS_LEN) ||
+ 	    (max_frame > MAX_JUMBO_FRAME_SIZE)) {
+@@ -3763,9 +3763,6 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
  
--static inline int igb_tx_map_adv(struct igb_adapter *adapter,
--				 struct igb_ring *tx_ring, struct sk_buff *skb,
-+static inline int igb_tx_map_adv(struct igb_ring *tx_ring, struct sk_buff *skb,
- 				 unsigned int first)
- {
- 	struct igb_buffer *buffer_info;
-+	struct pci_dev *pdev = tx_ring->pdev;
- 	unsigned int len = skb_headlen(skb);
- 	unsigned int count = 0, i;
- 	unsigned int f;
-@@ -3455,8 +3453,8 @@ static inline int igb_tx_map_adv(struct igb_adapter *adapter,
- 
- 	i = tx_ring->next_to_use;
- 
--	if (skb_dma_map(&adapter->pdev->dev, skb, DMA_TO_DEVICE)) {
--		dev_err(&adapter->pdev->dev, "TX DMA map failed\n");
-+	if (skb_dma_map(&pdev->dev, skb, DMA_TO_DEVICE)) {
-+		dev_err(&pdev->dev, "TX DMA map failed\n");
- 		return 0;
- 	}
- 
-@@ -3667,7 +3665,7 @@ static netdev_tx_t igb_xmit_frame_ring_adv(struct sk_buff *skb,
- 	 * count reflects descriptors mapped, if 0 then mapping error
- 	 * has occured and we need to rewind the descriptor queue
+ 	/* igb_down has a dependency on max_frame_size */
+ 	adapter->max_frame_size = max_frame;
+-	if (netif_running(netdev))
+-		igb_down(adapter);
+-
+ 	/* NOTE: netdev_alloc_skb reserves 16 bytes, and typically NET_IP_ALIGN
+ 	 * means we reserve 2 more, this pushes us to allocate from the next
+ 	 * larger slab size.
+@@ -3773,16 +3770,22 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
  	 */
--	count = igb_tx_map_adv(adapter, tx_ring, skb, first);
-+	count = igb_tx_map_adv(tx_ring, skb, first);
  
- 	if (count) {
- 		igb_tx_queue_adv(adapter, tx_ring, tx_flags, count,
-@@ -4710,7 +4708,7 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
- 				igb_tx_hwtstamp(adapter, skb);
- 			}
+ 	if (max_frame <= IGB_RXBUFFER_1024)
+-		adapter->rx_buffer_len = IGB_RXBUFFER_1024;
++		rx_buffer_len = IGB_RXBUFFER_1024;
+ 	else if (max_frame <= MAXIMUM_ETHERNET_VLAN_SIZE)
+-		adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
++		rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
+ 	else
+-		adapter->rx_buffer_len = IGB_RXBUFFER_128;
++		rx_buffer_len = IGB_RXBUFFER_128;
++
++	if (netif_running(netdev))
++		igb_down(adapter);
  
--			igb_unmap_and_free_tx_resource(adapter, buffer_info);
-+			igb_unmap_and_free_tx_resource(tx_ring, buffer_info);
- 			tx_desc->wb.status = 0;
+ 	dev_info(&adapter->pdev->dev, "changing MTU from %d to %d\n",
+ 		 netdev->mtu, new_mtu);
+ 	netdev->mtu = new_mtu;
  
- 			i++;
-@@ -4748,7 +4746,7 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
- 			 E1000_STATUS_TXOFF)) {
++	for (i = 0; i < adapter->num_rx_queues; i++)
++		adapter->rx_ring[i].rx_buffer_len = rx_buffer_len;
++
+ 	if (netif_running(netdev))
+ 		igb_up(adapter);
+ 	else
+@@ -4828,7 +4831,7 @@ static inline void igb_rx_checksum_adv(struct igb_adapter *adapter,
+ 	dev_dbg(&adapter->pdev->dev, "cksum success: bits %08X\n", status_err);
+ }
  
- 			/* detected Tx unit hang */
--			dev_err(&adapter->pdev->dev,
-+			dev_err(&tx_ring->pdev->dev,
- 				"Detected Tx Unit Hang\n"
- 				"  Tx Queue             <%d>\n"
- 				"  TDH                  <%x>\n"
-@@ -4851,7 +4849,7 @@ static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
- 	struct net_device *netdev = adapter->netdev;
- 	struct igb_ring *rx_ring = q_vector->rx_ring;
- 	struct e1000_hw *hw = &adapter->hw;
--	struct pci_dev *pdev = adapter->pdev;
-+	struct pci_dev *pdev = rx_ring->pdev;
- 	union e1000_adv_rx_desc *rx_desc , *next_rxd;
- 	struct igb_buffer *buffer_info , *next_buffer;
- 	struct sk_buff *skb;
-@@ -5027,7 +5025,6 @@ static void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring,
+-static inline u16 igb_get_hlen(struct igb_adapter *adapter,
++static inline u16 igb_get_hlen(struct igb_ring *rx_ring,
+                                union e1000_adv_rx_desc *rx_desc)
  {
- 	struct igb_adapter *adapter = rx_ring->q_vector->adapter;
- 	struct net_device *netdev = adapter->netdev;
--	struct pci_dev *pdev = adapter->pdev;
- 	union e1000_adv_rx_desc *rx_desc;
- 	struct igb_buffer *buffer_info;
- 	struct sk_buff *skb;
-@@ -5054,7 +5051,7 @@ static void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring,
- 				buffer_info->page_offset ^= PAGE_SIZE / 2;
- 			}
- 			buffer_info->page_dma =
--				pci_map_page(pdev, buffer_info->page,
-+				pci_map_page(rx_ring->pdev, buffer_info->page,
- 					     buffer_info->page_offset,
- 					     PAGE_SIZE / 2,
- 					     PCI_DMA_FROMDEVICE);
-@@ -5068,7 +5065,8 @@ static void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring,
- 			}
+ 	/* HW will not DMA in data larger than the given buffer, even if it
+@@ -4837,8 +4840,8 @@ static inline u16 igb_get_hlen(struct igb_adapter *adapter,
+ 	 */
+ 	u16 hlen = (le16_to_cpu(rx_desc->wb.lower.lo_dword.hdr_info) &
+ 	           E1000_RXDADV_HDRBUFLEN_MASK) >> E1000_RXDADV_HDRBUFLEN_SHIFT;
+-	if (hlen > adapter->rx_buffer_len)
+-		hlen = adapter->rx_buffer_len;
++	if (hlen > rx_ring->rx_buffer_len)
++		hlen = rx_ring->rx_buffer_len;
+ 	return hlen;
+ }
  
- 			buffer_info->skb = skb;
--			buffer_info->dma = pci_map_single(pdev, skb->data,
-+			buffer_info->dma = pci_map_single(rx_ring->pdev,
-+			                                  skb->data,
- 							  bufsz,
- 							  PCI_DMA_FROMDEVICE);
+@@ -4888,14 +4891,14 @@ static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
+ 
+ 		if (buffer_info->dma) {
+ 			pci_unmap_single(pdev, buffer_info->dma,
+-					 adapter->rx_buffer_len,
++					 rx_ring->rx_buffer_len,
+ 					 PCI_DMA_FROMDEVICE);
+ 			buffer_info->dma = 0;
+-			if (adapter->rx_buffer_len >= IGB_RXBUFFER_1024) {
++			if (rx_ring->rx_buffer_len >= IGB_RXBUFFER_1024) {
+ 				skb_put(skb, length);
+ 				goto send_up;
+ 			}
+-			skb_put(skb, igb_get_hlen(adapter, rx_desc));
++			skb_put(skb, igb_get_hlen(rx_ring, rx_desc));
  		}
+ 
+ 		if (length) {
+@@ -5034,7 +5037,7 @@ static void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring,
+ 	i = rx_ring->next_to_use;
+ 	buffer_info = &rx_ring->buffer_info[i];
+ 
+-	bufsz = adapter->rx_buffer_len;
++	bufsz = rx_ring->rx_buffer_len;
+ 
+ 	while (cleaned_count--) {
+ 		rx_desc = E1000_RX_DESC_ADV(*rx_ring, i);
 
