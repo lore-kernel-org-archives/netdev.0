@@ -1,7 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 08/23] igb: move vf init into a seperate function
-Date: Wed, 28 Oct 2009 02:47:53 -0700
-Message-ID: <20091028094752.13156.301.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 11/23] igb: make tx hang check multiqueue,
+	check eop descriptor
+Date: Wed, 28 Oct 2009 02:48:51 -0700
+Message-ID: <20091028094850.13156.29899.stgit@localhost.localdomain>
 References: <20091028094540.13156.2637.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,152 +12,67 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta12.emeryville.ca.mail.comcast.net ([76.96.27.227]:52695
-	"EHLO QMTA12.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751499AbZJ1Jvh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 05:51:37 -0400
+Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:36023
+	"EHLO QMTA04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751630AbZJ1Jwp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 05:52:45 -0400
 In-Reply-To: <20091028094540.13156.2637.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch moves VF initialization into a seperate function to help improve
-the readability of igb_probe.
+This change makes the tx hang check run over all tx queues instead of just
+queue 0.  Also have hang display info on EOP descriptor instead of the
+descriptor at the start of the chain.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb_main.c |   98 +++++++++++++++++++++++++-------------------
- 1 files changed, 56 insertions(+), 42 deletions(-)
+ drivers/net/igb/igb_main.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 9170927..54e8f02 100644
+index 7f32211..f75f90f 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -1409,46 +1409,6 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 	if (err)
- 		goto err_sw_init;
- 
--#ifdef CONFIG_PCI_IOV
--	/* since iov functionality isn't critical to base device function we
--	 * can accept failure.  If it fails we don't allow iov to be enabled */
--	if (hw->mac.type == e1000_82576) {
--		/* 82576 supports a maximum of 7 VFs in addition to the PF */
--		unsigned int num_vfs = (max_vfs > 7) ? 7 : max_vfs;
--		int i;
--		unsigned char mac_addr[ETH_ALEN];
--
--		if (num_vfs) {
--			adapter->vf_data = kcalloc(num_vfs,
--						sizeof(struct vf_data_storage),
--						GFP_KERNEL);
--			if (!adapter->vf_data) {
--				dev_err(&pdev->dev,
--				        "Could not allocate VF private data - "
--					"IOV enable failed\n");
--			} else {
--				err = pci_enable_sriov(pdev, num_vfs);
--				if (!err) {
--					adapter->vfs_allocated_count = num_vfs;
--					dev_info(&pdev->dev,
--					         "%d vfs allocated\n",
--					         num_vfs);
--					for (i = 0;
--					     i < adapter->vfs_allocated_count;
--					     i++) {
--						random_ether_addr(mac_addr);
--						igb_set_vf_mac(adapter, i,
--						               mac_addr);
--					}
--				} else {
--					kfree(adapter->vf_data);
--					adapter->vf_data = NULL;
--				}
--			}
--		}
--	}
--
--#endif
- 	/* setup the private structure */
- 	err = igb_sw_init(adapter);
- 	if (err)
-@@ -1772,6 +1732,54 @@ static void __devexit igb_remove(struct pci_dev *pdev)
- }
- 
- /**
-+ * igb_probe_vfs - Initialize vf data storage and add VFs to pci config space
-+ * @adapter: board private structure to initialize
-+ *
-+ * This function initializes the vf specific data storage and then attempts to
-+ * allocate the VFs.  The reason for ordering it this way is because it is much
-+ * mor expensive time wise to disable SR-IOV than it is to allocate and free
-+ * the memory for the VFs.
-+ **/
-+static void __devinit igb_probe_vfs(struct igb_adapter * adapter)
-+{
-+#ifdef CONFIG_PCI_IOV
-+	struct pci_dev *pdev = adapter->pdev;
-+
-+	if (adapter->vfs_allocated_count > 7)
-+		adapter->vfs_allocated_count = 7;
-+
-+	if (adapter->vfs_allocated_count) {
-+		adapter->vf_data = kcalloc(adapter->vfs_allocated_count,
-+		                           sizeof(struct vf_data_storage),
-+		                           GFP_KERNEL);
-+		/* if allocation failed then we do not support SR-IOV */
-+		if (!adapter->vf_data) {
-+			adapter->vfs_allocated_count = 0;
-+			dev_err(&pdev->dev, "Unable to allocate memory for VF "
-+			        "Data Storage\n");
-+		}
-+	}
-+
-+	if (pci_enable_sriov(pdev, adapter->vfs_allocated_count)) {
-+		kfree(adapter->vf_data);
-+		adapter->vf_data = NULL;
-+#endif /* CONFIG_PCI_IOV */
-+		adapter->vfs_allocated_count = 0;
-+#ifdef CONFIG_PCI_IOV
-+	} else {
-+		unsigned char mac_addr[ETH_ALEN];
-+		int i;
-+		dev_info(&pdev->dev, "%d vfs allocated\n",
-+		         adapter->vfs_allocated_count);
-+		for (i = 0; i < adapter->vfs_allocated_count; i++) {
-+			random_ether_addr(mac_addr);
-+			igb_set_vf_mac(adapter, i, mac_addr);
-+		}
-+	}
-+#endif /* CONFIG_PCI_IOV */
-+}
-+
-+/**
-  * igb_sw_init - Initialize general software structures (struct igb_adapter)
-  * @adapter: board private structure to initialize
-  *
-@@ -1795,13 +1803,19 @@ static int __devinit igb_sw_init(struct igb_adapter *adapter)
- 	adapter->max_frame_size = netdev->mtu + ETH_HLEN + ETH_FCS_LEN;
- 	adapter->min_frame_size = ETH_ZLEN + ETH_FCS_LEN;
- 
--	/* This call may decrease the number of queues depending on
--	 * interrupt mode. */
-+#ifdef CONFIG_PCI_IOV
-+	if (hw->mac.type == e1000_82576)
-+		adapter->vfs_allocated_count = max_vfs;
-+
-+#endif /* CONFIG_PCI_IOV */
-+	/* This call may decrease the number of queues */
- 	if (igb_init_interrupt_scheme(adapter)) {
- 		dev_err(&pdev->dev, "Unable to allocate memory for queues\n");
- 		return -ENOMEM;
+@@ -3002,6 +3002,10 @@ link_up:
+ 		}
  	}
  
-+	igb_probe_vfs(adapter);
++	/* Force detection of hung controller every watchdog period */
++	for (i = 0; i < adapter->num_tx_queues; i++)
++		adapter->tx_ring[i].detect_tx_hung = true;
 +
- 	/* Explicitly disable IRQ since the NIC can be in any state. */
- 	igb_irq_disable(adapter);
+ 	/* Cause software interrupt to ensure rx ring is cleaned */
+ 	if (adapter->msix_entries) {
+ 		u32 eics = 0;
+@@ -3014,9 +3018,6 @@ link_up:
+ 		wr32(E1000_ICS, E1000_ICS_RXDMT0);
+ 	}
  
+-	/* Force detection of hung controller every watchdog period */
+-	tx_ring->detect_tx_hung = true;
+-
+ 	/* Reset the timer */
+ 	if (!test_bit(__IGB_DOWN, &adapter->state))
+ 		mod_timer(&adapter->watchdog_timer,
+@@ -3667,6 +3668,7 @@ static void igb_tx_timeout(struct net_device *netdev)
+ 
+ 	/* Do the reset outside of interrupt context */
+ 	adapter->tx_timeout_count++;
++
+ 	schedule_work(&adapter->reset_task);
+ 	wr32(E1000_EICS,
+ 	     (adapter->eims_enable_mask & ~adapter->eims_other));
+@@ -4804,7 +4806,7 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
+ 				readl(tx_ring->tail),
+ 				tx_ring->next_to_use,
+ 				tx_ring->next_to_clean,
+-				tx_ring->buffer_info[i].time_stamp,
++				tx_ring->buffer_info[eop].time_stamp,
+ 				eop,
+ 				jiffies,
+ 				eop_desc->wb.status);
 
