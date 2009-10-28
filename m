@@ -1,32 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] via-velocity: Remove private device list
-Date: Wed, 28 Oct 2009 04:02:06 -0700 (PDT)
-Message-ID: <20091028.040206.244368976.davem@davemloft.net>
-References: <1256501329.3136.109.camel@localhost>
+Subject: Re: [PATCH net-next-2.6] net: sysfs: ethtool_ops can be NULL
+Date: Wed, 28 Oct 2009 04:02:32 -0700 (PDT)
+Message-ID: <20091028.040232.174448648.davem@davemloft.net>
+References: <4AE586B5.4030308@gmail.com>
+	<20091026134033.GD1639@gospo.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: ben@decadent.org.uk
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: andy@greyhouse.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51934
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51938
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752397AbZJ1LBp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 07:01:45 -0400
-In-Reply-To: <1256501329.3136.109.camel@localhost>
+	by vger.kernel.org with ESMTP id S1752621AbZJ1LCL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 07:02:11 -0400
+In-Reply-To: <20091026134033.GD1639@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Sun, 25 Oct 2009 20:08:49 +0000
+From: Andy Gospodarek <andy@greyhouse.net>
+Date: Mon, 26 Oct 2009 09:40:33 -0400
 
-> via-velocity maintains a list of its devices in order to determine
-> whether a netdev notification applies to one of them.  That can be
-> determined simply by checking the netdev_ops pointer, so the list can
-> be removed.
+> On Mon, Oct 26, 2009 at 12:23:33PM +0100, Eric Dumazet wrote:
+>> commit d519e17e2d01a0ee9abe083019532061b4438065
+>> (net: export device speed and duplex via sysfs)
+>> made the wrong assumption that netdev->ethtool_ops was always set.
+>> 
+>> This makes possible to crash kernel and let rtnl in locked state.
+>> 
+>> modprobe dummy
+>> ip link set dummy0 up
+>> (udev runs and crash)
+>> 
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+ ...
+> Nice catch, Eric.
 > 
-> Compile-tested only.
-> 
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+> Acked-by: Andy Gospodarek <andy@greyhouse.net>
 
-Looks good to me, applied to net-next-2.6
+Applied.
