@@ -1,21 +1,55 @@
-From: Yinghai Lu <yhlu.kernel@gmail.com>
-Subject: nfs broken in net-next?
-Date: Wed, 28 Oct 2009 13:13:56 -0700
-Message-ID: <86802c440910281313h2ca89c94w99121edffbf6ce53@mail.gmail.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: iproute uses too small of a receive buffer
+Date: Wed, 28 Oct 2009 13:21:36 -0700
+Message-ID: <4AE8A7D0.1060902@candelatech.com>
+References: <4AE77F64.3090302@candelatech.com> <20091027162434.6dc31b2d@nehalam> <4AE7F859.7020105@gmail.com> <4AE895E8.60308@trash.net> <4AE89927.9090405@candelatech.com> <4AE8A098.8040207@trash.net> <4AE8A3C3.1070003@candelatech.com> <4AE8A48A.1060407@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
 	NetDev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755003AbZJ1UNx@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:37144 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754289AbZJ1UVf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 16:21:35 -0400
+In-Reply-To: <4AE8A48A.1060407@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-pk12-3214-189-102:~ # mount -t nfs 10.6.75.100:/data/shared/pxeboot /x
-mount.nfs: rpc.statd is not running but is required for remote locking.
-mount.nfs: Either use '-o nolock' to keep locks local, or start statd.
+On 10/28/2009 01:07 PM, Patrick McHardy wrote:
+> Ben Greear wrote:
+>> On 10/28/2009 12:50 PM, Patrick McHardy wrote:
+>>
+>>>> And, even 1MB may not be enough for some scenarios.  So, probably
+>>>> best to
+>>>> let users over-ride the initial setting on cmd-line.  If not, then use
+>>>> a large value to start with.
+>>>
+>>> How about this? It uses 1MB as receive buf limit by default (without
+>>> increasing /proc/sys/net/core/rmem_max it will be limited by less
+>>> however) and allows to specify the size manually using "-rcvbuf X"
+>>> (-r is already used, so you need to specify at least -rc).
+>>>
+>>> Additionally rtnl_listen() continues on ENOBUFS after printing the
+>>> error message.
+>>
+>> Looks good..except:
+>>
+>> If rmem_max is smaller than 1M, will that cause setsocktopt to
+>> fail and thus fail early out of rtnl_open_byproto?
+>
+> No, the kernel takes the value as a hint and only uses the
+> maximum allowable value:
 
+Sweet.  No complaints from me then.
 
-using opensuse11.1
+Thanks,
+Ben
 
-YH
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
