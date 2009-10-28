@@ -1,47 +1,86 @@
-From: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
-Subject: Re: [PATCH 2/3] net: TCP thin linear timeouts
-Date: Wed, 28 Oct 2009 13:58:12 +0100
-Message-ID: <4AE83FE4.1050309@nets.rwth-aachen.de>
-References: <4AE72079.4030504@simula.no> <4AE7262B.1060703@gmail.com>
+From: Matt Domsch <Matt_Domsch@dell.com>
+Subject: Re: [PATCH] udev: create empty regular files to represent net interfaces
+Date: Wed, 28 Oct 2009 08:03:08 -0500
+Message-ID: <20091028130308.GA24611@auslistsprd01.us.dell.com>
+References: <20091016214024.GA10091@ldl.fc.hp.com> <20091022063619.GB6321@ldl.fc.hp.com> <20091027205551.GA31963@auslistsprd01.us.dell.com> <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andreas Petlund <apetlund@simula.no>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, shemminger@vyatta.com,
-	ilpo.jarvinen@helsinki.fi, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752934AbZJ1M61@vger.kernel.org>
-In-reply-to: <4AE7262B.1060703@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dann frazier <dannf@hp.com>, linux-hotplug@vger.kernel.org,
+	Narendra_K@dell.com, netdev@vger.kernel.org,
+	Jordan_Hargrave@dell.com, Charles_Rose@dell.com,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Kay Sievers <kay.sievers@vrfy.org>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com>
+Sender: linux-hotplug-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet schrieb:
-> Andreas Petlund a =E9crit :
->> This patch will make TCP use only linear timeouts if the stream is t=
-hin. This will help to avoid the very high latencies that thin stream s=
-uffer because of exponential backoff. This mechanism is only active if =
-enabled by iocontrol or syscontrol and the stream is identified as thin=
-=2E
->>
->=20
-> Wont this reduce the session timeout to something very small, ie 15 r=
-etransmits, way under the minute ?
+On Wed, Oct 28, 2009 at 09:23:57AM +0100, Kay Sievers wrote:
+> On Tue, Oct 27, 2009 at 21:55, Matt Domsch <Matt_Domsch@dell.com> wrote:
+> > On Thu, Oct 22, 2009 at 12:36:20AM -0600, dann frazier wrote:
+> >> Here's a proof of concept to further the discussion..
+> >>
+> >> The default filename uses the format:
+> >> ?? /dev/netdev/by-ifindex/$ifindex
+> >>
+> >> This provides the infrastructure to permit udev rules to create aliases for
+> >> network devices using symlinks, for example:
+> >>
+> >> ?? /dev/netdev/by-name/eth0 -> ../by-ifindex/1
+> >> ?? /dev/netdev/by-biosname/LOM0 -> ../by-ifindex/3
+> >>
+> >> A library (such as the proposed libnetdevname) could use this information
+> >> to provide an alias->realname mapping for network utilities.
+> >
+> > yes, this could work, as IFINDEX is already exported in the uevents,
+> > and that's the primary value udev needs to set up the mapping.
+> >
+> > While I like the little ifindex2name script you've got, I think udev
+> > could simply call if_indextoname() to get this, and not call an
+> > external program? ??I suppose it could be a really really simple
+> > external program too.
+> 
+> What's the point of all this? Why would udev ever need to find the
+> name of a device by the ifindex? The device name is the primary value
+> for the kernel events udev acts on.
 
-The session timeout no longer depends on the actual number of retransmi=
-ts. Instead its a time interval,
-which is roughly equivalent to the time a TCP, performing exponential b=
-ackoff would need to perform
-15 retransmits.
+Ultimately, udev doesn't care.  I just want to use udev to keep track
+of the pathname to device connections, like it does for all other
+types of devices.
 
-However, addressing the proposal:
-I wonder how one can seriously suggest to just skip congestion response=
- during timeout-based
-loss recovery? I believe that in a heavily congested scenarios, this wo=
-uld lead to a goodput
-goodput disaster... Not to mention that in a heavily congested scenario=
-, suddenly every flow
-will become "thin", so this will even amplify the problems. Or did I mi=
-ss something?
+Applications such as net-tools, iproute, ethtool, etc.  take a kernel
+device name.  I want to extend them to also take a path, and resolve
+that path to a kernel device name.  libnetdevname currently is _one
+small function_ which does this.  It need not even be in a library.
+But whatever the mechanism, the path names need to be anchored
+somewhere, so the library or all apps doing this kind of lookup know
+where to look.
 
-Best regards,
-Arnd
+> That all sounds very much like something which will hit us back some
+> day. I'm not sure, if udev should publish such dead text files in
+> /dev, it does not seem to fit the usual APIs/assumptions where /sys
+> and /dev match, and libudev provides access to both. It all sounds
+> more like a database for a possible netdevname library, which does not
+> need to be public in /dev, right?
+
+Right, it doesn't need to be in /dev.  We could have udev rules that
+simply call yet another program to maintain that database, in yet
+another way.  But I really like how udev maintains the database of
+symlinks for other device types, using symlinks in /dev/, and which
+people are quite familiar with.  Why can't it be extended to do
+likewise for network device names too?
+
+There is a completely different approach possible here, if people
+don't want to use something like /dev to track device name aliases.
+We could put the whole name alias mechanism in the kernel, with new
+netlink commands to add/remove/list aliases (and now we've overloaded that
+term, as the old eth0:1 "alias" and dmz -> eth1 "alias" wouldn't be
+the same thing).  But that idea hasn't met with a lot of interest
+either.
+
+
+-- 
+Matt Domsch
+Technology Strategist, Dell Office of the CTO
+linux.dell.com & www.dell.com/linux
