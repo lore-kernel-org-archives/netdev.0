@@ -1,48 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 01/23] igb: add support for seperate
- tx-usecs setting in ethtool
-Date: Wed, 28 Oct 2009 03:39:22 -0700 (PDT)
-Message-ID: <20091028.033922.99548522.davem@davemloft.net>
-References: <20091028094540.13156.2637.stgit@localhost.localdomain>
+Subject: Re: [PATCH] cnic: Fix L2CTX_STATUSB_NUM offset in context memory.
+Date: Wed, 28 Oct 2009 03:42:54 -0700 (PDT)
+Message-ID: <20091028.034254.248169783.davem@davemloft.net>
+References: <1256662728-21864-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	alexander.h.duyck@intel.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davmloft.net, netdev@vger.kernel.org, benli@broadcom.com
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57590
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40101
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753504AbZJ1KjC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 06:39:02 -0400
-In-Reply-To: <20091028094540.13156.2637.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1751862AbZJ1Kmd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 06:42:33 -0400
+In-Reply-To: <1256662728-21864-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpBbGwgYXBwbGllZCB0byBuZXQtbmV4dC0yLjYsIGJ1dCB0aGVuIEkgaGFkIHRvIGFkZCB0aGUg
-Zm9sbG93aW5nDQpwYXRjaCB0byBraWxsIGEgd2FybmluZzoNCg0KaWdiOiBGaXggd2FybmluZ3Mg
-aW4gaWdiX3NldF9yaW5ncGFyYW0oKQ0KDQpkcml2ZXJzL25ldC9pZ2IvaWdiX2V0aHRvb2wuYzog
-SW4gZnVuY3Rpb24g4oCYaWdiX3NldF9yaW5ncGFyYW3igJk6DQpkcml2ZXJzL25ldC9pZ2IvaWdi
-X2V0aHRvb2wuYzo3NDQ6IHdhcm5pbmc6IGNvbXBhcmlzb24gb2YgZGlzdGluY3QgcG9pbnRlciB0
-eXBlcyBsYWNrcyBhIGNhc3QNCmRyaXZlcnMvbmV0L2lnYi9pZ2JfZXRodG9vbC5jOjc0ODogd2Fy
-bmluZzogY29tcGFyaXNvbiBvZiBkaXN0aW5jdCBwb2ludGVyIHR5cGVzIGxhY2tzIGEgY2FzdA0K
-DQpDYXN0cyB3ZXJlIHRvIHUxNiBvbiB0aGUgY29uc3RhbnQsIGJ1dCB0aGUgdHlwZSBvZiBuZXdf
-e3IsdH14X2NvdW50IGlzDQp1MzIuICBDYXN0IHRvIHUzMiBpbnN0ZWFkLg0KDQpTaWduZWQtb2Zm
-LWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+DQotLS0NCiBkcml2ZXJz
-L25ldC9pZ2IvaWdiX2V0aHRvb2wuYyB8ICAgIDQgKystLQ0KIDEgZmlsZXMgY2hhbmdlZCwgMiBp
-bnNlcnRpb25zKCspLCAyIGRlbGV0aW9ucygtKQ0KDQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQv
-aWdiL2lnYl9ldGh0b29sLmMgYi9kcml2ZXJzL25ldC9pZ2IvaWdiX2V0aHRvb2wuYw0KaW5kZXgg
-ZDI0YjkwMi4uOTBiODlhOCAxMDA2NDQNCi0tLSBhL2RyaXZlcnMvbmV0L2lnYi9pZ2JfZXRodG9v
-bC5jDQorKysgYi9kcml2ZXJzL25ldC9pZ2IvaWdiX2V0aHRvb2wuYw0KQEAgLTc0MSwxMSArNzQx
-LDExIEBAIHN0YXRpYyBpbnQgaWdiX3NldF9yaW5ncGFyYW0oc3RydWN0IG5ldF9kZXZpY2UgKm5l
-dGRldiwNCiAJCXJldHVybiAtRUlOVkFMOw0KIA0KIAluZXdfcnhfY291bnQgPSBtaW4ocmluZy0+
-cnhfcGVuZGluZywgKHUzMilJR0JfTUFYX1JYRCk7DQotCW5ld19yeF9jb3VudCA9IG1heChuZXdf
-cnhfY291bnQsICh1MTYpSUdCX01JTl9SWEQpOw0KKwluZXdfcnhfY291bnQgPSBtYXgobmV3X3J4
-X2NvdW50LCAodTMyKUlHQl9NSU5fUlhEKTsNCiAJbmV3X3J4X2NvdW50ID0gQUxJR04obmV3X3J4
-X2NvdW50LCBSRVFfUlhfREVTQ1JJUFRPUl9NVUxUSVBMRSk7DQogDQogCW5ld190eF9jb3VudCA9
-IG1pbihyaW5nLT50eF9wZW5kaW5nLCAodTMyKUlHQl9NQVhfVFhEKTsNCi0JbmV3X3R4X2NvdW50
-ID0gbWF4KG5ld190eF9jb3VudCwgKHUxNilJR0JfTUlOX1RYRCk7DQorCW5ld190eF9jb3VudCA9
-IG1heChuZXdfdHhfY291bnQsICh1MzIpSUdCX01JTl9UWEQpOw0KIAluZXdfdHhfY291bnQgPSBB
-TElHTihuZXdfdHhfY291bnQsIFJFUV9UWF9ERVNDUklQVE9SX01VTFRJUExFKTsNCiANCiAJaWYg
-KChuZXdfdHhfY291bnQgPT0gYWRhcHRlci0+dHhfcmluZ19jb3VudCkgJiYNCi0tIA0KMS42LjUu
-MQ0KDQo=
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Tue, 27 Oct 2009 08:58:48 -0800
+
+> The BNX2_L2CTX_STATUSB_NUM definition needs to be changed to match
+> the recent firmware update:
+> 
+> commit 078b0735881c7969aaf21469f3577831cddd9f8c
+> bnx2: Update firmware to 5.0.0.j3.
+> 
+> Without the fix, bnx2 can crash intermittently in bnx2_rx_int() when
+> iSCSI is enabled.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Signed-off-by: Benjamin Li <benli@broadcom.com>
+
+Applied to net-2.6, but please be explicit about what tree you
+want me to apply this to in the future.
+
+Sure I could deduce this by running "git describe" on that
+commit ID mentioned in the commit message, but why not be
+explicit? :-)
