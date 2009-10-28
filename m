@@ -1,40 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cnic: Fix L2CTX_STATUSB_NUM offset in context memory.
-Date: Wed, 28 Oct 2009 03:42:54 -0700 (PDT)
-Message-ID: <20091028.034254.248169783.davem@davemloft.net>
-References: <1256662728-21864-1-git-send-email-mchan@broadcom.com>
+Subject: Re: [PATCH net-2.6] sfc: Set ip_summed correctly for page buffers
+ passed to GRO
+Date: Wed, 28 Oct 2009 03:44:01 -0700 (PDT)
+Message-ID: <20091028.034401.179608358.davem@davemloft.net>
+References: <1256655057.2794.4.camel@achroite>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davmloft.net, netdev@vger.kernel.org, benli@broadcom.com
-To: mchan@broadcom.com
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40101
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40105
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751862AbZJ1Kmd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 06:42:33 -0400
-In-Reply-To: <1256662728-21864-1-git-send-email-mchan@broadcom.com>
+	by vger.kernel.org with ESMTP id S1751040AbZJ1Knl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 06:43:41 -0400
+In-Reply-To: <1256655057.2794.4.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Tue, 27 Oct 2009 08:58:48 -0800
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Tue, 27 Oct 2009 14:50:57 +0000
 
-> The BNX2_L2CTX_STATUSB_NUM definition needs to be changed to match
-> the recent firmware update:
+> Page buffers containing packets with an incorrect checksum or using a
+> protocol not handled by hardware checksum offload were previously not
+> passed to LRO.  The conversion to GRO changed this, but did not set
+> the ip_summed value accordingly.
 > 
-> commit 078b0735881c7969aaf21469f3577831cddd9f8c
-> bnx2: Update firmware to 5.0.0.j3.
-> 
-> Without the fix, bnx2 can crash intermittently in bnx2_rx_int() when
-> iSCSI is enabled.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
-> Signed-off-by: Benjamin Li <benli@broadcom.com>
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Applied to net-2.6, but please be explicit about what tree you
-want me to apply this to in the future.
+Applied.
 
-Sure I could deduce this by running "git describe" on that
-commit ID mentioned in the commit message, but why not be
-explicit? :-)
+> This affects 2.6.31 and seems like a candidate for a stable update.
+
+Queued up for -stable, thanks.
