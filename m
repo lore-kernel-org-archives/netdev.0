@@ -1,72 +1,46 @@
 From: Gilad Ben-Yossef <gilad@codefidence.com>
-Subject: [PATCHv4 0/7] Per route TCP options support kill switches
-Date: Wed, 28 Oct 2009 16:15:20 +0200
-Message-ID: <1256739327-11576-1-git-send-email-gilad@codefidence.com>
+Subject: [PATCHv4 1/7] Only parse time stamp TCP option in time wait sock
+Date: Wed, 28 Oct 2009 16:15:21 +0200
+Message-ID: <1256739327-11576-2-git-send-email-gilad@codefidence.com>
+References: <1256739327-11576-1-git-send-email-gilad@codefidence.com>
 Cc: ori@comsleep.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenbox.codefidence.com ([92.48.73.16]:58543 "EHLO
+Received: from xenbox.codefidence.com ([92.48.73.16]:58560 "EHLO
 	xenbox.codefidence.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753901AbZJ1OP2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 10:15:28 -0400
+	with ESMTP id S1753961AbZJ1OPg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 10:15:36 -0400
+In-Reply-To: <1256739327-11576-1-git-send-email-gilad@codefidence.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow selectively turning off support for specific TCP options
-on a per route basis.
+Since we only use tcp_parse_options here to check for the exietence
+of TCP timestamp option in the header, it is better to call with
+the "established" flag on.
 
-One normally want to disable SACK, DSACK, time stamp or window
-scale if one got a piece of broken networking equipment somewhere
-as a stop gap until you can bring a big enough hammer to deal with
-the broken network equipment. It doesn't make sense to "punish" the
-entire connections going through the machine to destinations not
-related to the broken equipment.
+Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
+Signed-off-by: Ori Finkelman <ori@comsleep.com>
+Signed-off-by: Yony Amit <yony@comsleep.com>
+---
+ net/ipv4/tcp_minisocks.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-This is doubly true when one is dealing with network containers
-used to isolate several virtual domains.
-
-Per route options implemented in free bits in the features route
-entry property, which in some cases were reserved by name for these
-options, so this does not inflate any structure.
-
-Global sysctls for these options are still preserved and retain 
-the exact original meaning (e.g. you have to have both the global 
-sysctl turned on and not turn off the TCP option parsing in the
-specific route to have it proccessed).
-
-It is not possible to turn off globally an option but turn it on
-per route, so as to not subtly change the meaning of current
-establish sysctls (and this is a rare need anyway).
-
-Tested on x86 using Qemu/KVM.
-
-Working but crude matching patch to iproute2 sent earlier to the list.
-
-Patchset based on original work by Ori Finkelman and Yony Amit
-from ComSleep Ltd.
-
-The author wishes to thank Eric Dumazaet, William Allen Simpson, 
-Bill Fink and Ilpo Jarvinen for their feedback.
-
-
-Gilad Ben-Yossef (7):
-  Only parse time stamp TCP option in time wait sock
-  Allow tcp_parse_options to consult dst entry
-  Add dst_feature to query route entry features
-  Add the no SACK route option feature
-  Allow disabling TCP timestamp options per route
-  Allow to turn off TCP window scale opt per route
-  Allow disabling of DSACK TCP option per route
-
- include/linux/rtnetlink.h |    6 ++++--
- include/net/dst.h         |    8 +++++++-
- include/net/tcp.h         |    3 ++-
- net/ipv4/syncookies.c     |   27 ++++++++++++++-------------
- net/ipv4/tcp_input.c      |   26 ++++++++++++++++++--------
- net/ipv4/tcp_ipv4.c       |   21 ++++++++++++---------
- net/ipv4/tcp_minisocks.c  |    9 ++++++---
- net/ipv4/tcp_output.c     |   18 +++++++++++++-----
- net/ipv6/syncookies.c     |   28 +++++++++++++++-------------
- net/ipv6/tcp_ipv6.c       |    3 ++-
- 10 files changed, 93 insertions(+), 56 deletions(-)
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 624c3c9..8c8c6e6 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -100,9 +100,9 @@ tcp_timewait_state_process(struct inet_timewait_sock *tw, struct sk_buff *skb,
+ 	struct tcp_options_received tmp_opt;
+ 	int paws_reject = 0;
+ 
+-	tmp_opt.saw_tstamp = 0;
+ 	if (th->doff > (sizeof(*th) >> 2) && tcptw->tw_ts_recent_stamp) {
+-		tcp_parse_options(skb, &tmp_opt, 0);
++		tmp_opt.tstamp_ok = 1;
++		tcp_parse_options(skb, &tmp_opt, 1);
+ 
+ 		if (tmp_opt.saw_tstamp) {
+ 			tmp_opt.ts_recent	= tcptw->tw_ts_recent;
+-- 
+1.5.6.3
 
