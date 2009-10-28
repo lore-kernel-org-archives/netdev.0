@@ -1,87 +1,141 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next-2.6 PATCH v4 3/3] TCPCT part 1c: initial SYN exchange
- with SYNACK data
-Date: Wed, 28 Oct 2009 15:17:34 +0100
-Message-ID: <4AE8527E.4080603@gmail.com>
-References: <4AE6E35C.2050101@gmail.com> <4AE6E7C0.2050408@gmail.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 3/3] net: TCP thin dupack
+Date: Wed, 28 Oct 2009 16:17:36 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.0910281611290.19761@wel-95.cs.helsinki.fi>
+References: <4AE7207D.8090402@simula.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: William Allen Simpson <william.allen.simpson@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, shemminger@vyatta.com,
+	David Miller <davem@davemloft.net>
+To: Andreas Petlund <apetlund@simula.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:40133 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753583AbZJ1ORc (ORCPT
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:33428 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753680AbZJ1ORc (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 10:17:32 -0400
-In-Reply-To: <4AE6E7C0.2050408@gmail.com>
+In-Reply-To: <4AE7207D.8090402@simula.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-William Allen Simpson a =E9crit :
-> This is a significantly revised implementation of an earlier (year-ol=
-d)
-> patch that no longer applies cleanly, with permission of the original
-> author (Adam Langley).  That patch was previously reviewed:
->=20
->    http://thread.gmane.org/gmane.linux.network/102586
->=20
-> The principle difference is using a TCP option to carry the cookie no=
-nce,
-> instead of a user configured offset in the data.  This is more flexib=
-le and
-> less subject to user configuration error.  Such a cookie option has b=
-een
-> suggested for many years, and is also useful without SYN data, allowi=
-ng
-> several related concepts to use the same extension option.
->=20
->    "Re: SYN floods (was: does history repeat itself?)", September 9, =
-1996.
->    http://www.merit.net/mail.archives/nanog/1996-09/msg00235.html
+On Tue, 27 Oct 2009, Andreas Petlund wrote:
 
-Sorry this link might be interesting to you, but I found nothing that e=
-xplains
-your patches.
+> This patch enables fast retransmissions after one dupACK for TCP if the 
+> stream is identified as thin. This will reduce latencies for thin 
+> streams that are not able to trigger fast retransmissions due to high 
+> packet interarrival time. This mechanism is only active if enabled by 
+> iocontrol or syscontrol and the stream is identified as thin. 
+> 
+> 
+> Signed-off-by: Andreas Petlund <apetlund@simula.no>
+> ---
+>  include/linux/tcp.h        |    4 +++-
+>  include/net/tcp.h          |    1 +
+>  net/ipv4/sysctl_net_ipv4.c |    8 ++++++++
+>  net/ipv4/tcp.c             |    5 +++++
+>  net/ipv4/tcp_input.c       |    8 ++++++++
+>  5 files changed, 25 insertions(+), 1 deletions(-)
+> 
+> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+> index e64368d..f4a05ff 100644
+> --- a/include/linux/tcp.h
+> +++ b/include/linux/tcp.h
+> @@ -97,6 +97,7 @@ enum {
+>  #define TCP_CONGESTION		13	/* Congestion control algorithm */
+>  #define TCP_MD5SIG		14	/* TCP MD5 Signature (RFC2385) */
+>  #define TCP_THIN_RM_EXPB        15      /* Remove exp. backoff for thin streams*/
+> +#define TCP_THIN_DUPACK         16      /* Fast retrans. after 1 dupack */
+>  
+>  #define TCPI_OPT_TIMESTAMPS	1
+>  #define TCPI_OPT_SACK		2
+> @@ -301,7 +302,8 @@ struct tcp_sock {
+>  	u8	frto_counter;	/* Number of new acks after RTO */
+>  	u8	nonagle;	/* Disable Nagle algorithm?             */
+>  	u8      thin_rm_expb:1, /* Remove exp. backoff for thin streams */
+> -		thin_undef : 7;
+> +		thin_dupack : 1,/* Fast retransmit on first dupack      */
+> +		thin_undef : 6;
+>  
+>  /* RTT measurement */
+>  	u32	srtt;		/* smoothed round trip time << 3	*/
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index 412c1bd..41f3a5e 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -238,6 +238,7 @@ extern int sysctl_tcp_workaround_signed_windows;
+>  extern int sysctl_tcp_slow_start_after_idle;
+>  extern int sysctl_tcp_max_ssthresh;
+>  extern int sysctl_tcp_force_thin_rm_expb;
+> +extern int sysctl_tcp_force_thin_dupack;
+>  
+>  extern atomic_t tcp_memory_allocated;
+>  extern struct percpu_counter tcp_sockets_allocated;
+> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+> index 7458f37..8653867 100644
+> --- a/net/ipv4/sysctl_net_ipv4.c
+> +++ b/net/ipv4/sysctl_net_ipv4.c
+> @@ -721,6 +721,14 @@ static struct ctl_table ipv4_table[] = {
+>  		.proc_handler   = proc_dointvec
+>  	},
+>  	{
+> +		.ctl_name       = CTL_UNNUMBERED,
+> +		.procname       = "tcp_force_thin_dupack",
+> +		.data           = &sysctl_tcp_force_thin_dupack,
+> +		.maxlen         = sizeof(int),
+> +		.mode           = 0644,
+> +		.proc_handler   = proc_dointvec
+> +	},
+> +	{
+>  		.ctl_name	= CTL_UNNUMBERED,
+>  		.procname	= "udp_mem",
+>  		.data		= &sysctl_udp_mem,
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index b4b0931..de190db 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -2139,6 +2139,11 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+>  			tp->thin_rm_expb = 1;
+>  		break;
+>  
+> +	case TCP_THIN_DUPACK:
+> +		if (val)
+> +			tp->thin_dupack = 1;
+> +		break;
+> +
+>  	case TCP_CORK:
+>  		/* When set indicates to always queue non-full frames.
+>  		 * Later the user clears this option and we transmit
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index d86784b..b71eb89 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -89,6 +89,8 @@ int sysctl_tcp_frto __read_mostly = 2;
+>  int sysctl_tcp_frto_response __read_mostly;
+>  int sysctl_tcp_nometrics_save __read_mostly;
+>  
+> +int sysctl_tcp_force_thin_dupack __read_mostly;
+> +
+>  int sysctl_tcp_moderate_rcvbuf __read_mostly = 1;
+>  int sysctl_tcp_abc __read_mostly;
+>  
+> @@ -2447,6 +2449,12 @@ static int tcp_time_to_recover(struct sock *sk)
+>  		return 1;
+>  	}
+>  
+> +	/* If a thin stream is detected, retransmit after first
+> +	 * received dupack */
+> +	if ((tp->thin_dupack || sysctl_tcp_force_thin_dupack) &&
+> +	    tcp_dupack_heurestics(tp) > 1 && tcp_stream_is_thin(tp))
+> +		return 1;
+> +
+>  	return 0;
+>  }
 
->=20
->    "Re: what a new TCP header might look like", May 12, 1998.
->    ftp://ftp.isi.edu/end2end/end2end-interest-1998.mail
+Have you tested it? ...I doubt this will work like you say and retransmit 
+something when the window is small. ...Besides, you should have built this 
+patch on top of the function rename you submitted earlier as after DaveM 
+applied that this will no longer even compile...
 
-Same here....
-
->=20
-> Data structures are carefully composed to require minimal additions.
-> For example, the struct tcp_options_received cookie_plus variable fit=
-s
-> between existing 16-bit and 8-bit variables, requiring no additional
-> space (taking alignment into consideration).  There are no additions =
-to
-> tcp_request_sock, and only 1 pointer and 1 flag byte in tcp_sock.
->=20
-> Allocations have been rearranged to avoid requiring GFP_ATOMIC, with
-> only one unavoidable exception in tcp_create_openreq_child(), where t=
-he
-> tcp_sock itself is created GFP_ATOMIC.
->=20
-> These functions will also be used in subsequent patches that implemen=
-t
-> additional features.
->=20
-> Requires:
->   TCPCT part 1a: add request_values parameter for sending SYNACK
->   TCPCT part 1b: sysctl_tcp_cookie_size, socket option
-> TCP_COOKIE_TRANSACTIONS, functions
->=20
-> Signed-off-by: William.Allen.Simpson@gmail.com
-
-I tried to find an RFC or document about this stuff and failed.
-
-Before reading implementation code, I like to have english text that de=
-scribes
-the new concept/design.
-
-(BTW I found http://ttcplinux.sourceforge.net/theses/ETTCP.pdf and foun=
-d it interesting,
-I wonder what happened to this)
-
+-- 
+ i.
