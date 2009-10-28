@@ -1,59 +1,77 @@
-From: Janusz Krzysztofik <jkrzyszt@tis.icnet.pl>
-Subject: [PATCH kernel 2.6.32-rc5] [RESEND] netdev: usb: dm9601.c can drive a device not supported yet, add support for it
-Date: Wed, 28 Oct 2009 16:34:21 +0100
-Message-ID: <200910281634.23635.jkrzyszt@tis.icnet.pl>
-References: <200910222025.50405.jkrzyszt@tis.icnet.pl> <87my3jnts0.fsf@macbook.be.48ers.dk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] bridge: Optimize multiple unregistration
+Date: Wed, 28 Oct 2009 16:35:35 +0100
+Message-ID: <4AE864C7.3060100@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Peter Korsgaard <jacmet@sunsite.dk>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from d1.icnet.pl ([212.160.220.21]:37740 "EHLO d1.icnet.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754346AbZJ1Pem (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Oct 2009 11:34:42 -0400
-In-Reply-To: <87my3jnts0.fsf@macbook.be.48ers.dk>
-Content-Disposition: inline
+Received: from gw1.cosmosbay.com ([212.99.114.194]:34796 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754503AbZJ1Pfe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 11:35:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I found that the current version of drivers/net/usb/dm9601.c can be used to
-successfully drive a low-power, low-cost network adapter with USB ID
-0a46:9000, based on a DM9000E chipset. As no device with this ID is yet
-present in the kernel, I have created a patch that adds support for the device
-to the dm9601 driver.
+Speedup module unloading by factorizing synchronize_rcu() calls
 
-Created and tested against linux-2.6.32-rc5.
-
-Signed-off-by: Janusz Krzysztofik <jkrzyszt@tis.icnet.pl>
-Acked-by: Peter Korsgaard <jacmet@sunsite.dk>
-
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
-Thursday 22 October 2009 20:54:55 Peter Korsgaard wrote:
+ net/bridge/br_if.c |   19 +++++++++----------
+ 1 files changed, 9 insertions(+), 10 deletions(-)
 
-> Acked-by: Peter Korsgaard <jacmet@sunsite.dk>
-
-I'm not sure if there was sometning wrong with my initial submition, but since
-the patch, unlike others, has not been applied since acked last week, neither
-to net-2.6 nor net-next-2.6, I decided to resend it, with a slightly modified
-subject, and CC: David this time.
-
-Thanks,
-Janusz
-
---- linux-2.6.32-rc5/drivers/net/usb/dm9601.c.orig	2009-10-22 20:14:00.000000000 +0200
-+++ linux-2.6.32-rc5/drivers/net/usb/dm9601.c	2009-10-22 20:14:04.000000000 +0200
-@@ -649,6 +649,10 @@ static const struct usb_device_id produc
- 	USB_DEVICE(0x0fe6, 0x8101),	/* DM9601 USB to Fast Ethernet Adapter */
- 	.driver_info = (unsigned long)&dm9601_info,
- 	 },
-+	{
-+	 USB_DEVICE(0x0a46, 0x9000),	/* DM9000E */
-+	 .driver_info = (unsigned long)&dm9601_info,
-+	 },
- 	{},			// END
- };
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index b1b3b0f..2117e5b 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -154,7 +154,7 @@ static void del_nbp(struct net_bridge_port *p)
+ }
  
-
+ /* called with RTNL */
+-static void del_br(struct net_bridge *br)
++static void del_br(struct net_bridge *br, struct list_head *head)
+ {
+ 	struct net_bridge_port *p, *n;
+ 
+@@ -165,7 +165,7 @@ static void del_br(struct net_bridge *br)
+ 	del_timer_sync(&br->gc_timer);
+ 
+ 	br_sysfs_delbr(br->dev);
+-	unregister_netdevice(br->dev);
++	unregister_netdevice_queue(br->dev, head);
+ }
+ 
+ static struct net_device *new_bridge_dev(struct net *net, const char *name)
+@@ -323,7 +323,7 @@ int br_del_bridge(struct net *net, const char *name)
+ 	}
+ 
+ 	else
+-		del_br(netdev_priv(dev));
++		del_br(netdev_priv(dev), NULL);
+ 
+ 	rtnl_unlock();
+ 	return ret;
+@@ -462,15 +462,14 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
+ void br_net_exit(struct net *net)
+ {
+ 	struct net_device *dev;
++	LIST_HEAD(list);
+ 
+ 	rtnl_lock();
+-restart:
+-	for_each_netdev(net, dev) {
+-		if (dev->priv_flags & IFF_EBRIDGE) {
+-			del_br(netdev_priv(dev));
+-			goto restart;
+-		}
+-	}
++	for_each_netdev(net, dev)
++		if (dev->priv_flags & IFF_EBRIDGE)
++			del_br(netdev_priv(dev), &list);
++
++	unregister_netdevice_many(&list);
+ 	rtnl_unlock();
+ 
+ }
