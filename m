@@ -1,38 +1,36 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] Multicast packet reassembly can fail
-Date: Wed, 28 Oct 2009 13:12:24 -0700
-Message-ID: <OFF3B08FBF.39A0F6F8-ON8825765D.006E5150-8825765D.006EFF93@us.ibm.com>
-References: <1256683583.3153.389.camel@linux-1lbu>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 1/7] bitmap: Introduce bitmap_set, bitmap_clear,
+ bitmap_find_next_zero_area
+Date: Wed, 28 Oct 2009 13:11:41 -0700
+Message-ID: <20091028131141.523854cb.akpm@linux-foundation.org>
+References: <1256719397-4258-1-git-send-email-akinobu.mita@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: Steve Chen <schen@mvista.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:37992 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753735AbZJ1UMs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 16:12:48 -0400
-In-Reply-To: <1256683583.3153.389.camel@linux-1lbu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
+	"David S. Miller" <davem@davemloft.net>,
+	sparclinux@vger.kernel.org,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>, linuxppc-dev@ozlabs.org,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Lothar Wassmann <LW@KARO-electronics.de>,
+	linux-usb@vger.kernel.org, Roland Dreier <rolandd@cisco.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
+	netdev@vger.kernel.org, Tony Luck <tony.luck@intel.com>,
+	Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org,
+	linux-altix@sgi.com, Joerg Roedel <joerg.roedel@amd.com>
+To: Akinobu Mita <akinobu.mita@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754682AbZJ1UNh@vger.kernel.org>
+In-Reply-To: <1256719397-4258-1-git-send-email-akinobu.mita@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I haven't gone through the entire thread yet, but I should point
-out that this appears to break regular IP fragmentation for
-unicast packets. There is no restriction whatsoever that
-fragments from a remote destination that are actually for
-the same datagram need to be routed on the same paths
-and received on the same input interface.
 
-For the multicast case, if they are from the same datagram,
-it doesn't matter how you got them. If it's a different datagram
-with the same ID, which can happen anyway, the checksum
-should fail (at least (64K-1) of 64K cases). I don't see a special
-case here, other than that you can tell by the interface if it was
-actually a distinct datagram with the same ID in the multicast
-case (and only in multicast and only if the different interfaces
-are not in the same multicast routing domain).
+Why were these patches resent?  What changed?
 
-NACK.
-
-                                        +-DLS
-
+Everybody who is going to review these patches has already reviewed
+them and now they need to review them all again?
