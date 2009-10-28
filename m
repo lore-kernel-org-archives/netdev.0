@@ -1,77 +1,38 @@
-From: Bhavesh Davda <bhavesh@vmware.com>
-Subject: RE: [Pv-drivers] [PATCH] vmxnet3: remove duplicate #include
-Date: Wed, 28 Oct 2009 09:32:40 -0700
-Message-ID: <8B1F619C9F5F454E81D90D3C161698D7017DFA9FEC@EXCH-MBX-3.vmware.com>
-References: <alpine.LRH.2.00.0910280910250.24555@sbhatewara-dev1.eng.vmware.com>
+From: Kristoffer Glembo <kristoffer@gaisler.com>
+Subject: phylib printouts
+Date: Wed, 28 Oct 2009 17:33:19 +0100
+Message-ID: <4AE8724F.3010104@gaisler.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "pv-drivers@vmware.com" <pv-drivers@vmware.com>,
-	"weiyi.huang@gmail.com" <weiyi.huang@gmail.com>
-To: Shreyas Bhatewara <sbhatewara@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-1.vmware.com ([65.115.85.69]:47671 "EHLO
-	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754996AbZJ1Qcg convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Oct 2009 12:32:36 -0400
-In-Reply-To: <alpine.LRH.2.00.0910280910250.24555@sbhatewara-dev1.eng.vmware.com>
-Content-Language: en-US
+Received: from mail176c2.megamailservers.com ([69.49.111.76]:42643 "EHLO
+	mail176c2.megamailservers.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755138AbZJ1Qfz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 12:35:55 -0400
+Received: from [192.168.0.35] (c-10a5e155.260-1-64736c10.cust.bredbandsbolaget.se [85.225.165.16])
+	(authenticated bits=0)
+	by mail176c2.megamailservers.com (8.13.6/8.13.1) with ESMTP id n9SGZuIL005966
+	for <netdev@vger.kernel.org>; Wed, 28 Oct 2009 12:35:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Correction:
+Hi,
 
-< Signed-off-by: Bhavesh Davda <davda@vmware.com>
-> Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
+There are some printouts in the phy abstraction library using pr_info(). 
+  Personally I would prefer if they used pr_debug() instead.
 
-Thanks
+Especially the pr_info("%s: probed\n", bus->name) in mdiobus_register() 
+since in some cases I can't tolerate a console printout while the link 
+is down (we have an ethernet debug link and read the UART output through 
+the link).
 
-- Bhavesh
- 
-Bhavesh P. Davda
+Of course this is a very specific case but in general in embedded 
+systems (which I think is where the phylib is mainly used) I prefer the 
+driver and other kernel code to be rather silent if not debugging.
 
-> -----Original Message-----
-> From: pv-drivers-bounces@vmware.com [mailto:pv-drivers-
-> bounces@vmware.com] On Behalf Of Shreyas Bhatewara
-> Sent: Wednesday, October 28, 2009 9:31 AM
-> To: netdev@vger.kernel.org
-> Cc: pv-drivers@vmware.com; weiyi.huang@gmail.com
-> Subject: [Pv-drivers] [PATCH] vmxnet3: remove duplicate #include
-> 
-> 
-> Remove duplicate headerfile includes from vmxnet3_int.h
-> 
-> Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
-> Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
-> Signed-off-by: Bhavesh Davda <davda@vmware.com>
-> 
-> ---
-> 
-> diff --git a/drivers/net/vmxnet3/vmxnet3_int.h
-> b/drivers/net/vmxnet3/vmxnet3_int.h
-> index 3c0d70d..4450816 100644
-> --- a/drivers/net/vmxnet3/vmxnet3_int.h
-> +++ b/drivers/net/vmxnet3/vmxnet3_int.h
-> @@ -27,16 +27,11 @@
->  #ifndef _VMXNET3_INT_H
->  #define _VMXNET3_INT_H
-> 
-> -#include <linux/types.h>
->  #include <linux/ethtool.h>
->  #include <linux/delay.h>
-> -#include <linux/device.h>
->  #include <linux/netdevice.h>
->  #include <linux/pci.h>
-> -#include <linux/ethtool.h>
->  #include <linux/compiler.h>
-> -#include <linux/module.h>
-> -#include <linux/moduleparam.h>
->  #include <linux/slab.h>
->  #include <linux/spinlock.h>
->  #include <linux/ioport.h>
-> _______________________________________________
-> Pv-drivers mailing list
-> Pv-drivers@vmware.com
-> http://mailman2.vmware.com/mailman/listinfo/pv-drivers
+Any opinions? :)
+
+Best regards,
+Kristoffer Glembo
