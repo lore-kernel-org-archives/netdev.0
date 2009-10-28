@@ -1,62 +1,38 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: iproute uses too small of a receive buffer
-Date: Wed, 28 Oct 2009 21:07:38 +0100
-Message-ID: <4AE8A48A.1060407@trash.net>
-References: <4AE77F64.3090302@candelatech.com> <20091027162434.6dc31b2d@nehalam> <4AE7F859.7020105@gmail.com> <4AE895E8.60308@trash.net> <4AE89927.9090405@candelatech.com> <4AE8A098.8040207@trash.net> <4AE8A3C3.1070003@candelatech.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] Multicast packet reassembly can fail
+Date: Wed, 28 Oct 2009 13:12:24 -0700
+Message-ID: <OFF3B08FBF.39A0F6F8-ON8825765D.006E5150-8825765D.006EFF93@us.ibm.com>
+References: <1256683583.3153.389.camel@linux-1lbu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	NetDev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+To: Steve Chen <schen@mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64927 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753102AbZJ1UHk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 16:07:40 -0400
-In-Reply-To: <4AE8A3C3.1070003@candelatech.com>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:37992 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753735AbZJ1UMs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 16:12:48 -0400
+In-Reply-To: <1256683583.3153.389.camel@linux-1lbu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Greear wrote:
-> On 10/28/2009 12:50 PM, Patrick McHardy wrote:
-> 
->>> And, even 1MB may not be enough for some scenarios.  So, probably
->>> best to
->>> let users over-ride the initial setting on cmd-line.  If not, then use
->>> a large value to start with.
->>
->> How about this? It uses 1MB as receive buf limit by default (without
->> increasing /proc/sys/net/core/rmem_max it will be limited by less
->> however) and allows to specify the size manually using "-rcvbuf X"
->> (-r is already used, so you need to specify at least -rc).
->>
->> Additionally rtnl_listen() continues on ENOBUFS after printing the
->> error message.
-> 
-> Looks good..except:
-> 
-> If rmem_max is smaller than 1M, will that cause setsocktopt to
-> fail and thus fail early out of rtnl_open_byproto?
+I haven't gone through the entire thread yet, but I should point
+out that this appears to break regular IP fragmentation for
+unicast packets. There is no restriction whatsoever that
+fragments from a remote destination that are actually for
+the same datagram need to be routed on the same paths
+and received on the same input interface.
 
-No, the kernel takes the value as a hint and only uses the
-maximum allowable value:
+For the multicast case, if they are from the same datagram,
+it doesn't matter how you got them. If it's a different datagram
+with the same ID, which can happen anyway, the checksum
+should fail (at least (64K-1) of 64K cases). I don't see a special
+case here, other than that you can tell by the interface if it was
+actually a distinct datagram with the same ID in the multicast
+case (and only in multicast and only if the different interfaces
+are not in the same multicast routing domain).
 
-	case SO_RCVBUF:
-		/* Don't error on this BSD doesn't and if you think
-		   about it this is right. Otherwise apps have to
-		   play 'guess the biggest size' games. RCVBUF/SNDBUF
-		   are treated in BSD as hints */
+NACK.
 
-		if (val > sysctl_rmem_max)
-			val = sysctl_rmem_max;
+                                        +-DLS
 
-> Maybe we should only print errors but not return in that method
-> when setsockopt fails?
-> 
-> In another project, I ended up trying ever smaller values until one
-> worked in order to get near what the user wanted even if rmem_max
-> was configured smaller.  Not sure if that is worth doing here or not.
-
-I think it should be fine this way.
