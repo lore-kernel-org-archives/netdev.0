@@ -1,53 +1,93 @@
-From: Rik van Riel <riel@redhat.com>
-Subject: TG3, kvm, ipv6 & tso data corruption bug?
-Date: Wed, 28 Oct 2009 10:46:55 -0400
-Message-ID: <4AE8595F.1080404@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] ip6mr: Optimize multiple unregistration
+Date: Wed, 28 Oct 2009 15:48:11 +0100
+Message-ID: <4AE859AB.8030801@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Linux kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	KVM list <kvm@vger.kernel.org>
-To: netdev@vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40387 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754197AbZJ1Oqz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Oct 2009 10:46:55 -0400
+Received: from gw1.cosmosbay.com ([212.99.114.194]:57212 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753774AbZJ1OsK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 10:48:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have been tracking down what I thought was a KVM related network
-issue for a while, however it appears it could be a hardware issue.
+Speedup module unloading by factorizing synchronize_rcu() calls
 
-The symptom is that data in network packets gets corrupted, before
-the checksum is calculated.  This means the remote host can get
-corrupted data, with no way to calculate it (except application
-level checksums).  Luckily ssh has such checksums, so my rsync over
-ssh backup script discovered this issue.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv6/ip6mr.c |   15 ++++++++++-----
+ 1 files changed, 10 insertions(+), 5 deletions(-)
 
-On a very regular basis, I got this message from ssh:
-
-	Corrupted MAC on input.
-
-I have played around a bit and narrowed it down to the following:
-
-ipv4          => no problem
-ipv6 w/o tso  => no problem
-ipv6 with tso => occasional data corruption
-
-Disabling tso with ethtool -K eth0 tso off makes the problem stop.
-
-I am running Fedora 12's 2.6.31.1-56.fc12.x86_64 kernel, with the
-following hardware:
-
-05:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5761 
-Gigabit Ethernet PCIe (rev 10)
-
-I do not know enough about the network layer to know whether this is
-fixable in software or whether TSO offloading for ipv6 should just
-be disabled on this model.
-
--- 
-All rights reversed.
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 85849b4..52e0f74 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -477,7 +477,7 @@ failure:
+  *	Delete a VIF entry
+  */
+ 
+-static int mif6_delete(struct net *net, int vifi)
++static int mif6_delete(struct net *net, int vifi, struct list_head *head)
+ {
+ 	struct mif_device *v;
+ 	struct net_device *dev;
+@@ -519,7 +519,7 @@ static int mif6_delete(struct net *net, int vifi)
+ 		in6_dev->cnf.mc_forwarding--;
+ 
+ 	if (v->flags & MIFF_REGISTER)
+-		unregister_netdevice(dev);
++		unregister_netdevice_queue(dev, head);
+ 
+ 	dev_put(dev);
+ 	return 0;
+@@ -976,6 +976,7 @@ static int ip6mr_device_event(struct notifier_block *this,
+ 	struct net *net = dev_net(dev);
+ 	struct mif_device *v;
+ 	int ct;
++	LIST_HEAD(list);
+ 
+ 	if (event != NETDEV_UNREGISTER)
+ 		return NOTIFY_DONE;
+@@ -983,8 +984,10 @@ static int ip6mr_device_event(struct notifier_block *this,
+ 	v = &net->ipv6.vif6_table[0];
+ 	for (ct = 0; ct < net->ipv6.maxvif; ct++, v++) {
+ 		if (v->dev == dev)
+-			mif6_delete(net, ct);
++			mif6_delete(net, ct, &list);
+ 	}
++	unregister_netdevice_many(&list);
++
+ 	return NOTIFY_DONE;
+ }
+ 
+@@ -1188,14 +1191,16 @@ static int ip6mr_mfc_add(struct net *net, struct mf6cctl *mfc, int mrtsock)
+ static void mroute_clean_tables(struct net *net)
+ {
+ 	int i;
++	LIST_HEAD(list);
+ 
+ 	/*
+ 	 *	Shut down all active vif entries
+ 	 */
+ 	for (i = 0; i < net->ipv6.maxvif; i++) {
+ 		if (!(net->ipv6.vif6_table[i].flags & VIFF_STATIC))
+-			mif6_delete(net, i);
++			mif6_delete(net, i, &list);
+ 	}
++	unregister_netdevice_many(&list);
+ 
+ 	/*
+ 	 *	Wipe the cache
+@@ -1325,7 +1330,7 @@ int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, uns
+ 		if (copy_from_user(&mifi, optval, sizeof(mifi_t)))
+ 			return -EFAULT;
+ 		rtnl_lock();
+-		ret = mif6_delete(net, mifi);
++		ret = mif6_delete(net, mifi, NULL);
+ 		rtnl_unlock();
+ 		return ret;
+ 
