@@ -1,55 +1,74 @@
 From: Gilad Ben-Yossef <gilad@codefidence.com>
-Subject: [PATCHv4 3/7] Add dst_feature to query route entry features
-Date: Wed, 28 Oct 2009 16:15:23 +0200
-Message-ID: <1256739327-11576-4-git-send-email-gilad@codefidence.com>
+Subject: [PATCHv4 7/7] Allow disabling of DSACK TCP option per route
+Date: Wed, 28 Oct 2009 16:15:27 +0200
+Message-ID: <1256739327-11576-8-git-send-email-gilad@codefidence.com>
 References: <1256739327-11576-1-git-send-email-gilad@codefidence.com>
 Cc: ori@comsleep.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenbox.codefidence.com ([92.48.73.16]:58555 "EHLO
+Received: from xenbox.codefidence.com ([92.48.73.16]:58574 "EHLO
 	xenbox.codefidence.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753923AbZJ1OPc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 10:15:32 -0400
+	with ESMTP id S1753910AbZJ1OPf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 10:15:35 -0400
 In-Reply-To: <1256739327-11576-1-git-send-email-gilad@codefidence.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adding an accessor to existing  dst_entry feautres field and
-refactor the only supported feature (allfrag) to use it.
+Add and use no DSCAK bit in the features field.
 
 Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
 Sigend-off-by: Ori Finkelman <ori@comsleep.com>
 Sigend-off-by: Yony Amit <yony@comsleep.com>
 ---
- include/net/dst.h |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
+ include/linux/rtnetlink.h |    1 +
+ net/ipv4/tcp_input.c      |    8 ++++++--
+ 2 files changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 5a900dd..b562be3 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -111,6 +111,12 @@ dst_metric(const struct dst_entry *dst, int metric)
- 	return dst->metrics[metric-1];
- }
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 6784b34..e78b60c 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -381,6 +381,7 @@ enum
+ #define RTAX_FEATURE_NO_TSTAMP	0x00000004
+ #define RTAX_FEATURE_ALLFRAG	0x00000008
+ #define RTAX_FEATURE_NO_WSCALE	0x00000010
++#define RTAX_FEATURE_NO_DSACK	0x00000020
  
-+static inline u32
-+dst_feature(const struct dst_entry *dst, u32 feature)
-+{
-+	return dst_metric(dst, RTAX_FEATURES) & feature;
-+}
-+
- static inline u32 dst_mtu(const struct dst_entry *dst)
+ struct rta_session
  {
- 	u32 mtu = dst_metric(dst, RTAX_MTU);
-@@ -136,7 +142,7 @@ static inline void set_dst_metric_rtt(struct dst_entry *dst, int metric,
- static inline u32
- dst_allfrag(const struct dst_entry *dst)
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 4f5e914..4262da5 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4080,8 +4080,10 @@ static inline int tcp_sack_extend(struct tcp_sack_block *sp, u32 seq,
+ static void tcp_dsack_set(struct sock *sk, u32 seq, u32 end_seq)
  {
--	int ret = dst_metric(dst, RTAX_FEATURES) & RTAX_FEATURE_ALLFRAG;
-+	int ret = dst_feature(dst,  RTAX_FEATURE_ALLFRAG);
- 	/* Yes, _exactly_. This is paranoia. */
- 	barrier();
- 	return ret;
+ 	struct tcp_sock *tp = tcp_sk(sk);
++	struct dst_entry *dst = __sk_dst_get(sk);
+ 
+-	if (tcp_is_sack(tp) && sysctl_tcp_dsack) {
++	if (tcp_is_sack(tp) && sysctl_tcp_dsack &&
++	    !dst_feature(dst, RTAX_FEATURE_NO_DSACK)) {
+ 		int mib_idx;
+ 
+ 		if (before(seq, tp->rcv_nxt))
+@@ -4110,13 +4112,15 @@ static void tcp_dsack_extend(struct sock *sk, u32 seq, u32 end_seq)
+ static void tcp_send_dupack(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
++	struct dst_entry *dst = __sk_dst_get(sk);
+ 
+ 	if (TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq &&
+ 	    before(TCP_SKB_CB(skb)->seq, tp->rcv_nxt)) {
+ 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_DELAYEDACKLOST);
+ 		tcp_enter_quickack_mode(sk);
+ 
+-		if (tcp_is_sack(tp) && sysctl_tcp_dsack) {
++		if (tcp_is_sack(tp) && sysctl_tcp_dsack &&
++		    !dst_feature(dst, RTAX_FEATURE_NO_DSACK)) {
+ 			u32 end_seq = TCP_SKB_CB(skb)->end_seq;
+ 
+ 			if (after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt))
 -- 
 1.5.6.3
 
