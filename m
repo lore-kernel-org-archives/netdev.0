@@ -1,56 +1,69 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCHv2 net-2.6] sfc: Really allow RX checksum offload to be
-	disabled
-Date: Wed, 28 Oct 2009 14:34:54 +0000
-Message-ID: <1256740494.2846.19.camel@achroite>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] ipv6 sit: Optimize multiple unregistration
+Date: Wed, 28 Oct 2009 15:37:43 +0100
+Message-ID: <4AE85737.4000809@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:34742 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751543AbZJ1Oex (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 10:34:53 -0400
+Received: from gw1.cosmosbay.com ([212.99.114.194]:52856 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752104AbZJ1Ohl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 10:37:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We have never checked the efx_nic::rx_checksum_enabled flag everywhere
-we should, and since the switch to GRO we don't check it anywhere.
-It's simplest to check it in the one place where we initialise the
-per-packet checksummed flag.
+Speedup module unloading by factorizing synchronize_rcu() calls
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-Cc: stable@kernel.org
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
-This version really is applicable to net-2.6 and 2.6.31.y, and to
-2.6.27.y with fuzz 1.  I'm not sure whether this bug is serious enough
-for a stable update but it is an obvious fix.
+ net/ipv6/sit.c |   17 +++++++++++------
+ 1 files changed, 11 insertions(+), 6 deletions(-)
 
-Ben.
 
- drivers/net/sfc/falcon.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index c049364..e75674e 100644
---- a/drivers/net/sfc/falcon.c
-+++ b/drivers/net/sfc/falcon.c
-@@ -884,7 +884,9 @@ static void falcon_handle_rx_event(struct efx_channel *channel,
- 		/* If packet is marked as OK and packet type is TCP/IPv4 or
- 		 * UDP/IPv4, then we can rely on the hardware checksum.
- 		 */
--		checksummed = RX_EV_HDR_TYPE_HAS_CHECKSUMS(rx_ev_hdr_type);
-+		checksummed =
-+			efx->rx_checksum_enabled &&
-+			RX_EV_HDR_TYPE_HAS_CHECKSUMS(rx_ev_hdr_type);
- 	} else {
- 		falcon_handle_rx_not_ok(rx_queue, event, &rx_ev_pkt_ok,
- 					&discard);
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index b6b1626..2362a33 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -1145,16 +1145,19 @@ static struct xfrm_tunnel sit_handler = {
+ 	.priority	=	1,
+ };
+ 
+-static void sit_destroy_tunnels(struct sit_net *sitn)
++static void sit_destroy_tunnels(struct sit_net *sitn, struct list_head *head)
+ {
+ 	int prio;
+ 
+ 	for (prio = 1; prio < 4; prio++) {
+ 		int h;
+ 		for (h = 0; h < HASH_SIZE; h++) {
+-			struct ip_tunnel *t;
+-			while ((t = sitn->tunnels[prio][h]) != NULL)
+-				unregister_netdevice(t->dev);
++			struct ip_tunnel *t = sitn->tunnels[prio][h];
++
++			while (t != NULL) {
++				unregister_netdevice_queue(t->dev, head);
++				t = t->next;
++			}
+ 		}
+ 	}
+ }
+@@ -1208,11 +1211,13 @@ err_alloc:
+ static void sit_exit_net(struct net *net)
+ {
+ 	struct sit_net *sitn;
++	LIST_HEAD(list);
+ 
+ 	sitn = net_generic(net, sit_net_id);
+ 	rtnl_lock();
+-	sit_destroy_tunnels(sitn);
+-	unregister_netdevice(sitn->fb_tunnel_dev);
++	sit_destroy_tunnels(sitn, &list);
++	unregister_netdevice_queue(sitn->fb_tunnel_dev, &list);
++	unregister_netdevice_many(&list);
+ 	rtnl_unlock();
+ 	kfree(sitn);
+ }
