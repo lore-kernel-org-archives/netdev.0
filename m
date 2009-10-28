@@ -1,53 +1,64 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: WAN device configuration, again...
-Date: Wed, 28 Oct 2009 09:03:08 -0700
-Message-ID: <1256745788.3850.31.camel@localhost.localdomain>
-References: <m3d447hcks.fsf@intrepid.localdomain>
+From: <Jordan_Hargrave@Dell.com>
+Subject: RE: [PATCH] udev: create empty regular files to represent net interfaces
+Date: Wed, 28 Oct 2009 11:09:10 -0500
+Message-ID: <5DDAB7BA7BDB58439DD0EED0B8E9A3AE02E827AE@ausx3mpc102.aus.amer.dell.com>
+References: <20091016214024.GA10091@ldl.fc.hp.com> <20091022063619.GB6321@ldl.fc.hp.com> <20091027205551.GA31963@auslistsprd01.us.dell.com> <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com> <20091028130308.GA24611@auslistsprd01.us.dell.com> <20091028150913.GB3612@ldl.fc.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Krzysztof Halasa <khc@pm.waw.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9335 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754738AbZJ1QDG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Oct 2009 12:03:06 -0400
-In-Reply-To: <m3d447hcks.fsf@intrepid.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <kay.sievers@vrfy.org>, <linux-hotplug@vger.kernel.org>,
+	<Narendra_K@Dell.com>, <netdev@vger.kernel.org>,
+	<Charles_Rose@Dell.com>, <bhutchings@solarflare.com>
+To: <dannf@hp.com>, <Matt_Domsch@Dell.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2009-10-28 at 14:28 +0100, Krzysztof Halasa wrote:
-> Hi,
-> 
-> I'm currently at final stages of "producing" two WAN drivers and there
-> is one thing to solve: they have really complex options. It's no longer
-> a V.35 with ca. 4 clock modes, a clock rate and few encodings etc. They
-> need many options unique to each driver/board. I think I need a more
-> capable interface to configure the devices than the current ioctl-based
-> one.
-> 
-> I think of something:
-> - using netlink or similar interface
+I was thinking, if we're not planning on use the chardev/kernel route.  There already exists an ifindex file in /sys/class/net/XXX/ifindex.
+Should udev/helper be creating links to this, or is it better to keep everything under the /dev/ tree?
+Using this method would require the patch to udev to handle renaming events.
 
-If you're doing a new config interface, I'd suggest netlink like the
-wireless guys did to replace WEXT with cfg80211.  Using netlink makes
-your interface easily available from programs/libraries without having
-to screenscrape anything.  If you want some advice on netlink API stuff,
-ask Johannes Berg.
+--jordan hargrave
+Dell Enterprise Linux Engineering
 
-Dan
 
-> - with potentially unlimited "payload" size (data may be transfered in
->   smaller packets)
-> - the "command" and "response" should be variable-length ASCII-based,
->   instead of fixed structures. This way I don't have to duplicate all
->   option handling in userspace, only the specific driver has to know
->   about them.
+
+-----Original Message-----
+From: dann frazier [mailto:dannf@hp.com]
+Sent: Wed 10/28/2009 10:09
+To: Domsch, Matt
+Cc: Kay Sievers; linux-hotplug@vger.kernel.org; K, Narendra; netdev@vger.kernel.org; Hargrave, Jordan; Rose, Charles; Ben Hutchings
+Subject: Re: [PATCH] udev: create empty regular files to represent net interfaces
+ 
+On Wed, Oct 28, 2009 at 08:03:08AM -0500, Matt Domsch wrote:
+> On Wed, Oct 28, 2009 at 09:23:57AM +0100, Kay Sievers wrote:
+[...]
+> > That all sounds very much like something which will hit us back some
+> > day. I'm not sure, if udev should publish such dead text files in
+> > /dev, it does not seem to fit the usual APIs/assumptions where /sys
+> > and /dev match, and libudev provides access to both. It all sounds
+> > more like a database for a possible netdevname library, which does not
+> > need to be public in /dev, right?
 > 
-> Comments? Perhaps there is already an example?
-> Should I use something else?
-> 
-> I also thought about using /sys read/write calls, but I'm not sure it's
-> a good idea.
+> Right, it doesn't need to be in /dev.  We could have udev rules that
+> simply call yet another program to maintain that database, in yet
+> another way.
+
+Or have udev maintain them in a private directory (e.g.,
+/var/lib/udev/netalias). Personally, I like the approach of having
+udev manage them as files - its an abstraction our users already get,
+and they don't have to learn two mechanisms when aliasing disks and
+nics (SYMLINK ftw). Plus there's obviously a lot of code reuse to be
+had (most of my patch was moving code into a common section).
+
+If we want to hide the file implementation - we could invent another
+udev construct that basically aliases SYMLINK (e.g. NETALIAS) that
+works iff the device is a netdevice. That would let us switch out
+implementations in the future, but would obviously be much more
+invasive.
+
+-- 
+dann frazier
+
 
