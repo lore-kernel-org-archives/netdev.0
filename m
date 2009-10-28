@@ -1,65 +1,60 @@
-From: fangxiaozhi 00110321 <huananhu@huawei.com>
-Subject: Re: PATCH 23/10]Optimize the upload speed for PPP connection.
-Date: Wed, 28 Oct 2009 15:30:45 +0800
-Message-ID: <fb8ed0e9a479.a479fb8ed0e9@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: iproute uses too small of a receive buffer
+Date: Wed, 28 Oct 2009 08:37:20 +0100
+Message-ID: <4AE7F4B0.4010007@gmail.com>
+References: <4AE77F64.3090302@candelatech.com> <20091027162434.6dc31b2d@nehalam> <4AE78297.9000909@candelatech.com> <4AE7EC65.8000600@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, kernel@vger.kernel.org, zihan@huawei.com,
-	greg@kroah.com, haegar@sdinet.de
-To: davem@davemloft.net, william.allen.simpson@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: NetDev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:41793 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932392AbZJ1Han (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 03:30:43 -0400
-Content-language: zh-CN
-Content-disposition: inline
+Received: from gw1.cosmosbay.com ([212.99.114.194]:33513 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757462AbZJ1HhT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 03:37:19 -0400
+In-Reply-To: <4AE7EC65.8000600@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Eric Dumazet a =E9crit :
+> Ben Greear a =E9crit :
+>> Probably the right way is to give a cmd-line arg to set the buffer s=
+ize
+>> and also continue if the error is ENOBUFs (but print some error out
+>> so users know they have issues).  I can make the attempt if that
+>> sounds good to you.
+>=20
+> Real fix is to realloc buffer at receive time, no need for user setti=
+ng.
+>=20
+> In my testings I saw it reaching 1 Mbyte
+> write(2, "REALLOC buflen 8192\n"..., 20) =3D 20
+> write(2, "REALLOC buflen 16384\n"..., 21) =3D 21
+> write(2, "REALLOC buflen 32768\n"..., 21) =3D 21
+> write(2, "REALLOC buflen 65536\n"..., 21) =3D 21
+> write(2, "REALLOC buflen 131072\n"..., 22) =3D 22
+> write(2, "REALLOC buflen 262144\n"..., 22) =3D 22
+> write(2, "REALLOC buflen 524288\n"..., 22) =3D 22
+>=20
+>=20
+> [iproute2] realloc buffer in rtnl_listen
+>=20
+> # ip monitor route
+> netlink receive error No buffer space available (105)
+> Dump terminated=20
+>=20
+> Reported-by: Ben Greear<greearb@candelatech.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Thanks your advice.
+Oops, this was wrong, Ben was right, sorry...
 
-But generally, PAGE_SIZE is 4096, whether it is too large or not?
+ENOBUFS errors is a flag to actually report to user that some informati=
+on was dropped,
+not that user supplied buffer at recv() time is not big enough.
 
-If PAGE_SIZE is really appropriate, then I can resubmit the patch.
-
-Thanks very much.
------ Original Message ----- 
-From: "David Miller" <davem@davemloft.net>
-To: <william.allen.simpson@gmail.com>
-Cc: <huananhu@huawei.com>; <netdev@vger.kernel.org>; <linux-kernel@vger.kernel.org>; <zihan@huawei.com>; <greg@kroah.com>; <haegar@sdinet.de>
-Sent: Saturday, October 24, 2009 9:46 PM
-Subject: Re: PATCH 23/10]Optimize the upload speed for PPP connection.
+I was surprised that buffer could reach 1Mbytes, while RCVBUF was 32768=
+ or so.
 
 
-> From: William Allen Simpson <william.allen.simpson@gmail.com>
-> Date: Fri, 23 Oct 2009 07:46:08 -0400
-> 
->> Concur.  I'd go further than that, my code usually made room for at
->> least
->> a full MTU (MRU) with HDLC escaping.  To minimize context switches,
->> that
->> should be 3014 ((1500 MRU + 2 FCS + 4 header) * 2 escapes + 2 flags).
->> 
->> Even in the old days, when memory was tight, context switches and
->> interrupt
->> time were more expensive, too.  PPP is supposed to scale to OC-192.
-> 
-> Actually I'd like to see ->obuf allocated externally and then
-> make it simply PAGE_SIZE.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
---
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
-******************************************************************************************
- This email and its attachments contain confidential information from HUAWEI, which is intended only for the person or entity whose address is listed above. Any use of the information contained here in any way (including, but not limited to, total or partial disclosure, reproduction, or dissemination) by persons other than the intended recipient(s) is prohibited. If you receive this email in error, please notify the sender by phone or email
- immediately and delete it!
- *****************************************************************************************
