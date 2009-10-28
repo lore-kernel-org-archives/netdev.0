@@ -1,77 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] bridge: Optimize multiple unregistration
-Date: Wed, 28 Oct 2009 16:35:35 +0100
-Message-ID: <4AE864C7.3060100@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [net-next-2.6 PATCH 01/23] igb: add support for seperate
+ tx-usecs setting in ethtool
+Date: Wed, 28 Oct 2009 08:42:07 -0700
+Message-ID: <20091028084207.1c504084@nehalam>
+References: <20091028094540.13156.2637.stgit@localhost.localdomain>
+	<20091028.033922.99548522.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, alexander.h.duyck@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:34796 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754503AbZJ1Pfe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 11:35:34 -0400
+Received: from mail.vyatta.com ([76.74.103.46]:55253 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754504AbZJ1PmJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Oct 2009 11:42:09 -0400
+In-Reply-To: <20091028.033922.99548522.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Speedup module unloading by factorizing synchronize_rcu() calls
+On Wed, 28 Oct 2009 03:39:22 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/bridge/br_if.c |   19 +++++++++----------
- 1 files changed, 9 insertions(+), 10 deletions(-)
+> +	new_rx_count = max(new_rx_count, (u32)IGB_MIN_RXD);
 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index b1b3b0f..2117e5b 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -154,7 +154,7 @@ static void del_nbp(struct net_bridge_port *p)
- }
- 
- /* called with RTNL */
--static void del_br(struct net_bridge *br)
-+static void del_br(struct net_bridge *br, struct list_head *head)
- {
- 	struct net_bridge_port *p, *n;
- 
-@@ -165,7 +165,7 @@ static void del_br(struct net_bridge *br)
- 	del_timer_sync(&br->gc_timer);
- 
- 	br_sysfs_delbr(br->dev);
--	unregister_netdevice(br->dev);
-+	unregister_netdevice_queue(br->dev, head);
- }
- 
- static struct net_device *new_bridge_dev(struct net *net, const char *name)
-@@ -323,7 +323,7 @@ int br_del_bridge(struct net *net, const char *name)
- 	}
- 
- 	else
--		del_br(netdev_priv(dev));
-+		del_br(netdev_priv(dev), NULL);
- 
- 	rtnl_unlock();
- 	return ret;
-@@ -462,15 +462,14 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
- void br_net_exit(struct net *net)
- {
- 	struct net_device *dev;
-+	LIST_HEAD(list);
- 
- 	rtnl_lock();
--restart:
--	for_each_netdev(net, dev) {
--		if (dev->priv_flags & IFF_EBRIDGE) {
--			del_br(netdev_priv(dev));
--			goto restart;
--		}
--	}
-+	for_each_netdev(net, dev)
-+		if (dev->priv_flags & IFF_EBRIDGE)
-+			del_br(netdev_priv(dev), &list);
-+
-+	unregister_netdevice_many(&list);
- 	rtnl_unlock();
- 
- }
+new_rx_count = max_t(u32, new_rx_count, IGB_MIN_RXD)
+  is slightly cleaner (hides cast)
+
+-- 
