@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 09/20] igb: move rx_buffer_len into the ring
-	structure
-Date: Tue, 27 Oct 2009 18:52:07 -0700
-Message-ID: <20091028015206.12470.50840.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 10/20] igb: move alloc_failed and csum_err stats
+	into per rx-ring stat
+Date: Tue, 27 Oct 2009 18:52:27 -0700
+Message-ID: <20091028015226.12470.70084.stgit@localhost.localdomain>
 References: <20091028014858.12470.99520.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,195 +12,185 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta01.westchester.pa.mail.comcast.net ([76.96.62.16]:43823
-	"EHLO QMTA01.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754349AbZJ1Bzu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 21:55:50 -0400
+Received: from qmta03.westchester.pa.mail.comcast.net ([76.96.62.32]:44098
+	"EHLO QMTA03.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755465AbZJ1B4J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Oct 2009 21:56:09 -0400
 In-Reply-To: <20091028014858.12470.99520.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch moves the rx_buffer_len value into the ring structure.  This allows
-greater flexibility and the option of doing things such as supporting packet
-split only on some queues, or enabling virtualization.
+The allocation failed and checksum error stats are currently kept as a
+global stat.  If we end up allocating the queues to multiple netdevs then
+the global counter doesn't make much sense.  For this reason I felt it
+necessary to move the alloc_rx_buff_failed stat into the rx_stats
+portion of the rx_ring.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb.h      |    3 +--
- drivers/net/igb/igb_main.c |   41 ++++++++++++++++++++++-------------------
- 2 files changed, 23 insertions(+), 21 deletions(-)
+ drivers/net/igb/igb.h         |    6 +++---
+ drivers/net/igb/igb_ethtool.c |    9 ++++++---
+ drivers/net/igb/igb_main.c    |   17 ++++++++---------
+ 3 files changed, 17 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
-index de26862..00ff274 100644
+index 00ff274..6a67fa2 100644
 --- a/drivers/net/igb/igb.h
 +++ b/drivers/net/igb/igb.h
-@@ -198,7 +198,7 @@ struct igb_ring {
- 		/* RX */
- 		struct {
- 			struct igb_rx_queue_stats rx_stats;
--			u64 rx_queue_drops;
-+			u32 rx_buffer_len;
- 		};
- 	};
+@@ -145,12 +145,15 @@ struct igb_buffer {
+ struct igb_tx_queue_stats {
+ 	u64 packets;
+ 	u64 bytes;
++	u64 restart_queue;
  };
-@@ -218,7 +218,6 @@ struct igb_adapter {
- 	struct vlan_group *vlgrp;
- 	u16 mng_vlan_id;
- 	u32 bd_number;
--	u32 rx_buffer_len;
- 	u32 wol;
- 	u32 en_mng_pt;
- 	u16 link_speed;
+ 
+ struct igb_rx_queue_stats {
+ 	u64 packets;
+ 	u64 bytes;
+ 	u64 drops;
++	u64 csum_err;
++	u64 alloc_failed;
+ };
+ 
+ struct igb_q_vector {
+@@ -241,7 +244,6 @@ struct igb_adapter {
+ 
+ 	/* TX */
+ 	struct igb_ring *tx_ring;      /* One per active queue */
+-	unsigned int restart_queue;
+ 	unsigned long tx_queue_len;
+ 	u32 txd_cmd;
+ 	u32 gotc;
+@@ -255,8 +257,6 @@ struct igb_adapter {
+ 	int num_tx_queues;
+ 	int num_rx_queues;
+ 
+-	u64 hw_csum_err;
+-	u32 alloc_rx_buff_failed;
+ 	u32 gorc;
+ 	u64 gorc_old;
+ 	u32 max_frame_size;
+diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
+index c48a555..f62430b 100644
+--- a/drivers/net/igb/igb_ethtool.c
++++ b/drivers/net/igb/igb_ethtool.c
+@@ -84,7 +84,6 @@ static const struct igb_stats igb_gstrings_stats[] = {
+ 	{ "tx_single_coll_ok", IGB_STAT(stats.scc) },
+ 	{ "tx_multi_coll_ok", IGB_STAT(stats.mcc) },
+ 	{ "tx_timeout_count", IGB_STAT(tx_timeout_count) },
+-	{ "tx_restart_queue", IGB_STAT(restart_queue) },
+ 	{ "rx_long_length_errors", IGB_STAT(stats.roc) },
+ 	{ "rx_short_length_errors", IGB_STAT(stats.ruc) },
+ 	{ "rx_align_errors", IGB_STAT(stats.algnerrc) },
+@@ -95,9 +94,7 @@ static const struct igb_stats igb_gstrings_stats[] = {
+ 	{ "tx_flow_control_xon", IGB_STAT(stats.xontxc) },
+ 	{ "tx_flow_control_xoff", IGB_STAT(stats.xofftxc) },
+ 	{ "rx_long_byte_count", IGB_STAT(stats.gorc) },
+-	{ "rx_csum_offload_errors", IGB_STAT(hw_csum_err) },
+ 	{ "tx_dma_out_of_sync", IGB_STAT(stats.doosync) },
+-	{ "alloc_rx_buff_failed", IGB_STAT(alloc_rx_buff_failed) },
+ 	{ "tx_smbus", IGB_STAT(stats.mgptc) },
+ 	{ "rx_smbus", IGB_STAT(stats.mgprc) },
+ 	{ "dropped_smbus", IGB_STAT(stats.mgpdc) },
+@@ -2031,6 +2028,8 @@ static void igb_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
+ 			p += ETH_GSTRING_LEN;
+ 			sprintf(p, "tx_queue_%u_bytes", i);
+ 			p += ETH_GSTRING_LEN;
++			sprintf(p, "tx_queue_%u_restart", i);
++			p += ETH_GSTRING_LEN;
+ 		}
+ 		for (i = 0; i < adapter->num_rx_queues; i++) {
+ 			sprintf(p, "rx_queue_%u_packets", i);
+@@ -2039,6 +2038,10 @@ static void igb_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
+ 			p += ETH_GSTRING_LEN;
+ 			sprintf(p, "rx_queue_%u_drops", i);
+ 			p += ETH_GSTRING_LEN;
++			sprintf(p, "rx_queue_%u_csum_err", i);
++			p += ETH_GSTRING_LEN;
++			sprintf(p, "rx_queue_%u_alloc_failed", i);
++			p += ETH_GSTRING_LEN;
+ 		}
+ /*		BUG_ON(p - data != IGB_STATS_LEN * ETH_GSTRING_LEN); */
+ 		break;
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index ff16b7a..04e860d 100644
+index 04e860d..bdd7bf0 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -443,6 +443,7 @@ static int igb_alloc_queues(struct igb_adapter *adapter)
- 		ring->count = adapter->rx_ring_count;
- 		ring->queue_index = i;
- 		ring->pdev = adapter->pdev;
-+		ring->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
- 	}
- 
- 	igb_cache_ring_register(adapter);
-@@ -1863,7 +1864,6 @@ static int __devinit igb_sw_init(struct igb_adapter *adapter)
- 
- 	adapter->tx_ring_count = IGB_DEFAULT_TXD;
- 	adapter->rx_ring_count = IGB_DEFAULT_RXD;
--	adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
- 	adapter->max_frame_size = netdev->mtu + ETH_HLEN + ETH_FCS_LEN;
- 	adapter->min_frame_size = ETH_ZLEN + ETH_FCS_LEN;
- 
-@@ -2358,8 +2358,8 @@ static void igb_configure_rx_ring(struct igb_adapter *adapter,
- 	writel(0, ring->tail);
- 
- 	/* set descriptor configuration */
--	if (adapter->rx_buffer_len < IGB_RXBUFFER_1024) {
--		srrctl = ALIGN(adapter->rx_buffer_len, 64) <<
-+	if (ring->rx_buffer_len < IGB_RXBUFFER_1024) {
-+		srrctl = ALIGN(ring->rx_buffer_len, 64) <<
- 		         E1000_SRRCTL_BSIZEHDRSIZE_SHIFT;
- #if (PAGE_SIZE / 2) > IGB_RXBUFFER_16384
- 		srrctl |= IGB_RXBUFFER_16384 >>
-@@ -2370,7 +2370,7 @@ static void igb_configure_rx_ring(struct igb_adapter *adapter,
- #endif
- 		srrctl |= E1000_SRRCTL_DESCTYPE_HDR_SPLIT_ALWAYS;
- 	} else {
--		srrctl = ALIGN(adapter->rx_buffer_len, 1024) >>
-+		srrctl = ALIGN(ring->rx_buffer_len, 1024) >>
- 		         E1000_SRRCTL_BSIZEPKT_SHIFT;
- 		srrctl |= E1000_SRRCTL_DESCTYPE_ADV_ONEBUF;
- 	}
-@@ -2619,7 +2619,6 @@ static void igb_free_all_rx_resources(struct igb_adapter *adapter)
-  **/
- static void igb_clean_rx_ring(struct igb_ring *rx_ring)
+@@ -3562,8 +3562,6 @@ static inline void igb_tx_queue_adv(struct igb_adapter *adapter,
+ static int __igb_maybe_stop_tx(struct net_device *netdev,
+ 			       struct igb_ring *tx_ring, int size)
  {
--	struct igb_adapter *adapter = rx_ring->q_vector->adapter;
- 	struct igb_buffer *buffer_info;
- 	unsigned long size;
- 	unsigned int i;
-@@ -2632,7 +2631,7 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
- 		if (buffer_info->dma) {
- 			pci_unmap_single(rx_ring->pdev,
- 			                 buffer_info->dma,
--					 adapter->rx_buffer_len,
-+					 rx_ring->rx_buffer_len,
- 					 PCI_DMA_FROMDEVICE);
- 			buffer_info->dma = 0;
- 		}
-@@ -3746,6 +3745,7 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
- {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
- 	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
-+	u32 rx_buffer_len, i;
- 
- 	if ((max_frame < ETH_ZLEN + ETH_FCS_LEN) ||
- 	    (max_frame > MAX_JUMBO_FRAME_SIZE)) {
-@@ -3763,9 +3763,6 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
- 
- 	/* igb_down has a dependency on max_frame_size */
- 	adapter->max_frame_size = max_frame;
--	if (netif_running(netdev))
--		igb_down(adapter);
+-	struct igb_adapter *adapter = netdev_priv(netdev);
 -
- 	/* NOTE: netdev_alloc_skb reserves 16 bytes, and typically NET_IP_ALIGN
- 	 * means we reserve 2 more, this pushes us to allocate from the next
- 	 * larger slab size.
-@@ -3773,16 +3770,22 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
- 	 */
+ 	netif_stop_subqueue(netdev, tx_ring->queue_index);
  
- 	if (max_frame <= IGB_RXBUFFER_1024)
--		adapter->rx_buffer_len = IGB_RXBUFFER_1024;
-+		rx_buffer_len = IGB_RXBUFFER_1024;
- 	else if (max_frame <= MAXIMUM_ETHERNET_VLAN_SIZE)
--		adapter->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
-+		rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
- 	else
--		adapter->rx_buffer_len = IGB_RXBUFFER_128;
-+		rx_buffer_len = IGB_RXBUFFER_128;
-+
-+	if (netif_running(netdev))
-+		igb_down(adapter);
+ 	/* Herbert's original patch had:
+@@ -3578,7 +3576,7 @@ static int __igb_maybe_stop_tx(struct net_device *netdev,
  
- 	dev_info(&adapter->pdev->dev, "changing MTU from %d to %d\n",
- 		 netdev->mtu, new_mtu);
- 	netdev->mtu = new_mtu;
- 
-+	for (i = 0; i < adapter->num_rx_queues; i++)
-+		adapter->rx_ring[i].rx_buffer_len = rx_buffer_len;
-+
- 	if (netif_running(netdev))
- 		igb_up(adapter);
- 	else
-@@ -4828,7 +4831,7 @@ static inline void igb_rx_checksum_adv(struct igb_adapter *adapter,
- 	dev_dbg(&adapter->pdev->dev, "cksum success: bits %08X\n", status_err);
+ 	/* A reprieve! */
+ 	netif_wake_subqueue(netdev, tx_ring->queue_index);
+-	++adapter->restart_queue;
++	tx_ring->tx_stats.restart_queue++;
+ 	return 0;
  }
  
--static inline u16 igb_get_hlen(struct igb_adapter *adapter,
-+static inline u16 igb_get_hlen(struct igb_ring *rx_ring,
-                                union e1000_adv_rx_desc *rx_desc)
- {
- 	/* HW will not DMA in data larger than the given buffer, even if it
-@@ -4837,8 +4840,8 @@ static inline u16 igb_get_hlen(struct igb_adapter *adapter,
- 	 */
- 	u16 hlen = (le16_to_cpu(rx_desc->wb.lower.lo_dword.hdr_info) &
- 	           E1000_RXDADV_HDRBUFLEN_MASK) >> E1000_RXDADV_HDRBUFLEN_SHIFT;
--	if (hlen > adapter->rx_buffer_len)
--		hlen = adapter->rx_buffer_len;
-+	if (hlen > rx_ring->rx_buffer_len)
-+		hlen = rx_ring->rx_buffer_len;
- 	return hlen;
- }
- 
-@@ -4888,14 +4891,14 @@ static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
- 
- 		if (buffer_info->dma) {
- 			pci_unmap_single(pdev, buffer_info->dma,
--					 adapter->rx_buffer_len,
-+					 rx_ring->rx_buffer_len,
- 					 PCI_DMA_FROMDEVICE);
- 			buffer_info->dma = 0;
--			if (adapter->rx_buffer_len >= IGB_RXBUFFER_1024) {
-+			if (rx_ring->rx_buffer_len >= IGB_RXBUFFER_1024) {
- 				skb_put(skb, length);
- 				goto send_up;
- 			}
--			skb_put(skb, igb_get_hlen(adapter, rx_desc));
-+			skb_put(skb, igb_get_hlen(rx_ring, rx_desc));
+@@ -4734,7 +4732,7 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
+ 		if (__netif_subqueue_stopped(netdev, tx_ring->queue_index) &&
+ 		    !(test_bit(__IGB_DOWN, &adapter->state))) {
+ 			netif_wake_subqueue(netdev, tx_ring->queue_index);
+-			++adapter->restart_queue;
++			tx_ring->tx_stats.restart_queue++;
  		}
+ 	}
  
- 		if (length) {
-@@ -5034,7 +5037,7 @@ static void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring,
- 	i = rx_ring->next_to_use;
- 	buffer_info = &rx_ring->buffer_info[i];
+@@ -4801,7 +4799,8 @@ static void igb_receive_skb(struct igb_q_vector *q_vector,
+ 		napi_gro_receive(&q_vector->napi, skb);
+ }
  
--	bufsz = adapter->rx_buffer_len;
-+	bufsz = rx_ring->rx_buffer_len;
+-static inline void igb_rx_checksum_adv(struct igb_adapter *adapter,
++static inline void igb_rx_checksum_adv(struct igb_ring *ring,
++                                       struct igb_adapter *adapter,
+ 				       u32 status_err, struct sk_buff *skb)
+ {
+ 	skb->ip_summed = CHECKSUM_NONE;
+@@ -4820,7 +4819,7 @@ static inline void igb_rx_checksum_adv(struct igb_adapter *adapter,
+ 		 */
+ 		if (!((adapter->hw.mac.type == e1000_82576) &&
+ 		      (skb->len == 60)))
+-			adapter->hw_csum_err++;
++			ring->rx_stats.csum_err++;
+ 		/* let the stack verify checksum errors */
+ 		return;
+ 	}
+@@ -4979,7 +4978,7 @@ send_up:
+ 		total_bytes += skb->len;
+ 		total_packets++;
  
- 	while (cleaned_count--) {
- 		rx_desc = E1000_RX_DESC_ADV(*rx_ring, i);
+-		igb_rx_checksum_adv(adapter, staterr, skb);
++		igb_rx_checksum_adv(rx_ring, adapter, staterr, skb);
+ 
+ 		skb->protocol = eth_type_trans(skb, netdev);
+ 		skb_record_rx_queue(skb, rx_ring->queue_index);
+@@ -5046,7 +5045,7 @@ static void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring,
+ 			if (!buffer_info->page) {
+ 				buffer_info->page = alloc_page(GFP_ATOMIC);
+ 				if (!buffer_info->page) {
+-					adapter->alloc_rx_buff_failed++;
++					rx_ring->rx_stats.alloc_failed++;
+ 					goto no_buffers;
+ 				}
+ 				buffer_info->page_offset = 0;
+@@ -5063,7 +5062,7 @@ static void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring,
+ 		if (!buffer_info->skb) {
+ 			skb = netdev_alloc_skb_ip_align(netdev, bufsz);
+ 			if (!skb) {
+-				adapter->alloc_rx_buff_failed++;
++				rx_ring->rx_stats.alloc_failed++;
+ 				goto no_buffers;
+ 			}
+ 
 
