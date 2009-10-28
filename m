@@ -1,183 +1,91 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] AF_RAW: Augment raw_send_hdrinc to expand skb to fit
-	iphdr->ihl (v2)
-Date: Wed, 28 Oct 2009 14:59:47 -0400
-Message-ID: <20091028185947.GA12675@hmsreliant.think-freely.org>
-References: <20091028173955.GB7422@hmsreliant.think-freely.org> <4AE889B5.4040301@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: iproute uses too small of a receive buffer
+Date: Wed, 28 Oct 2009 20:05:12 +0100
+Message-ID: <4AE895E8.60308@trash.net>
+References: <4AE77F64.3090302@candelatech.com> <20091027162434.6dc31b2d@nehalam> <4AE7F859.7020105@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com
+Content-Type: multipart/mixed;
+ boundary="------------070301080807020604040406"
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Ben Greear <greearb@candelatech.com>,
+	NetDev <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:57137 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751375AbZJ1S7v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 14:59:51 -0400
-Content-Disposition: inline
-In-Reply-To: <4AE889B5.4040301@gmail.com>
+Received: from stinky.trash.net ([213.144.137.162]:63866 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752330AbZJ1TFO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Oct 2009 15:05:14 -0400
+In-Reply-To: <4AE7F859.7020105@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 28, 2009 at 07:13:09PM +0100, Eric Dumazet wrote:
-> Neil Horman a =E9crit :
-> > Augment raw_send_hdrinc to correct for incorrect ip header length v=
-alues
-> >=20
-> > A series of oopses was reported to me recently.  Apparently when us=
-ing AF_RAW
-> > sockets to send data to peers that were reachable via ipsec encapsu=
-lation,
-> > people could panic or BUG halt their systems.
-> >=20
-> > I've tracked the problem down to user space sending an invalid ip h=
-eader over an
-> > AF_RAW socket with IP_HDRINCL set to 1.
-> >=20
-> > Basically what happens is that userspace sends down an ip frame tha=
-t includes
-> > only the header (no data), but sets the ip header ihl value to a la=
-rge number,
-> > one that is larger than the total amount of data passed to the send=
-msg call.  In
-> > raw_send_hdrincl, we allocate an skb based on the size of the data =
-in the msghdr
-> > that was passed in, but assume the data is all valid.  Later during=
- ipsec
-> > encapsulation, xfrm4_tranport_output moves the entire frame back in=
- the skbuff
-> > to provide headroom for the ipsec headers.  During this operation, =
-the
-> > skb->transport_header is repointed to a spot computed by
-> > skb->network_header + the ip header length (ihl).  Since so little =
-data was
-> > passed in relative to the value of ihl provided by the raw socket, =
-we point
-> > transport header to an unknown location, resulting in various crash=
-es.
-> >=20
-> > So, what to do about this?  My first thought was to simply return -=
-EINVAL, and
-> > let user space sort it out.  I'm still thinking that might be the b=
-est way, but
-> > I thought I'd try this first, just in case someone has reason to tr=
-y to
-> > send such a bogus frame through the kernel.  This solution simply c=
-hecks the
-> > value of ihl in raw_send_hdrinc and expands the skb to fit, filling=
- the new
-> > space with  IPOPT_NOOP options.  I've confirmed that it fixes the c=
-rashes that
-> > were reported.
-> >=20
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> >=20
->=20
-> Thanks a lot for this detailed info, I wish everything could be expla=
-ined like this !
->=20
-You're welcome, this was a fun one to track down :)
+This is a multi-part message in MIME format.
+--------------070301080807020604040406
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 8bit
 
-> I believe we should drop the request, since padding it is not what wa=
-s expected by user.
+Eric Dumazet wrote:
+> Stephen Hemminger a écrit :
+>> Just having larger buffer isn't guarantee of success. Allocating
+>> a huge buffer is not going to work on embedded.
+>>
+> 
+> Please note we do not allocate a big buffer, only allow more small skbs
+> to be queued on socket receive queue.
+> 
+> If memory is not available, skb allocation will eventually fail
+> and be reported as well, embedded or not.
+> 
+> I vote for allowing 1024*1024 bytes instead of 32768,
+> and eventually user should be warned that it is capped by 
+> /proc/sys/net/core/rmem_max
 
-Yeah, I had a feeling.  Ok, version 2, this time drop the invalid frame=
- and
-report it to user space, instead of expanding it:
+How about this? It will double the receive queue limit on ENOBUFS
+up to 1024 * 1024b, then bail out with the normal error message on
+further ENOBUFS.
 
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-    Augment raw_send_hdrinc to correct for incorrect ip header length v=
-alues
-   =20
-    A series of oopses was reported to me recently.  Apparently when us=
-ing AF_RAW
-    sockets to send data to peers that were reachable via ipsec encapsu=
-lation,
-    people could panic or BUG halt their systems.
-   =20
-    I've tracked the problem down to user space sending an invalid ip h=
-eader over an
-    AF_RAW socket with IP_HDRINCL set to 1.
-   =20
-    Basically what happens is that userspace sends down an ip frame tha=
-t includes
-    only the header (no data), but sets the ip header ihl value to a la=
-rge number,
-    one that is larger than the total amount of data passed to the send=
-msg call.  In
-    raw_send_hdrincl, we allocate an skb based on the size of the data =
-in the msghdr
-    that was passed in, but assume the data is all valid.  Later during=
- ipsec
-    encapsulation, xfrm4_tranport_output moves the entire frame back in=
- the skbuff
-    to provide headroom for the ipsec headers.  During this operation, =
-the
-    skb->transport_header is repointed to a spot computed by
-    skb->network_header + the ip header length (ihl).  Since so little =
-data was
-    passed in relative to the value of ihl provided by the raw socket, =
-we point
-    transport header to an unknown location, resulting in various crash=
-es.
-   =20
-    This fix for this is pretty straightforward, simply validate the va=
-lue of of
-    iph->ihl when sending over a raw socket.  If (iph->ihl*4U) > user d=
-ata buffer
-    size, drop the frame and return -EINVAL.  I just confirmed this fix=
-es the
-    reported crashes.
-   =20
-    Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+--------------070301080807020604040406
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
- raw.c |   24 +++++++++++++++++-------
- 1 file changed, 17 insertions(+), 7 deletions(-)
-
-
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 9ef8c08..4b15354 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -351,13 +351,24 @@ static int raw_send_hdrinc(struct sock *sk, void =
-*from, size_t length,
- 	skb->ip_summed =3D CHECKSUM_NONE;
-=20
- 	skb->transport_header =3D skb->network_header;
--	err =3D memcpy_fromiovecend((void *)iph, from, 0, length);
--	if (err)
--		goto error_fault;
-+	err =3D -EFAULT;
-+	if (memcpy_fromiovecend((void *)iph, from, 0, length))
-+		goto error_free;
-=20
--	/* We don't modify invalid header */
- 	iphlen =3D iph->ihl * 4;
--	if (iphlen >=3D sizeof(*iph) && iphlen <=3D length) {
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index b68e2fd..e4fda40 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -25,6 +25,8 @@
+ 
+ #include "libnetlink.h"
+ 
++static int rcvbuf = 32768;
 +
-+	/*
-+	 * We don't want to modify the ip header, but we do need to=20
-+	 * be sure that it won't cause problems later along the network
-+	 * stack.  Specifically we want to make sure that iph->ihl is a=20
-+	 * sane value.  If ihl points beyond the length of the buffer passed
-+	 * in, reject the frame as invalid
-+	 */
-+	err =3D -EINVAL;
-+	if (iphlen > length)
-+		goto error_free;=20
-+=20
-+	if (iphlen >=3D sizeof(*iph)) {
- 		if (!iph->saddr)
- 			iph->saddr =3D rt->rt_src;
- 		iph->check   =3D 0;
-@@ -380,8 +391,7 @@ static int raw_send_hdrinc(struct sock *sk, void *f=
-rom, size_t length,
- out:
- 	return 0;
-=20
--error_fault:
--	err =3D -EFAULT;
-+error_free:
- 	kfree_skb(skb);
- error:
- 	IP_INC_STATS(net, IPSTATS_MIB_OUTDISCARDS);
+ void rtnl_close(struct rtnl_handle *rth)
+ {
+ 	if (rth->fd >= 0) {
+@@ -38,7 +40,6 @@ int rtnl_open_byproto(struct rtnl_handle *rth, unsigned subscriptions,
+ {
+ 	socklen_t addr_len;
+ 	int sndbuf = 32768;
+-	int rcvbuf = 32768;
+ 
+ 	memset(rth, 0, sizeof(*rth));
+ 
+@@ -407,6 +409,12 @@ int rtnl_listen(struct rtnl_handle *rtnl,
+ 		if (status < 0) {
+ 			if (errno == EINTR || errno == EAGAIN)
+ 				continue;
++			if (errno == ENOBUFS && rcvbuf < 1024 * 1024) {
++				rcvbuf *= 2;
++				if (setsockopt(rtnl->fd, SOL_SOCKET, SO_RCVBUF,
++					       &rcvbuf, sizeof(rcvbuf)) == 0)
++					continue;
++			}
+ 			fprintf(stderr, "netlink receive error %s (%d)\n",
+ 				strerror(errno), errno);
+ 			return -1;
+
+--------------070301080807020604040406--
