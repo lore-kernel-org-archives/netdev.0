@@ -1,109 +1,37 @@
-From: "Neulinger, Nathan" <nneul@mst.edu>
-Subject: RE: How to use gretap with bridge?
-Date: Thu, 29 Oct 2009 17:04:02 -0500
-Message-ID: <846C5B546E47494CBBD796CA8CA1617EA3B439@MST-VMAIL1.srv.mst.edu>
-References: <846C5B546E47494CBBD796CA8CA1617EA3B414@MST-VMAIL1.srv.mst.edu><20091029170631.GA29405@gondor.apana.org.au><846C5B546E47494CBBD796CA8CA1617EA3B428@MST-VMAIL1.srv.mst.edu> <20091029130036.1e61f415@nehalam>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: How to use gretap with bridge?
+Date: Thu, 29 Oct 2009 15:12:22 -0700
+Message-ID: <20091029151222.156945ca@nehalam>
+References: <846C5B546E47494CBBD796CA8CA1617EA3B414@MST-VMAIL1.srv.mst.edu>
+	<20091029170631.GA29405@gondor.apana.org.au>
+	<846C5B546E47494CBBD796CA8CA1617EA3B428@MST-VMAIL1.srv.mst.edu>
+	<20091029130036.1e61f415@nehalam>
+	<846C5B546E47494CBBD796CA8CA1617EA3B431@MST-VMAIL1.srv.mst.edu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>
-To: "Herbert Xu" <herbert@gondor.apana.org.au>,
-	"Stephen Hemminger" <shemminger@vyatta.com>
+To: "Neulinger, Nathan" <nneul@mst.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mxtip01-rolla-out.um.umsystem.edu ([209.106.229.47]:41122 "EHLO
-	mxtip01-rolla-out.um.umsystem.edu" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751831AbZJ2WEA convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Oct 2009 18:04:00 -0400
-Content-class: urn:content-classes:message
+Received: from mail.vyatta.com ([76.74.103.46]:54452 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755959AbZJ2WMX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Oct 2009 18:12:23 -0400
+In-Reply-To: <846C5B546E47494CBBD796CA8CA1617EA3B431@MST-VMAIL1.srv.mst.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now I see it - Stephen actually had it right on - the problem is that
-the gre tunnel is creating a MAC address on the fly based on the tunnel
-endpoint ip address, so if the tunnel endpoint address starts with an
-odd number, it hits the multicast check in the bridging code. (I'm sure
-that's what he meant and I just missed it entirely.)
+On Thu, 29 Oct 2009 15:22:19 -0500
+"Neulinger, Nathan" <nneul@mst.edu> wrote:
 
-Simplest option would probably be to just mask off the first octet with
-0xFD or using the ip as the last four octets of the mac instead of the
-first four.
-
--- Nathan
-
-------------------------------------------------------------
-Nathan Neulinger                       nneul@mst.edu
-Missouri S&T Information Technology    (573) 612-1412
-System Administrator - Principal       KD0DMH
-
-
-> -----Original Message-----
-> From: Neulinger, Nathan
-> Sent: Thursday, October 29, 2009 3:59 PM
-> To: 'Herbert Xu'
-> Cc: 'netdev@vger.kernel.org'
-> Subject: RE: How to use gretap with bridge?
-> 
-> As a note - the bridging/tunneling is working perfectly once I force
-it
-> to use a bogus IP range that starts with an even number, but
-> unfortunately, that's not going to work so good given that our primary
-> address space is 131.151.x.x.
-> 
-> Any ideas on what is up with the even/odd error?
+> I was referring to the local IP in the "ip link add ... remote x.z.z.z
+> local y.z.z.z" command specifying the endpoints of the tunnel. It lets
+> it be added to the bridge if y is even, but not if y is odd. Why should
+> it care what the IP of the tunnel endpoints are?
 > 
 > -- Nathan
 > 
-> ------------------------------------------------------------
-> Nathan Neulinger                       nneul@mst.edu
-> Missouri S&T Information Technology    (573) 612-1412
-> System Administrator - Principal       KD0DMH
-> 
-> 
-> > -----Original Message-----
-> > From: Neulinger, Nathan
-> > Sent: Thursday, October 29, 2009 3:22 PM
-> > To: 'Stephen Hemminger'
-> > Cc: netdev@vger.kernel.org
-> > Subject: RE: How to use gretap with bridge?
-> >
-> > I was referring to the local IP in the "ip link add ... remote
-> x.z.z.z
-> > local y.z.z.z" command specifying the endpoints of the tunnel. It
-> lets
-> > it be added to the bridge if y is even, but not if y is odd. Why
-> should
-> > it care what the IP of the tunnel endpoints are?
-> >
-> > -- Nathan
-> >
-> > ------------------------------------------------------------
-> > Nathan Neulinger                       nneul@mst.edu
-> > Missouri S&T Information Technology    (573) 612-1412
-> > System Administrator - Principal       KD0DMH
-> >
-> >
-> > > -----Original Message-----
-> > > From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-> > > Sent: Thursday, October 29, 2009 3:01 PM
-> > > To: Neulinger, Nathan
-> > > Cc: netdev@vger.kernel.org
-> > > Subject: Re: How to use gretap with bridge?
-> > >
-> > > On Thu, 29 Oct 2009 14:01:31 -0500
-> > > "Neulinger, Nathan" <nneul@mst.edu> wrote:
-> > >
-> > > > Further testing - if the leading octet of the 'local' address is
-> > > even,
-> > > > it allows it to be added to bridge, if it's odd, it won't.
-> > > >
-> > > > Any ideas?
-> > > >
-> > >
-> > > If leading octet of MAC address is odd, then bridge thinks it
-> > > is not a valid ethernet for bridging because it is a multicast
-> > > address.
-> > >
-> > >
-> > > --
+
+It looks like a GRE driver bug. It uses IP address for dev->dev_addr
+when it really should be generating a Ethernet address when using
+Ethernet wrapper mode.
