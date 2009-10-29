@@ -1,44 +1,55 @@
-From: Yinghai Lu <yhlu.kernel@gmail.com>
-Subject: Re: nfs broken in net-next?
-Date: Thu, 29 Oct 2009 03:03:23 -0700
-Message-ID: <86802c440910290303y787c539cp98f400400fe9a243@mail.gmail.com>
-References: <86802c440910281313h2ca89c94w99121edffbf6ce53@mail.gmail.com>
-	 <4AE9430B.3060105@suse.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: fix kmemcheck annotations
+Date: Thu, 29 Oct 2009 11:10:37 +0100
+Message-ID: <4AE96A1D.8050300@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>
-To: Suresh Jayaraman <sjayaraman@suse.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753845AbZJ2KDU@vger.kernel.org>
-In-Reply-To: <4AE9430B.3060105@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:42601 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752935AbZJ2KKf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 06:10:35 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 29, 2009 at 12:23 AM, Suresh Jayaraman <sjayaraman@suse.de> wrote:
-> On 10/29/2009 01:43 AM, Yinghai Lu wrote:
->> pk12-3214-189-102:~ # mount -t nfs 10.6.75.100:/data/shared/pxeboot /x
->> mount.nfs: rpc.statd is not running but is required for remote locking.
->> mount.nfs: Either use '-o nolock' to keep locks local, or start statd.
->
-> rpc.statd on client should have be started by mount.nfs when a nfs
-> filesystem is mounted. Is this not happening for some reason or do you
-> see any errors in syslog?
->
->>
->> using opensuse11.1
->>
->
-> Are you using 11.1 betas? I know of a problem where non-root user mounts
-> fail to start rpc.statd in betas that got fixed later:
->
-> http://marc.info/?l=linux-nfs&m=122748525624094&w=2
->
-> Is the problem seen only recently (after updating to net-next)?
->
+struct sk_buff kmemcheck annotations enlarged this structure by 8/16 bytes
 
-only happen with net-next.
+Fix this by moving 'protocol' inside flags1 bitfield,
+and queue_mapping inside flags2 bitfield.
 
-linus tree and tip tree are ok.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
 
-YH
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 0c68fbd..defd51d 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -354,8 +354,8 @@ struct sk_buff {
+ 				ipvs_property:1,
+ 				peeked:1,
+ 				nf_trace:1;
++	__be16			protocol:16;
+ 	kmemcheck_bitfield_end(flags1);
+-	__be16			protocol;
+ 
+ 	void			(*destructor)(struct sk_buff *skb);
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+@@ -367,7 +367,6 @@ struct sk_buff {
+ #endif
+ 
+ 	int			iif;
+-	__u16			queue_mapping;
+ #ifdef CONFIG_NET_SCHED
+ 	__u16			tc_index;	/* traffic control index */
+ #ifdef CONFIG_NET_CLS_ACT
+@@ -376,6 +375,7 @@ struct sk_buff {
+ #endif
+ 
+ 	kmemcheck_bitfield_begin(flags2);
++	__u16			queue_mapping:16;
+ #ifdef CONFIG_IPV6_NDISC_NODETYPE
+ 	__u8			ndisc_nodetype:2;
+ #endif
