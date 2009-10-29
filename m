@@ -1,48 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 4/7] fsl_pq_mdio: Add Suport for etsec2.0 devices.
-Date: Thu, 29 Oct 2009 03:43:42 -0700 (PDT)
-Message-ID: <20091029.034342.122859203.davem@davemloft.net>
-References: <9F4C7D19E8361D4C94921B95BE08B81B95035E@zin33exm22.fsl.freescale.net>
-	<20091029.031610.04742718.davem@davemloft.net>
-	<9F4C7D19E8361D4C94921B95BE08B81B950364@zin33exm22.fsl.freescale.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: fix kmemcheck annotations
+Date: Thu, 29 Oct 2009 11:44:48 +0100
+Message-ID: <4AE97220.3000004@gmail.com>
+References: <4AE96A1D.8050300@gmail.com> <20091029.031748.235701096.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, avorontsov@ru.mvista.com
-To: B05799@freescale.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59131
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750980AbZJ2KnS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 06:43:18 -0400
-In-Reply-To: <9F4C7D19E8361D4C94921B95BE08B81B950364@zin33exm22.fsl.freescale.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:43648 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750766AbZJ2Koq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 06:44:46 -0400
+In-Reply-To: <20091029.031748.235701096.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Kumar Gopalpet-B05799" <B05799@freescale.com>
-Date: Thu, 29 Oct 2009 16:03:30 +0530
+David Miller a =E9crit :
+>=20
+> We may be trading size for performance here, I wonder if
+> it's wise to move queue_mapping like that and what
+> locality change we get as a result.
 
-> The PATCH v2 series applied cleanly to the above clone.
+I agree, but could not convince me it makes a difference.
 
-It absolutely does NOT!
+On 64bit arches, queue_mapping doesnt change its cache line location
+(0xa4 -> 0xa8)
 
-And I just tried it again to verify this, and you can try it yourself:
+On 32bit arches, sizeof(sk_buf)=3D0xB0, rx and tx paths touch all
+ of 3 cache lines anyway.
 
-	http://vger.kernel.org/~davem/bundle-640.mbox
+Only thing I can think at this moment is to reorder skb so that TX=20
+completion path dont touch all cache lines (putting together cb[]=20
+and some not touched fields). We could probably gain one cache line mis=
+s.
 
-davem@sunset:~/src/GIT/net-next-2.6$ git am --signoff bundle-640.mbox 
-Applying: gianfar: Add per queue structure support
-Applying: gianfar: Introduce logical group support.
-Applying: gianfar: Add Multiple Queue Support
-Applying: fsl_pq_mdio: Add Suport for etsec2.0 devices.
-error: patch failed: drivers/net/fsl_pq_mdio.c:405
-error: drivers/net/fsl_pq_mdio.c: patch does not apply
-Patch failed at 0004 fsl_pq_mdio: Add Suport for etsec2.0 devices.
-When you have resolved this problem run "git am --resolved".
-If you would prefer to skip this patch, instead run "git am --skip".
-To restore the original branch and stop patching run "git am --abort".
-davem@sunset:~/src/GIT/net-next-2.6$ 
+It's a bit hard because of the next/prev fields that must
+be first members of structure, but I believe you had some work in progr=
+ess
+in this area, to stick a standard list_head ?
 
-So stop telling me it applies cleanly.
-
-Because I've tried to do it multiple times and it absolutely does not.
