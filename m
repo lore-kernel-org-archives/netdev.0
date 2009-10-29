@@ -1,57 +1,33 @@
-From: Bhavesh Davda <bhavesh@vmware.com>
-Subject: RE: [Pv-drivers] [PATCH] vmxnet3: remove duplicate #include
-Date: Thu, 29 Oct 2009 06:35:35 -0700
-Message-ID: <8B1F619C9F5F454E81D90D3C161698D7017DFAA30F@EXCH-MBX-3.vmware.com>
-References: <alpine.LRH.2.00.0910280910250.24555@sbhatewara-dev1.eng.vmware.com>
-	<20091028.222901.187567993.davem@davemloft.net>
- <20091028.225217.78322944.davem@davemloft.net>
+From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+Subject: Re: pull request: wireless-next-2.6 2009-10-28
+Date: Thu, 29 Oct 2009 14:35:54 +0100
+Message-ID: <200910291435.54203.bzolnier@gmail.com>
+References: <200910291212.41656.bzolnier@gmail.com> <200910291345.05888.bzolnier@gmail.com> <20091029.055901.24976117.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "pv-drivers@vmware.com" <pv-drivers@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"weiyi.huang@gmail.com" <weiyi.huang@gmail.com>
-To: David Miller <davem@davemloft.net>,
-	Shreyas Bhatewara <sbhatewara@vmware.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-1.vmware.com ([65.115.85.69]:44523 "EHLO
-	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752139AbZJ2Nfc convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Oct 2009 09:35:32 -0400
-In-Reply-To: <20091028.225217.78322944.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linville@tuxdriver.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753582AbZJ2NgW@vger.kernel.org>
+In-Reply-To: <20091029.055901.24976117.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: David Miller <davem@davemloft.net>
-> Date: Wed, 28 Oct 2009 22:29:01 -0700 (PDT)
+On Thursday 29 October 2009 13:59:01 David Miller wrote:
+> From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+> Date: Thu, 29 Oct 2009 13:45:05 +0100
 > 
-> > From: Shreyas Bhatewara <sbhatewara@vmware.com>
-> > Date: Wed, 28 Oct 2009 09:30:40 -0700 (PDT)
-> >
-> >>
-> >> Remove duplicate headerfile includes from vmxnet3_int.h
-> >>
-> >> Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
-> >> Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
-> >> Signed-off-by: Bhavesh Davda <davda@vmware.com>
-> >
-> > Applied.
+> > That *I* should be fixing the patch in question instead of the
+> > submitter?
 > 
-> Guys, I'd like to remove the X86 Kconfig requirement for this
-> driver.  There really isn't any x86 specific code in the
-> driver, it uses only standard PCI and networking APIs to function.
-> 
-> I know the virtual hardware won't be seen on other platforms,
-> but allowing the driver to get build tested on non-x86 platforms
-> helps me a lot.  I do all of my build verifications on sparc64
-> for example.
+> I'm saying that you should work with John to have him send a revert or
+> whatever to me.
 
-The driver shares in-memory data structures with the device emulation in the hypervisor, so in the VMware case since they are both on x86, we don't need any cpu_to_le32 or le32_to_cpu's when accessing them. But for correctness, if you were to compile the vmxnet3 driver for a big-endian architecture like sparc64, we will need to sprinkle those around all accesses to the shared data structures.
+This is your responsibility to deal with your downstream maintainers,
+not mine and since you have accepted John's patch I'm asking you to
+revert rt2800pci patch from your tree.
 
-In other words, don't just trivially remove the X86 Kconfig requirement for this driver.
-
-Thanks
-
-- Bhavesh
+-- 
+Bartlomiej Zolnierkiewicz
