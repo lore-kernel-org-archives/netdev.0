@@ -1,83 +1,61 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 4/6] sky2: workarounds for Yukon-2 supreme
-Date: Thu, 29 Oct 2009 09:37:08 -0700
-Message-ID: <20091029163849.423705149@vyatta.com>
+Subject: [PATCH 3/6] sky2: fix receive pause thresholds
+Date: Thu, 29 Oct 2009 09:37:07 -0700
+Message-ID: <20091029163849.356238568@vyatta.com>
 References: <20091029163704.793246334@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:57323 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:57319 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755502AbZJ2QjX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755513AbZJ2QjX (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 29 Oct 2009 12:39:23 -0400
-Content-Disposition: inline; filename=sky2-supr2.patch
+Content-Disposition: inline; filename=sky2-rxthresh.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes related to support of Yukon supreme chip.
-Don't have this chip version to test on,
-these are reverse engineered from the vendor (GPL) driver.
+Program the receive pause thresholds differently depending on
+chip version. This cloned from from the vendor (GPL) driver.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 
---- a/drivers/net/sky2.c	2009-10-29 08:52:37.995315808 -0700
-+++ b/drivers/net/sky2.c	2009-10-29 08:55:47.116003224 -0700
-@@ -787,8 +787,7 @@ static void sky2_set_tx_stfwd(struct sky
+--- a/drivers/net/sky2.h	2009-10-29 08:35:53.313438448 -0700
++++ b/drivers/net/sky2.h	2009-10-29 08:37:04.959438572 -0700
+@@ -808,10 +808,11 @@ enum {
+ 	RX_GMF_AF_THR	= 0x0c44,/* 32 bit	Rx GMAC FIFO Almost Full Thresh. */
+ 	RX_GMF_CTRL_T	= 0x0c48,/* 32 bit	Rx GMAC FIFO Control/Test */
+ 	RX_GMF_FL_MSK	= 0x0c4c,/* 32 bit	Rx GMAC FIFO Flush Mask */
+-	RX_GMF_FL_THR	= 0x0c50,/* 32 bit	Rx GMAC FIFO Flush Threshold */
++	RX_GMF_FL_THR	= 0x0c50,/* 16 bit	Rx GMAC FIFO Flush Threshold */
++	RX_GMF_FL_CTRL	= 0x0c52,/* 16 bit	Rx GMAC FIFO Flush Control */
+ 	RX_GMF_TR_THR	= 0x0c54,/* 32 bit	Rx Truncation Threshold (Yukon-2) */
+-	RX_GMF_UP_THR	= 0x0c58,/*  8 bit	Rx Upper Pause Thr (Yukon-EC_U) */
+-	RX_GMF_LP_THR	= 0x0c5a,/*  8 bit	Rx Lower Pause Thr (Yukon-EC_U) */
++	RX_GMF_UP_THR	= 0x0c58,/* 16 bit	Rx Upper Pause Thr (Yukon-EC_U) */
++	RX_GMF_LP_THR	= 0x0c5a,/* 16 bit	Rx Lower Pause Thr (Yukon-EC_U) */
+ 	RX_GMF_VLAN	= 0x0c5c,/* 32 bit	Rx VLAN Type Register (Yukon-2) */
+ 	RX_GMF_WP	= 0x0c60,/* 32 bit	Rx GMAC FIFO Write Pointer */
  
- 	if ( (hw->chip_id == CHIP_ID_YUKON_EX &&
- 	      hw->chip_rev != CHIP_REV_YU_EX_A0) ||
--	     hw->chip_id == CHIP_ID_YUKON_FE_P ||
--	     hw->chip_id == CHIP_ID_YUKON_SUPR) {
-+	     hw->chip_id >= CHIP_ID_YUKON_FE_P) {
- 		/* Yukon-Extreme B0 and further Extreme devices */
- 		/* enable Store & Forward mode for TX */
+--- a/drivers/net/sky2.c	2009-10-29 08:34:04.765191254 -0700
++++ b/drivers/net/sky2.c	2009-10-29 08:52:37.995315808 -0700
+@@ -926,8 +926,14 @@ static void sky2_mac_init(struct sky2_hw
  
-@@ -1404,6 +1403,31 @@ static int sky2_rx_start(struct sky2_por
+ 	/* On chips without ram buffer, pause is controled by MAC level */
+ 	if (!(hw->flags & SKY2_HW_RAM_BUFFER)) {
+-		sky2_write8(hw, SK_REG(port, RX_GMF_LP_THR), 768/8);
+-		sky2_write8(hw, SK_REG(port, RX_GMF_UP_THR), 1024/8);
++		/* Pause threshold is scaled by 8 in bytes */
++		if (hw->chip_id == CHIP_ID_YUKON_FE_P
++			&& hw->chip_rev == CHIP_REV_YU_FE2_A0)
++			reg = 1568 / 8;
++		else
++			reg = 1024 / 8;
++		sky2_write16(hw, SK_REG(port, RX_GMF_UP_THR), reg);
++		sky2_write16(hw, SK_REG(port, RX_GMF_LP_THR), 768 / 8);
  
- 	/* Tell chip about available buffers */
- 	sky2_rx_update(sky2, rxq);
-+
-+	if (hw->chip_id == CHIP_ID_YUKON_EX ||
-+	    hw->chip_id == CHIP_ID_YUKON_SUPR) {
-+		/*
-+		 * Disable flushing of non ASF packets;
-+		 * must be done after initializing the BMUs;
-+		 * drivers without ASF support should do this too, otherwise
-+		 * it may happen that they cannot run on ASF devices;
-+		 * remember that the MAC FIFO isn't reset during initialization.
-+		 */
-+		sky2_write32(hw, SK_REG(sky2->port, RX_GMF_CTRL_T), RX_MACSEC_FLUSH_OFF);
-+	}
-+
-+	if (hw->chip_id >= CHIP_ID_YUKON_SUPR) {
-+		/* Enable RX Home Address & Routing Header checksum fix */
-+		sky2_write16(hw, SK_REG(sky2->port, RX_GMF_FL_CTRL),
-+			     RX_IPV6_SA_MOB_ENA | RX_IPV6_DA_MOB_ENA);
-+
-+		/* Enable TX Home Address & Routing Header checksum fix */
-+		sky2_write32(hw, Q_ADDR(txqaddr[sky2->port], Q_TEST),
-+			     TBMU_TEST_HOME_ADD_FIX_EN | TBMU_TEST_ROUTING_ADD_FIX_EN);
-+	}
-+
-+
-+
- 	return 0;
- nomem:
- 	sky2_rx_clean(sky2);
-@@ -2993,6 +3017,12 @@ static void sky2_reset(struct sky2_hw *h
- 			sky2_write16(hw, SK_REG(i, GMAC_CTRL),
- 				     GMC_BYP_MACSECRX_ON | GMC_BYP_MACSECTX_ON
- 				     | GMC_BYP_RETR_ON);
-+
-+	}
-+
-+	if (hw->chip_id == CHIP_ID_YUKON_SUPR && hw->chip_rev > CHIP_REV_YU_SU_B0) {
-+		/* enable MACSec clock gating */
-+		sky2_pci_write32(hw, PCI_DEV_REG3, P_CLK_MACSEC_DIS);
+ 		sky2_set_tx_stfwd(hw, port);
  	}
- 
- 	/* Clear I2C IRQ noise */
 
 -- 
 
