@@ -1,41 +1,42 @@
-From: Suresh Jayaraman <sjayaraman@suse.de>
-Subject: Re: nfs broken in net-next?
-Date: Thu, 29 Oct 2009 12:53:55 +0530
-Message-ID: <4AE9430B.3060105@suse.de>
-References: <86802c440910281313h2ca89c94w99121edffbf6ce53@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bug 14470] New: freez in TCP stack
+Date: Thu, 29 Oct 2009 01:00:09 -0700 (PDT)
+Message-ID: <20091029.010009.175904855.davem@davemloft.net>
+References: <20091028151313.ba4a4d23.akpm@linux-foundation.org>
+	<4AE9298C.1000204@gmail.com>
+	<4AE92F4D.6070101@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>
-To: Yinghai Lu <yhlu.kernel@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756684AbZJ2HYG@vger.kernel.org>
-In-Reply-To: <86802c440910281313h2ca89c94w99121edffbf6ce53@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: akpm@linux-foundation.org, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org, kolo@albatani.cz,
+	bugzilla-daemon@bugzilla.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39920
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751195AbZJ2H7p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 03:59:45 -0400
+In-Reply-To: <4AE92F4D.6070101@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/29/2009 01:43 AM, Yinghai Lu wrote:
-> pk12-3214-189-102:~ # mount -t nfs 10.6.75.100:/data/shared/pxeboot /x
-> mount.nfs: rpc.statd is not running but is required for remote locking.
-> mount.nfs: Either use '-o nolock' to keep locks local, or start statd.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 29 Oct 2009 06:59:41 +0100
 
-rpc.statd on client should have be started by mount.nfs when a nfs
-filesystem is mounted. Is this not happening for some reason or do you
-see any errors in syslog?
-
+> [PATCH] tcp: clear retrans hints in tcp_send_synack()
 > 
-> using opensuse11.1
+> There is a small possibility the skb we unlink from write queue 
+> is still referenced by retrans hints.
 > 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Are you using 11.1 betas? I know of a problem where non-root user mounts
-fail to start rpc.statd in betas that got fixed later:
+So, this would only be true if we were dealing with a data
+packet here.  We're not, this is a SYN+ACK which happens to
+be cloned in the write queue.
 
-http://marc.info/?l=linux-nfs&m=122748525624094&w=2
+The hint SKBs pointers can only point to real data packets.
 
-Is the problem seen only recently (after updating to net-next)?
-
-Thanks,
-
--- 
-Suresh Jayaraman
+And we're only dealing with data packets once we enter established
+state, and when we enter established by definition we have unlinked
+and freed up any SYN and SYN+ACK SKBs in the write queue.
