@@ -1,72 +1,55 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH net-next-2.6 1/4] net: introduce mc list
-	helpers
-Date: Thu, 29 Oct 2009 16:19:49 +0100
-Message-ID: <20091029151949.GH2877@psychotron.lab.eng.brq.redhat.com>
-References: <20091022135120.GC2868@psychotron.lab.eng.brq.redhat.com>
-	<20091022135220.GD2868@psychotron.lab.eng.brq.redhat.com>
-	<1256221112.2785.13.camel@achroite>
+From: apetlund@simula.no
+Subject: Re: [PATCH 3/3] net: TCP thin dupack
+Date: Thu, 29 Oct 2009 16:23:53 +0100
+Message-ID: <879da81bfa8a9f0f34717c64b08332ed.squirrel@webmail.uio.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: eric.dumazet@gmail.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, bruce.w.allan@intel.com,
-	jesse.brandeburg@intel.com, mchehab@infradead.org,
-	john.ronciak@intel.com, jeffrey.t.kirsher@intel.com,
-	davem@davemloft.net, linux-media@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <1256221112.2785.13.camel@achroite>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Andreas Petlund" <apetlund@simula.no>,
+	"Netdev" <netdev@vger.kernel.org>,
+	"LKML" <linux-kernel@vger.kernel.org>, shemminger@vyatta.com,
+	"David Miller" <davem@davemloft.net>
+To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755299AbZJ2PXv@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-VGh1LCBPY3QgMjIsIDIwMDkgYXQgMDQ6MTg6MzJQTSBDRVNULCBiaHV0Y2hpbmdzQHNvbGFyZmxh
-cmUuY29tIHdyb3RlOgo+T24gVGh1LCAyMDA5LTEwLTIyIGF0IDE1OjUyICswMjAwLCBKaXJpIFBp
-cmtvIHdyb3RlOgo+PiBUaGlzIGhlbHBlcnMgc2hvdWxkIGJlIHVzZWQgYnkgbmV0d29yayBkcml2
-ZXJzIHRvIGFjY2VzcyB0byBuZXRkZXYKPj4gbXVsdGljYXN0IGxpc3RzLgo+Wy4uLl0KPj4gK3N0
-YXRpYyBpbmxpbmUgdm9pZCBuZXRkZXZfbWNfd2FsayhzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LAo+
-PiArCQkJCSAgdm9pZCAoKmZ1bmMpKHZvaWQgKiwgdW5zaWduZWQgY2hhciAqKSwKPj4gKwkJCQkg
-IHZvaWQgKmRhdGEpCj4+ICt7Cj4+ICsJc3RydWN0IGRldl9hZGRyX2xpc3QgKm1jbGlzdDsKPj4g
-KwlpbnQgaTsKPj4gKwo+PiArCWZvciAoaSA9IDAsIG1jbGlzdCA9IGRldi0+bWNfbGlzdDsgbWNs
-aXN0ICYmIGkgPCBkZXYtPm1jX2NvdW50Owo+PiArCSAgICAgaSsrLCBtY2xpc3QgPSBtY2xpc3Qt
-Pm5leHQpCj4+ICsJCWZ1bmMoZGF0YSwgbWNsaXN0LT5kbWlfYWRkcik7Cj4+ICt9Cj5bLi4uXQo+
-Cj7vu79XZSB1c3VhbGx5IGltcGxlbWVudCBpdGVyYXRpb24gYXMgbWFjcm9zIHNvIHRoYXQgYW55
-IGNvbnRleHQgZG9lc24ndAo+aGF2ZSB0byBiZSBzcXVlZXplZCB0aHJvdWdoIGEgc2luZ2xlIHVu
-dHlwZWQgKHZvaWQgKikgdmFyaWFibGUuICBBIG1hY3JvCj5mb3IgdGhpcyB3b3VsZCBsb29rIHNv
-bWV0aGluZyBsaWtlOgo+Cj4jZGVmaW5lIG5ldGRldl9mb3JfZWFjaF9tY19hZGRyKGRldiwgYWRk
-cikJCQkJCQlcCj4JZm9yIChhZGRyID0gKGRldiktPm1jX2xpc3QgPyAoZGV2KS0+bWNfbGlzdC0+
-ZG1pX2FkZHIgOiBOVUxMOwkJCVwKPgkgICAgIGFkZHI7CQkJCQkJCQkJXAo+CSAgICAgYWRkciA9
-IChjb250YWluZXJfb2YoYWRkciwgc3RydWN0IGRldl9hZGRyX2xpc3QsIGRtaV9hZGRyKS0+bmV4
-dCA/CQlcCj4JCSAgICAg77u/Y29udGFpbmVyX29mKGFkZHIsIHN0cnVjdCBkZXZfYWRkcl9saXN0
-LCBkbWlfYWRkciktPm5leHQtPmRtaV9hZGRyIDogXAo+CQkgICAgIE5VTEwpKQo+Cj5PbmNlIHlv
-dSBjaGFuZ2UgdGhlIGxpc3QgdHlwZSB0aGlzIGNhbiBwcmVzdW1hYmx5IGJlIG1hZGUgbGVzcyB1
-Z2x5LgoKTG9va2luZyBhdCB0aGlzLCBJJ20gbm90IHN1cmUgaG93IHRvIGRlYWwgd2l0aCB0aGlz
-IG1hY3JvIG9uY2Ugd2UgbmVlZCB0bwpjb252ZXJ0IGl0IHRvIHdvcmsgd2l0aCBsaXN0X2hlYWQu
-IEkgc2VlIHR3byBvcHRpb25zOgoKMSkgdHJhdmVyc2UgdGhyb3VnaCB0aGUgbGlzdCBieSBoYW5k
-IGluIHRoaXMgbWFjcm8gKHVnbHkpCjIpIGludHJvZHVjZSBzb21ldGhpbmcgbGlrZSAibGlzdF9m
-b3JfZWFjaF9zdHJ1Y3RfZW50cnkiIHdoaWNoIHRha2VzIHBvaW50ZXIgb2YKICAgdGhlIHN0cnVj
-dHVyZSBtZW1iZXIgYXMgYSBjdXJzb3IuIFRoZW4gbmV0ZGV2X2Zvcl9lYWNoX21jX2FkZHIgd291
-bGQgYmUganVzdAogICB3cmFwLXVwIG9mIHRoaXMuCgpXaGF0IGRvIHlvdSB0aGluaz8KClRoYW5r
-cwoKSmlya2EKPgo+QmVuLgo+Cj4tLSAKPkJlbiBIdXRjaGluZ3MsIFNlbmlvciBTb2Z0d2FyZSBF
-bmdpbmVlciwgU29sYXJmbGFyZSBDb21tdW5pY2F0aW9ucwo+Tm90IHNwZWFraW5nIGZvciBteSBl
-bXBsb3llcjsgdGhhdCdzIHRoZSBtYXJrZXRpbmcgZGVwYXJ0bWVudCdzIGpvYi4KPlRoZXkgYXNr
-ZWQgdXMgdG8gbm90ZSB0aGF0IFNvbGFyZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJr
-ZWQuCj4KCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpDb21lIGJ1aWxkIHdpdGggdXMhIFRoZSBCbGFj
-a0JlcnJ5KFIpIERldmVsb3BlciBDb25mZXJlbmNlIGluIFNGLCBDQQppcyB0aGUgb25seSBkZXZl
-bG9wZXIgZXZlbnQgeW91IG5lZWQgdG8gYXR0ZW5kIHRoaXMgeWVhci4gSnVtcHN0YXJ0IHlvdXIK
-ZGV2ZWxvcGluZyBza2lsbHMsIHRha2UgQmxhY2tCZXJyeSBtb2JpbGUgYXBwbGljYXRpb25zIHRv
-IG1hcmtldCBhbmQgc3RheSAKYWhlYWQgb2YgdGhlIGN1cnZlLiBKb2luIHVzIGZyb20gTm92ZW1i
-ZXIgOSAtIDEyLCAyMDA5LiBSZWdpc3RlciBub3chCmh0dHA6Ly9wLnNmLm5ldC9zZnUvZGV2Y29u
-ZmVyZW5jZQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpF
-MTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0
-Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3RpbmZvL2UxMDAwLWRldmVs
-Cg==
+I apologise that some of you received this mail more than once. My email
+client played a HTML-trick on me.
+
+>> +	/* If a thin stream is detected, retransmit after first
+>> +	 * received dupack */
+>> +	if ((tp->thin_dupack || sysctl_tcp_force_thin_dupack) &&
+>> +	    tcp_dupack_heurestics(tp) > 1 && tcp_stream_is_thin(tp))
+>> +		return 1;
+>> +
+>>  	return 0;
+>>  }
+>
+> Have you tested it? ...I doubt this will work like you say and
+retransmit
+> something when the window is small. ...Besides, you should have built
+this
+> patch on top of the function rename you submitted earlier as after DaveM
+applied that this will no longer even compile...
+>
+> --
+>  i.
+>
+
+We have performed extensive tests mapping the effect of the patch you
+commented on some months ago. Since then, the only change was the one you
+requested of switching tcp_fackets_out() with tcp_dupack_heurestics().
+After inspecting the code, I believed the effect should be equal to the
+previous, only making considerations for SACK and FACK availability.
+Please tell if this will break the intended effect, and I will modify the
+patch accordingly.
+
+Graphs from our tests of the original patch can be found at the location
+linked to below.  I have tested the new one for functionality, but have
+not et performed tests on this scope as the changes were minor. I will, of
+course, fix the function rename in the next iteration. Sorry for that.
+
+http://folk.uio.no/apetlund/lktmp/
+
+-AP
