@@ -1,75 +1,44 @@
-From: apetlund@simula.no
-Subject: Re: [PATCH 2/3] net: TCP thin linear timeouts
-Date: Thu, 29 Oct 2009 17:54:15 +0100
-Message-ID: <d4374087ea190adaab597d765096a0ed.squirrel@webmail.uio.no>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] udev: create empty regular files to represent net
+	interfaces
+Date: Thu, 29 Oct 2009 09:55:56 -0700
+Message-ID: <20091029165556.GA9846@kroah.com>
+References: <20091016214024.GA10091@ldl.fc.hp.com> <20091022063619.GB6321@ldl.fc.hp.com> <20091027205551.GA31963@auslistsprd01.us.dell.com> <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com> <20091029131125.GA13809@auslistsprd01.us.dell.com> <20091029142554.GA16869@kroah.com> <1256834975.2827.63.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Andreas Petlund" <apetlund@simula.no>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"ilpo.jarvinen@helsinki.fi" <ilpo.jarvinen@helsinki.fi>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "Arnd Hannemann" <hannemann@nets.rwth-aachen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out2.uio.no ([129.240.10.58]:45849 "EHLO mail-out2.uio.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755856AbZJ2QyL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Oct 2009 12:54:11 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Matt Domsch <Matt_Domsch@dell.com>,
+	Kay Sievers <kay.sievers@vrfy.org>,
+	dann frazier <dannf@hp.com>, linux-hotplug@vger.kernel.org,
+	Narendra_K@dell.com, netdev@vger.kernel.org,
+	Jordan_Hargrave@dell.com, Charles_Rose@dell.com
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1256834975.2827.63.camel@achroite>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Andreas Petlund schrieb:
->> We have found no noticeable degradation of the goodput in a series of
-experiments we have performed in order to map the effects of the
-modifications. Furthermore, the modifications implemented in the
-patches
->> are explicitly enabled only for applications where the developer knows
-that streams will be thin, thus only a small subset of the streams will
-apply the modifications.
->> Graphs presenting results from experiments performed to analyse latency
-and fairness issues can be found here:
->> http://folk.uio.no/apetlund/lktmp/
->
-> How often did you hit consecutive RTOs in these measurements?
-> As I see you did a measurement with 512 thick vs. 512 thin streams. Lets
-do a hypothetical calculation with only 512 "thin" streams. Lets further
-assume the rtt is low, so that RTO is around 200ms. Assume each segment
-has 128 Bytes (already very small...).
-> Assume after a period of normal operation all streams are in
-> timeout-based loss recovery. (e.g. because destination endpoint
-> suddenly behaves like a black hole)
-> As all streams are in timeout-based loss recovery, each stream
-> will transmit 5 segments each second with your modification.
-> This would result in a throughput around 512*5*1024bit = 2560 kbit/s and
-a goodput of 0 kbit/s (because the receiver is a black hole). So you can
-easily saturate a 2 MBit/s link, only with retransmissions.
+On Thu, Oct 29, 2009 at 04:49:35PM +0000, Ben Hutchings wrote:
+> 3. Name assignment mechanism
+> Disks: kernel suggests a name; udev can assign any number
+> ???Net devices: kernel assigns a single name; udev can override it
+> 
+> 4. Default name assignment policy
+> Disks: names disk by device path (id), label and UUID
+> ???Net devices: assigns arbitrary stable names per (MAC address, subtype)
+> 
+> 5. Naming by users
+> Disks: user can identify by any method without having to choose on a
+> system-wide basis
+> Net devices: user must identify by single name; policy can be overridden
+> on a system-wide basis
+> 
+> I fully understand the technical reasons for differences 3-5, but why
+> should users have to put up with it?
 
-I have not yet performed experiments where the receiver becomes a black
-hole, but I recognise the problem. Eric Dumazet suggested that the
-mechanism switch to exponential backoff after 6 linear retries. This would
-avoid situation where the link stays congested indefinitely, and I will
-implement this in the next iteration.
+That is because network devices are not referred to by /dev/ nodes where
+multiple symlinks would solve the naming problem.
 
-> Unfortunately in Germany an ADSL uplink of 786 kbit/s is still quite
-common, and its already called "broadband"...
+thanks,
 
-I believe that a subscriber for such an uplink would not keep several
-hundred thin-stream connections, though accidents do happen.
-
-> Regarding the "small subset", why have a global sysctl option, then? And
-I think "tcp_stream_is_thin(tp)" will be true for every flow in the RTO
-case, at least for consecutive RTOs.
-
-The sysctl is ment for cases of proprietary code that will benefit from
-the modifications. In our experiments, we have found it useful in many
-cases for such applications (like game clients).
-
-Regards,
-Andreas
-
-
-
-
+greg k-h
