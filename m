@@ -1,27 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Cleanup redundant tests on unsigned
-Date: Thu, 29 Oct 2009 01:40:24 -0700 (PDT)
-Message-ID: <20091029.014024.29284045.davem@davemloft.net>
-References: <4AE1CA14.10304@gmail.com>
+Subject: Re: [PATCH] atm: Cleanup redundant tests on unsigned
+Date: Thu, 29 Oct 2009 01:40:36 -0700 (PDT)
+Message-ID: <20091029.014036.204247048.davem@davemloft.net>
+References: <4AE1D553.8010406@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eis@baty.hanse.de,
-	linux-x25@vger.kernel.org, akpm@linux-foundation.org
+Cc: chas@cmf.nrl.navy.mil, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
 To: roel.kluin@gmail.com
-Return-path: <linux-x25-owner@vger.kernel.org>
-In-Reply-To: <4AE1CA14.10304@gmail.com>
-Sender: linux-x25-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39647
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753705AbZJ2IkN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 04:40:13 -0400
+In-Reply-To: <4AE1D553.8010406@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Roel Kluin <roel.kluin@gmail.com>
-Date: Fri, 23 Oct 2009 17:21:56 +0200
+Date: Fri, 23 Oct 2009 18:09:55 +0200
 
-> If there is data, the unsigned skb->len is greater than 0.
-> 
-> rt.sigdigits is unsigned as well, so the test `>= 0' is
-> always true, the other part of the test catches wrapped
-> values.
+> The variables are unsigned so the `< 0' test always fails, the
+> other part of the test catches wrapped values.
 > 
 > Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 
