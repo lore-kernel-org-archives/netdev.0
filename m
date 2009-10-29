@@ -1,32 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next-2.6 2009-10-28
-Date: Thu, 29 Oct 2009 06:53:36 -0700 (PDT)
-Message-ID: <20091029.065336.119302168.davem@davemloft.net>
-References: <200910291345.05888.bzolnier@gmail.com>
-	<20091029.055901.24976117.davem@davemloft.net>
-	<200910291435.54203.bzolnier@gmail.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: wanPMC-CxT1E1
+Date: Thu, 29 Oct 2009 14:54:51 +0100
+Message-ID: <m37hue71as.fsf@intrepid.localdomain>
+References: <4f6ba3b0910261322j273c977fm356506c46f095832@mail.gmail.com>
+	<20091026204144.GA28436@kroah.com>
+	<4f6ba3b0910271048n10ff37fek9af191b133892e1e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linville@tuxdriver.com
-To: bzolnier@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg KH <greg@kroah.com>, netdev@vger.kernel.org
+To: Bob Beers <bob.beers@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57386
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753977AbZJ2NxM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 09:53:12 -0400
-In-Reply-To: <200910291435.54203.bzolnier@gmail.com>
+Received: from khc.piap.pl ([195.187.100.11]:44179 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754128AbZJ2Nys (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Oct 2009 09:54:48 -0400
+In-Reply-To: <4f6ba3b0910271048n10ff37fek9af191b133892e1e@mail.gmail.com> (Bob
+	Beers's message of "Tue, 27 Oct 2009 13:48:53 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-Date: Thu, 29 Oct 2009 14:35:54 +0100
+Bob Beers <bob.beers@gmail.com> writes:
 
-> This is your responsibility to deal with your downstream maintainers,
-> not mine and since you have accepted John's patch I'm asking you to
-> revert rt2800pci patch from your tree.
+> ok, so where do I start, I have a system ready to start
+>  git cloning, and creating patches. I googled for a while
+>  but didn't find a nice recipe for participating in the -staging
+>  process.
 
-That's not how it works Bart.  You should not be asking 'me' to do
-anything on wireless bits, there is absolutely no reason to bypass
-John in the workflow.
+I can make it compile, just send me the tarball.
+Not much more at the moment though.
+-- 
+Krzysztof Halasa
