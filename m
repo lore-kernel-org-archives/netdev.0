@@ -1,80 +1,29 @@
-From: "Neulinger, Nathan" <nneul@mst.edu>
-Subject: RE: How to use gretap with bridge?
-Date: Thu, 29 Oct 2009 15:59:20 -0500
-Message-ID: <846C5B546E47494CBBD796CA8CA1617EA3B433@MST-VMAIL1.srv.mst.edu>
-References: <846C5B546E47494CBBD796CA8CA1617EA3B414@MST-VMAIL1.srv.mst.edu><20091029170631.GA29405@gondor.apana.org.au><846C5B546E47494CBBD796CA8CA1617EA3B428@MST-VMAIL1.srv.mst.edu> <20091029130036.1e61f415@nehalam>
+From: Mike Christie <michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org>
+Subject: Re: [RFC-PATCH] dhcp provisioning support in cxgb3i
+Date: Thu, 29 Oct 2009 16:09:56 -0500
+Message-ID: <4AEA04A4.1060800@cs.wisc.edu>
+References: <4AE995C4.4080909@chelsio.com>
+Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mxnip01-rolla-out.um.umsystem.edu ([209.106.229.55]:10990 "EHLO
-	mxnip01-rolla-out.um.umsystem.edu" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752855AbZJ2U7U convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Oct 2009 16:59:20 -0400
-Content-class: urn:content-classes:message
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-As a note - the bridging/tunneling is working perfectly once I force it
-to use a bogus IP range that starts with an even number, but
-unfortunately, that's not going to work so good given that our primary
-address space is 131.151.x.x. 
-
-Any ideas on what is up with the even/odd error?
-
--- Nathan
-
-------------------------------------------------------------
-Nathan Neulinger                       nneul@mst.edu
-Missouri S&T Information Technology    (573) 612-1412
-System Administrator - Principal       KD0DMH
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, James Bottomley <James.Bottomley-l3A5Bk7waGM@public.gmane.org>, Karen Xie <kxie-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, "open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org" <open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Rakesh Ranjan <rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Return-path: <grbounce-FC1hwAUAAAA0O9VQcsxVj1UPjHD9r3x_=glio-open-iscsi=m.gmane.org-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+In-Reply-To: <4AE995C4.4080909-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Post: <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://googlegroups.com/group/open-iscsi/subscribe>,
+	<mailto:open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
 
-> -----Original Message-----
-> From: Neulinger, Nathan
-> Sent: Thursday, October 29, 2009 3:22 PM
-> To: 'Stephen Hemminger'
-> Cc: netdev@vger.kernel.org
-> Subject: RE: How to use gretap with bridge?
+Rakesh Ranjan wrote:
+> Hi Mike,
 > 
-> I was referring to the local IP in the "ip link add ... remote x.z.z.z
-> local y.z.z.z" command specifying the endpoints of the tunnel. It lets
-> it be added to the bridge if y is even, but not if y is odd. Why
-should
-> it care what the IP of the tunnel endpoints are?
-> 
-> -- Nathan
-> 
-> ------------------------------------------------------------
-> Nathan Neulinger                       nneul@mst.edu
-> Missouri S&T Information Technology    (573) 612-1412
-> System Administrator - Principal       KD0DMH
-> 
-> 
-> > -----Original Message-----
-> > From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-> > Sent: Thursday, October 29, 2009 3:01 PM
-> > To: Neulinger, Nathan
-> > Cc: netdev@vger.kernel.org
-> > Subject: Re: How to use gretap with bridge?
-> >
-> > On Thu, 29 Oct 2009 14:01:31 -0500
-> > "Neulinger, Nathan" <nneul@mst.edu> wrote:
-> >
-> > > Further testing - if the leading octet of the 'local' address is
-> > even,
-> > > it allows it to be added to bridge, if it's odd, it won't.
-> > >
-> > > Any ideas?
-> > >
-> >
-> > If leading octet of MAC address is odd, then bridge thinks it
-> > is not a valid ethernet for bridging because it is a multicast
-> > address.
-> >
-> >
-> > --
+> Herein attached patches for having dhcp provisioning support in cxgb3i. 
+> I have added one new iscsi netlink message ISCSI_UEVENT_REQ_IPCONF. 
+
+Is the idea to have iscsid/uip send down this msg?
+
+Was it not possible to hook in more like how bnx2i does dhcp?
