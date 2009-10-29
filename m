@@ -1,41 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug 14470] New: freez in TCP stack
-Date: Wed, 28 Oct 2009 23:02:32 -0700 (PDT)
-Message-ID: <20091028.230232.20877138.davem@davemloft.net>
-References: <20091028151313.ba4a4d23.akpm@linux-foundation.org>
-	<4AE9298C.1000204@gmail.com>
-	<4AE92F4D.6070101@gmail.com>
+From: Antti =?ISO-8859-1?Q?Kaijanm=E4ki?= <antti.kaijanmaki@nomovok.com>
+Subject: Re: [PATCH] hso: fix debug routines
+Date: Thu, 29 Oct 2009 08:57:47 +0200
+Message-ID: <1256799467.6514.5.camel@nomovok.homedomain>
+References: <1256200578.3057.113.camel@nomovok.homedomain>
+	 <20091026171550.GA24910@kroah.com>
+	 <1256585855.3591.52.camel@nomovok.homedomain>
+	 <20091026194058.GA25263@kroah.com>
+	 <1256653615.3591.113.camel@nomovok.homedomain>
+	 <20091028161617.26a58618.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org, kolo@albatani.cz,
-	bugzilla-daemon@bugzilla.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-nHmyydPBcjshbCYQRMJu"
+Cc: Greg KH <greg@kroah.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Jan Dumon <j.dumon@option.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43425
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754333AbZJ2GCK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 02:02:10 -0400
-In-Reply-To: <4AE92F4D.6070101@gmail.com>
+Received: from mail.nomovok.com ([83.150.122.238]:42430 "EHLO mail.nomovok.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756451AbZJ2G5z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Oct 2009 02:57:55 -0400
+In-Reply-To: <20091028161617.26a58618.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 29 Oct 2009 06:59:41 +0100
 
-> David, what do you think of following patch ?
-> 
-> I wonder if we should reorganize code to add sanity checks in tcp_unlink_write_queue()
-> that the skb we delete from queue is not still referenced.
-> 
-> [PATCH] tcp: clear retrans hints in tcp_send_synack()
-> 
-> There is a small possibility the skb we unlink from write queue 
-> is still referenced by retrans hints.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+--=-nHmyydPBcjshbCYQRMJu
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Yes, the first thing I thought of when I saw this crash was the hints.
+On Wed, 2009-10-28 at 16:16 -0700, Andrew Morton wrote:
+> This patch has no changelog, and I'm not seeing any description of what
+> it fixes and how it fixes it up-thread.
 
-I'll think this over.
+The patch fixes debug routines of the hso driver. Debug has to be
+enabled manually with a #define so this patch has 0 impact by default.
+
+Broken down from original patch:
+http://bugzilla.kernel.org/show_bug.cgi?id=3D14469
+http://lkml.org/lkml/2009/10/22/37
+
+
+ -- Antti
+
+
+
+--=-nHmyydPBcjshbCYQRMJu
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEABECAAYFAkrpPOYACgkQJ/yWUtJ8RGp+AgCaAn3+ACkVCwrRKWEhDHsJ0XTW
+9CIAoKm13gl36RoNt8VaXr4NdM6osz81
+=CrgW
+-----END PGP SIGNATURE-----
+
+--=-nHmyydPBcjshbCYQRMJu--
+
