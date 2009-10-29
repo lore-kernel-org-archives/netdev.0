@@ -1,43 +1,31 @@
-From: <Narendra_K@Dell.com>
-Subject: RE: [PATCH] udev: create empty regular files to represent netinterfaces
-Date: Thu, 29 Oct 2009 22:52:52 +0530
-Message-ID: <EDA0A4495861324DA2618B4C45DCB3EE589663@blrx3m08.blr.amer.dell.com>
-References: <20091016214024.GA10091@ldl.fc.hp.com> <20091022063619.GB6321@ldl.fc.hp.com> <20091027205551.GA31963@auslistsprd01.us.dell.com> <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com> <20091029131125.GA13809@auslistsprd01.us.dell.com> <20091029142554.GA16869@kroah.com> <EDA0A4495861324DA2618B4C45DCB3EE589662@blrx3m08.blr.amer.dell.com> <20091029165259.GA9692@kroah.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 4/6] vlan: Optimize multiple unregistration
+Date: Thu, 29 Oct 2009 18:25:20 +0100
+Message-ID: <4AE9D000.90603@trash.net>
+References: <4AE728A9.2080209@gmail.com> <4AE8A425.1000600@trash.net> <4AE8ADE7.1010909@gmail.com> <4AE99C88.40403@trash.net> <4AE9A554.8030207@trash.net> <4AE9A6F6.5040209@gmail.com> <4AE9A7AA.70107@trash.net> <4AE9AA01.3020805@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <Matt_Domsch@Dell.com>, <kay.sievers@vrfy.org>, <dannf@hp.com>,
-	<linux-hotplug@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<Jordan_Hargrave@Dell.com>, <Charles_Rose@Dell.com>,
-	<bhutchings@solarflare.com>
-To: <greg@kroah.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <20091029165259.GA9692@kroah.com>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:55308 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756478AbZJ2RZX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 13:25:23 -0400
+In-Reply-To: <4AE9AA01.3020805@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Eric Dumazet wrote:
+> Patrick McHardy a =E9crit :
+>=20
+>> Indeed, but unregister_vlan_dev() destroys the group once the
+>> count has reached zero, so we must not access it after that.
+>=20
+> Well, I hoped call_rcu() callback doesnt fire and kfree(grp) until we=
+ exited
+> from unregister_vlan_dev_alls(), with RTNL locked...
 
->Sure, it's never guaranteed by the kernel that this will 
->happen, especially as we speed up the boot process by doing 
->things async.
-
->So again, just fix your installer, or write a new udev rule 
->for your hardware platforms, or both.  But I still fail to see 
->why multiple names for network devices _in the kernel_ is a 
->solution for your issue.
->
-
-The char device nodes solution does not propose having multiple names
-for the network interfaces _in the kernel_. It is suggesting that we
-have alternate names for kernel assigned names in user space and user
-space utilities refer to the interface by these alternate names. The
-userspace utilities would have to map the pathnames to kernel names
-before issuing the ioctls. That way there is determinism without
-embedding MAC or any other attribute. An Embedded_NIC_1 interface would
-always refer to the Gb1 without having to depend on any attribute.
-
-With regards,
-Narendra K 
-
+The RTNL is a mutex, so it shouldn't prevent call_rcu from firing.
