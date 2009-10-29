@@ -1,96 +1,75 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH] udev: create empty regular files to represent net
-	interfaces
-Date: Thu, 29 Oct 2009 09:52:59 -0700
-Message-ID: <20091029165259.GA9692@kroah.com>
-References: <20091016214024.GA10091@ldl.fc.hp.com> <20091022063619.GB6321@ldl.fc.hp.com> <20091027205551.GA31963@auslistsprd01.us.dell.com> <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com> <20091029131125.GA13809@auslistsprd01.us.dell.com> <20091029142554.GA16869@kroah.com> <EDA0A4495861324DA2618B4C45DCB3EE589662@blrx3m08.blr.amer.dell.com>
+From: apetlund@simula.no
+Subject: Re: [PATCH 2/3] net: TCP thin linear timeouts
+Date: Thu, 29 Oct 2009 17:54:15 +0100
+Message-ID: <d4374087ea190adaab597d765096a0ed.squirrel@webmail.uio.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matt_Domsch@Dell.com, kay.sievers@vrfy.org, dannf@hp.com,
-	linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
-	Jordan_Hargrave@Dell.com, Charles_Rose@Dell.com,
-	bhutchings@solarflare.com
-To: Narendra_K@Dell.com
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <EDA0A4495861324DA2618B4C45DCB3EE589662@blrx3m08.blr.amer.dell.com>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Andreas Petlund" <apetlund@simula.no>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"ilpo.jarvinen@helsinki.fi" <ilpo.jarvinen@helsinki.fi>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "Arnd Hannemann" <hannemann@nets.rwth-aachen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out2.uio.no ([129.240.10.58]:45849 "EHLO mail-out2.uio.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755856AbZJ2QyL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Oct 2009 12:54:11 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 29, 2009 at 10:14:08PM +0530, Narendra_K@Dell.com wrote:
-> 
-> >> Netdev team - are you in agreement that having multiple names to 
-> >> address the same netdevice is a worthwhile thing to add, to allow a 
-> >> variety of naming schemes to exist simultaneously?  If not, 
-> >this whole 
-> >> discussion will be moot, and my basic problem, that the ethX naming 
-> >> convention is nondeterministic, but we need determinism, remains 
-> >> unresolved.
-> >
-> >I'm still totally confused as to why you think this.  What is 
-> >wrong with what we do today, which is name network devices in 
-> >a deterministic manner by their MAC in userspace?  That name 
-> >goes into the kernel, and everyone uses the same name and is happy.
-> 
-> The interface name as assigned by the OS is determined by how the
-> interface is named first during the OS installation.
+> Andreas Petlund schrieb:
+>> We have found no noticeable degradation of the goodput in a series of
+experiments we have performed in order to map the effects of the
+modifications. Furthermore, the modifications implemented in the
+patches
+>> are explicitly enabled only for applications where the developer knows
+that streams will be thin, thus only a small subset of the streams will
+apply the modifications.
+>> Graphs presenting results from experiments performed to analyse latency
+and fairness issues can be found here:
+>> http://folk.uio.no/apetlund/lktmp/
+>
+> How often did you hit consecutive RTOs in these measurements?
+> As I see you did a measurement with 512 thick vs. 512 thin streams. Lets
+do a hypothetical calculation with only 512 "thin" streams. Lets further
+assume the rtt is low, so that RTO is around 200ms. Assume each segment
+has 128 Bytes (already very small...).
+> Assume after a period of normal operation all streams are in
+> timeout-based loss recovery. (e.g. because destination endpoint
+> suddenly behaves like a black hole)
+> As all streams are in timeout-based loss recovery, each stream
+> will transmit 5 segments each second with your modification.
+> This would result in a throughput around 512*5*1024bit = 2560 kbit/s and
+a goodput of 0 kbit/s (because the receiver is a black hole). So you can
+easily saturate a 2 MBit/s link, only with retransmissions.
 
-That sounds like a distro install issue to me, why not fix it there?
+I have not yet performed experiments where the receiver becomes a black
+hole, but I recognise the problem. Eric Dumazet suggested that the
+mechanism switch to exponential backoff after 6 linear retries. This would
+avoid situation where the link stays congested indefinitely, and I will
+implement this in the next iteration.
 
-> This name is made persistent by associating the name with it's MAC
-> address in userspace, either by udev or ifcfg-eth files. In cases
-> where there are one or more add-in cards along with one or more
-> integrated cards (Lan on Motherboard), the integrated port 1, which is
-> designated as Gb1 on the chassis may or may not get the name "eth0".
+> Unfortunately in Germany an ADSL uplink of 786 kbit/s is still quite
+common, and its already called "broadband"...
 
-Exactly, who cares about "eth0" as a name?
+I believe that a subscriber for such an uplink would not keep several
+hundred thin-stream connections, though accidents do happen.
 
-> And that is the customer expectation, most of the times.
+> Regarding the "small subset", why have a global sysctl option, then? And
+I think "tcp_stream_is_thin(tp)" will be true for every flow in the RTO
+case, at least for consecutive RTOs.
 
-Then again, fix the installer to allow you to either pick the name, or
-specify some rule in which to use to pick the name.
+The sysctl is ment for cases of proprietary code that will benefit from
+the modifications. In our experiments, we have found it useful in many
+cases for such applications (like game clients).
 
-> Unattended installs and large scale image based installs are the most
-> affected scenarios. 
+Regards,
+Andreas
 
-Then fix the installer.
 
-> >If you don't like naming by MAC, then pick some other 
-> >deterministic naming scheme that works for your hardware and 
-> >write udev rules for it.
-> >
-> >You could easily name them in a way that could keep the lowest number
-> >(eth0) for the lowest PCI id if you so desired and your BIOS 
-> >guaranteed it.
-> >
-> 
-> This is how the lspci tree view on a PER710 (PowerEdge R710) server with
-> Four BCM5709 integrated NIC ports and One add-in Intel NIC port looks
-> like. The integrated ports are always found before the add-in nic (or
-> nics) by the BIOS consistently and BIOS guarantees it across every
-> reboot.
 
-Great, then you are set to write a udev rule for this, right?
 
-> If the OS also found and named the network ports in the same manner,
-> then there is no issue as integrated NIC port 1, designated Gb1 on the
-> chassis, is always named as "eth0". But the observation is that, it is
-> not the case always.
-
-Sure, it's never guaranteed by the kernel that this will happen,
-especially as we speed up the boot process by doing things async.
-
-So again, just fix your installer, or write a new udev rule for your
-hardware platforms, or both.  But I still fail to see why multiple names
-for network devices _in the kernel_ is a solution for your issue.
-
-> In such cases, pathnames like Embedded_NIC_1 -> eth[01..], point to the
-> right interface, and communicate a more meaningful name without any
-> state embedded in them.
-
-Yes, pathnames would be nice to work for network devices, but
-unfortunatly, that's just not how network devices work :)
-
-thanks,
-
-greg k-h
