@@ -1,52 +1,53 @@
-From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
 Subject: Re: pull request: wireless-next-2.6 2009-10-28
-Date: Thu, 29 Oct 2009 15:34:50 +0100
-Message-ID: <200910291534.50108.bzolnier@gmail.com>
-References: <200910291435.54203.bzolnier@gmail.com> <200910291513.54326.bzolnier@gmail.com> <20091029.072001.153801635.davem@davemloft.net>
+Date: Thu, 29 Oct 2009 15:39:14 +0100
+Message-ID: <200910291539.16476.mb@bu3sch.de>
+References: <200910291435.54203.bzolnier@gmail.com> <200910291514.40318.bzolnier@gmail.com> <20091029.072101.109209962.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
+Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linville@tuxdriver.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754302AbZJ2Ofj@vger.kernel.org>
-In-Reply-To: <20091029.072001.153801635.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20091029.072101.109209962.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 29 October 2009 15:20:01 David Miller wrote:
-> From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-> Date: Thu, 29 Oct 2009 15:13:54 +0100
+On Thursday 29 October 2009 15:21:01 David Miller wrote:
+> The issue is that John disagrees with you can you can't handle
+> that.
 > 
-> > John has chosen to ignore my concerns and you are sending me back to him?
-> 
-> That's exactly why I won't overreach his maintainership role,
-> because you're inability to interact with and work with the
-> wireless maintainer isn't my problem.
-> 
-> In case you're concerned, I actually agree with John and others
-> on this issue, and disagree with your position.
-> 
-> So even if I felt it legitimate to overreach John, I still wouldn't
-> make the change you are requesting in this case.
+> So instead of continuing to discuss things with him and the
+> other wireless folks, you want me to just overreach everybody
+> and revert someone else's work.
 
-Sorry but you are also wrong then and you are just in the way of progress.
+In the end this results in the driver maintainer being forced to maintain
+code and handle bugreports for code that he disagrees with in the first place.
+This is unacceptable and has to be resolved in some way.
+If it's not possible to get it reverted through John (for whatever reason),
+you're in charge to help the actual code maintainer out.
 
-> Does it really eat you so hard when someone disagrees with you?
-> 
-> That's not going to work in the long term Bart, if John disagrees with
-> you he's the maintainer of wireless and that's it.  You're going to
-> have to learn to work with people, and not just automatically go to a
-> "higher power" as soon as someone disagrees with you.
+> I'm not going to do that sorry, learn how to work with the
+> wireless people instead.
 
-I'm not going to waste my time on stupid or hopeless things just because you
-or John like to call themselves "maintainers".
+This is not the problem.
+The problem is that stuff is merged without ack from the maintainer
+and it's virtually impossible to get the stuff reverted. The only real
+way for the maintainer to resolve this is 1) live with it or 2) fix it.
+And that's bad, because it completely invalidates his priority queue.
 
-If Red Hat or some other company wants to hire me and pay me for spinning
-inside networking bureaucracy than please contact me in private but as
-long as it is my own time I'll just do what I think makes sense on technical
-merits and not on who is the "maintainer" of this or that..
+Just like you must not bypass John, the driver maintainers must not be bypassed, too.
+The quality control does _only_ work if nobody in the chain is bypassed.
+But in this situation the quality control did already fail and it should be
+tried hard to resolve (=revert) the situation instead of pointing at John.
 
 -- 
-Bartlomiej Zolnierkiewicz
+Greetings, Michael.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
