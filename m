@@ -1,57 +1,64 @@
 From: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
-Subject: Re: [PATCH 2/3] net: TCP thin linear timeouts
-Date: Thu, 29 Oct 2009 17:11:52 +0100
-Message-ID: <4AE9BEC8.6020108@nets.rwth-aachen.de>
-References: <4AE72079.4030504@simula.no> <4AE7262B.1060703@gmail.com>
- <4AE83FE4.1050309@nets.rwth-aachen.de>
- <07CD1135-C68B-4264-8CD3-C4BC0400FDA2@simula.no>
+Subject: Re: [PATCH 1/3] net: TCP thin-stream detection
+Date: Thu, 29 Oct 2009 17:32:22 +0100
+Message-ID: <4AE9C396.3040705@nets.rwth-aachen.de>
+References: <4AE72075.4070702@simula.no> <4AE7B5D6.8070001@gmail.com>
+ <38EB8C31-A96A-4C5C-88D8-8F6BF0E9225F@simula.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7BIT
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+Cc: William Allen Simpson <william.allen.simpson@gmail.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"shemminger@vyatta.com" <shemminger@vyatta.com>,
 	"ilpo.jarvinen@helsinki.fi" <ilpo.jarvinen@helsinki.fi>,
 	"davem@davemloft.net" <davem@davemloft.net>
 To: Andreas Petlund <apetlund@simula.no>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753902AbZJ2QMK@vger.kernel.org>
-In-reply-to: <07CD1135-C68B-4264-8CD3-C4BC0400FDA2@simula.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mta-2.ms.rz.RWTH-Aachen.DE ([134.130.7.73]:54271 "EHLO
+	mta-2.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753620AbZJ2Qck (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 12:32:40 -0400
+In-reply-to: <38EB8C31-A96A-4C5C-88D8-8F6BF0E9225F@simula.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Andreas Petlund schrieb:
-> We have found no noticeable degradation of the goodput in a series of
-> experiments we have performed in order to map the effects of the
-> modifications. Furthermore, the modifications implemented in the patches
-> are explicitly enabled only for applications where the developer knows
-> that streams will be thin, thus only a small subset of the streams will
-> apply the modifications.  
+> Den 28. okt. 2009 kl. 04.09 skrev William Allen Simpson:
 > 
-> Graphs presenting results from experiments performed to analyse latency
-> and fairness issues can be found here:
-> http://folk.uio.no/apetlund/lktmp/
+>> Andreas Petlund wrote:
+>>> +/* Determines whether this is a thin stream (which may suffer from
+>>> + * increased latency). Used to trigger latency-reducing mechanisms.
+>>> + */
+>>> +static inline unsigned int tcp_stream_is_thin(const struct  
+>>> tcp_sock *tp)
+>>> +{
+>>> +	return tp->packets_out < 4;
+>>> +}
+>>> +
+>> This bothers me a bit.  Having just looked at your Linux presentation,
+>> and not (yet) read your papers, it seems much of your justification  
+>> was
+>> with 1 packet per RTT.  Here, you seem to be concentrating on 4,  
+>> probably
+>> because many implementations quickly ramp up to 4.
+>>
+> 
+> The limit of 4 packets in flight is based on the fact that less than 4  
+> packets in flight makes fast retransmissions impossible, thus limiting  
+> the retransmit options to timeout-retransmissions. The criterion is  
 
-How often did you hit consecutive RTOs in these measurements?
-As I see you did a measurement with 512 thick vs. 512 thin streams.
-Lets do a hypothetical calculation with only 512 "thin" streams.
-Lets further assume the rtt is low, so that RTO is around 200ms.
-Assume each segment has 128 Bytes (already very small...).
-Assume after a period of normal operation all streams are in
-timeout-based loss recovery. (e.g. because destination endpoint
-suddenly behaves like a black hole)
-As all streams are in timeout-based loss recovery, each stream
-will transmit 5 segments each second with your modification.
-This would result in a throughput around 512*5*1024bit = 2560 kbit/s
-and a goodput of 0 kbit/s (because the receiver is a black hole).
-So you can easily saturate a 2 MBit/s link, only with retransmissions.
+There is Limited Transmit! So this is generally not true.
 
-Unfortunately in Germany an ADSL uplink of 786 kbit/s is still quite
-common, and its already called "broadband"...
+> therefore as conservative as possible while still serving its purpose.  
+> If further losses occur, the exponential backoff will increase latency  
+> further. The concept of using this limit is also discussed in the  
+> Internet draft for Early Retransmit by Allman et al.:
+> http://www.icir.org/mallman/papers/draft-ietf-tcpm-early-rexmt-01.txt
 
-Regarding the "small subset", why have a global sysctl option, then?
-And I think "tcp_stream_is_thin(tp)" will be true for every flow
-in the RTO case, at least for consecutive RTOs.
+This ID is covering exactly the cases which Limited Transmit does not
+cover and works "automagically" without help of application. So why not
+just implement this ID?
 
 Best regards,
-Arnd Hannemann
+Arnd
