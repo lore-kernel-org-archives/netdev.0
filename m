@@ -1,48 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Regression: e100_phy_init() isolates even selected
- PHY, causes 10 seconds boot delay
-Date: Thu, 29 Oct 2009 06:02:39 -0700 (PDT)
-Message-ID: <20091029.060239.202729106.davem@davemloft.net>
-References: <4AC3C09B.3040203@gmx.net>
+From: Matt Domsch <Matt_Domsch@dell.com>
+Subject: Re: [PATCH] udev: create empty regular files to represent net interfaces
+Date: Thu, 29 Oct 2009 08:11:25 -0500
+Message-ID: <20091029131125.GA13809@auslistsprd01.us.dell.com>
+References: <20091016214024.GA10091@ldl.fc.hp.com> <20091022063619.GB6321@ldl.fc.hp.com> <20091027205551.GA31963@auslistsprd01.us.dell.com> <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bruce.w.allan@intel.com, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org
-To: bernhard.kaindl@gmx.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44026
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752370AbZJ2NCP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 09:02:15 -0400
-In-Reply-To: <4AC3C09B.3040203@gmx.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: dann frazier <dannf@hp.com>, linux-hotplug@vger.kernel.org,
+	Narendra_K@dell.com, netdev@vger.kernel.org,
+	Jordan_Hargrave@dell.com, Charles_Rose@dell.com,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Kay Sievers <kay.sievers@vrfy.org>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Bernhard Kaindl <bernhard.kaindl@gmx.net>
-Date: Wed, 30 Sep 2009 22:33:31 +0200
+On Wed, Oct 28, 2009 at 09:23:57AM +0100, Kay Sievers wrote:
+> On Tue, Oct 27, 2009 at 21:55, Matt Domsch <Matt_Domsch@dell.com> wrote:
+> > On Thu, Oct 22, 2009 at 12:36:20AM -0600, dann frazier wrote:
+> >> Here's a proof of concept to further the discussion..
+> >>
+> >> The default filename uses the format:
+> >> ?? /dev/netdev/by-ifindex/$ifindex
+> >>
+> >> This provides the infrastructure to permit udev rules to create aliases for
+> >> network devices using symlinks, for example:
+> >>
+> >> ?? /dev/netdev/by-name/eth0 -> ../by-ifindex/1
+> >> ?? /dev/netdev/by-biosname/LOM0 -> ../by-ifindex/3
+> >>
+> >> A library (such as the proposed libnetdevname) could use this information
+> >> to provide an alias->realname mapping for network utilities.
+>
+> That all sounds very much like something which will hit us back some
+> day. I'm not sure, if udev should publish such dead text files in
+> /dev, it does not seem to fit the usual APIs/assumptions where /sys
+> and /dev match, and libudev provides access to both.
 
-> The current e100.c:e100_phy_init() electrically isolates all
-> the PHYs (even the selected PHY -- for a short time!) from the MII.
-> 
-> This happens only for a short duration before the isolation
-> of the selected PHY is reverted, but it's enough to cause a
-> major disturbance in the startup of our e100-based cards:
-> 
-> On a number of Embedded/Industry Pentium boards which are in use,
-> the result is that the initial DHCP negotiation takes more
-> than 10 seconds to complete with 2.6.30 and .31, while it's
-> done in a fraction of a second with 2.6.29 and earlier
-> (kernels tested with no delay range from 2.6.23 to 2.6.29)
-> 
-> That regression was introduced on March 31 in the by a patch
-> from Bruce which first appeared in 2.6.30-rc3:
+While we could do this without any kernel changes at all, it does
+still leave unresolved the concern of the in-kernel users of
+netdevice-by-name - everything that uses dev_get_by_name(), and any
+userspace tool that doesn't get converted to use the netdevice-by-path
+concept.
 
-Bruce, can you give some feedback on this?  I'd like to see this issue
-move forward.
+Which brings us back to still looking for options.
 
-The only reason I haven't applied Bernhard's patch is because I
-haven't seen any feedback from Intel.  But I will apply it anyways if
-I don't see reasonable feedback soon.
+Multiple names for the same device gives us a way out.
+Users of the ethX naming convention continue unchanged, and live
+with the nondeterminism; Users of other naming conventions can get
+names that work for them, with needed determinism.
 
-Thanks.
+Netdev team - are you in agreement that having multiple names to
+address the same netdevice is a worthwhile thing to add, to allow a
+variety of naming schemes to exist simultaneously?  If not, this whole
+discussion will be moot, and my basic problem, that the ethX naming
+convention is nondeterministic, but we need determinism, remains
+unresolved.
+
+Assuming we agree it's worthwhile, I'm open to ideas for ways to solve
+it.  We've proposed char devices for udev to manage, and fixing up
+userspace programs, but that doesn't solve in-kernel users by name.
+Dann proposed another method (above) which Kay isn't fond of, and
+which has the same drawback.  I need another option then.
+
+Thanks,
+Matt
+
+-- 
+Matt Domsch
+Technology Strategist, Dell Office of the CTO
+linux.dell.com & www.dell.com/linux
