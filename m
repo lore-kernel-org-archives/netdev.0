@@ -1,34 +1,39 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: WAN device configuration, again...
-Date: Thu, 29 Oct 2009 15:48:02 +0100
-Message-ID: <m3r5sm5k9p.fsf@intrepid.localdomain>
-References: <m3d447hcks.fsf@intrepid.localdomain>
-	<1256745788.3850.31.camel@localhost.localdomain>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2009-10-28
+Date: Thu, 29 Oct 2009 15:48:25 +0100
+Message-ID: <200910291548.27235.mb@bu3sch.de>
+References: <200910291435.54203.bzolnier@gmail.com> <200910291539.16476.mb@bu3sch.de> <14add3d10910290744n3abd1cf8w42a6311108eb2fa7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:54332 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754149AbZJ2Or7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Oct 2009 10:47:59 -0400
-In-Reply-To: <1256745788.3850.31.camel@localhost.localdomain> (Dan Williams's
-	message of "Wed, 28 Oct 2009 09:03:08 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+To: Gertjan van Wingerde <gwingerde-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <14add3d10910290744n3abd1cf8w42a6311108eb2fa7-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Dan Williams <dcbw@redhat.com> writes:
+On Thursday 29 October 2009 15:44:42 Gertjan van Wingerde wrote:
+> Hold on here. In this case it is the driver maintainer (i.e. Ivo for
+> the rt2x00 project) that
+> submitted this driver for inclusion, so the driver maintainer has not
+> been bypassed in
+> this case.
+> 
+> Apparently Bart has issues with the code submitted by the maintainers
+> and has been
+> unsuccessful in convincing others about these issues.
 
->> I think of something:
->> - using netlink or similar interface
->
-> If you're doing a new config interface, I'd suggest netlink like the
-> wireless guys did to replace WEXT with cfg80211.  Using netlink makes
-> your interface easily available from programs/libraries without having
-> to screenscrape anything.  If you want some advice on netlink API stuff,
-> ask Johannes Berg.
+So Bart is not a maintainer? That of course changes the situation.
 
-Thanks for your mail. It seems I'll do it this way.
 -- 
-Krzysztof Halasa
+Greetings, Michael.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
