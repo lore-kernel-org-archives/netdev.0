@@ -1,60 +1,109 @@
-From: Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2009-10-28
-Date: Thu, 29 Oct 2009 22:48:42 +0100
-Message-ID: <200910292248.42229.bzolnier@gmail.com>
-References: <200910291212.41656.bzolnier@gmail.com> <200910291514.40318.bzolnier@gmail.com> <84144f020910291245l1a7a3fd6o8822ecd4ce3b5504@mail.gmail.com>
+From: "Neulinger, Nathan" <nneul@mst.edu>
+Subject: RE: How to use gretap with bridge?
+Date: Thu, 29 Oct 2009 17:04:02 -0500
+Message-ID: <846C5B546E47494CBBD796CA8CA1617EA3B439@MST-VMAIL1.srv.mst.edu>
+References: <846C5B546E47494CBBD796CA8CA1617EA3B414@MST-VMAIL1.srv.mst.edu><20091029170631.GA29405@gondor.apana.org.au><846C5B546E47494CBBD796CA8CA1617EA3B428@MST-VMAIL1.srv.mst.edu> <20091029130036.1e61f415@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-To: Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <84144f020910291245l1a7a3fd6o8822ecd4ce3b5504-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "Herbert Xu" <herbert@gondor.apana.org.au>,
+	"Stephen Hemminger" <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mxtip01-rolla-out.um.umsystem.edu ([209.106.229.47]:41122 "EHLO
+	mxtip01-rolla-out.um.umsystem.edu" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751831AbZJ2WEA convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Oct 2009 18:04:00 -0400
+Content-class: urn:content-classes:message
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 29 October 2009 20:45:07 Pekka Enberg wrote:
-> Hi Bart,
+Now I see it - Stephen actually had it right on - the problem is that
+the gre tunnel is creating a MAC address on the fly based on the tunnel
+endpoint ip address, so if the tunnel endpoint address starts with an
+odd number, it hits the multicast check in the bridging code. (I'm sure
+that's what he meant and I just missed it entirely.)
+
+Simplest option would probably be to just mask off the first octet with
+0xFD or using the ip as the last four octets of the mac instead of the
+first four.
+
+-- Nathan
+
+------------------------------------------------------------
+Nathan Neulinger                       nneul@mst.edu
+Missouri S&T Information Technology    (573) 612-1412
+System Administrator - Principal       KD0DMH
+
+
+> -----Original Message-----
+> From: Neulinger, Nathan
+> Sent: Thursday, October 29, 2009 3:59 PM
+> To: 'Herbert Xu'
+> Cc: 'netdev@vger.kernel.org'
+> Subject: RE: How to use gretap with bridge?
 > 
-> On Thu, Oct 29, 2009 at 4:14 PM, Bartlomiej Zolnierkiewicz
-> <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> >> lots of cleanups to the staging drivers, why not direct some of that
-> >> energy to the drivers/net/wireless ones?
+> As a note - the bridging/tunneling is working perfectly once I force
+it
+> to use a bogus IP range that starts with an even number, but
+> unfortunately, that's not going to work so good given that our primary
+> address space is 131.151.x.x.
+> 
+> Any ideas on what is up with the even/odd error?
+> 
+> -- Nathan
+> 
+> ------------------------------------------------------------
+> Nathan Neulinger                       nneul@mst.edu
+> Missouri S&T Information Technology    (573) 612-1412
+> System Administrator - Principal       KD0DMH
+> 
+> 
+> > -----Original Message-----
+> > From: Neulinger, Nathan
+> > Sent: Thursday, October 29, 2009 3:22 PM
+> > To: 'Stephen Hemminger'
+> > Cc: netdev@vger.kernel.org
+> > Subject: RE: How to use gretap with bridge?
 > >
-> > When did we start to apply "fix it yourself" rule instead of "submitter
-> > should fix it" one to the _new_ code..
-> 
-> Don't be silly, I didn't say that.
-
-Sorry, I must have misunderstood you.
-
-> I was simply pointing out that your time would probably be better
-> spent in improving the "proper" ralink wireless drivers but if you
-
-Thanks for the concern.  However recent discussions made my realize how
-I should really be spending my time effectively way too well.
-
-> _really_ prefer to spend your time in pointless arguments, go ahead.
-
-I don't think that my technical arguments are pointless.
-
-Quite the contrary, I'm pretty confident that addressing my review concerns
-would result in better RT28x00 / RT30x0 support in the very near future.
-
-> It should be pretty obvious by now that the best way to improve things
-> is to work with the relevant maintainers, not against them. (Unless
-> you wish your work to be ignored, of course.)
-
-I work with a lot of other maintainers.  I would say that providing valuable
-review feedback is also "working with" (at least I would be very happy with
-such feedback in my projects).
-
---
-Bartlomiej Zolnierkiewicz
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > I was referring to the local IP in the "ip link add ... remote
+> x.z.z.z
+> > local y.z.z.z" command specifying the endpoints of the tunnel. It
+> lets
+> > it be added to the bridge if y is even, but not if y is odd. Why
+> should
+> > it care what the IP of the tunnel endpoints are?
+> >
+> > -- Nathan
+> >
+> > ------------------------------------------------------------
+> > Nathan Neulinger                       nneul@mst.edu
+> > Missouri S&T Information Technology    (573) 612-1412
+> > System Administrator - Principal       KD0DMH
+> >
+> >
+> > > -----Original Message-----
+> > > From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+> > > Sent: Thursday, October 29, 2009 3:01 PM
+> > > To: Neulinger, Nathan
+> > > Cc: netdev@vger.kernel.org
+> > > Subject: Re: How to use gretap with bridge?
+> > >
+> > > On Thu, 29 Oct 2009 14:01:31 -0500
+> > > "Neulinger, Nathan" <nneul@mst.edu> wrote:
+> > >
+> > > > Further testing - if the leading octet of the 'local' address is
+> > > even,
+> > > > it allows it to be added to bridge, if it's odd, it won't.
+> > > >
+> > > > Any ideas?
+> > > >
+> > >
+> > > If leading octet of MAC address is odd, then bridge thinks it
+> > > is not a valid ethernet for bridging because it is a multicast
+> > > address.
+> > >
+> > >
+> > > --
