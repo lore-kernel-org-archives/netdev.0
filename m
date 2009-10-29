@@ -1,49 +1,70 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH] udev: create empty regular files to represent net
- interfaces
-Date: Thu, 29 Oct 2009 07:25:54 -0700
-Message-ID: <20091029142554.GA16869@kroah.com>
-References: <20091016214024.GA10091@ldl.fc.hp.com>
- <20091022063619.GB6321@ldl.fc.hp.com>
- <20091027205551.GA31963@auslistsprd01.us.dell.com>
- <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com>
- <20091029131125.GA13809@auslistsprd01.us.dell.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 4/6] vlan: Optimize multiple unregistration
+Date: Thu, 29 Oct 2009 15:30:14 +0100
+Message-ID: <4AE9A6F6.5040209@gmail.com>
+References: <4AE728A9.2080209@gmail.com> <4AE8A425.1000600@trash.net> <4AE8ADE7.1010909@gmail.com> <4AE99C88.40403@trash.net> <4AE9A554.8030207@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kay Sievers <kay.sievers@vrfy.org>, dann frazier <dannf@hp.com>,
-	linux-hotplug@vger.kernel.org, Narendra_K@dell.com,
-	netdev@vger.kernel.org, Jordan_Hargrave@dell.com,
-	Charles_Rose@dell.com, Ben Hutchings <bhutchings@solarflare.com>
-To: Matt Domsch <Matt_Domsch@dell.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091029131125.GA13809@auslistsprd01.us.dell.com>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:47210 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752483AbZJ2OaM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 10:30:12 -0400
+In-Reply-To: <4AE9A554.8030207@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 29, 2009 at 08:11:25AM -0500, Matt Domsch wrote:
-> Netdev team - are you in agreement that having multiple names to
-> address the same netdevice is a worthwhile thing to add, to allow a
-> variety of naming schemes to exist simultaneously?  If not, this whole
-> discussion will be moot, and my basic problem, that the ethX naming
-> convention is nondeterministic, but we need determinism, remains
-> unresolved.
+Patrick McHardy a =E9crit :
+> Patrick McHardy wrote:
+>> Eric Dumazet wrote:
+>>> Patrick McHardy a =E9crit :
+>>>>> +{
+>>>>> +	LIST_HEAD(list);
+>>>>> +	int i;
+>>>>> +	struct net_device *vlandev;
+>>>>> +	struct vlan_group save;
+>>>>> +
+>>>>> +	memcpy(&save, grp, sizeof(save));
+>>>>> +	memset(&grp->vlan_devices_arrays, 0, sizeof(grp->vlan_devices_a=
+rrays));
+>>>> This shouldn't be necessary since the lower device is already in t=
+he
+>>>> process of being unregistered. If it was necessary, it could cause
+>>>> crashes since the individual pointers are not set to zero atomical=
+ly.
+>>>> Or maybe I'm misunderstanding the purpose entirely :)
+>>> Very good point indeed, even if in practice memset() use long word =
+transferts
+>>>
+>>> I'll make a cleanup patch, or do you want to do it ?
+>> I can take care of this, patch will follow shortly.
+>=20
+> How about this? I moved the code back into vlan_device_event() since
+> its now only a very minimal change to the original code.
+>=20
+> vlan-orig.diff contains the diff between the original code and the
+> code after this patch for reference.
+>=20
+>=20
 
-I'm still totally confused as to why you think this.  What is wrong with
-what we do today, which is name network devices in a deterministic
-manner by their MAC in userspace?  That name goes into the kernel, and
-everyone uses the same name and is happy.
+I have no problem with this solution, but I wonder why you re-added the=
+ curious
 
-If you don't like naming by MAC, then pick some other deterministic
-naming scheme that works for your hardware and write udev rules for it.
+			/* unregistration of last vlan destroys group, abort
+			 * afterwards */
+			if (grp->nr_vlans =3D=3D 1)
+				i =3D VLAN_GROUP_ARRAY_LEN;
 
-You could easily name them in a way that could keep the lowest number
-(eth0) for the lowest PCI id if you so desired and your BIOS guaranteed
-it.
+			unregister_vlan_dev(vlandev, &list);
 
-This way the kernel has only one name, and so does userspace, and
-everyone is happy.
+while doing
 
-thanks,
+	unregister_vlan_dev(vlandev, &list);
+	if (grp->nr_vlans =3D=3D 0)
+		break;
 
-greg k-h
+seems more natural :)
