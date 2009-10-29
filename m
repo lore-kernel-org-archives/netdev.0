@@ -1,39 +1,36 @@
-From: Pekka Enberg <penberg@cs.helsinki.fi>
-Subject: Re: pull request: wireless-next-2.6 2009-10-28
-Date: Thu, 29 Oct 2009 21:45:07 +0200
-Message-ID: <84144f020910291245l1a7a3fd6o8822ecd4ce3b5504@mail.gmail.com>
-References: <200910291212.41656.bzolnier@gmail.com>
-	 <200910291435.54203.bzolnier@gmail.com>
-	 <84144f020910290652n2e75827dk698b238b6bd1cbed@mail.gmail.com>
-	 <200910291514.40318.bzolnier@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: How to use gretap with bridge?
+Date: Thu, 29 Oct 2009 13:00:36 -0700
+Message-ID: <20091029130036.1e61f415@nehalam>
+References: <846C5B546E47494CBBD796CA8CA1617EA3B414@MST-VMAIL1.srv.mst.edu>
+	<20091029170631.GA29405@gondor.apana.org.au>
+	<846C5B546E47494CBBD796CA8CA1617EA3B428@MST-VMAIL1.srv.mst.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linville@tuxdriver.com
-To: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754298AbZJ2TpG@vger.kernel.org>
-In-Reply-To: <200910291514.40318.bzolnier@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: "Neulinger, Nathan" <nneul@mst.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:48123 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754164AbZJ2UAk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Oct 2009 16:00:40 -0400
+In-Reply-To: <846C5B546E47494CBBD796CA8CA1617EA3B428@MST-VMAIL1.srv.mst.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Bart,
+On Thu, 29 Oct 2009 14:01:31 -0500
+"Neulinger, Nathan" <nneul@mst.edu> wrote:
 
-On Thu, Oct 29, 2009 at 4:14 PM, Bartlomiej Zolnierkiewicz
-<bzolnier@gmail.com> wrote:
->> lots of cleanups to the staging drivers, why not direct some of that
->> energy to the drivers/net/wireless ones?
->
-> When did we start to apply "fix it yourself" rule instead of "submitter
-> should fix it" one to the _new_ code..
+> Further testing - if the leading octet of the 'local' address is even,
+> it allows it to be added to bridge, if it's odd, it won't.
+> 
+> Any ideas?
+> 
 
-Don't be silly, I didn't say that.
+If leading octet of MAC address is odd, then bridge thinks it
+is not a valid ethernet for bridging because it is a multicast
+address.
 
-I was simply pointing out that your time would probably be better
-spent in improving the "proper" ralink wireless drivers but if you
-_really_ prefer to spend your time in pointless arguments, go ahead.
-It should be pretty obvious by now that the best way to improve things
-is to work with the relevant maintainers, not against them. (Unless
-you wish your work to be ignored, of course.)
 
-                        Pekka
+-- 
