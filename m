@@ -1,23 +1,35 @@
-From: grantnotification@iprimus.com.au
-Subject: GRANT AWARD - 2009
-Date: Thu, 29 Oct 2009 04:58:55 -0700
-Message-ID: <4AE897D6000016F3@cpms01.int.iprimus.net.au>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2009-10-28
+Date: Thu, 29 Oct 2009 05:15:09 -0700 (PDT)
+Message-ID: <20091029.051509.119751790.davem@davemloft.net>
+References: <20091028211031.GF2856@tuxdriver.com>
+	<200910282256.00407.bzolnier@gmail.com>
+	<200910291212.41656.bzolnier@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx05.syd.iprimus.net.au ([210.50.30.235]:42292 "EHLO
-	mx05.syd.iprimus.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751573AbZJ2L6y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 07:58:54 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+To: bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200910291212.41656.bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-You have been choosen by the U.N Foundation to receive a grant donation of
-$1,000 000.00USD.Your Qualification Numbers(G-999-747,UZ-900 77),Contact
-Ewa Morgan with Name,Address,country for claim: fedilityclaimsagantdept@gmail.com
+From: Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu, 29 Oct 2009 12:12:41 +0100
 
-United Nations Foundation.
-http://www.unfoundation.org/
+> What is even more disappointing (especially after all that "working with"
+> preaching) is that the patch is now in net-next-2.6..
 
+John is the wireless maintainer, I take his tree in since the changes
+in there have his blessing.
+
+If you have a problem with some change in there, work it out with him
+and he'll send the fixed up changes to me thereafterwards.
+
+I don't really see what the big deal is, any change can be reverted.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
