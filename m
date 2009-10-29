@@ -1,226 +1,85 @@
-From: Benjamin LaHaise <bcrl@lhnet.ca>
-Subject: Re: [PATCH] net: allow netdev_wait_allrefs() to run faster
-Date: Thu, 29 Oct 2009 19:38:48 -0400
-Message-ID: <20091029233848.GV3141@kvack.org>
-References: <20091017221857.GG1925@kvack.org> <4ADB55BC.5020107@gmail.com> <20091018182144.GC23395@kvack.org> <200910211539.01824.opurdila@ixiacom.com> <4ADF2B57.4030708@gmail.com> <20091021165139.GL877@kvack.org> <m1d445yf2x.fsf@fess.ebiederm.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH] e100: e100_phy_init() isolates selected PHY,
+	causes 10 second boot delay
+Date: Thu, 29 Oct 2009 16:42:41 -0700
+Message-ID: <20091029234228.5100.17917.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Octavian Purdila <opurdila@ixiacom.com>,
-	netdev@vger.kernel.org, Cosmin Ratiu <cratiu@ixiacom.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Bernhard Kaindl <bernhard.kaindl@gmx.net>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:45937 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756045AbZJ2Xio (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Oct 2009 19:38:44 -0400
-Content-Disposition: inline
-In-Reply-To: <m1d445yf2x.fsf@fess.ebiederm.org>
+Received: from qmta13.westchester.pa.mail.comcast.net ([76.96.59.243]:53951
+	"EHLO QMTA13.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752385AbZJ2Xm7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 19:42:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 29, 2009 at 04:07:18PM -0700, Eric W. Biederman wrote:
-> Could you keep me in the loop with that.  I have some pending cleanups for
-> all of those pieces of code and may be able to help/advice/review.
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Here are the sysfs scaling improvements.  I have to break them up, as there 
-are 3 separate changes in this patch: 1. use an rbtree for name lookup in 
-sysfs, 2. keep track of the number of directories for the purpose of 
-generating the link count, as otherwise too much cpu time is spent in 
-sysfs_count_nlink when new entries are added, and 3. when adding a new 
-sysfs_dirent, walk the list backwards when linking it in, as higher 
-numbered inodes tend to be at the end of the list, not the beginning.
+A change in how PHYs are electrically isolated caused all PHYs to be
+isolated followed by reverting that isolation for the selected PHY.
+Unfortunately, isolating the selected PHY for even a short period of
+time can result in DHCP negotiation taking more than 10 seconds on certain
+embedded configurations delaying boot time as reported by Bernhard Kaindl.
+This patch reverts the change to how PHYs are isolated yet still works
+around the issue for 82552 needing the selected PHY's BMCR register to
+be written after the unused PHYs are isolated.  This code is moved below
+the setting of nic->phy ID in order to do the 82552-specific workaround.
 
-		-ben
+Cc: Bernhard Kaindl <bernhard.kaindl@gmx.net>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
+ drivers/net/e100.c |   26 +++++++++++++++++++-------
+ 1 files changed, 19 insertions(+), 7 deletions(-)
 
-diff --git a/fs/sysfs/dir.c b/fs/sysfs/dir.c
-index 5fad489..38ad7c8 100644
---- a/fs/sysfs/dir.c
-+++ b/fs/sysfs/dir.c
-@@ -43,10 +43,18 @@ static DEFINE_IDA(sysfs_ino_ida);
- static void sysfs_link_sibling(struct sysfs_dirent *sd)
- {
- 	struct sysfs_dirent *parent_sd = sd->s_parent;
--	struct sysfs_dirent **pos;
-+	struct sysfs_dirent **pos, *prev = NULL;
-+	struct rb_node **new, *parent;
+diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+index 679965c..d19b084 100644
+--- a/drivers/net/e100.c
++++ b/drivers/net/e100.c
+@@ -1426,19 +1426,31 @@ static int e100_phy_init(struct nic *nic)
+ 	} else
+ 		DPRINTK(HW, DEBUG, "phy_addr = %d\n", nic->mii.phy_id);
  
- 	BUG_ON(sd->s_sibling);
- 
-+	if (parent_sd->s_dir.children_tail &&
-+	    parent_sd->s_dir.children_tail->s_ino < sd->s_ino) {
-+		prev = parent_sd->s_dir.children_tail;
-+		pos = &prev->s_sibling;
-+		goto got_it;
-+	}
-+
- 	/* Store directory entries in order by ino.  This allows
- 	 * readdir to properly restart without having to add a
- 	 * cursor into the s_dir.children list.
-@@ -54,9 +62,36 @@ static void sysfs_link_sibling(struct sysfs_dirent *sd)
- 	for (pos = &parent_sd->s_dir.children; *pos; pos = &(*pos)->s_sibling) {
- 		if (sd->s_ino < (*pos)->s_ino)
- 			break;
-+		prev = *pos;
- 	}
-+got_it:
-+	if (prev == parent_sd->s_dir.children_tail)
-+		parent_sd->s_dir.children_tail = sd;
- 	sd->s_sibling = *pos;
-+	sd->s_sibling_prev = prev;
- 	*pos = sd;
-+	parent_sd->s_nr_children_dir += (sysfs_type(sd) == SYSFS_DIR);
-+
-+	// rb tree insert
-+	new = &(parent_sd->s_dir.child_rb_root.rb_node);
-+	parent = NULL;
-+
-+	while (*new) {
-+		struct sysfs_dirent *this =
-+			container_of(*new, struct sysfs_dirent, s_rb_node);
-+		int result = strcmp(sd->s_name, this->s_name);
-+
-+		parent = *new;
-+		if (result < 0)
-+			new = &((*new)->rb_left);
-+		else if (result > 0)
-+			new = &((*new)->rb_right);
-+		else
-+			BUG();
-+	}
-+
-+	rb_link_node(&sd->s_rb_node, parent, new);
-+	rb_insert_color(&sd->s_rb_node, &parent_sd->s_dir.child_rb_root);
- }
- 
- /**
-@@ -71,16 +106,22 @@ static void sysfs_link_sibling(struct sysfs_dirent *sd)
-  */
- static void sysfs_unlink_sibling(struct sysfs_dirent *sd)
- {
--	struct sysfs_dirent **pos;
-+	struct sysfs_dirent **pos, *prev = NULL;
- 
--	for (pos = &sd->s_parent->s_dir.children; *pos;
--	     pos = &(*pos)->s_sibling) {
--		if (*pos == sd) {
--			*pos = sd->s_sibling;
--			sd->s_sibling = NULL;
--			break;
--		}
--	}
-+	prev = sd->s_sibling_prev;
-+	if (prev)
-+		pos = &prev->s_sibling;
-+	else
-+		pos = &sd->s_parent->s_dir.children;
-+	if (sd == sd->s_parent->s_dir.children_tail)
-+		sd->s_parent->s_dir.children_tail = prev;
-+	*pos = sd->s_sibling;
-+	if (sd->s_sibling)
-+		sd->s_sibling->s_sibling_prev = prev;
-+	
-+	sd->s_parent->s_nr_children_dir -= (sysfs_type(sd) == SYSFS_DIR);
-+	sd->s_sibling_prev = NULL;
-+	rb_erase(&sd->s_rb_node, &sd->s_parent->s_dir.child_rb_root);
- }
- 
- /**
-@@ -331,6 +372,9 @@ struct sysfs_dirent *sysfs_new_dirent(const char *name, umode_t mode, int type)
- 	sd->s_mode = mode;
- 	sd->s_flags = type;
- 
-+	if (type == SYSFS_DIR)
-+		sd->s_dir.child_rb_root = RB_ROOT;
-+
- 	return sd;
- 
-  err_out2:
-@@ -630,11 +674,20 @@ void sysfs_addrm_finish(struct sysfs_addrm_cxt *acxt)
- struct sysfs_dirent *sysfs_find_dirent(struct sysfs_dirent *parent_sd,
- 				       const unsigned char *name)
- {
--	struct sysfs_dirent *sd;
+-	/* Isolate all the PHY ids */
+-	for (addr = 0; addr < 32; addr++)
+-		mdio_write(netdev, addr, MII_BMCR, BMCR_ISOLATE);
+-	/* Select the discovered PHY */
+-	bmcr &= ~BMCR_ISOLATE;
+-	mdio_write(netdev, nic->mii.phy_id, MII_BMCR, bmcr);
 -
--	for (sd = parent_sd->s_dir.children; sd; sd = sd->s_sibling)
--		if (!strcmp(sd->s_name, name))
--			return sd;
-+	struct rb_node *node = parent_sd->s_dir.child_rb_root.rb_node;
-+
-+	while (node) {
-+		struct sysfs_dirent *data =
-+			container_of(node, struct sysfs_dirent, s_rb_node);
-+		int result;
-+		result = strcmp(name, data->s_name);
-+		if (result < 0)
-+			node = node->rb_left;
-+		else if (result > 0)
-+			node = node->rb_right;
-+		else
-+			return data;
+ 	/* Get phy ID */
+ 	id_lo = mdio_read(netdev, nic->mii.phy_id, MII_PHYSID1);
+ 	id_hi = mdio_read(netdev, nic->mii.phy_id, MII_PHYSID2);
+ 	nic->phy = (u32)id_hi << 16 | (u32)id_lo;
+ 	DPRINTK(HW, DEBUG, "phy ID = 0x%08X\n", nic->phy);
+ 
++	/* Select the phy and isolate the rest */
++	for (addr = 0; addr < 32; addr++) {
++		if (addr != nic->mii.phy_id) {
++			mdio_write(netdev, addr, MII_BMCR, BMCR_ISOLATE);
++		} else if (nic->phy != phy_82552_v) {
++			bmcr = mdio_read(netdev, addr, MII_BMCR);
++			mdio_write(netdev, addr, MII_BMCR,
++				bmcr & ~BMCR_ISOLATE);
++		}
 +	}
- 	return NULL;
- }
- 
-diff --git a/fs/sysfs/inode.c b/fs/sysfs/inode.c
-index e28cecf..ff6e960 100644
---- a/fs/sysfs/inode.c
-+++ b/fs/sysfs/inode.c
-@@ -191,14 +191,7 @@ static struct lock_class_key sysfs_inode_imutex_key;
- 
- static int sysfs_count_nlink(struct sysfs_dirent *sd)
- {
--	struct sysfs_dirent *child;
--	int nr = 0;
--
--	for (child = sd->s_dir.children; child; child = child->s_sibling)
--		if (sysfs_type(child) == SYSFS_DIR)
--			nr++;
--
--	return nr + 2;
-+	return sd->s_nr_children_dir + 2;
- }
- 
- static void sysfs_init_inode(struct sysfs_dirent *sd, struct inode *inode)
-diff --git a/fs/sysfs/sysfs.h b/fs/sysfs/sysfs.h
-index af4c4e7..22fd1bc 100644
---- a/fs/sysfs/sysfs.h
-+++ b/fs/sysfs/sysfs.h
-@@ -9,6 +9,7 @@
-  */
- 
- #include <linux/fs.h>
-+#include <linux/rbtree.h>
- 
- struct sysfs_open_dirent;
- 
-@@ -16,7 +17,10 @@ struct sysfs_open_dirent;
- struct sysfs_elem_dir {
- 	struct kobject		*kobj;
- 	/* children list starts here and goes through sd->s_sibling */
-+	
- 	struct sysfs_dirent	*children;
-+	struct sysfs_dirent	*children_tail;
-+	struct rb_root		child_rb_root;
- };
- 
- struct sysfs_elem_symlink {
-@@ -52,6 +56,8 @@ struct sysfs_dirent {
- 	atomic_t		s_active;
- 	struct sysfs_dirent	*s_parent;
- 	struct sysfs_dirent	*s_sibling;
-+	struct sysfs_dirent	*s_sibling_prev;
-+	struct rb_node		s_rb_node;
- 	const char		*s_name;
- 
- 	union {
-@@ -65,6 +71,8 @@ struct sysfs_dirent {
- 	ino_t			s_ino;
- 	umode_t			s_mode;
- 	struct sysfs_inode_attrs *s_iattr;
++	/*
++	 * Workaround for 82552:
++	 * Clear the ISOLATE bit on selected phy_id last (mirrored on all
++	 * other phy_id's) using bmcr value from addr discovery loop above.
++	 */
++	if (nic->phy == phy_82552_v)
++		mdio_write(netdev, nic->mii.phy_id, MII_BMCR,
++			bmcr & ~BMCR_ISOLATE);
 +
-+	int			s_nr_children_dir;
- };
- 
- #define SD_DEACTIVATED_BIAS		INT_MIN
+ 	/* Handle National tx phys */
+ #define NCS_PHY_MODEL_MASK	0xFFF0FFFF
+ 	if ((nic->phy & NCS_PHY_MODEL_MASK) == phy_nsc_tx) {
+
