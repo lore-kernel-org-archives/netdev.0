@@ -1,36 +1,48 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/4] gro: Change all receive functions to return GRO
-	result codes
-Date: Thu, 29 Oct 2009 13:48:23 -0400
-Message-ID: <20091029174823.GB30749@gondor.apana.org.au>
-References: <1256836695.2827.71.camel@achroite>
+From: dann frazier <dannf@dannf.org>
+Subject: Re: [PATCH] udev: create empty regular files to represent
+ netinterfaces
+Date: Thu, 29 Oct 2009 11:50:46 -0600
+Message-ID: <20091029175045.GD3612@ldl.fc.hp.com>
+References: <20091016214024.GA10091@ldl.fc.hp.com>
+ <20091022063619.GB6321@ldl.fc.hp.com>
+ <20091027205551.GA31963@auslistsprd01.us.dell.com>
+ <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com>
+ <20091029131125.GA13809@auslistsprd01.us.dell.com>
+ <20091029142554.GA16869@kroah.com>
+ <EDA0A4495861324DA2618B4C45DCB3EE589662@blrx3m08.blr.amer.dell.com>
+ <20091029165259.GA9692@kroah.com>
+ <EDA0A4495861324DA2618B4C45DCB3EE589663@blrx3m08.blr.amer.dell.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:46761 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756553AbZJ2RsU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 13:48:20 -0400
+Cc: greg@kroah.com, Matt_Domsch@Dell.com, kay.sievers@vrfy.org,
+	linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
+	Jordan_Hargrave@Dell.com, Charles_Rose@Dell.com,
+	bhutchings@solarflare.com
+To: Narendra_K@Dell.com
+Return-path: <linux-hotplug-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1256836695.2827.71.camel@achroite>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <EDA0A4495861324DA2618B4C45DCB3EE589663@blrx3m08.blr.amer.dell.com>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 29, 2009 at 05:18:15PM +0000, Ben Hutchings wrote:
-> This will allow drivers to adjust their receive path dynamically
-> based on whether GRO is being applied successfully.
+On Thu, Oct 29, 2009 at 10:52:52PM +0530, Narendra_K@Dell.com wrote:
 > 
-> Currently all in-tree callers ignore the return values of these
-> functions and do not need to be changed.
+> >Sure, it's never guaranteed by the kernel that this will 
+> >happen, especially as we speed up the boot process by doing 
+> >things async.
 > 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> >So again, just fix your installer, or write a new udev rule 
+> >for your hardware platforms, or both.  But I still fail to see 
+> >why multiple names for network devices _in the kernel_ is a 
+> >solution for your issue.
+> >
+> 
+> The char device nodes solution does not propose having multiple names
+> for the network interfaces _in the kernel_.
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+Nor does the udev-only implementation I posted which doesn't rely on
+new character devices.
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+dann frazier
+
