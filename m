@@ -1,18 +1,56 @@
-From: cecilia_oma@ecunet.org
-Subject: Hello,
-Date: Thu, 29 Oct 2009 08:41:35 -0400
-Message-ID: <200910291241.n9TCfZel031636@ecunet-web-1.ecunet.org>
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.ecunet.org ([72.250.175.188]:47094 "EHLO mail2.ecunet.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752656AbZJ2Mpd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Oct 2009 08:45:33 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2009-10-28
+Date: Thu, 29 Oct 2009 13:45:05 +0100
+Message-ID: <200910291345.05888.bzolnier@gmail.com>
+References: <20091028211031.GF2856@tuxdriver.com> <200910291212.41656.bzolnier@gmail.com> <20091029.051509.119751790.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20091029.051509.119751790.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-My name is miss Cecilia Oma, i saw your profile today and became intrested in you,please i want you to send a mail to my email address so that i can give you my picture for you to know whom i am.Here is my email address(ceciliaoma2love@yahoo.com) I believe we can move from here I am waiting for your fast respond.make sure you send me a
-mail so that i will know you got my message.
-thanks hoping to hear from you
-Cecilia..
+On Thursday 29 October 2009 13:15:09 David Miller wrote:
+> From: Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Thu, 29 Oct 2009 12:12:41 +0100
+> 
+> > What is even more disappointing (especially after all that "working with"
+> > preaching) is that the patch is now in net-next-2.6..
+> 
+> John is the wireless maintainer, I take his tree in since the changes
+> in there have his blessing.
+> 
+> If you have a problem with some change in there, work it out with him
+> and he'll send the fixed up changes to me thereafterwards.
+
+What do you mean by that?
+
+That *I* should be fixing the patch in question instead of the submitter?
+
+Do some different rules apply in the networking than in other parts of
+the kernel that I'm not aware of?
+
+There were valid concerns raised on the initial rt2800pci patch submission,
+yet two days later patch is in John's tree, after few more days it is in yours
+tree and happily on his way into 2.6.33.
+
+Until issues mentioned in:
+
+	http://lkml.org/lkml/2009/10/17/81
+
+are addressed rt2800pci shouldn't be queued for Linus' tree.
+
+[ Please note that this driver doesn't work at all currently so the standard
+  argument of having hardware support early upstream cannot be applied here. ]
+
+--
+Bartlomiej Zolnierkiewicz
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
