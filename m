@@ -1,65 +1,72 @@
-From: apetlund@simula.no
-Subject: Re: [PATCH 2/3] net: TCP thin linear timeouts
-Date: Thu, 29 Oct 2009 16:19:33 +0100
-Message-ID: <83449a990112ea3cf5f172e7f6ee9874.squirrel@webmail.uio.no>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH net-next-2.6 1/4] net: introduce mc list
+	helpers
+Date: Thu, 29 Oct 2009 16:19:49 +0100
+Message-ID: <20091029151949.GH2877@psychotron.lab.eng.brq.redhat.com>
+References: <20091022135120.GC2868@psychotron.lab.eng.brq.redhat.com>
+	<20091022135220.GD2868@psychotron.lab.eng.brq.redhat.com>
+	<1256221112.2785.13.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Andreas Petlund" <apetlund@simula.no>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, shemminger@vyatta.com,
-	ilpo.jarvinen@helsinki.fi, davem@davemloft.net
-To: "Arnd Hannemann" <hannemann@nets.rwth-aachen.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755226AbZJ2PTb@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: eric.dumazet@gmail.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, bruce.w.allan@intel.com,
+	jesse.brandeburg@intel.com, mchehab@infradead.org,
+	john.ronciak@intel.com, jeffrey.t.kirsher@intel.com,
+	davem@davemloft.net, linux-media@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <1256221112.2785.13.camel@achroite>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-I apologise that some of you received this mail more than once. My emai=
-l
-client played a HTML-trick on me.
-
-> Eric Dumazet schrieb:
->> Andreas Petlund a =E9crit :
->>> This patch will make TCP use only linear timeouts if the stream is
-thin. This will help to avoid the very high latencies that thin stream
-suffer because of exponential backoff. This mechanism is only active
-if
->>> enabled by iocontrol or syscontrol and the stream is identified as =
-thin.
->> Wont this reduce the session timeout to something very small, ie 15
-retransmits, way under the minute ?
->
-> The session timeout no longer depends on the actual number of
-retransmits.
-> Instead its a time interval,
-> which is roughly equivalent to the time a TCP, performing exponential
-backoff would need to perform
-> 15 retransmits.
->
-> However, addressing the proposal:
-> I wonder how one can seriously suggest to just skip congestion respon=
-se
-during timeout-based
-> loss recovery? I believe that in a heavily congested scenarios, this
-would
-> lead to a goodput
-> goodput disaster... Not to mention that in a heavily congested scenar=
-io,
-suddenly every flow
-> will become "thin", so this will even amplify the problems. Or did I
-miss
-> something?
-
-We have found no noticeable degradation of the goodput in a series of
-experiments we have performed in order to map the effects of the
-modifications. Furthermore, the modifications implemented in the patche=
-s
-are explicitly enabled only for applications where the developer knows
-that streams will be thin, thus only a small subset of the streams will
-apply the modifications.
-
-Graphs presenting results from experiments performed to analyse latency
-and fairness issues can be found here:
-http://folk.uio.no/apetlund/lktmp/
-
--AP
+VGh1LCBPY3QgMjIsIDIwMDkgYXQgMDQ6MTg6MzJQTSBDRVNULCBiaHV0Y2hpbmdzQHNvbGFyZmxh
+cmUuY29tIHdyb3RlOgo+T24gVGh1LCAyMDA5LTEwLTIyIGF0IDE1OjUyICswMjAwLCBKaXJpIFBp
+cmtvIHdyb3RlOgo+PiBUaGlzIGhlbHBlcnMgc2hvdWxkIGJlIHVzZWQgYnkgbmV0d29yayBkcml2
+ZXJzIHRvIGFjY2VzcyB0byBuZXRkZXYKPj4gbXVsdGljYXN0IGxpc3RzLgo+Wy4uLl0KPj4gK3N0
+YXRpYyBpbmxpbmUgdm9pZCBuZXRkZXZfbWNfd2FsayhzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LAo+
+PiArCQkJCSAgdm9pZCAoKmZ1bmMpKHZvaWQgKiwgdW5zaWduZWQgY2hhciAqKSwKPj4gKwkJCQkg
+IHZvaWQgKmRhdGEpCj4+ICt7Cj4+ICsJc3RydWN0IGRldl9hZGRyX2xpc3QgKm1jbGlzdDsKPj4g
+KwlpbnQgaTsKPj4gKwo+PiArCWZvciAoaSA9IDAsIG1jbGlzdCA9IGRldi0+bWNfbGlzdDsgbWNs
+aXN0ICYmIGkgPCBkZXYtPm1jX2NvdW50Owo+PiArCSAgICAgaSsrLCBtY2xpc3QgPSBtY2xpc3Qt
+Pm5leHQpCj4+ICsJCWZ1bmMoZGF0YSwgbWNsaXN0LT5kbWlfYWRkcik7Cj4+ICt9Cj5bLi4uXQo+
+Cj7vu79XZSB1c3VhbGx5IGltcGxlbWVudCBpdGVyYXRpb24gYXMgbWFjcm9zIHNvIHRoYXQgYW55
+IGNvbnRleHQgZG9lc24ndAo+aGF2ZSB0byBiZSBzcXVlZXplZCB0aHJvdWdoIGEgc2luZ2xlIHVu
+dHlwZWQgKHZvaWQgKikgdmFyaWFibGUuICBBIG1hY3JvCj5mb3IgdGhpcyB3b3VsZCBsb29rIHNv
+bWV0aGluZyBsaWtlOgo+Cj4jZGVmaW5lIG5ldGRldl9mb3JfZWFjaF9tY19hZGRyKGRldiwgYWRk
+cikJCQkJCQlcCj4JZm9yIChhZGRyID0gKGRldiktPm1jX2xpc3QgPyAoZGV2KS0+bWNfbGlzdC0+
+ZG1pX2FkZHIgOiBOVUxMOwkJCVwKPgkgICAgIGFkZHI7CQkJCQkJCQkJXAo+CSAgICAgYWRkciA9
+IChjb250YWluZXJfb2YoYWRkciwgc3RydWN0IGRldl9hZGRyX2xpc3QsIGRtaV9hZGRyKS0+bmV4
+dCA/CQlcCj4JCSAgICAg77u/Y29udGFpbmVyX29mKGFkZHIsIHN0cnVjdCBkZXZfYWRkcl9saXN0
+LCBkbWlfYWRkciktPm5leHQtPmRtaV9hZGRyIDogXAo+CQkgICAgIE5VTEwpKQo+Cj5PbmNlIHlv
+dSBjaGFuZ2UgdGhlIGxpc3QgdHlwZSB0aGlzIGNhbiBwcmVzdW1hYmx5IGJlIG1hZGUgbGVzcyB1
+Z2x5LgoKTG9va2luZyBhdCB0aGlzLCBJJ20gbm90IHN1cmUgaG93IHRvIGRlYWwgd2l0aCB0aGlz
+IG1hY3JvIG9uY2Ugd2UgbmVlZCB0bwpjb252ZXJ0IGl0IHRvIHdvcmsgd2l0aCBsaXN0X2hlYWQu
+IEkgc2VlIHR3byBvcHRpb25zOgoKMSkgdHJhdmVyc2UgdGhyb3VnaCB0aGUgbGlzdCBieSBoYW5k
+IGluIHRoaXMgbWFjcm8gKHVnbHkpCjIpIGludHJvZHVjZSBzb21ldGhpbmcgbGlrZSAibGlzdF9m
+b3JfZWFjaF9zdHJ1Y3RfZW50cnkiIHdoaWNoIHRha2VzIHBvaW50ZXIgb2YKICAgdGhlIHN0cnVj
+dHVyZSBtZW1iZXIgYXMgYSBjdXJzb3IuIFRoZW4gbmV0ZGV2X2Zvcl9lYWNoX21jX2FkZHIgd291
+bGQgYmUganVzdAogICB3cmFwLXVwIG9mIHRoaXMuCgpXaGF0IGRvIHlvdSB0aGluaz8KClRoYW5r
+cwoKSmlya2EKPgo+QmVuLgo+Cj4tLSAKPkJlbiBIdXRjaGluZ3MsIFNlbmlvciBTb2Z0d2FyZSBF
+bmdpbmVlciwgU29sYXJmbGFyZSBDb21tdW5pY2F0aW9ucwo+Tm90IHNwZWFraW5nIGZvciBteSBl
+bXBsb3llcjsgdGhhdCdzIHRoZSBtYXJrZXRpbmcgZGVwYXJ0bWVudCdzIGpvYi4KPlRoZXkgYXNr
+ZWQgdXMgdG8gbm90ZSB0aGF0IFNvbGFyZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJr
+ZWQuCj4KCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpDb21lIGJ1aWxkIHdpdGggdXMhIFRoZSBCbGFj
+a0JlcnJ5KFIpIERldmVsb3BlciBDb25mZXJlbmNlIGluIFNGLCBDQQppcyB0aGUgb25seSBkZXZl
+bG9wZXIgZXZlbnQgeW91IG5lZWQgdG8gYXR0ZW5kIHRoaXMgeWVhci4gSnVtcHN0YXJ0IHlvdXIK
+ZGV2ZWxvcGluZyBza2lsbHMsIHRha2UgQmxhY2tCZXJyeSBtb2JpbGUgYXBwbGljYXRpb25zIHRv
+IG1hcmtldCBhbmQgc3RheSAKYWhlYWQgb2YgdGhlIGN1cnZlLiBKb2luIHVzIGZyb20gTm92ZW1i
+ZXIgOSAtIDEyLCAyMDA5LiBSZWdpc3RlciBub3chCmh0dHA6Ly9wLnNmLm5ldC9zZnUvZGV2Y29u
+ZmVyZW5jZQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpF
+MTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0
+Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3RpbmZvL2UxMDAwLWRldmVs
+Cg==
