@@ -1,85 +1,58 @@
-From: Oren Laadan <orenl@librato.com>
-Subject: Re: [PATCH 2/3] [RFC] Add c/r support for connected INET sockets
- (v3)
-Date: Thu, 29 Oct 2009 16:15:45 -0400
-Message-ID: <4AE9F7F1.8000803@librato.com>
-References: <1256666008-8231-1-git-send-email-danms@us.ibm.com> <1256666008-8231-3-git-send-email-danms@us.ibm.com>
+From: "Neulinger, Nathan" <nneul@mst.edu>
+Subject: RE: How to use gretap with bridge?
+Date: Thu, 29 Oct 2009 15:22:19 -0500
+Message-ID: <846C5B546E47494CBBD796CA8CA1617EA3B431@MST-VMAIL1.srv.mst.edu>
+References: <846C5B546E47494CBBD796CA8CA1617EA3B414@MST-VMAIL1.srv.mst.edu><20091029170631.GA29405@gondor.apana.org.au><846C5B546E47494CBBD796CA8CA1617EA3B428@MST-VMAIL1.srv.mst.edu> <20091029130036.1e61f415@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org,
-	John Dykstra <jdykstra72@gmail.com>
-To: Dan Smith <danms@us.ibm.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "Stephen Hemminger" <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp201.iad.emailsrvr.com ([207.97.245.201]:46675 "EHLO
-	smtp201.iad.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754758AbZJ2UPm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 16:15:42 -0400
-In-Reply-To: <1256666008-8231-3-git-send-email-danms@us.ibm.com>
+Received: from mxnip01-rolla-out.um.umsystem.edu ([209.106.229.55]:40051 "EHLO
+	mxnip01-rolla-out.um.umsystem.edu" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754848AbZJ2UWQ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Oct 2009 16:22:16 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20091029130036.1e61f415@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+I was referring to the local IP in the "ip link add ... remote x.z.z.z
+local y.z.z.z" command specifying the endpoints of the tunnel. It lets
+it be added to the bridge if y is even, but not if y is odd. Why should
+it care what the IP of the tunnel endpoints are?
 
-Dan Smith wrote:
-> This patch adds basic support for C/R of open INET sockets.  I think that
-> all the important bits of the TCP and ICSK socket structures is saved,
-> but I think there is still some additional IPv6 stuff that needs to be
-> handled.
-> 
-> With this patch applied, the following script can be used to demonstrate
-> the functionality:
-> 
->   https://lists.linux-foundation.org/pipermail/containers/2009-October/021239.html
-> 
-> It shows that this enables migration of a sendmail process with open
-> connections from one machine to another without dropping.
-> 
-> We probably need comments from the netdev people about the quality of
-> sanity checking we do on the values in the ckpt_hdr_socket_inet
-> structure on restart.
-> 
-> Note that this still doesn't address lingering sockets yet.
-> 
-> Changes in v3:
->  - Prevent restart from allowing a bind on a <1024 port unless the
->    user is granted that capability
->  - Add some sanity checking in the inet_precheck() function to make sure
->    the values read from the checkpoint image are within acceptable ranges
->  - Check the result of sock_restore_header_info() and fail if needed
-> 
-> Changes in v2:
->  - Restore saddr, rcv_saddr, daddr, sport, and dport from the sockaddr
->    structure instead of saving them separately
->  - Fix 'sock' naming in sock_cptrst()
->  - Don't take the queue lock before skb_queue_tail() since it is
->    done for us
->  - Allow "listen only" restore behavior if RESTART_SOCK_LISTENONLY
->    flag is specified on sys_restart()
->  - Pull the implementation of the list of listening sockets back into
->    this patch
->  - Fix dangling printk
->  - Add some comments around the parent/child restore logic
-> 
+-- Nathan
+
+------------------------------------------------------------
+Nathan Neulinger                       nneul@mst.edu
+Missouri S&T Information Technology    (573) 612-1412
+System Administrator - Principal       KD0DMH
+
+
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+> Sent: Thursday, October 29, 2009 3:01 PM
+> To: Neulinger, Nathan
 > Cc: netdev@vger.kernel.org
-> Cc: Oren Laadan <orenl@librato.com>
-> Cc: John Dykstra <jdykstra72@gmail.com>
-> Signed-off-by: Dan Smith <danms@us.ibm.com>
-> ---
-
-This looks good:
-Acked-by: Oren Laadan <orenl@cs.columbia.edu>
-
-I still want to move this to right under the restart-specific fields:
-	struct list_head listen_sockets;/* listening parent sockets */
-
-Also, I'm looking for a better name for RESTART_SOCK_LISTENONLY
-(it isn't listen only, udp sockets are preserved...), something
-that will convey the idea that we drop old connections,
-perhaps:
-	RESTART_NET_RESET
-	RESTART_CONN_RESET
-	RESTART_DROPCONN
-?
-
-Oren.
-
+> Subject: Re: How to use gretap with bridge?
+> 
+> On Thu, 29 Oct 2009 14:01:31 -0500
+> "Neulinger, Nathan" <nneul@mst.edu> wrote:
+> 
+> > Further testing - if the leading octet of the 'local' address is
+> even,
+> > it allows it to be added to bridge, if it's odd, it won't.
+> >
+> > Any ideas?
+> >
+> 
+> If leading octet of MAC address is odd, then bridge thinks it
+> is not a valid ethernet for bridging because it is a multicast
+> address.
+> 
+> 
+> --
