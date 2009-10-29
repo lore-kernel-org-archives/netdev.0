@@ -1,54 +1,36 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [RFC] bridge: check address size
-Date: Thu, 29 Oct 2009 15:24:08 -0700
-Message-ID: <20091029152408.6c6cc29f@nehalam>
-References: <846C5B546E47494CBBD796CA8CA1617EA3B414@MST-VMAIL1.srv.mst.edu>
-	<20091029170631.GA29405@gondor.apana.org.au>
-	<846C5B546E47494CBBD796CA8CA1617EA3B428@MST-VMAIL1.srv.mst.edu>
-	<20091029130036.1e61f415@nehalam>
-	<846C5B546E47494CBBD796CA8CA1617EA3B431@MST-VMAIL1.srv.mst.edu>
-	<20091029151222.156945ca@nehalam>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] net: allow netdev_wait_allrefs() to run faster
+Date: Thu, 29 Oct 2009 16:07:18 -0700
+Message-ID: <m1d445yf2x.fsf@fess.ebiederm.org>
+References: <20091017221857.GG1925@kvack.org> <4ADB55BC.5020107@gmail.com>
+	<20091018182144.GC23395@kvack.org>
+	<200910211539.01824.opurdila@ixiacom.com> <4ADF2B57.4030708@gmail.com>
+	<20091021165139.GL877@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Neulinger, Nathan" <nneul@mst.edu>, <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Octavian Purdila <opurdila@ixiacom.com>,
+	netdev@vger.kernel.org, Cosmin Ratiu <cratiu@ixiacom.com>
+To: Benjamin LaHaise <bcrl@lhnet.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54942 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756743AbZJ2WYJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Oct 2009 18:24:09 -0400
-In-Reply-To: <20091029151222.156945ca@nehalam>
+Received: from out02.mta.xmission.com ([166.70.13.232]:50994 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752616AbZJ2XHU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 19:07:20 -0400
+In-Reply-To: <20091021165139.GL877@kvack.org> (Benjamin LaHaise's message of "Wed\, 21 Oct 2009 12\:51\:39 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Check the address size of underlying device because the bridge assumes
-the underlying device has ethernet address format. See forwarding table
-and STP, for places where this true.
+Benjamin LaHaise <bcrl@lhnet.ca> writes:
 
-Also, add some comments to explain errors.
+> On Wed, Oct 21, 2009 at 05:40:07PM +0200, Eric Dumazet wrote:
+>> Ben patch only address interface deletion, and one part of the problem,
+>> maybe the more visible one for the current kernel.
+>
+> The first part I've been tackling has been the overhead in procfs, sysctl 
+> and sysfs.  
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Could you keep me in the loop with that.  I have some pending cleanups for
+all of those pieces of code and may be able to help/advice/review.
 
---- a/net/bridge/br_if.c	2009-10-29 15:18:48.363916679 -0700
-+++ b/net/bridge/br_if.c	2009-10-29 15:21:38.142667043 -0700
-@@ -377,12 +377,17 @@ int br_add_if(struct net_bridge *br, str
- 	struct net_bridge_port *p;
- 	int err = 0;
- 
--	if (dev->flags & IFF_LOOPBACK || dev->type != ARPHRD_ETHER)
-+	/* Don't allow bridging non ethernet like devices */
-+	if (dev->flags & IFF_LOOPBACK
-+	    || dev->type != ARPHRD_ETHER
-+	    || dev->addr_len != ETH_ALEN)
- 		return -EINVAL;
- 
-+	/* No bridging of bridges */
- 	if (dev->netdev_ops->ndo_start_xmit == br_dev_xmit)
- 		return -ELOOP;
- 
-+	/* Device is already being bridged */
- 	if (dev->br_port != NULL)
- 		return -EBUSY;
- 
-
+Eric
