@@ -1,33 +1,44 @@
-From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-Subject: Re: pull request: wireless-next-2.6 2009-10-28
-Date: Thu, 29 Oct 2009 14:35:54 +0100
-Message-ID: <200910291435.54203.bzolnier@gmail.com>
-References: <200910291212.41656.bzolnier@gmail.com> <200910291345.05888.bzolnier@gmail.com> <20091029.055901.24976117.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 4/6] vlan: Optimize multiple unregistration
+Date: Thu, 29 Oct 2009 14:45:44 +0100
+Message-ID: <4AE99C88.40403@trash.net>
+References: <4AE728A9.2080209@gmail.com> <4AE8A425.1000600@trash.net> <4AE8ADE7.1010909@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linville@tuxdriver.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753582AbZJ2NgW@vger.kernel.org>
-In-Reply-To: <20091029.055901.24976117.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:50555 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752773AbZJ2Npt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 09:45:49 -0400
+In-Reply-To: <4AE8ADE7.1010909@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 29 October 2009 13:59:01 David Miller wrote:
-> From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-> Date: Thu, 29 Oct 2009 13:45:05 +0100
-> 
-> > That *I* should be fixing the patch in question instead of the
-> > submitter?
-> 
-> I'm saying that you should work with John to have him send a revert or
-> whatever to me.
+Eric Dumazet wrote:
+> Patrick McHardy a =E9crit :
+>>> +{
+>>> +	LIST_HEAD(list);
+>>> +	int i;
+>>> +	struct net_device *vlandev;
+>>> +	struct vlan_group save;
+>>> +
+>>> +	memcpy(&save, grp, sizeof(save));
+>>> +	memset(&grp->vlan_devices_arrays, 0, sizeof(grp->vlan_devices_arr=
+ays));
+>> This shouldn't be necessary since the lower device is already in the
+>> process of being unregistered. If it was necessary, it could cause
+>> crashes since the individual pointers are not set to zero atomically=
+=2E
+>> Or maybe I'm misunderstanding the purpose entirely :)
+>=20
+> Very good point indeed, even if in practice memset() use long word tr=
+ansferts
+>=20
+> I'll make a cleanup patch, or do you want to do it ?
 
-This is your responsibility to deal with your downstream maintainers,
-not mine and since you have accepted John's patch I'm asking you to
-revert rt2800pci patch from your tree.
+I can take care of this, patch will follow shortly.
 
--- 
-Bartlomiej Zolnierkiewicz
