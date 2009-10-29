@@ -1,46 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Re: PACKET_TX_RING: packet size is too long
-Date: Thu, 29 Oct 2009 03:40:25 -0700 (PDT)
-Message-ID: <20091029.034025.218199437.davem@davemloft.net>
-References: <20091015201028.GA9780@boogie.lpds.sztaki.hu>
-	<20091029.031917.255459167.davem@davemloft.net>
-	<20091029102923.GA15314@boogie.lpds.sztaki.hu>
+Subject: Re: [PATCH v2 4/7] fsl_pq_mdio: Add Suport for etsec2.0 devices.
+Date: Thu, 29 Oct 2009 03:43:42 -0700 (PDT)
+Message-ID: <20091029.034342.122859203.davem@davemloft.net>
+References: <9F4C7D19E8361D4C94921B95BE08B81B95035E@zin33exm22.fsl.freescale.net>
+	<20091029.031610.04742718.davem@davemloft.net>
+	<9F4C7D19E8361D4C94921B95BE08B81B950364@zin33exm22.fsl.freescale.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, johann.baudy@gnu-log.net
-To: gombasg@sztaki.hu
+Cc: netdev@vger.kernel.org, avorontsov@ru.mvista.com
+To: B05799@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55853
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59131
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750810AbZJ2KkC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 06:40:02 -0400
-In-Reply-To: <20091029102923.GA15314@boogie.lpds.sztaki.hu>
+	by vger.kernel.org with ESMTP id S1750980AbZJ2KnS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 06:43:18 -0400
+In-Reply-To: <9F4C7D19E8361D4C94921B95BE08B81B950364@zin33exm22.fsl.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gabor Gombas <gombasg@sztaki.hu>
-Date: Thu, 29 Oct 2009 11:29:24 +0100
+From: "Kumar Gopalpet-B05799" <B05799@freescale.com>
+Date: Thu, 29 Oct 2009 16:03:30 +0530
 
-> On Thu, Oct 29, 2009 at 03:19:17AM -0700, David Miller wrote:
-> 
->> From: Gabor Gombas <gombasg@sztaki.hu>
->> Date: Thu, 15 Oct 2009 22:10:29 +0200
->> 
->> > Currently PACKET_TX_RING forces certain amount of every frame to remain
->> > unused. This probably originates from an early version of the
->> > PACKET_TX_RING patch that in fact used the extra space when the (since
->> > removed) CONFIG_PACKET_MMAP_ZERO_COPY option was enabled. The current
->> > code does not make any use of this extra space.
->> > 
->> > This patch removes the extra space reservation and lets userspace make
->> > use of the full frame size.
->> > 
->> > Signed-off-by: Gabor Gombas <gombasg@sztaki.hu>
->> 
->> Applied, thanks!
-> 
-> Thanks! Does it have a chance to be included in 2.6.32, or it is too
-> late in the rc series?
+> The PATCH v2 series applied cleanly to the above clone.
 
-It will be merged to Linus for 2.6.23
+It absolutely does NOT!
+
+And I just tried it again to verify this, and you can try it yourself:
+
+	http://vger.kernel.org/~davem/bundle-640.mbox
+
+davem@sunset:~/src/GIT/net-next-2.6$ git am --signoff bundle-640.mbox 
+Applying: gianfar: Add per queue structure support
+Applying: gianfar: Introduce logical group support.
+Applying: gianfar: Add Multiple Queue Support
+Applying: fsl_pq_mdio: Add Suport for etsec2.0 devices.
+error: patch failed: drivers/net/fsl_pq_mdio.c:405
+error: drivers/net/fsl_pq_mdio.c: patch does not apply
+Patch failed at 0004 fsl_pq_mdio: Add Suport for etsec2.0 devices.
+When you have resolved this problem run "git am --resolved".
+If you would prefer to skip this patch, instead run "git am --skip".
+To restore the original branch and stop patching run "git am --abort".
+davem@sunset:~/src/GIT/net-next-2.6$ 
+
+So stop telling me it applies cleanly.
+
+Because I've tried to do it multiple times and it absolutely does not.
