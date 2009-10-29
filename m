@@ -1,58 +1,74 @@
-From: "Neulinger, Nathan" <nneul@mst.edu>
-Subject: RE: How to use gretap with bridge?
-Date: Thu, 29 Oct 2009 15:22:19 -0500
-Message-ID: <846C5B546E47494CBBD796CA8CA1617EA3B431@MST-VMAIL1.srv.mst.edu>
-References: <846C5B546E47494CBBD796CA8CA1617EA3B414@MST-VMAIL1.srv.mst.edu><20091029170631.GA29405@gondor.apana.org.au><846C5B546E47494CBBD796CA8CA1617EA3B428@MST-VMAIL1.srv.mst.edu> <20091029130036.1e61f415@nehalam>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 1/3] net: TCP thin-stream detection
+Date: Thu, 29 Oct 2009 22:26:49 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0910292215420.14335@melkinkari.cs.Helsinki.FI>
+References: <4AE72075.4070702@simula.no> <4AE7B5D6.8070001@gmail.com>
+ <38EB8C31-A96A-4C5C-88D8-8F6BF0E9225F@simula.no> <4AE9C396.3040705@nets.rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Stephen Hemminger" <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mxnip01-rolla-out.um.umsystem.edu ([209.106.229.55]:40051 "EHLO
-	mxnip01-rolla-out.um.umsystem.edu" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754848AbZJ2UWQ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Oct 2009 16:22:16 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20091029130036.1e61f415@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Andreas Petlund <apetlund@simula.no>,
+	William Allen Simpson <william.allen.simpson@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Christian Samsel <Christian.Samsel@rwth-aachen.de>
+To: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756652AbZJ2U0r@vger.kernel.org>
+In-Reply-To: <4AE9C396.3040705@nets.rwth-aachen.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I was referring to the local IP in the "ip link add ... remote x.z.z.z
-local y.z.z.z" command specifying the endpoints of the tunnel. It lets
-it be added to the bridge if y is even, but not if y is odd. Why should
-it care what the IP of the tunnel endpoints are?
+On Thu, 29 Oct 2009, Arnd Hannemann wrote:
 
--- Nathan
+> Andreas Petlund schrieb:
+> > Den 28. okt. 2009 kl. 04.09 skrev William Allen Simpson:
+> > 
+> >> Andreas Petlund wrote:
+> >>> +/* Determines whether this is a thin stream (which may suffer from
+> >>> + * increased latency). Used to trigger latency-reducing mechanisms.
+> >>> + */
+> >>> +static inline unsigned int tcp_stream_is_thin(const struct  
+> >>> tcp_sock *tp)
+> >>> +{
+> >>> +	return tp->packets_out < 4;
+> >>> +}
+> >>> +
+> >> This bothers me a bit.  Having just looked at your Linux presentation,
+> >> and not (yet) read your papers, it seems much of your justification  
+> >> was
+> >> with 1 packet per RTT.  Here, you seem to be concentrating on 4,  
+> >> probably
+> >> because many implementations quickly ramp up to 4.
+> >>
+> > 
+> > The limit of 4 packets in flight is based on the fact that less than 4  
+> > packets in flight makes fast retransmissions impossible, thus limiting  
+> > the retransmit options to timeout-retransmissions. The criterion is  
+> 
+> There is Limited Transmit! So this is generally not true.
+> 
+> > therefore as conservative as possible while still serving its purpose.  
+> > If further losses occur, the exponential backoff will increase latency  
+> > further. The concept of using this limit is also discussed in the  
+> > Internet draft for Early Retransmit by Allman et al.:
+> > http://www.icir.org/mallman/papers/draft-ietf-tcpm-early-rexmt-01.txt
+> 
+> This ID is covering exactly the cases which Limited Transmit does not
+> cover and works "automagically" without help of application. So why not
+> just implement this ID?
 
-------------------------------------------------------------
-Nathan Neulinger                       nneul@mst.edu
-Missouri S&T Information Technology    (573) 612-1412
-System Administrator - Principal       KD0DMH
+I even gave some advise recently to one guy how to polish up the early 
+retransmit implementation of his. ...However, I think we haven't heard 
+from that since then... I added him as CC if he happens to have it already 
+done.
+
+It is actually so that patches 1+3 implement sort of an early retransmit, 
+just slightly more aggressive of it than what is given in ID but I find 
+the difference in the aggressiveness rather insignificant. ...Whereas the 
+RTO stuff is more questionable.
 
 
-> -----Original Message-----
-> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-> Sent: Thursday, October 29, 2009 3:01 PM
-> To: Neulinger, Nathan
-> Cc: netdev@vger.kernel.org
-> Subject: Re: How to use gretap with bridge?
-> 
-> On Thu, 29 Oct 2009 14:01:31 -0500
-> "Neulinger, Nathan" <nneul@mst.edu> wrote:
-> 
-> > Further testing - if the leading octet of the 'local' address is
-> even,
-> > it allows it to be added to bridge, if it's odd, it won't.
-> >
-> > Any ideas?
-> >
-> 
-> If leading octet of MAC address is odd, then bridge thinks it
-> is not a valid ethernet for bridging because it is a multicast
-> address.
-> 
-> 
-> --
+-- 
+ i.
