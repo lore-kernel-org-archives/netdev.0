@@ -1,45 +1,43 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 4/4] sfc: Enable heuristic selection between page and skb
-	RX buffers
-Date: Thu, 29 Oct 2009 17:21:33 +0000
-Message-ID: <1256836893.2827.75.camel@achroite>
+From: <Narendra_K@Dell.com>
+Subject: RE: [PATCH] udev: create empty regular files to represent netinterfaces
+Date: Thu, 29 Oct 2009 22:52:52 +0530
+Message-ID: <EDA0A4495861324DA2618B4C45DCB3EE589663@blrx3m08.blr.amer.dell.com>
+References: <20091016214024.GA10091@ldl.fc.hp.com> <20091022063619.GB6321@ldl.fc.hp.com> <20091027205551.GA31963@auslistsprd01.us.dell.com> <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com> <20091029131125.GA13809@auslistsprd01.us.dell.com> <20091029142554.GA16869@kroah.com> <EDA0A4495861324DA2618B4C45DCB3EE589662@blrx3m08.blr.amer.dell.com> <20091029165259.GA9692@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:41264 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756458AbZJ2RVc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 13:21:32 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <Matt_Domsch@Dell.com>, <kay.sievers@vrfy.org>, <dannf@hp.com>,
+	<linux-hotplug@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<Jordan_Hargrave@Dell.com>, <Charles_Rose@Dell.com>,
+	<bhutchings@solarflare.com>
+To: <greg@kroah.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20091029165259.GA9692@kroah.com>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now that we can tell whether GRO is being applied, this heuristic is
-effective once more.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/sfc/rx.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+>Sure, it's never guaranteed by the kernel that this will 
+>happen, especially as we speed up the boot process by doing 
+>things async.
 
-diff --git a/drivers/net/sfc/rx.c b/drivers/net/sfc/rx.c
-index 9277e9a..a60c718 100644
---- a/drivers/net/sfc/rx.c
-+++ b/drivers/net/sfc/rx.c
-@@ -61,7 +61,7 @@
-  *   rx_alloc_method = (rx_alloc_level > RX_ALLOC_LEVEL_LRO ?
-  *                      RX_ALLOC_METHOD_PAGE : RX_ALLOC_METHOD_SKB)
-  */
--static int rx_alloc_method = RX_ALLOC_METHOD_PAGE;
-+static int rx_alloc_method = RX_ALLOC_METHOD_AUTO;
- 
- #define RX_ALLOC_LEVEL_LRO 0x2000
- #define RX_ALLOC_LEVEL_MAX 0x3000
+>So again, just fix your installer, or write a new udev rule 
+>for your hardware platforms, or both.  But I still fail to see 
+>why multiple names for network devices _in the kernel_ is a 
+>solution for your issue.
+>
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+The char device nodes solution does not propose having multiple names
+for the network interfaces _in the kernel_. It is suggesting that we
+have alternate names for kernel assigned names in user space and user
+space utilities refer to the interface by these alternate names. The
+userspace utilities would have to map the pathnames to kernel names
+before issuing the ioctls. That way there is determinism without
+embedding MAC or any other attribute. An Embedded_NIC_1 interface would
+always refer to the Gb1 without having to depend on any attribute.
+
+With regards,
+Narendra K 
 
