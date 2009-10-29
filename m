@@ -1,28 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2009-10-28
-Date: Thu, 29 Oct 2009 01:07:05 -0700 (PDT)
-Message-ID: <20091029.010705.106875451.davem@davemloft.net>
-References: <20091028205346.GE2856@tuxdriver.com>
+Subject: Re: [PATCH] AF_RAW: Augment raw_send_hdrinc to expand skb to fit
+ iphdr->ihl (v2)
+Date: Thu, 29 Oct 2009 01:10:14 -0700 (PDT)
+Message-ID: <20091029.011014.222504422.davem@davemloft.net>
+References: <4AE889B5.4040301@gmail.com>
+	<20091028185947.GA12675@hmsreliant.think-freely.org>
+	<4AE8B114.6050504@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752370AbZJ2IGo@vger.kernel.org>
-In-Reply-To: <20091028205346.GE2856@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37199
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752887AbZJ2IJu convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Oct 2009 04:09:50 -0400
+In-Reply-To: <4AE8B114.6050504@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 28 Oct 2009 16:53:46 -0400
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 28 Oct 2009 22:01:08 +0100
 
-> Here is a collection of fixes (mostly (almost-)one-liners) intended
-> for 2.6.32.  There are a couple of fixes relating to behavior when an
-> association failes, as well as spelling fixes, simply endian fixes,
-> a MAINTAINERS change...I don't think there is anything controversial
-> here...
-> 
-> Please let me know if there are problems!
+> Neil Horman a =E9crit :
+>>=20
+>>> I believe we should drop the request, since padding it is not what =
+was expected by user.
+>>=20
+>> Yeah, I had a feeling.  Ok, version 2, this time drop the invalid fr=
+ame and
+>> report it to user space, instead of expanding it:
+>>=20
+>>=20
+>>     Augment raw_send_hdrinc to correct for incorrect ip header lengt=
+h values
+ ...
+>>     Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+>=20
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
 
-Pulled, thanks a lot John.
+Applied to net-2.6, thanks everyone!
