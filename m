@@ -1,62 +1,49 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: pull request: wireless-next-2.6 2009-10-28
-Date: Thu, 29 Oct 2009 15:24:27 +0100
-Message-ID: <1256826267.3865.112.camel@johannes.local>
-References: <200910291435.54203.bzolnier@gmail.com>
-	 <20091029.065336.119302168.davem@davemloft.net>
-	 <200910291513.54326.bzolnier@gmail.com>
-	 <20091029.072001.153801635.davem@davemloft.net>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] udev: create empty regular files to represent net
+ interfaces
+Date: Thu, 29 Oct 2009 07:25:54 -0700
+Message-ID: <20091029142554.GA16869@kroah.com>
+References: <20091016214024.GA10091@ldl.fc.hp.com>
+ <20091022063619.GB6321@ldl.fc.hp.com>
+ <20091027205551.GA31963@auslistsprd01.us.dell.com>
+ <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com>
+ <20091029131125.GA13809@auslistsprd01.us.dell.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-qYugcg5jQ/tYUNjJ2YMW"
-Cc: bzolnier@gmail.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linville@tuxdriver.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:59084 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754729AbZJ2OYz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 10:24:55 -0400
-In-Reply-To: <20091029.072001.153801635.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Kay Sievers <kay.sievers@vrfy.org>, dann frazier <dannf@hp.com>,
+	linux-hotplug@vger.kernel.org, Narendra_K@dell.com,
+	netdev@vger.kernel.org, Jordan_Hargrave@dell.com,
+	Charles_Rose@dell.com, Ben Hutchings <bhutchings@solarflare.com>
+To: Matt Domsch <Matt_Domsch@dell.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20091029131125.GA13809@auslistsprd01.us.dell.com>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, Oct 29, 2009 at 08:11:25AM -0500, Matt Domsch wrote:
+> Netdev team - are you in agreement that having multiple names to
+> address the same netdevice is a worthwhile thing to add, to allow a
+> variety of naming schemes to exist simultaneously?  If not, this whole
+> discussion will be moot, and my basic problem, that the ethX naming
+> convention is nondeterministic, but we need determinism, remains
+> unresolved.
 
---=-qYugcg5jQ/tYUNjJ2YMW
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+I'm still totally confused as to why you think this.  What is wrong with
+what we do today, which is name network devices in a deterministic
+manner by their MAC in userspace?  That name goes into the kernel, and
+everyone uses the same name and is happy.
 
-On Thu, 2009-10-29 at 07:20 -0700, David Miller wrote:
+If you don't like naming by MAC, then pick some other deterministic
+naming scheme that works for your hardware and write udev rules for it.
 
-> In case you're concerned, I actually agree with John and others
-> on this issue, and disagree with your position.
+You could easily name them in a way that could keep the lowest number
+(eth0) for the lowest PCI id if you so desired and your BIOS guaranteed
+it.
 
-In this particular case, I think it makes more sense to duplicate the
-code _especially_ because it's not working yet. That frees people
-hacking on it of having to worry about breaking other devices.
+This way the kernel has only one name, and so does userspace, and
+everyone is happy.
 
-johannes
+thanks,
 
---=-qYugcg5jQ/tYUNjJ2YMW
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABAgAGBQJK6aWYAAoJEODzc/N7+QmaGLoQAMcqVfkkiTG2DbNvTlJmIAvX
-AIpkScm5APEDTbIamytQNBhoXe0kzCU0iW7vQU9Ztb37Mrb5sJ3c9IalxdL0rJKL
-+pK0bao9cuHXJgTCqrtKae7cZQej4BdFtUJg/HiC32ScbTzMFxFBX6STVPY569XQ
-A5f39ABjgLWk60eOlq62wja7YI29yVhzf2o1KPyS3Qy8/4nWrClRVGzr5lmYfh39
-9fLgkJvqwrfJjWwi7vuB5W4ueqv8i9OBCSBgTELcN96F1T1rqeiKF1JbJsShRDLM
-qUKRxEAwHHedu9qGLDha56o/9sYOVGR+RZ+h3zBGOIc9Idc8uzwA3twYoPL2wEJW
-ua+a9aCRZKxqt4hyv9ChJ90PpdgWpblqn2Xv1Y7Ihaz44dnlklo4tN94/0kAGVYd
-l1p3+4Nkb1FXUTiGJDRXP8wJOcTTr4dRB56MMP3qvXnHTbtgg0+S0EC7WajYo9Y/
-N6QHk824T1qvpiQTp4fGE3VMLpnGjBDqwFpfQSahj2k+AX5aRdqnSJakNE/3O3gr
-vhQM0+Q4R9EbupQw+6lzuFPPvEEYE4fOq0ku2tfkTfPCq5b3qcD+8oWK6Gj0/v3W
-eqCHNzqlXLVGuz7eAwsaLuNJjjnCIdbBgburc/+gB5VxEXCpKm/6upEc34G9rU24
-6jJCPx783xc3yp5XLpin
-=uJlw
------END PGP SIGNATURE-----
-
---=-qYugcg5jQ/tYUNjJ2YMW--
-
+greg k-h
