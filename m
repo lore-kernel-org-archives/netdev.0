@@ -1,44 +1,30 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 4/6] vlan: Optimize multiple unregistration
-Date: Thu, 29 Oct 2009 14:45:44 +0100
-Message-ID: <4AE99C88.40403@trash.net>
-References: <4AE728A9.2080209@gmail.com> <4AE8A425.1000600@trash.net> <4AE8ADE7.1010909@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Pv-drivers] [PATCH] vmxnet3: remove duplicate #include
+Date: Thu, 29 Oct 2009 06:50:11 -0700 (PDT)
+Message-ID: <20091029.065011.19666108.davem@davemloft.net>
+References: <20091028.222901.187567993.davem@davemloft.net>
+	<20091028.225217.78322944.davem@davemloft.net>
+	<8B1F619C9F5F454E81D90D3C161698D7017DFAA30F@EXCH-MBX-3.vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sbhatewara@vmware.com, pv-drivers@vmware.com,
+	netdev@vger.kernel.org, weiyi.huang@gmail.com
+To: bhavesh@vmware.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:50555 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752773AbZJ2Npt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 09:45:49 -0400
-In-Reply-To: <4AE8ADE7.1010909@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36336
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752773AbZJ2Ntr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 09:49:47 -0400
+In-Reply-To: <8B1F619C9F5F454E81D90D3C161698D7017DFAA30F@EXCH-MBX-3.vmware.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Patrick McHardy a =E9crit :
->>> +{
->>> +	LIST_HEAD(list);
->>> +	int i;
->>> +	struct net_device *vlandev;
->>> +	struct vlan_group save;
->>> +
->>> +	memcpy(&save, grp, sizeof(save));
->>> +	memset(&grp->vlan_devices_arrays, 0, sizeof(grp->vlan_devices_arr=
-ays));
->> This shouldn't be necessary since the lower device is already in the
->> process of being unregistered. If it was necessary, it could cause
->> crashes since the individual pointers are not set to zero atomically=
-=2E
->> Or maybe I'm misunderstanding the purpose entirely :)
->=20
-> Very good point indeed, even if in practice memset() use long word tr=
-ansferts
->=20
-> I'll make a cleanup patch, or do you want to do it ?
+From: Bhavesh Davda <bhavesh@vmware.com>
+Date: Thu, 29 Oct 2009 06:35:35 -0700
 
-I can take care of this, patch will follow shortly.
+> In other words, don't just trivially remove the X86 Kconfig
+> requirement for this driver.
 
+Then I assume you're going to add the endianness handling
+and send me a patch soon?
