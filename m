@@ -1,59 +1,80 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Multicast packet reassembly can fail
-Date: Wed, 28 Oct 2009 21:57:38 -0700 (PDT)
-Message-ID: <20091028.215738.66603083.davem@davemloft.net>
-References: <1256683583.3153.389.camel@linux-1lbu>
-	<4AE81A70.5060307@gmail.com>
+From: Joe Eykholt <jeykholt@cisco.com>
+Subject: Re: [net-next-2.6 PATCH 4/4] vlan: Add support to	netdev_ops.ndo_fcoe_get_wwn
+ for VLAN device
+Date: Wed, 28 Oct 2009 22:00:12 -0700
+Message-ID: <4AE9215C.2020208@cisco.com>
+References: <20091029042339.15957.37676.stgit@localhost.localdomain> <20091029042515.15957.86107.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: schen@mvista.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41114
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751398AbZJ2E5P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 00:57:15 -0400
-In-Reply-To: <4AE81A70.5060307@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
+	linux-scsi@vger.kernel.org, Yi Zou <yi.zou@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20091029042515.15957.86107.stgit@localhost.localdomain>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 28 Oct 2009 11:18:24 +0100
-
-> Check line 219 of net/ipv4/inet_fragment.c
+Jeff Kirsher wrote:
+> From: Yi Zou <yi.zou@intel.com>
 > 
-> #ifdef CONFIG_SMP
->         /* With SMP race we have to recheck hash table, because
->          * such entry could be created on other cpu, while we
->          * promoted read lock to write lock.
->          */
->         hlist_for_each_entry(qp, n, &f->hash[hash], list) {
->                 if (qp->net == nf && f->match(qp, arg)) {
->                         atomic_inc(&qp->refcnt);
->                         write_unlock(&f->lock);
->                         qp_in->last_in |= INET_FRAG_COMPLETE;   <<< HERE >>>
->                         inet_frag_put(qp_in, f);
->                         return qp;
->                 }
->         }
-> #endif
+> Implements the netdev_ops.ndo_fcoe_get_wwn for VLAN device.
+
+How would this arrange for different VLANs to get different WWPNs?
+Or does it allow FCoE only on one VLAN per port?
+I guess that would be fair because some switches support only one FCoE VLAN.
+
+	Regards,
+	Joe
+
 > 
-> I really wonder why we set INET_FRAG_COMPLETE here
-
-What has happened here is that another cpu created an identical
-frag entry before we took the write lock.
-
-So we're letting that other cpu's entry stand, and will release
-our local one and not use it at all.
-
-Setting INET_FRAG_COMPLETE does two things:
-
-1) It makes sure input frag processing skips this entry if such
-   code paths happen to see it for some reason.
-
-2) INET_FRAG_COMPLETE must be set when inet_frag_destroy() gets
-   called by inet_frag_put() when it drops the refcount to zero.
-   There is an assertion on INET_FRAG_COMPLETE in inet_frag_destroy.
-
-Hope that clears things up.
+> Signed-off-by: Yi Zou <yi.zou@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+> 
+>  net/8021q/vlan_dev.c |   13 +++++++++++++
+>  1 files changed, 13 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+> index e370197..790fd55 100644
+> --- a/net/8021q/vlan_dev.c
+> +++ b/net/8021q/vlan_dev.c
+> @@ -626,6 +626,17 @@ static int vlan_dev_fcoe_disable(struct net_device *dev)
+>  		rc = ops->ndo_fcoe_disable(real_dev);
+>  	return rc;
+>  }
+> +
+> +static int vlan_dev_fcoe_get_wwn(struct net_device *dev, u64 *wwn, int type)
+> +{
+> +	struct net_device *real_dev = vlan_dev_info(dev)->real_dev;
+> +	const struct net_device_ops *ops = real_dev->netdev_ops;
+> +	int rc = -EINVAL;
+> +
+> +	if (ops->ndo_fcoe_get_wwn)
+> +		rc = ops->ndo_fcoe_get_wwn(real_dev, wwn, type);
+> +	return rc;
+> +}
+>  #endif
+>  
+>  static void vlan_dev_change_rx_flags(struct net_device *dev, int change)
+> @@ -791,6 +802,7 @@ static const struct net_device_ops vlan_netdev_ops = {
+>  	.ndo_fcoe_ddp_done	= vlan_dev_fcoe_ddp_done,
+>  	.ndo_fcoe_enable	= vlan_dev_fcoe_enable,
+>  	.ndo_fcoe_disable	= vlan_dev_fcoe_disable,
+> +	.ndo_fcoe_get_wwn	= vlan_dev_fcoe_get_wwn,
+>  #endif
+>  };
+>  
+> @@ -813,6 +825,7 @@ static const struct net_device_ops vlan_netdev_accel_ops = {
+>  	.ndo_fcoe_ddp_done	= vlan_dev_fcoe_ddp_done,
+>  	.ndo_fcoe_enable	= vlan_dev_fcoe_enable,
+>  	.ndo_fcoe_disable	= vlan_dev_fcoe_disable,
+> +	.ndo_fcoe_get_wwn	= vlan_dev_fcoe_get_wwn,
+>  #endif
+>  };
+>  
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-scsi" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
