@@ -1,37 +1,28 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: SRIOV driver for 82599
-Date: Thu, 29 Oct 2009 07:40:59 -0700
-Message-ID: <9929d2390910290740o7aed3e0er411e72ee3012a783@mail.gmail.com>
-References: <be5d34890910090003s4c518c44q3ae395d0efbeb225@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 4/6] vlan: Optimize multiple unregistration
+Date: Thu, 29 Oct 2009 15:43:13 +0100
+Message-ID: <4AE9AA01.3020805@gmail.com>
+References: <4AE728A9.2080209@gmail.com> <4AE8A425.1000600@trash.net> <4AE8ADE7.1010909@gmail.com> <4AE99C88.40403@trash.net> <4AE9A554.8030207@trash.net> <4AE9A6F6.5040209@gmail.com> <4AE9A7AA.70107@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Satish Chowdhury <satish.chowdhury@oneconvergence.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f42.google.com ([209.85.160.42]:55110 "EHLO
-	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754195AbZJ2Okz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 10:40:55 -0400
-Received: by pwj9 with SMTP id 9so79065pwj.21
-        for <netdev@vger.kernel.org>; Thu, 29 Oct 2009 07:41:00 -0700 (PDT)
-In-Reply-To: <be5d34890910090003s4c518c44q3ae395d0efbeb225@mail.gmail.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:40141 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751956AbZJ2OnM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 10:43:12 -0400
+In-Reply-To: <4AE9A7AA.70107@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 9, 2009 at 00:03, Satish Chowdhury
-<satish.chowdhury@oneconvergence.com> wrote:
-> Hi,
->
-> I want to test the SRIOV functionality of Intel 82599 based NIC card.
-> Is there a version of ixgbe driver with SRIOV functionality support
-> and is there a ixgbe VF driver?
->
-> Thanks
-> -Satish
-> --
+Patrick McHardy a =E9crit :
 
-Not currently.  We are currently working on the patches to add SRIOV support.
+> Indeed, but unregister_vlan_dev() destroys the group once the
+> count has reached zero, so we must not access it after that.
 
--- 
-Cheers,
-Jeff
+Well, I hoped call_rcu() callback doesnt fire and kfree(grp) until we e=
+xited
+from unregister_vlan_dev_alls(), with RTNL locked...
