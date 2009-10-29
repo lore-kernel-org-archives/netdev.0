@@ -1,31 +1,47 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH 2/3] net: TCP thin linear timeouts
-Date: Thu, 29 Oct 2009 10:01:57 -0700
-Message-ID: <4AE9CA85.9080409@hp.com>
-References: <4AE72079.4030504@simula.no> <4AE7262B.1060703@gmail.com>	<4AE83FE4.1050309@nets.rwth-aachen.de>	<alpine.DEB.2.00.0910281618330.19761@wel-95.cs.helsinki.fi> <58396856-6D7E-4CE1-8D66-D1F11205B0D5@simula.no>
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Subject: RE: [Pv-drivers] [PATCH] vmxnet3: remove duplicate #include
+Date: Thu, 29 Oct 2009 10:06:26 -0700
+Message-ID: <89E2752CFA8EC044846EB8499819134101745F2120@EXCH-MBX-4.vmware.com>
+References: <20091028.222901.187567993.davem@davemloft.net>
+	<20091028.225217.78322944.davem@davemloft.net>
+	<8B1F619C9F5F454E81D90D3C161698D7017DFAA30F@EXCH-MBX-3.vmware.com>
+ <20091029.065011.19666108.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, shemminger@vyatta.com,
-	David Miller <davem@davemloft.net>
-To: Andreas Petlund <apetlund@simula.no>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "pv-drivers@vmware.com" <pv-drivers@vmware.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Bhavesh Davda <bhavesh@vmware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:42170 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756011AbZJ2RB4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 13:01:56 -0400
-In-Reply-To: <58396856-6D7E-4CE1-8D66-D1F11205B0D5@simula.no>
+Received: from smtp-outbound-2.vmware.com ([65.115.85.73]:41269 "EHLO
+	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753111AbZJ2RGW convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Oct 2009 13:06:22 -0400
+In-Reply-To: <20091029.065011.19666108.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just how thin can a thin stream be when a thin stream is found thin? (to the 
-cadence of "How much wood could a woodchuck chuck if a woodchuck could chuck wood?")
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Thursday, October 29, 2009 6:50 AM
+> To: Bhavesh Davda
+> Cc: Shreyas Bhatewara; pv-drivers@vmware.com; netdev@vger.kernel.org;
+> weiyi.huang@gmail.com
+> Subject: Re: [Pv-drivers] [PATCH] vmxnet3: remove duplicate #include
+> 
+> From: Bhavesh Davda <bhavesh@vmware.com>
+> Date: Thu, 29 Oct 2009 06:35:35 -0700
+> 
+> > In other words, don't just trivially remove the X86 Kconfig
+> > requirement for this driver.
+> 
+> Then I assume you're going to add the endianness handling
+> and send me a patch soon?
 
-Does a stream get so thin that a user's send could not be split into four, 
-sub-MSS TCP segments?
+Yes, I will post a patch soon.
 
-rick jones
+Thanks.
+->Shreyas
