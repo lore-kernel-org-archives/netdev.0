@@ -1,51 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC] multiqueue changes
-Date: Thu, 29 Oct 2009 23:12:39 +0100
-Message-ID: <4AEA1357.3090307@trash.net>
-References: <4ACD9255.4020008@gmail.com> <20091008090344.GA7409@ff.dom.local> <20091008120039.GA8691@ff.dom.local> <4AE87EEE.4020703@trash.net> <20091028212337.GA3218@ami.dom.local> <4AE9C4C3.9040503@trash.net> <20091029211543.GA3036@ami.dom.local>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [RFC] bridge: check address size
+Date: Thu, 29 Oct 2009 15:24:08 -0700
+Message-ID: <20091029152408.6c6cc29f@nehalam>
+References: <846C5B546E47494CBBD796CA8CA1617EA3B414@MST-VMAIL1.srv.mst.edu>
+	<20091029170631.GA29405@gondor.apana.org.au>
+	<846C5B546E47494CBBD796CA8CA1617EA3B428@MST-VMAIL1.srv.mst.edu>
+	<20091029130036.1e61f415@nehalam>
+	<846C5B546E47494CBBD796CA8CA1617EA3B431@MST-VMAIL1.srv.mst.edu>
+	<20091029151222.156945ca@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: "Neulinger, Nathan" <nneul@mst.edu>, <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60541 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756159AbZJ2WMm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 18:12:42 -0400
-In-Reply-To: <20091029211543.GA3036@ami.dom.local>
+Received: from mail.vyatta.com ([76.74.103.46]:54942 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756743AbZJ2WYJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Oct 2009 18:24:09 -0400
+In-Reply-To: <20091029151222.156945ca@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> On Thu, Oct 29, 2009 at 05:37:23PM +0100, Patrick McHardy wrote:
-> ...
->> Well, we do need both values for supporting changes to the actually
->> used numbers of TX queues. If I understood Dave's explanation correctly,
->> this is also what's intended. It also doesn't seem unreasonable
->> what bnx2 is doing.
-> 
-> Exactly. With a growing number of cores, both available and powered
-> off, these values will be soon treated more carefully than now.
-> 
->> But getting back to the problem Eric reported - so you're suggesting
->> that bnx2.c should also adjust num_tx_queues in case the hardware
->> doesn't support multiqueue? That seems reasonable as well.
-> 
-> Currently, declaring num_tx_queues with alloc_netdev_mq() looks like
-> too soon for some drivers. It seems they should be able to do it
-> separately later during the .probe.
+Check the address size of underlying device because the bridge assumes
+the underlying device has ethernet address format. See forwarding table
+and STP, for places where this true.
 
-The value passed into alloc_netdev_mq() is just used for allocation
-purposes, from what I can tell there's no downside in reducing it
-before the dev_activate() call.
+Also, add some comments to explain errors.
 
-> There is a question if .ndo_open should be considered too.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-I currently can't see any purpose in decreasing num_tx_queues after
-registration instead of real_num_tx_queues. But it depends on how
-exactly this will be implemented and how it interacts with qdiscs
-(hence me previous mail, where I tried to point out possible
-inconsistencies from using real_num_tx_queues).
+--- a/net/bridge/br_if.c	2009-10-29 15:18:48.363916679 -0700
++++ b/net/bridge/br_if.c	2009-10-29 15:21:38.142667043 -0700
+@@ -377,12 +377,17 @@ int br_add_if(struct net_bridge *br, str
+ 	struct net_bridge_port *p;
+ 	int err = 0;
+ 
+-	if (dev->flags & IFF_LOOPBACK || dev->type != ARPHRD_ETHER)
++	/* Don't allow bridging non ethernet like devices */
++	if (dev->flags & IFF_LOOPBACK
++	    || dev->type != ARPHRD_ETHER
++	    || dev->addr_len != ETH_ALEN)
+ 		return -EINVAL;
+ 
++	/* No bridging of bridges */
+ 	if (dev->netdev_ops->ndo_start_xmit == br_dev_xmit)
+ 		return -ELOOP;
+ 
++	/* Device is already being bridged */
+ 	if (dev->br_port != NULL)
+ 		return -EBUSY;
+ 
+
