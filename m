@@ -1,74 +1,120 @@
 From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 1/3] net: TCP thin-stream detection
-Date: Thu, 29 Oct 2009 22:26:49 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0910292215420.14335@melkinkari.cs.Helsinki.FI>
-References: <4AE72075.4070702@simula.no> <4AE7B5D6.8070001@gmail.com>
- <38EB8C31-A96A-4C5C-88D8-8F6BF0E9225F@simula.no> <4AE9C396.3040705@nets.rwth-aachen.de>
+Subject: Re: [PATCH 2/3] net: TCP thin linear timeouts
+Date: Thu, 29 Oct 2009 22:52:32 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0910292235240.14335@melkinkari.cs.Helsinki.FI>
+References: <69812160e5682c9fb4acba05bc082664.squirrel@webmail.uio.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Andreas Petlund <apetlund@simula.no>,
-	William Allen Simpson <william.allen.simpson@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Christian Samsel <Christian.Samsel@rwth-aachen.de>
-To: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756652AbZJ2U0r@vger.kernel.org>
-In-Reply-To: <4AE9C396.3040705@nets.rwth-aachen.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; boundary="-696243445-283498188-1256849290=:14335"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, shemminger@vyatta.com,
+	David Miller <davem@davemloft.net>
+To: Andreas Petlund <apetlund@simula.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:39465 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756535AbZJ2Uw3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 16:52:29 -0400
+In-Reply-To: <69812160e5682c9fb4acba05bc082664.squirrel@webmail.uio.no>
+Content-ID: <Pine.LNX.4.64.0910292249030.14335@melkinkari.cs.Helsinki.FI>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 29 Oct 2009, Arnd Hannemann wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> Andreas Petlund schrieb:
-> > Den 28. okt. 2009 kl. 04.09 skrev William Allen Simpson:
-> > 
-> >> Andreas Petlund wrote:
-> >>> +/* Determines whether this is a thin stream (which may suffer from
-> >>> + * increased latency). Used to trigger latency-reducing mechanisms.
-> >>> + */
-> >>> +static inline unsigned int tcp_stream_is_thin(const struct  
-> >>> tcp_sock *tp)
-> >>> +{
-> >>> +	return tp->packets_out < 4;
-> >>> +}
-> >>> +
-> >> This bothers me a bit.  Having just looked at your Linux presentation,
-> >> and not (yet) read your papers, it seems much of your justification  
-> >> was
-> >> with 1 packet per RTT.  Here, you seem to be concentrating on 4,  
-> >> probably
-> >> because many implementations quickly ramp up to 4.
-> >>
-> > 
-> > The limit of 4 packets in flight is based on the fact that less than 4  
-> > packets in flight makes fast retransmissions impossible, thus limiting  
-> > the retransmit options to timeout-retransmissions. The criterion is  
+---696243445-283498188-1256849290=:14335
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0910292249031.14335@melkinkari.cs.Helsinki.FI>
+
+On Thu, 29 Oct 2009, apetlund@simula.no wrote:
+
+> > Andreas Petlund a écrit :
+> >
+> >> The removal of exponential backoff on a general basis has been
+> >> investigated and discussed already, for instance here:
+> >> http://ccr.sigcomm.org/online/?q=node/416
+> >> Such steps are, however considered drastic, and I agree that caution
+> must be made to thoroughly investigate the effects of such changes. The
+> changes introduced by the proposed patches, however, are not
+> default
+> >> behaviour, but an option for applications that suffer from the
+> >> thin-stream TCP increased retransmission latencies. They will, as such,
+> not affect all streams. In addition, the changes will only be active
+> for
+> >> streams which are perpetually thin or in the early phase of expanding
+> their cwnd. Also, experiments performed on congested bottlenecks with
+> tail-drop queues show very little (if any at all) effect on goodput for
+> the modified scenario compared to a scenario with unmodified TCP
+> streams.
+> >> Graphs both for latency-results and fairness tests can be found here:
+> http://folk.uio.no/apetlund/lktmp/
+> >
+> > There should be a limit to linear timeouts, to say ... no more than 6
+> retransmits
+> > (eventually tunable), then switch to exponential backoff. Maybe your
+> patch
+> > already implement such heuristic ?
 > 
-> There is Limited Transmit! So this is generally not true.
-> 
-> > therefore as conservative as possible while still serving its purpose.  
-> > If further losses occur, the exponential backoff will increase latency  
-> > further. The concept of using this limit is also discussed in the  
-> > Internet draft for Early Retransmit by Allman et al.:
-> > http://www.icir.org/mallman/papers/draft-ietf-tcpm-early-rexmt-01.txt
-> 
-> This ID is covering exactly the cases which Limited Transmit does not
-> cover and works "automagically" without help of application. So why not
-> just implement this ID?
+> The limitation you suggest to the linear timeouts makes very good sense.
+> Our experiments performed on the Internet indicate that it is extremely
+> rare that more than 6 retransmissions are needed to recover. It is not
+> included in the current patch, so I will include this in the next
+> iteration.
 
-I even gave some advise recently to one guy how to polish up the early 
-retransmit implementation of his. ...However, I think we haven't heard 
-from that since then... I added him as CC if he happens to have it already 
-done.
+I've heard that BSD would use linear for first three and then exponential 
+but this is based on some gossip (which could well turn out to be a myth) 
+rather than checking it out myself. But if it is true, it certainly hasn't 
+been that devastating.
 
-It is actually so that patches 1+3 implement sort of an early retransmit, 
-just slightly more aggressive of it than what is given in ID but I find 
-the difference in the aggressiveness rather insignificant. ...Whereas the 
-RTO stuff is more questionable.
+> > True link collapses do happen, it would be good if not all streams
+> wakeup
+> > in the same
+> > second and make recovery very slow.
+> >
+> 
+> Each stream will have its own schedule for wakeup, so such events will
+> still be subject to coincidence. The timer granularity of the TCP wakeup
+> timer will also influence how many streams will wake at the same time. The
+> experiments we have performed on severely congested bottlenecks (link
+> above) indicate that the modifications will not create a large negative
+> effect. In fact, when goodput is drastically reduced due to severe
+> overload, regular TCP and the LT and dupACK modifications seem to perform
+> nearly identically. Other scenarios may exist where different effects can
+> be observed, and I am open to suggestions for further testing.
+
+Could you point out where exactly where the goodput results? ...I only 
+seem to find latency results which is not exactly the same. I don't except
+some that is in order of what Nagle talks (32kbps -> 40bps irc) but 10-50% 
+goodput reduction over a relatively short period of time (until RTTs top 
+RTOs once again preventing spurious RTOs and thus also segment duplication 
+due to retransmissions ceases).
+
+Were these results obtained with Linux, and if so what was FRTO set to?
+
+> > Thats too easy to accept possibly dangerous features with the excuse of
+> saying
+> > "It wont be used very much", because you cannot predict the future.
+> 
+> I agree that it is no argument to say that it won't be used much; indeed,
+> my hope is that it will be used much. However, our experiments indicate no
+> negative effects while showing a large improvement on retransmission
+> latency for the scenario in question. I therefore think that the option
+> for such an improvement should be made available for time-dependent
+> thin-stream applications.
+
+Everyone can right away tell that most RTOs are not due to extreme 
+congestion, so some linear back off seems sensible when dupACK feedback 
+is lacking for some reason. Of course it is a tradeoff as there's that 
+chance for getting 1/(n+1) goodput only (where n is the number of linear 
+steps) step if RTOs were spurious (and without FRTO even more unnecessary 
+retransmission will be triggered so in fact even could be slightly worse 
+in theory). But that to happen in the first place requires of course this 
+RTT > RTO situation which is hard to see to be a persisting state.
 
 
 -- 
  i.
+---696243445-283498188-1256849290=:14335--
