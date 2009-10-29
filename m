@@ -1,39 +1,36 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2009-10-28
-Date: Thu, 29 Oct 2009 15:48:25 +0100
-Message-ID: <200910291548.27235.mb@bu3sch.de>
-References: <200910291435.54203.bzolnier@gmail.com> <200910291539.16476.mb@bu3sch.de> <14add3d10910290744n3abd1cf8w42a6311108eb2fa7@mail.gmail.com>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [RFC] net,socket: introduce build_sockaddr_check helper to
+	catch overflow at build time
+Date: Thu, 29 Oct 2009 17:50:10 +0300
+Message-ID: <20091029145010.GA5463@lenovo>
+References: <20091023214306.GA30616@lenovo> <20091024.061209.39469983.davem@davemloft.net> <20091024163226.GA5204@lenovo> <20091029.030019.44832583.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-To: Gertjan van Wingerde <gwingerde-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <14add3d10910290744n3abd1cf8w42a6311108eb2fa7-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f209.google.com ([209.85.219.209]:39550 "EHLO
+	mail-ew0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754524AbZJ2OuK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 10:50:10 -0400
+Received: by ewy5 with SMTP id 5so71474ewy.37
+        for <netdev@vger.kernel.org>; Thu, 29 Oct 2009 07:50:14 -0700 (PDT)
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20091029.030019.44832583.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 29 October 2009 15:44:42 Gertjan van Wingerde wrote:
-> Hold on here. In this case it is the driver maintainer (i.e. Ivo for
-> the rt2x00 project) that
-> submitted this driver for inclusion, so the driver maintainer has not
-> been bypassed in
-> this case.
-> 
-> Apparently Bart has issues with the code submitted by the maintainers
-> and has been
-> unsuccessful in convincing others about these issues.
+[David Miller - Thu, Oct 29, 2009 at 03:00:19AM -0700]
+...
+| > Eventually inet_getname is switched to use DECLARE_SOCKADDR
+| > (to show example of usage).
+| > 
+| > Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
+| 
+| I like this, applied to net-next-2.6, thanks!
+| 
 
-So Bart is not a maintainer? That of course changes the situation.
+Thanks David. I'll handle other protocols in a couple
+of days.
 
--- 
-Greetings, Michael.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	-- Cyrill
