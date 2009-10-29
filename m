@@ -1,32 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 4/7] fsl_pq_mdio: Add Suport for etsec2.0 devices.
-Date: Thu, 29 Oct 2009 02:45:46 -0700 (PDT)
-Message-ID: <20091029.024546.90958594.davem@davemloft.net>
-References: <12566625182528-git-send-email-sandeep.kumar@freescale.com>
-	<20091028.024325.134189895.davem@davemloft.net>
-	<9F4C7D19E8361D4C94921B95BE08B81B950352@zin33exm22.fsl.freescale.net>
+Subject: Re: [RFC] net,socket: introduce build_sockaddr_check helper to
+ catch overflow at build time
+Date: Thu, 29 Oct 2009 03:00:19 -0700 (PDT)
+Message-ID: <20091029.030019.44832583.davem@davemloft.net>
+References: <20091023214306.GA30616@lenovo>
+	<20091024.061209.39469983.davem@davemloft.net>
+	<20091024163226.GA5204@lenovo>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, avorontsov@ru.mvista.com
-To: B05799@freescale.com
+Cc: netdev@vger.kernel.org
+To: gorcunov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50484
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45889
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752550AbZJ2JpX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 05:45:23 -0400
-In-Reply-To: <9F4C7D19E8361D4C94921B95BE08B81B950352@zin33exm22.fsl.freescale.net>
+	by vger.kernel.org with ESMTP id S1752373AbZJ2J7z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 05:59:55 -0400
+In-Reply-To: <20091024163226.GA5204@lenovo>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Kumar Gopalpet-B05799" <B05799@freescale.com>
-Date: Thu, 29 Oct 2009 15:02:44 +0530
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Date: Sat, 24 Oct 2009 20:32:26 +0400
 
-> The absence of the above mentioned commit in the net-next-2.6 tree
-> is causing some issues with patches getting applied.
+> net,socket: introduce DECLARE_SOCKADDR helper to catch overflow at build time
+> 
+> proto_ops->getname implies copying protocol specific data
+> into storage unit (particulary to __kernel_sockaddr_storage).
+> So when we implement new protocol support we should keep such
+> a detail in mind (which is easy to forget about).
+> 
+> Lets introduce DECLARE_SOCKADDR helper which check if
+> storage unit is not overfowed at build time.
+> 
+> Eventually inet_getname is switched to use DECLARE_SOCKADDR
+> (to show example of usage).
+> 
+> Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 
-You should never use linux-next as you base for working against
-other people's trees.
-
-Instead, clone net-next-2.6 and work purely against that when sending
-me patches.
+I like this, applied to net-next-2.6, thanks!
