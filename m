@@ -1,47 +1,51 @@
-From: Andreas Petlund <apetlund@simula.no>
-Subject: Re: [PATCH 3/3] net: TCP thin dupack
-Date: Thu, 29 Oct 2009 11:48:55 +0100
-Message-ID: <64F26430-3673-4D72-8D09-518DBF6D6438@simula.no>
-References: <4AE7207D.8090402@simula.no> <4AE7AFC4.3040805@gmail.com>
-Mime-Version: 1.0 (Apple Message framework v1076)
-Content-Type: text/plain; charset=us-ascii; format=flowed; delsp=yes
+From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+Subject: Re: pull request: wireless-next-2.6 2009-10-28
+Date: Thu, 29 Oct 2009 12:12:41 +0100
+Message-ID: <200910291212.41656.bzolnier@gmail.com>
+References: <20091028211031.GF2856@tuxdriver.com> <200910282256.00407.bzolnier@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	shemminger@vyatta.com, ilpo.jarvinen@helsinki.fi,
-	davem@davemloft.net
-To: William Allen Simpson <william.allen.simpson@gmail.com>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-forward2.uio.no ([129.240.10.71]:40985 "EHLO
-	mail-forward2.uio.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753828AbZJ2Ksy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 06:48:54 -0400
-Received: from exim by mail-out2.uio.no with local-bsmtp (Exim 4.69)
-	(envelope-from <apetlund@simula.no>)
-	id 1N3SYs-0002px-EM
-	for netdev@vger.kernel.org; Thu, 29 Oct 2009 11:48:58 +0100
-In-Reply-To: <4AE7AFC4.3040805@gmail.com>
+Received: from fg-out-1718.google.com ([72.14.220.157]:64151 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752676AbZJ2LNk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 07:13:40 -0400
+In-Reply-To: <200910282256.00407.bzolnier@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wednesday 28 October 2009 22:56:00 Bartlomiej Zolnierkiewicz wrote:
+> On Wednesday 28 October 2009 22:10:32 John W. Linville wrote:
+> > Dave,
+> > 
+> > I let my patches pile-up!  Yikes!!
+> > 
+> > This request includes the usual ton of stuff for -next -- driver
+> > updates, fixes for some earlier -next stuff, a few cfg80211 changes to
+> > accomodate the libertas driver, etc.  Of note is the rt2800pci support
+> > added to the rt2x00 family.
+> 
+> Unfortunately rt2800pci support is non-functioning at the moment... :(
+> 
+> > Pleaset let me know if there are problems!
+> 
+> I find it rather disappointing that all my review comments regarding
+> rt2800pci support were just completely ignored and then the initial
+> patch was merged just as it was..
+> 
+> The way rt2800usb and rt2800pci drivers are designed really results
+> in making the task of adding working support for RT28x0 and RT30x0
+> chipsets to rt2x00 infrastructure more difficult and time consuming
+> than it should be... :(
 
-Den 28. okt. 2009 kl. 03.43 skrev William Allen Simpson:
+What is even more disappointing (especially after all that "working with"
+preaching) is that the patch is now in net-next-2.6..
 
-> Andreas Petlund wrote:
->> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
->> index e64368d..f4a05ff 100644
->> --- a/include/linux/tcp.h
->> +++ b/include/linux/tcp.h
->> @@ -97,6 +97,7 @@ enum {
->> #define TCP_CONGESTION		13	/* Congestion control algorithm */
->> #define TCP_MD5SIG		14	/* TCP MD5 Signature (RFC2385) */
->> #define TCP_THIN_RM_EXPB        15      /* Remove exp. backoff for  
->> thin streams*/
->> +#define TCP_THIN_DUPACK         16      /* Fast retrans. after 1  
->> dupack */
->>
-> I've not had the chance to examine the rest, but I've been poking at a
-> patch series that's used 15 for over a year, so could you try 16 and  
-> 17?
-
-Thank you for the feedback. I will address this in the next patch  
-iteration.
+-- 
+Bartlomiej Zolnierkiewicz
