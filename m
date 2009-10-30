@@ -1,40 +1,32 @@
-From: Brandon Philips <bphilips@suse.de>
-Subject: [PATCH] sky2: set carrier off in probe
-Date: Thu, 29 Oct 2009 16:58:07 -0700
-Message-ID: <20091029235807.GF3228@jenkins.home.ifup.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH 0/6] Bonding simplifications and netns support
+Date: Thu, 29 Oct 2009 17:16:54 -0700
+Message-ID: <m1tyxhwxah.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:52219 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753033AbZJ2X6O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Oct 2009 19:58:14 -0400
-Content-Disposition: inline
+Received: from out01.mta.xmission.com ([166.70.13.231]:56213 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755122AbZJ3AQ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 20:16:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Before bringing up a sky2 interface up ethtool reports 
-"Link detected: yes". Do as ixgbe does and netif_carrier_off() on
-probe().
 
-Signed-off-by: Brandon Philips <bphilips@suse.de>
+I recently had it pointed out to me that the bonding driver does not
+work in a network namespace.  So I have simplified the bonding driver
+a bit, added support for ip link add and ip link del, and finally made
+the bonding driver work in multiple network namespaces.
 
----
- drivers/net/sky2.c |    2 ++
- 1 file changed, 2 insertions(+)
+The most note worthy change in the patchset is the addition of support
+in the networking core for registering a sysfs group for a device.
 
-Index: linux-2.6/drivers/net/sky2.c
-===================================================================
---- linux-2.6.orig/drivers/net/sky2.c
-+++ linux-2.6/drivers/net/sky2.c
-@@ -4538,6 +4538,8 @@ static int __devinit sky2_probe(struct p
- 		goto err_out_free_netdev;
- 	}
- 
-+	netif_carrier_off(dev);
-+
- 	netif_napi_add(dev, &hw->napi, sky2_poll, NAPI_WEIGHT);
- 
- 	err = request_irq(pdev->irq, sky2_intr,
+Using this in the bonding driver simplifies the code and removes a
+userspace race between actions triggered by the netlink event and the
+bonding sysfs attributes appearing.
+
+Eric
+
+
