@@ -1,129 +1,77 @@
-From: "Neulinger, Nathan" <nneul@mst.edu>
-Subject: RE: How to use gretap with bridge?
-Date: Fri, 30 Oct 2009 12:08:21 -0500
-Message-ID: <846C5B546E47494CBBD796CA8CA1617EA3B44C@MST-VMAIL1.srv.mst.edu>
-References: <846C5B546E47494CBBD796CA8CA1617EA3B43C@MST-VMAIL1.srv.mst.edu> <20091030155148.GA8283@gondor.apana.org.au>
+From: Matt Domsch <Matt_Domsch@Dell.com>
+Subject: Re: [PATCH] udev: create empty regular files to represent net interfaces
+Date: Fri, 30 Oct 2009 12:10:03 -0500
+Message-ID: <20091030171003.GA7523@auslistsprd01.us.dell.com>
+References: <20091016214024.GA10091@ldl.fc.hp.com> <20091022063619.GB6321@ldl.fc.hp.com> <20091027205551.GA31963@auslistsprd01.us.dell.com> <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com> <20091029131125.GA13809@auslistsprd01.us.dell.com> <20091029142554.GA16869@kroah.com> <20091029174600.GC3612@ldl.fc.hp.com> <EDA0A4495861324DA2618B4C45DCB3EE589682@blrx3m08.blr.amer.dell.com> <20091030160845.GA4547@lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <shemminger@vyatta.com>, <netdev@vger.kernel.org>
-To: "Herbert Xu" <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mxtip01-rolla-out.um.umsystem.edu ([209.106.229.47]:58907 "EHLO
-	mxtip01-rolla-out.um.umsystem.edu" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932103AbZJ3RIS convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Oct 2009 13:08:18 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20091030155148.GA8283@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Narendra_K@Dell.com, greg@kroah.com, kay.sievers@vrfy.org,
+	linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
+	Jordan_Hargrave@Dell.com, Charles_Rose@Dell.com,
+	bhutchings@solarflare.com
+To: dann frazier <dannf@dannf.org>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20091030160845.GA4547@lackof.org>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Confirmed, this fixes the problem for me and even now allows changing
-the mac access by request. 
+On Fri, Oct 30, 2009 at 10:08:45AM -0600, dann frazier wrote:
+> On Fri, Oct 30, 2009 at 08:43:44PM +0530, Narendra_K@Dell.com wrote:
+> >  
+> > >> This way the kernel has only one name, and so does userspace, and 
+> > >> everyone is happy.
+> > >
+> > >There are two issues, which really seem distinct to me.
+> > >
+> > >Users expect eth0 to map to first-onboard-nic. That's an 
+> > >installer issue (since the BIOS can already export this info) 
+> > >and I agree that if we want to "fix" that, we should fix it there.
+> > >
+> > 
+> > I agree that installers have to be fixed in the sense that they can be
+> > told to find the right interface. But, they expect determinism and
+> > depend on "eth0 to map to first-onboard-nic". Installer is one of the
+> > applications that is affected by this and needs user intervention, if it
+> > is not told about the right interface. I discussed installer as it is so
+> > much part of a user experience.
+> 
+> Right, but couldn't the installer do the work of scanning the SMBIOS
+> to figure out which nics are onboard, and reorder the 'eth*' names
+> such that these are first? This state could then be written out as
+> udev rules so that they persist across reboots.
 
-Now I'm on to figuring out MTU issues. Thanks!
+No, there is a catch-22.  To be sure you know the "proper" ethN name
+to assign a device based on an ordering, you have to know about all
+the devices.  When udev runs, one device at a time, it can only see
+the current device and all those that have come before it, but it can't know
+when all the drivers for all the NICs have been loaded.  And if you
+hotplug a device in later, it should presumably just go at the end of
+the list, but after a reboot, it'll most likely show up somewhere in
+the middle of the list.  SMBIOS is static from boottime, not hotplug
+aware. If I add a 4-port NIC in slot 3 after boot, it becomes
+ethN..N+3.  After reboot, it may well show up at completely different
+places, and even the N..N+3 ordering of individiual ports on the card
+aren't guaranteed to be consistent.
 
--- Nathan
+ethN is fundamentally a nondeterministic namespace, and trying to
+enforce determinism on it is, from all my attempts, impossible.  Hence
+the desire to change the namespace.  But there can be many
+different naming policies one might want (including the
+nondeterministic ethN policy), and for all other types of devices this
+isn't a problem - we can have all the policies we want, in parallel.
+Only for network devices we can't.
 
-------------------------------------------------------------
-Nathan Neulinger                       nneul@mst.edu
-Missouri S&T Information Technology    (573) 612-1412
-System Administrator - Principal       KD0DMH
+Stephen, I hadn't seen the ifalias field you added.  I can see that
+being helpful to a user (some tool can write a more meaningful string
+to it), but I can't see it being useful programmatically.  It still
+doesn't get me to "ifconfig the NIC in slot 3 port 2" or "ifconfig the
+NIC I booted from".
 
+Thanks,
+Matt
 
-> -----Original Message-----
-> From: Herbert Xu [mailto:herbert@gondor.apana.org.au]
-> Sent: Friday, October 30, 2009 10:52 AM
-> To: Neulinger, Nathan; David S. Miller
-> Cc: shemminger@vyatta.com; netdev@vger.kernel.org
-> Subject: Re: How to use gretap with bridge?
-> 
-> Neulinger, Nathan <nneul@mst.edu> wrote:
-> >
-> > The above change fixes it for me, but I'm no expert on this chunk of
-> > code. (Perhaps it it shouldn't set dev_addr at all?)
-> 
-> OK, it was a stupid mistake on my part.  I added a netdev ops
-> struct for tap but didn't actually use it!  Please let us know
-> whether this patch fixes the problem.
-> 
-> gre: Fix dev_addr clobbering for gretap
-> 
-> Nathan Neulinger noticed that gretap devices get their MAC address
-> from the local IP address, which results in invalid MAC addresses
-> half of the time.
-> 
-> This is because gretap is still using the tunnel netdev ops rather
-> than the correct tap netdev ops struct.
-> 
-> This patch also fixes changelink to not clobber the MAC address
-> for the gretap case.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> Thanks,
-> --
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-> --
-> diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-> index 41ada99..1433338 100644
-> --- a/net/ipv4/ip_gre.c
-> +++ b/net/ipv4/ip_gre.c
-> @@ -1464,7 +1464,7 @@ static void ipgre_tap_setup(struct net_device
-> *dev)
-> 
->  	ether_setup(dev);
-> 
-> -	dev->netdev_ops		= &ipgre_netdev_ops;
-> +	dev->netdev_ops		= &ipgre_tap_netdev_ops;
->  	dev->destructor 	= free_netdev;
-> 
->  	dev->iflink		= 0;
-> @@ -1525,25 +1525,29 @@ static int ipgre_changelink(struct net_device
-> *dev, struct nlattr *tb[],
->  		if (t->dev != dev)
->  			return -EEXIST;
->  	} else {
-> -		unsigned nflags = 0;
-> -
->  		t = nt;
-> 
-> -		if (ipv4_is_multicast(p.iph.daddr))
-> -			nflags = IFF_BROADCAST;
-> -		else if (p.iph.daddr)
-> -			nflags = IFF_POINTOPOINT;
-> +		if (dev->type != ARPHRD_ETHER) {
-> +			unsigned nflags = 0;
-> 
-> -		if ((dev->flags ^ nflags) &
-> -		    (IFF_POINTOPOINT | IFF_BROADCAST))
-> -			return -EINVAL;
-> +			if (ipv4_is_multicast(p.iph.daddr))
-> +				nflags = IFF_BROADCAST;
-> +			else if (p.iph.daddr)
-> +				nflags = IFF_POINTOPOINT;
-> +
-> +			if ((dev->flags ^ nflags) &
-> +			    (IFF_POINTOPOINT | IFF_BROADCAST))
-> +				return -EINVAL;
-> +		}
-> 
->  		ipgre_tunnel_unlink(ign, t);
->  		t->parms.iph.saddr = p.iph.saddr;
->  		t->parms.iph.daddr = p.iph.daddr;
->  		t->parms.i_key = p.i_key;
-> -		memcpy(dev->dev_addr, &p.iph.saddr, 4);
-> -		memcpy(dev->broadcast, &p.iph.daddr, 4);
-> +		if (dev->type != ARPHRD_ETHER) {
-> +			memcpy(dev->dev_addr, &p.iph.saddr, 4);
-> +			memcpy(dev->broadcast, &p.iph.daddr, 4);
-> +		}
->  		ipgre_tunnel_link(ign, t);
->  		netdev_state_change(dev);
->  	}
+-- 
+Matt Domsch
+Technology Strategist, Dell Office of the CTO
+linux.dell.com & www.dell.com/linux
