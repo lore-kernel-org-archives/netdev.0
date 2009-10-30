@@ -1,71 +1,44 @@
-From: Francis Moreau <francis.moro@gmail.com>
-Subject: Re: WARNING: at net/ipv4/af_inet.c:154 inet_sock_destruct
-Date: Fri, 30 Oct 2009 09:44:19 +0100
-Message-ID: <38b2ab8a0910300144i7a3c190fi9aa3d079c9cdb754@mail.gmail.com>
-References: <38b2ab8a0909290109m3f82c161j4fb0f1266152877e@mail.gmail.com>
-	 <4AC1D0F5.4050709@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 4/7] fsl_pq_mdio: Add Suport for etsec2.0 devices.
+Date: Fri, 30 Oct 2009 01:44:54 -0700 (PDT)
+Message-ID: <20091030.014454.175357008.davem@davemloft.net>
+References: <9F4C7D19E8361D4C94921B95BE08B81B9503CA@zin33exm22.fsl.freescale.net>
+	<20091030.005924.56385149.davem@davemloft.net>
+	<9F4C7D19E8361D4C94921B95BE08B81B9503DF@zin33exm22.fsl.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, afleming@freescale.com
+To: B05799@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f227.google.com ([209.85.218.227]:43188 "EHLO
-	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756351AbZJ3IoQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 04:44:16 -0400
-In-Reply-To: <4AC1D0F5.4050709@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35213
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756599AbZJ3Ioa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 04:44:30 -0400
+In-Reply-To: <9F4C7D19E8361D4C94921B95BE08B81B9503DF@zin33exm22.fsl.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Eric,
+From: "Kumar Gopalpet-B05799" <B05799@freescale.com>
+Date: Fri, 30 Oct 2009 14:12:22 +0530
 
-It seems I still have a related bug, please have a look to the following oops.
+> We were referring to the logs shown on the gitweb.
+> The tree log does not show this commit. 
+> (search for this commit id failed)
+> http://git.kernel.org/?p=linux%2Fkernel%2Fgit%2Fdavem%2Fnet-next-2.6.git
+> &a=search&h=29906f6a427d2004a515ebbcdc7b28bae8f6c19c&st=commit&s=e72701a
+> cbe0b35e52d3f04d442837c06b4e64f1c
+> 
+> Whereas, the log for the file does show the commit.
+> http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=histo
+> ry;f=drivers/net/fsl_pq_mdio.c;h=6ac4648669728421b934d32646ffbb626128387
+> 6;hb=HEAD
+> 
+> Why is there such a mismatch on the tree itself?
 
-This happened on a 2.6.32-rc5 where your patch is included.
+If you are using HTTP for accessing my GIT tree(s) that's your
+problem.
 
-[107304.558821] nfsd: last server has exited, flushing export cache
-[107304.558848] ------------[ cut here ]------------
-[107304.558858] WARNING: at net/ipv4/af_inet.c:153
-inet_sock_destruct+0x161/0x17c()
-[107304.558862] Hardware name: P5K-VM
-[107304.558865] Modules linked in: kvm_intel kvm jfs loop nfsd lockd
-nfs_acl auth_rpcgss exportfs sunrpc [last unloaded: microcode]
-[107304.558889] Pid: 8198, comm: nfsd Tainted: G   M       2.6.32-rc5 #25
-[107304.558892] Call Trace:
-[107304.558899]  [<ffffffff81429f19>] ? inet_sock_destruct+0x161/0x17c
-[107304.558907]  [<ffffffff810487e9>] warn_slowpath_common+0x7c/0xa9
-[107304.558914]  [<ffffffff8104882a>] warn_slowpath_null+0x14/0x16
-[107304.558920]  [<ffffffff81429f19>] inet_sock_destruct+0x161/0x17c
-[107304.558927]  [<ffffffff813c8741>] __sk_free+0x23/0xe7
-[107304.558933]  [<ffffffff813c8881>] sk_free+0x1f/0x21
-[107304.558939]  [<ffffffff813c894b>] sk_common_release+0xc8/0xcd
-[107304.558944]  [<ffffffff81420b59>] udp_lib_close+0xe/0x10
-[107304.558951]  [<ffffffff814299bf>] inet_release+0x55/0x5c
-[107304.558957]  [<ffffffff813c5aa9>] sock_release+0x1f/0x71
-[107304.558962]  [<ffffffff813c5b22>] sock_close+0x27/0x2b
-[107304.558968]  [<ffffffff810eb60f>] __fput+0xfb/0x1c0
-[107304.558973]  [<ffffffff810eb6f1>] fput+0x1d/0x1f
-[107304.558995]  [<ffffffffa0013e23>] svc_sock_free+0x40/0x56 [sunrpc]
-[107304.559018]  [<ffffffffa001f392>] svc_xprt_free+0x43/0x53 [sunrpc]
-[107304.559038]  [<ffffffffa001f34f>] ? svc_xprt_free+0x0/0x53 [sunrpc]
-[107304.559048]  [<ffffffff811d9275>] kref_put+0x43/0x4f
-[107304.559069]  [<ffffffffa001e67a>] svc_close_xprt+0x55/0x5e [sunrpc]
-[107304.559088]  [<ffffffffa001e6d3>] svc_close_all+0x50/0x69 [sunrpc]
-[107304.559107]  [<ffffffffa0012a2b>] svc_destroy+0x9e/0x142 [sunrpc]
-[107304.559126]  [<ffffffffa0012b88>] svc_exit_thread+0xb9/0xc2 [sunrpc]
-[107304.559138]  [<ffffffffa008981b>] ? nfsd+0x0/0x13f [nfsd]
-[107304.559149]  [<ffffffffa0089940>] nfsd+0x125/0x13f [nfsd]
-[107304.559157]  [<ffffffff810685e3>] kthread+0x82/0x8a
-[107304.559164]  [<ffffffff8100c13a>] child_rip+0xa/0x20
-[107304.559172]  [<ffffffff8100baad>] ? restore_args+0x0/0x30
-[107304.559179]  [<ffffffff81068561>] ? kthread+0x0/0x8a
-[107304.559185]  [<ffffffff8100c130>] ? child_rip+0x0/0x20
-[107304.559191] ---[ end trace c107131f4762168c ]---
-[107304.927931] NFSD: Using /var/lib/nfs/v4recovery as the NFSv4 state
-recovery directory
-[107304.932765] NFSD: starting 90-second grace period
-
--- 
-Francis
+I do not update the web based GIT information when I push into my
+tree(s), only the GIT and SSH protocols are reliable ways to clone and
+access my tree(s).
