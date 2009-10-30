@@ -1,44 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 4/7] fsl_pq_mdio: Add Suport for etsec2.0 devices.
-Date: Fri, 30 Oct 2009 01:44:54 -0700 (PDT)
-Message-ID: <20091030.014454.175357008.davem@davemloft.net>
-References: <9F4C7D19E8361D4C94921B95BE08B81B9503CA@zin33exm22.fsl.freescale.net>
-	<20091030.005924.56385149.davem@davemloft.net>
-	<9F4C7D19E8361D4C94921B95BE08B81B9503DF@zin33exm22.fsl.freescale.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC, PATCH] net: suspicious test in dev_change_name()
+Date: Fri, 30 Oct 2009 10:20:04 +0100
+Message-ID: <4AEAAFC4.9050309@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, afleming@freescale.com
-To: B05799@freescale.com
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35213
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756599AbZJ3Ioa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 04:44:30 -0400
-In-Reply-To: <9F4C7D19E8361D4C94921B95BE08B81B9503DF@zin33exm22.fsl.freescale.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:35071 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755737AbZJ3JUD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 05:20:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Kumar Gopalpet-B05799" <B05799@freescale.com>
-Date: Fri, 30 Oct 2009 14:12:22 +0530
+While preparing a patch for net-next-2.6, I noticed following code in dev_change_name()
 
-> We were referring to the logs shown on the gitweb.
-> The tree log does not show this commit. 
-> (search for this commit id failed)
-> http://git.kernel.org/?p=linux%2Fkernel%2Fgit%2Fdavem%2Fnet-next-2.6.git
-> &a=search&h=29906f6a427d2004a515ebbcdc7b28bae8f6c19c&st=commit&s=e72701a
-> cbe0b35e52d3f04d442837c06b4e64f1c
-> 
-> Whereas, the log for the file does show the commit.
-> http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=histo
-> ry;f=drivers/net/fsl_pq_mdio.c;h=6ac4648669728421b934d32646ffbb626128387
-> 6;hb=HEAD
-> 
-> Why is there such a mismatch on the tree itself?
+int err = 0;
+...
+        ret = call_netdevice_notifiers(NETDEV_CHANGENAME, dev);
+        ret = notifier_to_errno(ret);
 
-If you are using HTTP for accessing my GIT tree(s) that's your
-problem.
+        if (ret) {
+<< HERE >>      if (err) {
+                        printk(KERN_ERR
+                               "%s: name change rollback failed: %d.\n",
+                               dev->name, ret);
+                } else {
+                        err = ret;
+                        memcpy(dev->name, oldname, IFNAMSIZ);
+                        goto rollback;
+                }
+        }
 
-I do not update the web based GIT information when I push into my
-tree(s), only the GIT and SSH protocols are reliable ways to clone and
-access my tree(s).
+
+It seems intent was to test if notifier_to_errno() was null ?
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b8f74cf..029cd41 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -939,9 +939,9 @@ rollback:
+ 	write_unlock_bh(&dev_base_lock);
+ 
+ 	ret = call_netdevice_notifiers(NETDEV_CHANGENAME, dev);
+-	ret = notifier_to_errno(ret);
+ 
+ 	if (ret) {
++		err = notifier_to_errno(ret);
+ 		if (err) {
+ 			printk(KERN_ERR
+ 			       "%s: name change rollback failed: %d.\n",
