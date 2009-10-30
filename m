@@ -1,22 +1,258 @@
 From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [net-next PATCH 0/4] qlge: Add ethtool self-test.
-Date: Fri, 30 Oct 2009 15:13:32 -0700
-Message-ID: <1256940816-27540-1-git-send-email-ron.mercer@qlogic.com>
+Subject: [net-next PATCH 1/4] qlge: Add ethtool self-test.
+Date: Fri, 30 Oct 2009 15:13:33 -0700
+Message-ID: <1256940816-27540-2-git-send-email-ron.mercer@qlogic.com>
+References: <1256940816-27540-1-git-send-email-ron.mercer@qlogic.com>
 Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from avexch1.qlogic.com ([198.70.193.115]:33628 "EHLO
 	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932776AbZJ3WTu (ORCPT
+	with ESMTP id S932920AbZJ3WTu (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 18:19:50 -0400
+In-Reply-To: <1256940816-27540-1-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes for QLGE.
 
-1) Add ethtool selftest.
-2) Reduce debug print output.
-3) Generic cleanup.
+Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+---
+ drivers/net/qlge/qlge.h         |    6 ++
+ drivers/net/qlge/qlge_ethtool.c |  112 +++++++++++++++++++++++++++++++++++++++
+ drivers/net/qlge/qlge_main.c    |   20 +++++++-
+ 3 files changed, 137 insertions(+), 1 deletions(-)
 
-
+diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
+index 4b954e1..b9f65e0 100644
+--- a/drivers/net/qlge/qlge.h
++++ b/drivers/net/qlge/qlge.h
+@@ -1580,6 +1580,8 @@ enum {
+ 	QL_ALLMULTI = 6,
+ 	QL_PORT_CFG = 7,
+ 	QL_CAM_RT_SET = 8,
++	QL_SELFTEST = 9,
++	QL_LB_LINK_UP = 10,
+ };
+ 
+ /* link_status bit definitions */
+@@ -1716,6 +1718,7 @@ struct ql_adapter {
+ 	struct completion ide_completion;
+ 	struct nic_operations *nic_ops;
+ 	u16 device_id;
++	atomic_t lb_count;
+ };
+ 
+ /*
+@@ -1807,6 +1810,9 @@ int ql_mb_set_port_cfg(struct ql_adapter *qdev);
+ int ql_wait_fifo_empty(struct ql_adapter *qdev);
+ void ql_gen_reg_dump(struct ql_adapter *qdev,
+ 			struct ql_reg_dump *mpi_coredump);
++netdev_tx_t ql_lb_send(struct sk_buff *skb, struct net_device *ndev);
++void ql_check_lb_frame(struct ql_adapter *, struct sk_buff *);
++int ql_clean_lb_rx_ring(struct rx_ring *rx_ring, int budget);
+ 
+ #if 1
+ #define QL_ALL_DUMP
+diff --git a/drivers/net/qlge/qlge_ethtool.c b/drivers/net/qlge/qlge_ethtool.c
+index 62c4af0..058fa0a 100644
+--- a/drivers/net/qlge/qlge_ethtool.c
++++ b/drivers/net/qlge/qlge_ethtool.c
+@@ -36,6 +36,11 @@
+ 
+ #include "qlge.h"
+ 
++static const char ql_gstrings_test[][ETH_GSTRING_LEN] = {
++	"Loopback test  (offline)"
++};
++#define QLGE_TEST_LEN (sizeof(ql_gstrings_test) / ETH_GSTRING_LEN)
++
+ static int ql_update_ring_coalescing(struct ql_adapter *qdev)
+ {
+ 	int i, status = 0;
+@@ -251,6 +256,8 @@ static void ql_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
+ static int ql_get_sset_count(struct net_device *dev, int sset)
+ {
+ 	switch (sset) {
++	case ETH_SS_TEST:
++		return QLGE_TEST_LEN;
+ 	case ETH_SS_STATS:
+ 		return ARRAY_SIZE(ql_stats_str_arr);
+ 	default:
+@@ -429,6 +436,110 @@ static int ql_phys_id(struct net_device *ndev, u32 data)
+ 	return 0;
+ }
+ 
++static int ql_start_loopback(struct ql_adapter *qdev)
++{
++	if (netif_carrier_ok(qdev->ndev)) {
++		set_bit(QL_LB_LINK_UP, &qdev->flags);
++		netif_carrier_off(qdev->ndev);
++	} else
++		clear_bit(QL_LB_LINK_UP, &qdev->flags);
++	qdev->link_config |= CFG_LOOPBACK_PCS;
++	return ql_mb_set_port_cfg(qdev);
++}
++
++static void ql_stop_loopback(struct ql_adapter *qdev)
++{
++	qdev->link_config &= ~CFG_LOOPBACK_PCS;
++	ql_mb_set_port_cfg(qdev);
++	if (test_bit(QL_LB_LINK_UP, &qdev->flags)) {
++		netif_carrier_on(qdev->ndev);
++		clear_bit(QL_LB_LINK_UP, &qdev->flags);
++	}
++}
++
++static void ql_create_lb_frame(struct sk_buff *skb,
++					unsigned int frame_size)
++{
++	memset(skb->data, 0xFF, frame_size);
++	frame_size &= ~1;
++	memset(&skb->data[frame_size / 2], 0xAA, frame_size / 2 - 1);
++	memset(&skb->data[frame_size / 2 + 10], 0xBE, 1);
++	memset(&skb->data[frame_size / 2 + 12], 0xAF, 1);
++}
++
++void ql_check_lb_frame(struct ql_adapter *qdev,
++					struct sk_buff *skb)
++{
++	unsigned int frame_size = skb->len;
++
++	if ((*(skb->data + 3) == 0xFF) &&
++		(*(skb->data + frame_size / 2 + 10) == 0xBE) &&
++		(*(skb->data + frame_size / 2 + 12) == 0xAF)) {
++			atomic_dec(&qdev->lb_count);
++			return;
++	}
++}
++
++static int ql_run_loopback_test(struct ql_adapter *qdev)
++{
++	int i;
++	netdev_tx_t rc;
++	struct sk_buff *skb;
++	unsigned int size = SMALL_BUF_MAP_SIZE;
++
++	for (i = 0; i < 64; i++) {
++		skb = netdev_alloc_skb(qdev->ndev, size);
++		if (!skb)
++			return -ENOMEM;
++
++		skb->queue_mapping = 0;
++		skb_put(skb, size);
++		ql_create_lb_frame(skb, size);
++		rc = ql_lb_send(skb, qdev->ndev);
++		if (rc != NETDEV_TX_OK)
++			return -EPIPE;
++		atomic_inc(&qdev->lb_count);
++	}
++
++	ql_clean_lb_rx_ring(&qdev->rx_ring[0], 128);
++	return atomic_read(&qdev->lb_count) ? -EIO : 0;
++}
++
++static int ql_loopback_test(struct ql_adapter *qdev, u64 *data)
++{
++	*data = ql_start_loopback(qdev);
++	if (*data)
++		goto out;
++	*data = ql_run_loopback_test(qdev);
++out:
++	ql_stop_loopback(qdev);
++	return *data;
++}
++
++static void ql_self_test(struct net_device *ndev,
++				struct ethtool_test *eth_test, u64 *data)
++{
++	struct ql_adapter *qdev = netdev_priv(ndev);
++
++	if (netif_running(ndev)) {
++		set_bit(QL_SELFTEST, &qdev->flags);
++		if (eth_test->flags == ETH_TEST_FL_OFFLINE) {
++			/* Offline tests */
++			if (ql_loopback_test(qdev, &data[0]))
++				eth_test->flags |= ETH_TEST_FL_FAILED;
++
++		} else {
++			/* Online tests */
++			data[0] = 0;
++		}
++		clear_bit(QL_SELFTEST, &qdev->flags);
++	} else {
++		QPRINTK(qdev, DRV, ERR,
++			"%s: is down, Loopback test will fail.\n", ndev->name);
++		eth_test->flags |= ETH_TEST_FL_FAILED;
++	}
++}
++
+ static int ql_get_regs_len(struct net_device *ndev)
+ {
+ 	return sizeof(struct ql_reg_dump);
+@@ -575,6 +686,7 @@ const struct ethtool_ops qlge_ethtool_ops = {
+ 	.set_msglevel = ql_set_msglevel,
+ 	.get_link = ethtool_op_get_link,
+ 	.phys_id		 = ql_phys_id,
++	.self_test		 = ql_self_test,
+ 	.get_pauseparam		 = ql_get_pauseparam,
+ 	.set_pauseparam		 = ql_set_pauseparam,
+ 	.get_rx_csum = ql_get_rx_csum,
+diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
+index dd0ea02..9e4d3dc 100644
+--- a/drivers/net/qlge/qlge_main.c
++++ b/drivers/net/qlge/qlge_main.c
+@@ -1680,6 +1680,13 @@ static void ql_process_mac_rx_intr(struct ql_adapter *qdev,
+ 		return;
+ 	}
+ 
++	/* loopback self test for ethtool */
++	if (test_bit(QL_SELFTEST, &qdev->flags)) {
++		ql_check_lb_frame(qdev, skb);
++		dev_kfree_skb_any(skb);
++		return;
++	}
++
+ 	prefetch(skb->data);
+ 	skb->dev = ndev;
+ 	if (ib_mac_rsp->flags1 & IB_MAC_IOCB_RSP_M_MASK) {
+@@ -2248,6 +2255,7 @@ static netdev_tx_t qlge_send(struct sk_buff *skb, struct net_device *ndev)
+ 	return NETDEV_TX_OK;
+ }
+ 
++
+ static void ql_free_shadow_space(struct ql_adapter *qdev)
+ {
+ 	if (qdev->rx_ring_shadow_reg_area) {
+@@ -4173,7 +4181,6 @@ err_out:
+ 	return err;
+ }
+ 
+-
+ static const struct net_device_ops qlge_netdev_ops = {
+ 	.ndo_open		= qlge_open,
+ 	.ndo_stop		= qlge_close,
+@@ -4242,10 +4249,21 @@ static int __devinit qlge_probe(struct pci_dev *pdev,
+ 	}
+ 	ql_link_off(qdev);
+ 	ql_display_dev_info(ndev);
++	atomic_set(&qdev->lb_count, 0);
+ 	cards_found++;
+ 	return 0;
+ }
+ 
++netdev_tx_t ql_lb_send(struct sk_buff *skb, struct net_device *ndev)
++{
++	return qlge_send(skb, ndev);
++}
++
++int ql_clean_lb_rx_ring(struct rx_ring *rx_ring, int budget)
++{
++	return ql_clean_inbound_rx_ring(rx_ring, budget);
++}
++
+ static void __devexit qlge_remove(struct pci_dev *pdev)
+ {
+ 	struct net_device *ndev = pci_get_drvdata(pdev);
+-- 
+1.6.0.2
 
