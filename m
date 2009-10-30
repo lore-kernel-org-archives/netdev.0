@@ -1,52 +1,53 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: How to use gretap with bridge?
-Date: Fri, 30 Oct 2009 09:39:57 -0700
-Message-ID: <20091030093957.7128c596@nehalam>
-References: <846C5B546E47494CBBD796CA8CA1617EA3B43C@MST-VMAIL1.srv.mst.edu>
-	<20091030155148.GA8283@gondor.apana.org.au>
+From: <Narendra_K@Dell.com>
+Subject: RE: [PATCH] udev: create empty regular files to represent netinterfaces
+Date: Fri, 30 Oct 2009 22:23:57 +0530
+Message-ID: <EDA0A4495861324DA2618B4C45DCB3EE589684@blrx3m08.blr.amer.dell.com>
+References: <20091016214024.GA10091@ldl.fc.hp.com> <20091022063619.GB6321@ldl.fc.hp.com> <20091027205551.GA31963@auslistsprd01.us.dell.com> <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com> <20091029131125.GA13809@auslistsprd01.us.dell.com> <20091029142554.GA16869@kroah.com> <20091029174600.GC3612@ldl.fc.hp.com> <EDA0A4495861324DA2618B4C45DCB3EE589682@blrx3m08.blr.amer.dell.com> <20091030160845.GA4547@lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Neulinger, Nathan" <nneul@mst.edu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:44727 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932154AbZJ3Qj6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Oct 2009 12:39:58 -0400
-In-Reply-To: <20091030155148.GA8283@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <greg@kroah.com>, <Matt_Domsch@Dell.com>, <kay.sievers@vrfy.org>,
+	<linux-hotplug@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<Jordan_Hargrave@Dell.com>, <Charles_Rose@Dell.com>,
+	<bhutchings@solarflare.com>
+To: <dannf@dannf.org>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20091030160845.GA4547@lackof.org>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 30 Oct 2009 11:51:48 -0400
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> Neulinger, Nathan <nneul@mst.edu> wrote:
-> >
-> > The above change fixes it for me, but I'm no expert on this chunk of
-> > code. (Perhaps it it shouldn't set dev_addr at all?)
-> 
-> OK, it was a stupid mistake on my part.  I added a netdev ops
-> struct for tap but didn't actually use it!  Please let us know
-> whether this patch fixes the problem.
-> 
-> gre: Fix dev_addr clobbering for gretap
-> 
-> Nathan Neulinger noticed that gretap devices get their MAC address
-> from the local IP address, which results in invalid MAC addresses
-> half of the time.
-> 
-> This is because gretap is still using the tunnel netdev ops rather
-> than the correct tap netdev ops struct.
-> 
-> This patch also fixes changelink to not clobber the MAC address
-> for the gretap case.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> Thanks,
+>> >There are two issues, which really seem distinct to me.
+>> >
+>> >Users expect eth0 to map to first-onboard-nic. That's an installer 
+>> >issue (since the BIOS can already export this info) and I 
+>agree that 
+>> >if we want to "fix" that, we should fix it there.
+>> >
+>> 
+>> I agree that installers have to be fixed in the sense that 
+>they can be 
+>> told to find the right interface. But, they expect determinism and 
+>> depend on "eth0 to map to first-onboard-nic". Installer is 
+>one of the 
+>> applications that is affected by this and needs user 
+>intervention, if 
+>> it is not told about the right interface. I discussed 
+>installer as it 
+>> is so much part of a user experience.
+>
+>Right, but couldn't the installer do the work of scanning the 
+>SMBIOS to figure out which nics are onboard, and reorder the 
+>'eth*' names such that these are first? This state could then 
+>be written out as udev rules so that they persist across reboots.
+>
 
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+I suppose, with udev loading modules, the rules generated at runtime
+could run into the problem of duplicate names, if names are reordered in
+the kernel namespace. (I.e the eth* namespace). Hence idea of an
+alternate namespace.
 
--- 
+With regards,
+Narendra K
