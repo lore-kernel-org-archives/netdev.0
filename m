@@ -1,43 +1,34 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] sky2: set carrier off in probe
-Date: Fri, 30 Oct 2009 08:34:52 -0700
-Message-ID: <20091030083452.68ca227e@nehalam>
-References: <20091030035128.GA3380@jenkins.home.ifup.org>
-	<20091029.211219.182331672.davem@davemloft.net>
-	<20091030043050.GB3380@jenkins.home.ifup.org>
-	<20091029.213816.35637194.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Connection tracking and vlan
+Date: Fri, 30 Oct 2009 11:46:39 -0400
+Message-ID: <20091030154639.GA8197@gondor.apana.org.au>
+References: <20091030152054.GA7936@gondor.apana.org.au> <4AEB06E6.6020206@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bphilips@suse.de, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Adayadil Thomas <adayadil.thomas@gmail.com>,
+	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:53037 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932394AbZJ3PfE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 11:35:04 -0400
-In-Reply-To: <20091029.213816.35637194.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:44317 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752117AbZJ3Pqg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 11:46:36 -0400
+Content-Disposition: inline
+In-Reply-To: <4AEB06E6.6020206@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Why not fix the problem in a generic way?
+On Fri, Oct 30, 2009 at 04:31:50PM +0100, Eric Dumazet wrote:
+>
+> Same thing if you have two interfaces, eth0 & eth1 : IP conntrack tuples dont
+> include interface name/index
 
+Indeed, but imagine what happens when eth0 is the LAN and eth1 is
+the wild wild Internet.  Do you really want their packets to mix?
 
----
-Subject: ethtool: link is only up if device is running
-
-
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
-
---- a/net/core/ethtool.c	2009-10-30 08:32:52.584728610 -0700
-+++ b/net/core/ethtool.c	2009-10-30 08:33:31.806667877 -0700
-@@ -27,7 +27,7 @@
- 
- u32 ethtool_op_get_link(struct net_device *dev)
- {
--	return netif_carrier_ok(dev) ? 1 : 0;
-+	return netif_running(dev) && netif_carrier_ok(dev);
- }
- 
- u32 ethtool_op_get_rx_csum(struct net_device *dev)
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
