@@ -1,41 +1,70 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH] udev: create empty regular files to represent net
- interfaces
-Date: Fri, 30 Oct 2009 10:13:57 -0700
-Message-ID: <20091030171357.GA15020@kroah.com>
-References: <20091016214024.GA10091@ldl.fc.hp.com>
- <20091022063619.GB6321@ldl.fc.hp.com>
- <20091027205551.GA31963@auslistsprd01.us.dell.com>
- <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com>
- <20091029131125.GA13809@auslistsprd01.us.dell.com>
- <20091029142554.GA16869@kroah.com>
- <20091029174600.GC3612@ldl.fc.hp.com>
- <EDA0A4495861324DA2618B4C45DCB3EE589682@blrx3m08.blr.amer.dell.com>
- <20091030160845.GA4547@lackof.org>
- <20091030171003.GA7523@auslistsprd01.us.dell.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH 2/3] net: TCP thin linear timeouts
+Date: Fri, 30 Oct 2009 10:33:22 -0700
+Message-ID: <4AEB2362.5060601@hp.com>
+References: <6980f83370cc081eb82dc2e0bd65bcf4.squirrel@webmail.uio.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dann frazier <dannf@dannf.org>, Narendra_K@Dell.com,
-	kay.sievers@vrfy.org, linux-hotplug@vger.kernel.org,
-	netdev@vger.kernel.org, Jordan_Hargrave@Dell.com,
-	Charles_Rose@Dell.com, bhutchings@solarflare.com
-To: Matt Domsch <Matt_Domsch@Dell.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091030171003.GA7523@auslistsprd01.us.dell.com>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, shemminger@vyatta.com,
+	David Miller <davem@davemloft.net>
+To: apetlund@simula.no
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:8521 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932698AbZJ3RdV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 13:33:21 -0400
+In-Reply-To: <6980f83370cc081eb82dc2e0bd65bcf4.squirrel@webmail.uio.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 30, 2009 at 12:10:03PM -0500, Matt Domsch wrote:
-> ethN is fundamentally a nondeterministic namespace, and trying to
-> enforce determinism on it is, from all my attempts, impossible.  Hence
-> the desire to change the namespace.  But there can be many
-> different naming policies one might want (including the
-> nondeterministic ethN policy), and for all other types of devices this
-> isn't a problem - we can have all the policies we want, in parallel.
-> Only for network devices we can't.
+apetlund@simula.no wrote:
+>> Just how thin can a thin stream be when a thin stream is found thin? (to 
+>> the cadence of "How much wood could a woodchuck chuck if a woodchuck could 
+>> chuck wood?")
 
-So pick one in your installer and stick with it.  Doesn't seem that
-complicated to me...
+>> Does a stream get so thin that a user's send could not be split into four,
+>>  sub-MSS TCP segments?
+> 
+> 
+> That was a nifty idea: Anti-Nagle the segments to be able to trigger fast
+> retransmissions. I think it is possible.
+> 
+> Besides using more resources on each send, this scheme will introduce the
+> need to delay parts of the segment, which is undesirable for
+> time-dependent applications (the intended target of the mechanisms).
+> 
+> I think it would be fun to implement and play around with such a mechanism
+> to see the effects.
 
-greg k-h
+Indeed, it does feel a bit "anti-nagle" but at the same time, these thin streams 
+are supposed to be quite rare right?  I mean we have survived 20 odd years of 
+congestion control and fast retransmission without it being a big issue.
+
+They are also supposed to not have terribly high bandwidth requirements yes? 
+Suppose that instead of an explicit "I promise to be thin" setsockopt(), they 
+instead set a Very Small (tm) in today's thinking socket buffer size and the 
+stack then picks the MSS to be no more than 1/4 that size?  Or for that matter, 
+assuming the permissions are acceptable, the thin application makes a 
+setsockopt(TCP_MAXSEG) call such that the actual MSS is small enough to allow 
+the send()'s to be four (or more) segments.  And, if one wants to spin-away the 
+anti-Nagle, Nagle is defined by the send() being smaller than the MSS, so if the 
+MSS is smaller, it isn't anti-Nagle :)
+
+Further blue-skying...
+
+If SACK were also enabled, it would seem that only loss of the last segment in 
+the "thin train" would be an issue?  Presumably, the thin stream receiver would 
+be in a position to detect this, perhaps with an application-level timeout. 
+Whether then it would suffice to allow the receiving app to make a setsockopt() 
+call to force an extra ACK or two I'm not sure.  Perhaps if the thin-stream had 
+a semi-aggressive "heartbeat" going...
+
+But it does seem that it should be possible to deal with this sort of thing 
+without having to make wholesale changes to TCP's RTO policies and whatnot?
+
+rick jones
