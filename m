@@ -1,107 +1,61 @@
-From: Hannes Reinecke <hare@suse.de>
-Subject: Re: [PATCH] udev: create empty regular files to represent net 	interfaces
-Date: Fri, 30 Oct 2009 08:45:01 +0100
-Message-ID: <4AEA997D.7070205@suse.de>
-References: <20091016214024.GA10091@ldl.fc.hp.com> <20091022063619.GB6321@ldl.fc.hp.com> 	<20091027205551.GA31963@auslistsprd01.us.dell.com> <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 0/6] Bonding simplifications and netns support
+Date: Fri, 30 Oct 2009 00:50:52 -0700
+Message-ID: <m11vkltj4z.fsf@fess.ebiederm.org>
+References: <m1tyxhwxah.fsf@fess.ebiederm.org>
+	<20091029.232523.66969302.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Matt Domsch <Matt_Domsch@dell.com>, dann frazier <dannf@hp.com>,
-	linux-hotplug@vger.kernel.org, Narendra_K@dell.com,
-	netdev@vger.kernel.org, Jordan_Hargrave@dell.com,
-	Charles_Rose@dell.com, Ben Hutchings <bhutchings@solarflare.com>
-To: Kay Sievers <kay.sievers@vrfy.org>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-In-Reply-To: <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:49254 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753289AbZJ3Huv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 03:50:51 -0400
+In-Reply-To: <20091029.232523.66969302.davem@davemloft.net> (David Miller's message of "Thu\, 29 Oct 2009 23\:25\:23 -0700 \(PDT\)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Kay Sievers wrote:
-> On Tue, Oct 27, 2009 at 21:55, Matt Domsch <Matt_Domsch@dell.com> wro=
-te:
->> On Thu, Oct 22, 2009 at 12:36:20AM -0600, dann frazier wrote:
->>> Here's a proof of concept to further the discussion..
->>>
->>> The default filename uses the format:
->>>   /dev/netdev/by-ifindex/$ifindex
->>>
->>> This provides the infrastructure to permit udev rules to create ali=
-ases for
->>> network devices using symlinks, for example:
->>>
->>>   /dev/netdev/by-name/eth0 -> ../by-ifindex/1
->>>   /dev/netdev/by-biosname/LOM0 -> ../by-ifindex/3
->>>
->>> A library (such as the proposed libnetdevname) could use this infor=
-mation
->>> to provide an alias->realname mapping for network utilities.
->> yes, this could work, as IFINDEX is already exported in the uevents,
->> and that's the primary value udev needs to set up the mapping.
->>
->> While I like the little ifindex2name script you've got, I think udev
->> could simply call if_indextoname() to get this, and not call an
->> external program?  I suppose it could be a really really simple
->> external program too.
->=20
-> What's the point of all this? Why would udev ever need to find the
-> name of a device by the ifindex? The device name is the primary value
-> for the kernel events udev acts on.
->=20
->> I'd be fine with this approach.  It has the advantages of not
->> requiring a kernel change at all, and not creating a whole character
->> device which would be useless.  And it doesn't preclude someone in t=
-he
->> future from creating a char device for network devices should they s=
-o
->> choose.
->>
->> Kay, what say you as udev owner?
->=20
-> That all sounds very much like something which will hit us back some
-> day. I'm not sure, if udev should publish such dead text files in
-> /dev, it does not seem to fit the usual APIs/assumptions where /sys
-> and /dev match, and libudev provides access to both. It all sounds
-> more like a database for a possible netdevname library, which does no=
-t
-> need to be public in /dev, right?
->=20
-And to throw in some bit of useless information;
+David Miller <davem@davemloft.net> writes:
 
-I've pondered the idea of persistent device names for network interface=
-s
-a while back when designing the original layout of the persistent
-device naming scheme.
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Thu, 29 Oct 2009 17:16:54 -0700
+>
+>> I recently had it pointed out to me that the bonding driver does not
+>> work in a network namespace.  So I have simplified the bonding driver
+>> a bit, added support for ip link add and ip link del, and finally made
+>> the bonding driver work in multiple network namespaces.
+>> 
+>> The most note worthy change in the patchset is the addition of support
+>> in the networking core for registering a sysfs group for a device.
+>> 
+>> Using this in the bonding driver simplifies the code and removes a
+>> userspace race between actions triggered by the netlink event and the
+>> bonding sysfs attributes appearing.
+>
+> I have no objections to these patches, but I'd like the bonding
+> folks to have a chance to look at it before I apply to net-next-2.6
 
-The one reason I didn't to this was that a network interface is
-_not_ a file, but rather an abstract type which is known only internall=
-y
-in the kernel (ie the one exemption from the 'everything is a file'
-UNIX rule).
-And as udev is primarily concerned with the _files_, using it for
-network interfaces would be a workaround at best.
+Sure.
 
-When I were to design this, I would be implementing network interface
-_aliases_, so that a network interface could be accessed either by
-name or by alias. This mechanism can then be managed by udev, much
-like we (ie SUSE) is using it nowadays to assign the network interface
-numbers.
+> One question though, are you sure this clever extra slot scheme
+> in patch #1 works for, f.e., a bond of wireless devices?  It seems
+> like it would work out, but I wanted to ask to make sure you
+> considered that case.
 
-But the mechanism for the aliases has to live in the same instance whic=
-h
-also handles the network interface nowadays, ie the net subsystem of
-the kernel. Implementing this in udev is _not_ the way to go.
+I have not explicitly tested wireless devices.  But I did make certain
+we have enough slots in the array.  I did write the code so that a
+device driver can use at most one slot (the next slot gets
+unconditionally stomped).  Other that it is just shifting of where
+sysfs_create_group and sysfs_remove_group are called.  So I would
+be totally stunned if bonded wireless devices started failing from
+this change.
 
-Cheers,
+Sometime when I have sufficient ambition I intend to reorganize all
+callers of sysfs_create_group, sysfs_create_file so that device_add
+does all of the work, allowing userspace that responds to hotplug
+events to count on everything being there.  The current situation is
+inherently racy which is a unnecessary pain.
 
-Hannes
-
---=20
-Dr. Hannes Reinecke		      zSeries & Storage
-hare@suse.de			      +49 911 74053 688
-SUSE LINUX Products GmbH, Maxfeldstr. 5, 90409 N=C3=BCrnberg
-GF: Markus Rex, HRB 16746 (AG N=C3=BCrnberg)
---
-To unsubscribe from this list: send the line "unsubscribe linux-hotplug=
-" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Eric
