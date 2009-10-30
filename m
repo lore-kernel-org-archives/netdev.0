@@ -1,61 +1,54 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net/wireless tree with the
- staging.current tree
-Date: Fri, 30 Oct 2009 14:18:00 +1100
-Message-ID: <20091030141800.eb72e320.sfr@canb.auug.org.au>
+From: md@Linux.IT (Marco d'Itri)
+Subject: Re: [PATCH] udev: create empty regular files to represent net
+	interfaces
+Date: Fri, 30 Oct 2009 04:30:29 +0100
+Message-ID: <20091030033029.GA4412@bongo.bofh.it>
+References: <20091016214024.GA10091@ldl.fc.hp.com> <20091022063619.GB6321@ldl.fc.hp.com> <20091027205551.GA31963@auslistsprd01.us.dell.com> <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com> <20091029131125.GA13809@auslistsprd01.us.dell.com> <20091029142554.GA16869@kroah.com> <20091029174600.GC3612@ldl.fc.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754455AbZJ3DSE@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="IJpNTDwzlM2Ie8A6"
+Cc: Greg KH <greg@kroah.com>, Matt Domsch <Matt_Domsch@dell.com>,
+	Kay Sievers <kay.sievers@vrfy.org>,
+	linux-hotplug@vger.kernel.org, Narendra_K@dell.com,
+	netdev@vger.kernel.org, Jordan_Hargrave@dell.com,
+	Charles_Rose@dell.com, Ben Hutchings <bhutchings@solarflare.com>
+To: dann frazier <dannf@dannf.org>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20091029174600.GC3612@ldl.fc.hp.com>
+Sender: linux-hotplug-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
 
-Today's linux-next merge of the net tree got conflicts in
-drivers/staging/rtl8187se/Kconfig and drivers/staging/rtl8192e/Kconfig
-between commit a26961e914c88e3e2ed46ef67f83a33ad7b57c36 ("Staging: fix
-wireless drivers depends") from the staging.current tree and commit
-125b181aec7a67c71234284ecf6d9c729d05deda ("staging: Add proper selection
-of WIRELESS_EXT and WEXT_PRIV") from the net/wireless tree.
+--IJpNTDwzlM2Ie8A6
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Just context changes.  I fixed it up (see below) and can carry the fix
-for a while.
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+On Oct 29, dann frazier <dannf@dannf.org> wrote:
 
-diff --cc drivers/staging/rtl8187se/Kconfig
-index 203c79b,faf6c60..0000000
---- a/drivers/staging/rtl8187se/Kconfig
-+++ b/drivers/staging/rtl8187se/Kconfig
-@@@ -1,6 -1,7 +1,7 @@@
-  config RTL8187SE
-  	tristate "RealTek RTL8187SE Wireless LAN NIC driver"
- -	depends on PCI
- +	depends on PCI && WLAN
-- 	depends on WIRELESS_EXT
-+ 	select WIRELESS_EXT
-+ 	select WEXT_PRIV
-  	default N
-  	---help---
-diff --cc drivers/staging/rtl8192e/Kconfig
-index 37e4fde,5c077b9..0000000
---- a/drivers/staging/rtl8192e/Kconfig
-+++ b/drivers/staging/rtl8192e/Kconfig
-@@@ -1,6 -1,7 +1,7 @@@
-  config RTL8192E
-  	tristate "RealTek RTL8192E Wireless LAN NIC driver"
- -	depends on PCI
- +	depends on PCI && WLAN
-- 	depends on WIRELESS_EXT
-+ 	select WIRELESS_EXT
-+ 	select WEXT_PRIV
-  	default N
-  	---help---
+> That would make a lot of users much happier (myself included), but it
+> does restrict us into one view. At different times, admins think of
+> their NICs by different properties. I may want to do IP assignment by
+[Citation needed]
+
+(An admin.)
+
+--=20
+ciao,
+Marco
+
+--IJpNTDwzlM2Ie8A6
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEUEARECAAYFAkrqXdUACgkQFGfw2OHuP7HVMQCVHw9zcU/pfpc26mVj64oEcO3I
+fgCgoduDWM9FeI082dQqbMOumim4oBw=
+=gVXz
+-----END PGP SIGNATURE-----
+
+--IJpNTDwzlM2Ie8A6--
