@@ -1,62 +1,34 @@
-From: Brandon Philips <bphilips@suse.de>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] sky2: set carrier off in probe
-Date: Thu, 29 Oct 2009 20:51:28 -0700
-Message-ID: <20091030035128.GA3380@jenkins.home.ifup.org>
+Date: Thu, 29 Oct 2009 21:12:19 -0700 (PDT)
+Message-ID: <20091029.211219.182331672.davem@davemloft.net>
 References: <20091029235807.GF3228@jenkins.home.ifup.org>
- <20091029200905.00f4c13d@nehalam>
+	<20091029200905.00f4c13d@nehalam>
+	<20091030035128.GA3380@jenkins.home.ifup.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: bphilips@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:56701 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753754AbZJ3Dva (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Oct 2009 23:51:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20091029200905.00f4c13d@nehalam>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37726
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750802AbZJ3ELz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 00:11:55 -0400
+In-Reply-To: <20091030035128.GA3380@jenkins.home.ifup.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20:09 Thu 29 Oct 2009, Stephen Hemminger wrote:
-> On Thu, 29 Oct 2009 16:58:07 -0700
-> Brandon Philips <bphilips@suse.de> wrote:
-> 
-> > Before bringing up a sky2 interface up ethtool reports 
-> > "Link detected: yes". Do as ixgbe does and netif_carrier_off() on
-> > probe().
-> > 
-> > Signed-off-by: Brandon Philips <bphilips@suse.de>
-> > 
-> > ---
-> >  drivers/net/sky2.c |    2 ++
-> >  1 file changed, 2 insertions(+)
-> > 
-> > Index: linux-2.6/drivers/net/sky2.c
-> > ===================================================================
-> > --- linux-2.6.orig/drivers/net/sky2.c
-> > +++ linux-2.6/drivers/net/sky2.c
-> > @@ -4538,6 +4538,8 @@ static int __devinit sky2_probe(struct p
-> >  		goto err_out_free_netdev;
-> >  	}
-> >  
-> > +	netif_carrier_off(dev);
-> > +
-> >  	netif_napi_add(dev, &hw->napi, sky2_poll, NAPI_WEIGHT);
-> >  
-> >  	err = request_irq(pdev->irq, sky2_intr,
-> 
-> IMHO carrier is meaningless until device is up? What software
-> cares?
+From: Brandon Philips <bphilips@suse.de>
+Date: Thu, 29 Oct 2009 20:51:28 -0700
 
-A customer had a script that was testing for ethtool reporting "Link
-detected: yes" and taking some sort of action. They found other
-drivers reported "Link detected: No" until the first interface up.
+> The right thing to do is up the interface first before looking at the
+> the Link state, and I told them to do that, but I figured that this
+> patch made sense too to fix the initial buglet.
 
-The right thing to do is up the interface first before looking at the
-the Link state, and I told them to do that, but I figured that this
-patch made sense too to fix the initial buglet.
+It is not valid to expect link status before bringing the interface
+up.
 
-Cheers,
-
-	Brandon
+Otherwise, if link status is expected in this case, drivers cannot
+fully power down all elements of the chip when the device is not even
+brought up.
