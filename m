@@ -1,50 +1,61 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] sky2: set carrier off in probe
-Date: Thu, 29 Oct 2009 20:09:05 -0700
-Message-ID: <20091029200905.00f4c13d@nehalam>
-References: <20091029235807.GF3228@jenkins.home.ifup.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net/wireless tree with the
+ staging.current tree
+Date: Fri, 30 Oct 2009 14:18:00 +1100
+Message-ID: <20091030141800.eb72e320.sfr@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Brandon Philips <bphilips@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:59052 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752351AbZJ3DJN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 23:09:13 -0400
-In-Reply-To: <20091029235807.GF3228@jenkins.home.ifup.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754455AbZJ3DSE@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 29 Oct 2009 16:58:07 -0700
-Brandon Philips <bphilips@suse.de> wrote:
+Hi all,
 
-> Before bringing up a sky2 interface up ethtool reports 
-> "Link detected: yes". Do as ixgbe does and netif_carrier_off() on
-> probe().
-> 
-> Signed-off-by: Brandon Philips <bphilips@suse.de>
-> 
-> ---
->  drivers/net/sky2.c |    2 ++
->  1 file changed, 2 insertions(+)
-> 
-> Index: linux-2.6/drivers/net/sky2.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/sky2.c
-> +++ linux-2.6/drivers/net/sky2.c
-> @@ -4538,6 +4538,8 @@ static int __devinit sky2_probe(struct p
->  		goto err_out_free_netdev;
->  	}
->  
-> +	netif_carrier_off(dev);
-> +
->  	netif_napi_add(dev, &hw->napi, sky2_poll, NAPI_WEIGHT);
->  
->  	err = request_irq(pdev->irq, sky2_intr,
+Today's linux-next merge of the net tree got conflicts in
+drivers/staging/rtl8187se/Kconfig and drivers/staging/rtl8192e/Kconfig
+between commit a26961e914c88e3e2ed46ef67f83a33ad7b57c36 ("Staging: fix
+wireless drivers depends") from the staging.current tree and commit
+125b181aec7a67c71234284ecf6d9c729d05deda ("staging: Add proper selection
+of WIRELESS_EXT and WEXT_PRIV") from the net/wireless tree.
 
-IMHO carrier is meaningless until device is up? What software
-cares?
-
+Just context changes.  I fixed it up (see below) and can carry the fix
+for a while.
 -- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/staging/rtl8187se/Kconfig
+index 203c79b,faf6c60..0000000
+--- a/drivers/staging/rtl8187se/Kconfig
++++ b/drivers/staging/rtl8187se/Kconfig
+@@@ -1,6 -1,7 +1,7 @@@
+  config RTL8187SE
+  	tristate "RealTek RTL8187SE Wireless LAN NIC driver"
+ -	depends on PCI
+ +	depends on PCI && WLAN
+- 	depends on WIRELESS_EXT
++ 	select WIRELESS_EXT
++ 	select WEXT_PRIV
+  	default N
+  	---help---
+diff --cc drivers/staging/rtl8192e/Kconfig
+index 37e4fde,5c077b9..0000000
+--- a/drivers/staging/rtl8192e/Kconfig
++++ b/drivers/staging/rtl8192e/Kconfig
+@@@ -1,6 -1,7 +1,7 @@@
+  config RTL8192E
+  	tristate "RealTek RTL8192E Wireless LAN NIC driver"
+ -	depends on PCI
+ +	depends on PCI && WLAN
+- 	depends on WIRELESS_EXT
++ 	select WIRELESS_EXT
++ 	select WEXT_PRIV
+  	default N
+  	---help---
