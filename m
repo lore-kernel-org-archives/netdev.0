@@ -1,42 +1,48 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Fw: [Bug 14470] New: freez in TCP stack
-Date: Fri, 30 Oct 2009 16:18:44 -0400
-Message-ID: <20091030201844.GA10557@gondor.apana.org.au>
-References: <alpine.DEB.2.00.0910291316340.19761@wel-95.cs.helsinki.fi>
+From: Adayadil Thomas <adayadil.thomas@gmail.com>
+Subject: Re: Connection tracking and vlan
+Date: Fri, 30 Oct 2009 16:40:21 -0400
+Message-ID: <fb7befa20910301340w7b465ca0kff88a9e5ea0c9cad@mail.gmail.com>
+References: <20091030152054.GA7936@gondor.apana.org.au>
+	 <4AEB06E6.6020206@gmail.com>
+	 <fb7befa20910301220y53e43608u3b37de17661feb4e@mail.gmail.com>
+	 <469958e00910301251he051d69p178ce53e84130765@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, davem@davemloft.net,
-	akpm@linux-foundation.org, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org, kolo@albatani.cz,
-	bugzilla-daemon@bugzilla.kernel.org
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: Caitlin Bestler <caitlin.bestler@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:44637 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754101AbZJ3US5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 16:18:57 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.0910291316340.19761@wel-95.cs.helsinki.fi>
+Received: from mail-vw0-f192.google.com ([209.85.212.192]:40566 "EHLO
+	mail-vw0-f192.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754178AbZJ3UkR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 16:40:17 -0400
+Received: by vws30 with SMTP id 30so740505vws.33
+        for <netdev@vger.kernel.org>; Fri, 30 Oct 2009 13:40:22 -0700 (PDT)
+In-Reply-To: <469958e00910301251he051d69p178ce53e84130765@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi> wrote:
->=20
-> One more alternative along those lines could perhaps be:
->=20
-> We enter with empty write_queue there and with the hint being null, s=
-o we=20
-> take the else branch... and skb_peek then gives us the NULL ptr. Howe=
-ver,=20
-> I cannot see how this could happen as all branches trap with return=20
-> before the reach tcp_xmit_retransmit_queue.
+On Fri, Oct 30, 2009 at 3:51 PM, Caitlin Bestler
+<caitlin.bestler@gmail.com> wrote:
+> Yes, it is legitimate for a Bridge to see two different 10.*.*.*
+> networks on different VLANs.
+> A Bridge can even see that same MAC address being used by two
+> different end stations
+> on different VLANs (especially if the global bit is not set).
+>
+> What is not legitimate is presenting both of those 10.*.*.* networks
+> for local delivery.
+>
 
-Why don't we add a WARN_ON in there and see if it triggers?
+I did not mean this case.
 
-Thanks,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> If you are only bridging the frames then there are no connections to
+> track, only frames.
+>
+
+This is more like what I was trying to do with the device, but with
+stateful firewall functionality
+for which I was using iptables/netfilter.
+
+Thanks
