@@ -1,86 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: RFC: netdev: allow ethtool physical id to drop rtnl_lock
-Date: Fri, 30 Oct 2009 18:47:39 +0100
-Message-ID: <4AEB26BB.1050007@gmail.com>
-References: <20091030104201.6bb03b23@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sky2: set carrier off in probe
+Date: Fri, 30 Oct 2009 11:10:27 -0700 (PDT)
+Message-ID: <20091030.111027.234994529.davem@davemloft.net>
+References: <20091029.213816.35637194.davem@davemloft.net>
+	<20091030155420.GA8345@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bphilips@suse.de, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:35712 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932601AbZJ3Rri (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 13:47:38 -0400
-In-Reply-To: <20091030104201.6bb03b23@nehalam>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48345
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932708AbZJ3SKD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 14:10:03 -0400
+In-Reply-To: <20091030155420.GA8345@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger a =E9crit :
-> The ethtool operation to blink LED can take an indeterminately long t=
-ime,
-> blocking out other operations (via rtnl_lock). This patch is an attem=
-pt
-> to work around the problem.
->=20
-> It does need more discussion, because it will mean that drivers that =
-formerly
-> were protected from changes during blink aren't.  For example, user c=
-ould
-> start device blinking, and then plug in cable causing change netlink =
-event
-> to change state or pull cable and have device come down.
->=20
-> The other possibility is to do this on a driver by driver basis
-> which is more effort.
->=20
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->=20
->=20
-> --- a/net/core/ethtool.c	2009-10-30 10:27:23.621917624 -0700
-> +++ b/net/core/ethtool.c	2009-10-30 10:35:53.787670774 -0700
-> @@ -17,6 +17,7 @@
->  #include <linux/errno.h>
->  #include <linux/ethtool.h>
->  #include <linux/netdevice.h>
-> +#include <linux/rtnetlink.h>
->  #include <asm/uaccess.h>
-> =20
->  /*
-> @@ -781,6 +782,8 @@ static int ethtool_get_strings(struct ne
->  static int ethtool_phys_id(struct net_device *dev, void __user *user=
-addr)
->  {
->  	struct ethtool_value id;
-> +	int err;
-> +	static int busy;
-> =20
->  	if (!dev->ethtool_ops->phys_id)
->  		return -EOPNOTSUPP;
-> @@ -788,7 +791,21 @@ static int ethtool_phys_id(struct net_de
->  	if (copy_from_user(&id, useraddr, sizeof(id)))
->  		return -EFAULT;
-> =20
-> -	return dev->ethtool_ops->phys_id(dev, id.data);
-> +	if (busy)
-> +		return -EBUSY;
-> +
-> +	/* This operation may take a long time, drop lock */
-> +	busy =3D 1;
-> +	dev_hold(dev);
-> +	rtnl_unlock();
-> +
-> +	err =3D dev->ethtool_ops->phys_id(dev, id.data);
-> +
-> +	rtnl_lock();
-> +	dev_put(dev);
-> +	busy =3D 0;
-> +
-> +	return err;
->  }
-> =20
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 30 Oct 2009 11:54:20 -0400
 
-It seems reasonable, but why have a global 'busy' flag, and not
-private to each netdev ?
+> David Miller <davem@davemloft.net> wrote:
+>> 
+>> I agree that we should report something consistent before interface
+>> up and 'no' is probably the best.
+>> 
+>> I remember fixing something similar in other drivers a few months
+>> ago.
+> 
+> Can't we do this in one spot rather than having every driver
+> duplicate this?
 
+It doesn't matter if we do.
+
+Because the driver must start in state with carrier off anyways,
+so that we get the transition event when the device comes up
+from link down to link up.
+
+So many things depend upon that link state transition event, that
+we're not saving anything by just mucking with the carrier test.
