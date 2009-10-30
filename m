@@ -1,43 +1,33 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] sky2: set carrier off in probe
-Date: Fri, 30 Oct 2009 11:10:27 -0700 (PDT)
-Message-ID: <20091030.111027.234994529.davem@davemloft.net>
-References: <20091029.213816.35637194.davem@davemloft.net>
-	<20091030155420.GA8345@gondor.apana.org.au>
+Date: Fri, 30 Oct 2009 11:11:14 -0700 (PDT)
+Message-ID: <20091030.111114.119833365.davem@davemloft.net>
+References: <20091030043050.GB3380@jenkins.home.ifup.org>
+	<20091029.213816.35637194.davem@davemloft.net>
+	<20091030083452.68ca227e@nehalam>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bphilips@suse.de, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: bphilips@suse.de, netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48345
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48351
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932708AbZJ3SKD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 14:10:03 -0400
-In-Reply-To: <20091030155420.GA8345@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S932750AbZJ3SKu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 14:10:50 -0400
+In-Reply-To: <20091030083452.68ca227e@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 30 Oct 2009 11:54:20 -0400
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Fri, 30 Oct 2009 08:34:52 -0700
 
-> David Miller <davem@davemloft.net> wrote:
->> 
->> I agree that we should report something consistent before interface
->> up and 'no' is probably the best.
->> 
->> I remember fixing something similar in other drivers a few months
->> ago.
-> 
-> Can't we do this in one spot rather than having every driver
-> duplicate this?
+> Why not fix the problem in a generic way?
 
-It doesn't matter if we do.
+Drivers still need to make sure carrier is off when their
+->open() routine runs, so that the transition event from
+link down to link up occurs properly when the device is brought
+up.
 
-Because the driver must start in state with carrier off anyways,
-so that we get the transition event when the device comes up
-from link down to link up.
-
-So many things depend upon that link state transition event, that
-we're not saving anything by just mucking with the carrier test.
+So mucking around with this carrier test will only hide the
+bugs, not make things easier.
