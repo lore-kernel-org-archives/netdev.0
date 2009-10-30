@@ -1,34 +1,104 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Connection tracking and vlan
-Date: Fri, 30 Oct 2009 11:46:39 -0400
-Message-ID: <20091030154639.GA8197@gondor.apana.org.au>
-References: <20091030152054.GA7936@gondor.apana.org.au> <4AEB06E6.6020206@gmail.com>
+Subject: Re: How to use gretap with bridge?
+Date: Fri, 30 Oct 2009 11:51:48 -0400
+Message-ID: <20091030155148.GA8283@gondor.apana.org.au>
+References: <846C5B546E47494CBBD796CA8CA1617EA3B43C@MST-VMAIL1.srv.mst.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Adayadil Thomas <adayadil.thomas@gmail.com>,
-	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: "Neulinger, Nathan" <nneul@mst.edu>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:44317 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:33435 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752117AbZJ3Pqg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 11:46:36 -0400
+	with ESMTP id S932467AbZJ3Pvv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 11:51:51 -0400
 Content-Disposition: inline
-In-Reply-To: <4AEB06E6.6020206@gmail.com>
+In-Reply-To: <846C5B546E47494CBBD796CA8CA1617EA3B43C@MST-VMAIL1.srv.mst.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 30, 2009 at 04:31:50PM +0100, Eric Dumazet wrote:
+Neulinger, Nathan <nneul@mst.edu> wrote:
 >
-> Same thing if you have two interfaces, eth0 & eth1 : IP conntrack tuples dont
-> include interface name/index
+> The above change fixes it for me, but I'm no expert on this chunk of
+> code. (Perhaps it it shouldn't set dev_addr at all?)
 
-Indeed, but imagine what happens when eth0 is the LAN and eth1 is
-the wild wild Internet.  Do you really want their packets to mix?
+OK, it was a stupid mistake on my part.  I added a netdev ops
+struct for tap but didn't actually use it!  Please let us know
+whether this patch fixes the problem.
 
-Cheers,
+gre: Fix dev_addr clobbering for gretap
+
+Nathan Neulinger noticed that gretap devices get their MAC address
+from the local IP address, which results in invalid MAC addresses
+half of the time.
+
+This is because gretap is still using the tunnel netdev ops rather
+than the correct tap netdev ops struct.
+
+This patch also fixes changelink to not clobber the MAC address
+for the gretap case.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 41ada99..1433338 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -1464,7 +1464,7 @@ static void ipgre_tap_setup(struct net_device *dev)
+ 
+ 	ether_setup(dev);
+ 
+-	dev->netdev_ops		= &ipgre_netdev_ops;
++	dev->netdev_ops		= &ipgre_tap_netdev_ops;
+ 	dev->destructor 	= free_netdev;
+ 
+ 	dev->iflink		= 0;
+@@ -1525,25 +1525,29 @@ static int ipgre_changelink(struct net_device *dev, struct nlattr *tb[],
+ 		if (t->dev != dev)
+ 			return -EEXIST;
+ 	} else {
+-		unsigned nflags = 0;
+-
+ 		t = nt;
+ 
+-		if (ipv4_is_multicast(p.iph.daddr))
+-			nflags = IFF_BROADCAST;
+-		else if (p.iph.daddr)
+-			nflags = IFF_POINTOPOINT;
++		if (dev->type != ARPHRD_ETHER) {
++			unsigned nflags = 0;
+ 
+-		if ((dev->flags ^ nflags) &
+-		    (IFF_POINTOPOINT | IFF_BROADCAST))
+-			return -EINVAL;
++			if (ipv4_is_multicast(p.iph.daddr))
++				nflags = IFF_BROADCAST;
++			else if (p.iph.daddr)
++				nflags = IFF_POINTOPOINT;
++
++			if ((dev->flags ^ nflags) &
++			    (IFF_POINTOPOINT | IFF_BROADCAST))
++				return -EINVAL;
++		}
+ 
+ 		ipgre_tunnel_unlink(ign, t);
+ 		t->parms.iph.saddr = p.iph.saddr;
+ 		t->parms.iph.daddr = p.iph.daddr;
+ 		t->parms.i_key = p.i_key;
+-		memcpy(dev->dev_addr, &p.iph.saddr, 4);
+-		memcpy(dev->broadcast, &p.iph.daddr, 4);
++		if (dev->type != ARPHRD_ETHER) {
++			memcpy(dev->dev_addr, &p.iph.saddr, 4);
++			memcpy(dev->broadcast, &p.iph.daddr, 4);
++		}
+ 		ipgre_tunnel_link(ign, t);
+ 		netdev_state_change(dev);
+ 	}
