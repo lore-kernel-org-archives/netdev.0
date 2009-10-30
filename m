@@ -1,49 +1,48 @@
-From: <Narendra_K@Dell.com>
-Subject: RE: [PATCH] udev: create empty regular files to represent net interfaces
-Date: Fri, 30 Oct 2009 20:43:44 +0530
-Message-ID: <EDA0A4495861324DA2618B4C45DCB3EE589682@blrx3m08.blr.amer.dell.com>
-References: <20091016214024.GA10091@ldl.fc.hp.com> <20091022063619.GB6321@ldl.fc.hp.com> <20091027205551.GA31963@auslistsprd01.us.dell.com> <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com> <20091029131125.GA13809@auslistsprd01.us.dell.com> <20091029142554.GA16869@kroah.com> <20091029174600.GC3612@ldl.fc.hp.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2009-10-28
+Date: Fri, 30 Oct 2009 11:02:24 -0400
+Message-ID: <20091030150223.GA2586@tuxdriver.com>
+References: <1256886023.3555.5.camel@johannes.local> <20091030110616.GB6150@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <Matt_Domsch@Dell.com>, <kay.sievers@vrfy.org>,
-	<linux-hotplug@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<Jordan_Hargrave@Dell.com>, <Charles_Rose@Dell.com>,
-	<bhutchings@solarflare.com>
-To: <dannf@dannf.org>, <greg@kroah.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausxipps301.us.dell.com ([143.166.148.223]:9065 "EHLO
-	ausxipps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932246AbZJ3PNs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 11:13:48 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20091029174600.GC3612@ldl.fc.hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20091030110616.GB6150-8HppEYmqbBCE+EvaaNYduQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
- 
->> This way the kernel has only one name, and so does userspace, and 
->> everyone is happy.
->
->There are two issues, which really seem distinct to me.
->
->Users expect eth0 to map to first-onboard-nic. That's an 
->installer issue (since the BIOS can already export this info) 
->and I agree that if we want to "fix" that, we should fix it there.
->
+On Fri, Oct 30, 2009 at 11:06:16AM +0000, Jarek Poplawski wrote:
 
-I agree that installers have to be fixed in the sense that they can be
-told to find the right interface. But, they expect determinism and
-depend on "eth0 to map to first-onboard-nic". Installer is one of the
-applications that is affected by this and needs user intervention, if it
-is not told about the right interface. I discussed installer as it is so
-much part of a user experience.
+> There are various ways to disagree, and ignoring by John questions
+> from a merited developer both in this referenced lkml and current
+> threads looks at least strange (if not offensive) as well.
 
-But the real issue is "eth0 does not map to first-onboard-nic" always
-and applications expecting this would break in data center environments.
-Both the solutions proposed provide a way to overcome it without
-introducing state.
+Did you read the thread for which Bartlomiej provided a link earlier?
+There were ten responses (only three of them from him) in that thread.
+His comments were not ignored, they were rejected.
 
-With regards,
-Narendra K
+Ever since Bartlomiej decided to tear himself away from
+drivers/staging, he has been nothing but negative -- petty, whining,
+indignat, whatever.  Just what has he done to merit any special
+consideration here?  Why should he have any sort of veto over rt2x00?
+
+And of all things on which to take a stand -- how dare the rt2x00 guys
+use two header files instead of three?  The nerve of those people!!!
+
+Ridiculous...
+
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
