@@ -1,32 +1,63 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 0/6] Bonding simplifications and netns support
-Date: Thu, 29 Oct 2009 17:16:54 -0700
-Message-ID: <m1tyxhwxah.fsf@fess.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Subject: [PATCH 1/6] net: Allow devices to specify a device specific sysfs group.
+Date: Thu, 29 Oct 2009 17:18:21 -0700
+Message-ID: <1256861906-5059-1-git-send-email-ebiederm@xmission.com>
+References: <m1tyxhwxah.fsf@fess.ebiederm.org>
+Cc: <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>,
+	"Eric W. Biederman" <ebiederm@aristanetworks.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:56213 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755122AbZJ3AQ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 20:16:56 -0400
+Received: from out02.mta.xmission.com ([166.70.13.232]:35823 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755122AbZJ3ASj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Oct 2009 20:18:39 -0400
+In-Reply-To: <m1tyxhwxah.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric W. Biederman <ebiederm@aristanetworks.com>
 
-I recently had it pointed out to me that the bonding driver does not
-work in a network namespace.  So I have simplified the bonding driver
-a bit, added support for ip link add and ip link del, and finally made
-the bonding driver work in multiple network namespaces.
+This isn't beautifully abstracted, but it is simple,
+simplifies uses and so far is only needed for the bonding driver.
 
-The most note worthy change in the patchset is the addition of support
-in the networking core for registering a sysfs group for a device.
+Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
+---
+ include/linux/netdevice.h |    4 ++--
+ net/core/net-sysfs.c      |    5 ++++-
+ 2 files changed, 6 insertions(+), 3 deletions(-)
 
-Using this in the bonding driver simplifies the code and removes a
-userspace race between actions triggered by the netlink event and the
-bonding sysfs attributes appearing.
-
-Eric
-
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index ffc3106..b37f01e 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -899,8 +899,8 @@ struct net_device
+ 
+ 	/* class/net/name entry */
+ 	struct device		dev;
+-	/* space for optional statistics and wireless sysfs groups */
+-	const struct attribute_group *sysfs_groups[3];
++	/* space for optional device, statistics, and wireless sysfs groups */
++	const struct attribute_group *sysfs_groups[4];
+ 
+ 	/* rtnetlink link ops */
+ 	const struct rtnl_link_ops *rtnl_link_ops;
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 89de182..157645c 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -544,8 +544,11 @@ int netdev_register_kobject(struct net_device *net)
+ 	dev_set_name(dev, "%s", net->name);
+ 
+ #ifdef CONFIG_SYSFS
+-	*groups++ = &netstat_group;
++	/* Allow for a device specific group */
++	if (*groups)
++		groups++;
+ 
++	*groups++ = &netstat_group;
+ #ifdef CONFIG_WIRELESS_EXT_SYSFS
+ 	if (net->ieee80211_ptr)
+ 		*groups++ = &wireless_group;
+-- 
+1.6.3.1.54.g99dd.dirty
 
