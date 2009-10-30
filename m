@@ -1,34 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: r8169: Fix card drop incoming VLAN tagged MTU byte large jumbo
- frames
-Date: Thu, 29 Oct 2009 22:55:18 -0700 (PDT)
-Message-ID: <20091029.225518.96487976.davem@davemloft.net>
-References: <4AE60C15.3040206@apollo.lv>
+From: Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2009-10-28
+Date: Fri, 30 Oct 2009 07:59:21 +0200
+Message-ID: <84144f020910292259g4635e3c3v652a27f8ac4d42de@mail.gmail.com>
+References: <200910291212.41656.bzolnier@gmail.com>
+	 <200910291514.40318.bzolnier@gmail.com>
+	 <84144f020910291245l1a7a3fd6o8822ecd4ce3b5504@mail.gmail.com>
+	 <200910292248.42229.bzolnier@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: ray@apollo.lv
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49126
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755836AbZJ3Fyy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 01:54:54 -0400
-In-Reply-To: <4AE60C15.3040206@apollo.lv>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+To: Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200910292248.42229.bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Raimonds Cicans <ray@apollo.lv>
-Date: Mon, 26 Oct 2009 22:52:37 +0200
+Hi Bart,
 
-> r8169 card drop incoming VLAN tagged MTU byte large jumbo frames
-> 
-> It looks to compare current and maximal packet sizes hardware use
-> '<' operator, not '<='.
-> 
-> Bug introduced by patch:
-> r8169: fix crash when large packets are received
-> 
-> Signed-off-by: Raimonds Cicans <ray@apollo.lv>
+On Thu, Oct 29, 2009 at 11:48 PM, Bartlomiej Zolnierkiewicz
+<bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> _really_ prefer to spend your time in pointless arguments, go ahead.
+>
+> I don't think that my technical arguments are pointless.
+>
+> Quite the contrary, I'm pretty confident that addressing my review concerns
+> would result in better RT28x00 / RT30x0 support in the very near future.
 
-Applied, thank you.
+I don't think your technical arguments are pointless either. However,
+asking Dave to revert something over John and then arguing about it is
+pointless and will likely just piss people off and make them ignore
+you.
+
+                        Pekka
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
