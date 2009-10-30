@@ -1,77 +1,142 @@
-From: Matt Domsch <Matt_Domsch@Dell.com>
-Subject: Re: [PATCH] udev: create empty regular files to represent net interfaces
-Date: Fri, 30 Oct 2009 12:10:03 -0500
-Message-ID: <20091030171003.GA7523@auslistsprd01.us.dell.com>
-References: <20091016214024.GA10091@ldl.fc.hp.com> <20091022063619.GB6321@ldl.fc.hp.com> <20091027205551.GA31963@auslistsprd01.us.dell.com> <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com> <20091029131125.GA13809@auslistsprd01.us.dell.com> <20091029142554.GA16869@kroah.com> <20091029174600.GC3612@ldl.fc.hp.com> <EDA0A4495861324DA2618B4C45DCB3EE589682@blrx3m08.blr.amer.dell.com> <20091030160845.GA4547@lackof.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] net: Introduce dev_get_by_name_rcu()
+Date: Fri, 30 Oct 2009 18:11:27 +0100
+Message-ID: <4AEB1E3F.3010002@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Narendra_K@Dell.com, greg@kroah.com, kay.sievers@vrfy.org,
-	linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
-	Jordan_Hargrave@Dell.com, Charles_Rose@Dell.com,
-	bhutchings@solarflare.com
-To: dann frazier <dannf@dannf.org>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091030160845.GA4547@lackof.org>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:46911 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932108AbZJ3RL2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 13:11:28 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 30, 2009 at 10:08:45AM -0600, dann frazier wrote:
-> On Fri, Oct 30, 2009 at 08:43:44PM +0530, Narendra_K@Dell.com wrote:
-> >  
-> > >> This way the kernel has only one name, and so does userspace, and 
-> > >> everyone is happy.
-> > >
-> > >There are two issues, which really seem distinct to me.
-> > >
-> > >Users expect eth0 to map to first-onboard-nic. That's an 
-> > >installer issue (since the BIOS can already export this info) 
-> > >and I agree that if we want to "fix" that, we should fix it there.
-> > >
-> > 
-> > I agree that installers have to be fixed in the sense that they can be
-> > told to find the right interface. But, they expect determinism and
-> > depend on "eth0 to map to first-onboard-nic". Installer is one of the
-> > applications that is affected by this and needs user intervention, if it
-> > is not told about the right interface. I discussed installer as it is so
-> > much part of a user experience.
-> 
-> Right, but couldn't the installer do the work of scanning the SMBIOS
-> to figure out which nics are onboard, and reorder the 'eth*' names
-> such that these are first? This state could then be written out as
-> udev rules so that they persist across reboots.
+Some workloads hit dev_base_lock rwlock pretty hard.
+We can use RCU lookups to avoid touching this rwlock
+(and avoid touching netdevice refcount)
 
-No, there is a catch-22.  To be sure you know the "proper" ethN name
-to assign a device based on an ordering, you have to know about all
-the devices.  When udev runs, one device at a time, it can only see
-the current device and all those that have come before it, but it can't know
-when all the drivers for all the NICs have been loaded.  And if you
-hotplug a device in later, it should presumably just go at the end of
-the list, but after a reboot, it'll most likely show up somewhere in
-the middle of the list.  SMBIOS is static from boottime, not hotplug
-aware. If I add a 4-port NIC in slot 3 after boot, it becomes
-ethN..N+3.  After reboot, it may well show up at completely different
-places, and even the N..N+3 ordering of individiual ports on the card
-aren't guaranteed to be consistent.
+netdevices are already freed after a RCU grace period, so this patch
+adds no penalty at device dismantle time.
 
-ethN is fundamentally a nondeterministic namespace, and trying to
-enforce determinism on it is, from all my attempts, impossible.  Hence
-the desire to change the namespace.  But there can be many
-different naming policies one might want (including the
-nondeterministic ethN policy), and for all other types of devices this
-isn't a problem - we can have all the policies we want, in parallel.
-Only for network devices we can't.
+However, it adds a synchronize_rcu() call in dev_change_name()
 
-Stephen, I hadn't seen the ifalias field you added.  I can see that
-being helpful to a user (some tool can write a more meaningful string
-to it), but I can't see it being useful programmatically.  It still
-doesn't get me to "ifconfig the NIC in slot 3 port 2" or "ifconfig the
-NIC I booted from".
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/linux/netdevice.h |    1 
+ net/core/dev.c            |   49 +++++++++++++++++++++++++++++-------
+ 2 files changed, 41 insertions(+), 9 deletions(-)
 
-Thanks,
-Matt
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 193b637..86773e1 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1115,6 +1115,7 @@ extern void		__dev_remove_pack(struct packet_type *pt);
+ extern struct net_device	*dev_get_by_flags(struct net *net, unsigned short flags,
+ 						  unsigned short mask);
+ extern struct net_device	*dev_get_by_name(struct net *net, const char *name);
++extern struct net_device	*dev_get_by_name_rcu(struct net *net, const char *name);
+ extern struct net_device	*__dev_get_by_name(struct net *net, const char *name);
+ extern int		dev_alloc_name(struct net_device *dev, const char *name);
+ extern int		dev_open(struct net_device *dev);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 94f42a1..f54d8b8 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -213,7 +213,7 @@ static int list_netdevice(struct net_device *dev)
+ 
+ 	write_lock_bh(&dev_base_lock);
+ 	list_add_tail(&dev->dev_list, &net->dev_base_head);
+-	hlist_add_head(&dev->name_hlist, dev_name_hash(net, dev->name));
++	hlist_add_head_rcu(&dev->name_hlist, dev_name_hash(net, dev->name));
+ 	hlist_add_head_rcu(&dev->index_hlist,
+ 			   dev_index_hash(net, dev->ifindex));
+ 	write_unlock_bh(&dev_base_lock);
+@@ -230,7 +230,7 @@ static void unlist_netdevice(struct net_device *dev)
+ 	/* Unlink dev from the device chain */
+ 	write_lock_bh(&dev_base_lock);
+ 	list_del(&dev->dev_list);
+-	hlist_del(&dev->name_hlist);
++	hlist_del_rcu(&dev->name_hlist);
+ 	hlist_del_rcu(&dev->index_hlist);
+ 	write_unlock_bh(&dev_base_lock);
+ }
+@@ -599,6 +599,32 @@ struct net_device *__dev_get_by_name(struct net *net, const char *name)
+ EXPORT_SYMBOL(__dev_get_by_name);
+ 
+ /**
++ *	dev_get_by_name_rcu	- find a device by its name
++ *	@net: the applicable net namespace
++ *	@name: name to find
++ *
++ *	Find an interface by name.
++ *	If the name is found a pointer to the device is returned.
++ * 	If the name is not found then %NULL is returned.
++ *	The reference counters are not incremented so the caller must be
++ *	careful with locks. The caller must hold RCU lock.
++ */
++
++struct net_device *dev_get_by_name_rcu(struct net *net, const char *name)
++{
++	struct hlist_node *p;
++	struct net_device *dev;
++	struct hlist_head *head = dev_name_hash(net, name);
++
++	hlist_for_each_entry_rcu(dev, p, head, name_hlist)
++		if (!strncmp(dev->name, name, IFNAMSIZ))
++			return dev;
++
++	return NULL;
++}
++EXPORT_SYMBOL(dev_get_by_name_rcu);
++
++/**
+  *	dev_get_by_name		- find a device by its name
+  *	@net: the applicable net namespace
+  *	@name: name to find
+@@ -614,11 +640,11 @@ struct net_device *dev_get_by_name(struct net *net, const char *name)
+ {
+ 	struct net_device *dev;
+ 
+-	read_lock(&dev_base_lock);
+-	dev = __dev_get_by_name(net, name);
++	rcu_read_lock();
++	dev = dev_get_by_name_rcu(net, name);
+ 	if (dev)
+ 		dev_hold(dev);
+-	read_unlock(&dev_base_lock);
++	rcu_read_unlock();
+ 	return dev;
+ }
+ EXPORT_SYMBOL(dev_get_by_name);
+@@ -960,7 +986,12 @@ rollback:
+ 
+ 	write_lock_bh(&dev_base_lock);
+ 	hlist_del(&dev->name_hlist);
+-	hlist_add_head(&dev->name_hlist, dev_name_hash(net, dev->name));
++	write_unlock_bh(&dev_base_lock);
++
++	synchronize_rcu();
++
++	write_lock_bh(&dev_base_lock);
++	hlist_add_head_rcu(&dev->name_hlist, dev_name_hash(net, dev->name));
+ 	write_unlock_bh(&dev_base_lock);
+ 
+ 	ret = call_netdevice_notifiers(NETDEV_CHANGENAME, dev);
+@@ -1062,9 +1093,9 @@ void dev_load(struct net *net, const char *name)
+ {
+ 	struct net_device *dev;
+ 
+-	read_lock(&dev_base_lock);
+-	dev = __dev_get_by_name(net, name);
+-	read_unlock(&dev_base_lock);
++	rcu_read_lock();
++	dev = dev_get_by_name_rcu(net, name);
++	rcu_read_unlock();
+ 
+ 	if (!dev && capable(CAP_NET_ADMIN))
+ 		request_module("%s", name);
 
--- 
-Matt Domsch
-Technology Strategist, Dell Office of the CTO
-linux.dell.com & www.dell.com/linux
