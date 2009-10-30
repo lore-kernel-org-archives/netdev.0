@@ -1,40 +1,81 @@
-From: Francis Moreau <francis.moro@gmail.com>
-Subject: Re: WARNING: at net/ipv4/af_inet.c:154 inet_sock_destruct
-Date: Fri, 30 Oct 2009 14:41:24 +0100
-Message-ID: <38b2ab8a0910300641q78c08124o800a9dfc9486fba7@mail.gmail.com>
-References: <38b2ab8a0909290109m3f82c161j4fb0f1266152877e@mail.gmail.com>
-	 <4AC1D0F5.4050709@gmail.com>
-	 <38b2ab8a0910300144i7a3c190fi9aa3d079c9cdb754@mail.gmail.com>
-	 <4AEACD88.8080108@gmail.com>
-	 <38b2ab8a0910300533l4bbc9d3cj8812fe38726c8278@mail.gmail.com>
+From: apetlund@simula.no
+Subject: Re: [PATCH 1/3] net: TCP thin-stream detection
+Date: Fri, 30 Oct 2009 14:53:58 +0100
+Message-ID: <f7b4caf3a5b5c906cb8d508239455322.squirrel@webmail.uio.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757262AbZJ3NlW@vger.kernel.org>
-In-Reply-To: <38b2ab8a0910300533l4bbc9d3cj8812fe38726c8278@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Andreas Petlund" <apetlund@simula.no>,
+	"William Allen Simpson" <william.allen.simpson@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"ilpo.jarvinen@helsinki.fi" <ilpo.jarvinen@helsinki.fi>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "Arnd Hannemann" <hannemann@nets.rwth-aachen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out1.uio.no ([129.240.10.57]:53553 "EHLO mail-out1.uio.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757267AbZJ3Nxy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Oct 2009 09:53:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 30, 2009 at 1:33 PM, Francis Moreau <francis.moro@gmail.com> wrote:
-> On Fri, Oct 30, 2009 at 12:27 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->>
->> This oops occurring again and again with SUNRPC finally gave me the right pointer.
->>
->> David, we added two years ago memory accounting to UDP, and this changed
->> requirements about calling skb_free_datagram() in the right context.
->>
->> I wish we had an ASSERT_SOCK_LOCKED() debugging facility :(
->>
->> Francis, would you please test following patch ?
+> Andreas Petlund schrieb:
+>> Den 28. okt. 2009 kl. 04.09 skrev William Allen Simpson:
+>>> Andreas Petlund wrote:
+>>>> +/* Determines whether this is a thin stream (which may suffer from +
+* increased latency). Used to trigger latency-reducing mechanisms. + */
+>>>> +static inline unsigned int tcp_stream_is_thin(const struct
+>>>> tcp_sock *tp)
+>>>> +{
+>>>> +	return tp->packets_out < 4;
+>>>> +}
+>>>> +
+>>> This bothers me a bit.  Having just looked at your Linux presentation,
+and not (yet) read your papers, it seems much of your justification was
+>>> with 1 packet per RTT.  Here, you seem to be concentrating on 4,
+probably
+>>> because many implementations quickly ramp up to 4.
+>> The limit of 4 packets in flight is based on the fact that less than 4
+packets in flight makes fast retransmissions impossible, thus limiting the
+retransmit options to timeout-retransmissions. The criterion is
 >
-> I'm applying it and testing it during a couple of days and see if
-> something wrong still happens.
+> There is Limited Transmit! So this is generally not true.
+>> therefore as conservative as possible while still serving its purpose.
+If further losses occur, the exponential backoff will increase latency
+further. The concept of using this limit is also discussed in the
+Internet draft for Early Retransmit by Allman et al.:
+>> http://www.icir.org/mallman/papers/draft-ietf-tcpm-early-rexmt-01.txt
+>
+> This ID is covering exactly the cases which Limited Transmit does not
+cover and works "automagically" without help of application. So why not
+just implement this ID?
 
-Hmm, with the patch applied on a 2.6.32-rc5, my machine locks hard
-when starting nfsd.
+As Ilpo writes, the mechanism we propose is simpler than the ID, and
+slightly more aggressive. The reason why we chose this is as follows: 1)
+The ID and Limited Transmit tries to prevent retransmission timeouts by
+retransmitting more aggressively, thus keeping the congestion window open
+even though congestion may be the limiting factor. If their limiting
+conditions change, they still have higher sending rates available. The
+thin-stream applications are not limited by congestion control. There is
+therefore no motivation to prevent retransmission timeouts in order to
+keep the congestion window open because in the thin-stream scenario, a
+larger window is not needed, but we retransmit early only to reduce
+application-layer latencies. 2) Our suggested implementation is simpler.
+3) I believe that the reason why the ID has not been implemented in Linux
+is that the motivation did not justify the achieved result. We have
+analysed a wide range of time-dependent applications and found that they
+very often produce thin streams due to transmissions being triggered by
+human interaction. This changes the motivational picture since a thin
+stream is an indicator of time-dependency.
 
--- 
-Francis
+Regards,
+Andreas
+
+
+
+
+
+
+
