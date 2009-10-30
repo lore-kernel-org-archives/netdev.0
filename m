@@ -1,62 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: WARNING: at net/ipv4/af_inet.c:154 inet_sock_destruct
-Date: Fri, 30 Oct 2009 15:55:51 +0100
-Message-ID: <4AEAFE77.9030205@gmail.com>
-References: <38b2ab8a0909290109m3f82c161j4fb0f1266152877e@mail.gmail.com>	 <4AC1D0F5.4050709@gmail.com>	 <38b2ab8a0910300144i7a3c190fi9aa3d079c9cdb754@mail.gmail.com>	 <4AEACD88.8080108@gmail.com>	 <38b2ab8a0910300533l4bbc9d3cj8812fe38726c8278@mail.gmail.com> <38b2ab8a0910300641q78c08124o800a9dfc9486fba7@mail.gmail.com>
+From: dann frazier <dannf@dannf.org>
+Subject: Re: [PATCH] udev: create empty regular files to represent net
+ interfaces
+Date: Fri, 30 Oct 2009 09:00:50 -0600
+Message-ID: <20091030150050.GC25540@ldl.fc.hp.com>
+References: <20091016214024.GA10091@ldl.fc.hp.com>
+ <20091022063619.GB6321@ldl.fc.hp.com>
+ <20091027205551.GA31963@auslistsprd01.us.dell.com>
+ <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com>
+ <20091029131125.GA13809@auslistsprd01.us.dell.com>
+ <20091029142554.GA16869@kroah.com>
+ <20091029174600.GC3612@ldl.fc.hp.com>
+ <20091030033029.GA4412@bongo.bofh.it>
+ <20091030053824.GA25540@ldl.fc.hp.com>
+ <20091030062249.GB5430@bongo.bofh.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Francis Moreau <francis.moro@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932315AbZJ3Ozw@vger.kernel.org>
-In-Reply-To: <38b2ab8a0910300641q78c08124o800a9dfc9486fba7@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: Greg KH <greg@kroah.com>, Matt Domsch <Matt_Domsch@dell.com>,
+	Kay Sievers <kay.sievers@vrfy.org>,
+	linux-hotplug@vger.kernel.org, Narendra_K@dell.com,
+	netdev@vger.kernel.org, Jordan_Ha
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20091030062249.GB5430@bongo.bofh.it>
+Sender: linux-hotplug-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rancis Moreau a =E9crit :
-> On Fri, Oct 30, 2009 at 1:33 PM, Francis Moreau <francis.moro@gmail.c=
-om> wrote:
->> On Fri, Oct 30, 2009 at 12:27 PM, Eric Dumazet <eric.dumazet@gmail.c=
-om> wrote:
->>> This oops occurring again and again with SUNRPC finally gave me the=
- right pointer.
->>>
->>> David, we added two years ago memory accounting to UDP, and this ch=
-anged
->>> requirements about calling skb_free_datagram() in the right context=
-=2E
->>>
->>> I wish we had an ASSERT_SOCK_LOCKED() debugging facility :(
->>>
->>> Francis, would you please test following patch ?
->> I'm applying it and testing it during a couple of days and see if
->> something wrong still happens.
->=20
-> Hmm, with the patch applied on a 2.6.32-rc5, my machine locks hard
-> when starting nfsd.
->=20
+On Fri, Oct 30, 2009 at 07:22:49AM +0100, Marco d'Itri wrote:
+> On Oct 30, dann frazier <dannf@hp.com> wrote:
+> 
+> > On Fri, Oct 30, 2009 at 04:30:29AM +0100, Marco d'Itri wrote:
+> > > On Oct 29, dann frazier <dannf@dannf.org> wrote:
+> > > 
+> > > > That would make a lot of users much happier (myself included), but it
+> > > > does restrict us into one view. At different times, admins think of
+> > > > their NICs by different properties. I may want to do IP assignment by
+> > > [Citation needed]
+> > Is "I" not clear, or do you just not believe I admin servers?
+> I was referring to "At different times, admins think of their NICs by
+> different properties", which I am not sure is a valid generalization.
 
-Please ignore/revert the last part of the patch (about net/sunrpc/xprts=
-ock.c)
+Fair enough, I can't speak for others.
 
-In xs_udp_data_ready() we really want to call skb_free_datagram(),
-not skb_free_datagram_locked(), because socket is already locked.
+-- 
+dann frazier
 
-Thanks
-
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index 37c5475..d61be4a 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -883,7 +883,7 @@ static void xs_udp_data_ready(struct sock *sk, int =
-len)
-  out_unlock:
- 	spin_unlock(&xprt->transport_lock);
-  dropit:
-+	skb_free_datagram(sk, skb);
--	skb_free_datagram_locked(sk, skb);
-  out:
- 	read_unlock(&sk->sk_callback_lock);
- }
