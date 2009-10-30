@@ -1,33 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix checks on unsigned in w90p910_ether_probe()
-Date: Thu, 29 Oct 2009 23:06:24 -0700 (PDT)
-Message-ID: <20091029.230624.125832796.davem@davemloft.net>
-References: <4ADDFE0C.3020400@gmail.com>
+Subject: Re: [PATCH] ax25: unsigned cannot be less than 0 in
+ ax25_ctl_ioctl()
+Date: Thu, 29 Oct 2009 23:06:53 -0700 (PDT)
+Message-ID: <20091029.230653.256114041.davem@davemloft.net>
+References: <4AD37D44.9050207@gmail.com>
+	<4AD3A67B.6070703@cerebellum.kd>
+	<4AD5EDA6.4040709@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	mcuos.com@gmail.com
+Cc: kevind@esi.com.au, wharms@bfs.de, linux-hams@vger.kernel.org,
+	netdev@vger.kernel.org, jreuter@yaina.de, akpm@linux-foundation.org
 To: roel.kluin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50191
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750898AbZJ3GGA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 02:06:00 -0400
-In-Reply-To: <4ADDFE0C.3020400@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <4AD5EDA6.4040709@gmail.com>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Roel Kluin <roel.kluin@gmail.com>
-Date: Tue, 20 Oct 2009 20:14:36 +0200
+Date: Wed, 14 Oct 2009 17:26:30 +0200
 
-> ether->txirq and ->rxirq are unsigned
+> struct ax25_ctl_struct member `arg' is unsigned and cannot be less
+> than 0.
 > 
 > Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 
-platform_get_irq() returns a signed int so the intention
-is more likely that catching negative value returns
-was intended.
-
-Probably the correct fix is to mark txirq and rxirq as
-plain 'int'.
+Applied to net-next-2.6
