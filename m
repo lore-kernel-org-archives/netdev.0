@@ -1,37 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 4/6] vlan: Optimize multiple unregistration
-Date: Fri, 30 Oct 2009 07:30:43 +0100
-Message-ID: <4AEA8813.9090505@gmail.com>
-References: <4AE728A9.2080209@gmail.com> <4AE8A425.1000600@trash.net> <4AE8ADE7.1010909@gmail.com> <4AE99C88.40403@trash.net> <4AE9A554.8030207@trash.net> <4AE9A6F6.5040209@gmail.com> <4AE9A7AA.70107@trash.net> <4AE9AA01.3020805@gmail.com> <4AE9D000.90603@trash.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 0/6] Bonding simplifications and netns support
+Date: Fri, 30 Oct 2009 07:38:33 +0100
+Message-ID: <4AEA89E9.30902@cosmosbay.com>
+References: <m1tyxhwxah.fsf@fess.ebiederm.org> <20091029.232523.66969302.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Cc: ebiederm@xmission.com, netdev@vger.kernel.org, fubar@us.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:35361 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:54373 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754731AbZJ3Gan (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 02:30:43 -0400
-In-Reply-To: <4AE9D000.90603@trash.net>
+	with ESMTP id S1754845AbZJ3Gir (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 02:38:47 -0400
+In-Reply-To: <20091029.232523.66969302.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy a =E9crit :
-> Eric Dumazet wrote:
->> Patrick McHardy a =E9crit :
->>
->>> Indeed, but unregister_vlan_dev() destroys the group once the
->>> count has reached zero, so we must not access it after that.
->> Well, I hoped call_rcu() callback doesnt fire and kfree(grp) until w=
-e exited
->> from unregister_vlan_dev_alls(), with RTNL locked...
+David Miller a =E9crit :
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Thu, 29 Oct 2009 17:16:54 -0700
 >=20
-> The RTNL is a mutex, so it shouldn't prevent call_rcu from firing.
+>> I recently had it pointed out to me that the bonding driver does not
+>> work in a network namespace.  So I have simplified the bonding drive=
+r
+>> a bit, added support for ip link add and ip link del, and finally ma=
+de
+>> the bonding driver work in multiple network namespaces.
+>>
+>> The most note worthy change in the patchset is the addition of suppo=
+rt
+>> in the networking core for registering a sysfs group for a device.
+>>
+>> Using this in the bonding driver simplifies the code and removes a
+>> userspace race between actions triggered by the netlink event and th=
+e
+>> bonding sysfs attributes appearing.
+>=20
+> I have no objections to these patches, but I'd like the bonding
+> folks to have a chance to look at it before I apply to net-next-2.6
+>=20
+> One question though, are you sure this clever extra slot scheme
+> in patch #1 works for, f.e., a bond of wireless devices?  It seems
+> like it would work out, but I wanted to ask to make sure you
+> considered that case.
+>=20
 
-Oops this is totally right of course, so your patch is actually a bug f=
-ix :)
+I have patches against bond driver for unregister_netdevice_queue() stu=
+ff,
+I'll wait for Eric work being committed first.
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Thanks
 
