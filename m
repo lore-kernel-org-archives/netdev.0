@@ -1,36 +1,62 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: linux-next: manual merge of the net/wireless tree with the
-	staging.current tree
-Date: Thu, 29 Oct 2009 20:44:20 -0700
-Message-ID: <20091030034420.GA16839@kroah.com>
-References: <20091030141800.eb72e320.sfr@canb.auug.org.au>
+From: Brandon Philips <bphilips@suse.de>
+Subject: Re: [PATCH] sky2: set carrier off in probe
+Date: Thu, 29 Oct 2009 20:51:28 -0700
+Message-ID: <20091030035128.GA3380@jenkins.home.ifup.org>
+References: <20091029235807.GF3228@jenkins.home.ifup.org>
+ <20091029200905.00f4c13d@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor.suse.de ([195.135.220.2]:56701 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753754AbZJ3Dva (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Oct 2009 23:51:30 -0400
 Content-Disposition: inline
-In-Reply-To: <20091030141800.eb72e320.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20091029200905.00f4c13d@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 30, 2009 at 02:18:00PM +1100, Stephen Rothwell wrote:
-> Hi all,
+On 20:09 Thu 29 Oct 2009, Stephen Hemminger wrote:
+> On Thu, 29 Oct 2009 16:58:07 -0700
+> Brandon Philips <bphilips@suse.de> wrote:
 > 
-> Today's linux-next merge of the net tree got conflicts in
-> drivers/staging/rtl8187se/Kconfig and drivers/staging/rtl8192e/Kconfig
-> between commit a26961e914c88e3e2ed46ef67f83a33ad7b57c36 ("Staging: fix
-> wireless drivers depends") from the staging.current tree and commit
-> 125b181aec7a67c71234284ecf6d9c729d05deda ("staging: Add proper selection
-> of WIRELESS_EXT and WEXT_PRIV") from the net/wireless tree.
+> > Before bringing up a sky2 interface up ethtool reports 
+> > "Link detected: yes". Do as ixgbe does and netif_carrier_off() on
+> > probe().
+> > 
+> > Signed-off-by: Brandon Philips <bphilips@suse.de>
+> > 
+> > ---
+> >  drivers/net/sky2.c |    2 ++
+> >  1 file changed, 2 insertions(+)
+> > 
+> > Index: linux-2.6/drivers/net/sky2.c
+> > ===================================================================
+> > --- linux-2.6.orig/drivers/net/sky2.c
+> > +++ linux-2.6/drivers/net/sky2.c
+> > @@ -4538,6 +4538,8 @@ static int __devinit sky2_probe(struct p
+> >  		goto err_out_free_netdev;
+> >  	}
+> >  
+> > +	netif_carrier_off(dev);
+> > +
+> >  	netif_napi_add(dev, &hw->napi, sky2_poll, NAPI_WEIGHT);
+> >  
+> >  	err = request_irq(pdev->irq, sky2_intr,
 > 
-> Just context changes.  I fixed it up (see below) and can carry the fix
-> for a while.
+> IMHO carrier is meaningless until device is up? What software
+> cares?
 
-Thanks, the fix looks fine to me.
+A customer had a script that was testing for ethtool reporting "Link
+detected: yes" and taking some sort of action. They found other
+drivers reported "Link detected: No" until the first interface up.
 
-greg k-h
+The right thing to do is up the interface first before looking at the
+the Link state, and I told them to do that, but I figured that this
+patch made sense too to fix the initial buglet.
+
+Cheers,
+
+	Brandon
