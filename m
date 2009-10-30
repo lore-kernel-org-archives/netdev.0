@@ -1,110 +1,107 @@
-From: "Kumar Gopalpet-B05799" <B05799@freescale.com>
-Subject: RE: [PATCH v3 4/7] fsl_pq_mdio: Add Suport for etsec2.0 devices.
-Date: Fri, 30 Oct 2009 12:52:29 +0530
-Message-ID: <9F4C7D19E8361D4C94921B95BE08B81B9503CA@zin33exm22.fsl.freescale.net>
-References: <1256826229-529-1-git-send-email-Sandeep.Kumar@freescale.com> <20091029.212142.189578068.davem@davemloft.net>
+From: Hannes Reinecke <hare@suse.de>
+Subject: Re: [PATCH] udev: create empty regular files to represent net 	interfaces
+Date: Fri, 30 Oct 2009 08:45:01 +0100
+Message-ID: <4AEA997D.7070205@suse.de>
+References: <20091016214024.GA10091@ldl.fc.hp.com> <20091022063619.GB6321@ldl.fc.hp.com> 	<20091027205551.GA31963@auslistsprd01.us.dell.com> <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: "Fleming Andy-AFLEMING" <afleming@freescale.com>,
-	"David Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:33995 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750983AbZJ3HWa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 03:22:30 -0400
-Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
-	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n9U7MXFr012698
-	for <netdev@vger.kernel.org>; Fri, 30 Oct 2009 00:22:34 -0700 (MST)
-Received: from zin33exm22.fsl.freescale.net (zin33exm22.ap.freescale.net [10.232.192.20])
-	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id n9U7PsPC009076
-	for <netdev@vger.kernel.org>; Fri, 30 Oct 2009 02:25:55 -0500 (CDT)
-Content-class: urn:content-classes:message
-In-Reply-To: <20091029.212142.189578068.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Matt Domsch <Matt_Domsch@dell.com>, dann frazier <dannf@hp.com>,
+	linux-hotplug@vger.kernel.org, Narendra_K@dell.com,
+	netdev@vger.kernel.org, Jordan_Hargrave@dell.com,
+	Charles_Rose@dell.com, Ben Hutchings <bhutchings@solarflare.com>
+To: Kay Sievers <kay.sievers@vrfy.org>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+In-Reply-To: <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- 
+Kay Sievers wrote:
+> On Tue, Oct 27, 2009 at 21:55, Matt Domsch <Matt_Domsch@dell.com> wro=
+te:
+>> On Thu, Oct 22, 2009 at 12:36:20AM -0600, dann frazier wrote:
+>>> Here's a proof of concept to further the discussion..
+>>>
+>>> The default filename uses the format:
+>>>   /dev/netdev/by-ifindex/$ifindex
+>>>
+>>> This provides the infrastructure to permit udev rules to create ali=
+ases for
+>>> network devices using symlinks, for example:
+>>>
+>>>   /dev/netdev/by-name/eth0 -> ../by-ifindex/1
+>>>   /dev/netdev/by-biosname/LOM0 -> ../by-ifindex/3
+>>>
+>>> A library (such as the proposed libnetdevname) could use this infor=
+mation
+>>> to provide an alias->realname mapping for network utilities.
+>> yes, this could work, as IFINDEX is already exported in the uevents,
+>> and that's the primary value udev needs to set up the mapping.
+>>
+>> While I like the little ifindex2name script you've got, I think udev
+>> could simply call if_indextoname() to get this, and not call an
+>> external program?  I suppose it could be a really really simple
+>> external program too.
+>=20
+> What's the point of all this? Why would udev ever need to find the
+> name of a device by the ifindex? The device name is the primary value
+> for the kernel events udev acts on.
+>=20
+>> I'd be fine with this approach.  It has the advantages of not
+>> requiring a kernel change at all, and not creating a whole character
+>> device which would be useless.  And it doesn't preclude someone in t=
+he
+>> future from creating a char device for network devices should they s=
+o
+>> choose.
+>>
+>> Kay, what say you as udev owner?
+>=20
+> That all sounds very much like something which will hit us back some
+> day. I'm not sure, if udev should publish such dead text files in
+> /dev, it does not seem to fit the usual APIs/assumptions where /sys
+> and /dev match, and libudev provides access to both. It all sounds
+> more like a database for a possible netdevname library, which does no=
+t
+> need to be public in /dev, right?
+>=20
+And to throw in some bit of useless information;
 
->Did you try the bundle I posted yesterday which failed?  This 
->one is identical, you didn't change anything.
->
->This is getting rediculious.
->
->Try again, and when you do take the patches from patchwork at:
->
->	http://patchwork.ozlabs.org/project/netdev/list/
->
->and you try to apply them to net-next-2.6 using git (_not_ 
->'patch', 'patch' is way too lenient about fuzz and line 
->offsets) so that you can see what's happening.
->
->I'm completely ignoring your patch postings until you sort this out.
+I've pondered the idea of persistent device names for network interface=
+s
+a while back when designing the original layout of the persistent
+device naming scheme.
 
-1. The patch failure is due to the absence of following commit in
-net-next-2.6 tree.
-	
-	commit e72701acbe0b35e52d3f04d442837c06b4e64f1c
-	Author: Anton Vorontsov <avorontsov@ru.mvista.com>
-	Date:   Wed Oct 14 14:54:52 2009 -0700
+The one reason I didn't to this was that a network interface is
+_not_ a file, but rather an abstract type which is known only internall=
+y
+in the kernel (ie the one exemption from the 'everything is a file'
+UNIX rule).
+And as udev is primarily concerned with the _files_, using it for
+network interfaces would be a workaround at best.
 
-	    net: Fix OF platform drivers coldplug/hotplug when compiled
-as modules
+When I were to design this, I would be implementing network interface
+_aliases_, so that a network interface could be accessed either by
+name or by alias. This mechanism can then be managed by udev, much
+like we (ie SUSE) is using it nowadays to assign the network interface
+numbers.
 
-	    Some OF platform drivers are missing module device tables,
-so they won't
-	    load automatically on boot. This patch fixes the issue by
-adding proper
-	    MODULE_DEVICE_TABLE() macros to the drivers.
+But the mechanism for the aliases has to live in the same instance whic=
+h
+also handles the network interface nowadays, ie the net subsystem of
+the kernel. Implementing this in udev is _not_ the way to go.
 
-	Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
-      Signed-off-by: David S. Miller <davem@davemloft.net>
+Cheers,
 
-2. The git clone DOES NOT show the changes affected by the above patch
-3. If we take a log of the affected file(fsl_pq_mdio.c), then it DOES
-show the commit/changes 
-   (Gitweb:
-http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=histo
-ry;f=drivers/net/fsl_pq_mdio.c;h=6ac4648669728421b934d32646ffbb626128387
-6;hb=HEAD)
-4. If we take the log of the tree, the same commit is NOT visible. 
-  (Gitweb:
-http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=log)
-5. If we take a Snapshot of the tree, the changes to the file are
-present. (in the tarball)
+Hannes
 
-To sum up, the Clone and Tree log DOES NOT show the changes.
-The Snapshot and file log DOES show it.
-
-We have tried it on multiple machine/tree clones here.
-Is there some problem with the Git tree itself?
-
->
->You cannot have line offsets or fuzz when you send patches 
->that are to be applied by GIT, and that is the problem with patch #4:
->
->davem@sunset:~/src/GIT/net-next-2.6$ patch -p1 <diff patching 
->file drivers/net/fsl_pq_mdio.c Hunk #6 succeeded at 436 with fuzz 1.
->patching file drivers/net/fsl_pq_mdio.h
->
->GIT does not allow line fuzz, you must make absolutely 
->pristine patches, and therefore if you are testing your 
->submission with just 'patch' that absolutely will not work.
-No we are using git-am.
-We did try this on multiple clones of the net-next-2.6 tree.
->
->Thanks.
->--
->To unsubscribe from this list: send the line "unsubscribe 
->netdev" in the body of a message to majordomo@vger.kernel.org 
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-
-
-
+--=20
+Dr. Hannes Reinecke		      zSeries & Storage
+hare@suse.de			      +49 911 74053 688
+SUSE LINUX Products GmbH, Maxfeldstr. 5, 90409 N=C3=BCrnberg
+GF: Markus Rex, HRB 16746 (AG N=C3=BCrnberg)
 --
-
-Thanks
-Sandeep
+To unsubscribe from this list: send the line "unsubscribe linux-hotplug=
+" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
