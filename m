@@ -1,34 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix RPF to work with policy routing
-Date: Thu, 29 Oct 2009 22:51:56 -0700 (PDT)
-Message-ID: <20091029.225156.213496658.davem@davemloft.net>
-References: <1255867954.4815.25.camel@dogo.mojatatu.com>
+Subject: Re: [PATCH 0/6] sky2: driver update
+Date: Thu, 29 Oct 2009 22:53:33 -0700 (PDT)
+Message-ID: <20091029.225333.237745260.davem@davemloft.net>
+References: <20091029163704.793246334@vyatta.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, atis@mikrotik.com, eric.dumazet@gmail.com,
-	zenczykowski@gmail.com
-To: hadi@cyberus.ca
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49096
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49101
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754764AbZJ3Fvc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 01:51:32 -0400
-In-Reply-To: <1255867954.4815.25.camel@dogo.mojatatu.com>
+	by vger.kernel.org with ESMTP id S1754731AbZJ3FxJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 01:53:09 -0400
+In-Reply-To: <20091029163704.793246334@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: jamal <hadi@cyberus.ca>
-Date: Sun, 18 Oct 2009 08:12:33 -0400
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Thu, 29 Oct 2009 09:37:04 -0700
 
-> commit f7c6fd2465d8e6f4f89c5d1262da10b4a6d499d0
-> Author: Jamal Hadi Salim <hadi@cyberus.ca>
-> Date:   Sun Oct 18 08:04:51 2009 -0400
-> 
->     [PATCH] net: Fix RPF to work with policy routing
->     Policy routing is not looked up by mark on reverse path filtering.
->     This fixes it.
->     
->     Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+> This patch set adds support for Yukon Optima (88E8059) based
+> on the vendor driver.  Hopefully, it can go in 2.6.32.
 
-Applied to net-2.6, thanks.
+Sorry, this is too much too late.  You don't even have the hardware
+to test the changes you are making to the driver which makes this
+even more questionable for net-2.6
+
+I'll toss this into net-next-2.6 and let's let it cook there for
+a while at least.
+
+If you want to pick out a small bug fix or two from this series
+for net-2.6, please feel free to resubmit them specifically for
+net-2.6 inclusion.
+
+Thanks.
