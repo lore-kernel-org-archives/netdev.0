@@ -1,32 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sky2: set carrier off in probe
-Date: Thu, 29 Oct 2009 21:38:16 -0700 (PDT)
-Message-ID: <20091029.213816.35637194.davem@davemloft.net>
-References: <20091030035128.GA3380@jenkins.home.ifup.org>
-	<20091029.211219.182331672.davem@davemloft.net>
-	<20091030043050.GB3380@jenkins.home.ifup.org>
+From: Rakesh Ranjan <rakesh@chelsio.com>
+Subject: Re: [RFC-PATCH] dhcp provisioning support in cxgb3i
+Date: Fri, 30 Oct 2009 10:54:00 +0530
+Message-ID: <4AEA7870.4010804@chelsio.com>
+References: <4AE995C4.4080909@chelsio.com> <4AEA04A4.1060800@cs.wisc.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: bphilips@suse.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44927
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752208AbZJ3Ehw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 00:37:52 -0400
-In-Reply-To: <20091030043050.GB3380@jenkins.home.ifup.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, James Bottomley <James.Bottomley@suse.de>,
+	Karen Xie <kxie@chelsio.com>,
+	"open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Mike Christie <michaelc@cs.wisc.edu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755342AbZJ3FYR@vger.kernel.org>
+In-Reply-To: <4AEA04A4.1060800@cs.wisc.edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Brandon Philips <bphilips@suse.de>
-Date: Thu, 29 Oct 2009 21:30:50 -0700
+Mike Christie wrote:
+> Rakesh Ranjan wrote:
+>> Hi Mike,
+>>
+>> Herein attached patches for having dhcp provisioning support in 
+>> cxgb3i. I have added one new iscsi netlink message 
+>> ISCSI_UEVENT_REQ_IPCONF. 
+> 
+> Is the idea to have iscsid/uip send down this msg?
+> 
+> Was it not possible to hook in more like how bnx2i does dhcp?
 
-> The buglet is that other drivers seem to report "Link detected: no"
-> after probe while sky2 doesn't.
+yep, idea is to have iscsid send down ISCSI_UEVENT_REQ_IPCONF msg. bnx2i 
+approach in our case for at least T3 is not feasible.
 
-I agree that we should report something consistent before interface
-up and 'no' is probably the best.
-
-I remember fixing something similar in other drivers a few months
-ago.
+Regards
+Rakesh Ranjan
