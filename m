@@ -1,65 +1,77 @@
-From: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2009-10-28
-Date: Fri, 30 Oct 2009 21:44:27 +0100
-Message-ID: <20091030204427.GA2962@ami.dom.local>
-References: <1256886023.3555.5.camel@johannes.local>
- <20091030110616.GB6150@ff.dom.local>
- <20091030150223.GA2586@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20091030150223.GA2586-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH 0/6] Bonding simplifications and netns support
+Date: Fri, 30 Oct 2009 14:12:30 -0700
+Message-ID: <21200.1256937150@death.nxdomain.ibm.com>
+References: <m1tyxhwxah.fsf@fess.ebiederm.org> <20091030.124153.00934819.davem@davemloft.net>
+Cc: ebiederm@xmission.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e39.co.us.ibm.com ([32.97.110.160]:45070 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932861AbZJ3VMm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 17:12:42 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e39.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id n9UL6hen020853
+	for <netdev@vger.kernel.org>; Fri, 30 Oct 2009 15:06:43 -0600
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id n9ULCgUr247688
+	for <netdev@vger.kernel.org>; Fri, 30 Oct 2009 15:12:42 -0600
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n9ULECq5024130
+	for <netdev@vger.kernel.org>; Fri, 30 Oct 2009 15:14:12 -0600
+In-reply-to: <20091030.124153.00934819.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 30, 2009 at 11:02:24AM -0400, John W. Linville wrote:
-> On Fri, Oct 30, 2009 at 11:06:16AM +0000, Jarek Poplawski wrote:
-> 
-> > There are various ways to disagree, and ignoring by John questions
-> > from a merited developer both in this referenced lkml and current
-> > threads looks at least strange (if not offensive) as well.
-> 
-> Did you read the thread for which Bartlomiej provided a link earlier?
-> There were ten responses (only three of them from him) in that thread.
-> His comments were not ignored, they were rejected.
-> 
-> Ever since Bartlomiej decided to tear himself away from
-> drivers/staging, he has been nothing but negative -- petty, whining,
-> indignat, whatever.  Just what has he done to merit any special
-> consideration here?  Why should he have any sort of veto over rt2x00?
-> 
-> And of all things on which to take a stand -- how dare the rt2x00 guys
-> use two header files instead of three?  The nerve of those people!!!
-> 
-> Ridiculous...
+David Miller <davem@davemloft.net> wrote:
 
-Maybe. Different tastes for sure, so simply no good solution.
+>From: ebiederm@xmission.com (Eric W. Biederman)
+>Date: Thu, 29 Oct 2009 17:16:54 -0700
+>
+>> I recently had it pointed out to me that the bonding driver does not
+>> work in a network namespace.  So I have simplified the bonding driver
+>> a bit, added support for ip link add and ip link del, and finally made
+>> the bonding driver work in multiple network namespaces.
+>> 
+>> The most note worthy change in the patchset is the addition of support
+>> in the networking core for registering a sysfs group for a device.
+>> 
+>> Using this in the bonding driver simplifies the code and removes a
+>> userspace race between actions triggered by the netlink event and the
+>> bonding sysfs attributes appearing.
+>
+>I've tossed patches 1-7 into net-next-2.6, thanks Eric.
 
-Anyway, my point was somewhere else: Davem could be a good example;-)
-I simply can't imagine a thread with such concerns left completely
-uncommented before merging a patch. It's not about convincing anybody.
-Usually you know at least if the concern is dismissed, or valid, but
-fixable. (Sometimes you can even read between lines, or explicit, what
-he really thinks...)
+	I put patches 1-7 on a recent net-next-2.6, and from a simple
+"insmod bonding.ko; rmmod bonding" I'm seeing the following:
 
-This discussion is mainly around trying to omit a maintainer with
-"higher authority". Of course it's a mortal sin! ...Except, when the
-maintainer doesn't seem to respond at all.
+------------[ cut here ]------------
+WARNING: at fs/proc/generic.c:847 remove_proc_entry+0x1a8/0x1c7()
+Hardware name: IBM eserver xSeries 220 -[8645]-
+remove_proc_entry: removing non-empty directory 'net/bonding', leaking at least 
+'bond0'
+Modules linked in: bonding(-) ipv6 microcode loop ppdev sworks_agp parport_pc tg
+3 e100 agpgart parport mii libphy e1000 edd pata_serverworks [last unloaded: spe
+edstep_lib]
+Pid: 6216, comm: rmmod Not tainted 2.6.32-rc3-devel #19
+Call Trace:
+ [<c012ec9d>] warn_slowpath_common+0x60/0x90
+ [<c012ed01>] warn_slowpath_fmt+0x24/0x27
+ [<c01e3e55>] remove_proc_entry+0x1a8/0x1c7
+ [<e0906435>] ? bond_net_exit+0x0/0xa3 [bonding]
+ [<e09064c3>] bond_net_exit+0x8e/0xa3 [bonding]
+ [<c02e6ee8>] unregister_pernet_gen_subsys+0x23/0x3d
+ [<e0910baa>] bonding_exit+0x3a/0x66 [bonding]
+ [<c015ccf3>] sys_delete_module+0x191/0x1f1
+ [<c0147a30>] ? up_read+0x16/0x2a
+ [<c0102a18>] ? restore_all_notrace+0x0/0x18
+ [<c0353357>] ? do_page_fault+0x0/0x393
+ [<c0102904>] sysenter_do_call+0x12/0x32
+---[ end trace 8f3eaeee682a572c ]---
 
-BTW, it seems Bartlomiej's main argument in the current thread has
-changed to the non-working driver, so ridiculous only if you have a
-clue.
+	Any thoughts?  I have not as yet investigated further.
 
-Jarek P.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
