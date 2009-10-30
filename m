@@ -1,51 +1,79 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: pull request: wireless-next-2.6 2009-10-28
-Date: Fri, 30 Oct 2009 11:06:16 +0000
-Message-ID: <20091030110616.GB6150@ff.dom.local>
-References: <1256886023.3555.5.camel@johannes.local>
+From: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+Subject: Re: [PATCH 2/8] param: use ops in struct kernel_param, rather than get and set fns directly
+Date: Fri, 30 Oct 2009 21:43:39 +1030
+Message-ID: <200910302143.40268.rusty@rustcorp.com.au>
+References: <20091022142337.EC4A85362F@mx1.suse.de> <s5hvdhxyyl7.wl%tiwai@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	David Miller <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linville@tuxdriver.com
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f227.google.com ([209.85.218.227]:64162 "EHLO
-	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757142AbZJ3LGP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 07:06:15 -0400
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ville Syrjala <syrjala-ORSVBvAovxo@public.gmane.org>,
+	Dmitry Torokhov <dmitry.torokhov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Alessandro Rubini <rubini-JCs+bAQazDroPXhRcRtihA@public.gmane.org>,
+	Michal Januszewski <spock-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>, linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-fbdev-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <s5hvdhxyyl7.wl%tiwai-l3A5Bk7waGM@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1256886023.3555.5.camel@johannes.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 30-10-2009 08:00, Johannes Berg wrote:
-> On Thu, 2009-10-29 at 22:48 +0100, Bartlomiej Zolnierkiewicz wrote:
+On Fri, 30 Oct 2009 08:48:12 pm Takashi Iwai wrote:
+> At Fri, 23 Oct 2009 00:51:28 +1030,
+> Rusty Russell wrote:
+> > 
+> > This is more kernel-ish, saves some space, and also allows us to
+> > expand the ops without breaking all the callers who are happy for the
+> > new members to be NULL.
+> > 
+> > The few places which defined their own param types are changed to the
+> > new scheme.
+> > 
+> > Since we're touching them anyway, we change get and set to take a
+> > const struct kernel_param (which they were, and will be again).
+> > 
+> > To reduce churn, module_param_call creates the ops struct so the callers
+> > don't have to change (and casts the functions to reduce warnings).
+> > The modern version which takes an ops struct is called module_param_cb.
 > 
->> I don't think that my technical arguments are pointless.
->>
->> Quite the contrary, I'm pretty confident that addressing my review concerns
->> would result in better RT28x00 / RT30x0 support in the very near future.
+> This is nice, as it also reduces the size of struct kernel_param, so
+> each parameter uses less footprint (who cares, though?) :)
 > 
-> So you know how to make the driver better, whine that it doesn't work,
-> but don't help out either. Hey, good way to collaborate!
-> 
->>> It should be pretty obvious by now that the best way to improve things
->>> is to work with the relevant maintainers, not against them. (Unless
->>> you wish your work to be ignored, of course.)
->> I work with a lot of other maintainers.  I would say that providing valuable
->> review feedback is also "working with" (at least I would be very happy with
->> such feedback in my projects).
-> 
-> Face it though, people have read your feedback, thought about it, and
-> decided to disagree. You seem to have a childish problem with that,
-> appealing to higher authority to get your way just makes you look more
-> childish.
+> But, just wondering whether we still need to export get/set
+> functions.  They can be called from ops now, so if any, it can be
+> defined even as an inlinefunction or a macro.
 
-There are various ways to disagree, and ignoring by John questions
-from a merited developer both in this referenced lkml and current
-threads looks at least strange (if not offensive) as well.
+My thought too, so I tried that, but many are still used like so:
 
-Jarek P.
+	module_param_call(foo, set_foo, param_get_uint, NULL, 0644);
+
+They can all be replaced in time with something like:
+	static int param_get_foo(char *buffer, const struct kernel_param *kp)
+	{
+		return param_ops_uint.get(buffer, kp);
+	}
+
+But it'll take a transition period.
+
+Thanks!
+Rusty.
+
+
+
+> 
+> 
+> thanks,
+> 
+> Takashi
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
