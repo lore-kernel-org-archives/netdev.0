@@ -1,46 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: How to use gretap with bridge?
-Date: Fri, 30 Oct 2009 12:27:26 -0700 (PDT)
-Message-ID: <20091030.122726.194308238.davem@davemloft.net>
-References: <846C5B546E47494CBBD796CA8CA1617EA3B43C@MST-VMAIL1.srv.mst.edu>
-	<20091030155148.GA8283@gondor.apana.org.au>
-	<20091030093957.7128c596@nehalam>
+Subject: Re: [PATCH] sky2: set carrier off in probe
+Date: Fri, 30 Oct 2009 12:28:19 -0700 (PDT)
+Message-ID: <20091030.122819.190362506.davem@davemloft.net>
+References: <20091029235807.GF3228@jenkins.home.ifup.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, nneul@mst.edu, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: bphilips@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52358
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52363
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932167AbZJ3T1C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 15:27:02 -0400
-In-Reply-To: <20091030093957.7128c596@nehalam>
+	by vger.kernel.org with ESMTP id S932204AbZJ3T1z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 15:27:55 -0400
+In-Reply-To: <20091029235807.GF3228@jenkins.home.ifup.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Fri, 30 Oct 2009 09:39:57 -0700
+From: Brandon Philips <bphilips@suse.de>
+Date: Thu, 29 Oct 2009 16:58:07 -0700
 
-> On Fri, 30 Oct 2009 11:51:48 -0400
-> Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> Before bringing up a sky2 interface up ethtool reports 
+> "Link detected: yes". Do as ixgbe does and netif_carrier_off() on
+> probe().
 > 
->> gre: Fix dev_addr clobbering for gretap
->> 
->> Nathan Neulinger noticed that gretap devices get their MAC address
->> from the local IP address, which results in invalid MAC addresses
->> half of the time.
->> 
->> This is because gretap is still using the tunnel netdev ops rather
->> than the correct tap netdev ops struct.
->> 
->> This patch also fixes changelink to not clobber the MAC address
->> for the gretap case.
->> 
->> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
->> 
->> Thanks,
-> 
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: Brandon Philips <bphilips@suse.de>
 
-Applied to net-2.6, thanks!
+Applied to net-2.6, thanks.
