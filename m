@@ -1,58 +1,63 @@
-From: Karol Lewandowski <karol.k.lewandowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
-	failures V2
-Date: Fri, 30 Oct 2009 15:23:50 +0100
-Message-ID: <20091030142350.GA9343@bizet.domek.prywatny>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <20091023165810.GA4588@bizet.domek.prywatny> <20091023211239.GA6185@bizet.domek.prywatny> <9ec2d7290910240646p75b93c68v6ea1648d628a9660@mail.gmail.com> <20091028114208.GA14476@bizet.domek.prywatny> <20091028115926.GW8900@csn.ul.ie>
+From: Benjamin LaHaise <bcrl@lhnet.ca>
+Subject: Re: [PATCH] net: allow netdev_wait_allrefs() to run faster
+Date: Fri, 30 Oct 2009 10:35:27 -0400
+Message-ID: <20091030143527.GA3141@kvack.org>
+References: <20091017221857.GG1925@kvack.org> <4ADB55BC.5020107@gmail.com> <20091018182144.GC23395@kvack.org> <200910211539.01824.opurdila@ixiacom.com> <4ADF2B57.4030708@gmail.com> <20091021165139.GL877@kvack.org> <m1d445yf2x.fsf@fess.ebiederm.org> <20091029233848.GV3141@kvack.org> <m1vdhxu01v.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Karol Lewandowski <karol.k.lewandowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Mel LKML <mel.lkml-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>,
-	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	Sven Geggus <lists-+AJD3D7QEjjt/htJsj1pd9AswbaBtrod@public.gmane.org>,
-	Tobias Oetiker <tobi-7K0TWYW2a3pyDzI6CaY1VQ@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Reinette Chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>,
-	David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	Mohamed Abbas <mohamed.abbas-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Jens Axboe <jens.axboe-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
-	Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	Stephan von Krawczynski <skraw-DcQCyzbjH0jQT0dZR+AlfA@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org"
-To: Mel Gorman <mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Octavian Purdila <opurdila@ixiacom.com>,
+	netdev@vger.kernel.org, Cosmin Ratiu <cratiu@ixiacom.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kanga.kvack.org ([205.233.56.17]:46013 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932180AbZJ3OfX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Oct 2009 10:35:23 -0400
 Content-Disposition: inline
-In-Reply-To: <20091028115926.GW8900-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <m1vdhxu01v.fsf@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 28, 2009 at 11:59:26AM +0000, Mel Gorman wrote:
-> On Wed, Oct 28, 2009 at 12:42:08PM +0100, Karol Lewandowski wrote:
-> > On Sat, Oct 24, 2009 at 02:46:56PM +0100, Mel LKML wrote:
-> > I've tested patches 1+2+3+4 in my normal usage scenario (do some work,
-> > suspend, do work, suspend, ...) and it failed today after 4 days (== 4
-> > suspend-resume cycles).
-> > 
-> > I'll test 1-5 now.
+On Thu, Oct 29, 2009 at 06:45:32PM -0700, Eric W. Biederman wrote:
+> The reason for the existence of sysfs_dirent is as things grow larger
+> we want to keep the amount of RAM consumed down.  So we don't pin
+> everything in the dcache.  So we try and keep the amount of memory
+> consumed down.
 
-2.6.32-rc5 with patches 1-5 fails too.
+I'm aware of that, but for users running into this sort of scaling issue, 
+the amount of RAM required is a non-issue (30,000 interfaces require about 
+1GB of RAM at present), making the question more one of how to avoid the 
+overhead for users who don't require it.  I'd prefer a config option.  The 
+only way I can really see saving memory usage is to somehow tie sysfs dirent 
+lookups into the network stack's own tables for looking up device entries.  
+The network stack already has to cope with this kind of scaling, and that 
+would save the RAM.
 
+> So I would like to see how much we can par down.
 
-> Also, what was the behaviour of the e100 driver when suspending before
-> this commit?
-> 
-> 6905b1f1a03a48dcf115a2927f7b87dba8d5e566: Net / e100: Fix suspend of devices that cannot be power managed
+> For dealing with seeks in the middle of readdir I expect the best way
+> to do that is to be inspired by htrees in extNfs and return a hash of
+> the filename as our position, and keep the filename list sorted by
+> that hash.  Since we are optimizing for size we don't need to store
+> that hash.  Then we can turn that list into a some flavor of sorted
+> binary tree.
 
-This was discussed before with e100 maintainers and Rafael.  Reverting
-this patch didn't change anything.
+readdir() generally isn't an issue at present.
 
+> I'm surprised sysfs_count_nlink shows up, as it is not directly on the
+> add or remove path.  I think the answer there is to change s_flags
+> into a set of bitfields and make link_count one of them, perhaps
+> 16bits long.  If we ever overflow our bitfield we can just set link
+> count to 0, and userspace (aka find) will know it can't optimized
+> based on link count.
 
-Thanks.
+It shows up because of the bits of userspace (udev) touching the directory 
+from things like the hotplug code path.
+
+> I was expecting someone to run into problems with the linear directory
+> of sysfs someday.
+
+Alas, sysfs isn't the only offender.
+
+		-ben
