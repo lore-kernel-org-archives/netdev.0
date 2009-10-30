@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ax25: unsigned cannot be less than 0 in
- ax25_ctl_ioctl()
-Date: Thu, 29 Oct 2009 23:06:53 -0700 (PDT)
-Message-ID: <20091029.230653.256114041.davem@davemloft.net>
-References: <4AD37D44.9050207@gmail.com>
-	<4AD3A67B.6070703@cerebellum.kd>
-	<4AD5EDA6.4040709@gmail.com>
+Subject: Re: [patch]convert kaweth to use usb_reset_configuration()
+Date: Thu, 29 Oct 2009 23:07:04 -0700 (PDT)
+Message-ID: <20091029.230704.156188825.davem@davemloft.net>
+References: <200910291607.12382.oliver@neukum.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kevind@esi.com.au, wharms@bfs.de, linux-hams@vger.kernel.org,
-	netdev@vger.kernel.org, jreuter@yaina.de, akpm@linux-foundation.org
-To: roel.kluin@gmail.com
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <4AD5EDA6.4040709@gmail.com>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: sarah.a.sharp@linux.intel.com, netdev@vger.kernel.org
+To: oliver@neukum.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58420
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755662AbZJ3GGk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 02:06:40 -0400
+In-Reply-To: <200910291607.12382.oliver@neukum.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Roel Kluin <roel.kluin@gmail.com>
-Date: Wed, 14 Oct 2009 17:26:30 +0200
+From: Oliver Neukum <oliver@neukum.org>
+Date: Thu, 29 Oct 2009 16:07:12 +0100
 
-> struct ax25_ctl_struct member `arg' is unsigned and cannot be less
-> than 0.
+> For USB 3.0 it is necessary that all drivers use the standard
+> API to reset a configuration. This removes a home-grown
+> implementation.
 > 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> Signed-off-by: Oliver Neukum <oliver@neukum.org>
+> 
+> Hi David,
+> 
+> please take this for the next merge window.
 
-Applied to net-next-2.6
+Applied to net-next-2.6, thanks Oliver.
