@@ -1,58 +1,43 @@
-From: md@Linux.IT (Marco d'Itri)
-Subject: Re: [PATCH] udev: create empty regular files to represent net
-	interfaces
-Date: Fri, 30 Oct 2009 07:22:49 +0100
-Message-ID: <20091030062249.GB5430@bongo.bofh.it>
-References: <20091016214024.GA10091@ldl.fc.hp.com> <20091022063619.GB6321@ldl.fc.hp.com> <20091027205551.GA31963@auslistsprd01.us.dell.com> <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com> <20091029131125.GA13809@auslistsprd01.us.dell.com> <20091029142554.GA16869@kroah.com> <20091029174600.GC3612@ldl.fc.hp.com> <20091030033029.GA4412@bongo.bofh.it> <20091030053824.GA25540@ldl.fc.hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/6] Bonding simplifications and netns support
+Date: Thu, 29 Oct 2009 23:25:23 -0700 (PDT)
+Message-ID: <20091029.232523.66969302.davem@davemloft.net>
+References: <m1tyxhwxah.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="PNTmBPCT7hxwcZjr"
-Cc: Greg KH <greg@kroah.com>, Matt Domsch <Matt_Domsch@dell.com>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	linux-hotplug@vger.kernel.org, Narendra_K@dell.com,
-	netdev@vger.kernel.org, Jordan_Hargrave@dell.com,
-	Charles_Rose@dell.com, Ben Hutchings <bhutchings@solarflare.com>
-To: dann frazier <dannf@hp.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091030053824.GA25540@ldl.fc.hp.com>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com
+To: ebiederm@xmission.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42108
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755836AbZJ3GY7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 02:24:59 -0400
+In-Reply-To: <m1tyxhwxah.fsf@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Thu, 29 Oct 2009 17:16:54 -0700
 
---PNTmBPCT7hxwcZjr
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> I recently had it pointed out to me that the bonding driver does not
+> work in a network namespace.  So I have simplified the bonding driver
+> a bit, added support for ip link add and ip link del, and finally made
+> the bonding driver work in multiple network namespaces.
+> 
+> The most note worthy change in the patchset is the addition of support
+> in the networking core for registering a sysfs group for a device.
+> 
+> Using this in the bonding driver simplifies the code and removes a
+> userspace race between actions triggered by the netlink event and the
+> bonding sysfs attributes appearing.
 
-On Oct 30, dann frazier <dannf@hp.com> wrote:
+I have no objections to these patches, but I'd like the bonding
+folks to have a chance to look at it before I apply to net-next-2.6
 
-> On Fri, Oct 30, 2009 at 04:30:29AM +0100, Marco d'Itri wrote:
-> > On Oct 29, dann frazier <dannf@dannf.org> wrote:
-> >=20
-> > > That would make a lot of users much happier (myself included), but it
-> > > does restrict us into one view. At different times, admins think of
-> > > their NICs by different properties. I may want to do IP assignment by
-> > [Citation needed]
-> Is "I" not clear, or do you just not believe I admin servers?
-I was referring to "At different times, admins think of their NICs by
-different properties", which I am not sure is a valid generalization.
+One question though, are you sure this clever extra slot scheme
+in patch #1 works for, f.e., a bond of wireless devices?  It seems
+like it would work out, but I wanted to ask to make sure you
+considered that case.
 
---=20
-ciao,
-Marco
-
---PNTmBPCT7hxwcZjr
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAkrqhjgACgkQFGfw2OHuP7HX3ACbBiEzjOrKRfhujZjHqzp23Jmy
-FJUAnikjgfvV+QVgFvh8s4yYQCKJDv56
-=HE2Z
------END PGP SIGNATURE-----
-
---PNTmBPCT7hxwcZjr--
+Thanks.
