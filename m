@@ -1,38 +1,37 @@
-From: dann frazier <dannf@hp.com>
-Subject: Re: [PATCH] udev: create empty regular files to represent net
- interfaces
-Date: Thu, 29 Oct 2009 23:38:25 -0600
-Message-ID: <20091030053824.GA25540@ldl.fc.hp.com>
-References: <20091016214024.GA10091@ldl.fc.hp.com>
- <20091022063619.GB6321@ldl.fc.hp.com>
- <20091027205551.GA31963@auslistsprd01.us.dell.com>
- <ac3eb2510910280123g3c0e3d95wb38a239238906027@mail.gmail.com>
- <20091029131125.GA13809@auslistsprd01.us.dell.com>
- <20091029142554.GA16869@kroah.com>
- <20091029174600.GC3612@ldl.fc.hp.com>
- <20091030033029.GA4412@bongo.bofh.it>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH kernel 2.6.32-rc5] pcnet_cs: add cis of PreMax PE-200
+ ethernet pcmcia card
+Date: Thu, 29 Oct 2009 22:51:38 -0700 (PDT)
+Message-ID: <20091029.225138.238429920.davem@davemloft.net>
+References: <20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
+	<20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
+	<20091018103920.ca9217ee.ken_kawasaki@spring.nifty.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Greg KH <greg@kroah.com>, Matt Domsch <Matt_Domsch@dell.com>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	linux-hotplug@vger.kernel.org, Narendra_K@dell.com,
-	netdev@vger.kernel.org, Jordan_Ha
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091030033029.GA4412@bongo.bofh.it>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ken_kawasaki@spring.nifty.jp
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38373
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754731AbZJ3FvO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 01:51:14 -0400
+In-Reply-To: <20091018103920.ca9217ee.ken_kawasaki@spring.nifty.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 30, 2009 at 04:30:29AM +0100, Marco d'Itri wrote:
-> On Oct 29, dann frazier <dannf@dannf.org> wrote:
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Date: Sun, 18 Oct 2009 10:39:20 +0900
+
 > 
-> > That would make a lot of users much happier (myself included), but it
-> > does restrict us into one view. At different times, admins think of
-> > their NICs by different properties. I may want to do IP assignment by
-> [Citation needed]
+> pcnet_cs,serial_cs:
+> 
+> add cis of PreMax ethernet pcmcia card,
+> and some Sierra Wireless serial card(AC555, AC7xx, AC8xx).
+> 
+> use PROD_ID for AC7xx, because MANF_ID of AC7xx and AC8xx are the same.
+> 
+> 
+> Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
 
-Is "I" not clear, or do you just not believe I admin servers?
-
--- 
-dann frazier
-
+Applied to net-2.6, thanks.
