@@ -1,43 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] Bonding simplifications and netns support
-Date: Thu, 29 Oct 2009 23:25:23 -0700 (PDT)
-Message-ID: <20091029.232523.66969302.davem@davemloft.net>
-References: <m1tyxhwxah.fsf@fess.ebiederm.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 4/6] vlan: Optimize multiple unregistration
+Date: Fri, 30 Oct 2009 07:30:43 +0100
+Message-ID: <4AEA8813.9090505@gmail.com>
+References: <4AE728A9.2080209@gmail.com> <4AE8A425.1000600@trash.net> <4AE8ADE7.1010909@gmail.com> <4AE99C88.40403@trash.net> <4AE9A554.8030207@trash.net> <4AE9A6F6.5040209@gmail.com> <4AE9A7AA.70107@trash.net> <4AE9AA01.3020805@gmail.com> <4AE9D000.90603@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com
-To: ebiederm@xmission.com
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42108
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755836AbZJ3GY7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 02:24:59 -0400
-In-Reply-To: <m1tyxhwxah.fsf@fess.ebiederm.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:35361 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754731AbZJ3Gan (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 02:30:43 -0400
+In-Reply-To: <4AE9D000.90603@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Thu, 29 Oct 2009 17:16:54 -0700
+Patrick McHardy a =E9crit :
+> Eric Dumazet wrote:
+>> Patrick McHardy a =E9crit :
+>>
+>>> Indeed, but unregister_vlan_dev() destroys the group once the
+>>> count has reached zero, so we must not access it after that.
+>> Well, I hoped call_rcu() callback doesnt fire and kfree(grp) until w=
+e exited
+>> from unregister_vlan_dev_alls(), with RTNL locked...
+>=20
+> The RTNL is a mutex, so it shouldn't prevent call_rcu from firing.
 
-> I recently had it pointed out to me that the bonding driver does not
-> work in a network namespace.  So I have simplified the bonding driver
-> a bit, added support for ip link add and ip link del, and finally made
-> the bonding driver work in multiple network namespaces.
-> 
-> The most note worthy change in the patchset is the addition of support
-> in the networking core for registering a sysfs group for a device.
-> 
-> Using this in the bonding driver simplifies the code and removes a
-> userspace race between actions triggered by the netlink event and the
-> bonding sysfs attributes appearing.
+Oops this is totally right of course, so your patch is actually a bug f=
+ix :)
 
-I have no objections to these patches, but I'd like the bonding
-folks to have a chance to look at it before I apply to net-next-2.6
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-One question though, are you sure this clever extra slot scheme
-in patch #1 works for, f.e., a bond of wireless devices?  It seems
-like it would work out, but I wanted to ask to make sure you
-considered that case.
-
-Thanks.
