@@ -1,221 +1,129 @@
 From: Andy Grover <andy.grover@oracle.com>
-Subject: [PATCH 5/5] RDS/IB+IW: Move recv processing to a tasklet
-Date: Fri, 30 Oct 2009 11:51:57 -0700
-Message-ID: <1256928717-17757-5-git-send-email-andy.grover@oracle.com>
-References: <1256928717-17757-1-git-send-email-andy.grover@oracle.com>
+Subject: [PATCH 1/5] RDS: Add GET_MR_FOR_DEST sockopt
+Date: Fri, 30 Oct 2009 11:54:53 -0700
+Message-ID: <1256928893-17844-2-git-send-email-andy.grover@oracle.com>
+References: <1256928893-17844-1-git-send-email-andy.grover@oracle.com>
 Cc: rds-devel@oss.oracle.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet11.oracle.com ([141.146.126.233]:54628 "EHLO
-	acsinet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757140AbZJ3SxR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 14:53:17 -0400
-Received: from rgminet13.oracle.com (rcsinet13.oracle.com [148.87.113.125])
-	by acsinet11.oracle.com (Switch-3.3.1/Switch-3.3.1) with ESMTP id n9UIrtpH017370
+Received: from rcsinet11.oracle.com ([148.87.113.123]:46568 "EHLO
+	rgminet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757326AbZJ3SzR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 14:55:17 -0400
+Received: from acsinet15.oracle.com (acsinet15.oracle.com [141.146.126.227])
+	by rgminet11.oracle.com (Switch-3.3.1/Switch-3.3.1) with ESMTP id n9UIus0l003418
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 30 Oct 2009 18:53:56 GMT
-In-Reply-To: <1256928717-17757-1-git-send-email-andy.grover@oracle.com>
+	for <netdev@vger.kernel.org>; Fri, 30 Oct 2009 18:56:56 GMT
+In-Reply-To: <1256928893-17844-1-git-send-email-andy.grover@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move receive processing from event handler to a tasklet.
-This should help prevent hangcheck timer from going off
-when RDS is under heavy load.
+RDS currently supports a GET_MR sockopt to establish a
+memory region (MR) for a chunk of memory. However, the fastreg
+method ties a MR to a particular destination. The GET_MR_FOR_DEST
+sockopt allows the remote machine to be specified, and thus
+support for fastreg (aka FRWRs).
+
+Note that this patch does *not* do all of this - it simply
+implements the new sockopt in terms of the old one, so applications
+can begin to use the new sockopt in preparation for cutover to
+FRWRs.
 
 Signed-off-by: Andy Grover <andy.grover@oracle.com>
 ---
- net/rds/ib.h      |    2 ++
- net/rds/ib_cm.c   |    2 ++
- net/rds/ib_recv.c |   28 ++++++++++++++++++++++------
- net/rds/iw.h      |    2 ++
- net/rds/iw_cm.c   |    2 ++
- net/rds/iw_recv.c |   28 ++++++++++++++++++++++------
- 6 files changed, 52 insertions(+), 12 deletions(-)
+ include/linux/rds.h |    8 ++++++++
+ net/rds/af_rds.c    |    3 +++
+ net/rds/rdma.c      |   24 ++++++++++++++++++++++++
+ net/rds/rdma.h      |    1 +
+ 4 files changed, 36 insertions(+), 0 deletions(-)
 
-diff --git a/net/rds/ib.h b/net/rds/ib.h
-index 1378b85..64df4e7 100644
---- a/net/rds/ib.h
-+++ b/net/rds/ib.h
-@@ -98,6 +98,7 @@ struct rds_ib_connection {
- 	struct rds_ib_send_work *i_sends;
+diff --git a/include/linux/rds.h b/include/linux/rds.h
+index 89d46e1..cab4994 100644
+--- a/include/linux/rds.h
++++ b/include/linux/rds.h
+@@ -56,6 +56,7 @@
+ /* deprecated: RDS_BARRIER 4 */
+ #define RDS_RECVERR			5
+ #define RDS_CONG_MONITOR		6
++#define RDS_GET_MR_FOR_DEST		7
  
- 	/* rx */
-+	struct tasklet_struct	i_recv_tasklet;
- 	struct mutex		i_recv_mutex;
- 	struct rds_ib_work_ring	i_recv_ring;
- 	struct rds_ib_incoming	*i_ibinc;
-@@ -303,6 +304,7 @@ void rds_ib_inc_free(struct rds_incoming *inc);
- int rds_ib_inc_copy_to_user(struct rds_incoming *inc, struct iovec *iov,
- 			     size_t size);
- void rds_ib_recv_cq_comp_handler(struct ib_cq *cq, void *context);
-+void rds_ib_recv_tasklet_fn(unsigned long data);
- void rds_ib_recv_init_ring(struct rds_ib_connection *ic);
- void rds_ib_recv_clear_ring(struct rds_ib_connection *ic);
- void rds_ib_recv_init_ack(struct rds_ib_connection *ic);
-diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index c2d372f..9d32069 100644
---- a/net/rds/ib_cm.c
-+++ b/net/rds/ib_cm.c
-@@ -694,6 +694,8 @@ int rds_ib_conn_alloc(struct rds_connection *conn, gfp_t gfp)
- 		return -ENOMEM;
+ /*
+  * Control message types for SOL_RDS.
+@@ -224,6 +225,13 @@ struct rds_get_mr_args {
+ 	uint64_t	flags;
+ };
  
- 	INIT_LIST_HEAD(&ic->ib_node);
-+	tasklet_init(&ic->i_recv_tasklet, rds_ib_recv_tasklet_fn,
-+		     (unsigned long) ic);
- 	mutex_init(&ic->i_recv_mutex);
- #ifndef KERNEL_HAS_ATOMIC64
- 	spin_lock_init(&ic->i_ack_lock);
-diff --git a/net/rds/ib_recv.c b/net/rds/ib_recv.c
-index 2f009d3..fe5ab8c 100644
---- a/net/rds/ib_recv.c
-+++ b/net/rds/ib_recv.c
-@@ -825,17 +825,22 @@ void rds_ib_recv_cq_comp_handler(struct ib_cq *cq, void *context)
- {
- 	struct rds_connection *conn = context;
- 	struct rds_ib_connection *ic = conn->c_transport_data;
--	struct ib_wc wc;
--	struct rds_ib_ack_state state = { 0, };
--	struct rds_ib_recv_work *recv;
- 
- 	rdsdebug("conn %p cq %p\n", conn, cq);
- 
- 	rds_ib_stats_inc(s_ib_rx_cq_call);
- 
--	ib_req_notify_cq(cq, IB_CQ_SOLICITED);
-+	tasklet_schedule(&ic->i_recv_tasklet);
-+}
- 
--	while (ib_poll_cq(cq, 1, &wc) > 0) {
-+static inline void rds_poll_cq(struct rds_ib_connection *ic,
-+			       struct rds_ib_ack_state *state)
-+{
-+	struct rds_connection *conn = ic->conn;
-+	struct ib_wc wc;
-+	struct rds_ib_recv_work *recv;
++struct rds_get_mr_for_dest_args {
++	struct sockaddr_storage	dest_addr;
++	struct rds_iovec 	vec;
++	u_int64_t		cookie_addr;
++	uint64_t		flags;
++};
 +
-+	while (ib_poll_cq(ic->i_recv_cq, 1, &wc) > 0) {
- 		rdsdebug("wc wr_id 0x%llx status %u byte_len %u imm_data %u\n",
- 			 (unsigned long long)wc.wr_id, wc.status, wc.byte_len,
- 			 be32_to_cpu(wc.ex.imm_data));
-@@ -853,7 +858,7 @@ void rds_ib_recv_cq_comp_handler(struct ib_cq *cq, void *context)
- 		if (rds_conn_up(conn) || rds_conn_connecting(conn)) {
- 			/* We expect errors as the qp is drained during shutdown */
- 			if (wc.status == IB_WC_SUCCESS) {
--				rds_ib_process_recv(conn, recv, wc.byte_len, &state);
-+				rds_ib_process_recv(conn, recv, wc.byte_len, state);
- 			} else {
- 				rds_ib_conn_error(conn, "recv completion on "
- 				       "%pI4 had status %u, disconnecting and "
-@@ -864,6 +869,17 @@ void rds_ib_recv_cq_comp_handler(struct ib_cq *cq, void *context)
+ struct rds_free_mr_args {
+ 	rds_rdma_cookie_t cookie;
+ 	u_int64_t	flags;
+diff --git a/net/rds/af_rds.c b/net/rds/af_rds.c
+index a202e5b..2b978dc 100644
+--- a/net/rds/af_rds.c
++++ b/net/rds/af_rds.c
+@@ -265,6 +265,9 @@ static int rds_setsockopt(struct socket *sock, int level, int optname,
+ 	case RDS_GET_MR:
+ 		ret = rds_get_mr(rs, optval, optlen);
+ 		break;
++	case RDS_GET_MR_FOR_DEST:
++		ret = rds_get_mr_for_dest(rs, optval, optlen);
++		break;
+ 	case RDS_FREE_MR:
+ 		ret = rds_free_mr(rs, optval, optlen);
+ 		break;
+diff --git a/net/rds/rdma.c b/net/rds/rdma.c
+index 8dc83d2..971b5a6 100644
+--- a/net/rds/rdma.c
++++ b/net/rds/rdma.c
+@@ -317,6 +317,30 @@ int rds_get_mr(struct rds_sock *rs, char __user *optval, int optlen)
+ 	return __rds_rdma_map(rs, &args, NULL, NULL);
+ }
  
- 		rds_ib_ring_free(&ic->i_recv_ring, 1);
- 	}
++int rds_get_mr_for_dest(struct rds_sock *rs, char __user *optval, int optlen)
++{
++	struct rds_get_mr_for_dest_args args;
++	struct rds_get_mr_args new_args;
++
++	if (optlen != sizeof(struct rds_get_mr_for_dest_args))
++		return -EINVAL;
++
++	if (copy_from_user(&args, (struct rds_get_mr_for_dest_args __user *)optval,
++			   sizeof(struct rds_get_mr_for_dest_args)))
++		return -EFAULT;
++
++	/*
++	 * Initially, just behave like get_mr().
++	 * TODO: Implement get_mr as wrapper around this
++	 *	 and deprecate it.
++	 */
++	new_args.vec = args.vec;
++	new_args.cookie_addr = args.cookie_addr;
++	new_args.flags = args.flags;
++
++	return __rds_rdma_map(rs, &new_args, NULL, NULL);
 +}
 +
-+void rds_ib_recv_tasklet_fn(unsigned long data)
-+{
-+	struct rds_ib_connection *ic = (struct rds_ib_connection *) data;
-+	struct rds_connection *conn = ic->conn;
-+	struct rds_ib_ack_state state = { 0, };
-+
-+	rds_poll_cq(ic, &state);
-+	ib_req_notify_cq(ic->i_recv_cq, IB_CQ_SOLICITED);
-+	rds_poll_cq(ic, &state);
+ /*
+  * Free the MR indicated by the given R_Key
+  */
+diff --git a/net/rds/rdma.h b/net/rds/rdma.h
+index 4255120..909c398 100644
+--- a/net/rds/rdma.h
++++ b/net/rds/rdma.h
+@@ -61,6 +61,7 @@ static inline u32 rds_rdma_cookie_offset(rds_rdma_cookie_t cookie)
+ }
  
- 	if (state.ack_next_valid)
- 		rds_ib_set_ack(ic, state.ack_next, state.ack_required);
-diff --git a/net/rds/iw.h b/net/rds/iw.h
-index dd72b62..eef2f0c 100644
---- a/net/rds/iw.h
-+++ b/net/rds/iw.h
-@@ -119,6 +119,7 @@ struct rds_iw_connection {
- 	struct rds_iw_send_work *i_sends;
- 
- 	/* rx */
-+	struct tasklet_struct	i_recv_tasklet;
- 	struct mutex		i_recv_mutex;
- 	struct rds_iw_work_ring	i_recv_ring;
- 	struct rds_iw_incoming	*i_iwinc;
-@@ -330,6 +331,7 @@ void rds_iw_inc_free(struct rds_incoming *inc);
- int rds_iw_inc_copy_to_user(struct rds_incoming *inc, struct iovec *iov,
- 			     size_t size);
- void rds_iw_recv_cq_comp_handler(struct ib_cq *cq, void *context);
-+void rds_iw_recv_tasklet_fn(unsigned long data);
- void rds_iw_recv_init_ring(struct rds_iw_connection *ic);
- void rds_iw_recv_clear_ring(struct rds_iw_connection *ic);
- void rds_iw_recv_init_ack(struct rds_iw_connection *ic);
-diff --git a/net/rds/iw_cm.c b/net/rds/iw_cm.c
-index a416b0d..394cf6b 100644
---- a/net/rds/iw_cm.c
-+++ b/net/rds/iw_cm.c
-@@ -696,6 +696,8 @@ int rds_iw_conn_alloc(struct rds_connection *conn, gfp_t gfp)
- 		return -ENOMEM;
- 
- 	INIT_LIST_HEAD(&ic->iw_node);
-+	tasklet_init(&ic->i_recv_tasklet, rds_iw_recv_tasklet_fn,
-+		     (unsigned long) ic);
- 	mutex_init(&ic->i_recv_mutex);
- #ifndef KERNEL_HAS_ATOMIC64
- 	spin_lock_init(&ic->i_ack_lock);
-diff --git a/net/rds/iw_recv.c b/net/rds/iw_recv.c
-index 9f98150..24fc53f 100644
---- a/net/rds/iw_recv.c
-+++ b/net/rds/iw_recv.c
-@@ -784,17 +784,22 @@ void rds_iw_recv_cq_comp_handler(struct ib_cq *cq, void *context)
- {
- 	struct rds_connection *conn = context;
- 	struct rds_iw_connection *ic = conn->c_transport_data;
--	struct ib_wc wc;
--	struct rds_iw_ack_state state = { 0, };
--	struct rds_iw_recv_work *recv;
- 
- 	rdsdebug("conn %p cq %p\n", conn, cq);
- 
- 	rds_iw_stats_inc(s_iw_rx_cq_call);
- 
--	ib_req_notify_cq(cq, IB_CQ_SOLICITED);
-+	tasklet_schedule(&ic->i_recv_tasklet);
-+}
- 
--	while (ib_poll_cq(cq, 1, &wc) > 0) {
-+static inline void rds_poll_cq(struct rds_iw_connection *ic,
-+			       struct rds_iw_ack_state *state)
-+{
-+	struct rds_connection *conn = ic->conn;
-+	struct ib_wc wc;
-+	struct rds_iw_recv_work *recv;
-+
-+	while (ib_poll_cq(ic->i_recv_cq, 1, &wc) > 0) {
- 		rdsdebug("wc wr_id 0x%llx status %u byte_len %u imm_data %u\n",
- 			 (unsigned long long)wc.wr_id, wc.status, wc.byte_len,
- 			 be32_to_cpu(wc.ex.imm_data));
-@@ -812,7 +817,7 @@ void rds_iw_recv_cq_comp_handler(struct ib_cq *cq, void *context)
- 		if (rds_conn_up(conn) || rds_conn_connecting(conn)) {
- 			/* We expect errors as the qp is drained during shutdown */
- 			if (wc.status == IB_WC_SUCCESS) {
--				rds_iw_process_recv(conn, recv, wc.byte_len, &state);
-+				rds_iw_process_recv(conn, recv, wc.byte_len, state);
- 			} else {
- 				rds_iw_conn_error(conn, "recv completion on "
- 				       "%pI4 had status %u, disconnecting and "
-@@ -823,6 +828,17 @@ void rds_iw_recv_cq_comp_handler(struct ib_cq *cq, void *context)
- 
- 		rds_iw_ring_free(&ic->i_recv_ring, 1);
- 	}
-+}
-+
-+void rds_iw_recv_tasklet_fn(unsigned long data)
-+{
-+	struct rds_iw_connection *ic = (struct rds_iw_connection *) data;
-+	struct rds_connection *conn = ic->conn;
-+	struct rds_iw_ack_state state = { 0, };
-+
-+	rds_poll_cq(ic, &state);
-+	ib_req_notify_cq(ic->i_recv_cq, IB_CQ_SOLICITED);
-+	rds_poll_cq(ic, &state);
- 
- 	if (state.ack_next_valid)
- 		rds_iw_set_ack(ic, state.ack_next, state.ack_required);
+ int rds_get_mr(struct rds_sock *rs, char __user *optval, int optlen);
++int rds_get_mr_for_dest(struct rds_sock *rs, char __user *optval, int optlen);
+ int rds_free_mr(struct rds_sock *rs, char __user *optval, int optlen);
+ void rds_rdma_drop_keys(struct rds_sock *rs);
+ int rds_cmsg_rdma_args(struct rds_sock *rs, struct rds_message *rm,
 -- 
 1.6.3.3
 
