@@ -1,196 +1,40 @@
-From: "Figo.zhang" <figo1802@gmail.com>
-Subject: [PATCH]NET:KS8695: add API for get rx interrupt bit
-Date: Fri, 30 Oct 2009 21:05:11 +0800
-Message-ID: <1256907911.2148.87.camel@myhost>
+From: Francis Moreau <francis.moro@gmail.com>
+Subject: Re: WARNING: at net/ipv4/af_inet.c:154 inet_sock_destruct
+Date: Fri, 30 Oct 2009 14:41:24 +0100
+Message-ID: <38b2ab8a0910300641q78c08124o800a9dfc9486fba7@mail.gmail.com>
+References: <38b2ab8a0909290109m3f82c161j4fb0f1266152877e@mail.gmail.com>
+	 <4AC1D0F5.4050709@gmail.com>
+	 <38b2ab8a0910300144i7a3c190fi9aa3d079c9cdb754@mail.gmail.com>
+	 <4AEACD88.8080108@gmail.com>
+	 <38b2ab8a0910300533l4bbc9d3cj8812fe38726c8278@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f42.google.com ([209.85.160.42]:37830 "EHLO
-	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756758AbZJ3NFc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 09:05:32 -0400
-Received: by pwj9 with SMTP id 9so637725pwj.21
-        for <netdev@vger.kernel.org>; Fri, 30 Oct 2009 06:05:37 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757262AbZJ3NlW@vger.kernel.org>
+In-Reply-To: <38b2ab8a0910300533l4bbc9d3cj8812fe38726c8278@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-1. Add API Add k8695_get_rx_enable_bit() for get Rx interrupt 
-enable/status bit.
-2. add some comment or document about some functions and variables.
-3.  update driver version to "1.02"
-4. add napi_enable() and napi_disable() in open/close file method.
+On Fri, Oct 30, 2009 at 1:33 PM, Francis Moreau <francis.moro@gmail.com> wrote:
+> On Fri, Oct 30, 2009 at 12:27 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>>
+>> This oops occurring again and again with SUNRPC finally gave me the right pointer.
+>>
+>> David, we added two years ago memory accounting to UDP, and this changed
+>> requirements about calling skb_free_datagram() in the right context.
+>>
+>> I wish we had an ASSERT_SOCK_LOCKED() debugging facility :(
+>>
+>> Francis, would you please test following patch ?
+>
+> I'm applying it and testing it during a couple of days and see if
+> something wrong still happens.
 
-Signed-off-by: Figo.zhang <figo1802@gmail.com>
----  
- drivers/net/arm/ks8695net.c |   69 ++++++++++++++++++++++++++++++++++--------
- 1 files changed, 56 insertions(+), 13 deletions(-)
+Hmm, with the patch applied on a 2.6.32-rc5, my machine locks hard
+when starting nfsd.
 
-diff --git a/drivers/net/arm/ks8695net.c b/drivers/net/arm/ks8695net.c
-index ed0b0f3..b4f5994 100644
---- a/drivers/net/arm/ks8695net.c
-+++ b/drivers/net/arm/ks8695net.c
-@@ -41,8 +41,7 @@
- #include "ks8695net.h"
- 
- #define MODULENAME	"ks8695_ether"
--#define MODULEVERSION	"1.01"
--
-+#define MODULEVERSION	"1.02"
- 
- /*
-  * Transmit and device reset timeout, default 5 seconds.
-@@ -98,6 +97,9 @@ struct ks8695_skbuff {
- #define MAX_RX_DESC 16
- #define MAX_RX_DESC_MASK 0xf
- 
-+/*napi_weight have better more than rx DMA buffers*/
-+#define NAPI_WEIGHT   64
-+
- #define MAX_RXBUF_SIZE 0x700
- 
- #define TX_RING_DMA_SIZE (sizeof(struct tx_ring_desc) * MAX_TX_DESC)
-@@ -123,6 +125,7 @@ enum ks8695_dtype {
-  *	@dev: The platform device object for this interface
-  *	@dtype: The type of this device
-  *	@io_regs: The ioremapped registers for this interface
-+ *      @napi : Add support NAPI for Rx
-  *	@rx_irq_name: The textual name of the RX IRQ from the platform data
-  *	@tx_irq_name: The textual name of the TX IRQ from the platform data
-  *	@link_irq_name: The textual name of the link IRQ from the
-@@ -146,6 +149,7 @@ enum ks8695_dtype {
-  *	@rx_ring_dma: The DMA mapped equivalent of rx_ring
-  *	@rx_buffers: The sk_buff mappings for the RX ring
-  *	@next_rx_desc_read: The next RX descriptor to read from on IRQ
-+ *      @rx_lock: A lock to protect Rx irq function
-  *	@msg_enable: The flags for which messages to emit
-  */
- struct ks8695_priv {
-@@ -398,11 +402,30 @@ ks8695_tx_irq(int irq, void *dev_id)
- }
- 
- /**
-+ *	ks8695_get_rx_enable_bit - Get rx interrupt enable/status bit
-+ *	@ksp: Private data for the KS8695 Ethernet
-+ *
-+ *    For KS8695 document:
-+ *    Interrupt Enable Register (offset 0xE204)
-+ *        Bit29 : WAN MAC Receive Interrupt Enable
-+ *        Bit16 : LAN MAC Receive Interrupt Enable
-+ *    Interrupt Status Register (Offset 0xF208)
-+ *        Bit29: WAN MAC Receive Status
-+ *        Bit16: LAN MAC Receive Status
-+ *    So, this Rx interrrupt enable/status bit number is equal
-+ *    as Rx IRQ number.
-+ */
-+static inline u32 ks8695_get_rx_enable_bit(struct ks8695_priv *ksp)
-+{
-+	return ksp->rx_irq;
-+}
-+
-+/**
-  *	ks8695_rx_irq - Receive IRQ handler
-  *	@irq: The IRQ which went off (ignored)
-  *	@dev_id: The net_device for the interrupt
-  *
-- *	Use NAPI to receive packets.
-+ *	Inform NAPI that packet reception needs to be scheduled
-  */
- 
- static irqreturn_t
-@@ -412,7 +435,7 @@ ks8695_rx_irq(int irq, void *dev_id)
- 	struct ks8695_priv *ksp = netdev_priv(ndev);
- 	unsigned long status;
- 
--	unsigned long mask_bit = 1 << ksp->rx_irq;
-+	unsigned long mask_bit = 1 << ks8695_get_rx_enable_bit(ksp);
- 
- 	spin_lock(&ksp->rx_lock);
- 
-@@ -434,9 +457,15 @@ ks8695_rx_irq(int irq, void *dev_id)
- 	return IRQ_HANDLED;
- }
- 
--static int ks8695_rx(struct net_device *ndev, int budget)
-+/**
-+ *	ks8695_rx - Receive packets  called by NAPI poll method
-+ *	@ksp: Private data for the KS8695 Ethernet
-+ *	@budget: The max packets would be receive
-+ */
-+
-+static int ks8695_rx(struct ks8695_priv *ksp, int budget)
- {
--	struct ks8695_priv *ksp = netdev_priv(ndev);
-+	struct net_device *ndev = ksp->ndev;
- 	struct sk_buff *skb;
- 	int buff_n;
- 	u32 flags;
-@@ -526,20 +555,32 @@ rx_finished:
- 
- 			/* And refill the buffers */
- 			ks8695_refill_rxbuffers(ksp);
-+
-+			/* Kick the RX DMA engine, in case it became
-+			 *  suspended */
-+			ks8695_writereg(ksp, KS8695_DRSC, 0);
- 	}
- 	return received;
- }
- 
-+
-+/**
-+ *	ks8695_poll - Receive packet by NAPI poll method
-+ *	@ksp: Private data for the KS8695 Ethernet
-+ *	@budget: The remaining number packets for network subsystem
-+ *
-+ *     Invoked by the network core when it requests for new
-+ *     packets from the driver
-+ */
- static int ks8695_poll(struct napi_struct *napi, int budget)
- {
- 	struct ks8695_priv *ksp = container_of(napi, struct ks8695_priv, napi);
--	struct net_device *dev = ksp->ndev;
--	unsigned long mask_bit = 1 << ksp->rx_irq;
--	unsigned long isr = readl(KS8695_IRQ_VA + KS8695_INTEN);
-+	unsigned long  work_done;
- 
--	unsigned long  work_done ;
-+	unsigned long isr = readl(KS8695_IRQ_VA + KS8695_INTEN);
-+	unsigned long mask_bit = 1 << ks8695_get_rx_enable_bit(ksp);
- 
--	work_done = ks8695_rx(dev, budget);
-+	work_done = ks8695_rx(ksp, budget);
- 
- 	if (work_done < budget) {
- 		unsigned long flags;
-@@ -1302,6 +1343,7 @@ ks8695_stop(struct net_device *ndev)
- 	struct ks8695_priv *ksp = netdev_priv(ndev);
- 
- 	netif_stop_queue(ndev);
-+	napi_disable(&ksp->napi);
- 	netif_carrier_off(ndev);
- 
- 	ks8695_shutdown(ksp);
-@@ -1335,7 +1377,8 @@ ks8695_open(struct net_device *ndev)
- 		ks8695_shutdown(ksp);
- 		return ret;
- 	}
--
-+	
-+	napi_enable(&ksp->napi);
- 	netif_start_queue(ndev);
- 
- 	return 0;
-@@ -1521,7 +1564,7 @@ ks8695_probe(struct platform_device *pdev)
- 	SET_ETHTOOL_OPS(ndev, &ks8695_ethtool_ops);
- 	ndev->watchdog_timeo	 = msecs_to_jiffies(watchdog);
- 
--	netif_napi_add(ndev, &ksp->napi, ks8695_poll, 64);
-+	netif_napi_add(ndev, &ksp->napi, ks8695_poll, NAPI_WEIGHT);
- 
- 	/* Retrieve the default MAC addr from the chip. */
- 	/* The bootloader should have left it in there for us. */
-
-
+-- 
+Francis
