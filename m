@@ -1,40 +1,33 @@
-From: Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2009-10-28
-Date: Fri, 30 Oct 2009 07:59:21 +0200
-Message-ID: <84144f020910292259g4635e3c3v652a27f8ac4d42de@mail.gmail.com>
-References: <200910291212.41656.bzolnier@gmail.com>
-	 <200910291514.40318.bzolnier@gmail.com>
-	 <84144f020910291245l1a7a3fd6o8822ecd4ce3b5504@mail.gmail.com>
-	 <200910292248.42229.bzolnier@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH against V2]NET/KS8695: add support NAPI for Rx
+Date: Thu, 29 Oct 2009 23:00:02 -0700 (PDT)
+Message-ID: <20091029.230002.246017938.davem@davemloft.net>
+References: <1256825088.2148.77.camel@myhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-To: Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200910292248.42229.bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dsilvers@simtec.co.uk, netdev@vger.kernel.org, ben@simtec.co.uk
+To: figo1802@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59888
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755257AbZJ3F7i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 01:59:38 -0400
+In-Reply-To: <1256825088.2148.77.camel@myhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Bart,
+From: "Figo.zhang" <figo1802@gmail.com>
+Date: Thu, 29 Oct 2009 22:04:48 +0800
 
-On Thu, Oct 29, 2009 at 11:48 PM, Bartlomiej Zolnierkiewicz
-<bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->> _really_ prefer to spend your time in pointless arguments, go ahead.
->
-> I don't think that my technical arguments are pointless.
->
-> Quite the contrary, I'm pretty confident that addressing my review concerns
-> would result in better RT28x00 / RT30x0 support in the very near future.
+> 
+> Add support NAPI Rx API for KS8695NET driver.
 
-I don't think your technical arguments are pointless either. However,
-asking Dave to revert something over John and then arguing about it is
-pointless and will likely just piss people off and make them ignore
-you.
+You're not adding NAPI support in this patch.
 
-                        Pekka
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Instead, you're fixing up the implementation based upon feedback
+you've received on this list.
+
+Please correct your commit message and subject line and resubmit.
+
+Thank you.
