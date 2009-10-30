@@ -1,66 +1,60 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 7/6] bond: Get the rtnl_link_ops support correct
-Date: Fri, 30 Oct 2009 02:58:54 -0700
-Message-ID: <m1y6mtqk2p.fsf_-_@fess.ebiederm.org>
-References: <m1tyxhwxah.fsf@fess.ebiederm.org>
-	<1256861906-5059-5-git-send-email-ebiederm@xmission.com>
-	<4AEAA403.7080204@trash.net> <m1eiols0a4.fsf@fess.ebiederm.org>
-	<4AEAB2F1.5070200@trash.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [RFC] multiqueue changes
+Date: Fri, 30 Oct 2009 10:00:33 +0000
+Message-ID: <20091030100033.GA6150@ff.dom.local>
+References: <4ACD9255.4020008@gmail.com> <20091008090344.GA7409@ff.dom.local> <20091008120039.GA8691@ff.dom.local> <4AE87EEE.4020703@trash.net> <20091028212337.GA3218@ami.dom.local> <4AE9C4C3.9040503@trash.net> <20091029211543.GA3036@ami.dom.local> <4AEA1357.3090307@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	"Eric W. Biederman" <ebiederm@aristanetworks.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:53358 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756743AbZJ3J64 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 05:58:56 -0400
-In-Reply-To: <4AEAB2F1.5070200@trash.net> (Patrick McHardy's message of "Fri\, 30 Oct 2009 10\:33\:37 +0100")
+Received: from fg-out-1718.google.com ([72.14.220.155]:12458 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756814AbZJ3KAd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 06:00:33 -0400
+Received: by fg-out-1718.google.com with SMTP id d23so3008535fga.1
+        for <netdev@vger.kernel.org>; Fri, 30 Oct 2009 03:00:38 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4AEA1357.3090307@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Oct 29, 2009 at 11:12:39PM +0100, Patrick McHardy wrote:
+> Jarek Poplawski wrote:
+> > On Thu, Oct 29, 2009 at 05:37:23PM +0100, Patrick McHardy wrote:
+> > ...
+> >> Well, we do need both values for supporting changes to the actually
+> >> used numbers of TX queues. If I understood Dave's explanation correctly,
+> >> this is also what's intended. It also doesn't seem unreasonable
+> >> what bnx2 is doing.
+> > 
+> > Exactly. With a growing number of cores, both available and powered
+> > off, these values will be soon treated more carefully than now.
+> > 
+> >> But getting back to the problem Eric reported - so you're suggesting
+> >> that bnx2.c should also adjust num_tx_queues in case the hardware
+> >> doesn't support multiqueue? That seems reasonable as well.
+> > 
+> > Currently, declaring num_tx_queues with alloc_netdev_mq() looks like
+> > too soon for some drivers. It seems they should be able to do it
+> > separately later during the .probe.
+> 
+> The value passed into alloc_netdev_mq() is just used for allocation
+> purposes, from what I can tell there's no downside in reducing it
+> before the dev_activate() call.
 
-- Don't call rtnl_link_unregister if rtnl_link_register fails
-- Set .priv_size so we aren't stomping on uninitialized memory
-  when we use netdev_priv, on bond devices created with
-  ip link add type bond.
+Right, but IMHO this reducing (or reallocation) should be done with
+some API. Simple overwriting of num_tx_queues proposed by Eric, even
+if no downside now, seems to be asking for problems in the future.
 
-Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
----
- drivers/net/bonding/bond_main.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+> > There is a question if .ndo_open should be considered too.
+> 
+> I currently can't see any purpose in decreasing num_tx_queues after
+> registration instead of real_num_tx_queues.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index fed44e6..0ef051c 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -5004,6 +5004,7 @@ static int bond_validate(struct nlattr *tb[], struct nlattr *data[])
- 
- static struct rtnl_link_ops bond_link_ops __read_mostly = {
- 	.kind		= "bond",
-+	.priv_size	= sizeof(struct bonding),
- 	.setup		= bond_setup,
- 	.validate	= bond_validate,
- };
-@@ -5105,7 +5106,7 @@ static int __init bonding_init(void)
- 
- 	res = rtnl_link_register(&bond_link_ops);
- 	if (res)
--		goto err;
-+		goto err_link;
- 
- 	for (i = 0; i < max_bonds; i++) {
- 		res = bond_create(&init_net, NULL);
-@@ -5124,6 +5125,7 @@ out:
- 	return res;
- err:
- 	rtnl_link_unregister(&bond_link_ops);
-+err_link:
- 	unregister_pernet_gen_subsys(bond_net_id, &bond_net_ops);
- 	goto out;
- 
--- 
-1.6.3.1.54.g99dd.dirty
+I agree, but since Eric's example shows some drivers do it (almost)
+like this, I'd prefer authors/maintainers answer this question.
 
+Jarek P.
