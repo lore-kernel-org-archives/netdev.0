@@ -1,58 +1,60 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next-2.6] veth: Fix unregister_netdevice_queue for veth
-Date: Fri, 30 Oct 2009 17:51:13 -0700
-Message-ID: <m1639wjshq.fsf_-_@fess.ebiederm.org>
-References: <4AEA8F0F.4030100@gmail.com> <m1hbtgmqew.fsf@fess.ebiederm.org>
+Subject: Re: [PATCH 0/6] Bonding simplifications and netns support
+Date: Fri, 30 Oct 2009 18:06:00 -0700
+Message-ID: <m1ljisid8n.fsf@fess.ebiederm.org>
+References: <m1tyxhwxah.fsf@fess.ebiederm.org>
+	<20091030.124153.00934819.davem@davemloft.net>
+	<21200.1256937150@death.nxdomain.ibm.com>
+	<m1639wo5gb.fsf@fess.ebiederm.org>
+	<32609.1256947853@death.nxdomain.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Pavel Emelyanov <xemul@openvz.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:46089 "EHLO
+Received: from out02.mta.xmission.com ([166.70.13.232]:59639 "EHLO
 	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757542AbZJaAvN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 20:51:13 -0400
-In-Reply-To: <m1hbtgmqew.fsf@fess.ebiederm.org> (Eric W. Biederman's message of "Fri\, 30 Oct 2009 16\:07\:51 -0700")
+	with ESMTP id S1757578AbZJaBF7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Oct 2009 21:05:59 -0400
+In-Reply-To: <32609.1256947853@death.nxdomain.ibm.com> (Jay Vosburgh's message of "Fri\, 30 Oct 2009 17\:10\:53 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Jay Vosburgh <fubar@us.ibm.com> writes:
 
-I tested the recent unregister many changes and got a weird,
-nasty and seemingly unrelasted kernel oops. Changing
-unregister_netdevice_queue to use list_move_tail fixes
-the problem for me.
+> 	No, to both questions.  Also, if I back out the 7 bonding
+> patches, the same insmod / rmmod does not panic.  
+>
+> 	I just set it up and did it again.  Fresh boot of the system
+> (which doesn't load bonding); "insmod drivers/net/bonding/bonding.ko;
+> rmmod bonding" and blammo.
+>
+> 	A little bisect action reveals that the problem first appears
+> after applying the fifth patch (below).  Does a basic insmod / rmmod
+> cycle work ok for you?  I'm specifying no options to bonding.
 
-ip link add type veth
-rmmod veth
+It works here.  The only issue I found was that veth wasn't quite
+working.   I am wondering if there was some version of the tree
+where rtnl_link_unregister is broken and you applied the patches to that.
 
-ls /sys/class/net/
-showed one of the veth devices still present.
+I tested the net-next tree with my patches at the top:
 
-A subsequent ip link oopsed the box.
+There are some other differences like I am running a 64bit kernel but
+I don't expect that would make a difference in practice.
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Eric
 
----
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 94f42a1..9c0b202 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5227,6 +5227,7 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
- 	netdev_init_queues(dev);
- 
- 	INIT_LIST_HEAD(&dev->napi_list);
-+	INIT_LIST_HEAD(&dev->unreg_list);
- 	dev->priv_flags = IFF_XMIT_DST_RELEASE;
- 	setup(dev);
- 	strcpy(dev->name, name);
-@@ -5308,7 +5309,7 @@ void unregister_netdevice_queue(struct net_device *dev, struct list_head *head)
- 	ASSERT_RTNL();
- 
- 	if (head) {
--		list_add_tail(&dev->unreg_list, head);
-+		list_move_tail(&dev->unreg_list, head);
- 	} else {
- 		rollback_registered(dev);
- 		/* Finish processing unregister after unlock */
+commit 6639104bd826e0b1388c69a6b7564fffc636c8a8
+Author: Eric W. Biederman <ebiederm@xmission.com>
+Date:   Thu Oct 29 23:58:54 2009 +0000
+
+    bond: Get the rtnl_link_ops support correct
+    
+    - Don't call rtnl_link_unregister if rtnl_link_register fails
+    - Set .priv_size so we aren't stomping on uninitialized memory
+      when we use netdev_priv, on bond devices created with
+      ip link add type bond.
+    
+    Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
