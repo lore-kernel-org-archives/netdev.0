@@ -1,159 +1,126 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: WARNING: at net/ipv4/af_inet.c:154 inet_sock_destruct
-Date: Sat, 31 Oct 2009 10:20:29 +0100
-Message-ID: <4AEC015D.80601@gmail.com>
-References: <38b2ab8a0910300144i7a3c190fi9aa3d079c9cdb754@mail.gmail.com>	<4AEACD88.8080108@gmail.com>	<4AEB0059.1050400@gmail.com> <20091030.122640.137286305.davem@davemloft.net>
+From: Naohiro Ooiwa <nooiwa@miraclelinux.com>
+Subject: [PATCH] e1000: the power down when running ifdown command
+Date: Sat, 31 Oct 2009 18:39:52 +0900
+Message-ID: <4AEC05E8.40600@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: francis.moro@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	svaidy@linux.vnet.ibm.com, e1000-devel@lists.sourceforge.net
+To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:37362 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754477AbZJaJUa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Oct 2009 05:20:30 -0400
-In-Reply-To: <20091030.122640.137286305.davem@davemloft.net>
+Received: from mailgw.miraclelinux.com ([122.216.84.157]:46934 "EHLO
+	mailgw.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757041AbZJaJj4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Oct 2009 05:39:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller a =E9crit :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 30 Oct 2009 16:03:53 +0100
->=20
->> [PATCH take2] net: fix sk_forward_alloc corruption
->>
->> On UDP sockets, we must call skb_free_datagram() with socket locked,
->> or risk sk_forward_alloc corruption. This requirement is not respect=
-ed
->> in SUNRPC.
->>
->> Add a convenient helper, skb_free_datagram_locked() and use it in SU=
-NRPC
->>
->> Reported-by: Francis Moreau <francis.moro@gmail.com>
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
-> I've tentatively applied this to my net-2.6 tree, I won't
-> push it out until we have positive testing results.
+Hi All
 
-I tested nfs/nfsd with fillowing additional debugging patch.
-
-Without the fix (net: fix sk_forward_alloc corruption), I got warnings,
-while with fix applied, I got no warnings. Its probably hard to hit
-original bug since its a very small race window.
-
-Trace without fix :
-
-[  226.686788] RPC: Registered udp transport module.
-[  226.686791] RPC: Registered tcp transport module.
-[  226.686792] RPC: Registered tcp NFSv4.1 backchannel transport module=
-=2E
-[  226.851677] Installing knfsd (copyright (C) 1996 okir@monad.swb.de).
-[  226.869381] NFSD: Using /var/lib/nfs/v4recovery as the NFSv4 state r=
-ecovery directory
-[  226.869443] NFSD: unable to find recovery directory /var/lib/nfs/v4r=
-ecovery
-[  226.869488] NFSD: starting 90-second grace period
-[  226.870564] svc: failed to register lockdv1 RPC service (errno 97).
-[  244.401237] ------------[ cut here ]------------
-[  244.401288] WARNING: at include/net/sock.h:886 sock_rfree+0x54/0x70(=
-)
-[  244.401334] Hardware name: ProLiant BL460c G1
-[  244.401379] Modules linked in: nfsd lockd auth_rpcgss sunrpc exportf=
-s bonding ipv6
-[  244.401699] Pid: 5295, comm: nfsd Not tainted 2.6.32-rc3-00920-gbdd6=
-be3-dirty #342
-[  244.401745] Call Trace:
-[  244.401784]  [<c055355a>] ? printk+0x1d/0x23
-[  244.401827]  [<c023c3f2>] warn_slowpath_common+0x72/0xa0
-[  244.401869]  [<c04b0d54>] ? sock_rfree+0x54/0x70
-[  244.401909]  [<c04b0d54>] ? sock_rfree+0x54/0x70
-[  244.401950]  [<c023c43a>] warn_slowpath_null+0x1a/0x20
-[  244.401991]  [<c04b0d54>] sock_rfree+0x54/0x70
-[  244.402033]  [<c04b4cf5>] skb_release_head_state+0x45/0xe0
-[  244.402084]  [<c04b49f0>] __kfree_skb+0x10/0x90
-[  244.402125]  [<c04b4a8c>] consume_skb+0x1c/0x40
-[  244.402166]  [<c04b7c62>] skb_free_datagram+0x12/0x70
-[  244.402217]  [<fc9fa177>] svc_release_skb+0x37/0x60 [sunrpc]
-[  244.402261]  [<c026f452>] ? module_put+0x62/0xf0
-[  244.402308]  [<fca05c98>] svc_send+0x28/0xc0 [sunrpc]
-[  244.402356]  [<fc9f8acb>] svc_process+0x22b/0x770 [sunrpc]
-[  244.402416]  [<fd04895c>] nfsd+0xac/0x140 [nfsd]
-[  244.402484]  [<fd0488b0>] ? nfsd+0x0/0x140 [nfsd]
-[  244.402543]  [<c0257ab4>] kthread+0x74/0x80
-[  244.402602]  [<c0257a40>] ? kthread+0x0/0x80
-[  244.402656]  [<c020390f>] kernel_thread_helper+0x7/0x10
-[  244.402711] ---[ end trace e202cdb1b491aa15 ]---
+I resend my patch.
+Sorry, my previous mail lacked an explanation.
 
 
-Debugging patch :
+The e1000 driver doesn't let the power down when running ifdown command.
+So, I set to the D3hot state of a PCI device at the end of e1000_close().
 
-Intent is to make sure sock is locked by user or by softirq handler,
-unless we are currently dismantling socket (sk_refcnt=3D=3D0)
+With this modification, e1000 driver reduces power by ifdown.
+It's about 6 watts when I measured a total power of one server machine
+in my environment.
 
-To speedup this test, we could use several bits of sk_lock.owned instea=
-d=20
-of one for the user case.
-(one for lock owned by user, one for lowk owned by softirq, one in dism=
-antle phase)
+I tested this patch. The result is good enough to me.
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 55de3bd..08ecb0e 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -849,10 +849,15 @@ static inline int sk_rmem_schedule(struct sock *s=
-k, int size)
- 		__sk_mem_schedule(sk, size, SK_MEM_RECV);
- }
-=20
-+#define sock_owned_by_user(sk)	((sk)->sk_lock.owned)
-+#define sock_owned(sk)		((sk)->sk_lock.owned ||		\
-+				 spin_is_locked(&(sk)->sk_lock.slock))
+Could you please check my patch ?
+If I should have other considerations, please tell me.
+
+
+Thanks you.
+Naohiro Ooiwa
+
+
+
+Signed-off-by: Naohiro Ooiwa <nooiwa@miraclelinux.com>
+---
+ drivers/net/e1000/e1000_main.c |   32 ++++++++++++++++++++++++++++++++
+ 1 files changed, 32 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index bcd192c..12e1a42 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -26,6 +26,11 @@
+
+ *******************************************************************************/
+
++/*
++ * define this if you want pci save power while ifdown.
++ */
++#define E1000_PCI_POWER_SAVE
 +
- static inline void sk_mem_reclaim(struct sock *sk)
- {
- 	if (!sk_has_account(sk))
- 		return;
-+	WARN_ON(!(sock_owned(sk) || atomic_read(&sk->sk_refcnt) =3D=3D 0));
- 	if (sk->sk_forward_alloc >=3D SK_MEM_QUANTUM)
- 		__sk_mem_reclaim(sk);
+ #include "e1000.h"
+ #include <net/ip6_checksum.h>
+
+@@ -1248,6 +1253,23 @@ static int e1000_open(struct net_device *netdev)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	int err;
+
++#ifdef E1000_PCI_POWER_SAVE
++	struct pci_dev *pdev = adapter->pdev;
++
++	pci_set_power_state(pdev, PCI_D0);
++	pci_restore_state(pdev);
++
++	if (adapter->need_ioport)
++		err = pci_enable_device(pdev);
++	else
++		err = pci_enable_device_mem(pdev);
++	if (err) {
++		printk(KERN_ERR "e1000: Cannot enable PCI device from power-save\n");
++		return err;
++	}
++	pci_set_master(pdev);
++#endif
++
+ 	/* disallow open during test */
+ 	if (test_bit(__E1000_TESTING, &adapter->flags))
+ 		return -EBUSY;
+@@ -1265,6 +1287,7 @@ static int e1000_open(struct net_device *netdev)
+ 		goto err_setup_rx;
+
+ 	e1000_power_up_phy(adapter);
++	e1000_reset(adapter);
+
+ 	adapter->mng_vlan_id = E1000_MNG_VLAN_NONE;
+ 	if ((hw->mng_cookie.status &
+@@ -1341,6 +1364,15 @@ static int e1000_close(struct net_device *netdev)
+ 		e1000_vlan_rx_kill_vid(netdev, adapter->mng_vlan_id);
+ 	}
+
++#ifdef E1000_PCI_POWER_SAVE
++#ifdef CONFIG_PM
++	pci_save_state(adapter->pdev);
++#endif
++	pci_disable_device(adapter->pdev);
++	pci_wake_from_d3(adapter->pdev, true);
++	pci_set_power_state(adapter->pdev, PCI_D3hot);
++#endif
++
+ 	return 0;
  }
-@@ -861,6 +866,7 @@ static inline void sk_mem_reclaim_partial(struct so=
-ck *sk)
- {
- 	if (!sk_has_account(sk))
- 		return;
-+	WARN_ON(!(sock_owned(sk) || atomic_read(&sk->sk_refcnt) =3D=3D 0));
- 	if (sk->sk_forward_alloc > SK_MEM_QUANTUM)
- 		__sk_mem_reclaim(sk);
- }
-@@ -869,6 +875,7 @@ static inline void sk_mem_charge(struct sock *sk, i=
-nt size)
- {
- 	if (!sk_has_account(sk))
- 		return;
-+	WARN_ON(!sock_owned(sk));
- 	sk->sk_forward_alloc -=3D size;
- }
-=20
-@@ -876,6 +883,7 @@ static inline void sk_mem_uncharge(struct sock *sk,=
- int size)
- {
- 	if (!sk_has_account(sk))
- 		return;
-+	WARN_ON(!sock_owned(sk));
- 	sk->sk_forward_alloc +=3D size;
- }
-=20
-@@ -900,7 +908,6 @@ static inline void sk_wmem_free_skb(struct sock *sk=
-, struct sk_buff *skb)
-  * Since ~2.3.5 it is also exclusive sleep lock serializing
-  * accesses from user process context.
-  */
--#define sock_owned_by_user(sk)	((sk)->sk_lock.owned)
-=20
- /*
-  * Macro so as to not evaluate some arguments when
+
+-- 
+1.5.4.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
