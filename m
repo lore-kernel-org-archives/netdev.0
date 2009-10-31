@@ -1,45 +1,92 @@
-From: Tim Gardner <tim.gardner@canonical.com>
-Subject: Re: Net driver module dependencies on PHY driver modules
-Date: Sat, 31 Oct 2009 09:34:13 -0600
-Message-ID: <4AEC58F5.2030905@canonical.com>
-References: <1256989326.3136.284.camel@localhost>
-Reply-To: tim.gardner@canonical.com
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: RFC: netdev: allow ethtool physical id to drop rtnl_lock
+Date: Sat, 31 Oct 2009 09:44:22 -0700
+Message-ID: <1257007462.9706.9.camel@HP1>
+References: <20091030104201.6bb03b23@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	netdev <netdev@vger.kernel.org>, 553024@bugs.debian.org
-To: Ben Hutchings <ben@decadent.org.uk>
+Cc: "David Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Stephen Hemminger" <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpi.com ([70.99.223.143]:1519 "EHLO mail.tpi.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:4238 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752766AbZJaPdZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 Oct 2009 11:33:25 -0400
-In-Reply-To: <1256989326.3136.284.camel@localhost>
+	id S1757847AbZJaQxo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Oct 2009 12:53:44 -0400
+In-Reply-To: <20091030104201.6bb03b23@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
-> I'm handling a bug report <http://bugs.debian.org/553024> relating to
-> tg3 using phylib and missing the broadcom module.
+
+On Fri, 2009-10-30 at 10:42 -0700, Stephen Hemminger wrote:
+> The ethtool operation to blink LED can take an indeterminately long time,
+> blocking out other operations (via rtnl_lock). This patch is an attempt
+> to work around the problem.
 > 
-> There seem to be two general problems here:
-> 1. PHY drivers are not auto-loaded
-> 2. An initramfs builder cannot statically determine that a net device
-> requires a PHY driver
+> It does need more discussion, because it will mean that drivers that formerly
+> were protected from changes during blink aren't.  For example, user could
+> start device blinking, and then plug in cable causing change netlink event
+> to change state or pull cable and have device come down.
+
+Yeah, the biggest concern is shutting down the device while it is still
+blinking.  During shutdown, some devices are brought to low power state
+and the chip will no longer respond to I/Os to blink the LEDs.  On some
+systems, this can cause bus hang or NMI.
+
 > 
-> It seems to me that PHY drivers should have aliases based on MDIO PHY
-> ids, and phylib should request_module() if no suitable driver is
-> registered.  This would solve (1) and go some way to solving (2).
+> The other possibility is to do this on a driver by driver basis
+> which is more effort.
 > 
-> Ben.
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> 
+> --- a/net/core/ethtool.c	2009-10-30 10:27:23.621917624 -0700
+> +++ b/net/core/ethtool.c	2009-10-30 10:35:53.787670774 -0700
+> @@ -17,6 +17,7 @@
+>  #include <linux/errno.h>
+>  #include <linux/ethtool.h>
+>  #include <linux/netdevice.h>
+> +#include <linux/rtnetlink.h>
+>  #include <asm/uaccess.h>
+>  
+>  /*
+> @@ -781,6 +782,8 @@ static int ethtool_get_strings(struct ne
+>  static int ethtool_phys_id(struct net_device *dev, void __user *useraddr)
+>  {
+>  	struct ethtool_value id;
+> +	int err;
+> +	static int busy;
+>  
+>  	if (!dev->ethtool_ops->phys_id)
+>  		return -EOPNOTSUPP;
+> @@ -788,7 +791,21 @@ static int ethtool_phys_id(struct net_de
+>  	if (copy_from_user(&id, useraddr, sizeof(id)))
+>  		return -EFAULT;
+>  
+> -	return dev->ethtool_ops->phys_id(dev, id.data);
+> +	if (busy)
+> +		return -EBUSY;
+> +
+> +	/* This operation may take a long time, drop lock */
+> +	busy = 1;
+> +	dev_hold(dev);
+> +	rtnl_unlock();
+> +
+> +	err = dev->ethtool_ops->phys_id(dev, id.data);
+> +
+> +	rtnl_lock();
+> +	dev_put(dev);
+> +	busy = 0;
+> +
+> +	return err;
+>  }
+>  
+>  static int ethtool_get_stats(struct net_device *dev, void __user *useraddr)
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > 
 
-I encountered the same issue with Karmic and worked around it by
-building in all of the phylib modules, e.g., CONFIG_BROADCOM_PHY=y. I
-agree that its not the best long term solution.
 
-rtg
--- 
-Tim Gardner tim.gardner@canonical.com
