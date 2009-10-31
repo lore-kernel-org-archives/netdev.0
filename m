@@ -1,9 +1,8 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] veth: Fix unregister_netdevice_queue for
- veth
-Date: Sat, 31 Oct 2009 10:41:39 +0100
-Message-ID: <4AEC0653.8050109@gmail.com>
-References: <4AEA8F0F.4030100@gmail.com> <m1hbtgmqew.fsf@fess.ebiederm.org> <m1639wjshq.fsf_-_@fess.ebiederm.org>
+Subject: Re: [PATCH net-next-2.6] veth: Fix veth_dellink method
+Date: Sat, 31 Oct 2009 10:43:11 +0100
+Message-ID: <4AEC06AF.6010804@gmail.com>
+References: <4AEA8F0F.4030100@gmail.com> <m1hbtgmqew.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -12,43 +11,37 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Pavel Emelyanov <xemul@openvz.org>
 To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:60056 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:60061 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932262AbZJaJlk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Oct 2009 05:41:40 -0400
-In-Reply-To: <m1639wjshq.fsf_-_@fess.ebiederm.org>
+	with ESMTP id S932673AbZJaJnK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Oct 2009 05:43:10 -0400
+In-Reply-To: <m1hbtgmqew.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Eric W. Biederman a =E9crit :
-> I tested the recent unregister many changes and got a weird,
-> nasty and seemingly unrelasted kernel oops. Changing
-> unregister_netdevice_queue to use list_move_tail fixes
-> the problem for me.
+> Eric Dumazet <eric.dumazet@gmail.com> writes:
+>>
+>> diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+>> index ffb502d..9bed694 100644
+>> --- a/drivers/net/veth.c
+>> +++ b/drivers/net/veth.c
+>> @@ -450,8 +450,8 @@ static void veth_dellink(struct net_device *dev,=
+ struct list_head *head)
+>>  	priv =3D netdev_priv(dev);
+>>  	peer =3D priv->peer;
+>> =20
+>> -	unregister_netdevice(dev);
+>> -	unregister_netdevice(peer);
+>> +	unregister_netdevice_queue(dev, head);
+>> +	unregister_netdevice_queue(peer, head);
 >=20
-> ip link add type veth
-> rmmod veth
->=20
-> ls /sys/class/net/
-> showed one of the veth devices still present.
->=20
-> A subsequent ip link oopsed the box.
->=20
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> Unless I am mistaken you need to change the list_add_tail to
+> list_move_tail in unregister_netdevice_queue because we will be
+> adding each veth device twice.
 >=20
 
-Yes, problem is __rtnl_kill_links() doesnt anymore restart
-its loop and does :
+You are right, and your patch is the solution to this problem
 
-        for_each_netdev(net, dev) {
-                if (dev->rtnl_link_ops =3D=3D ops)
-                        ops->dellink(dev, &list_kill);
-        }
-        unregister_netdevice_many(&list_kill);
+Thanks
 
-As veth wants in its dellink() method to unregister two netdevices,
-we really want your fix or corrupt list_kill
-
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-
-Thanks Eric
