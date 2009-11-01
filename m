@@ -1,40 +1,32 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Subject: [PATCH 2/6] bna: Brocade 10Gb Ethernet device driver
-Date: Sun, 1 Nov 2009 11:25:07 -0800
-Message-ID: <20091101112507.7ab6c7e8@nehalam>
-References: <200911010503.nA153ESA019066@blc-10-10.brocade.com>
+Subject: Re: Subject: [PATCH 1/6] bna: Brocade 10Gb Ethernet device driver
+Date: Sun, 1 Nov 2009 11:25:53 -0800
+Message-ID: <20091101112553.1dc0e3a9@nehalam>
+References: <200911010503.nA153Elp019063@blc-10-10.brocade.com>
+	<1257053039.1917.147.camel@Joe-Laptop.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <adapter_linux_open_src_team@brocade.com>
-To: Rasesh Mody <rmody@brocade.com>
+Cc: Rasesh Mody <rmody@brocade.com>, netdev@vger.kernel.org,
+	adapter_linux_open_src_team@brocade.com,
+	Greg Kroah-Hartman <gregkh@suse.de>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34223 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:34275 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751834AbZKATZ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Nov 2009 14:25:28 -0500
-In-Reply-To: <200911010503.nA153ESA019066@blc-10-10.brocade.com>
+	id S1752917AbZKAT0V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Nov 2009 14:26:21 -0500
+In-Reply-To: <1257053039.1917.147.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 31 Oct 2009 22:03:14 -0700
-Rasesh Mody <rmody@brocade.com> wrote:
+On Sat, 31 Oct 2009 22:23:59 -0700
+Joe Perches <joe@perches.com> wrote:
 
-> +/**
-> + * bna_rxf_config_clear()
-> + *
-> + *   For RxF "rxf_id", it clear its configuration and indicates to the
-> + *   statistics collector to stop collecting statistics for this
-> + *   Rx-Function.
-> + *
-> + * @param[in]  dev     - pointer to BNA device structure
-> + * @param[in]  rxf_id  - rx-function ID.
-> + *
-> + * @return BNA_OK   - successful
-> + * @return BNA_FAIL - failed on sanity checks.
-> + */
+> There are an awful lot of non linux standard
+> uses in this code set.
+> 
+> Perhaps staging would be a good place to start?
+> 
 
-This and other docbook style comments do not match code,
-and will produce warnings if ever run through docbook
-
--- 
+Yup, it looks like a Windows driver port
