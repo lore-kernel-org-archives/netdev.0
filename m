@@ -1,76 +1,95 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [RFC] multiqueue changes
-Date: Sun, 1 Nov 2009 14:20:17 +0100
-Message-ID: <20091101132017.GA2598@ami.dom.local>
-References: <4ACD9255.4020008@gmail.com>
- <20091008090344.GA7409@ff.dom.local>
- <20091008120039.GA8691@ff.dom.local>
- <4AE87EEE.4020703@trash.net>
- <20091028212337.GA3218@ami.dom.local>
- <4AE9C4C3.9040503@trash.net>
- <20091029211543.GA3036@ami.dom.local>
- <4AEA1357.3090307@trash.net>
- <20091030100033.GA6150@ff.dom.local>
- <1257009952.9706.30.camel@HP1>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH] r8169: partial support and phy init for the 8168d
+Date: Sun, 01 Nov 2009 16:24:43 +0000
+Message-ID: <1257092683.3136.325.camel@localhost>
+References: <20091007224420.GA20170@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-u8JoqQIonLHjsdhWKauZ"
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Edward Hsu <edward_hsu@realtek.com.tw>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f227.google.com ([209.85.218.227]:65457 "EHLO
-	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751830AbZKANUZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2009 08:20:25 -0500
-Received: by bwz27 with SMTP id 27so5265493bwz.21
-        for <netdev@vger.kernel.org>; Sun, 01 Nov 2009 05:20:29 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1257009952.9706.30.camel@HP1>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:39435 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752790AbZKAQYr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2009 11:24:47 -0500
+In-Reply-To: <20091007224420.GA20170@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 31, 2009 at 10:25:52AM -0700, Michael Chan wrote:
-> 
-> On Fri, 2009-10-30 at 03:00 -0700, Jarek Poplawski wrote:
-> > On Thu, Oct 29, 2009 at 11:12:39PM +0100, Patrick McHardy wrote:
-...
-> > > I currently can't see any purpose in decreasing num_tx_queues after
-> > > registration instead of real_num_tx_queues.
-> > 
-> > I agree, but since Eric's example shows some drivers do it (almost)
-> > like this, I'd prefer authors/maintainers answer this question.
-> > 
-> 
-> We need the netdev and the private structure at the beginning of
-> ->probe() to store values as we probe the device.  Later on in
-> ->probe(), we'll know whether the device supports MSI-X and multiqueue.
-> If we successfully enable MSI-X in ->ndo_open(), tx multiqueue will be
-> used.
-> 
-> So if we can separate the allocation of the netdev and the private
-> structure from the tx queues, we can allocate and set the exact number
-> of num_tx_queues in ->ndo_open().
 
-There is a question if we can predict in ->probe() MSI-X should be
-successfully enabled in ->ndo_open() for probed hardware. If so,
-then it could go e.g. like this:
-->probe()
-	...
-	dev = alloc_etherdev_mq(sizeof(*bp), 1)
-	...
-	if (MSI-X_available && device_supports_MSI-X_and_multiqueue)
-		realloc_netdev_mq(dev, TX_MAX_RINGS)
-	register_netdev(dev)
+--=-u8JoqQIonLHjsdhWKauZ
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-->ndo_open()
-	if (!enabled_MSI-X)
-		/* something gone wrong but it's an exception */
-		dev->real_num_tx_queues = 1
+On Thu, 2009-10-08 at 00:44 +0200, Francois Romieu wrote:
+> Extracted from Realtek's 8.012.00 r8168 driver.
 
-Otherwise, (re)allocation in ->ndo_open() would need to answer some
-questions about reinitializing scheduler vs preserving qdisc stats
-between opens.
+There is a problem with this change:
 
-Jarek P.
+[...]
+> static void rtl8168d_1_hw_phy_config(void __iomem *ioaddr)
+> {
+[...]
+> +	static struct phy_reg phy_reg_init_2[] =3D {
+> +		{ 0x1f, 0x0005 },
+> +		{ 0x05, 0xffc2 },
+> +		{ 0x1f, 0x0005 },
+
+I interpret the following sequence of register writes as:
+
+> +		{ 0x05, 0x8000 },
+> +		{ 0x06, 0xf8f9 },
+> +		{ 0x06, 0xfaef },
+> +		{ 0x06, 0x59ee },
+[...]
+
+Write memory sequentially from 0x8000,
+
+> +		{ 0x05, 0x83d4 },
+> +		{ 0x06, 0x8000 },
+> +		{ 0x05, 0x83d8 },
+> +		{ 0x06, 0x8051 },
+[...]
+
+Change two vectors to point into what was just written.=20
+
+I believe this is patching machine code in the PHY.  And we do not have
+source for that code, so it cannot possibly be distributed under GPL.
+
+Please replace this with use of request_firmware() and submit the blob
+to linux-firmware.git instead.
+
+The same goes for phy_reg_init_1 in rtl8168d_2_hw_phy_config().
+
+Ben.
+
+--=20
+Ben Hutchings
+The generation of random numbers is too important to be left to chance.
+                                                            - Robert Coveyo=
+u
+
+--=-u8JoqQIonLHjsdhWKauZ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIVAwUASu22Rue/yOyVhhEJAQJo+BAAiDkA+2vGXWN8fI10q4xBTIwCOFsi88/W
+Eu8en9eaf5s4/jOCjF80Obz2KhLj/+e5TyZjVBrMYGyZaXGb/QEpbEsLdXmzdwW9
+guNjntqdsuYgaGQOBWk8Ikt8VRD25UgksERKHbVf8uyCb9avPeSszxkt8UnnseXz
+HbBd8sYeyoFKW4VGVVXQ6i3bKb7uWAfZFiV1FOBFD0hsDk9yK2TMPahi6zfpJvPz
+2Es0WhW9Q/UmDc5/1X7/4If1ZlF7SC159jLy+spog+bcIQS+LtDks+5jHY73HIAM
+MOPFPPvj/0TF2DLSPyQsSw5EBnulRaiI8rVSEhKuz0FAljVF4Gc7B8wi+EyJb7bA
+ynfLPC9syZlYXDjYHi5nHAH0qMeCTEwtPd2+SJAEKERaq5SecT7+3P8iKWH//xi7
+yhwg+lzTA9NRmowr8nhrJr27YL6kay5a9uDciE8hwPMjlCvi0TCJ73JANbYusgJ1
+c+3N5k80i3gl0gP3+Ntt3qR+bXqvyI/vKdTBINmlqsKOL7ZXW7/Hsf9Go1KeVphl
+ZNsEV4/VkFrAQKs3wzm6wb9v7mF93ojyQtg9tewQzTKss0j1U9ubalEgloOUNzfF
+hKM+P1ZJfqw1shUNe8D66IM4CNBUeLRB6XSeymYj8rrd+pCxc/I3esAJsfxtQahZ
++dstOzaQNOg=
+=9BR4
+-----END PGP SIGNATURE-----
+
+--=-u8JoqQIonLHjsdhWKauZ--
