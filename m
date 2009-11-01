@@ -1,79 +1,89 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: kerneloops.org report for the week of October 31 2009
-Date: Sun, 1 Nov 2009 00:20:20 +0100
-Message-ID: <200911010020.20284.rjw@sisk.pl>
-References: <20091031160351.26fcc6c5@infradead.org>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: Subject: [PATCH 6/6] bna: Brocade 10Gb Ethernet device driver
+Date: Sat, 31 Oct 2009 22:03:14 -0700
+Message-ID: <200911010503.nA153ExZ019078@blc-10-10.brocade.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
-	linux-acpi@vger.kernel.org, tytso@mit.edu, netdev@vger.kernel.org,
-	Eric Paris <eparis@redhat.com>, akpm@linux-foundation.org,
-	Matt Domsch <Matt_Domsch@dell.com>
-To: Arjan van de Ven <arjan@infradead.org>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <20091031160351.26fcc6c5@infradead.org>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <adapter_linux_open_src_team@brocade.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hq-exedge.brocade.com ([66.243.153.82]:38686 "EHLO
+	hq-exedge.brocade.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750969AbZKAFDK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2009 01:03:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sunday 01 November 2009, Arjan van de Ven wrote:
-> 
-> This week, a total of 18023 oopses and warnings have been reported,
-> compared to 5816 reports in the previous week. This number and this
-> report only includes kernel 2.6.31 and later.
-> 
-> This week, the Ubuntu 9.10 distribution got released, which includes
-> kerneloops.org integration in the quality feedback system. I'd like
-> to thank the Ubuntu team for their effort in helping to get the quality
-> feedback about the kernel integrated into kerneloops.org.
-> 
-> 
-> One thing to note is that the Ubuntu 9.10 release ships with the kernel
-> debug option CONFIG_PM_TEST_SUSPEND enabled, causing many warnings to 
-> be submitted. This huge volume triggered me to split these reports, as well
-> as the check_bios_for_corruption() reports into a per machine entry.
-> 
-> The top 5 machines for which the suspend test fails:
->    319 | suspend_test_finish(Latitude D830)
->    231 | suspend_test_finish(XPS M1530)
->    225 | suspend_test_finish(MacBook2,1)
->    171 | suspend_test_finish(Compaq Presario CQ60 Notebook PC)
->    157 | suspend_test_finish(Studio XPS 1340)
-> 
-> and there is also the very elegant 
->    267 | suspend_test_finish(To Be Filled By O.E.M)
-> 
-> 
-> The top 5 machines where the BIOS corrupts memory:
->     80 | check_for_bios_corruption(HP Compaq nx6110)
->     69 | check_for_bios_corruption(HP Compaq nc6120)
->     62 | check_for_bios_corruption(HP Pavilion dv6700 Notebook PC)
->     49 | check_for_bios_corruption(HP Pavilion dv2700 Notebook PC)
->     32 | check_for_bios_corruption(Compaq Presario F700 Notebook PC)
-> 
-> 
-> The report this week looks different from previous reports; the version
-> cut-off has moved to 2.6.31 so that a lot of older bugs now dropped out of the report.
-> 
-> New this week are some inotify bugs, that have been fixed in Linus' git tree after -rc5.
-> There's also an ext2 warning for when the user unplugs a USB stick, as well as the
-> usual binary and external kernel modules.
-> 
-> If you have (better) descriptions for some of these, let me know and I can add them to the
-> database.
-> 
-> 
-> 
-> 
-> Rank 1: suspend_test_finish(System Product Name) (warning)
-> 	Reported 930 times (1510 total reports)
-> 	This warning was last seen in version 2.6.31, and first seen in 2.6.27.15.
-> 	More info: http://www.kerneloops.org/searchweek.php?search=suspend_test_finish(System Product Name)
+From: Rasesh Mody <rmody@brocade.com>
 
-This should be fixed by commit 04bf7539c08d64184736cdc5e4ad617eda77eb0f
-(PM: Make warning in suspend_test_finish() less likely to happen), at least on some
-machines that report it.
+This is patch 6/6 which contains linux driver source for
+Brocade's BR1010/BR1020 10Gb CEE capable ethernet adapter.
+Re-based source against net-next-2.6 and re-submitting the
+patch with few fixes.
 
-Thanks,
-Rafael
+We wish this patch to be considered for inclusion in net-next-2.6
+
+Signed-off-by: Rasesh Mody <rmody@brocade.com>
+---
+ Kconfig      |   15 +++++++++++++++
+ Makefile     |    1 +
+ bna/Makefile |   17 +++++++++++++++++
+ 3 files changed, 33 insertions(+)
+
+diff -ruP net-next-2.6-orig/drivers/net/Kconfig net-next-2.6-mod/drivers/net/Kconfig
+--- net-next-2.6-orig/drivers/net/Kconfig	2009-10-31 00:44:29.000000000 -0700
++++ net-next-2.6-mod/drivers/net/Kconfig	2009-10-31 21:40:54.515921000 -0700
+@@ -2757,6 +2757,21 @@
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called qlge.
+ 
++config BNA
++        tristate "Brocade 1010/1020 10Gb Ethernet Driver support"
++        depends on PCI
++        ---help---
++          This driver supports Brocade 1010/1020 10Gb CEE capable Ethernet
++          cards.
++
++          To compile this driver as a module, choose M here: the module
++          will be called bna.
++
++          For general information and support, go to the Brocade support
++          website at:
++
++          <http://support.brocade.com>
++
+ source "drivers/net/sfc/Kconfig"
+ 
+ source "drivers/net/benet/Kconfig"
+diff -ruP net-next-2.6-orig/drivers/net/Makefile net-next-2.6-mod/drivers/net/Makefile
+--- net-next-2.6-orig/drivers/net/Makefile	2009-10-31 00:44:29.000000000 -0700
++++ net-next-2.6-mod/drivers/net/Makefile	2009-10-31 21:40:54.533912000 -0700
+@@ -31,6 +31,7 @@
+ obj-$(CONFIG_JME) += jme.o
+ obj-$(CONFIG_BE2NET) += benet/
+ obj-$(CONFIG_VMXNET3) += vmxnet3/
++obj-$(CONFIG_BNA) += bna/
+ 
+ gianfar_driver-objs := gianfar.o \
+ 		gianfar_ethtool.o \
+diff -ruP net-next-2.6-orig/drivers/net/bna/Makefile net-next-2.6-mod/drivers/net/bna/Makefile
+--- net-next-2.6-orig/drivers/net/bna/Makefile	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6-mod/drivers/net/bna/Makefile	2009-10-31 21:40:54.561914000 -0700
+@@ -0,0 +1,17 @@
++#
++#    Copyright (c) 2005-2008 Brocade Communications Systems, Inc.
++#    All rights reserved.
++#
++
++obj-$(CONFIG_BNA) += bna.o
++
++bna-objs := bnad.o bnad_ethtool.o bna_fn.o bna_if.o bna_queue.o \
++		bfad_fwimg.o bfa_csdebug.o bfa_sm.o \
++		bfa_ioc.o bfa_timer.o \
++		bfa_cee.o
++
++EXTRA_CFLAGS += -Idrivers/net/bna \
++		-Idrivers/net/bna/include \
++		-Idrivers/net/bna/include/cee \
++		-Idrivers/net/bna/include/cna/pstats \
++		-Idrivers/net/bna/include/cs 
