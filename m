@@ -1,44 +1,45 @@
-From: Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2009-10-28
-Date: Sun, 1 Nov 2009 20:04:59 +0100
-Message-ID: <200911012004.59718.bzolnier@gmail.com>
-References: <1256886023.3555.5.camel@johannes.local> <20091030110616.GB6150@ff.dom.local> <20091030150223.GA2586@tuxdriver.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [net-next-2.6 PATCH v4 1/3] TCPCT part 1a: add request_values
+ parameter for sending SYNACK
+Date: Sun, 01 Nov 2009 20:13:02 +0100
+Message-ID: <4AEDDDBE.70300@cosmosbay.com>
+References: <4AE6E35C.2050101@gmail.com> <4AE6E474.9060704@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20091030150223.GA2586-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:45947 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753132AbZKATNG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2009 14:13:06 -0500
+In-Reply-To: <4AE6E474.9060704@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 30 October 2009 16:02:24 John W. Linville wrote:
+William Allen Simpson a =E9crit :
+> Add optional function parameters associated with sending SYNACK.
+> These parameters are not needed after sending SYNACK, and are not
+> used for retransmission.  Avoids extending struct tcp_request_sock,
+> and avoids allocating kernel memory.
+>=20
+> Also affects DCCP as it uses common struct request_sock_ops,
+> but this parameter is currently reserved for future use.
+>=20
+> Signed-off-by: William.Allen.Simpson@gmail.com
+> ---
+>  include/net/request_sock.h      |    8 +++++++-
+>  include/net/tcp.h               |    1 +
+>  net/dccp/ipv4.c                 |    5 +++--
+>  net/dccp/ipv6.c                 |    5 +++--
+>  net/dccp/minisocks.c            |    2 +-
+>  net/ipv4/inet_connection_sock.c |    2 +-
+>  net/ipv4/tcp_ipv4.c             |   11 +++++++----
+>  net/ipv4/tcp_minisocks.c        |    2 +-
+>  net/ipv4/tcp_output.c           |    1 +
+>  net/ipv6/tcp_ipv6.c             |   14 +++++++-------
+>  10 files changed, 32 insertions(+), 19 deletions(-)
+>=20
 
-> Ever since Bartlomiej decided to tear himself away from
-> drivers/staging, he has been nothing but negative -- petty, whining,
-
-I think that you should ping Greg about this since somebody impersonating
-for me is sending him patches.  Last week alone over 20 such patches were
-merged -- who knows what this person might be planning.. ;)
-
-Probably the following patch was the source of confusion:
-
-	http://patchwork.kernel.org/patch/55076/
-
-It just aligns my personal interests w/ ongoing work done by other people,
-hch is working on mac80211 via driver and Greg has announced some time ago
-that he was going to work on proper rtl819x support.
-
--- 
-Bartlomiej Zolnierkiewicz
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
