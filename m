@@ -1,124 +1,102 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next-2.6 PATCH v4 3/3] TCPCT part 1c: initial SYN exchange
- with SYNACK data
-Date: Sun, 01 Nov 2009 20:19:15 +0100
-Message-ID: <4AEDDF33.9030205@gmail.com>
-References: <4AE6E35C.2050101@gmail.com> <4AE6E7C0.2050408@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Subject: [PATCH 1/6] bna: Brocade 10Gb Ethernet device driver
+Date: Sun, 1 Nov 2009 11:19:54 -0800
+Message-ID: <20091101111954.6cd2d569@nehalam>
+References: <200911010503.nA153Elp019063@blc-10-10.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: William Allen Simpson <william.allen.simpson@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <adapter_linux_open_src_team@brocade.com>
+To: Rasesh Mody <rmody@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:52846 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750993AbZKATTR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2009 14:19:17 -0500
-In-Reply-To: <4AE6E7C0.2050408@gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:33986 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751499AbZKATU2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Nov 2009 14:20:28 -0500
+In-Reply-To: <200911010503.nA153Elp019063@blc-10-10.brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-William Allen Simpson a =E9crit :
-> This is a significantly revised implementation of an earlier (year-ol=
-d)
-> patch that no longer applies cleanly, with permission of the original
-> author (Adam Langley).  That patch was previously reviewed:
->=20
->    http://thread.gmane.org/gmane.linux.network/102586
->=20
-> The principle difference is using a TCP option to carry the cookie no=
-nce,
-> instead of a user configured offset in the data.  This is more flexib=
-le and
-> less subject to user configuration error.  Such a cookie option has b=
-een
-> suggested for many years, and is also useful without SYN data, allowi=
-ng
-> several related concepts to use the same extension option.
->=20
->    "Re: SYN floods (was: does history repeat itself?)", September 9, =
-1996.
->    http://www.merit.net/mail.archives/nanog/1996-09/msg00235.html
->=20
->    "Re: what a new TCP header might look like", May 12, 1998.
->    ftp://ftp.isi.edu/end2end/end2end-interest-1998.mail
->=20
-> Data structures are carefully composed to require minimal additions.
-> For example, the struct tcp_options_received cookie_plus variable fit=
-s
-> between existing 16-bit and 8-bit variables, requiring no additional
-> space (taking alignment into consideration).  There are no additions =
-to
-> tcp_request_sock, and only 1 pointer and 1 flag byte in tcp_sock.
->=20
-> Allocations have been rearranged to avoid requiring GFP_ATOMIC, with
-> only one unavoidable exception in tcp_create_openreq_child(), where t=
-he
-> tcp_sock itself is created GFP_ATOMIC.
->=20
-> These functions will also be used in subsequent patches that implemen=
-t
-> additional features.
->=20
-> Requires:
->   TCPCT part 1a: add request_values parameter for sending SYNACK
->   TCPCT part 1b: sysctl_tcp_cookie_size, socket option
-> TCP_COOKIE_TRANSACTIONS, functions
->=20
-> Signed-off-by: William.Allen.Simpson@gmail.com
-> ---
->  include/linux/tcp.h      |   34 ++++++-
->  include/net/tcp.h        |   67 +++++++++++++-
->  net/ipv4/syncookies.c    |    5 +-
->  net/ipv4/tcp.c           |  128 +++++++++++++++++++++++++-
->  net/ipv4/tcp_input.c     |   84 +++++++++++++++--
->  net/ipv4/tcp_ipv4.c      |   62 +++++++++++--
->  net/ipv4/tcp_minisocks.c |   43 +++++++--
->  net/ipv4/tcp_output.c    |  227
-> +++++++++++++++++++++++++++++++++++++++++++---
->  net/ipv6/syncookies.c    |    5 +-
->  net/ipv6/tcp_ipv6.c      |   47 +++++++++-
->  10 files changed, 639 insertions(+), 63 deletions(-)
->=20
+Too many configuration optons?
 
-This part is really hard to review, and might be splitted ?
+On Sat, 31 Oct 2009 22:03:14 -0700
+Rasesh Mody <rmody@brocade.com> wrote:
 
-cleanups could be done in a cleanup patch only
+> +
+> +#ifdef BNAD_NO_IP_ALIGN
+> +#define BNAD_NET_IP_ALIGN 0
+> +#else
+> +#define BNAD_NET_IP_ALIGN NET_IP_ALIGN
+> +#endif
+>
 
-Examples:
-
--	tmp_opt.mss_clamp =3D 536;
--	tmp_opt.user_mss  =3D tcp_sk(sk)->rx_opt.user_mss;
-+	tmp_opt.mss_clamp =3D TCP_MIN_RCVMSS;
-+	tmp_opt.user_mss  =3D tp->rx_opt.user_mss;
+Why is this device special?
 
 
--	tp->mss_cache =3D 536;
-+	tp->mss_cache =3D TCP_MIN_RCVMSS;
+
+> +
+> +
+> +#define BNAD_TXQ_WI_NEEDED(_vectors)	(((_vectors) + 3) >> 2)
+> +
+
+Module parameters mean the hardware or the developer could not
+decide how to do it right.  Please reduce or eliminate most of these.
 
 
-Also your tests are reversed, if you look at the existing coding style.
+> +static uint bnad_msix = 1;
+> +module_param(bnad_msix, uint, 0444);
+> +MODULE_PARM_DESC(bnad_msix, "Enable MSI-X");
 
-Example :
+If msi-X is available use it, if not then don't. User can handle
+this globally with kernel command line option.
 
-+	/* TCP Cookie Transactions */
-+	if (0 < sysctl_tcp_cookie_size) {
-+		/* Default, cookies without s_data. */
-+		tp->cookie_values =3D
-+			kzalloc(sizeof(*tp->cookie_values),
-+				sk->sk_allocation);
-+		if (NULL !=3D tp->cookie_values)
-+			kref_init(&tp->cookie_values->kref);
-+	}
+> +uint bnad_small_large_rxbufs = 1;
+> +module_param(bnad_small_large_rxbufs, uint, 0444);
+> +MODULE_PARM_DESC(bnad_small_large_rxbufs, "Enable small/large buffer receive");
 
-should be ->
+Do or do not, please no config option.  The ideal case is:
+  normal MTU == skb
+  jumbo MTU = skb with fragmenets
 
-+	/* TCP Cookie Transactions */
-+	if (sysctl_tcp_cookie_size > 0) {
-+		/* Default, cookies without s_data. */
-+		tp->cookie_values =3D
-+			kzalloc(sizeof(*tp->cookie_values),
-+				sk->sk_allocation);
-+		if (tp->cookie_values !=3D NULL)
-+			kref_init(&tp->cookie_values->kref);
-+	}
+> +static uint bnad_rxqsets_used;
+> +module_param(bnad_rxqsets_used, uint, 0444);
+> +MODULE_PARM_DESC(bnad_rxqsets_used, "Number of RxQ sets to be used");
+> +
+> +static uint bnad_ipid_mode;
+> +module_param(bnad_ipid_mode, uint, 0444);
+> +MODULE_PARM_DESC(bnad_ipid_mode, "0 - Use IP ID 0x0000 - 0x7FFF for LSO; "
+> +    "1 - Use full range of IP ID for LSO");
+
+Gack!
+
+
+> +uint bnad_txq_depth = BNAD_ENTRIES_PER_TXQ;
+> +module_param(bnad_txq_depth, uint, 0444);
+> +MODULE_PARM_DESC(bnad_txq_depth, "Maximum number of entries per TxQ");
+
+Should be ethtool configuration not module parameters
+
+> +uint bnad_rxq_depth = BNAD_ENTRIES_PER_RXQ;
+> +module_param(bnad_rxq_depth, uint, 0444);
+> +MODULE_PARM_DESC(bnad_rxq_depth, "Maximum number of entries per RxQ");
+> +
+> +static uint bnad_vlan_strip = 1;
+> +module_param(bnad_vlan_strip, uint, 0444);
+> +MODULE_PARM_DESC(bnad_vlan_strip, "Let the hardware strip off VLAN header");
+
+Just do VLAN acceleration.
+
+> +static uint bnad_log_level = LOG_WARN_LEVEL;
+> +module_param(bnad_log_level, uint, 0644);
+> +MODULE_PARM_DESC(bnad_log_level, "Log level");
+
+Use ethtool msg_level for this
+
+> +static uint bnad_ioc_auto_recover = 1;
+> +module_param(bnad_ioc_auto_recover, uint, 0644);
+> +MODULE_PARM_DESC(bnad_ioc_auto_recover, "Enable auto recovery");
+
+Why is this configurable?
+
+
+-- 
