@@ -1,95 +1,141 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] r8169: partial support and phy init for the 8168d
-Date: Sun, 01 Nov 2009 16:24:43 +0000
-Message-ID: <1257092683.3136.325.camel@localhost>
-References: <20091007224420.GA20170@electric-eye.fr.zoreil.com>
+From: Benjamin LaHaise <bcrl@lhnet.ca>
+Subject: [PATCH 1/3] sysfs directory scaling: rbtree for dirent name lookups
+Date: Sun, 1 Nov 2009 11:31:30 -0500
+Message-ID: <20091101163130.GA7911@kvack.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-u8JoqQIonLHjsdhWKauZ"
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Edward Hsu <edward_hsu@realtek.com.tw>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Octavian Purdila <opurdila@ixiacom.com>,
+	netdev@vger.kernel.org, Cosmin Ratiu <cratiu@ixiacom.com>,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:39435 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752790AbZKAQYr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2009 11:24:47 -0500
-In-Reply-To: <20091007224420.GA20170@electric-eye.fr.zoreil.com>
+Received: from kanga.kvack.org ([205.233.56.17]:55756 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752826AbZKAQb0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Nov 2009 11:31:26 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Use an rbtree in sysfs_dirent to speed up file lookup times
 
---=-u8JoqQIonLHjsdhWKauZ
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Systems with large numbers (tens of thousands and more) of network 
+interfaces stress the sysfs code in ways that make the linear search for 
+a name match take far too long.  Avoid this by using an rbtree.
 
-On Thu, 2009-10-08 at 00:44 +0200, Francois Romieu wrote:
-> Extracted from Realtek's 8.012.00 r8168 driver.
-
-There is a problem with this change:
-
-[...]
-> static void rtl8168d_1_hw_phy_config(void __iomem *ioaddr)
-> {
-[...]
-> +	static struct phy_reg phy_reg_init_2[] =3D {
-> +		{ 0x1f, 0x0005 },
-> +		{ 0x05, 0xffc2 },
-> +		{ 0x1f, 0x0005 },
-
-I interpret the following sequence of register writes as:
-
-> +		{ 0x05, 0x8000 },
-> +		{ 0x06, 0xf8f9 },
-> +		{ 0x06, 0xfaef },
-> +		{ 0x06, 0x59ee },
-[...]
-
-Write memory sequentially from 0x8000,
-
-> +		{ 0x05, 0x83d4 },
-> +		{ 0x06, 0x8000 },
-> +		{ 0x05, 0x83d8 },
-> +		{ 0x06, 0x8051 },
-[...]
-
-Change two vectors to point into what was just written.=20
-
-I believe this is patching machine code in the PHY.  And we do not have
-source for that code, so it cannot possibly be distributed under GPL.
-
-Please replace this with use of request_firmware() and submit the blob
-to linux-firmware.git instead.
-
-The same goes for phy_reg_init_1 in rtl8168d_2_hw_phy_config().
-
-Ben.
-
---=20
-Ben Hutchings
-The generation of random numbers is too important to be left to chance.
-                                                            - Robert Coveyo=
-u
-
---=-u8JoqQIonLHjsdhWKauZ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIVAwUASu22Rue/yOyVhhEJAQJo+BAAiDkA+2vGXWN8fI10q4xBTIwCOFsi88/W
-Eu8en9eaf5s4/jOCjF80Obz2KhLj/+e5TyZjVBrMYGyZaXGb/QEpbEsLdXmzdwW9
-guNjntqdsuYgaGQOBWk8Ikt8VRD25UgksERKHbVf8uyCb9avPeSszxkt8UnnseXz
-HbBd8sYeyoFKW4VGVVXQ6i3bKb7uWAfZFiV1FOBFD0hsDk9yK2TMPahi6zfpJvPz
-2Es0WhW9Q/UmDc5/1X7/4If1ZlF7SC159jLy+spog+bcIQS+LtDks+5jHY73HIAM
-MOPFPPvj/0TF2DLSPyQsSw5EBnulRaiI8rVSEhKuz0FAljVF4Gc7B8wi+EyJb7bA
-ynfLPC9syZlYXDjYHi5nHAH0qMeCTEwtPd2+SJAEKERaq5SecT7+3P8iKWH//xi7
-yhwg+lzTA9NRmowr8nhrJr27YL6kay5a9uDciE8hwPMjlCvi0TCJ73JANbYusgJ1
-c+3N5k80i3gl0gP3+Ntt3qR+bXqvyI/vKdTBINmlqsKOL7ZXW7/Hsf9Go1KeVphl
-ZNsEV4/VkFrAQKs3wzm6wb9v7mF93ojyQtg9tewQzTKss0j1U9ubalEgloOUNzfF
-hKM+P1ZJfqw1shUNe8D66IM4CNBUeLRB6XSeymYj8rrd+pCxc/I3esAJsfxtQahZ
-+dstOzaQNOg=
-=9BR4
------END PGP SIGNATURE-----
-
---=-u8JoqQIonLHjsdhWKauZ--
+Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
+diff --git a/fs/sysfs/dir.c b/fs/sysfs/dir.c
+index 5fad489..30c3fc5 100644
+--- a/fs/sysfs/dir.c
++++ b/fs/sysfs/dir.c
+@@ -44,6 +44,7 @@ static void sysfs_link_sibling(struct sysfs_dirent *sd)
+ {
+ 	struct sysfs_dirent *parent_sd = sd->s_parent;
+ 	struct sysfs_dirent **pos;
++	struct rb_node **new, *parent;
+ 
+ 	BUG_ON(sd->s_sibling);
+ 
+@@ -57,6 +58,27 @@ static void sysfs_link_sibling(struct sysfs_dirent *sd)
+ 	}
+ 	sd->s_sibling = *pos;
+ 	*pos = sd;
++
++	// rb tree insert
++	new = &(parent_sd->s_dir.child_rb_root.rb_node);
++	parent = NULL;
++
++	while (*new) {
++		struct sysfs_dirent *this =
++			container_of(*new, struct sysfs_dirent, s_rb_node);
++		int result = strcmp(sd->s_name, this->s_name);
++
++		parent = *new;
++		if (result < 0)
++			new = &((*new)->rb_left);
++		else if (result > 0)
++			new = &((*new)->rb_right);
++		else
++			BUG();
++	}
++
++	rb_link_node(&sd->s_rb_node, parent, new);
++	rb_insert_color(&sd->s_rb_node, &parent_sd->s_dir.child_rb_root);
+ }
+ 
+ /**
+@@ -81,6 +103,8 @@ static void sysfs_unlink_sibling(struct sysfs_dirent *sd)
+ 			break;
+ 		}
+ 	}
++
++	rb_erase(&sd->s_rb_node, &sd->s_parent->s_dir.child_rb_root);
+ }
+ 
+ /**
+@@ -331,6 +355,9 @@ struct sysfs_dirent *sysfs_new_dirent(const char *name, umode_t mode, int type)
+ 	sd->s_mode = mode;
+ 	sd->s_flags = type;
+ 
++	if (type == SYSFS_DIR)
++		sd->s_dir.child_rb_root = RB_ROOT;
++
+ 	return sd;
+ 
+  err_out2:
+@@ -630,11 +657,20 @@ void sysfs_addrm_finish(struct sysfs_addrm_cxt *acxt)
+ struct sysfs_dirent *sysfs_find_dirent(struct sysfs_dirent *parent_sd,
+ 				       const unsigned char *name)
+ {
+-	struct sysfs_dirent *sd;
+-
+-	for (sd = parent_sd->s_dir.children; sd; sd = sd->s_sibling)
+-		if (!strcmp(sd->s_name, name))
+-			return sd;
++	struct rb_node *node = parent_sd->s_dir.child_rb_root.rb_node;
++
++	while (node) {
++		struct sysfs_dirent *data =
++			container_of(node, struct sysfs_dirent, s_rb_node);
++		int result;
++		result = strcmp(name, data->s_name);
++		if (result < 0)
++			node = node->rb_left;
++		else if (result > 0)
++			node = node->rb_right;
++		else
++			return data;
++	}
+ 	return NULL;
+ }
+ 
+diff --git a/fs/sysfs/sysfs.h b/fs/sysfs/sysfs.h
+index af4c4e7..600109c 100644
+--- a/fs/sysfs/sysfs.h
++++ b/fs/sysfs/sysfs.h
+@@ -9,6 +9,7 @@
+  */
+ 
+ #include <linux/fs.h>
++#include <linux/rbtree.h>
+ 
+ struct sysfs_open_dirent;
+ 
+@@ -17,6 +18,7 @@ struct sysfs_elem_dir {
+ 	struct kobject		*kobj;
+ 	/* children list starts here and goes through sd->s_sibling */
+ 	struct sysfs_dirent	*children;
++	struct rb_root		child_rb_root;
+ };
+ 
+ struct sysfs_elem_symlink {
+@@ -52,6 +54,7 @@ struct sysfs_dirent {
+ 	atomic_t		s_active;
+ 	struct sysfs_dirent	*s_parent;
+ 	struct sysfs_dirent	*s_sibling;
++	struct rb_node		s_rb_node;
+ 	const char		*s_name;
+ 
+ 	union {
