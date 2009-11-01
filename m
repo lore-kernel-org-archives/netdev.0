@@ -1,78 +1,34 @@
-From: Benjamin LaHaise <bcrl@lhnet.ca>
-Subject: [PATCH 2/3] sysfs directory scaling: count number of children dirs
-Date: Sun, 1 Nov 2009 11:33:09 -0500
-Message-ID: <20091101163309.GC7911@kvack.org>
-References: <20091101163130.GA7911@kvack.org> <20091101163230.GB7911@kvack.org>
+From: Paul Thomas <pthomas8589-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6] Driver for the Microchip MCP251x SPI CAN
+	controllers
+Date: Sun, 1 Nov 2009 09:40:34 -0700
+Message-ID: <c785bba30911010840m2ad73abawf8434f42337a26d3@mail.gmail.com>
+References: <1256824214-21420-1-git-send-email-chripell@fsfe.org>
+	<4AED5589.3090106@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Octavian Purdila <opurdila@ixiacom.com>,
-	netdev@vger.kernel.org, Cosmin Ratiu <cratiu@ixiacom.com>,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:55771 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752933AbZKAQdE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Nov 2009 11:33:04 -0500
-Content-Disposition: inline
-In-Reply-To: <20091101163230.GB7911@kvack.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4AED5589.3090106-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-sysfs_count_nlink() is a bottleneck during mass bring up of network 
-interfaces.  Eliminate this problem by tracking the number of directories.
+Yes, I will be testing ready to work on this hopefully on Monday or
+Tuesday. Is this the correct git tree to patch against?
+http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=summary
 
-Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
-diff -u b/fs/sysfs/dir.c b/fs/sysfs/dir.c
---- b/fs/sysfs/dir.c
-+++ b/fs/sysfs/dir.c
-@@ -70,6 +70,7 @@
- 	sd->s_sibling = *pos;
- 	sd->s_sibling_prev = prev;
- 	*pos = sd;
-+	parent_sd->s_nr_children_dir += (sysfs_type(sd) == SYSFS_DIR);
- 
- 	// rb tree insert
- 	new = &(parent_sd->s_dir.child_rb_root.rb_node);
-@@ -118,6 +119,7 @@
- 	if (sd->s_sibling)
- 		sd->s_sibling->s_sibling_prev = prev;
- 	
-+	sd->s_parent->s_nr_children_dir -= (sysfs_type(sd) == SYSFS_DIR);
- 	sd->s_sibling_prev = NULL;
- 	rb_erase(&sd->s_rb_node, &sd->s_parent->s_dir.child_rb_root);
- }
-diff -u b/fs/sysfs/sysfs.h b/fs/sysfs/sysfs.h
---- b/fs/sysfs/sysfs.h
-+++ b/fs/sysfs/sysfs.h
-@@ -71,6 +71,8 @@
- 	ino_t			s_ino;
- 	umode_t			s_mode;
- 	struct sysfs_inode_attrs *s_iattr;
-+
-+	int			s_nr_children_dir;
- };
- 
- #define SD_DEACTIVATED_BIAS		INT_MIN
-only in patch2:
-unchanged:
---- a/fs/sysfs/inode.c
-+++ b/fs/sysfs/inode.c
-@@ -191,14 +191,7 @@ static struct lock_class_key sysfs_inode_imutex_key;
- 
- static int sysfs_count_nlink(struct sysfs_dirent *sd)
- {
--	struct sysfs_dirent *child;
--	int nr = 0;
--
--	for (child = sd->s_dir.children; child; child = child->s_sibling)
--		if (sysfs_type(child) == SYSFS_DIR)
--			nr++;
--
--	return nr + 2;
-+	return sd->s_nr_children_dir + 2;
- }
- 
- static void sysfs_init_inode(struct sysfs_dirent *sd, struct inode *inode)
+Should I just pull the latest?
+
+thanks,
+Paul
