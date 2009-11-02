@@ -1,38 +1,33 @@
-From: "Sledz, Steffen" <sledz@DResearch.DE>
-Subject: RE: Patch: Fix userland build failure in linux/if_tunnel.h
-Date: Mon, 2 Nov 2009 12:15:38 +0100
-Message-ID: <69E6C70090A0A14498CC98FAE5E06B6E3CFA6B@hiob.intern.dresearch.de>
-References: <4AEDCBA6.7040206@dresearch.de> <20091102135750.436a7b54@emcraft.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] multiqueue changes
+Date: Mon, 02 Nov 2009 03:35:33 -0800 (PST)
+Message-ID: <20091102.033533.08766686.davem@davemloft.net>
+References: <20091030100033.GA6150@ff.dom.local>
+	<1257009952.9706.30.camel@HP1>
+	<20091101132017.GA2598@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <wd@denx.de>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: "Sergei Poselenov" <sposelenov@emcraft.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754474AbZKBLdP@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <20091102135750.436a7b54@emcraft.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mchan@broadcom.com, kaber@trash.net, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: jarkao2@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55758
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754379AbZKBLfI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 06:35:08 -0500
+In-Reply-To: <20091101132017.GA2598@ami.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Sergei, hello other maintainers,
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Sun, 1 Nov 2009 14:20:17 +0100
 
-> > i'm working for the OpenEmbedded project and we hit the same busybox
-> > problem you mentioned in <http://patchwork.kernel.org/patch/31164/>.
-> > 
-> > It doesn't look like you got much feedback on you patch suggestion.
-> > Did it made it's way to the kernel sources? Or where there any
-> > objections on it?
+> There is a question if we can predict in ->probe() MSI-X should be
+> successfully enabled in ->ndo_open() for probed hardware. If so,
+> then it could go e.g. like this:
 
-> Hm, I received a confirmation, that my fix was applied
-> http://www.spinics.net/lists/netdev/msg103860.html
+We never can know this.
 
-No, i think it didn't. This confirmation is related to a patch from
-Joe Perches to the MAINTAINERS file.
-
-> However, it indeed didn't find their way into the mainline.
-> I have no idea why, received no objections.
-
-What are the maintainers saying?
-
-Steffen
+Another device driver can eat up all the MSI-X vectors in the PCI
+domain before we make the request_irq() calls in ->open().
