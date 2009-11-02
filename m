@@ -1,269 +1,55 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCHv2] tun: export underlying socket
-Date: Mon, 2 Nov 2009 19:20:22 +0200
-Message-ID: <20091102172022.GA28247@redhat.com>
-References: <20090910125929.GA32593@redhat.com>
+From: Luis Correia <luis.f.correia@gmail.com>
+Subject: Re: pull request: wireless-next-2.6 2009-10-28
+Date: Mon, 2 Nov 2009 17:32:18 +0000
+Message-ID: <efe7343f0911020932l21a570c8u9478568329d38e2c@mail.gmail.com>
+References: <1256886023.3555.5.camel@johannes.local>
+	 <20091030110616.GB6150@ff.dom.local>
+	 <20091030150223.GA2586@tuxdriver.com> <20091102091038.GA9044@elte.hu>
+	 <1257153807.3555.173.camel@johannes.local>
+	 <20091102100702.GA16963@elte.hu>
+	 <20091102170114.GE14046@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paul Moore <paul.moore@hp.com>, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46265 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756288AbZKBRW4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Nov 2009 12:22:56 -0500
-Content-Disposition: inline
-In-Reply-To: <20090910125929.GA32593@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	David Miller <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756394AbZKBRcT@vger.kernel.org>
+In-Reply-To: <20091102170114.GE14046@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tun device looks similar to a packet socket
-in that both pass complete frames from/to userspace.
+[huge snip]
 
-This patch fills in enough fields in the socket underlying tun driver
-to support sendmsg/recvmsg operations, and message flags
-MSG_TRUNC and MSG_DONTWAIT, and exports access to this socket
-to modules.  Regular read/write behaviour is unchanged.
+This is going to be my last reply to this thread (even if I get to be insulted).
 
-This way, code using raw sockets to inject packets
-into a physical device, can support injecting
-packets into host network stack almost without modification.
+I'm not a coder, I'm a tester and administrator for the rt2x00 project.
+I'm not happy about the current state of the rt2x00 in-kernel drivers.
+I tend to agree that more could be done.
 
-First user of this interface will be vhost virtualization
-accelerator.
+Even though I'm not a coder, I could be hipotetically responsable for
+the current situation. It is my job function to motivate people to
+work on the rt2x00 in-kernel drivers, but apparently I've failed here.
+It's not an atitude problem, as some have suggested, it's just life.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
+About Bartlomiej, there is only one more thing that I'll say:
 
-Changes from v1:
-addressed comments from review
+I've searched on my GMail archives and the only patch Bart has
+provided so far for the rt2x00 project is this:
 
-This patch is on top of net-next master.
+[PATCH] MAINTAINERS: rt2x00 list is moderated
 
-vhost which is the first user of this interface is intended to be merged
-through Rusty's virtio tree, so I think it's easiest to merge this patch
-trough that tree, as well, as part of the vhost patchset.
-Makes sense? Please comment.
+Which, while technically correct, adds nothing to the project.
 
-Usage example in vhost is here:
-http://git.kernel.org/?p=linux/kernel/git/mst/vhost.git;a=commitdiff;h=030c5e25539e8fb14ca9130621710b7a006f3c1c
+So, I will personally continue to ignore Bart's comments, regards and
+rants, until he provides patches for rt2x00 that actually make the
+driver better.
 
-An alternative approach would be to make sendmsg work on tun fd from
-userspace as well as from kernel: a uniform way to work with a network
-device and the host stack might be useful there, as well.  Kernel users
-could then do sockfd_lookup to get the socket.  I decided against it for
-now as it requires more code and touches net core.
-Please comment.
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 4fdfa2a..18f8876 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -144,6 +144,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
- 	err = 0;
- 	tfile->tun = tun;
- 	tun->tfile = tfile;
-+	tun->socket.file = file;
- 	dev_hold(tun->dev);
- 	sock_hold(tun->socket.sk);
- 	atomic_inc(&tfile->count);
-@@ -158,6 +159,7 @@ static void __tun_detach(struct tun_struct *tun)
- 	/* Detach from net device */
- 	netif_tx_lock_bh(tun->dev);
- 	tun->tfile = NULL;
-+	tun->socket.file = NULL;
- 	netif_tx_unlock_bh(tun->dev);
- 
- 	/* Drop read queue */
-@@ -387,7 +389,8 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 	/* Notify and wake up reader process */
- 	if (tun->flags & TUN_FASYNC)
- 		kill_fasync(&tun->fasync, SIGIO, POLL_IN);
--	wake_up_interruptible(&tun->socket.wait);
-+	wake_up_interruptible_poll(&tun->socket.wait, POLLIN |
-+				   POLLRDNORM | POLLRDBAND);
- 	return NETDEV_TX_OK;
- 
- drop:
-@@ -743,7 +746,7 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
- 	len = min_t(int, skb->len, len);
- 
- 	skb_copy_datagram_const_iovec(skb, 0, iv, total, len);
--	total += len;
-+	total += skb->len;
- 
- 	tun->dev->stats.tx_packets++;
- 	tun->dev->stats.tx_bytes += len;
-@@ -751,34 +754,23 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
- 	return total;
- }
- 
--static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
--			    unsigned long count, loff_t pos)
-+static ssize_t tun_do_read(struct tun_struct *tun,
-+			   struct kiocb *iocb, const struct iovec *iv,
-+			   ssize_t len, int noblock)
- {
--	struct file *file = iocb->ki_filp;
--	struct tun_file *tfile = file->private_data;
--	struct tun_struct *tun = __tun_get(tfile);
- 	DECLARE_WAITQUEUE(wait, current);
- 	struct sk_buff *skb;
--	ssize_t len, ret = 0;
--
--	if (!tun)
--		return -EBADFD;
-+	ssize_t ret = 0;
- 
- 	DBG(KERN_INFO "%s: tun_chr_read\n", tun->dev->name);
- 
--	len = iov_length(iv, count);
--	if (len < 0) {
--		ret = -EINVAL;
--		goto out;
--	}
--
- 	add_wait_queue(&tun->socket.wait, &wait);
- 	while (len) {
- 		current->state = TASK_INTERRUPTIBLE;
- 
- 		/* Read frames from the queue */
- 		if (!(skb=skb_dequeue(&tun->socket.sk->sk_receive_queue))) {
--			if (file->f_flags & O_NONBLOCK) {
-+			if (noblock) {
- 				ret = -EAGAIN;
- 				break;
- 			}
-@@ -805,6 +797,27 @@ static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
- 	current->state = TASK_RUNNING;
- 	remove_wait_queue(&tun->socket.wait, &wait);
- 
-+	return ret;
-+}
-+
-+static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
-+			    unsigned long count, loff_t pos)
-+{
-+	struct file *file = iocb->ki_filp;
-+	struct tun_file *tfile = file->private_data;
-+	struct tun_struct *tun = __tun_get(tfile);
-+	ssize_t len, ret;
-+
-+	if (!tun)
-+		return -EBADFD;
-+	len = iov_length(iv, count);
-+	if (len < 0) {
-+		ret = -EINVAL;
-+		goto out;
-+	}
-+
-+	ret = tun_do_read(tun, iocb, iv, len, file->f_flags & O_NONBLOCK);
-+	ret = min_t(ssize_t, ret, len);
- out:
- 	tun_put(tun);
- 	return ret;
-@@ -847,7 +860,8 @@ static void tun_sock_write_space(struct sock *sk)
- 		return;
- 
- 	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
--		wake_up_interruptible_sync(sk->sk_sleep);
-+		wake_up_interruptible_sync_poll(sk->sk_sleep, POLLOUT |
-+						POLLWRNORM | POLLWRBAND);
- 
- 	tun = container_of(sk, struct tun_sock, sk)->tun;
- 	kill_fasync(&tun->fasync, SIGIO, POLL_OUT);
-@@ -858,6 +872,37 @@ static void tun_sock_destruct(struct sock *sk)
- 	free_netdev(container_of(sk, struct tun_sock, sk)->tun->dev);
- }
- 
-+static int tun_sendmsg(struct kiocb *iocb, struct socket *sock,
-+		       struct msghdr *m, size_t total_len)
-+{
-+	struct tun_struct *tun = container_of(sock, struct tun_struct, socket);
-+	return tun_get_user(tun, m->msg_iov, total_len,
-+			    m->msg_flags & MSG_DONTWAIT);
-+}
-+
-+static int tun_recvmsg(struct kiocb *iocb, struct socket *sock,
-+		       struct msghdr *m, size_t total_len,
-+		       int flags)
-+{
-+	struct tun_struct *tun = container_of(sock, struct tun_struct, socket);
-+	int ret;
-+	if (flags & ~(MSG_DONTWAIT|MSG_TRUNC))
-+		return -EINVAL;
-+	ret = tun_do_read(tun, iocb, m->msg_iov, total_len,
-+			  flags & MSG_DONTWAIT);
-+	if (ret > total_len) {
-+		m->msg_flags |= MSG_TRUNC;
-+		ret = flags & MSG_TRUNC ? ret : total_len;
-+	}
-+	return ret;
-+}
-+
-+/* Ops structure to mimic raw sockets with tun */
-+static const struct proto_ops tun_socket_ops = {
-+	.sendmsg = tun_sendmsg,
-+	.recvmsg = tun_recvmsg,
-+};
-+
- static struct proto tun_proto = {
- 	.name		= "tun",
- 	.owner		= THIS_MODULE,
-@@ -986,6 +1031,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 			goto err_free_dev;
- 
- 		init_waitqueue_head(&tun->socket.wait);
-+		tun->socket.ops = &tun_socket_ops;
- 		sock_init_data(&tun->socket, sk);
- 		sk->sk_write_space = tun_sock_write_space;
- 		sk->sk_sndbuf = INT_MAX;
-@@ -1489,6 +1535,23 @@ static void tun_cleanup(void)
- 	rtnl_link_unregister(&tun_link_ops);
- }
- 
-+/* Get an underlying socket object from tun file.  Returns error unless file is
-+ * attached to a device.  The returned object works like a packet socket, it
-+ * can be used for sock_sendmsg/sock_recvmsg.  The caller is responsible for
-+ * holding a reference to the file for as long as the socket is in use. */
-+struct socket *tun_get_socket(struct file *file)
-+{
-+	struct tun_struct *tun;
-+	if (file->f_op != &tun_fops)
-+		return ERR_PTR(-EINVAL);
-+	tun = tun_get(file);
-+	if (!tun)
-+		return ERR_PTR(-EBADFD);
-+	tun_put(tun);
-+	return &tun->socket;
-+}
-+EXPORT_SYMBOL_GPL(tun_get_socket);
-+
- module_init(tun_init);
- module_exit(tun_cleanup);
- MODULE_DESCRIPTION(DRV_DESCRIPTION);
-diff --git a/include/linux/if_tun.h b/include/linux/if_tun.h
-index 3f5fd52..404abe0 100644
---- a/include/linux/if_tun.h
-+++ b/include/linux/if_tun.h
-@@ -86,4 +86,18 @@ struct tun_filter {
- 	__u8   addr[0][ETH_ALEN];
- };
- 
-+#ifdef __KERNEL__
-+#if defined(CONFIG_TUN) || defined(CONFIG_TUN_MODULE)
-+struct socket *tun_get_socket(struct file *);
-+#else
-+#include <linux/err.h>
-+#include <linux/errno.h>
-+struct file;
-+struct socket;
-+static inline struct socket *tun_get_socket(struct file *f)
-+{
-+	return ERR_PTR(-EINVAL);
-+}
-+#endif /* CONFIG_TUN */
-+#endif /* __KERNEL__ */
- #endif /* __IF_TUN_H */
+Luis Correia
+rt2x00 project admin,
+(but not writing this email as an official project statement)
