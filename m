@@ -1,72 +1,42 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH] cnic: ensure ulp_type is not negative
-Date: Mon, 2 Nov 2009 09:56:59 -0800
-Message-ID: <1257184619.31958.3.camel@HP1>
-References: <4AEF0E98.5050304@gmail.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [net-next-2.6 PATCH v4 3/3] TCPCT part 1c: initial SYN exchange
+ with SYNACK data
+Date: Mon, 02 Nov 2009 13:10:04 -0500
+Message-ID: <4AEF207C.9030002@gmail.com>
+References: <4AE6E35C.2050101@gmail.com> <4AE6E7C0.2050408@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>, davem@davemloft.net
-To: "Roel Kluin" <roel.kluin@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756327AbZKBSGf@vger.kernel.org>
-In-Reply-To: <4AEF0E98.5050304@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Joe Perches <joe@perches.com>
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ey-out-2122.google.com ([74.125.78.26]:58187 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756427AbZKBSKG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 13:10:06 -0500
+Received: by ey-out-2122.google.com with SMTP id d26so455196eyd.19
+        for <netdev@vger.kernel.org>; Mon, 02 Nov 2009 10:10:10 -0800 (PST)
+In-Reply-To: <4AE6E7C0.2050408@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Another style question:
 
-On Mon, 2009-11-02 at 08:53 -0800, Roel Kluin wrote:
-> `ulp_type' is signed, make sure it is not negative
-> when we read the array element.
-> 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
++struct tcp_extend_values {
++	u8				cookie_bakery[TCP_COOKIE_MAX];
++	u8				cookie_plus;
++	u8				cookie_in_always:1,
++					cookie_out_never:1;
++};
++
++static inline struct tcp_extend_values *tcp_xv(const struct request_values *rvp)
++{
++	return (struct tcp_extend_values *)rvp;
++}
 
-Looks good to me.  Thanks.
-Acked-by: Michael Chan <mchan@broadcom.com>
+Some examples have "struct request_values" as the first element, others
+don't.  I started with it, and then removed it (as essentially nil).
 
-> ---
->  drivers/net/cnic.c |    8 ++++----
->  1 files changed, 4 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-> index 3bf1b04..f384b0a 100644
-> --- a/drivers/net/cnic.c
-> +++ b/drivers/net/cnic.c
-> @@ -347,7 +347,7 @@ int cnic_register_driver(int ulp_type, struct cnic_ulp_ops *ulp_ops)
->  {
->  	struct cnic_dev *dev;
->  
-> -	if (ulp_type >= MAX_CNIC_ULP_TYPE) {
-> +	if (ulp_type < 0 || ulp_type >= MAX_CNIC_ULP_TYPE) {
->  		printk(KERN_ERR PFX "cnic_register_driver: Bad type %d\n",
->  		       ulp_type);
->  		return -EINVAL;
-> @@ -393,7 +393,7 @@ int cnic_unregister_driver(int ulp_type)
->  	struct cnic_ulp_ops *ulp_ops;
->  	int i = 0;
->  
-> -	if (ulp_type >= MAX_CNIC_ULP_TYPE) {
-> +	if (ulp_type < 0 || ulp_type >= MAX_CNIC_ULP_TYPE) {
->  		printk(KERN_ERR PFX "cnic_unregister_driver: Bad type %d\n",
->  		       ulp_type);
->  		return -EINVAL;
-> @@ -449,7 +449,7 @@ static int cnic_register_device(struct cnic_dev *dev, int ulp_type,
->  	struct cnic_local *cp = dev->cnic_priv;
->  	struct cnic_ulp_ops *ulp_ops;
->  
-> -	if (ulp_type >= MAX_CNIC_ULP_TYPE) {
-> +	if (ulp_type < 0 || ulp_type >= MAX_CNIC_ULP_TYPE) {
->  		printk(KERN_ERR PFX "cnic_register_device: Bad type %d\n",
->  		       ulp_type);
->  		return -EINVAL;
-> @@ -490,7 +490,7 @@ static int cnic_unregister_device(struct cnic_dev *dev, int ulp_type)
->  	struct cnic_local *cp = dev->cnic_priv;
->  	int i = 0;
->  
-> -	if (ulp_type >= MAX_CNIC_ULP_TYPE) {
-> +	if (ulp_type < 0 || ulp_type >= MAX_CNIC_ULP_TYPE) {
->  		printk(KERN_ERR PFX "cnic_unregister_device: Bad type %d\n",
->  		       ulp_type);
->  		return -EINVAL;
-> 
+Is there a preference?
