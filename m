@@ -1,106 +1,269 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [net-next-2.6 PATCH RFC] TCPCT part 1d: generate Responder Cookie
-Date: Mon, 02 Nov 2009 12:21:56 -0500
-Message-ID: <4AEF1534.4090506@gmail.com>
-References: <4AEAC763.4070200@gmail.com> <4AED86AD.6010906@gmail.com> <4AEDCD7C.2010403@gmail.com> <4AEEB6D2.7090505@gmail.com> <4AEEBAC6.7020308@gmail.com> <4AEED23A.7070009@gmail.com> <4AEEDBBC.40800@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCHv2] tun: export underlying socket
+Date: Mon, 2 Nov 2009 19:20:22 +0200
+Message-ID: <20091102172022.GA28247@redhat.com>
+References: <20090910125929.GA32593@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756286AbZKBRWA@vger.kernel.org>
-In-Reply-To: <4AEEDBBC.40800@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Moore <paul.moore@hp.com>, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46265 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756288AbZKBRW4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Nov 2009 12:22:56 -0500
+Content-Disposition: inline
+In-Reply-To: <20090910125929.GA32593@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Large part of network code is run by softirq handler, and a softirq handler
-> is not preemptable with another softirq (including itself).
-> 
-Thank you.  That's helpful to know, as some existing locks have a "bh".
-I've never figured out the ip_local_deliver_finish() context.
+Tun device looks similar to a packet socket
+in that both pass complete frames from/to userspace.
 
-Knowing that there can only be one instance of the tcp stack running at
-any one time, and the cpu never changes even after being interrupted, will
-make it much easier to code.
+This patch fills in enough fields in the socket underlying tun driver
+to support sendmsg/recvmsg operations, and message flags
+MSG_TRUNC and MSG_DONTWAIT, and exports access to this socket
+to modules.  Regular read/write behaviour is unchanged.
 
+This way, code using raw sockets to inject packets
+into a physical device, can support injecting
+packets into host network stack almost without modification.
 
->> Perhaps a function header comment that mentions it?
-> 
-> So we are going to add a header to thousand of functions repeating this prereq ?
-> 
-That's my usual practice.  (Dozens would be more accurate in this case.)
-I've always found it helpful for those coming after me, and sure would have
-found it helpful now myself....  Repetitious, but well worth it.
+First user of this interface will be vhost virtualization
+accelerator.
 
-Especially at tcp_v4_rcv(), as that's called through a vector named
-"handler", which was particularly hard to track down.
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
 
-It has an innocuous header "From tcp_input.c", that doesn't seem to have
-anything to do with current reality....  (It's really called from
-ip_input.c via af_inet.c).
+Changes from v1:
+addressed comments from review
 
+This patch is on top of net-next master.
 
->> All I know is (from testing) that the tcp_minisockets.c caller is sometimes
->> called in a fashion that requires atomic allocation, and other times
->> does not!
-> 
-> Maybe callers have different contexts (running from softirq handler or
-> from process context). Atomic ops are expensive and we try to avoid them
-> if/when possible.
-> 
->> See my "Subject: query: tcpdump versus atomic?" thread from Oct 14th.
-> 
-> You probably add a bug in your kernel, leaving a function with unpaired lock/unlock
-> of notallow_something/allow_something
-> 
-(No, I've not yet added locks; obviously, I'm still asking about them.)
+vhost which is the first user of this interface is intended to be merged
+through Rusty's virtio tree, so I think it's easiest to merge this patch
+trough that tree, as well, as part of the vhost patchset.
+Makes sense? Please comment.
 
-Unlikely, as it was easy to reproduce by changing one line, without *any* of
-my code present.  Usually works, but doesn't work with tcpdump running on
-the interface:
+Usage example in vhost is here:
+http://git.kernel.org/?p=linux/kernel/git/mst/vhost.git;a=commitdiff;h=030c5e25539e8fb14ca9130621710b7a006f3c1c
 
-  struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req, struct sk_buff *skb)
-  {
--	struct sock *newsk = inet_csk_clone(sk, req, GFP_ATOMIC);
-+	struct sock *newsk = inet_csk_clone(sk, req, GFP_KERNEL);
+An alternative approach would be to make sendmsg work on tun fd from
+userspace as well as from kernel: a uniform way to work with a network
+device and the host stack might be useful there, as well.  Kernel users
+could then do sockfd_lookup to get the socket.  I decided against it for
+now as it requires more code and touches net core.
+Please comment.
 
-  	if (newsk != NULL) {
-
-
-[    2.876485] eth0: RealTek RTL8139 at 0x2000, 00:40:2b:6b:61:36, IRQ 17
-[    2.876490] eth0:  Identified 8139 chip type 'RTL-8101'
-
-
-[   88.997594] device eth0 entered promiscuous mode
-[  114.827403] BUG: scheduling while atomic: swapper/0/0x10000100
-[  114.827462] Modules linked in: lp snd_intel8x0 snd_ac97_codec ac97_bus snd_pcm snd_timer snd ppdev iTCO_wdt iTCO_vendor_support psmouse soundcore parport_pc intel_agp parport agpgart pcspkr serio_raw shpchp snd_page_alloc 8139too aic7xxx 8139cp 
-scsi_transport_spi mii floppy
-[  114.827493]
-[  114.827497] Pid: 0, comm: swapper Not tainted (2.6.32-rc3 #4) Imperial
-[  114.827501] EIP: 0060:[<c0123295>] EFLAGS: 00000246 CPU: 0
-[  114.827512] EIP is at native_safe_halt+0x5/0x10
-[  114.827515] EAX: c0740000 EBX: 00000000 ECX: ffff4b6e EDX: 00000000
-[  114.827519] ESI: c07992c0 EDI: c0743000 EBP: c0741fa0 ESP: c0741fa0
-[  114.827522]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
-[  114.827525] CR0: 8005003b CR2: 09278fc4 CR3: 04b56000 CR4: 00000690
-[  114.827529] DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 00000000
-[  114.827532] DR6: ffff0ff0 DR7: 00000400
-[  114.827535] Call Trace:
-[  114.827546]  [<c01098b5>] default_idle+0x65/0x90
-[  114.827550]  [<c0102062>] cpu_idle+0x52/0x90
-[  114.827558]  [<c056cc23>] rest_init+0x53/0x60
-[  114.827565]  [<c079c93d>] start_kernel+0x328/0x390
-[  114.827569]  [<c079c3ce>] ? unknown_bootoption+0x0/0x1f6
-[  114.827574]  [<c079c07e>] i386_start_kernel+0x7e/0xa8
-[  136.570632] device eth0 left promiscuous mode
-
-
-> There are books about linux internals that you could read if you want some extra
-> documentation. Dont ask me details, I never read them :)
-> 
-Sorry, I've only read much of the Documentation directory (some parts
-repeatedly), and Googled for more specific information.  Pretty sparse!
-
-Thank you again for your patient explanation.
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 4fdfa2a..18f8876 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -144,6 +144,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+ 	err = 0;
+ 	tfile->tun = tun;
+ 	tun->tfile = tfile;
++	tun->socket.file = file;
+ 	dev_hold(tun->dev);
+ 	sock_hold(tun->socket.sk);
+ 	atomic_inc(&tfile->count);
+@@ -158,6 +159,7 @@ static void __tun_detach(struct tun_struct *tun)
+ 	/* Detach from net device */
+ 	netif_tx_lock_bh(tun->dev);
+ 	tun->tfile = NULL;
++	tun->socket.file = NULL;
+ 	netif_tx_unlock_bh(tun->dev);
+ 
+ 	/* Drop read queue */
+@@ -387,7 +389,8 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* Notify and wake up reader process */
+ 	if (tun->flags & TUN_FASYNC)
+ 		kill_fasync(&tun->fasync, SIGIO, POLL_IN);
+-	wake_up_interruptible(&tun->socket.wait);
++	wake_up_interruptible_poll(&tun->socket.wait, POLLIN |
++				   POLLRDNORM | POLLRDBAND);
+ 	return NETDEV_TX_OK;
+ 
+ drop:
+@@ -743,7 +746,7 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
+ 	len = min_t(int, skb->len, len);
+ 
+ 	skb_copy_datagram_const_iovec(skb, 0, iv, total, len);
+-	total += len;
++	total += skb->len;
+ 
+ 	tun->dev->stats.tx_packets++;
+ 	tun->dev->stats.tx_bytes += len;
+@@ -751,34 +754,23 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
+ 	return total;
+ }
+ 
+-static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
+-			    unsigned long count, loff_t pos)
++static ssize_t tun_do_read(struct tun_struct *tun,
++			   struct kiocb *iocb, const struct iovec *iv,
++			   ssize_t len, int noblock)
+ {
+-	struct file *file = iocb->ki_filp;
+-	struct tun_file *tfile = file->private_data;
+-	struct tun_struct *tun = __tun_get(tfile);
+ 	DECLARE_WAITQUEUE(wait, current);
+ 	struct sk_buff *skb;
+-	ssize_t len, ret = 0;
+-
+-	if (!tun)
+-		return -EBADFD;
++	ssize_t ret = 0;
+ 
+ 	DBG(KERN_INFO "%s: tun_chr_read\n", tun->dev->name);
+ 
+-	len = iov_length(iv, count);
+-	if (len < 0) {
+-		ret = -EINVAL;
+-		goto out;
+-	}
+-
+ 	add_wait_queue(&tun->socket.wait, &wait);
+ 	while (len) {
+ 		current->state = TASK_INTERRUPTIBLE;
+ 
+ 		/* Read frames from the queue */
+ 		if (!(skb=skb_dequeue(&tun->socket.sk->sk_receive_queue))) {
+-			if (file->f_flags & O_NONBLOCK) {
++			if (noblock) {
+ 				ret = -EAGAIN;
+ 				break;
+ 			}
+@@ -805,6 +797,27 @@ static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
+ 	current->state = TASK_RUNNING;
+ 	remove_wait_queue(&tun->socket.wait, &wait);
+ 
++	return ret;
++}
++
++static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
++			    unsigned long count, loff_t pos)
++{
++	struct file *file = iocb->ki_filp;
++	struct tun_file *tfile = file->private_data;
++	struct tun_struct *tun = __tun_get(tfile);
++	ssize_t len, ret;
++
++	if (!tun)
++		return -EBADFD;
++	len = iov_length(iv, count);
++	if (len < 0) {
++		ret = -EINVAL;
++		goto out;
++	}
++
++	ret = tun_do_read(tun, iocb, iv, len, file->f_flags & O_NONBLOCK);
++	ret = min_t(ssize_t, ret, len);
+ out:
+ 	tun_put(tun);
+ 	return ret;
+@@ -847,7 +860,8 @@ static void tun_sock_write_space(struct sock *sk)
+ 		return;
+ 
+ 	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+-		wake_up_interruptible_sync(sk->sk_sleep);
++		wake_up_interruptible_sync_poll(sk->sk_sleep, POLLOUT |
++						POLLWRNORM | POLLWRBAND);
+ 
+ 	tun = container_of(sk, struct tun_sock, sk)->tun;
+ 	kill_fasync(&tun->fasync, SIGIO, POLL_OUT);
+@@ -858,6 +872,37 @@ static void tun_sock_destruct(struct sock *sk)
+ 	free_netdev(container_of(sk, struct tun_sock, sk)->tun->dev);
+ }
+ 
++static int tun_sendmsg(struct kiocb *iocb, struct socket *sock,
++		       struct msghdr *m, size_t total_len)
++{
++	struct tun_struct *tun = container_of(sock, struct tun_struct, socket);
++	return tun_get_user(tun, m->msg_iov, total_len,
++			    m->msg_flags & MSG_DONTWAIT);
++}
++
++static int tun_recvmsg(struct kiocb *iocb, struct socket *sock,
++		       struct msghdr *m, size_t total_len,
++		       int flags)
++{
++	struct tun_struct *tun = container_of(sock, struct tun_struct, socket);
++	int ret;
++	if (flags & ~(MSG_DONTWAIT|MSG_TRUNC))
++		return -EINVAL;
++	ret = tun_do_read(tun, iocb, m->msg_iov, total_len,
++			  flags & MSG_DONTWAIT);
++	if (ret > total_len) {
++		m->msg_flags |= MSG_TRUNC;
++		ret = flags & MSG_TRUNC ? ret : total_len;
++	}
++	return ret;
++}
++
++/* Ops structure to mimic raw sockets with tun */
++static const struct proto_ops tun_socket_ops = {
++	.sendmsg = tun_sendmsg,
++	.recvmsg = tun_recvmsg,
++};
++
+ static struct proto tun_proto = {
+ 	.name		= "tun",
+ 	.owner		= THIS_MODULE,
+@@ -986,6 +1031,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 			goto err_free_dev;
+ 
+ 		init_waitqueue_head(&tun->socket.wait);
++		tun->socket.ops = &tun_socket_ops;
+ 		sock_init_data(&tun->socket, sk);
+ 		sk->sk_write_space = tun_sock_write_space;
+ 		sk->sk_sndbuf = INT_MAX;
+@@ -1489,6 +1535,23 @@ static void tun_cleanup(void)
+ 	rtnl_link_unregister(&tun_link_ops);
+ }
+ 
++/* Get an underlying socket object from tun file.  Returns error unless file is
++ * attached to a device.  The returned object works like a packet socket, it
++ * can be used for sock_sendmsg/sock_recvmsg.  The caller is responsible for
++ * holding a reference to the file for as long as the socket is in use. */
++struct socket *tun_get_socket(struct file *file)
++{
++	struct tun_struct *tun;
++	if (file->f_op != &tun_fops)
++		return ERR_PTR(-EINVAL);
++	tun = tun_get(file);
++	if (!tun)
++		return ERR_PTR(-EBADFD);
++	tun_put(tun);
++	return &tun->socket;
++}
++EXPORT_SYMBOL_GPL(tun_get_socket);
++
+ module_init(tun_init);
+ module_exit(tun_cleanup);
+ MODULE_DESCRIPTION(DRV_DESCRIPTION);
+diff --git a/include/linux/if_tun.h b/include/linux/if_tun.h
+index 3f5fd52..404abe0 100644
+--- a/include/linux/if_tun.h
++++ b/include/linux/if_tun.h
+@@ -86,4 +86,18 @@ struct tun_filter {
+ 	__u8   addr[0][ETH_ALEN];
+ };
+ 
++#ifdef __KERNEL__
++#if defined(CONFIG_TUN) || defined(CONFIG_TUN_MODULE)
++struct socket *tun_get_socket(struct file *);
++#else
++#include <linux/err.h>
++#include <linux/errno.h>
++struct file;
++struct socket;
++static inline struct socket *tun_get_socket(struct file *f)
++{
++	return ERR_PTR(-EINVAL);
++}
++#endif /* CONFIG_TUN */
++#endif /* __KERNEL__ */
+ #endif /* __IF_TUN_H */
