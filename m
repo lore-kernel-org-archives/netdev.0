@@ -1,132 +1,83 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH 1/2] r8169: allow rtl_hw_phy_config() and
- rtl8169_init_phy() to return error codes
-Date: Sun, 01 Nov 2009 22:51:04 +0000
-Message-ID: <1257115864.3136.338.camel@localhost>
-References: <1257115687.3136.337.camel@localhost>
+From: Naohiro Ooiwa <nooiwa@miraclelinux.com>
+Subject: Re: [PATCH] e1000: the power down when running ifdown command
+Date: Mon, 02 Nov 2009 10:28:50 +0900
+Message-ID: <4AEE35D2.4000503@miraclelinux.com>
+References: <4AEC05E8.40600@miraclelinux.com> <20091031105838.0d4b59a2@nehalam>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-MuhdnboDxArAfefoeou+"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	Edward Hsu <edward_hsu@realtek.com.tw>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com,
+	davem@davemloft.net, Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, svaidy@linux.vnet.ibm.com,
+	e1000-devel@lists.sourceforge.net
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:50399 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753656AbZKAWvD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2009 17:51:03 -0500
-In-Reply-To: <1257115687.3136.337.camel@localhost>
+Received: from mailgw.miraclelinux.com ([122.216.84.157]:47819 "EHLO
+	mailgw.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752930AbZKBB3D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Nov 2009 20:29:03 -0500
+In-Reply-To: <20091031105838.0d4b59a2@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Stephen Hemminger wrote:
+> On Sat, 31 Oct 2009 18:39:52 +0900
+> Naohiro Ooiwa <nooiwa@miraclelinux.com> wrote:
+> 
+>> Hi All
+>>
+>> I resend my patch.
+>> Sorry, my previous mail lacked an explanation.
+>>
+>>
+>> The e1000 driver doesn't let the power down when running ifdown command.
+>> So, I set to the D3hot state of a PCI device at the end of e1000_close().
+>>
+>> With this modification, e1000 driver reduces power by ifdown.
+>> It's about 6 watts when I measured a total power of one server machine
+>> in my environment.
+>>
+>> I tested this patch. The result is good enough to me.
+>>
+>> Could you please check my patch ?
+>> If I should have other considerations, please tell me.
+>>
 
---=-MuhdnboDxArAfefoeou+
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Hi Stephen
 
-This is preparation for loading PHY firmware, which may fail.
+Thank you so much for your reply.
 
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
-This one belongs before the other.  Sorry about sending them in the
-wrong order.
+> Does this work with Wake On Lan? 
 
-Ben.
+Yes, it works WOL.
+But I worry that my test is enough.
 
- drivers/net/r8169.c |   17 +++++++++++++----
- 1 files changed, 13 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index f98ef52..8ceecd0 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -2607,7 +2607,7 @@ static void rtl8102e_hw_phy_config(void __iomem *ioad=
-dr)
- 	rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
- }
-=20
--static void rtl_hw_phy_config(struct net_device *dev)
-+static int rtl_hw_phy_config(struct net_device *dev)
- {
- 	struct rtl8169_private *tp =3D netdev_priv(dev);
- 	void __iomem *ioaddr =3D tp->mmio_addr;
-@@ -2676,6 +2676,8 @@ static void rtl_hw_phy_config(struct net_device *dev)
- 	default:
- 		break;
- 	}
-+
-+	return 0;
- }
-=20
- static void rtl8169_phy_timer(unsigned long __opaque)
-@@ -2780,11 +2782,14 @@ static void rtl8169_phy_reset(struct net_device *de=
-v,
- 		printk(KERN_ERR "%s: PHY reset failed.\n", dev->name);
- }
-=20
--static void rtl8169_init_phy(struct net_device *dev, struct rtl8169_privat=
-e *tp)
-+static int rtl8169_init_phy(struct net_device *dev, struct rtl8169_private=
- *tp)
- {
- 	void __iomem *ioaddr =3D tp->mmio_addr;
-+	int rc;
-=20
--	rtl_hw_phy_config(dev);
-+	rc =3D rtl_hw_phy_config(dev);
-+	if (rc)
-+		return rc;
-=20
- 	if (tp->mac_version <=3D RTL_GIGA_MAC_VER_06) {
- 		dprintk("Set MAC Reg C+CR Offset 0x82h =3D 0x01h\n");
-@@ -2813,6 +2818,8 @@ static void rtl8169_init_phy(struct net_device *dev, =
-struct rtl8169_private *tp)
-=20
- 	if ((RTL_R8(PHYstatus) & TBI_Enable) && netif_msg_link(tp))
- 		printk(KERN_INFO PFX "%s: TBI auto-negotiating\n", dev->name);
-+
-+	return 0;
- }
-=20
- static void rtl_rar_set(struct rtl8169_private *tp, u8 *addr)
-@@ -3199,7 +3206,9 @@ rtl8169_init_one(struct pci_dev *pdev, const struct p=
-ci_device_id *ent)
- 		       dev->dev_addr[4], dev->dev_addr[5], xid, dev->irq);
- 	}
-=20
--	rtl8169_init_phy(dev, tp);
-+	rc =3D rtl8169_init_phy(dev, tp);
-+	if (rc)
-+		goto err_out_msi_5;
-=20
- 	/*
- 	 * Pretend we are using VLANs; This bypasses a nasty bug where
---=20
-1.6.5.2
+They are following:
+  - simple data transmission after ifdown;ifup.
+  - enable wol, ifup network device, system shutdown, and make sure wol work.
+  - enable wol, ifdown network device, system shutdown, and make sure wol work.
+  - while [ 0 ] ; do ifdown eth0 ; ifup eth0 ; done
+  - while [ 0 ] ; do modprobe e1000 ; rmmod e1000 ; done
 
 
+> @@ -1265,6 +1287,7 @@ static int e1000_open(struct net_device *netdev)
+>  		goto err_setup_rx;
+>
+>  	e1000_power_up_phy(adapter);
+> +	e1000_reset(adapter);
+>
+>  	adapter->mng_vlan_id = E1000_MNG_VLAN_NONE;
+>  	if ((hw->mng_cookie.status &
 
+This code fix problem that e1000 driver doesn't work to auto-negotiation
+once in a while.
+Maybe, the cause is that set state to D0 just before it.
+I found it by repeat of ifup and ifdown.
 
---=-MuhdnboDxArAfefoeou+
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+If you find out other points and any necessary tests from my patch,
+please tell me. I will make sure them.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+Thanks you.
+Naohiro Ooiwa
 
-iQIVAwUASu4Q1ue/yOyVhhEJAQKQVRAAgHAdSul+la0PyVOB3fXEAKiE6bRyINZn
-aGEtWpDgti6lsG4KSXrw6ZAYlGWJWTKYWsG2sLceJgl3ivi2QGj/JgQ5vQ4uLjOE
-cnJAEiB0syMxeXTPx7gBre4Vk5phL4kZmB+popQshe8JoJqKNzAKwh47s4Puid80
-mBuoQV6KL8XOUCIEpgfLIW70h9tkSFYJDIIHLMugnkObUf88oEom++oLZUD2MguV
-vmBWLB7XD/Mzls3ZzvU4M+MeZw2MHDvx7TlwmHP07Fcfu7Ex8xwbdY05XNB4LlyH
-TwNSO0YdycX0mniq4a3PUOySwBK/9UB4tSMBIxpItT29rneQZpl2DN0aJI/gzJtZ
-Ud5zgKP2ve7swj29/YalZCr0ej93DLHUbpDzhIAivk7Tmud+AJJPccN/2uMf82Fv
-35knd0DCqQ9PqvHGbut6sHhx9ilOu/zafNHgkXjBBLs2OWf2TXLq8y96k16sGecN
-xq5HnW4GCtwhMnAAReemY9czWOnR2bhSmhX8Ii+XeyNlfGrnmxzyOFaAGSq15acJ
-mSf8a8sdptAq7ezKkfYfnPKaA1PZpWdatpzNL5oEjmTYyp4+cwmfkJKgxynDOZCb
-DUiV4Oo7o20lpswLxtPz3+67AKtv19RSiyMaIzSJmdBqxwpkMrtX+9OdVjb+TNIW
-8HO5FB/5lFA=
-=UQgE
------END PGP SIGNATURE-----
-
---=-MuhdnboDxArAfefoeou+--
