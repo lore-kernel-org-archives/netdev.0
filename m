@@ -1,37 +1,34 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [net-next-2.6 PATCH RFC] TCPCT part 1d: generate Responder Cookie
-Date: Mon, 02 Nov 2009 07:36:10 -0500
-Message-ID: <4AEED23A.7070009@gmail.com>
-References: <4AEAC763.4070200@gmail.com> <4AED86AD.6010906@gmail.com> <4AEDCD7C.2010403@gmail.com> <4AEEB6D2.7090505@gmail.com> <4AEEBAC6.7020308@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] multiqueue changes
+Date: Mon, 02 Nov 2009 04:39:07 -0800 (PST)
+Message-ID: <20091102.043907.236634594.davem@davemloft.net>
+References: <20091101132017.GA2598@ami.dom.local>
+	<20091102.033533.08766686.davem@davemloft.net>
+	<20091102123029.GA7790@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: mchan@broadcom.com, kaber@trash.net, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f202.google.com ([209.85.211.202]:64853 "EHLO
-	mail-yw0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754994AbZKBMgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 07:36:08 -0500
-In-Reply-To: <4AEEBAC6.7020308@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54039
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754826AbZKBMim (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 07:38:42 -0500
+In-Reply-To: <20091102123029.GA7790@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> cookie_hash() runs in a non preemptable context. CPU cannot change under us.
-> 
-> (or else, we would not use __get_cpu_var(ipv4_cookie_scratch); )
-> 
-> And of course, each cpu gets its own scratch area, thanks to __get_cpu_var()
-> 
-Interesting.  I'm not sure that running CPU intensive functions like SHA1 in
-a non-preemptable context is a good idea.  I'd assumed it wasn't!
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Mon, 2 Nov 2009 12:30:29 +0000
 
-Perhaps you could point at the documentation in the code that explains this?
-Perhaps a function header comment that mentions it?
+> Right, but it's not a 50% chance, I guess? A user most of the time
+> gets consistently multiqueue or non-multiqueue behavior after open,
+> unless I miss something. Then such an exceptional state could be
+> handled by real_num_tx_queues (just like in case of powered of cpus).
+> The main difference is to hold in num_tx_queues something that is
+> really available vs max possible value for all configs.
 
-All I know is (from testing) that the tcp_minisockets.c caller is sometimes
-called in a fashion that requires atomic allocation, and other times does not!
-
-See my "Subject: query: tcpdump versus atomic?" thread from Oct 14th.
+I see your point, yes this would seem to be a reasonable way
+to start handling num_tx_queues and real_num_tx_queues.
