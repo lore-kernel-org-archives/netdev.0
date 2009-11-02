@@ -1,1278 +1,1584 @@
-From: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
-Subject: [PATCH] can: Driver for the Microchip MCP251x SPI CAN controllers
-Date: Mon,  2 Nov 2009 16:30:40 +0100
-Message-ID: <1257175840-28528-1-git-send-email-chripell@fsfe.org>
-References: <cabda6420911020729j3323ec33i59c7e94020acc469@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
-To: wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	pthomas8589-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <cabda6420911020729j3323ec33i59c7e94020acc469-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Sandeep Gopalpet <sandeep.kumar@freescale.com>
+Subject: [PATCH v4 1/7] gianfar: Add per queue structure support
+Date: Mon,  2 Nov 2009 22:33:00 +0530
+Message-ID: <12571813802648-git-send-email-sandeep.kumar@freescale.com>
+Cc: davem@davemloft.net, Sandeep Gopalpet <Sandeep.Kumar@freescale.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:35794 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755456AbZKBPby (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 10:31:54 -0500
+Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
+	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id nA2FVuKG029353
+	for <netdev@vger.kernel.org>; Mon, 2 Nov 2009 08:31:57 -0700 (MST)
+Received: from udp153986uds.ap.freescale.net (udp153986uds.ap.freescale.net [10.232.134.194])
+	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id nA2FZOAj000543
+	for <netdev@vger.kernel.org>; Mon, 2 Nov 2009 09:35:35 -0600 (CST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Sandeep Gopalpet <Sandeep.Kumar@freescale.com>
 
-Signed-off-by: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
+This patch introduces per tx and per rx queue structures.
+Earlier the members of these structures were inside the
+gfar_private structure.
+
+Moving forward if we want to support multiple queues, we need
+to refactor the gfar_private structure so that introduction of
+multiple queues is easier.
+
+Signed-off-by: Sandeep Gopalpet <Sandeep.Kumar@freescale.com>
 ---
- drivers/net/can/Kconfig              |    6 +
- drivers/net/can/Makefile             |    1 +
- drivers/net/can/mcp251x.c            | 1164 ++++++++++++++++++++++++++++++++++
- include/linux/can/platform/mcp251x.h |   36 +
- 4 files changed, 1207 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/can/mcp251x.c
- create mode 100644 include/linux/can/platform/mcp251x.h
+ *. Cloned the net-next-2.6 tree via git-protocol to resolve issues
+    of earlier patch versions.
+    socksify git-clone
+	 git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
 
-diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
-index 26d77cc..b819cc2 100644
---- a/drivers/net/can/Kconfig
-+++ b/drivers/net/can/Kconfig
-@@ -102,6 +102,12 @@ config CAN_TI_HECC
- 	  Driver for TI HECC (High End CAN Controller) module found on many
- 	  TI devices. The device specifications are available from www.ti.com
+ *. Rebased to the net-next-2.6 tree as of 20091102
+
+ drivers/net/gianfar.c         |  384 ++++++++++++++++++++++++-----------------
+ drivers/net/gianfar.h         |  116 ++++++++-----
+ drivers/net/gianfar_ethtool.c |  100 +++++++----
+ drivers/net/gianfar_sysfs.c   |   43 ++++--
+ 4 files changed, 398 insertions(+), 245 deletions(-)
+
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index f714186..354b2b5 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -8,9 +8,10 @@
+  *
+  * Author: Andy Fleming
+  * Maintainer: Kumar Gala
++ * Modifier: Sandeep Gopalpet <sandeep.kumar@freescale.com>
+  *
+- * Copyright (c) 2002-2006 Freescale Semiconductor, Inc.
+- * Copyright (c) 2007 MontaVista Software, Inc.
++ * Copyright 2002-2009 Freescale Semiconductor, Inc.
++ * Copyright 2007 MontaVista Software, Inc.
+  *
+  * This program is free software; you can redistribute  it and/or modify it
+  * under  the terms of  the GNU General  Public License as published by the
+@@ -109,7 +110,7 @@ static void gfar_reset_task(struct work_struct *work);
+ static void gfar_timeout(struct net_device *dev);
+ static int gfar_close(struct net_device *dev);
+ struct sk_buff *gfar_new_skb(struct net_device *dev);
+-static void gfar_new_rxbdp(struct net_device *dev, struct rxbd8 *bdp,
++static void gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
+ 		struct sk_buff *skb);
+ static int gfar_set_mac_address(struct net_device *dev);
+ static int gfar_change_mtu(struct net_device *dev, int new_mtu);
+@@ -130,8 +131,8 @@ static int gfar_poll(struct napi_struct *napi, int budget);
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void gfar_netpoll(struct net_device *dev);
+ #endif
+-int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit);
+-static int gfar_clean_tx_ring(struct net_device *dev);
++int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit);
++static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue);
+ static int gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
+ 			      int amount_pull);
+ static void gfar_vlan_rx_register(struct net_device *netdev,
+@@ -147,16 +148,16 @@ MODULE_AUTHOR("Freescale Semiconductor, Inc");
+ MODULE_DESCRIPTION("Gianfar Ethernet Driver");
+ MODULE_LICENSE("GPL");
  
-+config CAN_MCP251X
-+	tristate "Microchip MCP251x SPI CAN controllers"
-+	depends on CAN_DEV && SPI
-+	---help---
-+	  Driver for the Microchip MCP251x SPI CAN controllers.
-+
- config CAN_DEBUG_DEVICES
- 	bool "CAN devices debugging messages"
- 	depends on CAN
-diff --git a/drivers/net/can/Makefile b/drivers/net/can/Makefile
-index 31f4ab5..1489181 100644
---- a/drivers/net/can/Makefile
-+++ b/drivers/net/can/Makefile
-@@ -12,5 +12,6 @@ obj-y				+= usb/
- obj-$(CONFIG_CAN_SJA1000)	+= sja1000/
- obj-$(CONFIG_CAN_AT91)		+= at91_can.o
- obj-$(CONFIG_CAN_TI_HECC)	+= ti_hecc.o
-+obj-$(CONFIG_CAN_MCP251X)	+= mcp251x.o
+-static void gfar_init_rxbdp(struct net_device *dev, struct rxbd8 *bdp,
++static void gfar_init_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
+ 			    dma_addr_t buf)
+ {
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct net_device *dev = rx_queue->dev;
+ 	u32 lstatus;
  
- ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
-diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
-new file mode 100644
-index 0000000..9471bb7
---- /dev/null
-+++ b/drivers/net/can/mcp251x.c
-@@ -0,0 +1,1164 @@
-+/*
-+ * CAN bus driver for Microchip 251x CAN Controller with SPI Interface
-+ *
-+ * MCP2510 support and bug fixes by Christian Pellegrin
-+ * <chripell-LERDrqjqfvZg9hUCZPvPmw@public.gmane.org>
-+ *
-+ * Copyright 2009 Christian Pellegrin EVOL S.r.l.
-+ *
-+ * Copyright 2007 Raymarine UK, Ltd. All Rights Reserved.
-+ * Written under contract by:
-+ *   Chris Elston, Katalix Systems, Ltd.
-+ *
-+ * Based on Microchip MCP251x CAN controller driver written by
-+ * David Vrabel, Copyright 2006 Arcom Control Systems Ltd.
-+ *
-+ * Based on CAN bus driver for the CCAN controller written by
-+ * - Sascha Hauer, Marc Kleine-Budde, Pengutronix
-+ * - Simon Kallweit, intefo AG
-+ * Copyright 2007
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ *
-+ *
-+ * Your platform definition file should specify something like:
-+ *
-+ * static struct mcp251x_platform_data mcp251x_info = {
-+ *         .oscillator_frequency = 8000000,
-+ *         .board_specific_setup = &mcp251x_setup,
-+ *         .model = CAN_MCP251X_MCP2510,
-+ *         .power_enable = mcp251x_power_enable,
-+ *         .transceiver_enable = NULL,
-+ * };
-+ *
-+ * static struct spi_board_info spi_board_info[] = {
-+ *         {
-+ *                 .modalias      = "mcp251x",
-+ *                 .platform_data = &mcp251x_info,
-+ *                 .irq           = IRQ_EINT13,
-+ *                 .max_speed_hz  = 2*1000*1000,
-+ *                 .chip_select   = 2,
-+ *         },
-+ * };
-+ *
-+ * Please see mcp251x.h for a description of the fields in
-+ * struct mcp251x_platform_data.
-+ *
+ 	bdp->bufPtr = buf;
+ 
+ 	lstatus = BD_LFLAG(RXBD_EMPTY | RXBD_INTERRUPT);
+-	if (bdp == priv->rx_bd_base + priv->rx_ring_size - 1)
++	if (bdp == rx_queue->rx_bd_base + rx_queue->rx_ring_size - 1)
+ 		lstatus |= BD_LFLAG(RXBD_WRAP);
+ 
+ 	eieio();
+@@ -167,20 +168,25 @@ static void gfar_init_rxbdp(struct net_device *dev, struct rxbd8 *bdp,
+ static int gfar_init_bds(struct net_device *ndev)
+ {
+ 	struct gfar_private *priv = netdev_priv(ndev);
++	struct gfar_priv_tx_q *tx_queue = NULL;
++	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	struct txbd8 *txbdp;
+ 	struct rxbd8 *rxbdp;
+ 	int i;
+ 
++	tx_queue = priv->tx_queue;
++	rx_queue = priv->rx_queue;
++
+ 	/* Initialize some variables in our dev structure */
+-	priv->num_txbdfree = priv->tx_ring_size;
+-	priv->dirty_tx = priv->cur_tx = priv->tx_bd_base;
+-	priv->cur_rx = priv->rx_bd_base;
+-	priv->skb_curtx = priv->skb_dirtytx = 0;
+-	priv->skb_currx = 0;
++	tx_queue->num_txbdfree = tx_queue->tx_ring_size;
++	tx_queue->dirty_tx = tx_queue->cur_tx = tx_queue->tx_bd_base;
++	rx_queue->cur_rx = rx_queue->rx_bd_base;
++	tx_queue->skb_curtx = tx_queue->skb_dirtytx = 0;
++	rx_queue->skb_currx = 0;
+ 
+ 	/* Initialize Transmit Descriptor Ring */
+-	txbdp = priv->tx_bd_base;
+-	for (i = 0; i < priv->tx_ring_size; i++) {
++	txbdp = tx_queue->tx_bd_base;
++	for (i = 0; i < tx_queue->tx_ring_size; i++) {
+ 		txbdp->lstatus = 0;
+ 		txbdp->bufPtr = 0;
+ 		txbdp++;
+@@ -190,12 +196,12 @@ static int gfar_init_bds(struct net_device *ndev)
+ 	txbdp--;
+ 	txbdp->status |= TXBD_WRAP;
+ 
+-	rxbdp = priv->rx_bd_base;
+-	for (i = 0; i < priv->rx_ring_size; i++) {
+-		struct sk_buff *skb = priv->rx_skbuff[i];
++	rxbdp = rx_queue->rx_bd_base;
++	for (i = 0; i < rx_queue->rx_ring_size; i++) {
++		struct sk_buff *skb = rx_queue->rx_skbuff[i];
+ 
+ 		if (skb) {
+-			gfar_init_rxbdp(ndev, rxbdp, rxbdp->bufPtr);
++			gfar_init_rxbdp(rx_queue, rxbdp, rxbdp->bufPtr);
+ 		} else {
+ 			skb = gfar_new_skb(ndev);
+ 			if (!skb) {
+@@ -203,9 +209,9 @@ static int gfar_init_bds(struct net_device *ndev)
+ 				       ndev->name);
+ 				return -ENOMEM;
+ 			}
+-			priv->rx_skbuff[i] = skb;
++			rx_queue->rx_skbuff[i] = skb;
+ 
+-			gfar_new_rxbdp(ndev, rxbdp, skb);
++			gfar_new_rxbdp(rx_queue, rxbdp, skb);
+ 		}
+ 
+ 		rxbdp++;
+@@ -220,12 +226,17 @@ static int gfar_alloc_skb_resources(struct net_device *ndev)
+ 	int i;
+ 	struct gfar_private *priv = netdev_priv(ndev);
+ 	struct device *dev = &priv->ofdev->dev;
++	struct gfar_priv_tx_q *tx_queue = NULL;
++	struct gfar_priv_rx_q *rx_queue = NULL;
++
++	tx_queue = priv->tx_queue;
++	rx_queue = priv->rx_queue;
+ 
+ 	/* Allocate memory for the buffer descriptors */
+ 	vaddr = dma_alloc_coherent(dev,
+-			sizeof(*priv->tx_bd_base) * priv->tx_ring_size +
+-			sizeof(*priv->rx_bd_base) * priv->rx_ring_size,
+-			&priv->tx_bd_dma_base, GFP_KERNEL);
++			sizeof(*tx_queue->tx_bd_base) * tx_queue->tx_ring_size +
++			sizeof(*rx_queue->rx_bd_base) * rx_queue->rx_ring_size,
++			&tx_queue->tx_bd_dma_base, GFP_KERNEL);
+ 	if (!vaddr) {
+ 		if (netif_msg_ifup(priv))
+ 			pr_err("%s: Could not allocate buffer descriptors!\n",
+@@ -233,36 +244,38 @@ static int gfar_alloc_skb_resources(struct net_device *ndev)
+ 		return -ENOMEM;
+ 	}
+ 
+-	priv->tx_bd_base = vaddr;
++	tx_queue->tx_bd_base = vaddr;
++	tx_queue->dev = ndev;
+ 
+ 	/* Start the rx descriptor ring where the tx ring leaves off */
+-	vaddr = vaddr + sizeof(*priv->tx_bd_base) * priv->tx_ring_size;
+-	priv->rx_bd_base = vaddr;
++	vaddr = vaddr + sizeof(*tx_queue->tx_bd_base) * tx_queue->tx_ring_size;
++	rx_queue->rx_bd_base = vaddr;
++	rx_queue->dev = ndev;
+ 
+ 	/* Setup the skbuff rings */
+-	priv->tx_skbuff = kmalloc(sizeof(*priv->tx_skbuff) *
+-				  priv->tx_ring_size, GFP_KERNEL);
+-	if (!priv->tx_skbuff) {
++	tx_queue->tx_skbuff = kmalloc(sizeof(*tx_queue->tx_skbuff) *
++				  tx_queue->tx_ring_size, GFP_KERNEL);
++	if (!tx_queue->tx_skbuff) {
+ 		if (netif_msg_ifup(priv))
+ 			pr_err("%s: Could not allocate tx_skbuff\n",
+ 			       ndev->name);
+ 		goto cleanup;
+ 	}
+ 
+-	for (i = 0; i < priv->tx_ring_size; i++)
+-		priv->tx_skbuff[i] = NULL;
++	for (i = 0; i < tx_queue->tx_ring_size; i++)
++		tx_queue->tx_skbuff[i] = NULL;
+ 
+-	priv->rx_skbuff = kmalloc(sizeof(*priv->rx_skbuff) *
+-				  priv->rx_ring_size, GFP_KERNEL);
+-	if (!priv->rx_skbuff) {
++	rx_queue->rx_skbuff = kmalloc(sizeof(*rx_queue->rx_skbuff) *
++				  rx_queue->rx_ring_size, GFP_KERNEL);
++	if (!rx_queue->rx_skbuff) {
+ 		if (netif_msg_ifup(priv))
+ 			pr_err("%s: Could not allocate rx_skbuff\n",
+ 			       ndev->name);
+ 		goto cleanup;
+ 	}
+ 
+-	for (i = 0; i < priv->rx_ring_size; i++)
+-		priv->rx_skbuff[i] = NULL;
++	for (i = 0; i < rx_queue->rx_ring_size; i++)
++		rx_queue->rx_skbuff[i] = NULL;
+ 
+ 	if (gfar_init_bds(ndev))
+ 		goto cleanup;
+@@ -278,24 +291,29 @@ static void gfar_init_mac(struct net_device *ndev)
+ {
+ 	struct gfar_private *priv = netdev_priv(ndev);
+ 	struct gfar __iomem *regs = priv->regs;
++	struct gfar_priv_tx_q *tx_queue = NULL;
++	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	u32 rctrl = 0;
+ 	u32 tctrl = 0;
+ 	u32 attrs = 0;
+ 
++	tx_queue = priv->tx_queue;
++	rx_queue = priv->rx_queue;
++
+ 	/* enet DMA only understands physical addresses */
+-	gfar_write(&regs->tbase0, priv->tx_bd_dma_base);
+-	gfar_write(&regs->rbase0, priv->tx_bd_dma_base +
+-				  sizeof(*priv->tx_bd_base) *
+-				  priv->tx_ring_size);
++	gfar_write(&regs->tbase0, tx_queue->tx_bd_dma_base);
++	gfar_write(&regs->rbase0, tx_queue->tx_bd_dma_base +
++				  sizeof(*tx_queue->tx_bd_base) *
++				  tx_queue->tx_ring_size);
+ 
+ 	/* Configure the coalescing support */
+ 	gfar_write(&regs->txic, 0);
+-	if (priv->txcoalescing)
+-		gfar_write(&regs->txic, priv->txic);
++	if (tx_queue->txcoalescing)
++		gfar_write(&regs->txic, tx_queue->txic);
+ 
+ 	gfar_write(&regs->rxic, 0);
+-	if (priv->rxcoalescing)
+-		gfar_write(&regs->rxic, priv->rxic);
++	if (rx_queue->rxcoalescing)
++		gfar_write(&regs->rxic, rx_queue->rxic);
+ 
+ 	if (priv->rx_csum_enable)
+ 		rctrl |= RCTRL_CHECKSUMMING;
+@@ -414,7 +432,7 @@ static int gfar_of_init(struct net_device *dev)
+ 
+ 	stash = of_get_property(np, "bd-stash", NULL);
+ 
+-	if(stash) {
++	if (stash) {
+ 		priv->device_flags |= FSL_GIANFAR_DEV_HAS_BD_STASHING;
+ 		priv->bd_stash_en = 1;
+ 	}
+@@ -519,8 +537,18 @@ static int gfar_probe(struct of_device *ofdev,
+ 	if (err)
+ 		goto regs_fail;
+ 
+-	spin_lock_init(&priv->txlock);
+-	spin_lock_init(&priv->rxlock);
++	priv->tx_queue = (struct gfar_priv_tx_q *)kmalloc(
++				sizeof (struct gfar_priv_tx_q), GFP_KERNEL);
++	if (!priv->tx_queue)
++		goto regs_fail;
++
++	priv->rx_queue = (struct gfar_priv_rx_q *)kmalloc(
++				sizeof (struct gfar_priv_rx_q), GFP_KERNEL);
++	if (!priv->rx_queue)
++		goto rx_queue_fail;
++
++	spin_lock_init(&priv->tx_queue->txlock);
++	spin_lock_init(&priv->rx_queue->rxlock);
+ 	spin_lock_init(&priv->bflock);
+ 	INIT_WORK(&priv->reset_task, gfar_reset_task);
+ 
+@@ -552,12 +580,13 @@ static int gfar_probe(struct of_device *ofdev,
+ 
+ 	/* Fill in the dev structure */
+ 	dev->watchdog_timeo = TX_TIMEOUT;
+-	netif_napi_add(dev, &priv->napi, gfar_poll, GFAR_DEV_WEIGHT);
+ 	dev->mtu = 1500;
+-
+ 	dev->netdev_ops = &gfar_netdev_ops;
+ 	dev->ethtool_ops = &gfar_ethtool_ops;
+ 
++	/* Register for napi ...NAPI is for each rx_queue */
++	netif_napi_add(dev, &priv->rx_queue->napi, gfar_poll, GFAR_DEV_WEIGHT);
++
+ 	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_CSUM) {
+ 		priv->rx_csum_enable = 1;
+ 		dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_HIGHDMA;
+@@ -613,14 +642,16 @@ static int gfar_probe(struct of_device *ofdev,
+ 		dev->hard_header_len += GMAC_FCB_LEN;
+ 
+ 	priv->rx_buffer_size = DEFAULT_RX_BUFFER_SIZE;
+-	priv->tx_ring_size = DEFAULT_TX_RING_SIZE;
+-	priv->rx_ring_size = DEFAULT_RX_RING_SIZE;
+-	priv->num_txbdfree = DEFAULT_TX_RING_SIZE;
+ 
+-	priv->txcoalescing = DEFAULT_TX_COALESCE;
+-	priv->txic = DEFAULT_TXIC;
+-	priv->rxcoalescing = DEFAULT_RX_COALESCE;
+-	priv->rxic = DEFAULT_RXIC;
++	/* Initializing some of the rx/tx queue level parameters */
++	priv->tx_queue->tx_ring_size = DEFAULT_TX_RING_SIZE;
++	priv->tx_queue->num_txbdfree = DEFAULT_TX_RING_SIZE;
++	priv->tx_queue->txcoalescing = DEFAULT_TX_COALESCE;
++	priv->tx_queue->txic = DEFAULT_TXIC;
++
++	priv->rx_queue->rx_ring_size = DEFAULT_RX_RING_SIZE;
++	priv->rx_queue->rxcoalescing = DEFAULT_RX_COALESCE;
++	priv->rx_queue->rxic = DEFAULT_RXIC;
+ 
+ 	/* Enable most messages by default */
+ 	priv->msg_enable = (NETIF_MSG_IFUP << 1 ) - 1;
+@@ -666,12 +697,15 @@ static int gfar_probe(struct of_device *ofdev,
+ 	/* provided which set of benchmarks. */
+ 	printk(KERN_INFO "%s: Running with NAPI enabled\n", dev->name);
+ 	printk(KERN_INFO "%s: %d/%d RX/TX BD ring size\n",
+-	       dev->name, priv->rx_ring_size, priv->tx_ring_size);
++	       dev->name, priv->rx_queue->rx_ring_size, priv->tx_queue->tx_ring_size);
+ 
+ 	return 0;
+ 
+ register_fail:
+ 	iounmap(priv->regs);
++	kfree(priv->rx_queue);
++rx_queue_fail:
++	kfree(priv->tx_queue);
+ regs_fail:
+ 	if (priv->phy_node)
+ 		of_node_put(priv->phy_node);
+@@ -705,6 +739,8 @@ static int gfar_suspend(struct device *dev)
+ {
+ 	struct gfar_private *priv = dev_get_drvdata(dev);
+ 	struct net_device *ndev = priv->ndev;
++	struct gfar_priv_tx_q *tx_queue = NULL;
++	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	unsigned long flags;
+ 	u32 tempval;
+ 
+@@ -712,10 +748,12 @@ static int gfar_suspend(struct device *dev)
+ 		(priv->device_flags & FSL_GIANFAR_DEV_HAS_MAGIC_PACKET);
+ 
+ 	netif_device_detach(ndev);
++	tx_queue = priv->tx_queue;
++	rx_queue = priv->rx_queue;
+ 
+ 	if (netif_running(ndev)) {
+-		spin_lock_irqsave(&priv->txlock, flags);
+-		spin_lock(&priv->rxlock);
++		spin_lock_irqsave(&tx_queue->txlock, flags);
++		spin_lock(&rx_queue->rxlock);
+ 
+ 		gfar_halt_nodisable(ndev);
+ 
+@@ -729,10 +767,10 @@ static int gfar_suspend(struct device *dev)
+ 
+ 		gfar_write(&priv->regs->maccfg1, tempval);
+ 
+-		spin_unlock(&priv->rxlock);
+-		spin_unlock_irqrestore(&priv->txlock, flags);
++		spin_unlock(&rx_queue->rxlock);
++		spin_unlock_irqrestore(&tx_queue->txlock, flags);
+ 
+-		napi_disable(&priv->napi);
++		napi_disable(&rx_queue->napi);
+ 
+ 		if (magic_packet) {
+ 			/* Enable interrupt on Magic Packet */
+@@ -754,6 +792,8 @@ static int gfar_resume(struct device *dev)
+ {
+ 	struct gfar_private *priv = dev_get_drvdata(dev);
+ 	struct net_device *ndev = priv->ndev;
++	struct gfar_priv_tx_q *tx_queue = NULL;
++	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	unsigned long flags;
+ 	u32 tempval;
+ 	int magic_packet = priv->wol_en &&
+@@ -770,9 +810,11 @@ static int gfar_resume(struct device *dev)
+ 	/* Disable Magic Packet mode, in case something
+ 	 * else woke us up.
+ 	 */
++	rx_queue = priv->rx_queue;
++	tx_queue = priv->tx_queue;
+ 
+-	spin_lock_irqsave(&priv->txlock, flags);
+-	spin_lock(&priv->rxlock);
++	spin_lock_irqsave(&tx_queue->txlock, flags);
++	spin_lock(&rx_queue->rxlock);
+ 
+ 	tempval = gfar_read(&priv->regs->maccfg2);
+ 	tempval &= ~MACCFG2_MPEN;
+@@ -780,12 +822,12 @@ static int gfar_resume(struct device *dev)
+ 
+ 	gfar_start(ndev);
+ 
+-	spin_unlock(&priv->rxlock);
+-	spin_unlock_irqrestore(&priv->txlock, flags);
++	spin_unlock(&rx_queue->rxlock);
++	spin_unlock_irqrestore(&tx_queue->txlock, flags);
+ 
+ 	netif_device_attach(ndev);
+ 
+-	napi_enable(&priv->napi);
++	napi_enable(&rx_queue->napi);
+ 
+ 	return 0;
+ }
+@@ -1060,18 +1102,23 @@ void gfar_halt(struct net_device *dev)
+ void stop_gfar(struct net_device *dev)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_priv_tx_q *tx_queue = NULL;
++	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	unsigned long flags;
+ 
+ 	phy_stop(priv->phydev);
+ 
++	tx_queue = priv->tx_queue;
++	rx_queue = priv->rx_queue;
++
+ 	/* Lock it down */
+-	spin_lock_irqsave(&priv->txlock, flags);
+-	spin_lock(&priv->rxlock);
++	spin_lock_irqsave(&tx_queue->txlock, flags);
++	spin_lock(&rx_queue->rxlock);
+ 
+ 	gfar_halt(dev);
+ 
+-	spin_unlock(&priv->rxlock);
+-	spin_unlock_irqrestore(&priv->txlock, flags);
++	spin_unlock(&rx_queue->rxlock);
++	spin_unlock_irqrestore(&tx_queue->txlock, flags);
+ 
+ 	/* Free the IRQs */
+ 	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_MULTI_INTR) {
+@@ -1092,46 +1139,50 @@ static void free_skb_resources(struct gfar_private *priv)
+ 	struct device *dev = &priv->ofdev->dev;
+ 	struct rxbd8 *rxbdp;
+ 	struct txbd8 *txbdp;
++	struct gfar_priv_tx_q *tx_queue = NULL;
++	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	int i, j;
+ 
+ 	/* Go through all the buffer descriptors and free their data buffers */
+-	txbdp = priv->tx_bd_base;
++	tx_queue = priv->tx_queue;
++	txbdp = tx_queue->tx_bd_base;
+ 
+-	if (!priv->tx_skbuff)
++	if (!tx_queue->tx_skbuff)
+ 		goto skip_tx_skbuff;
+ 
+-	for (i = 0; i < priv->tx_ring_size; i++) {
+-		if (!priv->tx_skbuff[i])
++	for (i = 0; i < tx_queue->tx_ring_size; i++) {
++		if (!tx_queue->tx_skbuff[i])
+ 			continue;
+ 
+ 		dma_unmap_single(&priv->ofdev->dev, txbdp->bufPtr,
+ 				txbdp->length, DMA_TO_DEVICE);
+ 		txbdp->lstatus = 0;
+-		for (j = 0; j < skb_shinfo(priv->tx_skbuff[i])->nr_frags; j++) {
++		for (j = 0; j < skb_shinfo(tx_queue->tx_skbuff[i])->nr_frags; j++) {
+ 			txbdp++;
+ 			dma_unmap_page(&priv->ofdev->dev, txbdp->bufPtr,
+ 					txbdp->length, DMA_TO_DEVICE);
+ 		}
+ 		txbdp++;
+-		dev_kfree_skb_any(priv->tx_skbuff[i]);
+-		priv->tx_skbuff[i] = NULL;
++		dev_kfree_skb_any(tx_queue->tx_skbuff[i]);
++		tx_queue->tx_skbuff[i] = NULL;
+ 	}
+ 
+-	kfree(priv->tx_skbuff);
++	kfree(tx_queue->tx_skbuff);
+ skip_tx_skbuff:
+ 
+-	rxbdp = priv->rx_bd_base;
++	rx_queue = priv->rx_queue;
++	rxbdp = rx_queue->rx_bd_base;
+ 
+-	if (!priv->rx_skbuff)
++	if (!rx_queue->rx_skbuff)
+ 		goto skip_rx_skbuff;
+ 
+-	for (i = 0; i < priv->rx_ring_size; i++) {
+-		if (priv->rx_skbuff[i]) {
++	for (i = 0; i < rx_queue->rx_ring_size; i++) {
++		if (rx_queue->rx_skbuff[i]) {
+ 			dma_unmap_single(&priv->ofdev->dev, rxbdp->bufPtr,
+ 					 priv->rx_buffer_size,
+ 					DMA_FROM_DEVICE);
+-			dev_kfree_skb_any(priv->rx_skbuff[i]);
+-			priv->rx_skbuff[i] = NULL;
++			dev_kfree_skb_any(rx_queue->rx_skbuff[i]);
++			rx_queue->rx_skbuff[i] = NULL;
+ 		}
+ 
+ 		rxbdp->lstatus = 0;
+@@ -1139,17 +1190,19 @@ skip_tx_skbuff:
+ 		rxbdp++;
+ 	}
+ 
+-	kfree(priv->rx_skbuff);
++	kfree(rx_queue->rx_skbuff);
+ skip_rx_skbuff:
+ 
+-	dma_free_coherent(dev, sizeof(*txbdp) * priv->tx_ring_size +
+-			       sizeof(*rxbdp) * priv->rx_ring_size,
+-			  priv->tx_bd_base, priv->tx_bd_dma_base);
++	dma_free_coherent(dev, sizeof(*txbdp) * tx_queue->tx_ring_size +
++			       sizeof(*rxbdp) * rx_queue->rx_ring_size,
++			  tx_queue->tx_bd_base, tx_queue->tx_bd_dma_base);
+ }
+ 
+ void gfar_start(struct net_device *dev)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_priv_tx_q *tx_queue;
++	struct gfar_priv_rx_q *rx_queue;
+ 	struct gfar __iomem *regs = priv->regs;
+ 	u32 tempval;
+ 
+@@ -1258,7 +1311,7 @@ static int gfar_enet_open(struct net_device *dev)
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 	int err;
+ 
+-	napi_enable(&priv->napi);
++	napi_enable(&priv->rx_queue->napi);
+ 
+ 	skb_queue_head_init(&priv->rx_recycle);
+ 
+@@ -1269,14 +1322,14 @@ static int gfar_enet_open(struct net_device *dev)
+ 
+ 	err = init_phy(dev);
+ 
+-	if(err) {
+-		napi_disable(&priv->napi);
++	if (err) {
++		napi_disable(&priv->rx_queue->napi);
+ 		return err;
+ 	}
+ 
+ 	err = startup_gfar(dev);
+ 	if (err) {
+-		napi_disable(&priv->napi);
++		napi_disable(&priv->rx_queue->napi);
+ 		return err;
+ 	}
+ 
+@@ -1349,6 +1402,7 @@ static inline struct txbd8 *next_txbd(struct txbd8 *bdp, struct txbd8 *base,
+ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_priv_tx_q *tx_queue = NULL;
+ 	struct txfcb *fcb = NULL;
+ 	struct txbd8 *txbdp, *txbdp_start, *base;
+ 	u32 lstatus;
+@@ -1357,7 +1411,8 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	unsigned long flags;
+ 	unsigned int nr_frags, length;
+ 
+-	base = priv->tx_bd_base;
++	tx_queue = priv->tx_queue;
++	base = tx_queue->tx_bd_base;
+ 
+ 	/* make space for additional header when fcb is needed */
+ 	if (((skb->ip_summed == CHECKSUM_PARTIAL) ||
+@@ -1378,21 +1433,21 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* total number of fragments in the SKB */
+ 	nr_frags = skb_shinfo(skb)->nr_frags;
+ 
+-	spin_lock_irqsave(&priv->txlock, flags);
++	spin_lock_irqsave(&tx_queue->txlock, flags);
+ 
+ 	/* check if there is space to queue this packet */
+-	if ((nr_frags+1) > priv->num_txbdfree) {
++	if ((nr_frags+1) > tx_queue->num_txbdfree) {
+ 		/* no space, stop the queue */
+ 		netif_stop_queue(dev);
+ 		dev->stats.tx_fifo_errors++;
+-		spin_unlock_irqrestore(&priv->txlock, flags);
++		spin_unlock_irqrestore(&tx_queue->txlock, flags);
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
+ 	/* Update transmit stats */
+ 	dev->stats.tx_bytes += skb->len;
+ 
+-	txbdp = txbdp_start = priv->cur_tx;
++	txbdp = txbdp_start = tx_queue->cur_tx;
+ 
+ 	if (nr_frags == 0) {
+ 		lstatus = txbdp->lstatus | BD_LFLAG(TXBD_LAST | TXBD_INTERRUPT);
+@@ -1400,7 +1455,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		/* Place the fragment addresses and lengths into the TxBDs */
+ 		for (i = 0; i < nr_frags; i++) {
+ 			/* Point at the next BD, wrapping as needed */
+-			txbdp = next_txbd(txbdp, base, priv->tx_ring_size);
++			txbdp = next_txbd(txbdp, base, tx_queue->tx_ring_size);
+ 
+ 			length = skb_shinfo(skb)->frags[i].size;
+ 
+@@ -1442,7 +1497,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	}
+ 
+ 	/* setup the TxBD length and buffer pointer for the first BD */
+-	priv->tx_skbuff[priv->skb_curtx] = skb;
++	tx_queue->tx_skbuff[tx_queue->skb_curtx] = skb;
+ 	txbdp_start->bufPtr = dma_map_single(&priv->ofdev->dev, skb->data,
+ 			skb_headlen(skb), DMA_TO_DEVICE);
+ 
+@@ -1462,19 +1517,19 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	/* Update the current skb pointer to the next entry we will use
+ 	 * (wrapping if necessary) */
+-	priv->skb_curtx = (priv->skb_curtx + 1) &
+-		TX_RING_MOD_MASK(priv->tx_ring_size);
++	tx_queue->skb_curtx = (tx_queue->skb_curtx + 1) &
++		TX_RING_MOD_MASK(tx_queue->tx_ring_size);
+ 
+-	priv->cur_tx = next_txbd(txbdp, base, priv->tx_ring_size);
++	tx_queue->cur_tx = next_txbd(txbdp, base, tx_queue->tx_ring_size);
+ 
+ 	/* reduce TxBD free count */
+-	priv->num_txbdfree -= (nr_frags + 1);
++	tx_queue->num_txbdfree -= (nr_frags + 1);
+ 
+ 	dev->trans_start = jiffies;
+ 
+ 	/* If the next BD still needs to be cleaned up, then the bds
+ 	   are full.  We need to tell the kernel to stop sending us stuff. */
+-	if (!priv->num_txbdfree) {
++	if (!tx_queue->num_txbdfree) {
+ 		netif_stop_queue(dev);
+ 
+ 		dev->stats.tx_fifo_errors++;
+@@ -1484,7 +1539,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	gfar_write(&priv->regs->tstat, TSTAT_CLEAR_THALT);
+ 
+ 	/* Unlock priv */
+-	spin_unlock_irqrestore(&priv->txlock, flags);
++	spin_unlock_irqrestore(&tx_queue->txlock, flags);
+ 
+ 	return NETDEV_TX_OK;
+ }
+@@ -1494,7 +1549,7 @@ static int gfar_close(struct net_device *dev)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 
+-	napi_disable(&priv->napi);
++	napi_disable(&priv->rx_queue->napi);
+ 
+ 	skb_queue_purge(&priv->rx_recycle);
+ 	cancel_work_sync(&priv->reset_task);
+@@ -1523,10 +1578,12 @@ static void gfar_vlan_rx_register(struct net_device *dev,
+ 		struct vlan_group *grp)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	unsigned long flags;
+ 	u32 tempval;
+ 
+-	spin_lock_irqsave(&priv->rxlock, flags);
++	rx_queue = priv->rx_queue;
++	spin_lock_irqsave(&rx_queue->rxlock, flags);
+ 
+ 	priv->vlgrp = grp;
+ 
+@@ -1560,7 +1617,7 @@ static void gfar_vlan_rx_register(struct net_device *dev,
+ 
+ 	gfar_change_mtu(dev, dev->mtu);
+ 
+-	spin_unlock_irqrestore(&priv->rxlock, flags);
++	spin_unlock_irqrestore(&rx_queue->rxlock, flags);
+ }
+ 
+ static int gfar_change_mtu(struct net_device *dev, int new_mtu)
+@@ -1649,24 +1706,27 @@ static void gfar_timeout(struct net_device *dev)
+ }
+ 
+ /* Interrupt Handler for Transmit complete */
+-static int gfar_clean_tx_ring(struct net_device *dev)
++static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
+ {
++	struct net_device *dev = tx_queue->dev;
+ 	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	struct txbd8 *bdp;
+ 	struct txbd8 *lbdp = NULL;
+-	struct txbd8 *base = priv->tx_bd_base;
++	struct txbd8 *base = tx_queue->tx_bd_base;
+ 	struct sk_buff *skb;
+ 	int skb_dirtytx;
+-	int tx_ring_size = priv->tx_ring_size;
++	int tx_ring_size = tx_queue->tx_ring_size;
+ 	int frags = 0;
+ 	int i;
+ 	int howmany = 0;
+ 	u32 lstatus;
+ 
+-	bdp = priv->dirty_tx;
+-	skb_dirtytx = priv->skb_dirtytx;
++	rx_queue = priv->rx_queue;
++	bdp = tx_queue->dirty_tx;
++	skb_dirtytx = tx_queue->skb_dirtytx;
+ 
+-	while ((skb = priv->tx_skbuff[skb_dirtytx])) {
++	while ((skb = tx_queue->tx_skbuff[skb_dirtytx])) {
+ 		frags = skb_shinfo(skb)->nr_frags;
+ 		lbdp = skip_txbd(bdp, frags, base, tx_ring_size);
+ 
+@@ -1698,29 +1758,29 @@ static int gfar_clean_tx_ring(struct net_device *dev)
+ 		 * If there's room in the queue (limit it to rx_buffer_size)
+ 		 * we add this skb back into the pool, if it's the right size
+ 		 */
+-		if (skb_queue_len(&priv->rx_recycle) < priv->rx_ring_size &&
++		if (skb_queue_len(&priv->rx_recycle) < rx_queue->rx_ring_size &&
+ 				skb_recycle_check(skb, priv->rx_buffer_size +
+ 					RXBUF_ALIGNMENT))
+ 			__skb_queue_head(&priv->rx_recycle, skb);
+ 		else
+ 			dev_kfree_skb_any(skb);
+ 
+-		priv->tx_skbuff[skb_dirtytx] = NULL;
++		tx_queue->tx_skbuff[skb_dirtytx] = NULL;
+ 
+ 		skb_dirtytx = (skb_dirtytx + 1) &
+ 			TX_RING_MOD_MASK(tx_ring_size);
+ 
+ 		howmany++;
+-		priv->num_txbdfree += frags + 1;
++		tx_queue->num_txbdfree += frags + 1;
+ 	}
+ 
+ 	/* If we freed a buffer, we can restart transmission, if necessary */
+-	if (netif_queue_stopped(dev) && priv->num_txbdfree)
++	if (netif_queue_stopped(dev) && tx_queue->num_txbdfree)
+ 		netif_wake_queue(dev);
+ 
+ 	/* Update dirty indicators */
+-	priv->skb_dirtytx = skb_dirtytx;
+-	priv->dirty_tx = bdp;
++	tx_queue->skb_dirtytx = skb_dirtytx;
++	tx_queue->dirty_tx = bdp;
+ 
+ 	dev->stats.tx_packets += howmany;
+ 
+@@ -1730,14 +1790,18 @@ static int gfar_clean_tx_ring(struct net_device *dev)
+ static void gfar_schedule_cleanup(struct net_device *dev)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_priv_tx_q *tx_queue = NULL;
++	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	unsigned long flags;
+ 
+-	spin_lock_irqsave(&priv->txlock, flags);
+-	spin_lock(&priv->rxlock);
++	rx_queue = priv->rx_queue;
++	tx_queue = priv->tx_queue;
++	spin_lock_irqsave(&tx_queue->txlock, flags);
++	spin_lock(&rx_queue->rxlock);
+ 
+-	if (napi_schedule_prep(&priv->napi)) {
++	if (napi_schedule_prep(&rx_queue->napi)) {
+ 		gfar_write(&priv->regs->imask, IMASK_RTX_DISABLED);
+-		__napi_schedule(&priv->napi);
++		__napi_schedule(&rx_queue->napi);
+ 	} else {
+ 		/*
+ 		 * Clear IEVENT, so interrupts aren't called again
+@@ -1746,8 +1810,8 @@ static void gfar_schedule_cleanup(struct net_device *dev)
+ 		gfar_write(&priv->regs->ievent, IEVENT_RTX_MASK);
+ 	}
+ 
+-	spin_unlock(&priv->rxlock);
+-	spin_unlock_irqrestore(&priv->txlock, flags);
++	spin_unlock(&rx_queue->rxlock);
++	spin_unlock_irqrestore(&tx_queue->txlock, flags);
+ }
+ 
+ /* Interrupt Handler for Transmit complete */
+@@ -1757,15 +1821,16 @@ static irqreturn_t gfar_transmit(int irq, void *dev_id)
+ 	return IRQ_HANDLED;
+ }
+ 
+-static void gfar_new_rxbdp(struct net_device *dev, struct rxbd8 *bdp,
++static void gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
+ 		struct sk_buff *skb)
+ {
++	struct net_device *dev = rx_queue->dev;
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 	dma_addr_t buf;
+ 
+ 	buf = dma_map_single(&priv->ofdev->dev, skb->data,
+ 			     priv->rx_buffer_size, DMA_FROM_DEVICE);
+-	gfar_init_rxbdp(dev, bdp, buf);
++	gfar_init_rxbdp(rx_queue, bdp, buf);
+ }
+ 
+ 
+@@ -1890,8 +1955,9 @@ static int gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
+  *   until the budget/quota has been reached. Returns the number
+  *   of frames handled
+  */
+-int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit)
++int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
+ {
++	struct net_device *dev = rx_queue->dev;
+ 	struct rxbd8 *bdp, *base;
+ 	struct sk_buff *skb;
+ 	int pkt_len;
+@@ -1900,8 +1966,8 @@ int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit)
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 
+ 	/* Get the first full descriptor */
+-	bdp = priv->cur_rx;
+-	base = priv->rx_bd_base;
++	bdp = rx_queue->cur_rx;
++	base = rx_queue->rx_bd_base;
+ 
+ 	amount_pull = (gfar_uses_fcb(priv) ? GMAC_FCB_LEN : 0) +
+ 		priv->padding;
+@@ -1913,7 +1979,7 @@ int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit)
+ 		/* Add another skb for the future */
+ 		newskb = gfar_new_skb(dev);
+ 
+-		skb = priv->rx_skbuff[priv->skb_currx];
++		skb = rx_queue->rx_skbuff[rx_queue->skb_currx];
+ 
+ 		dma_unmap_single(&priv->ofdev->dev, bdp->bufPtr,
+ 				priv->rx_buffer_size, DMA_FROM_DEVICE);
+@@ -1961,30 +2027,33 @@ int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit)
+ 
+ 		}
+ 
+-		priv->rx_skbuff[priv->skb_currx] = newskb;
++		rx_queue->rx_skbuff[rx_queue->skb_currx] = newskb;
+ 
+ 		/* Setup the new bdp */
+-		gfar_new_rxbdp(dev, bdp, newskb);
++		gfar_new_rxbdp(rx_queue, bdp, newskb);
+ 
+ 		/* Update to the next pointer */
+-		bdp = next_bd(bdp, base, priv->rx_ring_size);
++		bdp = next_bd(bdp, base, rx_queue->rx_ring_size);
+ 
+ 		/* update to point at the next skb */
+-		priv->skb_currx =
+-		    (priv->skb_currx + 1) &
+-		    RX_RING_MOD_MASK(priv->rx_ring_size);
++		rx_queue->skb_currx =
++		    (rx_queue->skb_currx + 1) &
++		    RX_RING_MOD_MASK(rx_queue->rx_ring_size);
+ 	}
+ 
+ 	/* Update the current rxbd pointer to be the next one */
+-	priv->cur_rx = bdp;
++	rx_queue->cur_rx = bdp;
+ 
+ 	return howmany;
+ }
+ 
+ static int gfar_poll(struct napi_struct *napi, int budget)
+ {
+-	struct gfar_private *priv = container_of(napi, struct gfar_private, napi);
+-	struct net_device *dev = priv->ndev;
++	struct gfar_priv_rx_q *rx_queue = container_of(napi,
++			struct gfar_priv_rx_q, napi);
++	struct net_device *dev = rx_queue->dev;
++	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_priv_tx_q *tx_queue = NULL;
+ 	int tx_cleaned = 0;
+ 	int rx_cleaned = 0;
+ 	unsigned long flags;
+@@ -1992,14 +2061,15 @@ static int gfar_poll(struct napi_struct *napi, int budget)
+ 	/* Clear IEVENT, so interrupts aren't called again
+ 	 * because of the packets that have already arrived */
+ 	gfar_write(&priv->regs->ievent, IEVENT_RTX_MASK);
++	tx_queue = priv->tx_queue;
+ 
+ 	/* If we fail to get the lock, don't bother with the TX BDs */
+-	if (spin_trylock_irqsave(&priv->txlock, flags)) {
+-		tx_cleaned = gfar_clean_tx_ring(dev);
+-		spin_unlock_irqrestore(&priv->txlock, flags);
++	if (spin_trylock_irqsave(&tx_queue->txlock, flags)) {
++		tx_cleaned = gfar_clean_tx_ring(tx_queue);
++		spin_unlock_irqrestore(&tx_queue->txlock, flags);
+ 	}
+ 
+-	rx_cleaned = gfar_clean_rx_ring(dev, budget);
++	rx_cleaned = gfar_clean_rx_ring(rx_queue, budget);
+ 
+ 	if (tx_cleaned)
+ 		return budget;
+@@ -2014,13 +2084,13 @@ static int gfar_poll(struct napi_struct *napi, int budget)
+ 
+ 		/* If we are coalescing interrupts, update the timer */
+ 		/* Otherwise, clear it */
+-		if (likely(priv->rxcoalescing)) {
++		if (likely(rx_queue->rxcoalescing)) {
+ 			gfar_write(&priv->regs->rxic, 0);
+-			gfar_write(&priv->regs->rxic, priv->rxic);
++			gfar_write(&priv->regs->rxic, rx_queue->rxic);
+ 		}
+-		if (likely(priv->txcoalescing)) {
++		if (likely(tx_queue->txcoalescing)) {
+ 			gfar_write(&priv->regs->txic, 0);
+-			gfar_write(&priv->regs->txic, priv->txic);
++			gfar_write(&priv->regs->txic, tx_queue->txic);
+ 		}
+ 	}
+ 
+@@ -2087,12 +2157,14 @@ static irqreturn_t gfar_interrupt(int irq, void *dev_id)
+ static void adjust_link(struct net_device *dev)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_priv_tx_q *tx_queue = NULL;
+ 	struct gfar __iomem *regs = priv->regs;
+ 	unsigned long flags;
+ 	struct phy_device *phydev = priv->phydev;
+ 	int new_state = 0;
+ 
+-	spin_lock_irqsave(&priv->txlock, flags);
++	tx_queue = priv->tx_queue;
++	spin_lock_irqsave(&tx_queue->txlock, flags);
+ 	if (phydev->link) {
+ 		u32 tempval = gfar_read(&regs->maccfg2);
+ 		u32 ecntrl = gfar_read(&regs->ecntrl);
+@@ -2158,7 +2230,7 @@ static void adjust_link(struct net_device *dev)
+ 	if (new_state && netif_msg_link(priv))
+ 		phy_print_status(phydev);
+ 
+-	spin_unlock_irqrestore(&priv->txlock, flags);
++	spin_unlock_irqrestore(&tx_queue->txlock, flags);
+ }
+ 
+ /* Update the hash table based on the current list of multicast
+@@ -2172,7 +2244,7 @@ static void gfar_set_multi(struct net_device *dev)
+ 	struct gfar __iomem *regs = priv->regs;
+ 	u32 tempval;
+ 
+-	if(dev->flags & IFF_PROMISC) {
++	if (dev->flags & IFF_PROMISC) {
+ 		/* Set RCTRL to PROM */
+ 		tempval = gfar_read(&regs->rctrl);
+ 		tempval |= RCTRL_PROM;
+@@ -2184,7 +2256,7 @@ static void gfar_set_multi(struct net_device *dev)
+ 		gfar_write(&regs->rctrl, tempval);
+ 	}
+ 
+-	if(dev->flags & IFF_ALLMULTI) {
++	if (dev->flags & IFF_ALLMULTI) {
+ 		/* Set the hash to rx all multicast frames */
+ 		gfar_write(&regs->igaddr0, 0xffffffff);
+ 		gfar_write(&regs->igaddr1, 0xffffffff);
+@@ -2236,7 +2308,7 @@ static void gfar_set_multi(struct net_device *dev)
+ 			em_num = 0;
+ 		}
+ 
+-		if(dev->mc_count == 0)
++		if (dev->mc_count == 0)
+ 			return;
+ 
+ 		/* Parse the list, and set the appropriate bits */
+diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
+index 05732fa..a60f93f 100644
+--- a/drivers/net/gianfar.h
++++ b/drivers/net/gianfar.h
+@@ -7,8 +7,9 @@
+  *
+  * Author: Andy Fleming
+  * Maintainer: Kumar Gala
++ * Modifier: Sandeep Gopalpet <sandeep.kumar@freescale.com>
+  *
+- * Copyright (c) 2002-2004 Freescale Semiconductor, Inc.
++ * Copyright 2002-2009 Freescale Semiconductor, Inc.
+  *
+  * This program is free software; you can redistribute  it and/or modify it
+  * under  the terms of  the GNU General  Public License as published by the
+@@ -699,6 +700,76 @@ struct gfar {
+ #define FSL_GIANFAR_DEV_HAS_BD_STASHING		0x00000200
+ #define FSL_GIANFAR_DEV_HAS_BUF_STASHING	0x00000400
+ 
++/**
++ *	struct gfar_priv_tx_q - per tx queue structure
++ *	@txlock: per queue tx spin lock
++ *	@tx_skbuff:skb pointers
++ *	@skb_curtx: to be used skb pointer
++ *	@skb_dirtytx:the last used skb pointer
++ *	@qindex: index of this queue
++ *	@dev: back pointer to the dev structure
++ *	@grp: back pointer to the group to which this queue belongs
++ *	@tx_bd_base: First tx buffer descriptor
++ *	@cur_tx: Next free ring entry
++ *	@dirty_tx: First buffer in line to be transmitted
++ *	@tx_ring_size: Tx ring size
++ *	@num_txbdfree: number of free TxBds
++ *	@txcoalescing: enable/disable tx coalescing
++ *	@txic: transmit interrupt coalescing value
++ *	@txcount: coalescing value if based on tx frame count
++ *	@txtime: coalescing value if based on time
 + */
-+
-+#include <linux/can.h>
-+#include <linux/can/core.h>
-+#include <linux/can/dev.h>
-+#include <linux/can/platform/mcp251x.h>
-+#include <linux/completion.h>
-+#include <linux/delay.h>
-+#include <linux/device.h>
-+#include <linux/dma-mapping.h>
-+#include <linux/freezer.h>
-+#include <linux/interrupt.h>
-+#include <linux/io.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/netdevice.h>
-+#include <linux/platform_device.h>
-+#include <linux/spi/spi.h>
-+#include <linux/uaccess.h>
-+
-+/* SPI interface instruction set */
-+#define INSTRUCTION_WRITE	0x02
-+#define INSTRUCTION_READ	0x03
-+#define INSTRUCTION_BIT_MODIFY	0x05
-+#define INSTRUCTION_LOAD_TXB(n)	(0x40 + 2 * (n))
-+#define INSTRUCTION_READ_RXB(n)	(((n) == 0) ? 0x90 : 0x94)
-+#define INSTRUCTION_RESET	0xC0
-+
-+/* MPC251x registers */
-+#define CANSTAT	      0x0e
-+#define CANCTRL	      0x0f
-+#  define CANCTRL_REQOP_MASK	    0xe0
-+#  define CANCTRL_REQOP_CONF	    0x80
-+#  define CANCTRL_REQOP_LISTEN_ONLY 0x60
-+#  define CANCTRL_REQOP_LOOPBACK    0x40
-+#  define CANCTRL_REQOP_SLEEP	    0x20
-+#  define CANCTRL_REQOP_NORMAL	    0x00
-+#  define CANCTRL_OSM		    0x08
-+#  define CANCTRL_ABAT		    0x10
-+#define TEC	      0x1c
-+#define REC	      0x1d
-+#define CNF1	      0x2a
-+#  define CNF1_SJW_SHIFT   6
-+#define CNF2	      0x29
-+#  define CNF2_BTLMODE	   0x80
-+#  define CNF2_SAM         0x40
-+#  define CNF2_PS1_SHIFT   3
-+#define CNF3	      0x28
-+#  define CNF3_SOF	   0x08
-+#  define CNF3_WAKFIL	   0x04
-+#  define CNF3_PHSEG2_MASK 0x07
-+#define CANINTE	      0x2b
-+#  define CANINTE_MERRE 0x80
-+#  define CANINTE_WAKIE 0x40
-+#  define CANINTE_ERRIE 0x20
-+#  define CANINTE_TX2IE 0x10
-+#  define CANINTE_TX1IE 0x08
-+#  define CANINTE_TX0IE 0x04
-+#  define CANINTE_RX1IE 0x02
-+#  define CANINTE_RX0IE 0x01
-+#define CANINTF	      0x2c
-+#  define CANINTF_MERRF 0x80
-+#  define CANINTF_WAKIF 0x40
-+#  define CANINTF_ERRIF 0x20
-+#  define CANINTF_TX2IF 0x10
-+#  define CANINTF_TX1IF 0x08
-+#  define CANINTF_TX0IF 0x04
-+#  define CANINTF_RX1IF 0x02
-+#  define CANINTF_RX0IF 0x01
-+#define EFLG	      0x2d
-+#  define EFLG_EWARN	0x01
-+#  define EFLG_RXWAR	0x02
-+#  define EFLG_TXWAR	0x04
-+#  define EFLG_RXEP	0x08
-+#  define EFLG_TXEP	0x10
-+#  define EFLG_TXBO	0x20
-+#  define EFLG_RX0OVR	0x40
-+#  define EFLG_RX1OVR	0x80
-+#define TXBCTRL(n)  (((n) * 0x10) + 0x30 + TXBCTRL_OFF)
-+#  define TXBCTRL_ABTF	0x40
-+#  define TXBCTRL_MLOA	0x20
-+#  define TXBCTRL_TXERR 0x10
-+#  define TXBCTRL_TXREQ 0x08
-+#define TXBSIDH(n)  (((n) * 0x10) + 0x30 + TXBSIDH_OFF)
-+#  define SIDH_SHIFT    3
-+#define TXBSIDL(n)  (((n) * 0x10) + 0x30 + TXBSIDL_OFF)
-+#  define SIDL_SID_MASK    7
-+#  define SIDL_SID_SHIFT   5
-+#  define SIDL_EXIDE_SHIFT 3
-+#  define SIDL_EID_SHIFT   16
-+#  define SIDL_EID_MASK    3
-+#define TXBEID8(n)  (((n) * 0x10) + 0x30 + TXBEID8_OFF)
-+#define TXBEID0(n)  (((n) * 0x10) + 0x30 + TXBEID0_OFF)
-+#define TXBDLC(n)   (((n) * 0x10) + 0x30 + TXBDLC_OFF)
-+#  define DLC_RTR_SHIFT    6
-+#define TXBCTRL_OFF 0
-+#define TXBSIDH_OFF 1
-+#define TXBSIDL_OFF 2
-+#define TXBEID8_OFF 3
-+#define TXBEID0_OFF 4
-+#define TXBDLC_OFF  5
-+#define TXBDAT_OFF  6
-+#define RXBCTRL(n)  (((n) * 0x10) + 0x60 + RXBCTRL_OFF)
-+#  define RXBCTRL_BUKT	0x04
-+#  define RXBCTRL_RXM0	0x20
-+#  define RXBCTRL_RXM1	0x40
-+#define RXBSIDH(n)  (((n) * 0x10) + 0x60 + RXBSIDH_OFF)
-+#  define RXBSIDH_SHIFT 3
-+#define RXBSIDL(n)  (((n) * 0x10) + 0x60 + RXBSIDL_OFF)
-+#  define RXBSIDL_IDE   0x08
-+#  define RXBSIDL_EID   3
-+#  define RXBSIDL_SHIFT 5
-+#define RXBEID8(n)  (((n) * 0x10) + 0x60 + RXBEID8_OFF)
-+#define RXBEID0(n)  (((n) * 0x10) + 0x60 + RXBEID0_OFF)
-+#define RXBDLC(n)   (((n) * 0x10) + 0x60 + RXBDLC_OFF)
-+#  define RXBDLC_LEN_MASK  0x0f
-+#  define RXBDLC_RTR       0x40
-+#define RXBCTRL_OFF 0
-+#define RXBSIDH_OFF 1
-+#define RXBSIDL_OFF 2
-+#define RXBEID8_OFF 3
-+#define RXBEID0_OFF 4
-+#define RXBDLC_OFF  5
-+#define RXBDAT_OFF  6
-+
-+#define GET_BYTE(val, byte)			\
-+	(((val) >> ((byte) * 8)) & 0xff)
-+#define SET_BYTE(val, byte)			\
-+	(((val) & 0xff) << ((byte) * 8))
-+
-+/*
-+ * Buffer size required for the largest SPI transfer (i.e., reading a
-+ * frame)
-+ */
-+#define CAN_FRAME_MAX_DATA_LEN	8
-+#define SPI_TRANSFER_BUF_LEN	(6 + CAN_FRAME_MAX_DATA_LEN)
-+#define CAN_FRAME_MAX_BITS	128
-+
-+#define TX_ECHO_SKB_MAX	1
-+
-+#define DEVICE_NAME "mcp251x"
-+
-+static int mcp251x_enable_dma; /* Enable SPI DMA. Default: 0 (Off) */
-+module_param(mcp251x_enable_dma, int, S_IRUGO);
-+MODULE_PARM_DESC(mcp251x_enable_dma, "Enable SPI DMA. Default: 0 (Off)");
-+
-+static struct can_bittiming_const mcp251x_bittiming_const = {
-+	.name = DEVICE_NAME,
-+	.tseg1_min = 3,
-+	.tseg1_max = 16,
-+	.tseg2_min = 2,
-+	.tseg2_max = 8,
-+	.sjw_max = 4,
-+	.brp_min = 1,
-+	.brp_max = 64,
-+	.brp_inc = 1,
++struct gfar_priv_tx_q {
++	spinlock_t txlock __attribute__ ((aligned (SMP_CACHE_BYTES)));
++	struct sk_buff ** tx_skbuff;
++	/* Buffer descriptor pointers */
++	dma_addr_t tx_bd_dma_base;
++	struct	txbd8 *tx_bd_base;
++	struct	txbd8 *cur_tx;
++	struct	txbd8 *dirty_tx;
++	struct	net_device *dev;
++	u16	skb_curtx;
++	u16	skb_dirtytx;
++	u16	qindex;
++	unsigned int tx_ring_size;
++	unsigned int num_txbdfree;
++	/* Configuration info for the coalescing features */
++	unsigned char txcoalescing;
++	unsigned long txic;
++	unsigned short txcount;
++	unsigned short txtime;
 +};
-+
-+struct mcp251x_priv {
-+	struct can_priv	   can;
-+	struct net_device *net;
-+	struct spi_device *spi;
-+
-+	struct mutex spi_lock; /* SPI buffer lock */
-+	u8 *spi_tx_buf;
-+	u8 *spi_rx_buf;
-+	dma_addr_t spi_tx_dma;
-+	dma_addr_t spi_rx_dma;
-+
-+	struct sk_buff *tx_skb;
-+	int tx_len;
-+	struct workqueue_struct *wq;
-+	struct work_struct tx_work;
-+	struct work_struct irq_work;
-+	struct completion awake;
-+	int wake;
-+	int force_quit;
-+	int after_suspend;
-+#define AFTER_SUSPEND_UP 1
-+#define AFTER_SUSPEND_DOWN 2
-+#define AFTER_SUSPEND_POWER 4
-+#define AFTER_SUSPEND_RESTART 8
-+	int restart_tx;
-+};
-+
-+static void mcp251x_clean(struct net_device *net)
-+{
-+	struct mcp251x_priv *priv = netdev_priv(net);
-+
-+	net->stats.tx_errors++;
-+	if (priv->tx_skb)
-+		dev_kfree_skb(priv->tx_skb);
-+	if (priv->tx_len)
-+		can_free_echo_skb(priv->net, 0);
-+	priv->tx_skb = NULL;
-+	priv->tx_len = 0;
-+}
-+
-+/*
-+ * Note about handling of error return of mcp251x_spi_trans: accessing
-+ * registers via SPI is not really different conceptually than using
-+ * normal I/O assembler instructions, although it's much more
-+ * complicated from a practical POV. So it's not advisable to always
-+ * check the return value of this function. Imagine that every
-+ * read{b,l}, write{b,l} and friends would be bracketed in "if ( < 0)
-+ * error();", it would be a great mess (well there are some situation
-+ * when exception handling C++ like could be useful after all). So we
-+ * just check that transfers are OK at the beginning of our
-+ * conversation with the chip and to avoid doing really nasty things
-+ * (like injecting bogus packets in the network stack).
-+ */
-+static int mcp251x_spi_trans(struct spi_device *spi, int len)
-+{
-+	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct spi_transfer t = {
-+		.tx_buf = priv->spi_tx_buf,
-+		.rx_buf = priv->spi_rx_buf,
-+		.len = len,
-+		.cs_change = 0,
-+	};
-+	struct spi_message m;
-+	int ret;
-+
-+	spi_message_init(&m);
-+
-+	if (mcp251x_enable_dma) {
-+		t.tx_dma = priv->spi_tx_dma;
-+		t.rx_dma = priv->spi_rx_dma;
-+		m.is_dma_mapped = 1;
-+	}
-+
-+	spi_message_add_tail(&t, &m);
-+
-+	ret = spi_sync(spi, &m);
-+	if (ret)
-+		dev_err(&spi->dev, "spi transfer failed: ret = %d\n", ret);
-+	return ret;
-+}
-+
-+static u8 mcp251x_read_reg(struct spi_device *spi, uint8_t reg)
-+{
-+	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	u8 val = 0;
-+
-+	mutex_lock(&priv->spi_lock);
-+
-+	priv->spi_tx_buf[0] = INSTRUCTION_READ;
-+	priv->spi_tx_buf[1] = reg;
-+
-+	mcp251x_spi_trans(spi, 3);
-+	val = priv->spi_rx_buf[2];
-+
-+	mutex_unlock(&priv->spi_lock);
-+
-+	return val;
-+}
-+
-+static void mcp251x_write_reg(struct spi_device *spi, u8 reg, uint8_t val)
-+{
-+	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+
-+	mutex_lock(&priv->spi_lock);
-+
-+	priv->spi_tx_buf[0] = INSTRUCTION_WRITE;
-+	priv->spi_tx_buf[1] = reg;
-+	priv->spi_tx_buf[2] = val;
-+
-+	mcp251x_spi_trans(spi, 3);
-+
-+	mutex_unlock(&priv->spi_lock);
-+}
-+
-+static void mcp251x_write_bits(struct spi_device *spi, u8 reg,
-+			       u8 mask, uint8_t val)
-+{
-+	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+
-+	mutex_lock(&priv->spi_lock);
-+
-+	priv->spi_tx_buf[0] = INSTRUCTION_BIT_MODIFY;
-+	priv->spi_tx_buf[1] = reg;
-+	priv->spi_tx_buf[2] = mask;
-+	priv->spi_tx_buf[3] = val;
-+
-+	mcp251x_spi_trans(spi, 4);
-+
-+	mutex_unlock(&priv->spi_lock);
-+}
-+
-+static void mcp251x_hw_tx_frame(struct spi_device *spi, u8 *buf,
-+				int len, int tx_buf_idx)
-+{
-+	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
-+	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+
-+	if (pdata->model == CAN_MCP251X_MCP2510) {
-+		int i;
-+
-+		for (i = 1; i < TXBDAT_OFF + len; i++)
-+			mcp251x_write_reg(spi, TXBCTRL(tx_buf_idx) + i,
-+					  buf[i]);
-+	} else {
-+		mutex_lock(&priv->spi_lock);
-+		memcpy(priv->spi_tx_buf, buf, TXBDAT_OFF + len);
-+		mcp251x_spi_trans(spi, TXBDAT_OFF + len);
-+		mutex_unlock(&priv->spi_lock);
-+	}
-+}
-+
-+static void mcp251x_hw_tx(struct spi_device *spi, struct can_frame *frame,
-+			  int tx_buf_idx)
-+{
-+	u32 sid, eid, exide, rtr;
-+	u8 buf[SPI_TRANSFER_BUF_LEN];
-+
-+	exide = (frame->can_id & CAN_EFF_FLAG) ? 1 : 0; /* Extended ID Enable */
-+	if (exide)
-+		sid = (frame->can_id & CAN_EFF_MASK) >> 18;
-+	else
-+		sid = frame->can_id & CAN_SFF_MASK; /* Standard ID */
-+	eid = frame->can_id & CAN_EFF_MASK; /* Extended ID */
-+	rtr = (frame->can_id & CAN_RTR_FLAG) ? 1 : 0; /* Remote transmission */
-+
-+	buf[TXBCTRL_OFF] = INSTRUCTION_LOAD_TXB(tx_buf_idx);
-+	buf[TXBSIDH_OFF] = sid >> SIDH_SHIFT;
-+	buf[TXBSIDL_OFF] = ((sid & SIDL_SID_MASK) << SIDL_SID_SHIFT) |
-+		(exide << SIDL_EXIDE_SHIFT) |
-+		((eid >> SIDL_EID_SHIFT) & SIDL_EID_MASK);
-+	buf[TXBEID8_OFF] = GET_BYTE(eid, 1);
-+	buf[TXBEID0_OFF] = GET_BYTE(eid, 0);
-+	buf[TXBDLC_OFF]  = (rtr << DLC_RTR_SHIFT) | frame->can_dlc;
-+	memcpy(buf + TXBDAT_OFF, frame->data, frame->can_dlc);
-+	mcp251x_hw_tx_frame(spi, buf, frame->can_dlc, tx_buf_idx);
-+	mcp251x_write_reg(spi, TXBCTRL(tx_buf_idx), TXBCTRL_TXREQ);
-+}
-+
-+static void mcp251x_hw_rx_frame(struct spi_device *spi, u8 *buf,
-+				int buf_idx)
-+{
-+	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
-+
-+	if (pdata->model == CAN_MCP251X_MCP2510) {
-+		int i, len;
-+
-+		for (i = 1; i < RXBDAT_OFF; i++)
-+			buf[i] = mcp251x_read_reg(spi, RXBCTRL(buf_idx) + i);
-+		len = buf[RXBDLC_OFF] & RXBDLC_LEN_MASK;
-+		if (len > 8)
-+			len = 8;
-+		for (; i < (RXBDAT_OFF + len); i++)
-+			buf[i] = mcp251x_read_reg(spi, RXBCTRL(buf_idx) + i);
-+	} else {
-+		mutex_lock(&priv->spi_lock);
-+
-+		priv->spi_tx_buf[RXBCTRL_OFF] = INSTRUCTION_READ_RXB(buf_idx);
-+		mcp251x_spi_trans(spi, SPI_TRANSFER_BUF_LEN);
-+		memcpy(buf, priv->spi_rx_buf, SPI_TRANSFER_BUF_LEN);
-+
-+		mutex_unlock(&priv->spi_lock);
-+	}
-+}
-+
-+static void mcp251x_hw_rx(struct spi_device *spi, int buf_idx)
-+{
-+	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct sk_buff *skb;
-+	struct can_frame *frame;
-+	u8 buf[SPI_TRANSFER_BUF_LEN];
-+
-+	skb = alloc_can_skb(priv->net, &frame);
-+	if (!skb) {
-+		dev_err(&spi->dev, "cannot allocate RX skb\n");
-+		priv->net->stats.rx_dropped++;
-+		return;
-+	}
-+
-+	mcp251x_hw_rx_frame(spi, buf, buf_idx);
-+	if (buf[RXBSIDL_OFF] & RXBSIDL_IDE) {
-+		/* Extended ID format */
-+		frame->can_id = CAN_EFF_FLAG;
-+		frame->can_id |=
-+			/* Extended ID part */
-+			SET_BYTE(buf[RXBSIDL_OFF] & RXBSIDL_EID, 2) |
-+			SET_BYTE(buf[RXBEID8_OFF], 1) |
-+			SET_BYTE(buf[RXBEID0_OFF], 0) |
-+			/* Standard ID part */
-+			(((buf[RXBSIDH_OFF] << RXBSIDH_SHIFT) |
-+			  (buf[RXBSIDL_OFF] >> RXBSIDL_SHIFT)) << 18);
-+		/* Remote transmission request */
-+		if (buf[RXBDLC_OFF] & RXBDLC_RTR)
-+			frame->can_id |= CAN_RTR_FLAG;
-+	} else {
-+		/* Standard ID format */
-+		frame->can_id =
-+			(buf[RXBSIDH_OFF] << RXBSIDH_SHIFT) |
-+			(buf[RXBSIDL_OFF] >> RXBSIDL_SHIFT);
-+	}
-+	/* Data length */
-+	frame->can_dlc = buf[RXBDLC_OFF] & RXBDLC_LEN_MASK;
-+	if (frame->can_dlc > 8) {
-+		dev_warn(&spi->dev, "invalid frame recevied\n");
-+		priv->net->stats.rx_errors++;
-+		dev_kfree_skb(skb);
-+		return;
-+	}
-+	memcpy(frame->data, buf + RXBDAT_OFF, frame->can_dlc);
-+
-+	priv->net->stats.rx_packets++;
-+	priv->net->stats.rx_bytes += frame->can_dlc;
-+	netif_rx(skb);
-+}
-+
-+static void mcp251x_hw_sleep(struct spi_device *spi)
-+{
-+	mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_SLEEP);
-+}
-+
-+static void mcp251x_hw_wakeup(struct spi_device *spi)
-+{
-+	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+
-+	priv->wake = 1;
-+
-+	/* Can only wake up by generating a wake-up interrupt. */
-+	mcp251x_write_bits(spi, CANINTE, CANINTE_WAKIE, CANINTE_WAKIE);
-+	mcp251x_write_bits(spi, CANINTF, CANINTF_WAKIF, CANINTF_WAKIF);
-+
-+	/* Wait until the device is awake */
-+	if (!wait_for_completion_timeout(&priv->awake, HZ))
-+		dev_err(&spi->dev, "MCP251x didn't wake-up\n");
-+}
-+
-+static netdev_tx_t mcp251x_hard_start_xmit(struct sk_buff *skb,
-+					   struct net_device *net)
-+{
-+	struct mcp251x_priv *priv = netdev_priv(net);
-+	struct spi_device *spi = priv->spi;
-+
-+	if (priv->tx_skb || priv->tx_len) {
-+		dev_warn(&spi->dev, "hard_xmit called while tx busy\n");
-+		netif_stop_queue(net);
-+		return NETDEV_TX_BUSY;
-+	}
-+
-+	if (skb->len != sizeof(struct can_frame)) {
-+		dev_err(&spi->dev, "dropping packet - bad length\n");
-+		dev_kfree_skb(skb);
-+		net->stats.tx_dropped++;
-+		return NETDEV_TX_OK;
-+	}
-+
-+	netif_stop_queue(net);
-+	priv->tx_skb = skb;
-+	net->trans_start = jiffies;
-+	queue_work(priv->wq, &priv->tx_work);
-+
-+	return NETDEV_TX_OK;
-+}
-+
-+static int mcp251x_do_set_mode(struct net_device *net, enum can_mode mode)
-+{
-+	struct mcp251x_priv *priv = netdev_priv(net);
-+
-+	switch (mode) {
-+	case CAN_MODE_START:
-+		/* We have to delay work since SPI I/O may sleep */
-+		priv->can.state = CAN_STATE_ERROR_ACTIVE;
-+		priv->restart_tx = 1;
-+		if (priv->can.restart_ms == 0)
-+			priv->after_suspend = AFTER_SUSPEND_RESTART;
-+		queue_work(priv->wq, &priv->irq_work);
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+
-+	return 0;
-+}
-+
-+static void mcp251x_set_normal_mode(struct spi_device *spi)
-+{
-+	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	unsigned long timeout;
-+
-+	/* Enable interrupts */
-+	mcp251x_write_reg(spi, CANINTE,
-+			  CANINTE_ERRIE | CANINTE_TX2IE | CANINTE_TX1IE |
-+			  CANINTE_TX0IE | CANINTE_RX1IE | CANINTE_RX0IE |
-+			  CANINTF_MERRF);
-+
-+	if (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) {
-+		/* Put device into loopback mode */
-+		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_LOOPBACK);
-+	} else {
-+		/* Put device into normal mode */
-+		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_NORMAL);
-+
-+		/* Wait for the device to enter normal mode */
-+		timeout = jiffies + HZ;
-+		while (mcp251x_read_reg(spi, CANSTAT) & CANCTRL_REQOP_MASK) {
-+			schedule();
-+			if (time_after(jiffies, timeout)) {
-+				dev_err(&spi->dev, "MCP251x didn't"
-+					" enter in normal mode\n");
-+				return;
-+			}
-+		}
-+	}
-+	priv->can.state = CAN_STATE_ERROR_ACTIVE;
-+}
-+
-+static int mcp251x_do_set_bittiming(struct net_device *net)
-+{
-+	struct mcp251x_priv *priv = netdev_priv(net);
-+	struct can_bittiming *bt = &priv->can.bittiming;
-+	struct spi_device *spi = priv->spi;
-+
-+	mcp251x_write_reg(spi, CNF1, ((bt->sjw - 1) << CNF1_SJW_SHIFT) |
-+			  (bt->brp - 1));
-+	mcp251x_write_reg(spi, CNF2, CNF2_BTLMODE |
-+			  (priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES ?
-+			   CNF2_SAM : 0) |
-+			  ((bt->phase_seg1 - 1) << CNF2_PS1_SHIFT) |
-+			  (bt->prop_seg - 1));
-+	mcp251x_write_bits(spi, CNF3, CNF3_PHSEG2_MASK,
-+			   (bt->phase_seg2 - 1));
-+	dev_info(&spi->dev, "CNF: 0x%02x 0x%02x 0x%02x\n",
-+		 mcp251x_read_reg(spi, CNF1),
-+		 mcp251x_read_reg(spi, CNF2),
-+		 mcp251x_read_reg(spi, CNF3));
-+
-+	return 0;
-+}
-+
-+static int mcp251x_setup(struct net_device *net, struct mcp251x_priv *priv,
-+			 struct spi_device *spi)
-+{
-+	int ret;
-+
-+	ret = open_candev(net);
-+	if (ret) {
-+		dev_err(&spi->dev, "unable to set initial baudrate!\n");
-+		return ret;
-+	}
-+
-+	/* Enable RX0->RX1 buffer roll over and disable filters */
-+	mcp251x_write_bits(spi, RXBCTRL(0),
-+			   RXBCTRL_BUKT | RXBCTRL_RXM0 | RXBCTRL_RXM1,
-+			   RXBCTRL_BUKT | RXBCTRL_RXM0 | RXBCTRL_RXM1);
-+	mcp251x_write_bits(spi, RXBCTRL(1),
-+			   RXBCTRL_RXM0 | RXBCTRL_RXM1,
-+			   RXBCTRL_RXM0 | RXBCTRL_RXM1);
-+	return 0;
-+}
-+
-+static void mcp251x_hw_reset(struct spi_device *spi)
-+{
-+	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	int ret;
-+
-+	mutex_lock(&priv->spi_lock);
-+
-+	priv->spi_tx_buf[0] = INSTRUCTION_RESET;
-+
-+	ret = spi_write(spi, priv->spi_tx_buf, 1);
-+
-+	mutex_unlock(&priv->spi_lock);
-+
-+	if (ret)
-+		dev_err(&spi->dev, "reset failed: ret = %d\n", ret);
-+	/* Wait for reset to finish */
-+	mdelay(10);
-+}
-+
-+static int mcp251x_hw_probe(struct spi_device *spi)
-+{
-+	int st1, st2;
-+
-+	mcp251x_hw_reset(spi);
-+
-+	/*
-+	 * Please note that these are "magic values" based on after
-+	 * reset defaults taken from data sheet which allows us to see
-+	 * if we really have a chip on the bus (we avoid common all
-+	 * zeroes or all ones situations)
-+	 */
-+	st1 = mcp251x_read_reg(spi, CANSTAT) & 0xEE;
-+	st2 = mcp251x_read_reg(spi, CANCTRL) & 0x17;
-+
-+	dev_dbg(&spi->dev, "CANSTAT 0x%02x CANCTRL 0x%02x\n", st1, st2);
-+
-+	/* Check for power up default values */
-+	return (st1 == 0x80 && st2 == 0x07) ? 1 : 0;
-+}
-+
-+static irqreturn_t mcp251x_can_isr(int irq, void *dev_id)
-+{
-+	struct net_device *net = (struct net_device *)dev_id;
-+	struct mcp251x_priv *priv = netdev_priv(net);
-+
-+	/* Schedule bottom half */
-+	if (!work_pending(&priv->irq_work))
-+		queue_work(priv->wq, &priv->irq_work);
-+
-+	return IRQ_HANDLED;
-+}
-+
-+static int mcp251x_open(struct net_device *net)
-+{
-+	struct mcp251x_priv *priv = netdev_priv(net);
-+	struct spi_device *spi = priv->spi;
-+	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
-+	int ret;
-+
-+	if (pdata->transceiver_enable)
-+		pdata->transceiver_enable(1);
-+
-+	priv->force_quit = 0;
-+	priv->tx_skb = NULL;
-+	priv->tx_len = 0;
-+
-+	ret = request_irq(spi->irq, mcp251x_can_isr,
-+			  IRQF_TRIGGER_FALLING, DEVICE_NAME, net);
-+	if (ret) {
-+		dev_err(&spi->dev, "failed to acquire irq %d\n", spi->irq);
-+		return ret;
-+	}
-+
-+	mcp251x_hw_wakeup(spi);
-+	mcp251x_hw_reset(spi);
-+	ret = mcp251x_setup(net, priv, spi);
-+	if (ret) {
-+		free_irq(spi->irq, net);
-+		if (pdata->transceiver_enable)
-+			pdata->transceiver_enable(0);
-+		return ret;
-+	}
-+	mcp251x_set_normal_mode(spi);
-+	netif_wake_queue(net);
-+
-+	return 0;
-+}
-+
-+static int mcp251x_stop(struct net_device *net)
-+{
-+	struct mcp251x_priv *priv = netdev_priv(net);
-+	struct spi_device *spi = priv->spi;
-+	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
-+
-+	close_candev(net);
-+
-+	/* Disable and clear pending interrupts */
-+	mcp251x_write_reg(spi, CANINTE, 0x00);
-+	mcp251x_write_reg(spi, CANINTF, 0x00);
-+
-+	priv->force_quit = 1;
-+	free_irq(spi->irq, net);
-+	flush_workqueue(priv->wq);
-+
-+	mcp251x_write_reg(spi, TXBCTRL(0), 0);
-+	if (priv->tx_skb || priv->tx_len)
-+		mcp251x_clean(net);
-+
-+	mcp251x_hw_sleep(spi);
-+
-+	if (pdata->transceiver_enable)
-+		pdata->transceiver_enable(0);
-+
-+	priv->can.state = CAN_STATE_STOPPED;
-+
-+	return 0;
-+}
-+
-+static void mcp251x_tx_work_handler(struct work_struct *ws)
-+{
-+	struct mcp251x_priv *priv = container_of(ws, struct mcp251x_priv,
-+						 tx_work);
-+	struct spi_device *spi = priv->spi;
-+	struct net_device *net = priv->net;
-+	struct can_frame *frame;
-+
-+	if (priv->tx_skb) {
-+		frame = (struct can_frame *)priv->tx_skb->data;
-+
-+		if (priv->can.state == CAN_STATE_BUS_OFF) {
-+			mcp251x_clean(net);
-+			netif_wake_queue(net);
-+			return;
-+		}
-+		if (frame->can_dlc > CAN_FRAME_MAX_DATA_LEN)
-+			frame->can_dlc = CAN_FRAME_MAX_DATA_LEN;
-+		mcp251x_hw_tx(spi, frame, 0);
-+		priv->tx_len = 1 + frame->can_dlc;
-+		can_put_echo_skb(priv->tx_skb, net, 0);
-+		priv->tx_skb = NULL;
-+	}
-+}
-+
-+static void mcp251x_irq_work_handler(struct work_struct *ws)
-+{
-+	struct mcp251x_priv *priv = container_of(ws, struct mcp251x_priv,
-+						 irq_work);
-+	struct spi_device *spi = priv->spi;
-+	struct net_device *net = priv->net;
-+	u8 txbnctrl;
-+	u8 intf;
-+	enum can_state new_state;
-+
-+	if (priv->after_suspend) {
-+		mdelay(10);
-+		mcp251x_hw_reset(spi);
-+		mcp251x_setup(net, priv, spi);
-+		if (priv->after_suspend & AFTER_SUSPEND_RESTART) {
-+			mcp251x_set_normal_mode(spi);
-+		} else if (priv->after_suspend & AFTER_SUSPEND_UP) {
-+			netif_device_attach(net);
-+			/* Clean since we lost tx buffer */
-+			if (priv->tx_skb || priv->tx_len) {
-+				mcp251x_clean(net);
-+				netif_wake_queue(net);
-+			}
-+			mcp251x_set_normal_mode(spi);
-+		} else {
-+			mcp251x_hw_sleep(spi);
-+		}
-+		priv->after_suspend = 0;
-+	}
-+
-+	if (priv->can.restart_ms == 0 && priv->can.state == CAN_STATE_BUS_OFF) {
-+		while (!priv->force_quit && !freezing(current) &&
-+		       (intf = mcp251x_read_reg(spi, CANINTF)))
-+			mcp251x_write_bits(spi, CANINTF, intf, 0x00);
-+		return;
-+	}
-+
-+	while (!priv->force_quit && !freezing(current)) {
-+		u8 eflag = mcp251x_read_reg(spi, EFLG);
-+		int can_id = 0, data1 = 0;
-+
-+		mcp251x_write_reg(spi, EFLG, 0x00);
-+
-+		if (priv->restart_tx) {
-+			priv->restart_tx = 0;
-+			mcp251x_write_reg(spi, TXBCTRL(0), 0);
-+			if (priv->tx_skb || priv->tx_len)
-+				mcp251x_clean(net);
-+			netif_wake_queue(net);
-+			can_id |= CAN_ERR_RESTARTED;
-+		}
-+
-+		if (priv->wake) {
-+			/* Wait whilst the device wakes up */
-+			mdelay(10);
-+			priv->wake = 0;
-+		}
-+
-+		intf = mcp251x_read_reg(spi, CANINTF);
-+		mcp251x_write_bits(spi, CANINTF, intf, 0x00);
-+
-+		/* Update can state */
-+		if (eflag & EFLG_TXBO) {
-+			new_state = CAN_STATE_BUS_OFF;
-+			can_id |= CAN_ERR_BUSOFF;
-+		} else if (eflag & EFLG_TXEP) {
-+			new_state = CAN_STATE_ERROR_PASSIVE;
-+			can_id |= CAN_ERR_CRTL;
-+			data1 |= CAN_ERR_CRTL_TX_PASSIVE;
-+		} else if (eflag & EFLG_RXEP) {
-+			new_state = CAN_STATE_ERROR_PASSIVE;
-+			can_id |= CAN_ERR_CRTL;
-+			data1 |= CAN_ERR_CRTL_RX_PASSIVE;
-+		} else if (eflag & EFLG_TXWAR) {
-+			new_state = CAN_STATE_ERROR_WARNING;
-+			can_id |= CAN_ERR_CRTL;
-+			data1 |= CAN_ERR_CRTL_TX_WARNING;
-+		} else if (eflag & EFLG_RXWAR) {
-+			new_state = CAN_STATE_ERROR_WARNING;
-+			can_id |= CAN_ERR_CRTL;
-+			data1 |= CAN_ERR_CRTL_RX_WARNING;
-+		} else {
-+			new_state = CAN_STATE_ERROR_ACTIVE;
-+		}
-+
-+		/* Update can state statistics */
-+		switch (priv->can.state) {
-+		case CAN_STATE_ERROR_ACTIVE:
-+			if (new_state >= CAN_STATE_ERROR_WARNING &&
-+			    new_state <= CAN_STATE_BUS_OFF)
-+				priv->can.can_stats.error_warning++;
-+		case CAN_STATE_ERROR_WARNING:	/* fallthrough */
-+			if (new_state >= CAN_STATE_ERROR_PASSIVE &&
-+			    new_state <= CAN_STATE_BUS_OFF)
-+				priv->can.can_stats.error_passive++;
-+			break;
-+		default:
-+			break;
-+		}
-+		priv->can.state = new_state;
-+
-+		if ((intf & CANINTF_ERRIF) || (can_id & CAN_ERR_RESTARTED)) {
-+			struct sk_buff *skb;
-+			struct can_frame *frame;
-+
-+			/* Create error frame */
-+			skb = alloc_can_err_skb(net, &frame);
-+			if (skb) {
-+				/* Set error frame flags based on bus state */
-+				frame->can_id = can_id;
-+				frame->data[1] = data1;
-+
-+				/* Update net stats for overflows */
-+				if (eflag & (EFLG_RX0OVR | EFLG_RX1OVR)) {
-+					if (eflag & EFLG_RX0OVR)
-+						net->stats.rx_over_errors++;
-+					if (eflag & EFLG_RX1OVR)
-+						net->stats.rx_over_errors++;
-+					frame->can_id |= CAN_ERR_CRTL;
-+					frame->data[1] |=
-+						CAN_ERR_CRTL_RX_OVERFLOW;
-+				}
-+
-+				netif_rx(skb);
-+			} else {
-+				dev_info(&spi->dev,
-+					 "cannot allocate error skb\n");
-+			}
-+		}
-+
-+		if (priv->can.state == CAN_STATE_BUS_OFF) {
-+			if (priv->can.restart_ms == 0) {
-+				can_bus_off(net);
-+				mcp251x_hw_sleep(spi);
-+				return;
-+			}
-+		}
-+
-+		if (intf == 0)
-+			break;
-+
-+		if (intf & CANINTF_WAKIF)
-+			complete(&priv->awake);
-+
-+		if (intf & CANINTF_MERRF) {
-+			/* If there are pending Tx buffers, restart queue */
-+			txbnctrl = mcp251x_read_reg(spi, TXBCTRL(0));
-+			if (!(txbnctrl & TXBCTRL_TXREQ)) {
-+				if (priv->tx_skb || priv->tx_len)
-+					mcp251x_clean(net);
-+				netif_wake_queue(net);
-+			}
-+		}
-+
-+		if (intf & (CANINTF_TX2IF | CANINTF_TX1IF | CANINTF_TX0IF)) {
-+			net->stats.tx_packets++;
-+			net->stats.tx_bytes += priv->tx_len - 1;
-+			if (priv->tx_len) {
-+				can_get_echo_skb(net, 0);
-+				priv->tx_len = 0;
-+			}
-+			netif_wake_queue(net);
-+		}
-+
-+		if (intf & CANINTF_RX0IF)
-+			mcp251x_hw_rx(spi, 0);
-+
-+		if (intf & CANINTF_RX1IF)
-+			mcp251x_hw_rx(spi, 1);
-+	}
-+}
-+
-+static const struct net_device_ops mcp251x_netdev_ops = {
-+	.ndo_open	= mcp251x_open,
-+	.ndo_stop	= mcp251x_stop,
-+	.ndo_start_xmit	= mcp251x_hard_start_xmit,
-+};
-+
-+static int __devinit mcp251x_can_probe(struct spi_device *spi)
-+{
-+	struct net_device *net;
-+	struct mcp251x_priv *priv;
-+	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
-+	int ret = -ENODEV;
-+
-+	if (!pdata)
-+		/* Platform data is required for osc freq */
-+		goto error_out;
-+
-+	/* Allocate can/net device */
-+	net = alloc_candev(sizeof(struct mcp251x_priv), TX_ECHO_SKB_MAX);
-+	if (!net) {
-+		ret = -ENOMEM;
-+		goto error_alloc;
-+	}
-+
-+	net->netdev_ops		= &mcp251x_netdev_ops;
-+	net->flags		|= IFF_ECHO;
-+
-+	priv = netdev_priv(net);
-+	priv->can.bittiming_const = &mcp251x_bittiming_const;
-+	priv->can.do_set_mode = mcp251x_do_set_mode;
-+	priv->can.clock.freq = pdata->oscillator_frequency / 2;
-+	priv->can.do_set_bittiming = mcp251x_do_set_bittiming;
-+	priv->net = net;
-+	dev_set_drvdata(&spi->dev, priv);
-+
-+	priv->spi = spi;
-+	mutex_init(&priv->spi_lock);
-+
-+	/* If requested, allocate DMA buffers */
-+	if (mcp251x_enable_dma) {
-+		spi->dev.coherent_dma_mask = ~0;
-+
-+		/*
-+		 * Minimum coherent DMA allocation is PAGE_SIZE, so allocate
-+		 * that much and share it between Tx and Rx DMA buffers.
-+		 */
-+		priv->spi_tx_buf = dma_alloc_coherent(&spi->dev,
-+						      PAGE_SIZE,
-+						      &priv->spi_tx_dma,
-+						      GFP_DMA);
-+
-+		if (priv->spi_tx_buf) {
-+			priv->spi_rx_buf = (u8 *)(priv->spi_tx_buf +
-+						  (PAGE_SIZE / 2));
-+			priv->spi_rx_dma = (dma_addr_t)(priv->spi_tx_dma +
-+							(PAGE_SIZE / 2));
-+		} else {
-+			/* Fall back to non-DMA */
-+			mcp251x_enable_dma = 0;
-+		}
-+	}
-+
-+	/* Allocate non-DMA buffers */
-+	if (!mcp251x_enable_dma) {
-+		priv->spi_tx_buf = kmalloc(SPI_TRANSFER_BUF_LEN, GFP_KERNEL);
-+		if (!priv->spi_tx_buf) {
-+			ret = -ENOMEM;
-+			goto error_tx_buf;
-+		}
-+		priv->spi_rx_buf = kmalloc(SPI_TRANSFER_BUF_LEN, GFP_KERNEL);
-+		if (!priv->spi_tx_buf) {
-+			ret = -ENOMEM;
-+			goto error_rx_buf;
-+		}
-+	}
-+
-+	if (pdata->power_enable)
-+		pdata->power_enable(1);
-+
-+	/* Call out to platform specific setup */
-+	if (pdata->board_specific_setup)
-+		pdata->board_specific_setup(spi);
-+
-+	SET_NETDEV_DEV(net, &spi->dev);
-+
-+	priv->wq = create_freezeable_workqueue("mcp251x_wq");
-+
-+	INIT_WORK(&priv->tx_work, mcp251x_tx_work_handler);
-+	INIT_WORK(&priv->irq_work, mcp251x_irq_work_handler);
-+
-+	init_completion(&priv->awake);
-+
-+	/* Configure the SPI bus */
-+	spi->mode = SPI_MODE_0;
-+	spi->bits_per_word = 8;
-+	spi_setup(spi);
-+
-+	if (!mcp251x_hw_probe(spi)) {
-+		dev_info(&spi->dev, "Probe failed\n");
-+		goto error_probe;
-+	}
-+	mcp251x_hw_sleep(spi);
-+
-+	if (pdata->transceiver_enable)
-+		pdata->transceiver_enable(0);
-+
-+	ret = register_candev(net);
-+	if (ret >= 0) {
-+		dev_info(&spi->dev, "probed\n");
-+		return ret;
-+	}
-+error_probe:
-+	if (!mcp251x_enable_dma)
-+		kfree(priv->spi_rx_buf);
-+error_rx_buf:
-+	if (!mcp251x_enable_dma)
-+		kfree(priv->spi_tx_buf);
-+error_tx_buf:
-+	free_candev(net);
-+	if (mcp251x_enable_dma)
-+		dma_free_coherent(&spi->dev, PAGE_SIZE,
-+				  priv->spi_tx_buf, priv->spi_tx_dma);
-+error_alloc:
-+	dev_err(&spi->dev, "probe failed\n");
-+error_out:
-+	return ret;
-+}
-+
-+static int __devexit mcp251x_can_remove(struct spi_device *spi)
-+{
-+	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
-+	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct net_device *net = priv->net;
-+
-+	unregister_candev(net);
-+	free_candev(net);
-+
-+	priv->force_quit = 1;
-+	flush_workqueue(priv->wq);
-+	destroy_workqueue(priv->wq);
-+
-+	if (mcp251x_enable_dma) {
-+		dma_free_coherent(&spi->dev, PAGE_SIZE,
-+				  priv->spi_tx_buf, priv->spi_tx_dma);
-+	} else {
-+		kfree(priv->spi_tx_buf);
-+		kfree(priv->spi_rx_buf);
-+	}
-+
-+	if (pdata->power_enable)
-+		pdata->power_enable(0);
-+
-+	return 0;
-+}
-+
-+#ifdef CONFIG_PM
-+static int mcp251x_can_suspend(struct spi_device *spi, pm_message_t state)
-+{
-+	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
-+	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct net_device *net = priv->net;
-+
-+	if (netif_running(net)) {
-+		netif_device_detach(net);
-+
-+		mcp251x_hw_sleep(spi);
-+		if (pdata->transceiver_enable)
-+			pdata->transceiver_enable(0);
-+		priv->after_suspend = AFTER_SUSPEND_UP;
-+	} else {
-+		priv->after_suspend = AFTER_SUSPEND_DOWN;
-+	}
-+
-+	if (pdata->power_enable) {
-+		pdata->power_enable(0);
-+		priv->after_suspend |= AFTER_SUSPEND_POWER;
-+	}
-+
-+	return 0;
-+}
-+
-+static int mcp251x_can_resume(struct spi_device *spi)
-+{
-+	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
-+	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+
-+	if (priv->after_suspend & AFTER_SUSPEND_POWER) {
-+		pdata->power_enable(1);
-+		queue_work(priv->wq, &priv->irq_work);
-+	} else {
-+		if (priv->after_suspend & AFTER_SUSPEND_UP) {
-+			if (pdata->transceiver_enable)
-+				pdata->transceiver_enable(1);
-+			queue_work(priv->wq, &priv->irq_work);
-+		} else {
-+			priv->after_suspend = 0;
-+		}
-+	}
-+	return 0;
-+}
-+#else
-+#define mcp251x_can_suspend NULL
-+#define mcp251x_can_resume NULL
-+#endif
-+
-+static struct spi_driver mcp251x_can_driver = {
-+	.driver = {
-+		.name		= DEVICE_NAME,
-+		.bus		= &spi_bus_type,
-+		.owner		= THIS_MODULE,
-+	},
-+
-+	.probe = mcp251x_can_probe,
-+	.remove	= __devexit_p(mcp251x_can_remove),
-+	.suspend = mcp251x_can_suspend,
-+	.resume	= mcp251x_can_resume,
-+};
-+
-+static int __init mcp251x_can_init(void)
-+{
-+	return spi_register_driver(&mcp251x_can_driver);
-+}
-+
-+static void __exit mcp251x_can_exit(void)
-+{
-+	spi_unregister_driver(&mcp251x_can_driver);
-+}
-+
-+module_init(mcp251x_can_init);
-+module_exit(mcp251x_can_exit);
-+
-+MODULE_AUTHOR("Chris Elston <celston-Bm0nJX+W7e9BDgjK7y7TUQ@public.gmane.org>, "
-+	      "Christian Pellegrin <chripell-LERDrqjqfvZg9hUCZPvPmw@public.gmane.org>");
-+MODULE_DESCRIPTION("Microchip 251x CAN driver");
-+MODULE_LICENSE("GPL v2");
-diff --git a/include/linux/can/platform/mcp251x.h b/include/linux/can/platform/mcp251x.h
-new file mode 100644
-index 0000000..1448177
---- /dev/null
-+++ b/include/linux/can/platform/mcp251x.h
-@@ -0,0 +1,36 @@
-+#ifndef __CAN_PLATFORM_MCP251X_H__
-+#define __CAN_PLATFORM_MCP251X_H__
-+
-+/*
-+ *
-+ * CAN bus driver for Microchip 251x CAN Controller with SPI Interface
-+ *
-+ */
-+
-+#include <linux/spi/spi.h>
 +
 +/**
-+ * struct mcp251x_platform_data - MCP251X SPI CAN controller platform data
-+ * @oscillator_frequency:       - oscillator frequency in Hz
-+ * @model:                      - actual type of chip
-+ * @board_specific_setup:       - called before probing the chip (power,reset)
-+ * @transceiver_enable:         - called to power on/off the transceiver
-+ * @power_enable:               - called to power on/off the mcp *and* the
-+ *                                transceiver
-+ *
-+ * Please note that you should define power_enable or transceiver_enable or
-+ * none of them. Defining both of them is no use.
-+ *
++ *	struct gfar_priv_rx_q - per rx queue structure
++ *	@rxlock: per queue rx spin lock
++ *	@napi: the napi poll function
++ *	@rx_skbuff: skb pointers
++ *	@skb_currx: currently use skb pointer
++ *	@rx_bd_base: First rx buffer descriptor
++ *	@cur_rx: Next free rx ring entry
++ *	@qindex: index of this queue
++ *	@dev: back pointer to the dev structure
++ *	@rx_ring_size: Rx ring size
++ *	@rxcoalescing: enable/disable rx-coalescing
++ *	@rxic: receive interrupt coalescing vlaue
 + */
 +
-+struct mcp251x_platform_data {
-+	unsigned long oscillator_frequency;
-+	int model;
-+#define CAN_MCP251X_MCP2510 0
-+#define CAN_MCP251X_MCP2515 1
-+	int (*board_specific_setup)(struct spi_device *spi);
-+	int (*transceiver_enable)(int enable);
-+	int (*power_enable) (int enable);
++struct gfar_priv_rx_q {
++	spinlock_t rxlock __attribute__ ((aligned (SMP_CACHE_BYTES)));
++	struct	napi_struct napi;
++	struct	sk_buff ** rx_skbuff;
++	struct	rxbd8 *rx_bd_base;
++	struct	rxbd8 *cur_rx;
++	struct	net_device *dev;
++	u16	skb_currx;
++	u16	qindex;
++	unsigned int	rx_ring_size;
++	/* RX Coalescing values */
++	unsigned char rxcoalescing;
++	unsigned long rxic;
 +};
 +
-+#endif /* __CAN_PLATFORM_MCP251X_H__ */
+ /* Struct stolen almost completely (and shamelessly) from the FCC enet source
+  * (Ok, that's not so true anymore, but there is a family resemblence)
+  * The GFAR buffer descriptors track the ring buffers.  The rx_bd_base
+@@ -709,52 +780,15 @@ struct gfar {
+  * the buffer descriptor determines the actual condition.
+  */
+ struct gfar_private {
+-	/* Fields controlled by TX lock */
+-	spinlock_t txlock;
+-
+-	/* Pointer to the array of skbuffs */
+-	struct sk_buff ** tx_skbuff;
+-
+-	/* next free skb in the array */
+-	u16 skb_curtx;
+-
+-	/* First skb in line to be transmitted */
+-	u16 skb_dirtytx;
+-
+-	/* Configuration info for the coalescing features */
+-	unsigned char txcoalescing;
+-	unsigned long txic;
+-
+-	/* Buffer descriptor pointers */
+-	dma_addr_t tx_bd_dma_base;
+-	struct txbd8 *tx_bd_base;	/* First tx buffer descriptor */
+-	struct txbd8 *cur_tx;	        /* Next free ring entry */
+-	struct txbd8 *dirty_tx;		/* First buffer in line
+-					   to be transmitted */
+-	unsigned int tx_ring_size;
+-	unsigned int num_txbdfree;	/* number of TxBDs free */
+-
+-	/* RX Locked fields */
+-	spinlock_t rxlock;
+ 
+ 	struct device_node *node;
+ 	struct net_device *ndev;
+ 	struct of_device *ofdev;
+-	struct napi_struct napi;
+-
+-	/* skb array and index */
+-	struct sk_buff ** rx_skbuff;
+-	u16 skb_currx;
+-
+-	/* RX Coalescing values */
+-	unsigned char rxcoalescing;
+-	unsigned long rxic;
+ 
+-	struct rxbd8 *rx_bd_base;	/* First Rx buffers */
+-	struct rxbd8 *cur_rx;           /* Next free rx ring entry */
++	struct gfar_priv_tx_q *tx_queue;
++	struct gfar_priv_rx_q *rx_queue;
+ 
+-	/* RX parameters */
+-	unsigned int rx_ring_size;
++	/* RX per device parameters */
+ 	unsigned int rx_buffer_size;
+ 	unsigned int rx_stash_size;
+ 	unsigned int rx_stash_index;
+diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_ethtool.c
+index 6c144b5..6d0d171 100644
+--- a/drivers/net/gianfar_ethtool.c
++++ b/drivers/net/gianfar_ethtool.c
+@@ -7,8 +7,9 @@
+  *
+  *  Author: Andy Fleming
+  *  Maintainer: Kumar Gala
++ *  Modifier: Sandeep Gopalpet <sandeep.kumar@freescale.com>
+  *
+- *  Copyright (c) 2003,2004 Freescale Semiconductor, Inc.
++ *  Copyright 2003-2006, 2008-2009 Freescale Semiconductor, Inc.
+  *
+  *  This software may be used and distributed according to
+  *  the terms of the GNU Public License, Version 2, incorporated herein
+@@ -41,7 +42,7 @@
+ #include "gianfar.h"
+ 
+ extern void gfar_start(struct net_device *dev);
+-extern int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit);
++extern int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit);
+ 
+ #define GFAR_MAX_COAL_USECS 0xffff
+ #define GFAR_MAX_COAL_FRAMES 0xff
+@@ -197,12 +198,16 @@ static int gfar_gsettings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 	struct phy_device *phydev = priv->phydev;
++	struct gfar_priv_rx_q *rx_queue = NULL;
++	struct gfar_priv_tx_q *tx_queue = NULL;
+ 
+ 	if (NULL == phydev)
+ 		return -ENODEV;
++	tx_queue = priv->tx_queue;
++	rx_queue = priv->rx_queue;
+ 
+-	cmd->maxtxpkt = get_icft_value(priv->txic);
+-	cmd->maxrxpkt = get_icft_value(priv->rxic);
++	cmd->maxtxpkt = get_icft_value(tx_queue->txic);
++	cmd->maxrxpkt = get_icft_value(rx_queue->rxic);
+ 
+ 	return phy_ethtool_gset(phydev, cmd);
+ }
+@@ -279,6 +284,8 @@ static unsigned int gfar_ticks2usecs(struct gfar_private *priv, unsigned int tic
+ static int gfar_gcoalesce(struct net_device *dev, struct ethtool_coalesce *cvals)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_priv_rx_q *rx_queue = NULL;
++	struct gfar_priv_tx_q *tx_queue = NULL;
+ 	unsigned long rxtime;
+ 	unsigned long rxcount;
+ 	unsigned long txtime;
+@@ -290,10 +297,13 @@ static int gfar_gcoalesce(struct net_device *dev, struct ethtool_coalesce *cvals
+ 	if (NULL == priv->phydev)
+ 		return -ENODEV;
+ 
+-	rxtime  = get_ictt_value(priv->rxic);
+-	rxcount = get_icft_value(priv->rxic);
+-	txtime  = get_ictt_value(priv->txic);
+-	txcount = get_icft_value(priv->txic);
++	rx_queue = priv->rx_queue;
++	tx_queue = priv->tx_queue;
++
++	rxtime  = get_ictt_value(rx_queue->rxic);
++	rxcount = get_icft_value(rx_queue->rxic);
++	txtime  = get_ictt_value(tx_queue->txic);
++	txcount = get_icft_value(tx_queue->txic);
+ 	cvals->rx_coalesce_usecs = gfar_ticks2usecs(priv, rxtime);
+ 	cvals->rx_max_coalesced_frames = rxcount;
+ 
+@@ -339,16 +349,21 @@ static int gfar_gcoalesce(struct net_device *dev, struct ethtool_coalesce *cvals
+ static int gfar_scoalesce(struct net_device *dev, struct ethtool_coalesce *cvals)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_priv_tx_q *tx_queue = NULL;
++	struct gfar_priv_rx_q *rx_queue = NULL;
+ 
+ 	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_COALESCE))
+ 		return -EOPNOTSUPP;
+ 
++	tx_queue = priv->tx_queue;
++	rx_queue = priv->rx_queue;
++
+ 	/* Set up rx coalescing */
+ 	if ((cvals->rx_coalesce_usecs == 0) ||
+ 	    (cvals->rx_max_coalesced_frames == 0))
+-		priv->rxcoalescing = 0;
++		rx_queue->rxcoalescing = 0;
+ 	else
+-		priv->rxcoalescing = 1;
++		rx_queue->rxcoalescing = 1;
+ 
+ 	if (NULL == priv->phydev)
+ 		return -ENODEV;
+@@ -366,15 +381,15 @@ static int gfar_scoalesce(struct net_device *dev, struct ethtool_coalesce *cvals
+ 		return -EINVAL;
+ 	}
+ 
+-	priv->rxic = mk_ic_value(cvals->rx_max_coalesced_frames,
++	rx_queue->rxic = mk_ic_value(cvals->rx_max_coalesced_frames,
+ 		gfar_usecs2ticks(priv, cvals->rx_coalesce_usecs));
+ 
+ 	/* Set up tx coalescing */
+ 	if ((cvals->tx_coalesce_usecs == 0) ||
+ 	    (cvals->tx_max_coalesced_frames == 0))
+-		priv->txcoalescing = 0;
++		tx_queue->txcoalescing = 0;
+ 	else
+-		priv->txcoalescing = 1;
++		tx_queue->txcoalescing = 1;
+ 
+ 	/* Check the bounds of the values */
+ 	if (cvals->tx_coalesce_usecs > GFAR_MAX_COAL_USECS) {
+@@ -389,16 +404,16 @@ static int gfar_scoalesce(struct net_device *dev, struct ethtool_coalesce *cvals
+ 		return -EINVAL;
+ 	}
+ 
+-	priv->txic = mk_ic_value(cvals->tx_max_coalesced_frames,
++	tx_queue->txic = mk_ic_value(cvals->tx_max_coalesced_frames,
+ 		gfar_usecs2ticks(priv, cvals->tx_coalesce_usecs));
+ 
+ 	gfar_write(&priv->regs->rxic, 0);
+-	if (priv->rxcoalescing)
+-		gfar_write(&priv->regs->rxic, priv->rxic);
++	if (rx_queue->rxcoalescing)
++		gfar_write(&priv->regs->rxic, rx_queue->rxic);
+ 
+ 	gfar_write(&priv->regs->txic, 0);
+-	if (priv->txcoalescing)
+-		gfar_write(&priv->regs->txic, priv->txic);
++	if (tx_queue->txcoalescing)
++		gfar_write(&priv->regs->txic, tx_queue->txic);
+ 
+ 	return 0;
+ }
+@@ -409,6 +424,11 @@ static int gfar_scoalesce(struct net_device *dev, struct ethtool_coalesce *cvals
+ static void gfar_gringparam(struct net_device *dev, struct ethtool_ringparam *rvals)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_priv_tx_q *tx_queue = NULL;
++	struct gfar_priv_rx_q *rx_queue = NULL;
++
++	tx_queue = priv->tx_queue;
++	rx_queue = priv->rx_queue;
+ 
+ 	rvals->rx_max_pending = GFAR_RX_MAX_RING_SIZE;
+ 	rvals->rx_mini_max_pending = GFAR_RX_MAX_RING_SIZE;
+@@ -418,10 +438,10 @@ static void gfar_gringparam(struct net_device *dev, struct ethtool_ringparam *rv
+ 	/* Values changeable by the user.  The valid values are
+ 	 * in the range 1 to the "*_max_pending" counterpart above.
+ 	 */
+-	rvals->rx_pending = priv->rx_ring_size;
+-	rvals->rx_mini_pending = priv->rx_ring_size;
+-	rvals->rx_jumbo_pending = priv->rx_ring_size;
+-	rvals->tx_pending = priv->tx_ring_size;
++	rvals->rx_pending = rx_queue->rx_ring_size;
++	rvals->rx_mini_pending = rx_queue->rx_ring_size;
++	rvals->rx_jumbo_pending = rx_queue->rx_ring_size;
++	rvals->tx_pending = tx_queue->tx_ring_size;
+ }
+ 
+ /* Change the current ring parameters, stopping the controller if
+@@ -431,6 +451,8 @@ static void gfar_gringparam(struct net_device *dev, struct ethtool_ringparam *rv
+ static int gfar_sringparam(struct net_device *dev, struct ethtool_ringparam *rvals)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_priv_tx_q *tx_queue = NULL;
++	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	int err = 0;
+ 
+ 	if (rvals->rx_pending > GFAR_RX_MAX_RING_SIZE)
+@@ -451,29 +473,32 @@ static int gfar_sringparam(struct net_device *dev, struct ethtool_ringparam *rva
+ 		return -EINVAL;
+ 	}
+ 
++	tx_queue = priv->tx_queue;
++	rx_queue = priv->rx_queue;
++
+ 	if (dev->flags & IFF_UP) {
+ 		unsigned long flags;
+ 
+ 		/* Halt TX and RX, and process the frames which
+ 		 * have already been received */
+-		spin_lock_irqsave(&priv->txlock, flags);
+-		spin_lock(&priv->rxlock);
++		spin_lock_irqsave(&tx_queue->txlock, flags);
++		spin_lock(&rx_queue->rxlock);
+ 
+ 		gfar_halt(dev);
+ 
+-		spin_unlock(&priv->rxlock);
+-		spin_unlock_irqrestore(&priv->txlock, flags);
++		spin_unlock(&rx_queue->rxlock);
++		spin_unlock_irqrestore(&tx_queue->txlock, flags);
+ 
+-		gfar_clean_rx_ring(dev, priv->rx_ring_size);
++		gfar_clean_rx_ring(rx_queue, rx_queue->rx_ring_size);
+ 
+ 		/* Now we take down the rings to rebuild them */
+ 		stop_gfar(dev);
+ 	}
+ 
+ 	/* Change the size */
+-	priv->rx_ring_size = rvals->rx_pending;
+-	priv->tx_ring_size = rvals->tx_pending;
+-	priv->num_txbdfree = priv->tx_ring_size;
++	rx_queue->rx_ring_size = rvals->rx_pending;
++	tx_queue->tx_ring_size = rvals->tx_pending;
++	tx_queue->num_txbdfree = tx_queue->tx_ring_size;
+ 
+ 	/* Rebuild the rings with the new size */
+ 	if (dev->flags & IFF_UP) {
+@@ -486,24 +511,29 @@ static int gfar_sringparam(struct net_device *dev, struct ethtool_ringparam *rva
+ static int gfar_set_rx_csum(struct net_device *dev, uint32_t data)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_priv_rx_q *rx_queue = NULL;
++	struct gfar_priv_tx_q *tx_queue = NULL;
+ 	unsigned long flags;
+ 	int err = 0;
+ 
+ 	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_CSUM))
+ 		return -EOPNOTSUPP;
+ 
++	tx_queue = priv->tx_queue;
++	rx_queue = priv->rx_queue;
++
+ 	if (dev->flags & IFF_UP) {
+ 		/* Halt TX and RX, and process the frames which
+ 		 * have already been received */
+-		spin_lock_irqsave(&priv->txlock, flags);
+-		spin_lock(&priv->rxlock);
++		spin_lock_irqsave(&tx_queue->txlock, flags);
++		spin_lock(&rx_queue->rxlock);
+ 
+ 		gfar_halt(dev);
+ 
+-		spin_unlock(&priv->rxlock);
+-		spin_unlock_irqrestore(&priv->txlock, flags);
++		spin_unlock(&rx_queue->rxlock);
++		spin_unlock_irqrestore(&tx_queue->txlock, flags);
+ 
+-		gfar_clean_rx_ring(dev, priv->rx_ring_size);
++		gfar_clean_rx_ring(rx_queue, rx_queue->rx_ring_size);
+ 
+ 		/* Now we take down the rings to rebuild them */
+ 		stop_gfar(dev);
+diff --git a/drivers/net/gianfar_sysfs.c b/drivers/net/gianfar_sysfs.c
+index dd26da7..9c664f8 100644
+--- a/drivers/net/gianfar_sysfs.c
++++ b/drivers/net/gianfar_sysfs.c
+@@ -8,8 +8,9 @@
+  *
+  * Author: Andy Fleming
+  * Maintainer: Kumar Gala (galak@kernel.crashing.org)
++ * Modifier: Sandeep Gopalpet <sandeep.kumar@freescale.com>
+  *
+- * Copyright (c) 2002-2005 Freescale Semiconductor, Inc.
++ * Copyright 2002-2009 Freescale Semiconductor, Inc.
+  *
+  * This program is free software; you can redistribute  it and/or modify it
+  * under  the terms of  the GNU General  Public License as published by the
+@@ -49,6 +50,7 @@ static ssize_t gfar_set_bd_stash(struct device *dev,
+ 				 const char *buf, size_t count)
+ {
+ 	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
++	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	int new_setting = 0;
+ 	u32 temp;
+ 	unsigned long flags;
+@@ -56,6 +58,8 @@ static ssize_t gfar_set_bd_stash(struct device *dev,
+ 	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_BD_STASHING))
+ 		return count;
+ 
++	rx_queue = priv->rx_queue;
++
+ 	/* Find out the new setting */
+ 	if (!strncmp("on", buf, count - 1) || !strncmp("1", buf, count - 1))
+ 		new_setting = 1;
+@@ -65,7 +69,7 @@ static ssize_t gfar_set_bd_stash(struct device *dev,
+ 	else
+ 		return count;
+ 
+-	spin_lock_irqsave(&priv->rxlock, flags);
++	spin_lock_irqsave(&rx_queue->rxlock, flags);
+ 
+ 	/* Set the new stashing value */
+ 	priv->bd_stash_en = new_setting;
+@@ -79,7 +83,7 @@ static ssize_t gfar_set_bd_stash(struct device *dev,
+ 
+ 	gfar_write(&priv->regs->attr, temp);
+ 
+-	spin_unlock_irqrestore(&priv->rxlock, flags);
++	spin_unlock_irqrestore(&rx_queue->rxlock, flags);
+ 
+ 	return count;
+ }
+@@ -99,6 +103,7 @@ static ssize_t gfar_set_rx_stash_size(struct device *dev,
+ 				      const char *buf, size_t count)
+ {
+ 	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
++	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	unsigned int length = simple_strtoul(buf, NULL, 0);
+ 	u32 temp;
+ 	unsigned long flags;
+@@ -106,7 +111,9 @@ static ssize_t gfar_set_rx_stash_size(struct device *dev,
+ 	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_BUF_STASHING))
+ 		return count;
+ 
+-	spin_lock_irqsave(&priv->rxlock, flags);
++	rx_queue = priv->rx_queue;
++
++	spin_lock_irqsave(&rx_queue->rxlock, flags);
+ 	if (length > priv->rx_buffer_size)
+ 		goto out;
+ 
+@@ -131,7 +138,7 @@ static ssize_t gfar_set_rx_stash_size(struct device *dev,
+ 	gfar_write(&priv->regs->attr, temp);
+ 
+ out:
+-	spin_unlock_irqrestore(&priv->rxlock, flags);
++	spin_unlock_irqrestore(&rx_queue->rxlock, flags);
+ 
+ 	return count;
+ }
+@@ -154,6 +161,7 @@ static ssize_t gfar_set_rx_stash_index(struct device *dev,
+ 				       const char *buf, size_t count)
+ {
+ 	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
++	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	unsigned short index = simple_strtoul(buf, NULL, 0);
+ 	u32 temp;
+ 	unsigned long flags;
+@@ -161,7 +169,9 @@ static ssize_t gfar_set_rx_stash_index(struct device *dev,
+ 	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_BUF_STASHING))
+ 		return count;
+ 
+-	spin_lock_irqsave(&priv->rxlock, flags);
++	rx_queue = priv->rx_queue;
++
++	spin_lock_irqsave(&rx_queue->rxlock, flags);
+ 	if (index > priv->rx_stash_size)
+ 		goto out;
+ 
+@@ -176,7 +186,7 @@ static ssize_t gfar_set_rx_stash_index(struct device *dev,
+ 	gfar_write(&priv->regs->attreli, flags);
+ 
+ out:
+-	spin_unlock_irqrestore(&priv->rxlock, flags);
++	spin_unlock_irqrestore(&rx_queue->rxlock, flags);
+ 
+ 	return count;
+ }
+@@ -198,6 +208,7 @@ static ssize_t gfar_set_fifo_threshold(struct device *dev,
+ 				       const char *buf, size_t count)
+ {
+ 	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
++	struct gfar_priv_tx_q *tx_queue = NULL;
+ 	unsigned int length = simple_strtoul(buf, NULL, 0);
+ 	u32 temp;
+ 	unsigned long flags;
+@@ -205,7 +216,9 @@ static ssize_t gfar_set_fifo_threshold(struct device *dev,
+ 	if (length > GFAR_MAX_FIFO_THRESHOLD)
+ 		return count;
+ 
+-	spin_lock_irqsave(&priv->txlock, flags);
++	tx_queue = priv->tx_queue;
++
++	spin_lock_irqsave(&tx_queue->txlock, flags);
+ 
+ 	priv->fifo_threshold = length;
+ 
+@@ -214,7 +227,7 @@ static ssize_t gfar_set_fifo_threshold(struct device *dev,
+ 	temp |= length;
+ 	gfar_write(&priv->regs->fifo_tx_thr, temp);
+ 
+-	spin_unlock_irqrestore(&priv->txlock, flags);
++	spin_unlock_irqrestore(&tx_queue->txlock, flags);
+ 
+ 	return count;
+ }
+@@ -235,6 +248,7 @@ static ssize_t gfar_set_fifo_starve(struct device *dev,
+ 				    const char *buf, size_t count)
+ {
+ 	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
++	struct gfar_priv_tx_q *tx_queue = NULL;
+ 	unsigned int num = simple_strtoul(buf, NULL, 0);
+ 	u32 temp;
+ 	unsigned long flags;
+@@ -242,7 +256,8 @@ static ssize_t gfar_set_fifo_starve(struct device *dev,
+ 	if (num > GFAR_MAX_FIFO_STARVE)
+ 		return count;
+ 
+-	spin_lock_irqsave(&priv->txlock, flags);
++	tx_queue = priv->tx_queue;
++	spin_lock_irqsave(&tx_queue->txlock, flags);
+ 
+ 	priv->fifo_starve = num;
+ 
+@@ -251,7 +266,7 @@ static ssize_t gfar_set_fifo_starve(struct device *dev,
+ 	temp |= num;
+ 	gfar_write(&priv->regs->fifo_tx_starve, temp);
+ 
+-	spin_unlock_irqrestore(&priv->txlock, flags);
++	spin_unlock_irqrestore(&tx_queue->txlock, flags);
+ 
+ 	return count;
+ }
+@@ -273,6 +288,7 @@ static ssize_t gfar_set_fifo_starve_off(struct device *dev,
+ 					const char *buf, size_t count)
+ {
+ 	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
++	struct gfar_priv_tx_q *tx_queue = NULL;
+ 	unsigned int num = simple_strtoul(buf, NULL, 0);
+ 	u32 temp;
+ 	unsigned long flags;
+@@ -280,7 +296,8 @@ static ssize_t gfar_set_fifo_starve_off(struct device *dev,
+ 	if (num > GFAR_MAX_FIFO_STARVE_OFF)
+ 		return count;
+ 
+-	spin_lock_irqsave(&priv->txlock, flags);
++	tx_queue = priv->tx_queue;
++	spin_lock_irqsave(&tx_queue->txlock, flags);
+ 
+ 	priv->fifo_starve_off = num;
+ 
+@@ -289,7 +306,7 @@ static ssize_t gfar_set_fifo_starve_off(struct device *dev,
+ 	temp |= num;
+ 	gfar_write(&priv->regs->fifo_tx_starve_shutoff, temp);
+ 
+-	spin_unlock_irqrestore(&priv->txlock, flags);
++	spin_unlock_irqrestore(&tx_queue->txlock, flags);
+ 
+ 	return count;
+ }
 -- 
-1.5.6.5
+1.5.4.6
+
