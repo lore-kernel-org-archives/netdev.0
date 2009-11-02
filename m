@@ -1,122 +1,83 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: wanPMC-CxT1E1
-Date: Mon, 2 Nov 2009 12:59:11 -0800
-Message-ID: <20091102205911.GA23443@kroah.com>
-References: <4f6ba3b0910261322j273c977fm356506c46f095832@mail.gmail.com>
- <20091026204144.GA28436@kroah.com>
- <4f6ba3b0910271048n10ff37fek9af191b133892e1e@mail.gmail.com>
- <m3d4454phz.fsf@intrepid.localdomain>
- <4f6ba3b0911021241gb6d9684ga76228013e0f5f14@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-next-2.6] ifb: RCU locking avoids touching dev refcount
+Date: Mon, 02 Nov 2009 22:14:03 +0100
+Message-ID: <4AEF4B9B.7000205@gmail.com>
+References: <4AEE71EC.7040208@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Krzysztof Halasa <khc@pm.waw.pl>
-To: Bob Beers <bob.beers@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:35797 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932425AbZKBU7P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Nov 2009 15:59:15 -0500
-Content-Disposition: inline
-In-Reply-To: <4f6ba3b0911021241gb6d9684ga76228013e0f5f14@mail.gmail.com>
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:62764 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755082AbZKBVOe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 16:14:34 -0500
+Received: by bwz27 with SMTP id 27so6796041bwz.21
+        for <netdev@vger.kernel.org>; Mon, 02 Nov 2009 13:14:38 -0800 (PST)
+In-Reply-To: <4AEE71EC.7040208@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 02, 2009 at 03:41:44PM -0500, Bob Beers wrote:
-> On Thu, Oct 29, 2009 at 8:52 PM, Krzysztof Halasa <khc@pm.waw.pl> wro=
-te:
-> > Bob Beers <bob.beers@gmail.com> writes:
-> >
-> >> ok, so where do I start, I have a system ready to start
-> >> =A0git cloning, and creating patches. I googled for a while
-> >> =A0but didn't find a nice recipe for participating in the -staging
-> >> =A0process.
-> >
-> > I gave it a try. At least compiles with few warnings. Not sure abou=
-t the
-> > WORK_INIT() change.
-> >
-> > Created drivers/net/wan/cxt1e1, moved all relevant SBE's .c and .h
-> > there, added a simple Makefile/Kconfig. Quick and dirty. There is a
-> > _lot_ of work to be done before it meets the usual kernel standards=
-=2E
-> >
-> > It's not in staging/ so the paths need to be corrected but I can't =
-work
-> > further on it at this time. Hand-edited but I tried to be careful.
-> >
-> <snip Krzysztof's diff file>
->=20
-> Ok, I took a shot at it too, It compiles for me and generates the
-> cxt1e1.ko file.
-> I have made a git clone of kernel, added the directory cxt1e1 under s=
-taging,
->  added a Kconfig, Makefile, and all the *.[ch] from the tarball's dri=
-ver/ and
->  include/ directories, called git add on cxt1e1 directory and the fil=
-es
->  mentioned above.  In the cxt1e1 directory I modified the *.[ch] file=
-s as I saw
->  fit, and using many hints from Krzysztof
->    (I'm also not sure about the changes to INIT_WORK).
->  I modified Makefile in staging/ and ran 'git -a commit'.
->=20
-> Here is top part of output from 'git log --stat':
->=20
-> commit d54e08030785153c8c0f4eb4f1cf320d60fff286
-> Author: Bob Beers <bob.beers@gmail.com>
-> Date:   Mon Nov 2 15:06:19 2009 -0500
->=20
->     Add CXT1E1 [1,2,4] channel wan card driver.
->=20
->  drivers/net/wan/Makefile                     |    1 +
+Eric Dumazet wrote, On 11/02/2009 06:45 AM:
 
-This file shouldn't need to be modified.  But I can fix that up by hand=
-=2E
+> Avoids touching dev refcount in hotpath
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>  drivers/net/ifb.c |    6 ++++--
+>  1 files changed, 4 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
+> index 030913f..69c2566 100644
+> --- a/drivers/net/ifb.c
+> +++ b/drivers/net/ifb.c
+> @@ -98,13 +98,15 @@ static void ri_tasklet(unsigned long dev)
+>  		stats->tx_packets++;
+>  		stats->tx_bytes +=skb->len;
+>  
+> -		skb->dev = dev_get_by_index(&init_net, skb->iif);
+> +		rcu_read_lock();
+> +		skb->dev = dev_get_by_index_rcu(&init_net, skb->iif);
+>  		if (!skb->dev) {
+> +			rcu_read_unlock();
+>  			dev_kfree_skb(skb);
+>  			stats->tx_dropped++;
+>  			break;
+>  		}
+> -		dev_put(skb->dev);
+> +		rcu_read_unlock();
 
->  drivers/staging/Kconfig                      |    2 +
->  drivers/staging/Makefile                     |    1 +
->  drivers/staging/cxt1e1/Kconfig               |   22 +
->  drivers/staging/cxt1e1/Makefile              |   20 +
->  drivers/staging/cxt1e1/comet.c               |  566 +++++++
->  drivers/staging/cxt1e1/comet.h               |  366 +++++
->  drivers/staging/cxt1e1/comet_tables.c        |  561 +++++++
->  drivers/staging/cxt1e1/comet_tables.h        |   85 +
->  drivers/staging/cxt1e1/functions.c           |  366 +++++
->  drivers/staging/cxt1e1/hwprobe.c             |  400 +++++
->  drivers/staging/cxt1e1/libsbew.h             |  581 +++++++
->  drivers/staging/cxt1e1/linux.c               | 1354 ++++++++++++++++
->  drivers/staging/cxt1e1/musycc.c              | 2180 ++++++++++++++++=
-++++++++++
->  drivers/staging/cxt1e1/musycc.h              |  460 ++++++
->  drivers/staging/cxt1e1/ossiRelease.c         |   39 +
->  drivers/staging/cxt1e1/pmc93x6_eeprom.c      |  559 +++++++
->  drivers/staging/cxt1e1/pmc93x6_eeprom.h      |   60 +
->  drivers/staging/cxt1e1/pmcc4.h               |  155 ++
->  drivers/staging/cxt1e1/pmcc4_cpld.h          |  124 ++
->  drivers/staging/cxt1e1/pmcc4_defs.h          |   82 +
->  drivers/staging/cxt1e1/pmcc4_drv.c           | 1855 ++++++++++++++++=
-++++++
->  drivers/staging/cxt1e1/pmcc4_ioctls.h        |   81 +
->  drivers/staging/cxt1e1/pmcc4_private.h       |  295 ++++
->  drivers/staging/cxt1e1/pmcc4_sysdep.h        |   62 +
->  drivers/staging/cxt1e1/sbe_bid.h             |   61 +
->  drivers/staging/cxt1e1/sbe_promformat.h      |  157 ++
->  drivers/staging/cxt1e1/sbecom_inline_linux.h |  310 ++++
->  drivers/staging/cxt1e1/sbecrc.c              |  137 ++
->  drivers/staging/cxt1e1/sbeid.c               |  217 +++
->  drivers/staging/cxt1e1/sbeproc.c             |  358 +++++
->  drivers/staging/cxt1e1/sbeproc.h             |   52 +
->  drivers/staging/cxt1e1/sbew_ioc.h            |  136 ++
->  33 files changed, 11705 insertions(+), 0 deletions(-)
->=20
-> How do I generate the patch file?
+I wonder if this rcu_read_unlock() isn't too early here. I know, it
+functionally fully replaces the old method, but as a whole it looks
+strange:
 
-git show --pretty=3Demail d54e08030785153c8c0f4eb4f1cf320d60fff286 > my=
-_patch.patch
+>                 rcu_read_lock();
+>                 skb->dev = dev_get_by_index_rcu(&init_net, skb->iif);
+>                 if (!skb->dev) {
+>                         rcu_read_unlock();
+>                         dev_kfree_skb(skb);
+>                         stats->tx_dropped++;
+>                         break;
+>                 }
+>                 rcu_read_unlock();
+>                 skb->iif = _dev->ifindex;
+> 
+>                 if (from & AT_EGRESS) {
+>                         dp->st_rx_frm_egr++;
+>                         dev_queue_xmit(skb);
+>                 } else if (from & AT_INGRESS) {
+>                         dp->st_rx_frm_ing++;
+>                         skb_pull(skb, skb->dev->hard_header_len);
 
-will do it.
 
-thanks,
+So, how is skb->dev protected here, above and below? It seems these
+rcu read blocks need extending, don't they?
 
-greg k-h
+Jarek P.
+
+>                         netif_rx(skb);
+>                 } else
+>                         BUG();
+>         }
