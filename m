@@ -1,75 +1,99 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: pull request: wireless-next-2.6 2009-10-28
-Date: Mon, 02 Nov 2009 10:23:27 +0100
-Message-ID: <1257153807.3555.173.camel@johannes.local>
-References: <1256886023.3555.5.camel@johannes.local>
-	 <20091030110616.GB6150@ff.dom.local> <20091030150223.GA2586@tuxdriver.com>
-	 <20091102091038.GA9044@elte.hu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] packet: less dev_put() calls
+Date: Mon, 02 Nov 2009 10:43:32 +0100
+Message-ID: <4AEEA9C4.6040305@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-lE/2m2l9ypHMLG7U81Y2"
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	David Miller <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:40151 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754143AbZKBJXq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 04:23:46 -0500
-In-Reply-To: <20091102091038.GA9044@elte.hu>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:44218 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754105AbZKBJna (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 04:43:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+- packet_sendmsg_spkt() can use dev_get_by_name_rcu() to avoid touching device refcount.
 
---=-lE/2m2l9ypHMLG7U81Y2
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+- packet_getname_spkt() & packet_getname() can use dev_get_by_index_rcu() to
+  avoid touching device refcount too.
 
-On Mon, 2009-11-02 at 10:10 +0100, Ingo Molnar wrote:
+tpacket_snd() & packet_snd() can not use RCU yet because they can sleep when
+allocating skb.
 
-> So i have read the thread you and Bartlomiej referenced:
->=20
->     http://lkml.org/lkml/2009/10/17/81
->=20
-> ... and my understanding of that discussion is very different from=20
-> yours. Here is my annotated history of the beginnings of that=20
-> discussion:
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/packet/af_packet.c |   22 ++++++++++++----------
+ 1 files changed, 12 insertions(+), 10 deletions(-)
 
-[snip]
-
-You shouldn't ignore all previous interaction between Bart and us --
-which wasn't pretty: http://thread.gmane.org/gmane.linux.kernel/901892
-
-Of course we were biased when he came around with that petty code
-duplication argument, since it seemed to support only his agenda of
-working only with the staging drivers.
-
-johannes
-
---=-lE/2m2l9ypHMLG7U81Y2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABAgAGBQJK7qUMAAoJEODzc/N7+QmaQ0sP/1lEWXRU+Nzsf2NrtfRur1Xl
-6VG4euMLd2KArfrCaByjdgf6p1+xubioQO8cWHql+k7UQp7lp0gCaZdArNhEOkcb
-TUCtuE4sukgvvIrKznl/o9E3Lt4PoYLQfN4UvzaKXhxskThBaq0S4Jw2rE1K486Z
-rBOf8s/sKhGpAh8mOx8AnumttzcDTCfCk546Vt4HZna/t+bq3s/v7mXs8+/IjTNu
-xQqRaqCXpFY5lBmFq7vVGR8Xf5VIvYm+fR7hkbgXAZQhglHX0vso7b0cd8U16rwv
-8k8WLQHoEMTJI2dJBCuust24weEgPGAN48bFivdgpTHu+igCLjVqiCDFWU+sq4vK
-h3/xEUX3s692FF1F8vI4dS7gn84AdcZPh4qvNBRqloTTeGYXE/a5Wm4bjQ998jmS
-l8tzdkL5kyispwbGroRZ5gGnScN55GSW/JTEcobG1z+LuFskiQFhid1bhIdaW4Bz
-J0F+ITHHNVP0Ygtv6YTdiVlWIngH6oyE6AUcOK/dwqi/fKSWvxUtEyV770nCwH1/
-MC3mCVqRC+nhsNviRm4ahHGyHx3a0quaaWYvwDjEHg7l4uDLDXYEtR1682ucuE1Q
-3piRXGHwC6j29kL+NIqgz+Rjz1mFIPjXdIoQNHdeegDub92IdUt4C2VoLPBQdixa
-yBIc9gB6ALHQVwG2Y2is
-=HDLY
------END PGP SIGNATURE-----
-
---=-lE/2m2l9ypHMLG7U81Y2--
-
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 95ef64e..91d246d 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -437,7 +437,8 @@ static int packet_sendmsg_spkt(struct kiocb *iocb, struct socket *sock,
+ 	 */
+ 
+ 	saddr->spkt_device[13] = 0;
+-	dev = dev_get_by_name(sock_net(sk), saddr->spkt_device);
++	rcu_read_lock();
++	dev = dev_get_by_name_rcu(sock_net(sk), saddr->spkt_device);
+ 	err = -ENODEV;
+ 	if (dev == NULL)
+ 		goto out_unlock;
+@@ -500,14 +501,13 @@ static int packet_sendmsg_spkt(struct kiocb *iocb, struct socket *sock,
+ 	 */
+ 
+ 	dev_queue_xmit(skb);
+-	dev_put(dev);
++	rcu_read_unlock();
+ 	return len;
+ 
+ out_free:
+ 	kfree_skb(skb);
+ out_unlock:
+-	if (dev)
+-		dev_put(dev);
++	rcu_read_unlock();
+ 	return err;
+ }
+ 
+@@ -1518,12 +1518,13 @@ static int packet_getname_spkt(struct socket *sock, struct sockaddr *uaddr,
+ 		return -EOPNOTSUPP;
+ 
+ 	uaddr->sa_family = AF_PACKET;
+-	dev = dev_get_by_index(sock_net(sk), pkt_sk(sk)->ifindex);
+-	if (dev) {
++	rcu_read_lock();
++	dev = dev_get_by_index_rcu(sock_net(sk), pkt_sk(sk)->ifindex);
++	if (dev)
+ 		strlcpy(uaddr->sa_data, dev->name, 15);
+-		dev_put(dev);
+-	} else
++	else
+ 		memset(uaddr->sa_data, 0, 14);
++	rcu_read_unlock();
+ 	*uaddr_len = sizeof(*uaddr);
+ 
+ 	return 0;
+@@ -1543,16 +1544,17 @@ static int packet_getname(struct socket *sock, struct sockaddr *uaddr,
+ 	sll->sll_family = AF_PACKET;
+ 	sll->sll_ifindex = po->ifindex;
+ 	sll->sll_protocol = po->num;
+-	dev = dev_get_by_index(sock_net(sk), po->ifindex);
++	rcu_read_lock();
++	dev = dev_get_by_index_rcu(sock_net(sk), po->ifindex);
+ 	if (dev) {
+ 		sll->sll_hatype = dev->type;
+ 		sll->sll_halen = dev->addr_len;
+ 		memcpy(sll->sll_addr, dev->dev_addr, dev->addr_len);
+-		dev_put(dev);
+ 	} else {
+ 		sll->sll_hatype = 0;	/* Bad: we have no ARPHRD_UNSPEC */
+ 		sll->sll_halen = 0;
+ 	}
++	rcu_read_unlock();
+ 	*uaddr_len = offsetof(struct sockaddr_ll, sll_addr) + sll->sll_halen;
+ 
+ 	return 0;
