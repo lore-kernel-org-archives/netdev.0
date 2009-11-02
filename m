@@ -1,36 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: remove firmware for RTL8169D PHY
-Date: Sun, 01 Nov 2009 22:47:11 -0800 (PST)
-Message-ID: <20091101.224711.230845851.davem@davemloft.net>
-References: <1257115687.3136.337.camel@localhost>
+From: Ryousei Takano <ryousei@gmail.com>
+Subject: HTB accuracy on 10GbE
+Date: Mon, 2 Nov 2009 16:22:16 +0900
+Message-ID: <b30d1c3b0911012322v5d553fd6va56575fcf5e3daf8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, edward_hsu@realtek.com.tw,
-	netdev@vger.kernel.org
-To: ben@decadent.org.uk
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	takano-ryousei@aist.go.jp
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50446
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753713AbZKBGqr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 01:46:47 -0500
-In-Reply-To: <1257115687.3136.337.camel@localhost>
+Received: from mail-vw0-f192.google.com ([209.85.212.192]:52312 "EHLO
+	mail-vw0-f192.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752895AbZKBHWM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 02:22:12 -0500
+Received: by vws30 with SMTP id 30so1193353vws.33
+        for <netdev@vger.kernel.org>; Sun, 01 Nov 2009 23:22:17 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Sun, 01 Nov 2009 22:48:07 +0000
+Hi Stephen and all,
 
-> The recently added support for RTL8169D chips included some machine
-> code without accompanying source code.  Replace this with use of the
-> firmware loader.
-> 
-> Compile-tested only.
-> 
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> ---
-> Here's my attempt at the driver change.  I leave it to you to work out
-> licencing of the firmware blob.
+I have observed a HTB accuracy problem on the Linux kernel 2.6.30 and
+the Myri-10G 10 GbE NIC.
+HTB can control the transmission rate at Gigabit speed, however it can
+not work well at 10 Gigabit speed.
 
-I'm not even looking at this patch until you do some research
-and substantiate your claims about what this thing is doing.
+I asked Stephen this problem at Japan Linux Symposium.  He mentioned a
+HTB bug related to the timer granularity.
+I want to know what is happen, and what should be do for fixing it.
+
+Any comments and suggestions will be welcome.
+
+For more detail, please see the following page:
+http://code.google.com/p/pspacer/wiki/HTBon10GbE
+
+Best regards,
+Ryousei
