@@ -1,29 +1,70 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [RFC] multiqueue changes
-Date: Mon, 2 Nov 2009 13:09:34 +0000
-Message-ID: <20091102130934.GC7790@ff.dom.local>
-References: <20091101132017.GA2598@ami.dom.local> <20091102.033533.08766686.davem@davemloft.net> <20091102123029.GA7790@ff.dom.local> <20091102.043907.236634594.davem@davemloft.net> <20091102130223.GB7790@ff.dom.local> <4AEED899.9040106@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next-2.6 PATCH RFC] TCPCT part 1d: generate Responder Cookie
+Date: Mon, 02 Nov 2009 14:16:44 +0100
+Message-ID: <4AEEDBBC.40800@gmail.com>
+References: <4AEAC763.4070200@gmail.com> <4AED86AD.6010906@gmail.com> <4AEDCD7C.2010403@gmail.com> <4AEEB6D2.7090505@gmail.com> <4AEEBAC6.7020308@gmail.com> <4AEED23A.7070009@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, mchan@broadcom.com,
-	kaber@trash.net, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.153]:24134 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750972AbZKBNJe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 08:09:34 -0500
-Received: by fg-out-1718.google.com with SMTP id 19so24324fgg.1
-        for <netdev@vger.kernel.org>; Mon, 02 Nov 2009 05:09:35 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <4AEED899.9040106@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755145AbZKBNQn@vger.kernel.org>
+In-Reply-To: <4AEED23A.7070009@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 02, 2009 at 02:03:21PM +0100, Eric Dumazet wrote:
-...
-> Sure, but I prefer a patch from you ;)
-> 
-Wrong code! (RFP? ;-)
+William Allen Simpson a =E9crit :
+> Eric Dumazet wrote:
+>> cookie_hash() runs in a non preemptable context. CPU cannot change
+>> under us.
+>>
+>> (or else, we would not use __get_cpu_var(ipv4_cookie_scratch); )
+>>
+>> And of course, each cpu gets its own scratch area, thanks to
+>> __get_cpu_var()
+>>
+> Interesting.  I'm not sure that running CPU intensive functions like
+> SHA1 in
+> a non-preemptable context is a good idea.  I'd assumed it wasn't!
+>=20
+> Perhaps you could point at the documentation in the code that explain=
+s
+> this?
 
-Jarek P.
+I suggest you read Documentations/ files about softirq
+
+http://docs.blackfin.uclinux.org/kernel/generated/kernel-hacking.xml
+
+
+Large part of network code is run by softirq handler, and a softirq han=
+dler
+is not preemptable with another softirq (including itself).
+
+
+> Perhaps a function header comment that mentions it?
+
+So we are going to add a header to thousand of functions repeating this=
+ prereq ?
+
+>=20
+> All I know is (from testing) that the tcp_minisockets.c caller is som=
+etimes
+> called in a fashion that requires atomic allocation, and other times
+> does not!
+
+Maybe callers have different contexts (running from softirq handler or
+from process context). Atomic ops are expensive and we try to avoid the=
+m
+if/when possible.
+
+>=20
+> See my "Subject: query: tcpdump versus atomic?" thread from Oct 14th.
+
+You probably add a bug in your kernel, leaving a function with unpaired=
+ lock/unlock
+of notallow_something/allow_something
+
+There are books about linux internals that you could read if you want s=
+ome extra
+documentation. Dont ask me details, I never read them :)
