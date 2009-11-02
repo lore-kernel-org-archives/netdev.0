@@ -1,82 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: RFC: netdev: allow ethtool physical id to drop rtnl_lock
-Date: Mon, 02 Nov 2009 00:17:10 -0800 (PST)
-Message-ID: <20091102.001710.209808608.davem@davemloft.net>
-References: <20091030104201.6bb03b23@nehalam>
-	<1257007462.9706.9.camel@HP1>
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: Re: HTB accuracy on 10GbE
+Date: Mon, 02 Nov 2009 11:17:51 +0300
+Message-ID: <4AEE95AF.7060605@bigtelecom.ru>
+References: <b30d1c3b0911012322v5d553fd6va56575fcf5e3daf8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: mchan@broadcom.com
+Cc: shemminger@vyatta.com, Linux Netdev List <netdev@vger.kernel.org>,
+	takano-ryousei@aist.go.jp
+To: Ryousei Takano <ryousei@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47096
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754068AbZKBIQq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 03:16:46 -0500
-In-Reply-To: <1257007462.9706.9.camel@HP1>
+Received: from mail.bigtelecom.ru ([87.255.0.61]:44623 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753918AbZKBIY0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 03:24:26 -0500
+In-Reply-To: <b30d1c3b0911012322v5d553fd6va56575fcf5e3daf8@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Sat, 31 Oct 2009 09:44:22 -0700
+Hello.
 
+Also we planed convert 5-10 servers witch 1gigabit connection to one BIG server witch 10g (traffic rate in peak about 6gigabit) network card (Intel multiqueue).
+
+Can test any patches for fix any problems in 10 gigabit connections!
+
+Thanks!
+
+JSC BIG Telecom
+
+> Hi Stephen and all,
 > 
-> On Fri, 2009-10-30 at 10:42 -0700, Stephen Hemminger wrote:
->> The ethtool operation to blink LED can take an indeterminately long time,
->> blocking out other operations (via rtnl_lock). This patch is an attempt
->> to work around the problem.
->> 
->> It does need more discussion, because it will mean that drivers that formerly
->> were protected from changes during blink aren't.  For example, user could
->> start device blinking, and then plug in cable causing change netlink event
->> to change state or pull cable and have device come down.
+> I have observed a HTB accuracy problem on the Linux kernel 2.6.30 and
+> the Myri-10G 10 GbE NIC.
+> HTB can control the transmission rate at Gigabit speed, however it can
+> not work well at 10 Gigabit speed.
 > 
-> Yeah, the biggest concern is shutting down the device while it is still
-> blinking.  During shutdown, some devices are brought to low power state
-> and the chip will no longer respond to I/Os to blink the LEDs.  On some
-> systems, this can cause bus hang or NMI.
+> I asked Stephen this problem at Japan Linux Symposium.  He mentioned a
+> HTB bug related to the timer granularity.
+> I want to know what is happen, and what should be do for fixing it.
+> 
+> Any comments and suggestions will be welcome.
+> 
+> For more detail, please see the following page:
+> http://code.google.com/p/pspacer/wiki/HTBon10GbE
+> 
+> Best regards,
+> Ryousei
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
 
-Right, and for this reason we'll either need find some way to stop
-the LED blinking when the device is brought down.
-
-We can deal with this in a way such that we'll never need to bug
-the drivers again if we want to mess with the implementation again.
-
-Create a "netif_phys_id_loop_iter()" that, along with a netdev
-pointer, takes a "u32 data" which is whatever was passed in to
-ethtool_ops->id().
-
-The drivers then structure their loops like:
-
-	while (1) {
-		blink_it_baby();
-		data = netif_phys_id_loop_iter(dev, data);
-		if (!data)
-			break;
-	}
-
-Next, we take that:
-
-	if (data == 0)
-		data = UINT_MAX / 2;
-
-That every driver seems to do, and stick it in the ethtool op dispatch
-in net/core/ethtool.c so it doesn't need to be duplicated (and
-potentially forgotten) in every implementation.
-
-Finally, in netif_phys_id_loop_iter() we put something like:
-
-u32 netif_phys_id_loop_iter(struct netdev *dev, u32 data)
-{
-	if (dev->reg_state == NETREG_UNREGISTERING)
-		return 0;
-	if (msleep_interruptible(500))
-		return 0;
-	return data - 2;
-}
-
-Then, unregister somehow blocks on the ->phys_id() hitting that
-NETREG_UNREGISTERING check and returning.
-
-Anyways, you get the idea.
