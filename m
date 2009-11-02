@@ -1,63 +1,41 @@
-From: Bob Beers <bob.beers@gmail.com>
-Subject: Re: wanPMC-CxT1E1
-Date: Mon, 2 Nov 2009 16:39:22 -0500
-Message-ID: <4f6ba3b0911021339v20d7692fm52bcd5208002d6e4@mail.gmail.com>
-References: <4f6ba3b0910261322j273c977fm356506c46f095832@mail.gmail.com>
-	 <20091026204144.GA28436@kroah.com>
-	 <4f6ba3b0910271048n10ff37fek9af191b133892e1e@mail.gmail.com>
-	 <m3d4454phz.fsf@intrepid.localdomain>
-	 <4f6ba3b0911021241gb6d9684ga76228013e0f5f14@mail.gmail.com>
-	 <20091102205911.GA23443@kroah.com>
-	 <4f6ba3b0911021316v16ff7431s4dfa939743541df6@mail.gmail.com>
-	 <4f6ba3b0911021335k3054da38x56fe72ac7ea8781c@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-next-2.6] ifb: RCU locking avoids touching dev
+ refcount
+Date: Mon, 2 Nov 2009 22:40:55 +0100
+Message-ID: <20091102214055.GA2358@ami.dom.local>
+References: <4AEE71EC.7040208@gmail.com>
+ <4AEF4B9B.7000205@gmail.com>
+ <4AEF504C.7000401@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Krzysztof Halasa <khc@pm.waw.pl>
-To: Greg KH <greg@kroah.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f228.google.com ([209.85.219.228]:40935 "EHLO
-	mail-ew0-f228.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756697AbZKBVjS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 16:39:18 -0500
-Received: by ewy28 with SMTP id 28so5335902ewy.18
-        for <netdev@vger.kernel.org>; Mon, 02 Nov 2009 13:39:22 -0800 (PST)
-In-Reply-To: <4f6ba3b0911021335k3054da38x56fe72ac7ea8781c@mail.gmail.com>
+Received: from fg-out-1718.google.com ([72.14.220.153]:15343 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755655AbZKBVlT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 16:41:19 -0500
+Received: by fg-out-1718.google.com with SMTP id 16so170104fgg.1
+        for <netdev@vger.kernel.org>; Mon, 02 Nov 2009 13:41:23 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <4AEF504C.7000401@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 2, 2009 at 4:35 PM, Bob Beers <bob.beers@gmail.com> wrote:
+On Mon, Nov 02, 2009 at 10:34:04PM +0100, Eric Dumazet wrote:
+> Jarek Poplawski a =E9crit :
+=2E..
+> > So, how is skb->dev protected here, above and below? It seems these
+> > rcu read blocks need extending, don't they?
+> >=20
+>=20
+> Well, this might be true, but we run under tasklet (softirq) with pre=
+emption disabled.
+>=20
+> We might move rcu_read_unlock() some lines down to not rely on this.
 
-> I should be able to fix those things an generate another patch file,
-> =A0but my git skills are very weak, so I guess you have the options:
-> =A0fix it up by hand, or teach me a little more git, so I can submit
-> =A0a better patch.
+I think it's needed now at least for readability.
 
-Here is patch on top of previous patch to fix the two mistakes:
-
-diff --git a/drivers/net/wan/Makefile b/drivers/net/wan/Makefile
-index ebc96c7..19d14bc 100644
---- a/drivers/net/wan/Makefile
-+++ b/drivers/net/wan/Makefile
-@@ -29,7 +29,6 @@ obj-$(CONFIG_DSCC4)             +=3D dscc4.o
- obj-$(CONFIG_X25_ASY)          +=3D x25_asy.o
-
- obj-$(CONFIG_LANMEDIA)         +=3D lmc/
--obj-$(CONFIG_CXT1E1)           +=3D cxt1e1/
-
- obj-$(CONFIG_DLCI)             +=3D dlci.o
- obj-$(CONFIG_SDLA)             +=3D sdla.o
-diff --git a/drivers/staging/cxt1e1/Makefile b/drivers/staging/cxt1e1/M=
-akefile
-index edfad71..10020d7 100644
---- a/drivers/staging/cxt1e1/Makefile
-+++ b/drivers/staging/cxt1e1/Makefile
-@@ -1,4 +1,3 @@
--CONFIG_CXT1E1 =3D m
- obj-$(CONFIG_CXT1E1)   +=3D cxt1e1.o
-
- EXTRA_CFLAGS +=3D -DSBE_PMCC4_ENABLE
-
-thanks,
---=20
--Bob Beers
+Jarek P.
