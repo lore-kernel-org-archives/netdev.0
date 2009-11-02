@@ -1,130 +1,55 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [RFC][PATCH 3/3] cgroups: net_cls subsys as module
-Date: Mon, 2 Nov 2009 13:46:30 -0800
-Message-ID: <20091102134630.9947e8cf.rdunlap@xenotime.net>
-References: <20091102212825.GA13692@andrew.cmu.edu>
-	<20091102213103.GD13692@andrew.cmu.edu>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: pull request: wireless-2.6 2009-11-02
+Date: Mon, 02 Nov 2009 22:59:26 +0100
+Message-ID: <1257199166.28469.2.camel@johannes.local>
+References: <20091102214022.GM14046@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	containers@lists.linux-foundation.org, lizf@cn.fujistu.com,
-	akpm@linux-foundation.org, menage@google.com
-To: Ben Blum <bblum@andrew.cmu.edu>, netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756986AbZKBVq3@vger.kernel.org>
-In-Reply-To: <20091102213103.GD13692@andrew.cmu.edu>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-HLSWmaxz+GlkxFdFoju/"
+Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932370AbZKBV7g@vger.kernel.org>
+In-Reply-To: <20091102214022.GM14046@tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2 Nov 2009 16:31:03 -0500 Ben Blum wrote:
 
-> Allows the net_cls cgroup subsystem to be compiled as a module
+--=-HLSWmaxz+GlkxFdFoju/
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Please cc: netdev on networking patches.  [done]
+On Mon, 2009-11-02 at 16:40 -0500, John W. Linville wrote:
 
+> There are several from Johannes -- I'm sure there was sake involved...  :=
+-)
 
-> From: Ben Blum <bblum@andrew.cmu.edu>
-> 
-> This patch modifies net/sched/cls_cgroup.c to allow the net_cls subsystem to
-> be optionally compiled as a module instead of builtin. The cgroup_subsys
-> struct is moved around a bit to allow the subsys_id to be either declared as a
-> compile-time constant by the cgroup_subsys.h include in cgroup.h, or, if it's
-> a module, initialized within the struct by cgroup_load_subsys.
-> 
-> Signed-off-by: Ben Blum <bblum@andrew.cmu.edu>
-> ---
-> 
->  net/sched/Kconfig      |    2 +-
->  net/sched/cls_cgroup.c |   37 ++++++++++++++++++++++++++++---------
->  2 files changed, 29 insertions(+), 10 deletions(-)
-> 
-> 
-> diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-> index 929218a..8489951 100644
-> --- a/net/sched/Kconfig
-> +++ b/net/sched/Kconfig
-> @@ -328,7 +328,7 @@ config NET_CLS_FLOW
->  	  module will be called cls_flow.
->  
->  config NET_CLS_CGROUP
-> -	bool "Control Group Classifier"
-> +	tristate "Control Group Classifier"
->  	select NET_CLS
->  	depends on CGROUPS
->  	---help---
-> diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
-> index e4877ca..df9723b 100644
-> --- a/net/sched/cls_cgroup.c
-> +++ b/net/sched/cls_cgroup.c
-> @@ -24,6 +24,25 @@ struct cgroup_cls_state
->  	u32 classid;
->  };
->  
-> +static struct cgroup_subsys_state *cgrp_create(struct cgroup_subsys *ss,
-> +					       struct cgroup *cgrp);
-> +static void cgrp_destroy(struct cgroup_subsys *ss, struct cgroup *cgrp);
-> +static int cgrp_populate(struct cgroup_subsys *ss, struct cgroup *cgrp);
-> +
-> +struct cgroup_subsys net_cls_subsys = {
-> +	.name		= "net_cls",
-> +	.create		= cgrp_create,
-> +	.destroy	= cgrp_destroy,
-> +	.populate	= cgrp_populate,
-> +#ifdef CONFIG_NET_CLS_CGROUP
-> +	.subsys_id	= net_cls_subsys_id,
-> +#else
-> +#define net_cls_subsys_id net_cls_subsys.subsys_id
-> +#endif
-> +	.module		= THIS_MODULE,
-> +};
-> +
-> +
->  static inline struct cgroup_cls_state *cgrp_cls_state(struct cgroup *cgrp)
->  {
->  	return container_of(cgroup_subsys_state(cgrp, net_cls_subsys_id),
-> @@ -79,14 +98,6 @@ static int cgrp_populate(struct cgroup_subsys *ss, struct cgroup *cgrp)
->  	return cgroup_add_files(cgrp, ss, ss_files, ARRAY_SIZE(ss_files));
->  }
->  
-> -struct cgroup_subsys net_cls_subsys = {
-> -	.name		= "net_cls",
-> -	.create		= cgrp_create,
-> -	.destroy	= cgrp_destroy,
-> -	.populate	= cgrp_populate,
-> -	.subsys_id	= net_cls_subsys_id,
-> -};
-> -
->  struct cls_cgroup_head
->  {
->  	u32			handle;
-> @@ -277,12 +288,20 @@ static struct tcf_proto_ops cls_cgroup_ops __read_mostly = {
->  
->  static int __init init_cgroup_cls(void)
->  {
-> -	return register_tcf_proto_ops(&cls_cgroup_ops);
-> +	int ret = register_tcf_proto_ops(&cls_cgroup_ops);
-> +	if (ret)
-> +		return ret;
-> +	ret = cgroup_load_subsys(&net_cls_subsys);
-> +	if (ret)
-> +		unregister_tcf_proto_ops(&cls_cgroup_ops);
-> +	return ret;
->  }
->  
->  static void __exit exit_cgroup_cls(void)
->  {
->  	unregister_tcf_proto_ops(&cls_cgroup_ops);
-> +	/* TODO: unload subsystem. for now, the try_module_get in load_subsys
-> +	 * prevents us from getting here. */
->  }
->  
->  module_init(init_cgroup_cls);
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+More likely there was sake involved when I did that patch adding that
+NULL-ptr deref!
+
+Thanks :)
+
+johannes
 
 
----
-~Randy
+--=-HLSWmaxz+GlkxFdFoju/
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAABAgAGBQJK71Y6AAoJEODzc/N7+Qma1nQQAJh6bRilIfVOsdBpAPBIKtQj
+L6qANDIQbfJBSSr/RPSc+O0moWXccG8BZWB0CYFewnAllQyAQCwR3w2rU9viTq/q
+vrN6IjWi89vemnddmce7w855KuK29Ao8KH/0bLYsohG3WRDaNM+F0Unaq0MuK4/5
+tipQTsJr5O3yWXeLIH/A+4HucRBmtof9t6vwm0EGJO/+jQHpKFlXOozmC0ZqM+1l
+gwxMIGPRrorH2MshIW/LD0rkkG35x0IpktFd8QhJMipDl+Vlmu88QeyF7diXt1fh
+MpsEK4JEusoB5K2K3Ao7AyL/kAy6+HjMur3CczQ0Q5nPJ5iBcAifJ2C1ixcd9N/a
+r2Vo7lRcpiqvd8UYU/WU0CFmpv5HtgW7NBAfOkp+R1fgsgM++/zDL35vuvCxOLAn
+kyn/rLVLRMn4FP5FK1nmhiVr91XYhYNeK6dA9PXmo6E4fwQFWqBKdRsBrqqPIPle
+x7R1fE6P4cABX4qQr5PknnPeTfOV2w+3dg3hvOFuSCkSoLIRUNPp8A0dORrP2dkU
+9bKMLGXuaohSzC4vZQkX78fyqcBrpGZdEnNVB2o04TqKCAqkaIk8No5VXMdQFFUv
+rHitRD7dY+lAESlMP9rx5+IR/SUtPpKolhtflUpZPsxe9T6ftbUE24XQtd3sdOGi
+RL3iPHz92lz6F0F0PpMB
+=kuUR
+-----END PGP SIGNATURE-----
+
+--=-HLSWmaxz+GlkxFdFoju/--
