@@ -1,43 +1,51 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [net-next-2.6 PATCH v4 2/3] TCPCT part 1b: sysctl_tcp_cookie_size,
- socket option TCP_COOKIE_TRANSACTIONS, functions
-Date: Mon, 02 Nov 2009 05:45:22 -0500
-Message-ID: <4AEEB842.1070705@gmail.com>
-References: <4AE6E35C.2050101@gmail.com> <4AE6E529.706@gmail.com> <4AEDDDF3.3070102@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH RFC] TCPCT part 1d: generate Responder
+ Cookie
+Date: Mon, 02 Nov 2009 02:50:56 -0800 (PST)
+Message-ID: <20091102.025056.232061328.davem@davemloft.net>
+References: <4AED86AD.6010906@gmail.com>
+	<4AEDCD7C.2010403@gmail.com>
+	<4AEEB6D2.7090505@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f187.google.com ([209.85.210.187]:48710 "EHLO
-	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754368AbZKBKpV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 05:45:21 -0500
-Received: by yxe17 with SMTP id 17so4374728yxe.33
-        for <netdev@vger.kernel.org>; Mon, 02 Nov 2009 02:45:26 -0800 (PST)
-In-Reply-To: <4AEDDDF3.3070102@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: william.allen.simpson@gmail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754845AbZKBKud@vger.kernel.org>
+In-Reply-To: <4AEEB6D2.7090505@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-> William Allen Simpson a =E9crit :
->> These functions will also be used in subsequent patches that impleme=
-nt
->> additional features.
->>
->=20
-> +#define TCP_EXTEND_TIMESTAMP	(1 << 4)	/* Initiate 64-bit timestamps =
-*/
->=20
-> What is this for ?
->=20
-Reserving a bit in the sockopt for a future feature (described in the
-aforementioned end2end-interest email messages).
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Date: Mon, 02 Nov 2009 05:39:14 -0500
 
-Certainly, reserving bits seems to be common elsewhere in Linux code.  =
-I'm
-trying to coordinate this with the *BSD developers, too, so it helps to=
- keep
-API documentation synchronized.  Is that a problem?
+> Thank you for your helpful comments.  I'm not familiar with LKS.  Is
+> that a month long project?
+
+It's the Linux Kernel Summit.  It's well publicized:
+
+	http://events.linuxfoundation.org/events/kernel-summit
+
+It's the yearly meeting of the top Linux kernel developers, it usually
+lasts several days and since a large portion of the kernel developers
+who attend have to travel on 10+ hour flights to reach the summit
+location most choose to pad their trip on either side by several days
+in order to recover from jet lag and other effects of travelling.
+
+This year most kernel developers stayed for the rest of the week in
+order to attend the Japan Linux Symposium.
+
+Many people were offline a total of 2 weeks or more because of these
+events.  Some still haven't returned from Japan.
+
+But that's neither here nor there, people sometimes are simply
+overloaded with work that is important to them, or from their
+view more important than reviewing your work.
+
+Sometimes that happens and you just have to be patient and
+understanding.
+
+Complaining that your work isn't getting looked at in a timely manner
+will always have the exact opposite effect that you want, it makes
+people have a smaller desire to look at your stuff.
