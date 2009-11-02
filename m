@@ -1,1745 +1,243 @@
-From: Daniel Walker <dwalker@fifo99.com>
-Subject: Re: [PATCHv6 3/3] vhost_net: a kernel-level virtio server
-Date: Mon, 02 Nov 2009 16:05:58 -0800
-Message-ID: <1257206758.11429.70.camel@c-dwalke-linux.qualcomm.com>
-References: <cover.1257193660.git.mst@redhat.com>
-	 <20091102222904.GD15184@redhat.com>
+From: Sven Anders <anders@anduras.de>
+Subject: Bugfix for iproute2
+Date: Tue, 03 Nov 2009 00:45:24 +0100
+Message-ID: <4AEF6F14.7080802@anduras.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/signed; protocol="application/x-pkcs7-signature"; micalg=sha1; boundary="------------ms040009000802000402080100"
+Cc: shemminger@vyatta.com
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metropolitan.anduras.de ([80.237.200.159]:45060 "EHLO
+	metropolitan.anduras.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756940AbZKCATO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 19:19:14 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a cryptographically signed message in MIME format.
+
+--------------ms040009000802000402080100
+Content-Type: multipart/mixed;
+ boundary="------------060108080302090001010405"
+
+This is a multi-part message in MIME format.
+--------------060108080302090001010405
+Content-Type: text/plain; charset=Big5
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
-	linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
-	gregory.haskins@gmail.com, Rusty Russell <rusty@rustcorp.com.au>,
-	s.hetze@linux-ag.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757382AbZKCAGF@vger.kernel.org>
-In-Reply-To: <20091102222904.GD15184@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+
+Hello!
+
+I already send this mail to Stephen Hemminger, but I'm not sure if it reached him.
+Moreover I tried to join the LARTC mailing list (http://mailman.ds9a.nl/mailman/listinfo/lartc)
+but it did not work. Is this mailing list dead?
+Therefore I sent this mail again over this mailing list...
 
 
-Random style issues below .. Part of this is just stuff checkpatch
-found.
+I experienced an error, if I try to perform a
 
-On Tue, 2009-11-03 at 00:29 +0200, Michael S. Tsirkin wrote:
+  ip route flush proto 4
 
-> +static int move_iovec_hdr(struct iovec *from, struct iovec *to,
-> +			  size_t len, int iov_count)
-> +{
-> +       int seg = 0;
-> +       size_t size;
-> +       while (len && seg < iov_count) {
-> +               size = min(from->iov_len, len);
-> +               to->iov_base = from->iov_base;
-> +               to->iov_len = size;
-> +               from->iov_len -= size;
-> +               from->iov_base += size;
-> +               len -= size;
-> +               ++from;
-> +               ++to;
-> +               ++seg;
-> +       }
-> +       return seg;
-> +}
+with many routes in a complex environment, it
+gave me the following error:
 
-The code above isn't properly indented .. You need to use tabs.
+  Failed to send flush request: Success
+  Flush terminated
 
-> +/* Caller must have TX VQ lock */
-> +static void tx_poll_stop(struct vhost_net *net)
-> +{
-> +	if (likely(net->tx_poll_state != VHOST_NET_POLL_STARTED))
-> +		return;
-> +	vhost_poll_stop(net->poll + VHOST_NET_VQ_TX);
-> +	net->tx_poll_state = VHOST_NET_POLL_STOPPED;
-> +}
-> +
-> +/* Caller must have TX VQ lock */
-> +static void tx_poll_start(struct vhost_net *net, struct socket *sock)
-> +{
-> +	if (unlikely(net->tx_poll_state != VHOST_NET_POLL_STOPPED))
-> +		return;
-> +	vhost_poll_start(net->poll + VHOST_NET_VQ_TX, sock->file);
-> +	net->tx_poll_state = VHOST_NET_POLL_STARTED;
-> +}
-> +
-> +/* Expects to be always run from workqueue - which acts as
-> + * read-size critical section for our kind of RCU. */
-> +static void handle_tx(struct vhost_net *net)
-> +{
-> +	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_TX];
-> +	unsigned head, out, in, s;
-> +	struct msghdr msg = {
-> +		.msg_name = NULL,
-> +		.msg_namelen = 0,
-> +		.msg_control = NULL,
-> +		.msg_controllen = 0,
-> +		.msg_iov = vq->iov,
-> +		.msg_flags = MSG_DONTWAIT,
-> +	};
-> +	size_t len, total_len = 0;
-> +	int err, wmem;
-> +	size_t hdr_size;
-> +	struct socket *sock = rcu_dereference(vq->private_data);
-> +	if (!sock)
-> +		return;
-> +
-> +	wmem = atomic_read(&sock->sk->sk_wmem_alloc);
-> +	if (wmem >= sock->sk->sk_sndbuf)
-> +		return;
-> +
-> +	use_mm(net->dev.mm);
-> +	mutex_lock(&vq->mutex);
-> +	vhost_no_notify(vq);
-> +
-> +	if (wmem < sock->sk->sk_sndbuf * 2)
-> +		tx_poll_stop(net);
-> +	hdr_size = vq->hdr_size;
-> +
-> +	for (;;) {
-> +		head = vhost_get_vq_desc(&net->dev, vq, vq->iov, &out, &in,
-> +					 NULL, NULL);
-> +		/* Nothing new?  Wait for eventfd to tell us they refilled. */
-> +		if (head == vq->num) {
-> +			wmem = atomic_read(&sock->sk->sk_wmem_alloc);
-> +			if (wmem >= sock->sk->sk_sndbuf * 3 / 4) {
-> +				tx_poll_start(net, sock);
-> +				set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
-> +				break;
-> +			}
-> +			if (vhost_notify(vq)) {
-> +				continue;
-> +			}
-> +			break;
-> +		}
-> +		if (in) {
-> +			vq_err(vq, "Unexpected descriptor format for TX: "
-> +			       "out %d, int %d\n", out, in);
-> +			break;
-> +		}
-> +		/* Skip header. TODO: support TSO. */
-> +		s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, out);
-> +		msg.msg_iovlen = out;
-> +		len = iov_length(vq->iov, out);
-> +		/* Sanity check */
-> +		if (!len) {
-> +			vq_err(vq, "Unexpected header len for TX: "
-> +			       "%ld expected %zd\n",
-> +			       iov_length(vq->hdr, s), hdr_size);
-> +			break;
-> +		}
-> +		/* TODO: Check specific error and bomb out unless ENOBUFS? */
-> +		err = sock->ops->sendmsg(NULL, sock, &msg, len);
-> +		if (unlikely(err < 0)) {
-> +			vhost_discard_vq_desc(vq);
-> +			tx_poll_start(net, sock);
-> +			break;
-> +		}
-> +		if (err != len)
-> +			pr_err("Truncated TX packet: "
-> +			       " len %d != %zd\n", err, len);
-> +		vhost_add_used_and_trigger(&net->dev, vq, head, 0);
-> +		total_len += len;
-> +		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
-> +			vhost_poll_queue(&vq->poll);
-> +			break;
-> +		}
-> +	}
-> +
-> +	mutex_unlock(&vq->mutex);
-> +	unuse_mm(net->dev.mm);
-> +}
-> +
-> +/* Expects to be always run from workqueue - which acts as
-> + * read-size critical section for our kind of RCU. */
-> +static void handle_rx(struct vhost_net *net)
-> +{
-> +	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_RX];
-> +	unsigned head, out, in, log, s;
-> +	struct vhost_log *vq_log;
-> +	struct msghdr msg = {
-> +		.msg_name = NULL,
-> +		.msg_namelen = 0,
-> +		.msg_control = NULL, /* FIXME: get and handle RX aux data. */
-> +		.msg_controllen = 0,
-> +		.msg_iov = vq->iov,
-> +		.msg_flags = MSG_DONTWAIT,
-> +	};
-> +
-> +	struct virtio_net_hdr hdr = {
-> +		.flags = 0,
-> +		.gso_type = VIRTIO_NET_HDR_GSO_NONE
-> +	};
-> +
-> +	size_t len, total_len = 0;
-> +	int err;
-> +	size_t hdr_size;
-> +	struct socket *sock = rcu_dereference(vq->private_data);
-> +	if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
-> +		return;
-> +
-> +	use_mm(net->dev.mm);
-> +	mutex_lock(&vq->mutex);
-> +	vhost_no_notify(vq);
-> +	hdr_size = vq->hdr_size;
-> +
-> +	vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
-> +		vq->log : NULL;
-> +
-> +	for (;;) {
-> +		head = vhost_get_vq_desc(&net->dev, vq, vq->iov, &out, &in,
-> +					 vq_log, &log);
-> +		/* OK, now we need to know about added descriptors. */
-> +		if (head == vq->num && vhost_notify(vq))
-> +			/* They could have slipped one in as we were doing that:
-> +			 * check again. */
-> +			continue;
-> +		/* Nothing new?  Wait for eventfd to tell us they refilled. */
-> +		if (head == vq->num)
-> +			break;
-> +		/* We don't need to be notified again. */
-> +		vhost_no_notify(vq);
-> +		if (out) {
-> +			vq_err(vq, "Unexpected descriptor format for RX: "
-> +			       "out %d, int %d\n",
-> +			       out, in);
-> +			break;
-> +		}
-> +		/* Skip header. TODO: support TSO/mergeable rx buffers. */
-> +		s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, in);
-> +		msg.msg_iovlen = in;
-> +		len = iov_length(vq->iov, in);
-> +		/* Sanity check */
-> +		if (!len) {
-> +			vq_err(vq, "Unexpected header len for RX: "
-> +			       "%zd expected %zd\n",
-> +			       iov_length(vq->hdr, s), hdr_size);
-> +			break;
-> +		}
-> +		err = sock->ops->recvmsg(NULL, sock, &msg,
-> +					 len, MSG_DONTWAIT | MSG_TRUNC);
-> +		/* TODO: Check specific error and bomb out unless EAGAIN? */
-> +		if (err < 0) {
-> +			vhost_discard_vq_desc(vq);
-> +			break;
-> +		}
-> +		/* TODO: Should check and handle checksum. */
-> +		if (err > len) {
-> +			pr_err("Discarded truncated rx packet: "
-> +			       " len %d > %zd\n", err, len);
-> +			vhost_discard_vq_desc(vq);
-> +			continue;
-> +		}
-> +		len = err;
-> +		err = memcpy_toiovec(vq->hdr, (unsigned char *)&hdr, hdr_size);
-> +		if (err) {
-> +			vq_err(vq, "Unable to write vnet_hdr at addr %p: %d\n",
-> +			       vq->iov->iov_base, err);
-> +			break;
-> +		}
-> +		len += hdr_size;
-> +		vhost_add_used_and_trigger(&net->dev, vq, head, len);
-> +		if (unlikely(vq_log))
-> +			vhost_log_write(vq, vq_log, log, len);
-> +		total_len += len;
-> +		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
-> +			vhost_poll_queue(&vq->poll);
-> +			break;
-> +		}
-> +	}
-> +
-> +	mutex_unlock(&vq->mutex);
-> +	unuse_mm(net->dev.mm);
-> +}
-> +
-> +static void handle_tx_kick(struct work_struct *work)
-> +{
-> +	struct vhost_virtqueue *vq;
-> +	struct vhost_net *net;
-> +	vq = container_of(work, struct vhost_virtqueue, poll.work);
-> +	net = container_of(vq->dev, struct vhost_net, dev);
-> +	handle_tx(net);
-> +}
-> +
-> +static void handle_rx_kick(struct work_struct *work)
-> +{
-> +	struct vhost_virtqueue *vq;
-> +	struct vhost_net *net;
-> +	vq = container_of(work, struct vhost_virtqueue, poll.work);
-> +	net = container_of(vq->dev, struct vhost_net, dev);
-> +	handle_rx(net);
-> +}
-> +
-> +static void handle_tx_net(struct work_struct *work)
-> +{
-> +	struct vhost_net *net;
-> +	net = container_of(work, struct vhost_net, poll[VHOST_NET_VQ_TX].work);
-> +	handle_tx(net);
-> +}
-> +
-> +static void handle_rx_net(struct work_struct *work)
-> +{
-> +	struct vhost_net *net;
-> +	net = container_of(work, struct vhost_net, poll[VHOST_NET_VQ_RX].work);
-> +	handle_rx(net);
-> +}
-> +
-> +static int vhost_net_open(struct inode *inode, struct file *f)
-> +{
-> +	struct vhost_net *n = kzalloc(sizeof *n, GFP_KERNEL);
-> +	int r;
-> +	if (!n)
-> +		return -ENOMEM;
-> +	f->private_data = n;
-> +	n->vqs[VHOST_NET_VQ_TX].handle_kick = handle_tx_kick;
-> +	n->vqs[VHOST_NET_VQ_RX].handle_kick = handle_rx_kick;
-> +	r = vhost_dev_init(&n->dev, n->vqs, VHOST_NET_VQ_MAX);
-> +	if (r < 0) {
-> +		kfree(n);
-> +		return r;
-> +	}
-> +
-> +	vhost_poll_init(n->poll + VHOST_NET_VQ_TX, handle_tx_net, POLLOUT);
-> +	vhost_poll_init(n->poll + VHOST_NET_VQ_RX, handle_rx_net, POLLIN);
-> +	n->tx_poll_state = VHOST_NET_POLL_DISABLED;
-> +	return 0;
-> +}
-> +
-> +static void vhost_net_disable_vq(struct vhost_net *n, int index)
-> +{
-> +	if (!n->vqs[index].private_data)
-> +		return;
-> +	if (index == VHOST_NET_VQ_TX) {
-> +		tx_poll_stop(n);
-> +		n->tx_poll_state = VHOST_NET_POLL_DISABLED;
-> +	} else
-> +		vhost_poll_stop(n->poll + VHOST_NET_VQ_RX);
-> +}
-> +
-> +static void vhost_net_enable_vq(struct vhost_net *n, int index)
-> +{
-> +	struct socket *sock = n->vqs[index].private_data;
-> +	if (!sock)
-> +		return;
-> +	if (index == VHOST_NET_VQ_TX) {
-> +		n->tx_poll_state = VHOST_NET_POLL_STOPPED;
-> +		tx_poll_start(n, sock);
-> +	} else
-> +		vhost_poll_start(n->poll + VHOST_NET_VQ_RX, sock->file);
-> +}
-> +
-> +static struct socket *vhost_net_stop_vq(struct vhost_net *n, int index)
-> +{
-> +	struct socket *sock;
-> +
-> +	mutex_lock(&n->vqs[index].mutex);
-> +	sock = n->vqs[index].private_data;
-> +	vhost_net_disable_vq(n, index);
-> +	rcu_assign_pointer(n->vqs[index].private_data, NULL);
-> +	mutex_unlock(&n->vqs[index].mutex);
-> +	return sock;
-> +}
-> +
-> +static void vhost_net_stop(struct vhost_net *n, struct socket **tx_sock,
-> +			   struct socket **rx_sock)
-> +{
-> +	*tx_sock = vhost_net_stop_vq(n, VHOST_NET_VQ_TX);
-> +	*rx_sock = vhost_net_stop_vq(n, VHOST_NET_VQ_RX);
-> +}
-> +
-> +static void vhost_net_flush_vq(struct vhost_net *n, int index)
-> +{
-> +	vhost_poll_flush(n->poll + index);
-> +	vhost_poll_flush(&n->dev.vqs[index].poll);
-> +}
-> +
-> +static void vhost_net_flush(struct vhost_net *n)
-> +{
-> +	vhost_net_flush_vq(n, VHOST_NET_VQ_TX);
-> +	vhost_net_flush_vq(n, VHOST_NET_VQ_RX);
-> +}
-> +
-> +static int vhost_net_release(struct inode *inode, struct file *f)
-> +{
-> +	struct vhost_net *n = f->private_data;
-> +	struct socket *tx_sock;
-> +	struct socket *rx_sock;
-> +
-> +	vhost_net_stop(n, &tx_sock, &rx_sock);
-> +	vhost_net_flush(n);
-> +	vhost_dev_cleanup(&n->dev);
-> +	if (tx_sock)
-> +		fput(tx_sock->file);
-> +	if (rx_sock)
-> +		fput(rx_sock->file);
-> +	/* We do an extra flush before freeing memory,
-> +	 * since jobs can re-queue themselves. */
-> +	vhost_net_flush(n);
-> +	kfree(n);
-> +	return 0;
-> +}
-> +
-> +static struct socket *get_raw_socket(int fd)
-> +{
-> +	struct {
-> +		struct sockaddr_ll sa;
-> +		char  buf[MAX_ADDR_LEN];
-> +	} uaddr;
-> +	int uaddr_len = sizeof uaddr, r;
-> +	struct socket *sock = sockfd_lookup(fd, &r);
-> +	if (!sock)
-> +		return ERR_PTR(-ENOTSOCK);
-> +
-> +	/* Parameter checking */
-> +	if (sock->sk->sk_type != SOCK_RAW) {
-> +		r = -ESOCKTNOSUPPORT;
-> +		goto err;
-> +	}
-> +
-> +	r = sock->ops->getname(sock, (struct sockaddr *)&uaddr.sa,
-> +			       &uaddr_len, 0);
-> +	if (r)
-> +		goto err;
-> +
-> +	if (uaddr.sa.sll_family != AF_PACKET) {
-> +		r = -EPFNOSUPPORT;
-> +		goto err;
-> +	}
-> +	return sock;
-> +err:
-> +	fput(sock->file);
-> +	return ERR_PTR(r);
-> +}
-> +
-> +static struct socket *get_tun_socket(int fd)
-> +{
-> +	struct file *file = fget(fd);
-> +	struct socket *sock;
-> +	if (!file)
-> +		return ERR_PTR(-EBADF);
-> +	sock = tun_get_socket(file);
-> +	if (IS_ERR(sock))
-> +		fput(file);
-> +	return sock;
-> +}
-> +
-> +static struct socket *get_socket(int fd)
-> +{
-> +	struct socket *sock;
-> +	if (fd == -1)
-> +		return NULL;
-> +	sock = get_raw_socket(fd);
-> +	if (!IS_ERR(sock))
-> +		return sock;
-> +	sock = get_tun_socket(fd);
-> +	if (!IS_ERR(sock))
-> +		return sock;
-> +	return ERR_PTR(-ENOTSOCK);
-> +}
-> +
-> +static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
-> +{
-> +	struct socket *sock, *oldsock = NULL;
-> +	struct vhost_virtqueue *vq;
-> +	int r;
-> +
-> +	mutex_lock(&n->dev.mutex);
-> +	r = vhost_dev_check_owner(&n->dev);
-> +	if (r)
-> +		goto done;
-> +
-> +	if (index >= VHOST_NET_VQ_MAX) {
-> +		r = -ENOBUFS;
-> +		goto done;
-> +	}
-> +	vq = n->vqs + index;
-> +	mutex_lock(&vq->mutex);
-> +	sock = get_socket(fd);
-> +	if (IS_ERR(sock)) {
-> +		r = PTR_ERR(sock);
-> +		goto done;
-> +	}
-> +
-> +	/* start polling new socket */
-> +	oldsock = vq->private_data;
-> +	if (sock == oldsock)
-> +		goto done;
-> +
-> +	vhost_net_disable_vq(n, index);
-> +	rcu_assign_pointer(vq->private_data, sock);
-> +	vhost_net_enable_vq(n, index);
-> +	mutex_unlock(&vq->mutex);
-> +done:
-> +	mutex_unlock(&n->dev.mutex);
-> +	if (oldsock) {
-> +		vhost_net_flush_vq(n, index);
-> +		fput(oldsock->file);
-> +	}
-> +	return r;
-> +}
-> +
-> +static long vhost_net_reset_owner(struct vhost_net *n)
-> +{
-> +	struct socket *tx_sock = NULL;
-> +	struct socket *rx_sock = NULL;
-> +	long r;
-> +	mutex_lock(&n->dev.mutex);
-> +	r = vhost_dev_check_owner(&n->dev);
-> +	if (r)
-> +		goto done;
-> +	vhost_net_stop(n, &tx_sock, &rx_sock);
-> +	vhost_net_flush(n);
-> +	r = vhost_dev_reset_owner(&n->dev);
-> +done:
-> +	mutex_unlock(&n->dev.mutex);
-> +	if (tx_sock)
-> +		fput(tx_sock->file);
-> +	if (rx_sock)
-> +		fput(rx_sock->file);
-> +	return r;
-> +}
-> +
-> +static void vhost_net_set_features(struct vhost_net *n, u64 features)
-> +{
-> +	size_t hdr_size = features & (1 << VHOST_NET_F_VIRTIO_NET_HDR) ?
-> +		sizeof(struct virtio_net_hdr) : 0;
-> +	int i;
-> +	mutex_unlock(&n->dev.mutex);
-> +	n->dev.acked_features = features;
-> +	smp_wmb();
-> +	for (i = 0; i < VHOST_NET_VQ_MAX; ++i) {
-> +		mutex_lock(&n->vqs[i].mutex);
-> +		n->vqs[i].hdr_size = hdr_size;
-> +		mutex_unlock(&n->vqs[i].mutex);
-> +	}
-> +	mutex_unlock(&n->dev.mutex);
-> +	vhost_net_flush(n);
-> +}
-> +
-> +static long vhost_net_ioctl(struct file *f, unsigned int ioctl,
-> +			    unsigned long arg)
-> +{
-> +	struct vhost_net *n = f->private_data;
-> +	void __user *argp = (void __user *)arg;
-> +	u32 __user *featurep = argp;
-> +	struct vhost_vring_file backend;
-> +	u64 features;
-> +	int r;
-> +	switch (ioctl) {
-> +	case VHOST_NET_SET_BACKEND:
-> +		r = copy_from_user(&backend, argp, sizeof backend);
-> +		if (r < 0)
-> +			return r;
-> +		return vhost_net_set_backend(n, backend.index, backend.fd);
-> +	case VHOST_GET_FEATURES:
-> +		features = VHOST_FEATURES;
-> +		return put_user(features, featurep);
-> +	case VHOST_ACK_FEATURES:
-> +		r = get_user(features, featurep);
-> +		/* No features for now */
-> +		if (r < 0)
-> +			return r;
-> +		if (features & ~VHOST_FEATURES)
-> +			return -EOPNOTSUPP;
-> +		vhost_net_set_features(n, features);
-> +		return 0;
-> +	case VHOST_RESET_OWNER:
-> +		return vhost_net_reset_owner(n);
-> +	default:
-> +		r = vhost_dev_ioctl(&n->dev, ioctl, arg);
-> +		vhost_net_flush(n);
-> +		return r;
-> +	}
-> +}
-> +
-> +#ifdef CONFIG_COMPAT
-> +static long vhost_net_compat_ioctl(struct file *f, unsigned int ioctl,
-> +				   unsigned long arg)
-> +{
-> +	return vhost_net_ioctl(f, ioctl, (unsigned long)compat_ptr(arg));
-> +}
-> +#endif
-> +
-> +const static struct file_operations vhost_net_fops = {
-> +	.owner          = THIS_MODULE,
-> +	.release        = vhost_net_release,
-> +	.unlocked_ioctl = vhost_net_ioctl,
-> +#ifdef CONFIG_COMPAT
-> +	.compat_ioctl   = vhost_net_compat_ioctl,
-> +#endif
-> +	.open           = vhost_net_open,
-> +};
-> +
-> +static struct miscdevice vhost_net_misc = {
-> +	VHOST_NET_MINOR,
-> +	"vhost-net",
-> +	&vhost_net_fops,
-> +};
-> +
-> +int vhost_net_init(void)
-> +{
-> +	int r = vhost_init();
-> +	if (r)
-> +		goto err_init;
-> +	r = misc_register(&vhost_net_misc);
-> +	if (r)
-> +		goto err_reg;
-> +	return 0;
-> +err_reg:
-> +	vhost_cleanup();
-> +err_init:
-> +	return r;
-> +
-> +}
-> +module_init(vhost_net_init);
-> +
-> +void vhost_net_exit(void)
-> +{
-> +	misc_deregister(&vhost_net_misc);
-> +	vhost_cleanup();
-> +}
-> +module_exit(vhost_net_exit);
-> +
-> +MODULE_VERSION("0.0.1");
-> +MODULE_LICENSE("GPL v2");
-> +MODULE_AUTHOR("Michael S. Tsirkin");
-> +MODULE_DESCRIPTION("Host kernel accelerator for virtio net");
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> new file mode 100644
-> index 0000000..6db2e63
-> --- /dev/null
-> +++ b/drivers/vhost/vhost.c
-> @@ -0,0 +1,968 @@
-> +/* Copyright (C) 2009 Red Hat, Inc.
-> + * Copyright (C) 2006 Rusty Russell IBM Corporation
-> + *
-> + * Author: Michael S. Tsirkin <mst@redhat.com>
-> + *
-> + * Inspiration, some code, and most witty comments come from
-> + * Documentation/lguest/lguest.c, by Rusty Russell
-> + *
-> + * This work is licensed under the terms of the GNU GPL, version 2.
-> + *
-> + * Generic code for virtio server in host kernel.
-> + */
-> +
-> +#include <linux/eventfd.h>
-> +#include <linux/vhost.h>
-> +#include <linux/virtio_net.h>
-> +#include <linux/mm.h>
-> +#include <linux/miscdevice.h>
-> +#include <linux/mutex.h>
-> +#include <linux/workqueue.h>
-> +#include <linux/rcupdate.h>
-> +#include <linux/poll.h>
-> +#include <linux/file.h>
-> +#include <linux/highmem.h>
-> +
-> +#include <linux/net.h>
-> +#include <linux/if_packet.h>
-> +#include <linux/if_arp.h>
-> +
-> +#include <net/sock.h>
-> +
-> +#include "vhost.h"
-> +
-> +enum {
-> +	VHOST_MEMORY_MAX_NREGIONS = 64,
-> +	VHOST_MEMORY_F_LOG = 0x1,
-> +};
-> +
-> +static struct workqueue_struct *vhost_workqueue;
-> +
-> +static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
-> +			    poll_table *pt)
-> +{
-> +	struct vhost_poll *poll;
-> +	poll = container_of(pt, struct vhost_poll, table);
-> +
-> +	poll->wqh = wqh;
-> +	add_wait_queue(wqh, &poll->wait);
-> +}
-> +
-> +static int vhost_poll_wakeup(wait_queue_t *wait, unsigned mode, int sync,
-> +			     void *key)
-> +{
-> +	struct vhost_poll *poll;
-> +	poll = container_of(wait, struct vhost_poll, wait);
-> +	if (!((unsigned long)key & poll->mask))
-> +		return 0;
-> +
-> +	queue_work(vhost_workqueue, &poll->work);
-> +	return 0;
-> +}
-> +
-> +/* Init poll structure */
-> +void vhost_poll_init(struct vhost_poll *poll, work_func_t func,
-> +		     unsigned long mask)
-> +{
-> +	INIT_WORK(&poll->work, func);
-> +	init_waitqueue_func_entry(&poll->wait, vhost_poll_wakeup);
-> +	init_poll_funcptr(&poll->table, vhost_poll_func);
-> +	poll->mask = mask;
-> +}
-> +
-> +/* Start polling a file. We add ourselves to file's wait queue. The caller must
-> + * keep a reference to a file until after vhost_poll_stop is called. */
-> +void vhost_poll_start(struct vhost_poll *poll, struct file *file)
-> +{
-> +	unsigned long mask;
-> +	mask = file->f_op->poll(file, &poll->table);
-> +	if (mask)
-> +		vhost_poll_wakeup(&poll->wait, 0, 0, (void *)mask);
-> +}
-> +
-> +/* Stop polling a file. After this function returns, it becomes safe to drop the
-> + * file reference. You must also flush afterwards. */
-> +void vhost_poll_stop(struct vhost_poll *poll)
-> +{
-> +	remove_wait_queue(poll->wqh, &poll->wait);
-> +}
-> +
-> +/* Flush any work that has been scheduled. When calling this, don't hold any
-> + * locks that are also used by the callback. */
-> +void vhost_poll_flush(struct vhost_poll *poll)
-> +{
-> +	flush_work(&poll->work);
-> +}
-> +
-> +void vhost_poll_queue(struct vhost_poll *poll)
-> +{
-> +	queue_work(vhost_workqueue, &poll->work);
-> +}
-> +
-> +long vhost_dev_init(struct vhost_dev *dev,
-> +		    struct vhost_virtqueue *vqs, int nvqs)
-> +{
-> +	int i;
-> +	dev->vqs = vqs;
-> +	dev->nvqs = nvqs;
-> +	mutex_init(&dev->mutex);
-> +
-> +	for (i = 0; i < dev->nvqs; ++i) {
-> +		dev->vqs[i].dev = dev;
-> +		mutex_init(&dev->vqs[i].mutex);
-> +		if (dev->vqs[i].handle_kick)
-> +			vhost_poll_init(&dev->vqs[i].poll,
-> +					dev->vqs[i].handle_kick,
-> +					POLLIN);
-> +	}
-> +	return 0;
-> +}
-> +
-> +/* Caller should have device mutex */
-> +long vhost_dev_check_owner(struct vhost_dev *dev)
-> +{
-> +	/* Are you the owner? If not, I don't think you mean to do that */
-> +	return dev->mm == current->mm ? 0 : -EPERM;
-> +}
-> +
-> +/* Caller should have device mutex */
-> +static long vhost_dev_set_owner(struct vhost_dev *dev)
-> +{
-> +	/* Is there an owner already? */
-> +	if (dev->mm)
-> +		return -EBUSY;
-> +	/* No owner, become one */
-> +	dev->mm = get_task_mm(current);
-> +	return 0;
-> +}
-> +
-> +/* Caller should have device mutex */
-> +long vhost_dev_reset_owner(struct vhost_dev *dev)
-> +{
-> +	struct vhost_memory *memory;
-> +
-> +	/* Restore memory to default 1:1 mapping. */
-> +	memory = kzalloc(offsetof(struct vhost_memory, regions) +
-> +			 2 * sizeof *memory->regions, GFP_KERNEL);
-> +	if (!memory)
-> +		return -ENOMEM;
-> +
-> +	vhost_dev_cleanup(dev);
-> +
-> +	memory->nregions = 2;
-> +	memory->regions[0].guest_phys_addr = 1;
-> +	memory->regions[0].userspace_addr = 1;
-> +	memory->regions[0].memory_size = ~0ULL;
-> +	memory->regions[1].guest_phys_addr = 0;
-> +	memory->regions[1].userspace_addr = 0;
-> +	memory->regions[1].memory_size = 1;
-> +	dev->memory = memory;
-> +	return 0;
-> +}
-> +
-> +/* Caller should have device mutex */
-> +void vhost_dev_cleanup(struct vhost_dev *dev)
-> +{
-> +	int i;
-> +	for (i = 0; i < dev->nvqs; ++i) {
-> +		if (dev->vqs[i].kick && dev->vqs[i].handle_kick) {
-> +			vhost_poll_stop(&dev->vqs[i].poll);
-> +			vhost_poll_flush(&dev->vqs[i].poll);
-> +		}
-> +		if (dev->vqs[i].error_ctx)
-> +			eventfd_ctx_put(dev->vqs[i].error_ctx);
-> +		if (dev->vqs[i].error)
-> +			fput(dev->vqs[i].error);
-> +		if (dev->vqs[i].kick)
-> +			fput(dev->vqs[i].kick);
-> +		if (dev->vqs[i].call_ctx)
-> +			eventfd_ctx_put(dev->vqs[i].call_ctx);
-> +		if (dev->vqs[i].call)
-> +			fput(dev->vqs[i].call);
-> +		dev->vqs[i].error_ctx = NULL;
-> +		dev->vqs[i].error = NULL;
-> +		dev->vqs[i].kick = NULL;
-> +		dev->vqs[i].call_ctx = NULL;
-> +		dev->vqs[i].call = NULL;
-> +	}
-> +	if (dev->log_ctx)
-> +		eventfd_ctx_put(dev->log_ctx);
-> +	dev->log_ctx = NULL;
-> +	if (dev->log_file)
-> +		fput(dev->log_file);
-> +	dev->log_file = NULL;
-> +	/* No one will access memory at this point */
-> +	kfree(dev->memory);
-> +	dev->memory = NULL;
-> +	if (dev->mm)
-> +		mmput(dev->mm);
-> +	dev->mm = NULL;
-> +}
-> +
-> +static long vhost_set_memory(struct vhost_dev *d, struct vhost_memory __user *m)
-> +{
-> +	struct vhost_memory mem, *newmem, *oldmem;
-> +	unsigned long size = offsetof(struct vhost_memory, regions);
-> +	long r;
-> +	r = copy_from_user(&mem, m, size);
-> +	if (r)
-> +		return r;
-> +	if (mem.padding)
-> +		return -EOPNOTSUPP;
-> +	if (mem.nregions > VHOST_MEMORY_MAX_NREGIONS)
-> +		return -E2BIG;
-> +	newmem = kmalloc(size + mem.nregions * sizeof *m->regions, GFP_KERNEL);
-> +	if (!newmem)
-> +		return -ENOMEM;
-> +
-> +	memcpy(newmem, &mem, size);
-> +	r = copy_from_user(newmem->regions, m->regions,
-> +			   mem.nregions * sizeof *m->regions);
-> +	if (r) {
-> +		kfree(newmem);
-> +		return r;
-> +	}
-> +	oldmem = d->memory;
-> +	rcu_assign_pointer(d->memory, newmem);
-> +	synchronize_rcu();
-> +	kfree(oldmem);
-> +	return 0;
-> +}
-> +
-> +static int init_used(struct vhost_virtqueue *vq)
-> +{
-> +	int r = put_user(vq->used_flags, &vq->used->flags);
-> +	if (r)
-> +		return r;
-> +	return get_user(vq->last_used_idx, &vq->used->idx);
-> +}
-> +
-> +static long vhost_set_vring(struct vhost_dev *d, int ioctl, void __user *argp)
-> +{
-> +	struct file *eventfp, *filep = NULL,
-> +		    *pollstart = NULL, *pollstop = NULL;
-> +	struct eventfd_ctx *ctx = NULL;
-> +	u32 __user *idxp = argp;
-> +	struct vhost_virtqueue *vq;
-> +	struct vhost_vring_state s;
-> +	struct vhost_vring_file f;
-> +	struct vhost_vring_addr a;
-> +	u32 idx;
-> +	long r;
-> +
-> +	r = get_user(idx, idxp);
-> +	if (r < 0)
-> +		return r;
-> +	if (idx > d->nvqs)
-> +		return -ENOBUFS;
-> +
-> +	vq = d->vqs + idx;
-> +
-> +	mutex_lock(&vq->mutex);
-> +
-> +	switch (ioctl) {
-> +	case VHOST_SET_VRING_NUM:
-> +		r = copy_from_user(&s, argp, sizeof s);
-> +		if (r < 0)
-> +			break;
-> +		if (s.num > 0xffff) {
-> +			r = -EINVAL;
-> +			break;
-> +		}
-> +		vq->num = s.num;
-> +		break;
-> +	case VHOST_SET_VRING_BASE:
-> +		r = copy_from_user(&s, argp, sizeof s);
-> +		if (r < 0)
-> +			break;
-> +		if (s.num > 0xffff) {
-> +			r = -EINVAL;
-> +			break;
-> +		}
-> +		vq->avail_idx = vq->last_avail_idx = s.num;
-> +		break;
-> +	case VHOST_GET_VRING_BASE:
-> +		s.index = idx;
-> +		s.num = vq->last_avail_idx;
-> +		r = copy_to_user(argp, &s, sizeof s);
-> +		break;
-> +	case VHOST_SET_VRING_DESC:
-> +		r = copy_from_user(&a, argp, sizeof a);
-> +		if (r < 0)
-> +			break;
-> +		if (a.padding) {
-> +			r = -EOPNOTSUPP;
-> +			break;
-> +		}
-> +		if ((u64)(unsigned long)a.user_addr != a.user_addr) {
-> +			r = -EFAULT;
-> +			break;
-> +		}
-> +		vq->desc = (void __user *)(unsigned long)a.user_addr;
-> +		break;
-> +	case VHOST_SET_VRING_AVAIL:
-> +		r = copy_from_user(&a, argp, sizeof a);
-> +		if (r < 0)
-> +			break;
-> +		if (a.padding) {
-> +			r = -EOPNOTSUPP;
-> +			break;
-> +		}
-> +		if ((u64)(unsigned long)a.user_addr != a.user_addr) {
-> +			r = -EFAULT;
-> +			break;
-> +		}
-> +		if (a.user_addr & (sizeof *vq->avail->ring - 1)) {
-> +			r = -EINVAL;
-> +			break;
-> +		}
-> +		vq->avail = (void __user *)(unsigned long)a.user_addr;
-> +		/* Forget the cached index value. */
-> +		vq->avail_idx = vq->last_avail_idx;
-> +		break;
-> +	case VHOST_SET_VRING_USED:
-> +		r = copy_from_user(&a, argp, sizeof a);
-> +		if (r < 0)
-> +			break;
-> +		if (a.padding) {
-> +			r = -EOPNOTSUPP;
-> +			break;
-> +		}
-> +		if ((u64)(unsigned long)a.user_addr != a.user_addr) {
-> +			r = -EFAULT;
-> +			break;
-> +		}
-> +		if (a.user_addr & (sizeof *vq->used->ring - 1)) {
-> +			r = -EINVAL;
-> +			break;
-> +		}
-> +		vq->used = (void __user *)(unsigned long)a.user_addr;
-> +		r = init_used(vq);
-> +		if (r)
-> +			break;
-> +		break;
-> +	case VHOST_SET_VRING_LOG:
-> +		r = copy_from_user(&a, argp, sizeof a);
-> +		if (r < 0)
-> +			break;
-> +		if (a.padding) {
-> +			r = -EOPNOTSUPP;
-> +			break;
-> +		}
-> +		if (a.user_addr == VHOST_VRING_LOG_DISABLE) {
-> +			vq->log_used = false;
-> +			break;
-> +		}
-> +		if (a.user_addr & (sizeof *vq->used->ring - 1)) {
-> +			r = -EINVAL;
-> +			break;
-> +		}
-> +		vq->log_used = true;
-> +		vq->log_addr = a.user_addr;
-> +		break;
-> +	case VHOST_SET_VRING_KICK:
-> +		r = copy_from_user(&f, argp, sizeof f);
-> +		if (r < 0)
-> +			break;
-> +		eventfp = f.fd == -1 ? NULL : eventfd_fget(f.fd);
-> +		if (IS_ERR(eventfp))
-> +			return PTR_ERR(eventfp);
-> +		if (eventfp != vq->kick) {
-> +			pollstop = filep = vq->kick;
-> +			pollstart = vq->kick = eventfp;
-> +		} else
-> +			filep = eventfp;
-> +		break;
-> +	case VHOST_SET_VRING_CALL:
-> +		r = copy_from_user(&f, argp, sizeof f);
-> +		if (r < 0)
-> +			break;
-> +		eventfp = f.fd == -1 ? NULL : eventfd_fget(f.fd);
-> +		if (IS_ERR(eventfp))
-> +			return PTR_ERR(eventfp);
-> +		if (eventfp != vq->call) {
-> +			filep = vq->call;
-> +			ctx = vq->call_ctx;
-> +			vq->call = eventfp;
-> +			vq->call_ctx = eventfp ?
-> +				eventfd_ctx_fileget(eventfp) : NULL;
-> +		} else
-> +			filep = eventfp;
-> +		break;
-> +	case VHOST_SET_VRING_ERR:
-> +		r = copy_from_user(&f, argp, sizeof f);
-> +		if (r < 0)
-> +			break;
-> +		eventfp = f.fd == -1 ? NULL : eventfd_fget(f.fd);
-> +		if (IS_ERR(eventfp))
-> +			return PTR_ERR(eventfp);
-> +		if (eventfp != vq->error) {
-> +			filep = vq->error;
-> +			vq->error = eventfp;
-> +			ctx = vq->error_ctx;
-> +			vq->error_ctx = eventfp ?
-> +				eventfd_ctx_fileget(eventfp) : NULL;
-> +		} else
-> +			filep = eventfp;
-> +		break;
-> +	default:
-> +		r = -ENOIOCTLCMD;
-> +	}
-> +
-> +	if (pollstop && vq->handle_kick)
-> +		vhost_poll_stop(&vq->poll);
-> +
-> +	if (ctx)
-> +		eventfd_ctx_put(ctx);
-> +	if (filep)
-> +		fput(filep);
-> +
-> +	if (pollstart && vq->handle_kick)
-> +		vhost_poll_start(&vq->poll, vq->kick);
-> +
-> +	mutex_unlock(&vq->mutex);
-> +
-> +	if (pollstop && vq->handle_kick)
-> +		vhost_poll_flush(&vq->poll);
-> +	return r;
-> +}
-> +
-> +long vhost_dev_ioctl(struct vhost_dev *d, unsigned int ioctl, unsigned long arg)
-> +{
-> +	void __user *argp = (void __user *)arg;
-> +	struct file *eventfp, *filep = NULL;
-> +	struct eventfd_ctx *ctx = NULL;
-> +	u64 p;
-> +	long r;
-> +	int i, fd;
-> +
-> +	mutex_lock(&d->mutex);
-> +	/* If you are not the owner, you can become one */
-> +	if (ioctl == VHOST_SET_OWNER) {
-> +		r = vhost_dev_set_owner(d);
-> +		goto done;
-> +	}
-> +
-> +	/* You must be the owner to do anything else */
-> +	r = vhost_dev_check_owner(d);
-> +	if (r)
-> +		goto done;
-> +
-> +	switch (ioctl) {
-> +	case VHOST_SET_MEM_TABLE:
-> +		r = vhost_set_memory(d, argp);
-> +		break;
-> +	case VHOST_SET_LOG_BASE:
-> +		r = get_user(p, (u64 __user *)argp);
-> +		if (r < 0)
-> +			break;
-> +		if ((u64)(unsigned long)p != p) {
-> +			r = -EFAULT;
-> +			break;
-> +		}
-> +		for (i = 0; i < d->nvqs; ++i) {
-> +			mutex_lock(&d->vqs[i].mutex);
-> +			d->vqs[i].log_base = (void __user *)(unsigned long)p;
-> +			mutex_unlock(&d->vqs[i].mutex);
-> +		}
-> +		break;
-> +	case VHOST_SET_LOG_FD:
-> +		r = get_user(fd, (int __user *)argp);
-> +		if (r < 0)
-> +			break;
-> +		eventfp = fd == -1 ? NULL : eventfd_fget(fd);
-> +		if (IS_ERR(eventfp)) {
-> +			r = PTR_ERR(eventfp);
-> +			break;
-> +		}
-> +		if (eventfp != d->log_file) {
-> +			filep = d->log_file;
-> +			ctx = d->log_ctx;
-> +			d->log_ctx = eventfp ?
-> +				eventfd_ctx_fileget(eventfp) : NULL;
-> +		} else
-> +			filep = eventfp;
-> +		for (i = 0; i < d->nvqs; ++i) {
-> +			mutex_lock(&d->vqs[i].mutex);
-> +			d->vqs[i].log_ctx = d->log_ctx;
-> +			mutex_unlock(&d->vqs[i].mutex);
-> +		}
-> +		if (ctx)
-> +			eventfd_ctx_put(ctx);
-> +		if (filep)
-> +			fput(filep);
-> +		break;
-> +	default:
-> +		r = vhost_set_vring(d, ioctl, argp);
-> +		break;
-> +	}
-> +done:
-> +	mutex_unlock(&d->mutex);
-> +	return r;
-> +}
-> +
-> +static const struct vhost_memory_region *find_region(struct vhost_memory *mem,
-> +						     __u64 addr, __u32 len)
-> +{
-> +	struct vhost_memory_region *reg;
-> +	int i;
-> +	/* linear search is not brilliant, but we really have on the order of 6
-> +	 * regions in practice */
-> +	for (i = 0; i < mem->nregions; ++i) {
-> +		reg = mem->regions + i;
-> +		if (reg->guest_phys_addr <= addr &&
-> +		    reg->guest_phys_addr + reg->memory_size - 1 >= addr)
-> +			return reg;
-> +	}
-> +	return NULL;
-> +}
-> +
-> +/* TODO: This is really inefficient.  We need something like get_user()
-> + * (instruction directly accesses the data, with an exception table entry
-> + * returning -EFAULT). See Documentation/x86/exception-tables.txt.
-> + */
-> +static int set_bit_to_user(int nr, void __user *addr)
-> +{
-> +	unsigned long log = (unsigned long)addr;
-> +	struct page *page;
-> +	void *base;
-> +	int bit = nr + (log % PAGE_SIZE) * 8;
-> +	int r;
-> +	r = get_user_pages_fast(log, 1, 1, &page);
-> +	if (r)
-> +		return r;
-> +	base = kmap_atomic(page, KM_USER0);
-> +	set_bit(bit, base);
-> +	kunmap_atomic(base, KM_USERO);
-> +	set_page_dirty_lock(page);
-> +	put_page(page);
-> +	return 0;
-> +}
-> +
-> +static int log_write(void __user *log_base,
-> +		     u64 write_address, u64 write_length)
-> +{
-> +	int r;
-> +	if (!write_length)
-> +		return 0;
-> +	write_address /= VHOST_PAGE_SIZE;
-> +	for (;;) {
-> +		u64 base = (u64)log_base;
-> +		u64 log = base + write_address / 8;
-> +		int bit = write_address % 8;
-> +		if ((u64)(unsigned long)log != log)
-> +			return -EFAULT;
-> +		r = set_bit_to_user(bit, (void __user *)log);
-> +		if (r < 0)
-> +			return r;
-> +		if (write_length <= VHOST_PAGE_SIZE)
-> +			break;
-> +		write_length -= VHOST_PAGE_SIZE;
-> +		write_address += VHOST_PAGE_SIZE;
-> +	}
-> +	return r;
-> +}
-> +
-> +int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
-> +		    unsigned int log_num, u64 len)
-> +{
-> +	int i, r;
-> +
-> +	/* Make sure data written is seen before log. */
-> +	wmb();
-> +	for (i = 0; i < log_num; ++i) {
-> +		u64 l = min(log[i].len, len);
-> +		r = log_write(vq->log_base, log[i].addr, l);
-> +		if (r < 0)
-> +			return r;
-> +		len -= l;
-> +		if (!len)
-> +			return 0;
-> +	}
-> +	if (vq->log_ctx)
-> +		eventfd_signal(vq->log_ctx, 1);
-> +	/* Length written exceeds what we have stored. This is a bug. */
-> +	BUG();
-> +	return 0;
-> +}
-> +
-> +int translate_desc(struct vhost_dev *dev, u64 addr, u32 len,
-> +		   struct iovec iov[], int iov_size)
-> +{
-> +	const struct vhost_memory_region *reg;
-> +	struct vhost_memory *mem;
-> +	struct iovec *_iov;
-> +	u64 s = 0;
-> +	int ret = 0;
-> +
-> +	rcu_read_lock();
-> +
-> +	mem = rcu_dereference(dev->memory);
-> +	while ((u64)len > s) {
-> +		u64 size;
-> +		if (ret >= iov_size) {
-> +			ret = -ENOBUFS;
-> +			break;
-> +		}
-> +		reg = find_region(mem, addr, len);
-> +		if (!reg) {
-> +			ret = -EFAULT;
-> +			break;
-> +		}
-> +		_iov = iov + ret;
-> +		size = reg->memory_size - addr + reg->guest_phys_addr;
-> +		_iov->iov_len = min((u64)len, size);
-> +		_iov->iov_base = (void *)
-> +			(reg->userspace_addr + addr - reg->guest_phys_addr);
-> +		s += size;
-> +		addr += size;
-> +		++ret;
-> +	}
-> +
-> +	rcu_read_unlock();
-> +	return ret;
-> +}
-> +
-> +/* Each buffer in the virtqueues is actually a chain of descriptors.  This
-> + * function returns the next descriptor in the chain,
-> + * or -1 if we're at the end. */
-> +static unsigned next_desc(struct vring_desc *desc)
-> +{
-> +	unsigned int next;
-> +
-> +	/* If this descriptor says it doesn't chain, we're done. */
-> +	if (!(desc->flags & VRING_DESC_F_NEXT))
-> +		return -1;
-> +
-> +	/* Check they're not leading us off end of descriptors. */
-> +	next = desc->next;
-> +	/* Make sure compiler knows to grab that: we don't want it changing! */
-> +	/* We will use the result as an index in an array, so most
-> +	 * architectures only need a compiler barrier here. */
-> +	read_barrier_depends();
-> +
-> +	return next;
-> +}
-> +
-> +static unsigned get_indirect(struct vhost_dev *dev, struct vhost_virtqueue *vq,
-> +			     struct iovec iov[],
-> +			     unsigned int *out_num, unsigned int *in_num,
-> +			     struct vhost_log *log, unsigned int *log_num,
-> +			     struct vring_desc *indirect)
-> +{
-> +	struct vring_desc desc;
-> +	unsigned int i = 0, count, found = 0;
-> +	int ret;
-> +
-> +	/* Sanity check */
-> +	if (indirect->len % sizeof desc) {
-> +	    vq_err(vq, "Invalid length in indirect descriptor: "
+I'm using version 2.6.29.
+I check GIT, but there was only the "MSG_PEEK" fix.
 
-Need tabs for the line above.
+I tracked it down to the rtnl_send_check() function
+in lib/libnetlink.c.
 
-> +			"len 0x%llx not multiple of 0x%zx\n",
-> +			(unsigned long long)indirect->len,
-> +			sizeof desc);
-> +	    return -EINVAL;
-> +	}
-> +
-> +	ret = translate_desc(dev, indirect->addr, indirect->len, vq->indirect,
-> +			     ARRAY_SIZE(vq->indirect));
-> +	if (ret < 0) {
-> +		vq_err(vq, "Translation failure %d in indirect.\n", ret);
-> +		return ret;
-> +	}
-> +
-> +	/* We will use the result as an address to read from, so most
-> +	 * architectures only need a compiler barrier here. */
-> +	read_barrier_depends();
-> +
-> +	count = indirect->len / sizeof desc;
-> +	/* Buffers are chained via a 16 bit next field, so
-> +	 * we can have at most 2^16 of these. */
-> +	if (count > 0x10000) {
+In this function there is the following for loop:
 
-Could you wrap that constant in a macro?
+        for (h = (struct nlmsghdr *)resp; NLMSG_OK(h, status);
+             h = NLMSG_NEXT(h, status)) {
+                if (h->nlmsg_type == NLMSG_ERROR) {
+                        struct nlmsgerr *err = (struct nlmsgerr*)NLMSG_DATA(h);
+                        if (h->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr)))
+                                fprintf(stderr, "ERROR truncated\n");
+                        else
+                                errno = -err->error;
+		}
+                return -1;
+        }
+
+I think the "return -1;" should be inside the if statement.
+
+I attached a patch for this. The first part of the patch is taken from
+one of the late git commits.
+
+Please note me, if the fix is wrong...
+
+Regards
+ Sven Anders
+
+-- 
+ Sven Anders <anders@anduras.de>                 () Ascii Ribbon Campaign
+                                                 /\ Support plain text e-mail
+ ANDURAS service solutions AG
+ Innstrasse 71 - 94036 Passau - Germany
+ Web: www.anduras.de - Tel: +49 (0)851-4 90 50-0 - Fax: +49 (0)851-4 90 50-55
+
+Those who would give up essential Liberty, to purchase a little
+temporary Safety, deserve neither Liberty nor Safety.
+  - Benjamin Franklin
 
 
-> +		vq_err(vq, "Indirect buffer length too big: %d\n",
-> +		       indirect->len);
-> +		return -E2BIG;
-> +	}
-> +
-> +	do {
-> +		unsigned iov_count = *in_num + *out_num;
-> +		if (++found > count) {
-> +			vq_err(vq, "Loop detected: last one at %u "
-> +			       "indirect size %u\n",
-> +			       i, count);
-> +			return -EINVAL;
-> +		}
-> +		if (memcpy_fromiovec((unsigned char *)&desc, vq->indirect,
-> +				     sizeof desc)) {;
-> +			vq_err(vq, "Failed indirect descriptor: idx %d, %zx\n",
-> +			       i, (size_t)indirect->addr + i * sizeof desc);
-> +			return -EINVAL;
-> +		}
-> +		if (desc.flags & VRING_DESC_F_INDIRECT) {
-> +			vq_err(vq, "Nested indirect descriptor: idx %d, %zx\n",
-> +			       i, (size_t)indirect->addr + i * sizeof desc);
-> +			return -EINVAL;
-> +		}
-> +
-> +		ret = translate_desc(dev, desc.addr, desc.len, iov + iov_count,
-> +				     VHOST_NET_MAX_SG - iov_count);
-> +		if (ret < 0) {
-> +			vq_err(vq, "Translation failure %d indirect idx %d\n",
-> +			       ret, i);
-> +			return ret;
-> +		}
-> +		/* If this is an input descriptor, increment that count. */
-> +		if (desc.flags & VRING_DESC_F_WRITE) {
-> +			*in_num += ret;
-> +			if (unlikely(log)) {
-> +				log[*log_num].addr = desc.addr;
-> +				log[*log_num].len = desc.len;
-> +				++*log_num;
-> +			}
-> +		} else {
-> +			/* If it's an output descriptor, they're all supposed
-> +			 * to come before any input descriptors. */
-> +			if (*in_num) {
-> +				vq_err(vq, "Indirect descriptor "
-> +				       "has out after in: idx %d\n", i);
-> +				return -EINVAL;
-> +			}
-> +			*out_num += ret;
-> +		}
-> +	} while ((i = next_desc(&desc)) != -1);
-> +	return 0;
-> +}
-> +
-> +/* This looks in the virtqueue and for the first available buffer, and converts
-> + * it to an iovec for convenient access.  Since descriptors consist of some
-> + * number of output then some number of input descriptors, it's actually two
-> + * iovecs, but we pack them into one and note how many of each there were.
-> + *
-> + * This function returns the descriptor number found, or vq->num (which
-> + * is never a valid descriptor number) if none was found. */
-> +unsigned vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
-> +			   struct iovec iov[],
-> +			   unsigned int *out_num, unsigned int *in_num,
-> +			   struct vhost_log *log, unsigned int *log_num)
-> +{
-> +	struct vring_desc desc;
-> +	unsigned int i, head, found = 0;
-> +	u16 last_avail_idx;
-> +	int ret;
-> +
-> +	/* Check it isn't doing very strange things with descriptor numbers. */
-> +	last_avail_idx = vq->last_avail_idx;
-> +	if (get_user(vq->avail_idx, &vq->avail->idx)) {
-> +		vq_err(vq, "Failed to access avail idx at %p\n",
-> +		       &vq->avail->idx);
-> +		return vq->num;
-> +	}
-> +
-> +	if ((u16)(vq->avail_idx - last_avail_idx) > vq->num) {
-> +		vq_err(vq, "Guest moved used index from %u to %u",
-> +		       last_avail_idx, vq->avail_idx);
-> +		return vq->num;
-> +	}
-> +
-> +	/* If there's nothing new since last we looked, return invalid. */
-> +	if (vq->avail_idx == last_avail_idx)
-> +		return vq->num;
-> +
-> +	/* Only get avail ring entries after they have been exposed by guest. */
-> +	rmb();
-> +
-> +	/* Grab the next descriptor number they're advertising, and increment
-> +	 * the index we've seen. */
-> +	if (get_user(head, &vq->avail->ring[last_avail_idx % vq->num])) {
-> +		vq_err(vq, "Failed to read head: idx %d address %p\n",
-> +		       last_avail_idx,
-> +		       &vq->avail->ring[last_avail_idx % vq->num]);
-> +		return vq->num;
-> +	}
-> +
-> +	/* If their number is silly, that's an error. */
-> +	if (head >= vq->num) {
-> +		vq_err(vq, "Guest says index %u > %u is available",
-> +		       head, vq->num);
-> +		return vq->num;
-> +	}
-> +
-> +	/* When we start there are none of either input nor output. */
-> +	*out_num = *in_num = 0;
-> +	if (unlikely(log))
-> +		*log_num = 0;
-> +
-> +	i = head;
-> +	do {
-> +		unsigned iov_count = *in_num + *out_num;
-> +		if (i >= vq->num) {
-> +			vq_err(vq, "Desc index is %u > %u, head = %u",
-> +			       i, vq->num, head);
-> +			return vq->num;
-> +		}
-> +		if (++found > vq->num) {
-> +			vq_err(vq, "Loop detected: last one at %u "
-> +			       "vq size %u head %u\n",
-> +			       i, vq->num, head);
-> +			return vq->num;
-> +		}
-> +		ret = copy_from_user(&desc, vq->desc + i, sizeof desc);
-> +		if (ret) {
-> +			vq_err(vq, "Failed to get descriptor: idx %d addr %p\n",
-> +			       i, vq->desc + i);
-> +			return vq->num;
-> +		}
-> +		if (desc.flags & VRING_DESC_F_INDIRECT) {
-> +			ret = get_indirect(dev, vq, iov, out_num, in_num,
-> +					   log, log_num, &desc);
-> +			if (ret < 0) {
-> +				vq_err(vq, "Failure detected "
-> +				       "in indirect descriptor at idx %d\n", i);
-> +				return vq->num;
-> +			}
-> +			continue;
-> +		}
-> +
-> +		ret = translate_desc(dev, desc.addr, desc.len, iov + iov_count,
-> +				     VHOST_NET_MAX_SG - iov_count);
-> +		if (ret < 0) {
-> +			vq_err(vq, "Translation failure %d descriptor idx %d\n",
-> +			       ret, i);
-> +			return vq->num;
-> +		}
-> +		if (desc.flags & VRING_DESC_F_WRITE) {
-> +			/* If this is an input descriptor, increment that count. */
-> +			*in_num += ret;
-> +			if (unlikely(log)) {
-> +				log[*log_num].addr = desc.addr;
-> +				log[*log_num].len = desc.len;
-> +				++*log_num;
-> +			}
-> +		} else {
-> +			/* If it's an output descriptor, they're all supposed
-> +			 * to come before any input descriptors. */
-> +			if (*in_num) {
-> +				vq_err(vq, "Descriptor has out after in: "
-> +				       "idx %d\n", i);
-> +				return vq->num;
-> +			}
-> +			*out_num += ret;
-> +		}
-> +	} while ((i = next_desc(&desc)) != -1);
-> +
-> +	/* On success, increment avail index. */
-> +	vq->last_avail_idx++;
-> +	return head;
-> +}
-> +
-> +/* Reverse the effect of vhost_get_vq_desc. Useful for error handling. */
-> +void vhost_discard_vq_desc(struct vhost_virtqueue *vq)
-> +{
-> +	vq->last_avail_idx--;
-> +}
-> +
-> +/* After we've used one of their buffers, we tell them about it.  We'll then
-> + * want to send them an interrupt, using vq->call. */
-> +int vhost_add_used(struct vhost_virtqueue *vq,
-> +			  unsigned int head, int len)
-> +{
-> +	struct vring_used_elem *used;
-> +
-> +	/* The virtqueue contains a ring of used buffers.  Get a pointer to the
-> +	 * next entry in that used ring. */
-> +	used = &vq->used->ring[vq->last_used_idx % vq->num];
-> +	if (put_user(head, &used->id)) {
-> +		vq_err(vq, "Failed to write used id");
-> +		return -EFAULT;
-> +	}
-> +	if (put_user(len, &used->len)) {
-> +		vq_err(vq, "Failed to write used len");
-> +		return -EFAULT;
-> +	}
-> +	/* Make sure buffer is written before we update index. */
-> +	wmb();
-> +	if (put_user(vq->last_used_idx + 1, &vq->used->idx)) {
-> +		vq_err(vq, "Failed to increment used idx");
-> +		return -EFAULT;
-> +	}
-> +	if (unlikely(vq->log_used)) {
-> +		/* Make sure data is seen before log. */
-> +		wmb();
-> +		log_write(vq->log_base, vq->log_addr + sizeof *vq->used->ring
-> +			  * (vq->last_used_idx % vq->num), sizeof *vq->used->ring);
-> +		log_write(vq->log_base, vq->log_addr, sizeof *vq->used->ring);
-> +		if (vq->log_ctx)
-> +			eventfd_signal(vq->log_ctx, 1);
-> +	}
-> +	vq->last_used_idx++;
-> +	return 0;
-> +}
-> +
-> +/* This actually sends the interrupt for this virtqueue */
-> +void vhost_trigger_irq(struct vhost_dev *dev, struct vhost_virtqueue *vq)
-> +{
-> +	__u16 flags = 0;
-> +	if (get_user(flags, &vq->avail->flags)) {
-> +		vq_err(vq, "Failed to get flags");
-> +		return;
-> +	}
-> +
-> +	/* If they don't want an interrupt, don't send one, unless empty. */
-> +	if ((flags & VRING_AVAIL_F_NO_INTERRUPT) &&
-> +	    (vq->avail_idx != vq->last_avail_idx ||
-> +	     !vhost_has_feature(dev, VIRTIO_F_NOTIFY_ON_EMPTY)))
-> +		return;
-> +
-> +	/* Send the Guest an interrupt tell them we used something up. */
-> +	if (vq->call_ctx)
-> +		eventfd_signal(vq->call_ctx, 1);
-> +}
-> +
-> +/* And here's the combo meal deal.  Supersize me! */
-> +void vhost_add_used_and_trigger(struct vhost_dev *dev,
-> +				struct vhost_virtqueue *vq,
-> +				unsigned int head, int len)
-> +{
-> +	vhost_add_used(vq, head, len);
-> +	vhost_trigger_irq(dev, vq);
-> +}
-> +
-> +/* OK, now we need to know about added descriptors. */
-> +bool vhost_notify(struct vhost_virtqueue *vq)
-> +{
-> +	int r;
-> +	if (!(vq->used_flags & VRING_USED_F_NO_NOTIFY))
-> +		return false;
-> +	vq->used_flags &= ~VRING_USED_F_NO_NOTIFY;
-> +	r = put_user(vq->used_flags, &vq->used->flags);
-> +	if (r)
-> +		vq_err(vq, "Failed to disable notification: %d\n", r);
-> +	/* They could have slipped one in as we were doing that: make
-> +	 * sure it's written, tell caller it needs to check again. */
-> +	mb();
-> +	return true;
-> +}
-> +
-> +/* We don't need to be notified again. */
-> +void vhost_no_notify(struct vhost_virtqueue *vq)
-> +{
-> +	int r;
-> +	if (vq->used_flags & VRING_USED_F_NO_NOTIFY)
-> +		return;
-> +	vq->used_flags |= VRING_USED_F_NO_NOTIFY;
-> +	r = put_user(vq->used_flags, &vq->used->flags);
-> +	if (r)
-> +		vq_err(vq, "Failed to enable notification: %d\n", r);
-> +}
-> +
-> +int vhost_init(void)
-> +{
-> +	vhost_workqueue = create_singlethread_workqueue("vhost");
-> +	if (!vhost_workqueue)
-> +		return -ENOMEM;
-> +	return 0;
-> +}
-> +
-> +void vhost_cleanup(void)
-> +{
-> +	destroy_workqueue(vhost_workqueue);
-> +}
-> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-> new file mode 100644
-> index 0000000..ae66b5e
-> --- /dev/null
-> +++ b/drivers/vhost/vhost.h
-> @@ -0,0 +1,158 @@
-> +#ifndef _VHOST_H
-> +#define _VHOST_H
-> +
-> +#include <linux/eventfd.h>
-> +#include <linux/vhost.h>
-> +#include <linux/mm.h>
-> +#include <linux/mutex.h>
-> +#include <linux/workqueue.h>
-> +#include <linux/poll.h>
-> +#include <linux/file.h>
-> +#include <linux/skbuff.h>
-> +#include <linux/uio.h>
-> +#include <linux/virtio_config.h>
-> +#include <linux/virtio_ring.h>
-> +
-> +struct vhost_device;
-> +
-> +enum {
-> +	VHOST_NET_MAX_SG = MAX_SKB_FRAGS + 2,
-> +};
-> +
-> +/* Poll a file (eventfd or socket) */
-> +/* Note: there's nothing vhost specific about this structure. */
-> +struct vhost_poll {
-> +	poll_table                table;
-> +	wait_queue_head_t        *wqh;
-> +	wait_queue_t              wait;
-> +	/* struct which will handle all actual work. */
-> +	struct work_struct        work;
-> +	unsigned long		  mask;
-> +};
-> +
-> +void vhost_poll_init(struct vhost_poll *poll, work_func_t func,
-> +		     unsigned long mask);
-> +void vhost_poll_start(struct vhost_poll *poll, struct file *file);
-> +void vhost_poll_stop(struct vhost_poll *poll);
-> +void vhost_poll_flush(struct vhost_poll *poll);
-> +void vhost_poll_queue(struct vhost_poll *poll);
-> +
-> +struct vhost_log {
-> +	u64 addr;
-> +	u64 len;
-> +};
-> +
-> +/* The virtqueue structure describes a queue attached to a device. */
-> +struct vhost_virtqueue {
-> +	struct vhost_dev *dev;
-> +
-> +	/* The actual ring of buffers. */
-> +	struct mutex mutex;
-> +	unsigned int num;
-> +	struct vring_desc __user *desc;
-> +	struct vring_avail __user *avail;
-> +	struct vring_used __user *used;
-> +	struct file *kick;
-> +	struct file *call;
-> +	struct file *error;
-> +	struct eventfd_ctx *call_ctx;
-> +	struct eventfd_ctx *error_ctx;
-> +	struct eventfd_ctx *log_ctx;
-> +
-> +	struct vhost_poll poll;
-> +
-> +	/* The routine to call when the Guest pings us, or timeout. */
-> +	work_func_t handle_kick;
-> +
-> +	/* Last available index we saw. */
-> +	u16 last_avail_idx;
-> +
-> +	/* Caches available index value from user. */
-> +	u16 avail_idx;
-> +
-> +	/* Last index we used. */
-> +	u16 last_used_idx;
-> +
-> +	/* Used flags */
-> +	u16 used_flags;
-> +
-> +	/* Log writes to used structure. */
-> +	bool log_used;
-> +	u64 log_addr;
-> +
-> +	struct iovec indirect[VHOST_NET_MAX_SG];
-> +	struct iovec iov[VHOST_NET_MAX_SG];
-> +	struct iovec hdr[VHOST_NET_MAX_SG];
-> +	size_t hdr_size;
-> +	/* We use a kind of RCU to access private pointer.
-> +	 * All readers access it from workqueue, which makes it possible to
-> +	 * flush the workqueue instead of synchronize_rcu. Therefore readers do
-> +	 * not need to call rcu_read_lock/rcu_read_unlock: the beginning of
-> +	 * work item execution acts instead of rcu_read_lock() and the end of
-> +	 * work item execution acts instead of rcu_read_lock().
-> +	 * Writers use virtqueue mutex. */
-> +	void *private_data;
-> +	/* Log write descriptors */
-> +	void __user *log_base;
-> +	struct vhost_log log[VHOST_NET_MAX_SG];
-> +};
-> +
-> +struct vhost_dev {
-> +	/* Readers use RCU to access memory table pointer
-> +	 * log base pointer and features.
-> +	 * Writers use mutex below.*/
-> +	struct vhost_memory *memory;
-> +	struct mm_struct *mm;
-> +	struct mutex mutex;
-> +	unsigned acked_features;
-> +	struct vhost_virtqueue *vqs;
-> +	int nvqs;
-> +	struct file *log_file;
-> +	struct eventfd_ctx *log_ctx;
-> +};
-> +
-> +long vhost_dev_init(struct vhost_dev *, struct vhost_virtqueue *vqs, int nvqs);
-> +long vhost_dev_check_owner(struct vhost_dev *);
-> +long vhost_dev_reset_owner(struct vhost_dev *);
-> +void vhost_dev_cleanup(struct vhost_dev *);
-> +long vhost_dev_ioctl(struct vhost_dev *, unsigned int ioctl, unsigned long arg);
-> +
-> +unsigned vhost_get_vq_desc(struct vhost_dev *, struct vhost_virtqueue *,
-> +			   struct iovec iov[],
-> +			   unsigned int *out_num, unsigned int *in_num,
-> +			   struct vhost_log *log, unsigned int *log_num);
-> +void vhost_discard_vq_desc(struct vhost_virtqueue *);
-> +
-> +int vhost_add_used(struct vhost_virtqueue *, unsigned int head, int len);
-> +void vhost_trigger_irq(struct vhost_dev *, struct vhost_virtqueue *);
-> +void vhost_add_used_and_trigger(struct vhost_dev *, struct vhost_virtqueue *,
-> +				unsigned int head, int len);
-> +void vhost_no_notify(struct vhost_virtqueue *);
-> +bool vhost_notify(struct vhost_virtqueue *);
-> +
-> +int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
-> +		    unsigned int log_num, u64 len);
-> +
-> +int vhost_init(void);
-> +void vhost_cleanup(void);
-> +
-> +#define vq_err(vq, fmt, ...) do {                                  \
-> +		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
-> +		if ((vq)->error_ctx)                               \
-> +				eventfd_signal((vq)->error_ctx, 1);\
-> +	} while (0)
-> +
-> +enum {
-> +	VHOST_FEATURES = (1 << VIRTIO_F_NOTIFY_ON_EMPTY) |
-> +	                 (1 << VIRTIO_RING_F_INDIRECT_DESC) |
+--------------060108080302090001010405
+Content-Type: text/x-patch;
+ name="iproute-2.6.29-flush.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="iproute-2.6.29-flush.patch"
 
-Line above needs more tabs.
+--- iproute2-2.6.29/lib/libnetlink.c.orig	2009-09-23 14:47:03.000000000 +0200
++++ iproute2-2.6.29/lib/libnetlink.c	2009-09-23 14:48:09.000000000 +0200
+@@ -122,7 +122,7 @@ int rtnl_send_check(struct rtnl_handle *
+ 		return status;
+ 
+ 	/* Check for errors */
+-	status = recv(rth->fd, resp, sizeof(resp), MSG_DONTWAIT);
++	status = recv(rth->fd, resp, sizeof(resp), MSG_DONTWAIT|MSG_PEEK);
+ 	if (status < 0) {
+ 		if (errno == EAGAIN)
+ 			return 0;
+@@ -137,8 +137,8 @@ int rtnl_send_check(struct rtnl_handle *
+ 				fprintf(stderr, "ERROR truncated\n");
+ 			else 
+ 				errno = -err->error;
+-		}
+ 		return -1;
++		}
+ 	}
+ 
+ 	return 0;
 
 
-Daniel
+--------------060108080302090001010405
+Content-Type: application/pgp-signature;
+ name="signature.asc"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="signature.asc"
+
+LS0tLS1CRUdJTiBQR1AgU0lHTkFUVVJFLS0tLS0KVmVyc2lvbjogR251UEcgdjEuNC45IChH
+TlUvTGludXgpCkNvbW1lbnQ6IFVzaW5nIEdudVBHIHdpdGggTW96aWxsYSAtIGh0dHA6Ly9l
+bmlnbWFpbC5tb3pkZXYub3JnCgppRVlFQVJFQ0FBWUZBa3E2SHc4QUNna1E1bEtaN0ZlZzRF
+ZEs5QUNhQXlhTDVBOEFIYmM4RHRRMzcvTVJOUkIwClAvQUFuaXpONUdYb1k3VVV1cldsOFNE
+Zy9wL2dOM09VCj0yT0lhCi0tLS0tRU5EIFBHUCBTSUdOQVRVUkUtLS0tLQoK
+--------------060108080302090001010405
+Content-Type: text/x-vcard; charset=utf-8;
+ name="anders.vcf"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="anders.vcf"
+
+YmVnaW46dmNhcmQNCmZuOlN2ZW4gQW5kZXJzDQpuOkFuZGVycztTdmVuDQpvcmc6QU5EVVJB
+UyBBRztSZXNlYXJjaCBhbmQgRGV2ZWxvcG1lbnQNCmFkcjtxdW90ZWQtcHJpbnRhYmxlOjs7
+SW5uc3RyYT1DMz05RmUgNzE7UGFzc2F1O0JhdmFyaWE7OTQwMzY7R2VybWFueQ0KZW1haWw7
+aW50ZXJuZXQ6YW5kZXJzQGFuZHVyYXMuZGUNCnRpdGxlOkRpcGwuIEluZi4NCnRlbDt3b3Jr
+OisrNDkgKDApODUxIC8gNDkwIDUwIC0wDQp0ZWw7ZmF4OisrNDkgKDApODUxIC8gNTkwIDUw
+IC0gNTUNCngtbW96aWxsYS1odG1sOkZBTFNFDQp1cmw6aHR0cDovL3d3dy5hbmR1cmFzLmRl
+DQp2ZXJzaW9uOjIuMQ0KZW5kOnZjYXJkDQoNCg==
+--------------060108080302090001010405--
+
+--------------ms040009000802000402080100
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Description: S/MIME Cryptographic Signature
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIOsDCC
+B1QwggU8oAMCAQICAxAABTANBgkqhkiG9w0BAQUFADCBqjELMAkGA1UEBhMCREUxCzAJBgNV
+BAgTAkJZMQ8wDQYDVQQHEwZQYXNzYXUxEzARBgNVBAoTCkFORFVSQVMgQUcxHjAcBgNVBAsT
+FUNlcnRpZmljYXRlIEF1dGhvcml0eTEpMCcGA1UEAxMgQU5EVVJBUyBBRyBDZXJ0aWZpY2F0
+ZSBBdXRob3JpdHkxHTAbBgkqhkiG9w0BCQEWDnBraUBhbmR1cmFzLmRlMB4XDTA5MTAyMDIw
+MzQ1N1oXDTE0MTAyMDIwMzQ1N1owgbAxCzAJBgNVBAYTAkRFMQswCQYDVQQIEwJCWTEPMA0G
+A1UEBxMGUGFzc2F1MRMwEQYDVQQKEwpBTkRVUkFTIEFHMSkwJwYDVQQKEyBmOTIyMjlhOWM5
+MjBiOGVkZGEwYzRlYzg4MGQ4ZTgzYjELMAkGA1UECxMCR0wxFDASBgNVBAMTC3N2ZW4uYW5k
+ZXJzMSAwHgYJKoZIhvcNAQkBFhFhbmRlcnNAYW5kdXJhcy5kZTCCASIwDQYJKoZIhvcNAQEB
+BQADggEPADCCAQoCggEBALxbO8bh1hRSEsTu7n/7sPpS7fHqLeQWzwg1mengwU8V1xK3nfB5
+gA/LyZDo96CDnhlnizlaSXRHCjVOVGO7IiM/GWhRFhSXBz1uqv0FHffkC1xI0T1C9ySSDp4R
+RgKry3PiR79wS9E2fzKjqctNZIld3blaGBHmElRSEjHuxOiyR/k0I1YndkLrJA/n4UsLzoEF
+qGNJ49EDRucUEL1bBCjT8ZiCiPrQiBSfk2K5BPtqg68I+BQMjIAVmhpvxv5UQcrKWKFoeWyF
+JqgJb4+gioDlDuTYUxDjurdU6+dI+I011vS/rj5qe81DcXNiQA55NqTgDQrsJCyj+H0qMZW2
+lk0CAwEAAaOCAnkwggJ1MAwGA1UdEwEB/wQCMAAwDgYDVR0PAQH/BAQDAgP4MCoGA1UdJQQj
+MCEGCCsGAQUFBwMEBggrBgEFBQcDAgYLKwYBBAGB6y0DAQEwFAYJYIZIAYb4QgEBAQH/BAQD
+AgWgMB0GA1UdDgQWBBT1nf148Ot7Zwor+h/kFKOzgPoJPzCB3wYDVR0jBIHXMIHUgBQ34zit
+047U9ZuPSA8TE9kjVMkm96GBsKSBrTCBqjELMAkGA1UEBhMCREUxCzAJBgNVBAgTAkJZMQ8w
+DQYDVQQHEwZQYXNzYXUxEzARBgNVBAoTCkFORFVSQVMgQUcxHjAcBgNVBAsTFUNlcnRpZmlj
+YXRlIEF1dGhvcml0eTEpMCcGA1UEAxMgQU5EVVJBUyBBRyBDZXJ0aWZpY2F0ZSBBdXRob3Jp
+dHkxHTAbBgkqhkiG9w0BCQEWDnBraUBhbmR1cmFzLmRlggkAhNxpBFvYvqIwGQYDVR0SBBIw
+EIEOcGtpQGFuZHVyYXMuZGUwYAYDVR0fBFkwVzApoCegJYYjaHR0cDovL2NhLmFuZHVyYXMu
+ZGUvYW5kdXJhcy1jYS5jcmwwKqAooCaGJGh0dHA6Ly9jcmwuYW5kdXJhcy5kZS9hbmR1cmFz
+LWNhLmNybDAuBglghkgBhvhCAQ0EIRYfQU5EVVJBUyBBRyBQZXJzb25hbCBDZXJ0aWZpY2F0
+ZTBlBggrBgEFBQcBAQRZMFcwIwYIKwYBBQUHMAGGF2h0dHA6Ly9vY3NwLmFuZHVyYXMuZGUv
+MDAGCCsGAQUFBzAChiRodHRwOi8vY2EuYW5kdXJhcy5kZS9hbmR1cmFzLWNhLmh0bWwwDQYJ
+KoZIhvcNAQEFBQADggIBAD7x+V+hQ00k19ISJgTDzupxFpAnOugXe2sgM9zmdx+RlsAJ56mB
+nvdhoTtlwi2wCUV1jW848w024TJ+xW5kOrU5RzpWc+8lrOhakcs4VYgaYez+fSXOk/t1gAxV
+haFglg5mfdj5XZvKs8NnvlkKZioWWbKVW6S404HGNn5pOwxRnT+1SaSpSWxWbng0XC6BZuP4
+FkxnKD9yCWcKDbfkIYk3CQFAlVMB6jZNffiScf9SVHkwytnw+Op0LwvEaK9oSJ+9KxPKYbkG
+V4DP3bDujeI448gUZExT/FH501eaWr0U3P6I88Omru6UwVZnIx+cJgUmNGr0RoyPMuD5KAX6
+1cvDukeJVLhT3uUChsl3huWQkUVH6kvPqNyG+PM1LnhGk0LGGQvk5NMMHDFl9Su+9SRIh8BA
+xb8dbIUEorXKgYoxNWGdv/0qpcik7pUOygqSdYOleIqlUVUG53KtwVhrOvZEpu3kSldTm5m2
+z16VD4AIediBB5AxpyWVF3OXyGLrsKWofydZrrMdu+l0GNKPC2NVFGlXt3U49b+nvsW4TSBP
+IbIkTmbQwbbj0jXVrBfzx95zHsaq7152Y+857Fm9NSSws1nEBvMBSVmCsRtM00tqZedVZzZG
+VFKHByO2+xsG0QSksVA0VGIDczgpmjJBVm2UkO66/ZBwQ/mm6u3wMx4OMIIHVDCCBTygAwIB
+AgIDEAAFMA0GCSqGSIb3DQEBBQUAMIGqMQswCQYDVQQGEwJERTELMAkGA1UECBMCQlkxDzAN
+BgNVBAcTBlBhc3NhdTETMBEGA1UEChMKQU5EVVJBUyBBRzEeMBwGA1UECxMVQ2VydGlmaWNh
+dGUgQXV0aG9yaXR5MSkwJwYDVQQDEyBBTkRVUkFTIEFHIENlcnRpZmljYXRlIEF1dGhvcml0
+eTEdMBsGCSqGSIb3DQEJARYOcGtpQGFuZHVyYXMuZGUwHhcNMDkxMDIwMjAzNDU3WhcNMTQx
+MDIwMjAzNDU3WjCBsDELMAkGA1UEBhMCREUxCzAJBgNVBAgTAkJZMQ8wDQYDVQQHEwZQYXNz
+YXUxEzARBgNVBAoTCkFORFVSQVMgQUcxKTAnBgNVBAoTIGY5MjIyOWE5YzkyMGI4ZWRkYTBj
+NGVjODgwZDhlODNiMQswCQYDVQQLEwJHTDEUMBIGA1UEAxMLc3Zlbi5hbmRlcnMxIDAeBgkq
+hkiG9w0BCQEWEWFuZGVyc0BhbmR1cmFzLmRlMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB
+CgKCAQEAvFs7xuHWFFISxO7uf/uw+lLt8eot5BbPCDWZ6eDBTxXXEred8HmAD8vJkOj3oIOe
+GWeLOVpJdEcKNU5UY7siIz8ZaFEWFJcHPW6q/QUd9+QLXEjRPUL3JJIOnhFGAqvLc+JHv3BL
+0TZ/MqOpy01kiV3duVoYEeYSVFISMe7E6LJH+TQjVid2QuskD+fhSwvOgQWoY0nj0QNG5xQQ
+vVsEKNPxmIKI+tCIFJ+TYrkE+2qDrwj4FAyMgBWaGm/G/lRByspYoWh5bIUmqAlvj6CKgOUO
+5NhTEOO6t1Tr50j4jTXW9L+uPmp7zUNxc2JADnk2pOANCuwkLKP4fSoxlbaWTQIDAQABo4IC
+eTCCAnUwDAYDVR0TAQH/BAIwADAOBgNVHQ8BAf8EBAMCA/gwKgYDVR0lBCMwIQYIKwYBBQUH
+AwQGCCsGAQUFBwMCBgsrBgEEAYHrLQMBATAUBglghkgBhvhCAQEBAf8EBAMCBaAwHQYDVR0O
+BBYEFPWd/Xjw63tnCiv6H+QUo7OA+gk/MIHfBgNVHSMEgdcwgdSAFDfjOK3TjtT1m49IDxMT
+2SNUySb3oYGwpIGtMIGqMQswCQYDVQQGEwJERTELMAkGA1UECBMCQlkxDzANBgNVBAcTBlBh
+c3NhdTETMBEGA1UEChMKQU5EVVJBUyBBRzEeMBwGA1UECxMVQ2VydGlmaWNhdGUgQXV0aG9y
+aXR5MSkwJwYDVQQDEyBBTkRVUkFTIEFHIENlcnRpZmljYXRlIEF1dGhvcml0eTEdMBsGCSqG
+SIb3DQEJARYOcGtpQGFuZHVyYXMuZGWCCQCE3GkEW9i+ojAZBgNVHRIEEjAQgQ5wa2lAYW5k
+dXJhcy5kZTBgBgNVHR8EWTBXMCmgJ6AlhiNodHRwOi8vY2EuYW5kdXJhcy5kZS9hbmR1cmFz
+LWNhLmNybDAqoCigJoYkaHR0cDovL2NybC5hbmR1cmFzLmRlL2FuZHVyYXMtY2EuY3JsMC4G
+CWCGSAGG+EIBDQQhFh9BTkRVUkFTIEFHIFBlcnNvbmFsIENlcnRpZmljYXRlMGUGCCsGAQUF
+BwEBBFkwVzAjBggrBgEFBQcwAYYXaHR0cDovL29jc3AuYW5kdXJhcy5kZS8wMAYIKwYBBQUH
+MAKGJGh0dHA6Ly9jYS5hbmR1cmFzLmRlL2FuZHVyYXMtY2EuaHRtbDANBgkqhkiG9w0BAQUF
+AAOCAgEAPvH5X6FDTSTX0hImBMPO6nEWkCc66Bd7ayAz3OZ3H5GWwAnnqYGe92GhO2XCLbAJ
+RXWNbzjzDTbhMn7FbmQ6tTlHOlZz7yWs6FqRyzhViBph7P59Jc6T+3WADFWFoWCWDmZ92Pld
+m8qzw2e+WQpmKhZZspVbpLjTgcY2fmk7DFGdP7VJpKlJbFZueDRcLoFm4/gWTGcoP3IJZwoN
+t+QhiTcJAUCVUwHqNk19+JJx/1JUeTDK2fD46nQvC8Ror2hIn70rE8phuQZXgM/dsO6N4jjj
+yBRkTFP8UfnTV5pavRTc/ojzw6au7pTBVmcjH5wmBSY0avRGjI8y4PkoBfrVy8O6R4lUuFPe
+5QKGyXeG5ZCRRUfqS8+o3Ib48zUueEaTQsYZC+Tk0wwcMWX1K771JEiHwEDFvx1shQSitcqB
+ijE1YZ2//SqlyKTulQ7KCpJ1g6V4iqVRVQbncq3BWGs69kSm7eRKV1ObmbbPXpUPgAh52IEH
+kDGnJZUXc5fIYuuwpah/J1musx276XQY0o8LY1UUaVe3dTj1v6e+xbhNIE8hsiROZtDBtuPS
+NdWsF/PH3nMexqrvXnZj7znsWb01JLCzWcQG8wFJWYKxG0zTS2pl51VnNkZUUocHI7b7GwbR
+BKSxUDRUYgNzOCmaMkFWbZSQ7rr9kHBD+abq7fAzHg4xggQqMIIEJgIBATCBsjCBqjELMAkG
+A1UEBhMCREUxCzAJBgNVBAgTAkJZMQ8wDQYDVQQHEwZQYXNzYXUxEzARBgNVBAoTCkFORFVS
+QVMgQUcxHjAcBgNVBAsTFUNlcnRpZmljYXRlIEF1dGhvcml0eTEpMCcGA1UEAxMgQU5EVVJB
+UyBBRyBDZXJ0aWZpY2F0ZSBBdXRob3JpdHkxHTAbBgkqhkiG9w0BCQEWDnBraUBhbmR1cmFz
+LmRlAgMQAAUwCQYFKw4DAhoFAKCCAkwwGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkq
+hkiG9w0BCQUxDxcNMDkxMTAyMjM0NTI0WjAjBgkqhkiG9w0BCQQxFgQU0RVwwypnIYjPRbhA
+iDO75R+GJVswXwYJKoZIhvcNAQkPMVIwUDALBglghkgBZQMEAQIwCgYIKoZIhvcNAwcwDgYI
+KoZIhvcNAwICAgCAMA0GCCqGSIb3DQMCAgFAMAcGBSsOAwIHMA0GCCqGSIb3DQMCAgEoMIHD
+BgkrBgEEAYI3EAQxgbUwgbIwgaoxCzAJBgNVBAYTAkRFMQswCQYDVQQIEwJCWTEPMA0GA1UE
+BxMGUGFzc2F1MRMwEQYDVQQKEwpBTkRVUkFTIEFHMR4wHAYDVQQLExVDZXJ0aWZpY2F0ZSBB
+dXRob3JpdHkxKTAnBgNVBAMTIEFORFVSQVMgQUcgQ2VydGlmaWNhdGUgQXV0aG9yaXR5MR0w
+GwYJKoZIhvcNAQkBFg5wa2lAYW5kdXJhcy5kZQIDEAAFMIHFBgsqhkiG9w0BCRACCzGBtaCB
+sjCBqjELMAkGA1UEBhMCREUxCzAJBgNVBAgTAkJZMQ8wDQYDVQQHEwZQYXNzYXUxEzARBgNV
+BAoTCkFORFVSQVMgQUcxHjAcBgNVBAsTFUNlcnRpZmljYXRlIEF1dGhvcml0eTEpMCcGA1UE
+AxMgQU5EVVJBUyBBRyBDZXJ0aWZpY2F0ZSBBdXRob3JpdHkxHTAbBgkqhkiG9w0BCQEWDnBr
+aUBhbmR1cmFzLmRlAgMQAAUwDQYJKoZIhvcNAQEBBQAEggEATJYMmk0jkWqBRa5KeBn+YuKq
+UDm4IxiSXDC6UYQf6fE+WAzsRsDyLEOb5EQzOjEiUDBka7w58m/f2UbetPoS+jsrHYGRduV9
++QAt1Yx8VEKWL+mQ+jt+7fnNG6WCzbE9mO9izXNinyF4UzeDJe+rbN9KV4myN3U8nSZSmTLn
+DqqMQ8iXW4GyDFPFRIuzfDT1UlrHx46Ytd3jrgXx5EP1cM7GilgFKm/wEc5kUMQOuM3pMvli
+edox7Qka3ZcPXQm7/Qt45bXvwwEBOTV2JPbdkgS7+zqjWdpLkQqUo10fRjyQjo1bGMjV5eHF
+vMwbeiGqusOgZAiAp9XxfCf1qT5xRQAAAAAAAA==
+--------------ms040009000802000402080100--
