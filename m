@@ -1,105 +1,106 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2009-10-28
-Date: Mon, 2 Nov 2009 12:01:15 -0500
-Message-ID: <20091102170114.GE14046@tuxdriver.com>
-References: <1256886023.3555.5.camel@johannes.local> <20091030110616.GB6150@ff.dom.local> <20091030150223.GA2586@tuxdriver.com> <20091102091038.GA9044@elte.hu> <1257153807.3555.173.camel@johannes.local> <20091102100702.GA16963@elte.hu>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [net-next-2.6 PATCH RFC] TCPCT part 1d: generate Responder Cookie
+Date: Mon, 02 Nov 2009 12:21:56 -0500
+Message-ID: <4AEF1534.4090506@gmail.com>
+References: <4AEAC763.4070200@gmail.com> <4AED86AD.6010906@gmail.com> <4AEDCD7C.2010403@gmail.com> <4AEEB6D2.7090505@gmail.com> <4AEEBAC6.7020308@gmail.com> <4AEED23A.7070009@gmail.com> <4AEEDBBC.40800@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20091102100702.GA16963-X9Un+BFzKDI@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756286AbZKBRWA@vger.kernel.org>
+In-Reply-To: <4AEEDBBC.40800@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 02, 2009 at 11:07:02AM +0100, Ingo Molnar wrote:
+Eric Dumazet wrote:
+> Large part of network code is run by softirq handler, and a softirq handler
+> is not preemptable with another softirq (including itself).
 > 
-> * Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+Thank you.  That's helpful to know, as some existing locks have a "bh".
+I've never figured out the ip_local_deliver_finish() context.
+
+Knowing that there can only be one instance of the tcp stack running at
+any one time, and the cpu never changes even after being interrupted, will
+make it much easier to code.
+
+
+>> Perhaps a function header comment that mentions it?
 > 
-> > On Mon, 2009-11-02 at 10:10 +0100, Ingo Molnar wrote:
-> > 
-> > > So i have read the thread you and Bartlomiej referenced:
-> > > 
-> > >     http://lkml.org/lkml/2009/10/17/81
-> > > 
-> > > ... and my understanding of that discussion is very different from 
-> > > yours. Here is my annotated history of the beginnings of that 
-> > > discussion:
-> > 
-> > [snip]
-> > 
-> > You shouldn't ignore all previous interaction between Bart and us -- 
-> > which wasn't pretty: http://thread.gmane.org/gmane.linux.kernel/901892
+> So we are going to add a header to thousand of functions repeating this prereq ?
 > 
-> I have seen that exchange too - here's the lkml.org link for those who 
-> like the lkml.org format:
+That's my usual practice.  (Dozens would be more accurate in this case.)
+I've always found it helpful for those coming after me, and sure would have
+found it helpful now myself....  Repetitious, but well worth it.
+
+Especially at tcp_v4_rcv(), as that's called through a vector named
+"handler", which was particularly hard to track down.
+
+It has an innocuous header "From tcp_input.c", that doesn't seem to have
+anything to do with current reality....  (It's really called from
+ip_input.c via af_inet.c).
+
+
+>> All I know is (from testing) that the tcp_minisockets.c caller is sometimes
+>> called in a fashion that requires atomic allocation, and other times
+>> does not!
 > 
->    http://lkml.org/lkml/2009/10/13/186
+> Maybe callers have different contexts (running from softirq handler or
+> from process context). Atomic ops are expensive and we try to avoid them
+> if/when possible.
 > 
-> And i can see no supporting fact here either, for the (very serious) 
-> accusation launched by John Linville, that Bartlomiej is 'petty, 
-> whining, indignant'. In my reading he is the opposite of that, even in 
-> this second thread you point out.
-
-Again, you seem to be very generous to Bartlomiej and very critical of
-the rest of us in your readings.
-
-> So, no matter how much you disagree about the code and its direction, 
-> please either back up your assertion with specific links to a pattern of 
-> misbehavior or apologize for the ad-hominen attacks against Bartlomiej.
-
-His behavior is evident in the threads you cited.  How you do not
-see that is a mystery.
-
-> > Of course we were biased when he came around with that petty code 
-> > duplication argument, since it seemed to support only his agenda of 
-> > working only with the staging drivers.
+>> See my "Subject: query: tcpdump versus atomic?" thread from Oct 14th.
 > 
-> Why do you think that disagreeing in the past gives you the right to get 
-> into ad-hominens? You should concentrate on the code and on the 
-> technical side, not on the person making the argument.
+> You probably add a bug in your kernel, leaving a function with unpaired lock/unlock
+> of notallow_something/allow_something
 > 
-> Also, why do you characterise a code duplication argument as 'petty'?
+(No, I've not yet added locks; obviously, I'm still asking about them.)
 
-Did you actually look at the thread?  Or did you simply here "code
-duplication" and run with it?
- 
-> Bloat and unnecessary technical forking is the #1 enemy of Linux. 
-> Integrating code and infrastructure is the #1 strength of Linux.
+Unlikely, as it was easy to reproduce by changing one line, without *any* of
+my code present.  Usually works, but doesn't work with tcpdump running on
+the interface:
+
+  struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req, struct sk_buff *skb)
+  {
+-	struct sock *newsk = inet_csk_clone(sk, req, GFP_ATOMIC);
++	struct sock *newsk = inet_csk_clone(sk, req, GFP_KERNEL);
+
+  	if (newsk != NULL) {
+
+
+[    2.876485] eth0: RealTek RTL8139 at 0x2000, 00:40:2b:6b:61:36, IRQ 17
+[    2.876490] eth0:  Identified 8139 chip type 'RTL-8101'
+
+
+[   88.997594] device eth0 entered promiscuous mode
+[  114.827403] BUG: scheduling while atomic: swapper/0/0x10000100
+[  114.827462] Modules linked in: lp snd_intel8x0 snd_ac97_codec ac97_bus snd_pcm snd_timer snd ppdev iTCO_wdt iTCO_vendor_support psmouse soundcore parport_pc intel_agp parport agpgart pcspkr serio_raw shpchp snd_page_alloc 8139too aic7xxx 8139cp 
+scsi_transport_spi mii floppy
+[  114.827493]
+[  114.827497] Pid: 0, comm: swapper Not tainted (2.6.32-rc3 #4) Imperial
+[  114.827501] EIP: 0060:[<c0123295>] EFLAGS: 00000246 CPU: 0
+[  114.827512] EIP is at native_safe_halt+0x5/0x10
+[  114.827515] EAX: c0740000 EBX: 00000000 ECX: ffff4b6e EDX: 00000000
+[  114.827519] ESI: c07992c0 EDI: c0743000 EBP: c0741fa0 ESP: c0741fa0
+[  114.827522]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+[  114.827525] CR0: 8005003b CR2: 09278fc4 CR3: 04b56000 CR4: 00000690
+[  114.827529] DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 00000000
+[  114.827532] DR6: ffff0ff0 DR7: 00000400
+[  114.827535] Call Trace:
+[  114.827546]  [<c01098b5>] default_idle+0x65/0x90
+[  114.827550]  [<c0102062>] cpu_idle+0x52/0x90
+[  114.827558]  [<c056cc23>] rest_init+0x53/0x60
+[  114.827565]  [<c079c93d>] start_kernel+0x328/0x390
+[  114.827569]  [<c079c3ce>] ? unknown_bootoption+0x0/0x1f6
+[  114.827574]  [<c079c07e>] i386_start_kernel+0x7e/0xa8
+[  136.570632] device eth0 left promiscuous mode
+
+
+> There are books about linux internals that you could read if you want some extra
+> documentation. Dont ask me details, I never read them :)
 > 
-> Upstream subsystems/drivers running away with their private 
-> implementations has its clear costs:
+Sorry, I've only read much of the Documentation directory (some parts
+repeatedly), and Googled for more specific information.  Pretty sparse!
 
-...which has nothing to do with the case at hand.  Please do not
-perpetuate this myth.  If anything, your argument applies far more
-to the drivers in staging that Bartlomiej has focused his attention
-upon until recently.
-
-<snip>
-
-> [ I dont know why drivers/staging/ is even an argument here - he argued
->   about the technical qualities of a new upstream driver, not about a
->   staging driver. Upstream drivers are to be held to higher standards,
->   _especially_ now that we can isolate not-clean-enough-yet drivers into
->   drivers/staging/, without hurting users. ]
-
-If you had been keeping-up, you would realize that Bartlomiej is upset
-about our criticisms of the Ralink drivers in staging.  That would seem
-to be the reason he has made himself such an irritant in linux-wireless
-over the past few weeks.
-
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thank you again for your patient explanation.
