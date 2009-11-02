@@ -1,21 +1,109 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 00/20] tg3 bugfixes and 5785 updates
-Date: Mon, 2 Nov 2009 16:33:03 -0800
-Message-ID: <1257211989.21980@xw6200>
+Subject: [PATCH 01/20] tg3: Assign flags to fixes in start_xmit_dma_bug
+Date: Mon, 2 Nov 2009 14:33:33 -0800
+Message-ID: <1257211990.21983@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3428 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1278 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755682AbZKCBdL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Nov 2009 20:33:11 -0500
+	id S1755905AbZKCBdQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Nov 2009 20:33:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset implements some needed bugfixes and rounds out
-support for the 5785.
+This patch adds a flag for each bug workaround in
+tg3_start_xmit_dma_bug().  This is prep work for the following patch.
+
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Reviewed-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/tg3.c |   26 +++++++++++++++++++-------
+ drivers/net/tg3.h |    2 ++
+ 2 files changed, 21 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index ba5d3fe..da80825 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -5124,7 +5124,8 @@ static int tigon3_dma_hwbug_workaround(struct tg3 *tp, struct sk_buff *skb,
+ 		/* Make sure new skb does not cross any 4G boundaries.
+ 		 * Drop the packet if it does.
+ 		 */
+-		if (ret || tg3_4g_overflow_test(new_addr, new_skb->len)) {
++		if (ret || ((tp->tg3_flags3 & TG3_FLG3_4G_DMA_BNDRY_BUG) &&
++			    tg3_4g_overflow_test(new_addr, new_skb->len))) {
+ 			if (!ret)
+ 				skb_dma_unmap(&tp->pdev->dev, new_skb,
+ 					      DMA_TO_DEVICE);
+@@ -5459,9 +5460,15 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
+ 
+ 	would_hit_hwbug = 0;
+ 
+-	if (tp->tg3_flags3 & TG3_FLG3_5701_DMA_BUG)
++	if ((tp->tg3_flags3 & TG3_FLG3_4G_DMA_BNDRY_BUG) &&
++	    tg3_4g_overflow_test(mapping, len))
++		would_hit_hwbug = 1;
++
++	if ((tp->tg3_flags3 & TG3_FLG3_40BIT_DMA_LIMIT_BUG) &&
++	    tg3_40bit_overflow_test(tp, mapping, len))
+ 		would_hit_hwbug = 1;
+-	else if (tg3_4g_overflow_test(mapping, len))
++
++	if (tp->tg3_flags3 & TG3_FLG3_5701_DMA_BUG)
+ 		would_hit_hwbug = 1;
+ 
+ 	tg3_set_txd(tnapi, entry, mapping, len, base_flags,
+@@ -5482,10 +5489,12 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
+ 
+ 			tnapi->tx_buffers[entry].skb = NULL;
+ 
+-			if (tg3_4g_overflow_test(mapping, len))
++			if ((tp->tg3_flags3 & TG3_FLG3_4G_DMA_BNDRY_BUG) &&
++			    tg3_4g_overflow_test(mapping, len))
+ 				would_hit_hwbug = 1;
+ 
+-			if (tg3_40bit_overflow_test(tp, mapping, len))
++			if ((tp->tg3_flags3 & TG3_FLG3_40BIT_DMA_LIMIT_BUG) &&
++			    tg3_40bit_overflow_test(tp, mapping, len))
+ 				would_hit_hwbug = 1;
+ 
+ 			if (tp->tg3_flags2 & TG3_FLG2_HW_TSO)
+@@ -12610,12 +12619,15 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 
+ 	tp->irq_max = 1;
+ 
+-#ifdef TG3_NAPI
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717) {
+ 		tp->tg3_flags |= TG3_FLAG_SUPPORT_MSIX;
+ 		tp->irq_max = TG3_IRQ_MAX_VECS;
+ 	}
+-#endif
++
++	if (!(tp->tg3_flags3 & TG3_FLG3_5755_PLUS)) {
++		tp->tg3_flags3 |= TG3_FLG3_4G_DMA_BNDRY_BUG;
++		tp->tg3_flags3 |= TG3_FLG3_40BIT_DMA_LIMIT_BUG;
++	}
+ 
+ 	if (!(tp->tg3_flags2 & TG3_FLG2_5705_PLUS) ||
+ 	     (tp->tg3_flags2 & TG3_FLG2_5780_CLASS) ||
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index bab7940..b603810 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -2759,6 +2759,8 @@ struct tg3 {
+ #define TG3_FLG3_TOGGLE_10_100_L1PLLPD	0x00008000
+ #define TG3_FLG3_PHY_IS_FET		0x00010000
+ #define TG3_FLG3_ENABLE_RSS		0x00020000
++#define TG3_FLG3_4G_DMA_BNDRY_BUG	0x00080000
++#define TG3_FLG3_40BIT_DMA_LIMIT_BUG	0x00100000
+ 
+ 	struct timer_list		timer;
+ 	u16				timer_counter;
+-- 
+1.6.4.4
 
 
