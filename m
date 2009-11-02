@@ -1,99 +1,86 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] packet: less dev_put() calls
-Date: Mon, 02 Nov 2009 10:43:32 +0100
-Message-ID: <4AEEA9C4.6040305@gmail.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: pull request: wireless-next-2.6 2009-10-28
+Date: Mon, 2 Nov 2009 11:07:02 +0100
+Message-ID: <20091102100702.GA16963@elte.hu>
+References: <1256886023.3555.5.camel@johannes.local> <20091030110616.GB6150@ff.dom.local> <20091030150223.GA2586@tuxdriver.com> <20091102091038.GA9044@elte.hu> <1257153807.3555.173.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:44218 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754105AbZKBJna (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 04:43:30 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	David Miller <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754829AbZKBKLq@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1257153807.3555.173.camel@johannes.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-- packet_sendmsg_spkt() can use dev_get_by_name_rcu() to avoid touching device refcount.
 
-- packet_getname_spkt() & packet_getname() can use dev_get_by_index_rcu() to
-  avoid touching device refcount too.
+* Johannes Berg <johannes@sipsolutions.net> wrote:
 
-tpacket_snd() & packet_snd() can not use RCU yet because they can sleep when
-allocating skb.
+> On Mon, 2009-11-02 at 10:10 +0100, Ingo Molnar wrote:
+> 
+> > So i have read the thread you and Bartlomiej referenced:
+> > 
+> >     http://lkml.org/lkml/2009/10/17/81
+> > 
+> > ... and my understanding of that discussion is very different from 
+> > yours. Here is my annotated history of the beginnings of that 
+> > discussion:
+> 
+> [snip]
+> 
+> You shouldn't ignore all previous interaction between Bart and us -- 
+> which wasn't pretty: http://thread.gmane.org/gmane.linux.kernel/901892
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/packet/af_packet.c |   22 ++++++++++++----------
- 1 files changed, 12 insertions(+), 10 deletions(-)
+I have seen that exchange too - here's the lkml.org link for those who 
+like the lkml.org format:
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 95ef64e..91d246d 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -437,7 +437,8 @@ static int packet_sendmsg_spkt(struct kiocb *iocb, struct socket *sock,
- 	 */
- 
- 	saddr->spkt_device[13] = 0;
--	dev = dev_get_by_name(sock_net(sk), saddr->spkt_device);
-+	rcu_read_lock();
-+	dev = dev_get_by_name_rcu(sock_net(sk), saddr->spkt_device);
- 	err = -ENODEV;
- 	if (dev == NULL)
- 		goto out_unlock;
-@@ -500,14 +501,13 @@ static int packet_sendmsg_spkt(struct kiocb *iocb, struct socket *sock,
- 	 */
- 
- 	dev_queue_xmit(skb);
--	dev_put(dev);
-+	rcu_read_unlock();
- 	return len;
- 
- out_free:
- 	kfree_skb(skb);
- out_unlock:
--	if (dev)
--		dev_put(dev);
-+	rcu_read_unlock();
- 	return err;
- }
- 
-@@ -1518,12 +1518,13 @@ static int packet_getname_spkt(struct socket *sock, struct sockaddr *uaddr,
- 		return -EOPNOTSUPP;
- 
- 	uaddr->sa_family = AF_PACKET;
--	dev = dev_get_by_index(sock_net(sk), pkt_sk(sk)->ifindex);
--	if (dev) {
-+	rcu_read_lock();
-+	dev = dev_get_by_index_rcu(sock_net(sk), pkt_sk(sk)->ifindex);
-+	if (dev)
- 		strlcpy(uaddr->sa_data, dev->name, 15);
--		dev_put(dev);
--	} else
-+	else
- 		memset(uaddr->sa_data, 0, 14);
-+	rcu_read_unlock();
- 	*uaddr_len = sizeof(*uaddr);
- 
- 	return 0;
-@@ -1543,16 +1544,17 @@ static int packet_getname(struct socket *sock, struct sockaddr *uaddr,
- 	sll->sll_family = AF_PACKET;
- 	sll->sll_ifindex = po->ifindex;
- 	sll->sll_protocol = po->num;
--	dev = dev_get_by_index(sock_net(sk), po->ifindex);
-+	rcu_read_lock();
-+	dev = dev_get_by_index_rcu(sock_net(sk), po->ifindex);
- 	if (dev) {
- 		sll->sll_hatype = dev->type;
- 		sll->sll_halen = dev->addr_len;
- 		memcpy(sll->sll_addr, dev->dev_addr, dev->addr_len);
--		dev_put(dev);
- 	} else {
- 		sll->sll_hatype = 0;	/* Bad: we have no ARPHRD_UNSPEC */
- 		sll->sll_halen = 0;
- 	}
-+	rcu_read_unlock();
- 	*uaddr_len = offsetof(struct sockaddr_ll, sll_addr) + sll->sll_halen;
- 
- 	return 0;
+   http://lkml.org/lkml/2009/10/13/186
+
+And i can see no supporting fact here either, for the (very serious) 
+accusation launched by John Linville, that Bartlomiej is 'petty, 
+whining, indignant'. In my reading he is the opposite of that, even in 
+this second thread you point out.
+
+So, no matter how much you disagree about the code and its direction, 
+please either back up your assertion with specific links to a pattern of 
+misbehavior or apologize for the ad-hominen attacks against Bartlomiej.
+
+> Of course we were biased when he came around with that petty code 
+> duplication argument, since it seemed to support only his agenda of 
+> working only with the staging drivers.
+
+Why do you think that disagreeing in the past gives you the right to get 
+into ad-hominens? You should concentrate on the code and on the 
+technical side, not on the person making the argument.
+
+Also, why do you characterise a code duplication argument as 'petty'?
+
+Bloat and unnecessary technical forking is the #1 enemy of Linux. 
+Integrating code and infrastructure is the #1 strength of Linux.
+
+Upstream subsystems/drivers running away with their private 
+implementations has its clear costs:
+
+ - introduces bugs
+ - makes drivers shallow in practice 
+ - makes unifying drivers and infrastructure so hard down the road
+ - bloats the code, increases i$ footprint
+
+I routinely refuse patches based on 'please dont duplicate' arguments, 
+in fact i did it once today already.
+
+[ I dont know why drivers/staging/ is even an argument here - he argued
+  about the technical qualities of a new upstream driver, not about a
+  staging driver. Upstream drivers are to be held to higher standards,
+  _especially_ now that we can isolate not-clean-enough-yet drivers into
+  drivers/staging/, without hurting users. ]
+
+Thanks,
+
+	Ingo
