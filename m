@@ -1,55 +1,99 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: pull request: wireless-2.6 2009-11-02
-Date: Mon, 02 Nov 2009 22:59:26 +0100
-Message-ID: <1257199166.28469.2.camel@johannes.local>
-References: <20091102214022.GM14046@tuxdriver.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCHv6 0/3] vhost: a kernel-level virtio server
+Date: Tue, 3 Nov 2009 00:25:51 +0200
+Message-ID: <20091102222551.GA15184@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-HLSWmaxz+GlkxFdFoju/"
-Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932370AbZKBV7g@vger.kernel.org>
-In-Reply-To: <20091102214022.GM14046@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+        linux-mm@kvack.org, akpm@linux-founda
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
+Rusty, ok, I think I've addressed your comments so far here.  In
+particular I have added write logging for live migration, indirect
+buffers and virtio net header (enables gso).  I'd like this to go
+into linux-next, through your tree, and hopefully 2.6.33.
+What do you think?
 
---=-HLSWmaxz+GlkxFdFoju/
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+---
 
-On Mon, 2009-11-02 at 16:40 -0500, John W. Linville wrote:
+This implements vhost: a kernel-level backend for virtio,
+The main motivation for this work is to reduce virtualization
+overhead for virtio by removing system calls on data path,
+without guest changes. For virtio-net, this removes up to
+4 system calls per packet: vm exit for kick, reentry for kick,
+iothread wakeup for packet, interrupt injection for packet.
 
-> There are several from Johannes -- I'm sure there was sake involved...  :=
--)
+This driver is pretty minimal, but it's fully functional (including
+migration support interfaces), and already shows performance (especially
+latency) improvement over userspace.
 
-More likely there was sake involved when I did that patch adding that
-NULL-ptr deref!
+Some more detailed description attached to the patch itself.
 
-Thanks :)
+The patches apply to both 2.6.32-rc5 and kvm.git.  I'd like them to go
+into linux-next if possible.  Please comment.
 
-johannes
+Changelog from v5:
+- tun support
+- backends with virtio net header support (enables GSO, checksum etc)
+- 32 bit compat fixed
+- support indirect buffers, tx exit mitigation,
+  tx interrupt mitigation
+- support write logging (allows migration without virtio ring code in userspace)
 
+Changelog from v4:
+- disable rx notification when have rx buffers
+- addressed all comments from Rusty's review
+- copy bugfixes from lguest commits:
+	ebf9a5a99c1a464afe0b4dfa64416fc8b273bc5c
+	e606490c440900e50ccf73a54f6fc6150ff40815
 
---=-HLSWmaxz+GlkxFdFoju/
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Changelog from v3:
+- checkpatch fixes
 
------BEGIN PGP SIGNATURE-----
+Changelog from v2:
+- Comments on RCU usage
+- Compat ioctl support
+- Make variable static
+- Copied more idiomatic english from Rusty
 
-iQIcBAABAgAGBQJK71Y6AAoJEODzc/N7+Qma1nQQAJh6bRilIfVOsdBpAPBIKtQj
-L6qANDIQbfJBSSr/RPSc+O0moWXccG8BZWB0CYFewnAllQyAQCwR3w2rU9viTq/q
-vrN6IjWi89vemnddmce7w855KuK29Ao8KH/0bLYsohG3WRDaNM+F0Unaq0MuK4/5
-tipQTsJr5O3yWXeLIH/A+4HucRBmtof9t6vwm0EGJO/+jQHpKFlXOozmC0ZqM+1l
-gwxMIGPRrorH2MshIW/LD0rkkG35x0IpktFd8QhJMipDl+Vlmu88QeyF7diXt1fh
-MpsEK4JEusoB5K2K3Ao7AyL/kAy6+HjMur3CczQ0Q5nPJ5iBcAifJ2C1ixcd9N/a
-r2Vo7lRcpiqvd8UYU/WU0CFmpv5HtgW7NBAfOkp+R1fgsgM++/zDL35vuvCxOLAn
-kyn/rLVLRMn4FP5FK1nmhiVr91XYhYNeK6dA9PXmo6E4fwQFWqBKdRsBrqqPIPle
-x7R1fE6P4cABX4qQr5PknnPeTfOV2w+3dg3hvOFuSCkSoLIRUNPp8A0dORrP2dkU
-9bKMLGXuaohSzC4vZQkX78fyqcBrpGZdEnNVB2o04TqKCAqkaIk8No5VXMdQFFUv
-rHitRD7dY+lAESlMP9rx5+IR/SUtPpKolhtflUpZPsxe9T6ftbUE24XQtd3sdOGi
-RL3iPHz92lz6F0F0PpMB
-=kuUR
------END PGP SIGNATURE-----
+Changes from v1:
+- Move use_mm/unuse_mm from fs/aio.c to mm instead of copying.
+- Reorder code to avoid need for forward declarations
+- Kill a couple of debugging printks
 
---=-HLSWmaxz+GlkxFdFoju/--
+Michael S. Tsirkin (3):
+  tun: export underlying socket
+  mm: export use_mm/unuse_mm to modules
+  vhost_net: a kernel-level virtio server
+
+ MAINTAINERS                |   10 +
+ arch/x86/kvm/Kconfig       |    1 +
+ drivers/Makefile           |    1 +
+ drivers/net/tun.c          |  101 ++++-
+ drivers/vhost/Kconfig      |   11 +
+ drivers/vhost/Makefile     |    2 +
+ drivers/vhost/net.c        |  634 +++++++++++++++++++++++++++++
+ drivers/vhost/vhost.c      |  968 ++++++++++++++++++++++++++++++++++++++++++++
+ drivers/vhost/vhost.h      |  158 +++++++
+ include/linux/Kbuild       |    1 +
+ include/linux/if_tun.h     |   14 +
+ include/linux/miscdevice.h |    1 +
+ include/linux/vhost.h      |  126 ++++++
+ mm/mmu_context.c           |    3 +
+ 14 files changed, 2012 insertions(+), 19 deletions(-)
+ create mode 100644 drivers/vhost/Kconfig
+ create mode 100644 drivers/vhost/Makefile
+ create mode 100644 drivers/vhost/net.c
+ create mode 100644 drivers/vhost/vhost.c
+ create mode 100644 drivers/vhost/vhost.h
+ create mode 100644 include/linux/vhost.h
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
