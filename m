@@ -1,49 +1,59 @@
-From: Sergei Poselenov <sposelenov@emcraft.com>
-Subject: Re: Patch: Fix userland build failure in linux/if_tunnel.h
-Date: Mon, 2 Nov 2009 13:57:50 +0300
-Message-ID: <20091102135750.436a7b54@emcraft.com>
-References: <4AEDCBA6.7040206@dresearch.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] ipv6: no more dev_put() in datagram_send_ctl()
+Date: Mon, 02 Nov 2009 12:21:06 +0100
+Message-ID: <4AEEC0A2.1070502@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: sledz@dresearch.de, wd@denx.de, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Steffen Sledz <sledz@dresearch.de>,
-	Steffen Sledz <sledz@zone42.org>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ocean.emcraft.com ([213.221.7.182]:45430 "EHLO
-	ocean.emcraft.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754497AbZKBLQd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 06:16:33 -0500
-In-Reply-To: <4AEDCBA6.7040206@dresearch.de>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:41521 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754638AbZKBLVD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 06:21:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Steffen,
+Avoids touching device refcount in datagram_send_ctl(), thanks to RCU
 
-Hm, I received a confirmation, that my fix was applied
-http://www.spinics.net/lists/netdev/msg103860.html
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv6/datagram.c |   14 +++++++++-----
+ 1 files changed, 9 insertions(+), 5 deletions(-)
 
-However, it indeed didn't find their way into the mainline.
-I have no idea why, received no objections.
-
-I'm sending the reply to the resp. mailing lists too; hope you don't
-mind.
-
-Regards,
-Sergei
-
-On Sun, 01 Nov 2009 18:55:50 +0100
-Steffen Sledz <sledz@dresearch.de> wrote:
-
-> Hello Sergei,
-> 
-> i'm working for the OpenEmbedded project and we hit the same busybox
-> problem you mentioned in <http://patchwork.kernel.org/patch/31164/>.
-> 
-> It doesn't look like you got much feedback on you patch suggestion.
-> Did it made it's way to the kernel sources? Or where there any
-> objections on it?
-> 
-> Steffen
-
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index 9f70452..e6f9cdf 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -537,12 +537,17 @@ int datagram_send_ctl(struct net *net,
+ 
+ 			addr_type = __ipv6_addr_type(&src_info->ipi6_addr);
+ 
++			rcu_read_lock();
+ 			if (fl->oif) {
+-				dev = dev_get_by_index(net, fl->oif);
+-				if (!dev)
++				dev = dev_get_by_index_rcu(net, fl->oif);
++				if (!dev) {
++					rcu_read_unlock();
+ 					return -ENODEV;
+-			} else if (addr_type & IPV6_ADDR_LINKLOCAL)
++				}
++			} else if (addr_type & IPV6_ADDR_LINKLOCAL) {
++				rcu_read_unlock();
+ 				return -EINVAL;
++			}
+ 
+ 			if (addr_type != IPV6_ADDR_ANY) {
+ 				int strict = __ipv6_addr_src_scope(addr_type) <= IPV6_ADDR_SCOPE_LINKLOCAL;
+@@ -553,8 +558,7 @@ int datagram_send_ctl(struct net *net,
+ 					ipv6_addr_copy(&fl->fl6_src, &src_info->ipi6_addr);
+ 			}
+ 
+-			if (dev)
+-				dev_put(dev);
++			rcu_read_unlock();
+ 
+ 			if (err)
+ 				goto exit_f;
