@@ -1,54 +1,61 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] r8169: partial support and phy init for the 8168d
-Date: Mon, 2 Nov 2009 19:06:18 +0000
-Message-ID: <20091102190618.GM4236@decadent.org.uk>
-References: <20091007224420.GA20170@electric-eye.fr.zoreil.com> <1257092683.3136.325.camel@localhost> <20091101.224645.262714217.davem@davemloft.net>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6] Driver for the Microchip MCP251x SPI CAN
+	controllers
+Date: Mon, 02 Nov 2009 20:28:55 +0100
+Message-ID: <4AEF32F7.7060101@grandegger.com>
+References: <1256824214-21420-1-git-send-email-chripell@fsfe.org>	<4AED5589.3090106@grandegger.com>
+	<cabda6420911020706r340ef073qea40527f09551a8a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	edward_hsu@realtek.com.tw
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52330 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756641AbZKBTGT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 14:06:19 -0500
-Content-Disposition: inline
-In-Reply-To: <20091101.224645.262714217.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: christian pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <cabda6420911020706r340ef073qea40527f09551a8a-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Nov 01, 2009 at 10:46:45PM -0800, David Miller wrote:
-> From: Ben Hutchings <ben@decadent.org.uk>
-> Date: Sun, 01 Nov 2009 16:24:43 +0000
+christian pellegrin wrote:
+> On Sun, Nov 1, 2009 at 10:31 AM, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org> wrote:
+>> Hi Christian,
+>>
 > 
-> > I believe this is patching machine code in the PHY.  And we do not have
-> > source for that code, so it cannot possibly be distributed under GPL.
+> Hi,
 > 
-> You don't know if it's machine code or some data values that
-> are used to control the PHY's execution.
+>> there are a few. In general, please check the usage of {} for if
+> 
+> sorry for missing this: I read your link below: I missed that rule on
+> first reading! And I tend to trust checkpatch.pl too much ;-)
+> 
+>> statements and check if "if (ret)" should be used instead of "if (ret <
+>> 0)" if 0 means success and !0 failure. I don't have a MCP251x hardware
+> 
+> ok, I misunderstood this to. Now I think it's ok.
+> 
+> I'm replying to this thread with v2 patch. I'm rebasing the
+> differences against SVN trunk too, but I'm waiting to send them until
+> this patch is accepted in net-next-2.6 since their are only of
+> cosmetic nature.
 
-No, I don't know that this is machine code.  But you are setting up
-a false opposition: 'data values that are used to control the PHY's
-execution' certainly include the machine code that it executes.
+That's fine. of course.
 
-> In fact I would really be surprised if they had some cpu interpeting
-> code in the 8168d PHY.
+[snip]
+>>> +#include <linux/can/core.h>
+>> I don't think you need "can/core.h"?
+>>
+> 
+> I tried without but there are some dependencies in "can/dev.h" to some
+> netdev stuff that are broken if I omit it.
 
-Your knowledge of PHYs may be outdated.  1000BASE-T has to be done
-with a mixture of analog and digital signal processing, since analog
-alone would be too power-hungry.  While autonegotiation and power
-management could be hardwired it's less risky to put in a micro-
-controller and finalise the firmware after the silicon... or even
-after release, as seems to have happened here.
+Hm, sounds like a bug. I will check a.s.a.p.
 
-> You did do some research about that before making such accusations
-> right? :-)
-
-I began with 'I believe'.  It's not an accusation.
-
-Ben.
-
--- 
-Ben Hutchings
-Sturgeon's Law: Ninety percent of everything is crap.
+Wolfgang.
