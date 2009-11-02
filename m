@@ -1,54 +1,62 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Connection tracking and vlan
-Date: Mon, 02 Nov 2009 09:02:29 -0800
-Message-ID: <m14opcj1wa.fsf@fess.ebiederm.org>
-References: <20091030152054.GA7936@gondor.apana.org.au>
-	<4AEB06E6.6020206@gmail.com>
-	<fb7befa20910301220y53e43608u3b37de17661feb4e@mail.gmail.com>
-	<m1639wmq1f.fsf@fess.ebiederm.org> <4AEB75DD.8050204@candelatech.com>
-	<fb7befa20911020814q2c4bcd1bj7e2b5a4c17ba0f89@mail.gmail.com>
-	<4AEF09E7.2010004@trash.net> <4AEF0BAA.7050800@gmail.com>
-	<4AEF0D69.7070205@trash.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next-2.6 PATCH v4 3/3] TCPCT part 1c: initial SYN exchange
+ with SYNACK data
+Date: Mon, 02 Nov 2009 18:04:06 +0100
+Message-ID: <4AEF1106.40403@gmail.com>
+References: <4AE6E35C.2050101@gmail.com> <4AE6E7C0.2050408@gmail.com> <4AEDDF33.9030205@gmail.com> <4AEECFA8.1080306@gmail.com> <alpine.DEB.2.00.0911021448280.19761@wel-95.cs.helsinki.fi> <4AEF0603.7060502@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Adayadil Thomas <adayadil.thomas@gmail.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4AEF0D69.7070205@trash.net> (Patrick McHardy's message of "Mon\, 02 Nov 2009 17\:48\:41 +0100")
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:50162 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755437AbZKBREK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 12:04:10 -0500
+In-Reply-To: <4AEF0603.7060502@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy <kaber@trash.net> writes:
+William Allen Simpson a =E9crit :
 
-> Eric Dumazet wrote:
->> Patrick McHardy a =C3=A9crit :
->>> But it would be preferrable if we could do this using network
->>> namespaces somehow.
->>=20
->> eg eth0.100 and eth0.101 on namespace 1,  eth0.200 and eth0.201 on n=
-amespace 2 ?
->>=20
->> Can we do that with current kernel ? (different vlans on an unique p=
-hysical device)
->
-> By default the underlying device needs to exist in the same namespace
-> in which the VLAN device is created. I believe it should be possible
-> to move the VLAN device to a different namespace after creating it,
-> but I'm not sure about that.
+> It will be, when we have running code, as I'm loath to publish until =
+I'm
+> certain it *can* be implemented.
 
-There should be no problem moving the vlan device after it is created.
+This is why RFC is better before coding. To avoid wasting time on exper=
+iments
+that have a fatal flaw. Once included in an official kernel, we wont be=
+ able
+to change some parameters very easily (think about 253 constant you use=
+)
 
-Eric
+Or do you think only *you* can understand what's going on, and we shoul=
+d
+just trust you ?
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
+> I've something like 40 RFCs published over the years.
+
+I believe I know who you are, Mr William Allen Simpson, you dont need t=
+o
+repeat how much work you did in the past. This is a bit annoying.
+
+Some patches need 6-12 months of polishing before inclusion, there is n=
+othing
+wrong about it. It only depends on your cooperation and patience.
+
+And yes, even if a patch comes from Linus Torvald himself, I can talk i=
+f
+it does not please me.
+
+SYNFLOOD problem is more than 13 years old, I am quite surprised its be=
+coming
+so urgent we should accept your patches "as is".
+
+
+May I suggest to switch to normal mode, ie you prepare a next round of
+patches, you submit them, we review them, [repeat 0-N time(s)], we Ack =
+them ?
+
