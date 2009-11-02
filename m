@@ -1,84 +1,207 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: Re: [net-next PATCH 3/4] qlge: Reduce debug print output.
-Date: Mon, 2 Nov 2009 07:57:44 -0800
-Message-ID: <20091102155744.GA10894@linux-ox1b.qlogic.org>
-References: <1256940816-27540-1-git-send-email-ron.mercer@qlogic.com> <1256940816-27540-4-git-send-email-ron.mercer@qlogic.com> <1256942686.1917.66.camel@Joe-Laptop.home> <20091102.000354.55192142.davem@davemloft.net>
+From: Adayadil Thomas <adayadil.thomas@gmail.com>
+Subject: Re: Connection tracking and vlan
+Date: Mon, 2 Nov 2009 11:14:02 -0500
+Message-ID: <fb7befa20911020814q2c4bcd1bj7e2b5a4c17ba0f89@mail.gmail.com>
+References: <20091030152054.GA7936@gondor.apana.org.au>
+	 <4AEB06E6.6020206@gmail.com>
+	 <fb7befa20910301220y53e43608u3b37de17661feb4e@mail.gmail.com>
+	 <m1639wmq1f.fsf@fess.ebiederm.org> <4AEB75DD.8050204@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "joe@perches.com" <joe@perches.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed; boundary=0016369c90717cd4cc047765aab0
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:17604 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755703AbZKBQED (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 11:04:03 -0500
-Content-Disposition: inline
-In-Reply-To: <20091102.000354.55192142.davem@davemloft.net>
+Received: from mail-vw0-f192.google.com ([209.85.212.192]:48117 "EHLO
+	mail-vw0-f192.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755324AbZKBQN6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 11:13:58 -0500
+Received: by vws30 with SMTP id 30so1313643vws.33
+        for <netdev@vger.kernel.org>; Mon, 02 Nov 2009 08:14:02 -0800 (PST)
+In-Reply-To: <4AEB75DD.8050204@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave and Joe,
+--0016369c90717cd4cc047765aab0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Thanks for your feedback on the printk macro.  I agree there is good
-infrastructure for debug printing for network devices.  I will drop this
-patch for now.  The main reason I did it this way was to remove compares from the data path without removing the messages.
-I will respin the last patch.
+If the vlan id is used for hash, it still may not avoid the problem complet=
+ely,
+i.e. in case of both connections hashing to the same bucket.
 
-Thanks,
-Ron
+I was wondering about your opinion about adding an optional member to the t=
+uple
+structure, vid (for vlan id).
 
-On Mon, Nov 02, 2009 at 12:03:54AM -0800, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Fri, 30 Oct 2009 15:44:46 -0700
-> 
-> > On Fri, 2009-10-30 at 15:13 -0700, Ron Mercer wrote:
-> >> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
-> > []
-> >> diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
-> >> index b9f65e0..502c3af 100644
-> >> --- a/drivers/net/qlge/qlge.h
-> >> +++ b/drivers/net/qlge/qlge.h
-> >> @@ -27,6 +27,18 @@
-> >>  		dev_printk(KERN_##klevel, &((qdev)->pdev->dev),	\
-> >>  			   "%s: " fmt, __func__, ##args);  \
-> >>         } while (0)
-> >> +#if 0
-> >> +#define QPRINTK_DBG(qdev, nlevel, klevel, fmt, args...)	\
-> >> +	do {	\
-> >> +		if (!((qdev)->msg_enable & NETIF_MSG_##nlevel))	\
-> >> +			;					\
-> >> +		else						\
-> >> +			dev_printk(KERN_##klevel, &((qdev)->pdev->dev),	\
-> >> +					"%s: " fmt, __func__, ##args);  \
-> >> +	} while (0)
-> >> +#else
-> >> +#define QPRINTK_DBG(qdev, nlevel, klevel, fmt, args...)
-> >> +#endif
-> > 
-> > This uses an inverted test and it doesn't verify the args to
-> > dev_printk when not #defined.
-> > 
-> > How about:
-> 
-> I also don't like this kind of change for another reason.
-> 
-> The message levels are pointless if you're going to adhere to them
-> or not based upon some CPP define.
-> 
-> Either do it, or don't.  Like every other driver does.
-> 
-> If for some reason the default is problematic, adjust the default that
-> you pass to netif_msg_init() or, alternatively, adjust what level the
-> debugging messages are assigned to.
-> 
-> We have all of this wonderful, full, infrastructure for message
-> levelling.  And you can change the setting either at module load time
-> or via ethtool.  The default is also up to you as well.
-> 
-> And you're going to stick a "#if 0" CPP control in there? :-/
-> 
-> No way, I absolutely won't accept this kind of change, there is no
-> need for it.  There is more than enough dynamic flexibility, both at
-> run-time via module option and ethtool message level selections, and
-> at compile time via the default you can choose hoever you like.
+I have attached the patch for this change. I would be grateful for any comm=
+ents
+such as dependencies on the rest of the system.
+
+
+Thanks much
+
+
+
+On Fri, Oct 30, 2009 at 6:25 PM, Ben Greear <greearb@candelatech.com> wrote=
+:
+> On 10/30/2009 04:15 PM, Eric W. Biederman wrote:
+>
+>>> If ip_conntrack does not consider vlans, it is possible that all 5
+>>> tuple are the same
+>>> and thus affect the connection tracking.
+>>>
+>>> I hope I have described the scenario well. If not I can explain in a
+>>> more detailed fashion.
+>>
+>> Unless you have multiple network namespaces linux assumes all packets ar=
+e
+>> in the same ip space. =A0And 10.10.10.1 is the same machine no matter
+>> which interface you talk to it on.
+>
+> It only takes a relatively small patch that lets conn-track hash on a
+> skb->foo_mark, and allow that mark to be set on incoming packets
+> based on netdevice or whatever, (before the conn-track lookup is
+> done).
+>
+> This is logically somewhat similar to using multiple routing
+> tables and has been working well for me for several years....
+>
+> Thanks,
+> Ben
+>
+> --
+> Ben Greear <greearb@candelatech.com>
+> Candela Technologies Inc =A0http://www.candelatech.com
+>
+>
+
+--0016369c90717cd4cc047765aab0
+Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
+Content-Disposition: attachment; filename="patch.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_g1jfj7pn1
+
+LS0tIGxpbnV4LTIuNi4yMC4yMS9pbmNsdWRlL2xpbnV4L25ldGZpbHRlcl9pcHY0L2lwX2Nvbm50
+cmFja19jb3JlLmgJMjAwNy0xMC0xNyAxNTozMToxNC4wMDAwMDAwMDAgLTA0MDAKKysrIGxpbnV4
+LTIuNi4yMC4yMS5tb2QvaW5jbHVkZS9saW51eC9uZXRmaWx0ZXJfaXB2NC9pcF9jb25udHJhY2tf
+Y29yZS5oCTIwMDktMTEtMDIgMDk6NTM6NDQuMDAwMDAwMDAwIC0wNTAwCkBAIC0yNCw3ICsyNCwx
+MiBAQAogCQljb25zdCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCQl1bnNpZ25lZCBpbnQgZGF0YW9m
+ZiwKIAkJc3RydWN0IGlwX2Nvbm50cmFja190dXBsZSAqdHVwbGUsCisjaWZkZWYgQ09ORklHX0lQ
+X05GX0NPTk5UUkFDS19WTEFOCisJCWNvbnN0IHN0cnVjdCBpcF9jb25udHJhY2tfcHJvdG9jb2wg
+KnByb3RvY29sLAorCQl1bnNpZ25lZCBzaG9ydCB2aWQpOworI2Vsc2UKIAkJY29uc3Qgc3RydWN0
+IGlwX2Nvbm50cmFja19wcm90b2NvbCAqcHJvdG9jb2wpOworI2VuZGlmCiAKIGV4dGVybiBpbnQK
+IGlwX2N0X2ludmVydF90dXBsZShzdHJ1Y3QgaXBfY29ubnRyYWNrX3R1cGxlICppbnZlcnNlLAot
+LS0gbGludXgtMi42LjIwLjIxL2luY2x1ZGUvbGludXgvbmV0ZmlsdGVyX2lwdjQvaXBfY29ubnRy
+YWNrX3R1cGxlLmgJMjAwNy0xMC0xNyAxNTozMToxNC4wMDAwMDAwMDAgLTA0MDAKKysrIGxpbnV4
+LTIuNi4yMC4yMS5tb2QvaW5jbHVkZS9saW51eC9uZXRmaWx0ZXJfaXB2NC9pcF9jb25udHJhY2tf
+dHVwbGUuaAkyMDA5LTExLTAyIDA5OjU2OjA5LjAwMDAwMDAwMCAtMDUwMApAQCAtNzksNiArNzks
+MTAgQEAKIAkJLyogVGhlIGRpcmVjdGlvbiAoZm9yIHR1cGxlaGFzaCkgKi8KIAkJdV9pbnQ4X3Qg
+ZGlyOwogCX0gZHN0OworI2lmZGVmIENPTkZJR19JUF9ORl9DT05OVFJBQ0tfVkxBTgorCV9fYmUx
+NiB2aWQ7CisjZW5kaWYKKwogfTsKIAogLyogVGhpcyBpcyBvcHRpbWl6ZWQgb3Bwb3NlZCB0byBh
+IG1lbXNldCBvZiB0aGUgd2hvbGUgc3RydWN0dXJlLiAgRXZlcnl0aGluZyB3ZQpAQCAtODcsNiAr
+OTEsOSBAQAogCWRvIHsJCQkJCQkJXAogCQkodHVwbGUpLT5zcmMudS5hbGwgPSAwOwkJCQlcCiAJ
+CSh0dXBsZSktPmRzdC51LmFsbCA9IDA7CQkJCVwKKyNpZmRlZiBDT05GSUdfSVBfTkZfQ09OTlRS
+QUNLX1ZMQU4KKwkJKHR1cGxlKS0+dmlkID0gMDsJCQkJXAorI2VuZGlmCiAJfSB3aGlsZSAoMCkK
+IAogI2lmZGVmIF9fS0VSTkVMX18KQEAgLTEyNSwxMCArMTMyLDIyIEBACiAJCSYmIHQxLT5kc3Qu
+cHJvdG9udW0gPT0gdDItPmRzdC5wcm90b251bTsKIH0KIAorI2lmZGVmIENPTkZJR19JUF9ORl9D
+T05OVFJBQ0tfVkxBTgorc3RhdGljIGlubGluZSBpbnQgaXBfY3RfdHVwbGVfdmxhbl9lcXVhbChj
+b25zdCBzdHJ1Y3QgaXBfY29ubnRyYWNrX3R1cGxlICp0MSwKKwkJCQkgICAgICAgICBjb25zdCBz
+dHJ1Y3QgaXBfY29ubnRyYWNrX3R1cGxlICp0MikKK3sKKwlyZXR1cm4gdDEtPnZpZCA9PSB0Mi0+
+dmlkOworfQorI2VuZGlmCisKIHN0YXRpYyBpbmxpbmUgaW50IGlwX2N0X3R1cGxlX2VxdWFsKGNv
+bnN0IHN0cnVjdCBpcF9jb25udHJhY2tfdHVwbGUgKnQxLAogCQkJCSAgICBjb25zdCBzdHJ1Y3Qg
+aXBfY29ubnRyYWNrX3R1cGxlICp0MikKIHsKKyNpZmRlZiBDT05GSUdfSVBfTkZfQ09OTlRSQUNL
+X1ZMQU4KKwlyZXR1cm4gaXBfY3RfdHVwbGVfc3JjX2VxdWFsKHQxLCB0MikgJiYgaXBfY3RfdHVw
+bGVfZHN0X2VxdWFsKHQxLCB0MikgJiYgaXBfY3RfdHVwbGVfdmxhbl9lcXVhbCh0MSwgdDIpOwor
+I2Vsc2UKIAlyZXR1cm4gaXBfY3RfdHVwbGVfc3JjX2VxdWFsKHQxLCB0MikgJiYgaXBfY3RfdHVw
+bGVfZHN0X2VxdWFsKHQxLCB0Mik7CisjZW5kaWYKIH0KIAogc3RhdGljIGlubGluZSBpbnQgaXBf
+Y3RfdHVwbGVfbWFza19jbXAoY29uc3Qgc3RydWN0IGlwX2Nvbm50cmFja190dXBsZSAqdCwKLS0t
+IGxpbnV4LTIuNi4yMC4yMS9uZXQvaXB2NC9uZXRmaWx0ZXIvaXBfY29ubnRyYWNrX2NvcmUuYwky
+MDA5LTExLTAyIDEwOjU3OjQ5LjAwMDAwMDAwMCAtMDUwMAorKysgbGludXgtMi42LjIwLjIxLm1v
+ZC9uZXQvaXB2NC9uZXRmaWx0ZXIvaXBfY29ubnRyYWNrX2NvcmUuYwkyMDA5LTExLTAyIDA5OjU3
+OjU3LjAwMDAwMDAwMCAtMDUwMApAQCAtNDUsNiArNDUsNyBAQAogI2luY2x1ZGUgPGxpbnV4L3Bl
+cmNwdS5oPgogI2luY2x1ZGUgPGxpbnV4L21vZHVsZXBhcmFtLmg+CiAjaW5jbHVkZSA8bGludXgv
+bm90aWZpZXIuaD4KKyNpbmNsdWRlIDxsaW51eC9pZl92bGFuLmg+CiAKIC8qIGlwX2Nvbm50cmFj
+a19sb2NrIHByb3RlY3RzIHRoZSBtYWluIGhhc2ggdGFibGUsIHByb3RvY29sL2hlbHBlci9leHBl
+Y3RlZAogICAgcmVnaXN0cmF0aW9ucywgY29ubnRyYWNrIHRpbWVycyovCkBAIC0xODEsNyArMTgy
+LDggQEAKIAkJY29uc3Qgc3RydWN0IHNrX2J1ZmYgKnNrYiwKIAkJdW5zaWduZWQgaW50IGRhdGFv
+ZmYsCiAJCXN0cnVjdCBpcF9jb25udHJhY2tfdHVwbGUgKnR1cGxlLAotCQljb25zdCBzdHJ1Y3Qg
+aXBfY29ubnRyYWNrX3Byb3RvY29sICpwcm90b2NvbCkKKwkJY29uc3Qgc3RydWN0IGlwX2Nvbm50
+cmFja19wcm90b2NvbCAqcHJvdG9jb2wsCisJCXVuc2lnbmVkIHNob3J0IHZpZCkKIHsKIAkvKiBO
+ZXZlciBoYXBwZW4gKi8KIAlpZiAoaXBoLT5mcmFnX29mZiAmIGh0b25zKElQX09GRlNFVCkpIHsK
+QEAgLTE5NCw2ICsxOTYsNyBAQAogCXR1cGxlLT5kc3QuaXAgPSBpcGgtPmRhZGRyOwogCXR1cGxl
+LT5kc3QucHJvdG9udW0gPSBpcGgtPnByb3RvY29sOwogCXR1cGxlLT5kc3QuZGlyID0gSVBfQ1Rf
+RElSX09SSUdJTkFMOworCXR1cGxlLT52aWQgPSB2aWQ7CiAKIAlyZXR1cm4gcHJvdG9jb2wtPnBr
+dF90b190dXBsZShza2IsIGRhdGFvZmYsIHR1cGxlKTsKIH0KQEAgLTIwNiw2ICsyMDksNyBAQAog
+CWludmVyc2UtPnNyYy5pcCA9IG9yaWctPmRzdC5pcDsKIAlpbnZlcnNlLT5kc3QuaXAgPSBvcmln
+LT5zcmMuaXA7CiAJaW52ZXJzZS0+ZHN0LnByb3RvbnVtID0gb3JpZy0+ZHN0LnByb3RvbnVtOwor
+CWludmVyc2UtPnZpZCA9IG9yaWctPnZpZDsKIAlpbnZlcnNlLT5kc3QuZGlyID0gIW9yaWctPmRz
+dC5kaXI7CiAKIAlyZXR1cm4gcHJvdG9jb2wtPmludmVydF90dXBsZShpbnZlcnNlLCBvcmlnKTsK
+QEAgLTc3OSwxMSArNzgzLDI2IEBACiAJc3RydWN0IGlwX2Nvbm50cmFja190dXBsZSB0dXBsZTsK
+IAlzdHJ1Y3QgaXBfY29ubnRyYWNrX3R1cGxlX2hhc2ggKmg7CiAJc3RydWN0IGlwX2Nvbm50cmFj
+ayAqY3Q7CisjaWZkZWYgQ09ORklHX0lQX05GX0NPTk5UUkFDS19WTEFOCisJc3RydWN0IHZsYW5f
+ZXRoaGRyICp2aGRyOworCXVuc2lnbmVkIHNob3J0IHZsYW5fVENJLCB2aWQgPSA4MTkyOworCisJ
+dmhkciA9IHZsYW5fZXRoX2hkcihza2IpOworCWlmICh2aGRyICYmIHZoZHItPmhfdmxhbl9wcm90
+byA9PSBfX2NvbnN0YW50X2h0b25zKEVUSF9QXzgwMjFRKSl7CisJCXZsYW5fVENJID0gbnRvaHMo
+dmhkci0+aF92bGFuX1RDSSk7CisJCXZpZCA9ICh2bGFuX1RDSSAmIFZMQU5fVklEX01BU0spOwor
+CX0KKyNlbmRpZgogCiAJSVBfTkZfQVNTRVJUKChza2ItPm5oLmlwaC0+ZnJhZ19vZmYgJiBodG9u
+cyhJUF9PRkZTRVQpKSA9PSAwKTsKIAorI2lmZGVmIENPTkZJR19JUF9ORl9DT05OVFJBQ0tfVkxB
+TgogCWlmICghaXBfY3RfZ2V0X3R1cGxlKHNrYi0+bmguaXBoLCBza2IsIHNrYi0+bmguaXBoLT5p
+aGwqNCwgCisJCQkJJnR1cGxlLHByb3RvLHZpZCkpCisjZWxzZQorCWlmICghaXBfY3RfZ2V0X3R1
+cGxlKHNrYi0+bmguaXBoLCBza2IsIHNrYi0+bmguaXBoLT5paGwqNCwKIAkJCQkmdHVwbGUscHJv
+dG8pKQorI2VuZGlmCiAJCXJldHVybiBOVUxMOwogCiAJLyogbG9vayBmb3IgdHVwbGUgbWF0Y2gg
+Ki8KLS0tIGxpbnV4LTIuNi4yMC4yMS9uZXQvaXB2NC9uZXRmaWx0ZXIvaXBfY29ubnRyYWNrX3By
+b3RvX2ljbXAuYwkyMDA3LTEwLTE3IDE1OjMxOjE0LjAwMDAwMDAwMCAtMDQwMAorKysgbGludXgt
+Mi42LjIwLjIxLm1vZC9uZXQvaXB2NC9uZXRmaWx0ZXIvaXBfY29ubnRyYWNrX3Byb3RvX2ljbXAu
+YwkyMDA5LTExLTAyIDA5OjU4OjUyLjAwMDAwMDAwMCAtMDUwMApAQCAtMjAsNiArMjAsNyBAQAog
+I2luY2x1ZGUgPGxpbnV4L25ldGZpbHRlcl9pcHY0L2lwX2Nvbm50cmFjay5oPgogI2luY2x1ZGUg
+PGxpbnV4L25ldGZpbHRlcl9pcHY0L2lwX2Nvbm50cmFja19jb3JlLmg+CiAjaW5jbHVkZSA8bGlu
+dXgvbmV0ZmlsdGVyX2lwdjQvaXBfY29ubnRyYWNrX3Byb3RvY29sLmg+CisjaW5jbHVkZSA8bGlu
+dXgvaWZfdmxhbi5oPgogCiB1bnNpZ25lZCBpbnQgaXBfY3RfaWNtcF90aW1lb3V0IF9fcmVhZF9t
+b3N0bHkgPSAzMCpIWjsKIApAQCAtMTQ2LDYgKzE0NywxNiBAQAogCXN0cnVjdCBpcF9jb25udHJh
+Y2tfcHJvdG9jb2wgKmlubmVycHJvdG87CiAJc3RydWN0IGlwX2Nvbm50cmFja190dXBsZV9oYXNo
+ICpoOwogCWludCBkYXRhb2ZmOworI2lmZGVmIENPTkZJR19JUF9ORl9DT05OVFJBQ0tfVkxBTgor
+CXN0cnVjdCB2bGFuX2V0aGhkciAqdmhkcjsKKwl1bnNpZ25lZCBzaG9ydCB2bGFuX1RDSSwgdmlk
+ID0gODE5MjsKKworCXZoZHIgPSB2bGFuX2V0aF9oZHIoc2tiKTsKKwlpZiAodmhkciAmJiB2aGRy
+LT5oX3ZsYW5fcHJvdG8gPT0gX19jb25zdGFudF9odG9ucyhFVEhfUF84MDIxUSkpeworCQl2bGFu
+X1RDSSA9IG50b2hzKHZoZHItPmhfdmxhbl9UQ0kpOworCQl2aWQgPSAodmxhbl9UQ0kgJiBWTEFO
+X1ZJRF9NQVNLKTsKKwl9CisjZW5kaWYKIAogCUlQX05GX0FTU0VSVChza2ItPm5mY3QgPT0gTlVM
+TCk7CiAKQEAgLTE2NCw3ICsxNzUsMTEgQEAKIAlpbm5lcnByb3RvID0gaXBfY29ubnRyYWNrX3By
+b3RvX2ZpbmRfZ2V0KGluc2lkZS0+aXAucHJvdG9jb2wpOwogCWRhdGFvZmYgPSBza2ItPm5oLmlw
+aC0+aWhsKjQgKyBzaXplb2YoaW5zaWRlLT5pY21wKSArIGluc2lkZS0+aXAuaWhsKjQ7CiAJLyog
+QXJlIHRoZXkgdGFsa2luZyBhYm91dCBvbmUgb2Ygb3VyIGNvbm5lY3Rpb25zPyAqLworI2lmZGVm
+IENPTkZJR19JUF9ORl9DT05OVFJBQ0tfVkxBTgorCWlmICghaXBfY3RfZ2V0X3R1cGxlKCZpbnNp
+ZGUtPmlwLCBza2IsIGRhdGFvZmYsICZvcmlndHVwbGUsIGlubmVycHJvdG8sIHZpZCkpIHsKKyNl
+bHNlCiAJaWYgKCFpcF9jdF9nZXRfdHVwbGUoJmluc2lkZS0+aXAsIHNrYiwgZGF0YW9mZiwgJm9y
+aWd0dXBsZSwgaW5uZXJwcm90bykpIHsKKyNlbmRpZgogCQlERUJVR1AoImljbXBfZXJyb3I6ICEg
+Z2V0X3R1cGxlIHA9JXUiLCBpbnNpZGUtPmlwLnByb3RvY29sKTsKIAkJaXBfY29ubnRyYWNrX3By
+b3RvX3B1dChpbm5lcnByb3RvKTsKIAkJcmV0dXJuIC1ORl9BQ0NFUFQ7Ci0tLSBsaW51eC0yLjYu
+MjAuMjEvbmV0L2lwdjQvbmV0ZmlsdGVyL2lwX25hdF9jb3JlLmMJMjAwOS0xMS0wMiAxMDo1Nzo0
+OS4wMDAwMDAwMDAgLTA1MDAKKysrIGxpbnV4LTIuNi4yMC4yMS5tb2QvbmV0L2lwdjQvbmV0Zmls
+dGVyL2lwX25hdF9jb3JlLmMJMjAwOS0xMS0wMiAxMDowMTowOC4wMDAwMDAwMDAgLTA1MDAKQEAg
+LTIzLDYgKzIzLDcgQEAKICNpbmNsdWRlIDxsaW51eC9pY21wLmg+CiAjaW5jbHVkZSA8bGludXgv
+dWRwLmg+CiAjaW5jbHVkZSA8bGludXgvamhhc2guaD4KKyNpbmNsdWRlIDxsaW51eC9pZl92bGFu
+Lmg+CiAKICNpbmNsdWRlIDxsaW51eC9uZXRmaWx0ZXJfaXB2NC9pcF9jb25udHJhY2suaD4KICNp
+bmNsdWRlIDxsaW51eC9uZXRmaWx0ZXJfaXB2NC9pcF9jb25udHJhY2tfY29yZS5oPgpAQCAtODIx
+LDYgKzgyMiwxNyBAQAogCXVuc2lnbmVkIGxvbmcgc3RhdHVzYml0OwogCWVudW0gaXBfbmF0X21h
+bmlwX3R5cGUgbWFuaXAgPSBIT09LMk1BTklQKGhvb2tudW0pOwogCisjaWZkZWYgQ09ORklHX0lQ
+X05GX0NPTk5UUkFDS19WTEFOCisJc3RydWN0IHZsYW5fZXRoaGRyICp2aGRyOworCXVuc2lnbmVk
+IHNob3J0IHZsYW5fVENJLCB2aWQgPSA4MTkyOworCisJdmhkciA9IHZsYW5fZXRoX2hkcigqcHNr
+Yik7CisJaWYgKHZoZHIgJiYgdmhkci0+aF92bGFuX3Byb3RvID09IF9fY29uc3RhbnRfaHRvbnMo
+RVRIX1BfODAyMVEpKXsKKwkJdmxhbl9UQ0kgPSBudG9ocyh2aGRyLT5oX3ZsYW5fVENJKTsKKwkJ
+dmlkID0gKHZsYW5fVENJICYgVkxBTl9WSURfTUFTSyk7CisJfQorI2VuZGlmCisKIAlpZiAoIXNr
+Yl9tYWtlX3dyaXRhYmxlKHBza2IsIGhkcmxlbiArIHNpemVvZigqaW5zaWRlKSkpCiAJCXJldHVy
+biAwOwogCkBAIC04NTAsMTAgKzg2MiwxNCBAQAogCURFQlVHUCgiaWNtcF9yZXBseV90cmFuc2xh
+dGlvbjogdHJhbnNsYXRpbmcgZXJyb3IgJXAgbWFucCAldSBkaXIgJXNcbiIsCiAJICAgICAgICpw
+c2tiLCBtYW5pcCwgZGlyID09IElQX0NUX0RJUl9PUklHSU5BTCA/ICJPUklHIiA6ICJSRVBMWSIp
+OwogCisjaWZkZWYgQ09ORklHX0lQX05GX0NPTk5UUkFDS19WTEFOCiAJaWYgKCFpcF9jdF9nZXRf
+dHVwbGUoJmluc2lkZS0+aXAsICpwc2tiLCAoKnBza2IpLT5uaC5pcGgtPmlobCo0ICsKIAkgICAg
+ICAgICAgICAgICAgICAgICBzaXplb2Yoc3RydWN0IGljbXBoZHIpICsgaW5zaWRlLT5pcC5paGwq
+NCwKIAkgICAgICAgICAgICAgICAgICAgICAmaW5uZXIsCisJCQkgICAgIF9faXBfY29ubnRyYWNr
+X3Byb3RvX2ZpbmQoaW5zaWRlLT5pcC5wcm90b2NvbCksIHZpZCkpCisjZWxzZQogCQkJICAgICBf
+X2lwX2Nvbm50cmFja19wcm90b19maW5kKGluc2lkZS0+aXAucHJvdG9jb2wpKSkKKyNlbmRpZgog
+CQlyZXR1cm4gMDsKIAogCS8qIENoYW5nZSBpbm5lciBiYWNrIHRvIGxvb2sgbGlrZSBpbmNvbWlu
+ZyBwYWNrZXQuICBXZSBkbyB0aGUK
+--0016369c90717cd4cc047765aab0--
