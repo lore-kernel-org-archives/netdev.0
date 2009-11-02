@@ -1,64 +1,71 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: RFC: netdev: allow ethtool physical id to drop rtnl_lock
-Date: Mon, 02 Nov 2009 18:29:39 +0000
-Message-ID: <1257186579.2847.24.camel@achroite.uk.solarflarecom.com>
-References: <20091030104201.6bb03b23@nehalam> <1257007462.9706.9.camel@HP1>
-	 <20091102.001710.209808608.davem@davemloft.net>
-	 <20091102085121.7416fa8f@nehalam>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2009-10-28
+Date: Mon, 2 Nov 2009 13:29:53 -0500
+Message-ID: <20091102182953.GH14046@tuxdriver.com>
+References: <1256886023.3555.5.camel@johannes.local> <20091030110616.GB6150@ff.dom.local> <20091030150223.GA2586@tuxdriver.com> <20091102091038.GA9044@elte.hu> <1257153807.3555.173.camel@johannes.local> <20091102100702.GA16963@elte.hu> <20091102170114.GE14046@tuxdriver.com> <efe7343f0911020932l21a570c8u9478568329d38e2c@mail.gmail.com> <4AEF1894.2010809@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, mchan@broadcom.com,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:44905 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932105AbZKBS3i convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 13:29:38 -0500
-In-Reply-To: <20091102085121.7416fa8f@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Luis Correia <luis.f.correia-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Randy Dunlap <rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4AEF1894.2010809-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2009-11-02 at 08:51 -0800, Stephen Hemminger wrote:
-[...]
-> For compatibility, I was thinking of adding a new ethtool hook that
-> moves the blinking loop into ethtool.
->
-> static int ethtool_phys_blink(struct net_device *dev, u32 secs)
-> {
-> 	while (secs > 0) {
-> 		dev->ethtool_ps->phys_led(dev, ETH_LED_ON);
-> ...
-> 		dev->ethtool_ps->phys_led(dev, ETH_LED_OFF);
-> 	}
-> 	dev->ethtool_ops->phys_led(dev, ETH_LED_NORMAL);
-> }
-[...]
+On Mon, Nov 02, 2009 at 09:36:20AM -0800, Randy Dunlap wrote:
+> Luis Correia wrote:
+> > [huge snip]
+> > 
+> > This is going to be my last reply to this thread (even if I get to be insulted).
+> > 
+> > I'm not a coder, I'm a tester and administrator for the rt2x00 project.
+> > I'm not happy about the current state of the rt2x00 in-kernel drivers.
+> > I tend to agree that more could be done.
+> > 
+> > Even though I'm not a coder, I could be hipotetically responsable for
+> > the current situation. It is my job function to motivate people to
+> > work on the rt2x00 in-kernel drivers, but apparently I've failed here.
+> > It's not an atitude problem, as some have suggested, it's just life.
+> > 
+> > About Bartlomiej, there is only one more thing that I'll say:
+> > 
+> > I've searched on my GMail archives and the only patch Bart has
+> > provided so far for the rt2x00 project is this:
+> > 
+> > [PATCH] MAINTAINERS: rt2x00 list is moderated
+> > 
+> > Which, while technically correct, adds nothing to the project.
+> 
+> whatever.  That patch still needs to be applied.
 
-=EF=BB=BFWe could even force this on unconverted drivers, but using a l=
-onger
-loop period to allow for slow blinking:
+And, in fact, it has been...already in linux-2.6:
 
-static int ethtool_phys_id_loop(struct net_device *dev, u32 secs)
-{
-	u32 timeout;
-	int rc;
+	commit b5654f5e7fc414a6e69b3647db2b043257c9e62e
+	Author: Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+	Date:   Mon Oct 26 16:49:50 2009 -0700
 
-	for (;;) {
-		timeout =3D min_t(u32, secs, 5);
-		secs -=3D timeout;
-		rc =3D dev->ethtool_ops->phys_id(dev, timeout);
-		if (rc || secs =3D=3D 0)
-			return rc;
-		...
-	}
-}
+	MAINTAINERS: rt2x00 list is moderated
 
-Ben.
+	Signed-off-by: Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+	Signed-off-by: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+	Signed-off-by: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Hth...
 
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
