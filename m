@@ -1,66 +1,61 @@
-From: Thiago Farina <tfransosi@gmail.com>
-Subject: [PATCH] trivial: remove duplicated MIN macro from tehuti.
-Date: Mon,  2 Nov 2009 15:45:14 -0500
-Message-ID: <1257194714-5218-1-git-send-email-tfransosi@gmail.com>
-References: <y>
-Cc: baum@tehutinetworks.net, andy@greyhouse.net, davem@davemloft.net,
-	shemminger@vyatta.com, apkm@linux-fundation.org,
-	ben@decadent.org.uk, yanghy@cn.fujitsu.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Thiago Farina <tfransosi@gmail.com>
-To: trivial@kernel.com
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: HTB accuracy on 10GbE
+Date: Mon, 2 Nov 2009 12:53:45 -0800
+Message-ID: <20091102125345.3c39c42e@nehalam>
+References: <b30d1c3b0911012322v5d553fd6va56575fcf5e3daf8@mail.gmail.com>
+	<4AEEFE2E.7090706@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Ryousei Takano <ryousei@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	takano-ryousei@aist.go.jp
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f187.google.com ([209.85.210.187]:35729 "EHLO
-	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932443AbZKBUph (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 15:45:37 -0500
-In-Reply-To: <y>
+Received: from mail.vyatta.com ([76.74.103.46]:44327 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932328AbZKBUyR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Nov 2009 15:54:17 -0500
+In-Reply-To: <4AEEFE2E.7090706@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since the kernel api already has the macro "min",
-just use it instead of declaring another one.
+On Mon, 02 Nov 2009 16:43:42 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-Signed-off-by: Thiago Farina <tfransosi@gmail.com>
----
- drivers/net/tehuti.c |    4 ++--
- drivers/net/tehuti.h |    2 --
- 2 files changed, 2 insertions(+), 4 deletions(-)
+> Ryousei Takano wrote:
+> > Hi Stephen and all,
+> > 
+> > I have observed a HTB accuracy problem on the Linux kernel 2.6.30 and
+> > the Myri-10G 10 GbE NIC.
+> > HTB can control the transmission rate at Gigabit speed, however it can
+> > not work well at 10 Gigabit speed.
+> > 
+> > I asked Stephen this problem at Japan Linux Symposium.  He mentioned a
+> > HTB bug related to the timer granularity.
+> > I want to know what is happen, and what should be do for fixing it.
+> > 
+> > Any comments and suggestions will be welcome.
+> > 
+> > For more detail, please see the following page:
+> > http://code.google.com/p/pspacer/wiki/HTBon10GbE
+> 
+> This is not an easy problem to fix. Userspace, the kernel and the
+> netlink API use 32 bit for timing related values, which is too small
+> to use more than microsecond resolution. All of them need to be
+> converted to use bigger types, additionally some kind of compatibility
+> handling to deal with old iproute versions still using microsecond
+> resolution is required.
 
-diff --git a/drivers/net/tehuti.c b/drivers/net/tehuti.c
-index ec9dfb2..8d116a9 100644
---- a/drivers/net/tehuti.c
-+++ b/drivers/net/tehuti.c
-@@ -1878,7 +1878,7 @@ static void bdx_tx_push_desc_safe(struct bdx_priv *priv, void *data, int size)
- 			udelay(50);	/* give hw a chance to clean fifo */
- 			continue;
- 		}
--		avail = MIN(avail, size);
-+		avail = min(avail, size);
- 		DBG("about to push  %d bytes starting %p size %d\n", avail,
- 		    data, size);
- 		bdx_tx_push_desc(priv, data, avail);
-@@ -1889,7 +1889,7 @@ static void bdx_tx_push_desc_safe(struct bdx_priv *priv, void *data, int size)
- }
- 
- static const struct net_device_ops bdx_netdev_ops = {
--	.ndo_open	 	= bdx_open,
-+	.ndo_open	        = bdx_open,
- 	.ndo_stop		= bdx_close,
- 	.ndo_start_xmit		= bdx_tx_transmit,
- 	.ndo_validate_addr	= eth_validate_addr,
-diff --git a/drivers/net/tehuti.h b/drivers/net/tehuti.h
-index 4fc875e..1241419 100644
---- a/drivers/net/tehuti.h
-+++ b/drivers/net/tehuti.h
-@@ -76,8 +76,6 @@
- #define FIFO_SIZE  4096
- #define FIFO_EXTRA_SPACE            1024
- 
--#define MIN(x, y)  ((x) < (y) ? (x) : (y))
--
- #if BITS_PER_LONG == 64
- #    define H32_64(x)  (u32) ((u64)(x) >> 32)
- #    define L32_64(x)  (u32) ((u64)(x) & 0xffffffff)
--- 
-1.6.5.1.61.ge79999
+The existing API is a legacy mish-mash. The field is limited to 32 bits,
+but it might be possible to use a finer scale.
+
+Maybe if kernel advertised finer resolution through /proc/net/psched
+then table could be finer grained. This would maintain compatibility
+between kernel and user space. You would need to have new kernel and
+new iproute to get nanosecond resolution but older combinations would
+still work.
+
+The downside is that by using nanosecond resolution the rates are upper
+bounded at 4.2seconds / packet.
 
