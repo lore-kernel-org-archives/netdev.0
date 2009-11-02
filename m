@@ -1,97 +1,223 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [net-next-2.6 PATCH v4 3/3] TCPCT part 1c: initial SYN exchange
- with SYNACK data
-Date: Mon, 02 Nov 2009 11:17:07 -0500
-Message-ID: <4AEF0603.7060502@gmail.com>
-References: <4AE6E35C.2050101@gmail.com> <4AE6E7C0.2050408@gmail.com> <4AEDDF33.9030205@gmail.com> <4AEECFA8.1080306@gmail.com> <alpine.DEB.2.00.0911021448280.19761@wel-95.cs.helsinki.fi>
+From: Adayadil Thomas <adayadil.thomas@gmail.com>
+Subject: Re: Connection tracking and vlan
+Date: Mon, 2 Nov 2009 11:30:16 -0500
+Message-ID: <fb7befa20911020830x2d3e35efka51704746f2e77f0@mail.gmail.com>
+References: <20091030152054.GA7936@gondor.apana.org.au>
+	 <4AEB06E6.6020206@gmail.com>
+	 <fb7befa20910301220y53e43608u3b37de17661feb4e@mail.gmail.com>
+	 <m1639wmq1f.fsf@fess.ebiederm.org> <4AEB75DD.8050204@candelatech.com>
+	 <fb7befa20911020814q2c4bcd1bj7e2b5a4c17ba0f89@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: multipart/mixed; boundary=001636ed677c9004e4047765e414
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f228.google.com ([209.85.219.228]:56140 "EHLO
-	mail-ew0-f228.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755542AbZKBQRJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 11:17:09 -0500
-Received: by ewy28 with SMTP id 28so4992843ewy.18
-        for <netdev@vger.kernel.org>; Mon, 02 Nov 2009 08:17:13 -0800 (PST)
-In-Reply-To: <alpine.DEB.2.00.0911021448280.19761@wel-95.cs.helsinki.fi>
+Received: from mail-vw0-f192.google.com ([209.85.212.192]:40070 "EHLO
+	mail-vw0-f192.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755656AbZKBQaN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 11:30:13 -0500
+Received: by vws30 with SMTP id 30so1318511vws.33
+        for <netdev@vger.kernel.org>; Mon, 02 Nov 2009 08:30:18 -0800 (PST)
+In-Reply-To: <fb7befa20911020814q2c4bcd1bj7e2b5a4c17ba0f89@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ilpo J=E4rvinen wrote:
-> Are you talking about particular case?!? ...You can safely split into=
- even=20
-> more parts if there are cleanups which is essential. ...We'll not sto=
-p you=20
-> from doing that nor be angry if do that.
->=20
-Actually, my earliest posting split the original single patch, and Mill=
-er
-*did* seem angry.  I had to put it back together again -- and then he
-only commented on one thing that *was* in my first post, causing me to
-have to redo the entire thing a third time.  So, I've been posting patc=
-hes
-in bigger groups than I originally write and test.
+--001636ed677c9004e4047765e414
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+A small correction to the patch. Thanks for any comments you can
+provide on this patch.
+
+Thanks
 
 
-> That kind of response certainly won't help you any. ...First, you sai=
-d you=20
-> adapt the current style but for some reason immediately start to say =
-why=20
-> you would careless about that principle. ...Also, telling that you ha=
-ve=20
-> lots of experience here and there will not get you there either ;-).
->=20
-I meant I adapt to existing style (no matter how odd) in places where I=
-'m
-patching, so that *patches* are easier to review -- and write in a more
-elegant style where I'm making a significant stand-alone addition.
-
-I'd thought that constant-left style was pretty common around here, as =
-grep
-tells me there are hundreds upon hundreds of examples in arch, drivers,=
- net,
-and sound....
-
-Seems like I'm not alone.
-
-
-Eric Dumazet wrote:
-# Cooking patches to linux is not only matter of good ideas and program=
-ming (and Dropping
-# patches for the masses).
-#
-# Its also a matter of convincing _people_ that your additions will be =
-maintainable
-# when you leave kernel programming and let people like us correct bugs=
-=2E
-#
-# For the moment, I am not convinced at all. I prefer to talk now.
-#
-OK, I'm talking.  Thank you.
-
-Linux already has a fair amount of my code in it, often hard to recogni=
-ze
-now after 15 years, so I'm pretty sure that my code has been found
-maintainable in the past.
-
-Anyway, I don't want to argue about it on an open mailing list.  I'm mo=
+On Mon, Nov 2, 2009 at 11:14 AM, Adayadil Thomas
+<adayadil.thomas@gmail.com> wrote:
+> If the vlan id is used for hash, it still may not avoid the problem compl=
+etely,
+> i.e. in case of both connections hashing to the same bucket.
+>
+> I was wondering about your opinion about adding an optional member to the=
+ tuple
+> structure, vid (for vlan id).
+>
+> I have attached the patch for this change. I would be grateful for any co=
+mments
+> such as dependencies on the rest of the system.
+>
+>
+> Thanks much
+>
+>
+>
+> On Fri, Oct 30, 2009 at 6:25 PM, Ben Greear <greearb@candelatech.com> wro=
+te:
+>> On 10/30/2009 04:15 PM, Eric W. Biederman wrote:
+>>
+>>>> If ip_conntrack does not consider vlans, it is possible that all 5
+>>>> tuple are the same
+>>>> and thus affect the connection tracking.
+>>>>
+>>>> I hope I have described the scenario well. If not I can explain in a
+>>>> more detailed fashion.
+>>>
+>>> Unless you have multiple network namespaces linux assumes all packets a=
 re
-interested in getting work done!
+>>> in the same ip space. =A0And 10.10.10.1 is the same machine no matter
+>>> which interface you talk to it on.
+>>
+>> It only takes a relatively small patch that lets conn-track hash on a
+>> skb->foo_mark, and allow that mark to be set on incoming packets
+>> based on netdevice or whatever, (before the conn-track lookup is
+>> done).
+>>
+>> This is logically somewhat similar to using multiple routing
+>> tables and has been working well for me for several years....
+>>
+>> Thanks,
+>> Ben
+>>
+>> --
+>> Ben Greear <greearb@candelatech.com>
+>> Candela Technologies Inc =A0http://www.candelatech.com
+>>
+>>
+>
 
+--001636ed677c9004e4047765e414
+Content-Type: text/plain; charset=US-ASCII; name="patch1.txt"
+Content-Disposition: attachment; filename="patch1.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_g1jg5ivk1
 
-# Note: I did read your TCPCT 25 pages documentation and very am intere=
-sted by this
-# improvement, but its _also_ important to implement it in the normal w=
-ay.
-# (I wish this document could be public in a RFC form)
-#
-It will be, when we have running code, as I'm loath to publish until I'=
-m
-certain it *can* be implemented.
-
-I've something like 40 RFCs published over the years.
+LS0tIGxpbnV4LTIuNi4yMC4yMS9pbmNsdWRlL2xpbnV4L25ldGZpbHRlcl9pcHY0L2lwX2Nvbm50
+cmFja19jb3JlLmgJMjAwNy0xMC0xNyAxNTozMToxNC4wMDAwMDAwMDAgLTA0MDAKKysrIGxpbnV4
+LTIuNi4yMC4yMS5tb2QvaW5jbHVkZS9saW51eC9uZXRmaWx0ZXJfaXB2NC9pcF9jb25udHJhY2tf
+Y29yZS5oCTIwMDktMTEtMDIgMTE6MDE6NTguMDAwMDAwMDAwIC0wNTAwCkBAIC0yNCw3ICsyNCwx
+MiBAQAogCQljb25zdCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCQl1bnNpZ25lZCBpbnQgZGF0YW9m
+ZiwKIAkJc3RydWN0IGlwX2Nvbm50cmFja190dXBsZSAqdHVwbGUsCisjaWZkZWYgQ09ORklHX0lQ
+X05GX0NPTk5UUkFDS19WTEFOCisJCWNvbnN0IHN0cnVjdCBpcF9jb25udHJhY2tfcHJvdG9jb2wg
+KnByb3RvY29sLAorCQl1bnNpZ25lZCBzaG9ydCB2aWQpOworI2Vsc2UKIAkJY29uc3Qgc3RydWN0
+IGlwX2Nvbm50cmFja19wcm90b2NvbCAqcHJvdG9jb2wpOworI2VuZGlmCiAKIGV4dGVybiBpbnQK
+IGlwX2N0X2ludmVydF90dXBsZShzdHJ1Y3QgaXBfY29ubnRyYWNrX3R1cGxlICppbnZlcnNlLAot
+LS0gbGludXgtMi42LjIwLjIxL2luY2x1ZGUvbGludXgvbmV0ZmlsdGVyX2lwdjQvaXBfY29ubnRy
+YWNrX3R1cGxlLmgJMjAwNy0xMC0xNyAxNTozMToxNC4wMDAwMDAwMDAgLTA0MDAKKysrIGxpbnV4
+LTIuNi4yMC4yMS5tb2QvaW5jbHVkZS9saW51eC9uZXRmaWx0ZXJfaXB2NC9pcF9jb25udHJhY2tf
+dHVwbGUuaAkyMDA5LTExLTAyIDExOjE4OjM5LjAwMDAwMDAwMCAtMDUwMApAQCAtNzksMTUgKzc5
+LDI4IEBACiAJCS8qIFRoZSBkaXJlY3Rpb24gKGZvciB0dXBsZWhhc2gpICovCiAJCXVfaW50OF90
+IGRpcjsKIAl9IGRzdDsKKyNpZmRlZiBDT05GSUdfSVBfTkZfQ09OTlRSQUNLX1ZMQU4KKwlfX2Jl
+MTYgdmlkOworI2VuZGlmCisKIH07CiAKIC8qIFRoaXMgaXMgb3B0aW1pemVkIG9wcG9zZWQgdG8g
+YSBtZW1zZXQgb2YgdGhlIHdob2xlIHN0cnVjdHVyZS4gIEV2ZXJ5dGhpbmcgd2UKICAqIHJlYWxs
+eSBjYXJlIGFib3V0IGlzIHRoZSAgc291cmNlL2Rlc3RpbmF0aW9uIHVuaW9ucyAqLworI2lmZGVm
+IENPTkZJR19JUF9ORl9DT05OVFJBQ0tfVkxBTgogI2RlZmluZSBJUF9DVF9UVVBMRV9VX0JMQU5L
+KHR1cGxlKSAJCQkJXAogCWRvIHsJCQkJCQkJXAogCQkodHVwbGUpLT5zcmMudS5hbGwgPSAwOwkJ
+CQlcCiAJCSh0dXBsZSktPmRzdC51LmFsbCA9IDA7CQkJCVwKKwkJKHR1cGxlKS0+dmlkID0gMDsJ
+CQkJXAorCX0gd2hpbGUgKDApCisjZWxzZQorI2RlZmluZSBJUF9DVF9UVVBMRV9VX0JMQU5LKHR1
+cGxlKSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwKKwlkbyB7ICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwKKwkJKHR1cGxlKS0+c3JjLnUu
+YWxsID0gMDsgICAgICAgICAgICAgICAgICAgICAgICAgXAorCQkodHVwbGUpLT5kc3QudS5hbGwg
+PSAwOyAgICAgICAgICAgICAgICAgICAgICAgICBcCiAJfSB3aGlsZSAoMCkKKyNlbmRpZgogCiAj
+aWZkZWYgX19LRVJORUxfXwogCkBAIC0xMjUsMTAgKzEzOCwyMiBAQAogCQkmJiB0MS0+ZHN0LnBy
+b3RvbnVtID09IHQyLT5kc3QucHJvdG9udW07CiB9CiAKKyNpZmRlZiBDT05GSUdfSVBfTkZfQ09O
+TlRSQUNLX1ZMQU4KK3N0YXRpYyBpbmxpbmUgaW50IGlwX2N0X3R1cGxlX3ZsYW5fZXF1YWwoY29u
+c3Qgc3RydWN0IGlwX2Nvbm50cmFja190dXBsZSAqdDEsCisJCQkJICAgICAgICAgY29uc3Qgc3Ry
+dWN0IGlwX2Nvbm50cmFja190dXBsZSAqdDIpCit7CisJcmV0dXJuIHQxLT52aWQgPT0gdDItPnZp
+ZDsKK30KKyNlbmRpZgorCiBzdGF0aWMgaW5saW5lIGludCBpcF9jdF90dXBsZV9lcXVhbChjb25z
+dCBzdHJ1Y3QgaXBfY29ubnRyYWNrX3R1cGxlICp0MSwKIAkJCQkgICAgY29uc3Qgc3RydWN0IGlw
+X2Nvbm50cmFja190dXBsZSAqdDIpCiB7CisjaWZkZWYgQ09ORklHX0lQX05GX0NPTk5UUkFDS19W
+TEFOCisJcmV0dXJuIGlwX2N0X3R1cGxlX3NyY19lcXVhbCh0MSwgdDIpICYmIGlwX2N0X3R1cGxl
+X2RzdF9lcXVhbCh0MSwgdDIpICYmIGlwX2N0X3R1cGxlX3ZsYW5fZXF1YWwodDEsIHQyKTsKKyNl
+bHNlCiAJcmV0dXJuIGlwX2N0X3R1cGxlX3NyY19lcXVhbCh0MSwgdDIpICYmIGlwX2N0X3R1cGxl
+X2RzdF9lcXVhbCh0MSwgdDIpOworI2VuZGlmCiB9CiAKIHN0YXRpYyBpbmxpbmUgaW50IGlwX2N0
+X3R1cGxlX21hc2tfY21wKGNvbnN0IHN0cnVjdCBpcF9jb25udHJhY2tfdHVwbGUgKnQsCi0tLSBs
+aW51eC0yLjYuMjAuMjEvbmV0L2lwdjQvbmV0ZmlsdGVyL2lwX2Nvbm50cmFja19jb3JlLmMJMjAw
+OS0xMS0wMiAxMToyNjowNy4wMDAwMDAwMDAgLTA1MDAKKysrIGxpbnV4LTIuNi4yMC4yMS5tb2Qv
+bmV0L2lwdjQvbmV0ZmlsdGVyL2lwX2Nvbm50cmFja19jb3JlLmMJMjAwOS0xMS0wMiAxMToyMjow
+MC4wMDAwMDAwMDAgLTA1MDAKQEAgLTQ1LDYgKzQ1LDcgQEAKICNpbmNsdWRlIDxsaW51eC9wZXJj
+cHUuaD4KICNpbmNsdWRlIDxsaW51eC9tb2R1bGVwYXJhbS5oPgogI2luY2x1ZGUgPGxpbnV4L25v
+dGlmaWVyLmg+CisjaW5jbHVkZSA8bGludXgvaWZfdmxhbi5oPgogCiAvKiBpcF9jb25udHJhY2tf
+bG9jayBwcm90ZWN0cyB0aGUgbWFpbiBoYXNoIHRhYmxlLCBwcm90b2NvbC9oZWxwZXIvZXhwZWN0
+ZWQKICAgIHJlZ2lzdHJhdGlvbnMsIGNvbm50cmFjayB0aW1lcnMqLwpAQCAtMTgxLDcgKzE4Miwx
+MiBAQAogCQljb25zdCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCQl1bnNpZ25lZCBpbnQgZGF0YW9m
+ZiwKIAkJc3RydWN0IGlwX2Nvbm50cmFja190dXBsZSAqdHVwbGUsCisjaWZkZWYgQ09ORklHX0lQ
+X05GX0NPTk5UUkFDS19WTEFOCisJCWNvbnN0IHN0cnVjdCBpcF9jb25udHJhY2tfcHJvdG9jb2wg
+KnByb3RvY29sLAorCQl1bnNpZ25lZCBzaG9ydCB2aWQpCisjZWxzZQogCQljb25zdCBzdHJ1Y3Qg
+aXBfY29ubnRyYWNrX3Byb3RvY29sICpwcm90b2NvbCkKKyNlbmRpZgogewogCS8qIE5ldmVyIGhh
+cHBlbiAqLwogCWlmIChpcGgtPmZyYWdfb2ZmICYgaHRvbnMoSVBfT0ZGU0VUKSkgewpAQCAtMTk0
+LDYgKzIwMCw5IEBACiAJdHVwbGUtPmRzdC5pcCA9IGlwaC0+ZGFkZHI7CiAJdHVwbGUtPmRzdC5w
+cm90b251bSA9IGlwaC0+cHJvdG9jb2w7CiAJdHVwbGUtPmRzdC5kaXIgPSBJUF9DVF9ESVJfT1JJ
+R0lOQUw7CisjaWZkZWYgQ09ORklHX0lQX05GX0NPTk5UUkFDS19WTEFOCisJdHVwbGUtPnZpZCA9
+IHZpZDsKKyNlbmRpZgogCiAJcmV0dXJuIHByb3RvY29sLT5wa3RfdG9fdHVwbGUoc2tiLCBkYXRh
+b2ZmLCB0dXBsZSk7CiB9CkBAIC0yMDYsNiArMjE1LDkgQEAKIAlpbnZlcnNlLT5zcmMuaXAgPSBv
+cmlnLT5kc3QuaXA7CiAJaW52ZXJzZS0+ZHN0LmlwID0gb3JpZy0+c3JjLmlwOwogCWludmVyc2Ut
+PmRzdC5wcm90b251bSA9IG9yaWctPmRzdC5wcm90b251bTsKKyNpZmRlZiBDT05GSUdfSVBfTkZf
+Q09OTlRSQUNLX1ZMQU4KKwlpbnZlcnNlLT52aWQgPSBvcmlnLT52aWQ7CisjZW5kaWYKIAlpbnZl
+cnNlLT5kc3QuZGlyID0gIW9yaWctPmRzdC5kaXI7CiAKIAlyZXR1cm4gcHJvdG9jb2wtPmludmVy
+dF90dXBsZShpbnZlcnNlLCBvcmlnKTsKQEAgLTc3OSwxMSArNzkxLDI2IEBACiAJc3RydWN0IGlw
+X2Nvbm50cmFja190dXBsZSB0dXBsZTsKIAlzdHJ1Y3QgaXBfY29ubnRyYWNrX3R1cGxlX2hhc2gg
+Kmg7CiAJc3RydWN0IGlwX2Nvbm50cmFjayAqY3Q7CisjaWZkZWYgQ09ORklHX0lQX05GX0NPTk5U
+UkFDS19WTEFOCisJc3RydWN0IHZsYW5fZXRoaGRyICp2aGRyOworCXVuc2lnbmVkIHNob3J0IHZs
+YW5fVENJLCB2aWQgPSA4MTkyOworCisJdmhkciA9IHZsYW5fZXRoX2hkcihza2IpOworCWlmICh2
+aGRyICYmIHZoZHItPmhfdmxhbl9wcm90byA9PSBfX2NvbnN0YW50X2h0b25zKEVUSF9QXzgwMjFR
+KSl7CisJCXZsYW5fVENJID0gbnRvaHModmhkci0+aF92bGFuX1RDSSk7CisJCXZpZCA9ICh2bGFu
+X1RDSSAmIFZMQU5fVklEX01BU0spOworCX0KKyNlbmRpZgogCiAJSVBfTkZfQVNTRVJUKChza2It
+Pm5oLmlwaC0+ZnJhZ19vZmYgJiBodG9ucyhJUF9PRkZTRVQpKSA9PSAwKTsKIAorI2lmZGVmIENP
+TkZJR19JUF9ORl9DT05OVFJBQ0tfVkxBTgogCWlmICghaXBfY3RfZ2V0X3R1cGxlKHNrYi0+bmgu
+aXBoLCBza2IsIHNrYi0+bmguaXBoLT5paGwqNCwgCisJCQkJJnR1cGxlLHByb3RvLHZpZCkpCisj
+ZWxzZQorCWlmICghaXBfY3RfZ2V0X3R1cGxlKHNrYi0+bmguaXBoLCBza2IsIHNrYi0+bmguaXBo
+LT5paGwqNCwKIAkJCQkmdHVwbGUscHJvdG8pKQorI2VuZGlmCiAJCXJldHVybiBOVUxMOwogCiAJ
+LyogbG9vayBmb3IgdHVwbGUgbWF0Y2ggKi8KLS0tIGxpbnV4LTIuNi4yMC4yMS9uZXQvaXB2NC9u
+ZXRmaWx0ZXIvaXBfY29ubnRyYWNrX3Byb3RvX2ljbXAuYwkyMDA3LTEwLTE3IDE1OjMxOjE0LjAw
+MDAwMDAwMCAtMDQwMAorKysgbGludXgtMi42LjIwLjIxLm1vZC9uZXQvaXB2NC9uZXRmaWx0ZXIv
+aXBfY29ubnRyYWNrX3Byb3RvX2ljbXAuYwkyMDA5LTExLTAyIDExOjAxOjU4LjAwMDAwMDAwMCAt
+MDUwMApAQCAtMjAsNiArMjAsNyBAQAogI2luY2x1ZGUgPGxpbnV4L25ldGZpbHRlcl9pcHY0L2lw
+X2Nvbm50cmFjay5oPgogI2luY2x1ZGUgPGxpbnV4L25ldGZpbHRlcl9pcHY0L2lwX2Nvbm50cmFj
+a19jb3JlLmg+CiAjaW5jbHVkZSA8bGludXgvbmV0ZmlsdGVyX2lwdjQvaXBfY29ubnRyYWNrX3By
+b3RvY29sLmg+CisjaW5jbHVkZSA8bGludXgvaWZfdmxhbi5oPgogCiB1bnNpZ25lZCBpbnQgaXBf
+Y3RfaWNtcF90aW1lb3V0IF9fcmVhZF9tb3N0bHkgPSAzMCpIWjsKIApAQCAtMTQ2LDYgKzE0Nywx
+NiBAQAogCXN0cnVjdCBpcF9jb25udHJhY2tfcHJvdG9jb2wgKmlubmVycHJvdG87CiAJc3RydWN0
+IGlwX2Nvbm50cmFja190dXBsZV9oYXNoICpoOwogCWludCBkYXRhb2ZmOworI2lmZGVmIENPTkZJ
+R19JUF9ORl9DT05OVFJBQ0tfVkxBTgorCXN0cnVjdCB2bGFuX2V0aGhkciAqdmhkcjsKKwl1bnNp
+Z25lZCBzaG9ydCB2bGFuX1RDSSwgdmlkID0gODE5MjsKKworCXZoZHIgPSB2bGFuX2V0aF9oZHIo
+c2tiKTsKKwlpZiAodmhkciAmJiB2aGRyLT5oX3ZsYW5fcHJvdG8gPT0gX19jb25zdGFudF9odG9u
+cyhFVEhfUF84MDIxUSkpeworCQl2bGFuX1RDSSA9IG50b2hzKHZoZHItPmhfdmxhbl9UQ0kpOwor
+CQl2aWQgPSAodmxhbl9UQ0kgJiBWTEFOX1ZJRF9NQVNLKTsKKwl9CisjZW5kaWYKIAogCUlQX05G
+X0FTU0VSVChza2ItPm5mY3QgPT0gTlVMTCk7CiAKQEAgLTE2NCw3ICsxNzUsMTEgQEAKIAlpbm5l
+cnByb3RvID0gaXBfY29ubnRyYWNrX3Byb3RvX2ZpbmRfZ2V0KGluc2lkZS0+aXAucHJvdG9jb2wp
+OwogCWRhdGFvZmYgPSBza2ItPm5oLmlwaC0+aWhsKjQgKyBzaXplb2YoaW5zaWRlLT5pY21wKSAr
+IGluc2lkZS0+aXAuaWhsKjQ7CiAJLyogQXJlIHRoZXkgdGFsa2luZyBhYm91dCBvbmUgb2Ygb3Vy
+IGNvbm5lY3Rpb25zPyAqLworI2lmZGVmIENPTkZJR19JUF9ORl9DT05OVFJBQ0tfVkxBTgorCWlm
+ICghaXBfY3RfZ2V0X3R1cGxlKCZpbnNpZGUtPmlwLCBza2IsIGRhdGFvZmYsICZvcmlndHVwbGUs
+IGlubmVycHJvdG8sIHZpZCkpIHsKKyNlbHNlCiAJaWYgKCFpcF9jdF9nZXRfdHVwbGUoJmluc2lk
+ZS0+aXAsIHNrYiwgZGF0YW9mZiwgJm9yaWd0dXBsZSwgaW5uZXJwcm90bykpIHsKKyNlbmRpZgog
+CQlERUJVR1AoImljbXBfZXJyb3I6ICEgZ2V0X3R1cGxlIHA9JXUiLCBpbnNpZGUtPmlwLnByb3Rv
+Y29sKTsKIAkJaXBfY29ubnRyYWNrX3Byb3RvX3B1dChpbm5lcnByb3RvKTsKIAkJcmV0dXJuIC1O
+Rl9BQ0NFUFQ7Ci0tLSBsaW51eC0yLjYuMjAuMjEvbmV0L2lwdjQvbmV0ZmlsdGVyL2lwX25hdF9j
+b3JlLmMJMjAwOS0xMS0wMiAxMToyNjowNy4wMDAwMDAwMDAgLTA1MDAKKysrIGxpbnV4LTIuNi4y
+MC4yMS5tb2QvbmV0L2lwdjQvbmV0ZmlsdGVyL2lwX25hdF9jb3JlLmMJMjAwOS0xMS0wMiAxMToy
+Mzo1MC4wMDAwMDAwMDAgLTA1MDAKQEAgLTIzLDYgKzIzLDcgQEAKICNpbmNsdWRlIDxsaW51eC9p
+Y21wLmg+CiAjaW5jbHVkZSA8bGludXgvdWRwLmg+CiAjaW5jbHVkZSA8bGludXgvamhhc2guaD4K
+KyNpbmNsdWRlIDxsaW51eC9pZl92bGFuLmg+CiAKICNpbmNsdWRlIDxsaW51eC9uZXRmaWx0ZXJf
+aXB2NC9pcF9jb25udHJhY2suaD4KICNpbmNsdWRlIDxsaW51eC9uZXRmaWx0ZXJfaXB2NC9pcF9j
+b25udHJhY2tfY29yZS5oPgpAQCAtODIxLDYgKzgyMiwxNyBAQAogCXVuc2lnbmVkIGxvbmcgc3Rh
+dHVzYml0OwogCWVudW0gaXBfbmF0X21hbmlwX3R5cGUgbWFuaXAgPSBIT09LMk1BTklQKGhvb2tu
+dW0pOwogCisjaWZkZWYgQ09ORklHX0lQX05GX0NPTk5UUkFDS19WTEFOCisJc3RydWN0IHZsYW5f
+ZXRoaGRyICp2aGRyOworCXVuc2lnbmVkIHNob3J0IHZsYW5fVENJLCB2aWQgPSA4MTkyOworCisJ
+dmhkciA9IHZsYW5fZXRoX2hkcigqcHNrYik7CisJaWYgKHZoZHIgJiYgdmhkci0+aF92bGFuX3By
+b3RvID09IF9fY29uc3RhbnRfaHRvbnMoRVRIX1BfODAyMVEpKXsKKwkJdmxhbl9UQ0kgPSBudG9o
+cyh2aGRyLT5oX3ZsYW5fVENJKTsKKwkJdmlkID0gKHZsYW5fVENJICYgVkxBTl9WSURfTUFTSyk7
+CisJfQorI2VuZGlmCisKIAlpZiAoIXNrYl9tYWtlX3dyaXRhYmxlKHBza2IsIGhkcmxlbiArIHNp
+emVvZigqaW5zaWRlKSkpCiAJCXJldHVybiAwOwogCkBAIC04NTMsNyArODY1LDExIEBACiAJaWYg
+KCFpcF9jdF9nZXRfdHVwbGUoJmluc2lkZS0+aXAsICpwc2tiLCAoKnBza2IpLT5uaC5pcGgtPmlo
+bCo0ICsKIAkgICAgICAgICAgICAgICAgICAgICBzaXplb2Yoc3RydWN0IGljbXBoZHIpICsgaW5z
+aWRlLT5pcC5paGwqNCwKIAkgICAgICAgICAgICAgICAgICAgICAmaW5uZXIsCisjaWZkZWYgQ09O
+RklHX0lQX05GX0NPTk5UUkFDS19WTEFOCisJCQkgICAgIF9faXBfY29ubnRyYWNrX3Byb3RvX2Zp
+bmQoaW5zaWRlLT5pcC5wcm90b2NvbCksIHZpZCkpCisjZWxzZQogCQkJICAgICBfX2lwX2Nvbm50
+cmFja19wcm90b19maW5kKGluc2lkZS0+aXAucHJvdG9jb2wpKSkKKyNlbmRpZgogCQlyZXR1cm4g
+MDsKIAogCS8qIENoYW5nZSBpbm5lciBiYWNrIHRvIGxvb2sgbGlrZSBpbmNvbWluZyBwYWNrZXQu
+ICBXZSBkbyB0aGUK
+--001636ed677c9004e4047765e414--
