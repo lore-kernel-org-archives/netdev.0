@@ -1,79 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] ipv6: no more dev_put() in inet6_bind()
-Date: Mon, 02 Nov 2009 12:10:39 +0100
-Message-ID: <4AEEBE2F.4020005@gmail.com>
+From: Sergei Poselenov <sposelenov@emcraft.com>
+Subject: Re: Patch: Fix userland build failure in linux/if_tunnel.h
+Date: Mon, 2 Nov 2009 13:57:50 +0300
+Message-ID: <20091102135750.436a7b54@emcraft.com>
+References: <4AEDCBA6.7040206@dresearch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: sledz@dresearch.de, wd@denx.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Steffen Sledz <sledz@dresearch.de>,
+	Steffen Sledz <sledz@zone42.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:54314 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754065AbZKBLKh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 06:10:37 -0500
+Received: from ocean.emcraft.com ([213.221.7.182]:45430 "EHLO
+	ocean.emcraft.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754497AbZKBLQd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 06:16:33 -0500
+In-Reply-To: <4AEDCBA6.7040206@dresearch.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Avoids touching device refcount in inet6_bind(), thanks to RCU
+Hello Steffen,
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv6/af_inet6.c |   17 +++++++++--------
- 1 files changed, 9 insertions(+), 8 deletions(-)
+Hm, I received a confirmation, that my fix was applied
+http://www.spinics.net/lists/netdev/msg103860.html
 
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index b6d0588..9105b25 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -314,6 +314,7 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 		if (addr_type != IPV6_ADDR_ANY) {
- 			struct net_device *dev = NULL;
- 
-+			rcu_read_lock();
- 			if (addr_type & IPV6_ADDR_LINKLOCAL) {
- 				if (addr_len >= sizeof(struct sockaddr_in6) &&
- 				    addr->sin6_scope_id) {
-@@ -326,12 +327,12 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 				/* Binding to link-local address requires an interface */
- 				if (!sk->sk_bound_dev_if) {
- 					err = -EINVAL;
--					goto out;
-+					goto out_unlock;
- 				}
--				dev = dev_get_by_index(net, sk->sk_bound_dev_if);
-+				dev = dev_get_by_index_rcu(net, sk->sk_bound_dev_if);
- 				if (!dev) {
- 					err = -ENODEV;
--					goto out;
-+					goto out_unlock;
- 				}
- 			}
- 
-@@ -342,14 +343,11 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 			if (!(addr_type & IPV6_ADDR_MULTICAST))	{
- 				if (!ipv6_chk_addr(net, &addr->sin6_addr,
- 						   dev, 0)) {
--					if (dev)
--						dev_put(dev);
- 					err = -EADDRNOTAVAIL;
--					goto out;
-+					goto out_unlock;
- 				}
- 			}
--			if (dev)
--				dev_put(dev);
-+			rcu_read_unlock();
- 		}
- 	}
- 
-@@ -381,6 +379,9 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- out:
- 	release_sock(sk);
- 	return err;
-+out_unlock:
-+	rcu_read_unlock();
-+	goto out;
- }
- 
- EXPORT_SYMBOL(inet6_bind);
+However, it indeed didn't find their way into the mainline.
+I have no idea why, received no objections.
+
+I'm sending the reply to the resp. mailing lists too; hope you don't
+mind.
+
+Regards,
+Sergei
+
+On Sun, 01 Nov 2009 18:55:50 +0100
+Steffen Sledz <sledz@dresearch.de> wrote:
+
+> Hello Sergei,
+> 
+> i'm working for the OpenEmbedded project and we hit the same busybox
+> problem you mentioned in <http://patchwork.kernel.org/patch/31164/>.
+> 
+> It doesn't look like you got much feedback on you patch suggestion.
+> Did it made it's way to the kernel sources? Or where there any
+> objections on it?
+> 
+> Steffen
+
