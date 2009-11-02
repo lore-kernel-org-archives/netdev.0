@@ -1,32 +1,72 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [net-next-2.6 PATCH v4 2/3] TCPCT part 1b: sysctl_tcp_cookie_size,
- socket option TCP_COOKIE_TRANSACTIONS, functions
-Date: Mon, 02 Nov 2009 12:54:30 -0500
-Message-ID: <4AEF1CD6.5080006@gmail.com>
-References: <4AE6E529.706@gmail.com>	<4AEDDDF3.3070102@gmail.com>	<4AEEB842.1070705@gmail.com> <20091102.025150.73299764.davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH] cnic: ensure ulp_type is not negative
+Date: Mon, 2 Nov 2009 09:56:59 -0800
+Message-ID: <1257184619.31958.3.camel@HP1>
+References: <4AEF0E98.5050304@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f228.google.com ([209.85.219.228]:48795 "EHLO
-	mail-ew0-f228.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755588AbZKBRyb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 12:54:31 -0500
-Received: by ewy28 with SMTP id 28so5095030ewy.18
-        for <netdev@vger.kernel.org>; Mon, 02 Nov 2009 09:54:35 -0800 (PST)
-In-Reply-To: <20091102.025150.73299764.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>, davem@davemloft.net
+To: "Roel Kluin" <roel.kluin@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756327AbZKBSGf@vger.kernel.org>
+In-Reply-To: <4AEF0E98.5050304@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> Yes, it is a problem.
-> 
-> You can allocate the bit when you add the feature.
-> 
-Sadly, I've been having very bad luck in my choice of code base, and
-reviewing other similar code -- it seemed the common practice was to
-specify the interface completely (even those bits not yet used).
 
-I'll remove that line in the next pass.
+On Mon, 2009-11-02 at 08:53 -0800, Roel Kluin wrote:
+> `ulp_type' is signed, make sure it is not negative
+> when we read the array element.
+> 
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+
+Looks good to me.  Thanks.
+Acked-by: Michael Chan <mchan@broadcom.com>
+
+> ---
+>  drivers/net/cnic.c |    8 ++++----
+>  1 files changed, 4 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
+> index 3bf1b04..f384b0a 100644
+> --- a/drivers/net/cnic.c
+> +++ b/drivers/net/cnic.c
+> @@ -347,7 +347,7 @@ int cnic_register_driver(int ulp_type, struct cnic_ulp_ops *ulp_ops)
+>  {
+>  	struct cnic_dev *dev;
+>  
+> -	if (ulp_type >= MAX_CNIC_ULP_TYPE) {
+> +	if (ulp_type < 0 || ulp_type >= MAX_CNIC_ULP_TYPE) {
+>  		printk(KERN_ERR PFX "cnic_register_driver: Bad type %d\n",
+>  		       ulp_type);
+>  		return -EINVAL;
+> @@ -393,7 +393,7 @@ int cnic_unregister_driver(int ulp_type)
+>  	struct cnic_ulp_ops *ulp_ops;
+>  	int i = 0;
+>  
+> -	if (ulp_type >= MAX_CNIC_ULP_TYPE) {
+> +	if (ulp_type < 0 || ulp_type >= MAX_CNIC_ULP_TYPE) {
+>  		printk(KERN_ERR PFX "cnic_unregister_driver: Bad type %d\n",
+>  		       ulp_type);
+>  		return -EINVAL;
+> @@ -449,7 +449,7 @@ static int cnic_register_device(struct cnic_dev *dev, int ulp_type,
+>  	struct cnic_local *cp = dev->cnic_priv;
+>  	struct cnic_ulp_ops *ulp_ops;
+>  
+> -	if (ulp_type >= MAX_CNIC_ULP_TYPE) {
+> +	if (ulp_type < 0 || ulp_type >= MAX_CNIC_ULP_TYPE) {
+>  		printk(KERN_ERR PFX "cnic_register_device: Bad type %d\n",
+>  		       ulp_type);
+>  		return -EINVAL;
+> @@ -490,7 +490,7 @@ static int cnic_unregister_device(struct cnic_dev *dev, int ulp_type)
+>  	struct cnic_local *cp = dev->cnic_priv;
+>  	int i = 0;
+>  
+> -	if (ulp_type >= MAX_CNIC_ULP_TYPE) {
+> +	if (ulp_type < 0 || ulp_type >= MAX_CNIC_ULP_TYPE) {
+>  		printk(KERN_ERR PFX "cnic_unregister_device: Bad type %d\n",
+>  		       ulp_type);
+>  		return -EINVAL;
+> 
