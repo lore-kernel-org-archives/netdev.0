@@ -1,39 +1,37 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 1/3] sysfs directory scaling: rbtree for dirent name
-	lookups
-Date: Mon, 2 Nov 2009 19:50:58 -0800
-Message-ID: <20091103035058.GA19515@kroah.com>
-References: <20091101163130.GA7911@kvack.org>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: Subject: [PATCH 1/6] bna: Brocade 10Gb Ethernet device driver
+Date: Mon, 2 Nov 2009 19:34:28 -0800
+Message-ID: <20091103033428.GA19413@suse.de>
+References: <200911010503.nA153Elp019063@blc-10-10.brocade.com> <1257053039.1917.147.camel@Joe-Laptop.home> <20091101112553.1dc0e3a9@nehalam> <1B6CC3D5ACAB014C8BFB6CB1CBD62CADD2835E9830@HQ-EXCH-7.corp.brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Octavian Purdila <opurdila@ixiacom.com>,
-	netdev@vger.kernel.org, Cosmin Ratiu <cratiu@ixiacom.com>,
-	linux-kernel@vger.kernel.org
-To: Benjamin LaHaise <bcrl@lhnet.ca>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Joe Perches <joe@perches.com>, Rasesh Mody <rmody@brocade.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Adapter Linux Open SRC Team
+	<adapter_linux_open_src_team@Brocade.COM>
+To: Debashis Dutt <ddutt@Brocade.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:46080 "EHLO coco.kroah.org"
+Received: from cantor.suse.de ([195.135.220.2]:57795 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757862AbZKCD6O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Nov 2009 22:58:14 -0500
+	id S1757892AbZKCD6Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Nov 2009 22:58:16 -0500
 Content-Disposition: inline
-In-Reply-To: <20091101163130.GA7911@kvack.org>
+In-Reply-To: <1B6CC3D5ACAB014C8BFB6CB1CBD62CADD2835E9830@HQ-EXCH-7.corp.brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 01, 2009 at 11:31:30AM -0500, Benjamin LaHaise wrote:
-> Use an rbtree in sysfs_dirent to speed up file lookup times
+On Mon, Nov 02, 2009 at 07:14:20PM -0800, Debashis Dutt wrote:
+> Hi Stephen, 
 > 
-> Systems with large numbers (tens of thousands and more) of network 
-> interfaces stress the sysfs code in ways that make the linear search for 
-> a name match take far too long.  Avoid this by using an rbtree.
+> This driver is written explicitly for Linux and we are working on addressing your
+> comments.
+> 
+> Please let us know, if we need to look at some other areas.
 
-What kind of speedups are you seeing here?  And do these changes cause a
-memory increase due to the structure changes which outweigh the
-speedups?
-
-What kind of test are you doing to reproduce this?
+Do you want me to put it in the drivers/staging/ tree now so you will
+have a place to work on it in the kernel tree and others can use it as
+well?
 
 thanks,
 
