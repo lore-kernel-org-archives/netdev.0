@@ -1,53 +1,47 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] bnx2: avoid compiler warnings
-Date: Tue, 03 Nov 2009 10:17:42 +0100
-Message-ID: <4AEFF536.1020402@gmail.com>
+Subject: Re: [PATCH] net: Support specifying the network namespace upon device
+ creation.
+Date: Tue, 03 Nov 2009 10:28:27 +0100
+Message-ID: <4AEFF7BB.4090301@gmail.com>
+References: <m1eioggeux.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:37645 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:56052 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753840AbZKCJRm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 04:17:42 -0500
+	with ESMTP id S1754749AbZKCJ2Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 04:28:25 -0500
+In-Reply-To: <m1eioggeux.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-drivers/net/bnx2.c: In function =91bnx2_enable_forced_2g5=92:
-drivers/net/bnx2.c:1447: warning: =91bmcr=92 may be used uninitialized =
-in this function
-drivers/net/bnx2.c: In function =91bnx2_disable_forced_2g5=92:
-drivers/net/bnx2.c:1482: warning: =91bmcr=92 may be used uninitialized =
-in this function
+Eric W. Biederman a =E9crit :
+> There is no good reason to not support userspace specifying the
+> network namespace during device creation, and it makes it easier
+> to create a network device and pass it to a child network namespace
+> with a well known name.
+>=20
+> We have to be careful to ensure that the target network namespace
+> for the new device exists through the life of the call.  To keep
+> that logic clear I have factored out the network namespace grabbing
+> logic into rtnl_link_get_net.
+>=20
+> In addtion we need to continue to pass the source network namespace
+> to the rtnl_link_ops.newlink method so that we can find the base
+> device source network namespace.
+>=20
+> Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
 
-One fix would be to have an initial value, but a plain return might be =
-better.
+Very nice, with only one long line you could wrap differently.
+ =20
+> -static int ipgre_newlink(struct net_device *dev, struct nlattr *tb[]=
+,
+> +static int ipgre_newlink(struct net *src_net, struct net_device *dev=
+, struct nlattr *tb[],
+>  			 struct nlattr *data[])
+>  {
+>  	struct ip_tunnel *nt;
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 08cddb6..539d23b 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -1466,6 +1466,8 @@ bnx2_enable_forced_2g5(struct bnx2 *bp)
- 	} else if (CHIP_NUM(bp) =3D=3D CHIP_NUM_5708) {
- 		bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
- 		bmcr |=3D BCM5708S_BMCR_FORCE_2500;
-+	} else {
-+		return;
- 	}
-=20
- 	if (bp->autoneg & AUTONEG_SPEED) {
-@@ -1500,6 +1502,8 @@ bnx2_disable_forced_2g5(struct bnx2 *bp)
- 	} else if (CHIP_NUM(bp) =3D=3D CHIP_NUM_5708) {
- 		bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
- 		bmcr &=3D ~BCM5708S_BMCR_FORCE_2500;
-+	} else {
-+		return;
- 	}
-=20
- 	if (bp->autoneg & AUTONEG_SPEED)
