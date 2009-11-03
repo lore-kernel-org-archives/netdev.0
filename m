@@ -1,163 +1,151 @@
 From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-Subject: [announce] new rt2800 drivers for Ralink wireless & project tree
-Date: Tue, 3 Nov 2009 19:51:05 +0100
-Message-ID: <200911031951.05235.bzolnier@gmail.com>
+Subject: Re: pull request: wireless-next-2.6 2009-10-28
+Date: Tue, 3 Nov 2009 20:59:23 +0100
+Message-ID: <200911032059.23409.bzolnier@gmail.com>
+References: <1256886023.3555.5.camel@johannes.local> <4AEF1894.2010809@xenotime.net> <200911021943.12069.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
-  charset="us-ascii"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ivo van Doorn <ivdoorn@gmail.com>,
-	Randy Dunlap <rdunlap@xenotime.net>,
+Cc: netdev@vger.kernel.org, Randy Dunlap <rdunlap@xenotime.net>,
 	Luis Correia <luis.f.correia@gmail.com>,
 	"John W. Linville" <linville@tuxdriver.com>,
 	Ingo Molnar <mingo@elte.hu>,
 	Johannes Berg <johannes@sipsolutions.net>,
 	Jarek Poplawski <jarkao2@gmail.com>,
 	Pekka Enberg <penberg@cs.helsinki.fi>,
-	David Miller <davem@davemloft.net>
-To: linux-wireless@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755108AbZKCUBp@vger.kernel.org>
+	David Miller <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Ivo van Doorn <ivdoorn@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755332AbZKCUBy@vger.kernel.org>
+In-Reply-To: <200911021943.12069.IvDoorn@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Monday 02 November 2009 19:43:10 Ivo van Doorn wrote:
+> Well and then another rt2x00 developer discovered this nice little
+> fight about rt2x00 on the mailinglists...
+> 
+> First for the record, because at the start people where talking about the
+> maintainership of rt2x00, one thing needs to be straight:
+> 
+> As mentioned in the MAINTAINERS file, the rt2x00 project is listed as maintainer
+> for the rt2x00 drivers. The rt2x00 drivers include _all_ drivers in the
+> drivers/net/wireless/rt2x00 folder.
+> 
+> At this time I am hold the position within the rt2x00 team which is making the
+> decisions about the rt2x00 code and design.
 
-Hi,
+rt2x00 doesn't "own" Linux Ralink support, ditto for rt2800 drivers.
 
-The following patch series (against wireless-next) addresses issues raised
-during code review and subsequently rejected by rt2x00/wireless/networking
-maintainers.
+This is not how things work here, sorry.
 
+> I am also the one that is (N)Acks the patches from others when they are send
+> to the rt2x00-users or linux-wireless mailinglist.
 
-Namely, it:
+If you are not willing to stand behind your own patches, how do you expect
+others to trust your judgment?
 
-- Adds abstraction of chipset register access for chipsets connected to
-  different buses by using new structure (struct rt2800_ops) which contains
-  all needed register access methods.
+> As for my behavior in discussions:
+> 
+> I am doing my best to listen to all complains regarding the rt2x00 code and design and
+> improve it if the complainer has a valid point. However, obviously I can disagree with
+> the complainer and in that case I will explain to that person _why_ I disagree. It is up
+> to the complainer to convince me that he is right, agree with my response, or whine.
+> 
+> Now as for more specific responses:
+> 
+> On Thursday 29 October 2009, Bartlomiej Zolnierkiewicz wrote:
+> > rt2800 drivers have their maintainers and I would like to know what they
+> > are doing besides complaining about users and staging tree..
+> 
+> Working for Avanade, Zarafa and as freelancer for Linux Magazine.
+> But I guess you mean rt2x00 specific work?
+> Well that list consists of:
+>  - Listening to people complain
+>  - Responding to those people, because otherwise they complain that they are being ignored.
+>  - Following bug reports, and request testing or additional information if required
+>  - Bugfixing
+>  - Reviewing patches from contributors
+>  - Applying patches from contributors
+>  - Discussing improvements over patches from contributors
+> 
+> Well nothing of this list should be new to you, but apparently you needed some confirmation.
 
-  [ It is a prerequisite for fixing code duplication between rt2800usb.c
-    and rt2800pci.c drivers. ]
+I meant rt2800 support specifically, sorry if this was not clear.
 
-- Fixes code duplication in rt2800usb.h and rt2800pci.h header files by
-  using new shared rt2800.h header (almost 1800 LOC gone).
+The work on rt2800 drivers was started in the beginning of 2008 and after
+few months you were already behind deadlines that you had set yourself:
 
-  Updated debugging scripts are located here:
+	http://markmail.org/message/a753dws6tqytb3a4
 
-      http://www.kernel.org/pub/linux/kernel/people/bart/rt2800/scripts/
+During almost two years rt2x00 project didn't manage to produce working
+support for rt2800..  in the meantime the world has moved on and we have
+another chipset generation (rt30x0) to worry about, and also rt33xx one
+on the horizon..
 
-  (they also work fine with older drivers)
+> On Thursday 29 October 2009, Johannes Berg wrote:
+> > On Thu, 2009-10-29 at 07:20 -0700, David Miller wrote:
+> > 
+> > > In case you're concerned, I actually agree with John and others
+> > > on this issue, and disagree with your position.
+> > 
+> > In this particular case, I think it makes more sense to duplicate the
+> > code _especially_ because it's not working yet. That frees people
+> > hacking on it of having to worry about breaking other devices.
+> 
+> Thank you Johannes, that is exactly what I was trying to tell Bartlomiej
+> in the previous discussion.
 
-- Adds rt2800 library containing common code for PCI and USB versions
-  of rt2800 chipsets.  This removes over 1300 LOC and allows us to save
-  a lot of maintenance burden in the future. 
+Nope, it just adds needles development/maintenance burden since it will
+make people lose fixes already applied to the working code, please see my
+other mail.
 
+> On Wednesday 28 October 2009, Bartlomiej Zolnierkiewicz wrote:
+> > I find it rather disappointing that all my review comments regarding
+> > rt2800pci support were just completely ignored and then the initial
+> > patch was merged just as it was..
+> 
+> Your code review comments were commented upon with my reasons
+> why this code duplication exists. I even admitted that when the time is
+> ready I will remove the code duplication.
 
-It also fixes two real bugs (one in rt2800pci and one in rt2800usb) found
-as a direct result of the code de-duplication:
+The right time was two years ago when you were starting working on those
+drivers.  IOW It shouldn't have happened in the first place.
 
-- Fix rt2800usb driver to write the rfcsr read request into RF_CSR_CFG
-  register and not BBP_CSR_CFG one in rt2800usb_rfcsr_read().
+I also have serious questions about transparency of the process and cannot
+understand why it takes so long for the code to be pushed upstream.
 
-- Use the correct encryption key index for TX frames in rt2800pci (this is
-  based on rt2800usb patch from Benoit PAPILLAULT already in Linus' tree,
-  unfortunately the fix was not ported over to rt2800pci).
+commit 1761631 -- obvious bugfix and I'm pretty sure I've seen it in rt2x00
+tree back in September (you're re-basing rt2x00 tree at random moments so it
+is impossible to track the status of patches that you are handling).
 
-  [ There are also some minor code rt2x00 infrastructure fixes and improvements
-     here and there... ]
+rt2800pci patch itself has been getting dust in your tree since at least
+April (it hasn't received any bigger updates since then)..
 
+> On Thursday 29 October 2009, Bartlomiej Zolnierkiewicz wrote:
+> > Quite the contrary, I'm pretty confident that addressing my review concerns
+> > would result in better RT28x00 / RT30x0 support in the very near future.
+> 
+> The review concerns regarding the duplicate code would only reduce the
+> amount of code. It would not magically fix bugs (at least the chance of that
+> would be quite small).
 
-All in all over 3100 LOC are gone and rt2800pci specific code is:
+Please see my other mail.
 
- 1685 drivers/net/wireless/rt2x00/rt2800pci.c
-  180 drivers/net/wireless/rt2x00/rt2800pci.h
- 1865 total
+> So far rt2800usb performs better then rt2800pci, and the difference gets
+> only bigger when I use the exact same register initialization from rt2800usb
+> in rt2800pci.
+> 
+> But Bartjmoiej knows that the register initialization can be exactly the same,
+> from his experience with the staging drivers.
+> So far hasn't been interested in sharing the knowledge in what must be
+> changed in rt2800pci/usb to make them both work with the same register
+> initialization.
 
-instead of:
+The knowledge is all in your local copy of linux-next (I don't memorize
+things like chipset initialization sequences) and in the review comments
+that you have happily dismissed.
 
-  3323 drivers/net/wireless/rt2x00/rt2800pci.c
-  1960 drivers/net/wireless/rt2x00/rt2800pci.h
-  5283 total
-
-  (wireless-next and net-next trees)
-
-which means decrease of the code needed for rt2800pci by 65% (this in turn
-translates to 31% decrease for rt2800 specific code and 9% for whole rt2x00
-infrastructure).
-
-The rewrite was quite conservative and there is still a room for improvement
-but it should serve as a good starting base for all future work on rt2800
-drivers, and there is a lot to do there (both drivers are still practically
-non-functional).
-
-Comments and patches are welcomed.
-
-
-The following changes since commit fa867e7355a1bdcd9bf7d55ebe9296f5b9c4028a:
-  Juuso Oikarinen (1):
-        wl1271: Generalize command response reading
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/bart/misc.git rt2800
-
-Bartlomiej Zolnierkiewicz (40):
-      rt2800usb: fix rt2800usb_rfcsr_read()
-      rt2800pci: fix crypto in TX frame
-      rt2800pci: fix comment about register access
-      rt2800pci: fix comment about IV/EIV fields
-      rt2x00: fix rt2x00usb_register_read() comment
-      rt2800usb: use rt2x00usb_register_multiwrite() to set key entries
-      rt2800usb: add rt2800_register_[read,write]() wrappers
-      rt2800pci: add rt2800_register_[read,write]() wrappers
-      rt2800usb: add rt2800_register_multi[read,write]() wrappers
-      rt2800pci: add rt2800_register_multi[read,write]() wrappers
-      rt2800usb: add rt2800_regbusy_read() wrapper
-      rt2800pci: add rt2800_regbusy_read() wrapper
-      rt2800usb: add rt2800_bbp_[read,write]() wrappers
-      rt2800pci: add rt2800_bbp_[read,write]() wrappers
-      rt2800usb: add rt2800_rfcsr_[read,write]() wrappers
-      rt2800pci: add rt2800_rfcsr_[read,write]() wrappers
-      rt2800usb: add rt2800_rf_[read,write]() wrappers
-      rt2800pci: add rt2800_rf_[read,write]() wrappers
-      rt2800usb: add rt2800_mcu_request() wrapper
-      rt2800pci: add rt2800_mcu_request() wrapper
-      rt2x00: add driver private field to struct rt2x00_dev
-      rt2800usb: convert to use struct rt2800_ops methods
-      rt2800pci: convert to use struct rt2800_ops methods
-      rt2x00: fix rt2x00usb_register_multiwrite() arguments
-      rt2x00: fix rt2x00usb_regbusy_read() arguments
-      rt2x00: fix rt2x00pci_register_multi[read,write]() arguments
-      rt2800: add rt2800lib.h
-      rt2800usb: fix comments in rt2800usb.h
-      rt2800usb: add RXINFO_DESC_SIZE definition
-      rt2800: fix duplication in header files
-      rt2800: fix comments in rt2800.h
-      rt2x00: add support for different chipset interfaces
-      rt2800: prepare for rt2800lib addition
-      rt2800: add rt2800lib (part one)
-      rt2x00: remove needless ifdefs from rt2x00leds.h
-      rt2800: add rt2800lib (part two)
-      rt2x00: move REGISTER_BUSY_* definitions to rt2x00.h
-      rt2800: add rt2800lib (part three)
-      rt2800: add rt2800lib (part four)
-      MAINTAINERS: add rt2800 entry
-
- MAINTAINERS                              |    7 +
- drivers/net/wireless/rt2x00/Kconfig      |    5 +
- drivers/net/wireless/rt2x00/Makefile     |    1 +
- drivers/net/wireless/rt2x00/rt2800.h     | 1816 ++++++++++++++++++++++++++++
- drivers/net/wireless/rt2x00/rt2800lib.c  | 1817 ++++++++++++++++++++++++++++
- drivers/net/wireless/rt2x00/rt2800lib.h  |  134 +++
- drivers/net/wireless/rt2x00/rt2800pci.c  | 1908 +++---------------------------
- drivers/net/wireless/rt2x00/rt2800pci.h  | 1780 ----------------------------
- drivers/net/wireless/rt2x00/rt2800usb.c  | 1828 ++---------------------------
- drivers/net/wireless/rt2x00/rt2800usb.h  | 1818 +----------------------------
- drivers/net/wireless/rt2x00/rt2x00.h     |   33 +
- drivers/net/wireless/rt2x00/rt2x00leds.h |    4 -
- drivers/net/wireless/rt2x00/rt2x00pci.h  |   24 +-
- drivers/net/wireless/rt2x00/rt2x00usb.c  |    2 +-
- drivers/net/wireless/rt2x00/rt2x00usb.h  |   17 +-
- 15 files changed, 4036 insertions(+), 7158 deletions(-)
- create mode 100644 drivers/net/wireless/rt2x00/rt2800.h
- create mode 100644 drivers/net/wireless/rt2x00/rt2800lib.c
- create mode 100644 drivers/net/wireless/rt2x00/rt2800lib.h
+-- 
+Bartlomiej Zolnierkiewicz
