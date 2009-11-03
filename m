@@ -1,69 +1,82 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 12/20] broadcom: Fix slow link problem
-Date: Mon, 2 Nov 2009 16:28:33 -0800
-Message-ID: <1257212002.22016@xw6200>
+Subject: [PATCH 14/20] broadcom: Consolidate dev_flags definitions
+Date: Mon, 2 Nov 2009 16:30:00 -0800
+Message-ID: <1257212004.22022@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3429 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1378 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757619AbZKCBd3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Nov 2009 20:33:29 -0500
+	id S1757604AbZKCBdb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Nov 2009 20:33:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When a 50610 or 50610M is paired against particular remote partners,
-link is slow to come up.  This patch works around the problem.
+This patch moves all the dev_flags enumerations outside the broadcom.c
+file to include/linux/brcmphy.h.  The existing flags were not used yet
+and have been re-enumerated to avoid conflicts.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/phy/broadcom.c |   22 ++++++++++++++--------
- 1 files changed, 14 insertions(+), 8 deletions(-)
+ drivers/net/phy/broadcom.c |   11 +----------
+ include/linux/brcmphy.h    |   17 +++++++++++------
+ 2 files changed, 12 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
-index 9e574ce..1a2b2f2 100644
+index 1a2b2f2..ace0ccc 100644
 --- a/drivers/net/phy/broadcom.c
 +++ b/drivers/net/phy/broadcom.c
-@@ -242,12 +242,6 @@ static int bcm50610_a0_workaround(struct phy_device *phydev)
- {
- 	int err;
+@@ -16,6 +16,7 @@
  
--	err = bcm54xx_exp_write(phydev, MII_BCM54XX_EXP_EXP08,
--				MII_BCM54XX_EXP_EXP08_RJCT_2MHZ	|
--				MII_BCM54XX_EXP_EXP08_EARLY_DAC_WAKE);
--	if (err < 0)
--		return err;
+ #include <linux/module.h>
+ #include <linux/phy.h>
++#include <linux/brcmphy.h>
+ 
+ #define PHY_ID_BCM50610		0x0143bd60
+ #define PHY_ID_BCM50610M	0x0143bd70
+@@ -138,16 +139,6 @@
+ #define BCM5482_SSD_SGMII_SLAVE_EN	0x0002	/* Slave mode enable */
+ #define BCM5482_SSD_SGMII_SLAVE_AD	0x0001	/* Slave auto-detection */
+ 
+-/*
+- * Device flags for PHYs that can be configured for different operating
+- * modes.
+- */
+-#define PHY_BCM_FLAGS_VALID		0x80000000
+-#define PHY_BCM_FLAGS_INTF_XAUI		0x00000020
+-#define PHY_BCM_FLAGS_INTF_SGMII	0x00000010
+-#define PHY_BCM_FLAGS_MODE_1000BX	0x00000002
+-#define PHY_BCM_FLAGS_MODE_COPPER	0x00000001
 -
- 	err = bcm54xx_exp_write(phydev, MII_BCM54XX_EXP_AADJ1CH0,
- 				MII_BCM54XX_EXP_AADJ1CH0_SWP_ABCD_OEN |
- 				MII_BCM54XX_EXP_AADJ1CH0_SWSEL_THPF);
-@@ -287,8 +281,20 @@ static int bcm54xx_phydsp_config(struct phy_device *phydev)
- 	if (err < 0)
- 		return err;
  
--	if (phydev->drv->phy_id == PHY_ID_BCM50610)
--		err = bcm50610_a0_workaround(phydev);
-+	if (BRCM_PHY_MODEL(phydev) == PHY_ID_BCM50610 ||
-+	    BRCM_PHY_MODEL(phydev) == PHY_ID_BCM50610M) {
-+		/* Clear bit 9 to fix a phy interop issue. */
-+		err = bcm54xx_exp_write(phydev, MII_BCM54XX_EXP_EXP08,
-+					MII_BCM54XX_EXP_EXP08_RJCT_2MHZ);
-+		if (err < 0)
-+			goto error;
-+
-+		if (phydev->drv->phy_id == PHY_ID_BCM50610) {
-+			err = bcm50610_a0_workaround(phydev);
-+			if (err < 0)
-+				goto error;
-+		}
-+	}
- 
- 	if (BRCM_PHY_MODEL(phydev) == PHY_ID_BCM57780) {
- 		int val;
+ /*****************************************************************************/
+ /* Fast Ethernet Transceiver definitions. */
+diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
+index 9b64b6d..daa1480 100644
+--- a/include/linux/brcmphy.h
++++ b/include/linux/brcmphy.h
+@@ -1,6 +1,11 @@
+-#define PHY_BRCM_WIRESPEED_ENABLE	0x00000001
+-#define PHY_BRCM_AUTO_PWRDWN_ENABLE	0x00000002
+-#define PHY_BRCM_APD_CLK125_ENABLE	0x00000004
+-#define PHY_BRCM_STD_IBND_DISABLE	0x00000008
+-#define PHY_BRCM_EXT_IBND_RX_ENABLE	0x00000010
+-#define PHY_BRCM_EXT_IBND_TX_ENABLE	0x00000020
++#define PHY_BCM_FLAGS_MODE_COPPER	0x00000001
++#define PHY_BCM_FLAGS_MODE_1000BX	0x00000002
++#define PHY_BCM_FLAGS_INTF_SGMII	0x00000010
++#define PHY_BCM_FLAGS_INTF_XAUI		0x00000020
++#define PHY_BRCM_WIRESPEED_ENABLE	0x00000100
++#define PHY_BRCM_AUTO_PWRDWN_ENABLE	0x00000200
++#define PHY_BRCM_APD_CLK125_ENABLE	0x00000400
++#define PHY_BRCM_STD_IBND_DISABLE	0x00000800
++#define PHY_BRCM_EXT_IBND_RX_ENABLE	0x00001000
++#define PHY_BRCM_EXT_IBND_TX_ENABLE	0x00002000
++#define PHY_BCM_FLAGS_VALID		0x80000000
 -- 
 1.6.4.4
 
