@@ -1,44 +1,38 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: [PATCH] usbnet: Do not implement ethtool get_link() if link state is unknown
-Date: Tue, 3 Nov 2009 02:41:27 -0700
-Message-ID: <200911030141.27905.david-b@pacbell.net>
-References: <1257218818.3136.440.camel@localhost> <200911022201.30950.david-b@pacbell.net> <20091103.010129.100672838.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] net: Support specifying the network namespace upon device creation.
+Date: Tue, 03 Nov 2009 01:50:23 -0800
+Message-ID: <m1ws28ey3k.fsf@fess.ebiederm.org>
+References: <m1eioggeux.fsf@fess.ebiederm.org> <4AEFF7BB.4090301@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, greg@kroah.com, jacmet@sunsite.dk,
-	steve.glendinning@smsc.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp102.sbc.mail.gq1.yahoo.com ([67.195.15.61]:23828 "HELO
-	smtp102.sbc.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755580AbZKCJsE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 04:48:04 -0500
-In-Reply-To: <20091103.010129.100672838.davem@davemloft.net>
-Content-Disposition: inline
+Received: from out01.mta.xmission.com ([166.70.13.231]:54766 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754547AbZKCJuW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 04:50:22 -0500
+In-Reply-To: <4AEFF7BB.4090301@gmail.com> (Eric Dumazet's message of "Tue\, 03 Nov 2009 10\:28\:27 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 03 November 2009, David Miller wrote:
-> > Having two tables for this is needlessly ugly.
-> 
-> Yes, it's really cruddy how the USB network driver tries to share
-> so much state amongst such very different devices :-)
+Eric Dumazet <eric.dumazet@gmail.com> writes:
+>
+> Very nice, with only one long line you could wrap differently.
 
-That framework just grew ... started out as one driver,
-nearly ten years back (yow!!), then generalized.  Folk
-seemed to appreciate not reinventing some stuff.  ;)
+Say again?  Was that very nice with respect to the rest of the patch?
+Or sarcasm because I overlooked this wrap at 80 columns
+opportunity in ipgre?
 
-If it had started out with this many devices, it might have
-looked more like a library.  Sharing code implies sharing
-at least some state representations; the balance could might
-be worth shifting by now.
-
-
-> All kidding aside, I think the alternative is for the USB network
-> driver to call ethtool_op_get_link() if it cannot determine the
-> link state in hardware.
-
-There's usbnet_get_link() which does just that.  But
-there may be some ancient debris confusing things.
+Eric
+>   
+>> -static int ipgre_newlink(struct net_device *dev, struct nlattr *tb[],
+>> +static int ipgre_newlink(struct net *src_net, struct net_device *dev, struct nlattr *tb[],
+>>  			 struct nlattr *data[])
+>>  {
+>>  	struct ip_tunnel *nt;
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
