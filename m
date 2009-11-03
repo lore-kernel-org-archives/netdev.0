@@ -1,77 +1,163 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 08/20] tg3: Add AC131 power down support
-Date: Mon, 2 Nov 2009 16:26:38 -0800
-Message-ID: <1257211997.22004@xw6200>
+Subject: [PATCH 17/20] tg3 / broadcom: Add code to disable rxc refclk
+Date: Mon, 2 Nov 2009 16:31:39 -0800
+Message-ID: <1257212008.22031@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1278 "EHLO MMS3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:3428 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757596AbZKCBd0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Nov 2009 20:33:26 -0500
+	id S1757621AbZKCBdf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Nov 2009 20:33:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The AC131 does not respect the power down bit (bit 11) of the MII
-Control Register (reg 0x0).  Instead, software is required to put the
-phy into standby power down mode through the shadow register set.  This
-patch implements support for the AC131 standby power down mode.
+The 5785 does not use the RXC reference clock.  Turning it off is
+desirable as it saves power.
+
+By default, the 50610 enables the RXC reference clock and the 50610M
+disables it.  Presumably this is one of the reasons why the hardware
+architect chose one over the other.
+
+Adding a "rx reference clock disable" flag is not the ideal way to
+describe the option, as it would force the MAC using a 50610M to set
+the flag.  Ideally we want the flags to represent opt-in behavior that
+deviates from hardware defaults.  Furthermore, the lack of a
+"disable" flag implies that the requester wants the rx reference clock
+enabled, which doesn't necessarily follow.
+
+By presenting the option as a passive statement (rx reference clock
+unused) rather than a command, I hope to convey an opt-in option to
+disable the rx reference clock that falls back to hardware defaults if
+not set.  A secondary benefit of this is that it keeps the
+intelligence about phy defaults in the broadcom module where it belongs
+and allows the broadcom module more latitude should a bug arise.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   20 ++++++++++++++++++++
- drivers/net/tg3.h |    3 +++
- 2 files changed, 23 insertions(+), 0 deletions(-)
+ drivers/net/phy/broadcom.c |   43 +++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/tg3.c          |    3 ++-
+ include/linux/brcmphy.h    |    2 +-
+ 3 files changed, 46 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+index bddf4a4..7491433 100644
+--- a/drivers/net/phy/broadcom.c
++++ b/drivers/net/phy/broadcom.c
+@@ -25,6 +25,9 @@
+ #define BRCM_PHY_MODEL(phydev) \
+ 	((phydev)->drv->phy_id & (phydev)->drv->phy_id_mask)
+ 
++#define BRCM_PHY_REV(phydev) \
++	((phydev)->drv->phy_id & ~((phydev)->drv->phy_id_mask))
++
+ 
+ #define MII_BCM54XX_ECR		0x10	/* BCM54xx extended control register */
+ #define MII_BCM54XX_ECR_IM	0x1000	/* Interrupt mask */
+@@ -95,11 +98,16 @@
+ #define BCM_LED_SRC_OFF		0xe	/* Tied high */
+ #define BCM_LED_SRC_ON		0xf	/* Tied low */
+ 
++
+ /*
+  * BCM5482: Shadow registers
+  * Shadow values go into bits [14:10] of register 0x1c to select a shadow
+  * register to access.
+  */
++/* 00101: Spare Control Register 3 */
++#define BCM54XX_SHD_SCR3		0x05
++#define  BCM54XX_SHD_SCR3_DEF_CLK125	0x0001
++
+ #define BCM5482_SHD_LEDS1	0x0d	/* 01101: LED Selector 1 */
+ 					/* LED3 / ~LINKSPD[2] selector */
+ #define BCM5482_SHD_LEDS1_LED3(src)	((src & 0xf) << 4)
+@@ -112,6 +120,7 @@
+ #define BCM5482_SHD_MODE	0x1f	/* 11111: Mode Control Register */
+ #define BCM5482_SHD_MODE_1000BX	0x0001	/* Enable 1000BASE-X registers */
+ 
++
+ /*
+  * EXPANSION SHADOW ACCESS REGISTERS.  (PHY REG 0x15, 0x16, and 0x17)
+  */
+@@ -309,6 +318,37 @@ error:
+ 	return err ? err : err2;
+ }
+ 
++static void bcm54xx_adjust_rxrefclk(struct phy_device *phydev)
++{
++	u32 val, orig;
++
++	/* Abort if we are using an untested phy. */
++	if (BRCM_PHY_MODEL(phydev) != PHY_ID_BCM50610 ||
++	    BRCM_PHY_MODEL(phydev) != PHY_ID_BCM50610M)
++		return;
++
++	val = bcm54xx_shadow_read(phydev, BCM54XX_SHD_SCR3);
++	if (val < 0)
++		return;
++
++	orig = val;
++
++	if (phydev->dev_flags & PHY_BRCM_RX_REFCLK_UNUSED) {
++		if ((BRCM_PHY_MODEL(phydev) == PHY_ID_BCM50610 ||
++		     BRCM_PHY_MODEL(phydev) == PHY_ID_BCM50610M) &&
++		    BRCM_PHY_REV(phydev) >= 0x3) {
++			/* Here, bit 0 _disables_ CLK125 when set */
++			val |= BCM54XX_SHD_SCR3_DEF_CLK125;
++		} else {
++			/* Here, bit 0 _enables_ CLK125 when set */
++			val &= ~BCM54XX_SHD_SCR3_DEF_CLK125;
++		}
++	}
++
++	if (orig != val)
++		bcm54xx_shadow_write(phydev, BCM54XX_SHD_SCR3, val);
++}
++
+ static int bcm54xx_config_init(struct phy_device *phydev)
+ {
+ 	int reg, err;
+@@ -336,6 +376,9 @@ static int bcm54xx_config_init(struct phy_device *phydev)
+ 	    (phydev->dev_flags & PHY_BRCM_CLEAR_RGMII_MODE))
+ 		bcm54xx_shadow_write(phydev, BCM54XX_SHD_RGMII_MODE, 0);
+ 
++	if (phydev->dev_flags & PHY_BRCM_RX_REFCLK_UNUSED)
++		bcm54xx_adjust_rxrefclk(phydev);
++
+ 	bcm54xx_phydsp_config(phydev);
+ 
+ 	return 0;
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index a43ef2b..003ab53 100644
+index 592b5bf..369ddba 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -2149,6 +2149,26 @@ static void tg3_power_down_phy(struct tg3 *tp, bool do_low_power)
- 		tw32_f(GRC_MISC_CFG, val | GRC_MISC_CFG_EPHY_IDDQ);
- 		udelay(40);
- 		return;
-+	} else if (tp->tg3_flags3 & TG3_FLG3_PHY_IS_FET) {
-+		u32 phytest;
-+		if (!tg3_readphy(tp, MII_TG3_FET_TEST, &phytest)) {
-+			u32 phy;
-+
-+			tg3_writephy(tp, MII_ADVERTISE, 0);
-+			tg3_writephy(tp, MII_BMCR,
-+				     BMCR_ANENABLE | BMCR_ANRESTART);
-+
-+			tg3_writephy(tp, MII_TG3_FET_TEST,
-+				     phytest | MII_TG3_FET_SHADOW_EN);
-+			if (!tg3_readphy(tp, MII_TG3_FET_SHDW_AUXMODE4, &phy)) {
-+				phy |= MII_TG3_FET_SHDW_AUXMODE4_SBPD;
-+				tg3_writephy(tp,
-+					     MII_TG3_FET_SHDW_AUXMODE4,
-+					     phy);
-+			}
-+			tg3_writephy(tp, MII_TG3_FET_TEST, phytest);
-+		}
-+		return;
- 	} else if (do_low_power) {
- 		tg3_writephy(tp, MII_TG3_EXT_CTRL,
- 			     MII_TG3_EXT_CTRL_FORCE_LED_OFF);
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 68431da..9999345 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -2080,6 +2080,9 @@
- #define MII_TG3_FET_SHDW_MISCCTRL	0x10
- #define  MII_TG3_FET_SHDW_MISCCTRL_MDIX	0x4000
- 
-+#define MII_TG3_FET_SHDW_AUXMODE4	0x1a
-+#define MII_TG3_FET_SHDW_AUXMODE4_SBPD	0x0008
-+
- #define MII_TG3_FET_SHDW_AUXSTAT2	0x1b
- #define  MII_TG3_FET_SHDW_AUXSTAT2_APD	0x0020
- 
+@@ -1100,7 +1100,8 @@ static int tg3_mdio_init(struct tg3 *tp)
+ 		break;
+ 	case TG3_PHY_ID_BCM50610:
+ 	case TG3_PHY_ID_BCM50610M:
+-		phydev->dev_flags |= PHY_BRCM_CLEAR_RGMII_MODE;
++		phydev->dev_flags |= PHY_BRCM_CLEAR_RGMII_MODE |
++				     PHY_BRCM_RX_REFCLK_UNUSED;
+ 		if (tp->tg3_flags3 & TG3_FLG3_RGMII_STD_IBND_DISABLE)
+ 			phydev->dev_flags |= PHY_BRCM_STD_IBND_DISABLE;
+ 		if (tp->tg3_flags3 & TG3_FLG3_RGMII_EXT_IBND_RX_EN)
+diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
+index 6e7ffce..5943227 100644
+--- a/include/linux/brcmphy.h
++++ b/include/linux/brcmphy.h
+@@ -4,7 +4,7 @@
+ #define PHY_BCM_FLAGS_INTF_XAUI		0x00000020
+ #define PHY_BRCM_WIRESPEED_ENABLE	0x00000100
+ #define PHY_BRCM_AUTO_PWRDWN_ENABLE	0x00000200
+-#define PHY_BRCM_APD_CLK125_ENABLE	0x00000400
++#define PHY_BRCM_RX_REFCLK_UNUSED	0x00000400
+ #define PHY_BRCM_STD_IBND_DISABLE	0x00000800
+ #define PHY_BRCM_EXT_IBND_RX_ENABLE	0x00001000
+ #define PHY_BRCM_EXT_IBND_TX_ENABLE	0x00002000
 -- 
 1.6.4.4
 
