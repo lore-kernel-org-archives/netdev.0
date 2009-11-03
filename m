@@ -1,222 +1,269 @@
-From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-Subject: Re: [announce] new rt2800 drivers for Ralink wireless & project tree
-Date: Tue, 3 Nov 2009 23:34:40 +0100
-Message-ID: <200911032334.40547.bzolnier@gmail.com>
-References: <200911031951.05235.bzolnier@gmail.com> <200911032244.11946.bzolnier@gmail.com> <200911032301.32907.IvDoorn@gmail.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [net-next-2.6 PATCH RFC] TCPCT part 1d: generate Responder Cookie
+Date: Tue, 03 Nov 2009 17:38:10 -0500
+Message-ID: <4AF0B0D2.4030905@gmail.com>
+References: <4AEAC763.4070200@gmail.com> <4AED86AD.6010906@gmail.com> <4AEDCD7C.2010403@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Randy Dunlap <rdunlap@xenotime.net>,
-	Luis Correia <luis.f.correia@gmail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	David Miller <davem@davemloft.net>
-To: Ivo van Doorn <ivdoorn@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754624AbZKCWfv@vger.kernel.org>
-In-Reply-To: <200911032301.32907.IvDoorn@gmail.com>
+Content-Type: multipart/mixed;
+ boundary="------------060704040403000705010805"
+Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755290AbZKCWiP@vger.kernel.org>
+In-Reply-To: <4AEDCD7C.2010403@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 03 November 2009 23:01:32 Ivo van Doorn wrote:
-> > > > The following patch series (against wireless-next) addresses issues raised
-> > > > during code review and subsequently rejected by rt2x00/wireless/networking
-> > > > maintainers.
-> > > 
-> > > Really stop reading only the half of emails, try reading it entirely (or at least don't
-> > > stop at the second word in a sentence). It really starts the bug me to repeat
-> > > myself over and over again because you refuse to read.
-> > > 
-> > > Your comments during code review were ACCEPTED with the only remark that
-> > > it shouldn't be done right here and now.
-> > 
-> > Please stop this bullshit.  We have some standards for the upstream code
-> > and by being maintainer you have to live up to this standards and make sure
-> > that they are respected instead of watering them down yourself..
-> > 
-> > You were not interested even in fixing the headers duplication (it turned
-> > out debugging scripts needed only 25 lines of code to be able to work with
-> > fixed headers -- 25 LOC in bash scripts used only for debugging instead
-> > of 1800 LOC of kernel code).
+This is a multi-part message in MIME format.
+--------------060704040403000705010805
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+Eric Dumazet wrote:
+> This patch looks fine, but I dont see how this new function is used.
 > 
-> Yeah I know that. But like I said, I still needed to get around to do that,
-> and I am very happy you were interested in fixing it.
-
-Lets make one thing clear: YOU SHOULD BE THE ONE FIXING IT.
-
-I'm not in slightest interested in wasting my time on such
-things and educating some maintainers about basics.
-
-[ Code duplication is bad, mmm'okay?  Just say no, mmm'okay? ]
-
-> > Also: I've mostly heard that I can fix the code myself.  Which I did.
+> Some points :
 > 
-> And thats good.
+> 1) We are working hard to remove rwlocks from network stack, so please dont
+> add a new one. You probably can use a seqlock or RCU, or a server handling 
+> 10.000 connections request per second on many NIC will hit this rwlock.
 > 
-> > > > The rewrite was quite conservative and there is still a room for improvement
-> > > > but it should serve as a good starting base for all future work on rt2800
-> > > > drivers, and there is a lot to do there (both drivers are still practically
-> > > > non-functional).
-> > > 
-> > > Hence the reason I can use my rt2800usb device as long as I don't connect to
-> > > a 11n AP. But since everybody in the world has 11n devices, the rt2800usb device
-> > > is not capable of doing anything...
-> > 
-> > I use 11bg AP but mine rt2800usb device is RT3070 (which is quite popular
-> > nowadays) and it simply doesn't even work with rt2800usb currently.
-> 
-> Mine devices are plain rt2870 chips.
-> 
-> > > > Comments and patches are welcomed.
-> > > > 
-> > > > 
-> > > > The following changes since commit fa867e7355a1bdcd9bf7d55ebe9296f5b9c4028a:
-> > > >   Juuso Oikarinen (1):
-> > > >         wl1271: Generalize command response reading
-> > > > 
-> > > > are available in the git repository at:
-> > > > 
-> > > >   git://git.kernel.org/pub/scm/linux/kernel/git/bart/misc.git rt2800
-> > > > 
-> > > > Bartlomiej Zolnierkiewicz (40):
-> > > >       rt2800usb: fix rt2800usb_rfcsr_read()
-> > > >       rt2800pci: fix crypto in TX frame
-> > > >       rt2800pci: fix comment about register access
-> > > >       rt2800pci: fix comment about IV/EIV fields
-> > > >       rt2x00: fix rt2x00usb_register_read() comment
-> > > >       rt2800usb: use rt2x00usb_register_multiwrite() to set key entries
-> > > [.. snip..]
-> > > >       rt2800usb: fix comments in rt2800usb.h
-> > > >       rt2800usb: add RXINFO_DESC_SIZE definition
-> > > [..snip..]
-> > > >       rt2800: fix comments in rt2800.h
-> > > [..snip..]
-> > > >       rt2x00: remove needless ifdefs from rt2x00leds.h
-> > > 
-> > > These 10 patches look sane enough. Please send them as patch series
-> > > to linux-wireless.
-> 
-> > I'll re-post later whole patch series to linux-wireless to ease the review.
-> 
-> Make them 2 series, the above can be the real [PATCH] (which I will ack directly),
-> and the others can be RFC's which can be reviewed/discussed further.
+This is my attempt at using RCU, as seqlock didn't seem to apply (and is
+missing any Documentation.)
 
-Please at least read all patches before even starting making such comments:
+After the discussion about context, one question that I have is the need
+for the _bh suffix?
 
-i.e. "rt2800: fix comments in rt2800.h" depends on
-"rt2800: fix duplication in header files"
++		rcu_read_lock_bh();
++		memcpy(&xvp->cookie_bakery[0],
++		       &rcu_dereference(tcp_secret_generating)->secrets[0],
++		       sizeof(tcp_secret_generating->secrets));
++		rcu_read_unlock_bh();
 
-and redoing it would be plain waste of time.
 
-Besides for now I'm more interested in working on improving drivers further
-than making artificial patch splits.
+Documentation/RCU/checklist.txt #7 says:
 
-> > > >       rt2x00: add support for different chipset interfaces
-> > > 
-> > > Not needed, you can determine exactly what chipset you have
-> > > by looking at the other fields. So extending the structure to
-> > > repeat the same information isn't needed.
-> > 
-> > It is a better to have a single field always indicating this since:
-> > - combining information from other fields is complex and error-prone
-> > - the situation may change in the future
-> > 
-> > However I would love to be proven wrong with the patch.
-> 
-> Well something that looks like this (as function in rt2800lib.h)
-> 
-> static inline is_rt2800pci(__chip)
-> {
-> 	return
-> 		(__chip->rt & 0xFF00) == 0x0600 ||
-> 		(__chip->rt & 0xFF00) == 0x0700 ||
-> 		__chip->rt == 0x2880 ||
-> 		__chip->rt == RT3052;
-> }
-> 
-> You might even go a bit shorter by checking for USB instead:
-> 
-> static inline is_rt2800usb(__chip)
-> {
-> 	return __chip->rt == RT2870
-> }
+   One exception to this rule: rcu_read_lock() and rcu_read_unlock()
+   may be substituted for rcu_read_lock_bh() and rcu_read_unlock_bh()
+   in cases where local bottom halves are already known to be
+   disabled, for example, in irq or softirq context.  Commenting
+   such cases is a must, of course!  And the jury is still out on
+   whether the increased speed is worth it.
 
-Which can turn into maintenance nightmare as might need update
-each time new chipset version is added and is error-prone.
+--------------060704040403000705010805
+Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
+ name="TCPCT+1d1.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="TCPCT+1d1.patch"
 
-Setting chipset interface from the driver itself is much more
-maintainer friendly.
-
-> In rt2800lib you already know __chip->rt is part of
-> the rt2800 family, the is_rt2800usb() (or whatever name
-> you are going to give that function) is sufficient to know
-> if you are using PCI or USB.
-> 
-> And when that is not good enough, then please change the
-> field to only indicate PCI or USB. That way the field could be
-> used for other things in the future.
-
-Please explain what do you mean by that.  The field in question is enum:
-
-From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-Subject: [PATCH] rt2x00: add support for different chipset interfaces
-
-[ Impact: rt2x00 infrastructure enhancement ]
-
-Signed-off-by: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
----
- drivers/net/wireless/rt2x00/rt2x00.h |   19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
-
-Index: b/drivers/net/wireless/rt2x00/rt2x00.h
-===================================================================
---- a/drivers/net/wireless/rt2x00/rt2x00.h
-+++ b/drivers/net/wireless/rt2x00/rt2x00.h
-@@ -144,6 +144,11 @@ struct avg_val {
- 	int avg_weight;
- };
+diff --git a/include/linux/cryptohash.h b/include/linux/cryptohash.h
+index c118b2a..ec78a4b 100644
+--- a/include/linux/cryptohash.h
++++ b/include/linux/cryptohash.h
+@@ -2,6 +2,7 @@
+ #define __CRYPTOHASH_H
  
-+enum rt2x00_chip_intf {
-+	RT2X00_CHIP_INTF_PCI,
-+	RT2X00_CHIP_INTF_USB,
-+};
-+
- /*
-  * Chipset identification
-  * The chipset on the device is composed of a RT and RF chip.
-@@ -169,6 +174,8 @@ struct rt2x00_chip {
+ #define SHA_DIGEST_WORDS 5
++#define SHA_MESSAGE_BYTES (512 /*bits*/ / 8)
+ #define SHA_WORKSPACE_WORDS 80
  
- 	u16 rf;
- 	u32 rev;
-+
-+	enum rt2x00_chip_intf intf;
- };
- 
- /*
-@@ -937,6 +944,18 @@ static inline bool rt2x00_check_rev(cons
- 	return ((chipset->rev & mask) == rev);
+ void sha_init(__u32 *buf);
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 51b7426..f669c43 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1526,12 +1526,18 @@ static inline int tcp_s_data_size(const struct tcp_sock *tp)
+ 		: 0;
  }
  
-+static inline void rt2x00_set_chip_intf(struct rt2x00_dev *rt2x00dev,
-+					enum rt2x00_chip_intf intf)
-+{
-+	rt2x00dev->chip.intf = intf;
-+}
++/* Using SHA1 for now, define some constants.
++ */
++#define COOKIE_DIGEST_WORDS (SHA_DIGEST_WORDS)
++#define COOKIE_MESSAGE_WORDS (SHA_MESSAGE_BYTES / 4)
++#define COOKIE_WORKSPACE_WORDS (COOKIE_DIGEST_WORDS + COOKIE_MESSAGE_WORDS)
 +
-+static inline bool rt2x00_intf(const struct rt2x00_chip *chipset,
-+			       enum rt2x00_chip_intf intf)
-+{
-+	return (chipset->intf == intf);
-+}
+ /* As tcp_request_sock has already been extended in other places, the
+  * only remaining method is to pass stack values along as function
+  * parameters.  These parameters are not needed after sending SYNACK.
+  */
+ struct tcp_extend_values {
+-	u8				cookie_bakery[TCP_COOKIE_MAX];
++	u32				cookie_bakery[COOKIE_WORKSPACE_WORDS];
+ 	u8				cookie_plus;
+ 	u8				cookie_in_always:1,
+ 					cookie_out_never:1;
+@@ -1542,6 +1548,8 @@ static inline struct tcp_extend_values *tcp_xv(const struct request_values *rvp)
+ 	return (struct tcp_extend_values *)rvp;
+ }
+ 
++extern int tcp_cookie_generator(struct tcp_extend_values *xvp);
 +
- /**
-  * rt2x00queue_map_txskb - Map a skb into DMA for TX purposes.
-  * @rt2x00dev: Pointer to &struct rt2x00_dev.
+ extern void tcp_v4_init(void);
+ extern void tcp_init(void);
+ 
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 12409df..a8c5d99 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -264,6 +264,7 @@
+ #include <linux/cache.h>
+ #include <linux/err.h>
+ #include <linux/crypto.h>
++#include <linux/time.h>
+ 
+ #include <net/icmp.h>
+ #include <net/tcp.h>
+@@ -2933,6 +2934,126 @@ EXPORT_SYMBOL(tcp_md5_hash_key);
+ 
+ #endif
+ 
++/**
++ * Each Responder maintains up to two secret values concurrently for
++ * efficient secret rollover.  Each secret value has 4 states:
++ *
++ * Generating.  (tcp_secret_generating != tcp_secret_primary)
++ *    Generates new Responder-Cookies, but not yet used for primary
++ *    verification.  This is a short-term state, typically lasting only
++ *    one round trip time (RTT).
++ *
++ * Primary.  (tcp_secret_generating == tcp_secret_primary)
++ *    Used both for generation and primary verification.
++ *
++ * Retiring.  (tcp_secret_retiring != tcp_secret_secondary)
++ *    Used for verification, until the first failure that can be
++ *    verified by the newer Generating secret.  At that time, this
++ *    cookie's state is changed to Secondary, and the Generating
++ *    cookie's state is changed to Primary.  This is a short-term state,
++ *    typically lasting only one round trip time (RTT).
++ *
++ * Secondary.  (tcp_secret_retiring == tcp_secret_secondary)
++ *    Used for secondary verification, after primary verification
++ *    failures.  This state lasts no more than twice the Maximum Segment
++ *    Lifetime (2MSL).  Then, the secret is discarded.
++ */
++struct tcp_cookie_secret {
++	/* The secret is divided into two parts.  The digest part is the
++	 * equivalent of previously hashing a secret and saving the state,
++	 * and serves as an initialization vector (IV).  The message part
++	 * serves as the trailing secret.
++	 */
++	u32				secrets[COOKIE_WORKSPACE_WORDS];
++	unsigned long			expires;
++};
++
++#define TCP_SECRET_1MSL (HZ * TCP_PAWS_MSL)
++#define TCP_SECRET_2MSL (HZ * TCP_PAWS_MSL * 2)
++#define TCP_SECRET_LIFE (HZ * 600)
++
++static struct tcp_cookie_secret tcp_secret_one;
++static struct tcp_cookie_secret tcp_secret_two;
++
++/* Essentially a circular list, without dynamic allocation. */
++static struct tcp_cookie_secret *tcp_secret_generating;
++static struct tcp_cookie_secret *tcp_secret_primary;
++static struct tcp_cookie_secret *tcp_secret_retiring;
++static struct tcp_cookie_secret *tcp_secret_secondary;
++
++static DEFINE_SPINLOCK(tcp_secret_locker);
++
++/* Fill cookie_bakery with current generator, updating as needed.
++ * Only called in softirq context.
++ * Returns: 0 for success.
++ */
++int tcp_cookie_generator(struct tcp_extend_values *xvp)
++{
++	unsigned long jiffy = jiffies;
++
++	if (unlikely(time_after(jiffy, tcp_secret_generating->expires))) {
++		u32 secrets[COOKIE_WORKSPACE_WORDS];
++
++		spin_lock(&tcp_secret_locker);
++		if (!time_after(jiffy, tcp_secret_generating->expires)) {
++			/* refreshed by another */
++			spin_unlock(&tcp_secret_locker);
++			memcpy(&xvp->cookie_bakery[0],
++			       &tcp_secret_generating->secrets[0],
++			       sizeof(tcp_secret_generating->secrets));
++		} else {
++			/* still needs refreshing */
++			get_random_bytes(secrets, sizeof(secrets));
++
++			/* The first time, paranoia assumes that the
++			 * randomization function isn't as strong.  But,
++			 * this secret initialization is delayed until
++			 * the last possible moment (packet arrival).
++			 * Although that time is observable, it is
++			 * unpredictably variable.  Mash in the most
++			 * volatile clock bits available, and expire the
++			 * secret extra quickly.
++			 */
++			if (unlikely(tcp_secret_primary->expires ==
++				     tcp_secret_secondary->expires)) {
++				struct timespec tv;
++	
++				getnstimeofday(&tv);
++				secrets[COOKIE_DIGEST_WORDS+0] ^= (u32)tv.tv_nsec;
++				tcp_secret_secondary->expires = jiffy
++							      + TCP_SECRET_1MSL;
++			} else {
++				tcp_secret_secondary->expires = jiffy
++							      + TCP_SECRET_LIFE;
++				tcp_secret_primary->expires = jiffy
++							    + TCP_SECRET_2MSL;
++			}
++			memcpy(&tcp_secret_secondary->secrets[0],
++			       &secrets[0],
++			       sizeof(secrets));
++
++			rcu_assign_pointer(tcp_secret_generating,
++					   tcp_secret_secondary);
++			rcu_assign_pointer(tcp_secret_retiring,
++					   tcp_secret_primary);
++			spin_unlock(&tcp_secret_locker);
++			/* call_rcu() or synchronize_rcu() not needed. */
++
++			memcpy(&xvp->cookie_bakery[0],
++			       &secrets[0],
++			       sizeof(secrets));
++		}
++	} else {
++		rcu_read_lock_bh();
++		memcpy(&xvp->cookie_bakery[0],
++		       &rcu_dereference(tcp_secret_generating)->secrets[0],
++		       sizeof(tcp_secret_generating->secrets));
++		rcu_read_unlock_bh();
++	}
++	return 0;
++}
++EXPORT_SYMBOL(tcp_cookie_generator);
++
+ void tcp_done(struct sock *sk)
+ {
+ 	if (sk->sk_state == TCP_SYN_SENT || sk->sk_state == TCP_SYN_RECV)
+@@ -2967,6 +3088,7 @@ void __init tcp_init(void)
+ 	struct sk_buff *skb = NULL;
+ 	unsigned long nr_pages, limit;
+ 	int order, i, max_share;
++	unsigned long jiffy = jiffies;
+ 
+ 	BUILD_BUG_ON(sizeof(struct tcp_skb_cb) > sizeof(skb->cb));
+ 
+@@ -3060,6 +3182,15 @@ void __init tcp_init(void)
+ 	       tcp_hashinfo.ehash_mask + 1, tcp_hashinfo.bhash_size);
+ 
+ 	tcp_register_congestion_control(&tcp_reno);
++
++	memset(&tcp_secret_one.secrets[0], 0, sizeof(tcp_secret_one.secrets));
++	memset(&tcp_secret_two.secrets[0], 0, sizeof(tcp_secret_two.secrets));
++	tcp_secret_one.expires = jiffy; /* past due */
++	tcp_secret_two.expires = jiffy; /* past due */
++	tcp_secret_generating = &tcp_secret_one;
++	tcp_secret_primary = &tcp_secret_one;
++	tcp_secret_retiring = &tcp_secret_two;
++	tcp_secret_secondary = &tcp_secret_two;
+ }
+ 
+ EXPORT_SYMBOL(tcp_close);
 
-
--- 
-Bartlomiej Zolnierkiewicz
+--------------060704040403000705010805--
