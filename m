@@ -1,77 +1,231 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 06/20] tg3: Add more PCI DMA map error checking
-Date: Mon, 2 Nov 2009 16:25:31 -0800
-Message-ID: <1257211995.21998@xw6200>
+Subject: [PATCH 04/20] tg3: Convert PHY_ADDR => TG3_PHY_MII_ADDR
+Date: Mon, 2 Nov 2009 16:24:36 -0800
+Message-ID: <1257211993.21992@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3429 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1278 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756401AbZKCBdT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Nov 2009 20:33:19 -0500
+	id S1757529AbZKCBdV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Nov 2009 20:33:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds code to check the status of pci_map_single() before
-allowing rx buffers to be used.  It also converts the pci_map_single()
-call in tg3_run_loopback() to use skb_dma_map() instead.
+This patch renames the PHY_ADDR preprocessor definition.  The following
+patch will identify a new member on the MDIO bus, so we want this
+preprocessor definition to be a little more descriptive.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Signed-off-by: Benjamin Li <benli@broadcom.com>
+Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   14 +++++++++++---
- 1 files changed, 11 insertions(+), 3 deletions(-)
+ drivers/net/tg3.c |   51 +++++++++++++++++++++++++++++----------------------
+ drivers/net/tg3.h |    2 +-
+ 2 files changed, 30 insertions(+), 23 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 53a193e..54dbe98 100644
+index b3c5d74..1c53250 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -4426,6 +4426,10 @@ static int tg3_alloc_rx_skb(struct tg3_napi *tnapi, u32 opaque_key,
+@@ -937,7 +937,7 @@ static void tg3_mdio_config_5785(struct tg3 *tp)
+ 	u32 val;
+ 	struct phy_device *phydev;
  
- 	mapping = pci_map_single(tp->pdev, skb->data, skb_size,
- 				 PCI_DMA_FROMDEVICE);
-+	if (pci_dma_mapping_error(tp->pdev, mapping)) {
-+		dev_kfree_skb(skb);
-+		return -EIO;
-+	}
+-	phydev = tp->mdio_bus->phy_map[PHY_ADDR];
++	phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
+ 	switch (phydev->drv->phy_id & phydev->drv->phy_id_mask) {
+ 	case TG3_PHY_ID_BCM50610:
+ 		val = MAC_PHYCFG2_50610_LED_MODES;
+@@ -1031,7 +1031,7 @@ static void tg3_mdio_start(struct tg3 *tp)
+ 		if (is_serdes)
+ 			tp->phy_addr += 7;
+ 	} else
+-		tp->phy_addr = PHY_ADDR;
++		tp->phy_addr = TG3_PHY_MII_ADDR;
  
- 	map->skb = skb;
- 	pci_unmap_addr_set(map, mapping, mapping);
-@@ -10369,7 +10373,10 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
- 	for (i = 14; i < tx_len; i++)
- 		tx_data[i] = (u8) (i & 0xff);
+ 	if ((tp->tg3_flags3 & TG3_FLG3_MDIOBUS_INITED) &&
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5785)
+@@ -1062,7 +1062,7 @@ static int tg3_mdio_init(struct tg3 *tp)
+ 	tp->mdio_bus->read     = &tg3_mdio_read;
+ 	tp->mdio_bus->write    = &tg3_mdio_write;
+ 	tp->mdio_bus->reset    = &tg3_mdio_reset;
+-	tp->mdio_bus->phy_mask = ~(1 << PHY_ADDR);
++	tp->mdio_bus->phy_mask = ~(1 << TG3_PHY_MII_ADDR);
+ 	tp->mdio_bus->irq      = &tp->mdio_irq[0];
  
--	map = pci_map_single(tp->pdev, skb->data, tx_len, PCI_DMA_TODEVICE);
-+	if (skb_dma_map(&tp->pdev->dev, skb, DMA_TO_DEVICE)) {
-+		dev_kfree_skb(skb);
-+		return -EIO;
-+	}
- 
- 	tw32_f(HOSTCC_MODE, tp->coalesce_mode | HOSTCC_MODE_ENABLE |
- 	       rnapi->coal_now);
-@@ -10380,7 +10387,8 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
- 
- 	num_pkts = 0;
- 
--	tg3_set_txd(tnapi, tnapi->tx_prod, map, tx_len, 0, 1);
-+	tg3_set_txd(tnapi, tnapi->tx_prod,
-+		    skb_shinfo(skb)->dma_head, tx_len, 0, 1);
- 
- 	tnapi->tx_prod++;
- 	num_pkts++;
-@@ -10404,7 +10412,7 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
- 			break;
+ 	for (i = 0; i < PHY_MAX_ADDR; i++)
+@@ -1084,7 +1084,7 @@ static int tg3_mdio_init(struct tg3 *tp)
+ 		return i;
  	}
  
--	pci_unmap_single(tp->pdev, map, tx_len, PCI_DMA_TODEVICE);
-+	skb_dma_unmap(&tp->pdev->dev, skb, DMA_TO_DEVICE);
- 	dev_kfree_skb(skb);
+-	phydev = tp->mdio_bus->phy_map[PHY_ADDR];
++	phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
  
- 	if (tx_idx != tnapi->tx_prod)
+ 	if (!phydev || !phydev->drv) {
+ 		printk(KERN_WARNING "%s: No PHY devices\n", tp->dev->name);
+@@ -1311,7 +1311,7 @@ static void tg3_setup_flow_control(struct tg3 *tp, u32 lcladv, u32 rmtadv)
+ 	u32 old_tx_mode = tp->tx_mode;
+ 
+ 	if (tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB)
+-		autoneg = tp->mdio_bus->phy_map[PHY_ADDR]->autoneg;
++		autoneg = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR]->autoneg;
+ 	else
+ 		autoneg = tp->link_config.autoneg;
+ 
+@@ -1348,7 +1348,7 @@ static void tg3_adjust_link(struct net_device *dev)
+ 	u8 oldflowctrl, linkmesg = 0;
+ 	u32 mac_mode, lcl_adv, rmt_adv;
+ 	struct tg3 *tp = netdev_priv(dev);
+-	struct phy_device *phydev = tp->mdio_bus->phy_map[PHY_ADDR];
++	struct phy_device *phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
+ 
+ 	spin_lock_bh(&tp->lock);
+ 
+@@ -1434,7 +1434,7 @@ static int tg3_phy_init(struct tg3 *tp)
+ 	/* Bring the PHY back to a known state. */
+ 	tg3_bmcr_reset(tp);
+ 
+-	phydev = tp->mdio_bus->phy_map[PHY_ADDR];
++	phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
+ 
+ 	/* Attach the MAC to the PHY. */
+ 	phydev = phy_connect(tp->dev, dev_name(&phydev->dev), tg3_adjust_link,
+@@ -1461,7 +1461,7 @@ static int tg3_phy_init(struct tg3 *tp)
+ 				      SUPPORTED_Asym_Pause);
+ 		break;
+ 	default:
+-		phy_disconnect(tp->mdio_bus->phy_map[PHY_ADDR]);
++		phy_disconnect(tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR]);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -1479,7 +1479,7 @@ static void tg3_phy_start(struct tg3 *tp)
+ 	if (!(tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED))
+ 		return;
+ 
+-	phydev = tp->mdio_bus->phy_map[PHY_ADDR];
++	phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
+ 
+ 	if (tp->link_config.phy_is_low_power) {
+ 		tp->link_config.phy_is_low_power = 0;
+@@ -1499,13 +1499,13 @@ static void tg3_phy_stop(struct tg3 *tp)
+ 	if (!(tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED))
+ 		return;
+ 
+-	phy_stop(tp->mdio_bus->phy_map[PHY_ADDR]);
++	phy_stop(tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR]);
+ }
+ 
+ static void tg3_phy_fini(struct tg3 *tp)
+ {
+ 	if (tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED) {
+-		phy_disconnect(tp->mdio_bus->phy_map[PHY_ADDR]);
++		phy_disconnect(tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR]);
+ 		tp->tg3_flags3 &= ~TG3_FLG3_PHY_CONNECTED;
+ 	}
+ }
+@@ -2474,7 +2474,7 @@ static int tg3_set_power_state(struct tg3 *tp, pci_power_t state)
+ 			struct phy_device *phydev;
+ 			u32 phyid, advertising;
+ 
+-			phydev = tp->mdio_bus->phy_map[PHY_ADDR];
++			phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
+ 
+ 			tp->link_config.phy_is_low_power = 1;
+ 
+@@ -9243,9 +9243,11 @@ static int tg3_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	struct tg3 *tp = netdev_priv(dev);
+ 
+ 	if (tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB) {
++		struct phy_device *phydev;
+ 		if (!(tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED))
+ 			return -EAGAIN;
+-		return phy_ethtool_gset(tp->mdio_bus->phy_map[PHY_ADDR], cmd);
++		phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
++		return phy_ethtool_gset(phydev, cmd);
+ 	}
+ 
+ 	cmd->supported = (SUPPORTED_Autoneg);
+@@ -9284,9 +9286,11 @@ static int tg3_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	struct tg3 *tp = netdev_priv(dev);
+ 
+ 	if (tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB) {
++		struct phy_device *phydev;
+ 		if (!(tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED))
+ 			return -EAGAIN;
+-		return phy_ethtool_sset(tp->mdio_bus->phy_map[PHY_ADDR], cmd);
++		phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
++		return phy_ethtool_sset(phydev, cmd);
+ 	}
+ 
+ 	if (cmd->autoneg != AUTONEG_ENABLE &&
+@@ -9469,7 +9473,7 @@ static int tg3_nway_reset(struct net_device *dev)
+ 	if (tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB) {
+ 		if (!(tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED))
+ 			return -EAGAIN;
+-		r = phy_start_aneg(tp->mdio_bus->phy_map[PHY_ADDR]);
++		r = phy_start_aneg(tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR]);
+ 	} else {
+ 		u32 bmcr;
+ 
+@@ -9588,7 +9592,7 @@ static int tg3_set_pauseparam(struct net_device *dev, struct ethtool_pauseparam
+ 			u32 newadv;
+ 			struct phy_device *phydev;
+ 
+-			phydev = tp->mdio_bus->phy_map[PHY_ADDR];
++			phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
+ 
+ 			if (epause->rx_pause) {
+ 				if (epause->tx_pause)
+@@ -10568,9 +10572,11 @@ static int tg3_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	int err;
+ 
+ 	if (tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB) {
++		struct phy_device *phydev;
+ 		if (!(tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED))
+ 			return -EAGAIN;
+-		return phy_mii_ioctl(tp->mdio_bus->phy_map[PHY_ADDR], data, cmd);
++		phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
++		return phy_mii_ioctl(phydev, data, cmd);
+ 	}
+ 
+ 	switch(cmd) {
+@@ -14135,13 +14141,14 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 	       tg3_bus_string(tp, str),
+ 	       dev->dev_addr);
+ 
+-	if (tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED)
++	if (tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED) {
++		struct phy_device *phydev;
++		phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
+ 		printk(KERN_INFO
+ 		       "%s: attached PHY driver [%s] (mii_bus:phy_addr=%s)\n",
+-		       tp->dev->name,
+-		       tp->mdio_bus->phy_map[PHY_ADDR]->drv->name,
+-		       dev_name(&tp->mdio_bus->phy_map[PHY_ADDR]->dev));
+-	else
++		       tp->dev->name, phydev->drv->name,
++		       dev_name(&phydev->dev));
++	} else
+ 		printk(KERN_INFO
+ 		       "%s: attached PHY is %s (%s Ethernet) (WireSpeed[%d])\n",
+ 		       tp->dev->name, tg3_phy_string(tp),
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index eb4ed82..40501cb 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -1954,7 +1954,7 @@
+ #define  NIC_SRAM_MBUF_POOL_SIZE5705	0x0000e000
+ 
+ /* Currently this is fixed. */
+-#define PHY_ADDR		0x01
++#define TG3_PHY_MII_ADDR		0x01
+ 
+ /* Tigon3 specific PHY MII registers. */
+ #define  TG3_BMCR_SPEED1000		0x0040
 -- 
 1.6.4.4
 
