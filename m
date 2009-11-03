@@ -1,124 +1,84 @@
-From: Torgny Johansson <torgny.johansson@gmail.com>
-Subject: [PATCH torvalds-2.6] cdc_ether: additional Ericsson MBM PID's to the whitelist
-Date: Tue, 3 Nov 2009 22:28:05 +0100
-Message-ID: <200911032228.05527.torgny.johansson@gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/3] sysfs directory scaling: rbtree for dirent name lookups
+Date: Tue, 03 Nov 2009 13:32:33 -0800
+Message-ID: <m1my338fbi.fsf@fess.ebiederm.org>
+References: <20091101163130.GA7911@kvack.org>
+	<20091103035058.GA19515@kroah.com> <20091103200155.GQ8227@kvack.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, saurin.shah@intel.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg KH <greg@kroah.com>, Eric Dumazet <eric.dumazet@gmail.com>,
+	Octavian Purdila <opurdila@ixiacom.com>,
+	netdev@vger.kernel.org, Cosmin Ratiu <cratiu@ixiacom.com>,
+	linux-kernel@vger.kernel.org
+To: Benjamin LaHaise <bcrl@lhnet.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f207.google.com ([209.85.219.207]:34459 "EHLO
-	mail-ew0-f207.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752176AbZKCV2D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 16:28:03 -0500
-Received: by ewy3 with SMTP id 3so2443180ewy.37
-        for <netdev@vger.kernel.org>; Tue, 03 Nov 2009 13:28:07 -0800 (PST)
+Received: from out02.mta.xmission.com ([166.70.13.232]:36502 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754725AbZKCVcc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 16:32:32 -0500
+In-Reply-To: <20091103200155.GQ8227@kvack.org> (Benjamin LaHaise's message of "Tue\, 3 Nov 2009 15\:01\:56 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+Benjamin LaHaise <bcrl@lhnet.ca> writes:
 
-This is another attempt to submit this patch that adds more Ericsson Mobile Broadband modules to the cdc_ether whitelist. 
-The last patch was rejected since it produced rejects with the Torvalds tree. I've tried it again after adding 
-another vid/pid and also rechecked it with the 
-checkpatch script. It still applies cleanly for me and checkpatch gives no errors or warnings. 
-I suspect Outlook garbles it when I send it.
+> On Mon, Nov 02, 2009 at 07:50:58PM -0800, Greg KH wrote:
+>> On Sun, Nov 01, 2009 at 11:31:30AM -0500, Benjamin LaHaise wrote:
+>> > Use an rbtree in sysfs_dirent to speed up file lookup times
+>> > 
+>> > Systems with large numbers (tens of thousands and more) of network 
+>> > interfaces stress the sysfs code in ways that make the linear search for 
+>> > a name match take far too long.  Avoid this by using an rbtree.
+>> 
+>> What kind of speedups are you seeing here?  And do these changes cause a
+>> memory increase due to the structure changes which outweigh the
+>> speedups?
+>
+> Depends on the number of interfaces being created.  Without the patch, 
+> interface creation time tends to double or worse for every 5,000-10,000 
+> additional network interfaces.
+>
+>> What kind of test are you doing to reproduce this?
+>
+> I'm creating 30,000+ network interfaces, with the goal being 100,000.  
+> With other hacks in the tree to get around the sysctl and procfs scaling 
+> issues, as well as disabling things like NetworkManager, the results look 
+> as follows:
+>
+> 	Interfaces	no-rb	rbtree	rbtree+list
+> 	0-5,000		13.8s	14.0s	13.0s
+> 	5,000-10,000	20.0s	17.4s	14.4s
+> 	10,000-15,000	27.3s	24.1s	16.9s
+> 	15,000-20,000	36.3s	32.2s	19.7s
+> 	20,000-25,000	45.2s	40.0s	22.9s
+> 	25,000-30,000	54.2s	48.2s	26.6s
+> 	30,000-35,000	63.9s	54.9s	30.7s
+>
+> Thoughts?
 
-Trying with another e-mail client to see if that works better. I've sent it to my own gmail first and if I "view original" in gmail 
-the patch works and applies cleanly after downloading it so I'm hoping it will work for you guys too.
+Something is very weird.  I just took your no-rb numbers
+and divided by the number of interfaces to see how well we are
+scaling.  I got:
 
-Devices added to the whitelist:
- - Ericsson Mobile Broadband variants (F3607gw, F3307 and c3607w)
- - Dell F3607gw variants
- - Toshiba F3607gw variants
+ 	Interfaces	per-interface cost
+ 	5,000		0.002760s
+ 	10,000		0.002000s
+ 	15,000		0.001820s
+ 	20,000		0.001815s
+ 	25,000		0.001808s
+ 	30,000		0.001807s
+ 	35,000		0.001826s
 
-Thanks!
+I ran a variant of this test a long time ago and at that the
+cost per interface grew with additional interfaces added.  This
+jives with the fact that the fundamental cost of adding N
+network interfaces to sysfs is O(N^2).
 
-Regards 
-Torgny Johansson
+Are your numbers from your application and are they real world?
+In which case they are interesting, but it would be good if
+we could also have microbenchmark numbers that just measure
+the sysfs costs.   If nothing else I am seeing a big startup
+overhead that isn't being subtracted out that makes it hard
+to see the real costs here.
 
----
-
-Signed-off-by: Torgny Johansson <torgny.johansson@gmail.com>
-
-diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
-index c47237c..32d9356 100644
---- a/drivers/net/usb/Kconfig
-+++ b/drivers/net/usb/Kconfig
-@@ -174,7 +174,7 @@ config USB_NET_CDCETHER
- 	    * Ericsson Mobile Broadband Module (all variants)
-  	    * Motorola (DM100 and SB4100)
-  	    * Broadcom Cable Modem (reference design)
--	    * Toshiba (PCX1100U and F3507g)
-+	    * Toshiba (PCX1100U and F3507g/F3607gw)
- 	    * ...
- 
- 	  This driver creates an interface named "ethX", where X depends on
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index 4a6aff5..21e1ba1 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -544,20 +544,60 @@ static const struct usb_device_id	products [] = {
- 			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
- 	.driver_info = (unsigned long) &cdc_info,
- }, {
--	/* Ericsson F3307 */
-+	/* Ericsson F3607gw ver 2 */
-+	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x1905, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-+	.driver_info = (unsigned long) &cdc_info,
-+}, {
-+	/* Ericsson F3607gw ver 3 */
- 	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x1906, USB_CLASS_COMM,
- 			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
- 	.driver_info = (unsigned long) &cdc_info,
- }, {
-+	/* Ericsson F3307 */
-+	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x190a, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-+	.driver_info = (unsigned long) &cdc_info,
-+}, {
-+	/* Ericsson F3307 ver 2 */
-+	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x1909, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-+	.driver_info = (unsigned long) &cdc_info,
-+}, {
-+	/* Ericsson C3607w */
-+	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x1049, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-+	.driver_info = (unsigned long) &cdc_info,
-+}, {
- 	/* Toshiba F3507g */
- 	USB_DEVICE_AND_INTERFACE_INFO(0x0930, 0x130b, USB_CLASS_COMM,
- 			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
- 	.driver_info = (unsigned long) &cdc_info,
- }, {
-+	/* Toshiba F3607gw */
-+	USB_DEVICE_AND_INTERFACE_INFO(0x0930, 0x130c, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-+	.driver_info = (unsigned long) &cdc_info,
-+}, {
-+	/* Toshiba F3607gw ver 2 */
-+	USB_DEVICE_AND_INTERFACE_INFO(0x0930, 0x1311, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-+	.driver_info = (unsigned long) &cdc_info,
-+}, {
- 	/* Dell F3507g */
- 	USB_DEVICE_AND_INTERFACE_INFO(0x413c, 0x8147, USB_CLASS_COMM,
- 			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
- 	.driver_info = (unsigned long) &cdc_info,
-+}, {
-+	/* Dell F3607gw */
-+	USB_DEVICE_AND_INTERFACE_INFO(0x413c, 0x8183, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-+	.driver_info = (unsigned long) &cdc_info,
-+}, {
-+	/* Dell F3607gw ver 2 */
-+	USB_DEVICE_AND_INTERFACE_INFO(0x413c, 0x8184, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-+	.driver_info = (unsigned long) &cdc_info,
- },
- 	{ },		// END
- };
+Eric
