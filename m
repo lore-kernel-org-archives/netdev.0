@@ -1,56 +1,37 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
+From: Benjamin LaHaise <bcrl@lhnet.ca>
 Subject: Re: [PATCH 1/3] sysfs directory scaling: rbtree for dirent name lookups
-Date: Tue, 3 Nov 2009 18:38:47 +0200
-Message-ID: <200911031838.47168.opurdila@ixiacom.com>
-References: <20091101163130.GA7911@kvack.org> <4AEFCA49.4020305@gmail.com> <20091103160715.GD23857@kroah.com>
+Date: Tue, 3 Nov 2009 11:45:50 -0500
+Message-ID: <20091103164550.GM8227@kvack.org>
+References: <20091101163130.GA7911@kvack.org> <20091103035058.GA19515@kroah.com> <4AEFCA49.4020305@gmail.com> <20091103160715.GD23857@kroah.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Benjamin LaHaise <bcrl@lhnet.ca>,
 	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Octavian Purdila <opurdila@ixiacom.com>,
 	netdev@vger.kernel.org, Cosmin Ratiu <cratiu@ixiacom.com>,
 	linux-kernel@vger.kernel.org
 To: Greg KH <greg@kroah.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752918AbZKCQlm@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kanga.kvack.org ([205.233.56.17]:49759 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750879AbZKCQpq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Nov 2009 11:45:46 -0500
+Content-Disposition: inline
 In-Reply-To: <20091103160715.GD23857@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 03 November 2009 18:07:15 you wrote:
-
-> > > What kind of test are you doing to reproduce this?
-> >
-> > Its curious because in my tests the biggest problems come from
-> > kernel/sysctl.c (__register_sysctl_paths) consuming 80% of cpu
-> > in following attempt to create 20.000 devices
-> >
-> > (disable hotplug before trying this, and ipv6 too !)
-> > modprobe dummy numdummies=20000
-> >
-> > I believe we should address __register_sysctl_paths() scalability
-> > problems too.
-> 
+On Tue, Nov 03, 2009 at 08:07:15AM -0800, Greg KH wrote:
 > But registering 20000 devices is a far different problem from using
 > those 20000 devices :)
-> 
-> I think the "use the device" path should be the one we care the most
-> about fixing up, as that is much more common than the register path for
-> all users.
-> 
 
-For sysctl in general probably, but I would argue that for dynamic network 
-interfaces (ppp and other sorts of tunnels) the "use" and "register" paths are 
-not that unbalanced.
+Registering 20,000 devices *is* a real world problem (I'm actually aiming 
+for 100,000, as that's what roughly fits in a single 10Gbps link -- something 
+that a mid range system can now route).  When an edge router comes up from 
+reboot, or after a link has been down, the rate at which customers connect 
+is important -- too slow, and you get a pile of support calls from customers 
+complaining that their connection is down.  Because of the data structures 
+used, there isn't even any improvement from an SMP system, so this needs 
+to be addressed directly.
 
-For our case where we use up to 128K interfaces, sysctl entries per network 
-interface is pretty much unusable - but I agree that is not a very common case 
-:) 
-
-However [1] is not so far fetched.
-
-[1] http://www.spinics.net/lists/netdev/msg110392.html
-
-Thanks,
-tavi
+		-ben
