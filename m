@@ -1,36 +1,31 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [Bugme-new] [Bug 14427] New: ipv6 forward cause strange route
-Date: Tue, 03 Nov 2009 20:19:02 +0900
-Message-ID: <4AF011A6.1070903@linux-ipv6.org>
-References: <bug-14427-10286@http.bugzilla.kernel.org/> <20091102223237.c0102f19.akpm@linux-foundation.org> <4AF00EA0.7030407@linux-ipv6.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv6 3/3] vhost_net: a kernel-level virtio server
+Date: Tue, 3 Nov 2009 13:57:12 +0200
+Message-ID: <20091103115712.GE3375@redhat.com>
+References: <cover.1257193660.git.mst@redhat.com> <20091102222904.GD15184@redhat.com> <1257206758.11429.70.camel@c-dwalke-linux.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, Pekka Savola <pekkas@netcore.fi>,
-	davem@davemloft.net
-To: Andrew Morton <akpm@linux-foundation.org>, green@msu.ru
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:56778 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751200AbZKCLTB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 06:19:01 -0500
-In-Reply-To: <4AF00EA0.7030407@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+        linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
+        gregory.haskins@gmail.com, Rusty Russell <rusty@rustcorp.com.au>,
+        s.hetze@linux-ag.com
+To: Daniel Walker <dwalker@fifo99.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1257206758.11429.70.camel@c-dwalke-linux.qualcomm.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-I wrote:
-> This is not a bug but a feature of IPv6 called "subnet anycast
-> address."  The address is automatically assigned on routers.
+On Mon, Nov 02, 2009 at 04:05:58PM -0800, Daniel Walker wrote:
 > 
-> References:
-> RFC 2526: Reserved IPv6 Subnet Anycast Addresses
-> RFC 3627: Use of /127 Prefix Length Between Routers Considered Harmful
+> Random style issues below .. Part of this is just stuff checkpatch
+> found.
 
-I should say "Subnet-router anycast address" and
-RFC3513: Internet Protocol Version 6 (IPv6) Addressing
-Architecture".
+Thanks very much, I'll fix these.
 
-Sorry for confusion.
-
---yoshfuji
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
