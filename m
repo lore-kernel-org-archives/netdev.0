@@ -1,70 +1,96 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/3] sysfs directory scaling: rbtree for dirent name lookups
-Date: Tue, 03 Nov 2009 07:14:33 +0100
-Message-ID: <4AEFCA49.4020305@gmail.com>
-References: <20091101163130.GA7911@kvack.org> <20091103035058.GA19515@kroah.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 14427] New: ipv6 forward cause strange route
+Date: Mon, 2 Nov 2009 22:32:37 -0800
+Message-ID: <20091102223237.c0102f19.akpm@linux-foundation.org>
+References: <bug-14427-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Benjamin LaHaise <bcrl@lhnet.ca>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Octavian Purdila <opurdila@ixiacom.com>,
-	netdev@vger.kernel.org, Cosmin Ratiu <cratiu@ixiacom.com>,
-	linux-kernel@vger.kernel.org
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752818AbZKCGOo@vger.kernel.org>
-In-Reply-To: <20091103035058.GA19515@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, green@msu.ru
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:40902 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751396AbZKCGdQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 01:33:16 -0500
+In-Reply-To: <bug-14427-10286@http.bugzilla.kernel.org/>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Greg KH a =E9crit :
-> On Sun, Nov 01, 2009 at 11:31:30AM -0500, Benjamin LaHaise wrote:
->> Use an rbtree in sysfs_dirent to speed up file lookup times
->>
->> Systems with large numbers (tens of thousands and more) of network=20
->> interfaces stress the sysfs code in ways that make the linear search=
- for=20
->> a name match take far too long.  Avoid this by using an rbtree.
->=20
-> What kind of speedups are you seeing here?  And do these changes caus=
-e a
-> memory increase due to the structure changes which outweigh the
-> speedups?
->=20
-> What kind of test are you doing to reproduce this?
->=20
 
-Its curious because in my tests the biggest problems come from
-kernel/sysctl.c (__register_sysctl_paths) consuming 80% of cpu
-in following attempt to create 20.000 devices
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-(disable hotplug before trying this, and ipv6 too !)
-modprobe dummy numdummies=3D20000
+On Sat, 17 Oct 2009 10:42:01 GMT bugzilla-daemon@bugzilla.kernel.org wrote:
 
-I believe we should address __register_sysctl_paths() scalability
-problems too.
+> http://bugzilla.kernel.org/show_bug.cgi?id=14427
+> 
+>            Summary: ipv6 forward cause strange route
+>            Product: Networking
+>            Version: 2.5
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV6
+>         AssignedTo: yoshfuji@linux-ipv6.org
+>         ReportedBy: green@msu.ru
+>         Regression: No
+> 
+> 
+> When enabling forwarding for IPv6 on interface, in the routing table local
+> appears new route. It like route to local ip but with all host bits set to 0.
+> Example:
+> --------------------------------------------------
+>   # cat /proc/sys/net/ipv6/conf/eth0/forwarding
+>   0
+>   # ip -6 addr add 2001:db8:1:1::5/64 dev eth0
+>   # ip -6 route show table local
+>   ...
+>   local 2001:db8:1:1::5 via :: dev lo  proto none  metric 0  mtu 16436 advmss
+> 16376 hoplimit 4294967295
+>   ...
+>   # echo 1 > /proc/sys/net/ipv6/conf/eth0/forwarding 
+>   # ip -6 route show table local
+>   ...
+>   local 2001:db8:1:1:: via :: dev lo  proto none  metric 0  mtu 16436 advmss
+> 16376 hoplimit 4294967295
+>   local 2001:db8:1:1::5 via :: dev lo  proto none  metric 0  mtu 16436 advmss
+> 16376 hoplimit 4294967295
+>   ...
+> --------------------------------------------------
+> After enabling forwarding, route "2001:db8:1:1:: via :: dev lo" is added. No
+> matter, forwarding is enabled before or after adding of address, this route is
+> "on" with forwarding and "off" without it.
+> Such behavior causes problems with /127 network masks. For example:
+> --------------------------------------------------
+>   # echo 1 > /proc/sys/net/ipv6/conf/eth0/forwarding 
+>   # ip -6 addr add 2001:db8:1:1::5/127 dev eth0
+>   # ip -6 route add default via 2001:db8:1:1::4
+>   RTNETLINK answers: Invalid argument
+> --------------------------------------------------
+> But if we disable forwarding (and strange route) when adding needed route, we
+> will succeed.
+> --------------------------------------------------
+>   # echo 0 > /proc/sys/net/ipv6/conf/eth0/forwarding 
+>   # ip -6 route add default via 2001:db8:1:1::4
+>   # echo 1 > /proc/sys/net/ipv6/conf/eth0/forwarding 
+> --------------------------------------------------
+> Default route remains in the table after enabling forwarding and it is doing in
+> work. But in this case we still can not access 2001:db8:1:1::4, because it is
+> routed to loopback:
+> --------------------------------------------------
+>   # ping6 -c 1 2001:db8:1:1::4
+>   PING 2001:db8:1:1::4(2001:db8:1:1::4) 56 data bytes
+>   64 bytes from 2001:db8:1:1::5: icmp_seq=1 ttl=64 time=0.114 ms
+> --------------------------------------------------
+> We get reply from self interface.
+> 
+> This was tested on x86 and x86_64 with 2.6.30 kernel and some previous versions
+> on ArchLinux (2.6.30 x86 and x86_64), Ubuntu (2.6.28-15-generic x86_64) and
+> gentoo (2.6.30-gentoo-r5 x86_64).
+> 
 
-I dont know what is the 'sentinel' we allocate after each struct ctl_ta=
-ble
-But I suspect we could reduce size requirement of the 'sentinel' to inc=
-lude
-only needed fields for the sentinel (and move them at start of ctl_tabl=
-e)
-
-        /*
-         * For each path component, allocate a 2-element ctl_table arra=
-y.
-         * The first array element will be filled with the sysctl entry
-         * for this, the second will be the sentinel (ctl_name =3D=3D 0=
-).
-         *
-         * We allocate everything in one go so that we don't have to
-         * worry about freeing additional memory in unregister_sysctl_t=
-able.
-         */
-        header =3D kzalloc(sizeof(struct ctl_table_header) +
-                         (2 * npath * sizeof(struct ctl_table)), GFP_KE=
-RNEL);
-
-Then, adding an rb_node in ctl_table_header to speedup __register_sysct=
-l_paths() a bit
